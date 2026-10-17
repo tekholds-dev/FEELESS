@@ -13947,11 +13947,20 @@ async def _g4_tick(now, env, cfg):
         await _dv_settle(now)
         pk_ = _seat.packet(rows_, held_, _seat.record_words(rec_), _seat.partner_of(st_['log'], first_), (pick_ or {}).get('symbol'), says_, learn_)
         _g4['reads'] = (_g4.get('reads') or 0) + 1
-        if held_ and _g4['reads'] % 2 == 0:   # 📸 every 2nd read the holder also gets its coin's chart (1-min snapshot) — eyes on the trade
+        held_ch = ((_tk.KERNEL.candidate(held_m) or {}).get('chart') or {}) if held_m else {}
+        if held_:   # 📸 EVERY read: the held coin's 1-minute AND 5-minute chart + its germ / higher-low read (owner: "observe 1 and 5 min")
             try:
-                sn_ = _ai_snap(held_m)
-                if sn_:
-                    pk_['chart'] = sn_.get('text') if isinstance(sn_, dict) else sn_
+                pk_['chartView'] = _seat.chart_view(held_ch)
+                pr_h = next((r_.get('pair') for r_ in (_agents.get('table') or []) if r_.get('mint') == held_m), None) or (leg_ or {}).get('pairAddress')
+                b1_ = (_office_bars(pr_h, held_m, _snp.PTS * 5) if pr_h else None) or {}
+                ent_h = _fuse._f((leg_ or {}).get('entryPx') or (leg_ or {}).get('entry')) or None
+                rw_ = b1_.get('rows') or []
+                s1_ = _snp.snapshot(b1_, entry=ent_h) if rw_ else None
+                s5_ = _snp.snapshot({'src': b1_.get('src'), 'rows': _ci.bars5(rw_)}, entry=ent_h) if b1_.get('src') == 'candles' and len(rw_) >= 15 else None
+                if s1_:
+                    pk_['CHART1M'] = s1_.get('line') or s1_.get('text')
+                if s5_:
+                    pk_['CHART5M'] = str(s5_.get('line') or s5_.get('text') or '').replace('1m candles', '5m candles', 1)
             except Exception as e:
                 print('g4 snap:', str(e)[:80])
         _g4['live'] = {'by': _air.model_name(env, first_), 'at': now, 'pick': (pick_ or {}).get('symbol'), 'held': held_,
@@ -13960,7 +13969,9 @@ async def _g4_tick(now, env, cfg):
         r_ = await _air.ROUTER.ask(_ai_http(), env, cfg, 'Your minute snapshot. Decide.', context=pk_, role='exit', urgency='force', only=(first_,) if held_ else (first_, second_), system=_seat.SYSTEM, only_system=True)   # 🔁 a held trade is ONLY its holder's call (the partner standing in made OSSY post HOLDs on G4's $MOMO); hunting, the partner may answer for a missed minute   # 🔁 the holder runs its trade; when it misses a minute (call cap / timeout) the partner stands in — the trade stays the holder's (leg aiBy)
         by_m = r_.get('source') if r_.get('source') in (first_, second_) else first_
         dec_ = _seat.parse(r_.get('text'), [c_['mint'] for c_ in cands_], bool(held_), {c_.get('symbol'): c_['mint'] for c_ in cands_ if c_.get('symbol')})
-        dec_ = _seat.cook(dec_, {**(held_ or {}), 'sl': (leg_ or {}).get('aiSl')}) if held_ else dec_   # 🍳 no model sells its coin in its first 4 min unless it is really losing
+        dec_ = _seat.cook(dec_, {**(held_ or {}), 'sl': (leg_ or {}).get('aiSl')}) if held_ else dec_
+        if held_ and dec_:   # 🦠 a base (germ floor / higher lows) on slow volume is held — unless sellers lead the 90s tape
+            dec_ = _seat.structure_hold(dec_, {**held_, 'sl': (leg_ or {}).get('aiSl')}, held_ch, sellers=str(((_office.get('flow') or {}).get(held_m) or {}).get('state') or '').upper() == 'SELLERS')   # 🍳 no model sells its coin in its first 4 min unless it is really losing
         ms_ = round((time.perf_counter() - t0_) * 1000)
         miss_ = None
         if not dec_:   # 🤝 no model answered (busy / timed out / unreadable): the agents decide the seat this minute instead of a dead minute

@@ -4808,3 +4808,8 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   chat — the models' idle reads of it, partner advice that names it (routed by `_sym_in` over the card's symbols, never into the holder's chat:
   $ELON advice had landed in the $Kimchi room) and your chime-ins there (POST comment + `mint`, `coinTalk`). The models read your coin-room
   lines (`ownerSays` in the idle packet).
+- 📈 OSSY / G4 READ 1m + 5m EVERY DECISION: the held coin's packet carries `CHART1M` + `CHART5M` (ai_snapshot lines on the agents' own rows, 5m via
+  `chart_intel.bars5`) + `chartView` (germ 1m / 5m, structure, higher / lower lows); every candidate row has germ · germ5 · struct · higherLows ·
+  lowerLows. BUG FIXED: the old "chart every 2nd read" read `snapshot()['text']` — the field is `line`, so the models never got a chart.
+  🦠 `ai_seat.structure_hold`: a model SELL of a coin on its 1m / 5m germ floor (≤ 15%) or with 2+ higher lows and no lower low → HOLD on slow
+  volume, unless sellers lead the 90s tape (`_office['flow']` state SELLERS) or it is really losing; stops / hard exits untouched.

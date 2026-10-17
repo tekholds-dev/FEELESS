@@ -48,3 +48,25 @@ def test_germ_rank_orders_floor_first():
 def test_recent_ai_syms():
     ev = [{'kind': 'agent', 'move': 'fill', 'symbol': 'GTA6', 'at': 100, 'why': '🧠 OSSY: x'}]
     assert s.recent_ai_syms(ev, 200) == {'GTA6'}
+
+
+def test_structure_hold_keeps_a_base_on_slow_volume():
+    d = {'action': 'SELL', 'why': 'volume slow'}
+    assert s.structure_hold(d, {'pct': -1}, {'germDist': 6})['action'] == 'HOLD'
+    assert s.structure_hold(d, {'pct': 1}, {'germ5Dist': 9})['action'] == 'HOLD'
+    assert s.structure_hold(d, {'pct': 1}, {'hl': 3, 'll': 0})['action'] == 'HOLD'
+    assert s.structure_hold(d, {'pct': 1}, {'hl': 3, 'll': 1})['action'] == 'SELL'          # base broke
+    assert s.structure_hold(d, {'pct': 1}, {'germDist': 6}, sellers=True)['action'] == 'SELL'  # sellers lead
+    assert s.structure_hold(d, {'pct': -12}, {'germDist': 6})['action'] == 'SELL'           # really losing
+    assert s.structure_hold(d, {'pct': 1}, {'germDist': 30})['action'] == 'SELL'
+
+
+def test_chart_view_reads_both_lenses():
+    v = s.chart_view({'germDist': 4.2, 'germ5Dist': 11, 'state': 'PULLBACK', 'hl': 2, 'll': 0})
+    assert v['germ1m'] == 4.2 and v['germ5m'] == 11 and v['higherLows'] == 2
+
+
+def test_snapshot_field_is_line():
+    import ai_snapshot as snp
+    r = snp.snapshot({'src': 'candles', 'rows': [[i, 1, 1, 1, 1 + i / 100, 1] for i in range(5)]})
+    assert r['line']
