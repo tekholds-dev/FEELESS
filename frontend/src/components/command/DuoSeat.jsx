@@ -108,18 +108,39 @@ function TurnBar({ duo }) {
     <p key={t.word}>{t.word}</p></div>;
 }
 
-// 💬 THE TRADE ROOM: the holder's minute calls + the partner's advice on the coin they hold now, newest first, chat bubbles
-function TradeRoom({ duo }) {
+// 💬 THE TRADE ROOM — compact chat (owner: "like any other site or messenger"): the holder's calls left, the partner + you right, each bubble with
+// 👍 / 👎 (yours) + the models' own votes, and three market verdicts (5m · 1h · 24h) that settle into each model's confidence.
+const CK = [[300, '5m'], [3600, '1h'], [86400, '24h']];
+export function verdictDots(res) { return CK.map(([c, w]) => { const r = (res || []).find(x => x[0] === c); return { w, ok: r ? r[1] : null, move: r ? r[2] : null }; }); }
+const who = k => (k === 'lan' ? 'G4' : k === 'local' ? 'OSSY' : k);
+function Bubble({ r, onVote, busy }) {
+  const v = r.votes; const side = r.mine ? 'is-you' : r.talk ? 'is-partner' : 'is-holder';
+  return <li className={`dsb ${side}`}>
+    <span className="dsb-msg"><em>{r.mine ? 'You' : r.model}</em>{!r.mine ? <b className={`a-${String(r.talk ? r.view || '' : r.action).toLowerCase()}`}>{r.talk ? r.view || 'note' : r.action}</b> : null}
+      {r.pct != null ? <i className={r.pct >= 0 ? 'm-pos' : 'm-neg'}>{r.pct >= 0 ? '+' : ''}{Number(r.pct).toFixed(1)}%</i> : null}<span>{String(r.why || '').replace(/^to (G4|OSSY): (HOLD|SELL) — /, '')}</span></span>
+    <span className="dsb-meta"><small>{ago(r.at)}</small>
+      {v ? <>{!r.mine ? <><button type="button" className={`dsb-v ${v.mine > 0 ? 'on' : ''}`} disabled={busy} onClick={() => onVote(r.key, v.mine > 0 ? 0 : 1)} aria-label="Like this call" data-testid={`dsb-up-${r.key}`}>👍{v.up || ''}</button>
+        <button type="button" className={`dsb-v is-dn ${v.mine < 0 ? 'on' : ''}`} disabled={busy} onClick={() => onVote(r.key, v.mine < 0 ? 0 : -1)} aria-label="Dislike this call" data-testid={`dsb-dn-${r.key}`}>👎{v.down || ''}</button></> : null}
+        {Object.entries(v.by || {}).map(([k, x]) => <i key={k} className="dsb-by" data-tip={`${who(k)} ${x > 0 ? 'liked' : 'disliked'} it`}>{who(k)}{x > 0 ? '👍' : '👎'}</i>)}
+        {verdictDots(v.res).map(d => <i key={d.w} className={`dsb-ck ${d.ok == null ? '' : d.ok > 0 ? 'is-ok' : d.ok < 0 ? 'is-bad' : 'is-draw'}`} data-tip={d.ok == null ? `${d.w}: the market hasn't decided yet` : `${d.w}: ${d.move > 0 ? '+' : ''}${d.move}% → ${d.ok > 0 ? 'right' : d.ok < 0 ? 'wrong' : 'draw'}`}>{d.w}</i>)}</> : null}</span>
+  </li>;
+}
+function TradeRoom({ duo, call }) {
   const rows = duo?.trade || []; const h = duo?.holding;
+  const [txt, setTxt] = useState(''); const [busy, setBusy] = useState(false);
   if (!h) return null;
+  const post = async body => { if (!call) return; setBusy(true); try { await call('/admin/ai/seat', { method: 'POST', body: JSON.stringify(body) }); } catch (e) { window.dispatchEvent(new CustomEvent('feeless:toast', { detail: String(e?.message || e) })); } finally { setBusy(false); } };
+  const conf = duo.conf || {};
   return <div className="dso-room" data-testid="duo-room"><p className="dso-roomhd"><b>💬 ${h.symbol} · {duo.holder || '—'} runs it</b>
-    <span>{h.tp ? `TP +${h.tp}%` : 'TP —'} · {h.sl ? `SL −${h.sl}%` : 'SL −45 floor'}</span></p>
-    {rows.length ? <ol>{rows.map((r, i) => <li key={`${r.at}-${i}`} className={`${r.talk ? 'is-talk' : 'is-call'} ${r.model === duo.holder ? 'is-holder' : ''}`} style={{ '--i': i }}>
-      <em>{r.model}</em><b>{r.talk ? `💬 ${r.view || ''}` : r.action}{r.pct != null ? ` ${r.pct >= 0 ? '+' : ''}${Number(r.pct).toFixed(1)}%` : ''}</b><span>{r.why}</span><small>{ago(r.at)}</small></li>)}</ol>
-      : <p className="dso-roomnil">the first read on this trade lands within a minute</p>}</div>;
+    <span>{h.tp ? `TP +${h.tp}%` : 'TP —'} · {h.sl ? `SL −${h.sl}%` : 'SL −45 floor'}</span>
+    {['G4', 'OSSY'].map(k => conf[k] ? <em key={k} className={conf[k].boost > 0 ? 'm-pos' : conf[k].boost < 0 ? 'm-neg' : ''} data-tip={conf[k].words}>{k} conf {conf[k].boost > 0 ? '+' : ''}{conf[k].boost}</em> : null)}</p>
+    <ol>{rows.map((r, i) => <Bubble key={`${r.at}-${i}`} r={r} busy={busy || !call} onVote={(key, v) => post({ vote: { key, v } })} />)}</ol>
+    {call ? <form className="dso-say" onSubmit={e => { e.preventDefault(); if (txt.trim()) { post({ comment: txt.trim() }); setTxt(''); } }}>
+      <input className="m-input" value={txt} onChange={e => setTxt(e.target.value)} maxLength={240} placeholder={`chime in — ${duo.holder || 'the holder'} reads it next minute (say hold / sell and the market grades you too)`} data-testid="duo-say" />
+      <button type="submit" className="m-btn" disabled={busy || !txt.trim()}>Send</button></form> : null}</div>;
 }
 
-function DuoSeatBody({ duo }) {
+function DuoSeatBody({ duo, call }) {
   if (!duo || duo.mode === 'off') return <div className="dso is-off" data-testid="duo-seat"><b>🔁 OSSY ⚔ G4</b><small>seat off — turn it on in 🎛 Limits › 🧠 G4 SEAT</small></div>;
   const log = duo.log || [];
   const g4 = sideOf('G4', log), os = sideOf('OSSY', log);
@@ -130,13 +151,13 @@ function DuoSeatBody({ duo }) {
     <header className="dso-head"><b>🔁 OSSY ⚔ G4 · {String(duo.mode).toUpperCase()}</b>
       <small>{duo.busy ? `${duo.next} is thinking…` : last ? `last call ${ago(last.at)} ago · ${duo.next} next` : 'first call within a minute'}</small></header>
     <TurnBar duo={duo} />
-    <TradeRoom duo={duo} />
+    <TradeRoom duo={duo} call={call} />
     <div className="dso-arena">
       <Side s={g4} pod={podOf('G4', duo.rec)} turn={duo.next === 'G4'} busy={duo.busy} side="l" />
       <div className="dso-core" data-testid="duo-open">
         {last ? <i key={`${last.at}-${from}`} className={`dso-beam from-${from} a-${actKey(last.action)}`} aria-hidden="true" /> : null}
         <div className="dso-hex"><i className="dso-ring" aria-hidden="true" />
-          <small>SEAT</small><b>{duo.open ? `$${duo.open.symbol}` : 'EMPTY'}</b>
+          <small>SEAT</small><b>{duo.holding ? `$${duo.holding.symbol}` : duo.open ? `$${duo.open.symbol}` : 'EMPTY'}</b>
           <small>{duo.open ? `${duo.open.by === 'local' ? 'OSSY' : duo.open.by === 'agents' ? 'agents' : 'G4'} · peak ${sgn(duo.open.peak || 0)}` : `${duo.next} calls next`}</small>
         </div>
         {duo.fate ? <small className={`dso-fate ${/^seated/.test(duo.fate.why) ? 'ok' : /sent/.test(duo.fate.why) ? 'go' : 'no'}`} data-testid="duo-fate" title="What happened to the newest model BUY">

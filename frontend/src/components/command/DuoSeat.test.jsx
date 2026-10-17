@@ -55,3 +55,8 @@ test('🔁 the turn stepper reads the server phase', () => {
   expect(turnStep({ phase: 'HUNTING', next: 'G4', fate: { why: 'seated — the keeper buys it next pass', symbol: 'B' } }).i).toBe(1);
   expect(turnStep({ phase: 'HUNTING', next: 'G4' }).word).toMatch(/G4's turn/);
 });
+
+test('👍👎 verdict dots read the 5m / 1h / 24h settlements', () => {
+  const { verdictDots } = require('./DuoSeat');
+  expect(verdictDots([[300, 1, 12.5], [3600, null, null]])).toEqual([{ w: '5m', ok: 1, move: 12.5 }, { w: '1h', ok: null, move: null }, { w: '24h', ok: null, move: null }]);
+});

@@ -128,16 +128,26 @@ body.fx-lite .dso-turn li.is-now i, body.fx-lite .dso-turn li.is-now::after { an
 body.theme-day .dso-turn li { background: rgba(236, 246, 240, .8); } body.theme-day .dso-turn p { color: #0d6a35; }
 @media (max-width: 640px) { .dso-turn ol { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 
-/* 💬 trade room: holder calls left, partner advice right, each bubble slides in (transform only) */
-.dso-room { display: grid; gap: 6px; margin: 0 0 8px; padding: 8px 10px; border-radius: 10px; border: 1px solid rgba(180, 140, 255, .35); background: linear-gradient(160deg, rgba(40, 20, 70, .35), rgba(4, 12, 8, .6)); }
-.dso-roomhd { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 6px; margin: 0; font: 800 10.5px var(--m-mono, 'JetBrains Mono', monospace); color: #e9fff3; }
-.dso-roomhd span { color: var(--gold, #e8c46a); }
-.dso-room ol { display: grid; gap: 4px; margin: 0; padding: 0; list-style: none; max-height: 220px; overflow-y: auto; scrollbar-width: thin; }
-.dso-room li { display: grid; grid-template-columns: auto auto minmax(0, 1fr) auto; gap: 6px; align-items: baseline; max-width: 92%; padding: 4px 8px; border-radius: 9px;
-  font: 600 10px var(--m-mono, monospace); background: rgba(21, 209, 106, .1); border: 1px solid rgba(21, 209, 106, .25); animation: dsoIn .25s ease-out both; animation-delay: calc(var(--i) * 40ms); }
-.dso-room li.is-talk { justify-self: end; background: rgba(180, 140, 255, .12); border-color: rgba(180, 140, 255, .4); }
-.dso-room li em { font-style: normal; color: #9fe3ff; } .dso-room li b { color: #bdf5d4; white-space: nowrap; } .dso-room li.is-talk b { color: #d8c2ff; }
-.dso-room li span { color: var(--m-text, #e9fff3); overflow-wrap: anywhere; } .dso-room li small { color: var(--m-mute, #8fb3a0); }
-.dso-roomnil { margin: 0; font: 600 10px var(--m-mono, monospace); color: var(--m-mute, #8fb3a0); }
-@media (prefers-reduced-motion: reduce) { .dso-room li { animation: none; } } body.fx-lite .dso-room li { animation: none; }
-body.theme-day .dso-room { background: rgba(240, 234, 252, .8); } body.theme-day .dso-room li span { color: #10301d; }
+/* 💬 trade room = compact messenger: bubbles hug their text (fit-content), holder left, partner + you right; 👍 / 👎 + 5m · 1h · 24h verdict dots */
+.dso-room { display: grid; gap: 6px; margin: 0 0 8px; padding: 8px 10px; border-radius: 12px; border: 1px solid rgba(180, 140, 255, .3); background: linear-gradient(160deg, rgba(40, 20, 70, .3), rgba(4, 12, 8, .6)); }
+.dso-roomhd { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; margin: 0; font: 800 10.5px var(--m-mono, 'JetBrains Mono', monospace); color: #e9fff3; }
+.dso-roomhd span { color: var(--gold, #e8c46a); } .dso-roomhd em { font-style: normal; font-weight: 700; color: var(--m-mute, #8fb3a0); }
+.dso-room ol { display: flex; flex-direction: column; gap: 5px; margin: 0; padding: 0 2px; list-style: none; max-height: 260px; overflow-y: auto; scrollbar-width: thin; }
+.dsb { align-self: flex-start; display: grid; gap: 2px; width: fit-content; max-width: min(78%, 520px); animation: dsoIn .2s ease-out both; }
+.dsb.is-partner, .dsb.is-you { align-self: flex-end; justify-items: end; }
+.dsb-msg { display: inline; padding: 5px 10px; border-radius: 14px 14px 14px 4px; font: 500 11px/1.4 var(--m-sans, system-ui); color: #eafff2; background: rgba(21, 209, 106, .14); border: 1px solid rgba(21, 209, 106, .28); overflow-wrap: anywhere; }
+.dsb.is-partner .dsb-msg { border-radius: 14px 14px 4px 14px; background: rgba(180, 140, 255, .14); border-color: rgba(180, 140, 255, .35); }
+.dsb.is-you .dsb-msg { border-radius: 14px 14px 4px 14px; background: rgba(232, 196, 106, .14); border-color: rgba(232, 196, 106, .4); }
+.dsb-msg em { font: 800 9.5px var(--m-mono, monospace); font-style: normal; color: #9fe3ff; margin-right: 5px; }
+.dsb-msg b { font: 800 9.5px var(--m-mono, monospace); margin-right: 5px; } .dsb-msg b.a-hold, .dsb-msg b.a-buy { color: #45e486; } .dsb-msg b.a-sell { color: #ff8fa3; }
+.dsb-msg i { font: 700 9.5px var(--m-mono, monospace); font-style: normal; margin-right: 5px; }
+.dsb-meta { display: flex; align-items: center; gap: 4px; padding: 0 6px; font: 600 9px var(--m-mono, monospace); color: var(--m-mute, #8fb3a0); }
+.dsb-v { padding: 0 5px; min-height: 18px; border-radius: 9px; border: 1px solid transparent; background: transparent; color: inherit; font: inherit; cursor: pointer; transition: transform .12s ease, background .12s ease; }
+.dsb-v:hover:not(:disabled) { background: rgba(255, 255, 255, .07); transform: translateY(-1px); } .dsb-v:active:not(:disabled) { transform: scale(.94); }
+.dsb-v:focus-visible { outline: 2px solid #45e486; } .dsb-v.on { background: rgba(21, 209, 106, .22); border-color: #15d16a; color: #eafff2; } .dsb-v.is-dn.on { background: rgba(255, 143, 163, .2); border-color: #ff8fa3; }
+.dsb-by { font-style: normal; opacity: .8; } .dsb-ck { font-style: normal; padding: 0 4px; border-radius: 6px; border: 1px dashed rgba(255, 255, 255, .15); }
+.dsb-ck.is-ok { border: 1px solid #15d16a; color: #45e486; } .dsb-ck.is-bad { border: 1px solid #ff8fa3; color: #ff8fa3; } .dsb-ck.is-draw { border-style: solid; }
+.dso-say { display: flex; gap: 6px; } .dso-say .m-input { flex: 1; min-width: 0; min-height: 30px; font: 500 11px var(--m-sans, system-ui); } .dso-say .m-btn { min-height: 30px; }
+@media (prefers-reduced-motion: reduce) { .dsb { animation: none; } } body.fx-lite .dsb { animation: none; }
+body.theme-day .dso-room { background: rgba(240, 234, 252, .8); } body.theme-day .dsb-msg { color: #10301d; }
+@media (max-width: 640px) { .dsb { max-width: 92%; } }

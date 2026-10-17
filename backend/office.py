@@ -795,9 +795,11 @@ def reap(legs, table, prices, cfg, pos, now, scalp=None, control=False, weather_
                     'flow': fv_, 'drain': ({'score': dr_['score'], 'state': dr_['state'], 'why': [q[0] for q in dr_['parts']][:2]} if dr_['state'] != 'CLEAR' else None),   # CLEAR = nothing to say (payload cap)
                     'trigger': None if not x else _opp.narrative(x)[0], 'devil': None, 'weather': (weather_ or {}).get('regime'),
                     # ✋ YOUR trade shows only YOUR lines: your take (none until you set one), your stop — the agents' take / trail never act on it
-                    'take': (_f(l.get('tp')) or None) if l.get('picked') else take, 'takeSource': 'yours' if l.get('picked') else tsrc,
-                    'stop': (-_f(l['sl']) if _f(l.get('sl')) and l.get('ownerLvAt') else None) if l.get('picked') else -stop, 'hardStop': -_ci.CATASTROPHIC_STOP, 'decision': decision,
-                    'armAt': round(arm, 2) if trail_on and not l.get('picked') else None, 'trailAt': round(max(MIN_KEEP, trail_line), 2) if trail_on and p['peak'] >= arm and not l.get('picked') else None, 'obeying': (f'{tsrc} take' if rule.startswith('R6') else OBEY.get(rule.split(' ')[0], 'thesis hold')),
+                    # 🔁 the AI seat shows ONLY the holding model's own lines (G4 / OSSY set them; the agents' take / trail never act on it)
+                    'take': (_f(l.get('aiTp')) or None) if l.get('aiSeat') else (_f(l.get('tp')) or None) if l.get('picked') else take,
+                    'takeSource': 'model' if l.get('aiSeat') else 'yours' if l.get('picked') else tsrc,
+                    'stop': -(_f(l.get('aiSl')) or _ci.CATASTROPHIC_STOP) if l.get('aiSeat') else (-_f(l['sl']) if _f(l.get('sl')) and l.get('ownerLvAt') else None) if l.get('picked') else -stop, 'hardStop': -_ci.CATASTROPHIC_STOP, 'decision': decision,
+                    'armAt': round(arm, 2) if trail_on and not l.get('picked') and not l.get('aiSeat') else None, 'trailAt': round(max(MIN_KEEP, trail_line), 2) if trail_on and p['peak'] >= arm and not l.get('picked') and not l.get('aiSeat') else None, 'obeying': (f'{tsrc} take' if rule.startswith('R6') else OBEY.get(rule.split(' ')[0], 'thesis hold')),
                     'thesis': None if not th else {k: th.get(k) for k in ('structure', 'call', 'triggerRule', 'why', 'support', 'invalidation', 'stopPct', 'expectedHoldWindows', 'maxHoldWindows', 'reasons', 'risks', 'at')},
                     'structure': (ch or {}).get('state'), 'chartSrc': (ch or {}).get('src'), 'verdict': (rv or {}).get('verdict'), 'why': (rv or {}).get('why') or [], 'window': (rv or {}).get('window'), 'granted': granted if th else None,
                     'nextReview': (rv or {}).get('next') if rv else round((int(held // _ci.WINDOW_MIN) + 1) * _ci.WINDOW_MIN * 60 - held * 60),

@@ -10507,7 +10507,10 @@ async def _prime_tick_inner(now):
                 dec_ = [x for x in dec_ if x.get('pair') not in g4p_ or any(h_ in str(x.get('why')) for h_ in ('R1 ', 'R5x', 'R5c', 'R9c', 'drain'))]
                 w_ = _g4.get('want')
                 if w_ and w_.get('action') == 'SELL' and _seat.fresh(w_, now) and pol_.get('aiSeat') == 'real' and w_.get('pair') in g4p_ and not any(x.get('pair') == w_['pair'] for x in dec_):
-                    dec_.append({'action': 'pull', 'pair': w_['pair'], 'symbol': g4p_[w_['pair']].get('symbol'), 'why': f"🧠 G4 sold: {w_.get('why')}"})
+                    dec_.append({'action': 'pull', 'pair': w_['pair'], 'symbol': g4p_[w_['pair']].get('symbol'), 'why': f"🧠 {w_.get('model') or 'G4'} sold: {w_.get('why')}"})
+                    _g4['want'] = None
+                elif w_ and w_.get('action') == 'TRIM' and _seat.fresh(w_, now) and pol_.get('aiSeat') == 'real' and w_.get('pair') in g4p_ and not any(x.get('pair') == w_['pair'] for x in dec_):
+                    dec_.append({'action': 'trim', 'pair': w_['pair'], 'symbol': g4p_[w_['pair']].get('symbol'), 'pct': w_.get('trim') or 50, 'why': f"🧠 {w_.get('model') or 'G4'} banked {w_.get('trim') or 50}%: {w_.get('why')}"})   # ✂ its trade, its call
                     _g4['want'] = None
             if ctl_:   # ⇄ the switching evaluation the page shows: each held coin against the best READY challenger (display only — `positions.manage` decided)
                 try:
@@ -10553,7 +10556,7 @@ async def _prime_tick_inner(now):
                         cur = _prime.agent_pull(cur, x['pair'], px, liqs, now, x['why'])   # in control: banked to FREE card cash, the seat opens for their next coin
                         cur = _prime.note_dropped(was_, cur, now, cfg_t['rotateHours'], px)
                     elif x['action'] == 'trim' and ctl_:   # 💰 scale-out: half banked, the rest rides the trail
-                        cur = _prime.agent_trim(cur, x['pair'], px, liqs, now, _of.PICK_LOCK_SELL if 'R5b' in str(x['why']) else (_of.scale_of(pol_) or (0, _of.SCALE_PCT))[1], x['why'])   # 🔒 your pick: a portion, the rest rides your stop
+                        cur = _prime.agent_trim(cur, x['pair'], px, liqs, now, x.get('pct') or _of.PICK_LOCK_SELL if (x.get('pct') or 'R5b' in str(x['why'])) else (_of.scale_of(pol_) or (0, _of.SCALE_PCT))[1], x['why'])   # 🔒 your pick: a portion, the rest rides your stop
                     elif x['action'] == 'pull':
                         cur = _prime.sell_leg_to_cash(cur, x['pair'], px, now, 100.0)
                         cur['events'].append({'at': now, 'kind': 'agent', 'symbol': x['symbol'], 'why': f"🤖 agents pulled ${x['symbol']}: {x['why']}"})
@@ -13795,6 +13798,25 @@ async def _feecat_duo(now, env, cfg):
 import ai_seat as _seat
 AI_SEAT_PATH = DATA_DIR / 'ai_seat.json'
 _g4_mem = _ms0.MemStore(lambda: AI_SEAT_PATH, 60.0, lambda p_, d_: _json_load(p_, d_), lambda p_, o_: _json_save(p_, o_))
+import duo_votes as _dv   # noqa: E402  👍👎 every call is graded by the market at 5 min / 1 h / 24 h (votes raise the stakes)
+DUO_VOTES_PATH = DATA_DIR / 'duo_votes.json'
+_dv_mem = _ms0.MemStore(lambda: DUO_VOTES_PATH, 30.0, lambda p_, d_: _json_load(p_, d_), lambda p_, o_: _json_save(p_, o_))
+_dv_key = lambda r_: f"{int(r_.get('at') or 0)}-{r_.get('model')}"
+
+
+def _dv_note(row, px, now):
+    """Register a duo comment so it can be voted on and settled; the partner's advice auto-votes the holder's newest call."""
+    st_ = _dv.add(_dv_mem.get() or {}, _dv_key(row), row.get('by') or 'owner', row.get('action'), row.get('mint'), px, now, view=row.get('view'), text=row.get('why'))
+    _dv_mem.put(st_, now)
+
+
+async def _dv_settle(now):
+    st_ = _dv_mem.get() or {}
+    open_ = sorted({it['mint'] for it in (st_.get('items') or {}).values() if len(it.get('res') or {}) < len(_dv.CHECKS) and it.get('mint')})[:60]
+    if not open_:
+        return
+    pm_ = await _live_px(open_)
+    _dv_mem.put(_dv.settle(st_, lambda m_: _fuse._f(pm_.get(m_)) or _fuse._f((_jup_px_cache.get(m_) or (0, 0))[1]), now), now)
 _g4 = {'busy': False, 'at': 0.0, 'want': None}
 
 
@@ -13892,6 +13914,11 @@ async def _g4_tick(now, env, cfg):
         pick_ = _seat.agents_pick(rows_)
         says_ = _seat.talk_of(st_['log'], first_, since=_fuse._f((leg_ or {}).get('at')) or 0.0) if held_ else None
         learn_ = _seat.learn_block(_g4_lessons(), first_, second_, lambda k_: _air.model_name(env, k_))
+        learn_['confidence'] = _dv.words(_dv_mem.get() or {}, first_)   # 👍👎 what the market's verdicts on its calls + votes earned it
+        on_ = next((r_ for r_ in reversed(st_['log']) if r_.get('by') == 'owner' and held_ and r_.get('mint') == (held_ or {}).get('mint')), None)
+        if on_:
+            learn_['ownerSays'] = str(on_.get('why') or '')[:200]   # 👤 the owner chimed in on this trade
+        await _dv_settle(now)
         pk_ = _seat.packet(rows_, held_, _seat.record_words(rec_), _seat.partner_of(st_['log'], first_), (pick_ or {}).get('symbol'), says_, learn_)
         _g4['live'] = {'by': _air.model_name(env, first_), 'at': now, 'pick': (pick_ or {}).get('symbol'), 'held': held_,
                        'cands': [{k_: r_c.get(k_) for k_ in ('symbol', 'status', 'trigger', 'move5m', 'buyers', 'germ', 'pool', 'cap', 'ageMin', 'rank')} for r_c in rows_[:6]]}   # 👁 what the deciding model is reading, live
@@ -13910,7 +13937,7 @@ async def _g4_tick(now, env, cfg):
             book_, ev_ = _seat.paper_step(book_, dec_, by_, px_of, now, by_m)
         if dec_ and mode_ == 'real' and held_ and leg_ and (dec_.get('tp') or dec_.get('sl')) and by_m != 'agents':   # 🎯 the holder sets its own lines on its own trade
             _g4['set'] = {'pair': leg_.get('pairAddress'), 'tp': dec_.get('tp'), 'sl': dec_.get('sl'), 'at': time.time(), 'by': _air.model_name(env, by_m)}
-        elif dec_ and mode_ == 'real' and dec_['action'] in ('BUY', 'SELL'):
+        elif dec_ and mode_ == 'real' and dec_['action'] in ('BUY', 'SELL', 'TRIM'):
             _g4['want'] = {**dec_, 'by': by_m, 'model': 'AGENTS' if by_m == 'agents' else _air.model_name(env, by_m), 'thinkAt': now, 'symbol': (by_.get(dec_['mint']) or {}).get('symbol') if dec_['action'] == 'BUY' else (leg_ or {}).get('symbol'), 'at': time.time(), 'pair': (by_.get(dec_['mint']) or {}).get('pair') if dec_['action'] == 'BUY' else (leg_ or {}).get('pairAddress')}   # ⏱ fresh from the ANSWER (a 30–90s think read as stale)
         focus_ = by_.get((dec_ or {}).get('mint')) if (dec_ or {}).get('action') == 'BUY' else None
         row_ = {'at': round(now), 'mode': mode_, 'model': 'AGENTS' if by_m == 'agents' else _air.model_name(env, by_m), 'by': by_m if dec_ else None, 'ms': ms_, 'miss': miss_,
@@ -13921,6 +13948,8 @@ async def _g4_tick(now, env, cfg):
                 'pressure': (held_ or {}).get('pressure'), 'qwen': _g4_qwen((focus_ or {}).get('mint') or held_m) if ((focus_ or {}).get('mint') or held_m) else None,
                 'considered': len(cands_), 'event': ev_}
         log_ = _seat.note(st_['log'], row_)
+        if row_.get('mint') and dec_ and by_m in (first_, second_):
+            _dv_note(row_, px_of(row_['mint']), now)
         talk_at = st_.get('talkAt') or 0.0
         if held_ and now - talk_at >= _seat.TALK_EVERY:   # 💬 the partner reads the SAME trade and advises; the holder sees it next minute (it never decides)
             talk_at = now
@@ -13929,10 +13958,16 @@ async def _g4_tick(now, env, cfg):
                 ra_ = await _air.ROUTER.ask(_ai_http(), env, cfg, 'Advise on your partner\'s open trade.', context={**pk_, 'holder': _air.model_name(env, first_)}, role='exit', urgency='force', only=(second_,), system=_seat.ADVISE, only_system=True)
                 da_ = _seat.parse(ra_.get('text'), [], True)
                 if da_:
-                    log_ = _seat.note(log_, {'at': round(now), 'mode': mode_, 'model': _air.model_name(env, second_), 'by': second_, 'talk': True, 'ms': round((time.perf_counter() - t0b) * 1000),
+                    trow_ = {'at': round(now), 'mode': mode_, 'model': _air.model_name(env, second_), 'by': second_, 'talk': True, 'ms': round((time.perf_counter() - t0b) * 1000),
                                              'action': 'TALK', 'view': da_['action'], 'why': f"to {_air.model_name(env, first_)}: {da_['action']} — {da_.get('why') or ''}"[:180], 'conf': da_.get('conf'),
                                              'watch': da_.get('watch'), 'symbol': (held_ or {}).get('symbol'), 'mint': (held_ or {}).get('mint'), 'pct': (held_ or {}).get('pct'),
-                                             'cap': (_seat.cand_row(_tk.KERNEL.candidate(held_m) or {'mint': held_m}) or {}).get('cap')})   # 📍 its pin on the chart sits at the cap it spoke at
+                                             'cap': (_seat.cand_row(_tk.KERNEL.candidate(held_m) or {'mint': held_m}) or {}).get('cap')}   # 📍 its pin on the chart sits at the cap it spoke at
+                    log_ = _seat.note(log_, trow_)
+                    _dv_note(trow_, px_of(held_m), now)
+                    hc_ = next((r_ for r_ in reversed(log_) if r_.get('by') == first_ and r_.get('mint') == held_m and not r_.get('talk')), None)
+                    if hc_:   # 🤝 the partner's advice IS its vote on the holder's newest call: agrees = 👍, disagrees = 👎
+                        sv_, _ok = _dv.vote(_dv_mem.get() or {}, _dv_key(hc_), second_, 1 if _dv.side_of(da_['action']) == _dv.side_of(hc_.get('action')) else -1)
+                        _dv_mem.put(sv_, now)
             except Exception as e_t:
                 print('g4 talk:', str(e_t)[:100])
         m1_ = _g4_mem.get() or {}   # the seat may have opened (and the stats restarted) while this model was thinking
@@ -13951,6 +13986,35 @@ def _g4_view():
     mode_ = _oe.clean_policy(_prime_real_cfg())['agentAiSeat']
     return {'mode': mode_, 'paper': _seat.record((st_['book'] or {}).get('closed')), 'byModel': _seat.by_model((st_['book'] or {}).get('closed')), 'real': _g4_real_record(), 'open': (st_['book'] or {}).get('open'),
             'want': _g4.get('want'), 'busy': _g4['busy'], 'log': st_['log'][-60:][::-1]}
+
+
+@app.post('/api/reputation/admin/ai/seat')
+async def admin_ai_seat_post(request: Request):
+    """👍👎 / 💬 Owner on the duo's trade room: vote on a call ({vote: {key, v: 1 | -1 | 0}}) or chime in ({comment: text}) — the holder reads it
+    next minute. A comment that says buy / hold / sell is graded by the market like theirs."""
+    admin = _require_owner(request)
+    body = await request.json()
+    now = time.time()
+    if body.get('vote'):
+        vt_ = body['vote'] or {}
+        st_, ok_ = _dv.vote(_dv_mem.get() or {}, str(vt_.get('key') or ''), 'owner', int(_fuse._f(vt_.get('v'))))
+        if not ok_:
+            raise HTTPException(400, 'That call can\'t be voted on (too old, no coin, or it is your own).')
+        _dv_mem.put(st_, now)
+    txt_ = _re.sub(r'\s+', ' ', str(body.get('comment') or '')).strip()[:240]
+    if txt_:
+        st_ = _g4_state()
+        legs_ = [l for c_ in (((_json_load(FUSE_HQ_PATH, {}) or {}).get('prime') or {}).get('cards') or {}).values() if (c_ or {}).get('real') for l in c_.get('legs') or [] if l.get('aiSeat') and not l.get('placeholder')]
+        m_ = (legs_[0].get('mint') if legs_ else None) or str(body.get('mint') or '') or None
+        act_ = 'SELL' if _re.search(r'\b(sell|dump|exit|out)\b', txt_, _re.I) else 'HOLD' if _re.search(r'\b(hold|moon|send|buy|ride)\b', txt_, _re.I) else 'NOTE'
+        row_ = {'at': round(now), 'mode': 'real', 'model': 'YOU', 'by': 'owner', 'talk': True, 'action': 'TALK', 'view': act_ if act_ != 'NOTE' else None, 'why': txt_, 'mint': m_,
+                'symbol': legs_[0].get('symbol') if legs_ else None}
+        _g4_mem.put({**(_g4_mem.get() or {}), 'log': _seat.note(st_['log'], row_)}, now)
+        if m_ and act_ != 'NOTE':
+            pm_ = await _live_px([m_])
+            _dv_note(row_, _fuse._f(pm_.get(m_)), now)
+    _audit_ad = _admin_load(); _audit(_audit_ad, admin, 'duo-room', json.dumps({k_: body.get(k_) for k_ in ('vote',)} | ({'comment': txt_[:60]} if txt_ else {}))[:160]); _admin_save(_audit_ad)
+    return _duo_view() if '_duo_view' in globals() else {'ok': True}
 
 
 @app.get('/api/reputation/admin/ai/seat')
@@ -17913,7 +17977,8 @@ def _duo_view(env=None):
         return {'mode': _oe.clean_policy(_prime_real_cfg())['agentAiSeat'], 'next': nm(first_), 'at': st_['at'], 'busy': _g4['busy'],
                 'phase': _g4.get('phase') or ('HOLDING' if held_l else 'HUNTING'), 'holder': nm(held_l.get('aiBy')) if held_l and held_l.get('aiBy') else None,
                 'holding': {'symbol': held_l.get('symbol'), 'since': held_l.get('at'), 'tp': held_l.get('aiTp'), 'sl': held_l.get('aiSl')} if held_l else None,
-                'trade': [{k_: r_.get(k_) for k_ in ('at', 'model', 'action', 'view', 'why', 'conf', 'pct', 'talk')} for r_ in st_['log']
+                'conf': {nm(k_): {'boost': _dv.confidence(_dv_mem.get() or {}, k_), 'words': _dv.words(_dv_mem.get() or {}, k_)} for k_ in (_duet.LEAD, _duet.SECOND, 'owner')},
+                'trade': [{**{k_: r_.get(k_) for k_ in ('at', 'model', 'action', 'view', 'why', 'conf', 'pct', 'talk')}, 'key': _dv_key(r_), 'mine': r_.get('by') == 'owner', 'votes': _dv.view(_dv_mem.get() or {}, _dv_key(r_))} for r_ in st_['log']
                           if held_l and r_.get('mint') == held_l.get('mint') and (r_.get('at') or 0) >= _fuse._f(held_l.get('at')) - 180][-14:][::-1],   # 💬 the conversation on THIS trade
                 'rec': {nm(k): v for k, v in _seat.by_model((st_['book'] or {}).get('closed')).items() if k in (_duet.LEAD, _duet.SECOND)},
                 'open': (st_['book'] or {}).get('open'),

@@ -189,3 +189,9 @@ def test_the_holding_model_sets_its_own_take_and_stop_and_reaper_obeys_them():
     import office as of
     assert 'R5m' in of.G4_HARD and 'R6m' in of.G4_HARD
     assert seat.held_row({'symbol': 'A', 'entry': 1.0, 'aiTp': 40, 'aiSl': 15}, 1.1, 0)['yourTp'] == 40
+
+
+def test_the_holder_can_trim_part_of_its_trade():
+    d = seat.parse('{"action":"TRIM","pct":40,"why":"bank some","sl":20}', [], True)
+    assert d['action'] == 'TRIM' and d['trim'] == 50 and d['sl'] == 20.0
+    assert seat.parse('{"action":"TRIM","pct":80}', [], False)['action'] == 'WAIT'   # nothing held = nothing to trim

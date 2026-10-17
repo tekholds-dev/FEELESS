@@ -4765,3 +4765,11 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   hover / focus / tap = a card (who · when · what they said · called at · × since · their seat %). Agents chart = OSSY / G4 rows (`chartCalls`);
   war-room charts = the coin room's chat `/callout`s (`publishCallouts` in EcosystemChat → window `feeless:callouts` → `useChatCallouts`).
   In the chat itself a callout still renders as `CalloutBubble`.
+- 👍👎 THE MARKET JUDGES EVERY DUO CALL (owner, 2026-10-16; `backend/duo_votes.py` pure + tested, `data/duo_votes.json`, owner `POST /admin/ai/seat
+  {vote: {key, v}} | {comment}`): every BUY / HOLD / SELL / TRIM row and every partner advice is a comment (key `<at>-<model>`); you and each model
+  vote 👍 / 👎 (the partner's advice IS its vote on the holder's newest call). At 5 min, 1 h, 24 h the coin's move decides: the AUTHOR gains /
+  loses on the market alone (stake = 1 + votes — your 👎 on a HOLD that moons still boosts it), each voter gains when its vote agreed. → bounded
+  confidence (±15) in the model's packet (`learn.confidence`) + "conf ±N" on the trade room. Your comment (the room's input box) reaches the holder
+  next minute (`learn.ownerSays`); one that says hold / sell is graded too. Trade room = compact messenger bubbles (`Bubble`, `dsb-*`).
+  The holder may also TRIM 25 / 50 / 75% mid-trade (→ the agents' existing scale-out path `agent_trim`), and the AI seat's Reaper report shows
+  ONLY its own TP / SL (`aiTp` / `aiSl`, takeSource 'model') — the chart drew the agents' −35% while G4 had set −44%.

@@ -22,7 +22,7 @@ LOG_KEEP = 240            # ~4h of minute thoughts
 PAPER_USD = 1.0           # the paper seat's size (record = %, the $ is for display)
 PAPER_COST_PCT = 1.5      # the measured cost of one swap on the real card — paper pays it both ways
 CAND_N = 8
-ACTIONS = ('BUY', 'HOLD', 'SELL', 'WAIT')
+ACTIONS = ('BUY', 'HOLD', 'SELL', 'WAIT', 'TRIM')
 
 SYSTEM = """You and one partner model take TURNS on ONE seat of a small real-money Solana trench card: one trade each — whoever buys runs that trade to its exit, then the other hunts the next one. It is your call now. PARTNER = your partner's last call and record: learn from it and beat it (each of you has your own record). The seat is YOURS on your turn: the agents are your helpers, they cannot stop your buy (only the keeper's money checks — route, honeypot, price gap — can). Ten rule-based agents (Tally, Sherlock, Trigger,
 Devil, Warden, Reaper …) and OSSY's earlier reads also cover these coins — their words are in the packet. You may follow them or overrule them.
@@ -36,9 +36,10 @@ pulled or it falls 45%. PRESSURE = times the agents wanted your coin out — wei
 the owner's and the agents': copy what won, skip what lost, and say in your why what you learned. When your record beats your partner's, BRAG about it
 in your why (short, cocky, true numbers only); when it doesn't, say how you'll take the lead.
 Answer with ONLY this JSON, nothing else:
-{"action":"BUY|HOLD|SELL|WAIT","coin":"<SYMBOL when BUY, else empty>","why":"<one line, under 160 chars, the numbers that decided it>","conf":<0-100>,"watch":"<what would make you sell, under 80 chars>","tp":<take-profit %, e.g. 40>,"sl":<stop %, e.g. 15>}
+{"action":"BUY|HOLD|SELL|WAIT|TRIM","coin":"<SYMBOL when BUY, else empty>","why":"<one line, under 160 chars, the numbers that decided it>","conf":<0-100>,"watch":"<what would make you sell, under 80 chars>","tp":<take-profit %, e.g. 40>,"sl":<stop %, e.g. 15>}
 The trade you bought is YOURS to run: tp / sl are your own take-profit and stop lines, applied at once (change them any minute you HOLD;
-−45% is the floor nobody can move). The agents only advise."""
+−45% is the floor nobody can move). TRIM = sell part of your coin now ("pct": 25 | 50 | 75) — bank profit, the rest keeps riding your lines.
+CONFIDENCE in LEARN = what the market's verdicts on your calls (and the votes on them) earned you. The agents only advise."""
 
 
 def _f(v, d=0.0):
@@ -209,14 +210,20 @@ def parse(text, cand_mints, holding, syms=None):
     if a == 'BUY' and (holding or mint not in cset):
         a, why = ('HOLD' if holding else 'WAIT'), (why + ' · (BUY refused: ' + ('seat already holds a coin' if holding else 'coin not on the list') + ')')[:200]
         mint = ''
+    if a == 'TRIM':   # ✂ bank part of the trade it holds (25 / 50 / 75%), the rest keeps riding its own lines
+        if not holding:
+            a = 'WAIT'
+        else:
+            pc = _f(j.get('pct') or j.get('trim'), 50.0)
+            j['_trim'] = min((25, 50, 75), key=lambda x: abs(x - pc))
     if a in ('HOLD', 'SELL') and not holding:
         a = 'WAIT'
     if a == 'WAIT' and holding:
         a = 'HOLD'
-    out = {'action': a, 'mint': mint if a == 'BUY' else '', 'why': why, 'conf': conf, 'watch': watch}
+    out = {'action': a, 'mint': mint if a == 'BUY' else '', 'why': why, 'conf': conf, 'watch': watch, **({'trim': j['_trim']} if a == 'TRIM' else {})}
     for k, lo, hi in (('tp', 3.0, 500.0), ('sl', 3.0, 44.0)):   # 🎯 the holder runs its whole trade: its own take / stop (−45% stays the floor)
         v = abs(_f(j.get(k), 0.0))
-        if v > 0 and a in ('BUY', 'HOLD'):
+        if v > 0 and a in ('BUY', 'HOLD', 'TRIM'):
             out[k] = round(max(lo, min(hi, v)), 1)
     return out
 
