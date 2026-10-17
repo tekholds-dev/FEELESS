@@ -29,6 +29,7 @@ CAUSES = {
     'fallback_entry': ('trigger', 'mid', 'Seats: the best-available door must clear a B-tier entry score — cash beats the least-bad coin', None),
     'gave_back': ('reaper', 'mid', 'Reaper: trail a +8% winner tighter', None),
     'held_too_long': ('reaper', 'low', 'Reaper: replace a flat seat sooner', None),
+    'red_start': ('trigger', 'mid', 'Trigger: the entry started red and never got going — 74% of red starts lose (26% won vs 68% for green starts): wait for a green tick after a higher low', None),
     'variance': (None, 'none', 'none — a valid setup that lost; no rule changes', None),
 }
 
@@ -36,7 +37,7 @@ CAUSES = {
 # every loss in ONE of five words (owner, 2026-10-11): what kind of mistake it was — never a reason to tighten everything
 LOSS_CLASS = {'variance': 'NORMAL LOSS', 'gave_back': 'BAD EXIT', 'held_too_long': 'BAD HOLD', 'collapsing_entry': 'BAD TIMING', 'entered_on_wait': 'BAD TIMING',
               'crowd_fomo': 'BAD TIMING', 'after_distribution': 'BAD ENTRY', 'bundled_exit': 'BAD ENTRY', 'thin_pool': 'BAD ENTRY', 'weak_holders': 'BAD ENTRY',
-              'too_old': 'BAD ENTRY', 'fallback_entry': 'BAD ENTRY', 'bad_data': 'BAD ENTRY', 'rugged': 'BAD ENTRY'}
+              'too_old': 'BAD ENTRY', 'fallback_entry': 'BAD ENTRY', 'bad_data': 'BAD ENTRY', 'rugged': 'BAD ENTRY', 'red_start': 'BAD TIMING'}
 
 
 def _f(v):
@@ -82,11 +83,14 @@ def _review(p):
     rule = str(p.get('rule') or '')
     tier = (str(p.get('tag') or '').split('· ')[-1].split('-tier')[0] if '-tier' in str(p.get('tag') or '') else None)
     lis = p.get('li') or {}
-    base = {'sym': p.get('sym'), 'mint': p.get('mint'), 'at': _f(p.get('closedAt')), 'pct': round(pct, 2), 'held': None if held is None else round(held, 1),
+    f3 = path[:3]
+    start = None if len(f3) < 3 else 'red' if all(x < 0 for x in f3) else 'green' if max(f3) >= 1 else 'flat'   # 📉 how the trade STARTED (owner: "they lost because the entry started negative")
+    door = 'G4 / OSSY' if p.get('g4') else 'armed (half-confidence)' if 'ARMED' in str(p.get('tag') or '') else 'READY' if 'READY' in str(p.get('tag') or '') else None
+    base = {'start': start, 'door': door, 'sym': p.get('sym'), 'mint': p.get('mint'), 'at': _f(p.get('closedAt')), 'pct': round(pct, 2), 'held': None if held is None else round(held, 1),
             'peak': round(peak, 1), 'entry': entry, 'call': call, 'tier': tier, 'exit': rule, 'band': p.get('band'),
             'phase': lis.get('phase'), 'cls': lis.get('cls'), 'rank': (lis.get('rank') or [None])[0], 'early': lis.get('early'), 'ageH': lis.get('ageH'), 'mcap': lis.get('mcap')}
     if pct > 0:
-        why = [x for x in (f"entered on {entry}" if entry else None, f"{call}" if call else None, f"peak +{peak:.0f}%" if peak else None,
+        why = [x for x in (f"started {start}" if start else None, f"door {door}" if door else None, f"entered on {entry}" if entry else None, f"{call}" if call else None, f"peak +{peak:.0f}%" if peak else None,
                            f"held {held:.0f} min" if held is not None else None, f"exit: {rule}" if rule else None, f"tier {tier}" if tier else None,
                            f"phase {base['phase']}" if base['phase'] else None, f"{base['cls']}" if base['cls'] else None, f"buyer rank {base['rank']}" if base['rank'] else None,
                            f"early wallets held {base['early']:.0f}%" if base['early'] is not None else None) if x]
@@ -120,9 +124,9 @@ def _review(p):
     elif rule.startswith('R9') and abs(pct) < 5:
         cause = 'held_too_long'
     elif entry in GOOD_ENTRY and pct > -12:
-        cause = 'variance'
+        cause = 'red_start' if start == 'red' else 'variance'
     else:
-        cause = 'collapsing_entry' if pct <= -12 else 'variance'
+        cause = 'collapsing_entry' if pct <= -12 else 'red_start' if start == 'red' else 'variance'
     desk, sev, change, _pen = CAUSES[cause]
     if desk:
         resp[desk] = 80 if sev == 'high' else 60 if sev == 'mid' else 40

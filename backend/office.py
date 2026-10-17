@@ -1107,7 +1107,7 @@ RUNWAY_RULES = ('R6', 'R7', 'R7v', 'R7s', 'R7b', 'R5t', 'R8', 'R9', 'R9e', 'R4f'
 # scan failures and a broken thesis on a loser stay INSTANT: waiting on a falling coin is how stops filled at −35%.
 SOFT_EXITS = ('R6', 'R7', 'R7s', 'R7b', 'R7v', 'R7m', 'R8', 'R9', 'R9e', 'R4f', 'R4c')
 BENCHED = set()   # 🪑 soft exit rules whose own after-sale record says holding beat selling (after_path.rule_bench; set by the service each pass)
-SNAP_N, SNAP_RIDE_N, SNAP_TIGHT_N = 2, 3, 1
+SNAP_N, SNAP_RIDE_N, SNAP_TIGHT_N = 3, 5, 1   # 🤝 Reaper's partner (owner, 2026-10-17: "Reaper needs to be partnered"): alone it needs 3 looks; OSSY / G4 saying TIGHTEN = 1; saying RIDE = 5
 SNAP_GAP = 8.0       # seconds between two counted snapshots
 SNAP_FORGET = 90.0   # a snapshot older than this no longer counts (the exit reading went away and came back)
 

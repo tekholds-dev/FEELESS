@@ -84,3 +84,17 @@ def test_your_hold_hint_never_blocks_a_stop_or_a_rug():
     for hard in ('R1', 'R4r', 'R5', 'R5x', 'R6', 'R5m', 'R6m'):
         assert hard in of.HINT_HARD
     assert 'R9' not in of.HINT_HARD and of.HINT_SEC == 1800
+
+
+def test_judge_files_how_a_trade_started():
+    import judge_review as jr
+    r = jr.review({'realPct': -4, 'path': [-1, -2, -3, -4], 'rule': 'R5 stop', 'tag': '🤖 agents · 🎯 ARMED (seat target)', 'since': 0, 'closedAt': 600})
+    assert r['start'] == 'red' and r['door'].startswith('armed') and r['cause'] == 'red_start'
+    w = jr.review({'realPct': 6, 'path': [1.5, 3, 6], 'rule': 'R7 trailing protection', 'since': 0, 'closedAt': 600})
+    assert w['start'] == 'green' and 'started green' in w['why']
+
+
+def test_reaper_needs_three_looks_alone():
+    import office as of
+    import inspect
+    assert 'SNAP_N, SNAP_RIDE_N, SNAP_TIGHT_N = 3, 5, 1' in inspect.getsource(of)   # (conftest pins SNAP_N 1 for older tests)

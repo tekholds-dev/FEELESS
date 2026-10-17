@@ -4845,3 +4845,9 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   (`HINT_HARD` stops / rug / dump / −45% / take / the model's own lines still act); filed in office `hintLog`, graded 30 min later by
   `_hint_grade` (in `_study_tick`) → `_study.hints.line` → the models' `learn.ownerHints`; it also lands in the OSSY × G4 chat as your line
   (models answer it, the market grades it).
+- 🤝 REAPER HAS A PARTNER (owner, 2026-10-17: "Reaper needs to be partnered — OSSY or G4 before, mid trade, after"): a soft exit needs 3 looks alone
+  (`SNAP_N` 3), 1 when the model's fresh exit read says TIGHTEN, 5 when it says RIDE; a coin Reaper WANTS to sell (📸 pending) is the model's
+  first exit read. 📉 MEMORY OF HOW TRADES START (`judge_review`: `start` red / green / flat from the first 3 reads, `door`): measured on 263 real
+  exits — red starts 26% won (avg −3.8) vs up-1%-early 68% won; cutting red starts early was WORSE than holding them (−4.6 vs −3.0, both halves),
+  and no entry reading separated them (structure / call / germ / tape all 50–60% red starts) → no new entry gate; a red-start loss with no other
+  cause is filed as `red_start` (BAD TIMING, Trigger) so the agents + models read the lesson.

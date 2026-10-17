@@ -13667,7 +13667,7 @@ def _ai_jobs(now):
     # 🧠☠ THE EXIT READ (owner, 2026-10-14: "AI should help Trigger and Reaper — smarter, cleaner exits"): each coin the agents HOLD gets one
     # read about once a minute (fresh ≤ 60s = skipped). Reaper never waits on it: it uses the cached word, and only once its record proves it.
     held_ = [r_ for r_ in (_office.get('reports') or []) if r_.get('mint') and not r_.get('action')]
-    for r_ in sorted(held_, key=lambda r_: (r_.get('owner') != 'you', -abs(_fuse._f(r_.get('pct')))))[:2]:   # 👤 your seats are read first — the AI's suggestion on YOUR coin
+    for r_ in sorted(held_, key=lambda r_: ('📸' not in str(r_.get('evidence') or ''), r_.get('owner') != 'you', -abs(_fuse._f(r_.get('pct')))))[:2]:   # 🤝 a coin Reaper WANTS to sell is read first: the model is its partner on that call   # 👤 your seats are read first — the AI's suggestion on YOUR coin
         if now - _fuse._f((_ai['exit'].get(r_['mint']) or {}).get('at')) < 60:
             continue
         add('exit', {'mint': r_['mint'], 'pair': r_.get('pair'), 'symbol': r_.get('sym') or r_.get('symbol'), 'pct': r_.get('pct'), 'peak': r_.get('peak'), 'heldMin': r_.get('heldMin'),

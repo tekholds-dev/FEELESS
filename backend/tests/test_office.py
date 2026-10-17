@@ -573,7 +573,9 @@ def test_a_profit_exit_needs_its_snapshots_and_the_ai_sets_how_many(monkeypatch)
     assert of.soft_confirm(p, 'R7 trailing protection', 104)[0] is False          # too soon: still one snapshot
     assert of.soft_confirm(p, 'R7 trailing protection', 110) == (True, 2, 2)      # the 2nd read 8s+ later confirms
     q = {}
-    assert of.soft_confirm(q, 'R7', 0, 'ride')[0] is False and of.soft_confirm(q, 'R7', 10, 'ride')[0] is False and of.soft_confirm(q, 'R7', 20, 'ride')[0] is True   # RIDE = 3
+    for t in (0, 10, 20, 30):
+        assert of.soft_confirm(q, 'R7', t, 'ride')[0] is False
+    assert of.soft_confirm(q, 'R7', 40, 'ride')[0] is True   # RIDE = 5 looks (2026-10-17: Reaper's partner says it is still running)
     assert of.soft_confirm({}, 'R7', 0, 'tight')[0] is True                       # TIGHTEN = the first read
     r = {'snap': {'rule': 'R7', 'n': 1, 'at': 0}}
     assert of.soft_confirm(r, 'R7', 500)[1] == 1                                  # an old snapshot no longer counts
