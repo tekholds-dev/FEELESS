@@ -25,7 +25,7 @@
 .dso-log em { font-style: normal; font-weight: 900; } .dso-log li.by-g4 em { color: var(--g4); } .dso-log li.by-ossy em { color: var(--os); }
 .dso-log b { color: var(--m-text, #e9fff3); white-space: nowrap; } .dso-log li.a-buy b { color: #15d16a; } .dso-log li.a-sell b { color: #ff8fa3; } .dso-log li.a-noanswer b, .dso-log li.a-wait b { color: var(--m-mute, #8fb3a0); } .dso-log li.a-hold b { color: #9fe3ff; }
 .dso-log span { color: var(--m-mute, #8fb3a0); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
-.dso-tank { position: relative; height: 58px; border-radius: 10px; overflow: hidden; isolation: isolate; border: 1px solid rgba(255, 255, 255, .08); background: linear-gradient(180deg, rgba(8, 18, 14, .9), rgba(4, 10, 8, .95)); --w: #15d16a; }
+.dso-tank { position: relative; height: 84px; container-type: inline-size; border-radius: 10px; overflow: hidden; isolation: isolate; border: 1px solid rgba(255, 255, 255, .08); background: linear-gradient(180deg, rgba(8, 18, 14, .9), rgba(4, 10, 8, .95)); --w: #15d16a; }
 .dso-tank.t-bad { --w: #ff8fa3; } .dso-tank.t-flat { --w: #6fc7e8; }
 .dso-water { position: absolute; inset: 0; transition: transform 1.2s cubic-bezier(.2, .8, .2, 1); z-index: -1; }
 .dso-water::after { content: ''; position: absolute; inset: 6px 0 0; background: linear-gradient(180deg, color-mix(in srgb, var(--w) 34%, transparent), color-mix(in srgb, var(--w) 12%, transparent)); }
@@ -36,13 +36,27 @@
 .dso-drop.dn { bottom: auto; top: 6px; background: radial-gradient(circle at 35% 30%, #ffe1e7, #ff4d6d 60%); box-shadow: 0 0 6px #ff4d6d; animation-name: dsoSink; }
 .dso-tank-n { position: absolute; right: 8px; top: 6px; font: 800 9px var(--m-mono); letter-spacing: .06em; color: var(--m-text, #e9fff3); text-shadow: 0 1px 2px #000; }
 .dso-log li.by-agents em { color: #f5c542; }
+.dso-whale { --c: var(--g4); position: absolute; left: 0; width: 64px; margin-top: -15px; animation: dsoSwim 22s linear infinite; animation-delay: calc(var(--i) * -11s); transition: top 1.4s cubic-bezier(.2, .8, .2, 1); }
+.dso-whale.w-os { --c: var(--os); }
+.dso-whale svg { display: block; width: 64px; height: 30px; transform: scale(var(--s)); animation: dsoBob 2.6s ease-in-out infinite; overflow: visible; }
+.dso-whale .wb { fill: color-mix(in srgb, var(--c) 55%, #071510); stroke: var(--c); stroke-width: 1.2; }
+.dso-whale .wl { fill: none; stroke: color-mix(in srgb, var(--c) 40%, #fff); stroke-width: 1; opacity: .5; } .dso-whale .we { fill: #e9fff3; }
+.dso-whale.m-sad svg { transform: scale(var(--s)) rotate(14deg); opacity: .7; } .dso-whale.m-new svg { opacity: .55; }
+.dso-whale em { position: absolute; left: 14px; top: -11px; font: 900 8px var(--m-mono); letter-spacing: .1em; font-style: normal; color: var(--c); }
+.dso-whale.is-turn svg { filter: drop-shadow(0 0 5px var(--c)); }
+.dso-spout { position: absolute; left: 12px; top: -6px; width: 4px; height: 10px; border-radius: 2px; background: color-mix(in srgb, var(--c) 60%, #fff); opacity: 0; }
+.dso-whale.is-turn .dso-spout { animation: dsoSpout 1.8s ease-out infinite; }
+@keyframes dsoSwim { 0% { transform: translateX(-70px) scaleX(-1); } 49.9% { transform: translateX(calc(100cqw - 10px)) scaleX(-1); } 50% { transform: translateX(calc(100cqw - 10px)) scaleX(1); } 100% { transform: translateX(-70px) scaleX(1); } }
+@keyframes dsoBob { 0%, 100% { translate: 0 0; } 50% { translate: 0 -3px; } }
+@keyframes dsoSpout { 0% { opacity: .9; transform: translateY(0) scaleY(.4); } 100% { opacity: 0; transform: translateY(-12px) scaleY(1.4); } }
 @keyframes dsoWave { to { transform: translateX(-50%); } }
 @keyframes dsoRise { 0%, 100% { transform: translateY(0); opacity: .9; } 50% { transform: translateY(-26px); opacity: .55; } }
 @keyframes dsoSink { 0%, 100% { transform: translateY(0); opacity: .9; } 50% { transform: translateY(26px); opacity: .5; } }
 @keyframes dsoBeat { 0%, 100% { opacity: .35; transform: scale(.8); } 50% { opacity: 1; transform: scale(1.25); } }
 @keyframes dsoIn { from { transform: translateX(-6px); } to { transform: none; } }
-body.fx-lite .dso-pod.is-turn .dso-core, body.fx-lite .dso-log li, body.fx-lite .dso-water i, body.fx-lite .dso-drop { animation: none; }
-@media (prefers-reduced-motion: reduce) { .dso-pod.is-turn .dso-core, .dso-log li, .dso-water i, .dso-drop { animation: none; } .dso-water { transition: none; } .dso-pod, .dso-rec i, .dso-baton i { transition: none; } }
+body.fx-lite .dso-pod.is-turn .dso-core, body.fx-lite .dso-log li, body.fx-lite .dso-water i, body.fx-lite .dso-drop, body.fx-lite .dso-whale, body.fx-lite .dso-whale svg, body.fx-lite .dso-spout { animation: none; }
+body.fx-lite .dso-whale.w-os { left: 60%; } body.fx-lite .dso-whale.w-g4 { left: 20%; }
+@media (prefers-reduced-motion: reduce) { .dso-pod.is-turn .dso-core, .dso-log li, .dso-water i, .dso-drop, .dso-whale, .dso-whale svg, .dso-spout { animation: none; } .dso-water, .dso-whale { transition: none; } .dso-whale.w-os { left: 60%; } .dso-whale.w-g4 { left: 20%; } .dso-pod, .dso-rec i, .dso-baton i { transition: none; } }
 body.theme-day .dso { background: rgba(236, 246, 240, .85); border-color: rgba(110, 80, 200, .25); }
 body.theme-day .dso header b, body.theme-day .dso-seat, body.theme-day .dso-log b { color: #10261a; }
 body.theme-day .dso { --g4: #6a4fc9; --os: #1279a8; }

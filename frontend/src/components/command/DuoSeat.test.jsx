@@ -1,7 +1,7 @@
 import React from 'react';
 import { createRoot } from 'react-dom/client';
 import { act } from 'react';
-import { DuoSeat, podOf, tankOf } from './DuoSeat';
+import { DuoSeat, podOf, tankOf, whaleOf } from './DuoSeat';
 
 test('G4 × OSSY: whose turn, each record, the open seat and the newest calls', () => {
   expect(podOf('G4', { G4: { n: 4, won: 50, med: 2 } })).toEqual({ name: 'G4', n: 4, won: 50, med: 2, fill: 0.5 });
@@ -27,5 +27,16 @@ test('the water tank rises with wins and drains with losses', () => {
     log: [{ at: Date.now() / 1000, model: 'AGENTS', action: 'BUY', symbol: 'B', why: 'agents pick', miss: 'lan BUSY' }] }} />));
   expect(el.querySelectorAll('.dso-drop.up').length).toBe(1); expect(el.querySelectorAll('.dso-drop.dn').length).toBe(1);
   expect(el.querySelector('.dso-log li').className).toContain('by-agents'); expect(el.textContent).toContain('75% won water');
+  act(() => root.unmount());
+});
+
+test('a whale per model: winning swims high, losing sinks belly-down, the turn glows', () => {
+  const win = whaleOf(podOf('G4', { G4: { n: 9, won: 70, med: 4 } }), true), lose = whaleOf(podOf('OSSY', { OSSY: { n: 4, won: 20, med: -6 } }), false);
+  expect(win.top).toBeLessThan(lose.top); expect(win.mood).toBe('happy'); expect(lose.mood).toBe('sad'); expect(win.scale).toBeGreaterThan(lose.scale);
+  expect(whaleOf(podOf('G4', {}), false)).toMatchObject({ mood: 'new', top: 44 });
+  const el = document.createElement('div'); document.body.appendChild(el); const root = createRoot(el);
+  act(() => root.render(<DuoSeat duo={{ mode: 'real', next: 'OSSY', rec: { G4: { n: 9, won: 70, med: 4 } }, log: [] }} />));
+  expect(el.querySelector('[data-testid="duo-whale-OSSY"]').className).toContain('is-turn');
+  expect(el.querySelector('[data-testid="duo-whale-G4"]').className).toContain('m-happy');
   act(() => root.unmount());
 });
