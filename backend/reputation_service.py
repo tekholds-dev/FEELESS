@@ -10704,7 +10704,7 @@ async def _prime_tick_inner(now):
                     _g4_fate(w_, why_no, now)
             if (g4_seat_ and w_ and w_.get('action') == 'BUY' and _seat.fresh(w_, now) and not night_g4_ and not pol_['manual'] and rd_['live'] and not seat_ctx_['halt']
                     and seat_ctx_['courier'] != 'BAD' and used_ < _uni.FILL_MOVES_HR and w_.get('mint') not in _g4_blocked(cur, now)):
-                _g4['want'] = None   # 🧠 G4's BUY joins the SAME fill path as every agent seat — the keeper's pre-check, the Warden's size, the keeper's own checks
+                _g4['want'], _g4['pendSeat'] = None, {**w_}   # (kept until the save: an owner edit mid-tick drops this tick → the BUY is retried, never lost)
                 gt_ = _tk.KERNEL.candidate(w_['mint'])
                 if gt_ and gt_.get('pair'):
                     plan_, g4n_ = [{**gt_, 'g4': True, 'g4By': w_.get('by'), 'g4Tp': w_.get('tp'), 'g4Sl': w_.get('sl'), 'nearReady': f"🧠 {w_.get('model') or 'G4'}: {w_.get('why')}"}] + [t_ for t_ in plan_ if t_['mint'] != gt_['mint']], 1
@@ -10750,6 +10750,8 @@ async def _prime_tick_inner(now):
                     used_ += 1; cur['agentDutyAt'] = now; cur['agentFillAt'] = now
                     if t_.get('g4'):   # 🧠 the leg is G4's: the agents only argue on it from now on
                         _g4_fate({'mint': t_['mint'], 'symbol': t_.get('symbol')}, 'seated — the keeper buys it next pass', now)
+                        if (_g4.get('pendSeat') or {}).get('mint') == t_['mint']:
+                            _g4['pendSeat']['seated'] = True
                         for l in cur['legs']:
                             if l.get('mint') == t_['mint']:
                                 l['aiSeat'] = True
@@ -10942,6 +10944,10 @@ async def _prime_tick_inner(now):
         d = _json_load(FUSE_HQ_PATH, {})
         if _hq_ver() != ver_:   # the file was saved while this tick worked: the owner's pick / skim / lock on a card beats the tick
             cards = _prime.merge_tick(snap_, cards, (d.get('prime') or {}).get('cards') or {})
+        ps_ = _g4.pop('pendSeat', None)
+        if ps_ and ps_.get('seated') and not ps_.get('retried') and not any(l_.get('mint') == ps_.get('mint') and not l_.get('placeholder') for c_ in cards.values() if (c_ or {}).get('real') for l_ in c_.get('legs') or []):
+            _g4['want'] = {**ps_, 'at': time.time(), 'thinkAt': now, 'retried': True, 'seated': False}   # 🔁 your edit saved the card while this tick ran (it wins) → the model's seat is retried next tick, never silently lost
+            _g4_fate(ps_, 'your edit saved the card at the same moment — retrying the seat next tick', now)
         _record_runs(before_runs, cards)
         try:
             cards = _paper_broke(d, cards, px, now)   # ♻ broke paper cards restart on a NEW config, the old one is scrapped

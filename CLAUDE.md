@@ -4786,3 +4786,6 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   🎯 A model moving its own TP / SL = a `LINES` row in the trade room + log (`ai_seat.lines_word / lines_why`; never counted as a call).
   💬 SEATS FULL ≠ silent: every `IDLE_EVERY` 240s one model (alternating, `idle_turn`) comments HOLD / SELL on ONE card coin (`_g4_idle`,
   prompt `IDLE`, `idle_parse` needs a coin on the card) — a TALK row the market grades; it never trades.
+- 🔁 A MODEL'S SEAT SURVIVES YOUR EDIT (2026-10-17, $illusion "seated" then gone): dragging a line saves the card mid-tick and `merge_tick`
+  drops that whole tick (your edit wins) — the agents re-fill next tick by themselves, but OSSY / G4's BUY was one-shot. `_g4['pendSeat']`
+  keeps it until the save; seated-but-lost → `_g4['want']` restored once ("your edit saved the card at the same moment — retrying").
