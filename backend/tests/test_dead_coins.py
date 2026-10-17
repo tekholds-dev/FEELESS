@@ -103,3 +103,8 @@ def test_reaper_needs_three_looks_alone():
 def test_agent_coins_hold_until_the_model_says_tighten():
     import inspect, office as of
     assert 'HOLD_SOFT = True' in inspect.getsource(of)
+
+
+def test_take_fits_each_coin():
+    import office as of
+    assert of.TAKE_ATR == 12 and of.TAKE_MAX == 200

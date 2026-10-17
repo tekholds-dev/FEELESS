@@ -614,6 +614,9 @@ def reap(legs, table, prices, cfg, pos, now, scalp=None, control=False, weather_
         if own_ and _f(l.get('sl')) > 0:
             stop = min(_f(l["sl"]), _ci.CATASTROPHIC_STOP)   # the catastrophic −45% line stays under it
         take = _f(l.get('tp')) if own_ and _f(l.get('tp')) > 0 else take0
+        atr_ = _f(((ch or {}).get('f') or {}).get('atr')) if ch else 0.0
+        if not own_ and atr_ > 0:   # 🎯 NO ONE TAKE FITS EVERY COIN (owner, 2026-10-17): the take follows THIS coin's own candle size — a coin moving 3% a candle gets +36% of room
+            take = round(min(max(take, TAKE_ATR * atr_), TAKE_MAX), 1)
         if own_:
             p['owner'] = {'sl': _f(l.get('sl')) or None, 'tp': _f(l.get('tp')) or None, 'at': _f(l.get('ownerLvAt'))}   # filed with the position: "did your hand help?"
         p['stopNow'] = stop   # ⚡ the 6-second guard stops an agent seat at THIS line between ticks (`fast_reap`)
@@ -840,6 +843,7 @@ def reap(legs, table, prices, cfg, pos, now, scalp=None, control=False, weather_
 # +8.9% vs what we really got +4.3% / +5.2% (better 87, worse 67); 50% only +3.1% avg (an earlier replay overstated it as +8.6%).
 # Selection bias: only coins that reached +10% — the live twin (after_path.scale_twin) keeps judging it on new exits. Once per position.
 SCALE_AT = 10.0
+TAKE_ATR, TAKE_MAX = 12.0, 200.0   # 🎯 per-coin take = max(the card's take, 12 × its average 1-min candle %), ≤ +200%
 HOLD_SOFT = True   # ✋ agent coins: a soft exit needs OSSY / G4's TIGHTEN (tests of the older rules pin it False in conftest)
 HINT_SEC = 30 * 60.0   # ✋ your one-click HOLD / 👍 GOOD ENTRY on a seat holds its soft exits this long
 HINT_HARD = ('R1', 'R2', 'R3', 'R4', 'R4r', 'R4d', 'R4e', 'R5', 'R5x', 'R5c', 'R5m', 'R9c', 'R5g')   # (owner 2026-10-17, $SEXCOIN banked at the model's +15% after he said HOLD: your hold also holds the take lines R6 / R6m / R6h)   # … these still act
