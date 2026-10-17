@@ -68,3 +68,10 @@ test('ONE snapshot for every surface: two readers share one request, a one-off r
   await act(async () => { root.unmount(); }); hubReset();
   await hubSnapshot(call); expect(call).toHaveBeenCalledTimes(2);                                                                           // nobody mounted → one plain request
 });
+
+test('🔁 duo_update replaces the OSSY × G4 block live', () => {
+  const { applyDelta } = require('./agentHub');
+  const raw = { office: {}, duo: { trade: [] } };
+  expect(applyDelta(raw, { kind: 'duo_update', data: { trade: [{ at: 1 }] } }).duo.trade).toHaveLength(1);
+  expect(applyDelta(raw, { kind: 'duo_update', data: null })).toBe(raw);
+});

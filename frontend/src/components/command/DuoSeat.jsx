@@ -3,6 +3,7 @@
 // from their real calls: answered vs missed, buys, latency, confidence, the open seat, each one's own closed-trade record.
 import React, { useEffect, useState } from 'react';
 import '../../styles/duoSeat.css';
+import { hubApply } from '../../lib/agentHub';
 import { avatarOf } from '../../lib/aiAvatars';
 
 const ago = at => { const s = Math.max(0, Math.round(Date.now() / 1000 - (Number(at) || 0))); return s < 60 ? `${s}s` : s < 3600 ? `${Math.round(s / 60)}m` : `${Math.round(s / 3600)}h`; };
@@ -151,7 +152,7 @@ function TradeRoom({ duo, call }) {
   const between = !coin && !duo?.holding && !roomM && (duo?.between || []).length ? duo.between : null;   // 💬 no trade open: the talk between trades
   const h = coin ? { symbol: coin.symbol } : between ? { symbol: 'between trades' } : past ? { symbol: past.symbol } : duo?.holding; const rows = coin ? coin.rows : between || (past ? past.rows : duo?.trade || []);
   if (!h && !rooms.length && !coins.length) return null;
-  const post = async body => { if (!call) return; setBusy(true); try { await call('/admin/ai/seat', { method: 'POST', body: JSON.stringify(body) }); } catch (e) { window.dispatchEvent(new CustomEvent('feeless:toast', { detail: String(e?.message || e) })); } finally { setBusy(false); } };
+  const post = async body => { if (!call) return; setBusy(true); try { const r = await call('/admin/ai/seat', { method: 'POST', body: JSON.stringify(body) }); if (r && r.trade) hubApply({ kind: 'duo_update', data: r }); } catch (e) { window.dispatchEvent(new CustomEvent('feeless:toast', { detail: String(e?.message || e) })); } finally { setBusy(false); } };
   const conf = duo.conf || {};
   return <div className="dso-room" data-testid="duo-room">
     {rooms.length || coins.length ? <p className="dso-rooms" role="tablist" aria-label="Trade rooms">{duo?.holding ? <button type="button" role="tab" aria-selected={!past && !coin} className={!past && !coin ? 'active' : ''} onClick={() => pick(null, null)}>🟢 live ${duo.holding.symbol}</button> : null}

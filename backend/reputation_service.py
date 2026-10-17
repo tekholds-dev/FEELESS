@@ -13949,6 +13949,14 @@ def _g4_lessons():
     return v_
 
 
+def _duo_push():
+    """🔁 OSSY × G4 live: every model answer / chime-in / vote reaches the open Agents tab at once (it waited for the 20s page refresh)."""
+    try:
+        _tke.HUB.publish('duo_update', 'duo', _duo_view(), time.time())
+    except Exception as e:
+        print('duo push:', str(e)[:80])
+
+
 async def _g4_tick(now, env, cfg):
     """🧠 G4's minute: one snapshot packet → one action for ITS seat (paper book here; real = `_g4['want']`, applied by the tier tick)."""
     if _g4['busy'] or not _seat.due(_g4['at'], now):
@@ -13958,6 +13966,7 @@ async def _g4_tick(now, env, cfg):
     if mode_ == 'off':
         return
     _g4['busy'], _g4['at'] = True, now
+    _duo_push()   # 🧠 "is thinking" shows live
     try:
         card_ = next((c_ for c_ in (pr_.get('cards') or {}).values() if (c_ or {}).get('real')), None) or {}
         st_ = _g4_state()
@@ -14146,6 +14155,7 @@ async def _g4_tick(now, env, cfg):
         print('g4 seat:', str(e_)[:140])
     finally:
         _g4['busy'] = False
+        _duo_push()
 
 
 async def _g4_idle(now, env, cfg, st_, legs_, mode_, who=None):
@@ -14188,6 +14198,7 @@ async def _g4_idle(now, env, cfg, st_, legs_, mode_, who=None):
             row_['why'] = (row_['why'] + ' · 🎯 ' + _seat.lines_why({k_: d_[k_] for k_ in ('tp', 'sl', 'trail') if d_.get(k_)}, lg_))[:220]
         m1 = _g4_mem.get() or {}
         _g4_mem.put({**m1, 'log': _seat.note(m1.get('log') or st_['log'], row_), 'idleAt': now}, now)
+        _duo_push()
         _dv_note(row_, _fuse._f(pxm_.get(d_['mint'])), now)
     except Exception as e:
         print('g4 idle:', str(e)[:100])
@@ -14252,7 +14263,8 @@ async def admin_ai_seat_post(request: Request):
             pm_ = await _live_px([m_])
             _dv_note(row_, _fuse._f(pm_.get(m_)), now)
     _audit_ad = _admin_load(); _audit(_audit_ad, admin, 'duo-room', json.dumps({k_: body.get(k_) for k_ in ('vote',)} | ({'comment': txt_[:60]} if txt_ else {}))[:160]); _admin_save(_audit_ad)
-    return _duo_view() if '_duo_view' in globals() else {'ok': True}
+    _duo_push()
+    return _duo_view()
 
 
 @app.get('/api/reputation/admin/ai/seat')

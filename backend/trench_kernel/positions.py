@@ -182,6 +182,9 @@ def trusted(real):
     return int(sg.get('n') or 0) >= TRUST_N and _f(sg.get('med')) > 0
 
 
+MODEL_NAME = {'lan': 'G4', 'local': 'OSSY'}
+
+
 def card_seats(card, decisions=None, prices=None, cfg=None, take=None):
     """🎮 The creator's real card as SEATS, right now: who holds each one (🤖 the agents · 🤝 a coin they suggested and the creator took ·
     👤 the creator's own pick · ⚙ the engine · ▫ open), its live result since entry, and — for an agent seat — what they are doing with
@@ -197,6 +200,7 @@ def card_seats(card, decisions=None, prices=None, cfg=None, take=None):
         px, en = _f((prices or {}).get(l.get('pairAddress'))), _f(l.get('entry'))
         d = by.get(l.get('pairAddress')) or {}
         seats.append({'symbol': l.get('symbol'), 'pair': l.get('pairAddress'), 'mint': l.get('mint'), 'kind': kind, 'tag': tag, 'buying': bool(l.get('buying')),
+                      **({'model': MODEL_NAME.get(l.get('aiBy'), str(l.get('aiBy') or '').upper() or None)} if kind == 'g4' else {}),   # 🔁 WHICH model holds it (the badge read 'G4' on OSSY's $blocus)
                       'pct': round((px / en - 1) * 100, 1) if px > 0 and en > 0 and kind != 'open' else None,
                       'state': 'ride' if l.get('riding') else 'frozen' if l.get('frozen') else '', **({'take': take, 'action': d.get('action') or 'hold', 'why': d.get('why') or '', 'toSym': d.get('toSym')} if kind == 'agent' else {}),
                       **({'would': d.get('would'), 'why': d.get('why') or ''} if kind in ('yours', 'suggested') and d else {})})   # 👤 your seat: what the agents WOULD do (they never do it)

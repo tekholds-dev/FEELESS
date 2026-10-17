@@ -91,3 +91,14 @@ def test_desktop_installer_picks_the_server_model_and_falls_back():
     t = f.install_script('http://x/mcp', 'T', model='qwen/qwen3-4b-2507')
     assert 'qwen/qwen3-4b-2507' in t and 'get "$MODEL" -y' in t and 'FALLBACK="google/gemma-4-e2b"' in t and 'model-failed' in t
     assert 'FEELESS_LM_MODEL="$MODEL"' not in t                                         # the hourly re-pull no longer pins the old model
+
+
+def test_seat_names_the_model_that_holds_it():
+    from trench_kernel import positions as ps
+    import inspect
+    assert ps.MODEL_NAME == {'lan': 'G4', 'local': 'OSSY'} and "'model': MODEL_NAME.get(l.get('aiBy')" in inspect.getsource(ps.card_seats)
+
+
+def test_duo_update_is_a_stream_kind():
+    from trench_kernel import events
+    assert 'duo_update' in events.KINDS

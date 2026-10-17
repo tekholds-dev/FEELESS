@@ -15,7 +15,7 @@ import asyncio
 import json
 
 KINDS = ('mint_update', 'candidate_update', 'agent_update', 'hunter_update', 'position_update', 'lifecycle_update', 'execution_update', 'metric_update', 'snapshot',
-         'decision', 'owner_update', 'ai_update')   # 🧠 the AI router's provider rows + advice · 📜 one REAL kernel decision event (the tape) · the owner's review list
+         'decision', 'owner_update', 'ai_update', 'duo_update')   # 🧠 the AI router's provider rows + advice · 📜 one REAL kernel decision event (the tape) · the owner's review list
 KEEP = 2000
 MAX_SUBS = 12
 

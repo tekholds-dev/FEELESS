@@ -4901,3 +4901,6 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   (`lms get`), unloads others, marks a model that won't load (`~/.feeless/model-failed`) and never pins the model on its hourly re-pull — the
   server's `LAN_LLM_MODEL` decides. An 8B model (4.6 GB) on 8 GB swaps: answers slow → missed turns. Don't.
 - 🔁 Turns verified 2026-10-17: OSSY 索拉纳 → G4 $SEXCOIN (sold) → OSSY $blocus; a refused BUY uses no turn.
+- 🔁 OSSY × G4 IS LIVE: stream kind `duo_update` (`_duo_push`: when a model starts thinking, after every minute tick, every idle read, every
+  chime-in / vote) → `applyDelta` replaces `raw.duo`; the room's POST answer is applied at once (`hubApply`). Your line used to wait for the 20s
+  page refresh. 🪪 Seat badge = the model that HOLDS it (`card_seats` → seat `model` from leg `aiBy`; it read "G4" on OSSY's $blocus).

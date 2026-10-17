@@ -59,6 +59,7 @@ export function applyDelta(raw, ev) {
       return { ...raw, office: { ...o, tape: [...(o.tape || []), data].sort((a, b) => a.id - b.id).slice(-TAPE_KEEP) } };
     }
     case 'ai_update': return data && typeof data === 'object' ? { ...raw, office: { ...o, ai: data } } : raw;   // 🧠 the AI router's provider rows + advice (advisory only)
+    case 'duo_update': return data && typeof data === 'object' ? { ...raw, duo: data } : raw;   // 🔁 OSSY × G4: your chime-in / vote shows the moment the server has it
     case 'owner_update': return { ...raw, office: { ...o, ownerReview: Array.isArray(data) ? data : o.ownerReview } };   // 👤 the owner's review list
     default: return raw;
   }
