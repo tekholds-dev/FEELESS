@@ -14062,6 +14062,13 @@ async def _g4_tick(now, env, cfg):
                 'pressure': (held_ or {}).get('pressure'), 'qwen': _g4_qwen((focus_ or {}).get('mint') or held_m) if ((focus_ or {}).get('mint') or held_m) else None,
                 'considered': len(cands_), 'event': ev_}
         log_ = _seat.note(st_['log'], row_)
+        rp_ = next((r_ for r_ in (_office.get('reports') or []) if r_.get('mint') == held_m), None) if held_ else None
+        rk_ = f"{(rp_ or {}).get('rule')}|{(rp_ or {}).get('state')}" if rp_ else None
+        if rp_ and rk_ != (_g4_mem.get() or {}).get('reapKey'):   # ☠ Reaper's move on this trade (trailing / protect / skim / take) → its own line in the chat
+            log_ = _seat.note(log_, {'at': round(now), 'mode': mode_, 'model': 'REAPER', 'by': 'reaper', 'talk': True, 'action': 'TALK', 'view': rp_.get('state'),
+                                     'why': f"{rp_.get('rule')} · peak {_fuse._f(rp_.get('peak')):+.1f}% · {str(rp_.get('evidence') or '')[:110]}", 'mint': held_m,
+                                     'symbol': (held_ or {}).get('symbol'), 'pct': (held_ or {}).get('pct')})
+            _g4_mem.put({**(_g4_mem.get() or {}), 'reapKey': rk_}, now)
         ch_l = _seat.lines_word(leg_, dec_) if (mode_ == 'real' and held_ and leg_ and dec_ and by_m != 'agents') else {}
         if ch_l:   # 🎯 the holder moved its own TP / SL → its own line in the trade room
             log_ = _seat.note(log_, {'at': round(now), 'mode': mode_, 'model': row_['model'], 'by': by_m, 'action': 'LINES', 'lines': ch_l, 'why': _seat.lines_why(ch_l, leg_),
@@ -14104,7 +14111,7 @@ async def _g4_tick(now, env, cfg):
         if (m1_.get('statsFrom') or 0) > (st_.get('statsFrom') or 0):
             log_ = [r_ for r_ in log_ if (r_.get('at') or 0) >= m1_['statsFrom']]
         log_ = _seat.merge_log(log_, m1_.get('log'))   # 💬 keep your chime-in (and any line) written while the model thought
-        _g4_mem.put({'log': log_, 'book': book_, 'at': now, 'opener': m1_.get('opener') or st_.get('opener'), 'talkAt': talk_at, 'statsFrom': m1_.get('statsFrom'), 'idleAt': m1_.get('idleAt') or st_.get('idleAt'), 'opened': m1_.get('opened') or {}, 'huntBy': m1_.get('huntBy'), 'huntSince': m1_.get('huntSince')}, now)   # 🚫 keep the bought-coins list (it was dropped every minute → $1 bought 3×)
+        _g4_mem.put({'log': log_, 'book': book_, 'at': now, 'opener': m1_.get('opener') or st_.get('opener'), 'talkAt': talk_at, 'statsFrom': m1_.get('statsFrom'), 'idleAt': m1_.get('idleAt') or st_.get('idleAt'), 'opened': m1_.get('opened') or {}, 'huntBy': m1_.get('huntBy'), 'huntSince': m1_.get('huntSince'), 'reapKey': m1_.get('reapKey')}, now)   # 🚫 keep the bought-coins list (it was dropped every minute → $1 bought 3×)
     except Exception as e_:
         print('g4 seat:', str(e_)[:140])
     finally:

@@ -4864,3 +4864,4 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
 - 🎯 PER-COIN TAKE (owner, 2026-10-17: "no strat fits every coin — they must figure it out"): Reaper's take = max(the card's take, `TAKE_ATR` 12 × the
   coin's own average 1-min candle %), ≤ `TAKE_MAX` 200 — a coin moving 3% a candle gets +36% of room, a slow one keeps the card's take. Your own TP
   is never changed. The stop was already per coin (`chart_intel.stop_for`: support + 2 of its own candles, cut for thin pool / young / unproven).
+- ☠ REAPER TALKS IN THE DUO CHAT: each time Reaper's rule / state on the models' seat changes (trailing, protect, skim, take, hold), a REAPER line with the rule, peak and evidence is posted (`_g4_mem.reapKey`). NEXT (owner asked, not done): the chart "not showing true info" — check the cockpit chart levels vs the Reaper report; page lag / fast load.
