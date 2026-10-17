@@ -67,3 +67,12 @@ test('💹 seat core words: P&L %, $ in → $ now, peak + held', () => {
   expect(w).toMatchObject({ pct: '+4.5%', tone: 'up', money: '$0.500 → $0.522 (+$0.022)', meta: 'peak +6.9% · 12m held' });
   expect(seatWords(null)).toBe(null);
 });
+
+test('👍👎 stay on screen with no live trade: the newest trade room opens by itself', () => {
+  global.IS_REACT_ACT_ENVIRONMENT = true;
+  const el = document.createElement('div'); document.body.appendChild(el); const root = createRoot(el);
+  const rows = [{ at: now(), model: 'OSSY', action: 'SELL', why: 'sellers lead', key: 'k1', votes: { up: 1, down: 0, mine: 0, by: {}, res: [] } }];
+  act(() => root.render(<DuoSeat duo={{ mode: 'real', next: 'G4', log: [], rooms: [{ mint: 'm1', symbol: 'SWORD', model: 'OSSY', closed: true, pct: 0.7, rows }] }} call={() => Promise.resolve({})} />));
+  expect(el.querySelector('[data-testid="dsb-up-k1"]')).toBeTruthy();
+  act(() => root.unmount());
+});

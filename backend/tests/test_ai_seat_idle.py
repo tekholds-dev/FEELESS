@@ -39,3 +39,12 @@ def test_cook_holds_an_early_sell_unless_really_losing():
     assert s.cook(d, {'heldMin': 0.6, 'pct': -12})['action'] == 'SELL'
     assert s.cook(d, {'heldMin': 5, 'pct': 0.7})['action'] == 'SELL'
     assert s.cook({'action': 'HOLD'}, {'heldMin': 1, 'pct': 0})['action'] == 'HOLD'
+
+
+def test_germ_rank_orders_floor_first():
+    assert s.germ_rank(4, 15) == 0 and s.germ_rank(30, 15) == 1 and s.germ_rank(None, 15) == 2 and s.germ_rank(-2, 15) == 1
+
+
+def test_recent_ai_syms():
+    ev = [{'kind': 'agent', 'move': 'fill', 'symbol': 'GTA6', 'at': 100, 'why': '🧠 OSSY: x'}]
+    assert s.recent_ai_syms(ev, 200) == {'GTA6'}

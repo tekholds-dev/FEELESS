@@ -144,14 +144,15 @@ function Bubble({ r, onVote, busy }) {
 }
 function TradeRoom({ duo, call }) {
   const [txt, setTxt] = useState(''); const [busy, setBusy] = useState(false); const [roomM, setRoomM] = useState(null);
-  const rooms = duo?.rooms || []; const past = roomM ? rooms.find(r => r.mint === roomM) : null;
+  const rooms = duo?.rooms || [];
+  const past = roomM ? rooms.find(r => r.mint === roomM) : (!duo?.holding ? rooms[0] || null : null);   // 👍👎 no live trade → the newest trade's room is open (its chat + votes never hide behind a tab)
   const h = past ? { symbol: past.symbol } : duo?.holding; const rows = past ? past.rows : duo?.trade || [];
   if (!h && !rooms.length) return null;
   const post = async body => { if (!call) return; setBusy(true); try { await call('/admin/ai/seat', { method: 'POST', body: JSON.stringify(body) }); } catch (e) { window.dispatchEvent(new CustomEvent('feeless:toast', { detail: String(e?.message || e) })); } finally { setBusy(false); } };
   const conf = duo.conf || {};
   return <div className="dso-room" data-testid="duo-room">
     {rooms.length ? <p className="dso-rooms" role="tablist" aria-label="Trade rooms">{duo?.holding ? <button type="button" role="tab" aria-selected={!past} className={!past ? 'active' : ''} onClick={() => setRoomM(null)}>🟢 live ${duo.holding.symbol}</button> : null}
-      {rooms.filter(r => r.mint !== duo?.holding?.mint).map(r => <button key={r.mint} type="button" role="tab" aria-selected={roomM === r.mint} className={`${roomM === r.mint ? 'active' : ''} ${r.pct > 0 ? 'is-up' : r.pct < 0 ? 'is-dn' : ''}`} onClick={() => setRoomM(r.mint)} data-testid={`duo-room-${r.symbol}`}>
+      {rooms.filter(r => r.mint !== duo?.holding?.mint).map(r => <button key={r.mint} type="button" role="tab" aria-selected={past?.mint === r.mint} className={`${past?.mint === r.mint ? 'active' : ''} ${r.pct > 0 ? 'is-up' : r.pct < 0 ? 'is-dn' : ''}`} onClick={() => setRoomM(r.mint)} data-testid={`duo-room-${r.symbol}`}>
         {r.model} ${r.symbol}{r.pct != null ? ` ${r.pct >= 0 ? '+' : ''}${Number(r.pct).toFixed(1)}%` : r.closed ? '' : ' …'}</button>)}</p> : null}
     {!h ? null : <><p className="dso-roomhd"><b>💬 ${h.symbol} · {past ? `${past.model}'s trade${past.pct != null ? ` · closed ${past.pct >= 0 ? '+' : ''}${Number(past.pct).toFixed(1)}%` : ''}` : `${duo.holder || '—'} runs it`}</b>
     {past ? null : <span>{h.tp ? `TP +${h.tp}%` : 'TP —'} · {h.sl ? `SL −${h.sl}%` : 'SL −45 floor'}</span>}

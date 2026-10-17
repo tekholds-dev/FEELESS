@@ -370,3 +370,16 @@ def cook(dec, held):
     if pct is not None and _f(pct) <= -cut:
         return dec
     return {**dec, 'action': 'HOLD', 'cooked': dec['action'], 'why': (f"(🍳 {dec['action']} held — {_f(hm):.1f} of {COOK_MIN:g} min, {'' if pct is None else f'{_f(pct):+.1f}%, '}the stop protects it) " + str(dec.get('why') or ''))[:200]}
+
+
+def recent_ai_syms(events, now, sec=ROTATE_SEC):
+    """The tickers behind `recent_ai_buys` — a look-alike ("GTA" after "GTA6", "$1" after "1") is the same trade again."""
+    return {str(e.get('symbol') or '') for e in events or [] if e.get('kind') == 'agent' and e.get('move') == 'fill' and e.get('symbol')
+            and '🧠' in str(e.get('why') or '') and now - _f(e.get('at')) < sec}
+
+
+def germ_rank(dist, line):
+    """🦠 Order of the models' list: 0 = on its germ floor (inside the owner's germ line), 1 = germ read but stretched, 2 = no germ read."""
+    if dist is None:
+        return 2
+    return 0 if 0 <= _f(dist) <= (_f(line) or 15.0) else 1

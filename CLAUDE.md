@@ -4796,3 +4796,6 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
 - 🍳 MODELS LET IT COOK (`ai_seat.cook`, `COOK_MIN` 4 / `COOK_CUT` 10): an OSSY / G4 SELL or TRIM in its trade's first 4 min becomes HOLD unless it is
   down ≥ min(10%, 60% of its own stop) — $swordcat was sold 34s after the buy on one red 5-min read. Reaper's hard exits + the model's own stop line
   are untouched. SYSTEM prompt carries the ELITE RULES (germ entries only, let it cook, one red candle is not an exit).
+- 👍👎 With no live model trade the trade room OPENS the newest trade's room by itself (`TradeRoom` default `rooms[0]`) — the chat + votes had
+  hidden behind the room tabs, which read as "likes removed". 🦠 The models' list = a 3× wider pool → gun-line / rotation / look-alike filters
+  (`ai_seat.recent_ai_syms` + `taught_rules.family`: no clone of a coin either model traded in 6h) → germ-floor coins first (`ai_seat.germ_rank`).
