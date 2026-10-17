@@ -48,3 +48,12 @@ def test_dead_exit_only_swaps_and_skips_the_flat_churn_rule():
 def test_brain_learns_the_footprint():
     f = tb.feats({'bundledN': 4, 'snipersN': 0, 'insiders': 10, 'dev': 0.1, 'vol5m': 100})
     assert {'bund:3+', 'snipe:0', 'ins:8+', 'dev:out', 'live:dead'} <= set(f)
+
+
+def test_a_quiet_coin_on_a_base_is_not_dead():
+    import office as of
+    assert of.base_of({'f': {'germ': {'dist': 9, 'lost': False}}}).startswith('on its 1m germ floor')
+    assert of.base_of({'f': {'germ5': {'dist': 4}}}).startswith('on its 5m germ floor')
+    assert of.base_of({'f': {'hl': 2, 'll': 0}}) == '2 higher lows, no lower low'
+    assert of.base_of({'f': {'germ': {'dist': 9, 'lost': True}}}) is None
+    assert of.base_of({'f': {'germ': {'dist': 40}, 'hl': 1}}) is None

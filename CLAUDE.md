@@ -4819,3 +4819,6 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
 - 🌙 NIGHT GUARD + NIGHT SHIFT OFF on the real card (owner, 2026-10-17 ~02:00: "disable night guard and let them trench again";
   `_night_off_fix_1017`, once, flag `nightOffFix1017`, old values data/realcfg_before_nightoff1017.json; both keys in realOwnerSet + ladderKeep).
   Tonight before it (18:00 → 02:00): 134 swaps, 30 coins closed, net −$1.22; the worst three ($dev/null −31%, $1 −9%, $ELON −11%) were half of it.
+- 🦠 QUIET ON A BASE IS NOT DEAD (owner, 2026-10-17: "y exit? wait for breakouts" — $250 on its germ floor, $120 traded in 5 min, ruled R11):
+  `office.base_of(ch)` (1m / 5m germ floor not lost, ≤ 15% above, or 2+ higher lows and no lower low) + P&L ≥ −5% → `R11b base — waiting for
+  the breakout` (HOLD); cash only after `DEAD_BASE_CASH_MIN` 45 min dead (else 15). Off-radar coins and every hard exit / stop unchanged.

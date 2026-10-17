@@ -61,6 +61,8 @@ FLOW_CLIMAX_PCT = 15.0               # 🏔 a buying climax on a seat this green
 FLOW_TIGHT = 0.7                     # 🌊 sellers lead a RED seat → its stop tightens to 70% (never under chart_intel.STOP_FLOOR), it is not sold on one read
 MIN_KEEP = 1.5                       # ☠ a trailing take only fires while there is still this much % to bank
 DEAD_CASH_MIN = 15.0                 # 💀 dead this long (no trades / off their radar): exit to CASH even with no replacement ready
+DEAD_BASE_CASH_MIN = 45.0           # 🦠 a quiet coin sitting on a BASE (germ floor / higher lows) waits this long before cash
+BASE_GERM, BASE_FLOOR_PCT = 15.0, -5.0   # … on its 1m / 5m germ floor within 15%, and no worse than −5% from our entry
 DEAD_HOLD_MIN = 5.0                  # 💀 minutes held before a dead coin (no trades) gives its seat away
 MOMENTUM_MIN = 15.0                  # ☠ minutes held before a broken read counts (the card's record: exits inside 15 min lose)
 EXIT_WAIT_SEC = 1800                 # 📮 an exit not confirmed on the ledger after 30 min is filed as UNCONFIRMED, never as done
@@ -624,6 +626,7 @@ def reap(legs, table, prices, cfg, pos, now, scalp=None, control=False, weather_
         rs_ = _mw.run_state(pct, p['peak'], (vels or {}).get(m, {}).get('state'), bool(th) and dq_ok_ and inval_ > 0 and px < inval_ and 0 < chpx_ < inval_)   # ⚡ the run: live price AND live chart under the line
         runner_ = rs_ in ('ACCELERATING', 'RUNNING') and pct > 0   # 🏃 a winner the chart still backs: no time window sells it
         dead_ = (_opp.dead_now(x) if x else None) or ('off their radar (not a coin they trade any more)' if broke == 'off their radar' else None)
+        base_ = base_of(ch) if (dead_ and pct >= BASE_FLOOR_PCT and broke != 'off their radar') else None
         if dead_ and live:
             p.setdefault('deadSince', now)
         else:
@@ -693,7 +696,7 @@ def reap(legs, table, prices, cfg, pos, now, scalp=None, control=False, weather_
             p['locked'] = now
         elif mine and pct <= -stop:   # their own coins carry no card stop (ride-or-rug seats) — this is it; other coins keep the card's own stop
             st, rule, ev, act = 'EXIT INVALIDATED', 'R5 stop', f"{pct:+.1f}% ≤ −{stop:g}%" + (f" ({'; '.join((th.get('stopParts') or [])[:2])})" if th else ' (no thesis on file: the ceiling)'), 'pull'
-        elif mine and live and dead_ and held >= DEAD_CASH_MIN and now - _f(p.get('deadSince') or now) >= DEAD_CASH_MIN * 60 and pct < take:   # 💀 dead 15 min: CASH beats a coin nobody trades — no replacement needed
+        elif mine and live and dead_ and held >= DEAD_CASH_MIN and now - _f(p.get('deadSince') or now) >= (DEAD_BASE_CASH_MIN if base_ else DEAD_CASH_MIN) * 60 and pct < take:   # 💀 dead 15 min: CASH beats a coin nobody trades — no replacement needed
             st, rule, ev, act = ('TAKE' if pct >= MIN_KEEP else 'EXIT INVALIDATED'), 'R11x dead coin → cash', f"{pct:+.1f}% — {dead_} for {round((now - _f(p.get('deadSince'))) / 60)} min; the seat refills from the live bench", 'pull'
         elif pct >= take and not runs and not riding_:
             st, rule, ev = 'TAKE', 'R6 take line', f"{pct:+.1f}% ≥ +{take:g}% ({tsrc} take) — the card's own take rule banks it"
@@ -713,6 +716,8 @@ def reap(legs, table, prices, cfg, pos, now, scalp=None, control=False, weather_
             st, rule, ev, act = ('TAKE' if pct >= MIN_KEEP else 'EXIT INVALIDATED'), 'R9e no extension earned', f"{rv['window']} of {granted} windows used, {pct:+.1f}% — {p.get('extWhy') or 'a winner earns extra time, this seat did not'}", 'pull'
         elif mine and live and not runner_ and not riding_ and rv and rv['window'] >= granted and rv['verdict'] == 'weak' and pct < take:   # its windows are used up and the chart earned no more (time: LIVE only)
             st, rule, ev, act = ('TAKE' if pct >= MIN_KEEP else 'EXIT INVALIDATED'), 'R9 windows used', f"{rv['window']} of {granted} five-minute windows used, {pct:+.1f}%, {rv['why'][0]}", 'pull'
+        elif mine and live and held >= DEAD_HOLD_MIN and pct < take and dead_ and base_:   # 🦠 quiet on a base = coiling for a breakout, not dead: it keeps its seat (cash only after DEAD_BASE_CASH_MIN)
+            st, rule, ev = 'HOLD', 'R11b base — waiting for the breakout', f"{pct:+.1f}% · {dead_}, but {base_} — slow volume on a base comes before the breakout (cash after {DEAD_BASE_CASH_MIN:g} min dead)"
         elif mine and live and held >= DEAD_HOLD_MIN and pct < take and dead_:   # 💀 nobody trades it / they can't read it any more: the seat goes to a coin people ARE trading (swap only — merge_reaper)
             st, rule, ev, act = ('TAKE' if pct >= MIN_KEEP else 'EXIT INVALIDATED'), 'R11 dead coin', f"{pct:+.1f}% after {held:.0f} min — {dead_} (swapped as soon as a replacement clears; cash after {DEAD_CASH_MIN:g} min dead)", 'pull'
         elif mine and live and held >= MOMENTUM_MIN and broke and pct >= MIN_KEEP:
@@ -835,6 +840,18 @@ OWNER_HARD = ('R1', 'R5x', 'R5c', 'R9c', 'R5b', 'R5g')
 # a coin you picked / lined that has peaked ≥ +PICK_LOCK_AT keeps at least PICK_LOCK_KEEP of its peak (+10 → +5, +30 → +15).
 # Replay on your 20 graded picks (their own price paths): −4.1% avg / −1.7% median vs −9.8% / −7.7% real (only 5 of 20 ever reached +10 — thin).
 PICK_LOCK_AT, PICK_LOCK_KEEP, PICK_LOCK_SELL = 10.0, 0.5, 50.0   # … then ONE trim of PICK_LOCK_SELL % (owner: "sell a portion from its peak, see if it keeps riding — I'll set my own breakeven")
+
+
+def base_of(ch):
+    """🦠 A quiet coin that is BUILDING, not dead (owner, 2026-10-17: "y exit? make sure they wait for breakouts"): on its 1m or 5m germ floor
+    (not lost, ≤ BASE_GERM % above it), or 2+ higher lows with no lower low. Slow volume on a base is the setup before a breakout. → why or None."""
+    f = (ch or {}).get('f') or {}
+    for lens, g in (('1m', f.get('germ')), ('5m', f.get('germ5'))):
+        if g and not g.get('lost') and g.get('dist') is not None and 0 <= _f(g['dist']) <= BASE_GERM:
+            return f"on its {lens} germ floor ({_f(g['dist']):.1f}% above)"
+    if _f(f.get('hl') or 0) >= 2 and _f(f.get('ll') or 0) == 0:
+        return f"{int(_f(f.get('hl')))} higher lows, no lower low"
+    return None
 
 
 def gstop_lost(l, ch):
