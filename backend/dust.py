@@ -10,11 +10,7 @@ CLOSE_BATCH = 8          # burn + close pairs per transaction (fits a legacy tx 
 TOKEN_PROGRAMS = ('TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA', 'TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb')
 
 
-def _f(v, d=0.0):
-    try:
-        return float(v)
-    except (TypeError, ValueError):
-        return d
+from fnum import plain as _f
 
 
 def classify(accounts, prices=None, meta=None, swap_min=SWAP_MIN_USD):

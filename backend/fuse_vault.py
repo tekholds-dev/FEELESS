@@ -24,12 +24,7 @@ YEAR = 365 * 86400
 KINDS = ('v2', 'v3')
 
 
-def _f(v):
-    try:
-        x = float(v)
-        return x if math.isfinite(x) else 0.0
-    except (TypeError, ValueError):
-        return 0.0
+from fnum import finite as _f
 
 
 def kind_of(pair):

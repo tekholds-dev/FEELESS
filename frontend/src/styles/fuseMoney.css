@@ -46,25 +46,6 @@
 .bf-paper { font-family: var(--m-mono); font-size: 9.5px; color: var(--m-dim); }
 
 /* 🃏 3-card shuffle */
-.sc3 { position: relative; display: grid; justify-items: center; gap: 6px; padding: 8px 0 4px; perspective: 900px; }
-.sc3-k { justify-self: start; }
-.sc3-ring { position: relative; width: min(100%, 560px); height: 170px; transform-style: preserve-3d; }
-.sc3:has(.has-card) .sc3-ring { height: 330px; }
-.sc3-card { position: absolute; left: 50%; top: 0; width: 168px; height: 160px; margin-left: -84px; display: grid; align-content: center; justify-items: center; gap: 4px; padding: 12px;
-  border-radius: 16px; border: 1px solid color-mix(in srgb, var(--sc) 60%, var(--m-line)); background: linear-gradient(160deg, color-mix(in srgb, var(--sc) 22%, #0b0712), #07050c);
-  color: var(--m-text); cursor: pointer; overflow: hidden; transition: transform .7s var(--m-ease), opacity .7s var(--m-ease); --sc: #ffd56a; }
-.sc3-card.t-diamond { --sc: #9fe3ff; } .sc3-card.t-blaze { --sc: #ff7a2f; } .sc3-card.t-next { --sc: #c58bff; } .sc3-card.t-ever { --sc: #15d16a; }
-.sc3-card.p-0 { transform: translateZ(60px) scale(1.04); z-index: 3; box-shadow: 0 18px 40px -18px var(--sc); }
-.sc3-card.p-1 { transform: translateX(165px) translateZ(-60px) rotateY(-28deg) scale(.84); opacity: .7; z-index: 2; }
-.sc3-card.p-2 { transform: translateX(-165px) translateZ(-60px) rotateY(28deg) scale(.84); opacity: .7; z-index: 1; }
-.sc3-card:hover { border-color: var(--sc); } .sc3-card:active { transform: scale(.97); } .sc3-card:focus-visible { outline: 2px solid var(--m-accent); outline-offset: 3px; }
-.sc3-card.has-card { width: 210px; height: 320px; margin-left: -105px; padding: 6px; align-content: start; }
-.sc3-real { display: block; zoom: .78; pointer-events: auto; }
-.sc3-meta { display: grid; justify-items: center; gap: 1px; }
-.sc3-card.has-card .sc3-meta { position: absolute; left: 0; right: 0; bottom: 6px; } .sc3-card.has-card .sc3-meta b { font-size: 12px; } .sc3-card.has-card .sc3-meta em { font-size: 15px; }
-.sc3-card small { font-family: var(--m-mono); font-size: 9px; letter-spacing: .14em; color: var(--sc); } .sc3-card b { font-family: var(--fz-font, inherit); font-size: 15px; text-align: center; }
-.sc3-card em { font-style: normal; font-size: 22px; } .sc3-card i { font-style: normal; font-size: 10px; color: var(--m-dim); }
-.sc3-shine { position: absolute; inset: -40%; background: linear-gradient(115deg, transparent 40%, color-mix(in srgb, var(--sc) 30%, transparent) 50%, transparent 60%); animation: fmShine 3.8s linear infinite; pointer-events: none; }
 
 /* 💲 cost receipt */
 .ccost { display: grid; gap: 6px; padding: 10px 12px; }
@@ -115,17 +96,14 @@
 @keyframes fmIn { from { opacity: 0; transform: translateY(6px) scale(.98); } }
 @keyframes fmTick { from { opacity: 0; transform: scale(1.6); } }
 @keyframes fmPulse { 50% { opacity: .45; } }
-@keyframes fmShine { from { transform: translateX(-30%); } to { transform: translateX(30%); } }
-body.fx-lite .sc3-shine, body.fx-lite .rbell-n, body.fx-lite .rbell.is-due b { animation: none; }
-body.fx-lite .sc3-card { transition: none; }
-@media (prefers-reduced-motion: reduce) { .sc3-shine, .rbell-n, .rbell.is-due b, .pa, .ff-detail { animation: none; } .sc3-card { transition: none; } }
+body.fx-lite .rbell-n, body.fx-lite .rbell.is-due b { animation: none; }
+@media (prefers-reduced-motion: reduce) { .rbell-n, .rbell.is-due b, .pa, .ff-detail { animation: none; } }
 body.theme-day .mm, body.theme-day .pa-row, body.theme-day .ts > span, body.theme-day .fw-kpis > span, body.theme-day .fw-tier, body.theme-day .ff-kind, body.theme-day .wp-prime-card { background: #fff; border-color: #d8e2dc; }
 body.theme-day .mm-pnl.is-up b { color: #0b7a4a; } body.theme-day .mm-pnl.is-down b { color: #c0123f; }
 body.theme-day .ff-kind.active { background: #0b7a4a; color: #fff; } body.theme-day .ff-kind.active small { color: #fff; }
 @media (max-width: 640px) {
   .mm-eq { grid-template-columns: 1fr auto 1fr; } .mm-eq > i:nth-of-type(2) { display: none; }
   .ts { grid-template-columns: 1fr; } .pa-row { grid-template-columns: auto 1fr auto; } .pa-row > span:nth-of-type(1) { display: none; }
-  .sc3-card { width: 130px; margin-left: -65px; } .sc3-card.p-1 { transform: translateX(96px) translateZ(-60px) rotateY(-28deg) scale(.8); } .sc3-card.p-2 { transform: translateX(-96px) translateZ(-60px) rotateY(28deg) scale(.8); }
   .fw-row { grid-template-columns: 60px 1fr 70px 60px; } .fw-row > :nth-child(n+5):not(:last-child) { display: none; }
   .fw-tier { grid-template-columns: 1fr auto; }
 }

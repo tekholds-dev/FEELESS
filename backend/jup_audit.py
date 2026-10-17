@@ -9,12 +9,7 @@ reading for every coin at once (`lite_intel`) and the crew signal (`crew`).
 """
 
 
-def _f(v, d=0.0):
-    try:
-        x = float(v)
-        return x if x == x else d
-    except (TypeError, ValueError):
-        return d
+from fnum import nan_safe as _f
 
 
 def facts(tok):

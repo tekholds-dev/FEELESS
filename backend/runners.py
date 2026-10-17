@@ -39,12 +39,7 @@ EXITS = {
 LIGHT_MIN_ROUNDS = 8
 
 
-def _f(v):
-    try:
-        x = float(v)
-        return x if math.isfinite(x) else 0.0
-    except (TypeError, ValueError):
-        return 0.0
+from fnum import finite as _f
 
 
 def candidate(pair, intel=None, creator_flagged=False, snipers_out=False, now_ms=0, mayhem=False, creator_rep=None, hist=None, smart=0):

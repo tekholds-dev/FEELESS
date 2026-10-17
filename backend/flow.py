@@ -24,12 +24,7 @@ RUG_ONE_POOL_PCT = 3.0   # … and ≥ this % of the pool's liquidity (2026-10-0
                          # whale's $1K–13K sell into a deep pool — 23 rug exits, median −0.4% an hour later: it saved nothing, it churned)
 
 
-def _f(v):
-    try:
-        x = float(v)
-        return x if x == x else 0.0
-    except (TypeError, ValueError):
-        return 0.0
+from fnum import nan_safe as _f
 
 
 def _ts(t):

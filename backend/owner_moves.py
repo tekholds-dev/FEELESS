@@ -14,11 +14,7 @@ CTX_KEYS = ('chg5m', 'chg1h', 'buyShare', 'vol5m', 'vol1h', 'liq', 'mcap', 'ageH
 LABEL = {'pick': '🎯 pick', 'swap': '⇄ hand swap', 'rebuy': '🔄 rebuy', 'skim': '💰 profit take', 'house': '🏠 initial out', 'cut': '✂ cut', 'lock': '❄ lock', 'room': '✋ gave it room (SL/TP)', 'tight': '✋ tightened (SL/TP)', 'stopped': '🛑 your stop hit'}
 
 
-def _f(v):
-    try:
-        return float(v)
-    except (TypeError, ValueError):
-        return 0.0
+from fnum import plain as _f
 
 
 def classify(e):

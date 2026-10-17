@@ -3,7 +3,6 @@
 ledger only. 🧹 Storage trim: only re-fetchable caches and logs, never a ledger. Fakes only — nothing reaches the chain."""
 import asyncio
 import os
-import time
 
 import fuse_wallet as fw
 import storage_trim as stt

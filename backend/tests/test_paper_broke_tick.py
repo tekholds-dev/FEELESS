@@ -1,6 +1,5 @@
 """The tick's broke-reset: a paper tier card at ≤ 25% of its put-in is removed (the next tick deals a fresh one), its config is scrapped for good and a new one
 is written; the real card, healthy cards and locked tiers are never touched."""
-import arena_prime as ap
 
 NOW = 10 * 86400
 
@@ -26,5 +25,5 @@ def test_broke_paper_cards_restart_on_a_new_config_and_the_old_one_is_scrapped()
     assert 'safe' in again and len(pr['scrapped']) == 1
     rs._paper_broke(d, {'safe': _card('safe', 1.0, at=NOW - 86400)}, {}, NOW + 7 * 3600)
     assert len(pr['scrapped']) == 2 and pr['renewed']['safe']['n'] == 2 and pr['scrapped'][1]['sig'] != pr['scrapped'][0]['sig']
-    third = rs._prime.tier_cfg(rs._prime.clean_cfg(pr['cfg']), 'safe')
+    rs._prime.tier_cfg(rs._prime.clean_cfg(pr['cfg']), 'safe')
     assert {x['sig'] for x in pr['scrapped']}.isdisjoint({__import__('paper_reset').sig(__import__('paper_reset').current(rs._prime.clean_cfg(pr['cfg']), 'safe'))})   # the live config is never a scrapped one

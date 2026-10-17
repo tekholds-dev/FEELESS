@@ -21,12 +21,7 @@ GROW_MIN, GROW_UNSURE = 0.5, 0.75   # a proven record never sizes under today's 
 STEPS = (1.0, 0.75, 0.5, 0.25)
 
 
-def _f(v):
-    try:
-        x = float(v)
-        return x if x == x else 0.0
-    except (TypeError, ValueError):
-        return 0.0
+from fnum import nan_safe as _f
 
 
 def _pcts(trades, n=WINDOW):

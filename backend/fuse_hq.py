@@ -15,12 +15,7 @@ MIN_SETTLED = 3        # a style needs this many settled runs before it can be c
 BEATEN_BY = 1.10       # champion fitness ≥ 110% of the published Fuse's → "beaten"
 
 
-def _f(v):
-    try:
-        x = float(v)
-        return x if math.isfinite(x) else 0.0
-    except (TypeError, ValueError):
-        return 0.0
+from fnum import finite as _f
 
 
 def position_pnl(pos, prices):

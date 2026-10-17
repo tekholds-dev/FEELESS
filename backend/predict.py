@@ -8,11 +8,7 @@ BASE_PTS, STREAK_PTS, STREAK_CAP = 10, 5, 20
 DOORS = (('ptrend', '🔥 Pump trending'), ('volume', '🌊 Volume'), ('movers', '🚀 Movers'), ('pump', '🆕 New launches'))
 
 
-def _f(v, d=0.0):
-    try:
-        return float(v)
-    except (TypeError, ValueError):
-        return d
+from fnum import plain as _f
 
 
 def round_id(now):

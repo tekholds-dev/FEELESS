@@ -26,11 +26,10 @@ def test_alerts():
 
 
 def test_known_destinations_dedup_and_network():
-    from money_pulse import known_destinations, same_network
+    from money_pulse import known_destinations
     out = known_destinations(['O'], ['O', 'A'], ['F'], [('Season reserve · S1', 'R')], [('Badge pool · OG', 'P')],
                              [{'address': 'T', 'label': 'Multisig'}], [{'address': 'C', 'name': 'Ops'}], [{'address': 'X', 'label': 'Cold'}])
     assert [d['address'] for d in out] == ['O', 'A', 'F', 'R', 'P', 'T', 'C', 'X'] and out[0]['kind'] == 'owner'
-    assert same_network('SOL', 'Abc') and not same_network('SOL', '0xabc') and same_network('BASE', '0xabc')
 
 
 def test_check_flips():

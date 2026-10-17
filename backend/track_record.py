@@ -6,11 +6,7 @@ Each entry carries what is needed to check it (coin, entry, exit, time, tx). A l
 from collections import defaultdict
 
 
-def _f(v, d=0.0):
-    try:
-        return float(v)
-    except (TypeError, ValueError):
-        return d
+from fnum import plain as _f
 
 
 def _px(r):

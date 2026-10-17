@@ -15,12 +15,7 @@ KIDS_MAX = 6
 SOURCES = (('created_timestamp', (0, 50, 100, 150)), ('last_trade_timestamp', (0, 50, 100, 150)))   # Pump /coins pages read for it
 
 
-def _f(v, d=0.0):
-    try:
-        x = float(v)
-        return x if x == x else d
-    except (TypeError, ValueError):
-        return d
+from fnum import nan_safe as _f
 
 
 def _ms(v):

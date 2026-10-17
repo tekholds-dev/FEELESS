@@ -29,12 +29,7 @@ STOPS = (20, 30, 40, 50, 70, 0)                    # ticket stops the brain repl
 STOP_MIN = 30                                      # settled paths needed before it names a best stop
 
 
-def _f(v):
-    try:
-        x = float(v)
-        return x if x == x else 0.0
-    except (TypeError, ValueError):
-        return 0.0
+from fnum import nan_safe as _f
 
 
 def _band(v, cuts, names):

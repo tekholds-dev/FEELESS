@@ -1,7 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { openCoin } from '../CoinDrawer';
-import { toast } from 'sonner';
 import { openWarRoom } from '../WarRoomHost';
 import { pct, tone, VERD, rowState, rowWhy, pipsOf, rankFill, devilOf, kOf, READY_MIN } from '../../lib/agentRead';
 import '../../styles/agentScreens.css';
@@ -14,7 +13,6 @@ import '../../styles/agentScreens.css';
 //   ⚖ Devil  = DOCKET: every candidate as a stamped ticket (✓ nothing against it · ⚠ warns: it weighs · ✕ the hard wall: the only block)
 // A mini screen sits on each agent's card; a tap ZOOMS it (portal, Esc / outside closes, tabs switch agent). In the zoom every mark is a
 // coin: tap it, or step with ‹ › / ← →, and its DOSSIER (meters, the four pips, the one fact that decided it) follows.
-// Also here: 🎮 CardNow (the creator's real card as seats — who holds each, what the agents are doing with theirs).
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 const num = v => (Number.isFinite(Number(v)) ? Number(v) : 0);
 export const heat = v => clamp(Math.abs(num(v)) / 10, 0.12, 1);
@@ -115,41 +113,6 @@ export function ZoomScreen({ d, agent, setAgent, close }) {
           : agent === 'trigger' ? <Scope t={t} big cur={at} pick={setCur} /> : agent === 'judge' ? <Court judge={d?.judge} onPick={setCur} objections={d?.objections} /> : <Docket t={t} big cur={at} pick={setCur} />}</div>
         <Dossier x={x} idx={idx} n={list.length} step={step} /></div>
     </div></div>, document.body);
-}
-
-// 🎮 ON YOUR CARD NOW — the real card as seats, and every seat is a CONTROL: tap it → what the agents can do with it right now.
-//   ▫ open → 🤖 fill it with one of the kernel's READY coins · any held seat → ⇄ swap one of the kernel's READY coins in · 🤖 their own seat → 💰 pull to cash.
-// Every action is the creator's own tap through the card's normal paths (POST /admin/arena/prime fillSeat / pickSwap / manualSell): the
-// same checks, and a ⚠ warning comes back as "do it anyway" — never a silent buy. An agent seat shows its bar to their take line.
-const KIND = { agent: ['🤖', 'agents'], suggested: ['🤝', 'their pick, your tap'], yours: ['👤', 'yours'], engine: ['⚙', 'engine'], open: ['▫', 'open'] };
-const ACT = { hold: '⏳', pull: '💰', swap: '⇄' };
-export const seatMoves = (seat, tpl, gos) => { if (!seat || !tpl) return [];
-  const g = (gos || []).slice(0, 3);
-  if (seat.kind === 'open') return g.map(x => ({ key: `fill-${x.symbol}`, label: `🤖 $${x.symbol}`, tip: `Fill this seat with the kernel's READY coin $${x.symbol} now`, go: true, body: { fillSeat: { tpl, to: x.mint, toPair: x.pair, via: 'agents' } }, k: 'fillSeat' }));
-  const swaps = seat.state ? [] : g.map(x => ({ key: `swap-${x.symbol}`, label: `⇄ $${x.symbol}`, tip: `Swap $${seat.symbol} out for the kernel's READY coin $${x.symbol} now`, body: { pickSwap: { tpl, pairAddress: seat.pair, to: x.mint, toPair: x.pair, via: 'agents', now: true } }, k: 'pickSwap' }));
-  return seat.kind === 'agent' ? [{ key: 'pull', label: '💰 Pull', tip: `Sell $${seat.symbol} to card cash now — the seat opens`, go: true, body: { manualSell: { tpl, pairAddress: seat.pair, pct: 100 } }, k: 'manualSell' }, ...swaps] : swaps; };
-export function CardNow({ card, cfg, gos, call, isOwner = true, onDone, onMore }) {
-  const seats = card?.seats || []; const on = cfg?.agentLearn || cfg?.agentFeed; const mine = seats.filter(x => x.kind === 'agent').length;
-  const [at, setAt] = useState(null); const [busy, setBusy] = useState(false); const [warn, setWarn] = useState(null);
-  if (!seats.length) return <div className="ags-card is-off" data-testid="ags-card"><b>🎮 ON YOUR CARD</b><small>{on ? 'waiting for the card’s next tick' : 'no real card is funded — the agents trade paper only'}</small></div>;
-  const cur = at != null ? seats[at] : null; const free = (gos || []).filter(x => !seats.some(s => s.mint === x.mint)); const moves = seatMoves(cur, card.tpl, free);
-  const send = async (m, body) => { if (!call) return; setBusy(true); setWarn(null);
-    try { await call('/admin/arena/prime', { method: 'POST', body: JSON.stringify(body) }); toast.success(`${m.label} — sent to your card`); setAt(null); if (onDone) onDone(); }
-    catch (e) { if (!body[m.k].ack && String(e.message || '').startsWith('⚠')) setWarn({ text: e.message, m, body: { [m.k]: { ...body[m.k], ack: true } } }); else toast.error(e.message); }
-    finally { setBusy(false); } };
-  return <div className={`ags-card ${cur ? 'is-open' : ''}`} data-testid="ags-card"><span className="ags-cardh"><b>🎮 {cfg?.agentControl ? 'AGENTS IN CONTROL' : 'ON YOUR CARD NOW'}</b>
-    <button type="button" className="ags-pow" onClick={onMore} data-tip="Seats holding a coin the agents bought · open the generations" data-testid="ags-pow">🤖 {mine} / {seats.length} seats</button></span>
-    <div className="ags-seats">{seats.map((s, i) => { const k = KIND[s.kind] || KIND.engine; const prog = s.kind === 'agent' && s.pct != null && s.take ? clamp(s.pct / s.take, 0, 1) : null;
-      return <button type="button" key={s.pair || `o${i}`} className={`ags-seat is-${s.kind} ${at === i ? 'is-cur' : ''}`} aria-expanded={at === i} onClick={() => { setAt(at === i ? null : i); setWarn(null); }}
-        data-tip={s.kind === 'open' ? 'Open seat — tap to fill it' : s.kind === 'agent' ? (s.why || 'the agents hold this seat') : `${k[1]}${s.tag ? ` · ${s.tag}` : ''}`} data-testid={s.kind === 'open' ? `seat-open-${i}` : `seat-${s.symbol}`}>
-        <i>{k[0]}</i><b>{s.kind === 'open' ? 'open' : `$${s.symbol}`}</b>{s.kind !== 'open' && <em className={tone(s.pct)} key={String(s.pct)}>{s.buying ? '⏳' : pct(s.pct)}</em>}
-        {prog != null && <u><s style={{ transform: `scaleX(${Math.max(0.03, prog)})` }} /></u>}
-        {s.kind === 'agent' && <span className={`ags-act is-${s.action}`}>{ACT[s.action] || '⏳'}{s.toSym ? ` $${s.toSym}` : ''}</span>}</button>; })}</div>
-    {cur && <div className="ags-tray m-pop" data-testid="ags-tray"><span className="ags-trayh">{(KIND[cur.kind] || KIND.engine)[0]} {cur.kind === 'open' ? 'OPEN SEAT' : `$${cur.symbol}`}{cur.state ? ` · ${cur.state === 'ride' ? '❄ riding' : '🧊 frozen'}` : ''}</span>
-      {warn ? <><small className="ags-warn">{warn.text}</small><button type="button" className="m-btn" disabled={busy} onClick={() => send(warn.m, warn.body)} data-testid="seat-ack">I understand — do it anyway</button><button type="button" className="m-btn" onClick={() => setWarn(null)}>Cancel</button></>
-        : <>{moves.map(m => <button type="button" key={m.key} className={`m-btn ${m.go ? 'm-go' : ''}`} disabled={busy || !isOwner || !call} data-tip={m.tip} onClick={() => send(m, m.body)} data-testid={`move-${m.key}`}>{m.label}</button>)}
-          {!moves.length && <small>{cur.state ? 'locked — a riding / frozen coin is never swapped from here' : 'no READY coin in the kernel right now'}</small>}
-          {cur.kind !== 'open' && <button type="button" className="m-btn" onClick={() => openCoin({ mint: cur.mint, pairAddress: cur.pair, symbol: cur.symbol })} data-testid="move-coin">🪙</button>}</>}</div>}</div>;
 }
 
 // 👨‍⚖️ THE JUDGE + 🏆 PROOF — one band. Left: the court (W–L, who is ON TRIAL and its handicap, who wears the 👑, the ruling tape — each

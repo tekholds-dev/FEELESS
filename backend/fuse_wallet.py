@@ -10,7 +10,6 @@ How it works (no user money, no user keys — this is FEELESS's own treasury):
 Hard limits (owner-set, server-enforced): armed switch, pause, max per card, max per swap, daily cap, SOL kept for network
 fees, slippage, max price impact. Every order, top-up and defund is written to the audit trail with its tx.
 """
-import math
 import statistics
 
 SOL_MINT = 'So11111111111111111111111111111111111111112'
@@ -22,12 +21,7 @@ RANGES = {'maxCardUsd': (5, 50000), 'maxSwapUsd': (1, 10000), 'dailyUsd': (5, 10
 DUST_USD = 0.05
 
 
-def _f(v):
-    try:
-        x = float(v)
-        return x if math.isfinite(x) else 0.0
-    except (TypeError, ValueError):
-        return 0.0
+from fnum import finite as _f
 
 
 def clean_cfg(c):

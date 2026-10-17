@@ -94,8 +94,7 @@ def test_the_archive_check_is_incremental_and_still_finds_a_rewrite():
 def test_the_tier_tick_reads_the_wallet_doc_from_the_read_only_copy():
     """The loop-lag catcher charged `_prime_tick › _fw_load` 149s of blocked loop in 8h: the 1.2 MB wallet doc was parsed seven times a tick
     just to read fields."""
-    i = SRC.index('async def _prime_tick_inner(now):')
-    body = SRC[i:SRC.index('\nasync def ', i + 10)]
+    assert 'async def _prime_tick_inner(now):' in SRC
     for line in ("books = (_fw_peek().get('books') or {})", "fw_cfg = _fw_peek().get('cfg') or {}", "bk_ = ((_fw_peek().get('books') or {}).get(tid) or {}) if real_t else {}",
                  "bk = (_fw_peek().get('books') or {}).get(tid)", "fw_books = _fw_peek().get('books') or {}"):
         assert line in SRC

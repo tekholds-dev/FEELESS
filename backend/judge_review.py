@@ -40,12 +40,7 @@ LOSS_CLASS = {'variance': 'NORMAL LOSS', 'gave_back': 'BAD EXIT', 'held_too_long
               'too_old': 'BAD ENTRY', 'fallback_entry': 'BAD ENTRY', 'bad_data': 'BAD ENTRY', 'rugged': 'BAD ENTRY', 'red_start': 'BAD TIMING'}
 
 
-def _f(v):
-    try:
-        x = float(v)
-        return x if x == x else 0.0
-    except (TypeError, ValueError):
-        return 0.0
+from fnum import nan_safe as _f
 
 
 def review(p):

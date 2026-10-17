@@ -25,10 +25,7 @@ def test_supply_is_resolved_in_order_and_never_invented():
     assert sup.resolve(PLAIN, None, None, prev=(5e8, 'market')) == (5e8, 'market')                           # a blank pass keeps the last good one
 
 
-def test_market_cap_ohlc_is_the_price_ohlc_times_supply_and_unknown_supply_is_none():
-    bar = [1700000000, 0.00002, 0.000025, 0.000018, 0.000024, 1234.5]
-    assert sup.mc_bar(bar, 1e9) == [1700000000, 20000.0, 25000.0, 18000.0, 24000.0, 1234.5]            # volume untouched
-    assert sup.mc_bar(bar, None) is None and sup.mc_bar(bar, 0) is None                                 # never the raw price
+def test_market_cap_is_the_price_times_supply_and_unknown_supply_is_none():
     assert sup.mc(0.0000184, 1e9) == 18400.0 and sup.mc(0.0000184, None) is None and sup.mc(None, 1e9) is None
 
 

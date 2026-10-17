@@ -474,7 +474,6 @@ def test_a_very_young_launch_is_not_rejected_for_its_age_and_uses_stage_aware_ev
     tr = ag.trigger({'pts': 1, 'buy': 60, 'd5': 1}, {'lean': 5, 'drivers': []}, {'safe': True, 'chart': {'src': 'candles', 'f': {'n': 4}, 'q': {'enterOk': True}}}, {'bar': 1.5})
     assert tr[0] == 'enter'                                                                                       # its real candles count as readings
     assert ag.trigger({'pts': 1, 'buy': 60, 'd5': 1}, {'lean': 5, 'drivers': []}, {'safe': True}, {'bar': 1.5})[0] == 'wait'
-    young = trow('YNG', ageH=0.2)
 
 
 def test_devil_warnings_are_not_vetoes_but_hard_safety_still_is():
@@ -494,9 +493,6 @@ def test_every_cycle_re_evaluates_held_seats_against_challengers_but_a_timer_nev
     pol = oe.policy({'agentSeatTarget': 60})
     assert oe.cycle_due(pol, 0, 61) and not oe.cycle_due(pol, 1000, 1030) and oe.cycle_due(oe.policy({'agentSeatTarget': 30}), 1000, 1031)
     assert oe.cycle_due(oe.policy({}), 1000, 1030) and not oe.cycle_due(oe.policy({}), 1000, 1020)               # never under 30s
-    cfg = {'agentTakePct': 10, 'agentMode': 'auto', 'trenchMinAgeH': 1}
-    legs = [leg('W', at=1), leg('L', at=1)]
-    table = [trow('W', lean=0.1), trow('L', lean=0.1)]
 
 
 
@@ -526,7 +522,6 @@ def test_the_decision_module_has_no_wallet_network_or_execution_path_of_its_own(
 # ── ⚡ REALTIME: a case file never freezes the market state ─────────────────────────────────────────────────────────────────────────
 def test_a_case_read_at_price_a_sees_price_b_and_a_new_candle_without_being_rediscovered(monkeypatch):
     import reputation_service as rs
-    row = {**trow('LIVE'), 'px': 1.00}
     monkeypatch.setitem(rs._jup_px_cache, 'LIVE', (1000.0, 1.25))                                               # the shared price moved A → B
     v = rs._mkt_view('LIVE', 'PLIVE', 1005.0)
     assert v['px'] == 1.25 and v['pxSrc'] == 'jupiter' and v['pxAt'] == 1000.0
@@ -543,7 +538,6 @@ def test_a_thirty_second_old_launch_enters_the_intake_and_graduation_is_only_con
     tags = {x['mint']: x['intake'] for x in oe.intake(board)}
     assert 'new' in tags['NOW'] and 'grad' in tags['GRAD']
     assert ag.stage_of(30 / 3600) == 'NEWBORN' and ag.stage_of(0.5) == 'EARLY' and ag.stage_of(5) == 'DEVELOPING' and ag.stage_of(48) == 'MATURE' and ag.stage_of(None) is None
-    two = trow('TWO', ageH=2 / 60)
 
 
 # ── ♻ SAME COIN AGAIN ───────────────────────────────────────────────────────────────────────────────────────────────────────────────
@@ -730,7 +724,6 @@ def test_missing_evidence_is_unknown_and_a_mint_mismatch_keeps_its_proof_through
     wd = of.warden(1.0, {'value': 4.0, 'liq': 500_000, 'ageH': 20, 'courier': 'HEALTHY', 'social': pk})
     w16 = next(r_ for r_ in wd['rules'] if r_['id'] == 'W16 identity')
     assert w16['mult'] == 0.25 and w16['evidence']['sourceUrl'] == 'https://froggy-official.xyz' and w16['evidence']['launchMint'] == MINT
-    c = {'mint': MINT, 'symbol': 'FROGGY', 'px': 1.0, 'cleared': False, 'checks': [], 'row': row}
 
 
 def test_every_control_option_saved_reads_back_as_that_value_on_the_panel():

@@ -70,14 +70,6 @@ def record(card, ledger, now):
             'best': {'symbol': best.get('symbol'), 'pct': round(_f(best.get('realizedPnlUsd')) / _f(best['costUsd']) * 100)} if best else None}
 
 
-def why_bought(row, tag=''):
-    """The line under a seat: what the coin looked like the moment the ENGINE took it → {tag, chg1h, vol1h, ageH, buyShare, liq}."""
-    g = lambda k: None if (row or {}).get(k) is None else round(_f(row.get(k)), 1)
-    lv = (row or {}).get('liquidity')
-    liq = _f((row or {}).get('liquidityUsd') or (row or {}).get('liq') or (lv.get('usd') if isinstance(lv, dict) else lv))
-    return {'tag': tag or '', 'chg1h': g('chg1h'), 'vol1h': g('vol1h'), 'ageH': g('ageH'), 'buyShare': g('buyShare'), 'liq': round(liq) if liq else None}
-
-
 def setups(strategies, real_records, live_cfg=None):
     """The front door → [{key, name, why, source, proven, n, medPct, upPct, worstPct, …}]. Replay setups carry their walk-forward
     record (`source: 'replay'`); every real card is a row with its ledger record (`source: 'real'`). Best first: a proven replay

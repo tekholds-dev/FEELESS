@@ -21,11 +21,7 @@ STOPS = ('sell', 'park', 'hold')
 EMOJI = {'off': '➡', 'classic': '⚓🔥', 'adaptive': '🧠', 'safe': '⚓', 'press': '🔥', 'rescue': '🛟', 'auto': '🤖', 'smart': '🧲', 'even': '⚖', 'sell': '✂', 'park': '🅿', 'hold': '❄'}
 
 
-def _f(v):
-    try:
-        return float(v)
-    except (TypeError, ValueError):
-        return 0.0
+from fnum import plain as _f
 
 
 def clean(d):

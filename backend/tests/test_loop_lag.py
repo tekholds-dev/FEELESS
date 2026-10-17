@@ -74,13 +74,6 @@ def test_scanner_strikes_are_debounced_but_never_lost(monkeypatch):
     assert asyncio.run(rs._desk_get())['snap'] is not None   # the intel desk is built once, in a worker thread
 
 
-def test_candle_store_dump_is_the_same_json_written_pair_by_pair():
-    import json
-    import candles_service as cs
-    store = {'solana:A': [{'t': 1.5, 'p': 3.4e-06, 'v': None}], 'solana:B "q"': [], 'c': [{'t': 2, 'p': 1.0, 'v': 12.5}]}
-    assert cs._dump_store(store) == json.dumps(store) and cs._dump_store({}) == '{}'
-
-
 def test_candle_store_is_streamed_to_disk_as_valid_json():
     import json
     import candles_service as cs

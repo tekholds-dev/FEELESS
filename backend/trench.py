@@ -19,12 +19,7 @@ HOLD_TOP10 = 35.0
 BAD_REP = ('suspect', 'high')   # 'watch' (a little evidence — most serial pump deployers) passes with a score penalty
 
 
-def _f(v):
-    try:
-        x = float(v)
-        return x if math.isfinite(x) else 0.0
-    except (TypeError, ValueError):
-        return 0.0
+from fnum import finite as _f
 
 
 def _holding(c):

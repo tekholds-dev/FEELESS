@@ -15,12 +15,7 @@ MIN_N = 30           # full paths before the grid says anything
 EDGE = 1.0           # a setting "pays" only ≥ this many points a trade over the live one, with a median no worse
 
 
-def _f(v):
-    try:
-        x = float(v)
-        return x if x == x else 0.0
-    except (TypeError, ValueError):
-        return 0.0
+from fnum import nan_safe as _f
 
 
 def key_of(p):

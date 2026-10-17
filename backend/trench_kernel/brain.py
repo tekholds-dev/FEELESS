@@ -50,12 +50,7 @@ def chart_call(ms):
     return (e[0] if e else None) or None, (e[1] if len(e) > 1 else None) or None
 
 
-def _f(v):
-    try:
-        x = float(v)
-        return x if x == x else 0.0
-    except (TypeError, ValueError):
-        return 0.0
+from fnum import nan_safe as _f
 
 
 def tally(ms):

@@ -1,8 +1,7 @@
 import React from 'react';
 import { createRoot } from 'react-dom/client';
 import { act } from 'react';
-import { AgentDesk } from './AgentDesk';
-import { heat, reasonsOf, scopeOf, docketOf, listFor, seatMoves, CardNow, CourtBand, Court, MissionBar } from './AgentScreens';
+import { heat, reasonsOf, scopeOf, docketOf, listFor, CourtBand, Court, MissionBar } from './AgentScreens';
 jest.mock('../terminal/PriceChart', () => ({ PriceChart: () => <div data-testid="price-chart" /> }));   // the live chart needs a canvas
 
 // `k` = the KERNEL's decision on the row; trigger / devil / go are the practice desk's paper words (they decide nothing)
@@ -12,10 +11,6 @@ const K = { A: { status: 'READY', rank: 150, trigger: 'ENTER', narrative: 'RUNNI
 const row = (mint, symbol, d5, lean, trig, dev, go, drivers, rug) => ({ mint, symbol, pair: `P${mint}`, go, k: K[mint], nums: { d5, pace: 2, buy: 60 }, why: { lean, drivers }, trigger: [trig, 'why t'], devil: [dev, dev === 'object' ? 'its read is BOND RUN' : ''], vitals: { top10: 40, rug, organic: 3 } });
 const table = [row('A', 'GOOD', 4, 2.4, 'enter', 'agree', true, [['surge', 1, 'volume surging'], ['buyers', 0.5, 'buyers in charge']], 10),
   row('B', 'RUN', 9, 1.9, 'enter', 'object', false, [['surge', 1, 'volume surging'], ['swarm', -1, 'copy-paste callers']], 70), row('C', 'MEH', -2, 0.2, 'wait', '—', false, [], 20)];
-const view = { agents: [['tally', '📊', 'Tally'], ['sherlock', '🔍', 'Sherlock'], ['trigger', '⏱', 'Trigger'], ['devil', '⚖', 'Devil']].map(([key, icon, name]) => ({ key, icon, name, job: 'job', n: 12, med: 1, right: 55 })),
-  stage: { h: 5, conquered: [], needN: 30, needWin: 55 }, desk: { start: 20, now: 20, x: 1, best: 1, busts: 0, trades: 0 }, road: { pct: 3, paper: { done: false, x: 1, need: 10, n: 0, needN: 30 }, real: { open: false, n: 0, needN: 10 } },
-  bar: 1.5, perf: { tally: 1, sherlock: 2, trigger: 1, devil: 1, coins: 3, at: Date.now() / 1000 - 10 }, tasks: { tally: 'read 3 coins' }, life: {}, thoughts: [], table, cfg: { agentLearn: true },
-  card: { tpl: 'degen', seats: [{ symbol: 'BOT', pair: 'P1', mint: 'M1', kind: 'agent', pct: 5, take: 10, action: 'hold', why: '+5.0% — holding until +10%' }, { symbol: 'MINE', pair: 'P2', mint: 'M2', kind: 'yours', pct: null }, { kind: 'open', symbol: null, pct: null }] } };
 
 test('screen helpers: heat, reasons (who carries them), the scope (bar at the middle), the docket and the click-through order', () => {
   expect(heat(0)).toBe(0.12); expect(heat(-5)).toBe(0.5); expect(heat(40)).toBe(1);
@@ -28,46 +23,11 @@ test('screen helpers: heat, reasons (who carries them), the scope (bar at the mi
   expect(listFor('sherlock', table, 'swarm')).toEqual(['B']); expect(listFor('devil', [table[2]])).toEqual(['C']);   // no ENTER → the whole pass
 });
 
-test('the real card as seats: who holds each one, no price = "—", and an unset card says paper only', async () => {
-  const el = document.createElement('div'); document.body.appendChild(el); const root = createRoot(el);
-  await act(async () => { root.render(<CardNow card={view.card} cfg={view.cfg} />); });
-  const q = id => el.querySelector(`[data-testid="${id}"]`);
-  expect(q('seat-BOT').className).toContain('is-agent'); expect(q('seat-BOT').textContent).toContain('+5.0%'); expect(q('seat-BOT').textContent).toContain('⏳');
-  expect(q('seat-MINE').textContent).toContain('—'); expect(q('ags-card').textContent).toContain('open');   // no price = "—", never a fake 0%
-  expect(q('ags-ladder')).toBeNull(); expect(q('grow-tally')).toBeNull();                                    // levels / seat ladder are gone: ONE lifecycle, in the generations lens
-  await act(async () => { root.render(<CardNow card={{}} cfg={{}} />); });
-  expect(q('ags-card').textContent).toContain('paper only');
-  await act(async () => { root.unmount(); });
-});
 
 const judge = { n: 4, wins: 2, losses: 2, trial: 'trigger', handicap: 'bar +0.5', mvp: 'sherlock', needNet: 2,
   score: { tally: { credit: 0, blame: 0, net: 0 }, sherlock: { credit: 2, blame: 0, net: 2 }, trigger: { credit: 0, blame: 2, net: -2 }, devil: { credit: 0, blame: 0, net: 0 } },
   rulings: [{ sym: 'GOOD', mint: 'A', pct: 8, at: 2, verdict: 'win', credit: 'sherlock', blame: null, kind: 'go' }, { sym: 'RUN', mint: 'B', pct: -6, at: 1, verdict: 'loss', credit: null, blame: 'trigger', kind: 'go' }] };
 
-test('every seat is a control: an open seat fills with a GO coin, a held seat swaps one in, the agents\' seat pulls — a ⚠ comes back as "do it anyway"', async () => {
-  const gos = [{ mint: 'G1', symbol: 'GO1', pair: 'PG1' }, { mint: 'M1', symbol: 'BOT', pair: 'P1' }];
-  expect(seatMoves({ kind: 'open' }, 'degen', gos)[0].body).toEqual({ fillSeat: { tpl: 'degen', to: 'G1', toPair: 'PG1', via: 'agents' } });
-  expect(seatMoves({ kind: 'agent', symbol: 'BOT', pair: 'P1' }, 'degen', gos.slice(0, 1)).map(m => m.k)).toEqual(['manualSell', 'pickSwap']);
-  expect(seatMoves({ kind: 'yours', symbol: 'MINE', pair: 'P2', state: 'ride' }, 'degen', gos)).toEqual([]);   // a riding coin is never swapped from here
-  const call = jest.fn(async (path, o) => { const b = JSON.parse(o.body); if (b.pickSwap && !b.pickSwap.ack) throw new Error('⚠ ⏳ $MINE was bought 4 min ago'); return { ok: true }; });
-  const done = jest.fn(); const el = document.createElement('div'); document.body.appendChild(el); const root = createRoot(el);
-  await act(async () => { root.render(<CardNow card={view.card} cfg={view.cfg} gos={gos} call={call} onDone={done} />); });
-  const q = id => el.querySelector(`[data-testid="${id}"]`);
-  expect(q('ags-tray')).toBeNull();
-  await act(async () => { q('seat-open-2').click(); });
-  expect(q('move-fill-GO1')).not.toBeNull(); expect(q('move-fill-BOT')).toBeNull();   // a GO coin already on the card is never offered
-  await act(async () => { q('move-fill-GO1').click(); });
-  expect(JSON.parse(call.mock.calls[0][1].body)).toEqual({ fillSeat: { tpl: 'degen', to: 'G1', toPair: 'PG1', via: 'agents' } }); expect(done).toHaveBeenCalledTimes(1); expect(q('ags-tray')).toBeNull();
-  await act(async () => { q('seat-MINE').click(); });
-  await act(async () => { q('move-swap-GO1').click(); });
-  expect(q('ags-tray').textContent).toContain('bought 4 min ago');   // the card's own warning, shown — nothing sent past it
-  await act(async () => { q('seat-ack').click(); });
-  expect(JSON.parse(call.mock.calls[2][1].body).pickSwap).toMatchObject({ pairAddress: 'P2', to: 'G1', ack: true, now: true });
-  await act(async () => { q('seat-BOT').click(); });
-  await act(async () => { q('move-pull').click(); });
-  expect(JSON.parse(call.mock.calls[3][1].body)).toEqual({ manualSell: { tpl: 'degen', pairAddress: 'P1', pct: 100 } });
-  await act(async () => { root.unmount(); });
-});
 
 test('the Judge band: W–L, who is on trial + its handicap, the 👑, the ruling tape; proof pips for paper and card; the court zoom', async () => {
   const pick = jest.fn(); const court = jest.fn(); const el = document.createElement('div'); document.body.appendChild(el); const root = createRoot(el);

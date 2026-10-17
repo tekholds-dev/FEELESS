@@ -433,12 +433,7 @@ import card_dna as _dna
 import office_edge as _oe
 
 
-def _f(v):
-    try:
-        x = float(v)
-        return x if math.isfinite(x) else 0.0
-    except (TypeError, ValueError):
-        return 0.0
+from fnum import finite as _f
 
 
 def at_or_below_loss(price, entry, threshold):

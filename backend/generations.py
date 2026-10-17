@@ -7,12 +7,7 @@ from trench_kernel.lifecycle import improve as _improve
 SHADOW_MIN_N = 5              # real closed positions after the switch before the shadow record says anything
 
 
-def _f(v):
-    try:
-        x = float(v)
-        return x if x == x else 0.0
-    except (TypeError, ValueError):
-        return 0.0
+from fnum import nan_safe as _f
 
 
 def improve(agent, causes, tunable, prev=None, wins=0):

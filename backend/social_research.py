@@ -49,11 +49,7 @@ TG_RE = re.compile(r'https?://(?:t\.me|telegram\.me)/([A-Za-z0-9_+]{3,64})', re.
 X_SKIP = {'home', 'intent', 'share', 'search', 'i', 'hashtag', 'explore', 'login', 'signup', 'settings', 'tos', 'privacy'}
 
 
-def _f(v):
-    try:
-        return float(v)
-    except (TypeError, ValueError):
-        return 0.0
+from fnum import plain as _f
 
 
 def _text(html):

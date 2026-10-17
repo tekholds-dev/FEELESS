@@ -7,7 +7,7 @@ import { LiveFuseCard } from './FuseCard';
 import { tiny } from '../lib/num';
 // 💵 Fuse money, in plain words — shared by every card surface (tier cards, My cards, battle corners, profile, Lab):
 // MoneyMath (PUT IN → STILL IN CARD + PAID OUT = NOW, profit apart from fees), RoundBell (10s countdown into every round),
-// PaperAudit (a card's paper book: true-fill entries → now), CardShowcase (3-card 3D shuffle), CardCosts (fee receipt).
+// PaperAudit (a card's paper book: true-fill entries → now), CardCosts (fee receipt).
 export const usd = v => { const a = Math.abs(v || 0); return `${(v || 0) < 0 ? '−' : ''}$${a >= 10000 ? `${(a / 1000).toFixed(1)}K` : a.toFixed(2)}`; };
 export const pct = v => `${(v || 0) >= 0 ? '+' : ''}${Math.abs(v || 0) >= 1000 ? `${((v || 0) / 100 + 1).toFixed(1)}x` : `${(v || 0).toFixed(1)}%`}`;
 // compact for tight tiles: $1.3K · $517 · $1.75
@@ -70,26 +70,6 @@ export function PaperAudit({ k, name, onClose }) {
         {d.past.map(x => <div key={x.endedAt} className={`pa-done r-${x.result}`}><b>{x.result === 'won' ? '🏆 won' : x.result === 'lost' ? '✕ lost' : '🤝 draw'}</b>
           <span className="m-num">{usd(x.startUsd)} → {usd(x.valueUsd)}</span><em className={`m-num ${x.pnlUsd >= 0 ? 'm-pos' : 'm-neg'}`}>{pct(x.pct)}</em><time className="m-dim">{ago(x.endedAt)} ago</time></div>)}</section>}
     </aside></div>, document.body);
-}
-
-// 🃏 3-card shuffle above the battle: the top three cards orbit in 3D, the front one is the spotlight. Tap a card to bring
-// it forward. Pure transform/opacity; still under fx-lite / reduced motion.
-export function CardShowcase({ cards = [], onOpen }) {
-  const [front, setFront] = useState(0);
-  const [hold, setHold] = useState(false);
-  const n = Math.min(3, cards.length);
-  useEffect(() => { if (n < 2 || hold || window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return undefined;
-    const t = setInterval(() => setFront(f => (f + 1) % n), 4200); return () => clearInterval(t); }, [n, hold]);
-  if (n < 2) return null;
-  return <section className="sc3" onMouseEnter={() => setHold(true)} onMouseLeave={() => setHold(false)} data-testid="card-showcase" aria-label="Top cards">
-    <span className="m-label sc3-k">🏆 TOP 3 WINNERS · LIVE SHUFFLE</span>
-    <div className="sc3-ring" style={{ '--n': n }}>{cards.slice(0, n).map((c, i) => { const pos = (i - front + n) % n;
-      return <div key={c.key} role="button" tabIndex={0} className={`sc3-card p-${pos} t-${c.tone || 'gold'} ${c.node ? 'has-card' : ''}`} onClick={e => { if (e.target.closest('.fcd-flip')) return; pos === 0 ? onOpen?.(c) : setFront(i); }}
-        onKeyDown={e => e.key === 'Enter' && (pos === 0 ? onOpen?.(c) : setFront(i))} aria-label={`${c.name} ${pct(c.pct)}`} data-testid={`sc3-${i}`}>
-        <span className="sc3-shine" aria-hidden="true" />
-        {c.node ? <span className="sc3-real">{c.node}</span> : null}
-        <span className="sc3-meta"><small>{c.badge}</small><b>{c.name}</b><em className={`m-num ${c.pct >= 0 ? 'm-pos' : 'm-neg'}`}>{pct(c.pct)}</em>{c.sub && <i className="m-num">{c.sub}</i>}</span></div>; })}</div>
-  </section>;
 }
 
 // 💲 What a card costs BEFORE you buy it: first buy (per coin), the auto rounds (5 included, then packs), card swaps — in $ and

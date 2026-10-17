@@ -69,13 +69,6 @@ def _load() -> dict:
     return store
 
 
-def _dump_store(store):
-    """The store as JSON, serialized PAIR BY PAIR. The C encoder holds the GIL for one whole call, so a single json.dumps of the 68 MB
-    store froze the service (live candles, health) for ~1s on every flush, even from a worker thread; 10,000 small calls let the event
-    loop in between. Same text as json.dumps(store)."""
-    return '{' + ', '.join(json.dumps(k) + ': ' + json.dumps(v) for k, v in list(store.items())) + '}'
-
-
 def _stream_store(store):
     """Worker thread: the store written straight to the file, a pair at a time — no 68 MB string joined and encoded in one GIL-holding call."""
     tmp = STORE_PATH.with_suffix('.tmp')

@@ -1236,7 +1236,6 @@ def test_rent_story_counts_what_came_back_and_what_is_parked():
 
 def test_a_stopped_coins_reserved_seat_is_never_bought_back():
     import fuse_wallet as fw
-    SOL = fw.SOL_MINT
     # $TikPad hit its stop with no replacement ready: the seat is a placeholder that still carries TikPad's mint (and, from an
     # earlier sync, even its units). The wallet has already sold it — its SOL is card cash.
     card = {'rounds': 400, 'rebuyRound': 399, 'rebuyAt': 0, 'legs': [

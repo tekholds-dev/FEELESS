@@ -5,11 +5,7 @@ Names are the wallet's profile name / handle, badges are its featured earned bad
 import track_record as _tr
 
 
-def _f(v, d=0.0):
-    try:
-        return float(v)
-    except (TypeError, ValueError):
-        return d
+from fnum import plain as _f
 
 
 def short(a):

@@ -34,12 +34,7 @@ ASK = ("This coin is HELD by the desk (`pct` now, `peak` = best % since entry, `
        "(confidence_delta −0.25 = clearly fading). Never advise buying more. summary = the one sign you read.")
 
 
-def _f(v, d=0.0):
-    try:
-        x = float(v)
-        return x if x == x else d
-    except (TypeError, ValueError):
-        return d
+from fnum import nan_safe as _f
 
 
 def word_of(advice, pct=None):

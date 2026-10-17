@@ -18,4 +18,3 @@ export const RULES = [
   ['R9c', 'Your creator max hold', 'hard', 'agentMaxHold'], ['R10', 'Hold — nothing says sell', 'info', null],
   ['R10r', 'Riding the volume: a real crowd buying, wide trail', 'soft', 'agentTrail'], ['R11', 'Dead coin: no trades for minutes', 'soft', null],
 ];
-export const ruleOf = code => RULES.find(r => r[0] === String(code || '').split(' ')[0]) || null;

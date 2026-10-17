@@ -14,12 +14,7 @@ WINDOW_SEC = 24 * 3600.0
 MATCH_SEC = 300.0   # a seat event and the buy it caused are at most this far apart
 
 
-def _f(v):
-    try:
-        x = float(v)
-        return x if x == x else 0.0
-    except (TypeError, ValueError):
-        return 0.0
+from fnum import nan_safe as _f
 
 
 def _p(xs, q):

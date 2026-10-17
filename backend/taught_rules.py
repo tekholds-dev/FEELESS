@@ -31,12 +31,7 @@ LOCKED = {'clone': 'skip', 'copycat': 'skip'}   # 🧬 owner, 2026-10-15: "STOP 
 STOP = {'the', 'and', 'coin', 'token', 'official', 'sol', 'solana', 'pump', 'fun', 'inu', 'new', 'real', 'meme', 'of', 'on', 'in', 'a', 'to', 'for'}
 
 
-def _f(v, d=0.0):
-    try:
-        x = float(v)
-        return x if x == x else d
-    except (TypeError, ValueError):
-        return d
+from fnum import nan_safe as _f
 
 
 def clean(cfg):

@@ -1,6 +1,5 @@
 """🧬 TRENCH META: a launch too young for a chart is judged on its tape — a real crowd vs a bot loop / one-wallet pump / dump."""
 import flow
-import office_edge as oe
 
 NOW = 10_000.0
 

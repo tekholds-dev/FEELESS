@@ -42,11 +42,7 @@ def from_sim(cfg):
     return {**out, 'pickNum': num} if out else {}
 
 
-def _f(v, d=0.0):
-    try:
-        return float(v)
-    except (TypeError, ValueError):
-        return d
+from fnum import plain as _f
 
 
 def is_broke(card, value, now, last_reset=0.0):

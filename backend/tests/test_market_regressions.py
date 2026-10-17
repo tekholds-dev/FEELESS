@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
 
 from backend.market import MARKET_CACHE_RETENTION, PROVIDER_COVERAGE, is_new_pool_deal, normalise_pump_coins
 

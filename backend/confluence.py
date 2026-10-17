@@ -22,12 +22,7 @@ MIN_N = 5          # a record counts once it has this many settled coins
 TILT_MAX = 6.0     # hand-set tilts may move the edge at most this many points
 
 
-def _f(v):
-    try:
-        x = float(v)
-        return x if x == x else 0.0
-    except (TypeError, ValueError):
-        return 0.0
+from fnum import nan_safe as _f
 
 
 def _rec(r):

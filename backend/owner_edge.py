@@ -18,11 +18,7 @@ RULES = (
 )
 
 
-def _f(v, d=0.0):
-    try:
-        return float(v)
-    except (TypeError, ValueError):
-        return d
+from fnum import plain as _f
 
 
 def join(log, pcs, window=900.0):

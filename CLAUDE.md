@@ -4323,7 +4323,7 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
 - 👤 THE MODELS LEARN THE OWNER (`_ai_owner`, case key `owner`): his moves graded 30 min later (owner_moves: picks, swaps, takes, ✂, and NOW
   his SL/TP drags — `set_leg` writes a `level` event: more room = judged like a buy, tighter = like a sale), his pick bands (pick_style) and
   his dragged lines vs the agents' (office.owner_hand).
-- 🌐 BRAIN CHAT SEARCHES (`ai_chat.wants_web/web_query/WEB_RULE`; chat route → `feeless_mcp._search_rows`, 5 results, ≤ 8s): a world question
+- 🌐 BRAIN CHAT SEARCHES (`ai_chat.should_search/web_query/WEB_RULE`; chat route → `feeless_mcp._search_rows`, 5 results, ≤ 8s): a world question
   (not a greeting, not a FEELESS-record question) gets web results in their own WEB block (`messages_general`), the model cites the url,
   sources shown under the reply (`WebSrc`, http(s) links only). `web: false` in the body skips it.
 - ✋ YOUR SL / TP IS RESPECTED (`office.owner_ask`, `ASK_HARD`; owner, 2026-10-15): on a coin whose line you dragged (leg `ownerLvAt`), every

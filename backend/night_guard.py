@@ -16,11 +16,7 @@ RUG_N, RUG_PCT, RUG_WINDOW, RUG_PAUSE = 2, -45.0, 3600.0, 90 * 60.0
 KEEP = 400
 
 
-def _f(x, d=0.0):
-    try:
-        return float(x)
-    except (TypeError, ValueError):
-        return d
+from fnum import plain as _f
 
 
 def step(state, value, exits, now, night=False):
