@@ -4789,3 +4789,7 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
 - 🔁 A MODEL'S SEAT SURVIVES YOUR EDIT (2026-10-17, $illusion "seated" then gone): dragging a line saves the card mid-tick and `merge_tick`
   drops that whole tick (your edit wins) — the agents re-fill next tick by themselves, but OSSY / G4's BUY was one-shot. `_g4['pendSeat']`
   keeps it until the save; seated-but-lost → `_g4['want']` restored once ("your edit saved the card at the same moment — retrying").
+- 🔁 COIN ROTATION for OSSY / G4 (2026-10-17, $1 bought 4× in 2h): the minute loop rewrote `_g4_mem` WITHOUT `opened`, wiping the 1h no-repeat
+  list every minute. Fixed, plus `ai_seat.recent_ai_buys` = any coin a model seated in the last 6h (`ROTATE_SEC`, read from the card's own fill
+  events — survives restarts) is off both models' lists. 🔫 `_g4_bad_entry` (gun wall · gun chase · after a spike · chart SKIP) removes a coin
+  from the models' list AND refuses their BUY at the fill ("not bought — …") — the models may decide, never at the gun line.

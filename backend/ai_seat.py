@@ -340,3 +340,13 @@ def idle_parse(text, syms):
     if not mint:
         return None
     return {'view': v, 'mint': mint, 'why': re.sub(r'\s+', ' ', str(j.get('why') or '')).strip()[:160], 'conf': max(0, min(100, int(_f(j.get('conf'), 50))))}
+
+
+ROTATE_SEC = 6 * 3600   # a coin either model bought sits out this long — the two models must rotate through DIFFERENT coins
+
+
+def recent_ai_buys(events, now, sec=ROTATE_SEC):
+    """🔁 Mints OSSY / G4 put on the card in the last `sec` — read from the card's own fill events (they survive restarts and memory
+    rewrites; the in-memory list once got wiped every minute and $1 was bought 3×)."""
+    return {e.get('mint') for e in events or [] if e.get('kind') == 'agent' and e.get('move') == 'fill' and e.get('mint')
+            and '🧠' in str(e.get('why') or '') and now - _f(e.get('at')) < sec}

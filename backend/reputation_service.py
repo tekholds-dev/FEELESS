@@ -10706,10 +10706,14 @@ async def _prime_tick_inner(now):
                     and seat_ctx_['courier'] != 'BAD' and used_ < _uni.FILL_MOVES_HR and w_.get('mint') not in _g4_blocked(cur, now)):
                 _g4['want'], _g4['pendSeat'] = None, {**w_}   # (kept until the save: an owner edit mid-tick drops this tick → the BUY is retried, never lost)
                 gt_ = _tk.KERNEL.candidate(w_['mint'])
+                bad_ = _g4_bad_entry(gt_) if gt_ else None
+                if bad_:   # 🔫 the coin ran to its gun line while the model thought: no buy, it picks again next minute
+                    _g4_fate(w_, 'not bought — ' + str(bad_)[:90], now)
+                    gt_ = None
                 if gt_ and gt_.get('pair'):
                     plan_, g4n_ = [{**gt_, 'g4': True, 'g4By': w_.get('by'), 'g4Tp': w_.get('tp'), 'g4Sl': w_.get('sl'), 'nearReady': f"🧠 {w_.get('model') or 'G4'}: {w_.get('why')}"}] + [t_ for t_ in plan_ if t_['mint'] != gt_['mint']], 1
                     _g4_fate(w_, 'sent to the seat check', now)
-                else:
+                elif not bad_:
                     _g4_fate(w_, 'coin left the desk before the buy', now)
             pre_ = await _seat_precheck(plan_[:empty_n + 3 + g4n_], cfg_t, now, seat_usd=_prime.agent_seat_usd(cur, px, cfg_s), need=empty_n + g4n_) if (plan_ and real_t) else None   # 🛂 the keeper's market gate BEFORE the seat
             _office['pre'] = {'at': now, 'asked': len(plan_), 'passed': len(pre_) if pre_ is not None else None,
@@ -13891,6 +13895,8 @@ async def _g4_tick(now, env, cfg):
         cands_ += [c_ for c_ in (_tk.KERNEL.candidate(x_['mint']) for x_ in _tk.KERNEL.cases(exclude=on_) if x_['status'] == 'CONTENDING') if c_][:_seat.CAND_N - len(cands_)]
         op_ = {k_ for k_, v_ in ((_g4_mem.get() or {}).get('opened') or {}).items() if now - _fuse._f(v_) < 3600}
         op_ |= {r_.get('mint') for r_ in st_['log'][-120:] if r_.get('action') == 'BUY' and r_.get('mint') and now - _fuse._f(r_.get('at')) < 1800}   # 🚫 no coin either model already called a BUY on in the last 30 min   # 🚫 a coin either model bought in the last hour is off their list
+        op_ |= _seat.recent_ai_buys(card_.get('events'), now)   # 🔁 coin rotation from the card's OWN record: any coin a model seated in the last 6h is off both lists
+        cands_ = [c_ for c_ in cands_ if c_ and not _g4_bad_entry(c_)]   # 🔫 never offered a coin at its gun line / mid-spike / chart SKIP — the models only see clean entries
         cands_ = [c_ for c_ in cands_ if c_ and c_.get('mint') and not _fw.dollar_named(c_.get('symbol')) and c_['mint'] not in _g4_blocked(card_, now) and c_['mint'] not in op_]
         pxm_ = await _live_px([c_['mint'] for c_ in cands_] + ([held_m] if held_m else []))
         px_of = lambda m_: _fuse._f(pxm_.get(m_)) or _fuse._f((_jup_px_cache.get(m_) or (0, 0))[1])
@@ -14002,7 +14008,7 @@ async def _g4_tick(now, env, cfg):
         m1_ = _g4_mem.get() or {}   # the seat may have opened (and the stats restarted) while this model was thinking
         if (m1_.get('statsFrom') or 0) > (st_.get('statsFrom') or 0):
             log_ = [r_ for r_ in log_ if (r_.get('at') or 0) >= m1_['statsFrom']]
-        _g4_mem.put({'log': log_, 'book': book_, 'at': now, 'opener': m1_.get('opener') or st_.get('opener'), 'talkAt': talk_at, 'statsFrom': m1_.get('statsFrom'), 'idleAt': m1_.get('idleAt') or st_.get('idleAt')}, now)
+        _g4_mem.put({'log': log_, 'book': book_, 'at': now, 'opener': m1_.get('opener') or st_.get('opener'), 'talkAt': talk_at, 'statsFrom': m1_.get('statsFrom'), 'idleAt': m1_.get('idleAt') or st_.get('idleAt'), 'opened': m1_.get('opened') or {}}, now)   # 🚫 keep the bought-coins list (it was dropped every minute → $1 bought 3×)
     except Exception as e_:
         print('g4 seat:', str(e_)[:140])
     finally:
@@ -14046,6 +14052,15 @@ async def _g4_idle(now, env, cfg, st_, legs_, mode_):
         _dv_note(row_, _fuse._f(pxm_.get(d_['mint'])), now)
     except Exception as e:
         print('g4 idle:', str(e)[:100])
+
+
+def _g4_bad_entry(c):
+    """🔫 The entry the models may NOT take (owner, 2026-10-17: "not entering or even suggesting at the gun line"): pressed under its gun
+    line, a breakout chase, after a spike, or the chart's own call is SKIP. → reason or None. Checked when the list is built AND again at the fill."""
+    try:
+        return _opp.gun_wall(c) or _opp.gun_chase(c) or _opp.spike_chase(c) or ('chart says SKIP' if str(c.get('chartCall') or '').upper().startswith('SKIP') else None)
+    except Exception:
+        return None
 
 
 def _g4_view():

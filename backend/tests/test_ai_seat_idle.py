@@ -24,3 +24,10 @@ def test_idle_parse_needs_a_coin_on_the_card():
     assert s.idle_parse('{"coin":"","view":"HOLD","why":"WIF buyers 70%"}', syms)['mint'] == 'm2'
     assert s.idle_parse('{"coin":"PEPE","view":"HOLD","why":"x"}', syms) is None
     assert s.idle_parse('{"coin":"BONK","view":"BUY"}', syms) is None
+
+
+def test_recent_ai_buys_reads_model_fills_only():
+    ev = [{'kind': 'agent', 'move': 'fill', 'mint': 'a', 'at': 100, 'why': '🤖 agents filled seat 2 of 4 with $1 — 🧠 OSSY: buyers 70'},
+          {'kind': 'agent', 'move': 'fill', 'mint': 'b', 'at': 100, 'why': '🤖 agents filled seat 3 of 4 with $X — ARMED'},
+          {'kind': 'agent', 'move': 'fill', 'mint': 'c', 'at': 100 - 7 * 3600, 'why': '🧠 G4: old'}]
+    assert s.recent_ai_buys(ev, 200) == {'a'}
