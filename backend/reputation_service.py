@@ -14000,7 +14000,8 @@ async def _g4_tick(now, env, cfg):
         dec_ = _seat.parse(r_.get('text'), [c_['mint'] for c_ in cands_], bool(held_), {c_.get('symbol'): c_['mint'] for c_ in cands_ if c_.get('symbol')})
         dec_ = _seat.cook(dec_, {**(held_ or {}), 'sl': (leg_ or {}).get('aiSl')}) if held_ else dec_
         if held_ and dec_:   # 🦠 a base (germ floor / higher lows) on slow volume is held — unless sellers lead the 90s tape
-            dec_ = _seat.structure_hold(dec_, {**held_, 'sl': (leg_ or {}).get('aiSl')}, held_ch, sellers=str(((_office.get('flow') or {}).get(held_m) or {}).get('state') or '').upper() == 'SELLERS')   # 🍳 no model sells its coin in its first 4 min unless it is really losing
+            dec_ = _seat.structure_hold(dec_, {**held_, 'sl': (leg_ or {}).get('aiSl')}, held_ch, sellers=str(((_office.get('flow') or {}).get(held_m) or {}).get('state') or '').upper() == 'SELLERS')
+            dec_ = _seat.line_hold(dec_, {**held_, 'sl': (leg_ or {}).get('aiSl'), 'tp': (leg_ or {}).get('aiTp')}, held_ch, sellers=str(((_office.get('flow') or {}).get(held_m) or {}).get('state') or '').upper() == 'SELLERS')   # 🎯 between its SL and TP a SELL needs a chart reason
         ms_ = round((time.perf_counter() - t0_) * 1000)
         miss_ = None
         if not dec_:   # 🤝 no model answered (busy / timed out / unreadable): the agents decide the seat this minute instead of a dead minute

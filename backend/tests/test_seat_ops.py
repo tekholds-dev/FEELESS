@@ -202,7 +202,8 @@ def test_past_its_base_a_winner_must_earn_each_window_and_a_non_winner_gives_up_
     pos2, rep2, _ = _reap(0.5, 31, 'STABLE', granted=6)                                          # +0.5% is a winner only on paper: holding, no gain → earns?
     assert pos2['A']['granted'] == 7                                                              # STABLE + positive keeps earning
     pos3, rep3, _ = _reap(-3.0, 31, 'STABLE', granted=6)
-    assert rep3[0]['rule'] == 'R9e no extension earned' and rep3[0]['action'] == 'pull' and 'only a winner' in rep3[0]['evidence']
+    assert rep3[0]['rule'] == 'R9e no extension earned' and 'only a winner' in rep3[0]['evidence']
+    assert rep3[0]['action'] is None and 'never sells a base' in rep3[0]['evidence']                # 🎯 owner 2026-10-17: on a base (UPCH = higher lows) a time rule never sells — it plays out to its stop / take
     pos4, rep4, _ = _reap(6.0, 31, 'ACCELERATING', granted=6, margins={'A': (25, 15)})
     assert rep4[0]['rule'] == 'R9e no extension earned' and 'challenger' in rep4[0]['evidence']   # a materially better challenger takes the time
     pos5, rep5, _ = _reap(-3.0, 16, 'STABLE', granted=4)                                         # inside the base (window 3 of 6): the thesis keeps its seat

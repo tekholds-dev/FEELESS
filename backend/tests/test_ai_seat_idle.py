@@ -78,3 +78,12 @@ def test_merge_log_keeps_a_line_written_while_the_model_thought():
     ours = before + [{'at': 3, 'by': 'local', 'action': 'HOLD', 'why': 'b'}]
     m = s.merge_log(ours, disk)
     assert [r['at'] for r in m] == [1, 2, 3]
+
+
+def test_line_hold_lets_a_trade_hit_its_lines():
+    d = {'action': 'SELL', 'why': 'pressure'}
+    assert s.line_hold(d, {'pct': -3, 'sl': 15, 'tp': 40}, {'ll': 0})['action'] == 'HOLD'
+    assert s.line_hold(d, {'pct': -3, 'sl': 15, 'tp': 40}, {'ll': 1})['action'] == 'SELL'          # a lower low = a reason
+    assert s.line_hold(d, {'pct': -3, 'sl': 15, 'tp': 40}, {'germ': 'lost'})['action'] == 'SELL'
+    assert s.line_hold(d, {'pct': -13, 'sl': 15, 'tp': 40}, {})['action'] == 'SELL'                # near its stop
+    assert s.line_hold(d, {'pct': -3, 'sl': 15, 'tp': 40}, {}, sellers=True)['action'] == 'SELL'

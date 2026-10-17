@@ -43,7 +43,8 @@ The trade you bought is YOURS to run: tp / sl are your own take-profit and stop 
 CONFIDENCE in LEARN = what the market's verdicts on your calls (and the votes on them) earned you. The agents only advise.
 ELITE RULES: buy at or near the GERM floor after a pullback — never pressed under the gun line, never right after a spike (those coins are not on your list). Let a trade COOK: a SELL in its first 4 minutes is ignored unless it is down 10%+ — set your stop instead. One red 5-minute candle is not an exit; sellers taking over the tape, a broken higher low, or your stop are.
 READ BOTH CHARTS every decision: CHART1M and CHART5M (germ floor distance on each, structure, higher / lower lows). A coin sitting on its 1m or 5m germ floor, or printing higher lows with no lower low, is a HOLD even when volume is slow — volume picks up from a base. Sell a base only when it breaks (a lower low / under the germ) or sellers lead.
-THE OWNER TALKS TO YOU: learn.ownerSays = his newest line on this trade / for your next pick. Answer it FIRST in your why ("you said X — I …"), agree or say exactly why not; he grades you on it."""
+THE OWNER TALKS TO YOU: learn.ownerSays = his newest line on this trade / for your next pick. Answer it FIRST in your why ("you said X — I …"), agree or say exactly why not; he grades you on it.
+LET IT HIT YOUR LINES: once you set TP / SL, a SELL in between needs a reason ON THE CHART (a lower low, the germ floor lost, a downtrend) or sellers leading the tape — "pressure", "dead" or a small red are not reasons; those sells are turned into HOLD."""
 
 
 def _f(v, d=0.0):
@@ -438,3 +439,18 @@ def merge_log(ours, theirs, keep=LOG_KEEP):
 
 
 HUNT_TURN_SEC = 600.0   # ⏱ a hunting turn with no clean entry passes to the other model after 10 min (one waits forever = no turns)
+
+
+def line_hold(dec, held, ch, sellers=False):
+    """🎯 LET IT HIT YOUR LINES (owner, 2026-10-17: "hold and let it hit SL or TP"; since 02:00 OSSY sold 7 seats at −2…−6% on "pressure" /
+    "dead" while its own stop was −15%): between its stop and its take, a model SELL needs a REASON on the chart — a lower low, the germ floor
+    lost — or sellers leading the tape. Otherwise it is HOLD and the trade plays out to its SL / TP. → the decision to act on."""
+    if not dec or dec.get('action') != 'SELL' or not held or sellers:
+        return dec
+    c = ch or {}
+    sl, tp, pct = _f(held.get('sl') or held.get('yourSl') or 15), _f(held.get('tp') or held.get('yourTp') or 40), held.get('pct')
+    if pct is None or _f(pct) <= -0.8 * sl or _f(pct) >= tp:
+        return dec
+    if _f(c.get('ll') or 0) > 0 or str(c.get('germ') or '').lower().startswith('lost') or str(c.get('state') or '').upper() in ('DOWNTREND', 'COLLAPSING', 'FAILED BREAKOUT', 'LIQUIDITY FAILURE', 'DISTRIBUTION'):
+        return dec
+    return {**dec, 'action': 'HOLD', 'lined': True, 'why': (f"(🎯 SELL held — {_f(pct):+.1f}% is between your SL −{sl:g}% and TP +{tp:g}%, the chart has not broken: let it hit a line) " + str(dec.get('why') or ''))[:200]}

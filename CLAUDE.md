@@ -4829,3 +4829,9 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
 - 🔁 FAIR TURNS: hunting is asked ONLY of the hunter too (`only=(first_,)` — OSSY used to answer for a missed G4 minute and bought on G4's turn:
   6h = OSSY 5 buys, G4 1). ⏱ `ai_seat.HUNT_TURN_SEC` 600: a hunter with no clean entry in 10 min passes the turn (row action PASS;
   `_g4_mem.huntBy` / `huntSince`). G4 had said WAIT 70× in 6h.
+- 🎯 LET IT HIT ITS LINES (owner, 2026-10-17: "hold and let it hit SL or TP" · "tired of agents wasting time and trades"). Since 02:00 the record:
+  53 real exits, −2.9% avg; "left the card by another rule" 21 × −9% = the leak (OSSY selling −2…−6% on "pressure / dead", agents re-buying
+  $Gato 3×, the owner's own picks at their lines). Now: (1) `ai_seat.line_hold` — between the model's SL and TP a SELL needs a CHART reason
+  (lower low, germ lost, downtrend / collapse) or sellers leading; (2) `office.BASE_TIME_RULES` R9 · R9e · R11 · R8 never sell a coin whose
+  base still holds (`base_of`), at any age, while it is above 80% of its stop; (3) `arena_prime.AGENT_OUT_LOSS_SEC` — a coin the agents left
+  ≥ 3% red sits out 1h. Stops, take, trail, rug / dump / drain, −45% unchanged.

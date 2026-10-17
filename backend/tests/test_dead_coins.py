@@ -64,3 +64,16 @@ def test_breakout_window_never_holds_back_a_stop_or_a_rug_exit():
     for hard in ('R1', 'R2', 'R3', 'R4', 'R4r', 'R4d', 'R5', 'R5x', 'R5c', 'R9c', 'R6', 'R7'):
         assert hard not in of.BREAKOUT_RULES
     assert of.BREAKOUT_SEC == 900 and 'R11' in of.BREAKOUT_RULES
+
+
+def test_a_coin_left_at_a_loss_sits_out_an_hour():
+    import arena_prime as ap
+    c = {'agentOut': {'M': {'at': 0, 'loss': True}, 'N': {'at': 0}}}
+    out = ap.agent_out(c, 1200)
+    assert 'M' in out and 'N' not in out
+    assert 'M' not in ap.agent_out(c, 3700)
+
+
+def test_time_rules_never_sell_a_base():
+    import office as of
+    assert set(of.BASE_TIME_RULES) <= set(of.BREAKOUT_RULES) and 'R9' in of.BASE_TIME_RULES and 'R5' not in of.BASE_TIME_RULES

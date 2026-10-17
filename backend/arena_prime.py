@@ -3547,7 +3547,7 @@ def agent_pull(card, pair, prices, liqs, now, why=''):
     if l.get('mint'):   # 🚫 the agents never buy back what they just left (2026-10-11: $Rupshld bought 3× in a minute between rug-radar exits, then rugged)
         c['agentOut'] = {**{m: v for m, v in (c.get('agentOut') or {}).items() if now - _f((v or {}).get('at')) < AGENT_OUT_DANGER_SEC},
                          l['mint']: {'at': now, 'danger': agent_out_danger(why), **({'urgent': True} if urgent_exit(why) else {}),
-                                     'px': px, 'green': bool(_f(l.get('entry')) > 0 and px > _f(l['entry']))}}
+                                     'px': px, 'green': bool(_f(l.get('entry')) > 0 and px > _f(l['entry'])), **({'loss': True} if _f(l.get('entry')) > 0 and px < _f(l['entry']) * (1 - AGENT_OUT_LOSS_PCT / 100) else {})}}
     return c
 
 
@@ -3564,6 +3564,7 @@ def urgent_exit(why):
 
 
 AGENT_OUT_SEC = 600.0           # any agent exit: the coin sits out 10 min (no sell → buy-back churn on the fast clock)
+AGENT_OUT_LOSS_SEC, AGENT_OUT_LOSS_PCT = 3600.0, 3.0   # a coin they LEFT AT A LOSS (≥ 3%) sits out 1h ($Gato: bought 3× in a morning, out red each time)
 AGENT_OUT_DANGER_SEC = 6 * 3600.0   # a rug / drain / dump / failed-scan / catastrophic exit: out for 6h
 AGENT_OUT_RULES = ('R1', 'R2', 'R4', 'R4r', 'R4e', 'R5x')
 
@@ -3585,7 +3586,7 @@ def agent_out(card, now, px_of=None, germ_of=None):
     out = set()
     for m, v in ((card or {}).get('agentOut') or {}).items():
         v = v or {}
-        if now - _f(v.get('at')) >= (AGENT_OUT_DANGER_SEC if v.get('danger') else AGENT_OUT_SEC):
+        if now - _f(v.get('at')) >= (AGENT_OUT_DANGER_SEC if v.get('danger') else AGENT_OUT_LOSS_SEC if v.get('loss') else AGENT_OUT_SEC):
             continue
         if px_of and v.get('green') and not v.get('danger') and _f(v.get('px')) > 0 and _f(px_of(m)) >= _f(v['px']) * (1 + COMEBACK_PCT / 100):
             continue
