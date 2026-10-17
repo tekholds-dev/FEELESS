@@ -94,24 +94,7 @@
 .ags-dacts { display: flex; gap: 6px; } .ags-dacts .m-btn { flex: 1; min-height: 32px; padding: 4px 10px; font-size: 12px; }
 
 /* 🎮 on your card now */
-.ags-card { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 10px; align-items: center; padding: 8px 10px; border-radius: 12px; border: 1px solid color-mix(in srgb, #7fd4ff 35%, transparent); background: rgba(0, 0, 0, .3); }
-.ags-card.is-off { grid-template-columns: auto 1fr; } .ags-card.is-off small { color: var(--m-dim); font-size: 11px; }
-.ags-cardh { display: grid; gap: 4px; } .ags-card b { font: 800 10.5px var(--m-mono); letter-spacing: .12em; color: #7fd4ff; white-space: nowrap; }
-.ags-pow { all: unset; cursor: pointer; font: 700 10px var(--m-mono); color: var(--m-dim); padding: 2px 8px; border-radius: 999px; border: 1px solid var(--m-line); justify-self: start; transition: border-color .12s; } .ags-pow:hover, .ags-pow:focus-visible { border-color: #7fd4ff; color: var(--m-text); } .ags-pow:active { transform: scale(.97); }
-.ags-seats { display: grid; grid-template-columns: repeat(auto-fit, minmax(118px, 1fr)); gap: 6px; }
-.ags-seat { all: unset; box-sizing: border-box; cursor: pointer; position: relative; display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 2px 6px; align-items: center; padding: 7px 9px; border-radius: 10px; border: 1px solid var(--m-line); background: rgba(255, 255, 255, .03); min-width: 0;
-  transition: transform .12s var(--m-ease), border-color .12s; }
-.ags-seat:hover { transform: translateY(-2px); border-color: var(--m-line-hi); } .ags-seat:active { transform: scale(.98); } .ags-seat:focus-visible { outline: 2px solid #7fd4ff; outline-offset: 1px; }
-.ags-seat i { font-style: normal; font-size: 13px; } .ags-seat b { font: 800 11.5px var(--m-mono); color: var(--m-text); letter-spacing: 0; overflow: hidden; text-overflow: ellipsis; } .ags-seat em { font: 800 11.5px var(--m-mono); font-style: normal; animation: agsPop .3s var(--m-ease); }
-.ags-seat.is-agent { border-color: #7fd4ff; background: color-mix(in srgb, #7fd4ff 9%, transparent); } .ags-seat.is-suggested { border-color: color-mix(in srgb, #7fd4ff 45%, transparent); }
-.ags-seat.is-open { cursor: default; border-style: dashed; opacity: .6; } .ags-seat.is-open b { color: var(--m-mute); }
-.ags-seat u { grid-column: 1 / 3; display: block; height: 4px; border-radius: 2px; background: rgba(255, 255, 255, .08); overflow: hidden; } .ags-seat u s { display: block; height: 100%; transform-origin: left; background: linear-gradient(90deg, #7fd4ff, #45e486); transition: transform .5s var(--m-ease); }
-.ags-act { font: 700 10px var(--m-mono); color: #7fd4ff; } .ags-act.is-pull { color: #45e486; } .ags-act.is-swap { color: var(--m-warn); }
 
-.ags-seat.is-cur { border-color: var(--m-text); transform: translateY(-2px); } .ags-seat.is-open { cursor: pointer; }
-.ags-tray { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 6px; align-items: center; padding: 8px; border-radius: 10px; border: 1px solid var(--m-line-hi); background: rgba(0, 0, 0, .35); }
-.ags-tray .m-btn { min-height: 30px; padding: 4px 12px; font-size: 12px; } .ags-tray small { font-size: 11px; color: var(--m-dim); }
-.ags-trayh { font: 800 11px var(--m-mono); color: var(--m-text); margin-right: 4px; } .ags-warn { flex: 1 1 240px; color: var(--m-warn) !important; }
 
 /* 🎯 mission + ⚡ scalp */
 .ags-mission { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
@@ -198,25 +181,24 @@
 @keyframes agsGavel { 0% { transform: rotate(-35deg); } 60% { transform: rotate(12deg); } 100% { transform: none; } }
 @keyframes agsThrob { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: .75; transform: scale(1.04); } }
 
- body.fx-lite .ags-court *, body.fx-lite .ags-tray { animation: none !important; } body.fx-lite .ags-zoom, body.fx-lite .ags-zoom *, body.fx-lite .ags-seat em, body.fx-lite .ags-shade { animation: none !important; }
-@media (prefers-reduced-motion: reduce) { .ags-court *, .ags-tray { animation: none !important; transition: none !important; }  .ags-zoom, .ags-zoom *, .ags-shade, .ags-seat * { animation: none !important; transition: none !important; } }
+ body.fx-lite .ags-court * { animation: none !important; } body.fx-lite .ags-zoom, body.fx-lite .ags-zoom *, body.fx-lite .ags-shade { animation: none !important; }
+@media (prefers-reduced-motion: reduce) { .ags-court * { animation: none !important; transition: none !important; }  .ags-zoom, .ags-zoom *, .ags-shade { animation: none !important; transition: none !important; } }
 
 body.theme-day .ags-zoom { background: linear-gradient(160deg, #eef8f2, #f1edfb); } body.theme-day .ags-shade { background: rgba(20, 40, 30, .6); }
-body.theme-day .ags-dossier, body.theme-day .ags-card, body.theme-day .ags-seat, body.theme-day .ags-judge, body.theme-day .ags-proof, body.theme-day .ags-tray, body.theme-day .ags-score, body.theme-day .ags-case { background: rgba(255, 255, 255, .75); }
+body.theme-day .ags-dossier, body.theme-day .ags-judge, body.theme-day .ags-proof, body.theme-day .ags-score, body.theme-day .ags-case { background: rgba(255, 255, 255, .75); }
 body.theme-day .ags-goal, body.theme-day .ags-scalp { background: rgba(255, 255, 255, .75); }    body.theme-day .ags-goal.is-now b { color: #946a00; } body.theme-day .ags-scalp b { color: #135d86; }
 body.theme-day .ags-jhead b, body.theme-day .ags-rule.is-miss, body.theme-day .ags-sent i.is-miss { color: #946a00; } body.theme-day .ags-rule.is-win, body.theme-day .ags-case i.is-up { color: #0f8a45; } body.theme-day .ags-rule.is-loss, body.theme-day .ags-case i.is-dn { color: #c0304e; } body.theme-day .ags-heat2.is-heater { color: #b34a00; } body.theme-day .ags-heat2.is-cold { color: #135d86; } body.theme-day .ags-zoom.is-judge { --ag: #946a00; } 
-body.theme-day .ags-card b, body.theme-day .ags-act { color: #135d86; } body.theme-day .ags-seat.is-agent { border-color: #1c7fb5; background: #e3f2fb; }
-body.theme-day .ags-meter u, body.theme-day .ags-seat u, body.theme-day .ags-reason u { background: #dbe9e1; }
+body.theme-day .ags-meter u, body.theme-day .ags-reason u { background: #dbe9e1; }
 body.theme-day .ags-heat.is-big .ags-tile, body.theme-day .ags-ticket { background: #fff; } body.theme-day .ags-tile b, body.theme-day .ags-tile em { color: #0f2419; } body.theme-day .ags-tile.is-up::before { background: #7be3a8; } body.theme-day .ags-tile.is-dn::before { background: #ff9fb1; }
 body.theme-day .ags-chip.is-go, body.theme-day .ags-stamp.is-ok, body.theme-day .ags-ticket.is-ok .ags-stamp { color: #0f8a45; } 
 body.theme-day .ags-scope.is-big { background-color: #fff; background-image: linear-gradient(#e3ede7 1px, transparent 1px), linear-gradient(90deg, #e3ede7 1px, transparent 1px); } body.theme-day .ags-zero { border-color: #b9cdc1; } body.theme-day .ags-bar { border-color: #946a00; } body.theme-day .ags-bar small { color: #946a00; }
 body.theme-day .ags-zoom.is-trigger { --ag: #a87b12; } body.theme-day .ags-zoom.is-tally { --ag: #0e7a46; } body.theme-day .ags-zoom.is-sherlock { --ag: #5a3fb0; } body.theme-day .ags-zoom.is-devil { --ag: #c0304e; }
 
-@media (max-width: 980px) {  .ags-card { grid-template-columns: 1fr; } .ags-court { grid-template-columns: 1fr; } .ags-mission { grid-template-columns: 1fr; } .ags-scores { grid-template-columns: 1fr 1fr; } }
+@media (max-width: 980px) {  .ags-court { grid-template-columns: 1fr; } .ags-mission { grid-template-columns: 1fr; } .ags-scores { grid-template-columns: 1fr 1fr; } }
 @media (max-width: 640px) {
   .ags-shade { padding: 6px; } .ags-zoom { padding: 10px; height: 96vh; } .ags-zbody { grid-template-columns: 1fr; grid-template-rows: minmax(180px, 1fr) auto; overflow-y: auto; } .ags-scope.is-big { min-height: 220px; }
   .ags-ztop .m-seg { order: 3; width: 100%; display: flex; } .ags-ztop .m-seg > button { flex: 1; padding: 6px 2px; font-size: 11px; }
-    .ags-seats { grid-template-columns: 1fr 1fr; } .ags-heat.is-big { grid-template-columns: repeat(auto-fill, minmax(70px, 1fr)); grid-auto-rows: 50px; }
+    .ags-heat.is-big { grid-template-columns: repeat(auto-fill, minmax(70px, 1fr)); grid-auto-rows: 50px; }
 }
 
 /* 👨‍⚖️ Judge's court (JudgeCourt) */

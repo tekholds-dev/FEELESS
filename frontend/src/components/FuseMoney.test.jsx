@@ -1,7 +1,7 @@
 import React from 'react';
 import { act } from 'react';
 import { createRoot } from 'react-dom/client';
-import { MoneyMath, RoundBell, CardShowcase, CardCosts, TrailSummary, CoinTable } from './FuseMoney';
+import { MoneyMath, RoundBell, CardCosts, TrailSummary, CoinTable } from './FuseMoney';
 import { FuseWallet } from './command/FuseWallet';
 import { FuseFees } from './command/FuseFees';
 import { primeRow } from './ArenaPrime';
@@ -31,16 +31,6 @@ test('round bell shows a 10…1 countdown in the last 10 seconds', async () => {
   expect(h2.querySelector('.rbell').className).not.toContain('is-bell'); expect(h2.textContent).toMatch(/(10:00|9:59)/);
 });
 
-test('3-card showcase puts one card in front and brings a tapped card forward', async () => {
-  const cards = [0, 1, 2].map(i => ({ key: `k${i}`, name: `Card ${i}`, pct: i, badge: 'x', sub: 'y' }));
-  const opened = [];
-  const h = await mount(<CardShowcase cards={cards} onOpen={c => opened.push(c.key)} />);
-  expect(h.querySelector('[data-testid="sc3-0"]').className).toContain('p-0');
-  act(() => h.querySelector('[data-testid="sc3-2"]').click());
-  expect(h.querySelector('[data-testid="sc3-2"]').className).toContain('p-0');
-  act(() => h.querySelector('[data-testid="sc3-2"]').click());
-  expect(opened).toEqual(['k2']);
-});
 
 test('card costs: a receipt before buying, HQ pays no FEELESS fee, auto-fees toggles', async () => {
   global.fetch = jest.fn(async () => ({ ok: true, json: async () => ({ bundle: { maxPct: 5, swapUsd: 0.1 }, plan: { buyUsd: 0.3, perCoinUsd: 0.1, swapUsd: 0.2, roundsUsd: 0.25, packs: 1, per5Usd: 0.25, swapsUsd: 2, totalUsd: 2.55, pct: 8.5, rounds: 10, free: 5 } }) }));

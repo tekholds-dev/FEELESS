@@ -1,7 +1,7 @@
 import React from 'react';
 import { createRoot } from 'react-dom/client';
 import { act } from 'react';
-import { Snap, snapPath, AiRow } from './AiDecisions';
+import { snapPath, AiRow } from './AiDecisions';
 import { WebSrc } from './AiChat';
 import { modelsLine } from './CockpitControls';
 
