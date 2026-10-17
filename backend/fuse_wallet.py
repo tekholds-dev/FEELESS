@@ -276,6 +276,10 @@ def orders(card_id, card, book, prices, sol_px, cfg, now, count_sells=True):
     # `count_sells` = plan view only: the keeper's BUY pass runs after its sells landed (or were refused) and must spend only SOL the
     # book really holds — counting a refused sell's proceeds once let a buy spend SOL the card never had (book SOL went negative)
     sol_free = _f(book.get('sol')) - _f(book.get('owedOutSol')) - _f(book.get('manualCashSol')) - anchor_sol(tgt) + (sum(o['usd'] for o in sells) / sol_px * 0.97 if count_sells else 0.0) if sol_px > 0 else 0.0   # ✂ owner's cash is never spent
+    # 👤 YOUR PICK SPENDS YOUR CASH (owner, 2026-10-16: "shouldn't be messing with my trades period"): the owner's ✂ cash is held apart from the
+    # ENGINE — never from the owner. A coin the owner picked may use it (the fill lowers manualCashSol, apply_fill). Before, a re-pick after
+    # a ✂ sell had $0 to spend, was never sent, read "buy never landed in 2 min" and was thrown off the card — three times in a row.
+    pick_cash = max(0.0, _f(book.get('manualCashSol'))) if sol_px > 0 else 0.0
     for mint, t in tgt.items():
         if mint == SOL_MINT or t['px'] <= 0:
             continue
@@ -291,15 +295,19 @@ def orders(card_id, card, book, prices, sol_px, cfg, now, count_sells=True):
         # nobody could read. Now the card's money is ONLY its coins + its cash; the wallet reserve carries every account's rent and
         # gets it back when the account closes (`apply_fill` → `rentSol`).
         rent = 0.0
-        usd = min(gap, cfg['maxSwapUsd'], max(0.0, (sol_free - rent) * sol_px))
-        last = usd >= LEFTOVER_MIN_USD and usd >= (sol_free - rent) * sol_px * 0.98   # the card's whole leftover SOL → let it in (no stuck cash)
+        extra = pick_cash if t.get('picked') else 0.0
+        usd = min(gap, cfg['maxSwapUsd'], max(0.0, (sol_free + extra - rent) * sol_px))
+        last = usd >= LEFTOVER_MIN_USD and usd >= (sol_free + extra - rent) * sol_px * 0.98   # the card's whole leftover SOL → let it in (no stuck cash)
         # 🪑 a coin the wallet does not hold yet OPENS ITS SEAT with whatever it was given, down to NEW_SEAT_MIN: the smallest-order
         # rule is for top-ups. A pick that inherited a small seat ($0.10 against a $0.124 minimum) was silently never sent, read
         # "buy never landed in 2 min", and the engine swapped it for the next coin — three owner picks in a row, no ledger row.
         floor_b = NEW_SEAT_MIN if held_units(book, mint) <= 0 else cfg['minOrderUsd']
         if (gap < floor_b or usd < floor_b) and not last:
             continue
-        sol_free -= usd / sol_px + rent
+        use_ = usd / sol_px + rent
+        from_pick = min(extra, max(0.0, use_ - max(0.0, sol_free)))
+        pick_cash -= from_pick
+        sol_free -= use_ - from_pick
         buys.append({'id': f"{card_id}:{now:.0f}:b:{mint[:6]}", 'card': card_id, 'side': 'buy', 'mint': mint, 'pair': t['pair'], 'symbol': t['symbol'],
                      'lamports': int(usd / sol_px * 1e9), 'usd': round(usd, 4), 'midPx': t['px'], 'at': now, 'why': 'card buys its coin',
                      **({'rentDeposit': rent} if rent else {}),

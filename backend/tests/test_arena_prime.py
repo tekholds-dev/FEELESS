@@ -2177,7 +2177,7 @@ def test_the_seat_fallback_never_takes_a_coin_at_its_highs_and_a_thinly_traded_b
 def test_parked_profit_stays_parked_when_a_pick_comes_in_and_safety_switches_have_off():
     import arena_prime as ap
     assert ap.clean_cfg({'floorPct': 0})['floorPct'] == 0 and ap.clean_cfg({'floorPct': 2})['floorPct'] == 5 and ap.clean_cfg({})['floorPct'] == 60
-    assert ap.clean_cfg({})['youngTicket'] is True and ap.clean_cfg({'youngTicket': False})['youngTicket'] is False
+    assert ap.clean_cfg({})['youngTicket'] is False and ap.clean_cfg({'youngTicket': True})['youngTicket'] is True
     mk = lambda i: {'mint': f'R{i}', 'pairAddress': f'PR{i}', 'symbol': f'R{i}', 'price': 1.0, 'liq': 500_000, 'liquidityUsd': 500_000, 'score': 90 - i, 'stars': 3}
     runners = [mk(i) for i in range(3)]
     base = {'coins': 4, 'rotateHours': 0.25, 'rescuePct': 0, 'cycleEvery': 0, 'cycles': {t: 'off' for t in ap.DEFAULT_CYCLES}, 'lockBankPct': 0, 'tpStakeUsd': 0, 'skimTo': 'round', 'skimHoldRounds': 6, 'floorPct': 0}

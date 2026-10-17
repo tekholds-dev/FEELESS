@@ -9530,6 +9530,25 @@ async def _g4seat_fix_1016(now):
     return True
 
 
+async def _youticket_fix_1016(now):
+    """✋ Once (owner, 2026-10-16: "shouldn't be messing with my trades period — I choose"): the 🎟 small-ticket sizing of the owner's young
+    picks is OFF on the real card (`youngTicket` False) — a pick gets its full seat. Old value: data/realcfg_before_youticket1016.json.
+    Switch it back on: Edit Fuse › Safety › 🎟 Small ticket."""
+    async with _admin_lock:
+        d = _json_load(FUSE_HQ_PATH, {}); pr = d.setdefault('prime', {})
+        rc = pr.get('realCfg') or {}
+        if pr.get('youTicketFix1016') or not rc:
+            return False
+        ch = {'youngTicket': False}
+        _json_save(DATA_DIR / 'realcfg_before_youticket1016.json', {k: rc.get(k) for k in ch})
+        pr['realCfg'] = _prime.clean_cfg({**rc, **ch})
+        pr['realOwnerSet'] = sorted(set(pr.get('realOwnerSet') or []) | set(ch))
+        pr['ladderKeep'] = sorted(set(pr.get('ladderKeep') or []) | set(ch))
+        pr['youTicketFix1016'] = now
+        _json_save(FUSE_HQ_PATH, d)
+    return True
+
+
 async def _germline_fix_1016(now):
     """🦠 Once (owner, 2026-10-16: "raise my germ line to 15%"): the real card's germ line 10% → 15% (`agentGermMax`; the replay's best of
     8 / 15 / 25). Old value: data/realcfg_before_germline1016.json. Change it again: HQ › Agents › 🎛 Limits › 🦠 GERM PLAY."""
@@ -9924,6 +9943,7 @@ async def _prime_tick_inner(now):
     await _mcfloor_fix_1016(now)
     await _germline_fix_1016(now)
     await _g4seat_fix_1016(now)
+    await _youticket_fix_1016(now)
     await _agent_real_fix_1012(now)
     await _agent_open_fix_1012(now)
     await _agent_control_fix_1010(now)
@@ -9989,7 +10009,7 @@ async def _prime_tick_inner(now):
             except Exception as e:
                 print('callout spike:', e)
         if cur is not None:   # 🔁 the card carries its own "no same coin unless it dipped" rule (arena_prime.cooling / note_dropped read it)
-            cur = {**cur, 'rebuyDip': int(cfg_t.get('rebuyDipPct') or 0), 'ticketOff': bool(real_t and not cfg_t.get('youngTicket', True)), 'ticketRide': bool(real_t and cfg_t.get('ticketRide'))}
+            cur = {**cur, 'rebuyDip': int(cfg_t.get('rebuyDipPct') or 0), 'ticketOff': bool(real_t and not cfg_t.get('youngTicket', False)), 'ticketRide': bool(real_t and cfg_t.get('ticketRide'))}
         # 🎯 PAPER = REAL: every tier (paper too) only rotates into coins real money could buy (pool ≥ minLiqUsd), so paper results are an
         # honest preview. ✅ Runners also need confirmation: rising over the last hour with buyers in control (≥55% buys) — no buying the top.
         def _lq(x):
@@ -10180,6 +10200,12 @@ async def _prime_tick_inner(now):
                 why_s = "couldn't be bought safely — benched" if l.get('mint') in bench else "buy was refused — trying the next best coin" if l.get('mint') in (book_s.get('misses') or {}) else 'buy never landed in 2 min'
                 why_x = ((book_s.get('benched') or {}).get(l.get('mint')) or (book_s.get('misses') or {}).get(l.get('mint')) or {}).get('why')
                 why_s += f' ({why_x})' if why_x else ''   # the keeper's own reason, so a refused pick is never silent
+                if l.get('picked'):   # 👤 YOUR pick is never swapped out or dropped by the engine — it waits (the keeper retries); ⏏ Pull is yours
+                    if now - _fuse._f(l.get('waitNoteAt')) > 300:
+                        l['waitNoteAt'] = now
+                        cur = {**cur, 'events': list(cur.get('events') or []) + [{'at': now, 'kind': 'rotate', 'symbol': l.get('symbol'), 'usd': 0.0,
+                                                                                    'why': f"⏳ your pick ${l.get('symbol')}: {why_s} — kept on your seat, the keeper keeps trying (⏏ Pull to drop it)"}]}
+                    continue
                 try:
                     if cur.get('holdBy') in ('proof', 'agents'):   # 🎮 held: the ENGINE swaps nothing in (2026-10-12: a refused agent buy became $Business, an engine pick)
                         why_s += ' — the card is held, no replacement'

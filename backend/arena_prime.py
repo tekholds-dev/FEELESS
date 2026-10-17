@@ -538,7 +538,7 @@ def clean_cfg(p):
     out['sendItAuto'] = bool((p or {}).get('sendItAuto', True))   # 🔥 the engine may take SEND IT coins as trench tickets — only once that call is PROVEN
     out['trenchSlAuto'] = bool((p or {}).get('trenchSlAuto', True))   # 🧠 tickets use the trench brain's learned stop once it has named one
     out['ticketRide'] = bool((p or {}).get('ticketRide', False))   # 🎰 ride or rug: a ticket has NO stop — it rugs (the ticket is lost) or runs to the 🏠 pull
-    out['youngTicket'] = bool((p or {}).get('youngTicket', True))   # 🎟 a hand pick under 12h old goes in as a small ticket (owner's switch)
+    out['youngTicket'] = bool((p or {}).get('youngTicket', False))   # 🎟 a hand pick under 12h old goes in as a small ticket (owner's switch)
     out['scoutPct'] = int(_f((p or {}).get('scoutPct'))) if int(_f((p or {}).get('scoutPct'))) in SCOUT_PCTS else 0   # 🔭 scout ticket, % of the card (0 = off)
     out['trenchAuto'] = bool((p or {}).get('trenchAuto', True))   # 🗑 may the ENGINE seat a trench coin by itself? off = trench coins are the owner's hand picks only
     out['upMeta'] = bool((p or {}).get('upMeta', True))          # 🧭 the engine's own buys need a readable chart that is not trending down

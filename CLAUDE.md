@@ -4721,3 +4721,9 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
 - 📜 ACTIVITY NEVER DEAD: Brain › Activity adds 🤖 Card (the real card's last 40 events: agent fills / swaps / pulls, stops, takes, your lines),
   👤 You (your owner_moves rows as studied: "→ +x% since" / graded), 🎓 Learned (the Judge's last 20 reviews with the change it asks for); seat
   calls are named by the model that made them (G4 / OSSY / AGENTS backup).
+- ✋ YOUR PICK IS NEVER UNDONE BY THE ENGINE (owner, 2026-10-16: "shouldn't be messing with my trades period — I choose gstops etc"; found live:
+  $Aloooong re-picked 3× and thrown off each time as "buy never landed in 2 min"): (1) the owner's ✂ cash (`manualCashSol`) is held from the
+  ENGINE, not from the owner — a `picked` target may spend it (`fuse_wallet.orders` pick_cash; the fill lowers it). All the card's SOL was his ✂
+  cash, so the pick had $0 and was never sent. (2) the stuck-buy swap never swaps or drops a `picked` leg: it stays on its seat, the keeper keeps
+  trying, one "⏳ your pick … kept on your seat" event per 5 min; ⏏ Pull is the owner's. (3) 🎟 small-ticket sizing of young picks is OFF
+  (`youngTicket` default False, `_youticket_fix_1016` on the real card; old value data/realcfg_before_youticket1016.json).

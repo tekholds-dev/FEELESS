@@ -1457,3 +1457,13 @@ def test_an_urgent_exit_may_pay_one_percent_of_the_sale_to_land_and_never_over_h
     assert not fw.urgent_order(fw.mark_urgent({'side': 'sell', 'mint': 'N', 'why': 'not on the card any more'}, card, 160.0))
     assert not fw.urgent_order(fw.mark_urgent({'side': 'sell', 'mint': 'M', 'why': 'not on the card any more'}, card, 100.0 + fw.URGENT_MARK_SEC + 1))
     assert not fw.urgent_order(fw.mark_urgent({'side': 'buy', 'mint': 'M'}, card, 160.0))
+
+
+def test_your_pick_spends_your_own_held_cash_but_the_engine_never_does():
+    # live 2026-10-16: after a ✂ sell all the card's SOL was the owner's held cash → a re-pick had $0, was never sent, and got thrown off
+    book = {**fw.new_book(1, 100.0, 0), 'sol': 0.01, 'manualCashSol': 0.01}
+    eng = card([leg('ENG', 'pe', 1, 1.0)])
+    assert [x for x in fw.orders('degen', eng, book, {'pe': 1.0}, 100.0, CFG, 10) if x['side'] == 'buy'] == []   # the engine's coin: held cash untouched
+    mine = card([{**leg('MINE', 'pm', 1, 1.0), 'picked': True}])
+    o = [x for x in fw.orders('degen', mine, book, {'pm': 1.0}, 100.0, CFG, 10) if x['side'] == 'buy']
+    assert len(o) == 1 and o[0]['picked'] and o[0]['usd'] > 0.5
