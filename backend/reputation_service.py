@@ -10733,7 +10733,10 @@ async def _prime_tick_inner(now):
                                 l['aiBy'] = t_.get('g4By')   # 🔁 whose trade this is: the turn moves only on a seat that really opened
                                 l['bought'] = {**(l.get('bought') or {}), 'tag': '🤖 🧠 G4 seat'}
                         try:
-                            _g4_mem.put({**(_g4_mem.get() or {}), 'opener': t_.get('g4By')}, now)
+                            m0_ = _g4_mem.get() or {}
+                            if not m0_.get('statsFrom'):   # 🔁 the first time a model's BUY really takes the seat, the duel board's stats restart from real play (owner, 2026-10-16)
+                                m0_ = {**m0_, 'log': [], 'statsFrom': now}
+                            _g4_mem.put({**m0_, 'opener': t_.get('g4By')}, now)
                         except Exception as e:
                             print('g4 opener:', str(e)[:80])
                         g4_seat_ = False
@@ -13781,7 +13784,7 @@ def _g4_fate(w, why, now):
 
 def _g4_state():
     st_ = _g4_mem.get() or {}
-    return {'log': list(st_.get('log') or []), 'book': st_.get('book') or {}, 'at': st_.get('at') or 0.0, 'opener': st_.get('opener'), 'talkAt': st_.get('talkAt') or 0.0}
+    return {'log': list(st_.get('log') or []), 'book': st_.get('book') or {}, 'at': st_.get('at') or 0.0, 'opener': st_.get('opener'), 'talkAt': st_.get('talkAt') or 0.0, 'statsFrom': st_.get('statsFrom')}
 
 
 def _g4_qwen(mint):
@@ -13855,7 +13858,7 @@ async def _g4_tick(now, env, cfg):
         if dec_ and mode_ == 'paper':
             book_, ev_ = _seat.paper_step(book_, dec_, by_, px_of, now, by_m)
         elif dec_ and mode_ == 'real' and dec_['action'] in ('BUY', 'SELL'):
-            _g4['want'] = {**dec_, 'by': by_m, 'model': 'AGENTS' if by_m == 'agents' else _air.model_name(env, by_m), 'symbol': (by_.get(dec_['mint']) or {}).get('symbol') if dec_['action'] == 'BUY' else (leg_ or {}).get('symbol'), 'at': now, 'pair': (by_.get(dec_['mint']) or {}).get('pair') if dec_['action'] == 'BUY' else (leg_ or {}).get('pairAddress')}
+            _g4['want'] = {**dec_, 'by': by_m, 'model': 'AGENTS' if by_m == 'agents' else _air.model_name(env, by_m), 'thinkAt': now, 'symbol': (by_.get(dec_['mint']) or {}).get('symbol') if dec_['action'] == 'BUY' else (leg_ or {}).get('symbol'), 'at': time.time(), 'pair': (by_.get(dec_['mint']) or {}).get('pair') if dec_['action'] == 'BUY' else (leg_ or {}).get('pairAddress')}   # ⏱ fresh from the ANSWER (a 30–90s think read as stale)
         focus_ = by_.get((dec_ or {}).get('mint')) if (dec_ or {}).get('action') == 'BUY' else None
         row_ = {'at': round(now), 'mode': mode_, 'model': 'AGENTS' if by_m == 'agents' else _air.model_name(env, by_m), 'by': by_m if dec_ else None, 'ms': ms_, 'miss': miss_,
                 'action': (dec_ or {}).get('action') or 'NO ANSWER', 'why': (dec_ or {}).get('why') or str(r_.get('why') or 'the model did not answer')[:160],
@@ -13878,7 +13881,10 @@ async def _g4_tick(now, env, cfg):
                                              'watch': da_.get('watch'), 'symbol': (held_ or {}).get('symbol'), 'mint': (held_ or {}).get('mint'), 'pct': (held_ or {}).get('pct')})
             except Exception as e_t:
                 print('g4 talk:', str(e_t)[:100])
-        _g4_mem.put({'log': log_, 'book': book_, 'at': now, 'opener': st_.get('opener'), 'talkAt': talk_at}, now)
+        m1_ = _g4_mem.get() or {}   # the seat may have opened (and the stats restarted) while this model was thinking
+        if (m1_.get('statsFrom') or 0) > (st_.get('statsFrom') or 0):
+            log_ = [r_ for r_ in log_ if (r_.get('at') or 0) >= m1_['statsFrom']]
+        _g4_mem.put({'log': log_, 'book': book_, 'at': now, 'opener': m1_.get('opener') or st_.get('opener'), 'talkAt': talk_at, 'statsFrom': m1_.get('statsFrom')}, now)
     except Exception as e_:
         print('g4 seat:', str(e_)[:140])
     finally:

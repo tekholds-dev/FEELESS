@@ -180,7 +180,7 @@ def test_a_coin_the_agents_just_left_is_not_bought_back():
     assert ap.agent_out(c, 1000.0 + ap.AGENT_OUT_SEC + 1) == {'RUG'}      # a plain exit: 10 min
     assert ap.agent_out(c, 1000.0 + ap.AGENT_OUT_DANGER_SEC + 1) == set()  # a rug exit: 6h
     src = open(__import__('reputation_service').__file__).read()
-    assert 'cool = set(cool) | _agent_blocked(cur, now)' in src and "if t_['mint'] in _agent_blocked(cur, now):" in src
+    assert 'cool = set(cool) | _agent_blocked(cur, now)' in src and "else _agent_blocked(cur, now)):" in src
 
 
 
