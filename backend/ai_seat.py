@@ -40,7 +40,8 @@ Answer with ONLY this JSON, nothing else:
 {"action":"BUY|HOLD|SELL|WAIT|TRIM","coin":"<SYMBOL when BUY, else empty>","why":"<one line, under 160 chars, the numbers that decided it>","conf":<0-100>,"watch":"<what would make you sell, under 80 chars>","tp":<take-profit %, e.g. 40>,"sl":<stop %, e.g. 15>}
 The trade you bought is YOURS to run: tp / sl are your own take-profit and stop lines, applied at once (change them any minute you HOLD;
 −45% is the floor nobody can move). TRIM = sell part of your coin now ("pct": 25 | 50 | 75) — bank profit, the rest keeps riding your lines.
-CONFIDENCE in LEARN = what the market's verdicts on your calls (and the votes on them) earned you. The agents only advise."""
+CONFIDENCE in LEARN = what the market's verdicts on your calls (and the votes on them) earned you. The agents only advise.
+ELITE RULES: buy at or near the GERM floor after a pullback — never pressed under the gun line, never right after a spike (those coins are not on your list). Let a trade COOK: a SELL in its first 4 minutes is ignored unless it is down 10%+ — set your stop instead. One red 5-minute candle is not an exit; sellers taking over the tape, a broken higher low, or your stop are."""
 
 
 def _f(v, d=0.0):
@@ -350,3 +351,22 @@ def recent_ai_buys(events, now, sec=ROTATE_SEC):
     rewrites; the in-memory list once got wiped every minute and $1 was bought 3×)."""
     return {e.get('mint') for e in events or [] if e.get('kind') == 'agent' and e.get('move') == 'fill' and e.get('mint')
             and '🧠' in str(e.get('why') or '') and now - _f(e.get('at')) < sec}
+
+
+COOK_MIN = 4.0      # 🍳 a model's own SELL / TRIM in its trade's first 4 minutes is held — the stop protects it meanwhile
+COOK_CUT = 10.0     # … unless it is already down this much (or past 60% of its own stop): then the sell stands
+
+
+def cook(dec, held):
+    """🍳 LET IT COOK (owner, 2026-10-17: "OSSY and G4 selling fast"): $swordcat was bought and sold 34s later on one red 5-min read. A SELL /
+    TRIM inside COOK_MIN of the buy becomes HOLD unless the trade is really losing. Hard exits (pulled pool, −45%, the model's own stop
+    line) are Reaper's and never pass through here. → the decision to act on."""
+    if not dec or dec.get('action') not in ('SELL', 'TRIM') or not held:
+        return dec
+    hm, pct = held.get('heldMin'), held.get('pct')
+    if hm is None or _f(hm) >= COOK_MIN:
+        return dec
+    cut = min(COOK_CUT, 0.6 * _f(dec.get('sl') or held.get('sl') or 99))
+    if pct is not None and _f(pct) <= -cut:
+        return dec
+    return {**dec, 'action': 'HOLD', 'cooked': dec['action'], 'why': (f"(🍳 {dec['action']} held — {_f(hm):.1f} of {COOK_MIN:g} min, {'' if pct is None else f'{_f(pct):+.1f}%, '}the stop protects it) " + str(dec.get('why') or ''))[:200]}

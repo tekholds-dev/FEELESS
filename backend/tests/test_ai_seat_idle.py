@@ -31,3 +31,11 @@ def test_recent_ai_buys_reads_model_fills_only():
           {'kind': 'agent', 'move': 'fill', 'mint': 'b', 'at': 100, 'why': '🤖 agents filled seat 3 of 4 with $X — ARMED'},
           {'kind': 'agent', 'move': 'fill', 'mint': 'c', 'at': 100 - 7 * 3600, 'why': '🧠 G4: old'}]
     assert s.recent_ai_buys(ev, 200) == {'a'}
+
+
+def test_cook_holds_an_early_sell_unless_really_losing():
+    d = {'action': 'SELL', 'why': 'move5m -7'}
+    assert s.cook(d, {'heldMin': 0.6, 'pct': 0.7})['action'] == 'HOLD'
+    assert s.cook(d, {'heldMin': 0.6, 'pct': -12})['action'] == 'SELL'
+    assert s.cook(d, {'heldMin': 5, 'pct': 0.7})['action'] == 'SELL'
+    assert s.cook({'action': 'HOLD'}, {'heldMin': 1, 'pct': 0})['action'] == 'HOLD'

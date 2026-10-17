@@ -4793,3 +4793,6 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   list every minute. Fixed, plus `ai_seat.recent_ai_buys` = any coin a model seated in the last 6h (`ROTATE_SEC`, read from the card's own fill
   events — survives restarts) is off both models' lists. 🔫 `_g4_bad_entry` (gun wall · gun chase · after a spike · chart SKIP) removes a coin
   from the models' list AND refuses their BUY at the fill ("not bought — …") — the models may decide, never at the gun line.
+- 🍳 MODELS LET IT COOK (`ai_seat.cook`, `COOK_MIN` 4 / `COOK_CUT` 10): an OSSY / G4 SELL or TRIM in its trade's first 4 min becomes HOLD unless it is
+  down ≥ min(10%, 60% of its own stop) — $swordcat was sold 34s after the buy on one red 5-min read. Reaper's hard exits + the model's own stop line
+  are untouched. SYSTEM prompt carries the ELITE RULES (germ entries only, let it cook, one red candle is not an exit).
