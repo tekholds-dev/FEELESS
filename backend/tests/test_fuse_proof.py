@@ -37,12 +37,6 @@ def test_a_real_cards_record_is_counted_from_its_own_ledger_and_shows_a_loss_as_
     assert s[0]['source'] == 'replay' and s[2]['source'] == 'real' and s[2]['proven'] is False and s[2]['cfg'] == {'sl': 15} and s[2]['medPct'] == -8.0
 
 
-def test_why_bought_keeps_what_the_coin_looked_like_at_the_buy():
-    w = fp.why_bought({'chg1h': 31.26, 'vol1h': 82000, 'ageH': 14.04, 'buyShare': 63, 'liquidity': {'usd': 51000}}, '🧲 dip bought, trend up')
-    assert w == {'tag': '🧲 dip bought, trend up', 'chg1h': 31.3, 'vol1h': 82000.0, 'ageH': 14.0, 'buyShare': 63.0, 'liq': 51000}
-    assert fp.why_bought({})['chg1h'] is None
-
-
 def test_a_real_card_duels_the_best_other_card_for_24h_on_percent_only():
     vals = {'prime:degen': 10.0, 'prime:gold': 20.0, 'prime:next': 20.0}
     st = fp.duel_step({}, vals, {'prime:degen': 'Blaze', 'prime:gold': 'Gold'}, ['prime:degen'], ['prime:gold', 'prime:next'], NOW)

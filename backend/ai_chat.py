@@ -71,14 +71,8 @@ def route_mode(mode, text):
 # a 💬 chat question about the world (not a FEELESS record question, not a greeting) gets 5 web results first; the model answers from them
 # and names its sources. FEELESS's own numbers still come only from CONTEXT / the evidence packet.
 GREETING = re.compile(r'^\s*(yo+|yurr+|gm|gn|hey+|hi+|hello|sup|wassup|what\'?s up|thanks?|thank you|ty|ok(ay)?|lol|lmao|bet|cool|nice)\b[\s!.?]*$', re.I)
-WEB_WORDS = re.compile(r'\?|\b(who|what|when|where|why|how|which|news|latest|today|price|search|look ?up|google|find|explain|meaning|is it|are they|did|does|vs\.?)\b', re.I)
 WEB_RULE = ("WEB = fresh search results for the owner's question (title · url · snippet). Use them for anything about the outside world and cite the "
             "url you used in brackets. If they do not answer it, say so — never invent a source. FEELESS numbers come only from CONTEXT, never the web.")
-
-
-def wants_web(text):
-    t = str(text or '').strip()
-    return len(t) >= 6 and not GREETING.match(t) and bool(WEB_WORDS.search(t))
 
 
 OWNER_RULE = ('"I", "my", "me", "mine" in the owner\'s message = THE OWNER\'s OWN trades — their hand picks, swaps, drags and seats (block `owner`), '
@@ -245,11 +239,6 @@ def context(office, focus=None, vocab=()):
     if st_.get('findings') or st_.get('suggestions'):   # 👤 what the desk learned from the OWNER's own graded trades — the chat always sees it
         out['yourTrades'] = {'learned': [str(x)[:160] for x in (st_.get('findings') or [])[:8]], 'suggest': [str(x.get('text') if isinstance(x, dict) else x)[:160] for x in (st_.get('suggestions') or [])[:4]]}
     return out
-
-
-def ctx_key(ctx):
-    """A key that changes only when the compact context does (the service keeps one built context per key)."""
-    return str(hash(json.dumps(ctx, sort_keys=True, default=str)))
 
 
 # ── proposals: validated, never applied here ─────────────────────────────────────────────────────────────────────────────

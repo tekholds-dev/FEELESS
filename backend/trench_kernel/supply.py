@@ -50,10 +50,3 @@ def mc(price, supply):
     p, s = _f(price), _f(supply)
     return round(p * s, 2) if p > 0 and s > 0 else None
 
-
-def mc_bar(bar, supply):
-    """[t, o, h, l, c, v] in price → the same candle in market cap (volume untouched). None when the supply is unknown."""
-    s = _f(supply)
-    if s <= 0 or not bar or len(bar) < 5:
-        return None
-    return [bar[0], _f(bar[1]) * s, _f(bar[2]) * s, _f(bar[3]) * s, _f(bar[4]) * s] + list(bar[5:6])

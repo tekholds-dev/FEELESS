@@ -19,7 +19,6 @@ def test_a_new_ticker_wave_is_learned_and_known_slang_explained():
     assert t['skibidi']['kind'] == 'wave' and t['skibidi']['new'] and t['skibidi']['today'] == 4 and 'MINT0' in t['skibidi']['coins']
     assert t['cto']['known'] and 'community takeover' in t['cto']['meaning']
     assert 'chad' not in t                                      # used every day = not new, no spike
-    assert mt.wave_of('Skibidi Cat', 'SKIB', list(t.values()))['term'] == 'skibidi' and mt.wave_of('Dog', 'DOG', list(t.values())) is None
     assert mt.explain(s, '$JEET')['known'] and mt.explain(s, 'skibidi')['kind'] == 'wave'
 
 

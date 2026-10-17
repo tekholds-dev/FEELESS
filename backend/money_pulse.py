@@ -95,11 +95,6 @@ def known_destinations(owners, admins, fee_owners, reserves, pools, routes, circ
     return out
 
 
-def same_network(from_chain: str, address: str) -> bool:
-    evm = address.startswith('0x')
-    return evm != (from_chain or '').upper().startswith('SOL')
-
-
 def check_flips(prev: dict, checks: list):
     """(newly failing, recovered, new state) between two preflight runs. The first run only records the state."""
     state = {c['key']: bool(c['ok']) for c in checks if not c.get('info')}

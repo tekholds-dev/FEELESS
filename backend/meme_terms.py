@@ -107,13 +107,6 @@ def trending(state, now, limit=24):
     return sorted(out, key=lambda x: (-(x['new']), -x['today']))[:limit]
 
 
-def wave_of(name, symbol, trend):
-    """The trending ticker wave a coin rides (copycat check), or None."""
-    words = set(tokenize(f'{name} {symbol}'))
-    hit = [t for t in trend or [] if t['kind'] == 'wave' and t['term'] in words]
-    return max(hit, key=lambda t: t['today']) if hit else None
-
-
 def explain(state, term):
     w = str(term or '').lower().strip('$ ')
     if w in GLOSSARY:
