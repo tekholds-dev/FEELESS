@@ -155,3 +155,14 @@ def test_each_lm_model_takes_at_most_four_background_calls_a_minute():
     import ai_router as air
     assert not air.minute_cap([100, 110, 120], 130, 4) and air.minute_cap([100, 110, 120, 125], 130, 4)
     assert not air.minute_cap([10, 20, 30, 40], 130, 4)          # older than a minute: free again
+
+
+def test_activity_is_never_dead_card_moves_your_studied_moves_and_the_judges_lessons_all_log():
+    rows = aic.activity(card=[{'at': 10, 'kind': 'agent', 'why': '🤖 agents filled seat 2 with $ABC'}],
+                        moves=[{'at': 9, 'kind': 'pick', 'symbol': 'X', 'pct': 12.0, 'result': 'good'}, {'at': 8, 'kind': 'stopped', 'symbol': 'Y'}],
+                        reviews=[{'at': 7, 'sym': 'Z', 'pct': -9.0, 'lossClass': 'BAD TIMING', 'desk': 'trigger', 'change': 'Trigger: wait for the pullback'}],
+                        g4=[{'at': 6, 'model': 'AGENTS', 'mode': 'real', 'action': 'WAIT', 'why': 'no model answered'}])
+    kinds = [r['kind'] for r in rows]
+    assert kinds == ['card', 'you', 'you', 'learn', 'g4']
+    assert rows[0]['who'] == 'agents' and rows[1]['title'] == 'your pick $X → +12.0% since' and rows[1]['tone'] == 'ok'
+    assert 'being watched' in rows[2]['title'] and 'pullback' in rows[3]['sub'] and rows[4]['title'].startswith('AGENTS WAIT')

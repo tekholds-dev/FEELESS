@@ -1,7 +1,7 @@
 import React from 'react';
 import { createRoot } from 'react-dom/client';
 import { act } from 'react';
-import { caOf, seatTargets, addBody, AddMyCoin, SeatStudy, MySeatsRecord } from './MySeat';
+import { caOf, seatTargets, addBody, addStage, AddMyCoin, SeatStudy, MySeatsRecord } from './MySeat';
 
 const MINT = '7xKXtg2CW87d97TXJSDpbD5jBkheTqA83TZRuJosgAsU';
 test('a pasted address or link resolves to its mint', () => {
@@ -23,8 +23,27 @@ test('⚡ Add goes straight in — your selection needs no "add it anyway" (it s
   await act(async () => { const set = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set; set.call(inp, MINT); inp.dispatchEvent(new Event('input', { bubbles: true })); });
   await act(async () => { el.querySelector('[data-testid="my-seat-go"]').click(); });
   expect(call).toHaveBeenCalledTimes(1); expect(JSON.parse(call.mock.calls[0][1].body).fillSeat).toMatchObject({ to: MINT, ack: true });
-  expect(el.querySelector('[data-testid="my-seat-warn"]')).toBeNull();
-  expect(el.querySelector('[data-testid="my-seat-msg"]').textContent).toContain('queued');
+  expect(el.querySelector('[data-testid="my-seat-track"]')).toBeTruthy();
+  expect(el.querySelector('[data-testid="my-seat-msg"]').textContent).toContain('sent');
+});
+test('pasting an address adds it at once — no button press', async () => {
+  const call = jest.fn(async () => ({ ok: true }));
+  const el = document.createElement('div'); document.body.appendChild(el);
+  await act(async () => { createRoot(el).render(<AddMyCoin call={call} tpl="degen" seats={[{ open: true }]} />); });
+  const inp = el.querySelector('[data-testid="my-seat-ca"]');
+  await act(async () => { const ev = new Event('paste', { bubbles: true, cancelable: true }); ev.clipboardData = { getData: () => `https://pump.fun/coin/${MINT}` }; inp.dispatchEvent(ev); });
+  expect(call).toHaveBeenCalledTimes(1); expect(JSON.parse(call.mock.calls[0][1].body).fillSeat).toMatchObject({ to: MINT, ack: true });
+});
+test('the tracker follows your add: queued → buying → bought, or the keeper refusal', () => {
+  const tr = { mint: MINT, at: 1000 };
+  expect(addStage(null, null)).toBeNull();
+  expect(addStage({ seatPick: { to: MINT } }, tr, 1010).k).toBe('queued');
+  const card = { legs: [{ mint: MINT, symbol: 'ABC' }], realBook: { orders: [] }, events: [] };
+  expect(addStage(card, tr, 1020).k).toBe('buying');
+  expect(addStage({ ...card, realBook: { orders: [{ side: 'buy', symbol: 'ABC', status: 'filled', at: 1030, usd: 0.5 }] } }, tr, 1040)).toMatchObject({ k: 'filled', t: '✅ bought $ABC · $0.50 in' });
+  expect(addStage({ ...card, realBook: { orders: [{ side: 'buy', symbol: 'ABC', status: 'filled', at: 900 }] } }, tr, 1040).k).toBe('buying');   // an older fill never counts
+  expect(addStage({ ...card, events: [{ at: 1030, why: 'buy refused — $ABC pool too thin' }] }, tr, 1040).k).toBe('refused');
+  expect(addStage({}, tr, 1200).t).toContain('no seat yet');
 });
 test('your seat shows what the agents would do and its record', () => {
   const el = document.createElement('div'); document.body.appendChild(el);

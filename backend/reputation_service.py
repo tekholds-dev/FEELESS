@@ -14284,7 +14284,12 @@ AI_PLAY_PATH = DATA_DIR / 'ai_playground.json'
 async def admin_ai_activity(request: Request):
     """📜 Owner: one timeline of everything the models did — reads, proposals + your decisions, playground creations, background reads."""
     _require_owner(request)
-    return {'items': _aic.activity(_ai['log'], _chat_props(), (_json_load(AI_PLAY_PATH, {}) or {}).get('items'), _local_lane, g4=_g4_state()['log'][-60:]), 'g4': _g4_view(), 'at': round(time.time(), 1)}
+    pr_ = (_json_load(FUSE_HQ_PATH, {}) or {}).get('prime') or {}
+    real_ = next((c_ for c_ in (pr_.get('cards') or {}).values() if (c_ or {}).get('real')), None) or {}
+    mv_ = next((v_ for v_ in (_json_load(OWNER_MOVES_PATH, {}) or {}).values() if isinstance(v_, dict)), {}).get('rows') or []
+    rv_ = ((_office_state() or {}).get('judge') or {}).get('reviews') or []
+    return {'items': _aic.activity(_ai['log'], _chat_props(), (_json_load(AI_PLAY_PATH, {}) or {}).get('items'), _local_lane, n=120, g4=_g4_state()['log'][-60:],
+                                   card=(real_.get('events') or [])[-40:], moves=mv_[-30:], reviews=rv_[-20:]), 'g4': _g4_view(), 'at': round(time.time(), 1)}
 
 
 @app.get('/api/reputation/admin/ai/learned')

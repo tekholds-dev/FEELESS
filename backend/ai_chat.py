@@ -549,7 +549,11 @@ def view(state, n=12):
 ACT_ROLE = {'sherlock': '🔍', 'devil': '😈', 'judge': '👨‍⚖️', 'owner': '👤', 'manager': '⚖', 'coach': '👑', 'lab': '🧪', 'exit': '☠'}
 
 
-def activity(log=None, props=None, play=None, lane=None, n=60, g4=None):
+CARD_ICON = {'agent': '🤖', 'seat': '🪑', 'flow': '🌊', 'rug': '🚨', 'sl': '🛑', 'tp': '💰', 'skim': '💰', 'level': '✋', 'swap': '⇄', 'slot': '🪑',
+             'lock-bank': '🏦', 'peak-sell': '🏔', 'pick': '🎯', 'stack': '🔒'}
+
+
+def activity(log=None, props=None, play=None, lane=None, n=60, g4=None, card=None, moves=None, reviews=None):
     """The Brain's 📜 Activity pane (owner, 2026-10-14: "show log for all activity"): every model READ (role, coin, stance, which model,
     how long), every PROPOSAL (made / approved / rejected / applied), every PLAYGROUND creation, newest first. Display only — built from
     records the service already keeps; nothing here is read back by an agent. → [{at, kind, icon, who, title, sub, tone, mint}]"""
@@ -574,10 +578,27 @@ def activity(log=None, props=None, play=None, lane=None, n=60, g4=None):
         a = r.get('action') or '—'
         v = r.get('vitals') or {}
         bits = [f"{k} {v[k]}" for k in ('cap', 'move5m', 'buyers', 'pool', 'germ') if v.get(k) is not None]
-        out.append({'at': r.get('at'), 'kind': 'g4', 'icon': '🧠', 'who': f"G4 · {r.get('mode')}", 'mint': r.get('mint'), 'ms': r.get('ms'),
-                    'title': f"G4 {a}" + (f" ${r['symbol']}" if r.get('symbol') else '') + (f" · {r['pct']:+.1f}%" if r.get('pct') is not None else '') + (f" · conf {r['conf']}" if r.get('conf') is not None else ''),
+        nm = r.get('model') or 'G4'
+        out.append({'at': r.get('at'), 'kind': 'g4', 'icon': '🤝' if nm == 'AGENTS' else '🧠', 'who': f"{nm} · {r.get('mode')}", 'mint': r.get('mint'), 'ms': r.get('ms'),
+                    'title': f"{nm} {a}" + (f" ${r['symbol']}" if r.get('symbol') else '') + (f" · {r['pct']:+.1f}%" if r.get('pct') is not None else '') + (f" · conf {r['conf']}" if r.get('conf') is not None else ''),
                     'sub': str(r.get('why') or '')[:160], 'tone': 'ok' if a == 'BUY' else 'bad' if a == 'SELL' else 'ice' if a == 'HOLD' else 'mute',
                     'vitals': ' · '.join(bits) or None, 'pressure': (r.get('pressure') or [])[-2:], 'qwen': r.get('qwen'), 'watch': r.get('watch')})
+    for e in card or []:   # 🤖 what really happened on the real card: agent fills / swaps / pulls, stops, takes, your lines
+        k = str(e.get('kind') or 'card')
+        txt = str(e.get('why') or e.get('text') or '')
+        out.append({'at': e.get('at'), 'kind': 'card', 'icon': CARD_ICON.get(k, '🃏'), 'who': 'agents' if k in ('agent', 'flow', 'rug') else 'card',
+                    'title': txt[:90] or k, 'sub': k, 'mint': e.get('mint'),
+                    'tone': 'bad' if k in ('sl', 'rug') else 'ok' if k in ('tp', 'skim', 'lock-bank', 'peak-sell') else 'gold' if k in ('level', 'pick') else 'ice'})
+    for m in moves or []:   # 👤 your own moves, as the agents study them (scored 30 min / 2h later)
+        res = m.get('result') or m.get('res')
+        pc = m.get('pct') if m.get('pct') is not None else m.get('pct30')
+        out.append({'at': m.get('at'), 'kind': 'you', 'icon': '👤', 'who': 'you · studied', 'mint': m.get('mint'),
+                    'title': f"your {m.get('kind') or 'move'} ${m.get('symbol') or '?'}" + (f" → {pc:+.1f}% since" if isinstance(pc, (int, float)) else ' · being watched'),
+                    'sub': ('graded ' + str(res)) if res else 'the agents note the market at your move and grade it 30 min later', 'tone': 'ok' if res == 'good' else 'bad' if res == 'bad' else 'gold'})
+    for r in reviews or []:   # 👨‍⚖️ the Judge's lesson from each closed trade (what the desk learns)
+        out.append({'at': r.get('at'), 'kind': 'learn', 'icon': '🎓', 'who': 'Judge', 'mint': r.get('mint'),
+                    'title': f"${r.get('sym') or '?'} {r.get('pct', 0):+.1f}% · {r.get('lossClass') or r.get('kind') or 'review'}" + (f" · on {r['desk']}" if r.get('desk') else ''),
+                    'sub': str(r.get('change') or r.get('cause') or '')[:160], 'tone': 'ok' if (r.get('pct') or 0) > 0 else 'bad'})
     if (lane or {}).get('last'):
         l = lane['last']
         out.append({'at': l.get('at'), 'kind': 'lane', 'icon': '🖥', 'who': l.get('via'), 'title': f"background read ${l.get('symbol')} → {l.get('stance') or '—'}",

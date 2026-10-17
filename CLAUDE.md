@@ -4715,3 +4715,9 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   takes ≤ `LM_CALLS_PER_MIN` 4 background calls a minute (`ai_router.minute_cap`, tried MINUTE CAP); the owner's chat is never capped.
 - 🛡 CERTIFY covers agent-picked coins too: the tier tick drops the desk's own swap / pull decisions on a certified leg (`cert_`), beside Reaper's
   gate in `office.reap`. Only R1 pulled pool · R5x −45% · R5c / R9c limits · R5g your Gstop · a drain sell it.
+- 👤 ADD MY COIN = ONE STEP (`MySeat.AddMyCoin`): pasting a CA / link into the box — or ANYWHERE on the Agents tab outside a text box — adds it at
+  once (ack up front); seat + limit price fold behind ⚙. `addStage(card, track)` (pure) follows it on the shared /fuses/prime read: sent → queued →
+  buying → bought ($ in, from realBook.orders after the press) or the keeper's refusal from card events; > 90s with no seat says so.
+- 📜 ACTIVITY NEVER DEAD: Brain › Activity adds 🤖 Card (the real card's last 40 events: agent fills / swaps / pulls, stops, takes, your lines),
+  👤 You (your owner_moves rows as studied: "→ +x% since" / graded), 🎓 Learned (the Judge's last 20 reviews with the change it asks for); seat
+  calls are named by the model that made them (G4 / OSSY / AGENTS backup).

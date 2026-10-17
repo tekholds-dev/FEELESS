@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { sharedJson, markFresh } from '../../lib/sharedJson';
 import '../../styles/mySeat.css';
 
@@ -29,39 +29,81 @@ export function sellLimitBody(tpl, seat, movePct, pct = 100) {
 }
 export const LIMIT_MOVES = [25, 50, 100, -15, -30];
 
+// pure: where YOUR add stands right now, read from the live card (no extra fetch): sent → queued → buying → bought, or the keeper's own
+// refusal from the card's events. `since` = when you pressed Add (s), so an older fill of the same coin never counts.
+export const ADD_STEPS = [['sent', 'sent'], ['queued', 'queued'], ['buying', 'buying'], ['filled', 'bought']];
+export function addStage(card, track, now = Date.now() / 1000) {
+  if (!track?.mint) return null;
+  card = card || {};
+  const leg = (card.legs || []).find(l => l.mint === track.mint);
+  const sym = leg?.symbol || track.symbol;
+  const since = Number(track.at) - 5;
+  const fill = sym && (card.realBook?.orders || []).find(o => o.side === 'buy' && o.symbol === sym && o.status === 'filled' && Number(o.at) >= since);
+  if (fill) return { k: 'filled', sym, t: `✅ bought $${sym} · $${Number(fill.usd || 0).toFixed(2)} in`, sig: fill.sig };
+  const bad = (card.events || []).find(e => Number(e.at) >= since && (JSON.stringify(e).includes(track.mint) || (sym && JSON.stringify(e).includes(`$${sym}`)))
+    && /refus|not bought|never landed|back to cash|skipp|no route|too thin/i.test(String(e.why || e.text || e.msg || '')));
+  if (bad) return { k: 'refused', sym, t: `✕ ${String(bad.why || bad.text || bad.msg).slice(0, 140)}` };
+  if (leg) return { k: 'buying', sym, t: `⏳ $${sym || 'coin'} has its seat — the keeper sends the buy on its next pass` };
+  if (JSON.stringify([card.seatPick, card.seatQueue, (card.legs || []).map(l => l.swapTo)]).includes(track.mint) || (sym && JSON.stringify(card.seatPick || '').includes(sym)))
+    return { k: 'queued', sym, t: '🪑 queued — it takes the seat on the next tick' };
+  return { k: 'sent', sym, t: now - Number(track.at) > 90 ? '… no seat yet — the card may be full or the coin left the lists; try ⇄ swap out a coin' : '📨 sent to the card' };
+}
+
 export function AddMyCoin({ call, tpl, seats, reload }) {
   const targets = seatTargets(seats);
   const [text, setText] = useState(''); const [lim, setLim] = useState(''); const [to, setTo] = useState(''); const [busy, setBusy] = useState(false);
-  const [msg, setMsg] = useState(null); const [warn, setWarn] = useState(null);
+  const [msg, setMsg] = useState(null); const [opts, setOpts] = useState(false); const [track, setTrack] = useState(null); const [card, setCard] = useState(null);
   const target = targets.some(t => t.k === to) ? to : targets[0]?.k;
   const mint = caOf(text);
+  const stage = addStage(card, track);
+  const goRef = useRef(null);
+  useEffect(() => {   // 📡 follow YOUR add on the shared card read until it is bought or refused (2 min of tracking at most)
+    if (!track || !tpl) return undefined;
+    let alive = true;
+    const tick = () => sharedJson('/api/reputation/fuses/prime', { maxAge: 2500 }).then(d => { if (alive) setCard((d?.cards || []).find(x => x.tpl === tpl) || null); }).catch(() => {});
+    tick(); const t = setInterval(tick, 3000);
+    return () => { alive = false; clearInterval(t); };
+  }, [track, tpl]);
+  useEffect(() => { if (stage && (stage.k === 'filled' || stage.k === 'refused')) { const t = setTimeout(() => setTrack(null), 60000); return () => clearTimeout(t); } return undefined; }, [stage?.k]);   // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => {   // 📋 paste a coin ANYWHERE on the Agents tab (not inside a text box) → it goes in, same as pasting into the box
+    if (!tpl || !call) return undefined;
+    const on = e => {
+      const tg = e.target; if (tg && (tg.closest?.('input, textarea, select, [contenteditable="true"]'))) return;
+      const ca = caOf(e.clipboardData?.getData('text')); if (ca) { e.preventDefault(); setText(ca); goRef.current?.(ca); }
+    };
+    document.addEventListener('paste', on); return () => document.removeEventListener('paste', on);
+  }, [tpl, call]);
   if (!tpl || !call) return null;
-  // ✋ YOUR SELECTION, NO GATE (owner, 2026-10-15: "should be no restrictions on my selections"): ⚡ Add sends the acknowledgement up front —
-  // the checks still run and their words are filed on the seat, but nothing stops your coin.
-  const go = async ack => {
-    if (!mint || !target) return;
+  // ✋ YOUR SELECTION, NO GATE (owner, 2026-10-15/16: "should be no restrictions on my selections" · "adding my coin should be easy"): paste = added.
+  // The acknowledgement goes up front, the checks still run and their words are filed on the seat, and the strip below follows it to the fill.
+  const go = async (ca = mint) => {
+    if (!ca || !target || busy) return;
     setBusy(true); setMsg(null);
     try {
-      await call('/admin/arena/prime', { method: 'POST', body: JSON.stringify(addBody(tpl, mint, target, ack, lim)) });
-      setWarn(null); setText(''); const wasLim = Number(lim) > 0; setLim('');
-      if (wasLim) { setMsg({ ok: true, t: '🎯 buy limit set — it fires when the live price is at or under your price (24h), through the same checks.' }); reload?.(); return; }
-      setMsg({ ok: true, t: target === 'open' ? '🪑 queued — it takes the seat on this tick. The agents study it with you.' : '⇄ swapping now — your coin takes that seat.' });
-      reload?.();
-    } catch (e) {
-      const t = String(e?.message || e);
-      if (t.startsWith('⚠')) setWarn(t); else setMsg({ ok: false, t });
-    } finally { setBusy(false); }
+      await call('/admin/arena/prime', { method: 'POST', body: JSON.stringify(addBody(tpl, ca, target, true, lim)) });
+      setText(''); const wasLim = Number(lim) > 0; setLim('');
+      if (wasLim) { setMsg({ ok: true, t: '🎯 buy limit set — it fires when the live price is at or under your price (24h).' }); reload?.(); return; }
+      markFresh(); setTrack({ mint: ca, at: Date.now() / 1000 }); reload?.();
+    } catch (e) { setMsg({ ok: false, t: String(e?.message || e).replace(/^⚠\s*/, '') }); } finally { setBusy(false); }
   };
+  goRef.current = go;
   return <div className="mys" data-testid="my-seat-add">
     <b className="mys-h">👤 ADD MY COIN</b>
-    <input className="m-input mys-in" value={text} placeholder="paste a contract address or a pump.fun / dex link" onChange={e => { setText(e.target.value); setWarn(null); setMsg(null); }}
-      onKeyDown={e => { if (e.key === 'Enter') go(true); }} data-testid="my-seat-ca" aria-label="Coin contract address" />
-    <input className="m-input mys-lim" value={lim} placeholder="limit price (blank = now)" inputMode="decimal" onChange={e => setLim(e.target.value.replace(/[^0-9.]/g, ''))} data-testid="my-seat-limit" aria-label="Buy limit price" data-tip="Leave blank to buy now. A price = a buy limit: FEELESS watches the live price and places your pick when it is at or under it (24h)." />
-    <select className="m-input mys-to" value={target || ''} onChange={e => setTo(e.target.value)} data-testid="my-seat-to" aria-label="Which seat">
-      {targets.map(t => <option key={t.k} value={t.k}>{t.label}</option>)}</select>
-    <button type="button" className="m-btn m-go" disabled={busy || !mint || !target} onClick={() => go(true)} data-testid="my-seat-go">{busy ? 'Adding…' : Number(lim) > 0 ? '🎯 Set limit' : '⚡ Add'}</button>
+    <input className="m-input mys-in" value={text} placeholder={target ? 'paste a contract address or link (anywhere on this tab) — it goes in' : 'no seat to use (all frozen)'} disabled={busy}
+      onChange={e => { setText(e.target.value); setMsg(null); }}
+      onPaste={e => { const ca = caOf(e.clipboardData?.getData('text')); if (ca && !Number(lim)) { e.preventDefault(); setText(ca); go(ca); } }}
+      onKeyDown={e => { if (e.key === 'Enter') go(); }} data-testid="my-seat-ca" aria-label="Coin contract address" />
+    <button type="button" className="m-btn m-go" disabled={busy || !mint || !target} onClick={() => go()} data-testid="my-seat-go">{busy ? 'Adding…' : Number(lim) > 0 ? '🎯 Set limit' : '⚡ Add'}</button>
+    <button type="button" className={`m-btn mys-opt ${opts ? 'is-on' : ''}`} onClick={() => setOpts(o => !o)} aria-expanded={opts} data-testid="my-seat-opts" data-tip="Which seat, or a buy limit price">⚙</button>
+    {opts ? <span className="mys-opts">
+      <select className="m-input mys-to" value={target || ''} onChange={e => setTo(e.target.value)} data-testid="my-seat-to" aria-label="Which seat">
+        {targets.map(t => <option key={t.k} value={t.k}>{t.label}</option>)}</select>
+      <input className="m-input mys-lim" value={lim} placeholder="limit price (blank = now)" inputMode="decimal" onChange={e => setLim(e.target.value.replace(/[^0-9.]/g, ''))} data-testid="my-seat-limit" aria-label="Buy limit price" data-tip="Leave blank to buy now. A price = a buy limit: FEELESS places your pick when the live price is at or under it (24h)." />
+    </span> : <small className="mys-note">→ {targets.find(t => t.k === target)?.label || 'no seat'}</small>}
     {text && !mint ? <small className="mys-note is-bad">That is not a Solana address yet.</small> : null}
-    {warn ? <span className="mys-warn" data-testid="my-seat-warn">{warn}<button type="button" className="m-btn" disabled={busy} onClick={() => go(true)} data-testid="my-seat-ack">I understand — add it anyway</button></span> : null}
+    {stage ? <div className={`mys-track k-${stage.k}`} data-testid="my-seat-track">
+      <ol>{ADD_STEPS.map(([k, w], i) => { const at = ADD_STEPS.findIndex(x => x[0] === stage.k); return <li key={k} className={stage.k === 'refused' ? (i === 0 ? 'done' : '') : i < at ? 'done' : i === at ? 'now' : ''}>{w}</li>; })}</ol>
+      <small data-testid="my-seat-msg">{stage.t}</small></div> : null}
     {msg ? <small className={`mys-note ${msg.ok ? 'is-ok' : 'is-bad'}`} data-testid="my-seat-msg">{msg.t}</small> : null}
   </div>;
 }

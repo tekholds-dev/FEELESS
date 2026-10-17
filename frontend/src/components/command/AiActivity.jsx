@@ -5,7 +5,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { openCoin } from '../CoinDrawer';
 import '../../styles/aiActivity.css';
 
-const KINDS = [['all', 'All'], ['g4', '🔁 G4 × OSSY'], ['read', '🔍 Reads'], ['proposal', '🛠 Fixes'], ['decision', '✅ Your calls'], ['play', '🧪 Made'], ['lane', '🖥 Lane']];
+const KINDS = [['all', 'All'], ['card', '🤖 Card'], ['you', '👤 You'], ['learn', '🎓 Learned'], ['g4', '🔁 G4 × OSSY'], ['read', '🔍 Reads'], ['proposal', '🛠 Fixes'], ['decision', '✅ Your calls'], ['play', '🧪 Made'], ['lane', '🖥 Lane']];
 const ago = at => { const s = Math.max(0, Math.round(Date.now() / 1000 - at)); return s < 60 ? `${s}s` : s < 3600 ? `${Math.round(s / 60)}m` : `${Math.round(s / 3600)}h`; };
 // pure: how many things happened in each 5-minute slot of the last hour (the pulse bar)
 export function pulse(items, now = Date.now() / 1000) {
