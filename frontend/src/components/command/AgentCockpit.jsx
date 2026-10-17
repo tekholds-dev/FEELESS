@@ -337,7 +337,8 @@ function LiveDesk({ duo, matrix, tape, tapeN }) {
 
 // 📍 OSSY / G4 ON THE CHART (owner, 2026-10-16: Pump-style pins + cards, not a box): their calls on THIS coin → pins at the call's candle + cap
 export function chartCalls(rows, mint) {
-  return (rows || []).filter(r => r.mint && r.mint === mint && Number(r.cap) > 0).slice(-12).map((r, i) => ({ id: `${r.at}-${i}`, at: r.at, cap: r.cap, who: r.model, kind: r.talk ? 'talk' : 'ai',
+  const keep = (rows || []).filter(r => r.mint && r.mint === mint && Number(r.cap) > 0).filter((r, i, a) => !i || r.talk || a[i - 1].model !== r.model || a[i - 1].action !== r.action || r.action !== 'HOLD');   // a run of the same HOLD = one pin
+  return keep.slice(-8).map((r, i) => ({ id: `${r.at}-${i}`, at: r.at, cap: r.cap, who: r.model, kind: r.talk ? 'talk' : 'ai',
     action: r.talk ? 'TALK' : r.action, text: r.talk ? `${r.view || ''} — ${r.why || ''}` : r.why, pct: r.pct, icon: r.model === 'OSSY' ? 'OS' : r.model === 'G4' ? 'G4' : undefined }));
 }
 

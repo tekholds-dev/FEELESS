@@ -29,6 +29,7 @@ export function ChartCallPins({ calls, seriesRef, chartRef, container, ratio = 1
         if (pos === o.last) return; o.last = pos;
         o.el.style.opacity = ok ? '1' : '0'; o.el.style.pointerEvents = ok ? 'auto' : 'none';
         if (ok) o.el.style.transform = `translate3d(${x.toFixed(0)}px, ${(y + top).toFixed(0)}px, 0)`;
+        if (ok) { o.el.classList.toggle('is-r', x > w * 0.55); o.el.classList.toggle('is-b', y > h * 0.6); }   // the card opens toward the free side
       });
     };
     return addChartJob(container, step);
@@ -39,7 +40,7 @@ export function ChartCallPins({ calls, seriesRef, chartRef, container, ratio = 1
     {list.map(c => <button key={c.id} type="button" className={`ccp-pin is-${c.kind || 'user'} ${c.action ? `a-${String(c.action).toLowerCase()}` : ''} ${open === c.id ? 'is-open' : ''}`} data-pin={c.id}
       onMouseEnter={() => setOpen(c.id)} onMouseLeave={() => setOpen(o => (o === c.id ? null : o))} onFocus={() => setOpen(c.id)} onBlur={() => setOpen(o => (o === c.id ? null : o))}
       onClick={() => setOpen(o => (o === c.id ? null : c.id))} aria-label={`${c.who} ${c.action || 'call'}${c.text ? `: ${c.text}` : ''}`} data-testid={`chart-pin-${c.id}`}>
-      <span>{c.icon || initials(c.who)}</span>
+      <i className="ccp-ico">{c.icon || initials(c.who)}</i>
       {open === c.id && card ? <CallCard c={card} nowMc={nowMc} /> : null}
     </button>)}
   </div>;

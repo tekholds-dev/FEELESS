@@ -3,11 +3,11 @@
 .ccp-pin { position: absolute; left: 0; top: 0; width: 22px; height: 22px; margin: -11px 0 0 -11px; padding: 0; border-radius: 50%; opacity: 0; cursor: pointer;
   border: 2px solid #45e486; background: radial-gradient(circle at 35% 30%, #1d5a36, #06140c); color: #e9fff3; box-shadow: 0 0 0 3px rgba(4, 12, 8, .65);
   transition: opacity .2s ease, box-shadow .15s ease; }
-.ccp-pin > span { display: grid; place-items: center; width: 100%; height: 100%; font: 800 8.5px var(--m-mono, 'JetBrains Mono', monospace); letter-spacing: .02em; }
+.ccp-ico { font-style: normal; display: grid; place-items: center; width: 100%; height: 100%; font: 800 8.5px var(--m-mono, 'JetBrains Mono', monospace); letter-spacing: .02em; }
 .ccp-pin.is-ai { border-color: #b48cff; background: radial-gradient(circle at 35% 30%, #3d2470, #0c0718); }
 .ccp-pin.a-sell { border-color: #ff8fa3; } .ccp-pin.is-talk { width: 18px; height: 18px; margin: -9px 0 0 -9px; border-style: dashed; }
 .ccp-pin:hover, .ccp-pin.is-open, .ccp-pin:focus-visible { box-shadow: 0 0 0 3px rgba(69, 228, 134, .35); outline: none; z-index: 6; }
-.ccp-card { position: absolute; left: 16px; top: -10px; z-index: 7; display: grid; gap: 5px; width: 250px; padding: 10px 12px; border-radius: 12px; text-align: left; cursor: default;
+.ccp-card { position: absolute; left: 26px; top: -12px; box-sizing: border-box; white-space: normal; max-width: min(250px, 60vw); z-index: 7; display: grid; gap: 5px; width: 250px; padding: 10px 12px; border-radius: 12px; text-align: left; cursor: default;
   background: #0b1310; border: 1px solid rgba(255, 255, 255, .1); box-shadow: 0 10px 30px rgba(0, 0, 0, .55); color: #e9fff3; animation: ccpIn .16s ease-out; }
 .ccp-head { display: flex; align-items: center; gap: 7px; } .ccp-head i { display: grid; place-items: center; width: 26px; height: 26px; border-radius: 50%; font: 800 9px var(--m-mono, monospace); font-style: normal;
   background: radial-gradient(circle at 35% 30%, #3d2470, #0c0718); border: 1px solid #b48cff; }
@@ -20,3 +20,4 @@
 @keyframes ccpIn { from { transform: translateY(4px) scale(.97); opacity: 0; } to { transform: none; opacity: 1; } }
 @media (prefers-reduced-motion: reduce) { .ccp-card { animation: none; } .ccp-pin { transition: none; } }
 body.theme-day .ccp-card { background: #fff; color: #10301d; border-color: rgba(10, 60, 35, .15); } body.theme-day .ccp-text { color: #10301d; }
+.ccp-pin.is-r .ccp-card { left: auto; right: 26px; } .ccp-pin.is-b .ccp-card { top: auto; bottom: -12px; }
