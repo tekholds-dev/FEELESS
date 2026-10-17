@@ -4851,3 +4851,6 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   exits — red starts 26% won (avg −3.8) vs up-1%-early 68% won; cutting red starts early was WORSE than holding them (−4.6 vs −3.0, both halves),
   and no entry reading separated them (structure / call / germ / tape all 50–60% red starts) → no new entry gate; a red-start loss with no other
   cause is filed as `red_start` (BAD TIMING, Trigger) so the agents + models read the lesson.
+- ✋ AGENT COINS HOLD (owner, 2026-10-17: "they need to HOLD — no reason to be selling so fast"; `office.HOLD_SOFT` True, conftest pins it False
+  for the older Reaper tests): on an agent coin every SOFT exit needs OSSY / G4's fresh exit read to say TIGHTEN; otherwise PROTECT and it plays
+  to its stop / take. Stops, rug / dump / drain, pulled pool, −45%, the take line and the model's own lines always act.

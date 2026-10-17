@@ -98,3 +98,8 @@ def test_reaper_needs_three_looks_alone():
     import office as of
     import inspect
     assert 'SNAP_N, SNAP_RIDE_N, SNAP_TIGHT_N = 3, 5, 1' in inspect.getsource(of)   # (conftest pins SNAP_N 1 for older tests)
+
+
+def test_agent_coins_hold_until_the_model_says_tighten():
+    import inspect, office as of
+    assert 'HOLD_SOFT = True' in inspect.getsource(of)

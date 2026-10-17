@@ -793,6 +793,9 @@ def reap(legs, table, prices, cfg, pos, now, scalp=None, control=False, weather_
         if act and soft_exit(rule) and str(rule).split(' ')[0] in BENCHED:   # 🪑 this rule's own record: holding beat its sales → it sells nothing
             ev += f" · 🪑 {str(rule).split(' ')[0]} is BENCHED — its sales typically lost to holding 30 min (its own record); the trail / stops still act"
             act, st = None, 'PROTECT'
+        if HOLD_SOFT and act and mine and soft_exit(rule) and (ai_words or {}).get(m) != 'tight':   # ✋ owner, 2026-10-17: "they need to HOLD" — an agent coin's soft exit needs OSSY / G4 to say TIGHTEN; else it plays to its stop / take
+            ev += ' · ✋ HOLD — a soft exit needs OSSY / G4 to say TIGHTEN; until then it plays to its stop / take (stops, rug, −45% still act)'
+            act, st = None, 'PROTECT'
         if act and soft_exit(rule):   # 📸 a profit-side exit needs its snapshots (the model's fresh read sets how many)
             ok_, seen_, need_ = soft_confirm(p, rule, now, (ai_words or {}).get(m))
             if not ok_:
@@ -837,6 +840,7 @@ def reap(legs, table, prices, cfg, pos, now, scalp=None, control=False, weather_
 # +8.9% vs what we really got +4.3% / +5.2% (better 87, worse 67); 50% only +3.1% avg (an earlier replay overstated it as +8.6%).
 # Selection bias: only coins that reached +10% — the live twin (after_path.scale_twin) keeps judging it on new exits. Once per position.
 SCALE_AT = 10.0
+HOLD_SOFT = True   # ✋ agent coins: a soft exit needs OSSY / G4's TIGHTEN (tests of the older rules pin it False in conftest)
 HINT_SEC = 30 * 60.0   # ✋ your one-click HOLD / 👍 GOOD ENTRY on a seat holds its soft exits this long
 HINT_HARD = ('R1', 'R2', 'R3', 'R4', 'R4r', 'R4d', 'R4e', 'R5', 'R5x', 'R5c', 'R5m', 'R9c', 'R6', 'R6m', 'R5g')   # … these still act
 SKIM_STRONG_PCT = 33.0   # 🚀 a breakout still accelerating / running: bank a third (skim) and let the rest run; a weak one banks the owner's scale-out share
