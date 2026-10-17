@@ -270,6 +270,38 @@ def lines_view(ch, before=None):
     return 'HOLD' if sc > 0 else 'SELL' if sc < 0 else None
 
 
+SNAP_EVERY = 300.0   # 📸 a snapshot of the live trade in the chat every 5 min (no model call: the numbers as the desk sees them)
+
+
+def snapshot_line(held, chart=None, reaper=None, flow=None):
+    """📸 The live trade in one line: P/L · peak · held · its lines · the chart (germ, HH/HL) · what Reaper is doing · the 90s tape."""
+    h, c = held or {}, chart_view(chart)
+    bits = [f"{_f(h.get('pct')):+.1f}%" if h.get('pct') is not None else 'no price', f"peak {_f(h.get('peak')):+.1f}%" if h.get('peak') is not None else None,
+            f"held {_f(h.get('heldMin')):.0f}m" if h.get('heldMin') is not None else None,
+            ' · '.join(x for x in (f"TP +{_f(h['yourTp']):g}" if h.get('yourTp') else None, f"SL −{_f(h['yourSl']):g}" if h.get('yourSl') else None) if x) or None,
+            c.get('struct'), f"germ 1m {c['germ1m']:+.1f}%" if c.get('germ1m') is not None else None,
+            f"{c['higherLows']} HL / {c.get('lowerLows', 0)} LL" if c.get('higherLows') is not None else None,
+            f"Reaper {reaper}" if reaper else None, f"tape {flow}" if flow else None]
+    return '📸 5-min snapshot · ' + ' · '.join(b for b in bits if b)
+
+
+REVIEW = """Your trade just CLOSED. TRADE = the coin, your entry, its peak, the result, how long you held, and every call you made on it (CALLS).
+Assess it honestly before the turn passes to your partner: grade it A–F, say what you did right, what you would do differently (entry, lines,
+exit timing — with the numbers), and ONE lesson you will use on the next trade. Never invent numbers.
+Answer with ONLY this JSON: {"grade":"A|B|C|D|F","why":"<under 180 chars>","lesson":"<under 140 chars>"}
+""" + VOICE
+
+
+def review_parse(text):
+    """→ {grade, why, lesson} or None (an unreadable review is skipped — the turn still passes)."""
+    j = _first_json(text) or {}
+    g = str(j.get('grade') or '').strip().upper()[:1]
+    if g not in ('A', 'B', 'C', 'D', 'F'):
+        return None
+    clean = lambda x, n: re.sub(r'\s+', ' ', str(x or '')).strip()[:n]
+    return {'grade': g, 'why': clean(j.get('why'), 180), 'lesson': clean(j.get('lesson'), 140)}
+
+
 def owner_lines(text):
     """✋ The owner's own line words in the trade chat → {'tp', 'sl', 'trail'} applied DIRECTLY (no model needed): "tp 80", "take +60",
     "sl 20", "stop -15", "trail 35". Owner, 2026-10-17: "I told them adjust TP multiple times" — a text the model may miss is not a line."""

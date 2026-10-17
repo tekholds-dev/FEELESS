@@ -4910,3 +4910,7 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
 - 🖥 Desktop G4 = **Gemma 4 E4B** (owner's pick): ONE model, `--parallel 2`, 8704 context (each call fits its 4352 share); fallback Gemma 4 E2B.
 - 🎙 OSSY / G4 VOICE (`ai_seat.VOICE` on SYSTEM / ADVISE / IDLE, `fee_voice.PERSONA`, `docs/lm_fee_prompt.txt`): witty trench degen, never dry, jabs
   at the partner, and the owner is THE BOSS — answered first, called boss, never sassed; numbers still decide every line.
+- 📸🏁 OSSY / G4 trade room (owner, 2026-10-17): a `SNAPSHOT` line on the live trade every `ai_seat.SNAP_EVERY` 5 min (no model call: P/L · peak ·
+  held · lines · chart / germ / HL-LL · Reaper · tape; `_g4_mem.live` remembers the trade). When it closes, that minute is the FINAL REVIEW
+  (`_g4_review`, prompt `ai_seat.REVIEW`): the holder grades it A–F, says what to change, one lesson → a REVIEW line in the chat + the AI memory
+  lessons drawer; the turn passes after. Result = the confirmed sale's realPct, else the last price seen (said which).

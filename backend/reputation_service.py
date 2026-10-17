@@ -13957,6 +13957,36 @@ def _duo_push():
         print('duo push:', str(e)[:80])
 
 
+async def _g4_review(now, env, cfg, st_, lv_, mode_):
+    """🏁 FINAL REVIEW (owner, 2026-10-17): the model that ran the trade grades it (A–F · right · different · one lesson) once it closes; the
+    lesson goes to the AI memory every model case recalls. One call; an unreadable answer is skipped. The turn passes after."""
+    try:
+        _g4_mem.put({**(_g4_mem.get() or {}), 'live': None}, now)
+        pos_ = next((p_ for p_ in reversed((_json_load(ARCHIVE_PATH, {}) or {}).get('positions') or []) if isinstance(p_, dict) and p_.get('mint') == lv_.get('mint')
+                     and _fuse._f(p_.get('closedAt')) >= _fuse._f(lv_.get('at'))), None)
+        res_ = (pos_ or {}).get('realPct') if (pos_ or {}).get('realPct') is not None else lv_.get('pct')
+        calls_ = [{k_: r_.get(k_) for k_ in ('action', 'view', 'why', 'pct')} for r_ in st_['log'] if r_.get('mint') == lv_.get('mint') and r_.get('by') == lv_.get('by')
+                  and _fuse._f(r_.get('at')) >= _fuse._f(lv_.get('at')) - 120][-6:]
+        trade_ = {'coin': lv_.get('sym'), 'result': res_, 'resultSource': 'confirmed sale' if pos_ and pos_.get('realPct') is not None else 'last price seen', 'peak': lv_.get('peak'),
+                  'heldMin': lv_.get('heldMin'), 'exitRule': (pos_ or {}).get('rule'), 'calls': calls_}
+        who_ = lv_.get('by') if lv_.get('by') in (_duet.LEAD, _duet.SECOND) else _duet.LEAD
+        r_ = await _air.ROUTER.ask(_ai_http(), env, cfg, 'Review your closed trade.', context={'TRADE': trade_}, role='exit', urgency='force', only=(who_,), system=_seat.REVIEW, only_system=True)
+        rv_ = _seat.review_parse(r_.get('text'))
+        if not rv_:
+            return
+        nm_ = _air.model_name(env, who_)
+        m1 = _g4_mem.get() or {}
+        _g4_mem.put({**m1, 'log': _seat.note(_seat.merge_log(st_['log'], m1.get('log')), {'at': round(now), 'mode': mode_, 'model': nm_, 'by': who_, 'talk': True, 'action': 'REVIEW', 'view': rv_['grade'],
+                                                                                         'why': f"🏁 FINAL on ${lv_.get('sym')} ({_fuse._f(res_):+.1f}%, peak {_fuse._f(lv_.get('peak')):+.1f}%): {rv_['why']} · lesson: {rv_['lesson']}"[:260],
+                                                                                         'mint': lv_.get('mint'), 'symbol': lv_.get('sym'), 'pct': res_})}, now)
+        if rv_['lesson']:
+            _aim_mem.put(_aim.file(_aim_mem.get() or {}, 'lessons', f"review{int(now)}", f"🏁 {nm_} on ${lv_.get('sym')} ({_fuse._f(res_):+.1f}%, grade {rv_['grade']}): {rv_['lesson']}", now), now)
+    except Exception as e:
+        print('g4 review:', str(e)[:100])
+    finally:
+        _duo_push()
+
+
 async def _g4_tick(now, env, cfg):
     """🧠 G4's minute: one snapshot packet → one action for ITS seat (paper book here; real = `_g4['want']`, applied by the tier tick)."""
     if _g4['busy'] or not _seat.due(_g4['at'], now):
@@ -13994,6 +14024,24 @@ async def _g4_tick(now, env, cfg):
             held_ = _seat.held_row({'symbol': o_.get('symbol'), 'mint': o_['mint'], 'entry': o_['entry'], 'at': o_['at'], 'peakPct': o_.get('peak')}, px_of(o_['mint']), now, None, _g4_qwen(o_['mint']))
         else:
             held_ = None
+        lv_ = (_g4_mem.get() or {}).get('live')
+        if mode_ == 'real' and held_ and leg_:   # 📸 the live trade: remembered (for its final review) + a snapshot line every 5 min
+            if not lv_ or lv_.get('mint') != held_m:
+                lv_ = {'mint': held_m, 'sym': held_.get('symbol'), 'by': leg_.get('aiBy'), 'at': _fuse._f(leg_.get('at')) or now, 'snapAt': now}
+            lv_ = {**lv_, 'pct': held_.get('pct'), 'peak': held_.get('peak'), 'heldMin': held_.get('heldMin')}
+            if now - _fuse._f(lv_.get('snapAt')) >= _seat.SNAP_EVERY:
+                rp0_ = next((r_ for r_ in _office.get('reports') or [] if r_.get('mint') == held_m), {})
+                sn_ = _seat.snapshot_line(held_, (_tk.KERNEL.candidate(held_m) or {}).get('chart'), ' · '.join(x_ for x_ in (rp0_.get('state'), str(rp0_.get('rule') or '').split(' ')[0]) if x_) or None,
+                                          ((_office.get('flow') or {}).get(held_m) or {}).get('state'))
+                m0_ = _g4_mem.get() or {}
+                _g4_mem.put({**m0_, 'log': _seat.note(_seat.merge_log(st_['log'], m0_.get('log')), {'at': round(now), 'mode': mode_, 'model': 'SNAPSHOT', 'by': None, 'talk': True, 'action': 'TALK',
+                                                                                                  'view': 'SNAP', 'why': sn_, 'mint': held_m, 'symbol': held_.get('symbol'), 'pct': held_.get('pct')})}, now)
+                st_ = _g4_state()
+                lv_['snapAt'] = now
+            _g4_mem.put({**(_g4_mem.get() or {}), 'live': lv_}, now)
+        elif mode_ == 'real' and not held_ and lv_:   # 🏁 the trade closed: its holder reviews it BEFORE the turn moves on (this minute is the review)
+            await _g4_review(now, env, cfg, st_, lv_, mode_)
+            return
         if mode_ == 'real' and not held_:   # 🪑 no open seat on the card → the models WAIT for one (no call, one line per 5 min)
             legs_r = [l for l in card_.get('legs') or [] if not l.get('placeholder') and _fuse._f(l.get('units')) > 0 and l.get('mint') != _fw.SOL_MINT]
             if len(legs_r) >= int(_fuse._f(_prime_real_cfg(pr_).get('coins')) or 4) and not any(l.get('placeholder') for l in card_.get('legs') or []):
@@ -14150,7 +14198,7 @@ async def _g4_tick(now, env, cfg):
         if (m1_.get('statsFrom') or 0) > (st_.get('statsFrom') or 0):
             log_ = [r_ for r_ in log_ if (r_.get('at') or 0) >= m1_['statsFrom']]
         log_ = _seat.merge_log(log_, m1_.get('log'))   # 💬 keep your chime-in (and any line) written while the model thought
-        _g4_mem.put({'log': log_, 'book': book_, 'at': now, 'opener': m1_.get('opener') or st_.get('opener'), 'talkAt': talk_at, 'statsFrom': m1_.get('statsFrom'), 'idleAt': m1_.get('idleAt') or st_.get('idleAt'), 'opened': m1_.get('opened') or {}, 'huntBy': m1_.get('huntBy'), 'huntSince': m1_.get('huntSince'), 'reapKey': m1_.get('reapKey'), 'lvAt': m1_.get('lvAt')}, now)   # 🚫 keep the bought-coins list (it was dropped every minute → $1 bought 3×)
+        _g4_mem.put({'log': log_, 'book': book_, 'at': now, 'opener': m1_.get('opener') or st_.get('opener'), 'talkAt': talk_at, 'statsFrom': m1_.get('statsFrom'), 'idleAt': m1_.get('idleAt') or st_.get('idleAt'), 'opened': m1_.get('opened') or {}, 'huntBy': m1_.get('huntBy'), 'huntSince': m1_.get('huntSince'), 'reapKey': m1_.get('reapKey'), 'lvAt': m1_.get('lvAt'), 'live': m1_.get('live')}, now)   # 🚫 keep the bought-coins list (it was dropped every minute → $1 bought 3×)
     except Exception as e_:
         print('g4 seat:', str(e_)[:140])
     finally:
