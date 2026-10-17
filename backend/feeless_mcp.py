@@ -981,6 +981,7 @@ def serve_http(host, port):
             if self.path.split('?')[0].rstrip('/') == '/lan-install':   # 🖥 the desktop Mac's one-paste installer (same LAN + token gate as the tools)
                 host_ = re.sub(r'[^A-Za-z0-9.:\-\[\]]', '', self.headers.get('Host') or f'127.0.0.1:{port}')
                 body = install_script(f'http://{host_}/mcp', tok).encode()
+                _log(f"lan-install pulled by {self.client_address[0]}")   # 🖥 proof the desktop's hourly update ran
                 self.send_response(200); self.send_header('Content-Type', 'text/x-shellscript; charset=utf-8'); self.send_header('Content-Length', str(len(body))); self.end_headers()
                 return self.wfile.write(body)
             self._send(405, {'error': 'POST JSON-RPC to /mcp'}, {'Allow': 'POST'})
