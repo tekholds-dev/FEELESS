@@ -6,11 +6,7 @@ from collections import defaultdict
 PTS_EACH, PTS_CAP = 25, 100
 
 
-def _f(v, d=0.0):
-    try:
-        return float(v)
-    except (TypeError, ValueError):
-        return d
+from fnum import plain as _f
 
 
 def finds(block_wallets):

@@ -23,12 +23,7 @@ PENDING = ('holders not read yet', 'no live price')   # not a NO yet: a newborn'
 TIER_RANK = {'A': 3, 'B': 2, 'C': 1}
 
 
-def _f(v):
-    try:
-        x = float(v)
-        return x if x == x else 0.0
-    except (TypeError, ValueError):
-        return 0.0
+from fnum import nan_safe as _f
 
 
 def round_of(first, now):

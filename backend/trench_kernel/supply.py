@@ -13,12 +13,7 @@ EXACT = ('token', 'launchpad')
 STICKY_PCT = 10.0
 
 
-def _f(v):
-    try:
-        x = float(v)
-        return x if x == x and x not in (float('inf'), float('-inf')) else 0.0
-    except (TypeError, ValueError):
-        return 0.0
+from fnum import finite as _f
 
 
 def is_launchpad(mint):

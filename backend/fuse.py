@@ -15,12 +15,7 @@ IMPACT_WARN_PCT = 1.0         # a leg bigger than ~1% of its pool's liquidity mo
 MAX_CREATOR_BPS = 5000        # a creator can take at most half of the FEELESS fee on their Fuse's buys
 
 
-def _f(v):
-    try:
-        x = float(v)
-        return x if math.isfinite(x) else 0.0
-    except (TypeError, ValueError):
-        return 0.0
+from fnum import finite as _f
 
 
 def clean_legs(legs):

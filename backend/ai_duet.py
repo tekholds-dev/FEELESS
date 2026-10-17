@@ -21,11 +21,7 @@ TRUST_N, TRUST_PCT = 10, 60
 NAME = {LEAD: '🖥 G4', SECOND: '💻 OSSY'}
 
 
-def _f(x, d=0.0):
-    try:
-        return float(x)
-    except (TypeError, ValueError):
-        return d
+from fnum import plain as _f
 
 
 def _right(stance, pct):

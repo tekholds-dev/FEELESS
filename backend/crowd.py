@@ -12,11 +12,7 @@ ELITE_N, ELITE_WR, ELITE_AVG = 6, 55.0, 10.0
 FLOW_WINDOW = 6 * 3600
 
 
-def _f(v):
-    try:
-        return float(v)
-    except (TypeError, ValueError):
-        return 0.0
+from fnum import plain as _f
 
 
 def buy_fill(t):

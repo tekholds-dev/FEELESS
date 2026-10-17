@@ -11,12 +11,7 @@ STAGE_STATES = ('WAITING', 'WORKING', 'PASS', 'WARN', 'VETO', 'DONE', 'ERROR', '
 FINAL = {'READY': 'READY', 'CONTENDING': 'CONTENDING', 'TRACKING': 'TRACKING', 'HELD': 'HELD', 'EXIT_PENDING': 'EXIT PENDING', 'ORDER_PENDING': 'ORDER PENDING', 'CLOSED': 'CLOSED', 'DISCOVERED': 'DISCOVERED'}
 
 
-def _f(v):
-    try:
-        x = float(v)
-        return x if x == x else 0.0
-    except (TypeError, ValueError):
-        return 0.0
+from fnum import nan_safe as _f
 
 
 def devil_view(op):

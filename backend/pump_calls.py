@@ -21,12 +21,7 @@ COINS_MAX, TOP_MAX, LATEST_MAX = 120, 25, 40
 _MINT = re.compile(r'^[1-9A-HJ-NP-Za-km-z]{32,44}$')
 
 
-def _f(v, d=0.0):
-    try:
-        x = float(v)
-        return x if x == x and abs(x) != float('inf') else d
-    except (TypeError, ValueError):
-        return d
+from fnum import finite as _f
 
 
 def _ms(v):

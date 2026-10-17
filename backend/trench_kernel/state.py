@@ -20,12 +20,7 @@ MATERIAL = {'price': 2.0, 'liquidity': 10.0, 'volume': 50.0, 'buyers': 15.0}   #
 KEEP = 3000
 
 
-def _f(v):
-    try:
-        x = float(v)
-        return x if x == x else 0.0
-    except (TypeError, ValueError):
-        return 0.0
+from fnum import nan_safe as _f
 
 
 def _pct(a, b):

@@ -50,12 +50,7 @@ EXT_WAIT, VOL_WILD, WICK_HEAVY = 70.0, 6.0, 0.55
 LIQ_FAIL_DROP, LIQ_FAIL_MIN = -25.0, 10_000.0
 
 
-def _f(v):
-    try:
-        x = float(v)
-        return x if x == x else 0.0
-    except (TypeError, ValueError):
-        return 0.0
+from fnum import nan_safe as _f
 
 
 def _clamp(v, lo, hi):

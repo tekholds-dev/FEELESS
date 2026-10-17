@@ -22,12 +22,7 @@ GOOD = {'UPTREND': 18, 'PULLBACK IN UPTREND': 16, 'CONFIRMED BREAKOUT': 14, 'BRE
         'RANGE': 0, 'UNKNOWN': 0, 'PARABOLIC': -8, 'CHOP': -12, 'FAILED BREAKOUT': -14, 'DOWNTREND': -18}
 
 
-def _f(v):
-    try:
-        x = float(v)
-        return x if x == x else 0.0
-    except (TypeError, ValueError):
-        return 0.0
+from fnum import nan_safe as _f
 
 
 # 🆕 FRESHNESS LADDER (owner's trench-desk spec, 2026-10-12): the NEW-ENTRY universe is ≤ 6h old — 0–5m extreme · 5–15m very high ·

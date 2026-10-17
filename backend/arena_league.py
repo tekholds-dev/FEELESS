@@ -10,7 +10,6 @@ paper book (true fills) that it keeps for the WHOLE season — nothing resets be
     fresh field, every book back at $20.
 Ranking only: it never trades and never promises a result.
 """
-import math
 
 FIELD_MAX = 8
 ROUNDS = 7
@@ -20,12 +19,7 @@ CUT_DROP = 75.0        # … or one that lost this much over its last CUT_BELLS 
 CUT_BELLS = 3
 
 
-def _f(v):
-    try:
-        x = float(v)
-        return x if math.isfinite(x) else 0.0
-    except (TypeError, ValueError):
-        return 0.0
+from fnum import finite as _f
 
 
 def row(card, now):

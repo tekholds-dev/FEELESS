@@ -10,12 +10,7 @@ MIN_N = 6          # a finding needs this many graded moves / trades behind it
 EDGE = 2.0         # points apart before one side is said to be better
 
 
-def _f(v, d=0.0):
-    try:
-        x = float(v)
-        return x if x == x else d
-    except (TypeError, ValueError):
-        return d
+from fnum import nan_safe as _f
 
 
 def _rate(x):

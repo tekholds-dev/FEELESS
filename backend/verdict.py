@@ -7,16 +7,10 @@ real run) judged the same way from numbers it already recorded:
   • 👀 watch — too few samples yet, or average and median disagree
 Nothing here trades or changes a setting; it only reads records and says which ones are paying for themselves.
 """
-import math
 import statistics
 
 
-def _f(v):
-    try:
-        x = float(v)
-        return x if math.isfinite(x) else 0.0
-    except (TypeError, ValueError):
-        return 0.0
+from fnum import finite as _f
 
 
 def judge(n, avg, med, min_n):

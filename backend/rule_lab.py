@@ -34,12 +34,7 @@ MAX_WHEN = 2
 MOMENT = ('flow:', 'high:', 'rule:', 'struct:', 'fresh:')   # (fresh: buying a coin minutes old IS a timing call)   # entry-MOMENT tokens: a live avoid rule on these is Trigger's lesson (arm, don't enter)
 
 
-def _f(v, d=0.0):
-    try:
-        x = float(v)
-        return x if x == x else d
-    except (TypeError, ValueError):
-        return d
+from fnum import nan_safe as _f
 
 
 def high_band(dist):

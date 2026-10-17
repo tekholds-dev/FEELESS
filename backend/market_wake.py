@@ -18,12 +18,7 @@ GAP_CAND = 8.0        # seconds between two early agent passes (a pass reads eve
 RUN_STATES = ('ACCELERATING', 'RUNNING', 'STALLING', 'REVERSING', 'BREAKING DOWN')
 
 
-def _f(v):
-    try:
-        x = float(v)
-        return x if x == x else 0.0
-    except (TypeError, ValueError):
-        return 0.0
+from fnum import nan_safe as _f
 
 
 def position_wake(p, px):

@@ -45,12 +45,7 @@ GRADE_BAD_MED = 3.0    # coins it ranked DOWN went UP a typical 3%+ → the less
 GRADE_OPEN, GRADE_DONE = 300, 60
 
 
-def _f(v, d=0.0):
-    try:
-        x = float(v)
-        return x if x == x else d
-    except (TypeError, ValueError):
-        return d
+from fnum import nan_safe as _f
 
 
 def _why(v):

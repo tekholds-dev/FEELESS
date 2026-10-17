@@ -5,12 +5,7 @@ runaway guards, the agents' own holder line and what counts as an agent seat. Th
 nothing here is a verdict about a coin's quality (that is the ten-agent brain, trench_kernel/brain.py)."""
 
 
-def _f(v):
-    try:
-        x = float(v)
-        return x if x == x else 0.0
-    except (TypeError, ValueError):
-        return 0.0
+from fnum import nan_safe as _f
 
 
 # ── 💵 AGENT SEATS on the real card — they stay until profit, then the agents decide ────────────────────────────────────────────────

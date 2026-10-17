@@ -20,12 +20,7 @@ ROTATE_EXTRA = 0.25   # … and a coin whose read is intact needs this much more
 BROKE_D5, BROKE_BUY = -3.0, 50.0
 
 
-def _f(v):
-    try:
-        x = float(v)
-        return x if x == x else 0.0
-    except (TypeError, ValueError):
-        return 0.0
+from fnum import nan_safe as _f
 
 
 def broken_read(row):

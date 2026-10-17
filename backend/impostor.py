@@ -11,11 +11,7 @@ BIG_CAP = 1_000_000.0
 CAP_RATIO = 5.0
 
 
-def _f(v):
-    try:
-        return float(v)
-    except (TypeError, ValueError):
-        return 0.0
+from fnum import plain as _f
 
 
 def established(rows, majors=None, held=None, big=BIG_CAP):

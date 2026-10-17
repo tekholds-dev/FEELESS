@@ -29,12 +29,7 @@ TOP_N = 6
 PROVEN_H = 12.0
 
 
-def _f(v):
-    try:
-        x = float(v)
-        return x if math.isfinite(x) else 0.0
-    except (TypeError, ValueError):
-        return 0.0
+from fnum import finite as _f
 
 
 def _log(v, lo, hi):

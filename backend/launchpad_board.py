@@ -41,12 +41,7 @@ def pump_pages(kind):
 
 
 
-def _f(value, default=0.0):
-    try:
-        out = float(value)
-        return out if out == out else default
-    except (TypeError, ValueError):
-        return default
+from fnum import nan_safe as _f
 
 
 def _clamp(value, lo=0.0, hi=1.0):

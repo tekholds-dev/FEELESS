@@ -19,12 +19,7 @@ UP, DOWN = 1.0, 0.85   # 🚫 VETO-ONLY (owner, 2026-10-13: "do #5"): the model'
 FRESH_SEC = 600.0        # a stance applies to its coin for 10 minutes
 
 
-def _f(v, d=0.0):
-    try:
-        x = float(v)
-        return x if x == x and x not in (float('inf'), float('-inf')) else d
-    except (TypeError, ValueError):
-        return d
+from fnum import finite as _f
 
 
 def _median(xs):

@@ -11,11 +11,7 @@ HOLD_BUCKETS = (('<5m', 0, 5), ('5-15m', 5, 15), ('15-30m', 15, 30), ('30-60m', 
 TRIM_WORDS = ('trim', 'lock', 'skim', 'peak', 'bank', 'recycle', 'profit')
 
 
-def _f(v, d=0.0):
-    try:
-        return float(v)
-    except (TypeError, ValueError):
-        return d
+from fnum import plain as _f
 
 
 def exit_kind(why):

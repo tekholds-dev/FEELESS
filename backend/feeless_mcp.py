@@ -55,12 +55,7 @@ def _memo(key, ttl, fn):
     return v
 
 
-def _f(v, d=0.0):
-    try:
-        x = float(v)
-        return x if x == x else d
-    except (TypeError, ValueError):
-        return d
+from fnum import nan_safe as _f
 
 
 def _usd(v):

@@ -28,12 +28,7 @@ MEM_KEEP = 4000          # wallets kept (most recently seen)
 NOTE_KEEP = 400          # launches kept in the open / settled lists
 
 
-def _f(v):
-    try:
-        x = float(v)
-        return x if x == x else 0.0
-    except (TypeError, ValueError):
-        return 0.0
+from fnum import nan_safe as _f
 
 
 # ── 1 · 3 · EARLY BUYER MAP + CONCENTRATION ──────────────────────────────────────────────────────────────────────────────────────────

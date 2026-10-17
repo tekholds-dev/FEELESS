@@ -17,12 +17,7 @@ KEEP_TRADES, KEEP_EVENTS, KEEP_REVIEWS = 10, 12, 8
 RUG = -45.0
 
 
-def _f(v, d=0.0):
-    try:
-        x = float(v)
-        return x if x == x else d
-    except (TypeError, ValueError):
-        return d
+from fnum import nan_safe as _f
 
 
 def wants(question):

@@ -16,12 +16,7 @@ SURGE_EVERY = 300.0     # at most one SURGE line per coin per 5 minutes
 AGENTS = ('tally', 'sherlock', 'weather', 'trigger', 'devil', 'warden', 'courier', 'reaper', 'archivist', 'judge', 'kernel', 'owner')
 
 
-def _f(v):
-    try:
-        x = float(v)
-        return x if x == x else 0.0
-    except (TypeError, ValueError):
-        return 0.0
+from fnum import nan_safe as _f
 
 
 def _money(v):

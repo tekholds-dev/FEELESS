@@ -21,12 +21,7 @@ PROOF_TAKE = 10
 PROOF_EDGE = 2.0
 
 
-def _f(v):
-    try:
-        x = float(v)
-        return x if x == x else 0.0
-    except (TypeError, ValueError):
-        return 0.0
+from fnum import nan_safe as _f
 
 
 def _cap(x):

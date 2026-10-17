@@ -18,12 +18,7 @@ The outlets (each is an existing FEELESS stream — none is invented here):
   held     the coins on the real card
 """
 
-def _f(v):
-    try:
-        x = float(v)
-    except (TypeError, ValueError):
-        return 0.0
-    return x if x == x else 0.0
+from fnum import nan_safe as _f
 
 SOURCES = {'pulse': 'Pump pulse (PumpPortal live launches)', 'migr': 'Pump migrations (PumpPortal live)', 'open': 'launch board', 'runner': 'runner board',
            'calls': 'Pump callouts', 'feeders': 'fed runners', 'radar': 'FEELESS radar', 'held': 'the real card'}

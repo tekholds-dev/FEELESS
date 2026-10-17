@@ -14,11 +14,7 @@ HOURS = (1, 6, 24, 72)
 PCTS = (25, 50, 100)
 
 
-def _f(v):
-    try:
-        return float(v)
-    except (TypeError, ValueError):
-        return 0.0
+from fnum import plain as _f
 
 
 def make(side, px, now=None, hours=24, **k):

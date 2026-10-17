@@ -24,12 +24,7 @@ SERIES_N = 15                   # points kept per coin (one a pass, ~1 min apart
 SERIES_COINS = 340                # ≥ the intake (office_edge.INTAKE_MAX 300) so nothing read this pass loses its tape
 
 
-def _f(v):
-    try:
-        x = float(v)
-        return x if x == x else 0.0
-    except (TypeError, ValueError):
-        return 0.0
+from fnum import nan_safe as _f
 
 
 def _med(xs):

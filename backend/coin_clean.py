@@ -2,11 +2,7 @@
 Every point is a number read from the chain or the market, never an opinion. An UNKNOWN number scores 0 and is named as unknown
 (a coin is never called clean because a read failed). A score, never a promise: a clean coin can still go to zero."""
 
-def _f(v, d=0.0):
-    try:
-        return float(v)
-    except (TypeError, ValueError):
-        return d
+from fnum import plain as _f
 
 
 CHECKS = (

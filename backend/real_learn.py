@@ -10,12 +10,7 @@ MIN_N = 5
 KEEP = 2000
 
 
-def _f(v):
-    try:
-        x = float(v)
-        return x if x == x else 0.0
-    except (TypeError, ValueError):
-        return 0.0
+from fnum import nan_safe as _f
 
 
 def _band(v, cuts, names):
