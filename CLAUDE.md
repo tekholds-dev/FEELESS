@@ -4711,3 +4711,5 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   logged as model AGENTS with `miss` = why the models missed. 🧾 `_g4_fate` → duo `fate`: what happened to the newest model BUY (stale · paper ·
   not LIVE · blocked · pre-check refused · Warden veto · seated) — a BUY used to vanish silently. Board = `DuoSeat` duel (`sideOf`: calls,
   answered %, buys, think time, a latency trace per call; hex seat core; a beam from the last caller). The water tank + whales were scrapped.
+  ONE TRADE EACH (`ai_seat.turn(.., holding)`): the model that bought runs the trade to its exit, then the other hunts. 🧯 Each LM Studio model
+  takes ≤ `LM_CALLS_PER_MIN` 4 background calls a minute (`ai_router.minute_cap`, tried MINUTE CAP); the owner's chat is never capped.

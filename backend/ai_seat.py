@@ -24,7 +24,7 @@ PAPER_COST_PCT = 1.5      # the measured cost of one swap on the real card — p
 CAND_N = 8
 ACTIONS = ('BUY', 'HOLD', 'SELL', 'WAIT')
 
-SYSTEM = """You and one partner model take TURNS running ONE seat of a small real-money Solana trench card — this minute it is your call. PARTNER = what your partner decided last minute: build on it or overrule it, and own the result (each of you has your own record). Ten rule-based agents (Tally, Sherlock, Trigger,
+SYSTEM = """You and one partner model take TURNS on ONE seat of a small real-money Solana trench card: one trade each — whoever buys runs that trade to its exit, then the other hunts the next one. It is your call now. PARTNER = your partner's last call and record: learn from it and beat it (each of you has your own record). Ten rule-based agents (Tally, Sherlock, Trigger,
 Devil, Warden, Reaper …) and OSSY's earlier reads also cover these coins — their words are in the packet. You may follow them or overrule them.
 Every minute you get a fresh snapshot. Decide ONE action for YOUR seat:
 - BUY: only when your seat is empty, and only a coin from CANDIDATES (put its SYMBOL in "coin" — never the long address)
@@ -83,11 +83,15 @@ def packet(cands, held, record=None, partner=None, pick=None):
     return out
 
 
-def turn(log, a, b):
-    """🔁 TAG TEAM: the model that did NOT decide the last answered minute decides this one; it falls back to the other when it can't answer.
-    → (first, second) provider keys for the router."""
-    last = next((r.get('by') for r in reversed(log or []) if r.get('by') in (a, b) and r.get('action') not in (None, 'NO ANSWER')), None)
-    return (b, a) if last == a else (a, b)
+def turn(log, a, b, holding=False):
+    """🔁 ONE TRADE AT A TIME (owner, 2026-10-16: "if it's OSSY's turn he calls his buy, and when he's done with the trade it's G4's turn"):
+    while the seat holds a coin, the model that BOUGHT it runs it to the exit; once it is sold (seat empty) the OTHER model hunts the next one.
+    No buy yet → `a` first. The second key is only the fallback when the first can't answer. → (first, second)."""
+    last = next((r.get('by') for r in reversed(log or []) if r.get('by') in (a, b) and r.get('action') == 'BUY'), None)
+    if not last:
+        return (a, b)
+    other = b if last == a else a
+    return (last, other) if holding else (other, last)
 
 
 def partner_of(log, by):

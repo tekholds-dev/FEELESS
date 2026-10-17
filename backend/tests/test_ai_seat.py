@@ -68,8 +68,9 @@ def test_g4_minute_thoughts_reach_the_activity_pane():
 def test_g4_and_the_mac_model_take_turns_and_each_has_its_own_record():
     assert seat.turn([], 'lan', 'local') == ('lan', 'local')
     log = [{'by': 'lan', 'action': 'BUY', 'symbol': 'A', 'why': 'buyers 70%', 'model': 'Vega'}]
-    assert seat.turn(log, 'lan', 'local') == ('local', 'lan')                       # the other model decides next
-    assert seat.turn(log + [{'by': None, 'action': 'NO ANSWER'}], 'lan', 'local') == ('local', 'lan')   # a missed minute does not count as a turn
+    assert seat.turn(log, 'lan', 'local', holding=True) == ('lan', 'local')          # the buyer runs its own trade to the exit
+    assert seat.turn(log, 'lan', 'local') == ('local', 'lan')                         # seat empty again → the other model hunts
+    assert seat.turn(log + [{'by': 'local', 'action': 'WAIT'}], 'lan', 'local') == ('local', 'lan')   # a WAIT is not a trade: still its hunt
     assert seat.partner_of(log, 'local') == {'model': 'Vega', 'action': 'BUY', 'symbol': 'A', 'why': 'buyers 70%'} and seat.partner_of(log, 'lan') is None
     assert seat.packet([], None, None, {'action': 'BUY'})['partner'] == {'action': 'BUY'}
     px = {'A': 1.0}
@@ -146,5 +147,11 @@ def test_when_no_model_answers_the_agents_decide_the_seat():
     assert seat.agents_pick(c)['mint'] == 'BBB'
     assert seat.backup(c, False) == {**seat.backup(c, False), 'action': 'BUY', 'mint': 'BBB'}
     assert seat.backup(c[:1], False)['action'] == 'WAIT' and seat.backup(c, True)['action'] == 'HOLD'
-    assert seat.turn([{'by': 'agents', 'action': 'BUY'}], 'lan', 'local') == ('lan', 'local')   # a backup minute is nobody's turn
+    assert seat.turn([{'by': 'agents', 'action': 'BUY'}], 'lan', 'local') == ('lan', 'local')   # an agents' backup buy is nobody's turn
 
+
+
+def test_each_lm_model_takes_at_most_four_background_calls_a_minute():
+    import ai_router as air
+    assert not air.minute_cap([100, 110, 120], 130, 4) and air.minute_cap([100, 110, 120, 125], 130, 4)
+    assert not air.minute_cap([10, 20, 30, 40], 130, 4)          # older than a minute: free again

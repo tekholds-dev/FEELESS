@@ -180,6 +180,14 @@ def cloud_ready(router, env, cfg, now):
     return False
 
 
+LM_PER_MIN = int(os.environ.get('LM_CALLS_PER_MIN') or 4)   # 🧯 each LM Studio model (G4 / OSSY) answers ≤ 4 background calls a minute (owner, 2026-10-16)
+
+
+def minute_cap(stamps, now, cap=LM_PER_MIN):
+    """True when a model already took `cap` background calls in the last 60s (the owner's own chat is never capped)."""
+    return sum(1 for t in stamps or () if now - t < 60) >= cap
+
+
 def local_last_resort(prio, last_at, now, cloud_answered):
     """💻 THE LOCAL MODEL BACKS THE AGENTS UP (owner, 2026-10-13: "local LM needs to be stronger for them"): when NO cloud provider could answer
     a case that matters (prio ≤ LOCAL_BG_PRIO), the local model takes it — one case per LOCAL_BG_EVERY at most, so it never runs half the
@@ -670,6 +678,7 @@ class Router:
         self.budget = {}   # provider → what it said is left of its tokens-per-minute budget
         self.spend = {}    # provider → {day, usd, calls}: the costs the provider itself reported today
         self.localBgAt = 0.0
+        self.minute = {}   # provider → recent background call stamps (LM_PER_MIN)
         self._ctx = {}   # LM Studio server → (read at, its model's loaded context length)
         self._beat = {}   # 💓 LM Studio server → its last heartbeat
         self.lastUsage = {}   # provider → {in, out} tokens of its last answer
@@ -992,6 +1001,11 @@ class Router:
                     continue
                 self.localBgAt = time.time()
                 self.totals['localBg'] = self.totals.get('localBg', 0) + 1
+            if key in LM and role not in ('owner', 'chat') and minute_cap(self.minute.get(key), time.time()):
+                tried.append([key, 'MINUTE CAP'])
+                continue
+            if key in LM and role not in ('owner', 'chat'):
+                self.minute[key] = [t for t in self.minute.get(key, []) if time.time() - t < 60] + [time.time()]
             if key != 'local' and self.over_spend(key, env, time.time()):
                 tried.append([key, 'DAILY CAP'])
                 continue

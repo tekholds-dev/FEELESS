@@ -13789,7 +13789,7 @@ async def _g4_tick(now, env, cfg):
         else:
             held_ = None
         rec_ = _g4_real_record() if mode_ == 'real' else _seat.record(book_.get('closed'))
-        first_, second_ = _seat.turn(st_['log'], _duet.LEAD, _duet.SECOND)   # 🔁 tag team: G4 (desktop) and the Mac's model take turns deciding the seat
+        first_, second_ = _seat.turn(st_['log'], _duet.LEAD, _duet.SECOND, bool(held_))   # 🔁 one trade each: the buyer runs it to the exit, then the other hunts
         if mode_ == 'paper':
             rec_ = _seat.by_model(book_.get('closed')).get(first_) or {'n': 0}
         rows_ = [_seat.cand_row(c_, _g4_qwen(c_['mint'])) for c_ in cands_]
@@ -17775,7 +17775,7 @@ def _duo_view(env=None):
         st_ = _g4_state()
         env = env or os.environ
         nm = lambda k: _air.model_name(env, k)
-        first_, _s = _seat.turn(st_['log'], _duet.LEAD, _duet.SECOND)
+        first_, _s = _seat.turn(st_['log'], _duet.LEAD, _duet.SECOND, bool((st_['book'] or {}).get('open')) or any(l.get('aiSeat') and not l.get('placeholder') for c_ in (((_json_load(FUSE_HQ_PATH, {}) or {}).get('prime') or {}).get('cards') or {}).values() if (c_ or {}).get('real') for l in c_.get('legs') or []))
         return {'mode': _oe.clean_policy(_prime_real_cfg())['agentAiSeat'], 'next': nm(first_), 'at': st_['at'], 'busy': _g4['busy'],
                 'rec': {nm(k): v for k, v in _seat.by_model((st_['book'] or {}).get('closed')).items() if k in (_duet.LEAD, _duet.SECOND)},
                 'open': (st_['book'] or {}).get('open'),
