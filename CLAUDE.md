@@ -4917,3 +4917,7 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   held · lines · chart / germ / HL-LL · Reaper · tape; `_g4_mem.live` remembers the trade). When it closes, that minute is the FINAL REVIEW
   (`_g4_review`, prompt `ai_seat.REVIEW`): the holder grades it A–F, says what to change, one lesson → a REVIEW line in the chat + the AI memory
   lessons drawer; the turn passes after. Result = the confirmed sale's realPct, else the last price seen (said which).
+- 🥇 MODEL CALL ORDER (`ai_router.prio_tier` / `seat_window`, owner 2026-10-17): tier 0 = a model's own trade call (urgency 'seat') + the owner's
+  chat · 1 = forced calls (partner advice, idle card reads, final reviews, FeeCat duo, exit reads) · 2 = background reads. A lower tier waiting
+  on a model makes higher tiers yield ('YIELD (its trade first)'); background reads start only within 30s after that model's last trade call
+  (or when it has no trade running for 2 min), so its slot is free when the next minute's trade call comes. Trade calls are never minute-capped.

@@ -136,3 +136,10 @@ def test_every_card_coin_has_a_room_with_the_agents_and_reaper(monkeypatch):
     assert [r['symbol'] for r in rooms] == ['DOG']                                         # the models' own trade has its own room
     who = [x['model'] for x in rooms[0]['rows']]
     assert who[0] == 'REAPER' and 'AGENTS' in who and who.count('REAPER') == 2               # Reaper's call now + its bank, the agents' buy
+
+
+def test_trade_calls_first_then_the_rest():
+    import ai_router as ar
+    assert ar.prio_tier('exit', 'seat') == 0 and ar.prio_tier('owner', 'normal') == 0
+    assert ar.prio_tier('exit', 'force') == 1 and ar.prio_tier('sherlock', 'normal') == 2
+    assert ar.seat_window(None, 100) and ar.seat_window(100, 120) and not ar.seat_window(100, 150) and ar.seat_window(100, 300)

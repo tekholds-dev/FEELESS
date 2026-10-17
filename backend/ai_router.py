@@ -185,6 +185,25 @@ def cloud_ready(router, env, cfg, now):
 LM_PER_MIN = int(os.environ.get('LM_CALLS_PER_MIN') or 4)   # 🧯 each LM Studio model (G4 / OSSY) answers ≤ 4 background calls a minute (owner, 2026-10-16)
 
 
+def prio_tier(role, urgency):
+    """🥇 0 = a model's own trade decision + the owner's chat · 1 = every other forced call (partner advice, idle card reads, final reviews,
+    FeeCat's duo, exit reads) · 2 = background reads. A lower tier waiting on a model makes the higher tiers yield that round."""
+    if urgency == 'seat' or role in ('owner', 'chat'):
+        return 0
+    return 1 if urgency == 'force' else 2
+
+
+SEAT_IDLE_SEC, BG_WINDOW_SEC = 120.0, 30.0
+
+
+def seat_window(done_at, now):
+    """⏱ May a BACKGROUND read start on this model now? Yes when it has no trade running (no trade call in SEAT_IDLE_SEC), or within
+    BG_WINDOW_SEC after its last trade call ended — so the slot is free when the next minute's trade call arrives."""
+    if not done_at or now - done_at > SEAT_IDLE_SEC:
+        return True
+    return now - done_at <= BG_WINDOW_SEC
+
+
 def minute_cap(stamps, now, cap=LM_PER_MIN):
     """True when a model already took `cap` background calls in the last 60s (the owner's own chat is never capped)."""
     return sum(1 for t in stamps or () if now - t < 60) >= cap
@@ -676,6 +695,8 @@ class Router:
         self.cache = {}
         self.inflight = {}
         self.waiting = {k: 0 for k in PROVIDERS}
+        self.seatDone = {}   # ⏱ when each model's last trade call finished
+        self.prioWait = {}   # 🥇 per provider: how many calls of each tier are waiting (prio_tier)
         self._sem = {}
         self.budget = {}   # provider → what it said is left of its tokens-per-minute budget
         self.spend = {}    # provider → {day, usd, calls}: the costs the provider itself reported today
@@ -1017,11 +1038,21 @@ class Router:
             if self.sem(key).locked() and self.waiting[key] >= QUEUE_MAX:
                 tried.append([key, 'BUSY'])
                 continue
+            tier = prio_tier(role, urgency)
+            pw = self.prioWait.setdefault(key, {0: 0, 1: 0, 2: 0})
+            if key in LM and any(pw[t] > 0 for t in range(tier)):   # 🥇 a model's OWN trade (and the owner) first, then advice / FeeCat / reviews, then background reads
+                tried.append([key, 'YIELD (its trade first)'])
+                continue
+            if key in LM and tier == 2 and not seat_window(self.seatDone.get(key), time.time()):   # ⏱ background only right after a trade call: the slot is free when the next minute's trade call comes
+                tried.append([key, 'YIELD (trade call due)'])
+                continue
             self.waiting[key] += 1
+            pw[tier] += 1
             queued = True
             try:
                 async with self.sem(key):
                     self.waiting[key] -= 1
+                    pw[tier] -= 1
                     queued = False
                     # ⏳ FIT THE PROVIDER'S MINUTE BUDGET instead of firing into a 429 (2026-10-13: Groq allows 8K tokens a minute; two ~3K-token
                     # cases a round → the second was refused, the provider "cooled" and 5 of 6 asks came back NONE — the model was barely in the game)
@@ -1051,9 +1082,12 @@ class Router:
                         await asyncio.sleep(_f(err[2], 2.0) + 0.1)
                         text, err = await self._call(http, p, env, msgs, now)
                     ms = round((time.perf_counter() - t0) * 1000)
+                    if tier == 0 and urgency == 'seat':
+                        self.seatDone[key] = time.time()
             except Exception as e:
                 if queued:
                     self.waiting[key] = max(0, self.waiting[key] - 1)
+                    pw[tier] = max(0, pw[tier] - 1)
                 text, err, ms = None, ('fail', type(e).__name__, None), 0
             t_now = time.time()
             if err:
