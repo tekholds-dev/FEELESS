@@ -42,8 +42,8 @@ export function ChartCallPins({ calls, seriesRef, chartRef, container, ratio = 1
         } catch { x = null; }
         const ok = x != null && y != null && x > 8 && x < w - 60 && y > 8 && y < h - 8;
         if (!ok) { if (o.last !== 'x') { o.last = 'x'; o.el.style.opacity = '0'; o.el.style.pointerEvents = 'none'; } return; }
-        const n = slots.filter(sx => Math.abs(sx - x) < 16).length; slots.push(x);
-        const above = Math.min(y, yTop ?? y) - 16 - n * 22;   // 📍 hover ABOVE the candle's high, a stem down to the call point
+        const n = slots.filter(sx => Math.abs(sx - x) < 24).length; slots.push(x);
+        const above = Math.min(y, yTop ?? y) - 30 - n * 26;   // 📍 hover ABOVE the candle's high, a stem down to the call point
         const py = Math.max(12, above); const stem = Math.max(0, y - py - 10);
         const pos = `${x.toFixed(0)},${py.toFixed(0)},${stem.toFixed(0)}`;
         if (pos === o.last) return; o.last = pos;

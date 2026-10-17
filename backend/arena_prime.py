@@ -3260,7 +3260,7 @@ def ticket_stops(c, cfg):
 GSTOP_MODES = ('off', '1m', '5m', 'both')   # 🦠 Gstop: sell when the coin LOSES its germ floor on that lens (both = either 1m or 5m), then buy back on a NEW germ
 
 
-def set_leg(card, pair, frozen=None, sl_mode=None, tp=None, sl=None, flow=None, now=None, certified=None, gstop=None, pick_lock=None):
+def set_leg(card, pair, frozen=None, sl_mode=None, tp=None, sl=None, flow=None, now=None, certified=None, gstop=None, pick_lock=None, trail=None):
     """HQ per-coin config on a tier card: ❄ frozen (engine never rotates or stops it — the floor still protects the card)
     and its own stop mode (replace / park / hold, or '' = follow the card). Pure; ValueError if the coin isn't on the card."""
     c = {**card, 'legs': [dict(l) for l in card.get('legs') or []]}
@@ -3297,6 +3297,16 @@ def set_leg(card, pair, frozen=None, sl_mode=None, tp=None, sl=None, flow=None, 
             leg['flowExit'] = flow
         else:
             leg.pop('flowExit', None)
+    if trail is not None:   # 🏔 the coin's own trail: give back this % of the peak gain, then bank (15–70; 0 = the card's)
+        if _f(trail) and not 15 <= _f(trail) <= 70:
+            raise ValueError('trail must be 15–70% of the peak gain (or 0 for the card\'s)')
+        if _f(trail):
+            leg['aiTrail'] = _f(trail)
+        else:
+            leg.pop('aiTrail', None)
+        c['events'] = list(card.get('events') or []) + [{'at': _f(now) or time.time(), 'kind': 'level', 'symbol': leg.get('symbol'), 'room': True,
+                                                          'why': f"✋ your line on ${leg.get('symbol')}: trail {('↩ ' + format(_f(trail), 'g') + '%') if _f(trail) else 'back to the card'}"}]
+        card = c
     before = {k: _f(leg.get(k)) for k in ('tp', 'sl')}
     for key, val, allowed in (('tp', tp, LEG_TPS), ('sl', sl, LEG_SLS)):   # 🎯 this coin's own TP / SL; 0 clears it back to the tier's
         if val is not None:

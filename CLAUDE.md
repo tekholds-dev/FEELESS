@@ -4880,3 +4880,14 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   `why` — 63 of 67 sales in 30h read "left the card by another rule" and could not be split. `byReaper` stays false for them.
 - 🗂 `runners.json` price paths live in `runner_paths.json` (`_paths_mem`, written ≤ 1/min in a thread + on stop): `_json_save` strips them from
   runners.json, `_json_load` puts them back. Every reader still sees `rd['paths']`.
+- ✋ YOUR CHAT LINES APPLY: "tp 80 · sl 20 · trail 35" (also "take +60", "stop -15", "adjust tp to 100") in the duo trade room / a coin room = `set_leg`
+  on that coin NOW (`ai_seat.owner_lines`; reply "✅ set …" or "⚠ not set: …"). `set_leg(trail=)` = leg `aiTrail` (15–70, 0 clears). A model's
+  packet puts your line FIRST (`OWNER`) and tells it to set tp / sl / trail when you ask. While HOLDING the packet drops the candidate list and
+  most of `learn` (`HELD_LEARN`) — the 2B desktop model drowned in it.
+- 🎯 The holder's minute decision uses urgency 'seat': never capped by `LM_CALLS_PER_MIN` (G4 hit 4.1 calls/min from background reads and the
+  agents stood in for 41 minutes). Background reads keep the cap.
+- 😌 `office.calm_words`: a GREEN coin Reaper is only WATCHING reads "✅ holding +X% (peak …) · … watching it — banks only if it keeps fading", never
+  the sale sentence. 🏔 Agents' own trail: `BASE_ROOM` 1.3× give-back on a clean HH/HL / germ base (≤ 70%).
+- 📣 Chart comments per coin (`_duo_chart_rows`: newest 8 per mint, incl. TRIM / LINES; a line with no cap pins at the live cap) — the global
+  24 left most coins bare. Pins sit 30px over the candle high, stacks 26px apart. 🧩 `coach.merge_topups`: a buy of a coin still held (no sale
+  since) is a top-up folded into the first buy — the tape showed $1 three times. Duel side stats = 3 columns (6 overlapped).

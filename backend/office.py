@@ -635,7 +635,7 @@ def reap(legs, table, prices, cfg, pos, now, scalp=None, control=False, weather_
         else:
             p.pop('deadSince', None)
         tight = 0.6 if (vels or {}).get(m, {}).get('state') == 'REVERSING' or pr_ == 'WATCH' or ((ai_exit or {}).get(m) == 'tight' and pct > 0) else 1.0   # 📉 P/L REVERSING: the trail banks sooner (tighter protection, never looser)
-        trail_line = (p['peak'] - _f(tr_.get('pct')) * tight) if tr_.get('mode') == 'custom' else p['peak'] * (1 - ((_f(l.get('aiTrail')) if _f(l.get('aiTrail')) > 0 and not l.get('picked') else T('giveBackPct'))) * tight / 100)   # 🎯 a model's own trail on this coin replaces the card's
+        trail_line = (p['peak'] - _f(tr_.get('pct')) * tight) if tr_.get('mode') == 'custom' else p['peak'] * (1 - ((_f(l.get('aiTrail')) if _f(l.get('aiTrail')) > 0 and not l.get('picked') else min(70.0, T('giveBackPct') * (BASE_ROOM if tight == 1.0 and base_of(ch) else 1.0)))) * tight / 100)   # 🏔 agents' own trail: a clean HH/HL / germ base gets more room, sellers / reversing less   # 🎯 a model's own trail on this coin replaces the card's
         trail_on = tr_.get('mode') != 'off'
         g_moon = ((ch or {}).get('f') or {}).get('germ') if ch else None
         moon_ = bool(pol.get('moonBag') and p.get('scaled') and _uni.is_agent(l) and g_moon and _f(g_moon.get('px')) > 0)   # 🌙 MOON BAG: after the scale-out the rest rides its rising germ, not the peak trail
@@ -818,6 +818,8 @@ def reap(legs, table, prices, cfg, pos, now, scalp=None, control=False, weather_
         p['chartNow'] = (ch or {}).get('state')
         decision = ('TAKE PROFIT' if st == 'TAKE' else 'EXIT') if act or (rule.startswith('R6') and st == 'TAKE') else 'PROTECT' if st == 'PROTECT' else 'HOLD 5 MORE' if rv and rv['verdict'] == 'valid' and rv['window'] >= 1 else 'HOLD'
         pos[m] = p
+        if not act and pct is not None and pct > 0:   # 😌 a GREEN coin Reaper is only watching: say what he is doing, not the sale he is not making (owner: "he stresses me")
+            ev = calm_words(ev, pct, p.get('peak'))
         out.append({**base, 'state': st, 'rule': rule, 'evidence': ev, 'action': act, 'exec': 'confirmed', 'entry': entry, 'px': px, 'pct': round(pct, 2), 'peak': round(p['peak'], 2),
                     'dd': round(p['peak'] - pct, 2), 'heldMin': round(held, 1), 'liq': lq1 or None, 'liqPct': round(lq1 / lq0 * 100) if lq0 > 0 and lq1 > 0 else None,
                     'flow': fv_, 'drain': ({'score': dr_['score'], 'state': dr_['state'], 'why': [q[0] for q in dr_['parts']][:2]} if dr_['state'] != 'CLEAR' else None),   # CLEAR = nothing to say (payload cap)
@@ -868,6 +870,18 @@ OWNER_HARD = ('R1', 'R5x', 'R5c', 'R9c', 'R5b', 'R5g')
 # a coin you picked / lined that has peaked ≥ +PICK_LOCK_AT keeps at least PICK_LOCK_KEEP of its peak (+10 → +5, +30 → +15).
 # Replay on your 20 graded picks (their own price paths): −4.1% avg / −1.7% median vs −9.8% / −7.7% real (only 5 of 20 ever reached +10 — thin).
 PICK_LOCK_AT, PICK_LOCK_KEEP, PICK_LOCK_SELL = 10.0, 0.5, 50.0   # … then ONE trim of PICK_LOCK_SELL % (owner: "sell a portion from its peak, see if it keeps riding — I'll set my own breakeven")
+
+
+CALM = (('banked before it is given back', 'watching it — banks only if it keeps fading'), ('gave back over', 'is off its peak by over'),
+        ('— banked', '— would bank'), ('EXIT', 'watch'), ('exit', 'watch'))
+
+
+def calm_words(ev, pct, peak=None):
+    """😌 Reaper on a WINNING coin he is holding: "✅ holding +9.7% · …" with the sell wording turned into what he is watching for."""
+    t = str(ev or '')
+    for a, b in CALM:
+        t = t.replace(a, b)
+    return f"✅ holding {_f(pct):+.1f}%" + (f" (peak {_f(peak):+.1f}%)" if _f(peak) > _f(pct) + 0.5 else '') + f" · {t}"
 
 
 def base_of(ch):
@@ -1111,6 +1125,7 @@ RUNWAY_SEC = 6 * 60.0
 BREAKOUT_SEC = 15 * 60.0   # 🚀 owner, 2026-10-17: "they have perfect entry — wait for the breakout, they move too fast": a coin still on its base
 BREAKOUT_LOSS = 6.0        # … (germ floor / higher lows, office.base_of) and no worse than −6% gets 15 min before a SOFT exit may sell it
 BREAKOUT_RULES = ('R11', 'R11x', 'R9', 'R9e', 'R8', 'R7s', 'R7v', 'R4f')
+BASE_ROOM = 1.3   # the agents' trail gives a coin on a clean base (HH/HL, germ floor) 30% more room before banking
 TIME_HOLD_STOP = 0.8   # ⏱ time rules wait while the coin is above 80% of its stop (owner, 2026-10-17)
 BASE_TIME_RULES = ('R9', 'R9e', 'R11', 'R8')   # 🎯 owner, 2026-10-17 ($Glow on its germ, sold by "R9 windows used" at 18 min): time rules never sell a base — no time limit   # (R5t / R7b = the base BROKE: they act) never R1 / R2 / R3 / R4 dumps / R5 stops / R5x / R5c / R9c / R6 / R7
 RUNWAY_KEEP = 2.0

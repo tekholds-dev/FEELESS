@@ -44,7 +44,8 @@ The trade you bought is YOURS to run: tp / sl are your own take-profit and stop 
 CONFIDENCE in LEARN = what the market's verdicts on your calls (and the votes on them) earned you. The agents only advise.
 ELITE RULES: buy at or near the GERM floor after a pullback — never pressed under the gun line, never right after a spike (those coins are not on your list). Let a trade COOK: a SELL in its first 4 minutes is ignored unless it is down 10%+ — set your stop instead. One red 5-minute candle is not an exit; sellers taking over the tape, a broken higher low, or your stop are.
 READ BOTH CHARTS every decision: CHART1M and CHART5M (germ floor distance on each, structure, higher / lower lows). A coin sitting on its 1m or 5m germ floor, or printing higher lows with no lower low, is a HOLD even when volume is slow — volume picks up from a base. Sell a base only when it breaks (a lower low / under the germ) or sellers lead.
-THE OWNER TALKS TO YOU: learn.ownerSays = his newest line on this trade / for your next pick. Answer it FIRST in your why ("you said X — I …"), agree or say exactly why not; he grades you on it.
+THE OWNER TALKS TO YOU: OWNER = his newest line on this trade / for your next pick. Answer it FIRST in your why ("you said X — I …"), agree or say exactly why not; he grades you on it. When he asks to adjust TP / SL / trail, SET the new numbers in "tp" / "sl" / "trail" in THIS answer.
+YOU RUN YOUR TRADE: every answer while holding may move "tp", "sl" and "trail" (give-back % of the peak gain). Read CHART1M / CHART5M / chartView first: a clean HH/HL on its germ = more room (wider trail, higher tp); sellers leading or a lower low = tighten.
 LET IT HIT YOUR LINES: once you set TP / SL, a SELL in between needs a reason ON THE CHART (a lower low, the germ floor lost, a downtrend) or sellers leading the tape — "pressure", "dead" or a small red are not reasons; those sells are turned into HOLD."""
 
 
@@ -86,14 +87,26 @@ def held_row(leg, px, now, pressure=None, qwen=None):
     return {k: x for k, x in out.items() if x not in (None, '', [])}
 
 
+HELD_LEARN = ('confidence', 'holdLessons', 'ownerHints')   # what a model managing its trade still reads
+
+
 def packet(cands, held, record=None, partner=None, pick=None, says=None, learn=None):
     """The ONE thing the deciding model reads each minute (+ its partner's last call + the agents' own pick)."""
-    out = {'yourSeat': held or 'EMPTY', 'candidates': [{k: v for k, v in c.items() if k != 'mint'} for c in cands[:CAND_N]] or 'none right now',
-           'agentsPick': pick or '', 'yourRecord': record or 'no closed trades yet'}
+    lr = dict(learn or {})
+    out = {}
+    if lr.get('ownerSays'):   # 👤 the owner's words FIRST — answer them before anything else (he asked G4 to adjust TP three times)
+        out['OWNER'] = lr.pop('ownerSays')
+    out['yourSeat'] = held or 'EMPTY'
+    if held:   # 🧘 holding = ONE job (run this trade): no candidate list, only what decides the trade — a small model drowned in the full packet
+        lr = {k: v for k, v in lr.items() if k in HELD_LEARN}
+    else:
+        out['candidates'] = [{k: v for k, v in c.items() if k != 'mint'} for c in cands[:CAND_N]] or 'none right now'
+        out['agentsPick'] = pick or ''
+    out['yourRecord'] = record or 'no closed trades yet'
     if partner:
         out['partner'] = partner
-    if learn:
-        out['learn'] = learn   # 🎓 real trades: yours, your partner's, the owner's, the agents' — copy what won, avoid what lost
+    if lr:
+        out['learn'] = lr   # 🎓 real trades: yours, your partner's, the owner's, the agents' — copy what won, avoid what lost
     if says:
         out['partnerSays'] = says   # 💬 your partner's advice on the trade you hold — weigh it, you still decide
     return out
@@ -237,6 +250,19 @@ def parse(text, cand_mints, holding, syms=None):
 
 
 LINE_RANGES = (('tp', TP_MIN, 500.0), ('sl', 3.0, 44.0), ('trail', 15.0, 70.0))   # 🎯 take · stop · trail give-back the model may set (−45% stays the floor)
+
+
+def owner_lines(text):
+    """✋ The owner's own line words in the trade chat → {'tp', 'sl', 'trail'} applied DIRECTLY (no model needed): "tp 80", "take +60",
+    "sl 20", "stop -15", "trail 35". Owner, 2026-10-17: "I told them adjust TP multiple times" — a text the model may miss is not a line."""
+    t = str(text or '').lower()
+    out = {}
+    for k, pat in (('tp', r'\b(?:tp|take(?:[ -]?profit)?)\s*(?:to|at|=|:)?\s*\+?(\d{1,3})\s*%?'), ('sl', r'\b(?:sl|stop(?:[ -]?loss)?)\s*(?:to|at|=|:)?\s*-?(\d{1,2})\s*%?'),
+                   ('trail', r'\btrail(?:ing)?\s*(?:to|at|=|:)?\s*(\d{1,2})\s*%?')):
+        m = re.search(pat, t)
+        if m:
+            out[k] = float(m.group(1))
+    return out
 
 
 def agents_pick(cands):

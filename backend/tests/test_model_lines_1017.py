@@ -47,3 +47,33 @@ def test_your_drag_on_a_model_trade_moves_its_line():
     card = {'legs': [{'pairAddress': 'P', 'symbol': 'Z', 'aiSeat': True, 'aiTp': 40, 'aiSl': 20, 'units': 1}], 'events': []}
     c = ap.set_leg(card, 'P', tp=80, sl=12, now=10)
     assert c['legs'][0]['aiTp'] == 80 and c['legs'][0]['aiSl'] == 12
+
+
+def test_owner_chat_words_become_lines():
+    assert seat.owner_lines('adjust tp to 100 and sl 20') == {'tp': 100.0, 'sl': 20.0}
+    assert seat.owner_lines('trail 35') == {'trail': 35.0} and seat.owner_lines('hold it') == {}
+
+
+def test_holding_packet_is_slim_and_owner_first():
+    pk = seat.packet([{'mint': 'X', 'symbol': 'X'}] * 5, {'symbol': 'H'}, learn={'ownerSays': 'tp 80', 'confidence': 'c', 'ownerStudy': ['long'], 'byModel': {}})
+    assert list(pk)[0] == 'OWNER' and 'candidates' not in pk and set(pk['learn']) == {'confidence'}
+    assert 'candidates' in seat.packet([{'mint': 'X'}], None)
+
+
+def test_set_leg_trail_and_its_event():
+    import arena_prime as ap
+    c = ap.set_leg({'legs': [{'pairAddress': 'P', 'symbol': 'Z', 'units': 1}], 'events': []}, 'P', trail=35, now=5)
+    assert c['legs'][0]['aiTrail'] == 35 and 'trail' in c['events'][-1]['why']
+
+
+def test_reaper_is_calm_on_a_winner_he_holds():
+    t = of.calm_words('+9.7% and a lower high — banked before it is given back', 9.7, 14.0)
+    assert t.startswith('✅ holding +9.7% (peak +14.0%)') and 'banks only if it keeps fading' in t
+
+
+def test_top_ups_are_one_trade_on_the_tape():
+    import coach
+    b = lambda at, usd: {'side': 'buy', 'status': 'filled', 'sig': f's{at}', 'mint': 'M', 'symbol': 'ONE', 'usd': usd, 'at': at, 'agent': True}
+    sells = [{'side': 'sell', 'status': 'filled', 'sig': 'x', 'mint': 'M', 'usd': 1, 'at': 50}]
+    rows = coach.trade_tape([b(10, 0.5), b(15, 0.2), b(60, 0.3)] + sells, [])
+    assert len(rows) == 2 and rows[-1]['buy']['usd'] == 0.7                                # 10 + its 15s top-up = one trade; 60 (after a sale) = a new one

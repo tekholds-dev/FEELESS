@@ -121,7 +121,7 @@ def local_ok(env, role=None, urgency='normal'):
     on this Mac took ~13s an answer and ran about half the time on the SAME GPU + memory the browser draws the page with. Background jobs
     (READY coins, conflicts, contenders, Judge reviews) go to the cloud fallbacks or are not asked at all; the local model answers only
     what the owner asks for by hand (role 'owner' / urgency 'force'). LOCAL_LLM_BACKGROUND=true puts it back in the background."""
-    return role == 'owner' or urgency == 'force' or _truthy((env or {}).get('LOCAL_LLM_BACKGROUND'), default=False) or local_remote(env)
+    return role == 'owner' or urgency in ('force', 'seat') or _truthy((env or {}).get('LOCAL_LLM_BACKGROUND'), default=False) or local_remote(env)
 
 
 def lan_ready(env, cfg=None):
@@ -921,10 +921,10 @@ class Router:
             return {'source': 'NONE', 'advice': None, 'ms': 0, 'tried': [], 'why': f'{role} never asks a model (deterministic only)'}
         ck = case_key(case, role)
         hit = self.cache.get(ck)
-        if hit and now - hit[0] < CACHE_SEC and urgency != 'force':
+        if hit and now - hit[0] < CACHE_SEC and urgency not in ('force', 'seat'):
             self.totals['cached'] += 1
             return {**hit[1], 'cached': True}
-        if prio is not None and prio >= DEFER_PRIO and urgency != 'force' and self.busy(env, cfg):
+        if prio is not None and prio >= DEFER_PRIO and urgency not in ('force', 'seat') and self.busy(env, cfg):
             self.totals['deferred'] += 1
             return {'source': 'NONE', 'advice': None, 'ms': 0, 'tried': [], 'deferred': True, 'why': 'deferred — the local model is busy with a higher-priority case'}
         if ck in self.inflight:   # the same case already being asked: share that answer
@@ -1001,7 +1001,7 @@ class Router:
                     continue
                 self.localBgAt = time.time()
                 self.totals['localBg'] = self.totals.get('localBg', 0) + 1
-            if key in LM and role not in ('owner', 'chat') and minute_cap(self.minute.get(key), time.time()):
+            if key in LM and role not in ('owner', 'chat') and urgency != 'seat' and minute_cap(self.minute.get(key), time.time()):   # 🎯 a model's OWN trade decision is never capped out by background reads (G4 missed 41 minutes on 2026-10-17)
                 tried.append([key, 'MINUTE CAP'])
                 continue
             if key in LM and role not in ('owner', 'chat'):
@@ -1026,7 +1026,7 @@ class Router:
                     msgs = case_msgs
                     if key in LM and not general:   # 💻 fit the context the model is LOADED with (asked from LM Studio itself): the full brain when it fits, else its condensed twin
                         ctx_ = await self.local_ctx(http, p, env)
-                        if role != 'owner' and urgency != 'force':   # 🧈 a BACKGROUND local read always uses the condensed brain (~1K tokens, ~10s) — the
+                        if role != 'owner' and urgency not in ('force', 'seat'):   # 🧈 a BACKGROUND local read always uses the condensed brain (~1K tokens, ~10s) — the
                             ctx_ = min(ctx_, LOCAL_BG_CTX)            # full 2.4K-token prompt kept the GPU the browser draws with busy ~30s a read ("horrible lag")
                         msgs = messages_local(case, role, ctx_)
                     need = est_tokens(msgs)

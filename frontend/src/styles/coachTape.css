@@ -139,3 +139,8 @@ body.theme-day .ctp-germ { color: #6a3fc0; } body.theme-day .ctp-germrec b { col
 .ctp-earn small { font: 800 8px var(--m-mono); letter-spacing: .12em; color: var(--m-mute); } .ctp-earn b { font: 900 16px/1.1 var(--m-mono); } .ctp-earn i { font: 700 9px var(--m-mono); font-style: normal; color: var(--m-mute); }
 .ctp-earn.is-you { border-color: rgba(245, 196, 81, .45); background: rgba(245, 196, 81, .07); } .ctp-earn.is-agents { border-color: rgba(94, 200, 255, .35); }
 .ctp-bot.is-models { border-color: rgba(180, 140, 255, .5); color: #d8c2ff; } .ctp-earn.is-models { border-color: rgba(180, 140, 255, .4); }
+/* 🧱 no text runs out of a trade card (owner, 2026-10-17): every child may shrink, long words / tx ids wrap, chip rows wrap */
+.ctp-list > li, .ctp-list > li * { min-width: 0; }
+.ctp-list > li { overflow: hidden; }
+.ctp-facts span, .ctp-snap span, .ctp-steps p, .ctp-id small { overflow-wrap: anywhere; word-break: break-word; }
+.ctp-id b { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

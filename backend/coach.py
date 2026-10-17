@@ -245,6 +245,24 @@ def view(state, now, judge_pens=None):
 
 
 # ── 🎬 the real trade tape ───────────────────────────────────────────────────────────────────────────────────────────────────────
+def merge_topups(buys, sells):
+    """🧩 ONE story per position: a buy of a coin already held (no sale of it since the last buy) is a TOP-UP, folded into the first buy's $
+    (the tape showed $1 three times — two idle-cash top-ups 5s apart read as new trades)."""
+    t_ = lambda r: _f(r.get('confirmedAt') or r.get('at'))
+    out, open_ = [], {}
+    for b in sorted(buys or [], key=t_):
+        m = b.get('mint')
+        first = open_.get(m)
+        if first is not None and not any(s.get('mint') == m and t_(first) < t_(s) <= t_(b) for s in sells or []):
+            first['usd'] = round(_f(first.get('usd')) + _f(b.get('usd')), 6)
+            first['topups'] = int(first.get('topups') or 0) + 1
+            continue
+        nb = dict(b)
+        open_[m] = nb
+        out.append(nb)
+    return out
+
+
 def trade_tape(ledger, positions, reviews=None, ai_log=None, card=None, n=60):
     """Every REAL agent trade, newest first, as one story built from records that already exist:
       buy  = the confirmed fill (ledger): $ in, fill price vs the market price of the decision (`slipPct`), seconds to land, tx
@@ -255,6 +273,7 @@ def trade_tape(ledger, positions, reviews=None, ai_log=None, card=None, n=60):
     buys = [r for r in ledger or [] if r.get('side') == 'buy' and r.get('status') == 'filled' and r.get('sig') and (card is None or r.get('card') == card)
             and (r.get('agent') or r.get('picked'))]
     sells = [r for r in ledger or [] if r.get('side') == 'sell' and r.get('status') == 'filled' and r.get('sig') and (card is None or r.get('card') == card)]
+    buys = merge_topups(buys, sells)
     pos_by = {}
     for p in positions or []:
         pos_by.setdefault(p.get('mint'), []).append(p)

@@ -14042,7 +14042,7 @@ async def _g4_tick(now, env, cfg):
         _g4['live'] = {'by': _air.model_name(env, first_), 'at': now, 'pick': (pick_ or {}).get('symbol'), 'held': held_,
                        'cands': [{k_: r_c.get(k_) for k_ in ('symbol', 'status', 'trigger', 'move5m', 'buyers', 'germ', 'pool', 'cap', 'ageMin', 'rank')} for r_c in rows_[:6]]}   # 👁 what the deciding model is reading, live
         t0_ = time.perf_counter()
-        r_ = await _air.ROUTER.ask(_ai_http(), env, cfg, 'Your minute snapshot. Decide.', context=pk_, role='exit', urgency='force', only=(first_,), system=_seat.SYSTEM, only_system=True)   # 🔁 a held trade is ONLY its holder's call (the partner standing in made OSSY post HOLDs on G4's $MOMO); hunting, the partner may answer for a missed minute   # 🔁 the holder runs its trade; when it misses a minute (call cap / timeout) the partner stands in — the trade stays the holder's (leg aiBy)
+        r_ = await _air.ROUTER.ask(_ai_http(), env, cfg, 'Your minute snapshot. Decide.', context=pk_, role='exit', urgency='seat', only=(first_,), system=_seat.SYSTEM, only_system=True)   # 🔁 a held trade is ONLY its holder's call (the partner standing in made OSSY post HOLDs on G4's $MOMO); hunting, the partner may answer for a missed minute   # 🔁 the holder runs its trade; when it misses a minute (call cap / timeout) the partner stands in — the trade stays the holder's (leg aiBy)
         by_m = r_.get('source') if r_.get('source') in (first_, second_) else first_
         dec_ = _seat.parse(r_.get('text'), [c_['mint'] for c_ in cands_], bool(held_), {c_.get('symbol'): c_['mint'] for c_ in cands_ if c_.get('symbol')})
         dec_ = _seat.cook(dec_, {**(held_ or {}), 'sl': (leg_ or {}).get('aiSl')}) if held_ else dec_
@@ -14218,8 +14218,22 @@ async def admin_ai_seat_post(request: Request):
         act_ = 'SELL' if _re.search(r'\b(sell|dump|exit|out)\b', txt_, _re.I) else 'HOLD' if _re.search(r'\b(hold|moon|send|buy|ride)\b', txt_, _re.I) else 'NOTE'
         row_ = {'at': round(now), 'mode': 'real', 'model': 'YOU', 'by': 'owner', 'talk': True, 'action': 'TALK', 'view': act_ if act_ != 'NOTE' else None, 'why': txt_, 'mint': m_,
                 'symbol': (lc_ or {}).get('symbol') or (legs_[0].get('symbol') if legs_ else None), **({'coinTalk': True} if lc_ and not (legs_ and legs_[0].get('mint') == m_) else {})}
+        ln_ = _seat.owner_lines(txt_)
+        if ln_ and m_:   # ✋ "tp 80 · sl 20 · trail 35" in the chat = YOUR line on that coin, set now (the same path as a drag on the chart)
+            async with _admin_lock:
+                d_ = _json_load(FUSE_HQ_PATH, {}); cs_ = (d_.get('prime') or {}).get('cards') or {}
+                tp_ = next((k_ for k_, c_ in cs_.items() if (c_ or {}).get('real')), None)
+                lg_ = next((l_ for l_ in (cs_.get(tp_) or {}).get('legs') or [] if l_.get('mint') == m_ and not l_.get('placeholder')), None) if tp_ else None
+                if lg_:
+                    try:
+                        cs_[tp_] = _prime.set_leg(cs_[tp_], lg_['pairAddress'], tp=ln_.get('tp'), sl=ln_.get('sl'), trail=ln_.get('trail'), now=now)
+                        _json_save(FUSE_HQ_PATH, d_)
+                        row_['why'] = f"{txt_} · ✅ set " + ' · '.join(f"{ {'tp': 'TP +', 'sl': 'SL −', 'trail': 'trail ↩'}[k_]}{v_:g}%" for k_, v_ in ln_.items())
+                    except ValueError as e_:
+                        row_['why'] = f"{txt_} · ⚠ not set: {e_}"
+            row_['view'] = 'LINES'
         _g4_mem.put({**(_g4_mem.get() or {}), 'log': _seat.note(st_['log'], row_)}, now)
-        if m_ and act_ != 'NOTE':
+        if m_ and act_ != 'NOTE' and not ln_:
             pm_ = await _live_px([m_])
             _dv_note(row_, _fuse._f(pm_.get(m_)), now)
     _audit_ad = _admin_load(); _audit(_audit_ad, admin, 'duo-room', json.dumps({k_: body.get(k_) for k_ in ('vote',)} | ({'comment': txt_[:60]} if txt_ else {}))[:160]); _admin_save(_audit_ad)
@@ -18247,6 +18261,25 @@ def _duo_coin_rooms(log, ai_mint):
             for m_, rows_ in sorted(out.items(), key=lambda kv: -max(_fuse._f(x.get('at')) for x in kv[1]))]
 
 
+def _duo_chart_rows(log, per=8):
+    """📣 the newest `per` model / owner / Reaper lines PER COIN (the chart of any coin shows its own talk; one global 24 left most coins bare)."""
+    out, n = [], {}
+    for r in reversed((log or [])[-400:]):
+        m = r.get('mint')
+        if m and r.get('action') in ('BUY', 'SELL', 'TALK', 'HOLD', 'TRIM', 'LINES') and n.get(m, 0) < per:
+            n[m] = n.get(m, 0) + 1
+            out.append(r)
+    return out[::-1]
+
+
+def _duo_cap(mint):
+    """A line with no cap of its own (your chime-in, Reaper) is pinned at the coin's live cap."""
+    try:
+        return _seat.cand_row(_tk.KERNEL.candidate(mint) or {'mint': mint}).get('cap') if mint else None
+    except Exception:
+        return None
+
+
 def _duo_view(env=None):
     """🔁 The G4 × OSSY seat for the Agents tab (small: mode, whose turn, each model's record, the open paper seat, the last 8 calls)."""
     try:
@@ -18272,7 +18305,7 @@ def _duo_view(env=None):
                 'agents': _seat.by_model((st_['book'] or {}).get('closed')).get('agents'), 'fate': _g4.get('fate'), 'live': _g4.get('live'),
                 'log': [{k: r.get(k) for k in ('at', 'model', 'action', 'symbol', 'why', 'conf', 'pct', 'ms', 'miss')} for r in st_['log'][-30:][::-1]],
                 'chart': [{'at': r.get('at'), 'model': r.get('model'), 'mint': r.get('mint'), 'sym': r.get('symbol'), 'action': r.get('action'), 'view': r.get('view'), 'talk': bool(r.get('talk')), 'why': str(r.get('why') or '')[:120],
-                           'pct': r.get('pct'), 'cap': (r.get('vitals') or {}).get('cap') or r.get('cap')} for r in st_['log'][-80:] if r.get('mint') and r.get('action') in ('BUY', 'SELL', 'TALK', 'HOLD')][-24:]}   # 📣 what the models said about each coin → bubbles on the Agents chart
+                           'pct': r.get('pct'), 'cap': (r.get('vitals') or {}).get('cap') or r.get('cap') or _duo_cap(r.get('mint'))} for r in _duo_chart_rows(st_['log'])]}   # 📣 what the models said about each coin → bubbles on the Agents chart
     except Exception as e:
         return {'mode': 'off', 'err': str(e)[:80]}
 
