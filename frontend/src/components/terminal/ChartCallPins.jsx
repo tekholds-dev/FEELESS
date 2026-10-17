@@ -9,9 +9,20 @@ import '../../styles/chartCallPins.css';
 const initials = w => String(w || '?').replace(/[^A-Za-z0-9]/g, '').slice(0, 2).toUpperCase() || '?';
 export function pinPlace(call, ivSec) { const t = Number(call?.at); return t > 0 && ivSec > 0 ? t - (t % ivSec) : null; }
 
+// 🧹 one candle carries at most PER_CANDLE pins (models first, then the newest agent), one per author; the rest fold into "+N" on the last
+export const PER_CANDLE = 2;
+export function thinPins(calls, ivSec) {
+  const by = new Map();
+  (calls || []).forEach(c => { const t = pinPlace(c, ivSec); if (t == null) return; const g = by.get(t) || []; if (!g.some(x => x.who === c.who)) g.push(c); by.set(t, g); });
+  const out = [];
+  by.forEach(g => { const pri = c => (c.kind === 'agent' ? 1 : 0); const keep = [...g].sort((a, b) => pri(a) - pri(b) || Number(b.at) - Number(a.at)).slice(0, PER_CANDLE);
+    const more = g.length - keep.length; keep.forEach((c, i) => out.push(i === keep.length - 1 && more > 0 ? { ...c, more } : c)); });
+  return out.sort((a, b) => Number(a.at) - Number(b.at));
+}
+
 export function ChartCallPins({ calls, seriesRef, chartRef, container, ratio = 1, mcChart = true, ivSec = 60, nowMc }) {
   const host = useRef(null); const [open, setOpen] = useState(null);
-  const list = (calls || []).filter(c => c && Number(c.cap) > 0 && Number(c.at) > 0).slice(-12);
+  const list = thinPins((calls || []).filter(c => c && Number(c.cap) > 0 && Number(c.at) > 0), ivSec).slice(-12);
   const key = list.map(c => `${c.id}:${c.cap}`).join('|');
   useEffect(() => {
     const root = host.current; if (!root || !list.length) return undefined;
@@ -51,6 +62,7 @@ export function ChartCallPins({ calls, seriesRef, chartRef, container, ratio = 1
       onMouseEnter={() => setOpen(c.id)} onMouseLeave={() => setOpen(o => (o === c.id ? null : o))} onFocus={() => setOpen(c.id)} onBlur={() => setOpen(o => (o === c.id ? null : o))}
       onClick={() => setOpen(o => (o === c.id ? null : c.id))} aria-label={`${c.who} ${c.action || 'call'}${c.text ? `: ${c.text}` : ''}`} data-testid={`chart-pin-${c.id}`}>
       {c.img ? <img className="ccp-img" src={c.img} alt="" loading="lazy" decoding="async" /> : <i className="ccp-ico">{c.icon || initials(c.who)}</i>}
+      {c.more ? <em className="ccp-more">+{c.more}</em> : null}
       {open === c.id && card ? <CallCard c={card} nowMc={nowMc} /> : null}
     </button>)}
   </div>;

@@ -28,3 +28,4 @@ body.theme-day .ccp-card { background: #fff; color: #10301d; border-color: rgba(
   background: linear-gradient(rgba(180, 140, 255, .7), rgba(180, 140, 255, 0)); }
 .ccp-pin.is-agent::after { background: linear-gradient(rgba(69, 228, 134, .6), rgba(69, 228, 134, 0)); }
 .ccp-card { max-height: 220px; overflow: hidden; } .ccp-text { display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; overflow: hidden; }
+.ccp-more { position: absolute; right: -10px; top: -8px; padding: 0 4px; border-radius: 6px; font: 800 8px var(--m-mono, monospace); font-style: normal; color: #04140a; background: #e8c46a; pointer-events: none; }

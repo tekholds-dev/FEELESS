@@ -343,8 +343,9 @@ export function chartCalls(rows, mint) {
     action: r.talk ? 'TALK' : r.action, text: r.talk ? `${r.view || ''} — ${r.why || ''}` : r.why, pct: r.pct, icon: r.model === 'OSSY' ? 'OS' : r.model === 'G4' ? 'G4' : undefined, img: avatarOf(r.model) || undefined }));
 }
 // 🤖 the ten agents' REAL decisions on this coin (the marker rail) as their own small avatar pins — Agents chart only
+const VITAL_PIN = new Set(['trigger', 'courier', 'reaper']);   // the trade's own story: entered · filled · ruled out — not every desk's note
 export function agentPins(markers) {
-  return (markers || []).filter(k => Number(k.mc) > 0 && avatarOf(k.agent)).slice(-10).map(k => ({ id: `ag-${k.id}`, at: k.at, cap: k.mc, who: k.agent[0].toUpperCase() + k.agent.slice(1), kind: 'agent', action: String(k.action || '').toUpperCase(), text: k.why, img: avatarOf(k.agent) }));
+  return (markers || []).filter(k => Number(k.mc) > 0 && VITAL_PIN.has(k.agent) && avatarOf(k.agent)).slice(-10).map(k => ({ id: `ag-${k.id}`, at: k.at, cap: k.mc, who: k.agent[0].toUpperCase() + k.agent.slice(1), kind: 'agent', action: String(k.action || '').toUpperCase(), text: k.why, img: avatarOf(k.agent) }));
 }
 
 function CockpitChart({ m, iv, setIv, pos, cand, markers, onAgent, tid, call, isOwner, duo }) {
