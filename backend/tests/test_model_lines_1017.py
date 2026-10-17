@@ -123,3 +123,16 @@ def test_snapshot_and_final_review():
     assert line.startswith('📸 5-min snapshot · +12.3%') and '3 HL / 0 LL' in line and 'Reaper PROTECT' in line
     assert seat.review_parse('{"grade":"b","why":"held the base","lesson":"trail wider on HH/HL"}') == {'grade': 'B', 'why': 'held the base', 'lesson': 'trail wider on HH/HL'}
     assert seat.review_parse('{"grade":"great"}') is None and 'THE BOSS' in seat.REVIEW and seat.SNAP_EVERY == 300
+
+
+def test_every_card_coin_has_a_room_with_the_agents_and_reaper(monkeypatch):
+    import reputation_service as rs
+    monkeypatch.setattr(rs, '_duo_card_legs', lambda: [{'mint': 'M1', 'symbol': 'DOG'}, {'mint': 'AI', 'symbol': 'MOD'}])
+    rs._json_save(rs.FUSE_HQ_PATH, {'prime': {'cards': {'degen': {'real': True, 'events': [
+        {'at': 10, 'kind': 'agent', 'move': 'fill', 'mint': 'M1', 'why': '🤖 agents filled seat 2 with $DOG — 🎯 ARMED'},
+        {'at': 20, 'kind': 'agent', 'move': 'pull', 'why': '🤖 agents banked $DOG ($0.20): ☠ Reaper R7 trailing'}]}}}})
+    monkeypatch.setitem(rs._office, 'reports', [{'mint': 'M1', 'state': 'PROTECT', 'rule': 'R7 trailing protection', 'evidence': 'peak +12%'}])
+    rooms = rs._duo_coin_rooms([], 'AI')
+    assert [r['symbol'] for r in rooms] == ['DOG']                                         # the models' own trade has its own room
+    who = [x['model'] for x in rooms[0]['rows']]
+    assert who[0] == 'REAPER' and 'AGENTS' in who and who.count('REAPER') == 2               # Reaper's call now + its bank, the agents' buy

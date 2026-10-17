@@ -365,8 +365,17 @@ export function chartCalls(rows, mint) {
       icon: who === 'OSSY' ? 'OS' : who === 'G4' ? 'G4' : undefined, img: avatarOf(who) || undefined }; });
 }
 
+// 🤖 the agents' REAL moves on this coin (the marker rail: Trigger entered · Courier filled · Reaper ruled) as small avatar pins — owner, 2026-10-17:
+// "agent trades and thoughts were showing on chart, what happened?" — they stay, beside Reaper / OSSY / G4's lines, newest AGENT_PINS
+const VITAL_PIN = new Set(['trigger', 'courier', 'reaper']);
+export const AGENT_PINS = 5;
+export function agentPins(markers) {
+  return (markers || []).filter(k => Number(k.mc) > 0 && VITAL_PIN.has(k.agent) && avatarOf(k.agent)).slice(-AGENT_PINS)
+    .map(k => ({ id: `ag-${k.id}`, at: k.at, cap: k.mc, who: k.agent[0].toUpperCase() + k.agent.slice(1), kind: 'agent', action: String(k.action || '').toUpperCase(), text: k.why, img: avatarOf(k.agent) }));
+}
+
 function CockpitChart({ m, iv, setIv, pos, cand, markers, onAgent, tid, call, isOwner, duo }) {
-  const calls = useMemo(() => chartCalls(duo?.chart, m?.mint), [duo?.chart, m?.mint]);
+  const calls = useMemo(() => [...agentPins(markers), ...chartCalls(duo?.chart, m?.mint)], [duo?.chart, m?.mint, markers]);
   const pair = useMemo(() => (m?.pair ? { chainId: 'solana', pairAddress: m.pair, baseToken: { address: m.mint, symbol: m.symbol }, priceUsd: m.price, marketCap: m.mc } : null), [m?.pair, m?.mint, m?.symbol, m?.price, m?.mc]);
   // ✋ YOUR LINES on an agent seat: its stop + take are grabbable on the chart; a drop asks, saves that coin's own TP / SL, Reaper obeys it,
   // and the position is filed as "your hand" so the record shows whether your adjustments helped

@@ -18322,18 +18322,29 @@ def _duo_card_legs():
 
 
 def _duo_coin_rooms(log, ai_mint):
-    """💬 One chat room per coin on the card that is NOT the models' trade: their idle reads, off-topic advice and your chime-ins on it."""
-    on_ = {l.get('mint'): l for l in _duo_card_legs()}
-    out = {}
-    for r_ in log or []:
-        m_ = r_.get('mint')
-        if not m_ or m_ == ai_mint or m_ not in on_ or not (r_.get('idle') or r_.get('coinTalk')):
+    """💬 One chat room per coin on the card that is NOT the models' trade — EVERY coin, not only the ones a model talked about (owner, 2026-10-17:
+    "not seeing the agents' thoughts on coins they bought"): the card's own events on it (why the agents bought it, their banks / swaps / lines,
+    your lines), Reaper's call on it right now, plus the models' idle reads and your chime-ins."""
+    legs_ = {l.get('mint'): l for l in _duo_card_legs()}
+    card_ = next((c for c in ((_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('cards') or {}).values() if (c or {}).get('real')), {}) or {}
+    reps_ = {r_.get('mint'): r_ for r_ in _office.get('reports') or [] if isinstance(r_, dict)}
+    out = []
+    for m_, l_ in legs_.items():
+        if not m_ or m_ == ai_mint:
             continue
-        out.setdefault(m_, []).append(r_)
-    return [{'mint': m_, 'symbol': on_[m_].get('symbol'), 'who': 'you' if on_[m_].get('picked') else 'agents',
-             'rows': [{**{k_: x_.get(k_) for k_ in ('at', 'model', 'action', 'view', 'why', 'conf', 'pct', 'talk')}, 'key': _dv_key(x_), 'mine': x_.get('by') == 'owner',
-                       'votes': _dv.view(_dv_mem.get() or {}, _dv_key(x_))} for x_ in rows_[-14:]][::-1]}
-            for m_, rows_ in sorted(out.items(), key=lambda kv: -max(_fuse._f(x.get('at')) for x in kv[1]))]
+        sym_ = l_.get('symbol')
+        talk_ = [{**{k_: x_.get(k_) for k_ in ('at', 'model', 'action', 'view', 'why', 'conf', 'pct', 'talk')}, 'key': _dv_key(x_), 'mine': x_.get('by') == 'owner',
+                  'votes': _dv.view(_dv_mem.get() or {}, _dv_key(x_))} for x_ in log or [] if x_.get('mint') == m_ and (x_.get('idle') or x_.get('coinTalk'))]
+        ev_ = [{'at': e_.get('at'), 'model': 'REAPER' if 'Reaper' in str(e_.get('why') or '') else 'YOU' if e_.get('kind') in ('level', 'manual-sell') else 'AGENTS', 'action': 'TALK', 'talk': True,
+                'view': str(e_.get('move') or e_.get('kind') or '').upper(), 'why': str(e_.get('why') or '')[:220], 'mine': e_.get('kind') in ('level', 'manual-sell')}
+               for e_ in card_.get('events') or [] if sym_ and (e_.get('mint') == m_ or e_.get('symbol') == sym_ or f"${sym_} " in str(e_.get('why') or '') + ' ')]
+        rp_ = reps_.get(m_)
+        now_ = [{'at': round(time.time()), 'model': 'REAPER', 'action': 'TALK', 'talk': True, 'view': rp_.get('state'),
+                 'why': f"{rp_.get('rule')} · {str(rp_.get('evidence') or '')[:180]}", 'pct': rp_.get('pct'), 'live': True}] if rp_ else []
+        rows_ = sorted(talk_ + ev_[-8:], key=lambda x: _fuse._f(x.get('at')))[-14:] + now_
+        out.append({'mint': m_, 'symbol': sym_, 'who': 'you' if l_.get('picked') else 'agents', 'rows': rows_[::-1],
+                    'last': max([_fuse._f(x.get('at')) for x in talk_ + ev_] or [0])})
+    return sorted(out, key=lambda r: -r['last'])
 
 
 def _duo_chart_rows(log, per=8):

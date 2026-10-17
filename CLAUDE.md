@@ -4894,8 +4894,11 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
 - 📏 EVERY LINE MOVE IS GRADED (`ai_seat.lines_view`): a model's or your TP / SL / trail change = a call the market grades at 5m / 1h / 24h (more room
   = HOLD, tighter = SELL; a first line is no call) → each model's confidence. ✋ Your graded holds that ran ≥ `HOLD_WIN_PCT` +10% more become
   `_study.holdWins` → `learn.ownerHoldWins` (read while holding) + the AI memory lessons drawer.
-- 📣 Agents-tab chart comments = ONLY Reaper / OSSY / G4 lines on that coin (`chartCalls`, newest `CHART_PINS` 6, a repeated word = one pin);
-  `agentPins` (kernel markers) is gone.
+- 📣 Agents-tab chart pins = the agents' own moves (`agentPins`: Trigger / Courier / Reaper markers, newest `AGENT_PINS` 5) + Reaper / OSSY / G4
+  lines (`chartCalls`, newest `CHART_PINS` 6, a repeated word = one pin). The owner wants BOTH — never drop the agents' pins again.
+- 💬 Every coin on the card has its own room in the duo chat (`_duo_coin_rooms`): the card's events on it (agents' buy reason, banks, swaps,
+  your lines), Reaper's call now (live row), the models' idle reads and your chime-ins. A BUY chip pinned at the left edge drops under the
+  vitals badge instead of sitting on it (`ChartLive`).
 - 🖥 DESKTOP (M1 · 8 GB, keep the model ≤ ~4.5 GB): G4 runs `qwen/qwen3-4b-2507` (MLX 4-bit ≈ 2.3 GB, 8K context), `LAN_LLM_FALLBACK_MODEL`
   google/gemma-4-e2b answers while it is missing (router falls back for `lan` too). The installer's lan-keep downloads the server's model
   (`lms get`), unloads others, marks a model that won't load (`~/.feeless/model-failed`) and never pins the model on its hourly re-pull — the

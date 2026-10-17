@@ -209,6 +209,13 @@ test('📣 chart comments: only Reaper / OSSY / G4 on THIS coin, a repeated word
   expect(chartCalls(many, 'A')).toHaveLength(CHART_PINS);
 });
 
+test('🤖 the agents\' own moves stay on the chart (Trigger · Courier · Reaper), capped', () => {
+  const { agentPins, AGENT_PINS } = require('./AgentCockpit');
+  const p = agentPins([{ id: 1, agent: 'reaper', action: 'hold', mc: 90000, at: 5, why: 'w' }, { id: 2, agent: 'reaper', mc: null, at: 6 }, { id: 3, agent: 'tally', mc: 9, at: 7 }]);
+  expect(p).toHaveLength(1); expect(p[0]).toMatchObject({ who: 'Reaper', cap: 90000, action: 'HOLD', kind: 'agent' });
+  expect(agentPins(Array.from({ length: 12 }, (_, i) => ({ id: i, agent: 'courier', mc: 5, at: i })))).toHaveLength(AGENT_PINS);
+});
+
 test('🖼 avatars: OSSY / G4 use the owner\'s pictures, each agent its own GIF', () => {
   const { avatarOf } = require('../../lib/aiAvatars');
   expect(avatarOf('OSSY')).toMatch(/ossy\.webp$/); expect(avatarOf('lan')).toMatch(/g4\.webp$/); expect(avatarOf('reaper')).toMatch(/reaper\.gif$/); expect(avatarOf('bob')).toBe(null);

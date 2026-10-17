@@ -38,7 +38,12 @@ export function ChartLive({ seriesRef, chartRef, lastBarRef, shownRef, container
       if (y != null) { el.style.transform = `translate3d(${xt.toFixed(0)}px, ${(clamp(y) + top).toFixed(1)}px, 0)`; el.style.opacity = '1'; }
       if (ye != null) {
         const off = ye < 10 || ye > h - 34;   // the entry is off the visible scale: the chip waits at the edge and says which way
-        be.style.transform = `translate3d(${x != null && x > 40 ? Math.round(x) : 0}px, ${(clamp(ye) + top).toFixed(1)}px, 0)`; be.style.opacity = '1';
+        let yb = clamp(ye) + top;
+        if (!(x != null && x > 40)) {   // 📌 pinned at the left edge: never under the vitals badge (the BUY chip sat on it)
+          const vb = container?.current?.querySelector?.('.cpl'); const cb = container?.current?.getBoundingClientRect?.();
+          if (vb && cb) { const r0 = vb.getBoundingClientRect(); const t0 = r0.top - cb.top; const b0 = r0.bottom - cb.top; if (yb + 18 > t0 && yb < b0) yb = b0 + 4; }
+        }
+        be.style.transform = `translate3d(${x != null && x > 40 ? Math.round(x) : 0}px, ${yb.toFixed(1)}px, 0)`; be.style.opacity = '1';
         be.classList.toggle('is-off', off); be.classList.toggle('is-pinned', !(x != null && x > 40));
         if (line.current && y != null) { const a = clamp(ye) + top; const b = clamp(y) + top; line.current.style.transform = `translate3d(${Math.max(0, xt - 4).toFixed(0)}px, ${Math.min(a, b).toFixed(1)}px, 0) scaleY(${Math.max(1, Math.abs(b - a)).toFixed(1)})`; }
       }
