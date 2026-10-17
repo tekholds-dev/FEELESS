@@ -224,7 +224,7 @@ body.theme-day .ambient-background::after {
 body.theme-day .ambient-orb { opacity: .9; filter: none; will-change: transform; }
 body.theme-day .ambient-orb-one { background: radial-gradient(circle, rgba(0, 190, 120, .35), transparent 65%); }
 body.theme-day .ambient-orb-two { background: radial-gradient(circle, rgba(60, 140, 255, .28), transparent 65%); }
-body.theme-day .ambient-grid { opacity: .55; animation: day-grid-drift 40s linear infinite; }
+body.theme-day .ambient-grid { opacity: .55; }
 body.theme-day .ambient-scanline {
   opacity: .5;
   background: linear-gradient(100deg, transparent 40%, rgba(255, 255, 255, .55) 50%, transparent 60%);
@@ -233,7 +233,7 @@ body.theme-day .ambient-scanline {
 }
 @keyframes day-aurora-a { from { transform: translate3d(-6%, -4%, 0) rotate(0deg); } to { transform: translate3d(8%, 6%, 0) rotate(8deg); } }
 @keyframes day-aurora-b { from { transform: translate3d(6%, 4%, 0) rotate(0deg); } to { transform: translate3d(-8%, -5%, 0) rotate(-10deg); } }
-@keyframes day-grid-drift { from { background-position: 0 0, 0 0; } to { background-position: 0 72px, 72px 0; } }
+
 @keyframes day-sheen { 0%, 100% { transform: translateX(-60%); } 50% { transform: translateX(60%); } }
 body.reduced-motion-setting.theme-day .ambient-background::before,
 body.reduced-motion-setting.theme-day .ambient-background::after { animation: none; }
@@ -248,7 +248,7 @@ body.theme-day .App { background: transparent !important; }
 /* ===== Ambient performance: GPU-only transforms, no full-screen repaints ===== */
 .ambient-orb{mix-blend-mode:normal!important;will-change:transform}
 .ambient-scanline{mask-image:none!important;-webkit-mask-image:none!important;opacity:.08!important;will-change:transform}
-body.theme-day .ambient-grid{animation:none!important}
+
 body.theme-day .ambient-background::before{will-change:transform;contain:strict}
 /* particles: a tall tiled layer that slides with transform (composited) instead of animating background-position */
 body.theme-day .ambient-background::after{inset:0 0 auto 0!important;height:200%!important;background-image:radial-gradient(2px 2px at 10% 20%,#07784f55 50%,transparent 51%),radial-gradient(2px 2px at 30% 70%,#1b6fb355 50%,transparent 51%),radial-gradient(1.5px 1.5px at 55% 35%,#b8860b55 50%,transparent 51%),radial-gradient(2px 2px at 75% 60%,#07784f44 50%,transparent 51%),radial-gradient(1.5px 1.5px at 90% 25%,#1b6fb344 50%,transparent 51%)!important;background-size:420px 420px!important;animation:day-particles-t 60s linear infinite!important;will-change:transform;contain:strict}

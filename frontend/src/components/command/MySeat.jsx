@@ -62,7 +62,7 @@ export function AddMyCoin({ call, tpl, seats, reload }) {
     if (!track || !tpl) return undefined;
     let alive = true;
     const tick = () => sharedJson('/api/reputation/fuses/prime', { maxAge: 2500 }).then(d => { if (alive) setCard((d?.cards || []).find(x => x.tpl === tpl) || null); }).catch(() => {});
-    tick(); const t = setInterval(tick, 3000);
+    tick(); const t = setInterval(() => { if (!document.hidden) tick(); }, 3000);
     return () => { alive = false; clearInterval(t); };
   }, [track, tpl]);
   useEffect(() => { if (stage && (stage.k === 'filled' || stage.k === 'refused')) { const t = setTimeout(() => setTrack(null), 60000); return () => clearTimeout(t); } return undefined; }, [stage?.k]);   // eslint-disable-line react-hooks/exhaustive-deps

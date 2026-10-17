@@ -32,7 +32,6 @@ import trench_mind as _tm
 import chart_intel as _ci
 import trench_kernel.senses as _sn
 from trench_kernel.universe import GRADUATE_X, real_phase, underwater   # noqa: F401 (the real-money phase rule is the kernel's)
-from trench_kernel.positions import trusted   # noqa: F401 (seat display + the trust rule are the kernel's)
 from trench_kernel.senses import SOURCES, SERIES_N, SERIES_COINS, FIRST_KEEP, _f, _med, tally, first_seen   # noqa: F401 (the tape is the kernel's; re-exported for the paper record + old tests)
 from trench_kernel.universe import (   # noqa: F401 (the universe is the kernel's; re-exported for the paper record + old tests)
     AGENT_TAKES, AGENT_MODES, AGENT_SEATS, CONTROL_HOLD_MIN, CONTROL_MOVES_HR, FILL_MOVES_HR, CONTROL_MIN_LIQ, stage_of, AGENT_MAX_MCAP, trench_band, AGENT_MIN_MCAP, agent_holder_pass, in_lane, LANE_CAPS, lane_cap, lane_step, ESTABLISHED_H, ESTABLISHED_LIQ, established)

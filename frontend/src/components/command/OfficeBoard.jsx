@@ -49,7 +49,7 @@ const Dump = ({ v }) => dump(v);
 
 export function OfficeMission({ m, bare }) {
   const [, tick] = useState(0);
-  useEffect(() => { const t = setInterval(() => tick(n => n + 1), 1000); return () => clearInterval(t); }, []);
+  useEffect(() => { const t = setInterval(() => { if (!document.hidden) tick(n => n + 1); }, 1000); return () => clearInterval(t); }, []);
   if (!m) return <div className="ofb-mission is-cold" data-testid="ofb-mission"><b>💵 REAL MONEY MISSION</b><span className="ofb-nil">waiting for the agents' first pass — nothing is shown until the real card's own numbers arrive</span></div>;
   const la = m.lastAction; const prob = m.probation || []; const [rc, rt] = actionResult(la?.result); const be = m.toBreakeven;
   return <div className={`ofb-mission ${m.locked ? 'is-locked' : 'is-clear'} ${bare ? 'is-bare' : ''}`} data-testid="ofb-mission">
@@ -205,7 +205,7 @@ export function WakeLine({ w }) {
 
 export function PositionCard({ p }) {
   const [, tick] = useState(0);
-  useEffect(() => { const t = setInterval(() => tick(n => n + 1), 1000); return () => clearInterval(t); }, []);
+  useEffect(() => { const t = setInterval(() => { if (!document.hidden) tick(n => n + 1); }, 1000); return () => clearInterval(t); }, []);
   const th = p.thesis; const seen = useRef({ at: Date.now(), next: p.nextReview }); if (seen.current.next !== p.nextReview) seen.current = { at: Date.now(), next: p.nextReview };
   const left = p.nextReview == null ? null : Math.max(0, p.nextReview - (Date.now() - seen.current.at) / 1000);
   return <article className={`ofb-pos ${REAP_CLS[p.state] || 'is-hold'}`} data-testid={`pos-${p.symbol}`}>

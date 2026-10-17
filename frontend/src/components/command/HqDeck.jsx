@@ -125,7 +125,7 @@ export function HqDeck({ address, signMessage, onClose, startTab }) {
   const loadBugs = useCallback(() => call('/admin/bugs').then(d => setBugs((d.bugs || []).slice().reverse())).catch(() => {}), [call]);
 
   useEffect(() => { if (session) call('/admin/roles').then(d => { setRole(d.yourRole || ''); if (ROLE_TABS_FIRST[d.yourRole]) setTab(ROLE_TABS_FIRST[d.yourRole]); }).catch(() => {}); }, [session]); // eslint-disable-line react-hooks/exhaustive-deps
-  useEffect(() => { if (!session) return; loadSec(); loadDrops(); loadBugs(); const t = setInterval(loadSec, 30000); return () => clearInterval(t); }, [session, loadSec, loadDrops, loadBugs]);
+  useEffect(() => { if (!session) return; loadSec(); loadDrops(); loadBugs(); const t = setInterval(() => { if (!document.hidden) loadSec(); }, 30000); return () => clearInterval(t); }, [session, loadSec, loadDrops, loadBugs]);
   useEffect(() => { if (session && (tab === 'holders' || tab === 'studio') && !holders) loadHolders(); }, [session, tab, loadHolders]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { if (session) loadHolders(); }, [asset]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -590,7 +590,7 @@ function InvitesPanel({ call }) {
 
 function PulsePanel({ call }) {
   const [d, setD] = useState(null);
-  useEffect(() => { const load = () => call('/admin/pulse').then(setD).catch(() => {}); load(); const t = setInterval(load, 20000); return () => clearInterval(t); }, [call]);
+  useEffect(() => { const load = () => call('/admin/pulse').then(setD).catch(() => {}); load(); const t = setInterval(() => { if (!document.hidden) load(); }, 20000); return () => clearInterval(t); }, [call]);
   if (!d) return <p className="cc-empty">Taking the pulse…</p>;
   const max = Math.max(1, ...d.hourly);
   return <section className="cc-panel">
@@ -609,7 +609,7 @@ function ModPanel({ call }) {
   const [msgs, setMsgs] = useState([]);
   const [q, setQ] = useState('');
   const load = useCallback(() => call('/admin/chat-feed').then(d => setMsgs(d.messages || [])).catch(e => toast.error(e.message)), [call]);
-  useEffect(() => { load(); const t = setInterval(load, 15000); return () => clearInterval(t); }, [load]);
+  useEffect(() => { load(); const t = setInterval(() => { if (!document.hidden) load(); }, 15000); return () => clearInterval(t); }, [load]);
   const del = m => call('/admin/moderate/delete', { method: 'POST', body: JSON.stringify({ room: m.room, id: m.id }) }).then(() => { toast.success('Removed'); load(); }).catch(e => toast.error(e.message));
   const mute = (m, hours) => call('/admin/moderate/mute', { method: 'POST', body: JSON.stringify({ address: m.address, hours }) }).then(() => { toast.success(hours ? `Muted ${hours}h` : 'Unmuted'); load(); }).catch(e => toast.error(e.message));
   const shown = msgs.filter(m => !q || `${m.text} ${m.handle} ${m.username} ${m.room}`.toLowerCase().includes(q.toLowerCase()));

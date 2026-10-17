@@ -71,7 +71,7 @@ const bar = (v, lo, hi) => Math.max(0.06, Math.min(1, ((Number(v) || 0) - lo) / 
 
 function Think({ duo, sides }) {
   const [now, setNow] = useState(() => Date.now() / 1000);
-  useEffect(() => { if (!duo.busy) return undefined; const t = setInterval(() => setNow(Date.now() / 1000), 1000); return () => clearInterval(t); }, [duo.busy]);
+  useEffect(() => { if (!duo.busy) return undefined; const t = setInterval(() => { if (!document.hidden) setNow(Date.now() / 1000); }, 1000); return () => clearInterval(t); }, [duo.busy]);
   const live = duo.live;
   if (!live) return null;
   const side = sides.find(x => x.name === live.by) || {};
@@ -119,7 +119,7 @@ function TradeRoom({ duo }) {
       : <p className="dso-roomnil">the first read on this trade lands within a minute</p>}</div>;
 }
 
-export function DuoSeat({ duo }) {
+function DuoSeatBody({ duo }) {
   if (!duo || duo.mode === 'off') return <div className="dso is-off" data-testid="duo-seat"><b>🔁 OSSY ⚔ G4</b><small>seat off — turn it on in 🎛 Limits › 🧠 G4 SEAT</small></div>;
   const log = duo.log || [];
   const g4 = sideOf('G4', log), os = sideOf('OSSY', log);
@@ -150,3 +150,5 @@ export function DuoSeat({ duo }) {
       <em>{r.model || '—'}</em><b>{r.action}{r.symbol ? ` $${r.symbol}` : ''}{r.pct != null ? ` ${sgn(r.pct)}` : ''}</b><span title={r.miss ? `models missed: ${r.miss}` : undefined}>{r.why}</span><small>{ago(r.at)}{r.ms ? ` · ${secs(r.ms)}` : ''}</small></li>)}</ol>
   </div>;
 }
+// ⚡ memo: a hub delta that doesn't touch these props never re-renders it (it re-rendered on every live update)
+export const DuoSeat = React.memo(DuoSeatBody);

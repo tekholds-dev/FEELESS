@@ -65,7 +65,7 @@ function SocStrip({ c, pos, open, onOpen }) {
 }
 
 // 🫀 every vital the agents read on THIS coin — tap one: what it is, the line it is judged against, who reads it, what it does
-export function VitalBoard({ c, pos, rules, call, isOwner }) {
+function VitalBoardBody({ c, pos, rules, call, isOwner }) {
   const [open, setOpen] = useState(null);
   const tiles = vitalTiles(c, pos); const sc = vitalScore(tiles);
   const v = mergedVit(c, pos);
@@ -94,3 +94,5 @@ export function VitalBoard({ c, pos, rules, call, isOwner }) {
     </div> : null}
   </section>;
 }
+// ⚡ memo: a hub delta that doesn't touch these props never re-renders it (it re-rendered on every live update)
+export const VitalBoard = React.memo(VitalBoardBody);

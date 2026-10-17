@@ -110,7 +110,7 @@ function Deck({ tabs, testid = 'ack-deck', on: onC, setOn: setOnC, bare }) {
     {tabs.map(([k, , , node, , , lazy]) => <div key={k} role="tabpanel" className="ack-deckpane" hidden={on !== k} data-testid={`ack-deckpane-${k}`}>{lazy && on !== k ? null : <Pane on={on === k} node={node} />}</div>)}
   </section>;
 }
-function useTick(ms = 1000) { const [n, setN] = useState(() => Date.now()); useEffect(() => { const t = setInterval(() => setN(Date.now()), ms); return () => clearInterval(t); }, [ms]); return n; }
+function useTick(ms = 1000) { const [n, setN] = useState(() => Date.now()); useEffect(() => { const t = setInterval(() => { if (!(typeof document !== 'undefined' && document.hidden)) setN(Date.now()); }, ms); return () => clearInterval(t); }, [ms]); return n; }
 export function pulseOf(o, nowMs = Date.now()) {
   const now = nowMs / 1000; const k = (o?.kernel || {}).metrics || {}; const cy = o?.cycle || {}; const every = Number(cy.nextIn) > 0 ? Number(cy.nextIn) : Number(cy.every) || 18;
   const passAge = cy.at ? Math.max(0, now - cy.at) : null; const last = (o?.tape || []).reduce((m, r) => (r.at > (m?.at || 0) ? r : m), null);
