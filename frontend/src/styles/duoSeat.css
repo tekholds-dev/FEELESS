@@ -64,7 +64,7 @@
 .dso-log::-webkit-scrollbar { width: 6px; } .dso-log::-webkit-scrollbar-thumb { background: #15d16a; border-radius: 3px; }
 .dso-log li { display: grid; grid-template-columns: 46px auto minmax(0, 1fr) auto; gap: 8px; align-items: baseline; padding: 3px 6px; border-radius: 6px; background: rgba(255, 255, 255, .025); font: 600 9.5px var(--m-mono); animation: dsoIn .35s ease both; animation-delay: calc(var(--i) * 45ms); }
 .dso-log em { font-style: normal; font-weight: 900; } .dso-log li.by-g4 em { color: var(--g4); } .dso-log li.by-ossy em { color: var(--os); } .dso-log li.by-agents em { color: var(--ag); }
-.dso-log b { color: var(--m-text, #e9fff3); white-space: nowrap; } .dso-log li.a-buy b { color: #15d16a; } .dso-log li.a-sell b { color: #ff8fa3; } .dso-log li.a-noanswer b, .dso-log li.a-wait b { color: var(--m-mute, #8fb3a0); } .dso-log li.a-hold b { color: #9fe3ff; }
+.dso-log b { color: var(--m-text, #e9fff3); white-space: nowrap; } .dso-log li.a-buy b { color: #15d16a; } .dso-log li.a-sell b { color: #ff8fa3; } .dso-log li.a-noanswer b, .dso-log li.a-wait b { color: var(--m-mute, #8fb3a0); } .dso-log li.a-hold b { color: #9fe3ff; } .dso-log li.a-talk { border-left: 2px dashed #b48cff; } .dso-log li.a-talk b { color: #c9a8ff; }
 .dso-log span { color: var(--m-mute, #8fb3a0); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
 
 .dso-think { --c: var(--g4); display: grid; gap: 6px; padding: 8px 10px; border-radius: 10px; border: 1px solid color-mix(in srgb, var(--c) 22%, transparent); background: rgba(255, 255, 255, .02); }

@@ -32,7 +32,7 @@ Every minute you get a fresh snapshot. Decide ONE action for YOUR seat:
 - SELL: sell the coin you hold now
 - WAIT: seat empty, nothing worth buying
 AGENTS_PICK = the coin the agents would take right now (empty = they would wait). Rules you cannot break: never invent a coin; numbers come only from the packet; a coin you hold can still be sold under you if its pool is
-pulled or it falls 45%. PRESSURE = times the agents wanted your coin out — weigh it, you decide.
+pulled or it falls 45%. PRESSURE = times the agents wanted your coin out — weigh it, you decide. PARTNERSAYS = your partner's advice on the coin you hold: answer it in your why when you disagree.
 Answer with ONLY this JSON, nothing else:
 {"action":"BUY|HOLD|SELL|WAIT","coin":"<SYMBOL when BUY, else empty>","why":"<one line, under 160 chars, the numbers that decided it>","conf":<0-100>,"watch":"<what would make you sell, under 80 chars>"}"""
 
@@ -74,24 +74,43 @@ def held_row(leg, px, now, pressure=None, qwen=None):
     return {k: x for k, x in out.items() if x not in (None, '', [])}
 
 
-def packet(cands, held, record=None, partner=None, pick=None):
+def packet(cands, held, record=None, partner=None, pick=None, says=None):
     """The ONE thing the deciding model reads each minute (+ its partner's last call + the agents' own pick)."""
     out = {'yourSeat': held or 'EMPTY', 'candidates': [{k: v for k, v in c.items() if k != 'mint'} for c in cands[:CAND_N]] or 'none right now',
            'agentsPick': pick or '', 'yourRecord': record or 'no closed trades yet'}
     if partner:
         out['partner'] = partner
+    if says:
+        out['partnerSays'] = says   # 💬 your partner's advice on the trade you hold — weigh it, you still decide
     return out
 
 
-def turn(log, a, b, holding=False):
-    """🔁 ONE TRADE AT A TIME (owner, 2026-10-16: "if it's OSSY's turn he calls his buy, and when he's done with the trade it's G4's turn"):
-    while the seat holds a coin, the model that BOUGHT it runs it to the exit; once it is sold (seat empty) the OTHER model hunts the next one.
-    No buy yet → `a` first. The second key is only the fallback when the first can't answer. → (first, second)."""
-    last = next((r.get('by') for r in reversed(log or []) if r.get('by') in (a, b) and r.get('action') == 'BUY'), None)
+def turn(log, a, b, holding=False, opener=None, holder=None):
+    """🔁 ONE REAL TRADE EACH (owner, 2026-10-16: "they REALLY take turns choosing a coin for a REAL seat — when one is done trading the other chooses"):
+    while the seat holds a coin, the model that OPENED it (`holder`, stamped on the leg when it was seated) runs it to the exit; once it is sold
+    the OTHER model hunts the next one. The turn moves only on a trade that really OPENED (`opener` = who opened the last real seat) — a BUY
+    that never got seated (refused, vetoed, paused) does not use up a turn. No real trade yet → `a` first. → (first, second)."""
+    if holding and holder in (a, b):
+        return (holder, b if holder == a else a)
+    last = opener if opener in (a, b) else None
     if not last:
         return (a, b)
     other = b if last == a else a
     return (last, other) if holding else (other, last)
+
+
+ADVISE = """You are the PARTNER on a shared real-money Solana trench seat. Your partner model holds the coin in YOURSEAT and decides; you only ADVISE.
+Read the snapshot (its P/L, peak, held minutes, pressure from the rule agents, the candidates) and say what you would do with THAT coin and why,
+in one line with the numbers that decide it. Be blunt; disagree when the numbers say so. Never invent numbers.
+Answer with ONLY this JSON: {"action":"HOLD|SELL","coin":"","why":"<under 160 chars>","conf":<0-100>,"watch":"<what would change your mind, under 80 chars>"}"""
+
+TALK_EVERY = 120.0   # the partner speaks at most every 2 min while a trade runs (each LM model has a 4-calls-a-minute cap)
+
+
+def talk_of(log, holder, since=0.0):
+    """The partner's newest ADVICE on the open trade (rows marked `talk`), as the holder reads it next minute."""
+    r = next((r for r in reversed(log or []) if r.get('talk') and r.get('by') != holder and (r.get('at') or 0) >= since), None)
+    return None if not r else {'model': r.get('model'), 'says': r.get('view') or r.get('action'), 'why': str(r.get('why') or '')[:140], 'conf': r.get('conf')}
 
 
 def partner_of(log, by):

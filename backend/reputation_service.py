@@ -10672,20 +10672,21 @@ async def _prime_tick_inner(now):
                     _shadow_note(t_, 'fill', now, cur)
                 _shadow_controls(plan_[:max(0, empty_n)], [c_['row'] for c_ in cases_ if c_['status'] == 'CONTENDING'][:12], cases_, now)
                 plan_ = []
+            night_g4_ = night_ and ((_night.get('st') or {}).get('kind') == 'rug')   # 🔁 the AI seat is ONE trade at a time: only a rug-level trip pauses it (owner: "REAL seat"); drawdown / streak pauses stop the agents' fills only
             w_, g4n_ = _g4.get('want'), 0   # 🔁 the AI seat is REAL even while the agents' own fills are on paper (owner, 2026-10-16); the night guard still stops it
             if w_ and w_.get('action') == 'BUY':   # 🧾 say WHY a model's BUY did not reach the card (it used to vanish silently)
-                why_no = ('stale (older than 2 min)' if not _seat.fresh(w_, now) else 'seat off / not real' if not g4_seat_ else '🌙 night guard pause (no real buys)' if night_
+                why_no = ('stale (older than 2 min)' if not _seat.fresh(w_, now) else 'seat off / not real' if not g4_seat_ else '🌙 night guard: a rug-level trip pauses the AI seat too' if night_g4_
                           else 'manual authority' if pol_['manual'] else 'office not LIVE yet' if not rd_['live'] else 'keeper halted' if seat_ctx_['halt']
                           else 'courier BAD' if seat_ctx_['courier'] == 'BAD' else 'hourly fill guard' if used_ >= _uni.FILL_MOVES_HR
                           else 'coin blocked (just left / refused)' if w_.get('mint') in _agent_blocked(cur, now) else None)
                 if why_no:
                     _g4_fate(w_, why_no, now)
-            if (g4_seat_ and w_ and w_.get('action') == 'BUY' and _seat.fresh(w_, now) and not night_ and not pol_['manual'] and rd_['live'] and not seat_ctx_['halt']
+            if (g4_seat_ and w_ and w_.get('action') == 'BUY' and _seat.fresh(w_, now) and not night_g4_ and not pol_['manual'] and rd_['live'] and not seat_ctx_['halt']
                     and seat_ctx_['courier'] != 'BAD' and used_ < _uni.FILL_MOVES_HR and w_.get('mint') not in _agent_blocked(cur, now)):
                 _g4['want'] = None   # 🧠 G4's BUY joins the SAME fill path as every agent seat — the keeper's pre-check, the Warden's size, the keeper's own checks
                 gt_ = _tk.KERNEL.candidate(w_['mint'])
                 if gt_ and gt_.get('pair'):
-                    plan_, g4n_ = [{**gt_, 'g4': True, 'nearReady': f"🧠 G4: {w_.get('why')}"}] + [t_ for t_ in plan_ if t_['mint'] != gt_['mint']], 1
+                    plan_, g4n_ = [{**gt_, 'g4': True, 'g4By': w_.get('by'), 'nearReady': f"🧠 {w_.get('model') or 'G4'}: {w_.get('why')}"}] + [t_ for t_ in plan_ if t_['mint'] != gt_['mint']], 1
                     _g4_fate(w_, 'sent to the seat check', now)
                 else:
                     _g4_fate(w_, 'coin left the desk before the buy', now)
@@ -10725,7 +10726,12 @@ async def _prime_tick_inner(now):
                         for l in cur['legs']:
                             if l.get('mint') == t_['mint']:
                                 l['aiSeat'] = True
+                                l['aiBy'] = t_.get('g4By')   # 🔁 whose trade this is: the turn moves only on a seat that really opened
                                 l['bought'] = {**(l.get('bought') or {}), 'tag': '🤖 🧠 G4 seat'}
+                        try:
+                            _g4_mem.put({**(_g4_mem.get() or {}), 'opener': t_.get('g4By')}, now)
+                        except Exception as e:
+                            print('g4 opener:', str(e)[:80])
                         g4_seat_ = False
                     else:
                         ag_fill_ += 1
@@ -13771,7 +13777,7 @@ def _g4_fate(w, why, now):
 
 def _g4_state():
     st_ = _g4_mem.get() or {}
-    return {'log': list(st_.get('log') or []), 'book': st_.get('book') or {}, 'at': st_.get('at') or 0.0}
+    return {'log': list(st_.get('log') or []), 'book': st_.get('book') or {}, 'at': st_.get('at') or 0.0, 'opener': st_.get('opener'), 'talkAt': st_.get('talkAt') or 0.0}
 
 
 def _g4_qwen(mint):
@@ -13819,16 +13825,20 @@ async def _g4_tick(now, env, cfg):
         else:
             held_ = None
         rec_ = _g4_real_record() if mode_ == 'real' else _seat.record(book_.get('closed'))
-        first_, second_ = _seat.turn(st_['log'], _duet.LEAD, _duet.SECOND, bool(held_))   # 🔁 one trade each: the buyer runs it to the exit, then the other hunts
+        holder_ = (leg_ or {}).get('aiBy') if mode_ == 'real' else (book_.get('open') or {}).get('by')
+        if mode_ == 'paper':
+            st_['opener'] = holder_ or ((book_.get('closed') or [{}])[-1] or {}).get('by')
+        first_, second_ = _seat.turn(st_['log'], _duet.LEAD, _duet.SECOND, bool(held_), opener=st_.get('opener'), holder=holder_)   # 🔁 one REAL trade each: the opener runs it to the exit, then the other hunts
         if mode_ == 'paper':
             rec_ = _seat.by_model(book_.get('closed')).get(first_) or {'n': 0}
         rows_ = [_seat.cand_row(c_, _g4_qwen(c_['mint'])) for c_ in cands_]
         pick_ = _seat.agents_pick(rows_)
-        pk_ = _seat.packet(rows_, held_, _seat.record_words(rec_), _seat.partner_of(st_['log'], first_), (pick_ or {}).get('symbol'))
+        says_ = _seat.talk_of(st_['log'], first_, since=_fuse._f((leg_ or {}).get('at')) or 0.0) if held_ else None
+        pk_ = _seat.packet(rows_, held_, _seat.record_words(rec_), _seat.partner_of(st_['log'], first_), (pick_ or {}).get('symbol'), says_)
         _g4['live'] = {'by': _air.model_name(env, first_), 'at': now, 'pick': (pick_ or {}).get('symbol'), 'held': held_,
                        'cands': [{k_: r_c.get(k_) for k_ in ('symbol', 'status', 'trigger', 'move5m', 'buyers', 'germ', 'pool', 'cap', 'ageMin', 'rank')} for r_c in rows_[:6]]}   # 👁 what the deciding model is reading, live
         t0_ = time.perf_counter()
-        r_ = await _air.ROUTER.ask(_ai_http(), env, cfg, 'Your minute snapshot. Decide.', context=pk_, role='exit', urgency='force', only=(first_, second_), system=_seat.SYSTEM, only_system=True)
+        r_ = await _air.ROUTER.ask(_ai_http(), env, cfg, 'Your minute snapshot. Decide.', context=pk_, role='exit', urgency='force', only=(first_,) if held_ else (first_, second_), system=_seat.SYSTEM, only_system=True)   # 🔁 the holder alone runs its trade (no silent swap of who decides)
         by_m = r_.get('source') if r_.get('source') in (first_, second_) else first_
         dec_ = _seat.parse(r_.get('text'), [c_['mint'] for c_ in cands_], bool(held_), {c_.get('symbol'): c_['mint'] for c_ in cands_ if c_.get('symbol')})
         ms_ = round((time.perf_counter() - t0_) * 1000)
@@ -13841,7 +13851,7 @@ async def _g4_tick(now, env, cfg):
         if dec_ and mode_ == 'paper':
             book_, ev_ = _seat.paper_step(book_, dec_, by_, px_of, now, by_m)
         elif dec_ and mode_ == 'real' and dec_['action'] in ('BUY', 'SELL'):
-            _g4['want'] = {**dec_, 'symbol': (by_.get(dec_['mint']) or {}).get('symbol') if dec_['action'] == 'BUY' else (leg_ or {}).get('symbol'), 'at': now, 'pair': (by_.get(dec_['mint']) or {}).get('pair') if dec_['action'] == 'BUY' else (leg_ or {}).get('pairAddress')}
+            _g4['want'] = {**dec_, 'by': by_m, 'model': 'AGENTS' if by_m == 'agents' else _air.model_name(env, by_m), 'symbol': (by_.get(dec_['mint']) or {}).get('symbol') if dec_['action'] == 'BUY' else (leg_ or {}).get('symbol'), 'at': now, 'pair': (by_.get(dec_['mint']) or {}).get('pair') if dec_['action'] == 'BUY' else (leg_ or {}).get('pairAddress')}
         focus_ = by_.get((dec_ or {}).get('mint')) if (dec_ or {}).get('action') == 'BUY' else None
         row_ = {'at': round(now), 'mode': mode_, 'model': 'AGENTS' if by_m == 'agents' else _air.model_name(env, by_m), 'by': by_m if dec_ else None, 'ms': ms_, 'miss': miss_,
                 'action': (dec_ or {}).get('action') or 'NO ANSWER', 'why': (dec_ or {}).get('why') or str(r_.get('why') or 'the model did not answer')[:160],
@@ -13850,7 +13860,21 @@ async def _g4_tick(now, env, cfg):
                 'vitals': _seat.cand_row(focus_) if focus_ else ({k_: v_ for k_, v_ in _seat.cand_row(_tk.KERNEL.candidate(held_m) or {'mint': held_m}).items() if k_ not in ('mint',)} if held_m else None),
                 'pressure': (held_ or {}).get('pressure'), 'qwen': _g4_qwen((focus_ or {}).get('mint') or held_m) if ((focus_ or {}).get('mint') or held_m) else None,
                 'considered': len(cands_), 'event': ev_}
-        _g4_mem.put({'log': _seat.note(st_['log'], row_), 'book': book_, 'at': now}, now)
+        log_ = _seat.note(st_['log'], row_)
+        talk_at = st_.get('talkAt') or 0.0
+        if held_ and now - talk_at >= _seat.TALK_EVERY:   # 💬 the partner reads the SAME trade and advises; the holder sees it next minute (it never decides)
+            talk_at = now
+            try:
+                t0b = time.perf_counter()
+                ra_ = await _air.ROUTER.ask(_ai_http(), env, cfg, 'Advise on your partner\'s open trade.', context={**pk_, 'holder': _air.model_name(env, first_)}, role='exit', urgency='force', only=(second_,), system=_seat.ADVISE, only_system=True)
+                da_ = _seat.parse(ra_.get('text'), [], True)
+                if da_:
+                    log_ = _seat.note(log_, {'at': round(now), 'mode': mode_, 'model': _air.model_name(env, second_), 'by': second_, 'talk': True, 'ms': round((time.perf_counter() - t0b) * 1000),
+                                             'action': 'TALK', 'view': da_['action'], 'why': f"to {_air.model_name(env, first_)}: {da_['action']} — {da_.get('why') or ''}"[:180], 'conf': da_.get('conf'),
+                                             'watch': da_.get('watch'), 'symbol': (held_ or {}).get('symbol'), 'mint': (held_ or {}).get('mint'), 'pct': (held_ or {}).get('pct')})
+            except Exception as e_t:
+                print('g4 talk:', str(e_t)[:100])
+        _g4_mem.put({'log': log_, 'book': book_, 'at': now, 'opener': st_.get('opener'), 'talkAt': talk_at}, now)
     except Exception as e_:
         print('g4 seat:', str(e_)[:140])
     finally:
@@ -17812,7 +17836,8 @@ def _duo_view(env=None):
         st_ = _g4_state()
         env = env or os.environ
         nm = lambda k: _air.model_name(env, k)
-        first_, _s = _seat.turn(st_['log'], _duet.LEAD, _duet.SECOND, bool((st_['book'] or {}).get('open')) or any(l.get('aiSeat') and not l.get('placeholder') for c_ in (((_json_load(FUSE_HQ_PATH, {}) or {}).get('prime') or {}).get('cards') or {}).values() if (c_ or {}).get('real') for l in c_.get('legs') or []))
+        legs_ = [l for c_ in (((_json_load(FUSE_HQ_PATH, {}) or {}).get('prime') or {}).get('cards') or {}).values() if (c_ or {}).get('real') for l in c_.get('legs') or [] if l.get('aiSeat') and not l.get('placeholder')]
+        first_, _s = _seat.turn(st_['log'], _duet.LEAD, _duet.SECOND, bool((st_['book'] or {}).get('open')) or bool(legs_), opener=st_.get('opener'), holder=(legs_[0].get('aiBy') if legs_ else ((st_['book'] or {}).get('open') or {}).get('by')))
         return {'mode': _oe.clean_policy(_prime_real_cfg())['agentAiSeat'], 'next': nm(first_), 'at': st_['at'], 'busy': _g4['busy'],
                 'rec': {nm(k): v for k, v in _seat.by_model((st_['book'] or {}).get('closed')).items() if k in (_duet.LEAD, _duet.SECOND)},
                 'open': (st_['book'] or {}).get('open'),

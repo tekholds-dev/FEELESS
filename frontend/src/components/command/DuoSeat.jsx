@@ -7,7 +7,7 @@ import '../../styles/duoSeat.css';
 const ago = at => { const s = Math.max(0, Math.round(Date.now() / 1000 - (Number(at) || 0))); return s < 60 ? `${s}s` : s < 3600 ? `${Math.round(s / 60)}m` : `${Math.round(s / 3600)}h`; };
 const sgn = v => `${v >= 0 ? '+' : ''}${Number(v).toFixed(1)}%`;
 const secs = ms => (ms == null ? '—' : `${(ms / 1000).toFixed(1)}s`);
-const ACT = ['buy', 'sell', 'hold', 'wait', 'noanswer'];
+const ACT = ['talk', 'buy', 'sell', 'hold', 'wait', 'noanswer'];
 const actKey = a => { const k = String(a || '').toLowerCase().replace(/\s/g, ''); return ACT.includes(k) ? k : 'wait'; };
 
 // pure: one pod's record numbers (n · won · typical) and how full its record bar is (won %, 0–1)

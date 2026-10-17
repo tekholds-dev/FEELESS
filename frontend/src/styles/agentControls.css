@@ -9,7 +9,6 @@
 .acx-auth > button.is-manual.active { background: var(--m-warn); color: #1a1200; }
 .acx-vol { margin: 0 0 6px; padding: 5px 8px; border-radius: 8px; border: 1px solid color-mix(in srgb, #ff7a3d 45%, transparent); background: rgba(255, 122, 61, .07); font: 600 10px var(--m-mono); color: var(--m-dim); } .acx-vol b { color: #ff9a5c; font-weight: 800; }
 body.theme-day .acx-vol b { color: #a8430c; }
-.acx-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 8px; }
 .acx-card { position: relative; display: grid; align-content: start; gap: 8px; padding: 9px 10px 10px; border-radius: var(--m-r-sm); border: 1px solid var(--m-line);
   background: linear-gradient(180deg, rgba(21, 209, 106, .05), rgba(255, 255, 255, .01) 60%); min-width: 0; animation: acxIn .2s var(--m-ease) both; }
 .acx-card::before { content: ''; position: absolute; left: 10px; right: 10px; top: 0; height: 2px; border-radius: 2px; background: linear-gradient(90deg, var(--m-accent), transparent); opacity: .7; }
@@ -194,3 +193,37 @@ body.theme-day .thd-now { background: #0f2419; box-shadow: none; } body.theme-da
 }
 body.theme-day .thd-flow.is-up b { color: #0d7a41; } body.theme-day .thd-flow.is-dn b { color: #b3261e; } body.theme-day .thd-flow.is-warn b, body.theme-day .ack-refused.is-tape b { color: #8a5a00; }
 @media (prefers-reduced-motion: reduce) { .thd-flowbar > i { transition: none; } }
+
+/* 🎛 v2: rail of sections + ONE pane (controls | live read); every pane mounted, the hidden attribute must win over display:grid */
+.acx-shell { display: grid; grid-template-columns: 210px minmax(0, 1fr); gap: 10px; align-items: start; }
+.acx-rail { display: grid; gap: 4px; position: sticky; top: 8px; }
+.acx-tab { display: grid; gap: 2px; text-align: left; padding: 7px 9px; border-radius: var(--m-r-sm); border: 1px solid var(--m-line); background: rgba(8, 20, 13, .7);
+  color: var(--m-text); cursor: pointer; transition: transform .14s ease, border-color .14s ease, background .14s ease; }
+.acx-tab b { font: 800 10px var(--m-mono); letter-spacing: .08em; }
+.acx-tab span { font: 600 9.5px var(--m-mono); color: var(--m-mute); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.acx-tab em { justify-self: start; font: 800 8px var(--m-mono); letter-spacing: .1em; color: #0a1a10; background: var(--gold, #e8c46a); border-radius: 3px; padding: 1px 5px; font-style: normal; }
+.acx-tab:hover { border-color: rgba(21, 209, 106, .55); transform: translateX(2px); }
+.acx-tab:active { transform: translateX(1px) scale(.99); }
+.acx-tab:focus-visible { outline: 2px solid #45e486; outline-offset: 1px; }
+.acx-tab.active { background: linear-gradient(90deg, rgba(21, 209, 106, .22), rgba(21, 209, 106, .04)); border-color: #15d16a; box-shadow: inset 3px 0 0 #15d16a; }
+.acx-tab.active span { color: #bdf5d4; }
+.acx-pane { min-width: 0; }
+.acx-pane > .acx-card[hidden] { display: none; }
+.acx-pane > .acx-card { animation: acxIn .18s ease-out; }
+@keyframes acxIn { from { transform: translateY(4px); } to { transform: none; } }
+.acx-body { display: grid; gap: 10px; }
+.acx-body.has-live { grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); align-items: start; }
+.acx-rows { display: grid; gap: 7px; min-width: 0; }
+.acx-live { display: grid; gap: 8px; min-width: 0; padding: 8px; border-radius: var(--m-r-sm); border: 1px dashed rgba(21, 209, 106, .28); background: rgba(4, 12, 8, .55); }
+.acx-livehd { font: 800 8.5px var(--m-mono); letter-spacing: .16em; color: var(--m-mute); }
+.acx-ok, .acx-bad { font: 800 8.5px var(--m-mono); letter-spacing: .08em; font-style: normal; border-radius: 3px; padding: 1px 6px; justify-self: start; animation: acxOk .3s ease-out; }
+.acx-ok { color: #0a1a10; background: #15d16a; } .acx-bad { color: #2a0a10; background: #ff8fa3; }
+@keyframes acxOk { from { transform: scale(.85); opacity: .4; } to { transform: none; opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .acx-pane > .acx-card, .acx-ok, .acx-bad { animation: none; } .acx-tab { transition: none; } }
+body.fx-lite .acx-pane > .acx-card, body.fx-lite .acx-ok, body.fx-lite .acx-bad { animation: none; }
+body.theme-day .acx-tab { background: rgba(236, 246, 240, .85); color: #10301d; }
+body.theme-day .acx-tab span { color: #48705a; } body.theme-day .acx-tab.active { background: linear-gradient(90deg, rgba(21, 160, 80, .22), rgba(21, 160, 80, .05)); }
+body.theme-day .acx-live { background: rgba(236, 246, 240, .7); }
+@media (max-width: 980px) { .acx-body.has-live { grid-template-columns: minmax(0, 1fr); } }
+@media (max-width: 640px) { .acx-shell { grid-template-columns: minmax(0, 1fr); } .acx-rail { position: static; display: flex; overflow-x: auto; scrollbar-width: thin; }
+  .acx-tab { flex: 0 0 auto; max-width: 180px; } }

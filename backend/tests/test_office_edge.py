@@ -731,3 +731,15 @@ def test_missing_evidence_is_unknown_and_a_mint_mismatch_keeps_its_proof_through
     w16 = next(r_ for r_ in wd['rules'] if r_['id'] == 'W16 identity')
     assert w16['mult'] == 0.25 and w16['evidence']['sourceUrl'] == 'https://froggy-official.xyz' and w16['evidence']['launchMint'] == MINT
     c = {'mint': MINT, 'symbol': 'FROGGY', 'px': 1.0, 'cleared': False, 'checks': [], 'row': row}
+
+
+def test_every_control_option_saved_reads_back_as_that_value_on_the_panel():
+    """✓ IN FORCE on the page = the panel's own value after a save. Every option of every control, saved through the card's validator,
+    must read back as that same value in `controls()` — and the on/off flags the panel adds (capital, valve, chart, model) must survive."""
+    for r in oe.controls({}):
+        for v in r['options']:
+            saved = ap.clean_cfg({r['key']: v})
+            got = {x['key']: x for x in oe.controls(saved)}[r['key']]['value']
+            assert str(got) == str(oe.clean_policy(saved)[r['key']]) and (float(got) == float(v) if isinstance(v, (int, float)) else got == v), (r['key'], v, got)
+    for k in ('agentCapital', 'agentValve', 'chartWait', 'agentAiLearn', 'agentAiGate', 'agentAiExit'):
+        assert ap.clean_cfg({k: False}).get(k) is False and ap.clean_cfg({k: True}).get(k) is True, k

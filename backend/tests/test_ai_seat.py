@@ -68,9 +68,14 @@ def test_g4_minute_thoughts_reach_the_activity_pane():
 def test_g4_and_the_mac_model_take_turns_and_each_has_its_own_record():
     assert seat.turn([], 'lan', 'local') == ('lan', 'local')
     log = [{'by': 'lan', 'action': 'BUY', 'symbol': 'A', 'why': 'buyers 70%', 'model': 'Vega'}]
-    assert seat.turn(log, 'lan', 'local', holding=True) == ('lan', 'local')          # the buyer runs its own trade to the exit
-    assert seat.turn(log, 'lan', 'local') == ('local', 'lan')                         # seat empty again → the other model hunts
-    assert seat.turn(log + [{'by': 'local', 'action': 'WAIT'}], 'lan', 'local') == ('local', 'lan')   # a WAIT is not a trade: still its hunt
+    assert seat.turn(log, 'lan', 'local') == ('lan', 'local')                         # a BUY that never got seated is not a turn
+    assert seat.turn(log, 'lan', 'local', holding=True, holder='lan') == ('lan', 'local')   # the opener runs its own trade to the exit
+    assert seat.turn(log, 'lan', 'local', holding=True, holder='local', opener='lan') == ('local', 'lan')
+    assert seat.turn(log, 'lan', 'local', opener='lan') == ('local', 'lan')           # seat empty again → the other model hunts
+    assert seat.turn(log, 'lan', 'local', opener='local') == ('lan', 'local')
+    talk = [{'by': 'local', 'talk': True, 'model': 'OSSY', 'view': 'SELL', 'why': 'buyers 40%', 'at': 50, 'conf': 60}]
+    assert seat.talk_of(talk, 'lan')['says'] == 'SELL' and seat.talk_of(talk, 'local') is None and seat.talk_of(talk, 'lan', since=60) is None
+    assert seat.packet([], {'symbol': 'A'}, says={'says': 'SELL'})['partnerSays'] == {'says': 'SELL'}
     assert seat.partner_of(log, 'local') == {'model': 'Vega', 'action': 'BUY', 'symbol': 'A', 'why': 'buyers 70%'} and seat.partner_of(log, 'lan') is None
     assert seat.packet([], None, None, {'action': 'BUY'})['partner'] == {'action': 'BUY'}
     px = {'A': 1.0}
