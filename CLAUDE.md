@@ -4835,3 +4835,8 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   (lower low, germ lost, downtrend / collapse) or sellers leading; (2) `office.BASE_TIME_RULES` R9 · R9e · R11 · R8 never sell a coin whose
   base still holds (`base_of`), at any age, while it is above 80% of its stop; (3) `arena_prime.AGENT_OUT_LOSS_SEC` — a coin the agents left
   ≥ 3% red sits out 1h. Stops, take, trail, rug / dump / drain, −45% unchanged.
+- 🚀 HOLD TO THE BREAKOUT, THEN SKIM OR TAKE (owner, 2026-10-17): the scale-out (R6h) reads the breakout — still ACCELERATING / RUNNING →
+  SKIM `SKIM_STRONG_PCT` 33% and the rest rides the trail; not pushing → TAKE the owner's scale-out share (75%). The report carries `trimPct`,
+  `merge_reaper` hands it to `agent_trim`.
+- 🤝 AGENTS WEIGH OSSY / G4 (owner: "agents need to strongly consider OSSY and G4"): in the agents' fill plan a coin a model called BUY in the last
+  10 min goes FIRST ("🤝 the models picked it"), a coin a model said SELL on in the last 15 min is skipped. Every check still runs.

@@ -748,8 +748,11 @@ def reap(legs, table, prices, cfg, pos, now, scalp=None, control=False, weather_
         if not act and mine and live and young_ and pct >= SCALE_AT and not degraded_pre(ch, rv):   # 🍼 a coin < 5 min old at entry: ALL of it banked at +10% (rugs land in its first minutes)
             st, rule, ev, act = 'TAKE', 'R6y young coin banked', f"{pct:+.1f}% ≥ +{SCALE_AT:g}% on a coin {_f(young_) * 60:.0f} min old at entry: all of it sold now — {YOUNG_WHY}", 'pull'
         elif not act and mine and live and sc_ and pct >= (max(NOISE_TP, sc_[0]) if noise_ else sc_[0]) and not p.get('scaled') and not degraded_pre(ch, rv):   # 💰 SCALE-OUT: at +A% P% banked once, the rest rides the trail (the owner's 💰 Scale-out control)
-            st, rule, ev, act = 'TAKE', 'R6h half banked', f"{pct:+.1f}% ≥ +{sc_[0]:g}%: {sc_[1]:g}% sold now, the rest rides the trail", 'trim'
-            p['scaled'] = now
+            strong_ = vl.get('state') == 'ACCELERATING' or rs_ in ('ACCELERATING', 'RUNNING')   # 🚀 owner: "hold until the breakout, then decide skim or TP"
+            sk_ = SKIM_STRONG_PCT if strong_ else sc_[1]
+            st, rule, ev, act = 'TAKE', 'R6h half banked', (f"{pct:+.1f}% ≥ +{sc_[0]:g}%: breakout still {('accelerating' if vl.get('state') == 'ACCELERATING' else rs_.lower())} — SKIM {sk_:g}%, the rest rides the trail" if strong_
+                                                            else f"{pct:+.1f}% ≥ +{sc_[0]:g}%: breakout not pushing — TAKE {sk_:g}%, the rest rides the trail"), 'trim'
+            p['scaled'], p['trimPct'] = now, sk_
         if l.get('picked'):
             study_note(p, rule, act, st, pct, px, now, snap_of(ch, x, pct))   # 👤 your seat: every ruling change is filed — what the agents would have done, and when
         if l.get('aiSeat') and not act and pct is not None:   # 🔁 the holding MODEL runs its trade: its own take / stop (set from its minute read) sell it
@@ -816,7 +819,7 @@ def reap(legs, table, prices, cfg, pos, now, scalp=None, control=False, weather_
                     'chart': None if not ch else {k: ch.get(k) for k in ('trend', 'chop', 'mom', 'ext')} | {k: (ch.get('f') or {}).get(k) for k in ('hh', 'hl', 'lh', 'll', 'lastHigh', 'lastLow', 'accel', 'decay', 'upWick', 'liqD')},
                     **{'posRound': _tr.position_round(_f(p.get('since')) or now, now), 'roundAction': _tr.action_word(st), 'mfe': round(_f(p.get('peak')), 2), 'mae': round(_f(p.get('low')), 2), 'src': p.get('src')},   # ⏱ the position's own 5-minute round
                     'ask': p.get('ask'), 'would': p.get('would') if l.get('picked') else None, 'study': list(p.get('study') or [])[-4:] if l.get('picked') else None, 'tape': tp, 'usd': round(_f(l.get('units')) * px, 4), 'warden': p.get('warden'), 'dataDegraded': degraded, 'data': _md.compact((ch or {}).get('q')),
-                    'vel': vl.get('state'), 'velWhy': vl.get('why'), 'run': 'DEAD' if dead_ else ('HEALTHY' if rs_ == 'STALLING' and pct >= 0 and (rv or {}).get('verdict') == 'valid' else rs_), 'runner': runner_, 'deadMin': None if not p.get('deadSince') else round((now - _f(p['deadSince'])) / 60, 1), 'quality': quality, 'ext': len(p.get('ext') or []), 'extWhy': p.get('extWhy'), 'baseWindows': base_w if th else None,
+                    'trimPct': p.get('trimPct') if act == 'trim' else None, 'vel': vl.get('state'), 'velWhy': vl.get('why'), 'run': 'DEAD' if dead_ else ('HEALTHY' if rs_ == 'STALLING' and pct >= 0 and (rv or {}).get('verdict') == 'valid' else rs_), 'runner': runner_, 'deadMin': None if not p.get('deadSince') else round((now - _f(p['deadSince'])) / 60, 1), 'quality': quality, 'ext': len(p.get('ext') or []), 'extWhy': p.get('extWhy'), 'baseWindows': base_w if th else None,
                     'launch': p.get('launch'), 'onTable': bool(x), 'offRadarSec': None if x or not p.get('offSince') else round(now - _f(p.get('offSince'))), 'live': bool(live), 'limits': {'tp': pol.get('tp'), 'sl': pol.get('sl'), 'maxHold': max_hold, 'trail': tr_.get('mode'), 'manual': manual}})
     gone = []
     for m in [m for m in pos if m not in on]:
@@ -830,6 +833,7 @@ def reap(legs, table, prices, cfg, pos, now, scalp=None, control=False, weather_
 # +8.9% vs what we really got +4.3% / +5.2% (better 87, worse 67); 50% only +3.1% avg (an earlier replay overstated it as +8.6%).
 # Selection bias: only coins that reached +10% — the live twin (after_path.scale_twin) keeps judging it on new exits. Once per position.
 SCALE_AT = 10.0
+SKIM_STRONG_PCT = 33.0   # 🚀 a breakout still accelerating / running: bank a third (skim) and let the rest run; a weak one banks the owner's scale-out share
 SCALE_PCT = 75.0   # 2026-10-15: 50% left too much on the table for rugs after the take (honest replay: half +3.1% avg · 75% +6.5% · real +4.3%)
 
 
@@ -1152,6 +1156,8 @@ def merge_reaper(decisions, reports, buys_left=None, edge=None):
             left -= 1
         i = next((i for i, d in enumerate(out) if d.get('pair') == r['pair']), None)
         d = {'pair': r['pair'], 'symbol': r.get('symbol'), 'action': r['action'], 'why': f"☠ Reaper {r['rule']}: {r['evidence']}", 'reaper': r['rule']}
+        if r['action'] == 'trim' and r.get('trimPct'):
+            d['pct'] = r['trimPct']
         if i is None:
             out.append(d)
         elif out[i].get('action') == 'hold':

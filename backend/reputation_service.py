@@ -10714,6 +10714,17 @@ async def _prime_tick_inner(now):
                 _shadow_controls(plan_[:max(0, empty_n)], [c_['row'] for c_ in cases_ if c_['status'] == 'CONTENDING'][:12], cases_, now)
                 plan_ = []
             night_g4_ = night_ and ((_night.get('st') or {}).get('kind') == 'rug')   # 🔁 the AI seat is ONE trade at a time: only a rug-level trip pauses it (owner: "REAL seat"); drawdown / streak pauses stop the agents' fills only
+            try:   # 🤝 the agents STRONGLY consider OSSY / G4 (owner, 2026-10-17): a coin a model called BUY in the last 10 min goes first into an open agent seat (every check still runs); a coin a model just said SELL / warned on is skipped
+                dl_ = (_g4_mem.get() or {}).get('log') or []
+                dpk_ = [r_.get('mint') for r_ in reversed(dl_) if r_.get('action') == 'BUY' and r_.get('mint') and now - _fuse._f(r_.get('at')) < 600]
+                dwn_ = {r_.get('mint') for r_ in dl_ if r_.get('mint') and now - _fuse._f(r_.get('at')) < 900 and (r_.get('action') == 'SELL' or r_.get('view') == 'SELL')}
+                if plan_:
+                    plan_ = sorted([t_ for t_ in plan_ if t_['mint'] not in dwn_], key=lambda t_: dpk_.index(t_['mint']) if t_['mint'] in dpk_ else 99)
+                    for t_ in plan_:
+                        if t_['mint'] in dpk_ and '🤝' not in str(t_.get('nearReady') or ''):
+                            t_['nearReady'] = '🤝 the models picked it · ' + str(t_.get('nearReady') or '')
+            except Exception as e:
+                print('duo consider:', str(e)[:80])
             w_, g4n_ = _g4.get('want'), 0   # 🔁 the AI seat is REAL even while the agents' own fills are on paper (owner, 2026-10-16); the night guard still stops it
             if w_ and w_.get('action') == 'BUY':   # 🧾 say WHY a model's BUY did not reach the card (it used to vanish silently)
                 why_no = ('stale (older than 2 min)' if not _seat.fresh(w_, now) else 'seat off / not real' if not g4_seat_ else '🌙 night guard: a rug-level trip pauses the AI seat too' if night_g4_
