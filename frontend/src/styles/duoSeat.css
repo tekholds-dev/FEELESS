@@ -159,3 +159,5 @@ body.theme-day .dso-room { background: rgba(240, 234, 252, .8); } body.theme-day
 .dso-hex:has(.dso-pnl.is-up) .dso-ring { border-color: #15d16a; } .dso-hex:has(.dso-pnl.is-dn) .dso-ring { border-color: #ff8fa3; }
 @keyframes dsoPop { 0% { transform: scale(1.25); } 100% { transform: none; } }
 @media (prefers-reduced-motion: reduce) { .dso-pnl strong { animation: none; } } body.fx-lite .dso-pnl strong { animation: none; }
+.dso-hex .dso-pnl { max-width: 104px; } .dso-hex .dso-pnl small { font-size: 7.5px; line-height: 1.25; text-align: center; overflow-wrap: anywhere; white-space: normal; }
+.dso-hex .dso-pnl strong { font-size: 17px; } .dso-hex .dso-coin { display: inline-block; max-width: 104px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; vertical-align: bottom; }

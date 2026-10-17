@@ -10760,6 +10760,7 @@ async def _prime_tick_inner(now):
                                 l['bought'] = {**(l.get('bought') or {}), 'tag': '🤖 🧠 G4 seat'}
                         try:
                             m0_ = _g4_mem.get() or {}
+                            m0_ = {**m0_, 'opened': {**{k_: v_ for k_, v_ in (m0_.get('opened') or {}).items() if now - _fuse._f(v_) < 3600}, t_['mint']: now}}   # 🚫 neither model buys this coin again for 1h
                             if not m0_.get('statsFrom'):   # 🔁 the first time a model's BUY really takes the seat, the duel board's stats restart from real play (owner, 2026-10-16)
                                 m0_ = {**m0_, 'log': [], 'statsFrom': now}
                             _g4_mem.put({**m0_, 'opener': t_.get('g4By')}, now)
@@ -13882,7 +13883,8 @@ async def _g4_tick(now, env, cfg):
         on_ = {l.get('mint') for l in card_.get('legs') or []}
         cands_ = [c_ for c_ in (_tk.KERNEL.candidate(m_, d_) for m_, d_ in _tk.KERNEL.ready(exclude=on_))][:_seat.CAND_N]
         cands_ += [c_ for c_ in (_tk.KERNEL.candidate(x_['mint']) for x_ in _tk.KERNEL.cases(exclude=on_) if x_['status'] == 'CONTENDING') if c_][:_seat.CAND_N - len(cands_)]
-        cands_ = [c_ for c_ in cands_ if c_ and c_.get('mint') and not _fw.dollar_named(c_.get('symbol')) and c_['mint'] not in _g4_blocked(card_, now)]
+        op_ = {k_ for k_, v_ in ((_g4_mem.get() or {}).get('opened') or {}).items() if now - _fuse._f(v_) < 3600}   # 🚫 a coin either model bought in the last hour is off their list
+        cands_ = [c_ for c_ in cands_ if c_ and c_.get('mint') and not _fw.dollar_named(c_.get('symbol')) and c_['mint'] not in _g4_blocked(card_, now) and c_['mint'] not in op_]
         pxm_ = await _live_px([c_['mint'] for c_ in cands_] + ([held_m] if held_m else []))
         px_of = lambda m_: _fuse._f(pxm_.get(m_)) or _fuse._f((_jup_px_cache.get(m_) or (0, 0))[1])
         pos_ = ((_office_state().get('pos') or {}).get(held_m) or {}) if held_m else {}
@@ -13914,12 +13916,26 @@ async def _g4_tick(now, env, cfg):
         pick_ = _seat.agents_pick(rows_)
         says_ = _seat.talk_of(st_['log'], first_, since=_fuse._f((leg_ or {}).get('at')) or 0.0) if held_ else None
         learn_ = _seat.learn_block(_g4_lessons(), first_, second_, lambda k_: _air.model_name(env, k_))
-        learn_['confidence'] = _dv.words(_dv_mem.get() or {}, first_)   # 👍👎 what the market's verdicts on its calls + votes earned it
+        learn_['confidence'] = _dv.words(_dv_mem.get() or {}, first_)
+        sv_ = _study.get('v') or {}   # 👤 the owner study: how HE trades (graded moves, where the agents sold him early) — the best tools from his day
+        if sv_.get('findings'):
+            learn_['ownerStudy'] = [str(x)[:160] for x in sv_['findings'][:4]]
+        hl_ = (_study.get('holds') or {}).get('lines') or []
+        if hl_:
+            learn_['holdLessons'] = [str(x)[:140] for x in hl_[:3]]   # 👍👎 what the market's verdicts on its calls + votes earned it
         on_ = next((r_ for r_ in reversed(st_['log']) if r_.get('by') == 'owner' and held_ and r_.get('mint') == (held_ or {}).get('mint')), None)
         if on_:
             learn_['ownerSays'] = str(on_.get('why') or '')[:200]   # 👤 the owner chimed in on this trade
         await _dv_settle(now)
         pk_ = _seat.packet(rows_, held_, _seat.record_words(rec_), _seat.partner_of(st_['log'], first_), (pick_ or {}).get('symbol'), says_, learn_)
+        _g4['reads'] = (_g4.get('reads') or 0) + 1
+        if held_ and _g4['reads'] % 2 == 0:   # 📸 every 2nd read the holder also gets its coin's chart (1-min snapshot) — eyes on the trade
+            try:
+                sn_ = _ai_snap(held_m)
+                if sn_:
+                    pk_['chart'] = sn_.get('text') if isinstance(sn_, dict) else sn_
+            except Exception as e:
+                print('g4 snap:', str(e)[:80])
         _g4['live'] = {'by': _air.model_name(env, first_), 'at': now, 'pick': (pick_ or {}).get('symbol'), 'held': held_,
                        'cands': [{k_: r_c.get(k_) for k_ in ('symbol', 'status', 'trigger', 'move5m', 'buyers', 'germ', 'pool', 'cap', 'ageMin', 'rank')} for r_c in rows_[:6]]}   # 👁 what the deciding model is reading, live
         t0_ = time.perf_counter()

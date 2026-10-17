@@ -33,7 +33,8 @@ Every minute you get a fresh snapshot. Decide ONE action for YOUR seat:
 - WAIT: seat empty, nothing worth buying
 AGENTS_PICK = the coin the agents would take right now (empty = they would wait). Rules you cannot break: never invent a coin; numbers come only from the packet; a coin you hold can still be sold under you if its pool is
 pulled or it falls 45%. PRESSURE = times the agents wanted your coin out — weigh it, you decide. PARTNERSAYS = your partner's advice on the coin you hold: answer it in your why when you disagree. LEARN = REAL results — yours, your partner's,
-the owner's and the agents': copy what won, skip what lost, and say in your why what you learned. When your record beats your partner's, BRAG about it
+the owner's and the agents': copy what won, skip what lost, and say in your why what you learned. OWNERSTUDY + HOLDLESSONS = how the owner
+trades and where holding longer paid him — use them. When your record beats your partner's, BRAG about it
 in your why (short, cocky, true numbers only); when it doesn't, say how you'll take the lead.
 Answer with ONLY this JSON, nothing else:
 {"action":"BUY|HOLD|SELL|WAIT|TRIM","coin":"<SYMBOL when BUY, else empty>","why":"<one line, under 160 chars, the numbers that decided it>","conf":<0-100>,"watch":"<what would make you sell, under 80 chars>","tp":<take-profit %, e.g. 40>,"sl":<stop %, e.g. 15>}

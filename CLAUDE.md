@@ -4777,3 +4777,6 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   per agent (tally mech · sherlock owl · weather jelly · trigger frog · devil cyber cat · warden shark · courier ghost · reaper reaper-bot ·
   archivist orb · judge alien; masters in git-ignored ai_pfp_picks/). `lib/aiAvatars.avatarOf(who)` is THE lookup: duo chat bubbles, chart pins
   (`c.img`). The ten agents' REAL decisions on a coin pin onto the Agents-tab chart only (`agentPins(markers)`, kind 'agent', 18px).
+- 🔁 Duo, more (2026-10-16): seat core = the live trade (`_duo_holding`: $ in → $ now, P&L, peak, held; `SeatPnl`); the packet carries the owner
+  study + hold lessons (`learn.ownerStudy` / `holdLessons`), the held coin's 1-min chart every 2nd read (`pk_.chart` from `_ai_snap`); neither model
+  buys a coin either one opened in the last hour (`_g4_mem.opened`). Chart pins: ≤ 2 a candle (`thinPins`, +N), agents = Trigger · Courier · Reaper only.
