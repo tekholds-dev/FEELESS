@@ -4713,3 +4713,5 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   answered %, buys, think time, a latency trace per call; hex seat core; a beam from the last caller). The water tank + whales were scrapped.
   ONE TRADE EACH (`ai_seat.turn(.., holding)`): the model that bought runs the trade to its exit, then the other hunts. 🧯 Each LM Studio model
   takes ≤ `LM_CALLS_PER_MIN` 4 background calls a minute (`ai_router.minute_cap`, tried MINUTE CAP); the owner's chat is never capped.
+- 🛡 CERTIFY covers agent-picked coins too: the tier tick drops the desk's own swap / pull decisions on a certified leg (`cert_`), beside Reaper's
+  gate in `office.reap`. Only R1 pulled pool · R5x −45% · R5c / R9c limits · R5g your Gstop · a drain sell it.

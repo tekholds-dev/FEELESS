@@ -10455,6 +10455,9 @@ async def _prime_tick_inner(now):
             open_n = max(0, int(_fuse._f((pol_ or {}).get('seats'))) - len([l for l in cur.get('legs') or [] if not l.get('placeholder')]))
             spare_ = None if fills_left_ is None else min(fills_left_, len(ready_)) - open_n
             dec_ = _office_reap(cur, px, cfg_t, ctl_, now, dec_, pol_, rd_['live'], vels_, margins_, spare_, edge=margins_)   # ☠ Reaper's exit requests join the SAME decision list (it has no path of its own)
+            cert_ = {l.get('pairAddress') for l in cur.get('legs') or [] if l.get('certified') and not l.get('placeholder')}
+            if cert_:   # 🛡 a coin YOU certified is yours to hold — the desk's own swap / pull never touches it (only a pulled pool, −45%, your limits)
+                dec_ = [x for x in dec_ if x.get('pair') not in cert_ or any(h_ in str(x.get('why')) for h_ in ('R1 ', 'R5x', 'R5c', 'R5g', 'R9c', 'drain'))]
             g4p_ = {l.get('pairAddress'): l for l in cur.get('legs') or [] if l.get('aiSeat') and not l.get('placeholder')}
             if g4p_:   # 🧠 G4's seat: the agents only argue — a pulled pool, −45% and the creator's own limits still sell it
                 dec_ = [x for x in dec_ if x.get('pair') not in g4p_ or any(h_ in str(x.get('why')) for h_ in ('R1 ', 'R5x', 'R5c', 'R9c', 'drain'))]
