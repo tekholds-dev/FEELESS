@@ -127,3 +127,17 @@ body.theme-day .dso-hex { background: radial-gradient(circle, rgba(21, 209, 106,
 body.fx-lite .dso-turn li.is-now i, body.fx-lite .dso-turn li.is-now::after { animation: none; }
 body.theme-day .dso-turn li { background: rgba(236, 246, 240, .8); } body.theme-day .dso-turn p { color: #0d6a35; }
 @media (max-width: 640px) { .dso-turn ol { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+
+/* 💬 trade room: holder calls left, partner advice right, each bubble slides in (transform only) */
+.dso-room { display: grid; gap: 6px; margin: 0 0 8px; padding: 8px 10px; border-radius: 10px; border: 1px solid rgba(180, 140, 255, .35); background: linear-gradient(160deg, rgba(40, 20, 70, .35), rgba(4, 12, 8, .6)); }
+.dso-roomhd { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 6px; margin: 0; font: 800 10.5px var(--m-mono, 'JetBrains Mono', monospace); color: #e9fff3; }
+.dso-roomhd span { color: var(--gold, #e8c46a); }
+.dso-room ol { display: grid; gap: 4px; margin: 0; padding: 0; list-style: none; max-height: 220px; overflow-y: auto; scrollbar-width: thin; }
+.dso-room li { display: grid; grid-template-columns: auto auto minmax(0, 1fr) auto; gap: 6px; align-items: baseline; max-width: 92%; padding: 4px 8px; border-radius: 9px;
+  font: 600 10px var(--m-mono, monospace); background: rgba(21, 209, 106, .1); border: 1px solid rgba(21, 209, 106, .25); animation: dsoIn .25s ease-out both; animation-delay: calc(var(--i) * 40ms); }
+.dso-room li.is-talk { justify-self: end; background: rgba(180, 140, 255, .12); border-color: rgba(180, 140, 255, .4); }
+.dso-room li em { font-style: normal; color: #9fe3ff; } .dso-room li b { color: #bdf5d4; white-space: nowrap; } .dso-room li.is-talk b { color: #d8c2ff; }
+.dso-room li span { color: var(--m-text, #e9fff3); overflow-wrap: anywhere; } .dso-room li small { color: var(--m-mute, #8fb3a0); }
+.dso-roomnil { margin: 0; font: 600 10px var(--m-mono, monospace); color: var(--m-mute, #8fb3a0); }
+@media (prefers-reduced-motion: reduce) { .dso-room li { animation: none; } } body.fx-lite .dso-room li { animation: none; }
+body.theme-day .dso-room { background: rgba(240, 234, 252, .8); } body.theme-day .dso-room li span { color: #10301d; }

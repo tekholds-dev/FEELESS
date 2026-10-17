@@ -108,6 +108,17 @@ function TurnBar({ duo }) {
     <p key={t.word}>{t.word}</p></div>;
 }
 
+// 💬 THE TRADE ROOM: the holder's minute calls + the partner's advice on the coin they hold now, newest first, chat bubbles
+function TradeRoom({ duo }) {
+  const rows = duo?.trade || []; const h = duo?.holding;
+  if (!h) return null;
+  return <div className="dso-room" data-testid="duo-room"><p className="dso-roomhd"><b>💬 ${h.symbol} · {duo.holder || '—'} runs it</b>
+    <span>{h.tp ? `TP +${h.tp}%` : 'TP —'} · {h.sl ? `SL −${h.sl}%` : 'SL −45 floor'}</span></p>
+    {rows.length ? <ol>{rows.map((r, i) => <li key={`${r.at}-${i}`} className={`${r.talk ? 'is-talk' : 'is-call'} ${r.model === duo.holder ? 'is-holder' : ''}`} style={{ '--i': i }}>
+      <em>{r.model}</em><b>{r.talk ? `💬 ${r.view || ''}` : r.action}{r.pct != null ? ` ${r.pct >= 0 ? '+' : ''}${Number(r.pct).toFixed(1)}%` : ''}</b><span>{r.why}</span><small>{ago(r.at)}</small></li>)}</ol>
+      : <p className="dso-roomnil">the first read on this trade lands within a minute</p>}</div>;
+}
+
 export function DuoSeat({ duo }) {
   if (!duo || duo.mode === 'off') return <div className="dso is-off" data-testid="duo-seat"><b>🔁 OSSY ⚔ G4</b><small>seat off — turn it on in 🎛 Limits › 🧠 G4 SEAT</small></div>;
   const log = duo.log || [];
@@ -119,6 +130,7 @@ export function DuoSeat({ duo }) {
     <header className="dso-head"><b>🔁 OSSY ⚔ G4 · {String(duo.mode).toUpperCase()}</b>
       <small>{duo.busy ? `${duo.next} is thinking…` : last ? `last call ${ago(last.at)} ago · ${duo.next} next` : 'first call within a minute'}</small></header>
     <TurnBar duo={duo} />
+    <TradeRoom duo={duo} />
     <div className="dso-arena">
       <Side s={g4} pod={podOf('G4', duo.rec)} turn={duo.next === 'G4'} busy={duo.busy} side="l" />
       <div className="dso-core" data-testid="duo-open">

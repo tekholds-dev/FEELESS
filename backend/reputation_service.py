@@ -6992,6 +6992,16 @@ async def _study_tick(now):
         mem_ = _aim.seed_site(_aim_mem.get() or {}, now)
         for i_, f_ in enumerate(rep_.get('findings') or []):
             mem_ = _aim.file(mem_, 'owner', f'study{i_}', f_, now)
+        try:   # 🔁 every closed OSSY / G4 trade + its conversation becomes a lesson both models (and the chat) recall
+            lg_ = _g4_state()['log']
+            for p_ in [p_ for p_ in (_json_load(ARCHIVE_PATH, {}) or {}).get('positions') or [] if p_.get('g4') and p_.get('realPct') is not None][-20:]:
+                m_ = p_.get('mint'); who_ = _air.model_name(os.environ, p_.get('aiBy')) if p_.get('aiBy') else 'a model'
+                buy_ = next((r_ for r_ in reversed(lg_) if r_.get('mint') == m_ and r_.get('action') == 'BUY'), None)
+                talk_ = [r_ for r_ in lg_ if r_.get('mint') == m_ and r_.get('talk')][-2:]
+                mem_ = _aim.file(mem_, 'lessons', f"duo:{m_}:{p_.get('at') or ''}", f"🔁 {who_} ${p_.get('sym') or p_.get('symbol') or '?'} {_fuse._f(p_['realPct']):+.1f}% ({str((p_.get('exit') or {}).get('rule') or '').split(' ')[0] or 'exit'})"
+                                 + (f" — bought: {str(buy_.get('why') or '')[:90]}" if buy_ else '') + ''.join(f" · {t_.get('model')} said {str(t_.get('why') or '')[:70]}" for t_ in talk_), now)
+        except Exception as e:
+            print('duo lessons:', str(e)[:80])
         hl_ = _of.hold_lessons((_json_load(ARCHIVE_PATH, {}) or {}).get('positions'))   # 🎓 your held trades: where the agents would have sold you early
         for i_, l_ in enumerate(hl_['lines']):
             mem_ = _aim.file(mem_, 'lessons', f'hold{i_}', '🎓 HOLD LESSON — ' + l_, now)
@@ -13886,7 +13896,7 @@ async def _g4_tick(now, env, cfg):
         _g4['live'] = {'by': _air.model_name(env, first_), 'at': now, 'pick': (pick_ or {}).get('symbol'), 'held': held_,
                        'cands': [{k_: r_c.get(k_) for k_ in ('symbol', 'status', 'trigger', 'move5m', 'buyers', 'germ', 'pool', 'cap', 'ageMin', 'rank')} for r_c in rows_[:6]]}   # 👁 what the deciding model is reading, live
         t0_ = time.perf_counter()
-        r_ = await _air.ROUTER.ask(_ai_http(), env, cfg, 'Your minute snapshot. Decide.', context=pk_, role='exit', urgency='force', only=(first_,) if held_ else (first_, second_), system=_seat.SYSTEM, only_system=True)   # 🔁 the holder alone runs its trade (no silent swap of who decides)
+        r_ = await _air.ROUTER.ask(_ai_http(), env, cfg, 'Your minute snapshot. Decide.', context=pk_, role='exit', urgency='force', only=(first_, second_), system=_seat.SYSTEM, only_system=True)   # 🔁 the holder runs its trade; when it misses a minute (call cap / timeout) the partner stands in — the trade stays the holder's (leg aiBy)
         by_m = r_.get('source') if r_.get('source') in (first_, second_) else first_
         dec_ = _seat.parse(r_.get('text'), [c_['mint'] for c_ in cands_], bool(held_), {c_.get('symbol'): c_['mint'] for c_ in cands_ if c_.get('symbol')})
         ms_ = round((time.perf_counter() - t0_) * 1000)
@@ -17901,7 +17911,9 @@ def _duo_view(env=None):
         held_l = legs_[0] if legs_ else None
         return {'mode': _oe.clean_policy(_prime_real_cfg())['agentAiSeat'], 'next': nm(first_), 'at': st_['at'], 'busy': _g4['busy'],
                 'phase': _g4.get('phase') or ('HOLDING' if held_l else 'HUNTING'), 'holder': nm(held_l.get('aiBy')) if held_l and held_l.get('aiBy') else None,
-                'holding': {'symbol': held_l.get('symbol'), 'since': held_l.get('at')} if held_l else None,
+                'holding': {'symbol': held_l.get('symbol'), 'since': held_l.get('at'), 'tp': held_l.get('aiTp'), 'sl': held_l.get('aiSl')} if held_l else None,
+                'trade': [{k_: r_.get(k_) for k_ in ('at', 'model', 'action', 'view', 'why', 'conf', 'pct', 'talk')} for r_ in st_['log']
+                          if held_l and r_.get('mint') == held_l.get('mint') and (r_.get('at') or 0) >= _fuse._f(held_l.get('at')) - 180][-14:][::-1],   # 💬 the conversation on THIS trade
                 'rec': {nm(k): v for k, v in _seat.by_model((st_['book'] or {}).get('closed')).items() if k in (_duet.LEAD, _duet.SECOND)},
                 'open': (st_['book'] or {}).get('open'),
                 'agents': _seat.by_model((st_['book'] or {}).get('closed')).get('agents'), 'fate': _g4.get('fate'), 'live': _g4.get('live'),
