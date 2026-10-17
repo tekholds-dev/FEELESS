@@ -1,7 +1,7 @@
 // 🔁 OSSY ⚔ G4 — the tag-team seat (owner, 2026-10-16): the two models take turns deciding ONE seat, a call a minute; when neither
 // answers, the agents decide (🤝 backup). Drawn from the Agents payload's `duo` block (no fetch of its own). Every number on the board is
 // from their real calls: answered vs missed, buys, latency, confidence, the open seat, each one's own closed-trade record.
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import '../../styles/duoSeat.css';
 
 const ago = at => { const s = Math.max(0, Math.round(Date.now() / 1000 - (Number(at) || 0))); return s < 60 ? `${s}s` : s < 3600 ? `${Math.round(s / 60)}m` : `${Math.round(s / 3600)}h`; };
@@ -44,6 +44,8 @@ function Side({ s, pod, turn, busy, side }) {
       <span className={s.rate != null && s.rate < 50 ? 'bad' : ''}><small>ANSWERED</small><b>{s.rate == null ? '—' : `${s.rate}%`}</b></span>
       <span><small>BUYS</small><b>{s.buys}</b></span>
       <span><small>THINK</small><b>{secs(s.medMs)}</b></span>
+      <span><small>CONF</small><b>{s.conf == null ? '—' : s.conf}</b></span>
+      <span className={s.missed ? 'bad' : ''}><small>MISSED</small><b>{s.missed}</b></span>
     </div>
     <div className="dso-trace" aria-label={`${s.name} recent calls`}>
       {s.bars.length ? s.bars.map((b, i) => <i key={`${b.at}-${i}`} className={`t-${b.act}`} style={{ '--h': b.h, '--i': i }} title={`${b.act.toUpperCase()}${b.symbol ? ` $${b.symbol}` : ''} · ${b.why || ''}`} />)
@@ -53,6 +55,41 @@ function Side({ s, pod, turn, busy, side }) {
     <small className="dso-recw">{pod.n ? `${pod.n} closed · ${pod.won}% won · ${sgn(pod.med)}` : 'no closed trades yet'}</small>
     <p className="dso-last">{s.last ? <><b className={`a-${actKey(s.last.action)}`}>{s.last.action}{s.last.symbol ? ` $${s.last.symbol}` : ''}</b> {s.last.why} <small>· {ago(s.last.at)}</small></> : '—'}</p>
   </section>;
+}
+
+// pure: the live "thinking" read — how far into its typical think time the deciding model is, which step that is, and the coins it reads
+export const THINK_STEPS = ['reading the packet', 'weighing the coins', 'checking the agents', 'deciding'];
+export function thinkOf(live, typicalMs, nowS) {
+  if (!live) return null;
+  const el = Math.max(0, nowS - Number(live.at || nowS));
+  const typ = Math.max(5, (Number(typicalMs) || 25000) / 1000);
+  const frac = Math.min(1, el / typ);
+  return { el, typ, frac, step: Math.min(THINK_STEPS.length - 1, Math.floor(frac * THINK_STEPS.length)), over: el > typ * 1.5 };
+}
+
+const bar = (v, lo, hi) => Math.max(0.06, Math.min(1, ((Number(v) || 0) - lo) / (hi - lo)));
+
+function Think({ duo, sides }) {
+  const [now, setNow] = useState(() => Date.now() / 1000);
+  useEffect(() => { if (!duo.busy) return undefined; const t = setInterval(() => setNow(Date.now() / 1000), 1000); return () => clearInterval(t); }, [duo.busy]);
+  const live = duo.live;
+  if (!live) return null;
+  const side = sides.find(x => x.name === live.by) || {};
+  const t = duo.busy ? thinkOf(live, side.medMs, now) : null;
+  return <div className={`dso-think ${duo.busy ? 'is-on' : ''} ${live.by === 'OSSY' ? 'by-ossy' : 'by-g4'}`} data-testid="duo-think">
+    <header><b>{duo.busy ? `🧠 ${live.by} is thinking` : `🧠 ${live.by}'s last read`}</b>
+      {t ? <small>{Math.round(t.el)}s · typical {Math.round(t.typ)}s{t.over ? ' · slow — the agents decide if it misses' : ''}</small> : <small>{live.held ? `holding $${live.held.symbol} ${live.held.pct != null ? sgn(live.held.pct) : ''}` : `${(live.cands || []).length} coins on the table`}</small>}</header>
+    {t ? <><span className="dso-tbar"><i style={{ transform: `scaleX(${t.frac})` }} /></span>
+      <ol className="dso-steps">{THINK_STEPS.map((w, i) => <li key={w} className={i < t.step ? 'done' : i === t.step ? 'now' : ''}>{w}</li>)}</ol></> : null}
+    <div className="dso-cands">{(live.cands || []).map((c, i) => <span key={`${c.symbol}-${i}`} className={`dso-cand ${c.symbol === live.pick ? 'is-pick' : ''} st-${String(c.status || '').toLowerCase()}`} style={{ '--i': i }}
+      title={`${c.status || ''} · Trigger ${c.trigger || '—'}${c.rank != null ? ` · rank ${c.rank}` : ''}`}>
+      <b>${c.symbol}{c.symbol === live.pick ? ' 🤖' : ''}</b>
+      <em><i className="v5" style={{ transform: `scaleX(${bar(Math.abs(c.move5m), 0, 25)})` }} data-neg={c.move5m < 0 ? 1 : 0} /><small>5m {c.move5m != null ? sgn(c.move5m) : '—'}</small></em>
+      <em><i className="vb" style={{ transform: `scaleX(${bar(c.buyers, 30, 80)})` }} /><small>buy {c.buyers != null ? `${c.buyers}%` : '—'}</small></em>
+      <em><i className="vg" style={{ transform: `scaleX(${bar(25 - Math.abs(c.germ ?? 25), 0, 25)})` }} /><small>germ {c.germ != null ? `${c.germ}%` : '—'}</small></em>
+    </span>)}</div>
+    {live.pick ? <small className="dso-pickw">🤖 the agents' own pick: ${live.pick}</small> : null}
+  </div>;
 }
 
 export function DuoSeat({ duo }) {
@@ -79,6 +116,7 @@ export function DuoSeat({ duo }) {
       </div>
       <Side s={os} pod={podOf('OSSY', duo.rec)} turn={duo.next === 'OSSY'} busy={duo.busy} side="r" />
     </div>
+    <Think duo={duo} sides={[g4, os]} />
     <ol className="dso-log">{log.slice(0, 8).map((r, i) => <li key={`${r.at}-${i}`} className={`a-${actKey(r.action)} ${r.model === 'OSSY' ? 'by-ossy' : r.model === 'AGENTS' ? 'by-agents' : 'by-g4'}`} style={{ '--i': i }}>
       <em>{r.model || '—'}</em><b>{r.action}{r.symbol ? ` $${r.symbol}` : ''}{r.pct != null ? ` ${sgn(r.pct)}` : ''}</b><span title={r.miss ? `models missed: ${r.miss}` : undefined}>{r.why}</span><small>{ago(r.at)}{r.ms ? ` · ${secs(r.ms)}` : ''}</small></li>)}</ol>
   </div>;

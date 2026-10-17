@@ -10507,10 +10507,11 @@ async def _prime_tick_inner(now):
                 print('germ rebuy:', e)
             _agents['decisions'] = [{k: v for k, v in x.items() if k != 'to'} | ({'toSym': x['to']['symbol']} if x.get('to') else {}) for x in dec_]
             _agents['card'] = _pos.card_seats(cur, _agents['decisions'], px, cfg_t, take=_of.take_line(cfg_t, _agents.get('scalp')))
+            night_ = False
             if real_t and cfg_t.get('nightGuard', True) is not False:   # 🌙 the circuit breaker: a paused card buys NOTHING real (exits keep running)
                 try:
                     if _night_check(now):
-                        cfg_t = {**cfg_t, 'agentPaper': True}
+                        cfg_t, night_ = {**cfg_t, 'agentPaper': True}, True
                 except Exception as e:
                     print('night guard:', str(e)[:120])
             paper_ = bool(cfg_t.get('agentPaper'))
@@ -10671,15 +10672,15 @@ async def _prime_tick_inner(now):
                     _shadow_note(t_, 'fill', now, cur)
                 _shadow_controls(plan_[:max(0, empty_n)], [c_['row'] for c_ in cases_ if c_['status'] == 'CONTENDING'][:12], cases_, now)
                 plan_ = []
-            w_, g4n_ = _g4.get('want'), 0
+            w_, g4n_ = _g4.get('want'), 0   # 🔁 the AI seat is REAL even while the agents' own fills are on paper (owner, 2026-10-16); the night guard still stops it
             if w_ and w_.get('action') == 'BUY':   # 🧾 say WHY a model's BUY did not reach the card (it used to vanish silently)
-                why_no = ('stale (older than 2 min)' if not _seat.fresh(w_, now) else 'seat off / not real' if not g4_seat_ else 'paper mode' if cfg_t.get('agentPaper')
+                why_no = ('stale (older than 2 min)' if not _seat.fresh(w_, now) else 'seat off / not real' if not g4_seat_ else '🌙 night guard pause (no real buys)' if night_
                           else 'manual authority' if pol_['manual'] else 'office not LIVE yet' if not rd_['live'] else 'keeper halted' if seat_ctx_['halt']
                           else 'courier BAD' if seat_ctx_['courier'] == 'BAD' else 'hourly fill guard' if used_ >= _uni.FILL_MOVES_HR
                           else 'coin blocked (just left / refused)' if w_.get('mint') in _agent_blocked(cur, now) else None)
                 if why_no:
                     _g4_fate(w_, why_no, now)
-            if (g4_seat_ and w_ and w_.get('action') == 'BUY' and _seat.fresh(w_, now) and not cfg_t.get('agentPaper') and not pol_['manual'] and rd_['live'] and not seat_ctx_['halt']
+            if (g4_seat_ and w_ and w_.get('action') == 'BUY' and _seat.fresh(w_, now) and not night_ and not pol_['manual'] and rd_['live'] and not seat_ctx_['halt']
                     and seat_ctx_['courier'] != 'BAD' and used_ < _uni.FILL_MOVES_HR and w_.get('mint') not in _agent_blocked(cur, now)):
                 _g4['want'] = None   # 🧠 G4's BUY joins the SAME fill path as every agent seat — the keeper's pre-check, the Warden's size, the keeper's own checks
                 gt_ = _tk.KERNEL.candidate(w_['mint'])
@@ -13824,6 +13825,8 @@ async def _g4_tick(now, env, cfg):
         rows_ = [_seat.cand_row(c_, _g4_qwen(c_['mint'])) for c_ in cands_]
         pick_ = _seat.agents_pick(rows_)
         pk_ = _seat.packet(rows_, held_, _seat.record_words(rec_), _seat.partner_of(st_['log'], first_), (pick_ or {}).get('symbol'))
+        _g4['live'] = {'by': _air.model_name(env, first_), 'at': now, 'pick': (pick_ or {}).get('symbol'), 'held': held_,
+                       'cands': [{k_: r_c.get(k_) for k_ in ('symbol', 'status', 'trigger', 'move5m', 'buyers', 'germ', 'pool', 'cap', 'ageMin', 'rank')} for r_c in rows_[:6]]}   # 👁 what the deciding model is reading, live
         t0_ = time.perf_counter()
         r_ = await _air.ROUTER.ask(_ai_http(), env, cfg, 'Your minute snapshot. Decide.', context=pk_, role='exit', urgency='force', only=(first_, second_), system=_seat.SYSTEM, only_system=True)
         by_m = r_.get('source') if r_.get('source') in (first_, second_) else first_
@@ -17813,7 +17816,7 @@ def _duo_view(env=None):
         return {'mode': _oe.clean_policy(_prime_real_cfg())['agentAiSeat'], 'next': nm(first_), 'at': st_['at'], 'busy': _g4['busy'],
                 'rec': {nm(k): v for k, v in _seat.by_model((st_['book'] or {}).get('closed')).items() if k in (_duet.LEAD, _duet.SECOND)},
                 'open': (st_['book'] or {}).get('open'),
-                'agents': _seat.by_model((st_['book'] or {}).get('closed')).get('agents'), 'fate': _g4.get('fate'),
+                'agents': _seat.by_model((st_['book'] or {}).get('closed')).get('agents'), 'fate': _g4.get('fate'), 'live': _g4.get('live'),
                 'log': [{k: r.get(k) for k in ('at', 'model', 'action', 'symbol', 'why', 'conf', 'pct', 'ms', 'miss')} for r in st_['log'][-30:][::-1]]}
     except Exception as e:
         return {'mode': 'off', 'err': str(e)[:80]}

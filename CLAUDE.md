@@ -4727,3 +4727,7 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   cash, so the pick had $0 and was never sent. (2) the stuck-buy swap never swaps or drops a `picked` leg: it stays on its seat, the keeper keeps
   trying, one "⏳ your pick … kept on your seat" event per 5 min; ⏏ Pull is the owner's. (3) 🎟 small-ticket sizing of young picks is OFF
   (`youngTicket` default False, `_youticket_fix_1016` on the real card; old value data/realcfg_before_youticket1016.json).
+- 🔁 THE AI SEAT IS REAL while the agents' own fills sit on paper (owner, 2026-10-16: "OSSY and G4 shouldn't be in paper mode"): the G4/OSSY BUY
+  no longer checks `agentPaper` (it read "paper mode" on every buy); the 🌙 night guard still stops it (`night_`). Duel board 🧠 THINK panel
+  (duo `live` = what the deciding model is reading: up to 6 coins with 5m / buyers / germ, the agents' own pick, its seat) with elapsed vs its typical
+  think time and four steps; sides add CONF + MISSED.

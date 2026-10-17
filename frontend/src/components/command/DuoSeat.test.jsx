@@ -1,7 +1,7 @@
 import React from 'react';
 import { createRoot } from 'react-dom/client';
 import { act } from 'react';
-import { DuoSeat, podOf, sideOf } from './DuoSeat';
+import { DuoSeat, podOf, sideOf, thinkOf } from './DuoSeat';
 
 const now = () => Date.now() / 1000;
 
@@ -32,5 +32,18 @@ test('OSSY ⚔ G4: the turn, the seat core, the beam from the last caller, agent
   expect(el.querySelector('.dso-log li.by-agents')).toBeTruthy();
   act(() => root.render(<DuoSeat duo={{ mode: 'real', next: 'G4', fate: { symbol: 'PONK', why: 'keeper pre-check refused: thin pool', at: now() }, log: [] }} />));
   expect(el.querySelector('[data-testid="duo-fate"]').className).toContain('no'); expect(el.textContent).toContain('$PONK: keeper pre-check refused');
+  act(() => root.unmount());
+});
+
+test('live thinking: elapsed vs its typical think time, the step it is on, the coins it reads', () => {
+  expect(thinkOf(null, 1000, 0)).toBeNull();
+  const t = thinkOf({ at: 100 }, 20000, 110);
+  expect(t).toMatchObject({ el: 10, typ: 20, frac: 0.5, step: 2, over: false });
+  expect(thinkOf({ at: 100 }, 20000, 140).over).toBe(true);
+  const el = document.createElement('div'); document.body.appendChild(el); const root = createRoot(el);
+  act(() => root.render(<DuoSeat duo={{ mode: 'real', next: 'OSSY', busy: true, live: { by: 'OSSY', at: now() - 3, pick: 'ABC',
+    cands: [{ symbol: 'ABC', status: 'READY', move5m: 4, buyers: 60, germ: 6 }, { symbol: 'XYZ', status: 'CONTENDING', move5m: -2 }] }, log: [] }} />));
+  expect(el.textContent).toContain('OSSY is thinking'); expect(el.querySelectorAll('.dso-cand').length).toBe(2);
+  expect(el.querySelector('.dso-cand.is-pick').textContent).toContain('$ABC'); expect(el.querySelector('.dso-steps li.now')).toBeTruthy();
   act(() => root.unmount());
 });
