@@ -1,4 +1,5 @@
 import { CopyCa } from './CopyCa';
+import { RuleLegend } from './RuleLegend';
 import React, { useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
 import { tradeCard, tapeLine, gradeRows, coachRows, pullable, speedMeters, lineWord, recentResults, snapChips, signedPct, money2 } from '../../lib/coachTape';
@@ -108,6 +109,7 @@ export function TradeTape({ tape, mint, onPick }) {
       <span className="m-seg ctp-filter" role="group" aria-label="Trades">{[['all', 'ALL'], ['open', 'OPEN'], ['won', 'WON'], ['lost', 'LOST']].map(([k, l]) =>
         <button key={k} type="button" className={show === k ? 'active' : ''} onClick={() => setShow(k)} data-testid={`ctp-show-${k}`}>{l}</button>)}</span></header>
     <Recent rows={tape?.rows} onPick={onPick} />
+    <RuleLegend />
     <Speed st={tape?.stats} />
     <GermRecord rec={tape?.germ} holds={tape?.holds} />
     {rows.length ? <ul className="ctp-list">{rows.map(r => <Trade key={`${r.mint}-${r.at}`} r={r} now={now} on={r.mint === mint} onPick={onPick} />)}</ul>

@@ -4780,3 +4780,4 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
 - 🔁 Duo, more (2026-10-16): seat core = the live trade (`_duo_holding`: $ in → $ now, P&L, peak, held; `SeatPnl`); the packet carries the owner
   study + hold lessons (`learn.ownerStudy` / `holdLessons`), the held coin's 1-min chart every 2nd read (`pk_.chart` from `_ai_snap`); neither model
   buys a coin either one opened in the last hour (`_g4_mem.opened`). Chart pins: ≤ 2 a candle (`thinPins`, +N), agents = Trigger · Courier · Reaper only.
+- 📖 RULE LEGEND (`lib/ruleLegend.js` RULES = every Reaper code → plain words, HARD / SOFT, the Limits control; `RuleLegend` fold in the Trades tab + on top of 🎛 Limits, where 'tweak' opens that control's section). New rule ⇒ add a row.

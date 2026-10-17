@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { RuleLegend } from './RuleLegend';
 import { useRemembered } from '../../lib/remember';
 import { toast } from 'sonner';
 import { hubLoad, useAi } from '../../lib/agentHub';
@@ -174,6 +175,7 @@ export function CockpitControls({ o, call, isOwner, onAi }) {
         <button type="button" role="radio" aria-checked={!!pol.manual} disabled={!isOwner || busy} className={pol.manual ? 'active is-manual' : ''} onClick={() => !pol.manual && save({ agentAuthority: 'manual' })}
           data-tip="MANUAL: no agent fill, switch or read-bank — only hard safety exits and your own overrides act" data-testid="ack-auth-manual">✋ Manual</button></span>
       <AiChipBtn o={o} onClick={onAi} /></header>
+    <RuleLegend onTweak={k => { const g = CTRL_GROUPS.find(([, , , keys]) => keys.includes(k)); if (g) setTab(g[0]); }} />
     <div className="acx-shell">
       <nav className="acx-rail" aria-label="Control sections">
         {groups.map(([g, title, , keys]) => { const r = railSum(keys, ctl);
