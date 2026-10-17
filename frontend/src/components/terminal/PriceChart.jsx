@@ -4,6 +4,7 @@ import { bumpChart } from '../../lib/chartFrame';
 import { useChartBg } from '../../lib/chartBg';
 import { ChartToolsMenu, useToolDraw } from './ChartTools';
 import { ChartPulse } from './ChartPulse';
+import { CandleClock } from './CandleClock';
 import { ChartPnl } from './ChartPnl';
 import { ChartLive } from './ChartLive';
 import { CandleFx } from './CandleFx';
@@ -417,6 +418,7 @@ export const PriceChart = ({ pair, interval, showVolume, metric = 'price', marke
     {charting && hasChart && pair?.chainId === 'solana' && pair?.baseToken?.address && <ChartPulse mint={pair.baseToken.address} beat={livePrice?.usd} />}
     {charting && hasChart && !plain && !fxLite && <CandleFx seriesRef={seriesRef} chartRef={chartRef} lastBarRef={lastBarRef} shownRef={shownRef} container={container} />}
     {charting && hasChart && callouts?.length ? <ChartCallPins calls={callouts} seriesRef={seriesRef} chartRef={chartRef} container={container} ratio={ratio} mcChart={!priceMetric} ivSec={LIVE_INTERVAL_SECONDS[interval] || 60} nowMc={price > 0 && Number(metricValue) > 0 ? (Number(livePrice?.usd) || price) * Number(metricValue) / price : 0} /> : null}
+    {charting && hasChart && displayCandles.length > 0 && <CandleClock seriesRef={seriesRef} chartRef={chartRef} lastBarRef={lastBarRef} shownRef={shownRef} container={container} bucketSec={LIVE_INTERVAL_SECONDS[interval] || 60} />}
     {charting && hasChart && levels.length > 0 && <ChartLevels levels={levels} seriesRef={seriesRef} chartRef={chartRef} lastBarRef={lastBarRef} shownRef={shownRef} container={container} fmt={formatUSD} />}
     {charting && hasChart && <ChartPnl pair={pair} price={livePrice?.usd} pnl={pnl} live={{ seriesRef, chartRef, lastBarRef, shownRef, container, ratio, fmt: v => formatUSD(v * ratio) }} />}
     {charting && hasChart && !(pnl && typeof pnl === 'object') && fuse?.entry > 0 && <ChartLive seriesRef={seriesRef} chartRef={chartRef} lastBarRef={lastBarRef} shownRef={shownRef} container={container} ratio={ratio}

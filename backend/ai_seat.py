@@ -295,3 +295,48 @@ def due(last_at, now, every=EVERY_SEC):
 
 def fresh(dec, now):
     return bool(dec) and now - _f(dec.get('at')) <= FRESH_SEC
+
+
+def lines_word(leg, dec):
+    """🎯 What the holder changed on its own trade's lines this minute → {'tp': .., 'sl': ..} of the CHANGED ones only ({} = nothing new)."""
+    return {k: dec[k] for k, lk in (('tp', 'aiTp'), ('sl', 'aiSl')) if (dec or {}).get(k) and _f(dec.get(k)) != _f((leg or {}).get(lk))}
+
+
+def lines_why(ch, before=None):
+    """The chat line for a lines change: "set TP +40% · moved SL −25% → −15%"."""
+    b = before or {}
+    out = []
+    for k, sign, lk in (('tp', '+', 'aiTp'), ('sl', '−', 'aiSl')):
+        if k in ch:
+            old = _f(b.get(lk))
+            out.append(f"{'moved' if old else 'set'} {k.upper()} {sign}{old:g}% → {sign}{_f(ch[k]):g}%" if old else f"set {k.upper()} {sign}{_f(ch[k]):g}%")
+    return ' · '.join(out)
+
+
+IDLE_EVERY = 240.0   # every seat is full: one model comments on one of the card's trades at most every 4 min (alternating)
+
+IDLE = """Every seat on your small real-money Solana trench card is full, so it is not your turn to trade. You still watch.
+CARD = the coins on the card now (who holds each — the agents or the owner —, P/L, peak, minutes held, 5-min move, buyers).
+Pick the ONE coin most worth a word and say what you would do with it and why, in one line with the numbers that decide it (a tip for
+the holder, a call you would be proud of when the market grades it in 5 min / 1 h). Never invent numbers or coins.
+Answer with ONLY this JSON: {"coin":"<symbol from CARD>","view":"HOLD|SELL","why":"<under 160 chars>","conf":<0-100>}"""
+
+
+def idle_turn(log, a, b):
+    """Whose turn to comment while the seats are full: the one that spoke idle LAST waits (a first when neither has)."""
+    last = next((r.get('by') for r in reversed(log or []) if r.get('idle')), None)
+    return b if last == a else a
+
+
+def idle_parse(text, syms):
+    """→ {view, mint, why, conf} or None. The coin must be ONE on the card (by symbol, or the one its why names)."""
+    j = _first_json(text) or {}
+    v = str(j.get('view') or j.get('action') or '').upper().strip()
+    if v not in ('HOLD', 'SELL'):
+        return None
+    key = str(j.get('coin') or j.get('symbol') or '').lstrip('$').upper().strip()
+    hit = [m for sy, m in (syms or {}).items() if key and str(sy).lstrip('$').upper() == key]
+    mint = hit[0] if len(hit) == 1 else _sym_in(j.get('why'), syms)
+    if not mint:
+        return None
+    return {'view': v, 'mint': mint, 'why': re.sub(r'\s+', ' ', str(j.get('why') or '')).strip()[:160], 'conf': max(0, min(100, int(_f(j.get('conf'), 50))))}

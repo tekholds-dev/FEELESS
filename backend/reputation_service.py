@@ -13830,7 +13830,7 @@ def _g4_fate(w, why, now):
 
 def _g4_state():
     st_ = _g4_mem.get() or {}
-    return {'log': list(st_.get('log') or []), 'book': st_.get('book') or {}, 'at': st_.get('at') or 0.0, 'opener': st_.get('opener'), 'talkAt': st_.get('talkAt') or 0.0, 'statsFrom': st_.get('statsFrom')}
+    return {'log': list(st_.get('log') or []), 'book': st_.get('book') or {}, 'at': st_.get('at') or 0.0, 'opener': st_.get('opener'), 'talkAt': st_.get('talkAt') or 0.0, 'statsFrom': st_.get('statsFrom'), 'idleAt': st_.get('idleAt') or 0.0}
 
 
 def _g4_qwen(mint):
@@ -13904,6 +13904,8 @@ async def _g4_tick(now, env, cfg):
                     _g4_mem.put({**(_g4_mem.get() or {}), 'log': _seat.note(st_['log'], {'at': round(now), 'mode': mode_, 'model': 'SEAT', 'by': None, 'seatWait': True, 'action': 'WAIT',
                                                                                          'why': f'every seat is full ({len(legs_r)}) — waiting for one to open, then it is back to their turn'})}, now)
                 _g4['phase'] = 'SEATS FULL'
+                if now - _fuse._f(st_.get('idleAt')) >= _seat.IDLE_EVERY:   # 💬 seats full: one model (alternating) still reads the card's trades and says what it would do — graded by the market like every call
+                    await _g4_idle(now, env, cfg, st_, legs_r, mode_)
                 return
         _g4['phase'] = 'HOLDING' if held_ else 'HUNTING'
         rec_ = _g4_real_record() if mode_ == 'real' else _seat.record(book_.get('closed'))
@@ -13965,6 +13967,10 @@ async def _g4_tick(now, env, cfg):
                 'pressure': (held_ or {}).get('pressure'), 'qwen': _g4_qwen((focus_ or {}).get('mint') or held_m) if ((focus_ or {}).get('mint') or held_m) else None,
                 'considered': len(cands_), 'event': ev_}
         log_ = _seat.note(st_['log'], row_)
+        ch_l = _seat.lines_word(leg_, dec_) if (mode_ == 'real' and held_ and leg_ and dec_ and by_m != 'agents') else {}
+        if ch_l:   # 🎯 the holder moved its own TP / SL → its own line in the trade room
+            log_ = _seat.note(log_, {'at': round(now), 'mode': mode_, 'model': row_['model'], 'by': by_m, 'action': 'LINES', 'lines': ch_l, 'why': _seat.lines_why(ch_l, leg_),
+                                     'symbol': (held_ or {}).get('symbol'), 'mint': (held_ or {}).get('mint'), 'pct': (held_ or {}).get('pct')})
         if row_.get('mint') and dec_ and by_m in (first_, second_):
             _dv_note(row_, px_of(row_['mint']), now)
         talk_at = st_.get('talkAt') or 0.0
@@ -13990,11 +13996,50 @@ async def _g4_tick(now, env, cfg):
         m1_ = _g4_mem.get() or {}   # the seat may have opened (and the stats restarted) while this model was thinking
         if (m1_.get('statsFrom') or 0) > (st_.get('statsFrom') or 0):
             log_ = [r_ for r_ in log_ if (r_.get('at') or 0) >= m1_['statsFrom']]
-        _g4_mem.put({'log': log_, 'book': book_, 'at': now, 'opener': m1_.get('opener') or st_.get('opener'), 'talkAt': talk_at, 'statsFrom': m1_.get('statsFrom')}, now)
+        _g4_mem.put({'log': log_, 'book': book_, 'at': now, 'opener': m1_.get('opener') or st_.get('opener'), 'talkAt': talk_at, 'statsFrom': m1_.get('statsFrom'), 'idleAt': m1_.get('idleAt') or st_.get('idleAt')}, now)
     except Exception as e_:
         print('g4 seat:', str(e_)[:140])
     finally:
         _g4['busy'] = False
+
+
+async def _g4_idle(now, env, cfg, st_, legs_, mode_):
+    """💬 Every seat is full: the model whose idle turn it is reads the card's trades and comments on ONE (HOLD / SELL + why). It never trades —
+    the row is a TALK the market grades (5 min / 1 h / 24 h) like every call, so idle minutes still build each model's record."""
+    m0 = _g4_mem.get() or {}
+    _g4_mem.put({**m0, 'idleAt': now}, now)
+    who_ = _seat.idle_turn(st_['log'], _duet.LEAD, _duet.SECOND)
+    try:
+        pxm_ = await _live_px([l.get('mint') for l in legs_])
+        pos_all = _office_state().get('pos') or {}
+        rows_, syms_ = [], {}
+        for l in legs_[:6]:
+            m_ = l.get('mint')
+            px_ = _fuse._f(pxm_.get(m_)) or _fuse._f((_jup_px_cache.get(m_) or (0, 0))[1])
+            en_ = _fuse._f(l.get('entryPx') or l.get('entry'))
+            c_ = _seat.cand_row(_tk.KERNEL.candidate(m_) or {'mint': m_})
+            rows_.append({'symbol': l.get('symbol'), 'holder': 'owner' if l.get('picked') else ('a model' if l.get('aiSeat') else 'agents'),
+                          'pct': round((px_ / en_ - 1) * 100, 1) if px_ > 0 and en_ > 0 else None, 'peak': (pos_all.get(m_) or {}).get('peak'),
+                          'heldMin': round((now - _fuse._f(l.get('at'))) / 60) if l.get('at') else None, 'move5m': c_.get('move5m'), 'buyers': c_.get('buyers'), 'cap': c_.get('cap')})
+            if l.get('symbol'):
+                syms_[l['symbol']] = m_
+        if not rows_:
+            return
+        t0_ = time.perf_counter()
+        r_ = await _air.ROUTER.ask(_ai_http(), env, cfg, 'Seats are full. Comment on one trade.', context={'CARD': rows_, 'learn': {'confidence': _dv.words(_dv_mem.get() or {}, who_)}},
+                                   role='exit', urgency='force', only=(who_,), system=_seat.IDLE, only_system=True)
+        d_ = _seat.idle_parse(r_.get('text'), syms_)
+        if not d_:
+            return
+        rw_ = next((x for x in rows_ if syms_.get(x['symbol']) == d_['mint']), {})
+        row_ = {'at': round(now), 'mode': mode_, 'model': _air.model_name(env, who_), 'by': who_, 'talk': True, 'idle': True, 'action': 'TALK', 'view': d_['view'],
+                'why': f"on ${rw_.get('symbol')} ({rw_.get('holder')}): {d_['view']} — {d_['why']}"[:180], 'conf': d_['conf'], 'ms': round((time.perf_counter() - t0_) * 1000),
+                'symbol': rw_.get('symbol'), 'mint': d_['mint'], 'pct': rw_.get('pct'), 'cap': rw_.get('cap')}
+        m1 = _g4_mem.get() or {}
+        _g4_mem.put({**m1, 'log': _seat.note(m1.get('log') or st_['log'], row_), 'idleAt': now}, now)
+        _dv_note(row_, _fuse._f(pxm_.get(d_['mint'])), now)
+    except Exception as e:
+        print('g4 idle:', str(e)[:100])
 
 
 def _g4_view():

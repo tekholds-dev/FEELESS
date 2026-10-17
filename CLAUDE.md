@@ -4781,3 +4781,8 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   study + hold lessons (`learn.ownerStudy` / `holdLessons`), the held coin's 1-min chart every 2nd read (`pk_.chart` from `_ai_snap`); neither model
   buys a coin either one opened in the last hour (`_g4_mem.opened`). Chart pins: ≤ 2 a candle (`thinPins`, +N), agents = Trigger · Courier · Reaper only.
 - 📖 RULE LEGEND (`lib/ruleLegend.js` RULES = every Reaper code → plain words, HARD / SOFT, the Limits control; `RuleLegend` fold in the Trades tab + on top of 🎛 Limits, where 'tweak' opens that control's section). New rule ⇒ add a row.
+- ⏱ CANDLE CLOCK on every PriceChart (`components/terminal/CandleClock.jsx`, `clockWord`, `styles/candleClock.css` `cck`): mm:ss to the forming
+  candle's close under the live price on the axis (TradingView-style), on the shared chart frame (no own timer); the last 10s glow green.
+  🎯 A model moving its own TP / SL = a `LINES` row in the trade room + log (`ai_seat.lines_word / lines_why`; never counted as a call).
+  💬 SEATS FULL ≠ silent: every `IDLE_EVERY` 240s one model (alternating, `idle_turn`) comments HOLD / SELL on ONE card coin (`_g4_idle`,
+  prompt `IDLE`, `idle_parse` needs a coin on the card) — a TALK row the market grades; it never trades.

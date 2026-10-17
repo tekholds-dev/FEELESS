@@ -170,3 +170,7 @@ body.theme-day .dso-room { background: rgba(240, 234, 252, .8); } body.theme-day
 .dso-total span { font: 600 9.5px var(--m-mono, monospace); color: var(--m-mute, #a8c9b6); }
 .dso-hex .dso-pnl small { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 86px; }
 .dso-hex .dso-pnl strong { text-shadow: 0 0 12px currentColor; } .dso-total strong { text-shadow: 0 0 10px currentColor; }
+
+/* 🎯 the holder moved its own TP / SL — its own line in the trade room + log */
+.dsb-msg b.a-lines, .dso-log li.a-lines b { color: var(--gold, #f2c14e); }
+.dso-log li.a-lines { border-left: 2px solid rgba(242, 193, 78, .6); }

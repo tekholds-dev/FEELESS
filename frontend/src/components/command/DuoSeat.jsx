@@ -21,7 +21,7 @@ export function podOf(name, rec) {
 // signal trace (newest last): one bar per call, height = latency against the slowest call on the board, tone = the action.
 export function sideOf(name, log) {
   const all = log || [];
-  const mine = all.filter(r => r.model === name);
+  const mine = all.filter(r => r.model === name && r.action !== 'LINES');   // a lines change is not a call
   const ok = mine.filter(r => r.action && r.action !== 'NO ANSWER');
   const ms = ok.map(r => Number(r.ms)).filter(x => x > 0).sort((a, b) => a - b);
   const top = Math.max(1, ...all.map(r => Number(r.ms) || 0));
