@@ -117,6 +117,8 @@ def _one_read_soft_exits(monkeypatch):
         monkeypatch.setattr(of, 'SNAP_N', 1)
         if hasattr(of, 'HOLD_SOFT'):
             monkeypatch.setattr(of, 'HOLD_SOFT', False)
+        if hasattr(of, 'TIME_HOLD_STOP'):   # ⏱ the time-exit hold has its own test (test_reaper_hold_1017)
+            monkeypatch.setattr(of, 'TIME_HOLD_STOP', 0)
     if of is not None and hasattr(of, 'SCALE_AT'):
         monkeypatch.setattr(of, 'SCALE_AT', 1e9)   # 💰 the scale-out has its own test (test_office: scale_out_in_reap) at its live value
     yield

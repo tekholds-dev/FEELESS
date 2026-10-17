@@ -4869,3 +4869,14 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   (`_g4_mem.lvAt`); Reaper's lines are their own centred pink bubble (`.dsb.is-reaper`). Cockpit chart = Reaper's real levels: entry · take · stop ·
   🏔 trail (when armed) · peak; "invalid" only on agent coins (Reaper never sells your / the models' trade on the thesis). `/coin-read` waits ≤ 1.5s on
   Jupiter (`COIN_READ_JUP_SEC`; p95 was 6.5s). Other slow routes (`/fuses/record/*` ~4s) are 5 ms on their own = time queued behind the blocked loop.
+- 🎯 MODELS HAVE FULL LINE ACCESS (owner, 2026-10-17): OSSY / G4 answers carry `tp` · `sl` · `trail` (give-back % of the peak gain, 15–70,
+  `ai_seat.LINE_RANGES`) on their own trade; their idle card reads (packet now carries each coin's chart_view + HH/HL base + current lines + Reaper's
+  state) may set the same lines on an AGENTS coin (never a pick / certified / the other model's seat; `_g4['setAgent']`). Leg `aiTrail` replaces the
+  card's give-back for that coin (and R7 then sells even under HOLD_SOFT — the model's trail is its say-so); `aiTp` / `aiSl` act on agent coins as
+  R6m / R5m (fast guard reads `aiSl` too). Your drag on a model trade writes `aiTp` / `aiSl` (`set_leg`) — before, Reaper ignored it.
+- ⏱ `office.TIME_HOLD_STOP` 0.8: R9 / R9e / R11 never sell a RED coin still above 80% of its stop (R9 sales averaged −15%); green coins may still be
+  banked. 📈 `base_of` also counts HH + HL with no lower low. conftest pins TIME_HOLD_STOP 0 for the older Reaper tests.
+- 🧾 A coin that left the card with no Reaper rule is filed with the card event that removed it (`left: <kind> · <why>`), and `agentOut` keeps
+  `why` — 63 of 67 sales in 30h read "left the card by another rule" and could not be split. `byReaper` stays false for them.
+- 🗂 `runners.json` price paths live in `runner_paths.json` (`_paths_mem`, written ≤ 1/min in a thread + on stop): `_json_save` strips them from
+  runners.json, `_json_load` puts them back. Every reader still sees `rd['paths']`.

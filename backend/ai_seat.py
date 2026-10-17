@@ -38,7 +38,7 @@ the owner's and the agents': copy what won, skip what lost, and say in your why 
 trades and where holding longer paid him — use them. When your record beats your partner's, BRAG about it
 in your why (short, cocky, true numbers only); when it doesn't, say how you'll take the lead.
 Answer with ONLY this JSON, nothing else:
-{"action":"BUY|HOLD|SELL|WAIT|TRIM","coin":"<SYMBOL when BUY, else empty>","why":"<one line, under 160 chars, the numbers that decided it>","conf":<0-100>,"watch":"<what would make you sell, under 80 chars>","tp":<take-profit %, e.g. 40>,"sl":<stop %, e.g. 15>}
+{"action":"BUY|HOLD|SELL|WAIT|TRIM","coin":"<SYMBOL when BUY, else empty>","why":"<one line, under 160 chars, the numbers that decided it>","conf":<0-100>,"watch":"<what would make you sell, under 80 chars>","tp":<take-profit %, e.g. 40>,"sl":<stop %, e.g. 15>,"trail":<% of the peak gain you let it give back before banking, e.g. 35 — wider on a clean HH/HL runner, tighter when sellers lead>}
 The trade you bought is YOURS to run: tp / sl are your own take-profit and stop lines, applied at once (change them any minute you HOLD;
 −45% is the floor nobody can move). TRIM = sell part of your coin now ("pct": 25 | 50 | 75) — bank profit, the rest keeps riding your lines.
 CONFIDENCE in LEARN = what the market's verdicts on your calls (and the votes on them) earned you. The agents only advise.
@@ -229,11 +229,14 @@ def parse(text, cand_mints, holding, syms=None):
     if a == 'WAIT' and holding:
         a = 'HOLD'
     out = {'action': a, 'mint': mint if a == 'BUY' else '', 'why': why, 'conf': conf, 'watch': watch, **({'trim': j['_trim']} if a == 'TRIM' else {})}
-    for k, lo, hi in (('tp', TP_MIN, 500.0), ('sl', 3.0, 44.0)):   # 🎯 a take under +25% cut runners short ($SEXCOIN banked at +15%, ran on)   # 🎯 the holder runs its whole trade: its own take / stop (−45% stays the floor)
+    for k, lo, hi in LINE_RANGES:   # 🎯 a take under +25% cut runners short ($SEXCOIN banked at +15%, ran on)   # 🎯 the holder runs its whole trade: its own take / stop (−45% stays the floor)
         v = abs(_f(j.get(k), 0.0))
         if v > 0 and a in ('BUY', 'HOLD', 'TRIM'):
             out[k] = round(max(lo, min(hi, v)), 1)
     return out
+
+
+LINE_RANGES = (('tp', TP_MIN, 500.0), ('sl', 3.0, 44.0), ('trail', 15.0, 70.0))   # 🎯 take · stop · trail give-back the model may set (−45% stays the floor)
 
 
 def agents_pick(cands):
@@ -306,14 +309,14 @@ def fresh(dec, now):
 
 def lines_word(leg, dec):
     """🎯 What the holder changed on its own trade's lines this minute → {'tp': .., 'sl': ..} of the CHANGED ones only ({} = nothing new)."""
-    return {k: dec[k] for k, lk in (('tp', 'aiTp'), ('sl', 'aiSl')) if (dec or {}).get(k) and _f(dec.get(k)) != _f((leg or {}).get(lk))}
+    return {k: dec[k] for k, lk in (('tp', 'aiTp'), ('sl', 'aiSl'), ('trail', 'aiTrail')) if (dec or {}).get(k) and _f(dec.get(k)) != _f((leg or {}).get(lk))}
 
 
 def lines_why(ch, before=None):
     """The chat line for a lines change: "set TP +40% · moved SL −25% → −15%"."""
     b = before or {}
     out = []
-    for k, sign, lk in (('tp', '+', 'aiTp'), ('sl', '−', 'aiSl')):
+    for k, sign, lk in (('tp', '+', 'aiTp'), ('sl', '−', 'aiSl'), ('trail', '↩', 'aiTrail')):
         if k in ch:
             old = _f(b.get(lk))
             out.append(f"{'moved' if old else 'set'} {k.upper()} {sign}{old:g}% → {sign}{_f(ch[k]):g}%" if old else f"set {k.upper()} {sign}{_f(ch[k]):g}%")
@@ -326,7 +329,8 @@ IDLE = """Every seat on your small real-money Solana trench card is full, so it 
 CARD = the coins on the card now (who holds each — the agents or the owner —, P/L, peak, minutes held, 5-min move, buyers).
 ownerSays = what the owner said in a coin's room — answer him first when it is there. Pick the ONE coin most worth a word and say what you would do with it and why, in one line with the numbers that decide it (a tip for
 the holder, a call you would be proud of when the market grades it in 5 min / 1 h). Never invent numbers or coins.
-Answer with ONLY this JSON: {"coin":"<symbol from CARD>","view":"HOLD|SELL","why":"<under 160 chars>","conf":<0-100>}"""
+On an AGENTS coin you may also set its lines: "tp" take %, "sl" stop %, "trail" give-back % of the peak gain (read its HH/HL + germ first). Never on the owner's coins.
+Answer with ONLY this JSON: {"coin":"<symbol from CARD>","view":"HOLD|SELL","why":"<under 160 chars>","conf":<0-100>,"tp":<optional>,"sl":<optional>,"trail":<optional>}"""
 
 
 def idle_turn(log, a, b):
@@ -346,7 +350,12 @@ def idle_parse(text, syms):
     mint = hit[0] if len(hit) == 1 else _sym_in(j.get('why'), syms)
     if not mint:
         return None
-    return {'view': v, 'mint': mint, 'why': re.sub(r'\s+', ' ', str(j.get('why') or '')).strip()[:160], 'conf': max(0, min(100, int(_f(j.get('conf'), 50))))}
+    out = {'view': v, 'mint': mint, 'why': re.sub(r'\s+', ' ', str(j.get('why') or '')).strip()[:160], 'conf': max(0, min(100, int(_f(j.get('conf'), 50))))}
+    for k, lo, hi in LINE_RANGES:   # 🎯 lines it sets on an agents coin it is watching
+        x = abs(_f(j.get(k), 0.0))
+        if x > 0:
+            out[k] = round(max(lo, min(hi, x)), 1)
+    return out
 
 
 ROTATE_SEC = 6 * 3600   # a coin either model bought sits out this long — the two models must rotate through DIFFERENT coins

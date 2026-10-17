@@ -338,3 +338,25 @@ def test_germ_entry_needs_1m_and_5m_to_confirm_and_the_5m_lens_is_the_same_candl
     rows = [[i * 60, 1 + i, 2 + i, 0.5 + i, 1.5 + i, 10] for i in range(10)]
     b = ci.bars5(rows)
     assert len(b) == 2 and b[0][1] == 1 and b[0][2] == 6 and b[0][3] == 0.5 and b[0][4] == 5.5 and b[0][5] == 50
+
+
+def test_reaper_hold_1017_time_rule_waits_while_red_above_80pct_of_its_stop(monkeypatch):
+    """⏱ owner, 2026-10-17: R9 time sales averaged −15% — time no longer cuts a red coin that is still above 80% of its stop."""
+    monkeypatch.setattr(of, 'TIME_HOLD_STOP', 0.8)
+    up = ci.read(UP)
+    th = ci.thesis(up, 0, {'liq': 60_000, 'ageH': 8})
+    rng = ci.read(bars([1.0 + 0.0005 * (i % 2) for i in range(24)]))
+    run = lambda px, now, ch, pos=None: of.reap([LEG], [ROW], {'PA': px}, {'agentTakePct': 10, 'agentScalp': False}, pos, now, charts={'A': ch}, theses={'A': th})
+    p, rep, _ = run(1.02, 60, rng)
+    late = th['expectedHoldWindows'] * 5 * 60 + 5
+    _, rep, _ = run(0.99, late, rng, p)
+    assert rep[0]['action'] is None and rep[0]['state'] == 'PROTECT' and 'time exit held' in rep[0]['evidence']
+    p2, _, _ = run(1.02, 60, rng)
+    deep = 1 - th['stopPct'] * 0.9 / 100                                                                          # under 80% of the stop: time may act
+    _, rep, _ = run(deep, late, rng, p2)
+    assert rep[0]['action'] == 'pull'
+
+
+def test_hh_hl_is_a_base():
+    assert of.base_of({'f': {'hh': 1, 'hl': 1, 'll': 0}}).startswith('higher high')
+    assert of.base_of({'f': {'hh': 1, 'hl': 1, 'll': 1}}) is None

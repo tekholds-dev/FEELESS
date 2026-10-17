@@ -635,7 +635,7 @@ def reap(legs, table, prices, cfg, pos, now, scalp=None, control=False, weather_
         else:
             p.pop('deadSince', None)
         tight = 0.6 if (vels or {}).get(m, {}).get('state') == 'REVERSING' or pr_ == 'WATCH' or ((ai_exit or {}).get(m) == 'tight' and pct > 0) else 1.0   # 📉 P/L REVERSING: the trail banks sooner (tighter protection, never looser)
-        trail_line = (p['peak'] - _f(tr_.get('pct')) * tight) if tr_.get('mode') == 'custom' else p['peak'] * (1 - T('giveBackPct') * tight / 100)
+        trail_line = (p['peak'] - _f(tr_.get('pct')) * tight) if tr_.get('mode') == 'custom' else p['peak'] * (1 - ((_f(l.get('aiTrail')) if _f(l.get('aiTrail')) > 0 and not l.get('picked') else T('giveBackPct'))) * tight / 100)   # 🎯 a model's own trail on this coin replaces the card's
         trail_on = tr_.get('mode') != 'off'
         g_moon = ((ch or {}).get('f') or {}).get('germ') if ch else None
         moon_ = bool(pol.get('moonBag') and p.get('scaled') and _uni.is_agent(l) and g_moon and _f(g_moon.get('px')) > 0)   # 🌙 MOON BAG: after the scale-out the rest rides its rising germ, not the peak trail
@@ -758,8 +758,10 @@ def reap(legs, table, prices, cfg, pos, now, scalp=None, control=False, weather_
             p['scaled'], p['trimPct'] = now, sk_
         if l.get('picked'):
             study_note(p, rule, act, st, pct, px, now, snap_of(ch, x, pct))   # 👤 your seat: every ruling change is filed — what the agents would have done, and when
-        if l.get('aiSeat') and not act and pct is not None:   # 🔁 the holding MODEL runs its trade: its own take / stop (set from its minute read) sell it
-            if _f(l.get('aiSl')) > 0 and pct <= -_f(l.get('aiSl')):
+        if (l.get('aiSeat') or (_uni.is_agent(l) and not l.get('picked'))) and not act and pct is not None:   # 🔁 a MODEL's lines (its own trade, or an agents coin it set): take / stop / trail sell it
+            if _f(l.get('aiTrail')) > 0 and _f(p.get('peak')) >= MODEL_TRAIL_ARM and pct <= _f(p['peak']) * (1 - _f(l['aiTrail']) / 100) and pct >= MIN_KEEP:
+                st, rule, ev, act = 'TAKE', 'R7a model trail', f"peaked {_f(p['peak']):+.1f}%, now {pct:+.1f}% — gave back {_f(l['aiTrail']):g}% of it ({l.get('aiBy') or 'the model'}'s own trail)", 'pull'
+            elif _f(l.get('aiSl')) > 0 and pct <= -_f(l.get('aiSl')):
                 st, rule, ev, act = 'EXIT INVALIDATED', 'R5m model stop', f"{pct:+.1f}% ≤ −{_f(l.get('aiSl')):g}% — {l.get('aiBy') or 'the model'}'s own stop", 'pull'
             elif _f(l.get('aiTp')) > 0 and pct >= _f(l.get('aiTp')):
                 st, rule, ev, act = 'TAKE', 'R6m model take', f"{pct:+.1f}% ≥ +{_f(l.get('aiTp')):g}% — {l.get('aiBy') or 'the model'}'s own take-profit", 'pull'
@@ -789,6 +791,9 @@ def reap(legs, table, prices, cfg, pos, now, scalp=None, control=False, weather_
         if act and hn_.get('kind') in ('hold', 'good') and now < _f(hn_.get('until')) and rk_ not in HINT_HARD:   # ✋ YOU said hold / good entry: soft exits wait, it plays to its stop / take
             ev += f" · {'✋ you said HOLD' if hn_['kind'] == 'hold' else '👍 you called it a GOOD ENTRY'} ({round((_f(hn_['until']) - now) / 60)} min left) — only stops / rug / −45% / the take act"
             act, st = None, 'PROTECT'
+        if TIME_HOLD_STOP and act and rk_ in ('R9', 'R9e', 'R11') and pct <= 0 and pct > -stop * TIME_HOLD_STOP and not base_of(ch):   # ⏱ a TIME rule never sells a coin above 80% of its stop (R9 sales averaged −15%: time cut what a stop would decide)
+            ev += f" · ⏱ time exit held — {pct:+.1f}% is above {TIME_HOLD_STOP:.0%} of its −{stop:g}% stop: it plays to its stop / take"
+            act, st = None, 'PROTECT'
         bo_ = base_of(ch) if (act and rk_ in BREAKOUT_RULES and (held_s < BREAKOUT_SEC or rk_ in BASE_TIME_RULES) and pct > -stop * 0.8) else None   # ⏱ a TIME rule never sells a coin whose base still holds — it plays out to its stop / take
         if bo_:   # 🚀 a good entry still on its base gets its breakout window: soft exits wait (stops / rug / −45% never do)
             ev += (f" · 🎯 {bo_} — a time rule never sells a base: it plays out to its stop / take" if rk_ in BASE_TIME_RULES and held_s >= BREAKOUT_SEC else f" · 🚀 breakout window: {bo_} — {round((BREAKOUT_SEC - held_s) / 60)} min left to show it, soft exits wait (stops still act)")
@@ -796,7 +801,7 @@ def reap(legs, table, prices, cfg, pos, now, scalp=None, control=False, weather_
         if act and soft_exit(rule) and str(rule).split(' ')[0] in BENCHED:   # 🪑 this rule's own record: holding beat its sales → it sells nothing
             ev += f" · 🪑 {str(rule).split(' ')[0]} is BENCHED — its sales typically lost to holding 30 min (its own record); the trail / stops still act"
             act, st = None, 'PROTECT'
-        if HOLD_SOFT and act and mine and soft_exit(rule) and (ai_words or {}).get(m) != 'tight':   # ✋ owner, 2026-10-17: "they need to HOLD" — an agent coin's soft exit needs OSSY / G4 to say TIGHTEN; else it plays to its stop / take
+        if HOLD_SOFT and act and mine and soft_exit(rule) and (ai_words or {}).get(m) != 'tight' and not (_f(l.get('aiTrail')) > 0 and str(rule).startswith('R7 ')):   # a trail the MODEL set is its say-so   # ✋ owner, 2026-10-17: "they need to HOLD" — an agent coin's soft exit needs OSSY / G4 to say TIGHTEN; else it plays to its stop / take
             ev += ' · ✋ HOLD — a soft exit needs OSSY / G4 to say TIGHTEN; until then it plays to its stop / take (stops, rug, −45% still act)'
             act, st = None, 'PROTECT'
         if act and soft_exit(rule):   # 📸 a profit-side exit needs its snapshots (the model's fresh read sets how many)
@@ -874,6 +879,8 @@ def base_of(ch):
             return f"on its {lens} germ floor ({_f(g['dist']):.1f}% above)"
     if _f(f.get('hl') or 0) >= 2 and _f(f.get('ll') or 0) == 0:
         return f"{int(_f(f.get('hl')))} higher lows, no lower low"
+    if _f(f.get('hh') or 0) >= 1 and _f(f.get('hl') or 0) >= 1 and _f(f.get('ll') or 0) == 0:   # 📈 HH/HL: a higher high on a higher low is a trend starting, not a dead coin
+        return "higher high + higher low (HH/HL), no lower low"
     return None
 
 
@@ -913,7 +920,8 @@ def scale_of(pol):
     return (SCALE_AT, SCALE_PCT) if v == 'default' else v
 
 
-G4_HARD = ('R1', 'R5x', 'R5c', 'R9c', 'R5m', 'R6m')   # + the holding model's own stop / take (it runs the trade)   # 🧠 what may still sell G4's seat without it: a pulled pool, −45%, the creator's own limits
+MODEL_TRAIL_ARM = 10.0   # a model's trail arms once the coin has been +10%
+G4_HARD = ('R1', 'R5x', 'R5c', 'R9c', 'R5m', 'R6m', 'R7a')   # + the holding model's own stop / take (it runs the trade)   # 🧠 what may still sell G4's seat without it: a pulled pool, −45%, the creator's own limits
 ASK_OK_SEC = 180.0     # an approval lets that rule sell for this long
 ASK_KEEP_SEC = 600.0   # "keep my line" quiets that rule this long
 
@@ -1103,6 +1111,7 @@ RUNWAY_SEC = 6 * 60.0
 BREAKOUT_SEC = 15 * 60.0   # 🚀 owner, 2026-10-17: "they have perfect entry — wait for the breakout, they move too fast": a coin still on its base
 BREAKOUT_LOSS = 6.0        # … (germ floor / higher lows, office.base_of) and no worse than −6% gets 15 min before a SOFT exit may sell it
 BREAKOUT_RULES = ('R11', 'R11x', 'R9', 'R9e', 'R8', 'R7s', 'R7v', 'R4f')
+TIME_HOLD_STOP = 0.8   # ⏱ time rules wait while the coin is above 80% of its stop (owner, 2026-10-17)
 BASE_TIME_RULES = ('R9', 'R9e', 'R11', 'R8')   # 🎯 owner, 2026-10-17 ($Glow on its germ, sold by "R9 windows used" at 18 min): time rules never sell a base — no time limit   # (R5t / R7b = the base BROKE: they act) never R1 / R2 / R3 / R4 dumps / R5 stops / R5x / R5c / R9c / R6 / R7
 RUNWAY_KEEP = 2.0
 RUNWAY_RULES = ('R6', 'R7', 'R7v', 'R7s', 'R7b', 'R5t', 'R8', 'R9', 'R9e', 'R4f')
@@ -1276,7 +1285,7 @@ def file_position(arch, p, now):
     ps = list(a.get('positions') or [])
     rec = {'mint': p.get('mint'), 'sym': p.get('sym'), 'since': p.get('since'), 'closedAt': p.get('closedAt') or now, 'entry': p.get('entry'), 'peak': round(_f(p.get('peak')), 2),
            'low': round(_f(p.get('low')), 2), 'lastPct': p.get('pct'), 'path': list(p.get('path') or [])[-PATH_KEEP:], 'rule': p.get('askRule') or 'left the card by another rule',
-           'byReaper': bool(p.get('askRule')), 'confirmed': bool(p.get('confirmed')), 'realPct': p.get('realPct'), 'exit': {k: v for k, v in (p.get('exit') or {}).items() if k in ('state', 'sig', 'at', 'usd', 'delta', 'realUsd', 'err')},
+           'byReaper': bool(p.get('askRule')) and not str(p.get('askRule')).startswith('left'), 'confirmed': bool(p.get('confirmed')), 'realPct': p.get('realPct'), 'exit': {k: v for k, v in (p.get('exit') or {}).items() if k in ('state', 'sig', 'at', 'usd', 'delta', 'realUsd', 'err')},
            'wx': p.get('wx'), 'warden': p.get('warden'), 'launch': p.get('launch'), 'tag': p.get('tag'), 'owner': p.get('owner'), 'take': p.get('take'), 'exitStructure': p.get('chartNow'), 'windows': p.get('lastWin'),
            'liq': p.get('liq'), 'liqPct': p.get('liqPct'), 'top10': p.get('top10'), 'quality': p.get('quality'), 'dd': bool(p.get('dataDegraded') or p.get('dd')), 'vel': (p.get('vel') or {}).get('state') if isinstance(p.get('vel'), dict) else p.get('vel'),
            'thesis': None if not p.get('thesis') else {k: p['thesis'].get(k) for k in ('structure', 'call', 'triggerRule', 'support', 'invalidation', 'stopPct', 'expectedHoldWindows', 'at', 'pred', 'votes', 'flow', 'distHigh', 'germ', 'germDist')},
@@ -1883,7 +1892,7 @@ def fast_reap(legs, px_by_mint, pos, now, office=None, prev=None, ai_words=None)
             continue
         px, entry = _f((px_by_mint or {}).get(l.get('mint'))), _f(l.get('entry'))
         p = (pos or {}).get(l.get('mint')) or {}
-        stop = _f(l.get('sl')) if mine_ else (min(_ci.CATASTROPHIC_STOP, _f(l.get('aiSl'))) if _f(l.get('aiSl')) > 0 else _ci.CATASTROPHIC_STOP) if l.get('aiSeat') else _f(p.get('stopNow'))   # 🧠 G4's seat: only −45% here
+        stop = _f(l.get('sl')) if mine_ else (min(_ci.CATASTROPHIC_STOP, _f(l.get('aiSl'))) if _f(l.get('aiSl')) > 0 else _ci.CATASTROPHIC_STOP) if l.get('aiSeat') else (min(_ci.CATASTROPHIC_STOP, _f(l.get('aiSl'))) if _f(l.get('aiSl')) > 0 else _f(p.get('stopNow')))   # 🧠 G4's seat: only −45% here
         if px <= 0 or entry <= 0 or stop <= 0:
             continue
         dd = (px / entry - 1) * 100

@@ -3307,6 +3307,8 @@ def set_leg(card, pair, frozen=None, sl_mode=None, tp=None, sl=None, flow=None, 
                 leg[key] = _f(val)
             else:
                 leg.pop(key, None)
+            if leg.get('aiSeat') and _f(val):   # 🎯 your drag on an OSSY / G4 trade moves THEIR line (Reaper reads aiTp / aiSl on their seat; the model may move it again)
+                leg['ai' + key.capitalize()] = min(_f(val), 44.0) if key == 'sl' else _f(val)
             leg['ownerLvAt'] = _f(now) or time.time()   # ✋ the owner set this coin's line by hand — Reaper obeys it, the Judge grades it apart
             if key == 'sl' and _f(val):   # YOUR stop is a stop: a ride-or-rug ticket stops riding past it
                 leg.pop('rideOrRug', None)
@@ -3546,7 +3548,7 @@ def agent_pull(card, pair, prices, liqs, now, why=''):
     c['events'].append({'at': now, 'kind': 'agent', 'move': 'pull', 'symbol': l.get('symbol'), 'usd': round(got, 4), 'why': f"🤖 agents banked ${l.get('symbol')} (${got:.2f} to card cash): {why}"})
     if l.get('mint'):   # 🚫 the agents never buy back what they just left (2026-10-11: $Rupshld bought 3× in a minute between rug-radar exits, then rugged)
         c['agentOut'] = {**{m: v for m, v in (c.get('agentOut') or {}).items() if now - _f((v or {}).get('at')) < AGENT_OUT_DANGER_SEC},
-                         l['mint']: {'at': now, 'danger': agent_out_danger(why), **({'urgent': True} if urgent_exit(why) else {}),
+                         l['mint']: {'at': now, 'why': str(why or '')[:120], 'danger': agent_out_danger(why), **({'urgent': True} if urgent_exit(why) else {}),
                                      'px': px, 'green': bool(_f(l.get('entry')) > 0 and px > _f(l['entry'])), **({'loss': True} if _f(l.get('entry')) > 0 and px < _f(l['entry']) * (1 - AGENT_OUT_LOSS_PCT / 100) else {})}}
     return c
 

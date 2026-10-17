@@ -6964,6 +6964,8 @@ import limit_orders as _lim
 import impostor as _imp
 import ai_memory as _aim
 import mem_store as _ms0
+RUNNER_PATHS_PATH = DATA_DIR / 'runner_paths.json'   # {mint: [[t, price], ...]} — split out of runners.json (it was rewritten whole every tick)
+_paths_mem = _ms0.MemStore(lambda: RUNNER_PATHS_PATH, 60.0, lambda p_, d_: (json.loads(p_.read_text()) if p_.exists() else d_), lambda p_, o_: _json_save_soft(p_, o_))
 AI_MEMORY_PATH = DATA_DIR / 'ai_memory.json'   # 🗄 the model's filed memory (ai_memory.py: 5 capped drawers, never the whole site)
 _aim_mem = _ms0.MemStore(lambda: AI_MEMORY_PATH, 120.0, lambda p_, d_: _json_load(p_, d_), lambda p_, o_: _json_save(p_, o_))
 _study = {'at': 0.0, 'v': None}
@@ -8556,7 +8558,7 @@ async def _keeper_stop():
     _keeper_state['stopping'] = True   # loops still running during shutdown must not trade
     _single.release(KEEPER_LOCK)
     for flush in (lambda: _block_flush() if _block_dirty['on'] else None, _hygiene_flush,   # debounced stores: nothing learned is lost on a stop
-                  _agents_mem.flush, _lingo_mem.flush, _shadow_flush, _social_flush, _after_mem.flush, _aim_mem.flush, _g4_mem.flush):
+                  _agents_mem.flush, _lingo_mem.flush, _shadow_flush, _social_flush, _after_mem.flush, _aim_mem.flush, _g4_mem.flush, _paths_mem.flush):
         try:
             flush()
         except Exception:
@@ -10546,14 +10548,15 @@ async def _prime_tick_inner(now):
             if cert_:   # 🛡 a coin YOU certified is yours to hold — the desk's own swap / pull never touches it (only a pulled pool, −45%, your limits)
                 dec_ = [x for x in dec_ if x.get('pair') not in cert_ or any(h_ in str(x.get('why')) for h_ in ('R1 ', 'R5x', 'R5c', 'R5g', 'R9c', 'drain'))]
             g4p_ = {l.get('pairAddress'): l for l in cur.get('legs') or [] if l.get('aiSeat') and not l.get('placeholder')}
-            gs_ = _g4.pop('set', None)
-            if gs_ and gs_.get('pair') in g4p_ and _seat.fresh(gs_, now):   # 🎯 the holding model moved its own take / stop
+            for gs_ in [x_ for x_ in (_g4.pop('set', None), _g4.pop('setAgent', None)) if x_ and _seat.fresh(x_, now)]:   # 🎯 a model moved take / stop / trail: its own seat, or an agents coin (never yours / certified)
                 for l in cur['legs']:
-                    if l.get('pairAddress') == gs_['pair'] and l.get('aiSeat'):
-                        ch_ = {k_: v_ for k_, v_ in (('aiTp', gs_.get('tp')), ('aiSl', gs_.get('sl'))) if v_ and v_ != l.get(k_)}
+                    if l.get('pairAddress') == gs_.get('pair') and not l.get('placeholder') and not l.get('certified') and (l.get('aiSeat') if gs_.get('own') is not False else (_uni.is_agent(l) and not l.get('picked') and not l.get('aiSeat'))):
+                        ch_ = {k_: v_ for k_, v_ in (('aiTp', gs_.get('tp')), ('aiSl', gs_.get('sl')), ('aiTrail', gs_.get('trail'))) if v_ and v_ != l.get(k_)}
                         l.update(ch_)
+                        if ch_ and not l.get('aiSeat'):
+                            l['aiBy'] = gs_.get('by')
                         if ch_:
-                            cur.setdefault('events', []).append({'at': now, 'kind': 'agent', 'move': 'lines', 'why': f"🎯 {gs_.get('by')} set ${l.get('symbol')}: " + ' · '.join(f"{'TP +' if k_ == 'aiTp' else 'SL −'}{v_:g}%" for k_, v_ in ch_.items())})
+                            cur.setdefault('events', []).append({'at': now, 'kind': 'agent', 'move': 'lines', 'why': f"🎯 {gs_.get('by')} set ${l.get('symbol')}: " + ' · '.join(f"{ {'aiTp': 'TP +', 'aiSl': 'SL −', 'aiTrail': 'trail ↩'}[k_]}{v_:g}%" for k_, v_ in ch_.items())})
             if g4p_:   # 🧠 G4's seat: the agents only argue — a pulled pool, −45% and the creator's own limits still sell it
                 dec_ = [x for x in dec_ if x.get('pair') not in g4p_ or any(h_ in str(x.get('why')) for h_ in ('R1 ', 'R5x', 'R5c', 'R9c', 'drain'))]
                 w_ = _g4.get('want')
@@ -14055,8 +14058,8 @@ async def _g4_tick(now, env, cfg):
         ev_ = None
         if dec_ and mode_ == 'paper':
             book_, ev_ = _seat.paper_step(book_, dec_, by_, px_of, now, by_m)
-        if dec_ and mode_ == 'real' and held_ and leg_ and (dec_.get('tp') or dec_.get('sl')) and by_m != 'agents':   # 🎯 the holder sets its own lines on its own trade
-            _g4['set'] = {'pair': leg_.get('pairAddress'), 'tp': dec_.get('tp'), 'sl': dec_.get('sl'), 'at': time.time(), 'by': _air.model_name(env, by_m)}
+        if dec_ and mode_ == 'real' and held_ and leg_ and (dec_.get('tp') or dec_.get('sl') or dec_.get('trail')) and by_m != 'agents':   # 🎯 the holder sets its own lines on its own trade
+            _g4['set'] = {'pair': leg_.get('pairAddress'), 'tp': dec_.get('tp'), 'sl': dec_.get('sl'), 'trail': dec_.get('trail'), 'at': time.time(), 'by': _air.model_name(env, by_m)}
         elif dec_ and mode_ == 'real' and dec_['action'] in ('BUY', 'SELL', 'TRIM'):
             _g4['want'] = {**dec_, 'by': by_m, 'model': 'AGENTS' if by_m == 'agents' else _air.model_name(env, by_m), 'thinkAt': now, 'symbol': (by_.get(dec_['mint']) or {}).get('symbol') if dec_['action'] == 'BUY' else (leg_ or {}).get('symbol'), 'at': time.time(), 'pair': (by_.get(dec_['mint']) or {}).get('pair') if dec_['action'] == 'BUY' else (leg_ or {}).get('pairAddress')}   # ⏱ fresh from the ANSWER (a 30–90s think read as stale)
         focus_ = by_.get((dec_ or {}).get('mint')) if (dec_ or {}).get('action') == 'BUY' else None
@@ -14148,7 +14151,9 @@ async def _g4_idle(now, env, cfg, st_, legs_, mode_, who=None):
             c_ = _seat.cand_row(_tk.KERNEL.candidate(m_) or {'mint': m_})
             rows_.append({'symbol': l.get('symbol'), 'holder': 'owner' if l.get('picked') else ('a model' if l.get('aiSeat') else 'agents'),
                           'pct': round((px_ / en_ - 1) * 100, 1) if px_ > 0 and en_ > 0 else None, 'peak': (pos_all.get(m_) or {}).get('peak'),
-                          'heldMin': round((now - _fuse._f(l.get('at'))) / 60) if l.get('at') else None, 'move5m': c_.get('move5m'), 'buyers': c_.get('buyers'), 'cap': c_.get('cap')})
+                          'heldMin': round((now - _fuse._f(l.get('at'))) / 60) if l.get('at') else None, 'move5m': c_.get('move5m'), 'buyers': c_.get('buyers'), 'cap': c_.get('cap'),
+                          'chart': _seat.chart_view((_office.get('charts') or {}).get(m_)), 'base': _of.base_of((_office.get('charts') or {}).get(m_)),   # 📈 HH/HL + germ — read before setting any line
+                          'lines': {k_: l.get(lk_) for k_, lk_ in (('tp', 'aiTp'), ('sl', 'aiSl'), ('trail', 'aiTrail')) if l.get(lk_)} or None, 'reaper': next(((r_.get('state'), r_.get('rule')) for r_ in _office.get('reports') or [] if r_.get('mint') == m_), None)})
             if l.get('symbol'):
                 syms_[l['symbol']] = m_
         if not rows_:
@@ -14163,6 +14168,10 @@ async def _g4_idle(now, env, cfg, st_, legs_, mode_, who=None):
         row_ = {'at': round(now), 'mode': mode_, 'model': _air.model_name(env, who_), 'by': who_, 'talk': True, 'idle': True, 'action': 'TALK', 'view': d_['view'],
                 'why': f"on ${rw_.get('symbol')} ({rw_.get('holder')}): {d_['view']} — {d_['why']}"[:180], 'conf': d_['conf'], 'ms': round((time.perf_counter() - t0_) * 1000),
                 'symbol': rw_.get('symbol'), 'mint': d_['mint'], 'pct': rw_.get('pct'), 'cap': rw_.get('cap')}
+        lg_ = next((l for l in legs_ or [] if l.get('mint') == d_['mint'] and not l.get('placeholder')), None)
+        if lg_ and mode_ == 'real' and any(d_.get(k_) for k_ in ('tp', 'sl', 'trail')) and _uni.is_agent(lg_) and not lg_.get('picked') and not lg_.get('aiSeat') and not lg_.get('certified'):
+            _g4['setAgent'] = {'pair': lg_.get('pairAddress'), 'own': False, 'tp': d_.get('tp'), 'sl': d_.get('sl'), 'trail': d_.get('trail'), 'at': time.time(), 'by': _air.model_name(env, who_)}
+            row_['why'] = (row_['why'] + ' · 🎯 ' + _seat.lines_why({k_: d_[k_] for k_ in ('tp', 'sl', 'trail') if d_.get(k_)}, lg_))[:220]
         m1 = _g4_mem.get() or {}
         _g4_mem.put({**m1, 'log': _seat.note(m1.get('log') or st_['log'], row_), 'idleAt': now}, now)
         _dv_note(row_, _fuse._f(pxm_.get(d_['mint'])), now)
@@ -17593,6 +17602,10 @@ def _office_reap(cur, px, cfg_t, ctl, now, dec, pol=None, live=True, vels=None, 
                                   vels=vels, margins=margins, rug=rug, press=press, flows=fv_, ai_exit=_ai_exit_effects(cfg_t, now), ai_words=_ai_exit_words(cfg_t, now))
         for g in gone:
             g['take'] = _of.take_line(cfg_t, _agents.get('scalp'))
+            if not g.get('askRule'):   # 🧾 WHO removed it: the newest card event naming this coin (agent pull / swap · model sell · your ✂ · engine) — 63 of 67 sales read "left the card by another rule"
+                ev_ = next((e_ for e_ in reversed(cur.get('events') or []) if now - _fuse._f(e_.get('at')) < 900 and g.get('sym') and (e_.get('symbol') == g.get('sym') or f"${g.get('sym')}" in str(e_.get('why') or ''))), None)
+                if ev_:
+                    g['askRule'] = f"left: {ev_.get('kind')} · {str(ev_.get('why') or '')[:90]}"
         by_ = {x_.get('mint'): x_ for x_ in _agents.get('table') or []}
         for r_ in rep:   # ⏱ DATA FRESHNESS per seat: nothing is called LIVE on stale inputs
             m_, pa_ = r_.get('mint'), r_.get('pair')
@@ -20199,15 +20212,22 @@ def _json_cost_note(kind, path, t0):
 
 def _json_load(path, default):
     try:
-        return _cached_json(path)
+        obj = _cached_json(path)
     except Exception:
         return default
+    if isinstance(obj, dict) and 'paths' not in obj and str(path) == str(RUNNERS_PATH):   # 🗂 runners.json's price paths come from their own store
+        obj['paths'] = _paths_mem.get()
+    return obj
 
 
 def _json_save(path, d):
     t0 = time.perf_counter()
     path.parent.mkdir(parents=True, exist_ok=True)
-    tmp = path.with_suffix('.tmp'); tmp.write_text(json.dumps(d)); tmp.replace(path)
+    body = d
+    if isinstance(d, dict) and 'paths' in d and str(path) == str(RUNNERS_PATH):   # 🗂 the runner price paths (1.8 MB of a 3 MB file) live in memory + their own file, written ≤ 1/min
+        _paths_mem.put(d['paths'], time.time())
+        body = {k: v for k, v in d.items() if k != 'paths'}
+    tmp = path.with_suffix('.tmp'); tmp.write_text(json.dumps(body)); tmp.replace(path)
     if isinstance(d, dict):   # ⚡ what was written IS the current version: the next load reads it, never re-parses it (fuse_hq.json: 178 re-parses in 7 min)
         st = path.stat(); _parse_cache[str(path)] = ((st.st_mtime_ns, st.st_size), d)
     _json_cost_note('save', path, t0)
