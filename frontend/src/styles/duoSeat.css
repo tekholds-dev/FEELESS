@@ -168,3 +168,5 @@ body.theme-day .dso-room { background: rgba(240, 234, 252, .8); } body.theme-day
 .dso-total { display: grid; gap: 1px; margin: 4px 0 0; } .dso-total small { font: 700 8px var(--m-mono, monospace); letter-spacing: .12em; color: var(--m-mute, #8fb3a0); }
 .dso-total strong { font: 900 18px var(--m-mono, monospace); animation: dsoPop .5s ease-out; } .dso-total.is-up strong { color: #45e486; } .dso-total.is-dn strong { color: #ff8fa3; }
 .dso-total span { font: 600 9.5px var(--m-mono, monospace); color: var(--m-mute, #a8c9b6); }
+.dso-hex .dso-pnl small { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 86px; }
+.dso-hex .dso-pnl strong { text-shadow: 0 0 12px currentColor; } .dso-total strong { text-shadow: 0 0 10px currentColor; }

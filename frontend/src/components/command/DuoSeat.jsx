@@ -46,7 +46,7 @@ export function seatWords(h) {
 }
 function SeatPnl({ h }) {
   const w = seatWords(h);
-  return <span className={`dso-pnl is-${w.tone}`} data-testid="duo-pnl"><strong key={w.pct}>{w.pct}</strong><small>{w.money}</small><small>{w.meta}</small></span>;
+  return <span className={`dso-pnl is-${w.tone}`} data-testid="duo-pnl" data-tip={`${w.money} · ${w.meta}`}><strong key={w.pct}>{w.pct}</strong><small>{w.money.split(' (')[1] ? `(${w.money.split(' (')[1]}` : w.money}</small></span>;
 }
 
 function Side({ s, pod, turn, busy, side, tot }) {
@@ -66,7 +66,7 @@ function Side({ s, pod, turn, busy, side, tot }) {
         : <small className="dso-none">no calls yet</small>}
     </div>
     <span className="dso-rec"><i style={{ transform: `scaleX(${pod.fill})` }} /></span>
-    {tot?.n ? <p className={`dso-total ${tot.usd >= 0 ? 'is-up' : 'is-dn'}`} data-testid={`duo-total-${s.name}`}><small>TOTAL P&L · REAL</small><strong key={tot.usd}>{tot.usd >= 0 ? '+' : '−'}${Math.abs(tot.usd).toFixed(3)}</strong>
+    {tot?.n ? <p className={`dso-total ${tot.usd >= 0 ? 'is-up' : 'is-dn'}`} data-testid={`duo-total-${s.name}`}><small>TOTAL P&L · REAL</small><strong key={tot.usd}>{`${tot.usd >= 0 ? '+' : '−'}$${Math.abs(tot.usd).toFixed(3)}`}</strong>
       <span>{tot.n} closed · {Math.round((tot.won / tot.n) * 100)}% won · {tot.pct >= 0 ? '+' : ''}{tot.pct}% summed</span></p>
       : <small className="dso-recw">{pod.n ? `${pod.n} closed · ${pod.won}% won · ${sgn(pod.med)}` : 'no closed trades yet'}</small>}
     <p className="dso-last">{s.last ? <><b className={`a-${actKey(s.last.action)}`}>{s.last.action}{s.last.symbol ? ` $${s.last.symbol}` : ''}</b> {s.last.why} <small>· {ago(s.last.at)}</small></> : '—'}</p>

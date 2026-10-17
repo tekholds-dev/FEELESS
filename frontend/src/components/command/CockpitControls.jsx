@@ -175,7 +175,7 @@ export function CockpitControls({ o, call, isOwner, onAi }) {
         <button type="button" role="radio" aria-checked={!!pol.manual} disabled={!isOwner || busy} className={pol.manual ? 'active is-manual' : ''} onClick={() => !pol.manual && save({ agentAuthority: 'manual' })}
           data-tip="MANUAL: no agent fill, switch or read-bank — only hard safety exits and your own overrides act" data-testid="ack-auth-manual">✋ Manual</button></span>
       <AiChipBtn o={o} onClick={onAi} /></header>
-    <RuleLegend onTweak={k => { const g = CTRL_GROUPS.find(([, , , keys]) => keys.includes(k)); if (g) setTab(g[0]); }} />
+    <RuleLegend onTweak={k => { const g = CTRL_GROUPS.find(([, , , keys]) => keys.includes(k)); if (g) { setTab(g[0]); setTimeout(() => document.querySelector(`[data-testid="acx-${g[0]}"]`)?.scrollIntoView({ block: 'nearest', behavior: 'smooth' }), 60); } }} />
     <div className="acx-shell">
       <nav className="acx-rail" aria-label="Control sections">
         {groups.map(([g, title, , keys]) => { const r = railSum(keys, ctl);
