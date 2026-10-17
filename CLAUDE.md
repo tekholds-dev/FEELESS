@@ -4822,3 +4822,10 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
 - 🦠 QUIET ON A BASE IS NOT DEAD (owner, 2026-10-17: "y exit? wait for breakouts" — $250 on its germ floor, $120 traded in 5 min, ruled R11):
   `office.base_of(ch)` (1m / 5m germ floor not lost, ≤ 15% above, or 2+ higher lows and no lower low) + P&L ≥ −5% → `R11b base — waiting for
   the breakout` (HOLD); cash only after `DEAD_BASE_CASH_MIN` 45 min dead (else 15). Off-radar coins and every hard exit / stop unchanged.
+- 🚀 BREAKOUT WINDOW (owner, 2026-10-17: "perfect entries — wait for the breakout, they move too fast"; `office.BREAKOUT_SEC` 15 min,
+  `BREAKOUT_LOSS` 6, `BREAKOUT_RULES` R11 · R11x · R9 · R9e · R8 · R7s · R7v · R4f): a coin still on its base (`base_of`) and no worse than −6%
+  gets 15 min before a SOFT exit may sell it (PROTECT, "🚀 breakout window"). R5t / R7b (the base broke), stops, rug / dump, −45%, take line
+  and trail always act.
+- 🔁 FAIR TURNS: hunting is asked ONLY of the hunter too (`only=(first_,)` — OSSY used to answer for a missed G4 minute and bought on G4's turn:
+  6h = OSSY 5 buys, G4 1). ⏱ `ai_seat.HUNT_TURN_SEC` 600: a hunter with no clean entry in 10 min passes the turn (row action PASS;
+  `_g4_mem.huntBy` / `huntSince`). G4 had said WAIT 70× in 6h.

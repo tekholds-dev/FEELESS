@@ -435,3 +435,6 @@ def merge_log(ours, theirs, keep=LOG_KEEP):
             seen.add(k)
             out.append(r)
     return out[-keep:]
+
+
+HUNT_TURN_SEC = 600.0   # ⏱ a hunting turn with no clean entry passes to the other model after 10 min (one waits forever = no turns)

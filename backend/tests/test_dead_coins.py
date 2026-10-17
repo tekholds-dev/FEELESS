@@ -57,3 +57,10 @@ def test_a_quiet_coin_on_a_base_is_not_dead():
     assert of.base_of({'f': {'hl': 2, 'll': 0}}) == '2 higher lows, no lower low'
     assert of.base_of({'f': {'germ': {'dist': 9, 'lost': True}}}) is None
     assert of.base_of({'f': {'germ': {'dist': 40}, 'hl': 1}}) is None
+
+
+def test_breakout_window_never_holds_back_a_stop_or_a_rug_exit():
+    import office as of
+    for hard in ('R1', 'R2', 'R3', 'R4', 'R4r', 'R4d', 'R5', 'R5x', 'R5c', 'R9c', 'R6', 'R7'):
+        assert hard not in of.BREAKOUT_RULES
+    assert of.BREAKOUT_SEC == 900 and 'R11' in of.BREAKOUT_RULES

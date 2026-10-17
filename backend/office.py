@@ -778,6 +778,10 @@ def reap(legs, table, prices, cfg, pos, now, scalp=None, control=False, weather_
             ev += (f" · 🛫 runway: a green coin is not banked in its first {RUNWAY_SEC / 60:.0f} min ({round(RUNWAY_SEC - held_s)}s left) — the trail still sells it under +{RUNWAY_KEEP:g}%"
                    if not str(rule).startswith('R5t') else ' · 🛫 a broken thesis never sells a GREEN coin — the trail protects it')
             act, st = None, 'PROTECT'
+        bo_ = base_of(ch) if (act and str(rule).split(' ')[0] in BREAKOUT_RULES and held_s < BREAKOUT_SEC and pct > -BREAKOUT_LOSS) else None
+        if bo_:   # 🚀 a good entry still on its base gets its breakout window: soft exits wait (stops / rug / −45% never do)
+            ev += f" · 🚀 breakout window: {bo_} — {round((BREAKOUT_SEC - held_s) / 60)} min left to show it, soft exits wait (stops still act)"
+            act, st = None, 'PROTECT'
         if act and soft_exit(rule) and str(rule).split(' ')[0] in BENCHED:   # 🪑 this rule's own record: holding beat its sales → it sells nothing
             ev += f" · 🪑 {str(rule).split(' ')[0]} is BENCHED — its sales typically lost to holding 30 min (its own record); the trail / stops still act"
             act, st = None, 'PROTECT'
@@ -1077,6 +1081,9 @@ def is_noise(row):
 # coin (≥ RUNWAY_KEEP) gets RUNWAY_SEC before any profit-side rule may bank it, and R5t never sells a green coin; under +2% the trail still
 # sells, and stops / −45% / rug / drain / dump stay instant.
 RUNWAY_SEC = 6 * 60.0
+BREAKOUT_SEC = 15 * 60.0   # 🚀 owner, 2026-10-17: "they have perfect entry — wait for the breakout, they move too fast": a coin still on its base
+BREAKOUT_LOSS = 6.0        # … (germ floor / higher lows, office.base_of) and no worse than −6% gets 15 min before a SOFT exit may sell it
+BREAKOUT_RULES = ('R11', 'R11x', 'R9', 'R9e', 'R8', 'R7s', 'R7v', 'R4f')   # (R5t / R7b = the base BROKE: they act) never R1 / R2 / R3 / R4 dumps / R5 stops / R5x / R5c / R9c / R6 / R7
 RUNWAY_KEEP = 2.0
 RUNWAY_RULES = ('R6', 'R7', 'R7v', 'R7s', 'R7b', 'R5t', 'R8', 'R9', 'R9e', 'R4f')
 
