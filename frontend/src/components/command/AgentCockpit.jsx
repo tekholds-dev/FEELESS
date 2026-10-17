@@ -1,4 +1,5 @@
 import React, { Suspense, lazy, useEffect, useMemo, useRef, useState } from 'react';
+import { CalloutBubble } from '../CalloutBubble';
 import { DuoSeat } from './DuoSeat';
 import { createPortal } from 'react-dom';
 import { AddMyCoin, SeatStudy, MySeatsRecord, SeatControls } from './MySeat';
@@ -325,7 +326,29 @@ function TradeHud({ pos, m }) {
 
 // ── 📈 the chart: market cap, always ──────────────────────────────────────────────────────────────────────────────────────────────
 export const IVS = [['1m', '1m'], ['5m', '5m'], ['15m', '15m']];
-function CockpitChart({ m, iv, setIv, pos, cand, markers, onAgent, tid, call, isOwner }) {
+// ⚡ LIVE DESK = three views, one on screen (owner: "organize all tabs clean, not scroll heavy"); every view stays mounted, the pick is remembered
+const LIVE_VIEWS = [['duo', '🔁 OSSY ⚔ G4'], ['matrix', '🧩 Ten agents'], ['tape', '🎬 Decisions']];
+function LiveDesk({ duo, matrix, tape, tapeN }) {
+  const [v, setV] = useRemembered('feeless.ack.livedesk', 'duo');
+  const views = { duo, matrix, tape };
+  return <div className="ack-livedesk"><span className="m-seg ack-lvseg" role="tablist" aria-label="Live desk view">{LIVE_VIEWS.map(([k, w]) =>
+    <button key={k} type="button" role="tab" aria-selected={v === k} className={v === k ? 'active' : ''} onClick={() => setV(k)} data-testid={`ack-lv-${k}`}>{w}{k === 'tape' && tapeN ? <small> {tapeN}</small> : null}</button>)}</span>
+    {LIVE_VIEWS.map(([k]) => <div key={k} className="ack-lvpane" hidden={v !== k}>{views[k]}</div>)}</div>;
+}
+
+// 📣 OSSY / G4 ON THE CHART (owner, 2026-10-16: "only when AI is discussing and making trades make it show on chart as callouts"): their BUY is a
+// live callout bubble (the cap they bought at → × now, from the shared poller); HOLD / SELL / partner talk are small speech bubbles; newest 3
+// for THIS coin only, nothing at all when they never spoke about it.
+export function chartCalls(rows, mint) { return (rows || []).filter(r => r.mint && r.mint === mint).slice(-3).reverse(); }
+function ChartCallouts({ rows, mint, pair }) {
+  const list = useMemo(() => chartCalls(rows, mint), [rows, mint]);
+  if (!list.length) return null;
+  return <div className="ack-ccall" data-testid="ack-chart-callouts">{list.map((r, i) => r.action === 'BUY'
+    ? <CalloutBubble key={`${r.at}-${i}`} kind="ai" compact who={r.model} sym={'' + (r.sym || 'coin')} pair={pair} calledMc={r.cap} at={r.at} />
+    : <p key={`${r.at}-${i}`} className={`ack-cspeech ${r.talk ? 'is-talk' : `is-${String(r.action).toLowerCase()}`}`} style={{ '--i': i }}><b>{r.model} {r.talk ? `💬 ${r.view || ''}` : r.action}{r.pct != null ? ` ${r.pct >= 0 ? '+' : ''}${Number(r.pct).toFixed(1)}%` : ''}</b><span>{r.why}</span></p>)}</div>;
+}
+
+function CockpitChart({ m, iv, setIv, pos, cand, markers, onAgent, tid, call, isOwner, duo }) {
   const pair = useMemo(() => (m?.pair ? { chainId: 'solana', pairAddress: m.pair, baseToken: { address: m.mint, symbol: m.symbol }, priceUsd: m.price, marketCap: m.mc } : null), [m?.pair, m?.mint, m?.symbol, m?.price, m?.mc]);
   // ✋ YOUR LINES on an agent seat: its stop + take are grabbable on the chart; a drop asks, saves that coin's own TP / SL, Reaper obeys it,
   // and the position is filed as "your hand" so the record shows whether your adjustments helped
@@ -361,7 +384,8 @@ function CockpitChart({ m, iv, setIv, pos, cand, markers, onAgent, tid, call, is
     {!m.pair ? <p className="ack-nil" data-testid="ack-nopool">No pool for this coin yet — nothing to chart.</p>
       : !m.mc ? <p className="ack-nil is-warn" data-testid="ack-mc-unavailable"><b>MC UNAVAILABLE</b> — no supply is known for this coin yet (no token supply, not a launchpad mint, no live cap). The raw price is never charted in its place.</p>
         : <div className="ack-plot">{pos ? <TradeHud pos={pos} m={m} /> : null}<Suspense fallback={<p className="ack-nil">loading the live chart…</p>}>
-          <PriceChartLazy key={`${m.pair}-${iv}`} pair={pair} interval={iv} metric="marketCap" showVolume markers={chartMarkers} fuse={fuse} pnl={seatPnl} /></Suspense></div>}
+          <PriceChartLazy key={`${m.pair}-${iv}`} pair={pair} interval={iv} metric="marketCap" showVolume markers={chartMarkers} fuse={fuse} pnl={seatPnl} /></Suspense>
+          <ChartCallouts rows={duo?.chart} mint={m.mint} pair={m.pair} /></div>}
     <div className="ack-mrail" data-testid="ack-mrail"><span className="ack-mkey" data-tip="▲ real buy · ▼ real sell on the chart; the chips are the newest decisions on this coin"><i className="ack-ml is-B">▲</i><i className="ack-ml is-X">▼</i></span>
       {markers.length ? <span className="ack-mlist">{markers.slice(-6).reverse().map(k => <button key={k.id} type="button" className={`ack-ml is-${k.text}`} onClick={() => onAgent(k.agent)}
         data-tip={`${new Date(k.at * 1000).toLocaleTimeString()} · ${TAPE_AGENT[k.agent]?.[1] || k.agent} · ${k.action}${k.why ? ` — ${k.why}` : ''}${k.mc ? ` · MC ${mcWord(k.mc)}` : ''} · ${ago(k.at)} ago`}
@@ -643,7 +667,8 @@ export function AgentCockpit({ call, isOwner = true, head = null, extra = [], li
       {isOwner ? <><AddMyCoin call={call} tpl={d?.card?.tpl} seats={seats} reload={cc?.load} /><SeatControls call={call} tpl={d?.card?.tpl} seats={seats} reload={cc?.load} /><MySeatsRecord rec={o.ownerSeats} /></> : null}
 </section>, seats.length ? held / seats.length : null, 'the seats: live P&L, Reaper\'s word, tap = its chart'],
       ['you', '👤 You', o.ownerStudy?.score != null ? `${o.ownerStudy.score}%` : null, <OwnerStudy study={o.ownerStudy} memory={o.aiMemory} />, null, 'your own moves graded, your seats vs the agents, what the study suggests'],
-      ['live', '⚡ Live desk', (o.tape || []).length || null, <div className="ack-livedesk"><DuoSeat duo={d?.duo} /><AgentMatrix o={o} gens={o?.generations || []} agent={agentNow} setAgent={a => { setAgentS(a); setTapeAgent(a); }} rows={o.tape} pulse={pulse} /><DecisionTape rows={o.tape} agent={tapeAgent} setAgent={setTapeAgent} fresh={freshIds} onPick={r => { if (r.mint) setPick(r.mint); setAgentS(r.agent in AG ? r.agent : null); setTab('live'); }} /></div>, null, 'G4 × OSSY on their seat, the ten agents and every live decision — one place'],
+      ['live', '⚡ Live desk', (o.tape || []).length || null, <LiveDesk duo={<DuoSeat duo={d?.duo} />} matrix={<AgentMatrix o={o} gens={o?.generations || []} agent={agentNow} setAgent={a => { setAgentS(a); setTapeAgent(a); }} rows={o.tape} pulse={pulse} />}
+        tape={<DecisionTape rows={o.tape} agent={tapeAgent} setAgent={setTapeAgent} fresh={freshIds} onPick={r => { if (r.mint) setPick(r.mint); setAgentS(r.agent in AG ? r.agent : null); setTab('live'); }} />} tapeN={(o.tape || []).length} />, null, 'G4 × OSSY on their seat, the ten agents and every live decision — one place'],
       ['tape', '🎬 Trades', (o.tradeTape?.rows || []).length, <><LossMap court={o.court} capital={o.capital} /><TradeTape tape={o.tradeTape} mint={mint} onPick={onPick} /></>],
       ['review', '📋 Queue', (o.ownerReview || []).length || null, <ReviewQueue o={o} call={call} isOwner={isOwner} onPick={m => { onPick(m); if (m && !((o.kernel || {}).candidates || []).some(c => c.mint === m) && !(o.positions || []).some(p => p.mint === m) && !(o.ownerReview || []).some(r => r.mint === m)) openCoin({ mint: m }); }} sel={mint} />],
       ['controls', '🎛 Limits', null, <><CockpitControls o={o} call={call} isOwner={isOwner} onAi={() => setAiOpen(true)} />{limits}</>, null, 'EVERY control in one place: universe, exits, seats, buy gate, model + your creator limits (TP / SL / trail / hold / size / switching)'],
@@ -657,7 +682,7 @@ export function AgentCockpit({ call, isOwner = true, head = null, extra = [], li
     <div className="ack-topseats" data-testid="ack-topseats">
       <div className="ack-seatrow">{seats.map((s, i) => <SeatCard key={s.seat} s={s} on={!s.open && s.mint === mint} onPick={onPick} readyN={readyN} same={s.open ? seats.slice(0, i).find(x => x.open && x.why === s.why)?.seat : undefined} />)}</div></div>
     <div className="ack-main">
-      <div className="ack-left"><CockpitChart m={model} iv={iv} setIv={setIv} pos={pos} cand={cand} markers={markers} onAgent={a => { setAgentS(a); setTab('live'); }} tid={o?.tid} call={call} isOwner={isOwner} />
+      <div className="ack-left"><CockpitChart duo={d?.duo} m={model} iv={iv} setIv={setIv} pos={pos} cand={cand} markers={markers} onAgent={a => { setAgentS(a); setTab('live'); }} tid={o?.tid} call={call} isOwner={isOwner} />
         <RideBar s={seats.find(x => !x.open && x.mint === mint)} pos={pos} />
         <IntakeBand o={o} mint={mint} onPick={onPick} call={call} isOwner={isOwner} imp={d?.impostors} /></div>
       <div className="ack-right"><div className="ack-sidetabs m-seg" role="tablist" aria-label="Right column">{[['decision', '🧠 Decision'], ['desk', '⚡ Live desk']].map(([k, l]) => <button key={k} type="button" role="tab" aria-selected={side === k} className={side === k ? 'active' : ''} onClick={() => setSide(k)} data-testid={`ack-side-${k}`}>{l}</button>)}</div>

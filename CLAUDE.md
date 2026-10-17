@@ -4754,3 +4754,8 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   prompt makes them brag on a better record. /health shows RPC provider names only (it printed full keyed URLs).
 - ⚡ FeeCat = ONE DIAL: `FastDial` (HQ › Fee) applies `fastTrench` (server `_feecat_fast_trench` from the agents' realCfg, clamped to her
   bounds — her pool floor can't go under 40K), tuning grouped ENTRY / EXITS / ADDS & SEATS / SIZE. The four old presets are gone.
+- 📣 CALLOUTS (owner, 2026-10-16: "callout bubbles like pump.fun's, PnL + callout data live"): chat `/callout $SYM|CA [why]` (ChatCommands) posts
+  `📣 callout:<chain>:<pair>@<cap>|<SYM> why` (`lib/callout.js` calloutPost / readCallout / calloutLive) → `CalloutBubble` (components/, `clo-*` in
+  styles/callout.css): caller · called at cap · × since + % P&L bar · cap now, live from the shared `useLivePrices` record (`mc`), ticks flash, 2×+ glows.
+  Agents tab chart: `ChartCallouts` (AgentCockpit) = OSSY / G4's BUY as an ai callout bubble + HOLD / SELL / partner talk as speech bubbles for THIS
+  coin (duo payload `chart`, newest 3). ⚡ Live desk = three views (🔁 duo · 🧩 ten agents · 🎬 decisions, `LiveDesk`, remembered) instead of a stack.

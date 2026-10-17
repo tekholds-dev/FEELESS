@@ -17917,7 +17917,9 @@ def _duo_view(env=None):
                 'rec': {nm(k): v for k, v in _seat.by_model((st_['book'] or {}).get('closed')).items() if k in (_duet.LEAD, _duet.SECOND)},
                 'open': (st_['book'] or {}).get('open'),
                 'agents': _seat.by_model((st_['book'] or {}).get('closed')).get('agents'), 'fate': _g4.get('fate'), 'live': _g4.get('live'),
-                'log': [{k: r.get(k) for k in ('at', 'model', 'action', 'symbol', 'why', 'conf', 'pct', 'ms', 'miss')} for r in st_['log'][-30:][::-1]]}
+                'log': [{k: r.get(k) for k in ('at', 'model', 'action', 'symbol', 'why', 'conf', 'pct', 'ms', 'miss')} for r in st_['log'][-30:][::-1]],
+                'chart': [{'at': r.get('at'), 'model': r.get('model'), 'mint': r.get('mint'), 'sym': r.get('symbol'), 'action': r.get('action'), 'view': r.get('view'), 'talk': bool(r.get('talk')), 'why': str(r.get('why') or '')[:120],
+                           'pct': r.get('pct'), 'cap': (r.get('vitals') or {}).get('cap')} for r in st_['log'][-80:] if r.get('mint') and r.get('action') in ('BUY', 'SELL', 'TALK', 'HOLD')][-24:]}   # 📣 what the models said about each coin → bubbles on the Agents chart
     except Exception as e:
         return {'mode': 'off', 'err': str(e)[:80]}
 

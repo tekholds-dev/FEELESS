@@ -4,6 +4,7 @@ import { formatUSD, formatPct, shortAddress } from '../lib/dexscreener';
 
 // Slash commands. Lookup commands show a private card (only you see it); text commands post.
 export const COMMANDS = [
+  { cmd: 'callout', args: '$TICKER | CA [why]', desc: 'Post a callout bubble — the cap you called it at + your live P&L since, for everyone', tier: 0 },
   { cmd: 'buy', args: '$TICKER | CA [amount]', desc: 'Open the trade desk to buy it — you review + sign', tier: 0 },
   { cmd: 'sell', args: '$TICKER | CA [amount]', desc: 'Open the trade desk to sell it', tier: 0 },
   { cmd: 'price', args: '$TICKER | CA', desc: 'Live price, MC, liquidity, 24h', tier: 0 },
@@ -54,6 +55,12 @@ export async function runCommand(line, { room, wallet, tier }) {
     const list = (await (await fetch(apiUrl('/api/reputation/fuses'))).json()).fuses || [];
     const f = pickFuse(list, rest); if (!f) throw new Error('No live Fuses yet.');
     return { post: `${f.emoji || '⚛️'} ${f.name} ⚛️ fuse:${f.id}` };
+  }
+  if (c.cmd === 'callout') {   // 📣 like a Pump callout: the coin, the cap NOW (the call price) and your thesis; the bubble tracks it live
+    const [arg, ...why] = rest.trim().split(/\s+/);
+    const p = arg ? await findPair(arg) : await pairFromRoom(room);
+    const { calloutPost } = await import('../lib/callout');
+    return { post: calloutPost(p, (arg ? why : rest.trim().split(/\s+/)).join(' ')) };
   }
   if (c.cmd === 'boost') { if (!rest.trim()) throw new Error('Write the message after /boost.'); return { post: rest.trim(), boost: true }; }
   if (c.cmd === 'me') { if (!wallet?.address) throw new Error('Connect a wallet first.'); window.open(`/terminal/profile/${wallet.address}`, '_blank', 'noopener'); return { card: { title: 'Opened your profile ↗', lines: [] } }; }

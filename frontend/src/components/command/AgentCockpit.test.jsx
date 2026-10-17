@@ -196,3 +196,9 @@ test('📡 an empty seat reads its blocker as a headline + its numbers', () => {
   expect(huntSplit('')).toEqual(['waiting for a coin that clears every check', '']);
   expect(huntSplit('no colon here')).toEqual(['no colon here', '']);
 });
+
+test('📣 chart callouts: only the models\' calls on THIS coin, newest 3 first', () => {
+  const { chartCalls } = require('./AgentCockpit');
+  const rows = [{ mint: 'A', at: 1 }, { mint: 'B', at: 2 }, { mint: 'A', at: 3 }, { mint: 'A', at: 4 }, { mint: 'A', at: 5 }];
+  expect(chartCalls(rows, 'A').map(r => r.at)).toEqual([5, 4, 3]); expect(chartCalls(rows, 'C')).toEqual([]); expect(chartCalls(null, 'A')).toEqual([]);
+});

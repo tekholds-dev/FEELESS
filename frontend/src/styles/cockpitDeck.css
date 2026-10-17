@@ -165,3 +165,20 @@ body.theme-day .ack-warm { border-color: rgba(13, 122, 65, .3); }
 
 /* ⚡ Live desk = G4 × OSSY + the ten agents + the decision feed in one pane */
 .ack-livedesk { display: grid; gap: 10px; min-width: 0; }
+
+/* 📣 OSSY / G4 on the chart: their calls + talk as bubbles over the top-right of the plot (never blocks the candles: pointer-events on the bubbles only) */
+.ack-plot { position: relative; }
+.ack-ccall { position: absolute; top: 34px; right: 72px; z-index: 4; display: grid; gap: 5px; justify-items: end; max-width: min(260px, 46%); pointer-events: none; }
+.ack-ccall > * { pointer-events: auto; }
+.ack-cspeech { display: grid; gap: 1px; margin: 0; padding: 4px 8px; max-width: 240px; border-radius: 10px 10px 2px 10px; font: 600 9.5px var(--m-mono, 'JetBrains Mono', monospace);
+  background: rgba(10, 30, 18, .92); border: 1px solid rgba(21, 209, 106, .4); color: #e9fff3; animation: ackSpeech .25s ease-out both; animation-delay: calc(var(--i) * 60ms); }
+.ack-cspeech b { color: #bdf5d4; } .ack-cspeech span { overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; color: var(--m-mute, #a8c9b6); }
+.ack-cspeech.is-talk { background: rgba(34, 18, 60, .92); border-color: rgba(180, 140, 255, .5); } .ack-cspeech.is-talk b { color: #d8c2ff; }
+.ack-cspeech.is-sell { border-color: rgba(255, 143, 163, .55); } .ack-cspeech.is-sell b { color: #ff8fa3; }
+@keyframes ackSpeech { from { transform: translateY(-4px) scale(.97); opacity: 0; } to { transform: none; opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .ack-cspeech { animation: none; } } body.fx-lite .ack-cspeech { animation: none; }
+body.theme-day .ack-cspeech { background: rgba(240, 250, 244, .95); color: #10301d; } body.theme-day .ack-cspeech.is-talk { background: rgba(243, 236, 252, .95); }
+@media (max-width: 640px) { .ack-ccall { right: 8px; max-width: 70%; } }
+.ack-lvseg { margin: 0 0 8px; } .ack-lvseg small { opacity: .7; } .ack-lvpane[hidden] { display: none; } .ack-lvpane { animation: ackLv .18s ease-out; }
+@keyframes ackLv { from { transform: translateY(4px); } to { transform: none; } }
+@media (prefers-reduced-motion: reduce) { .ack-lvpane { animation: none; } }

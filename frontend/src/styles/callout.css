@@ -1,0 +1,25 @@
+/* 📣 callout bubbles (chat + the Agents chart) — transform / opacity only */
+.clo { position: relative; display: grid; gap: 4px; max-width: 360px; padding: 8px 10px; margin: 4px 0; border-radius: 12px 12px 12px 4px; cursor: default;
+  border: 1px solid rgba(21, 209, 106, .35); background: linear-gradient(150deg, rgba(10, 34, 20, .95), rgba(4, 12, 8, .95)); color: #e9fff3; animation: cloIn .22s ease-out; }
+.clo[role="button"] { cursor: pointer; } .clo[role="button"]:hover { transform: translateY(-1px); } .clo[role="button"]:focus-visible { outline: 2px solid #45e486; outline-offset: 2px; }
+.clo.is-up { border-color: rgba(21, 209, 106, .6); } .clo.is-down { border-color: rgba(255, 143, 163, .55); }
+.clo.is-ai { border-color: rgba(180, 140, 255, .55); background: linear-gradient(150deg, rgba(36, 18, 64, .95), rgba(6, 10, 16, .95)); }
+.clo.is-hot::after { content: ''; position: absolute; inset: -2px; border-radius: inherit; border: 2px solid #45e486; opacity: .0; animation: cloHot 1.6s ease-in-out infinite; pointer-events: none; }
+.clo-top { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 6px; margin: 0; font: 600 10.5px var(--m-mono, 'JetBrains Mono', monospace); }
+.clo-top b { color: #9fe3ff; } .clo-top em { font-style: normal; color: #fff; font-weight: 800; } .clo-top u { text-decoration: none; color: var(--gold, #e8c46a); } .clo-top small { margin-left: auto; color: var(--m-mute, #8fb3a0); }
+.clo-live { display: grid; grid-template-columns: auto auto minmax(40px, 1fr) auto; align-items: center; gap: 8px; margin: 0; font: 700 10px var(--m-mono, monospace); }
+.clo-x { font: 900 18px var(--m-mono, monospace); color: #45e486; } .clo.is-down .clo-x { color: #ff8fa3; } .clo.is-flat .clo-x { color: #e9fff3; }
+.clo-pct { color: #bdf5d4; } .clo.is-down .clo-pct { color: #ff8fa3; } .clo-live small { color: var(--m-mute, #8fb3a0); }
+.clo-bar { position: relative; height: 5px; border-radius: 3px; background: rgba(255, 255, 255, .08); overflow: hidden; }
+.clo-bar i { position: absolute; inset: 0; transform-origin: left; background: linear-gradient(90deg, #ff8fa3, #e8c46a 50%, #15d16a); transition: transform .5s ease; }
+.clo-why { margin: 0; font: 500 11px/1.35 var(--m-mono, monospace); color: var(--m-text, #e9fff3); overflow-wrap: anywhere; }
+.clo.is-compact { max-width: 240px; padding: 5px 8px; gap: 2px; } .clo.is-compact .clo-x { font-size: 14px; }
+.clo.is-tick-up .clo-x, .clo.is-tick-dn .clo-x { animation: cloTick .6s ease-out; }
+@keyframes cloIn { from { transform: translateY(6px) scale(.98); opacity: 0; } to { transform: none; opacity: 1; } }
+@keyframes cloHot { 50% { opacity: .6; transform: scale(1.01); } }
+@keyframes cloTick { 30% { transform: scale(1.18); } }
+@media (prefers-reduced-motion: reduce) { .clo, .clo.is-hot::after, .clo-x { animation: none !important; } .clo-bar i { transition: none; } }
+body.fx-lite .clo, body.fx-lite .clo.is-hot::after, body.fx-lite .clo-x { animation: none !important; }
+body.theme-day .clo { background: linear-gradient(150deg, #eefaf2, #f7fbf8); color: #10301d; } body.theme-day .clo-why { color: #10301d; } body.theme-day .clo-top em { color: #0a2a16; }
+body.theme-day .clo.is-ai { background: linear-gradient(150deg, #f1eafc, #f8f6fc); }
+@media (max-width: 640px) { .clo { max-width: 100%; } }
