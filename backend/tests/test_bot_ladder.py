@@ -56,7 +56,6 @@ def test_a_held_coin_that_turns_into_a_bot_ladder_is_out_and_never_a_seat():
     rv = ci.review({'structure': 'RANGE', 'invalidation': 0.001}, ch, 1.5, 12.0)
     assert rv['verdict'] == 'invalid' and 'BOT LADDER' in rv['why'][0]
     assert so.chart_quality(ci.compact(ch))[0] == 'INVALID'
-    case = {'mint': 'L', 'cleared': False, 'checks': [['scan', True, ''], ['chart', False, 'SKIP']], 'row': {'mint': 'L', 'chart': ci.compact(ch)}}
 
 
 def test_the_phase_decides_what_the_seats_hunt():
@@ -77,7 +76,6 @@ def test_the_phase_decides_what_the_seats_hunt():
 def test_an_empty_seat_is_decided_in_thirty_seconds_and_fills_have_their_own_guard():
     assert oe.NEAR_PATIENCE_SEC <= 30 and oe.SEAT_TARGET_AUTO <= 30
     assert ag.FILL_MOVES_HR >= 4 * ag.CONTROL_MOVES_HR // 2 and ag.CONTROL_MOVES_HR == 3     # switches: 3 an hour (2026-10-13, owner: trade less, seats stay filled); fills keep their room for 4 seats
-    ctx = {'control': True, 'pol': {'entry': 'auto'}, 'live': True, 'courier': 'OK', 'used': 6, 'gos': [{'mint': 'G'}], 'wait': [], 'empty': 1, 'now': 1000.0}
 
 
 def test_recovery_sends_more_deep_reviews_to_young_coins():

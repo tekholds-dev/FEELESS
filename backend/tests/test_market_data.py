@@ -208,12 +208,6 @@ def test_warden_only_ever_shrinks_on_degraded_data_and_tallys_confidence_is_on_e
     assert w['mult'] <= 0.5 and any(r['id'] == 'W13 market data' for r in w['rules'])
     assert of.warden(0.4, {**base, 'chart': dead})['veto'] and all(of.warden(0.4, {**base, 'chart': c})['allowed'] <= 0.4 for c in (ok, tape, dead))
     assert all(v <= 1.0 for v in md.RISK.values()) and set(md.RISK) <= set(md.STATES)                                  # there is no data state that grows a seat
-    # the trace: each desk answers its own question; Tally's data confidence leads it
-    mk = lambda ch, call='wait', **k: {'mint': 'T', 'symbol': 'T', 'pair': 'PT', 'px': 1.0, 'lean': 2.0, 'go': False, 'cleared': False,
-                                       'checks': [['scan', True, 'ok'], ['age', True, '8h'], ['pool', True, '$80K'], ['burn', True, 'ok'], ['devil', True, 'no evidence against it'],
-                                                  ['chart', ch['entry'][0] == 'ENTER NOW', f"{ch['state']} → {ch['entry'][0]}"], ['data', ch['q']['enterOk'], 'data']],
-                                       'row': {'mint': 'T', 'symbol': 'T', 'why': {'lean': 2.0, 'drivers': []}, 'trigger': [call, 'bar'], 'nums': {'pts': 9}, 'vitals': {}, 'chart': ci.compact(ch), 'objs': [], **k}}
-    ctx = {'tally': {'readings': 9, 'ageSec': 20}, 'sherlock': {'lean': 2.0}, 'weather': {'regime': 'CHOP'}, 'courier': {'health': 'HEALTHY', 'why': ['12 of 12 sends landed']}}
 
 
 def test_the_judge_counts_acting_on_bad_data_as_a_violation_and_never_invents_a_dollar_attribution():

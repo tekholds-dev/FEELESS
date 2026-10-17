@@ -756,7 +756,6 @@ def test_real_card_never_bypasses_stop_cooldown_when_candidates_are_thin():
 
 
 def test_keep_winners_never_changes_a_four_slot_shape_to_three_or_five():
-    now = 1000.0
     prices = {'p1': 1.0, 'p2': 1.2, 'p3': 1.0, 'p4': 1.0, 'p5': 1.0}
     old = [
         {'mint':'m1','pairAddress':'p1','symbol':'A','role':'anchor','units':1,'costUsd':1,'entry':1},
@@ -2183,7 +2182,6 @@ def test_parked_profit_stays_parked_when_a_pick_comes_in_and_safety_switches_hav
     base = {'coins': 4, 'rotateHours': 0.25, 'rescuePct': 0, 'cycleEvery': 0, 'cycles': {t: 'off' for t in ap.DEFAULT_CYCLES}, 'lockBankPct': 0, 'tpStakeUsd': 0, 'skimTo': 'round', 'skimHoldRounds': 6, 'floorPct': 0}
     cfg = ap.clean_cfg(base)
     card = ap.deal('degen', [], runners, ap.clean_cfg({**base, 'coins': 3}), 0.0, [], shape='degen')
-    worth = sum(l['units'] * l['entry'] for l in card['legs'])
     card = {**card, 'cash': card.get('cash', 0) + 60.0, 'holdCashUsd': 60.0, 'skimPark': [{'usd': 60.0, 'round': int(card.get('rounds') or 0), 'at': 0.0, 'symbol': 'R0'}],
             'seatPick': {'mint': 'NEW', 'pairAddress': 'PN', 'symbol': 'NEW', 'price': 1.0, 'liquidityUsd': 400_000, 'ack': True, 'ageH': 40}}
     out = ap.tick(card, {**{x['pairAddress']: 1.0 for x in runners}, 'PN': 1.0}, [], runners, cfg, 100.0, [], {}, {})

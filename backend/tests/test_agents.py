@@ -294,8 +294,6 @@ def test_they_learn_to_scalp_from_their_own_paths_without_look_ahead_and_the_rea
     assert ag.paper(st)['trail'][-1]['pct'] == 8.0 and ag.paper(st)['trail'][-1]['scalp'] is True   # the paper desk banks it at +8
     assert 'scalp' not in ag.scalp_adopt({'scalp': {'tp': 8, 'sl': 0}}, 1)                     # a plan that is no longer proven is dropped
     # the real agent seat: banks AT the learned line (swap into the next GO, else cash) — the creator's take line when no plan / switched off
-    leg = {'symbol': 'BOT', 'pairAddress': 'P1', 'mint': 'B', 'units': 1, 'entry': 1.0, 'bought': {'tag': '🤖 agents GO'}}
-    cfg = {'agentTakePct': 50, 'agentMode': 'auto'}
 
 
 

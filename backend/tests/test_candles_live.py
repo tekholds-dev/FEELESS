@@ -63,7 +63,7 @@ def test_no_history_starts_a_background_build_and_answers_with_live_ticks(monkey
 
 
 def test_history_builds_are_capped_per_call(monkeypatch):
-    built = _setup(monkeypatch, {})
+    _setup(monkeypatch, {})
     pairs = {'EFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz'[i] + 'D' * 42: None for i in range(cs.LIVE_NEW_BUILDS + 10)}
 
     async def run():

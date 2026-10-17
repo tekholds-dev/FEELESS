@@ -114,7 +114,7 @@ def test_a_pending_or_rate_limited_scan_never_rejects_the_coin():
     k = tk.Kernel()
     k.run([row('N', vitals={'mcap': 40_000, 'liq': 20_000, 'ageH': 0.05, 'vol1h': 20_000, 'safe': None})], 100.0)
     assert k.dec['N']['status'] in ('READY', 'CONTENDING') and 'holders' in k.dec['N']['opinions']['sherlock']['unknown']
-    e = en.Enricher(boot_at=0.0)
+    en.Enricher(boot_at=0.0)
     for st in ('PENDING', 'RATE_LIMITED', 'UNAVAILABLE', 'STALE', 'FRESH'):
         assert st in en.STATUS and st not in tk._s.STATES                              # an evidence state is not a candidate state
 
