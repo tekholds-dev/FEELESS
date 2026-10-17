@@ -71,3 +71,7 @@ body.theme-day .mys-lock { color: #8a6a12; } body.theme-day .mys-lock.is-on { ba
 .mys-chip.is-cut:hover:not(:disabled) { background: rgba(232, 196, 106, .14); }
 .mys-unit { min-width: 26px; font-weight: 800; }
 body.theme-day .mys-chip.is-cut { color: #7a4d00; }
+.mys-tp { display: inline-flex; gap: 3px; flex-wrap: wrap; }
+.mys-chip.is-take { color: #b9f5d2; border-color: rgba(21, 209, 106, .4); }
+.mys-chip.is-take:hover:not(:disabled) { background: rgba(21, 209, 106, .14); }
+body.theme-day .mys-chip.is-take { color: #0d6a35; }

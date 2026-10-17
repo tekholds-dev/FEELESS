@@ -4741,3 +4741,8 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   (controls | LIVE READ); panes stay mounted (`[hidden]`). After every save the hub reloads and the tapped row says ✓ IN FORCE (server value =
   your pick) or ⚠ NOT APPLIED. `test_every_control_option_saved_reads_back_as_that_value_on_the_panel` pins the round trip for every option.
 - ✂ SELL AN AMOUNT on every held seat (cockpit › Add my coin › SeatControls `SellBox`, `sellPct`): ✂ 25% / 50% + a box for any % or a $ amount ($ → the coin's % at its live value, capped 100) → the card's own ✂ manualSell (proceeds held as card cash for you; owner_moves files it as your move).
+- 🔁 OSSY / G4 DECIDE THEIR TURN (owner, 2026-10-16: "the agents can't stop them, they use the agents as helpers"): on a model's BUY the Warden only
+  ADVISES (fate line "Warden advised …", the seat is the card's full seat) and the agents' just-left cool-down does not apply (`_g4_blocked` =
+  keeper money refusals · impostors · YOUR pulls / ✋ lessons only). Still decide: the keeper's own checks (route, honeypot, price gap, pool),
+  your MC band / min age in the pre-check, a halted keeper, Courier BAD, a rug-level night trip. Seat rows (cockpit SeatControls) now carry
+  💰→coins · 🅿 park · 🏦 cash · 🏠 initial out · ❄ freeze (the same routes as My cards' ⋯ tray) beside ✂ sell-an-amount.

@@ -10678,11 +10678,11 @@ async def _prime_tick_inner(now):
                 why_no = ('stale (older than 2 min)' if not _seat.fresh(w_, now) else 'seat off / not real' if not g4_seat_ else '🌙 night guard: a rug-level trip pauses the AI seat too' if night_g4_
                           else 'manual authority' if pol_['manual'] else 'office not LIVE yet' if not rd_['live'] else 'keeper halted' if seat_ctx_['halt']
                           else 'courier BAD' if seat_ctx_['courier'] == 'BAD' else 'hourly fill guard' if used_ >= _uni.FILL_MOVES_HR
-                          else 'coin blocked (just left / refused)' if w_.get('mint') in _agent_blocked(cur, now) else None)
+                          else 'coin refused by the keeper / your own rule' if w_.get('mint') in _g4_blocked(cur, now) else None)
                 if why_no:
                     _g4_fate(w_, why_no, now)
             if (g4_seat_ and w_ and w_.get('action') == 'BUY' and _seat.fresh(w_, now) and not night_g4_ and not pol_['manual'] and rd_['live'] and not seat_ctx_['halt']
-                    and seat_ctx_['courier'] != 'BAD' and used_ < _uni.FILL_MOVES_HR and w_.get('mint') not in _agent_blocked(cur, now)):
+                    and seat_ctx_['courier'] != 'BAD' and used_ < _uni.FILL_MOVES_HR and w_.get('mint') not in _g4_blocked(cur, now)):
                 _g4['want'] = None   # 🧠 G4's BUY joins the SAME fill path as every agent seat — the keeper's pre-check, the Warden's size, the keeper's own checks
                 gt_ = _tk.KERNEL.candidate(w_['mint'])
                 if gt_ and gt_.get('pair'):
@@ -10700,7 +10700,7 @@ async def _prime_tick_inner(now):
                     break
                 if g4_seat_ and not t_.get('g4') and ag_fill_ >= empty_n:   # 🧠 one empty seat stays G4's while its seat is on
                     break
-                if t_['mint'] in _agent_blocked(cur, now):   # 🚫 banked / pulled / refused earlier in THIS tick
+                if t_['mint'] in (_g4_blocked(cur, now) if t_.get('g4') else _agent_blocked(cur, now)):   # 🚫 banked / pulled / refused earlier in THIS tick (OSSY / G4: only the keeper's and your own blocks)
                     continue
                 if pre_ is not None:
                     if t_['mint'] not in pre_:   # 🛂 the keeper would refuse it: no seat, the next READY coin is tried
@@ -10711,6 +10711,10 @@ async def _prime_tick_inner(now):
                     t_ = {**t_, 'px': lv_.get('px') or t_['px'], 'nums': {**(t_.get('nums') or {}), 'liq': lv_.get('liq') or (t_.get('nums') or {}).get('liq')}}
                 try:
                     wd_ = _office_warden(cur, t_, _prime.agent_seat_usd(cur, px, cfg_s), cfg_t, now, 'fill')   # 🛡 sizes THIS seat: it can lower or veto, never raise
+                    if t_.get('g4'):   # 🔁 OSSY / G4's turn is THEIR call (owner, 2026-10-16: "the agents can't stop them, they use the agents as helpers"): the Warden's word is advice, the seat is the card's full seat; the keeper's own money checks still run
+                        if wd_['veto'] or wd_['allowed'] < _prime.agent_seat_usd(cur, px, cfg_s):
+                            _g4_fate({'mint': t_['mint'], 'symbol': t_.get('symbol')}, 'Warden advised: ' + str(wd_.get('why') or wd_.get('rules') or 'smaller')[:70] + ' — the model\'s call stands', now)
+                        wd_ = {**wd_, 'veto': False, 'allowed': _prime.agent_seat_usd(cur, px, cfg_s)}
                     if wd_['veto']:
                         vetoed_ += 1
                         if t_.get('g4'):
@@ -13813,7 +13817,7 @@ async def _g4_tick(now, env, cfg):
         on_ = {l.get('mint') for l in card_.get('legs') or []}
         cands_ = [c_ for c_ in (_tk.KERNEL.candidate(m_, d_) for m_, d_ in _tk.KERNEL.ready(exclude=on_))][:_seat.CAND_N]
         cands_ += [c_ for c_ in (_tk.KERNEL.candidate(x_['mint']) for x_ in _tk.KERNEL.cases(exclude=on_) if x_['status'] == 'CONTENDING') if c_][:_seat.CAND_N - len(cands_)]
-        cands_ = [c_ for c_ in cands_ if c_ and c_.get('mint') and not _fw.dollar_named(c_.get('symbol')) and c_['mint'] not in _agent_blocked(card_, now)]
+        cands_ = [c_ for c_ in cands_ if c_ and c_.get('mint') and not _fw.dollar_named(c_.get('symbol')) and c_['mint'] not in _g4_blocked(card_, now)]
         pxm_ = await _live_px([c_['mint'] for c_ in cands_] + ([held_m] if held_m else []))
         px_of = lambda m_: _fuse._f(pxm_.get(m_)) or _fuse._f((_jup_px_cache.get(m_) or (0, 0))[1])
         pos_ = ((_office_state().get('pos') or {}).get(held_m) or {}) if held_m else {}
@@ -16271,6 +16275,13 @@ def _agent_blocked(card, now):
     for m_ in [m_ for m_, v_ in _agent_refused.items() if v_[0] <= now]:
         _agent_refused.pop(m_, None)
     return _prime.agent_out(card, now, lambda m_: _fuse._f((_jup_px_cache.get(m_) or (0, 0))[1]), _germ_of) | set(_agent_refused) | _co.blocked(_coach_state(), now) | set().union(set(), *[_fw.agent_no_buy(b, now) for b in books]) | _trl.skips(_taught_rules(), _office.get('taught') or {}) | {d_.get('mint') for d_ in _agents.get('impostors') or []}   # 🎭 impostors of a real coin + coins the creator pulled with a reason (6h) + 🎓 your lessons in ✋ skip mode
+
+
+def _g4_blocked(card, now):
+    """🔁 What OSSY / G4 may not buy on their turn: the keeper's money refusals, impostors and YOUR own pulls / ✋ lessons — never the
+    agents' own just-left cool-down (owner: "the agents can't stop them")."""
+    books = (_fw_peek().get('books') or {}).values()
+    return set(_agent_refused) | _co.blocked(_coach_state(), now) | set().union(set(), *[_fw.agent_no_buy(b, now) for b in books]) | _trl.skips(_taught_rules(), _office.get('taught') or {}) | {d_.get('mint') for d_ in _agents.get('impostors') or []}
 
 
 def _seat_refusals(tid, now, window=900.0, keep=5):

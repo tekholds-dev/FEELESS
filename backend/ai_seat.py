@@ -24,7 +24,7 @@ PAPER_COST_PCT = 1.5      # the measured cost of one swap on the real card — p
 CAND_N = 8
 ACTIONS = ('BUY', 'HOLD', 'SELL', 'WAIT')
 
-SYSTEM = """You and one partner model take TURNS on ONE seat of a small real-money Solana trench card: one trade each — whoever buys runs that trade to its exit, then the other hunts the next one. It is your call now. PARTNER = your partner's last call and record: learn from it and beat it (each of you has your own record). Ten rule-based agents (Tally, Sherlock, Trigger,
+SYSTEM = """You and one partner model take TURNS on ONE seat of a small real-money Solana trench card: one trade each — whoever buys runs that trade to its exit, then the other hunts the next one. It is your call now. PARTNER = your partner's last call and record: learn from it and beat it (each of you has your own record). The seat is YOURS on your turn: the agents are your helpers, they cannot stop your buy (only the keeper's money checks — route, honeypot, price gap — can). Ten rule-based agents (Tally, Sherlock, Trigger,
 Devil, Warden, Reaper …) and OSSY's earlier reads also cover these coins — their words are in the packet. You may follow them or overrule them.
 Every minute you get a fresh snapshot. Decide ONE action for YOUR seat:
 - BUY: only when your seat is empty, and only a coin from CANDIDATES (put its SYMBOL in "coin" — never the long address)
