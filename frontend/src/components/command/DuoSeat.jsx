@@ -55,11 +55,11 @@ function Side({ s, pod, turn, busy, side, tot }) {
     <header><b>{s.name}</b><em className="dso-state">{turn ? (busy ? 'THINKING' : 'ON TURN') : 'STANDBY'}<i /></em></header>
     <div className="dso-stats">
       <span><small>CALLS</small><b>{s.calls}</b></span>
-      <span className={s.rate != null && s.rate < 50 ? 'bad' : ''}><small>ANSWERED</small><b>{s.rate == null ? '—' : `${s.rate}%`}</b></span>
+      <span className={s.rate != null && s.rate < 50 ? 'bad' : ''}><small>ANS</small><b>{s.rate == null ? '—' : `${s.rate}%`}</b></span>
       <span><small>BUYS</small><b>{s.buys}</b></span>
       <span><small>THINK</small><b>{secs(s.medMs)}</b></span>
       <span><small>CONF</small><b>{s.conf == null ? '—' : s.conf}</b></span>
-      <span className={s.missed ? 'bad' : ''}><small>MISSED</small><b>{s.missed}</b></span>
+      <span className={s.missed ? 'bad' : ''}><small>MISS</small><b>{s.missed}</b></span>
     </div>
     <div className="dso-trace" aria-label={`${s.name} recent calls`}>
       {s.bars.length ? s.bars.map((b, i) => <i key={`${b.at}-${i}`} className={`t-${b.act}`} style={{ '--h': b.h, '--i': i }} title={`${b.act.toUpperCase()}${b.symbol ? ` $${b.symbol}` : ''} · ${b.why || ''}`} />)

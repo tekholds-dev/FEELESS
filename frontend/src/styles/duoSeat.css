@@ -27,9 +27,10 @@
 
 .dso-stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 4px; }   /* 6 across overlapped in the ~160px side card */
 .dso-stats span { display: grid; gap: 1px; min-width: 0; padding: 3px 4px; border-radius: 6px; background: rgba(255, 255, 255, .03); }
-.dso-stats small, .dso-stats b { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dso-stats small, .dso-stats b { min-width: 0; white-space: nowrap; }
+.dso-stats small { font-size: 7px; letter-spacing: .06em; }
 .dso-stats small { font-size: 7.5px; letter-spacing: .12em; }
-.dso-stats b { font: 800 12px var(--m-mono); color: var(--m-text, #e9fff3); }
+.dso-stats b { font: 800 11px var(--m-mono); color: var(--m-text, #e9fff3); }
 .dso-stats span.bad b { color: #ff8fa3; }
 
 .dso-trace { display: flex; align-items: flex-end; gap: 3px; height: 34px; padding: 2px 0; border-bottom: 1px solid color-mix(in srgb, var(--c) 25%, transparent); }
