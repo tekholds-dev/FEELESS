@@ -4705,3 +4705,9 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   germ held) ARMS a WAIT coin (never on SKIP / DATA / sellers / distributing) and ranks ×1.2 in `germ_rank`. Hand-set — judge on real exits.
 - FEE prompt opening = "tools first, `now` at most once, never the same tool twice, then answer" — "a tool call EVERY turn, `now` at least" made
   the 4B Qwen call `now` 14 times without answering.
+- 🔁 G4 SEAT FIXES (2026-10-16): the router masks any 20+ char run as ••• (`ai_router._KEYLIKE`), so a model that copied a mint ALWAYS got "mint
+  not on the list" — the packet now shows symbols only (+ `agentsPick`), the answer field is `coin`, and `ai_seat.parse` reads the ONE candidate
+  symbol its `why` names. 🤝 `ai_seat.backup`: a minute no model answers, the agents decide (holding → HOLD, empty → their READY + ENTER coin),
+  logged as model AGENTS with `miss` = why the models missed. 🧾 `_g4_fate` → duo `fate`: what happened to the newest model BUY (stale · paper ·
+  not LIVE · blocked · pre-check refused · Warden veto · seated) — a BUY used to vanish silently. Board = `DuoSeat` duel (`sideOf`: calls,
+  answered %, buys, think time, a latency trace per call; hex seat core; a beam from the last caller). The water tank + whales were scrapped.

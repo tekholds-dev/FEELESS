@@ -1,65 +1,85 @@
-// 🔁 G4 × OSSY — the tag-team seat (owner, 2026-10-16): the two models take turns deciding ONE seat, a call a minute. Drawn from the
-// Agents payload's `duo` block (no fetch of its own): whose turn it is, each model's own record, the open paper seat and the last calls.
+// 🔁 OSSY ⚔ G4 — the tag-team seat (owner, 2026-10-16): the two models take turns deciding ONE seat, a call a minute; when neither
+// answers, the agents decide (🤝 backup). Drawn from the Agents payload's `duo` block (no fetch of its own). Every number on the board is
+// from their real calls: answered vs missed, buys, latency, confidence, the open seat, each one's own closed-trade record.
 import React from 'react';
 import '../../styles/duoSeat.css';
 
 const ago = at => { const s = Math.max(0, Math.round(Date.now() / 1000 - (Number(at) || 0))); return s < 60 ? `${s}s` : s < 3600 ? `${Math.round(s / 60)}m` : `${Math.round(s / 3600)}h`; };
 const sgn = v => `${v >= 0 ? '+' : ''}${Number(v).toFixed(1)}%`;
+const secs = ms => (ms == null ? '—' : `${(ms / 1000).toFixed(1)}s`);
+const ACT = ['buy', 'sell', 'hold', 'wait', 'noanswer'];
+const actKey = a => { const k = String(a || '').toLowerCase().replace(/\s/g, ''); return ACT.includes(k) ? k : 'wait'; };
 
-// pure: one pod's numbers (n · won · typical) and how full its record bar is (won %, 0–1)
+// pure: one pod's record numbers (n · won · typical) and how full its record bar is (won %, 0–1)
 export function podOf(name, rec) {
   const r = (rec || {})[name] || {};
   return { name, n: r.n || 0, won: r.n ? r.won : null, med: r.n ? r.med : null, fill: r.n ? Math.max(0.04, Math.min(1, r.won / 100)) : 0 };
 }
 
-// pure: the 🌊 tank — water level = share of the summed result that WON (50 = break-even), tone, and one drop per closed trade
-// (won = a bubble floating up, lost = a red bead sinking; size = how big the move was). Display only; the record is the proof.
-export function tankOf(w) {
-  const level = Math.max(4, Math.min(96, Number(w?.level ?? 50)));
-  const drops = (w?.drops || []).map((d, i, a) => ({ ...d, good: d.pct > 0, x: a.length > 1 ? 6 + (88 * i) / (a.length - 1) : 50,
-    r: Math.max(3, Math.min(9, 3 + Math.sqrt(Math.abs(d.pct)) * 1.4)) }));
-  return { level, tone: !w?.n ? 'flat' : level >= 55 ? 'good' : level <= 45 ? 'bad' : 'flat', drops, n: w?.n || 0, net: w?.net };
+// pure: one fighter's live activity from the call log — calls it owned, how many it answered, its buys, typical latency, and the
+// signal trace (newest last): one bar per call, height = latency against the slowest call on the board, tone = the action.
+export function sideOf(name, log) {
+  const all = log || [];
+  const mine = all.filter(r => r.model === name);
+  const ok = mine.filter(r => r.action && r.action !== 'NO ANSWER');
+  const ms = ok.map(r => Number(r.ms)).filter(x => x > 0).sort((a, b) => a - b);
+  const top = Math.max(1, ...all.map(r => Number(r.ms) || 0));
+  return {
+    name, calls: mine.length, answered: ok.length, missed: mine.length - ok.length,
+    rate: mine.length ? Math.round((100 * ok.length) / mine.length) : null,
+    buys: ok.filter(r => r.action === 'BUY').length, sells: ok.filter(r => r.action === 'SELL').length,
+    medMs: ms.length ? ms[Math.floor(ms.length / 2)] : null,
+    conf: ok.length ? Math.round(ok.reduce((a, r) => a + (Number(r.conf) || 0), 0) / ok.length) : null,
+    last: mine[0] || null,
+    bars: mine.slice(0, 16).reverse().map(r => ({ act: actKey(r.action), h: Math.max(0.12, Math.min(1, (Number(r.ms) || top * 0.3) / top)), at: r.at, why: r.why, symbol: r.symbol })),
+  };
 }
 
-// pure: 🐋 one whale per model = its vital. Depth = its won % (high = winning, belly-down = losing, mid = no trades yet), size = trades,
-// mood = typical result after costs. The model whose turn it is glows and blows a spout.
-export function whaleOf(pod, turn) {
-  const top = pod.n ? Math.max(8, Math.min(78, 86 - pod.won * 0.8)) : 44;
-  return { ...pod, top, scale: Math.min(1.5, 0.8 + Math.sqrt(pod.n || 0) * 0.12), mood: pod.n == null || !pod.n ? 'new' : pod.med > 0 ? 'happy' : 'sad', turn };
-}
-
-const WhaleSvg = () => <svg viewBox="0 0 64 30" aria-hidden="true"><path className="wb" d="M4 17c0-7 9-12 22-12 11 0 19 4 24 9l9-7c1-1 3 0 2 2l-4 8 4 8c1 2-1 3-2 2l-9-7c-5 5-13 9-24 9C13 29 4 24 4 17z" />
-  <path className="wl" d="M8 20c6 4 18 5 30 1" /><circle className="we" cx="15" cy="14" r="1.8" /></svg>;
-
-function Tank({ water, pods = [], next }) {
-  const t = tankOf(water);
-  const whales = pods.map(p => whaleOf(p, next === p.name));
-  return <div className={`dso-tank t-${t.tone}`} data-testid="duo-tank" title="Water rises with winning trades, drains with losing ones (last 16 closed, after costs)">
-    <div className="dso-water" style={{ transform: `translateY(${100 - t.level}%)` }}><i className="w1" /><i className="w2" /></div>
-    {t.drops.map((d, i) => <span key={i} className={`dso-drop ${d.good ? 'up' : 'dn'}`} style={{ left: `${d.x}%`, width: d.r * 2, height: d.r * 2, '--i': i }} title={`${d.sym ? `$${d.sym} ` : ''}${sgn(d.pct)}`} />)}
-    {whales.map((w, i) => <div key={w.name} className={`dso-whale ${['w-g4', 'w-os'][i]} m-${w.mood} ${w.turn ? 'is-turn' : ''}`} data-testid={`duo-whale-${w.name}`}
-      style={{ top: `${w.top}%`, '--s': w.scale, '--i': i }} title={`${w.name}: ${w.n ? `${w.n} trades · ${w.won}% won · typical ${sgn(w.med)}` : 'no closed trades yet'}`}>
-      <i className="dso-spout" /><WhaleSvg /><em>{w.name}</em></div>)}
-    <b className="dso-tank-n">{t.n ? `${t.level}% won water · net ${sgn(t.net || 0)}` : 'tank fills as trades close'}</b>
-  </div>;
+function Side({ s, pod, turn, busy, side }) {
+  return <section className={`dso-side ${side} ${turn ? 'is-turn' : ''} ${turn && busy ? 'is-busy' : ''}`} data-testid={`duo-pod-${s.name}`}>
+    <i className="dso-scan" aria-hidden="true" />
+    <header><b>{s.name}</b><em className="dso-state">{turn ? (busy ? 'THINKING' : 'ON TURN') : 'STANDBY'}<i /></em></header>
+    <div className="dso-stats">
+      <span><small>CALLS</small><b>{s.calls}</b></span>
+      <span className={s.rate != null && s.rate < 50 ? 'bad' : ''}><small>ANSWERED</small><b>{s.rate == null ? '—' : `${s.rate}%`}</b></span>
+      <span><small>BUYS</small><b>{s.buys}</b></span>
+      <span><small>THINK</small><b>{secs(s.medMs)}</b></span>
+    </div>
+    <div className="dso-trace" aria-label={`${s.name} recent calls`}>
+      {s.bars.length ? s.bars.map((b, i) => <i key={`${b.at}-${i}`} className={`t-${b.act}`} style={{ '--h': b.h, '--i': i }} title={`${b.act.toUpperCase()}${b.symbol ? ` $${b.symbol}` : ''} · ${b.why || ''}`} />)
+        : <small className="dso-none">no calls yet</small>}
+    </div>
+    <span className="dso-rec"><i style={{ transform: `scaleX(${pod.fill})` }} /></span>
+    <small className="dso-recw">{pod.n ? `${pod.n} closed · ${pod.won}% won · ${sgn(pod.med)}` : 'no closed trades yet'}</small>
+    <p className="dso-last">{s.last ? <><b className={`a-${actKey(s.last.action)}`}>{s.last.action}{s.last.symbol ? ` $${s.last.symbol}` : ''}</b> {s.last.why} <small>· {ago(s.last.at)}</small></> : '—'}</p>
+  </section>;
 }
 
 export function DuoSeat({ duo }) {
-  if (!duo || duo.mode === 'off') return <div className="dso is-off" data-testid="duo-seat"><b>🔁 G4 × OSSY</b><small>seat off — turn it on in 🎛 Limits › 🧠 G4 SEAT</small></div>;
-  const pods = ['G4', 'OSSY'].map(n => podOf(n, duo.rec));
-  const last = (duo.log || [])[0];
-  return <div className={`dso is-${duo.mode} ${duo.next === 'OSSY' ? 'turn-ossy' : 'turn-g4'}`} data-testid="duo-seat">
-    <header><b>🔁 G4 × OSSY · {String(duo.mode).toUpperCase()}</b><small>{duo.busy ? 'thinking…' : last ? `last call ${ago(last.at)} ago` : 'first call within a minute'}</small></header>
-    <div className="dso-ring">
-      {pods.map((p, i) => <div key={p.name} className={`dso-pod ${['p0', 'p1'][i]} ${duo.next === p.name ? 'is-turn' : ''}`} data-testid={`duo-pod-${p.name}`}>
-        <i className="dso-core" aria-hidden="true" /><b>{p.name}</b>
-        <span className="dso-rec"><i style={{ transform: `scaleX(${p.fill})` }} /></span>
-        <small>{p.n ? `${p.n} · ${p.won}% won · ${sgn(p.med)}` : 'no closed trades yet'}</small></div>)}
-      <div className="dso-baton" aria-label={`${duo.next}'s call next`}><i /></div>
+  if (!duo || duo.mode === 'off') return <div className="dso is-off" data-testid="duo-seat"><b>🔁 OSSY ⚔ G4</b><small>seat off — turn it on in 🎛 Limits › 🧠 G4 SEAT</small></div>;
+  const log = duo.log || [];
+  const g4 = sideOf('G4', log), os = sideOf('OSSY', log);
+  const last = log[0];
+  const from = last?.model === 'OSSY' ? 'r' : last?.model === 'AGENTS' ? 'c' : 'l';
+  const agentsN = log.filter(r => r.model === 'AGENTS').length;
+  return <div className={`dso is-${duo.mode}`} data-testid="duo-seat">
+    <header className="dso-head"><b>🔁 OSSY ⚔ G4 · {String(duo.mode).toUpperCase()}</b>
+      <small>{duo.busy ? `${duo.next} is thinking…` : last ? `last call ${ago(last.at)} ago · ${duo.next} next` : 'first call within a minute'}</small></header>
+    <div className="dso-arena">
+      <Side s={g4} pod={podOf('G4', duo.rec)} turn={duo.next === 'G4'} busy={duo.busy} side="l" />
+      <div className="dso-core" data-testid="duo-open">
+        {last ? <i key={`${last.at}-${from}`} className={`dso-beam from-${from} a-${actKey(last.action)}`} aria-hidden="true" /> : null}
+        <div className="dso-hex"><i className="dso-ring" aria-hidden="true" />
+          <small>SEAT</small><b>{duo.open ? `$${duo.open.symbol}` : 'EMPTY'}</b>
+          <small>{duo.open ? `${duo.open.by === 'local' ? 'OSSY' : duo.open.by === 'agents' ? 'agents' : 'G4'} · peak ${sgn(duo.open.peak || 0)}` : `${duo.next} calls next`}</small>
+        </div>
+        {duo.fate ? <small className={`dso-fate ${/^seated/.test(duo.fate.why) ? 'ok' : /sent/.test(duo.fate.why) ? 'go' : 'no'}`} data-testid="duo-fate" title="What happened to the newest model BUY">
+          🧾 {duo.fate.symbol ? `$${duo.fate.symbol}` : 'buy'}: {duo.fate.why} · {ago(duo.fate.at)}</small> : null}
+        <small className="dso-agents" title="Minutes neither model answered, so the agents decided the seat">🤝 agents backed up {agentsN}{duo.agents?.n ? ` · ${duo.agents.n} closed, ${duo.agents.won}% won` : ''}</small>
+      </div>
+      <Side s={os} pod={podOf('OSSY', duo.rec)} turn={duo.next === 'OSSY'} busy={duo.busy} side="r" />
     </div>
-    <Tank water={duo.water} pods={pods} next={duo.next} />
-    <p className="dso-seat" data-testid="duo-open">{duo.open ? <>🪑 ${duo.open.symbol} · opened by {duo.open.by === 'local' ? 'OSSY' : duo.open.by === 'agents' ? 'the agents' : 'G4'} · peak {sgn(duo.open.peak || 0)}</> : <>🪑 seat empty — {duo.next} calls next</>}{duo.agents?.n ? <small> · 🤝 agents backed up {duo.agents.n} trades ({duo.agents.won}% won)</small> : null}</p>
-    <ol className="dso-log">{(duo.log || []).map((r, i) => <li key={`${r.at}-${i}`} className={`a-${String(r.action || '').toLowerCase().replace(/\s/g, '')} ${r.model === 'OSSY' ? 'by-ossy' : r.model === 'AGENTS' ? 'by-agents' : 'by-g4'}`} style={{ '--i': i }}>
-      <em>{r.model || '—'}</em><b>{r.action}{r.symbol ? ` $${r.symbol}` : ''}{r.pct != null ? ` ${sgn(r.pct)}` : ''}</b><span title={r.miss ? `models missed: ${r.miss}` : undefined}>{r.why}</span><small>{ago(r.at)}{r.ms ? ` · ${(r.ms / 1000).toFixed(1)}s` : ''}</small></li>)}</ol>
+    <ol className="dso-log">{log.slice(0, 8).map((r, i) => <li key={`${r.at}-${i}`} className={`a-${actKey(r.action)} ${r.model === 'OSSY' ? 'by-ossy' : r.model === 'AGENTS' ? 'by-agents' : 'by-g4'}`} style={{ '--i': i }}>
+      <em>{r.model || '—'}</em><b>{r.action}{r.symbol ? ` $${r.symbol}` : ''}{r.pct != null ? ` ${sgn(r.pct)}` : ''}</b><span title={r.miss ? `models missed: ${r.miss}` : undefined}>{r.why}</span><small>{ago(r.at)}{r.ms ? ` · ${secs(r.ms)}` : ''}</small></li>)}</ol>
   </div>;
 }

@@ -211,19 +211,6 @@ def record(closed):
             'med': round(statistics.median(xs), 2), 'best': round(max(xs), 1), 'worst': round(min(xs), 1)}
 
 
-def water(closed, n=16):
-    """🌊 The seat's tank for the page: the last `n` closed trades as drops (green = won, red = lost, size = |%|) and the level = the
-    share of the summed result that was won (50 = break-even water). Display only — the record above is the proof."""
-    xs = [x for x in closed or [] if x.get('pct') is not None][-n:]
-    if not xs:
-        return {'n': 0, 'level': 50, 'drops': []}
-    up = sum(_f(x['pct']) for x in xs if _f(x['pct']) > 0)
-    dn = -sum(_f(x['pct']) for x in xs if _f(x['pct']) < 0)
-    lvl = 50 if up + dn <= 0 else round(100 * up / (up + dn))
-    return {'n': len(xs), 'level': lvl, 'net': round(up - dn, 2),
-            'drops': [{'pct': round(_f(x['pct']), 1), 'sym': x.get('symbol'), 'by': x.get('by')} for x in xs]}
-
-
 def record_words(rec):
     r = rec or {}
     return 'no closed trades yet' if not r.get('n') else f"{r['n']} closed · {r['won']}% won · avg {r['avg']:+.1f}% · typical {r['med']:+.1f}% (after costs)"

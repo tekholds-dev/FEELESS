@@ -148,8 +148,3 @@ def test_when_no_model_answers_the_agents_decide_the_seat():
     assert seat.backup(c[:1], False)['action'] == 'WAIT' and seat.backup(c, True)['action'] == 'HOLD'
     assert seat.turn([{'by': 'agents', 'action': 'BUY'}], 'lan', 'local') == ('lan', 'local')   # a backup minute is nobody's turn
 
-
-def test_the_water_tank_level_is_the_share_of_the_result_that_won():
-    assert seat.water([])['level'] == 50
-    w = seat.water([{'pct': 9.0, 'symbol': 'A'}, {'pct': -3.0, 'symbol': 'B'}])
-    assert w['level'] == 75 and w['net'] == 6.0 and [x['pct'] for x in w['drops']] == [9.0, -3.0]
