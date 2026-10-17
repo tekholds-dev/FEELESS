@@ -3426,7 +3426,7 @@ async def _fuses_discover_raw(lens, chain):
         # coin from each in turn, MINUS every coin the real card bought, sold or holds in the last 24h. Safety facts ride on every row as usual.
         now_ = time.time()
         touched = {r.get('mint') for r in (_fw_peek().get('ledger') or []) if now_ - _fuse._f(r.get('at')) < 86400 and r.get('status') in ('filled', 'confirmed', 'sent', None)}
-        for c_ in ((_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('cards') or {}).values():
+        for c_ in _prime_cards().values():
             if c_.get('real'):
                 touched |= {l.get('mint') for l in c_.get('legs') or []}
         srcs = await asyncio.gather(*[_fuses_discover_raw(k, chain) for k in ('ptrend', 'movers', 'pump', 'volume', 'bottom')], return_exceptions=True)
@@ -3660,6 +3660,18 @@ async def fuses_evolve(request: Request, p: FuseEvolveIn):
 import fuse_hq as _hq
 import crowd as _crowd
 FUSE_HQ_PATH = DATA_DIR / 'fuse_hq.json'   # {'positions': [], 'arena': [], 'bloodline': []}
+
+
+def _prime_cards():
+    """The tier cards on file: fuse_hq.json › prime.cards → {tpl: card} (the parsed, cached copy — read only)."""
+    return (_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('cards') or {}
+
+
+def _real_card(default=None):
+    """The first real-money tier card on file, else `default`."""
+    return next((c for c in _prime_cards().values() if (c or {}).get('real')), default)
+
+
 FUSE_CHAT_POSTED_PATH = DATA_DIR / 'fuse_chat_posted.json'   # 🧈 _fuse_chat's once-per-key memory (was inside fuse_hq.json)
 _fuse_lite_cache: dict = {}
 
@@ -6940,7 +6952,7 @@ async def _trench_build(now):
     await _brain_track(now)
     await _li_track(now)
     try:   # 🔗 Pump's own socials for the open list's busiest coins + the real card's coins (lists read the cache)
-        legs_ = [l.get('mint') for c_ in ((_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('cards') or {}).values() if c_.get('real') for l in c_.get('legs') or []]
+        legs_ = [l.get('mint') for c_ in _prime_cards().values() if c_.get('real') for l in c_.get('legs') or []]
         await _pump_links_warm(legs_ + [r.get('mint') for r in (_open_board() or [])[:60]])
     except Exception as e:
         print('pump links:', e)
@@ -7505,7 +7517,7 @@ async def _bs_rows(ms):
         except Exception:
             pass
     tape = {}
-    for c in ((_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('cards') or {}).values():
+    for c in _prime_cards().values():
         for l in (c or {}).get('legs') or [] if (c or {}).get('real') else []:
             at, w = _flow_now.get(l.get('pairAddress'), (0, None))
             if w and now - at < 90 and l.get('mint') in ms:
@@ -8645,7 +8657,7 @@ async def _smart_track(now):
     re-derive the smart set, flag coins a smart wallet is buying now. The radar's own record = edge proof key 'smart'."""
     try:
         rows = [r for r in _edge_rank()[:8] if r.get('pairAddress')]
-        held = [l for c in ((_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('cards') or {}).values() if (c or {}).get('real') for l in c.get('legs') or [] if l.get('pairAddress') and l.get('mint') and l.get('symbol') != 'SOL']
+        held = [l for c in _prime_cards().values() if (c or {}).get('real') for l in c.get('legs') or [] if l.get('pairAddress') and l.get('mint') and l.get('symbol') != 'SOL']
         pm = {r['pairAddress']: r['mint'] for r in rows}
         pm.update({l['pairAddress']: l['mint'] for l in held})
         await _flow_fetch(list(pm), max_age=60)
@@ -8742,7 +8754,7 @@ def _flow_intel(mint):
 async def _flow_guard(now, px):
     """🌊 + 🚨 on the real card(s): read each held coin's tape, sell what flow / the rug radar flags (like a fast stop), score each exit."""
     rcfg = _prime_real_cfg()
-    all_c = [c for c in ((_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('cards') or {}).values() if c.get('real') and not c.get('flooredAt')]
+    all_c = [c for c in _prime_cards().values() if c.get('real') and not c.get('flooredAt')]
     cards = [c for c in all_c if not c.get('holdAll')]
     # 🎮 the AGENTS' seats: their tape is read on the same cadence (Reaper's R4 dump + R4r rug radar stand on it — the agents' card is held,
     # so the engine's flow exit never touched it and the tape sat 60–160s old); nothing here exits an agent seat, Reaper decides
@@ -8801,7 +8813,7 @@ _guard_agents = {'held': False}
 async def _limit_check(now):
     """🎯 LIMIT ORDERS: every guard pass, ONE batched live-price read for the real cards' limits; a crossed line hands the order to the card's
     NORMAL path (buy → your seat pick / pick swap now · sell → ✂ to card cash) and the keeper is kicked. It never signs anything itself."""
-    cards_ = [c for c in ((_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('cards') or {}).values() if c.get('real') and c.get('limits')]
+    cards_ = [c for c in _prime_cards().values() if c.get('real') and c.get('limits')]
     ms_ = sorted({x.get('mint') for c in cards_ for x in c.get('limits') or [] if x.get('mint')})
     if not ms_:
         return
@@ -8845,7 +8857,7 @@ async def _real_guard_loop():
             if _is_keeper():
                 # 🎮 a card the AGENTS control (holdAll by 'agents') is read too: its seats get the same fresh price every ~6s (P/L velocity +
                 # Reaper's hard lines wake the tick) — the engine's own fast stop / instant swap still act only on cards the engine runs
-                cards_all = [c for c in ((_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('cards') or {}).values() if c.get('real') and not c.get('flooredAt') and (not c.get('holdAll') or c.get('holdBy') == 'agents')]
+                cards_all = [c for c in _prime_cards().values() if c.get('real') and not c.get('flooredAt') and (not c.get('holdAll') or c.get('holdBy') == 'agents')]
                 cards = [c for c in cards_all if not c.get('holdAll')]
                 agents_c = [c for c in cards_all if c.get('holdAll')]
                 try:
@@ -11216,10 +11228,10 @@ async def fuse_prime():
 
 async def _fuse_prime_build():
     """⭐ Arena Prime cards (paper, fully auto) with every automation event + the config they run."""
-    _rc = _prime_real_cfg() if any((c or {}).get('real') for c in ((_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('cards') or {}).values()) else {}
+    _rc = _prime_real_cfg() if any((c or {}).get('real') for c in _prime_cards().values()) else {}
     _seed = sum(ord(ch) for ch in ''.join(sorted(_owner_wallets()))[:44]) if _rc else 0   # ⚡ each owner's card gets its own variant of the meta
     _ht, _hp, _hn = _human_style()
-    _rcard = next((c for c in ((_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('cards') or {}).values() if (c or {}).get('real')), None) if _rc else None
+    _rcard = _real_card() if _rc else None
     _lst = (_rcard or {}).get('ladderStage') or _prime.ladder_stage(_ladder_value(_rcard)) if _rcard else None
     _lkeep = (_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('ladderKeep') or []
     _lad = {**_prime.ladder_view(_lst), 'on': bool(_rc.get('ladder')), 'value': round(_ladder_value(_rcard), 2), 'keys': _prime.ladder_keys(_lst), 'keep': _lkeep} if _rcard else None
@@ -11467,7 +11479,7 @@ async def fuse_prime_admin(request: Request):
         bench = set().union(*[_fw.benched(b, time.time()) for b in (_fw_peek().get('books') or {}).values()] or [set()])
         def _lq(x):
             v = x.get('liquidity'); return _fuse._f(v.get('usd') if isinstance(v, dict) else v) or _fuse._f(x.get('liq')) or _fuse._f(x.get('liquidityUsd'))
-        other = {l.get('mint') for t, cc in ((_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('cards') or {}).items() if t != rep['tpl'] for l in cc.get('legs') or [] if l.get('role') != 'anchor'}
+        other = {l.get('mint') for t, cc in _prime_cards().items() if t != rep['tpl'] for l in cc.get('legs') or [] if l.get('role') != 'anchor'}
         ok_ = lambda xs: [x for x in xs if _lq(x) >= _fw.liq_floor(fw_cfg, x.get('arena')) and x.get('mint') not in bench]
         pools, runners = ok_(pools), sorted(ok_(runners), key=lambda x: x.get('mint') in other)
         async with _admin_lock:
@@ -12921,7 +12933,7 @@ def _fw_public(tid, equity_usd=None, sol_px=None, prices=None):
               'rpc': _rpc_quota_state()}
     # walletUsd is the engine's cumulative realized-profit payout counter and survives reinvests; old real ledgers did not
     # stamp payoutUsd on sell rows, which made PAID OUT EVER falsely show $0. Never infer history from current bankSol.
-    card = ((_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('cards') or {}).get(tid) or {}
+    card = _prime_cards().get(tid) or {}
     visible = {l.get('mint') for l in card.get('legs') or []}
     off_card = []
     for mint, leg in (b.get('legs') or {}).items():
@@ -13211,7 +13223,7 @@ async def fuse_wallet_recover_sell_all(request: Request):
     cfg = _fw_cfg()
     if not cfg.get('address') or not cfg.get('armed') or cfg.get('paused'):
         raise HTTPException(400, 'Fuse wallet must be armed and running.')
-    cards = ((_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('cards') or {})
+    cards = _prime_cards()
     card = cards.get(tid)
     if not card or not card.get('real'):
         raise HTTPException(400, 'That tier is not a real card.')
@@ -14954,7 +14966,7 @@ _cev_cache: dict = {}
 def _chat_syms():
     """Symbols on the real card + the recent decision tape (what a chat message may name without a $)."""
     try:
-        card_ = next((c for c in ((_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('cards') or {}).values() if c.get('real')), {}) or {}
+        card_ = _real_card() or {}
         out = [l.get('symbol') for l in card_.get('legs') or [] if l.get('symbol')]
         out += [r.get('symbol') for r in list(_tk.KERNEL.tape.rows)[-200:] if isinstance(r, dict) and r.get('symbol')]
         return list(dict.fromkeys(out))
@@ -14968,7 +14980,7 @@ def _chat_coin(text):
     syms = _aic.named_syms(text, _chat_syms())[:2]
     if not syms:
         return None
-    card_ = next((c for c in ((_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('cards') or {}).values() if c.get('real')), {}) or {}
+    card_ = _real_card() or {}
     pos_ = _office_state().get('pos') or {}
     reps_ = {r_.get('mint'): r_ for r_ in (_office.get('reports') or []) if isinstance(r_, dict)}
     moves_ = (_json_load(OWNER_MOVES_PATH, {}) or {}).get(_office.get('tid') or '', {}) or {}
@@ -15006,7 +15018,7 @@ def _owner_brief():
     p_ = _office.get('payload') or {}
     st_ = p_.get('ownerStudy') or {}
     lg_ = (_json_load(OWNER_MOVES_PATH, {}) or {}).get(_office.get('tid') or '', {}) or {}
-    card_ = next((c for c in ((_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('cards') or {}).values() if c.get('real')), {}) or {}
+    card_ = _real_card() or {}
     picks_ = [{'coin': l.get('symbol'), 'heldMin': round((time.time() - _fuse._f(l.get('at'))) / 60) if l.get('at') else None,
                'yourStop': l.get('sl') if l.get('ownerLvAt') else None, 'yourTake': l.get('tp') if l.get('ownerLvAt') else None}
               for l in card_.get('legs') or [] if l.get('picked') and not l.get('placeholder')]
@@ -15028,7 +15040,7 @@ def _chat_evidence(question, now):
         pk, st = hit[1]
         return {**pk, 'question': str(question)[:300]}, st
     tid = _office.get('tid') or 'degen'
-    card = (((_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('cards') or {}).get(tid) or {})
+    card = (_prime_cards().get(tid) or {})
     rows = list(_tk.KERNEL.tape.rows)
     pk, st = _cev.packet(question, w, (_json_load(ARCHIVE_PATH, {}) or {}).get('positions'), _fw_full_ledger(), ((_office_state().get('judge') or {}).get('reviews')) or [],
                          card.get('events') or [], rows, min((_fuse._f(r.get('at')) for r in rows), default=now), tid)
@@ -15825,7 +15837,7 @@ def _kernel_view(now):
         c_['scan'] = _ENRICH.status(c_['mint'], now)
     try:   # 📏 order → fill, timed from the keeper's own ledger rows (the truth of a fill)
         tid_ = _office.get('tid')
-        ev_ = (((_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('cards') or {}).get(tid_ or '') or {}).get('events') or []
+        ev_ = (_prime_cards().get(tid_ or '') or {}).get('events') or []
         v['metrics']['execution'] = _tkm.execution(_office_ledger(), ev_, tid_, now)
     except Exception as e:
         print('exec timings:', str(e)[:100])
@@ -15836,10 +15848,10 @@ def _kernel_ctx(now):
     """The small context the ten agents read: held positions (entry · peak · Reaper's stop) · the weather · execution health · the Judge's weights."""
     pos = _office.get('pos') or {}
     held = {l.get('mint'): {'entry': _fuse._f(l.get('entry')), 'peak': _fuse._f((pos.get(l.get('mint')) or {}).get('peak')), 'stopNow': (pos.get(l.get('mint')) or {}).get('stopNow')}
-            for l in ((((_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('cards') or {}).get(_office.get('tid') or '') or {}).get('legs') or [])
+            for l in ((_prime_cards().get(_office.get('tid') or '') or {}).get('legs') or [])
             if l.get('mint') and not l.get('placeholder') and _fuse._f(l.get('units')) > 0}
     rd = _office.get('ready') or {}
-    legs_ = ((((_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('cards') or {}).get(_office.get('tid') or '') or {}).get('legs') or [])
+    legs_ = ((_prime_cards().get(_office.get('tid') or '') or {}).get('legs') or [])
     pending = {l.get('mint') for l in legs_ if l.get('mint') and not l.get('placeholder') and _fuse._f(l.get('units')) <= 0}   # a seat the keeper is still buying
     return {'held': held, 'pending': pending, 'regime': (_agents.get('weather') or {}).get('regime'), 'courier': (_office.get('courier') or {}).get('health'),
             'live': rd.get('live') if rd else None, 'weights': _judge_weights(now), 'aiw': _ai_weights(now), 'pens': _coach_pens(now), 'lessons': _tkl.lessons(_lc_book(now)), 'lab': _rlab.trigger_lessons(_lab_state()), 'waits': _rg.effective(_prime.clean_cfg((_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('realCfg') or {}), _regret_book()),
@@ -16391,7 +16403,7 @@ def _taught_stamp(table, now):
     try:
         rules = _taught_rules()
         hrs = (rules.get('same narrative') or {}).get('hours', 6)
-        legs_ = ((((_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('cards') or {}).get(_office.get('tid') or '') or {}).get('legs') or [])
+        legs_ = ((_prime_cards().get(_office.get('tid') or '') or {}).get('legs') or [])
         by_m = {r_.get('mint'): r_ for r_ in table or []}
         held_ = [{'symbol': l.get('symbol') or (by_m.get(l.get('mint')) or {}).get('symbol'), 'name': (by_m.get(l.get('mint')) or {}).get('name'), 'mint': l.get('mint')}
                  for l in legs_ if l.get('mint') and not l.get('placeholder')]
@@ -16771,11 +16783,11 @@ async def _agents_tick(now):
         except Exception as e:
             print('intake:', e); extra_, fresh_, outl_, own_, board_m = [], {}, {}, {}, set()
         ob_ = ob_ + extra_
-        held_l = {l.get('mint') for l in ((_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('cards') or {}).get(_office.get('tid') or '', {}).get('legs') or [] if l.get('mint')}
+        held_l = {l.get('mint') for l in _prime_cards().get(_office.get('tid') or '', {}).get('legs') or [] if l.get('mint')}
         cap_ = max(_uni.lane_cap(ob_), _agents.get('laneStep') or _uni.LANE_CAPS[0]); _agents['laneCap'] = cap_   # 🪜 the smallest cap that can fill the seats ($200K first) — or wider, when last pass's ranking came up short
         _owner['only'] = {m_ for m_ in own_ if m_ not in held_l and not (m_ in board_m or m_ in fresh_ or m_ in outl_)} | {x.get('mint') for x in ob_ if x.get('mint') in own_ and x.get('mint') not in held_l and not _uni.in_lane(x, cap_)}
         try:   # 🎭 OFFICIAL COIN GUARD: a launch wearing the ticker of a real, bigger coin (the $20M STREAM vs a $40K "STREAM") never reaches the desk
-            legs_h = ((_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('cards') or {}).get(_office.get('tid') or '', {}).get('legs') or []
+            legs_h = _prime_cards().get(_office.get('tid') or '', {}).get('legs') or []
             seen_ = list(ob_) + [{'symbol': (p_.get('baseToken') or {}).get('symbol'), 'mint': (p_.get('baseToken') or {}).get('address'),
                                   'mcap': p_.get('marketCap') or p_.get('fdv')} for p_ in (_open_pairs or [])]
             est_ = _imp.established(seen_, _fuse.ALL_MAJORS, [l for l in legs_h if not l.get('placeholder')])
@@ -16795,7 +16807,7 @@ async def _agents_tick(now):
         for c_ in _pump_calls.get('calls') or []:
             if c_.get('mint') and 'calls' not in src_.get(c_['mint'], []):
                 src_.setdefault(c_['mint'], []).append('calls')
-        held_m = [l.get('mint') for l in ((_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('cards') or {}).get(_office.get('tid') or '', {}).get('legs') or [] if l.get('mint')]
+        held_m = [l.get('mint') for l in _prime_cards().get(_office.get('tid') or '', {}).get('legs') or [] if l.get('mint')]
         seen_mem = _office.get('seen') or {}
         cool_ = {k_ for k_, e_ in seen_mem.items() if not _oe.review_due(e_, now)[0]}
         # held coins always + last pass's strongest cases / bench — but a rejected case with nothing new since does not hold a seat at the table
@@ -16859,7 +16871,7 @@ async def _agents_tick(now):
         wfn_ = lambda nums_, rows_, s_, n_: (lambda w_: {**w_, 'adj': _of.weather_adj(w_)})(_of.weather(nums_, rows_, s_, n_, cour_['health'], of_))   # 🌦 ONE regime a pass
         # 📈 ONE shared chart snapshot per coin: real 1-min candles for the coins on the real card + last pass's strongest cases (≤ a dozen
         # requests, cached), Tally's own tape for everything else. Every desk reads that one object.
-        held_ = {l.get('mint'): l.get('pairAddress') for l in ((_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('cards') or {}).get(tid_r or '', {}).get('legs') or [] if l.get('mint') and not l.get('placeholder')}
+        held_ = {l.get('mint'): l.get('pairAddress') for l in _prime_cards().get(tid_r or '', {}).get('legs') or [] if l.get('mint') and not l.get('placeholder')}
         seen_mem = _office.get('seen') or {}
         # 🔬 DEEP REVIEW (real 1-min candles) = the top of the ranked bench first, then the strongest reads — but a rejected coin with nothing new
         # is not re-reviewed (its slot goes to a coin with news); each pick records WHY it was due (never reviewed · material change · cooldown over)
@@ -17282,7 +17294,7 @@ async def _intake_pass(ob, now, owner=()):
     seen['feeders'] = [{'mint': m_} for m_ in list((fb.get('runners') or {}).keys()) + list((fb.get('kids') or {}).keys()) if m_]
     p2m = {p.get('pairAddress'): (p.get('baseToken') or {}).get('address') for p in _open_pairs}
     seen['radar'] = [{'mint': p2m[pa], 'symbol': sy} for pa, sy in (_radar.get('pairs') or {}).items() if p2m.get(pa)]
-    seen['held'] = [{'mint': l.get('mint'), 'symbol': l.get('symbol')} for l in ((_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('cards') or {}).get(_office.get('tid') or '', {}).get('legs') or [] if l.get('mint') and not l.get('placeholder')]
+    seen['held'] = [{'mint': l.get('mint'), 'symbol': l.get('symbol')} for l in _prime_cards().get(_office.get('tid') or '', {}).get('legs') or [] if l.get('mint') and not l.get('placeholder')]
     reg, new_by, new_all = _in.note(_intake_reg(), seen, now)
     _intake['reg'] = reg
     have = {r['mint'] for r in ob if r.get('mint')}
@@ -17390,7 +17402,7 @@ def _office_cycle_log(table, now):
 def _office_fresh(now):
     """⏱ The six ages, separately, for the coins decisions stand on (held coins + this tick's live-checked candidates)."""
     tid = _office.get('tid')
-    legs = [l for l in ((_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('cards') or {}).get(tid or '', {}).get('legs') or [] if l.get('mint') and not l.get('placeholder')]
+    legs = [l for l in _prime_cards().get(tid or '', {}).get('legs') or [] if l.get('mint') and not l.get('placeholder')]
     cands = [x_ for x_ in (_agents.get('table') or [])[:12]]
     hv = [_mkt_view(l.get('mint'), l.get('pairAddress'), now) for l in legs]
     views = hv + [_mkt_view(x_.get('mint'), x_.get('pair'), now) for x_ in cands]
@@ -17525,7 +17537,7 @@ def _office_ledger(n=600):
 def _office_real():
     """→ (the real card's id, its wallet book) — read once per agent pass, never per page view."""
     try:
-        tid = next((k for k, c in ((_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('cards') or {}).items() if c.get('real')), None)
+        tid = next((k for k, c in _prime_cards().items() if c.get('real')), None)
         return tid, ((_fw_load().get('books') or {}).get(tid) or {}) if tid else {}
     except Exception:
         return None, {}
@@ -17907,7 +17919,7 @@ def _office_pass(st, table, now, rcfg, jp, arch, cour, tid, desk_ms):
     seen = _fuse._f(of.get('actionSeen'))
     wd = _office.get('warden')
     by_m = {x['mint']: x for x in table}
-    for e in [e for e in ((_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('cards') or {}).get(tid or '', {}).get('events') or [] if e.get('kind') == 'agent' and e.get('move') in ('fill', 'swap', 'pull', 'veto') and _fuse._f(e.get('at')) > seen]:
+    for e in [e for e in _prime_cards().get(tid or '', {}).get('events') or [] if e.get('kind') == 'agent' and e.get('move') in ('fill', 'swap', 'pull', 'veto') and _fuse._f(e.get('at')) > seen]:
         x_ = by_m.get(e.get('mint')) or next((x for x in table if x.get('symbol') == e.get('symbol')), None)
         full = _tk.KERNEL.case(x_['mint']) if x_ else None
         d_ = _tkv.lineage(full, {**ctx0, 'warden': wd if wd and wd.get('mint') == (x_ or {}).get('mint') else None, 'evidence': _of.evidence_refs(full['row'].get('social'))}, e.get('move')) if full else {'mint': e.get('mint'), 'sym': e.get('symbol'), 'action': e.get('move'), 'px': None}
