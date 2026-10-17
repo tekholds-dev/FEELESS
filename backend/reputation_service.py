@@ -13916,7 +13916,7 @@ async def _g4_tick(now, env, cfg):
             if len(legs_r) >= int(_fuse._f(_prime_real_cfg(pr_).get('coins')) or 4) and not any(l.get('placeholder') for l in card_.get('legs') or []):
                 lw_ = next((r_ for r_ in reversed(st_['log']) if r_.get('seatWait')), None)
                 if not lw_ or now - (lw_.get('at') or 0) > 300:
-                    _g4_mem.put({**(_g4_mem.get() or {}), 'log': _seat.note(st_['log'], {'at': round(now), 'mode': mode_, 'model': 'SEAT', 'by': None, 'seatWait': True, 'action': 'WAIT',
+                    _g4_mem.put({**(_g4_mem.get() or {}), 'log': _seat.note(_seat.merge_log(st_['log'], (_g4_mem.get() or {}).get('log')), {'at': round(now), 'mode': mode_, 'model': 'SEAT', 'by': None, 'seatWait': True, 'action': 'WAIT',
                                                                                          'why': f'every seat is full ({len(legs_r)}) — waiting for one to open, then it is back to their turn'})}, now)
                 _g4['phase'] = 'SEATS FULL'
                 if now - _fuse._f(st_.get('idleAt')) >= _seat.IDLE_EVERY:   # 💬 seats full: one model (alternating) still reads the card's trades and says what it would do — graded by the market like every call
@@ -14029,12 +14029,13 @@ async def _g4_tick(now, env, cfg):
             except Exception as e_t:
                 print('g4 talk:', str(e_t)[:100])
         if not held_ and mode_ == 'real' and now - _fuse._f(st_.get('idleAt')) >= _seat.IDLE_EVERY:   # 💬 between trades the two still talk: the waiting model reads the card's coins and says what it would do
-            _g4_mem.put({**(_g4_mem.get() or {}), 'log': log_}, now)
+            _g4_mem.put({**(_g4_mem.get() or {}), 'log': _seat.merge_log(log_, (_g4_mem.get() or {}).get('log'))}, now)
             await _g4_idle(now, env, cfg, {**st_, 'log': log_}, [l for l in card_.get('legs') or [] if not l.get('placeholder') and _fuse._f(l.get('units')) > 0 and l.get('mint') != _fw.SOL_MINT], mode_, who=second_)   # the one NOT hunting talks
             log_ = (_g4_mem.get() or {}).get('log') or log_
         m1_ = _g4_mem.get() or {}   # the seat may have opened (and the stats restarted) while this model was thinking
         if (m1_.get('statsFrom') or 0) > (st_.get('statsFrom') or 0):
             log_ = [r_ for r_ in log_ if (r_.get('at') or 0) >= m1_['statsFrom']]
+        log_ = _seat.merge_log(log_, m1_.get('log'))   # 💬 keep your chime-in (and any line) written while the model thought
         _g4_mem.put({'log': log_, 'book': book_, 'at': now, 'opener': m1_.get('opener') or st_.get('opener'), 'talkAt': talk_at, 'statsFrom': m1_.get('statsFrom'), 'idleAt': m1_.get('idleAt') or st_.get('idleAt'), 'opened': m1_.get('opened') or {}}, now)   # 🚫 keep the bought-coins list (it was dropped every minute → $1 bought 3×)
     except Exception as e_:
         print('g4 seat:', str(e_)[:140])

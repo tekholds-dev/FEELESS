@@ -4813,3 +4813,6 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   lowerLows. BUG FIXED: the old "chart every 2nd read" read `snapshot()['text']` — the field is `line`, so the models never got a chart.
   🦠 `ai_seat.structure_hold`: a model SELL of a coin on its 1m / 5m germ floor (≤ 15%) or with 2+ higher lows and no lower low → HOLD on slow
   volume, unless sellers lead the 90s tape (`_office['flow']` state SELLERS) or it is really losing; stops / hard exits untouched.
+- 💬 YOUR CHIME-IN IS NEVER LOST: the minute save rewrote the duo log with the copy it loaded BEFORE the model thought (30–90s), wiping any
+  comment posted meanwhile — so the model never read it either. Every `_g4_mem` log save goes through `ai_seat.merge_log` (union by at · by ·
+  action · why). SYSTEM + ADVISE tell the models to answer `learn.ownerSays` FIRST in their why.

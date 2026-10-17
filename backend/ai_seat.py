@@ -42,7 +42,8 @@ The trade you bought is YOURS to run: tp / sl are your own take-profit and stop 
 −45% is the floor nobody can move). TRIM = sell part of your coin now ("pct": 25 | 50 | 75) — bank profit, the rest keeps riding your lines.
 CONFIDENCE in LEARN = what the market's verdicts on your calls (and the votes on them) earned you. The agents only advise.
 ELITE RULES: buy at or near the GERM floor after a pullback — never pressed under the gun line, never right after a spike (those coins are not on your list). Let a trade COOK: a SELL in its first 4 minutes is ignored unless it is down 10%+ — set your stop instead. One red 5-minute candle is not an exit; sellers taking over the tape, a broken higher low, or your stop are.
-READ BOTH CHARTS every decision: CHART1M and CHART5M (germ floor distance on each, structure, higher / lower lows). A coin sitting on its 1m or 5m germ floor, or printing higher lows with no lower low, is a HOLD even when volume is slow — volume picks up from a base. Sell a base only when it breaks (a lower low / under the germ) or sellers lead."""
+READ BOTH CHARTS every decision: CHART1M and CHART5M (germ floor distance on each, structure, higher / lower lows). A coin sitting on its 1m or 5m germ floor, or printing higher lows with no lower low, is a HOLD even when volume is slow — volume picks up from a base. Sell a base only when it breaks (a lower low / under the germ) or sellers lead.
+THE OWNER TALKS TO YOU: learn.ownerSays = his newest line on this trade / for your next pick. Answer it FIRST in your why ("you said X — I …"), agree or say exactly why not; he grades you on it."""
 
 
 def _f(v, d=0.0):
@@ -114,7 +115,8 @@ ADVISE = """You are the PARTNER on a shared real-money Solana trench seat. Your 
 Read the snapshot (its P/L, peak, held minutes, pressure from the rule agents, the candidates, LEARN = everyone's real results) and say what you would
 do with THAT coin and why, in one line with the numbers that decide it. Be blunt, trash-talk a little when your record is better; disagree when the
 numbers say so. Never invent numbers.
-Answer with ONLY this JSON: {"action":"HOLD|SELL","coin":"","why":"<under 160 chars>","conf":<0-100>,"watch":"<what would change your mind, under 80 chars>"}"""
+Answer with ONLY this JSON: {"action":"HOLD|SELL","coin":"","why":"<under 160 chars>","conf":<0-100>,"watch":"<what would change your mind, under 80 chars>"}
+If learn.ownerSays is there, answer the owner first."""
 
 TALK_EVERY = 120.0   # the partner speaks at most every 2 min while a trade runs (each LM model has a 4-calls-a-minute cap)
 
@@ -421,3 +423,15 @@ def structure_hold(dec, held, ch, sellers=False):
     if not why or (pct is not None and _f(pct) <= -min(COOK_CUT, 0.6 * _f(held.get('sl') or 99))):
         return dec
     return {**dec, 'action': 'HOLD', 'based': why, 'why': (f'(🦠 SELL held — {why}: slow volume on a base can pick up; the stop protects it) ' + str(dec.get('why') or ''))[:200]}
+
+
+def merge_log(ours, theirs, keep=LOG_KEEP):
+    """A save never drops a line written meanwhile (your chime-in posted while the model thought 30–90s was overwritten by the minute's save):
+    union of both logs, one row per (at, by, action, why), oldest first."""
+    seen, out = set(), []
+    for r in sorted(list(ours or []) + list(theirs or []), key=lambda r: _f((r or {}).get('at'), 0)):
+        k = (round(_f(r.get('at'), 0)), r.get('by'), r.get('action'), str(r.get('why') or '')[:60])
+        if k not in seen:
+            seen.add(k)
+            out.append(r)
+    return out[-keep:]

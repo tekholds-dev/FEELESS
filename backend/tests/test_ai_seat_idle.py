@@ -70,3 +70,11 @@ def test_snapshot_field_is_line():
     import ai_snapshot as snp
     r = snp.snapshot({'src': 'candles', 'rows': [[i, 1, 1, 1, 1 + i / 100, 1] for i in range(5)]})
     assert r['line']
+
+
+def test_merge_log_keeps_a_line_written_while_the_model_thought():
+    before = [{'at': 1, 'by': 'lan', 'action': 'HOLD', 'why': 'a'}]
+    disk = before + [{'at': 2, 'by': 'owner', 'action': 'TALK', 'why': 'hold macca'}]
+    ours = before + [{'at': 3, 'by': 'local', 'action': 'HOLD', 'why': 'b'}]
+    m = s.merge_log(ours, disk)
+    assert [r['at'] for r in m] == [1, 2, 3]
