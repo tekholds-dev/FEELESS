@@ -10792,7 +10792,16 @@ async def _prime_tick_inner(now):
             if (g4_seat_ and w_ and w_.get('action') == 'BUY' and _seat.fresh(w_, now) and not night_g4_ and not pol_['manual'] and rd_['live'] and not seat_ctx_['halt']
                     and seat_ctx_['courier'] != 'BAD' and used_ < _uni.FILL_MOVES_HR and w_.get('mint') not in _g4_blocked(cur, now)):
                 _g4['want'], _g4['pendSeat'] = None, {**w_}   # (kept until the save: an owner edit mid-tick drops this tick → the BUY is retried, never lost)
-                gt_ = _tk.KERNEL.candidate(w_['mint'])
+                lg_ = _seat.adoptable(cur.get('legs'), w_['mint'])
+                if lg_ is not None:   # 🤝 the agents bought this very coin while the model thought ($onboard, 2026-10-17): the model ADOPTS that seat — no second buy, it is the model's trade now
+                    lg_.update(aiSeat=True, aiBy=w_.get('by'), bought={**(lg_.get('bought') or {}), 'tag': '🤖 🧠 G4 seat'}, **{k_: v_ for k_, v_ in (('aiTp', w_.get('tp')), ('aiSl', w_.get('sl'))) if v_})
+                    cur.setdefault('events', []).append({'at': now, 'kind': 'agent', 'symbol': lg_.get('symbol'), 'why': f"🤝 {w_.get('model') or 'the model'} took over the agents' seat on ${lg_.get('symbol')} — its trade now, no second buy"})
+                    m0_ = _g4_mem.get() or {}
+                    _g4_mem.put({**m0_, 'opener': w_.get('by'), 'opened': {**{k_: v_ for k_, v_ in (m0_.get('opened') or {}).items() if now - _fuse._f(v_) < 3600}, w_['mint']: now}}, now)
+                    _g4['pendSeat'] = {**w_, 'seated': True}
+                    _g4_fate(w_, 'adopted the agents\' seat on this coin — the model runs it now', now)
+                    w_ = None
+                gt_ = _tk.KERNEL.candidate(w_['mint']) if w_ else None
                 bad_ = _g4_bad_entry(gt_) if gt_ else None
                 if bad_:   # 🔫 the coin ran to its gun line while the model thought: no buy, it picks again next minute
                     _g4_fate(w_, 'not bought — ' + str(bad_)[:90], now)
@@ -10800,7 +10809,7 @@ async def _prime_tick_inner(now):
                 if gt_ and gt_.get('pair'):
                     plan_, g4n_ = [{**gt_, 'g4': True, 'g4By': w_.get('by'), 'g4Tp': w_.get('tp'), 'g4Sl': w_.get('sl'), 'nearReady': f"🧠 {w_.get('model') or 'G4'}: {w_.get('why')}"}] + [t_ for t_ in plan_ if t_['mint'] != gt_['mint']], 1
                     _g4_fate(w_, 'sent to the seat check', now)
-                elif not bad_:
+                elif not bad_ and w_:
                     _g4_fate(w_, 'coin left the desk before the buy', now)
             pre_ = await _seat_precheck(plan_[:empty_n + 3 + g4n_], cfg_t, now, seat_usd=_prime.agent_seat_usd(cur, px, cfg_s), need=empty_n + g4n_) if (plan_ and real_t) else None   # 🛂 the keeper's market gate BEFORE the seat
             _office['pre'] = {'at': now, 'asked': len(plan_), 'passed': len(pre_) if pre_ is not None else None,

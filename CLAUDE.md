@@ -5010,3 +5010,7 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   (stop 12–25 · take 0/25/40/60 · arm 6–15 · give 30–50%) on 176 full paths: EVERY setting worse on average than Reaper's real exits (best
   −4.2 avg vs −2.5 real, though median −1.3 vs −4.2). Exits are not the leak; entries are (54% of agent trades never reached +3%). The models'
   edge: winners that reached +10% banked +16.6 typical (n 11) vs the agents' +7.5 (n 48) — selection + holding to their own lines.
+- 🤝 A MODEL ADOPTS THE AGENTS' SEAT ON ITS COIN (2026-10-17, $onboard: the agents' ARMED door bought it 13s before G4's BUY landed → G4's buy
+  had nowhere to go, the agents' Reaper sold it 2 min later, G4 lost its turn after 10 min with nothing seated): when OSSY / G4's BUY names a
+  coin the agents already hold (`ai_seat.adoptable`: really on the card, the agents' own — never your pick / certified — and no other model
+  seat open), the leg becomes the model's seat (aiSeat · aiBy · its tp / sl), opener stamped, no second buy, fate "adopted".

@@ -430,6 +430,15 @@ def hunt_answers(log, who, since):
     return sum(1 for r in log or [] if r.get('by') == who and r.get('action') in ('WAIT', 'BUY') and _f(r.get('at')) >= since and not r.get('talk'))
 
 
+def adoptable(legs, mint):
+    """🤝 The agents' leg a model's BUY may take over: same coin, really on the card (not a placeholder), the agents' own (not yours, not
+    certified, not already a model's) — and only while no other model seat is open. → the leg dict or None."""
+    legs = legs or []
+    if any(l.get('aiSeat') and not l.get('placeholder') for l in legs):
+        return None
+    return next((l for l in legs if l.get('mint') == mint and not l.get('placeholder') and not l.get('aiSeat') and not l.get('picked') and not l.get('certified')), None)
+
+
 def chat_window(rows, n=24, mine=12):
     """💬 One chat as the page shows it: the newest `n` lines + the owner's own lines (up to `mine`) even when the models talked past them
     (owner, 2026-10-17: "are my messages disappearing?" — 5 lines a minute pushed his chime-in out of a 14-line window in ~3 min). Oldest first."""

@@ -243,3 +243,11 @@ def test_the_partner_advises_on_the_holders_trade_never_its_own():
     a = seat.advise_packet(pk, 'G4', 'OSSY')
     assert "G4 holds $Glow" in a['NOW'] and 'NOT yours' in a['NOW'] and 'yourSeat' not in a and 'yourRecord' not in a and a['G4Seat']['symbol'] == 'Glow'
     assert 'partner' not in a and 'never your trade' in seat.ADVISE
+
+
+def test_a_model_adopts_the_agents_seat_on_the_coin_it_picked_never_a_second_buy():
+    import ai_seat as seat
+    legs = [{'mint': 'ON', 'symbol': 'onboard', 'units': 10}, {'mint': 'MK', 'symbol': 'MAKERS', 'units': 5, 'picked': True}]
+    assert seat.adoptable(legs, 'ON')['symbol'] == 'onboard'
+    assert seat.adoptable(legs, 'MK') is None                                    # your pick is never taken over
+    assert seat.adoptable(legs + [{'mint': 'X', 'aiSeat': True, 'units': 1}], 'ON') is None   # one model seat at a time
