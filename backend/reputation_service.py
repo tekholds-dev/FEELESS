@@ -10701,7 +10701,7 @@ async def _prime_tick_inner(now):
                 # 🎯 KEEP SEATS FULL (the owner's entry mode): a seat empty past the owner's target with too few READY coins takes the best ARMED
                 # coins (Trigger: "building, not yet") at HALF a seat — never a WAIT / NO coin, never a hard veto, never a blocked one
                 try:
-                    arm_ = _oe.armed_fill([c_ for c_ in (_tk.KERNEL.candidate(x_['mint']) for x_ in cases_ if x_['status'] == 'CONTENDING') if c_ and not _fw.dollar_named(c_.get('symbol'))],
+                    arm_ = _oe.armed_fill([c_ for c_ in (_tk.KERNEL.candidate(x_['mint']) for x_ in cases_ if x_['status'] == 'CONTENDING') if c_ and not _fw.dollar_named(c_.get('symbol')) and _agent_entry_ok(c_)],
                                           cur.get('agentEmptyAt'), pol_['seatTarget'], now, len(valid_), empty_n, blk_)
                     for c_ in arm_:
                         c_.update(tier='C', opp=c_['rank'], armed=True, nearReady=f"🎯 ARMED · {c_['kwhy']} · rank {c_['rank']:g} — your seat target passed, half a seat")
@@ -10714,7 +10714,7 @@ async def _prime_tick_inner(now):
                 # (wait for confirmation / breakout only) at the smallest seat, once per 15 min; it closes itself when its own record loses
                 try:
                     vrec_ = _oe.valve_record(_real_trades())
-                    v_ = _oe.valve_fill([c_ for c_ in (_tk.KERNEL.candidate(x_['mint']) for x_ in cases_ if x_['status'] == 'CONTENDING') if c_ and not _fw.dollar_named(c_.get('symbol'))],
+                    v_ = _oe.valve_fill([c_ for c_ in (_tk.KERNEL.candidate(x_['mint']) for x_ in cases_ if x_['status'] == 'CONTENDING') if c_ and not _fw.dollar_named(c_.get('symbol')) and _agent_entry_ok(c_)],
                                         cur.get('agentEmptyAt'), now, cur.get('agentValveAt'), blk_, vrec_)
                     for c_ in v_:
                         c_.update(tier='C', opp=c_['rank'], armed=True, valve=True, size=min(_fuse._f(c_.get('size')) or 1, _oe.VALVE_SIZE),
@@ -14288,6 +14288,20 @@ async def _g4_idle(now, env, cfg, st_, legs_, mode_, who=None):
         _dv_note(row_, _fuse._f(pxm_.get(d_['mint'])), now)
     except Exception as e:
         print('g4 idle:', str(e)[:100])
+
+
+_lose_c: dict = {'at': 0.0, 'v': {}}
+
+
+def _agent_entry_ok(c):
+    """🧠 May the ARMED / VALVE doors take this coin? Not at the gun line / mid-chase / after a spike / on a SKIP (the models' own filter —
+    their record is why), and not on an entry read the agents' own real trades keep losing on (`office_edge.losing_entries`, 60s cache)."""
+    if _g4_bad_entry(c):
+        return False
+    if time.time() - _lose_c['at'] > 60:
+        _lose_c.update(at=time.time(), v=_oe.losing_entries((_json_load(ARCHIVE_PATH, {}) or {}).get('positions') or []))
+        _office['losingEntries'] = _lose_c['v']
+    return _oe.entry_code(c) not in _lose_c['v']
 
 
 def _g4_bad_entry(c):

@@ -736,3 +736,13 @@ def test_every_control_option_saved_reads_back_as_that_value_on_the_panel():
             assert str(got) == str(oe.clean_policy(saved)[r['key']]) and (float(got) == float(v) if isinstance(v, (int, float)) else got == v), (r['key'], v, got)
     for k in ('agentCapital', 'agentValve', 'chartWait', 'agentAiLearn', 'agentAiGate', 'agentAiExit'):
         assert ap.clean_cfg({k: False}).get(k) is False and ap.clean_cfg({k: True}).get(k) is True, k
+
+
+def test_the_agents_stop_taking_an_entry_read_their_own_real_trades_keep_losing_on():
+    import office_edge as oe
+    pos = [{'realPct': -5.0, 'thesis': {'triggerRule': 'E4 no direction yet'}} for _ in range(9)] + [{'realPct': 3.0, 'thesis': {'triggerRule': 'E4 no direction yet'}}]
+    pos += [{'realPct': 8.0, 'thesis': {'triggerRule': 'E12 trend in hand'}} for _ in range(12)]
+    pos += [{'realPct': -9.0, 'g4': True, 'thesis': {'triggerRule': 'E3 too violent'}} for _ in range(12)]   # the models' trades never count
+    bad = oe.losing_entries(pos)
+    assert set(bad) == {'E4'} and bad['E4'][0] == 10
+    assert oe.entry_code({'chart': {'entry': ['WAIT', 'E4 no direction yet', 'x']}}) == 'E4' and oe.entry_code({}) is None

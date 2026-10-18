@@ -4990,3 +4990,9 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   after it stays in the same trade; a part-sold row carries `banked` (the sold coins vs what THEY cost → "◐ PART SOLD · banked $0.10
   (+35%)"); a sold row's result = EVERY sale (trims included) vs EVERYTHING put in, from the ledger, when the units add up (every unit bought was sold), else the archive's %.
   OSSY / G4 totals + closed rooms read that same ledger result (`_duo_tape`, 20s cache). $Glow read "SOLD −59%" from one $0.40 trim vs $0.98 in.
+- 🧠 AGENTS LEARN WHICH ENTRIES LOSE (owner, 2026-10-17: "fix agents trades — OSSY and G4 pretty good, agents almost there"; 12h: agents 58
+  trades 25% won −4.7 typical, models 16 trades 62% won +5.1 — 56 of the agents' 58 came through the ARMED door): `_agent_entry_ok` on the
+  ARMED + VALVE doors = the models' own filter (`_g4_bad_entry`: gun wall / chase / spike / SKIP) + `office_edge.losing_entries` (the agents'
+  OWN closed real trades by the chart's entry rule at the buy; ≥ 10 trades, typical ≤ −3%, < 35% won → that read is not taken; re-read every
+  60s, a rule whose record turns comes back by itself; `_office['losingEntries']`). First read: E4 no direction yet (65, −4.9), E9 pullback
+  not turned (26, −6.5), E10 breakout (34, −3.8). Seats fill less through ARMED — that is the point.
