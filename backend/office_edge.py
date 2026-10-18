@@ -988,7 +988,7 @@ def losing_entries(positions):
     for p in positions or []:
         if p.get('g4') or p.get('pick') or p.get('realPct') is None:
             continue
-        code = str((p.get('thesis') or {}).get('triggerRule') or '').split(' ')[0]
+        code = str((p.get('thesis') or {}).get('triggerRule') or '').strip()   # the full read ("E10 breakout held" ≠ "E10 breakout without buyers")
         if code:
             g.setdefault(code, []).append(_f(p['realPct']))
     out = {}
@@ -1001,6 +1001,37 @@ def losing_entries(positions):
     return out
 
 
+HHHL_STATES = ('UPTREND', 'STRONG UPTREND', 'PULLBACK IN UPTREND')
+SETUP_SCORE = {'hhhl': 3, 'germ': 2, 'breakout': 1}   # ranked by the agents' own record: HH/HL best, then the germ, then breakouts
+
+
+def setups_of(c, germ_line=15.0):
+    """🎯 THE THREE SETUPS THE AGENTS TRADE (owner, 2026-10-17: "mainly the germ method, HH/HL and breakouts") → the tags this coin shows now:
+    'hhhl' = an uptrend structure, or 2+ higher lows and no lower low · 'germ' = within the germ line of its 1m (else 5m) germ floor ·
+    'breakout' = a confirmed breakout that held. [] = none of them (the ARMED / VALVE doors skip it)."""
+    ch = (c or {}).get('chart') or {}
+    out = []
+    st = str(ch.get('state') or '').upper()
+    if st in HHHL_STATES or (_f(ch.get('hl')) >= 2 and not _f(ch.get('ll'))):
+        out.append('hhhl')
+    gd = ch.get('germDist') if ch.get('germDist') is not None else ch.get('germ5Dist')
+    if gd is not None and abs(_f(gd)) <= (germ_line or 15.0):
+        out.append('germ')
+    e = ch.get('entry') or []
+    if st == 'CONFIRMED BREAKOUT' or (len(e) > 1 and str(e[1]).startswith('E10 breakout held')):
+        out.append('breakout')
+    return out
+
+
+def setup_order(cands, germ_line=15.0):
+    """Only coins showing one of the three setups, the best setup first (then the kernel's own rank)."""
+    rows = [(c, setups_of(c, germ_line)) for c in cands or []]
+    rows = [(c, t) for c, t in rows if t]
+    for c, t in rows:
+        c['setups'] = t
+    return [c for c, t in sorted(rows, key=lambda x: (-sum(SETUP_SCORE[k] for k in x[1]), -_f(x[0].get('rank'))))]
+
+
 def armed_fill(cands, empty_since, target, now, have=0, need=0, blocked=()):
     """🪑 KEEP SEATS FULL (owner's entry mode `armed`): once a seat has sat empty past the owner's target and there are fewer READY coins
     than empty seats, the best CONTENDING coins whose Trigger says ARM join the fill list — best rank first. Never a coin Trigger says
@@ -1009,5 +1040,5 @@ def armed_fill(cands, empty_since, target, now, have=0, need=0, blocked=()):
     if not empty_since or now - _f(empty_since) < _f(target) or need <= have:
         return []
     ok = [c for c in cands or [] if c.get('status') == 'CONTENDING' and c.get('trigger') == 'ARM' and _f(c.get('size')) > 0 and c.get('mint') not in set(blocked or ())]
-    return sorted(ok, key=lambda c: -_f(c.get('rank')))[:max(0, need - have)]
+    return sorted(ok, key=lambda c: (-sum(SETUP_SCORE.get(k, 0) for k in c.get('setups') or ()), -_f(c.get('rank'))))[:max(0, need - have)]
 

@@ -744,5 +744,16 @@ def test_the_agents_stop_taking_an_entry_read_their_own_real_trades_keep_losing_
     pos += [{'realPct': 8.0, 'thesis': {'triggerRule': 'E12 trend in hand'}} for _ in range(12)]
     pos += [{'realPct': -9.0, 'g4': True, 'thesis': {'triggerRule': 'E3 too violent'}} for _ in range(12)]   # the models' trades never count
     bad = oe.losing_entries(pos)
-    assert set(bad) == {'E4'} and bad['E4'][0] == 10
+    assert set(bad) == {'E4 no direction yet'} and bad['E4 no direction yet'][0] == 10
     assert oe.entry_code({'chart': {'entry': ['WAIT', 'E4 no direction yet', 'x']}}) == 'E4' and oe.entry_code({}) is None
+
+
+def test_the_agents_trade_the_three_setups_hhhl_first_then_the_germ_then_a_held_breakout():
+    import office_edge as oe
+    up = {'mint': 'A', 'rank': 1, 'chart': {'state': 'PULLBACK IN UPTREND'}}
+    germ = {'mint': 'B', 'rank': 9, 'chart': {'state': 'RANGE', 'germDist': 6.0}}
+    bo = {'mint': 'C', 'rank': 5, 'chart': {'state': 'RANGE', 'entry': ['ENTER NOW', 'E10 breakout held', 'x']}}
+    hl = {'mint': 'D', 'rank': 2, 'chart': {'state': 'RANGE', 'hl': 2, 'll': 0}}
+    none = {'mint': 'E', 'rank': 99, 'chart': {'state': 'COMPRESSION', 'germDist': 40.0}}
+    assert [c['mint'] for c in oe.setup_order([none, bo, germ, hl, up])] == ['D', 'A', 'B', 'C']
+    assert oe.setups_of(none) == [] and oe.setups_of({'chart': {'germ5Dist': 3.0}}) == ['germ']

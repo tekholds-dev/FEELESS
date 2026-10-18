@@ -4996,3 +4996,9 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   OWN closed real trades by the chart's entry rule at the buy; ≥ 10 trades, typical ≤ −3%, < 35% won → that read is not taken; re-read every
   60s, a rule whose record turns comes back by itself; `_office['losingEntries']`). First read: E4 no direction yet (65, −4.9), E9 pullback
   not turned (26, −6.5), E10 breakout (34, −3.8). Seats fill less through ARMED — that is the point.
+- 🎯 THE AGENTS' THREE SETUPS (owner, 2026-10-17: "make sure they know mainly the germ method, HH/HL and breakouts"): `office_edge.setups_of`
+  = hhhl (uptrend / pullback in uptrend / 2+ higher lows, no lower low) · germ (within the germ line of the 1m, else 5m germ) · breakout (a
+  confirmed breakout / "E10 breakout held"); the ARMED + VALVE doors take ONLY coins showing one (`_agent_entry_ok`), HH/HL first, then the
+  germ, then breakouts (`SETUP_SCORE`, by the agents' own record: HH/HL −2.9 typical over 70, germ −4.4 over 54, breakout held −3.8 over 34).
+  `losing_entries` now keys the FULL entry read, so "E10 breakout held" is judged apart from "E10 breakout without buyers" — while its own
+  record loses it stays held back too, and comes back when it turns. None of the three is a winner for the agents yet: the leak is exits next.

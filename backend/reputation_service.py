@@ -14301,7 +14301,11 @@ def _agent_entry_ok(c):
     if time.time() - _lose_c['at'] > 60:
         _lose_c.update(at=time.time(), v=_oe.losing_entries((_json_load(ARCHIVE_PATH, {}) or {}).get('positions') or []))
         _office['losingEntries'] = _lose_c['v']
-    return _oe.entry_code(c) not in _lose_c['v']
+    if not _oe.setups_of(c, _uni.germ_max()):   # 🎯 the agents trade the three setups only: HH/HL · the germ · a held breakout
+        return False
+    c['setups'] = _oe.setups_of(c, _uni.germ_max())
+    rule_ = ((c.get('chart') or {}).get('entry') or [None, None])[1]
+    return str(rule_ or '') not in _lose_c['v']
 
 
 def _g4_bad_entry(c):
