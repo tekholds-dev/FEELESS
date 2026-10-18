@@ -18323,17 +18323,32 @@ AGENTS_PAGE_SEC = 2
 _agents_page: dict = {'key': None, 'body': b'{}'}
 
 
+_duo_tape_c: dict = {'at': 0.0, 'v': ([], [])}
+
+
+def _duo_tape():
+    """(the models' archived positions, the trade tape built from the WHOLE ledger) — one build per 20s for the duo totals + rooms."""
+    if time.time() - _duo_tape_c['at'] < 20:
+        return _duo_tape_c['v']
+    pos_ = [p_ for p_ in (_json_load(ARCHIVE_PATH, {}) or {}).get('positions') or [] if p_.get('g4')]
+    v_ = (pos_, [r_ for r_ in _co.trade_tape(_fw_full_ledger() or [], pos_, n=400) if r_.get('who') == 'models'])
+    _duo_tape_c.update(at=time.time(), v=v_)
+    return v_
+
+
 def _duo_totals():
-    """💰 OSSY / G4 all-time REAL result: closed AI-seat trades by who opened them; $ = the confirmed buy's $ × the real % (ledger)."""
-    pos_ = [p_ for p_ in (_json_load(ARCHIVE_PATH, {}) or {}).get('positions') or [] if p_.get('g4') and p_.get('realPct') is not None]
-    buys_ = [r_ for r_ in (_fw_full_ledger() or []) if r_.get('side') == 'buy' and r_.get('status') == 'filled']
+    """💰 OSSY / G4 all-time REAL result: every closed AI-seat position from the LEDGER (every sale, trims included, against everything put in,
+    top-ups included — the archive's % only knew the last sale), by the model that opened it."""
+    pos_, tape_ = _duo_tape()
     out = {}
-    for p_ in pos_:
-        k_ = _air.model_name(os.environ, p_.get('aiBy')) if p_.get('aiBy') else '?'
-        b_ = next((r_ for r_ in reversed(buys_) if r_.get('mint') == p_.get('mint') and _fuse._f(r_.get('at')) <= _fuse._f(p_.get('since')) + 600), None)
-        usd_ = _fuse._f((b_ or {}).get('usd')) * _fuse._f(p_['realPct']) / 100
+    for row_ in tape_:
+        if row_.get('who') != 'models' or row_.get('state') != 'sold' or not row_.get('result'):
+            continue
+        p_ = next((x_ for x_ in pos_ if x_.get('mint') == row_.get('mint') and abs(_fuse._f(x_.get('since')) - _fuse._f(row_.get('at'))) <= 900), None)
+        k_ = _air.model_name(os.environ, (p_ or {}).get('aiBy')) if (p_ or {}).get('aiBy') else '?'
+        r_ = row_['result']
         t_ = out.setdefault(k_, {'n': 0, 'won': 0, 'usd': 0.0, 'pct': 0.0})
-        t_['n'] += 1; t_['won'] += 1 if _fuse._f(p_['realPct']) > 0 else 0; t_['usd'] = round(t_['usd'] + usd_, 3); t_['pct'] = round(t_['pct'] + _fuse._f(p_['realPct']), 1)
+        t_['n'] += 1; t_['won'] += 1 if _fuse._f(r_.get('pct')) > 0 else 0; t_['usd'] = round(t_['usd'] + _fuse._f(r_.get('usd')), 3); t_['pct'] = round(t_['pct'] + _fuse._f(r_.get('pct')), 1)
     return out
 
 
@@ -18350,7 +18365,9 @@ def _duo_rooms(log, keep=8):
             continue   # a BUY that never became a trade has no room
         seen.add(m_)
         rows_ = _seat.chat_window([r2_ for r2_ in log if r2_.get('mint') == m_ and (r2_.get('at') or 0) >= (r_.get('at') or 0) - 5])[::-1]
-        out.append({'mint': m_, 'symbol': r_.get('symbol'), 'model': r_.get('model'), 'at': r_.get('at'), 'pct': (p_ or {}).get('realPct'), 'closed': bool((p_ or {}).get('closedAt')),
+        tr_ = next((x_ for x_ in _duo_tape()[1] if x_.get('mint') == m_ and abs(_fuse._f(x_.get('at')) - _fuse._f(r_.get('at'))) <= 900), None)   # 🏁 the whole position from the ledger (trims included)
+        out.append({'mint': m_, 'symbol': r_.get('symbol'), 'model': r_.get('model'), 'at': r_.get('at'), 'pct': ((tr_ or {}).get('result') or {}).get('pct', (p_ or {}).get('realPct')),
+                    'usd': ((tr_ or {}).get('result') or {}).get('usd'), 'banked': (tr_ or {}).get('banked'), 'closed': bool((p_ or {}).get('closedAt')) or (tr_ or {}).get('state') == 'sold',
                     'rows': [{**{k_: x_.get(k_) for k_ in ('at', 'model', 'action', 'view', 'why', 'conf', 'pct', 'talk')}, 'key': _dv_key(x_), 'mine': x_.get('by') == 'owner',
                               'votes': _dv.view(_dv_mem.get() or {}, _dv_key(x_))} for x_ in rows_]})
         if len(out) >= keep:

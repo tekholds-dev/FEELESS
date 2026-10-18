@@ -241,19 +241,31 @@ def view(state, now, judge_pens=None):
 
 # ── 🎬 the real trade tape ───────────────────────────────────────────────────────────────────────────────────────────────────────
 def merge_topups(buys, sells):
-    """🧩 ONE story per position: a buy of a coin already held (no sale of it since the last buy) is a TOP-UP, folded into the first buy's $
-    (the tape showed $1 three times — two idle-cash top-ups 5s apart read as new trades)."""
+    """🧩 ONE story per position: a buy of a coin still held is a TOP-UP folded into the position's first buy — "still held" counted in
+    UNITS (bought − sold), so a trim (a partial sale) never ends the position (2026-10-17: $Glow's trim read "SOLD −59%" and the idle-cash
+    top-up after it read as a new trade). Each kept buy carries `unitsIn` (every unit the position bought)."""
     t_ = lambda r: _f(r.get('confirmedAt') or r.get('at'))
+    ev = sorted([('b', r) for r in buys or []] + [('s', r) for r in sells or []], key=lambda x: t_(x[1]))
     out, open_ = [], {}
-    for b in sorted(buys or [], key=t_):
-        m = b.get('mint')
-        first = open_.get(m)
-        if first is not None and not any(s.get('mint') == m and t_(first) < t_(s) <= t_(b) for s in sells or []):
-            first['usd'] = round(_f(first.get('usd')) + _f(b.get('usd')), 6)
-            first['topups'] = int(first.get('topups') or 0) + 1
+    for k, r in ev:
+        m = r.get('mint')
+        cur = open_.get(m)
+        if k == 's':
+            if cur is not None:
+                cur['left'] = _f(cur.get('left')) - _f(r.get('units'))
+                cur['sold'] = True
             continue
-        nb = dict(b)
-        open_[m] = nb
+        u = _f(r.get('units'))
+        if cur is not None and (cur['left'] > 0.02 * _f(cur['row'].get('unitsIn')) if _f(cur['row'].get('unitsIn')) > 0 and u > 0 else not cur.get('sold')):   # no units on record: a sale in between = a new trade (the old rule)
+            fb = cur['row']
+            fb['usd'] = round(_f(fb.get('usd')) + _f(r.get('usd')), 6)
+            fb['topups'] = int(fb.get('topups') or 0) + 1
+            fb['unitsIn'] = _f(fb.get('unitsIn')) + u
+            cur['left'] = _f(cur.get('left')) + u
+            continue
+        nb = dict(r)
+        nb['unitsIn'] = u
+        open_[m] = {'row': nb, 'left': u}
         out.append(nb)
     return out
 
@@ -286,6 +298,7 @@ def trade_tape(ledger, positions, reviews=None, ai_log=None, card=None, n=60):
         ai = next((a for a in sorted(ai_log or [], key=lambda a: abs(_f(a.get('at')) - t)) if a.get('mint') == m and abs(_f(a.get('at')) - t) <= 1800), None)
         mid, px = _f(b.get('midPx')), _f(b.get('px'))
         th = (p or {}).get('thesis') or {}
+        left_ = (_f(b.get('unitsIn')) - sum(_f(s.get('units')) for s in ss)) if _f(b.get('unitsIn')) > 0 else 0.0   # units still on the card
         row = {'mint': m, 'sym': b.get('symbol'), 'at': t, 'who': 'models' if (b.get('aiSeat') or (p or {}).get('g4')) else 'agents' if b.get('agent') else 'you',   # 🔁 an OSSY / G4 buy is flagged `picked` (your pick limits) — never call it yours
                'buy': {'usd': _f(b.get('usd')) or None, 'px': px or None, 'mid': mid or None, 'slipPct': round((px / mid - 1) * 100, 2) if px > 0 and mid > 0 else None,
                        'landSec': b.get('landSec'), 'impactPct': b.get('impactPct'), 'sig': b.get('sig'), 'why': b.get('why'),
@@ -297,16 +310,23 @@ def trade_tape(ledger, positions, reviews=None, ai_log=None, card=None, n=60):
                'sells': [{'at': _f(s.get('confirmedAt') or s.get('at')), 'usd': _f(s.get('usd')) or None, 'why': s.get('why'), 'sig': s.get('sig'), 'landSec': s.get('landSec')} for s in sorted(ss, key=lambda s: _f(s.get('confirmedAt') or s.get('at')))][:4],
                'open': not (p and p.get('closedAt')) and not ss,
                # still held · part sold (a sale landed, the position is still open) · sold — the tape says which (owner, 2026-10-15)
-               'state': 'held' if not ss and not (p and p.get('closedAt')) else 'part' if ss and p and not p.get('closedAt') else 'sold'}
+               'state': 'held' if not ss and not (p and p.get('closedAt')) else 'part' if ss and ((p and not p.get('closedAt')) or left_ > 0.02 * _f(b.get('unitsIn'))) else 'sold'}
         if row['state'] == 'part':
             row['open'] = True
+            cs_ = [s for s in ss if _f(s.get('costUsd')) > 0]
+            if cs_:   # 💰 what the trims banked so far: each sale against what ITS coins cost (a trim in profit is never a loss)
+                got_, cost_ = sum(_f(s.get('usd')) for s in cs_), sum(_f(s.get('costUsd')) for s in cs_)
+                row['banked'] = {'usd': round(got_ - cost_, 3), 'pct': round((got_ / cost_ - 1) * 100, 2), 'sold': round(got_, 3), 'n': len(cs_)}
         row['closedAt'] = (_f(p.get('closedAt')) if p and p.get('closedAt') else (_f(ss[-1].get('confirmedAt') or ss[-1].get('at')) if ss and row['state'] == 'sold' else None)) or None   # 🏁 the Trades tab sorts closes by THIS
-        if row['state'] == 'sold' and ss and not (p and p.get('realPct') is not None) and _f(b.get('usd')) > 0:
-            # no archive record (your own picks have none): the result from the ledger's own fills
+        if row['state'] == 'sold' and ss and _f(b.get('usd')) > 0:
+            # 🏁 the WHOLE position from the ledger's own fills: every sale (trims included) against everything put in (top-ups included) —
+            # the archive's % only knows the last sale (2026-10-17: a trimmed winner read as a loss)
             usd, out_ = _f(b.get('usd')), sum(_f(s.get('usd')) for s in ss)
             row['result'] = {'pct': round((out_ / usd - 1) * 100, 2), 'usd': round(out_ - usd, 3), 'peak': None,
-                             'heldMin': round((_f(ss[-1].get('confirmedAt') or ss[-1].get('at')) - t) / 60, 1), 'rule': (ss[-1].get('why') or None), 'src': 'ledger'}
-        if p and p.get('closedAt') and p.get('realPct') is not None:
+                             'heldMin': round((_f(ss[-1].get('confirmedAt') or ss[-1].get('at')) - t) / 60, 1), 'rule': ((p or {}).get('rule') or ss[-1].get('why') or None), 'src': 'ledger'}
+            if p and p.get('peak') is not None:
+                row['result']['peak'] = p.get('peak')
+        if p and p.get('closedAt') and p.get('realPct') is not None and not (row.get('result') or {}).get('src') == 'ledger':
             usd = _f(b.get('usd'))
             row['result'] = {'pct': round(_f(p['realPct']), 2), 'usd': round(usd * _f(p['realPct']) / 100, 3) if usd else None, 'peak': p.get('peak'),   # $ = what went in × the real % (summing sells counted top-ups / later sells: illusion +0.6% read +$0.13)
                              'heldMin': round((_f(p['closedAt']) - _f(p.get('since'))) / 60, 1) if p.get('since') else None, 'rule': p.get('rule')}

@@ -4985,3 +4985,8 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
 - 💬 THE PARTNER ADVISES, IT NEVER OWNS (owner, 2026-10-17: "OSSY speaking like it's his trade when it's G4's"): the advice call gets
   `ai_seat.advise_packet(pk, holder, me)` — NOW = "G4 holds $X — G4's trade, NOT yours", `G4Seat` / `G4Record` instead of yourSeat /
   yourRecord, the holder's view of the partner dropped. It used to get the holder's own packet ("you hold $X").
+- 💰 A TRIM IS NOT THE END OF A TRADE (owner, 2026-10-17: "Glow trim to card shouldn't be a loss, and when the trade's over it should show
+  properly"): `coach.merge_topups` follows each position in UNITS (bought − sold) — a partial sale never closes it and the idle-cash top-up
+  after it stays in the same trade; a part-sold row carries `banked` (the sold coins vs what THEY cost → "◐ PART SOLD · banked $0.10
+  (+35%)"); a sold row's result = EVERY sale (trims included) vs EVERYTHING put in, from the ledger (the archive's % only knew the last sale).
+  OSSY / G4 totals + closed rooms read that same ledger result (`_duo_tape`, 20s cache). $Glow read "SOLD −59%" from one $0.40 trim vs $0.98 in.

@@ -43,3 +43,9 @@ test('OSSY / G4 trades are never counted as yours', () => {
   expect(r.models.n).toBe(1); expect(r.you.n).toBe(1); expect(r.agents.n).toBe(0);
   expect(r.list.find(x => x.mint === 'a').yours).toBe(false);
 });
+
+test('💰 a trim in profit reads as banked profit, never a loss', () => {
+  const { tradeCard } = require('./coachTape');
+  const c = tradeCard({ mint: 'G', sym: 'Glow', at: 1, open: true, state: 'part', banked: { usd: 0.104, pct: 35.2, sold: 0.399, n: 1 }, buy: { usd: 0.98 } });
+  expect(c.head).toContain('banked $0.10'); expect(c.verdict).toBe('PART'); expect(c.tone).toBe('is-up'); expect(c.pct).toBe('+35.2%');
+});

@@ -53,7 +53,7 @@ def test_the_trade_tape_is_one_story_per_real_buy_from_records_that_exist():
     assert [r['sym'] for r in t] == ['OPN', 'AAA']                                              # newest first; the engine's buy and the unsigned row are not agent trades
     a = t[1]
     assert a['buy']['slipPct'] == 2.0 and a['why']['structure'] == 'UPTREND' and a['ai']['summary'] == 'clean, dev holding' and a['sells'][0]['sig'] == 'S1'
-    assert a['result'] == {'pct': 20.0, 'usd': 0.2, 'peak': 31.0, 'heldMin': 5.0, 'rule': 'R7 trail'} and a['judge']['kind'] == 'win' and not a['open']
+    assert {k: v for k, v in a['result'].items() if k != 'src'} == {'pct': 20.0, 'usd': 0.2, 'peak': 31.0, 'heldMin': 5.0, 'rule': 'R7 trail'} and a['judge']['kind'] == 'win' and not a['open']
     assert t[0]['open'] and 'result' not in t[0] and t[0]['ai'] is None                         # an open trade claims no result
     assert co.tape_stats(t) == {'n': 1, 'won': 1, 'medPct': 20.0, 'open': 1, 'medSlipPct': 2.0, 'medWaitSec': None, 'medLandSec': 3.1}
 
@@ -161,3 +161,15 @@ def test_the_trade_tape_says_held_part_sold_or_sold():
     assert rows['STREAM']['state'] == 'sold' and rows['STREAM']['result']['pct'] == 20.0 and rows['STREAM']['result']['rule'] == 'R4 whale dump'
     assert rows['Macca']['state'] == 'held' and rows['Macca']['open']
     assert rows['HALF']['state'] == 'part' and rows['HALF']['open'] and 'result' not in rows['HALF']
+
+
+def test_a_trim_never_ends_the_trade_and_reads_as_banked_profit():
+    import coach
+    b = lambda at, usd, u: {'side': 'buy', 'status': 'filled', 'sig': f'b{at}', 'mint': 'G', 'symbol': 'Glow', 'at': at, 'usd': usd, 'units': u, 'agent': True}
+    s = lambda at, usd, u, cost: {'side': 'sell', 'status': 'filled', 'sig': f's{at}', 'mint': 'G', 'symbol': 'Glow', 'at': at, 'usd': usd, 'units': u, 'costUsd': cost}
+    led = [b(100, 0.73, 8476), b(120, 0.25, 2894), s(1900, 0.399, 3424, 0.295), b(3900, 0.25, 2389)]
+    t = coach.trade_tape(led, [])
+    assert len(t) == 1 and t[0]['state'] == 'part' and t[0]['banked']['usd'] == 0.104 and abs(t[0]['buy']['usd'] - 1.23) < 1e-6
+    led += [s(5000, 1.1, 10335, 0.9)]
+    t = coach.trade_tape(led, [])
+    assert t[0]['state'] == 'sold' and t[0]['result']['usd'] == round(0.399 + 1.1 - 1.23, 3)

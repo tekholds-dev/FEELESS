@@ -8,13 +8,14 @@ export const secWord = v => (num(v) == null ? '—' : num(v) < 90 ? `${num(v).to
 
 // one trade → what its card shows. tone: up / dn / open. Every word is from the row; a missing piece stays out.
 export function tradeCard(r, now = Date.now() / 1000) {
-  const res = r?.result || null; const pct = num(res?.pct);
-  const tone = r?.open ? 'is-open' : pct == null ? 'is-flat' : pct > 0 ? 'is-up' : 'is-dn';
+  const bk = r?.state === 'part' ? r?.banked || null : null;   // 💰 a trim so far: the sold coins against what THEY cost (never the whole buy)
+  const res = r?.result || (bk ? { pct: bk.pct, usd: bk.usd } : null); const pct = num(res?.pct);
+  const tone = r?.open && !bk ? 'is-open' : pct == null ? 'is-flat' : pct > 0 ? 'is-up' : 'is-dn';
   const w = r?.why || {};
   const why = [w.tag ? String(w.tag).replace('🤖 agents · ', '') : null, w.structure, w.rule, w.phase ? `phase ${w.phase}` : null, w.size != null ? `size ×${w.size}` : null].filter(Boolean);
   const b = r?.buy || {};
   return { key: `${r?.mint}-${r?.at}`, mint: r?.mint, sym: r?.sym || '?', tone, ago: agoWord(r?.at, now), yours: r?.who === 'you', models: r?.who === 'models',
-    head: r?.state === 'part' ? '◐ PART SOLD' : r?.open ? '🟢 STILL HELD' : pct == null ? 'SOLD' : `SOLD ${signedPct(pct)}`,
+    head: r?.state === 'part' ? (bk ? `◐ PART SOLD · banked ${money2(bk.usd)} (${signedPct(bk.pct)})` : '◐ PART SOLD') : r?.open ? '🟢 STILL HELD' : pct == null ? 'SOLD' : `SOLD ${signedPct(pct)}`,
     verdict: r?.open ? (r?.state === 'part' ? 'PART' : 'HELD') : pct == null ? 'SOLD' : pct > 0.5 ? 'WIN' : pct < -0.5 ? 'LOSS' : 'FLAT', pct: pct == null ? null : signedPct(pct),
     held: num(res?.heldMin) == null ? null : num(res.heldMin) < 60 ? `${num(res.heldMin).toFixed(0)}m` : `${(num(res.heldMin) / 60).toFixed(1)}h`,
     inUsd: num(b.usd) != null ? money2(b.usd) : null, rule: res?.rule ? String(res.rule).split(' · ')[0].slice(0, 34) : null, state: r?.state || (r?.open ? 'held' : 'sold'), usd: res?.usd != null ? money2(res.usd) : null,
