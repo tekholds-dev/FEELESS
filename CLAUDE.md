@@ -5014,3 +5014,6 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   had nowhere to go, the agents' Reaper sold it 2 min later, G4 lost its turn after 10 min with nothing seated): when OSSY / G4's BUY names a
   coin the agents already hold (`ai_seat.adoptable`: really on the card, the agents' own — never your pick / certified — and no other model
   seat open), the leg becomes the model's seat (aiSeat · aiBy · its tp / sl), opener stamped, no second buy, fate "adopted".
+- 🧾 EVERY MODEL BUY SAYS WHAT HAPPENED, IN THE CHAT (2026-10-18: OSSY's $dev/null and G4's $Eternia BUYs never went in and left no trace —
+  `_g4['fate']` only kept the newest): `_g4_fate` also notes a SEAT line in the duo log ("🧾 $X not bought — <reason>" / "🧾 $X — seated"),
+  once per coin + reason. A refused BUY never costs a turn; the model picks again the next minute.

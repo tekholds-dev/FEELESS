@@ -13942,6 +13942,17 @@ _g4 = {'busy': False, 'at': 0.0, 'want': None}
 def _g4_fate(w, why, now):
     """🧾 What happened to the newest model BUY (seated / refused / stale …) — shown on the duel board so a buy never vanishes silently."""
     _g4['fate'] = {'symbol': (w or {}).get('symbol'), 'mint': (w or {}).get('mint'), 'why': str(why)[:120], 'at': now}
+    if (w or {}).get('symbol') and not str(why).startswith(('sent to the seat check', 'Warden advised')):   # 🧾 the reason lands in the duo chat for good (it was overwritten by the next buy: $dev/null + $Eternia left no trace)
+        try:
+            ok_ = str(why).startswith(('seated', 'adopted'))
+            m0_ = _g4_mem.get() or {}
+            log_ = list(m0_.get('log') or [])
+            if not any(r_.get('fateOf') == w.get('mint') and abs(_fuse._f(r_.get('at')) - now) < 90 and r_.get('why', '').endswith(str(why)[:60]) for r_ in log_[-6:]):
+                _g4_mem.put({**m0_, 'log': _seat.note(log_, {'at': round(now), 'mode': 'real', 'model': 'SEAT', 'by': None, 'talk': True, 'action': 'TALK', 'fateOf': w.get('mint'),
+                                                             'view': 'BOUGHT' if ok_ else 'NOT BOUGHT', 'mint': w.get('mint'), 'symbol': w.get('symbol'),
+                                                             'why': f"🧾 ${w.get('symbol')} " + ('— ' if ok_ else 'not bought — ') + str(why)[:160]})}, now)
+        except Exception as e:
+            print('g4 fate note:', str(e)[:80])
     if why.startswith(('stale', 'seat off', 'paper', 'manual', 'coin left', 'coin blocked')):
         _g4['want'] = None
 
