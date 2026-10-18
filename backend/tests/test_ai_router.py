@@ -605,3 +605,17 @@ def test_gen_image_returns_the_picture_or_the_providers_own_reason():
     assert not y['ok'] and y['status'] == 402 and '$1.00' in y['why']
     none = Http(Resp(200, {'choices': [{'message': {'content': 'I cannot draw'}}]}))
     assert asyncio.run(r.Router().gen_image(none, env, {}, 'x'))['why'] == 'the model answered without a picture'
+
+
+def test_the_desktop_is_asked_for_the_model_it_has_loaded_never_one_that_would_reload_it():
+    import asyncio, ai_router as air
+    class R:
+        status_code = 200
+        def __init__(s, j): s._j = j
+        def json(s): return s._j
+    class H:
+        async def get(s, url, **k): return R({'data': [{'id': 'qwen/other', 'state': 'loaded', 'type': 'llm', 'loaded_context_length': 8192}]})
+    r = air.Router()
+    p = {'key': 'lan', 'base': 'http://10.0.0.9:1236/v1', 'model': 'qwen/qwen3-4b-2507'}
+    asyncio.run(r.local_ctx(H(), p, {}))
+    assert r._loaded['lan'] == 'qwen/other'

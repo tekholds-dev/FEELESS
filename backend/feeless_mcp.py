@@ -909,8 +909,9 @@ var p = $.NSProcessInfo.processInfo.environment.objectForKey('HOME').js + '/.lms
 var cur = {{}};
 if ($.NSFileManager.defaultManager.fileExistsAtPath(p)) {{ try {{ cur = JSON.parse($.NSString.stringWithContentsOfFileEncodingError(p, $.NSUTF8StringEncoding, null).js) || {{}}; }} catch (e) {{ cur = {{}}; }} }}
 cur.mcpServers = cur.mcpServers || {{}};
+var was = JSON.stringify(cur.mcpServers.feeless || null);
 cur.mcpServers.feeless = {entry};
-$(JSON.stringify(cur, null, 2)).writeToFileAtomicallyEncodingError(p, true, $.NSUTF8StringEncoding, null);
+if (was !== JSON.stringify(cur.mcpServers.feeless)) {{ $(JSON.stringify(cur, null, 2)).writeToFileAtomicallyEncodingError(p, true, $.NSUTF8StringEncoding, null); }}   // written ONLY when it changed
 FEELESS_JS_EOF
 # 🖥 KEEP IT RUNNING (owner, 2026-10-15: "ensure it stays running when sleep etc and updates are in it"): two LaunchAgents on THIS Mac —
 #  · com.feeless.lankeep = every 60s: LM Studio's server up on port $PORT + the model loaded; every 10 min: re-run this installer from
@@ -921,18 +922,8 @@ cat > "$HOME/.feeless/lan-keep.sh" <<FEELESS_KEEP_EOF
 #!/bin/bash
 LMS="\\$HOME/.lmstudio/bin/lms"; [ -x "\\$LMS" ] || LMS="\\$(command -v lms)"; [ -n "\\$LMS" ] || exit 0
 "\\$LMS" server status 2>&1 | grep -qi "running" || "\\$LMS" server start --port $PORT >/dev/null 2>&1
-FAILED="\\$HOME/.feeless/model-failed"
-# KEY = "${{MODEL##*/}}" (filled in when this file is written): lms ps / ls show the model by its own name, not always with the "google/" part — matching the full id failed every minute and the model was unloaded + reloaded for good
-LOADED="\\$HOME/.feeless/last-load"; now0=\\$(date +%s); [ \\$((now0 - \\$(cat "\\$LOADED" 2>/dev/null || echo 0))) -lt 300 ] && exit 0   # a load in the last 5 min is still settling — never interrupt it (that was the reload loop)
-if ! "\\$LMS" ps 2>/dev/null | grep -qi "${{MODEL##*/}}" && ! curl -s -m 5 "http://127.0.0.1:$PORT/api/v0/models" | grep -A6 -i "${{MODEL##*/}}" | grep -qi '"state": *"load'; then   # loaded OR loading = leave it alone
-  "\\$LMS" ls 2>/dev/null | grep -qi "${{MODEL##*/}}" || "\\$LMS" get "$MODEL" -y >/dev/null 2>&1   # ⬇ ONLY the model FEELESS picked, once — never a second one
-  if "\\$LMS" ls 2>/dev/null | grep -qi "${{MODEL##*/}}" && [ "\\$(cat "\\$FAILED" 2>/dev/null)" != "$MODEL" ]; then
-    echo \\$now0 > "\\$LOADED"
-    "\\$LMS" unload --all >/dev/null 2>&1   # 8 GB Mac: ONE model in memory
-    "\\$LMS" load "$MODEL" --context-length $CTX --parallel $PAR --gpu max -y >/dev/null 2>&1 || echo "$MODEL" > "\\$FAILED"   # a model that won't load is not retried every minute
-  fi
-  [ "$FALLBACK" = "$MODEL" ] || "\\$LMS" ps 2>/dev/null | grep -q . || "\\$LMS" load "$FALLBACK" --context-length $CTX --gpu max -y >/dev/null 2>&1   # nothing loaded → the fallback (only when it is a different model)
-fi
+# 🚫 THE MODEL IS YOURS (owner, 2026-10-17: "stop reloading the damn model"): this script never loads, unloads, reloads or downloads a model.
+#    It only keeps LM Studio's server up and pulls prompt / MCP updates (written only when they changed).
 st="\\$HOME/.feeless/last-update"; now=\\$(date +%s); last=\\$(cat "\\$st" 2>/dev/null || echo 0)
 if [ \\$((now - last)) -ge 600 ]; then echo \\$now > "\\$st"; curl -fsS -m 20 -H "Authorization: Bearer {tok}" "{install_url}" | FEELESS_LM_PORT=$PORT FEELESS_LM_CTX=$CTX FEELESS_NO_RELOAD=1 bash >/dev/null 2>&1; fi
 FEELESS_KEEP_EOF

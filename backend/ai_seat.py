@@ -389,6 +389,14 @@ def note(log, row, keep=LOG_KEEP):
     return (list(log or []) + [row])[-keep:]
 
 
+HUNT_PASS_N = 5   # answered hunting minutes before a turn may pass
+
+
+def hunt_answers(log, who, since):
+    """How many minutes `who` really answered (WAIT / BUY from the model itself, not the agents' stand-in) since its hunt began."""
+    return sum(1 for r in log or [] if r.get('by') == who and r.get('action') in ('WAIT', 'BUY') and _f(r.get('at')) >= since and not r.get('talk'))
+
+
 def due(last_at, now, every=EVERY_SEC):
     return now - _f(last_at) >= every
 

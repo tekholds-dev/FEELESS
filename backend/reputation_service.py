@@ -14086,7 +14086,7 @@ async def _g4_tick(now, env, cfg):
             hm_ = _g4_mem.get() or {}
             if hm_.get('huntBy') != first_:
                 _g4_mem.put({**hm_, 'huntBy': first_, 'huntSince': now}, now)
-            elif now - _fuse._f(hm_.get('huntSince')) >= _seat.HUNT_TURN_SEC:
+            elif now - _fuse._f(hm_.get('huntSince')) >= _seat.HUNT_TURN_SEC and _seat.hunt_answers(st_['log'], first_, _fuse._f(hm_.get('huntSince'))) >= _seat.HUNT_PASS_N:   # 🔁 a turn passes only when the hunter really LOOKED and found nothing — a model that could not answer keeps its turn (OSSY took every trade while G4's desktop was jammed)
                 _g4_mem.put({**hm_, 'opener': first_, 'huntBy': second_, 'huntSince': now,
                              'log': _seat.note(_seat.merge_log(st_['log'], hm_.get('log')), {'at': round(now), 'mode': mode_, 'model': 'SEAT', 'by': None, 'action': 'PASS', 'why': f"⏱ {_air.model_name(env, first_)} found no clean entry in {_seat.HUNT_TURN_SEC / 60:.0f} min — {_air.model_name(env, second_)}'s turn"})}, now)
                 st_['opener'] = first_
@@ -18538,14 +18538,15 @@ async def admin_agents_set(request: Request):
             p_.pop('hint', None)
         else:
             px_ = _fuse._f((await _live_px([m_])).get(m_)) or _fuse._f((_jup_px_cache.get(m_) or (0, 0))[1])
-            p_['hint'] = {'kind': sh_['kind'], 'at': now_, 'until': now_ + _of.HINT_SEC}
+            hs_, hw_ = _of.hint_sec(_study.get('hints'))   # ✋ your record decides how long your hold holds
+            p_['hint'] = {'kind': sh_['kind'], 'at': now_, 'until': now_ + hs_, 'why': hw_}
             of_ = _office_state()
             of_['hintLog'] = (list(of_.get('hintLog') or []) + [{'mint': m_, 'sym': p_.get('sym'), 'kind': sh_['kind'], 'px': px_, 'at': now_, 'pct': p_.get('pct'), 'peak': p_.get('peak'),
                                                                     'reaper': next((r_.get('rule') for r_ in _office.get('reports') or [] if r_.get('mint') == m_), None), 'base': _of.base_of((_office.get('charts') or {}).get(m_))}])[-200:]
             _json_save(OFFICE_PATH, of_)
             ai_l = next((l_ for l_ in _duo_card_legs() if l_.get('mint') == m_), {})   # 💬 it lands in the duo chat too: the models read it (ownerSays) and the market grades it
             hrow_ = {'at': round(now_), 'mode': 'real', 'model': 'YOU', 'by': 'owner', 'talk': True, 'action': 'TALK', 'view': 'HOLD', 'mint': m_, 'symbol': p_.get('sym'),
-                     'why': '✋ HOLD this — let it play to its stop / take' if sh_['kind'] == 'hold' else '👍 good entry — hold it, let it break out',
+                     'why': (f"✋ HOLD this — give it time ({hw_}); still sell it if it really breaks" if sh_['kind'] == 'hold' else f"👍 good entry — trust it through the noise ({hw_}); this is NOT a buy signal"),
                      **({} if ai_l.get('aiSeat') else {'coinTalk': True})}
             _g4_mem.put({**(_g4_mem.get() or {}), 'log': _seat.note((_g4_mem.get() or {}).get('log') or [], hrow_)}, now_)
             _dv_note(hrow_, px_, now_)

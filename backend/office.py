@@ -788,7 +788,10 @@ def reap(legs, table, prices, cfg, pos, now, scalp=None, control=False, weather_
             act, st = None, 'PROTECT'
         rk_ = str(rule).split(' ')[0]
         hn_ = p.get('hint') or {}
-        if act and hn_.get('kind') in ('hold', 'good') and now < _f(hn_.get('until')) and rk_ not in HINT_HARD:   # ✋ YOU said hold / good entry: soft exits wait, it plays to its stop / take
+        dumb_ = act and hn_ and (pct <= -stop * HINT_DUMB or (pct < 0 and rk_ in HINT_BREAK))   # ✋ hold ≠ never sell: deep red, or red with the chart broken, still goes
+        if dumb_ and hn_.get('kind') in ('hold', 'good') and now < _f(hn_.get('until')) and rk_ not in HINT_HARD:
+            ev += f" · ✋ your hold gave it time, but {pct:+.1f}% " + ('is past 60% of its stop' if pct <= -stop * HINT_DUMB else 'with the chart broken') + " — it goes"
+        if act and not dumb_ and hn_.get('kind') in ('hold', 'good') and now < _f(hn_.get('until')) and rk_ not in HINT_HARD:   # ✋ YOU said hold / good entry: soft exits wait, it plays to its stop / take
             ev += f" · {'✋ you said HOLD' if hn_['kind'] == 'hold' else '👍 you called it a GOOD ENTRY'} ({round((_f(hn_['until']) - now) / 60)} min left) — only stops / rug / −45% / the take act"
             act, st = None, 'PROTECT'
         if TIME_HOLD_STOP and act and rk_ in ('R9', 'R9e', 'R11') and pct <= 0 and pct > -stop * TIME_HOLD_STOP and not base_of(ch):   # ⏱ a TIME rule never sells a coin above 80% of its stop (R9 sales averaged −15%: time cut what a stop would decide)
@@ -852,7 +855,22 @@ def reap(legs, table, prices, cfg, pos, now, scalp=None, control=False, weather_
 SCALE_AT = 10.0
 TAKE_ATR, TAKE_MAX = 12.0, 200.0   # 🎯 per-coin take = max(the card's take, 12 × its average 1-min candle %), ≤ +200%
 HOLD_SOFT = True   # ✋ agent coins: a soft exit needs OSSY / G4's TIGHTEN (tests of the older rules pin it False in conftest)
-HINT_SEC = 30 * 60.0   # ✋ your one-click HOLD / 👍 GOOD ENTRY on a seat holds its soft exits this long
+HINT_SEC = 30 * 60.0   # ✋ your one-click HOLD / 👍 GOOD ENTRY on a seat holds its soft exits this long (the grading window)
+HINT_DUMB = 0.6        # ✋ "hold means give it time, don't be stupid": past 60% of its stop it may still go
+HINT_BREAK = ('R5t', 'R7b')   # … and a RED coin whose chart broke (thesis invalidated / breakdown) too
+
+
+def hint_sec(rec):
+    """How long YOUR hold holds, from YOUR record (owner, 2026-10-17: "every time I told them to hold it ended well → build confidence"):
+    ≥ 8 graded and ≥ 65% right → 60 min · ≥ 5 and ≥ 55% → 45 · ≥ 5 and < 40% → 15 · otherwise 30. → (seconds, why)."""
+    n, r = int(_f((rec or {}).get('n'))), _f((rec or {}).get('right'))
+    if n >= 8 and r >= 65:
+        return 3600.0, f'your holds: {n} graded, {r:.0f}% right — trusted, 60 min'
+    if n >= 5 and r >= 55:
+        return 2700.0, f'your holds: {n} graded, {r:.0f}% right — 45 min'
+    if n >= 5 and r < 40:
+        return 900.0, f'your holds: {n} graded, {r:.0f}% right — 15 min'
+    return HINT_SEC, (f'your holds: {n} graded, {r:.0f}% right — 30 min' if n else 'no graded holds yet — 30 min')
 HINT_HARD = ('R1', 'R2', 'R3', 'R4', 'R4r', 'R4d', 'R4e', 'R5', 'R5x', 'R5c', 'R5m', 'R9c', 'R5g')   # (owner 2026-10-17, $SEXCOIN banked at the model's +15% after he said HOLD: your hold also holds the take lines R6 / R6m / R6h)   # … these still act
 SKIM_STRONG_PCT = 33.0   # 🚀 a breakout still accelerating / running: bank a third (skim) and let the rest run; a weak one banks the owner's scale-out share
 SCALE_PCT = 75.0   # 2026-10-15: 50% left too much on the table for rugs after the take (honest replay: half +3.1% avg · 75% +6.5% · real +4.3%)

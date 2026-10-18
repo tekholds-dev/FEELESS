@@ -703,6 +703,7 @@ class Router:
         self.spend = {}    # provider → {day, usd, calls}: the costs the provider itself reported today
         self.localBgAt = 0.0
         self.minute = {}   # provider → recent background call stamps (LM_PER_MIN)
+        self._loaded = {}   # 🖥 the model LM Studio really has loaded when it isn't ours (used instead — never a JIT reload)
         self._ctx = {}   # LM Studio server → (read at, its model's loaded context length)
         self._beat = {}   # 💓 LM Studio server → its last heartbeat
         self.lastUsage = {}   # provider → {in, out} tokens of its last answer
@@ -773,7 +774,10 @@ class Router:
         ctx = int(_f((env or {}).get('LOCAL_LLM_CTX'), LOCAL_CTX) or LOCAL_CTX)
         try:
             r = await asyncio.wait_for(http.get(re.sub(r'/v1/?$', '', p['base']) + '/api/v0/models', **_lm_auth(env, p['key'])), timeout=3)
-            row = next((m for m in (r.json().get('data') or []) if m.get('id') == p['model']), None) if r.status_code == 200 else None
+            data_ = (r.json().get('data') or []) if r.status_code == 200 else []
+            ld_ = [m for m in data_ if m.get('state') == 'loaded' and m.get('type') in ('llm', 'vlm')]
+            self._loaded[p['key']] = ld_[0]['id'] if ld_ and not any(m.get('id') == p['model'] for m in ld_) else None   # 🖥 another model is loaded: talk to IT, never make LM Studio load ours
+            row = next((m for m in data_ if m.get('id') == (self._loaded.get(p['key']) or p['model'])), None)
             if row and _f(row.get('loaded_context_length')) >= 512:
                 ctx = int(row['loaded_context_length'])
         except Exception:
@@ -903,7 +907,13 @@ class Router:
             hdr.update(_lm_auth(env, p['key']).get('headers') or {})
         if IDENTITY.get() and msgs and msgs[0].get('role') == 'system' and identity_line(env, p['key']):
             msgs = [{'role': 'system', 'content': identity_line(env, p['key']) + '\n\n' + str(msgs[0].get('content') or '')}] + list(msgs[1:])
-        body = {'model': p['model'], 'messages': msgs, 'temperature': 0.1, 'max_tokens': MAX_TOKENS, 'stream': False, **EXTRA_BODY.get(p['key'], {})}
+        if p['key'] == 'lan':
+            try:
+                await self.local_ctx(http, p, env)   # cached 2 min: which model is loaded right now
+            except Exception:
+                pass
+        mdl_ = (self._loaded.get(p['key']) if p['key'] == 'lan' else None) or p['model']   # 🖥 never ask the desktop for a model it hasn't loaded (that reloaded it to defaults)
+        body = {'model': mdl_, 'messages': msgs, 'temperature': 0.1, 'max_tokens': MAX_TOKENS, 'stream': False, **EXTRA_BODY.get(p['key'], {})}
         tn = TUNE.get()
         if tn:
             body.update(temperature=float(tn.get('temp', 0.1)), max_tokens=int(tn.get('maxTok', MAX_TOKENS)))
@@ -1043,6 +1053,9 @@ class Router:
             pw = self.prioWait.setdefault(key, {0: 0, 1: 0, 2: 0})
             if key in LM and any(pw[t] > 0 for t in range(tier)):   # 🥇 a model's OWN trade (and the owner) first, then advice / FeeCat / reviews, then background reads
                 tried.append([key, 'YIELD (its trade first)'])
+                continue
+            if key == 'lan' and tier == 2 and not general:   # 🖥 the 8 GB desktop does G4's trade chat (+ advice / reviews / FeeCat) only — background case reads jammed it ("say ok" > 60s, 2026-10-17)
+                tried.append([key, 'TRADE CHAT ONLY'])
                 continue
             if key in LM and tier == 2 and not seat_window(self.seatDone.get(key), time.time()):   # ⏱ background only right after a trade call: the slot is free when the next minute's trade call comes
                 tried.append([key, 'YIELD (trade call due)'])

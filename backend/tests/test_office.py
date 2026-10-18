@@ -696,3 +696,9 @@ def test_your_own_stop_line_on_your_pick_is_guarded_every_few_seconds():
     assert out and out[0][0] == 'PT' and '−12' in out[0][1]
     assert of.fast_reap([leg], {'T': 0.9}, {}, 10_000) == []                                     # above the line: nothing
     assert of.fast_reap([{**leg, 'ownerLvAt': None}], {'T': 0.5}, {}, 10_000) == []                  # a pick with no line of yours: no stop here
+
+
+def test_your_hold_lasts_by_your_record_and_still_sells_when_it_really_breaks():
+    import office as of
+    assert of.hint_sec({'n': 10, 'right': 70})[0] == 3600 and of.hint_sec({'n': 6, 'right': 30})[0] == 900
+    assert of.hint_sec(None)[0] == of.HINT_SEC and of.HINT_DUMB < 1 and 'R5t' in of.HINT_BREAK

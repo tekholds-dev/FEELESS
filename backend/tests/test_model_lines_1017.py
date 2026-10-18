@@ -89,7 +89,7 @@ def test_a_line_move_is_graded_like_a_call():
 def test_desktop_installer_picks_the_server_model_and_falls_back():
     import feeless_mcp as f
     t = f.install_script('http://x/mcp', 'T', model='qwen/qwen3-4b-2507')
-    assert 'qwen/qwen3-4b-2507' in t and 'get "$MODEL" -y' in t and 'FALLBACK="' in t and 'model-failed' in t
+    assert 'qwen/qwen3-4b-2507' in t and '" get ' not in t and 'unload --all' not in t   # 🚫 the keeper never downloads / loads / unloads a model
     assert 'FEELESS_LM_MODEL="$MODEL"' not in t                                         # the hourly re-pull no longer pins the old model
 
 
@@ -107,7 +107,7 @@ def test_duo_update_is_a_stream_kind():
 def test_desktop_runs_two_parallel_slots():
     import feeless_mcp as f, ai_router as ar
     t = f.install_script('http://x/mcp', 'T')
-    assert '--parallel $PAR' in t and 'FEELESS_LM_PAR:-2' in t and 'FEELESS_LM_CTX:-8704' in t
+    assert '--parallel' not in t   # 🚫 the owner loads the model himself — the keeper never does
     assert ar.PROVIDERS['lan'][7] == ar.LAN_PARALLEL == 2                                 # the router sends two at once to match
 
 

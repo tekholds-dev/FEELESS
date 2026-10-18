@@ -4957,3 +4957,13 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
 - 🔁 BACK AND FORTH (owner, 2026-10-17: "why only OSSY talking — they take turns"): `ai_seat.TALK_EVERY` 0 — while a trade runs the partner
   answers EVERY holder call, at 'seat' priority (never minute-capped, before every other call); skipped only when the holder just moved its
   own TP / SL / trail. A SELL / TRIM still waits for the reply first.
+- 🚫 THE DESKTOP MODEL IS THE OWNER'S (2026-10-17, after the keeper reloaded it to defaults again: "stop reloading the damn model"): the desktop
+  keeper (`feeless_mcp.install_script` lan-keep) NEVER loads, unloads, reloads or downloads a model — it keeps LM Studio's server up and pulls
+  prompt / MCP updates, each written only when it changed (preset via `cmp`, mcp.json only when the feeless entry differs). The router asks
+  the desktop for the model it HAS loaded (`Router._loaded`, read from /api/v0/models every 2 min) — never one that would make LM Studio JIT-load
+  another. Background case reads never go to the desktop (`TRADE CHAT ONLY`); G4 does its trade chat, advice, reviews and FeeCat's duo.
+- 🔁 Turns: a hunting turn passes only after the hunter really answered ≥ `HUNT_PASS_N` 5 minutes (`ai_seat.hunt_answers`) — a model that
+  can't answer keeps its turn (OSSY took every trade while G4's desktop was jammed).
+- ✋ Your hold = time, not a blindfold (`office.hint_sec`, `HINT_DUMB` 0.6, `HINT_BREAK` R5t / R7b): how long it holds comes from YOUR graded
+  holds (≥ 65% right on 8+ → 60 min · 55% on 5+ → 45 · < 40% → 15 · else 30); it still sells past 60% of its stop or red with the chart
+  broken. 👍 Good entry = trust it through the noise — never a buy signal (no buy path reads a hint).

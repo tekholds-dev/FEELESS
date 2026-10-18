@@ -85,7 +85,7 @@ def test_the_desktop_installer_keeps_lm_studio_up_and_pulls_updates():
     s = m.install_script('http://10.0.0.104:8765/mcp', 'tok123', preset_json='{}', prompt='')
     assert '/usr/bin/caffeinate' not in s                                                         # owner, 2026-10-17: no caffeinate
     assert 'com.feeless.lankeep' in s and '<key>StartInterval</key><integer>60</integer>' in s   # LM Studio server + model checked every minute
-    assert 'server start --port $PORT' in s and 'load "$MODEL"' in s
+    assert 'server start --port $PORT' in s and '--gpu max' not in s and 'unload --all' not in s   # 🚫 never touches the model
     assert 'http://10.0.0.104:8765/lan-install' in s and 'FEELESS_NO_RELOAD=1' in s            # hourly self-update re-writes files without reloading itself
 
 
@@ -103,12 +103,11 @@ def test_brave_budget_counts_per_key_per_month_and_resets(tmp_path):
 def test_desktop_keeper_matches_the_model_by_its_short_name_and_never_downloads_a_second_one():
     import feeless_mcp as m
     s = m.install_script('http://10.0.0.2:8765/mcp', 'T', prompt='x', model='google/gemma-4-e2b')
-    assert 'grep -qi "${MODEL##*/}"' in s and 'ge 600' in s   # short-name match (no reload loop) + 10-min self-update
-    assert '[ "$FALLBACK" = "$MODEL" ] ||' in s
+    assert 'ge 600' in s and '" get ' not in s   # 10-min self-update, never a download
 
 
 def test_desktop_keeper_never_interrupts_a_load_rewrites_the_preset_only_on_change_and_runs_no_caffeinate():
     import feeless_mcp as m
     s = m.install_script('http://10.0.0.2:8765/mcp', 'T', prompt='x', model='qwen/qwen3-4b-2507')
-    assert '-lt 300 ] && exit 0' in s and 'cmp -s' in s
+    assert 'unload --all' not in s and 'cmp -s' in s and 'written ONLY when it changed' in s
     assert '/usr/bin/caffeinate' not in s and 'rm -f "$HOME/Library/LaunchAgents/com.feeless.awake.plist"' in s

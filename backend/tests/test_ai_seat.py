@@ -212,3 +212,11 @@ def test_a_models_full_line_is_never_cut():
     long_ = 'held the base, ' * 30
     d = seat.parse('{"action":"HOLD","why":"%s"}' % long_, [], True)
     assert len(d['why']) >= len(long_.strip()) - 1 and 'under 160 chars' not in seat.SYSTEM + seat.ADVISE + seat.IDLE
+
+
+def test_a_hunting_turn_passes_only_when_the_hunter_really_answered():
+    import ai_seat as seat
+    log = [{'by': 'agents', 'action': 'WAIT', 'at': 10 + i} for i in range(9)]
+    assert seat.hunt_answers(log, 'lan', 0) == 0   # G4 could not answer: its turn stays
+    log += [{'by': 'lan', 'action': 'WAIT', 'at': 20 + i} for i in range(5)] + [{'by': 'lan', 'action': 'TALK', 'talk': True, 'at': 30}]
+    assert seat.hunt_answers(log, 'lan', 0) == seat.HUNT_PASS_N
