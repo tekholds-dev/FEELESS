@@ -1129,6 +1129,34 @@ def degraded_pre(ch, rv):
 # for NOISE_TP. The owner's own dragged line always wins. Owner's rule, not yet proven on our record — judge it on the R5 exits of big coins.
 NOISE_VOL = 150_000.0
 NOISE_SL = 35.0
+REAP_BAD_USD, REAP_SMART_USD, REAP_LOCK_AT = 100.0, 150.0, 3.0   # ☠ Reaper's live lines: what the wallets did since our buy moves them
+
+
+def reaper_adjust(pct, take, stop, wm, cur_tp=0.0, cur_sl=0.0):
+    """☠ REAPER ADJUSTS HIS OWN TRADE LIVE (owner, 2026-10-18: "I barely see Reaper adjusting TP / SL — don't be scared, see what the wallets do
+    after, THEN move"): never a sale here — only his lines. Snipers / bundles / dev / top holders selling ≥ $100 since the buy: a GREEN coin
+    (≥ +3%) locks its stop at −1% (house money), a red one tightens its stop to 70% (never under the floor). Smart money (whales / top
+    traders) buying ≥ $150 while green: the take rises ×1.25 (≤ +200%). → {'tp', 'sl', 'why'} or {} (nothing to move)."""
+    if pct is None or not wm:
+        return {}
+    out, why = {}, []
+    sl_now = _f(cur_sl) or abs(_f(stop))
+    if _f(wm.get('badSell')) >= REAP_BAD_USD and _f(wm.get('badSell')) > _f(wm.get('badBuy')):
+        nsl = 1.0 if pct >= REAP_LOCK_AT else round(max(_ci.STOP_FLOOR, sl_now * 0.7), 1)
+        if nsl < sl_now - 0.5:
+            out['sl'] = nsl
+            why.append(f"early hands / top holders sold ${_f(wm['badSell']):,.0f} since the buy → stop " + ('locked at −1% (it is green)' if nsl == 1.0 else f'tightened to −{nsl:g}%'))
+    tp_now = _f(cur_tp) or _f(take)
+    if _f(wm.get('smartBuy')) >= REAP_SMART_USD and _f(wm.get('smartBuy')) > _f(wm.get('smartSell')) and pct > 0 and tp_now > 0:
+        ntp = round(min(TAKE_MAX, tp_now * 1.25))
+        if ntp > tp_now + 1:
+            out['tp'] = ntp
+            why.append(f"smart money bought ${_f(wm['smartBuy']):,.0f} since the buy → take raised to +{ntp:g}%")
+    if out:
+        out['why'] = ' · '.join(why)
+    return out
+
+
 AGENT_GERM_STOP_MAX = 20.0   # 🦠 owner, 2026-10-18: "buy the germ and don't be scared of it dropping back to the germ" — a germ stop sits just under the floor
 AGENT_STOP_MAX = 15.0   # 🛑 owner, 2026-10-18: "fix their stops so they stop filling at −30% or worse" — 22–25% chart stops + the 35% noise stop gapped to −37…−39%; replay on 165 real agent paths: −30%+ fills 10 → 4, average −4.0 → −3.5
 NOISE_TP = 30.0

@@ -8791,6 +8791,45 @@ def _flow_intel(mint):
     return {'creator': it.get('creator'), 'watch': watch}
 
 
+REAP_ADJ_SEC = 120.0   # Reaper moves a coin's lines at most every 2 min
+
+
+async def _reaper_lines(now, px):
+    """☠ REAPER TRADES HIS COINS LIVE (owner, 2026-10-18: "I barely see Reaper adjusting TP / SL"): for every agent coin on the real card, the
+    tape since our buy is tagged (chart_wallets: dev · snipers · bundles · top holders · whales · top traders) and Reaper moves its lines
+    (office.reaper_adjust) — written as the coin's own aiTp / aiSl, which his rules R6m / R5m obey. Your coins, your lines, OSSY / G4's seat: never."""
+    async with _prime_tick_lock:
+        d_ = _json_load(FUSE_HQ_PATH, {}); cs_ = dict((d_.get('prime') or {}).get('cards') or {}); hit_ = False
+        reps_ = {r_.get('mint'): r_ for r_ in _office.get('reports') or []}
+        for tid_, c_ in cs_.items():
+            if not (c_ and c_.get('real') and c_.get('holdBy') == 'agents'):
+                continue
+            for l in c_.get('legs') or []:
+                m_ = l.get('mint')
+                if (not _uni.is_agent(l) or l.get('aiSeat') or l.get('picked') or l.get('ownerLvAt') or l.get('placeholder') or not l.get('real')
+                        or _fuse._f(l.get('units')) <= 0 or now - _fuse._f(l.get('reapAdjAt')) < REAP_ADJ_SEC):
+                    continue
+                tr_ = _flow_trades.get(l.get('pairAddress'))
+                pxn, ent = _fuse._f(px.get(m_)), _fuse._f(l.get('entry'))
+                if not tr_ or now - tr_[0] > 30 or pxn <= 0 or ent <= 0:
+                    continue
+                wm_ = _cw.moves_since(_cw.tag_trades(tr_[1], (_intel_cache.get(m_) or (0, None))[1] or {}), _fuse._f(l.get('at')))
+                rp_ = reps_.get(m_) or {}
+                adj_ = _of.reaper_adjust((pxn / ent - 1) * 100, _fuse._f(rp_.get('take')), _fuse._f(rp_.get('stop')), wm_, l.get('aiTp'), l.get('aiSl'))
+                if not adj_:
+                    continue
+                if adj_.get('tp'):
+                    l['aiTp'] = adj_['tp']
+                if adj_.get('sl'):
+                    l['aiSl'] = adj_['sl']
+                l['aiBy'], l['reapAdjAt'] = 'Reaper', now
+                c_.setdefault('events', []).append({'at': now, 'kind': 'agent', 'symbol': l.get('symbol'), 'mint': m_, 'why': f"☠ Reaper moved ${l.get('symbol')}: {adj_['why']} — {wm_['words']}"})
+                hit_ = True
+        if hit_:
+            d_['prime'] = {**(d_.get('prime') or {}), 'cards': cs_}; _json_save(FUSE_HQ_PATH, d_)
+    return hit_
+
+
 async def _flow_guard(now, px):
     """🌊 + 🚨 on the real card(s): read each held coin's tape, sell what flow / the rug radar flags (like a fast stop), score each exit."""
     rcfg = _prime_real_cfg()
@@ -8804,6 +8843,11 @@ async def _flow_guard(now, px):
     if not legs and not agent_legs:
         return False
     flows = await _flow_fetch([l.get('pairAddress') for l in legs + agent_legs])
+    if agent_legs:
+        try:
+            await _reaper_lines(now, px)   # ☠ Reaper moves his own TP / SL from what the wallets did since the buy (never a sale here)
+        except Exception as e:
+            print('reaper lines:', str(e)[:100])
     if not legs:
         return False
     intel = {l.get('mint'): _flow_intel(l.get('mint')) for l in legs}
@@ -14172,6 +14216,10 @@ async def _g4_tick(now, env, cfg):
         if mode_ == 'paper':
             rec_ = _seat.by_model(book_.get('closed')).get(first_) or {'n': 0}
         rows_ = [_seat.cand_row(c_, _g4_qwen(c_['mint'])) for c_ in cands_]
+        for r_c in rows_:   # 🐋 who has been trading each candidate (the chart's own wallet tags, cache only): read it, don't fear it
+            cw_c = (_cw_cache.get(r_c.get('mint')) or (0, None))[1]
+            if cw_c and cw_c.get('counts'):
+                r_c['wallets'] = ' · '.join(f"{k_} {v_}" for k_, v_ in sorted(cw_c['counts'].items(), key=lambda kv: -kv[1])[:4])
         pick_ = _seat.agents_pick(rows_)
         says_ = _seat.talk_of(st_['log'], first_, since=_fuse._f((leg_ or {}).get('at')) or 0.0) if held_ else None
         learn_ = _seat.learn_block(_g4_lessons(), first_, second_, lambda k_: _air.model_name(env, k_))
@@ -14191,6 +14239,10 @@ async def _g4_tick(now, env, cfg):
             learn_['ownerSays'] = str(on_.get('why') or '')[:600]   # 👤 the owner chimed in on this trade
         await _dv_settle(now)
         pk_ = _seat.packet(rows_, held_, _seat.record_words(rec_), _seat.partner_of(st_['log'], first_), (pick_ or {}).get('symbol'), says_, learn_)
+        if held_ and leg_:   # 🐋 what the snipers / bundles / dev / top holders / whales / top traders did since YOUR buy — see it, then move
+            tr_h = _flow_trades.get(leg_.get('pairAddress'))
+            if tr_h and now - tr_h[0] < 60:
+                pk_['WALLETS'] = _cw.moves_since(_cw.tag_trades(tr_h[1], (_intel_cache.get(held_m) or (0, None))[1] or {}), _fuse._f(leg_.get('at')))['words'] + " — not a reason to panic: watch what they do next, then set your lines"
         _g4['reads'] = (_g4.get('reads') or 0) + 1
         held_ch = ((_tk.KERNEL.candidate(held_m) or {}).get('chart') or {}) if held_m else {}
         if held_:   # 📸 EVERY read: the held coin's 1-minute AND 5-minute chart + its germ / higher-low read (owner: "observe 1 and 5 min")

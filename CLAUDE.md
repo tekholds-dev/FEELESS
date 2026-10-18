@@ -5052,3 +5052,11 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   differs from Reaper's giveBackPct by ≥ 5, one notch toward it goes into SHADOW (office.model_candidate) — the next 20 exits decide.
 - 🧪 AGENTS' PROOF (`coach.agent_proof`, tape `proof` → `ProofTile` "🧪 AGENTS SINCE FIX" on the Trades tab): only their real trades since
   `AGENT_FIX_AT` (2026-10-18 11:24) vs the 12h before (58 trades, 25% won, typical −4.7); "too few" until 10.
+- ☠ REAPER TRADES HIS COINS LIVE FROM THE WALLETS (owner, 2026-10-18: "I barely see Reaper adjusting TP / SL … don't be scared, see what
+  happens after, then move"): `_reaper_lines` (inside the 15s `_flow_guard`) tags the tape since our buy (`chart_wallets.tag_trades` →
+  `moves_since`: smart = whales + top traders, early hands = dev / snipers / bundles / top holders) → `office.reaper_adjust`: early hands selling
+  ≥ $100 into a GREEN coin (≥ +3%) locks its stop at −1%, into a red one tightens it to 70%; smart money buying ≥ $150 while green raises the take
+  ×1.25 (≤ 200). Written as the leg's aiTp / aiSl (R6m / R5m obey them, aiBy 'Reaper'), ≤ once per 2 min per coin, an event on the card for
+  each move. Never a sale, never your coins / your lines / OSSY-G4's seat.
+- 🐋 OSSY / G4 SEE THE WALLETS: their held coin's packet carries `WALLETS` (what those wallets did since the buy, "not a reason to panic"), every
+  candidate row its `wallets` tag counts (from the chart-wallets cache); SYSTEM tells them to read it and set lines, not to run from it.

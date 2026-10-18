@@ -723,3 +723,13 @@ def test_agent_stop_cap_an_agent_stop_never_sits_wider_than_15(monkeypatch):
     gth = {**LEG_}
     r3 = of.reap([gth], [{**ROW_, 'px': 0.83}], {'PA': 0.83}, {}, None, 100, theses={'A': {'stopPct': 19.0, 'germStop': True}})[1][0]
     assert r3['stop'] == -of.AGENT_GERM_STOP_MAX and r3['action'] != 'pull'                         # a germ entry rides the dip to its germ floor
+
+
+def test_reaper_moves_his_own_lines_from_what_the_wallets_do_after_the_buy():
+    import office as of
+    bad = {'badSell': 300.0, 'badBuy': 0.0, 'smartBuy': 0.0, 'smartSell': 0.0}
+    assert of.reaper_adjust(6.0, 50, -15, bad)['sl'] == 1.0                       # green + early hands dumping → lock at −1%
+    assert of.reaper_adjust(-4.0, 50, -15, bad)['sl'] == 10.5                     # red → tighten to 70%
+    smart = {'badSell': 0.0, 'badBuy': 0.0, 'smartBuy': 400.0, 'smartSell': 50.0}
+    assert of.reaper_adjust(8.0, 50, -15, smart)['tp'] == 62                       # smart money buying → room to run
+    assert of.reaper_adjust(8.0, 50, -15, {'badSell': 20.0, 'badBuy': 0, 'smartBuy': 0, 'smartSell': 0}) == {}

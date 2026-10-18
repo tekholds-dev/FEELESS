@@ -54,3 +54,28 @@ def tag_trades(trades, intel=None, keep=KEEP):
             out.append({**r, 'tags': tags})
     out.sort(key=lambda r: -r['at'])
     return {'trades': out[:keep], 'counts': counts, 'top': [{'w': w, 'usd': round(u, 2)} for w, u in top]}
+
+
+SMART = ('whale', 'top')                 # smart money = whales + the top traders
+BAD = ('dev', 'sniper', 'bundle', 'holder')   # the launch's early hands + the top holders
+
+
+def moves_since(tagged, since):
+    """What the tagged wallets did AFTER `since` (our buy) → {'smartBuy', 'smartSell', 'badBuy', 'badSell' ($), 'words'}."""
+    out = {'smartBuy': 0.0, 'smartSell': 0.0, 'badBuy': 0.0, 'badSell': 0.0}
+    seen = {}
+    for t in (tagged or {}).get('trades') or []:
+        if float(t.get('at') or 0) < float(since or 0):
+            continue
+        tags = set(t.get('tags') or ())
+        side = 'Buy' if t.get('side') == 'buy' else 'Sell'
+        if tags & set(SMART):
+            out['smart' + side] += float(t['usd'])
+        if tags & set(BAD):
+            out['bad' + side] += float(t['usd'])
+        for k in tags:
+            seen.setdefault((k, side), 0.0)
+            seen[(k, side)] += float(t['usd'])
+    ic = {'dev': '👤 dev', 'sniper': '🎯 snipers', 'bundle': '📦 bundles', 'holder': '🏦 top holders', 'whale': '🐋 whales', 'top': '👑 top traders'}
+    out['words'] = ' · '.join(f"{ic.get(k, k)} {'bought' if s == 'Buy' else 'sold'} ${v:,.0f}" for (k, s), v in sorted(seen.items(), key=lambda kv: -kv[1])[:5]) or 'no tagged wallet traded since'
+    return {k: (round(v, 2) if isinstance(v, float) else v) for k, v in out.items()}

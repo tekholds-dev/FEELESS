@@ -12,3 +12,10 @@ def test_every_trade_is_tagged_from_records_we_hold_never_a_guess():
     assert out['counts']['whale'] == 1 and out['top'][0]['w'] == 'WHALE'
     assert cw.tag_trades([], None) == {'trades': [], 'counts': {}, 'top': []}
     assert all('sniper' not in t['tags'] for t in cw.tag_trades(trades, None)['trades'])   # no launch read → no sniper tags
+
+
+def test_what_the_tagged_wallets_did_after_our_buy():
+    t = {'trades': [{'at': 50, 'side': 'sell', 'usd': 999, 'tags': ['sniper']}, {'at': 120, 'side': 'sell', 'usd': 200, 'tags': ['sniper', 'holder']},
+                    {'at': 130, 'side': 'buy', 'usd': 500, 'tags': ['whale']}]}
+    m = cw.moves_since(t, 100)
+    assert m['badSell'] == 200 and m['smartBuy'] == 500 and 'snipers sold $200' in m['words']
