@@ -40,3 +40,29 @@ export function missedWord(key) {
 
 // a drop as a bar: |−68%| → 0.68 of the track
 export const dropFrac = p => (n(p) == null ? 0 : Math.max(0, Math.min(1, Math.abs(n(p)) / 100)));
+
+// 🧬 GENS v2 (owner, 2026-10-17: "each vital needs live realtime animation to see the good and bad in each agent and why he's better than
+// older gens"). Pure reads of the lifecycle book: win rate now, the past generations' win rate, the edge between them, a timeline.
+const rate = (w, l) => { const a = n(w) || 0; const b = n(l) || 0; return a + b ? Math.round((a / (a + b)) * 100) : null; };
+export function winRate(g) { return rate(g?.winsAttributed, g?.lossesAttributed); }
+
+export function genEdge(g) {
+  const now = winRate(g);
+  const past = (g?.lineage || []).map(p => ({ gen: p.gen, r: rate(p.wins, p.losses), n: (n(p.wins) || 0) + (n(p.losses) || 0) })).filter(p => p.r != null);
+  if (now == null || !past.length) return { now, past: null, delta: null, word: now == null ? 'no real exits yet' : (g?.lineage || []).length ? 'older gens left no record' : 'first generation on record', tone: 'is-calm' };
+  const tot = past.reduce((s, p) => s + p.n, 0); const avg = Math.round(past.reduce((s, p) => s + p.r * p.n, 0) / (tot || 1));
+  const d = now - avg;
+  return { now, past: avg, delta: d, word: d > 0 ? `+${d} pts better than gens ${past.map(p => p.gen).join(', ')}` : d < 0 ? `${d} pts worse than gens ${past.map(p => p.gen).join(', ')}` : 'level with its old gens', tone: d > 3 ? 'is-good' : d < -3 ? 'is-bad' : 'is-calm' };
+}
+
+export function genTimeline(g) {
+  const past = [...(g?.lineage || [])].reverse().map(p => ({ gen: p.gen, r: rate(p.wins, p.losses), n: (n(p.wins) || 0) + (n(p.losses) || 0), why: p.cause || p.why, status: p.status, live: false }));
+  return [...past, { gen: g?.generation, r: winRate(g), n: (n(g?.winsAttributed) || 0) + (n(g?.lossesAttributed) || 0), live: true }];
+}
+
+export function genBoard(gens) {
+  const rows = (gens || []).map(g => ({ role: g.role, r: winRate(g), e: genEdge(g) })).filter(x => x.r != null);
+  const best = [...rows].sort((a, b) => b.r - a.r)[0] || null;
+  const up = [...rows].filter(x => x.e.delta != null).sort((a, b) => b.e.delta - a.e.delta)[0] || null;
+  return { best, improved: up && up.e.delta > 0 ? up : null };
+}

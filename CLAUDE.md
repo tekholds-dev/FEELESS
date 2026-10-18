@@ -4967,3 +4967,7 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
 - ✋ Your hold = time, not a blindfold (`office.hint_sec`, `HINT_DUMB` 0.6, `HINT_BREAK` R5t / R7b): how long it holds comes from YOUR graded
   holds (≥ 65% right on 8+ → 60 min · 55% on 5+ → 45 · < 40% → 15 · else 30); it still sells past 60% of its stop or red with the chart
   broken. 👍 Good entry = trust it through the noise — never a buy signal (no buy path reads a hint).
+- 🧬 GENS v2 (`LifeLens.GenPod`, `lib/lifeLens.js` winRate / genEdge / genTimeline / genBoard, `lifeLens.css` GENS v2 block): per role a live
+  win ring (arc = win rate on real exits, an orbiting dot that spins faster the busier the gen), VS OLDER GENS (win rate now vs the past gens'
+  weighted rate, ▲▼ pts), four vital meters (win rate · life · typical · W·L) whose numbers flash on change, a generation timeline (dot size =
+  exits, colour = its win rate, the live gen pulses), and a 👑 BEST NOW / 📈 MOST IMPROVED board. transform / opacity only, still in fx-lite.

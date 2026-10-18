@@ -58,7 +58,7 @@ test('the Agents tab shows the KERNEL\'s decision on every coin; the practice de
   expect(q('devil-RUN').textContent).toContain('⚠ DEVIL WARNS'); expect(q('devil-RUN').textContent).toContain('Warden would size ×0.75'); expect(q('agd-row-RUN').textContent).toContain('researching holders');
   expect(q('agd-floor').querySelectorAll('.agd-dot').length).toBe(3); expect(q('agd-floor').textContent).toContain('⌖ $GOOD');
   // 🧬 ONE lifecycle for all ten roles
-  await tab('gens'); expect(q('agd-gens').querySelectorAll('li').length).toBe(10); expect(q('gen-status-sherlock').textContent).toContain('PROBATION'); expect(q('gen-status-reaper').textContent).toContain('ACTIVE');
+  await tab('gens'); expect(q('agd-gens').querySelectorAll('.lfl-pod').length).toBe(10); expect(q('gen-status-sherlock').textContent).toContain('PROBATION'); expect(q('gen-status-reaper').textContent).toContain('ACTIVE');
   expect(q('gen-sherlock').textContent).toContain('gen 2'); expect(q('gen-sherlock').textContent).toContain('walletTrust 1.5'); expect(q('gen-sherlock').textContent).toContain('gen 1 SHADOW');
   expect(q('tank-tally')).toBeNull();   // the old tanks / lives / duty are gone
   expect(q('ack-deck-gens').textContent).toContain('1'); expect(q('agd-kpis')).toBeNull();   // the KPI strip is gone: each pane's tab carries its count

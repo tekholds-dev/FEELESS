@@ -17,3 +17,14 @@ test('one rug = one card, the one that knows the 60-min result, newest first', (
   expect(missedWord('crowd_real')).toBe('crowd real');
   expect(dropFrac(-68)).toBeCloseTo(0.68); expect(dropFrac(null)).toBe(0);
 });
+
+test('🧬 gens v2: win rate now vs the older generations, the timeline, best + most improved', () => {
+  const { winRate, genEdge, genTimeline, genBoard } = require('./lifeLens');
+  const g = { role: 'reaper', generation: 3, winsAttributed: 7, lossesAttributed: 3, lineage: [{ gen: 2, wins: 2, losses: 4 }, { gen: 1, wins: 1, losses: 3 }] };
+  expect(winRate(g)).toBe(70);
+  expect(genEdge(g)).toMatchObject({ now: 70, past: 30, delta: 40, tone: 'is-good' });
+  expect(genTimeline(g).map(x => x.gen)).toEqual([1, 2, 3]); expect(genTimeline(g)[2].live).toBe(true);
+  expect(genEdge({ generation: 1 }).word).toBe('no real exits yet');
+  const b = genBoard([g, { role: 'devil', winsAttributed: 1, lossesAttributed: 1 }]);
+  expect(b.best.role).toBe('reaper'); expect(b.improved.role).toBe('reaper');
+});
