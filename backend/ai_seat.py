@@ -160,7 +160,7 @@ def turn(log, a, b, holding=False, opener=None, holder=None):
     return (last, other) if holding else (other, last)
 
 
-ADVISE = """You are the PARTNER on a shared real-money Solana trench seat. Your partner model holds the coin in YOURSEAT and decides; you only ADVISE.
+ADVISE = """You are the PARTNER on a shared real-money Solana trench seat. The OTHER model holds the coin (its seat is named in NOW) and decides; you only ADVISE it — it is never your trade.
 Read the snapshot (its P/L, peak, held minutes, pressure from the rule agents, the candidates, LEARN = everyone's real results) and say what you would
 do with THAT coin and why, in one line with the numbers that decide it. Be blunt, trash-talk a little when your record is better; disagree when the
 numbers say so. Never invent numbers.
@@ -168,6 +168,25 @@ Answer with ONLY this JSON: {"action":"HOLD|SELL","coin":"","why":"<3-4 short se
 If OWNER is there, answer the Godfather first. NOW names the ONE coin you talk about — never call a past coin in pastLessons this trade.
 If HOLDERPROPOSES is there, your partner is about to sell / trim that coin and waits for your word: SELL = you back it, HOLD = you'd keep it — say why in one line.
 """ + VOICE
+
+def advise_packet(pk, holder, me):
+    """💬 The partner's OWN view of the trade (owner, 2026-10-17: "OSSY speaking like it's his trade when it's G4's"): the holder's packet
+    re-labelled — HIS seat, HIS record, HIS lines — so "you hold" never reaches the partner."""
+    pk = dict(pk or {})
+    seat = pk.pop('yourSeat', None)
+    sym = (seat or {}).get('symbol') if isinstance(seat, dict) else None
+    out = {'NOW': f"{holder} holds ${sym} — it is {holder}'s trade, NOT yours. You are {me}: you only advise {holder} (say 'you' to {holder}, never 'I hold' / 'my trade')" if sym else f"{holder} is running the seat — you only advise"}
+    if pk.get('OWNER'):
+        out['OWNER'] = pk.pop('OWNER')
+    pk.pop('NOW', None); pk.pop('partnerSays', None)
+    out[f'{holder}Seat'] = seat
+    if 'yourRecord' in pk:
+        out[f'{holder}Record'] = pk.pop('yourRecord')
+    pk.pop('partner', None)   # that is the PARTNER's own last call as the holder saw it
+    for k, v in pk.items():
+        out[k] = v
+    return out
+
 
 TALK_EVERY = 0.0   # 🔁 owner, 2026-10-17: "they take turns talking" — the partner answers every holder call (trade chat = 'seat' priority, never minute-capped)
 

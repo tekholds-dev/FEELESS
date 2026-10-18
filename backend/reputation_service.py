@@ -14203,7 +14203,7 @@ async def _g4_tick(now, env, cfg):
             talk_at = now
             try:
                 t0b = time.perf_counter()
-                ra_ = await asyncio.wait_for(_air.ROUTER.ask(_ai_http(), env, cfg, 'Advise on your partner\'s open trade.', context={**pk_, 'holder': _air.model_name(env, first_), **({'HOLDERPROPOSES': propose_} if propose_ else {})}, role='exit', urgency='seat', only=(second_,), system=_seat.sys_for(_seat.ADVISE, second_), only_system=True), timeout=ADVISE_SEC)
+                ra_ = await asyncio.wait_for(_air.ROUTER.ask(_ai_http(), env, cfg, 'Advise on your partner\'s open trade.', context={**_seat.advise_packet(pk_, _air.model_name(env, first_), _air.model_name(env, second_)), **({'HOLDERPROPOSES': propose_} if propose_ else {})}, role='exit', urgency='seat', only=(second_,), system=_seat.sys_for(_seat.ADVISE, second_), only_system=True), timeout=ADVISE_SEC)
                 da_ = _seat.parse(ra_.get('text'), [], True)
                 oth_ = _seat._sym_in((da_ or {}).get('why'), {l_.get('symbol'): l_.get('mint') for l_ in _duo_card_legs() if l_.get('symbol')}) if da_ else None
                 if da_ and oth_ and oth_ != held_m:   # 💬 the advice is about ANOTHER coin on the card ($ELON on the $Kimchi trade) → it goes to that coin's own room, never the holder's chat

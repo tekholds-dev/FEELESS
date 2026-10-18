@@ -235,3 +235,11 @@ def test_your_chat_lines_never_scroll_out_of_the_chat():
     rows = [{'at': 1, 'by': 'owner', 'why': 'hold till lower lows'}] + [{'at': 10 + i, 'by': 'lan', 'why': f'hold {i}'} for i in range(40)]
     w = seat.chat_window(rows, n=24)
     assert w[0]['why'] == 'hold till lower lows' and len(w) == 25 and [r['at'] for r in w] == sorted(r['at'] for r in w)
+
+
+def test_the_partner_advises_on_the_holders_trade_never_its_own():
+    import ai_seat as seat
+    pk = seat.packet([], {'symbol': 'Glow', 'pct': 28}, record='3 trades', partner={'model': 'OSSY', 'action': 'HOLD', 'symbol': 'Glow', 'why': 'x'})
+    a = seat.advise_packet(pk, 'G4', 'OSSY')
+    assert "G4 holds $Glow" in a['NOW'] and 'NOT yours' in a['NOW'] and 'yourSeat' not in a and 'yourRecord' not in a and a['G4Seat']['symbol'] == 'Glow'
+    assert 'partner' not in a and 'never your trade' in seat.ADVISE

@@ -4982,3 +4982,6 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
 - 💬 YOUR LINES STAY IN THE CHAT (owner, 2026-10-17: "are my messages disappearing?"): every duo chat (the live trade, coin rooms, past
   trade rooms, between trades) = `ai_seat.chat_window` — the newest 24 (18 / 16 / 14) lines + your own lines (up to 12) even after the models
   talked past them. A 14-line window scrolled your chime-in out in ~3 min at 5 lines a minute.
+- 💬 THE PARTNER ADVISES, IT NEVER OWNS (owner, 2026-10-17: "OSSY speaking like it's his trade when it's G4's"): the advice call gets
+  `ai_seat.advise_packet(pk, holder, me)` — NOW = "G4 holds $X — G4's trade, NOT yours", `G4Seat` / `G4Record` instead of yourSeat /
+  yourRecord, the holder's view of the partner dropped. It used to get the holder's own packet ("you hold $X").
