@@ -5060,3 +5060,7 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   each move. Never a sale, never your coins / your lines / OSSY-G4's seat.
 - 🐋 OSSY / G4 SEE THE WALLETS: their held coin's packet carries `WALLETS` (what those wallets did since the buy, "not a reason to panic"), every
   candidate row its `wallets` tag counts (from the chart-wallets cache); SYSTEM tells them to read it and set lines, not to run from it.
+- 🤝 REAPER NEVER TRADES ALONE (owner, 2026-10-18: "someone needs to be with Reaper in his trades"): `_reaper_partner` — every
+  `PARTNER_EVERY` 60s the model that is NOT deciding (OSSY or G4) rides along on ONE agents coin (rotating, the one read longest ago) through
+  `_g4_idle` with that coin alone: HOLD / SELL + its own lines. Its word becomes Reaper's fresh exit word (`_ai['exit']`: SELL → TIGHTEN, HOLD →
+  RIDE) — with HOLD_SOFT a soft exit on an agent coin only fires on a TIGHTEN, so the partner decides the soft sells; stops / rug / −45% never wait.

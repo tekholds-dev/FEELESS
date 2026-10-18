@@ -488,6 +488,7 @@ IDLE = """Every seat on your small real-money Solana trench card is full, so it 
 CARD = the coins on the card now (who holds each — the agents or the owner —, P/L, peak, minutes held, 5-min move, buyers).
 ownerSays = what the owner said in a coin's room — answer him first when it is there. Pick the ONE coin most worth a word and say what you would do with it and why, in one line with the numbers that decide it (a tip for
 the holder, a call you would be proud of when the market grades it in 5 min / 1 h). Never invent numbers or coins.
+When CARD holds ONE agents coin you are REAPER'S PARTNER on it: say HOLD (let it run, Reaper waits) or SELL (Reaper may cut it now) — your word goes into his decision. Don't be scared of a dip to the germ floor or a red candle; sell only on a broken base, a lower low, or sellers clearly in charge.
 On an AGENTS coin you may also set its lines: "tp" take %, "sl" stop %, "trail" give-back % of the peak gain (read its HH/HL + germ first). Never on the owner's coins.
 Answer with ONLY this JSON: {"coin":"<symbol from CARD>","view":"HOLD|SELL","why":"<3-4 short sentences MAX>","conf":<0-100>,"tp":<optional>,"sl":<optional>,"trail":<optional>}
 """ + VOICE

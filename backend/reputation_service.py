@@ -14197,6 +14197,8 @@ async def _g4_tick(now, env, cfg):
                 _g4['phase'] = 'SEATS FULL'
                 if now - _fuse._f(st_.get('idleAt')) >= _seat.IDLE_EVERY:   # 💬 seats full: one model (alternating) still reads the card's trades and says what it would do — graded by the market like every call
                     await _g4_idle(now, env, cfg, st_, legs_r, mode_)
+                else:   # 🤝 … and between those, rides along with Reaper on one of his coins
+                    await _reaper_partner(now, env, cfg, st_, card_, mode_, _seat.idle_turn(st_['log'], _duet.LEAD, _duet.SECOND))
                 return
         _g4['phase'] = 'HOLDING' if held_ else 'HUNTING'
         rec_ = _g4_real_record() if mode_ == 'real' else _seat.record(book_.get('closed'))
@@ -14350,6 +14352,12 @@ async def _g4_tick(now, env, cfg):
             _g4_mem.put({**(_g4_mem.get() or {}), 'log': _seat.merge_log(log_, (_g4_mem.get() or {}).get('log'))}, now)
             await _g4_idle(now, env, cfg, {**st_, 'log': log_}, [l for l in card_.get('legs') or [] if not l.get('placeholder') and _fuse._f(l.get('units')) > 0 and l.get('mint') != _fw.SOL_MINT], mode_, who=second_)   # the one NOT hunting talks
             log_ = (_g4_mem.get() or {}).get('log') or log_
+        if mode_ == 'real':   # 🤝 the model not deciding rides along on one of Reaper's coins (every 60s, rotating)
+            try:
+                await _reaper_partner(now, env, cfg, {**st_, 'log': log_}, card_, mode_, second_)
+                log_ = _seat.merge_log(log_, (_g4_mem.get() or {}).get('log'))
+            except Exception as e_p:
+                print('reaper partner:', str(e_p)[:100])
         m1_ = _g4_mem.get() or {}   # the seat may have opened (and the stats restarted) while this model was thinking
         if (m1_.get('statsFrom') or 0) > (st_.get('statsFrom') or 0):
             log_ = [r_ for r_ in log_ if (r_.get('at') or 0) >= m1_['statsFrom']]
@@ -14404,8 +14412,32 @@ async def _g4_idle(now, env, cfg, st_, legs_, mode_, who=None):
         _g4_mem.put({**m1, 'log': _seat.note(m1.get('log') or st_['log'], row_), 'idleAt': now}, now)
         _duo_push()
         _dv_note(row_, _fuse._f(pxm_.get(d_['mint'])), now)
+        return d_
     except Exception as e:
         print('g4 idle:', str(e)[:100])
+    return None
+
+
+PARTNER_EVERY = 60.0   # (each coin re-read inside the 3-min window Reaper trusts a read) 🤝 Reaper's partner reads one of his coins this often (rotating)
+
+
+async def _reaper_partner(now, env, cfg, st_, card_, mode_, who):
+    """🤝 REAPER NEVER TRADES ALONE (owner, 2026-10-18: "someone needs to be with Reaper in his trades"): every PARTNER_EVERY the model that is
+    NOT deciding rides along on ONE of the agents' coins (the one read longest ago): HOLD / SELL + its lines. Its word goes into Reaper's own
+    decision — SELL = TIGHTEN (a soft exit may act on one look), HOLD = RIDE (soft exits need more looks) — and its lines are set like any
+    model line. Graded by the market like every call."""
+    legs_ = [l for l in card_.get('legs') or [] if _uni.is_agent(l) and not l.get('picked') and not l.get('aiSeat') and not l.get('placeholder') and l.get('real') and _fuse._f(l.get('units')) > 0]
+    if not legs_ or now - _fuse._f(_g4.get('partnerAt')) < PARTNER_EVERY:
+        return None
+    _g4['partnerAt'] = now
+    seen_ = _g4.setdefault('partnerSeen', {})
+    lg_ = min(legs_, key=lambda l: _fuse._f(seen_.get(l.get('mint'))))
+    seen_[lg_.get('mint')] = now
+    d_ = await _g4_idle(now, env, cfg, st_, [lg_], mode_, who=who)
+    if d_ and d_.get('mint') == lg_.get('mint'):
+        w_ = 'TIGHTEN' if d_['view'] == 'SELL' else 'RIDE'
+        _ai['exit'][lg_['mint']] = {'word': w_, 'at': now, 'sym': lg_.get('symbol'), 'why': f"🤝 {_air.model_name(env, who)} riding with Reaper: {d_['view']} — {d_.get('why') or ''}"[:120], 'w1': w_, 'p1': who}
+    return d_
 
 
 _lose_c: dict = {'at': 0.0, 'v': {}}
