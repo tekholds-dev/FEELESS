@@ -5,6 +5,7 @@ import { useWallet } from '../hooks/useWallet';
 import { getChatSession, readChatSession } from '../lib/chatSession';
 import { Hint } from './Hint';
 import { currentSubscription, enablePush, readPushPrefs, savePushPrefs, syncPush } from '../lib/push';
+import '../styles/inbox.css';
 
 const ago = ts => { const s = Math.max(0, Date.now() / 1000 - ts); return s < 60 ? 'now' : s < 3600 ? `${Math.floor(s / 60)}m` : s < 86400 ? `${Math.floor(s / 3600)}h` : `${Math.floor(s / 86400)}d`; };
 const q = o => new URLSearchParams(o).toString();

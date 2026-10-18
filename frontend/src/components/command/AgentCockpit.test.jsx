@@ -218,7 +218,7 @@ test('🤖 the agents\' own moves stay on the chart (Trigger · Courier · Reape
 
 test('🖼 avatars: OSSY / G4 use the owner\'s pictures, each agent its own GIF', () => {
   const { avatarOf } = require('../../lib/aiAvatars');
-  expect(avatarOf('OSSY')).toMatch(/ossy\.webp$/); expect(avatarOf('lan')).toMatch(/g4\.webp$/); expect(avatarOf('reaper')).toMatch(/reaper\.gif$/); expect(avatarOf('bob')).toBe(null);
+  expect(avatarOf('OSSY')).toMatch(/ossy\.gif$/); expect(avatarOf('lan')).toMatch(/g4\.gif$/); expect(avatarOf('reaper')).toMatch(/reaper\.gif$/); expect(avatarOf('bob')).toBe(null);
 });
 
 test('✋ / 👍 one click on a seat posts the hint', async () => {
@@ -235,9 +235,9 @@ test('✋ / 👍 one click on a seat posts the hint', async () => {
 });
 
 test('🐋 wallet bubbles: each tagged trade at its time + market cap, the strongest tag first, buy / sell', () => {
-  const { walletPins } = require('./AgentCockpit');
+  const { walletPins } = require('../../lib/chartWallets');
   const cw = { trades: [{ at: 100, side: 'sell', usd: 900, px: 0.002, w: 'WHALEAAAABBBB', tags: ['holder', 'whale'] }, { at: 90, side: 'buy', usd: 40, px: 0.001, w: 'SNIPExxxxyyyy', tags: ['sniper'] }] };
-  const p = walletPins(cw, 1000000, 0.001);
+  const p = walletPins(cw, 1000000 / 0.001);
   expect(p).toHaveLength(2); expect(p[0]).toMatchObject({ kind: 'wallet', icon: '🐋', action: 'SELL', cap: 2000000 }); expect(p[1]).toMatchObject({ icon: '🎯', action: 'BUY' });
-  expect(walletPins(cw, 0, 0)).toEqual([]);
+  expect(walletPins(cw, 0)).toEqual([]);
 });

@@ -42,12 +42,30 @@ export function clusterPins(pts, gap = STACK_GAP) {
 export const PIN_LENSES = [['models', '🔁 Models', k => k === 'ai' || k === 'talk'], ['agents', '🤖 Agents', k => k === 'agent'], ['wallets', '🐋 Wallets', k => k === 'wallet'], ['you', '👤 You', k => k === 'user']];
 export const lensOf = kind => (PIN_LENSES.find(l => l[2](kind || 'user')) || PIN_LENSES[3])[0];
 const LENS_KEY = 'feeless.pinLens';
+
+// 🧵 TRAILS (owner, 2026-10-18: "I wanna see agents and AI trail on chart"): each voice's calls joined in time order — OSSY, G4 and the
+// agents each get one faint line through the exact candle + cap they called at (dots on the calls). Wallets / your own lines get none.
+export function trailKey(c) {
+  if (!c) return null;
+  if (c.kind === 'agent') return 'agents';
+  if (c.kind === 'ai' || c.kind === 'talk') { const w = String(c.who || '').toUpperCase(); return w === 'OSSY' || w === 'G4' || w === 'REAPER' ? w.toLowerCase() : null; }
+  return null;
+}
+export function trailPaths(pts) {
+  const by = {};
+  (pts || []).forEach(p => { const k = trailKey(p); if (k) (by[k] = by[k] || []).push(p); });
+  const out = {};
+  Object.entries(by).forEach(([k, a]) => { if (a.length < 2) return; a.sort((x, y) => x.x - y.x);
+    out[k] = { line: a.map((p, i) => `${i ? 'L' : 'M'}${p.x.toFixed(0)} ${p.y.toFixed(0)}`).join(''), dots: a.map(p => `M${p.x.toFixed(0)} ${p.y.toFixed(0)}h0`).join('') }; });
+  return out;
+}
 const readHidden = () => { try { return new Set(JSON.parse(localStorage.getItem(LENS_KEY) || '[]')); } catch { return new Set(); } };
 
 export function ChartCallPins({ calls, seriesRef, chartRef, container, ratio = 1, mcChart = true, ivSec = 60, nowMc }) {
   const host = useRef(null); const [open, setOpen] = useState(null);
   const [hidden, setHidden] = useState(readHidden);
   const [stacks, setStacks] = useState({});   // lead id → [member ids]; members not leading are hidden
+  const trailRef = useRef(null);
   const valid = (calls || []).filter(c => c && Number(c.cap) > 0 && Number(c.at) > 0);
   const counts = {}; valid.forEach(c => { const l = lensOf(c.kind); counts[l] = (counts[l] || 0) + 1; });
   const list = thinPins(valid.filter(c => !hidden.has(lensOf(c.kind))), ivSec).slice(-MAX_PINS);
@@ -55,8 +73,8 @@ export function ChartCallPins({ calls, seriesRef, chartRef, container, ratio = 1
   const flip = l => setHidden(h => { const n = new Set(h); n.has(l) ? n.delete(l) : n.add(l); try { localStorage.setItem(LENS_KEY, JSON.stringify([...n])); } catch { /* private window */ } return n; });
   useEffect(() => {
     const root = host.current; if (!root || !list.length) return undefined;
-    const els = list.map(c => ({ id: c.id, kind: c.kind, at: c.at, el: root.querySelector(`[data-pin="${c.id}"]`), t: pinPlace(c, ivSec), v: mcChart ? Number(c.cap) : Number(c.cap) / (ratio || 1), last: '' }));
-    let lastGroups = '';
+    const els = list.map(c => ({ id: c.id, kind: c.kind, who: c.who, at: c.at, el: root.querySelector(`[data-pin="${c.id}"]`), t: pinPlace(c, ivSec), v: mcChart ? Number(c.cap) : Number(c.cap) / (ratio || 1), last: '' }));
+    let lastGroups = ''; let lastTrail = '';
     const hide = o => { if (o.last !== 'x') { o.last = 'x'; o.el.style.opacity = '0'; o.el.style.pointerEvents = 'none'; } };
     const step = () => {
       const s = seriesRef.current?.series; const ch = chartRef.current; const box = container?.current;
@@ -71,8 +89,12 @@ export function ChartCallPins({ calls, seriesRef, chartRef, container, ratio = 1
           const lg = x != null ? ch.timeScale().coordinateToLogical(x) : null; const bar = lg != null && s.dataByIndex ? s.dataByIndex(Math.round(lg)) : null;
           const hi = bar ? Number(bar.high ?? bar.value) : null; yTop = hi > 0 ? s.priceToCoordinate(hi) : null;
         } catch { x = null; }
-        if (x != null && y != null && x > 8 && x < w - 60 && y > 8 && y < h - 8) pts.push({ id: o.id, kind: o.kind, at: o.at, x, y, top: Math.min(y, yTop ?? y), o }); else hide(o);
+        if (x != null && y != null && x > 8 && x < w - 60 && y > 8 && y < h - 8) pts.push({ id: o.id, kind: o.kind, who: o.who, at: o.at, x, y, top: Math.min(y, yTop ?? y), o }); else hide(o);
       });
+      const svg = trailRef.current;
+      if (svg) { const tp = trailPaths(pts); const tk = `${top},${w},${h}|${JSON.stringify(tp)}`;
+        if (tk !== lastTrail) { lastTrail = tk; svg.style.transform = `translate3d(0, ${top}px, 0)`; svg.setAttribute('width', w); svg.setAttribute('height', h);
+          svg.querySelectorAll('[data-trail]').forEach(g => { const t = tp[g.dataset.trail]; g.querySelector('.ccp-tl').setAttribute('d', t ? t.line : ''); g.querySelector('.ccp-td').setAttribute('d', t ? t.dots : ''); }); } }
       const groups = clusterPins(pts);
       const gk = groups.map(g => `${g.lead}:${g.ids.join(',')}`).join('|');
       if (gk !== lastGroups) { lastGroups = gk; const m = {}; groups.forEach(g => { m[g.lead] = g.ids; }); setStacks(m); }
@@ -94,7 +116,10 @@ export function ChartCallPins({ calls, seriesRef, chartRef, container, ratio = 1
   const lenses = PIN_LENSES.filter(l => counts[l[0]]);
   if (!valid.length) return null;
   const byId = new Map(list.map(c => [c.id, c]));
+  const trails = [...new Set(list.map(trailKey).filter(Boolean))];
   return <div className="ccp" ref={host} data-testid="chart-call-pins">
+    {trails.length ? <svg ref={trailRef} className="ccp-trails" aria-hidden="true" data-testid="chart-trails">{trails.map(k =>
+      <g key={k} data-trail={k} className={`ccp-trail t-${k}`}><path className="ccp-tl" d="" /><path className="ccp-td" d="" /></g>)}</svg> : null}
     {lenses.length > 1 || hidden.size ? <div className="ccp-lens" data-testid="chart-pin-lens">{lenses.map(([k, word]) =>
       <button key={k} type="button" className={`ccp-lb ${hidden.has(k) ? 'is-off' : ''}`} aria-pressed={!hidden.has(k)} onClick={() => flip(k)} data-testid={`chart-pin-lens-${k}`}>{word}<b>{counts[k]}</b></button>)}</div> : null}
     {list.map(c => { const mates = (stacks[c.id] || [c.id]).map(id => byId.get(id)).filter(Boolean); const n = mates.length; const fan = mates.filter(m => m.id !== c.id).slice(0, 2);

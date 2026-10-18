@@ -5,7 +5,9 @@ import { useEffect, useState } from 'react';
 // upgraded themes, neon trench over designed" → every scene is CALM and in the site's royal-green meta language: Neon trench = only a grid
 // floor + a horizon; Aurora + Pulse grid are new; Code rain kept, quieter. A retired id (hyper · casino · sunset · aurora-old · peaks · sakura ·
 // deep · warp · cat · reactor · helix · city · tunnel · storm · gutter · sonar · lava · vhs) falls back to Default.
-export const CHART_BGS = [['default', '▫ Default'], ['aurora', '🌌 Royal aurora'], ['pulse', '🧬 Pulse grid'], ['neon', '⚡ Neon trench'], ['rain', '🟩 Code rain']];
+// Owner, 2026-10-18: "neon trench needs the FEELESS logo, other themes way better and degen" → Neon trench carries the FEELESS mark as its
+// sun on the horizon; three degen scenes join (🚀 Moon run · 💊 Pill rush · 📼 Degen tape), still faint enough that the candles lead.
+export const CHART_BGS = [['default', '▫ Default'], ['neon', '⚡ Neon trench'], ['moon', '🚀 Moon run'], ['pills', '💊 Pill rush'], ['tape', '📼 Degen tape'], ['rain', '🟩 Code rain'], ['aurora', '🌌 Royal aurora'], ['pulse', '🧬 Pulse grid']];
 const KEY = 'feeless.chartBg';
 const ok = v => CHART_BGS.some(([k]) => k === v);
 const subs = new Set();

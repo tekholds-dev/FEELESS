@@ -78,3 +78,17 @@ body.theme-day .ccp-th-head { background: #fff; } body.theme-day .ccp-trt { colo
 body.theme-day .ccp-lens { background: rgba(255, 255, 255, .9); border-color: rgba(10, 60, 35, .18); } body.theme-day .ccp-lb { color: #10301d; } body.theme-day .ccp-lb b { color: #0c8a45; }
 @media (prefers-reduced-motion: reduce) { .ccp-fan, .ccp-lb { transition: none; } }
 @media (max-width: 640px) { .ccp-lens { bottom: 30px; } .ccp-lb { padding: 3px 6px; font-size: 9px; } .ccp-thread { width: 240px; } }
+
+/* 🧵 trails: each voice's calls joined in time order, faint so the candles stay the main thing (transform only, redrawn when the chart moves) */
+.ccp-trails { position: absolute; left: 0; top: 0; overflow: visible; pointer-events: none; z-index: 0; }
+.ccp-tl { fill: none; stroke-width: 1.4; stroke-dasharray: 3 4; stroke-linejoin: round; opacity: .55; }
+.ccp-td { fill: none; stroke-width: 5; stroke-linecap: round; opacity: .9; }
+.ccp-trail.t-ossy .ccp-tl, .ccp-trail.t-ossy .ccp-td { stroke: #b48cff; }
+.ccp-trail.t-g4 .ccp-tl, .ccp-trail.t-g4 .ccp-td { stroke: #6fd3ff; }
+.ccp-trail.t-reaper .ccp-tl, .ccp-trail.t-reaper .ccp-td { stroke: #ff8fa3; }
+.ccp-trail.t-agents .ccp-tl, .ccp-trail.t-agents .ccp-td { stroke: #45e486; }
+.ccp-trail.t-agents .ccp-tl { opacity: .35; }
+/* 🎞 live avatars: OSSY / G4 + the ten agents are looping GIFs — a bigger face so the motion reads */
+.ccp-pin.is-ai { width: 26px; height: 26px; margin: -13px 0 0 -13px; }
+.ccp-pin.is-agent { width: 22px; height: 22px; margin: -11px 0 0 -11px; }
+body.theme-day .ccp-tl { opacity: .7; }

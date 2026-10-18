@@ -179,3 +179,4 @@ body.theme-day .ack-warm { border-color: rgba(13, 122, 65, .3); }
 .ack-hint.is-on { background: #15d16a; border-color: #15d16a; color: #04140a; }
 body.theme-day .ack-hint { background: rgba(236, 246, 240, .9); color: #123a26; } body.theme-day .ack-hint.is-on { background: #0f8f4a; color: #fff; }
 @media (prefers-reduced-motion: reduce) { .ack-hint { transition: none; } }
+

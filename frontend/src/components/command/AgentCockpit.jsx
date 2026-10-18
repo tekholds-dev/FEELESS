@@ -24,7 +24,6 @@ import { TeachBox } from './TeachBox';
 import { VitalBoard } from './VitalBoard';
 import { TradeTape, CoachBox } from './CoachTape';
 import { CopyCa } from './CopyCa';
-import { sharedJson } from '../../lib/sharedJson';
 import { tradeBar, tickDir, aiOf } from '../../lib/cockpitControls';
 import '../../styles/agentCockpit.css';
 import { AiChat } from './AiChat';
@@ -380,33 +379,8 @@ export function agentPins(markers) {
     .map(k => ({ id: `ag-${k.id}`, at: k.at, cap: k.mc, who: k.agent[0].toUpperCase() + k.agent.slice(1), kind: 'agent', action: String(k.action || '').toUpperCase(), text: k.why, img: avatarOf(k.agent) }));
 }
 
-// 🐋 WHO TRADED THIS CHART (owner, 2026-10-18: "snipers, bundles, whales and top trader bubbles on each chart in the Agents tab"): the tape's
-// trades tagged from our own launch + holder read (backend chart_wallets.py), one bubble per tagged trade at its time + market cap.
-export const WALLET_TAG = { dev: ['👤', 'DEV'], sniper: ['🎯', 'SNIPER'], bundle: ['📦', 'BUNDLE'], whale: ['🐋', 'WHALE'], top: ['👑', 'TOP TRADER'], holder: ['🏦', 'TOP HOLDER'] };
-const WALLET_ORDER = ['dev', 'sniper', 'bundle', 'whale', 'top', 'holder'];
-export function walletPins(cw, mc, price) {
-  const ratio = Number(mc) > 0 && Number(price) > 0 ? Number(mc) / Number(price) : 0;
-  if (!ratio) return [];
-  return ((cw && cw.trades) || []).filter(t => Number(t.px) > 0 && Number(t.at) > 0).map(t => {
-    const k = WALLET_ORDER.find(x => (t.tags || []).includes(x)) || t.tags?.[0]; const [ic, word] = WALLET_TAG[k] || ['•', String(k || '').toUpperCase()];
-    return { id: `w-${t.at}-${t.w}-${t.usd}`, at: t.at, cap: Number(t.px) * ratio, who: `${word} ${String(t.w).slice(0, 4)}…${String(t.w).slice(-4)}`, kind: 'wallet', icon: ic,
-      action: t.side === 'buy' ? 'BUY' : 'SELL', text: `${t.side === 'buy' ? 'bought' : 'sold'} $${Number(t.usd).toLocaleString(undefined, { maximumFractionDigits: 0 })} · ${(t.tags || []).map(x => (WALLET_TAG[x] || [x])[0]).join(' ')}` };
-  });
-}
-function useChartWallets(mint, pair) {
-  const [cw, setCw] = useState(null);
-  useEffect(() => {
-    let alive = true; setCw(null); if (!mint) return undefined;
-    const load = () => Promise.resolve().then(() => sharedJson(`/api/reputation/chart-wallets/${mint}${pair ? `?pair=${pair}` : ''}`, { maxAge: 14000 })).then(x => alive && x && setCw(x)).catch(() => {});
-    load(); const id = setInterval(() => { if (!document.hidden) load(); }, 15000);
-    return () => { alive = false; clearInterval(id); };
-  }, [mint, pair]);
-  return cw;
-}
-
 function CockpitChart({ m, iv, setIv, pos, cand, markers, onAgent, tid, call, isOwner, duo }) {
-  const cw = useChartWallets(m?.mint, m?.pair);
-  const calls = useMemo(() => [...walletPins(cw, m?.mc, m?.price), ...agentPins(markers), ...chartCalls(duo?.chart, m?.mint, m?.mc)], [cw, m?.price, duo?.chart, m?.mint, m?.mc, markers]);
+  const calls = useMemo(() => [...agentPins(markers), ...chartCalls(duo?.chart, m?.mint, m?.mc)], [duo?.chart, m?.mint, m?.mc, markers]);   // 🐋 wallet bubbles come from PriceChart itself (every chart)
   const pair = useMemo(() => (m?.pair ? { chainId: 'solana', pairAddress: m.pair, baseToken: { address: m.mint, symbol: m.symbol }, priceUsd: m.price, marketCap: m.mc } : null), [m?.pair, m?.mint, m?.symbol, m?.price, m?.mc]);
   // ✋ YOUR LINES on an agent seat: its stop + take are grabbable on the chart; a drop asks, saves that coin's own TP / SL, Reaper obeys it,
   // and the position is filed as "your hand" so the record shows whether your adjustments helped

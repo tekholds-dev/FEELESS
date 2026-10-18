@@ -3,7 +3,7 @@ const BASE = '/assets/ai-pfp/';
 const AGENTS = ['tally', 'sherlock', 'weather', 'trigger', 'devil', 'warden', 'courier', 'reaper', 'archivist', 'judge'];
 export function avatarOf(who) {
   const k = String(who || '').toLowerCase();
-  if (k === 'ossy' || k === 'local') return `${BASE}ossy.webp`;
-  if (k === 'g4' || k === 'lan') return `${BASE}g4.webp`;
+  if (k === 'ossy' || k === 'local') return `${BASE}ossy.gif`;
+  if (k === 'g4' || k === 'lan') return `${BASE}g4.gif`;
   return AGENTS.includes(k) ? `${BASE}${k}.gif` : null;
 }

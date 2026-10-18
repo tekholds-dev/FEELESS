@@ -1,0 +1,29 @@
+/* 📰 FEEd = a BIG timeline (owner, 2026-10-18: "FEEd should be a wild big box — it looks like IG / X; right now it's a small skinny box").
+   The middle column takes the room: a tall timeline with the composer on top like X, every post a card, avatars bigger; the swap and the
+   top coins are slim rails beside it. Built from the m-* tokens; transform / opacity only. */
+.feed-stage { grid-template-columns: minmax(0, 1fr) minmax(0, 260px); gap: 16px; }
+.feed-panel { padding: 18px 20px; min-height: min(84vh, 1100px); display: flex; flex-direction: column; }
+.feed-panel > header { margin-bottom: 12px; }
+.feed-panel .feed-wordmark { font-size: 34px; letter-spacing: .02em; }
+.feed-panel > header small { font-size: 13px; }
+.feed-flares i { filter: none; }   /* no blur on a moving layer */
+.feed-panel .ecosystem-chat { flex: 1 1 auto; height: auto !important; min-height: clamp(560px, 72vh, 980px); display: flex; flex-direction: column;
+  border-radius: 16px; border: 1px solid rgba(69, 228, 134, .16); background: rgba(4, 10, 7, .72); }
+.feed-panel .ecosystem-chat > .chat-compose { order: -1; margin: 0; padding: 12px 14px; border-bottom: 1px solid rgba(69, 228, 134, .14); border-top: 0; }
+.feed-panel .ecosystem-chat > .chat-compose input { min-height: 44px; font-size: 15px; border-radius: 12px; }
+.feed-panel .ecosystem-chat > .chat-identity { order: -2; }
+.feed-panel .chat-messages { flex: 1 1 auto; max-height: none; min-height: 0; padding: 10px 12px 16px; display: flex; flex-direction: column; gap: 10px;
+  scrollbar-width: thin; scrollbar-color: #15d16a transparent; }
+.feed-panel .chat-messages::-webkit-scrollbar { width: 6px; } .feed-panel .chat-messages::-webkit-scrollbar-thumb { background: #15d16a; border-radius: 3px; }
+.feed-panel .chat-message { border: 1px solid rgba(255, 255, 255, .07) !important; border-radius: 16px; padding: 14px 16px !important; font-size: 14.5px; line-height: 1.5;
+  background: linear-gradient(180deg, rgba(14, 30, 21, .9), rgba(8, 16, 12, .9)); transition: transform .15s ease, border-color .15s ease; }
+.feed-panel .chat-message:hover { transform: translateY(-1px); border-color: rgba(69, 228, 134, .32) !important; }
+.feed-panel .chat-message img:not([class*="emoji"]) { max-width: 100%; border-radius: 12px; }
+.feed-panel .chat-empty { margin: auto; padding: 40px 10px; }
+.feed-panel .feed-cats { gap: 8px; } .feed-panel .feed-cats button { font-size: 13px; padding: 8px 14px; }
+.feed-side { max-height: calc(100vh - 24px); overflow: auto; scrollbar-width: thin; }
+body.theme-day .feed-panel .ecosystem-chat { background: rgba(255, 255, 255, .7); border-color: rgba(13, 122, 65, .18); }
+body.theme-day .feed-panel .chat-message { background: #fff; border-color: rgba(13, 122, 65, .14) !important; }
+@media (prefers-reduced-motion: reduce) { .feed-panel .chat-message { transition: none; } .feed-panel .chat-message:hover { transform: none; } }
+@media (max-width: 1100px) { .feed-stage { grid-template-columns: 1fr; } .feed-side { max-height: none; } }
+@media (max-width: 640px) { .feed-panel { padding: 12px; min-height: 0; } .feed-panel .ecosystem-chat { min-height: 70vh; } .feed-panel .feed-wordmark { font-size: 26px; } }

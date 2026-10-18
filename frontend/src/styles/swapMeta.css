@@ -2,7 +2,7 @@
    an aurora backdrop (emerald top-left, violet bottom-right, ice top-right) on a deep green→navy base, a light beam that runs around the
    edge (one rotating layer, transform only — replaces the animated --swap-angle border, which repainted every frame), glass panels with a
    lit top edge, gradient amounts, glowing token pills, a spinning flip, and a sheen on the main button. Keyframes: swm* only. */
-.swap-desk { animation: none !important; isolation: isolate; overflow: hidden;
+.swap-desk { position: relative; animation: none !important; isolation: isolate; overflow: hidden;   /* relative: the beam spins INSIDE the card (on the profile it had no anchor and swept the whole layout) */
   background:
     radial-gradient(120% 70% at 12% 0%, rgba(21, 209, 106, 0.22), transparent 60%),
     radial-gradient(90% 60% at 100% 100%, rgba(124, 92, 255, 0.24), transparent 62%),
@@ -74,3 +74,7 @@ body.theme-day .swap-desk .jup-flip { box-shadow: 0 0 0 4px #eaf3ef, 0 8px 22px 
 @media (max-width: 640px) { .swap-desk::before { inset: -90%; } }
 /* one column (under 1180px): the Top 10 column must scroll with the page — sticky made it slide OVER the swap card */
 @media (max-width: 1179px) { .trade-left { position: static !important; } }
+/* 👤 On the profile the swap card must let its token pickers spill out (overflow visible), so the spinning beam can't be clipped there —
+   it swept across the whole Activity › Swap layout. There the edge is a still glow instead. */
+.profile-swap .swap-desk::before { display: none; }
+.profile-swap .swap-desk { box-shadow: 0 26px 70px -30px rgba(21, 209, 106, 0.4), 0 0 0 1px rgba(69, 228, 134, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.06) !important; }

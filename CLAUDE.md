@@ -5094,3 +5094,19 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   blocked (no report, < 3 strikes) idle 2 weeks is forgotten, a blocked wallet keeps 40 strikes + `strikes` = its real count; 16 → ~7.5 MB) ·
   meme terms (a word out of every kept day drops its refs / sources; first sighting kept 30 days) · Pump callers (`CALLERS_MAX` 8,000, a judged
   call keeps `res` only — `mult` was the same number twice; 38 MB).
+- 🐋 WALLET BUBBLES ON EVERY CHART (owner, 2026-10-18: "all the wallet callouts like bundlers should show for users"): `lib/chartWallets.js`
+  (`useChartWallets` one shared read per coin / 15s, `walletPins(cw, mcPerPrice)`, `WALLET_TAG`) is called by `PriceChart` itself, so the war
+  room, coin drawer, mini chart and the cockpit all get dev / sniper / bundle / whale / top-trader bubbles; `wallets={false}` turns them off.
+  The cockpit no longer builds its own. 🧵 TRAILS (`ChartCallPins` `trailKey` / `trailPaths`, `.ccp-trails` SVG): OSSY, G4, Reaper and the
+  agents each get one faint dashed line through their calls in time order (dots on the calls), redrawn on the shared chart frame only when it
+  moves; wallets / your own lines get none; the lens bar hides a group's trail with its pins. 🎞 OSSY + G4 are looping GIFs now
+  (`ai-pfp/ossy.gif` / `g4.gif`, 64px, 24 frames, made with ffmpeg from the owner's stills); AI pins 26px, agent pins 22px.
+- 🎨 CHART SCENES (owner, 2026-10-18: "neon trench needs the FEELESS logo, other themes way better and degen"): Default · ⚡ Neon trench (the
+  FEELESS mark is its sun, sliced like a synth sun, the name faint above the floor) · 🚀 Moon run · 💊 Pill rush · 📼 Degen tape · 🟩 Code rain ·
+  🌌 Royal aurora · 🧬 Pulse grid. Rockets / pills reverse on a red tick; tape switches bull ↔ bear words. Marks stay ≤ ~22% opacity.
+- 📐 Cockpit chart `--ack-h` clamp(440px, 64vh, 760px), right column clamp(420px, 33vw, 580px), side desk as tall as the screen (cockpitPlus.css).
+- 👤 Profile › Activity › Swap: `.profile-swap .swap-desk` is overflow-visible (token pickers spill out), so the swap card's spinning beam
+  swept across the whole layout — on the profile the beam is off (still edge glow) and `.swap-desk` is `position: relative` everywhere.
+  📰 FEEd = a big timeline (`styles/feed.css`): no swap rail in it (Swap has its own tab), tall panel, composer on top like X, posts as cards.
+  📬 Inbox pop-outs (`styles/inbox.css`, imported by Social.jsx): long addresses wrap, only the list scrolls, phone = edge to edge, the
+  floating Inbox sits clear of the HQ / cat buttons.

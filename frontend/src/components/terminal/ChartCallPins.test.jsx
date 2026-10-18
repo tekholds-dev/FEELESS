@@ -19,3 +19,12 @@ test('🎛 each pin kind belongs to one lens', () => {
   const { lensOf } = require('./ChartCallPins');
   expect([lensOf('ai'), lensOf('talk'), lensOf('agent'), lensOf('wallet'), lensOf('user'), lensOf(undefined)]).toEqual(['models', 'models', 'agents', 'wallets', 'you', 'you']);
 });
+
+test('🧵 trails: OSSY, G4 and the agents each get one line through their calls in time order; wallets / you get none', () => {
+  const { trailPaths, trailKey } = require('./ChartCallPins');
+  expect(trailKey({ kind: 'ai', who: 'OSSY' })).toBe('ossy'); expect(trailKey({ kind: 'agent', who: 'Reaper' })).toBe('agents');
+  expect(trailKey({ kind: 'wallet', who: 'WHALE x' })).toBeNull(); expect(trailKey({ kind: 'user', who: 'YOU' })).toBeNull();
+  const t = trailPaths([{ kind: 'ai', who: 'OSSY', x: 50, y: 10 }, { kind: 'ai', who: 'OSSY', x: 10, y: 20 }, { kind: 'ai', who: 'G4', x: 5, y: 5 }, { kind: 'wallet', x: 1, y: 1 }]);
+  expect(t.ossy.line).toBe('M10 20L50 10'); expect(t.g4).toBeUndefined();   // one call = no line
+  expect(t.ossy.dots).toBe('M10 20h0M50 10h0');
+});
