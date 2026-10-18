@@ -4979,3 +4979,6 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   `arena_prime.coin_lines` gives each paper coin its OWN take (max(tier, 12 × its 1-min candle %), ≤ 200) and stop (chart_intel.stop_for,
   never wider than the tier's), once (`autoLv`), from the agents' shared chart snapshot. Owner picks / owner lines are never touched.
   `PRIME_RESET` 'paper20d' restarted every paper card on $20 (old runs in the record).
+- 💬 YOUR LINES STAY IN THE CHAT (owner, 2026-10-17: "are my messages disappearing?"): every duo chat (the live trade, coin rooms, past
+  trade rooms, between trades) = `ai_seat.chat_window` — the newest 24 (18 / 16 / 14) lines + your own lines (up to 12) even after the models
+  talked past them. A 14-line window scrolled your chime-in out in ~3 min at 5 lines a minute.

@@ -18349,7 +18349,7 @@ def _duo_rooms(log, keep=8):
         if not p_ and not any(x_.get('mint') == m_ and (x_.get('action') in ('HOLD', 'TRIM', 'SELL') or x_.get('talk')) for x_ in log):
             continue   # a BUY that never became a trade has no room
         seen.add(m_)
-        rows_ = [r2_ for r2_ in log if r2_.get('mint') == m_ and (r2_.get('at') or 0) >= (r_.get('at') or 0) - 5][-16:][::-1]
+        rows_ = _seat.chat_window([r2_ for r2_ in log if r2_.get('mint') == m_ and (r2_.get('at') or 0) >= (r_.get('at') or 0) - 5])[::-1]
         out.append({'mint': m_, 'symbol': r_.get('symbol'), 'model': r_.get('model'), 'at': r_.get('at'), 'pct': (p_ or {}).get('realPct'), 'closed': bool((p_ or {}).get('closedAt')),
                     'rows': [{**{k_: x_.get(k_) for k_ in ('at', 'model', 'action', 'view', 'why', 'conf', 'pct', 'talk')}, 'key': _dv_key(x_), 'mine': x_.get('by') == 'owner',
                               'votes': _dv.view(_dv_mem.get() or {}, _dv_key(x_))} for x_ in rows_]})
@@ -18397,7 +18397,7 @@ def _duo_coin_rooms(log, ai_mint):
         rp_ = reps_.get(m_)
         now_ = [{'at': round(time.time()), 'model': 'REAPER', 'action': 'TALK', 'talk': True, 'view': rp_.get('state'),
                  'why': f"{rp_.get('rule')} · {str(rp_.get('evidence') or '')[:180]}", 'pct': rp_.get('pct'), 'live': True}] if rp_ else []
-        rows_ = sorted(talk_ + ev_[-8:], key=lambda x: _fuse._f(x.get('at')))[-14:] + now_
+        rows_ = _seat.chat_window(sorted(talk_ + ev_[-8:], key=lambda x: _fuse._f(x.get('at'))), 18) + now_   # 💬 your lines always stay
         out.append({'mint': m_, 'symbol': sym_, 'who': 'you' if l_.get('picked') else 'agents', 'rows': rows_[::-1],
                     'last': max([_fuse._f(x.get('at')) for x in talk_ + ev_] or [0])})
     return sorted(out, key=lambda r: -r['last'])
@@ -18455,11 +18455,11 @@ def _duo_view(env=None):
                 'totals': _duo_totals(),   # 💰 each model's REAL closed-trade total: trades, won, $ and % (all time)
                 'rooms': _duo_rooms(st_['log']),   # 🗂 every past model trade's own room: its convo + result, reopenable
                 'conf': {nm(k_): {'boost': _dv.confidence(_dv_mem.get() or {}, k_), 'words': _dv.words(_dv_mem.get() or {}, k_)} for k_ in (_duet.LEAD, _duet.SECOND, 'owner')},
-                'trade': [{**{k_: r_.get(k_) for k_ in ('at', 'model', 'action', 'view', 'why', 'conf', 'pct', 'talk')}, 'key': _dv_key(r_), 'mine': r_.get('by') == 'owner', 'votes': _dv.view(_dv_mem.get() or {}, _dv_key(r_))} for r_ in st_['log']
-                          if held_l and r_.get('mint') == held_l.get('mint') and (r_.get('at') or 0) >= _fuse._f(held_l.get('at')) - 180][-14:][::-1],   # 💬 the conversation on THIS trade
+                'trade': [{**{k_: r_.get(k_) for k_ in ('at', 'model', 'action', 'view', 'why', 'conf', 'pct', 'talk')}, 'key': _dv_key(r_), 'mine': r_.get('by') == 'owner', 'votes': _dv.view(_dv_mem.get() or {}, _dv_key(r_))} for r_ in _seat.chat_window([r0_ for r0_ in st_['log']
+                          if held_l and r0_.get('mint') == held_l.get('mint') and (r0_.get('at') or 0) >= _fuse._f(held_l.get('at')) - 180])][::-1],   # 💬 the conversation on THIS trade (your lines always stay)   # 💬 the conversation on THIS trade
                 'coinRooms': _duo_coin_rooms(st_['log'], held_l.get('mint') if held_l else None),   # 💬 $ELON's own chat: what they say about YOUR coins / the agents' coins
                 'between': [{**{k_: r_.get(k_) for k_ in ('at', 'model', 'action', 'view', 'why', 'conf', 'pct', 'talk', 'symbol')}, 'key': _dv_key(r_), 'mine': r_.get('by') == 'owner', 'votes': _dv.view(_dv_mem.get() or {}, _dv_key(r_))}
-                            for r_ in st_['log'] if (r_.get('idle') or r_.get('by') == 'owner') and not r_.get('mint')][-14:][::-1],   # 💬 what they said BETWEEN trades (+ your lines then)
+                            for r_ in _seat.chat_window([r0_ for r0_ in st_['log'] if (r0_.get('idle') or r0_.get('by') == 'owner') and not r0_.get('mint')], 14)][::-1],   # 💬 what they said BETWEEN trades (+ your lines then)
                 'rec': {nm(k): v for k, v in _seat.by_model((st_['book'] or {}).get('closed')).items() if k in (_duet.LEAD, _duet.SECOND)},
                 'open': (st_['book'] or {}).get('open'),
                 'agents': _seat.by_model((st_['book'] or {}).get('closed')).get('agents'), 'fate': _g4.get('fate'), 'live': _g4.get('live'),

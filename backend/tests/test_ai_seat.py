@@ -228,3 +228,10 @@ def test_g4_says_it_in_four_sentences_and_a_cut_json_answer_never_shows_raw():
     d = seat.parse(story, [], True)
     assert d['action'] == 'HOLD' and '{' not in d['why'] and d['why'].count('.') <= 4 and d['why'].startswith('Godfather said hold.')
     assert seat.short_why('A. B. C. D. E. F.') == 'A. B. C. D.'
+
+
+def test_your_chat_lines_never_scroll_out_of_the_chat():
+    import ai_seat as seat
+    rows = [{'at': 1, 'by': 'owner', 'why': 'hold till lower lows'}] + [{'at': 10 + i, 'by': 'lan', 'why': f'hold {i}'} for i in range(40)]
+    w = seat.chat_window(rows, n=24)
+    assert w[0]['why'] == 'hold till lower lows' and len(w) == 25 and [r['at'] for r in w] == sorted(r['at'] for r in w)

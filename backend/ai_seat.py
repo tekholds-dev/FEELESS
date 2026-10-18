@@ -411,6 +411,16 @@ def hunt_answers(log, who, since):
     return sum(1 for r in log or [] if r.get('by') == who and r.get('action') in ('WAIT', 'BUY') and _f(r.get('at')) >= since and not r.get('talk'))
 
 
+def chat_window(rows, n=24, mine=12):
+    """💬 One chat as the page shows it: the newest `n` lines + the owner's own lines (up to `mine`) even when the models talked past them
+    (owner, 2026-10-17: "are my messages disappearing?" — 5 lines a minute pushed his chime-in out of a 14-line window in ~3 min). Oldest first."""
+    rows = list(rows or [])
+    keep = rows[-n:]
+    seen = {id(r) for r in keep}
+    own = [r for r in rows if (r.get('by') == 'owner' or r.get('mine')) and id(r) not in seen][-mine:]
+    return sorted(own + keep, key=lambda r: _f(r.get('at')))
+
+
 def due(last_at, now, every=EVERY_SEC):
     return now - _f(last_at) >= every
 
