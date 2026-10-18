@@ -318,7 +318,8 @@ def trade_tape(ledger, positions, reviews=None, ai_log=None, card=None, n=60):
                 got_, cost_ = sum(_f(s.get('usd')) for s in cs_), sum(_f(s.get('costUsd')) for s in cs_)
                 row['banked'] = {'usd': round(got_ - cost_, 3), 'pct': round((got_ / cost_ - 1) * 100, 2), 'sold': round(got_, 3), 'n': len(cs_)}
         row['closedAt'] = (_f(p.get('closedAt')) if p and p.get('closedAt') else (_f(ss[-1].get('confirmedAt') or ss[-1].get('at')) if ss and row['state'] == 'sold' else None)) or None   # 🏁 the Trades tab sorts closes by THIS
-        if row['state'] == 'sold' and ss and _f(b.get('usd')) > 0:
+        units_ok_ = _f(b.get('unitsIn')) > 0 and all(_f(x.get('units')) > 0 for x in ss) and abs(left_) <= 0.02 * _f(b.get('unitsIn'))   # every unit bought was sold: the ledger sums are the whole trade
+        if row['state'] == 'sold' and ss and _f(b.get('usd')) > 0 and (units_ok_ or not (p and p.get('realPct') is not None)):
             # 🏁 the WHOLE position from the ledger's own fills: every sale (trims included) against everything put in (top-ups included) —
             # the archive's % only knows the last sale (2026-10-17: a trimmed winner read as a loss)
             usd, out_ = _f(b.get('usd')), sum(_f(s.get('usd')) for s in ss)
