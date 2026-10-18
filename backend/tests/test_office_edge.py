@@ -757,3 +757,10 @@ def test_the_agents_trade_the_three_setups_hhhl_first_then_the_germ_then_a_held_
     none = {'mint': 'E', 'rank': 99, 'chart': {'state': 'COMPRESSION', 'germDist': 40.0}}
     assert [c['mint'] for c in oe.setup_order([none, bo, germ, hl, up])] == ['D', 'A', 'B', 'C']
     assert oe.setups_of(none) == [] and oe.setups_of({'chart': {'germ5Dist': 3.0}}) == ['germ']
+
+
+def test_an_hhhl_entry_is_a_pullback_never_the_top():
+    import office_edge as oe
+    assert oe.setups_of({'chart': {'state': 'UPTREND', 'distHigh': 5.4}}) == []          # $GLITCH: at the top of the run
+    assert oe.setups_of({'chart': {'state': 'UPTREND', 'distHigh': 12.0}}) == ['hhhl']    # a real pullback
+    assert oe.setups_of({'chart': {'state': 'UPTREND', 'distHigh': 5.0, 'germDist': 4.0}}) == ['germ']   # at the top but on its germ floor

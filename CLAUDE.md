@@ -5038,3 +5038,7 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   our own records — 👤 dev / 🎯 sniper / 📦 bundle (launch read) · 🏦 top holder (holder scan, wallets only) · 🐋 whale (≥ $500 and ≥ 5× the
   typical trade) · 👑 top trader (top 3 by $) → public `GET /api/reputation/chart-wallets/{mint}?pair=` (15s cache, no RPC) → `walletPins` on
   the cockpit chart (`kind: 'wallet'`, green buy / pink sell, lowest pin priority per candle).
+- 🦠 GERM ENTRIES RIDE TO THE FLOOR + HH/HL IS A PULLBACK (owner, 2026-10-18: "buy the germ and don't be scared of it dropping back"; "horrible
+  entry" on $GLITCH): an agent coin whose thesis stop is a germ stop (`germStop`) keeps it up to `AGENT_GERM_STOP_MAX` 20% (other agent stops
+  stay capped at 15); `setups_of` counts HH/HL only ≥ `HHHL_PULLBACK` 8% under the high — $GLITCH was an "HH/HL" buy 5.4% under its gun line,
+  right after the run. A coin at its top only qualifies through the germ.

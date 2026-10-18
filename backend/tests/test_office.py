@@ -711,7 +711,7 @@ def test_agent_stop_cap_an_agent_stop_never_sits_wider_than_15(monkeypatch):
     monkeypatch.setattr(of, 'AGENT_STOP_MAX', live)
     import inspect
     src = inspect.getsource(of.reap)
-    assert "stop > AGENT_STOP_MAX" in src and src.index('AGENT_STOP_MAX') < src.index("own_ = l.get('ownerLvAt')")   # capped after noise / WIDEN, before your own line
+    assert "stop > cap_" in src and src.index('AGENT_STOP_MAX') < src.index("own_ = l.get('ownerLvAt')")   # capped after noise / WIDEN, before your own line
     LEG_ = {'mint': 'A', 'symbol': 'A', 'pairAddress': 'PA', 'entry': 1.0, 'units': 1.0, 'at': 1, 'liq': 60_000, 'liqNow': 60_000, 'bought': {'tag': '🤖 agents GO'}}
     ROW_ = {'mint': 'A', 'symbol': 'A', 'pair': 'PA', 'px': 0.84, 'why': {'lean': 1.0, 'drivers': []}, 'trigger': ['wait', ''], 'devil': ['—', ''], 'nums': {'d5': -1, 'buy': 55, 'liq': 60_000},
             'vitals': {'safe': True, 'rug': 5, 'vol1h': 400_000}}                     # a NOISE coin (35% stop before the cap) at −16%
@@ -720,3 +720,6 @@ def test_agent_stop_cap_an_agent_stop_never_sits_wider_than_15(monkeypatch):
     own = {**LEG_, 'ownerLvAt': 5, 'sl': 25}                                          # YOUR dragged 25% line is never capped
     r2 = of.reap([own], [ROW_], {'PA': 0.84}, {}, None, 100, control=True)[1][0]
     assert r2['stop'] == -25
+    gth = {**LEG_}
+    r3 = of.reap([gth], [{**ROW_, 'px': 0.83}], {'PA': 0.83}, {}, None, 100, theses={'A': {'stopPct': 19.0, 'germStop': True}})[1][0]
+    assert r3['stop'] == -of.AGENT_GERM_STOP_MAX and r3['action'] != 'pull'                         # a germ entry rides the dip to its germ floor

@@ -1002,6 +1002,7 @@ def losing_entries(positions):
 
 
 HHHL_STATES = ('UPTREND', 'STRONG UPTREND', 'PULLBACK IN UPTREND')
+HHHL_PULLBACK = 8.0   # an HH/HL entry is bought ≥ 8% under its high (owner, 2026-10-18: "horrible entry" — $GLITCH bought 5.4% under its gun line after the run)
 SETUP_SCORE = {'hhhl': 3, 'germ': 2, 'breakout': 1}   # ranked by the agents' own record: HH/HL best, then the germ, then breakouts
 
 
@@ -1012,7 +1013,8 @@ def setups_of(c, germ_line=15.0):
     ch = (c or {}).get('chart') or {}
     out = []
     st = str(ch.get('state') or '').upper()
-    if st in HHHL_STATES or (_f(ch.get('hl')) >= 2 and not _f(ch.get('ll'))):
+    dh = ch.get('distHigh')
+    if (st in HHHL_STATES or (_f(ch.get('hl')) >= 2 and not _f(ch.get('ll')))) and (dh is None or _f(dh) >= HHHL_PULLBACK):   # a PULLBACK in the uptrend — never bought at the top ($GLITCH, 5% under its gun line)
         out.append('hhhl')
     gd = ch.get('germDist') if ch.get('germDist') is not None else ch.get('germ5Dist')
     if gd is not None and abs(_f(gd)) <= (germ_line or 15.0):
