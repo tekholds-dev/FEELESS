@@ -205,3 +205,10 @@ def test_each_model_talks_in_its_own_voice_and_only_about_the_trade_it_holds():
                      learn={'ownerHoldWins': 'boss held $QUID +15%'})
     assert '$MAKERS' in pk['NOW'] and 'pastLessons' in pk and 'learn' not in pk
     assert 'why' not in pk['partner']   # the partner's words on ANOTHER coin never sit beside this trade
+
+
+def test_a_models_full_line_is_never_cut():
+    import ai_seat as seat
+    long_ = 'held the base, ' * 30
+    d = seat.parse('{"action":"HOLD","why":"%s"}' % long_, [], True)
+    assert len(d['why']) >= len(long_.strip()) - 1 and 'under 160 chars' not in seat.SYSTEM + seat.ADVISE + seat.IDLE

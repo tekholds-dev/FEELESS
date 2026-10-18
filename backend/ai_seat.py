@@ -24,6 +24,7 @@ PAPER_COST_PCT = 1.5      # the measured cost of one swap on the real card — p
 CAND_N = 8
 ACTIONS = ('BUY', 'HOLD', 'SELL', 'WAIT', 'TRIM')
 TP_MIN = 25.0
+WHY_MAX = 900   # 💬 a model's full line is kept (owner, 2026-10-17: "make sure the limit doesn't cut") — 900 chars ≈ what fits its answer budget
 
 VOICE = """YOUR VOICE (in "why"): one line in YOUR character (below), real trench slang, witty, never dry; a jab at your partner when your record beats theirs.
 The owner is THE GODFATHER: answer his words first, call him Godfather or boss, never sass him, never argue past his line;
@@ -45,7 +46,7 @@ the owner's and the agents': copy what won, skip what lost, and say in your why 
 trades and where holding longer paid him — use them. When your record beats your partner's, BRAG about it
 in your why (short, cocky, true numbers only); when it doesn't, say how you'll take the lead.
 Answer with ONLY this JSON, nothing else:
-{"action":"BUY|HOLD|SELL|WAIT|TRIM","coin":"<SYMBOL when BUY, else empty>","why":"<one line, under 160 chars, the numbers that decided it>","conf":<0-100>,"watch":"<what would make you sell, under 80 chars>","tp":<take-profit %, e.g. 40>,"sl":<stop %, e.g. 15>,"trail":<% of the peak gain you let it give back before banking, e.g. 35 — wider on a clean HH/HL runner, tighter when sellers lead>}
+{"action":"BUY|HOLD|SELL|WAIT|TRIM","coin":"<SYMBOL when BUY, else empty>","why":"<your full read, as long as it needs — the numbers that decided it>","conf":<0-100>,"watch":"<what would make you sell, under 80 chars>","tp":<take-profit %, e.g. 40>,"sl":<stop %, e.g. 15>,"trail":<% of the peak gain you let it give back before banking, e.g. 35 — wider on a clean HH/HL runner, tighter when sellers lead>}
 The trade you bought is YOURS to run: tp / sl are your own take-profit and stop lines, applied at once (change them any minute you HOLD;
 −45% is the floor nobody can move). TRIM = sell part of your coin now ("pct": 25 | 50 | 75) — bank profit, the rest keeps riding your lines.
 CONFIDENCE in LEARN = what the market's verdicts on your calls (and the votes on them) earned you. The agents only advise.
@@ -148,7 +149,7 @@ ADVISE = """You are the PARTNER on a shared real-money Solana trench seat. Your 
 Read the snapshot (its P/L, peak, held minutes, pressure from the rule agents, the candidates, LEARN = everyone's real results) and say what you would
 do with THAT coin and why, in one line with the numbers that decide it. Be blunt, trash-talk a little when your record is better; disagree when the
 numbers say so. Never invent numbers.
-Answer with ONLY this JSON: {"action":"HOLD|SELL","coin":"","why":"<under 160 chars>","conf":<0-100>,"watch":"<what would change your mind, under 80 chars>"}
+Answer with ONLY this JSON: {"action":"HOLD|SELL","coin":"","why":"<your full read, as long as it needs>","conf":<0-100>,"watch":"<what would change your mind, under 80 chars>"}
 If OWNER is there, answer the Godfather first. NOW names the ONE coin you talk about — never call a past coin in pastLessons this trade.
 If HOLDERPROPOSES is there, your partner is about to sell / trim that coin and waits for your word: SELL = you back it, HOLD = you'd keep it — say why in one line.
 """ + VOICE
@@ -159,7 +160,7 @@ TALK_EVERY = 120.0   # the partner speaks at most every 2 min while a trade runs
 def talk_of(log, holder, since=0.0):
     """The partner's newest ADVICE on the open trade (rows marked `talk`), as the holder reads it next minute."""
     r = next((r for r in reversed(log or []) if r.get('talk') and r.get('by') != holder and (r.get('at') or 0) >= since), None)
-    return None if not r else {'model': r.get('model'), 'says': r.get('view') or r.get('action'), 'why': str(r.get('why') or '')[:140], 'conf': r.get('conf')}
+    return None if not r else {'model': r.get('model'), 'says': r.get('view') or r.get('action'), 'why': str(r.get('why') or '')[:WHY_MAX], 'conf': r.get('conf')}
 
 
 def partner_of(log, by):
@@ -231,7 +232,7 @@ def parse(text, cand_mints, holding, syms=None):
         m = re.search(r'\b(BUY|HOLD|SELL|WAIT)\b', t.upper())
         if not m:
             return None
-        j = {'action': m.group(1), 'why': t[:160]}
+        j = {'action': m.group(1), 'why': t[:WHY_MAX]}
     a = str(j.get('action') or '').upper().strip()
     if a not in ACTIONS:
         return None
@@ -245,11 +246,11 @@ def parse(text, cand_mints, holding, syms=None):
     if not mint and a == 'BUY':
         mint = _sym_in(j.get('why'), syms)
     mint = mint or ''
-    why = re.sub(r'\s+', ' ', str(j.get('why') or '')).strip()[:160]
+    why = re.sub(r'\s+', ' ', str(j.get('why') or '')).strip()[:WHY_MAX]
     conf = max(0, min(100, int(_f(j.get('conf'), 50))))
     watch = re.sub(r'\s+', ' ', str(j.get('watch') or '')).strip()[:80]
     if a == 'BUY' and (holding or mint not in cset):
-        a, why = ('HOLD' if holding else 'WAIT'), (why + ' · (BUY refused: ' + ('seat already holds a coin' if holding else 'coin not on the list') + ')')[:200]
+        a, why = ('HOLD' if holding else 'WAIT'), (why + ' · (BUY refused: ' + ('seat already holds a coin' if holding else 'coin not on the list') + ')')[:WHY_MAX + 80]
         mint = ''
     if a == 'TRIM':   # ✂ bank part of the trade it holds (25 / 50 / 75%), the rest keeps riding its own lines
         if not holding:
@@ -301,7 +302,7 @@ def snapshot_line(held, chart=None, reaper=None, flow=None):
 REVIEW = """Your trade just CLOSED. TRADE = the coin, your entry, its peak, the result, how long you held, and every call you made on it (CALLS).
 Assess it honestly before the turn passes to your partner: grade it A–F, say what you did right, what you would do differently (entry, lines,
 exit timing — with the numbers), and ONE lesson you will use on the next trade. Never invent numbers.
-Answer with ONLY this JSON: {"grade":"A|B|C|D|F","why":"<under 180 chars>","lesson":"<under 140 chars>"}
+Answer with ONLY this JSON: {"grade":"A|B|C|D|F","why":"<your full assessment>","lesson":"<the lesson, in full>"}
 """ + VOICE
 
 
@@ -312,7 +313,7 @@ def review_parse(text):
     if g not in ('A', 'B', 'C', 'D', 'F'):
         return None
     clean = lambda x, n: re.sub(r'\s+', ' ', str(x or '')).strip()[:n]
-    return {'grade': g, 'why': clean(j.get('why'), 180), 'lesson': clean(j.get('lesson'), 140)}
+    return {'grade': g, 'why': clean(j.get('why'), WHY_MAX), 'lesson': clean(j.get('lesson'), WHY_MAX)}
 
 
 def owner_lines(text):
@@ -419,7 +420,7 @@ CARD = the coins on the card now (who holds each — the agents or the owner —
 ownerSays = what the owner said in a coin's room — answer him first when it is there. Pick the ONE coin most worth a word and say what you would do with it and why, in one line with the numbers that decide it (a tip for
 the holder, a call you would be proud of when the market grades it in 5 min / 1 h). Never invent numbers or coins.
 On an AGENTS coin you may also set its lines: "tp" take %, "sl" stop %, "trail" give-back % of the peak gain (read its HH/HL + germ first). Never on the owner's coins.
-Answer with ONLY this JSON: {"coin":"<symbol from CARD>","view":"HOLD|SELL","why":"<under 160 chars>","conf":<0-100>,"tp":<optional>,"sl":<optional>,"trail":<optional>}
+Answer with ONLY this JSON: {"coin":"<symbol from CARD>","view":"HOLD|SELL","why":"<your full read, as long as it needs>","conf":<0-100>,"tp":<optional>,"sl":<optional>,"trail":<optional>}
 """ + VOICE
 
 
@@ -440,7 +441,7 @@ def idle_parse(text, syms):
     mint = hit[0] if len(hit) == 1 else _sym_in(j.get('why'), syms)
     if not mint:
         return None
-    out = {'view': v, 'mint': mint, 'why': re.sub(r'\s+', ' ', str(j.get('why') or '')).strip()[:160], 'conf': max(0, min(100, int(_f(j.get('conf'), 50))))}
+    out = {'view': v, 'mint': mint, 'why': re.sub(r'\s+', ' ', str(j.get('why') or '')).strip()[:WHY_MAX], 'conf': max(0, min(100, int(_f(j.get('conf'), 50))))}
     for k, lo, hi in LINE_RANGES:   # 🎯 lines it sets on an agents coin it is watching
         x = abs(_f(j.get(k), 0.0))
         if x > 0:
@@ -474,7 +475,7 @@ def cook(dec, held):
     cut = min(COOK_CUT, 0.6 * _f(dec.get('sl') or held.get('sl') or 99))
     if pct is not None and _f(pct) <= -cut:
         return dec
-    return {**dec, 'action': 'HOLD', 'cooked': dec['action'], 'why': (f"(🍳 {dec['action']} held — {_f(hm):.1f} of {COOK_MIN:g} min, {'' if pct is None else f'{_f(pct):+.1f}%, '}the stop protects it) " + str(dec.get('why') or ''))[:200]}
+    return {**dec, 'action': 'HOLD', 'cooked': dec['action'], 'why': (f"(🍳 {dec['action']} held — {_f(hm):.1f} of {COOK_MIN:g} min, {'' if pct is None else f'{_f(pct):+.1f}%, '}the stop protects it) " + str(dec.get('why') or ''))[:WHY_MAX + 120]}
 
 
 def recent_ai_syms(events, now, sec=ROTATE_SEC):
@@ -523,7 +524,7 @@ def structure_hold(dec, held, ch, sellers=False):
     pct = held.get('pct')
     if not why or (pct is not None and _f(pct) <= -min(COOK_CUT, 0.6 * _f(held.get('sl') or 99))):
         return dec
-    return {**dec, 'action': 'HOLD', 'based': why, 'why': (f'(🦠 SELL held — {why}: slow volume on a base can pick up; the stop protects it) ' + str(dec.get('why') or ''))[:200]}
+    return {**dec, 'action': 'HOLD', 'based': why, 'why': (f'(🦠 SELL held — {why}: slow volume on a base can pick up; the stop protects it) ' + str(dec.get('why') or ''))[:WHY_MAX + 120]}
 
 
 def merge_log(ours, theirs, keep=LOG_KEEP):
@@ -553,9 +554,9 @@ def line_hold(dec, held, ch, sellers=False):
         return dec
     broke = _f(c.get('ll') or 0) > 0 or str(c.get('germ') or '').lower().startswith('lost') or str(c.get('state') or '').upper() in ('DOWNTREND', 'COLLAPSING', 'FAILED BREAKOUT', 'LIQUIDITY FAILURE', 'DISTRIBUTION')
     if _f(pct) >= min(tp, 20.0) and not broke:   # 🚀 a runner up 20%+ is SKIMMED, never dumped whole (owner: "up 39%, OSSY sold it")
-        return {**dec, 'action': 'TRIM', 'trim': 33, 'why': (f"(🚀 SELL → SKIM 33% at {_f(pct):+.1f}% — still running, the rest rides) " + str(dec.get('why') or ''))[:200]}
+        return {**dec, 'action': 'TRIM', 'trim': 33, 'why': (f"(🚀 SELL → SKIM 33% at {_f(pct):+.1f}% — still running, the rest rides) " + str(dec.get('why') or ''))[:WHY_MAX + 120]}
     if _f(pct) >= tp:
         return dec
     if _f(c.get('ll') or 0) > 0 or str(c.get('germ') or '').lower().startswith('lost') or str(c.get('state') or '').upper() in ('DOWNTREND', 'COLLAPSING', 'FAILED BREAKOUT', 'LIQUIDITY FAILURE', 'DISTRIBUTION'):
         return dec
-    return {**dec, 'action': 'HOLD', 'lined': True, 'why': (f"(🎯 SELL held — {_f(pct):+.1f}% is between your SL −{sl:g}% and TP +{tp:g}%, the chart has not broken: let it hit a line) " + str(dec.get('why') or ''))[:200]}
+    return {**dec, 'action': 'HOLD', 'lined': True, 'why': (f"(🎯 SELL held — {_f(pct):+.1f}% is between your SL −{sl:g}% and TP +{tp:g}%, the chart has not broken: let it hit a line) " + str(dec.get('why') or ''))[:WHY_MAX + 120]}

@@ -13990,7 +13990,7 @@ async def _g4_review(now, env, cfg, st_, lv_, mode_):
         nm_ = _air.model_name(env, who_)
         m1 = _g4_mem.get() or {}
         _g4_mem.put({**m1, 'log': _seat.note(_seat.merge_log(st_['log'], m1.get('log')), {'at': round(now), 'mode': mode_, 'model': nm_, 'by': who_, 'talk': True, 'action': 'REVIEW', 'view': rv_['grade'],
-                                                                                         'why': f"🏁 FINAL on ${lv_.get('sym')} ({_fuse._f(res_):+.1f}%, peak {_fuse._f(lv_.get('peak')):+.1f}%): {rv_['why']} · lesson: {rv_['lesson']}"[:260],
+                                                                                         'why': f"🏁 FINAL on ${lv_.get('sym')} ({_fuse._f(res_):+.1f}%, peak {_fuse._f(lv_.get('peak')):+.1f}%): {rv_['why']} · lesson: {rv_['lesson']}"[:_seat.WHY_MAX + 300],
                                                                                          'mint': lv_.get('mint'), 'symbol': lv_.get('sym'), 'pct': res_})}, now)
         if rv_['lesson']:
             _aim_mem.put(_aim.file(_aim_mem.get() or {}, 'lessons', f"review{int(now)}", f"🏁 {nm_} on ${lv_.get('sym')} ({_fuse._f(res_):+.1f}%, grade {rv_['grade']}): {rv_['lesson']}", now), now)
@@ -14110,7 +14110,7 @@ async def _g4_tick(now, env, cfg):
             learn_['holdLessons'] = [str(x)[:140] for x in hl_[:3]]   # 👍👎 what the market's verdicts on its calls + votes earned it
         on_ = next((r_ for r_ in reversed(st_['log']) if r_.get('by') == 'owner' and ((held_ and r_.get('mint') == held_.get('mint')) or (not held_ and not r_.get('mint') and now - _fuse._f(r_.get('at')) < 600))), None)   # 👤 with no trade open your chime-in reaches the model hunting next (10 min)
         if on_:
-            learn_['ownerSays'] = str(on_.get('why') or '')[:200]   # 👤 the owner chimed in on this trade
+            learn_['ownerSays'] = str(on_.get('why') or '')[:600]   # 👤 the owner chimed in on this trade
         await _dv_settle(now)
         pk_ = _seat.packet(rows_, held_, _seat.record_words(rec_), _seat.partner_of(st_['log'], first_), (pick_ or {}).get('symbol'), says_, learn_)
         _g4['reads'] = (_g4.get('reads') or 0) + 1
@@ -14197,13 +14197,13 @@ async def _g4_tick(now, env, cfg):
                 if da_ and oth_ and oth_ != held_m:   # 💬 the advice is about ANOTHER coin on the card ($ELON on the $Kimchi trade) → it goes to that coin's own room, never the holder's chat
                     lo_ = next((l_ for l_ in _duo_card_legs() if l_.get('mint') == oth_), {})
                     crow_ = {'at': round(now), 'mode': mode_, 'model': _air.model_name(env, second_), 'by': second_, 'talk': True, 'coinTalk': True, 'action': 'TALK', 'view': da_['action'],
-                             'why': str(da_.get('why') or '')[:180], 'conf': da_.get('conf'), 'symbol': lo_.get('symbol'), 'mint': oth_}
+                             'why': str(da_.get('why') or '')[:_seat.WHY_MAX], 'conf': da_.get('conf'), 'symbol': lo_.get('symbol'), 'mint': oth_}
                     log_ = _seat.note(log_, crow_)
                     _dv_note(crow_, _fuse._f((await _live_px([oth_])).get(oth_)), now)
                     da_ = None
                 if da_:
                     trow_ = {'at': round(now), 'mode': mode_, 'model': _air.model_name(env, second_), 'by': second_, 'talk': True, 'ms': round((time.perf_counter() - t0b) * 1000),
-                                             'action': 'TALK', 'view': da_['action'], 'why': f"to {_air.model_name(env, first_)}: {da_['action']} — {da_.get('why') or ''}"[:180], 'conf': da_.get('conf'),
+                                             'action': 'TALK', 'view': da_['action'], 'why': f"to {_air.model_name(env, first_)}: {da_['action']} — {da_.get('why') or ''}"[:_seat.WHY_MAX + 40], 'conf': da_.get('conf'),
                                              'watch': da_.get('watch'), 'symbol': (held_ or {}).get('symbol'), 'mint': (held_ or {}).get('mint'), 'pct': (held_ or {}).get('pct'),
                                              'cap': (_seat.cand_row(_tk.KERNEL.candidate(held_m) or {'mint': held_m}) or {}).get('cap')}   # 📍 its pin on the chart sits at the cap it spoke at
                     log_ = _seat.note(log_, trow_)
@@ -14264,7 +14264,7 @@ async def _g4_idle(now, env, cfg, st_, legs_, mode_, who=None):
             return
         rw_ = next((x for x in rows_ if syms_.get(x['symbol']) == d_['mint']), {})
         row_ = {'at': round(now), 'mode': mode_, 'model': _air.model_name(env, who_), 'by': who_, 'talk': True, 'idle': True, 'action': 'TALK', 'view': d_['view'],
-                'why': f"on ${rw_.get('symbol')} ({rw_.get('holder')}): {d_['view']} — {d_['why']}"[:180], 'conf': d_['conf'], 'ms': round((time.perf_counter() - t0_) * 1000),
+                'why': f"on ${rw_.get('symbol')} ({rw_.get('holder')}): {d_['view']} — {d_['why']}"[:_seat.WHY_MAX + 60], 'conf': d_['conf'], 'ms': round((time.perf_counter() - t0_) * 1000),
                 'symbol': rw_.get('symbol'), 'mint': d_['mint'], 'pct': rw_.get('pct'), 'cap': rw_.get('cap')}
         lg_ = next((l for l in legs_ or [] if l.get('mint') == d_['mint'] and not l.get('placeholder')), None)
         if lg_ and mode_ == 'real' and any(d_.get(k_) for k_ in ('tp', 'sl', 'trail')) and _uni.is_agent(lg_) and not lg_.get('picked') and not lg_.get('aiSeat') and not lg_.get('certified'):
@@ -14308,7 +14308,7 @@ async def admin_ai_seat_post(request: Request):
         if not ok_:
             raise HTTPException(400, 'That call can\'t be voted on (too old, no coin, or it is your own).')
         _dv_mem.put(st_, now)
-    txt_ = _re.sub(r'\s+', ' ', str(body.get('comment') or '')).strip()[:240]
+    txt_ = _re.sub(r'\s+', ' ', str(body.get('comment') or '')).strip()[:800]
     if txt_:
         st_ = _g4_state()
         legs_ = [l for c_ in (((_json_load(FUSE_HQ_PATH, {}) or {}).get('prime') or {}).get('cards') or {}).values() if (c_ or {}).get('real') for l in c_.get('legs') or [] if l.get('aiSeat') and not l.get('placeholder')]
@@ -18452,7 +18452,7 @@ def _duo_view(env=None):
                 'open': (st_['book'] or {}).get('open'),
                 'agents': _seat.by_model((st_['book'] or {}).get('closed')).get('agents'), 'fate': _g4.get('fate'), 'live': _g4.get('live'),
                 'log': [{k: r.get(k) for k in ('at', 'model', 'action', 'symbol', 'why', 'conf', 'pct', 'ms', 'miss')} for r in st_['log'][-30:][::-1]],
-                'chart': [{'at': r.get('at'), 'model': r.get('model'), 'mint': r.get('mint'), 'sym': r.get('symbol'), 'action': r.get('action'), 'view': r.get('view'), 'talk': bool(r.get('talk')), 'why': str(r.get('why') or '')[:110],
+                'chart': [{'at': r.get('at'), 'model': r.get('model'), 'mint': r.get('mint'), 'sym': r.get('symbol'), 'action': r.get('action'), 'view': r.get('view'), 'talk': bool(r.get('talk')), 'why': str(r.get('why') or '')[:_seat.WHY_MAX],
                            'pct': r.get('pct'), 'cap': _duo_pin_cap(r)} for r in _duo_chart_rows(st_['log'], card={l_.get('mint') for l_ in _duo_card_legs()})]}   # 📣 what the models said about each coin → bubbles on the Agents chart
     except Exception as e:
         return {'mode': 'off', 'err': str(e)[:80]}

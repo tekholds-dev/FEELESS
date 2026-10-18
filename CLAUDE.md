@@ -4951,3 +4951,6 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   touched, nothing reloads within 5 min of the last load (`~/.feeless/last-load`), the FEE preset file is rewritten only when the prompt changed
   (`cmp`), no fallback model (LAN_LLM_FALLBACK_MODEL = the model itself — Gemma was deleted), and the caffeinate LaunchAgent is removed on the
   next pull. Each reload put LM Studio's chat back on its default preset — stopping the reloads is the fix.
+- 💬 NO CUT LINES (owner, 2026-10-17: "make sure the limit doesn't cut"): `ai_seat.WHY_MAX` 900 chars on every model line (seat · advice · idle ·
+  review · lesson · pin cards), prompts ask for the full read (no "under 160 chars"), your chime-ins keep 800. The model's answer budget
+  (`ai_router.MAX_TOKENS` 700, raised so a long line never cuts the JSON) is the only bound left.

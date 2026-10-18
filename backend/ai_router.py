@@ -99,7 +99,7 @@ def identity_line(env, key):
     import fee_voice as _fv
     return (f"Your name is {model_name(env, key)} — {role} on the FEELESS desk. Your partner model is {model_name(env, other)}. "
             + _fv.persona({'lan': 'G4', 'local': 'OSSY'}[key]) + " Swear when it fits. Asked who you are, answer as yourself in one line.")   # 🎛 the owner's chat tuning {temp, maxTok} for THIS call only (never the agents' background reads)
-MAX_TOKENS = 460          # the brain prompt's schema (16 keys) needs room — at 260 the JSON was cut off and read "malformed"
+MAX_TOKENS = 700          # the brain prompt's schema (16 keys) needs room — at 260 the JSON was cut off and read "malformed"
 LABEL = {'lan': 'DESKTOP AI', 'local': 'LOCAL AI', 'groq': 'GROQ', 'openrouter': 'OPENROUTER', 'openai': 'OPENAI', 'xai': 'XAI', 'custom': 'CUSTOM AI', 'NONE': 'NONE'}
 _KEYLIKE = re.compile(r'[A-Za-z0-9_\-]{20,}')
 
