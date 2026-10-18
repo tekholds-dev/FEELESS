@@ -5067,3 +5067,17 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
 - 🅿 OSSY / G4 BANK THEIR PROFIT UP TO 3 ROUNDS (owner, 2026-10-18): their SELL / TRIM answer may carry `"bank": 0-3` (`ai_seat.parse`, capped)
   → after the sale `arena_prime.park_bank` holds that $ out of the coins (`holdCashUsd` + a `skimPark` row with its own `hold`), and
   `release_parked` puts it back to work when its rounds are up. Event "🅿 OSSY banked $X of $SYM's sale for N rounds". 0 = straight back to work.
+- 🤵 THE CONSIGLIERE — Reaper's own partner agent (owner, 2026-10-18: "study my holds — why I wait for the spike at the germ floor … only use
+  what's been working"; `backend/consigliere.py` pure + tested, `_consig_plans` every 5 min → `office.reap(plan=)`, `_office['consigliere']`):
+  per coin type (bought near the germ floor or not) it replays two plans on every real closed trade's path + its 30 min after-path — Reaper's
+  real exits vs PATIENT (hold to the coin's stop or bank at a spike: +20 / +30 / +50 or the take line OSSY / G4 really use) — and the patient
+  plan runs only where it wins (≥ 20 trades, ≥ +1 avg AND the newest trades agree). On a patient coin Reaper's soft exits wait and the spike
+  banks it (`R6c consigliere spike`); stops / rug / drain / −45% never wait. First read: germ coins PATIENT +20% (−5.8 avg vs Reaper −7.5 on
+  83, +5.3 newest); other coins Reaper decides. The owner's own closed picks: 50 trades, 16% won (−17.9 typical) — winners held ~66 min.
+- 🔮 PREDICTIONS ARE GRADED AGAIN AND STEER WHEN PROVEN: the models' predictions stopped being recorded ~2026-10-13 (they came from background
+  case reads, which the desktop no longer does). Now every seat answer may carry `"pred"` (its own coin, 15 min) + `"preds"` {SYMBOL: %} for up to
+  3 candidates → `ai_learn.note(role 'seat', predict=)` per model, graded 15 min later. `_pred_of`: once a model is PROVEN
+  (`ai_learn.predict_record`), its fresh ≥ +5 call puts a coin first in the agents' fill order and a ≤ −5 call makes them skip it.
+- 🐋 WALLETS IN THE AGENTS' ENTRIES: in the tape gate before a seat, early hands (dev / snipers / bundles / top holders) selling ≥ $100 and > 2×
+  their buys in the last 5 min = wait ("watch, then move", graded by the regret ledger as `wallets:DUMP`); smart money buying ≥ $150 = first.
+- 🧹 The noise-coin stop widening (35%) is retired — the 15% / 20% agent caps always cut it back.

@@ -626,7 +626,7 @@ def test_massive_volume_coins_get_a_noise_stop_and_your_line_wins_on_any_coin():
     ROW_ = {'mint': 'A', 'symbol': 'A', 'pair': 'PA', 'px': 0.97, 'why': {'lean': 1.0, 'drivers': []}, 'trigger': ['wait', ''], 'devil': ['—', ''], 'nums': {'d5': -1, 'buy': 55, 'liq': 60_000},
             'vitals': {'safe': True, 'rug': 5, 'vol1h': 400_000}}
     r = of.reap([LEG_], [ROW_], {'PA': 0.97}, {}, None, 100)[1][0]
-    assert r['stop'] == -of.NOISE_SL
+    assert r['stop'] > -of.NOISE_SL                                                   # the noise widening is retired (the agent caps always cut it back)
     own = {**LEG_, 'symbol': 'B', 'bought': {'tag': '➖ ranging'}, 'ownerLvAt': 5, 'sl': 10}       # an engine coin with YOUR dragged 10%
     r2 = of.reap([own], [{**ROW_, 'symbol': 'B'}], {'PA': 0.97}, {}, None, 100, control=True)[1][0]   # in control Reaper rules every coin
     assert r2['stop'] == -10
@@ -722,7 +722,7 @@ def test_agent_stop_cap_an_agent_stop_never_sits_wider_than_15(monkeypatch):
     assert r2['stop'] == -25
     gth = {**LEG_}
     r3 = of.reap([gth], [{**ROW_, 'px': 0.83}], {'PA': 0.83}, {}, None, 100, theses={'A': {'stopPct': 19.0, 'germStop': True}})[1][0]
-    assert r3['stop'] == -of.AGENT_GERM_STOP_MAX and r3['action'] != 'pull'                         # a germ entry rides the dip to its germ floor
+    assert r3['stop'] == -19.0 and r3['action'] != 'pull'                         # a germ entry rides the dip to its germ floor
 
 
 def test_reaper_moves_his_own_lines_from_what_the_wallets_do_after_the_buy():
@@ -742,3 +742,15 @@ def test_a_germ_entry_is_not_cut_by_the_tier_or_sellers_tightening():
             'vitals': {'safe': True, 'rug': 5}, 'fv': {'state': 'SELLERS'}}
     r = of.reap([LEG_], [ROW_], {'PA': 0.93}, {}, None, 100, theses={'A': {'stopPct': 17.8, 'germStop': True}})[1][0]
     assert r['action'] != 'pull' and r['stop'] <= -12                              # −7% is not its stop: the germ floor is
+
+
+def test_the_consigliere_holds_a_germ_coin_through_soft_exits_and_banks_the_spike():
+    import office as of
+    LEG_ = {'mint': 'A', 'symbol': 'A', 'pairAddress': 'PA', 'entry': 1.0, 'units': 1.0, 'at': 1, 'liq': 60_000, 'liqNow': 60_000, 'bought': {'tag': '🤖 agents GO'}}
+    ROW_ = {'mint': 'A', 'symbol': 'A', 'pair': 'PA', 'px': 1.25, 'why': {'lean': 1.0, 'drivers': []}, 'trigger': ['wait', ''], 'devil': ['—', ''], 'nums': {'d5': 1, 'buy': 55, 'liq': 60_000},
+            'vitals': {'safe': True, 'rug': 5}}
+    plan = {'germ': {'plan': 'patient', 'spike': 20.0, 'why': 'test'}}
+    r = of.reap([LEG_], [ROW_], {'PA': 1.25}, {}, None, 100, theses={'A': {'stopPct': 15, 'germDist': 5.0, 'germStop': True}}, plan=plan)[1][0]
+    assert r['action'] == 'pull' and str(r['rule']).startswith('R6c')                # +25% ≥ the learned +20% spike → banked
+    r2 = of.reap([LEG_], [{**ROW_, 'px': 0.80}], {'PA': 0.80}, {}, None, 100, theses={'A': {'stopPct': 15, 'germDist': 5.0, 'germStop': True}}, plan=plan)[1][0]
+    assert r2['action'] == 'pull' and str(r2['rule']).startswith('R5')                # the stop still sells

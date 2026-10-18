@@ -2978,6 +2978,7 @@ COIN_READ_JUP_SEC = 1.5   # coin-read p95 was 6.5s (perf_view 2026-10-17): Jupit
 
 
 import chart_wallets as _cw
+import consigliere as _cg
 _cw_cache: dict = {}
 
 
@@ -8791,6 +8792,22 @@ def _flow_intel(mint):
     return {'creator': it.get('creator'), 'watch': watch}
 
 
+_consig_c: dict = {'at': 0.0, 'v': {}}
+
+
+def _consig_plans(now):
+    """🤵 The Consigliere's live plan per coin type, re-learned from the real record every 5 min (consigliere.plans)."""
+    if now - _consig_c['at'] > 300:
+        try:
+            mtp_ = _seat.models_take((_g4_mem.get() or {}).get('log'), now)   # 🧠 the models' own take line competes with the spikes — kept only if it pays on real trades
+            _consig_c.update(at=now, v=_cg.plans((_json_load(ARCHIVE_PATH, {}) or {}).get('positions') or [], (_after_mem.get() or {}).get('done') or {}, _ap.key_of, extra_spikes=(mtp_,) if mtp_ else ()))
+            _office['consigliere'] = _consig_c['v']
+        except Exception as e:
+            print('consigliere:', str(e)[:80])
+            _consig_c['at'] = now
+    return _consig_c['v']
+
+
 REAP_ADJ_SEC = 120.0   # Reaper moves a coin's lines at most every 2 min
 
 
@@ -10755,7 +10772,8 @@ async def _prime_tick_inner(now):
             blk_ = _agent_blocked(cur, now) | {l.get('mint') for l in cur.get('legs') or []}
             valid_ = [c_ for c_ in (_tk.KERNEL.candidate(m_, d_) for m_, d_ in _tk.KERNEL.ready(exclude=blk_)) if c_ and not _fw.dollar_named(c_.get('symbol'))]
             valid_ = sorted([c_ for c_ in valid_ if _agent_entry_ok(c_)],   # 🎯 EVERY agent door enters like OSSY / G4 (owner, 2026-10-18: "they are on point"): the three setups, no gun line / chase / spike /
-                            key=lambda c_: (0 if _fuse._f(c_.get('size')) >= 0.75 else 1,   # 🛡 the Warden's full-size picks first — the one desk whose call separates winners (−2.6 vs −4.9 typical, 187 real trades)
+                            key=lambda c_: (0 if (_pred_of(c_.get('mint'), now) or 0) >= 5 else 1,   # 🔮 a PROVEN model calls it up ≥ 5%: first
+                                            0 if _fuse._f(c_.get('size')) >= 0.75 else 1,   # 🛡 the Warden's full-size picks first — the one desk whose call separates winners (−2.6 vs −4.9 typical, 187 real trades)
                                             _seat.germ_rank(_opp.germ_d(c_.get('chart') or {})[0], _uni.germ_max()),   # SKIP, no losing read, no young coin with an unread launch — germ floor first, like the models' list
                                             -sum(_oe.SETUP_SCORE.get(k_, 0) for k_ in c_.get('setups') or ()), -_fuse._f(c_.get('rank'))))
             for c_ in valid_:
@@ -10839,8 +10857,19 @@ async def _prime_tick_inner(now):
                             waits_.append({'symbol': t_.get('symbol'), 'why': why_})
                             _tk.KERNEL.note('trigger', 'WAIT', f"the tape says wait — {why_}", now, mint=t_['mint'], key=f"flow:{int(now // 120)}")
                             continue
+                        wm_ = None
+                        tr_w = _flow_trades.get(t_.get('pair'))
+                        if tr_w and now - tr_w[0] < 30:   # 🐋 what the snipers / bundles / dev / top holders / whales / top traders did in the last 5 min
+                            wm_ = _cw.moves_since(_cw.tag_trades(tr_w[1], (_intel_cache.get(t_['mint']) or (0, None))[1] or {}), now - 300)
+                        if wm_ and not t_.get('g4') and _fuse._f(wm_['badSell']) >= _of.REAP_BAD_USD and _fuse._f(wm_['badSell']) > 2 * _fuse._f(wm_['badBuy']):
+                            why_w = f"early hands are dumping it right now — {wm_['words']}: watch, then move"
+                            _regret_note(t_['mint'], 'wallets:DUMP', _fuse._f(t_.get('px')), t_.get('symbol'))   # 😴 graded like every wait: the regret ledger says if it was right
+                            waits_.append({'symbol': t_.get('symbol'), 'why': why_w})
+                            _tk.KERNEL.note('trigger', 'WAIT', why_w, now, mint=t_['mint'], key=f"wal:{int(now // 120)}")
+                            continue
+                        smart_ = bool(wm_ and _fuse._f(wm_['smartBuy']) >= _of.REAP_SMART_USD and _fuse._f(wm_['smartBuy']) > _fuse._f(wm_['smartSell']))
                         sus_ = any(((n_ or {}).get('advice') or {}).get('stance') == 'CAUTION' for n_ in (_ai['notes'].get(t_['mint']) or {}).values())   # 🧠 SECOND LOOK: the rug-sniffer already flagged this coin → it goes behind the ones it did not (no call made here, never a block)
-                        keep_.append(((0 if v_ and v_.get('state') == 'BUYERS' and v_.get('hot') else 1 if v_ and v_.get('state') == 'BUYERS' else 2) + (3 if sus_ else 0), t_))
+                        keep_.append(((0 if v_ and v_.get('state') == 'BUYERS' and v_.get('hot') else 1 if v_ and v_.get('state') == 'BUYERS' else 2) + (3 if sus_ else 0) - (1 if smart_ else 0), t_))   # 🐋 smart money buying it goes first
                     plan_ = [t_ for _g, t_ in sorted(keep_, key=lambda kv: kv[0])]
                     _office['flowWait'] = {'at': now, 'rows': waits_[:6]}
                 except Exception as e:
@@ -14272,6 +14301,17 @@ async def _g4_tick(now, env, cfg):
         r_ = await _air.ROUTER.ask(_ai_http(), env, cfg, 'Your minute snapshot. Decide.', context=pk_, role='exit', urgency='seat', only=(first_,), system=_seat.sys_for(_seat.SYSTEM, first_), only_system=True)   # 🔁 a held trade is ONLY its holder's call (the partner standing in made OSSY post HOLDs on G4's $MOMO); hunting, the partner may answer for a missed minute   # 🔁 the holder runs its trade; when it misses a minute (call cap / timeout) the partner stands in — the trade stays the holder's (leg aiBy)
         by_m = r_.get('source') if r_.get('source') in (first_, second_) else first_
         dec_ = _seat.parse(r_.get('text'), [c_['mint'] for c_ in cands_], bool(held_), {c_.get('symbol'): c_['mint'] for c_ in cands_ if c_.get('symbol')})
+        if dec_ and dec_.get('preds') and r_.get('source') in (first_, second_):   # 🔮 every prediction is graded 15 min later on the real price (ai_learn, per model)
+            try:
+                for m_p, v_p in dec_['preds'].items():
+                    m_p = (held_m or (dec_.get('mint') or None)) if m_p == '_self' else m_p
+                    sy_p = next((c_.get('symbol') for c_ in cands_ if c_['mint'] == m_p), None) or ((held_ or {}).get('symbol') if m_p == held_m else None)
+                    px_p = _fuse._f((_jup_px_cache.get(m_p) or (0, 0))[1]) if m_p else 0.0
+                    if m_p and px_p > 0:
+                        _ai['book'] = _ail.note(_ai_book(), 'seat', m_p, 'FAVOR' if v_p > 0 else 'CAUTION', px_p, now, sy_p, src=r_.get('source'), predict=v_p)
+                _json_save(AI_PROOF_PATH, _ai['book'])
+            except Exception as e_p:
+                print('seat preds:', str(e_p)[:80])
         dec_ = _seat.cook(dec_, {**(held_ or {}), 'sl': (leg_ or {}).get('aiSl')}) if held_ else dec_
         if held_ and dec_:   # 🦠 a base (germ floor / higher lows) on slow volume is held — unless sellers lead the 90s tape
             dec_ = _seat.structure_hold(dec_, {**held_, 'sl': (leg_ or {}).get('aiSl')}, held_ch, sellers=str(((_office.get('flow') or {}).get(held_m) or {}).get('state') or '').upper() == 'SELLERS')
@@ -14444,6 +14484,22 @@ async def _reaper_partner(now, env, cfg, st_, card_, mode_, who):
     return d_
 
 
+_pred_c: dict = {'at': 0.0, 'proven': set()}
+
+
+def _pred_of(mint, now):
+    """🔮 A PROVEN model's fresh (≤ 15 min) prediction on this coin, or None. Proven = ai_learn.predict_record for that model (≥ 20 graded calls
+    each way, its 'up' calls beat its 'down' calls by ≥ 3 pts and went up). Until then predictions are graded and shown, never steering."""
+    if now - _pred_c['at'] > 120:
+        bk_ = _ai_book()
+        _pred_c.update(at=now, proven={p_ for p_ in (_duet.LEAD, _duet.SECOND) if _ail.predict_record(bk_, p_).get('proven')})
+    if not _pred_c['proven']:
+        return None
+    bk_ = _ai_book()
+    hit_ = [c_ for c_ in (bk_.get('open') or [])[::-1] if c_.get('mint') == mint and c_.get('pred') is not None and c_.get('prov') in _pred_c['proven'] and now - _fuse._f(c_.get('at')) <= 900]
+    return _fuse._f(hit_[0]['pred']) if hit_ else None
+
+
 _lose_c: dict = {'at': 0.0, 'v': {}}
 SPIKED_SINCE_READ = 8.0   # 🚀 the live price at the buy ≥ 8% over the price the agents decided on = no buy (they read a pass ago; the candle moved)
 
@@ -14452,6 +14508,9 @@ def _agent_entry_ok(c):
     """🧠 May the ARMED / VALVE doors take this coin? Not at the gun line / mid-chase / after a spike / on a SKIP (the models' own filter —
     their record is why), and not on an entry read the agents' own real trades keep losing on (`office_edge.losing_entries`, 60s cache)."""
     if _g4_bad_entry(c):
+        return False
+    pr_ = _pred_of(c.get('mint'), time.time())
+    if pr_ is not None and pr_ <= -5:   # 🔮 a PROVEN model calls it down ≥ 5% in 15 min: the agents skip it
         return False
     if time.time() - _lose_c['at'] > 60:
         pos_l = (_json_load(ARCHIVE_PATH, {}) or {}).get('positions') or []
@@ -17925,7 +17984,7 @@ def _office_reap(cur, px, cfg_t, ctl, now, dec, pol=None, live=True, vels=None, 
                     except Exception:
                         pass
         pos, rep, gone = _of.reap(cur.get('legs'), _agents.get('table'), px, cfg_t, _office['pos'], now, _agents.get('scalp'), ctl, _agents.get('weather'), tape, _office_state(), _office['sized'], _office.get('charts'), _office.get('theses'), pol=pol, live=live, real=bool(cur.get('real')),
-                                  vels=vels, margins=margins, rug=rug, press=press, flows=fv_, ai_exit=_ai_exit_effects(cfg_t, now), ai_words=_ai_exit_words(cfg_t, now))
+                                  vels=vels, margins=margins, rug=rug, press=press, flows=fv_, ai_exit=_ai_exit_effects(cfg_t, now), ai_words=_ai_exit_words(cfg_t, now), plan=_consig_plans(now))
         for g in gone:
             g['take'] = _of.take_line(cfg_t, _agents.get('scalp'))
             if not g.get('askRule'):   # 🧾 WHO removed it: the newest card event naming this coin (agent pull / swap · model sell · your ✂ · engine) — 63 of 67 sales read "left the card by another rule"

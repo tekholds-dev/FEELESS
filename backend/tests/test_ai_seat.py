@@ -267,3 +267,9 @@ def test_the_models_bank_a_sale_for_up_to_three_rounds():
     c = ap.park_bank({'cash': 1.0, 'holdCashUsd': 0.2, 'rounds': 7, 'events': []}, 0.5, 2, 100, 'X', 'OSSY')
     assert c['holdCashUsd'] == 0.7 and c['skimPark'][-1]['hold'] == 2 and c['skimPark'][-1]['round'] == 7
     assert ap.park_bank({'cash': 1.0}, 0.5, 0, 100) == {'cash': 1.0}
+
+
+def test_the_models_predictions_are_parsed_per_coin_for_grading():
+    import ai_seat as seat
+    d = seat.parse('{"action":"HOLD","why":"x","pred":12,"preds":{"ABC":-8,"ZZZ":400,"NOPE":5}}', ['MA', 'MZ'], True, {'ABC': 'MA', 'ZZZ': 'MZ'})
+    assert d['preds'] == {'_self': 12.0, 'MA': -8.0, 'MZ': 300.0}                   # unknown symbols dropped, wild calls capped

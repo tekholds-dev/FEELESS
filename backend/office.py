@@ -19,6 +19,7 @@ from types import MappingProxyType
 
 import paper_desk as _pd   # 📝 the OFFLINE practice record (graded paper calls) — it has no live authority
 import trench_kernel.universe as _uni
+import consigliere as _cg
 import trench_kernel.senses as _sn
 import trench_kernel.positions as _pos
 import opportunity as _opp
@@ -515,7 +516,7 @@ RIDE_GIVE = 50.0       # 🏄 while a real crowd is buying, the trail lets the c
 RIDE_HOLD_SEC = 90.0   # the ride outlives one quiet 90s window (the tape is read every 15s); past it the normal rules return
 
 
-def reap(legs, table, prices, cfg, pos, now, scalp=None, control=False, weather_=None, tape=None, office=None, sized=None, charts=None, theses=None, pol=None, live=True, vels=None, margins=None, rug=None, press=None, real=False, flows=None, ai_exit=None, ai_words=None):
+def reap(legs, table, prices, cfg, pos, now, scalp=None, control=False, weather_=None, tape=None, office=None, sized=None, charts=None, theses=None, pol=None, live=True, vels=None, margins=None, rug=None, press=None, real=False, flows=None, ai_exit=None, ai_words=None, plan=None):
     """☠ One look at every position the agents hold on the real card (in control: every coin that is not frozen). It keeps each one's
     record (entry, peak, path, depth and top-10 at entry) and rules, in this order — the first that fires decides:
       R1 pool collapsed · R4 whale dump / R4r rug radar / R4e early wallets on the live tape · R5 stop* · (a holder scan or a rug score is evidence for the brain, never an exit) ·
@@ -605,9 +606,7 @@ def reap(legs, table, prices, cfg, pos, now, scalp=None, control=False, weather_
             stop = min(stop, max(_ci.STOP_FLOOR, stop * FLOW_TIGHT))
         noise_ = is_noise(x)   # 🔊 a coin with MASSIVE volume swings 20–30% on noise: wide stop + a later take (owner, 2026-10-15)
         sc_ = scale_of(pol)   # 💰 None = the owner switched the scale-out off
-        if noise_ and not l.get('ownerLvAt'):
-            stop = max(stop, NOISE_SL) if stop < _ci.CATASTROPHIC_STOP else stop
-            stop = min(stop, _ci.CATASTROPHIC_STOP - 5)
+        # (🔊 the old noise-coin stop widening to 35% is retired 2026-10-18: the 15% agent cap / 20% germ cap always cut it back — it only confused the stop math)
         if ax_ == 'widen' and pct < 0 and not l.get('ownerLvAt') and not (fv_ and fv_.get('state') == 'SELLERS'):   # 🧠 a PROVEN model WIDEN: a red seat still bought gets room
             stop = min(max(stop, stop * _er.WIDEN), _er.WIDEN_MAX, _ci.CATASTROPHIC_STOP - 5)
             p['widened'] = round(stop, 1)
@@ -792,6 +791,13 @@ def reap(legs, table, prices, cfg, pos, now, scalp=None, control=False, weather_
             act, st = None, 'PROTECT'
         rk_ = str(rule).split(' ')[0]
         hn_ = p.get('hint') or {}
+        cg_ = (plan or {}).get(_cg.bucket((th or {}).get('germDist'))) if (_uni.is_agent(l) and not l.get('picked') and not l.get('aiSeat') and not l.get('ownerLvAt')) else None
+        if cg_ and cg_.get('plan') == 'patient' and pct is not None:   # 🤵 THE CONSIGLIERE: on a coin type where holding to the stop / a spike has beaten Reaper on real trades
+            if pct >= _f(cg_.get('spike')) and rk_ not in HINT_HARD:
+                st, rule, ev, act = 'TAKE', 'R6c consigliere spike', f"{pct:+.1f}% ≥ +{_f(cg_['spike']):g}% — the spike the patient plan waits for ({cg_.get('why')})", 'pull'
+            elif act and rk_ not in HINT_HARD and not str(rule).startswith('R6c'):
+                ev += f" · 🤵 Consigliere holds it: {cg_.get('why')} — only the stop, a rug or the +{_f(cg_['spike']):g}% spike sell it"
+                act, st = None, 'PROTECT'
         dumb_ = act and hn_ and (pct <= -stop * HINT_DUMB or (pct < 0 and rk_ in HINT_BREAK))   # ✋ hold ≠ never sell: deep red, or red with the chart broken, still goes
         if dumb_ and hn_.get('kind') in ('hold', 'good') and now < _f(hn_.get('until')) and rk_ not in HINT_HARD:
             ev += f" · ✋ your hold gave it time, but {pct:+.1f}% " + ('is past 60% of its stop' if pct <= -stop * HINT_DUMB else 'with the chart broken') + " — it goes"

@@ -47,7 +47,8 @@ the owner's and the agents': copy what won, skip what lost, and say in your why 
 trades and where holding longer paid him — use them. When your record beats your partner's, BRAG about it
 in your why (short, cocky, true numbers only); when it doesn't, say how you'll take the lead.
 Answer with ONLY this JSON, nothing else:
-{"action":"BUY|HOLD|SELL|WAIT|TRIM","coin":"<SYMBOL when BUY, else empty>","why":"<3-4 short sentences MAX — the numbers that decided it>","conf":<0-100>,"watch":"<what would make you sell, under 80 chars>","tp":<take-profit %, e.g. 40>,"sl":<stop %, e.g. 15>,"trail":<% of the peak gain you let it give back before banking, e.g. 35 — wider on a clean HH/HL runner, tighter when sellers lead>,"bank":<on a SELL / TRIM: 0-3 rounds to park the profit out of the coins (0 = straight back to work)>}
+{"action":"BUY|HOLD|SELL|WAIT|TRIM","coin":"<SYMBOL when BUY, else empty>","why":"<3-4 short sentences MAX — the numbers that decided it>","conf":<0-100>,"watch":"<what would make you sell, under 80 chars>","tp":<take-profit %, e.g. 40>,"sl":<stop %, e.g. 15>,"trail":<% of the peak gain you let it give back before banking, e.g. 35 — wider on a clean HH/HL runner, tighter when sellers lead>,"bank":<on a SELL / TRIM: 0-3 rounds to park the profit out of the coins (0 = straight back to work)>,"pred":<your % call for YOUR coin (held, or the one you buy) 15 min from now>,"preds":{"<SYMBOL from CANDIDATES>":<% in 15 min>, … up to 3}}
+PREDICTIONS ARE GRADED: every "pred" / "preds" is checked against the real price 15 min later. Once your calls are proven, the agents buy what you call up and skip what you call down — so call it straight.
 The trade you bought is YOURS to run: tp / sl are your own take-profit and stop lines, applied at once (change them any minute you HOLD;
 −45% is the floor nobody can move). TRIM = sell part of your coin now ("pct": 25 | 50 | 75) — bank profit, the rest keeps riding your lines.
 CONFIDENCE in LEARN = what the market's verdicts on your calls (and the votes on them) earned you. The agents only advise.
@@ -288,6 +289,14 @@ def parse(text, cand_mints, holding, syms=None):
     if a == 'BUY' and (holding or mint not in cset):
         a, why = ('HOLD' if holding else 'WAIT'), (why + ' · (BUY refused: ' + ('seat already holds a coin' if holding else 'coin not on the list') + ')')[:WHY_MAX + 80]
         mint = ''
+    preds_ = {}   # 🔮 the model's 15-minute % calls (graded on the real price; they steer the agents once proven)
+    if j.get('pred') is not None:
+        preds_['_self'] = max(-90.0, min(300.0, _f(j.get('pred'))))
+    if isinstance(j.get('preds'), dict):
+        for sy, v in list(j['preds'].items())[:4]:
+            m_ = (syms or {}).get(str(sy).lstrip('$')) or (syms or {}).get(str(sy))
+            if m_ and v is not None:
+                preds_[m_] = max(-90.0, min(300.0, _f(v)))
     bank_ = max(0, min(3, int(_f(j.get('bank')))))   # 🅿 rounds to park the proceeds of a SELL / TRIM out of the coins (0 = straight back to work)
     if a == 'TRIM':   # ✂ bank part of the trade it holds (25 / 50 / 75%), the rest keeps riding its own lines
         if not holding:
@@ -299,7 +308,7 @@ def parse(text, cand_mints, holding, syms=None):
         a = 'WAIT'
     if a == 'WAIT' and holding:
         a = 'HOLD'
-    out = {'action': a, 'mint': mint if a == 'BUY' else '', 'why': why, 'conf': conf, 'watch': watch, **({'trim': j['_trim']} if a == 'TRIM' else {}), **({'bank': bank_} if a in ('SELL', 'TRIM') and bank_ else {})}
+    out = {'action': a, 'mint': mint if a == 'BUY' else '', 'why': why, 'conf': conf, 'watch': watch, **({'trim': j['_trim']} if a == 'TRIM' else {}), **({'bank': bank_} if a in ('SELL', 'TRIM') and bank_ else {}), **({'preds': preds_} if preds_ else {})}
     for k, lo, hi in LINE_RANGES:   # 🎯 a take under +25% cut runners short ($SEXCOIN banked at +15%, ran on)   # 🎯 the holder runs its whole trade: its own take / stop (−45% stays the floor)
         v = abs(_f(j.get(k), 0.0))
         if v > 0 and a in ('BUY', 'HOLD', 'TRIM'):
@@ -431,6 +440,13 @@ HUNT_PASS_N = 5   # answered hunting minutes before a turn may pass
 def hunt_answers(log, who, since):
     """How many minutes `who` really answered (WAIT / BUY from the model itself, not the agents' stand-in) since its hunt began."""
     return sum(1 for r in log or [] if r.get('by') == who and r.get('action') in ('WAIT', 'BUY') and _f(r.get('at')) >= since and not r.get('talk'))
+
+
+def models_take(log, now, since=48 * 3600.0, min_n=5):
+    """🧠 The take-profit % OSSY / G4 really set on their trades (their LINES rows, last 48h) → median or None."""
+    v = sorted(_f((r.get('lines') or {}).get('tp')) for r in log or [] if r.get('action') == 'LINES' and r.get('by') in ('lan', 'local')
+               and _f((r.get('lines') or {}).get('tp')) > 0 and now - _f(r.get('at')) <= since)
+    return v[len(v) // 2] if len(v) >= min_n else None
 
 
 def models_trail(log, now, since=48 * 3600.0, min_n=5):
