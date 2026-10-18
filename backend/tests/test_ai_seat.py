@@ -220,3 +220,11 @@ def test_a_hunting_turn_passes_only_when_the_hunter_really_answered():
     assert seat.hunt_answers(log, 'lan', 0) == 0   # G4 could not answer: its turn stays
     log += [{'by': 'lan', 'action': 'WAIT', 'at': 20 + i} for i in range(5)] + [{'by': 'lan', 'action': 'TALK', 'talk': True, 'at': 30}]
     assert seat.hunt_answers(log, 'lan', 0) == seat.HUNT_PASS_N
+
+
+def test_g4_says_it_in_four_sentences_and_a_cut_json_answer_never_shows_raw():
+    import ai_seat as seat
+    story = '{"action":"HOLD","coin":"","why":"Godfather said hold. I hold Glow at 8%. No lower low. Germ intact. I watch the 1m. I don\'t panic. I wait'
+    d = seat.parse(story, [], True)
+    assert d['action'] == 'HOLD' and '{' not in d['why'] and d['why'].count('.') <= 4 and d['why'].startswith('Godfather said hold.')
+    assert seat.short_why('A. B. C. D. E. F.') == 'A. B. C. D.'

@@ -24,9 +24,10 @@ PAPER_COST_PCT = 1.5      # the measured cost of one swap on the real card — p
 CAND_N = 8
 ACTIONS = ('BUY', 'HOLD', 'SELL', 'WAIT', 'TRIM')
 TP_MIN = 25.0
+WHY_SENT = 4    # 🗣 owner, 2026-10-17: "G4 has a story — 3-4 sentences max": every model line keeps its first 4 sentences
 WHY_MAX = 900   # 💬 a model's full line is kept (owner, 2026-10-17: "make sure the limit doesn't cut") — 900 chars ≈ what fits its answer budget
 
-VOICE = """YOUR VOICE (in "why"): one line in YOUR character (below), real trench slang, witty, never dry; a jab at your partner when your record beats theirs.
+VOICE = """YOUR VOICE (in "why"): 3-4 short sentences MAX, in YOUR character — no story, no recap (below), real trench slang, witty, never dry; a jab at your partner when your record beats theirs.
 The owner is THE GODFATHER: answer his words first, call him Godfather or boss, never sass him, never argue past his line;
 your edge is on the market and your partner, never on him. Wit never replaces numbers: every line still carries the numbers that decided it.
 ONE TRADE AT A TIME: talk ONLY about the coin in NOW / yourSeat. learn, holdLessons, ownerHoldWins and partner lines about other coins are PAST trades —
@@ -46,7 +47,7 @@ the owner's and the agents': copy what won, skip what lost, and say in your why 
 trades and where holding longer paid him — use them. When your record beats your partner's, BRAG about it
 in your why (short, cocky, true numbers only); when it doesn't, say how you'll take the lead.
 Answer with ONLY this JSON, nothing else:
-{"action":"BUY|HOLD|SELL|WAIT|TRIM","coin":"<SYMBOL when BUY, else empty>","why":"<your full read, as long as it needs — the numbers that decided it>","conf":<0-100>,"watch":"<what would make you sell, under 80 chars>","tp":<take-profit %, e.g. 40>,"sl":<stop %, e.g. 15>,"trail":<% of the peak gain you let it give back before banking, e.g. 35 — wider on a clean HH/HL runner, tighter when sellers lead>}
+{"action":"BUY|HOLD|SELL|WAIT|TRIM","coin":"<SYMBOL when BUY, else empty>","why":"<3-4 short sentences MAX — the numbers that decided it>","conf":<0-100>,"watch":"<what would make you sell, under 80 chars>","tp":<take-profit %, e.g. 40>,"sl":<stop %, e.g. 15>,"trail":<% of the peak gain you let it give back before banking, e.g. 35 — wider on a clean HH/HL runner, tighter when sellers lead>}
 The trade you bought is YOURS to run: tp / sl are your own take-profit and stop lines, applied at once (change them any minute you HOLD;
 −45% is the floor nobody can move). TRIM = sell part of your coin now ("pct": 25 | 50 | 75) — bank profit, the rest keeps riding your lines.
 CONFIDENCE in LEARN = what the market's verdicts on your calls (and the votes on them) earned you. The agents only advise.
@@ -62,6 +63,20 @@ def sys_for(base, key):
     """🎭 The prompt as THIS model reads it: the shared rules + its own character (local = OSSY, lan = G4)."""
     import fee_voice as _fv
     return base + '\n' + _fv.persona({'local': 'OSSY', 'lan': 'G4'}.get(key, key))
+
+
+def short_why(t, n=WHY_SENT):
+    """A model line as the chat shows it: whitespace folded, the first `n` sentences, never more than WHY_MAX chars."""
+    t = re.sub(r'\s+', ' ', str(t or '')).strip()
+    parts = re.split(r'(?<=[.!?])\s+(?=\S)', t)
+    return ' '.join(parts[:n])[:WHY_MAX]
+
+
+def _cut_json(t):
+    """A JSON answer cut off mid-way (the model ran out of room): its action + why read straight from the text — never the raw braces."""
+    a = re.search(r'"action"\s*:\s*"(\w+)"', t)
+    w = re.search(r'"why"\s*:\s*"((?:[^"\\]|\\.)*)', t)
+    return {'action': a.group(1), 'why': (w.group(1) if w else '').replace('\\"', '"')} if a else None
 
 
 def _f(v, d=0.0):
@@ -149,7 +164,7 @@ ADVISE = """You are the PARTNER on a shared real-money Solana trench seat. Your 
 Read the snapshot (its P/L, peak, held minutes, pressure from the rule agents, the candidates, LEARN = everyone's real results) and say what you would
 do with THAT coin and why, in one line with the numbers that decide it. Be blunt, trash-talk a little when your record is better; disagree when the
 numbers say so. Never invent numbers.
-Answer with ONLY this JSON: {"action":"HOLD|SELL","coin":"","why":"<your full read, as long as it needs>","conf":<0-100>,"watch":"<what would change your mind, under 80 chars>"}
+Answer with ONLY this JSON: {"action":"HOLD|SELL","coin":"","why":"<3-4 short sentences MAX>","conf":<0-100>,"watch":"<what would change your mind, under 80 chars>"}
 If OWNER is there, answer the Godfather first. NOW names the ONE coin you talk about — never call a past coin in pastLessons this trade.
 If HOLDERPROPOSES is there, your partner is about to sell / trim that coin and waits for your word: SELL = you back it, HOLD = you'd keep it — say why in one line.
 """ + VOICE
@@ -226,7 +241,7 @@ def parse(text, cand_mints, holding, syms=None):
     are corrected to what the seat can actually do (never acted on as written).
     The coin is read from "coin" / "symbol" / "mint" — and when that field is unusable (small models mangle a 44-char mint; the router masks
     any long address as •••), from the ONE candidate symbol its own "why" names. A reply with no JSON is read for its first action word."""
-    j = _first_json(text)
+    j = _first_json(text) or _cut_json(str(text or ''))
     if not j:
         t = str(text or '')
         m = re.search(r'\b(BUY|HOLD|SELL|WAIT)\b', t.upper())
@@ -246,7 +261,7 @@ def parse(text, cand_mints, holding, syms=None):
     if not mint and a == 'BUY':
         mint = _sym_in(j.get('why'), syms)
     mint = mint or ''
-    why = re.sub(r'\s+', ' ', str(j.get('why') or '')).strip()[:WHY_MAX]
+    why = short_why(j.get('why'))
     conf = max(0, min(100, int(_f(j.get('conf'), 50))))
     watch = re.sub(r'\s+', ' ', str(j.get('watch') or '')).strip()[:80]
     if a == 'BUY' and (holding or mint not in cset):
@@ -302,7 +317,7 @@ def snapshot_line(held, chart=None, reaper=None, flow=None):
 REVIEW = """Your trade just CLOSED. TRADE = the coin, your entry, its peak, the result, how long you held, and every call you made on it (CALLS).
 Assess it honestly before the turn passes to your partner: grade it A–F, say what you did right, what you would do differently (entry, lines,
 exit timing — with the numbers), and ONE lesson you will use on the next trade. Never invent numbers.
-Answer with ONLY this JSON: {"grade":"A|B|C|D|F","why":"<your full assessment>","lesson":"<the lesson, in full>"}
+Answer with ONLY this JSON: {"grade":"A|B|C|D|F","why":"<3-4 short sentences MAX>","lesson":"<one sentence>"}
 """ + VOICE
 
 
@@ -312,8 +327,7 @@ def review_parse(text):
     g = str(j.get('grade') or '').strip().upper()[:1]
     if g not in ('A', 'B', 'C', 'D', 'F'):
         return None
-    clean = lambda x, n: re.sub(r'\s+', ' ', str(x or '')).strip()[:n]
-    return {'grade': g, 'why': clean(j.get('why'), WHY_MAX), 'lesson': clean(j.get('lesson'), WHY_MAX)}
+    return {'grade': g, 'why': short_why(j.get('why')), 'lesson': short_why(j.get('lesson'), 2)}
 
 
 def owner_lines(text):
@@ -428,7 +442,7 @@ CARD = the coins on the card now (who holds each — the agents or the owner —
 ownerSays = what the owner said in a coin's room — answer him first when it is there. Pick the ONE coin most worth a word and say what you would do with it and why, in one line with the numbers that decide it (a tip for
 the holder, a call you would be proud of when the market grades it in 5 min / 1 h). Never invent numbers or coins.
 On an AGENTS coin you may also set its lines: "tp" take %, "sl" stop %, "trail" give-back % of the peak gain (read its HH/HL + germ first). Never on the owner's coins.
-Answer with ONLY this JSON: {"coin":"<symbol from CARD>","view":"HOLD|SELL","why":"<your full read, as long as it needs>","conf":<0-100>,"tp":<optional>,"sl":<optional>,"trail":<optional>}
+Answer with ONLY this JSON: {"coin":"<symbol from CARD>","view":"HOLD|SELL","why":"<3-4 short sentences MAX>","conf":<0-100>,"tp":<optional>,"sl":<optional>,"trail":<optional>}
 """ + VOICE
 
 
@@ -449,7 +463,7 @@ def idle_parse(text, syms):
     mint = hit[0] if len(hit) == 1 else _sym_in(j.get('why'), syms)
     if not mint:
         return None
-    out = {'view': v, 'mint': mint, 'why': re.sub(r'\s+', ' ', str(j.get('why') or '')).strip()[:WHY_MAX], 'conf': max(0, min(100, int(_f(j.get('conf'), 50))))}
+    out = {'view': v, 'mint': mint, 'why': short_why(j.get('why')), 'conf': max(0, min(100, int(_f(j.get('conf'), 50))))}
     for k, lo, hi in LINE_RANGES:   # 🎯 lines it sets on an agents coin it is watching
         x = abs(_f(j.get(k), 0.0))
         if x > 0:

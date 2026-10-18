@@ -4971,3 +4971,6 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   win ring (arc = win rate on real exits, an orbiting dot that spins faster the busier the gen), VS OLDER GENS (win rate now vs the past gens'
   weighted rate, ▲▼ pts), four vital meters (win rate · life · typical · W·L) whose numbers flash on change, a generation timeline (dot size =
   exits, colour = its win rate, the live gen pulses), and a 👑 BEST NOW / 📈 MOST IMPROVED board. transform / opacity only, still in fx-lite.
+- 🗣 3–4 SENTENCES MAX (owner, 2026-10-17: "G4 has a story"): `ai_seat.short_why` keeps the first `WHY_SENT` 4 sentences of every model line
+  (seat · advice · idle · review; a review's lesson = 2), the prompts ask for "3-4 short sentences MAX"; an answer cut off mid-JSON is read by
+  `_cut_json` (its action + why) — the raw `{"action":…` never reaches the chat again.
