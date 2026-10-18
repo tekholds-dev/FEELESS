@@ -4947,3 +4947,7 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   every minute, `lms get` re-downloaded after a delete. Now matched by `${MODEL##*/}`, only the server's pick is downloaded, re-pull every 10 min.
   Change the desktop model = `.env` LAN_LLM_MODEL + restart backend + MCP; the desktop follows by itself. G4 reads chart SNAPSHOTS as text
   (CHART1M / CHART5M candle lines every decision + the 5-min SNAPSHOT line) — it can't see images.
+- 🖥 Desktop keeper v3 (owner, 2026-10-17: "2507 keeps reloading and going to default presets — no caffeinate"): a model loaded or LOADING is never
+  touched, nothing reloads within 5 min of the last load (`~/.feeless/last-load`), the FEE preset file is rewritten only when the prompt changed
+  (`cmp`), no fallback model (LAN_LLM_FALLBACK_MODEL = the model itself — Gemma was deleted), and the caffeinate LaunchAgent is removed on the
+  next pull. Each reload put LM Studio's chat back on its default preset — stopping the reloads is the fix.

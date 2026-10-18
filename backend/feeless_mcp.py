@@ -898,9 +898,11 @@ def install_script(url, tok, preset_json=None, prompt=None, install_url=None, mo
 # FEELESS → this Mac's LM Studio: the FEE preset + the FEELESS MCP (read-only tools). Re-run any time; it only replaces its own entries.
 set -e
 d="$HOME/.lmstudio"; mkdir -p "$d/config-presets"
-cat > "$d/config-presets/FEELESS FEE Master.preset.json" <<'FEELESS_PRESET_EOF'
+pf="$d/config-presets/FEELESS FEE Master.preset.json"
+cat > "$pf.new" <<'FEELESS_PRESET_EOF'
 {preset_json}
 FEELESS_PRESET_EOF
+if cmp -s "$pf.new" "$pf"; then rm -f "$pf.new"; else mv "$pf.new" "$pf"; fi   # rewritten ONLY when the prompt changed (no needless preset reloads)
 /usr/bin/osascript -l JavaScript <<'FEELESS_JS_EOF'
 ObjC.import('Foundation');
 var p = $.NSProcessInfo.processInfo.environment.objectForKey('HOME').js + '/.lmstudio/mcp.json';
@@ -911,7 +913,6 @@ cur.mcpServers.feeless = {entry};
 $(JSON.stringify(cur, null, 2)).writeToFileAtomicallyEncodingError(p, true, $.NSUTF8StringEncoding, null);
 FEELESS_JS_EOF
 # 🖥 KEEP IT RUNNING (owner, 2026-10-15: "ensure it stays running when sleep etc and updates are in it"): two LaunchAgents on THIS Mac —
-#  · com.feeless.awake  = caffeinate (no idle / system sleep while logged in; a closed laptop lid or a power-off still stops it)
 #  · com.feeless.lankeep = every 60s: LM Studio's server up on port $PORT + the model loaded; every 10 min: re-run this installer from
 #    FEELESS so the preset / prompt / these helpers update by themselves. Re-running this script replaces only its own files.
 PORT="${{FEELESS_LM_PORT:-1236}}"; MODEL="${{FEELESS_LM_MODEL:-{model or DESKTOP_MODEL}}}"; FALLBACK="{DESKTOP_FALLBACK}"; CTX="${{FEELESS_LM_CTX:-8704}}"; PAR="${{FEELESS_LM_PAR:-2}}"
@@ -922,9 +923,11 @@ LMS="\\$HOME/.lmstudio/bin/lms"; [ -x "\\$LMS" ] || LMS="\\$(command -v lms)"; [
 "\\$LMS" server status 2>&1 | grep -qi "running" || "\\$LMS" server start --port $PORT >/dev/null 2>&1
 FAILED="\\$HOME/.feeless/model-failed"
 # KEY = "${{MODEL##*/}}" (filled in when this file is written): lms ps / ls show the model by its own name, not always with the "google/" part — matching the full id failed every minute and the model was unloaded + reloaded for good
-if ! "\\$LMS" ps 2>/dev/null | grep -qi "${{MODEL##*/}}"; then
+LOADED="\\$HOME/.feeless/last-load"; now0=\\$(date +%s); [ \\$((now0 - \\$(cat "\\$LOADED" 2>/dev/null || echo 0))) -lt 300 ] && exit 0   # a load in the last 5 min is still settling — never interrupt it (that was the reload loop)
+if ! "\\$LMS" ps 2>/dev/null | grep -qi "${{MODEL##*/}}" && ! curl -s -m 5 "http://127.0.0.1:$PORT/api/v0/models" | grep -A6 -i "${{MODEL##*/}}" | grep -qi '"state": *"load'; then   # loaded OR loading = leave it alone
   "\\$LMS" ls 2>/dev/null | grep -qi "${{MODEL##*/}}" || "\\$LMS" get "$MODEL" -y >/dev/null 2>&1   # ⬇ ONLY the model FEELESS picked, once — never a second one
   if "\\$LMS" ls 2>/dev/null | grep -qi "${{MODEL##*/}}" && [ "\\$(cat "\\$FAILED" 2>/dev/null)" != "$MODEL" ]; then
+    echo \\$now0 > "\\$LOADED"
     "\\$LMS" unload --all >/dev/null 2>&1   # 8 GB Mac: ONE model in memory
     "\\$LMS" load "$MODEL" --context-length $CTX --parallel $PAR --gpu max -y >/dev/null 2>&1 || echo "$MODEL" > "\\$FAILED"   # a model that won't load is not retried every minute
   fi
@@ -940,13 +943,13 @@ plist() {{ cat > "$HOME/Library/LaunchAgents/$1.plist" <<FEELESS_PLIST_EOF
 <plist version="1.0"><dict><key>Label</key><string>$1</string><key>ProgramArguments</key><array>$2</array>$3<key>RunAtLoad</key><true/></dict></plist>
 FEELESS_PLIST_EOF
 }}
-plist com.feeless.awake "<string>/usr/bin/caffeinate</string><string>-dimsu</string>" "<key>KeepAlive</key><true/>"
+launchctl bootout "gui/$(id -u)/com.feeless.awake" 2>/dev/null || true; rm -f "$HOME/Library/LaunchAgents/com.feeless.awake.plist"   # owner, 2026-10-17: no caffeinate
 plist com.feeless.lankeep "<string>/bin/bash</string><string>$HOME/.feeless/lan-keep.sh</string>" "<key>StartInterval</key><integer>60</integer>"
 if [ -z "$FEELESS_NO_RELOAD" ]; then   # the hourly self-update re-writes the files only: the agents pick up the new script on their next run
-  for a in com.feeless.awake com.feeless.lankeep; do launchctl bootout "gui/$(id -u)/$a" 2>/dev/null || true; launchctl bootstrap "gui/$(id -u)" "$HOME/Library/LaunchAgents/$a.plist" 2>/dev/null || true; done
+  for a in com.feeless.lankeep; do launchctl bootout "gui/$(id -u)/$a" 2>/dev/null || true; launchctl bootstrap "gui/$(id -u)" "$HOME/Library/LaunchAgents/$a.plist" 2>/dev/null || true; done
 fi
 echo "✅ FEELESS loaded into LM Studio: preset 'FEELESS FEE Master' + MCP 'feeless' ({url})"
-echo "🖥 Keep-alive on: this Mac stays awake while logged in, LM Studio's server (port $PORT) + $MODEL are checked every minute, updates pull hourly."
+echo "🖥 Keep-alive on: LM Studio's server (port $PORT) + $MODEL are checked every minute, updates pull every 10 min."
 echo "   Also set: System Settings › Energy › 'Prevent automatic sleeping' + 'Wake for network access' ON; LM Studio › Developer › 'Serve on local network' ON."
 echo "   In LM Studio: right panel › Preset › FEELESS FEE Master · Program › turn the 'feeless' MCP on · load the model with context 8192+."
 """
