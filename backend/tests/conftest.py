@@ -121,4 +121,6 @@ def _one_read_soft_exits(monkeypatch):
             monkeypatch.setattr(of, 'TIME_HOLD_STOP', 0)
     if of is not None and hasattr(of, 'SCALE_AT'):
         monkeypatch.setattr(of, 'SCALE_AT', 1e9)   # 💰 the scale-out has its own test (test_office: scale_out_in_reap) at its live value
+    if of is not None and hasattr(of, 'AGENT_STOP_MAX'):
+        monkeypatch.setattr(of, 'AGENT_STOP_MAX', 1e9)   # 🛑 the 15% agent stop cap has its own test (test_office: agent_stop_cap) at its live value
     yield

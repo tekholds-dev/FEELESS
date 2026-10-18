@@ -610,6 +610,8 @@ def reap(legs, table, prices, cfg, pos, now, scalp=None, control=False, weather_
         if ax_ == 'widen' and pct < 0 and not l.get('ownerLvAt') and not (fv_ and fv_.get('state') == 'SELLERS'):   # 🧠 a PROVEN model WIDEN: a red seat still bought gets room
             stop = min(max(stop, stop * _er.WIDEN), _er.WIDEN_MAX, _ci.CATASTROPHIC_STOP - 5)
             p['widened'] = round(stop, 1)
+        if _uni.is_agent(l) and not l.get('aiSeat') and not l.get('ownerLvAt') and stop > AGENT_STOP_MAX:   # 🛑 an AGENT stop never sits wider than 15% — after every widening rule (noise, chart, model WIDEN)
+            stop = AGENT_STOP_MAX
         own_ = l.get('ownerLvAt')   # ✋ YOUR line on ANY coin of the card (dragged on the chart): obeyed as set — wider or tighter (it was agent coins only: your GTA 10% read −30%)
         if own_ and _f(l.get('sl')) > 0:
             stop = min(_f(l["sl"]), _ci.CATASTROPHIC_STOP)   # the catastrophic −45% line stays under it
@@ -1126,6 +1128,7 @@ def degraded_pre(ch, rv):
 # for NOISE_TP. The owner's own dragged line always wins. Owner's rule, not yet proven on our record — judge it on the R5 exits of big coins.
 NOISE_VOL = 150_000.0
 NOISE_SL = 35.0
+AGENT_STOP_MAX = 15.0   # 🛑 owner, 2026-10-18: "fix their stops so they stop filling at −30% or worse" — 22–25% chart stops + the 35% noise stop gapped to −37…−39%; replay on 165 real agent paths: −30%+ fills 10 → 4, average −4.0 → −3.5
 NOISE_TP = 30.0
 
 

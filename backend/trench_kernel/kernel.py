@@ -196,14 +196,25 @@ class Kernel:
                         'size': op['warden']['size'], 'sizeWhy': op['warden']['why'], 'courier': op['courier']['ok'], 'reaper': op['reaper'],
                         'unknown': op['sherlock']['unknown'],   # relative ages are not sent: the page computes every age from `times` / `decidedAt` (the stream never sent them either)
                         'times': _s.times(ms), 'decidedAt': round(self.decAt.get(m, now), 2),   # absolute, per section: what the delta stream sends (the page computes each age itself)
-                        'sources': ms['identity']['sources'][:6], **({'vit': vit(ms.get('row') or {})} if d['status'] != 'TRACKING' and i < VIT_TOP else {})})   # the vital board: seats + the top of the queue (TRACKING rows draw none)
+                        'sources': ms['identity']['sources'][:6], **({'vit': vit(ms.get('row') or {}) if i < VIT_FULL else lite_vit(vit(ms.get('row') or {}))} if d['status'] != 'TRACKING' and i < VIT_TOP else {})})   # the vital board: seats + the top of the queue (TRACKING rows draw none)
         held = [m for m, d in self.dec.items() if d['status'] in ('HELD', 'EXIT_PENDING') and m in self.store.mints]   # the lanes from the CURRENT decisions (a price event may be newer than the pass)
         self.lanes = _b.lanes({m: d for m, d in self.dec.items() if m in self.store.mints}, held)
         return {'lanes': [{**l, 'symbol': (self.store.mints.get(l.get('mint')) or {}).get('identity', {}).get('symbol') if l.get('mint') else None} for l in self.lanes],
                 'candidates': out, 'metrics': self.metrics(now)}
 
 
-VIT_TOP = 8
+VIT_FULL = 8    # the top 8 carry the full board (socials report, links); the rest the numbers only — the office payload stays bounded
+
+
+LITE_KEYS = ('top10', 'bundled', 'snipers', 'insiders', 'dev', 'holders', 'rug', 'buy', 'd5', 'vol1h', 'chart', 'germ', 'germD', 'germ5D', 'hiD', 'entry', 'phase', 'drain', 'odds')
+
+
+def lite_vit(v):
+    """The numbers that decide a buy (holders · launch · flow · chart · germ · rug) — no socials report, no long words."""
+    return {k: x for k, x in (v or {}).items() if k in LITE_KEYS and x is not None}
+
+
+VIT_TOP = 24   # 🫀 every coin the agents weigh shows its vitals (owner, 2026-10-18: "they missing vital stuff" — 20 of 28 showed nothing)
 
 
 def _f0(v):
@@ -219,7 +230,7 @@ def vit(r):
     import social_research as _sr
     v, n, li, ch, mi = r.get('vitals') or {}, r.get('nums') or {}, r.get('li') or {}, r.get('chart') or {}, r.get('mind') or {}
     en = ch.get('entry') or [None, None, None]
-    out = {'top10': v.get('top10'), 'bundled': v.get('bundledN'), 'snipers': v.get('snipersN'), 'dev': v.get('dev'), 'holders': v.get('holders'),
+    out = {'top10': v.get('top10'), 'bundled': v.get('bundledN'), 'snipers': v.get('snipersN'), 'insiders': v.get('insiders'), 'dev': v.get('dev'), 'holders': v.get('holders'),
            'organic': v.get('organic'), 'rug': v.get('rug'), 'read': v.get('read'), 'vol1h': v.get('vol1h'), 'tx1h': v.get('txns1h'),
            'buy': n.get('buy') if n.get('buy') is not None else v.get('buyShare'), 'd5': n.get('d5'), 'pace': n.get('pace'), 'liqD': n.get('liqD'),
            'phase': li.get('phase'), 'cls': li.get('cls'), 'press': li.get('press'), 'first10': li.get('first10'),

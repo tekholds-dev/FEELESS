@@ -918,7 +918,8 @@ _intel_cache: dict = {}
 _launch_facts: dict = {}   # mint → {creator, bundled, snipers, createSlot, historyComplete, at} — read once, kept on disk
 _flag_hold: dict = {}      # mint → (at, {wallet: % held})
 FLAG_HOLD_TTL = 900.0
-SIG_PAGES = 8   # launch facts: page back up to 8,000 txs to reach a coin's creation (read once per coin, kept on disk)
+LAUNCH_RETRY_SEC = 6 * 3600.0   # a launch read that could not reach the launch is tried again after 6h, not every 15-min re-scan
+SIG_PAGES = 16   # (2026-10-18: 8 left 35% of busy launch coins unread — the agents traded them blind on bundles / snipers) launch facts: page back up to 8,000 txs to reach a coin's creation (read once per coin, kept on disk)
 INTEL_TTL = 900   # holders re-read every 15 min (launch facts are read once): a re-scan is 4 calls. 2026-10-08: at 300s a ~100-coin board needed 1.3 calls/s of re-scans against a 0.5/s budget, so 184 of 200 feed coins (14 of 18 RUNNING ones) read 'not scanned yet' and nothing running could ever be bought
 SYSTEM_PROGRAM = '11111111111111111111111111111111'
 
@@ -1010,7 +1011,7 @@ async def token_intel(chain: str, mint: str):
         # 3 minutes for ~70 coins was ~80K calls an hour — it rate-limited every key, and coins sat "unscanned" for good.
         creator, bundled, snipers = None, set(), set()
         lf = _launch_facts.get(mint)
-        if lf and lf.get('historyComplete') is False:   # an old read that never reached the launch (wrong creator, fake 0 bundles) is redone once
+        if lf and lf.get('historyComplete') is False and time.time() - _fuse._f(lf.get('at')) >= LAUNCH_RETRY_SEC:   # an unread launch is retried after 6h (it re-burned 8 calls every 15 min)
             lf = None
         if lf:
             creator, bundled, snipers = lf.get('creator'), set(lf.get('bundled') or []), set(lf.get('snipers') or [])
@@ -1025,8 +1026,10 @@ async def token_intel(chain: str, mint: str):
                 if len(page) < 1000:
                     break
                 before = page[-1].get('signature')
-            if sigs and len(page) >= 1000:   # still not at the launch: no launch facts from a guess
+            if (sigs and len(page) >= 1000) or not sigs:   # still not at the launch (or the RPC answered nothing): unknown, never a fake 0 bundles
                 out['createSlot'], out['historyComplete'] = None, False
+                if sigs:   # remembered: not paged again for LAUNCH_RETRY_SEC
+                    _launch_facts[mint] = {'creator': None, 'bundled': [], 'snipers': [], 'createSlot': None, 'historyComplete': False, 'at': time.time(), 'early': []}
                 sigs = []
             if sigs:
                 oldest = sorted(sigs, key=lambda x: (x.get('slot') or 0))[:40]
@@ -2962,7 +2965,7 @@ def _read_for(r, cmap=None, lens=None):
             x[b_] = x[a_]
     if c.get('stage') == 'curve' and c.get('curve') is not None:
         x['curvePct'] = c.get('curve')
-    if c.get('bundled') is not None and x.get('bundledN') is None:
+    if c.get('bundled') is not None and x.get('bundledN') is None and x.get('scanned') is True:
         x['bundledN'] = c.get('bundled')
     jf_ = (_jup_facts.get(m) or (0, None))[1]
     return _ja.read_for_lens(lens, jf_, x) if lens else _ja.pick_read(jf_, x)
@@ -14321,6 +14324,9 @@ def _agent_entry_ok(c):
     if time.time() - _lose_c['at'] > 60:
         _lose_c.update(at=time.time(), v=_oe.losing_entries((_json_load(ARCHIVE_PATH, {}) or {}).get('positions') or []))
         _office['losingEntries'] = _lose_c['v']
+    v_ = c.get('vitals') or {}
+    if v_.get('ageH') is not None and _fuse._f(v_['ageH']) < 6 and v_.get('bundledN') is None and v_.get('snipersN') is None:   # 🕵 a young coin whose launch (bundles / snipers) was never read is not a seat-filler buy
+        return False
     if not _oe.setups_of(c, _uni.germ_max()):   # 🎯 the agents trade the three setups only: HH/HL · the germ · a held breakout
         return False
     c['setups'] = _oe.setups_of(c, _uni.germ_max())

@@ -420,7 +420,7 @@ def test_one_office_payload_carries_everything_and_stays_bounded_pass_after_pass
     assert p['currentCase']['status'] in ('READY', 'CONTENDING') and p['currentCase']['devil']['verdict'] in ('clear', 'warn') and p['queue'][0]['trace']['final'] in ('READY', 'CONTENDING')
     assert len(p['generations']) == 10 and {g['status'] for g in p['generations']} <= {'ACTIVE', 'PROBATION'} and all(a['card']['status'] in ('active', 'probation') for a in p['agents'])
     assert len(p['tape']) <= 40 and all(set(r) >= {'id', 'at', 'agent', 'action'} for r in p['tape'])                # 📜 the decision tape: bounded in the snapshot
-    assert sizes[2] < 100_000 and sizes[2] < sizes[0] * 1.6                                                       # 70 passes later the payload is about the same size
+    assert sizes[2] < 110_000 and sizes[2] < sizes[0] * 1.6                                                       # 70 passes later the payload is about the same size
     arch = rs._json_load(rs.ARCHIVE_PATH, {})
     assert 0 < len(arch['cases']) <= of.ARCH_CASES and of.verify(arch) == 0 and any((c.get('out') or {}).get('p5') is not None for c in arch['cases'])
     assert len(json.dumps(rs._json_load(rs.OFFICE_PATH, {}))) < 40_000 and all(len(v) <= rs.OFFICE_LAT_N for v in rs._office['lat'].values())
@@ -702,3 +702,21 @@ def test_your_hold_lasts_by_your_record_and_still_sells_when_it_really_breaks():
     import office as of
     assert of.hint_sec({'n': 10, 'right': 70})[0] == 3600 and of.hint_sec({'n': 6, 'right': 30})[0] == 900
     assert of.hint_sec(None)[0] == of.HINT_SEC and of.HINT_DUMB < 1 and 'R5t' in of.HINT_BREAK
+
+
+def test_agent_stop_cap_an_agent_stop_never_sits_wider_than_15(monkeypatch):
+    import office as of, re, pathlib
+    live = float(re.search(r'^AGENT_STOP_MAX = ([\d.]+)', pathlib.Path(of.__file__).read_text(), re.M).group(1))
+    assert live == 15.0
+    monkeypatch.setattr(of, 'AGENT_STOP_MAX', live)
+    import inspect
+    src = inspect.getsource(of.reap)
+    assert "stop > AGENT_STOP_MAX" in src and src.index('AGENT_STOP_MAX') < src.index("own_ = l.get('ownerLvAt')")   # capped after noise / WIDEN, before your own line
+    LEG_ = {'mint': 'A', 'symbol': 'A', 'pairAddress': 'PA', 'entry': 1.0, 'units': 1.0, 'at': 1, 'liq': 60_000, 'liqNow': 60_000, 'bought': {'tag': '🤖 agents GO'}}
+    ROW_ = {'mint': 'A', 'symbol': 'A', 'pair': 'PA', 'px': 0.84, 'why': {'lean': 1.0, 'drivers': []}, 'trigger': ['wait', ''], 'devil': ['—', ''], 'nums': {'d5': -1, 'buy': 55, 'liq': 60_000},
+            'vitals': {'safe': True, 'rug': 5, 'vol1h': 400_000}}                     # a NOISE coin (35% stop before the cap) at −16%
+    r = of.reap([LEG_], [ROW_], {'PA': 0.84}, {}, None, 100)[1][0]
+    assert r['stop'] == -15.0 and r['action'] == 'pull' and str(r['rule']).startswith('R5')
+    own = {**LEG_, 'ownerLvAt': 5, 'sl': 25}                                          # YOUR dragged 25% line is never capped
+    r2 = of.reap([own], [ROW_], {'PA': 0.84}, {}, None, 100, control=True)[1][0]
+    assert r2['stop'] == -25

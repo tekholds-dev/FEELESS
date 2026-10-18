@@ -106,7 +106,7 @@ def evidence(row, n, chart=None, mind=None, busted=None):
     return out
 
 
-VITAL_KEYS = ('mcap', 'ageH', 'liq', 'vol1h', 'buyShare', 'top10', 'bundledN', 'snipersN', 'dev', 'holders', 'safe', 'curve', 'curvePct', 'txns1h', 'holderSoft')
+VITAL_KEYS = ('mcap', 'ageH', 'liq', 'vol1h', 'buyShare', 'top10', 'bundledN', 'snipersN', 'insiders', 'dev', 'holders', 'safe', 'curve', 'curvePct', 'txns1h', 'holderSoft')
 
 
 def sense(state, rows, now, candles=None, flows=None, charts_out=None, cmeta=None, busted=None, weather_fn=None):

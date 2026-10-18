@@ -5017,3 +5017,13 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
 - 🧾 EVERY MODEL BUY SAYS WHAT HAPPENED, IN THE CHAT (2026-10-18: OSSY's $dev/null and G4's $Eternia BUYs never went in and left no trace —
   `_g4['fate']` only kept the newest): `_g4_fate` also notes a SEAT line in the duo log ("🧾 $X not bought — <reason>" / "🧾 $X — seated"),
   once per coin + reason. A refused BUY never costs a turn; the model picks again the next minute.
+- 🛑 AGENT STOPS CAPPED AT 15% (owner, 2026-10-18, after the card went $2.92 → $1.17 overnight: agents 46 trades / 6 won / −$1.40, stops
+  filling at −27…−39%): `office.AGENT_STOP_MAX` 15 caps every agent coin's stop AFTER all widening (chart 21–25%, the 35% noise stop, model
+  WIDEN); your own dragged line and OSSY / G4's lines are never capped. Replay on 165 real agent paths: −30%+ fills 10 → 4, avg −4.0 → −3.5.
+  A "falling-fast" early cut was tested too — no gain, not shipped. conftest pins it off for the older Reaper tests (`agent_stop_cap` tests it live).
+- 🕵 THE AGENTS WERE TRADING HALF-BLIND (same night, owner: "they're missing vital stuff"): 35% of holder scans never reached the coin's LAUNCH
+  (busy coins have > 8,000 txs; SIG_PAGES 8), so bundles / snipers / insiders were UNKNOWN and the agents read unknown as "not judged" — and the
+  failed read re-burned 8 calls every 15-min re-scan. Now `SIG_PAGES` 16, a failed launch read is remembered for `LAUNCH_RETRY_SEC` 6h, an RPC
+  that answers nothing is unknown (never a fake 0 bundles), insiders reach the desk (`senses.VITAL_KEYS` + kernel vit + an INSIDERS tile), the
+  vital board covers the top 24 candidates (`VIT_TOP`; the top 8 full, the rest `lite_vit`), and `_agent_entry_ok` skips a coin < 6h old whose
+  launch was never read. The office payload bound is 110 KB (was 100).
