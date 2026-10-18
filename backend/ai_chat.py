@@ -129,6 +129,8 @@ LIVE_MECHANICS = (
     "🎯 ENTRY QUALITY (2026-10-16): 🧱 no buy within 3% under the gun line (unless also on the germ) · a germ entry needs 6%+ room up to the gun "
     "line · 🧲 RUSH DIP = a coin that ran (≥ +30% 1h, $50K+/h or Pump trending), pulled back 12–45% from its high, steadied (5m −2…+4%), "
     "buyers ≥ 50%, germ held → armed (half seat) and ranks ×1.2.",
+    "🤝 AGENTS TRADE LIKE OSSY / G4 (2026-10-18, switch agentDuoGate): an agent seat only takes a coin a model BACKED — OSSY or G4 bought it in the last "
+    "15 min, or called it +3% or more for the next 15 min (≤ 30 min ago) — and skips one either model just called down or said sell. ",
 )
 
 

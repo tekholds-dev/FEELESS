@@ -734,7 +734,7 @@ def test_every_control_option_saved_reads_back_as_that_value_on_the_panel():
             saved = ap.clean_cfg({r['key']: v})
             got = {x['key']: x for x in oe.controls(saved)}[r['key']]['value']
             assert str(got) == str(oe.clean_policy(saved)[r['key']]) and (float(got) == float(v) if isinstance(v, (int, float)) else got == v), (r['key'], v, got)
-    for k in ('agentCapital', 'agentValve', 'chartWait', 'agentAiLearn', 'agentAiGate', 'agentAiExit'):
+    for k in ('agentCapital', 'agentValve', 'agentDuoGate', 'chartWait', 'agentAiLearn', 'agentAiGate', 'agentAiExit'):
         assert ap.clean_cfg({k: False}).get(k) is False and ap.clean_cfg({k: True}).get(k) is True, k
 
 

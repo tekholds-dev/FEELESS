@@ -25,6 +25,7 @@ import nft_studio
 import coin_meta
 from ecosystem import ecosystem_mints
 import asyncio
+import threading
 import math
 import contextvars
 import trade_fills
@@ -6872,6 +6873,79 @@ async def fuse_pump_callouts():
             'alertCapK': int(_fuse._f(((_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('callAlert') or {}).get('capK'))), 'alertCaps': list(_pc.RUSH_CAPS_K)}
 
 
+import social_feed as _sfeed
+_SF_CACHE: dict = {}   # source → {'at', 'posts'}  (one read per source per minute, served stale while one refresh runs behind it)
+_SF_TTL = 60.0
+_SF_BUSY: set = set()
+_sf_http = None
+
+
+def _sf_client():
+    global _sf_http
+    if _sf_http is None or _sf_http.is_closed:
+        _sf_http = httpx.AsyncClient(timeout=8, headers={'User-Agent': 'Mozilla/5.0 (FEELESS FEEd)'}, follow_redirects=True)
+    return _sf_http
+
+
+async def _sf_read(src):
+    """One source → posts in the shared shape (social_feed.py). Never raises: a source that fails returns [] and keeps its last copy."""
+    try:
+        if src == 'pump':
+            b_ = await _pump_calls_build()
+            return _sfeed.from_pump((b_.get('latest') or [])[:40] + (b_.get('top') or [])[:20])
+        if src == 'feeless':
+            d_ = _chat_load()
+            return [p_ for r_ in ('feed-general', 'feed-alpha', 'feed-memes', 'feed-launches', 'feeless-updates') for p_ in _sfeed.from_feeless((d_['rooms'].get(r_) or [])[-40:], r_)]
+        if src == 'telegram':
+            out_ = []
+            for ch_ in _sfeed.TG_CHANNELS:
+                r_ = await _sf_client().get(f'https://t.me/s/{ch_}')
+                if r_.status_code == 200:
+                    out_ += _sfeed.parse_telegram(r_.text, ch_)
+            return out_
+        if src == 'bluesky':
+            r_ = await _sf_client().get('https://api.bsky.app/xrpc/app.bsky.feed.searchPosts', params={'q': _sfeed.BSKY_QUERY, 'limit': 40, 'sort': 'latest'})
+            return _sfeed.parse_bluesky(r_.json()) if r_.status_code == 200 else []
+    except Exception as e:
+        print('social feed', src, str(e)[:100])
+    return []
+
+
+async def _sf_refresh(src):
+    try:
+        posts_ = await _sf_read(src)
+        if posts_ or src not in _SF_CACHE:
+            _SF_CACHE[src] = {'at': time.time(), 'posts': posts_}
+        else:
+            _SF_CACHE[src]['at'] = time.time()
+    finally:
+        _SF_BUSY.discard(src)
+
+
+@app.get('/api/reputation/social-feed')
+async def social_feed(src: str = ''):
+    """📰 FEEd's mixed timeline: FEELESS rooms + Pump callouts + public Telegram channels + Bluesky, newest first. `src` = comma list of the
+    bubbles picked (empty = all). Each source is read at most once a minute and answered from its last copy while it refreshes."""
+    keys_ = [k for k, _ in _sfeed.SOURCES]
+    want_ = {x for x in src.split(',') if x in keys_} or set(keys_)
+    now_ = time.time()
+    for k_ in want_:
+        c_ = _SF_CACHE.get(k_)
+        if c_ is None:
+            if k_ not in _SF_BUSY:
+                _SF_BUSY.add(k_)
+                try:
+                    await asyncio.wait_for(_sf_refresh(k_), 6)   # the first visitor waits for a source once (≤ 6s)
+                except asyncio.TimeoutError:
+                    pass
+        elif now_ - c_['at'] > _SF_TTL and k_ not in _SF_BUSY:
+            _SF_BUSY.add(k_)
+            asyncio.create_task(_sf_refresh(k_))
+    posts_ = _sfeed.mix([(_SF_CACHE.get(k_) or {}).get('posts') or [] for k_ in want_], want_)
+    return {'posts': posts_, 'sources': [{'key': k, 'label': l, 'n': len((_SF_CACHE.get(k) or {}).get('posts') or []), 'at': (_SF_CACHE.get(k) or {}).get('at')} for k, l in _sfeed.SOURCES],
+            'post': ['x', 'reddit', 'bluesky', 'telegram', 'farcaster'], 'readNeedsApp': {'x': 'X API app (paid read access)', 'reddit': 'Reddit API app (registered)'}}
+
+
 async def _callout_tick(now):
     """📣 Every ~3.5 min: who the open list calls out (volume leader · mover · fresh launch), each noted once and settled 1h later."""
     if now - _open_cache['at'] < _trench.CALLOUT_SEC or os.environ.get('PYTEST_CURRENT_TEST') or not _open_pairs:
@@ -7348,8 +7422,12 @@ async def _brain_track(now):
         st = {**_tb.track(st, rows, lambda m: (jp or {}).get(m), now), 'cleanFrom': clean_}
         _json_save(BRAIN_PATH, st)
         cl_ = _brain_clean(st)
-        _brain.update(at=now, tbl=_tb.table(cl_['done']), sum=_tb.summary(cl_))
-        _drn.set_table(_drn.odds_table(cl_['done']))   # 🔮 drain odds: the rug share per feature, from the same judged coins
+
+        def _learn_tables():   # pure Python on a copy, in a worker thread: the table + summary + drain odds held the loop ~4.5s a pass
+            return _tb.table(cl_['done']), _tb.summary(cl_), _drn.odds_table(cl_['done'])
+        tbl_, sum_, odds_ = await asyncio.to_thread(_learn_tables)
+        _brain.update(at=now, tbl=tbl_, sum=sum_)
+        _drn.set_table(odds_)   # 🔮 drain odds: the rug share per feature, from the same judged coins
     except Exception as e:
         print('trench brain:', e)
 
@@ -10769,6 +10847,7 @@ async def _prime_tick_inner(now):
                 cur['agentEmptyAt'] = now
             elif not empty_n:
                 cur.pop('agentEmptyAt', None); _office.pop('validSince', None)
+            _DUO_GATE['on'] = cfg_t.get('agentDuoGate', True) is not False
             blk_ = _agent_blocked(cur, now) | {l.get('mint') for l in cur.get('legs') or []}
             valid_ = [c_ for c_ in (_tk.KERNEL.candidate(m_, d_) for m_, d_ in _tk.KERNEL.ready(exclude=blk_)) if c_ and not _fw.dollar_named(c_.get('symbol'))]
             valid_ = sorted([c_ for c_ in valid_ if _agent_entry_ok(c_)],   # 🎯 EVERY agent door enters like OSSY / G4 (owner, 2026-10-18: "they are on point"): the three setups, no gun line / chase / spike /
@@ -10899,6 +10978,8 @@ async def _prime_tick_inner(now):
                     for t_ in plan_:
                         if t_['mint'] in dpk_ and '🤝' not in str(t_.get('nearReady') or ''):
                             t_['nearReady'] = '🤝 the models picked it · ' + str(t_.get('nearReady') or '')
+                        elif t_.get('duoWhy') and '🤝' not in str(t_.get('nearReady') or ''):
+                            t_['nearReady'] = f"🤝 {t_['duoWhy']} · " + str(t_.get('nearReady') or '')
             except Exception as e:
                 print('duo consider:', str(e)[:80])
             w_, g4n_ = _g4.get('want'), 0   # 🔁 the AI seat is REAL even while the agents' own fills are on paper (owner, 2026-10-16); the night guard still stops it
@@ -13037,6 +13118,19 @@ def _fw_full_ledger():
     return _fw_full_cache['rows'] or (_fw_peek().get('ledger') or [])
 
 
+_vs_c: dict = {}   # card → (ledger rows, at, (versus, realized)): the 24h you-vs-engine split + realized sales re-read the WHOLE ledger (3.9s of blocked loop)
+
+
+def _vs_cached(full_, tid):
+    """(versus, realized) for a card — rebuilt when the ledger grew or after 60s, never on every public read."""
+    c_ = _vs_c.get(tid)
+    if c_ and c_[0] == len(full_) and time.time() - c_[1] < 60:
+        return c_[2]
+    v_ = (_fw.versus(full_, tid, time.time()), _fw.realized_split(full_, tid))
+    _vs_c[tid] = (len(full_), time.time(), v_)
+    return v_
+
+
 def _fw_public(tid, equity_usd=None, sol_px=None, prices=None):
     """What everyone sees on a REAL tier card: since when, $ funded, the last swaps with their tx, real network fees."""
     d = _fw_peek(); b = d['books'].get(tid)   # read-only: this view only reads the doc (lists it builds are its own)
@@ -13127,7 +13221,7 @@ def _fw_public(tid, equity_usd=None, sol_px=None, prices=None):
     return {'since': b.get('since'), 'fundedUsd': b.get('fundedUsd'),
             'paidOutEverUsd': paid_ever, 'paidOutSol': round(_fuse._f(b.get('bankSol')), 9),
             'profitAvailableUsd': round(profit_available, 4), 'profitCashAvailableUsd': round(payout_cash, 4), 'recoverable': recoverable, 'offCard': off_card,
-            'wallet': cfg['address'], 'keeper': keeper, 'versus': _fw.versus(full_, tid, time.time()), 'realized': _fw.realized_split(full_, tid), 'deadOrders': dead,
+            'wallet': cfg['address'], 'keeper': keeper, 'versus': _vs_cached(full_, tid)[0], 'realized': _vs_cached(full_, tid)[1], 'deadOrders': dead,
             'reconciliation': {'cardEquityUsd': round(_fuse._f(equity_usd), 4),
                                'cardCashSol': round(_fuse._f(b.get('sol')), 9),
                                'cardCashUsd': round(_fuse._f(b.get('sol')) * _fuse._f(sol_px), 4) if sol_px else None,
@@ -14504,11 +14598,29 @@ _lose_c: dict = {'at': 0.0, 'v': {}}
 SPIKED_SINCE_READ = 8.0   # 🚀 the live price at the buy ≥ 8% over the price the agents decided on = no buy (they read a pass ago; the candle moved)
 
 
+_DUO_GATE = {'on': True}   # 🤝 realCfg agentDuoGate (each tier tick): agent coins must be BACKED by OSSY / G4 first (ai_seat.duo_backs)
+_duo_pred_c: dict = {'at': 0.0, 'rows': []}
+
+
+def _duo_backed(mint, now):
+    """🤝 (backed, why) — a model's BUY on this coin (≤ 15 min) or its 15-minute call of +3% or more (≤ 30 min), newest word wins."""
+    if now - _duo_pred_c['at'] > 20:
+        bk_ = _ai_book()
+        _duo_pred_c.update(at=now, rows=[c_ for c_ in (bk_.get('open') or []) + (bk_.get('done') or [])[-300:] if c_.get('pred') is not None and now - _fuse._f(c_.get('at')) <= _seat.DUO_PRED_SEC])
+    return _seat.duo_backs((_g4_mem.get() or {}).get('log') or [], _duo_pred_c['rows'], mint, now)
+
+
 def _agent_entry_ok(c):
-    """🧠 May the ARMED / VALVE doors take this coin? Not at the gun line / mid-chase / after a spike / on a SKIP (the models' own filter —
-    their record is why), and not on an entry read the agents' own real trades keep losing on (`office_edge.losing_entries`, 60s cache)."""
+    """🧠 May an agent door take this coin? Not at the gun line / mid-chase / after a spike / on a SKIP (the models' own filter —
+    their record is why), not on an entry read the agents' own real trades keep losing on (`office_edge.losing_entries`, 60s cache), and —
+    while agentDuoGate is on — only a coin OSSY or G4 backed (owner, 2026-10-18: "agents need to completely be like these guys")."""
     if _g4_bad_entry(c):
         return False
+    if _DUO_GATE['on']:
+        ok_, why_ = _duo_backed(c.get('mint'), time.time())
+        c['duoWhy'] = why_
+        if not ok_:
+            return False
     pr_ = _pred_of(c.get('mint'), time.time())
     if pr_ is not None and pr_ <= -5:   # 🔮 a PROVEN model calls it down ≥ 5% in 15 min: the agents skip it
         return False
@@ -18590,7 +18702,22 @@ def _duo_tape():
     if time.time() - _duo_tape_c['at'] < 20:
         return _duo_tape_c['v']
     pos_ = [p_ for p_ in (_json_load(ARCHIVE_PATH, {}) or {}).get('positions') or [] if p_.get('g4')]
-    v_ = (pos_, [r_ for r_ in _co.trade_tape(_fw_full_ledger() or [], pos_, n=400) if r_.get('who') == 'models'])
+    led_ = list(_fw_full_ledger() or [])
+
+    def _build():
+        return (pos_, [r_ for r_ in _co.trade_tape(led_, pos_, n=400) if r_.get('who') == 'models'])
+    if _duo_tape_c.get('v') is not None:   # ⚡ an old copy answers now; ONE rebuild runs in a worker thread (it held the loop ~3s)
+        if not _duo_tape_c.get('busy'):
+            _duo_tape_c['busy'] = True
+
+            def _bg():
+                try:
+                    _duo_tape_c.update(at=time.time(), v=_build())
+                finally:
+                    _duo_tape_c['busy'] = False
+            threading.Thread(target=_bg, daemon=True).start()
+        return _duo_tape_c['v']
+    v_ = _build()
     _duo_tape_c.update(at=time.time(), v=v_)
     return v_
 
@@ -18785,7 +18912,7 @@ async def admin_agents_set(request: Request):
     ch = {}
     if 'feed' in body:
         ch['agentFeed'] = bool(body.get('feed'))
-    for k in ('agentTakePct', 'agentMode', 'agentSeats', 'agentLearn', 'agentLearnPct', 'agentTrust', 'agentDial', 'agentScalp', 'agentControl', 'agentCurve', 'agentPaper', 'agentOpen', 'agentAiLearn', 'chartWait', 'agentCapital', 'agentAiGate', 'agentValve', 'agentAiExit', 'nightGuard', 'nightShift', 'candleClock') + _oe.POLICY_KEYS:
+    for k in ('agentTakePct', 'agentMode', 'agentSeats', 'agentLearn', 'agentLearnPct', 'agentTrust', 'agentDial', 'agentScalp', 'agentControl', 'agentCurve', 'agentPaper', 'agentOpen', 'agentAiLearn', 'chartWait', 'agentCapital', 'agentAiGate', 'agentValve', 'agentDuoGate', 'agentAiExit', 'nightGuard', 'nightShift', 'candleClock') + _oe.POLICY_KEYS:
         if k in (body.get('cfg') or {}):
             ch[k] = body['cfg'][k]
     if ch:

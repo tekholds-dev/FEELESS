@@ -515,6 +515,7 @@ def clean_cfg(p):
     out['agentOpen'] = bool((p or {}).get('agentOpen', False))   # ⚡ owner's switch: volume + newness only, every empty seat filled
     out['chartWait'] = bool((p or {}).get('chartWait', True))   # 🎯 a real seat needs the chart's own ENTER NOW (off = the regret ledger / owner let WAIT charts in)
     out['agentValve'] = bool((p or {}).get('agentValve', True))   # 🪫 patience valve (office_edge.valve_fill): an empty seat never sits all morning
+    out['agentDuoGate'] = bool((p or {}).get('agentDuoGate', True))   # 🤝 agent coins must be backed by OSSY / G4 first (ai_seat.duo_backs)
     out['agentCapital'] = bool((p or {}).get('agentCapital', True))   # 💰 capital desk (capital.py): agent seats sized by their own real record — smallest while it loses, half-Kelly once winning is proven
     out['nightGuard'] = bool((p or {}).get('nightGuard', True))
     out['candleClock'] = bool((p or {}).get('candleClock', True))   # ⏱ new agent buys wait out the first 100s of a 5-minute candle (candle_clock.py)

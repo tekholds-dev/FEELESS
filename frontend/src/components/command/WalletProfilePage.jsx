@@ -1,7 +1,6 @@
-import { Explain } from '../Explain';
 import { AfterSell, IntelRail, SeasonRail } from './ProfileRails';
 import { FeedBar } from '../FeedBar';
-import '../../styles/feed.css';
+import { FeedPanel } from './FeedX';
 import { AlphaRoomsCard } from '../AlphaRooms';
 import { investigate } from '../CaseFile';
 import { RepMark } from '../RepMark';
@@ -91,20 +90,6 @@ export function UploadButton({ label, shape, onDone }) {
   return <label className="wp-upload"><input type="file" hidden accept="image/png,image/jpeg,image/webp,image/gif" onChange={async e => { const f = e.target.files?.[0]; if (!f) return; setBusy(true); e.target.value = ''; try { const url = await uploadImage(f, shape); if (url) onDone(url); } catch (err) { toast.error(err.message); } finally { setBusy(false); } }} /><ImageIcon size={12} />{busy ? 'Uploading…' : label}</label>;
 }
 
-// FEEd: the community's social feed, by category — post, reply and react like a timeline.
-const FEED_CATS = [['feed-general', '🌐', 'Everything', 'All the talk'], ['feed-alpha', '📈', 'Alpha & calls', 'Post a CA — 2×/5×/10× earns points'], ['feed-memes', '😂', 'Memes', 'Culture & coins'], ['feed-launches', '🚀', 'Launches', 'New coins, first looks'], ['feed-help', '🛟', 'Help', 'Ask anything'], ['feeless-updates', '📣', 'FEELESS', 'Official updates']];
-
-// Hot coins beside the FEEd: one click opens the Trenches chart.
-function FeedTopCoins() {
-  const navigate = useNavigate();
-  const { data } = useMarket('/feed?kind=trending&chain=solana', 60000);
-  const pairs = (data?.pairs || []).filter(p => p.baseToken?.symbol).slice(0, 8);
-  return <aside className="feed-side feed-top" data-testid="feed-top-coins"><h4>🔥 Top coins</h4>
-    {!pairs.length ? <p className="wp-bio">Loading…</p> : pairs.map(p => { const ch = Number(p.priceChange?.h24); return <button type="button" key={p.pairAddress} onClick={() => navigate(`/terminal/chat?chain=${p.chainId}&pair=${p.pairAddress}&room=bulls`)}>
-      {p.info?.imageUrl ? <img src={p.info.imageUrl} alt="" /> : <span className="ft-dot" />}<b>${p.baseToken.symbol}</b><em className={ch >= 0 ? 'positive' : 'negative'}>{Number.isFinite(ch) ? `${ch >= 0 ? '+' : ''}${ch.toFixed(1)}%` : '—'}</em></button>; })}
-  </aside>;
-}
-
 function SwapTopCoins({ onSelect }) {
   const { data } = useMarket('/feed?kind=trending&chain=solana', 30000);
   const pairs = (data?.pairs || []).filter(p => p.baseToken?.symbol).slice(0, 10);
@@ -116,32 +101,6 @@ function SwapTopCoins({ onSelect }) {
   </aside>;
 }
 
-function FeedPanel({ onConnect }) {   // 📰 the timeline gets the width — Swap has its own tab
-  const [cat, setCat] = useState(() => { try { return localStorage.getItem('feeless:feed-cat') || 'feed-general'; } catch { return 'feed-general'; } });
-  const pick = v => { setCat(v); try { localStorage.setItem('feeless:feed-cat', v); } catch { /* private */ } };
-  const current = FEED_CATS.find(c => c[0] === cat) || FEED_CATS[0];
-  return <section className="feed-stage" data-testid="profile-feed">
-    <div className="feed-panel">
-      <span className="feed-flares" aria-hidden="true"><i /><i /><i /></span>
-      <header><b className="feed-wordmark">FEEd</b><small>{current[3]}</small></header>
-      <FeedCallers />
-      <nav className="feed-cats" aria-label="FEEd categories">{FEED_CATS.map(([id, icon, label]) => <button type="button" key={id} className={cat === id ? 'on' : ''} aria-pressed={cat === id} onClick={() => pick(id)}><span>{icon}</span>{label}</button>)}</nav>
-      <EcosystemChat key={cat} compact room={cat} ecosystem={{ id: cat, name: current[2] }} onConnect={onConnect} />
-    </div>
-    <FeedTopCoins />
-  </section>;
-}
-
-// Best FEEd callers this week: posts with a coin are tracked; 2×/5×/10× peaks earn season points.
-function FeedCallers() {
-  const [rows, setRows] = useState(null);
-  useEffect(() => { fetch(apiUrl('/api/reputation/calls/leaderboard?days=7&room=feed-')).then(r => (r.ok ? r.json() : {})).then(d => setRows(d.rows || [])).catch(() => setRows([])); }, []);
-  if (!rows?.length) return <p className="feed-callers-empty">Post a coin address in FEEd — if it runs 2×, 5× or 10× you earn season points.</p>;
-  return <ol className="feed-callers" aria-label="Top FEEd callers this week"><li className="fc-head">Top callers this week <Explain>Post a coin address in any FEEd room and it becomes a tracked call. If it later peaks at 2×, 5× or 10× from your post, you earn 50, 150 or 400 season points automatically.</Explain></li>{rows.slice(0, 5).map((r, i) => <li key={r.caller}>
-    <i>{i + 1}</i>{r.callerAddress ? <Link to={`/terminal/profile/${r.callerAddress}`}>{r.caller}</Link> : <b>{r.caller}</b>}
-    <span>{r.hits}/{r.calls} hits</span>{r.best && <em>best {r.best.symbol} {r.best.peakX.toFixed(1)}×</em>}
-  </li>)}</ol>;
-}
 
 export function WalletProfilePage({ address }) {
   const { wallet, signMessage, connect } = useWallet() || {};

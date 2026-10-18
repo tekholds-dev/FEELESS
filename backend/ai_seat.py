@@ -647,3 +647,40 @@ def line_hold(dec, held, ch, sellers=False):
     if _f(c.get('ll') or 0) > 0 or str(c.get('germ') or '').lower().startswith('lost') or str(c.get('state') or '').upper() in ('DOWNTREND', 'COLLAPSING', 'FAILED BREAKOUT', 'LIQUIDITY FAILURE', 'DISTRIBUTION'):
         return dec
     return {**dec, 'action': 'HOLD', 'lined': True, 'why': (f"(🎯 SELL held — {_f(pct):+.1f}% is between your SL −{sl:g}% and TP +{tp:g}%, the chart has not broken: let it hit a line) " + str(dec.get('why') or ''))[:WHY_MAX + 120]}
+
+
+# 🤝 THE AGENTS TRADE LIKE OSSY / G4 (owner, 2026-10-18: "agents need to completely be like these guys"): on the real record the agents
+# forced seats through the ARMED door (138 of 142 trades, 33% won, 59 never even +1% green) while the models waited for a coin they liked
+# and held it (+0.8% average, ~30 min held). So an agent coin must be BACKED by a model first: a model's BUY on it in the last 15 min, or a
+# model's 15-minute call of +3% or more in the last 30 min — and nothing newer from either model calling it down or saying SELL.
+DUO_BUY_SEC = 900.0
+DUO_PRED_SEC = 1800.0
+DUO_PRED_MIN = 3.0
+
+
+def duo_backs(log, preds, mint, now):
+    """→ (backed: bool, why). `log` = the duo's minute rows ({at, by, action, view, mint}); `preds` = [{at, prov, mint, pred}] (each model's
+    graded 15-minute calls). Newest word wins: a later SELL / down call cancels an earlier BUY / up call."""
+    if not mint:
+        return False, 'no coin'
+    ev = []
+    for r in log or []:
+        if r.get('mint') != mint or now - _f(r.get('at')) > DUO_BUY_SEC:
+            continue
+        a = str(r.get('action') or '').upper(); v = str(r.get('view') or '').upper()
+        if a == 'BUY':
+            ev.append((_f(r.get('at')), True, f"{r.get('by') or 'a model'} bought it"))
+        elif a == 'SELL' or v == 'SELL':
+            ev.append((_f(r.get('at')), False, f"{r.get('by') or 'a model'} said sell"))
+    for p in preds or []:
+        if p.get('mint') != mint or p.get('pred') is None or now - _f(p.get('at')) > DUO_PRED_SEC:
+            continue
+        x = _f(p.get('pred'))
+        if x >= DUO_PRED_MIN:
+            ev.append((_f(p.get('at')), True, f"{p.get('prov') or 'a model'} calls +{x:g}% in 15 min"))
+        elif x <= -DUO_PRED_MIN:
+            ev.append((_f(p.get('at')), False, f"{p.get('prov') or 'a model'} calls {x:g}% in 15 min"))
+    if not ev:
+        return False, 'no model has backed it'
+    at, ok, why = max(ev, key=lambda e: e[0])
+    return ok, why

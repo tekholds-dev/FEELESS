@@ -273,3 +273,17 @@ def test_the_models_predictions_are_parsed_per_coin_for_grading():
     import ai_seat as seat
     d = seat.parse('{"action":"HOLD","why":"x","pred":12,"preds":{"ABC":-8,"ZZZ":400,"NOPE":5}}', ['MA', 'MZ'], True, {'ABC': 'MA', 'ZZZ': 'MZ'})
     assert d['preds'] == {'_self': 12.0, 'MA': -8.0, 'MZ': 300.0}                   # unknown symbols dropped, wild calls capped
+
+
+def test_agents_only_take_a_coin_a_model_backed_and_the_newest_word_wins():
+    from ai_seat import duo_backs
+    now = 10_000.0
+    assert duo_backs([], [], 'M', now) == (False, 'no model has backed it')
+    assert duo_backs([{'at': now - 60, 'by': 'G4', 'action': 'BUY', 'mint': 'M'}], [], 'M', now)[0] is True
+    assert duo_backs([], [{'at': now - 300, 'prov': 'lan', 'mint': 'M', 'pred': 6}], 'M', now)[0] is True
+    assert duo_backs([], [{'at': now - 300, 'prov': 'lan', 'mint': 'M', 'pred': 2}], 'M', now)[0] is False   # +2 is not backing
+    # a newer SELL / down call cancels an older BUY
+    ok, why = duo_backs([{'at': now - 600, 'by': 'G4', 'action': 'BUY', 'mint': 'M'}], [{'at': now - 60, 'prov': 'local', 'mint': 'M', 'pred': -8}], 'M', now)
+    assert ok is False and '-8' in why
+    assert duo_backs([{'at': now - 5000, 'by': 'G4', 'action': 'BUY', 'mint': 'M'}], [], 'M', now)[0] is False   # stale
+    assert duo_backs([{'at': now - 60, 'by': 'OSSY', 'action': 'HOLD', 'view': 'SELL', 'mint': 'M'}], [], 'M', now)[0] is False

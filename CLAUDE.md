@@ -5110,3 +5110,23 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   📰 FEEd = a big timeline (`styles/feed.css`): no swap rail in it (Swap has its own tab), tall panel, composer on top like X, posts as cards.
   📬 Inbox pop-outs (`styles/inbox.css`, imported by Social.jsx): long addresses wrap, only the list scrolls, phone = edge to edge, the
   floating Inbox sits clear of the HQ / cat buttons.
+- 🤝 AGENTS TRADE LIKE OSSY / G4 (owner, 2026-10-18: "agents need to completely be like these guys"; `ai_seat.duo_backs`, `_duo_backed`, realCfg
+  `agentDuoGate` on, 🎛 Limits › 🪑 Seats "🤝 Trade like OSSY / G4"): every agent door (READY, ARMED, VALVE) only takes a coin a model BACKED —
+  OSSY / G4 bought it in the last 15 min, or called +3% or more for the next 15 min in the last 30 — and skips one either model just called
+  down / said sell (newest word wins). Why (24h real fills): agents 47 trades 19% won −5% typical, 138 of 142 via the forcing ARMED door (59
+  never +1% green); models 36 trades +0.8% average, ~30 min held. Seats sit empty more — the models wait too. Off = the agents' own rules.
+  The agents' quick bank at +10% is the OWNER's Scale-out setting (10/75), left as set.
+- 🎨 Chart scenes = Default · ⚡ Neon trench (kept) · 🌆 Synth city (two parallax skylines, flickering FEELESS billboard, lamps) · 🌀 Warp tunnel
+  (gates rushing out, rays reverse on a red tick, FEELESS core) · 🛰 Orbit core (three tilted orbits with ions around the mark) · 🟩 Matrix
+  rain v3 (glyph streams with fading tails). Moon / pills / tape / aurora / pulse retired. A ring container must NOT be named `cbg-<scene>` —
+  the scene root carries `cbg-${kind}` (the orbit rings were `.cbg-orbit` and squashed the whole scene into a square; now `.cbg-orb`).
+- 📰 FEEd = X layout (`command/FeedX.jsx` + `styles/feed.css` `fx-*`, `GET /api/reputation/social-feed?src=` + `backend/social_feed.py`):
+  site bubbles left (✨ All · ⚡ FEELESS · 💊 Pump · ✈ Telegram · 🦋 Bluesky — tap to mix; FEELESS alone = the live rooms with posting), the
+  timeline middle (cross-post box on top → `lib/socialShare.js` opens X / Reddit / Bluesky / Telegram / Farcaster's OWN compose page on the
+  user's own login; every post can be cross-posted), top coins + "your sites" right; the profile's 1180px cap is lifted while FEEd is open.
+  Each source is read ≤ once a minute and served from its last copy. X and Reddit refuse server reads without their own API apps (X 401 /
+  Reddit 403 measured) — reading them needs an X API app (paid read) / a registered Reddit app; never store anyone's password or token.
+- ⚡ Loop lag fixes (2026-10-18, loop blocked 28%): `_vs_cached` (you-vs-engine + realized split once per ledger size / 60s — 3.9s each public
+  read), trench brain table + summary + drain odds in a worker thread, `_duo_tape` stale-while-revalidate rebuilt in a thread. Dead-code scan:
+  every frontend file is reachable from index.js and no export is unused; backend has ~120 lines only tests / scripts call. The remaining
+  size is real features — shrinking it further = the reputation_service.py split (not started).

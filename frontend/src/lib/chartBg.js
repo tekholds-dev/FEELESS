@@ -7,7 +7,9 @@ import { useEffect, useState } from 'react';
 // deep · warp · cat · reactor · helix · city · tunnel · storm · gutter · sonar · lava · vhs) falls back to Default.
 // Owner, 2026-10-18: "neon trench needs the FEELESS logo, other themes way better and degen" → Neon trench carries the FEELESS mark as its
 // sun on the horizon; three degen scenes join (🚀 Moon run · 💊 Pill rush · 📼 Degen tape), still faint enough that the candles lead.
-export const CHART_BGS = [['default', '▫ Default'], ['neon', '⚡ Neon trench'], ['moon', '🚀 Moon run'], ['pills', '💊 Pill rush'], ['tape', '📼 Degen tape'], ['rain', '🟩 Code rain'], ['aurora', '🌌 Royal aurora'], ['pulse', '🧬 Pulse grid']];
+// Owner, 2026-10-18 (again): "neon trench is good, the rest are ass — make them cool and live animated, no lag" → four new scenes in the neon
+// trench's language (synth city · warp tunnel · orbit core · matrix rain v3); moon / pills / tape / aurora / pulse retired.
+export const CHART_BGS = [['default', '▫ Default'], ['neon', '⚡ Neon trench'], ['city', '🌆 Synth city'], ['warp', '🌀 Warp tunnel'], ['orbit', '🛰 Orbit core'], ['rain', '🟩 Matrix rain']];
 const KEY = 'feeless.chartBg';
 const ok = v => CHART_BGS.some(([k]) => k === v);
 const subs = new Set();

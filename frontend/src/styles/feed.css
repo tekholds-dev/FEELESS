@@ -1,29 +1,75 @@
-/* 📰 FEEd = a BIG timeline (owner, 2026-10-18: "FEEd should be a wild big box — it looks like IG / X; right now it's a small skinny box").
-   The middle column takes the room: a tall timeline with the composer on top like X, every post a card, avatars bigger; the swap and the
-   top coins are slim rails beside it. Built from the m-* tokens; transform / opacity only. */
-.feed-stage { grid-template-columns: minmax(0, 1fr) minmax(0, 260px); gap: 16px; }
-.feed-panel { padding: 18px 20px; min-height: min(84vh, 1100px); display: flex; flex-direction: column; }
-.feed-panel > header { margin-bottom: 12px; }
-.feed-panel .feed-wordmark { font-size: 34px; letter-spacing: .02em; }
-.feed-panel > header small { font-size: 13px; }
-.feed-flares i { filter: none; }   /* no blur on a moving layer */
-.feed-panel .ecosystem-chat { flex: 1 1 auto; height: auto !important; min-height: clamp(560px, 72vh, 980px); display: flex; flex-direction: column;
-  border-radius: 16px; border: 1px solid rgba(69, 228, 134, .16); background: rgba(4, 10, 7, .72); }
-.feed-panel .ecosystem-chat > .chat-compose { order: -1; margin: 0; padding: 12px 14px; border-bottom: 1px solid rgba(69, 228, 134, .14); border-top: 0; }
-.feed-panel .ecosystem-chat > .chat-compose input { min-height: 44px; font-size: 15px; border-radius: 12px; }
-.feed-panel .ecosystem-chat > .chat-identity { order: -2; }
-.feed-panel .chat-messages { flex: 1 1 auto; max-height: none; min-height: 0; padding: 10px 12px 16px; display: flex; flex-direction: column; gap: 10px;
-  scrollbar-width: thin; scrollbar-color: #15d16a transparent; }
-.feed-panel .chat-messages::-webkit-scrollbar { width: 6px; } .feed-panel .chat-messages::-webkit-scrollbar-thumb { background: #15d16a; border-radius: 3px; }
-.feed-panel .chat-message { border: 1px solid rgba(255, 255, 255, .07) !important; border-radius: 16px; padding: 14px 16px !important; font-size: 14.5px; line-height: 1.5;
-  background: linear-gradient(180deg, rgba(14, 30, 21, .9), rgba(8, 16, 12, .9)); transition: transform .15s ease, border-color .15s ease; }
-.feed-panel .chat-message:hover { transform: translateY(-1px); border-color: rgba(69, 228, 134, .32) !important; }
-.feed-panel .chat-message img:not([class*="emoji"]) { max-width: 100%; border-radius: 12px; }
-.feed-panel .chat-empty { margin: auto; padding: 40px 10px; }
-.feed-panel .feed-cats { gap: 8px; } .feed-panel .feed-cats button { font-size: 13px; padding: 8px 14px; }
-.feed-side { max-height: calc(100vh - 24px); overflow: auto; scrollbar-width: thin; }
-body.theme-day .feed-panel .ecosystem-chat { background: rgba(255, 255, 255, .7); border-color: rgba(13, 122, 65, .18); }
-body.theme-day .feed-panel .chat-message { background: #fff; border-color: rgba(13, 122, 65, .14) !important; }
-@media (prefers-reduced-motion: reduce) { .feed-panel .chat-message { transition: none; } .feed-panel .chat-message:hover { transform: none; } }
-@media (max-width: 1100px) { .feed-stage { grid-template-columns: 1fr; } .feed-side { max-height: none; } }
-@media (max-width: 640px) { .feed-panel { padding: 12px; min-height: 0; } .feed-panel .ecosystem-chat { min-height: 70vh; } .feed-panel .feed-wordmark { font-size: 26px; } }
+/* 📰 FEEd = an X-style timeline (owner, 2026-10-18: "wider, X UI / layout, click site bubbles to see different feeds or mixed"):
+   site bubbles left · the timeline in the middle (cross-post box on top, posts as rows like X) · top coins + your sites right.
+   Built on the m-* tokens; transform / opacity only; no blur on moving layers. */
+.fx { grid-column: 1 / -1; width: 100%; display: grid; grid-template-columns: 196px minmax(0, 1fr) 250px; gap: 16px; align-items: start; }
+.wallet-profile-page:has(.fx) { max-width: none; }   /* the profile caps at 1180px — FEEd takes the whole page width */
+.fx-nav { position: sticky; top: 12px; display: grid; gap: 6px; align-content: start; }
+.fx-nav .feed-wordmark { font-size: 34px; margin: 2px 6px 10px; }
+.fx-bub { display: flex; align-items: center; gap: 12px; width: 100%; padding: 10px 14px; border-radius: 999px; border: 1px solid transparent; background: none; color: #dff3e8;
+  font: 600 16px var(--m-sans, system-ui); cursor: pointer; text-align: left; transition: background .15s ease, border-color .15s ease, transform .15s ease; }
+.fx-bub i { font-style: normal; width: 26px; text-align: center; font-size: 19px; }
+.fx-bub:hover { background: rgba(69, 228, 134, .08); transform: translateX(2px); } .fx-bub:active { transform: scale(.98); }
+.fx-bub:focus-visible { outline: 2px solid #45e486; outline-offset: 2px; }
+.fx-bub.on { background: linear-gradient(135deg, #15d16a, #0b7a52); color: #03140c; font-weight: 800; box-shadow: 0 0 18px -4px #15d16aaa; }
+.fx-bub.is-post { cursor: help; opacity: .7; font-size: 14px; padding: 7px 14px; } .fx-bub.is-post:hover { opacity: 1; }
+.fx-navnote { margin: 10px 14px 0; font: 700 10px var(--m-mono, monospace); letter-spacing: .12em; text-transform: uppercase; color: var(--m-mute, #8fb3a0); }
+
+.fx-main { position: relative; isolation: isolate; min-height: min(86vh, 1200px); border-radius: 18px; border: 1px solid rgba(69, 228, 134, .22); background: rgba(6, 14, 10, .92);
+  box-shadow: 0 0 38px -14px #15d16a88; display: flex; flex-direction: column; overflow: hidden; }
+.fx-main .feed-flares i { filter: none; }
+.fx-head { position: sticky; top: 0; z-index: 2; display: flex; align-items: baseline; gap: 12px; padding: 14px 18px; border-bottom: 1px solid rgba(69, 228, 134, .14); background: rgba(6, 14, 10, .96); }
+.fx-head b { font-size: 19px; } .fx-head small { color: var(--m-mute, #8fb3a0); font-size: 12px; }
+.fx-main > .feed-cats, .fx-main > .feed-callers, .fx-main > .feed-callers-empty { margin: 10px 18px 0; }
+.fx-main > .ecosystem-chat { flex: 1 1 auto; height: auto !important; min-height: clamp(560px, 72vh, 1000px); display: flex; flex-direction: column; margin: 10px 0 0; border: 0; border-top: 1px solid rgba(69, 228, 134, .14); border-radius: 0; background: transparent; }
+.fx-main > .ecosystem-chat > .chat-compose { order: -1; margin: 0; padding: 12px 18px; border-bottom: 1px solid rgba(69, 228, 134, .14); border-top: 0; }
+.fx-main > .ecosystem-chat > .chat-compose input { min-height: 46px; font-size: 15px; border-radius: 12px; }
+.fx-main > .ecosystem-chat > .chat-identity { order: -2; padding: 8px 18px; }
+.fx-main .chat-messages { flex: 1 1 auto; max-height: none; min-height: 0; padding: 0; display: flex; flex-direction: column; scrollbar-width: thin; scrollbar-color: #15d16a transparent; }
+.fx-main .chat-message { border: 0 !important; border-bottom: 1px solid rgba(255, 255, 255, .06) !important; border-radius: 0; padding: 14px 18px !important; font-size: 15px; line-height: 1.5; transition: background .15s ease; }
+.fx-main .chat-message:hover { background: rgba(69, 228, 134, .04); }
+.fx-main .chat-empty { margin: auto; padding: 40px 10px; }
+
+.fx-compose { padding: 14px 18px; border-bottom: 1px solid rgba(69, 228, 134, .14); display: grid; gap: 10px; }
+.fx-compose textarea { width: 100%; box-sizing: border-box; resize: vertical; min-height: 64px; padding: 10px 12px; border-radius: 12px; border: 1px solid rgba(69, 228, 134, .2); background: rgba(255, 255, 255, .03);
+  color: #eafff3; font: 500 16px/1.45 var(--m-sans, system-ui); transition: border-color .15s ease; }
+.fx-compose textarea:focus { outline: none; border-color: #45e486; }
+.fx-compose-foot { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; } .fx-compose-foot small { font: 600 11px var(--m-mono, monospace); color: var(--m-mute, #8fb3a0); }
+.fx-share { display: flex; flex-wrap: wrap; gap: 6px; margin-left: auto; }
+.fx-sh { display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; border-radius: 999px; border: 1px solid rgba(255, 255, 255, .14); background: rgba(255, 255, 255, .04); color: #dff3e8;
+  font: 700 12px var(--m-sans, system-ui); text-decoration: none; transition: transform .15s ease, border-color .15s ease, background .15s ease; }
+.fx-sh b { font-size: 14px; } .fx-sh:hover { transform: translateY(-1px); border-color: #45e486; background: rgba(69, 228, 134, .1); } .fx-sh:active { transform: scale(.97); }
+.fx-sh:focus-visible { outline: 2px solid #45e486; outline-offset: 2px; } .fx-sh.is-off { opacity: .4; pointer-events: none; }
+.fx-sh.is-x:hover { border-color: #eafff3; } .fx-sh.is-reddit:hover { border-color: #ff6a33; } .fx-sh.is-bluesky:hover { border-color: #3b9dff; } .fx-sh.is-telegram:hover { border-color: #3fb4e8; } .fx-sh.is-farcaster:hover { border-color: #8a63d2; }
+
+.fx-timeline { display: flex; flex-direction: column; }
+.fx-post { display: grid; grid-template-columns: 44px minmax(0, 1fr); gap: 12px; padding: 14px 18px; border-bottom: 1px solid rgba(255, 255, 255, .06); transition: background .15s ease; animation: fxIn .25s ease-out both; }
+.fx-post:hover { background: rgba(69, 228, 134, .04); }
+.fx-ava { width: 44px; height: 44px; border-radius: 50%; object-fit: cover; background: #10261a; }
+.fx-ini { display: grid; place-items: center; font: 800 16px var(--m-sans, system-ui); font-style: normal; color: #45e486; }
+.fx-body { min-width: 0; display: grid; gap: 6px; }
+.fx-body header { display: flex; align-items: baseline; gap: 6px; min-width: 0; } .fx-body header b { font-size: 15px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.fx-body header small { color: var(--m-mute, #8fb3a0); font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.fx-src { margin-left: auto; flex: none; padding: 1px 8px; border-radius: 999px; font: 700 10.5px var(--m-mono, monospace); font-style: normal; background: rgba(255, 255, 255, .06); color: #cfe9da; }
+.fx-src.is-pump { color: #7dffb0; } .fx-src.is-telegram { color: #7fd0ff; } .fx-src.is-bluesky { color: #8fbaff; } .fx-src.is-feeless { color: #45e486; }
+.fx-body p { margin: 0; font-size: 15px; line-height: 1.5; color: #eafff3; white-space: pre-wrap; overflow-wrap: anywhere; }
+.fx-img { max-width: 100%; max-height: 420px; border-radius: 16px; border: 1px solid rgba(255, 255, 255, .08); object-fit: cover; }
+.fx-body footer { display: flex; gap: 14px; flex-wrap: wrap; }
+.fx-act { border: 0; background: none; padding: 2px 0; color: var(--m-mute, #8fb3a0); font: 600 12.5px var(--m-sans, system-ui); cursor: pointer; text-decoration: none; transition: color .15s ease; }
+.fx-act:hover, .fx-act.is-on { color: #45e486; } .fx-act:focus-visible { outline: 2px solid #45e486; outline-offset: 2px; } .fx-coin { color: #e8c46a; }
+.fx-body .fx-share { margin-left: 0; }
+.fx-empty { padding: 40px 18px; text-align: center; color: var(--m-mute, #8fb3a0); }
+.fx-more { margin: 12px auto 18px; padding: 8px 18px; border-radius: 999px; border: 1px solid rgba(69, 228, 134, .35); background: none; color: #45e486; font-weight: 700; cursor: pointer; }
+.fx-more:hover { background: rgba(69, 228, 134, .1); }
+
+.fx-side { position: sticky; top: 12px; display: grid; gap: 12px; } .fx-side .feed-side { position: static; }
+.fx-acc p { margin: 0 0 8px; font-size: 12.5px; line-height: 1.5; color: #cfe9da; } .fx-acc .fx-dim { color: var(--m-mute, #8fb3a0); font-size: 11.5px; }
+@keyframes fxIn { from { transform: translateY(6px); } to { transform: none; } }
+
+body.theme-day .fx-main { background: rgba(255, 255, 255, .86); border-color: rgba(13, 122, 65, .2); } body.theme-day .fx-head { background: rgba(255, 255, 255, .96); }
+body.theme-day .fx-bub { color: #173b2b; } body.theme-day .fx-bub.on { color: #fff; } body.theme-day .fx-body p { color: #10301d; }
+body.theme-day .fx-compose textarea, body.theme-day .fx-sh { background: #fff; color: #10301d; border-color: rgba(13, 122, 65, .2); }
+@media (prefers-reduced-motion: reduce) { .fx-post { animation: none; } .fx-bub, .fx-sh { transition: none; } }
+@media (max-width: 1250px) { .fx { grid-template-columns: 70px minmax(0, 1fr) 240px; } .fx-bub span, .fx-navnote, .fx-nav .feed-wordmark { display: none; } .fx-bub { justify-content: center; padding: 10px; } }
+@media (max-width: 980px) { .fx { grid-template-columns: minmax(0, 1fr); } .fx-side { display: none; } .fx-nav { position: static; display: flex; overflow-x: auto; scrollbar-width: none; }
+  .fx-bub { width: auto; flex: none; } .fx-bub span { display: inline; } }
+@media (max-width: 640px) { .fx-main { min-height: 0; border-radius: 12px; } .fx-post { grid-template-columns: 36px minmax(0, 1fr); padding: 12px; } .fx-ava { width: 36px; height: 36px; } .fx-main > .ecosystem-chat { min-height: 70vh; } }
