@@ -114,7 +114,7 @@ export const TURN_STEPS = [['HUNTING', '🔎 picks a coin'], ['BOUGHT', '🛒 bo
 export function turnStep(duo) {
   const ph = String(duo?.phase || '').toUpperCase();
   if (ph === 'SEATS FULL') return { i: -1, word: '🪑 every seat full — waiting for one to open' };
-  if (ph === 'HOLDING') return { i: 2, word: `${duo.holder || duo.next} is running $${duo.holding?.symbol || '?'} — the partner advises every 2 min` };
+  if (ph === 'HOLDING') return { i: 2, word: `${duo.holder || duo.next} is running $${duo.holding?.symbol || '?'} — they go back and forth every call` };
   if (/seated/.test(duo?.fate?.why || '')) return { i: 1, word: `$${duo.fate.symbol} took the seat — the keeper buys it` };
   return { i: 0, word: `${duo?.next || '—'}'s turn to pick a coin` };
 }

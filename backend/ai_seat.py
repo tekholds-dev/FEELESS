@@ -154,7 +154,7 @@ If OWNER is there, answer the Godfather first. NOW names the ONE coin you talk a
 If HOLDERPROPOSES is there, your partner is about to sell / trim that coin and waits for your word: SELL = you back it, HOLD = you'd keep it — say why in one line.
 """ + VOICE
 
-TALK_EVERY = 120.0   # the partner speaks at most every 2 min while a trade runs (each LM model has a 4-calls-a-minute cap)
+TALK_EVERY = 0.0   # 🔁 owner, 2026-10-17: "they take turns talking" — the partner answers every holder call (trade chat = 'seat' priority, never minute-capped)
 
 
 def talk_of(log, holder, since=0.0):

@@ -14187,11 +14187,12 @@ async def _g4_tick(now, env, cfg):
         if row_.get('mint') and dec_ and by_m in (first_, second_):
             _dv_note(row_, px_of(row_['mint']), now)
         talk_at = st_.get('talkAt') or 0.0
-        if propose_ or (held_ and now - talk_at >= _seat.TALK_EVERY):   # 🤝 a SELL / TRIM of the held trade waits for the partner's word (≤ ADVISE_SEC); otherwise   # 💬 the partner reads the SAME trade and advises; the holder sees it next minute (it never decides)
+        lines_only_ = bool(ch_l) and (dec_ or {}).get('action') == 'HOLD' and not propose_   # ✋ the holder only moved its own TP / SL / trail: no reply needed
+        if propose_ or (held_ and dec_ and by_m != 'agents' and not lines_only_ and now - talk_at >= _seat.TALK_EVERY):   # 🔁 back and forth: the partner answers EVERY holder call   # 🤝 a SELL / TRIM of the held trade waits for the partner's word (≤ ADVISE_SEC); otherwise   # 💬 the partner reads the SAME trade and advises; the holder sees it next minute (it never decides)
             talk_at = now
             try:
                 t0b = time.perf_counter()
-                ra_ = await asyncio.wait_for(_air.ROUTER.ask(_ai_http(), env, cfg, 'Advise on your partner\'s open trade.', context={**pk_, 'holder': _air.model_name(env, first_), **({'HOLDERPROPOSES': propose_} if propose_ else {})}, role='exit', urgency='seat' if propose_ else 'force', only=(second_,), system=_seat.sys_for(_seat.ADVISE, second_), only_system=True), timeout=ADVISE_SEC)
+                ra_ = await asyncio.wait_for(_air.ROUTER.ask(_ai_http(), env, cfg, 'Advise on your partner\'s open trade.', context={**pk_, 'holder': _air.model_name(env, first_), **({'HOLDERPROPOSES': propose_} if propose_ else {})}, role='exit', urgency='seat', only=(second_,), system=_seat.sys_for(_seat.ADVISE, second_), only_system=True), timeout=ADVISE_SEC)
                 da_ = _seat.parse(ra_.get('text'), [], True)
                 oth_ = _seat._sym_in((da_ or {}).get('why'), {l_.get('symbol'): l_.get('mint') for l_ in _duo_card_legs() if l_.get('symbol')}) if da_ else None
                 if da_ and oth_ and oth_ != held_m:   # 💬 the advice is about ANOTHER coin on the card ($ELON on the $Kimchi trade) → it goes to that coin's own room, never the holder's chat

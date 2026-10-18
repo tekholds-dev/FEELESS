@@ -4954,3 +4954,6 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
 - 💬 NO CUT LINES (owner, 2026-10-17: "make sure the limit doesn't cut"): `ai_seat.WHY_MAX` 900 chars on every model line (seat · advice · idle ·
   review · lesson · pin cards), prompts ask for the full read (no "under 160 chars"), your chime-ins keep 800. The model's answer budget
   (`ai_router.MAX_TOKENS` 700, raised so a long line never cuts the JSON) is the only bound left.
+- 🔁 BACK AND FORTH (owner, 2026-10-17: "why only OSSY talking — they take turns"): `ai_seat.TALK_EVERY` 0 — while a trade runs the partner
+  answers EVERY holder call, at 'seat' priority (never minute-capped, before every other call); skipped only when the holder just moved its
+  own TP / SL / trail. A SELL / TRIM still waits for the reply first.
