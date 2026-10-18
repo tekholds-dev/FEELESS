@@ -161,7 +161,7 @@ PRO_MIN, PRO_MED = 3, 1.2
 CALLER_KEEP = 30        # judged calls kept per caller
 CALLER_DAYS = 7         # a caller not seen for a week is dropped
 THIN_DAYS = 2           # 🧹 a caller with < PRO_MIN judged calls not seen for 2 days can't be proven soon — dropped (52 MB → a few MB, 2026-10-17)
-CALLERS_MAX = 12000     # 🧹 hard cap: the most-judged, most recent callers stay (the proven ones always rank first)
+CALLERS_MAX = 8000      # 🧹 hard cap (12K → 8K 2026-10-18: the file sat at 38 MB, re-read on every restart): the most-judged, most recent callers stay (the proven ones always rank first)
 
 
 def caller_track(state, calls, now_ms):
@@ -176,15 +176,18 @@ def caller_track(state, calls, now_ms):
         rec = st.setdefault(u, {'seen': 0, 'calls': {}})
         rec['seen'] = now_ms
         c = rec['calls'].setdefault(cid, {'mint': r.get('mint'), 'at': r['at'], 'atMc': r.get('atMc')})
-        c['mult'] = r['mult']
-        if c.get('res') is None and now_ms - r['at'] >= JUDGE_MIN * 60000:
-            c['res'] = r['mult']
+        if c.get('res') is None:
+            c['mult'] = r['mult']
+            if now_ms - r['at'] >= JUDGE_MIN * 60000:
+                c['res'] = c.pop('mult')   # 🧹 judged: the result replaces the running reading (one number kept, not two)
     for u in list(st):
         rec = st[u]
         for cid, c in rec['calls'].items():   # left the feed before it could be judged: its last reading stands
             if c.get('res') is None and cid not in live and now_ms - _f(c.get('at')) >= JUDGE_MIN * 60000:
-                c['res'] = c.get('mult')
+                c['res'] = c.pop('mult', None)
         done = sorted((kv for kv in rec['calls'].items() if kv[1].get('res') is not None), key=lambda kv: -_f(kv[1].get('at')))[:CALLER_KEEP]
+        for _, c in done:
+            c.pop('mult', None)
         rec['calls'] = {**dict(done), **{k: v for k, v in rec['calls'].items() if v.get('res') is None}}
         judged = sum(1 for c in rec['calls'].values() if c.get('res') is not None)
         age = now_ms - _f(rec.get('seen'))

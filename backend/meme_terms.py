@@ -11,6 +11,7 @@ KEEP_DAYS = 8
 MIN_TODAY = 3
 SPIKE = 3.0
 MAX_TERMS_PER_DAY = 3000
+FIRST_KEEP_SEC = 30 * 86400
 
 # Known trench slang → (meaning, kind). Kinds: slang | risk | hype | meta. The engine also learns words that aren't here.
 GLOSSARY = {
@@ -80,6 +81,13 @@ def learn(state, samples, now):
         days.pop(k, None)
     for k in [k for k in seen_refs if k != today]:
         seen_refs.pop(k, None)
+    live = set().union(*days.values()) if days else set()   # 🧹 a word out of every kept day keeps no refs / sources (they grew forever: 27K words)
+    for w in [w for w in refs if w not in live]:
+        refs.pop(w, None)
+    for w in [w for w in src if w not in live]:
+        src.pop(w, None)
+    for w in [w for w, t in first.items() if w not in live and now - (t or 0) > FIRST_KEEP_SEC]:
+        first.pop(w, None)                                  # first sighting kept 30 days, so a word coming back isn't called "new"
     return s
 
 

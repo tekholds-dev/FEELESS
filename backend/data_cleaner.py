@@ -30,3 +30,27 @@ def slim_chat(doc, now, fresh_secs=FRESH_SECS):
             new.append({**m, 'tokens': slim})
         out['rooms'][room] = new if isinstance(msgs, list) else msgs
     return out, {'messages': n, 'bytes': max(0, freed)}
+
+
+BLOCK_IDLE_SEC = 14 * 86400   # a wallet with fewer strikes than the block line, not seen for 2 weeks, is forgotten
+BLOCK_MINTS_KEEP = 40         # strikes kept per wallet (the block line is 3 — 40 is proof enough)
+
+
+def slim_blocklist(doc, now, strikes, idle=BLOCK_IDLE_SEC, keep=BLOCK_MINTS_KEEP):
+    """🧹 The scanner's strike list only ever grew (58K wallets, 16 MB). Drops a wallet that is NOT blocked (no report, fewer than
+    `strikes` coins) and idle for 2 weeks, and keeps a blocked wallet's first `keep` strikes. A reported or blocked wallet is never
+    dropped. → (doc, {'dropped', 'trimmed'}). Pure."""
+    w = (doc or {}).get('wallets') or {}
+    out, dropped, trimmed = {}, 0, 0
+    for a, r in w.items():
+        if not isinstance(r, dict):
+            continue
+        m = r.get('mints') or {}
+        if not r.get('reported') and len(m) < strikes and now - float(r.get('lastSeen') or r.get('firstSeen') or 0) > idle:
+            dropped += 1
+            continue
+        if len(m) > keep:
+            r = {**r, 'mints': dict(list(m.items())[:keep]), 'strikes': max(int(r.get('strikes') or 0), len(m))}
+            trimmed += 1
+        out[a] = r
+    return {**(doc or {}), 'wallets': out}, {'dropped': dropped, 'trimmed': trimmed}

@@ -132,7 +132,7 @@ export function useAi(fallback = null) { const v = useSyncExternalStore(aiSub, a
 export function hubLoad() {
   if (!S.call) return Promise.resolve(null);
   if (S.loading) return S.loading;
-  S.loading = S.call('/admin/agents').then(r => { S.raw = r; S.err = null; aiSet(r?.office?.ai); emit(); return r; }).catch(e => { S.err = e; emit(); return null; }).finally(() => { S.loading = null; });
+  S.loading = S.call('/admin/agents').then(r => { S.raw = r; S.loadedAt = Date.now(); S.err = null; aiSet(r?.office?.ai); emit(); return r; }).catch(e => { S.err = e; emit(); return null; }).finally(() => { S.loading = null; });
   return S.loading;
 }
 // a one-off reader (the swap-in picker's 🤖 list): the hub's current snapshot when it is running, else ONE request — never a second poller
@@ -150,7 +150,14 @@ const emitSoon = () => {
   if (process.env.NODE_ENV === 'test') { emit(); return; }
   if (!emitTimer) emitTimer = setTimeout(() => { emitTimer = null; emit(); }, EMIT_MS);
 };
-const onVisible = () => { if (!hidden() && S.dirty) { S.dirty = false; emit(); } };
+// Back on the tab: paint what arrived while hidden, and if the stream died meanwhile (sleep / wake, a dropped network) reconnect
+// and re-read the snapshot NOW — the owner never refreshes by hand.
+const onVisible = () => {
+  if (hidden()) return;
+  if (S.dirty) { S.dirty = false; emit(); }
+  if (S.refs > 0 && !S.live) { if (Date.now() - (S.loadedAt || 0) > 15000) hubLoad(); if (!S.abort) runStream(); }
+};
+export const STREAM_IDLE_MS = 45000;   // the server beats every 15s — 45s of silence = a dead socket the browser never closed
 export const streamApply = ev => { if (ev?.kind === 'ai_update') { aiSet(ev.data); return; } const next = applyDelta(S.raw, ev); if (next !== S.raw) { S.raw = next; emitSoon(); } };   // AI never repaints the tab
 
 async function runStream() {
@@ -161,8 +168,12 @@ async function runStream() {
     const res = await fetch(apiUrl(`/api/reputation/admin/agents/stream?since=${S.seq || 0}`), { signal: ac.signal, headers: { 'x-admin-address': s.address, 'x-admin-ts': String(s.ts), 'x-admin-sig': s.sig, Accept: 'text/event-stream' } });
     if (!res.ok || !res.body || !res.body.getReader) throw new Error(`stream ${res.status}`);
     const rd = res.body.getReader(); const dec = new TextDecoder(); let buf = '';
+    let heard = Date.now();
+    const dog = setInterval(() => { if (Date.now() - heard > STREAM_IDLE_MS) { clearInterval(dog); try { ac.abort(); } catch (e) { /* closed */ } } }, 5000);
+    ac.signal.addEventListener('abort', () => clearInterval(dog));
     for (;;) {
       const { done, value } = await rd.read(); if (done) break;
+      heard = Date.now();
       buf += dec.decode(value, { stream: true });
       const [evs, rest] = parseSse(buf); buf = rest;
       evs.forEach(e => {
@@ -171,6 +182,7 @@ async function runStream() {
         else if (e.kind !== 'bye') { if (e.seq) S.seq = e.seq; streamApply(e); }
       });
     }
+    clearInterval(dog);
   } catch (e) { /* no stream (offline, a buffering proxy, signed out): the snapshot poll carries on */ }
   if (S.abort === ac) S.abort = null;
   if (S.live) { S.live = false; emit(); }

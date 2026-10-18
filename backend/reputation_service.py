@@ -2244,7 +2244,7 @@ async def get_blocklist(limit: int = Query(200, ge=1, le=5000)):
         if not _is_blocked(rec):
             continue
         roles = list(rec['mints'].values())
-        rows.append({'wallet': w, 'strikes': len(rec['mints']), 'bundles': roles.count('bundler'), 'snipes': roles.count('sniper'),
+        rows.append({'wallet': w, 'strikes': max(len(rec['mints']), int(rec.get('strikes') or 0)), 'bundles': roles.count('bundler'), 'snipes': roles.count('sniper'),
                      'reported': bool(rec.get('reported')), 'auto': len(rec['mints']) >= AUTO_BLOCK_STRIKES, 'lastSeen': rec.get('lastSeen')})
     rows.sort(key=lambda r: (-r['strikes'], -(r['lastSeen'] or 0)))
     return {'wallets': rows[:limit], 'total': len(rows), 'autoThreshold': AUTO_BLOCK_STRIKES}
@@ -15972,6 +15972,15 @@ async def _data_clean(now):
             print(f"storage trim: logos −{lg_.get('freed', 0) / 1e6:.0f} MB ({lg_.get('files')} files) · logs {lo_}")
     except Exception as e:
         print('storage trim:', type(e).__name__)
+    try:   # 🧹 the scanner's strike list: idle never-blocked wallets out, a blocked wallet keeps 40 strikes (it only ever grew: 16 MB)
+        async with _block_lock:
+            bd_, bst_ = _dc.slim_blocklist(_block_load(), now, AUTO_BLOCK_STRIKES)
+            if bst_['dropped'] or bst_['trimmed']:
+                _block_flush(bd_)
+                print(f"data cleaner: blocklist −{bst_['dropped']} idle wallets, {bst_['trimmed']} trimmed")
+        st = {**st, 'blocklist': bst_}
+    except Exception as e:
+        print('blocklist trim:', type(e).__name__)
     _data_clean_last.update(at=now, chat=st)
     if st['messages']:
         print(f"data cleaner: chat −{st['bytes'] / 1e6:.2f} MB ({st['messages']} old messages slimmed)")
@@ -15985,6 +15994,9 @@ async def admin_data_cleaner(request: Request):
     return {'last': _data_clean_last, 'rules': ['Chat: coin snapshots older than 1h lose their stale signal blocks (text, author and the coin stay)',
                                                 f'Logo cache ≤ {_strim.LOGO_MAX_BYTES // 2**20} MB (oldest first, nothing under a day old); a logo over {_strim.LOGO_FILE_MAX // 2**20:.1f} MB is not cached',
                                                 f'Service logs in /tmp over {_strim.LOG_MAX_BYTES // 2**20} MB keep their newest {_strim.LOG_KEEP_BYTES // 2**20} MB',
+                                                'Blocklist: a wallet never blocked and idle 2 weeks is forgotten; a blocked wallet keeps 40 strikes',
+                                                'Meme terms: a word out of every kept day drops its refs / sources',
+                                                'Pump callers: ≤ 8,000 callers, one number per judged call',
                                                 'Never touched: ledgers, .db files, records, archives, agent lineage']}
 
 

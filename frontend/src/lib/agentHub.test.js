@@ -75,3 +75,27 @@ test('🔁 duo_update replaces the OSSY × G4 block live', () => {
   expect(applyDelta(raw, { kind: 'duo_update', data: { trade: [{ at: 1 }] } }).duo.trade).toHaveLength(1);
   expect(applyDelta(raw, { kind: 'duo_update', data: null })).toBe(raw);
 });
+
+test('📡 a stream that goes silent (sleep / wake, dropped network) is closed and reopened by itself — no refresh by hand', async () => {
+  const React = require('react'); const { createRoot } = require('react-dom/client'); const { act } = require('react');
+  const { STREAM_IDLE_MS } = require('./agentHub');
+  jest.useFakeTimers(); hubReset();
+  localStorage.setItem('feeless:cc-session', JSON.stringify({ address: 'A', ts: 1, sig: 'S' }));
+  const enc = new (require('util').TextEncoder)(); let opened = 0;
+  const realFetch = global.fetch; const realTD = global.TextDecoder;
+  if (!global.TextDecoder) global.TextDecoder = require('util').TextDecoder;
+  global.fetch = jest.fn(async (url, { signal }) => {
+    opened += 1; let sent = false;
+    return { ok: true, body: { getReader: () => ({ read: () => (sent ? new Promise((_, rej) => signal.addEventListener('abort', () => rej(new Error('aborted'))))
+      : (sent = true, Promise.resolve({ done: false, value: enc.encode('event: hello\ndata: {"seq":1}\n\n') }))) }) } };
+  });
+  const call = jest.fn(async () => snap()); const Reader = () => { useHubHook(call); return null; };
+  const root = createRoot(document.createElement('div'));
+  await act(async () => { root.render(React.createElement(Reader)); });
+  expect(opened).toBe(1);
+  await act(async () => { jest.advanceTimersByTime(STREAM_IDLE_MS + 6000); });   // silence past the idle line → the watchdog aborts
+  await act(async () => { jest.advanceTimersByTime(4500); });                     // … and the stream reconnects
+  expect(opened).toBe(2);
+  await act(async () => { root.unmount(); }); hubReset(); jest.useRealTimers();
+  global.fetch = realFetch; global.TextDecoder = realTD; localStorage.removeItem('feeless:cc-session');
+});

@@ -5081,3 +5081,16 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
 - 🐋 WALLETS IN THE AGENTS' ENTRIES: in the tape gate before a seat, early hands (dev / snipers / bundles / top holders) selling ≥ $100 and > 2×
   their buys in the last 5 min = wait ("watch, then move", graded by the regret ledger as `wallets:DUMP`); smart money buying ≥ $150 = first.
 - 🧹 The noise-coin stop widening (35%) is retired — the 15% / 20% agent caps always cut it back.
+- 🫧 CHART BUBBLES WITHOUT CLUTTER (owner, 2026-10-18: "cooler ways to see all bubbles on chart without clutter"; `ChartCallPins` `clusterPins` /
+  `STACK_GAP` 28 / `PIN_LENSES` / `lensOf`, `ccp-fan` / `ccp-thread` / `ccp-lens` in chartCallPins.css): pins whose candles sit within 28px ON SCREEN
+  merge into ONE stack — the lead (models first, then you, agents, wallets) with two avatars fanned behind it and a count; tap / hover opens
+  the whole thread for those candles (newest first, each line with its % since). Measured in pixels every frame the chart moves, so zooming
+  in splits a stack by itself. A lens bar at the bottom of the chart (🔁 Models · 🤖 Agents · 🐋 Wallets · 👤 You, with counts) hides / shows a
+  group, remembered per browser (`feeless.pinLens`). The old per-candle tower (pins stacked 26px upward) is gone.
+- 📡 AGENTS TAB NEVER NEEDS A REFRESH (`lib/agentHub.js`): a live stream that goes silent `STREAM_IDLE_MS` 45s (the server beats every 15s:
+  sleep / wake, a dropped network the browser never closed) is aborted and reconnects with its last sequence; coming back to the tab with
+  the stream dead reconnects at once and re-reads the snapshot when it is > 15s old.
+- 🧹 DATA THAT ONLY GREW now prunes itself: blocklist (`data_cleaner.slim_blocklist`, hourly in `_data_clean` under `_block_lock`: a wallet never
+  blocked (no report, < 3 strikes) idle 2 weeks is forgotten, a blocked wallet keeps 40 strikes + `strikes` = its real count; 16 → ~7.5 MB) ·
+  meme terms (a word out of every kept day drops its refs / sources; first sighting kept 30 days) · Pump callers (`CALLERS_MAX` 8,000, a judged
+  call keeps `res` only — `mult` was the same number twice; 38 MB).
