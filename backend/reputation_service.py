@@ -10874,6 +10874,9 @@ async def _prime_tick_inner(now):
                             _g4_fate({'mint': t_['mint'], 'symbol': t_.get('symbol')}, 'keeper pre-check refused: ' + str((_agent_refused.get(t_['mint']) or (0, 'busy route'))[1])[:80], now)
                         continue
                     lv_ = pre_[t_['mint']]
+                    if not t_.get('g4') and _fuse._f(lv_.get('px')) > 0 and _fuse._f(t_.get('px')) > 0 and _fuse._f(lv_['px']) >= _fuse._f(t_['px']) * (1 + SPIKED_SINCE_READ / 100):
+                        _agent_refused[t_['mint']] = (now + 120, f"jumped {(_fuse._f(lv_['px']) / _fuse._f(t_['px']) - 1) * 100:.0f}% since the agents read it — waits for the pullback", now)
+                        continue   # 🚀 it spiked between the read and the buy: no chasing the candle that just printed
                     t_ = {**t_, 'px': lv_.get('px') or t_['px'], 'nums': {**(t_.get('nums') or {}), 'liq': lv_.get('liq') or (t_.get('nums') or {}).get('liq')}}
                 try:
                     wd_ = _office_warden(cur, t_, _prime.agent_seat_usd(cur, px, cfg_s), cfg_t, now, 'fill')   # 🛡 sizes THIS seat: it can lower or veto, never raise
@@ -14354,6 +14357,7 @@ async def _g4_idle(now, env, cfg, st_, legs_, mode_, who=None):
 
 
 _lose_c: dict = {'at': 0.0, 'v': {}}
+SPIKED_SINCE_READ = 8.0   # 🚀 the live price at the buy ≥ 8% over the price the agents decided on = no buy (they read a pass ago; the candle moved)
 
 
 def _agent_entry_ok(c):
@@ -14362,8 +14366,13 @@ def _agent_entry_ok(c):
     if _g4_bad_entry(c):
         return False
     if time.time() - _lose_c['at'] > 60:
-        _lose_c.update(at=time.time(), v=_oe.losing_entries((_json_load(ARCHIVE_PATH, {}) or {}).get('positions') or []))
+        pos_l = (_json_load(ARCHIVE_PATH, {}) or {}).get('positions') or []
+        _lose_c.update(at=time.time(), v=_oe.losing_entries(pos_l), f=_oe.losing_feats(pos_l))
         _office['losingEntries'] = _lose_c['v']
+        _office['losingFeats'] = _lose_c['f']   # ⚖ Devil's learned objections (shown in the payload)
+    hit_ = _oe.feats_of_cand(c) & set(_lose_c.get('f') or {})
+    if hit_:   # ⚖ an entry condition the agents' own record keeps losing on (CROWD FOMO, buying into a buying crowd …)
+        return False
     v_ = c.get('vitals') or {}
     if v_.get('ageH') is not None and _fuse._f(v_['ageH']) < 6 and v_.get('bundledN') is None and v_.get('snipersN') is None:   # 🕵 a young coin whose launch (bundles / snipers) was never read is not a seat-filler buy
         return False
@@ -16530,7 +16539,7 @@ def _trade_tape(now):
             pos_ = _co.germ_fill(ar_.get('positions'), ar_.get('germFill'))   # 🦠 your past entries' germ, backfilled beside the hash chain
             rows = _co.trade_tape(_fw_full_ledger()[-900:], pos_, ((_office_state().get('judge') or {}).get('reviews')) or [], _ai.get('log') or [], n=24)
             _coach.update(tape={'rows': rows, 'stats': _co.tape_stats(rows), 'sources': _co.source_record(pos_), 'rules': _co.rule_record(pos_), 'line': _co.line_replay(pos_), 'germ': _co.germ_record(pos_),
-                                 'holds': {k_: v_ for k_, v_ in (_study.get('holds') or {}).items() if k_ in ('early', 'n')}}, tapeAt=now)   # 🦠 your entries vs the germ · 🎓 rules that sold you early
+                                 'holds': {k_: v_ for k_, v_ in (_study.get('holds') or {}).items() if k_ in ('early', 'n')}, 'proof': _co.agent_proof(pos_)}, tapeAt=now)   # 🦠 your entries vs the germ · 🎓 rules that sold you early
             _coach_grade(now)
         except Exception as e:
             print('trade tape:', str(e)[:120])
@@ -18130,6 +18139,13 @@ def _office_pass(st, table, now, rcfg, jp, arch, cour, tid, desk_ms):
         n_full_h = sum(1 for p_ in arch.get('positions') or [] if p_.get('confirmed') and _ap.full(p_, (_after_mem.get() or {}).get('done')))
         of, no_h = _of.model_candidate(of, 'giveBackPct', 'up', n_full_h, f"the owner held past {ha_[0]} {ha_[1]}× and ended ≥ 5 pts higher", now)
         _tk.KERNEL.note('judge', 'HOLD TUNE', f"🎓 {ha_[0]} sold the owner early {ha_[1]}× → " + (f'refused ({no_h})' if no_h else 'one notch more give-back in shadow — the next 20 exits decide'), now, key=f"holdtune:{int(now // 3600)}")
+    mt_ = _seat.models_trail((_g4_mem.get() or {}).get('log'), now)
+    if mt_ is not None and now - _fuse._f(of.get('modelTrailAt')) > 6 * 3600 and abs(mt_ - _of.tune(of, 'reaper', 'giveBackPct')) >= 5:   # 🧠 the agents learn their trail from OSSY / G4 (shadow only)
+        of['modelTrailAt'] = now
+        n_full_m = sum(1 for p_ in arch.get('positions') or [] if p_.get('confirmed') and _ap.full(p_, (_after_mem.get() or {}).get('done')))
+        dir_m = 'up' if mt_ > _of.tune(of, 'reaper', 'giveBackPct') else 'down'
+        of, no_m = _of.model_candidate(of, 'giveBackPct', dir_m, n_full_m, f"OSSY / G4 run their trades on a {mt_:g}% give-back", now)
+        _tk.KERNEL.note('judge', 'LEARN', f"🧠 the models trail at {mt_:g}% → Reaper giveBackPct {dir_m}: " + (f'refused ({no_m})' if no_m else 'one notch in shadow — the next 20 exits decide'), now, key=f"mtrail:{int(now // 3600)}")
     of = _of.judge_candidates(of, arch, rcfg, st.get('scalp'), now, after=(_after_mem.get() or {}).get('done') or {})   # 👁 on WHOLE moves: a path ending at our own sale can only favour a tighter trail
     _office['trail'] = _trail_view(of, arch, rcfg, st.get('scalp'))
     ser = st.get('series') or {}

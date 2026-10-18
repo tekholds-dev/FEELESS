@@ -251,3 +251,9 @@ def test_a_model_adopts_the_agents_seat_on_the_coin_it_picked_never_a_second_buy
     assert seat.adoptable(legs, 'ON')['symbol'] == 'onboard'
     assert seat.adoptable(legs, 'MK') is None                                    # your pick is never taken over
     assert seat.adoptable(legs + [{'mint': 'X', 'aiSeat': True, 'units': 1}], 'ON') is None   # one model seat at a time
+
+
+def test_the_agents_read_the_trail_the_models_really_use():
+    import ai_seat as seat
+    log = [{'action': 'LINES', 'by': 'lan', 'at': 100, 'lines': {'trail': t}} for t in (30, 35, 40, 45, 35)] + [{'action': 'LINES', 'by': 'owner', 'at': 100, 'lines': {'trail': 90}}]
+    assert seat.models_trail(log, 200) == 35 and seat.models_trail(log[:3], 200) is None

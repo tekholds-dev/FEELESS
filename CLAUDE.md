@@ -5042,3 +5042,13 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   entry" on $GLITCH): an agent coin whose thesis stop is a germ stop (`germStop`) keeps it up to `AGENT_GERM_STOP_MAX` 20% (other agent stops
   stay capped at 15); `setups_of` counts HH/HL only ≥ `HHHL_PULLBACK` 8% under the high — $GLITCH was an "HH/HL" buy 5.4% under its gun line,
   right after the run. A coin at its top only qualifies through the germ.
+- 🚀 NO BUYING THE CANDLE THAT JUST PRINTED (2026-10-18, $DICKBUTTIFIER: bought 13% above its germ right after a +17% candle): an agent germ
+  buy sits within `office_edge.AGENT_GERM_ENTRY` 8% of the floor (the models' list keeps the owner's 15%), and the fill loop skips a coin whose
+  live price at the buy is ≥ `SPIKED_SINCE_READ` 8% over the price the agents decided on ("jumped X% since the agents read it", 2 min).
+- ⚖ DEVIL'S LEARNED OBJECTIONS (`office_edge.losing_feats`, `_office['losingFeats']`): entry conditions (launch phase · launch class · the buy /
+  sell vital · age bucket) whose real record is ≥ 3 pts under the agents' typical trade and wins less (≥ 10 trades) are skipped by every agent
+  door — relative, so a bad night does not ban everything; rebuilt every minute. First: CROWD FOMO (19 trades, −8.3 typical).
+- 🧠 THE AGENTS LEARN THEIR TRAIL FROM OSSY / G4 (`ai_seat.models_trail`: the models' own LINES trail, median of the last 48h): every 6h, when it
+  differs from Reaper's giveBackPct by ≥ 5, one notch toward it goes into SHADOW (office.model_candidate) — the next 20 exits decide.
+- 🧪 AGENTS' PROOF (`coach.agent_proof`, tape `proof` → `ProofTile` "🧪 AGENTS SINCE FIX" on the Trades tab): only their real trades since
+  `AGENT_FIX_AT` (2026-10-18 11:24) vs the 12h before (58 trades, 25% won, typical −4.7); "too few" until 10.

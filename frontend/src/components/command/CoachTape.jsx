@@ -34,12 +34,20 @@ function Trade({ r, now, on, onPick }) {
     </ol> : null}</li>;
 }
 
-function Recent({ rows, onPick }) {
+// 🧪 the agents' proof since the 2026-10-18 fixes vs the 12h before (n · won · typical) — "too few" until 10 real trades
+export function ProofTile({ p }) {
+  if (!p) return null;
+  const tone = p.verdict === 'better' ? 'm-pos' : p.verdict === 'worse' ? 'm-neg' : '';
+  return <span className="ctp-earn is-proof" data-testid="ctp-proof" data-tip={`agents' real closed trades since the fixes went live · before: ${p.base?.n} trades, ${p.base?.won}% won, typical ${signedPct(p.base?.typical)}`}>
+    <small>🧪 AGENTS SINCE FIX</small><b className={tone}>{p.n ? `${p.won}% · ${signedPct(p.typical)}` : '—'}</b><i>{p.n} trades · {p.verdict}</i></span>;
+}
+
+function Recent({ rows, onPick, proof }) {
   const r = recentResults(rows);
-  if (!r.list.length) return null;
+  if (!r.list.length && !proof) return null;
   const earn = (k, ic, w) => { const x = r[k]; return x.n ? <span className={`ctp-earn is-${k}`} data-testid={`ctp-earn-${k}`} data-tip={`${w}: ${x.n} closed trades in the last 24h · ${x.won} won · ${x.lost} lost · realized $, fees apart`}>
     <small>{ic} {w.toUpperCase()} · 24H</small><b className={x.usd == null ? '' : x.usd >= 0 ? 'm-pos' : 'm-neg'}>{x.usd == null ? '—' : `${x.usd >= 0 ? '+' : ''}${money2(x.usd)}`}</b><i>{x.won}W {x.lost}L</i></span> : null; };
-  return <div className="ctp-recent" data-testid="ctp-recent">{earn('you', '👤', 'You')}{earn('agents', '🤖', 'Agents')}{earn('models', '🔁', 'OSSY · G4')}
+  return <div className="ctp-recent" data-testid="ctp-recent"><ProofTile p={proof} />{earn('you', '👤', 'You')}{earn('agents', '🤖', 'Agents')}{earn('models', '🔁', 'OSSY · G4')}
     <span className="ctp-pills">{r.list.map((x, i) => <button key={x.key} type="button" className={`ctp-pill ${x.tone}`} style={{ '--i': i }} onClick={() => onPick?.(x.mint)} data-testid={`ctp-pill-${x.sym}`} data-tip={`${x.yours ? 'your trade' : x.models ? 'OSSY / G4 trade' : 'agent trade'} · ${signedPct(x.pct)}${x.usd != null ? ` · ${money2(x.usd)}` : ''} — tap for its chart`}>
       {x.tone === 'is-up' ? '✓' : x.tone === 'is-dn' ? '✕' : '·'} ${x.sym} <b>{signedPct(x.pct)}</b>{x.yours ? <i>👤</i> : x.models ? <i>🔁</i> : null}</button>)}</span></div>;
 }
@@ -108,7 +116,7 @@ export function TradeTape({ tape, mint, onPick }) {
     <header className="ctp-top"><span className="m-label">🎬 REAL TRADE TAPE</span><small className="ctp-line" data-testid="ctp-stats">{tapeLine(tape?.stats)}</small>
       <span className="m-seg ctp-filter" role="group" aria-label="Trades">{[['all', 'ALL'], ['open', 'OPEN'], ['won', 'WON'], ['lost', 'LOST']].map(([k, l]) =>
         <button key={k} type="button" className={show === k ? 'active' : ''} onClick={() => setShow(k)} data-testid={`ctp-show-${k}`}>{l}</button>)}</span></header>
-    <Recent rows={tape?.rows} onPick={onPick} />
+    <Recent rows={tape?.rows} onPick={onPick} proof={tape?.proof} />
     <RuleLegend />
     <Speed st={tape?.stats} />
     <GermRecord rec={tape?.germ} holds={tape?.holds} />

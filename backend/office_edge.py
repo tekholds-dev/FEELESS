@@ -1002,6 +1002,7 @@ def losing_entries(positions):
 
 
 HHHL_STATES = ('UPTREND', 'STRONG UPTREND', 'PULLBACK IN UPTREND')
+AGENT_GERM_ENTRY = 8.0   # 🦠 an agent's germ buy sits within 8% of the floor (the models' list keeps the owner's 15% line)
 HHHL_PULLBACK = 8.0   # an HH/HL entry is bought ≥ 8% under its high (owner, 2026-10-18: "horrible entry" — $GLITCH bought 5.4% under its gun line after the run)
 SETUP_SCORE = {'hhhl': 3, 'germ': 2, 'breakout': 1}   # ranked by the agents' own record: HH/HL best, then the germ, then breakouts
 
@@ -1017,7 +1018,7 @@ def setups_of(c, germ_line=15.0):
     if (st in HHHL_STATES or (_f(ch.get('hl')) >= 2 and not _f(ch.get('ll')))) and (dh is None or _f(dh) >= HHHL_PULLBACK):   # a PULLBACK in the uptrend — never bought at the top ($GLITCH, 5% under its gun line)
         out.append('hhhl')
     gd = ch.get('germDist') if ch.get('germDist') is not None else ch.get('germ5Dist')
-    if gd is not None and abs(_f(gd)) <= (germ_line or 15.0):
+    if gd is not None and abs(_f(gd)) <= min(germ_line or 15.0, AGENT_GERM_ENTRY):   # ON the floor: $DICKBUTTIFIER 13% above its germ right after a +17% candle read as "germ"
         out.append('germ')
     e = ch.get('entry') or []
     if st == 'CONFIRMED BREAKOUT' or (len(e) > 1 and str(e[1]).startswith('E10 breakout held')):
@@ -1032,6 +1033,55 @@ def setup_order(cands, germ_line=15.0):
     for c, t in rows:
         c['setups'] = t
     return [c for c, t in sorted(rows, key=lambda x: (-sum(SETUP_SCORE[k] for k in x[1]), -_f(x[0].get('rank'))))]
+
+
+def _age_b(a):
+    return None if a is None else '<1h' if _f(a) < 1 else '1-6h' if _f(a) < 6 else '6-24h' if _f(a) < 24 else '1d+'
+
+
+def feats_of_pos(p):
+    """The entry conditions a closed agent trade was bought under (launch phase · launch class · the buy / sell vital · coin age)."""
+    li, th = p.get('li') or {}, p.get('thesis') or {}
+    fl = th.get('flow')
+    fl = fl.get('state') if isinstance(fl, dict) else fl
+    age = ((p.get('launch') or {}).get('ageH'))
+    return {k for k in (f"phase:{li.get('phase')}" if li.get('phase') else None, f"cls:{li.get('cls')}" if li.get('cls') else None,
+                        f"flow:{fl}" if fl else None, f"age:{_age_b(age)}" if age is not None else None) if k}
+
+
+def feats_of_cand(c):
+    """The same conditions on a live candidate row."""
+    li, fv, v = c.get('li') or {}, c.get('fv') or {}, c.get('vitals') or {}
+    fl = fv.get('state') if isinstance(fv, dict) else fv
+    return {k for k in (f"phase:{li.get('phase')}" if li.get('phase') else None, f"cls:{li.get('cls')}" if li.get('cls') else None,
+                        f"flow:{fl}" if fl else None, f"age:{_age_b(v.get('ageH'))}" if v.get('ageH') is not None else None) if k}
+
+
+FEAT_WORSE = 3.0   # a condition is a loser when its typical trade is this many points worse than the agents' typical trade
+
+
+def losing_feats(positions):
+    """⚖ DEVIL'S LEARNED OBJECTIONS (owner, 2026-10-18: "Devil needs teeth"): every entry condition whose own record on the agents' REAL closed
+    trades (≥ LOSING_N) is ≥ FEAT_WORSE points under their typical trade and wins less often → {feat: (n, typical, won %)}. Relative, so a
+    bad night overall does not ban everything; rebuilt each pass (a condition that recovers comes back by itself)."""
+    rows = [(feats_of_pos(p), _f(p['realPct'])) for p in positions or [] if not p.get('g4') and not p.get('pick') and p.get('realPct') is not None]
+    if len(rows) < LOSING_N * 2:
+        return {}
+    allv = sorted(x for _, x in rows)
+    base = allv[len(allv) // 2]
+    base_won = 100.0 * sum(1 for x in allv if x > 0) / len(allv)
+    g = {}
+    for fs, x in rows:
+        for k in fs:
+            g.setdefault(k, []).append(x)
+    out = {}
+    for k, v in g.items():
+        v = sorted(v)
+        med = v[len(v) // 2]
+        won = 100.0 * sum(1 for x in v if x > 0) / len(v)
+        if len(v) >= LOSING_N and med <= base - FEAT_WORSE and won <= base_won:
+            out[k] = (len(v), round(med, 1), round(won))
+    return out
 
 
 def armed_fill(cands, empty_since, target, now, have=0, need=0, blocked=()):

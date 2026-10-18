@@ -69,3 +69,11 @@ test('🏁 Trades: closes first by close time, then open by buy time', () => {
   const r = tapeOrder([{ id: 'o1', open: true, at: 9 }, { id: 'c1', closedAt: 5 }, { id: 'c2', closedAt: 7 }, { id: 'o2', open: true, at: 10 }]);
   expect(r.map(x => x.id)).toEqual(['c2', 'c1', 'o2', 'o1']);
 });
+
+test('🧪 the agents proof tile: since the fixes vs before, "too few" until 10', async () => {
+  const { ProofTile } = require('./CoachTape');
+  const { createRoot } = require('react-dom/client'); const { act } = require('react');
+  const el = document.createElement('div'); document.body.appendChild(el);
+  await act(async () => { createRoot(el).render(<ProofTile p={{ n: 12, won: 58, typical: 3.1, verdict: 'better', base: { n: 58, won: 25, typical: -4.7 } }} />); });
+  expect(el.textContent).toContain('58% · +3.1%'); expect(el.textContent).toContain('better');
+});

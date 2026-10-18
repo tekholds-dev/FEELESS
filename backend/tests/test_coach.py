@@ -173,3 +173,12 @@ def test_a_trim_never_ends_the_trade_and_reads_as_banked_profit():
     led += [s(5000, 1.1, 10335, 0.9)]
     t = coach.trade_tape(led, [])
     assert t[0]['state'] == 'sold' and t[0]['result']['usd'] == round(0.399 + 1.1 - 1.23, 3)
+
+
+def test_the_agents_proof_counts_only_their_real_trades_since_the_fixes():
+    import coach
+    pos = [{'realPct': 5.0, 'closedAt': coach.AGENT_FIX_AT + 10} for _ in range(6)] + [{'realPct': -2.0, 'closedAt': coach.AGENT_FIX_AT + 20} for _ in range(5)]
+    pos += [{'realPct': -50.0, 'closedAt': coach.AGENT_FIX_AT - 10}, {'realPct': 40.0, 'g4': True, 'closedAt': coach.AGENT_FIX_AT + 5}]
+    p = coach.agent_proof(pos)
+    assert p['n'] == 11 and p['won'] == 55 and p['typical'] == 5.0 and p['verdict'] == 'better'
+    assert coach.agent_proof([])['verdict'] == 'too few'

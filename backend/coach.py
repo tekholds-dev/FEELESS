@@ -509,3 +509,19 @@ def line_replay(positions):
     return {'n': len(real), 'actual': act, 'lines': lines, 'gapped': sum(1 for p in ts if (p.get('path') or [0])[0] <= -15), 'best': best['x'],
             'verdict': 'pays' if ok else 'not proven'}
 
+
+
+AGENT_FIX_AT = 1792340671.0   # 2026-10-18 11:24 CDT: the agents' entry / stop / Devil fixes went live
+AGENT_BASE = {'n': 58, 'won': 25, 'typical': -4.7}   # their last 12h before the fixes (real money)
+
+
+def agent_proof(positions, since=AGENT_FIX_AT, base=AGENT_BASE):
+    """🧪 THE AGENTS' PROOF (owner, 2026-10-18: "prove it"): only their REAL closed trades since the fixes went live vs the 12h before.
+    → {n, won %, typical %, avg %, since, base, verdict} — 'too few' under 10 trades (no claim either way)."""
+    v = sorted(float(p['realPct']) for p in positions or [] if not p.get('g4') and not p.get('pick') and p.get('realPct') is not None and float(p.get('closedAt') or 0) >= since)
+    out = {'n': len(v), 'since': since, 'base': base}
+    if v:
+        out.update(won=round(100 * sum(1 for x in v if x > 0) / len(v)), typical=round(v[len(v) // 2], 1), avg=round(sum(v) / len(v), 1))
+    out['verdict'] = ('too few' if len(v) < 10 else 'better' if out['typical'] > base['typical'] + 2 and out['won'] > base['won']
+                      else 'worse' if out['typical'] < base['typical'] - 2 else 'about the same')
+    return out

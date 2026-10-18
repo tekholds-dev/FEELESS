@@ -144,3 +144,6 @@ body.theme-day .ctp-germ { color: #6a3fc0; } body.theme-day .ctp-germrec b { col
 .ctp-list > li { overflow: hidden; }
 .ctp-facts span, .ctp-snap span, .ctp-steps p, .ctp-id small { overflow-wrap: anywhere; word-break: break-word; }
 .ctp-id b { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* 🧪 the agents' proof since the fixes */
+.ctp-earn.is-proof { border-color: rgba(180, 140, 255, .45); }

@@ -430,6 +430,13 @@ def hunt_answers(log, who, since):
     return sum(1 for r in log or [] if r.get('by') == who and r.get('action') in ('WAIT', 'BUY') and _f(r.get('at')) >= since and not r.get('talk'))
 
 
+def models_trail(log, now, since=48 * 3600.0, min_n=5):
+    """🧠 The give-back % OSSY / G4 really run their trades on (their LINES rows, last 48h) → median or None (fewer than min_n)."""
+    v = sorted(_f((r.get('lines') or {}).get('trail')) for r in log or [] if r.get('action') == 'LINES' and r.get('by') in ('lan', 'local')
+               and _f((r.get('lines') or {}).get('trail')) > 0 and now - _f(r.get('at')) <= since)
+    return v[len(v) // 2] if len(v) >= min_n else None
+
+
 def adoptable(legs, mint):
     """🤝 The agents' leg a model's BUY may take over: same coin, really on the card (not a placeholder), the agents' own (not yours, not
     certified, not already a model's) — and only while no other model seat is open. → the leg dict or None."""

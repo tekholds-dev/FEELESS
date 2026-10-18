@@ -764,3 +764,13 @@ def test_an_hhhl_entry_is_a_pullback_never_the_top():
     assert oe.setups_of({'chart': {'state': 'UPTREND', 'distHigh': 5.4}}) == []          # $GLITCH: at the top of the run
     assert oe.setups_of({'chart': {'state': 'UPTREND', 'distHigh': 12.0}}) == ['hhhl']    # a real pullback
     assert oe.setups_of({'chart': {'state': 'UPTREND', 'distHigh': 5.0, 'germDist': 4.0}}) == ['germ']   # at the top but on its germ floor
+    assert oe.setups_of({'chart': {'state': 'RANGE', 'germDist': 13.0}}) == []   # 13% above the floor is not the germ
+
+
+def test_devil_learns_which_entry_conditions_lose_relative_to_the_agents_own_record():
+    import office_edge as oe
+    pos = [{'realPct': -3.0, 'li': {'phase': 'PRE-FOMO'}} for _ in range(30)] + [{'realPct': -9.0, 'li': {'phase': 'CROWD FOMO'}} for _ in range(10)]
+    pos += [{'realPct': -20.0, 'g4': True, 'li': {'phase': 'PRE-FOMO'}} for _ in range(20)]   # the models' trades never count
+    bad = oe.losing_feats(pos)
+    assert set(bad) == {'phase:CROWD FOMO'}
+    assert oe.feats_of_cand({'li': {'phase': 'CROWD FOMO'}, 'vitals': {'ageH': 3}}) == {'phase:CROWD FOMO', 'age:1-6h'}
