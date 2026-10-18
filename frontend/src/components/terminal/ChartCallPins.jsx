@@ -15,7 +15,7 @@ export function thinPins(calls, ivSec) {
   const by = new Map();
   (calls || []).forEach(c => { const t = pinPlace(c, ivSec); if (t == null) return; const g = by.get(t) || []; if (!g.some(x => x.who === c.who)) g.push(c); by.set(t, g); });
   const out = [];
-  by.forEach(g => { const pri = c => (c.kind === 'agent' ? 1 : 0); const keep = [...g].sort((a, b) => pri(a) - pri(b) || Number(b.at) - Number(a.at)).slice(0, PER_CANDLE);
+  by.forEach(g => { const pri = c => (c.kind === 'wallet' ? 2 : c.kind === 'agent' ? 1 : 0); const keep = [...g].sort((a, b) => pri(a) - pri(b) || Number(b.at) - Number(a.at)).slice(0, PER_CANDLE);
     const rest = g.filter(c => !keep.includes(c)); const more = rest.length;
     keep.forEach((c, i) => out.push(i === keep.length - 1 && more > 0 ? { ...c, more, folded: rest.sort((a, b) => Number(b.at) - Number(a.at)).slice(0, 6) } : c)); });   // 📜 the folded comments stay readable in the card
   return out.sort((a, b) => Number(a.at) - Number(b.at));

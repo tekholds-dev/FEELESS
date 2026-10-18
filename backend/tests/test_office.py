@@ -36,7 +36,7 @@ def test_weather_reads_a_regime_from_measured_inputs_and_says_what_it_could_not_
     nums = lambda d5, liq=80_000: {f'm{i}': {'d5': d5 if i % 4 else -d5, 'liq': liq, 'buy': 60} for i in range(40)}
     rows = [{'mint': f'm{i}', 'ageH': 3, 'safe': True} for i in range(40)]
     w = of.weather(nums(2.0), rows, {}, 10_000)
-    assert w['regime'] == 'HOT' and w['mods'] == {'barAdj': -0.25, 'size': 1.0} and w['inputs']['greenPct'] == 75
+    assert w['regime'] == 'HOT' and w['mods'] == {'barAdj': 0.0, 'size': 1.0} and w['inputs']['greenPct'] == 75   # 🌦 a HOT market no longer loosens Trigger (it was backwards on the real record)
     assert 'rugPct' in w['missing'] and 0 < w['confidence'] < 1                              # no judged calls yet: said, and confidence is lower
     assert of.weather(nums(-2.0), rows, {}, 10_000)['regime'] == 'CHOP'                      # most of the board red
     assert of.weather(nums(2.0, 12_000), rows, {}, 10_000)['regime'] == 'THIN'               # shallow pools

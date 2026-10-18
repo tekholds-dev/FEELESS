@@ -2977,6 +2977,42 @@ _coin_read_cache: dict = {}   # mint → (at, read) — 15s
 COIN_READ_JUP_SEC = 1.5   # coin-read p95 was 6.5s (perf_view 2026-10-17): Jupiter's public lane rate-limited, the header waited for it
 
 
+import chart_wallets as _cw
+_cw_cache: dict = {}
+
+
+@app.get('/api/reputation/chart-wallets/{mint}')
+async def chart_wallets(mint: str, pair: str = ''):
+    """🐋 Who traded this chart — snipers · bundles · dev · top holders (from our own launch + holder scan) · whales · top traders (the tape).
+    Public, read-only, 15s cache, the candles service's own trade tape (no extra RPC). Owner, 2026-10-18: "bubbles on each chart"."""
+    if not _re.fullmatch(r'[1-9A-HJ-NP-Za-km-z]{32,44}', mint or '') or (pair and not _re.fullmatch(r'[1-9A-HJ-NP-Za-km-z]{32,44}', pair)):
+        raise HTTPException(400, 'bad address')
+    hit = _cw_cache.get(mint)
+    if hit and time.time() - hit[0] < 15:
+        return hit[1]
+    pair = pair or next((r_.get('pair') for r_ in (_agents.get('table') or []) if r_.get('mint') == mint), None) or ''
+    tr = []
+    if pair:
+        got = _flow_trades.get(pair)
+        if got and time.time() - got[0] < 15:
+            tr = got[1]
+        elif not os.environ.get('PYTEST_CURRENT_TEST'):
+            try:
+                async with httpx.AsyncClient(timeout=6) as http:
+                    r = await http.get(f'http://127.0.0.1:5099/api/candles/trades/solana/{pair}')
+                    tr = (r.json() or {}).get('trades') or []
+                    _flow_trades[pair] = (time.time(), tr)
+            except Exception:
+                tr = []
+    it = (_intel_cache.get(mint) or (0, None))[1] or {}
+    out = {**_cw.tag_trades(tr, it), 'launchRead': it.get('historyComplete') is not False and bool(it), 'n': len(tr), 'at': round(time.time())}
+    _cw_cache[mint] = (time.time(), out)
+    if len(_cw_cache) > 400:
+        for k_ in sorted(_cw_cache, key=lambda k_: _cw_cache[k_][0])[:100]:
+            _cw_cache.pop(k_, None)
+    return out
+
+
 @app.get('/api/reputation/coin-read/{mint}')
 async def coin_read(mint: str):
     """🫀 + 🔥/🎢/🧲 THE FEELESS EDGE for one coin (war room / chart header): its vital (grade, five bars, the three deciding facts, crew) and the
@@ -10670,6 +10706,10 @@ async def _prime_tick_inner(now):
                 cur.pop('agentEmptyAt', None); _office.pop('validSince', None)
             blk_ = _agent_blocked(cur, now) | {l.get('mint') for l in cur.get('legs') or []}
             valid_ = [c_ for c_ in (_tk.KERNEL.candidate(m_, d_) for m_, d_ in _tk.KERNEL.ready(exclude=blk_)) if c_ and not _fw.dollar_named(c_.get('symbol'))]
+            valid_ = sorted([c_ for c_ in valid_ if _agent_entry_ok(c_)],   # 🎯 EVERY agent door enters like OSSY / G4 (owner, 2026-10-18: "they are on point"): the three setups, no gun line / chase / spike /
+                            key=lambda c_: (0 if _fuse._f(c_.get('size')) >= 0.75 else 1,   # 🛡 the Warden's full-size picks first — the one desk whose call separates winners (−2.6 vs −4.9 typical, 187 real trades)
+                                            _seat.germ_rank(_opp.germ_d(c_.get('chart') or {})[0], _uni.germ_max()),   # SKIP, no losing read, no young coin with an unread launch — germ floor first, like the models' list
+                                            -sum(_oe.SETUP_SCORE.get(k_, 0) for k_ in c_.get('setups') or ()), -_fuse._f(c_.get('rank'))))
             for c_ in valid_:
                 c_.update(tier='A', opp=c_['rank'], nearReady=f"⚡ {c_['kwhy']} · rank {c_['rank']:g} · size ×{c_['size']:g}")
             cases_ = _tk.KERNEL.cases(exclude={l.get('mint') for l in cur.get('legs') or []})

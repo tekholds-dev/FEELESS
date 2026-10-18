@@ -52,8 +52,8 @@ def _frozen(x):
 # ── 📜 THE CONSTITUTION ───────────────────────────────────────────────────────────────────────────────────────────────────────────
 # IMMUTABLE CORE (identity · role · ideology · ethics · forbidden · hard rules · where the code lives). Frozen at import: no agent, no
 # learning step and no endpoint can write to it. What CAN move is in TUNABLE, inside hard-coded bounds, and only through a shadow test.
-WEATHER_BAR_RANGE = (-0.25, 1.0)     # the most Weather may move Trigger's bar (it can never reach a hard SKIP or Devil's objections)
-WEATHER_SIZE_RANGE = (0.25, 1.0)     # the most Weather may shrink a move (never grow it)
+WEATHER_BAR_RANGE = (0.0, 1.0)    # 🌦 Weather may only TIGHTEN Trigger (2026-10-18: on 192 real agent trades its 'good market' calls were −5.8 typical vs −2.8 on its doubts — loosening in a HOT market was backwards)
+WEATHER_SIZE_RANGE = (0.25, 1.0)   # 🌦 … and may only shrink a seat, never grow it
 WARDEN_STEPS = (1.0, 0.75, 0.5, 0.25, 0.0)
 WARDEN_MIN_USD = 0.05                # a seat the keeper could not send is not a smaller risk, it is no trade
 FLOW_BANK_PCT = 4.0                  # 🌊 sellers take over a seat that is at least this green → banked into the last buyers (above a round trip's cost)

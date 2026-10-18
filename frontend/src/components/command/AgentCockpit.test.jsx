@@ -124,7 +124,7 @@ test('⚡ an agent pulses ONLY when a new real tape event of its own arrives —
   const d2 = { ...data, office: { ...data.office, tape: [...data.office.tape, { id: 9, at: 1100, agent: 'warden', action: 'SIZE $0.20', why: 'tier B', mint: 'MINTZYN', symbol: 'ZYN' }] } };
   await act(async () => { root.render(<AgentHubProvider value={{ ...hub, d: d2, sel: selectors(d2) }}><AgentCockpit call={call} /></AgentHubProvider>); });
   expect(q('ack-agent-warden').querySelector('.is-pulse')).not.toBeNull(); expect(q('ack-agent-devil').querySelector('.is-pulse')).toBeNull();
-  expect(fetchSpy.mock.calls.filter(([u]) => !String(u).includes('/api/reputation/edge'))).toHaveLength(0); global.fetch = realFetch;   // only the shared coin-edge poller (🦠 germ chips) may ask
+  expect(fetchSpy.mock.calls.filter(([u]) => !String(u).includes('/api/reputation/edge') && !String(u).includes('/api/reputation/chart-wallets/'))).toHaveLength(0); global.fetch = realFetch;   // only the shared coin-edge poller (🦠 germ chips) + the chart's 🐋 wallet bubbles (one read per coin / 15s) may ask
   await act(async () => { root.unmount(); });
   localStorage.setItem('feeless.agentDeck', 'live');   // ⚡ the feed open: the new tape line is marked new
   const b = mount();
@@ -232,4 +232,12 @@ test('✋ / 👍 one click on a seat posts the hint', async () => {
   expect(sent[0]).toEqual({ seatHint: { mint: 'M', kind: 'hold' } });
   expect(el.querySelector('[data-testid="ack-hint-hold-2"]').getAttribute('aria-pressed')).toBe('true');
   act(() => root.unmount());
+});
+
+test('🐋 wallet bubbles: each tagged trade at its time + market cap, the strongest tag first, buy / sell', () => {
+  const { walletPins } = require('./AgentCockpit');
+  const cw = { trades: [{ at: 100, side: 'sell', usd: 900, px: 0.002, w: 'WHALEAAAABBBB', tags: ['holder', 'whale'] }, { at: 90, side: 'buy', usd: 40, px: 0.001, w: 'SNIPExxxxyyyy', tags: ['sniper'] }] };
+  const p = walletPins(cw, 1000000, 0.001);
+  expect(p).toHaveLength(2); expect(p[0]).toMatchObject({ kind: 'wallet', icon: '🐋', action: 'SELL', cap: 2000000 }); expect(p[1]).toMatchObject({ icon: '🎯', action: 'BUY' });
+  expect(walletPins(cw, 0, 0)).toEqual([]);
 });

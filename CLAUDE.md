@@ -5027,3 +5027,14 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   that answers nothing is unknown (never a fake 0 bundles), insiders reach the desk (`senses.VITAL_KEYS` + kernel vit + an INSIDERS tile), the
   vital board covers the top 24 candidates (`VIT_TOP`; the top 8 full, the rest `lite_vit`), and `_agent_entry_ok` skips a coin < 6h old whose
   launch was never read. The office payload bound is 110 KB (was 100).
+- 🎯 EVERY AGENT DOOR ENTERS LIKE OSSY / G4 (owner, 2026-10-18: "fix Reaper to enter like OSSY and G4, they are on point"): the READY door too
+  now runs `_agent_entry_ok` (the three setups · no gun line / chase / spike / SKIP · no losing read · no young coin with an unread launch) and
+  is ordered like the models' list: the Warden's full-size picks first, then germ floor, then setup score, then rank.
+- 🧪 WHAT EACH AGENT MISSES (judge_review.desk_votes on ~190 real agent trades, 2026-10-18): Sherlock says GO on 156/160 and Devil objects
+  to 5/160 — neither separates winners; Weather was BACKWARDS (its GO −5.8 typical vs DOUBT −2.8) → `WEATHER_BAR_RANGE` (0, 1): it may only
+  tighten Trigger now; the Warden is the one desk with a signal (full-size −2.6 vs shrunk −4.9) → its picks go first. Tally / Trigger ≈ no edge.
+  NEXT: Sherlock + Devil need objections that actually fire (they pass everything).
+- 🐋 WALLET BUBBLES ON THE AGENTS CHART (owner, same day): `chart_wallets.tag_trades` (pure, tested) tags each swap on the candles tape from
+  our own records — 👤 dev / 🎯 sniper / 📦 bundle (launch read) · 🏦 top holder (holder scan, wallets only) · 🐋 whale (≥ $500 and ≥ 5× the
+  typical trade) · 👑 top trader (top 3 by $) → public `GET /api/reputation/chart-wallets/{mint}?pair=` (15s cache, no RPC) → `walletPins` on
+  the cockpit chart (`kind: 'wallet'`, green buy / pink sell, lowest pin priority per candle).
