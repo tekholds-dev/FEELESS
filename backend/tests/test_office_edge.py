@@ -745,7 +745,6 @@ def test_the_agents_stop_taking_an_entry_read_their_own_real_trades_keep_losing_
     pos += [{'realPct': -9.0, 'g4': True, 'thesis': {'triggerRule': 'E3 too violent'}} for _ in range(12)]   # the models' trades never count
     bad = oe.losing_entries(pos)
     assert set(bad) == {'E4 no direction yet'} and bad['E4 no direction yet'][0] == 10
-    assert oe.entry_code({'chart': {'entry': ['WAIT', 'E4 no direction yet', 'x']}}) == 'E4' and oe.entry_code({}) is None
 
 
 def test_the_agents_trade_the_three_setups_hhhl_first_then_the_germ_then_a_held_breakout():

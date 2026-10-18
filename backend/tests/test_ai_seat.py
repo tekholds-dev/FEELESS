@@ -257,3 +257,13 @@ def test_the_agents_read_the_trail_the_models_really_use():
     import ai_seat as seat
     log = [{'action': 'LINES', 'by': 'lan', 'at': 100, 'lines': {'trail': t}} for t in (30, 35, 40, 45, 35)] + [{'action': 'LINES', 'by': 'owner', 'at': 100, 'lines': {'trail': 90}}]
     assert seat.models_trail(log, 200) == 35 and seat.models_trail(log[:3], 200) is None
+
+
+def test_the_models_bank_a_sale_for_up_to_three_rounds():
+    import ai_seat as seat, arena_prime as ap
+    d = seat.parse('{"action":"TRIM","pct":50,"why":"skim","bank":5}', [], True)
+    assert d['action'] == 'TRIM' and d['bank'] == 3                                  # capped at 3 rounds
+    assert 'bank' not in seat.parse('{"action":"HOLD","why":"x","bank":2}', [], True)
+    c = ap.park_bank({'cash': 1.0, 'holdCashUsd': 0.2, 'rounds': 7, 'events': []}, 0.5, 2, 100, 'X', 'OSSY')
+    assert c['holdCashUsd'] == 0.7 and c['skimPark'][-1]['hold'] == 2 and c['skimPark'][-1]['round'] == 7
+    assert ap.park_bank({'cash': 1.0}, 0.5, 0, 100) == {'cash': 1.0}

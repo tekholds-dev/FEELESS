@@ -3575,6 +3575,25 @@ def agent_trim(card, pair, prices, liqs, now, pct=50.0, why=''):
     return c
 
 
+BANK_ROUNDS_MAX = 3   # 🅿 OSSY / G4 may park a sale's proceeds out of the coins for up to 3 rounds
+
+
+def park_bank(card, usd, rounds, now, symbol=None, by=None):
+    """🅿 OSSY / G4 BANK THEIR PROFIT (owner, 2026-10-18: "access to banking profits for up to 3 rounds"): `usd` of the card's cash is held out of
+    the coins for `rounds` (1–3) — the idle-cash spread never touches it, `release_parked` puts it back to work when its rounds are up. Only
+    cash the card really has is parked. → new card (unchanged when rounds ≤ 0 or nothing to park)."""
+    r = max(0, min(BANK_ROUNDS_MAX, int(_f(rounds))))
+    free = max(0.0, _f(card.get('cash')) - _f(card.get('holdCashUsd')))
+    amt = min(_f(usd), free)
+    if r <= 0 or amt <= 0.005:
+        return card
+    c = {**card, 'events': list(card.get('events') or [])}
+    c['holdCashUsd'] = round(_f(c.get('holdCashUsd')) + amt, 6)
+    c['skimPark'] = list(c.get('skimPark') or []) + [{'usd': round(amt, 6), 'round': int(c.get('rounds') or 0), 'at': now, 'symbol': symbol, 'hold': r, 'by': by}]
+    c['events'].append({'at': now, 'kind': 'skim', 'symbol': symbol, 'usd': round(amt, 4), 'why': f"🅿 {by or 'the model'} banked ${amt:.2f} of ${symbol or 'its'} sale for {r} round{'s' if r != 1 else ''} — out of the coins until then"})
+    return c
+
+
 def agent_pull(card, pair, prices, liqs, now, why=''):
     """🎮 In control, the agents BANK a coin: it leaves the card whole and what selling pays becomes FREE card cash — the seat is open for
     their next coin (unlike the owner's ✂, which holds the cash for the owner and keeps the slot). → new card. ValueError = not on the card."""

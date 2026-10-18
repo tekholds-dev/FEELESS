@@ -47,7 +47,7 @@ the owner's and the agents': copy what won, skip what lost, and say in your why 
 trades and where holding longer paid him — use them. When your record beats your partner's, BRAG about it
 in your why (short, cocky, true numbers only); when it doesn't, say how you'll take the lead.
 Answer with ONLY this JSON, nothing else:
-{"action":"BUY|HOLD|SELL|WAIT|TRIM","coin":"<SYMBOL when BUY, else empty>","why":"<3-4 short sentences MAX — the numbers that decided it>","conf":<0-100>,"watch":"<what would make you sell, under 80 chars>","tp":<take-profit %, e.g. 40>,"sl":<stop %, e.g. 15>,"trail":<% of the peak gain you let it give back before banking, e.g. 35 — wider on a clean HH/HL runner, tighter when sellers lead>}
+{"action":"BUY|HOLD|SELL|WAIT|TRIM","coin":"<SYMBOL when BUY, else empty>","why":"<3-4 short sentences MAX — the numbers that decided it>","conf":<0-100>,"watch":"<what would make you sell, under 80 chars>","tp":<take-profit %, e.g. 40>,"sl":<stop %, e.g. 15>,"trail":<% of the peak gain you let it give back before banking, e.g. 35 — wider on a clean HH/HL runner, tighter when sellers lead>,"bank":<on a SELL / TRIM: 0-3 rounds to park the profit out of the coins (0 = straight back to work)>}
 The trade you bought is YOURS to run: tp / sl are your own take-profit and stop lines, applied at once (change them any minute you HOLD;
 −45% is the floor nobody can move). TRIM = sell part of your coin now ("pct": 25 | 50 | 75) — bank profit, the rest keeps riding your lines.
 CONFIDENCE in LEARN = what the market's verdicts on your calls (and the votes on them) earned you. The agents only advise.
@@ -288,6 +288,7 @@ def parse(text, cand_mints, holding, syms=None):
     if a == 'BUY' and (holding or mint not in cset):
         a, why = ('HOLD' if holding else 'WAIT'), (why + ' · (BUY refused: ' + ('seat already holds a coin' if holding else 'coin not on the list') + ')')[:WHY_MAX + 80]
         mint = ''
+    bank_ = max(0, min(3, int(_f(j.get('bank')))))   # 🅿 rounds to park the proceeds of a SELL / TRIM out of the coins (0 = straight back to work)
     if a == 'TRIM':   # ✂ bank part of the trade it holds (25 / 50 / 75%), the rest keeps riding its own lines
         if not holding:
             a = 'WAIT'
@@ -298,7 +299,7 @@ def parse(text, cand_mints, holding, syms=None):
         a = 'WAIT'
     if a == 'WAIT' and holding:
         a = 'HOLD'
-    out = {'action': a, 'mint': mint if a == 'BUY' else '', 'why': why, 'conf': conf, 'watch': watch, **({'trim': j['_trim']} if a == 'TRIM' else {})}
+    out = {'action': a, 'mint': mint if a == 'BUY' else '', 'why': why, 'conf': conf, 'watch': watch, **({'trim': j['_trim']} if a == 'TRIM' else {}), **({'bank': bank_} if a in ('SELL', 'TRIM') and bank_ else {})}
     for k, lo, hi in LINE_RANGES:   # 🎯 a take under +25% cut runners short ($SEXCOIN banked at +15%, ran on)   # 🎯 the holder runs its whole trade: its own take / stop (−45% stays the floor)
         v = abs(_f(j.get(k), 0.0))
         if v > 0 and a in ('BUY', 'HOLD', 'TRIM'):

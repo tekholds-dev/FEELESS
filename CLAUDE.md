@@ -5064,3 +5064,6 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   `PARTNER_EVERY` 60s the model that is NOT deciding (OSSY or G4) rides along on ONE agents coin (rotating, the one read longest ago) through
   `_g4_idle` with that coin alone: HOLD / SELL + its own lines. Its word becomes Reaper's fresh exit word (`_ai['exit']`: SELL → TIGHTEN, HOLD →
   RIDE) — with HOLD_SOFT a soft exit on an agent coin only fires on a TIGHTEN, so the partner decides the soft sells; stops / rug / −45% never wait.
+- 🅿 OSSY / G4 BANK THEIR PROFIT UP TO 3 ROUNDS (owner, 2026-10-18): their SELL / TRIM answer may carry `"bank": 0-3` (`ai_seat.parse`, capped)
+  → after the sale `arena_prime.park_bank` holds that $ out of the coins (`holdCashUsd` + a `skimPark` row with its own `hold`), and
+  `release_parked` puts it back to work when its rounds are up. Event "🅿 OSSY banked $X of $SYM's sale for N rounds". 0 = straight back to work.

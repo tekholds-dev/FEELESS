@@ -974,12 +974,6 @@ def valve_fill(cands, empty_since, now, last_at=None, blocked=(), rec=None):
 LOSING_N, LOSING_MED, LOSING_WON = 10, -3.0, 35.0   # an entry read is "losing" on ≥ 10 real agent trades with a typical ≤ −3% and < 35% won
 
 
-def entry_code(c):
-    """The chart's entry rule a candidate was read with ('E4 no direction yet' → 'E4'), or None."""
-    e = ((c or {}).get('chart') or {}).get('entry') or []
-    return str(e[1]).split(' ')[0] if len(e) > 1 and e[1] else None
-
-
 def losing_entries(positions):
     """🧠 THE AGENTS LEARN WHICH ENTRY READS LOSE (owner, 2026-10-17: "fix agents trades, OSSY and G4 pretty good"): their own closed real
     trades (never the models', never the owner's picks) grouped by the chart's entry rule at the buy → {code: (n, typical, won %)} for every

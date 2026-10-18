@@ -10666,10 +10666,10 @@ async def _prime_tick_inner(now):
                 dec_ = [x for x in dec_ if x.get('pair') not in g4p_ or any(h_ in str(x.get('why')) for h_ in ('R1 ', 'R5x', 'R5c', 'R9c', 'drain'))]
                 w_ = _g4.get('want')
                 if w_ and w_.get('action') == 'SELL' and _seat.fresh(w_, now) and pol_.get('aiSeat') == 'real' and w_.get('pair') in g4p_ and not any(x.get('pair') == w_['pair'] for x in dec_):
-                    dec_.append({'action': 'pull', 'pair': w_['pair'], 'symbol': g4p_[w_['pair']].get('symbol'), 'why': f"🧠 {w_.get('model') or 'G4'} sold: {w_.get('why')}"})
+                    dec_.append({'action': 'pull', 'pair': w_['pair'], 'symbol': g4p_[w_['pair']].get('symbol'), 'why': f"🧠 {w_.get('model') or 'G4'} sold: {w_.get('why')}", 'bank': w_.get('bank'), 'bankBy': w_.get('model')})
                     _g4['want'] = None
                 elif w_ and w_.get('action') == 'TRIM' and _seat.fresh(w_, now) and pol_.get('aiSeat') == 'real' and w_.get('pair') in g4p_ and not any(x.get('pair') == w_['pair'] for x in dec_):
-                    dec_.append({'action': 'trim', 'pair': w_['pair'], 'symbol': g4p_[w_['pair']].get('symbol'), 'pct': w_.get('trim') or 50, 'why': f"🧠 {w_.get('model') or 'G4'} banked {w_.get('trim') or 50}%: {w_.get('why')}"})   # ✂ its trade, its call
+                    dec_.append({'action': 'trim', 'pair': w_['pair'], 'symbol': g4p_[w_['pair']].get('symbol'), 'pct': w_.get('trim') or 50, 'why': f"🧠 {w_.get('model') or 'G4'} banked {w_.get('trim') or 50}%: {w_.get('why')}", 'bank': w_.get('bank'), 'bankBy': w_.get('model')})   # ✂ its trade, its call
                     _g4['want'] = None
             if ctl_:   # ⇄ the switching evaluation the page shows: each held coin against the best READY challenger (display only — `positions.manage` decided)
                 try:
@@ -10713,9 +10713,13 @@ async def _prime_tick_inner(now):
                             st_o = _office_state(); st_o['lostAt'] = {**{m_: a_ for m_, a_ in (st_o.get('lostAt') or {}).items() if now - _fuse._f(a_) < _oe.FAILED_SEC}, lg_.get('mint'): now}
                         cur['agentExitAt'] = now
                         cur = _prime.agent_pull(cur, x['pair'], px, liqs, now, x['why'])   # in control: banked to FREE card cash, the seat opens for their next coin
+                        if x.get('bank'):   # 🅿 the model chose to park this sale's proceeds out of the coins for 1–3 rounds
+                            cur = _prime.park_bank(cur, _fuse._f((cur['events'][-1] or {}).get('usd')), x['bank'], now, x.get('symbol'), x.get('bankBy'))
                         cur = _prime.note_dropped(was_, cur, now, cfg_t['rotateHours'], px)
                     elif x['action'] == 'trim' and ctl_:   # 💰 scale-out: half banked, the rest rides the trail
                         cur = _prime.agent_trim(cur, x['pair'], px, liqs, now, x.get('pct') or _of.PICK_LOCK_SELL if (x.get('pct') or 'R5b' in str(x['why'])) else (_of.scale_of(pol_) or (0, _of.SCALE_PCT))[1], x['why'])   # 🔒 your pick: a portion, the rest rides your stop
+                        if x.get('bank'):
+                            cur = _prime.park_bank(cur, _fuse._f((cur['events'][-1] or {}).get('usd')), x['bank'], now, x.get('symbol'), x.get('bankBy'))
                     elif x['action'] == 'pull':
                         cur = _prime.sell_leg_to_cash(cur, x['pair'], px, now, 100.0)
                         cur['events'].append({'at': now, 'kind': 'agent', 'symbol': x['symbol'], 'why': f"🤖 agents pulled ${x['symbol']}: {x['why']}"})
