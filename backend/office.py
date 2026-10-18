@@ -598,9 +598,10 @@ def reap(legs, table, prices, cfg, pos, now, scalp=None, control=False, weather_
         if pol.get('sl'):   # 🎛 CREATOR OVERRIDE: your maximum tolerated loss can only make the stop TIGHTER (the catastrophic stop stays above it, untouched)
             stop = min(stop, _f(pol['sl']))
         tier_ = _opp.tier_of_tag((l.get('bought') or {}).get('tag'))
-        if tier_ in _opp.TIER_STOP:   # 🎯 a lower-confidence entry risks less: the stop ceiling follows its tier (A 25 · B 18 · C 12) — only ever TIGHTER
+        germ_hold_ = bool((th or {}).get('germStop'))   # 🦠 a germ entry rides to its germ floor: no tier / sellers tightening (owner: "don't be scared of it dropping back to the germ") — $GLITCH was cut at −7% with its floor 17.8% away
+        if tier_ in _opp.TIER_STOP and not germ_hold_:   # 🎯 a lower-confidence entry risks less: the stop ceiling follows its tier (A 25 · B 18 · C 12) — only ever TIGHTER
             stop = min(stop, _opp.TIER_STOP[tier_])
-        if fv_ and fv_.get('state') == 'SELLERS' and pct < 0:   # 🌊 sellers lead a red seat: the stop tightens (never wider, never under the floor)
+        if fv_ and fv_.get('state') == 'SELLERS' and pct < 0 and not germ_hold_:   # 🌊 sellers lead a red seat: the stop tightens (never wider, never under the floor)
             stop = min(stop, max(_ci.STOP_FLOOR, stop * FLOW_TIGHT))
         noise_ = is_noise(x)   # 🔊 a coin with MASSIVE volume swings 20–30% on noise: wide stop + a later take (owner, 2026-10-15)
         sc_ = scale_of(pol)   # 💰 None = the owner switched the scale-out off

@@ -5040,7 +5040,7 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   the cockpit chart (`kind: 'wallet'`, green buy / pink sell, lowest pin priority per candle).
 - 🦠 GERM ENTRIES RIDE TO THE FLOOR + HH/HL IS A PULLBACK (owner, 2026-10-18: "buy the germ and don't be scared of it dropping back"; "horrible
   entry" on $GLITCH): an agent coin whose thesis stop is a germ stop (`germStop`) keeps it up to `AGENT_GERM_STOP_MAX` 20% (other agent stops
-  stay capped at 15); `setups_of` counts HH/HL only ≥ `HHHL_PULLBACK` 8% under the high — $GLITCH was an "HH/HL" buy 5.4% under its gun line,
+  stay capped at 15) and is never shrunk by the tier stop or "sellers lead" (they cut $GLITCH at −7% with its floor 17.8% away); `setups_of` counts HH/HL only ≥ `HHHL_PULLBACK` 8% under the high — $GLITCH was an "HH/HL" buy 5.4% under its gun line,
   right after the run. A coin at its top only qualifies through the germ.
 - 🚀 NO BUYING THE CANDLE THAT JUST PRINTED (2026-10-18, $DICKBUTTIFIER: bought 13% above its germ right after a +17% candle): an agent germ
   buy sits within `office_edge.AGENT_GERM_ENTRY` 8% of the floor (the models' list keeps the owner's 15%), and the fill loop skips a coin whose

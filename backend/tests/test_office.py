@@ -733,3 +733,12 @@ def test_reaper_moves_his_own_lines_from_what_the_wallets_do_after_the_buy():
     smart = {'badSell': 0.0, 'badBuy': 0.0, 'smartBuy': 400.0, 'smartSell': 50.0}
     assert of.reaper_adjust(8.0, 50, -15, smart)['tp'] == 62                       # smart money buying → room to run
     assert of.reaper_adjust(8.0, 50, -15, {'badSell': 20.0, 'badBuy': 0, 'smartBuy': 0, 'smartSell': 0}) == {}
+
+
+def test_a_germ_entry_is_not_cut_by_the_tier_or_sellers_tightening():
+    import office as of
+    LEG_ = {'mint': 'A', 'symbol': 'A', 'pairAddress': 'PA', 'entry': 1.0, 'units': 1.0, 'at': 1, 'liq': 60_000, 'liqNow': 60_000, 'bought': {'tag': '🤖 agents · 🎯 ARMED (seat target)'}}
+    ROW_ = {'mint': 'A', 'symbol': 'A', 'pair': 'PA', 'px': 0.93, 'why': {'lean': 1.0, 'drivers': []}, 'trigger': ['wait', ''], 'devil': ['—', ''], 'nums': {'d5': -1, 'buy': 40, 'liq': 60_000},
+            'vitals': {'safe': True, 'rug': 5}, 'fv': {'state': 'SELLERS'}}
+    r = of.reap([LEG_], [ROW_], {'PA': 0.93}, {}, None, 100, theses={'A': {'stopPct': 17.8, 'germStop': True}})[1][0]
+    assert r['action'] != 'pull' and r['stop'] <= -12                              # −7% is not its stop: the germ floor is
