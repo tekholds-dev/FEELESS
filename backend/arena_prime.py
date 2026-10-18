@@ -3224,6 +3224,42 @@ def leg_sl(l, t):
     return _f(l.get('sl')) or t['sl']
 
 
+GERM_STRETCH = 2.0   # paper cards: a coin past 2× the germ line is not bought while closer ones exist
+LINES_TAKE_ATR, LINES_TAKE_MAX = 12.0, 200.0
+
+
+def germ_order(rows, dist_of, line):
+    """🦠 PAPER CARDS BUY AT THE GERM (owner, 2026-10-17: "fuse paper cards should have all the new mechanics — buying the germ"): coins
+    within the germ line first, then coins with no germ read, then the stretched ones (≤ 2× the line); coins past 2× are dropped when
+    anything else is left. Order inside each group is kept (the engine's own rank). No agent / AI: the chart's germ floor only."""
+    if not line:
+        return list(rows or [])
+    near, unread, far, out = [], [], [], []
+    for r in rows or []:
+        d = dist_of(r.get('mint'))
+        if d is None:
+            unread.append(r)
+        elif abs(d) <= line:
+            near.append(r)
+        elif d <= line * GERM_STRETCH:
+            far.append(r)
+        else:
+            out.append(r)
+    return (near + unread + far) or out
+
+
+def coin_lines(l, t, f, state=None, ctx=None):
+    """🎯 NO ONE STRAT FITS EVERY COIN, on paper cards too (no agent, no AI): a coin's take = max(the tier's, 12 × its own average 1-min
+    candle %), ≤ +200%; its stop = the gap to its own support + 2 of its candles (chart_intel.stop_for), never wider than the tier's.
+    → {tp, sl} or {} (no chart read, or the owner set its lines)."""
+    if not f or _f(f.get('atr')) <= 0 or l.get('ownerLvAt') or l.get('picked'):
+        return {}
+    import chart_intel as _ci
+    tp = round(min(max(_f(t.get('tp')), LINES_TAKE_ATR * _f(f['atr'])), LINES_TAKE_MAX))
+    sl, _p = _ci.stop_for(f, state, ctx, ceiling=_f(t.get('sl')) or 20.0)
+    return {'tp': tp, 'sl': round(_f(sl))}
+
+
 def ticket_stops(c, cfg):
     """🛑 The ticket-stop pass of every tick: trench tickets follow the owner's ticket setting (OFF = ride or rug) or the trench brain's learned
     stop — EXCEPT a coin whose line the owner dragged by hand (leg ownerLvAt): that line is never overwritten. Mutates `c`."""

@@ -2918,3 +2918,15 @@ def test_your_seat_pick_takes_a_reserved_seat_on_a_full_card():
     c = ap.tick(card, {'PA': 1.0, 'PMAC': 1.0}, [], [], cfg, now + 30, [], {}, {})
     mac = [l for l in c['legs'] if l['mint'] == 'MAC' and not l.get('placeholder')]
     assert mac and mac[0].get('picked') and not c.get('seatPick')
+
+
+def test_paper_cards_buy_at_the_germ_and_each_coin_gets_its_own_lines():
+    import arena_prime as ap
+    rows = [{'mint': 'far'}, {'mint': 'none'}, {'mint': 'near'}, {'mint': 'stretch'}]
+    d = {'far': 40.0, 'near': 6.0, 'stretch': 25.0}
+    assert [r['mint'] for r in ap.germ_order(rows, d.get, 15)] == ['near', 'none', 'stretch']
+    assert [r['mint'] for r in ap.germ_order([{'mint': 'far'}], d.get, 15)] == ['far']   # nothing else left: still dealt
+    t = {'tp': 40, 'sl': 20}
+    ln = ap.coin_lines({'mint': 'x'}, t, {'atr': 5.0, 'support': None}, 'UPTREND', {'liq': 80000, 'ageH': 10})
+    assert ln['tp'] == 60 and 0 < ln['sl'] <= 20
+    assert ap.coin_lines({'mint': 'x', 'picked': True}, t, {'atr': 5.0}) == {} and ap.coin_lines({'mint': 'x'}, t, None) == {}

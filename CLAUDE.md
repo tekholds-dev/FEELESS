@@ -4974,3 +4974,8 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
 - 🗣 3–4 SENTENCES MAX (owner, 2026-10-17: "G4 has a story"): `ai_seat.short_why` keeps the first `WHY_SENT` 4 sentences of every model line
   (seat · advice · idle · review; a review's lesson = 2), the prompts ask for "3-4 short sentences MAX"; an answer cut off mid-JSON is read by
   `_cut_json` (its action + why) — the raw `{"action":…` never reaches the chat again.
+- 🦠 PAPER FUSE CARDS GET THE NEW MECHANICS — no agent, no AI (owner, 2026-10-17): `arena_prime.germ_order` orders a paper card's runner
+  candidates by the chart's germ floor (inside the germ line → no read → ≤ 2× the line; past 2× only when nothing else is left) and
+  `arena_prime.coin_lines` gives each paper coin its OWN take (max(tier, 12 × its 1-min candle %), ≤ 200) and stop (chart_intel.stop_for,
+  never wider than the tier's), once (`autoLv`), from the agents' shared chart snapshot. Owner picks / owner lines are never touched.
+  `PRIME_RESET` 'paper20d' restarted every paper card on $20 (old runs in the record).

@@ -8982,7 +8982,7 @@ def _fw_market_rows(cards, books):
 
 
 LEAGUE_RESET = 'restart1'
-PRIME_RESET = 'paper20c'   # (2026-10-13: owner — "reset and upgrade fuse arena cards, they are losing"; ⚡ Next Level now inherits the agents)   # was 'paper20b'   # (2026-10-05: owner asked for a second restart)   # one-time: every PAPER tier card starts over on $20 (the real card is never touched)
+PRIME_RESET = 'paper20d'   # (2026-10-17: owner — "paper cards get the new mechanics: germ buying + per-coin lines; reset them")   # (2026-10-13: owner — "reset and upgrade fuse arena cards, they are losing"; ⚡ Next Level now inherits the agents)   # was 'paper20b'   # (2026-10-05: owner asked for a second restart)   # one-time: every PAPER tier card starts over on $20 (the real card is never touched)
 
 
 PRIME_UNIQUE = 'unique2'
@@ -10940,6 +10940,9 @@ async def _prime_tick_inner(now):
                 sol_px_t = 0.0
             if bk and sol_px_t > 0 and not bk.get('pending'):
                 true_usd = _fw.book_value(bk, px, sol_px_t) or None
+        if not real_t:   # 🦠 paper cards buy at the germ: coins inside the germ line first, past 2× it only when nothing else is left
+            gd_ = lambda m_: (lambda g_: _fuse._f(g_['dist']) if g_ and g_.get('dist') is not None else None)((((_office.get('charts') or {}).get(m_) or {}).get('f') or {}).get('germ'))
+            r_t = _prime.germ_order(r_t, gd_, _uni.germ_max())
         if not real_t:   # 🧪 UNIQUE COINS: a paper card never holds a coin another card holds (anchors too, while another major is free)
             taken_ = {l.get('mint') for t2, c2 in cards.items() if t2 != tid for l in (c2 or {}).get('legs') or [] if l.get('symbol') != 'SOL'}
             p_t, r_t = _prime.unique_rows(p_t, taken_), _prime.unique_rows(r_t, taken_)
@@ -10968,6 +10971,15 @@ async def _prime_tick_inner(now):
         cards[tid] = _prime.tick(cur, px, p_t, r_t, cfg_t, now, a_t, mom, liqs, true_usd=true_usd, blind=bool(real_t and true_usd is None)) if cur else _prime.deal(tid, p_t, r_t, cfg_t, now, [] if new_only_ else anchors)
         if cards[tid] is not None:
             cards[tid]['rebuyDip'] = int(cfg_t.get('rebuyDipPct') or 0)
+        if not real_t and cards[tid] is not None:   # 🎯 no one strat fits every coin: each paper coin gets its OWN take / stop from its chart, once (no agent, no AI)
+            t_l = _prime.card_template(cards[tid].get('tpl'), cfg_t)
+            for l_ in cards[tid].get('legs') or []:
+                if l_.get('autoLv') or l_.get('placeholder') or _fuse._f(l_.get('tp')) > 0 or _fuse._f(l_.get('sl')) > 0 or _prime.safe_anchor(l_):
+                    continue
+                ch_ = (_office.get('charts') or {}).get(l_.get('mint')) or {}
+                ln_ = _prime.coin_lines(l_, t_l, ch_.get('f'), ch_.get('state'), {'liq': l_.get('liq'), 'ageH': l_.get('ageH')})
+                if ln_:
+                    l_.update(ln_, autoLv=round(now))
         cards[tid] = _prime.note_dropped(cur, cards[tid], now, cfg_t['rotateHours'], px)
         if real_t and cur and cards[tid]:   # 🧠 every coin that left the real card this tick is a lesson
             try:
