@@ -5002,3 +5002,11 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   germ, then breakouts (`SETUP_SCORE`, by the agents' own record: HH/HL −2.9 typical over 70, germ −4.4 over 54, breakout held −3.8 over 34).
   `losing_entries` now keys the FULL entry read, so "E10 breakout held" is judged apart from "E10 breakout without buyers" — while its own
   record loses it stays held back too, and comes back when it turns. None of the three is a winner for the agents yet: the leak is exits next.
+- 🎩 THE SICARIO FAMILY (owner, 2026-10-17): `fee_voice.GODFATHER` / `ai_seat.VOICE` — "we are the Sicario family; the owner is THE GODFATHER,
+  Mr. Sicario" (call him Godfather or Mr. Sicario). G4 = the Corleone-cold son of the Sicario family, OSSY = laid back. LM presets follow by themselves.
+- 🧪 AGENT EXIT STUDY (2026-10-17, owner: "true fix exits" — READ BEFORE TOUCHING REAPER): 206 agent exits with the 30 min after each sale
+  (after_paths) — stops / R5t / R11 / R4 were RIGHT (the coin was lower 30 min later 67–75% of the time). A 25–50% runner bag on winners
+  (wide trail, breakeven floor) LOST 2–5 pts a trade; obeying the thesis' tighter stop instead of the noise stop: no gain; a 144-setting grid
+  (stop 12–25 · take 0/25/40/60 · arm 6–15 · give 30–50%) on 176 full paths: EVERY setting worse on average than Reaper's real exits (best
+  −4.2 avg vs −2.5 real, though median −1.3 vs −4.2). Exits are not the leak; entries are (54% of agent trades never reached +3%). The models'
+  edge: winners that reached +10% banked +16.6 typical (n 11) vs the agents' +7.5 (n 48) — selection + holding to their own lines.
