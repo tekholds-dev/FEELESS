@@ -4955,8 +4955,8 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   review · lesson · pin cards), prompts ask for the full read (no "under 160 chars"), your chime-ins keep 800. The model's answer budget
   (`ai_router.MAX_TOKENS` 700, raised so a long line never cuts the JSON) is the only bound left.
 - 🔁 BACK AND FORTH (owner, 2026-10-17: "why only OSSY talking — they take turns"): `ai_seat.TALK_EVERY` 0 — while a trade runs the partner
-  answers EVERY holder call, at 'seat' priority (never minute-capped, before every other call); skipped only when the holder just moved its
-  own TP / SL / trail. A SELL / TRIM still waits for the reply first.
+  answers EVERY holder call, at 'seat' priority (never minute-capped, before every other call); the holder's line moves apply at once and never wait for it (the old "lines-only = no reply" rule
+  silenced OSSY: G4 moves lines every minute). A SELL / TRIM still waits for the reply first.
 - 🚫 THE DESKTOP MODEL IS THE OWNER'S (2026-10-17, after the keeper reloaded it to defaults again: "stop reloading the damn model"): the desktop
   keeper (`feeless_mcp.install_script` lan-keep) NEVER loads, unloads, reloads or downloads a model — it keeps LM Studio's server up and pulls
   prompt / MCP updates, each written only when it changed (preset via `cmp`, mcp.json only when the feeless entry differs). The router asks

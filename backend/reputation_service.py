@@ -14199,8 +14199,7 @@ async def _g4_tick(now, env, cfg):
         if row_.get('mint') and dec_ and by_m in (first_, second_):
             _dv_note(row_, px_of(row_['mint']), now)
         talk_at = st_.get('talkAt') or 0.0
-        lines_only_ = bool(ch_l) and (dec_ or {}).get('action') == 'HOLD' and not propose_   # ✋ the holder only moved its own TP / SL / trail: no reply needed
-        if propose_ or (held_ and dec_ and by_m != 'agents' and not lines_only_ and now - talk_at >= _seat.TALK_EVERY):   # 🔁 back and forth: the partner answers EVERY holder call   # 🤝 a SELL / TRIM of the held trade waits for the partner's word (≤ ADVISE_SEC); otherwise   # 💬 the partner reads the SAME trade and advises; the holder sees it next minute (it never decides)
+        if propose_ or (held_ and dec_ and by_m != 'agents' and now - talk_at >= _seat.TALK_EVERY):   # line moves were applied above already — they never wait for the reply   # 🔁 back and forth: the partner answers EVERY holder call   # 🤝 a SELL / TRIM of the held trade waits for the partner's word (≤ ADVISE_SEC); otherwise   # 💬 the partner reads the SAME trade and advises; the holder sees it next minute (it never decides)
             talk_at = now
             try:
                 t0b = time.perf_counter()
