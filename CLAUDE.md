@@ -5148,3 +5148,21 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   ×1.2 first; no read = her own lanes (never MORE trades). Each new lesson = one 🎓 LEARN line (`_duo_learn`, `duoSeen`). Positions keep
   `setups` / `read` / `duoAtEntry`. HQ › Fee desk (`FeeCatLive.jsx`): 📈 two charts (open trades first, then next picks, her read in words),
   ⚡ live activity (30 events, 6s), 🎓 LEARNED FROM OSSY · G4.
+- 🎯 OSSY / G4's TAKE-PROFIT REALLY FIRES (2026-10-19): in `office.reap` a model's own lines (R7a / R5m / R6m) now outrank every soft rule (`MODEL_OUTRANK` = only
+  hard exits beat them) — an agents' trail firing first used to skip R6m, then the AI seat turned it into HOLD; the Consigliere stands aside on a coin a model
+  lined. ⚡ `office.rush_take` (6s guard, beside `fast_reap`): at the model's take a hot buyer tape (flow BUYERS + hot) RAISES the take ×1.3 with a 25% trail
+  (≤ 3 times a trade, one per 45s, card event); otherwise it sells at once.
+- 🎙 The LM Studio preset is STATIC now: live memory is the MCP tool `feeless_brief` (never pasted into the prompt) — a preset rewritten every 10 min made LM
+  Studio show "unsaved" and the owner kept pressing Save. `fee_prompt(live=True)` still builds the old text for anything that wants it inline.
+- 🐱🤖 FeeCat AGENTS LANE (`feecat_service._agents_qualifies` + `agent_lane`): a coin from the agents' desk is judged on the agents' own band (pool payload
+  `limits`: MC band, age, pool floor, 1h volume) with her overrides on top (cat `agentLane`); READY = full size, CONTENDING = half. Her old lanes refused all
+  39 agent coins (cap band 16, liquidity 11, too new 7). Duo read every 4 min (`FEECAT_DUO_SEC` 240). She is PAPER — no wallet path exists for her.
+- 🫀 Chart entry = the ENTRY VITAL ring (ChartLive `RING` / `ringFill`: arc = move since the buy, full at ±50%, + held time); fills are small dots
+  (`fillArrows` → circle 0.6), no arrows. Call-pin trails get a beating head; hot pins (≤ 5 min, BUY / SELL / TRIM, ≥ 10% off) ring (`isHot`).
+- 🧠 Brain › Models (`ModelLive.jsx`, owner `GET /admin/ai/calls`, `ai_router.CALL_LOG` / `INFLIGHT` / `calls_view`): each call in flight with % = elapsed ÷
+  that model's own average (waits at 99% until it lands) + the last 30 prompts / answers (keys + 32+ char runs masked, memory only). Brain tabs = Talk ·
+  Models · 🎓 Learn (Coach · Teach · Your trades · Learned as a sub-row) · Lab · Activity.
+- ✨ `styles/hoverRays.css` = hover rays on every `.token-avatar` + `.mc-stage` (hover only). Tap a germ chip → `germWhy` (floor ← you → gun line, 3 lines).
+- 🛡 CREWS v2 (`crews.py` set_code / code_ok / post / bounty_* / launch, `POST /crews/act`): passcode generated (16 chars) or your own, stored as a salted
+  SHA-256, shown ONCE; board posts + replies; bounties pay crew POINTS only; crew launch pin (live price). UI: podium of `CrewCard3D` (electric border spins
+  with `heat`, pointer tilt), CrewHQ tabs, `TopCrews` on Home + the globe, `CrewProfile` in profile Activity › 🛡 Crew.
