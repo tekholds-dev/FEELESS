@@ -7688,7 +7688,50 @@ async def fuses_feecat_pool():
     except Exception:
         kr = []
     ar_ = ((_contenders_cache.get('data') or {}).get('all') or []) if isinstance(_contenders_cache.get('data'), dict) else []
-    return {'at': time.time(), 'rows': feecat_pool_rows(kr, ar_)}
+    rows_ = feecat_pool_rows(kr, ar_)
+    now = time.time()
+    log_ = list((_g4_mem.get() or {}).get('log') or [])
+    for r_ in rows_:   # 🐱 she reads every coin the way the agents + OSSY / G4 do (owner, 2026-10-18: "latest methods — HH/HL, germ")
+        try:
+            x_ = _tk.KERNEL.candidate(r_['mint']) if r_.get('mint') else None
+        except Exception:
+            x_ = None
+        if x_:
+            r_['read'] = feecat_read(x_, _oe.setups_of(x_, _uni.germ_max()), _g4_bad_entry(x_))
+        r_['duo'] = duo_word(log_, r_.get('mint'), now)
+    try:
+        tot_ = {k_: {'n': v_['n'], 'won': round(100 * v_['won'] / v_['n']) if v_['n'] else 0, 'med': round(v_['pct'] / v_['n'], 1) if v_['n'] else 0, 'usd': v_['usd']}
+                for k_, v_ in (_duo_totals() or {}).items() if k_ in ('OSSY', 'G4')}   # their REAL closed trades (ledger), all time
+    except Exception:
+        tot_ = {}
+    return {'at': now, 'rows': rows_, 'duo': duo_lessons(log_, tot_)}
+
+
+def feecat_read(c, setups, bad):
+    """🐱 One coin's chart read for FeeCat (pure): the three setups it shows, why it is a bad entry (gun line / chase / spike / SKIP), and the
+    numbers behind them — germ distance, structure, higher / lower lows, how far under its high."""
+    ch = (c or {}).get('chart') or {}
+    gd = ch.get('germDist') if ch.get('germDist') is not None else ch.get('germ5Dist')
+    return {'setups': list(setups or []), 'bad': bad or None, 'struct': ch.get('state'), 'germ': None if gd is None else round(_fuse._f(gd), 1),
+            'hl': int(_fuse._f(ch.get('hl'))), 'll': int(_fuse._f(ch.get('ll'))), 'distHigh': None if ch.get('distHigh') is None else round(_fuse._f(ch.get('distHigh')), 1)}
+
+
+def duo_word(log, mint, now, window=1800.0):
+    """🤝 OSSY / G4's newest BUY or SELL on this coin in the last 30 min (pure) → {who, action, why, ago} or None."""
+    for r in reversed(log or []):
+        if r.get('mint') != mint or now - _fuse._f(r.get('at')) > window:
+            continue
+        act = r.get('action') if r.get('action') in ('BUY', 'SELL') else (r.get('view') if r.get('view') in ('BUY', 'SELL') else None)
+        if act and r.get('model') in ('OSSY', 'G4'):
+            return {'who': r['model'], 'action': act, 'why': str(r.get('why') or '')[:160], 'ago': round(now - _fuse._f(r.get('at')))}
+    return None
+
+
+def duo_lessons(log, by_model):
+    """🎓 What FeeCat learns from OSSY / G4 (pure): each model's own closed-trade record + their newest final-review lessons."""
+    les = [{'who': r.get('model') or r.get('by'), 'symbol': r.get('symbol'), 'pct': r.get('pct'), 'at': r.get('at'), 'lesson': str(r.get('why') or '')[:220]}
+           for r in reversed(log or []) if r.get('action') == 'REVIEW'][:6]
+    return {'record': by_model or {}, 'lessons': les}
 
 
 @app.get('/api/reputation/fuses/edge')
@@ -13428,7 +13471,22 @@ async def fuse_wallet_recover_sell(request: Request):
     Confirmed proceeds stay inside the original card as active cash/SOL."""
     me = _require_owner(request)
     body = await request.json()
-    tid, mint = body.get('tpl'), str(body.get('mint') or '').strip()
+    return await _fw_recover_sell(me, body.get('tpl'), str(body.get('mint') or '').strip())
+
+
+@app.post('/api/reputation/admin/fuse-wallet/coin-sell')
+async def fuse_wallet_coin_sell(request: Request):
+    """↩ One coin chip on the Fuse wallet → sell it (owner, 2026-10-18: "should be able to sell / burn"): the card that last traded this coin
+    is found from the ledger, then the same recover-sell path runs (the keeper sells it back to SOL into that card's cash)."""
+    me = _require_owner(request)
+    mint = str((await request.json() or {}).get('mint') or '').strip()
+    tid = next((r.get('card') for r in reversed(_fw_full_ledger()) if r.get('mint') == mint and r.get('pair') and r.get('card') in _prime.TEMPLATES), None)
+    if not tid:
+        raise HTTPException(400, 'No card ever traded this coin — sell it from your own wallet (Trade › 🧹 Dust).')
+    return await _fw_recover_sell(me, tid, mint)
+
+
+async def _fw_recover_sell(me, tid, mint):
     if tid not in _prime.TEMPLATES or not mint:
         raise HTTPException(400, 'Pick a real tier card and token.')
     cfg = _fw_cfg()
@@ -15934,6 +15992,9 @@ async def fuse_wallet_close_dust(request: Request):
         mints = [r_['info'].get('mint') for r_ in rows if (r_.get('info') or {}).get('mint') and r_['info']['mint'] not in keep]
         px = await _jup_prices(mints) if mints else {}
         dead = _fw.dead_accounts(rows, keep, px, off, never=never)
+        if body.get('mints'):   # 🔥 one chip's Burn: only the coins asked for (still only dead ones — a coin worth 5¢+ is sold, never burned)
+            want_ = {str(m_) for m_ in body['mints']}
+            dead = [x_ for x_ in dead if x_['mint'] in want_]
         sol_px = await _sol_usd_live()
         plan = {'accounts': [{**x_, 'symbol': next((r_.get('symbol') for r_ in reversed(_fw_full_ledger()) if r_.get('mint') == x_['mint'] and r_.get('symbol')), None)} for x_ in dead],
                 'rentSol': round(sum(x_['rentSol'] for x_ in dead), 9), 'dustUsd': round(sum(x_['usd'] or 0 for x_ in dead), 4), 'solUsd': sol_px,
@@ -23288,8 +23349,10 @@ async def admin_feecat_get(request: Request):
         r = await http.get('http://127.0.0.1:5088/api/cats/internal/rules', headers={'x-feeless-internal': _internal_key()})
         prof = (await http.get('http://127.0.0.1:5088/api/cats/leader/profile')).json()
         activity = (await http.get('http://127.0.0.1:5088/api/cats/activity?catId=leader')).json()
-    sc_ = (_json_load(DATA_DIR / 'feecats.json', {}) or {}).get('scan') or {}   # 🔎 why she is / isn't trading: her own last scan (scanned → passed → rejections)
-    return {**r.json(), 'learning': prof.get('learning'), 'stats': prof.get('stats'), 'events': (activity.get('events') or [])[:12],
+    st_fc = _json_load(DATA_DIR / 'feecats.json', {}) or {}
+    sc_ = st_fc.get('scan') or {}   # 🔎 why she is / isn't trading: her own last scan (scanned → passed → rejections)
+    return {**r.json(), 'learning': prof.get('learning'), 'stats': prof.get('stats'), 'events': (activity.get('events') or [])[:30],
+            'duoLearn': st_fc.get('duoLearn') or {},   # 🎓 what she takes from OSSY / G4: their record + final-review lessons
             'discipline': prof.get('discipline'), 'strength': prof.get('strength'), 'exits': (prof.get('exits') or [])[-12:],
             'scan': {k: sc_.get(k) for k in ('at', 'scanned', 'passed', 'rejections', 'top', 'brainRejects', 'safetyRejects')},
             'duo': {k: _feecat_ai.get(k) for k in ('read', 'avoid', 'exit', 'split', 'why', 'models')},   # 🤝 her one duo AI read per 10 min

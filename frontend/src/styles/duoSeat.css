@@ -184,13 +184,3 @@ body.theme-day .dso-room { background: rgba(240, 234, 252, .8); } body.theme-day
 .dsb .dsb-av { display: inline-block; }
 .dso-rooms button.is-coin { border-style: dashed; } .dso-rooms button.is-coin small { font-size: 8.5px; opacity: .75; }
 
-/* 🔊 trade chat voices */
-.dso-voice { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 4px 0 6px; }
-.dso-voice > .m-btn { padding: 3px 9px; font-size: 10px; }
-.dso-voice > .m-btn.on { background: #15d16a; color: #04130a; }
-.dso-voice .m-seg button { font-size: 10px; padding: 3px 8px; }
-.dsb-say { font-size: 10px; opacity: .65; transition: opacity .15s, transform .15s; }
-.dsb-say:hover, .dsb-say:focus-visible { opacity: 1; transform: scale(1.12); }
-.dsb-say:active { transform: scale(.94); }
-body.theme-day .dso-voice > .m-btn.on { background: #0e8f48; color: #fff; }
-@media (prefers-reduced-motion: reduce) { .dsb-say { transition: none; } }

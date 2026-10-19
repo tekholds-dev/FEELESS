@@ -16,3 +16,16 @@
 body.fx-lite .cwc-clean { animation: none; }
 body.theme-day .cwc-c { background: rgba(236, 246, 240, .8); } body.theme-day .cwc-c small { color: #0e8a4a; }
 @media (max-width: 640px) { .cwc-clean span { min-width: 0; } }
+
+/* ↩ / 🔥 a coin chip on the Fuse wallet opens Sell / Burn */
+.cwc-c.is-act { position: relative; cursor: pointer; transition: border-color .15s, transform .15s; }
+.cwc-c.is-act:hover, .cwc-c.is-open { border-color: #15d16a; transform: translateY(-1px); }
+.cwc-hit { position: absolute; inset: 0; z-index: 1; background: none; border: 0; border-radius: inherit; cursor: pointer; }
+.cwc-hit:focus-visible { outline: 2px solid #45e486; outline-offset: 2px; }
+.cwc-menu { position: absolute; top: calc(100% + 6px); left: 0; z-index: 5; display: flex; gap: 6px; padding: 6px; border-radius: 10px; background: #06100b;
+  border: 1px solid rgba(69, 228, 134, .4); box-shadow: 0 10px 24px -10px #000; animation: cwcIn .15s ease-out both; }
+.cwc-menu .m-btn { padding: 4px 10px; font-size: 11px; white-space: nowrap; }
+.cwc-menu .is-burn { border-color: #ff8fa3; color: #ff8fa3; }
+@keyframes cwcIn { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) { .cwc-menu { animation: none; } .cwc-c.is-act { transition: none; } }
+body.theme-day .cwc-menu { background: #eef6f1; }

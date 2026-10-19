@@ -1,6 +1,7 @@
 import React, { act } from 'react';
 import { createRoot } from 'react-dom/client';
 import { FeeCatDesk, feeFunnel } from './FeeCatDesk';
+jest.mock('../terminal/PriceChart', () => ({ PriceChart: () => null }));
 jest.mock('./FeeBrain', () => ({ FeeBrain: () => null }));
 
 test('the scan reads as a funnel with the stopping rules ranked', () => {

@@ -5134,11 +5134,17 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   (every dollar in the agents' coins) hit `agent_seat`'s ValueError and the loop `break`'d silently. Now the reason is filed (`not seated — …`)
   and, when cash is the reason, `arena_prime.make_room` trims the AGENTS' biggest coin above an equal share (never your pick / lines /
   certified, never riding / frozen / buying / the other model's seat) and the BUY is kept for the next tick. A blocked coin names its refusal.
-- 🔊 TRADE CHAT VOICES (`lib/tradeVoice.js`, DuoSeat `dso-voice`): browser speech only (nothing sent anywhere) — 🧢 Gangster · 🎩 Mob boss ·
-  🎙 Fight announcer · 👾 Trench gremlin (pitch / rate / preferred system voice + their own opener / closer); 🔊 on every line, "read new lines"
-  auto mode, pick remembered (`feeless.duoVoice`).
+- 🔇 Trade chat voices were tried and REMOVED (owner, 2026-10-18: "it stinks") — no text-to-speech in the OSSY × G4 chat.
 - ⬆⬇ Every entry / exit marker on every chart = a plain green ▲ / red ▼, no label (`lib/fillArrows.js`, applied in PriceChart's marker effect);
   calls, READY dots and vetoes keep their own look.
 - 🎨 FEEd v2: full width (the profile rails step aside while FEEd is open), 🎨 Look panel (`lib/feedLook.js`: background void · royal · nebula ·
   sunset · matrix · paper · font clean / mono / serif / loud · text S–XL · accent · density, `feeless.feedLook`), 🔗 Your sites = your PUBLIC
   X / Reddit / Bluesky / Telegram names → profile links (never a password / token). Logging in to read X needs an X API app (paid).
+- ↩🔥 FUSE WALLET COIN CHIPS (HQ › Circle wallets): tap a chip → ↩ Sell (`POST /admin/fuse-wallet/coin-sell`: the card that last traded it, the
+  recover-sell path) · 🔥 Burn only under 5¢ (`close-dust {confirm, mints}`: still only dead coins). `lib/coinChips.chipActs`.
+- 🐱 FEECAT ENTERS LIKE THE AGENTS + OSSY / G4 (owner, 2026-10-18): `/fuses/feecat-pool` rows carry `read` (`feecat_read`: setups · bad entry · germ ·
+  HL / LL · under high) + `duo` (`duo_word`: their newest BUY / SELL on it, 30 min) + top-level `duo` (`duo_lessons`: their REAL record + final-review
+  lessons). `feecat_service.setup_gate`: a read coin needs HH/HL · germ · held breakout and no gun line / chase / spike; their SELL = skip, their BUY =
+  ×1.2 first; no read = her own lanes (never MORE trades). Each new lesson = one 🎓 LEARN line (`_duo_learn`, `duoSeen`). Positions keep
+  `setups` / `read` / `duoAtEntry`. HQ › Fee desk (`FeeCatLive.jsx`): 📈 two charts (open trades first, then next picks, her read in words),
+  ⚡ live activity (30 events, 6s), 🎓 LEARNED FROM OSSY · G4.

@@ -153,12 +153,39 @@ def _num(v, d=0.0):
         return d
 
 
+_POOL_META: dict = {'duo': {}}
+
+
+def setup_gate(p):
+    """🐱 FEECAT ENTERS LIKE THE AGENTS AND OSSY / G4 (owner, 2026-10-18: "running with the latest methods — HH/HL, germ"). Pure.
+    A coin the agents' chart read covers must show one of the three setups (HH/HL pullback · on its germ floor · a held breakout) and must not
+    be a bad entry (gun line / chase / spike / SKIP); OSSY / G4 saying SELL on it in the last 30 min = out; their BUY = first (×1.2).
+    A coin with no read yet keeps her own lanes' verdict (she never trades MORE because a read is missing). → (ok, why, mult, setups)."""
+    rd, dw = p.get('_read') or None, p.get('_duo') or None
+    if dw and dw.get('action') == 'SELL':
+        return False, f"🤝 {dw.get('who')} said sell", 1.0, []
+    if rd:
+        if rd.get('bad'):
+            return False, f"🔫 {str(rd['bad'])[:60]}", 1.0, []
+        if not rd.get('setups'):
+            return False, 'no HH/HL · germ · breakout setup', 1.0, []
+    tags = list((rd or {}).get('setups') or [])
+    if dw and dw.get('action') == 'BUY':
+        return True, f"🤝 {dw.get('who')} bought it", 1.2, tags
+    return True, '', 1.0, tags
+
+
+SETUP_WORD = {'hhhl': 'HH/HL pullback', 'germ': 'on its germ floor', 'breakout': 'held breakout'}
+
+
 async def _market_candidates(http):
     """🐱 FEE TAKES ONLY ARENA / AGENT COINS (owner, 2026-10-15): her pool is what the ten agents judged READY / CONTENDING and what the Arena
     ranks — `GET /fuses/feecat-pool` on the reputation service — never the raw market feed. Each coin's live pair is read so her own safety
     gates still decide; the pool being empty means she waits."""
     try:
-        rows = ((await http.get(POOL_URL, timeout=6)).json() or {}).get('rows') or []
+        d_ = (await http.get(POOL_URL, timeout=6)).json() or {}
+        rows = d_.get('rows') or []
+        _POOL_META['duo'] = d_.get('duo') or _POOL_META.get('duo') or {}
     except Exception:
         rows = []
     # 🔗 each coin's deepest SOL pool (2026-10-16: 15 of 39 pool coins came with a TRUMP / ZEC / USDC / stock pool and failed "not SOL-quoted")
@@ -167,7 +194,7 @@ async def _market_candidates(http):
     out = []
     for m, p in pairs.items():
         r = by_mint.get(m) or {}
-        out.append({**p, '_src': r.get('src'), '_srcWhy': r.get('why')})
+        out.append({**p, '_src': r.get('src'), '_srcWhy': r.get('why'), '_read': r.get('read'), '_duo': r.get('duo')})
     return out
 
 
@@ -577,12 +604,21 @@ async def run_engine(store, cats):
                     p['_learn'] = True
                     score, reason = lscore, lreason
         if score is not None:
-            ranked.append((score, reason, p))
+            ok_, why_, mult_, tags_ = setup_gate(p)
+            if not ok_:
+                rejections[why_] = rejections.get(why_, 0) + 1
+                continue
+            p['_setups'] = tags_
+            words_ = ' + '.join(SETUP_WORD[t] for t in tags_ if t in SETUP_WORD)
+            reason = ' · '.join(x for x in (why_, f'🎯 {words_}' if words_ else '', reason) if x)
+            ranked.append((score * mult_, reason, p))
         else:
             rejections[reason] = rejections.get(reason, 0) + 1
     ranked = await _creator_check(ranked, rejections)
+    _duo_learn(store, _POOL_META.get('duo') or {}, now)
     store['scan'] = {'at': now, 'scanned': len(candidates), 'passed': len(ranked), 'rejections': rejections,
-                     'top': [{'symbol': (p.get('baseToken') or {}).get('symbol'), 'reason': r, 'url': p.get('url')} for _, r, p in ranked[:5]]}
+                     'top': [{'symbol': (p.get('baseToken') or {}).get('symbol'), 'reason': r, 'url': p.get('url'), 'pairAddress': p.get('pairAddress'),
+                             'mint': (p.get('baseToken') or {}).get('address'), 'setups': p.get('_setups') or [], 'read': p.get('_read'), 'duo': p.get('_duo')} for _, r, p in ranked[:5]]}
     ranked.sort(key=lambda x: -x[0])
     for cat in cats:
         for e in cat.get('exits', []):
@@ -769,12 +805,30 @@ async def run_engine(store, cats):
                 'entryLiq': _num((p.get('liquidity') or {}).get('usd')), 'conviction': conviction,
                 'entryMarketCapUsd': _num(p.get('marketCap') or p.get('fdv')),
                 'entryVolH1': _num((p.get('volume') or {}).get('h1')), 'plannedSol': planned,
-                'firstEntryPriceNative': px, 'adds': 0, 'profitTaken': 0, 'peakPx': px, 'setup': setup, 'midAtEntry': mid, 'solUsdAtEntry': sol_usd,
+                'firstEntryPriceNative': px, 'adds': 0, 'profitTaken': 0, 'peakPx': px, 'setup': setup, 'setups': p.get('_setups') or [], 'read': p.get('_read'), 'duoAtEntry': p.get('_duo'), 'midAtEntry': mid, 'solUsdAtEntry': sol_usd,
             })
             _log_event(store, cat, 'BUY', f"Bought {size} SOL of {sym} at live price — {reason} (paper).", None, pa, px, _num(p.get('marketCap') or p.get('fdv')))
             if cat.get('isLeader'):
                 _post_as_fee(pa, _buy_analysis(p, size, sym, safe_why, conviction), register_call=True)
         cat['lastTick'] = now
+
+
+def _duo_learn(store, duo, now):
+    """🎓 What she takes from OSSY / G4, explicitly: their record + each NEW final-review lesson becomes a LEARN line in her activity (once each)."""
+    store['duoLearn'] = {'at': now, **(duo or {})}
+    seen = set(store.get('duoSeen') or [])
+    for les in reversed((duo or {}).get('lessons') or []):
+        key = f"{les.get('who')}:{les.get('at')}"
+        if key in seen or not les.get('lesson'):
+            continue
+        seen.add(key)
+        pct = les.get('pct')
+        line = f"🎓 from {les.get('who')} on ${les.get('symbol')}{'' if pct is None else f' ({pct:+.1f}%)'}: {les['lesson']}"
+        cats_ = store.get('cats') or {}
+        cat = cats_.get(LEADER_ID) or next(iter(cats_.values()), None)
+        if cat is not None:
+            _log_event(store, cat, 'LEARN', line)
+    store['duoSeen'] = list(seen)[-80:]
 
 
 def _migrate(store):

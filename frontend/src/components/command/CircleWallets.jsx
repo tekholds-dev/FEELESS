@@ -3,6 +3,7 @@ import NumInput from '../NumInput';
 import { toast } from 'sonner';
 import { CopyBtn } from '../CopyBtn';
 import { TokenAvatar } from '../terminal/MarketPrimitives';
+import { chipActs } from '../../lib/coinChips';
 import '../../styles/circleCoins.css';
 
 // Circle ties networks to the key: TEST keys only reach testnets, LIVE keys only mainnets.
@@ -53,7 +54,7 @@ function CircleRow({ w, meta, call, onSaved, dests, fuse }) {
   const [busy, setBusy] = useState(false);
   const save = async () => { setBusy(true); try { await call(`/admin/circle/wallets/${w.id}`, { method: 'PUT', body: JSON.stringify(m) }); toast.success('Saved.'); setMode(''); onSaved?.(); } catch (e) { toast.error(e.message); } finally { setBusy(false); } };
   return <div className={`cw-row cw-row-x ${mode === 'move' ? 'is-open' : ''}`}>
-    <div className="cw-top"><b>{meta?.name || w.name || 'Wallet'}</b><span className="chain-tag">{w.blockchain}</span><code>{w.address?.slice(0, 6)}…{w.address?.slice(-4)}</code><CopyBtn value={w.address} /><CoinChips w={w} />
+    <div className="cw-top"><b>{meta?.name || w.name || 'Wallet'}</b><span className="chain-tag">{w.blockchain}</span><code>{w.address?.slice(0, 6)}…{w.address?.slice(-4)}</code><CopyBtn value={w.address} /><CoinChips w={w} act={fuse ? coinAct(call, onSaved) : null} />
       <button type="button" className="m-btn" onClick={() => setMode(mode === 'edit' ? '' : 'edit')}>✎ Edit</button>
       <button type="button" className={`m-btn ${mode === 'move' ? 'primary' : ''}`} aria-expanded={mode === 'move'} onClick={() => setMode(mode === 'move' ? '' : 'move')} data-testid={`circle-move-${w.id}`}>⇄ Move {mode === 'move' ? '▴' : '▾'}</button></div>
     {meta?.description && mode !== 'edit' && <small className="cw-desc">{meta.description}</small>}
@@ -65,13 +66,33 @@ function CircleRow({ w, meta, call, onSaved, dests, fuse }) {
 
 // 🪙 every coin in the wallet with its REAL logo (DexScreener → CDN → FEELESS cache, TokenAvatar) and what it is worth now
 const money = v => (v == null ? '—' : v >= 1 ? `$${v.toFixed(2)}` : v >= 0.01 ? `$${v.toFixed(3)}` : '<$0.01');
-export function CoinChips({ w }) {
+// ↩ / 🔥 one coin on the FUSE wallet (owner, 2026-10-18: "should be able to sell / burn"): sell = the keeper sells it into the card that traded it;
+// burn = burn + close the account for its rent — only offered under 5¢ (a coin worth more is sold, never destroyed)
+export function coinAct(call, done) {
+  return async (b, kind) => {
+    if (kind === 'burn' && !window.confirm(`Burn ${b.symbol} and close its account? The coins are gone for good; the rent comes back.`)) return;
+    try {
+      const r = kind === 'sell' ? await call('/admin/fuse-wallet/coin-sell', { method: 'POST', body: JSON.stringify({ mint: b.mint }) })
+        : await call('/admin/fuse-wallet/close-dust', { method: 'POST', body: JSON.stringify({ confirm: true, mints: [b.mint] }) });
+      if (kind === 'burn' && r?.dry) toast.error(`${b.symbol} is not dead dust (worth 5¢+ or held by a card) — sell it instead.`);
+      else toast.success(kind === 'sell' ? `↩ ${b.symbol}: sell queued — the keeper sells it into card cash` : `🔥 ${b.symbol} burned + closed — rent comes back once it lands`);
+      done?.();
+    } catch (e) { toast.error(e.message); }
+  };
+}
+export function CoinChips({ w, act }) {
+  const [open, setOpen] = useState(null); const [busy, setBusy] = useState(false);
   const bs = (w.balances || []).filter(b => Number(b.amount) > 0);
   if (!bs.length) return <em className="cwc-none">{w.balanceError ? 'balance unavailable' : 'empty'}</em>;
   const total = bs.reduce((a, b) => a + (Number(b.usd) || 0), 0);
-  return <span className="cwc" data-testid="circle-coins">{bs.map(b => <span key={`${b.mint || b.symbol}`} className={`cwc-c ${b.usd != null && b.usd < 0.05 ? 'is-dust' : ''}`} data-tip={`${Number(b.amount).toLocaleString()} ${b.symbol}${b.usd != null ? ` · ${money(b.usd)}` : ' · no price'}${b.mint ? ` · ${b.mint}` : ''}`}>
-    {b.mint ? <TokenAvatar pair={{ chainId: 'solana', baseToken: { address: b.mint, symbol: b.symbol } }} size={18} /> : <i className="cwc-sol" aria-hidden>◎</i>}
-    <b>{b.symbol}</b><small>{money(b.usd)}</small></span>)}
+  const run = async (b, k) => { setBusy(true); try { await act(b, k); } finally { setBusy(false); setOpen(null); } };
+  return <span className="cwc" data-testid="circle-coins">{bs.map(b => { const key = b.mint || b.symbol; const acts = act ? chipActs(b) : [];
+    return <span key={key} className={`cwc-c ${b.usd != null && b.usd < 0.05 ? 'is-dust' : ''} ${acts.length ? 'is-act' : ''} ${open === key ? 'is-open' : ''}`} data-tip={`${Number(b.amount).toLocaleString()} ${b.symbol}${b.usd != null ? ` · ${money(b.usd)}` : ' · no price'}${b.mint ? ` · ${b.mint}` : ''}`}>
+      {acts.length ? <button type="button" className="cwc-hit" aria-expanded={open === key} onClick={() => setOpen(open === key ? null : key)} data-testid={`coin-chip-${b.symbol}`} aria-label={`${b.symbol} — sell or burn`} /> : null}
+      {b.mint ? <TokenAvatar pair={{ chainId: 'solana', baseToken: { address: b.mint, symbol: b.symbol } }} size={18} /> : <i className="cwc-sol" aria-hidden>◎</i>}
+      <b>{b.symbol}</b><small>{money(b.usd)}</small>
+      {open === key ? <span className="cwc-menu" role="menu">{acts.map(k => <button key={k} type="button" role="menuitem" className={`m-btn ${k === 'burn' ? 'is-burn' : ''}`} disabled={busy} onClick={() => run(b, k)} data-testid={`coin-${k}-${b.symbol}`}>{k === 'sell' ? '↩ Sell' : '🔥 Burn'}</button>)}</span> : null}
+    </span>; })}
     {total > 0 ? <em className="cwc-total">≈ {money(total)}</em> : null}</span>;
 }
 

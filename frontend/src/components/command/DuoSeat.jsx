@@ -5,7 +5,6 @@ import React, { useEffect, useState } from 'react';
 import '../../styles/duoSeat.css';
 import { hubApply } from '../../lib/agentHub';
 import { avatarOf } from '../../lib/aiAvatars';
-import { VOICES, say, hush, canSpeak } from '../../lib/tradeVoice';
 
 const ago = at => { const s = Math.max(0, Math.round(Date.now() / 1000 - (Number(at) || 0))); return s < 60 ? `${s}s` : s < 3600 ? `${Math.round(s / 60)}m` : `${Math.round(s / 3600)}h`; };
 const sgn = v => `${v >= 0 ? '+' : ''}${Number(v).toFixed(1)}%`;
@@ -132,12 +131,12 @@ const CK = [[300, '5m'], [3600, '1h'], [86400, '24h']];
 export function verdictDots(res) { return CK.map(([c, w]) => { const r = (res || []).find(x => x[0] === c); return { w, ok: r ? r[1] : null, move: r ? r[2] : null, mine: r && r[3] != null ? r[3] : null }; }); }
 const dotWord = d => (d.ok == null ? d.w : `${d.w} ${d.move > 0 ? '+' : ''}${Math.round(d.move)}%${d.mine === true ? ' ✓' : d.mine === false ? ' ✗' : ''}`);
 const who = k => (k === 'lan' ? 'G4' : k === 'local' ? 'OSSY' : k);
-function Bubble({ r, onVote, busy, onSay }) {
+function Bubble({ r, onVote, busy }) {
   const v = r.votes; const side = `${r.mine ? 'is-you' : r.model === 'REAPER' ? 'is-reaper' : r.model === 'SNAPSHOT' ? 'is-reaper is-snap' : r.model === 'AGENTS' && r.talk ? 'is-reaper is-agents' : r.model === 'OSSY' ? 'is-ossy' : 'is-g4'}${r.talk ? ' is-talk' : ''}`;   // 💬 one side per voice: G4 left, OSSY right, you gold on the right — never by role
   return <li className={`dsb ${side}`}>
     <span className="dsb-msg">{avatarOf(r.model) && !r.mine ? <img className="dsb-av" src={avatarOf(r.model)} alt="" loading="lazy" /> : null}<em>{r.mine ? 'You' : r.model}</em>{!r.mine ? <b className={`a-${String(r.talk ? r.view || '' : r.action).toLowerCase()}`}>{r.talk ? r.view || 'note' : r.action}</b> : null}
       {r.pct != null ? <i className={r.pct >= 0 ? 'm-pos' : 'm-neg'}>{r.pct >= 0 ? '+' : ''}{Number(r.pct).toFixed(1)}%</i> : null}<span>{String(r.why || '').replace(/^to (G4|OSSY): (HOLD|SELL) — /, '')}</span></span>
-    <span className="dsb-meta"><small>{ago(r.at)}</small>{onSay && !r.mine && r.why ? <button type="button" className="dsb-v dsb-say" onClick={() => onSay(r)} aria-label="Read this line out loud" data-testid={`dsb-say-${r.at}`}>🔊</button> : null}
+    <span className="dsb-meta"><small>{ago(r.at)}</small>
       {v ? <>{!r.mine ? <><button type="button" className={`dsb-v ${v.mine > 0 ? 'on' : ''}`} disabled={busy} onClick={() => onVote(r.key, v.mine > 0 ? 0 : 1)} aria-label="Like this call" data-testid={`dsb-up-${r.key}`}>👍{v.up || ''}</button>
         <button type="button" className={`dsb-v is-dn ${v.mine < 0 ? 'on' : ''}`} disabled={busy} onClick={() => onVote(r.key, v.mine < 0 ? 0 : -1)} aria-label="Dislike this call" data-testid={`dsb-dn-${r.key}`}>👎{v.down || ''}</button></> : null}
         {Object.entries(v.by || {}).map(([k, x]) => <i key={k} className="dsb-by" data-tip={`${who(k)} ${x > 0 ? 'liked' : 'disliked'} it`}>{who(k)}{x > 0 ? '👍' : '👎'}</i>)}
@@ -146,21 +145,12 @@ function Bubble({ r, onVote, busy, onSay }) {
 }
 function TradeRoom({ duo, call }) {
   const [txt, setTxt] = useState(''); const [busy, setBusy] = useState(false); const [roomM, setRoomM] = useState(null); const [roomC, setRoomC] = useState(null);
-  const [voice, setVoice] = useState(() => { try { return JSON.parse(localStorage.getItem('feeless.duoVoice') || 'null') || { key: 'gangster', auto: false }; } catch (_) { return { key: 'gangster', auto: false }; } });
-  const setV = v => { setVoice(v); try { localStorage.setItem('feeless.duoVoice', JSON.stringify(v)); } catch (_) {} if (!v.auto) hush(); };
-  const lastSaid = React.useRef(0);
   const rooms = duo?.rooms || [];
   const past = roomM ? rooms.find(r => r.mint === roomM) : (!duo?.holding ? rooms[0] || null : null);   // 👍👎 no live trade → the newest trade's room is open (its chat + votes never hide behind a tab)
   const coins = duo?.coinRooms || []; const coin = roomC ? coins.find(c => c.mint === roomC) || null : null;   // 💬 one chat per coin on the card ($ELON's talk lives in $ELON's room)
   const pick = (m, c) => { setRoomM(m); setRoomC(c); };
   const between = !coin && !duo?.holding && !roomM && (duo?.between || []).length ? duo.between : null;   // 💬 no trade open: the talk between trades
   const h = coin ? { symbol: coin.symbol } : between ? { symbol: 'between trades' } : past ? { symbol: past.symbol } : duo?.holding; const rows = coin ? coin.rows : between || (past ? past.rows : duo?.trade || []);
-  const newest = (rows || []).filter(r => !r.mine && r.why).reduce((a, r) => (Number(r.at) > Number(a?.at || 0) ? r : a), null);
-  useEffect(() => {   // 🔊 auto-read: each NEW model / Reaper line is read once, in the picked voice
-    if (!voice.auto || !newest) return;
-    if (!lastSaid.current) { lastSaid.current = Number(newest.at); return; }
-    if (Number(newest.at) > lastSaid.current) { lastSaid.current = Number(newest.at); say(`${newest.model || ''} says ${newest.why}`, voice.key, newest.at); }
-  }, [newest, voice]);
   if (!h && !rooms.length && !coins.length) return null;
   const post = async body => { if (!call) return; setBusy(true); try { const r = await call('/admin/ai/seat', { method: 'POST', body: JSON.stringify(body) }); if (r && r.trade) hubApply({ kind: 'duo_update', data: r }); } catch (e) { window.dispatchEvent(new CustomEvent('feeless:toast', { detail: String(e?.message || e) })); } finally { setBusy(false); } };
   const conf = duo.conf || {};
@@ -172,9 +162,7 @@ function TradeRoom({ duo, call }) {
     {!h ? null : <><p className="dso-roomhd"><b>💬 {coin ? `$${coin.symbol} · ${coin.who === 'you' ? 'your coin' : "the agents' coin"} · G4 & OSSY talk it here` : between ? `between trades · ${duo.next || '—'} hunts next` : <>${h.symbol} · {past ? `${past.model}'s trade${past.pct != null ? ` · closed ${past.pct >= 0 ? '+' : ''}${Number(past.pct).toFixed(1)}%` : ''}` : `${duo.holder || '—'} runs it`}</>}</b>
     {past || between || coin ? null : <span>{h.tp ? `TP +${h.tp}%` : 'TP —'} · {h.sl ? `SL −${h.sl}%` : 'SL −45 floor'}</span>}
     {['G4', 'OSSY'].map(k => conf[k] ? <em key={k} className={conf[k].boost > 0 ? 'm-pos' : conf[k].boost < 0 ? 'm-neg' : ''} data-tip={conf[k].words}>{k} conf {conf[k].boost > 0 ? '+' : ''}{conf[k].boost}</em> : null)}</p>
-    {canSpeak() ? <p className="dso-voice" data-testid="duo-voice"><button type="button" className={`m-btn ${voice.auto ? 'on' : ''}`} aria-pressed={voice.auto} onClick={() => { lastSaid.current = 0; setV({ ...voice, auto: !voice.auto }); }} data-testid="duo-voice-auto">{voice.auto ? '🔊 reading new lines' : '🔈 read new lines'}</button>
-      <span className="m-seg" role="radiogroup" aria-label="Voice">{VOICES.map(v => <button key={v.key} type="button" role="radio" aria-checked={voice.key === v.key} className={voice.key === v.key ? 'active' : ''} onClick={() => { setV({ ...voice, key: v.key }); hush(); say('this is how I sound on the trade', v.key, Date.now()); }} data-testid={`duo-voice-${v.key}`}>{v.label}</button>)}</span></p> : null}
-    <ol>{rows.map((r, i) => <Bubble key={`${r.at}-${i}`} r={r} busy={busy || !call} onSay={x => { hush(); say(`${x.model || ''} says ${x.why}`, voice.key, x.at); }} onVote={(key, v) => post({ vote: { key, v } })} />)}</ol>
+    <ol>{rows.map((r, i) => <Bubble key={`${r.at}-${i}`} r={r} busy={busy || !call} onVote={(key, v) => post({ vote: { key, v } })} />)}</ol>
     {call && !roomM ? <form className="dso-say" onSubmit={e => { e.preventDefault(); if (txt.trim()) { post({ comment: txt.trim(), ...(coin ? { mint: coin.mint } : {}) }); setTxt(''); } }}>
       <input className="m-input" value={txt} onChange={e => setTxt(e.target.value)} maxLength={240} placeholder={coin ? `chime in on $${coin.symbol} — both models read it` : duo?.holding ? `chime in — ${duo.holder || 'the holder'} reads it next minute (say hold / sell and the market grades you too)` : `chime in — ${duo?.next || 'the next model'} reads it on its turn`} data-testid="duo-say" />
       <button type="submit" className="m-btn" disabled={busy || !txt.trim()}>Send</button></form> : null}</>}</div>;

@@ -33,25 +33,22 @@
 .fch-duo { margin: 0; display: flex; gap: 14px; } .fch-duo span { display: grid; } .fch-duo b { font: 900 20px/1 var(--m-mono); } .fch-duo small { font: 600 8.5px var(--m-mono); color: var(--m-mute); }
 .fch-duo .is-bad b { color: #ff8fa3; } .fch-duo .is-warn b { color: var(--gold, #f5c451); }
 .fch-why { margin: 0; font: 500 10.5px/1.4 var(--m-mono); color: var(--m-ink, inherit); overflow-wrap: anywhere; } .fch-note, .fch-nil { font: 600 9.5px var(--m-mono); color: var(--m-mute); margin: 0; }
-.fch-pos, .fch-moves { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
+.fch-pos { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
 .fch-pos li { display: grid; grid-template-columns: minmax(70px, 120px) minmax(0, 1fr) 60px auto; gap: 8px; align-items: center; font: 700 10.5px var(--m-mono); }
 .fch-pbar { height: 6px; border-radius: 999px; background: rgba(255, 255, 255, .05); overflow: hidden; } .fch-pbar u { display: block; height: 100%; transform-origin: left; transition: transform .5s ease; }
 .fch-pos .is-up .fch-pbar u { background: #45e486; } .fch-pos .is-dn .fch-pbar u { background: #ff8fa3; } .fch-pos .is-up em { color: #45e486; } .fch-pos .is-dn em { color: #ff8fa3; }
 .fch-pos em { font-style: normal; text-align: right; } .fch-pos small { color: var(--m-mute); font-size: 9px; }
-.fch-moves li { display: grid; grid-template-columns: 52px minmax(0, 1fr); gap: 8px; font: 600 10px/1.35 var(--m-mono); animation: fchIn .3s ease-out both; animation-delay: calc(var(--i, 0) * 40ms); }
-.fch-moves li b { font-weight: 900; letter-spacing: .08em; } .fch-moves .is-buy b { color: #45e486; } .fch-moves .is-sell b { color: #ff8fa3; } .fch-moves .is-learn b { color: #b388ff; }
-.fch-moves li span { overflow-wrap: anywhere; color: var(--m-ink, inherit); }
 .fch-fold { border: 1px solid var(--m-line); border-radius: 12px; padding: 8px 12px; background: rgba(0, 0, 0, .2); }
 .fch-fold > summary { cursor: pointer; font: 800 10.5px var(--m-mono); letter-spacing: .08em; color: var(--m-mute); } .fch-fold > summary:hover { color: var(--m-accent); }
 .fch-fold[open] { display: grid; gap: 10px; }
 .fch-group label { display: grid; gap: 3px; font: 700 9.5px var(--m-mono); } .fch-group label span { display: flex; justify-content: space-between; gap: 6px; } .fch-group em { font-style: normal; color: var(--m-mute); }
 @keyframes fchPing { from { transform: scale(1); opacity: .9; } to { transform: scale(1.35); opacity: 0; } }
 @keyframes fchIn { from { transform: translateY(4px); } }
-body.fx-lite .fch-orb.is-on::after, body.fx-lite .fch-bars li, body.fx-lite .fch-moves li { animation: none; }
-@media (prefers-reduced-motion: reduce) { .fch-orb.is-on::after, .fch-bars li, .fch-moves li { animation: none; } .fch-card, .fch-bars li u, .fch-pbar u { transition: none; } }
+body.fx-lite .fch-orb.is-on::after, body.fx-lite .fch-bars li{ animation: none; }
+@media (prefers-reduced-motion: reduce) { .fch-orb.is-on::after, .fch-bars li{ animation: none; } .fch-card, .fch-bars li u, .fch-pbar u { transition: none; } }
 body.theme-day .fch-card { background: rgba(236, 246, 240, .85); } body.theme-day .fch-fold { background: rgba(236, 246, 240, .6); }
-body.theme-day .fch-who small.is-on, body.theme-day .fch-lanes span, body.theme-day .fch-top span, body.theme-day .fch-pos .is-up em, body.theme-day .fch-moves .is-buy b { color: #0d7a41; }
-body.theme-day .fch-bars li b, body.theme-day .fch-skip span, body.theme-day .fch-pos .is-dn em, body.theme-day .fch-moves .is-sell b { color: #b42346; }
+body.theme-day .fch-who small.is-on, body.theme-day .fch-lanes span, body.theme-day .fch-top span, body.theme-day .fch-pos .is-up em{ color: #0d7a41; }
+body.theme-day .fch-bars li b, body.theme-day .fch-skip span, body.theme-day .fch-pos .is-dn em{ color: #b42346; }
 @media (max-width: 640px) { .fch-grid { grid-template-columns: 1fr; } .fch-acts { margin-left: 0; } .fch-pos li { grid-template-columns: minmax(60px, 1fr) 54px; } .fch-pos .fch-pbar, .fch-pos small { display: none; } }
 
 /* ⚡ the one dial + grouped tuning */
@@ -71,3 +68,26 @@ body.theme-day .fch-bars li b, body.theme-day .fch-skip span, body.theme-day .fc
 .fch-group legend { font: 800 9.5px var(--m-mono, monospace); letter-spacing: .14em; color: #9fe3ff; padding: 0 4px; }
 @media (prefers-reduced-motion: reduce) { .fch-dialbtn i { animation: none; } } body.fx-lite .fch-dialbtn i { animation: none; }
 body.theme-day .fch-group, body.theme-day .fch-dialchips span { background: rgba(236, 246, 240, .8); }
+
+/* 🐱 FEE, LIVE — two charts, her read, live tape, what she learned from OSSY · G4 */
+.fcl-two { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.fcl-pane { display: grid; gap: 6px; padding: 8px; border-radius: 12px; border: 1px solid rgba(69, 228, 134, .18); background: rgba(4, 12, 8, .6); min-width: 0; }
+.fcl-pane.is-open { border-color: rgba(69, 228, 134, .45); }
+.fcl-pane header { display: flex; justify-content: space-between; align-items: center; gap: 8px; } .fcl-pane header .m-input { max-width: 60%; font-size: 11px; padding: 3px 6px; }
+.fcl-pane header b { font: 700 10px var(--m-mono, monospace); letter-spacing: .1em; }
+.fcl-chart { height: 260px; min-width: 0; } .fcl-chart .chart-area, .fcl-chart .candle-canvas { height: 260px !important; }
+.fcl-read { display: flex; flex-wrap: wrap; gap: 5px; margin: 0; } .fcl-read span { padding: 2px 8px; border-radius: 999px; background: rgba(21, 209, 106, .12); font-size: 10px; }
+.fcl-why, .fcl-tags { display: block; font-size: 10px; color: var(--m-mute, #8fb3a0); font-style: normal; }
+.fcl-pane.is-empty p, .fcl-wait { font-size: 11px; color: var(--m-mute, #8fb3a0); }
+.fcl-tape ol { list-style: none; margin: 0; padding: 0; display: grid; gap: 3px; max-height: 280px; overflow-y: auto; scrollbar-width: thin; }
+.fcl-tape li { display: grid; grid-template-columns: 52px minmax(0, 1fr) 34px; gap: 8px; font-size: 11px; padding: 4px 6px; border-radius: 8px; }
+.fcl-tape li b { font: 700 9px var(--m-mono, monospace); } .fcl-tape li small { text-align: right; color: var(--m-mute, #8fb3a0); }
+.fcl-tape li.is-buy b { color: #15d16a; } .fcl-tape li.is-sell b { color: #ff8fa3; } .fcl-tape li.is-learn b { color: #9fe3ff; }
+.fcl-tape li.is-new { animation: fclNew .9s ease-out both; }
+.fcl-rec { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; } .fcl-rec span { display: grid; } .fcl-rec small { font-size: 10px; color: var(--m-mute, #8fb3a0); }
+.fcl-les { list-style: none; margin: 6px 0; padding: 0; display: grid; gap: 6px; max-height: 220px; overflow-y: auto; scrollbar-width: thin; }
+.fcl-les li { display: grid; gap: 2px; font-size: 11px; } .fcl-les b { font-size: 10px; color: #9fe3ff; }
+@keyframes fclNew { from { transform: translateX(-6px); background: rgba(21, 209, 106, .18); } to { transform: none; background: transparent; } }
+@media (prefers-reduced-motion: reduce) { .fcl-tape li.is-new { animation: none; } }
+body.theme-day .fcl-pane { background: #eef6f1; }
+@media (max-width: 900px) { .fcl-two { grid-template-columns: 1fr; } }

@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { toast } from 'sonner';
+import { FeeCharts, FeeTape, DuoLearn, readWords } from './FeeCatLive';
 import NumInput from '../NumInput';
 import { FeeBrain } from './FeeBrain';
 import '../../styles/feecatDesk.css';
@@ -71,7 +72,7 @@ export function FeeCatDesk({ call }) {
   const [draft, setDraft] = useState({}); const [size, setSize] = useState(''); const [busy, setBusy] = useState(false);
   const load = useCallback((first) => call('/admin/feecat').then(x => { setD(x); setErr(''); if (first) { setDraft(x.rules || {}); setSize(x.leader?.risk?.maxPositionSol ?? ''); } })
     .catch(e => setErr(e.message || 'Fee service did not answer')), [call]);
-  useEffect(() => { load(true); const t = setInterval(() => { if (!document.hidden) load(false); }, 15000); return () => clearInterval(t); }, [load]);
+  useEffect(() => { load(true); const t = setInterval(() => { if (!document.hidden) load(false); }, 6000); return () => clearInterval(t); }, [load]);
   if (!d) return <section className="fch" data-testid="feecat-desk"><p className="fch-wait">{err ? <>Couldn't reach Fee: {err} <button type="button" className="m-btn" onClick={() => load(true)}>Retry</button></> : '🐱 waking Fee up…'}</p></section>;
   const save = extra => { setBusy(true); return call('/admin/feecat', { method: 'POST', body: JSON.stringify({ rules: draft, maxPositionSol: Number(size) || undefined, ...extra }) })
     .then(() => { toast.success(extra.action === 'run' ? '🐱 Fee ran a cycle' : '🐱 Fee updated'); return load(false); }).catch(e => toast.error(e.message)).finally(() => setBusy(false)); };
@@ -112,13 +113,13 @@ export function FeeCatDesk({ call }) {
 
       <article className="fch-card fch-wide" data-testid="fch-open"><h4>📂 OPEN TRADES<small>{pos.length} of {d.rules?.maxPositions ?? 5}</small></h4>
         {pos.length ? <ul className="fch-pos">{pos.map(p => { const ch = n(p.currentChange) || 0; return <li key={p.pairAddress} className={ch >= 0 ? 'is-up' : 'is-dn'}>
-          <b>${p.symbol}</b><span className="fch-pbar"><u style={{ transform: `scaleX(${Math.min(1, Math.abs(ch) / 60)})` }} /></span><em>{ch >= 0 ? '+' : ''}{ch.toFixed(1)}%</em><small>{sol(p.costSol)} · {Math.round((Date.now() / 1000 - (n(p.openedAt) || 0)) / 60)}m</small></li>; })}</ul>
+          <b>${p.symbol}</b><span className="fch-pbar"><u style={{ transform: `scaleX(${Math.min(1, Math.abs(ch) / 60)})` }} /></span><em>{ch >= 0 ? '+' : ''}{ch.toFixed(1)}%</em><small>{sol(p.costSol)} · {Math.round((Date.now() / 1000 - (n(p.openedAt) || 0)) / 60)}m</small><i className="fcl-tags">{readWords({ setups: p.setups, read: p.read, duo: p.duoAtEntry }).slice(0, 3).join(' · ')}</i></li>; })}</ul>
           : <p className="fch-nil">flat — waiting for a coin that passes</p>}
       </article>
 
-      <article className="fch-card fch-wide" data-testid="fch-moves"><h4>🧾 LATEST MOVES</h4>
-        {(d.events || []).length ? <ul className="fch-moves">{d.events.map((e, i) => <li key={e.id || i} className={`is-${String(e.type || '').toLowerCase()}`} style={{ '--i': i }}><b>{e.type}</b><span>{String(e.detail || e.message || e.symbol || '').split('\n')[0].slice(0, 120)}</span></li>)}</ul> : <p className="fch-nil">no moves yet on this paper trail</p>}
-      </article>
+      <DuoLearn learn={d.duoLearn} />
+      <FeeCharts d={d} />
+      <FeeTape events={d.events} />
     </div>
 
     <details className="fch-fold"><summary>🧠 Her brain — style, rules, what she learned</summary>
