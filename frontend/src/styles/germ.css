@@ -40,3 +40,19 @@ body.theme-day .germ-dot { background: #fff; }
 body.theme-day .germ-chip { background: color-mix(in srgb, var(--gm) 14%, #fff); }
 body.theme-day .gm-hot { --gm: #0d8f47; } body.theme-day .gm-floor { --gm: #0f7a3f; } body.theme-day .gm-near { --gm: #a87900; } body.theme-day .gm-far { --gm: #5e6b64; } body.theme-day .gm-lost { --gm: #c43a55; }
 @media (max-width: 640px) { .germ-chip .gm-meter { display: none; } }
+/* 🧠 tap a germ chip → why the germ matters for THIS coin (GermChip → germWhy): floor ← you are here → gun line, three plain lines */
+.germ-chip[role="button"] { cursor: pointer; transition: transform .12s ease; } .germ-chip[role="button"]:hover { transform: translateY(-1px); } .germ-chip[role="button"]:active { transform: scale(.96); }
+.germ-chip[role="button"]:focus-visible { outline: 2px solid var(--m-accent); outline-offset: 2px; }
+.germ-why { padding: 10px 12px; border-radius: 12px; background: rgba(6, 16, 11, .97); border: 1px solid color-mix(in srgb, var(--m-accent) 45%, transparent); color: var(--m-text, #e8fff2);
+  box-shadow: 0 14px 40px rgba(0, 0, 0, .5); font-family: var(--m-mono); animation: gwIn .18s ease-out; }
+.germ-why header { display: flex; align-items: center; gap: 6px; margin-bottom: 8px; } .germ-why header b { font-size: 10px; letter-spacing: .12em; } .germ-why header em { margin-left: auto; font-style: normal; font-weight: 800; }
+.germ-why p { margin: 6px 0 0; font-size: 10.5px; line-height: 1.5; }
+.gw-track { position: relative; height: 18px; border-radius: 9px; background: linear-gradient(90deg, rgba(69, 228, 134, .45), rgba(245, 196, 81, .3) 55%, rgba(255, 143, 163, .45)); overflow: hidden; }
+.gw-floor, .gw-gun { position: absolute; top: 0; font-size: 8px; line-height: 18px; font-weight: 800; letter-spacing: .1em; color: #04140b; } .gw-floor { left: 6px; } .gw-gun { right: 6px; }
+.gw-now { position: absolute; inset: 0; } .gw-now::after { content: ''; position: absolute; left: 0; top: 2px; width: 14px; height: 14px; margin-left: -7px; border-radius: 50%; background: #fff; box-shadow: 0 0 0 3px rgba(255, 255, 255, .25); animation: gwBeat 1.4s ease-in-out infinite; }
+@keyframes gwIn { from { opacity: 0; transform: translateY(-4px) scale(.98); } to { opacity: 1; transform: none; } }
+@keyframes gwBeat { 50% { transform: scale(1.25); } }
+body.fx-lite .gw-now::after { animation: none; }
+@media (prefers-reduced-motion: reduce) { .germ-why, .gw-now::after { animation: none; } }
+body.theme-day .germ-why { background: #f4fbf7; color: #0d2a1b; border-color: rgba(13, 122, 65, .35); }
+@media (max-width: 640px) { .germ-why p { font-size: 10px; } }

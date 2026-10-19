@@ -14,3 +14,12 @@ test('germ view: on the floor with 5m agreeing is hot, past the line is "ran off
   expect(germView(null)).toBeNull();
   expect(germView({ w: 'floor' })).toBeNull();
 });
+
+test('germWhy explains the germ for this coin in three lines', () => {
+  const { germWhy } = require('./germ');
+  const w = germWhy({ d: 4, w: 'floor', d5: 6, run: 120, sym: 'DOG', line: 15, ok: true });
+  expect(w.lines).toHaveLength(3);
+  expect(w.lines[0]).toContain('+120%'); expect(w.lines[1]).toContain('$DOG'); expect(w.lines[1]).toContain('agrees');
+  expect(germWhy({ d: -5, w: 'lost' }).lines[1]).toContain('UNDER');
+  expect(germWhy(null)).toBeNull();
+});

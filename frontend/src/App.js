@@ -13,6 +13,7 @@ import './styles/trade.css';
 import './styles/heartbeat.css';
 import './styles/meta.css';
 import './styles/dayColor.css';
+import './styles/hoverRays.css';
 import { LegalConsent } from './components/LegalConsent';
 import { captureInvite } from './lib/chatSession';
 captureInvite();

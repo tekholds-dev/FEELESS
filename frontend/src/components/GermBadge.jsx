@@ -1,5 +1,7 @@
 import React from 'react';
-import { useGerm, germView } from '../lib/germ';
+import { createPortal } from 'react-dom';
+import { useGerm, germView, germWhy } from '../lib/germ';
+import { useFloatPop } from '../lib/floatPop';
 import '../styles/germ.css';
 
 const TONE = { hot: 'gm-hot', floor: 'gm-floor', near: 'gm-near', far: 'gm-far', lost: 'gm-lost' };   // literal class names (cssHygiene reads them)
@@ -25,8 +27,16 @@ export function GermDot({ mint, size = 34 }) {
 export function GermChip({ mint, germ, compact }) {
   const live = useGerm(germ ? null : mint);
   const v = germView(germ || live);
+  const fp = useFloatPop(280);
   if (!v) return null;
-  return <span className={`germ-chip ${TONE[v.tone]}${compact ? ' is-compact' : ''}`} data-tip={v.tip} data-testid="germ-chip">
+  const why = fp.open ? germWhy(germ || live) : null;
+  return <span ref={fp.ref} role="button" tabIndex={0} aria-expanded={fp.open} className={`germ-chip ${TONE[v.tone]}${compact ? ' is-compact' : ''}`} data-tip={fp.open ? undefined : `${v.tip} · tap: why the germ matters`} data-testid="germ-chip"
+    onClick={e => { e.stopPropagation(); fp.setOpen(o => !o); }} onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); fp.setOpen(o => !o); } }}>
+    {why ? createPortal(<div ref={fp.popRef} style={fp.style} className={`germ-why ${TONE[v.tone]}`} data-testid="germ-why" onClick={e => e.stopPropagation()}>
+      <header><i className="gm-ico"><Microbe /></i><b>{v.word}</b><em>{v.short}</em></header>
+      <div className="gw-track" aria-hidden="true"><span className="gw-floor">floor</span><span className="gw-now" style={{ transform: `translateX(${Math.max(0, Math.min(100, (v.d + 10) / 0.6))}%)` }} /><span className="gw-gun">gun line</span></div>
+      {why.lines.map(l => <p key={l}>{l}</p>)}
+    </div>, document.body) : null}
     <i className="gm-ico"><Microbe /></i>
     {!compact && <b className="gm-word">{v.word}</b>}
     <em className="gm-num">{v.short}</em>
