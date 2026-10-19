@@ -7,6 +7,7 @@ import { useWallet } from '../hooks/useWallet';
 import { useLivePrice } from '../lib/livePriceHub';
 import { price as pxWord } from '../lib/num';
 import '../styles/crews.css';
+import { FamilyBadge, EMBLEM } from './FamilyBadge';
 
 // 🛡 CREWS (Leaderboard › Crews · Season & ranks): $25 in SOL to the FEELESS fee wallet starts a crew with 5 seats including you; +5 seats cost $5. A crew
 // shares no money — everyone signs their own trades. The weekly board ranks what members' VERIFIED FEELESS trades did over 7 days; the top 3 pay season
@@ -46,7 +47,8 @@ export function CrewCard3D({ r, place, small, onOpen }) {
     onPointerMove={tilt} onPointerLeave={flat} onClick={() => onOpen?.(r)} data-testid={`crew-3d-${r.tag}`} aria-label={`${r.name}: ${pctTxt(r.pct)} this week`}>
     <span className="crw-bolt" aria-hidden="true" />
     <span className="crw-face">
-      <span className="crw-medal">{MEDAL[place - 1] || '🛡'}</span>
+      <span className="crw-medal">{MEDAL[place - 1] || '🌹'}</span>
+      {r.badge ? <FamilyBadge b={r.badge} size={small ? 'sm' : 'md'} chips={!small} /> : null}
       <b className="crw-3tag">{r.tag}</b>
       <span className="crw-3name">{r.name}</span>
       <em className={`crw-3pct ${r.pct == null ? '' : r.pct >= 0 ? 'm-pos' : 'm-neg'}`} key={r.pct}>{pctTxt(r.pct)}</em>
@@ -57,10 +59,10 @@ export function CrewCard3D({ r, place, small, onOpen }) {
 }
 
 // 🏆 TOP 3 CREWS strip for the popular tabs (globe war room, Home, Leaderboard): self-loading, live, one shared read
-export function TopCrews({ title = '🛡 TOP CREWS' }) {
+export function TopCrews({ title = '🌹 TOP FAMILIES' }) {
   const b = useCrewBoard(); const top = podium(b?.board);
   if (!top.length) return null;
-  return <section className="crw-top" data-testid="top-crews"><header><span className="m-label">{title}</span><a href="/terminal/leaderboard?lens=crews">all crews →</a></header>
+  return <section className="crw-top" data-testid="top-crews"><header><span className="m-label">{title}</span><a href="/terminal/leaderboard?lens=crews">all families →</a></header>
     <div className="crw-top-row">{top.map((r, i) => <CrewCard3D key={r.id} r={r} place={i + 1} small onOpen={() => { window.location.href = '/terminal/leaderboard?lens=crews'; }} />)}</div></section>;
 }
 
@@ -70,14 +72,14 @@ export function CrewProfile({ address }) {
   useEffect(() => { let on = true; if (!address) return undefined; sharedJson(`/api/reputation/crews/of/${address}`, { maxAge: 120000 }).then(d => on && setC(d?.crew || null)).catch(() => {}); return () => { on = false; }; }, [address]);
   if (!c) return null;
   const rows = b?.board || []; const r = rows.find(x => x.id === c.id); const place = r && r.ranked ? rows.filter(x => x.ranked).indexOf(r) + 1 : 0;
-  return <section className="crw-prof m-card" data-testid="crew-profile"><header><span className="m-label">🛡 CREW</span><small>{place ? `#${place} this week` : 'unranked this week'}</small></header>
+  return <section className="crw-prof m-card" data-testid="crew-profile"><header><span className="m-label">🌹 LA FAMILIA</span><small>{place ? `#${place} this week` : 'unranked this week'}</small></header>
     {r ? <CrewCard3D r={r} place={place && place <= 3 ? place : 4} /> : <b>[{c.tag}] {c.name}</b>}</section>;
 }
 
 function LaunchLive({ l }) {
   const lp = useLivePrice(l?.mint ? { chainId: 'solana', baseToken: { address: l.mint } } : null);
   const first = useRef(null);
-  if (!l) return <p className="m-dim crw-hint">No launch pinned. The owner pins the coin the crew is behind — every member sees it live here.</p>;
+  if (!l) return <p className="m-dim crw-hint">No launch pinned. The head pins the coin the family is behind — every member sees it live here.</p>;
   if (lp?.usd && !first.current) first.current = lp.usd;
   const since = lp?.usd && first.current ? (lp.usd / first.current - 1) * 100 : null;
   return <div className="crw-launch" data-testid="crew-launch"><b>🚀 ${l.symbol || l.mint.slice(0, 4)}</b><span key={lp?.usd}>{lp?.usd ? pxWord(lp.usd) : 'reading…'}</span>
@@ -85,28 +87,54 @@ function LaunchLive({ l }) {
     {l.note && <p>{l.note}</p>}<a href={`/terminal/coin/solana/${l.mint}`}>open chart →</a></div>;
 }
 
-const TABS = [['board', '💬 Board'], ['bounty', '🎯 Bounties'], ['launch', '🚀 Launch'], ['members', '👥 Members'], ['code', '🔐 Code']];
+const PART_WORD = { emblem: '🎴 EMBLEM', frame: '🖼 FRAME', fx: '✨ EFFECT' };
+// 🌹 the badge builder: every part from the server's catalog (locked parts dimmed with what the family still needs), a live preview, one save
+function BadgeBuilder({ mine, owner, addr, sess, q, act, busy }) {
+  const [cat, setCat] = useState(null); const [d, setD] = useState(null);
+  useEffect(() => { let on = true; fetch(apiUrl(`/api/reputation/crews/badge/catalog?address=${addr}&session=${encodeURIComponent(sess)}`)).then(r => (r.ok ? r.json() : null))
+    .then(x => { if (on && x) { setCat(x); setD(cur => cur || { emblem: x.badge.emblem, frame: x.badge.frame, fx: x.badge.fx, c1: x.badge.c1 || x.colors[0], c2: x.badge.c2 || x.colors[1], motto: x.badge.motto || '' }); } }).catch(() => {});
+    return () => { on = false; }; }, [addr, sess, mine?.badge?.v]);   // eslint-disable-line react-hooks/exhaustive-deps
+  if (!cat || !d) return <p className="m-dim crw-hint">opening the badge workshop…</p>;
+  const prev = { ...d, tag: mine.tag, name: mine.name, ranks: cat.metrics };
+  const cost = cat.built && !cat.free ? (costText(q, 'badge') || `$${cat.restyleUsd}`) : 'free';
+  return <div className="fbb" data-testid="badge-builder">
+    <div className="fbb-stage"><FamilyBadge b={prev} size="lg" /><p className="fbb-met">{Object.entries(cat.metrics).map(([k, v]) => <span key={k} data-tip={cat.metricWords[k]}><b>{v ?? '—'}</b><small>{cat.metricWords[k]}</small></span>)}</p></div>
+    <div className="fbb-parts">
+      {Object.entries(cat.parts).map(([part, rows]) => <fieldset key={part} className="fbb-part"><legend>{PART_WORD[part] || part}</legend>{rows.map(o => <button key={o.key} type="button" disabled={!o.ok || !owner}
+        className={`${d[part] === o.key ? 'active' : ''} ${o.ok ? '' : 'is-locked'}`} onClick={() => setD(x => ({ ...x, [part]: o.key }))} data-tip={o.ok ? o.label : `🔒 ${o.need}`} data-testid={`fbb-${part}-${o.key}`}>
+        {part === 'emblem' ? <span className="fbb-em">{EMBLEM[o.key]}</span> : null}<small>{o.label.replace(/^\S+\s/, part === 'emblem' ? '' : '$&')}</small>{o.ok ? null : <i>🔒</i>}</button>)}</fieldset>)}
+      <fieldset className="fbb-part"><legend>🎨 COLORS</legend>{['c1', 'c2'].map(k => <span key={k} className="fbb-sw">{cat.colors.map(c => <button key={c} type="button" disabled={!owner} className={d[k] === c ? 'active' : ''} style={{ background: c }} onClick={() => setD(x => ({ ...x, [k]: c }))} aria-label={`${k} ${c}`} />)}</span>)}</fieldset>
+      <fieldset className="fbb-part"><legend>✒ MOTTO</legend><input className="m-input" value={d.motto} maxLength={cat.mottoMax} disabled={!owner} placeholder="Famiglia prima di tutto" onChange={e => setD(x => ({ ...x, motto: e.target.value }))} aria-label="Family motto" /></fieldset>
+      {owner ? <button type="button" className="m-btn m-go" disabled={!!busy} onClick={() => act('/api/reputation/crews/badge', { badge: d }, cat.built ? '🌹 badge restyled' : '🌹 badge forged', cat.built && !cat.free ? 'badge' : undefined)} data-testid="fbb-save">
+        {cat.built ? `Restyle the badge · ${cost}` : 'Forge the family badge · free'}</button> : <p className="m-dim crw-hint">Only the family head forges the badge — every unlock comes from what the family really did.</p>}
+    </div>
+  </div>;
+}
+
+const TABS = [['badge', '🌹 Badge'], ['board', '💬 Board'], ['bounty', '🎯 Bounties'], ['launch', '🚀 Launch'], ['members', '👥 Members'], ['code', '🔐 Code']];
 
 function CrewHQ({ mine, owner, addr, sess, busy, setBusy, setMine, act, q }) {
-  const [tab, setTab] = useState('board'); const [txt, setTxt] = useState(''); const [rew, setRew] = useState(50); const [mint, setMint] = useState(''); const [sym, setSym] = useState(''); const [code, setCode] = useState(''); const [plain, setPlain] = useState('');
+  const [tab, setTab] = useState(mine.badge?.set ? 'board' : 'badge'); const [txt, setTxt] = useState(''); const [rew, setRew] = useState(50); const [mint, setMint] = useState(''); const [sym, setSym] = useState(''); const [code, setCode] = useState(''); const [plain, setPlain] = useState('');
   const doAct = async (a, body, ok) => { setBusy(a); try { const r = await post('/api/reputation/crews/act', { address: addr, session: sess, act: a, ...body }); if (r.crew) setMine(r.crew); if (r.plainCode) setPlain(r.plainCode); toast.success(ok); setTxt(''); } catch (e) { toast.error(e.message); } finally { setBusy(''); } };
   const posts = mine.posts || []; const roots = posts.filter(p => !p.parent).slice().reverse(); const kids = id => posts.filter(p => p.parent === id);
   const link = mine.code ? inviteLink(window.location.origin, window.location.pathname, mine.code) : null;
   return <>
+    {mine.badge ? <div className="crw-crest"><FamilyBadge b={mine.badge} size="md" /></div> : null}
     <nav className="crw-tabs m-seg" role="tablist">{TABS.map(([k, l]) => <button key={k} type="button" role="tab" aria-selected={tab === k} className={tab === k ? 'active' : ''} onClick={() => setTab(k)} data-testid={`crew-tab-${k}`}>{l}{k === 'bounty' && mine.bountiesOpen ? <b>{mine.bountiesOpen}</b> : null}</button>)}</nav>
     <div className="crw-pane" key={tab}>
+      {tab === 'badge' && <BadgeBuilder mine={mine} owner={owner} addr={addr} sess={sess} q={q} act={act} busy={busy} />}
       {tab === 'board' && <>
-        <form className="crw-row" onSubmit={e => { e.preventDefault(); doAct('post', { text: txt }, '💬 posted'); }}><input className="m-input" placeholder="Post to the crew board…" value={txt} maxLength={500} onChange={e => setTxt(e.target.value)} aria-label="Post" /><button type="submit" className="m-btn primary" disabled={!txt.trim() || !!busy}>Post</button></form>
+        <form className="crw-row" onSubmit={e => { e.preventDefault(); doAct('post', { text: txt }, '💬 posted'); }}><input className="m-input" placeholder="Talk to the family…" value={txt} maxLength={500} onChange={e => setTxt(e.target.value)} aria-label="Post" /><button type="submit" className="m-btn primary" disabled={!txt.trim() || !!busy}>Post</button></form>
         {!roots.length && <p className="m-dim crw-hint">The board is quiet. Drop a play, a lesson or a call — members only.</p>}
         <ul className="crw-posts">{roots.map((p, i) => <li key={p.id} style={{ '--i': i }}><b>{p.name}</b><small>{new Date(p.at * 1000).toLocaleString()}</small><p>{p.text}</p>
           {kids(p.id).map(k => <div key={k.id} className="crw-reply"><b>{k.name}</b> {k.text}</div>)}
           <button type="button" className="crw-rbtn" onClick={() => { const t = window.prompt('Reply:'); if (t) doAct('post', { text: t, parent: p.id }, '↩ replied'); }}>↩ reply</button></li>)}</ul>
-        <details className="crw-room"><summary>⚡ Live crew room</summary><Suspense fallback={<small className="m-dim">Opening the room…</small>}><div className="crw-chat"><EcosystemChat compact room={mine.room} ecosystem={{ id: `crew-${mine.id}`, name: mine.name }} /></div></Suspense></details>
+        <details className="crw-room"><summary>⚡ Live family room</summary><Suspense fallback={<small className="m-dim">Opening the room…</small>}><div className="crw-chat"><EcosystemChat compact room={mine.room} ecosystem={{ id: `crew-${mine.id}`, name: mine.name }} /></div></Suspense></details>
       </>}
       {tab === 'bounty' && <>
         {owner && <form className="crw-row" onSubmit={e => { e.preventDefault(); doAct('bounty', { text: txt, reward: Number(rew) }, '🎯 bounty posted'); }}><input className="m-input" placeholder="Task (e.g. find a germ entry under $50K)" value={txt} maxLength={120} onChange={e => setTxt(e.target.value)} aria-label="Bounty task" />
           <input className="m-input crw-tag" value={rew} onChange={e => setRew(e.target.value.replace(/\D/g, ''))} aria-label="Reward points" /><button type="submit" className="m-btn primary" disabled={!txt.trim() || !!busy}>Post · {rew || 0} pts</button></form>}
-        <p className="m-dim crw-hint">Bounties pay crew points, never money.</p>
+        <p className="m-dim crw-hint">Bounties pay family points, never money.</p>
         <ul className="crw-bounties">{(mine.bounties || []).slice().reverse().map(b => <li key={b.id} className={`is-${b.state}`}><b>🎯 {b.title}</b><em>{b.reward} pts</em><small>{b.state === 'open' ? 'open' : b.state === 'claimed' ? `claimed by ${b.byName}: ${b.proof}` : `paid to ${b.byName}`}</small>
           {b.state === 'open' && <button type="button" className="m-btn" disabled={!!busy} onClick={() => { const pr = window.prompt('Proof (a tx, a link, a line):'); if (pr) doAct('claim', { id: b.id, text: pr }, '🙋 claimed'); }}>Claim</button>}
           {b.state === 'claimed' && owner && <><button type="button" className="m-btn primary" onClick={() => doAct('settle', { id: b.id, pay: true }, '✅ paid')}>Pay</button><button type="button" className="m-btn" onClick={() => doAct('settle', { id: b.id, pay: false }, '↺ reopened')}>Reopen</button></>}</li>)}</ul>
@@ -151,34 +179,34 @@ export function Crews() {
   const rows = board?.board || []; const owner = mine?.members?.find(m => m.owner)?.address === addr; const top = podium(rows);
   return <section className="crw" data-testid="crews">
     <div className="crw-stage" data-testid="crew-podium">
-      <header><span className="m-label">⚡ CREW WARS · THIS WEEK</span><small>{board ? `${board.total} crew${board.total === 1 ? '' : 's'} · verified trades only · live` : 'reading…'}</small></header>
+      <header><span className="m-label">🌹 LA FAMILIA · FAMILY WARS THIS WEEK</span><small>{board ? `${board.total} famil${board.total === 1 ? 'y' : 'ies'} · verified trades only · live` : 'reading…'}</small></header>
       {top.length ? <div className="crw-podium">{[1, 0, 2].map(i => top[i] ? <div key={top[i].id} className={`crw-step ${['s1', 's2', 's3'][i]}`}><CrewCard3D r={top[i]} place={i + 1} /><span className="crw-plinth">{MEDAL[i]} +{PRIZES[i]} pts each</span></div> : null)}</div>
-        : <p className="crw-hint m-dim">No crews yet — be the first on the stage.</p>}
+        : <p className="crw-hint m-dim">No families yet — be the first Don on the stage.</p>}
     </div>
     <div className="crw-mine m-card m-live">
       {mine ? <>
-        <header><span className="m-label">🛡 YOUR CREW</span><b className="crw-name">[{mine.tag}] {mine.name}</b><small>{seatsLine(mine)}</small>
-          <button type="button" className="m-btn" disabled={!!busy} onClick={() => act('/api/reputation/crews/leave', {}, 'Left the crew')} data-testid="crew-leave">Leave</button></header>
+        <header><span className="m-label">🌹 YOUR FAMILIA</span><b className="crw-name">[{mine.tag}] {mine.name}</b><small>{seatsLine(mine)}</small>
+          <button type="button" className="m-btn" disabled={!!busy} onClick={() => act('/api/reputation/crews/leave', {}, 'Left the family')} data-testid="crew-leave">Leave</button></header>
         <CrewHQ mine={mine} owner={owner} addr={addr} sess={sess} busy={busy} setBusy={setBusy} setMine={setMine} act={act} q={q} />
       </> : <>
-        <header><span className="m-label">🛡 START OR JOIN</span><small>{q ? `${costText(q, 'create')} · ${q.baseSeats} seats incl. you · +${q.packSeats} seats ${costText(q, 'seats')}` : '5 seats incl. you'} · a crew shares no money</small></header>
-        {mine === undefined ? <small className="m-dim">Loading…</small> : !sess ? <p className="crw-hint m-dim">Connect your wallet and open chat once to start or join a crew.</p> : <div className="crw-forms">
-          <form onSubmit={e => { e.preventDefault(); act('/api/reputation/crews/create', { name, tag }, 'Crew created — set your passcode in 🔐 Code', 'create'); }} data-testid="crew-create-form">
-            <input className="m-input" placeholder="Crew name" value={name} maxLength={20} onChange={e => setName(e.target.value)} aria-label="Crew name" />
-            <input className="m-input crw-tag" placeholder="TAG" value={tag} maxLength={4} onChange={e => setTag(e.target.value.toUpperCase())} aria-label="Crew tag" />
-            <button type="submit" className="m-btn primary" disabled={!!busy || name.trim().length < 3 || tag.length < 2 || (q && q.ok === false)} data-tip="One SOL transfer you sign to the FEELESS fee wallet, checked on-chain. If anything fails after you pay, send the same payment again — it is kept.">{busy.endsWith('/create') ? 'Paying…' : `Start a crew · ${costText(q, 'create') || '$25'}`}</button>
+        <header><span className="m-label">🌹 START A FAMILY OR JOIN ONE</span><small>{q ? `${costText(q, 'create')} · ${q.baseSeats} seats incl. you · +${q.packSeats} seats ${costText(q, 'seats')}` : '5 seats incl. you'} · a family shares no money</small></header>
+        {mine === undefined ? <small className="m-dim">Loading…</small> : !sess ? <p className="crw-hint m-dim">Connect your wallet and open chat once to start or join a family.</p> : <div className="crw-forms">
+          <form onSubmit={e => { e.preventDefault(); act('/api/reputation/crews/create', { name, tag }, 'Familia started — build your badge in 🌹 Badge', 'create'); }} data-testid="crew-create-form">
+            <input className="m-input" placeholder="Family name" value={name} maxLength={20} onChange={e => setName(e.target.value)} aria-label="Family name" />
+            <input className="m-input crw-tag" placeholder="TAG" value={tag} maxLength={4} onChange={e => setTag(e.target.value.toUpperCase())} aria-label="Family tag" />
+            <button type="submit" className="m-btn primary" disabled={!!busy || name.trim().length < 3 || tag.length < 2 || (q && q.ok === false)} data-tip="One SOL transfer you sign to the FEELESS fee wallet, checked on-chain. If anything fails after you pay, send the same payment again — it is kept.">{busy.endsWith('/create') ? 'Paying…' : `Start a family · ${costText(q, 'create') || '$25'}`}</button>
             {q?.ok === false && (name || tag) && <small className="crw-why" data-testid="crew-why">{q.why}</small>}</form>
-          <form onSubmit={e => { e.preventDefault(); act('/api/reputation/crews/join', { code }, 'Joined the crew'); }} data-testid="crew-join-form">
+          <form onSubmit={e => { e.preventDefault(); act('/api/reputation/crews/join', { code }, 'Welcome to the family'); }} data-testid="crew-join-form">
             <input className="m-input" placeholder="Invite code or passcode (free to join)" value={code} maxLength={32} onChange={e => setCode(e.target.value)} aria-label="Invite code" />
             <button type="submit" className="m-btn" disabled={!!busy || !code.trim()}>Join</button></form></div>}
       </>}
     </div>
     <div className="crw-board m-card">
-      <header><span className="m-label">🏆 WEEKLY CREW BOARD</span><small data-tip={board?.rule}>{board ? `${board.total} crew${board.total === 1 ? '' : 's'} · verified trades, last 7 days` : ''}</small></header>
-      <p className="crw-prize" data-testid="crew-prizes">Top 3 ranked crews pay every member season points each week: <b>🥇 +{PRIZES[0]}</b> · <b>🥈 +{PRIZES[1]}</b> · <b>🥉 +{PRIZES[2]}</b></p>
-      {board && !rows.length && <p className="crw-hint m-dim">No crews yet. Start one, fill your seats and trade — the board ranks verified results.</p>}
+      <header><span className="m-label">🏆 WEEKLY FAMILY BOARD</span><small data-tip={board?.rule}>{board ? `${board.total} famil${board.total === 1 ? 'y' : 'ies'} · verified trades, last 7 days` : ''}</small></header>
+      <p className="crw-prize" data-testid="crew-prizes">The top 3 families pay every member season points each week: <b>🥇 +{PRIZES[0]}</b> · <b>🥈 +{PRIZES[1]}</b> · <b>🥉 +{PRIZES[2]}</b></p>
+      {board && !rows.length && <p className="crw-hint m-dim">No families yet. Start one, fill your seats and trade — the board ranks verified results.</p>}
       <ol>{rows.map((r, i) => <li key={r.id} className={r.ranked ? '' : 'is-off'} style={{ '--i': i }} data-testid={`crew-row-${r.tag}`}>
-        <b className="crw-rank">{r.ranked ? i + 1 : '·'}</b><span className="crw-tagc">{r.tag}</span><span className="crw-rname">{r.name}{r.launch ? <i> 🚀 ${r.launch}</i> : null}</span>
+        <b className="crw-rank">{r.ranked ? i + 1 : '·'}</b>{r.badge ? <FamilyBadge b={r.badge} size="sm" /> : <span className="crw-tagc">{r.tag}</span>}<span className="crw-rname">{r.name}{r.launch ? <i> 🚀 ${r.launch}</i> : null}</span>
         <small>{r.members}/{r.seats} seats · {r.active} active</small><em className={`m-num ${r.pct == null ? '' : r.pct >= 0 ? 'm-pos' : 'm-neg'}`} key={r.pct}>{pctTxt(r.pct)}</em><small className="crw-note">{rankNote(r)}</small>
         <span className="crw-bar" aria-hidden="true"><i style={{ transform: `scaleX(${Math.max(0.02, Math.min(1, Math.abs(Number(r.pct) || 0) / 50))})` }} className={r.pct >= 0 ? 'up' : 'dn'} /></span></li>)}</ol>
       <small className="m-dim crw-rule">{board?.rule}</small>
@@ -186,9 +214,9 @@ export function Crews() {
   </section>;
 }
 
-// 🛡 the crew tag beside a name (profile header): [TAG] name of the crew the wallet is in — nothing if none
+// 🌹 the family badge beside a name (profile header): the family the wallet is in — nothing if none
 export function CrewChip({ address }) {
   const [c, setC] = useState(null);
   useEffect(() => { let alive = true; if (!address) return undefined; sharedJson(`/api/reputation/crews/of/${address}`, { maxAge: 120000 }).then(d => alive && setC(d?.crew || null)).catch(() => {}); return () => { alive = false; }; }, [address]);
-  return c ? <a className="m-chip crw-chip" href="/terminal/leaderboard?lens=crews" data-tip={`Crew: ${c.name}`} data-testid="crew-chip">🛡 {c.tag}</a> : null;
+  return c ? <a className="m-chip crw-chip" href="/terminal/leaderboard?lens=crews" data-tip={`La Familia: ${c.name}${c.badge?.motto ? ` — “${c.badge.motto}”` : ''}`} data-testid="crew-chip">{c.badge ? <FamilyBadge b={c.badge} size="sm" /> : '🌹'} {c.tag}</a> : null;
 }

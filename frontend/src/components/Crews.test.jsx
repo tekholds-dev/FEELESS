@@ -13,3 +13,10 @@ test('the price shows dollars and SOL, staff see free, seats read as used / boug
   expect(costText({ ...q, free: true }, 'create')).toBe('free for FEELESS staff'); expect(costText({ create: { usd: 2.5, sol: null } }, 'create')).toBe('$2.50'); expect(costText(null, 'create')).toBe('');
   expect(seatsLine({ members: [1, 2, 3], seats: 5 })).toBe('3/5 seats'); expect(PRIZES).toEqual([150, 100, 60]);
 });
+
+test('the family badge shows only the ranks the family earned', () => {
+  const { rankChips } = require('./FamilyBadge');
+  expect(rankChips({ members: 3, podiums: 2, crowns: 1, best: 1, points: 0 })).toEqual([['👑', '1× #1'], ['🏆', '2 podiums']]);
+  expect(rankChips({ members: 1, podiums: 0, crowns: 0, best: null, points: 40 })).toEqual([['🎯', '40 pts']]);
+  expect(rankChips(null)).toEqual([]);
+});

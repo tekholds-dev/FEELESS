@@ -6,7 +6,7 @@ import { Crews } from '../Crews';
 
 // One Leaderboard tab, five lenses (like Radar): season XP, callers, trench wars, crews, participation.
 // ?lens= keeps the view in the URL so links land on the right board.
-const LENSES = [['season', '🏆 Season XP'], ['callers', '📣 Callers'], ['wars', '⚔️ Trench wars'], ['crews', '🛡 Crews'], ['crew', '🫡 Participation']];
+const LENSES = [['season', '🏆 Season XP'], ['callers', '📣 Callers'], ['wars', '⚔️ Trench wars'], ['crews', '🌹 Familia'], ['crew', '🫡 Participation']];
 
 export function LeaderboardHub({ wars, callers, crew }) {
   const [params, setParams] = useSearchParams();

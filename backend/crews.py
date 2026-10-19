@@ -13,14 +13,14 @@ WEEK = 7 * 86400
 def clean_name(s):
     s = ' '.join(str(s or '').split())
     if not 3 <= len(s) <= 20 or not re.fullmatch(r'[A-Za-z0-9 _.\-]+', s):
-        raise ValueError('Crew names are 3–20 letters, numbers, spaces, dots, dashes or underscores.')
+        raise ValueError('Family names are 3–20 letters, numbers, spaces, dots, dashes or underscores.')
     return s
 
 
 def clean_tag(s):
     t = str(s or '').strip().upper()
     if not re.fullmatch(r'[A-Z0-9]{2,4}', t):
-        raise ValueError('A crew tag is 2–4 letters or numbers.')
+        raise ValueError('A family tag is 2–4 letters or numbers.')
     return t
 
 
@@ -44,11 +44,11 @@ def check_new(store, owner, name, tag):
     """Everything create() would refuse, checked BEFORE anyone pays. → (name, tag) cleaned; raises ValueError."""
     _norm(store)
     if owner in store['by']:
-        raise ValueError('You are already in a crew — leave it first.')
+        raise ValueError('You are already in a family — leave it first.')
     name, tag = clean_name(name), clean_tag(tag)
     for c in store['crews'].values():
         if c['name'].lower() == name.lower():
-            raise ValueError('That crew name is taken.')
+            raise ValueError('That family name is taken.')
         if c['tag'] == tag:
             raise ValueError('That tag is taken.')
     return name, tag
@@ -61,11 +61,11 @@ def sig_used(store, sig):
 def create(store, owner, name, tag, now, paid=None):
     _norm(store)
     if owner in store['by']:
-        raise ValueError('You are already in a crew — leave it first.')
+        raise ValueError('You are already in a family — leave it first.')
     name, tag = clean_name(name), clean_tag(tag)
     for c in store['crews'].values():
         if c['name'].lower() == name.lower():
-            raise ValueError('That crew name is taken.')
+            raise ValueError('That family name is taken.')
         if c['tag'] == tag:
             raise ValueError('That tag is taken.')
     cid = secrets.token_hex(3)
@@ -81,11 +81,11 @@ def add_seats(store, wallet, paid=None):
     _norm(store)
     crew = crew_of(store, wallet)
     if not crew:
-        raise ValueError('You are not in a crew.')
+        raise ValueError('You are not in a family.')
     if crew['owner'] != wallet:
-        raise ValueError('Only the crew owner can add seats.')
+        raise ValueError('Only the family head can add seats.')
     if crew.get('seats', BASE_SEATS) + PACK_SEATS > MAX_SEATS:
-        raise ValueError(f'A crew holds at most {MAX_SEATS} seats.')
+        raise ValueError(f'A family holds at most {MAX_SEATS} seats.')
     crew['seats'] = crew.get('seats', BASE_SEATS) + PACK_SEATS
     if paid:
         crew.setdefault('paid', []).append(paid)
@@ -97,12 +97,12 @@ def add_seats(store, wallet, paid=None):
 def join(store, wallet, code):
     _norm(store)
     if wallet in store['by']:
-        raise ValueError('You are already in a crew — leave it first.')
+        raise ValueError('You are already in a family — leave it first.')
     crew = find_by_code(store, code)
     if not crew:
-        raise ValueError('That invite code does not match a crew.')
+        raise ValueError('That invite code does not match a family.')
     if len(crew['members']) >= crew.get('seats', BASE_SEATS):
-        raise ValueError(f"That crew is full ({crew.get('seats', BASE_SEATS)} seats) — its owner can add 5 more for ${PACK_USD:g}.")
+        raise ValueError(f"That family is full ({family.get('seats', BASE_SEATS)} seats) — its owner can add 5 more for ${PACK_USD:g}.")
     crew['members'].append(wallet); store['by'][wallet] = crew['id']
     return crew
 
@@ -113,7 +113,7 @@ def leave(store, wallet):
     cid = store['by'].pop(wallet, None)
     crew = store['crews'].get(cid)
     if not crew:
-        raise ValueError('You are not in a crew.')
+        raise ValueError('You are not in a family.')
     crew['members'] = [m for m in crew['members'] if m != wallet]
     if not crew['members']:
         store['crews'].pop(cid, None)
@@ -130,7 +130,7 @@ def stats(pieces):
             'pct': round(100 * usd / cost, 1) if cost > 0 else None}
 
 
-def board(store, pieces_by_wallet, now):
+def board(store, pieces_by_wallet, now, cfg=None):
     """→ ranked crews first (best weekly % result), unranked after. `pieces_by_wallet` = {wallet: [closed track_record pieces]}."""
     _norm(store)
     rows = []
@@ -140,7 +140,8 @@ def board(store, pieces_by_wallet, now):
         s = stats(ps)
         ranked = len(c['members']) >= MIN_MEMBERS and s['trades'] >= MIN_TRADES and s['pct'] is not None
         rows.append({'id': c['id'], 'name': c['name'], 'tag': c['tag'], 'members': len(c['members']), 'seats': c.get('seats', BASE_SEATS), 'active': active, 'ranked': ranked, **s,
-                     'launch': (c.get('launch') or {}).get('symbol') or None, 'bounties': sum(1 for b in c.get('bounties') or [] if b.get('state') == 'open')})
+                     'launch': (c.get('launch') or {}).get('symbol') or None, 'bounties': sum(1 for b in c.get('bounties') or [] if b.get('state') == 'open'),
+                     'badge': badge_view(c, store.get('awards'), cfg)})
     return sorted(rows, key=lambda r: (not r['ranked'], -(r['pct'] if r['pct'] is not None else -999), -r['members']))
 
 
@@ -164,10 +165,10 @@ def set_code(store, wallet, code=None):
     _norm(store)
     crew = crew_of(store, wallet)
     if not crew or crew['owner'] != wallet:
-        raise ValueError('Only the crew owner can set the code.')
+        raise ValueError('Only the family head can set the code.')
     plain = str(code or '').strip() or secrets.token_urlsafe(12)[:16]
     if not re.fullmatch(CODE_RE, plain):
-        raise ValueError('A crew code is 6–24 letters, numbers, - or _.')
+        raise ValueError('A family code is 6–24 letters, numbers, - or _.')
     for c in store['crews'].values():
         if c is not crew and (c.get('code') == plain or (c.get('codeHash') and hmac.compare_digest(c['codeHash'], _hash(plain, c.get('salt', ''))))):
             raise ValueError('That code is taken — pick another or generate one.')
@@ -194,7 +195,7 @@ def find_by_code(store, code):
 def _member(store, wallet):
     crew = crew_of(store, wallet)
     if not crew:
-        raise ValueError('You are not in a crew.')
+        raise ValueError('You are not in a family.')
     return crew
 
 
@@ -221,10 +222,10 @@ def bounty_add(store, wallet, title, reward, now, mint=None):
     """🎯 The OWNER posts a bounty: a task + crew points it pays (1–1000). Points only."""
     crew = _member(store, wallet)
     if crew['owner'] != wallet:
-        raise ValueError('Only the crew owner posts bounties.')
+        raise ValueError('Only the family head posts bounties.')
     r = int(float(reward or 0))
     if not 1 <= r <= BOUNTY_MAX:
-        raise ValueError(f'A bounty pays 1–{BOUNTY_MAX} crew points.')
+        raise ValueError(f'A bounty pays 1–{BOUNTY_MAX} family points.')
     b = {'id': secrets.token_hex(4), 'title': _clean_text(title, 120), 'reward': r, 'at': now, 'state': 'open', **({'mint': str(mint)[:60]} if mint else {})}
     crew['bounties'] = (crew.get('bounties') or [])[-(BOUNTIES_KEPT - 1):] + [b]
     return b
@@ -244,7 +245,7 @@ def bounty_settle(store, wallet, bid, pay, now):
     """The OWNER pays a claimed bounty (the claimer's crew points += reward) or reopens it."""
     crew = _member(store, wallet)
     if crew['owner'] != wallet:
-        raise ValueError('Only the crew owner settles bounties.')
+        raise ValueError('Only the family head settles bounties.')
     b = next((x for x in crew.get('bounties') or [] if x['id'] == bid), None)
     if not b or b['state'] != 'claimed':
         raise ValueError('That bounty has no claim to settle.')
@@ -261,7 +262,7 @@ def launch(store, wallet, mint, symbol, note, now):
     """🚀 The OWNER pins the crew's launch — the coin the crew is behind (its live numbers are drawn by the page). None clears it."""
     crew = _member(store, wallet)
     if crew['owner'] != wallet:
-        raise ValueError('Only the crew owner pins the launch.')
+        raise ValueError('Only the family head pins the launch.')
     if not mint:
         crew.pop('launch', None)
         return None
@@ -269,3 +270,113 @@ def launch(store, wallet, mint, symbol, note, now):
         raise ValueError('Paste the coin\'s mint address (CA).')
     crew['launch'] = {'mint': mint, 'symbol': str(symbol or '')[:16], 'note': str(note or '')[:160], 'at': now}
     return crew['launch']
+
+
+# ---- 🌹 LA FAMILIA BADGE (owner, 2026-10-19: "users build 1 Family badge that represents their crew / family; rank unlocks things to show on the
+# badge — true wiring + tracking + configs for the creator wallet"). Each part of the badge is free OR unlocked by a TRACKED family number,
+# recomputed every read (never stored as "unlocked"): members, podium weeks + crowns from the weekly awards, the best place ever, bounty points
+# paid. The creator tunes every unlock line and the restyle cost in HQ (fees.crews.unlocks / badgeUsd). One badge per family; the first build
+# is free, every restyle after costs `badgeUsd` in SOL (verified on-chain by the service, like the family itself). ----
+METRICS = {'members': 'members', 'podiums': 'weeks in the top 3', 'crowns': 'weeks at #1', 'best': 'best weekly place (1 = #1)', 'points': 'bounty points paid'}
+PARTS = {   # part → {option: (label, unlock metric or None, min)} — min for 'best' means "place ≤ min"
+    'emblem': {'rose': ('🌹 Rose', None, 0), 'skull': ('💀 Skull', None, 0), 'snake': ('🐍 Viper', None, 0), 'dice': ('🎲 Dice', None, 0),
+               'gun': ('🔫 Piece', 'members', 3), 'hat': ('🎩 Don\'s hat', 'members', 5), 'scorp': ('🦂 Scorpion', 'podiums', 1),
+               'dragon': ('🐉 Dragon', 'podiums', 3), 'crown': ('👑 Crown', 'crowns', 1), 'diamond': ('💎 Diamond', 'points', 1000)},
+    'frame': {'iron': ('Iron', None, 0), 'silver': ('Silver', 'members', 5), 'gold': ('Gold', 'podiums', 1), 'blood': ('Blood oath', 'crowns', 1),
+              'holo': ('Holo', 'points', 500), 'black': ('Black card', 'best', 1)},
+    'fx': {'none': ('None', None, 0), 'smoke': ('Cigar smoke', 'members', 3), 'embers': ('Embers', 'podiums', 1), 'lightning': ('Lightning', 'crowns', 1),
+           'rain': ('Money rain', 'points', 2000)},
+}
+COLORS = ('#15d16a', '#ffd36b', '#ff4d6d', '#9b5cff', '#6fd3ff', '#ffffff', '#ff9f45', '#111111')
+BADGE_USD = 2.0
+MOTTO_MAX = 24
+
+
+def family_metrics(crew, awards):
+    """The tracked numbers every unlock reads. `awards` = crews.json awards [{week, top: [{id}]}] written by the weekly season tick."""
+    pod = [i for a in awards or [] for i, r in enumerate((a.get('top') or [])[:3]) if r.get('id') == crew.get('id')]
+    return {'members': len(crew.get('members') or []), 'podiums': len(pod), 'crowns': sum(1 for i in pod if i == 0),
+            'best': (min(pod) + 1) if pod else None, 'points': int(sum(int(v) for v in (crew.get('points') or {}).values()))}
+
+
+def unlock_rule(part, opt, cfg=None):
+    """(metric, min) for one option — the creator's HQ override first (fees.crews.unlocks['part.opt'] = {metric, min}), else the default."""
+    ov = ((cfg or {}).get('unlocks') or {}).get(f'{part}.{opt}')
+    if isinstance(ov, dict) and (ov.get('metric') in METRICS or ov.get('metric') in (None, '')):
+        return (ov.get('metric') or None), float(ov.get('min') or 0)
+    _, m, n = PARTS[part][opt]
+    return m, float(n)
+
+
+def is_unlocked(metric, need, met):
+    if not metric:
+        return True
+    v = (met or {}).get(metric)
+    if v is None:
+        return False
+    return v <= need if metric == 'best' else v >= need
+
+
+def catalog(met, cfg=None):
+    """Every part's options with locked / unlocked + what's missing in words (the builder draws this; the server enforces it)."""
+    out = {}
+    for part, opts in PARTS.items():
+        rows = []
+        for opt, (label, _m, _n) in opts.items():
+            m, n = unlock_rule(part, opt, cfg)
+            ok = is_unlocked(m, n, met)
+            have = (met or {}).get(m) if m else None
+            rows.append({'key': opt, 'label': label, 'ok': ok, 'metric': m, 'min': n,
+                         'need': None if ok or not m else (f"reach #{int(n)} in a week" if m == 'best' else f"{int(n)} {METRICS[m]} (now {int(have or 0)})")})
+        out[part] = rows
+    return out
+
+
+def clean_badge(raw, met, cfg=None):
+    """A badge as saved: every part must be a known option the family has UNLOCKED, colors from the palette, a short clean motto."""
+    raw = raw or {}
+    b = {}
+    for part, opts in PARTS.items():
+        v = str(raw.get(part) or next(iter(opts)))
+        if v not in opts:
+            raise ValueError(f'Unknown {part}.')
+        m, n = unlock_rule(part, v, cfg)
+        if not is_unlocked(m, n, met):
+            raise ValueError(f"{opts[v][0]} is locked — needs {int(n)} {METRICS[m]}." if m != 'best' else f"{opts[v][0]} is locked — reach #{int(n)} in a week.")
+        b[part] = v
+    for k in ('c1', 'c2'):
+        c = str(raw.get(k) or COLORS[0 if k == 'c1' else 1]).lower()
+        if c not in COLORS:
+            raise ValueError('Pick colors from the palette.')
+        b[k] = c
+    motto = ' '.join(str(raw.get('motto') or '').split())[:MOTTO_MAX]
+    if motto and not re.fullmatch(r"[\w .,'!?&\-]+", motto):
+        raise ValueError('The motto takes letters, numbers and simple punctuation.')
+    b['motto'] = motto
+    return b
+
+
+def set_badge(store, wallet, raw, awards, now, cfg=None, paid=None):
+    """The family OWNER builds / restyles its ONE badge. → crew. A restyle after the first build needs `paid` (the service verifies the SOL)."""
+    crew = _member(store, wallet)
+    if crew['owner'] != wallet:
+        raise ValueError('Only the family head builds the badge.')
+    b = clean_badge(raw, family_metrics(crew, awards), cfg)
+    if crew.get('badge') and paid is None:
+        raise ValueError('Restyling the badge needs its payment.')
+    crew['badge'] = {**b, 'at': now, 'v': int((crew.get('badge') or {}).get('v', 0)) + 1}
+    if paid and paid.get('sig'):
+        crew.setdefault('paid', []).append({**paid, 'kind': 'badge'})
+        store['sigs'] = (store.get('sigs') or [])[-500:] + [paid['sig']]
+    return crew
+
+
+def badge_view(crew, awards, cfg=None):
+    """What every page draws: the badge (re-checked: a part whose unlock was raised later falls back to the default) + the rank chips."""
+    met = family_metrics(crew, awards)
+    raw = dict(crew.get('badge') or {})
+    for part, opts in PARTS.items():
+        v = raw.get(part)
+        if v not in opts or not is_unlocked(*unlock_rule(part, v, cfg), met):
+            raw[part] = next(iter(opts))
+    return {**raw, 'tag': crew.get('tag'), 'name': crew.get('name'), 'set': bool(crew.get('badge')), 'ranks': met}

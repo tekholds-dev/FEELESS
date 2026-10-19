@@ -2412,7 +2412,7 @@ async def chat_post(payload: ChatPost):
     is_admin = primary_of(payload.address) in {primary_of(w) for w in _admin_wallets()}  # admins post anywhere, unthrottled
     _is_crew, _crew_ok = _crew_room_ok(payload.room, payload.address)
     if _is_crew and not _crew_ok and not is_admin:
-        raise HTTPException(403, 'Only crew members can post in a crew room.')
+        raise HTTPException(403, 'Only family members can post in a family room.')
     if payload.room == 'feeless-updates' and not is_admin:
         raise HTTPException(403, 'Updates is read-only — only FEELESS admins post here.')
     if not is_admin and payload.room in _ALPHA and not await _alpha_allowed(payload.room, payload.address):
@@ -8254,12 +8254,21 @@ def _crew_cfg():
     return (_fee_cfg().get('crews') or {})
 
 
+def _crew_badge_usd(cfg=None):
+    import crews as _cr
+    try:
+        return float((cfg if cfg is not None else _crew_cfg()).get('badgeUsd', _cr.BADGE_USD))
+    except (TypeError, ValueError):
+        return _cr.BADGE_USD
+
+
 def _crew_view(c, pieces, with_code=False):
     import crews as _cr
     mem = [{'address': m, 'name': _crew_name(m), 'owner': m == c['owner'], **_cr.stats(pieces.get(m, []))} for m in c['members']]
     return {'id': c['id'], 'name': c['name'], 'tag': c['tag'], 'room': f"crew-{c['id']}", 'members': mem, 'seats': c.get('seats', _cr.BASE_SEATS), 'created': c.get('created'),
             'packUsd': _cr.price('seats', _crew_cfg()), 'packSeats': _cr.PACK_SEATS, **({'code': c['code']} if with_code and c.get('code') else {}),
             'codeSet': bool(c.get('codeHash')), 'codeTail': c.get('codeTail') if with_code else None,
+            'badge': _cr.badge_view(c, (_json_load(CREWS_PATH, {}) or {}).get('awards'), _crew_cfg()),
             'launch': c.get('launch'), 'bountiesOpen': sum(1 for b_ in c.get('bounties') or [] if b_.get('state') == 'open'),
             'points': {m: int(v) for m, v in (c.get('points') or {}).items()} if with_code else None,
             # 💬 members-only: the board + bounties (names, never the code)
@@ -8277,7 +8286,7 @@ async def _verify_sol_payment(sig, mine, min_usd, st):
         raise HTTPException(409, 'That payment was already used.')
     to = await _rounds_pay_to()
     if not to:
-        raise HTTPException(503, 'Fee wallet not set — crews cannot be paid for right now.')
+        raise HTTPException(503, 'Fee wallet not set — families cannot be paid for right now.')
     tx = None
     async with httpx.AsyncClient(timeout=20) as http:
         for _ in range(5):
@@ -8301,9 +8310,10 @@ async def crew_price(address: str = '', name: str = '', tag: str = ''):
     cfg = _crew_cfg(); sol = await _sol_usd_live() or 0; to = await _rounds_pay_to()
     me = primary_of(address) if address else ''
     free = bool(me and _is_staff(me))
-    cu, pu = _cr.price('create', cfg), _cr.price('seats', cfg)
+    cu, pu, bu = _cr.price('create', cfg), _cr.price('seats', cfg), _crew_badge_usd(cfg)
     out = {'payTo': to, 'solUsd': round(sol, 2), 'free': free, 'baseSeats': _cr.BASE_SEATS, 'packSeats': _cr.PACK_SEATS,
-           'create': {'usd': cu, 'sol': round(cu / sol, 6) if sol > 0 else None}, 'seats': {'usd': pu, 'sol': round(pu / sol, 6) if sol > 0 else None}, 'ok': True, 'why': ''}
+           'create': {'usd': cu, 'sol': round(cu / sol, 6) if sol > 0 else None}, 'seats': {'usd': pu, 'sol': round(pu / sol, 6) if sol > 0 else None},
+           'badge': {'usd': bu, 'sol': round(bu / sol, 6) if sol > 0 else None}, 'ok': True, 'why': ''}
     if name or tag:
         try:
             _cr.check_new(_json_load(CREWS_PATH, {}), me, name, tag)
@@ -8321,7 +8331,7 @@ async def crews_board():
         return _crew_cache['data']
     st = _json_load(CREWS_PATH, {})
     members = [m for c in (st.get('crews') or {}).values() for m in c['members']]
-    out = {'board': _cr.board(st, _crew_pieces(members, now), now)[:40], 'total': len(st.get('crews') or {}), 'rule': f'Ranked by what members\' verified FEELESS trades did in the last 7 days (price result, fees apart). A crew ranks with ≥ {_cr.MIN_MEMBERS} members and ≥ {_cr.MIN_TRADES} closed trades. Everyone signs their own trades — a crew shares no money.', 'at': now}
+    out = {'board': _cr.board(st, _crew_pieces(members, now), now, _crew_cfg())[:40], 'total': len(st.get('crews') or {}), 'rule': f'Ranked by what members\' verified FEELESS trades did in the last 7 days (price result, fees apart). A family ranks with ≥ {_cr.MIN_MEMBERS} members and ≥ {_cr.MIN_TRADES} closed trades. Everyone signs their own trades — a crew shares no money.', 'at': now}
     _crew_cache.update(at=now, data=out)
     return out
 
@@ -8340,7 +8350,8 @@ async def crew_of_wallet(address: str):
     """🛡 Public: the crew a wallet is in (tag + name) — for the chip beside names. Nothing else."""
     import crews as _cr
     c = _cr.crew_of(_json_load(CREWS_PATH, {}), primary_of(address))
-    return {'crew': {'id': c['id'], 'tag': c['tag'], 'name': c['name']} if c else None}
+    st_ = _json_load(CREWS_PATH, {})
+    return {'crew': {'id': c['id'], 'tag': c['tag'], 'name': c['name'], 'badge': _cr.badge_view(c, st_.get('awards'), _crew_cfg())} if c else None}
 
 
 @app.get('/api/reputation/admin/crews/revenue')
@@ -8365,10 +8376,17 @@ async def admin_fees_crews(request: Request, body: dict):
             return max(0.0, min(500.0, round(float(v), 2)))
         except (TypeError, ValueError):
             return d
-    cfg = {'createUsd': num(body.get('createUsd'), _cr.CREATE_USD), 'packUsd': num(body.get('packUsd'), _cr.PACK_USD)}
+    prev = _crew_cfg()
+    unl = {}
+    for k, v in ((body.get('unlocks') if isinstance(body.get('unlocks'), dict) else prev.get('unlocks')) or {}).items():   # 🌹 the creator's unlock lines
+        part, _, opt = str(k).partition('.')
+        if part in _cr.PARTS and opt in _cr.PARTS[part] and isinstance(v, dict) and (v.get('metric') in _cr.METRICS or v.get('metric') in (None, '')):
+            unl[k] = {'metric': v.get('metric') or None, 'min': max(0.0, min(100000.0, float(v.get('min') or 0)))}
+    cfg = {'createUsd': num(body.get('createUsd'), _cr.CREATE_USD), 'packUsd': num(body.get('packUsd'), _cr.PACK_USD),
+           'badgeUsd': num(body.get('badgeUsd', prev.get('badgeUsd', _cr.BADGE_USD)), _cr.BADGE_USD), 'unlocks': unl}
     async with _admin_lock:
         d = _admin_load(); d.setdefault('fees', {})['crews'] = cfg
-        _audit(d, admin, 'fees', f"crews · ${cfg['createUsd']:g} to start · ${cfg['packUsd']:g} per +{_cr.PACK_SEATS} seats")
+        _audit(d, admin, 'fees', f"familia · ${cfg['createUsd']:g} to start · ${cfg['packUsd']:g} per +{_cr.PACK_SEATS} seats · ${cfg['badgeUsd']:g} badge restyle · {len(unl)} unlock lines")
         _admin_save(d)
     return {'crews': cfg}
 
@@ -8377,7 +8395,7 @@ async def admin_fees_crews(request: Request, body: dict):
 async def crew_public(cid: str):
     st = _json_load(CREWS_PATH, {}); c = (st.get('crews') or {}).get(cid)
     if not c:
-        raise HTTPException(404, 'No such crew.')
+        raise HTTPException(404, 'No such family.')
     return {'crew': _crew_view(c, _crew_pieces(c['members'], time.time()))}
 
 
@@ -8413,7 +8431,7 @@ async def crew_create(p: CrewCreate):
     import crews as _cr
     me = _session_or_401(p.address, p.session); mine = set(linked_of(me)) | {me}
     if _is_blocked(_block_load()['wallets'].get(me)):
-        raise HTTPException(403, 'This wallet cannot start a crew.')
+        raise HTTPException(403, 'This wallet cannot start a family.')
     async with _crews_lock:
         st = _json_load(CREWS_PATH, {})
         try:
@@ -8437,7 +8455,7 @@ async def crew_seats(p: CrewSeats):
         st = _json_load(CREWS_PATH, {})
         c0 = _cr.crew_of(st, me)
         if not c0 or c0['owner'] != me:
-            raise HTTPException(403, 'Only the crew owner can add seats.')
+            raise HTTPException(403, 'Only the family owner can add seats.')
         paid = {'sig': '', 'usd': 0.0, 'at': time.time(), 'staff': True} if _is_staff(me) else await _verify_sol_payment(p.signature, mine, _cr.price('seats', _crew_cfg()), st)
         paid['kind'] = 'seats'; paid['by'] = me
         try:
@@ -8454,7 +8472,7 @@ async def crew_join(p: CrewJoin):
     import crews as _cr
     me = _session_or_401(p.address, p.session)
     if _is_blocked(_block_load()['wallets'].get(me)):
-        raise HTTPException(403, 'This wallet cannot join a crew.')
+        raise HTTPException(403, 'This wallet cannot join a family.')
     async with _crews_lock:
         st = _json_load(CREWS_PATH, {})
         try:
@@ -8502,13 +8520,69 @@ async def crew_act(p: CrewAct):
             elif p.act == 'launch':
                 _cr.launch(st, me, p.mint or None, p.symbol, p.text, now)
             else:
-                raise ValueError('Unknown crew action.')
+                raise ValueError('Unknown family action.')
         except ValueError as e:
             raise HTTPException(400, str(e))
         _json_save(CREWS_PATH, st)
         c = _cr.crew_of(st, me)
     _crew_cache['data'] = None
     return {'crew': _crew_view(c, _crew_pieces(c['members'], now), with_code=True) if c else None, **({'plainCode': plain} if plain else {})}
+
+
+class CrewBadge(BaseModel):
+    address: str
+    session: str
+    badge: dict
+    signature: str = Field(default='', max_length=100)
+
+
+@app.get('/api/reputation/crews/badge/catalog')
+async def crew_badge_catalog(address: str, session: str):
+    """🌹 The badge builder for MY family: every part with locked / unlocked from the family's TRACKED numbers + what the restyle costs."""
+    import crews as _cr
+    me = _session_or_401(address, session); st = _json_load(CREWS_PATH, {}); c = _cr.crew_of(st, me)
+    if not c:
+        raise HTTPException(404, 'You are not in a family.')
+    met = _cr.family_metrics(c, st.get('awards'))
+    return {'metrics': met, 'metricWords': _cr.METRICS, 'parts': _cr.catalog(met, _crew_cfg()), 'colors': list(_cr.COLORS), 'mottoMax': _cr.MOTTO_MAX,
+            'owner': c['owner'] == me, 'built': bool(c.get('badge')), 'restyleUsd': _crew_badge_usd(), 'free': _is_staff(me), 'badge': _cr.badge_view(c, st.get('awards'), _crew_cfg())}
+
+
+@app.post('/api/reputation/crews/badge')
+async def crew_badge(p: CrewBadge):
+    """🌹 The family head builds the ONE family badge (first build free) or restyles it ($ badgeUsd in SOL to the fee wallet, verified on-chain, never
+    reused; staff free). Every part is re-checked against the family's tracked numbers — a locked part is refused."""
+    import crews as _cr
+    me = _session_or_401(p.address, p.session); mine = set(linked_of(me)) | {me}
+    async with _crews_lock:
+        st = _json_load(CREWS_PATH, {}); c0 = _cr.crew_of(st, me)
+        if not c0 or c0['owner'] != me:
+            raise HTTPException(403, 'Only the family head builds the badge.')
+        try:
+            _cr.clean_badge(p.badge, _cr.family_metrics(c0, st.get('awards')), _crew_cfg())   # locked parts refused BEFORE any payment is consumed
+        except ValueError as e:
+            raise HTTPException(400, str(e))
+        paid = None
+        if c0.get('badge'):
+            paid = {'sig': '', 'usd': 0.0, 'at': time.time(), 'staff': True} if _is_staff(me) or _crew_badge_usd() <= 0 else await _verify_sol_payment(p.signature, mine, _crew_badge_usd(), st)
+            paid['by'] = me
+        try:
+            c = _cr.set_badge(st, me, p.badge, st.get('awards'), time.time(), _crew_cfg(), paid)
+        except ValueError as e:
+            raise HTTPException(400, str(e))
+        _json_save(CREWS_PATH, st)
+    _crew_cache['data'] = None
+    return {'crew': _crew_view(c, _crew_pieces(c['members'], time.time()), with_code=True)}
+
+
+@app.get('/api/reputation/admin/familia/unlocks')
+async def admin_familia_unlocks(request: Request):
+    """🌹 Owner: every badge part with its default unlock line, the line in force (your overrides) and the metrics they can read."""
+    import crews as _cr
+    _require_owner(request); cfg = _crew_cfg()
+    return {'metrics': _cr.METRICS, 'parts': {part: [{'key': o, 'label': lab, 'default': {'metric': m, 'min': n}, 'now': dict(zip(('metric', 'min'), _cr.unlock_rule(part, o, cfg)))}
+                                                     for o, (lab, m, n) in opts.items()] for part, opts in _cr.PARTS.items()},
+            'badgeUsd': _crew_badge_usd(cfg), 'createUsd': _cr.price('create', cfg), 'packUsd': _cr.price('seats', cfg)}
 
 
 @app.post('/api/reputation/crews/leave')
@@ -8549,12 +8623,12 @@ async def _crew_season_tick(now):
         for w in (c or {}).get('members') or []:
             season_award(w, CREW_PRIZES[i], 'crew-week')
             try:
-                notify(w, 'crew', f"{medal[i]} Your crew {c['name']} placed #{i + 1} this week ({r['pct']:+.1f}%): +{CREW_PRIZES[i]} season points", url='/terminal/leaderboard?lens=crews', once=f'crew:{week0}', push=False, meta={'source': 'crew'})
+                notify(w, 'family', f"{medal[i]} Your family {c['name']} placed #{i + 1} this week ({r['pct']:+.1f}%): +{CREW_PRIZES[i]} season points", url='/terminal/leaderboard?lens=families', once=f'family:{week0}', push=False, meta={'source': 'family'})
             except Exception:
                 pass
     if top:
         try:
-            _fuse_chat('fuse-lab', '🛡 Crews of the week: ' + ' · '.join(f"{medal[i]} [{r['tag']}] {r['name']} {r['pct']:+.1f}%" for i, r in enumerate(top)), f'crew-week-{week0}')
+            _fuse_chat('fuse-lab', '🌹 Families of the week: ' + ' · '.join(f"{medal[i]} [{r['tag']}] {r['name']} {r['pct']:+.1f}%" for i, r in enumerate(top)), f'family-week-{week0}')
         except Exception:
             pass
     _crew_cache['data'] = None

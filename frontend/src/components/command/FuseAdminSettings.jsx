@@ -1,4 +1,5 @@
 import '../../styles/fusePage.css';
+import '../../styles/familyBadge.css';
 import NumInput from '../NumInput';
 import React, { useEffect, useState } from 'react';
 import { toast } from 'sonner';
@@ -86,22 +87,31 @@ export function RoundsPricing({ call, initial }) {
     <button type="button" className="btn-primary" onClick={save} data-testid="rounds-save">Save card rounds</button></div>;
 }
 
-// Core › Fees › 🛡 Crews: what starting a crew costs (5 seats including its owner) and what each +5 seats cost. Paid in SOL to the fee wallet, verified on-chain;
+// Core › Fees › 🌹 La Familia: what starting a family costs (5 seats including its owner) and what each +5 seats cost. Paid in SOL to the fee wallet, verified on-chain;
 // the revenue line + last payments read the crew records, each linking to its transaction.
 export const crewCost = (seats, c) => (Number(c.createUsd) || 0) + (Number(c.packUsd) || 0) * Math.ceil(Math.max(0, seats - 5) / 5);
 export function CrewsPricing({ call, initial }) {
-  const [c, setC] = useState(initial || { createUsd: 25, packUsd: 5 }); const [rev, setRev] = useState(null);
-  useEffect(() => { if (initial) setC(initial); }, [initial]);
-  useEffect(() => { let alive = true; call('/admin/crews/revenue').then(x => alive && setRev(x)).catch(() => {}); return () => { alive = false; }; }, [call]);
-  const save = async () => { try { setC((await call('/admin/fees/crews', { method: 'POST', body: JSON.stringify(c) })).crews); toast.success('Crew pricing saved.'); } catch (e) { toast.error(e.message); } };
-  return <div className="cc-block fee-bundle" data-testid="crews-pricing"><h4>9 · 🛡 Crews (paid in SOL to the fee wallet)</h4>
-    <small className="cc-empty">A crew starts with <b>5 seats including its owner</b>; the owner adds <b>+5 seats</b> any time. Each is one SOL transfer the buyer signs to your fee wallet, re-read on-chain and never reused. Staff wallets are free. Joining by invite is free.</small>
+  const [c, setC] = useState(initial || { createUsd: 25, packUsd: 5, badgeUsd: 2 }); const [rev, setRev] = useState(null); const [cat, setCat] = useState(null); const [unl, setUnl] = useState({});
+  useEffect(() => { if (initial) setC(x => ({ ...x, ...initial })); }, [initial]);
+  useEffect(() => { let alive = true; call('/admin/crews/revenue').then(x => alive && setRev(x)).catch(() => {});
+    call('/admin/familia/unlocks').then(x => { if (!alive) return; setCat(x); setC(cur => ({ ...cur, badgeUsd: x.badgeUsd })); const u = {}; Object.entries(x.parts).forEach(([p, rows]) => rows.forEach(r => { u[`${p}.${r.key}`] = r.now; })); setUnl(u); }).catch(() => {});
+    return () => { alive = false; }; }, [call]);
+  const save = async () => { try { setC((await call('/admin/fees/crews', { method: 'POST', body: JSON.stringify({ ...c, unlocks: unl }) })).crews); toast.success('🌹 La Familia settings saved.'); } catch (e) { toast.error(e.message); } };
+  return <div className="cc-block fee-bundle" data-testid="crews-pricing"><h4>9 · 🌹 La Familia (paid in SOL to the fee wallet)</h4>
+    <small className="cc-empty">A family starts with <b>5 seats including its head</b>; the head adds <b>+5 seats</b> any time. The family badge is free to forge once; every restyle costs the badge price. Each payment is one SOL transfer the buyer signs to your fee wallet, re-read on-chain and never reused. Staff wallets are free. Joining by code is free.</small>
     <div className="cc-mini-grid">
-      <label data-tip="What starting a crew costs in $, paid in SOL at that moment's price (5 seats incl. the owner)">$ to start a crew<NumInput type="number" step="1" min="0" max="500" value={c.createUsd} onChange={e => setC({ ...c, createUsd: Number(e.target.value) })} data-testid="crews-create" /></label>
-      <label data-tip="What +5 seats cost the crew owner, in $">$ per +5 seats<NumInput type="number" step="1" min="0" max="500" value={c.packUsd} onChange={e => setC({ ...c, packUsd: Number(e.target.value) })} data-testid="crews-pack" /></label></div>
+      <label data-tip="What starting a family costs in $, paid in SOL at that moment's price (5 seats incl. the head)">$ to start a family<NumInput type="number" step="1" min="0" max="500" value={c.createUsd} onChange={e => setC({ ...c, createUsd: Number(e.target.value) })} data-testid="crews-create" /></label>
+      <label data-tip="What +5 seats cost the family head, in $">$ per +5 seats<NumInput type="number" step="1" min="0" max="500" value={c.packUsd} onChange={e => setC({ ...c, packUsd: Number(e.target.value) })} data-testid="crews-pack" /></label>
+      <label data-tip="What restyling the family badge costs after the first (free) forge, in $">$ per badge restyle<NumInput type="number" step="0.5" min="0" max="500" value={c.badgeUsd ?? 2} onChange={e => setC({ ...c, badgeUsd: Number(e.target.value) })} data-testid="crews-badge" /></label></div>
     <ul className="bundle-ex">{[5, 10, 15, 25].map(n => <li key={n}><b>{n} seats</b><span className="m-num">${crewCost(n, c).toFixed(2)}</span><small>{n === 5 ? 'to start' : `+${(n - 5) / 5} pack${n > 10 ? 's' : ''}`}</small></li>)}</ul>
-    {typeof rev?.totalUsd === 'number' && <small className="cc-empty" data-testid="crews-revenue">Paid so far: <b>${rev.totalUsd.toFixed(2)}</b> from {rev.payments} payment{rev.payments === 1 ? '' : 's'} · {rev.crews} crew{rev.crews === 1 ? '' : 's'}.{(rev.recent || []).filter(r => r.sig).slice(0, 3).map(r => <a key={r.sig} href={`https://solscan.io/tx/${r.sig}`} target="_blank" rel="noopener noreferrer"> [{r.tag}] ${r.usd} ↗</a>)}</small>}
-    <button type="button" className="btn-primary" onClick={save} data-testid="crews-save">Save crew pricing</button></div>;
+    {cat ? <details className="fam-unl" data-testid="familia-unlocks"><summary>🔓 Badge unlocks — what each part needs (tracked from real family numbers)</summary>
+      {Object.entries(cat.parts).map(([part, rows]) => <div key={part} className="fam-unl-part"><b>{part.toUpperCase()}</b>{rows.map(r => { const k = `${part}.${r.key}`; const v = unl[k] || {};
+        return <label key={k} data-tip={`default: ${r.default.metric ? `${r.default.metric} ${r.default.metric === 'best' ? '≤' : '≥'} ${r.default.min}` : 'free'}`}><span>{r.label}</span>
+          <select className="m-input" value={v.metric || ''} onChange={e => setUnl(x => ({ ...x, [k]: { ...v, metric: e.target.value || null } }))} aria-label={`${r.label} unlock metric`}><option value="">free</option>{Object.entries(cat.metrics).map(([m, w]) => <option key={m} value={m}>{w}</option>)}</select>
+          {v.metric ? <NumInput value={v.min ?? 0} onChange={e => setUnl(x => ({ ...x, [k]: { ...v, min: Number(e.target.value) } }))} aria-label={`${r.label} unlock minimum`} /> : null}</label>; })}</div>)}
+    </details> : null}
+    {typeof rev?.totalUsd === 'number' && <small className="cc-empty" data-testid="crews-revenue">Paid so far: <b>${rev.totalUsd.toFixed(2)}</b> from {rev.payments} payment{rev.payments === 1 ? '' : 's'} · {rev.crews} famil{rev.crews === 1 ? 'y' : 'ies'}.{(rev.recent || []).filter(r => r.sig).slice(0, 3).map(r => <a key={r.sig} href={`https://solscan.io/tx/${r.sig}`} target="_blank" rel="noopener noreferrer"> [{r.tag}] ${r.usd} ↗</a>)}</small>}
+    <button type="button" className="btn-primary" onClick={save} data-testid="crews-save">Save La Familia settings</button></div>;
 }
 
 // HQ › Fuse › Card rules: what traders can pick (auto-profit levels, counted after fees from their confirmed buy),
