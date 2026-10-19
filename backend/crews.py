@@ -102,7 +102,7 @@ def join(store, wallet, code):
     if not crew:
         raise ValueError('That invite code does not match a family.')
     if len(crew['members']) >= crew.get('seats', BASE_SEATS):
-        raise ValueError(f"That family is full ({family.get('seats', BASE_SEATS)} seats) — its owner can add 5 more for ${PACK_USD:g}.")
+        raise ValueError(f"That family is full ({crew.get('seats', BASE_SEATS)} seats) — its owner can add 5 more for ${PACK_USD:g}.")
     crew['members'].append(wallet); store['by'][wallet] = crew['id']
     return crew
 
