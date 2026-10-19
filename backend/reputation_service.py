@@ -7709,6 +7709,7 @@ async def fuses_feecat_pool():
         mn_, mx_ = _uni.band(); lm_ = _uni.limits()
         lim_ = {'mcMin': mn_, 'mcMax': mx_, 'minAgeH': lm_.get('minAgeH'), 'maxAgeH': lm_.get('maxAgeH'), 'minVol1h': lm_.get('minVol'),
                 'poolMin': _fuse._f((_prime_real_cfg() or {}).get('agentPoolMin')) or 8000}
+        lim_ = {k_: (None if isinstance(v_, float) and v_ in (float('inf'), float('-inf')) else v_) for k_, v_ in lim_.items()}   # JSON has no Infinity
     except Exception:
         lim_ = {}
     return {'at': now, 'rows': rows_, 'duo': duo_lessons(log_, tot_), 'limits': lim_}
@@ -23423,6 +23424,30 @@ async def radar():
     return {'watching': len(_radar['pairs']), 'events': _radar['events'][:40], 'whales': _radar['whales'][:40]}
 
 
+def _feecat_pins(positions, top, now=None):
+    """🤖🔁 HQ's Fee desk: for each coin she holds or would take next — the agents' current verdict (kernel status + why, at the coin's live cap)
+    and OSSY / G4 / Reaper lines on it (the duo log, same rows the Agents chart pins). {mint: {agents: {...} | None, duo: [rows]}}. HQ only: users
+    see Fee's own calls, never these."""
+    now = time.time() if now is None else now
+    mints = [m for m in dict.fromkeys([p.get('mint') for p in positions or []] + [t.get('mint') for t in top or []]) if m][:10]
+    if not mints:
+        return {}
+    try:
+        rows = _duo_chart_rows(_g4_state()['log'], card=mints)
+    except Exception:
+        rows = []
+    out = {}
+    for m in mints:
+        try:
+            x = _tk.KERNEL.candidate(m)
+        except Exception:
+            x = None
+        cap = _duo_cap(m)
+        ag = {'status': x.get('status'), 'why': str(x.get('kwhy') or '')[:200], 'rank': round(_fuse._f(x.get('rank')), 1), 'cap': cap, 'at': now} if x else None
+        out[m] = {'agents': ag, 'duo': [{**r, 'cap': r.get('cap') or cap} for r in rows if r.get('mint') == m][-20:]}
+    return out
+
+
 @app.get('/api/reputation/admin/feecat')
 async def admin_feecat_get(request: Request):
     _require_admin(request)
@@ -23435,6 +23460,7 @@ async def admin_feecat_get(request: Request):
     return {**r.json(), 'learning': prof.get('learning'), 'stats': prof.get('stats'), 'events': (activity.get('events') or [])[:30],
             'duoLearn': st_fc.get('duoLearn') or {},   # 🎓 what she takes from OSSY / G4: their record + final-review lessons
             'discipline': prof.get('discipline'), 'strength': prof.get('strength'), 'exits': (prof.get('exits') or [])[-12:],
+            'pins': _feecat_pins((prof.get('cat') or {}).get('positions') or [], sc_.get('top') or []),   # 🤖🔁 the agents' + OSSY / G4's word on HER coins (HQ only)
             'scan': {k: sc_.get(k) for k in ('at', 'scanned', 'passed', 'rejections', 'top', 'brainRejects', 'safetyRejects')},
             'duo': {k: _feecat_ai.get(k) for k in ('read', 'avoid', 'exit', 'split', 'why', 'models')},   # 🤝 her one duo AI read per 10 min
             'cat': {k: (prof.get('cat') or {}).get(k) for k in ('balanceSol', 'startingBalanceSol', 'realizedPnlSol', 'winRate', 'wins', 'losses', 'status', 'lastTick', 'positions', 'pnlHistory', 'level', 'xp')},

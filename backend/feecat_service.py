@@ -480,6 +480,15 @@ def agent_lane(base, own=None):
     return out
 
 
+def clean_lane(raw):
+    """🐱 Her agents-lane overrides from HQ: only the band keys, a number ≥ 0; empty / None = follow the agents (key dropped)."""
+    out = {}
+    for k, v in (raw or {}).items():
+        if k in AGENT_LANE_KEYS and v not in (None, '') and _num(v, -1) >= 0:
+            out[k] = min(_num(v), 1e9)
+    return out
+
+
 def _agents_qualifies(p, now, lim):
     """🐱🤖 FEECAT = THE AGENTS + OSSY / G4 (owner, 2026-10-19: "same intake, same agents, she has my agents settings but I can tune hers"):
     a coin the ten agents put READY / CONTENDING is judged on the agents' own band (live cap, age, pool, 1h volume) instead of her old core /
@@ -1190,7 +1199,8 @@ async def internal_rules_get(request: Request):
     _internal(request)
     store = _load()
     return {'rules': {k: RULES[k] for k in TUNABLE}, 'bounds': TUNABLE, 'overrides': store.get('rulesOverride') or {}, 'strategyPreset': store.get('strategyPreset', 'feecat'),
-            'leader': {k: store['cats'][LEADER_ID].get(k) for k in ('status', 'risk')}}
+            'leader': {k: store['cats'][LEADER_ID].get(k) for k in ('status', 'risk')},
+            'agentLane': store['cats'][LEADER_ID].get('agentLane') or {}, 'agentLimits': _POOL_META.get('limits') or {}}
 
 
 @app.post('/api/cats/internal/rules')
@@ -1210,6 +1220,8 @@ async def internal_rules_set(request: Request):
         leader['risk']['maxPositionSol'] = max(0.1, min(10.0, float(body['maxPositionSol'])))
     if body.get('resetLearning'):
         leader.pop('learn', None)
+    if isinstance(body.get('agentLane'), dict):   # 🐱🤖 her own tuning on top of the agents' band (empty = follow the agents)
+        leader['agentLane'] = clean_lane(body['agentLane'])
     if body.get('strategyPreset') in ('feecat', 'trench', 'meme', 'scalper', 'fast'):   # ⚡ fast = the one dial (agents' configs)
         store['strategyPreset'] = body['strategyPreset']
     _apply_overrides(store)

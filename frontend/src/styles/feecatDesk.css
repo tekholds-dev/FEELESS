@@ -91,3 +91,12 @@ body.theme-day .fch-group, body.theme-day .fch-dialchips span { background: rgba
 @media (prefers-reduced-motion: reduce) { .fcl-tape li.is-new { animation: none; } }
 body.theme-day .fcl-pane { background: #eef6f1; }
 @media (max-width: 900px) { .fcl-two { grid-template-columns: 1fr; } }
+/* 🤖 her agents lane: the agents' value per band key, her override on top (✋ = hers) */
+.fch-lane { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 8px; }
+.fch-lane label { display: grid; gap: 4px; padding: 7px 8px; border-radius: 10px; border: 1px solid var(--m-line); background: rgba(255, 255, 255, .02); transition: border-color .15s; }
+.fch-lane label:hover { border-color: color-mix(in srgb, var(--m-accent) 45%, transparent); } .fch-lane label.is-mine { border-color: #ffd36b; }
+.fch-lane label span { display: flex; justify-content: space-between; gap: 6px; font: 700 9.5px var(--m-mono); letter-spacing: .06em; } .fch-lane label em { font-style: normal; color: var(--m-mute); }
+.fch-lane label.is-mine em { color: #ffd36b; }
+.fch-lanebar { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0 0; }
+body.theme-day .fch-lane label { background: rgba(236, 246, 240, .7); } body.theme-day .fch-lane label.is-mine { border-color: #a07500; } body.theme-day .fch-lane label.is-mine em { color: #8a6100; }
+@media (max-width: 640px) { .fch-lane { grid-template-columns: repeat(2, minmax(0, 1fr)); } }

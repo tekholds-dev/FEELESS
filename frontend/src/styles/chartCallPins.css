@@ -101,3 +101,9 @@ body.fx-lite .ccp-head, body.fx-lite .ccp-pin.is-hot::before { animation: none; 
 .ccp-pin.is-ai { width: 26px; height: 26px; margin: -13px 0 0 -13px; }
 .ccp-pin.is-agent { width: 22px; height: 22px; margin: -11px 0 0 -11px; }
 body.theme-day .ccp-tl { opacity: .7; }
+/* 🐱 Fee's own calls (lib/feecatCalls.js): gold ring, her mark, her own trail */
+.ccp-pin.is-feecat { width: 24px; height: 24px; margin: -12px 0 0 -12px; border-color: #ffd36b; background: radial-gradient(circle at 35% 30%, #3a2a08, #120d04); }
+.ccp-pin.is-feecat.a-sell { border-color: #ff8fa3; }
+.ccp-trail.t-fee .ccp-tl, .ccp-trail.t-fee .ccp-td, .ccp-trail.t-fee .ccp-head { stroke: #ffd36b; }
+.ccp-pin.is-hot.is-feecat::before { border-color: #ffd36b; }
+body.theme-day .ccp-pin.is-feecat { border-color: #a07500; background: #fff6dc; }

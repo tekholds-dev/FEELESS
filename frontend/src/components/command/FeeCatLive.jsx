@@ -2,6 +2,8 @@
 // two charts side by side (her open trades first, then the coins she would take next), each with HOW she read it (the setup, germ, higher /
 // lower lows, the models' word), her moves as a live tape, and what she took from OSSY / G4. Drawn from the /admin/feecat payload only.
 import React, { useMemo, useState } from 'react';
+import { chartCalls } from './AgentCockpit';
+import { avatarOf } from '../../lib/aiAvatars';
 
 const PriceChart = React.lazy(() => import('../terminal/PriceChart').then(m => ({ default: m.PriceChart })));
 const n = v => (v == null || v === '' || Number.isNaN(Number(v)) ? null : Number(v));
@@ -16,6 +18,14 @@ export function chartTargets(positions, top) {
   return out;
 }
 
+// pure: HQ-only pins on her chart — the agents' verdict on the coin + OSSY / G4 / Reaper lines on it (users see only Fee's own calls)
+export function deskPins(p, mint) {
+  if (!p) return [];
+  const a = p.agents; const out = chartCalls(p.duo, mint, a?.cap);
+  if (a && Number(a.cap) > 0) out.unshift({ id: `ag-${mint}`, at: a.at, cap: Number(a.cap), who: 'Agents', kind: 'agent', action: a.status, text: `${a.status} · rank ${a.rank} — ${a.why}`, img: avatarOf('trigger') });
+  return out;
+}
+
 // pure: her read of one coin in plain words (setup · germ · structure · the models)
 export function readWords(t) {
   const r = t?.read || {}; const out = (t?.setups || []).map(k => SETUP_WORD[k]).filter(Boolean);
@@ -26,8 +36,9 @@ export function readWords(t) {
   return out;
 }
 
-function Pane({ list, idx, setIdx }) {
+function Pane({ list, idx, setIdx, pins }) {
   const t = list[idx];
+  const calls = useMemo(() => deskPins(pins?.[t?.mint], t?.mint), [pins, t?.mint]);
   if (!t) return <div className="fcl-pane is-empty"><p>no coin to chart yet — she charts her open trades first, then her next picks</p></div>;
   const pair = { chainId: 'solana', pairAddress: t.pair, baseToken: { address: t.mint, symbol: t.symbol } };
   return <div className={`fcl-pane is-${t.kind}`} data-testid="fcl-pane">
@@ -35,7 +46,7 @@ function Pane({ list, idx, setIdx }) {
       {list.map((x, i) => <option key={x.pair} value={i}>{x.kind === 'open' ? '📂' : '⏭'} ${x.symbol}{x.pct != null ? ` ${x.pct >= 0 ? '+' : ''}${x.pct.toFixed(1)}%` : ''}</option>)}</select>
       <b className={t.kind === 'open' ? (t.pct >= 0 ? 'm-pos' : 'm-neg') : ''}>{t.kind === 'open' ? `HOLDING${t.pct != null ? ` ${t.pct >= 0 ? '+' : ''}${t.pct.toFixed(1)}%` : ''}` : 'NEXT UP'}</b></header>
     <div className="fcl-chart"><React.Suspense fallback={<p className="fcl-wait">loading chart…</p>}>
-      <PriceChart key={t.pair} pair={pair} interval="1m" metric="price" showVolume={false} userEntry={t.entry || null} wallets={false} />
+      <PriceChart key={t.pair} pair={pair} interval="1m" metric="price" showVolume={false} userEntry={t.entry || null} wallets={false} callouts={calls} />
     </React.Suspense></div>
     <p className="fcl-read" data-testid="fcl-read">{readWords(t).map(w => <span key={w}>{w}</span>)}{!readWords(t).length ? <span>no chart read yet — her own lanes decided</span> : null}</p>
     {t.why ? <small className="fcl-why">{String(t.why).slice(0, 200)}</small> : null}
@@ -45,8 +56,8 @@ function Pane({ list, idx, setIdx }) {
 export function FeeCharts({ d }) {
   const list = useMemo(() => chartTargets(d?.cat?.positions, d?.scan?.top), [d]);
   const [a, setA] = useState(0); const [b, setB] = useState(1);
-  return <article className="fch-card fch-wide fcl" data-testid="fcl-charts"><h4>📈 HOW SHE SEES IT<small>{list.length} coins · open trades first, then her next picks</small></h4>
-    <div className="fcl-two"><Pane list={list} idx={Math.min(a, Math.max(0, list.length - 1))} setIdx={setA} /><Pane list={list} idx={Math.min(b, list.length - 1)} setIdx={setB} /></div>
+  return <article className="fch-card fch-wide fcl" data-testid="fcl-charts"><h4>📈 HOW SHE SEES IT<small>{list.length} coins · 🐱 her calls · 🤖 the agents · 🔁 OSSY / G4 on each chart</small></h4>
+    <div className="fcl-two"><Pane list={list} idx={Math.min(a, Math.max(0, list.length - 1))} setIdx={setA} pins={d?.pins} /><Pane list={list} idx={Math.min(b, list.length - 1)} setIdx={setB} pins={d?.pins} /></div>
   </article>;
 }
 

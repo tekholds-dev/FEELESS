@@ -52,7 +52,25 @@ function FastDial({ d, busy, onApply }) {
     <p className="fch-dialchips">{chips.map(([l, v]) => <span key={l}><small>{l}</small><b>{v}</b></span>)}</p>
   </div>;
 }
-const LANES = [['core', '🏛 CORE', 'coins 3+ days old, deep pools — her own record says these pay'], ['fresh', '🚀 FRESH', 'launches under 3h with X + site, buyers in control'],
+// 🤖 HER AGENTS LANE (owner, 2026-10-19: "she has the settings I have in agents, but I can tune hers separately"): each value = the agents' live one
+// unless you type her own; empty = follow the agents. Saved as cat `agentLane` (feecat_service.clean_lane).
+export const LANE_KEYS = [['mcMin', 'MC floor', '$'], ['mcMax', 'MC top', '$'], ['minAgeH', 'Youngest (h)', 'h'], ['maxAgeH', 'Oldest (h)', 'h'], ['minVol1h', '1h volume', '$'], ['poolMin', 'Pool floor', '$']];
+export const laneWord = (v, unit) => (v == null || v === '' ? '—' : !Number.isFinite(Number(v)) ? 'any' : unit === '$' ? (Number(v) >= 1e6 ? `$${(Number(v) / 1e6).toFixed(1)}M` : `$${Math.round(Number(v) / 1000)}K`) : `${Number(v) < 1 ? `${Math.round(Number(v) * 60)}m` : `${Number(v)}h`}`);
+export function laneSave(draft) { const o = {}; Object.entries(draft || {}).forEach(([k, v]) => { if (v !== '' && v != null && Number.isFinite(Number(v))) o[k] = Number(v); }); return o; }
+function AgentLane({ d, busy, onSave }) {
+  const lim = d.agentLimits || {}; const own = d.agentLane || {};
+  const [draft, setDraft] = useState(() => Object.fromEntries(LANE_KEYS.map(([k]) => [k, own[k] ?? ''])));
+  const yours = LANE_KEYS.filter(([k]) => own[k] != null).length;
+  return <article className="fch-card fch-wide" data-testid="fch-lane"><h4>🤖 HER AGENTS LANE<small>{yours ? `${yours} of yours on top of the agents` : "following the agents' own settings"} · READY coins full size, CONTENDING half</small></h4>
+    <div className="fch-lane">{LANE_KEYS.map(([k, l, u]) => { const mine = draft[k] !== '' && draft[k] != null;
+      return <label key={k} className={mine ? 'is-mine' : ''} data-tip={`Agents now: ${laneWord(lim[k], u)}. Type her own to override; empty = follow the agents.`}>
+        <span>{l}<em>{mine ? '✋ hers' : `🤖 ${laneWord(lim[k], u)}`}</em></span>
+        <NumInput value={draft[k]} placeholder={lim[k] != null && Number.isFinite(Number(lim[k])) ? String(lim[k]) : 'any'} onChange={e => setDraft(x => ({ ...x, [k]: e.target.value }))} /></label>; })}</div>
+    <p className="fch-lanebar"><button type="button" className="m-btn m-go" disabled={busy} onClick={() => onSave(laneSave(draft))} data-testid="fch-lane-save">Save her lane</button>
+      <button type="button" className="m-btn" disabled={busy || !yours} onClick={() => { setDraft(Object.fromEntries(LANE_KEYS.map(([k]) => [k, '']))); onSave({}); }} data-testid="fch-lane-reset">Follow the agents</button></p>
+  </article>;
+}
+const LANES = [['agents', '🤖 AGENTS', 'coins the ten agents put READY / CONTENDING — judged on the agents\' own band (+ your overrides)'], ['core', '🏛 CORE', 'coins 3+ days old, deep pools — her own record says these pay'], ['fresh', '🚀 FRESH', 'launches under 3h with X + site, buyers in control'],
   ['learn', '🎓 LEARNING', '3h – 3 days old, quarter size — the gap the other two skip']];
 
 const n = v => (v == null || !Number.isFinite(Number(v)) ? null : Number(v));
@@ -104,10 +122,10 @@ export function FeeCatDesk({ call }) {
         {[...f.brain, ...f.safety].length ? <p className="fch-skip"><small>HER BRAIN / SAFETY SAID NO</small>{[...f.brain, ...f.safety].map((x, i) => <span key={`${x.symbol}-${i}`} data-tip={x.why}>${x.symbol} · {String(x.why || '').slice(0, 38)}</span>)}</p> : null}
       </article>
 
-      <article className="fch-card" data-testid="fch-duo"><h4>🤝 DUO AI READ<small>{duo.read ? `${agoS(duo.read)}s ago · ${(duo.models || []).join(' + ')}` : 'every 10 min'}</small></h4>
+      <article className="fch-card" data-testid="fch-duo"><h4>🤝 DUO AI READ<small>{duo.read ? `${agoS(duo.read)}s ago · ${(duo.models || []).join(' + ')}` : 'every 4 min'}</small></h4>
         {duo.read ? <>
           <p className="fch-duo"><span className={(duo.avoid || []).length ? 'is-bad' : ''}><b>{(duo.avoid || []).length}</b><small>both say skip</small></span><span className={(duo.exit || []).length ? 'is-warn' : ''}><b>{(duo.exit || []).length}</b><small>both say bank</small></span><span><b>{(duo.split || []).length}</b><small>split (ignored)</small></span></p>
-          <p className="fch-why">{duo.why || 'nothing clearly wrong — no coin named'}</p></> : <p className="fch-nil">the first read lands within 10 minutes of the AI round</p>}
+          <p className="fch-why">{duo.why || 'nothing clearly wrong — no coin named'}</p></> : <p className="fch-nil">the first read lands within 4 minutes of the AI round</p>}
         <small className="fch-note">she acts only on what BOTH models agree on — it can only make her trade less or bank sooner</small>
       </article>
 
@@ -117,6 +135,7 @@ export function FeeCatDesk({ call }) {
           : <p className="fch-nil">flat — waiting for a coin that passes</p>}
       </article>
 
+      <AgentLane d={d} busy={busy} onSave={lane => save({ agentLane: lane })} />
       <DuoLearn learn={d.duoLearn} />
       <FeeCharts d={d} />
       <FeeTape events={d.events} />

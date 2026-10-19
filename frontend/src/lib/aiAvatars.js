@@ -5,5 +5,6 @@ export function avatarOf(who) {
   const k = String(who || '').toLowerCase();
   if (k === 'ossy' || k === 'local') return `${BASE}ossy.gif`;
   if (k === 'g4' || k === 'lan') return `${BASE}g4.gif`;
+  if (k === 'fee' || k === 'feecat') return '/assets/feecat-mark.png';
   return AGENTS.includes(k) ? `${BASE}${k}.gif` : null;
 }

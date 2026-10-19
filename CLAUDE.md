@@ -5166,3 +5166,8 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
 - 🛡 CREWS v2 (`crews.py` set_code / code_ok / post / bounty_* / launch, `POST /crews/act`): passcode generated (16 chars) or your own, stored as a salted
   SHA-256, shown ONCE; board posts + replies; bounties pay crew POINTS only; crew launch pin (live price). UI: podium of `CrewCard3D` (electric border spins
   with `heat`, pointer tilt), CrewHQ tabs, `TopCrews` on Home + the globe, `CrewProfile` in profile Activity › 🛡 Crew.
+- 🐱 FEECAT FINISHED (2026-10-19): her calls are 🐱 pins on EVERY chart (`lib/feecatCalls.js` `useFeeCatCalls` = one shared read of the public
+  `/api/cats/activity?catId=leader`, PriceChart prop `fee` default on, pin kind `feecat`, lens 🐱 Fee, gold trail) — users see hers, never the agents' /
+  models'. HQ › Fee desk charts add the agents' verdict + OSSY / G4 / Reaper lines on her coins (`/admin/feecat.pins` = `_feecat_pins`, frontend
+  `deskPins`). 🤖 HER AGENTS LANE card (HQ) = the agents' band per key with her own override on top (`agentLane` → `clean_lane`; empty = follow).
+  Her page tab 🐱 Fee live (`FeeLiveTab.jsx`, `feeLive.css` `fcv-*`): last scan funnel, chart of what she holds / takes next, her calls.

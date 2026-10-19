@@ -21,6 +21,7 @@ import { toolRead, useChartTools, germ as germOf } from '../../lib/chartTools';
 import { ChartGrab } from './ChartGrab';
 import { withGrab } from '../../lib/chartGrab';
 import { fillArrows } from '../../lib/fillArrows';
+import { useFeeCatCalls } from '../../lib/feecatCalls';
 import { createChart, createSeriesMarkers, CandlestickSeries, HistogramSeries, LineSeries, ColorType } from 'lightweight-charts';
 import { useMarket } from '../../hooks/useMarket';
 import { dexUrl, formatUSD } from '../../lib/dexscreener';
@@ -37,7 +38,7 @@ const LIVE_INTERVAL_SECONDS = { '1m': 60, '5m': 300, '15m': 900, '1h': 3600, '4h
 
 const ageLabel = t => { const s = (Date.now() - t) / 1000; return s < 3600 ? `${Math.max(1, Math.round(s / 60))}m` : s < 86400 ? `${Math.round(s / 3600)}h` : s < 86400 * 60 ? `${Math.round(s / 86400)}d` : `${Math.round(s / 86400 / 30)}mo`; };
 
-export const PriceChart = ({ pair, interval, showVolume, metric = 'price', markers = [], feeLive: feeLiveProp, userEntry = null, userTrades = null, fuse: fuse0 = null, pnl, plain = false, callouts = null, wallets = true }) => {
+export const PriceChart = ({ pair, interval, showVolume, metric = 'price', markers = [], feeLive: feeLiveProp, userEntry = null, userTrades = null, fuse: fuse0 = null, pnl, plain = false, callouts = null, wallets = true, fee = true }) => {
   // ✋ a level dragged on this chart and CONFIRMED by the card sits where it was dropped until the card's next read
   const [grabbed, setGrabbed] = useState(null);
   useEffect(() => { setGrabbed(null); }, [fuse0?.pairAddress, fuse0?.slPct, fuse0?.lockPct, fuse0?.trailPct, fuse0?.tpPct]);
@@ -335,7 +336,8 @@ export const PriceChart = ({ pair, interval, showVolume, metric = 'price', marke
   // 🐋 bundlers · snipers · dev · whales · top traders on EVERY chart (one shared read per coin); `wallets={false}` = none
   const cw = useChartWallets(wallets ? pair?.baseToken?.address : null, pair?.pairAddress);
   const mcPerPx = price > 0 ? Number(mcapOf(pair?.priceUsd, pair?.marketCap, pair?.baseToken?.address)) / price : 0;
-  const allCalls = useMemo(() => [...walletPins(cw, mcPerPx), ...(callouts || [])], [cw, mcPerPx, callouts]);
+  const feeCalls = useFeeCatCalls(pair?.pairAddress, !!fee && !plain);   // 🐱 Fee's own calls on every chart (users see hers only)
+  const allCalls = useMemo(() => [...walletPins(cw, mcPerPx), ...feeCalls, ...(callouts || [])], [cw, mcPerPx, callouts, feeCalls]);
   useEffect(() => {
     const pair = pairLive.current;  
     if (!charting || !pair?.pairAddress || !pair?.chainId) return undefined;

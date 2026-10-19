@@ -26,3 +26,8 @@ def test_her_own_override_sits_on_top_of_the_agents_band():
     lim = fs.agent_lane(LIM, {'mcMax': 50_000, 'junk': 1})
     assert lim['mcMax'] == 50_000 and 'junk' not in lim and lim['poolMin'] == 8_000
     assert fs._agents_qualifies(_p(), time.time(), lim)[0] is None
+
+
+def test_hq_lane_overrides_keep_only_band_keys_and_empty_follows_the_agents():
+    assert fs.clean_lane({'mcMax': '50000', 'mcMin': '', 'poolMin': None, 'hack': 9, 'minAgeH': -1}) == {'mcMax': 50000.0}
+    assert fs.clean_lane({}) == {}

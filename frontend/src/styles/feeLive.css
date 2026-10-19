@@ -1,0 +1,30 @@
+/* 🐱 Fee live tab (FeeLiveTab.jsx, `fcv-*`): her scan funnel, a chart with her call bubbles, her calls. m-* tokens, transform / opacity only. */
+.fcv { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.6fr); gap: 12px; }
+.fcv-card { position: relative; display: grid; gap: 8px; align-content: start; padding: 12px 14px; border-radius: 14px; background: var(--m-surface); border: 1px solid var(--m-line); animation: fcvIn .22s ease-out both; }
+.fcv-chart { grid-row: span 2; } .fcv-calls { grid-column: 1; }
+.fcv-card h3 { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; margin: 0; font: 800 11px var(--m-mono); letter-spacing: .12em; color: #ffd36b; }
+.fcv-card h3 small { font-weight: 600; letter-spacing: 0; color: var(--m-mute); }
+.fcv-flow { display: flex; align-items: center; gap: 8px; margin: 0; } .fcv-flow span { display: grid; justify-items: center; flex: 1; padding: 6px; border-radius: 10px; background: rgba(255, 255, 255, .03); }
+.fcv-flow b { font: 900 20px var(--m-mono); animation: fcvPop .4s ease-out; } .fcv-flow small { font: 600 9px var(--m-mono); color: var(--m-mute); } .fcv-flow span.is-good b { color: var(--m-accent); } .fcv-flow i { font-style: normal; color: var(--m-mute); }
+.fcv-bars { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
+.fcv-bars li { display: grid; grid-template-columns: minmax(0, 1.3fr) 1fr 24px; gap: 6px; align-items: center; font: 600 10px var(--m-mono); animation: fcvIn .2s ease-out both; animation-delay: calc(var(--i, 0) * 50ms); }
+.fcv-bars span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; } .fcv-bars i { height: 6px; border-radius: 3px; background: rgba(255, 255, 255, .06); overflow: hidden; }
+.fcv-bars u { display: block; height: 100%; transform-origin: left; background: linear-gradient(90deg, #ff8fa3, #ffd36b); transition: transform .5s ease; } .fcv-bars b { text-align: right; }
+.fcv-note { font-size: 10px; color: var(--m-mute); line-height: 1.45; }
+.fcv-coins { display: flex; flex-wrap: wrap; gap: 4px; } .fcv-coins button { padding: 3px 9px; border-radius: 999px; border: 1px solid var(--m-line); background: transparent; color: var(--m-dim); font: 700 10px var(--m-mono); cursor: pointer; transition: transform .12s, color .12s; }
+.fcv-coins button:hover { color: var(--m-text); } .fcv-coins button:active { transform: scale(.96); } .fcv-coins button:focus-visible { outline: 2px solid #ffd36b; outline-offset: 1px; }
+.fcv-coins button.active { color: #1a1204; background: #ffd36b; border-color: transparent; }
+.fcv-plot { height: clamp(300px, 46vh, 460px); } .fcv-plot .chart-area, .fcv-plot .candle-canvas { height: 100% !important; }
+.fcv-calls ol { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; max-height: 340px; overflow: auto; scrollbar-width: thin; scrollbar-color: #ffd36b transparent; }
+.fcv-calls ol::-webkit-scrollbar { width: 6px; } .fcv-calls ol::-webkit-scrollbar-thumb { background: #ffd36b; border-radius: 3px; }
+.fcv-calls li { display: grid; grid-template-columns: 38px minmax(0, 1fr) auto; gap: 8px; align-items: start; padding: 6px 8px; border-radius: 9px; background: rgba(255, 255, 255, .025); border-left: 2px solid var(--m-accent); font-size: 10.5px; line-height: 1.4; }
+.fcv-calls li.is-sell { border-left-color: #ff8fa3; } .fcv-calls li b { font: 800 9.5px var(--m-mono); } .fcv-calls li.is-buy b { color: var(--m-accent); } .fcv-calls li.is-sell b { color: #ff8fa3; }
+.fcv-calls li small { font: 600 9px var(--m-mono); color: var(--m-mute); white-space: nowrap; } .fcv-calls li.is-new { animation: fcvIn .3s ease-out; }
+@keyframes fcvIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+@keyframes fcvPop { from { transform: scale(1.18); } to { transform: none; } }
+body.fx-lite .fcv-card, body.fx-lite .fcv-bars li, body.fx-lite .fcv-flow b, body.fx-lite .fcv-calls li.is-new { animation: none; }
+@media (prefers-reduced-motion: reduce) { .fcv-card, .fcv-bars li, .fcv-flow b, .fcv-calls li.is-new { animation: none; } .fcv-bars u { transition: none; } }
+body.theme-day .fcv-card { background: rgba(255, 255, 255, .75); } body.theme-day .fcv-card h3 { color: #8a6100; } body.theme-day .fcv-flow span, body.theme-day .fcv-calls li { background: rgba(236, 246, 240, .8); }
+body.theme-day .fcv-coins button.active { background: #a07500; color: #fff; }
+@media (max-width: 900px) { .fcv { grid-template-columns: minmax(0, 1fr); } .fcv-chart { grid-row: auto; } .fcv-calls { grid-column: auto; } }
+@media (max-width: 640px) { .fcv-plot { height: 300px; } .fcv-calls li { grid-template-columns: 34px minmax(0, 1fr); } .fcv-calls li small { grid-column: 2; } }

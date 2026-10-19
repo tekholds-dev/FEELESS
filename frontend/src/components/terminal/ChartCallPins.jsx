@@ -39,8 +39,8 @@ export function clusterPins(pts, gap = STACK_GAP) {
 }
 
 // 🎛 who shows on the chart — tap a group to hide / show it (remembered on this browser)
-export const PIN_LENSES = [['models', '🔁 Models', k => k === 'ai' || k === 'talk'], ['agents', '🤖 Agents', k => k === 'agent'], ['wallets', '🐋 Wallets', k => k === 'wallet'], ['you', '👤 You', k => k === 'user']];
-export const lensOf = kind => (PIN_LENSES.find(l => l[2](kind || 'user')) || PIN_LENSES[3])[0];
+export const PIN_LENSES = [['models', '🔁 Models', k => k === 'ai' || k === 'talk'], ['agents', '🤖 Agents', k => k === 'agent'], ['wallets', '🐋 Wallets', k => k === 'wallet'], ['fee', '🐱 Fee', k => k === 'feecat'], ['you', '👤 You', k => k === 'user']];
+export const lensOf = kind => (PIN_LENSES.find(l => l[2](kind || 'user')) || PIN_LENSES[PIN_LENSES.length - 1])[0];
 const LENS_KEY = 'feeless.pinLens';
 
 // 🧵 TRAILS (owner, 2026-10-18: "I wanna see agents and AI trail on chart"): each voice's calls joined in time order — OSSY, G4 and the
@@ -48,6 +48,7 @@ const LENS_KEY = 'feeless.pinLens';
 export function trailKey(c) {
   if (!c) return null;
   if (c.kind === 'agent') return 'agents';
+  if (c.kind === 'feecat') return 'fee';
   if (c.kind === 'ai' || c.kind === 'talk') { const w = String(c.who || '').toUpperCase(); return w === 'OSSY' || w === 'G4' || w === 'REAPER' ? w.toLowerCase() : null; }
   return null;
 }
