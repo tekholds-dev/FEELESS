@@ -88,6 +88,15 @@ body.theme-day .ccp-lens { background: rgba(255, 255, 255, .9); border-color: rg
 .ccp-trail.t-reaper .ccp-tl, .ccp-trail.t-reaper .ccp-td { stroke: #ff8fa3; }
 .ccp-trail.t-agents .ccp-tl, .ccp-trail.t-agents .ccp-td { stroke: #45e486; }
 .ccp-trail.t-agents .ccp-tl { opacity: .35; }
+/* 🔥 live trails: each voice's newest call is its beating head; hot pins wear a ring (transform / opacity only) */
+.ccp-head { fill: none; stroke-width: 1.6; transform-box: fill-box; transform-origin: center; animation: ccpHead 1.6s ease-out infinite; }
+.ccp-trail.t-ossy .ccp-head { stroke: #b48cff; } .ccp-trail.t-g4 .ccp-head { stroke: #6fd3ff; } .ccp-trail.t-reaper .ccp-head { stroke: #ff8fa3; } .ccp-trail.t-agents .ccp-head { stroke: #45e486; }
+@keyframes ccpHead { 0% { transform: scale(.6); opacity: .95; } 100% { transform: scale(2.6); opacity: 0; } }
+.ccp-pin.is-hot::before { content: ''; position: absolute; inset: -4px; border-radius: 50%; border: 1.5px solid #ffcf5c; pointer-events: none; animation: ccpHot 1.3s ease-out infinite; }
+.ccp-pin.is-hot.is-ai::before { border-color: #b48cff; } .ccp-pin.is-hot.a-sell::before { border-color: #ff8fa3; } .ccp-pin.is-hot.a-buy::before { border-color: #45e486; }
+@keyframes ccpHot { 0% { transform: scale(.9); opacity: .9; } 100% { transform: scale(1.7); opacity: 0; } }
+body.fx-lite .ccp-head, body.fx-lite .ccp-pin.is-hot::before { animation: none; }
+@media (prefers-reduced-motion: reduce) { .ccp-head, .ccp-pin.is-hot::before { animation: none; } }
 /* 🎞 live avatars: OSSY / G4 + the ten agents are looping GIFs — a bigger face so the motion reads */
 .ccp-pin.is-ai { width: 26px; height: 26px; margin: -13px 0 0 -13px; }
 .ccp-pin.is-agent { width: 22px; height: 22px; margin: -11px 0 0 -11px; }

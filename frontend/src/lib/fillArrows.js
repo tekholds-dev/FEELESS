@@ -9,7 +9,8 @@ export function isFill(m) {
   return !!m && (m.shape === 'arrowUp' || m.shape === 'arrowDown') && (Number(m.price) > 0 || FILL_TEXT.test(String(m.text || '')));
 }
 
-// pure: markers in → the same markers, every entry / exit as a plain green ▲ / red ▼
+// pure: markers in → the same markers, every entry / exit as a SMALL green / red dot (owner, 2026-10-19: "don't use the arrow that gets in
+// the way") — the live entry vital (ChartLive) tells the trade's story; the dot only marks where a fill happened
 export function fillArrows(list) {
-  return (list || []).map(m => (isFill(m) ? { ...m, color: m.shape === 'arrowUp' ? UP : DOWN, text: '', size: 2 } : m));
+  return (list || []).map(m => (isFill(m) ? { ...m, shape: 'circle', color: m.shape === 'arrowUp' ? UP : DOWN, text: '', size: 0.6 } : m));
 }

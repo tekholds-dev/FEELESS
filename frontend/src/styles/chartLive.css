@@ -10,17 +10,23 @@
 .clv2-tag b { font-size: 10.5px; font-weight: 800; font-variant-numeric: tabular-nums; } .clv2-tag span { font-size: 9px; font-weight: 700; font-variant-numeric: tabular-nums; color: var(--m-dim); }
 .clv2-tag span:empty { display: none; }
 .clv2-dot { width: 4px; height: 4px; border-radius: 50%; background: currentColor; animation: clv2Beat 1.2s ease-in-out infinite; }
-.clv2-buy { left: 0; margin-top: -7px; margin-left: -4px; display: inline-flex; align-items: center; gap: 4px; padding: 0 5px; border-radius: 4px; font-family: var(--m-mono);
-  background: color-mix(in srgb, var(--m-accent) 78%, transparent); color: var(--m-accent-ink); }
+.clv2-buy { left: 0; margin-top: -8px; margin-left: -8px; display: inline-flex; align-items: center; gap: 3px; padding: 0 5px 0 0; border-radius: 9px; font-family: var(--m-mono);
+  background: rgba(3, 12, 8, .55); color: var(--m-accent); border: 1px solid color-mix(in srgb, var(--m-accent) 40%, transparent); }
+.clv2-buy.is-dn { color: var(--m-danger); border-color: color-mix(in srgb, var(--m-danger) 40%, transparent); }
+/* 🫀 the entry vital: ring arc = the move since the buy (full at ±50%), core beats while the trade lives */
+.clv2-ring { width: 16px; height: 16px; flex: none; transform: rotate(-90deg); }
+.clv2-ring-bg { fill: none; stroke: currentColor; stroke-width: 2; opacity: .18; }
+.clv2-ring-arc { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; }
+.clv2-ring-core { fill: currentColor; transform-origin: 8px 8px; animation: clv2Beat 1.4s ease-in-out infinite; }
 .clv2-buy.is-pinned { left: 54px; } .clv2-buy.is-off { opacity: .7 !important; }
-.clv2-buy b { font-size: 8px; font-weight: 800; letter-spacing: .08em; } .clv2-buy span { font-size: 8.5px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.clv2-buy b { font-size: 8.5px; font-weight: 800; font-variant-numeric: tabular-nums; }
 .clv2-line { left: 0; width: 2px; height: 1px; transform-origin: top; border-radius: 1px; opacity: .55; background: var(--m-accent); } .clv2-line.is-dn { background: var(--m-danger); }
 @keyframes clv2Beat { 50% { transform: scale(1.7); opacity: .4; } }
-body.fx-lite .clv2-dot { animation: none; } body.fx-lite .clv2-tag { transition: none; }
-@media (prefers-reduced-motion: reduce) { .clv2-dot { animation: none; } .clv2-tag { transition: none; } }
+body.fx-lite .clv2-dot, body.fx-lite .clv2-ring-core { animation: none; } body.fx-lite .clv2-tag { transition: none; }
+@media (prefers-reduced-motion: reduce) { .clv2-dot, .clv2-ring-core { animation: none; } .clv2-tag { transition: none; } }
 body.theme-day .clv2-tag { background: rgba(255, 255, 255, .8); border-color: #0d7a41; color: #0d7a41; } body.theme-day .clv2-tag.is-dn { border-color: #b42346; color: #b42346; }
-body.theme-day .clv2-tag span { color: #3f5a4a; } body.theme-day .clv2-buy { background: #0d7a41; color: #fff; } body.theme-day .clv2-line { background: #0d7a41; } body.theme-day .clv2-line.is-dn { background: #b42346; }
-@media (max-width: 640px) { .clv2-tag span { display: none; } .clv2-buy span { display: none; } }
+body.theme-day .clv2-tag span { color: #3f5a4a; } body.theme-day .clv2-buy { background: rgba(255, 255, 255, .85); color: #0d7a41; } body.theme-day .clv2-buy.is-dn { color: #b42346; } body.theme-day .clv2-line { background: #0d7a41; } body.theme-day .clv2-line.is-dn { background: #b42346; }
+@media (max-width: 640px) { .clv2-tag span { display: none; } }
 
 /* 📍 leader from the forming candle to the P&L tag (the tag sits GAP px off the candle) */
 .clv2-lead { position: absolute; left: 0; top: 0; width: 1px; height: 0; border-top: 1px dotted rgba(69, 228, 134, .55); transform-origin: left; pointer-events: none; z-index: 3; }

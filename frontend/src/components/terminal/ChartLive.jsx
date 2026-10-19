@@ -17,8 +17,15 @@ export const liveRead = (entry, px, usd) => {
 export const pctWord = v => (Math.abs(v) >= 1000 ? `${(v / 100 + 1).toFixed(1)}x` : `${v >= 0 ? '+' : '−'}${Math.abs(v).toFixed(Math.abs(v) >= 100 ? 0 : Math.abs(v) >= 10 ? 1 : 2)}%`);
 export const usdWord = v => (v == null ? '' : `${v >= 0 ? '+' : '−'}$${Math.abs(v) >= 1000 ? `${(Math.abs(v) / 1000).toFixed(1)}K` : Math.abs(v).toFixed(Math.abs(v) < 1 ? 3 : 2)}`);
 
+// 🫀 THE ENTRY VITAL (owner, 2026-10-19: "better buy indicator — a small vital that plays out based on data when entered"): a 16px ring at
+// the entry whose arc fills with the move since the buy (full = ±50%), green / pink, its core beating while the trade is live; beside it
+// the move and how long it has been held. Pure helpers below; the frame writes the arc + text straight to the DOM.
+export const RING = 2 * Math.PI * 6;
+export const ringFill = pct => Math.max(0.04, Math.min(1, Math.abs(Number(pct) || 0) / 50));
+export const heldWord = (at, now = Date.now() / 1000) => { const s = Math.max(0, now - (Number(at) || now)); return s < 3600 ? `${Math.floor(s / 60)}m` : `${(s / 3600).toFixed(1)}h`; };
+
 export function ChartLive({ seriesRef, chartRef, lastBarRef, shownRef, container, ratio = 1, entry, usd = null, at = null, label = 'YOU', entryWord = null }) {
-  const tag = useRef(null); const lead = useRef(null); const buy = useRef(null); const pctEl = useRef(null); const usdEl = useRef(null); const line = useRef(null);
+  const tag = useRef(null); const lead = useRef(null); const buy = useRef(null); const pctEl = useRef(null); const usdEl = useRef(null); const line = useRef(null); const arc = useRef(null); const vit = useRef(null);
   useEffect(() => {
     if (!(Number(entry) > 0)) return undefined;
     let lastTxt = ''; let lastUp = null; let axis = 62; let axisAt = 0; let tagW = 90;
@@ -49,7 +56,7 @@ export function ChartLive({ seriesRef, chartRef, lastBarRef, shownRef, container
       }
       const r = liveRead(e, px, usd); if (!r) return;
       const txt = `${pctWord(r.pct)}|${usdWord(r.usd)}`;
-      if (txt !== lastTxt) { lastTxt = txt; if (pctEl.current) pctEl.current.textContent = pctWord(r.pct); if (usdEl.current) usdEl.current.textContent = usdWord(r.usd); tagW = el.offsetWidth || tagW; }
+      if (txt !== lastTxt) { if (arc.current) arc.current.style.strokeDashoffset = (RING * (1 - ringFill(r.pct))).toFixed(1); if (vit.current) vit.current.textContent = `${pctWord(r.pct)}${at ? ` · ${heldWord(at)}` : ''}`; be.classList.toggle('is-dn', !r.up); lastTxt = txt; if (pctEl.current) pctEl.current.textContent = pctWord(r.pct); if (usdEl.current) usdEl.current.textContent = usdWord(r.usd); tagW = el.offsetWidth || tagW; }
       if (r.up !== lastUp) { lastUp = r.up; el.classList.toggle('is-up', r.up); el.classList.toggle('is-dn', !r.up); if (line.current) { line.current.classList.toggle('is-up', r.up); line.current.classList.toggle('is-dn', !r.up); } }
     };
     return addChartJob(container, step);   // ⚡ the shared chart frame: runs only when this chart changed
@@ -58,7 +65,10 @@ export function ChartLive({ seriesRef, chartRef, lastBarRef, shownRef, container
   return <div className="clv2" data-testid="chart-live" aria-hidden="true">
     <i className="clv2-line" ref={line} />
     <i className="clv2-lead" ref={lead} />
-    <div className="clv2-buy" ref={buy} data-testid="chart-live-buy"><b>▲ BUY</b>{entryWord ? <span>{entryWord}</span> : null}</div>
+    <div className="clv2-buy" ref={buy} data-testid="chart-live-buy">
+      <svg className="clv2-ring" viewBox="0 0 16 16"><circle className="clv2-ring-bg" cx="8" cy="8" r="6" /><circle className="clv2-ring-arc" ref={arc} cx="8" cy="8" r="6" strokeDasharray={RING.toFixed(1)} strokeDashoffset={RING.toFixed(1)} /><circle className="clv2-ring-core" cx="8" cy="8" r="2.2" /></svg>
+      <b ref={vit}>{entryWord || 'IN'}</b>
+    </div>
     <div className="clv2-tag" ref={tag} data-testid="chart-live-tag"><small>{label}</small><b ref={pctEl}>—</b><span ref={usdEl} /><i className="clv2-dot" /></div>
   </div>;
 }

@@ -56,9 +56,13 @@ export function trailPaths(pts) {
   (pts || []).forEach(p => { const k = trailKey(p); if (k) (by[k] = by[k] || []).push(p); });
   const out = {};
   Object.entries(by).forEach(([k, a]) => { if (a.length < 2) return; a.sort((x, y) => x.x - y.x);
-    out[k] = { line: a.map((p, i) => `${i ? 'L' : 'M'}${p.x.toFixed(0)} ${p.y.toFixed(0)}`).join(''), dots: a.map(p => `M${p.x.toFixed(0)} ${p.y.toFixed(0)}h0`).join('') }; });
+    const hd = a[a.length - 1];
+    out[k] = { line: a.map((p, i) => `${i ? 'L' : 'M'}${p.x.toFixed(0)} ${p.y.toFixed(0)}`).join(''), dots: a.map(p => `M${p.x.toFixed(0)} ${p.y.toFixed(0)}h0`).join(''), head: `translate(${hd.x.toFixed(0)} ${hd.y.toFixed(0)})` }; });
   return out;
 }
+// 🔥 a HOT message (owner, 2026-10-19: "on-chart dot path more vital and live — see the hot messages"): said in the last 5 min, a BUY / SELL /
+// TRIM, or a call already 10%+ off where it was made. Hot pins wear a beating ring; each trail's newest point is its live head.
+export const isHot = (c, now = Date.now() / 1000) => !!c && (now - Number(c.at) < 300 || /^(BUY|SELL|TRIM)$/i.test(String(c.action || '')) || Math.abs(Number(c.pct) || 0) >= 10);
 const readHidden = () => { try { return new Set(JSON.parse(localStorage.getItem(LENS_KEY) || '[]')); } catch { return new Set(); } };
 
 export function ChartCallPins({ calls, seriesRef, chartRef, container, ratio = 1, mcChart = true, ivSec = 60, nowMc }) {
@@ -94,7 +98,7 @@ export function ChartCallPins({ calls, seriesRef, chartRef, container, ratio = 1
       const svg = trailRef.current;
       if (svg) { const tp = trailPaths(pts); const tk = `${top},${w},${h}|${JSON.stringify(tp)}`;
         if (tk !== lastTrail) { lastTrail = tk; svg.style.transform = `translate3d(0, ${top}px, 0)`; svg.setAttribute('width', w); svg.setAttribute('height', h);
-          svg.querySelectorAll('[data-trail]').forEach(g => { const t = tp[g.dataset.trail]; g.querySelector('.ccp-tl').setAttribute('d', t ? t.line : ''); g.querySelector('.ccp-td').setAttribute('d', t ? t.dots : ''); }); } }
+          svg.querySelectorAll('[data-trail]').forEach(g => { const t = tp[g.dataset.trail]; g.querySelector('.ccp-tl').setAttribute('d', t ? t.line : ''); g.querySelector('.ccp-td').setAttribute('d', t ? t.dots : ''); const hg = g.querySelector('.ccp-hg'); if (hg) { hg.setAttribute('transform', t ? t.head : 'translate(-99 -99)'); } }); } }
       const groups = clusterPins(pts);
       const gk = groups.map(g => `${g.lead}:${g.ids.join(',')}`).join('|');
       if (gk !== lastGroups) { lastGroups = gk; const m = {}; groups.forEach(g => { m[g.lead] = g.ids; }); setStacks(m); }
@@ -119,12 +123,12 @@ export function ChartCallPins({ calls, seriesRef, chartRef, container, ratio = 1
   const trails = [...new Set(list.map(trailKey).filter(Boolean))];
   return <div className="ccp" ref={host} data-testid="chart-call-pins">
     {trails.length ? <svg ref={trailRef} className="ccp-trails" aria-hidden="true" data-testid="chart-trails">{trails.map(k =>
-      <g key={k} data-trail={k} className={`ccp-trail t-${k}`}><path className="ccp-tl" d="" /><path className="ccp-td" d="" /></g>)}</svg> : null}
+      <g key={k} data-trail={k} className={`ccp-trail t-${k}`}><path className="ccp-tl" d="" /><path className="ccp-td" d="" /><g className="ccp-hg" transform="translate(-99 -99)"><circle className="ccp-head" r="4" /></g></g>)}</svg> : null}
     {lenses.length > 1 || hidden.size ? <div className="ccp-lens" data-testid="chart-pin-lens">{lenses.map(([k, word]) =>
       <button key={k} type="button" className={`ccp-lb ${hidden.has(k) ? 'is-off' : ''}`} aria-pressed={!hidden.has(k)} onClick={() => flip(k)} data-testid={`chart-pin-lens-${k}`}>{word}<b>{counts[k]}</b></button>)}</div> : null}
     {list.map(c => { const mates = (stacks[c.id] || [c.id]).map(id => byId.get(id)).filter(Boolean); const n = mates.length; const fan = mates.filter(m => m.id !== c.id).slice(0, 2);
       const total = mates.reduce((a, m) => a + 1 + (m.more || 0), 0);
-      return <button key={c.id} type="button" className={`ccp-pin is-${c.kind || 'user'} ${c.action ? `a-${String(c.action).toLowerCase()}` : ''} ${open === c.id ? 'is-open' : ''} ${n > 1 ? 'is-stack' : ''}`} data-pin={c.id}
+      return <button key={c.id} type="button" className={`ccp-pin is-${c.kind || 'user'} ${c.action ? `a-${String(c.action).toLowerCase()}` : ''} ${open === c.id ? 'is-open' : ''} ${n > 1 ? 'is-stack' : ''} ${mates.some(m => isHot(m)) ? 'is-hot' : ''}`} data-pin={c.id}
         onMouseEnter={() => setOpen(c.id)} onMouseLeave={() => setOpen(o => (o === c.id ? null : o))} onFocus={() => setOpen(c.id)} onBlur={() => setOpen(o => (o === c.id ? null : o))}
         onClick={() => setOpen(o => (o === c.id ? null : c.id))} aria-label={n > 1 ? `${total} comments here` : `${c.who} ${c.action || 'call'}${c.text ? `: ${c.text}` : ''}`} data-testid={`chart-pin-${c.id}`}>
         {fan.map((m, i) => <span key={m.id} className={`ccp-fan ${['f0', 'f1'][i]} is-${m.kind || 'user'}`} aria-hidden="true">{m.img ? <img src={m.img} alt="" loading="lazy" decoding="async" /> : <i>{m.icon || initials(m.who)}</i>}</span>)}
