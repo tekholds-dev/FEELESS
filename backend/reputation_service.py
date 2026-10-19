@@ -7674,7 +7674,8 @@ def feecat_pool_rows(kernel_rows, arena_rows, limit=60, agents_max=20):
             if not pa or pa in seen or _fw.dollar_named(r.get('symbol')):
                 continue
             seen.add(pa)
-            out.append({'pairAddress': pa, 'mint': r.get('mint'), 'symbol': r.get('symbol'), 'src': src, 'why': r.get('tag') or r.get('divisionLabel') or src})
+            out.append({'pairAddress': pa, 'mint': r.get('mint'), 'symbol': r.get('symbol'), 'src': src, 'why': r.get('tag') or r.get('divisionLabel') or src,
+                        'status': ('READY' if 'READY' in str(r.get('tag') or '') else 'CONTENDING') if src == 'agents' else None})
             if len(out) >= limit:
                 return out
     return out
@@ -7704,7 +7705,13 @@ async def fuses_feecat_pool():
                 for k_, v_ in (_duo_totals() or {}).items() if k_ in ('OSSY', 'G4')}   # their REAL closed trades (ledger), all time
     except Exception:
         tot_ = {}
-    return {'at': now, 'rows': rows_, 'duo': duo_lessons(log_, tot_)}
+    try:   # 🐱 the agents' own band — her agents lane judges their coins on THEIR settings (her own overrides sit on top, feecat_service)
+        mn_, mx_ = _uni.band(); lm_ = _uni.limits()
+        lim_ = {'mcMin': mn_, 'mcMax': mx_, 'minAgeH': lm_.get('minAgeH'), 'maxAgeH': lm_.get('maxAgeH'), 'minVol1h': lm_.get('minVol'),
+                'poolMin': _fuse._f((_prime_real_cfg() or {}).get('agentPoolMin')) or 8000}
+    except Exception:
+        lim_ = {}
+    return {'at': now, 'rows': rows_, 'duo': duo_lessons(log_, tot_), 'limits': lim_}
 
 
 def feecat_read(c, setups, bad):
@@ -9140,6 +9147,17 @@ async def _real_guard_loop():
                                 if not (c_ and c_.get('real')):
                                     continue
                                 hits_ = _of.fast_reap(c_.get('legs'), px, _office.get('pos') or {}, now, _office_state(), prev=_reap_prev, ai_words=_ai_exit_words(None, now))
+                                try:   # 🎯 OSSY / G4's take-profit, every few seconds: honoured, or raised on a volume rush (office.rush_take)
+                                    fl_ = {l.get('pairAddress'): _flow.vital(w_) for l in c_.get('legs') or [] for at_, w_ in [(_flow_now.get(l.get('pairAddress')) or (0, None))] if w_ and now - _fuse._f(at_) <= 90}
+                                    tp_pulls_, tp_raise_ = _of.rush_take(c_.get('legs'), px, fl_, now)
+                                    if tp_raise_:
+                                        rz_ = {pr_: (pt_, wy_) for pr_, pt_, wy_ in tp_raise_}
+                                        c_ = {**c_, 'legs': [({**l, **rz_[l.get('pairAddress')][0]} if l.get('pairAddress') in rz_ else l) for l in c_.get('legs') or []],
+                                              'events': (list(c_.get('events') or []) + [{'at': now, 'kind': 'agent', 'move': 'lines', 'why': wy_} for _p, (_t, wy_) in rz_.items()])[-200:]}
+                                        cs_[tid_] = c_; reaped_ = True
+                                    hits_ = list(hits_) + [h_ for h_ in tp_pulls_ if h_[0] not in {x_[0] for x_ in hits_}]
+                                except Exception as e:
+                                    print('rush take:', str(e)[:120])
                                 _reap_prev.update({m_: (now, _fuse._f(v_)) for m_, v_ in (px or {}).items() if _fuse._f(v_) > 0})   # 🕯 the last live read per coin (spike confirm)
                                 nw_ = c_
                                 for pair_, why_ in hits_:
@@ -14149,7 +14167,7 @@ def _ai_case(c):
             'devil': [f"{d_[0]} {d_[1]}" for d_ in (c.get('devil') or []) if isinstance(d_, (list, tuple)) and len(d_) >= 2] if isinstance(c.get('devil'), list) else c.get('devil')}
 
 
-FEECAT_DUO_SEC = 600.0   # 🐱🤝 FeeCat gets ONE duo read every 10 min (owner, 2026-10-16: "1 duo AI call per 10 min on trades and vital info")
+FEECAT_DUO_SEC = 240.0   # 🐱🤝 FeeCat gets ONE duo read every 4 min (owner, 2026-10-19: "calling OSSY or G4 every 3-5 min about a few coins")
 FEECAT_DUO_ASK = ("You are FeeCat's trade desk: two models read the SAME packet — her open trades and the coins she may buy next, each with its vitals "
                   "(cap · age · 5-min move · buyers % · pool · status · the agents' read). Answer with ONE JSON object and nothing else: "
                   '{"avoid": [pairAddress …], "exit": [pairAddress …], "why": "one line per coin you named, numbers from the packet"}. '

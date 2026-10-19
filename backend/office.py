@@ -761,12 +761,12 @@ def reap(legs, table, prices, cfg, pos, now, scalp=None, control=False, weather_
             p['scaled'], p['trimPct'] = now, sk_
         if l.get('picked'):
             study_note(p, rule, act, st, pct, px, now, snap_of(ch, x, pct))   # 👤 your seat: every ruling change is filed — what the agents would have done, and when
-        if (l.get('aiSeat') or (_uni.is_agent(l) and not l.get('picked'))) and not act and pct is not None:   # 🔁 a MODEL's lines (its own trade, or an agents coin it set): take / stop / trail sell it
+        if (l.get('aiSeat') or (_uni.is_agent(l) and not l.get('picked'))) and pct is not None and not (act and str(rule).split(' ')[0] in MODEL_OUTRANK):   # 🔁 a MODEL's lines (its own trade, or an agents coin it set): take / stop / trail sell it — they outrank every soft rule (2026-10-19: an agents' trail firing first left R6m unchecked, then G4's seat turned it into HOLD)
             if _f(l.get('aiTrail')) > 0 and _f(p.get('peak')) >= MODEL_TRAIL_ARM and pct <= _f(p['peak']) * (1 - _f(l['aiTrail']) / 100) and pct >= MIN_KEEP:
                 st, rule, ev, act = 'TAKE', 'R7a model trail', f"peaked {_f(p['peak']):+.1f}%, now {pct:+.1f}% — gave back {_f(l['aiTrail']):g}% of it ({l.get('aiBy') or 'the model'}'s own trail)", 'pull'
             elif _f(l.get('aiSl')) > 0 and pct <= -_f(l.get('aiSl')):
                 st, rule, ev, act = 'EXIT INVALIDATED', 'R5m model stop', f"{pct:+.1f}% ≤ −{_f(l.get('aiSl')):g}% — {l.get('aiBy') or 'the model'}'s own stop", 'pull'
-            elif _f(l.get('aiTp')) > 0 and pct >= _f(l.get('aiTp')):
+            elif _f(l.get('aiTp')) > 0 and pct >= _f(l.get('aiTp')) and not rush_ride(l, fv_, now):   # ⚡ a volume rush at the line: the fast guard raised it instead (rush_take)
                 st, rule, ev, act = 'TAKE', 'R6m model take', f"{pct:+.1f}% ≥ +{_f(l.get('aiTp')):g}% — {l.get('aiBy') or 'the model'}'s own take-profit", 'pull'
         if l.get('aiSeat'):   # 🧠 G4's OWN seat: the agents only argue — every soft exit is filed as pressure, only a pulled pool / −45% / your creator limits sell
             p['g4'] = True
@@ -792,6 +792,8 @@ def reap(legs, table, prices, cfg, pos, now, scalp=None, control=False, weather_
         rk_ = str(rule).split(' ')[0]
         hn_ = p.get('hint') or {}
         cg_ = (plan or {}).get(_cg.bucket((th or {}).get('germDist'))) if (_uni.is_agent(l) and not l.get('picked') and not l.get('aiSeat') and not l.get('ownerLvAt')) else None
+        if cg_ and (_f(l.get('aiTp')) > 0 or _f(l.get('aiSl')) > 0 or _f(l.get('aiTrail')) > 0):   # 🔁 a model set this coin's lines: its lines run it, not the Consigliere
+            cg_ = None
         if cg_ and cg_.get('plan') == 'patient' and pct is not None:   # 🤵 THE CONSIGLIERE: on a coin type where holding to the stop / a spike has beaten Reaper on real trades
             if pct >= _f(cg_.get('spike')) and rk_ not in HINT_HARD:
                 st, rule, ev, act = 'TAKE', 'R6c consigliere spike', f"{pct:+.1f}% ≥ +{_f(cg_['spike']):g}% — the spike the patient plan waits for ({cg_.get('why')})", 'pull'
@@ -963,6 +965,44 @@ def scale_of(pol):
 
 
 MODEL_TRAIL_ARM = 10.0   # a model's trail arms once the coin has been +10%
+MODEL_OUTRANK = ('R1', 'R2', 'R3', 'R4', 'R4r', 'R4d', 'R4e', 'R5', 'R5x', 'R5c', 'R9c', 'R5g', 'R6y')   # hard exits a model's own lines never override
+RUSH_RAISE = 1.3      # ⚡ volume rush AT the model's take: the take moves up 30% …
+RUSH_TRAIL = 25.0     # … and a 25% give-back trail locks the run (the model can move both again next minute)
+RUSH_MAX = 3          # raises per trade, then the take is honoured whatever the tape says
+RUSH_GAP_SEC = 45.0   # one raise per 45s
+
+
+def rush_ride(l, flow, now):
+    """⚡ True while a raise just happened on a hot buyer tape (the take was moved up, not sold)."""
+    return bool(l.get('rushAt')) and now - _f(l.get('rushAt')) < RUSH_GAP_SEC
+
+
+def rush_take(legs, px_by_mint, flows, now):
+    """🎯 THE MODEL'S TAKE-PROFIT, EVERY FEW SECONDS (owner, 2026-10-19: "TP OSSY and G4 set need to actually work — when volume rush is on and
+    TP close they need to honor or adjust fast"). → (pulls [(pair, why)], raises [(pair, patch, why)]). At its take: a hot buyer tape
+    (flow vital BUYERS + hot) raises the take ×1.3 with a 25% trail (≤ 3 times a trade); otherwise the coin is sold now."""
+    pulls, raises = [], []
+    for l in legs or []:
+        tp = _f(l.get('aiTp'))
+        if tp <= 0 or not (l.get('aiSeat') or (_uni.is_agent(l) and not l.get('picked'))) or l.get('placeholder') or l.get('buying') or not l.get('real') or _f(l.get('units')) <= 0:
+            continue
+        px, entry = _f((px_by_mint or {}).get(l.get('mint'))), _f(l.get('entry'))
+        if px <= 0 or entry <= 0:
+            continue
+        pct = (px / entry - 1) * 100
+        if pct < tp:
+            continue
+        fl = (flows or {}).get(l.get('pairAddress')) or {}
+        hot = str(fl.get('state') or '').upper() == 'BUYERS' and bool(fl.get('hot'))
+        n = int(_f(l.get('rushN')))
+        if hot and n < RUSH_MAX:
+            if now - _f(l.get('rushAt')) >= RUSH_GAP_SEC:
+                ntp = round(min(500.0, max(tp * RUSH_RAISE, pct + 5)), 1)
+                raises.append((l.get('pairAddress'), {'aiTp': ntp, 'aiTrail': min(_f(l.get('aiTrail')) or RUSH_TRAIL, RUSH_TRAIL), 'rushAt': now, 'rushN': n + 1},
+                               f"⚡ volume rush at {l.get('aiBy') or 'the model'}'s take: {pct:+.1f}% ≥ +{tp:g}% with buyers piling in — take raised to +{ntp:g}%, a {RUSH_TRAIL:g}% trail locks it"))
+            continue
+        pulls.append((l.get('pairAddress'), f"☠ R6m model take (⚡ live): {pct:+.1f}% ≥ +{tp:g}% — {l.get('aiBy') or 'the model'}'s own take-profit"))
+    return pulls, raises
 G4_HARD = ('R1', 'R5x', 'R5c', 'R9c', 'R5m', 'R6m', 'R7a')   # + the holding model's own stop / take (it runs the trade)   # 🧠 what may still sell G4's seat without it: a pulled pool, −45%, the creator's own limits
 ASK_OK_SEC = 180.0     # an approval lets that rule sell for this long
 ASK_KEEP_SEC = 600.0   # "keep my line" quiets that rule this long

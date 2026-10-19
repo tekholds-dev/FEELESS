@@ -248,6 +248,20 @@ def t_pump_trending(a):
     return _cut('\n'.join(out))
 
 
+def living_now():
+    """🧠 WHAT FEELESS KNOWS RIGHT NOW (fee_voice.living over the AI memory + owner study) — served by the `feeless_brief` tool, never
+    written into the preset (2026-10-19: a preset rewritten every 10 min made LM Studio show "unsaved changes" and the owner kept pressing Save)."""
+    try:
+        import fee_voice as _fv
+        return _fv.living(_file('ai_memory.json') or {}, ((_file('agents_view.json') or {}).get('office') or {}).get('ownerStudy') or {}) or 'nothing filed yet'
+    except Exception:
+        return 'memory unavailable'
+
+
+def t_brief(args=None):
+    return {'brief': living_now()}
+
+
 def t_memory(a):
     """🗄 The AI's filed memory (ai_memory.py): the notes that fit the question — how the owner trades, his lessons, live rules, desk coins,
     how the site works. Read-only."""
@@ -726,6 +740,7 @@ TOOLS = {
     'pump_trending': (t_pump_trending, "Pump.fun's OWN trending list (or list=movers / volume / dips / callers / narrative / best) with FEELESS's vitals on every coin. "
                       'Use to shortlist, then investigate the best 2–3 and deep_research the narrative.',
                       {'list': {'type': 'string', 'enum': list(LENSES)}, 'limit': {'type': 'integer', 'description': '3–30 (default 8)'}}),
+    'feeless_brief': (t_brief, "WHAT FEELESS KNOWS RIGHT NOW: the owner's standing habits, fresh lessons, live rules. Call it before answering about FEELESS.", {}),
     'feeless_memory': (t_memory, "The AI's filed memory: notes that fit a question (owner habits, lessons, live rules, desk coins, how FEELESS works).", {'query': {'type': 'string', 'description': 'what you are about to answer'}}),
     'owner_report': (t_owner, "The owner study: his graded moves, his seats vs the agents' exit calls, his SL / TP lines vs theirs, and what it suggests.", {}),
     'feeless_notes': (t_notes, "The owner's teachings, the rules the agents run, and the approved build queue — read before advising.", {}),
@@ -816,7 +831,7 @@ def client_ok(ip):
 PRESET = Path.home() / '.lmstudio' / 'config-presets' / 'FEELESS FEE Master.preset.json'
 
 
-def fee_prompt(name='OSSY'):
+def fee_prompt(name='OSSY', live=False):
     """🎙 The FEE prompt as served: docs/lm_fee_prompt.txt + "WHAT FEELESS KNOWS RIGHT NOW" rebuilt from the AI memory + the owner study
     (fee_voice.living) — every install / hourly re-pull / local rewrite carries what FEELESS learned since the last one."""
     try:
@@ -824,14 +839,8 @@ def fee_prompt(name='OSSY'):
         base = (ROOT.parent / 'docs' / 'lm_fee_prompt.txt').read_text().replace('{PERSONA}', _fv0.persona(name)).replace('{NAME}', name)   # 🎭 OSSY laid back · G4 Corleone · the owner is the Godfather
     except OSError:
         return None
-    try:
-        import fee_voice as _fv
-        mem = _file('ai_memory.json') or {}
-        study = ((_file('agents_view.json') or {}).get('office') or {}).get('ownerStudy') or {}
-        live = _fv.living(mem, study)
-    except Exception:
-        live = ''
-    return base.rstrip() + ('\n\n' + live if live else '')
+    note = '\n\nWHAT FEELESS KNOWS RIGHT NOW: call the `feeless_brief` tool (live memory, owner habits, lessons) before any FEELESS answer — it is never pasted here, so this prompt never changes under you.'
+    return base.rstrip() + ('\n\n' + living_now() if live else note)
 
 
 def write_local_preset():

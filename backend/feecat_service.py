@@ -186,6 +186,7 @@ async def _market_candidates(http):
         d_ = (await http.get(POOL_URL, timeout=6)).json() or {}
         rows = d_.get('rows') or []
         _POOL_META['duo'] = d_.get('duo') or _POOL_META.get('duo') or {}
+        _POOL_META['limits'] = d_.get('limits') or _POOL_META.get('limits') or {}
     except Exception:
         rows = []
     # 🔗 each coin's deepest SOL pool (2026-10-16: 15 of 39 pool coins came with a TRUMP / ZEC / USDC / stock pool and failed "not SOL-quoted")
@@ -194,7 +195,7 @@ async def _market_candidates(http):
     out = []
     for m, p in pairs.items():
         r = by_mint.get(m) or {}
-        out.append({**p, '_src': r.get('src'), '_srcWhy': r.get('why'), '_read': r.get('read'), '_duo': r.get('duo')})
+        out.append({**p, '_src': r.get('src'), '_srcWhy': r.get('why'), '_read': r.get('read'), '_duo': r.get('duo'), '_status': r.get('status')})
     return out
 
 
@@ -467,6 +468,42 @@ LEARN_SIZE = 0.25        # 🎓 learning-lane trades are a quarter of a normal s
 LEARN_MIN_LIQ = 15_000
 
 
+AGENT_LANE_KEYS = ('mcMin', 'mcMax', 'minAgeH', 'maxAgeH', 'minVol1h', 'poolMin')
+
+
+def agent_lane(base, own=None):
+    """🐱🤖 The agents' band for her agents lane, with HER own overrides on top (HQ › Fee › agents lane; None / missing = the agents' value)."""
+    out = {k: _num((base or {}).get(k)) for k in AGENT_LANE_KEYS}
+    for k, v in (own or {}).items():
+        if k in AGENT_LANE_KEYS and v is not None and _num(v) >= 0:
+            out[k] = _num(v)
+    return out
+
+
+def _agents_qualifies(p, now, lim):
+    """🐱🤖 FEECAT = THE AGENTS + OSSY / G4 (owner, 2026-10-19: "same intake, same agents, she has my agents settings but I can tune hers"):
+    a coin the ten agents put READY / CONTENDING is judged on the agents' own band (live cap, age, pool, 1h volume) instead of her old core /
+    fresh lanes — those refused all 39 of their coins (cap band 16, liquidity 11, too new 7). Not dumping, not chasing, buyers not outsold.
+    Her safety scan, setup gate, discipline and proof gate still decide after this. READY = full size, CONTENDING = half."""
+    if ((p.get('quoteToken') or {}).get('symbol') or '').upper() not in ('SOL', 'WSOL'):
+        return None, 'not SOL-quoted'
+    R = {**RULES, **_ENTRY_TUNE}
+    age_h = (now * 1000 - _num(p.get('pairCreatedAt'), now * 1000)) / 3_600_000
+    mc = _num(p.get('marketCap') or p.get('fdv')); liq = _num((p.get('liquidity') or {}).get('usd')); vh1 = _num((p.get('volume') or {}).get('h1'))
+    t5 = (p.get('txns') or {}).get('m5') or {}; b5, s5 = _num(t5.get('buys')), _num(t5.get('sells'))
+    m5 = _num((p.get('priceChange') or {}).get('m5'))
+    mx_age = lim.get('maxAgeH') or 0
+    checks = [(not lim.get('mcMin') or mc >= lim['mcMin'], 'under the agents\' MC floor'), (not lim.get('mcMax') or mc <= lim['mcMax'], 'over the agents\' MC top'),
+              (age_h >= (lim.get('minAgeH') or 0), 'younger than the agents\' min age'), (not mx_age or mx_age == float('inf') or age_h <= mx_age, 'older than the agents\' max age'),
+              (liq >= (lim.get('poolMin') or 8000), 'under the agents\' pool floor'), (vh1 >= (lim.get('minVol1h') or 0), 'under the agents\' 1h volume'),
+              (m5 >= -5, 'dumping (5m)'), (m5 <= R['maxM5Chase'], 'chasing (5m)'), (b5 >= s5 * 0.8, 'sellers lead the 5m')]
+    for ok, why in checks:
+        if not ok:
+            return None, why
+    full = p.get('_status') == 'READY'
+    return (vh1 / max(liq, 1) + 1) * (1.0 if full else 0.6), f"🤖 agents lane: {p.get('_status') or 'CONTENDING'} on the agents' desk · {age_h:.1f}h old · {'full' if full else 'half'} size"
+
+
 def _learn_qualifies(p, now):
     """🎓 LEARNING LANE (owner, 2026-10-16: "the cat isn't trading"): her core lane only buys coins 3+ days old and her fresh lane only < 3h
     launches with X + site — her pool (the agents' + the Arena's coins) is mostly 3h–3 days old, so she sat out every coin. This lane takes
@@ -592,8 +629,14 @@ async def run_engine(store, cats):
     duo_avoid, duo_exit = set(duo.get('avoid') or []), set(duo.get('exit') or [])   # 🐱🤝 only what BOTH AI models agreed on
     ranked, rejections = [], {}
     for p in candidates:
-        score, reason = _qualifies(p, now)
-        if score is None:
+        score, reason = (None, None)
+        if p.get('_src') == 'agents':   # 🐱🤖 the agents' coins: the agents' band (+ her overrides), not her old lanes
+            score, reason = _agents_qualifies(p, now, agent_lane(_POOL_META.get('limits'), (store['cats'].get(LEADER_ID) or {}).get('agentLane')))
+            if score is not None:
+                p['_agentsLane'] = True
+        if score is None and p.get('_src') != 'agents':
+            score, reason = _qualifies(p, now)
+        if score is None and p.get('_src') != 'agents':
             fscore, freason = _fresh_qualifies(p, now)
             if fscore is not None:
                 p['_fresh'] = True
@@ -783,7 +826,7 @@ async def run_engine(store, cats):
                 reason = f"{reason}; learned from users: {ce['why']} ×{ce['mult']}"
             reason = f'{reason}; holders: {safe_why}; conviction {conviction}×'
             px = _num(p.get('priceNative'))
-            planned = round(min(float(cat['risk']['maxPositionSol']), cat['balanceSol'] * 0.1 * conviction) * (R['freshSize'] if p.get('_fresh') else LEARN_SIZE if p.get('_learn') else 1), 4)
+            planned = round(min(float(cat['risk']['maxPositionSol']), cat['balanceSol'] * 0.1 * conviction) * (R['freshSize'] if p.get('_fresh') else LEARN_SIZE if p.get('_learn') else (1 if p.get('_status') == 'READY' else 0.5) if p.get('_agentsLane') else 1), 4)
             size = round(planned * R['starterFraction'], 4)
             invested = sum(x['costSol'] for x in cat['positions'])
             if invested + planned > R['maxExposure'] * (cat['balanceSol'] + invested):

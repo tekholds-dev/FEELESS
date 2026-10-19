@@ -23,7 +23,7 @@ def test_fee_reads_only_the_pool_and_restarts_her_paper_trail_once(tmp_path, mon
         return {m: {'pairAddress': 'P1', 'baseToken': {'symbol': 'AAA'}} for m in mints}
     monkeypatch.setattr(fs, '_sol_pairs', prices)
     got = asyncio.run(fs._market_candidates(H()))
-    assert got == [{'pairAddress': 'P1', 'baseToken': {'symbol': 'AAA'}, '_src': 'agents', '_srcWhy': 'READY', '_read': None, '_duo': None}]
+    assert got == [{'pairAddress': 'P1', 'baseToken': {'symbol': 'AAA'}, '_src': 'agents', '_srcWhy': 'READY', '_read': None, '_duo': None, '_status': None}]
     monkeypatch.setattr(fs, 'DATA_DIR', tmp_path)
     store = {'cats': {'x': {'id': 'x', 'engine': 'live-v2', 'balanceSol': 3, 'startingBalanceSol': 25, 'exits': [{'a': 1}], 'positions': [{'p': 1}]}}, 'events': [{'e': 1}]}
     fs._migrate(store)
