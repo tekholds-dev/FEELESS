@@ -1,0 +1,29 @@
+/* 🧠 Brain › Models (ModelLive.jsx, `mlv-*`): live % bars per model + the prompt log. transform / opacity only, m-* tokens. */
+.mlv { display: grid; gap: 10px; font-family: var(--m-mono); }
+.mlv h5 { margin: 0 0 6px; font-size: 9.5px; letter-spacing: .12em; color: var(--m-accent); } .mlv h5 small { margin-left: 6px; color: var(--m-mute); letter-spacing: 0; font-weight: 600; }
+.mlv-row { display: grid; grid-template-columns: 52px 1fr; align-items: center; gap: 8px; padding: 6px 8px; border-radius: 8px; background: rgba(255, 255, 255, .03); border: 1px solid rgba(255, 255, 255, .05); }
+.mlv-row + .mlv-row { margin-top: 5px; } .mlv-row b { font-size: 11px; } .mlv-row.p-lan b { color: #6fd3ff; } .mlv-row.p-local b { color: #b48cff; }
+.mlv-row.is-on { border-color: color-mix(in srgb, var(--m-accent) 40%, transparent); }
+.mlv-bar { position: relative; display: block; height: 18px; border-radius: 5px; overflow: hidden; background: rgba(255, 255, 255, .05); }
+.mlv-bar i { position: absolute; inset: 0; transform-origin: left; background: linear-gradient(90deg, rgba(21, 209, 106, .25), rgba(69, 228, 134, .7)); transition: transform 1.4s linear; }
+.mlv-bar i::after { content: ''; position: absolute; inset: 0; background: linear-gradient(90deg, transparent, rgba(255, 255, 255, .35), transparent); animation: mlvScan 1.2s linear infinite; }
+.mlv-bar em { position: relative; padding-left: 7px; font-style: normal; font-size: 9.5px; line-height: 18px; font-weight: 700; color: var(--m-text, #e8fff2); }
+.mlv-idle { font-size: 9.5px; color: var(--m-mute); }
+@keyframes mlvScan { from { transform: translateX(-100%); } to { transform: translateX(100%); } }
+.mlv-log ol { list-style: none; margin: 0; padding: 0; display: grid; gap: 3px; max-height: 420px; overflow: auto; scrollbar-width: thin; scrollbar-color: var(--m-accent) transparent; }
+.mlv-log ol::-webkit-scrollbar { width: 6px; } .mlv-log ol::-webkit-scrollbar-thumb { background: var(--m-accent); border-radius: 3px; }
+.mlv-log li button { width: 100%; display: grid; grid-template-columns: 42px 70px 40px 56px 28px minmax(0, 1fr); gap: 6px; align-items: center; padding: 5px 7px; border: 1px solid transparent;
+  border-radius: 6px; background: rgba(255, 255, 255, .025); color: inherit; font: inherit; font-size: 9.5px; text-align: left; cursor: pointer; }
+.mlv-log li button:hover, .mlv-log li button:focus-visible { border-color: color-mix(in srgb, var(--m-accent) 45%, transparent); outline: none; }
+.mlv-log li button:active { transform: scale(.995); }
+.mlv-log li.p-lan b { color: #6fd3ff; } .mlv-log li.p-local b { color: #b48cff; } .mlv-log li.is-err em { color: var(--m-danger); }
+.mlv-log li span { color: var(--m-mute); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; } .mlv-log li em { font-style: normal; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mlv-body { padding: 6px 8px; display: grid; gap: 5px; animation: mlvIn .16s ease-out; }
+.mlv-body p { margin: 0; font-size: 10px; line-height: 1.45; white-space: pre-wrap; word-break: break-word; } .mlv-body small { display: block; font-size: 8px; letter-spacing: .12em; color: var(--m-accent); }
+.mlv-sys { color: var(--m-mute); }
+@keyframes mlvIn { from { opacity: 0; transform: translateY(-3px); } to { opacity: 1; transform: none; } }
+.mlv-wait { font-size: 10px; color: var(--m-mute); }
+body.fx-lite .mlv-bar i::after { animation: none; } body.fx-lite .mlv-bar i { transition: none; }
+@media (prefers-reduced-motion: reduce) { .mlv-bar i::after, .mlv-body { animation: none; } .mlv-bar i { transition: none; } }
+body.theme-day .mlv-row, body.theme-day .mlv-log li button { background: rgba(236, 246, 240, .7); border-color: rgba(12, 90, 50, .12); } body.theme-day .mlv-bar em { color: #0d2a1b; }
+@media (max-width: 640px) { .mlv-log li button { grid-template-columns: 38px 60px 34px minmax(0, 1fr); } .mlv-log li button span:nth-of-type(3), .mlv-log li .mlv-ago { display: none; } }

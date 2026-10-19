@@ -82,6 +82,30 @@ import contextvars as _cv
 IMAGE_MODEL = 'google/gemini-3.1-flash-image'   # 🎨 OpenRouter image-output model (OPENROUTER_IMAGE_MODEL overrides)
 TUNE = _cv.ContextVar('ai_tune', default=None)
 IDENTITY = _cv.ContextVar('ai_identity', default=False)
+CALL_ROLE = _cv.ContextVar('ai_call_role', default='')
+
+# 🧠 LIVE CALLS + PROMPT LOG (owner, 2026-10-19: "real time loading % and vital prompt log from G4 and OSSY in brain"): every model call in
+# flight (provider, role, started) and the last 30 finished ones with the HEAD of what the model was sent and answered. Keys / addresses
+# are masked (`_mask`), nothing is written to disk — memory only, gone on restart.
+from collections import deque as _dq
+CALL_LOG = _dq(maxlen=30)
+INFLIGHT = {}
+
+
+def _mask(t, n):
+    t = re.sub(r'[A-Za-z0-9]{32,}', '•••', str(t or ''))
+    return t[:n]
+
+
+def calls_view(now=None, avg=None):
+    """→ {inflight: [{prov, role, model, sec, pct}], log: [...]}: pct = elapsed ÷ that provider's own average answer time (≤ 99 until it lands)."""
+    now = time.time() if now is None else now
+    av = avg or {}
+    fl = []
+    for k, v in list(INFLIGHT.items()):
+        sec = now - v['at']; a = (av.get(v['prov']) or 0) / 1000 or 20.0
+        fl.append({**{x: v[x] for x in ('prov', 'role', 'model', 'at', 'tok')}, 'sec': round(sec, 1), 'pct': min(99, round(100 * sec / max(a, 1))), 'typical': round(a, 1)})
+    return {'inflight': sorted(fl, key=lambda r: r['at']), 'log': list(CALL_LOG)[::-1]}
 RAW = _cv.ContextVar('ai_raw', default=False)   # 🧪 return the model's whole text too (playground documents)   # 🪪 the owner's chat: each LM Studio model speaks as itself (its own name, its partner's name)
 NAME_DEFAULT = {'lan': 'G4', 'local': 'OSSY'}   # LAN_LLM_NAME / LOCAL_LLM_NAME override — the names the owner's two models answer to
 
@@ -884,6 +908,21 @@ class Router:
         return {'ok': True, 'url': url, 'model': m, 'ms': round((time.perf_counter() - t0) * 1000), 'usd': usd, 'text': clean_answer(msg.get('content') or '', 200)}
 
     async def _call(self, http, p, env, msgs, now):
+        cid = f"{p['key']}:{time.time():.6f}"
+        sys_ = next((m.get('content') for m in msgs or [] if m.get('role') == 'system'), '')
+        usr_ = next((m.get('content') for m in reversed(msgs or []) if m.get('role') == 'user'), '')
+        usr_ = usr_ if isinstance(usr_, str) else json.dumps(usr_)[:2000]
+        INFLIGHT[cid] = {'prov': p['key'], 'model': p.get('model'), 'role': CALL_ROLE.get() or '', 'at': time.time(), 'tok': est_tokens(msgs)}
+        t0 = time.time()
+        try:
+            text, err = await self._call0(http, p, env, msgs, now)
+        finally:
+            INFLIGHT.pop(cid, None)
+        CALL_LOG.append({'at': round(t0), 'prov': p['key'], 'model': self.lastModel.get(p['key']) or p.get('model'), 'role': CALL_ROLE.get() or '', 'ms': round((time.time() - t0) * 1000),
+                      'ok': not err, 'err': (err or (None, None))[1], 'tok': est_tokens(msgs), 'system': _mask(sys_, 240), 'prompt': _mask(usr_, 900), 'answer': _mask(text, 500)})
+        return text, err
+
+    async def _call0(self, http, p, env, msgs, now):
         """🔁 LOCAL FALLBACK MODEL (LOCAL_LLM_FALLBACK_MODEL, e.g. gemma first, qwen second): when the local primary is refused / not loaded /
         unreachable (never on a timeout — that would double the wait) the same messages go once to the fallback model on the same server."""
         text, err = await self._call1(http, p, env, msgs, now)
@@ -947,6 +986,7 @@ class Router:
         """Ask the providers in order for advice on one case. Never raises; never blocks longer than the providers' own timeouts.
         `prio` (PRIO): a low-priority job (≥ DEFER_PRIO) is DEFERRED when the local model is already busy — it never queues behind it."""
         now = time.time() if now is None else now
+        CALL_ROLE.set(str(role or ''))
         if mode_of(case, mode) == 'general':   # 🧭 not a coin / position / desk packet: a normal question, a normal answer — never the trench schema
             return await self.ask(http, env, cfg, question_of(case), role=role, urgency=urgency, prio=prio, only=only)
         self.totals['asked'] += 1
@@ -988,6 +1028,7 @@ class Router:
         """🧭 GENERAL mode: a normal question → a plain-language answer {source, label, text, ms, tried, mode: 'general'}. Same providers,
         same pacing, same spend cap; never cached, never parsed as a case, never noted on a coin. Deterministic roles still never ask."""
         self.totals['asked'] += 1
+        CALL_ROLE.set(str(role or ''))
         self.totals['general'] = self.totals.get('general', 0) + 1
         if role not in ADVISORY_ROLES and role != 'chat':
             self.totals['refused'] += 1

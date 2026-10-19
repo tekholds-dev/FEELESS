@@ -4,6 +4,7 @@
 // agents only on the owner's call (🛠 proposals → ✅ Approve). Modes: 💬 Chat · 🔎 Case review · 🛠 Fix agents.
 import { AiPlayground } from './AiPlayground';
 import { AiActivity } from './AiActivity';
+import { ModelLive } from './ModelLive';
 import { answerCard } from '../../lib/cockpitPlus';
 import React, { forwardRef, memo, useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
@@ -128,7 +129,7 @@ export const AiChat = memo(function AiChat({ call, isOwner = true, focus, focusS
   const [threads, setThreads] = useState({}); const [build, setBuild] = useState(null); const [showDone, setShowDone] = useState(false);
   const [provs, setProvs] = useState([]); const [prov, setProvS] = useState(() => { try { return localStorage.getItem('feeless.brainProv') || 'auto'; } catch { return 'auto'; } });
   const setProv = v => { setProvS(v); try { localStorage.setItem('feeless.brainProv', v); } catch { /* private window */ } };
-  const [saved, setSaved] = useState([]); const [sets, setSets] = useState(null); const [showSet, setShowSet] = useState(false); const [showSaved, setShowSaved] = useState(false); const [pane, setPane] = useState('talk');
+  const [saved, setSaved] = useState([]); const [sets, setSets] = useState(null); const [showSet, setShowSet] = useState(false); const [showSaved, setShowSaved] = useState(false); const [pane, setPane] = useState('talk'); const lastLearn = useRef(null);
   const [img, setImg] = useState(null); const [upl, setUpl] = useState(false); const [props, setProps] = useState({ pending: [], decided: [] }); const [last, setLast] = useState(null);
   const [brain, setBrain] = useState(null); const [learned, setLearned] = useState(null); const [err, setErr] = useState(null); const [local, setLocal] = useState(null);
   const [openP, setOpenP] = useState(null); const [fresh, setFresh] = useState({ mode: null, from: Infinity }); const [showQ, setShowQ] = useState(null);   // ⚡ one-tap prompts: open on an empty chat, folded once you are talking   // the mini cat keeps the fixes folded under one bar so the conversation keeps its room
@@ -208,7 +209,11 @@ export const AiChat = memo(function AiChat({ call, isOwner = true, focus, focusS
       <LocalWatch w={local} />
       <p className="cch-setnote">Switches, rank weights and exit notches always wait for your ✅. Execution, limits and the wallet are never reachable.</p></div> : null}
     <div className="cch-shell">
-    {isOwner ? <div className="cch-panes" role="tablist" aria-label="Brain sections">{[['talk', '💬 Talk'], ...extras.map(([k, l]) => [k, l]), ['play', '🧩 Code lab'], ['log', '📜 Activity']].map(([k, l]) => <button key={k} type="button" role="tab" aria-selected={pane === k} className={pane === k ? 'active' : ''} onClick={() => setPane(k)} data-testid={`cch-pane-${k}`}>{l}</button>)}</div> : null}
+    {isOwner ? <div className="cch-panes" role="tablist" aria-label="Brain sections">{[['talk', '💬 Talk'], ['models', '🧠 Models'], ...(extras.length ? [['learn', '🎓 Learn']] : []), ['play', '🧩 Lab'], ['log', '📜 Activity']].map(([k, l]) => {
+      const on = k === 'learn' ? extras.some(e => e[0] === pane) : pane === k;
+      return <button key={k} type="button" role="tab" aria-selected={on} className={on ? 'active' : ''} onClick={() => setPane(k === 'learn' ? (extras.find(e => e[0] === lastLearn.current) || extras[0])[0] : k)} data-testid={k === 'learn' ? 'cch-tab-learn' : `cch-pane-${k}`}>{l}</button>; })}</div> : null}
+    {isOwner && extras.length ? <div className="cch-sub" hidden={!extras.some(e => e[0] === pane)} role="tablist" aria-label="Learn sections">{extras.map(([k, l]) => <button key={k} type="button" role="tab" aria-selected={pane === k} className={pane === k ? 'active' : ''} onClick={() => { lastLearn.current = k; setPane(k); }} data-testid={`cch-pane-${k}`}>{l}</button>)}</div> : null}
+    {isOwner && pane === 'models' ? <div className="cch-extra" data-testid="cch-extra-models"><ModelLive call={call} /></div> : null}
     {extras.map(([k, , node]) => <div key={k} className="cch-extra" hidden={pane !== k} data-testid={`cch-extra-${k}`}>{k === 'learned' && pane !== k ? null : node}</div>)}
     {isOwner && pane === 'play' ? <div className="cch-extra" data-testid="cch-extra-play"><AiPlayground call={call} prov={prov} /></div> : null}
     {isOwner && pane === 'log' ? <div className="cch-extra" data-testid="cch-extra-log"><AiActivity call={call} /></div> : null}

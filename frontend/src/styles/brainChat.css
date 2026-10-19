@@ -216,3 +216,10 @@ body.theme-day .cch-achead { color: #10261a; } body.theme-day .cch-ac li, body.t
 .cch.is-drawer .cch-kpis small { display: none; } .cch.is-drawer .cch-kpis u { padding: 3px 7px; }
 .cch.is-drawer .cch-msg { max-width: 92%; } .cch.is-drawer .cch-main { grid-template-rows: minmax(0, 1fr) auto; }
 .cch.is-drawer .cch-props.is-shut { max-height: 34px; }
+/* 🎓 Learn = one tab, its four sections as a small segmented row (owner, 2026-10-19: "clean up tabs, less clutter in brain") */
+.cch-sub { display: flex; flex-wrap: wrap; gap: 4px; margin: -2px 0 6px; padding: 3px; border-radius: 999px; background: rgba(255, 255, 255, .03); width: fit-content; max-width: 100%; }
+.cch-sub[hidden] { display: none; }
+.cch-sub > button { padding: 3px 9px; border-radius: 999px; border: 0; background: transparent; color: var(--m-dim); font: 700 9px var(--m-mono); cursor: pointer; transition: transform .12s ease, color .12s ease; }
+.cch-sub > button:hover { color: var(--m-text); } .cch-sub > button:active { transform: scale(.96); } .cch-sub > button:focus-visible { outline: 2px solid var(--br); outline-offset: 1px; }
+.cch-sub > button.active { color: #07130c; background: var(--br); }
+body.theme-day .cch-sub { background: rgba(12, 90, 50, .06); } body.theme-day .cch-sub > button.active { color: #fff; background: #0d7a41; }

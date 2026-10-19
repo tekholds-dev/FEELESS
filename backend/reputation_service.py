@@ -15257,6 +15257,18 @@ import ai_play as _play
 AI_PLAY_PATH = DATA_DIR / 'ai_playground.json'
 
 
+@app.get('/api/reputation/admin/ai/calls')
+async def admin_ai_calls(request: Request):
+    """🧠 Owner: the models' calls LIVE — each one in flight with its % (elapsed ÷ that model's own average) + the last 30 prompts / answers."""
+    _require_owner(request)
+    by_ = {}
+    for _t, ms_, k_ in list(getattr(_air.ROUTER, 'recent', []) or []):
+        by_.setdefault(k_, []).append(ms_)
+    avg_ = {k_: sum(v_) / len(v_) for k_, v_ in by_.items() if v_}
+    names_ = {k_: _air.NAME_DEFAULT.get(k_) for k_ in ('lan', 'local')} if isinstance(getattr(_air, 'NAME_DEFAULT', None), dict) else {}
+    return {**_air.calls_view(time.time(), avg_), 'names': names_, 'avgMs': {k_: round(v_) for k_, v_ in avg_.items()}}
+
+
 @app.get('/api/reputation/admin/ai/activity')
 async def admin_ai_activity(request: Request):
     """📜 Owner: one timeline of everything the models did — reads, proposals + your decisions, playground creations, background reads."""
