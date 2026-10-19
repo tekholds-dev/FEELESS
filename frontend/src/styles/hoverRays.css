@@ -10,7 +10,7 @@
   transform: scale(.55) rotate(0deg); transition: opacity .2s ease, transform .35s cubic-bezier(.2, .8, .2, 1); }
 .token-avatar::after { inset: -85%; }
 .mc-stage { position: relative; isolation: isolate; }
-X: -22%; border-radius: 28%; }
+.mc-stage::after { inset: -22%; border-radius: 28%; }
 .token-avatar:hover::after, .mc-stage:hover::after,
 :focus-visible > .token-avatar::after, .mc-stage:focus-within::after { opacity: 1; transform: scale(1) rotate(12deg); animation: raysTurn 9s linear .35s infinite; }
 @keyframes raysTurn { from { transform: scale(1) rotate(12deg); } to { transform: scale(1) rotate(372deg); } }

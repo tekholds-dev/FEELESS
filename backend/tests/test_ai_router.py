@@ -257,7 +257,7 @@ def test_the_router_has_no_path_to_money():
     for bad in ('fuse_wallet', 'arena_prime', '_fw_', 'keeper', 'jupiter', 'signTransaction', 'replace_leg', 'agent_seat', 'reputation_service'):
         assert bad not in src, bad
     imports = {ln.split()[1].split('.')[0] for ln in src.splitlines() if ln.startswith(('import ', 'from '))}
-    assert imports <= {'asyncio', 'hashlib', 'json', 'os', 're', 'time', 'ai_keys', 'contextvars', 'fee_voice'}   # fee_voice = the shared FEE persona text (pure: re + time)   # contextvars = the owner's per-call chat tuning · os = reading the brain prompt file beside it (never a subprocess, a socket or a wallet)
+    assert imports <= {'asyncio', 'hashlib', 'json', 'os', 're', 'time', 'ai_keys', 'contextvars', 'fee_voice', 'collections'}   # collections = the in-memory call log (deque) · fee_voice = the shared FEE persona text (pure: re + time)   # contextvars = the owner's per-call chat tuning · os = reading the brain prompt file beside it (never a subprocess, a socket or a wallet)
 
 
 def test_the_models_decisions_are_logged_once_each_for_the_page_and_nothing_reads_them_back():
