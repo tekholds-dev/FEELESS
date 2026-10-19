@@ -98,7 +98,7 @@ def join(store, wallet, code):
     _norm(store)
     if wallet in store['by']:
         raise ValueError('You are already in a crew — leave it first.')
-    crew = next((c for c in store['crews'].values() if c['code'] == str(code or '').strip()), None)
+    crew = find_by_code(store, code)
     if not crew:
         raise ValueError('That invite code does not match a crew.')
     if len(crew['members']) >= crew.get('seats', BASE_SEATS):
@@ -139,5 +139,133 @@ def board(store, pieces_by_wallet, now):
         active = len({m for m in c['members'] if any(now - p['at'] <= WEEK for p in pieces_by_wallet.get(m, []))})
         s = stats(ps)
         ranked = len(c['members']) >= MIN_MEMBERS and s['trades'] >= MIN_TRADES and s['pct'] is not None
-        rows.append({'id': c['id'], 'name': c['name'], 'tag': c['tag'], 'members': len(c['members']), 'seats': c.get('seats', BASE_SEATS), 'active': active, 'ranked': ranked, **s})
+        rows.append({'id': c['id'], 'name': c['name'], 'tag': c['tag'], 'members': len(c['members']), 'seats': c.get('seats', BASE_SEATS), 'active': active, 'ranked': ranked, **s,
+                     'launch': (c.get('launch') or {}).get('symbol') or None, 'bounties': sum(1 for b in c.get('bounties') or [] if b.get('state') == 'open')})
     return sorted(rows, key=lambda r: (not r['ranked'], -(r['pct'] if r['pct'] is not None else -999), -r['members']))
+
+
+# ---- 🔐 PASSCODE · 🎯 BOUNTIES · 💬 BOARD · 🚀 LAUNCH (owner, 2026-10-19: "create a code or generate a secure encrypted passcode with
+# bounty, discussion boards, and crew launch") — all points / words only: a crew still shares no money and nobody signs for anyone. ----
+import hashlib
+import hmac
+
+CODE_RE = r'[A-Za-z0-9_\-]{6,24}'
+POST_MAX, POSTS_KEPT, BOUNTIES_KEPT = 500, 200, 40
+BOUNTY_MAX = 1000          # crew points a bounty may pay (points, never money)
+
+
+def _hash(code, salt):
+    return hashlib.sha256((salt + str(code)).encode()).hexdigest()
+
+
+def set_code(store, wallet, code=None):
+    """The OWNER sets the crew's join code: their own (6–24 letters / numbers / - _) or, with none, a generated secure passcode (16 chars). Stored only as a
+    salted SHA-256 — the plain code is returned ONCE here and never shown again. → (crew, plain code)."""
+    _norm(store)
+    crew = crew_of(store, wallet)
+    if not crew or crew['owner'] != wallet:
+        raise ValueError('Only the crew owner can set the code.')
+    plain = str(code or '').strip() or secrets.token_urlsafe(12)[:16]
+    if not re.fullmatch(CODE_RE, plain):
+        raise ValueError('A crew code is 6–24 letters, numbers, - or _.')
+    for c in store['crews'].values():
+        if c is not crew and (c.get('code') == plain or (c.get('codeHash') and hmac.compare_digest(c['codeHash'], _hash(plain, c.get('salt', ''))))):
+            raise ValueError('That code is taken — pick another or generate one.')
+    salt = secrets.token_hex(8)
+    crew.update(codeHash=_hash(plain, salt), salt=salt, codeTail=plain[-2:])
+    crew.pop('code', None)
+    return crew, plain
+
+
+def code_ok(crew, code):
+    code = str(code or '').strip()
+    if not code:
+        return False
+    if crew.get('codeHash'):
+        return hmac.compare_digest(crew['codeHash'], _hash(code, crew.get('salt', '')))
+    return crew.get('code') == code
+
+
+def find_by_code(store, code):
+    _norm(store)
+    return next((c for c in store['crews'].values() if code_ok(c, code)), None)
+
+
+def _member(store, wallet):
+    crew = crew_of(store, wallet)
+    if not crew:
+        raise ValueError('You are not in a crew.')
+    return crew
+
+
+def _clean_text(s, n=POST_MAX):
+    t = ' '.join(str(s or '').replace('\x00', '').split())
+    if not t:
+        raise ValueError('Write something first.')
+    return t[:n]
+
+
+def post(store, wallet, text, now, parent=None):
+    """💬 A post on the crew board (members only; ≤ 500 chars; a reply names its parent post). Newest 200 kept."""
+    crew = _member(store, wallet)
+    posts = crew.setdefault('posts', [])
+    if parent and not any(p['id'] == parent for p in posts):
+        raise ValueError('That post is gone.')
+    p = {'id': secrets.token_hex(4), 'by': wallet, 'text': _clean_text(text), 'at': now, **({'parent': parent} if parent else {})}
+    posts.append(p)
+    crew['posts'] = posts[-POSTS_KEPT:]
+    return p
+
+
+def bounty_add(store, wallet, title, reward, now, mint=None):
+    """🎯 The OWNER posts a bounty: a task + crew points it pays (1–1000). Points only."""
+    crew = _member(store, wallet)
+    if crew['owner'] != wallet:
+        raise ValueError('Only the crew owner posts bounties.')
+    r = int(float(reward or 0))
+    if not 1 <= r <= BOUNTY_MAX:
+        raise ValueError(f'A bounty pays 1–{BOUNTY_MAX} crew points.')
+    b = {'id': secrets.token_hex(4), 'title': _clean_text(title, 120), 'reward': r, 'at': now, 'state': 'open', **({'mint': str(mint)[:60]} if mint else {})}
+    crew['bounties'] = (crew.get('bounties') or [])[-(BOUNTIES_KEPT - 1):] + [b]
+    return b
+
+
+def bounty_claim(store, wallet, bid, proof, now):
+    """A member claims an open bounty with a line of proof (a tx, a link, a word); the owner then pays or reopens it."""
+    crew = _member(store, wallet)
+    b = next((x for x in crew.get('bounties') or [] if x['id'] == bid), None)
+    if not b or b['state'] != 'open':
+        raise ValueError('That bounty is not open.')
+    b.update(state='claimed', by=wallet, proof=_clean_text(proof, 200), claimedAt=now)
+    return b
+
+
+def bounty_settle(store, wallet, bid, pay, now):
+    """The OWNER pays a claimed bounty (the claimer's crew points += reward) or reopens it."""
+    crew = _member(store, wallet)
+    if crew['owner'] != wallet:
+        raise ValueError('Only the crew owner settles bounties.')
+    b = next((x for x in crew.get('bounties') or [] if x['id'] == bid), None)
+    if not b or b['state'] != 'claimed':
+        raise ValueError('That bounty has no claim to settle.')
+    if pay:
+        pts = crew.setdefault('points', {})
+        pts[b['by']] = int(pts.get(b['by'], 0)) + b['reward']
+        b.update(state='paid', paidAt=now)
+    else:
+        b.update(state='open'); [b.pop(k, None) for k in ('by', 'proof', 'claimedAt')]
+    return b
+
+
+def launch(store, wallet, mint, symbol, note, now):
+    """🚀 The OWNER pins the crew's launch — the coin the crew is behind (its live numbers are drawn by the page). None clears it."""
+    crew = _member(store, wallet)
+    if crew['owner'] != wallet:
+        raise ValueError('Only the crew owner pins the launch.')
+    if not mint:
+        crew.pop('launch', None)
+        return None
+    if not re.fullmatch(r'[1-9A-HJ-NP-Za-km-z]{32,48}', str(mint)):
+        raise ValueError('Paste the coin\'s mint address (CA).')
+    crew['launch'] = {'mint': mint, 'symbol': str(symbol or '')[:16], 'note': str(note or '')[:160], 'at': now}
+    return crew['launch']

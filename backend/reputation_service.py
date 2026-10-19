@@ -8221,7 +8221,13 @@ def _crew_view(c, pieces, with_code=False):
     import crews as _cr
     mem = [{'address': m, 'name': _crew_name(m), 'owner': m == c['owner'], **_cr.stats(pieces.get(m, []))} for m in c['members']]
     return {'id': c['id'], 'name': c['name'], 'tag': c['tag'], 'room': f"crew-{c['id']}", 'members': mem, 'seats': c.get('seats', _cr.BASE_SEATS), 'created': c.get('created'),
-            'packUsd': _cr.price('seats', _crew_cfg()), 'packSeats': _cr.PACK_SEATS, **({'code': c['code']} if with_code else {})}
+            'packUsd': _cr.price('seats', _crew_cfg()), 'packSeats': _cr.PACK_SEATS, **({'code': c['code']} if with_code and c.get('code') else {}),
+            'codeSet': bool(c.get('codeHash')), 'codeTail': c.get('codeTail') if with_code else None,
+            'launch': c.get('launch'), 'bountiesOpen': sum(1 for b_ in c.get('bounties') or [] if b_.get('state') == 'open'),
+            'points': {m: int(v) for m, v in (c.get('points') or {}).items()} if with_code else None,
+            # 💬 members-only: the board + bounties (names, never the code)
+            **({'posts': [{**p_, 'name': _crew_name(p_['by'])} for p_ in (c.get('posts') or [])[-80:]],
+                'bounties': [{**b_, 'byName': _crew_name(b_['by']) if b_.get('by') else None} for b_ in (c.get('bounties') or [])[-20:]]} if with_code else {})}
 
 
 async def _verify_sol_payment(sig, mine, min_usd, st):
@@ -8421,6 +8427,51 @@ async def crew_join(p: CrewJoin):
         _json_save(CREWS_PATH, st)
     _crew_cache['data'] = None
     return {'crew': _crew_view(c, _crew_pieces(c['members'], time.time()), with_code=True)}
+
+
+class CrewAct(BaseModel):
+    address: str
+    session: str
+    act: str = Field(..., max_length=16)
+    text: str = Field(default='', max_length=600)
+    code: str = Field(default='', max_length=32)
+    id: str = Field(default='', max_length=16)
+    parent: str = Field(default='', max_length=16)
+    reward: float = 0
+    pay: bool = False
+    mint: str = Field(default='', max_length=60)
+    symbol: str = Field(default='', max_length=16)
+
+
+@app.post('/api/reputation/crews/act')
+async def crew_act(p: CrewAct):
+    """🛡 One door for the crew's own life: `code` (owner sets / generates the join passcode — returned ONCE, stored hashed) · `post` (board, members) ·
+    `bounty` / `claim` / `settle` (points only) · `launch` (owner pins the crew's coin). Points and words only — no money moves here."""
+    import crews as _cr
+    me = _session_or_401(p.address, p.session); now = time.time(); plain = None
+    async with _crews_lock:
+        st = _json_load(CREWS_PATH, {})
+        try:
+            if p.act == 'code':
+                c, plain = _cr.set_code(st, me, p.code or None)
+            elif p.act == 'post':
+                _cr.post(st, me, p.text, now, p.parent or None)
+            elif p.act == 'bounty':
+                _cr.bounty_add(st, me, p.text, p.reward, now, p.mint or None)
+            elif p.act == 'claim':
+                _cr.bounty_claim(st, me, p.id, p.text, now)
+            elif p.act == 'settle':
+                _cr.bounty_settle(st, me, p.id, p.pay, now)
+            elif p.act == 'launch':
+                _cr.launch(st, me, p.mint or None, p.symbol, p.text, now)
+            else:
+                raise ValueError('Unknown crew action.')
+        except ValueError as e:
+            raise HTTPException(400, str(e))
+        _json_save(CREWS_PATH, st)
+        c = _cr.crew_of(st, me)
+    _crew_cache['data'] = None
+    return {'crew': _crew_view(c, _crew_pieces(c['members'], now), with_code=True) if c else None, **({'plainCode': plain} if plain else {})}
 
 
 @app.post('/api/reputation/crews/leave')

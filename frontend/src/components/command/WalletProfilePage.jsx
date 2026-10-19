@@ -16,7 +16,7 @@ import { CopyBtn } from '../CopyBtn';
 import { MintedTimeline } from '../MintedTimeline';
 import { FuseReceipts, FuseHeldCards, FuseScore, TraderCard, MyBattles, FusePopup } from '../FusePage';
 import { TrackRecord } from '../TrackRecord';
-import { CrewChip } from '../Crews';
+import { CrewChip, CrewProfile } from '../Crews';
 import { PrimeShowcase } from '../ArenaPrime';
 import React, { lazy, Suspense, useCallback, useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
@@ -208,11 +208,12 @@ export function WalletProfilePage({ address }) {
     <ProfileMusic songs={p.songs || []} edit={edit} onChange={v => set('songs', v)} />
     {!flipped && <PortfolioCard address={address} />}
     {!flipped && <TradeCards address={address} />}
-    {flipped && <nav className="wp-act-tabs" data-testid="activity-tabs">{[mine && ['swap', 'Swap'], mine && poolPerk && ['builder', '🏗 Pool builder'], ['holdings', 'Holdings'], ['history', 'Swap history'], ['feed', 'FEEd'], ['posts', 'Posts'], ['rewards', 'Rewards'], mine && ['invites', '🎟 Invites'], ['vault', 'Vault']].filter(Boolean).map(([k, l]) => <button key={k} type="button" className={actTab === k ? 'active' : ''} onClick={() => setActTab(k)}>{l}</button>)}</nav>}
+    {flipped && <nav className="wp-act-tabs" data-testid="activity-tabs">{[mine && ['swap', 'Swap'], mine && poolPerk && ['builder', '🏗 Pool builder'], ['holdings', 'Holdings'], ['history', 'Swap history'], ['feed', 'FEEd'], ['crew', '🛡 Crew'], ['posts', 'Posts'], ['rewards', 'Rewards'], mine && ['invites', '🎟 Invites'], ['vault', 'Vault']].filter(Boolean).map(([k, l]) => <button key={k} type="button" className={actTab === k ? 'active' : ''} onClick={() => setActTab(k)}>{l}</button>)}</nav>}
     {flipped && actTab === 'swap' && mine && <section className="profile-swap-layout" data-testid="profile-swap"><SwapTopCoins onSelect={setSwapPair} /><div className="wp-card profile-swap"><ProfileSwapBox pair={swapPair} /><small className="wp-bio">Signed in your own wallet — FEELESS never holds funds. Buying $FEE is fee-free; selling it to SOL, USDC or USDT is also free. Other routes show the platform fee before signing.</small></div><div className="profile-swap-receipts"><ReceiptsCard address={address} /></div></section>}
     {flipped && actTab === 'holdings' && <PortfolioCard address={address} onSwap={mine ? pr => { setSwapPair(pr); setActTab('swap'); } : undefined} />}
     {flipped && actTab === 'history' && <><AfterSell address={address} /><WalletSwaps address={address} title="Swap history" /><PnlTracker address={address} /></>}
     {flipped && actTab === 'feed' && <FeedPanel onConnect={() => connect?.('solana')} />}
+    {flipped && actTab === 'crew' && <CrewProfile address={address} />}
     {flipped && actTab === 'posts' && <ReceiptsCard address={address} />}
     {flipped && actTab === 'invites' && mine && <InviteCard address={address} />}
     {flipped && actTab === 'posts' && <section className="wp-card wp-activity" data-testid="profile-activity"><h3>Activity</h3>{!acts ? <p className="wp-bio">Loading…</p> : !acts.posts.length ? <p className="wp-bio">No posts yet.</p> : <div className="wpa-list">{acts.posts.map(a => <a key={a.id} className="wpa-row" href={a.room.startsWith('coin-') ? `/terminal/chat` : a.room.startsWith('wall-') ? `/terminal/profile/${a.room.slice(5)}` : '/terminal/chat'} target="_blank" rel="noopener noreferrer"><span className="wpa-room">{a.room.startsWith('wall-') ? '🧱 wall' : a.room.startsWith('coin-') ? `🪙 ${a.room.split('-').pop()}` : `# ${a.room}`}</span><p>{a.text}</p><time>{new Date(a.ts).toLocaleString()}</time></a>)}</div>}</section>}

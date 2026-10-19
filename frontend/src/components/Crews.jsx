@@ -1,33 +1,136 @@
-import React, { Suspense, useEffect, useState } from 'react';
+import React, { Suspense, useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import { apiUrl } from '../lib/api';
 import { sharedJson } from '../lib/sharedJson';
 import { readChatSession } from '../lib/chatSession';
 import { useWallet } from '../hooks/useWallet';
+import { useLivePrice } from '../lib/livePriceHub';
+import { price as pxWord } from '../lib/num';
 import '../styles/crews.css';
 
-// 🛡 CREWS (Leaderboard › Crews): $25 in SOL to the FEELESS fee wallet starts a crew with 5 seats including you; +5 seats cost $5 each time. One transfer you
-// sign, re-read on-chain by the server (never reused; staff free). An invite link, a members-only-post room, and a weekly board ranked by what members' VERIFIED
-// FEELESS trades did over 7 days — the top 3 pay their members season points. A crew shares no money: everyone signs their own trades.
-// GET /crews · /crews/price · /crews/mine · POST create · seats · join · leave.
+// 🛡 CREWS (Leaderboard › Crews · Season & ranks): $25 in SOL to the FEELESS fee wallet starts a crew with 5 seats including you; +5 seats cost $5. A crew
+// shares no money — everyone signs their own trades. The weekly board ranks what members' VERIFIED FEELESS trades did over 7 days; the top 3 pay season
+// points. Owner, 2026-10-19: "a huge ordeal — meta realtime, top 3 crews in the popular tabs, profile, a secure passcode, bounties, discussion boards,
+// crew launch, electric border 3D". GET /crews · /crews/price · /crews/mine · POST create · seats · join · leave · act (code · post · bounty · claim ·
+// settle · launch). Live: the board re-reads every 20s while the tab is open.
 const EcosystemChat = React.lazy(() => import('./EcosystemChat'));
 export const PRIZES = [150, 100, 60];
+export const MEDAL = ['🥇', '🥈', '🥉'];
 export const pctTxt = v => (v == null ? '—' : `${v >= 0 ? '+' : ''}${v}%`);
 export const inviteLink = (origin, path, code) => `${origin}${path}?lens=crews&join=${encodeURIComponent(code)}`;
 export const rankNote = r => (r.ranked ? `${r.trades} trades · ${r.wonPct}% won` : r.members < 2 ? 'needs 2+ members to rank' : `${r.trades}/5 trades to rank`);
 export const costText = (q, kind) => { const x = q?.[kind]; if (!x) return ''; return q.free ? 'free for FEELESS staff' : `$${x.usd.toFixed(x.usd % 1 ? 2 : 0)}${x.sol ? ` ≈ ${x.sol} SOL` : ''}`; };
 export const seatsLine = c => `${c.members.length}/${c.seats} seats`;
+// pure: the three crews on the podium — ranked first by week %, else the busiest crews (so the stage is never empty while crews exist)
+export const podium = rows => { const r = (rows || []).filter(x => x.ranked); return (r.length ? r : [...(rows || [])].sort((a, b) => b.members - a.members || b.active - a.active)).slice(0, 3); };
+// pure: a 0–1 heat for the electric border (activity + result): calm crews hum, hot crews crackle
+export const heat = r => Math.max(0, Math.min(1, ((r?.active || 0) / Math.max(1, r?.members || 1)) * 0.5 + Math.min(1, Math.abs(Number(r?.pct) || 0) / 40) * 0.5));
 const post = (path, body) => fetch(apiUrl(path), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
   .then(async r => { const x = await r.json().catch(() => ({})); if (!r.ok) throw new Error(x.detail || 'Request failed'); return x; });
 
+export function useCrewBoard(every = 20000) {
+  const [b, setB] = useState(null);
+  useEffect(() => { let on = true; let t = null;
+    const go = fresh => sharedJson('/api/reputation/crews', { maxAge: 15000, fresh }).then(d => { if (on) setB(d); }).catch(() => {}).finally(() => { if (on) t = setTimeout(() => go(), document.hidden ? every * 3 : every); });
+    go(); return () => { on = false; clearTimeout(t); }; }, [every]);
+  return b;
+}
+
+// ⚡ one crew as a 3D card with an electric border: tilt follows the pointer (transform only), the border's arc turns faster the hotter the crew
+export function CrewCard3D({ r, place, small, onOpen }) {
+  const el = useRef(null);
+  const tilt = e => { const n = el.current; if (!n || small) return; const b = n.getBoundingClientRect(); n.style.setProperty('--rx', `${((e.clientY - b.top) / b.height - 0.5) * -14}deg`); n.style.setProperty('--ry', `${((e.clientX - b.left) / b.width - 0.5) * 16}deg`); };
+  const flat = () => { el.current?.style.setProperty('--rx', '0deg'); el.current?.style.setProperty('--ry', '0deg'); };
+  const h = heat(r);
+  return <button type="button" ref={el} className={`crw-3d ${['', 'p1', 'p2', 'p3', 'p4'][place] || ''} ${small ? 'is-small' : ''} ${h > 0.6 ? 'is-hot' : ''}`} style={{ '--heat': h.toFixed(2), '--spin': `${(6 - h * 4.5).toFixed(1)}s` }}
+    onPointerMove={tilt} onPointerLeave={flat} onClick={() => onOpen?.(r)} data-testid={`crew-3d-${r.tag}`} aria-label={`${r.name}: ${pctTxt(r.pct)} this week`}>
+    <span className="crw-bolt" aria-hidden="true" />
+    <span className="crw-face">
+      <span className="crw-medal">{MEDAL[place - 1] || '🛡'}</span>
+      <b className="crw-3tag">{r.tag}</b>
+      <span className="crw-3name">{r.name}</span>
+      <em className={`crw-3pct ${r.pct == null ? '' : r.pct >= 0 ? 'm-pos' : 'm-neg'}`} key={r.pct}>{pctTxt(r.pct)}</em>
+      <span className="crw-3meta">{r.members}/{r.seats} · {r.active} live{r.launch ? ` · 🚀 $${r.launch}` : ''}{r.bounties ? ` · 🎯 ${r.bounties}` : ''}</span>
+      {!small && <span className="crw-heat" aria-hidden="true"><i style={{ transform: `scaleX(${Math.max(0.05, h)})` }} /></span>}
+    </span>
+  </button>;
+}
+
+// 🏆 TOP 3 CREWS strip for the popular tabs (globe war room, Home, Leaderboard): self-loading, live, one shared read
+export function TopCrews({ title = '🛡 TOP CREWS' }) {
+  const b = useCrewBoard(); const top = podium(b?.board);
+  if (!top.length) return null;
+  return <section className="crw-top" data-testid="top-crews"><header><span className="m-label">{title}</span><a href="/terminal/leaderboard?lens=crews">all crews →</a></header>
+    <div className="crw-top-row">{top.map((r, i) => <CrewCard3D key={r.id} r={r} place={i + 1} small onOpen={() => { window.location.href = '/terminal/leaderboard?lens=crews'; }} />)}</div></section>;
+}
+
+// 👤 the crew on a profile (Activity): its card live, the member's own week and points
+export function CrewProfile({ address }) {
+  const [c, setC] = useState(null); const b = useCrewBoard(30000);
+  useEffect(() => { let on = true; if (!address) return undefined; sharedJson(`/api/reputation/crews/of/${address}`, { maxAge: 120000 }).then(d => on && setC(d?.crew || null)).catch(() => {}); return () => { on = false; }; }, [address]);
+  if (!c) return null;
+  const rows = b?.board || []; const r = rows.find(x => x.id === c.id); const place = r && r.ranked ? rows.filter(x => x.ranked).indexOf(r) + 1 : 0;
+  return <section className="crw-prof m-card" data-testid="crew-profile"><header><span className="m-label">🛡 CREW</span><small>{place ? `#${place} this week` : 'unranked this week'}</small></header>
+    {r ? <CrewCard3D r={r} place={place && place <= 3 ? place : 4} /> : <b>[{c.tag}] {c.name}</b>}</section>;
+}
+
+function LaunchLive({ l }) {
+  const lp = useLivePrice(l?.mint ? { chainId: 'solana', baseToken: { address: l.mint } } : null);
+  const first = useRef(null);
+  if (!l) return <p className="m-dim crw-hint">No launch pinned. The owner pins the coin the crew is behind — every member sees it live here.</p>;
+  if (lp?.usd && !first.current) first.current = lp.usd;
+  const since = lp?.usd && first.current ? (lp.usd / first.current - 1) * 100 : null;
+  return <div className="crw-launch" data-testid="crew-launch"><b>🚀 ${l.symbol || l.mint.slice(0, 4)}</b><span key={lp?.usd}>{lp?.usd ? pxWord(lp.usd) : 'reading…'}</span>
+    {since != null ? <em className={since >= 0 ? 'm-pos' : 'm-neg'}>{since >= 0 ? '+' : ''}{since.toFixed(2)}% since you opened it</em> : null}
+    {l.note && <p>{l.note}</p>}<a href={`/terminal/coin/solana/${l.mint}`}>open chart →</a></div>;
+}
+
+const TABS = [['board', '💬 Board'], ['bounty', '🎯 Bounties'], ['launch', '🚀 Launch'], ['members', '👥 Members'], ['code', '🔐 Code']];
+
+function CrewHQ({ mine, owner, addr, sess, busy, setBusy, setMine, act, q }) {
+  const [tab, setTab] = useState('board'); const [txt, setTxt] = useState(''); const [rew, setRew] = useState(50); const [mint, setMint] = useState(''); const [sym, setSym] = useState(''); const [code, setCode] = useState(''); const [plain, setPlain] = useState('');
+  const doAct = async (a, body, ok) => { setBusy(a); try { const r = await post('/api/reputation/crews/act', { address: addr, session: sess, act: a, ...body }); if (r.crew) setMine(r.crew); if (r.plainCode) setPlain(r.plainCode); toast.success(ok); setTxt(''); } catch (e) { toast.error(e.message); } finally { setBusy(''); } };
+  const posts = mine.posts || []; const roots = posts.filter(p => !p.parent).slice().reverse(); const kids = id => posts.filter(p => p.parent === id);
+  const link = mine.code ? inviteLink(window.location.origin, window.location.pathname, mine.code) : null;
+  return <>
+    <nav className="crw-tabs m-seg" role="tablist">{TABS.map(([k, l]) => <button key={k} type="button" role="tab" aria-selected={tab === k} className={tab === k ? 'active' : ''} onClick={() => setTab(k)} data-testid={`crew-tab-${k}`}>{l}{k === 'bounty' && mine.bountiesOpen ? <b>{mine.bountiesOpen}</b> : null}</button>)}</nav>
+    <div className="crw-pane" key={tab}>
+      {tab === 'board' && <>
+        <form className="crw-row" onSubmit={e => { e.preventDefault(); doAct('post', { text: txt }, '💬 posted'); }}><input className="m-input" placeholder="Post to the crew board…" value={txt} maxLength={500} onChange={e => setTxt(e.target.value)} aria-label="Post" /><button type="submit" className="m-btn primary" disabled={!txt.trim() || !!busy}>Post</button></form>
+        {!roots.length && <p className="m-dim crw-hint">The board is quiet. Drop a play, a lesson or a call — members only.</p>}
+        <ul className="crw-posts">{roots.map((p, i) => <li key={p.id} style={{ '--i': i }}><b>{p.name}</b><small>{new Date(p.at * 1000).toLocaleString()}</small><p>{p.text}</p>
+          {kids(p.id).map(k => <div key={k.id} className="crw-reply"><b>{k.name}</b> {k.text}</div>)}
+          <button type="button" className="crw-rbtn" onClick={() => { const t = window.prompt('Reply:'); if (t) doAct('post', { text: t, parent: p.id }, '↩ replied'); }}>↩ reply</button></li>)}</ul>
+        <details className="crw-room"><summary>⚡ Live crew room</summary><Suspense fallback={<small className="m-dim">Opening the room…</small>}><div className="crw-chat"><EcosystemChat compact room={mine.room} ecosystem={{ id: `crew-${mine.id}`, name: mine.name }} /></div></Suspense></details>
+      </>}
+      {tab === 'bounty' && <>
+        {owner && <form className="crw-row" onSubmit={e => { e.preventDefault(); doAct('bounty', { text: txt, reward: Number(rew) }, '🎯 bounty posted'); }}><input className="m-input" placeholder="Task (e.g. find a germ entry under $50K)" value={txt} maxLength={120} onChange={e => setTxt(e.target.value)} aria-label="Bounty task" />
+          <input className="m-input crw-tag" value={rew} onChange={e => setRew(e.target.value.replace(/\D/g, ''))} aria-label="Reward points" /><button type="submit" className="m-btn primary" disabled={!txt.trim() || !!busy}>Post · {rew || 0} pts</button></form>}
+        <p className="m-dim crw-hint">Bounties pay crew points, never money.</p>
+        <ul className="crw-bounties">{(mine.bounties || []).slice().reverse().map(b => <li key={b.id} className={`is-${b.state}`}><b>🎯 {b.title}</b><em>{b.reward} pts</em><small>{b.state === 'open' ? 'open' : b.state === 'claimed' ? `claimed by ${b.byName}: ${b.proof}` : `paid to ${b.byName}`}</small>
+          {b.state === 'open' && <button type="button" className="m-btn" disabled={!!busy} onClick={() => { const pr = window.prompt('Proof (a tx, a link, a line):'); if (pr) doAct('claim', { id: b.id, text: pr }, '🙋 claimed'); }}>Claim</button>}
+          {b.state === 'claimed' && owner && <><button type="button" className="m-btn primary" onClick={() => doAct('settle', { id: b.id, pay: true }, '✅ paid')}>Pay</button><button type="button" className="m-btn" onClick={() => doAct('settle', { id: b.id, pay: false }, '↺ reopened')}>Reopen</button></>}</li>)}</ul>
+      </>}
+      {tab === 'launch' && <><LaunchLive l={mine.launch} />
+        {owner && <form className="crw-row" onSubmit={e => { e.preventDefault(); doAct('launch', { mint: mint.trim(), symbol: sym, text: txt }, mint ? '🚀 launch pinned' : 'launch cleared'); }}><input className="m-input" placeholder="Coin CA (empty = clear)" value={mint} onChange={e => setMint(e.target.value)} aria-label="Launch mint" /><input className="m-input crw-tag" placeholder="SYM" value={sym} maxLength={16} onChange={e => setSym(e.target.value.toUpperCase())} aria-label="Symbol" /><input className="m-input" placeholder="Why we're behind it" value={txt} maxLength={160} onChange={e => setTxt(e.target.value)} aria-label="Launch note" /><button type="submit" className="m-btn primary" disabled={!!busy}>Pin</button></form>}</>}
+      {tab === 'members' && <ul className="crw-mem">{mine.members.map((m, i) => <li key={m.address} style={{ '--i': i }}><a href={`/terminal/profile/${m.address}`}>{m.name}{m.owner ? ' 👑' : ''}</a><em className={m.pct == null ? '' : m.pct >= 0 ? 'm-pos' : 'm-neg'}>{pctTxt(m.pct)}</em><small>{m.trades ? `${m.trades} trades · ${m.wonPct}% won` : 'no trades this week'}{mine.points?.[m.address] ? ` · ${mine.points[m.address]} pts` : ''}</small></li>)}
+        {owner && <li className="crw-addseat"><button type="button" className="m-btn primary" disabled={!!busy} onClick={() => act('/api/reputation/crews/seats', {}, `➕ +${mine.packSeats} seats`, 'seats')} data-testid="crew-seats">{`➕ +${mine.packSeats} seats · ${costText(q, 'seats') || `$${mine.packUsd}`}`}</button></li>}</ul>}
+      {tab === 'code' && <>
+        {plain && <div className="crw-plain" data-testid="crew-plain"><b>🔐 {plain}</b><small>shown ONCE — it is stored encrypted (salted hash). Copy it now.</small><button type="button" className="m-btn" onClick={() => navigator.clipboard?.writeText(inviteLink(window.location.origin, window.location.pathname, plain))}>⧉ Copy invite</button></div>}
+        {link ? <div className="crw-invite"><code>{link}</code><button type="button" className="m-btn" onClick={() => navigator.clipboard?.writeText(link).then(() => toast.success('Invite link copied'))} data-testid="crew-copy">⧉ Copy invite</button></div>
+          : <p className="m-dim crw-hint">{mine.codeSet ? `🔐 secure passcode set (…${mine.codeTail || ''}). Members join with it; it is never shown again.` : ''}</p>}
+        {owner && <form className="crw-row" onSubmit={e => { e.preventDefault(); doAct('code', { code: code.trim() }, '🔐 code set'); setCode(''); }}><input className="m-input" placeholder="Your own code (6–24) — or leave empty to generate" value={code} maxLength={24} onChange={e => setCode(e.target.value)} aria-label="Crew code" /><button type="submit" className="m-btn primary" disabled={!!busy} data-testid="crew-code">{code.trim() ? 'Set code' : '🎲 Generate secure passcode'}</button></form>}
+      </>}
+    </div>
+  </>;
+}
+
 export function Crews() {
   const { wallet, provider } = useWallet() || {}; const addr = wallet?.address || ''; const sess = addr ? readChatSession(addr) : '';
-  const [board, setBoard] = useState(null); const [mine, setMine] = useState(undefined); const [busy, setBusy] = useState(''); const [q, setQ] = useState(null);
+  const board = useCrewBoard(); const [mine, setMine] = useState(undefined); const [busy, setBusy] = useState(''); const [q, setQ] = useState(null);
   const [name, setName] = useState(''); const [tag, setTag] = useState(''); const [code, setCode] = useState(() => { try { return new URLSearchParams(window.location.search).get('join') || ''; } catch { return ''; } });
-  const loadBoard = fresh => sharedJson('/api/reputation/crews', { maxAge: 30000, fresh }).then(setBoard).catch(() => {});
   const loadMine = () => { if (!addr || !sess) { setMine(null); return Promise.resolve(); } return fetch(apiUrl(`/api/reputation/crews/mine?address=${addr}&session=${encodeURIComponent(sess)}`)).then(r => (r.ok ? r.json() : { crew: null })).then(d => setMine(d.crew || null)).catch(() => setMine(null)); };
-  useEffect(() => { loadBoard(); loadMine(); }, [addr, sess]);   // eslint-disable-line react-hooks/exhaustive-deps
-  // the quote (and whether the name + tag are free) is read BEFORE anything is paid; debounced while typing
+  useEffect(() => { loadMine(); }, [addr, sess]);   // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { const t = setTimeout(() => fetch(apiUrl(`/api/reputation/crews/price?address=${addr}&name=${encodeURIComponent(name)}&tag=${encodeURIComponent(tag)}`)).then(r => (r.ok ? r.json() : null)).then(setQ).catch(() => {}), 300); return () => clearTimeout(t); }, [addr, name, tag, mine?.id]);
   const pay = async (kind) => {   // one SOL transfer YOU sign to the fee wallet → its signature goes with the request
     if (q?.free) return '';
@@ -42,31 +145,31 @@ export function Crews() {
     try {
       const signature = kind ? await pay(kind) : undefined;
       const r = await post(path, { address: addr, session: sess, ...body, ...(kind ? { signature } : {}) }); toast.success(ok);
-      if (r.crew) setMine(r.crew); else setMine(null); sharedJson.freshAt = Date.now(); loadBoard(true);
+      setMine(r.crew || null); sharedJson.freshAt = Date.now();
     } catch (e) { toast.error(e.message); } finally { setBusy(''); }
   };
-  const rows = board?.board || []; const owner = mine?.members?.find(m => m.owner)?.address === addr;
+  const rows = board?.board || []; const owner = mine?.members?.find(m => m.owner)?.address === addr; const top = podium(rows);
   return <section className="crw" data-testid="crews">
+    <div className="crw-stage" data-testid="crew-podium">
+      <header><span className="m-label">⚡ CREW WARS · THIS WEEK</span><small>{board ? `${board.total} crew${board.total === 1 ? '' : 's'} · verified trades only · live` : 'reading…'}</small></header>
+      {top.length ? <div className="crw-podium">{[1, 0, 2].map(i => top[i] ? <div key={top[i].id} className={`crw-step ${['s1', 's2', 's3'][i]}`}><CrewCard3D r={top[i]} place={i + 1} /><span className="crw-plinth">{MEDAL[i]} +{PRIZES[i]} pts each</span></div> : null)}</div>
+        : <p className="crw-hint m-dim">No crews yet — be the first on the stage.</p>}
+    </div>
     <div className="crw-mine m-card m-live">
       {mine ? <>
         <header><span className="m-label">🛡 YOUR CREW</span><b className="crw-name">[{mine.tag}] {mine.name}</b><small>{seatsLine(mine)}</small>
-          {owner && <button type="button" className="m-btn primary" disabled={!!busy} onClick={() => act('/api/reputation/crews/seats', {}, `➕ +${mine.packSeats} seats`, 'seats')} data-testid="crew-seats" data-tip={`Add ${mine.packSeats} seats: one SOL transfer you sign to the FEELESS fee wallet.`}>{busy.endsWith('/seats') ? '…' : `➕ +${mine.packSeats} seats · ${costText(q, 'seats') || `$${mine.packUsd}`}`}</button>}
           <button type="button" className="m-btn" disabled={!!busy} onClick={() => act('/api/reputation/crews/leave', {}, 'Left the crew')} data-testid="crew-leave">Leave</button></header>
-        <ul className="crw-mem">{mine.members.map(m => <li key={m.address}><a href={`/terminal/profile/${m.address}`}>{m.name}{m.owner ? ' 👑' : ''}</a><em className={m.pct == null ? '' : m.pct >= 0 ? 'm-pos' : 'm-neg'}>{pctTxt(m.pct)}</em><small>{m.trades ? `${m.trades} trades · ${m.wonPct}% won` : 'no trades this week'}</small></li>)}</ul>
-        <div className="crw-invite"><code>{inviteLink(window.location.origin, window.location.pathname, mine.code)}</code>
-          <button type="button" className="m-btn" onClick={() => { (navigator.clipboard?.writeText(inviteLink(window.location.origin, window.location.pathname, mine.code)) || Promise.reject()).then(() => toast.success('Invite link copied')).catch(() => window.prompt('Copy the invite link:', inviteLink(window.location.origin, window.location.pathname, mine.code))); }} data-testid="crew-copy">⧉ Copy invite</button></div>
-        <details className="crw-room"><summary>💬 Crew room · members post, anyone can read</summary>
-          <Suspense fallback={<small className="m-dim">Opening the room…</small>}><div className="crw-chat"><EcosystemChat compact room={mine.room} ecosystem={{ id: `crew-${mine.id}`, name: mine.name }} /></div></Suspense></details>
+        <CrewHQ mine={mine} owner={owner} addr={addr} sess={sess} busy={busy} setBusy={setBusy} setMine={setMine} act={act} q={q} />
       </> : <>
-        <header><span className="m-label">🛡 CREWS</span><small>{q ? `${costText(q, 'create')} · ${q.baseSeats} seats incl. you · +${q.packSeats} seats ${costText(q, 'seats')}` : '5 seats incl. you'} · a crew shares no money</small></header>
+        <header><span className="m-label">🛡 START OR JOIN</span><small>{q ? `${costText(q, 'create')} · ${q.baseSeats} seats incl. you · +${q.packSeats} seats ${costText(q, 'seats')}` : '5 seats incl. you'} · a crew shares no money</small></header>
         {mine === undefined ? <small className="m-dim">Loading…</small> : !sess ? <p className="crw-hint m-dim">Connect your wallet and open chat once to start or join a crew.</p> : <div className="crw-forms">
-          <form onSubmit={e => { e.preventDefault(); act('/api/reputation/crews/create', { name, tag }, 'Crew created — share your invite link', 'create'); }} data-testid="crew-create-form">
+          <form onSubmit={e => { e.preventDefault(); act('/api/reputation/crews/create', { name, tag }, 'Crew created — set your passcode in 🔐 Code', 'create'); }} data-testid="crew-create-form">
             <input className="m-input" placeholder="Crew name" value={name} maxLength={20} onChange={e => setName(e.target.value)} aria-label="Crew name" />
             <input className="m-input crw-tag" placeholder="TAG" value={tag} maxLength={4} onChange={e => setTag(e.target.value.toUpperCase())} aria-label="Crew tag" />
             <button type="submit" className="m-btn primary" disabled={!!busy || name.trim().length < 3 || tag.length < 2 || (q && q.ok === false)} data-tip="One SOL transfer you sign to the FEELESS fee wallet, checked on-chain. If anything fails after you pay, send the same payment again — it is kept.">{busy.endsWith('/create') ? 'Paying…' : `Start a crew · ${costText(q, 'create') || '$25'}`}</button>
             {q?.ok === false && (name || tag) && <small className="crw-why" data-testid="crew-why">{q.why}</small>}</form>
           <form onSubmit={e => { e.preventDefault(); act('/api/reputation/crews/join', { code }, 'Joined the crew'); }} data-testid="crew-join-form">
-            <input className="m-input" placeholder="Invite code (free to join)" value={code} maxLength={32} onChange={e => setCode(e.target.value)} aria-label="Invite code" />
+            <input className="m-input" placeholder="Invite code or passcode (free to join)" value={code} maxLength={32} onChange={e => setCode(e.target.value)} aria-label="Invite code" />
             <button type="submit" className="m-btn" disabled={!!busy || !code.trim()}>Join</button></form></div>}
       </>}
     </div>
@@ -75,8 +178,9 @@ export function Crews() {
       <p className="crw-prize" data-testid="crew-prizes">Top 3 ranked crews pay every member season points each week: <b>🥇 +{PRIZES[0]}</b> · <b>🥈 +{PRIZES[1]}</b> · <b>🥉 +{PRIZES[2]}</b></p>
       {board && !rows.length && <p className="crw-hint m-dim">No crews yet. Start one, fill your seats and trade — the board ranks verified results.</p>}
       <ol>{rows.map((r, i) => <li key={r.id} className={r.ranked ? '' : 'is-off'} style={{ '--i': i }} data-testid={`crew-row-${r.tag}`}>
-        <b className="crw-rank">{r.ranked ? i + 1 : '·'}</b><span className="crw-tagc">{r.tag}</span><span className="crw-rname">{r.name}</span>
-        <small>{r.members}/{r.seats} seats · {r.active} active</small><em className={`m-num ${r.pct == null ? '' : r.pct >= 0 ? 'm-pos' : 'm-neg'}`}>{pctTxt(r.pct)}</em><small className="crw-note">{rankNote(r)}</small></li>)}</ol>
+        <b className="crw-rank">{r.ranked ? i + 1 : '·'}</b><span className="crw-tagc">{r.tag}</span><span className="crw-rname">{r.name}{r.launch ? <i> 🚀 ${r.launch}</i> : null}</span>
+        <small>{r.members}/{r.seats} seats · {r.active} active</small><em className={`m-num ${r.pct == null ? '' : r.pct >= 0 ? 'm-pos' : 'm-neg'}`} key={r.pct}>{pctTxt(r.pct)}</em><small className="crw-note">{rankNote(r)}</small>
+        <span className="crw-bar" aria-hidden="true"><i style={{ transform: `scaleX(${Math.max(0.02, Math.min(1, Math.abs(Number(r.pct) || 0) / 50))})` }} className={r.pct >= 0 ? 'up' : 'dn'} /></span></li>)}</ol>
       <small className="m-dim crw-rule">{board?.rule}</small>
     </div>
   </section>;
