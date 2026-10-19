@@ -7,6 +7,7 @@ import { apiUrl } from '../../lib/api';
 import { sharedJson } from '../../lib/sharedJson';
 import { useMarket } from '../../hooks/useMarket';
 import { SHARE_TO, shareLinks } from '../../lib/socialShare';
+import { FEED_BGS, FEED_FONTS, FEED_SIZES, FEED_ACCENTS, FEED_DENSITY, HANDLE_SITES, readLook, saveLook, lookVars, handleUrl } from '../../lib/feedLook';
 import '../../styles/feed.css';
 
 // 📰 FEEd = an X-style timeline (owner, 2026-10-18: "wider, an X UI / layout — click site bubbles to see different feeds or mixed from the
@@ -109,6 +110,35 @@ function FeedTopCoins() {
   </div>;
 }
 
+
+function Seg({ label, list, val, onPick, show = x => x[1] }) {
+  return <div className="fx-lrow"><small>{label}</small><span className="m-seg" role="radiogroup" aria-label={label}>{list.map(x => <button key={x[0]} type="button" role="radio" aria-checked={val === x[0]} className={val === x[0] ? 'active' : ''} onClick={() => onPick(x[0])} data-testid={`feed-look-${label.toLowerCase()}-${x[0]}`}>{show(x)}</button>)}</span></div>;
+}
+/** 🎨 the FEEd look: background · font · text size · accent · density — remembered in this browser */
+function LookPanel({ look, set, onClose }) {
+  const up = k => v => set({ ...look, [k]: v });
+  return <div className="fx-look" role="dialog" aria-label="FEEd look" data-testid="feed-look">
+    <header><b>🎨 Make FEEd yours</b><button type="button" className="m-btn" onClick={onClose} aria-label="Close">✕</button></header>
+    <Seg label="Background" list={FEED_BGS} val={look.bg} onPick={up('bg')} />
+    <Seg label="Font" list={FEED_FONTS} val={look.font} onPick={up('font')} show={x => <span style={{ fontFamily: x[2] }}>{x[1]}</span>} />
+    <Seg label="Text" list={FEED_SIZES} val={look.size} onPick={up('size')} />
+    <Seg label="Accent" list={FEED_ACCENTS} val={look.accent} onPick={up('accent')} show={x => <i className="fx-dot" style={{ background: x[1] }} aria-label={x[0]} />} />
+    <Seg label="Density" list={FEED_DENSITY} val={look.density} onPick={up('density')} />
+  </div>;
+}
+/** 🔗 your own public handles (never a password / token): one-tap to your profile and to post there as you */
+function MySites({ look, set }) {
+  const [edit, setEdit] = useState(false);
+  const h = look.handles || {};
+  return <div className="feed-side fx-acc fx-sites" data-testid="feed-sites"><h4>🔗 Your sites <button type="button" className="m-btn" onClick={() => setEdit(e => !e)} data-testid="feed-sites-edit">{edit ? 'Done' : 'Connect'}</button></h4>
+    {edit ? HANDLE_SITES.map(([k, ic]) => <label key={k} className="fx-hrow"><i>{ic}</i><input className="m-input" defaultValue={h[k] || ''} placeholder={k === 'x' ? '@yourhandle' : 'your name there'} maxLength={40}
+      onBlur={e => set({ ...look, handles: { ...h, [k]: e.target.value } })} data-testid={`feed-handle-${k}`} /></label>)
+      : HANDLE_SITES.some(([k]) => h[k]) ? <ul className="fx-hlist">{HANDLE_SITES.filter(([k]) => h[k]).map(([k, ic]) => <li key={k}><a href={handleUrl(k, h[k])} target="_blank" rel="noopener noreferrer">{ic} @{h[k]}</a></li>)}</ul>
+      : <p>Add your X / Reddit / Bluesky / Telegram name — one tap to your profile, and the post box posts there as you.</p>}
+    <p className="fx-dim">Your login stays on each site: FEELESS never asks for your password. Reading your private X / Reddit timeline needs their API apps.</p>
+  </div>;
+}
+
 export function FeedPanel({ onConnect }) {
   const [srcs, setSrcs] = useState(readSrc);
   const [cat, setCat] = useState(() => { try { return localStorage.getItem('feeless:feed-cat') || 'feed-general'; } catch { return 'feed-general'; } });
@@ -117,15 +147,20 @@ export function FeedPanel({ onConnect }) {
   const rooms = srcs.length === 1 && srcs[0] === 'feeless';
   const q = useMemo(() => (srcs.includes('all') ? '' : srcs.join(',')), [srcs]);
   const current = FEED_CATS.find(c => c[0] === cat) || FEED_CATS[0];
-  return <section className="fx" data-testid="profile-feed">
+  const [look, setLook0] = useState(readLook); const [lookOpen, setLookOpen] = useState(false);
+  const setLook = v => setLook0(saveLook(v));
+  const lv = lookVars(look);
+  return <section className={`fx ${lv.cls}`} style={lv.style} data-testid="profile-feed">
     <nav className="fx-nav" aria-label="FEEd sites">
       <b className="feed-wordmark">FEEd</b>
       {FEED_SRC.map(([k, ic, label]) => { const on = srcs.includes(k); return <button key={k} type="button" className={`fx-bub ${on ? 'on' : ''}`} aria-pressed={on} onClick={() => pickSrc(k)} data-testid={`feed-src-${k}`}><i>{ic}</i><span>{label}</span></button>; })}
       <small className="fx-navnote">Post only</small>
+      <button type="button" className={`fx-bub fx-lookbtn ${lookOpen ? 'on' : ''}`} aria-expanded={lookOpen} onClick={() => setLookOpen(o => !o)} data-testid="feed-look-open"><i>🎨</i><span>Look</span></button>
       {POST_ONLY.map(([k, ic, label]) => <span key={k} className="fx-bub is-post" data-tip={`${label} doesn't let a site read its feed without its own paid / registered API app. Post to it from the box on top — it opens ${label}'s own post page on your account.`}><i>{ic}</i><span>{label}</span></span>)}
     </nav>
     <div className="fx-main">
       <span className="feed-flares" aria-hidden="true"><i /><i /><i /></span>
+      {lookOpen ? <LookPanel look={look} set={setLook} onClose={() => setLookOpen(false)} /> : null}
       {rooms ? <>
         <header className="fx-head"><b>⚡ FEELESS rooms</b><small>{current[3]}</small></header>
         <FeedCallers />
@@ -139,11 +174,7 @@ export function FeedPanel({ onConnect }) {
     </div>
     <aside className="fx-side">
       <FeedTopCoins />
-      <div className="feed-side fx-acc"><h4>🔗 Your sites</h4>
-        <p>Read here now: <b>FEELESS · Pump · Telegram · Bluesky</b>.</p>
-        <p>Post anywhere from the box on top — each site's own post page opens on <b>your</b> account.</p>
-        <p className="fx-dim">Reading your X / Reddit timeline needs their API apps (X's read access is paid). Ask and it gets wired once they exist.</p>
-      </div>
+      <MySites look={look} set={setLook} />
     </aside>
   </section>;
 }

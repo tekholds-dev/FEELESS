@@ -20,6 +20,7 @@ import { mcapOf } from '../../lib/mcap';
 import { toolRead, useChartTools, germ as germOf } from '../../lib/chartTools';
 import { ChartGrab } from './ChartGrab';
 import { withGrab } from '../../lib/chartGrab';
+import { fillArrows } from '../../lib/fillArrows';
 import { createChart, createSeriesMarkers, CandlestickSeries, HistogramSeries, LineSeries, ColorType } from 'lightweight-charts';
 import { useMarket } from '../../hooks/useMarket';
 import { dexUrl, formatUSD } from '../../lib/dexscreener';
@@ -281,7 +282,7 @@ export const PriceChart = ({ pair, interval, showVolume, metric = 'price', marke
     let times = [];
     try { times = (ref.series.data?.() || []).map(d => d.time).filter(Number.isFinite); } catch { times = []; }
     // Pins that know their price (your fills) sit exactly at that price, scaled like the candles (MC charts too).
-    const list = snapMarkers(markers, times, bucket).map(({ price, ...m }) => (Number(price) > 0 ? { ...m, price: Number(price) * ratio } : m));
+    const list = fillArrows(snapMarkers(markers, times, bucket)).map(({ price, ...m }) => (Number(price) > 0 ? { ...m, price: Number(price) * ratio } : m));
     try {
       if (!markersRef.current) markersRef.current = createSeriesMarkers(ref.series, list);
       else markersRef.current.setMarkers(list);

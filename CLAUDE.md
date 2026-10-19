@@ -5130,3 +5130,15 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   read), trench brain table + summary + drain odds in a worker thread, `_duo_tape` stale-while-revalidate rebuilt in a thread. Dead-code scan:
   every frontend file is reachable from index.js and no export is unused; backend has ~120 lines only tests / scripts call. The remaining
   size is real features — shrinking it further = the reputation_service.py split (not started).
+- 🧾 OSSY / G4 BUYS NEVER VANISH (2026-10-18, "sometimes it don't go through"): a model BUY that reached the seat step with no free card cash
+  (every dollar in the agents' coins) hit `agent_seat`'s ValueError and the loop `break`'d silently. Now the reason is filed (`not seated — …`)
+  and, when cash is the reason, `arena_prime.make_room` trims the AGENTS' biggest coin above an equal share (never your pick / lines /
+  certified, never riding / frozen / buying / the other model's seat) and the BUY is kept for the next tick. A blocked coin names its refusal.
+- 🔊 TRADE CHAT VOICES (`lib/tradeVoice.js`, DuoSeat `dso-voice`): browser speech only (nothing sent anywhere) — 🧢 Gangster · 🎩 Mob boss ·
+  🎙 Fight announcer · 👾 Trench gremlin (pitch / rate / preferred system voice + their own opener / closer); 🔊 on every line, "read new lines"
+  auto mode, pick remembered (`feeless.duoVoice`).
+- ⬆⬇ Every entry / exit marker on every chart = a plain green ▲ / red ▼, no label (`lib/fillArrows.js`, applied in PriceChart's marker effect);
+  calls, READY dots and vetoes keep their own look.
+- 🎨 FEEd v2: full width (the profile rails step aside while FEEd is open), 🎨 Look panel (`lib/feedLook.js`: background void · royal · nebula ·
+  sunset · matrix · paper · font clean / mono / serif / loud · text S–XL · accent · density, `feeless.feedLook`), 🔗 Your sites = your PUBLIC
+  X / Reddit / Bluesky / Telegram names → profile links (never a password / token). Logging in to read X needs an X API app (paid).

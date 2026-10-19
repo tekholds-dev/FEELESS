@@ -10987,7 +10987,7 @@ async def _prime_tick_inner(now):
                 why_no = ('stale (older than 2 min)' if not _seat.fresh(w_, now) else 'seat off / not real' if not g4_seat_ else '🌙 night guard: a rug-level trip pauses the AI seat too' if night_g4_
                           else 'manual authority' if pol_['manual'] else 'office not LIVE yet' if not rd_['live'] else 'keeper halted' if seat_ctx_['halt']
                           else 'courier BAD' if seat_ctx_['courier'] == 'BAD' else 'hourly fill guard' if used_ >= _uni.FILL_MOVES_HR
-                          else 'coin refused by the keeper / your own rule' if w_.get('mint') in _g4_blocked(cur, now) else None)
+                          else 'refused: ' + str((_agent_refused.get(w_.get('mint')) or (0, 'your own rule / a lesson / the keeper bench'))[1])[:100] if w_.get('mint') in _g4_blocked(cur, now) else None)
                 if why_no:
                     _g4_fate(w_, why_no, now)
             if (g4_seat_ and w_ and w_.get('action') == 'BUY' and _seat.fresh(w_, now) and not night_g4_ and not pol_['manual'] and rd_['live'] and not seat_ctx_['halt']
@@ -11096,7 +11096,21 @@ async def _prime_tick_inner(now):
                         sp_ = _oe.speed_note(sp_, 'exitToFill', now - _fuse._f(cur['agentExitAt']))
                     st_o['speed'] = sp_
                     cur.pop('agentExitAt', None); cur.pop('agentEmptyAt', None); _office.pop('validSince', None)
-                except ValueError:
+                except ValueError as e_:
+                    if t_.get('g4'):   # 🧾 the model's BUY used to vanish here (no free cash / no seat) — say why, and make room when cash is the reason
+                        why_ = str(e_)
+                        if 'free' in why_:
+                            try:
+                                cur, got_, ts_ = _prime.make_room(cur, _prime.agent_seat_usd(cur, px, cfg_s), px, None, now, pol_['seats'], t_.get('g4By') and str(t_.get('g4By')).upper() or 'the model')
+                            except Exception as e2_:
+                                got_, ts_ = 0.0, None
+                                print('g4 make room:', str(e2_)[:80])
+                            if got_ > 0:
+                                why_ += f' — trimmed ${got_:.2f} of ${ts_} to pay it; the seat fills next tick'
+                                if _g4.get('pendSeat'):
+                                    _g4['want'] = {**_g4['pendSeat'], 'at': now}
+                        _g4_fate({'mint': t_['mint'], 'symbol': t_.get('symbol')}, 'not seated — ' + why_[:140], now)
+                        continue
                     break
             held_n = len([l for l in cur.get('legs') or [] if not l.get('placeholder')])   # 🪑 the seat truth AFTER this tick's fills
             _agents['seat'] = {**_oe.seat_state({**seat_ctx_, 'held': held_n, 'vetoed': vetoed_, 'valid': [t_ for t_ in valid_ if t_['mint'] not in {l.get('mint') for l in cur.get('legs') or []}] if held_n < pol_['seats'] else valid_}),

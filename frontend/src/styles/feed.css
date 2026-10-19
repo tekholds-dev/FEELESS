@@ -2,7 +2,8 @@
    site bubbles left · the timeline in the middle (cross-post box on top, posts as rows like X) · top coins + your sites right.
    Built on the m-* tokens; transform / opacity only; no blur on moving layers. */
 .fx { grid-column: 1 / -1; width: 100%; display: grid; grid-template-columns: 196px minmax(0, 1fr) 250px; gap: 16px; align-items: start; }
-.wallet-profile-page:has(.fx) { max-width: none; }   /* the profile caps at 1180px — FEEd takes the whole page width */
+.wp-stage:has(.fx) { grid-template-columns: minmax(0, 1fr) !important; } .wp-stage:has(.fx) > .wp-rail { display: none !important; }   /* FEEd open: the profile rails step aside — FEEd gets the whole width */
+.wp-stage .wallet-profile-page:has(.fx) { max-width: none !important; width: 100% !important; margin: 0 !important; }   /* the profile caps at 1180px (terminal.css !important) — FEEd takes the whole page width */
 .fx-nav { position: sticky; top: 12px; display: grid; gap: 6px; align-content: start; }
 .fx-nav .feed-wordmark { font-size: 34px; margin: 2px 6px 10px; }
 .fx-bub { display: flex; align-items: center; gap: 12px; width: 100%; padding: 10px 14px; border-radius: 999px; border: 1px solid transparent; background: none; color: #dff3e8;
@@ -69,6 +70,35 @@ body.theme-day .fx-main { background: rgba(255, 255, 255, .86); border-color: rg
 body.theme-day .fx-bub { color: #173b2b; } body.theme-day .fx-bub.on { color: #fff; } body.theme-day .fx-body p { color: #10301d; }
 body.theme-day .fx-compose textarea, body.theme-day .fx-sh { background: #fff; color: #10301d; border-color: rgba(13, 122, 65, .2); }
 @media (prefers-reduced-motion: reduce) { .fx-post { animation: none; } .fx-bub, .fx-sh { transition: none; } }
+
+/* 🎨 FEEd look — CSS variables from lib/feedLook (font · text size · accent), background + density classes */
+.fx { --fx-accent: #15d16a; font-family: var(--fx-font, inherit); }
+@media (min-width: 1500px) { .fx { grid-template-columns: 236px minmax(0, 1fr) 330px; gap: 22px; } }
+.fx .fx-post p, .fx .fx-compose textarea { font-size: var(--fx-size, 15px); font-family: var(--fx-font, inherit); }
+.fx .fx-bub.on { background: linear-gradient(135deg, var(--fx-accent), color-mix(in srgb, var(--fx-accent) 45%, #000)); box-shadow: 0 0 18px -4px var(--fx-accent); }
+.fx .fx-main { border-color: color-mix(in srgb, var(--fx-accent) 30%, transparent); box-shadow: 0 0 38px -14px var(--fx-accent); }
+.fx-d-tight .fx-post { padding: 8px 14px; gap: 9px; }
+.fx-bg-void .fx-main { background: #050706; }
+.fx-bg-royal .fx-main { background: radial-gradient(120% 60% at 10% 0%, rgba(21, 209, 106, .16), transparent 60%), radial-gradient(90% 50% at 100% 100%, rgba(11, 122, 82, .22), transparent 60%), #05100b; }
+.fx-bg-nebula .fx-main { background: radial-gradient(120% 70% at 0% 0%, rgba(166, 107, 255, .22), transparent 60%), radial-gradient(90% 60% at 100% 100%, rgba(255, 95, 162, .14), transparent 60%), #0b0716; }
+.fx-bg-sunset .fx-main { background: linear-gradient(180deg, rgba(255, 95, 120, .16), transparent 45%), radial-gradient(80% 50% at 50% 100%, rgba(245, 196, 81, .16), transparent 60%), #120a0c; }
+.fx-bg-matrix .fx-main { background: repeating-linear-gradient(90deg, rgba(21, 209, 106, .045) 0 1px, transparent 1px 22px), #030806; }
+.fx-bg-paper .fx-main { background: #f6f3ea; color: #1b231e; } .fx-bg-paper .fx-head { background: rgba(246, 243, 234, .97); }
+.fx-bg-paper .fx-post b, .fx-bg-paper .fx-post p { color: #1b231e; }
+.fx-lookbtn { margin-top: 6px; }
+.fx-look { position: relative; z-index: 3; display: grid; gap: 8px; margin: 12px 14px 0; padding: 12px 14px; border-radius: 14px; border: 1px solid color-mix(in srgb, var(--fx-accent) 40%, transparent);
+  background: rgba(6, 14, 10, .97); animation: fxLookIn .18s ease-out both; }
+.fx-look header { display: flex; justify-content: space-between; align-items: center; }
+.fx-lrow { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; } .fx-lrow > small { width: 84px; font: 700 10px var(--m-mono, monospace); letter-spacing: .1em; text-transform: uppercase; color: var(--m-mute, #8fb3a0); }
+.fx-lrow .m-seg { flex-wrap: wrap; } .fx-lrow .m-seg button { font-size: 12px; }
+.fx-dot { display: inline-block; width: 14px; height: 14px; border-radius: 50%; vertical-align: middle; }
+.fx-sites h4 { display: flex; justify-content: space-between; align-items: center; } .fx-sites h4 .m-btn { padding: 2px 9px; font-size: 11px; }
+.fx-hrow { display: flex; align-items: center; gap: 8px; margin: 6px 0; } .fx-hrow i { font-style: normal; width: 20px; text-align: center; } .fx-hrow .m-input { flex: 1; min-width: 0; }
+.fx-hlist { list-style: none; margin: 6px 0; padding: 0; display: grid; gap: 5px; }
+.fx-hlist a { color: var(--fx-accent); text-decoration: none; font-weight: 700; } .fx-hlist a:hover, .fx-hlist a:focus-visible { text-decoration: underline; }
+@keyframes fxLookIn { from { opacity: 0; transform: translateY(-6px) scale(.98); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) { .fx-look { animation: none; } }
+body.theme-day .fx-look { background: #eef6f1; }
 @media (max-width: 1250px) { .fx { grid-template-columns: 70px minmax(0, 1fr) 240px; } .fx-bub span, .fx-navnote, .fx-nav .feed-wordmark { display: none; } .fx-bub { justify-content: center; padding: 10px; } }
 @media (max-width: 980px) { .fx { grid-template-columns: minmax(0, 1fr); } .fx-side { display: none; } .fx-nav { position: static; display: flex; overflow-x: auto; scrollbar-width: none; }
   .fx-bub { width: auto; flex: none; } .fx-bub span { display: inline; } }

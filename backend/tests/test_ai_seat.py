@@ -287,3 +287,17 @@ def test_agents_only_take_a_coin_a_model_backed_and_the_newest_word_wins():
     assert ok is False and '-8' in why
     assert duo_backs([{'at': now - 5000, 'by': 'G4', 'action': 'BUY', 'mint': 'M'}], [], 'M', now)[0] is False   # stale
     assert duo_backs([{'at': now - 60, 'by': 'OSSY', 'action': 'HOLD', 'view': 'SELL', 'mint': 'M'}], [], 'M', now)[0] is False
+
+
+def test_a_models_seat_with_no_free_cash_trims_the_agents_biggest_coin_never_your_pick():
+    import arena_prime as ap
+    card = {'cash': 0.0, 'legs': [
+        {'pairAddress': 'A', 'symbol': 'A', 'units': 100, 'entry': 0.01, 'costUsd': 1.0},
+        {'pairAddress': 'B', 'symbol': 'B', 'units': 300, 'entry': 0.01, 'costUsd': 3.0, 'picked': True},
+        {'pairAddress': 'C', 'symbol': 'C', 'units': 200, 'entry': 0.01, 'costUsd': 2.0}]}
+    c, got, sym = ap.make_room(card, 1.0, {'A': 0.01, 'B': 0.01, 'C': 0.01}, None, 100, 4, 'OSSY')
+    assert sym == 'C' and 0.4 < got <= 0.5 and c['cash'] == round(got, 6)
+    assert next(l for l in c['legs'] if l['symbol'] == 'B')['units'] == 300   # your pick is never trimmed
+    assert next(l for l in c['legs'] if l['symbol'] == 'C')['trimAt'] == 100
+    only_yours = {'cash': 0, 'legs': [card['legs'][1]]}
+    assert ap.make_room(only_yours, 1.0, {'B': 0.01}, None, 100, 4)[1] == 0

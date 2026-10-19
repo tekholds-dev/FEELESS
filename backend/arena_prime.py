@@ -3576,6 +3576,34 @@ def agent_trim(card, pair, prices, liqs, now, pct=50.0, why=''):
     return c
 
 
+def make_room(card, need, prices, liqs, now, seats, who='the model'):
+    """🪑 OSSY / G4's seat had no free cash (every dollar sat in the agents' coins) — their BUY used to vanish silently. The AGENTS' biggest coin
+    above an equal share is trimmed toward it (never your pick / lines / certified coin, never a riding / frozen / buying coin, never the
+    other model's seat) so the model's seat can be paid next tick. → (new card, $ freed, symbol) — (card, 0, None) when nothing can give."""
+    c = {**card, 'legs': [dict(l) for l in card.get('legs') or []], 'events': list(card.get('events') or [])}
+    def val(l):
+        return _f(l.get('units')) * (_f((prices or {}).get(l.get('pairAddress'))) or _f(l.get('entry')))
+    legs = [l for l in c['legs'] if not l.get('placeholder') and _f(l.get('units')) > 0]
+    total = sum(val(l) for l in legs) + max(0.0, _f(c.get('cash')) - _f(c.get('holdCashUsd')))
+    share = total / max(1, int(_f(seats)) or len(legs) + 1)
+    ok = [l for l in legs if not (l.get('picked') or l.get('ownerLvAt') or l.get('certified') or l.get('aiSeat') or l.get('riding')
+                                  or l.get('frozen') or l.get('buying') or l.get('house')) and val(l) > share * 1.05]
+    if not ok or need <= 0:
+        return card, 0.0, None
+    l = max(ok, key=val)
+    give = min(val(l) - share, need * 1.05)
+    part = max(0.05, min(0.95, give / max(1e-9, val(l))))
+    px = _f((prices or {}).get(l.get('pairAddress'))) or _f(l.get('entry'))
+    got = sell_usd(_f(l['units']) * part, px, (liqs or {}).get(l.get('pairAddress')) or l.get('liq'))
+    l['units'] = _f(l['units']) * (1 - part)
+    l['costUsd'] = _f(l.get('costUsd')) * (1 - part)
+    l['trimAt'] = now
+    c['cash'] = round(_f(c.get('cash')) + got, 6)
+    c['events'].append({'at': now, 'kind': 'agent', 'move': 'trim', 'symbol': l.get('symbol'), 'usd': round(got, 4),
+                        'why': f"🪑 trimmed ${got:.2f} of ${l.get('symbol')} to pay {who}'s seat"})
+    return c, got, l.get('symbol')
+
+
 BANK_ROUNDS_MAX = 3   # 🅿 OSSY / G4 may park a sale's proceeds out of the coins for up to 3 rounds
 
 
