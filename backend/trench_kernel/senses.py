@@ -15,7 +15,7 @@ import trench_mind as _tm
 # learn which corner of the trench pays (owner: "access multiple ends to get info — only for trenching")
 SOURCES = {'open': 'the open launch list', 'new': 'the newest launches (≤ 1h)', 'pulse': 'Pump pulse (PumpPortal live launches)', 'migr': 'Pump migrations (PumpPortal live)', 'outlet': 'callouts / fed runners / radar / runner board', 'ptrend': 'Pump trending', 'calls': 'Pump callouts',
            'pump': 'Pump live', 'movers': 'movers', 'volume': 'volume leaders', 'fed': 'fed runners (paired launches)', 'wave': 'narrative leaders',
-           'exhale': 'cooling-off coins', 'procall': 'proven callers', 'prebreak': 'before-the-break setups', 'double': 'double signal'}
+           'exhale': 'cooling-off coins', 'procall': 'proven callers', 'prebreak': 'before-the-break setups', 'double': 'double signal', 'rpf': 'Real Project Finder (site + X + docs history)'}
 
 
 SERIES_N = 15                   # points kept per coin (one a pass, ~1 min apart)
