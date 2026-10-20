@@ -18000,7 +18000,7 @@ async def _agents_tick(now):
             lingo = _tm.learn_lingo(lingo, [c_.get('thesis') for c_ in calls_ if c_.get('thesis')], now)
             _lingo_mem.put(lingo, now)
         _agents['mind'] = {'hot': [{'key': k, **v} for k, v in list(hot_.items())[:6]], 'dictionary': len(_tm.SLANG),
-                           'learned': sorted(({'word': w, **v} for w, v in (lingo.get('learned') or {}).items()), key=lambda x: -_fuse._f(x.get('first')))[:16],
+                           'learned': _agents.get('mindLearned') if _agents.get('mindLearnedAt') == _agents.get('lingoAt') else _agents.__setitem__('mindLearnedAt', _agents.get('lingoAt')) or _agents.__setitem__('mindLearned', __import__('heapq').nlargest(16, ({'word': w, **v} for w, v in (lingo.get('learned') or {}).items()), key=lambda x: _fuse._f(x.get('first')))) or _agents['mindLearned'],   # ⚡ rebuilt only when the slang is re-learned (3.6s of blocked loop)
                            'callsRead': len(calls_), 'swarms': sum(1 for r in rows if ((r.get('mind') or {}).get('crowd') or {}).get('swarm'))}
         st = _agents_mem.get()
         try:   # 👨‍⚖️ the Judge rules on REAL money too: the agents' own seats that left the card (the card's ledger result)
