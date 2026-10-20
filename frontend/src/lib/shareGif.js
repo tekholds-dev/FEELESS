@@ -13,7 +13,7 @@ const PALETTES = {
 };
 
 // 🎨 Designs (picked in the share preview). 'royal' = the original; each other design has its own colours + its own FX.
-export const DESIGNS = [['royal', '🟩 Royal'], ['nebula', '🌌 Nebula'], ['gold', '🪙 Gold'], ['ice', '💎 Ice'], ['blaze', '🔥 Blaze'], ['synth', '🌆 Synthwave']];
+export const DESIGNS = [['hazard', '🚧 Hazard'], ['royal', '🟩 Royal'], ['nebula', '🌌 Nebula'], ['gold', '🪙 Gold'], ['ice', '💎 Ice'], ['blaze', '🔥 Blaze'], ['synth', '🌆 Synthwave']];
 const THEMES = {
   nebula: { base: '#0c0418', pools: ['150,80,255', '40,200,255'], fade: 'rgba(12,4,24,0)', flare: '220,190,255', spark: '210,180,255', kicker: '#d6b8ff', big: '#c58bff', brand: '#b98cff', frame: 'rgba(170,110,255,.6)', panel: 'rgba(16,6,32,.58)', text: '#eadfff', foot: '#a690c9' },
   gold: { base: '#140d02', pools: ['245,196,81', '168,114,10'], fade: 'rgba(20,13,2,0)', flare: '255,236,180', spark: '255,214,106', kicker: '#ffe39a', big: '#ffd56a', brand: '#f5c451', frame: 'rgba(245,196,81,.6)', panel: 'rgba(24,16,3,.6)', text: '#f7ecd2', foot: '#c9b07a' },
@@ -99,7 +99,50 @@ function drawFuseCard(g, fz, imgs, t) {
   g.restore();
 }
 
+// 🚧 HAZARD (owner, 2026-10-20: "make a FEELESS version with live GIF" of a dust.bid "DUSTED" card): a trade result on hazard tape — a giant vertical
+// SENT (green, a win) or COOKED (pink, a loss) that disintegrates into drifting dust, the result counting up, chips (coin · side · move · held),
+// the ride from entry to exit, a bonus box and the FEELESS wordmark. card.trade = {sym, side, pct, held, entry, exit, spark, bonus, bonusUnit, rank}.
+function hazard(g, card, logo, coin, t, seed) {
+  const up = card.tone !== 'down'; const A = up ? '#15d16a' : '#ff4d6d'; const A2 = up ? '#45e486' : '#ff8fa3'; const T = card.trade || {};
+  g.fillStyle = '#060606'; g.fillRect(0, 0, W, H);
+  const band = 18; g.save(); g.beginPath(); g.rect(0, 0, W, H); g.rect(band, band, W - band * 2, H - band * 2); g.clip('evenodd');
+  g.fillStyle = '#ffd400'; g.fillRect(0, 0, W, H); g.fillStyle = '#0a0a0a'; const off = (t * 48) % 48;
+  for (let x = -H; x < W + H; x += 48) { g.beginPath(); g.moveTo(x + off, 0); g.lineTo(x + off + 24, 0); g.lineTo(x + off + 24 - H, H); g.lineTo(x + off - H, H); g.closePath(); g.fill(); }
+  g.restore();
+  for (const y of [band / 2 + 1, H - band / 2 + 1]) { g.fillStyle = '#0a0a0a'; g.fillRect(W / 2 - 150, y - 9, 300, 18); g.fillStyle = '#ffd400'; g.font = '800 12px "JetBrains Mono", monospace'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(card.kicker || (T.paper ? 'FEELESS · PAPER TRADE' : 'FEELESS · REAL TRADE'), W / 2, y); }
+  g.textAlign = 'left'; g.textBaseline = 'alphabetic';
+  const px0 = band + 4, pw = W - band * 2 - 8; g.fillStyle = A; g.fillRect(px0 + 190, band + 4, pw - 190, H - band * 2 - 8);
+  g.fillStyle = '#060606'; g.fillRect(px0, band + 4, 190, H - band * 2 - 8);
+  for (let i = 0; i < 900; i++) { const sx = seed[i % 120], sy = seed[(i * 7) % 120]; const drift = (t + sx) % 1; const x = px0 + 190 - drift * (150 + sy * 60) + Math.sin((i + t * 6) * 1.3) * 3;
+    const y = band + 6 + ((sy * 997 + i * 13) % (H - band * 2 - 12)); g.globalAlpha = (1 - drift) * (0.35 + sx * 0.6); g.fillStyle = A2; g.fillRect(x, y, 1.6 + sx * 1.6, 1.6 + sx * 1.6); }
+  g.globalAlpha = 1;
+  g.save(); g.translate(px0 + 236, H / 2); g.rotate(-Math.PI / 2); g.font = '400 74px "Bungee", sans-serif'; g.textAlign = 'center'; g.fillStyle = '#0a0a0a';
+  g.fillText(up ? 'SENT' : 'COOKED', 0, 26); g.restore(); g.textAlign = 'left';
+  const X = px0 + 286; if (coin) { g.save(); g.beginPath(); g.arc(X + 24, 66, 24, 0, Math.PI * 2); g.clip(); g.drawImage(coin, X, 42, 48, 48); g.restore(); g.strokeStyle = '#0a0a0a'; g.lineWidth = 3; g.beginPath(); g.arc(X + 24, 66, 25, 0, Math.PI * 2); g.stroke(); }
+  g.fillStyle = '#0a0a0a'; g.font = '800 26px "Space Grotesk", sans-serif'; g.fillText(String(card.title || '').slice(0, 16), X + 58, 76);
+  if (T.rank) { g.fillStyle = '#0a0a0a'; g.beginPath(); g.roundRect(W - 168, 48, 130, 32, 16); g.fill(); g.fillStyle = A2; g.font = '800 14px "JetBrains Mono", monospace'; g.fillText(String(T.rank).slice(0, 14), W - 156, 69); }
+  const k = ease(Math.min(1, t * 2.2)); const big = card.bigValue != null ? `${card.bigPrefix || ''}${(card.bigValue * k).toFixed(card.bigDigits ?? 2)}${card.bigSuffix || ''}` : card.big;
+  g.fillStyle = '#0a0a0a'; g.font = '400 60px "Bungee", sans-serif'; g.fillText(String(big || ''), X - 4, 160);
+  const chips = [[T.sym ? `$${T.sym}` : null, '#0a0a0a', A2], [T.side, '#0a0a0a', '#ffffff'], [T.held ? `held ${T.held}` : null, null, '#0a0a0a']].filter(c => c[0]);
+  let cx = X; chips.forEach(([txt, bg, fg]) => { g.font = '800 16px "Space Grotesk", sans-serif'; const w = g.measureText(txt).width + 20; if (bg) { g.fillStyle = bg; g.beginPath(); g.roundRect(cx, 176, w, 30, 8); g.fill(); } g.fillStyle = fg; g.fillText(txt, cx + 10, 197); cx += w + 8; });
+  if (T.pct != null) { g.fillStyle = '#0a0a0a'; g.font = '400 30px "Bungee", sans-serif'; g.textAlign = 'right'; g.fillText(`${T.pct > 0 ? '+' : ''}${Number(T.pct).toFixed(1)}%`, W - 40, 204); g.textAlign = 'left'; }
+  const xs = (Array.isArray(T.spark) ? T.spark : []).map(Number).filter(Number.isFinite);
+  if (xs.length > 1) { const lo = Math.min(...xs), hi = Math.max(...xs); const X0 = X, X1 = W - 44, Y0 = 232, Y1 = 266; const n = Math.max(2, Math.ceil(xs.length * Math.min(1, t * 1.6)));
+    g.strokeStyle = 'rgba(10,10,10,.5)'; g.setLineDash([5, 5]); g.lineWidth = 1.5; g.beginPath(); g.moveTo(X0, Y1 - ((xs[0] - lo) / ((hi - lo) || 1)) * (Y1 - Y0)); g.lineTo(X1, Y1 - ((xs[0] - lo) / ((hi - lo) || 1)) * (Y1 - Y0)); g.stroke(); g.setLineDash([]);
+    g.strokeStyle = '#0a0a0a'; g.lineWidth = 3; g.beginPath(); xs.slice(0, n).forEach((v, i) => { const x = X0 + (i / (xs.length - 1)) * (X1 - X0), y = Y1 - ((v - lo) / ((hi - lo) || 1)) * (Y1 - Y0); if (i) g.lineTo(x, y); else g.moveTo(x, y); }); g.stroke();
+    g.fillStyle = '#0a0a0a'; g.beginPath(); g.arc(X0, Y1 - ((xs[0] - lo) / ((hi - lo) || 1)) * (Y1 - Y0), 5, 0, Math.PI * 2); g.fill();
+    g.font = '800 11px "JetBrains Mono", monospace'; if (T.entry) g.fillText(`entry ${T.entry}`, X0, Y0 - 6); if (T.exit) { g.textAlign = 'right'; g.fillText(`exit ${T.exit}`, X1, Y0 - 6); g.textAlign = 'left'; } }
+  g.fillStyle = '#0a0a0a'; g.beginPath(); g.roundRect(X - 6, 284, W - X - 32, 48, 10); g.fill();
+  g.fillStyle = A2; g.font = '400 28px "Bungee", sans-serif'; const bonus = T.bonus != null ? `${T.bonus >= 0 ? '+' : ''}${T.bonus}` : (card.lines || [])[0] || '';
+  g.fillText(String(bonus).slice(0, 14), X + 8, 318); const bw = g.measureText(String(bonus).slice(0, 14)).width;
+  g.fillStyle = '#ffffff'; g.font = '800 16px "Space Grotesk", sans-serif'; g.fillText(String(T.bonusUnit || (T.bonus != null ? 'season pts' : '')).slice(0, 16), X + 20 + bw, 314);
+  g.fillStyle = '#0a0a0a'; g.font = '700 16px "Space Grotesk", sans-serif'; g.fillText(String(card.footer || 'feeless').slice(0, 34), X, H - 40);
+  g.font = '400 22px "Bungee", sans-serif'; g.textAlign = 'right'; g.fillText('FEELESS', W - 40, H - 38); g.textAlign = 'left';
+  if (logo) { g.globalAlpha = 0.12 + 0.05 * Math.sin(t * Math.PI * 2); g.drawImage(logo, W - 130, 92, 90, 90); g.globalAlpha = 1; }
+}
+
 function frame(g, card, logo, coin, t, seed, s = 1) {
+  if (card.theme === 'hazard') return hazard(g, card, logo, coin, t, seed);
   const P = THEMES[card.theme] || PALETTES[card.tone === 'down' ? 'down' : 'up'];
   // Base with two orbiting light pools.
   g.fillStyle = P.base; g.fillRect(0, 0, W, H);
@@ -192,7 +235,7 @@ export async function renderShareCard(card) {
   g.scale(S, S);
   const seed = Array.from({ length: 120 }, (_, i) => Math.abs(Math.sin(i * 12.9898) * 43758.5453) % 1);
   frame(g, card, logo, coin, 0.5, seed, S);          // t = 0.5: the count-up has landed, lights mid-orbit
-  finish(g, THEMES[card.theme] || PALETTES[card.tone === 'down' ? 'down' : 'up']);
+  if (card.theme !== 'hazard') finish(g, THEMES[card.theme] || PALETTES[card.tone === 'down' ? 'down' : 'up']);
   return new Promise(res => c.toBlob(b => res(b), 'image/png'));
 }
 

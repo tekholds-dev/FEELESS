@@ -68,5 +68,8 @@ export function rideCard(s, pos) {
     spark: (s.path || []).length > 1 ? s.path : null, marks: (pos?.ghosts || []).map(x => num(x.pct)).filter(v => v != null).slice(0, 4),
     stats: [{ label: 'entry mc', value: s.entryMc ? `$${Math.round(s.entryMc / 1000)}K` : '—' }, { label: 'now mc', value: s.mc ? `$${Math.round(s.mc / 1000)}K` : '—' },
       { label: 'peak', value: peak != null ? sgn(peak) : '—', tone: 'ok' }, { label: 'held', value: s.heldMin != null ? `${Math.round(s.heldMin)} min` : '—' }],
+    trade: { sym: s.symbol, side: s.kind === 'yours' ? 'YOUR PICK' : 'AGENTS', held: s.heldMin != null ? `${Math.round(s.heldMin)}m` : null, spark: (s.path || []).length > 1 ? s.path : null,
+      entry: s.entryMc ? `$${Math.round(s.entryMc / 1000)}K` : null, exit: s.mc ? `$${Math.round(s.mc / 1000)}K` : null,
+      bonus: pnl != null ? `${pnl >= 0 ? '' : '−'}$${Math.abs(pnl).toFixed(2)}` : null, bonusUnit: pnl != null ? (pnl >= 0 ? 'banked' : 'lost') : null },
     footer: 'feeless · fuse agents' };
 }

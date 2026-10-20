@@ -33,3 +33,9 @@ test('a held seat becomes a ride share card', () => {
   expect(rideCard({ symbol: 'A', pct: 40, pnlUsd: 0.06, usd: 0.19 }).lines[0]).toBe('$0.13 in → $0.19 now (+$0.06)');
   expect(rideCard({ open: true })).toBeNull();
 });
+
+test('a ride card carries the hazard design fields and the hazard design is offered', () => {
+  const c = rideCard({ symbol: 'ELON', pct: -12, pnlUsd: -0.2, usd: 1.5, kind: 'agents', entryMc: 50000, mc: 44000, heldMin: 9, path: [0, -3, -12] }, {});
+  expect(c.trade).toMatchObject({ sym: 'ELON', side: 'AGENTS', held: '9m', entry: '$50K', exit: '$44K', bonus: '−$0.20', bonusUnit: 'lost' });
+  expect(require('./shareGif').DESIGNS[0][0]).toBe('hazard');
+});
