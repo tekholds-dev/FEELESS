@@ -5196,3 +5196,7 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
 - 💬 FEEd v3 (`backend/feed_social.py`, `data/feed_social.json`): ♥ likes + 💬 replies on ANY timeline post (ids may hold `/` — thread route is
   `{pid:path}`), counts for the posts on screen in ONE batched `GET /social-feed/counts`, a thread only when opened, `POST /social-feed/react` (chat
   session). Timeline: X-style bar (reply · share · like), "↑ N new posts" pill (the list never jumps), ⚡ Post straight to FEELESS (room feed-general).
+- 🫧 Call-pin card header was the trail's beating head: both used class `ccp-head` (the SVG trail head is now `ccp-beat`) — a class name is
+  shared site-wide, never reuse one for two jobs. 🛰 Orbit core scene retired (2026-10-19, owner: "that effect bad"). 🔁 Arena reset
+  `LEAGUE_RESET` 'restart2' + `PRIME_RESET` 'paper20e' (owner: "arena numbers are off, reset all paper cards"). RPF (`backend/rpf.py`) is
+  scored + tested but NOT wired into the desk yet.

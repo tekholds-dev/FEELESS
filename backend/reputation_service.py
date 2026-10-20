@@ -9427,8 +9427,8 @@ def _fw_market_rows(cards, books):
     return list(rows.values())
 
 
-LEAGUE_RESET = 'restart1'
-PRIME_RESET = 'paper20d'   # (2026-10-17: owner — "paper cards get the new mechanics: germ buying + per-coin lines; reset them")   # (2026-10-13: owner — "reset and upgrade fuse arena cards, they are losing"; ⚡ Next Level now inherits the agents)   # was 'paper20b'   # (2026-10-05: owner asked for a second restart)   # one-time: every PAPER tier card starts over on $20 (the real card is never touched)
+LEAGUE_RESET = 'restart2'   # 2026-10-19: owner — "arena numbers are off, reset all arena paper cards"
+PRIME_RESET = 'paper20e'   # 2026-10-19: owner — "reset all arena paper cards" (was 'paper20d')   # (2026-10-17: owner — "paper cards get the new mechanics: germ buying + per-coin lines; reset them")   # (2026-10-13: owner — "reset and upgrade fuse arena cards, they are losing"; ⚡ Next Level now inherits the agents)   # was 'paper20b'   # (2026-10-05: owner asked for a second restart)   # one-time: every PAPER tier card starts over on $20 (the real card is never touched)
 
 
 PRIME_UNIQUE = 'unique2'

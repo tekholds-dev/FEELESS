@@ -9,7 +9,8 @@ import { useEffect, useState } from 'react';
 // sun on the horizon; three degen scenes join (🚀 Moon run · 💊 Pill rush · 📼 Degen tape), still faint enough that the candles lead.
 // Owner, 2026-10-18 (again): "neon trench is good, the rest are ass — make them cool and live animated, no lag" → four new scenes in the neon
 // trench's language (synth city · warp tunnel · orbit core · matrix rain v3); moon / pills / tape / aurora / pulse retired.
-export const CHART_BGS = [['default', '▫ Default'], ['neon', '⚡ Neon trench'], ['city', '🌆 Synth city'], ['warp', '🌀 Warp tunnel'], ['orbit', '🛰 Orbit core'], ['rain', '🟩 Matrix rain']];
+// 2026-10-19: owner — "that effect bad" → 🛰 Orbit core retired (a stored 'orbit' falls back to Default).
+export const CHART_BGS = [['default', '▫ Default'], ['neon', '⚡ Neon trench'], ['city', '🌆 Synth city'], ['warp', '🌀 Warp tunnel'], ['rain', '🟩 Matrix rain']];
 const KEY = 'feeless.chartBg';
 const ok = v => CHART_BGS.some(([k]) => k === v);
 const subs = new Set();

@@ -27,8 +27,6 @@ export function ChartBg({ kind }) {
       {n(7, i => <i key={i} className="cbg-lamp" style={{ '--i': i, left: `${8 + i * 13}%`, bottom: `${10 + (i * 37) % 26}%` }} />)}<i className="cbg-street" /><i className="cbg-vignette" /></div>}
     {kind === 'warp' && <div className="cbg-stage"><i className="cbg-core" /><span className="cbg-mark"><img src="/assets/feeless-logo.png" alt="" decoding="async" /></span>
       {n(9, i => <i key={i} className="cbg-gate" style={{ '--i': i }} />)}{n(14, i => <i key={i} className="cbg-ray" style={{ '--i': i, '--a': `${i * 25.7}deg` }} />)}<i className="cbg-vignette" /></div>}
-    {kind === 'orbit' && <div className="cbg-stage"><span className="cbg-mark is-big"><img src="/assets/feeless-logo.png" alt="" decoding="async" /></span>
-      {n(3, i => <div key={i} className="cbg-orb" style={{ '--i': i }}><div className="cbg-spin"><i className="cbg-ring" />{n(3, j => <b key={j} className="cbg-ion" style={{ '--j': j }} />)}</div></div>)}<i className="cbg-pulse" /><i className="cbg-vignette" /></div>}
     {kind === 'rain' && <div className="cbg-stage"><i className="cbg-glow" />
       {n(18, i => { const z = i % 3; return <b key={i} className={`cbg-col is-z${z}`} style={{ '--i': i, left: `${((i * 5.71) % 96 + 2).toFixed(2)}%` }}>
         <span className="is-bull">{GLYPHS[i % GLYPHS.length]}</span><span className="is-bear">{BEAR[i % BEAR.length]}</span></b>; })}<i className="cbg-vignette" /></div>}
@@ -39,6 +37,6 @@ export function ChartBg({ kind }) {
 export function ChartBgPicker() {
   const v = useChartBg();
   return <select className="chart-bg-pick" value={v} onChange={e => setChartBg(e.target.value)} aria-label="Chart background" data-testid="chart-bg-pick"
-    data-tip="Chart background: the plain chart, or a calm live scene behind the candles — each one turns green / pink with every real tick (neon trench with the FEELESS sun, synth city, warp tunnel, orbit core, matrix rain). Applies to every chart; off in lite mode.">
+    data-tip="Chart background: the plain chart, or a calm live scene behind the candles — each one turns green / pink with every real tick (neon trench with the FEELESS sun, synth city, warp tunnel, matrix rain). Applies to every chart; off in lite mode.">
     {CHART_BGS.map(([k, l]) => <option key={k} value={k}>{l}</option>)}</select>;
 }

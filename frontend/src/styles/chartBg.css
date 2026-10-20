@@ -53,16 +53,6 @@
   animation: cbgRay calc(1.6s + (var(--i) % 4) * .35s) linear infinite; animation-delay: calc(var(--i) * -.23s); }
 .cfk-dn .cbg-ray { animation-direction: reverse; }
 
-/* 🛰 Orbit core: the FEELESS mark at the centre, three tilted orbits with ions riding them, a ring pulsing out with every real tick color */
-.cbg-mark.is-big { width: 120px; height: 120px; margin: -60px 0 0 -60px; opacity: .14; }
-.cbg-orb { position: absolute; left: 50%; top: 46%; width: calc(220px + var(--i) * 110px); aspect-ratio: 1; margin-left: calc(-110px - var(--i) * 55px); margin-top: calc(-110px - var(--i) * 55px);
-  transform-style: preserve-3d; transform: rotateX(72deg) rotateY(calc(var(--i) * 18deg - 18deg)); }
-.cbg-spin { position: absolute; inset: 0; will-change: transform; animation: cbgSpin calc(14s + var(--i) * 7s) linear infinite; }
-.cbg-orb:nth-child(2n) .cbg-spin { animation-direction: reverse; }
-.cbg-orb .cbg-ring { inset: 0; border-radius: 50%; border: 1px solid color-mix(in srgb, var(--c) 45%, transparent); opacity: .5; }
-.cbg-orb .cbg-ion { width: 8px; height: 8px; border-radius: 50%; background: var(--c2); box-shadow: 0 0 12px var(--c); transform-origin: 50% 0; left: 50%; top: 50%; margin: 0 0 0 -4px; transform: rotate(calc(var(--j) * 120deg)) translateY(calc(-110px - var(--i) * 55px)); }
-.cbg-pulse { left: 50%; top: 46%; width: 200px; height: 200px; margin: -100px 0 0 -100px; border-radius: 50%; border: 1px solid var(--c); opacity: 0; will-change: transform, opacity; animation: cbgPulse 3.2s ease-out infinite; }
-
 /* 🟩 Matrix rain v3: 18 glyph streams in three depths, each fading out at its tail, a bright head; bear words on a red tick */
 .cbg-glow { left: -10%; right: -10%; bottom: -20%; height: 50%; border-radius: 50%; background: radial-gradient(closest-side, color-mix(in srgb, var(--c) 18%, transparent), transparent); }
 .cbg-col { top: 0; width: 14px; font: 700 12px/1.1 'JetBrains Mono', monospace; color: var(--c); opacity: .22; writing-mode: vertical-rl; text-orientation: upright; white-space: nowrap;
@@ -81,8 +71,6 @@
 @keyframes cbgBlink { 0%, 100% { opacity: .15; } 50% { opacity: .6; } }
 @keyframes cbgGate { 0% { transform: scale(.05); opacity: 0; } 12% { opacity: .4; } 100% { transform: scale(7); opacity: 0; } }
 @keyframes cbgRay { 0% { transform: rotate(var(--a)) translate3d(8%, 0, 0) scaleX(.1); opacity: 0; } 25% { opacity: .55; } 100% { transform: rotate(var(--a)) translate3d(110%, 0, 0) scaleX(1); opacity: 0; } }
-@keyframes cbgSpin { to { transform: rotate(360deg); } }
-@keyframes cbgPulse { 0% { transform: scale(.3); opacity: .5; } 100% { transform: scale(3.2); opacity: 0; } }
 @keyframes cbgFall { from { transform: translate3d(0, -120%, 0); } to { transform: translate3d(0, 720%, 0); } }   /* % of the column itself: −120% starts it above the box, 720% carries it past the bottom */
 
 /* compact on purpose: a wide picker pushed the toolbar's other buttons onto two lines — it shows the scene's icon, the list shows the names */
@@ -106,4 +94,4 @@ body.theme-day .cbg-neon .cbg-sun { opacity: .14; }
 body.theme-day .cbg-sky { background: linear-gradient(180deg, #e9e3fb 0%, #f3ecff 50%, #e6f3ec 100%); }
 body.theme-day .cbg-city .cbg-bld { background: linear-gradient(180deg, #c9d8cf, #b5c7bc); opacity: .5; } body.theme-day .cbg-skyline.is-near .cbg-bld { background: linear-gradient(180deg, #cfc4e8, #bcb0dc); }
 body.theme-day .cbg-street { background: #d9e8df; } body.theme-day .cbg-col::after { background: var(--c); }
-@media (max-width: 640px) { .cbg-col:nth-of-type(n + 11), .cbg-ray:nth-of-type(2n), .cbg-orb:nth-of-type(3) { display: none; } .cbg-neon .cbg-sun { width: 80px; height: 80px; margin: -62px 0 0 -40px; } }
+@media (max-width: 640px) { .cbg-col:nth-of-type(n + 11), .cbg-ray:nth-of-type(2n) { display: none; } .cbg-neon .cbg-sun { width: 80px; height: 80px; margin: -62px 0 0 -40px; } }

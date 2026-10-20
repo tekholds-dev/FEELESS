@@ -124,7 +124,7 @@ export function ChartCallPins({ calls, seriesRef, chartRef, container, ratio = 1
   const trails = [...new Set(list.map(trailKey).filter(Boolean))];
   return <div className="ccp" ref={host} data-testid="chart-call-pins">
     {trails.length ? <svg ref={trailRef} className="ccp-trails" aria-hidden="true" data-testid="chart-trails">{trails.map(k =>
-      <g key={k} data-trail={k} className={`ccp-trail t-${k}`}><path className="ccp-tl" d="" /><path className="ccp-td" d="" /><g className="ccp-hg" transform="translate(-99 -99)"><circle className="ccp-head" r="4" /></g></g>)}</svg> : null}
+      <g key={k} data-trail={k} className={`ccp-trail t-${k}`}><path className="ccp-tl" d="" /><path className="ccp-td" d="" /><g className="ccp-hg" transform="translate(-99 -99)"><circle className="ccp-beat" r="4" /></g></g>)}</svg> : null}
     {lenses.length > 1 || hidden.size ? <div className="ccp-lens" data-testid="chart-pin-lens">{lenses.map(([k, word]) =>
       <button key={k} type="button" className={`ccp-lb ${hidden.has(k) ? 'is-off' : ''}`} aria-pressed={!hidden.has(k)} onClick={() => flip(k)} data-testid={`chart-pin-lens-${k}`}>{word}<b>{counts[k]}</b></button>)}</div> : null}
     {list.map(c => { const mates = (stacks[c.id] || [c.id]).map(id => byId.get(id)).filter(Boolean); const n = mates.length; const fan = mates.filter(m => m.id !== c.id).slice(0, 2);
