@@ -2,7 +2,7 @@ import feecat_service as fs
 
 
 def test_feecat_needs_a_setup_skips_the_gun_line_and_listens_to_the_models():
-    assert fs.setup_gate({'_read': {'setups': [], 'bad': None}})[:2] == (False, 'no HH/HL · germ · breakout setup')
+    assert fs.setup_gate({'_read': {'setups': [], 'bad': None}})[:2] == (False, 'no HH/HL · germ · FVG support · breakout setup')
     assert fs.setup_gate({'_read': {'setups': ['germ'], 'bad': 'pressed under its gun line'}})[0] is False
     assert fs.setup_gate({'_read': {'setups': ['hhhl']}, '_duo': {'who': 'G4', 'action': 'SELL'}})[:2] == (False, '🤝 G4 said sell')
     ok, why, mult, tags = fs.setup_gate({'_read': {'setups': ['germ', 'hhhl']}, '_duo': {'who': 'OSSY', 'action': 'BUY'}})

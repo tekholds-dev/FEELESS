@@ -121,6 +121,43 @@ def bars5(rows):
     return out
 
 
+FVG_MIN_PCT = 0.3     # a gap thinner than 0.3% is noise
+FVG_NEAR = 5.0        # "on its FVG support" = the price sits inside the gap or ≤ 5% above its top
+
+
+def fvg(rows, min_pct=FVG_MIN_PCT):
+    """🪜 FVG SUPPORT (owner, 2026-10-20: "FeeCat's FVG support is the support germ — every AI studies 1–5 min FVG support + HH/HL"). A bullish
+    fair value gap = a candle whose LOW sits above the HIGH two candles back; the gap [that high, this low] is support while no later candle
+    traded through its bottom (a later low inside it shrinks its top). → the nearest open support gap at or under the price:
+    {bot, top, at, dist (% the price sits above the top; negative = inside), inside, open (how many support gaps are still open)} or None."""
+    cs = [r for r in rows or [] if r and _f(r[4]) > 0 and _f(r[2]) > 0 and _f(r[3]) > 0]
+    if len(cs) < 3:
+        return None
+    gaps = []
+    for i in range(2, len(cs)):
+        bot, top = _f(cs[i - 2][2]), _f(cs[i][3])
+        if top > bot and (top / bot - 1) * 100 >= min_pct:
+            gaps.append([bot, top, cs[i][0], i])
+    last = _f(cs[-1][4])
+    live = []
+    for bot, top, at, i in gaps:
+        later = [_f(r[3]) for r in cs[i + 1:] if _f(r[3]) > 0]
+        lo = min(later) if later else top
+        if lo <= bot:
+            continue   # traded through — no longer support
+        top = min(top, lo) if lo < top else top
+        if bot <= last * 1.0005:
+            live.append((bot, top, at))
+    if not live:
+        return None
+    bot, top, at = max(live, key=lambda g: g[1])   # the nearest one under the price
+    return {'bot': bot, 'top': top, 'at': at, 'dist': round((last / top - 1) * 100, 2), 'inside': bot <= last <= top, 'open': len(live)}
+
+
+def fvg_word(g):
+    return None if not g else 'inside' if g.get('inside') else 'on' if _f(g.get('dist')) <= FVG_NEAR else 'above'
+
+
 def germ_entry(ch):
     """🦠 ENTRY AT THE GERM, confirmed on 1m AND 5m (owner, 2026-10-16: "if bots get in on the germ instead of the gun line they'd make mad
     profit — check 1 and 5 min, use both to confirm"). Replay of 400 germ vs 5,086 gun-line entries on the recorded 1-min candles: within 30 min
@@ -237,6 +274,7 @@ def snapshot(rows, now=0.0, ohlc=True, buy=None, liq=None, liq_d=None, flow=None
         lastLow='lower' if len(pl) >= 2 and pl[-1][1] < pl[-2][1] else 'higher' if len(pl) >= 2 else None,
         slope=round(slope * 100, 3), fit=round(r2, 2), dir='up' if slope > 0 else 'down',
         germ=germ(rs) if ohlc else None, germ5=germ(bars5(rs), 12) if ohlc and n >= 30 else None,
+        fvg=fvg(rs) if ohlc else None, fvg5=fvg(bars5(rs)) if ohlc and n >= 30 else None,
         distHigh=round((hi - px) / hi * 100, 2), distLow=round((px - lo) / lo * 100, 2) if lo > 0 else None, rangePct=round((hi - lo) / lo * 100, 2) if lo > 0 else None,
         pos=round((px - lo) / (hi - lo), 2) if hi > lo else 0.5, vol=round(vol, 2), atr=round(atr, 2),
         body=round(sum(abs(c[i] - o[i]) / o[i] * 100 for i in range(n) if o[i] > 0) / n, 2),
@@ -578,4 +616,6 @@ def compact(chart):
     return {k: chart.get(k) for k in ('state', 'src', 'n', 'conf', 'entry', 'trend', 'chop', 'mom', 'ext', 'risk')} | {'q': _md.compact(chart.get('q'))} | \
         {k: f.get(k) for k in ('hl', 'll', 'distHigh', 'distLow') if f.get(k) is not None} | \
         ({'germ': germ_word(f['germ']), 'germDist': f['germ']['dist'], 'germRun': f['germ']['runPct']} if f.get('germ') else {}) | \
-        ({'germ5': germ_word(f['germ5']), 'germ5Dist': f['germ5']['dist']} if f.get('germ5') else {})   # 🔪 the knife / dip check reads these (opportunity.knife) · 🦠 the floor
+        ({'germ5': germ_word(f['germ5']), 'germ5Dist': f['germ5']['dist']} if f.get('germ5') else {}) | \
+        ({'fvg': fvg_word(f['fvg']), 'fvgDist': f['fvg']['dist']} if f.get('fvg') else {}) | \
+        ({'fvg5': fvg_word(f['fvg5']), 'fvg5Dist': f['fvg5']['dist']} if f.get('fvg5') else {})   # 🪜 FVG support 1m / 5m · 🔪 the knife / dip check reads these (opportunity.knife) · 🦠 the floor

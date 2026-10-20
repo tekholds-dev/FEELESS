@@ -9,7 +9,7 @@ import { avatarOf } from '../../lib/aiAvatars';
 const PriceChart = React.lazy(() => import('../terminal/PriceChart').then(m => ({ default: m.PriceChart })));
 const n = v => (v == null || v === '' || Number.isNaN(Number(v)) ? null : Number(v));
 const agoS = t => { const s = Math.max(0, Math.round(Date.now() / 1000 - (n(t) > 1e12 ? n(t) / 1000 : n(t) || 0))); return s < 60 ? `${s}s` : s < 3600 ? `${Math.round(s / 60)}m` : `${Math.round(s / 3600)}h`; };
-export const SETUP_WORD = { hhhl: '📈 HH/HL pullback', germ: '🦠 on its germ floor', breakout: '🚀 held breakout' };
+export const SETUP_WORD = { hhhl: '📈 HH/HL pullback', germ: '🦠 on its germ floor', fvg: '🪜 on its FVG support', breakout: '🚀 held breakout' };
 
 // pure: what the two chart panes can show — her open trades first (with entry), then the coins she would take next
 export function chartTargets(positions, top) {

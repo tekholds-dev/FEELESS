@@ -164,14 +164,14 @@ def setup_gate(p):
         if rd.get('bad'):
             return False, f"🔫 {str(rd['bad'])[:60]}", 1.0, []
         if not rd.get('setups'):
-            return False, 'no HH/HL · germ · breakout setup', 1.0, []
+            return False, 'no HH/HL · germ · FVG support · breakout setup', 1.0, []
     tags = list((rd or {}).get('setups') or [])
     if dw and dw.get('action') == 'BUY':
         return True, f"🤝 {dw.get('who')} bought it", 1.2, tags
     return True, '', 1.0, tags
 
 
-SETUP_WORD = {'hhhl': 'HH/HL pullback', 'germ': 'on its germ floor', 'breakout': 'held breakout'}
+SETUP_WORD = {'hhhl': 'HH/HL pullback', 'germ': 'on its germ floor', 'fvg': 'on its FVG support', 'breakout': 'held breakout'}
 
 
 async def _market_candidates(http):

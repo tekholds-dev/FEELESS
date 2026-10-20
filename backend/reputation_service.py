@@ -7957,7 +7957,9 @@ def feecat_read(c, setups, bad):
     numbers behind them — germ distance, structure, higher / lower lows, how far under its high."""
     ch = (c or {}).get('chart') or {}
     gd = ch.get('germDist') if ch.get('germDist') is not None else ch.get('germ5Dist')
+    fd = ch.get('fvgDist') if ch.get('fvgDist') is not None else ch.get('fvg5Dist')
     return {'setups': list(setups or []), 'bad': bad or None, 'struct': ch.get('state'), 'germ': None if gd is None else round(_fuse._f(gd), 1),
+            'fvg': None if fd is None else round(_fuse._f(fd), 1),
             'hl': int(_fuse._f(ch.get('hl'))), 'll': int(_fuse._f(ch.get('ll'))), 'distHigh': None if ch.get('distHigh') is None else round(_fuse._f(ch.get('distHigh')), 1)}
 
 
@@ -14196,6 +14198,8 @@ def _ai_brief(mint):
                      else f"germ floor (base of its +{_fuse._f(cf['germ'].get('runPct')):.0f}% run) {_fuse._f(cf['germ'].get('dist')):.0f}% below") if isinstance(cf.get('germ'), dict) else None),
                     (f"5-min germ {_fuse._f(cf['germ5'].get('dist')):.0f}% below" + (' — 1m AND 5m both sit on the germ: the cheap entry the run restarts from' if _fuse._f(cf['germ5'].get('dist')) <= 25 and isinstance(cf.get('germ'), dict) and _fuse._f(cf['germ'].get('dist')) <= 8 else ''))
                     if isinstance(cf.get('germ5'), dict) else None,
+                   *[(f"{lab} FVG support: price INSIDE the gap" if g_.get('inside') else f"{lab} FVG support {_fuse._f(g_.get('dist')):.1f}% below ({g_.get('open')} open)")
+                     for lab, g_ in (('1m', cf.get('fvg')), ('5m', cf.get('fvg5'))) if isinstance(g_, dict)],
                    ('breakout FAILED' if cf.get('breakFailed') else f"base, breakout held {cf.get('breakHeld')}×" if cf.get('base') and cf.get('breakHeld') else 'basing' if cf.get('base') else None),
                    f"support {(1 - sup_ / px_c) * 100:.0f}% below" if 0 < sup_ < px_c else None, f"resistance {(res_ / px_c - 1) * 100:.0f}% above" if res_ > 0 and px_c > 0 and res_ > px_c else None,
                    g('volume trend', cf.get('volTrend'), '×'), g('squeeze', cf.get('squeeze'), '×'), 'momentum decaying' if cf.get('decay') else None,
@@ -18788,7 +18792,7 @@ def _office_chart_view(ch, row=None):
     if not ch:
         return None
     f = ch.get('f') or {}
-    keep = ('px', 'r1', 'r5', 'r10', 'r15', 'r30', 'hh', 'hl', 'lh', 'll', 'lastHigh', 'lastLow', 'slope', 'fit', 'distHigh', 'distLow', 'germ', 'germ5', 'rangePct', 'pos', 'vol', 'atr', 'body', 'wick', 'upWick', 'loWick', 'seq', 'up', 'down',
+    keep = ('px', 'r1', 'r5', 'r10', 'r15', 'r30', 'hh', 'hl', 'lh', 'll', 'lastHigh', 'lastLow', 'slope', 'fit', 'distHigh', 'distLow', 'germ', 'germ5', 'fvg', 'fvg5', 'rangePct', 'pos', 'vol', 'atr', 'body', 'wick', 'upWick', 'loWick', 'seq', 'up', 'down',
             'pullback', 'recovery', 'breakTries', 'breakHeld', 'breakFailed', 'supTests', 'resTests', 'squeeze', 'accel', 'decay', 'extPct', 'volTrend', 'buy', 'imbalance', 'trades', 'liq', 'liqD', 'impact', 'support', 'resistance')
     stop, parts = _ci.stop_for(f, ch.get('state'), {'liq': f.get('liq'), 'ageH': ((row or {}).get('vitals') or {}).get('ageH'), 'courier': (_office.get('courier') or {}).get('health')}, _of.tune(_office_state(), 'reaper', 'stopPct'))
     return {'state': ch.get('state'), 'src': ch.get('src'), 'n': ch.get('n'), 'conf': ch.get('conf'), 'ev': ch.get('ev'), 'con': ch.get('con'), 'trend': ch.get('trend'), 'chop': ch.get('chop'), 'mom': ch.get('mom'), 'ext': ch.get('ext'),

@@ -998,13 +998,16 @@ def losing_entries(positions):
 HHHL_STATES = ('UPTREND', 'STRONG UPTREND', 'PULLBACK IN UPTREND')
 AGENT_GERM_ENTRY = 8.0   # 🦠 an agent's germ buy sits within 8% of the floor (the models' list keeps the owner's 15% line)
 HHHL_PULLBACK = 8.0   # an HH/HL entry is bought ≥ 8% under its high (owner, 2026-10-18: "horrible entry" — $GLITCH bought 5.4% under its gun line after the run)
-SETUP_SCORE = {'hhhl': 3, 'germ': 2, 'breakout': 1}   # ranked by the agents' own record: HH/HL best, then the germ, then breakouts
+SETUP_SCORE = {'hhhl': 3, 'germ': 2, 'fvg': 2, 'breakout': 1}   # ranked by the agents' own record: HH/HL best, then the germ, then breakouts
+
+
+FVG_ENTRY = 5.0   # 🪜 inside a 1m / 5m FVG support or ≤ 5% above its top
 
 
 def setups_of(c, germ_line=15.0):
     """🎯 THE THREE SETUPS THE AGENTS TRADE (owner, 2026-10-17: "mainly the germ method, HH/HL and breakouts") → the tags this coin shows now:
     'hhhl' = an uptrend structure, or 2+ higher lows and no lower low · 'germ' = within the germ line of its 1m (else 5m) germ floor ·
-    'breakout' = a confirmed breakout that held. [] = none of them (the ARMED / VALVE doors skip it)."""
+    'breakout' = a confirmed breakout that held · 'fvg' = on a 1m / 5m FVG support with a higher low and no lower low. [] = none of them (the ARMED / VALVE doors skip it)."""
     ch = (c or {}).get('chart') or {}
     out = []
     st = str(ch.get('state') or '').upper()
@@ -1014,6 +1017,9 @@ def setups_of(c, germ_line=15.0):
     gd = ch.get('germDist') if ch.get('germDist') is not None else ch.get('germ5Dist')
     if gd is not None and abs(_f(gd)) <= min(germ_line or 15.0, AGENT_GERM_ENTRY):   # ON the floor: $DICKBUTTIFIER 13% above its germ right after a +17% candle read as "germ"
         out.append('germ')
+    fd = [ch.get(k) for k in ('fvgDist', 'fvg5Dist') if ch.get(k) is not None]
+    if fd and min(_f(x) for x in fd) <= FVG_ENTRY and (ch.get('hl') is None or _f(ch.get('hl')) >= 1) and not _f(ch.get('ll')):   # 🪜 on its 1m / 5m FVG support with a higher low = the germ's twin
+        out.append('fvg')
     e = ch.get('entry') or []
     if st == 'CONFIRMED BREAKOUT' or (len(e) > 1 and str(e[1]).startswith('E10 breakout held')):
         out.append('breakout')

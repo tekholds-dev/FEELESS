@@ -113,6 +113,9 @@ def about_feeless(text, syms=()):
 # 🧠 WHAT IS LIVE RIGHT NOW in the engine — the chat model has no other way to know a rule shipped today. Short, one line each; update with the
 # rule (CLAUDE.md is the long version). Numbers here are rules, never results — results come from the record lines next to them.
 LIVE_MECHANICS = (
+    "🪜 FVG SUPPORT (2026-10-20): every AI and FeeCat read the open bullish fair value gaps on the 1m AND 5m candles (a candle whose low sits above "
+    "the high two candles back = support until a later candle trades through it). A coin inside its gap or ≤ 5% above it with a higher low and no "
+    "lower low is the 'fvg' setup — the germ's twin — beside HH/HL pullback, germ floor and held breakout. "
     "🦠 GERM PLAY (2026-10-16): a new agent entry must sit within the owner's germ line (agentGermMax, default 15%) of its 1m germ floor (the base "
     "candle of the coin's biggest run — the chart's 🦠); closer ranks higher (×1.30 on the floor → ×1.00 at the line, ×1.08 when the 5m germ agrees). "
     "The stop sits just under the germ (germ −3%, 8–35%; switch agentGermStop). A coin sold green may come back early when it builds a NEW germ "

@@ -52,7 +52,7 @@ PREDICTIONS ARE GRADED: every "pred" / "preds" is checked against the real price
 The trade you bought is YOURS to run: tp / sl are your own take-profit and stop lines, applied at once (change them any minute you HOLD;
 −45% is the floor nobody can move). TRIM = sell part of your coin now ("pct": 25 | 50 | 75) — bank profit, the rest keeps riding your lines.
 CONFIDENCE in LEARN = what the market's verdicts on your calls (and the votes on them) earned you. The agents only advise.
-ELITE RULES: buy at or near the GERM floor after a pullback — never pressed under the gun line, never right after a spike (those coins are not on your list). Let a trade COOK: a SELL in its first 4 minutes is ignored unless it is down 10%+ — set your stop instead. One red 5-minute candle is not an exit; sellers taking over the tape, a broken higher low, or your stop are.
+ELITE RULES: buy at or near the GERM floor or a 1m / 5m FVG SUPPORT (fvg / fvg5 = % above the gap; negative = inside it) with higher lows (HH/HL) after a pullback — never pressed under the gun line, never right after a spike (those coins are not on your list). Let a trade COOK: a SELL in its first 4 minutes is ignored unless it is down 10%+ — set your stop instead. One red 5-minute candle is not an exit; sellers taking over the tape, a broken higher low, or your stop are.
 READ BOTH CHARTS every decision: CHART1M and CHART5M (germ floor distance on each, structure, higher / lower lows). A coin sitting on its 1m or 5m germ floor, or printing higher lows with no lower low, is a HOLD even when volume is slow — volume picks up from a base. Sell a base only when it breaks (a lower low / under the germ) or sellers lead.
 THE OWNER TALKS TO YOU: OWNER = his newest line on this trade / for your next pick. Answer it FIRST in your why ("you said X — I …"), agree or say exactly why not; he grades you on it. When he asks to adjust TP / SL / trail, SET the new numbers in "tp" / "sl" / "trail" in THIS answer.
 WALLETS = what the snipers, bundles, the dev, top holders, whales and top traders did since your buy (candidates carry "wallets" too).
@@ -97,7 +97,7 @@ def cand_row(c, qwen=None):
            'cap': _r(v.get('mcap'), 0), 'ageMin': None if v.get('ageH') is None else round(_f(v['ageH']) * 60), 'move5m': _r(n.get('d5')),
            'buyers': _r(n.get('buy'), 0), 'pool': _r(n.get('liq') or v.get('liq'), 0), 'top10': _r(v.get('top10'), 0),
            'germ': _r(ch.get('germDist')), 'germ5': _r(ch.get('germ5Dist')), 'offHigh': _r(ch.get('distHigh')), 'struct': ch.get('state'),
-           'higherLows': ch.get('hl'), 'lowerLows': ch.get('ll')}   # 🦠 1m germ + 5m germ + structure on EVERY coin they read
+           'higherLows': ch.get('hl'), 'lowerLows': ch.get('ll'), 'fvg': _r(ch.get('fvgDist')), 'fvg5': _r(ch.get('fvg5Dist'))}   # 🦠 1m germ + 5m germ + 🪜 1m / 5m FVG support + structure on EVERY coin they read
     if qwen:
         out['qwen'] = str(qwen)[:120]
     return {k: x for k, x in out.items() if x not in (None, '')}
@@ -611,7 +611,8 @@ GERM_HOLD = 15.0   # 🦠 within this % above its 1m or 5m germ floor = sitting 
 def chart_view(ch):
     """📈 The 1-minute AND 5-minute read of a coin for the models: germ floor distance on each, structure, higher / lower lows, under its high."""
     c = ch or {}
-    out = {'germ1m': _r(c.get('germDist')), 'germ5m': _r(c.get('germ5Dist')), 'struct': c.get('state'), 'higherLows': c.get('hl'),
+    out = {'germ1m': _r(c.get('germDist')), 'germ5m': _r(c.get('germ5Dist')), 'fvgSupport1m': _r(c.get('fvgDist')), 'fvgSupport5m': _r(c.get('fvg5Dist')),
+           'struct': c.get('state'), 'higherLows': c.get('hl'),
            'lowerLows': c.get('ll'), 'offHigh': _r(c.get('distHigh')), 'offLow': _r(c.get('distLow')), 'trend': c.get('trend'), 'mom': c.get('mom')}
     return {k: x for k, x in out.items() if x not in (None, '')}
 
@@ -619,10 +620,10 @@ def chart_view(ch):
 def base_hold(ch):
     """→ the reason a coin is worth holding through slow volume (on its 1m / 5m germ floor, or 2+ higher lows and no lower low), else None."""
     c = ch or {}
-    for k, w in (('germDist', '1m'), ('germ5Dist', '5m')):
+    for k, w in (('germDist', '1m germ floor'), ('germ5Dist', '5m germ floor'), ('fvgDist', '1m FVG support'), ('fvg5Dist', '5m FVG support')):
         d = c.get(k)
-        if d is not None and 0 <= _f(d) <= GERM_HOLD:
-            return f'on its {w} germ floor ({_f(d):.1f}% above)'
+        if d is not None and -GERM_HOLD <= _f(d) <= GERM_HOLD:
+            return f'on its {w} ({_f(d):.1f}% from it)'
     if _f(c.get('hl'), 0) >= 2 and _f(c.get('ll'), 0) == 0:
         return f"{int(_f(c.get('hl')))} higher lows, no lower low"
     return None
