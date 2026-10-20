@@ -29,7 +29,8 @@
 .wp-sym { background: none; border: 0; padding: 0; cursor: pointer; color: #f2fff7; font: 800 18px var(--m-sans, system-ui); transition: color .15s; }
 .wp-sym:hover, .wp-sym:focus-visible { color: #45e486; outline: none; } .wp-sym:active { transform: translateY(1px); }
 .wp-head { margin: 0; font: 400 clamp(20px, 2.4vw, 28px)/1.2 'Instrument Serif', Georgia, serif; color: #f2fff7; }
-.wp-tiles { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 6px; }
+.wp-tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(92px, 1fr)); gap: 6px; }
+.wp-tiles span:first-child { grid-column: span 2; }   /* the move tile reads "+22% · 6 hours" */
 .wp-tiles span { display: flex; flex-direction: column; gap: 2px; padding: 8px 9px; border-radius: 10px; background: rgba(255, 255, 255, .03); border: 1px solid rgba(255, 255, 255, .06); animation: wpRise .45s ease-out both; animation-delay: calc(var(--i) * 60ms); }
 .wp-tiles em { font: 700 8.5px var(--m-mono, monospace); font-style: normal; letter-spacing: .12em; color: #6f8f7d; }
 .wp-tiles b { font: 800 13px var(--m-mono, monospace); color: #e9fff2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -75,5 +76,5 @@ body.theme-day .wp-title, body.theme-day .wp-head, body.theme-day .wp-sym, body.
 body.theme-day .wp-w.is-pump { color: #0a8a45; } body.theme-day .wp-sub { color: #355a45; } body.theme-day .wp-sub b { color: #0b2a19; }
 body.theme-day .wp-form { background: #fff; } body.theme-day .wp-form .m-input { color: #0b2a19; }
 body.theme-day .wp-drv li { background: rgba(10, 138, 69, .06); color: #18392a; } body.theme-day .wp-tiles span { background: rgba(255, 255, 255, .6); } body.theme-day .wp-tiles b { color: #0b2a19; }
-@media (max-width: 980px) { .wp { grid-template-columns: 1fr; } .wp-tiles { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+@media (max-width: 980px) { .wp { grid-template-columns: 1fr; } }
 @media (max-width: 640px) { .wp { padding: 18px 14px; } .wp-form { flex-direction: column; } .wp-tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); } .wp-drv li { grid-template-columns: 22px minmax(0, 1fr); } .wp-drv .wp-src { grid-column: 2; justify-self: start; } }
