@@ -51,6 +51,12 @@ export function NexaDesk({ call }) {
         {(d?.memory || []).length ? <ol>{d.memory.slice().reverse().slice(0, 14).map(m => <li key={`${m.at}-${m.text}`} className={`k-${m.kind}`}><i>{MEM_ICON[m.kind] || '•'}</i><span>{m.text}</span><small>{ago(m.at)}</small></li>)}</ol>
           : <p className="nxd-dim">Empty — her lessons and discoveries land here after each read.</p>}
       </article>
+      <article className="nxd-card nxd-kb" data-testid="nexa-kb"><h4>🧠 DISCOVERY BASE<small>{d?.kb ? `${d.kb.total} facts · ${d.kb.kb} KB` : 'empty'} · she searches only for what it lacks</small></h4>
+        {d?.kb ? <div className="nxd-kbbars">{Object.entries(d.kb.n || {}).map(([c, n], i) => <span key={c} style={{ '--i': i }}><em>{c}</em>
+          <i><u style={{ transform: `scaleX(${Math.min(1, n / ((d.kb.caps || {})[c] || 1))})` }} /></i><b>{n}</b></span>)}</div> : null}
+        {(d?.kb?.latest || []).length ? <ol>{d.kb.latest.slice(0, 10).map(f => <li key={`${f.cat}-${f.key}`}><i>{f.src === 'nexa' ? '🪟' : '⚙'}</i><span><b>{f.cat}</b> {f.fact}</span><small>{ago(f.at)}</small></li>)}</ol>
+          : <p className="nxd-dim">Fills as she reads: every coin FEELESS shows her, every fact she chooses to keep.</p>}
+      </article>
     </div>
     <p className="nxd-real" data-testid="nexa-real">💵 Real money: {d?.real?.why || 'FeeCat trades paper.'}</p>
   </section>;

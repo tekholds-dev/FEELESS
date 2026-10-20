@@ -40,3 +40,11 @@ body.fx-lite .nxd * { animation: none !important; }
 @media (prefers-reduced-motion: reduce) { .nxd * { animation: none !important; } }
 body.theme-day .nxd-card { background: rgba(180, 140, 255, .08); } body.theme-day .nxd-why, body.theme-day .nxd-mem li, body.theme-day .nxd-tunes li { color: #2a1e47; } body.theme-day .nxd-who b { color: #4a2d8f; }
 @media (max-width: 640px) { .nxd { padding: 12px; } .nxd-acts { width: 100%; } .nxd-acts .m-btn { flex: 1; } }
+/* 🧠 discovery base */
+.nxd-kbbars { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 4px 8px; margin-bottom: 8px; }
+.nxd-kbbars span { display: grid; grid-template-columns: 64px 1fr 30px; gap: 5px; align-items: center; font: 600 9.5px 'JetBrains Mono', monospace; color: #b8a6e8; animation: nxdBar .35s ease-out both; animation-delay: calc(var(--i) * 40ms); }
+.nxd-kbbars em { font-style: normal; } .nxd-kbbars b { text-align: right; color: #e7dcff; }
+.nxd-kbbars i { height: 5px; border-radius: 5px; background: rgba(255, 255, 255, .07); overflow: hidden; } .nxd-kbbars u { display: block; height: 100%; background: #b48cff; transform-origin: left; transition: transform .6s ease; }
+@keyframes nxdBar { from { transform: translateX(-6px); } }
+body.fx-lite .nxd-kbbars span { animation: none; } @media (prefers-reduced-motion: reduce) { .nxd-kbbars span { animation: none; } }
+@media (max-width: 640px) { .nxd-kbbars { grid-template-columns: repeat(2, minmax(0, 1fr)); } }

@@ -9122,7 +9122,7 @@ async def _keeper_stop():
     _keeper_state['stopping'] = True   # loops still running during shutdown must not trade
     _single.release(KEEPER_LOCK)
     for flush in (_store_flush, lambda: _block_flush() if _block_dirty['on'] else None, _hygiene_flush,   # debounced stores: nothing learned is lost on a stop
-                  _agents_mem.flush, _lingo_mem.flush, _shadow_flush, _social_flush, _after_mem.flush, _aim_mem.flush, _g4_mem.flush, _paths_mem.flush):
+                  _agents_mem.flush, _lingo_mem.flush, _shadow_flush, _social_flush, _after_mem.flush, _aim_mem.flush, _g4_mem.flush, _paths_mem.flush, _nexa_kb_mem.flush):
         try:
             flush()
         except Exception:
@@ -14733,6 +14733,8 @@ async def _feecat_duo_safe(now, env, cfg):
 import nexa as _nexa   # noqa: E402  🪟 Nexa Sicario — FeeCat's own model (Windows llamafile)
 NEXA_PATH = DATA_DIR / 'nexa.json'
 _nexa_mem = _ms0.MemStore(lambda: NEXA_PATH, 60.0, lambda p_, d_: _json_load(p_, d_), lambda p_, o_: _json_save(p_, o_))
+NEXA_KB_PATH = DATA_DIR / 'nexa_kb.json'   # 🧠 her discovery base (nexa_kb.py: capped short facts, a few hundred KB at most)
+_nexa_kb_mem = _ms0.MemStore(lambda: NEXA_KB_PATH, 120.0, lambda p_, d_: _json_load(p_, d_), lambda p_, o_: _json_save(p_, o_))
 _nexa_rt: dict = {'busy': False, 'at': 0.0}
 
 
@@ -14758,10 +14760,18 @@ async def _nexa_tick(now, env, cfg):
         rules_, bounds_ = rl_.get('rules') or {}, {k_: tuple(v_) for k_, v_ in (rl_.get('bounds') or {}).items()}
         pk_ = {'OPEN': fc_['openTrades'], 'NEXT': fc_['nextCoins'], 'RULES': {k_: [rules_.get(k_), list(bounds_[k_])] for k_ in bounds_},
                'RECORD': _nexa.record(st_.get('grades') or []), 'MEMORY': _nexa.recall(st_.get('mem') or [])}
+        import nexa_kb as _nkb
+        kb_ = _nexa_kb_mem.get() or {}
+        coins_ = [x_ for k_ in ('OPEN', 'NEXT') if isinstance(pk_[k_], list) for x_ in pk_[k_] if isinstance(x_, dict)]
+        _nkb.auto(kb_, coins_, now)   # 🧠 what FEELESS already knows about these coins → her base
+        keys_ = [x_.get('mint') for x_ in coins_] + [f"${x_.get('symbol')}" for x_ in coins_ if x_.get('symbol')]
+        pk_['KNOWN'] = _nkb.recall(kb_, keys_, [x_.get('symbol') for x_ in coins_ if x_.get('symbol')], 24, now)
+        web_need_ = set(_nkb.need_web(kb_, [x_.get('mint') for x_ in coins_], now))
         web_ = []
         try:
             import feeless_mcp as _mcp
-            res_ = await asyncio.wait_for(asyncio.gather(*[asyncio.to_thread(_mcp._search_rows, q_, 4) for q_ in _nexa.queries(pk_)], return_exceptions=True), timeout=12)
+            qpk_ = {**pk_, 'NEXT': [x_ for x_ in pk_['NEXT'] if isinstance(x_, dict) and x_.get('mint') in web_need_]} if isinstance(pk_.get('NEXT'), list) else pk_   # 🧠 known coins skip the search
+            res_ = await asyncio.wait_for(asyncio.gather(*[asyncio.to_thread(_mcp._search_rows, q_, 4) for q_ in _nexa.queries(qpk_)], return_exceptions=True), timeout=12)
             web_ = [{'title': (w_.get('title') or '')[:90], 'url': w_.get('url'), 'snippet': (w_.get('snippet') or '')[:140]} for r_ in res_ if isinstance(r_, list) for w_ in r_][:8]
             pk_['SYSTEM'] = str(_mcp.living_now() or '')[:900]
         except Exception:
@@ -14770,6 +14780,15 @@ async def _nexa_tick(now, env, cfg):
         pairs_ = [x_.get('pairAddress') for k_ in ('OPEN', 'NEXT') if isinstance(pk_[k_], list) for x_ in pk_[k_]]
         r_ = await _air.ROUTER.ask(_ai_http(), env, cfg, 'Read the packet.', context=pk_, role='exit', urgency='force', only=('win',), system=_fv_persona_sys('NEXA', _nexa.ASK), only_system=True, tune={'temp': 0.2, 'maxTok': 600})
         d_ = _nexa.parse(r_.get('text'), pairs_, rules_, bounds_)
+        try:
+            _nkb.remember(kb_, ((_nexa.first_json(r_.get('text')) or {}).get('remember') or []), now)
+            if d_ and d_.get('discovery'):
+                _nkb.put(kb_, 'fact', d_['discovery'][:40], d_['discovery'], now)
+            if d_ and d_.get('lesson'):
+                _nkb.put(kb_, 'lesson', d_['lesson'][:40], d_['lesson'], now)
+            _nexa_kb_mem.put(kb_, now)
+        except Exception as e_:
+            print('nexa kb:', str(e_)[:80])
         st_ = _nexa_mem.get() or {}
         st_ = {**st_, 'at': now, 'ms': r_.get('ms'), 'ok': bool(d_), 'err': None if d_ else (r_.get('why') or 'no JSON in her answer')}
         if d_:
@@ -14818,6 +14837,13 @@ async def _nexa_settle(now):
     mem_ = st_.get('mem') or []
     for x_ in done_:
         mem_ = _nexa.remember(mem_, 'grade', f"{x_['call']} {x_['pair'][:6]}… → {x_['res']:+.1f}% an hour later", now)
+        try:
+            import nexa_kb as _nkb
+            kb_ = _nexa_kb_mem.get() or {}
+            _nkb.rug(kb_, x_['pair'], x_.get('symbol'), x_['res'], now)
+            _nexa_kb_mem.put(kb_, now)
+        except Exception:
+            pass
     if done_:
         _nexa_mem.put({**st_, 'grades': g_, 'mem': mem_}, now)
 
@@ -23956,7 +23982,8 @@ async def admin_nexa(request: Request):
             'label': _air.LABEL.get('win')}, 'busy': _nexa_rt['busy'],
             'every': _air.rig('win', 'every', _nexa.NEXA_EVERY), 'at': st_.get('at'), 'ok': st_.get('ok'), 'err': st_.get('err'), 'ms': st_.get('ms'), 'last': st_.get('last'),
             'record': _nexa.record(st_.get('grades') or []), 'tunes': (st_.get('tunes') or [])[-10:], 'cfg': st_.get('cfg') or {},
-            'memory': (st_.get('mem') or [])[-40:], 'memN': len(st_.get('mem') or []), 'real': {'on': False, 'why': 'FeeCat trades paper. A real-money FeeCat needs her own keeper path (sign from a FeeCat wallet, the Fuse wallet checks) — not built yet; switching it on stays your call.'}}
+            'memory': (st_.get('mem') or [])[-40:], 'memN': len(st_.get('mem') or []),
+            'kb': {**__import__('nexa_kb').stats(_nexa_kb_mem.get() or {}), 'latest': __import__('nexa_kb').latest(_nexa_kb_mem.get() or {}, 30)}, 'real': {'on': False, 'why': 'FeeCat trades paper. A real-money FeeCat needs her own keeper path (sign from a FeeCat wallet, the Fuse wallet checks) — not built yet; switching it on stays your call.'}}
 
 
 @app.post('/api/reputation/admin/nexa')
