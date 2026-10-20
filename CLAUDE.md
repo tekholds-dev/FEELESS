@@ -5234,3 +5234,36 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
 - 🌌 FEELESS UNIVERSE (`command/FeelessUniverse.jsx` + `feelessUniverse.css` `fu-*`, top of the roadmap AND the whitepaper): 8 feature planets
   orbit the core (CSS 3D; radius = `--R` 40cqmin on the container — a % translate on a 0-size element is 0), hover pauses, tap = a walk-through
   that steps itself, link to the page; flagship stack $FEE · FEECAT · rFEE + "bigger audited coins later — a plan, not a promise".
+- 🎛 MODEL RIG (owner, 2026-10-20: "tweak Nexa / OSSY / G4's LM and llama context, concurrency"; `backend/ai_rig.py` pure + tested,
+  `data/ai_rig.json`, owner `GET|POST /admin/ai/rig`, `ModelRig.jsx` on top of Brain › Models): per model (lan G4 · local OSSY · win NEXA)
+  context cap · parallel slots · timeout · background calls a minute · (NEXA) read cadence → `ai_router.RIG` / `rig()` (semaphore rebuilt
+  when parallel changes, `local_ctx` = min(loaded, rig ctx), ctx split by rig parallel, `minute_cap`). It changes only what FEELESS SENDS;
+  the loaded context / slots are set where the model loads — the panel prints the `lms load …` / llamafile command. Nothing reloads a model.
+- 🪜 FVG SUPPORT (`chart_intel.fvg/fvg_word`, compact `fvg` / `fvgDist` / `fvg5` / `fvg5Dist`): open 1m + 5m bullish gaps are support like the
+  germ — setup 'fvg' in `office_edge.setups_of` (≤ `FVG_ENTRY` 5% above with a higher low, no lower low), FeeCat's read + gate, the models'
+  chart_view / base_hold, the chat's LIVE_MECHANICS. HQ FeeCat charts draw on MARKET CAP (the pins need it; they were invisible on a price chart).
+- 🧠 NEXA DISCOVERY BASE (`backend/nexa_kb.py` pure + tested, `data/nexa_kb.json` MemStore): ≤ ~3,000 short facts (160 chars) in capped
+  drawers (coin · creator · wallet · narrative · site · x · rug · lesson · fact), least-used dropped first; filled from what FEELESS knows +
+  her own `remember` answers, recalled into each read as KNOWN; she web-searches only coins it lacks (`need_web`). NexaDesk 🧠 card.
+- 💬 FEEd dev-null style (`FeedX.jsx`): Latest / Trending / Following / Saved, ringed avatars, post hash, ☆ star · ❝ quote · ↩ reply · 🔖 save ·
+  🔗 link, replies inline on a dotted thread ("Show the last N"); follows + saves in localStorage. 🚧 Share design `hazard` (shareGif DESIGNS[0]).
+- 🛟 SUPPORT HUB (`backend/support.py` pure + tested, `SUPPORT_PATH`, `GET|POST /api/reputation/support`, owner `POST /admin/support/poll`;
+  `SupportHub.jsx` page `support`, `SupportButton` on rep / profile / roadmap / whitepaper): reports grid sorted by importance (titles
+  cleaned: no stacks, URLs, wallets, security text; +1 me too), polls climb a ladder by votes (💡 → 🔥 10 → 🗳 25 → 🛠 50), the owner moves
+  a top poll onto the roadmap / building / shipped / declined; ≤ 3 polls a wallet a day, signed session required.
+- 🐆 FEE IS A BLACK PANTHER (`components/Panther.jsx` + `styles/panther.css` `pt-*`): one SVG rig, 8 gestures (`GESTURES` idle · wave · pounce ·
+  roar · purr · sleep · celebrate · think — tap = a random one, hover = wave), 7 coats (`COATS`: black · pink · gold · snow · royal · shadow ·
+  neon; picker remembered `feeless.panther`, event `feeless:panther`), `crop="head"` = the small mark. `FeeCatMark` = the panther head
+  (same props; `variant` → coat, `colors` paints a user cat). Fee's profile: gesture by status / P&L + "🐆 Fee's look" fold (stage + picker).
+- 🚀 LAUNCH A CAT (`backend/launch_cat.py` pure + tested; wired into `feecat_service`: `GET /api/cats/models` = OpenRouter's public list
+  cached 1h, `POST /api/cats` takes brains / brainMode / billing / prompt, actions chime · pull · topup; `LaunchCat.jsx` + `BrainPanel`,
+  `styles/launchCat.css` `lct-*`, Fee Cats tab 🚀 Launch a Cat): up to 2 brains, modes turns · discuss · together (both must agree) · battle
+  (every other buy, two records), ONE brief locked for life, chime-in = advice only. BUDGET: one decision before a buy (one ask per tick, a
+  SKIP cools that coin), ≤ `LIVE_ASKS` 3 while live and only on a ±`ALERT_PCT` 10% move. Billing: profit pays (owed ≤ $2, settled from a
+  winning sale, apart from P&L) or pay as you go (pauses at $0). Pull = every coin sold + balance out, locked until a top-up. PAPER CATS
+  ONLY; the $10 credit is paper credit. MODEL CALLS ARE OFF until the owner sets `LAUNCH_CAT_LIVE=1` (they spend the owner's OpenRouter key);
+  off = the rule engine decides and nothing is charged. Real user money (charging $10, custody of a user's funds) is NOT built — owner's call.
+- 🧪 LAUNCH LAB (`components/LaunchLab.jsx` + `styles/launchLab.css` `llb-*`; user launch page, HQ › Launch, HQ pools): an animated demo per
+  type (Pump curve · Meteora dynamic curve + decaying anti-snipe tax · LaunchLab curve · x·y=k pool · DLMM bins · locked liquidity), the knobs
+  each one has, platforms compared by MECHANICS (fees change on their side — never quote theirs), FEELESS extras (House config HQ only).
+  Explain-only: the signed launchers below it are unchanged.
