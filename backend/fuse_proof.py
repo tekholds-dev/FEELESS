@@ -14,11 +14,7 @@ DUEL_DRAW = 0.5          # closer than half a point = a draw
 TRIM, EXIT = 'trimmed to the card', 'not on the card any more'
 
 
-def _f(v):
-    try:
-        return float(v or 0)
-    except (TypeError, ValueError):
-        return 0.0
+from fnum import zero as _f  # noqa: E402
 
 
 def _filled(rows, card=None):

@@ -1020,15 +1020,6 @@ def setups_of(c, germ_line=15.0):
     return out
 
 
-def setup_order(cands, germ_line=15.0):
-    """Only coins showing one of the three setups, the best setup first (then the kernel's own rank)."""
-    rows = [(c, setups_of(c, germ_line)) for c in cands or []]
-    rows = [(c, t) for c, t in rows if t]
-    for c, t in rows:
-        c['setups'] = t
-    return [c for c, t in sorted(rows, key=lambda x: (-sum(SETUP_SCORE[k] for k in x[1]), -_f(x[0].get('rank'))))]
-
-
 def _age_b(a):
     return None if a is None else '<1h' if _f(a) < 1 else '1-6h' if _f(a) < 6 else '6-24h' if _f(a) < 24 else '1d+'
 

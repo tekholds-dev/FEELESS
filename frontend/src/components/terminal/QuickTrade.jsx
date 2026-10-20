@@ -12,6 +12,7 @@ import { useWallet } from '../../hooks/useWallet';
 import { useMarket } from '../../hooks/useMarket';
 import { useSolPrice } from '../../lib/solPrice';
 import { apiUrl, cleanAmount, errorText } from '../../lib/api';
+import { atomsToUi } from '../../lib/fuseGo';
 import { EvmTrade, EVM_TRADE_CHAINS } from './EvmTrade';
 import { formatUSD } from '../../lib/dexscreener';
 import { SlippagePicker } from '../command/SlippagePicker';
@@ -36,7 +37,6 @@ async function tradeApi(path, body) {
 
 const units = (raw, decimals) => (raw == null || decimals == null ? null : Number(raw) / 10 ** decimals);
 // Exact atoms -> decimal string, so a sell of 25% of a 6-decimals coin never carries a 7th decimal (the API rejects those).
-const rawToUi = (raw, dec) => { const s = raw.toString().padStart(dec + 1, '0'); const w = s.slice(0, s.length - dec); const f = s.slice(s.length - dec).replace(/0+$/, ''); return f ? `${w}.${f}` : w; };
 
 // Compact buy/sell box that lives next to every chart. Real Jupiter routes, simulated before
 // signing, your wallet signs — nothing custodial. Anything into $FEE carries no FEELESS fee.
@@ -112,7 +112,7 @@ function QuickTradeInner({ pair }) {
   const payAmount = () => {
     if (side === 'sell') {
       if (!balance) return null;
-      if (bal?.raw != null && bal.decimals != null) { const r = (BigInt(bal.raw) * BigInt(sellPct)) / 100n; return r > 0n ? rawToUi(r, bal.decimals) : null; }
+      if (bal?.raw != null && bal.decimals != null) { const r = (BigInt(bal.raw) * BigInt(sellPct)) / 100n; return r > 0n ? atomsToUi(r, bal.decimals) : null; }
       return Number((balance * sellPct) / 100).toFixed(bal?.decimals ?? 6).replace(/\.?0+$/, '');
     }
     const n = Number(amount);

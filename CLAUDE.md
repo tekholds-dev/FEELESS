@@ -5171,3 +5171,19 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   models'. HQ › Fee desk charts add the agents' verdict + OSSY / G4 / Reaper lines on her coins (`/admin/feecat.pins` = `_feecat_pins`, frontend
   `deskPins`). 🤖 HER AGENTS LANE card (HQ) = the agents' band per key with her own override on top (`agentLane` → `clean_lane`; empty = follow).
   Her page tab 🐱 Fee live (`FeeLiveTab.jsx`, `feeLive.css` `fcv-*`): last scan funnel, chart of what she holds / takes next, her calls.
+- 🧹 CODE HEALTH (`backend/code_health.py` pure + tested, `scripts/code-health.py` → `data/code_health.json`; `_code_health_loop` rescans in a thread
+  when the file is > 6h old; admin `GET /admin/perf/code-health` reads the file only, `POST …/scan` = background rescan; HQ › Lag catcher ›
+  🧹 Code health = `CodeHealth.jsx` + `styles/codeHealth.css`): tabs 🪦 dead code (backend top-level defs nothing names outside tests;
+  decorated routes never) · 📦 dead exports (how: unused · tests only · own file only) · 🎨 unused CSS (the SAME rule as cssHygiene.test.js,
+  so it reads 0 while that test is green) · 👯 duplicates (identical bodies: Python by AST, JS by normalized text) · 🐘 biggest functions /
+  components / files; each row opens `vscode://file/<root>/<file>:<line>` and says the fix. Heuristic — check before deleting.
+  First run (2026-10-19): 9 dead defs (8 are tested helpers / the vault's Rust mirror — kept), 13 dups, 0 unused CSS, 0 truly unused frontend
+  exports (only test hooks), 514 exports used only in their own file. Collapsed: `chain_rpc.helius_key` (was copied in candles + reputation),
+  `fnum.zero/plain/nan_safe` replace 9 private `_f` / `_num` copies, `paper_desk.busted_now = senses.busted`, `lib/api.tradingCall` + `b64`
+  (DustCleanup + FuseGo), `lib/fuseGo.atomsToUi` (QuickTrade + Dust), `pct` from lib/num in the mini chart / card; `office_edge.setup_order`
+  deleted (the READY door orders inline). THE REAL SIZE is `_prime_tick_inner` (1,120 lines), `market.create_market_router` (790),
+  `arena_prime.tick` (767) and reputation_service.py (28.5K) — splitting those is the remaining "fewer lines" work, not dead code.
+- ⚡ `/observe` (2026-10-19 perf_view: p95 38s over 53 calls): it held the store lock across the network creator lookup and rewrote the
+  1.8 MB reputation.json on EVERY call (208 saves in 5 min). The lookup now runs before the lock and `_save` is debounced (readers get the
+  new copy at once via the parse cache; `_store_flush_loop` writes ≤ every 15s + on stop; tests write at once). Machine that day: 15.1 of
+  16 GB swap used — browser p95s of 5–15s on trivial routes (/profiles) are the Mac queuing, not code.

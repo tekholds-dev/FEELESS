@@ -26,12 +26,11 @@ TABLE = {}                             # the live odds table (set by the service
 RUG_LOW = -50.0                        # "rugged" in the brain's record = fell 50%+ (or vanished) within the hour
 
 
+from fnum import nan_safe as _ns  # noqa: E402
+
+
 def _f(v, d=None):
-    try:
-        x = float(v)
-        return x if x == x else d
-    except (TypeError, ValueError):
-        return d
+    return _ns(v, d)
 
 
 def exit_liq(top10, mcap, liq):

@@ -27,11 +27,7 @@ MIN_SAMPLES = 60       # fewer judged picks than this = no table (the engine fal
 MIN_SPREAD = 10.0      # out of sample the best third must beat the worst third by this many points, or the table is not used
 
 
-def _f(v):
-    try:
-        return float(v or 0)
-    except (TypeError, ValueError):
-        return 0.0
+from fnum import zero as _f  # noqa: E402
 
 
 def _b(v, cuts):

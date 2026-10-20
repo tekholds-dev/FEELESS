@@ -27,12 +27,7 @@ def safe_url(u):
     return u if u.startswith(('https://', 'http://')) else None
 
 
-def _num(v, d=0.0):
-    try:
-        x = float(v)
-        return x if x == x else d
-    except (TypeError, ValueError):
-        return d
+from fnum import nan_safe as _num  # noqa: E402
 
 
 def from_pump(latest):

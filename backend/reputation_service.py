@@ -85,7 +85,38 @@ def _load() -> dict:
     return _empty_store()
 
 
+_store_dirty = {'on': False}
+
+
 def _save(store: dict):
+    """⚡ Debounced: /observe used to rewrite the 1.8 MB store on EVERY call (208 saves in 5 min).
+    Readers get the new copy at once through the parse cache; the file is written ≤ every 15s
+    (`_store_flush_loop`) and on stop. Tests write at once."""
+    if os.environ.get('PYTEST_CURRENT_TEST') or not STORE_PATH.exists():
+        return _save_now(store)
+    st = STORE_PATH.stat()
+    _parse_cache[str(STORE_PATH)] = ((st.st_mtime_ns, st.st_size), store)
+    _store_dirty['on'] = True
+
+
+def _store_flush():
+    if _store_dirty['on']:
+        hit = _parse_cache.get(str(STORE_PATH))
+        if hit:
+            _store_dirty['on'] = False
+            _save_now(hit[1])
+
+
+async def _store_flush_loop():
+    while True:
+        await asyncio.sleep(15)
+        try:
+            _store_flush()
+        except Exception:
+            pass
+
+
+def _save_now(store: dict):
     t0 = time.perf_counter()
     STORE_PATH.write_text(json.dumps(store))   # ⚡ no indent: an indented dump runs the pure-Python encoder (6.7s stalls on 2.2 MB)
     st = STORE_PATH.stat()
@@ -291,13 +322,16 @@ app.add_middleware(CORSMiddleware, allow_origins=[o.strip() for o in (os.environ
 
 @app.post('/api/reputation/observe')
 async def observe(payload: ObservePayload):
+    mint_key = f'{payload.chain}:{payload.baseTokenAddress}'
+    pre_ = None
+    if 'creator' not in _load()['mints'].get(mint_key, {}):   # ⚡ the network lookup runs OUTSIDE the lock (every observe queued behind it: p95 38s)
+        pre_ = await resolve_creator(payload.chain, payload.baseTokenAddress)
     async with _lock:
         store = _load()
         now = time.time()
-        mint_key = f'{payload.chain}:{payload.baseTokenAddress}'
         mint_state = store['mints'].get(mint_key, {})
         if 'creator' not in mint_state:
-            resolved = await resolve_creator(payload.chain, payload.baseTokenAddress)
+            resolved = pre_ or await resolve_creator(payload.chain, payload.baseTokenAddress)
             mint_state['creator'] = resolved['identity']
             mint_state['renounced'] = resolved['renounced']
             store['mints'][mint_key] = mint_state
@@ -523,7 +557,9 @@ async def _refresh_all_markets():
 @app.on_event('startup')
 async def _start_background():
     asyncio.create_task(_refresh_all_markets())
+    asyncio.create_task(_store_flush_loop())
     if not os.environ.get('PYTEST_CURRENT_TEST'):
+        asyncio.create_task(_code_health_loop())
         _loop_lag.WATCH.start(asyncio.get_running_loop())
         asyncio.create_task(_loop_lag_dump())
 
@@ -8799,7 +8835,7 @@ def _is_keeper():
 async def _keeper_stop():
     _keeper_state['stopping'] = True   # loops still running during shutdown must not trade
     _single.release(KEEPER_LOCK)
-    for flush in (lambda: _block_flush() if _block_dirty['on'] else None, _hygiene_flush,   # debounced stores: nothing learned is lost on a stop
+    for flush in (_store_flush, lambda: _block_flush() if _block_dirty['on'] else None, _hygiene_flush,   # debounced stores: nothing learned is lost on a stop
                   _agents_mem.flush, _lingo_mem.flush, _shadow_flush, _social_flush, _after_mem.flush, _aim_mem.flush, _g4_mem.flush, _paths_mem.flush):
         try:
             flush()
@@ -23995,16 +24031,7 @@ async def helius_webhook(request: Request):
 
 
 # ---- Auto-managed Helius webhook: follows the public domain set in the HQ ---------
-def _helius_key():
-    """HELIUS_API_KEY, else the api-key in HELIUS_RPC_URL, else in SOLANA_RPC_URL (which may point at another RPC)."""
-    import re as _re2
-    if os.environ.get('HELIUS_API_KEY'):
-        return os.environ['HELIUS_API_KEY'].strip()
-    for var in ('HELIUS_RPC_URL', 'SOLANA_RPC_URL'):
-        m = _re2.search(r'helius[^?]*\?(?:.*&)?api-key=([A-Za-z0-9-]{20,})', os.environ.get(var, ''))
-        if m:
-            return m.group(1)
-    return None
+from chain_rpc import helius_key as _helius_key  # noqa: E402 (one copy)
 
 
 def _webhook_secret():
@@ -27082,6 +27109,50 @@ async def perf_config_set(request: Request, p: PerfCfgIn):
     _json_save(PERF_CFG_PATH, {'forceLite': p.forceLite})
     ad = _admin_load(); _audit(ad, admin, 'perf-lite', str(p.forceLite)); _admin_save(ad)
     return {'forceLite': p.forceLite}
+
+
+CODE_HEALTH_PATH = DATA_DIR / 'code_health.json'
+_code_health_busy = {'on': False}
+
+
+def _code_health_scan():
+    import code_health as _ch
+    _json_save(CODE_HEALTH_PATH, _ch.scan(Path(__file__).resolve().parent.parent))
+
+
+async def _code_health_run():
+    if _code_health_busy['on']:
+        return
+    _code_health_busy['on'] = True
+    try:
+        await asyncio.to_thread(_code_health_scan)   # a static file scan (~5s) — never on the loop, never on a GET
+    finally:
+        _code_health_busy['on'] = False
+
+
+async def _code_health_loop():
+    while True:
+        try:
+            st = CODE_HEALTH_PATH.stat().st_mtime if CODE_HEALTH_PATH.exists() else 0
+            if time.time() - st > 6 * 3600:
+                await _code_health_run()
+        except Exception:
+            pass
+        await asyncio.sleep(1800)
+
+
+@app.get('/api/reputation/admin/perf/code-health')
+async def perf_code_health(request: Request):
+    """🧹 HQ › Lag catcher › Code health: the last scan (scripts/code-health.py · backend/code_health.py). Reads the cached file only."""
+    _require_admin(request)
+    return {**_json_load(CODE_HEALTH_PATH, {}), 'scanning': _code_health_busy['on']}
+
+
+@app.post('/api/reputation/admin/perf/code-health/scan')
+async def perf_code_health_scan(request: Request):
+    _require_admin(request)
+    asyncio.create_task(_code_health_run())
+    return {'scanning': True}
 
 
 @app.get('/api/reputation/admin/perf')

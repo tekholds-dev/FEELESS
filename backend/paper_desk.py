@@ -469,26 +469,13 @@ def devil(call, n, why, row, learned, duty=False):
 
 
 # ── the chain ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
-BUST_N, BUST_MED = 30, -20.0
+from trench_kernel.senses import BUST_N, BUST_MED   # noqa: E402,F401 (one rule: the kernel's)
 SOFT_MED = -1.0   # a soft objection (botted / swarm) needs its own driver record to read worse than this over 5 minutes
 
-
-def busted_now(proof, call_keys):
-    """⚖ Which reads are REALLY busted, from their own settled 1-hour records (`/fuses/call-proof`): ≥ BUST_N settled and a typical result
-    ≤ BUST_MED %. Devil's list used to be fixed text — on 2026-10-10 it rejected 19 of 25 coins as "WASH TRADED — a busted call on its own
-    record" while that read's record was −0.2% / 47% up (flat), and TREND DOWN's was +0.3% / 72% up. → set of read labels, or None when
-    there is no record to judge from (the fixed list stands in)."""
-    if not proof:
-        return None
-    out = {}   # {read: its typical 1h %} — membership works like the old set; the median decides the SEVERITY (busted_severity)
-    for label, key in (call_keys or {}).items():
-        r = proof.get(key) or {}
-        if int(_f(r.get('n'))) >= BUST_N and r.get('medPct') is not None and _f(r['medPct']) <= BUST_MED:
-            out[label] = round(_f(r['medPct']), 1)
-    return out
+busted_now = _sn.busted   # ⚖ reads REALLY busted on their own settled 1h records (the kernel's rule, one copy)
 
 
-BUST_HARD = -50.0   # a read type whose coins typically lose half in an hour is a safety failure on the record: HARD VETO
+from trench_kernel.senses import BUST_HARD   # noqa: E402,F401
 
 
 def busted_severity(rd, busted):

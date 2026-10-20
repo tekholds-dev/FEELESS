@@ -1,11 +1,11 @@
 import React, { useState } from 'react';
+import { pct as sg } from '../lib/num';
 import { LiveFuseCard } from './FuseCard';
 import { usePrime, primeRow, fuseLevels, TIER } from './ArenaPrime';
 import { useLivePrices } from '../lib/livePrices';
 import MiniChartBody from './MiniChartBody';
 
 const TFS = ['1m', '5m', '15m'];
-const sg = v => `${v >= 0 ? '+' : ''}${v.toFixed(1)}%`;
 
 // The mini card's inside: 🃏 the SAME LiveFuseCard the page shows (tier look, flips to its live money) ⇄ 📈 the chart of one of
 // its coins (the SAME mini chart body: the card's entry / stop / lock + your own trades). A tier card is always read live.

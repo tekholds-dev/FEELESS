@@ -22,3 +22,10 @@ export function cleanAmount(v) {
   if (s.startsWith('.')) s = `0${s}`;
   return s.replace(/^0+(?=\d)/, '');
 }
+
+// One call to the trading service (quote / simulate / execute): JSON in, JSON out, the server's own `detail` as the error.
+export async function tradingCall(path, body) {
+  const r = await fetch(apiUrl(`/api/trading${path}`), body ? { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) } : {});
+  const d = await r.json().catch(() => ({})); if (!r.ok) throw new Error(typeof d.detail === 'string' ? d.detail : `Error ${r.status}`); return d;
+}
+export const b64 = u8 => btoa(String.fromCharCode(...u8));

@@ -15,11 +15,7 @@ EDGE = 1.0
 GERM_NEAR = 15.0
 
 
-def _f(v, d=0.0):
-    try:
-        return float(v) if v is not None else d
-    except (TypeError, ValueError):
-        return d
+from fnum import plain as _f  # noqa: E402
 
 
 def bucket(germ_dist):

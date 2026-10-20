@@ -146,11 +146,7 @@ async def _safety(http, p):
     return True, f"top10 {_num(d.get('top10Pct')):.0f}%, insiders {_num(d.get('insidersHoldingPct')):.0f}%, {snip} snipers, {bund} bundled, creator {rep.get('badge') or 'unknown'}", max(0.5, min(1.75, round(conviction, 2)))
 
 
-def _num(v, d=0.0):
-    try:
-        return float(v)
-    except (TypeError, ValueError):
-        return d
+from fnum import plain as _num  # noqa: E402
 
 
 _POOL_META: dict = {'duo': {}}

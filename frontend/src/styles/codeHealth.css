@@ -1,0 +1,37 @@
+/* 🧹 HQ › Lag catcher › Code health (CodeHealth.jsx) — built from m-* tokens */
+.chl { margin-top: 10px; display: grid; gap: 8px; }
+.chl-head { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+.chl-head h4 { margin: 0; }
+.chl-tot { flex: 1; min-width: 0; font: 11px var(--m-mono); color: var(--m-dim); }
+.chl-tot b { color: var(--m-accent); }
+.chl-tabs, .chl-how { flex-wrap: wrap; }
+.chl-tabs em { font-style: normal; font-family: var(--m-mono); font-size: 10px; opacity: .75; margin-left: 4px; }
+.chl-files { margin: 0; font-family: var(--m-mono); }
+.chl-list { list-style: none; margin: 0; padding: 0; max-height: 460px; overflow: auto; scrollbar-width: thin; scrollbar-color: var(--m-accent) transparent; }
+.chl-list::-webkit-scrollbar { width: 6px; } .chl-list::-webkit-scrollbar-thumb { background: var(--m-accent); border-radius: 6px; }
+.chl-row { display: grid; grid-template-columns: minmax(180px, 1.1fr) 110px minmax(0, 2fr) auto; gap: 10px; align-items: center; padding: 7px 4px;
+  border-bottom: 1px solid var(--m-line); animation: chlIn .18s var(--m-ease) both; }
+.chl-row:hover { background: color-mix(in srgb, var(--m-accent) 6%, transparent); }
+.chl-loc { display: grid; gap: 1px; min-width: 0; text-decoration: none; color: var(--m-text); border-radius: var(--m-r-sm); outline: none; }
+.chl-loc b { font: 600 12px var(--m-mono); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.chl-loc code { font-size: 10px; color: var(--m-mute); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.chl-loc:hover b, .chl-loc:focus-visible b { color: var(--m-accent); }
+.chl-loc:focus-visible { box-shadow: 0 0 0 2px var(--m-accent); }
+.chl-loc:active { transform: translateY(1px); }
+.chl-bar { position: relative; height: 14px; border-radius: 4px; background: var(--m-surface-2); overflow: hidden; }
+.chl-bar i { position: absolute; inset: 0; background: linear-gradient(90deg, var(--m-accent), var(--m-warn)); transform-origin: left; opacity: .55; }
+.chl-bar em { position: relative; font: 700 10px var(--m-mono); font-style: normal; padding-left: 6px; line-height: 14px; color: var(--m-text); }
+.chl-fix { font-size: 12px; color: var(--m-dim); min-width: 0; }
+.chl-fix a { color: var(--m-accent); }
+.chl-copy { padding: 2px 8px; }
+.chl-row.k-dead_def .chl-loc b, .chl-row.k-dead_css .chl-loc b { color: var(--m-danger); }
+.chl-row.k-dup .chl-loc b { color: var(--m-warn); }
+@keyframes chlIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+body.fx-lite .chl-row { animation: none; }
+@media (prefers-reduced-motion: reduce) { .chl-row { animation: none; } }
+body.theme-day .chl-row:hover { background: color-mix(in srgb, var(--m-accent) 9%, transparent); }
+body.theme-day .chl-bar i { opacity: .4; }
+@media (max-width: 640px) {
+  .chl-row { grid-template-columns: minmax(0, 1fr) auto; }
+  .chl-bar, .chl-fix { grid-column: 1 / -1; }
+}

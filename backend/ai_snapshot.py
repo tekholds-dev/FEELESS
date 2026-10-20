@@ -13,12 +13,11 @@ from __future__ import annotations
 PTS = 24
 
 
+from fnum import nan_safe as _ns  # noqa: E402
+
+
 def _f(v, d=None):
-    try:
-        x = float(v)
-        return x if x == x else d
-    except (TypeError, ValueError):
-        return d
+    return _ns(v, d)
 
 
 def snapshot(bars, entry=None, n=PTS):

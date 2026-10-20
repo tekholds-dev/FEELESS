@@ -754,7 +754,7 @@ def test_the_agents_trade_the_three_setups_hhhl_first_then_the_germ_then_a_held_
     bo = {'mint': 'C', 'rank': 5, 'chart': {'state': 'RANGE', 'entry': ['ENTER NOW', 'E10 breakout held', 'x']}}
     hl = {'mint': 'D', 'rank': 2, 'chart': {'state': 'RANGE', 'hl': 2, 'll': 0}}
     none = {'mint': 'E', 'rank': 99, 'chart': {'state': 'COMPRESSION', 'germDist': 40.0}}
-    assert [c['mint'] for c in oe.setup_order([none, bo, germ, hl, up])] == ['D', 'A', 'B', 'C']
+    assert [oe.setups_of(c)[0] for c in (hl, up, germ, bo)] == ['hhhl', 'hhhl', 'germ', 'breakout']
     assert oe.setups_of(none) == [] and oe.setups_of({'chart': {'germ5Dist': 3.0}}) == ['germ']
 
 

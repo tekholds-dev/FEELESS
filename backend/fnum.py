@@ -3,6 +3,7 @@
 nan_safe — float(v); NaN / not a number → d (inf passes)
 finite   — float(v); NaN, ±inf / not a number → d
 plain    — float(v); not a number → d (NaN and inf pass)
+zero     — float(v or 0); not a number → 0.0
 """
 import math
 
@@ -28,3 +29,7 @@ def plain(v, d=0.0):
         return float(v)
     except (TypeError, ValueError):
         return d
+
+
+def zero(v):
+    return plain(v or 0)

@@ -34,7 +34,7 @@ export const orderMatches = (o, order) => Boolean(order) && order.input_mint ===
   && Math.abs(Number(order.amount) - Number(o.request.amount)) < 1e-9;
 
 // Exact atoms → decimal string (never an extra decimal the API would reject).
-const atomsToUi = (raw, dec) => { const s = raw.toString().padStart(dec + 1, '0'); const w = s.slice(0, s.length - dec); const f = s.slice(s.length - dec).replace(/0+$/, ''); return f ? `${w}.${f}` : w; };
+export const atomsToUi = (raw, dec) => { const s = BigInt(raw).toString().padStart(dec + 1, '0'); const w = s.slice(0, s.length - dec); const f = s.slice(s.length - dec).replace(/0+$/, ''); return f ? `${w}.${f}` : w; };
 
 // Unfuse: sell each leg's coin back to SOL — the smaller of what this Fuse bought and what the wallet still holds.
 // balances = {mint: {raw, decimals}} from /balance. Legs with nothing left are skipped (already sold elsewhere).

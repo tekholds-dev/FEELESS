@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import { errorText } from '../../lib/api';
 import { liteMode, setLite } from '../../lib/perfWatch';
+import { CodeHealth } from './CodeHealth';
 
 // HQ › Lag catcher: what real visitors feel (slow routes, janky pages, fps) + the fix for each.
 export function LagCatcher({ call }) {
@@ -25,5 +26,6 @@ export function LagCatcher({ call }) {
       <div className="cc-block"><h4>Slowest API routes</h4>{!d?.routes?.length ? <p className="cc-empty">No samples yet.</p> : d.routes.slice(0, 10).map(r => <div key={r.route} className="lag-row"><code>{r.route}</code><small>{r.calls}×</small><b className={r.p95 >= 2500 ? 'bad' : r.p95 >= 1200 ? 'warn' : ''}>{r.p50} / {r.p95}ms</b></div>)}</div>
       <div className="cc-block"><h4>Pages</h4>{!d?.pages?.length ? <p className="cc-empty">No samples yet.</p> : d.pages.slice(0, 10).map(p => <div key={p.page} className="lag-row"><code>{p.page}</code><small>{p.fps != null ? `${p.fps} fps` : '—'}</small><b className={p.jankMsPerReport >= 400 ? 'warn' : ''}>{p.jankMsPerReport}ms jank</b></div>)}</div>
     </div>
+    <CodeHealth call={call} />
   </section>;
 }

@@ -82,11 +82,7 @@ def _cut_json(t):
     return {'action': a.group(1), 'why': (w.group(1) if w else '').replace('\\"', '"')} if a else None
 
 
-def _f(v, d=0.0):
-    try:
-        return float(v) if v is not None else d
-    except (TypeError, ValueError):
-        return d
+from fnum import plain as _f  # noqa: E402
 
 
 def _r(v, k=1):

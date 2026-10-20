@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import { cardChoice } from '../lib/cardChoice';
-import { apiUrl } from '../lib/api';
+import { apiUrl, tradingCall, b64 } from '../lib/api';
 import { relayConnection } from '../lib/launchRail';
 import { useWallet } from '../hooks/useWallet';
 import { fuseOrders, orderMatches, SOL_MINT } from '../lib/fuseGo';
@@ -13,11 +13,7 @@ import { tiny } from '../lib/num';
 // ⚡ One-click Fuse in. Quote + simulate every leg in parallel (refreshed every 10s while open), show the exact
 // review (coin, SOL in, est. out, fee), ONE wallet approval for all legs, then send + confirm each leg live.
 const REFRESH_MS = 10000;
-async function api(path, body) {
-  const r = await fetch(apiUrl(`/api/trading${path}`), body ? { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) } : {});
-  const d = await r.json().catch(() => ({})); if (!r.ok) throw new Error(typeof d.detail === 'string' ? d.detail : `Error ${r.status}`); return d;
-}
-const b64 = u8 => btoa(String.fromCharCode(...u8));
+const api = tradingCall;
 const outOf = o => { const dec = o?.output_metadata?.decimals; const raw = o?.quote?.outAmount; return dec == null || raw == null ? null : Number(raw) / 10 ** dec; };
 // the guaranteed minimum (the swap fails rather than give less) — from the quote, else out × (1 − slippage)
 export const minOf = (o, bps) => { const dec = o?.output_metadata?.decimals; const raw = o?.quote?.otherAmountThreshold; if (dec != null && raw != null) return Number(raw) / 10 ** dec; const out = outOf(o); return out == null ? null : out * (1 - (bps || 0) / 10000); };

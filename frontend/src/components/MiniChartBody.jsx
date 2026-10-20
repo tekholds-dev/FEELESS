@@ -5,10 +5,9 @@ import { PriceChart } from './terminal/PriceChart';
 import { useMyPosition } from './terminal/TrenchChart';
 import { usePrime, fuseLevels } from './ArenaPrime';
 
-import { tiny } from '../lib/num';
+import { tiny, pct as sg } from '../lib/num';
 const pp = v => (Number(v) > 0 ? `$${Number(v) >= 1 ? Number(v).toFixed(2) : tiny(Number(v), 4)}` : '—');
 const mcf = v => { const n = Number(v); if (!(n > 0)) return '—'; return n >= 1e9 ? `$${(n / 1e9).toFixed(2)}B` : n >= 1e6 ? `$${(n / 1e6).toFixed(2)}M` : n >= 1e3 ? `$${(n / 1e3).toFixed(1)}K` : `$${n.toFixed(0)}`; };
-const sg = v => `${v >= 0 ? '+' : ''}${v.toFixed(1)}%`;
 
 // The mini chart's inside (lazy: the chart library loads only when a mini chart is open). It draws the SAME lines the war room
 // draws: a Fuse card's entry · stop · lock (carried from where it was opened, else found on the live cards by coin) and YOUR

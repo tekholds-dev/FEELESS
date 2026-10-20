@@ -1,9 +1,9 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { toast } from 'sonner';
-import { apiUrl } from '../lib/api';
+import { apiUrl, tradingCall, b64 } from '../lib/api';
 import { useWallet } from '../hooks/useWallet';
 import { relayConnection } from '../lib/launchRail';
-import { SOL_MINT } from '../lib/fuseGo';
+import { SOL_MINT, atomsToUi } from '../lib/fuseGo';
 import { NATIVE, lifiServerQuote, executeLifi, executeLifiBatch } from '../lib/lifiExec';
 import { tiny, usd } from '../lib/num';
 import { TokenAvatar } from './terminal/MarketPrimitives';
@@ -14,12 +14,7 @@ import '../styles/dustCleanup.css';
 //   accounts so their rent (~0.002 SOL each) comes back. EVM — EVERY chain the wallet holds something on (LI.FI balances + our own Cronos
 //   read), grouped by chain; each chain's native coin is its gas, tokens swap to that gas through LI.FI on their own chain.
 // Non-custodial: FEELESS builds the transactions, YOUR wallet signs every one. A burned coin is gone — the screen says so first.
-const atomsToUi = (raw, dec) => { const s = BigInt(raw).toString().padStart(dec + 1, '0'); const w = s.slice(0, s.length - dec); const f = s.slice(s.length - dec).replace(/0+$/, ''); return f ? `${w}.${f}` : w; };
-const b64 = u8 => btoa(String.fromCharCode(...u8));
-async function trade(path, body) {
-  const r = await fetch(apiUrl(`/api/trading${path}`), body ? { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) } : {});
-  const d = await r.json().catch(() => ({})); if (!r.ok) throw new Error(typeof d.detail === 'string' ? d.detail : `Error ${r.status}`); return d;
-}
+const trade = tradingCall;
 const LABEL = { swap: '↩ Swap to gas', burn: '🔥 Burn + close', close: '♻ Close (empty)' };
 export const CHAINS = [['solana', '◎ Solana'], ['evm', '🌐 EVM · every chain']];
 export const keyOf = r => r.pubkey || (r.chainId ? `${r.chainId}:${r.address}` : r.address);

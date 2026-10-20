@@ -217,11 +217,7 @@ def lite_vit(v):
 VIT_TOP = 24   # 🫀 every coin the agents weigh shows its vitals (owner, 2026-10-18: "they missing vital stuff" — 20 of 28 showed nothing)
 
 
-def _f0(v):
-    try:
-        return float(v or 0)
-    except (TypeError, ValueError):
-        return 0.0
+from fnum import zero as _f0  # noqa: E402
 
 
 def vit(r):
