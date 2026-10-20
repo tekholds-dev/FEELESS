@@ -103,3 +103,23 @@ body.theme-day .fx-look { background: #eef6f1; }
 @media (max-width: 980px) { .fx { grid-template-columns: minmax(0, 1fr); } .fx-side { display: none; } .fx-nav { position: static; display: flex; overflow-x: auto; scrollbar-width: none; }
   .fx-bub { width: auto; flex: none; } .fx-bub span { display: inline; } }
 @media (max-width: 640px) { .fx-main { min-height: 0; border-radius: 12px; } .fx-post { grid-template-columns: 36px minmax(0, 1fr); padding: 12px; } .fx-ava { width: 36px; height: 36px; } .fx-main > .ecosystem-chat { min-height: 70vh; } }
+/* 💬 FEEd v3: X-style action bar (reply · share · like with live counts), threads, the "↑ N new posts" pill, post straight to FEELESS */
+.fx-bar { display: flex; align-items: center; gap: 18px; flex-wrap: wrap; }
+.fx-bar .fx-act { display: inline-flex; align-items: center; gap: 5px; font-variant-numeric: tabular-nums; } .fx-bar .fx-act i { font-style: normal; display: inline-block; transition: transform .15s ease; }
+.fx-bar .fx-act:hover i { transform: scale(1.18); } .fx-bar .fx-act:active i { transform: scale(.9); }
+.fx-like:hover, .fx-like.is-liked { color: #ff4d6d; } .fx-like.is-pop i { animation: fxHeart .42s ease-out; }
+@keyframes fxHeart { 0% { transform: scale(1); } 40% { transform: scale(1.55); } 100% { transform: scale(1); } }
+.fx-thread { margin-top: 8px; padding: 8px 0 0 10px; border-left: 2px solid rgba(69, 228, 134, .35); display: grid; gap: 6px; animation: fxIn .18s ease-out; }
+.fx-thread ol { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; max-height: 260px; overflow: auto; scrollbar-width: thin; scrollbar-color: #45e486 transparent; }
+.fx-thread li b { font-size: 12px; } .fx-thread li small { margin-left: 5px; opacity: .6; font-size: 11px; } .fx-thread li p { margin: 2px 0 0; font-size: 13px; line-height: 1.45; overflow-wrap: anywhere; }
+.fx-thread form { display: flex; gap: 6px; } .fx-thread .m-input { flex: 1; min-width: 0; }
+.fx-dim { opacity: .6; font-size: 12px; }
+.fx-newpill { position: sticky; top: 8px; z-index: 3; justify-self: center; margin: 0 auto 6px; display: block; padding: 7px 16px; border: 0; border-radius: 999px; cursor: pointer;
+  background: linear-gradient(120deg, #15d16a, #45e486); color: #04140b; font: 800 12px var(--m-mono, monospace); box-shadow: 0 6px 20px rgba(21, 209, 106, .35); animation: fxIn .22s ease-out; transition: transform .12s ease; }
+.fx-newpill:hover { transform: translateY(-1px); } .fx-newpill:active { transform: scale(.97); } .fx-newpill:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
+.fx-postbtn { padding: 6px 16px; border-radius: 999px; } .fx-compose-foot small.is-hot { color: #ff8fa3; }
+@keyframes fxIn { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: none; } }
+body.fx-lite .fx-like.is-pop i, body.fx-lite .fx-thread, body.fx-lite .fx-newpill { animation: none; }
+@media (prefers-reduced-motion: reduce) { .fx-like.is-pop i, .fx-thread, .fx-newpill { animation: none; } .fx-bar .fx-act i { transition: none; } }
+body.theme-day .fx-thread { border-left-color: rgba(13, 122, 65, .35); } body.theme-day .fx-newpill { color: #fff; background: linear-gradient(120deg, #0d7a41, #15a356); }
+@media (max-width: 640px) { .fx-bar { gap: 12px; } }

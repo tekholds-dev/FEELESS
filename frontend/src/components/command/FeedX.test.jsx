@@ -32,3 +32,10 @@ test('📰 FEEd shows the mixed timeline with cross-post links; FEELESS alone = 
   expect(JSON.parse(localStorage.getItem('feeless.feedSrc'))).toEqual(['feeless']);
   act(() => root.unmount()); global.fetch = real;
 });
+
+test('FEEd v3: the new-posts pill counts only posts newer than what is on screen; counts read like X', () => {
+  const { newSince, kWord } = require('./FeedX');
+  expect(newSince([{ at: 10 }, { at: 20 }, { at: 30 }], 20)).toBe(1);
+  expect(newSince([], 0)).toBe(0);
+  expect(kWord(999)).toBe('999'); expect(kWord(1234)).toBe('1.2K'); expect(kWord(2500000)).toBe('2.5M');
+});

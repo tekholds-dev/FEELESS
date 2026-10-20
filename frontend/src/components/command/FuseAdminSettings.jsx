@@ -94,7 +94,7 @@ export function CrewsPricing({ call, initial }) {
   const [c, setC] = useState(initial || { createUsd: 25, packUsd: 5, badgeUsd: 2 }); const [rev, setRev] = useState(null); const [cat, setCat] = useState(null); const [unl, setUnl] = useState({});
   useEffect(() => { if (initial) setC(x => ({ ...x, ...initial })); }, [initial]);
   useEffect(() => { let alive = true; call('/admin/crews/revenue').then(x => alive && setRev(x)).catch(() => {});
-    call('/admin/familia/unlocks').then(x => { if (!alive) return; setCat(x); setC(cur => ({ ...cur, badgeUsd: x.badgeUsd })); const u = {}; Object.entries(x.parts).forEach(([p, rows]) => rows.forEach(r => { u[`${p}.${r.key}`] = r.now; })); setUnl(u); }).catch(() => {});
+    call('/admin/familia/unlocks').then(x => { if (!alive || !x?.parts || !x?.metrics) return; setCat(x); setC(cur => ({ ...cur, badgeUsd: x.badgeUsd })); const u = {}; Object.entries(x.parts).forEach(([p, rows]) => rows.forEach(r => { u[`${p}.${r.key}`] = r.now; })); setUnl(u); }).catch(() => {});
     return () => { alive = false; }; }, [call]);
   const save = async () => { try { setC((await call('/admin/fees/crews', { method: 'POST', body: JSON.stringify({ ...c, unlocks: unl }) })).crews); toast.success('🌹 La Familia settings saved.'); } catch (e) { toast.error(e.message); } };
   return <div className="cc-block fee-bundle" data-testid="crews-pricing"><h4>9 · 🌹 La Familia (paid in SOL to the fee wallet)</h4>
@@ -104,7 +104,7 @@ export function CrewsPricing({ call, initial }) {
       <label data-tip="What +5 seats cost the family head, in $">$ per +5 seats<NumInput type="number" step="1" min="0" max="500" value={c.packUsd} onChange={e => setC({ ...c, packUsd: Number(e.target.value) })} data-testid="crews-pack" /></label>
       <label data-tip="What restyling the family badge costs after the first (free) forge, in $">$ per badge restyle<NumInput type="number" step="0.5" min="0" max="500" value={c.badgeUsd ?? 2} onChange={e => setC({ ...c, badgeUsd: Number(e.target.value) })} data-testid="crews-badge" /></label></div>
     <ul className="bundle-ex">{[5, 10, 15, 25].map(n => <li key={n}><b>{n} seats</b><span className="m-num">${crewCost(n, c).toFixed(2)}</span><small>{n === 5 ? 'to start' : `+${(n - 5) / 5} pack${n > 10 ? 's' : ''}`}</small></li>)}</ul>
-    {cat ? <details className="fam-unl" data-testid="familia-unlocks"><summary>🔓 Badge unlocks — what each part needs (tracked from real family numbers)</summary>
+    {cat?.parts ? <details className="fam-unl" data-testid="familia-unlocks"><summary>🔓 Badge unlocks — what each part needs (tracked from real family numbers)</summary>
       {Object.entries(cat.parts).map(([part, rows]) => <div key={part} className="fam-unl-part"><b>{part.toUpperCase()}</b>{rows.map(r => { const k = `${part}.${r.key}`; const v = unl[k] || {};
         return <label key={k} data-tip={`default: ${r.default.metric ? `${r.default.metric} ${r.default.metric === 'best' ? '≤' : '≥'} ${r.default.min}` : 'free'}`}><span>{r.label}</span>
           <select className="m-input" value={v.metric || ''} onChange={e => setUnl(x => ({ ...x, [k]: { ...v, metric: e.target.value || null } }))} aria-label={`${r.label} unlock metric`}><option value="">free</option>{Object.entries(cat.metrics).map(([m, w]) => <option key={m} value={m}>{w}</option>)}</select>

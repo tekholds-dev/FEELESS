@@ -1,4 +1,7 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { toast } from 'sonner';
+import { useWallet } from '../../hooks/useWallet';
+import { readChatSession } from '../../lib/chatSession';
 import { Link, useNavigate } from 'react-router-dom';
 import EcosystemChat from '../EcosystemChat';
 import { Explain } from '../Explain';
@@ -52,38 +55,79 @@ function ShareRow({ text, url, label = 'Post to' }) {
       data-tip={`Opens ${name}'s own post box with this filled in — you press Post there, on your own account. FEELESS never holds your login.`}><b>{ic}</b><span>{name}</span></a>)}</div>;
 }
 
-function Composer() {
-  const [t, setT] = useState('');
+const signIn = () => { toast.error('Connect your wallet and open chat once to sign in (one signature, 7 days).'); };
+const reactPost = (body) => fetch(apiUrl('/api/reputation/social-feed/react'), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
+  .then(async r => { const x = await r.json().catch(() => ({})); if (!r.ok) throw new Error(x.detail || 'Could not post'); return x; });
+// pure: the "↑ N new posts" pill — posts newer than the newest one already on screen (X never jumps the timeline under you)
+export const newSince = (posts, seenAt) => (posts || []).filter(p => Number(p.at) > Number(seenAt || 0)).length;
+// pure: compact counts like X (1.2K)
+export const kWord = n => (n >= 1e6 ? `${(n / 1e6).toFixed(1)}M` : n >= 1e3 ? `${(n / 1e3).toFixed(1)}K` : String(n || 0));
+
+function Composer({ me, sess, onPosted }) {
+  const [t, setT] = useState(''); const [busy, setBusy] = useState(false);
+  const post = async () => {   // ⚡ straight onto FEELESS (the Everything room) — the same signed chat path every room uses
+    if (!me || !sess) { signIn(); return; }
+    setBusy(true);
+    try { const r = await fetch(apiUrl('/api/reputation/chat'), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ room: 'feed-general', address: me, text: t.trim(), ts: Math.floor(Date.now() / 1000), session: sess }) });
+      if (!r.ok) throw new Error((await r.json().catch(() => ({}))).detail || 'Could not post'); setT(''); toast.success('⚡ posted on FEELESS'); onPosted?.(); } catch (e) { toast.error(e.message); } finally { setBusy(false); } };
   return <div className="fx-compose" data-testid="feed-compose">
-    <textarea value={t} maxLength={270} onChange={e => setT(e.target.value)} placeholder="What's cooking in the trenches? Write it once — post it everywhere." rows={2} />
-    <div className="fx-compose-foot"><small>{270 - t.length}</small><ShareRow text={t} label="Cross-post" /></div>
+    <textarea value={t} maxLength={270} onChange={e => setT(e.target.value)} placeholder="What's cooking in the trenches? Post it on FEELESS — or everywhere." rows={2} />
+    <div className="fx-compose-foot"><small className={t.length > 250 ? 'is-hot' : ''}>{270 - t.length}</small>
+      <button type="button" className="m-btn m-go fx-postbtn" disabled={!t.trim() || busy} onClick={post} data-testid="feed-post-feeless">{busy ? '…' : '⚡ Post'}</button>
+      <ShareRow text={t} label="also to" /></div>
   </div>;
 }
 
-function Post({ p }) {
-  const [share, setShare] = useState(false);
+function Thread({ p, me, sess, onCount }) {
+  const [list, setList] = useState(null); const [t, setT] = useState(''); const [busy, setBusy] = useState(false);
+  useEffect(() => { let on = true; fetch(apiUrl(`/api/reputation/social-feed/thread/${encodeURIComponent(p.id)}`)).then(r => r.json()).then(x => { if (on) setList(x.comments || []); }).catch(() => setList([])); return () => { on = false; }; }, [p.id]);
+  const send = async () => { if (!me || !sess) { signIn(); return; } setBusy(true);
+    try { const r = await reactPost({ address: me, session: sess, id: p.id, comment: t }); setList(l => [...(l || []), r.comment]); setT(''); onCount(r); } catch (e) { toast.error(e.message); } finally { setBusy(false); } };
+  return <div className="fx-thread" data-testid="feed-thread">
+    {list == null ? <small className="fx-dim">reading replies…</small> : !list.length ? <small className="fx-dim">No replies yet — be first.</small>
+      : <ol>{list.map((c, i) => <li key={`${c.at}-${i}`}><b>{c.name || 'anon'}</b><small>· {agoWord(c.at)}</small><p>{c.text}</p></li>)}</ol>}
+    <form onSubmit={e => { e.preventDefault(); if (t.trim()) send(); }}><input className="m-input" value={t} maxLength={280} placeholder="Post your reply" onChange={e => setT(e.target.value)} aria-label="Reply" /><button type="submit" className="m-btn" disabled={!t.trim() || busy}>Reply</button></form>
+  </div>;
+}
+
+function Post({ p, c, me, sess, onCount }) {
+  const [share, setShare] = useState(false); const [open, setOpen] = useState(false); const [pop, setPop] = useState(false);
+  const like = async () => { if (!me || !sess) { signIn(); return; } setPop(true); setTimeout(() => setPop(false), 420);
+    try { onCount(await reactPost({ address: me, session: sess, id: p.id, like: true })); } catch (e) { toast.error(e.message); } };
   return <article className={`fx-post is-${p.src}`} data-testid="feed-post">
     {p.avatar ? <img className="fx-ava" src={p.avatar} alt="" loading="lazy" decoding="async" /> : <i className="fx-ava fx-ini">{String(p.author || '?').slice(0, 1).toUpperCase()}</i>}
     <div className="fx-body">
       <header><b>{p.author}</b>{p.handle && p.handle !== p.author ? <small>@{p.handle}</small> : null}<small>· {agoWord(p.at)}</small><em className={`fx-src is-${p.src}`}>{SRC_BADGE[p.src] || p.src}</em></header>
       <p>{p.text}</p>
       {p.img ? <img className="fx-img" src={p.img} alt="" loading="lazy" decoding="async" /> : null}
-      <footer>
+      <footer className="fx-bar">
+        <button type="button" className={`fx-act ${open ? 'is-on' : ''}`} aria-expanded={open} onClick={() => setOpen(o => !o)} data-testid="feed-reply"><i>💬</i>{kWord(c?.comments || 0)}</button>
+        <button type="button" className={`fx-act ${share ? 'is-on' : ''}`} aria-expanded={share} onClick={() => setShare(s => !s)}><i>🔁</i>share</button>
+        <button type="button" className={`fx-act fx-like ${c?.mine ? 'is-liked' : ''} ${pop ? 'is-pop' : ''}`} aria-pressed={!!c?.mine} onClick={like} data-testid="feed-like"><i>{c?.mine ? '♥' : '♡'}</i>{kWord(c?.likes || 0)}</button>
         {p.coin?.mint ? <button type="button" className="fx-act fx-coin" onClick={() => openCoin({ mint: p.coin.mint, symbol: p.coin.symbol })}>🪙 ${p.coin.symbol}</button> : null}
-        {p.url ? <a className="fx-act" href={p.url} target="_blank" rel="noopener noreferrer">↗ open</a> : null}
-        <button type="button" className={`fx-act ${share ? 'is-on' : ''}`} aria-expanded={share} onClick={() => setShare(s => !s)}>🔁 cross-post</button>
+        {p.url ? <a className="fx-act" href={p.url} target="_blank" rel="noopener noreferrer"><i>↗</i></a> : null}
       </footer>
       {share ? <ShareRow text={p.text} url={p.url} /> : null}
+      {open ? <Thread p={p} me={me} sess={sess} onCount={onCount} /> : null}
     </div>
   </article>;
 }
 
-function Timeline({ src }) {
+function Timeline({ src, me, sess }) {
   const d = useSocialFeed(src, true);
-  const [n, setN] = useState(PAGE);
-  const posts = d?.posts || [];
-  return <div className="fx-timeline" data-testid="feed-timeline">
-    {!d ? <p className="fx-empty">Loading the feeds…</p> : !posts.length ? <p className="fx-empty">Nothing new on these sites yet.</p> : posts.slice(0, n).map(p => <Post key={p.id} p={p} />)}
+  const [n, setN] = useState(PAGE); const [seen, setSeen] = useState(0); const [cnt, setCnt] = useState({}); const top = useRef(null);
+  const all = d?.posts || [];
+  useEffect(() => { if (all.length && !seen) setSeen(Math.max(...all.map(p => Number(p.at) || 0))); }, [all, seen]);
+  const posts = seen ? all.filter(p => Number(p.at) <= seen) : all;   // newer posts wait behind the pill
+  const fresh = newSince(all, seen);
+  const ids = posts.slice(0, n).map(p => p.id).join(',');
+  useEffect(() => { if (!ids) return undefined; let on = true;   // ONE batched counts read per refresh
+    fetch(apiUrl(`/api/reputation/social-feed/counts?ids=${encodeURIComponent(ids)}${me ? `&address=${me}` : ''}`)).then(r => r.json()).then(x => { if (on) setCnt(c => ({ ...c, ...(x.counts || {}) })); }).catch(() => {});
+    return () => { on = false; }; }, [ids, me, d?.at]);   // eslint-disable-line react-hooks/exhaustive-deps
+  const setOne = id => r => setCnt(c => ({ ...c, [id]: { likes: r.likes, comments: r.comments, mine: r.mine } }));
+  return <div className="fx-timeline" data-testid="feed-timeline" ref={top}>
+    {fresh ? <button type="button" className="fx-newpill" onClick={() => { setSeen(Math.max(...all.map(p => Number(p.at) || 0))); top.current?.scrollIntoView({ block: 'start', behavior: 'smooth' }); }} data-testid="feed-new">↑ {fresh} new post{fresh > 1 ? 's' : ''}</button> : null}
+    {!d ? <p className="fx-empty">Loading the feeds…</p> : !posts.length ? <p className="fx-empty">Nothing new on these sites yet.</p> : posts.slice(0, n).map(p => <Post key={p.id} p={p} c={cnt[p.id]} me={me} sess={sess} onCount={r => setOne(p.id)({ ...(cnt[p.id] || {}), ...r, ...(r[p.id] || {}) })} />)}
     {posts.length > n ? <button type="button" className="fx-more" onClick={() => setN(x => x + PAGE)}>Show {Math.min(PAGE, posts.length - n)} more</button> : null}
   </div>;
 }
@@ -140,6 +184,7 @@ function MySites({ look, set }) {
 }
 
 export function FeedPanel({ onConnect }) {
+  const { wallet } = useWallet() || {}; const me = wallet?.address || ''; const sess = me ? readChatSession(me) : '';
   const [srcs, setSrcs] = useState(readSrc);
   const [cat, setCat] = useState(() => { try { return localStorage.getItem('feeless:feed-cat') || 'feed-general'; } catch { return 'feed-general'; } });
   const pickSrc = k => setSrcs(cur => { const n = toggleSrc(cur, k); try { localStorage.setItem(SRC_KEY, JSON.stringify(n)); } catch { /* private window */ } return n; });
@@ -168,8 +213,8 @@ export function FeedPanel({ onConnect }) {
         <EcosystemChat key={cat} compact room={cat} ecosystem={{ id: cat, name: current[2] }} onConnect={onConnect} />
       </> : <>
         <header className="fx-head"><b>{srcs.includes('all') ? '✨ Everything' : srcs.map(k => (FEED_SRC.find(s => s[0] === k) || [])[2]).join(' + ')}</b><small>FEELESS · Pump · Telegram · Bluesky, newest first</small></header>
-        <Composer />
-        <Timeline src={q} />
+        <Composer me={me} sess={sess} />
+        <Timeline src={q} me={me} sess={sess} />
       </>}
     </div>
     <aside className="fx-side">

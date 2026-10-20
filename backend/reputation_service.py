@@ -6958,6 +6958,51 @@ async def _sf_refresh(src):
         _SF_BUSY.discard(src)
 
 
+import feed_social as _fsoc
+FEED_SOCIAL_PATH = DATA_DIR / 'feed_social.json'
+_fsoc_lock = asyncio.Lock()
+
+
+class FeedReact(BaseModel):
+    address: str
+    session: str
+    id: str = Field(..., max_length=96)
+    like: bool = False
+    comment: str = Field(default='', max_length=400)
+
+
+@app.get('/api/reputation/social-feed/counts')
+async def social_feed_counts(ids: str, address: str = ''):
+    """💬 Likes + comment counts for the posts on screen — ONE batched read per timeline refresh (≤ 60 ids)."""
+    return {'counts': _fsoc.counts(_json_load(FEED_SOCIAL_PATH, {}), ids.split(','), primary_of(address) if address else None)}
+
+
+@app.get('/api/reputation/social-feed/thread/{pid:path}')
+async def social_feed_thread(pid: str):
+    """💬 One post's comments, read only when its thread is opened."""
+    return {'comments': [{k: c.get(k) for k in ('name', 'text', 'at', 'by')} for c in _fsoc.thread(_json_load(FEED_SOCIAL_PATH, {}), pid)]}
+
+
+@app.post('/api/reputation/social-feed/react')
+async def social_feed_react(p: FeedReact):
+    """♥ / 💬 on any FEEd post (signed-in chat session; the guard's write-flood limit applies like every write)."""
+    me = _session_or_401(p.address, p.session)
+    if _is_blocked(_block_load()['wallets'].get(me)):
+        raise HTTPException(403, 'This wallet cannot post here.')
+    async with _fsoc_lock:
+        st = _json_load(FEED_SOCIAL_PATH, {})
+        try:
+            out = {}
+            if p.like:
+                out['liked'], out['likes'] = _fsoc.like(st, me, p.id, time.time())
+            if p.comment.strip():
+                out['comment'] = _fsoc.comment(st, me, _crew_name(me), p.id, p.comment, time.time())
+        except ValueError as e:
+            raise HTTPException(400, str(e))
+        _json_save(FEED_SOCIAL_PATH, st)
+    return {**out, **_fsoc.counts(st, [p.id], me)}
+
+
 @app.get('/api/reputation/social-feed')
 async def social_feed(src: str = ''):
     """📰 FEEd's mixed timeline: FEELESS rooms + Pump callouts + public Telegram channels + Bluesky, newest first. `src` = comma list of the
