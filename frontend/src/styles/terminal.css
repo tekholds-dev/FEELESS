@@ -2475,7 +2475,6 @@ body.reduced-motion-setting .hot-move{animation:none}
 .feecat-widget{position:fixed;right:18px;bottom:18px;z-index:850;display:grid;justify-items:end;gap:10px}
 .feecat-fab{width:54px;height:54px;border-radius:50%;border:2px solid rgba(18,192,122,.5);background:radial-gradient(circle at 35% 30%,#123a2c,#04120b);display:grid;place-items:center;cursor:pointer;box-shadow:0 8px 24px rgba(0,0,0,.4),0 0 0 0 rgba(18,192,122,.4);position:relative;transition:transform .2s}
 .feecat-fab:hover{transform:scale(1.06)}.feecat-fab.on{border-color:var(--mint);box-shadow:0 8px 24px rgba(0,0,0,.4),0 0 20px rgba(18,192,122,.5)}
-.feecat-face{font-size:26px;animation:logo-float 4s ease-in-out infinite}
 .feecat-note{position:absolute;top:-4px;right:-4px;font-size:12px;color:var(--mint);animation:cc-pulse 1.2s ease-in-out infinite}
 .feecat-panel{width:min(340px,88vw);max-height:70vh;display:flex;flex-direction:column;border-radius:16px;border:1px solid rgba(18,192,122,.35);background:rgba(5,14,10,.97);box-shadow:0 20px 60px rgba(0,0,0,.5);overflow:hidden;animation:flr-in .25s ease}
 .feecat-panel-head{display:flex;align-items:center;justify-content:space-between;padding:8px 10px;border-bottom:1px solid rgba(255,255,255,.06)}
@@ -2535,20 +2534,6 @@ body.theme-day .reputation-badge.badge-veteran{color:#8a6d00}
 /* Chart error state: clear icon + link, no misleading spinner */
 .chart-message-error{display:flex;flex-direction:column;align-items:center;gap:10px;text-align:center;padding:24px}
 .chart-message-error a{color:var(--mint);font-size:12.5px;text-decoration:underline}
-
-/* ===== FeeCat mascot — alive ===== */
-.feecat-mark .fc-body{animation:fc-bob 4.4s ease-in-out infinite}
-.feecat-mark .fc-tail{animation:fc-tail 3.2s ease-in-out infinite}
-.feecat-mark .fc-ear-l{animation:fc-ear 5s ease-in-out infinite}
-.feecat-mark .fc-eye{animation:fc-blink 4.6s ease-in-out infinite}
-.feecat-mark .fc-eye-spark{animation:fc-blink 4.6s ease-in-out infinite}
-@keyframes fc-bob{0%,100%{transform:translateY(0) rotate(0deg)}50%{transform:translateY(-3px) rotate(-1.5deg)}}
-@keyframes fc-tail{0%,100%{transform:rotate(0deg)}30%{transform:rotate(6deg)}60%{transform:rotate(-4deg)}}
-@keyframes fc-ear{0%,89%,100%{transform:rotate(0deg)}91%{transform:rotate(-10deg)}93%{transform:rotate(4deg)}95%{transform:rotate(0deg)}}
-@keyframes fc-blink{0%,94%,100%{transform:scaleY(1)}96%,98%{transform:scaleY(.12)}}
-.feecat-mark.is-alive:hover .fc-tail{animation-duration:1.1s}
-body.reduced-motion-setting .feecat-mark *{animation:none!important}
-.feecat-mark .fc-tail,.feecat-mark .fc-ear-l,.feecat-mark .fc-eye,.feecat-mark .fc-eye-spark{transform-box:fill-box}
 
 /* ===== Globe upgrade: starfield + live HUD ===== */
 .globe-canvas-wrap{position:relative}

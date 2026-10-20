@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import EcosystemChat from '../EcosystemChat';
 import { toast } from 'sonner';
-import { FeeCatMark } from '../FeeCatMark';
+import { Panther, PantherPicker, PantherStage } from '../Panther';
 import { PnlCard } from './MetaPanels';
 
 const LEARN_LABELS = { runnerTrail: 'Runner trailing stop', takeProfit1: 'First profit target' };
@@ -45,7 +45,7 @@ export function FeeCatProfile({ catId = 'leader' }) {
   const c = d.cat || {}; const L = { params: {}, defaults: {}, log: [], missed: 0, good: 0, ...(d.learning || {}) }; const R = d.rules || {};
   return <section className="fcp" data-testid="feecat-profile">
     <header className="fcp-head">
-      <div className="fcp-avatar"><FeeCatMark size={54} variant={(c.realizedPnlSol || 0) >= 0 ? 'mint' : 'rose'} /><i className="flr-dot" /></div>
+      <div className="fcp-avatar"><Panther size={64} gesture={c.status === 'running' ? ((c.realizedPnlSol || 0) >= 0 ? 'purr' : 'think') : 'sleep'} /><i className="flr-dot" /></div>
       <div className="fcp-id"><h2 className="live-gradient-text">{c.name} <small>{c.title || 'The Leader'}</small></h2><span>{c.strategyLabel} · level {c.level} · {c.status === 'running' ? 'trading live (paper)' : c.status}</span></div>
       <button type="button" className={`btn-${following ? 'outline' : 'primary'} fcp-follow`} data-testid="follow-fee" onClick={follow}>{following ? '✓ Following Fee' : '🔔 Follow Fee (copy alerts)'}</button>
       <div className="fcp-kpis">
@@ -56,6 +56,7 @@ export function FeeCatProfile({ catId = 'leader' }) {
         <span><small>Best / worst</small><b>{sol(d.stats?.best)} / {sol(d.stats?.worst)}</b></span>
       </div>
     </header>
+    <details className="fcp-panther" data-testid="fcp-panther"><summary>🐆 Fee's look — 8 gestures · pick a panther</summary><div className="fcp-panther-in"><PantherStage size={200} /><PantherPicker /></div></details>
     {c.positions?.length > 0 && <div className="fcp-open"><h4>Open now</h4>{c.positions.map(p => <a key={p.pairAddress} className="fcp-pos" href={`/terminal/chat?chain=solana&pair=${p.pairAddress}&room=bulls`} target="_blank" rel="noopener noreferrer">
       <b>${p.symbol}</b><span className={p.currentChange >= 0 ? 'positive' : 'negative'}>{p.currentChange >= 0 ? '+' : ''}{Number(p.currentChange).toFixed(1)}%</span><em className="fcp-mirror" onClick={e => { e.preventDefault(); window.location.href = `/terminal/chat?chain=solana&pair=${p.pairAddress}&room=bulls`; }}>Mirror this trade →</em><small>{Number(p.costSol).toFixed(2)} SOL · peak +{Number(p.peakChange || 0).toFixed(1)}%{p.scaled ? ' · runner' : ''}{p.conviction ? ` · ${p.conviction}×` : ''}</small></a>)}</div>}
     <nav className="fcp-tabs" role="tablist">{[['wall', '💬 Wall', null], ['trades', '📈 Trades', (d.trades || []).length], ['after', '👀 After the sell', (d.exits || []).length], ['brain', '🧠 Learning', (L.log || []).length]].map(([k, l, n]) => <button key={k} type="button" role="tab" aria-selected={tab === k} className={tab === k ? 'active' : ''} onClick={() => setTab(k)}>{l}{n ? <em>{n}</em> : null}</button>)}</nav>

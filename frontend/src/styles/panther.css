@@ -1,0 +1,46 @@
+/* 🐆 Panther.jsx — every part its own group, transform / opacity only, one keyframe set (pt*) */
+.pt { overflow: visible; cursor: pointer; filter: drop-shadow(0 0 10px var(--pt-glow, rgba(69,228,134,.4))); }
+.pt.is-head { cursor: default; filter: drop-shadow(0 0 4px var(--pt-glow)); }
+.pt g, .pt path, .pt text { transform-box: fill-box; }
+.pt-all { transform-origin: 50% 90%; transform-box: view-box; } .pt-head { transform-origin: 50% 85%; } .pt-tail { transform-origin: 0% 100%; }
+.pt-pawR, .pt-pawL { transform-origin: 50% 0%; } .pt-earL { transform-origin: 80% 100%; } .pt-earR { transform-origin: 20% 100%; } .pt-eye, .pt-lids { transform-origin: 50% 50%; }
+.pt-lids { transform: scaleY(0); } .pt-roar, .pt-fangs, .pt-fx > * { opacity: 0; }
+.pt-fx text { font: 800 16px 'JetBrains Mono', monospace; fill: var(--pt-eye); } .pt-spark circle { fill: var(--pt-eye); }
+/* idle — breathe, blink, tail sway, ear flick */
+.pt-body { transform-origin: 50% 100%; animation: ptBreathe 3.6s ease-in-out infinite; }
+.pt-tail { animation: ptTail 3.2s ease-in-out infinite; } .pt-lids { animation: ptBlink 5s ease-in-out infinite; } .pt-earL { animation: ptEar 6s ease-in-out infinite; }
+.is-head .pt-head { animation: ptBob 4.4s ease-in-out infinite; }
+/* 1 wave */ .pt-g-wave .pt-pawR { animation: ptWave .6s ease-in-out 3; } .pt-g-wave .pt-head { animation: ptTilt 1.8s ease-in-out; }
+/* 2 pounce */ .pt-g-pounce .pt-all { animation: ptPounce 1.1s cubic-bezier(.2,.8,.3,1) 2; } .pt-g-pounce .pt-tail { animation: ptTailFast .25s ease-in-out infinite; }
+/* 3 roar */ .pt-g-roar .pt-roar, .pt-g-roar .pt-fangs, .pt-g-roar .pt-roarwave { opacity: 1; } .pt-g-roar .pt-head { animation: ptRoar .5s ease-in-out 4; } .pt-g-roar .pt-roarwave { animation: ptWaveOut .5s ease-out infinite; } .pt-g-roar .pt-earL, .pt-g-roar .pt-earR { transform: rotate(-12deg); }
+/* 4 purr */ .pt-g-purr .pt-lids { animation: none; transform: scaleY(.75); } .pt-g-purr .pt-heart { opacity: 1; animation: ptFloat 1.6s ease-out infinite; } .pt-g-purr .pt-all { animation: ptPurr .18s linear infinite; }
+/* 5 sleep */ .pt-g-sleep .pt-lids { animation: none; transform: scaleY(1); } .pt-g-sleep .pt-head { transform: translateY(8px) rotate(-6deg); transition: transform .6s; } .pt-g-sleep .pt-z { opacity: 1; animation: ptFloat 2.2s ease-out infinite; } .pt-g-sleep .pt-z.z2 { animation-delay: 1.1s; } .pt-g-sleep .pt-tail { animation-duration: 7s; } .pt-g-sleep .pt-body { animation-duration: 6s; }
+/* 6 celebrate */ .pt-g-celebrate .pt-all { animation: ptJump .7s ease-out 3; } .pt-g-celebrate .pt-pawL, .pt-g-celebrate .pt-pawR { animation: ptWave .35s ease-in-out 6; } .pt-g-celebrate .pt-spark { opacity: 1; animation: ptBurst .7s ease-out 3; }
+/* 7 think */ .pt-g-think .pt-head { animation: ptThink 2.4s ease-in-out infinite; } .pt-g-think .pt-q { opacity: 1; animation: ptFloat 1.8s ease-in-out infinite; } .pt-g-think .pt-pawR { transform: translate(-8px, -26px) rotate(-30deg); transition: transform .4s; } .pt-g-think .pt-eyes { transform: translate(3px, -2px); }
+@keyframes ptBreathe { 50% { transform: scale(1.025, .985); } } @keyframes ptTail { 0%, 100% { transform: rotate(0); } 50% { transform: rotate(-9deg); } }
+@keyframes ptTailFast { 50% { transform: rotate(-14deg); } } @keyframes ptBlink { 0%, 92%, 100% { transform: scaleY(0); } 95% { transform: scaleY(1); } }
+@keyframes ptEar { 0%, 88%, 100% { transform: rotate(0); } 91% { transform: rotate(-14deg); } 94% { transform: rotate(4deg); } } @keyframes ptBob { 50% { transform: translateY(-2px) rotate(-2deg); } }
+@keyframes ptWave { 0%, 100% { transform: rotate(0) translateY(0); } 50% { transform: rotate(-38deg) translateY(-18px); } } @keyframes ptTilt { 50% { transform: rotate(8deg); } }
+@keyframes ptPounce { 0% { transform: translateY(0) scale(1); } 30% { transform: translateY(6px) scale(1.06, .9); } 60% { transform: translateY(-26px) scale(.96, 1.06) rotate(-4deg); } 100% { transform: none; } }
+@keyframes ptRoar { 50% { transform: scale(1.08) translateY(-3px); } } @keyframes ptWaveOut { from { transform: scale(.7); opacity: .9; } to { transform: scale(1.3) translateX(6px); opacity: 0; } }
+@keyframes ptPurr { 50% { transform: translateX(.6px); } } @keyframes ptFloat { from { transform: translateY(6px); opacity: 0; } 30% { opacity: 1; } to { transform: translateY(-16px); opacity: 0; } }
+@keyframes ptJump { 0%, 100% { transform: none; } 40% { transform: translateY(-24px) scale(1.04); } }
+@keyframes ptBurst { from { transform: scale(.4); opacity: 1; } to { transform: scale(1.6); opacity: 0; } } @keyframes ptThink { 50% { transform: rotate(-7deg); } }
+.pt-pick { display: grid; grid-template-columns: repeat(auto-fill, minmax(92px, 1fr)); gap: 8px; }
+.pt-pick button { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 8px; border-radius: 12px; border: 1px solid rgba(255, 255, 255, .1); background: rgba(255, 255, 255, .03); color: #cfe9da; cursor: pointer; transition: transform .15s, border-color .15s; }
+.pt-pick button:hover { transform: translateY(-2px); border-color: rgba(69, 228, 134, .5); } .pt-pick button:focus-visible { outline: 2px solid #45e486; }
+.pt-pick button.is-on { border-color: #45e486; background: rgba(21, 209, 106, .15); } .pt-pick small { font: 700 9.5px 'JetBrains Mono', monospace; text-align: center; }
+.pt-stage { display: flex; flex-direction: column; align-items: center; gap: 10px; }
+.pt-gest { display: flex; flex-wrap: wrap; justify-content: center; gap: 5px; }
+.pt-gest button { padding: 4px 10px; border-radius: 999px; border: 1px solid rgba(69, 228, 134, .3); background: none; color: #cfe9da; font-size: 11.5px; cursor: pointer; transition: background .15s, transform .15s; }
+.pt-gest button:hover { background: rgba(21, 209, 106, .15); } .pt-gest button:active { transform: scale(.95); }
+body.fx-lite .pt *, body.reduced-motion-setting .pt * { animation: none !important; }
+@media (prefers-reduced-motion: reduce) { .pt * { animation: none !important; transition: none !important; } }
+body.theme-day .pt-pick button, body.theme-day .pt-gest button { color: #0b2a19; }
+@media (max-width: 640px) { .pt-pick { grid-template-columns: repeat(4, 1fr); } }
+.pt.is-still * { animation: none !important; }
+.fcp-panther { margin: 10px 0; border: 1px solid rgba(69, 228, 134, .2); border-radius: 14px; padding: 8px 12px; background: rgba(6, 16, 11, .5); }
+.fcp-panther summary { cursor: pointer; font: 700 11px 'JetBrains Mono', monospace; letter-spacing: .06em; color: #8fe8b4; }
+.fcp-panther-in { display: grid; grid-template-columns: minmax(220px, 1fr) 2fr; gap: 14px; align-items: center; padding-top: 10px; }
+body.theme-day .fcp-panther { background: rgba(236, 246, 240, .7); } body.theme-day .fcp-panther summary { color: #0b5a32; }
+@media (max-width: 640px) { .fcp-panther-in { grid-template-columns: 1fr; } }
