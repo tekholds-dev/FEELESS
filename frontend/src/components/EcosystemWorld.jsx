@@ -10,6 +10,7 @@ import NewStuffFeed from './NewStuffFeed';
 const TrenchChart = React.lazy(() => import('./terminal/TrenchChart').then(m => ({ default: m.TrenchChart })));
 import { useMarket } from '../hooks/useMarket';
 import { DegenWeather } from './terminal/DegenWeather';
+import WarSky from './terminal/WarSky';
 import { ChartVitals } from './terminal/ChartVitals';
 import { TokenAvatar } from './terminal/MarketPrimitives';
 
@@ -104,6 +105,7 @@ export default function EcosystemWorld({ ecosystem, pad, initialPair, onClose })
   return <div className="eco-world" role="dialog" aria-modal="true" aria-label={`${ecosystem.name} network room`} data-testid="ecosystem-world" style={{ '--eco-accent': ecosystem.color }}>
     <div className="eco-world-scrim" onClick={onClose} aria-hidden="true" />
     <div className={`eco-world-inner eco-layout-${layout} ${expanded ? 'is-expanded' : ''}`}>
+      <WarSky />
       <header className="eco-world-head">
         <div className="eco-world-id">
           <span className="eco-dot" style={{ background: ecosystem.color }} />
@@ -139,7 +141,7 @@ export default function EcosystemWorld({ ecosystem, pad, initialPair, onClose })
             <ChartVitals pair={liveChartPair} />
             <div className="eco-chart-body"><React.Suspense fallback={<div className="chart-message"><span className="loader" />Loading chart…</div>}><TrenchChart key={chartPair.pairAddress} pair={liveChartPair} className="eco-trench" /></React.Suspense></div>
           </div>}
-          {(ecosystem?.chainId || 'solana') === 'solana' && <DegenWeather compact scope={['pump', 'bonk', 'raydium'].includes(ecosystem?.id) ? ecosystem.id : 'launchpads'} />}
+          {(ecosystem?.chainId || 'solana') === 'solana' && <DegenWeather compact pair={chartPair ? liveChartPair : null} scope={['pump', 'bonk', 'raydium'].includes(ecosystem?.id) ? ecosystem.id : 'launchpads'} />}
           <div className="activity-pulse" data-testid="eco-activity-pulse">
             {pulse.map(([label, value, sub]) => <div className="pulse-pill" key={label}>
               <small><i />{label}</small>

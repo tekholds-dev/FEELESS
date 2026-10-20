@@ -1,0 +1,47 @@
+/* 🌌 War room sky (WarSky.jsx) + 🌦 per-coin weather (DegenWeather CoinWeather). transform / opacity only. */
+.eco-world-inner { isolation: isolate; }
+.wsky { position: absolute; inset: 0; z-index: -1; overflow: hidden; border-radius: inherit; pointer-events: none; --sk: #15d16a; --sk2: #45e486; }
+.wsky.t-hot { --sk: #ffb547; --sk2: #ffd36b; } .wsky.t-rain { --sk: #ff4d6d; --sk2: #ff8fa3; } .wsky.t-storm { --sk: #9b5cff; --sk2: #ff8fa3; } .wsky.t-crab { --sk: #6fd3ff; --sk2: #a9e7ff; }
+.wsky-glow { position: absolute; left: -10%; right: -10%; top: 38%; height: 50%; background: radial-gradient(60% 55% at 50% 0%, var(--sk), transparent 70%); opacity: .14; transition: opacity 1s; animation: wskyBreath 6s ease-in-out infinite; }
+.wsky-sun { position: absolute; left: 50%; top: 30%; width: 220px; height: 220px; margin-left: -110px; border-radius: 50%; background: radial-gradient(circle, var(--sk2), transparent 68%); opacity: .08; animation: wskyBreath 8s ease-in-out infinite; }
+.wsky-floor { position: absolute; left: -40%; right: -40%; bottom: -10%; height: 55%; perspective: 340px; perspective-origin: 50% 0%; overflow: hidden; }
+.wsky-grid { position: absolute; inset: -100% 0 0; transform: rotateX(62deg); transform-origin: 50% 100%;
+  background-image: linear-gradient(color-mix(in srgb, var(--sk) 45%, transparent) 1px, transparent 1px), linear-gradient(90deg, color-mix(in srgb, var(--sk) 45%, transparent) 1px, transparent 1px);
+  background-size: 60px 60px; opacity: .2; animation: wskyRoll 3.2s linear infinite; will-change: transform; }
+.wsky.t-hot .wsky-grid, .wsky.t-storm .wsky-grid { animation-duration: 1.6s; }
+.wsky-scan { position: absolute; left: 0; right: 0; top: 0; height: 120px; background: linear-gradient(transparent, color-mix(in srgb, var(--sk) 18%, transparent), transparent); opacity: .5; animation: wskyScan 7s linear infinite; }
+.wsky-p { position: absolute; bottom: -10px; width: 3px; height: 3px; border-radius: 50%; background: var(--sk2); box-shadow: 0 0 8px var(--sk); opacity: 0;
+  animation: wskyRise var(--d) linear infinite; animation-delay: calc(var(--o) * -1); }
+.wsky.t-crab .wsky-p { animation-name: wskyDrift; width: 2px; height: 2px; }
+.wsky.t-rain .wsky-p, .wsky.t-storm .wsky-p { bottom: auto; top: -20px; width: 1px; height: 22px; border-radius: 1px; box-shadow: none; background: linear-gradient(transparent, var(--sk2)); animation-name: wskyFall; animation-duration: calc(var(--d) / 4); }
+.wsky-bolt { position: absolute; inset: 0; background: radial-gradient(70% 50% at 30% 10%, rgba(220, 200, 255, .5), transparent 60%); opacity: 0; }
+.wsky.t-storm .wsky-bolt { animation: wskyBolt 5.5s steps(1) infinite; }
+@keyframes wskyRoll { to { transform: rotateX(62deg) translateY(60px); } }
+@keyframes wskyScan { from { transform: translateY(-140px); } to { transform: translateY(110vh); } }
+@keyframes wskyBreath { 50% { opacity: .22; transform: scale(1.05); } }
+@keyframes wskyRise { 0% { opacity: 0; transform: translateY(0); } 15% { opacity: .8; } 100% { opacity: 0; transform: translateY(-95vh); } }
+@keyframes wskyDrift { 0% { opacity: 0; transform: translate(0, -20vh); } 30% { opacity: .45; } 100% { opacity: 0; transform: translate(14vw, -50vh); } }
+@keyframes wskyFall { 0% { opacity: 0; transform: translateY(0); } 10% { opacity: .55; } 100% { opacity: 0; transform: translateY(100vh); } }
+@keyframes wskyBolt { 0%, 90%, 94%, 100% { opacity: 0; } 91%, 95% { opacity: 1; } }
+
+/* 🌦 coin weather */
+.dw-coin .dw-main em { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 4px; }
+.dw-coin .dw-main em span { padding: 2px 7px; border-radius: 999px; font: 700 10px 'JetBrains Mono', monospace; background: rgba(255, 255, 255, .05); border: 1px solid rgba(255, 255, 255, .1); }
+.dw-crew.k-popular, .dw-rep.is-good, .dw-call.is-good { color: #45e486; } .dw-crew.k-serial, .dw-rep.is-bad, .dw-call.is-bad { color: #ff8fa3; } .dw-crew.k-fresh, .dw-rep.is-watch, .dw-call.is-warn { color: var(--gold, #ffd36b); }
+.dw-tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(78px, 1fr)); gap: 5px; margin-top: 10px; }
+.dw-tiles span { display: flex; flex-direction: column; gap: 1px; padding: 6px 7px; border-radius: 9px; background: rgba(255, 255, 255, .03); border: 1px solid rgba(255, 255, 255, .07); animation: dwTile .35s ease-out both; animation-delay: calc(var(--i) * 35ms); }
+.dw-tiles i { font: 700 8px 'JetBrains Mono', monospace; font-style: normal; letter-spacing: .1em; color: #6f8f7d; }
+.dw-tiles b { font: 800 12.5px 'JetBrains Mono', monospace; color: #e9fff2; animation: dwFlip .4s ease-out; }
+.dw-tiles .is-good { border-color: rgba(21, 209, 106, .35); } .dw-tiles .is-good b { color: #45e486; }
+.dw-tiles .is-watch { border-color: rgba(255, 211, 107, .3); } .dw-tiles .is-watch b { color: var(--gold, #ffd36b); }
+.dw-tiles .is-bad { border-color: rgba(255, 143, 163, .4); } .dw-tiles .is-bad b { color: #ff8fa3; }
+.dw-flags { margin: 8px 0 0; display: flex; flex-wrap: wrap; gap: 6px 12px; font-size: 11.5px; color: #a9c7b6; }
+.dw-flags .is-bad { color: #ff8fa3; } .dw-flags .is-good { color: #45e486; }
+.degen-weather.dw-coin.t-hot { border-color: rgba(255, 181, 71, .45); } .degen-weather.dw-coin.t-storm { border-color: rgba(155, 92, 255, .5); } .degen-weather.dw-coin.t-rain { border-color: rgba(255, 77, 109, .4); }
+@keyframes dwTile { from { opacity: 0; transform: translateY(4px); } }
+@keyframes dwFlip { from { transform: translateY(-5px); opacity: .3; } }
+body.fx-lite .wsky *, body.fx-lite .dw-tiles span, body.fx-lite .dw-tiles b { animation: none !important; }
+body.fx-lite .wsky-p, body.fx-lite .wsky-scan, body.fx-lite .wsky-bolt { display: none; }
+@media (prefers-reduced-motion: reduce) { .wsky *, .dw-tiles span, .dw-tiles b { animation: none !important; } .wsky-p, .wsky-scan, .wsky-bolt { display: none; } }
+body.theme-day .wsky { opacity: .45; } body.theme-day .dw-tiles span { background: rgba(255, 255, 255, .65); } body.theme-day .dw-tiles b { color: #0b2a19; }
+@media (max-width: 640px) { .wsky-p:nth-of-type(2n) { display: none; } .dw-tiles { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
