@@ -5187,3 +5187,12 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   1.8 MB reputation.json on EVERY call (208 saves in 5 min). The lookup now runs before the lock and `_save` is debounced (readers get the
   new copy at once via the parse cache; `_store_flush_loop` writes ≤ every 15s + on stop; tests write at once). Machine that day: 15.1 of
   16 GB swap used — browser p95s of 5–15s on trivial routes (/profiles) are the Mac queuing, not code.
+- 🌹 LA FAMILIA (users never see "crew" now; code, routes, files and `?lens=crews` keep the old names so links work): one FAMILY BADGE per family
+  (`crews.py` PARTS emblem · frame · fx + 2 palette colors + motto ⇄ `FamilyBadge.jsx` EMBLEM / FRAME / FX — change both). Every part is free or
+  unlocked by a TRACKED number (`family_metrics`: members · podium weeks + crowns + best place from the weekly `awards` · bounty points paid),
+  re-checked on every read (`badge_view` falls back to the default if a line was raised). First forge free, restyle = `badgeUsd` (default $2) in SOL
+  via `_verify_sol_payment` (staff free). `POST /crews/badge`, `GET /crews/badge/catalog`; creator: HQ › Fees › 9 · 🌹 La Familia (start / seats /
+  restyle $ + every unlock line → `fees.crews.unlocks`, `GET /admin/familia/unlocks`). Badge on board rows, podium cards, the name chip, profile.
+- 💬 FEEd v3 (`backend/feed_social.py`, `data/feed_social.json`): ♥ likes + 💬 replies on ANY timeline post (ids may hold `/` — thread route is
+  `{pid:path}`), counts for the posts on screen in ONE batched `GET /social-feed/counts`, a thread only when opened, `POST /social-feed/react` (chat
+  session). Timeline: X-style bar (reply · share · like), "↑ N new posts" pill (the list never jumps), ⚡ Post straight to FEELESS (room feed-general).
