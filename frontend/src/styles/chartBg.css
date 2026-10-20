@@ -24,35 +24,6 @@
 .cbg-neon .cbg-sun img { width: 100%; height: 100%; object-fit: contain; filter: drop-shadow(0 0 18px var(--c)); }
 .cbg-neon .cbg-word { left: 0; right: 0; top: calc(48% + 6px); text-align: center; font: 900 26px/1 'Audiowide', 'JetBrains Mono', monospace; letter-spacing: .5em; color: var(--c); opacity: .09; }
 
-/* 🌆 Synth city: two skylines sliding past at different speeds (parallax), neon roof edges, a FEELESS billboard that flickers, street lamps
-   blinking, a wet street line. Only the two skyline rows, the sign and the lamps animate. */
-.cbg-sky { inset: 0; background: linear-gradient(180deg, #06040f 0%, #120a26 45%, #1a0f2e 62%, #050a08 100%); }
-.cbg-city .cbg-sky::after { content: ''; position: absolute; left: 50%; top: 40%; width: 220px; height: 220px; margin: -110px 0 0 -110px; border-radius: 50%;
-  background: radial-gradient(closest-side, color-mix(in srgb, var(--c) 30%, transparent), transparent); opacity: .5; }
-.cbg-skyline { position: absolute; left: 0; bottom: 14%; width: 200%; height: 46%; display: flex; will-change: transform; animation: cbgCity 60s linear infinite; }
-.cbg-skyline.is-near { bottom: 8%; height: 40%; animation-duration: 32s; }
-.cbg-strip { flex: 0 0 50%; display: flex; align-items: flex-end; gap: 4px; }
-.cbg-city .cbg-bld { position: relative; flex: 0 0 calc(var(--w) * 1px); border-top: 2px solid color-mix(in srgb, var(--c) 70%, transparent);
-  background: repeating-linear-gradient(0deg, transparent 0 9px, rgba(255, 220, 140, .14) 9px 11px), linear-gradient(180deg, #0d1a24, #070d12); opacity: .7; }
-.cbg-skyline.is-near .cbg-bld { background: repeating-linear-gradient(0deg, transparent 0 11px, rgba(180, 140, 255, .12) 11px 13px), linear-gradient(180deg, #120b20, #08060f); opacity: .8;
-  border-top-color: color-mix(in srgb, var(--v) 70%, transparent); }
-.cbg-sign { position: absolute; left: 50%; top: -30px; transform: translateX(-50%); padding: 3px 7px; border: 1px solid var(--c); border-radius: 4px; font: 900 11px/1 'Audiowide', 'JetBrains Mono', monospace;
-  letter-spacing: .25em; color: var(--c); text-shadow: 0 0 8px var(--c); box-shadow: 0 0 14px color-mix(in srgb, var(--c) 40%, transparent); animation: cbgFlicker 5s steps(1) infinite; }
-.cbg-lamp { width: 4px; height: 4px; border-radius: 50%; background: #ffd27a; box-shadow: 0 0 10px #ffb84d; opacity: .25; animation: cbgBlink calc(3s + var(--i) * .7s) ease-in-out infinite; animation-delay: calc(var(--i) * -.9s); }
-.cbg-street { left: 0; right: 0; bottom: 0; height: 9%; background: linear-gradient(180deg, color-mix(in srgb, var(--c) 18%, transparent), transparent 40%), #040807; border-top: 1px solid color-mix(in srgb, var(--c) 40%, transparent); }
-
-/* 🌀 Warp tunnel: neon gates rush out of the vanishing point toward you, light rays stream past, the FEELESS mark burns at the core.
-   Rays reverse into the core on a red tick. */
-.cbg-warp .cbg-core { left: 50%; top: 46%; width: 260px; height: 260px; margin: -130px 0 0 -130px; border-radius: 50%; background: radial-gradient(closest-side, color-mix(in srgb, var(--c) 35%, transparent), transparent); opacity: .6; }
-.cbg-mark { position: absolute; left: 50%; top: 46%; width: 54px; height: 54px; margin: -27px 0 0 -27px; opacity: .3; will-change: transform; animation: cbgSun 4s ease-in-out infinite; }
-.cbg-mark img { width: 100%; height: 100%; object-fit: contain; filter: drop-shadow(0 0 14px var(--c)); }
-.cbg-gate { left: 50%; top: 46%; width: 120px; height: 72px; margin: -36px 0 0 -60px; border: 1.5px solid var(--c); border-radius: 10px; opacity: 0; will-change: transform, opacity;
-  box-shadow: 0 0 12px color-mix(in srgb, var(--c) 40%, transparent), inset 0 0 12px color-mix(in srgb, var(--c) 25%, transparent); animation: cbgGate 4.5s linear infinite; animation-delay: calc(var(--i) * -.5s); }
-.cbg-gate:nth-of-type(3n) { border-color: var(--v); }
-.cbg-ray { left: 50%; top: 46%; width: 46%; height: 1.5px; transform-origin: 0 50%; background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--c) 70%, transparent)); opacity: 0; will-change: transform, opacity;
-  animation: cbgRay calc(1.6s + (var(--i) % 4) * .35s) linear infinite; animation-delay: calc(var(--i) * -.23s); }
-.cfk-dn .cbg-ray { animation-direction: reverse; }
-
 /* 🟩 Matrix rain v3: 18 glyph streams in three depths, each fading out at its tail, a bright head; bear words on a red tick */
 .cbg-glow { left: -10%; right: -10%; bottom: -20%; height: 50%; border-radius: 50%; background: radial-gradient(closest-side, color-mix(in srgb, var(--c) 18%, transparent), transparent); }
 .cbg-col { top: 0; width: 14px; font: 700 12px/1.1 'JetBrains Mono', monospace; color: var(--c); opacity: .22; writing-mode: vertical-rl; text-orientation: upright; white-space: nowrap;
@@ -66,12 +37,50 @@
 
 @keyframes cbgRoll { to { transform: translate3d(0, 46px, 0); } }
 @keyframes cbgSun { 0%, 100% { transform: translate3d(0, 0, 0) scale(1); } 50% { transform: translate3d(0, -4px, 0) scale(1.04); } }
-@keyframes cbgCity { to { transform: translate3d(-50%, 0, 0); } }
-@keyframes cbgFlicker { 0%, 100% { opacity: .55; } 7% { opacity: .15; } 9% { opacity: .55; } 52% { opacity: .5; } 54% { opacity: .2; } 56% { opacity: .5; } }
-@keyframes cbgBlink { 0%, 100% { opacity: .15; } 50% { opacity: .6; } }
-@keyframes cbgGate { 0% { transform: scale(.05); opacity: 0; } 12% { opacity: .4; } 100% { transform: scale(7); opacity: 0; } }
-@keyframes cbgRay { 0% { transform: rotate(var(--a)) translate3d(8%, 0, 0) scaleX(.1); opacity: 0; } 25% { opacity: .55; } 100% { transform: rotate(var(--a)) translate3d(110%, 0, 0) scaleX(1); opacity: 0; } }
 @keyframes cbgFall { from { transform: translate3d(0, -120%, 0); } to { transform: translate3d(0, 720%, 0); } }   /* % of the column itself: −120% starts it above the box, 720% carries it past the bottom */
+
+/* ⚡ LIVE: every REAL trade kicks the scene (CandleFx adds `is-tick` to `.cbg` per tick, `is-big` on a ≥ 1% tick) — one-shot animations only */
+.cbg-neon .cbg-horizon { will-change: transform, opacity; }
+.cbg-neon.is-tick .cbg-horizon { animation: cbgHz .5s ease-out; }
+.cbg-neon.is-tick .cbg-sun { animation: cbgSunKick .55s ease-out; }
+.cbg-neon .cbg-shock { left: 50%; top: 48%; width: 140px; height: 140px; margin: -70px 0 0 -70px; border-radius: 50%; border: 2px solid var(--c); opacity: 0; }
+.cbg-neon.is-big .cbg-shock { animation: cbgShock .9s ease-out; }
+.cbg-neon.is-tick .cbg-plane { animation: cbgJolt .35s ease-out; }
+.cbg-rain.is-tick .cbg-col::after { animation: cbgHead .45s ease-out; }
+.cbg-rain .cbg-flash { inset: 0; background: linear-gradient(180deg, transparent, color-mix(in srgb, var(--c) 16%, transparent) 50%, transparent); opacity: 0; }
+.cbg-rain.is-big .cbg-flash { animation: cbgSweep .8s ease-out; }
+
+/* 💊 Pump pit (pump.fun's own look): green pills bubbling up from the pit, a slime glow at the bottom, every trade pops a pill */
+.cbg-pit .cbg-slime { left: -10%; right: -10%; bottom: -18%; height: 46%; border-radius: 50%; background: radial-gradient(closest-side, color-mix(in srgb, var(--c) 32%, transparent), transparent); opacity: .7; }
+.cbg-pill { bottom: -30px; width: 14px; height: 30px; border-radius: 8px; background: linear-gradient(180deg, #eafff3 0 50%, var(--c) 50%); opacity: .16; will-change: transform;
+  animation: cbgPill calc(9s + (var(--i) % 5) * 1.6s) linear infinite; animation-delay: calc(var(--i) * -1.37s); }
+.cbg-pill:nth-of-type(3n) { width: 10px; height: 22px; opacity: .1; }
+.cfk-dn .cbg-pill { background: linear-gradient(180deg, #ffe2e8 0 50%, var(--c) 50%); }
+.cbg-pit .cbg-pop { left: 50%; bottom: 18%; width: 60px; height: 60px; margin-left: -30px; border-radius: 50%; border: 2px solid var(--c); opacity: 0; }
+.cbg-pit.is-tick .cbg-pop { animation: cbgPop .6s ease-out; }
+.cbg-pit .cbg-pumpword { left: 0; right: 0; top: 40%; text-align: center; font: 900 34px/1 'Bungee', 'Audiowide', monospace; letter-spacing: .14em; color: var(--c); opacity: .06; }
+.cbg-pit.is-big .cbg-pumpword { animation: cbgWord .8s ease-out; }
+
+/* 📟 Terminal tape (the Bloomberg screen): rows of amber tickers scrolling past at three speeds, a cursor bar, every trade flashes a row */
+.cbg-tape .cbg-crt { inset: 0; background: repeating-linear-gradient(0deg, rgba(255, 255, 255, .025) 0 1px, transparent 1px 3px); }
+.cbg-trow { left: 0; white-space: nowrap; font: 700 11px/1 'JetBrains Mono', monospace; letter-spacing: .08em; color: #ffb547; opacity: .16; will-change: transform;
+  animation: cbgTape calc(26s + (var(--i) % 3) * 9s) linear infinite; animation-delay: calc(var(--i) * -4.1s); }
+.cbg-trow:nth-of-type(2n) { animation-direction: reverse; opacity: .1; }
+.cbg-tape.is-tick .cbg-trow:nth-of-type(3) { animation: cbgTape 30s linear infinite, cbgRowFlash .5s ease-out; }
+.cbg-tape .cbg-cursor { left: 6%; bottom: 10%; width: 9px; height: 15px; background: #ffb547; opacity: .3; animation: cbgCursor 1s steps(1) infinite; }
+
+@keyframes cbgHz { 0% { transform: scaleY(5); opacity: 1; } 100% { transform: none; } }
+@keyframes cbgSunKick { 30% { transform: scale(1.12); opacity: .34; } }
+@keyframes cbgShock { 0% { transform: scale(.3); opacity: .7; } 100% { transform: scale(3.4); opacity: 0; } }
+@keyframes cbgJolt { 30% { transform: rotateX(64deg) translate3d(0, 10px, 0); } }
+@keyframes cbgHead { 30% { transform: scale(1.8); opacity: 1; } }
+@keyframes cbgSweep { 0% { transform: translateY(-60%); opacity: 1; } 100% { transform: translateY(60%); opacity: 0; } }
+@keyframes cbgPill { 0% { transform: translate3d(0, 0, 0) rotate(0deg); } 50% { transform: translate3d(14px, -55vh, 0) rotate(180deg); } 100% { transform: translate3d(-8px, -115vh, 0) rotate(360deg); } }
+@keyframes cbgPop { 0% { transform: scale(.4); opacity: .6; } 100% { transform: scale(3); opacity: 0; } }
+@keyframes cbgWord { 30% { opacity: .22; transform: scale(1.06); } }
+@keyframes cbgTape { from { transform: translate3d(0, 0, 0); } to { transform: translate3d(-50%, 0, 0); } }
+@keyframes cbgRowFlash { 30% { opacity: .5; } }
+@keyframes cbgCursor { 50% { opacity: 0; } }
 
 /* compact on purpose: a wide picker pushed the toolbar's other buttons onto two lines — it shows the scene's icon, the list shows the names */
 .chart-bg-pick { height: 26px; width: 40px; flex: none; padding: 0 4px; text-overflow: clip; border-radius: 6px; border: 1px solid #203129; background: #0a1210; color: #b9cdc2; font: 10px "JetBrains Mono", monospace; cursor: pointer; transition: border-color .15s ease, color .15s ease; }
@@ -91,7 +100,5 @@ body.theme-day .cbg-vignette { background: radial-gradient(120% 90% at 50% 50%, 
 body.theme-day .cbg-neon .cbg-grid { background-image: linear-gradient(rgba(13, 122, 65, .18) 1px, transparent 1px), linear-gradient(90deg, rgba(13, 122, 65, .12) 1px, transparent 1px); }
 body.theme-day .cbg-neon .cbg-grid.is-dn { background-image: linear-gradient(rgba(180, 35, 70, .16) 1px, transparent 1px), linear-gradient(90deg, rgba(180, 35, 70, .1) 1px, transparent 1px); }
 body.theme-day .cbg-neon .cbg-sun { opacity: .14; }
-body.theme-day .cbg-sky { background: linear-gradient(180deg, #e9e3fb 0%, #f3ecff 50%, #e6f3ec 100%); }
-body.theme-day .cbg-city .cbg-bld { background: linear-gradient(180deg, #c9d8cf, #b5c7bc); opacity: .5; } body.theme-day .cbg-skyline.is-near .cbg-bld { background: linear-gradient(180deg, #cfc4e8, #bcb0dc); }
-body.theme-day .cbg-street { background: #d9e8df; } body.theme-day .cbg-col::after { background: var(--c); }
-@media (max-width: 640px) { .cbg-col:nth-of-type(n + 11), .cbg-ray:nth-of-type(2n) { display: none; } .cbg-neon .cbg-sun { width: 80px; height: 80px; margin: -62px 0 0 -40px; } }
+body.theme-day .cbg-trow { color: #9a5a00; } body.theme-day .cbg-col::after { background: var(--c); }
+@media (max-width: 640px) { .cbg-pill:nth-of-type(2n), .cbg-trow:nth-of-type(n + 7), .cbg-col:nth-of-type(n + 11) { display: none; } .cbg-neon .cbg-sun { width: 80px; height: 80px; margin: -62px 0 0 -40px; } }

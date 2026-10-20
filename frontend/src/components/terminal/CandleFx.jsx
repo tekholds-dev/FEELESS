@@ -39,8 +39,9 @@ export function CandleFx({ seriesRef, chartRef, lastBarRef, shownRef, container 
       if (tick != null && real !== tick && t - ringAt > 220) {   // a REAL tick (the bar's own close moved)
         ringAt = t;
         ring.style.transform = at; ring.classList.toggle('is-dn', real < tick); kick(ring, 'is-on');
+        const scene = area?.querySelector(':scope > .cbg'); kick(scene, 'is-tick');   /* 🎨 the chart's scene reacts to every real trade */
         if (Math.abs(real / tick - 1) >= 0.01 && t - sparkAt > 700) {   // a ≥ 1% tick: sparks
-          sparkAt = t; spark.style.transform = at; spark.classList.toggle('is-dn', real < tick); kick(spark, 'is-on');
+          sparkAt = t; spark.style.transform = at; spark.classList.toggle('is-dn', real < tick); kick(spark, 'is-on'); kick(scene, 'is-big');
         }
       }
       tick = real;
