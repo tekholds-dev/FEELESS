@@ -1,0 +1,60 @@
+/* 💬 Messenger inbox (Messenger.jsx, portal on <body>) — FEELESS dark green, Messenger layout. Motion = transform / opacity only. */
+.msx { position: fixed; right: 92px; bottom: 16px; z-index: 5200; width: min(760px, calc(100vw - 120px)); height: min(820px, 88vh); display: flex; flex-direction: column;
+  border-radius: 18px; overflow: hidden; background: #0a120e; border: 1px solid rgba(21, 209, 106, .35); box-shadow: 0 28px 80px rgba(0, 0, 0, .7); animation: msxIn .2s ease-out; }
+.msx:not(.has-list) { width: min(440px, calc(100vw - 120px)); }
+.msx-head { flex: none; display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-bottom: 1px solid rgba(255, 255, 255, .07); background: linear-gradient(180deg, #0f1c15, #0a120e); }
+.msx-title { flex: 1; min-width: 0; display: flex; flex-direction: column; } .msx-title b { font-size: 15px; color: #f2fff7; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.msx-title small { font-size: 11px; color: #7f9c8c; }
+.msx-x, .msx-back { width: 32px; height: 32px; border-radius: 50%; border: 0; background: rgba(255, 255, 255, .06); color: #cfe4d8; font-size: 20px; line-height: 1; cursor: pointer; transition: background .15s, transform .15s; }
+.msx-x:hover, .msx-back:hover, .msx-x:focus-visible, .msx-back:focus-visible { background: rgba(21, 209, 106, .2); outline: none; } .msx-x:active, .msx-back:active { transform: scale(.92); }
+.msx-ava { flex: none; width: 40px; height: 40px; border-radius: 50%; display: grid; place-items: center; font: 800 13px var(--m-sans, system-ui); color: #04130a;
+  background: linear-gradient(135deg, hsl(var(--h) 70% 62%), hsl(calc(var(--h) + 40) 70% 46%)); }
+.msx-ava.is-head { width: 36px; height: 36px; } .msx-ava.is-sm { width: 28px; height: 28px; font-size: 10px; align-self: flex-end; }
+.msx-body { flex: 1 1 auto; min-height: 0; display: grid; grid-template-columns: minmax(0, 1fr); }
+.msx.has-list .msx-body { grid-template-columns: 250px minmax(0, 1fr); }
+.msx-list { min-height: 0; overflow-y: auto; border-right: 1px solid rgba(255, 255, 255, .07); padding: 8px; display: flex; flex-direction: column; gap: 2px; scrollbar-width: thin; scrollbar-color: #15d16a transparent; }
+.msx-list::-webkit-scrollbar, .msx-msgs::-webkit-scrollbar { width: 6px; } .msx-list::-webkit-scrollbar-thumb, .msx-msgs::-webkit-scrollbar-thumb { background: #15d16a; border-radius: 6px; }
+.msx-search { height: 34px; border-radius: 999px; border: 1px solid transparent; background: rgba(255, 255, 255, .06); color: #e9fff2; padding: 0 14px; font-size: 13px; margin-bottom: 6px; }
+.msx-search:focus { outline: none; border-color: #15d16a; }
+.msx-policy { display: flex; flex-direction: column; gap: 4px; padding: 4px 6px 8px; font-size: 11px; color: #7f9c8c; }
+.msx-policy select { height: 30px; border-radius: 8px; background: #0f1a14; color: #e9fff2; border: 1px solid rgba(255, 255, 255, .1); }
+.msx-row { display: grid; grid-template-columns: 40px minmax(0, 1fr) auto; gap: 10px; align-items: center; padding: 8px; border-radius: 12px; border: 0; background: none; color: inherit; text-align: left; cursor: pointer; transition: background .15s; }
+.msx-row:hover, .msx-row:focus-visible { background: rgba(255, 255, 255, .05); outline: none; } .msx-row.on { background: rgba(21, 209, 106, .14); } .msx-row:active { transform: scale(.99); }
+.msx-rowtx { min-width: 0; display: flex; flex-direction: column; } .msx-rowtx b { font-size: 13.5px; color: #f2fff7; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.msx-rowtx small { font-size: 12px; color: #8aa898; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.msx-when { font-style: normal; font-size: 10.5px; color: #6f8f7d; }
+.msx-req { margin-left: 6px; padding: 1px 6px; border-radius: 999px; font: 700 9.5px 'JetBrains Mono', monospace; font-style: normal; background: rgba(255, 211, 107, .15); color: var(--gold, #ffd36b); }
+.msx-chat { min-height: 0; display: flex; flex-direction: column; }
+.msx-msgs { flex: 1 1 auto; min-height: 0; overflow-y: auto; overflow-x: hidden; padding: 14px 14px 6px; display: flex; flex-direction: column; gap: 8px; overscroll-behavior: contain; scrollbar-width: thin; scrollbar-color: #15d16a transparent; }
+.msx-day { margin: 6px 0; text-align: center; } .msx-day span { font-size: 11px; color: #7f9c8c; padding: 2px 10px; border-radius: 999px; background: rgba(255, 255, 255, .04); }
+.msx-grp { display: flex; gap: 8px; max-width: 100%; animation: msxPop .18s ease-out; } .msx-grp.me { justify-content: flex-end; }
+.msx-bubs { display: flex; flex-direction: column; gap: 2px; max-width: min(78%, 480px); min-width: 0; } .msx-grp.me .msx-bubs { align-items: flex-end; }
+.msx-bub { margin: 0; padding: 8px 12px; border-radius: 18px; font-size: 14px; line-height: 1.35; color: #eafff3; background: #1c2a23; overflow-wrap: anywhere; white-space: pre-wrap; }
+.msx-grp.them .msx-bub:not(:first-child) { border-top-left-radius: 6px; } .msx-grp.them .msx-bub:not(:last-child) { border-bottom-left-radius: 6px; }
+.msx-grp.me .msx-bub { background: linear-gradient(135deg, #15d16a, #0f9a50); color: #03150b; }
+.msx-grp.me .msx-bub:not(:first-child) { border-top-right-radius: 6px; } .msx-grp.me .msx-bub:not(:last-child) { border-bottom-right-radius: 6px; }
+.msx-bubs small { font-size: 10px; color: #6f8f7d; padding: 0 6px; }
+.msx-ca { font: 700 12px 'JetBrains Mono', monospace; color: inherit; text-decoration: underline; text-underline-offset: 2px; }
+.msx-request { flex: none; display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 8px 12px; border-top: 1px solid rgba(255, 255, 255, .07); font-size: 12.5px; color: #e9fff2; background: rgba(255, 211, 107, .06); }
+.msx-quick { flex: none; display: flex; gap: 6px; padding: 6px 12px 0; overflow-x: auto; scrollbar-width: none; } .msx-quick::-webkit-scrollbar { display: none; }
+.msx-quick button { flex: none; padding: 4px 11px; border-radius: 999px; border: 1px solid rgba(21, 209, 106, .3); background: rgba(21, 209, 106, .06); color: #c9f3dc; font-size: 12px; cursor: pointer; transition: background .15s, transform .15s; }
+.msx-quick button:hover, .msx-quick button:focus-visible { background: rgba(21, 209, 106, .18); outline: none; } .msx-quick button:active { transform: scale(.95); }
+.msx-compose { flex: none; display: flex; align-items: flex-end; gap: 8px; padding: 8px 12px 12px; }
+.msx-compose textarea { flex: 1; min-width: 0; resize: none; max-height: 140px; border-radius: 20px; border: 1px solid transparent; background: rgba(255, 255, 255, .07); color: #f2fff7; padding: 9px 14px; font: 14px/1.35 var(--m-sans, system-ui); }
+.msx-compose textarea:focus { outline: none; border-color: #15d16a; }
+.msx-send { flex: none; width: 38px; height: 38px; border-radius: 50%; border: 0; display: grid; place-items: center; background: #15d16a; color: #04130a; cursor: pointer; transition: transform .15s, opacity .15s; }
+.msx-send:hover:not(:disabled) { transform: scale(1.06); } .msx-send:active:not(:disabled) { transform: scale(.94); } .msx-send:focus-visible { outline: 2px solid #45e486; outline-offset: 2px; } .msx-send:disabled { opacity: .35; cursor: default; }
+.msx-pick, .msx-gate { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; color: #7f9c8c; padding: 20px; text-align: center; }
+.msx-empty { margin: 10px; text-align: center; color: #7f9c8c; font-size: 12.5px; }
+@keyframes msxIn { from { opacity: 0; transform: translateY(14px) scale(.98); } }
+@keyframes msxPop { from { transform: translateY(4px); } }
+body.fx-lite .msx, body.fx-lite .msx-grp { animation: none; }
+@media (prefers-reduced-motion: reduce) { .msx, .msx-grp { animation: none; } }
+body.theme-day .msx { background: #f4faf6; border-color: rgba(10, 138, 69, .3); } body.theme-day .msx-head { background: #eaf5ee; }
+body.theme-day .msx-title b, body.theme-day .msx-rowtx b { color: #0b2a19; } body.theme-day .msx-bub { background: #e4efe8; color: #0b2a19; }
+body.theme-day .msx-compose textarea, body.theme-day .msx-search { background: #e4efe8; color: #0b2a19; }
+@media (max-width: 760px) {
+  .msx { right: 8px; left: 8px; bottom: 8px; width: auto; height: calc(100vh - 80px); }
+  .msx.has-list .msx-body { grid-template-columns: minmax(0, 1fr); }
+  .msx.has-list.has-chat .msx-list { display: none; } .msx.has-list:not(.has-chat) .msx-pick { display: none; }
+}

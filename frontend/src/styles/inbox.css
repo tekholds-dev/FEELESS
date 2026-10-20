@@ -11,17 +11,6 @@
 .np-head { position: sticky; top: -8px; z-index: 1; margin: -8px -8px 0; padding: 10px 14px 8px; background: inherit; border-bottom: 1px solid rgba(69, 228, 134, .14); }
 .np-all { position: sticky; bottom: -8px; margin: 0 -8px -8px; background: inherit; border-top: 1px solid rgba(69, 228, 134, .14); }
 
-.dm-card { display: flex; flex-direction: column; overflow: hidden !important; right: 84px !important; }   /* clear of the floating HQ + cat buttons */
-.dm-card > .wpj-head { flex: none; }
-.dm-card > .dm-body, .dm-card > .np-empty { flex: 1 1 auto; min-height: 0; overflow: auto; overscroll-behavior: contain; scrollbar-width: thin; scrollbar-color: #15d16a transparent; }
-.dm-body.with-list { grid-template-columns: 200px minmax(0, 1fr); }
-.dm-threads { max-height: min(460px, 60vh); overflow-y: auto; min-width: 0; scrollbar-width: thin; }
-.dm-threads button { min-width: 0; } .dm-threads b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.dm-thread { min-width: 0; grid-template-rows: minmax(0, 1fr) auto; }
-.dm-msgs { overflow-x: hidden; } .dm-msg { min-width: 0; } .dm-msg p { overflow-wrap: anywhere; word-break: break-word; }
-.dm-compose input { min-width: 0; }
-@media (max-width: 700px) { .dm-body.with-list { grid-template-columns: minmax(0, 1fr); } .dm-threads { max-height: 180px; } }
 @media (max-width: 640px) {
   .notif-pop { position: fixed; left: 12px; right: 12px; top: 64px; width: auto; max-height: calc(100vh - 84px); }
-  .dm-card { right: 10px !important; left: 10px; bottom: 10px; width: auto !important; max-height: calc(100vh - 80px) !important; }
 }

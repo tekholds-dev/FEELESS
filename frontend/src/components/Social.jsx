@@ -6,6 +6,7 @@ import { getChatSession, readChatSession } from '../lib/chatSession';
 import { Hint } from './Hint';
 import { currentSubscription, enablePush, readPushPrefs, savePushPrefs, syncPush } from '../lib/push';
 import '../styles/inbox.css';
+import { Messenger } from './Messenger';
 
 const ago = ts => { const s = Math.max(0, Date.now() / 1000 - ts); return s < 60 ? 'now' : s < 3600 ? `${Math.floor(s / 60)}m` : s < 86400 ? `${Math.floor(s / 3600)}h` : `${Math.floor(s / 86400)}d`; };
 const q = o => new URLSearchParams(o).toString();
@@ -130,14 +131,8 @@ export function ProfileDM({ peer, mine, initialOpen }) {
     setText(''); setMsgs(m => [...m, b.message]);
   };
   if (!open) return <button type="button" className="btn-outline dm-open" data-testid="dm-open" onClick={() => setOpen(true)}><MessageCircle size={14} />{mine ? 'Inbox' : 'Message'}</button>;
-  return <section className="wp-card dm-card" data-testid="profile-dm">
-    <div className="wpj-head"><h3><MessageCircle size={15} /> {mine ? 'Inbox' : 'Private chat'}</h3><button type="button" className="dm-x" onClick={() => setOpen(false)}>×</button></div>
-    {!wallet || !session ? <div className="np-empty"><p>{wallet ? 'Sign once to chat privately (free, 7 days).' : 'Connect a wallet to chat.'}</p><button type="button" className="btn-primary" onClick={start}>{wallet ? 'Sign in' : 'Connect'}</button></div> : <div className={`dm-body ${mine ? 'with-list' : ''}`}>
-      {mine && <div className="dm-threads">{policy && <label className="dm-policy"><span>Who can message me</span><select value={policy} onChange={e => prefs({ policy: e.target.value })}><option value="everyone">Everyone</option><option value="requests">Requests — I accept first</option><option value="nobody">Nobody</option></select></label>}{!threads.length ? <p className="np-empty">No conversations yet.</p> : threads.map(t => <button key={t.peer} type="button" className={with_ === t.peer ? 'on' : ''} onClick={() => setWith(t.peer)}><b>@{t.handle}{t.request && <em className="dm-req">request</em>}</b><small>{t.last.text.slice(0, 40)}</small></button>)}</div>}
-      {with_ ? <div className="dm-thread"><div className="dm-msgs">{msgs.map(m => <div key={m.id} className={`dm-msg ${m.from === (msgs.find(x => x.from !== with_)?.from || '') || m.from !== with_ ? 'me' : ''}`}><p>{m.text}</p><small>{ago(m.at)}</small></div>)}<i ref={end} /></div>
-        {pending && <div className="dm-request-bar"><span>@{threads.find(t => t.peer === with_)?.handle} wants to message you.</span><button type="button" className="btn-primary" onClick={() => prefs({ accept: with_ }).then(() => setThreads(ts => ts.map(t => (t.peer === with_ ? { ...t, request: false } : t))))}>Accept</button></div>}<form onSubmit={send} className="dm-compose"><input maxLength={500} value={text} onChange={e => setText(e.target.value)} placeholder="Write a private message…" /><button className="btn-primary" aria-label="Send"><Send size={14} /></button></form></div> : mine && <p className="np-empty">Pick a conversation.</p>}
-    </div>}
-  </section>;
+  return <Messenger mine={mine} wallet={wallet} session={session} start={start} threads={threads} withPeer={with_} setWith={setWith} msgs={msgs} text={text} setText={setText}
+    send={send} policy={policy} prefs={prefs} pending={pending} setThreads={setThreads} endRef={end} onClose={() => setOpen(false)} />;
 }
 
 // Rewards: points with several ways to earn; claim with your chat session.
