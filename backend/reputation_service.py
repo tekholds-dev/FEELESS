@@ -11472,6 +11472,11 @@ async def _prime_tick_inner(now):
                                                   'tag': '🤖 agents · ⚡ READY (kernel)' if not t_.get('armed') else '🤖 agents · 🪫 VALVE (empty seat)' if t_.get('valve') else '🤖 agents · 🎯 ARMED (seat target)', 'why': t_['nearReady']}, px, cfg_s, now,
                                           max_usd=wd_['allowed'] * (_oe.VALVE_SIZE if t_.get('valve') else _cap.armed_size(_capital_view()) if t_.get('armed') else 1.0))   # 🎯 an armed fill: half — the full size once the ARMED door's own real record proves it
                     used_ += 1; cur['agentDutyAt'] = now; cur['agentFillAt'] = now
+                    if not t_.get('g4') and _DUO_GATE['on']:   # 🤝 the agents trade a model-backed coin on THAT model's own lines (R6m / R5m / R7a)
+                        bl_ = _seat.backer_lines((_g4_mem.get() or {}).get('log') or [], t_['mint'], now)
+                        for l_ in (cur.get('legs') or []) if bl_ else []:
+                            if l_.get('mint') == t_['mint'] and not l_.get('aiSeat') and not l_.get('picked'):
+                                l_.update({k2_: v2_ for k2_, v2_ in (('aiTp', bl_.get('tp')), ('aiSl', bl_.get('sl')), ('aiTrail', bl_.get('trail'))) if v2_}); l_['linesBy'] = bl_.get('by')
                     if t_.get('g4'):   # 🧠 the leg is G4's: the agents only argue on it from now on
                         _g4_fate({'mint': t_['mint'], 'symbol': t_.get('symbol')}, 'seated — the keeper buys it next pass', now)
                         if (_g4.get('pendSeat') or {}).get('mint') == t_['mint']:

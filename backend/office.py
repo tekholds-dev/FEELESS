@@ -762,7 +762,10 @@ def reap(legs, table, prices, cfg, pos, now, scalp=None, control=False, weather_
         if l.get('picked'):
             study_note(p, rule, act, st, pct, px, now, snap_of(ch, x, pct))   # 👤 your seat: every ruling change is filed — what the agents would have done, and when
         if (l.get('aiSeat') or (_uni.is_agent(l) and not l.get('picked'))) and pct is not None and not (act and str(rule).split(' ')[0] in MODEL_OUTRANK):   # 🔁 a MODEL's lines (its own trade, or an agents coin it set): take / stop / trail sell it — they outrank every soft rule (2026-10-19: an agents' trail firing first left R6m unchecked, then G4's seat turned it into HOLD)
-            if _f(l.get('aiTrail')) > 0 and _f(p.get('peak')) >= MODEL_TRAIL_ARM and pct <= _f(p['peak']) * (1 - _f(l['aiTrail']) / 100) and pct >= MIN_KEEP:
+            lk_ = MODEL_LOCK.get(l.get('aiBy')) if l.get('aiSeat') else None   # 🔒 per-model profit lock (G4 rode +10% winners back to red)
+            if lk_ and _f(p.get('peak')) >= lk_[0] and pct <= max(1.0, _f(p['peak']) * lk_[1]):
+                st, rule, ev, act = 'TAKE', 'R7L profit lock', f"peaked {_f(p['peak']):+.1f}%, back to {pct:+.1f}% — banks before it rides a +{lk_[0]:g}% winner back to red ({l.get('aiBy')}'s own record)", 'pull'
+            elif _f(l.get('aiTrail')) > 0 and _f(p.get('peak')) >= MODEL_TRAIL_ARM and pct <= _f(p['peak']) * (1 - _f(l['aiTrail']) / 100) and pct >= MIN_KEEP:
                 st, rule, ev, act = 'TAKE', 'R7a model trail', f"peaked {_f(p['peak']):+.1f}%, now {pct:+.1f}% — gave back {_f(l['aiTrail']):g}% of it ({l.get('aiBy') or 'the model'}'s own trail)", 'pull'
             elif _f(l.get('aiSl')) > 0 and pct <= -_f(l.get('aiSl')):
                 st, rule, ev, act = 'EXIT INVALIDATED', 'R5m model stop', f"{pct:+.1f}% ≤ −{_f(l.get('aiSl')):g}% — {l.get('aiBy') or 'the model'}'s own stop", 'pull'
@@ -1003,7 +1006,12 @@ def rush_take(legs, px_by_mint, flows, now):
             continue
         pulls.append((l.get('pairAddress'), f"☠ R6m model take (⚡ live): {pct:+.1f}% ≥ +{tp:g}% — {l.get('aiBy') or 'the model'}'s own take-profit"))
     return pulls, raises
-G4_HARD = ('R1', 'R5x', 'R5c', 'R9c', 'R5m', 'R6m', 'R7a')   # + the holding model's own stop / take (it runs the trade)   # 🧠 what may still sell G4's seat without it: a pulled pool, −45%, the creator's own limits
+G4_HARD = ('R1', 'R5x', 'R5c', 'R9c', 'R5m', 'R6m', 'R7a', 'R7L')
+# 🔒 PER-MODEL PROFIT LOCK (owner, 2026-10-19: "fix G4's trading … no strat fits all"): G4 (provider lan) — 17 of its 44 real trades reached +10%
+# and banked a median −4.6% (OSSY's +10% trades banked +26.4%). Replay on its own 44 paths: lock at half the peak once it was +8% → won 8 → 20,
+# median −7.0 → −2.0, average −0.9 → +1.8 (newer half +6.3 pts, older half −0.9 pts; fills assumed at the line). OSSY's record got WORSE
+# with the same lock, so it is G4's alone. {model: (arm %, keep share of the peak)}; never under +1%.
+MODEL_LOCK = {'lan': (8.0, 0.5)}   # + the holding model's own stop / take (it runs the trade)   # 🧠 what may still sell G4's seat without it: a pulled pool, −45%, the creator's own limits
 ASK_OK_SEC = 180.0     # an approval lets that rule sell for this long
 ASK_KEEP_SEC = 600.0   # "keep my line" quiets that rule this long
 

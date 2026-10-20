@@ -143,3 +143,13 @@ def test_trade_calls_first_then_the_rest():
     assert ar.prio_tier('exit', 'seat') == 0 and ar.prio_tier('owner', 'normal') == 0
     assert ar.prio_tier('exit', 'force') == 1 and ar.prio_tier('sherlock', 'normal') == 2
     assert ar.seat_window(None, 100) and ar.seat_window(100, 120) and not ar.seat_window(100, 150) and ar.seat_window(100, 300)
+
+
+def test_an_agents_coin_inherits_its_backing_models_lines():
+    log = [{'at': 100, 'by': 'local', 'action': 'BUY', 'mint': 'M'}, {'at': 160, 'by': 'local', 'action': 'LINES', 'mint': 'M', 'lines': {'tp': 60, 'sl': 12, 'trail': 35}},
+           {'at': 50, 'by': 'lan', 'action': 'LINES', 'mint': 'M', 'lines': {'trail': 70}}]
+    assert seat.backer_lines(log, 'M', 200) == {'tp': 60.0, 'sl': 12.0, 'trail': 35.0, 'by': 'local'}   # newest lines on THIS coin
+    wide = [{'at': 10 + i, 'by': 'lan', 'action': 'LINES', 'mint': f'X{i}', 'lines': {'tp': 40 + i, 'trail': 30}} for i in range(4)] + [{'at': 300, 'by': 'lan', 'action': 'BUY', 'mint': 'N'}]
+    b = seat.backer_lines(wide, 'N', 400)
+    assert b['by'] == 'lan' and b['trail'] == 30 and 40 <= b['tp'] <= 43                                 # no lines on it yet: G4's own typical lines
+    assert seat.backer_lines([], 'Z', 400) is None

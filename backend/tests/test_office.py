@@ -754,3 +754,16 @@ def test_the_consigliere_holds_a_germ_coin_through_soft_exits_and_banks_the_spik
     assert r['action'] == 'pull' and str(r['rule']).startswith('R6c')                # +25% ≥ the learned +20% spike → banked
     r2 = of.reap([LEG_], [{**ROW_, 'px': 0.80}], {'PA': 0.80}, {}, None, 100, theses={'A': {'stopPct': 15, 'germDist': 5.0, 'germStop': True}}, plan=plan)[1][0]
     assert r2['action'] == 'pull' and str(r2['rule']).startswith('R5')                # the stop still sells
+
+
+def test_g4_profit_lock_banks_a_winner_before_it_rides_back_to_red():
+    import office as of_
+    run = lambda l, px, pos, now: of_.reap([l], [trow('A')], {'PA': px}, {'agentTakePct': 500, 'agentScalp': False}, pos, now)
+    g4 = lambda: leg('A', aiSeat=True, aiBy='lan')
+    pos, _, _ = run(g4(), 1.12, None, 3600)                  # G4's seat peaked +12%
+    _, rep, _ = run(g4(), 1.05, pos, 3660)                   # back to +5% (under half the peak)
+    assert rep[0]['rule'] == 'R7L profit lock' and rep[0]['action'] == 'pull'
+    ossy = lambda: leg('A', aiSeat=True, aiBy='local')
+    pos, _, _ = run(ossy(), 1.12, None, 3600)
+    _, rep, _ = run(ossy(), 1.05, pos, 3660)
+    assert rep[0]['rule'] != 'R7L profit lock'               # OSSY's own record got worse with it: G4 only

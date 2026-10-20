@@ -452,6 +452,37 @@ def models_trail(log, now, since=48 * 3600.0, min_n=5):
     return v[len(v) // 2] if len(v) >= min_n else None
 
 
+def backer_lines(log, mint, now, since=6 * 3600.0, wide=48 * 3600.0):
+    """🤝 The lines an agents coin INHERITS from the model that backed it (owner, 2026-10-19: "agents auto-tuned to OSSY and G4 … entries / moves
+    exactly like them, no strat fits all"): the newest tp / sl / trail OSSY or G4 set ON THIS COIN (≤ 6h) — else the backing model's own median
+    lines of the last 48h — else nothing (the agents keep Reaper's). → {'tp', 'sl', 'trail', 'by'} with only the lines that exist, or None."""
+    rows = [r for r in log or [] if r.get('by') in ('lan', 'local') and r.get('action') in ('LINES', 'BUY', 'HOLD') and r.get('mint') == mint
+            and now - _f(r.get('at')) <= since and (r.get('lines') or any(r.get(k) for k in ('tp', 'sl', 'trail')))]
+    out, by = {}, None
+    for r in sorted(rows, key=lambda r: -_f(r.get('at'))):
+        ln = r.get('lines') or {k: r.get(k) for k in ('tp', 'sl', 'trail')}
+        by = by or r.get('by')
+        for k in ('tp', 'sl', 'trail'):
+            if k not in out and _f(ln.get(k)) > 0:
+                out[k] = _f(ln.get(k))
+    if not out:
+        buy = next((r for r in sorted(log or [], key=lambda r: -_f(r.get('at'))) if r.get('mint') == mint and r.get('action') == 'BUY' and r.get('by') in ('lan', 'local')), None)
+        by = (buy or {}).get('by')
+        if not by:
+            return None
+        for k in ('tp', 'sl', 'trail'):
+            v = sorted(_f((r.get('lines') or {}).get(k)) for r in log or [] if r.get('by') == by and r.get('action') == 'LINES'
+                       and _f((r.get('lines') or {}).get(k)) > 0 and now - _f(r.get('at')) <= wide)
+            if len(v) >= 3:
+                out[k] = v[len(v) // 2]
+    if not out:
+        return None
+    for k, lo, hi in LINE_RANGES:
+        if k in out:
+            out[k] = max(lo, min(hi, out[k]))
+    return {**out, 'by': by}
+
+
 def adoptable(legs, mint):
     """🤝 The agents' leg a model's BUY may take over: same coin, really on the card (not a placeholder), the agents' own (not yours, not
     certified, not already a model's) — and only while no other model seat is open. → the leg dict or None."""
