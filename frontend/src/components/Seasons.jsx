@@ -6,6 +6,7 @@ import { apiUrl } from '../lib/api';
 import { WeeklyDrops } from './SeasonBadges';
 import { SeasonEditor } from './SeasonEditor';
 import { useAdmin } from '../lib/adminCall';
+import { SeasonLive } from './SeasonLive';
 
 // Season badges earn a weighted cut of the Fee Reserve: show the pot and this wallet's projected share.
 function ReservePot({ address }) {
@@ -101,6 +102,7 @@ export function SeasonsPage() {
       <div className="season-stats"><div><b>{left(d.endsIn)}</b><small>left</small></div><div><b>{d.players}</b><small>players</small></div><div><b>{s.multiplier}×</b><small>points</small></div></div>
       <p className="season-prize">🏆 {s.prize}</p>
     </section>}
+    <SeasonLive d={d} />
     <SeasonRules s={s} />
     <div className="season-grid">
       <section className="season-card">
