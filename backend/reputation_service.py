@@ -556,6 +556,10 @@ async def _refresh_all_markets():
 
 @app.on_event('startup')
 async def _start_background():
+    try:
+        _rig_apply()   # 🎛 the owner's model rig, live from the first call
+    except Exception as e_:
+        print('rig:', str(e_)[:80])
     asyncio.create_task(_refresh_all_markets())
     asyncio.create_task(_store_flush_loop())
     if not os.environ.get('PYTEST_CURRENT_TEST'):
@@ -14741,7 +14745,7 @@ async def _nexa_tick(now, env, cfg):
     FeeCat's rules with bounds, her record, her memory, fresh web headlines and the FEELESS brief → avoid / exit (FeeCat acts on them, paper),
     favor (graded only), tune (FeeCat's rules, bounded, ≤ 1 change an hour, only while the owner's switch is on), a lesson + a discovery note."""
     st_ = _nexa_mem.get() or {}
-    if _nexa_rt['busy'] or now - _fuse._f(st_.get('at')) < _nexa.NEXA_EVERY or _air.provider(env, 'win', cfg).get('why'):
+    if _nexa_rt['busy'] or now - _fuse._f(st_.get('at')) < _air.rig('win', 'every', _nexa.NEXA_EVERY) or _air.provider(env, 'win', cfg).get('why'):
         return
     _nexa_rt['busy'] = True
     try:
@@ -15744,6 +15748,42 @@ async def _ai_proposal_apply(p, now):
 
 import ai_play as _play
 AI_PLAY_PATH = DATA_DIR / 'ai_playground.json'
+
+
+AI_RIG_PATH = DATA_DIR / 'ai_rig.json'
+
+
+def _rig_apply():
+    import ai_rig as _rg
+    _air.RIG.clear()
+    _air.RIG.update(_rg.clean({}, _json_load(AI_RIG_PATH, {})))
+    return _air.RIG
+
+
+@app.get('/api/reputation/admin/ai/rig')
+async def admin_ai_rig(request: Request):
+    """🎛 Owner: the model rig (ai_rig.py) — what FEELESS sends G4 / OSSY / NEXA, plus the load command that matches it."""
+    _require_owner(request)
+    import ai_rig as _rg
+    rig_ = _rig_apply()
+    models_ = {k_: _air.provider(os.environ, k_, _ai_cfg()).get('model') for k_ in _rg.KEYS}
+    v_ = _air.ROUTER.view(os.environ, _ai_cfg())
+    live_ = {r_['key']: {'state': r_.get('state'), 'lastMs': r_.get('lastMs')} for r_ in v_.get('providers') or []}
+    live_['win'] = {'state': _air.ROUTER.stats['win'].get('state'), 'lastMs': _air.ROUTER.stats['win'].get('lastMs')}
+    return {**_rg.view(rig_, models_), 'live': live_}
+
+
+@app.post('/api/reputation/admin/ai/rig')
+async def admin_ai_rig_set(request: Request):
+    """🎛 Owner: save the rig (listed values only). Live at once — no restart, no model reload. Audited."""
+    admin = _require_owner(request)
+    import ai_rig as _rg
+    body = await request.json()
+    new_ = _rg.clean(body if isinstance(body, dict) else {}, _json_load(AI_RIG_PATH, {}))
+    _json_save(AI_RIG_PATH, new_)
+    _rig_apply()
+    ad_ = _admin_load(); _audit(ad_, admin, 'ai-rig', str({k_: new_[k_] for k_ in _rg.KEYS})[:300]); _admin_save(ad_)
+    return await admin_ai_rig(request)
 
 
 @app.get('/api/reputation/admin/ai/calls')
@@ -23910,7 +23950,7 @@ async def admin_nexa(request: Request):
     pv_ = _air.provider(os.environ, 'win', _ai_cfg())
     return {'name': _air.model_name(os.environ, 'win'), 'provider': {'on': not pv_.get('why'), 'why': pv_.get('why'), 'model': pv_.get('model'), 'base': bool(pv_.get('base')),
             'label': _air.LABEL.get('win')}, 'busy': _nexa_rt['busy'],
-            'every': _nexa.NEXA_EVERY, 'at': st_.get('at'), 'ok': st_.get('ok'), 'err': st_.get('err'), 'ms': st_.get('ms'), 'last': st_.get('last'),
+            'every': _air.rig('win', 'every', _nexa.NEXA_EVERY), 'at': st_.get('at'), 'ok': st_.get('ok'), 'err': st_.get('err'), 'ms': st_.get('ms'), 'last': st_.get('last'),
             'record': _nexa.record(st_.get('grades') or []), 'tunes': (st_.get('tunes') or [])[-10:], 'cfg': st_.get('cfg') or {},
             'memory': (st_.get('mem') or [])[-40:], 'memN': len(st_.get('mem') or []), 'real': {'on': False, 'why': 'FeeCat trades paper. A real-money FeeCat needs her own keeper path (sign from a FeeCat wallet, the Fuse wallet checks) — not built yet; switching it on stays your call.'}}
 

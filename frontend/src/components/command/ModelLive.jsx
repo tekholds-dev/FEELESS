@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import '../../styles/modelLive.css';
+import { ModelRig } from './ModelRig';
 
 // 🧠 THE MODELS, LIVE (owner, 2026-10-19: "real time loading % and vital prompt log from G4 and OSSY in brain"): every call in flight with
 // its % = elapsed ÷ that model's OWN average answer time (it waits at 99% until the answer lands — never a fake finish), then the last 30
@@ -18,7 +19,7 @@ export function ModelLive({ call }) {
   }, [call]);
   if (!d) return <p className="mlv-wait" data-testid="mlv-wait">reading the models…</p>;
   const fl = d.inflight || []; const log = d.log || [];
-  return <div className="mlv" data-testid="model-live">
+  return <div className="mlv" data-testid="model-live"><ModelRig call={call} />
     <section className="mlv-now">
       <h5>⚡ THINKING NOW <small>{fl.length ? `${fl.length} call${fl.length > 1 ? 's' : ''} in flight` : 'nobody is thinking this second'}</small></h5>
       {['lan', 'local'].map(k => { const f = fl.filter(x => x.prov === k); const a = (d.avgMs || {})[k];

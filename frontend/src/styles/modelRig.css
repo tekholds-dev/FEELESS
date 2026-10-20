@@ -1,0 +1,24 @@
+/* 🎛 ModelRig.jsx — m-* tokens, transform / opacity motion only */
+.mrg { margin-bottom: 12px; } .mrg-head { display: flex; flex-wrap: wrap; gap: 8px; align-items: baseline; margin: 0 0 8px; }
+.mrg-head b { font: 800 11px 'JetBrains Mono', monospace; letter-spacing: .12em; color: #e9fff2; } .mrg-head small { color: #7f9c8c; font-size: 11px; }
+.mrg-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 8px; }
+.mrg-card { padding: 10px; border-radius: 12px; background: rgba(255, 255, 255, .03); border: 1px solid rgba(21, 209, 106, .22); display: flex; flex-direction: column; gap: 6px;
+  animation: mrgIn .35s ease-out both; animation-delay: calc(var(--i) * 60ms); }
+.mrg-card.k-lan { border-color: rgba(120, 180, 255, .35); } .mrg-card.k-local { border-color: rgba(21, 209, 106, .35); } .mrg-card.k-win { border-color: rgba(180, 140, 255, .4); }
+.mrg-card header { display: flex; align-items: center; gap: 8px; } .mrg-card header img, .mrg-av { width: 26px; height: 26px; border-radius: 50%; font-style: normal; display: grid; place-items: center; }
+.mrg-card header b { color: #f2fff7; font: 800 13px 'JetBrains Mono', monospace; }
+.mrg-st { margin-left: auto; font: 700 9px 'JetBrains Mono', monospace; padding: 2px 7px; border-radius: 999px; background: rgba(255, 255, 255, .06); color: #a9c7b6; }
+.mrg-st.s-online { background: rgba(21, 209, 106, .18); color: #45e486; } .mrg-st.s-offline, .mrg-st.s-bad-answer { background: rgba(255, 143, 163, .15); color: #ff8fa3; }
+.mrg-row em { display: block; font: 700 8.5px 'JetBrains Mono', monospace; font-style: normal; letter-spacing: .1em; color: #7f9c8c; margin-bottom: 3px; }
+.mrg-seg { display: flex; flex-wrap: wrap; gap: 3px; }
+.mrg-seg button { padding: 3px 7px; border-radius: 7px; border: 1px solid rgba(255, 255, 255, .1); background: rgba(255, 255, 255, .03); color: #cfe9da; font: 700 10px 'JetBrains Mono', monospace; cursor: pointer; transition: background .15s, transform .15s; }
+.mrg-seg button:hover { background: rgba(21, 209, 106, .14); transform: translateY(-1px); } .mrg-seg button:focus-visible { outline: 2px solid #45e486; }
+.mrg-seg button:active { transform: scale(.96); } .mrg-seg button.active { background: #15d16a; border-color: #45e486; color: #021a0c; }
+.mrg-seg button[aria-busy='true'] { animation: mrgBusy .8s ease-in-out infinite alternate; }
+.mrg-cmd { display: block; padding: 6px 8px; border-radius: 8px; background: rgba(0, 0, 0, .35); color: #9fe6bf; font: 600 9.5px 'JetBrains Mono', monospace; overflow-wrap: anywhere; }
+.mrg-wait, .mrg-err { color: #7f9c8c; font-size: 12px; } .mrg-err { color: #ff8fa3; }
+@keyframes mrgIn { from { transform: translateY(6px); } } @keyframes mrgBusy { to { opacity: .45; } }
+body.fx-lite .mrg * { animation: none !important; }
+@media (prefers-reduced-motion: reduce) { .mrg * { animation: none !important; transition: none !important; } }
+body.theme-day .mrg-card { background: rgba(236, 246, 240, .85); } body.theme-day .mrg-card header b, body.theme-day .mrg-head b { color: #0b2a19; }
+@media (max-width: 640px) { .mrg-grid { grid-template-columns: 1fr; } }

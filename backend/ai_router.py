@@ -213,6 +213,14 @@ def cloud_ready(router, env, cfg, now):
     return False
 
 
+RIG = {}   # 🎛 owner's model rig (ai_rig.py): {key: {ctx, parallel, timeout, perMin}} — set by the service, read live
+
+
+def rig(key, f, default=None):
+    v = (RIG.get(key) or {}).get(f)
+    return v if v not in (None, 0) else default
+
+
 LM_PER_MIN = int(os.environ.get('LM_CALLS_PER_MIN') or 4)   # 🧯 each LM Studio model (G4 / OSSY) answers ≤ 4 background calls a minute (owner, 2026-10-16)
 
 
@@ -310,7 +318,7 @@ def provider(env, key, cfg=None):
                 why = f'AI_BASE_URL: {e}'
     if not model and not why:
         why = 'MODEL MISSING'
-    return {'key': key, 'label': lab, 'base': base, 'model': model, 'enabled': on, 'why': why, 'timeout': tout, 'conc': conc,
+    return {'key': key, 'label': lab, 'base': base, 'model': model, 'enabled': on, 'why': why, 'timeout': float(rig(key, 'timeout', tout)), 'conc': int(rig(key, 'parallel', conc)),
             'keySet': bool(env.get(kvar)) if kvar else (bool(env.get('LAN_LLM_API_KEY' if key == 'lan' else 'LOCAL_LLM_API_KEY')) or None), 'hint': _aik.hint(env.get(kvar)) if kvar else None}
 
 
@@ -736,6 +744,7 @@ class Router:
         self.seatDone = {}   # ⏱ when each model's last trade call finished
         self.prioWait = {}   # 🥇 per provider: how many calls of each tier are waiting (prio_tier)
         self._sem = {}
+        self._semN = {}
         self.budget = {}   # provider → what it said is left of its tokens-per-minute budget
         self.spend = {}    # provider → {day, usd, calls}: the costs the provider itself reported today
         self.localBgAt = 0.0
@@ -773,8 +782,10 @@ class Router:
         return bool(hit and (time.time() if now is None else now) - hit[0] < CACHE_SEC)
 
     def sem(self, key):
-        if key not in self._sem:
-            self._sem[key] = asyncio.Semaphore(PROVIDERS[key][7])
+        n = int(rig(key, 'parallel', PROVIDERS[key][7]))
+        if key not in self._sem or (self._semN.get(key) != n and not self._sem[key].locked()):   # 🎛 the owner changed the slots: a new gate once idle
+            self._sem[key] = asyncio.Semaphore(n)
+            self._semN[key] = n
         return self._sem[key]
 
     def _bad(self, key, now, err, kind='fail', cool=None):
@@ -807,7 +818,7 @@ class Router:
         now = time.time()
         c_ = self._ctx.get(p['key'])
         if c_ and now - c_[0] < 120:
-            return c_[1]
+            return min(c_[1], rig(p['key'], 'ctx', c_[1]))   # 🎛 the owner's budget, never more than the model is loaded with
         ctx = int(_f((env or {}).get('LOCAL_LLM_CTX'), LOCAL_CTX) or LOCAL_CTX)
         try:
             r = await asyncio.wait_for(http.get(re.sub(r'/v1/?$', '', p['base']) + '/api/v0/models', **_lm_auth(env, p['key'])), timeout=3)
@@ -820,7 +831,7 @@ class Router:
         except Exception:
             pass
         self._ctx[p['key']] = (now, ctx)
-        return ctx
+        return min(ctx, rig(p['key'], 'ctx', ctx))
 
     async def heartbeat(self, http, env, cfg, now=None, every=20.0):
         """💓 THE LOCAL MODEL HEALS ITSELF (owner, 2026-10-13: "I keep having to click Test"): one slow / failed answer marked LM Studio
@@ -1091,7 +1102,7 @@ class Router:
                     continue
                 self.localBgAt = time.time()
                 self.totals['localBg'] = self.totals.get('localBg', 0) + 1
-            if key in LM and role not in ('owner', 'chat') and urgency != 'seat' and minute_cap(self.minute.get(key), time.time()):   # 🎯 a model's OWN trade decision is never capped out by background reads (G4 missed 41 minutes on 2026-10-17)
+            if key in LM and role not in ('owner', 'chat') and urgency != 'seat' and minute_cap(self.minute.get(key), time.time(), int(rig(key, 'perMin', LM_PER_MIN))):   # 🎯 a model's OWN trade decision is never capped out by background reads (G4 missed 41 minutes on 2026-10-17)
                 tried.append([key, 'MINUTE CAP'])
                 continue
             if key in LM and role not in ('owner', 'chat'):
@@ -1129,8 +1140,9 @@ class Router:
                     msgs = case_msgs
                     if key in LM and not general:   # 💻 fit the context the model is LOADED with (asked from LM Studio itself): the full brain when it fits, else its condensed twin
                         ctx_ = await self.local_ctx(http, p, env)
-                        if key == 'lan' and LAN_PARALLEL > 1:   # parallel slots SHARE the loaded context: each request fits its share
-                            ctx_ = ctx_ // LAN_PARALLEL
+                        par_ = int(rig(key, 'parallel', LAN_PARALLEL if key == 'lan' else 1))
+                        if par_ > 1:   # parallel slots SHARE the loaded context: each request fits its share
+                            ctx_ = ctx_ // par_
                         if role != 'owner' and urgency not in ('force', 'seat'):   # 🧈 a BACKGROUND local read always uses the condensed brain (~1K tokens, ~10s) — the
                             ctx_ = min(ctx_, LOCAL_BG_CTX)            # full 2.4K-token prompt kept the GPU the browser draws with busy ~30s a read ("horrible lag")
                         msgs = messages_local(case, role, ctx_)
