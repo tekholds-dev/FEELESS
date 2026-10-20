@@ -31,6 +31,7 @@ LAN_PARALLEL = max(1, min(4, int(os.environ.get('LAN_LLM_PARALLEL') or 2)))   # 
 PROVIDERS = {
     'lan': ('LAN LM STUDIO', None, 'LAN_LLM_MODEL', 'LAN_LLM_BASE_URL', '', 'qwen/qwen3-4b-2507', 90.0, LAN_PARALLEL),   # 🖥 (150s: a full agent case on the desktop's model ran past 60s, every read timed out → OFFLINE forever, 2026-10-15) LM Studio on the desktop Mac (LAN): asked FIRST — no GPU shared with the browser here
     'local': ('LOCAL LM STUDIO', None, 'LOCAL_LLM_MODEL', 'LOCAL_LLM_BASE_URL', 'http://127.0.0.1:1234/v1', 'qwen2.5-7b-instruct-mlx', 60.0, 1),   # the vitals answer took 16–31s on the owner's Mac (its own loop: nothing waits on it)
+    'win': ('WINDOWS LLAMAFILE', None, 'WIN_LLM_MODEL', 'WIN_LLM_BASE_URL', '', 'Ministral-3-3B-Instruct-2512', 240.0, 1),   # 🪟 NEXA SICARIO (owner, 2026-10-20): llamafile on the owner's old Windows PC (CPU only, no AVX2 → slow): FeeCat's desk ONLY, never in DEFAULT_ORDER
     'groq': ('GROQ', 'GROQ_API_KEY', 'GROQ_MODEL', None, 'https://api.groq.com/openai/v1', 'qwen/qwen3.8-27b', 8.0, 1),   # 2026-10-13: llama-3.1-8b-instant is gone from Groq (404 → the fallback never answered); this one answers the vitals schema in ~0.9s
     'openrouter': ('OPENROUTER', 'OPENROUTER_API_KEY', 'OPENROUTER_MODEL', None, 'https://openrouter.ai/api/v1', 'openrouter/auto', 20.0, 2),
     'openai': ('OPENAI', 'OPENAI_API_KEY', 'OPENAI_MODEL', None, 'https://api.openai.com/v1', 'gpt-4o-mini', 10.0, 2),
@@ -107,24 +108,29 @@ def calls_view(now=None, avg=None):
         fl.append({**{x: v[x] for x in ('prov', 'role', 'model', 'at', 'tok')}, 'sec': round(sec, 1), 'pct': min(99, round(100 * sec / max(a, 1))), 'typical': round(a, 1)})
     return {'inflight': sorted(fl, key=lambda r: r['at']), 'log': list(CALL_LOG)[::-1]}
 RAW = _cv.ContextVar('ai_raw', default=False)   # 🧪 return the model's whole text too (playground documents)   # 🪪 the owner's chat: each LM Studio model speaks as itself (its own name, its partner's name)
-NAME_DEFAULT = {'lan': 'G4', 'local': 'OSSY'}   # LAN_LLM_NAME / LOCAL_LLM_NAME override — the names the owner's two models answer to
+NAME_DEFAULT = {'lan': 'G4', 'local': 'OSSY', 'win': 'NEXA'}   # LAN_LLM_NAME / LOCAL_LLM_NAME override — the names the owner's two models answer to
 
 
 def model_name(env, key):
-    return str((env or {}).get('LAN_LLM_NAME' if key == 'lan' else 'LOCAL_LLM_NAME') or '').strip()[:24] or NAME_DEFAULT.get(key)
+    var = {'lan': 'LAN_LLM_NAME', 'local': 'LOCAL_LLM_NAME', 'win': 'WIN_LLM_NAME'}.get(key)
+    return (str((env or {}).get(var) or '').strip()[:24] if var else '') or NAME_DEFAULT.get(key)
 
 
 def identity_line(env, key):
     """Who THIS model is in the owner's chat: a human name, its partner, its job — so 'who are you / pick a name' never stalls."""
     if key not in NAME_DEFAULT:
         return ''
+    if key == 'win':
+        import fee_voice as _fv
+        return (f"Your name is {model_name(env, key)} — the Sicario family's discovery model and FeeCat's own analyst (you read the whole internet, "
+                f"the socials and every FEELESS system, and you tune FeeCat's PAPER desk). " + _fv.persona('NEXA') + " Asked who you are, answer as yourself in one line.")
     other = 'local' if key == 'lan' else 'lan'
     role = 'the lead trench analyst (you read first)' if key == 'lan' else 'the second read (you check the lead and push back when it is wrong)'
     import fee_voice as _fv
     return (f"Your name is {model_name(env, key)} — {role} on the FEELESS desk. Your partner model is {model_name(env, other)}. "
             + _fv.persona({'lan': 'G4', 'local': 'OSSY'}[key]) + " Swear when it fits. Asked who you are, answer as yourself in one line.")   # 🎛 the owner's chat tuning {temp, maxTok} for THIS call only (never the agents' background reads)
 MAX_TOKENS = 700          # the brain prompt's schema (16 keys) needs room — at 260 the JSON was cut off and read "malformed"
-LABEL = {'lan': 'DESKTOP AI', 'local': 'LOCAL AI', 'groq': 'GROQ', 'openrouter': 'OPENROUTER', 'openai': 'OPENAI', 'xai': 'XAI', 'custom': 'CUSTOM AI', 'NONE': 'NONE'}
+LABEL = {'lan': 'DESKTOP AI', 'local': 'LOCAL AI', 'win': 'NEXA · WINDOWS', 'groq': 'GROQ', 'openrouter': 'OPENROUTER', 'openai': 'OPENAI', 'xai': 'XAI', 'custom': 'CUSTOM AI', 'NONE': 'NONE'}
 _KEYLIKE = re.compile(r'[A-Za-z0-9_\-]{20,}')
 
 
@@ -287,6 +293,13 @@ def provider(env, key, cfg=None):
             base, bad = _aik.base_check(base)   # localhost / private LAN over http, or a public https host
             if bad:
                 base, why = '', f'{bvar}: ' + bad
+    elif key == 'win':
+        if not base:
+            on, why = False, 'WIN_LLM_BASE_URL is not set (http://<windows-ip>:8080/v1)'
+        else:
+            base, bad = _aik.base_check(base)
+            if bad:
+                base, why = '', 'WIN_LLM_BASE_URL: ' + bad
     else:
         if not env.get(kvar):
             why = 'KEY MISSING'
@@ -944,6 +957,8 @@ class Router:
             hdr['Authorization'] = f"Bearer {env.get(kvar)}"
         elif p['key'] in LM:
             hdr.update(_lm_auth(env, p['key']).get('headers') or {})
+        elif p['key'] == 'win' and str(env.get('WIN_LLM_API_KEY') or '').strip():   # llamafile --api-key (optional)
+            hdr['Authorization'] = f"Bearer {str(env.get('WIN_LLM_API_KEY')).strip()}"
         if IDENTITY.get() and msgs and msgs[0].get('role') == 'system' and identity_line(env, p['key']):
             msgs = [{'role': 'system', 'content': identity_line(env, p['key']) + '\n\n' + str(msgs[0].get('content') or '')}] + list(msgs[1:])
         if p['key'] == 'lan':

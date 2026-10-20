@@ -14722,6 +14722,112 @@ async def _feecat_duo_safe(now, env, cfg):
         print('feecat duo:', str(e)[:80])
 
 
+import nexa as _nexa   # noqa: E402  🪟 Nexa Sicario — FeeCat's own model (Windows llamafile)
+NEXA_PATH = DATA_DIR / 'nexa.json'
+_nexa_mem = _ms0.MemStore(lambda: NEXA_PATH, 60.0, lambda p_, d_: _json_load(p_, d_), lambda p_, o_: _json_save(p_, o_))
+_nexa_rt: dict = {'busy': False, 'at': 0.0}
+
+
+async def _feecat_rules():
+    try:
+        r_ = await _ai_http().get('http://127.0.0.1:5088/api/cats/internal/rules', headers={'x-feeless-internal': _internal_key()}, timeout=4)
+        return r_.json() if r_.status_code == 200 else {}
+    except Exception:
+        return {}
+
+
+async def _nexa_tick(now, env, cfg):
+    """🪟 NEXA's read (one per nexa.NEXA_EVERY, its own task: a 3B model on an old CPU never holds the round). She reads FeeCat's book + next coins,
+    FeeCat's rules with bounds, her record, her memory, fresh web headlines and the FEELESS brief → avoid / exit (FeeCat acts on them, paper),
+    favor (graded only), tune (FeeCat's rules, bounded, ≤ 1 change an hour, only while the owner's switch is on), a lesson + a discovery note."""
+    st_ = _nexa_mem.get() or {}
+    if _nexa_rt['busy'] or now - _fuse._f(st_.get('at')) < _nexa.NEXA_EVERY or _air.provider(env, 'win', cfg).get('why'):
+        return
+    _nexa_rt['busy'] = True
+    try:
+        fc_ = _feecat_packet()
+        rl_ = await _feecat_rules()
+        rules_, bounds_ = rl_.get('rules') or {}, {k_: tuple(v_) for k_, v_ in (rl_.get('bounds') or {}).items()}
+        pk_ = {'OPEN': fc_['openTrades'], 'NEXT': fc_['nextCoins'], 'RULES': {k_: [rules_.get(k_), list(bounds_[k_])] for k_ in bounds_},
+               'RECORD': _nexa.record(st_.get('grades') or []), 'MEMORY': _nexa.recall(st_.get('mem') or [])}
+        web_ = []
+        try:
+            import feeless_mcp as _mcp
+            res_ = await asyncio.wait_for(asyncio.gather(*[asyncio.to_thread(_mcp._search_rows, q_, 4) for q_ in _nexa.queries(pk_)], return_exceptions=True), timeout=12)
+            web_ = [{'title': (w_.get('title') or '')[:90], 'url': w_.get('url'), 'snippet': (w_.get('snippet') or '')[:140]} for r_ in res_ if isinstance(r_, list) for w_ in r_][:8]
+            pk_['SYSTEM'] = str(_mcp.living_now() or '')[:900]
+        except Exception:
+            pass
+        pk_['WEB'] = web_
+        pairs_ = [x_.get('pairAddress') for k_ in ('OPEN', 'NEXT') if isinstance(pk_[k_], list) for x_ in pk_[k_]]
+        r_ = await _air.ROUTER.ask(_ai_http(), env, cfg, 'Read the packet.', context=pk_, role='exit', urgency='force', only=('win',), system=_fv_persona_sys('NEXA', _nexa.ASK), only_system=True, tune={'temp': 0.2, 'maxTok': 600})
+        d_ = _nexa.parse(r_.get('text'), pairs_, rules_, bounds_)
+        st_ = _nexa_mem.get() or {}
+        st_ = {**st_, 'at': now, 'ms': r_.get('ms'), 'ok': bool(d_), 'err': None if d_ else (r_.get('why') or 'no JSON in her answer')}
+        if d_:
+            mem_ = _nexa.remember(st_.get('mem') or [], 'lesson', d_['lesson'], now)
+            mem_ = _nexa.remember(mem_, 'discovery', d_['discovery'], now)
+            pxs_ = {}
+            try:
+                mints_ = {x_.get('pairAddress'): x_.get('mint') for x_ in _agent_inherit_rows(limit=12)}
+                lp_ = await _live_px([m_ for m_ in mints_.values() if m_])
+                pxs_ = {p_: lp_.get(m_) for p_, m_ in mints_.items() if m_}
+            except Exception:
+                pass
+            grades_ = _nexa.note_calls(st_.get('grades') or [], d_, pxs_, now)
+            applied_ = None
+            cfg_n_ = st_.get('cfg') or {}
+            if d_['tune'] and _nexa.tune_due(st_, now, cfg_n_.get('tune')):
+                try:
+                    rr_ = await _ai_http().post('http://127.0.0.1:5088/api/cats/internal/rules', headers={'x-feeless-internal': _internal_key()}, json={'rules': d_['tune']}, timeout=5)
+                    if rr_.status_code == 200:
+                        applied_ = {'at': round(now), 'set': d_['tune'], 'was': {k_: rules_.get(k_) for k_ in d_['tune']}, 'why': d_['why']}
+                        st_['tunedAt'] = now
+                        st_['tunes'] = ((st_.get('tunes') or []) + [applied_])[-40:]
+                except Exception:
+                    applied_ = None
+            st_.update(mem=mem_, grades=grades_, last={**{k_: d_[k_] for k_ in ('avoid', 'exit', 'favor', 'why', 'lesson', 'discovery')}, 'tune': d_['tune'], 'applied': bool(applied_), 'at': round(now)})
+        _nexa_mem.put(st_, now)
+    except Exception as e_:
+        print('nexa:', str(e_)[:120])
+    finally:
+        _nexa_rt['busy'] = False
+
+
+async def _nexa_settle(now):
+    """Her favor / avoid calls are judged an hour later (no model call)."""
+    st_ = _nexa_mem.get() or {}
+    due_ = [g_ for g_ in st_.get('grades') or [] if g_.get('res') is None and now - _fuse._f(g_.get('at')) >= _nexa.GRADE_SEC]
+    if not due_:
+        return
+    try:
+        mints_ = {x_.get('pairAddress'): x_.get('mint') for x_ in (_open_board() or []) if x_.get('pairAddress')}
+        lp_ = await _live_px([m_ for p_, m_ in mints_.items() if p_ in {g_['pair'] for g_ in due_} and m_])
+        pxs_ = {p_: lp_.get(m_) for p_, m_ in mints_.items() if m_ in lp_}
+    except Exception:
+        return
+    g_, done_ = _nexa.settle(st_.get('grades') or [], pxs_, now)
+    mem_ = st_.get('mem') or []
+    for x_ in done_:
+        mem_ = _nexa.remember(mem_, 'grade', f"{x_['call']} {x_['pair'][:6]}… → {x_['res']:+.1f}% an hour later", now)
+    if done_:
+        _nexa_mem.put({**st_, 'grades': g_, 'mem': mem_}, now)
+
+
+def _fv_persona_sys(name, base):
+    import fee_voice as _fv
+    return base + '\n' + _fv.persona(name)
+
+
+async def _nexa_safe(now, env, cfg):
+    try:
+        await _nexa_settle(now)
+        await asyncio.wait_for(_nexa_tick(now, env, cfg), timeout=300)
+    except Exception as e:
+        _nexa_rt['busy'] = False
+        print('nexa:', str(e)[:80])
+
+
 async def _g4_tick(now, env, cfg):
     """🧠 G4's minute: one snapshot packet → one action for ITS seat (paper book here; real = `_g4['want']`, applied by the tier tick)."""
     if (_g4['busy'] and now - _fuse._f(_g4.get('at')) < G4_STUCK_SEC) or not _seat.due(_g4['at'], now):   # a tick stuck > 4 min is let go
@@ -15177,8 +15283,17 @@ async def admin_ai_seat(request: Request):
 
 @app.get('/api/reputation/cats-ai')
 async def cats_ai():
-    """🐱🤝 FeeCat's last duo read: what BOTH models agreed she should skip (`avoid`) or bank (`exit`), by pairAddress. Read-only, memory."""
-    return {k_: _feecat_ai.get(k_) for k_ in ('read', 'avoid', 'exit', 'split', 'why', 'models')}
+    """🐱🤝 FeeCat's last AI read: what BOTH duo models agreed she should skip (`avoid`) or bank (`exit`) + 🪟 NEXA's own (she runs FeeCat's desk),
+    by pairAddress. Read-only, memory. A Nexa read older than 15 min is not acted on."""
+    out_ = {k_: _feecat_ai.get(k_) for k_ in ('read', 'avoid', 'exit', 'split', 'why', 'models')}
+    nx_ = (_nexa_mem.get() or {}).get('last') or {}
+    if nx_ and time.time() - _fuse._f(nx_.get('at')) <= 900:
+        out_['avoid'] = sorted(set(out_.get('avoid') or []) | set(nx_.get('avoid') or []))
+        out_['exit'] = sorted(set(out_.get('exit') or []) | set(nx_.get('exit') or []))
+        out_['read'] = max(_fuse._f(out_.get('read')), _fuse._f(nx_.get('at')))
+        out_['models'] = list(out_.get('models') or []) + ['NEXA']
+    out_['nexa'] = {k_: nx_.get(k_) for k_ in ('avoid', 'exit', 'favor', 'why', 'at')} if nx_ else None
+    return out_
 
 
 async def _ai_round(now):
@@ -15189,6 +15304,7 @@ async def _ai_round(now):
     asyncio.ensure_future(_local_lane_run(now))   # 💻 the local model's own lane (its own task: a 15–30s inference never holds this round)
     await _ai_learn_settle(now)   # 🧠 the model's earlier stances are judged against what the coin did (no model call)
     await _lab_tick(now, env, cfg)   # 🧪 the rule lab: the record re-judges every rule; at most once an hour the model proposes new ones
+    asyncio.ensure_future(_nexa_safe(now, env, cfg))   # 🪟 Nexa: FeeCat's own model, its own task (CPU llamafile, minutes per answer)
     asyncio.ensure_future(_feecat_duo_safe(now, env, cfg))   # 🐱🤝 its own task: a stuck desktop model never holds the round (OSSY's minute waited behind it)   # FeeCat's one duo read per 10 min (both models must agree before she acts on it)
     await _coach_ai(now, env, cfg)   # 👑 at most every 15 min: the model reads the last real trades and may instruct the agents (bounded, coach.py)
     jobs = _ai_jobs(now)
@@ -23767,6 +23883,50 @@ def _feecat_pins(positions, top, now=None):
         ag = {'status': x.get('status'), 'why': str(x.get('kwhy') or '')[:200], 'rank': round(_fuse._f(x.get('rank')), 1), 'cap': cap, 'at': now} if x else None
         out[m] = {'agents': ag, 'duo': [{**r, 'cap': r.get('cap') or cap} for r in rows if r.get('mint') == m][-20:]}
     return out
+
+
+@app.get('/api/reputation/admin/nexa')
+async def admin_nexa(request: Request):
+    """🪟 Nexa's desk (owner): is her Windows model reachable, her last read, what she tuned (with the old values), her record, her memory."""
+    _require_owner(request)
+    st_ = _nexa_mem.get() or {}
+    pv_ = _air.provider(os.environ, 'win', _ai_cfg())
+    return {'name': _air.model_name(os.environ, 'win'), 'provider': {'on': not pv_.get('why'), 'why': pv_.get('why'), 'model': pv_.get('model'), 'base': bool(pv_.get('base')),
+            'label': _air.LABEL.get('win')}, 'busy': _nexa_rt['busy'],
+            'every': _nexa.NEXA_EVERY, 'at': st_.get('at'), 'ok': st_.get('ok'), 'err': st_.get('err'), 'ms': st_.get('ms'), 'last': st_.get('last'),
+            'record': _nexa.record(st_.get('grades') or []), 'tunes': (st_.get('tunes') or [])[-10:], 'cfg': st_.get('cfg') or {},
+            'memory': (st_.get('mem') or [])[-40:], 'memN': len(st_.get('mem') or []), 'real': {'on': False, 'why': 'FeeCat trades paper. A real-money FeeCat needs her own keeper path (sign from a FeeCat wallet, the Fuse wallet checks) — not built yet; switching it on stays your call.'}}
+
+
+@app.post('/api/reputation/admin/nexa')
+async def admin_nexa_set(request: Request):
+    """🪟 Owner: switch Nexa's tuning on / off, revert her last tune, ask her for a read now, or wipe her memory. Audited."""
+    admin = _require_owner(request)
+    body = await request.json()
+    st_ = _nexa_mem.get() or {}
+    now = time.time()
+    if isinstance(body.get('tune'), bool):
+        st_['cfg'] = {**(st_.get('cfg') or {}), 'tune': body['tune']}
+    if body.get('revert'):
+        t_ = (st_.get('tunes') or [])[-1:]
+        if not t_:
+            raise HTTPException(400, 'Nexa has not tuned anything yet.')
+        rr_ = await _ai_http().post('http://127.0.0.1:5088/api/cats/internal/rules', headers={'x-feeless-internal': _internal_key()}, json={'rules': {k_: v_ for k_, v_ in (t_[0].get('was') or {}).items() if v_ is not None}}, timeout=5)
+        if rr_.status_code != 200:
+            raise HTTPException(502, 'FeeCat did not take the revert.')
+        st_['tunes'] = (st_.get('tunes') or [])[:-1]
+    if body.get('forget'):
+        st_['mem'] = []
+    if body.get('now'):
+        st_['at'] = 0
+    _nexa_mem.put(st_, now)
+    async with _admin_lock:
+        d = _admin_load()
+        _audit(d, admin, 'nexa', ' · '.join(f'{k_} {body.get(k_)}' for k_ in ('tune', 'revert', 'forget', 'now') if k_ in body))
+        _admin_save(d)
+    if body.get('now'):
+        asyncio.ensure_future(_nexa_safe(now, os.environ, _ai_cfg()))
+    return await admin_nexa(request)
 
 
 @app.get('/api/reputation/admin/feecat')

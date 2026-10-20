@@ -3,6 +3,7 @@ import { toast } from 'sonner';
 import { FeeCharts, FeeTape, DuoLearn, readWords } from './FeeCatLive';
 import NumInput from '../NumInput';
 import { FeeBrain } from './FeeBrain';
+import { NexaDesk } from './NexaDesk';
 import '../../styles/feecatDesk.css';
 
 // 🐱 FEE IN HQ (owner, 2026-10-16: "FeeCat's engine and HQ panel aren't remade, and the cat isn't trading"): one live board from ONE request
@@ -112,6 +113,7 @@ export function FeeCatDesk({ call }) {
       <span className="fch-acts"><button type="button" className="m-btn" disabled={busy} onClick={() => save({ status: running ? 'paused' : 'running' })} data-testid="fch-toggle">{running ? '⏸ Pause' : '▶ Resume'}</button>
         <button type="button" className="m-btn m-go" disabled={busy || !running} onClick={() => save({ action: 'run' })} data-testid="fch-run">⚡ Run a cycle</button></span>
     </header>
+    <NexaDesk call={call} />
 
     <div className="fch-grid">
       <article className="fch-card" data-testid="fch-funnel"><h4>🔎 WHY SHE {f.passed ? 'TRADES' : "ISN'T TRADING"}<small>{d.scan?.at ? `scan ${agoS(d.scan.at)}s ago` : 'no scan yet'}</small></h4>
