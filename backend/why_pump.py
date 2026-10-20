@@ -198,8 +198,9 @@ def answer(n, engine, model, web):
     """The final card: the model's story when it gave one, else the engine's own — every driver with its source."""
     m = model or {}
     drv = m.get('drivers') or []
-    seen = {d['why'] for d in drv}
-    drv = (drv + [d for d in engine if d['why'] not in seen])[:5]
+    said = ' '.join(d['why'] for d in drv)
+    nums = lambda t: set(re.findall(r'\d+(?:\.\d+)?%?', t))
+    drv = (drv + [d for d in engine if d['why'] not in said and not (nums(d['why']) & nums(said))])[:5]   # the model restating our number = one driver
     return {'headline': m.get('headline') or headline_of(n), 'verdict': m.get('verdict') or verdict_of(n), 'risk': m.get('risk'),
             'drivers': drv, 'move': biggest_move(n), 'numbers': n,
             'sources': [{'title': w.get('title'), 'url': w.get('url'), 'via': w.get('via')} for w in (web or []) if w.get('url')][:8],

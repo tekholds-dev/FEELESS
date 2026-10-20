@@ -54,3 +54,9 @@ def test_endpoint_answers_from_the_engine_and_caches_for_everyone(monkeypatch):
     assert c.get(f'/api/reputation/why-pump/{mint}').json()['cached'] is True
     assert c.get('/api/reputation/why-pump-board').json()['recent'][0]['mint'] == mint
     assert c.get('/api/reputation/why-pump/notamint').status_code == 400
+
+
+def test_a_model_restating_our_number_is_one_driver():
+    m = {'drivers': [{'why': '67% of trades are buys, buyers dominate', 'source': 'ENGINE'}]}
+    a = wp.answer({'symbol': 'X'}, [{'why': '67% of trades are buys — buyers are in control', 'source': 'ENGINE'}, {'why': 'top 10 hold 56%', 'source': 'ENGINE'}], m, [])
+    assert [d['why'] for d in a['drivers']] == ['67% of trades are buys, buyers dominate', 'top 10 hold 56%']
