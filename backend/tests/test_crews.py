@@ -86,3 +86,18 @@ def test_a_creator_headed_family_has_every_badge_part_open():
         cr.clean_badge({p: o}, cr.family_metrics(c, []))
     store = {'crews': {'x': {**c, 'badge': {p: o}}}}
     assert cr.badge_view(store['crews']['x'], [], staff=True)[p] == o
+
+
+def test_live_feed_shows_family_events_never_wallets():
+    import crews as cr
+    st = {}
+    c = cr.create(st, 'OWNERWALLET', 'Sicario', 'SIC', 1000.0)
+    cr.join(st, 'MEMBERWALLET', c['code'], 1100.0)
+    b = cr.bounty_add(st, 'OWNERWALLET', 'call a 2x', 50, 1200.0)
+    cr.bounty_claim(st, 'MEMBERWALLET', b['id'], 'tx', 1300.0); cr.bounty_settle(st, 'OWNERWALLET', b['id'], True, 1400.0)
+    ev = cr.events(st, 2000.0)
+    kinds = [e['kind'] for e in ev]
+    assert kinds[:3] == ['paid', 'claimed', 'bounty'] and 'joined' in kinds and 'founded' in kinds
+    assert not any('WALLET' in str(e) for e in ev)
+    v = cr.vitals(st, 2000.0)
+    assert v['families'] == 1 and v['members'] == 2 and v['ptsWeek'] == 50 and v['joinedWeek'] == 1

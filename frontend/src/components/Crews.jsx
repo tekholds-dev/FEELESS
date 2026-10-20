@@ -153,6 +153,25 @@ function CrewHQ({ mine, owner, addr, sess, busy, setBusy, setMine, act, q }) {
   </>;
 }
 
+// 🔴 LA FAMILIA LIVE (owner, 2026-10-19: "more live animations, meta tools, vitals and social events"): every family's public moves as a
+// running feed + the live numbers (GET /crews/live: founded · joined · badge forged · bounty posted / claimed / paid · launch · crowned).
+const EV_ICON = { founded: '🌹', joined: '🤝', badge: '🛡', bounty: '🎯', claimed: '✋', paid: '💰', launch: '🚀', crown: '👑' };
+export const evAgo = t => { const s = Date.now() / 1000 - t; return s < 60 ? 'now' : s < 3600 ? `${Math.round(s / 60)}m` : s < 86400 ? `${Math.round(s / 3600)}h` : `${Math.round(s / 86400)}d`; };
+export function FamilyPulse() {
+  const [d, setD] = useState(null);
+  useEffect(() => { let on = true; const load = () => sharedJson('/api/reputation/crews/live', { maxAge: 15000 }).then(x => on && x && setD(x)).catch(() => {});
+    load(); const t = setInterval(() => { if (!document.hidden) load(); }, 20000); return () => { on = false; clearInterval(t); }; }, []);
+  const v = d?.vitals || {}; const ev = d?.events || [];
+  const tiles = [['FAMILIES', v.families], ['MEMBERS', v.members], ['JOINED 7D', v.joinedWeek], ['OPEN BOUNTIES', v.openBounties], ['PTS PAID 7D', v.ptsWeek], ['LAUNCHES', v.launches]];
+  return <section className="crw-pulse m-card" data-testid="family-pulse">
+    <header><span className="crw-live"><i />LIVE</span><b>LA FAMILIA · WHAT THE FAMILIES ARE DOING</b></header>
+    <div className="crw-vit">{tiles.map(([k, n], i) => <span key={k} style={{ '--i': i }}><em>{k}</em><b key={n}>{n == null ? '—' : Number(n).toLocaleString('en-US')}</b></span>)}</div>
+    {ev.length ? <ol className="crw-feed" data-testid="family-feed">{ev.slice(0, 12).map((e, i) => <li key={`${e.kind}-${e.id}-${e.at}`} className={`k-${e.kind}`} style={{ '--i': i }}>
+      <i>{EV_ICON[e.kind] || '•'}</i><b>[{e.fam}]</b><span>{e.text}</span><small>{evAgo(e.at)}</small></li>)}</ol>
+      : <p className="crw-empty">{d ? 'Quiet this week — found a family, post a bounty, pin a launch.' : 'Reading the families…'}</p>}
+  </section>;
+}
+
 export function Crews() {
   const { wallet, provider } = useWallet() || {}; const addr = wallet?.address || ''; const sess = addr ? readChatSession(addr) : '';
   const board = useCrewBoard(); const [mine, setMine] = useState(undefined); const [busy, setBusy] = useState(''); const [q, setQ] = useState(null);
@@ -178,6 +197,7 @@ export function Crews() {
   };
   const rows = board?.board || []; const owner = mine?.members?.find(m => m.owner)?.address === addr; const top = podium(rows);
   return <section className="crw" data-testid="crews">
+    <FamilyPulse />
     <div className="crw-stage" data-testid="crew-podium">
       <header><span className="m-label">🌹 LA FAMILIA · FAMILY WARS THIS WEEK</span><small>{board ? `${board.total} famil${board.total === 1 ? 'y' : 'ies'} · verified trades only · live` : 'reading…'}</small></header>
       {top.length ? <div className="crw-podium">{[1, 0, 2].map(i => top[i] ? <div key={top[i].id} className={`crw-step ${['s1', 's2', 's3'][i]}`}><CrewCard3D r={top[i]} place={i + 1} /><span className="crw-plinth">{MEDAL[i]} +{PRIZES[i]} pts each</span></div> : null)}</div>

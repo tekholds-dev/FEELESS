@@ -73,3 +73,30 @@ body.fx-lite .crw-bolt, body.fx-lite .crw-3d.is-hot::after, body.fx-lite .crw-po
 body.theme-day .crw-stage { background: radial-gradient(120% 90% at 50% 110%, rgba(155, 92, 255, .14), transparent 60%), #f4f1fb; } body.theme-day .crw-face { background: linear-gradient(160deg, #fff, #f3fbf6); }
 body.theme-day .crw-3tag { color: #5a3aa8; text-shadow: none; } body.theme-day .crw-3d.p1 .crw-3tag { color: #8a6100; } body.theme-day .crw-posts li, body.theme-day .crw-bounties li { background: #f6f2fd; } body.theme-day .crw-plinth { color: #8a6100; }
 @media (max-width: 640px) { .crw-podium { gap: 6px; } .crw-face { padding: 10px 6px; } .crw-3tag { font-size: 15px; } .crw-3pct { font-size: 16px; } .crw-3meta { display: none; } .crw-top-row { gap: 5px; } .crw-step.s1 { transform: translateY(-8px); } }
+
+/* 🔴 La Familia live (FamilyPulse) */
+.crw-pulse { padding: 14px 16px; margin-bottom: 14px; display: flex; flex-direction: column; gap: 10px; overflow: hidden; }
+.crw-pulse header { display: flex; align-items: center; gap: 10px; } .crw-pulse header b { font: 800 10.5px 'JetBrains Mono', monospace; letter-spacing: .14em; color: #a9c7b6; }
+.crw-live { display: inline-flex; align-items: center; gap: 5px; padding: 2px 8px; border-radius: 999px; background: rgba(255, 77, 109, .14); color: #ff8fa3; font: 800 9.5px 'JetBrains Mono', monospace; letter-spacing: .1em; }
+.crw-live i { width: 7px; height: 7px; border-radius: 50%; background: #ff4d6d; animation: crwBeat 1.2s ease-in-out infinite; }
+.crw-vit { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 6px; }
+.crw-vit span { padding: 8px 9px; border-radius: 10px; background: rgba(255, 255, 255, .03); border: 1px solid rgba(21, 209, 106, .16); display: flex; flex-direction: column; gap: 2px; animation: crwUp .4s ease-out both; animation-delay: calc(var(--i) * 50ms); }
+.crw-vit em { font: 700 8.5px 'JetBrains Mono', monospace; font-style: normal; letter-spacing: .12em; color: #6f8f7d; }
+.crw-vit b { font: 800 17px 'JetBrains Mono', monospace; color: #45e486; animation: crwFlip .45s ease-out; }
+.crw-feed { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 4px; max-height: 260px; overflow-y: auto; scrollbar-width: thin; scrollbar-color: #15d16a transparent; }
+.crw-feed::-webkit-scrollbar { width: 6px; } .crw-feed::-webkit-scrollbar-thumb { background: #15d16a; border-radius: 6px; }
+.crw-feed li { display: grid; grid-template-columns: 22px auto minmax(0, 1fr) auto; gap: 8px; align-items: center; padding: 6px 8px; border-radius: 9px; background: rgba(255, 255, 255, .025);
+  border-left: 2px solid rgba(21, 209, 106, .4); font-size: 12.5px; color: #dff5e8; animation: crwSlide .4s ease-out both; animation-delay: calc(var(--i) * 45ms); transition: background .15s; }
+.crw-feed li:hover { background: rgba(21, 209, 106, .07); }
+.crw-feed li > i { font-style: normal; } .crw-feed li > b { font: 800 11px 'JetBrains Mono', monospace; color: #45e486; } .crw-feed li > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.crw-feed li > small { color: #6f8f7d; font: 600 10px 'JetBrains Mono', monospace; }
+.crw-feed li.k-crown { border-left-color: var(--gold, #ffd36b); } .crw-feed li.k-paid { border-left-color: #45e486; } .crw-feed li.k-launch { border-left-color: #6fd3ff; } .crw-feed li.k-bounty { border-left-color: #ff9f45; }
+.crw-empty { margin: 0; color: #6f8f7d; font-size: 12px; }
+@keyframes crwBeat { 50% { transform: scale(.6); opacity: .5; } }
+@keyframes crwUp { from { transform: translateY(4px); } }
+@keyframes crwFlip { from { transform: translateY(-6px); opacity: .3; } }
+@keyframes crwSlide { from { transform: translateX(-8px); } }
+body.fx-lite .crw-pulse *, body.fx-lite .crw-pulse { animation: none !important; }
+@media (prefers-reduced-motion: reduce) { .crw-pulse * { animation: none !important; } }
+body.theme-day .crw-vit span, body.theme-day .crw-feed li { background: rgba(255, 255, 255, .7); } body.theme-day .crw-feed li { color: #18392a; } body.theme-day .crw-vit b { color: #0a8a45; }
+@media (max-width: 640px) { .crw-vit { grid-template-columns: repeat(3, minmax(0, 1fr)); } .crw-feed li { grid-template-columns: 20px auto minmax(0, 1fr); } .crw-feed li > small { display: none; } }

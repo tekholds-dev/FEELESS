@@ -8519,6 +8519,15 @@ async def crew_price(address: str = '', name: str = '', tag: str = ''):
     return out
 
 
+@app.get('/api/reputation/crews/live')
+async def crews_live():
+    """🔴 La Familia live: every family's public events (newest first) + the live numbers. No wallets, no board posts."""
+    import crews as _cr
+    st_ = _json_load(CREWS_PATH, {}) or {}
+    now_ = time.time()
+    return {'events': _cr.events(st_, now_), 'vitals': _cr.vitals(st_, now_), 'at': round(now_)}
+
+
 @app.get('/api/reputation/crews')
 async def crews_board():
     """🛡 Public: the weekly crew board — crews ranked by their members' VERIFIED FEELESS trade results over 7 days (needs ≥ 2 members and ≥ 5 closed trades to rank). 60s cache."""
@@ -8673,7 +8682,7 @@ async def crew_join(p: CrewJoin):
     async with _crews_lock:
         st = _json_load(CREWS_PATH, {})
         try:
-            c = _cr.join(st, me, p.code)
+            c = _cr.join(st, me, p.code, time.time())
         except ValueError as e:
             raise HTTPException(400, str(e))
         _json_save(CREWS_PATH, st)

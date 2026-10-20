@@ -94,7 +94,7 @@ def add_seats(store, wallet, paid=None):
     return crew
 
 
-def join(store, wallet, code):
+def join(store, wallet, code, now=None):
     _norm(store)
     if wallet in store['by']:
         raise ValueError('You are already in a family — leave it first.')
@@ -104,6 +104,8 @@ def join(store, wallet, code):
     if len(crew['members']) >= crew.get('seats', BASE_SEATS):
         raise ValueError(f"That family is full ({crew.get('seats', BASE_SEATS)} seats) — its owner can add 5 more for ${PACK_USD:g}.")
     crew['members'].append(wallet); store['by'][wallet] = crew['id']
+    if now:
+        crew.setdefault('joined', {})[wallet] = now   # 🔴 the live feed says "a new member joined" (never who)
     return crew
 
 
@@ -270,6 +272,49 @@ def launch(store, wallet, mint, symbol, note, now):
         raise ValueError('Paste the coin\'s mint address (CA).')
     crew['launch'] = {'mint': mint, 'symbol': str(symbol or '')[:16], 'note': str(note or '')[:160], 'at': now}
     return crew['launch']
+
+
+def events(store, now, limit=40, since=7 * 86400):
+    """🔴 LA FAMILIA LIVE (owner, 2026-10-19: "more live animations, vitals and social events"): what every family DID, newest first — founded,
+    member joined, badge forged, bounty posted / claimed / paid, launch pinned, week crowned. Family names + public facts only: never a wallet,
+    never a board post (those are the family's own)."""
+    _norm(store)
+    out = []
+    for c in store['crews'].values():
+        f = {'fam': c['tag'], 'name': c['name'], 'id': c['id']}
+        if c.get('created'):
+            out.append({**f, 'kind': 'founded', 'at': c['created'], 'text': f"{c['name']} was founded"})
+        for _w, t in (c.get('joined') or {}).items():
+            out.append({**f, 'kind': 'joined', 'at': t, 'text': f"a new member joined {c['name']}"})
+        if (c.get('badge') or {}).get('at'):
+            out.append({**f, 'kind': 'badge', 'at': c['badge']['at'], 'text': f"{c['name']} forged its badge" + (f" — “{c['badge'].get('motto')}”" if c['badge'].get('motto') else '')})
+        for b in c.get('bounties') or []:
+            out.append({**f, 'kind': 'bounty', 'at': b.get('at'), 'text': f"🎯 {b.get('title')} — {b.get('reward')} pts", 'pts': b.get('reward')})
+            if b.get('claimedAt'):
+                out.append({**f, 'kind': 'claimed', 'at': b['claimedAt'], 'text': f"a member claimed “{b.get('title')}”"})
+            if b.get('paidAt'):
+                out.append({**f, 'kind': 'paid', 'at': b['paidAt'], 'text': f"{b.get('reward')} pts paid for “{b.get('title')}”", 'pts': b.get('reward')})
+        if (c.get('launch') or {}).get('at'):
+            out.append({**f, 'kind': 'launch', 'at': c['launch']['at'], 'text': f"{c['name']} is behind ${c['launch'].get('symbol') or '?'}", 'mint': c['launch'].get('mint')})
+    names = {c['id']: c for c in store['crews'].values()}
+    for a in store.get('awards') or []:
+        top = (a.get('top') or [])[:1]
+        c = names.get((top[0] if top else {}).get('id'))
+        if c and a.get('at'):
+            out.append({'fam': c['tag'], 'name': c['name'], 'id': c['id'], 'kind': 'crown', 'at': a['at'], 'text': f"👑 {c['name']} took the week"})
+    out = [e for e in out if e.get('at') and now - float(e['at']) <= since]
+    return sorted(out, key=lambda e: -float(e['at']))[:limit]
+
+
+def vitals(store, now):
+    """The live numbers on top of the families page."""
+    _norm(store)
+    cs = list(store['crews'].values())
+    wk = now - 7 * 86400
+    return {'families': len(cs), 'members': sum(len(c.get('members') or []) for c in cs),
+            'openBounties': sum(1 for c in cs for b in c.get('bounties') or [] if b.get('state') == 'open'),
+            'ptsWeek': sum(int(b.get('reward') or 0) for c in cs for b in c.get('bounties') or [] if b.get('state') == 'paid' and float(b.get('paidAt') or 0) >= wk),
+            'joinedWeek': sum(1 for c in cs for t in (c.get('joined') or {}).values() if t >= wk), 'launches': sum(1 for c in cs if c.get('launch'))}
 
 
 # ---- 🌹 LA FAMILIA BADGE (owner, 2026-10-19: "users build 1 Family badge that represents their crew / family; rank unlocks things to show on the

@@ -38,7 +38,7 @@
 .dw-flags { margin: 8px 0 0; display: flex; flex-wrap: wrap; gap: 6px 12px; font-size: 11.5px; color: #a9c7b6; }
 .dw-flags .is-bad { color: #ff8fa3; } .dw-flags .is-good { color: #45e486; }
 .degen-weather.dw-coin.t-hot { border-color: rgba(255, 181, 71, .45); } .degen-weather.dw-coin.t-storm { border-color: rgba(155, 92, 255, .5); } .degen-weather.dw-coin.t-rain { border-color: rgba(255, 77, 109, .4); }
-@keyframes dwTile { from { opacity: 0; transform: translateY(4px); } }
+@keyframes dwTile { from { transform: translateY(4px); } }
 @keyframes dwFlip { from { transform: translateY(-5px); opacity: .3; } }
 body.fx-lite .wsky *, body.fx-lite .dw-tiles span, body.fx-lite .dw-tiles b { animation: none !important; }
 body.fx-lite .wsky-p, body.fx-lite .wsky-scan, body.fx-lite .wsky-bolt { display: none; }
