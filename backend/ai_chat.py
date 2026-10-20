@@ -113,15 +113,12 @@ def about_feeless(text, syms=()):
 # 🧠 WHAT IS LIVE RIGHT NOW in the engine — the chat model has no other way to know a rule shipped today. Short, one line each; update with the
 # rule (CLAUDE.md is the long version). Numbers here are rules, never results — results come from the record lines next to them.
 LIVE_MECHANICS = (
-    "🪜 FVG SUPPORT (2026-10-20): every AI and FeeCat read the open bullish fair value gaps on the 1m AND 5m candles (a candle whose low sits above "
-    "the high two candles back = support until a later candle trades through it). A coin inside its gap or ≤ 5% above it with a higher low and no "
-    "lower low is the 'fvg' setup — the germ's twin — beside HH/HL pullback, germ floor and held breakout. "
     "🦠 GERM PLAY (2026-10-16): a new agent entry must sit within the owner's germ line (agentGermMax, default 15%) of its 1m germ floor (the base "
     "candle of the coin's biggest run — the chart's 🦠); closer ranks higher (×1.30 on the floor → ×1.00 at the line, ×1.08 when the 5m germ agrees). "
     "The stop sits just under the germ (germ −3%, 8–35%; switch agentGermStop). A coin sold green may come back early when it builds a NEW germ "
-    "floor above our exit and sits on it. 🌙 Moon bag (agentMoonBag, OFF): after the scale-out the rest rides the germ instead of the peak trail. "
-    "Replay (837 germ entries, after a 3% round trip): 15% lost least of 8/15/25 (−3.4% vs −4.4/−4.5); the germ stop −2.7% vs −3.4% flat −20%; "
-    "the moon bag did NOT prove out. Every coin's logo carries a 🦠 badge with its germ distance.",
+    "floor above our exit and sits on it. "
+    "Replay (837 germ entries, after a 3% round trip): 15% lost least; the germ stop −2.7% vs −3.4% flat −20%. "
+    "Every coin's logo carries a 🦠 badge with its germ distance.",
     "🎯 chart says go: Trigger enters only on the chart call ENTER NOW; other calls wait.",
     "📸 snapshot exits: soft exits (trail, thesis, time, flow banks) need 2 reads 8s apart; stops / −45% / rug / drain are instant.",
     "🛫 runway: a green coin is not banked in its first 6 min; 💰 scale-out sells 75% at +10% (coins < 5 min old sell all at +10%).",
@@ -134,6 +131,7 @@ LIVE_MECHANICS = (
     "buyers ≥ 50%, germ held → armed (half seat) and ranks ×1.2.",
     "🤝 AGENTS TRADE LIKE OSSY / G4 (2026-10-18, switch agentDuoGate): an agent seat only takes a coin a model BACKED — OSSY or G4 bought it in the last "
     "15 min, or called it +3% or more for the next 15 min (≤ 30 min ago) — and skips one either model just called down or said sell. ",
+    "🪜 FVG: 1m + 5m open bullish gaps are support too — inside one or ≤ 5% above with a higher low = the 'fvg' setup."
 )
 
 
