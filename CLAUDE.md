@@ -5200,3 +5200,19 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   shared site-wide, never reuse one for two jobs. 🛰 Orbit core scene retired (2026-10-19, owner: "that effect bad"). 🔁 Arena reset
   `LEAGUE_RESET` 'restart2' + `PRIME_RESET` 'paper20e' (owner: "arena numbers are off, reset all paper cards"). RPF (`backend/rpf.py`) is
   scored + tested but NOT wired into the desk yet.
+- ❓ WHY DID IT PUMP? (Rep page top, `components/WhyPump.jsx` + `styles/whyPump.css` `wp-*`; `backend/why_pump.py` pure + tested; `GET /api/reputation/why-pump/{mint}`
+  + `/why-pump-board`): paste a CA → coin-read + its live pair (DexScreener, else Jupiter) + Pump callers + web / X search (Brave → DDG) + the 2 best pages
+  → the model writes {headline, drivers, verdict, risk}; a driver citing a URL not in the case is DROPPED; no model = the engine's own measured
+  drivers. Cached 30 min per coin (free for everyone after), 5 new checks a day per IP (local IPs unlimited). Moving now + latest checks beside it.
+- 🌹 A creator / HQ wallet heading a family has every badge part open (`crews.family_metrics(.., staff)` → `is_unlocked`), on the board too.
+- 🌦 War room weather follows the coin on screen (`DegenWeather pair=` → `coinForecast`: rep, crew, rug / heat, every vital toned) and
+  🌌 `WarSky` (behind the room, `warSky.css`) follows that weather via `feeless:war-weather` (embers · sparks · dust · rain · storm lightning).
+- 🎨 Chart scenes = Default · ⚡ Neon trench · 🟩 Matrix rain · 💊 Pump pit · 📟 Terminal tape; CandleFx kicks `is-tick` / `is-big` on the scene per
+  real trade (horizon flash / shockwave / head flash / pill pop / row flash). City + Warp retired.
+- 𝕏 INTO FEEd: paste an X post link (`XShare`) → `POST /social-feed/x` → X's public oEmbed (no key) → source `x` with who shared it, ≤ 20 / wallet / day.
+- 🔒 G4 PROFIT LOCK (`office.MODEL_LOCK` {'lan': (8, 0.5)}, rule `R7L`): G4's +10% trades banked −4.6% median (OSSY +26.4%); replay won 8 → 20,
+  median −7 → −2 (older half −0.9 pts). G4 only — OSSY's record got worse with it. 🤝 An agents coin backed by OSSY / G4 inherits that model's own
+  tp / sl / trail (`ai_seat.backer_lines` → leg aiTp / aiSl / aiTrail + `linesBy`). Agents since the duo gate: 7 trades, 0 won (too few to judge).
+- 🔴 La Familia live (`crews.events/vitals`, `GET /crews/live`, `FamilyPulse` on the families page): public events only — never a wallet or a board post.
+  Fuse season tab NOT reworked yet.
+
