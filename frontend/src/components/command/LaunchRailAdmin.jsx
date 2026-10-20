@@ -1,3 +1,4 @@
+import { LaunchLab } from '../LaunchLab';
 import React, { Suspense, lazy, useCallback, useEffect, useState } from 'react';
 import NumInput from '../NumInput';
 import { toast } from 'sonner';
@@ -189,7 +190,7 @@ export function LaunchRailAdmin({ call, isOwner }) {
     } catch (e) { setStatus(''); toast.error(e.message || 'Could not create the launch config'); }
   };
   const houses = rail?.house?.length || 0;
-  return <section className="cc-panel launch-rail-admin lr-meta">
+  return <section className="cc-panel launch-rail-admin lr-meta"><LaunchLab hq />
     <div className="m-card lr-head">
       <span className="m-label">LAUNCH DESK <em>pump.fun · FEELESS · house</em></span>
       <div className="lr-kpis">

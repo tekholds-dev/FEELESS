@@ -19,6 +19,7 @@ import { QuestEngineAdmin } from './QuestEngineAdmin';
 import { LatencyPanel } from './LatencyPanel';
 import { useWallet } from '../../hooks/useWallet';
 import { PoolCreator } from './PoolCreator';
+import { LaunchLab } from '../LaunchLab';
 import { LaunchRailAdmin } from './LaunchRailAdmin';
 import { CircleWallets } from './CircleWallets';
 import { UnitInput, TradePreview, useSolUsd, money, LiveMoney, FeeTable } from './FeeInputs';
@@ -666,6 +667,7 @@ function PoolsPanel({ call }) {
         <li><b>Your fee reserve coin:</b> use a separate Phantom account (Add account — same recovery phrase, new address) or a Squads multisig as the reserve wallet. Launch the coin from that wallet on a house config, or create its pool from that wallet here. That wallet owns the position and earns its fees; badge pools can pay holders from it.</li>
         <li><b>Platform swapping uses your pools automatically.</b> FEELESS trades route through Jupiter, which indexes Meteora pools within minutes — so a pool you create here becomes a route for every swap of that coin on the site (and everywhere else Jupiter is used). Deeper pool = better prices for your traders.</li>
         <li>One pool per token/SOL pair on this rail. Everything is simulated before you sign.</li></ul></details>
+    <LaunchLab hq start="amm" />
     <PoolCreator defaultMint={mint || ''} call={call} />
     <h4 className="cc-sub">Other DEXes (external, their own pool pages)</h4>
     <div className="cc-studio-grid">{DEXES.map(x => <div key={x.id} className="cc-block"><h4>{x.name}</h4><small className="cc-empty">{x.note}</small><a className="btn-primary" href={x.url} target="_blank" rel="noopener noreferrer">Create on {x.name.split(' ')[0]} ↗</a></div>)}</div>

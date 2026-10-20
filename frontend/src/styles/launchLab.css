@@ -1,0 +1,50 @@
+/* 🧪 LaunchLab.jsx — type tabs, an animated demo per type, the platform table, FEELESS extras. transform / opacity only (llb* keyframes). */
+.llb { display: grid; gap: 12px; padding: 16px; margin-bottom: 14px; border-radius: 18px; border: 1px solid rgba(69, 228, 134, .22); background: radial-gradient(120% 90% at 100% 0%, rgba(21, 209, 106, .1), transparent 60%), #050b08; }
+.llb-head h2 { margin: 2px 0 0; font-size: 20px; }
+.llb-types { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 6px; }
+.llb-types button { display: grid; gap: 2px; text-align: left; padding: 9px 10px; border-radius: 12px; border: 1px solid rgba(255, 255, 255, .08); background: rgba(255, 255, 255, .02); color: #dff3e7; font-size: 12.5px; font-weight: 700; cursor: pointer; transition: transform .15s, border-color .15s; }
+.llb-types button b { font-size: 18px; } .llb-types button small { font-size: 10px; font-weight: 500; color: #8fae9d; }
+.llb-types button:hover { transform: translateY(-2px); border-color: rgba(69, 228, 134, .45); } .llb-types button:active { transform: scale(.98); } .llb-types button:focus-visible { outline: 2px solid #45e486; }
+.llb-types button.is-on { background: #15d16a; color: #04140b; border-color: #15d16a; } .llb-types button.is-on small { color: #0b3b22; }
+.llb-stage { display: grid; grid-template-columns: minmax(240px, 1fr) 1.3fr; gap: 14px; align-items: center; padding: 12px; border-radius: 14px; background: rgba(255, 255, 255, .02); border: 1px solid rgba(255, 255, 255, .06); animation: llbIn .25s ease-out; }
+.llb-svg { width: 100%; height: auto; overflow: visible; } .llb-svg g, .llb-svg rect { transform-box: fill-box; }
+.llb-t { font: 700 9px 'JetBrains Mono', monospace; fill: #9fbfae; text-anchor: middle; } .llb-price { fill: #45e486; animation: llbBlink 2.4s ease-in-out infinite; }
+.llb-curve { fill: none; stroke: #45e486; stroke-width: 3; opacity: .8; } .llb-track { fill: rgba(255, 255, 255, .08); }
+.llb-fill rect { fill: #15d16a; } .llb-fill { transform-origin: 0 50%; animation: llbFill 6s ease-in infinite; }
+.llb-dot circle { fill: #eafff3; } .llb-dot { animation: llbClimb 6s ease-in infinite; filter: drop-shadow(0 0 6px #45e486); }
+.llb-grad { opacity: 0; animation: llbGrad 6s ease-in infinite; transform-origin: 50% 50%; }
+.llb-tax rect { fill: #ff8fa3; } .llb-tax { transform-origin: 0 50%; animation: llbTax 6s ease-out infinite; }
+.llb-pile rect { fill: rgba(69, 228, 134, .35); stroke: #45e486; } .llb-pile.b rect { fill: rgba(155, 107, 255, .35); stroke: #9b6bff; }
+.llb-pile { transform-origin: 50% 100%; } .llb-pile.a { animation: llbShrink 4s ease-in-out infinite; } .llb-pile.b { animation: llbGrow 4s ease-in-out infinite; }
+.llb-buy circle { fill: #f5c542; } .llb-buy { animation: llbSwap 4s ease-in-out infinite; }
+.llb-bin { fill: rgba(69, 228, 134, .25); } .llb-active rect { fill: none; stroke: #f5c542; stroke-width: 2.5; } .llb-active { animation: llbBins 6s steps(1) infinite; }
+.llb-shackle path { stroke: #45e486; } .llb-shackle { animation: llbLock 4s ease-in-out infinite; } .llb-body { fill: #0b5a32; stroke: #45e486; }
+.llb-coin circle { fill: #f5c542; } .llb-coin { animation: llbFee 3s ease-out infinite; } .llb-coin.c1 { animation-delay: 1s; } .llb-coin.c2 { animation-delay: 2s; }
+.llb-how h3 { margin: 0 0 6px; font-size: 16px; } .llb-how h3 small { font-size: 11px; color: #8fae9d; font-weight: 500; }
+.llb-how ol { margin: 0; padding-left: 18px; display: grid; gap: 4px; font-size: 12.5px; color: #cfe9da; } .llb-how ol li { animation: llbIn .3s ease-out both; animation-delay: calc(var(--i) * 70ms); }
+.llb-how h4, .llb-h { margin: 10px 0 4px; font: 800 10px 'JetBrains Mono', monospace; letter-spacing: .08em; color: #f5c542; }
+.llb-knobs { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 5px; } .llb-knobs li { padding: 3px 9px; border-radius: 999px; background: rgba(69, 228, 134, .1); color: #bdf5d3; font-size: 11px; }
+.llb-table { display: grid; gap: 3px; overflow-x: auto; scrollbar-width: thin; }
+.llb-row { display: grid; grid-template-columns: 130px repeat(6, minmax(100px, 1fr)); gap: 8px; padding: 7px 10px; border-radius: 10px; background: rgba(255, 255, 255, .02); font-size: 11.5px; color: #cfe9da; min-width: 760px; }
+.llb-row.is-head { background: none; font: 700 9px 'JetBrains Mono', monospace; letter-spacing: .06em; color: #7c9a8a; text-transform: uppercase; }
+.llb-row.is-feeless { background: rgba(21, 209, 106, .12); border: 1px solid rgba(69, 228, 134, .4); } .llb-row.is-feeless b { color: #45e486; }
+.llb-note { margin: 0; font-size: 11px; color: #8fae9d; }
+.llb-ex { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 8px; }
+.llb-ex > div { display: grid; grid-template-columns: 28px 1fr; gap: 0 8px; padding: 10px; border-radius: 12px; border: 1px solid rgba(69, 228, 134, .2); background: rgba(21, 209, 106, .05); animation: llbIn .3s ease-out both; animation-delay: calc(var(--i) * 50ms); transition: transform .15s; }
+.llb-ex > div:hover { transform: translateY(-2px); } .llb-ex b { grid-row: span 2; font-size: 20px; } .llb-ex strong { font-size: 12.5px; } .llb-ex small { font-size: 11px; color: #9fbfae; }
+@keyframes llbIn { from { transform: translateY(6px); } to { transform: none; } }
+@keyframes llbFill { from { transform: scaleX(0); } 85%, to { transform: scaleX(1); } }
+@keyframes llbClimb { 0% { transform: translate(14px, 112px); } 30% { transform: translate(90px, 106px); } 55% { transform: translate(140px, 88px); } 75% { transform: translate(172px, 56px); } 85%, 100% { transform: translate(190px, 22px); } }
+@keyframes llbGrad { 0%, 80% { opacity: 0; transform: scale(.6); } 88% { opacity: 1; transform: scale(1.3); } 100% { opacity: 1; transform: scale(1); } }
+@keyframes llbTax { from { transform: scaleX(1); } 50%, to { transform: scaleX(.05); } }
+@keyframes llbShrink { 50% { transform: scaleY(.6); } } @keyframes llbGrow { 50% { transform: scaleY(1.35); } }
+@keyframes llbSwap { 0%, 100% { transform: translateX(28px); opacity: 0; } 20% { opacity: 1; } 50% { transform: translateX(-28px); opacity: 1; } 60% { opacity: 0; } }
+@keyframes llbBins { 0% { transform: translateX(0); } 25% { transform: translateX(20.5px); } 50% { transform: translateX(41px); } 75% { transform: translateX(20.5px); } }
+@keyframes llbLock { 0%, 20% { transform: translateY(-10px); } 40%, 100% { transform: translateY(0); } }
+@keyframes llbFee { from { transform: translateY(0); opacity: 1; } to { transform: translateY(-70px); opacity: 0; } }
+@keyframes llbBlink { 50% { opacity: .4; } }
+body.fx-lite .llb *, body.reduced-motion-setting .llb * { animation: none !important; }
+@media (prefers-reduced-motion: reduce) { .llb * { animation: none !important; transition: none !important; } }
+body.theme-day .llb { background: rgba(236, 246, 240, .85); } body.theme-day .llb-types button, body.theme-day .llb-row, body.theme-day .llb-how ol, body.theme-day .llb-ex > div { color: #0b2a19; }
+body.theme-day .llb-t { fill: #2c4a3a; } body.theme-day .llb-knobs li { color: #0b5a32; } body.theme-day .llb-ex small, body.theme-day .llb-note { color: #2c4a3a; }
+@media (max-width: 640px) { .llb-stage { grid-template-columns: 1fr; } .llb-types { grid-template-columns: repeat(2, 1fr); } }
