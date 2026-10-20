@@ -1,4 +1,5 @@
 import { AfterSell, IntelRail, SeasonRail } from './ProfileRails';
+import { SupportButton } from '../SupportHub';
 import { FeedBar } from '../FeedBar';
 import { FeedPanel } from './FeedX';
 import { AlphaRoomsCard } from '../AlphaRooms';
@@ -272,7 +273,7 @@ export function WalletProfilePage({ address }) {
     <BadgeJourney address={address} mine={mine} />
     <ReceiptsCard address={address} />
     </div>
-    <div className="wp-foot"><ReportBug address={wallet?.address} /></div>
+    <div className="wp-foot"><ReportBug address={wallet?.address} /><SupportButton /></div>
   </div>{wide && <SeasonRail address={address} />}</div></>;
 }
 

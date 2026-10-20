@@ -21871,6 +21871,91 @@ async def admin_bug_status(request: Request, bug_id: str, status: str = Query(..
     return {'ok': True}
 
 
+SUPPORT_PATH = DATA_DIR / 'support.json'   # 🛟 polls + "me too" marks (support.py); the reports themselves stay in bugs.json
+
+
+@app.get('/api/reputation/support')
+async def support_board(wallet: Optional[str] = None):
+    """🛟 Public support hub: reports as a cleaned, importance-sorted grid (no stack traces, wallets or security text) + community polls."""
+    import support as _sp
+    st_ = _json_load(SUPPORT_PATH, {'polls': [], 'plus': {}})
+    bugs_ = _json_load(BUGS_PATH, {'bugs': []}).get('bugs') or []
+    rows_ = _sp.board(bugs_, st_.get('plus') or {})
+    mine_ = [k_ for k_, v_ in (st_.get('plus') or {}).items() if wallet and wallet in v_]
+    return {'reports': rows_, 'mine': mine_, 'polls': _sp.polls_board(st_.get('polls') or [], wallet), 'ladder': [{'at': a_, 'key': k_, 'label': l_} for a_, k_, l_ in _sp.LADDER],
+            'counts': {'open': sum(1 for b_ in bugs_ if b_.get('status', 'open') == 'open'), 'fixing': sum(1 for b_ in bugs_ if b_.get('status') == 'fixing'),
+                       'fixed': sum(1 for b_ in bugs_ if b_.get('status') == 'fixed'), 'polls': len(st_.get('polls') or [])}}
+
+
+class SupportAct(BaseModel):
+    wallet: str
+    session: str = ''
+    plus: Optional[str] = None
+    poll: Optional[str] = None
+    opt: Optional[int] = None
+    q: Optional[str] = None
+    options: Optional[list] = None
+
+
+@app.post('/api/reputation/support')
+async def support_act(p: SupportAct):
+    """🛟 Signed wallet only: +1 a report · propose a poll (≤ 3 a day) · vote on one. One wallet, one mark."""
+    import support as _sp
+    w_ = _session_or_401(p.wallet, p.session)
+    async with _admin_lock:
+        st_ = _json_load(SUPPORT_PATH, {'polls': [], 'plus': {}})
+        if p.plus:
+            ids_ = {b_.get('id') for b_ in _json_load(BUGS_PATH, {'bugs': []}).get('bugs') or []}
+            if p.plus not in ids_:
+                raise HTTPException(404, 'No such report.')
+            lst_ = st_.setdefault('plus', {}).setdefault(p.plus, [])
+            lst_.remove(w_) if w_ in lst_ else lst_.append(w_)
+        elif p.q is not None:
+            if not _sp.can_post(st_.get('polls'), w_):
+                raise HTTPException(429, f'{_sp.POLL_DAY_MAX} polls a day — try again tomorrow.')
+            try:
+                q_, opts_ = _sp.clean_poll(p.q, p.options or [])
+            except ValueError as e_:
+                raise HTTPException(400, str(e_))
+            st_.setdefault('polls', []).append({'id': uuid.uuid4().hex[:10], 'q': q_, 'options': opts_, 'votes': {}, 'by': w_, 'at': time.time()})
+            st_['polls'] = st_['polls'][-300:]
+        elif p.poll:
+            pl_ = next((x_ for x_ in st_.get('polls') or [] if x_.get('id') == p.poll), None)
+            if not pl_:
+                raise HTTPException(404, 'No such poll.')
+            if pl_.get('status') in _sp.OWNER_STATES:
+                raise HTTPException(400, 'This poll is decided.')
+            try:
+                _sp.vote(pl_, w_, int(p.opt if p.opt is not None else -1))
+            except ValueError as e_:
+                raise HTTPException(400, str(e_))
+        else:
+            raise HTTPException(400, 'Nothing to do.')
+        _json_save(SUPPORT_PATH, st_)
+    return await support_board(w_)
+
+
+@app.post('/api/reputation/admin/support/poll')
+async def admin_support_poll(request: Request):
+    """🛟 Owner: move a poll onto the roadmap / building / shipped / declined (or back to the ladder with status ''), with a note. Audited."""
+    admin = _require_owner(request)
+    import support as _sp
+    body = await request.json()
+    st_k = str(body.get('status') or '')
+    if st_k and st_k not in _sp.OWNER_STATES:
+        raise HTTPException(400, 'Bad status.')
+    async with _admin_lock:
+        st_ = _json_load(SUPPORT_PATH, {'polls': [], 'plus': {}})
+        pl_ = next((x_ for x_ in st_.get('polls') or [] if x_.get('id') == body.get('id')), None)
+        if not pl_:
+            raise HTTPException(404, 'No such poll.')
+        pl_['status'] = st_k or None
+        pl_['note'] = str(body.get('note') or '')[:200] or None
+        _json_save(SUPPORT_PATH, st_)
+        ad_ = _admin_load(); _audit(ad_, admin, 'support-poll', f"{pl_['id']} → {st_k or 'ladder'}"); _admin_save(ad_)
+    return {'ok': True}
+
+
 @app.get('/api/reputation/admin/security')
 async def admin_security(request: Request):
     _require_admin(request)

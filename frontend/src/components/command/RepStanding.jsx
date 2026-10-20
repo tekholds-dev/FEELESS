@@ -1,4 +1,5 @@
 import { RepMark } from '../RepMark';
+import { SupportButton } from '../SupportHub';
 import { CopyBtn } from '../CopyBtn';
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
@@ -94,5 +95,5 @@ function DarkSide() {
 import { RugBounty } from '../RugBounty';
 
 export function RepStanding() {
-  return <div className="rep-v2"><WhyPump /><div className="rep-top"><MyStanding /><DarkSide /></div><MemeTerms /><div className="rep-top"><RugReport /><ShieldLeaderboard /></div><RugBounty /></div>;
+  return <div className="rep-v2"><div className="sup-row"><SupportButton /></div><WhyPump /><div className="rep-top"><MyStanding /><DarkSide /></div><MemeTerms /><div className="rep-top"><RugReport /><ShieldLeaderboard /></div><RugBounty /></div>;
 }
