@@ -26,6 +26,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
 import feecat_brain
+import launch_cat as _lc
 
 DATA_DIR = Path(__file__).parent / 'data'
 DATA_DIR.mkdir(exist_ok=True)
@@ -416,6 +417,17 @@ def _close(store, cat, pos, price_native, why, fraction=1.0, market_cap=None):
     if pnl < 0:
         cat['dailyLoss'][day] = round(cat['dailyLoss'].get(day, 0) - pnl, 6)
     cat.setdefault('cooldowns', {})[pos['pairAddress']] = time.time()
+    bc = cat.get('brainsCfg')
+    if bc:   # 🚀 a cat with brains: 'profit pays' settles what its model calls owe from a winning sale (fees apart from P&L, like every fee)
+        su_ = _num(pos.get('solUsdAtEntry'))
+        paid = _lc.settle(bc, pnl * su_) if su_ > 0 else 0.0
+        if paid > 0:
+            cat['balanceSol'] = round(cat['balanceSol'] - paid / su_, 6)
+            cat['brainFeesUsd'] = round(cat.get('brainFeesUsd', 0) + paid, 6)
+        if fraction >= 1 and pos.get('brainBy'):
+            rec = bc.setdefault('record', {}).setdefault(pos['brainBy'], {'n': 0, 'won': 0, 'pnlSol': 0.0})
+            rec['n'] += 1; rec['won'] += 1 if pnl + pos.get('realizedPartialSol', 0) >= 0 else 0
+            rec['pnlSol'] = round(rec['pnlSol'] + pnl + pos.get('realizedPartialSol', 0), 6)
     if fraction >= 1:
         cat.setdefault('exits', []).append({'pairAddress': pos['pairAddress'], 'symbol': pos['symbol'], 'exitPx': price_native, 'exitAt': time.time(),
                                             'why': why, 'pnlSol': pnl, 'changeAtExit': round((price_native / pos['entryPriceNative'] - 1) * 100, 2), 'peakAfter': 0.0, 'lowAfter': 0.0})
@@ -624,6 +636,70 @@ async def _creator_check(ranked, rejections):
     return creator_adjust(ranked, reps, rejections)
 
 
+_MODELS = {'at': 0, 'rows': None}
+
+
+async def _or_models():
+    """OpenRouter's public model list, cached an hour (the last good copy is kept when it fails)."""
+    if _MODELS['rows'] is not None and time.time() - _MODELS['at'] < 3600:
+        return _MODELS['rows']
+    try:
+        async with httpx.AsyncClient(timeout=15) as h:
+            r = await h.get('https://openrouter.ai/api/v1/models')
+        if r.status_code == 200:
+            _MODELS.update(at=time.time(), rows=_lc.catalog(r.json().get('data') or []))
+    except Exception:
+        pass
+    return _MODELS['rows'] or _lc.catalog([])
+
+
+def _brains_live():
+    return os.environ.get('LAUNCH_CAT_LIVE', '').lower() in ('1', 'true', 'on') and bool(os.environ.get('OPENROUTER_API_KEY'))
+
+
+async def _or_call(model, messages):
+    """One decision from OpenRouter; returns (text, $ it cost). The cost is OpenRouter's own report, else the price list estimate."""
+    est = next((m['perDecision'] for m in ((_MODELS['rows'] or {}).get('models') or []) if m['id'] == model), 0.0)
+    try:
+        async with httpx.AsyncClient(timeout=40) as h:
+            r = await h.post('https://openrouter.ai/api/v1/chat/completions', headers={'Authorization': f"Bearer {os.environ.get('OPENROUTER_API_KEY')}"},
+                             json={'model': model, 'messages': messages, 'max_tokens': _lc.OUT_TOK, 'temperature': 0.2, 'usage': {'include': True}})
+        d = r.json() if r.status_code == 200 else {}
+        text = ((d.get('choices') or [{}])[0].get('message') or {}).get('content') or ''
+        return text, float((d.get('usage') or {}).get('cost') or est)
+    except Exception:
+        return '', 0.0
+
+
+async def _brain_decide(store, cat, kind, sym, case, owner=None):
+    """🚀 Launch a Cat: ask the cat's brain(s). Returns (word, by, why) or None = the rule engine decides (calls off / no credit)."""
+    b = cat.get('brainsCfg')
+    if not b:
+        return None
+    now = time.time()
+    if not _lc.can_ask(b):
+        if b.get('billing') == 'payg' and cat.get('status') == 'running':
+            cat['status'] = 'stopped'; cat['brainPaused'] = 'out of model credit — top up to start again'
+            _log_event(store, cat, 'STOPPED', f"{cat['name']} paused: its model credit is used up (pay as you go). Top up to start it again.")
+        return None
+    if not _brains_live():
+        _lc.note(b, kind, sym, 'RULES', 'rule engine', 'model calls are off (owner switch) — the rule engine decided', 0, now)
+        return None
+    models = [owner] if owner else _lc.who_asks(b, b.get('asks') or 0)
+    answers, partner, why, cost = [], None, '', 0.0
+    for m in models:
+        text, usd = await _or_call(m, _lc.ask_messages(b, case, partner))
+        w, why = _lc.parse_word(text, kind)
+        _lc.charge(b, usd); cost += usd
+        answers.append((m, w))
+        partner = f"{w or 'no answer'}: {why}"
+    word = _lc.merge(b, answers, kind)
+    by = ' + '.join(m.split('/')[-1] for m in models)
+    _lc.note(b, kind, sym, word, by, why, cost, now)
+    _log_event(store, cat, 'LEARN', f"🧠 {by}: {word} ${sym} — {why or 'no reason given'}")
+    return word, models[-1], why
+
+
 async def run_engine(store, cats):
     now = time.time()
     async with httpx.AsyncClient(timeout=10) as http:
@@ -688,6 +764,17 @@ async def run_engine(store, cats):
             pos.setdefault('plannedSol', round(pos['costSol'] / R['starterFraction'], 4))
             pos.setdefault('adds', 1 if pos.get('dipAdded') else 0)
             pos.setdefault('profitTaken', 1 if pos.get('scaled') else 0)
+            pos['lastPx'] = px
+            if cat.get('brainsCfg') and _lc.live_due(pos):   # 🚀 a live decision only on a ±10% move, ≤ 3 per coin
+                chg_ = (px / pos['entryPriceNative'] - 1) * 100
+                d_ = await _brain_decide(store, cat, 'live', pos['symbol'], f"you hold ${pos['symbol']} at {chg_:+.1f}% since your buy (peak {pos.get('peakChange', 0):+.1f}%), held {(now - pos.get('openedAt', now)) / 60:.0f} min. HOLD, SELL or TRIM?", owner=pos.get('brainBy') if (cat['brainsCfg'].get('brainMode') == 'battle') else None)
+                pos['brainAsks'] = (pos.get('brainAsks') or 0) + 1; pos['brainAskPx'] = px
+                if d_ and d_[0] == 'SELL':
+                    cat['positions'].remove(pos)
+                    _close(store, cat, pos, px, f"🧠 {d_[1].split('/')[-1]} sold: {d_[2] or 'its call'}")
+                    continue
+                if d_ and d_[0] == 'TRIM':
+                    _close(store, cat, pos, px, f"🧠 {d_[1].split('/')[-1]} trimmed half: {d_[2] or 'its call'}", 0.5)
             change = (px / pos['entryPriceNative'] - 1) * 100            # vs average entry
             from_first = (px / pos['firstEntryPriceNative'] - 1) * 100   # vs first buy (drives the dip ladder)
             pos['currentChange'] = round(change, 2)
@@ -838,6 +925,19 @@ async def run_engine(store, cats):
                 break  # capital first: never more than maxExposure of equity at work
             if px <= 0 or size < 0.01 or cat['balanceSol'] < size:
                 continue
+            if cat.get('brainsCfg'):   # 🚀 ONE decision before a buy; one ask per tick, a SKIP cools that coin
+                if cat.get('_askedTick') == now:
+                    break
+                cat['_askedTick'] = now
+                b_ = cat['brainsCfg']
+                owner_ = (b_['brains'][(b_.get('asks') or 0) % len(b_['brains'])] if b_.get('brainMode') == 'battle' else None)
+                d_ = await _brain_decide(store, cat, 'buy', sym, f"candidate ${sym}: {reason}. Mcap {_fmt_usd(_num(p.get('marketCap') or p.get('fdv')))}, liquidity {_fmt_usd(_num((p.get('liquidity') or {}).get('usd')))}. BUY or SKIP?", owner=owner_)
+                if d_ and d_[0] != 'BUY':
+                    cat.setdefault('cooldowns', {})[pa] = now
+                    continue
+                brain_by_ = d_[1] if d_ else None
+            else:
+                brain_by_ = None
             cat['balanceSol'] = round(cat['balanceSol'] - size, 6)
             cat['volumeSol'] = round(cat.get('volumeSol', 0) + size, 6)
             # 🎯 TRUE FILL: her buy pays price impact against the pool's quote-side reserve (≈ half its liquidity), like a wallet
@@ -853,7 +953,7 @@ async def run_engine(store, cats):
                 'entryLiq': _num((p.get('liquidity') or {}).get('usd')), 'conviction': conviction,
                 'entryMarketCapUsd': _num(p.get('marketCap') or p.get('fdv')),
                 'entryVolH1': _num((p.get('volume') or {}).get('h1')), 'plannedSol': planned,
-                'firstEntryPriceNative': px, 'adds': 0, 'profitTaken': 0, 'peakPx': px, 'setup': setup, 'setups': p.get('_setups') or [], 'read': p.get('_read'), 'duoAtEntry': p.get('_duo'), 'midAtEntry': mid, 'solUsdAtEntry': sol_usd,
+                'firstEntryPriceNative': px, 'adds': 0, 'profitTaken': 0, 'peakPx': px, 'brainBy': brain_by_, 'setup': setup, 'setups': p.get('_setups') or [], 'read': p.get('_read'), 'duoAtEntry': p.get('_duo'), 'midAtEntry': mid, 'solUsdAtEntry': sol_usd,
             })
             _log_event(store, cat, 'BUY', f"Bought {size} SOL of {sym} at live price — {reason} (paper).", None, pa, px, _num(p.get('marketCap') or p.get('fdv')))
             if cat.get('isLeader'):
@@ -1061,6 +1161,16 @@ class CreatePayload(BaseModel):
     coinPlan: str = 'later'
     allowlist: Optional[str] = ''
     blocklist: Optional[str] = ''
+    brains: Optional[list] = None
+    brainMode: Optional[str] = None
+    billing: Optional[str] = None
+    prompt: Optional[str] = None
+
+
+@app.get('/api/cats/models')
+async def cat_models():
+    """🚀 Launch a Cat: OpenRouter's whole public model list (price, context, what it's good at), FEELESS's three on top."""
+    return {**(await _or_models()), 'live': _brains_live()}
 
 
 @app.post('/api/cats')
@@ -1085,6 +1195,15 @@ async def create_cat(payload: CreatePayload):
         'revoked': False, 'createdAt': now, 'lastTick': now, 'engine': ENGINE_VERSION,
         'startingBalanceSol': float(payload.startingBalanceSol or 10),
     }
+    if payload.brains:
+        cat_ = await _or_models()
+        ids_ = {m['id'] for m in cat_.get('models') or []}
+        try:
+            cat['brainsCfg'] = _lc.clean(payload.model_dump(), None, ids_ or None)
+        except ValueError as e:
+            raise HTTPException(400, str(e))
+        cat['brainLabel'] = ' + '.join(x.split('/')[-1] for x in cat['brainsCfg']['brains'])
+        cat['brainProfile'] = {'provider': 'OpenRouter', 'status': 'live' if _brains_live() else 'calls off', 'available': _brains_live(), 'estimatedTokenCostUsd': 0}
     store['cats'][cat_id] = cat
     _save(store)
     recovery_key = '-'.join(uuid.uuid4().hex[:4] for _ in range(4))
@@ -1279,6 +1398,7 @@ class ActionPayload(BaseModel):
     maxDailyLossSol: Any = None
     allowlist: Optional[str] = None
     blocklist: Optional[str] = None
+    text: Optional[str] = None
 
 
 @app.post('/api/cats/{cat_id}/action')
@@ -1290,7 +1410,29 @@ async def cat_action(cat_id: str, payload: ActionPayload):
 
     if payload.action == 'confirm_recovery':
         pass
+    elif payload.action == 'chime':   # 🚀 the owner's advice — the brain reads it, it never trades on it
+        if not cat.get('brainsCfg'):
+            raise HTTPException(400, 'This Cat has no AI brain.')
+        try:
+            _lc.chime(cat['brainsCfg'], payload.text)
+        except ValueError as e:
+            raise HTTPException(400, str(e))
+    elif payload.action == 'pull':   # 🚀 pull everything: positions sold at the last live price, balance out, locked until a top-up
+        for pos in list(cat['positions']):
+            cat['positions'].remove(pos)
+            _close(store, cat, pos, _num(pos.get('lastPx')) or pos['entryPriceNative'], 'owner pulled all funds')
+        amount = cat['balanceSol']; cat['balanceSol'] = 0.0; cat['status'] = 'stopped'; cat['needsTopup'] = True
+        _log_event(store, cat, 'WITHDRAW', f'Owner pulled all funds ({amount:.4f} SOL, paper). The Cat is locked until a top-up.')
+    elif payload.action == 'topup':   # paper top-up: the starting balance back, and (pay as you go) the model credit back
+        cat['balanceSol'] = round(cat['balanceSol'] + float(cat.get('startingBalanceSol') or 10), 6); cat['needsTopup'] = False
+        if cat.get('brainsCfg'):
+            cat['brainsCfg']['credit'] = round((cat['brainsCfg'].get('credit') or 0) + _lc.START_CREDIT, 6); cat.pop('brainPaused', None)
+        _log_event(store, cat, 'STARTED', f'{cat["name"]} topped up (paper).')
     elif payload.action == 'start':
+        if cat.get('needsTopup'):
+            raise HTTPException(400, 'Funds were pulled — top up before starting this Cat again.')
+        if cat.get('brainsCfg') and not _lc.can_ask(cat['brainsCfg']) and cat['brainsCfg'].get('billing') == 'payg':
+            raise HTTPException(400, 'Model credit is used up — top up to start again.')
         if cat['revoked']:
             raise HTTPException(400, 'This Cat has been revoked and cannot restart.')
         cat['status'] = 'running'
