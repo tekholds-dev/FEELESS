@@ -5216,3 +5216,21 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
 - 🔴 La Familia live (`crews.events/vitals`, `GET /crews/live`, `FamilyPulse` on the families page): public events only — never a wallet or a board post.
   Fuse season tab NOT reworked yet.
 
+- 🏁 SEASON HUB (`components/SeasonLive.jsx` + `styles/seasonLive.css` `sl-*`, top of the Seasons page): ticking season + Fuse-week countdowns,
+  race vitals (leader · #1 lead · you · players · families · cards racing), top-5 lanes, ONE feed with lenses ⚡ All · 🏆 Players (rank moves seen
+  between reads, `rankMoves`) · 🌹 Families (`/crews/live`) · ⚛ Fuse (`/fuses/season` moves / cards / past champions). Real events only.
+- 💬 INBOX = `components/Messenger.jsx` (`msx-*`, portal, tall, grouped bubbles, day separators, quick replies, CA → coin link); old `.dm-*` gone.
+- 🪟 NEXA IN THE BRAIN: listed in the model switch whenever `WIN_LLM_BASE_URL` is set (`_nexa_chat_row`; never in the background order); her chat
+  context carries her FeeCat desk (record · last read · tunes · notebook). No Windows IP set = a disabled "set WIN_LLM_BASE_URL" option. Her prompt
+  is sent on every call (persona + ASK) — no preset, nothing to reload. llamafile must run with `--server --host 0.0.0.0 --port 8080`.
+- 🃏 BRAIN POP-OUT › LIVE CARDS (`command/BrainCards.jsx`, `brainCards.css` `bcd-*`): the real card(s) beside the chat — in card · all-time · cash ·
+  seats · round, every coin with its holder (YOU · OSSY · G4 · AGENTS), live % bar, peak, held, its own lines. Shared `/fuses/prime` + live prices.
+- 🩺 LAG ADVISOR (`backend/lag_advice.py` pure + tested; `/admin/perf` adds `advice` · `vitals` · `machine` via `_machine_read`, 60s, a thread):
+  vitals strip (speed · loop blocked · worst stall · swap · load · FX paused) + "what to fix, worst first" (machine swap / load, loop culprits,
+  JSON stores saved / parsed too often, slow routes: cold-cache → stale-while-revalidate, always-slow → parallel + cache, janky pages) in
+  `LagCatcher` (`lagAdvice.css` `lgv-*` / `lga-*`). Fixed from its first read: `store.KV.stamp` + `Ledger.last_id` memoised (this process's
+  writes known at once, DB asked ≤ every 2s — it waited behind every big put), theme route's per-coin holding lookups parallel + 60s cache.
+  Still on its list: fuse_hq.json saved ~4.4K× / 7h (54s), runners.json 502× (35s) — debounce candidates (money-adjacent: check first).
+- 🌌 FEELESS UNIVERSE (`command/FeelessUniverse.jsx` + `feelessUniverse.css` `fu-*`, top of the roadmap AND the whitepaper): 8 feature planets
+  orbit the core (CSS 3D; radius = `--R` 40cqmin on the container — a % translate on a 0-size element is 0), hover pauses, tap = a walk-through
+  that steps itself, link to the page; flagship stack $FEE · FEECAT · rFEE + "bigger audited coins later — a plan, not a promise".
