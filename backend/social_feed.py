@@ -9,7 +9,7 @@ password or token here. Text from other people is data: trimmed, control charact
 import html as _html
 import re
 
-SOURCES = (('feeless', 'FEELESS'), ('pump', 'Pump'), ('telegram', 'Telegram'), ('bluesky', 'Bluesky'))
+SOURCES = (('feeless', 'FEELESS'), ('x', 'X'), ('pump', 'Pump'), ('telegram', 'Telegram'), ('bluesky', 'Bluesky'))
 TG_CHANNELS = ('pumpfun', 'whale_alert_io')
 BSKY_QUERY = 'solana memecoin'
 TEXT_MAX = 600
@@ -110,6 +110,40 @@ def parse_bluesky(js):
         out.append({'id': f'bluesky:{rk}', 'src': 'bluesky', 'author': clean(a.get('displayName') or h, 40), 'handle': h, 'avatar': safe_url(a.get('avatar')),
                     'text': txt, 'at': at, 'url': f'https://bsky.app/profile/{h}/post/{rk}' if h else None, 'img': img, 'coin': None})
     return out
+
+
+_X_URL = re.compile(r'^https?://(?:www\.|mobile\.)?(?:x|twitter)\.com/([A-Za-z0-9_]{1,15})/status(?:es)?/(\d{5,25})')
+X_MAX = 300   # X posts kept (newest)
+
+
+def x_status(url):
+    """An X / Twitter post link → (handle, status id), else None. Only real post links; anything else is refused."""
+    m = _X_URL.match(str(url or '').strip())
+    return (m.group(1), m.group(2)) if m else None
+
+
+def from_x_oembed(js, url, by=None, now=None):
+    """📰 X's PUBLIC oEmbed answer (publish.twitter.com — no key, no login) → one post. X's own words only: the tweet's text from its
+    blockquote, the author it names. `by` = the FEELESS wallet that shared it (shown, so nobody posts as X)."""
+    import time as _t
+    st = x_status(url)
+    if not st or not isinstance(js, dict):
+        return None
+    html_ = str(js.get('html') or '')
+    m = re.search(r'<p[^>]*>(.*?)</p>', html_, re.S)
+    txt = clean(_TAG.sub('', re.sub(r'<br\s*/?>', '\n', m.group(1))) if m else '')
+    if not txt:
+        return None
+    dm = re.search(r'>([A-Z][a-z]+ \d{1,2}, \d{4})</a>\s*</blockquote>', html_)
+    at = None
+    if dm:
+        try:
+            at = _t.mktime(_t.strptime(dm.group(1), '%B %d, %Y'))
+        except ValueError:
+            at = None
+    h = st[0]
+    return {'id': f'x:{st[1]}', 'src': 'x', 'author': clean(js.get('author_name') or h, 40), 'handle': h, 'avatar': None, 'text': txt,
+            'at': now or _t.time(), 'postedAt': at, 'url': f'https://x.com/{h}/status/{st[1]}', 'img': None, 'coin': None, 'sharedBy': by}
 
 
 def mix(lists, srcs=None, limit=80):

@@ -17,10 +17,10 @@ import '../../styles/feed.css';
 // sites"). Left: the site bubbles (tap to mix any of them; FEELESS alone = our live rooms with posting). Middle: the timeline — a cross-post
 // box on top (opens X / Reddit / Bluesky / Telegram / Farcaster's own compose page, the user's own login posts it), then every post newest
 // first. Right: top coins + what each outside site allows. Reading = /api/reputation/social-feed (one shared read, every 30s while visible).
-export const FEED_SRC = [['all', '✨', 'All'], ['feeless', '⚡', 'FEELESS'], ['pump', '💊', 'Pump'], ['telegram', '✈', 'Telegram'], ['bluesky', '🦋', 'Bluesky']];
-const POST_ONLY = [['x', '𝕏', 'X'], ['reddit', '👽', 'Reddit']];
+export const FEED_SRC = [['all', '✨', 'All'], ['feeless', '⚡', 'FEELESS'], ['x', '𝕏', 'X'], ['pump', '💊', 'Pump'], ['telegram', '✈', 'Telegram'], ['bluesky', '🦋', 'Bluesky']];
+const POST_ONLY = [['reddit', '👽', 'Reddit']];
 export const FEED_CATS = [['feed-general', '🌐', 'Everything', 'All the talk'], ['feed-alpha', '📈', 'Alpha & calls', 'Post a CA — 2×/5×/10× earns points'], ['feed-memes', '😂', 'Memes', 'Culture & coins'], ['feed-launches', '🚀', 'Launches', 'New coins, first looks'], ['feed-help', '🛟', 'Help', 'Ask anything'], ['feeless-updates', '📣', 'FEELESS', 'Official updates']];
-const SRC_BADGE = { feeless: '⚡ FEELESS', pump: '💊 Pump', telegram: '✈ Telegram', bluesky: '🦋 Bluesky' };
+const SRC_BADGE = { feeless: '⚡ FEELESS', x: '𝕏 X', pump: '💊 Pump', telegram: '✈ Telegram', bluesky: '🦋 Bluesky' };
 const SRC_KEY = 'feeless.feedSrc';
 const PAGE = 30;
 
@@ -42,7 +42,9 @@ function useSocialFeed(src, on) {
     const url = `/api/reputation/social-feed${src ? `?src=${src}` : ''}`;
     const load = () => sharedJson(url, { maxAge: 25000 }).then(x => { if (alive && x) setD(x); }).catch(() => {});
     load(); const id = setInterval(() => { if (!document.hidden) load(); }, 30000);
-    return () => { alive = false; clearInterval(id); };
+    const now = () => sharedJson(url, { maxAge: 0, fresh: true }).then(x => { if (alive && x) setD(x); }).catch(() => {});
+    window.addEventListener('feeless:feed-refresh', now);
+    return () => { alive = false; clearInterval(id); window.removeEventListener('feeless:feed-refresh', now); };
   }, [src, on]);
   return d;
 }
@@ -78,6 +80,26 @@ function Composer({ me, sess, onPosted }) {
   </div>;
 }
 
+// 𝕏 INTO FEEd (owner, 2026-10-19): reading X needs a paid API app, so people bring it in — paste an X post link and it joins the timeline
+// (X's public oEmbed, no key, no login), marked with who shared it.
+export const isXPost = u => /^https?:\/\/(www\.|mobile\.)?(x|twitter)\.com\/[A-Za-z0-9_]{1,15}\/status(es)?\/\d{5,25}/.test(String(u || '').trim());
+function XShare({ me, sess }) {
+  const [u, setU] = useState(''); const [busy, setBusy] = useState(false);
+  const go = async (url = u) => {
+    if (!isXPost(url)) { toast.error('Paste an X post link (x.com/name/status/…)'); return; }
+    if (!me || !sess) { signIn(); return; }
+    setBusy(true);
+    try { const r = await fetch(apiUrl('/api/reputation/social-feed/x'), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ address: me, session: sess, url: url.trim() }) });
+      const x = await r.json().catch(() => ({})); if (!r.ok) throw new Error(x.detail || 'Could not bring it in');
+      setU(''); toast.success(`𝕏 @${x.post?.handle || ''} is on FEEd`); window.dispatchEvent(new CustomEvent('feeless:feed-refresh')); } catch (e) { toast.error(e.message); } finally { setBusy(false); } };
+  return <form className="fx-xshare" onSubmit={e => { e.preventDefault(); go(); }} data-testid="feed-xshare">
+    <i aria-hidden="true">𝕏</i>
+    <input className="m-input" value={u} onChange={e => setU(e.target.value)} onPaste={e => { const t = e.clipboardData.getData('text'); if (isXPost(t)) { e.preventDefault(); setU(t); go(t); } }}
+      placeholder="Paste an X post link to bring it into FEEd" aria-label="X post link" spellCheck={false} />
+    <button type="submit" className="m-btn" disabled={busy || !u.trim()} data-testid="feed-xshare-go">{busy ? '…' : 'Bring it in'}</button>
+  </form>;
+}
+
 function Thread({ p, me, sess, onCount }) {
   const [list, setList] = useState(null); const [t, setT] = useState(''); const [busy, setBusy] = useState(false);
   useEffect(() => { let on = true; fetch(apiUrl(`/api/reputation/social-feed/thread/${encodeURIComponent(p.id)}`)).then(r => r.json()).then(x => { if (on) setList(x.comments || []); }).catch(() => setList([])); return () => { on = false; }; }, [p.id]);
@@ -99,6 +121,7 @@ function Post({ p, c, me, sess, onCount }) {
     <div className="fx-body">
       <header><b>{p.author}</b>{p.handle && p.handle !== p.author ? <small>@{p.handle}</small> : null}<small>· {agoWord(p.at)}</small><em className={`fx-src is-${p.src}`}>{SRC_BADGE[p.src] || p.src}</em></header>
       <p>{p.text}</p>
+      {p.sharedBy ? <small className="fx-shared">𝕏 brought in by {p.sharedBy}{p.url ? <> · <a href={p.url} target="_blank" rel="noopener noreferrer nofollow">open on X</a></> : null}</small> : null}
       {p.img ? <img className="fx-img" src={p.img} alt="" loading="lazy" decoding="async" /> : null}
       <footer className="fx-bar">
         <button type="button" className={`fx-act ${open ? 'is-on' : ''}`} aria-expanded={open} onClick={() => setOpen(o => !o)} data-testid="feed-reply"><i>💬</i>{kWord(c?.comments || 0)}</button>
@@ -212,8 +235,9 @@ export function FeedPanel({ onConnect }) {
         <nav className="feed-cats" aria-label="FEEd categories">{FEED_CATS.map(([id, icon, label]) => <button type="button" key={id} className={cat === id ? 'on' : ''} aria-pressed={cat === id} onClick={() => pickCat(id)}><span>{icon}</span>{label}</button>)}</nav>
         <EcosystemChat key={cat} compact room={cat} ecosystem={{ id: cat, name: current[2] }} onConnect={onConnect} />
       </> : <>
-        <header className="fx-head"><b>{srcs.includes('all') ? '✨ Everything' : srcs.map(k => (FEED_SRC.find(s => s[0] === k) || [])[2]).join(' + ')}</b><small>FEELESS · Pump · Telegram · Bluesky, newest first</small></header>
+        <header className="fx-head"><b>{srcs.includes('all') ? '✨ Everything' : srcs.map(k => (FEED_SRC.find(s => s[0] === k) || [])[2]).join(' + ')}</b><small>FEELESS · X · Pump · Telegram · Bluesky, newest first</small></header>
         <Composer me={me} sess={sess} />
+        <XShare me={me} sess={sess} />
         <Timeline src={q} me={me} sess={sess} />
       </>}
     </div>

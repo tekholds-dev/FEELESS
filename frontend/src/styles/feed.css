@@ -51,7 +51,7 @@
 .fx-body header { display: flex; align-items: baseline; gap: 6px; min-width: 0; } .fx-body header b { font-size: 15px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .fx-body header small { color: var(--m-mute, #8fb3a0); font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .fx-src { margin-left: auto; flex: none; padding: 1px 8px; border-radius: 999px; font: 700 10.5px var(--m-mono, monospace); font-style: normal; background: rgba(255, 255, 255, .06); color: #cfe9da; }
-.fx-src.is-pump { color: #7dffb0; } .fx-src.is-telegram { color: #7fd0ff; } .fx-src.is-bluesky { color: #8fbaff; } .fx-src.is-feeless { color: #45e486; }
+.fx-src.is-x { color: #e9eef2; } .fx-src.is-pump { color: #7dffb0; } .fx-src.is-telegram { color: #7fd0ff; } .fx-src.is-bluesky { color: #8fbaff; } .fx-src.is-feeless { color: #45e486; }
 .fx-body p { margin: 0; font-size: 15px; line-height: 1.5; color: #eafff3; white-space: pre-wrap; overflow-wrap: anywhere; }
 .fx-img { max-width: 100%; max-height: 420px; border-radius: 16px; border: 1px solid rgba(255, 255, 255, .08); object-fit: cover; }
 .fx-body footer { display: flex; gap: 14px; flex-wrap: wrap; }
@@ -123,3 +123,12 @@ body.fx-lite .fx-like.is-pop i, body.fx-lite .fx-thread, body.fx-lite .fx-newpil
 @media (prefers-reduced-motion: reduce) { .fx-like.is-pop i, .fx-thread, .fx-newpill { animation: none; } .fx-bar .fx-act i { transition: none; } }
 body.theme-day .fx-thread { border-left-color: rgba(13, 122, 65, .35); } body.theme-day .fx-newpill { color: #fff; background: linear-gradient(120deg, #0d7a41, #15a356); }
 @media (max-width: 640px) { .fx-bar { gap: 12px; } }
+
+/* 𝕏 bring an X post in (FeedX XShare) */
+.fx-xshare { display: flex; align-items: center; gap: 8px; padding: 10px 18px; border-bottom: 1px solid rgba(69, 228, 134, .14); }
+.fx-xshare > i { font-style: normal; font-weight: 900; font-size: 16px; color: #e9eef2; width: 28px; height: 28px; display: grid; place-items: center; border-radius: 50%; background: #000; border: 1px solid rgba(255, 255, 255, .18); }
+.fx-xshare .m-input { flex: 1 1 auto; min-width: 0; height: 32px; font-size: 12.5px; }
+.fx-xshare .m-btn { height: 32px; white-space: nowrap; transition: transform .15s; } .fx-xshare .m-btn:hover { transform: translateY(-1px); } .fx-xshare .m-btn:active { transform: translateY(1px); }
+.fx-shared { display: block; margin: -2px 0 6px; color: #8fa89a; font-size: 11px; } .fx-shared a { color: #9fd8ff; }
+body.theme-day .fx-xshare > i { background: #111; } body.theme-day .fx-shared { color: #4c6658; }
+@media (max-width: 640px) { .fx-xshare { padding: 8px 12px; } }

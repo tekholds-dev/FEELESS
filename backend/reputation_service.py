@@ -7042,6 +7042,8 @@ async def _sf_read(src):
         if src == 'feeless':
             d_ = _chat_load()
             return [p_ for r_ in ('feed-general', 'feed-alpha', 'feed-memes', 'feed-launches', 'feeless-updates') for p_ in _sfeed.from_feeless((d_['rooms'].get(r_) or [])[-40:], r_)]
+        if src == 'x':
+            return list((_json_load(FEED_X_PATH, {}) or {}).get('posts') or [])
         if src == 'telegram':
             out_ = []
             for ch_ in _sfeed.TG_CHANNELS:
@@ -7070,6 +7072,8 @@ async def _sf_refresh(src):
 
 import feed_social as _fsoc
 FEED_SOCIAL_PATH = DATA_DIR / 'feed_social.json'
+FEED_X_PATH = DATA_DIR / 'feed_x.json'   # X posts people pasted into FEEd (X's public oEmbed: no key, no login)
+X_SHARE_DAY = 20
 _fsoc_lock = asyncio.Lock()
 
 
@@ -7111,6 +7115,44 @@ async def social_feed_react(p: FeedReact):
             raise HTTPException(400, str(e))
         _json_save(FEED_SOCIAL_PATH, st)
     return {**out, **_fsoc.counts(st, [p.id], me)}
+
+
+class FeedXShare(BaseModel):
+    address: str
+    session: str
+    url: str = Field(..., max_length=200)
+
+
+@app.post('/api/reputation/social-feed/x')
+async def social_feed_x(p: FeedXShare):
+    """𝕏 INTO FEEd (owner, 2026-10-19: "should be a way to get X in, or have users do it"): reading X needs a paid API app, so people bring it in —
+    paste an X post link, FEELESS reads X's PUBLIC oEmbed (publish.twitter.com, no key, no login) and the post joins the timeline with who
+    shared it. ≤ 20 shares a wallet a day; one copy of each post."""
+    me = _session_or_401(p.address, p.session)
+    if _is_blocked(_block_load()['wallets'].get(me)):
+        raise HTTPException(403, 'This wallet cannot post here.')
+    st_ = _sfeed.x_status(p.url)
+    if not st_:
+        raise HTTPException(400, 'Paste an X post link (x.com/<name>/status/<id>).')
+    try:
+        r_ = await _sf_client().get('https://publish.twitter.com/oembed', params={'url': f'https://twitter.com/{st_[0]}/status/{st_[1]}', 'omit_script': '1', 'dnt': 'true'}, timeout=8)
+    except Exception:
+        raise HTTPException(502, 'X did not answer — try again.')
+    if r_.status_code != 200:
+        raise HTTPException(404, 'X has no public post at that link (deleted, private or age-gated).')
+    post_ = _sfeed.from_x_oembed(r_.json(), p.url, _crew_name(me) or (me[:4] + '…' + me[-4:]), time.time())
+    if not post_:
+        raise HTTPException(404, 'That post has no text to show.')
+    async with _fsoc_lock:
+        d_ = _json_load(FEED_X_PATH, {}) or {}
+        posts_ = [x for x in d_.get('posts') or [] if x.get('id') != post_['id']]
+        day_ = time.time() - 86400
+        if sum(1 for x in posts_ if x.get('by') == me and _fuse._f(x.get('at')) > day_) >= X_SHARE_DAY and not _is_staff(me):
+            raise HTTPException(429, f'{X_SHARE_DAY} X shares a day.')
+        d_['posts'] = ([{**post_, 'by': me}] + posts_)[:_sfeed.X_MAX]
+        _json_save(FEED_X_PATH, d_)
+    _SF_CACHE.pop('x', None)
+    return {'post': {k: v for k, v in post_.items()}}
 
 
 @app.get('/api/reputation/social-feed')

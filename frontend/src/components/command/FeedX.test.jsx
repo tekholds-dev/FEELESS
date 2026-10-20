@@ -39,3 +39,11 @@ test('FEEd v3: the new-posts pill counts only posts newer than what is on screen
   expect(newSince([], 0)).toBe(0);
   expect(kWord(999)).toBe('999'); expect(kWord(1234)).toBe('1.2K'); expect(kWord(2500000)).toBe('2.5M');
 });
+
+test('only real X post links can be brought in', () => {
+  const { isXPost } = require('./FeedX');
+  expect(isXPost('https://x.com/aeyakovenko/status/1849011223344')).toBe(true);
+  expect(isXPost('https://twitter.com/a/statuses/123456')).toBe(true);
+  expect(isXPost('https://x.com/aeyakovenko')).toBe(false);
+  expect(isXPost('https://evil.com/x.com/a/status/123456')).toBe(false);
+});
