@@ -15961,6 +15961,13 @@ async def admin_ai_chat(request: Request):
         only_ = (prov_,) if prov_ in _air.PROVIDERS else (_duet.LEAD,) if prov_ == 'duet' else None
         if prov_ == 'auto':   # 💬 your chat asks the STRONGER local model first (OSSY = gpt-oss-20b; G4 is a 2B model on the desktop today) — CHAT_FIRST overrides
             only_ = tuple(dict.fromkeys([str(env.get('CHAT_FIRST') or 'local')] + list(_air.order_of(env, cfg))))
+        if prov_ == 'win':   # 🪟 NEXA in chat carries her own desk: FeeCat calls, record, tunes and notebook (what she knows, not the boys')
+            try:
+                st_ = _nexa_mem.get() or {}
+                ctx = {**(ctx or {}), 'nexa': {'record': _nexa.record(st_.get('grades')), 'lastRead': {k_: (st_.get('last') or {}).get(k_) for k_ in ('why', 'avoid', 'exit', 'favor', 'at')},
+                                               'tunes': (st_.get('tunes') or [])[-3:], 'notebook': _nexa.recall(st_.get('mem'), 10)}}
+            except Exception as e_:
+                print('nexa chat ctx:', str(e_)[:80])
         img_ = _chat_image((body or {}).get('image'))
         hist_ = _aic.as_messages(_chat['th'].get(mode))
         vl_ = _aic.VOICE_LINE.get(set_.get('voice', 'degen')) or ''
@@ -16279,7 +16286,17 @@ async def admin_ai_chat_get(request: Request):
     _brain_load()
     return {'history': _chat['th'].get('chat') or [], **_chat_extra(), 'build': _aic.build_view(_build_state()), 'proposals': _aic.view(_chat_props()), 'modes': list(_aic.MODES), 'learned': _chat_learned(),
             'brain': {'provider': (live_ or {}).get('label'), 'model': (live_ or {}).get('model'), 'ms': (live_ or {}).get('lastMs')},
-            'providers': [{'key': r_['key'], 'label': r_['label'], 'state': r_['state'], 'model': r_.get('model')} for r_ in v_.get('providers') or [] if r_.get('enabled') and not r_.get('why')]}
+            'providers': [{'key': r_['key'], 'label': r_['label'], 'state': r_['state'], 'model': r_.get('model')} for r_ in v_.get('providers') or [] if r_.get('enabled') and not r_.get('why')] + _nexa_chat_row()}
+
+
+def _nexa_chat_row():
+    """🪟 NEXA in the Brain's model switch: listed whenever her Windows box is configured (WIN_LLM_BASE_URL). She stays OUT of the background order —
+    a 3B model on an old CPU is for the owner's chat + FeeCat's desk only."""
+    p_ = _air.provider(os.environ, 'win', _ai_cfg())
+    if not p_.get('enabled') or p_.get('why'):
+        return []
+    s_ = _air.ROUTER.stats['win']
+    return [{'key': 'win', 'label': p_['label'], 'state': s_.get('state') or 'UNTESTED', 'model': p_.get('model'), 'nexa': True}]
 
 
 @app.post('/api/reputation/admin/ai/proposals/decide')
@@ -25064,16 +25081,27 @@ THEMES_PATH = DATA_DIR / 'themes.json'
 _HEX = _re.compile(r'^#[0-9a-fA-F]{6}$')
 
 
+_eco_hold_cache = {}
+
+
 async def _eco_holding_usd(address: str) -> float:
     if address.startswith('0x'):
         return 0.0
-    total = 0.0
-    for mint in (await _ecosystem_mints()).values():
+    hit = _eco_hold_cache.get(address)
+    if hit and time.time() - hit[1] < 60:   # ⚡ the theme route waited ~10s p95 on one lookup per coin, one after another
+        return hit[0]
+
+    async def one(mint):
         try:
-            total += await _holding_usd(address, mint) or 0
+            return await _holding_usd(address, mint) or 0
         except Exception:
-            pass
-    return round(total, 2)
+            return 0
+    vals = await asyncio.gather(*(one(m) for m in (await _ecosystem_mints()).values()))
+    total = round(sum(vals), 2)
+    if len(_eco_hold_cache) > 5000:
+        _eco_hold_cache.clear()
+    _eco_hold_cache[address] = (total, time.time())
+    return total
 
 
 @app.get('/api/reputation/theme/{address}')
@@ -27604,7 +27632,40 @@ async def perf_code_health_scan(request: Request):
 async def perf_admin(request: Request, hours: float = Query(1, ge=0.1, le=24)):
     _require_admin(request)
     since = time.time() - hours * 3600
-    return {**perf.summarize([s for s in _perf_samples if s['at'] >= since]), 'forceLite': bool(_json_load(PERF_CFG_PATH, {}).get('forceLite')), 'hours': hours}
+    import lag_advice as _la
+    summ = perf.summarize([s for s in _perf_samples if s['at'] >= since])
+    loop_ = _loop_lag.WATCH.view()
+    mach = await _machine_read()
+    fx_ = (summ.get('fx') or {}) if isinstance(summ.get('fx'), dict) else {}
+    return {**summ, 'forceLite': bool(_json_load(PERF_CFG_PATH, {}).get('forceLite')), 'hours': hours,
+            'advice': _la.advise(summ, loop_, mach), 'vitals': _la.vitals(summ, loop_, mach, fx_), 'machine': mach}
+
+
+_mach_cache = {'at': 0, 'v': {}}
+
+
+async def _machine_read():
+    """🖥 Load + swap of the machine running the services (60s cache, a thread — sysctl is a subprocess). Mac only; elsewhere load only."""
+    if time.time() - _mach_cache['at'] < 60:
+        return _mach_cache['v']
+
+    def read():
+        out = {'cores': os.cpu_count() or 8}
+        try:
+            out['load1'] = round(os.getloadavg()[0], 1)
+        except OSError:
+            pass
+        try:
+            import subprocess
+            t = subprocess.run(['sysctl', '-n', 'vm.swapusage'], capture_output=True, text=True, timeout=3).stdout
+            nums = {k: float(v.rstrip('M')) for k, v in _re.findall(r'(total|used) = ([\d.]+M)', t)}
+            if nums.get('total'):
+                out['swapPct'] = round(100 * nums.get('used', 0) / nums['total'], 1)
+        except Exception:
+            pass
+        return out
+    _mach_cache.update(at=time.time(), v=await asyncio.to_thread(read))
+    return _mach_cache['v']
 
 
 # ================================================================================================

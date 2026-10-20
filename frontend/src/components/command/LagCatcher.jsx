@@ -3,6 +3,20 @@ import { toast } from 'sonner';
 import { errorText } from '../../lib/api';
 import { liteMode, setLite } from '../../lib/perfWatch';
 import { CodeHealth } from './CodeHealth';
+import '../../styles/lagAdvice.css';
+
+const AREA = { machine: '🖥', server: '⏳', storage: '💾', api: '🌐', page: '🎞' };
+export function LagVitals({ v }) {
+  if (!v?.length) return null;
+  return <div className="lgv" data-testid="lag-vitals">{v.map((r, i) => <span key={r.k} className={`lgv-t t-${r.tone || 'na'}`} style={{ '--i': i }}><em>{r.k}</em>
+    <b key={String(r.v)}>{r.v == null ? '—' : `${r.v}${r.unit}`}</b><i className="lgv-pulse" /></span>)}</div>;
+}
+export function LagAdvice({ a }) {
+  if (!a) return null;
+  if (!a.length) return <p className="lga-ok" data-testid="lag-advice">🟢 Nothing to fix — the loop, the machine and the browsers all read healthy.</p>;
+  return <ol className="lga" data-testid="lag-advice">{a.map((x, i) => <li key={i} className={`t-${x.level}`} style={{ '--i': i }}>
+    <i className="lga-ic">{AREA[x.area] || '•'}</i><div><b>{x.what}</b><small>{x.why}</small><p>🛠 {x.fix}</p></div></li>)}</ol>;
+}
 
 // HQ › Lag catcher: what real visitors feel (slow routes, janky pages, fps) + the fix for each.
 export function LagCatcher({ call }) {
@@ -17,6 +31,8 @@ export function LagCatcher({ call }) {
     <div className="lag-hero"><div className={`lag-score t-${tone}`}><b>{d ? d.score : '…'}</b><small>SPEED SCORE</small></div>
       <div className="lag-hero-copy"><small>LAG CATCHER</small><h3>What visitors actually feel</h3><p>{d ? `${d.reports} browser reports in the last ${hours}h. Devices that lag switch to lite effects on their own.` : 'Collecting…'}</p></div>
       <div className="bdg-seg">{[[1, '1H'], [6, '6H'], [24, '24H']].map(([h, l]) => <button key={h} type="button" className={hours === h ? 'active' : ''} onClick={() => setHours(h)}>{l}</button>)}</div></div>
+    <LagVitals v={d?.vitals} />
+    <div className="cc-block lga-wrap"><h4>🩺 What to fix, worst first</h4><LagAdvice a={d?.advice} /></div>
     <div className="lag-fixers">
       <label className="lag-toggle"><input type="checkbox" checked={!!d?.forceLite} onChange={e => force(e.target.checked)} /><span><b>Lite effects site-wide</b><small>Pauses backdrops, glows and orbits for every visitor.</small></span></label>
       <label className="lag-toggle"><input type="checkbox" checked={!!mine} onChange={e => { const m = e.target.checked ? 'manual' : ''; setLite(m); setMine(m); }} /><span><b>Lite on this device</b><small>{String(mine).startsWith('auto') ? 'Auto-enabled: this device was lagging (switches back off once it runs smooth).' : 'Just for you.'}</small></span></label>

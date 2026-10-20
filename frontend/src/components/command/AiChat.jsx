@@ -3,6 +3,7 @@
 // agent hub, the chart, the stream or the P&L. It LEARNS on the owner's tap (🧠 Remember → a lesson every model case reads) and FIXES
 // agents only on the owner's call (🛠 proposals → ✅ Approve). Modes: 💬 Chat · 🔎 Case review · 🛠 Fix agents.
 import { AiPlayground } from './AiPlayground';
+import BrainCards from './BrainCards';
 import { AiActivity } from './AiActivity';
 import { ModelLive } from './ModelLive';
 import { answerCard } from '../../lib/cockpitPlus';
@@ -185,7 +186,7 @@ export const AiChat = memo(function AiChat({ call, isOwner = true, focus, focusS
         <u className={pend ? 'is-hot' : ''} data-tip="Fixes the model proposed, waiting for your Approve / Reject">🛠 {pend}<small>YOUR CALL</small></u>
         <u data-testid="cch-bq" data-tip="Approved to build. The model in the app cannot write code: Claude Code builds these when you say: build the queue">📋 {build?.open ?? 0}<small>TO BUILD</small></u></span>
       <select className="cch-model" value={prov} onChange={e => setProv(e.target.value)} aria-label="Which model answers" data-testid="cch-model" data-tip="Which model answers: Auto = the normal order · Duet = Gemma answers, Qwen reads it and agrees or pushes back (both shown)">
-        <option value="auto">🤖 Auto</option><option value="duet">🤝 Duet · G4 + OSSY</option>{provs.map(p => <option key={p.key} value={p.key}>{p.state === 'ONLINE' ? '🟢' : p.state === 'UNTESTED' ? '⚪' : '🔴'} {p.label}{p.model ? ` · ${String(p.model).split('/').pop()}` : ''}</option>)}</select>
+        <option value="auto">🤖 Auto</option><option value="duet">🤝 Duet · G4 + OSSY</option>{provs.some(p => p.key === 'win') ? null : <option value="win" disabled>🪟 NEXA · set WIN_LLM_BASE_URL</option>}{provs.map(p => <option key={p.key} value={p.key}>{p.state === 'ONLINE' ? '🟢' : p.state === 'UNTESTED' ? '⚪' : '🔴'} {p.label}{p.model ? ` · ${String(p.model).split('/').pop()}` : ''}</option>)}</select>
       {saved.length ? <span className="cch-svwrap"><button type="button" className={`cch-model cch-saved ${showSaved ? 'is-on' : ''}`} onClick={() => setShowSaved(v => !v)} aria-expanded={showSaved} data-testid="cch-saved" data-tip="Saved chats: open · rename · delete">🗂 {saved.length} saved</button>
         {showSaved ? <div className="cch-svpop" data-testid="cch-saved-list">{saved.map(c => <div key={c.id} className="cch-svrow">
           <button type="button" className="cch-svopen" onClick={() => { setShowSaved(false); openConvo(c.id); }} data-testid={`cch-sv-open-${c.id}`}><i>{(CHAT_MODES.find(m => m[0] === c.mode)?.[1] || '').split(' ')[0]}</i>{c.title}<small>{c.n} msgs</small></button>
@@ -229,6 +230,7 @@ export const AiChat = memo(function AiChat({ call, isOwner = true, focus, focusS
           onSend={t => say(t)} onDraw={t => draw(t)} onAttach={attach} />
       </div>
       <div className="cch-side">
+      {pop && isOwner ? <BrainCards /> : null}
       {mode === 'build' && (build?.items || []).length ? <div className="cch-bqlist" data-testid="cch-bqlist"><p className="cch-bqh"><b>📋 BUILD QUEUE · {build.open} open</b><small>your ✅ = permission to build · Claude Code builds the queue when you open a session and say "build the queue" · ✅ SHIPPED when it is live</small></p>
         <ul>{build.items.slice(0, 6).map(b => <li key={b.id} className={`is-${b.status}`}><em>{b.status.toUpperCase()}</em><span data-tip={b.text}>{b.title}</span>
           {b.status === 'queued' ? <button type="button" className="cch-ico" onClick={() => moveBuild(b.id, 'dropped')} aria-label="Drop it" data-testid={`cch-bq-drop-${b.id}`}>✕</button> : null}</li>)}</ul></div> : null}

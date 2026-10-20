@@ -12,6 +12,8 @@ import threading
 import time
 from pathlib import Path
 
+_memo = {}      # (db, key | '#table') → (value, read at): this process's last write / read
+MEMO_SEC = 2.0
 _locks: dict = {}
 _made: set = set()   # (db, table) already created in this process
 
@@ -52,21 +54,30 @@ class KV:
             return default
 
     def stamp(self, key='doc'):
-        """When this key was last written (None = never): lets a read-only caller reuse its parsed copy until the next put."""
+        """When this key was last written (None = never): lets a read-only caller reuse its parsed copy until the next put.
+        ⚡ This process's own writes are known at once and the DB is asked at most every MEMO_SEC (another process may write) —
+        it opened a connection under the write lock on every read and waited behind every big put (the lag catcher's top stall)."""
+        m = _memo.get((str(self.db), key))
+        if m and time.time() - m[1] < MEMO_SEC:
+            return m[0]
         with self.lock:
             c = _conn(self.db)
             row = c.execute('SELECT at FROM kv WHERE k = ?', (key,)).fetchone()
             c.close()
-        return row[0] if row else None
+        at = row[0] if row else None
+        _memo[(str(self.db), key)] = (at, time.time())
+        return at
 
     def put(self, value, key='doc'):
         blob = json.dumps(value)
         with self.lock:
             c = _conn(self.db)
             c.execute('BEGIN IMMEDIATE')
-            c.execute('INSERT OR REPLACE INTO kv VALUES (?, ?, ?)', (key, blob, time.time()))
+            at = time.time()
+            c.execute('INSERT OR REPLACE INTO kv VALUES (?, ?, ?)', (key, blob, at))
             c.execute('COMMIT')
             c.close()
+            _memo[(str(self.db), key)] = (at, time.time())
 
 
 class Ledger:
@@ -86,7 +97,8 @@ class Ledger:
     def append(self, row):
         with self.lock:
             c = _conn(self.db)
-            c.execute(f'INSERT INTO {self.table} (at, card, row) VALUES (?, ?, ?)', (float(row.get('at') or time.time()), str(row.get('card') or ''), json.dumps(row)))
+            cur = c.execute(f'INSERT INTO {self.table} (at, card, row) VALUES (?, ?, ?)', (float(row.get('at') or time.time()), str(row.get('card') or ''), json.dumps(row)))
+            _memo[(str(self.db), '#' + self.table)] = (int(cur.lastrowid or 0), time.time())
             c.close()
 
     def rows(self, limit=200, card=None):
@@ -107,12 +119,16 @@ class Ledger:
         return [json.loads(r[1]) for r in got], (got[-1][0] if got else int(after_id or 0))
 
     def last_id(self):
-        """The newest row's id (0 = empty) — O(1) on the primary key, unlike COUNT(*) which walks the whole table."""
+        """The newest row's id (0 = empty) — O(1) on the primary key, unlike COUNT(*) which walks the whole table. Memoised like `stamp`."""
+        m = _memo.get((str(self.db), '#' + self.table))
+        if m and time.time() - m[1] < MEMO_SEC:
+            return m[0]
         with self.lock:
             c = _conn(self.db)
-            n = c.execute(f'SELECT MAX(id) FROM {self.table}').fetchone()[0]
+            n = int(c.execute(f'SELECT MAX(id) FROM {self.table}').fetchone()[0] or 0)
             c.close()
-        return int(n or 0)
+        _memo[(str(self.db), '#' + self.table)] = (n, time.time())
+        return n
 
     def count(self):
         with self.lock:
