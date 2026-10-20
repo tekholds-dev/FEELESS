@@ -47,3 +47,14 @@ test('only real X post links can be brought in', () => {
   expect(isXPost('https://x.com/aeyakovenko')).toBe(false);
   expect(isXPost('https://evil.com/x.com/a/status/123456')).toBe(false);
 });
+
+test('dev-null tabs: trending ranks stars + replies, following / saved filter, hash is stable', () => {
+  const { tabPosts, hashOf, authorKey } = require('./FeedX');
+  const now = 1000000;
+  const posts = [{ id: 'a', src: 'x', handle: 'bob', at: now - 10 }, { id: 'b', src: 'pump', handle: 'amy', at: now - 20 }, { id: 'c', src: 'x', handle: 'old', at: now - 90000 }];
+  const counts = { a: { likes: 1 }, b: { likes: 1, comments: 2 }, c: { likes: 50 } };
+  expect(tabPosts(posts, 'trending', counts, new Set(), new Set(), now).map(p => p.id)).toEqual(['b', 'a']);
+  expect(tabPosts(posts, 'following', counts, new Set([authorKey(posts[0])]), new Set(), now).map(p => p.id)).toEqual(['a']);
+  expect(tabPosts(posts, 'saved', counts, new Set(), new Set(['c']), now).map(p => p.id)).toEqual(['c']);
+  expect(hashOf('a')).toBe(hashOf('a')); expect(hashOf('a')).toHaveLength(7);
+});
