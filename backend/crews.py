@@ -130,7 +130,7 @@ def stats(pieces):
             'pct': round(100 * usd / cost, 1) if cost > 0 else None}
 
 
-def board(store, pieces_by_wallet, now, cfg=None):
+def board(store, pieces_by_wallet, now, cfg=None, staff_of=None):
     """→ ranked crews first (best weekly % result), unranked after. `pieces_by_wallet` = {wallet: [closed track_record pieces]}."""
     _norm(store)
     rows = []
@@ -141,7 +141,7 @@ def board(store, pieces_by_wallet, now, cfg=None):
         ranked = len(c['members']) >= MIN_MEMBERS and s['trades'] >= MIN_TRADES and s['pct'] is not None
         rows.append({'id': c['id'], 'name': c['name'], 'tag': c['tag'], 'members': len(c['members']), 'seats': c.get('seats', BASE_SEATS), 'active': active, 'ranked': ranked, **s,
                      'launch': (c.get('launch') or {}).get('symbol') or None, 'bounties': sum(1 for b in c.get('bounties') or [] if b.get('state') == 'open'),
-                     'badge': badge_view(c, store.get('awards'), cfg)})
+                     'badge': badge_view(c, store.get('awards'), cfg, bool(staff_of and staff_of(c.get('owner'))))})
     return sorted(rows, key=lambda r: (not r['ranked'], -(r['pct'] if r['pct'] is not None else -999), -r['members']))
 
 
@@ -292,11 +292,12 @@ BADGE_USD = 2.0
 MOTTO_MAX = 24
 
 
-def family_metrics(crew, awards):
+def family_metrics(crew, awards, staff=False):
     """The tracked numbers every unlock reads. `awards` = crews.json awards [{week, top: [{id}]}] written by the weekly season tick."""
     pod = [i for a in awards or [] for i, r in enumerate((a.get('top') or [])[:3]) if r.get('id') == crew.get('id')]
     return {'members': len(crew.get('members') or []), 'podiums': len(pod), 'crowns': sum(1 for i in pod if i == 0),
-            'best': (min(pod) + 1) if pod else None, 'points': int(sum(int(v) for v in (crew.get('points') or {}).values()))}
+            'best': (min(pod) + 1) if pod else None, 'points': int(sum(int(v) for v in (crew.get('points') or {}).values())),
+            **({'staff': True} if staff else {})}   # a creator / HQ wallet heads it → every part is open (the creator never waits on its own unlock lines)
 
 
 def unlock_rule(part, opt, cfg=None):
@@ -309,7 +310,7 @@ def unlock_rule(part, opt, cfg=None):
 
 
 def is_unlocked(metric, need, met):
-    if not metric:
+    if not metric or (met or {}).get('staff'):
         return True
     v = (met or {}).get(metric)
     if v is None:
@@ -356,12 +357,12 @@ def clean_badge(raw, met, cfg=None):
     return b
 
 
-def set_badge(store, wallet, raw, awards, now, cfg=None, paid=None):
+def set_badge(store, wallet, raw, awards, now, cfg=None, paid=None, staff=False):
     """The family OWNER builds / restyles its ONE badge. → crew. A restyle after the first build needs `paid` (the service verifies the SOL)."""
     crew = _member(store, wallet)
     if crew['owner'] != wallet:
         raise ValueError('Only the family head builds the badge.')
-    b = clean_badge(raw, family_metrics(crew, awards), cfg)
+    b = clean_badge(raw, family_metrics(crew, awards, staff), cfg)
     if crew.get('badge') and paid is None:
         raise ValueError('Restyling the badge needs its payment.')
     crew['badge'] = {**b, 'at': now, 'v': int((crew.get('badge') or {}).get('v', 0)) + 1}
@@ -371,9 +372,9 @@ def set_badge(store, wallet, raw, awards, now, cfg=None, paid=None):
     return crew
 
 
-def badge_view(crew, awards, cfg=None):
+def badge_view(crew, awards, cfg=None, staff=False):
     """What every page draws: the badge (re-checked: a part whose unlock was raised later falls back to the default) + the rank chips."""
-    met = family_metrics(crew, awards)
+    met = family_metrics(crew, awards, staff)
     raw = dict(crew.get('badge') or {})
     for part, opts in PARTS.items():
         v = raw.get(part)

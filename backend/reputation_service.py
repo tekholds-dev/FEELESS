@@ -3448,6 +3448,116 @@ def _live_movers():
     return _clean_rows(sorted(out, key=lambda r: -r['live'])[:60]) or []
 
 
+_why_cache: dict = {}      # mint → (at, answer) — a checked coin is free for WHY_TTL (everyone reads the same answer)
+_why_recent: list = []     # newest checks first (mint, symbol, headline, verdict, move, img, at) — "Latest checks"
+_why_quota: dict = {}      # ip → [day, count] — new checks a day per visitor
+_why_busy: dict = {}       # mint → asyncio.Task (one check per coin in flight)
+WHY_TTL, WHY_FREE_DAY = 1800, 5
+
+
+async def _why_pair(mint):
+    """The coin's market pair: DexScreener's deepest pool, else Jupiter's (same shape)."""
+    import launchpad_board as _lb
+    best = None
+    try:
+        r = await _ai_http().get(f'https://api.dexscreener.com/tokens/v1/solana/{mint}', timeout=8)
+        if r.status_code == 200 and isinstance(r.json(), list):
+            ps = [x for x in r.json() if (x.get('baseToken') or {}).get('address') == mint]
+            best = max(ps, key=lambda x: _fuse._f((x.get('liquidity') or {}).get('usd')), default=None)
+    except Exception:
+        pass
+    if best is None:
+        try:
+            best = await _lb.jup_lookup(_ai_http(), mint)
+        except Exception:
+            best = None
+    return best
+
+
+async def _why_build(mint):
+    """❓ One coin's WHY: our read + its live pair + Pump callers + web / X search + the two best pages → the model's story (every driver cites
+    a source from the case) or, when no model answers, the engine's own drivers from the numbers."""
+    import why_pump as _wp, feeless_mcp as _mcp, fee_voice as _fv
+    try:
+        read = await coin_read(mint)
+    except Exception:
+        read = {}
+    pair = await _why_pair(mint)
+    n = _wp.from_pair(pair, _wp.numbers(read))
+    soc = _wp.socials_of(pair)
+    sym = n.get('symbol')
+    qs = [f'"{mint}"'] + ([f'${sym} solana crypto', f'site:x.com ${sym}'] if sym else [])
+    web = []
+    try:
+        res = await asyncio.wait_for(asyncio.gather(*[asyncio.to_thread(_mcp._search_rows, q, 6) for q in qs], return_exceptions=True), timeout=12)
+        seen = set()
+        for rows in res:
+            for w in (rows if isinstance(rows, list) else []):
+                if w.get('url') and w['url'] not in seen:
+                    seen.add(w['url']); web.append(w)
+    except Exception:
+        pass
+    pages = []
+    try:
+        pick = [x['url'] for x in _fv.pick_sources(web, 2)] + ([soc['site']] if soc.get('site') else [])
+        pages = await asyncio.wait_for(asyncio.to_thread(_mcp._read_many, pick[:3], 1200), timeout=10) if pick else []
+    except Exception:
+        pages = []
+    eng = _wp.engine_drivers(n)
+    model, src = None, None
+    if not os.environ.get('PYTEST_CURRENT_TEST'):
+        try:
+            pk = _wp.packet(n, eng, web, pages)
+            r_ = await asyncio.wait_for(_air.ROUTER.ask(_ai_http(), os.environ, _ai_cfg(), 'Why did it move? Answer the JSON.', context=pk, role='owner',
+                                                        system=_wp.WHY_ASK, only_system=True, tune={'temp': 0.2, 'maxTok': 900}), timeout=60)
+            model = _wp.parse(r_.get('text'), [w.get('url') for w in web] + [u for u, _t, _x in pages])
+            src = r_.get('source') if model else None
+        except Exception:
+            model = None
+    out = {**_wp.answer(n, eng, model, web), 'mint': mint, 'socials': soc, 'pair': (pair or {}).get('pairAddress'), 'model': src, 'at': round(time.time())}
+    _why_cache[mint] = (time.time(), out)
+    _why_recent[:] = ([{'mint': mint, 'symbol': sym, 'headline': out['headline'], 'verdict': out['verdict'], 'move': out['move'], 'img': n.get('img'), 'at': out['at']}]
+                      + [x for x in _why_recent if x['mint'] != mint])[:20]
+    return out
+
+
+@app.get('/api/reputation/why-pump/{mint}')
+async def why_pump(mint: str, request: Request):
+    """❓ WHY DID IT PUMP? (Rep page). A coin checked in the last 30 min is free and instant for everyone; a new check costs one of the visitor's
+    5 daily checks. Read only — never advice."""
+    if not _re.match(r'^[1-9A-HJ-NP-Za-km-z]{32,44}$', mint or ''):
+        raise HTTPException(400, 'Paste a Solana contract address.')
+    hit = _why_cache.get(mint)
+    if hit and time.time() - hit[0] < WHY_TTL:
+        return {**hit[1], 'cached': True}
+    ip = (request.client.host if request.client else '') or ''
+    day = time.strftime('%Y-%m-%d', time.gmtime())
+    local = ip.startswith(('127.', '10.', '192.168.', '::1')) or ip == 'testclient'
+    q = _why_quota.get(ip) or [day, 0]
+    if q[0] != day:
+        q = [day, 0]
+    if not local and q[1] >= WHY_FREE_DAY:
+        raise HTTPException(429, f'{WHY_FREE_DAY} new checks a day — coins someone already checked stay free.')
+    t_ = _why_busy.get(mint)
+    if not t_ or t_.done():
+        t_ = _why_busy[mint] = asyncio.create_task(_why_build(mint))
+        q[1] += 1; _why_quota[ip] = q
+    out = await t_
+    return {**out, 'left': None if local else max(0, WHY_FREE_DAY - q[1])}
+
+
+@app.get('/api/reputation/why-pump-board')
+async def why_pump_board():
+    """❓ The page around the checker: what is moving right now (the live movers, else Pump trending) + the latest checks."""
+    mv = [{'mint': r.get('mint'), 'symbol': r.get('symbol'), 'img': r.get('img') or r.get('icon') or r.get('imageUrl'), 'chg': _fuse._f(r.get('chg1h')) or _fuse._f(r.get('chg5m')), 'cap': r.get('mcap') or r.get('cap')}
+          for r in (_live_movers() or [])[:8]]
+    if len(mv) < 6:
+        seen = {x['mint'] for x in mv}
+        for r in sorted([x for x in (_open_board() or []) if x.get('mint') not in seen and _fuse._f(x.get('chg1h')) > 0], key=lambda x: -_fuse._f(x.get('chg1h')))[:8 - len(mv)]:
+            mv.append({'mint': r.get('mint'), 'symbol': r.get('symbol'), 'img': r.get('img') or r.get('imageUrl'), 'chg': _fuse._f(r.get('chg1h')), 'cap': r.get('mcap') or r.get('cap')})
+    return {'moving': mv, 'recent': _why_recent[:12], 'free': WHY_FREE_DAY, 'at': round(time.time())}
+
+
 SWAP_BAD_READS = {'WASH TRADED', 'BLOW-OFF TOP', 'TREND DOWN', 'DEAD DIP'}   # + arena_prime.TRENCH_BAD_READS (added at use: module order)
 
 
@@ -8313,7 +8423,7 @@ def _crew_view(c, pieces, with_code=False):
     return {'id': c['id'], 'name': c['name'], 'tag': c['tag'], 'room': f"crew-{c['id']}", 'members': mem, 'seats': c.get('seats', _cr.BASE_SEATS), 'created': c.get('created'),
             'packUsd': _cr.price('seats', _crew_cfg()), 'packSeats': _cr.PACK_SEATS, **({'code': c['code']} if with_code and c.get('code') else {}),
             'codeSet': bool(c.get('codeHash')), 'codeTail': c.get('codeTail') if with_code else None,
-            'badge': _cr.badge_view(c, (_json_load(CREWS_PATH, {}) or {}).get('awards'), _crew_cfg()),
+            'badge': _cr.badge_view(c, (_json_load(CREWS_PATH, {}) or {}).get('awards'), _crew_cfg(), _is_staff(c.get('owner'))),
             'launch': c.get('launch'), 'bountiesOpen': sum(1 for b_ in c.get('bounties') or [] if b_.get('state') == 'open'),
             'points': {m: int(v) for m, v in (c.get('points') or {}).items()} if with_code else None,
             # 💬 members-only: the board + bounties (names, never the code)
@@ -8376,7 +8486,7 @@ async def crews_board():
         return _crew_cache['data']
     st = _json_load(CREWS_PATH, {})
     members = [m for c in (st.get('crews') or {}).values() for m in c['members']]
-    out = {'board': _cr.board(st, _crew_pieces(members, now), now, _crew_cfg())[:40], 'total': len(st.get('crews') or {}), 'rule': f'Ranked by what members\' verified FEELESS trades did in the last 7 days (price result, fees apart). A family ranks with ≥ {_cr.MIN_MEMBERS} members and ≥ {_cr.MIN_TRADES} closed trades. Everyone signs their own trades — a crew shares no money.', 'at': now}
+    out = {'board': _cr.board(st, _crew_pieces(members, now), now, _crew_cfg(), _is_staff)[:40], 'total': len(st.get('crews') or {}), 'rule': f'Ranked by what members\' verified FEELESS trades did in the last 7 days (price result, fees apart). A family ranks with ≥ {_cr.MIN_MEMBERS} members and ≥ {_cr.MIN_TRADES} closed trades. Everyone signs their own trades — a crew shares no money.', 'at': now}
     _crew_cache.update(at=now, data=out)
     return out
 
@@ -8396,7 +8506,7 @@ async def crew_of_wallet(address: str):
     import crews as _cr
     c = _cr.crew_of(_json_load(CREWS_PATH, {}), primary_of(address))
     st_ = _json_load(CREWS_PATH, {})
-    return {'crew': {'id': c['id'], 'tag': c['tag'], 'name': c['name'], 'badge': _cr.badge_view(c, st_.get('awards'), _crew_cfg())} if c else None}
+    return {'crew': {'id': c['id'], 'tag': c['tag'], 'name': c['name'], 'badge': _cr.badge_view(c, st_.get('awards'), _crew_cfg(), _is_staff(c.get('owner')))} if c else None}
 
 
 @app.get('/api/reputation/admin/crews/revenue')
@@ -8588,9 +8698,9 @@ async def crew_badge_catalog(address: str, session: str):
     me = _session_or_401(address, session); st = _json_load(CREWS_PATH, {}); c = _cr.crew_of(st, me)
     if not c:
         raise HTTPException(404, 'You are not in a family.')
-    met = _cr.family_metrics(c, st.get('awards'))
+    met = _cr.family_metrics(c, st.get('awards'), _is_staff(c.get('owner')))
     return {'metrics': met, 'metricWords': _cr.METRICS, 'parts': _cr.catalog(met, _crew_cfg()), 'colors': list(_cr.COLORS), 'mottoMax': _cr.MOTTO_MAX,
-            'owner': c['owner'] == me, 'built': bool(c.get('badge')), 'restyleUsd': _crew_badge_usd(), 'free': _is_staff(me), 'badge': _cr.badge_view(c, st.get('awards'), _crew_cfg())}
+            'owner': c['owner'] == me, 'built': bool(c.get('badge')), 'restyleUsd': _crew_badge_usd(), 'free': _is_staff(me), 'badge': _cr.badge_view(c, st.get('awards'), _crew_cfg(), _is_staff(c.get('owner')))}
 
 
 @app.post('/api/reputation/crews/badge')
@@ -8604,7 +8714,7 @@ async def crew_badge(p: CrewBadge):
         if not c0 or c0['owner'] != me:
             raise HTTPException(403, 'Only the family head builds the badge.')
         try:
-            _cr.clean_badge(p.badge, _cr.family_metrics(c0, st.get('awards')), _crew_cfg())   # locked parts refused BEFORE any payment is consumed
+            _cr.clean_badge(p.badge, _cr.family_metrics(c0, st.get('awards'), _is_staff(me)), _crew_cfg())   # locked parts refused BEFORE any payment is consumed
         except ValueError as e:
             raise HTTPException(400, str(e))
         paid = None
@@ -8612,7 +8722,7 @@ async def crew_badge(p: CrewBadge):
             paid = {'sig': '', 'usd': 0.0, 'at': time.time(), 'staff': True} if _is_staff(me) or _crew_badge_usd() <= 0 else await _verify_sol_payment(p.signature, mine, _crew_badge_usd(), st)
             paid['by'] = me
         try:
-            c = _cr.set_badge(st, me, p.badge, st.get('awards'), time.time(), _crew_cfg(), paid)
+            c = _cr.set_badge(st, me, p.badge, st.get('awards'), time.time(), _crew_cfg(), paid, _is_staff(me))
         except ValueError as e:
             raise HTTPException(400, str(e))
         _json_save(CREWS_PATH, st)

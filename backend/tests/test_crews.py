@@ -71,3 +71,18 @@ def test_check_new_refuses_before_anyone_pays():
     for owner, name, tag in (('A', 'Other', 'OT'), ('B', 'taken', 'XX'), ('B', 'Fresh', 'tk'), ('B', 'x', 'ZZ')):
         with pytest.raises(ValueError): cr.check_new(st, owner, name, tag)
     assert cr.check_new(st, 'B', ' Fresh  Crew ', 'fc') == ('Fresh Crew', 'FC')
+
+
+def test_a_creator_headed_family_has_every_badge_part_open():
+    import crews as cr
+    c = {'id': 'x', 'owner': 'W', 'members': ['W'], 'points': {}}
+    met = cr.family_metrics(c, [], staff=True)
+    assert all(r['ok'] for rows in cr.catalog(met).values() for r in rows)
+    locked = [(p, o) for p, opts in cr.PARTS.items() for o, (_l, m, _n) in opts.items() if m]
+    p, o = locked[0]
+    assert cr.clean_badge({p: o}, met)[p] == o
+    import pytest
+    with pytest.raises(ValueError):
+        cr.clean_badge({p: o}, cr.family_metrics(c, []))
+    store = {'crews': {'x': {**c, 'badge': {p: o}}}}
+    assert cr.badge_view(store['crews']['x'], [], staff=True)[p] == o
