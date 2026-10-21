@@ -732,6 +732,19 @@ def case_key(case, role):
 
 
 # ── the router (state + the one network call) ────────────────────────────────────────────────────────────────────────────────────
+
+def _err_word(r):
+    """The provider's own reason for a refusal, short and masked (LM Studio says WHY: "context length", "model not loaded" …)."""
+    try:
+        j = r.json()
+        e = j.get('error') if isinstance(j, dict) else None
+        m = (e.get('message') if isinstance(e, dict) else e) or (j.get('message') if isinstance(j, dict) else None)
+    except Exception:
+        m = None
+    m = _KEYLIKE.sub('•••', re.sub(r'https?://\S+', '', str(m or ''))).strip()
+    return f' · {m[:90]}' if m else ''
+
+
 class Router:
     def __init__(self):
         self.stats = {k: {'requests': 0, 'ok': 0, 'fail': 0, 'timeouts': 0, 'rateLimited': 0, 'malformed': 0, 'lastMs': None, 'lastOkAt': None,
@@ -998,7 +1011,7 @@ class Router:
         if r.status_code in (401, 403):
             return None, ('fail', f'{r.status_code} key refused', None)
         if r.status_code >= 400:
-            return None, ('fail', f'HTTP {r.status_code}', None)
+            return None, ('fail', f'HTTP {r.status_code}' + _err_word(r), None)
         try:
             j = r.json()
             self._spend_note(p['key'], _f((j.get('usage') or {}).get('cost')), time.time())

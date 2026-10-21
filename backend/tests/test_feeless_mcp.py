@@ -85,7 +85,8 @@ def test_the_desktop_installer_keeps_lm_studio_up_and_pulls_updates():
     s = m.install_script('http://10.0.0.104:8765/mcp', 'tok123', preset_json='{}', prompt='')
     assert '/usr/bin/caffeinate' not in s                                                         # owner, 2026-10-17: no caffeinate
     assert 'com.feeless.lankeep' in s and '<key>StartInterval</key><integer>60</integer>' in s   # LM Studio server + model checked every minute
-    assert 'server start --port $PORT' in s and '--gpu max' not in s and 'unload --all' not in s   # 🚫 never touches the model
+    assert 'server start --port $PORT' in s and 'lms" unload' not in s and '$LMS" unload' not in s   # 🚫 never unloads / reloads the model
+    assert s.count(' load "$MODEL"') == 1 and 'empty-count' in s and '-ge 3' in s   # only when LM Studio holds NO model for 3 minutes
     assert 'http://10.0.0.104:8765/lan-install' in s and 'FEELESS_NO_RELOAD=1' in s            # hourly self-update re-writes files without reloading itself
 
 

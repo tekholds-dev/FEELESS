@@ -931,8 +931,14 @@ cat > "$HOME/.feeless/lan-keep.sh" <<FEELESS_KEEP_EOF
 #!/bin/bash
 LMS="\\$HOME/.lmstudio/bin/lms"; [ -x "\\$LMS" ] || LMS="\\$(command -v lms)"; [ -n "\\$LMS" ] || exit 0
 "\\$LMS" server status 2>&1 | grep -qi "running" || "\\$LMS" server start --port $PORT >/dev/null 2>&1
-# 🚫 THE MODEL IS YOURS (owner, 2026-10-17: "stop reloading the damn model"): this script never loads, unloads, reloads or downloads a model.
-#    It only keeps LM Studio's server up and pulls prompt / MCP updates (written only when they changed).
+# 🚫 THE MODEL IS YOURS (owner, 2026-10-17: "stop reloading the damn model"): this script never unloads, reloads or downloads a model and
+#    never touches one that is loaded or loading. ONE exception (owner, 2026-10-20: "G4 keeps unloading"): when LM Studio holds NO model at
+#    all for 3 minutes in a row (it dropped it — idle TTL, a crash, a restart), the server's model is loaded once with NO idle TTL.
+emp="\\$HOME/.feeless/empty-count"
+if "\\$LMS" ps 2>/dev/null | grep -qE " GB|LOADING|Loading"; then echo 0 > "\\$emp"; else
+  n=\\$(( \\$(cat "\\$emp" 2>/dev/null || echo 0) + 1 )); echo \\$n > "\\$emp"
+  if [ \\$n -ge 3 ]; then echo 0 > "\\$emp"; "\\$LMS" load "$MODEL" --context-length $CTX --parallel $PAR --gpu max -y >/dev/null 2>&1; fi
+fi
 st="\\$HOME/.feeless/last-update"; now=\\$(date +%s); last=\\$(cat "\\$st" 2>/dev/null || echo 0)
 if [ \\$((now - last)) -ge 600 ]; then echo \\$now > "\\$st"; curl -fsS -m 20 -H "Authorization: Bearer {tok}" "{install_url}" | FEELESS_LM_PORT=$PORT FEELESS_LM_CTX=$CTX FEELESS_NO_RELOAD=1 bash >/dev/null 2>&1; fi
 FEELESS_KEEP_EOF

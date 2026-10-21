@@ -32,10 +32,12 @@ lm_watch() {
     "$LMS" server start >/dev/null 2>&1 && echo "$(date '+%F %T') LM Studio server started"
     return 0
   fi
-  local ctx; ctx="$(curl -s -m 5 http://127.0.0.1:1234/api/v0/models | python3 -c "import json,sys
+  # a busy model answers slowly: no answer = UNKNOWN, never "not loaded" (the old 5s read reloaded a generating gpt-oss every 30 min)
+  if "$LMS" ps 2>/dev/null | grep -q "${model##*/}"; then return 0; fi
+  local ctx; ctx="$(curl -s -m 20 http://127.0.0.1:1234/api/v0/models | python3 -c "import json,sys
 d=json.load(sys.stdin); m=[x for x in d.get('data',[]) if x.get('id')=='$model' and x.get('state')=='loaded']
 print(m[0].get('loaded_context_length') or 0 if m else 0)" 2>/dev/null)"
-  ctx="${ctx:-0}"
+  [[ -z "$ctx" ]] && return 0
   if (( ctx < LM_CTX )) && (( $(date +%s) - lm_reload > 1800 )); then
     lm_reload=$(date +%s)
     (( ctx > 0 )) && "$LMS" unload "$model" >/dev/null 2>&1
