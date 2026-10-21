@@ -8935,6 +8935,100 @@ def _predict_symbols():
     return sym
 
 
+import rep_markets as _rm
+REP_MARKETS_PATH = FUSE_HQ_PATH.parent / 'rep_markets.json'
+_rm_lock = asyncio.Lock()
+
+
+def _rm_rows():
+    """🛡 Rep markets' coins: Pump's own trending board first, then the open board's busiest — each with its age and rug meter (the same read
+    the trench list shows)."""
+    by = {r['mint']: r for r in (_open_board() if _open_pairs else (_open_cache.get('rows') or [])) if r.get('mint')}
+    out, seen = [], set()
+    for src, mints in (('ptrend', [r.get('mint') for r in (_lens_rows.get('ptrend') or [])[:12]]), ('open', list(by)[:40])):
+        for m in mints:
+            if not m or m in seen:
+                continue
+            seen.add(m); r = _with_tv(by.get(m) or {'mint': m})
+            out.append({'mint': m, 'symbol': r.get('symbol') or (_predict_symbols().get(m)), 'src': src, 'ageH': r.get('ageH'), 'rug': (r.get('tv') or {}).get('rug')})
+    return [r for r in out if r.get('symbol')]
+
+
+async def _rm_tick(now):
+    """Every warm pass: mark open markets on live prices, settle what can be decided (season points for the week's net), open the hour's markets."""
+    async with _rm_lock:
+        st = _json_load(REP_MARKETS_PATH, {}) or {}
+        opn = [m for m in st.get('markets') or [] if m['state'] == 'open']
+        if opn:
+            px = await _jup_prices(sorted({m['mint'] for m in opn}), judge=True)
+            for m in opn:
+                if (px or {}).get(m['mint']):
+                    _rm.mark(m, px[m['mint']], now)
+        done = _rm.settle(st, now)
+        for m in done:
+            for s_ in m['stakes']:
+                b_ = _rm.bank(st, s_['w'], now); pts_ = _rm.season_pts(b_)
+                if pts_ > b_.get('pts', 0):
+                    season_award(s_['w'], pts_ - b_.get('pts', 0), 'rep-market'); b_['pts'] = pts_
+        hr = int(now // 3600)
+        if st.get('openedHour') != hr:
+            rows = _rm_rows()
+            if rows:
+                px = await _jup_prices([r['mint'] for r in rows[:30]], judge=True)
+                _rm.new_markets(st, rows, px or {}, now)
+                st['openedHour'] = hr
+        _json_save(REP_MARKETS_PATH, st)
+
+
+def _rep_of(wallets):
+    out = {}
+    for w in wallets:
+        hit = _trust_cache.get(w)
+        if hit:
+            out[w] = _fuse._f((hit[1] or {}).get('score'))
+        else:
+            out[w] = 50.0
+            try:
+                asyncio.get_running_loop().create_task(_trust_fill(w))
+            except RuntimeError:
+                pass
+    return out
+
+
+@app.get('/api/reputation/rep-markets')
+async def rep_markets(address: str = ''):
+    """🛡 Public: every live YES / NO market (crowd price + the rep-weighted price, ⚡ smart split), the last results, the week's top callers and —
+    with an address — your chip bank. Free weekly chips only; nothing is bought, sent or cashed out."""
+    st = _json_load(REP_MARKETS_PATH, {}) or {}
+    me = primary_of(address) if address else None
+    ws = {s_['w'] for m in st.get('markets') or [] for s_ in m['stakes']}
+    return _rm.board(st, time.time(), me, _rep_of(ws))
+
+
+class RepStake(BaseModel):
+    address: str
+    session: str
+    market: str = Field(..., max_length=16)
+    side: str = Field(..., max_length=3)
+    chips: int = 0
+
+
+@app.post('/api/reputation/rep-markets/stake')
+async def rep_market_stake(p: RepStake):
+    """Back YES or NO with chips (chat session). Your trust score at that moment is stored on the stake (the rep-weighted price)."""
+    me = _session_or_401(p.address, p.session); now = time.time()
+    rep_ = _rep_of([me]).get(me, 50.0)
+    async with _rm_lock:
+        st = _json_load(REP_MARKETS_PATH, {}) or {}
+        try:
+            _rm.stake(st, me, p.market, p.side, p.chips, now, rep_)
+        except ValueError as e:
+            raise HTTPException(400, str(e))
+        _json_save(REP_MARKETS_PATH, st)
+    ws = {s_['w'] for m in st.get('markets') or [] for s_ in m['stakes']}
+    return _rm.board(st, now, me, _rep_of(ws))
+
+
 async def _predict_tick(now):
     """Every ~minute: settle rounds whose hour is over (biggest move wins, points via season_award, quest events, inbox note) and open this hour's ballot."""
     import predict as _pr
@@ -19866,6 +19960,7 @@ async def _fuse_warm():
         print('callouts:', e)
     try:   # ⚡ free hourly call: settle finished hours, open this hour's ballot
         await _predict_tick(time.time())
+        await _rm_tick(time.time())
     except Exception as e:
         print('predict:', e)
     try:   # 🛡 crews: the week's top 3 pay their members season points, once

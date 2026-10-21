@@ -5267,3 +5267,12 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   type (Pump curve · Meteora dynamic curve + decaying anti-snipe tax · LaunchLab curve · x·y=k pool · DLMM bins · locked liquidity), the knobs
   each one has, platforms compared by MECHANICS (fees change on their side — never quote theirs), FEELESS extras (House config HQ only).
   Explain-only: the signed launchers below it are unchanged.
+- 🛡 REP MARKETS (owner, 2026-10-20: "polymarket bidding on rep — its own live twist"; `backend/rep_markets.py` pure + tested, `data/rep_markets.json`,
+  `_rm_tick` beside `_predict_tick`, public `GET /api/reputation/rep-markets?address=`, `POST /rep-markets/stake` (chat session); `RepMarkets.jsx` +
+  `styles/repMarkets.css` `rpm-*` on the Rep page under Why did it pump): YES / NO on 📈 UP 1h · 🚀 2× in 4h · ☠ −80% in 1h, opened hourly from
+  Pump trending + the open board, settled on recorded Jupiter prices (2× / rug settle the moment they happen; no price 15 min = rug). FREE CHIPS
+  ONLY: 1,000 a UTC week, never bought / sent / cashed out, parimutuel; 10 chips of the week's net gain = 1 season point. Twist: every market shows
+  the crowd price AND the 🛡 rep price (each stake weighted by its wallet's trust score); ≥ 15 pts apart = ⚡ SMART SPLIT. Never a real-money bet.
+- 🎩 La Familia wars (`backend/family_wars.py`, `/api/reputation/crew-wars`, `FamilyWars.jsx`, `familyWars.css` / `familyNoir.css`): call-outs with
+  a family-POINTS pot, raise, set the bell, allies, teams of 5, settled on verified trades; ranks Don → Associate. Inbox ⚙ themes / spam folders in
+  `Messenger.jsx`. 🐱 Create-a-Cat look (`CatLook.jsx`, `feecat_service.clean_look`). Models never quote the Godfather (`ai_seat.no_fake_boss`).

@@ -7,6 +7,7 @@ import { useWallet } from '../../hooks/useWallet';
 import { apiUrl } from '../../lib/api';
 import { RugReport, ShieldLeaderboard } from './RugReport';
 import WhyPump from '../WhyPump';
+import RepMarkets from '../RepMarkets';
 import '../../styles/repPage.css';
 
 const short = a => (a ? `${a.slice(0, 4)}…${a.slice(-4)}` : '');
@@ -95,5 +96,5 @@ function DarkSide() {
 import { RugBounty } from '../RugBounty';
 
 export function RepStanding() {
-  return <div className="rep-v2"><div className="sup-row"><SupportButton /></div><WhyPump /><div className="rep-top"><MyStanding /><DarkSide /></div><MemeTerms /><div className="rep-top"><RugReport /><ShieldLeaderboard /></div><RugBounty /></div>;
+  return <div className="rep-v2"><div className="sup-row"><SupportButton /></div><WhyPump /><RepMarkets /><div className="rep-top"><MyStanding /><DarkSide /></div><MemeTerms /><div className="rep-top"><RugReport /><ShieldLeaderboard /></div><RugBounty /></div>;
 }
