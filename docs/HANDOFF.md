@@ -18,8 +18,8 @@ Restart rule: check no `pending` in fuse_wallet.db books, `pkill`-by-PID the rep
 
 # HANDOFF — start here (any Claude account, any new session)
 
-Read this first (2 min), then only the parts of `CLAUDE.md` your task touches (`grep -n "<topic>" CLAUDE.md`). CLAUDE.md is the
-full rulebook (~2K lines of "why"); this page is the map.
+Read this first (2 min), then `CLAUDE.md` (lean rules + 🎨 MANDATORY STYLING + 📋 CURRENT TASKS), then only the history lines your task
+touches (`grep -n "<topic>" docs/FEELESS_HISTORY.md` — 700 KB of "why", never read it whole). This page is the map.
 
 > ⚡ EVERY SESSION, EVERY HANDOFF (owner, 2026-10-15 — repeat these three lines in any handoff you write):
 > 1. **Conserve usage.** grep first, read only the lines you need, batch commands, no essays, no re-reading files you just edited.
@@ -56,16 +56,19 @@ server — attach, never start a second). Push to `main`; the owner's Mac auto-p
 | big service | `backend/reputation_service.py` (16K+ lines — grep, never read whole) |
 | UI | `frontend/src/components/command/` (HQ, Agents cockpit) · `components/HomeEngine.jsx` · `styles/` |
 
-## 4 · Current state (2026-10-14)
-- AI: 🖥 Gemma on the desktop Mac (`lan`, primary) + 💻 Qwen on this Mac (`local`, secondary) as a DUET; cloud = Groq / OpenRouter.
-  Reads are advisory and graded; no model ever buys, sizes or sells.
-- Real card ≈ $2.80 of $39.24 put in (`fuse-report.py`). Edge audit: no rule positive on unseen coins yet — losses = cost × swaps + rugs.
-- Open asks: see `backend/data/build_queue.json` (approved build ideas) and `CLAUDE.md › NEXT SESSION`.
+## 4 · Current state (2026-10-21)
+- The open list is `CLAUDE.md › 📋 CURRENT TASKS` (owner's order). Approved build ideas: `backend/data/build_queue.json`.
+- AI: G4 (desktop LAN) + OSSY (this Mac, gpt-oss-20b, 12 GB — the main reason this Mac swaps) take turns on one real seat; NEXA =
+  the Windows i5 (llamafile, 1 slot): keep her chat prompt cached (re-warm after reads), answers ≤ 70 tokens, 20-min quiet after owner chat.
+- Familia: `family_city.py` (the block) + `family_world.py` (the map: 6 boroughs, bridges, CPU towns, cartels from the blocklist, chess
+  raids, errands, challenges, rewards, FEECAT redeem claim) — engine done + tested; its VISUAL city was rejected and must be redrawn.
+- Edge audit: still no rule positive on unseen coins — say so before any real-money advice.
 
 ## 5 · How to work here (the owner's rules, short)
 - Brief with the owner. Verdict, what changed, what was tested, what wasn't.
 - Conserve usage · finish every request in priority order (never half-done) · never dead-style (see the box at the top).
 - Every money change ships with a test that fakes the network. Never hit mainnet or move funds.
 - UI = m-* presets, transform / opacity only, day theme + fx-lite + reduced motion + 640px blocks.
-- When you ship something, add ONE line to the right section of `CLAUDE.md` and, if it changes the map, this page.
+- When you ship something: tick it off `CLAUDE.md › CURRENT TASKS`, add ONE line to `docs/FEELESS_HISTORY.md` (the end), and update this page if the map changed.
+- 🎨 Styling is MANDATORY (`CLAUDE.md › MANDATORY STYLING + ANIMATION`): drawn, alive, unique per page, a twist never a copy, screenshot it.
 - Commit before long tasks (the update script auto-stashes uncommitted work). `git fetch` + rebase before pushing.

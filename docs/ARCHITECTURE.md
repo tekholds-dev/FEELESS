@@ -36,7 +36,7 @@ If you add a feature, plug it into the row that already owns that data — never
 | snipers-out | `lib/snipersOut.js` |
 | pump pulse | `lib/pumpPulse.js` |
 
-## Money paths (see CLAUDE.md › Money rules)
+## Money paths (see docs/FEELESS_HISTORY.md › Money rules)
 
 Quote → simulate → wallet signs → server verifies the signed message equals the quote → broadcast → confirm sweep →
 fee ledger (`fee_ledger.json`, the source of truth) → fee totals / FeeBack / Fuse creator cuts / quest metrics.
