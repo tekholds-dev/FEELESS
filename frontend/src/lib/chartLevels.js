@@ -41,6 +41,13 @@ export function feeLevels(read, band, swing) {
   return out.filter(Boolean);
 }
 
+/** The low → high of candle rows ([t, o, h, l, c, v]); null when there are none. */
+export function candleBand(rows) {
+  let lo = Infinity, hi = -Infinity;
+  for (const r of rows || []) { const h = Number(r?.[2]), l = Number(r?.[3]); if (h > 0 && h > hi) hi = h; if (l > 0 && l < lo) lo = l; }
+  return hi > 0 && lo < Infinity ? { lo, hi } : null;
+}
+
 /** 🧰 The chart tools' levels (gaps · magnets · gun line · germ). Their soft bands are still drawn by the tools themselves. */
 export function toolLevels(read) {
   if (!read) return [];

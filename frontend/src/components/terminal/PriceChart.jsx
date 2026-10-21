@@ -11,7 +11,7 @@ import { CandleFx } from './CandleFx';
 import { ChartLevels } from './ChartLevels';
 import { ChartCallPins } from './ChartCallPins';
 import { useChartWallets, walletPins } from '../../lib/chartWallets';
-import { feeLevels, ownLevels, toolLevels, germLevels } from '../../lib/chartLevels';
+import { feeLevels, ownLevels, toolLevels, germLevels, candleBand } from '../../lib/chartLevels';
 import { useGerm } from '../../lib/germ';
 import { mergeLiveBar, liveBar } from '../../lib/tween';
 import { scaleKeep } from '../../lib/chartLevels';
@@ -308,8 +308,8 @@ export const PriceChart = ({ pair, interval, showVolume, metric = 'price', marke
   const feeLv = useMemo(() => {
     if (!feeRead) return [];
     const seen = displayCandles.slice(-300); const recent = displayCandles.slice(-120);
-    const band = seen.length ? { lo: Math.min(...seen.map(c => c.low)), hi: Math.max(...seen.map(c => c.high)) } : null;
-    return feeLevels(feeRead, band, recent.length > 10 ? { hi: Math.max(...recent.map(c => c.high)), lo: Math.min(...recent.map(c => c.low)) } : null);
+    const band = candleBand(seen);   // candles are [t, o, h, l, c, v] rows — reading c.low gave NaN, so no level was ever checked and no fib drawn
+    return feeLevels(feeRead, band, recent.length > 10 ? candleBand(recent) : null);
   }, [feeRead, displayCandles]);
   const tradeKey = (userTrades || []).map(t => `${t.tx}:${t.fillPrice}`).join('|');
   const ownLv = useMemo(() => (charting ? ownLevels({ userTrades, userEntry, fuse, ratio }) : []),

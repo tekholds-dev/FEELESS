@@ -71,3 +71,13 @@ test('🦠 germ levels: the timeframe on screen, the 5m germ on a 1m chart, the 
   expect(ag.px).toBe(1000);
   expect(ag.tip).toMatch(/inside your 15% line/);
 });
+
+test('candleBand reads [t, o, h, l, c, v] rows so Fee levels far off the candles are dropped and fibs draw', () => {
+  const { candleBand, feeLevels } = require('./chartLevels');
+  const rows = [[1, 10, 12, 9, 11, 1], [2, 11, 13, 10, 12, 1], [3, 12, 14, 8, 13, 1]];
+  expect(candleBand(rows)).toEqual({ lo: 8, hi: 14 });
+  expect(candleBand([])).toBeNull();
+  const lv = feeLevels({ support: 1, resistance: 14 }, candleBand(rows), candleBand(rows));
+  expect(lv.find(r => r.id === 'f-sup')).toBeUndefined();          // support 8× under the candles is not drawn
+  expect(lv.some(r => r.id.startsWith('f-fib'))).toBe(true);
+});
