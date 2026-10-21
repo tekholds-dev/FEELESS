@@ -8952,7 +8952,7 @@ def _predict_symbols():
     return sym
 
 
-import rep_markets as _rm
+import rep_markets as _repm
 REP_MARKETS_PATH = FUSE_HQ_PATH.parent / 'rep_markets.json'
 _rm_lock = asyncio.Lock()
 
@@ -8980,11 +8980,11 @@ async def _rm_tick(now):
             px = await _jup_prices(sorted({m['mint'] for m in opn}), judge=True)
             for m in opn:
                 if (px or {}).get(m['mint']):
-                    _rm.mark(m, px[m['mint']], now)
-        done = _rm.settle(st, now)
+                    _repm.mark(m, px[m['mint']], now)
+        done = _repm.settle(st, now)
         for m in done:
             for s_ in m['stakes']:
-                b_ = _rm.bank(st, s_['w'], now); pts_ = _rm.season_pts(b_)
+                b_ = _repm.bank(st, s_['w'], now); pts_ = _repm.season_pts(b_)
                 if pts_ > b_.get('pts', 0):
                     season_award(s_['w'], pts_ - b_.get('pts', 0), 'rep-market'); b_['pts'] = pts_
         hr = int(now // 3600)
@@ -8992,7 +8992,7 @@ async def _rm_tick(now):
             rows = _rm_rows()
             if rows:
                 px = await _jup_prices([r['mint'] for r in rows[:30]], judge=True)
-                _rm.new_markets(st, rows, px or {}, now)
+                _repm.new_markets(st, rows, px or {}, now)
                 st['openedHour'] = hr
         _json_save(REP_MARKETS_PATH, st)
 
@@ -9019,7 +9019,7 @@ async def rep_markets(address: str = ''):
     st = _json_load(REP_MARKETS_PATH, {}) or {}
     me = primary_of(address) if address else None
     ws = {s_['w'] for m in st.get('markets') or [] for s_ in m['stakes']}
-    return _rm.board(st, time.time(), me, _rep_of(ws))
+    return _repm.board(st, time.time(), me, _rep_of(ws))
 
 
 class RepStake(BaseModel):
@@ -9038,12 +9038,12 @@ async def rep_market_stake(p: RepStake):
     async with _rm_lock:
         st = _json_load(REP_MARKETS_PATH, {}) or {}
         try:
-            _rm.stake(st, me, p.market, p.side, p.chips, now, rep_)
+            _repm.stake(st, me, p.market, p.side, p.chips, now, rep_)
         except ValueError as e:
             raise HTTPException(400, str(e))
         _json_save(REP_MARKETS_PATH, st)
     ws = {s_['w'] for m in st.get('markets') or [] for s_ in m['stakes']}
-    return _rm.board(st, now, me, _rep_of(ws))
+    return _repm.board(st, now, me, _rep_of(ws))
 
 
 async def _predict_tick(now):

@@ -80,3 +80,8 @@ def test_new_markets_come_from_the_live_lists():
     kinds = sorted(m['kind'] for m in out)
     assert kinds == ['double', 'rug', 'up', 'up']
     assert rm.new_markets(st, rows, {'A': 1, 'B': 1, 'C': 1}, NOW + 60) == []   # one coin once per open market
+
+
+def test_service_uses_its_own_alias():
+    src = open(__import__('pathlib').Path(__file__).resolve().parent.parent / 'reputation_service.py').read()
+    assert 'import rep_markets as _repm' in src and 'import rep_markets as _rm' not in src
