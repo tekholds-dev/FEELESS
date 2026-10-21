@@ -311,3 +311,16 @@ def test_a_model_never_quotes_the_godfather_when_he_said_nothing():
     assert 'said hold' in s.short_why(t, spoke=True)
     assert s.short_why('Godfather, I am holding: germ 4% under.') .startswith('Godfather, I am holding')
     assert 'boss wants' not in s.short_why('The boss wants us to hold. Tape is green.')
+
+
+def test_streak_brake_and_owner_lines_expire():
+    import ai_seat as s
+    assert s.streak_brake([5, -1, -2, -3]).startswith('last 3 real trades')
+    assert s.streak_brake([-1, -2, 4]) is None and s.streak_brake([-1, -2]) is None
+    held = {'at': 1000}
+    line = {'at': 1100, 'mint': 'M', 'by': 'owner', 'why': 'hold'}
+    assert s.owner_line_live(line, held, [], 1200)
+    assert not s.owner_line_live({**line, 'at': 500}, held, [], 1200)                       # said in an earlier trade of this coin
+    assert not s.owner_line_live(line, held, [], 1100 + s.OWNER_LINE_SEC + 1)              # too old
+    replies = [{'at': 1150, 'mint': 'M', 'model': 'G4'}, {'at': 1160, 'mint': 'M', 'model': 'OSSY'}]
+    assert not s.owner_line_live(line, held, replies, 1200)                                # answered twice already

@@ -15170,6 +15170,14 @@ async def _g4_tick(now, env, cfg):
                              'log': _seat.note(_seat.merge_log(st_['log'], hm_.get('log')), {'at': round(now), 'mode': mode_, 'model': 'SEAT', 'by': None, 'action': 'PASS', 'why': f"⏱ {_air.model_name(env, first_)} found no clean entry in {_seat.HUNT_TURN_SEC / 60:.0f} min — {_air.model_name(env, second_)}'s turn"})}, now)
                 st_['opener'] = first_
                 first_, second_ = second_, first_   # 🔁 one REAL trade each: the opener runs it to the exit, then the other hunts
+        if not held_ and mode_ == 'real':   # 🧯 STREAK BRAKE: a model on 3 straight real losses does not take a buy turn — its partner hunts
+            br_ = _g4_brake(now)
+            if br_.get(first_) and not br_.get(second_):
+                bm_ = _g4_mem.get() or {}
+                if bm_.get('brakeNote') != f'{first_}:{br_[first_]["since"]}':
+                    _g4_mem.put({**bm_, 'brakeNote': f'{first_}:{br_[first_]["since"]}', 'log': _seat.note(_seat.merge_log(st_['log'], bm_.get('log')), {'at': round(now), 'mode': mode_, 'model': 'SEAT', 'by': None, 'action': 'PASS',
+                                 'why': f"🧯 {_air.model_name(env, first_)} is on a losing streak ({br_[first_]['why']}) — {_air.model_name(env, second_)} picks until {_air.model_name(env, first_)}'s calls prove right again"})}, now)
+                first_, second_ = second_, first_
         if mode_ == 'paper':
             rec_ = _seat.by_model(book_.get('closed')).get(first_) or {'n': 0}
         rows_ = [_seat.cand_row(c_, _g4_qwen(c_['mint'])) for c_ in cands_]
@@ -15192,6 +15200,8 @@ async def _g4_tick(now, env, cfg):
         if hl_:
             learn_['holdLessons'] = [str(x)[:140] for x in hl_[:3]]   # 👍👎 what the market's verdicts on its calls + votes earned it
         on_ = next((r_ for r_ in reversed(st_['log']) if r_.get('by') == 'owner' and ((held_ and r_.get('mint') == held_.get('mint')) or (not held_ and not r_.get('mint') and now - _fuse._f(r_.get('at')) < 600))), None)   # 👤 with no trade open your chime-in reaches the model hunting next (10 min)
+        if on_ and not _seat.owner_line_live(on_, held_, st_['log'], now):
+            on_ = None   # 👤 an old line (another trade of this coin, 20+ min old, or already answered twice) is never fed back as "the Godfather said…"
         if on_:
             learn_['ownerSays'] = str(on_.get('why') or '')[:600]   # 👤 the owner chimed in on this trade
         await _dv_settle(now)
@@ -15470,11 +15480,40 @@ def _agent_entry_ok(c):
     return str(rule_ or '') not in _lose_c['v']
 
 
+_g4_brake_c = {'at': 0.0, 'v': {}}
+
+
+def _g4_brake(now):
+    """🧯 Which model is braked: its last BRAKE_N closed REAL trades were all losses, and the market has not yet graded its calls back to even
+    (duo_votes confidence < 0) — or the brake is under an hour old. → {provider key: {since, why}}. 60s cache."""
+    if now - _g4_brake_c['at'] < 60:
+        return _g4_brake_c['v']
+    out = {}
+    try:
+        ps_ = sorted([p_ for p_ in (_json_load(ARCHIVE_PATH, {}) or {}).get('positions') or [] if p_.get('g4') and p_.get('realPct') is not None], key=lambda p_: _fuse._f(p_.get('closedAt') or p_.get('since')))
+        for k_ in (_duet.LEAD, _duet.SECOND):
+            mine_ = [p_ for p_ in ps_ if p_.get('aiBy') == k_]
+            br_ = _seat.streak_brake([_fuse._f(p_['realPct']) for p_ in mine_])
+            if not br_:
+                continue
+            since_ = _fuse._f(mine_[-1].get('closedAt') or mine_[-1].get('since'))
+            conf_ = _dv.confidence(_dv_mem.get() or {}, k_)
+            if now - since_ < 3600 or conf_ < 0:
+                out[k_] = {'since': round(since_), 'why': br_}
+    except Exception:
+        out = {}
+    _g4_brake_c.update(at=now, v=out)
+    return out
+
+
+
 def _g4_bad_entry(c):
     """🔫 The entry the models may NOT take (owner, 2026-10-17: "not entering or even suggesting at the gun line"): pressed under its gun
     line, a breakout chase, after a spike, or the chart's own call is SKIP. → reason or None. Checked when the list is built AND again at the fill."""
     try:
-        return _opp.gun_wall(c) or _opp.gun_chase(c) or _opp.spike_chase(c) or ('chart says SKIP' if str(c.get('chartCall') or '').upper().startswith('SKIP') else None)
+        st_c = str(((_office.get('charts') or {}).get(c.get('mint')) or {}).get('state') or c.get('structure') or '').upper()
+        return (_opp.gun_wall(c) or _opp.gun_chase(c) or _opp.spike_chase(c) or ('chart says SKIP' if str(c.get('chartCall') or '').upper().startswith('SKIP') else None)
+                or ("COMPRESSION — the models' own record there: 46 real trades, 9 won" if st_c == 'COMPRESSION' else None))
     except Exception:
         return None
 

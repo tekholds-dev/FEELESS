@@ -729,3 +729,34 @@ def duo_backs(log, preds, mint, now):
         return False, 'no model has backed it'
     at, ok, why = max(ev, key=lambda e: e[0])
     return ok, why
+
+
+OWNER_LINE_SEC = 1200      # 👤 the owner's line is "live" for 20 min …
+OWNER_LINE_REPLIES = 2     # … and until the models have answered it twice
+
+
+def owner_line_live(line, held, log, now):
+    """Is the owner's chat line still something the models should be told he said? Only when it was said after THIS trade opened (a line from
+    an earlier trade of the same coin is history), under OWNER_LINE_SEC old, and answered fewer than OWNER_LINE_REPLIES times — else the models
+    kept opening every minute with "the Godfather said…" about a line he said once, long ago, or about another trade."""
+    at = float((line or {}).get('at') or 0)
+    if not at or now - at > OWNER_LINE_SEC:
+        return False
+    if held:
+        opened = float(held.get('at') or held.get('since') or 0)
+        if opened and at < opened - 60:
+            return False
+    mint = (line or {}).get('mint')
+    replies = sum(1 for r in log or [] if r.get('by') != 'owner' and float(r.get('at') or 0) > at and (not mint or r.get('mint') == mint) and r.get('model') in ('G4', 'OSSY'))
+    return replies < OWNER_LINE_REPLIES
+
+
+BRAKE_N = 3   # 🧯 straight real losses that brake a model's buy turns (G4: after 3 straight losses it went on to win 4 of 33, median −8.2%)
+
+
+def streak_brake(pcts, n=BRAKE_N):
+    """→ a reason when the newest `n` closed real results are all losses, else None. Pure."""
+    xs = [float(x) for x in (pcts or []) if x is not None]
+    if len(xs) < n or any(x > 0 for x in xs[-n:]):
+        return None
+    return f"last {n} real trades {' · '.join(f'{x:+.1f}%' for x in xs[-n:])}"
