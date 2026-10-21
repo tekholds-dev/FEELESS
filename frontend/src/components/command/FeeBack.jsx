@@ -1,4 +1,5 @@
 import { FeeCatBrain } from './FuseOpsPanels';
+import { FeeCatStage } from './FeeCatStage';
 import NumInput from '../NumInput';
 import { FeeCatMark } from '../FeeCatMark';
 import React, { useMemo, useState } from 'react';
@@ -8,7 +9,6 @@ import { useWallet } from '../../hooks/useWallet';
 import { useMarket } from '../../hooks/useMarket';
 import { formatUSD } from '../../lib/dexscreener';
 import { FeeReportChip } from './FeeReport';
-import { FeeCatHQ } from './FeeCatHQ';
 
 const STEPS = [
   ['TRADE', 'A user approves a transaction. Normal network, DEX and provider fees may apply.'],
@@ -99,10 +99,8 @@ export const FeeCatCenter = ({ asset, community, onSelect, children }) => {
   const choose = v => { setMission(v); localStorage.setItem('feecat-learning-step', v); };
   const text = { culture: 'The first cat of FEELESS. A shared identity built around curiosity, participation and on-chain culture.', community: 'The Trenches connect real participants. No purchased-looking activity, fabricated messages or imaginary users.', utility: 'The intended delivery asset for eligible USD-equivalent Fee-Back. Distribution infrastructure and rules remain planned.' };
   const [view, setView] = useState('desk');
-  const tabs = <><nav className="m-seg fc-tabs" role="tablist" aria-label="FeeCat">{FC_TABS.map(([k, l, why]) =>
-    <button key={k} type="button" role="tab" aria-selected={view === k} className={view === k ? 'active' : ''} onClick={() => setView(k)} data-testid={`fc-tab-${k}`} data-tip={why}>{l}</button>)}</nav>
-    <p className="fc-tabwhy" data-testid="fc-tab-why">{(FC_TABS.find(([k]) => k === view) || FC_TABS[0])[2]}</p></>;
-  if (view === 'desk') return <div className="feecat-command">{tabs}<FeeCatHQ />{children}</div>;
+  const tabs = <FeeCatStage tabs={FC_TABS} view={view} onView={setView} />;   // the rail shows each tab's why
+  if (view === 'desk') return <div className="feecat-command">{tabs}{children}</div>;
   if (view === 'brain') return <div className="feecat-command">{tabs}<FeeCatBrain /></div>;
   return <div className="feecat-command">{tabs}<div className="feecat-banner is-compact" style={{ backgroundImage: "url('/assets/feecat-bg.png')" }}><div className="feecat-banner-copy"><span className="eyebrow">THE FIRST CAT OF FEELESS</span><h1>Fun. Culture.<br /><em>More for you.</em></h1><p>The community layer. The culture layer.<br />The Fee-Back delivery layer.</p><span className="state-tag amber" data-testid="feecat-launch-state">{asset?.status === 'market_observed' ? 'MARKET OBSERVED · DISTRIBUTIONS PLANNED' : 'AWAITING MARKET · DISTRIBUTIONS PLANNED'}</span><Link className="btn-primary feecat-collection-cta" to="/terminal/feecat/cats" data-testid="feecat-collection-link"><Cat size={15} />Explore Feeless Cats<ArrowUpRight size={15} /></Link></div><div className="feecat-insignia"><img src="/assets/feecat-mark.png" alt="FEECAT cat mark" /><span>FEECAT</span></div></div><div className="fee-back-summary">{[['FEECAT RECEIVED', 'No verified distributions'], ['TREASURY STATUS', 'Not published / unverified'], ['COMMUNITY / 7 DAYS', community?.messages != null ? `${community.messages} actual messages` : 'Connecting'], ['CURRENT MARKET', asset?.status === 'market_observed' ? formatUSD(asset.pair?.priceUsd) : 'Awaiting provider market']].map(([k, v], i) => <div key={k}><small>{k}</small><strong data-testid={`feecat-stat-${i}`}>{v}</strong></div>)}</div><section className="feecat-explain"><nav className="feecat-explain-tabs" role="tablist">{[['lore', '🐱 The cat'], ['path', '↻ Return path'], ['calc', '🧮 Fee-Back calc']].map(([k, l]) => <button key={k} type="button" role="tab" aria-selected={explain === k} className={explain === k ? 'active' : ''} onClick={() => setExplain(k)}>{l}</button>)}</nav>{explain === 'lore' && <div className="feecat-lore"><div className="lore-tabs">{Object.keys(text).map(k => <button data-testid={`feecat-lore-${k}`} key={k} onClick={() => choose(k)} className={mission === k ? 'active' : ''}>{k}</button>)}</div><h2>{mission === 'culture' ? 'A little mischief. A real purpose.' : mission === 'community' ? 'A community, not a counter.' : 'Culture meets the return path.'}</h2><p data-testid="feecat-lore-text">{text[mission]}</p><Link to={mission === 'community' ? '/terminal/chat' : mission === 'utility' ? '/terminal/feeback' : '/terminal/learn'} data-testid="feecat-mission-action">{mission === 'community' ? 'Join your ecosystem room' : mission === 'utility' ? 'Explore Fee-Back' : 'Understand FEELESS'}<ArrowUpRight size={16} /></Link><small>Learning missions are local navigation progress, not token entitlements.</small></div>}{explain === 'path' && <FeeBackFlow />}{explain === 'calc' && <FeeBackCalculator feeCat={asset} />}</section>{asset?.pair && <button className="btn-primary" data-testid="feecat-open-market" onClick={() => onSelect(asset.pair)}>Open FEECAT market<ArrowUpRight size={16} /></button>}</div>;
 };
