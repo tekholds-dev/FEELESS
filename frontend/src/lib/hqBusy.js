@@ -2,7 +2,8 @@
 // fired their request and showed NOTHING until the server answered — a top-up waits for the keeper's swap pass (seconds, sometimes a
 // minute), so the button looked dead and a second click sent a second request. ONE place fixes all of them: every HQ write goes
 // through `hqWrite` (called by HqDeck's `call`), which
-//   · marks the button that was just clicked `aria-busy` until the server answers (CSS: dimmed, pulsing, not clickable),
+//   · marks the button that was just clicked `aria-busy` until the server answers (CSS: pulsing — STILL clickable: owner, 2026-10-21 "a lot stuck not
+//     clickable" — a slow server locked every pressed button for up to 12s; a second click joins the same request instead),
 //   · shares one request for the same write already in flight (a double click is one request, never two),
 //   · counts writes in flight for the bar on top of HQ (`useHqBusy`), which says so in words once a write passes SLOW_MS.
 import { useEffect, useState } from 'react';
