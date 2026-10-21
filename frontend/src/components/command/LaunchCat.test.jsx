@@ -28,7 +28,8 @@ test('pick two brains, choose battle, write the brief, launch', async () => {
   click('[data-testid="lct-next"]');
   expect(el.textContent).toContain('Model calls are OFF');
   await act(async () => { el.querySelector('[data-testid="lct-launch"]').click(); });
-  expect(posted[0]).toMatchObject({ brains: ['openai/gpt-oss-20b', 'x/big'], brainMode: 'battle', prompt: 'germ floors only', name: 'Duo' });
+  expect(posted[0]).toMatchObject({ brains: ['openai/gpt-oss-20b', 'x/big'], brainMode: 'battle', prompt: 'germ floors only', name: 'Duo', maxPositionSol: '0.5', maxDailyLossSol: '0.5', dailyBuyLimitSol: '2' });
+  expect(posted[1]).toEqual({ action: 'start' });                          // starts trading at once, like Create a Cat
   expect(onCreated).toHaveBeenCalled();
   act(() => root.unmount());
 });
@@ -43,5 +44,18 @@ test('the brain panel shows credit and decisions and sends a chime', async () =>
   await act(async () => { const i = el.querySelector('[data-testid="brain-chime"]'); Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(i, 'watch the dev'); i.dispatchEvent(new Event('input', { bubbles: true })); });
   await act(async () => { el.querySelector('.lct-chime').dispatchEvent(new Event('submit', { bubbles: true, cancelable: true })); });
   expect(api).toHaveBeenCalledWith('/api/cats/c1/action', expect.objectContaining({ method: 'POST' }));
+  act(() => root.unmount());
+});
+
+test('Launch a Cat asks the SAME identity + look + risk fields as Create a Cat when they are handed in', async () => {
+  const api = jest.fn(() => Promise.resolve(CAT));
+  const Fields = ({ form, update }) => <input data-testid="shared-handle" value={form.handle} onChange={e => update('handle', e.target.value)} />;
+  const el = document.createElement('div'); const root = createRoot(el);
+  await act(async () => { root.render(<LaunchCat api={api} ownerId={() => 'o'} Fields={Fields} newForm={() => ({ name: 'x', handle: 'h1' })} formOk={f => f.handle.length > 2} />); });
+  act(() => el.querySelector('.lct-rec [data-testid="lct-m-openai/gpt-oss-20b"]').click());
+  act(() => el.querySelector('[data-testid="lct-next"]').click()); act(() => el.querySelector('[data-testid="lct-next"]').click());
+  expect(el.querySelector('[data-testid="shared-handle"]')).not.toBeNull();
+  expect(el.querySelector('[data-testid="lct-name"]')).toBeNull();
+  expect(el.querySelector('[data-testid="lct-next"]').disabled).toBe(true);     // 'h1' fails the shared rule
   act(() => root.unmount());
 });

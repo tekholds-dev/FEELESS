@@ -7,7 +7,7 @@ import '../../styles/launchCat.css';
 // ONE brief they keep for life, choose how model calls are paid. A brain is asked once before a buy and ≤ 3 times while the coin is live,
 // only on a ±10% move — so credit pays for decisions, never a chat loop. You can chime in (advice); you never trade for it. Paper cats.
 export const SORTS = [['smart', '♟ Smartest'], ['cheap', '💸 Cheapest'], ['ctx', '📚 Biggest memory'], ['new', '🆕 Newest']];
-export const STEPS = ['🧠 Brains', '🤝 How they work', '📜 One brief', '🚀 Launch'];
+export const STEPS = ['🧠 Brains', '🤝 How they work', '🐱 Identity + risk + brief', '🚀 Launch'];
 const PAGE = 60;
 const CHIP = { degen: 'lct-c-degen', trading: 'lct-c-trading', thinking: 'lct-c-thinking', reasoning: 'lct-c-reasoning', meta: 'lct-c-meta', free: 'lct-c-free' };
 const DUO = { turns: 'is-turns', discuss: 'is-discuss', together: 'is-together', battle: 'is-battle' };
@@ -48,23 +48,29 @@ function Duo({ mode, picked }) {
   </div>;
 }
 
-export function LaunchCat({ api, ownerId, onCreated, onCancel }) {
+const plainForm = () => ({ name: '', handle: '', avatar: 0, startingBalanceSol: '10', maxPositionSol: '0.5', dailyBuyLimitSol: '2', maxDailyLossSol: '0.5' });
+const plainOk = f => f.name.trim().length > 1;
+
+export function LaunchCat({ api, ownerId, onCreated, onCancel, Fields, Preview, newForm = plainForm, formOk = plainOk, avatarOf = () => 'Fee' }) {
   const [d, setD] = useState(null); const [err, setErr] = useState('');
   const [step, setStep] = useState(0); const [q, setQ] = useState(''); const [cat, setCat] = useState(''); const [sort, setSort] = useState('smart'); const [n, setN] = useState(PAGE);
   const [picked, setPicked] = useState([]); const [mode, setMode] = useState('turns'); const [billing, setBilling] = useState('profit');
-  const [name, setName] = useState(''); const [prompt, setPrompt] = useState(''); const [bal, setBal] = useState('10'); const [saving, setSaving] = useState(false);
+  const [form, setForm] = useState(() => newForm()); const update = (k, v) => setForm(f => ({ ...f, [k]: v })); const name = form.name;
+  const [prompt, setPrompt] = useState(''); const [saving, setSaving] = useState(false);
   useEffect(() => { let on = true; api('/api/cats/models').then(x => on && setD(x)).catch(e => on && setErr(e.message)); return () => { on = false; }; }, [api]);
   const rows = useMemo(() => filterModels(d?.models, { q, cat, sort }), [d, q, cat, sort]);
   useEffect(() => setN(PAGE), [q, cat, sort]);
   const pick = m => setPicked(p => p.some(x => x.id === m.id) ? p.filter(x => x.id !== m.id) : [...p, m].slice(-2));
   const plan = planOf(picked, mode, d?.budget);
-  const ready = [picked.length > 0, true, name.trim().length > 1, true];
+  const ready = [picked.length > 0, true, formOk(form), true];
   const launch = async () => {
     setSaving(true); setErr('');
     try {
-      const r = await api('/api/cats', { method: 'POST', body: JSON.stringify({ ownerId: ownerId(), name: name.trim(), handle: name.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').slice(0, 24) || 'cat',
-        avatar: 0, strategy: 'momentum', startingBalanceSol: bal || '10', brains: picked.map(m => m.id), brainMode: mode, billing, prompt }) });
-      onCreated?.(r.cat);
+      const handle = form.handle || form.name.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').slice(0, 20) || 'cat';
+      const r = await api('/api/cats', { method: 'POST', body: JSON.stringify({ strategy: 'momentum', ...form, ownerId: ownerId(), name: form.name.trim(), handle, avatar: avatarOf(form.avatar),
+        brains: picked.map(m => m.id), brainMode: mode, billing, prompt }) });
+      const started = await api(`/api/cats/${r.cat.id}/action`, { method: 'POST', body: JSON.stringify({ action: 'start' }) }).catch(() => r);   // same as Create a Cat: it starts trading at once
+      onCreated?.(started.cat || r.cat);
     } catch (e) { setErr(e.message); } finally { setSaving(false); }
   };
   return <section className="lct" data-testid="launch-cat">
@@ -88,8 +94,9 @@ export function LaunchCat({ api, ownerId, onCreated, onCancel }) {
         <div className="lct-modes">{(d?.modes || []).map(m => <button key={m.key} type="button" className={mode === m.key ? 'is-on' : ''} onClick={() => setMode(m.key)} data-testid={`lct-mode-${m.key}`}><b>{m.label}</b><small>{m.why}</small></button>)}</div>}
     </div> : null}
     {step === 2 ? <div className="lct-pane lct-brief">
-      <label>Cat name<input className="m-input" maxLength={24} value={name} onChange={e => setName(e.target.value)} placeholder="Midnight Prowler" data-testid="lct-name" /></label>
-      <label>Starting paper balance · SOL<NumInput className="m-input" value={bal} onChange={e => setBal(e.target.value)} /></label>
+      {Fields ? <div className="cct-split lct-ident">{<Fields form={form} update={update} />}{Preview ? <aside className="cct-preview m-live" data-testid="lct-preview"><Preview form={form} /></aside> : null}</div> : <>
+        <label>Cat name<input className="m-input" maxLength={24} value={form.name} onChange={e => update('name', e.target.value)} placeholder="Midnight Prowler" data-testid="lct-name" /></label>
+        <label>Starting paper balance · SOL<NumInput className="m-input" value={form.startingBalanceSol} onChange={e => update('startingBalanceSol', e.target.value)} /></label></>}
       <label>📜 One-time brief — both brains read it for the cat's whole life. <b>It can never be changed.</b>
         <textarea className="m-input" rows={6} maxLength={1200} value={prompt} onChange={e => setPrompt(e.target.value)} placeholder="e.g. Only buy coins sitting on their germ floor with higher lows. Bank half at +30%. Never chase a green candle." data-testid="lct-prompt" /><small>{prompt.length} / 1200</small></label>
     </div> : null}

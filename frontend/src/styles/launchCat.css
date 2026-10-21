@@ -66,3 +66,7 @@ body.fx-lite .lct *, body.reduced-motion-setting .lct * { animation: none !impor
 body.theme-day .lct { background: rgba(236, 246, 240, .85); } body.theme-day .lct-tile, body.theme-day .lct-modes button, body.theme-day .lct-steps button { color: #0b2a19; background: rgba(255, 255, 255, .6); }
 body.theme-day .lct-head p, body.theme-day .lct-note, body.theme-day .lct-tile p, body.theme-day .lct-cats button { color: #2c4a3a; } body.theme-day .lct-meter b, body.theme-day .lct-vitals b { color: #0b2a19; }
 @media (max-width: 640px) { .lct-steps { grid-template-columns: repeat(2, 1fr); } .lct-meter, .lct-vitals { grid-template-columns: 1fr 1fr; } .lct-duo { gap: 60px; } .lct-head { align-items: flex-start; } }
+
+/* 🐱 Launch a Cat asks the same identity + look + risk as Create a Cat (CatFields / CatPreview from FeeCatsPlatform) */
+.lct-ident { display: grid; grid-template-columns: minmax(0, 1fr) 260px; gap: 14px; align-items: start; }
+@media (max-width: 760px) { .lct-ident { grid-template-columns: 1fr; } }
