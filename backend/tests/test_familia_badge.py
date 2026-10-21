@@ -13,7 +13,7 @@ def _st():
 def test_metrics_read_the_weekly_awards_and_bounty_points():
     st, c = _st(); c['points'] = {W: 300, 'x': 250}
     aw = [{'week': 1, 'top': [{'id': c['id']}, {'id': 'b'}]}, {'week': 2, 'top': [{'id': 'b'}, {'id': 'z'}, {'id': c['id']}]}]
-    assert cr.family_metrics(c, aw) == {'members': 1, 'podiums': 2, 'crowns': 1, 'best': 1, 'points': 550}
+    assert cr.family_metrics(c, aw) == {'members': 1, 'podiums': 2, 'crowns': 1, 'best': 1, 'points': 550, 'wars': 0}
 
 
 def test_locked_parts_are_refused_and_free_ones_build_once_then_restyle_needs_payment():

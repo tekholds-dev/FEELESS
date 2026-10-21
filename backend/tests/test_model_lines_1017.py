@@ -107,7 +107,7 @@ def test_duo_update_is_a_stream_kind():
 def test_desktop_runs_two_parallel_slots():
     import feeless_mcp as f, ai_router as ar
     t = f.install_script('http://x/mcp', 'T')
-    assert '--parallel' not in t   # 🚫 the owner loads the model himself — the keeper never does
+    assert 'lms unload' not in t and 'empty-count' in t   # 🚫 never unloads / reloads; loads (with --parallel) only when LM Studio holds no model for 3 min
     assert ar.PROVIDERS['lan'][7] == ar.LAN_PARALLEL == 2                                 # the router sends two at once to match
 
 
