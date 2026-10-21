@@ -5276,3 +5276,11 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
 - 🎩 La Familia wars (`backend/family_wars.py`, `/api/reputation/crew-wars`, `FamilyWars.jsx`, `familyWars.css` / `familyNoir.css`): call-outs with
   a family-POINTS pot, raise, set the bell, allies, teams of 5, settled on verified trades; ranks Don → Associate. Inbox ⚙ themes / spam folders in
   `Messenger.jsx`. 🐱 Create-a-Cat look (`CatLook.jsx`, `feecat_service.clean_look`). Models never quote the Godfather (`ai_seat.no_fake_boss`).
+- 🧹 SIZE (2026-10-20, owner: "FEELESS is 7 GB"): the code is ~100 MB; the weight was caches — frontend/node_modules/.cache (3.3 GB), contracts/fuse_vault/target
+  (918 MB, `cargo` rebuilds it), merged worktrees under .claude/worktrees (removed only when merged + clean), logos. Caps now: `storage_trim.trim_build_cache`
+  (babel-loader files untouched 3 days, hourly), webpack cache `maxAge` 3 days (craco.config.js), logo cache 150 MB. 43 unused UI-kit packages removed.
+  Disk size is NOT what makes the site lag — RAM / swap is (16+ of 17.4 GB swap used most days). Re-measure with `du -sh */ .[a-z]*/`.
+- ✉ FAMILY INVITES (`crews.invite/accept/decline/add_direct/invites_for/sent_by`, acts invite · accept · decline · add on `/crews/act`, `/crews/mine` returns
+  invites + sent + canAdd; `FamilyInvites.jsx` `fiv-*`): any member invites a wallet (7 days, ≤ 25 waiting per family), the wallet accepts if a seat is
+  free; the creator / HQ wallet (`_is_staff`) adds a wallet straight into its own family (a seat pack is added when full). Blocked wallets can't join.
+- 🪟 Nexa's chat lives ONLY in HQ › Fee desk (NexaDesk, open by default) — the FeeCat terminal tab was removed.

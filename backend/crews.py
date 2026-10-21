@@ -432,3 +432,96 @@ def badge_view(crew, awards, cfg=None, staff=False):
         if v not in opts or not is_unlocked(*unlock_rule(part, v, cfg), met):
             raw[part] = next(iter(opts))
     return {**raw, 'tag': crew.get('tag'), 'name': crew.get('name'), 'set': bool(crew.get('badge')), 'ranks': met}
+
+
+# ✉ INVITES (owner, 2026-10-20: "creator wallet can add members, users invite their members and members accept"): any member invites a wallet
+# that is not in a family; the invited wallet sees it and accepts (a seat must be free then) or declines. The creator / HQ wallet may add a wallet
+# straight into ITS OWN family (no accept step). Invites expire after a week; ≤ INVITES_MAX pending per family; a wallet holds ≤ 10 invites.
+INVITE_SEC = 7 * 86400
+INVITES_MAX = 25
+
+
+def _live_invites(store, now):
+    inv = store.setdefault('invites', {})
+    for w in list(inv):
+        inv[w] = [x for x in inv[w] if now - x.get('at', 0) < INVITE_SEC and x.get('cid') in store.get('crews', {})]
+        if not inv[w]:
+            inv.pop(w)
+    return inv
+
+
+def invite(store, by, to, now):
+    _norm(store)
+    crew = crew_of(store, by)
+    if not crew:
+        raise ValueError('Join or start a family before inviting.')
+    to = (to or '').strip()
+    if not (32 <= len(to) <= 44) or to == by:
+        raise ValueError('Paste the wallet address you want to invite.')
+    if to in store['by']:
+        raise ValueError('That wallet is already in a family.')
+    inv = _live_invites(store, now)
+    if sum(1 for xs in inv.values() for x in xs if x['cid'] == crew['id']) >= INVITES_MAX:
+        raise ValueError(f'Your family has {INVITES_MAX} invites waiting — let some answer first.')
+    mine = inv.setdefault(to, [])
+    if any(x['cid'] == crew['id'] for x in mine):
+        raise ValueError('That wallet already has an invite from your family.')
+    if len(mine) >= 10:
+        raise ValueError('That wallet has too many invites waiting.')
+    mine.append({'cid': crew['id'], 'by': by, 'at': now})
+    return crew
+
+
+def accept(store, wallet, cid, now):
+    _norm(store)
+    inv = _live_invites(store, now)
+    if not any(x['cid'] == cid for x in inv.get(wallet, [])):
+        raise ValueError('No invite from that family is waiting for you.')
+    if wallet in store['by']:
+        raise ValueError('You are already in a family — leave it first.')
+    crew = store['crews'][cid]
+    if len(crew['members']) >= crew.get('seats', BASE_SEATS):
+        raise ValueError('That family is full right now — ask its head to add seats.')
+    crew['members'].append(wallet); store['by'][wallet] = cid
+    crew.setdefault('joined', {})[wallet] = now
+    inv.pop(wallet, None)
+    return crew
+
+
+def decline(store, wallet, cid, now):
+    inv = _live_invites(store, now)
+    inv[wallet] = [x for x in inv.get(wallet, []) if x['cid'] != cid]
+    if not inv[wallet]:
+        inv.pop(wallet)
+
+
+def add_direct(store, by, to, now):
+    """The creator / HQ wallet adds a wallet straight into its own family (the caller checks staff)."""
+    _norm(store)
+    crew = crew_of(store, by)
+    if not crew:
+        raise ValueError('Start a family first.')
+    to = (to or '').strip()
+    if not (32 <= len(to) <= 44):
+        raise ValueError('Paste the wallet address to add.')
+    if to in store['by']:
+        raise ValueError('That wallet is already in a family.')
+    if len(crew['members']) >= crew.get('seats', BASE_SEATS):
+        crew['seats'] = min(MAX_SEATS, crew.get('seats', BASE_SEATS) + PACK_SEATS)
+    crew['members'].append(to); store['by'][to] = crew['id']
+    crew.setdefault('joined', {})[to] = now
+    _live_invites(store, now).pop(to, None)
+    return crew
+
+
+def invites_for(store, wallet, now):
+    out = []
+    for x in _live_invites(store, now).get(wallet, []):
+        c = store['crews'][x['cid']]
+        out.append({'cid': c['id'], 'name': c['name'], 'tag': c['tag'], 'members': len(c['members']), 'seats': c.get('seats', BASE_SEATS),
+                    'by': x['by'][:4] + '…' + x['by'][-4:], 'at': x['at'], 'expires': x['at'] + INVITE_SEC})
+    return out
+
+
+def sent_by(store, crew, now):
+    return [{'to': w[:4] + '…' + w[-4:], 'at': x['at']} for w, xs in _live_invites(store, now).items() for x in xs if x['cid'] == crew['id']]

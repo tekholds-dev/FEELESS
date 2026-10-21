@@ -8555,8 +8555,9 @@ async def crew_mine(address: str, session: str):
     """My crew with its members' week and the invite code (members only — needs the chat session)."""
     me = _session_or_401(address, session); st = _json_load(CREWS_PATH, {})
     import crews as _cr
-    c = _cr.crew_of(st, me)
-    return {'crew': _crew_view(c, _crew_pieces(c['members'], time.time()), with_code=True) if c else None}
+    c = _cr.crew_of(st, me); now = time.time()
+    return {'crew': _crew_view(c, _crew_pieces(c['members'], now), with_code=True) if c else None,
+            'invites': _cr.invites_for(st, me, now), 'sent': _cr.sent_by(st, c, now) if c else [], 'canAdd': _is_staff(me)}
 
 
 @app.get('/api/reputation/crews/of/{address}')
@@ -8716,6 +8717,7 @@ class CrewAct(BaseModel):
     hours: int = 0
     ok: bool = False
     team: list = Field(default_factory=list, max_length=8)
+    to: str = Field(default='', max_length=60)       # ✉ the wallet invited / added
 
 
 @app.post('/api/reputation/crews/act')
@@ -8753,6 +8755,20 @@ async def crew_act(p: CrewAct):
                 _fwar.ally(st, me, p.vs, now)
             elif p.act == 'unally':
                 _fwar.break_ally(st, me, p.vs)
+            elif p.act == 'invite':     # ✉ any member invites a wallet; it accepts or declines
+                if _is_blocked(_block_load()['wallets'].get(p.to.strip())):
+                    raise ValueError('That wallet cannot join a family.')
+                _cr.invite(st, me, p.to, now)
+            elif p.act == 'add':        # 👑 the creator / HQ wallet adds a wallet straight into its own family
+                if not _is_staff(me):
+                    raise ValueError('Only the creator wallet adds members directly — invite them instead.')
+                _cr.add_direct(st, me, p.to, now)
+            elif p.act == 'accept':
+                if _is_blocked(_block_load()['wallets'].get(me)):
+                    raise ValueError('This wallet cannot join a family.')
+                _cr.accept(st, me, p.id, now)
+            elif p.act == 'decline':
+                _cr.decline(st, me, p.id, now)
             else:
                 raise ValueError('Unknown family action.')
         except ValueError as e:
@@ -8760,7 +8776,8 @@ async def crew_act(p: CrewAct):
         _json_save(CREWS_PATH, st)
         c = _cr.crew_of(st, me)
     _crew_cache['data'] = None
-    return {'crew': _crew_view(c, _crew_pieces(c['members'], now), with_code=True) if c else None, **({'plainCode': plain} if plain else {})}
+    return {'crew': _crew_view(c, _crew_pieces(c['members'], now), with_code=True) if c else None, **({'plainCode': plain} if plain else {}),
+            'invites': _cr.invites_for(st, me, now), 'sent': _cr.sent_by(st, c, now) if c else [], 'canAdd': _is_staff(me)}
 
 
 class CrewBadge(BaseModel):

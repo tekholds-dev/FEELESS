@@ -28,6 +28,8 @@ export const seatsLine = c => `${c.members.length}/${c.seats} seats`;
 export const podium = rows => { const r = (rows || []).filter(x => x.ranked); return (r.length ? r : [...(rows || [])].sort((a, b) => b.members - a.members || b.active - a.active)).slice(0, 3); };
 // pure: a 0–1 heat for the electric border (activity + result): calm crews hum, hot crews crackle
 export const heat = r => Math.max(0, Math.min(1, ((r?.active || 0) / Math.max(1, r?.members || 1)) * 0.5 + Math.min(1, Math.abs(Number(r?.pct) || 0) / 40) * 0.5));
+import { InviteInbox, InviteBox } from './FamilyInvites';
+import '../styles/familyInvites.css';
 const post = (path, body) => fetch(apiUrl(path), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
   .then(async r => { const x = await r.json().catch(() => ({})); if (!r.ok) throw new Error(x.detail || 'Request failed'); return x; });
 
@@ -113,9 +115,9 @@ function BadgeBuilder({ mine, owner, addr, sess, q, act, busy }) {
   </div>;
 }
 
-const TABS = [['wars', '⚔ War room'], ['badge', '🌹 Badge'], ['board', '💬 Board'], ['bounty', '🎯 Bounties'], ['launch', '🚀 Launch'], ['members', '👥 Members'], ['code', '🔐 Code']];
+const TABS = [['wars', '⚔ War room'], ['invite', '✉ Invite'], ['badge', '🌹 Badge'], ['board', '💬 Board'], ['bounty', '🎯 Bounties'], ['launch', '🚀 Launch'], ['members', '👥 Members'], ['code', '🔐 Code']];
 
-function CrewHQ({ mine, owner, addr, sess, busy, setBusy, setMine, act, q, rows }) {
+function CrewHQ({ mine, owner, addr, sess, busy, setBusy, setMine, act, q, rows, inv, reload }) {
   const [tab, setTab] = useState(mine.badge?.set ? 'wars' : 'badge'); const [txt, setTxt] = useState(''); const [rew, setRew] = useState(50); const [mint, setMint] = useState(''); const [sym, setSym] = useState(''); const [code, setCode] = useState(''); const [plain, setPlain] = useState('');
   const doAct = async (a, body, ok) => { setBusy(a); try { const r = await post('/api/reputation/crews/act', { address: addr, session: sess, act: a, ...body }); if (r.crew) setMine(r.crew); if (r.plainCode) setPlain(r.plainCode); toast.success(ok); setTxt(''); } catch (e) { toast.error(e.message); } finally { setBusy(''); } };
   const posts = mine.posts || []; const roots = posts.filter(p => !p.parent).slice().reverse(); const kids = id => posts.filter(p => p.parent === id);
@@ -144,6 +146,7 @@ function CrewHQ({ mine, owner, addr, sess, busy, setBusy, setMine, act, q, rows 
       </>}
       {tab === 'launch' && <><LaunchLive l={mine.launch} />
         {owner && <form className="crw-row" onSubmit={e => { e.preventDefault(); doAct('launch', { mint: mint.trim(), symbol: sym, text: txt }, mint ? '🚀 launch pinned' : 'launch cleared'); }}><input className="m-input" placeholder="Coin CA (empty = clear)" value={mint} onChange={e => setMint(e.target.value)} aria-label="Launch mint" /><input className="m-input crw-tag" placeholder="SYM" value={sym} maxLength={16} onChange={e => setSym(e.target.value.toUpperCase())} aria-label="Symbol" /><input className="m-input" placeholder="Why we're behind it" value={txt} maxLength={160} onChange={e => setTxt(e.target.value)} aria-label="Launch note" /><button type="submit" className="m-btn primary" disabled={!!busy}>Pin</button></form>}</>}
+      {tab === 'invite' && <InviteBox addr={addr} sess={sess} sent={inv?.sent} canAdd={inv?.canAdd} onDone={reload} />}
       {tab === 'members' && <ul className="crw-mem">{mine.members.map((m, i) => <li key={m.address} style={{ '--i': i }}><a href={`/terminal/profile/${m.address}`}>{m.rankLabel ? <span className={`fnr-rank r-${m.rank}`}>{m.rankLabel}</span> : null}{m.name}{m.owner ? ' 👑' : ''}</a><em className={m.pct == null ? '' : m.pct >= 0 ? 'm-pos' : 'm-neg'}>{pctTxt(m.pct)}</em><small>{m.trades ? `${m.trades} trades · ${m.wonPct}% won` : 'no trades this week'}{mine.points?.[m.address] ? ` · ${mine.points[m.address]} pts` : ''}</small></li>)}
         {owner && <li className="crw-addseat"><button type="button" className="m-btn primary" disabled={!!busy} onClick={() => act('/api/reputation/crews/seats', {}, `➕ +${mine.packSeats} seats`, 'seats')} data-testid="crew-seats">{`➕ +${mine.packSeats} seats · ${costText(q, 'seats') || `$${mine.packUsd}`}`}</button></li>}</ul>}
       {tab === 'code' && <>
@@ -177,9 +180,9 @@ export function FamilyPulse() {
 
 export function Crews() {
   const { wallet, provider } = useWallet() || {}; const addr = wallet?.address || ''; const sess = addr ? readChatSession(addr) : '';
-  const board = useCrewBoard(); const [mine, setMine] = useState(undefined); const [busy, setBusy] = useState(''); const [q, setQ] = useState(null);
+  const board = useCrewBoard(); const [mine, setMine] = useState(undefined); const [inv, setInv] = useState(null); const [busy, setBusy] = useState(''); const [q, setQ] = useState(null);
   const [name, setName] = useState(''); const [tag, setTag] = useState(''); const [code, setCode] = useState(() => { try { return new URLSearchParams(window.location.search).get('join') || ''; } catch { return ''; } });
-  const loadMine = () => { if (!addr || !sess) { setMine(null); return Promise.resolve(); } return fetch(apiUrl(`/api/reputation/crews/mine?address=${addr}&session=${encodeURIComponent(sess)}`)).then(r => (r.ok ? r.json() : { crew: null })).then(d => setMine(d.crew || null)).catch(() => setMine(null)); };
+  const loadMine = () => { if (!addr || !sess) { setMine(null); return Promise.resolve(); } return fetch(apiUrl(`/api/reputation/crews/mine?address=${addr}&session=${encodeURIComponent(sess)}`)).then(r => (r.ok ? r.json() : { crew: null })).then(d => { setMine(d.crew || null); setInv({ invites: d.invites || [], sent: d.sent || [], canAdd: !!d.canAdd }); }).catch(() => setMine(null)); };
   useEffect(() => { loadMine(); }, [addr, sess]);   // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { const t = setTimeout(() => fetch(apiUrl(`/api/reputation/crews/price?address=${addr}&name=${encodeURIComponent(name)}&tag=${encodeURIComponent(tag)}`)).then(r => (r.ok ? r.json() : null)).then(setQ).catch(() => {}), 300); return () => clearTimeout(t); }, [addr, name, tag, mine?.id]);
   const pay = async (kind) => {   // one SOL transfer YOU sign to the fee wallet → its signature goes with the request
@@ -209,11 +212,12 @@ export function Crews() {
       {top.length ? <div className="crw-podium">{[1, 0, 2].map(i => top[i] ? <div key={top[i].id} className={`crw-step ${['s1', 's2', 's3'][i]}`}><CrewCard3D r={top[i]} place={i + 1} /><span className="crw-plinth">{MEDAL[i]} +{PRIZES[i]} pts each</span></div> : null)}</div>
         : <p className="crw-hint m-dim">No families yet — be the first Don on the stage.</p>}
     </div>
+    <InviteInbox invites={inv?.invites} inFamily={!!mine} addr={addr} sess={sess} onDone={loadMine} />
     <div className="crw-mine m-card m-live">
       {mine ? <>
         <header><span className="m-label">🌹 YOUR FAMILIA</span><b className="crw-name">[{mine.tag}] {mine.name}</b><small>{seatsLine(mine)}</small>
           <button type="button" className="m-btn" disabled={!!busy} onClick={() => act('/api/reputation/crews/leave', {}, 'Left the family')} data-testid="crew-leave">Leave</button></header>
-        <CrewHQ mine={mine} owner={owner} addr={addr} sess={sess} busy={busy} setBusy={setBusy} setMine={setMine} act={act} q={q} rows={rows} />
+        <CrewHQ mine={mine} owner={owner} addr={addr} sess={sess} busy={busy} setBusy={setBusy} setMine={setMine} act={act} q={q} rows={rows} inv={inv} reload={loadMine} />
       </> : <>
         <header><span className="m-label">🌹 START A FAMILY OR JOIN ONE</span><small>{q ? `${costText(q, 'create')} · ${q.baseSeats} seats incl. you · +${q.packSeats} seats ${costText(q, 'seats')}` : '5 seats incl. you'} · a family shares no money</small></header>
         {mine === undefined ? <small className="m-dim">Loading…</small> : !sess ? <p className="crw-hint m-dim">Connect your wallet and open chat once to start or join a family.</p> : <div className="crw-forms">

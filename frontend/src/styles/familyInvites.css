@@ -1,0 +1,24 @@
+/* ✉ Family invites (FamilyInvites.jsx, fiv-*): noir + gold like the rest of La Familia. transform / opacity only. */
+.fiv-h { display: block; font: 800 10.5px 'JetBrains Mono', monospace; letter-spacing: 1.8px; color: #d4af37; }
+.fiv-inbox { display: grid; gap: 8px; padding: 12px 14px; border-radius: 14px; border: 1px solid #d4af3766; background: radial-gradient(120% 120% at 0% 0%, #2a1a0a, #0b0704 70%); }
+.fiv-card { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 10px; align-items: center; padding: 10px 12px; border-radius: 12px; background: #00000055; border: 1px solid #d4af3733;
+  animation: fivIn .35s ease both; animation-delay: calc(var(--i) * 60ms); }
+.fiv-seal { display: grid; place-items: center; width: 38px; height: 38px; border-radius: 50%; background: radial-gradient(circle, #b3122e, #4a0010); box-shadow: 0 0 0 2px #d4af3755; font-size: 18px; animation: fivSeal 2.8s ease-in-out infinite; }
+.fiv-card b { display: block; color: #f5e2b0; font: 700 14px Georgia, serif; } .fiv-card small { color: #b89b5e; font-size: 11px; }
+.fiv-acts { display: flex; gap: 6px; }
+.fiv-box { display: grid; gap: 8px; padding: 12px 14px; border-radius: 14px; border: 1px solid #d4af3740; background: #0d0905; }
+.fiv-sub { margin: 0; font-size: 12px; color: #c9b38a; }
+.fiv-box form { display: flex; flex-wrap: wrap; gap: 6px; } .fiv-box form .m-input { flex: 1 1 260px; min-width: 0; }
+.fiv-add { border-color: #d4af37; color: #ffd36b; }
+.fiv-add:hover:not(:disabled) { background: #d4af37; color: #160f05; }
+.fiv-bad { color: #ff8fa3; font-size: 11px; }
+.fiv-sent { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
+.fiv-sent li { display: flex; justify-content: space-between; gap: 8px; font: 11px 'JetBrains Mono', monospace; color: #e9d3a0; padding: 5px 8px; border-radius: 8px; background: #1a1208; }
+.fiv-sent small { color: #8a7556; }
+@keyframes fivIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+@keyframes fivSeal { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.07); } }
+body.fx-lite .fiv-seal { animation: none; }
+@media (prefers-reduced-motion: reduce) { .fiv-card, .fiv-seal { animation: none; } }
+body.theme-day .fiv-inbox, body.theme-day .fiv-box { background: #fbf4e6; border-color: #c9a24a66; }
+body.theme-day .fiv-card { background: #fff8ea; } body.theme-day .fiv-card b { color: #3a2a0a; } body.theme-day .fiv-sent li { background: #f4e8cf; color: #3a2a0a; }
+@media (max-width: 640px) { .fiv-card { grid-template-columns: auto minmax(0, 1fr); } .fiv-acts { grid-column: 1 / -1; } }
