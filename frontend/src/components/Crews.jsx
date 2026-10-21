@@ -103,26 +103,50 @@ function LaunchLive({ l }) {
     {l.note && <p>{l.note}</p>}<a href={`/terminal/coin/solana/${l.mint}`}>open chart →</a></div>;
 }
 
-const PART_WORD = { emblem: '🎴 EMBLEM', frame: '🖼 FRAME', fx: '✨ EFFECT' };
-// 🌹 the badge builder: every part from the server's catalog (locked parts dimmed with what the family still needs), a live preview, one save
+export const BADGE_PARTS = [['emblem', '🎴 Emblem'], ['frame', '🖼 Frame'], ['fx', '✨ Effect'], ['colors', '🎨 Colors'], ['motto', '✒ Motto']];
+export const COLOR_PAIRS = [['#d4af37', '#111111'], ['#ff4d6d', '#111111'], ['#15d16a', '#ffd36b'], ['#9b5cff', '#6fd3ff'], ['#ffffff', '#ff4d6d'], ['#ff9f45', '#9b5cff']];
+// pure: how far a locked option is from unlocking (0–1), or null when the line is a place ('best') / unknown
+export function unlockProgress(o, metrics) {
+  if (o.ok) return 1;
+  if (!o.metric || o.metric === 'best' || !o.min) return null;
+  return Math.max(0, Math.min(1, (Number((metrics || {})[o.metric]) || 0) / o.min));
+}
+export function rollBadge(cat, d) {
+  const pick = rows => { const ok = rows.filter(o => o.ok); return ok.length ? ok[Math.floor(Math.random() * ok.length)].key : null; };
+  const pair = COLOR_PAIRS[Math.floor(Math.random() * COLOR_PAIRS.length)];
+  return { ...d, emblem: pick(cat.parts.emblem) || d.emblem, frame: pick(cat.parts.frame) || d.frame, fx: pick(cat.parts.fx) || d.fx, c1: pair[0], c2: pair[1] };
+}
+// 🌹 the badge workshop (owner, 2026-10-21: "badge customizing isn't complete"): a turntable preview under a spotlight, one part at a time as
+// big live tiles (each tile IS that option on your badge), locked tiles with how far the family is from them, colour pairs + swatches, a roll.
 function BadgeBuilder({ mine, owner, addr, sess, q, act, busy }) {
-  const [cat, setCat] = useState(null); const [d, setD] = useState(null);
+  const [cat, setCat] = useState(null); const [d, setD] = useState(null); const [part, setPart] = useState('emblem');
   useEffect(() => { let on = true; fetch(apiUrl(`/api/reputation/crews/badge/catalog?address=${addr}&session=${encodeURIComponent(sess)}`)).then(r => (r.ok ? r.json() : null))
     .then(x => { if (on && x) { setCat(x); setD(cur => cur || { emblem: x.badge.emblem, frame: x.badge.frame, fx: x.badge.fx, c1: x.badge.c1 || x.colors[0], c2: x.badge.c2 || x.colors[1], motto: x.badge.motto || '' }); } }).catch(() => {});
     return () => { on = false; }; }, [addr, sess, mine?.badge?.v]);   // eslint-disable-line react-hooks/exhaustive-deps
   if (!cat || !d) return <p className="m-dim crw-hint">opening the badge workshop…</p>;
   const prev = { ...d, tag: mine.tag, name: mine.name, ranks: cat.metrics };
   const cost = cat.built && !cat.free ? (costText(q, 'badge') || `$${cat.restyleUsd}`) : 'free';
-  return <div className="fbb" data-testid="badge-builder">
-    <div className="fbb-stage"><FamilyBadge b={prev} size="lg" /><p className="fbb-met">{Object.entries(cat.metrics).map(([k, v]) => <span key={k} data-tip={cat.metricWords[k]}><b>{v ?? '—'}</b><small>{cat.metricWords[k]}</small></span>)}</p></div>
+  const all = Object.values(cat.parts).flat(); const open = all.filter(o => o.ok).length;
+  return <div className="fbb fbb2" data-testid="badge-builder">
+    <div className="fbb-stage"><i className="fbb-spot" aria-hidden="true" /><div className="fbb-turn"><FamilyBadge b={prev} size="lg" /></div>
+      <p className="fbb-open"><b>{open}</b>/{all.length} parts unlocked<span><i style={{ transform: `scaleX(${open / Math.max(1, all.length)})` }} /></span></p>
+      <p className="fbb-met">{Object.entries(cat.metrics).map(([k, v]) => <span key={k} data-tip={cat.metricWords[k]}><b>{v ?? '—'}</b><small>{cat.metricWords[k]}</small></span>)}</p>
+      {owner ? <div className="fbb-acts"><button type="button" className="m-btn" onClick={() => setD(x => rollBadge(cat, x))} data-testid="fbb-roll">🎲 Roll</button>
+        <button type="button" className="m-btn m-go" disabled={!!busy} onClick={() => act('/api/reputation/crews/badge', { badge: d }, cat.built ? '🌹 badge restyled' : '🌹 badge forged', cat.built && !cat.free ? 'badge' : undefined)} data-testid="fbb-save">
+          {cat.built ? `Restyle · ${cost}` : 'Forge it · free'}</button></div> : <p className="m-dim crw-hint">Only the Don forges the badge — every unlock comes from what the family really did.</p>}
+    </div>
     <div className="fbb-parts">
-      {Object.entries(cat.parts).map(([part, rows]) => <fieldset key={part} className="fbb-part"><legend>{PART_WORD[part] || part}</legend>{rows.map(o => <button key={o.key} type="button" disabled={!o.ok || !owner}
-        className={`${d[part] === o.key ? 'active' : ''} ${o.ok ? '' : 'is-locked'}`} onClick={() => setD(x => ({ ...x, [part]: o.key }))} data-tip={o.ok ? o.label : `🔒 ${o.need}`} data-testid={`fbb-${part}-${o.key}`}>
-        {part === 'emblem' ? <span className="fbb-em">{EMBLEM[o.key]}</span> : null}<small>{o.label.replace(/^\S+\s/, part === 'emblem' ? '' : '$&')}</small>{o.ok ? null : <i>🔒</i>}</button>)}</fieldset>)}
-      <fieldset className="fbb-part"><legend>🎨 COLORS</legend>{['c1', 'c2'].map(k => <span key={k} className="fbb-sw">{cat.colors.map(c => <button key={c} type="button" disabled={!owner} className={d[k] === c ? 'active' : ''} style={{ background: c }} onClick={() => setD(x => ({ ...x, [k]: c }))} aria-label={`${k} ${c}`} />)}</span>)}</fieldset>
-      <fieldset className="fbb-part"><legend>✒ MOTTO</legend><input className="m-input" value={d.motto} maxLength={cat.mottoMax} disabled={!owner} placeholder="Famiglia prima di tutto" onChange={e => setD(x => ({ ...x, motto: e.target.value }))} aria-label="Family motto" /></fieldset>
-      {owner ? <button type="button" className="m-btn m-go" disabled={!!busy} onClick={() => act('/api/reputation/crews/badge', { badge: d }, cat.built ? '🌹 badge restyled' : '🌹 badge forged', cat.built && !cat.free ? 'badge' : undefined)} data-testid="fbb-save">
-        {cat.built ? `Restyle the badge · ${cost}` : 'Forge the family badge · free'}</button> : <p className="m-dim crw-hint">Only the family head forges the badge — every unlock comes from what the family really did.</p>}
+      <nav className="fbb-tabs m-seg" role="tablist">{BADGE_PARTS.map(([k, w]) => <button key={k} type="button" role="tab" aria-selected={part === k} className={part === k ? 'active' : ''} onClick={() => setPart(k)} data-testid={`fbb-tab-${k}`}>{w}</button>)}</nav>
+      {cat.parts[part] ? <div className="fbb-tiles">{cat.parts[part].map((o, i) => { const pr = unlockProgress(o, cat.metrics);
+        return <button key={o.key} type="button" disabled={!o.ok || !owner} style={{ '--i': i }} className={`fbb-tile ${d[part] === o.key ? 'active' : ''} ${o.ok ? '' : 'is-locked'}`}
+          onClick={() => setD(x => ({ ...x, [part]: o.key }))} data-tip={o.ok ? o.label : `🔒 ${o.need}`} data-testid={`fbb-${part}-${o.key}`}>
+          <span className="fbb-mini"><FamilyBadge b={{ ...prev, [part]: o.key }} size="sm" /></span><small>{o.label}</small>
+          {o.ok ? null : <><i className="fbb-lock">🔒</i>{pr != null ? <span className="fbb-prog"><b style={{ transform: `scaleX(${Math.max(0.04, pr)})` }} /></span> : null}<em>{o.need}</em></>}</button>; })}</div> : null}
+      {part === 'colors' ? <div className="fbb-colors">
+        <div className="fbb-pairs">{COLOR_PAIRS.map(([a1, a2]) => <button key={a1 + a2} type="button" disabled={!owner} className={d.c1 === a1 && d.c2 === a2 ? 'active' : ''} onClick={() => setD(x => ({ ...x, c1: a1, c2: a2 }))} aria-label={`colours ${a1} and ${a2}`}><i style={{ background: a1 }} /><i style={{ background: a2 }} /></button>)}</div>
+        {['c1', 'c2'].map(k => <span key={k} className="fbb-sw"><em>{k === 'c1' ? 'MAIN' : 'TRIM'}</em>{cat.colors.map(c => <button key={c} type="button" disabled={!owner} className={d[k] === c ? 'active' : ''} style={{ background: c }} onClick={() => setD(x => ({ ...x, [k]: c }))} aria-label={`${k} ${c}`} />)}</span>)}</div> : null}
+      {part === 'motto' ? <div className="fbb-motto"><input className="m-input" value={d.motto} maxLength={cat.mottoMax} disabled={!owner} placeholder="Famiglia prima di tutto" onChange={e => setD(x => ({ ...x, motto: e.target.value }))} aria-label="Family motto" />
+        <small>{d.motto.length}/{cat.mottoMax} · shown under the badge on every card</small></div> : null}
     </div>
   </div>;
 }

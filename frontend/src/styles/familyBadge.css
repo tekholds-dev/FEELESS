@@ -39,22 +39,43 @@ body.theme-day .fb-chips small { color: #8a6100; background: rgba(255, 211, 107,
   background: radial-gradient(90% 70% at 50% 20%, rgba(179, 0, 27, .28), transparent 70%), linear-gradient(180deg, #120507, #050304); border: 1px solid rgba(255, 211, 107, .25); }
 .fbb-met { display: grid; grid-template-columns: repeat(auto-fit, minmax(64px, 1fr)); gap: 4px; width: 100%; margin: 0; }
 .fbb-met span { display: grid; justify-items: center; padding: 4px; border-radius: 8px; background: rgba(255, 211, 107, .06); } .fbb-met b { font: 900 14px "JetBrains Mono", monospace; color: #ffe08a; } .fbb-met small { font-size: 8.5px; text-align: center; opacity: .7; }
-.fbb-parts { display: grid; gap: 8px; align-content: start; }
-.fbb-part { display: flex; flex-wrap: wrap; gap: 5px; margin: 0; padding: 8px; border-radius: 12px; border: 1px solid rgba(255, 211, 107, .18); }
-.fbb-part legend { padding: 0 6px; font: 800 9.5px "JetBrains Mono", monospace; letter-spacing: .14em; color: #ffd36b; }
-.fbb-part > button { position: relative; display: inline-flex; align-items: center; gap: 5px; padding: 5px 9px; border-radius: 10px; border: 1px solid rgba(255, 255, 255, .1); background: rgba(255, 255, 255, .03);
-  color: inherit; font: 700 10px "JetBrains Mono", monospace; cursor: pointer; transition: transform .12s ease, border-color .12s ease; }
-.fbb-part > button:hover:not(:disabled) { transform: translateY(-1px); border-color: #ffd36b; } .fbb-part > button:active:not(:disabled) { transform: scale(.96); }
-.fbb-part > button:focus-visible { outline: 2px solid #ffd36b; outline-offset: 1px; }
-.fbb-part > button.active { background: linear-gradient(120deg, #ffd36b, #ff9f45); color: #1a0d02; border-color: transparent; }
-.fbb-part > button.is-locked { opacity: .42; cursor: not-allowed; } .fbb-part > button i { font-style: normal; font-size: 9px; }
-.fbb-em { font-size: 16px; line-height: 1; }
 .fbb-sw { display: inline-flex; gap: 4px; padding-right: 8px; } .fbb-sw button { width: 20px; height: 20px; border-radius: 50%; border: 2px solid rgba(255, 255, 255, .15); cursor: pointer; transition: transform .12s; }
 .fbb-sw button:hover { transform: scale(1.12); } .fbb-sw button.active { border-color: #fff; box-shadow: 0 0 0 2px #ffd36b; }
-.fbb-part .m-input { flex: 1 1 200px; }
-body.theme-day .fbb-stage { background: radial-gradient(90% 70% at 50% 20%, rgba(179, 0, 27, .14), transparent 70%), #fbf4ea; } body.theme-day .fbb-part legend { color: #8a6100; }
+body.theme-day .fbb-stage { background: radial-gradient(90% 70% at 50% 20%, rgba(179, 0, 27, .14), transparent 70%), #fbf4ea; } body.theme-day .fbb-tabs button { color: #8a6100; }
 @media (max-width: 640px) { .fbb { grid-template-columns: minmax(0, 1fr); } }
 /* HQ › Fees › 🌹 La Familia: the unlock lines (FuseAdminSettings CrewsPricing) */
 .fam-unl > summary { cursor: pointer; font: 700 11px "JetBrains Mono", monospace; margin: 8px 0; } .fam-unl > summary:hover { color: #ffd36b; }
 .fam-unl-part { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 6px; margin-bottom: 8px; } .fam-unl-part > b { grid-column: 1 / -1; font: 800 9.5px "JetBrains Mono", monospace; letter-spacing: .14em; color: #ffd36b; }
 .fam-unl-part label { display: grid; grid-template-columns: minmax(0, 1fr) 1.2fr 70px; gap: 5px; align-items: center; font-size: 11px; }
+
+/* 🌹 badge workshop v2 (owner, 2026-10-21: "badge customizing isn't complete") */
+.fbb2 { grid-template-columns: minmax(220px, 300px) minmax(0, 1fr); }
+.fbb2 .fbb-stage { position: relative; overflow: hidden; isolation: isolate; }
+.fbb-spot { position: absolute; left: 50%; top: -30%; width: 140%; height: 90%; margin-left: -70%; z-index: -1; background: radial-gradient(closest-side, #ffd36b33, transparent); }
+.fbb-turn { animation: fbbTurn 7s ease-in-out infinite; transform-style: preserve-3d; filter: drop-shadow(0 16px 24px #000a); }
+.fbb-open { display: grid; gap: 4px; width: 100%; margin: 0; font: 600 10.5px "JetBrains Mono", monospace; color: #c9b38a; text-align: center; } .fbb-open b { color: #ffd36b; font-size: 13px; }
+.fbb-open span { height: 5px; border-radius: 3px; background: #ffffff10; overflow: hidden; } .fbb-open span i { display: block; height: 100%; transform-origin: left; background: linear-gradient(90deg, #ff9f45, #ffd36b); transition: transform .6s ease; }
+.fbb-acts { display: flex; gap: 6px; flex-wrap: wrap; justify-content: center; }
+.fbb-tabs { margin-bottom: 4px; }
+.fbb-tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(104px, 1fr)); gap: 8px; }
+.fbb-tile { position: relative; display: grid; justify-items: center; gap: 4px; padding: 10px 6px 8px; border-radius: 12px; border: 1px solid rgba(255, 211, 107, .18); background: rgba(0, 0, 0, .35); color: #e9d3a0; cursor: pointer;
+  animation: fbbIn .3s ease both; animation-delay: calc(var(--i) * 30ms); transition: transform .12s ease, border-color .15s ease, box-shadow .15s ease; }
+.fbb-tile:hover:not(:disabled) { transform: translateY(-2px); border-color: #ffd36b; } .fbb-tile:active:not(:disabled) { transform: scale(.97); }
+.fbb-tile:focus-visible { outline: 2px solid #ffd36b; outline-offset: 2px; }
+.fbb-tile.active { border-color: #ffd36b; box-shadow: 0 0 0 1px #ffd36b, 0 10px 24px -12px #ffd36b; background: linear-gradient(180deg, rgba(255, 211, 107, .14), rgba(0, 0, 0, .35)); }
+.fbb-tile.is-locked { cursor: not-allowed; } .fbb-tile.is-locked .fbb-mini { opacity: .35; filter: grayscale(1); }
+.fbb-mini { pointer-events: none; } .fbb-tile small { font-size: 10.5px; text-align: center; }
+.fbb-lock { position: absolute; top: 6px; right: 7px; font-style: normal; font-size: 11px; }
+.fbb-prog { width: 80%; height: 3px; border-radius: 2px; background: #ffffff12; overflow: hidden; } .fbb-prog b { display: block; height: 100%; transform-origin: left; background: #ffd36b; }
+.fbb-tile em { font-size: 9px; font-style: normal; color: #a89070; text-align: center; line-height: 1.2; }
+.fbb-colors { display: grid; gap: 10px; } .fbb-pairs { display: flex; flex-wrap: wrap; gap: 6px; }
+.fbb-pairs button { display: inline-flex; gap: 2px; padding: 4px; border-radius: 10px; border: 1px solid rgba(255, 255, 255, .14); background: rgba(0, 0, 0, .3); cursor: pointer; transition: transform .12s ease; }
+.fbb-pairs button:hover:not(:disabled) { transform: translateY(-1px); } .fbb-pairs button.active { border-color: #ffd36b; box-shadow: 0 0 0 1px #ffd36b; }
+.fbb-pairs i { width: 22px; height: 22px; border-radius: 6px; } .fbb-sw em { font: 700 8.5px "JetBrains Mono", monospace; letter-spacing: 1px; color: #b89b5e; font-style: normal; margin-right: 6px; }
+.fbb-motto { display: grid; gap: 4px; } .fbb-motto small { font-size: 10px; color: #a89070; }
+@keyframes fbbTurn { 0%, 100% { transform: rotateY(-14deg); } 50% { transform: rotateY(14deg); } }
+@keyframes fbbIn { from { transform: translateY(6px); } to { transform: none; } }
+body.fx-lite .fbb-turn, body.fx-lite .fbb-tile { animation: none; }
+@media (prefers-reduced-motion: reduce) { .fbb-turn, .fbb-tile { animation: none; } .fbb-tile, .fbb-pairs button { transition: none; } }
+body.theme-day .fbb-tile { background: #fff8ea; color: #3a2a0a; }
+@media (max-width: 640px) { .fbb2 { grid-template-columns: 1fr; } .fbb-tiles { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
