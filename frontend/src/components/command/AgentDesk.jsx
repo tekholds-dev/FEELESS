@@ -266,9 +266,9 @@ export function AgentDesk({ call, isOwner = true }) {
       <div className="agd-wide"><RugWall list={d.autopsies} signs={d.rugSigns} /></div><div className="agd-wide"><CreedFold creed={d.creed} /></div></div>}
     {show('ctl') && <div className="agd-grid is-ctl" data-testid="lens-ctl-pane">
       <div className="agd-wide"><RoadMeter road={d.road} /></div>
-      <div className="agd-box" data-testid="agd-desk"><b>📜 TRENCH DESK · 25% a GO, out at 5 min · goal 10×</b><p className={`agd-big ${tone(d.desk.now - d.desk.start)}`}>${d.desk.now.toFixed(2)} <small>{d.desk.x}× of ${d.desk.start} · best run {d.desk.best}× · {d.desk.busts} bust{d.desk.busts === 1 ? '' : 's'} · {d.desk.trades} trades</small></p>
+      {d.desk && <div className="agd-box" data-testid="agd-desk"><b>📜 TRENCH DESK · 25% a GO, out at 5 min · goal 10×</b><p className={`agd-big ${tone(d.desk.now - d.desk.start)}`}>${d.desk.now.toFixed(2)} <small>{d.desk.x}× of ${d.desk.start} · best run {d.desk.best}× · {d.desk.busts} bust{d.desk.busts === 1 ? '' : 's'} · {d.desk.trades} trades</small></p>
         <span className="agd-road-bar" aria-hidden><i style={{ transform: `scaleX(${Math.max(0.02, Math.min(1, Math.log10(Math.max(1, d.desk.x || 1))))})` }} /></span>
-        <small className="m-dim">Control group (coins Trigger said WAIT): {d.control?.n ? `${pct(d.control.med)} typical` : 'not judged yet'} — the team must beat this to mean anything. Slippage on a 5-min scalp is not modelled.</small></div>
+        <small className="m-dim">Control group (coins Trigger said WAIT): {d.control?.n ? `${pct(d.control.med)} typical` : 'not judged yet'} — the team must beat this to mean anything. Slippage on a 5-min scalp is not modelled.</small></div>}
       <AgentControls cfg={d.cfg} decisions={d.decisions} proven={d.proven5} isOwner={isOwner} busy={busy} save={save} /></div>}
   </>; };
   const extra = [

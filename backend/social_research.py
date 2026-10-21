@@ -509,7 +509,7 @@ async def fetch_dom(url, timeout=FETCH_SEC):
     finally:
         if proc is not None and proc.returncode is None:
             _kill_group(proc.pid)
-        shutil.rmtree(prof, ignore_errors=True)
+        await asyncio.to_thread(shutil.rmtree, prof, True)   # ⚡ a Chromium profile is thousands of files: never delete it on the event loop
 
 
 def _kill_group(pid):

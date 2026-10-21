@@ -1435,7 +1435,7 @@ def verify(arch):
     return bad
 
 
-VERIFY_FULL_SEC = 300.0   # the whole chain is re-hashed at most this often; between, only records added since the last check
+VERIFY_FULL_SEC = 1800.0   # the whole chain is re-hashed at most this often; between, only records added since the last check
 
 
 def _tail_bad(rows, prev, start, h_of):

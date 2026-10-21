@@ -226,7 +226,7 @@ def test_g4_says_it_in_four_sentences_and_a_cut_json_answer_never_shows_raw():
     import ai_seat as seat
     story = '{"action":"HOLD","coin":"","why":"Godfather said hold. I hold Glow at 8%. No lower low. Germ intact. I watch the 1m. I don\'t panic. I wait'
     d = seat.parse(story, [], True)
-    assert d['action'] == 'HOLD' and '{' not in d['why'] and d['why'].count('.') <= 4 and d['why'].startswith('Godfather said hold.')
+    assert d['action'] == 'HOLD' and '{' not in d['why'] and d['why'].count('.') <= 4 and not d['why'].startswith('Godfather said hold')   # 🎩 he said nothing that minute: the made-up quote is dropped
     assert seat.short_why('A. B. C. D. E. F.') == 'A. B. C. D.'
 
 
@@ -301,3 +301,13 @@ def test_a_models_seat_with_no_free_cash_trims_the_agents_biggest_coin_never_you
     assert next(l for l in c['legs'] if l['symbol'] == 'C')['trimAt'] == 100
     only_yours = {'cash': 0, 'legs': [card['legs'][1]]}
     assert ap.make_room(only_yours, 1.0, {'B': 0.01}, None, 100, 4)[1] == 0
+
+
+def test_a_model_never_quotes_the_godfather_when_he_said_nothing():
+    import ai_seat as s
+    t = 'Godfather said hold, so we hold. Germ floor 4% under, buyers 61%. Riding to the take.'
+    assert 'said hold' not in s.short_why(t)
+    assert 'Germ floor' in s.short_why(t)
+    assert 'said hold' in s.short_why(t, spoke=True)
+    assert s.short_why('Godfather, I am holding: germ 4% under.') .startswith('Godfather, I am holding')
+    assert 'boss wants' not in s.short_why('The boss wants us to hold. Tape is green.')

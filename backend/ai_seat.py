@@ -29,7 +29,8 @@ WHY_MAX = 900   # 💬 a model's full line is kept (owner, 2026-10-17: "make sur
 
 VOICE = """YOUR VOICE (in "why"): 3-4 short sentences MAX, in YOUR character — no story, no recap (below), real trench slang, witty, never dry; a jab at your partner when your record beats theirs.
 We are the Sicario family. The owner is THE GODFATHER, Mr. Sicario: answer his words first, call him Godfather or Mr. Sicario, never sass him, never argue past his line;
-your edge is on the market and your partner, never on him. Wit never replaces numbers: every line still carries the numbers that decided it.
+your edge is on the market and your partner, never on him. NEVER PUT WORDS IN HIS MOUTH: the Godfather said something ONLY when his own line is in
+OWNER / ownerSays right now — no line there = he said nothing; never write "the Godfather said hold" or "as the boss wants" on your own. Wit never replaces numbers: every line still carries the numbers that decided it.
 ONE TRADE AT A TIME: talk ONLY about the coin in NOW / yourSeat. learn, holdLessons, ownerHoldWins and partner lines about other coins are PAST trades —
 lessons, never this trade: never name a past coin as if it were the one you hold."""
 
@@ -68,9 +69,25 @@ def sys_for(base, key):
     return base + '\n' + _fv.persona({'local': 'OSSY', 'lan': 'G4'}.get(key, key))
 
 
-def short_why(t, n=WHY_SENT):
-    """A model line as the chat shows it: whitespace folded, the first `n` sentences, never more than WHY_MAX chars."""
+_BOSS = r"(?:godfather|mr\.?\s*sicario|the\s+(?:boss|don)|boss|don\b)"
+_SAID = r"(?:said|says|saying|wants|wanted|told|tells|asked|asks|ordered|orders|called|calls|instructed|demands?|wishes|'?s\s+(?:call|order|word|orders))"
+FAKE_BOSS = re.compile(rf"(?:\b{_BOSS}\b[^.!?]{{0,40}}\b{_SAID}\b|\b(?:as|per|like)\s+(?:the\s+)?{_BOSS}\b[^.!?]{{0,20}}\b(?:said|wants|asked|ordered)|\b{_BOSS}'?s\s+(?:orders?|call|word|wish))", re.I)
+
+
+def no_fake_boss(t):
+    """🎩 The owner never spoke this minute → every sentence that claims he did ("the Godfather said hold") is dropped (owner, 2026-10-20:
+    "they keep saying godfather said hold — no I didn't"). Respectful address ("Godfather, I'm holding") stays."""
+    parts = re.split(r'(?<=[.!?])\s+(?=\S)', str(t or ''))
+    keep = [x for x in parts if not FAKE_BOSS.search(x)]
+    return ' '.join(keep)
+
+
+def short_why(t, n=WHY_SENT, spoke=False):
+    """A model line as the chat shows it: whitespace folded, the first `n` sentences, never more than WHY_MAX chars. `spoke` False (the owner
+    said nothing this minute) → sentences quoting him are dropped first."""
     t = re.sub(r'\s+', ' ', str(t or '')).strip()
+    if not spoke:
+        t = no_fake_boss(t).strip()
     parts = re.split(r'(?<=[.!?])\s+(?=\S)', t)
     return ' '.join(parts[:n])[:WHY_MAX]
 
@@ -254,7 +271,7 @@ def _sym_in(text, syms):
     return next(iter(hit)) if len(hit) == 1 else None
 
 
-def parse(text, cand_mints, holding, syms=None):
+def parse(text, cand_mints, holding, syms=None, spoke=False):
     """→ {action, mint, why, conf, watch} or None. A BUY of a coin not in the list, a BUY while holding, a SELL / HOLD with an empty seat
     are corrected to what the seat can actually do (never acted on as written).
     The coin is read from "coin" / "symbol" / "mint" — and when that field is unusable (small models mangle a 44-char mint; the router masks
@@ -279,7 +296,7 @@ def parse(text, cand_mints, holding, syms=None):
     if not mint and a == 'BUY':
         mint = _sym_in(j.get('why'), syms)
     mint = mint or ''
-    why = short_why(j.get('why'))
+    why = short_why(j.get('why'), spoke=spoke)
     conf = max(0, min(100, int(_f(j.get('conf'), 50))))
     watch = re.sub(r'\s+', ' ', str(j.get('watch') or '')).strip()[:80]
     if a == 'BUY' and (holding or mint not in cset):
@@ -544,7 +561,7 @@ def idle_turn(log, a, b):
     return b if last == a else a
 
 
-def idle_parse(text, syms):
+def idle_parse(text, syms, spoke=False):
     """→ {view, mint, why, conf} or None. The coin must be ONE on the card (by symbol, or the one its why names)."""
     j = _first_json(text) or {}
     v = str(j.get('view') or j.get('action') or '').upper().strip()
@@ -555,7 +572,7 @@ def idle_parse(text, syms):
     mint = hit[0] if len(hit) == 1 else _sym_in(j.get('why'), syms)
     if not mint:
         return None
-    out = {'view': v, 'mint': mint, 'why': short_why(j.get('why')), 'conf': max(0, min(100, int(_f(j.get('conf'), 50))))}
+    out = {'view': v, 'mint': mint, 'why': short_why(j.get('why'), spoke=spoke), 'conf': max(0, min(100, int(_f(j.get('conf'), 50))))}
     for k, lo, hi in LINE_RANGES:   # 🎯 lines it sets on an agents coin it is watching
         x = abs(_f(j.get(k), 0.0))
         if x > 0:

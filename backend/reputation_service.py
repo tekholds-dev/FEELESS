@@ -13585,6 +13585,22 @@ def _vs_cached(full_, tid):
     return v_
 
 
+_FW_LED_MEMO: dict = {}
+
+
+def _fw_led_memo(kind, card, fn):
+    """⚡ A sum over the WHOLE ledger, recomputed only when a row was added (the loop-lag catcher charged `totals` + the paid-out sum
+    ~8s a window: they re-walked thousands of rows on every /fuses/prime build)."""
+    L = _fw_full_ledger()
+    k = (kind, card)
+    hit = _FW_LED_MEMO.get(k)
+    if hit and hit[0] == len(L):
+        return hit[1]
+    v = fn(L)
+    _FW_LED_MEMO[k] = (len(L), v)
+    return v
+
+
 def _fw_public(tid, equity_usd=None, sol_px=None, prices=None):
     """What everyone sees on a REAL tier card: since when, $ funded, the last swaps with their tx, real network fees."""
     d = _fw_peek(); b = d['books'].get(tid)   # read-only: this view only reads the doc (lists it builds are its own)
@@ -13636,7 +13652,7 @@ def _fw_public(tid, equity_usd=None, sol_px=None, prices=None):
         px_now = _fw.leg_px(b, mint, leg, prices or {}, time.time())   # 💧 what selling pays, never a drained pool's quoted price
         off_card.append({'mint': mint, 'symbol': leg.get('symbol') or mint[:6], 'usd': round(units * px_now, 4),
                          'costUsd': round(_fuse._f(leg.get('costUsd')), 4), 'status': 'awaiting confirmed sell'})
-    ledger_paid = sum(max(0.0, _fuse._f(o.get('payoutUsd'))) for o in _fw_full_ledger() if o.get('card') == tid and o.get('status') == 'filled' and o.get('side') == 'sell')
+    ledger_paid = _fw_led_memo('paid', tid, lambda L: sum(max(0.0, _fuse._f(o.get('payoutUsd'))) for o in L if o.get('card') == tid and o.get('status') == 'filled' and o.get('side') == 'sell'))
     paid_ever = round(max(_fuse._f(card.get('walletUsd')), _fuse._f(b.get('payoutSeenUsd')), ledger_paid, _fuse._f(b.get('manualProfitPaidUsd'))), 4)
     profit_available = _fw.profit_available(b, equity_usd, sol_px) if equity_usd is not None and sol_px else 0.0
     payout_cash = min(profit_available, max(0.0, _fuse._f(b.get('sol')) - _fuse._f(b.get('manualCashSol'))) * _fuse._f(sol_px)) if sol_px else 0.0
@@ -13684,7 +13700,7 @@ def _fw_public(tid, equity_usd=None, sol_px=None, prices=None):
                                'outsideCardSol': round(outside_sol, 9) if outside_sol is not None else None,
                                'outsideCardUsd': round(outside_sol * _fuse._f(sol_px), 4) if outside_sol is not None and sol_px else None},
             'orders': [{k: o.get(k) for k in ('side', 'symbol', 'usd', 'proceedsUsd', 'realizedPnlUsd', 'sol', 'px', 'sig', 'at', 'status', 'feeUsd', 'why', 'costUsd')} for o in rows],
-            **_fw.totals(full_, tid), 'feesUsd': round(_fuse._f(b.get('feesUsd')), 4)}   # 🧾 the book's fee total (each fill at its own SOL price) — never a partial sum
+            **_fw_led_memo('tot', tid, lambda L: _fw.totals(L, tid)), 'feesUsd': round(_fuse._f(b.get('feesUsd')), 4)}   # 🧾 the book's fee total (each fill at its own SOL price) — never a partial sum
 
 
 async def _circle_wallets_live():
@@ -13823,7 +13839,7 @@ async def fuse_wallet_view(request: Request):
     jup = await _jup_prices([l.get('mint') for l in market_rows]) if market_rows else {}
     px.update({l['pairAddress']: jup[l['mint']] for l in market_rows if jup.get(l.get('mint'))})
     full_hq = _fw_full_ledger()   # 🧾 every row, not the trimmed KV copy
-    books = {tid: {**b, 'valueUsd': _fw.book_value(b, px, sol_px), 'label': (cards.get(tid) or {}).get('label') or tid, **_fw.totals(full_hq, tid)} for tid, b in d['books'].items()}
+    books = {tid: {**b, 'valueUsd': _fw.book_value(b, px, sol_px), 'label': (cards.get(tid) or {}).get('label') or tid, **_fw_led_memo('tot', tid, lambda L: _fw.totals(L, tid))} for tid, b in d['books'].items()}
     recoverable = []
     if bal and bal.get('source') != 'circle':
         booked = {}
@@ -13858,7 +13874,7 @@ async def fuse_wallet_view(request: Request):
             'missing': _fw.reconcile((bal or {}).get('tokens'), d['books']) if bal and bal.get('source') != 'circle' else [],   # Circle rows have no mints
             'books': books, 'tiers': {k: v['label'] for k, v in _prime.TEMPLATES.items()}, 'recoverable': recoverable, 'calibration': _fw_calibration(d),
             'paperMatch': _fw.paper_match(d.get('quoteAudit')), 'quoteAudit': (d.get('quoteAudit') or [])[-20:][::-1],
-            'totals': _fw.totals(full_hq), 'ledger': d['ledger'][-200:][::-1]}
+            'totals': _fw_led_memo('tot', None, lambda L: _fw.totals(L)), 'ledger': d['ledger'][-200:][::-1]}
 
 
 @app.post('/api/reputation/admin/fuse-wallet/recover-sell')
@@ -14997,7 +15013,7 @@ async def _g4_tick(now, env, cfg):
         t0_ = time.perf_counter()
         r_ = await _air.ROUTER.ask(_ai_http(), env, cfg, 'Your minute snapshot. Decide.', context=pk_, role='exit', urgency='seat', only=(first_,), system=_seat.sys_for(_seat.SYSTEM, first_), only_system=True)   # 🔁 a held trade is ONLY its holder's call (the partner standing in made OSSY post HOLDs on G4's $MOMO); hunting, the partner may answer for a missed minute   # 🔁 the holder runs its trade; when it misses a minute (call cap / timeout) the partner stands in — the trade stays the holder's (leg aiBy)
         by_m = r_.get('source') if r_.get('source') in (first_, second_) else first_
-        dec_ = _seat.parse(r_.get('text'), [c_['mint'] for c_ in cands_], bool(held_), {c_.get('symbol'): c_['mint'] for c_ in cands_ if c_.get('symbol')})
+        dec_ = _seat.parse(r_.get('text'), [c_['mint'] for c_ in cands_], bool(held_), {c_.get('symbol'): c_['mint'] for c_ in cands_ if c_.get('symbol')}, spoke=bool(learn_.get('ownerSays')))
         if dec_ and dec_.get('preds') and r_.get('source') in (first_, second_):   # 🔮 every prediction is graded 15 min later on the real price (ai_learn, per model)
             try:
                 for m_p, v_p in dec_['preds'].items():
@@ -15065,7 +15081,7 @@ async def _g4_tick(now, env, cfg):
             try:
                 t0b = time.perf_counter()
                 ra_ = await asyncio.wait_for(_air.ROUTER.ask(_ai_http(), env, cfg, 'Advise on your partner\'s open trade.', context={**_seat.advise_packet(pk_, _air.model_name(env, first_), _air.model_name(env, second_)), **({'HOLDERPROPOSES': propose_} if propose_ else {})}, role='exit', urgency='seat', only=(second_,), system=_seat.sys_for(_seat.ADVISE, second_), only_system=True), timeout=ADVISE_SEC)
-                da_ = _seat.parse(ra_.get('text'), [], True)
+                da_ = _seat.parse(ra_.get('text'), [], True, spoke=bool(learn_.get('ownerSays')))
                 oth_ = _seat._sym_in((da_ or {}).get('why'), {l_.get('symbol'): l_.get('mint') for l_ in _duo_card_legs() if l_.get('symbol')}) if da_ else None
                 if da_ and oth_ and oth_ != held_m:   # 💬 the advice is about ANOTHER coin on the card ($ELON on the $Kimchi trade) → it goes to that coin's own room, never the holder's chat
                     lo_ = next((l_ for l_ in _duo_card_legs() if l_.get('mint') == oth_), {})
@@ -15138,7 +15154,7 @@ async def _g4_idle(now, env, cfg, st_, legs_, mode_, who=None):
         t0_ = time.perf_counter()
         r_ = await _air.ROUTER.ask(_ai_http(), env, cfg, 'Seats are full. Comment on one trade.', context={'CARD': rows_, 'learn': {'confidence': _dv.words(_dv_mem.get() or {}, who_)}, 'ownerSays': [f"${r_.get('symbol')}: {str(r_.get('why') or '')[:140]}" for r_ in (st_.get('log') or [])[-60:] if r_.get('by') == 'owner' and r_.get('coinTalk') and now - _fuse._f(r_.get('at')) < 1800][-3:]},   # 👤 your lines in a coin's room
                                    role='exit', urgency='force', only=(who_,), system=_seat.sys_for(_seat.IDLE, who_), only_system=True)
-        d_ = _seat.idle_parse(r_.get('text'), syms_)
+        d_ = _seat.idle_parse(r_.get('text'), syms_, spoke=any(r_o.get('by') == 'owner' and r_o.get('coinTalk') and now - _fuse._f(r_o.get('at')) < 1800 for r_o in (st_.get('log') or [])[-60:]))
         if not d_:
             return
         rw_ = next((x for x in rows_ if syms_.get(x['symbol']) == d_['mint']), {})
@@ -16894,7 +16910,19 @@ def _lc_book(now=None):
     return _lc_mem['book']
 
 
+_lc_sh_memo: dict = {}
+
+
 def _lc_shadows():
+    """Cached 5 min (two callers a pass replayed every real exit twice — the loop-lag catcher's 'reaper_replay' culprit)."""
+    if _lc_sh_memo and time.time() - _lc_sh_memo.get('at', 0) < 300:
+        return _lc_sh_memo['v']
+    v = _lc_shadows_raw()
+    _lc_sh_memo.update(at=time.time(), v=v)
+    return v
+
+
+def _lc_shadows_raw():
     """The replaced Reaper generation vs its successor on the SAME real exits since the switch (its price rules replayed with each lesson)."""
     out = {}
     try:
@@ -19098,8 +19126,13 @@ def _office_pass(st, table, now, rcfg, jp, arch, cour, tid, desk_ms):
         dir_m = 'up' if mt_ > _of.tune(of, 'reaper', 'giveBackPct') else 'down'
         of, no_m = _of.model_candidate(of, 'giveBackPct', dir_m, n_full_m, f"OSSY / G4 run their trades on a {mt_:g}% give-back", now)
         _tk.KERNEL.note('judge', 'LEARN', f"🧠 the models trail at {mt_:g}% → Reaper giveBackPct {dir_m}: " + (f'refused ({no_m})' if no_m else 'one notch in shadow — the next 20 exits decide'), now, key=f"mtrail:{int(now // 3600)}")
-    of = _of.judge_candidates(of, arch, rcfg, st.get('scalp'), now, after=(_after_mem.get() or {}).get('done') or {})   # 👁 on WHOLE moves: a path ending at our own sale can only favour a tighter trail
-    _office['trail'] = _trail_view(of, arch, rcfg, st.get('scalp'))
+    ps_ = arch.get('positions') or []
+    rfp_ = (len(ps_), (ps_[-1].get('h') if ps_ else None), len((_after_mem.get() or {}).get('done') or {}), json.dumps(_of.tunes(of, 'reaper'), sort_keys=True),
+            sum(1 for c_ in (of.get('candidates') or {}).values() if c_.get('status') == 'shadow'))
+    if _office.get('trailFp') != rfp_ or now - _fuse._f(_office.get('trailAt')) > 600 or not _office.get('trail'):   # ⚡ the replays only when an exit / after-path / tune changed (they cost ~10s a window every pass)
+        of = _of.judge_candidates(of, arch, rcfg, st.get('scalp'), now, after=(_after_mem.get() or {}).get('done') or {})   # 👁 on WHOLE moves: a path ending at our own sale can only favour a tighter trail
+        _office['trail'] = _trail_view(of, arch, rcfg, st.get('scalp'))
+        _office['trailFp'], _office['trailAt'] = rfp_, now
     ser = st.get('series') or {}
     stale = sum(1 for x in table if len(ser.get(x['mint']) or []) >= 2 and _fuse._f(ser[x['mint']][-1]['t']) - _fuse._f(ser[x['mint']][-2]['t']) > _of.STALE_SEC)
     viol = {k: dict(v) for k, v in (of.get('viol') or {}).items()}

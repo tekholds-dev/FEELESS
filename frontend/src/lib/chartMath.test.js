@@ -15,3 +15,12 @@ test('candles connect: each opens at the previous close, wicks include the open'
   expect(out[1]).toEqual([120, 1, 1.3, 1, 1.3, 0]);   // was a floating one-price dash at 1.3
   expect(out[2][2]).toBeGreaterThanOrEqual(1.3);
 });
+
+test('clipWicks cuts a lone bad-print wick and keeps normal ones', () => {
+  const { clipWicks } = require('./chartMath');
+  const rows = Array.from({ length: 12 }, (_, i) => [i * 60, 100, 103, 97, 101, 1]);
+  rows[6] = [360, 100, 103, 34, 101, 1];
+  const out = clipWicks(rows);
+  expect(out[6][3]).toBeGreaterThan(90);
+  expect(out[3][3]).toBe(97);
+});

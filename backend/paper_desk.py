@@ -632,10 +632,30 @@ def _card(ps, right):
             'right': None if not right else round(sum(right) / len(right) * 100)}
 
 
+_LEARN_MEMO: dict = {}
+
+
 def learn(state, h=5):
+    """Memoised `_learn` (the loop-lag catcher charged learn 5s a window: it ran ~8× a pass on the same calls). Same judged calls + same
+    lives / ideas / lessons → the same answer; anything new → recomputed."""
+    js = _judged(state, h)
+    st = state or {}
+    last = js[-1] if js else {}
+    ideas_ = st.get('ideas') or {}
+    fp = (h, len(st.get('done') or []), len(st.get('open') or {}), len(js), _f(last.get('at')), last.get(f'p{h}'), tuple(sorted((st.get('born') or {}).items())),
+          tuple(sorted((i, v.get('status')) for i, v in ideas_.items())), len(st.get('lessons') or {}))
+    hit = _LEARN_MEMO.get(h)
+    if hit and hit[0] == fp:
+        return hit[1]
+    out = _learn(state, h, js)
+    _LEARN_MEMO[h] = (fp, out)
+    return out
+
+
+def _learn(state, h=5, js=None):
     """Every agent's scorecard on the `h`-minute result + Sherlock's learned driver weights + Trigger's bar. Each agent learns ONLY from the
     calls of its CURRENT life (`born[agent]`): a scrapped agent is reborn with nothing but its belief. The team / control cards keep everything."""
-    js = _judged(state, h)
+    js = _judged(state, h) if js is None else js
     k = f'p{h}'
     born = (state or {}).get('born') or {}
     life = lambda a: [d for d in js if _f(d.get('at')) >= _f(born.get(a))]

@@ -345,7 +345,31 @@ def _fill_gaps(candles, step, own=None, limit=5000):
     for k in range(1, len(out)):
         pc = out[k - 1][4]
         bar = list(out[k]); bar[1] = pc; bar[2] = max(bar[2], pc, bar[4]); bar[3] = min(bar[3], pc, bar[4]); out[k] = bar
-    return out[-limit:]
+    return _clip_wicks(out[-limit:])
+
+
+def _clip_wicks(rows):
+    """🕯 One bad print = one runaway wick (owner's chart, 2026-10-20: thin bars from $125K down to an old $42K level). A wick deeper /
+    taller than 25% / 33% AND 4× its 8 neighbours' typical wick is cut to twice that typical wick. Mirrors lib/chartMath.clipWicks."""
+    def depth(r):
+        b = min(r[1], r[4]); return max(0.0, 1 - r[3] / b) if b > 0 else 0.0
+
+    def rise(r):
+        t = max(r[1], r[4]); return max(0.0, r[2] / t - 1) if t > 0 else 0.0
+    dn, up = [depth(r) for r in rows], [rise(r) for r in rows]
+
+    def md(a, i):
+        w = sorted(a[max(0, i - 4):i] + a[i + 1:i + 5])
+        return w[len(w) // 2] if w else 0.0
+    out = []
+    for i, r in enumerate(rows):
+        r = list(r); b, tp = min(r[1], r[4]), max(r[1], r[4]); mdn, mup = md(dn, i), md(up, i)
+        if dn[i] > 0.25 and dn[i] > max(4 * mdn, 0.15):
+            r[3] = b * (1 - max(2 * mdn, 0.03))
+        if up[i] > 0.33 and up[i] > max(4 * mup, 0.2):
+            r[2] = tp * (1 + max(2 * mup, 0.03))
+        out.append(r)
+    return out
 
 
 # ---- Alchemy Prices: the primary history source (one key, Solana + every EVM chain we run) ----

@@ -54,7 +54,7 @@ export function AiPlayground({ call, prov = 'auto' }) {
       {cur && cur.status === 'proposed' ? <button type="button" className="m-btn" disabled={busy || txt.trim().length < 3} onClick={() => make(cur.id)} data-testid="apg-change" data-tip="The model rewrites THIS proposal with your words">✏ Change it</button> : null}
     </form>
     {cur ? <div className={`apg-prop is-${cur.status}`} data-testid="apg-prop">
-      <div className="apg-phead"><b>{cur.title}</b><em>{cur.kind === 'new' ? 'NEW' : 'CHANGE'} · {cur.file}</em><span className={`apg-st is-${cur.status}`}>{cur.status.toUpperCase()}</span></div>
+      <div className="apg-phead"><b>{cur.title}</b><em>{cur.kind === 'new' ? 'NEW' : 'CHANGE'} · {cur.file}</em><span className={`apg-st is-${cur.status}`}>{String(cur.status || 'proposed').toUpperCase()}</span></div>
       <p className="apg-why"><b>WHY</b> {cur.why}</p>{cur.risk ? <p className="apg-why is-risk"><b>RISK</b> {cur.risk}</p> : null}
       <div className="apg-views" role="tablist" aria-label="Preview">{[...(cur.preview ? [['look', '🖼 LIVE PREVIEW — click it']] : []), ['diff', `🔍 Before → after${cur.changed?.length || cur.new?.length ? ` · ${(cur.changed || []).length} changed · ${(cur.new || []).length} new` : ''}`], ...(cur.diff ? [['side', '🪞 Side by side']] : []), ...(cur.run ? [['run', cur.run.ran ? `▶ Test run · ${cur.run.results.filter(x => x.ok).length}/${cur.run.results.length} ✓` : '▶ Test run · not run']] : []), ['code', '📄 Full code']].map(([k, l]) =>
         <button key={k} type="button" role="tab" aria-selected={view === k} className={view === k ? 'active' : ''} onClick={() => setView(k)} data-testid={`apg-v-${k}`}>{l}</button>)}</div>
