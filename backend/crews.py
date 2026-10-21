@@ -144,7 +144,8 @@ def board(store, pieces_by_wallet, now, cfg=None, staff_of=None):
         rows.append({'id': c['id'], 'name': c['name'], 'tag': c['tag'], 'members': len(c['members']), 'seats': c.get('seats', BASE_SEATS), 'active': active, 'ranked': ranked, **s,
                      'launch': (c.get('launch') or {}).get('symbol') or None, 'bounties': sum(1 for b in c.get('bounties') or [] if b.get('state') == 'open'),
                      'badge': badge_view(c, store.get('awards'), cfg, bool(staff_of and staff_of(c.get('owner')))),
-                     'warW': int(c.get('warWins') or 0), 'warL': int(c.get('warLosses') or 0), 'chest': int(c['chest']) if c.get('chest') is not None else 500})
+                     'warW': int(c.get('warWins') or 0), 'warL': int(c.get('warLosses') or 0), 'chest': int(c['chest']) if c.get('chest') is not None else 500,
+                     'card': card_view(c)})
     return sorted(rows, key=lambda r: (not r['ranked'], -(r['pct'] if r['pct'] is not None else -999), -r['members']))
 
 
@@ -525,3 +526,32 @@ def invites_for(store, wallet, now):
 
 def sent_by(store, crew, now):
     return [{'to': w[:4] + '…' + w[-4:], 'at': x['at']} for w, xs in _live_invites(store, now).items() for x in xs if x['cid'] == crew['id']]
+
+
+# 🃏 THE FAMILY CARD (owner, 2026-10-21: "the family wars this week card needs to be customizable"): the Don picks how the family's card looks on
+# the podium, the board and the globe — a style, a live effect and a one-line tagline. Fixed lists only (the page draws each one).
+CARD = {'style': ('noir', 'gold', 'blood', 'neon', 'ice', 'royal'), 'fx': ('none', 'smoke', 'embers', 'rain', 'lightning', 'stars')}
+CARD_LINE_MAX = 40
+
+
+def clean_card(raw):
+    raw = raw if isinstance(raw, dict) else {}
+    out = {k: (raw.get(k) if raw.get(k) in opts else opts[0]) for k, opts in CARD.items()}
+    line = ''.join(ch for ch in str(raw.get('line') or '') if ch.isprintable()).strip()[:CARD_LINE_MAX]
+    out['line'] = line
+    return out
+
+
+def set_card(store, wallet, raw, now):
+    _norm(store)
+    crew = crew_of(store, wallet)
+    if not crew:
+        raise ValueError('You are not in a family.')
+    if crew['owner'] != wallet:
+        raise ValueError('Only the Don styles the family card.')
+    crew['card'] = {**clean_card(raw), 'at': now}
+    return crew
+
+
+def card_view(crew):
+    return clean_card(crew.get('card')) if crew.get('card') else None

@@ -89,7 +89,7 @@ function RoleMenu({ m, mine, addr, sess, onDone }) {
   );
 }
 
-export function FamilyTable({ mine, owner, addr, sess, onChanged }) {
+export function FamilyTable({ mine, owner, addr, sess, onChanged, onOpen }) {
   const ms = byRank(mine.members);
   return (
     <section className="frm-table" data-testid="family-table">
@@ -100,7 +100,7 @@ export function FamilyTable({ mine, owner, addr, sess, onChanged }) {
           <li key={m.address} className={`frm-mem r-${m.rank} s-${m.status}`} style={{ '--i': i, '--heat': ((m.heat || 0) / 100).toFixed(2) }}>
             <span className="frm-av"><i>{initials(m.name)}</i><em title={st[1]}>{st[0]}</em></span>
             <div className="frm-who">
-              <a href={`/terminal/profile/${m.address}`}><b>{m.name}</b>{m.owner ? ' 👑' : ''}</a>
+              <button type="button" className="frm-name" onClick={() => onOpen?.(m)} data-testid={`member-${m.address.slice(0, 6)}`}><b>{m.name}</b>{m.owner ? ' 👑' : ''}</button>
               <span className="frm-tags"><span className={`fnr-rank r-${m.rank}`}>{m.rankLabel}</span>{m.roleLabel ? <span className="frm-role">{m.roleIcon} {m.roleLabel}</span> : null}</span>
               <span className="frm-mheat"><i style={{ transform: `scaleX(${Math.max(0.03, (m.heat || 0) / 100)})` }} /></span>
             </div>
@@ -131,4 +131,60 @@ export function FamilyWire({ mine }) {
         : <p className="frm-empty">Quiet on the wire. The family's verified trades show up here the minute they close.</p>}
     </section>
   );
+}
+
+// 👤 A MEMBER'S FILE (owner, 2026-10-21: "member profiles should load in Familia with the vitals they've done for the family"): opens over the
+// page — rank, role, heat, the week in numbers, their best trade, what they posted and bountied, the points the family paid them, and their
+// newest trades from the wire. Every number is the same verified-trade data the table uses.
+export function memberFile(m, mine) {
+  const pts = (mine?.points || {})[m.address] || 0;
+  return [['WEEK', m.trades ? usdTxt(m.usd) : '—'], ['RESULT', m.pct == null ? '—' : `${m.pct >= 0 ? '+' : ''}${m.pct}%`], ['TRADES', m.trades || 0],
+    ['WON', m.wonPct == null ? '—' : `${m.wonPct}%`], ['STREAK', m.streak ? `🔥×${m.streak}` : '—'], ['HEAT', m.heat ?? 0],
+    ['BEST', m.best ? `$${m.best.sym} +${m.best.pct}%` : '—'], ['POSTS', m.posts || 0], ['BOUNTIES', m.bounties || 0], ['FAMILY PTS', pts]];
+}
+export function MemberFile({ m, mine, onClose }) {
+  React.useEffect(() => { const k = e => e.key === 'Escape' && onClose(); window.addEventListener('keydown', k); return () => window.removeEventListener('keydown', k); }, [onClose]);
+  if (!m) return null;
+  const trades = (mine.wire || []).filter(r => r.w === m.address).slice(0, 6);
+  const st = STATUS[m.status] || STATUS.quiet;
+  return createPortal(<div className="frm-shade" onMouseDown={e => e.target === e.currentTarget && onClose()} data-testid="member-file">
+    <article className={`frm-file r-${m.rank}`} style={{ '--heat': ((m.heat || 0) / 100).toFixed(2) }} role="dialog" aria-label={`${m.name}'s file`}>
+      <button type="button" className="frm-x" onClick={onClose} aria-label="Close">✕</button>
+      <header><span className="frm-av is-lg"><i>{initials(m.name)}</i><em>{st[0]}</em></span>
+        <div><span className="frm-eyebrow">THE {String(mine.name).toUpperCase()} FAMILY · FILE</span><h3>{m.name}{m.owner ? ' 👑' : ''}</h3>
+          <span className="frm-tags"><span className={`fnr-rank r-${m.rank}`}>{m.rankLabel}</span>{m.roleLabel ? <span className="frm-role">{m.roleIcon} {m.roleLabel}</span> : null}<span className="frm-chip">{st[1]}</span></span>
+          <small>with the family since {m.joined ? new Date(m.joined * 1000).toLocaleDateString() : '—'}</small></div></header>
+      <div className="frm-fgrid">{memberFile(m, mine).map(([k, v], i) => <span key={k} style={{ '--i': i }}><em>{k}</em><b>{v}</b></span>)}</div>
+      <span className="frm-heat"><em>HEAT</em><span><i style={{ transform: `scaleX(${Math.max(0.03, (m.heat || 0) / 100)})` }} /></span><b>{m.heat || 0}</b></span>
+      <h4 className="frm-h">📒 THEIR LAST TRADES</h4>
+      {trades.length ? <ol className="frm-ftrades">{trades.map(r => <li key={`${r.at}-${r.sym}`} className={r.pct >= 0 ? 'is-up' : 'is-dn'}><b>${r.sym}</b><em>{r.pct >= 0 ? '+' : ''}{r.pct}%</em><small>{usdTxt(r.usd)} · {agoTxt(r.at)}</small></li>)}</ol>
+        : <p className="frm-empty">No closed verified trades this week.</p>}
+      <a className="m-btn" href={`/terminal/profile/${m.address}`}>Full profile ↗</a>
+    </article></div>, document.body);
+}
+
+// 🃏 THE CARD STUDIO (the Don): style · live effect · tagline for the family's card on the podium, the board and the globe — fixed lists.
+export const CARD_WORD = { noir: '🎩 Noir', gold: '🥇 Gold', blood: '🩸 Blood', neon: '🌃 Neon', ice: '🧊 Ice', royal: '👑 Royal', none: 'None', smoke: '🚬 Smoke', embers: '🔥 Embers', rain: '🌧 Rain', lightning: '⚡ Lightning', stars: '✨ Stars' };
+export function CardStudio({ mine, owner, addr, sess, onChanged, preview }) {
+  const opts = mine.cardOpts || { style: ['noir'], fx: ['none'] };
+  const [d, setD] = React.useState(() => ({ style: mine.card?.style || 'noir', fx: mine.card?.fx || 'none', line: mine.card?.line || '' }));
+  const [busy, setBusy] = React.useState(false);
+  const save = async () => {
+    setBusy(true);
+    try {
+      const r = await fetch(apiUrl('/api/reputation/crews/act'), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ address: addr, session: sess, act: 'card', card: d }) });
+      const b = await r.json().catch(() => ({})); if (!r.ok) throw new Error(b.detail || 'Refused.');
+      toast.success('🃏 family card saved'); onChanged?.(b.crew);
+    } catch (e) { toast.error(e.message); }
+    setBusy(false);
+  };
+  return <div className="frm-studio" data-testid="card-studio">
+    <div className="frm-studio-prev">{preview(d)}</div>
+    <div className="frm-studio-ctl">
+      {['style', 'fx'].map(k => <fieldset key={k}><legend>{k === 'style' ? '🎨 STYLE' : '✨ LIVE EFFECT'}</legend>
+        <div className="frm-opts">{(opts[k] || []).map(v => <button key={v} type="button" disabled={!owner} className={d[k] === v ? 'active' : ''} onClick={() => setD(x => ({ ...x, [k]: v }))} data-testid={`card-${k}-${v}`}>{CARD_WORD[v] || v}</button>)}</div></fieldset>)}
+      <fieldset><legend>✒ TAGLINE</legend><input className="m-input" value={d.line} maxLength={40} disabled={!owner} placeholder="Famiglia prima di tutto" onChange={e => setD(x => ({ ...x, line: e.target.value }))} aria-label="Card tagline" /></fieldset>
+      {owner ? <button type="button" className="m-btn m-go" disabled={busy} onClick={save} data-testid="card-save">Save the family card</button> : <p className="frm-empty">Only the Don styles the family card.</p>}
+    </div>
+  </div>;
 }

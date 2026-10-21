@@ -8,7 +8,11 @@ import { useLivePrice } from '../lib/livePriceHub';
 import { price as pxWord } from '../lib/num';
 import '../styles/crews.css';
 import { FamilyBadge, EMBLEM } from './FamilyBadge';
-import { WarRoom, WarStrip } from './FamilyWars';
+import { WarRoom, WarStrip, PublicWars, useWars } from './FamilyWars';
+import { FamilyLanding } from './FamilyLanding';
+import { FamilyMap } from './FamilyMap';
+import { useRemembered } from '../lib/remember';
+import { Home, Crown, Swords, Map as MapIcon, Trophy, Radio } from 'lucide-react';
 import '../styles/familyNoir.css';
 
 // 🛡 CREWS (Leaderboard › Crews · Season & ranks): $25 in SOL to the FEELESS fee wallet starts a crew with 5 seats including you; +5 seats cost $5. A crew
@@ -30,7 +34,7 @@ export const podium = rows => { const r = (rows || []).filter(x => x.ranked); re
 export const heat = r => Math.max(0, Math.min(1, ((r?.active || 0) / Math.max(1, r?.members || 1)) * 0.5 + Math.min(1, Math.abs(Number(r?.pct) || 0) / 40) * 0.5));
 import { InviteInbox, InviteBox } from './FamilyInvites';
 import { MobScene } from './MobScene';
-import { FamilyHero, FamilyTable, FamilyWire } from './FamilyRoom';
+import { FamilyHero, FamilyTable, FamilyWire, MemberFile, CardStudio } from './FamilyRoom';
 import '../styles/familyInvites.css';
 const post = (path, body) => fetch(apiUrl(path), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
   .then(async r => { const x = await r.json().catch(() => ({})); if (!r.ok) throw new Error(x.detail || 'Request failed'); return x; });
@@ -43,21 +47,27 @@ export function useCrewBoard(every = 20000) {
   return b;
 }
 
+// 🃏 the Don's card style (crews.CARD) — literal class names, one per option
+export const CARD_STYLE = { noir: 'cd-noir', gold: 'cd-gold', blood: 'cd-blood', neon: 'cd-neon', ice: 'cd-ice', royal: 'cd-royal' };
+export const CARD_FX = { smoke: 'cfx2-smoke', embers: 'cfx2-embers', rain: 'cfx2-rain', lightning: 'cfx2-lightning', stars: 'cfx2-stars' };
 // ⚡ one crew as a 3D card with an electric border: tilt follows the pointer (transform only), the border's arc turns faster the hotter the crew
 export function CrewCard3D({ r, place, small, onOpen }) {
   const el = useRef(null);
   const tilt = e => { const n = el.current; if (!n || small) return; const b = n.getBoundingClientRect(); n.style.setProperty('--rx', `${((e.clientY - b.top) / b.height - 0.5) * -14}deg`); n.style.setProperty('--ry', `${((e.clientX - b.left) / b.width - 0.5) * 16}deg`); };
   const flat = () => { el.current?.style.setProperty('--rx', '0deg'); el.current?.style.setProperty('--ry', '0deg'); };
   const h = heat(r);
-  return <button type="button" ref={el} className={`crw-3d ${['', 'p1', 'p2', 'p3', 'p4'][place] || ''} ${small ? 'is-small' : ''} ${h > 0.6 ? 'is-hot' : ''}`} style={{ '--heat': h.toFixed(2), '--spin': `${(6 - h * 4.5).toFixed(1)}s` }}
+  const cd = r.card || {};
+  return <button type="button" ref={el} className={`crw-3d ${['', 'p1', 'p2', 'p3', 'p4'][place] || ''} ${small ? 'is-small' : ''} ${h > 0.6 ? 'is-hot' : ''} ${CARD_STYLE[cd.style] || ''}`} style={{ '--heat': h.toFixed(2), '--spin': `${(6 - h * 4.5).toFixed(1)}s` }}
     onPointerMove={tilt} onPointerLeave={flat} onClick={() => onOpen?.(r)} data-testid={`crew-3d-${r.tag}`} aria-label={`${r.name}: ${pctTxt(r.pct)} this week`}>
     <span className="crw-bolt" aria-hidden="true" />
     <span className="crw-face">
+      {CARD_FX[cd.fx] ? <span className={`crw-cfx ${CARD_FX[cd.fx]}`} aria-hidden="true"><i /><i /><i /><i /><i /></span> : null}
       <span className="crw-medal">{MEDAL[place - 1] || '🌹'}</span>
       {r.badge ? <FamilyBadge b={r.badge} size={small ? 'sm' : 'md'} chips={!small} /> : null}
       <b className="crw-3tag">{r.tag}</b>
       <span className="crw-3name">{r.name}</span>
       <em className={`crw-3pct ${r.pct == null ? '' : r.pct >= 0 ? 'm-pos' : 'm-neg'}`} key={r.pct}>{pctTxt(r.pct)}</em>
+      {cd.line ? <i className="crw-3line">“{cd.line}”</i> : null}
       <span className="crw-3meta">{r.members}/{r.seats} · {r.active} live{r.launch ? ` · 🚀 $${r.launch}` : ''}{r.bounties ? ` · 🎯 ${r.bounties}` : ''}</span>
       {!small && <span className="crw-heat" aria-hidden="true"><i style={{ transform: `scaleX(${Math.max(0.05, h)})` }} /></span>}
     </span>
@@ -117,17 +127,17 @@ function BadgeBuilder({ mine, owner, addr, sess, q, act, busy }) {
   </div>;
 }
 
-const TABS = [['wars', '⚔ War room'], ['invite', '✉ Invite'], ['badge', '🌹 Badge'], ['board', '💬 Board'], ['bounty', '🎯 Bounties'], ['launch', '🚀 Launch'], ['members', '➕ Seats'], ['code', '🔐 Code']];
+const TABS = [['card', '🃏 Card'], ['invite', '✉ Invite'], ['badge', '🌹 Badge'], ['board', '💬 Board'], ['bounty', '🎯 Bounties'], ['launch', '🚀 Launch'], ['members', '➕ Seats'], ['code', '🔐 Code']];
 
 function CrewHQ({ mine, owner, addr, sess, busy, setBusy, setMine, act, q, rows, inv, reload }) {
-  const [tab, setTab] = useState(mine.badge?.set ? 'wars' : 'badge'); const [txt, setTxt] = useState(''); const [rew, setRew] = useState(50); const [mint, setMint] = useState(''); const [sym, setSym] = useState(''); const [code, setCode] = useState(''); const [plain, setPlain] = useState('');
+  const [tab, setTab] = useState(mine.badge?.set ? 'board' : 'badge'); const [txt, setTxt] = useState(''); const [rew, setRew] = useState(50); const [mint, setMint] = useState(''); const [sym, setSym] = useState(''); const [code, setCode] = useState(''); const [plain, setPlain] = useState('');
   const doAct = async (a, body, ok) => { setBusy(a); try { const r = await post('/api/reputation/crews/act', { address: addr, session: sess, act: a, ...body }); if (r.crew) setMine(r.crew); if (r.plainCode) setPlain(r.plainCode); toast.success(ok); setTxt(''); } catch (e) { toast.error(e.message); } finally { setBusy(''); } };
   const posts = mine.posts || []; const roots = posts.filter(p => !p.parent).slice().reverse(); const kids = id => posts.filter(p => p.parent === id);
   const link = mine.code ? inviteLink(window.location.origin, window.location.pathname, mine.code) : null;
   return <>
     <nav className="crw-tabs m-seg" role="tablist">{TABS.map(([k, l]) => <button key={k} type="button" role="tab" aria-selected={tab === k} className={tab === k ? 'active' : ''} onClick={() => setTab(k)} data-testid={`crew-tab-${k}`}>{l}{k === 'bounty' && mine.bountiesOpen ? <b>{mine.bountiesOpen}</b> : null}</button>)}</nav>
     <div className="crw-pane" key={tab}>
-      {tab === 'wars' && <WarRoom mine={mine} owner={owner} rows={rows} busy={busy} act={(a, body, ok) => doAct(a, body, ok)} />}
+      {tab === 'card' && <CardStudio mine={mine} owner={owner} addr={addr} sess={sess} onChanged={c => c && setMine(c)} preview={d => { const r = rows.find(x => x.id === mine.id) || { id: mine.id, name: mine.name, tag: mine.tag, members: mine.members.length, seats: mine.seats, active: mine.vitals?.active || 0, pct: null, badge: mine.badge }; return <CrewCard3D r={{ ...r, card: d }} place={1} />; }} />}
       {tab === 'badge' && <BadgeBuilder mine={mine} owner={owner} addr={addr} sess={sess} q={q} act={act} busy={busy} />}
       {tab === 'board' && <>
         <form className="crw-row" onSubmit={e => { e.preventDefault(); doAct('post', { text: txt }, '💬 posted'); }}><input className="m-input" placeholder="Talk to the family…" value={txt} maxLength={500} onChange={e => setTxt(e.target.value)} aria-label="Post" /><button type="submit" className="m-btn primary" disabled={!txt.trim() || !!busy}>Post</button></form>
@@ -179,9 +189,15 @@ export function FamilyPulse() {
   </section>;
 }
 
+// 🌹 the MOB & Rewards › Familia tabs (owner, 2026-10-21: "a landing page, all unique tabs for it")
+export const FAM_TABS = [['home', 'Home', Home], ['family', 'My family', Crown], ['wars', 'Wars', Swords], ['map', 'The city', MapIcon], ['board', 'Board', Trophy], ['feed', 'Live', Radio]];
 export function Crews() {
   const { wallet, provider } = useWallet() || {}; const addr = wallet?.address || ''; const sess = addr ? readChatSession(addr) : '';
-  const board = useCrewBoard(); const [mine, setMine] = useState(undefined); const [inv, setInv] = useState(null); const [busy, setBusy] = useState(''); const [q, setQ] = useState(null);
+  const board = useCrewBoard(); const warsD = useWars(); const [tab, setTab] = useRemembered('feeless.fam.tab', 'home'); const [file, setFile] = useState(null);
+  const [live, setLive] = useState(null);
+  useEffect(() => { let on = true; const go = () => sharedJson('/api/reputation/crews/live', { maxAge: 15000 }).then(x => on && x && setLive(x)).catch(() => {}); go(); const t = setInterval(() => { if (!document.hidden) go(); }, 20000); return () => { on = false; clearInterval(t); }; }, []);
+  const liveWars = (warsD?.wars || []).filter(w => w.state === 'live').length;
+  const [mine, setMine] = useState(undefined); const [inv, setInv] = useState(null); const [busy, setBusy] = useState(''); const [q, setQ] = useState(null);
   const [name, setName] = useState(''); const [tag, setTag] = useState(''); const [code, setCode] = useState(() => { try { return new URLSearchParams(window.location.search).get('join') || ''; } catch { return ''; } });
   const loadMine = () => { if (!addr || !sess) { setMine(null); return Promise.resolve(); } return fetch(apiUrl(`/api/reputation/crews/mine?address=${addr}&session=${encodeURIComponent(sess)}`)).then(r => (r.ok ? r.json() : { crew: null })).then(d => { setMine(d.crew || null); setInv({ invites: d.invites || [], sent: d.sent || [], canAdd: !!d.canAdd }); }).catch(() => setMine(null)); };
   useEffect(() => { loadMine(); const t = setInterval(() => { if (!document.hidden) loadMine(); }, 20000); return () => clearInterval(t); }, [addr, sess]);   // eslint-disable-line react-hooks/exhaustive-deps
@@ -203,23 +219,27 @@ export function Crews() {
     } catch (e) { toast.error(e.message); } finally { setBusy(''); }
   };
   const rows = board?.board || []; const owner = mine?.members?.find(m => m.owner)?.address === addr; const top = podium(rows);
+  const famTab = FAM_TABS.some(([k]) => k === tab) ? tab : 'home';
+  const warAct = (a, body, ok) => act('/api/reputation/crews/act', { act: a, ...body }, ok);
   return <section className="crw crw-noir" data-testid="crews">
     <MobScene heat={(mine?.vitals?.heat ?? 30) / 100} sign={mine ? mine.tag : 'FAMIGLIA'} />
-    {!mine && <header className="fnr-title"><span>🌹 LA FAMILIA</span><b>Famiglia prima di tutto.</b><small>Families rise on verified trades, settle scores in battle trenches, and wear what they earned.</small></header>}
+    <nav className="fam-tabs" role="tablist" aria-label="La Familia">{FAM_TABS.map(([k, label, Icon]) => <button key={k} type="button" role="tab" aria-selected={famTab === k} className={famTab === k ? 'active' : ''}
+      onClick={() => setTab(k)} data-testid={`fam-tab-${k}`}><Icon size={14} aria-hidden="true" /><span>{k === 'family' && mine ? mine.tag : label}</span>{k === 'wars' && liveWars ? <b>{liveWars}</b> : null}</button>)}</nav>
     <InviteInbox invites={inv?.invites} inFamily={!!mine} addr={addr} sess={sess} onDone={loadMine} />
-    {mine ? <>
-      <FamilyHero mine={mine} busy={busy} onLeave={() => { if (window.confirm(`Leave ${mine.name}?`)) act('/api/reputation/crews/leave', {}, 'Left the family'); }} />
-      <div className="frm-room"><FamilyTable mine={mine} owner={owner} addr={addr} sess={sess} onChanged={c => c && setMine(c)} /><FamilyWire mine={mine} /></div>
-      <div className="crw-mine m-card"><CrewHQ mine={mine} owner={owner} addr={addr} sess={sess} busy={busy} setBusy={setBusy} setMine={setMine} act={act} q={q} rows={rows} inv={inv} reload={loadMine} /></div>
-    </> : null}
-    <WarStrip />
-    <FamilyPulse />
+    {famTab === 'home' && <FamilyLanding board={board} live={live} wars={warsD} mine={mine} onGo={setTab} podium={
     <div className="crw-stage" data-testid="crew-podium">
       <header><span className="m-label">🌹 LA FAMILIA · FAMILY WARS THIS WEEK</span><small>{board ? `${board.total} famil${board.total === 1 ? 'y' : 'ies'} · verified trades only · live` : 'reading…'}</small></header>
       {top.length ? <div className="crw-podium">{[1, 0, 2].map(i => top[i] ? <div key={top[i].id} className={`crw-step ${['s1', 's2', 's3'][i]}`}><CrewCard3D r={top[i]} place={i + 1} /><span className="crw-plinth">{MEDAL[i]} +{PRIZES[i]} pts each</span></div> : null)}</div>
         : <p className="crw-hint m-dim">No families yet — be the first Don on the stage.</p>}
     </div>
-    {!mine && <div className="crw-mine m-card m-live">
+    } />}
+    {famTab === 'family' && (mine ? <>
+      <FamilyHero mine={mine} busy={busy} onLeave={() => { if (window.confirm(`Leave ${mine.name}?`)) act('/api/reputation/crews/leave', {}, 'Left the family'); }} />
+      <div className="frm-room"><FamilyTable mine={mine} owner={owner} addr={addr} sess={sess} onChanged={c => c && setMine(c)} onOpen={setFile} /><FamilyWire mine={mine} /></div>
+      <div className="crw-mine m-card"><CrewHQ mine={mine} owner={owner} addr={addr} sess={sess} busy={busy} setBusy={setBusy} setMine={setMine} act={act} q={q} rows={rows} inv={inv} reload={loadMine} /></div>
+    </> : <>
+      <header className="fnr-title"><span>🌹 LA FAMILIA</span><b>Famiglia prima di tutto.</b><small>Families rise on verified trades, settle scores in battle trenches, and wear what they earned.</small></header>
+    <div className="crw-mine m-card m-live">
       <>
         <header><span className="m-label">🌹 START A FAMILY OR JOIN ONE</span><small>{q ? `${costText(q, 'create')} · ${q.baseSeats} seats incl. you · +${q.packSeats} seats ${costText(q, 'seats')}` : '5 seats incl. you'} · a family shares no money</small></header>
         {mine === undefined ? <small className="m-dim">Loading…</small> : !sess ? <p className="crw-hint m-dim">Connect your wallet and open chat once to start or join a family.</p> : <div className="crw-forms">
@@ -232,7 +252,11 @@ export function Crews() {
             <input className="m-input" placeholder="Invite code or passcode (free to join)" value={code} maxLength={32} onChange={e => setCode(e.target.value)} aria-label="Invite code" />
             <button type="submit" className="m-btn" disabled={!!busy || !code.trim()}>Join</button></form></div>}
       </>
-    </div>}
+    </div>
+    </>)}
+    {famTab === 'wars' && <><WarStrip />{mine ? <div className="crw-mine m-card"><WarRoom mine={mine} owner={owner} rows={rows} busy={busy} act={warAct} /></div> : <PublicWars />}</>}
+    {famTab === 'map' && <FamilyMap rows={rows} mineId={mine?.id} wars={warsD?.wars} onOpen={() => setTab('board')} />}
+    {famTab === 'board' && <>
     <div className="crw-board m-card">
       <header><span className="m-label">🏆 WEEKLY FAMILY BOARD</span><small data-tip={board?.rule}>{board ? `${board.total} famil${board.total === 1 ? 'y' : 'ies'} · verified trades, last 7 days` : ''}</small></header>
       <p className="crw-prize" data-testid="crew-prizes">The top 3 families pay every member season points each week: <b>🥇 +{PRIZES[0]}</b> · <b>🥈 +{PRIZES[1]}</b> · <b>🥉 +{PRIZES[2]}</b></p>
@@ -243,6 +267,9 @@ export function Crews() {
         <span className="crw-bar" aria-hidden="true"><i style={{ transform: `scaleX(${Math.max(0.02, Math.min(1, Math.abs(Number(r.pct) || 0) / 50))})` }} className={r.pct >= 0 ? 'up' : 'dn'} /></span></li>)}</ol>
       <small className="m-dim crw-rule">{board?.rule}</small>
     </div>
+    </>}
+    {famTab === 'feed' && <FamilyPulse />}
+    {file && mine ? <MemberFile m={file} mine={mine} onClose={() => setFile(null)} /> : null}
   </section>;
 }
 

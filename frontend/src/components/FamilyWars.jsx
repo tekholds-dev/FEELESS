@@ -107,3 +107,12 @@ export function WarStrip() {
   return <section className="fwr-strip" data-testid="war-strip"><b className="fwr-h">⚔ FAMILY WARS</b>{ws.map(w => <span key={w.id} className={`s-${w.state}`}>[{w.a.tag}] <i>vs</i> [{w.b.tag}] · 🪙 {w.pot} · {w.state === 'live' ? `ends ${clockWord(w.endAt - now)}` : `bell ${clockWord(w.startAt - now)}`}</span>)}</section>;
 }
 
+
+// 🏟 every war, for anyone (no family needed): live first, then set, open, finished — read-only cards
+export function PublicWars() {
+  const d = useWars(); const [now, setNow] = useState(() => Date.now() / 1000);
+  useEffect(() => { const t = setInterval(() => { if (!document.hidden) setNow(Date.now() / 1000); }, 1000); return () => clearInterval(t); }, []);
+  const wars = (d?.wars || []).slice(0, 12);
+  return <div className="fwr" data-testid="public-wars">{wars.length ? <section className="fwr-list">{wars.map(w => <WarCard key={w.id} w={w} myId={null} owner={false} act={() => {}} busy now={now} />)}</section>
+    : <p className="m-dim fwr-empty">{d ? 'No family wars yet — join a family and your Don can call one out.' : 'Reading the war room…'}</p>}</div>;
+}

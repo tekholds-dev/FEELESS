@@ -31,3 +31,13 @@ body.theme-day .fnr-title b { color: #3a2a0a; text-shadow: none; }
 @media (max-width: 640px) { .crw-noir > .mob + * { margin-top: 110px; } }
 body.theme-day .crw-noir { background: #1a1410; }
 .crw-noir .fnr-title { display: grid; gap: 4px; justify-items: start; }
+/* 🌹 MOB & Rewards › Familia tabs */
+.fam-tabs { position: relative; z-index: 1; display: flex; flex-wrap: wrap; gap: 4px; padding: 5px; border-radius: 14px; border: 1px solid #d4af3740; background: #0b0806cc; }
+.fam-tabs button { display: inline-flex; align-items: center; gap: 6px; padding: 8px 13px; border-radius: 10px; border: 1px solid transparent; background: none; color: #c9b38a;
+  font: 700 12px 'Cinzel', Georgia, serif; letter-spacing: 1px; cursor: pointer; transition: color .15s, background .15s, transform .12s; }
+.fam-tabs button:hover { color: #fff1cf; background: #d4af3714; } .fam-tabs button:active { transform: scale(.97); }
+.fam-tabs button:focus-visible { outline: 2px solid #ffd36b; outline-offset: 2px; }
+.fam-tabs button.active { background: linear-gradient(135deg, #d4af37, #a8821e); color: #160f05; box-shadow: 0 6px 18px -8px #d4af37; }
+.fam-tabs b { min-width: 18px; padding: 0 5px; border-radius: 999px; background: #b3122e; color: #fff; font: 800 10px 'JetBrains Mono', monospace; }
+body.theme-day .fam-tabs { background: #fbf4e6e6; } body.theme-day .fam-tabs button { color: #6a5a3a; }
+@media (max-width: 640px) { .fam-tabs button { padding: 7px 9px; font-size: 11px; } }

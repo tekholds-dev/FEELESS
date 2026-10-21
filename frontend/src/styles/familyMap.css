@@ -1,0 +1,45 @@
+/* 🗺 The city (FamilyMap.jsx, fmap-*): a tilted 3×3 district plane, each district a block (top + two walls) in its family's colour.
+   CSS 3D only; moving parts = transform / opacity; still in fx-lite / reduced motion. */
+.fmap { display: grid; gap: 10px; padding: 14px; border-radius: 16px; border: 1px solid #d4af3740; background: radial-gradient(120% 90% at 50% 0%, #1e1530 0%, #0a0710 70%); }
+.fmap > header { display: flex; flex-wrap: wrap; gap: 4px 12px; align-items: baseline; }
+.crw-noir .fmap > header { display: flex; }
+.fmap-h { font: 700 12px 'Cinzel', Georgia, serif; letter-spacing: 2.4px; color: #d4af37; } .fmap > header small { color: #8a7a9c; font-size: 10.5px; }
+.fmap-wrap { display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(200px, 1fr); gap: 14px; align-items: center; }
+.fmap-stage { position: relative; height: 340px; min-width: 300px; perspective: 900px; perspective-origin: 50% 0%; overflow: hidden; border-radius: 14px;
+  background: radial-gradient(80% 60% at 50% 70%, #3a1a2a55, transparent 70%), linear-gradient(180deg, #120c1c, #07050b); }
+.fmap-sweep { position: absolute; left: 50%; top: -40%; width: 140%; height: 160%; margin-left: -70%; background: conic-gradient(from 0deg, transparent 0deg, #d4af3714 18deg, transparent 36deg);
+  animation: fmapSweep 9s linear infinite; pointer-events: none; }
+.fmap-plane { position: absolute; left: 54%; top: 46%; width: 240px; height: 240px; margin: -120px 0 0 -120px; display: grid; grid-template-columns: repeat(3, 1fr); grid-template-rows: repeat(3, 1fr);
+  transform-style: preserve-3d; transform: rotateX(56deg) rotateZ(-40deg); background: repeating-linear-gradient(0deg, #ffffff08 0 1px, transparent 1px 80px), repeating-linear-gradient(90deg, #ffffff08 0 1px, transparent 1px 80px), #0d0a14;
+  box-shadow: 0 0 0 2px #d4af3722, 0 40px 80px #000; }
+.fmap-tile { position: relative; transform-style: preserve-3d; }
+.fmap-block { position: absolute; inset: 0; transform-style: preserve-3d; transform-origin: 50% 50% 0; animation: fmapRise .8s cubic-bezier(.2, .8, .2, 1) both; animation-delay: calc(var(--i) * 70ms); }
+.fmap-block i { position: absolute; display: block; }
+.fmap-top { inset: 8px; transform: translateZ(calc(var(--h) * 70px)); background: linear-gradient(135deg, color-mix(in srgb, var(--c) 92%, #fff), var(--c));
+  box-shadow: 0 0 0 1px #ffffff30 inset, 0 0 24px color-mix(in srgb, var(--c) 50%, transparent); }
+.fmap-s1 { left: 8px; right: 8px; bottom: 8px; height: calc(var(--h) * 70px); transform-origin: bottom; transform: rotateX(-90deg); background: color-mix(in srgb, var(--c) 55%, #000); }
+.fmap-s2 { top: 8px; bottom: 8px; right: 8px; width: calc(var(--h) * 70px); transform-origin: right; transform: rotateY(90deg); background: color-mix(in srgb, var(--c) 38%, #000); }
+.fmap-tile.is-free .fmap-block i { background: #241d2e; box-shadow: none; }
+.fmap-tile.is-hover .fmap-top { box-shadow: 0 0 0 2px #fff inset, 0 0 34px var(--c); }
+.fmap-beacon { position: absolute; left: 50%; top: 50%; width: 10px; height: 10px; margin: -5px; border-radius: 50%; background: #fff; box-shadow: 0 0 18px 6px #ffd36b;
+  transform: translateZ(calc(var(--h) * 70px + 26px)); animation: fmapBeacon 1.6s ease-in-out infinite; }
+.fmap-war { position: absolute; left: 50%; top: 50%; margin: -11px; font-size: 18px; font-style: normal; transform: translateZ(calc(var(--h) * 70px + 16px)) rotateZ(38deg) rotateX(-58deg);
+  filter: drop-shadow(0 0 6px #ff4d6d); animation: fmapWar 1.1s ease-in-out infinite; }
+.fmap-legend { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
+.fmap-legend button { width: 100%; display: grid; grid-template-columns: 10px minmax(0, 1fr) auto auto; grid-template-areas: 'c n w m' 'c o o o'; gap: 0 8px; align-items: center; text-align: left;
+  padding: 6px 9px; border-radius: 9px; border: 1px solid #ffffff10; background: #ffffff05; color: #e9dcf5; cursor: pointer; transition: transform .12s ease, border-color .15s ease, background .15s ease; }
+.fmap-legend button:hover:not(:disabled), .fmap-legend li.is-hover button { transform: translateX(3px); border-color: var(--c); background: #ffffff0c; }
+.fmap-legend button:focus-visible { outline: 2px solid #ffd36b; outline-offset: 2px; } .fmap-legend button:disabled { cursor: default; opacity: .6; }
+.fmap-legend button > i { grid-area: c; width: 10px; height: 10px; border-radius: 3px; background: var(--c); box-shadow: 0 0 8px var(--c); }
+.fmap-legend b { grid-area: n; font-size: 12px; } .fmap-legend span { grid-area: o; font-size: 10.5px; color: #a99bbd; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.fmap-legend em { font-style: normal; } .fmap-legend li.is-mine button { border-color: #ffd36b88; background: #d4af3714; }
+.fmap-sel { margin: 0; font-size: 12px; color: #c9b8dc; } .fmap-sel b { color: #f5e2b0; }
+@keyframes fmapRise { from { transform: scaleZ(.01); opacity: 0; } to { transform: scaleZ(1); opacity: 1; } }
+@keyframes fmapSweep { to { transform: rotate(360deg); } }
+@keyframes fmapBeacon { 0%, 100% { opacity: .55; } 50% { opacity: 1; } }
+@keyframes fmapWar { 0%, 100% { opacity: .6; } 50% { opacity: 1; } }
+body.fx-lite .fmap-sweep, body.fx-lite .fmap-beacon, body.fx-lite .fmap-war, body.fx-lite .fmap-block { animation: none; }
+@media (prefers-reduced-motion: reduce) { .fmap-sweep, .fmap-beacon, .fmap-war, .fmap-block { animation: none; } .fmap-legend button { transition: none; } }
+body.theme-day .fmap { background: radial-gradient(120% 90% at 50% 0%, #efe6f8, #f9f5fc 70%); } body.theme-day .fmap-legend b, body.theme-day .fmap-sel b { color: #2a1a3a; }
+body.theme-day .fmap-legend button { color: #2a1a3a; background: #ffffffaa; }
+@media (max-width: 760px) { .fmap-wrap { grid-template-columns: 1fr; } .fmap-stage { height: 300px; } .fmap-plane { transform: rotateX(58deg) rotateZ(-38deg) scale(.82); } }

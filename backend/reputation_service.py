@@ -8489,6 +8489,7 @@ def _crew_view(c, pieces, with_code=False):
             'codeSet': bool(c.get('codeHash')), 'codeTail': c.get('codeTail') if with_code else None,
             'badge': _cr.badge_view(c, (_json_load(CREWS_PATH, {}) or {}).get('awards'), _crew_cfg(), _is_staff(c.get('owner'))),
             'vitals': vit_, 'roles': {k: list(v[:2]) for k, v in _froom.ROLES.items()}, 'promote': list(_froom.PROMOTE),
+            'card': _cr.card_view(c), 'cardOpts': {k: list(v) for k, v in _cr.CARD.items()},
             **({'wire': _froom.wire(pieces, rk_, lambda w: names_.get(w) or w[:4])} if with_code else {}),
             'launch': c.get('launch'), 'bountiesOpen': sum(1 for b_ in c.get('bounties') or [] if b_.get('state') == 'open'), 'war': _fwar.record(c),
             'points': {m: int(v) for m, v in (c.get('points') or {}).items()} if with_code else None,
@@ -8736,6 +8737,7 @@ class CrewAct(BaseModel):
     to: str = Field(default='', max_length=60)       # ✉ the wallet invited / added
     role: Optional[str] = Field(default=None, max_length=12)   # 🎩 the Don's role / rank for `to`
     rank: Optional[str] = Field(default=None, max_length=12)
+    card: dict = Field(default_factory=dict)          # 🃏 the Don's family-card style (style · fx · line)
 
 
 @app.post('/api/reputation/crews/act')
@@ -8787,6 +8789,8 @@ async def crew_act(p: CrewAct):
                 _cr.accept(st, me, p.id, now)
             elif p.act == 'decline':
                 _cr.decline(st, me, p.id, now)
+            elif p.act == 'card':       # 🃏 the Don styles the family's card (fixed lists)
+                _cr.set_card(st, me, p.card, now)
             elif p.act == 'role':       # 🎩 the Don gives a member a job and / or a fixed rank
                 import family_room as _froom
                 c_ = _cr.crew_of(st, me)
