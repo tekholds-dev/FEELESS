@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
-import { Coins, Shield, Crosshair, Briefcase, RotateCw, Hammer, ArrowLeft } from 'lucide-react';
+import { Coins, Shield, Crosshair, Briefcase, Eye, RotateCw, Hammer, ArrowLeft } from 'lucide-react';
 import { apiUrl } from '../lib/api';
 import '../styles/familyBlock.css';
 
@@ -50,6 +50,7 @@ export function FamilyBlock({ cid, addr, sess, onBack }) {
       const r = await fetch(apiUrl('/api/reputation/familia-city/act'), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ address: addr, session: sess, ...body }) });
       const b = await r.json().catch(() => ({})); if (!r.ok) throw new Error(b.detail || 'Refused.');
       setV({ ...b, _at: Date.now() / 1000 });
+      if (b.result?.stake) toast[b.result.win ? 'success' : 'error'](b.result.win ? `🎰 won ${Math.round(b.result.stake * 0.9).toLocaleString('en-US')} MP` : `🎰 lost ${b.result.stake.toLocaleString('en-US')} MP`);
       if (b.result?.collected) { setBurst(x => x + 1); toast.success(`💰 ${b.result.collected.toLocaleString('en-US')} MP collected`); }
       else if (b.result && 'win' in b.result) toast[b.result.win ? 'success' : 'error'](b.result.win ? `🔫 took ${b.result.take.toLocaleString('en-US')} MP` : '☠ the hit failed — one hitter lost');
       else toast.success(ok);
@@ -95,20 +96,24 @@ export function FamilyBlock({ cid, addr, sess, onBack }) {
         <aside className="fbk-side">
           {lot ? (lot.b ? <div className="fbk-card" data-testid="lot-card">
             <header><i>{lot.icon}</i><div><b>{lot.name}</b><small>LOT {lot.lot + 1} · LEVEL {lot.lvl}/5 {'★'.repeat(lot.lvl)}</small></div></header>
-            <p>{lot.what}</p>
+            <p>{lot.what}</p>{lot.func ? <p className="fbk-func">⚙ {lot.func}</p> : null}
             <div className="fbk-kv"><span><em>MAKES</em><b>{lot.mph} MP/h</b></span><span><em>NEXT LEVEL</em><b>{lot.next != null ? `${lot.next.toLocaleString('en-US')} MP` : 'max'}</b></span></div>
             {can && lot.next != null ? <button type="button" className="m-btn m-go" disabled={busy} onClick={() => act({ act: 'upgrade', lot: lot.lot }, `⬆ ${lot.name} upgraded`)} data-testid="lot-upgrade"><Hammer size={14} /> Upgrade · {v.staff ? 'free' : `${lot.next.toLocaleString('en-US')} MP`}</button> : null}
           </div> : <div className="fbk-card" data-testid="lot-build">
             <header><i>🏗</i><div><b>Empty lot {lot.lot + 1}</b><small>{can ? 'pick a store to build' : mine ? 'only the Don or the Underboss builds' : "another family's lot"}</small></div></header>
             {mine ? <ul className="fbk-cat">{(v.catalog || []).map(c => <li key={c.key}><button type="button" disabled={!can || !c.ok || busy || c.cost > v.bank} onClick={() => act({ act: 'build', lot: lot.lot, kind: c.key }, `🏗 ${c.name} going up`)} data-testid={`build-${c.key}`}>
-              <i>{c.icon}</i><span><b>{c.name}</b><small>{c.ok ? c.what : `🔒 ${c.need}`}</small></span><em>{c.mph ? `${c.mph}/h` : '+2 %'}<br />{c.cost ? `${c.cost.toLocaleString('en-US')} MP` : 'free'}</em></button></li>)}</ul> : null}
+              <i>{c.icon}</i><span><b>{c.name}</b><small>{c.ok ? (c.func || c.what) : `🔒 ${c.need}`}</small></span><em>{c.mph ? `${c.mph}/h` : '+2 %'}<br />{c.cost ? `${c.cost.toLocaleString('en-US')} MP` : 'free'}</em></button></li>)}</ul> : null}
           </div>) : <div className="fbk-card"><header><i>🏙</i><div><b>Tap a lot</b><small>see what it makes · build · upgrade</small></div></header>
             <p>Stores make mob points (MP) every hour into the stash. Collect it into the bank, then build bigger stores. Bigger stores unlock as the family grows, wins wars and makes MP.</p></div>}
           {mine ? <div className="fbk-card">
             <button type="button" className="m-btn m-go fbk-collect" disabled={busy || stash < 1} onClick={() => act({ act: 'collect' })} data-testid="block-collect"><Coins size={15} /> Collect {stash.toLocaleString('en-US')} MP</button>
-            <h5>GOONS · {Object.values(v.goons).reduce((a, b) => a + b, 0)}/{v.goonCap}</h5>
-            <div className="fbk-goons">{(v.goonTypes || []).map(g => { const Ic = g.key === 'guard' ? Shield : g.key === 'hitter' ? Crosshair : Briefcase;
-              return <button key={g.key} type="button" disabled={!can || busy || g.cost > v.bank} onClick={() => act({ act: 'hire', kind: g.key }, `${g.icon} ${g.name} hired`)} data-tip={g.what} data-testid={`hire-${g.key}`}>
+            <p className="fbk-streak" data-tip="Collect every day: +5 % production a day, up to +50 %. Members' verified FEELESS trades this week boost production up to ×3.">🔥 streak {v.streak || 0}d · +{v.streakBonus || 0} % · trading boost ×{v.boost}{v.houseTax != null ? ` · house ${v.houseTax} %` : ''}</p>
+            {v.casino ? <button type="button" className="m-btn fbk-dice" disabled={busy || v.bank < 200} onClick={() => act({ act: 'dice', lot: Math.max(10, Math.floor(v.bank * 0.05)) })} data-tip="Once an hour: stake 5 % of the bank, a win pays 1.9× — earned MP only, points only" data-testid="block-dice">🎰 Roll {Math.max(10, Math.floor(v.bank * 0.05)).toLocaleString('en-US')} MP</button> : null}
+            <h5>RECRUITS · {(v.crew || []).length}/{v.goonCap}</h5>
+            {(v.crew || []).length ? <ul className="fbk-crew">{v.crew.map(r => <li key={r.id} className={r.hurt ? 'is-hurt' : ''} data-tip={r.hurt ? `hurt — back in ${Math.ceil(r.hurt / 60)} min` : r.next ? `level ${r.lvl} · ${r.xp}/${r.next} XP — trains every hour` : 'top level'}>
+              <i>{r.icon}</i><b>L{r.lvl}</b><u><s style={{ transform: `scaleX(${r.next ? Math.min(1, r.xp / r.next) : 1})` }} /></u></li>)}</ul> : null}
+            <div className="fbk-goons">{(v.goonTypes || []).map(g => { const Ic = g.key === 'guard' ? Shield : g.key === 'hitter' ? Crosshair : g.key === 'spy' ? Eye : Briefcase;
+              return <button key={g.key} type="button" disabled={!can || busy || g.cost > v.bank || g.ok === false} onClick={() => act({ act: 'hire', kind: g.key }, `${g.icon} ${g.name} hired`)} data-tip={g.what} data-testid={`hire-${g.key}`}>
                 <Ic size={15} /><b>{v.goons[g.key] || 0}</b><small>{g.name}</small><em>{g.cost ? `${g.cost} MP` : 'free'}</em></button>; })}</div>
             {(v.rivals || []).length ? <><h5>🔫 ROB A STASH</h5><ul className="fbk-rivals">{v.rivals.map(r => <li key={r.id}><span><b>[{r.tag}]</b> {r.name}<small>stash {r.stash.toLocaleString('en-US')} · 🛡 {r.guards}</small></span>
               <button type="button" disabled={!can || busy || !(v.goons.hitter > 0) || r.cool > 0} onClick={() => act({ act: 'rob', vs: r.id })} data-tip={`Your hitters vs their guards: ${Math.round(r.odds * 100)} % — a win takes 25 % of their stash; a loss costs a hitter`} data-testid={`rob-${r.tag}`}>

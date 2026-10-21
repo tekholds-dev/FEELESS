@@ -2308,7 +2308,7 @@ body.theme-day .notif-pop{background:#eef6f1;border-color:#9fd3b6}body.theme-day
 body.theme-day .hint::after{background:#eef6f1;color:#173b2b;border-color:#9fd3b6;box-shadow:0 10px 30px #0002}
 /* Shop, wars, pnl, snipe, shortcuts */
 .shop-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:8px}.shop-item{display:grid;gap:6px;padding:12px;border-radius:12px;border:1px solid var(--line)}.shop-item span{font:700 12px 'JetBrains Mono',monospace;color:#f5c542}.shop-item.owned{border-color:rgba(18,192,122,.5);background:rgba(18,192,122,.06)}
-.wars{border-color:rgba(179,136,255,.4)}@media (max-width:760px){}
+.wars{border-color:rgba(179,136,255,.4)}
 .war-f{display:grid;gap:6px;padding:14px;border-radius:14px;border:1px solid var(--line)}.war-f.mine{border-color:var(--mint);box-shadow:0 0 18px rgba(18,192,122,.25)}.war-f b{font-size:18px}.war-f span{font-size:12px;color:var(--muted)}.war-f em{font-style:normal;font-size:11px;color:var(--mint)}
 .war-bar{height:10px;border-radius:999px;background:#ffffff10;overflow:hidden}.war-bar i{display:block;height:100%;transition:width .8s}
 .pnl-rows{display:grid;gap:4px}.pnl-rows>div{display:grid;grid-template-columns:1fr auto auto auto;gap:12px;padding:7px 10px;border-radius:9px;border:1px solid #ffffff0a;font-size:12.5px}
@@ -2326,7 +2326,7 @@ body.theme-day :is(.shop-item,.war-f,.pnl-rows>div){background:#eef6f1;border-co
 .war-f.leading{box-shadow:0 0 0 1px currentColor inset,0 0 30px color-mix(in srgb,currentColor 35%,transparent)}.war-lead{font-style:normal;font-size:11px;color:#f5c542}
 .war-join{width:100%;min-height:40px;border-radius:12px;border:1px solid currentColor;background:color-mix(in srgb,currentColor 12%,transparent);color:inherit;font-weight:800;cursor:pointer;transition:.2s}.war-join:hover{background:currentColor;color:#04120b}
 .war-mine{font-style:normal;font-size:12px}
-.war-ring,.war-emblem) {animation:none!important}
+body.reduced-motion-setting :is(.war-ring,.war-emblem){animation:none!important}
 /* ===== The Trenches: live atmosphere ===== */
 .page-chat{overflow:hidden}
 .page-chat::after{content:'';position:absolute;inset:0;pointer-events:none;z-index:0;background-image:radial-gradient(2px 2px at 12% 90%,#39ff14aa 50%,transparent 51%),radial-gradient(2px 2px at 38% 95%,#f5c542aa 50%,transparent 51%),radial-gradient(1.5px 1.5px at 64% 92%,#15d16aaa 50%,transparent 51%),radial-gradient(2px 2px at 86% 97%,#39ff14aa 50%,transparent 51%);background-size:100% 100%;animation:trench-embers 9s linear infinite;opacity:.7}

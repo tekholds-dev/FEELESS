@@ -8615,7 +8615,8 @@ async def admin_fees_crews(request: Request, body: dict):
         if part in _cr.PARTS and opt in _cr.PARTS[part] and isinstance(v, dict) and (v.get('metric') in _cr.METRICS or v.get('metric') in (None, '')):
             unl[k] = {'metric': v.get('metric') or None, 'min': max(0.0, min(100000.0, float(v.get('min') or 0)))}
     cfg = {'createUsd': num(body.get('createUsd'), _cr.CREATE_USD), 'packUsd': num(body.get('packUsd'), _cr.PACK_USD),
-           'badgeUsd': num(body.get('badgeUsd', prev.get('badgeUsd', _cr.BADGE_USD)), _cr.BADGE_USD), 'unlocks': unl}
+           'badgeUsd': num(body.get('badgeUsd', prev.get('badgeUsd', _cr.BADGE_USD)), _cr.BADGE_USD), 'unlocks': unl,
+           'houseTaxPct': max(0.0, min(20.0, float(body.get('houseTaxPct', prev.get('houseTaxPct', 5)) or 0)))}   # 🏦 the city's house tax
     async with _admin_lock:
         d = _admin_load(); d.setdefault('fees', {})['crews'] = cfg
         _audit(d, admin, 'fees', f"familia · ${cfg['createUsd']:g} to start · ${cfg['packUsd']:g} per +{_cr.PACK_SEATS} seats · ${cfg['badgeUsd']:g} badge restyle · {len(unl)} unlock lines")
@@ -8820,7 +8821,7 @@ def _city_ctx(c, me, now):
     ms_ = {m: _cr.stats(pcs_.get(m, [])) for m in c['members']}
     rk_ = {w: v[0] for w, v in _froom.ranks(c, _fwar.ranks(c, ms_)).items()}
     trades_ = sum(len(v) for v in pcs_.values())
-    return 1 + min(1.0, trades_ / 50), rk_
+    return 1 + min(2.0, trades_ / 25), rk_   # 🏙 trading on FEELESS grows the city: ×1 … ×3 from the members' verified trades this week
 
 
 def _city_rivals(st, c, now):
@@ -8829,10 +8830,18 @@ def _city_rivals(st, c, now):
         if o_['id'] == c['id']:
             continue
         oc_ = _fcity.accrue(_fcity.city_of(o_, now), now)
-        out.append({'id': o_['id'], 'tag': o_.get('tag'), 'name': o_.get('name'), 'stash': int(oc_['stash']), 'guards': oc_['goons'].get('guard', 0),
-                    'power': _fcity.power(oc_), 'odds': round(_fcity.rob_odds(_fcity.city_of(c, now), oc_), 2),
+        out.append({'id': o_['id'], 'tag': o_.get('tag'), 'name': o_.get('name'), 'stash': int(oc_['stash']), 'guards': _fcity.goons(oc_, now).get('guard', 0),
+                    'power': _fcity.power(oc_), 'odds': round(_fcity.rob_odds(_fcity.city_of(c, now), oc_, now), 2),
                     'cool': max(0, int(_fcity.ROB_COOLDOWN - (now - float((_fcity.city_of(c, now).get('robAt') or {}).get(o_['id']) or 0))))})
     return sorted(out, key=lambda r: -r['stash'])[:12]
+
+
+def _city_tax():
+    """🏦 The house tax on every collect (owner-set in HQ › Fees › La Familia, 0–20 %, default 5 %)."""
+    try:
+        return max(0.0, min(0.20, float(_crew_cfg().get('houseTaxPct', _fcity.HOUSE_TAX * 100)) / 100))
+    except (TypeError, ValueError):
+        return _fcity.HOUSE_TAX
 
 
 @app.get('/api/reputation/familia-city')
@@ -8845,9 +8854,10 @@ async def familia_city(address: str, session: str):
         if not c:
             raise HTTPException(404, 'Join a family to build a block.')
         boost_, rk_ = _city_ctx(c, me, now)
-        v_ = _fcity.view(c, now, staff=_is_staff(me), boost=boost_, mine=True)
+        v_ = _fcity.view(c, now, staff=_is_staff(me), boost=boost_, mine=True, tax=_city_tax())
         v_['rivals'] = _city_rivals(st, c, now)
         v_['canBuild'] = _is_staff(me) or me == c.get('owner') or rk_.get(me) == 'underboss'
+        v_['house'] = int(st.get('house') or 0)
         _json_save(CREWS_PATH, st)
     return v_
 
@@ -8866,7 +8876,7 @@ class CityAct(BaseModel):
     address: str
     session: str
     act: str = Field(..., max_length=12)
-    lot: int = -1
+    lot: int = Field(default=-1, ge=-1, le=10_000_000)
     kind: str = Field(default='', max_length=16)
     vs: str = Field(default='', max_length=16)
 
@@ -8892,7 +8902,11 @@ async def familia_city_act(p: CityAct):
             elif p.act == 'hire':
                 _fcity.hire(c, me, p.kind, now, staff_, rk_)
             elif p.act == 'collect':
-                res_ = {'collected': _fcity.collect(c, me, now)}
+                got_, house_ = _fcity.collect(c, me, now, _city_tax())
+                st['house'] = int(st.get('house') or 0) + house_   # 🏦 the FEELESS house pool (points) — pays the season's prizes
+                res_ = {'collected': got_, 'house': house_}
+            elif p.act == 'dice':
+                res_ = _fcity.casino(c, me, p.lot, now)
             elif p.act == 'rob':
                 o_ = (st.get('crews') or {}).get(p.vs)
                 if not o_:
@@ -8904,9 +8918,10 @@ async def familia_city_act(p: CityAct):
         except ValueError as e:
             raise HTTPException(400, str(e))
         _json_save(CREWS_PATH, st)
-        v_ = _fcity.view(c, now, staff=staff_, boost=boost_, mine=True)
+        v_ = _fcity.view(c, now, staff=staff_, boost=boost_, mine=True, tax=_city_tax())
         v_['rivals'] = _city_rivals(st, c, now)
         v_['canBuild'] = staff_ or me == c.get('owner') or rk_.get(me) == 'underboss'
+        v_['house'] = int(st.get('house') or 0)
     _crew_cache['data'] = None
     return {**v_, 'result': res_}
 
