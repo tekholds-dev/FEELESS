@@ -135,7 +135,7 @@ def rate(city, boost=1.0, now=None):
     parks = sum(1 for l in city['lots'].values() if l['b'] == 'park')
     earners = sum(1 for r in city['crew'] if r['k'] == 'earner' and r['hurt'] <= t)
     mult = (1 + parks * PARK_BOOST + min(0.40, 0.05 * lvl_of(city, 'gas')) + 0.10 * lvl_of(city, 'tower') + earners * EARNER_BOOST + streak_bonus(city))
-    return base * mult * max(1.0, min(3.0, boost))
+    return base * mult * max(1.0, min(4.5, boost))
 
 
 def gain_xp(r, xp):
@@ -360,12 +360,12 @@ def view(crew, now, staff=False, boost=1.0, mine=False, tax=HOUSE_TAX):
     lots = [{'lot': i, **({'b': l['b'], 'lvl': l['lvl'], 'at': l['at'], 'name': CATALOG[l['b']][0], 'icon': CATALOG[l['b']][1],
                            'mph': round(CATALOG[l['b']][3] * l['lvl'], 1), 'next': upgrade_cost(l['b'], l['lvl'], city) if l['lvl'] < MAX_LEVEL else None,
                            'what': CATALOG[l['b']][5], 'func': FUNC[l['b']]} if (l := city['lots'].get(str(i))) else {})} for i in range(LOTS)]
-    out = {'id': crew.get('id'), 'tag': crew.get('tag'), 'name': crew.get('name'), 'lots': lots, 'rate': round(r_, 1), 'boost': round(max(1.0, min(3.0, boost)), 2),
+    out = {'id': crew.get('id'), 'tag': crew.get('tag'), 'name': crew.get('name'), 'lots': lots, 'rate': round(r_, 1), 'boost': round(max(1.0, min(4.5, boost)), 2),
            'stash': int(city['stash']), 'stashCap': int(stash_cap(city, r_)), 'bank': int(city['bank']), 'mpEver': int(city.get('mpEver') or 0),
            'goons': goons(city, now), 'goonCap': goon_cap(city), 'level': block_level(city), 'power': power(city, now), 'staff': bool(staff),
            'raidsWon': int(city.get('raidsWon') or 0), 'streak': int(city['streak'].get('days') or 0), 'streakBonus': round(streak_bonus(city) * 100),
            'crew': [{'id': r['id'], 'k': r['k'], 'icon': GOONS[r['k']][1], 'lvl': r['lvl'], 'xp': int(r.get('xp') or 0),
-                     'next': XP_LEVEL * r['lvl'] if r['lvl'] < MAX_LEVEL else None, 'hurt': max(0, int(r['hurt'] - now))} for r in city['crew']]}
+                     'next': XP_LEVEL * r['lvl'] if r['lvl'] < MAX_LEVEL else None, 'hurt': max(0, int(r['hurt'] - now)), 'special': r.get('special')} for r in city['crew']]}
     if mine:
         out['catalog'] = [{'key': k, 'name': v[0], 'icon': v[1], 'cost': 0 if staff else build_cost(k, city), 'mph': v[3], 'what': v[5], 'func': FUNC[k],
                            'ok': unlocked(k, met, staff), 'need': None if unlocked(k, met, staff) else need_word(k, met)} for k, v in CATALOG.items()]

@@ -8821,7 +8821,8 @@ def _city_ctx(c, me, now):
     ms_ = {m: _cr.stats(pcs_.get(m, [])) for m in c['members']}
     rk_ = {w: v[0] for w, v in _froom.ranks(c, _fwar.ranks(c, ms_)).items()}
     trades_ = sum(len(v) for v in pcs_.values())
-    return 1 + min(2.0, trades_ / 25), rk_   # 🏙 trading on FEELESS grows the city: ×1 … ×3 from the members' verified trades this week
+    rush_ = 1.5 if float((c.get('world') or {}).get('rushUntil') or 0) > now else 1.0   # ⚡ the Rush hour reward
+    return (1 + min(2.0, trades_ / 25)) * rush_, rk_   # 🏙 trading on FEELESS grows the city: ×1 … ×3 from the members' verified trades this week
 
 
 def _city_rivals(st, c, now):
@@ -8903,7 +8904,8 @@ async def familia_city_act(p: CityAct):
                 _fcity.hire(c, me, p.kind, now, staff_, rk_)
             elif p.act == 'collect':
                 got_, house_ = _fcity.collect(c, me, now, _city_tax())
-                st['house'] = int(st.get('house') or 0) + house_   # 🏦 the FEELESS house pool (points) — pays the season's prizes
+                st['house'] = int(st.get('house') or 0) + house_
+                c.setdefault('world', {})['collects'] = int((c.get('world') or {}).get('collects') or 0) + 1   # 🗺 counted for the recruitment challenges   # 🏦 the FEELESS house pool (points) — pays the season's prizes
                 res_ = {'collected': got_, 'house': house_}
             elif p.act == 'dice':
                 res_ = _fcity.casino(c, me, p.lot, now)
@@ -8924,6 +8926,328 @@ async def familia_city_act(p: CityAct):
         v_['house'] = int(st.get('house') or 0)
     _crew_cache['data'] = None
     return {**v_, 'result': res_}
+
+
+# 🗺 LA FAMILIA WORLD (family_world.py): the big city — 6 boroughs × 16 blocks, bridges, turf, CPU towns, cartels from FEELESS rep, raids as chess
+# moves, recruitment challenges, errands, rewards and the FEECAT redeem claim. Points only; the redeem is a claim the owner pays by hand.
+import family_world as _fworld
+
+_cartel_cache = {'at': 0.0, 'rows': []}
+
+
+def _cartels_now(now):
+    """Cartels rebuilt from the blocklist at most every 10 min (in a thread: 20K wallets)."""
+    if now - _cartel_cache['at'] < 600 and _cartel_cache['rows']:
+        return _cartel_cache['rows']
+    try:
+        _cartel_cache['rows'] = _fworld.cartels(_block_load()['wallets'], now)
+    except Exception:
+        pass
+    _cartel_cache['at'] = now
+    return _cartel_cache['rows']
+
+
+def _world_target(st, w, tid, now, cartels_):
+    """→ (target dict for the board, its borough, kind, stash). Families / CPU towns / cartels."""
+    if tid.startswith('cpu-'):
+        t = _fworld.cpu_town(tid, now)
+        if not t:
+            raise ValueError('No such town.')
+        return t, t['borough'], 'cpu', int(_fworld.cpu_stash(w, tid, now)['stash'])
+    if tid.startswith('cartel-'):
+        c = next((x for x in cartels_ if x['id'] == tid), None)
+        if not c:
+            raise ValueError('That cartel broke up.')
+        t = _fworld.cartel_town(c)
+        s = w['cpu'].setdefault(tid, {'stash': t['rate'] * 6, 'at': now})
+        s['stash'] = min(t['rate'] * 10, s['stash'] + t['rate'] * max(0.0, now - s['at']) / 3600)
+        s['at'] = now
+        return t, 'docks', 'cartel', int(s['stash'])
+    o = (st.get('crews') or {}).get(tid)
+    if not o:
+        raise ValueError('No such family.')
+    oc = _fcity.accrue(_fcity.city_of(o, now), now)
+    lots = [{'lot': int(k), 'b': v['b'], 'lvl': v['lvl']} for k, v in oc['lots'].items()]
+    guards = [r['lvl'] for r in _fcity.ready(oc, now, 'guard')]
+    home = _fworld.ensure_home(w, tid)
+    return {'id': tid, 'tag': o.get('tag'), 'name': o.get('name'), 'lots': lots, 'guards': guards}, _fworld.borough_of(home), 'family', int(oc['stash'])
+
+
+def _world_settle(st, w, r, now):
+    """A finished raid moves its loot: from the target's stash into the raiders' bank; wins counted for the challenges."""
+    if r.get('settled') or r['status'] != 'done':
+        return
+    r['settled'] = True
+    a = (st.get('crews') or {}).get(r['a']['id'])
+    tid = r['b']['id']
+    taken_ = int(r['loot'])
+    if tid.startswith(('cpu-', 'cartel-')):
+        s = w['cpu'].get(tid)
+        if s:
+            s['stash'] = max(0.0, s['stash'] - taken_)
+    else:
+        o = (st.get('crews') or {}).get(tid)
+        if o:
+            oc = _fcity.city_of(o, now)
+            taken_ = min(taken_, int(oc['stash']))
+            oc['stash'] = max(0.0, oc['stash'] - taken_)
+            oc['log'] = ([{'at': now, 'what': f"🚨 raided by {r['a']['tag']} — lost {taken_:,} MP"}] + (oc.get('log') or []))[:40]
+    if a:
+        ac = _fcity.city_of(a, now)
+        paid = int(taken_ * (_fworld.JUSTICE if r['kind'] == 'cartel' else 1))
+        r['paid'] = paid
+        ac['bank'] += paid
+        ac['mpEver'] = ac.get('mpEver', 0) + paid
+        m = a.setdefault('world', {})
+        if paid > 0:
+            m['raidsWon'] = int(m.get('raidsWon') or 0) + 1
+            k = {'cpu': 'cpuWins', 'cartel': 'cartelWins'}.get(r['kind'])
+            if k:
+                m[k] = int(m.get(k) or 0) + 1
+        if r['hurt']:
+            hs = sorted(_fcity.ready(ac, now, 'hitter'), key=lambda x: -x['lvl'])[:r['hurt']]
+            for h in hs:
+                h['hurt'] = now + 3600
+    w['log'] = ([{'at': now, 'what': f"⚔ {r['a']['tag']} raided {r['b']['tag']} — {r['end']}, {int(r.get('paid') or 0):,} MP"}] + w['log'])[:60]
+
+
+def _world_tick(st, w, now):
+    for r in list(w['raids'].values()):
+        _fworld.tick(r, now)
+        _world_settle(st, w, r, now)
+        if r['status'] == 'done' and now - float(r.get('endAt') or now) > 6 * 3600:
+            w['raids'].pop(r['id'], None)
+
+
+def _world_metrics(st, c, now):
+    city = _fcity.city_of(c, now)
+    m = c.get('world') or {}
+    w = st.setdefault('world', _fworld.blank())
+    return {'errands': int(m.get('errands') or 0), 'collects': int(m.get('collects') or 0), 'streak': int((city.get('streak') or {}).get('days') or 0),
+            'raidsWon': int(m.get('raidsWon') or 0), 'cpuWins': int(m.get('cpuWins') or 0), 'cartelWins': int(m.get('cartelWins') or 0),
+            'members': len(c.get('members') or []), 'turf': len(_fworld.turf_of(w, c['id']))}
+
+
+_fuse_fam_c = {'n': -1, 'v': None}
+
+
+def _fuse_family_stats(now):
+    """⚛ The Fuse wallet's real trades this week — shown in the creator's family (confirmed fills only, price result, fees apart)."""
+    try:
+        rows = _fw_full_ledger()
+    except Exception:
+        return None
+    if _fuse_fam_c['n'] == len(rows) and _fuse_fam_c['v']:
+        return _fuse_fam_c['v']
+    wk = [r for r in rows if r.get('status') == 'filled' and r.get('side') in ('buy', 'sell') and now - float(r.get('at') or 0) < 7 * 86400]
+    sells = [r for r in wk if r['side'] == 'sell' and r.get('costUsd')]
+    real = sum(float(r.get('usd') or 0) - float(r.get('costUsd') or 0) for r in sells)
+    v = {'trades': len(wk), 'buys': sum(1 for r in wk if r['side'] == 'buy'), 'sells': len(sells),
+         'won': sum(1 for r in sells if float(r.get('usd') or 0) > float(r.get('costUsd') or 0)),
+         'volumeUsd': round(sum(float(r.get('usd') or 0) for r in wk), 2), 'realizedUsd': round(real, 2)}
+    _fuse_fam_c.update(n=len(rows), v=v)
+    return v
+
+
+def _world_feecat_rate():
+    cfg = _crew_cfg()
+    try:
+        return (max(10_000, int(cfg.get('redeemMp') or _fworld.FEECAT_RATE[0])), max(1, int(cfg.get('redeemFeecat') or _fworld.FEECAT_RATE[1])))
+    except (TypeError, ValueError):
+        return _fworld.FEECAT_RATE
+
+
+def _world_view(st, c, me, now, cartels_):
+    w = st.setdefault('world', _fworld.blank())
+    fams = []
+    for o in (st.get('crews') or {}).values():
+        _fworld.ensure_home(w, o['id'])
+        oc = _fcity.city_of(o, now)
+        fams.append({'id': o['id'], 'tag': o.get('tag'), 'name': o.get('name'), 'power': _fcity.power(oc), 'color': ((o.get('badge') or {}).get('colors') or [None])[0]})
+    cpu_ = [_fworld.cpu_town(x[0], now) for x in _fworld.CPU]
+    try:
+        tr_ = _mt.trending(_json_load(MEME_PATH, {}), now)
+        word_ = (tr_[0].get('word') if tr_ and isinstance(tr_[0], dict) else (tr_[0] if tr_ else None))
+    except Exception:
+        word_ = None
+    v = _fworld.map_view(w, fams, cpu_, cartels_, me=c['id'] if c else None, boom_=_fworld.boom(word_ or 'ai'), now=now)
+    v['cpu'] = [{'id': t['id'], 'name': t['name'], 'tag': t['tag'], 'borough': t['borough'], 'level': t['level'], 'guards': len(t['guards']),
+                 'stash': int(_fworld.cpu_stash(w, t['id'], now)['stash'])} for t in cpu_]
+    v['cartels'] = cartels_
+    v['log'] = w['log'][:20]
+    v['actions'] = {'attack': _fworld.ACTIONS_A, 'defend': _fworld.ACTIONS_D}
+    v['rate'] = {'mp': _world_feecat_rate()[0], 'feecat': _world_feecat_rate()[1]}
+    if c:
+        city = _fcity.city_of(c, now)
+        met = _world_metrics(st, c, now)
+        lv = {}
+        for l in city['lots'].values():
+            lv[l['b']] = max(lv.get(l['b'], 0), l['lvl'])
+        cd = ((c.get('world') or {}).get('errandAt') or {}).get(me) or {}
+        docks = lv.get('docks', 0)
+        v['me'] = {'id': c['id'], 'tag': c.get('tag'), 'home': w['home'].get(c['id']), 'turf': _fworld.turf_of(w, c['id']), 'bank': int(city['bank']),
+                   'metrics': met, 'challenges': _fworld.challenge_rows(met, (c.get('world') or {}).get('done') or []),
+                   'errands': [{'store': k, 'name': e[0], 'how': e[1], 'cd': e[2], 'lvl': lv.get(k, 0), 'ready': max(0, int(e[2] - (now - float(cd.get(k) or 0))))}
+                               for k, e in _fworld.ERRANDS.items()],
+                   'rewards': [{'key': k, 'name': r[0], 'what': r[1], 'cost': r[2]} for k, r in _fworld.REWARDS.items()],
+                   'pts': int(((c.get('world') or {}).get('pts') or {}).get(me) or 0), 'title': ((c.get('world') or {}).get('titles') or {}).get(me),
+                   'shield': max(0, int(float((c.get('world') or {}).get('shieldUntil') or 0) - now)),
+                   'rush': max(0, int(float((c.get('world') or {}).get('rushUntil') or 0) - now)),
+                   'hitters': [r['lvl'] for r in _fcity.ready(city, now, 'hitter')],
+                   'reach': {b: _fworld.reach(w, c['id'], b, docks) for b in _fworld.BKEYS},
+                   'prices': {b['id']: _fworld.block_price(w, c['id'], b['id']) for b in v['blocks'] if not b.get('owner')},
+                   'moveMp': {b: int(_fworld.MOVE_MP * _fworld.tier(b) * (1 - 0.05 * lv.get('gas', 0))) for b in _fworld.BKEYS},
+                   'redeems': [x for x in (st.get('redeems') or []) if x.get('cid') == c['id']][:10]}
+        if _is_staff(c.get('owner')):
+            v['me']['fuse'] = _fuse_family_stats(now)
+        v['raids'] = [_fworld.raid_view(r, 'a' if r['a']['id'] == c['id'] else 'b') for r in w['raids'].values()
+                      if c['id'] in (r['a']['id'], r['b']['id'])][-8:]
+    return v
+
+
+@app.get('/api/reputation/familia-world')
+async def familia_world(address: str = '', session: str = ''):
+    """🗺 The whole Familia city: boroughs, bridges, every block, CPU towns, cartels, the season — and, signed in, my family's turf, raids,
+    challenges, errands, rewards and the FEECAT redeem."""
+    import crews as _cr
+    now = time.time()
+    me = _session_or_401(address, session) if address and session else None
+    cartels_ = await asyncio.to_thread(_cartels_now, now)
+    async with _crews_lock:
+        st = _json_load(CREWS_PATH, {}); _cr._norm(st)
+        w = st.setdefault('world', _fworld.blank())
+        _world_tick(st, w, now)
+        c = _cr.crew_of(st, me) if me else None
+        v = _world_view(st, c, me, now, cartels_)
+        _json_save(CREWS_PATH, st)
+    return v
+
+
+class WorldAct(BaseModel):
+    address: str
+    session: str
+    act: str = Field(..., max_length=16)
+    block: str = Field(default='', max_length=24)
+    vs: str = Field(default='', max_length=40)
+    kind: str = Field(default='', max_length=24)
+    lot: int = Field(default=-1, ge=-1, le=24)
+    raid: str = Field(default='', max_length=24)
+
+
+@app.post('/api/reputation/familia-world/act')
+async def familia_world_act(p: WorldAct):
+    """🗺 buy · sell · move · raid · attack · defend · errand · challenge · reward · redeem — points only. Don / Underboss buy, sell, move, raid
+    and spend on rewards; any member runs errands; the raid's sender makes the attack moves, any member of the target answers."""
+    import crews as _cr
+    me = _session_or_401(p.address, p.session); now = time.time(); res_ = None
+    cartels_ = await asyncio.to_thread(_cartels_now, now)
+    async with _crews_lock:
+        st = _json_load(CREWS_PATH, {}); _cr._norm(st)
+        c = _cr.crew_of(st, me)
+        if not c:
+            raise HTTPException(404, 'Join a family first.')
+        w = st.setdefault('world', _fworld.blank())
+        _world_tick(st, w, now)
+        _fworld.ensure_home(w, c['id'])
+        staff_ = _is_staff(me)
+        boost_, rk_ = _city_ctx(c, me, now)
+        city = _fcity.accrue(_fcity.city_of(c, now), now, boost_)
+        boss = staff_ or me == c.get('owner') or rk_.get(me) == 'underboss'
+        m = c.setdefault('world', {})
+        lv = {}
+        for l in city['lots'].values():
+            lv[l['b']] = max(lv.get(l['b'], 0), l['lvl'])
+        try:
+            if p.act in ('buy', 'sell', 'move', 'raid', 'reward', 'redeem') and not boss:
+                raise ValueError('Only the Don or the Underboss does that.')
+            if p.act == 'buy':
+                city['bank'] -= _fworld.buy_block(w, c['id'], city['bank'], p.block, staff_)
+            elif p.act == 'sell':
+                city['bank'] += _fworld.sell_block(w, c['id'], p.block)
+            elif p.act == 'move':
+                city['bank'] -= _fworld.relocate(w, c['id'], city['bank'], p.block, 0.05 * lv.get('gas', 0), staff_)
+            elif p.act == 'raid':
+                if float(m.get('shieldUntil') or 0) > now:
+                    m['shieldUntil'] = 0      # raiding drops your own truce flag
+                t, bor, kind, stash = _world_target(st, w, p.vs, now, cartels_)
+                if kind == 'family' and float(((st['crews'].get(p.vs) or {}).get('world') or {}).get('shieldUntil') or 0) > now:
+                    raise ValueError('They are under a truce flag right now.')
+                if not staff_ and not _fworld.reach(w, c['id'], bor, lv.get('docks', 0)):
+                    raise ValueError('Out of reach — hold a block in that borough or one bridge away (docks add reach).')
+                hit = [r['lvl'] for r in _fcity.ready(city, now, 'hitter')]
+                rank = 'don' if (staff_ or me == c.get('owner')) else rk_.get(me, 'soldier')
+                rounds = 2 + lv.get('tower', 0) // 3
+                res_ = _fworld.raid_view(_fworld.start(w, {'id': c['id'], 'tag': c.get('tag'), 'name': c.get('name')}, t, me, rank, hit, stash, now,
+                                                       rounds, kind), 'a')
+            elif p.act in ('attack', 'defend'):
+                r = w['raids'].get(p.raid)
+                if not r:
+                    raise ValueError('No such raid.')
+                if p.act == 'attack':
+                    if r['a']['id'] != c['id'] or (r['sender'] != me and not boss):
+                        raise ValueError('Only the member who led the raid moves.')
+                    _fworld.attack(r, p.kind, p.lot, now)
+                    if r['kind'] in ('cpu', 'cartel'):
+                        _fworld.tick(r, now)
+                else:
+                    if r['b']['id'] != c['id']:
+                        raise ValueError('That raid is not on your block.')
+                    _fworld.defend(r, p.kind, p.lot, now)
+                _world_settle(st, w, r, now)
+                res_ = _fworld.raid_view(r, 'a' if p.act == 'attack' else 'b')
+            elif p.act == 'errand':
+                cd = m.setdefault('errandAt', {}).setdefault(me, {})
+                mp, pts, _n = _fworld.errand(lv, cd, p.kind, now, _fcity.rate(city, boost_, now))
+                city['bank'] += mp
+                city['mpEver'] = city.get('mpEver', 0) + mp
+                m['errands'] = int(m.get('errands') or 0) + 1
+                m.setdefault('pts', {})[me] = int(m['pts'].get(me) or 0) + pts
+                res_ = {'mp': mp, 'pts': pts}
+            elif p.act == 'challenge':
+                done = m.setdefault('done', [])
+                row = _fworld.claim_challenge(p.kind, _world_metrics(st, c, now), done)
+                done.append(row['key'])
+                city['crew'].append({'id': city['nextId'], 'k': row['recruit']['k'], 'lvl': row['recruit']['lvl'], 'xp': 0.0, 'hurt': 0, 'special': row['key']})
+                city['nextId'] += 1
+                city['bank'] += row['mp']
+                res_ = {'recruit': row['recruit'], 'mp': row['mp']}
+            elif p.act == 'reward':
+                cost = 0 if staff_ else _fworld.reward(p.kind, city['bank'])
+                if p.kind not in _fworld.REWARDS:
+                    raise ValueError('No such reward.')
+                city['bank'] -= cost
+                if p.kind == 'rush':
+                    m['rushUntil'] = max(now, float(m.get('rushUntil') or 0)) + 3600
+                elif p.kind == 'shield':
+                    m['shieldUntil'] = max(now, float(m.get('shieldUntil') or 0)) + 7200
+                elif p.kind.startswith('title-'):
+                    m.setdefault('titles', {})[me] = _fworld.REWARDS[p.kind][0].split(': ', 1)[-1]
+                elif p.kind == 'badge-boost':
+                    m['glowUntil'] = now + 86400
+                elif p.kind == 'season':
+                    m.setdefault('pts', {})[me] = int(m.setdefault('pts', {}).get(me) or 0) + 500
+                res_ = {'reward': p.kind, 'cost': cost}
+            elif p.act == 'redeem':
+                if me != c.get('owner') and not staff_:
+                    raise ValueError('Only the Don files a redeem.')
+                spend, fc = _fworld.redeem_feecat(int(city['bank']), _world_feecat_rate())
+                city['bank'] -= spend
+                rq = {'id': f"rd{int(now)}", 'cid': c['id'], 'tag': c.get('tag'), 'by': me, 'mp': spend, 'feecat': fc, 'at': now, 'status': 'pending'}
+                st['redeems'] = ([rq] + (st.get('redeems') or []))[:200]
+                for ow_ in _owner_wallets():
+                    try:
+                        notify(ow_, 'familia', f"🎁 {c.get('tag')} filed a redeem: {spend:,} MP → {fc:,} FEECAT — pay it by hand", push=False)
+                    except Exception:
+                        pass
+                res_ = rq
+            else:
+                raise ValueError('Unknown city action.')
+        except ValueError as e:
+            raise HTTPException(400, str(e))
+        v = _world_view(st, c, me, now, cartels_)
+        _json_save(CREWS_PATH, st)
+    _crew_cache['data'] = None
+    return {**v, 'result': res_}
 
 
 class CrewBadge(BaseModel):

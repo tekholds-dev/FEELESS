@@ -12,6 +12,7 @@ import { WarRoom, WarStrip, PublicWars, useWars } from './FamilyWars';
 import { FamilyLanding } from './FamilyLanding';
 import { FamilyMap } from './FamilyMap';
 import { FamilyBlock } from './FamilyBlock';
+import { FamilyWorld } from './FamilyWorld';
 import { useRemembered } from '../lib/remember';
 import { Home, Crown, Swords, Map as MapIcon, Trophy, Radio } from 'lucide-react';
 import '../styles/familyNoir.css';
@@ -281,7 +282,8 @@ export function Crews() {
     </>)}
     {famTab === 'wars' && <><WarStrip />{mine ? <div className="crw-mine m-card"><WarRoom mine={mine} owner={owner} rows={rows} busy={busy} act={warAct} /></div> : <PublicWars />}</>}
     {famTab === 'map' && (block === undefined
-      ? <FamilyMap rows={rows} mineId={mine?.id} wars={warsD?.wars} onOpen={() => setTab('board')} onEnter={cid => { if (cid === null && (!mine || !sess)) { toast.error('Join a family to build your block.'); return; } setBlock(cid); }} />
+      ? <><FamilyWorld addr={addr} sess={sess} onEnter={() => setBlock(null)} />
+        <FamilyMap rows={rows} mineId={mine?.id} wars={warsD?.wars} onOpen={() => setTab('board')} onEnter={cid => { if (cid === null && (!mine || !sess)) { toast.error('Join a family to build your block.'); return; } setBlock(cid); }} /></>
       : <FamilyBlock cid={block} addr={addr} sess={sess} onBack={() => setBlock(undefined)} />)}
     {famTab === 'board' && <>
     <div className="crw-board m-card">
