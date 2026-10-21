@@ -792,7 +792,7 @@ async def run_engine(store, cats):
             elif change <= hard:
                 why = f'hard stop {hard}% from my average entry'
             elif pos.get('pairAddress') in duo_exit and change >= 2:
-                why = f'🤝 both AI models agree: bank it at {change:+.1f}%'
+                why = f'🤝 the FEELESS desk agrees: bank it at {change:+.1f}%'
             elif pos['profitTaken'] and change <= 0:
                 why = 'runner fell back to break-even after taking profit'
             elif pos['peakChange'] >= R['protectAt'] and change <= 2:
@@ -858,7 +858,7 @@ async def run_engine(store, cats):
             if any(x['pairAddress'] == pa for x in cat['positions']):
                 continue
             if pa in duo_avoid:   # 🐱🤝 both AI models said skip it: she only ever trades LESS on their word
-                store.setdefault('scan', {}).setdefault('brainRejects', []).append({'symbol': sym, 'why': '🤝 both AI models: skip it now', 'at': now})
+                store.setdefault('scan', {}).setdefault('brainRejects', []).append({'symbol': sym, 'why': '🤝 the FEELESS desk: skip it now', 'at': now})
                 store['scan']['brainRejects'] = store['scan']['brainRejects'][-10:]
                 continue
             if now - cat.get('cooldowns', {}).get(pa, 0) < R['cooldownHours'] * 3600:
@@ -972,7 +972,7 @@ def _duo_learn(store, duo, now):
             continue
         seen.add(key)
         pct = les.get('pct')
-        line = f"🎓 from {les.get('who')} on ${les.get('symbol')}{'' if pct is None else f' ({pct:+.1f}%)'}: {les['lesson']}"
+        line = f"🎓 from the FEELESS desk on ${les.get('symbol')}{'' if pct is None else f' ({pct:+.1f}%)'}: {les['lesson']}"
         cats_ = store.get('cats') or {}
         cat = cats_.get(LEADER_ID) or next(iter(cats_.values()), None)
         if cat is not None:

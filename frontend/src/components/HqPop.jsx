@@ -13,7 +13,7 @@ import '../styles/hqPop.css';
 const HqDeck = lazy(() => import('./command/HqDeck').then(m => ({ default: m.HqDeck })));
 const OPEN_KEY = 'feeless.hqPop';
 // one tap to the places the creator runs to most (HqDeck listens for feeless:hq-go)
-export const HQ_JUMPS = [['agents', '🤖', 'Agents', { tab: 'agents' }], ['wallet', '👛', 'Fuse wallet', { tab: 'fuse', panel: 'wallet' }], ['fuse', '⚛', 'Fuse', { tab: 'fuse' }],
+export const HQ_JUMPS = [['agents', '🎩', "Sicario's", { tab: 'agents' }], ['wallet', '👛', 'Fuse wallet', { tab: 'fuse', panel: 'wallet' }], ['fuse', '⚛', 'Fuse', { tab: 'fuse' }],
   ['money', '💰', 'Money', { view: 'treasury' }], ['lag', '🩺', 'Lag catcher', { tab: 'latency' }], ['fees', '💲', 'Fees', { tab: 'fees' }]];
 // the header's word for what HQ is doing right now — trench talk, read from real requests in flight (never a canned ticker)
 export function hqMood(b) {

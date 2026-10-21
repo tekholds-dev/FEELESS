@@ -2,7 +2,7 @@
 export const HUBS = {
   pump: [['pump', '🚀 Pump radar'], ['launch', '🚀 Launch']],
   fee: [['fee', '💎 $FEE'], ['feeback', '♻ Fee-Back']],
-  leaderboard: [['leaderboard', '🏆 Leaderboard'], ['badges', '🎖 Badges'], ['seasons', '👑 Seasons']],
+  leaderboard: [['leaderboard', '🌹 MOB & Rewards'], ['badges', '🎖 Badges'], ['seasons', '👑 Seasons']],
   whitepaper: [['whitepaper', '📄 Whitepaper'], ['roadmap', '🗺 Roadmap'], ['learn', '📚 Learn'], ['support', '🛟 Support']],
 };
 export const hubOf = page => Object.keys(HUBS).find(k => HUBS[k].some(([p]) => p === page)) || null;

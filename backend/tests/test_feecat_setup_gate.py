@@ -16,5 +16,5 @@ def test_each_new_model_lesson_lands_once_in_her_activity():
     fs._duo_learn(store, duo, 100)
     fs._duo_learn(store, duo, 200)
     evs = [e for e in store['events'] if e['type'] == 'LEARN']
-    assert len(evs) == 1 and 'from G4 on $X (+4.0%)' in evs[0]['detail']
+    assert len(evs) == 1 and 'from the FEELESS desk on $X (+4.0%)' in evs[0]['detail']
     assert store['duoLearn']['at'] == 200 and store['duoSeen'] == ['G4:10']

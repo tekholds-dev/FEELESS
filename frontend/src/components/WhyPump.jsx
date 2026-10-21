@@ -12,7 +12,6 @@ const MINT = /[1-9A-HJ-NP-Za-km-z]{32,44}/;
 export const mintOf = s => (String(s || '').match(MINT) || [null])[0];
 const VERDICT = { ORGANIC: ['🌱', 'REAL BUYERS'], NEWS: ['📰', 'NEWS'], CALLERS: ['📣', 'CALLERS'], WHALES: ['🐋', 'WHALES'], BOTTED: ['🤖', 'BOTTED'], UNCLEAR: ['❔', 'UNCLEAR'] };
 export const hostOf = u => { try { return new URL(u).hostname.replace(/^www\./, ''); } catch { return ''; } };
-const MODEL = { lan: 'G4', local: 'OSSY' };
 const STEPS = ['reading the chart', 'pulling the numbers', 'checking Pump callers', 'searching X + the web', 'reading the sources', 'writing the story'];
 const ago = t => { const s = Date.now() / 1000 - t; return s < 3600 ? `${Math.max(1, Math.round(s / 60))}m` : `${Math.round(s / 3600)}h`; };
 
@@ -38,7 +37,7 @@ function Answer({ a }) {
     <header><span className={`wp-stamp v-${String(a.verdict || 'UNCLEAR').toLowerCase()}`} data-testid="wp-verdict">{ic} {word}</span>
       <button type="button" className="wp-sym" onClick={() => openCoin({ mint: a.mint, symbol: n.symbol })}>{n.symbol ? `$${n.symbol}` : a.mint.slice(0, 6)}</button>
       <SocialIcons r={{ mint: a.mint, ...(a.socials || {}) }} />
-      <small>{a.by === 'model' ? `🧠 written from the sources${a.model ? ` · ${MODEL[a.model] || a.model}` : ''}` : '⚙ engine read — no model answered, numbers only'}{a.cached ? ' · checked before = free' : ''}</small></header>
+      <small>{a.by === 'model' ? '🧠 written by FEELESS from the sources' : '⚙ engine read — no model answered, numbers only'}{a.cached ? ' · checked before = free' : ''}</small></header>
     <h3 className="wp-head">{a.headline}</h3>
     <div className="wp-tiles">{tiles.map(([k, v, t], i) => <span key={k} className={t ? `is-${t}` : ''} style={{ '--i': i }}><em>{k}</em><b>{v}</b></span>)}</div>
     <ol className="wp-drv">{(a.drivers || []).map((d, i) => <li key={i} style={{ '--i': i }}><span>{d.why}</span>
