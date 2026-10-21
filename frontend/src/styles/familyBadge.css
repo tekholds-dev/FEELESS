@@ -52,7 +52,6 @@ body.theme-day .fb-chips small { color: #8a6100; background: rgba(255, 211, 107,
 .fbb-sw { display: inline-flex; gap: 4px; padding-right: 8px; } .fbb-sw button { width: 20px; height: 20px; border-radius: 50%; border: 2px solid rgba(255, 255, 255, .15); cursor: pointer; transition: transform .12s; }
 .fbb-sw button:hover { transform: scale(1.12); } .fbb-sw button.active { border-color: #fff; box-shadow: 0 0 0 2px #ffd36b; }
 .fbb-part .m-input { flex: 1 1 200px; }
-.crw-crest { display: flex; justify-content: center; margin: -4px 0 4px; }
 body.theme-day .fbb-stage { background: radial-gradient(90% 70% at 50% 20%, rgba(179, 0, 27, .14), transparent 70%), #fbf4ea; } body.theme-day .fbb-part legend { color: #8a6100; }
 @media (max-width: 640px) { .fbb { grid-template-columns: minmax(0, 1fr); } }
 /* HQ › Fees › 🌹 La Familia: the unlock lines (FuseAdminSettings CrewsPricing) */

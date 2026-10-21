@@ -5284,3 +5284,13 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   invites + sent + canAdd; `FamilyInvites.jsx` `fiv-*`): any member invites a wallet (7 days, ≤ 25 waiting per family), the wallet accepts if a seat is
   free; the creator / HQ wallet (`_is_staff`) adds a wallet straight into its own family (a seat pack is added when full). Blocked wallets can't join.
 - 🪟 Nexa's chat lives ONLY in HQ › Fee desk (NexaDesk, open by default) — the FeeCat terminal tab was removed.
+- 🎩 FAMILY ROOM (owner, 2026-10-20: "a REAL Familia layout — live mob backdrop, family vitals, per-member activity, ranks and roles"; `backend/family_room.py`
+  pure + tested, `components/FamilyRoom.jsx` `frm-*`, `components/MobScene.jsx` `mob-*`): the page = 🌃 MobScene (night city in the top band — skylines
+  on a horizon glow, lit windows whose brightness follows the family's heat, rain, neon sign with the family TAG, street lamp, headlights, smoke;
+  transform / opacity only, still in fx-lite) → FamilyHero (crest, name in Playfair, motto, HEAT bar, hot hand + streak, RESPECT gauge 0–100,
+  six vitals) → THE TABLE (members by rank; heat ring, status 🔥/🟢/💤/🆕, rank + role chips, week $, won %, streak, last trade) | THE WIRE
+  (the family's newest closed trades) → the tabs (War room · Invite · Badge · Board · Bounties · Launch · Seats · Code). Ranks: the Don may
+  PROMOTE (`act: 'role'` {to, rank}) — one Underboss / one Consigliere at a time — the rest rank on verified $; ROLES (🔫 Hitter · 🔭 Scout · 🗣 Caller ·
+  🛡 Enforcer · 💼 Bookkeeper · 🎲 Wildcard) are jobs, never a permission over money. `/crews/mine` re-reads every 20s. Fonts: Cinzel + Playfair
+  Display (index.html). `.crw header` (crews.css) is flex — any new header inside the page needs `.crw-noir .x { display: grid }`.
+  NOT BUILT: a shared family pot that members trade from — that is custody of members' money (a new real-money path); the owner decides first.

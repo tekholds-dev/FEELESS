@@ -8467,13 +8467,29 @@ def _crew_badge_usd(cfg=None):
 
 def _crew_view(c, pieces, with_code=False):
     import crews as _cr
+    import family_room as _froom
+    now_ = time.time()
     ms_ = {m: _cr.stats(pieces.get(m, [])) for m in c['members']}
-    rk_ = _fwar.ranks(c, ms_)
-    mem = [{'address': m, 'name': _crew_name(m), 'owner': m == c['owner'], **ms_[m], 'rank': rk_.get(m, _fwar.RANKS[5])[0], 'rankLabel': rk_.get(m, _fwar.RANKS[5])[1]} for m in c['members']]
+    rk_ = _froom.ranks(c, _fwar.ranks(c, ms_))
+    posts_ = {}
+    for p_ in c.get('posts') or []:
+        posts_[p_.get('by')] = posts_.get(p_.get('by'), 0) + 1
+    bnt_ = {}
+    for b_ in c.get('bounties') or []:
+        bnt_[b_.get('by')] = bnt_.get(b_.get('by'), 0) + 1
+    act_ = {m: _froom.member(c, m, pieces.get(m, []), now_, posts_.get(m, 0), bnt_.get(m, 0)) for m in c['members']}
+    mem = [{'address': m, 'name': _crew_name(m), 'owner': m == c['owner'], **ms_[m], **act_[m], 'rank': rk_.get(m, _fwar.RANKS[5])[0], 'rankLabel': rk_.get(m, _fwar.RANKS[5])[1]} for m in c['members']]
+    names_ = {m['address']: m['name'] for m in mem}
+    vit_ = _froom.vitals(c, act_, now_, _fwar.record(c))
+    for k_ in ('hot', 'streak'):
+        if vit_.get(k_):
+            vit_[k_]['name'] = names_.get(vit_[k_]['w'])
     return {'id': c['id'], 'name': c['name'], 'tag': c['tag'], 'room': f"crew-{c['id']}", 'members': mem, 'seats': c.get('seats', _cr.BASE_SEATS), 'created': c.get('created'),
             'packUsd': _cr.price('seats', _crew_cfg()), 'packSeats': _cr.PACK_SEATS, **({'code': c['code']} if with_code and c.get('code') else {}),
             'codeSet': bool(c.get('codeHash')), 'codeTail': c.get('codeTail') if with_code else None,
             'badge': _cr.badge_view(c, (_json_load(CREWS_PATH, {}) or {}).get('awards'), _crew_cfg(), _is_staff(c.get('owner'))),
+            'vitals': vit_, 'roles': {k: list(v[:2]) for k, v in _froom.ROLES.items()}, 'promote': list(_froom.PROMOTE),
+            **({'wire': _froom.wire(pieces, rk_, lambda w: names_.get(w) or w[:4])} if with_code else {}),
             'launch': c.get('launch'), 'bountiesOpen': sum(1 for b_ in c.get('bounties') or [] if b_.get('state') == 'open'), 'war': _fwar.record(c),
             'points': {m: int(v) for m, v in (c.get('points') or {}).items()} if with_code else None,
             # 💬 members-only: the board + bounties (names, never the code)
@@ -8718,6 +8734,8 @@ class CrewAct(BaseModel):
     ok: bool = False
     team: list = Field(default_factory=list, max_length=8)
     to: str = Field(default='', max_length=60)       # ✉ the wallet invited / added
+    role: Optional[str] = Field(default=None, max_length=12)   # 🎩 the Don's role / rank for `to`
+    rank: Optional[str] = Field(default=None, max_length=12)
 
 
 @app.post('/api/reputation/crews/act')
@@ -8769,6 +8787,12 @@ async def crew_act(p: CrewAct):
                 _cr.accept(st, me, p.id, now)
             elif p.act == 'decline':
                 _cr.decline(st, me, p.id, now)
+            elif p.act == 'role':       # 🎩 the Don gives a member a job and / or a fixed rank
+                import family_room as _froom
+                c_ = _cr.crew_of(st, me)
+                if not c_:
+                    raise ValueError('You are not in a family.')
+                _froom.set_role(c_, me, p.to.strip(), p.role, p.rank)
             else:
                 raise ValueError('Unknown family action.')
         except ValueError as e:
