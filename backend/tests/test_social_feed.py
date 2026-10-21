@@ -25,3 +25,17 @@ def test_bluesky_and_pump_and_feeless_share_one_shape_and_mix_newest_first():
     assert [x['src'] for x in m] == ['feeless', 'pump', 'bluesky'] or m[0]['at'] >= m[-1]['at']
     assert [x['src'] for x in sf.mix([b, p, f], srcs={'pump'})] == ['pump']
 
+
+
+def test_call_receipts_find_the_ca_and_never_fake_an_old_cap():
+    import social_feed as sf
+    ca = '7GCihgDB8fe6KNjn2MYtkzZcRjQy3t9GHdC8uHYmW2hr'
+    assert sf.find_mint(f'aping {ca} rn') == ca and sf.find_mint('gm frens') is None
+    first = {}
+    r = sf.receipt({'id': 'p1', 'coin': {'mint': ca}}, 50_000, first, 0)
+    assert r['atMc'] == 50_000 and r['x'] == 1.0 and r['src'] == 'seen'        # first sight = today's cap, ×1
+    r = sf.receipt({'id': 'p1', 'coin': {'mint': ca}}, 150_000, first, 1)
+    assert r['x'] == 3.0 and r['state'] == 'moon'
+    r = sf.receipt({'id': 'p2', 'coin': {'mint': ca, 'atMc': 100_000}}, 10_000, {}, 1)
+    assert r['state'] == 'rug' and r['src'] == 'called'
+    assert sf.receipt({'id': 'p3', 'coin': None}, 1, {}, 1) is None

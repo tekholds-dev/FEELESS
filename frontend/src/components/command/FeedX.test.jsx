@@ -59,21 +59,17 @@ test('dev-null tabs: trending ranks stars + replies, following / saved filter, h
   expect(hashOf('a')).toBe(hashOf('a')); expect(hashOf('a')).toHaveLength(7);
 });
 
-describe('/dev/null shell', () => {
-  const { parseCmd, nullPosts } = require('./FeedX');
-  test('commands parse like a shell', () => {
-    expect(parseCmd('> /dev/null @Spammer')).toEqual({ op: 'null', arg: 'spammer' });
-    expect(parseCmd('cat feed | > /dev/null bob')).toEqual({ op: 'null', arg: 'bob' });
-    expect(parseCmd('unnull @bob')).toEqual({ op: 'unnull', arg: 'bob' });
-    expect(parseCmd('grep -i "$SOL"')).toEqual({ op: 'grep', arg: '$sol' });
-    expect(parseCmd('top')).toEqual({ op: 'tab', arg: 'trending' });
-    expect(parseCmd('ls ~/saved')).toEqual({ op: 'tab', arg: 'saved' });
-    expect(parseCmd('rm -rf /')).toEqual({ op: 'bad', arg: 'rm' });
-    expect(parseCmd('  ')).toBeNull();
+describe('FEELESS call receipts', () => {
+  const { xWord, ladderAt, stampOf, wireRows, tabPosts } = require('./FeedX');
+  test('the multiple, its rail and its stamp', () => {
+    expect(xWord(3.24)).toBe('3.2×'); expect(xWord(0.42)).toBe('0.42×'); expect(xWord(12.6)).toBe('13×'); expect(xWord(null)).toBe('—');
+    expect(ladderAt(10)).toBe(1); expect(ladderAt(0.01)).toBe(0); expect(ladderAt(2)).toBeGreaterThan(ladderAt(1));
+    expect(stampOf({ state: 'rug' })).toEqual(['☠', 'RUGGED']); expect(stampOf({})).toBeNull();
   });
-  test('voided authors and grep filter the timeline', () => {
-    const p = [{ id: 1, handle: 'Bob', text: 'buy $SOL' }, { id: 2, author: 'amy', text: 'gm' }, { id: 3, handle: 'cy', text: 'SOL to 500' }];
-    expect(nullPosts(p, new Set(['bob']), '').map(x => x.id)).toEqual([2, 3]);
-    expect(nullPosts(p, new Set(), 'sol').map(x => x.id)).toEqual([1, 3]);
+  test('the wire leads with the biggest moves either way; heat and graveyard lenses', () => {
+    const p = [{ id: 1, coin: { x: 1.1 } }, { id: 2, coin: { x: 0.1 } }, { id: 3, coin: { x: 4 } }, { id: 4 }];
+    expect(wireRows(p).map(x => x.id)).toEqual([2, 3, 1]);
+    expect(tabPosts(p, 'heat', {}, new Set(), new Set()).map(x => x.id)).toEqual([3, 1]);
+    expect(tabPosts(p, 'grave', {}, new Set(), new Set()).map(x => x.id)).toEqual([2]);
   });
 });

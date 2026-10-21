@@ -107,7 +107,7 @@ function XShare({ me, sess }) {
 // post, ringed avatars, ⭐ star · ❝ quote · ↩ reply · 🔖 save · 🔗 link, replies shown INLINE on a dotted thread line ("Show the last N"),
 // tabs Latest · Trending · Following · Saved. Follows + saves live in this browser; stars + replies are the server's (feed_social).
 export const hashOf = id => { let h = 2166136261; for (const ch of String(id || '')) { h ^= ch.charCodeAt(0); h = Math.imul(h, 16777619); } return (h >>> 0).toString(16).padStart(8, '0').slice(0, 7); };
-export const TABS = [['latest', 'Latest'], ['trending', 'Trending'], ['following', 'Following'], ['saved', '🔖 Saved']];
+export const TABS = [['latest', 'Latest'], ['trending', 'Trending'], ['heat', '🔥 Heat'], ['grave', '🪦 Graveyard'], ['following', 'Following'], ['saved', '🔖 Saved']];
 const readSet = k => { try { return new Set(JSON.parse(localStorage.getItem(k) || '[]')); } catch { return new Set(); } };
 const writeSet = (k, set) => { try { localStorage.setItem(k, JSON.stringify([...set].slice(-500))); } catch { /* private window */ } };
 export const authorKey = p => `${p.src}:${String(p.handle || p.author || '').toLowerCase()}`;
@@ -116,42 +116,40 @@ export function tabPosts(posts, tab, counts, follows, saved, now = Date.now() / 
   const all = posts || [];
   if (tab === 'following') return all.filter(p => follows.has(authorKey(p)));
   if (tab === 'saved') return all.filter(p => saved.has(p.id));
+  if (tab === 'heat') return all.filter(p => p.coin?.x >= 1.1).sort((a, b) => b.coin.x - a.coin.x);
+  if (tab === 'grave') return all.filter(p => p.coin?.x != null && p.coin.x <= 0.5).sort((a, b) => a.coin.x - b.coin.x);
   if (tab === 'trending') return all.filter(p => now - Number(p.at) < 86400).map(p => [p, (counts[p.id]?.likes || 0) + 2 * (counts[p.id]?.comments || 0)])
     .sort((a, b) => b[1] - a[1] || Number(b[0].at) - Number(a[0].at)).map(x => x[0]);
   return all;
 }
 const SHOW = 3;
-// 🕳 /dev/null (owner, 2026-10-21: "give FEEd a dev/null twist"): a shell on the timeline. Commands are pure + tested (`parseCmd` / `nullPosts`):
-// grep <words> · tail · top · ls following|saved · > /dev/null @who (mute an author into the void) · unnull @who · cat /dev/null · clear · help.
-export const NULL_HELP = ['grep <words> — only posts with those words', 'tail — newest first', 'top — trending', 'ls following · ls saved',
-  '> /dev/null @who — pipe an author into the void', 'unnull @who — bring them back', 'cat /dev/null — who is in the void', 'clear — reset'];
-export function parseCmd(line) {
-  const t = String(line || '').trim().replace(/^\$\s*/, '');
-  if (!t) return null;
-  let m = t.match(/^(?:.*\|\s*)?>\s*\/dev\/null\s+@?(\S+)$/) || t.match(/^(?:mute|null)\s+@?(\S+)$/i);
-  if (m) return { op: 'null', arg: m[1].toLowerCase() };
-  if ((m = t.match(/^(?:unnull|unmute)\s+@?(\S+)$/i))) return { op: 'unnull', arg: m[1].toLowerCase() };
-  if (/^cat\s+\/dev\/null$/i.test(t)) return { op: 'void' };
-  if ((m = t.match(/^grep\s+(?:-i\s+)?(.+)$/i))) return { op: 'grep', arg: m[1].replace(/^["']|["']$/g, '').trim().toLowerCase() };
-  if (/^tail\b/i.test(t)) return { op: 'tab', arg: 'latest' };
-  if (/^top\b/i.test(t)) return { op: 'tab', arg: 'trending' };
-  if ((m = t.match(/^ls\s+~?\/?(following|saved)$/i))) return { op: 'tab', arg: m[1].toLowerCase() };
-  if (/^clear$/i.test(t)) return { op: 'clear' };
-  if (/^(help|man|\?)$/i.test(t)) return { op: 'help' };
-  return { op: 'bad', arg: t.split(/\s+/)[0] };
-}
-export const handleOf = p => String(p.handle || p.author || '').toLowerCase();
-export const nullPosts = (posts, voided, grep) => (posts || []).filter(p => !voided.has(handleOf(p)) && (!grep || String(p.text || '').toLowerCase().includes(grep)));
+// 🧾 FEELESS TWIST (owner, 2026-10-21: "a FEELESS twist, not dev/null"): every post that names a coin carries its CALL RECEIPT from the
+// server (cap when called / first seen → cap now = ×). Lenses 🔥 Heat (calls running) + 🪦 Graveyard (calls that rugged) and the TRENCH
+// WIRE ticker read the same receipts. `xWord`, `ladderAt`, `stampOf`, `wireRows` are pure + tested.
+export const xWord = x => (x == null ? '—' : x >= 10 ? `${Math.round(x)}×` : `${x.toFixed(x >= 2 ? 1 : 2)}×`);
+export const ladderAt = x => (x == null ? 0 : Math.max(0, Math.min(1, (Math.log10(Math.max(0.05, x)) + 1.3) / 2.3)));   // 0.05× … 10× on a log rail
+export const stampOf = c => ({ moon: ['🚀', 'MOONING'], up: ['📈', 'RUNNING'], flat: ['➖', 'FLAT'], down: ['📉', 'BLEEDING'], rug: ['☠', 'RUGGED'] }[c?.state] || null);
+export const wireRows = posts => (posts || []).filter(p => p.coin?.x != null).sort((a, b) => Math.abs(Math.log(b.coin.x)) - Math.abs(Math.log(a.coin.x))).slice(0, 14);
+const capWord = n => (n == null ? '—' : n >= 1e6 ? `$${(n / 1e6).toFixed(n >= 1e7 ? 0 : 1)}M` : n >= 1e3 ? `$${Math.round(n / 1e3)}K` : `$${Math.round(n)}`);
 
-function NullShell({ voided, grep, onCmd, out }) {
-  const [t, setT] = useState(''); const [hist, setHist] = useState([]); const [hi, setHi] = useState(-1);
-  return <form className="fx-null" onSubmit={e => { e.preventDefault(); if (!t.trim()) return; onCmd(t); setHist(h => [t, ...h].slice(0, 30)); setHi(-1); setT(''); }} data-testid="feed-null">
-    <label><span className="fx-null-ps">null@feeless:~$</span><input value={t} onChange={e => setT(e.target.value)} spellCheck="false" autoComplete="off" aria-label="Feed shell" placeholder="grep $SOL · > /dev/null @spammer · help"
-      onKeyDown={e => { if (e.key === 'ArrowUp' && hist.length) { const n = Math.min(hist.length - 1, hi + 1); setHi(n); setT(hist[n]); e.preventDefault(); } else if (e.key === 'ArrowDown') { const n = hi - 1; setHi(n); setT(n >= 0 ? hist[n] : ''); e.preventDefault(); } }}
-      data-testid="feed-null-in" /><i className="fx-null-cur" aria-hidden="true" /></label>
-    <small className="fx-null-st">{grep ? <b>grep “{grep}”</b> : null}<em>🕳 {voided.size} in /dev/null</em></small>
-    {out ? <pre className="fx-null-out" data-testid="feed-null-out">{out}</pre> : null}
-  </form>;
+function CallReceipt({ c }) {
+  const st = stampOf(c);
+  return <button type="button" className={`fx-rcpt s-${c.state || 'none'}`} onClick={() => openCoin({ mint: c.mint, symbol: c.symbol })} data-testid="feed-receipt"
+    data-tip={c.src === 'called' ? 'Pump called it at this cap — the multiple is since that call' : 'Since FEELESS first saw this post — the multiple is the cap then vs now'}>
+    {c.icon ? <img src={c.icon} alt="" loading="lazy" /> : <i className="fx-rcpt-ico">$</i>}
+    <span className="fx-rcpt-sym"><b>${c.symbol || 'COIN'}</b><small>{c.src === 'called' ? 'CALLED' : 'SEEN'} {capWord(c.atMc)} → {capWord(c.mc)}</small></span>
+    <span className="fx-rcpt-rail" aria-hidden="true"><i style={{ transform: `scaleX(${ladderAt(c.x)})` }} /><u style={{ left: `${ladderAt(1) * 100}%` }} /><u style={{ left: `${ladderAt(2) * 100}%` }} /><u style={{ left: `${ladderAt(5) * 100}%` }} /></span>
+    <strong key={c.x}>{xWord(c.x)}</strong>{st ? <em>{st[0]} {st[1]}</em> : null}
+  </button>;
+}
+
+function TrenchWire({ posts }) {
+  const rows = wireRows(posts);
+  if (!rows.length) return null;
+  const run = [...rows, ...rows];
+  return <div className="fx-wire" data-testid="feed-wire"><span className="fx-wire-lbl">TRENCH<br />WIRE</span>
+    <div className="fx-wire-win"><div className="fx-wire-run" style={{ '--n': rows.length }}>{run.map((p, i) => <button key={`${p.id}-${i}`} type="button" className={`s-${p.coin.state}`} onClick={() => openCoin({ mint: p.coin.mint, symbol: p.coin.symbol })} tabIndex={i < rows.length ? 0 : -1}>
+      <b>${p.coin.symbol || '?'}</b><strong>{xWord(p.coin.x)}</strong><small>@{p.handle || p.author}</small></button>)}</div></div></div>;
 }
 
 function Ava({ src, name, kind }) {
@@ -173,33 +171,33 @@ function Thread({ p, me, sess, onCount, auto }) {
   </div>;
 }
 
-function Post({ p, c, me, sess, onCount, follows, saved, toggle, onNull }) {
-  const [share, setShare] = useState(false); const [open, setOpen] = useState(false); const [pop, setPop] = useState(false); const [gone, setGone] = useState(false);
+function Post({ p, c, me, sess, onCount, follows, saved, toggle }) {
+  const [share, setShare] = useState(false); const [open, setOpen] = useState(false); const [pop, setPop] = useState(false);
   const like = async () => { if (!me || !sess) { signIn(); return; } setPop(true); setTimeout(() => setPop(false), 420);
     try { onCount(await reactPost({ address: me, session: sess, id: p.id, like: true })); } catch (e) { toast.error(e.message); } };
   const quote = () => window.dispatchEvent(new CustomEvent('feeless:feed-quote', { detail: `❝ @${p.handle || p.author}: ${String(p.text || '').slice(0, 180)}` }));
   const link = () => { const u = p.url || `${window.location.origin}/terminal/profile?feed=${encodeURIComponent(p.id)}`; navigator.clipboard?.writeText(u).then(() => toast.success('🔗 link copied')).catch(() => {}); };
   const ak = authorKey(p); const fol = follows.has(ak); const sv = saved.has(p.id);
   const replies = c?.comments || 0;
-  return <article className={`fx-post is-${p.src}${replies ? ' has-thread' : ''}${gone ? ' is-voided' : ''}`} data-testid="feed-post" onAnimationEnd={e => { if (gone && e.animationName === 'fxVoid') onNull?.(handleOf(p)); }}>
+  return <article className={`fx-post is-${p.src}${replies ? ' has-thread' : ''}${p.coin?.state ? ` c-${p.coin.state}` : ''}`} data-testid="feed-post">
     <Ava src={p.avatar} name={p.author} kind={p.src} />
     <div className="fx-body">
       <header><b>{p.author}</b>{p.handle && p.handle !== p.author ? <small className="fx-handle">@{p.handle}</small> : null}<small>· {agoWord(p.at)}</small>
         <button type="button" className={`fx-follow ${fol ? 'is-on' : ''}`} onClick={() => toggle('follow', ak)} aria-pressed={fol} data-testid="feed-follow">{fol ? '✓ following' : '+ follow'}</button>
         <em className={`fx-src is-${p.src}`}>{SRC_BADGE[p.src] || p.src}</em><code className="fx-hash" data-tip="this post's id">{hashOf(p.id)}</code></header>
       <p>{p.text}</p>
+      {p.coin?.mint && p.coin.x != null ? <CallReceipt c={p.coin} /> : null}
       {p.sharedBy ? <small className="fx-shared">𝕏 brought in by {p.sharedBy}{p.url ? <> · <a href={p.url} target="_blank" rel="noopener noreferrer nofollow">open on X</a></> : null}</small> : null}
       {p.img ? <img className="fx-img" src={p.img} alt="" loading="lazy" decoding="async" /> : null}
       <footer className="fx-bar">
         <button type="button" className={`fx-act fx-like ${c?.mine ? 'is-liked' : ''} ${pop ? 'is-pop' : ''}`} aria-pressed={!!c?.mine} onClick={like} data-testid="feed-like"><i>{c?.mine ? '★' : '☆'}</i>{c?.likes ? kWord(c.likes) : ''}</button>
         <button type="button" className="fx-act" onClick={quote} data-testid="feed-quote"><i>❝</i>Quote</button>
         <button type="button" className={`fx-act ${open ? 'is-on' : ''}`} aria-expanded={open} onClick={() => setOpen(o => !o)} data-testid="feed-reply"><i>↩</i>Reply{replies ? ` ${kWord(replies)}` : ''}</button>
-        {p.coin?.mint ? <button type="button" className="fx-act fx-coin" onClick={() => openCoin({ mint: p.coin.mint, symbol: p.coin.symbol })}>🪙 ${p.coin.symbol}</button> : null}
+        
         <span className="fx-right">
           <button type="button" className={`fx-act ${share ? 'is-on' : ''}`} aria-expanded={share} onClick={() => setShare(s => !s)} aria-label="Share"><i>🔁</i></button>
           <button type="button" className={`fx-act ${sv ? 'is-on' : ''}`} aria-pressed={sv} onClick={() => toggle('save', p.id)} aria-label="Save" data-testid="feed-save"><i>{sv ? '🔖' : '🏷'}</i></button>
-          <button type="button" className="fx-act" onClick={link} aria-label="Copy link"><i>🔗</i></button>
-          {onNull ? <button type="button" className="fx-act fx-void" onClick={() => { if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) onNull(handleOf(p)); else setGone(true); }} aria-label={`Pipe @${handleOf(p)} into /dev/null`} data-tip={`> /dev/null @${handleOf(p)} — hide this author (undo: unnull @${handleOf(p)})`} data-testid="feed-void"><i>🕳</i></button> : null}</span>
+          <button type="button" className="fx-act" onClick={link} aria-label="Copy link"><i>🔗</i></button></span>
       </footer>
       {share ? <ShareRow text={p.text} url={p.url} /> : null}
       {open || replies ? <Thread p={p} me={me} sess={sess} onCount={onCount} auto={!open} key={open ? 'open' : 'auto'} /> : null}
@@ -215,19 +213,7 @@ function Timeline({ src, me, sess }) {
   const [follows, setFollows] = useState(() => readSet('feeless.feedFollow')); const [saved, setSaved] = useState(() => readSet('feeless.feedSaved'));
   const toggle = (kind, k) => { const [cur, set, key] = kind === 'follow' ? [follows, setFollows, 'feeless.feedFollow'] : [saved, setSaved, 'feeless.feedSaved'];
     const nx = new Set(cur); if (nx.has(k)) nx.delete(k); else nx.add(k); writeSet(key, nx); set(nx); };
-  const [voided, setVoided] = useState(() => readSet('feeless.feedNull')); const [grep, setGrep] = useState(''); const [out, setOut] = useState('');
-  const setVoid = nx => { writeSet('feeless.feedNull', nx); setVoided(nx); };
-  const onNull = h => { const nx = new Set(voided); nx.add(h); setVoid(nx); setOut(`@${h} > /dev/null — gone. undo: unnull @${h}`); };
-  const onCmd = line => { const c = parseCmd(line); if (!c) return;
-    if (c.op === 'null') onNull(c.arg);
-    else if (c.op === 'unnull') { const nx = new Set(voided); setOut(nx.delete(c.arg) ? `@${c.arg} is back from the void` : `@${c.arg} was not in /dev/null`); setVoid(nx); }
-    else if (c.op === 'void') setOut(voided.size ? [...voided].map(h => `@${h}`).join('\n') : '/dev/null is empty');
-    else if (c.op === 'grep') { setGrep(c.arg); setOut(''); }
-    else if (c.op === 'tab') { setTab(c.arg); setOut(''); }
-    else if (c.op === 'clear') { setGrep(''); setOut(''); }
-    else if (c.op === 'help') setOut(NULL_HELP.join('\n'));
-    else setOut(`${c.arg}: command not found — type help`); };
-  const all = nullPosts(d?.posts, voided, grep);
+  const all = d?.posts || [];
   useEffect(() => { if (all.length && !seen) setSeen(Math.max(...all.map(p => Number(p.at) || 0))); }, [all, seen]);
   const base = seen ? all.filter(p => Number(p.at) <= seen) : all;   // newer posts wait behind the pill
   const posts = tabPosts(base, tab, cnt, follows, saved);
@@ -237,12 +223,12 @@ function Timeline({ src, me, sess }) {
     fetch(apiUrl(`/api/reputation/social-feed/counts?ids=${encodeURIComponent(ids)}${me ? `&address=${me}` : ''}`)).then(r => r.json()).then(x => { if (on) setCnt(c => ({ ...c, ...(x.counts || {}) })); }).catch(() => {});
     return () => { on = false; }; }, [ids, me, d?.at]);   // eslint-disable-line react-hooks/exhaustive-deps
   const setOne = id => r => setCnt(c => ({ ...c, [id]: { likes: r.likes, comments: r.comments, mine: r.mine } }));
-  const empty = { following: 'Follow people with “+ follow” on any post — their posts land here.', saved: 'Tap 🏷 on any post to save it here.', trending: 'Nothing starred in the last 24h yet.' }[tab];
+  const empty = { following: 'Follow people with “+ follow” on any post — their posts land here.', saved: 'Tap 🏷 on any post to save it here.', trending: 'Nothing starred in the last 24h yet.', heat: 'No called coin is running right now — the wire lights up when one does.', grave: 'No call has rugged lately. Stay sharp.' }[tab];
   return <div className="fx-timeline" data-testid="feed-timeline" ref={top}>
-    <NullShell voided={voided} grep={grep} onCmd={onCmd} out={out} />
+    <TrenchWire posts={all} />
     <nav className="fx-tabs" role="tablist" aria-label="Timeline">{TABS.map(([k, l]) => <button key={k} type="button" role="tab" aria-selected={tab === k} className={tab === k ? 'on' : ''} onClick={() => setTab(k)} data-testid={`feed-tab-${k}`}>{l}{k === 'following' && follows.size ? <i>{follows.size}</i> : k === 'saved' && saved.size ? <i>{saved.size}</i> : null}</button>)}</nav>
     {fresh && tab === 'latest' ? <button type="button" className="fx-newpill" onClick={() => { setSeen(Math.max(...all.map(p => Number(p.at) || 0))); top.current?.scrollIntoView({ block: 'start', behavior: 'smooth' }); }} data-testid="feed-new">↑ {fresh} new post{fresh > 1 ? 's' : ''}</button> : null}
-    {!d ? <p className="fx-empty">Loading the feeds…</p> : !posts.length ? <p className="fx-empty">{empty || 'Nothing new on these sites yet.'}</p> : posts.slice(0, n).map(p => <Post key={p.id} p={p} c={cnt[p.id]} me={me} sess={sess} follows={follows} saved={saved} toggle={toggle} onNull={onNull} onCount={r => setOne(p.id)({ ...(cnt[p.id] || {}), ...r, ...(r[p.id] || {}) })} />)}
+    {!d ? <p className="fx-empty">Loading the feeds…</p> : !posts.length ? <p className="fx-empty">{empty || 'Nothing new on these sites yet.'}</p> : posts.slice(0, n).map(p => <Post key={p.id} p={p} c={cnt[p.id]} me={me} sess={sess} follows={follows} saved={saved} toggle={toggle} onCount={r => setOne(p.id)({ ...(cnt[p.id] || {}), ...r, ...(r[p.id] || {}) })} />)}
     {posts.length > n ? <button type="button" className="fx-more" onClick={() => setN(x => x + PAGE)}>Show {Math.min(PAGE, posts.length - n)} more</button> : null}
   </div>;
 }

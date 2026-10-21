@@ -7159,6 +7159,45 @@ async def social_feed_x(p: FeedXShare):
     return {'post': {k: v for k, v in post_.items()}}
 
 
+_SF_FIRST: dict = {}   # 🧾 post id → the cap FEELESS first saw it at (memory, newest 4,000)
+
+
+async def _sf_receipts(posts, now):
+    """🧾 Every post that names a coin gets its CALL RECEIPT: cap when first seen (or Pump's called cap) → cap now (Jupiter, 60s cache) = ×."""
+    out, need = [], []
+    for p_ in posts:
+        p_ = dict(p_)
+        if not (p_.get('coin') or {}).get('mint'):
+            m_ = _sfeed.find_mint(p_.get('text'))
+            if m_:
+                p_['coin'] = {'mint': m_, 'symbol': None}
+        if (p_.get('coin') or {}).get('mint'):
+            need.append(p_['coin']['mint'])
+        out.append(p_)
+    if not need:
+        return out
+    try:
+        rows_ = await asyncio.wait_for(_jup_tokens(need[:120]), 4)
+    except Exception:
+        rows_ = {}
+    for p_ in out:
+        m_ = (p_.get('coin') or {}).get('mint')
+        if not m_:
+            continue
+        t_ = rows_.get(m_) or {}
+        if not t_ and not (p_.get('coin') or {}).get('symbol'):
+            p_['coin'] = None          # a random address, not a coin Jupiter knows
+            continue
+        r_ = _sfeed.receipt(p_, t_.get('mcap') or (p_.get('coin') or {}).get('mcap'), _SF_FIRST, now)
+        if r_:
+            r_['symbol'] = r_.get('symbol') or t_.get('symbol'); r_['icon'] = t_.get('icon')
+        p_['coin'] = r_
+    if len(_SF_FIRST) > 4000:
+        for k_ in list(_SF_FIRST)[:1000]:
+            _SF_FIRST.pop(k_, None)
+    return out
+
+
 @app.get('/api/reputation/social-feed')
 async def social_feed(src: str = ''):
     """📰 FEEd's mixed timeline: FEELESS rooms + Pump callouts + public Telegram channels + Bluesky, newest first. `src` = comma list of the
@@ -7179,6 +7218,7 @@ async def social_feed(src: str = ''):
             _SF_BUSY.add(k_)
             asyncio.create_task(_sf_refresh(k_))
     posts_ = _sfeed.mix([(_SF_CACHE.get(k_) or {}).get('posts') or [] for k_ in want_], want_)
+    posts_ = await _sf_receipts(posts_, now_)
     return {'posts': posts_, 'sources': [{'key': k, 'label': l, 'n': len((_SF_CACHE.get(k) or {}).get('posts') or []), 'at': (_SF_CACHE.get(k) or {}).get('at')} for k, l in _sfeed.SOURCES],
             'post': ['x', 'reddit', 'bluesky', 'telegram', 'farcaster'], 'readNeedsApp': {'x': 'X API app (paid read access)', 'reddit': 'Reddit API app (registered)'}}
 

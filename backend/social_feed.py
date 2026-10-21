@@ -155,3 +155,32 @@ def mix(lists, srcs=None, limit=80):
         seen.add(p['id']); out.append(p)
     return out[:limit]
 
+
+
+# 🧾 CALL RECEIPTS (owner, 2026-10-21: "FEEd needs a FEELESS twist"): a post that names a coin (Pump's own coin, or a Solana CA in the text)
+# carries a receipt — the cap when FEELESS first saw the post and the cap now → its multiple. Pure; the service holds the first-seen map.
+_CA = re.compile(r'(?<![1-9A-HJ-NP-Za-km-z])([1-9A-HJ-NP-Za-km-z]{32,44})(?![1-9A-HJ-NP-Za-km-z])')
+
+
+def find_mint(text):
+    """The first Solana address in a post (a coin's CA) — None when there is none."""
+    for m in _CA.findall(str(text or '')):
+        if len(m) >= 32 and any(c.isdigit() for c in m) and any(c.isupper() for c in m) and any(c.islower() for c in m):
+            return m
+    return None
+
+
+def receipt(post, mc_now, first_seen, now):
+    """→ the post's coin with {mc, atMc, x, state}: atMc = Pump's own called cap, else the cap FEELESS first saw the post at (recorded in
+    `first_seen` {post id: cap} — never back-filled with today's cap as if it were old)."""
+    c = dict(post.get('coin') or {})
+    if not c.get('mint'):
+        return None
+    mc = _num(mc_now) or None
+    at = c.get('atMc') or first_seen.get(post['id'])
+    if not at and mc:
+        first_seen[post['id']] = at = mc
+    x = round(mc / at, 2) if mc and at else None
+    state = None if x is None else 'moon' if x >= 2 else 'up' if x >= 1.1 else 'rug' if x <= 0.2 else 'down' if x <= 0.9 else 'flat'
+    c.update(mc=mc, atMc=at, x=x, state=state, src='called' if (post.get('coin') or {}).get('atMc') else 'seen')
+    return c
