@@ -12,10 +12,10 @@ def test_each_coin_gets_the_right_cleanup():
     by = {r['mint']: r for r in rows}
     assert by['EMPTY']['best'] == 'close'
     assert by['DUST']['best'] == 'burn' and by['DUST']['usd'] < 0.01
-    assert by['NOPX']['best'] == 'burn' and by['NOPX']['usd'] is None
+    assert by['NOPX']['best'] == 'unpriced' and by['NOPX']['usd'] is None and 'burn' in by['NOPX']['actions']   # no price is kept, not burned
     assert by['BIG']['best'] == 'swap' and by['BIG']['usd'] == 18.0
     s = dust.summary(rows)
-    assert s['dust'] == 3 and abs(s['rentBackSol'] - 3 * 0.00203928) < 1e-5 and s['swapUsd'] == 18.0
+    assert s['dust'] == 2 and s['unpriced'] == 1 and abs(s['rentBackSol'] - 2 * 0.00203928) < 1e-5 and s['swapUsd'] == 18.0
 
 
 def test_burn_close_tx_burns_then_closes_to_the_owner():

@@ -25,6 +25,9 @@
 .dc-coin { display: grid; min-width: 0; } .dc-coin b { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; } .dc-coin small { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .dc-act { width: 150px; font-size: 12px; }
 .dc-all { width: 100%; margin: 4px 0 10px; padding: 12px; font-size: 14px; }
+.dc-unpriced { display: flex; gap: 8px; align-items: flex-start; margin: -4px 0 10px; padding: 8px 10px; border-radius: 10px; border: 1px solid rgba(255, 211, 107, .35); background: rgba(255, 211, 107, .06); font-size: 12px; color: #f1e2b8; cursor: pointer; }
+.dc-unpriced input { margin-top: 2px; accent-color: #ffd36b; }
+body.theme-day .dc-unpriced { color: #5a4300; background: rgba(255, 211, 107, .14); }
 .dc-chain { display: flex; align-items: baseline; gap: 8px; padding: 10px 4px 2px; list-style: none; border-bottom: 1px solid var(--m-line); }
 .dc-chain b { font: 700 11px 'JetBrains Mono', monospace; letter-spacing: .14em; text-transform: uppercase; color: #45e486; }
 .dc-chain small { font: 11px 'JetBrains Mono', monospace; }

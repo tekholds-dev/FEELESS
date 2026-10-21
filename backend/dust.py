@@ -2,6 +2,7 @@
   • swap   — worth ≥ SWAP_MIN_USD with a price: sell it for the chain's gas coin (SOL / CRO) through the normal swap path
   • burn   — Solana dust (unpriced or under SWAP_MIN_USD): burn the leftover and CLOSE the account → its rent (~0.002 SOL) comes back
   • close  — an EMPTY Solana coin account: close it → rent back
+  • unpriced — a balance with NO price: kept by default (a price read can fail — SRM once read unpriced); burn only when the owner ticks it
 Non-custodial: FEELESS only builds the transaction; the WALLET OWNER signs it. A burned coin is gone — the screen says so."""
 import base64
 
@@ -25,16 +26,18 @@ def classify(accounts, prices=None, meta=None, swap_min=SWAP_MIN_USD):
             actions = ['close']
         elif usd is not None and usd >= swap_min:
             actions = ['swap', 'burn']
+        elif usd is None:
+            actions = ['unpriced', 'burn']   # ❔ no price is NOT "worthless" (a price read can fail) — never burned by Clean all unless the owner ticks it
         else:
-            actions = ['burn', 'swap'] if usd is not None and usd > 0 else ['burn']
+            actions = ['burn', 'swap'] if usd > 0 else ['burn']
         out.append({**a, 'usd': usd, 'price': px or None, 'rentSol': round(_f(a.get('lamports')) / 1e9, 6), 'actions': actions, 'best': actions[0],
                     'symbol': m.get('symbol') or a['mint'][:4] + '…', 'logo': m.get('icon') or m.get('logoURI') or '', 'name': m.get('name') or ''})
-    return sorted(out, key=lambda r: (r['best'] != 'close', r['best'] != 'burn', -(r['usd'] or 0)))
+    return sorted(out, key=lambda r: (r['best'] != 'close', r['best'] != 'burn', r['best'] == 'unpriced', -(r['usd'] or 0)))
 
 
 def summary(rows):
     burnable = [r for r in rows if r['best'] in ('burn', 'close')]
-    return {'coins': len(rows), 'dust': len(burnable), 'rentBackSol': round(sum(r['rentSol'] for r in burnable), 6),
+    return {'coins': len(rows), 'dust': len(burnable), 'unpriced': sum(1 for r in rows if r['best'] == 'unpriced'), 'rentBackSol': round(sum(r['rentSol'] for r in burnable), 6),
             'dustUsd': round(sum(r['usd'] or 0 for r in burnable), 4), 'swapUsd': round(sum(r['usd'] or 0 for r in rows if r['best'] == 'swap'), 2)}
 
 

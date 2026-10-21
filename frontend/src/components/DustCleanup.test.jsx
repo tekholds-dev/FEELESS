@@ -1,7 +1,7 @@
 import React from 'react';
 import { createRoot } from 'react-dom/client';
 import { act } from 'react';
-import DustCleanup, { plan } from './DustCleanup';
+import DustCleanup, { plan, keepsUnpriced } from './DustCleanup';
 
 jest.mock('../hooks/useWallet', () => ({ useWallet: () => ({ wallet: { chain: 'solana', address: 'Own1111111111111111111111111111111111111111' }, provider: null, connect: jest.fn() }) }));
 
@@ -63,4 +63,10 @@ test('EVM sell-all skips dust unless asked, and a wallet "no" is recognised so t
   const { evmTodo, isRejected } = require('./DustCleanup');
   expect(evmTodo({ swaps: [1], dust: [2, 3] }, false)).toEqual([1]); expect(evmTodo({ swaps: [1], dust: [2, 3] }, true)).toEqual([1, 2, 3]);
   expect([isRejected({ code: 4001 }), isRejected(new Error('User rejected the request.')), isRejected(new Error('User denied transaction signature')), isRejected(new Error('insufficient funds')), isRejected(null)]).toEqual([true, true, true, false, false]);
+});
+
+test('a coin with no price is kept out of clean-all unless the owner ticks it', () => {
+  const r = { best: 'unpriced' };
+  expect(keepsUnpriced(r, false)).toBe(false); expect(keepsUnpriced(r, true)).toBe(true);
+  expect(keepsUnpriced({ best: 'burn' }, false)).toBe(true);
 });

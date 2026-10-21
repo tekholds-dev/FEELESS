@@ -15,7 +15,9 @@ import '../styles/dustCleanup.css';
 //   read), grouped by chain; each chain's native coin is its gas, tokens swap to that gas through LI.FI on their own chain.
 // Non-custodial: FEELESS builds the transactions, YOUR wallet signs every one. A burned coin is gone — the screen says so first.
 const trade = tradingCall;
-const LABEL = { swap: '↩ Swap to gas', burn: '🔥 Burn + close', close: '♻ Close (empty)' };
+const LABEL = { swap: '↩ Swap to gas', burn: '🔥 Burn + close', close: '♻ Close (empty)', unpriced: '❔ Keep (no price)' };
+// ❔ a balance with no price is NOT worthless (a price read can fail) — Clean all leaves it unless the owner ticks "burn unpriced"
+export const keepsUnpriced = (r, withUnpriced) => !(r.best === 'unpriced' && !withUnpriced);
 export const CHAINS = [['solana', '◎ Solana'], ['evm', '🌐 EVM · every chain']];
 export const keyOf = r => r.pubkey || (r.chainId ? `${r.chainId}:${r.address}` : r.address);
 // rows grouped by chain, chains in the order the server ranked them (biggest $ first)
@@ -53,7 +55,7 @@ export default function DustCleanup() {
   const canSign = Boolean(own) && addr === own;
   const [data, setData] = useState(null); const [busy, setBusy] = useState(false); const [err, setErr] = useState('');
   const [pick, setPick] = useState({}); const [act, setAct] = useState({}); const [state, setState] = useState({});
-  const [log, setLog] = useState([]); const [ack, setAck] = useState(false);
+  const [log, setLog] = useState([]); const [ack, setAck] = useState(false); const [withUnpriced, setWithUnpriced] = useState(false);
   const [evmDust, setEvmDust] = useState(false); const stop = React.useRef(false);   // EVM: dust is skipped unless asked · ⏹ Stop / a wallet "no" ends the run
   const note = (text, tone = '') => setLog(l => [{ t: Date.now(), text, tone }, ...l].slice(0, 40));
   const load = useCallback(async () => {
@@ -148,9 +150,11 @@ export default function DustCleanup() {
   // 🧹 ONE CLICK, no second box (owner, 2026-10-08: "not one click then click to confirm each"): every coin that isn't gas, each with its best
   // action. The button itself says how many will be BURNED; the wallet's own approval is the confirmation. Solana = ONE approval for everything;
   // EVM = one request per chain when the wallet can batch, else the wallet asks per transaction.
-  const allPick = () => Object.fromEntries(rows.filter(r => !r.native && state[key(r)] !== 'done').map(r => [key(r), true]));
-  const allPlan = plan(rows, allPick(), act);
-  const cleanAll = async () => { const pk = allPick(); const q = plan(rows, pk, act); if (!q.chosen.length) return; setPick(pk); setAck(true); await go(q, true); };
+  const allPick = () => Object.fromEntries(rows.filter(r => !r.native && state[key(r)] !== 'done' && keepsUnpriced(r, withUnpriced)).map(r => [key(r), true]));
+  const allAct = withUnpriced ? { ...Object.fromEntries(rows.filter(r => r.best === 'unpriced').map(r => [key(r), 'burn'])), ...act } : act;
+  const allPlan = plan(rows, allPick(), allAct);
+  const unpricedN = rows.filter(r => r.best === 'unpriced').length;
+  const cleanAll = async () => { const pk = allPick(); const q = plan(rows, pk, allAct); if (!q.chosen.length) return; setPick(pk); setAck(true); await go(q, true); };
   const go = async (q = p, acked = ack) => {
     if (!q?.chosen?.length) return;
     if (!canSign) { toast.error('You are only looking at this address — connect that wallet to clean it.'); return; }
@@ -184,6 +188,8 @@ export default function DustCleanup() {
       {canSign && rows.some(r => !r.native) && <button type="button" className="m-btn primary m-go dc-all" disabled={busy} onClick={cleanAll} data-testid="dc-clean-all">{busy ? 'Working…'
         : chain === 'solana' ? `🧹 Sell all ${allPlan.chosen.length} coins → gas — one click${allPlan.burns.length ? ` · 🔥 burns ${allPlan.burns.length} worthless (${usd(allPlan.burnUsd)})` : ''}`
           : `🧹 Sell all ${evmTodo(allPlan, evmDust).length} coins → gas — one click`}</button>}
+      {canSign && unpricedN ? <label className="dc-unpriced" data-testid="dc-unpriced"><input type="checkbox" checked={withUnpriced} onChange={e => setWithUnpriced(e.target.checked)} />
+        <span>❔ {unpricedN.toLocaleString('en-US')} coin{unpricedN === 1 ? ' has' : 's have'} no price — kept. Tick to burn {unpricedN === 1 ? 'it' : 'them'} too (gone for good; the rent comes back).</span></label> : null}
       {busy && chain !== 'solana' && <button type="button" className="m-btn dc-stop" onClick={() => { stop.current = true; note('Stopping — no more wallet requests after the one on screen.', 'bad'); }} data-testid="dc-stop">⏹ Stop</button>}
       {canSign && chain !== 'solana' && allPlan.dust.length > 0 && <label className="dc-dustopt" data-tip="A coin worth under the swap minimum costs two wallet prompts and more gas than it returns. Off = those are left alone."><input type="checkbox" checked={evmDust} disabled={busy} onChange={e => setEvmDust(e.target.checked)} data-testid="dc-evm-dust" /> include {allPlan.dust.length} dust coin{allPlan.dust.length === 1 ? '' : 's'} (+{allPlan.dust.length * 2} wallet prompts)</label>}
       {err && <p className="dc-err" role="alert">{err}</p>}
