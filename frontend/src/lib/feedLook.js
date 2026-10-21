@@ -9,7 +9,7 @@ export const FEED_SIZES = [['s', 'S', 13], ['m', 'M', 15], ['l', 'L', 17], ['xl'
 export const FEED_ACCENTS = [['green', '#15d16a'], ['violet', '#a66bff'], ['ice', '#5ad7ff'], ['gold', '#f5c451'], ['pink', '#ff5fa2']];
 export const FEED_DENSITY = [['comfy', 'Comfy'], ['tight', 'Tight']];
 export const HANDLE_SITES = [['x', '𝕏', 'https://x.com/'], ['reddit', '👽', 'https://www.reddit.com/user/'], ['bluesky', '🦋', 'https://bsky.app/profile/'], ['telegram', '✈', 'https://t.me/']];
-export const DEFAULT_LOOK = { bg: 'royal', font: 'sans', size: 'm', accent: 'green', density: 'comfy', handles: {} };
+export const DEFAULT_LOOK = { bg: 'void', font: 'sans', size: 'm', accent: 'green', density: 'comfy', handles: {} };
 
 const pick = (list, v, d) => (list.some(x => x[0] === v) ? v : d);
 /** pure: anything stored → a valid look (unknown values fall back, handles keep letters / digits / _ . - only) */
@@ -17,7 +17,7 @@ export function cleanLook(v) {
   const o = v && typeof v === 'object' ? v : {};
   const h = {};
   HANDLE_SITES.forEach(([k]) => { const s = String((o.handles || {})[k] || '').replace(/^@/, '').replace(/[^A-Za-z0-9_.-]/g, '').slice(0, 40); if (s) h[k] = s; });
-  return { bg: pick(FEED_BGS, o.bg, 'royal'), font: pick(FEED_FONTS, o.font, 'sans'), size: pick(FEED_SIZES, o.size, 'm'), accent: pick(FEED_ACCENTS, o.accent, 'green'),
+  return { bg: pick(FEED_BGS, o.bg, 'void'), font: pick(FEED_FONTS, o.font, 'sans'), size: pick(FEED_SIZES, o.size, 'm'), accent: pick(FEED_ACCENTS, o.accent, 'green'),
     density: pick(FEED_DENSITY, o.density, 'comfy'), handles: h };
 }
 export const readLook = () => { try { return cleanLook(JSON.parse(localStorage.getItem(LOOK_KEY) || 'null')); } catch { return cleanLook(null); } };

@@ -2,7 +2,7 @@ import { cleanLook, lookVars, handleUrl, DEFAULT_LOOK } from './feedLook';
 
 test('a stored look is cleaned: bad values fall back, handles lose @ and junk', () => {
   const c = cleanLook({ bg: 'nope', font: 'mono', size: 'xl', accent: 'pink', handles: { x: '@deg en<script>', reddit: '' } });
-  expect(c).toMatchObject({ bg: 'royal', font: 'mono', size: 'xl', accent: 'pink', density: 'comfy', handles: { x: 'degenscript' } });
+  expect(c).toMatchObject({ bg: 'void', font: 'mono', size: 'xl', accent: 'pink', density: 'comfy', handles: { x: 'degenscript' } });
   expect(cleanLook(null)).toEqual(DEFAULT_LOOK);
 });
 

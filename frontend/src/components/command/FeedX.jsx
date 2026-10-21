@@ -12,6 +12,7 @@ import { useMarket } from '../../hooks/useMarket';
 import { SHARE_TO, shareLinks } from '../../lib/socialShare';
 import { FEED_BGS, FEED_FONTS, FEED_SIZES, FEED_ACCENTS, FEED_DENSITY, HANDLE_SITES, readLook, saveLook, lookVars, handleUrl } from '../../lib/feedLook';
 import '../../styles/feed.css';
+import '../../styles/feedPro.css';
 
 // 📰 FEEd = an X-style timeline (owner, 2026-10-18: "wider, an X UI / layout — click site bubbles to see different feeds or mixed from the
 // sites"). Left: the site bubbles (tap to mix any of them; FEELESS alone = our live rooms with posting). Middle: the timeline — a cross-post
@@ -263,7 +264,7 @@ export function FeedPanel({ onConnect }) {
   const [look, setLook0] = useState(readLook); const [lookOpen, setLookOpen] = useState(false);
   const setLook = v => setLook0(saveLook(v));
   const lv = lookVars(look);
-  return <section className={`fx ${lv.cls}`} style={lv.style} data-testid="profile-feed">
+  return <section className={`fx fx-v4 ${lv.cls}`} style={lv.style} data-testid="profile-feed">
     <nav className="fx-nav" aria-label="FEEd sites">
       <b className="feed-wordmark">FEEd</b>
       {FEED_SRC.map(([k, ic, label]) => { const on = srcs.includes(k); return <button key={k} type="button" className={`fx-bub ${on ? 'on' : ''}`} aria-pressed={on} onClick={() => pickSrc(k)} data-testid={`feed-src-${k}`}><i>{ic}</i><span>{label}</span></button>; })}
