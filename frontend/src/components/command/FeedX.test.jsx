@@ -58,3 +58,22 @@ test('dev-null tabs: trending ranks stars + replies, following / saved filter, h
   expect(tabPosts(posts, 'saved', counts, new Set(), new Set(['c']), now).map(p => p.id)).toEqual(['c']);
   expect(hashOf('a')).toBe(hashOf('a')); expect(hashOf('a')).toHaveLength(7);
 });
+
+describe('/dev/null shell', () => {
+  const { parseCmd, nullPosts } = require('./FeedX');
+  test('commands parse like a shell', () => {
+    expect(parseCmd('> /dev/null @Spammer')).toEqual({ op: 'null', arg: 'spammer' });
+    expect(parseCmd('cat feed | > /dev/null bob')).toEqual({ op: 'null', arg: 'bob' });
+    expect(parseCmd('unnull @bob')).toEqual({ op: 'unnull', arg: 'bob' });
+    expect(parseCmd('grep -i "$SOL"')).toEqual({ op: 'grep', arg: '$sol' });
+    expect(parseCmd('top')).toEqual({ op: 'tab', arg: 'trending' });
+    expect(parseCmd('ls ~/saved')).toEqual({ op: 'tab', arg: 'saved' });
+    expect(parseCmd('rm -rf /')).toEqual({ op: 'bad', arg: 'rm' });
+    expect(parseCmd('  ')).toBeNull();
+  });
+  test('voided authors and grep filter the timeline', () => {
+    const p = [{ id: 1, handle: 'Bob', text: 'buy $SOL' }, { id: 2, author: 'amy', text: 'gm' }, { id: 3, handle: 'cy', text: 'SOL to 500' }];
+    expect(nullPosts(p, new Set(['bob']), '').map(x => x.id)).toEqual([2, 3]);
+    expect(nullPosts(p, new Set(), 'sol').map(x => x.id)).toEqual([1, 3]);
+  });
+});

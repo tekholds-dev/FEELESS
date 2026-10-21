@@ -121,6 +121,38 @@ export function tabPosts(posts, tab, counts, follows, saved, now = Date.now() / 
   return all;
 }
 const SHOW = 3;
+// 🕳 /dev/null (owner, 2026-10-21: "give FEEd a dev/null twist"): a shell on the timeline. Commands are pure + tested (`parseCmd` / `nullPosts`):
+// grep <words> · tail · top · ls following|saved · > /dev/null @who (mute an author into the void) · unnull @who · cat /dev/null · clear · help.
+export const NULL_HELP = ['grep <words> — only posts with those words', 'tail — newest first', 'top — trending', 'ls following · ls saved',
+  '> /dev/null @who — pipe an author into the void', 'unnull @who — bring them back', 'cat /dev/null — who is in the void', 'clear — reset'];
+export function parseCmd(line) {
+  const t = String(line || '').trim().replace(/^\$\s*/, '');
+  if (!t) return null;
+  let m = t.match(/^(?:.*\|\s*)?>\s*\/dev\/null\s+@?(\S+)$/) || t.match(/^(?:mute|null)\s+@?(\S+)$/i);
+  if (m) return { op: 'null', arg: m[1].toLowerCase() };
+  if ((m = t.match(/^(?:unnull|unmute)\s+@?(\S+)$/i))) return { op: 'unnull', arg: m[1].toLowerCase() };
+  if (/^cat\s+\/dev\/null$/i.test(t)) return { op: 'void' };
+  if ((m = t.match(/^grep\s+(?:-i\s+)?(.+)$/i))) return { op: 'grep', arg: m[1].replace(/^["']|["']$/g, '').trim().toLowerCase() };
+  if (/^tail\b/i.test(t)) return { op: 'tab', arg: 'latest' };
+  if (/^top\b/i.test(t)) return { op: 'tab', arg: 'trending' };
+  if ((m = t.match(/^ls\s+~?\/?(following|saved)$/i))) return { op: 'tab', arg: m[1].toLowerCase() };
+  if (/^clear$/i.test(t)) return { op: 'clear' };
+  if (/^(help|man|\?)$/i.test(t)) return { op: 'help' };
+  return { op: 'bad', arg: t.split(/\s+/)[0] };
+}
+export const handleOf = p => String(p.handle || p.author || '').toLowerCase();
+export const nullPosts = (posts, voided, grep) => (posts || []).filter(p => !voided.has(handleOf(p)) && (!grep || String(p.text || '').toLowerCase().includes(grep)));
+
+function NullShell({ voided, grep, onCmd, out }) {
+  const [t, setT] = useState(''); const [hist, setHist] = useState([]); const [hi, setHi] = useState(-1);
+  return <form className="fx-null" onSubmit={e => { e.preventDefault(); if (!t.trim()) return; onCmd(t); setHist(h => [t, ...h].slice(0, 30)); setHi(-1); setT(''); }} data-testid="feed-null">
+    <label><span className="fx-null-ps">null@feeless:~$</span><input value={t} onChange={e => setT(e.target.value)} spellCheck="false" autoComplete="off" aria-label="Feed shell" placeholder="grep $SOL · > /dev/null @spammer · help"
+      onKeyDown={e => { if (e.key === 'ArrowUp' && hist.length) { const n = Math.min(hist.length - 1, hi + 1); setHi(n); setT(hist[n]); e.preventDefault(); } else if (e.key === 'ArrowDown') { const n = hi - 1; setHi(n); setT(n >= 0 ? hist[n] : ''); e.preventDefault(); } }}
+      data-testid="feed-null-in" /><i className="fx-null-cur" aria-hidden="true" /></label>
+    <small className="fx-null-st">{grep ? <b>grep “{grep}”</b> : null}<em>🕳 {voided.size} in /dev/null</em></small>
+    {out ? <pre className="fx-null-out" data-testid="feed-null-out">{out}</pre> : null}
+  </form>;
+}
 
 function Ava({ src, name, kind }) {
   return src ? <img className={`fx-ava ring-${kind}`} src={src} alt="" loading="lazy" decoding="async" /> : <i className={`fx-ava fx-ini ring-${kind}`}>{String(name || '?').slice(0, 1).toUpperCase()}</i>;
@@ -141,15 +173,15 @@ function Thread({ p, me, sess, onCount, auto }) {
   </div>;
 }
 
-function Post({ p, c, me, sess, onCount, follows, saved, toggle }) {
-  const [share, setShare] = useState(false); const [open, setOpen] = useState(false); const [pop, setPop] = useState(false);
+function Post({ p, c, me, sess, onCount, follows, saved, toggle, onNull }) {
+  const [share, setShare] = useState(false); const [open, setOpen] = useState(false); const [pop, setPop] = useState(false); const [gone, setGone] = useState(false);
   const like = async () => { if (!me || !sess) { signIn(); return; } setPop(true); setTimeout(() => setPop(false), 420);
     try { onCount(await reactPost({ address: me, session: sess, id: p.id, like: true })); } catch (e) { toast.error(e.message); } };
   const quote = () => window.dispatchEvent(new CustomEvent('feeless:feed-quote', { detail: `❝ @${p.handle || p.author}: ${String(p.text || '').slice(0, 180)}` }));
   const link = () => { const u = p.url || `${window.location.origin}/terminal/profile?feed=${encodeURIComponent(p.id)}`; navigator.clipboard?.writeText(u).then(() => toast.success('🔗 link copied')).catch(() => {}); };
   const ak = authorKey(p); const fol = follows.has(ak); const sv = saved.has(p.id);
   const replies = c?.comments || 0;
-  return <article className={`fx-post is-${p.src}${replies ? ' has-thread' : ''}`} data-testid="feed-post">
+  return <article className={`fx-post is-${p.src}${replies ? ' has-thread' : ''}${gone ? ' is-voided' : ''}`} data-testid="feed-post" onAnimationEnd={e => { if (gone && e.animationName === 'fxVoid') onNull?.(handleOf(p)); }}>
     <Ava src={p.avatar} name={p.author} kind={p.src} />
     <div className="fx-body">
       <header><b>{p.author}</b>{p.handle && p.handle !== p.author ? <small className="fx-handle">@{p.handle}</small> : null}<small>· {agoWord(p.at)}</small>
@@ -166,7 +198,8 @@ function Post({ p, c, me, sess, onCount, follows, saved, toggle }) {
         <span className="fx-right">
           <button type="button" className={`fx-act ${share ? 'is-on' : ''}`} aria-expanded={share} onClick={() => setShare(s => !s)} aria-label="Share"><i>🔁</i></button>
           <button type="button" className={`fx-act ${sv ? 'is-on' : ''}`} aria-pressed={sv} onClick={() => toggle('save', p.id)} aria-label="Save" data-testid="feed-save"><i>{sv ? '🔖' : '🏷'}</i></button>
-          <button type="button" className="fx-act" onClick={link} aria-label="Copy link"><i>🔗</i></button></span>
+          <button type="button" className="fx-act" onClick={link} aria-label="Copy link"><i>🔗</i></button>
+          {onNull ? <button type="button" className="fx-act fx-void" onClick={() => { if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) onNull(handleOf(p)); else setGone(true); }} aria-label={`Pipe @${handleOf(p)} into /dev/null`} data-tip={`> /dev/null @${handleOf(p)} — hide this author (undo: unnull @${handleOf(p)})`} data-testid="feed-void"><i>🕳</i></button> : null}</span>
       </footer>
       {share ? <ShareRow text={p.text} url={p.url} /> : null}
       {open || replies ? <Thread p={p} me={me} sess={sess} onCount={onCount} auto={!open} key={open ? 'open' : 'auto'} /> : null}
@@ -182,7 +215,19 @@ function Timeline({ src, me, sess }) {
   const [follows, setFollows] = useState(() => readSet('feeless.feedFollow')); const [saved, setSaved] = useState(() => readSet('feeless.feedSaved'));
   const toggle = (kind, k) => { const [cur, set, key] = kind === 'follow' ? [follows, setFollows, 'feeless.feedFollow'] : [saved, setSaved, 'feeless.feedSaved'];
     const nx = new Set(cur); if (nx.has(k)) nx.delete(k); else nx.add(k); writeSet(key, nx); set(nx); };
-  const all = d?.posts || [];
+  const [voided, setVoided] = useState(() => readSet('feeless.feedNull')); const [grep, setGrep] = useState(''); const [out, setOut] = useState('');
+  const setVoid = nx => { writeSet('feeless.feedNull', nx); setVoided(nx); };
+  const onNull = h => { const nx = new Set(voided); nx.add(h); setVoid(nx); setOut(`@${h} > /dev/null — gone. undo: unnull @${h}`); };
+  const onCmd = line => { const c = parseCmd(line); if (!c) return;
+    if (c.op === 'null') onNull(c.arg);
+    else if (c.op === 'unnull') { const nx = new Set(voided); setOut(nx.delete(c.arg) ? `@${c.arg} is back from the void` : `@${c.arg} was not in /dev/null`); setVoid(nx); }
+    else if (c.op === 'void') setOut(voided.size ? [...voided].map(h => `@${h}`).join('\n') : '/dev/null is empty');
+    else if (c.op === 'grep') { setGrep(c.arg); setOut(''); }
+    else if (c.op === 'tab') { setTab(c.arg); setOut(''); }
+    else if (c.op === 'clear') { setGrep(''); setOut(''); }
+    else if (c.op === 'help') setOut(NULL_HELP.join('\n'));
+    else setOut(`${c.arg}: command not found — type help`); };
+  const all = nullPosts(d?.posts, voided, grep);
   useEffect(() => { if (all.length && !seen) setSeen(Math.max(...all.map(p => Number(p.at) || 0))); }, [all, seen]);
   const base = seen ? all.filter(p => Number(p.at) <= seen) : all;   // newer posts wait behind the pill
   const posts = tabPosts(base, tab, cnt, follows, saved);
@@ -194,9 +239,10 @@ function Timeline({ src, me, sess }) {
   const setOne = id => r => setCnt(c => ({ ...c, [id]: { likes: r.likes, comments: r.comments, mine: r.mine } }));
   const empty = { following: 'Follow people with “+ follow” on any post — their posts land here.', saved: 'Tap 🏷 on any post to save it here.', trending: 'Nothing starred in the last 24h yet.' }[tab];
   return <div className="fx-timeline" data-testid="feed-timeline" ref={top}>
+    <NullShell voided={voided} grep={grep} onCmd={onCmd} out={out} />
     <nav className="fx-tabs" role="tablist" aria-label="Timeline">{TABS.map(([k, l]) => <button key={k} type="button" role="tab" aria-selected={tab === k} className={tab === k ? 'on' : ''} onClick={() => setTab(k)} data-testid={`feed-tab-${k}`}>{l}{k === 'following' && follows.size ? <i>{follows.size}</i> : k === 'saved' && saved.size ? <i>{saved.size}</i> : null}</button>)}</nav>
     {fresh && tab === 'latest' ? <button type="button" className="fx-newpill" onClick={() => { setSeen(Math.max(...all.map(p => Number(p.at) || 0))); top.current?.scrollIntoView({ block: 'start', behavior: 'smooth' }); }} data-testid="feed-new">↑ {fresh} new post{fresh > 1 ? 's' : ''}</button> : null}
-    {!d ? <p className="fx-empty">Loading the feeds…</p> : !posts.length ? <p className="fx-empty">{empty || 'Nothing new on these sites yet.'}</p> : posts.slice(0, n).map(p => <Post key={p.id} p={p} c={cnt[p.id]} me={me} sess={sess} follows={follows} saved={saved} toggle={toggle} onCount={r => setOne(p.id)({ ...(cnt[p.id] || {}), ...r, ...(r[p.id] || {}) })} />)}
+    {!d ? <p className="fx-empty">Loading the feeds…</p> : !posts.length ? <p className="fx-empty">{empty || 'Nothing new on these sites yet.'}</p> : posts.slice(0, n).map(p => <Post key={p.id} p={p} c={cnt[p.id]} me={me} sess={sess} follows={follows} saved={saved} toggle={toggle} onNull={onNull} onCount={r => setOne(p.id)({ ...(cnt[p.id] || {}), ...r, ...(r[p.id] || {}) })} />)}
     {posts.length > n ? <button type="button" className="fx-more" onClick={() => setN(x => x + PAGE)}>Show {Math.min(PAGE, posts.length - n)} more</button> : null}
   </div>;
 }
