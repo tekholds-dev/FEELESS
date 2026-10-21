@@ -23,35 +23,6 @@ export function PointsShop({ address }) {
   </section>;
 }
 
-// Weekly faction battle.
-export function TrenchWars() {
-  const { wallet, signMessage } = useWallet() || {};
-  const [d, setD] = useState(null);
-  const load = () => fetch(`/api/reputation/wars${wallet?.address ? `?address=${wallet.address}` : ''}`).then(r => r.json()).then(setD).catch(() => {});
-  useEffect(() => { load(); const t = setInterval(load, 30000); return () => clearInterval(t); }, [wallet?.address]); // eslint-disable-line react-hooks/exhaustive-deps
-  if (!d?.factions) return null;
-  const max = Math.max(1, ...(d.factions || []).map(f => f.score));
-  const left = Math.max(0, d.endsAt - Date.now() / 1000);
-  const join = async f => { if (!wallet) { toast('Connect a wallet to pick a side.'); return; } try { const session = await getChatSession(wallet.address, signMessage); await post('/api/reputation/wars/join', { address: wallet.address, session, faction: f }); toast.success('You\'re in. Every point you earn this week counts for your side.'); load(); } catch (e) { toast.error(e.message); } };
-  const total = (d.factions || []).reduce((x, f) => x + f.score, 0) || 1;
-  const leader = [...d.factions].sort((a, b) => b.score - a.score)[0];
-  const ICON = { bulls: ['bull', 'mint'], bears: ['bear', 'rose'], degens: ['degen', 'violet'] };
-  return <section className="meta-panel wars wars-artifact" data-testid="trench-wars">
-    <div className="wars-sky" aria-hidden="true">{Array.from({ length: 12 }, (_, i) => <i key={i} style={{ left: `${(i * 37) % 100}%`, animationDelay: `${(i % 9) * -0.9}s`, animationDuration: `${6 + (i % 5)}s` }} />)}</div>
-    <div className="mp-head"><h2><Glyph name="swords" tone="gold" size={24} /> <span className="live-gradient-text">Trench Wars</span> <small>{d.week}</small></h2><span className="wars-clock"><i className="flr-dot" /> ends in {Math.floor(left / 86400)}d {Math.floor((left % 86400) / 3600)}h{d.lastWinner ? ` · last winner ${d.lastWinner}` : ''}</span></div>
-    <div className="wars-beam" aria-label="Faction share">{(d.factions || []).map(f => <span key={f.id} className={`beam-${f.id}`} style={{ flexGrow: Math.max(0.08, f.score / total) }}><em>{Math.round((f.score / total) * 100)}%</em></span>)}<b className="beam-spark" /></div>
-    <div className="wars-grid">{(d.factions || []).map(f => <div key={f.id} className={`war-f f-${f.id} ${d.mine === f.id ? 'mine' : ''} ${leader.score > 0 && leader.id === f.id ? 'leading' : ''}`}>
-      <div className="war-core"><span className="war-ring" /><span className="war-ring r2" /><span className="war-emblem"><Glyph name={ICON[f.id][0]} tone={ICON[f.id][1]} size={52} /></span></div>
-      <b>{f.label.replace(/^\S+\s/, '')}</b>
-      <div className="war-bar"><i style={{ width: `${(f.score / max) * 100}%` }} /></div>
-      <span>{f.score.toLocaleString()} pts · {f.members} {f.members === 1 ? 'fighter' : 'fighters'}</span>
-      {leader.score > 0 && leader.id === f.id && <em className="war-lead"><Glyph name="crown" tone="gold" size={13} /> leading</em>}
-      {!d.mine ? <button type="button" className="war-join" onClick={() => join(f.id)}>Join {f.label.replace(/^\S+\s/, '')}</button> : d.mine === f.id ? <em className="war-mine"><Glyph name="swords" tone="mint" size={13} /> your side</em> : null}
-    </div>)}</div>
-    <p className="wars-rules">Pick a side once a week — every reward point members earn powers their faction. Winners get a badge and a boosted airdrop share.</p>
-  </section>;
-}
-
 // Realized PnL from verified FEELESS receipts.
 export function PnlTracker({ address }) {
   const [d, setD] = useState(null);

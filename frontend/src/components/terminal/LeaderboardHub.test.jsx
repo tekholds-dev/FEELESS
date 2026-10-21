@@ -13,18 +13,15 @@ import { signalOf } from './HeldSignals';
 
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
 
-test('one Leaderboard tab with lenses; ?lens= picks the board', () => {
+test('one Leaderboard tab with lenses; ?lens= picks the board, the old trench wars lens is gone', () => {
   const host = document.createElement('div'); document.body.appendChild(host);
   const root = createRoot(host);
-  act(() => root.render(<LeaderboardHub wars={<p>WARS</p>} callers={<p>CALLERS</p>} crew={<p>CREW</p>} />));
+  act(() => root.render(<LeaderboardHub callers={<p>CALLERS</p>} crew={<p>CREW</p>} />));
   expect(host.textContent).toContain('CALLERS');
-  act(() => host.querySelector('[data-testid="lb-wars"]').click());
-  expect(mockSet).toHaveBeenCalledWith({ lens: 'wars' });
+  expect(host.querySelector('[data-testid="lb-wars"]')).toBeNull();
+  act(() => host.querySelector('[data-testid="lb-crew"]').click());
+  expect(mockSet).toHaveBeenCalledWith({ lens: 'crew' });
   act(() => root.unmount());
-  const host2 = document.createElement('div'); document.body.appendChild(host2);
-  mockParams = new URLSearchParams('lens=wars');
-  act(() => createRoot(host2).render(<LeaderboardHub wars={<p>WARS</p>} callers={<p>CALLERS</p>} crew={<p>CREW</p>} />));
-  expect(host2.textContent).toContain('WARS');
 });
 
 test('held-coin signals: ripping, dumping or steady', () => {
