@@ -2,6 +2,7 @@ import React, { Suspense, lazy, useEffect, useMemo, useRef, useState } from 'rea
 import { DuoSeat } from './DuoSeat';
 import { createPortal } from 'react-dom';
 import { AddMyCoin, SeatStudy, MySeatsRecord, SeatControls } from './MySeat';
+import { QuickTrade } from './QuickTrade';
 import { OwnerStudy } from './OwnerStudy';
 import { BrainLearned } from './BrainLearned';
 import { CHART_BGS, setChartBg, useChartBg } from '../../lib/chartBg';
@@ -711,7 +712,7 @@ export function AgentCockpit({ call, isOwner = true, head = null, extra = [], li
     <MoneyStrip d={d} seats={seats} mint={mint} onPick={onPick} nav={nav} go={go} navTabs={navTabs} ai={<AiChipBtn o={o} onClick={() => setAiOpen(true)} testid="ack-money-ai" />}
       brain={<button type="button" className={`ack-brainbtn ${brainOpen ? 'is-on' : ''}`} onClick={() => setBrainOpen(!brainOpen)} aria-pressed={brainOpen} data-testid="ack-brain-open" data-tip="the Brain — talk to G4 / OSSY, coach, teach, code lab (slides out on the right)">🧠 BRAIN</button>} />
     <div className="ack-topseats" data-testid="ack-topseats">
-      <div className="ack-seatrow">{seats.map((s, i) => <SeatCard key={s.seat} s={s} call={call} on={!s.open && s.mint === mint} onPick={onPick} readyN={readyN} same={s.open ? seats.slice(0, i).find(x => x.open && x.why === s.why)?.seat : undefined} />)}</div></div>
+      <div className="ack-seatrow">{seats.map((s, i) => <div key={s.seat} className="ack-seatwrap"><SeatCard s={s} call={call} on={!s.open && s.mint === mint} onPick={onPick} readyN={readyN} same={s.open ? seats.slice(0, i).find(x => x.open && x.why === s.why)?.seat : undefined} />{isOwner ? <QuickTrade s={s} call={call} tpl={d?.card?.tpl} /> : null}</div>)}</div></div>
     <div className="ack-main">
       <div className="ack-left"><CockpitChart duo={d?.duo} m={model} iv={iv} setIv={setIv} pos={pos} cand={cand} markers={markers} onAgent={a => { setAgentS(a); setTab('live'); }} tid={o?.tid} call={call} isOwner={isOwner} />
         <RideBar s={seats.find(x => !x.open && x.mint === mint)} pos={pos} />
