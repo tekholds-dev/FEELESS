@@ -1,3 +1,5 @@
+import { WalletPfp } from '../WalletPfp';
+import '../../styles/searchQuick.css';
 import React, { useEffect, useRef, useState } from 'react';
 import { Search, ArrowUpRight, Clock, User, Coins, Wallet } from 'lucide-react';
 import { formatUSD, formatPct } from '../../lib/dexscreener';
@@ -44,6 +46,8 @@ export function rankSearch(pairs, q) {
 const ADDR = /^([1-9A-HJ-NP-Za-km-z]{32,44}|0x[0-9a-fA-F]{40})$/;
 
 // Header search: live coins + profiles + wallets as you type, keyboard-driven, "/" to focus.
+// ⭐ one tap to FEELESS's own coins (they rank first in every search) + a reminder that a pasted wallet opens its profile
+export const QUICK = [['$FEE', '$FEE'], ['FEECAT', '🐱 FEECAT'], ['rFEE', 'rFEE']];
 export function SearchBox({ ecosystem, nav }) {
   const [q, setQ] = useState('');
   const [open, setOpen] = useState(false);
@@ -106,13 +110,14 @@ export function SearchBox({ ecosystem, nav }) {
     <Search size={17} />
     <input ref={input} data-testid="terminal-search-input" aria-label="Search coins, @names or wallets" placeholder={`${ecosystem?.name || 'Search'} · coins, $TICKER, @name or wallet…  ( / )`} maxLength={120} value={q} onFocus={() => setOpen(true)} onChange={e => { setQ(e.target.value); setOpen(true); }} onKeyDown={onKeyDown} autoComplete="off" />
     <button data-testid="terminal-search-submit" title="Search" type="submit"><ArrowUpRight size={16} /></button>
-    {open && (list.length > 0 || (q.trim().length >= 2 && !loading)) && <div className="search-drop" role="listbox" data-testid="search-results">
-      {!q.trim() && <small className="sd-head"><Clock size={11} /> Recent</small>}
+    {open && (list.length > 0 || !q.trim() || (q.trim().length >= 2 && !loading)) && <div className="search-drop" role="listbox" data-testid="search-results">
+      {!q.trim() && <div className="sd-quick" data-testid="search-quick"><small className="sd-head">⭐ FEELESS</small>{QUICK.map(([w, t]) => <button key={w} type="button" className="sd-chip" onMouseDown={e => { e.preventDefault(); setQ(w); }}>{t}</button>)}</div>}
+      {!q.trim() && list.length > 0 && <small className="sd-head"><Clock size={11} /> Recent</small>}
       {q.trim() && loading && !list.length && <small className="sd-head">Searching…</small>}
       {q.trim() && !loading && !list.length && <small className="sd-head">Nothing on {chainName} — switch network to search elsewhere.</small>}
       {q.trim() && ecosystem?.chainId && list.length > 0 && <small className="sd-head">Coins on {chainName} only</small>}
       {list.map((it, i) => { const I = { coin: Coins, profile: User, wallet: Wallet }[it.kind] || Icon; return <button type="button" key={it.key || it.href} role="option" aria-selected={i === active} className={`sd-row k-${it.kind} ${i === active ? 'active' : ''}`} onMouseEnter={() => setActive(i)} onMouseDown={e => { e.preventDefault(); go(it); }}>
-        {it.img ? <img src={it.img} alt="" /> : <span className="sd-ic"><I size={14} /></span>}
+        {it.img ? <img src={it.img} alt="" /> : it.kind !== 'coin' && it.href?.startsWith('/terminal/profile/') ? <WalletPfp address={it.href.split('/').pop().split('?')[0]} size={28} /> : <span className="sd-ic"><I size={14} /></span>}
         <span className="sd-main"><b>{it.label}</b><small>{it.sub}</small></span>
         {it.kind !== 'coin' && it.href?.startsWith('/terminal/profile/') && <span className="sd-acts"><span className="sd-prof" role="button" tabIndex={-1} title="Swap history & P&L chart" onMouseDown={e => { e.preventDefault(); e.stopPropagation(); go({ ...it, href: `${it.href}?view=history` }); }}>chart</span><span className="sd-prof" role="button" tabIndex={-1} onMouseDown={e => { e.preventDefault(); e.stopPropagation(); go(it); }}>profile</span></span>}{it.kind === 'coin' && <span className="sd-acts"><span className="sd-prof" role="button" tabIndex={-1} onMouseDown={e => { e.preventDefault(); e.stopPropagation(); go({ ...it, href: it.href }); }}>chart</span><span className="sd-prof" role="button" tabIndex={-1} onMouseDown={e => { e.preventDefault(); e.stopPropagation(); go({ ...it, href: it.profile }); }}>profile</span></span>}{it.kind === 'coin' && it.price && <span className="sd-num"><b>{formatUSD(it.price)}</b><small className={Number(it.change) >= 0 ? 'positive' : 'negative'}>{formatPct(it.change)} · vol {formatUSD(it.vol)}</small></span>}
         <em className="sd-kind">{it.kind}</em>

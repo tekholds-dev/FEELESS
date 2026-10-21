@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { toast } from 'sonner';
 import { apiUrl } from '../lib/api';
 import { FamilyBadge } from './FamilyBadge';
+import { WalletPfp } from './WalletPfp';
 import { useFloatPop } from '../lib/floatPop';
 import '../styles/familyRoom.css';
 
@@ -98,7 +99,7 @@ export function FamilyTable({ mine, owner, addr, sess, onChanged, onOpen }) {
         const st = STATUS[m.status] || STATUS.quiet;
         return (
           <li key={m.address} className={`frm-mem r-${m.rank} s-${m.status}`} style={{ '--i': i, '--heat': ((m.heat || 0) / 100).toFixed(2) }}>
-            <span className="frm-av"><i>{initials(m.name)}</i><em title={st[1]}>{st[0]}</em></span>
+            <span className="frm-av"><WalletPfp address={m.address} size={40} /><em title={st[1]}>{st[0]}</em></span>
             <div className="frm-who">
               <button type="button" className="frm-name" onClick={() => onOpen?.(m)} data-testid={`member-${m.address.slice(0, 6)}`}><b>{m.name}</b>{m.owner ? ' 👑' : ''}</button>
               <span className="frm-tags"><span className={`fnr-rank r-${m.rank}`}>{m.rankLabel}</span>{m.roleLabel ? <span className="frm-role">{m.roleIcon} {m.roleLabel}</span> : null}</span>
@@ -150,7 +151,7 @@ export function MemberFile({ m, mine, onClose }) {
   return createPortal(<div className="frm-shade" onMouseDown={e => e.target === e.currentTarget && onClose()} data-testid="member-file">
     <article className={`frm-file r-${m.rank}`} style={{ '--heat': ((m.heat || 0) / 100).toFixed(2) }} role="dialog" aria-label={`${m.name}'s file`}>
       <button type="button" className="frm-x" onClick={onClose} aria-label="Close">✕</button>
-      <header><span className="frm-av is-lg"><i>{initials(m.name)}</i><em>{st[0]}</em></span>
+      <header><span className="frm-av is-lg"><WalletPfp address={m.address} size={64} /><em>{st[0]}</em></span>
         <div><span className="frm-eyebrow">THE {String(mine.name).toUpperCase()} FAMILY · FILE</span><h3>{m.name}{m.owner ? ' 👑' : ''}</h3>
           <span className="frm-tags"><span className={`fnr-rank r-${m.rank}`}>{m.rankLabel}</span>{m.roleLabel ? <span className="frm-role">{m.roleIcon} {m.roleLabel}</span> : null}<span className="frm-chip">{st[1]}</span></span>
           <small>with the family since {m.joined ? new Date(m.joined * 1000).toLocaleDateString() : '—'}</small></div></header>

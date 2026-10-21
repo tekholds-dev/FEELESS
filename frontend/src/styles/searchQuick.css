@@ -1,0 +1,9 @@
+/* ⭐ search box quick picks (SearchBox.jsx): FEELESS's own coins one tap away */
+.sd-quick { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding: 4px 6px 8px; border-bottom: 1px solid rgba(255, 255, 255, .06); }
+.sd-quick .sd-head { padding: 0 4px 0 2px; }
+.sd-chip { padding: 4px 10px; border-radius: 999px; border: 1px solid rgba(21, 209, 106, .35); background: rgba(21, 209, 106, .08); color: #dfffea; font: 700 11px 'JetBrains Mono', monospace;
+  cursor: pointer; transition: background .15s ease, transform .12s ease; }
+.sd-chip:hover { background: rgba(21, 209, 106, .2); transform: translateY(-1px); } .sd-chip:active { transform: scale(.96); } .sd-chip:focus-visible { outline: 2px solid #45e486; outline-offset: 2px; }
+.sd-row .wpf { flex: none; }
+body.theme-day .sd-chip { color: #0b2a19; background: rgba(13, 122, 64, .08); }
+@media (prefers-reduced-motion: reduce) { .sd-chip { transition: none; } }
