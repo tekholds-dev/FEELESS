@@ -50,10 +50,20 @@ function SeatPnl({ h }) {
   return <span className={`dso-pnl is-${w.tone}`} data-testid="duo-pnl" data-tip={`${w.money} · ${w.meta}`}><strong key={w.pct}>{w.pct}</strong><small>{w.money.split(' (')[1] ? `(${w.money.split(' (')[1]}` : w.money}</small></span>;
 }
 
-function Side({ s, pod, turn, busy, side, tot }) {
+// pure: a side's live vitals as 0–1 meters — answered %, confidence, speed (fast = full; 60s+ = empty), record won %
+export function vitalsOf(s, pod) {
+  return [['ANSWERS', s.rate == null ? null : s.rate / 100, s.rate == null ? '—' : `${s.rate}%`],
+    ['CONFIDENCE', s.conf == null ? null : s.conf / 100, s.conf == null ? '—' : `${s.conf}`],
+    ['SPEED', s.medMs == null ? null : Math.max(0.04, 1 - s.medMs / 60000), secs(s.medMs)],
+    ['RECORD', pod.n ? pod.won / 100 : null, pod.n ? `${pod.won}% won` : 'no trades']];
+}
+function Side({ s, pod, turn, busy, side, tot, think }) {
   return <section className={`dso-side ${side} ${turn ? 'is-turn' : ''} ${turn && busy ? 'is-busy' : ''}`} data-testid={`duo-pod-${s.name}`}>
     <i className="dso-scan" aria-hidden="true" />
-    <header><b>{s.name}</b><em className="dso-state">{turn ? (busy ? 'THINKING' : 'ON TURN') : 'STANDBY'}<i /></em></header>
+    <header>{avatarOf(s.name) ? <img className="dso-av" src={avatarOf(s.name)} alt="" /> : null}<b>{s.name}</b><em className="dso-state">{turn ? (busy ? 'THINKING' : 'ON TURN') : 'STANDBY'}<i /></em></header>
+    {think ? <div className={`dso-prog ${think.over ? 'is-over' : ''}`} data-testid={`duo-prog-${s.name}`}><span><i style={{ transform: `scaleX(${Math.min(1, think.el / think.limit)})` }} /><b style={{ left: `${Math.min(100, (think.typ / think.limit) * 100)}%` }} aria-hidden /></span>
+      <small>{Math.round(think.el)}s of {Math.round(think.limit)}s · typical {Math.round(think.typ)}s · {THINK_STEPS[think.step]}</small></div> : null}
+    <div className="dso-vit">{vitalsOf(s, pod).map(([k, v, w]) => <span key={k}><em>{k}</em><i><b style={{ transform: `scaleX(${v == null ? 0 : Math.max(0.03, Math.min(1, v))})` }} /></i><small key={w}>{w}</small></span>)}</div>
     <div className="dso-stats">
       <span><small>CALLS</small><b>{s.calls}</b></span>
       <span className={s.rate != null && s.rate < 50 ? 'bad' : ''}><small>ANS</small><b>{s.rate == null ? '—' : `${s.rate}%`}</b></span>
@@ -76,12 +86,13 @@ function Side({ s, pod, turn, busy, side, tot }) {
 
 // pure: the live "thinking" read — how far into its typical think time the deciding model is, which step that is, and the coins it reads
 export const THINK_STEPS = ['reading the packet', 'weighing the coins', 'checking the agents', 'deciding'];
-export function thinkOf(live, typicalMs, nowS) {
+export function thinkOf(live, typicalMs, nowS, limitS) {
   if (!live) return null;
   const el = Math.max(0, nowS - Number(live.at || nowS));
   const typ = Math.max(5, (Number(typicalMs) || 25000) / 1000);
   const frac = Math.min(1, el / typ);
-  return { el, typ, frac, step: Math.min(THINK_STEPS.length - 1, Math.floor(frac * THINK_STEPS.length)), over: el > typ * 1.5 };
+  const limit = Math.max(typ * 1.2, Number(limitS) || 120);   // the call's real deadline (its timeout) — the line runs against it
+  return { el, typ, frac, limit, step: Math.min(THINK_STEPS.length - 1, Math.floor(frac * THINK_STEPS.length)), over: el > typ * 1.5 };
 }
 
 const bar = (v, lo, hi) => Math.max(0.06, Math.min(1, ((Number(v) || 0) - lo) / (hi - lo)));
@@ -169,6 +180,8 @@ function TradeRoom({ duo, call }) {
 }
 
 function DuoSeatBody({ duo, call }) {
+  const [now, setNow] = useState(() => Date.now() / 1000);
+  useEffect(() => { if (!duo?.busy) return undefined; const t = setInterval(() => { if (!document.hidden) setNow(Date.now() / 1000); }, 1000); return () => clearInterval(t); }, [duo?.busy]);
   if (!duo || duo.mode === 'off') return <div className="dso is-off" data-testid="duo-seat"><b>🔁 OSSY ⚔ G4</b><small>seat off — turn it on in 🎛 Limits › 🧠 G4 SEAT</small></div>;
   const log = duo.log || [];
   const g4 = sideOf('G4', log), os = sideOf('OSSY', log);
@@ -178,21 +191,23 @@ function DuoSeatBody({ duo, call }) {
   return <div className={`dso is-${duo.mode}`} data-testid="duo-seat">
     <header className="dso-head"><b>🔁 OSSY ⚔ G4 · {String(duo.mode).toUpperCase()}</b>
       <small>{duo.busy ? `${duo.next} is thinking…` : last ? `last call ${ago(last.at)} ago · ${duo.next} next` : 'first call within a minute'}</small></header>
-    <TurnBar duo={duo} />
-    <TradeRoom duo={duo} call={call} />
-    <div className="dso-arena">
-      <Side tot={duo.totals?.G4} s={g4} pod={podOf('G4', duo.rec)} turn={duo.next === 'G4'} busy={duo.busy} side="l" />
-      <div className="dso-core" data-testid="duo-open">
-        {last ? <i key={`${last.at}-${from}`} className={`dso-beam from-${from} a-${actKey(last.action)}`} aria-hidden="true" /> : null}
-        <div className="dso-hex"><i className="dso-ring" aria-hidden="true" />
-          <small>{duo.holding ? `${duo.holder || '—'} HOLDS` : 'SEAT'}</small><b>{duo.holding ? <span className="dso-coin">🪙 {duo.holding.symbol}</span> : duo.open ? `$${duo.open.symbol}` : 'EMPTY'}</b>
-          {duo.holding ? <SeatPnl h={duo.holding} /> : <small>{duo.open ? `${duo.open.by === 'local' ? 'OSSY' : duo.open.by === 'agents' ? 'agents' : 'G4'} · peak ${sgn(duo.open.peak || 0)}` : `${duo.next} calls next`}</small>}
+    <div className="dso-stage">
+      <Side tot={duo.totals?.G4} s={g4} pod={podOf('G4', duo.rec)} turn={duo.next === 'G4'} busy={duo.busy} side="l" think={duo.busy && duo.next === 'G4' ? thinkOf(duo.live, g4.medMs, now, duo.limits?.G4) : null} />
+      <div className="dso-mid">
+        <TurnBar duo={duo} />
+        <div className="dso-core" data-testid="duo-open">
+          {last ? <i key={`${last.at}-${from}`} className={`dso-beam from-${from} a-${actKey(last.action)}`} aria-hidden="true" /> : null}
+          <div className="dso-hex"><i className="dso-ring" aria-hidden="true" />
+            <small>{duo.holding ? `${duo.holder || '—'} HOLDS` : 'SEAT'}</small><b>{duo.holding ? <span className="dso-coin">🪙 {duo.holding.symbol}</span> : duo.open ? `$${duo.open.symbol}` : 'EMPTY'}</b>
+            {duo.holding ? <SeatPnl h={duo.holding} /> : <small>{duo.open ? `${duo.open.by === 'local' ? 'OSSY' : duo.open.by === 'agents' ? 'agents' : 'G4'} · peak ${sgn(duo.open.peak || 0)}` : `${duo.next} calls next`}</small>}
+          </div>
+          {duo.fate ? <small className={`dso-fate ${/^seated/.test(duo.fate.why) ? 'ok' : /sent/.test(duo.fate.why) ? 'go' : 'no'}`} data-testid="duo-fate" title="What happened to the newest model BUY">
+            🧾 {duo.fate.symbol ? `$${duo.fate.symbol}` : 'buy'}: {duo.fate.why} · {ago(duo.fate.at)}</small> : null}
+          <small className="dso-agents" title="Minutes neither model answered, so the agents decided the seat">🤝 agents backed up {agentsN}{duo.agents?.n ? ` · ${duo.agents.n} closed, ${duo.agents.won}% won` : ''}</small>
         </div>
-        {duo.fate ? <small className={`dso-fate ${/^seated/.test(duo.fate.why) ? 'ok' : /sent/.test(duo.fate.why) ? 'go' : 'no'}`} data-testid="duo-fate" title="What happened to the newest model BUY">
-          🧾 {duo.fate.symbol ? `$${duo.fate.symbol}` : 'buy'}: {duo.fate.why} · {ago(duo.fate.at)}</small> : null}
-        <small className="dso-agents" title="Minutes neither model answered, so the agents decided the seat">🤝 agents backed up {agentsN}{duo.agents?.n ? ` · ${duo.agents.n} closed, ${duo.agents.won}% won` : ''}</small>
+        <TradeRoom duo={duo} call={call} />
       </div>
-      <Side tot={duo.totals?.OSSY} s={os} pod={podOf('OSSY', duo.rec)} turn={duo.next === 'OSSY'} busy={duo.busy} side="r" />
+      <Side tot={duo.totals?.OSSY} s={os} pod={podOf('OSSY', duo.rec)} turn={duo.next === 'OSSY'} busy={duo.busy} side="r" think={duo.busy && duo.next === 'OSSY' ? thinkOf(duo.live, os.medMs, now, duo.limits?.OSSY) : null} />
     </div>
     <Think duo={duo} sides={[g4, os]} />
     <ol className="dso-log">{log.slice(0, 8).map((r, i) => <li key={`${r.at}-${i}`} className={`a-${actKey(r.action)} ${r.model === 'OSSY' ? 'by-ossy' : r.model === 'AGENTS' ? 'by-agents' : 'by-g4'}`} style={{ '--i': i }}>

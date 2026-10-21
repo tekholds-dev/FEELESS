@@ -16046,7 +16046,8 @@ async def admin_ai_calls(request: Request):
         by_.setdefault(k_, []).append(ms_)
     avg_ = {k_: sum(v_) / len(v_) for k_, v_ in by_.items() if v_}
     names_ = {k_: _air.NAME_DEFAULT.get(k_) for k_ in ('lan', 'local')} if isinstance(getattr(_air, 'NAME_DEFAULT', None), dict) else {}
-    return {**_air.calls_view(time.time(), avg_), 'names': names_, 'avgMs': {k_: round(v_) for k_, v_ in avg_.items()}}
+    lim_ = {k_: _air.rig(k_, 'timeout', (_air.PROVIDERS.get(k_) or (0,) * 7)[6] or 90) for k_ in ('lan', 'local', 'win')}   # ⏱ the real deadline per model
+    return {**_air.calls_view(time.time(), avg_), 'names': names_, 'avgMs': {k_: round(v_) for k_, v_ in avg_.items()}, 'limits': lim_}
 
 
 @app.get('/api/reputation/admin/ai/activity')
@@ -19786,6 +19787,7 @@ def _duo_view(env=None):
                 'rec': {nm(k): v for k, v in _seat.by_model((st_['book'] or {}).get('closed')).items() if k in (_duet.LEAD, _duet.SECOND)},
                 'open': (st_['book'] or {}).get('open'),
                 'agents': _seat.by_model((st_['book'] or {}).get('closed')).get('agents'), 'fate': _g4.get('fate'), 'live': _g4.get('live'),
+                'limits': {nm(k_): _air.rig(k_, 'timeout', (_air.PROVIDERS.get(k_) or (0,) * 7)[6] or 90) for k_ in (_duet.LEAD, _duet.SECOND)},   # ⏱ each model's real call deadline (the live line runs against it)
                 'log': [{k: r.get(k) for k in ('at', 'model', 'action', 'symbol', 'why', 'conf', 'pct', 'ms', 'miss')} for r in st_['log'][-30:][::-1]],
                 'chart': [{'at': r.get('at'), 'model': r.get('model'), 'mint': r.get('mint'), 'sym': r.get('symbol'), 'action': r.get('action'), 'view': r.get('view'), 'talk': bool(r.get('talk')), 'why': str(r.get('why') or '')[:_seat.WHY_MAX],
                            'pct': r.get('pct'), 'cap': _duo_pin_cap(r)} for r in _duo_chart_rows(st_['log'], card={l_.get('mint') for l_ in _duo_card_legs()})]}   # 📣 what the models said about each coin → bubbles on the Agents chart

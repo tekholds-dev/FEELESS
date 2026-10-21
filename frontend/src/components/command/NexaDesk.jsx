@@ -61,6 +61,45 @@ export function NexaDesk({ call }) {
     </div>
     <p className="nxd-real" data-testid="nexa-real">💵 Real money: {d?.real?.why || 'FeeCat trades paper.'}</p>
     <details className="nxd-chat" data-testid="nexa-chat" open><summary>💬 Talk to Nexa <small>she answers from her own FeeCat desk — record, last read, tunes, notebook</small></summary>
-      <div className="nxd-chatbox"><AiChat call={call} variant="mini" lockProvider="win" title="🪟 NEXA" /></div></details>
+      <div className="nxd-chatrow"><div className="nxd-chatbox"><AiChat call={call} variant="mini" lockProvider="win" title="🪟 NEXA" /></div><NexaVitals call={call} /></div></details>
   </section>;
+}
+
+// 🪟 NEXA LIVE (owner, 2026-10-21: "see Nexa's realtime vitals and loading beside the chat"): her call in flight on a line against its real
+// deadline, what her llamafile is actually running (from the Model Rig's /props + /slots read), her last calls and how many she answered.
+export function nexaStats(calls) {
+  const mine = (calls?.log || []).filter(r => r.prov === 'win');
+  const ok = mine.filter(r => r.ok);
+  const ms = ok.map(r => r.ms).filter(Boolean).sort((a, b) => a - b);
+  return { n: mine.length, ok: ok.length, rate: mine.length ? Math.round((100 * ok.length) / mine.length) : null, med: ms.length ? ms[Math.floor(ms.length / 2)] : null,
+    flight: (calls?.inflight || []).filter(x => x.prov === 'win'), recent: mine.slice(0, 5) };
+}
+export function NexaVitals({ call }) {
+  const [c, setC] = React.useState(null); const [rig, setRig] = React.useState(null);
+  React.useEffect(() => {
+    let on = true; let t = null; let n = 0;
+    const tick = async () => {
+      try { const r = await call('/admin/ai/calls'); if (on) setC(r); } catch { /* keep the last */ }
+      if (n++ % 8 === 0) { try { const r = await call('/admin/ai/rig'); if (on) setRig(r); } catch { /* keep */ } }
+      if (on) t = setTimeout(tick, document.hidden ? 8000 : 2000);
+    };
+    tick(); return () => { on = false; clearTimeout(t); };
+  }, [call]);
+  const st = nexaStats(c); const nx = rig?.nexa; const live = rig?.live?.win || {};
+  const lim = (c?.limits || {}).win || 240;
+  return <aside className="nxd-vit" data-testid="nexa-vitals">
+    <header><i className="nxd-orb" aria-hidden /><b>NEXA</b><span className={`nxd-st s-${String(live.state || 'untested').toLowerCase().replace(/\s+/g, '-')}`}>{live.state || 'UNTESTED'}</span></header>
+    {st.flight.length ? st.flight.map(x => { const fill = Math.min(1, (x.sec || 0) / lim); const tick = x.typical ? Math.min(1, x.typical / lim) : null;
+      return <div key={x.at} className="nxd-line" data-testid="nexa-line"><span><i style={{ transform: `scaleX(${Math.max(0.02, fill)})` }} />{tick != null ? <b style={{ left: `${tick * 100}%` }} aria-hidden /> : null}</span>
+        <small>{x.role || 'call'} · {Math.round(x.sec || 0)}s of {lim}s{x.typical ? ` · typical ${Math.round(x.typical)}s` : ''}</small></div>; })
+      : <p className="nxd-idle">idle{st.med ? ` · answers in ~${(st.med / 1000).toFixed(0)}s` : ''}</p>}
+    <div className="nxd-vg">
+      <span><em>RUNNING</em><b>{nx?.actual ? `${(nx.actual.ctx / 1024).toFixed(0)}K × ${nx.actual.slots}` : '—'}</b></span>
+      <span><em>WANTED</em><b>{nx?.desired ? `${(nx.desired.ctx / 1024).toFixed(0)}K × ${nx.desired.slots}` : 'auto'}</b></span>
+      <span><em>ANSWERED</em><b>{st.rate == null ? '—' : `${st.rate}%`}</b><small>{st.ok}/{st.n}</small></span>
+      <span><em>TYPICAL</em><b>{st.med ? `${(st.med / 1000).toFixed(0)}s` : '—'}</b></span>
+    </div>
+    {nx ? <p className={`nxd-rt is-${nx.state}`}>{nx.state === 'active' ? '✅ runtime matches the rig' : nx.state === 'applying' ? '⏳ restarting her llamafile…' : nx.state === 'unreachable' ? '✕ her llamafile is not answering' : '⚠ runtime differs from the rig'}</p> : null}
+    <ol className="nxd-calls">{st.recent.map((r, i) => <li key={`${r.at}-${i}`} className={r.ok ? '' : 'is-err'}><b>{r.role || 'call'}</b><span>{(r.ms / 1000).toFixed(0)}s</span><small>{r.ok ? '✓' : '✕'}</small></li>)}</ol>
+  </aside>;
 }

@@ -6,6 +6,8 @@
 .mlv-row.is-on { border-color: color-mix(in srgb, var(--m-accent) 40%, transparent); }
 .mlv-bar { position: relative; display: block; height: 18px; border-radius: 5px; overflow: hidden; background: rgba(255, 255, 255, .05); }
 .mlv-bar i { position: absolute; inset: 0; transform-origin: left; background: linear-gradient(90deg, rgba(21, 209, 106, .25), rgba(69, 228, 134, .7)); transition: transform 1.4s linear; }
+.mlv-tick { position: absolute; top: 2px; bottom: 2px; width: 2px; background: rgba(255, 255, 255, .75); z-index: 1; }
+.mlv-bar.is-over i { background: linear-gradient(90deg, rgba(255, 143, 163, .25), rgba(255, 143, 163, .75)); }
 .mlv-bar i::after { content: ''; position: absolute; inset: 0; background: linear-gradient(90deg, transparent, rgba(255, 255, 255, .35), transparent); animation: mlvScan 1.2s linear infinite; }
 .mlv-bar em { position: relative; padding-left: 7px; font-style: normal; font-size: 9.5px; line-height: 18px; font-weight: 700; color: var(--m-text, #e8fff2); }
 .mlv-idle { font-size: 9.5px; color: var(--m-mute); }

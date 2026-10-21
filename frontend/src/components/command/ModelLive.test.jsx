@@ -16,8 +16,14 @@ test('shows a live % bar for a call in flight and the prompt log', async () => {
     log: [{ at: 1, prov: 'local', role: 'advise', ms: 8100, ok: true, tok: 900, prompt: 'NOW: G4 holds $X', answer: '{"action":"HOLD"}', system: 'sys' }] }));
   await act(async () => { createRoot(el).render(<ModelLive call={call} />); });
   expect(call).toHaveBeenCalledWith('/admin/ai/calls');
-  expect(el.querySelector('[data-testid="mlv-lan"]').textContent).toContain('42%');
+  expect(el.querySelector('[data-testid="mlv-lan"]').textContent).toContain('6s of 90s');
   expect(el.querySelector('[data-testid="mlv-local"]').textContent).toContain('idle');
   await act(async () => { el.querySelector('[data-testid="mlv-call"] button').click(); });
   expect(el.textContent).toContain('NOW: G4 holds $X');
+});
+
+test('the line runs against the real deadline, typical time as a tick', () => {
+  const { callLine } = require('./ModelLive');
+  const l = callLine({ sec: 30, typical: 15 }, 120);
+  expect(l.fill).toBeCloseTo(0.25); expect(l.tick).toBeCloseTo(0.125); expect(l.over).toBe(true); expect(l.word).toBe('30s of 120s · typical 15s');
 });

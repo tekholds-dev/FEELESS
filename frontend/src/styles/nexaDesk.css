@@ -52,6 +52,29 @@ body.fx-lite .nxd-kbbars span { animation: none; } @media (prefers-reduced-motio
 .nxd-chat { border-top: 1px solid #ffffff14; padding-top: 8px; }
 .nxd-chat > summary { cursor: pointer; list-style: none; font: 700 11.5px 'JetBrains Mono', monospace; color: #e9d3ff; display: flex; flex-wrap: wrap; gap: 4px 10px; align-items: baseline; transition: color .15s; }
 .nxd-chat > summary::-webkit-details-marker { display: none; } .nxd-chat > summary:hover { color: #fff; } .nxd-chat > summary small { font: 400 10.5px system-ui, sans-serif; color: #a99bc2; }
-.nxd-chatbox { height: 460px; margin-top: 8px; border-radius: 12px; overflow: hidden; border: 1px solid #b38cff44; }
+.nxd-chatrow { display: grid; grid-template-columns: minmax(0, 1fr) minmax(220px, 280px); gap: 10px; margin-top: 8px; align-items: stretch; }
+.nxd-chatbox { height: 460px; border-radius: 12px; overflow: hidden; border: 1px solid #b38cff44; }
+.nxd-vit { display: grid; gap: 9px; align-content: start; padding: 12px; border-radius: 12px; border: 1px solid #b38cff55;
+  background: linear-gradient(160deg, rgba(179, 140, 255, .14), rgba(10, 6, 20, .78) 60%); box-shadow: inset 0 1px 0 rgba(255, 255, 255, .07), 0 16px 40px -26px #b38cff; }
+.nxd-vit header { display: flex; align-items: center; gap: 8px; } .nxd-vit header b { font: 900 14px 'JetBrains Mono', monospace; letter-spacing: .12em; color: #e2d0ff; }
+.nxd-orb { width: 12px; height: 12px; border-radius: 50%; background: radial-gradient(circle at 35% 35%, #fff, #b38cff 45%, #5a2ea8); box-shadow: 0 0 12px #b38cff; animation: nxdOrb 2.4s ease-in-out infinite; }
+.nxd-st { margin-left: auto; font: 700 9px 'JetBrains Mono', monospace; padding: 2px 7px; border-radius: 999px; background: #ffffff10; color: #c9bde8; }
+.nxd-st.s-online { background: rgba(21, 209, 106, .18); color: #45e486; } .nxd-st.s-offline { background: rgba(255, 143, 163, .15); color: #ff8fa3; }
+.nxd-line { display: grid; gap: 3px; } .nxd-line span { position: relative; height: 7px; border-radius: 4px; background: #ffffff10; overflow: hidden; }
+.nxd-line span i { position: absolute; inset: 0; transform-origin: left; background: linear-gradient(90deg, #b38cff44, #b38cff); transition: transform 2s linear; }
+.nxd-line span b { position: absolute; top: 0; bottom: 0; width: 2px; background: #fff; opacity: .75; } .nxd-line small, .nxd-idle { font: 600 10px 'JetBrains Mono', monospace; color: #c9bde8; margin: 0; }
+.nxd-vg { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+.nxd-vg span { display: grid; gap: 2px; padding: 7px 8px; border-radius: 9px; background: #ffffff08; border: 1px solid #b38cff22; }
+.nxd-vg em { font: 700 8px 'JetBrains Mono', monospace; letter-spacing: .12em; font-style: normal; color: #a99bc2; } .nxd-vg b { font: 800 14px 'JetBrains Mono', monospace; color: #f2ecff; }
+.nxd-vg small { font-size: 9.5px; color: #a99bc2; }
+.nxd-rt { margin: 0; font-size: 11px; color: #ffd36b; } .nxd-rt.is-active { color: #45e486; } .nxd-rt.is-unreachable { color: #ff8fa3; }
+.nxd-calls { list-style: none; margin: 0; padding: 0; display: grid; gap: 3px; }
+.nxd-calls li { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: 8px; font: 10.5px 'JetBrains Mono', monospace; color: #d9ccf5; padding: 4px 7px; border-radius: 7px; background: #ffffff06; }
+.nxd-calls li.is-err { color: #ff8fa3; } .nxd-calls small { color: #45e486; } .nxd-calls .is-err small { color: #ff8fa3; }
+@keyframes nxdOrb { 0%, 100% { transform: scale(1); opacity: .85; } 50% { transform: scale(1.25); opacity: 1; } }
+@media (max-width: 980px) { .nxd-chatrow { grid-template-columns: 1fr; } }
 .cch-model.is-locked { display: inline-flex; align-items: center; cursor: default; color: #e9d3ff; border-color: #b38cff66; }
 body.theme-day .nxd-chat > summary { color: #4a2a7a; }
+body.theme-day .nxd-vit { background: rgba(245, 240, 255, .92); } body.theme-day .nxd-vg b, body.theme-day .nxd-vit header b { color: #2a1a4a; }
+body.fx-lite .nxd-orb { animation: none; }
+@media (prefers-reduced-motion: reduce) { .nxd-orb { animation: none; } .nxd-line span i { transition: none; } }
