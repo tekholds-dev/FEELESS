@@ -810,7 +810,7 @@ body.theme-day .reputation-badge.badge-trusted{color:#08764e}
 body.theme-day .reputation-badge.badge-flagged{color:#b42346}
 body.theme-day .reputation-badge.badge-building,body.theme-day .reputation-badge.badge-unproven,body.theme-day .reputation-badge.badge-unknown{color:#5c7767}
 .reputation-center{max-width:920px}
-.reputation-summary{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin:20px 0}.reputation-summary div{border:1px solid var(--line);border-radius:7px;padding:14px 16px;background:#080f0c}.reputation-summary small{color:var(--muted);font-size:9px;letter-spacing:.8px;display:block;margin-bottom:6px}.reputation-summary strong{font-size:20px}
+
 .reputation-lookup{border:1px solid var(--line);border-radius:7px;padding:16px;background:#080f0c;margin-bottom:20px}
 .reputation-lookup form{display:flex;align-items:center;gap:10px;border:1px solid #254434;background:#09130f;padding:10px 13px;border-radius:6px;color:#93aa9c}
 .reputation-lookup form input{flex:1;background:transparent;border:none;outline:none;color:var(--paper);font-size:12px}
@@ -1011,7 +1011,6 @@ body.theme-day .market-availability *{color:var(--day-warning)!important}
 body.theme-day .reputation-lookup,
 body.theme-day .rep-scan,
 body.theme-day .reputation-wallet-panel,
-body.theme-day .reputation-summary>div,
 body.theme-day .reputation-signature-list a,
 body.theme-day .reputation-rank-row,
 body.theme-day .rep-cluster-panel,

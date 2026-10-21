@@ -5,7 +5,10 @@ import { useWorkspace } from '../../hooks/useWorkspace';
 import { fetchLeaderboard, fetchCreator, fetchClusters, BADGE_LABEL } from '../../lib/reputation';
 import { CreatorProfileCard, AddressPill, WatchlistDashboard } from './CreatorProfile';
 import { RepTools } from '../RepTools';
-import { RepStanding } from './RepStanding';
+import { RepSection } from './RepStanding';
+import { RepHero, RepNav, REP_SECTIONS } from './RepHero';
+import { SupportButton } from '../SupportHub';
+import { useRemembered } from '../../lib/remember';
 
 const ICON = { trusted: ShieldCheck, building: Shield, unproven: ShieldQuestion, flagged: ShieldAlert };
 
@@ -75,7 +78,7 @@ function ClusterExplorer({ chain, onScan }) {
 export function ReputationCenter() {
   const { ecosystem } = useWorkspace();
   const navigate = useNavigate();
-  const [tab, setTab] = useState('leaderboard');
+  const [tab, setTab] = useState('leaderboard'); const [repSec, setRepSec] = useRemembered('feeless.rep.sec', 'investigate');
   const [view, setView] = useState('trusted');
   const [showAll, setShowAll] = useState(false);
   const [data, setData] = useState({ rows: [], totalCreators: 0, totalTokensTracked: 0 });
@@ -100,11 +103,24 @@ export function ReputationCenter() {
     }
   };
 
-  return <div className="reputation-center" data-testid="reputation-center"><RepTools />
-    <RepStanding />
-    <div className="command-page-title"><span className="eyebrow"><Layers size={13} />THE TRUST LAYER · CHAIN-AGNOSTIC</span><h1>Creators earn trust.<br /><em>Every launch remembers.</em></h1><p>A wallet's launch history, not the current meta, is what should decide whether you buy. Every observation FEELESS makes across every chain and launchpad gets recorded here permanently — mint authority status, liquidity survival, and every past rug. This dataset only gets harder to fake the longer it runs.</p></div>
-    <div className="reputation-summary"><div><small>CREATORS TRACKED</small><strong data-testid="reputation-total-creators">{data.totalCreators}</strong></div><div><small>TOKENS OBSERVED</small><strong data-testid="reputation-total-tokens">{data.totalTokensTracked}</strong></div><div><small>ACTIVE CHAIN</small><strong>{ecosystem.name}</strong></div></div>
-    <section className="reputation-mechanics" data-testid="reputation-mechanics" onClick={e => e.currentTarget.classList.toggle('is-open')}>
+  const sec = REP_SECTIONS.some(([k]) => k === repSec) ? repSec : 'investigate';
+  return <div className="reputation-center" data-testid="reputation-center">
+    <RepHero creators={data.totalCreators} tokens={data.totalTokensTracked} chain={ecosystem.name} />
+    <div className="sup-row"><SupportButton /></div>
+    <RepNav sec={sec} setSec={setRepSec} />
+    <div className="rph-sec" key={sec}>
+    {sec === 'investigate' && <><RepTools />
+    <section className="reputation-lookup">
+      <CreatorLookup chain={ecosystem.chainId} onScan={runScan} />
+      {scan && <div ref={reportRef}>
+        <CreatorProfileCard chain={ecosystem.chainId} variant="compact" {...scan} onClose={() => setScan(null)} />
+        {scan.result && <Link className="rep-scan-full-link" to={`/terminal/reputation/${ecosystem.chainId}/${scan.address}`}>Open full profile page ↗</Link>}
+      </div>}
+    </section>
+    </>}
+    {['why', 'markets', 'standing', 'rugs', 'terms'].includes(sec) && <RepSection part={sec} />}
+    {sec === 'how' && <>
+    <section className="reputation-mechanics" data-testid="reputation-mechanics" >
       <div className="reputation-mechanics-head"><HelpCircle size={15} /><h2>How a score actually gets built</h2></div>
       <div className="reputation-mechanics-grid">
         <article><span className="eyebrow">CREATOR IDENTITY</span><p>Every token's deployer wallet is resolved on-chain — the mint authority if one exists, or the fee-payer of the mint's earliest transaction when authority was renounced (the same heuristic real rug-detection tools use). This is how launches get tied to a wallet even on pump.fun, where authority is renounced instantly.</p></article>
@@ -115,15 +131,10 @@ export function ReputationCenter() {
         <article><span className="eyebrow">WHY IT COMPOUNDS</span><p>Every observation is permanent and file-backed — nothing decays, nothing resets when a meta rotates. A wallet that rugs today stays flagged next month, next chain cycle, next meta. That's the moat: the dataset gets harder to fake the longer FEELESS runs, not easier.</p></article>
       </div>
     </section>
+    </>}
+    {sec === 'board' && <>
     <div className="reputation-top-tabs"><button type="button" className={tab === 'leaderboard' ? 'active' : ''} onClick={() => setTab('leaderboard')}><Layers size={14} />Leaderboard</button><button type="button" className={tab === 'clusters' ? 'active' : ''} onClick={() => setTab('clusters')}><Link2 size={14} />Wallet Clusters</button><button type="button" className={tab === 'blocklist' ? 'active' : ''} onClick={() => setTab('blocklist')}>⛔ Blocklist</button><button type="button" className={tab === 'watchlist' ? 'active' : ''} onClick={() => setTab('watchlist')}><Star size={14} />My Watchlist</button></div>
     {tab === 'watchlist' ? <WatchlistDashboard /> : tab === 'blocklist' ? <BlocklistView /> : <>
-    <section className="reputation-lookup">
-      <CreatorLookup chain={ecosystem.chainId} onScan={runScan} />
-      {scan && <div ref={reportRef}>
-        <CreatorProfileCard chain={ecosystem.chainId} variant="compact" {...scan} onClose={() => setScan(null)} />
-        {scan.result && <Link className="rep-scan-full-link" to={`/terminal/reputation/${ecosystem.chainId}/${scan.address}`}>Open full profile page ↗</Link>}
-      </div>}
-    </section>
     {tab === 'clusters' ? <ClusterExplorer chain={ecosystem.chainId} onScan={runScan} /> : <section className="reputation-leaderboard">
       <div className="reputation-leaderboard-tabs">{VIEWS.map(([id, label]) => <button type="button" key={id} className={view === id ? 'active' : ''} onClick={() => setView(id)}>{label}</button>)}</div>
       <p className="reputation-view-hint">{VIEWS.find(([id]) => id === view)?.[2]} · click a wallet to open its full profile</p>
@@ -139,5 +150,7 @@ export function ReputationCenter() {
       </div>; })}</div>{(data.rows || []).length > 12 && <button type="button" className="pf-more" onClick={() => setShowAll(v => !v)}>{showAll ? 'Show top 12' : `Show all ${(data.rows || []).length}`}</button>}
     </section>}
     </>}
+    </>}
+    </div>
   </div>;
 }

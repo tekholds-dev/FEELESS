@@ -95,6 +95,16 @@ function DarkSide() {
 
 import { RugBounty } from '../RugBounty';
 
+// 🛡 one Rep section at a time (ReputationCenter's nav)
+export function RepSection({ part }) {
+  if (part === 'why') return <WhyPump />;
+  if (part === 'markets') return <RepMarkets />;
+  if (part === 'standing') return <div className="rep-top"><MyStanding /><DarkSide /></div>;
+  if (part === 'rugs') return <><div className="rep-top"><RugReport /><ShieldLeaderboard /></div><RugBounty /></>;
+  if (part === 'terms') return <MemeTerms />;
+  return null;
+}
+
 export function RepStanding() {
   return <div className="rep-v2"><div className="sup-row"><SupportButton /></div><WhyPump /><RepMarkets /><div className="rep-top"><MyStanding /><DarkSide /></div><MemeTerms /><div className="rep-top"><RugReport /><ShieldLeaderboard /></div><RugBounty /></div>;
 }

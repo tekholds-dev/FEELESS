@@ -1,0 +1,48 @@
+/* 🛡 Rep hero + section nav (RepHero.jsx, rph-*): a deep-teal glass stage, a live 3D shield, glass number tiles. transform / opacity only. */
+.rph { position: relative; isolation: isolate; overflow: hidden; display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(220px, .8fr); gap: 18px; align-items: center;
+  padding: 26px 26px 22px; border-radius: 20px; border: 1px solid rgba(110, 230, 200, .22);
+  background: radial-gradient(70% 90% at 85% 40%, rgba(40, 180, 160, .22), transparent 60%), radial-gradient(60% 80% at 0% 0%, rgba(69, 228, 134, .12), transparent 60%), linear-gradient(160deg, #06121a, #030709 70%);
+  box-shadow: 0 30px 80px -40px #000, inset 0 1px 0 rgba(255, 255, 255, .06); }
+.rph::before { content: ''; position: absolute; inset: 0; z-index: -1; opacity: .35; background-image: radial-gradient(rgba(160, 255, 220, .25) 1px, transparent 1.2px); background-size: 22px 22px;
+  -webkit-mask-image: radial-gradient(80% 80% at 70% 50%, #000, transparent 75%); mask-image: radial-gradient(80% 80% at 70% 50%, #000, transparent 75%); }
+.rph-copy { display: grid; gap: 10px; justify-items: start; min-width: 0; }
+.rph-eyebrow { display: inline-flex; gap: 6px; align-items: center; font: 700 10.5px 'JetBrains Mono', monospace; letter-spacing: .2em; color: #7ff0cf; }
+.rph h1 { margin: 0; font: 800 clamp(28px, 3.8vw, 46px)/1.04 'Space Grotesk', system-ui, sans-serif; letter-spacing: -.02em; color: #f2fbf8; }
+.rph h1 em { font-style: normal; background: linear-gradient(90deg, #45e486, #7ff0cf); -webkit-background-clip: text; background-clip: text; color: transparent; }
+.rph p { margin: 0; max-width: 560px; color: #9fbcb2; font-size: 14px; line-height: 1.5; }
+.rph-nums { display: grid; grid-template-columns: repeat(3, minmax(0, auto)); gap: 8px; margin-top: 4px; }
+.rph-nums span { display: grid; gap: 2px; padding: 10px 14px; border-radius: 12px; background: rgba(255, 255, 255, .04); border: 1px solid rgba(255, 255, 255, .07); backdrop-filter: none; }
+.rph-nums b { font: 800 20px 'JetBrains Mono', monospace; color: #fff; animation: rphPop .5s ease; } .rph-nums em { font: 700 8.5px 'JetBrains Mono', monospace; letter-spacing: .14em; font-style: normal; color: #7f9c92; }
+.rph-art { position: relative; height: 230px; perspective: 700px; }
+.rph-scene { position: absolute; inset: 0; display: grid; place-items: center; transform-style: preserve-3d; transform: rotateX(18deg); }
+.rph-ring { position: absolute; border-radius: 50%; border: 2px solid rgba(127, 240, 207, .45); box-shadow: 0 0 18px rgba(69, 228, 134, .25), inset 0 0 18px rgba(69, 228, 134, .15); }
+.rph-ring.r1 { width: 190px; height: 190px; animation: rphSpin 14s linear infinite; }
+.rph-ring.r2 { width: 150px; height: 150px; border-style: dashed; border-color: rgba(69, 228, 134, .5); animation: rphSpinY 10s linear infinite; }
+.rph-ring.r3 { width: 112px; height: 112px; border-color: rgba(127, 240, 207, .3); animation: rphSpin 7s linear infinite reverse; }
+.rph-core { position: relative; display: grid; place-items: center; width: 84px; height: 84px; border-radius: 22px; color: #7ff0cf; font-style: normal;
+  background: radial-gradient(circle at 35% 30%, rgba(127, 240, 207, .35), rgba(4, 30, 26, .9)); box-shadow: 0 0 40px rgba(69, 228, 134, .35), inset 0 1px 0 rgba(255, 255, 255, .2);
+  animation: rphFloat 4s ease-in-out infinite; }
+.rph-beam { position: absolute; width: 230px; height: 230px; border-radius: 50%; background: conic-gradient(from 0deg, rgba(127, 240, 207, .28), transparent 50deg); animation: rphSpin 3.2s linear infinite; }
+.rph-orbit { position: absolute; width: 210px; height: 210px; animation: rphSpin 18s linear infinite; }
+.rph-dot { position: absolute; left: 50%; top: 50%; width: 9px; height: 9px; margin: -4.5px; border-radius: 50%; background: #45e486; box-shadow: 0 0 10px #45e486;
+  transform: rotate(calc(var(--i) * 36deg)) translateX(105px); }
+.rph-dot.is-bad { background: #ff4d6d; box-shadow: 0 0 10px #ff4d6d; }
+.rph-nav { position: sticky; top: 8px; z-index: 5; display: flex; gap: 4px; overflow-x: auto; scrollbar-width: none; padding: 5px; margin: 12px 0; border-radius: 14px;
+  border: 1px solid rgba(255, 255, 255, .08); background: rgba(5, 10, 12, .9); box-shadow: 0 12px 30px -20px #000; }
+.rph-nav::-webkit-scrollbar { display: none; }
+.rph-nav button { flex: none; display: inline-flex; align-items: center; gap: 6px; padding: 8px 12px; border-radius: 10px; border: 0; background: none; color: #8fb0a6; font: 700 12px 'Space Grotesk', system-ui, sans-serif;
+  cursor: pointer; transition: background .15s ease, color .15s ease, transform .12s ease; }
+.rph-nav button:hover { color: #e8fff7; background: rgba(127, 240, 207, .08); } .rph-nav button:active { transform: scale(.97); }
+.rph-nav button:focus-visible { outline: 2px solid #7ff0cf; outline-offset: 2px; }
+.rph-nav button.active { color: #03140f; background: linear-gradient(135deg, #7ff0cf, #45e486); box-shadow: 0 6px 18px -8px #45e486; }
+.rph-sec { display: grid; gap: 12px; animation: rphIn .25s ease both; }
+@keyframes rphSpin { to { transform: rotate(360deg); } }
+@keyframes rphSpinY { from { transform: rotateY(0) rotateZ(20deg); } to { transform: rotateY(360deg) rotateZ(20deg); } }
+@keyframes rphFloat { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-6px); } }
+@keyframes rphPop { from { transform: scale(1.1); } to { transform: none; } }
+@keyframes rphIn { from { transform: translateY(6px); } to { transform: none; } }
+body.fx-lite .rph-art *, body.fx-lite .rph-sec { animation: none; }
+@media (prefers-reduced-motion: reduce) { .rph-art *, .rph-sec, .rph-nums b { animation: none !important; } .rph-nav button { transition: none; } }
+body.theme-day .rph { background: linear-gradient(160deg, #eefaf6, #f8fcfb); border-color: rgba(13, 122, 100, .2); } body.theme-day .rph h1 { color: #082019; }
+body.theme-day .rph-nums b { color: #082019; } body.theme-day .rph-nav { background: rgba(248, 252, 251, .94); } body.theme-day .rph-nav button { color: #3d5a50; }
+@media (max-width: 760px) { .rph { grid-template-columns: 1fr; padding: 18px; } .rph-art { height: 180px; order: -1; } .rph-scene { transform: rotateX(18deg) scale(.8); } .rph-nums { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
