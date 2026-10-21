@@ -11,6 +11,7 @@ File-backed JSON store, zero external dependencies, standalone FastAPI app.
 import env_loader  # noqa: F401  (must run before reading os.environ)
 import asyncio
 import json
+import re
 import os
 import math
 import time
@@ -1145,6 +1146,18 @@ async def brains():
     return {'brains': [{**b, 'status': 'rule_fallback', 'available': False, 'estimatedTokenCostUsd': 0} for b in BRAIN_CATALOG]}
 
 
+LOOK_OPTIONS = {'gear': ('none', 'crown', 'shades', 'chain', 'headset', 'halo', 'cap', 'bow', 'rose'), 'aura': ('none', 'royal', 'gold', 'ice', 'blaze', 'nebula', 'toxic'),
+                'eyes': ('classic', 'laser', 'gold', 'ice', 'void')}   # 🐆 mirrors components/command/CatLook.jsx LOOK (change both)
+
+
+def clean_look(x):
+    """🐆 A cat's look: listed options only + a ≤ 12-char name tag (letters, digits, space . $ - _). Pure look, the engine never reads it."""
+    x = x if isinstance(x, dict) else {}
+    out = {k: (x.get(k) if x.get(k) in opts else opts[0 if k != 'aura' else 1]) for k, opts in LOOK_OPTIONS.items()}
+    out['tag'] = re.sub(r'[^\w .$-]', '', str(x.get('tag') or ''))[:12]
+    return out
+
+
 class CreatePayload(BaseModel):
     ownerId: str
     name: str
@@ -1165,6 +1178,7 @@ class CreatePayload(BaseModel):
     brainMode: Optional[str] = None
     billing: Optional[str] = None
     prompt: Optional[str] = None
+    look: Optional[dict] = None
 
 
 @app.get('/api/cats/models')
@@ -1193,7 +1207,7 @@ async def create_cat(payload: CreatePayload):
             'blocklist': [s.strip() for s in (payload.blocklist or '').split(',') if s.strip()],
         },
         'revoked': False, 'createdAt': now, 'lastTick': now, 'engine': ENGINE_VERSION,
-        'startingBalanceSol': float(payload.startingBalanceSol or 10),
+        'startingBalanceSol': float(payload.startingBalanceSol or 10), 'look': clean_look(payload.look),
     }
     if payload.brains:
         cat_ = await _or_models()
