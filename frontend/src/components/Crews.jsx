@@ -11,6 +11,7 @@ import { FamilyBadge, EMBLEM } from './FamilyBadge';
 import { WarRoom, WarStrip, PublicWars, useWars } from './FamilyWars';
 import { FamilyLanding } from './FamilyLanding';
 import { FamilyMap } from './FamilyMap';
+import { FamilyBlock } from './FamilyBlock';
 import { useRemembered } from '../lib/remember';
 import { Home, Crown, Swords, Map as MapIcon, Trophy, Radio } from 'lucide-react';
 import '../styles/familyNoir.css';
@@ -217,7 +218,7 @@ export function FamilyPulse() {
 export const FAM_TABS = [['home', 'Home', Home], ['family', 'My family', Crown], ['wars', 'Wars', Swords], ['map', 'The city', MapIcon], ['board', 'Board', Trophy], ['feed', 'Live', Radio]];
 export function Crews() {
   const { wallet, provider } = useWallet() || {}; const addr = wallet?.address || ''; const sess = addr ? readChatSession(addr) : '';
-  const board = useCrewBoard(); const warsD = useWars(); const [tab, setTab] = useRemembered('feeless.fam.tab', 'home'); const [file, setFile] = useState(null);
+  const board = useCrewBoard(); const warsD = useWars(); const [tab, setTab] = useRemembered('feeless.fam.tab', 'home'); const [file, setFile] = useState(null); const [block, setBlock] = useState(undefined);
   const [live, setLive] = useState(null);
   useEffect(() => { let on = true; const go = () => sharedJson('/api/reputation/crews/live', { maxAge: 15000 }).then(x => on && x && setLive(x)).catch(() => {}); go(); const t = setInterval(() => { if (!document.hidden) go(); }, 20000); return () => { on = false; clearInterval(t); }; }, []);
   const liveWars = (warsD?.wars || []).filter(w => w.state === 'live').length;
@@ -279,7 +280,9 @@ export function Crews() {
     </div>
     </>)}
     {famTab === 'wars' && <><WarStrip />{mine ? <div className="crw-mine m-card"><WarRoom mine={mine} owner={owner} rows={rows} busy={busy} act={warAct} /></div> : <PublicWars />}</>}
-    {famTab === 'map' && <FamilyMap rows={rows} mineId={mine?.id} wars={warsD?.wars} onOpen={() => setTab('board')} />}
+    {famTab === 'map' && (block === undefined
+      ? <FamilyMap rows={rows} mineId={mine?.id} wars={warsD?.wars} onOpen={() => setTab('board')} onEnter={cid => { if (cid === null && (!mine || !sess)) { toast.error('Join a family to build your block.'); return; } setBlock(cid); }} />
+      : <FamilyBlock cid={block} addr={addr} sess={sess} onBack={() => setBlock(undefined)} />)}
     {famTab === 'board' && <>
     <div className="crw-board m-card">
       <header><span className="m-label">🏆 WEEKLY FAMILY BOARD</span><small data-tip={board?.rule}>{board ? `${board.total} famil${board.total === 1 ? 'y' : 'ies'} · verified trades, last 7 days` : ''}</small></header>

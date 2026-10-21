@@ -145,7 +145,7 @@ def board(store, pieces_by_wallet, now, cfg=None, staff_of=None):
                      'launch': (c.get('launch') or {}).get('symbol') or None, 'bounties': sum(1 for b in c.get('bounties') or [] if b.get('state') == 'open'),
                      'badge': badge_view(c, store.get('awards'), cfg, bool(staff_of and staff_of(c.get('owner')))),
                      'warW': int(c.get('warWins') or 0), 'warL': int(c.get('warLosses') or 0), 'chest': int(c['chest']) if c.get('chest') is not None else 500,
-                     'card': card_view(c)})
+                     'card': card_view(c), 'city': _city_power(c)})
     return sorted(rows, key=lambda r: (not r['ranked'], -(r['pct'] if r['pct'] is not None else -999), -r['members']))
 
 
@@ -555,3 +555,11 @@ def set_card(store, wallet, raw, now):
 
 def card_view(crew):
     return clean_card(crew.get('card')) if crew.get('card') else None
+
+
+def _city_power(crew):
+    """The family's city power for the board / map (0 before it builds)."""
+    if not crew.get('city'):
+        return 0
+    import family_city
+    return family_city.power(crew['city'])

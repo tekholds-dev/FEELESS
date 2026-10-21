@@ -8808,6 +8808,109 @@ async def crew_act(p: CrewAct):
             'invites': _cr.invites_for(st, me, now), 'sent': _cr.sent_by(st, c, now) if c else [], 'canAdd': _is_staff(me)}
 
 
+# 🏙 LA FAMILIA CITY (family_city.py): each family's block — stores, mob points (MP, points only), goons, robberies. Paths avoid /crews/{cid}.
+import family_city as _fcity
+
+
+def _city_ctx(c, me, now):
+    """→ (boost from the members' verified trades this week, the family's rank map)."""
+    import crews as _cr
+    import family_room as _froom
+    pcs_ = _crew_pieces(c['members'], now)
+    ms_ = {m: _cr.stats(pcs_.get(m, [])) for m in c['members']}
+    rk_ = {w: v[0] for w, v in _froom.ranks(c, _fwar.ranks(c, ms_)).items()}
+    trades_ = sum(len(v) for v in pcs_.values())
+    return 1 + min(1.0, trades_ / 50), rk_
+
+
+def _city_rivals(st, c, now):
+    out = []
+    for o_ in (st.get('crews') or {}).values():
+        if o_['id'] == c['id']:
+            continue
+        oc_ = _fcity.accrue(_fcity.city_of(o_, now), now)
+        out.append({'id': o_['id'], 'tag': o_.get('tag'), 'name': o_.get('name'), 'stash': int(oc_['stash']), 'guards': oc_['goons'].get('guard', 0),
+                    'power': _fcity.power(oc_), 'odds': round(_fcity.rob_odds(_fcity.city_of(c, now), oc_), 2),
+                    'cool': max(0, int(_fcity.ROB_COOLDOWN - (now - float((_fcity.city_of(c, now).get('robAt') or {}).get(o_['id']) or 0))))})
+    return sorted(out, key=lambda r: -r['stash'])[:12]
+
+
+@app.get('/api/reputation/familia-city')
+async def familia_city(address: str, session: str):
+    """🏙 My family's block (members): lots, MP, stash, goons, the catalog with locks, the log, and rival stashes to rob."""
+    import crews as _cr
+    me = _session_or_401(address, session); now = time.time()
+    async with _crews_lock:
+        st = _json_load(CREWS_PATH, {}); c = _cr.crew_of(st, me)
+        if not c:
+            raise HTTPException(404, 'Join a family to build a block.')
+        boost_, rk_ = _city_ctx(c, me, now)
+        v_ = _fcity.view(c, now, staff=_is_staff(me), boost=boost_, mine=True)
+        v_['rivals'] = _city_rivals(st, c, now)
+        v_['canBuild'] = _is_staff(me) or me == c.get('owner') or rk_.get(me) == 'underboss'
+        _json_save(CREWS_PATH, st)
+    return v_
+
+
+@app.get('/api/reputation/familia-city/{cid}')
+async def familia_city_visit(cid: str):
+    """🏙 Visit any family's block (public): its stores, levels, rate, goons and power — never its log."""
+    import crews as _cr
+    st = _json_load(CREWS_PATH, {}); _cr._norm(st); c = (st.get('crews') or {}).get(cid)
+    if not c:
+        raise HTTPException(404, 'No such family.')
+    return _fcity.view(c, time.time(), staff=_is_staff(c.get('owner')))
+
+
+class CityAct(BaseModel):
+    address: str
+    session: str
+    act: str = Field(..., max_length=12)
+    lot: int = -1
+    kind: str = Field(default='', max_length=16)
+    vs: str = Field(default='', max_length=16)
+
+
+@app.post('/api/reputation/familia-city/act')
+async def familia_city_act(p: CityAct):
+    """🏙 build · upgrade · hire · collect · rob — points only. Don / Underboss build, upgrade, hire and rob; any member collects; the creator
+    wallet builds anything, free."""
+    import crews as _cr
+    me = _session_or_401(p.address, p.session); now = time.time(); res_ = None
+    async with _crews_lock:
+        st = _json_load(CREWS_PATH, {}); c = _cr.crew_of(st, me)
+        if not c:
+            raise HTTPException(404, 'Join a family to build a block.')
+        staff_ = _is_staff(me)
+        boost_, rk_ = _city_ctx(c, me, now)
+        _fcity.accrue(_fcity.city_of(c, now), now, boost_)
+        try:
+            if p.act == 'build':
+                _fcity.build(c, me, p.lot, p.kind, now, staff_, rk_)
+            elif p.act == 'upgrade':
+                _fcity.upgrade(c, me, p.lot, now, staff_, rk_)
+            elif p.act == 'hire':
+                _fcity.hire(c, me, p.kind, now, staff_, rk_)
+            elif p.act == 'collect':
+                res_ = {'collected': _fcity.collect(c, me, now)}
+            elif p.act == 'rob':
+                o_ = (st.get('crews') or {}).get(p.vs)
+                if not o_:
+                    raise ValueError('No such family.')
+                _fcity.accrue(_fcity.city_of(o_, now), now)
+                res_ = _fcity.rob(c, o_, me, now, staff_, rk_)
+            else:
+                raise ValueError('Unknown city action.')
+        except ValueError as e:
+            raise HTTPException(400, str(e))
+        _json_save(CREWS_PATH, st)
+        v_ = _fcity.view(c, now, staff=staff_, boost=boost_, mine=True)
+        v_['rivals'] = _city_rivals(st, c, now)
+        v_['canBuild'] = staff_ or me == c.get('owner') or rk_.get(me) == 'underboss'
+    _crew_cache['data'] = None
+    return {**v_, 'result': res_}
+
+
 class CrewBadge(BaseModel):
     address: str
     session: str

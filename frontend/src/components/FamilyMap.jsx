@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import '../styles/familyMap.css';
 
 // 🗺 THE CITY (owner, 2026-10-21: "a simple 3D map like the Godfather game on PSP"): nine districts, each held by a family in the order of
@@ -13,7 +13,7 @@ const PALETTE = ['#d4af37', '#b3122e', '#5fd4ff', '#b79bff', '#45e486', '#ff9f45
 
 export function strength(r) {
   const pct = Number(r?.pct) || 0;
-  return Math.max(0, (r?.members || 0) * 4 + (r?.active || 0) * 6 + Math.max(-30, Math.min(60, pct)) + ((r?.warW || 0) - (r?.warL || 0)) * 5);
+  return Math.max(0, (r?.members || 0) * 4 + (r?.active || 0) * 6 + Math.max(-30, Math.min(60, pct)) + ((r?.warW || 0) - (r?.warL || 0)) * 5 + Math.min(80, (r?.city || 0) / 5));
 }
 
 // pure: who holds which district. Board order = the city's order (ranked families first); the rest of the map is unclaimed.
@@ -29,15 +29,21 @@ export function territories(rows, mineId, wars) {
   });
 }
 
-export function FamilyMap({ rows, mineId, wars, onOpen }) {
+export function FamilyMap({ rows, mineId, wars, onOpen, onEnter }) {
   const t = useMemo(() => territories(rows, mineId, wars), [rows, mineId, wars]);
   const [hover, setHover] = useState(null);
   const sel = hover != null ? t[hover] : t.find(d => d.mine) || t[0];
+  const stage = useRef(null); const rz = useRef(-38); const drag = useRef(null); const [orbit, setOrbit] = useState(true);
+  const setRz = z => { rz.current = z; stage.current?.style.setProperty('--rz', `${z}deg`); };
+  useEffect(() => { if (!orbit) return undefined; let raf; let last = performance.now();
+    const go = tm => { if (!document.hidden) setRz(rz.current + (tm - last) * 0.006); last = tm; raf = requestAnimationFrame(go); }; raf = requestAnimationFrame(go); return () => cancelAnimationFrame(raf); }, [orbit]);   // eslint-disable-line react-hooks/exhaustive-deps
   return (
     <section className="fmap" data-testid="family-map">
       <header><span className="fmap-h">🗺 THE CITY</span><small>nine districts · held in the order of this week's board · height = strength · ⚔ = at war now</small></header>
       <div className="fmap-wrap">
-        <div className="fmap-stage" aria-hidden="true">
+        <div className="fmap-stage" ref={stage} style={{ '--rz': `${rz.current}deg` }} onPointerDown={e => { drag.current = { x: e.clientX, z: rz.current }; setOrbit(false); }}
+          onPointerMove={e => { if (drag.current) setRz(drag.current.z + (e.clientX - drag.current.x) * 0.5); }} onPointerUp={() => { drag.current = null; }} onPointerLeave={() => { drag.current = null; }}>
+          <button type="button" className={`fmap-orbit ${orbit ? 'active' : ''}`} onClick={() => setOrbit(o => !o)} aria-pressed={orbit} data-testid="fmap-orbit">{orbit ? '⏸ Hold' : '🔄 360°'}</button>
           <div className="fmap-sweep" />
           <div className="fmap-plane">
             {t.map((d, i) => (
@@ -53,8 +59,9 @@ export function FamilyMap({ rows, mineId, wars, onOpen }) {
         <ol className="fmap-legend">
           {t.map((d, i) => (
             <li key={d.key} className={`${d.mine ? 'is-mine' : ''} ${hover === i ? 'is-hover' : ''}`} style={{ '--c': d.color }} onMouseEnter={() => setHover(i)} onMouseLeave={() => setHover(null)}>
-              <button type="button" disabled={!d.owner} onClick={() => d.owner && onOpen?.(d.owner)} data-testid={`fmap-${d.key}`}>
-                <i aria-hidden /><b>{d.name}</b><span>{d.owner ? `[${d.owner.tag}] ${d.owner.name}` : 'unclaimed'}</span>{d.war ? <em>⚔</em> : null}{d.mine ? <em>🏠</em> : null}
+              <button type="button" disabled={!d.owner} onClick={() => d.owner && (onEnter ? onEnter(d.mine ? null : d.owner.id) : onOpen?.(d.owner))} data-testid={`fmap-${d.key}`}>
+                <i aria-hidden /><b>{d.name}</b><span>{d.owner ? `[${d.owner.tag}] ${d.owner.name}${d.owner.city ? ` · 🏙 ${d.owner.city}` : ''}` : 'unclaimed'}</span>{d.war ? <em>⚔</em> : null}
+                {d.owner ? <em className="fmap-go">{d.mine ? '🏙 Enter' : '👁 Visit'}</em> : null}
               </button>
             </li>
           ))}
