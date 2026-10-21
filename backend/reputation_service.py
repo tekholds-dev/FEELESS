@@ -16940,7 +16940,8 @@ async def _data_clean(now):
     try:   # 🧹 re-fetchable caches + diagnostic logs only (storage_trim.py): the logo cache had grown to 1.0 GB
         lg_ = await asyncio.to_thread(_strim.trim_logos, LOGO_DIR, now)
         lo_ = [] if os.environ.get('PYTEST_CURRENT_TEST') else await asyncio.to_thread(_strim.trim_logs)
-        st = {**st, 'logos': lg_, 'logs': lo_}
+        bc_ = {} if os.environ.get('PYTEST_CURRENT_TEST') else await asyncio.to_thread(_strim.trim_build_cache, Path(__file__).resolve().parent.parent / 'frontend' / 'node_modules' / '.cache' / 'babel-loader', now)
+        st = {**st, 'logos': lg_, 'logs': lo_, 'buildCache': bc_}
         if lg_.get('files') or lo_:
             print(f"storage trim: logos −{lg_.get('freed', 0) / 1e6:.0f} MB ({lg_.get('files')} files) · logs {lo_}")
     except Exception as e:

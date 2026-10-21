@@ -14,11 +14,7 @@ POLL_DAY_MAX = 3
 Q_LEN, OPT_LEN, OPTS_MAX = 140, 60, 5
 
 
-def _f(v, d=0.0):
-    try:
-        return float(v)
-    except (TypeError, ValueError):
-        return d
+from fnum import plain as _f   # noqa: E402
 
 
 def title_of(b):

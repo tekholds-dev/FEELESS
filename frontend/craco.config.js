@@ -130,6 +130,9 @@ let webpackConfig = {
         ],
       };
 
+      // 🧹 webpack's own build cache (it reached 1.6 GB): versions unused for 3 days are dropped.
+      if (webpackConfig.cache && typeof webpackConfig.cache === 'object') webpackConfig.cache = { ...webpackConfig.cache, maxAge: 3 * 24 * 3600 * 1000 };
+
       // Meteora's SDK ships .mjs files that import extensionless paths; allow that for .mjs only.
       webpackConfig.module.rules.push({ test: /\.m?js$/, include: /node_modules[\\/]@meteora-ag/, resolve: { fullySpecified: false } });
       // Anchor only requires Node's 'util' on its non-browser branch; browsers use TextEncoder/Decoder.

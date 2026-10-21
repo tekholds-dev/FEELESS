@@ -37,11 +37,7 @@ ASK = (
 )
 
 
-def _f(v, d=0.0):
-    try:
-        return float(v)
-    except (TypeError, ValueError):
-        return d
+from fnum import plain as _f   # noqa: E402
 
 
 def first_json(text):

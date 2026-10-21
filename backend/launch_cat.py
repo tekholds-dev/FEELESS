@@ -34,11 +34,7 @@ REC = [   # FEELESS's own three, as they exist on OpenRouter
 PROMPT_MAX, NAME_MAX, CHIME_MAX, CHIMES = 1200, 24, 280, 12
 
 
-def _f(v):
-    try:
-        return float(v)
-    except (TypeError, ValueError):
-        return 0.0
+from fnum import plain as _f   # noqa: E402
 
 
 def slim(m):

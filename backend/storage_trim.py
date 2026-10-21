@@ -11,12 +11,13 @@ import os
 import time
 from pathlib import Path
 
-LOGO_MAX_BYTES = 300 * 1024 * 1024
+LOGO_MAX_BYTES = 150 * 1024 * 1024   # 2026-10-20 (owner: "project is 7 GB"): 300 → 150 MB, a logo is one request away
 LOGO_FILE_MAX = int(1.5 * 1024 * 1024)
 LOGO_KEEP_SEC = 24 * 3600
 LOG_MAX_BYTES = 20 * 1024 * 1024
 LOG_KEEP_BYTES = 5 * 1024 * 1024
 LOG_GLOB = 'feeless-*.log'
+BUILD_CACHE_KEEP_SEC = 3 * 86400      # babel-loader's transpile cache: a file untouched 3 days is re-made on the next build (it reached 1.7 GB)
 
 
 def plan_logos(files, now, max_bytes=LOGO_MAX_BYTES, keep_sec=LOGO_KEEP_SEC):
@@ -84,3 +85,31 @@ def trim_logs(d='/tmp'):
         except OSError:
             continue
     return out
+
+
+def plan_build_cache(files, now, keep_sec=BUILD_CACHE_KEEP_SEC):
+    """Names of babel-loader cache files not touched for keep_sec (pure)."""
+    return [n for n, _s, m in files if now - m > keep_sec]
+
+
+def trim_build_cache(d, now=None):
+    """🧹 frontend/node_modules/.cache/babel-loader: old transpile results only (webpack's own cache has maxAge in craco.config.js)."""
+    d = Path(d)
+    if not d.is_dir():
+        return {'files': 0, 'freed': 0}
+    now = time.time() if now is None else now
+    files = []
+    for f in d.iterdir():
+        try:
+            st = f.stat()
+            if f.is_file():
+                files.append((f.name, st.st_size, st.st_mtime))
+        except OSError:
+            continue
+    sizes, freed, gone = {n: s for n, s, _m in files}, 0, plan_build_cache(files, now)
+    for n in gone:
+        try:
+            (d / n).unlink(); freed += sizes[n]
+        except OSError:
+            pass
+    return {'files': len(gone), 'freed': freed}

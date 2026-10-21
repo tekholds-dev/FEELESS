@@ -15,11 +15,7 @@ KEEP = 400                          # settled picks kept
 PROVEN_N = 10
 
 
-def _f(v, d=0.0):
-    try:
-        return float(v)
-    except (TypeError, ValueError):
-        return d
+from fnum import plain as _f   # noqa: E402
 
 
 def score(p, row=None, now=None):
