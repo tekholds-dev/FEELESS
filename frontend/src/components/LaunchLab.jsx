@@ -60,11 +60,44 @@ function Demo({ kind }) {
   </svg>;
 }
 
+// 🚀 LAUNCH PAD hero (owner, 2026-10-21: "Launch degen styling never got done"): a drawn rocket on its tower at amber dusk, a T-minus countdown that
+// loops, exhaust smoke, and the rocket blasts off every time you pick another launch type (the pad re-keys on the type). Pure CSS / SVG.
+export const tMinus = (ms, every = 12000) => Math.max(0, 10 - Math.floor((ms % every) / 1000));
+function LaunchPad({ t, rail }) {
+  const [n, setN] = useState(10);
+  useEffect(() => { const t0 = Date.now(); const k = setInterval(() => { if (!document.hidden) setN(tMinus(Date.now() - t0)); }, 250); return () => clearInterval(k); }, [t.id]);
+  return <div className="llp" key={t.id} data-testid="launch-pad">
+    <div className="llp-sky" aria-hidden="true"><i className="llp-sun" />{Array.from({ length: 12 }, (_, i) => <i key={i} className="llp-star" style={{ '--i': i }} />)}<i className="llp-hills" /></div>
+    <div className="llp-site" aria-hidden="true">
+      <svg className="llp-tower" viewBox="0 0 40 160"><path d="M8 160V10h6v150M26 160V10h6v150" /><path d="M8 20l24 18M32 20L8 38M8 50l24 18M32 50L8 68M8 80l24 18M32 80L8 98M8 110l24 18M32 110L8 128" /></svg>
+      <div className={`llp-rocket ${n === 0 ? 'is-go' : ''}`}>
+        <svg viewBox="0 0 60 150"><defs><linearGradient id="llpBody" x1="0" x2="1"><stop offset="0" stopColor="#c9c2b3" /><stop offset=".45" stopColor="#fffaf0" /><stop offset="1" stopColor="#8d8676" /></linearGradient>
+          <linearGradient id="llpNose" x1="0" x2="1"><stop offset="0" stopColor="#c2410c" /><stop offset=".5" stopColor="#ff9f45" /><stop offset="1" stopColor="#7c2d12" /></linearGradient></defs>
+          <path d="M30 4C18 20 16 40 16 60v60h28V60c0-20-2-40-14-56z" fill="url(#llpBody)" /><path d="M30 4C22 14 19 24 18 34h24C41 24 38 14 30 4z" fill="url(#llpNose)" />
+          <circle cx="30" cy="54" r="7" fill="#15324a" stroke="#ffd36b" strokeWidth="2" /><circle cx="28" cy="52" r="2" fill="#9fd8ff" />
+          <path d="M16 96L4 122l12-4zM44 96l12 26-12-4z" fill="url(#llpNose)" /><rect x="22" y="120" width="16" height="8" rx="2" fill="#5a544a" />
+          <text x="30" y="88" textAnchor="middle" className="llp-mark">{t.icon}</text></svg>
+        <i className="llp-flame" /><i className="llp-flame f2" />
+      </div>
+      <div className="llp-smoke">{Array.from({ length: 9 }, (_, i) => <i key={i} style={{ '--i': i }} />)}</div>
+      <i className="llp-pad" />
+    </div>
+    <div className="llp-hud">
+      <span className="llp-eyebrow">🚀 LAUNCH PAD · {t.where}</span>
+      <b className="llp-count" key={n}>{n === 0 ? 'LIFTOFF' : `T−${String(n).padStart(2, '0')}`}</b>
+      <strong>{t.name}</strong>
+      <div className="llp-chips"><span className={rail?.ready ? 'ok' : ''}>{rail?.ready ? '🟢 FEELESS rail ready' : '⏳ rail not set up'}</span>
+        {rail?.tab?.maxDevBuySol ? <span>dev buy ≤ {rail.tab.maxDevBuySol} SOL</span> : null}{rail?.costs?.pumpSlippagePct != null ? <span>slippage {rail.costs.pumpSlippagePct}%</span> : null}<span>you sign every step</span></div>
+    </div>
+  </div>;
+}
+
 export function LaunchLab({ start = 'pump', hq = false }) {
   const [id, setId] = useState(start); const [rail, setRail] = useState(null);
   useEffect(() => { let on = true; fetchLaunchRail().then(r => on && setRail(r)).catch(() => {}); return () => { on = false; }; }, []);
   const t = TYPES.find(x => x.id === id) || TYPES[0];
   return <section className="llb" data-testid="launch-lab">
+    <LaunchPad t={t} rail={rail} />
     <header className="llb-head"><span className="eyebrow">🧪 LAUNCH LAB{hq ? ' · HQ' : ''}</span><h2>See what you're creating before you sign.</h2></header>
     <div className="llb-types" role="tablist">{TYPES.map(x => <button key={x.id} type="button" role="tab" aria-selected={x.id === id} className={x.id === id ? 'is-on' : ''} onClick={() => setId(x.id)} data-testid={`llb-${x.id}`}><b>{x.icon}</b>{x.name}<small>{x.where}</small></button>)}</div>
     <div className="llb-stage" key={t.id}><div className="llb-demo"><Demo kind={t.demo} /></div>

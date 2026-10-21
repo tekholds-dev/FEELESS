@@ -48,3 +48,48 @@ body.fx-lite .llb *, body.reduced-motion-setting .llb * { animation: none !impor
 body.theme-day .llb { background: rgba(236, 246, 240, .85); } body.theme-day .llb-types button, body.theme-day .llb-row, body.theme-day .llb-how ol, body.theme-day .llb-ex > div { color: #0b2a19; }
 body.theme-day .llb-t { fill: #2c4a3a; } body.theme-day .llb-knobs li { color: #0b5a32; } body.theme-day .llb-ex small, body.theme-day .llb-note { color: #2c4a3a; }
 @media (max-width: 640px) { .llb-stage { grid-template-columns: 1fr; } .llb-types { grid-template-columns: repeat(2, 1fr); } }
+
+/* 🚀 Launch pad hero (LaunchLab › LaunchPad, llp-*): amber dusk, a drawn rocket + tower, T-minus countdown, exhaust smoke, liftoff on 0 and
+   every time the launch type changes. transform / opacity only; still in fx-lite / reduced motion. */
+.llp { position: relative; display: grid; grid-template-columns: minmax(180px, 260px) minmax(0, 1fr); gap: 18px; align-items: end; min-height: 250px; padding: 18px; overflow: hidden; border-radius: 18px; isolation: isolate;
+  border: 1px solid rgba(255, 159, 69, .35); background: linear-gradient(180deg, #1a0f2e 0%, #4a1d2a 42%, #c2410c 78%, #f59e0b 100%); box-shadow: inset 0 1px 0 rgba(255, 255, 255, .12), 0 20px 50px -25px #f59e0b; }
+.llp-sky { position: absolute; inset: 0; z-index: -1; pointer-events: none; }
+.llp-sun { position: absolute; right: 12%; bottom: 18%; width: 120px; height: 120px; border-radius: 50%; background: radial-gradient(circle, #ffe8a3, #ff9f45 55%, transparent 70%); opacity: .9; animation: llpSun 6s ease-in-out infinite; }
+.llp-star { position: absolute; left: calc(var(--i) * 8% + 3%); top: calc(((var(--i) * 29) % 30) * 1% + 4%); width: 2px; height: 2px; border-radius: 50%; background: #fff; animation: llpTw 3s ease-in-out infinite; animation-delay: calc(var(--i) * -.4s); }
+.llp-hills { position: absolute; left: -5%; right: -5%; bottom: 0; height: 34%; background: radial-gradient(120% 100% at 30% 100%, #2a0e14 60%, transparent 61%), radial-gradient(90% 90% at 80% 100%, #3a1218 60%, transparent 61%); }
+.llp-site { position: relative; height: 230px; }
+.llp-tower { position: absolute; left: 6px; bottom: 16px; width: 40px; height: 170px; } .llp-tower path { fill: none; stroke: #2a1a14; stroke-width: 3; }
+.llp-rocket { position: absolute; left: 50px; bottom: 18px; width: 60px; height: 150px; transform-origin: 50% 100%; animation: llpShake .12s linear infinite; }
+.llp-rocket svg { width: 100%; height: 100%; filter: drop-shadow(0 6px 10px #0008); }
+.llp-mark { font-size: 14px; }
+.llp-rocket.is-go { animation: llpLift 2.2s cubic-bezier(.5, 0, .9, .4) forwards; }
+.llp:not(:has(.is-go)) .llp-rocket { animation: llpShake .12s linear infinite, llpBlast 2.4s cubic-bezier(.5, 0, .9, .4) .2s 1 reverse backwards; }
+.llp-flame { position: absolute; left: 50%; top: 100%; width: 16px; height: 34px; margin-left: -8px; border-radius: 50% 50% 50% 50% / 30% 30% 70% 70%; transform-origin: 50% 0;
+  background: radial-gradient(ellipse at 50% 20%, #fff7c8, #ffb347 40%, #ff4d1a 75%, transparent 80%); animation: llpFlame .09s linear infinite alternate; filter: none; }
+.llp-rocket:not(.is-go) .llp-flame { height: 10px; opacity: .7; } .llp-rocket:not(.is-go) .llp-flame.f2 { display: none; }
+.llp-flame.f2 { width: 26px; margin-left: -13px; height: 52px; opacity: .55; animation-duration: .13s; }
+.llp-smoke { position: absolute; left: 30px; bottom: 6px; width: 110px; height: 40px; pointer-events: none; }
+.llp-smoke i { position: absolute; bottom: 0; left: calc(var(--i) * 11%); width: 34px; height: 34px; border-radius: 50%; background: radial-gradient(circle, #f3e6d6cc, #b9a796 60%, transparent 70%);
+  animation: llpSmoke 2.8s ease-out infinite; animation-delay: calc(var(--i) * -.31s); }
+.llp-pad { position: absolute; left: 14px; right: 30px; bottom: 6px; height: 12px; border-radius: 4px; background: linear-gradient(180deg, #4a3a30, #1d1410); box-shadow: 0 -2px 0 #ffb34766; }
+.llp-hud { display: grid; gap: 6px; align-content: end; padding-bottom: 6px; }
+.llp-eyebrow { font: 800 10px 'JetBrains Mono', monospace; letter-spacing: .18em; color: #ffd9a3; }
+.llp-count { font: 900 54px/1 'Bungee', 'Audiowide', system-ui; color: #fff6e0; text-shadow: 0 0 18px #ff9f45, 0 0 40px #c2410c; animation: llpTick .35s ease; letter-spacing: .02em; }
+.llp-hud strong { font: 800 18px 'JetBrains Mono', monospace; color: #fff; }
+.llp-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.llp-chips span { padding: 4px 9px; border-radius: 999px; font: 700 10px 'JetBrains Mono', monospace; color: #ffe9c7; background: rgba(26, 12, 8, .55); border: 1px solid rgba(255, 179, 71, .35); }
+.llp-chips span.ok { color: #04140b; background: #45e486; border-color: #45e486; }
+.llb-types button.is-on { animation: llpPick .4s ease; }
+@keyframes llpSun { 50% { transform: scale(1.06); } }
+@keyframes llpTw { 50% { opacity: .2; } }
+@keyframes llpShake { 0% { transform: translateX(0); } 50% { transform: translateX(.6px); } 100% { transform: translateX(-.6px); } }
+@keyframes llpLift { to { transform: translateY(-380px) scale(.8); } }
+@keyframes llpBlast { from { transform: translateY(0); } to { transform: translateY(-380px); } }
+@keyframes llpFlame { from { transform: scaleY(.85) scaleX(1); } to { transform: scaleY(1.15) scaleX(.9); } }
+@keyframes llpSmoke { from { transform: translate(0, 0) scale(.4); opacity: .9; } to { transform: translate(calc((var(--i) - 4) * 9px), -26px) scale(1.6); opacity: 0; } }
+@keyframes llpTick { from { transform: scale(1.25); opacity: .4; } }
+@keyframes llpPick { 40% { transform: translateY(-4px) scale(1.03); } }
+body.fx-lite .llp-smoke, body.fx-lite .llp-star { display: none; } body.fx-lite .llp-rocket, body.fx-lite .llp-flame, body.fx-lite .llp-sun { animation: none; }
+@media (prefers-reduced-motion: reduce) { .llp *, .llp *::before { animation: none !important; } .llp-smoke { display: none; } }
+body.theme-day .llp { background: linear-gradient(180deg, #ffd9a3 0%, #ffb067 55%, #f08a3a 100%); } body.theme-day .llp-hills { opacity: .5; }
+@media (max-width: 640px) { .llp { grid-template-columns: 1fr; min-height: 0; } .llp-site { height: 190px; } .llp-count { font-size: 40px; } }
