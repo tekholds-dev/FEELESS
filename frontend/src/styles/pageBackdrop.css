@@ -1,0 +1,65 @@
+/* 🌌 Page backdrops + glass surfaces (PageBackdrop.jsx, pgb-*, and the .pg-home / .pg-feecat / .pg-launch page classes on .context-transition).
+   The glass layer replaces the flat green panels: graphite glass, a hairline light edge, accent colour only on numbers + actions; a card inside a
+   card loses its own box. transform / opacity only; still in fx-lite / reduced motion; no backdrop-filter over the animated layer. */
+.context-transition.pg-home, .context-transition.pg-feecat, .context-transition.pg-launch { position: relative; isolation: isolate; }
+.pgb { position: absolute; inset: -12px; z-index: -1; overflow: hidden; pointer-events: none; contain: paint; }
+.pgb-home { background: radial-gradient(70% 45% at 15% 0%, rgba(120, 140, 255, .14), transparent 60%), radial-gradient(60% 40% at 90% 10%, rgba(69, 228, 134, .12), transparent 60%), linear-gradient(180deg, #07080b, #050607 60%); }
+.pgb-feecat { background: radial-gradient(70% 50% at 50% 0%, rgba(160, 90, 255, .2), transparent 60%), radial-gradient(50% 40% at 0% 80%, rgba(60, 200, 220, .12), transparent 60%), linear-gradient(180deg, #0b0714, #060409 60%); }
+.pgb-launch { background: radial-gradient(70% 50% at 70% 0%, rgba(255, 150, 60, .2), transparent 60%), radial-gradient(50% 40% at 0% 60%, rgba(255, 80, 120, .12), transparent 60%), linear-gradient(180deg, #120a06, #070504 60%); }
+.pgb-glow { position: absolute; width: 46vmax; height: 46vmax; border-radius: 50%; opacity: .5; animation: pgbDrift 26s ease-in-out infinite; }
+.pgb-home .pgb-glow { background: radial-gradient(closest-side, rgba(120, 150, 255, .18), transparent); } .pgb-home .pgb-glow.g2 { background: radial-gradient(closest-side, rgba(69, 228, 134, .14), transparent); }
+.pgb-feecat .pgb-glow { background: radial-gradient(closest-side, rgba(170, 100, 255, .2), transparent); } .pgb-feecat .pgb-glow.g2 { background: radial-gradient(closest-side, rgba(80, 220, 230, .14), transparent); }
+.pgb-launch .pgb-glow { background: radial-gradient(closest-side, rgba(255, 160, 70, .2), transparent); } .pgb-launch .pgb-glow.g2 { background: radial-gradient(closest-side, rgba(255, 90, 130, .14), transparent); }
+.pgb-glow.g1 { left: -10vmax; top: -16vmax; } .pgb-glow.g2 { right: -14vmax; top: 10vmax; animation-delay: -9s; animation-duration: 32s; } .pgb-glow.g3 { left: 30%; bottom: -24vmax; animation-delay: -17s; opacity: .3; }
+.pgb-floor { position: absolute; left: -20%; right: -20%; bottom: -10%; height: 46%; transform: perspective(600px) rotateX(64deg); transform-origin: bottom; opacity: .35;
+  background-image: linear-gradient(rgba(255, 255, 255, .07) 1px, transparent 1px), linear-gradient(90deg, rgba(255, 255, 255, .07) 1px, transparent 1px); background-size: 56px 56px;
+  -webkit-mask-image: linear-gradient(0deg, #000, transparent 85%); mask-image: linear-gradient(0deg, #000, transparent 85%); }
+.pgb-bits i { position: absolute; bottom: -10px; width: 2px; height: 70px; border-radius: 2px; opacity: 0; animation: pgbStreak 9s linear infinite; animation-delay: calc(var(--i) * -1.15s); }
+.pgb-home .pgb-bits i { background: linear-gradient(0deg, transparent, rgba(150, 170, 255, .5)); }
+.pgb-feecat .pgb-bits i { width: 3px; height: 3px; border-radius: 50%; background: #c08cff; box-shadow: 0 0 8px #c08cff; animation-name: pgbEmber; }
+.pgb-launch .pgb-bits i { width: 2px; height: 90px; background: linear-gradient(0deg, transparent, rgba(255, 170, 80, .7), #fff); animation-name: pgbRocket; }
+.pgb-eyes { position: absolute; right: 8%; top: 14%; display: flex; gap: 18px; opacity: .6; }
+.pgb-eyes b { width: 16px; height: 9px; border-radius: 50%; background: radial-gradient(circle at 50% 50%, #0a0a0a 0 22%, #c4ff6b 24% 60%, transparent 62%); box-shadow: 0 0 14px #c4ff6b88; animation: pgbBlink 6s steps(1) infinite; }
+.pgb-vignette { position: absolute; inset: 0; background: radial-gradient(120% 80% at 50% 30%, transparent 55%, rgba(0, 0, 0, .55)); }
+@keyframes pgbDrift { 0%, 100% { transform: translate3d(0, 0, 0); } 50% { transform: translate3d(6vmax, 4vmax, 0); } }
+@keyframes pgbStreak { 0% { transform: translateY(0); opacity: 0; } 10% { opacity: 1; } 100% { transform: translateY(-110vh); opacity: 0; } }
+@keyframes pgbEmber { 0% { transform: translate(0, 0); opacity: 0; } 15% { opacity: 1; } 100% { transform: translate(40px, -100vh); opacity: 0; } }
+@keyframes pgbRocket { 0% { transform: translate(0, 0) rotate(18deg); opacity: 0; } 8% { opacity: 1; } 100% { transform: translate(30vw, -120vh) rotate(18deg); opacity: 0; } }
+@keyframes pgbBlink { 0%, 92% { transform: scaleY(1); } 93%, 95% { transform: scaleY(.1); } 96% { transform: scaleY(1); } }
+
+/* 🧊 the glass layer: flat green panels become graphite glass; nested cards lose their box */
+.pg-home .m-card, .pg-feecat .m-card, .pg-launch .m-card, .pg-home .fee-heartbeat, .pg-home .bft, .pg-home .crw-top, .pg-home .market-section,
+.pg-feecat .paper-panel, .pg-feecat .fc-v2 .paper-panel, .pg-launch .feeless-launch-hero, .pg-launch .launchpad-guide, .pg-launch .llb {
+  background: linear-gradient(160deg, rgba(255, 255, 255, .055), rgba(10, 12, 16, .78) 45%) !important; border: 1px solid rgba(255, 255, 255, .09) !important;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .06), 0 24px 60px -36px #000 !important; }
+.pg-home .m-card .m-card, .pg-feecat .m-card .m-card, .pg-launch .m-card .m-card { background: rgba(255, 255, 255, .025) !important; border-color: rgba(255, 255, 255, .05) !important; box-shadow: none !important; }
+.pg-home .command-home-heading h1, .pg-feecat h1, .pg-launch h1 { font-family: 'Space Grotesk', system-ui, sans-serif; letter-spacing: -.02em; }
+.pg-home .command-home-heading h1 { background: linear-gradient(90deg, #ffffff, #b8c6ff 55%, #45e486); -webkit-background-clip: text; background-clip: text; color: transparent; }
+.pg-feecat h1 em, .pg-feecat h1 span { color: #d0a6ff; } .pg-launch h1 em, .pg-launch h1 span { color: #ffb46b; }
+.pg-feecat .m-card { border-color: rgba(192, 140, 255, .16) !important; } .pg-launch .m-card { border-color: rgba(255, 180, 107, .16) !important; }
+body.fx-lite .pgb * { animation: none !important; } body.fx-lite .pgb-bits { display: none; }
+@media (prefers-reduced-motion: reduce) { .pgb * { animation: none !important; } .pgb-bits { display: none; } }
+body.theme-day .pgb { opacity: .25; }
+body.theme-day .pg-home .m-card, body.theme-day .pg-feecat .m-card, body.theme-day .pg-launch .m-card, body.theme-day .pg-home .fee-heartbeat, body.theme-day .pg-home .market-section {
+  background: rgba(255, 255, 255, .82) !important; border-color: rgba(0, 0, 0, .08) !important; }
+body.theme-day .pg-home .command-home-heading h1 { background: linear-gradient(90deg, #0a140e, #2a3a8a 60%, #0d7a40); -webkit-background-clip: text; background-clip: text; }
+@media (max-width: 640px) { .pgb-floor { height: 30%; } .pgb-bits i:nth-child(2n) { display: none; } }
+/* 🚀 Launch Lab in the launch page's amber (was the same green as everything else) */
+.pg-launch .llb-types button.is-on { background: linear-gradient(135deg, #ffb46b, #ff7a45); color: #1a0c04; border-color: #ffb46b; } .pg-launch .llb-types button.is-on small { color: #4a2408; }
+.pg-launch .llb-types button:hover { border-color: rgba(255, 180, 107, .55); }
+.pg-launch .llb-curve { stroke: #ffb46b; } .pg-launch .llb-fill rect { fill: #ff8a4c; } .pg-launch .llb-price { fill: #ffd2a1; }
+.pg-launch .llb-dot { filter: drop-shadow(0 0 6px #ffb46b); } .pg-launch .llb-pile rect { fill: rgba(255, 180, 107, .3); stroke: #ffb46b; }
+.pg-launch .llb-shackle path { stroke: #ffb46b; } .pg-launch .llb-body { fill: #5a2a0b; stroke: #ffb46b; }
+.pg-launch .llb-row.is-feeless { background: rgba(255, 150, 70, .1); border-color: rgba(255, 180, 107, .4); } .pg-launch .llb-row.is-feeless b { color: #ffb46b; }
+/* 🐱 FeeCat page in violet (was the same green as everything else) + the tab explainer */
+.pg-feecat .fc-tabs button.active, .pg-feecat .fcp-tabs button.active, .pg-feecat .m-seg button.active { background: linear-gradient(135deg, #c08cff, #8a5cff) !important; color: #12071f !important; border-color: #c08cff !important; }
+.pg-feecat .fc-tabs button:hover, .pg-feecat .fcp-tabs button:hover { color: #efe3ff; }
+.pg-feecat .btn-primary { background: linear-gradient(135deg, #c08cff, #8a5cff) !important; color: #12071f !important; border-color: transparent !important; box-shadow: 0 8px 22px -10px #8a5cff; }
+.pg-feecat .btn-primary:hover { filter: brightness(1.08); }
+.fc-tabwhy { margin: 6px 2px 10px; font-size: 12px; color: #b8a6d6; }
+body.theme-day .fc-tabwhy { color: #5a4a7a; }
+/* 🏠 the $FEE heartbeat on Home: graphite + a cool light, the green kept for the logo and the numbers */
+.pg-home .fee-heartbeat.m-live::before { background: radial-gradient(60% 70% at 70% 30%, rgba(120, 150, 255, .16), transparent 60%), radial-gradient(50% 60% at 20% 80%, rgba(69, 228, 134, .08), transparent 60%) !important; }
+.pg-home .fee-heartbeat.m-live::after { opacity: .35; }
+.pg-home .heartbeat-visual { background-image: linear-gradient(rgba(255, 255, 255, .04) 1px, transparent 1px), linear-gradient(90deg, rgba(255, 255, 255, .04) 1px, transparent 1px) !important; }
+.pg-home .heartbeat-chart-panel { background: rgba(255, 255, 255, .02) !important; border-color: rgba(255, 255, 255, .06) !important; }

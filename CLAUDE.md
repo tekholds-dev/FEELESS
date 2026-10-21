@@ -5294,3 +5294,15 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
   🛡 Enforcer · 💼 Bookkeeper · 🎲 Wildcard) are jobs, never a permission over money. `/crews/mine` re-reads every 20s. Fonts: Cinzel + Playfair
   Display (index.html). `.crw header` (crews.css) is flex — any new header inside the page needs `.crw-noir .x { display: grid }`.
   NOT BUILT: a shared family pot that members trade from — that is custody of members' money (a new real-money path); the owner decides first.
+- 🏙 FAMILY CITY (`backend/family_city.py` pure + tested; `GET /api/reputation/familia-city` (members) · `/familia-city/{cid}` (visit) · `POST /familia-city/act`
+  build · upgrade · hire · collect · rob; `FamilyBlock.jsx` + `familyBlock.css` `fbk-*`; the city map turns 360° and Enter / Visit opens a block): MOB POINTS (MP),
+  points only. 12 crypto stores (unlock by members / wars / MP made, cost MP, MP/h × level ≤ 5), stash ≤ 12h of output, members collect, members' verified trades
+  boost ×1–2, goons (guard / hitter / earner, cap by block level), robbery odds = hitters ÷ (hitters + 1.5 × guards) 10–85 %, 25 % of the STASH, 1h cooldown.
+  Don / Underboss build + hire + rob; the creator wallet builds everything free. City power joins the board rows (`city`) and the map heights.
+  3D = CSS boxes (top + four walls), the 360° angle is written to the stage's `--rz` via a ref (never React state per frame).
+- 🌌 PAGE BACKDROPS (`PageBackdrop.jsx`, `pageBackdrop.css` `pgb-*`; `.context-transition` gets `pg-home` / `pg-feecat` / `pg-launch` via `PAGE_CLASS`): home = graphite
+  aurora + grid floor, FeeCat = violet night (tabs / buttons violet), Launch = amber dusk (Launch Lab accents amber). The glass layer turns flat green panels into
+  graphite glass and strips a card inside a card. FeeCat's top tabs carry a one-line explainer (`FC_TABS`).
+- 🔁 G4 / OSSY: `ai_seat.streak_brake` (3 straight real losses → the partner hunts until the market grades the braked model back to even), COMPRESSION reads refused
+  for model buys, `ai_seat.owner_line_live` (the owner's line only for THIS trade, ≤ 20 min, ≤ 2 replies). ⚡ Quick trade on every cockpit seat (`QuickTrade.jsx`).
+  🪪 `WalletPfp` = the one wallet picture (profile image else a generated mark). 🗺 The Familia page tabs (`FAM_TABS`) · 🛡 Rep page sections (`REP_SECTIONS`).

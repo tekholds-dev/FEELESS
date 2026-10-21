@@ -34,6 +34,7 @@ import { SeasonsPage, SeasonBanner } from '../components/Seasons';
 import { SupportHub, SupportButton } from '../components/SupportHub';
 import { SimpleTrade } from '../components/command/TradeDesk';
 import FeeCatsPlatform from '../components/command/FeeCatsPlatform';
+import { PageBackdrop, BACKDROP_OF, PAGE_CLASS } from '../components/PageBackdrop';
 import { SwapWorkspace } from '../components/command/SwapWorkspace';
 import { WatchlistDashboard } from '../components/command/CreatorProfile';
 import { AdvancedWatchlist } from '../components/command/AdvancedWatchlist';
@@ -196,7 +197,7 @@ export default function Terminal() {
   return <div className={`terminal-app command-terminal ${compact ? 'compact-rows' : ''} ${reducedMotion ? 'reduced-motion' : ''} text-scale-${fontScale}`} style={{ '--context-accent': ecosystem.color }}><CoinDrawerHost /><WarRoomHost /><MiniChartHost /><MiniCardHost /><MouseGlow /><AmbientFlakes /><div className="theme-flip-wipe" aria-hidden="true" /><TerminalHeader onWallet={() => setWalletOpen(true)} onProfile={() => setProfileOpen(true)} onMenu={() => setMenuOpen(v => !v)} query={query} /><MarketTicker /><ContextBar /><SeasonBanner />
     <CaseFileModal /><div className="terminal-body"><TerminalSidebar open={menuOpen} onClose={() => setMenuOpen(false)} savedCount={watchlist.length} /><main className={`terminal-main page-${(page.split("/")[0] || "home").replace(/[^a-z]/g, "")}`} data-testid={`terminal-page-${page || 'home'}`}><PanelBoundary name="This page" resetKey={`${page}${window.location.search}`}>
       <div className="workspace-topline"><span><i className="live-dot" /> FEELESS OS / <b data-testid="workspace-context-label">{ecosystem.name.toUpperCase()} {ecosystem.isLaunchpad ? 'WAR ROOM' : 'INTELLIGENCE'}</b><span className="workspace-mode">{page || '$FEE COMMAND'}</span></span><Link to={`/?node=${ecosystem.id}`} data-testid="workspace-globe-link">Globe view<ArrowUpRight size={12} /></Link></div>
-       <div className="context-transition" key={ecosystem.id}>
+       <div className={`context-transition ${PAGE_CLASS[BACKDROP_OF(page)] || ''}`} key={ecosystem.id}><PageBackdrop kind={BACKDROP_OF(page)} />
        {pairRouteState === 'loading' && <p className="pair-route-status" role="status" data-testid="selected-pair-route-loading">Restoring {routeChain} coin {routePairAddress} from the market provider…</p>}
        {pairRouteState === 'invalid' && <MarketError id="selected-pair-route-error" error="Invalid selected coin link. A supported chain and pair address are required." description="No coin was selected." />}
        {pairRouteState === 'unavailable' && <MarketError id="selected-pair-route-error" error={pairLookup.error ? `Selected coin is unavailable: ${pairLookup.error}` : `Selected coin ${routeChain} / ${routePairAddress} was not returned by the market provider.`} description="No substitute coin was selected." reload={pairLookup.reload} retryLabel="Retry selected coin" />}
