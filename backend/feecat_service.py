@@ -103,19 +103,43 @@ RULES = {'minLiquidity': 40_000, 'minVolume24h': 100_000, 'minMarketCap': 150_00
 _intel_cache = {}
 
 
+async def _jup_audit(http, mint):
+    """🪐 Jupiter's public token audit for one coin → {top10, dev, authority} (None when Jupiter has nothing)."""
+    try:
+        rows = (await http.get('https://lite-api.jup.ag/tokens/v2/search', params={'query': mint}, timeout=6)).json()
+        t = next((r for r in rows or [] if r.get('id') == mint), None)
+    except Exception:
+        return None
+    if not t:
+        return None
+    a = t.get('audit') or {}
+    top = a.get('topHoldersPercentage')
+    return {'top10': float(top) if top is not None else None, 'dev': float(a.get('devBalancePercentage') or 0),
+            'authority': a.get('mintAuthorityDisabled') is False or a.get('freezeAuthorityDisabled') is False}
+
+
 async def _safety(http, p):
     """Rug/insider gate from FEELESS on-chain intel. Returns (ok, why, conviction 0.5–1.5)."""
     mint = (p.get('baseToken') or {}).get('address')
     if not mint:
         return False, 'no mint', 0
     hit = _intel_cache.get(mint)
-    if hit and time.time() - hit[0] < 1800:
+    # a complete read is kept 30 min; an EMPTY one (the RPC scan didn't reach the holders) only 60s — it used to block that coin for 30 min,
+    # so 2026-10-21 Fee passed coins every scan and bought nothing ("no holder intel yet" on every one)
+    if hit and time.time() - hit[0] < (1800 if (hit[1] or {}).get('top10Pct') is not None else 60):
         d = hit[1]
     else:
         try:
             d = (await http.get(f'http://127.0.0.1:5077/api/reputation/intel/solana/{mint}', timeout=25)).json()
         except Exception:
             d = None
+        if not d or d.get('top10Pct') is None:   # 🪐 the agents' fallback: Jupiter's own holder audit (top 10, dev, live authority)
+            j = await _jup_audit(http, mint)
+            if j and j.get('authority'):
+                _intel_cache[mint] = (time.time(), d)
+                return False, 'mint or freeze authority is still live', 0
+            if j and j.get('top10') is not None:
+                d = {**(d or {}), 'top10Pct': j['top10'], 'devHoldingPct': j.get('dev') or 0, '_jup': True}
         _intel_cache[mint] = (time.time(), d)
     if not d or d.get('top10Pct') is None:
         return False, 'no holder intel yet', 0
@@ -145,6 +169,8 @@ async def _safety(http, p):
     conviction = 1.5 - min(1.0, _num(d.get('top10Pct')) / R['maxTop10Pct']) * 0.6 - (0.2 if snip > 5 else 0) - (0.2 if bund else 0)
     if rep.get('badge') == 'trusted':
         conviction += 0.25
+    if d.get('_jup'):   # holders from Jupiter only (no launch read): smaller bet
+        conviction = min(conviction, 0.6)
     return True, f"top10 {_num(d.get('top10Pct')):.0f}%, insiders {_num(d.get('insidersHoldingPct')):.0f}%, {snip} snipers, {bund} bundled, creator {rep.get('badge') or 'unknown'}", max(0.5, min(1.75, round(conviction, 2)))
 
 
