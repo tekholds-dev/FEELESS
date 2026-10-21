@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
+import { AiChat } from './AiChat';
 import { toast } from 'sonner';
 import '../../styles/nexaDesk.css';
 
@@ -59,5 +60,7 @@ export function NexaDesk({ call }) {
       </article>
     </div>
     <p className="nxd-real" data-testid="nexa-real">💵 Real money: {d?.real?.why || 'FeeCat trades paper.'}</p>
+    <details className="nxd-chat" data-testid="nexa-chat"><summary>💬 Talk to Nexa <small>she answers from her own FeeCat desk — record, last read, tunes, notebook</small></summary>
+      <div className="nxd-chatbox"><AiChat call={call} variant="mini" lockProvider="win" title="🪟 NEXA" /></div></details>
   </section>;
 }

@@ -8868,7 +8868,7 @@ async def _wars_tick(now):
                 pass
 
 
-@app.get('/api/reputation/crews/wars')
+@app.get('/api/reputation/crew-wars')
 async def crews_wars():
     """⚔ Public: every family war (live first, then the ones with a bell set, open call-outs, the last results) + alliances. Points only."""
     st = _json_load(CREWS_PATH, {}) or {}

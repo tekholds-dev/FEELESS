@@ -26,3 +26,13 @@ test('the inbox draws on <body> (never under the profile), lists chats, sends on
   await act(async () => { box.querySelector('[data-testid="dm-input"]').dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true })); });
   expect(send).toHaveBeenCalled();
 });
+
+test('spam folder: a stranger pushing a link / airdrop lands in Spam, a normal request stays a request', () => {
+  const { isSpam, folderOf } = require('./Messenger');
+  const look = { spam: true, muted: ['m1'] };
+  expect(isSpam({ request: true, last: { text: 'free SOL airdrop claim now https://x.y' } })).toBe(true);
+  expect(folderOf({ peer: 'p', request: true, last: { text: 'gm ser' } }, look)).toBe('requests');
+  expect(folderOf({ peer: 'p', request: true, last: { text: 'verify your wallet here' } }, look)).toBe('spam');
+  expect(folderOf({ peer: 'm1', last: { text: 'hi' } }, look)).toBe('muted');
+  expect(folderOf({ peer: 'p', request: true, last: { text: 'airdrop' } }, { spam: false })).toBe('requests');
+});

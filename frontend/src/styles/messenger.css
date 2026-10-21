@@ -16,8 +16,6 @@
 .msx-list::-webkit-scrollbar, .msx-msgs::-webkit-scrollbar { width: 6px; } .msx-list::-webkit-scrollbar-thumb, .msx-msgs::-webkit-scrollbar-thumb { background: #15d16a; border-radius: 6px; }
 .msx-search { height: 34px; border-radius: 999px; border: 1px solid transparent; background: rgba(255, 255, 255, .06); color: #e9fff2; padding: 0 14px; font-size: 13px; margin-bottom: 6px; }
 .msx-search:focus { outline: none; border-color: #15d16a; }
-.msx-policy { display: flex; flex-direction: column; gap: 4px; padding: 4px 6px 8px; font-size: 11px; color: #7f9c8c; }
-.msx-policy select { height: 30px; border-radius: 8px; background: #0f1a14; color: #e9fff2; border: 1px solid rgba(255, 255, 255, .1); }
 .msx-row { display: grid; grid-template-columns: 40px minmax(0, 1fr) auto; gap: 10px; align-items: center; padding: 8px; border-radius: 12px; border: 0; background: none; color: inherit; text-align: left; cursor: pointer; transition: background .15s; }
 .msx-row:hover, .msx-row:focus-visible { background: rgba(255, 255, 255, .05); outline: none; } .msx-row.on { background: rgba(21, 209, 106, .14); } .msx-row:active { transform: scale(.99); }
 .msx-rowtx { min-width: 0; display: flex; flex-direction: column; } .msx-rowtx b { font-size: 13.5px; color: #f2fff7; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -58,3 +56,42 @@ body.theme-day .msx-compose textarea, body.theme-day .msx-search { background: #
   .msx.has-list .msx-body { grid-template-columns: minmax(0, 1fr); }
   .msx.has-list.has-chat .msx-list { display: none; } .msx.has-list:not(.has-chat) .msx-pick { display: none; }
 }
+
+/* ⚙ inbox settings · folders · themes (Messenger.jsx DM_THEMES / DM_BUBBLES / DM_SIZES) */
+.msx-ic { width: 30px; height: 30px; display: grid; place-items: center; border-radius: 9px; border: 1px solid rgba(255, 255, 255, .1); background: #0f1a14; color: #cfeedd; cursor: pointer; font-size: 13px; transition: transform .12s, border-color .15s, background .15s; }
+.msx-ic:hover { border-color: #45e486; transform: translateY(-1px); } .msx-ic:active { transform: scale(.94); } .msx-ic:focus-visible { outline: 2px solid #45e486; outline-offset: 2px; }
+.msx-ic.on { background: #15d16a; color: #03150b; border-color: #15d16a; }
+.msx-gear { display: grid; gap: 10px; padding: 12px 14px; border-bottom: 1px solid rgba(255, 255, 255, .08); background: #0a130e; animation: msxGear .18s ease both; }
+.msx-gr { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; }
+.msx-gr > span { font: 700 9.5px 'JetBrains Mono', monospace; letter-spacing: 1.2px; color: #7f9c8c; min-width: 64px; }
+.msx-seg { display: flex; flex-wrap: wrap; gap: 5px; }
+.msx-seg button { display: inline-flex; align-items: center; gap: 5px; border: 1px solid rgba(255, 255, 255, .12); background: #0f1a14; color: #cfeedd; border-radius: 999px; padding: 5px 10px; font-size: 11.5px; cursor: pointer; transition: transform .12s, background .15s; }
+.msx-seg button:hover { border-color: #45e486; transform: translateY(-1px); } .msx-seg button.on { background: #15d16a; color: #03150b; border-color: #15d16a; font-weight: 700; }
+.msx-sw { width: 12px; height: 12px; border-radius: 50%; background: var(--msx-me); box-shadow: 0 0 0 2px var(--msx-bg); }
+.msx-tg { display: flex; gap: 8px; align-items: flex-start; font-size: 12px; color: #cfeedd; cursor: pointer; } .msx-tg input { accent-color: #15d16a; margin-top: 2px; }
+.msx-gnote { color: #6a8a78; font-size: 10.5px; }
+.msx-folds { display: flex; gap: 4px; padding: 2px 6px 8px; } .msx-folds button { flex: 1; display: inline-flex; justify-content: center; gap: 4px; border: 1px solid transparent; background: none; color: #7f9c8c; border-radius: 8px; padding: 5px 4px; font-size: 11px; cursor: pointer; }
+.msx-folds button:hover { color: #e9fff2; } .msx-folds button.on { background: #15d16a22; color: #45e486; border-color: #15d16a55; } .msx-folds b { font: 700 9px 'JetBrains Mono', monospace; background: #15d16a; color: #03150b; padding: 0 5px; border-radius: 6px; }
+.msx-req.is-spam { background: #ff8fa322; color: #ff8fa3; }
+.msx { --msx-me: linear-gradient(135deg, #15d16a, #0f9a50); --msx-them: #1c2a23; --msx-bg: #07100b; }
+.msx-t-noir { --msx-me: linear-gradient(135deg, #d4af37, #a07a10); --msx-them: #1e1810; --msx-bg: radial-gradient(90% 70% at 50% 0%, #241a0c, #080604); }
+.msx-t-midnight { --msx-me: linear-gradient(135deg, #6f8bff, #4a3ad6); --msx-them: #1a1f33; --msx-bg: radial-gradient(90% 70% at 30% 0%, #1b2350, #05060f); }
+.msx-t-aurora { --msx-me: linear-gradient(135deg, #3cffc4, #9b5cff); --msx-them: #152129; --msx-bg: linear-gradient(160deg, #04221d, #12082a 60%, #07100b); }
+.msx-t-sunset { --msx-me: linear-gradient(135deg, #ff9f45, #ff4d6d); --msx-them: #2a1a1c; --msx-bg: linear-gradient(180deg, #2b1220, #120a10); }
+.msx-t-matrix { --msx-me: linear-gradient(135deg, #3cff6a, #0f9a50); --msx-them: #0d1a10; --msx-bg: repeating-linear-gradient(0deg, #020803 0 3px, #031107 3px 4px); }
+.msx-t-paper { --msx-me: linear-gradient(135deg, #2b6fff, #1b4fd0); --msx-them: #eceff3; --msx-bg: #f7f7f5; }
+.msx .msx-msgs { background: var(--msx-bg); }
+.msx .msx-grp.me .msx-bub { background: var(--msx-me); }
+.msx .msx-grp.them .msx-bub { background: var(--msx-them); }
+.msx-t-noir .msx-grp.me .msx-bub, .msx-t-sunset .msx-grp.me .msx-bub, .msx-t-midnight .msx-grp.me .msx-bub, .msx-t-paper .msx-grp.me .msx-bub { color: #fff; }
+.msx-t-paper .msx-grp.them .msx-bub { color: #14181f; } .msx-t-paper .msx-day span { color: #555; }
+.msx-sw.msx-t-royal { --msx-me: #15d16a; } .msx-sw.msx-t-noir { --msx-me: #d4af37; } .msx-sw.msx-t-midnight { --msx-me: #6f8bff; } .msx-sw.msx-t-aurora { --msx-me: #9b5cff; }
+.msx-sw.msx-t-sunset { --msx-me: #ff7a55; } .msx-sw.msx-t-matrix { --msx-me: #3cff6a; } .msx-sw.msx-t-paper { --msx-me: #2b6fff; }
+.msx-b-sharp .msx-bub { border-radius: 6px !important; }
+.msx-b-glass .msx-grp .msx-bub { background: rgba(255, 255, 255, .08); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .14); color: #eafff3; }
+.msx-b-glass .msx-grp.me .msx-bub { background: rgba(21, 209, 106, .22); }
+.msx-s-s .msx-bub { font-size: 12.5px; } .msx-s-l .msx-bub { font-size: 16px; }
+@keyframes msxGear { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) { .msx-gear { animation: none; } .msx-seg button, .msx-ic { transition: none; } }
+body.theme-day .msx-gear { background: #f1f7f3; } body.theme-day .msx-seg button, body.theme-day .msx-ic { background: #fff; color: #1d4a30; border-color: #cfe3d6; }
+body.theme-day .msx-tg { color: #1d4a30; }

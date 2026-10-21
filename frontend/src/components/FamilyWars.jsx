@@ -17,7 +17,7 @@ export const tug = sc => { const a = sc?.a?.pct, b = sc?.b?.pct; if (a == null &
 export function useWars(every = 15000) {
   const [d, setD] = useState(null);
   useEffect(() => { let on = true; let t = null;
-    const go = () => sharedJson('/api/reputation/crews/wars', { maxAge: 10000 }).then(x => on && x && setD(x)).catch(() => {}).finally(() => { if (on) t = setTimeout(go, document.hidden ? every * 3 : every); });
+    const go = () => sharedJson('/api/reputation/crew-wars', { maxAge: 10000 }).then(x => on && x && setD(x)).catch(() => {}).finally(() => { if (on) t = setTimeout(go, document.hidden ? every * 3 : every); });
     go(); return () => { on = false; clearTimeout(t); }; }, [every]);
   return d;
 }
