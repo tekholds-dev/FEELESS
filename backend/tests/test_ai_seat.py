@@ -324,3 +324,13 @@ def test_streak_brake_and_owner_lines_expire():
     assert not s.owner_line_live(line, held, [], 1100 + s.OWNER_LINE_SEC + 1)              # too old
     replies = [{'at': 1150, 'mint': 'M', 'model': 'G4'}, {'at': 1160, 'mint': 'M', 'model': 'OSSY'}]
     assert not s.owner_line_live(line, held, replies, 1200)                                # answered twice already
+
+
+def test_a_model_never_pulls_a_stop_into_the_price_and_line_jitter_is_ignored():
+    import ai_seat as s
+    leg = {'aiSl': 12.0, 'aiTrail': 35.0}
+    assert s.line_change(leg, {'aiSl': 3}, pct_now=-2.0) == {'aiSl': 8.0}          # −3% asked at −2% → the −8% floor ($Normie / $BACKERS)
+    assert s.line_change({}, {'aiSl': 9}, pct_now=-7.0) == {'aiSl': 11.0}            # never closer than 4 points under the live %
+    assert s.line_change(leg, {'aiTrail': 30}, pct_now=1.0) == {}                   # 35 ↔ 30 every minute is noise
+    assert s.line_change(leg, {'aiTrail': 45, 'aiTp': 60}, pct_now=1.0) == {'aiTrail': 45.0, 'aiTp': 60.0}
+    assert s.parse('{"action": "HOLD", "sl": 3}', [], holding=True).get('sl') == 8.0

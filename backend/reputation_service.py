@@ -11498,7 +11498,8 @@ async def _prime_tick_inner(now):
             for gs_ in [x_ for x_ in (_g4.pop('set', None), _g4.pop('setAgent', None)) if x_ and _seat.fresh(x_, now)]:   # 🎯 a model moved take / stop / trail: its own seat, or an agents coin (never yours / certified)
                 for l in cur['legs']:
                     if l.get('pairAddress') == gs_.get('pair') and not l.get('placeholder') and not l.get('certified') and (l.get('aiSeat') if gs_.get('own') is not False else (_uni.is_agent(l) and not l.get('picked') and not l.get('aiSeat'))):
-                        ch_ = {k_: v_ for k_, v_ in (('aiTp', gs_.get('tp')), ('aiSl', gs_.get('sl')), ('aiTrail', gs_.get('trail'))) if v_ and v_ != l.get(k_)}
+                        e_, p_ = _fuse._f(l.get('entry')), _fuse._f(px.get(l.get('pairAddress')))
+                        ch_ = _seat.line_change(l, {'aiTp': gs_.get('tp'), 'aiSl': gs_.get('sl'), 'aiTrail': gs_.get('trail')}, (p_ / e_ - 1) * 100 if e_ > 0 and p_ > 0 else None)   # 🛑 no −3% stops, no 35 ↔ 30 jitter
                         l.update(ch_)
                         if ch_ and not l.get('aiSeat'):
                             l['aiBy'] = gs_.get('by')

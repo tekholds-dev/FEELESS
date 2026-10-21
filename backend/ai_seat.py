@@ -329,7 +329,32 @@ def parse(text, cand_mints, holding, syms=None, spoke=False):
     return out
 
 
-LINE_RANGES = (('tp', TP_MIN, 500.0), ('sl', 3.0, 44.0), ('trail', 15.0, 70.0))   # 🎯 take · stop · trail give-back the model may set (−45% stays the floor)
+LINE_RANGES = (('tp', TP_MIN, 500.0), ('sl', 8.0, 44.0), ('trail', 15.0, 70.0))   # 🎯 take · stop · trail give-back the model may set (−45% stays the floor)
+
+
+SL_MIN = 8.0          # 🛑 a model's stop is never tighter than −8% (the chart's own floor): −3% stops sold $Normie / $BACKERS / $SNDK in seconds
+SL_ROOM = 4.0         # …and never closer than 4 points under where the coin trades NOW (pulling a −12% stop to −3% at −2% = an instant sale)
+LINE_NUDGE = {'aiTp': 5.0, 'aiSl': 2.0, 'aiTrail': 5.0}   # a change smaller than this is noise (G4 flipped trail 35 ↔ 30 every minute)
+
+
+def line_change(leg, want, pct_now=None):
+    """🎯 The line moves a model may really make on a leg. `want` = {'aiTp', 'aiSl', 'aiTrail'} as asked; `pct_now` = the coin's % vs its
+    entry (None = unknown). Drops nudges, keeps every stop ≥ SL_MIN and SL_ROOM points under the live %. Pure. → {key: value} to apply."""
+    out = {}
+    for k, v in (want or {}).items():
+        v = _f(v)
+        if v <= 0 or k not in LINE_NUDGE:
+            continue
+        if k == 'aiSl':
+            v = max(v, SL_MIN)
+            if pct_now is not None and pct_now < SL_ROOM:   # a green coin may lock its stop higher by Reaper's own rules, not by a model
+                v = max(v, round(SL_ROOM - pct_now, 1))
+        old = _f(leg.get(k))
+        if old > 0 and abs(v - old) <= LINE_NUDGE[k]:
+            continue
+        if v != old:
+            out[k] = round(v, 1)
+    return out
 
 
 def lines_view(ch, before=None):
