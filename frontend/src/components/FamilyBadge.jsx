@@ -3,9 +3,9 @@ import '../styles/familyBadge.css';
 
 // 🌹 THE FAMILY BADGE (crews.py PARTS / badge_view — change both): one badge per family, every part earned from TRACKED numbers. Drawn the same
 // everywhere (board, podium, chips, profile): emblem in a frame, the two family colors, an FX layer, the tag, the motto and the rank chips it earned.
-export const EMBLEM = { rose: '🌹', skull: '💀', snake: '🐍', dice: '🎲', gun: '🔫', hat: '🎩', scorp: '🦂', dragon: '🐉', crown: '👑', diamond: '💎' };
-const FRAME = { iron: 'fb-iron', silver: 'fb-silver', gold: 'fb-gold', blood: 'fb-blood', holo: 'fb-holo', black: 'fb-black' };   // literal names (cssHygiene)
-const FX = { none: '', smoke: 'fx-smoke', embers: 'fx-embers', lightning: 'fx-lightning', rain: 'fx-rain' };
+export const EMBLEM = { rose: '🌹', skull: '💀', snake: '🐍', dice: '🎲', gun: '🔫', hat: '🎩', scorp: '🦂', dragon: '🐉', crown: '👑', diamond: '💎', sword: '⚔', wolf: '🐺', lion: '🦁' };
+const FRAME = { iron: 'fb-iron', silver: 'fb-silver', gold: 'fb-gold', blood: 'fb-blood', holo: 'fb-holo', black: 'fb-black', warlord: 'fb-warlord' };   // literal names (cssHygiene)
+const FX = { none: '', smoke: 'fx-smoke', embers: 'fx-embers', lightning: 'fx-lightning', rain: 'fx-rain', gunsmoke: 'fx-gunsmoke' };
 // pure: the rank chips a badge shows (only what the family really earned)
 export function rankChips(r) {
   const out = [];

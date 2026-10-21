@@ -8467,12 +8467,14 @@ def _crew_badge_usd(cfg=None):
 
 def _crew_view(c, pieces, with_code=False):
     import crews as _cr
-    mem = [{'address': m, 'name': _crew_name(m), 'owner': m == c['owner'], **_cr.stats(pieces.get(m, []))} for m in c['members']]
+    ms_ = {m: _cr.stats(pieces.get(m, [])) for m in c['members']}
+    rk_ = _fwar.ranks(c, ms_)
+    mem = [{'address': m, 'name': _crew_name(m), 'owner': m == c['owner'], **ms_[m], 'rank': rk_.get(m, _fwar.RANKS[5])[0], 'rankLabel': rk_.get(m, _fwar.RANKS[5])[1]} for m in c['members']]
     return {'id': c['id'], 'name': c['name'], 'tag': c['tag'], 'room': f"crew-{c['id']}", 'members': mem, 'seats': c.get('seats', _cr.BASE_SEATS), 'created': c.get('created'),
             'packUsd': _cr.price('seats', _crew_cfg()), 'packSeats': _cr.PACK_SEATS, **({'code': c['code']} if with_code and c.get('code') else {}),
             'codeSet': bool(c.get('codeHash')), 'codeTail': c.get('codeTail') if with_code else None,
             'badge': _cr.badge_view(c, (_json_load(CREWS_PATH, {}) or {}).get('awards'), _crew_cfg(), _is_staff(c.get('owner'))),
-            'launch': c.get('launch'), 'bountiesOpen': sum(1 for b_ in c.get('bounties') or [] if b_.get('state') == 'open'),
+            'launch': c.get('launch'), 'bountiesOpen': sum(1 for b_ in c.get('bounties') or [] if b_.get('state') == 'open'), 'war': _fwar.record(c),
             'points': {m: int(v) for m, v in (c.get('points') or {}).items()} if with_code else None,
             # 💬 members-only: the board + bounties (names, never the code)
             **({'posts': [{**p_, 'name': _crew_name(p_['by'])} for p_ in (c.get('posts') or [])[-80:]],
@@ -8708,6 +8710,12 @@ class CrewAct(BaseModel):
     pay: bool = False
     mint: str = Field(default='', max_length=60)
     symbol: str = Field(default='', max_length=16)
+    vs: str = Field(default='', max_length=16)       # ⚔ the other family's tag (war / ally)
+    stake: int = 0
+    startAt: float = 0
+    hours: int = 0
+    ok: bool = False
+    team: list = Field(default_factory=list, max_length=8)
 
 
 @app.post('/api/reputation/crews/act')
@@ -8731,6 +8739,20 @@ async def crew_act(p: CrewAct):
                 _cr.bounty_settle(st, me, p.id, p.pay, now)
             elif p.act == 'launch':
                 _cr.launch(st, me, p.mint or None, p.symbol, p.text, now)
+            elif p.act == 'war':      # ⚔ call another family out: points pot, a date, a length (family_wars.py)
+                _fwar.challenge(st, me, p.vs, p.stake, p.startAt, p.hours, now, [str(x) for x in p.team])
+            elif p.act == 'answer':
+                _fwar.answer(st, me, p.id, p.ok, p.stake, now, [str(x) for x in p.team])
+            elif p.act == 'raise':
+                _fwar.raise_pot(st, me, p.id, p.stake, now)
+            elif p.act == 'join':
+                _fwar.join_side(st, me, p.id, p.stake, now, [str(x) for x in p.team])
+            elif p.act == 'team':
+                _fwar.set_team(st, me, p.id, [str(x) for x in p.team], now)
+            elif p.act == 'ally':
+                _fwar.ally(st, me, p.vs, now)
+            elif p.act == 'unally':
+                _fwar.break_ally(st, me, p.vs)
             else:
                 raise ValueError('Unknown family action.')
         except ValueError as e:
@@ -8813,6 +8835,54 @@ async def crew_leave(p: CrewWho):
 
 
 CREW_PRIZES = (150, 100, 60)   # season points to EACH member of the week's top 3 ranked crews
+
+
+import family_wars as _fwar
+
+
+async def _wars_tick(now):
+    """⚔ The family-war clock, every warm pass: void unanswered call-outs at the bell, start accepted ones, settle finished ones on the
+    teams' VERIFIED trades in the window (points pot only). Winners get an inbox note."""
+    async with _crews_lock:
+        st = _json_load(CREWS_PATH, {})
+        if not st.get('wars'):
+            return
+        busy = [w for w in st['wars'] if w['state'] in (_fwar.OPEN, _fwar.SET, _fwar.LIVE)]
+        if not busy:
+            return
+        mem = {m for w in busy for t in (w.get('teams') or {}).values() for m in t}
+        before = [w['state'] for w in busy]
+        ev = _fwar.tick(st, _crew_pieces(list(mem), now) if mem else {}, now)
+        if ev or any(w['state'] != b_ for w, b_ in zip(busy, before)):
+            _json_save(CREWS_PATH, st)
+            _crew_cache['data'] = None
+    for w, kind in ev:
+        if kind != 'done' or not (w.get('result') or {}).get('winner'):
+            continue
+        win = w['result']['winner']
+        for cid in [w[win]] + list((w.get('allies') or {}).get(win) or []):
+            c = (st.get('crews') or {}).get(cid) or {}
+            try:
+                notify(c.get('owner'), 'family', f"🏆 [{c.get('tag')}] won the war — the pot of {_fwar.pot(w)} pts is in your chest", url='/terminal/leaderboard?lens=crews', once=f"war:{w['id']}:{cid}", push=False, meta={'claim': 'family war won', 'source': 'family_wars'})
+            except Exception:
+                pass
+
+
+@app.get('/api/reputation/crews/wars')
+async def crews_wars():
+    """⚔ Public: every family war (live first, then the ones with a bell set, open call-outs, the last results) + alliances. Points only."""
+    st = _json_load(CREWS_PATH, {}) or {}
+    now = time.time(); crews_ = st.get('crews') or {}
+    ws = _fwar.board(st, now)[:30]
+    live = [w for w in ws if w['state'] in (_fwar.LIVE, _fwar.DONE)]
+    mem = {m for w in live for t in (w.get('teams') or {}).values() for m in t}
+    pcs = _crew_pieces(list(mem), now) if mem else {}
+    return {'wars': [_fwar.view(w, crews_, pcs, now) for w in ws],
+            'alliances': [{'a': (crews_.get(a) or {}).get('tag'), 'b': (crews_.get(b) or {}).get('tag'), 'at': t} for a, b, t in st.get('alliances') or []],
+            'asks': [{'from': (crews_.get(a) or {}).get('tag'), 'to': (crews_.get(b) or {}).get('tag'), 'at': t} for a, b, t in st.get('allyAsks') or []],
+            'rules': {'stake': [_fwar.STAKE_MIN, _fwar.STAKE_MAX], 'hours': list(_fwar.HOURS), 'teamMax': _fwar.TEAM_MAX, 'chestStart': _fwar.CHEST_START,
+                      'note': 'A pot is family points, never money. Every member signs their own trades; a war counts each team member\'s verified trades inside the window.'},
+            'at': round(now)}
 
 
 async def _crew_season_tick(now):
@@ -19800,6 +19870,7 @@ async def _fuse_warm():
         print('predict:', e)
     try:   # 🛡 crews: the week's top 3 pay their members season points, once
         await _crew_season_tick(time.time())
+        await _wars_tick(time.time())
     except Exception as e:
         print('crews:', e)
     if _fuse_warm_n['n'] % 144 == 53:   # ~1h: 🧪 the edge audit + the proof gate on the real card

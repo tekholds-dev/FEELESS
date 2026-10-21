@@ -8,6 +8,8 @@ import { useLivePrice } from '../lib/livePriceHub';
 import { price as pxWord } from '../lib/num';
 import '../styles/crews.css';
 import { FamilyBadge, EMBLEM } from './FamilyBadge';
+import { WarRoom, WarStrip } from './FamilyWars';
+import '../styles/familyNoir.css';
 
 // 🛡 CREWS (Leaderboard › Crews · Season & ranks): $25 in SOL to the FEELESS fee wallet starts a crew with 5 seats including you; +5 seats cost $5. A crew
 // shares no money — everyone signs their own trades. The weekly board ranks what members' VERIFIED FEELESS trades did over 7 days; the top 3 pay season
@@ -111,10 +113,10 @@ function BadgeBuilder({ mine, owner, addr, sess, q, act, busy }) {
   </div>;
 }
 
-const TABS = [['badge', '🌹 Badge'], ['board', '💬 Board'], ['bounty', '🎯 Bounties'], ['launch', '🚀 Launch'], ['members', '👥 Members'], ['code', '🔐 Code']];
+const TABS = [['wars', '⚔ War room'], ['badge', '🌹 Badge'], ['board', '💬 Board'], ['bounty', '🎯 Bounties'], ['launch', '🚀 Launch'], ['members', '👥 Members'], ['code', '🔐 Code']];
 
-function CrewHQ({ mine, owner, addr, sess, busy, setBusy, setMine, act, q }) {
-  const [tab, setTab] = useState(mine.badge?.set ? 'board' : 'badge'); const [txt, setTxt] = useState(''); const [rew, setRew] = useState(50); const [mint, setMint] = useState(''); const [sym, setSym] = useState(''); const [code, setCode] = useState(''); const [plain, setPlain] = useState('');
+function CrewHQ({ mine, owner, addr, sess, busy, setBusy, setMine, act, q, rows }) {
+  const [tab, setTab] = useState(mine.badge?.set ? 'wars' : 'badge'); const [txt, setTxt] = useState(''); const [rew, setRew] = useState(50); const [mint, setMint] = useState(''); const [sym, setSym] = useState(''); const [code, setCode] = useState(''); const [plain, setPlain] = useState('');
   const doAct = async (a, body, ok) => { setBusy(a); try { const r = await post('/api/reputation/crews/act', { address: addr, session: sess, act: a, ...body }); if (r.crew) setMine(r.crew); if (r.plainCode) setPlain(r.plainCode); toast.success(ok); setTxt(''); } catch (e) { toast.error(e.message); } finally { setBusy(''); } };
   const posts = mine.posts || []; const roots = posts.filter(p => !p.parent).slice().reverse(); const kids = id => posts.filter(p => p.parent === id);
   const link = mine.code ? inviteLink(window.location.origin, window.location.pathname, mine.code) : null;
@@ -122,6 +124,7 @@ function CrewHQ({ mine, owner, addr, sess, busy, setBusy, setMine, act, q }) {
     {mine.badge ? <div className="crw-crest"><FamilyBadge b={mine.badge} size="md" /></div> : null}
     <nav className="crw-tabs m-seg" role="tablist">{TABS.map(([k, l]) => <button key={k} type="button" role="tab" aria-selected={tab === k} className={tab === k ? 'active' : ''} onClick={() => setTab(k)} data-testid={`crew-tab-${k}`}>{l}{k === 'bounty' && mine.bountiesOpen ? <b>{mine.bountiesOpen}</b> : null}</button>)}</nav>
     <div className="crw-pane" key={tab}>
+      {tab === 'wars' && <WarRoom mine={mine} owner={owner} rows={rows} busy={busy} act={(a, body, ok) => doAct(a, body, ok)} />}
       {tab === 'badge' && <BadgeBuilder mine={mine} owner={owner} addr={addr} sess={sess} q={q} act={act} busy={busy} />}
       {tab === 'board' && <>
         <form className="crw-row" onSubmit={e => { e.preventDefault(); doAct('post', { text: txt }, '💬 posted'); }}><input className="m-input" placeholder="Talk to the family…" value={txt} maxLength={500} onChange={e => setTxt(e.target.value)} aria-label="Post" /><button type="submit" className="m-btn primary" disabled={!txt.trim() || !!busy}>Post</button></form>
@@ -141,7 +144,7 @@ function CrewHQ({ mine, owner, addr, sess, busy, setBusy, setMine, act, q }) {
       </>}
       {tab === 'launch' && <><LaunchLive l={mine.launch} />
         {owner && <form className="crw-row" onSubmit={e => { e.preventDefault(); doAct('launch', { mint: mint.trim(), symbol: sym, text: txt }, mint ? '🚀 launch pinned' : 'launch cleared'); }}><input className="m-input" placeholder="Coin CA (empty = clear)" value={mint} onChange={e => setMint(e.target.value)} aria-label="Launch mint" /><input className="m-input crw-tag" placeholder="SYM" value={sym} maxLength={16} onChange={e => setSym(e.target.value.toUpperCase())} aria-label="Symbol" /><input className="m-input" placeholder="Why we're behind it" value={txt} maxLength={160} onChange={e => setTxt(e.target.value)} aria-label="Launch note" /><button type="submit" className="m-btn primary" disabled={!!busy}>Pin</button></form>}</>}
-      {tab === 'members' && <ul className="crw-mem">{mine.members.map((m, i) => <li key={m.address} style={{ '--i': i }}><a href={`/terminal/profile/${m.address}`}>{m.name}{m.owner ? ' 👑' : ''}</a><em className={m.pct == null ? '' : m.pct >= 0 ? 'm-pos' : 'm-neg'}>{pctTxt(m.pct)}</em><small>{m.trades ? `${m.trades} trades · ${m.wonPct}% won` : 'no trades this week'}{mine.points?.[m.address] ? ` · ${mine.points[m.address]} pts` : ''}</small></li>)}
+      {tab === 'members' && <ul className="crw-mem">{mine.members.map((m, i) => <li key={m.address} style={{ '--i': i }}><a href={`/terminal/profile/${m.address}`}>{m.rankLabel ? <span className={`fnr-rank r-${m.rank}`}>{m.rankLabel}</span> : null}{m.name}{m.owner ? ' 👑' : ''}</a><em className={m.pct == null ? '' : m.pct >= 0 ? 'm-pos' : 'm-neg'}>{pctTxt(m.pct)}</em><small>{m.trades ? `${m.trades} trades · ${m.wonPct}% won` : 'no trades this week'}{mine.points?.[m.address] ? ` · ${mine.points[m.address]} pts` : ''}</small></li>)}
         {owner && <li className="crw-addseat"><button type="button" className="m-btn primary" disabled={!!busy} onClick={() => act('/api/reputation/crews/seats', {}, `➕ +${mine.packSeats} seats`, 'seats')} data-testid="crew-seats">{`➕ +${mine.packSeats} seats · ${costText(q, 'seats') || `$${mine.packUsd}`}`}</button></li>}</ul>}
       {tab === 'code' && <>
         {plain && <div className="crw-plain" data-testid="crew-plain"><b>🔐 {plain}</b><small>shown ONCE — it is stored encrypted (salted hash). Copy it now.</small><button type="button" className="m-btn" onClick={() => navigator.clipboard?.writeText(inviteLink(window.location.origin, window.location.pathname, plain))}>⧉ Copy invite</button></div>}
@@ -196,7 +199,10 @@ export function Crews() {
     } catch (e) { toast.error(e.message); } finally { setBusy(''); }
   };
   const rows = board?.board || []; const owner = mine?.members?.find(m => m.owner)?.address === addr; const top = podium(rows);
-  return <section className="crw" data-testid="crews">
+  return <section className="crw crw-noir" data-testid="crews">
+    <div className="fnr-smoke" aria-hidden><i /><i /><i /></div>
+    <header className="fnr-title"><span>🌹 LA FAMILIA</span><b>Famiglia prima di tutto.</b><small>Families rise on verified trades, settle scores in battle trenches, and wear what they earned.</small></header>
+    <WarStrip />
     <FamilyPulse />
     <div className="crw-stage" data-testid="crew-podium">
       <header><span className="m-label">🌹 LA FAMILIA · FAMILY WARS THIS WEEK</span><small>{board ? `${board.total} famil${board.total === 1 ? 'y' : 'ies'} · verified trades only · live` : 'reading…'}</small></header>
@@ -207,7 +213,7 @@ export function Crews() {
       {mine ? <>
         <header><span className="m-label">🌹 YOUR FAMILIA</span><b className="crw-name">[{mine.tag}] {mine.name}</b><small>{seatsLine(mine)}</small>
           <button type="button" className="m-btn" disabled={!!busy} onClick={() => act('/api/reputation/crews/leave', {}, 'Left the family')} data-testid="crew-leave">Leave</button></header>
-        <CrewHQ mine={mine} owner={owner} addr={addr} sess={sess} busy={busy} setBusy={setBusy} setMine={setMine} act={act} q={q} />
+        <CrewHQ mine={mine} owner={owner} addr={addr} sess={sess} busy={busy} setBusy={setBusy} setMine={setMine} act={act} q={q} rows={rows} />
       </> : <>
         <header><span className="m-label">🌹 START A FAMILY OR JOIN ONE</span><small>{q ? `${costText(q, 'create')} · ${q.baseSeats} seats incl. you · +${q.packSeats} seats ${costText(q, 'seats')}` : '5 seats incl. you'} · a family shares no money</small></header>
         {mine === undefined ? <small className="m-dim">Loading…</small> : !sess ? <p className="crw-hint m-dim">Connect your wallet and open chat once to start or join a family.</p> : <div className="crw-forms">

@@ -143,7 +143,8 @@ def board(store, pieces_by_wallet, now, cfg=None, staff_of=None):
         ranked = len(c['members']) >= MIN_MEMBERS and s['trades'] >= MIN_TRADES and s['pct'] is not None
         rows.append({'id': c['id'], 'name': c['name'], 'tag': c['tag'], 'members': len(c['members']), 'seats': c.get('seats', BASE_SEATS), 'active': active, 'ranked': ranked, **s,
                      'launch': (c.get('launch') or {}).get('symbol') or None, 'bounties': sum(1 for b in c.get('bounties') or [] if b.get('state') == 'open'),
-                     'badge': badge_view(c, store.get('awards'), cfg, bool(staff_of and staff_of(c.get('owner'))))})
+                     'badge': badge_view(c, store.get('awards'), cfg, bool(staff_of and staff_of(c.get('owner')))),
+                     'warW': int(c.get('warWins') or 0), 'warL': int(c.get('warLosses') or 0), 'chest': int(c['chest']) if c.get('chest') is not None else 500})
     return sorted(rows, key=lambda r: (not r['ranked'], -(r['pct'] if r['pct'] is not None else -999), -r['members']))
 
 
@@ -302,6 +303,10 @@ def events(store, now, limit=40, since=7 * 86400):
         c = names.get((top[0] if top else {}).get('id'))
         if c and a.get('at'):
             out.append({'fam': c['tag'], 'name': c['name'], 'id': c['id'], 'kind': 'crown', 'at': a['at'], 'text': f"👑 {c['name']} took the week"})
+    for w in store.get('wars') or []:   # ⚔ every war's public moves (call-out, accepted, raises, the bell, the result)
+        c = names.get(w.get('a')) or {}
+        for t, line in (w.get('log') or [])[-6:]:
+            out.append({'fam': c.get('tag', '?'), 'name': c.get('name', ''), 'id': w['id'], 'kind': 'war', 'at': t, 'text': line})
     out = [e for e in out if e.get('at') and now - float(e['at']) <= since]
     return sorted(out, key=lambda e: -float(e['at']))[:limit]
 
@@ -322,15 +327,16 @@ def vitals(store, now):
 # recomputed every read (never stored as "unlocked"): members, podium weeks + crowns from the weekly awards, the best place ever, bounty points
 # paid. The creator tunes every unlock line and the restyle cost in HQ (fees.crews.unlocks / badgeUsd). One badge per family; the first build
 # is free, every restyle after costs `badgeUsd` in SOL (verified on-chain by the service, like the family itself). ----
-METRICS = {'members': 'members', 'podiums': 'weeks in the top 3', 'crowns': 'weeks at #1', 'best': 'best weekly place (1 = #1)', 'points': 'bounty points paid'}
+METRICS = {'members': 'members', 'podiums': 'weeks in the top 3', 'crowns': 'weeks at #1', 'best': 'best weekly place (1 = #1)', 'points': 'bounty points paid', 'wars': 'family wars won'}
 PARTS = {   # part → {option: (label, unlock metric or None, min)} — min for 'best' means "place ≤ min"
     'emblem': {'rose': ('🌹 Rose', None, 0), 'skull': ('💀 Skull', None, 0), 'snake': ('🐍 Viper', None, 0), 'dice': ('🎲 Dice', None, 0),
                'gun': ('🔫 Piece', 'members', 3), 'hat': ('🎩 Don\'s hat', 'members', 5), 'scorp': ('🦂 Scorpion', 'podiums', 1),
-               'dragon': ('🐉 Dragon', 'podiums', 3), 'crown': ('👑 Crown', 'crowns', 1), 'diamond': ('💎 Diamond', 'points', 1000)},
+               'dragon': ('🐉 Dragon', 'podiums', 3), 'crown': ('👑 Crown', 'crowns', 1), 'diamond': ('💎 Diamond', 'points', 1000),
+               'sword': ('⚔ Crossed blades', 'wars', 1), 'wolf': ('🐺 Wolf', 'wars', 3), 'lion': ('🦁 Lion', 'wars', 10)},
     'frame': {'iron': ('Iron', None, 0), 'silver': ('Silver', 'members', 5), 'gold': ('Gold', 'podiums', 1), 'blood': ('Blood oath', 'crowns', 1),
-              'holo': ('Holo', 'points', 500), 'black': ('Black card', 'best', 1)},
+              'holo': ('Holo', 'points', 500), 'black': ('Black card', 'best', 1), 'warlord': ('Warlord', 'wars', 5)},
     'fx': {'none': ('None', None, 0), 'smoke': ('Cigar smoke', 'members', 3), 'embers': ('Embers', 'podiums', 1), 'lightning': ('Lightning', 'crowns', 1),
-           'rain': ('Money rain', 'points', 2000)},
+           'rain': ('Money rain', 'points', 2000), 'gunsmoke': ('Gunsmoke', 'wars', 2)},
 }
 COLORS = ('#15d16a', '#ffd36b', '#ff4d6d', '#9b5cff', '#6fd3ff', '#ffffff', '#ff9f45', '#111111')
 BADGE_USD = 2.0
@@ -341,7 +347,7 @@ def family_metrics(crew, awards, staff=False):
     """The tracked numbers every unlock reads. `awards` = crews.json awards [{week, top: [{id}]}] written by the weekly season tick."""
     pod = [i for a in awards or [] for i, r in enumerate((a.get('top') or [])[:3]) if r.get('id') == crew.get('id')]
     return {'members': len(crew.get('members') or []), 'podiums': len(pod), 'crowns': sum(1 for i in pod if i == 0),
-            'best': (min(pod) + 1) if pod else None, 'points': int(sum(int(v) for v in (crew.get('points') or {}).values())),
+            'best': (min(pod) + 1) if pod else None, 'points': int(sum(int(v) for v in (crew.get('points') or {}).values())), 'wars': int(crew.get('warWins') or 0),
             **({'staff': True} if staff else {})}   # a creator / HQ wallet heads it → every part is open (the creator never waits on its own unlock lines)
 
 
