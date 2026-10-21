@@ -9,6 +9,7 @@ import { useEffect, useState } from 'react';
 
 export const SLOW_MS = 4000;
 const CLICK_MS = 500;
+export const BUSY_MAX_MS = 12000;
 const flights = new Map();
 const subs = new Set();
 const st = { n: 0, since: 0, label: '' };
@@ -16,7 +17,7 @@ let lastBtn = null; let lastAt = 0;
 const emit = () => subs.forEach(fn => fn());
 
 if (typeof document !== 'undefined') document.addEventListener('click', e => {   // capture: runs before the button's own handler
-  const b = e.target?.closest?.('button, [role="button"]');
+  const b = e.target?.closest?.('button');   // a real button only — a role=button card (a whole seat) must never go dead while its write is in flight
   if (b) { lastBtn = b; lastAt = Date.now(); }
 }, true);
 
@@ -25,10 +26,11 @@ export function hqWrite(key, fn) {
   if (flights.has(key)) return flights.get(key);
   const btn = lastBtn && Date.now() - lastAt < CLICK_MS && lastBtn.isConnected !== false ? lastBtn : null;
   if (btn) btn.setAttribute('aria-busy', 'true');
+  const free = btn ? setTimeout(() => btn.removeAttribute('aria-busy'), BUSY_MAX_MS) : null;   // a slow server never leaves a button dead: it is clickable again after 12s (the request keeps going, a second click shares it)
   st.n += 1; if (st.n === 1) { st.since = Date.now(); st.label = (btn?.textContent || '').trim().slice(0, 40); }
   emit();
   const p = Promise.resolve().then(fn).finally(() => {
-    flights.delete(key); if (btn) btn.removeAttribute('aria-busy');
+    flights.delete(key); clearTimeout(free); if (btn) btn.removeAttribute('aria-busy');
     st.n = Math.max(0, st.n - 1); emit();
   });
   flights.set(key, p);

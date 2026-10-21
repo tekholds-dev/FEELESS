@@ -1,3 +1,5 @@
+import { symOf, tapSym } from '../../lib/symTap';
+import { addTip } from '../../lib/agentTips';
 import React, { Suspense, lazy, useEffect, useMemo, useRef, useState } from 'react';
 import { DuoSeat } from './DuoSeat';
 import { createPortal } from 'react-dom';
@@ -676,7 +678,9 @@ export function AgentCockpit({ call, isOwner = true, head = null, extra = [], li
   useEffect(() => { const on = e => { const m = e.detail?.mint; if (m) { setPick(m); setAgentS(null); } }; window.addEventListener('feeless:cockpit-coin', on); return () => window.removeEventListener('feeless:cockpit-coin', on); }, []);
   // 🧠 a $COIN chip in a Brain answer → that coin on the chart (a held seat first, then the desk's candidates)
   useEffect(() => { const on = e => { const y = String(e.detail?.sym || '').toUpperCase(); const hit = seatsRef.current.find(x => !x.open && String(x.symbol || '').toUpperCase() === y)
-    || (((d?.office?.kernel || {}).candidates) || []).find(c => String(c.symbol || '').toUpperCase() === y); if (hit?.mint) { setPick(hit.mint); setAgentS(null); } };
+    || (((d?.office?.kernel || {}).candidates) || []).find(c => String(c.symbol || '').toUpperCase() === y)
+    || (((d?.office?.tradeTape || {}).rows) || []).find(c => String(c.sym || c.symbol || '').toUpperCase() === y)   // a coin you already traded
+    || ((d?.office?.positions) || []).find(c => String(c.sym || c.symbol || '').toUpperCase() === y); if (hit?.mint) { setPick(hit.mint); setAgentS(null); setTab('live'); } };
     window.addEventListener('feeless:cockpit-coin-sym', on); return () => window.removeEventListener('feeless:cockpit-coin-sym', on); });   // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { const on = e => go(LENS_TAB[e.detail] || e.detail); window.addEventListener('feeless:agents-lens', on); return () => window.removeEventListener('feeless:agents-lens', on); });   // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { const on = () => setAiOpen(true); window.addEventListener('feeless:agents-ai', on); return () => window.removeEventListener('feeless:agents-ai', on); }, []);
@@ -707,7 +711,9 @@ export function AgentCockpit({ call, isOwner = true, head = null, extra = [], li
       ['stats', '📊 Stats', null, <>{head}<MissionRibbon tiles={tiles} live={!!cc?.live} /><LivePulse o={o} onAi={() => setTab('ai')} /></>, null, 'mission numbers, the desk pulse, stage + dial'],
       ...extra,
     ]);
-  return <section className="ack" data-testid="agent-cockpit">
+  const symClick = e => { const y = symOf(e.target, e.currentTarget); if (y) { e.stopPropagation(); tapSym(y); } };   // 🪙 any bare $TICKER opens its chart
+  const symHover = e => { if (symOf(e.target, e.currentTarget)) e.target.classList.add('ack-symtap'); addTip(e.target); };   // 💬 every button explains itself
+  return <section className="ack" data-testid="agent-cockpit" onClick={symClick} onMouseOver={symHover}>
     {/* 💵 ONE sticky strip: the money at a glance + the icon nav; nothing else above the chart. Every other section is a pane behind the nav */}
     <MoneyStrip d={d} seats={seats} mint={mint} onPick={onPick} nav={nav} go={go} navTabs={navTabs} ai={<AiChipBtn o={o} onClick={() => setAiOpen(true)} testid="ack-money-ai" />}
       brain={<button type="button" className={`ack-brainbtn ${brainOpen ? 'is-on' : ''}`} onClick={() => setBrainOpen(!brainOpen)} aria-pressed={brainOpen} data-testid="ack-brain-open" data-tip="the Brain — talk to G4 / OSSY, coach, teach, code lab (slides out on the right)">🧠 BRAIN</button>} />

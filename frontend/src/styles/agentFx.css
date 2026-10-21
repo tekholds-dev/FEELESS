@@ -22,3 +22,7 @@ body.theme-day .ack-seat::after, body.theme-day .vbd-tile::after { background: l
 .ack-seat.is-g4 { box-shadow: inset 0 0 0 1px rgba(183, 155, 255, .55); }
 .ack-g4tag { margin-left: 6px; padding: 0 5px; border-radius: 4px; font: 800 8px var(--m-mono); font-style: normal; letter-spacing: .08em; color: #07130c; background: linear-gradient(120deg, #b79bff, #15d16a); }
 body.theme-day .ack-seat.is-g4 { box-shadow: inset 0 0 0 1px rgba(110, 80, 200, .5); }
+/* 🪙 a bare $TICKER in the cockpit opens its chart (lib/symTap.js) */
+.ack .ack-symtap { cursor: pointer; text-decoration: underline dotted rgba(69, 228, 134, .7); text-underline-offset: 3px; transition: color .12s ease; }
+.ack .ack-symtap:hover { color: #45e486; } .ack .ack-symtap:active { opacity: .7; }
+body.theme-day .ack .ack-symtap:hover { color: #0b7a3e; }
