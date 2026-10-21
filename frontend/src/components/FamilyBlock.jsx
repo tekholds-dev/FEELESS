@@ -21,7 +21,7 @@ export function liveStash(v, nowS) {
   return Math.min(v.stashCap || Infinity, Math.floor((v.stash || 0) + add));
 }
 
-function Building({ l, nowS }) {
+export function Building({ l, nowS }) {
   const [c1, c2, , shape] = LOOK[l.b] || LOOK.pizza;
   const h = heightOf(l.b, l.lvl);
   const building = nowS - (l.at || 0) < BUILD_SEC;

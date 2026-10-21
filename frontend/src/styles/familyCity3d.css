@@ -1,0 +1,131 @@
+/* 🌃 The Familia city in 3D (FamilyCity3D.jsx, fcy-*): the family block's own building renderer on six island districts, night water,
+   suspension bridges, asphalt + lane lines + lamps, cars with headlights / taillights driving loops and crossing bridges, people walking,
+   neon district signs that always face you. transform / opacity only; paused off-screen by fxPause; still in fx-lite / reduced motion. */
+.fcy { --rz: -28deg; --rx: 54deg; --zoom: .62; position: relative; height: clamp(520px, 72vh, 820px); overflow: hidden; border-radius: 18px; perspective: 1400px; perspective-origin: 50% 20%;
+  cursor: grab; touch-action: none; user-select: none; border: 1px solid #d4af3740;
+  background: radial-gradient(120% 70% at 50% 115%, #2b1636 0%, #120a1c 45%, #05040a 80%); box-shadow: inset 0 0 120px #000; }
+.fcy:active { cursor: grabbing; }
+.fcy-sky { position: absolute; inset: 0; pointer-events: none; }
+.fcy-moon { position: absolute; right: 9%; top: 7%; width: 64px; height: 64px; border-radius: 50%; background: radial-gradient(circle at 35% 35%, #fff8e4, #d9cfae 60%, #a89c7a);
+  box-shadow: 0 0 60px #f1d27a55, 0 0 140px #f1d27a22; }
+.fcy-star { position: absolute; left: calc(var(--i) * 4.4% + 2%); top: calc(((var(--i) * 37) % 30) * 1% + 2%); width: 2px; height: 2px; border-radius: 50%; background: #fff;
+  animation: fcyTwinkle 3.2s ease-in-out infinite; animation-delay: calc(var(--i) * -.37s); }
+.fcy-skyline { position: absolute; left: 0; right: 0; top: 16%; height: 110px; display: flex; align-items: flex-end; gap: 3px; padding: 0 2%; pointer-events: none; opacity: .55; }
+.fcy-skyline i { flex: 1; height: var(--h); background: linear-gradient(180deg, #1c1430, #0b0814);
+  background-image: repeating-linear-gradient(0deg, transparent 0 7px, rgba(255, 210, 120, .14) 7px 9px), linear-gradient(180deg, #1c1430, #0b0814); }
+.fcy-world { position: absolute; left: 50%; top: 58%; transform-style: preserve-3d;
+  transform: translate(-50%, -50%) scale(var(--zoom)) rotateX(var(--rx)) rotateZ(var(--rz)); transition: transform .08s linear; }
+.fcy-water { position: absolute; inset: -40px; border-radius: 30px; overflow: hidden;
+  background: radial-gradient(60% 50% at 30% 40%, #10324a, transparent 70%), linear-gradient(135deg, #061a29, #04101b); box-shadow: 0 0 0 4px #0b2233, 0 80px 120px #000; }
+.fcy-water::after { content: ''; position: absolute; inset: -20%; background: repeating-linear-gradient(115deg, transparent 0 22px, rgba(140, 200, 255, .07) 22px 24px, transparent 24px 44px);
+  animation: fcyTide 9s linear infinite; }
+.fcy-isl { position: absolute; left: 0; top: 0; width: 300px; height: 300px; transform-style: preserve-3d; border-radius: 10px; background: #232328;
+  box-shadow: 0 0 0 6px #3a3a42, 0 0 0 8px #55555f, 0 26px 40px #0009; }
+.fcy-isl::before { content: ''; position: absolute; inset: 0; border-radius: inherit; transform: translateZ(-14px); background: #3e3a36; }   /* the island's stone edge */
+.fcy-isl.is-boom { box-shadow: 0 0 0 6px #3a3a42, 0 0 0 8px #ff9f45, 0 0 60px #ff9f4566; }
+.fcy-isl.is-far::after { content: ''; position: absolute; inset: 0; border-radius: inherit; background: #05040a99; transform: translateZ(1px); pointer-events: none; }
+.fcy-lanes { position: absolute; inset: 0; pointer-events: none;
+  background: repeating-linear-gradient(90deg, transparent 0 6px, rgba(255, 220, 120, .55) 6px 8px, transparent 8px 71.5px) 0 0 / 100% 100%,
+    repeating-linear-gradient(0deg, transparent 0 6px, rgba(255, 220, 120, .55) 6px 8px, transparent 8px 71.5px) 0 0 / 100% 100%;
+  -webkit-mask: repeating-linear-gradient(90deg, #000 0 10px, transparent 10px 18px), repeating-linear-gradient(0deg, #000 0 10px, transparent 10px 18px); opacity: .6; }
+.fcy-lamp { position: absolute; left: 0; top: 0; width: 4px; height: 4px; border-radius: 50%; background: #ffe49a; box-shadow: 0 0 10px 4px #ffd36b88; pointer-events: none; }
+.fcy-lot { position: absolute; left: 0; top: 0; padding: 0; border: 0; border-radius: 4px; transform-style: preserve-3d; cursor: pointer; background: #4b4b55;
+  box-shadow: inset 0 0 0 3px #5d5d68, inset 0 0 0 4px #2f2f36; transition: box-shadow .15s; }
+.fcy-lot:hover, .fcy-lot:focus-visible { outline: none; box-shadow: inset 0 0 0 3px #ffd36b, 0 0 22px #ffd36b66; }
+.fcy-lot.is-sel { box-shadow: inset 0 0 0 3px #fff, 0 0 30px #ffd36b; }
+.fcy-lot.t-free { background: repeating-linear-gradient(45deg, #3b3226 0 6px, #33291f 6px 12px); }
+.fcy-lot.t-cpu { --glow: #ff3b55; } .fcy-lot.t-cartel { --glow: #4dff88; } .fcy-lot.t-mine { --glow: #ffd36b; } .fcy-lot.t-family { --glow: #b48cff; }
+.fcy-crown { position: absolute; inset: 8px; transform: translateZ(1px); border-radius: 3px; box-shadow: 0 0 0 2px var(--glow), 0 0 18px var(--glow); opacity: .85; pointer-events: none;
+  animation: fcyPulse 2.6s ease-in-out infinite; }
+.fcy-tag { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%) translateZ(4px); font: 800 8px 'JetBrains Mono', monospace; color: var(--glow); text-shadow: 0 0 6px var(--glow); pointer-events: none; }
+.fcy-lot.is-home .fcy-crown { box-shadow: 0 0 0 3px #ffd36b, 0 0 30px #ffd36b; }
+.fcy-sale { opacity: 0; transition: opacity .15s; position: absolute; left: 50%; top: 50%; width: 2px; height: 2px; transform-style: preserve-3d; transform: translateZ(0); pointer-events: none; }
+.fcy-sale b { position: absolute; left: -22px; bottom: 0; padding: 2px 4px; border-radius: 2px; background: #f1d27a; color: #2a1a05; font: 800 6px 'JetBrains Mono', monospace; white-space: nowrap;
+  transform-origin: bottom center; transform: rotateZ(calc(var(--rz) * -1)) rotateX(-70deg) translateY(-10px); box-shadow: 0 2px 0 #6b4a1a; }
+.fcy-lot:hover .fcy-sale, .fcy-lot:focus-visible .fcy-sale, .fcy-lot.is-sel .fcy-sale { opacity: 1; }
+.fcy-lot.t-free { background: #2e2e35; }
+.fcy-park { position: absolute; inset: 5px; border-radius: 4px; background: radial-gradient(circle at 30% 30%, #3f8a45, #2a6430); transform-style: preserve-3d; pointer-events: none; }
+.fcy-tree { position: absolute; width: 12px; height: 12px; border-radius: 50%; background: radial-gradient(circle at 35% 35%, #6fcf6a, #1f5a24); transform: translateZ(9px); box-shadow: 0 0 0 1px #0004; }
+.fcy-tree::after { content: ''; position: absolute; left: 5px; top: 6px; width: 2px; height: 9px; background: #5a3a1a; transform-origin: top; transform: rotateX(90deg); }
+.fcy-tree.a { left: 6px; top: 8px; } .fcy-tree.b { right: 8px; top: 18px; transform: translateZ(12px) scale(1.25); } .fcy-tree.c { left: 18px; bottom: 6px; }
+.fcy-lotp { position: absolute; inset: 5px; border-radius: 3px; background: repeating-linear-gradient(90deg, #26262c 0 13px, #d9d2b8 13px 14px); transform-style: preserve-3d; pointer-events: none; }
+.fcy-parked { position: absolute; top: 9px; left: calc(var(--k) * 15px + 2px); width: 9px; height: 15px; border-radius: 2px; background: var(--car); transform: translateZ(3px); box-shadow: 0 0 0 1px #0008; }
+.fcy-beamup { position: absolute; left: 50%; top: 50%; width: 40px; height: 260px; margin-left: -20px; transform-origin: top center; transform: rotateX(-90deg) rotateY(calc(var(--rz) * -1));
+  background: linear-gradient(0deg, transparent, rgba(255, 211, 107, .5)); pointer-events: none; animation: fcyPulse 1.6s ease-in-out infinite; }
+/* 🚗 cars: a body + roof (3D), headlight beam ahead, taillights; three routes per island (perimeter, north-south avenue, east-west avenue) */
+.fcy-car { position: absolute; left: 0; top: 0; width: 14px; height: 8px; margin: -4px 0 0 -7px; transform-style: preserve-3d; pointer-events: none;
+  animation: fcyLoopA 26s linear infinite; animation-delay: calc(var(--i) * -3.7s); }
+.fcy-car.r-b { animation-name: fcyLoopB; animation-duration: 14s; } .fcy-car.r-c { animation-name: fcyLoopC; animation-duration: 16s; }
+.fcy-cbody { position: absolute; inset: 0; border-radius: 3px; background: var(--car); transform: translateZ(3px); box-shadow: 0 0 0 1px #0008, -1px 0 0 0 #ff2a3a inset; transform-style: preserve-3d; }
+.fcy-cbody::before { content: ''; position: absolute; right: -1px; top: 1px; width: 2px; height: 6px; background: #fff7c8; box-shadow: 0 0 6px 2px #fff1a8; }
+.fcy-cbody::after { content: ''; position: absolute; left: -1px; top: 1px; width: 2px; height: 6px; background: #ff2a3a; box-shadow: 0 0 6px 1px #ff2a3a; }
+.fcy-croof { position: absolute; left: 3px; right: 4px; top: 1px; bottom: 1px; border-radius: 2px; background: color-mix(in srgb, var(--car) 70%, #000); transform: translateZ(3px); text-decoration: none; display: block; }
+.fcy-beam { position: absolute; left: 13px; top: -5px; width: 26px; height: 18px; background: radial-gradient(ellipse at left center, rgba(255, 244, 190, .45), transparent 70%); transform: translateZ(1px); text-decoration: none; }
+.fcy-ped { position: absolute; left: 0; top: 0; width: 3px; height: 3px; border-radius: 50%; background: #e9d9b3; transform-style: preserve-3d; pointer-events: none;
+  box-shadow: 0 0 0 1px #0007; animation: fcyWalk 34s linear infinite; animation-delay: calc(var(--i) * -8s); }
+.fcy-ped::after { content: ''; position: absolute; left: 0; top: -6px; width: 3px; height: 6px; border-radius: 2px; background: #2a2a33; transform-origin: bottom; transform: rotateX(-90deg); }
+/* 🌉 bridges: a deck with rails, two towers and a suspension cable, cars crossing */
+.fcy-bridge { position: absolute; left: 0; top: 0; transform-style: preserve-3d; background: #3a3a42; box-shadow: inset 0 0 0 2px #55555f, 0 18px 24px #0008; transform-origin: center; }
+.fcy-bridge::before { content: ''; position: absolute; inset: 0; background: repeating-linear-gradient(90deg, transparent 0 6px, rgba(255, 220, 120, .5) 6px 10px); opacity: .5; }
+.fcy-bridge.is-v::before { background: repeating-linear-gradient(0deg, transparent 0 6px, rgba(255, 220, 120, .5) 6px 10px); }
+.fcy-rail { position: absolute; background: #8a8a96; box-shadow: 0 0 6px #ffd36b55; }
+.is-h .fcy-rail { left: 0; right: 0; height: 2px; } .is-h .fcy-rail.r1 { top: 0; transform-origin: top; transform: rotateX(90deg); height: 6px; } .is-h .fcy-rail.r2 { bottom: 0; transform-origin: bottom; transform: rotateX(-90deg); height: 6px; }
+.is-v .fcy-rail { top: 0; bottom: 0; width: 6px; } .is-v .fcy-rail.r1 { left: 0; transform-origin: left; transform: rotateY(-90deg); } .is-v .fcy-rail.r2 { right: 0; transform-origin: right; transform: rotateY(90deg); }
+.fcy-tower { position: absolute; width: 6px; height: 6px; background: #c9a227; transform-style: preserve-3d; }
+.fcy-tower::before { content: ''; position: absolute; left: 0; bottom: 0; width: 6px; height: 46px; background: linear-gradient(0deg, #8a6a12, #f1d27a); transform-origin: bottom; transform: rotateX(-90deg); box-shadow: 0 0 10px #f1d27a66; }
+.is-h .fcy-tower.t1 { left: 22%; top: 50%; margin-top: -3px; } .is-h .fcy-tower.t2 { right: 22%; top: 50%; margin-top: -3px; }
+.is-v .fcy-tower.t1 { top: 22%; left: 50%; margin-left: -3px; } .is-v .fcy-tower.t2 { bottom: 22%; left: 50%; margin-left: -3px; }
+.fcy-cable { position: absolute; left: 22%; right: 22%; top: 50%; height: 40px; margin-top: 0; border: 2px solid #f1d27aaa; border-bottom: 0; border-radius: 50% 50% 0 0 / 100% 100% 0 0;
+  transform-origin: top; transform: rotateX(-90deg) scaleY(-1); pointer-events: none; }
+.is-v .fcy-cable { left: 50%; right: auto; top: 22%; bottom: 22%; width: 40px; height: auto; border: 2px solid #f1d27aaa; border-right: 0; border-radius: 100% 0 0 100% / 50% 0 0 50%; transform-origin: left; transform: rotateY(90deg); }
+.fcy-bcar { position: absolute; width: 12px; height: 7px; border-radius: 2px; background: var(--car); transform: translateZ(3px); box-shadow: 0 0 6px #fff1a8; pointer-events: none; }
+.is-h .fcy-bcar.c1 { top: 4px; animation: fcyCrossH 5.5s linear infinite; } .is-h .fcy-bcar.c2 { bottom: 4px; animation: fcyCrossH 7s linear infinite reverse; }
+.is-v .fcy-bcar.c1 { left: 4px; width: 7px; height: 12px; animation: fcyCrossV 6s linear infinite; } .is-v .fcy-bcar.c2 { right: 4px; width: 7px; height: 12px; animation: fcyCrossV 8s linear infinite reverse; }
+/* neon district sign that always faces the viewer */
+.fcy-sign { position: absolute; left: 50%; top: -18px; transform-style: preserve-3d; pointer-events: none;
+  transform: translateZ(70px) rotateZ(calc(var(--rz) * -1)) rotateX(calc(var(--rx) * -1)) translateX(-50%); display: grid; justify-items: center; gap: 2px; }
+.fcy-sign b { padding: 4px 12px; border-radius: 8px; border: 2px solid #ff4fa0; color: #ffe0ef; font: 700 15px 'Cinzel', Georgia, serif; letter-spacing: 1.5px; white-space: nowrap;
+  background: #14061088; text-shadow: 0 0 8px #ff4fa0, 0 0 18px #ff4fa0; box-shadow: 0 0 14px #ff4fa088, inset 0 0 10px #ff4fa055; animation: fcyNeon 4.2s steps(1) infinite; }
+.k-heights .fcy-sign b, .k-hills .fcy-sign b { border-color: #4fd8ff; text-shadow: 0 0 8px #4fd8ff, 0 0 18px #4fd8ff; box-shadow: 0 0 14px #4fd8ff88, inset 0 0 10px #4fd8ff55; }
+.k-docks .fcy-sign b { border-color: #4dff88; text-shadow: 0 0 8px #4dff88, 0 0 18px #4dff88; box-shadow: 0 0 14px #4dff8888, inset 0 0 10px #4dff8855; }
+.k-bay .fcy-sign b, .k-market .fcy-sign b { border-color: #ffd36b; text-shadow: 0 0 8px #ffd36b, 0 0 18px #ffd36b; box-shadow: 0 0 14px #ffd36b88, inset 0 0 10px #ffd36b55; }
+.fcy-sign small { font: 700 10px 'JetBrains Mono', monospace; color: #f1d27a; text-shadow: 0 1px 3px #000; }
+.fcy-wx { position: absolute; inset: 0; pointer-events: none; z-index: 3; }
+.fcy-wx i { position: absolute; top: -12px; left: var(--x); width: 1px; height: 16px; background: rgba(190, 210, 255, .45); animation: fcyRain .9s linear infinite; animation-delay: calc(var(--i) * -.07s); }
+.wx-snow .fcy-wx i { width: 4px; height: 4px; border-radius: 50%; background: #fff; animation-duration: 6s; }
+.wx-storm .fcy-wx i { animation-duration: .5s; } .wx-storm .fcy-sky { animation: fcyFlash 7s steps(1) infinite; }
+.wx-embers .fcy-wx i { top: auto; bottom: -10px; width: 3px; height: 3px; border-radius: 50%; background: #ff9f45; animation-name: fcyEmber; animation-duration: 5s; }
+.wx-fog .fcy-wx i { width: 70%; height: 120px; top: calc(var(--i) * 22% + 10%); left: -70%; border-radius: 50%; background: rgba(200, 190, 230, .08); animation: fcyFog 30s linear infinite; animation-delay: calc(var(--i) * -7s); }
+.fcy-ctl { position: absolute; left: 12px; bottom: 12px; z-index: 4; display: flex; align-items: center; gap: 6px; }
+.fcy-ctl button { min-width: 34px; height: 32px; padding: 0 10px; border-radius: 9px; border: 1px solid #d4af3766; background: #140c06cc; color: #f1d27a; font: 700 12px 'JetBrains Mono', monospace; cursor: pointer;
+  transition: transform .15s, background .15s; }
+.fcy-ctl button:hover { background: #2a1a0a; transform: translateY(-1px); } .fcy-ctl button:active { transform: scale(.95); } .fcy-ctl button:focus-visible { outline: 2px solid #ffd36b; outline-offset: 2px; }
+.fcy-ctl button.active { background: #d4af37; color: #1a1205; }
+.fcy-ctl small { font: 600 10px 'JetBrains Mono', monospace; color: #c9b47c; }
+.fcy-key { position: absolute; right: 12px; bottom: 12px; z-index: 4; display: flex; flex-wrap: wrap; gap: 6px; margin: 0; padding: 6px 8px; list-style: none; border-radius: 10px; background: #0a0710cc;
+  font: 700 9px 'JetBrains Mono', monospace; letter-spacing: .06em; text-transform: uppercase; color: #e9e1cc; }
+.fcy-key li::before { content: ''; display: inline-block; width: 8px; height: 8px; margin-right: 4px; border-radius: 2px; background: var(--glow, #6b5a3a); box-shadow: 0 0 6px var(--glow, transparent); }
+.fcy-key .t-mine { --glow: #ffd36b; } .fcy-key .t-family { --glow: #b48cff; } .fcy-key .t-cpu { --glow: #ff3b55; } .fcy-key .t-cartel { --glow: #4dff88; }
+@keyframes fcyTwinkle { 50% { opacity: .2; } }
+@keyframes fcyTide { to { transform: translateX(44px); } }
+@keyframes fcyPulse { 50% { opacity: .45; } }
+@keyframes fcyNeon { 0%, 100% { opacity: 1; } 47% { opacity: .55; } 48% { opacity: 1; } 49% { opacity: .7; } }
+@keyframes fcyLoopA { 0% { transform: translate(7px, 7px) rotate(0); } 24% { transform: translate(293px, 7px) rotate(0); } 25% { transform: translate(293px, 7px) rotate(90deg); }
+  49% { transform: translate(293px, 293px) rotate(90deg); } 50% { transform: translate(293px, 293px) rotate(180deg); } 74% { transform: translate(7px, 293px) rotate(180deg); }
+  75% { transform: translate(7px, 293px) rotate(270deg); } 99% { transform: translate(7px, 7px) rotate(270deg); } 100% { transform: translate(7px, 7px) rotate(360deg); } }
+@keyframes fcyLoopB { 0% { transform: translate(147px, 7px) rotate(90deg); } 48% { transform: translate(147px, 293px) rotate(90deg); } 50% { transform: translate(154px, 293px) rotate(270deg); } 98% { transform: translate(154px, 7px) rotate(270deg); } 100% { transform: translate(147px, 7px) rotate(450deg); } }
+@keyframes fcyLoopC { 0% { transform: translate(7px, 154px) rotate(0); } 48% { transform: translate(293px, 154px) rotate(0); } 50% { transform: translate(293px, 147px) rotate(180deg); } 98% { transform: translate(7px, 147px) rotate(180deg); } 100% { transform: translate(7px, 154px) rotate(360deg); } }
+@keyframes fcyWalk { 0% { transform: translate(78px, 82px); } 25% { transform: translate(208px, 82px); } 50% { transform: translate(208px, 212px); } 75% { transform: translate(78px, 212px); } 100% { transform: translate(78px, 82px); } }
+@keyframes fcyCrossH { from { transform: translateX(-10px) translateZ(3px); } to { transform: translateX(96px) translateZ(3px); } }
+@keyframes fcyCrossV { from { transform: translateY(-10px) translateZ(3px); } to { transform: translateY(96px) translateZ(3px); } }
+@keyframes fcyRain { to { transform: translateY(900px); } }
+@keyframes fcyEmber { to { transform: translateY(-900px); opacity: 0; } }
+@keyframes fcyFog { to { transform: translateX(260%); } }
+@keyframes fcyFlash { 0%, 100% { opacity: 1; } 31% { opacity: 1; } 32% { opacity: .2; } 33% { opacity: 1; } }
+body.fx-lite .fcy-car, body.fx-lite .fcy-ped, body.fx-lite .fcy-bcar, body.fx-lite .fcy-wx, body.fx-lite .fcy-water::after { display: none; }
+body.fx-lite .fcy-sign b, body.fx-lite .fcy-crown, body.fx-lite .fcy-star { animation: none; }
+@media (prefers-reduced-motion: reduce) { .fcy *, .fcy *::before, .fcy *::after { animation: none !important; } .fcy-car, .fcy-ped, .fcy-bcar, .fcy-wx { display: none; } .fcy-world { transition: none; } }
+body.theme-day .fcy { background: radial-gradient(120% 70% at 50% 115%, #f6c98a 0%, #c9b2e0 45%, #8fb4e6 85%); }
+body.theme-day .fcy-water { background: linear-gradient(135deg, #2f6f9a, #1e4f74); } body.theme-day .fcy-moon { background: radial-gradient(circle, #fff3c4, #ffd36b); box-shadow: 0 0 80px #ffd36b; }
+body.theme-day .fcy-key { background: #fff8e8dd; color: #2a1f0e; }
+@media (max-width: 640px) { .fcy { height: 460px; } .fcy-ctl small, .fcy-key { display: none; } }

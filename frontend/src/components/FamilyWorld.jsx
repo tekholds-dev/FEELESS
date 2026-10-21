@@ -1,6 +1,7 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import { apiUrl } from '../lib/api';
+import { FamilyCity3D } from './FamilyCity3D';
 import '../styles/familyWorld.css';
 
 // 🗺 THE FAMILIA WORLD (owner, 2026-10-21: "huge like a Sims build — bridges to other parts, seasons, buy blocks near rivals, CPU towns hard to
@@ -27,34 +28,6 @@ export function useWorld(addr, sess) {
     .then(r => (r.ok ? r.json() : null)).then(x => x && setV(x)).catch(() => {});
   useEffect(() => { load(); const t = setInterval(() => { if (!document.hidden) load(); }, 12000); return () => clearInterval(t); }, [addr, sess]);   // eslint-disable-line react-hooks/exhaustive-deps
   return [v, setV, load];
-}
-
-function Weather({ kind }) {
-  const n = kind === 'clear' ? 0 : kind === 'fog' ? 5 : 26;
-  return <div className={`fwd-wx wx-${kind}`} aria-hidden="true">{Array.from({ length: n }, (_, i) => <i key={i} style={{ '--i': i, '--x': `${(i * 37) % 100}%` }} />)}</div>;
-}
-
-function Borough({ b, blocks, boom, sel, onPick, reach }) {
-  return <div className={`fwd-bor ${boom === b.key ? 'is-boom' : ''} ${reach === false ? 'is-far' : ''}`} style={{ gridColumn: b.col + 1, gridRow: b.row + 1 }} data-testid={`borough-${b.key}`}>
-    <header><i>{b.icon}</i><b>{b.name}</b><small>×{b.tier}{boom === b.key ? ' · 🔥 BOOM' : ''}</small></header>
-    <div className="fwd-grid">{blocks.map(x => { const t = blockTone(x); return <button key={x.id} type="button" className={`fwd-blk t-${t} ${sel === x.id ? 'is-sel' : ''} ${x.home ? 'is-home' : ''}`}
-      onClick={() => onPick(x)} data-testid={`blk-${x.id}`} data-tip={x.owner ? `${x.icon || ''} [${x.tag}] ${x.name}${x.home ? ' · home' : ''} · power ${mp(x.power)}` : 'free block — buy it for turf'}>
-      <i className="fwd-tw" style={{ '--h': `${x.owner ? 10 + Math.min(46, Math.log10(1 + (x.power || 0)) * 12) : 4}px` }} />
-      <span>{x.owner ? x.tag : ''}</span></button>; })}</div>
-    <p>{b.vibe}</p>
-  </div>;
-}
-
-function WorldMap({ v, sel, setSel }) {
-  const byB = useMemo(() => { const m = {}; (v.blocks || []).forEach(x => { (m[x.b] = m[x.b] || []).push(x); }); return m; }, [v.blocks]);
-  const pos = useMemo(() => Object.fromEntries((v.boroughs || []).map(b => [b.key, [b.col * 33.3 + 16.6, b.row * 50 + 25]])), [v.boroughs]);
-  return <div className="fwd-map" data-testid="world-map">
-    <Weather kind={v.season?.weather || 'clear'} />
-    <svg className="fwd-bridges" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">{(v.bridges || []).map(br => { const a = pos[br.a], b = pos[br.b]; if (!a || !b) return null;
-      return <g key={br.name}><line x1={a[0]} y1={a[1]} x2={b[0]} y2={b[1]} /><line className="fwd-car" x1={a[0]} y1={a[1]} x2={b[0]} y2={b[1]} /></g>; })}</svg>
-    <div className="fwd-bors">{(v.boroughs || []).map(b => <Borough key={b.key} b={b} blocks={byB[b.key] || []} boom={v.boom?.borough} sel={sel?.id} onPick={setSel} reach={v.me?.reach?.[b.key]} />)}</div>
-    <ul className="fwd-brn">{(v.bridges || []).map(br => <li key={br.name}>🌉 {br.name}</li>)}</ul>
-  </div>;
 }
 
 function BlockPanel({ x, v, act, busy, onEnter }) {
@@ -141,7 +114,7 @@ export function FamilyWorld({ addr, sess, onEnter }) {
         {me.shield ? <span><em>🛡 TRUCE</em><b>{ago(me.shield)}</b></span> : null}{me.rush ? <span><em>⚡ RUSH</em><b>{ago(me.rush)}</b></span> : null}</div> : <small className="m-dim">Join a family to hold turf.</small>}
     </header>
     <nav className="fwd-lens" role="tablist">{WORLD_LENSES.map(([k, w]) => <button key={k} type="button" role="tab" aria-selected={lens === k} className={lens === k ? 'active' : ''} onClick={() => setLens(k)} data-testid={`wl-${k}`}>{w}{k === 'raids' && live ? <b>{live}</b> : null}</button>)}</nav>
-    {lens === 'map' && <div className="fwd-mapwrap"><WorldMap v={v} sel={sel} setSel={setSel} /><BlockPanel x={sel} v={v} act={act} busy={busy} onEnter={onEnter} /></div>}
+    {lens === 'map' && <div className="fwd-mapwrap"><FamilyCity3D v={v} sel={sel} setSel={setSel} /><BlockPanel x={sel} v={v} act={act} busy={busy} onEnter={onEnter} /></div>}
     {lens === 'raids' && <div className="fwd-raids">{(v.raids || []).length ? v.raids.slice().reverse().map(r => <RaidBoard key={r.id} r={r} act={act} busy={busy} />)
       : <p className="m-dim">No raids. Pick a rival block on the 🗺 City — a CPU town if you're brave.</p>}
       <ol className="fwd-wlog">{(v.log || []).map((l, i) => <li key={i}>{l.what}</li>)}</ol></div>}
