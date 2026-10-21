@@ -151,14 +151,25 @@ The owner rejected work that shipped as "dull", "non degen", "emojis sliding aro
 
 
 ## 📋 CURRENT TASKS (update this list every session — newest first; finished items move to the history file)
-OPEN, owner's order (2026-10-21):
-1. Agents tab "stuck / not clickable": code fixed (pressed buttons stay clickable — `lib/hqBusy`); the rest was the Mac swapping
-   (OSSY = gpt-oss-20b holds 12 GB on a 24 GB Mac → 16.8 GB swap, load 31). Owner decides: swap OSSY to qwen3-4b-2507 (2.3 GB) or keep.
-2. FEEd: a REAL FEELESS twist (not a dev/null copy). The `/dev/null` shell (`FeedX` NullShell) shipped 2026-10-21 and was rejected as a copy.
-3. Familia city: must look like a real mob block (Sicario block, Godfather PSP, Sims): drawn 3D buildings, streets, bridges, MOVING CARS,
-   people, night lights. `FamilyWorld.jsx` map shipped 2026-10-21 as tiles + bars = REJECTED look; the engine (`family_world.py`) is fine.
-4. FeeCat terminal tabs + Launch page: degen meta styling never finished (days old ask).
-5. Familia game loop still to build on `family_world.py`: gold shop with owner pricing, raid board polish, room customization, season art.
-6. Agents may need a full redo (owner: "they suck") — run `scripts/edge-audit.py` + the real-card ledger first, lead with the numbers.
-7. NEXA WIP (`ai_router.py`, `nexa.py`, `nexa_controller.py`, `ai_rig.py`, `feeless_mcp.py`, ModelRig) stays UNCOMMITTED until the owner
-   says; live tweaks 2026-10-21: 20-min quiet after owner chat, chat-prompt re-warm after each read, owner answers ≤ 70 tokens (~6s warm).
+DONE 2026-10-21 (owner to look at): Familia 3D city (`FamilyCity3D`) · FEEd call receipts + Heat / Graveyard + TRENCH WIRE · FeeCat stage
+(`FeeCatStage`) · Launch pad hero · Launch a Cat = Create a Cat fields · Fee buys again (Jupiter holder fallback) · HQ buttons never locked ·
+NEXA chat ≤ 70 tokens, re-warmed after reads (≈ 6s warm).
+OPEN, owner's order (2026-10-21, second list — "do these after"):
+1. 🧠 Brain chat must TRULY change model settings (the LM Studio Load / Inference panel: context length, max concurrency, KV cache
+   quantization, prompt disk cache, temperature, response length, preset) — a chat line → a proposal → applied (`ai_rig` for what FEELESS
+   sends; `lms load …` for this Mac's model when the owner approves the reload; the desktop model only on the owner's explicit approval).
+2. 🎨 Redo the Brain + OSSY / G4 UI: cleaner, responsive, meta. NO overlay spinner while a model answers — a real progress bar (the call's
+   elapsed vs that model's own average, like Brain › Models). No lag site-wide.
+3. 🧹 Clean dead files for real from HQ › Lag catcher › Code health (today it only lists them): a "remove" action must go through the build
+   queue / a git commit with tests green — never delete from the UI without the gate.
+4. 🗂 HQ tab layout clean-up (group bar + tools row, no wrapping walls of buttons).
+5. 🐆 Agents tab "can't click": code verified clickable at 1440 px with live data (2026-10-21). Cause on the owner's Mac = memory: OSSY
+   (gpt-oss-20b, 12 GB) + dev server + Chrome → 16.8 GB swap. Options for the owner: fast mode (`bash scripts/serve-fast.sh`, :51368),
+   OSSY → qwen3-4b-2507, or OSSY's LM Studio Load: Max Concurrency 1, KV cache quantization ON (halves the KV memory).
+6. 💵 REAL-MONEY CATS (Build a Cat shows every model, no paper; creator sets pricing in HQ) — FULL USER PROCESS must be designed before code
+   (`docs/REAL_CATS.md`): who holds the funds (user's own wallet signing = not autonomous; a FEELESS-held wallet = custody, against the
+   "never hold user keys" rule) → owner decision first. Then: pick models (whole OpenRouter list, pricing per decision) → fund → limits →
+   live → pull / withdraw → fees to the creator wallet → receipts. Never ship a half of it.
+7. Familia game loop on `family_world.py`: gold shop with owner pricing, raid board polish, room customization, season art.
+8. Agents may need a full redo — run `scripts/edge-audit.py` + the real ledger first and lead with the numbers.
+9. NEXA WIP files stay UNCOMMITTED until the owner says (`ai_router.py`, `nexa.py`, `nexa_controller.py`, `ai_rig.py`, `feeless_mcp.py`, ModelRig).
