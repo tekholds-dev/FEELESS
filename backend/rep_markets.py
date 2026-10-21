@@ -68,12 +68,16 @@ def new_markets(st, rows, prices, now, per_hour=4):
     rows = [r for r in rows or [] if r.get('mint')]
     for r in rows[:2]:
         add('up', r)
-    for r in rows:
-        if r.get('ageH') is not None and _f(r['ageH']) < 6:
-            add('double', r); break
-    for r in rows:
-        if _f(r.get('rug')) >= 50:
-            add('rug', r); break
+    def pick(ok):   # a coin not already in a market this pass first — variety over three markets on one coin
+        used = {m['mint'] for m in out}
+        hits = [r for r in rows if ok(r)]
+        return next((r for r in hits if r['mint'] not in used), hits[0] if hits else None)
+    r = pick(lambda r: r.get('ageH') is not None and _f(r['ageH']) < 6)
+    if r:
+        add('double', r)
+    r = pick(lambda r: _f(r.get('rug')) >= 50)
+    if r:
+        add('rug', r)
     st.setdefault('markets', []).extend(out)
     st['markets'] = st['markets'][-MARKETS_KEPT:]
     return out
