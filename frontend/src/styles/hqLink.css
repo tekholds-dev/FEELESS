@@ -9,7 +9,7 @@
 .hql-steps { margin: 0; padding-left: 20px; display: grid; gap: 4px; text-align: left; font-size: 12.5px; color: #cfe9da; } .hql-steps b { color: #45e486; }
 .hql-note { margin: 0; font-size: 12px; color: #9fc9b0; } .hql-note.is-bad { color: #ff8fa3; }
 .hql-done { display: grid; gap: 8px; justify-items: center; } .hql-done b { font: 800 15px 'JetBrains Mono', monospace; color: #45e486; } .hql-done small { color: #9fc9b0; }
-.hql-done .m-btn { text-decoration: none; } .hql-sign { width: 100%; min-height: 52px; font-size: 16px; }
+.hql-done .m-btn { text-decoration: none; }
 @keyframes hqlIn { from { opacity: 0; transform: translateY(8px); } } @keyframes hqlScan { from { transform: translateY(0); } to { transform: translateY(282px); } }
 body.fx-lite .hql-scan { animation: none; } @media (prefers-reduced-motion: reduce) { .hql, .hql-scan { animation: none; } }
 body.theme-day .hql-page { background: #eefaf2; color: #0f2419; } body.theme-day .hql { background: #fff; } body.theme-day .hql header small, body.theme-day .hql-steps { color: #2a4a38; }

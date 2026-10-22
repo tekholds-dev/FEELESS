@@ -9489,10 +9489,57 @@ def _lan_ip():
         s.close()
 
 
+def _hqp_site(port):
+    ip = _lan_ip()
+    return f"http://{ip}:{int(port)}" if ip else None
+
+
 @app.post('/api/reputation/hq/pair')
-async def hq_pair_new():
-    """A fresh one-time code (3 min; at most 20 waiting — hq_pair.MAX_OPEN) + this computer's LAN address so a phone on the same Wi-Fi can open the link."""
-    return {'code': _hqp.new_code(_hqp_store, time.time()), 'ttl': _hqp.TTL, 'lan': _lan_ip()}
+async def hq_pair_new(port: int = Query(51367, ge=1, le=65535)):
+    """A fresh one-time code (3 min; at most 20 waiting — hq_pair.MAX_OPEN) + the QR link: Phantom CONNECT answering to this computer's
+    page on the Wi-Fi (Phantom's deeplink protocol — no in-app browser)."""
+    now = time.time(); code = _hqp.new_code(_hqp_store, now); site = _hqp_site(port)
+    return {'code': code, 'ttl': _hqp.TTL, 'lan': _lan_ip(), 'link': _hqp.connect_link(_hqp_store, code, site, now) if site else None}
+
+
+class HqPairAnswer(BaseModel):
+    nonce: str = Field(..., max_length=80)
+    data: str = Field(..., max_length=4000)
+    pub: str = Field(default='', max_length=80)
+    port: int = Field(default=51367, ge=1, le=65535)
+
+
+@app.post('/api/reputation/hq/pair/{code}/connect')
+async def hq_pair_connect(code: str, p: HqPairAnswer):
+    """Phantom's CONNECT answer (opened on the phone's browser) → the SIGN-MESSAGE deeplink for the HQ message."""
+    site = _hqp_site(p.port)
+    try:
+        out = _hqp.on_connect(_hqp_store, code[:64], site, p.pub, p.nonce, p.data, time.time())
+    except KeyError as e:
+        raise HTTPException(410, str(e.args[0]))
+    except Exception:
+        raise HTTPException(400, 'Phantom\'s answer could not be read — scan a fresh QR.')
+    if out['address'] not in _admin_wallets():
+        raise HTTPException(403, 'This wallet is not a FEELESS HQ wallet.')
+    return out
+
+
+@app.post('/api/reputation/hq/pair/{code}/signed')
+async def hq_pair_signed(code: str, p: HqPairAnswer):
+    """Phantom's SIGN-MESSAGE answer → verified like a normal HQ sign-in → the computer's poll receives it once."""
+    now = time.time()
+    try:
+        address, ts, sig = _hqp.on_signed(_hqp_store, code[:64], p.nonce, p.data, now)
+    except KeyError as e:
+        raise HTTPException(410, str(e.args[0]))
+    except Exception:
+        raise HTTPException(400, 'Phantom\'s answer could not be read — scan a fresh QR.')
+    _hq_auth.check_session(address, str(ts), sig, _admin_wallets(), _verify_wallet, now)
+    try:
+        _hqp.put(_hqp_store, code[:64], {'address': address, 'ts': ts, 'sig': sig}, now)
+    except KeyError as e:
+        raise HTTPException(410, str(e.args[0]))
+    return {'ok': True}
 
 
 class HqPairSig(BaseModel):
