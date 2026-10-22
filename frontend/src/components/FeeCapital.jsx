@@ -72,7 +72,7 @@ const BILL_Z = { arena: 130, house: 175, mansion: 128, shield: 205, launch: 92 }
 const TOUR = [['mansion', '1', 'FORM A FAMILY', 'start one or take an invite'], [null, '2', 'BUY PLOTS', 'MP buys turf · Fee City pays ×2.5'],
   ['arena', '3', 'FAMILY FUSE', 'cards match ±1 coin · MP needs 2K'], ['w', '4', 'CROSS & RAID', 'chess on their block']];
 
-export function FeeCapital({ v, sel, onPick, onGo, tour }) {
+export function FeeCapital({ v, sel, onPick, onGo, tour, hot }) {
   const plots = (v.blocks || []).filter(b => b.b === 'fee');
   const marks = Object.fromEntries((v.landmarks || []).map(m => [m.key, m]));
   const cities = Object.fromEntries((v.cities || []).map(c => [c.key, c]));
@@ -86,7 +86,7 @@ export function FeeCapital({ v, sel, onPick, onGo, tour }) {
       gate={{ key: k, at: g, name: c.name, sub: `${c.held}/${c.plots} held`, go: () => onGo(k) }} /> : null; })}
     <div className="fcy-isl fc-isl" style={{ width: ISW, height: ISH, transform: `translate(${SEA}px, ${SEA}px)` }} data-testid="fee-capital">
       <i className="fcy-lanes" aria-hidden="true" /><i className="fc-avenue" aria-hidden="true" />
-      {plots.map(x => <Plot key={x.id} x={x} r={cellRect(FEE_PLOTS[x.i] || [0, 0])} sel={sel?.id === x.id} onPick={onPick} premium />)}
+      {plots.map(x => <Plot key={x.id} x={x} r={cellRect(FEE_PLOTS[x.i] || [0, 0])} sel={sel?.id === x.id} onPick={onPick} premium raid={hot?.has(x.owner)} />)}
       {Object.keys(FEE_MARKS).map(k => <Mark key={k} k={k} mark={marks[k]} sel={sel?.lm === k} onPick={onPick} fight={k === 'arena' ? fight : null} />)}
       <div className="fc-plaza" style={{ transform: `translate(${cellRect(PLAZA).x}px, ${cellRect(PLAZA).y}px)`, width: cellRect(PLAZA).w, height: cellRect(PLAZA).h }}>
         <i className="fc-fountain"><b /><b /></i>{[0, 1, 2, 3].map(i => <i key={i} className="fc-ped" style={{ '--i': i }} />)}

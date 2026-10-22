@@ -176,6 +176,29 @@ OPEN, owner's order (2026-10-21, second list — "do these after"):
 8. Agents may need a full redo — run `scripts/edge-audit.py` + the real ledger first and lead with the numbers.
 9. NEXA runtime work (`nexa_controller.py`, ModelRig NEXA wanted-vs-running) COMMITTED 2026-10-21 on the owner's "finish this work".
 
+OPEN, owner's FOURTH list (2026-10-21 night) — DO THESE FIRST, in this order. Owner's rule for all of them: RESEARCH the best web3 / degen
+sites first (what the greatest do), then build a FEELESS twist — never scratch-built from nothing; every page COMPLETE top to bottom
+(every tab, sub-page, chat and click-through under it), never a nice header over basic content.
+1. 🏙 FAMILIA, finish the whole thing top to bottom:
+   a. The MOB landing (Fee City tab) end to end: the city + real-time data + HOW FAMILIES WORK shown visually (not text), and everything
+      below it (the old podium stage, Board, Live, My family, Wars) brought to the city's level. No dead-styled cards.
+   b. Fuse Arena: show the REAL Fuse cards (their card face / legs, `CardArt`), ranked brackets + TOP-POT battles ($1K+ once real money is
+      live), a battle chat per fight, any player can fuse any player (not only a Don's call-out). The stadium + board look richer: an even
+      layout, a chat under the board.
+   c. City: plots are hard to click (towers cover neighbours) — bigger hit areas / pick through buildings; Cartel Docks is congested
+      (16 cartel towers) — thin it; vitals panel = categories (DONE 2026-10-21: WHO · STRENGTH · MONEY on the stage, not in the 3D).
+   d. Family badges / cards / customization: redo from researched references (no "spinning rainbow" upgrades); MOBhouse styles.
+   e. ALL of FEE in Familia: $FEE, FeeCat, Fuse, Launch, Fee-Back… each as a fun mechanic in the city, not a link.
+2. 🪟 NEXA + 🧠 Brain:
+   a. NEXA's chat: narrower, with a vitals column on the LEFT (live log / her read / load), richer read + on-chat load vitals.
+   b. NEXA must run a read and TRADE fast (with FeeCat) — no 40 s+ waits on the i5 (prompt cache, smaller reads, stream, a fast path).
+   c. FULL LM Studio + llama control in one better view: every Load (context, GPU offload, KV cache quant, flash attention, max concurrency,
+      prompt cache, reload) and Inference (temperature, top-p/k, response length, preset) setting, read live + applied (the owner's approval
+      for reloads) — replaces the partial Model Rig.
+   d. Brain themes + EVERY chat's theme picker (inbox included) redone meta (researched, not the current set).
+3. 🪟 Raids: DONE 2026-10-21 — played on the target's 3D block (`RaidStage`: shield halos, crew at the kerb, effects on the struck building,
+   action bar keys 1–4, siren beam over raided plots in the city). Next: defenders see the incoming raid on THEIR block in the city view.
+
 OPEN, owner's THIRD list (2026-10-21 evening) — TOP PRIORITY = FAMILIA design + mechanics, then senior code clean-up:
 A. 🏙 FAMILIA = a next-level Sim City / Godfather-PSP game (free play AND pay-to-play, fair for both). The city IS the landing page.
    DONE 2026-10-21 (slice 1, points only): Fee City = the landing (`FeeCapital.jsx`: 24 premium plots ×2.5, drawn stadium = Fuse Arena,

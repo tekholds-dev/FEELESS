@@ -27,8 +27,9 @@ test('pure: plots, landmarks and outer cities have places; vitals read the real 
   const lay = cityLayout(VIEW.boroughs.filter(b => ['heights', 'hills'].includes(b.key)));
   expect(lay.pos.hills.x - lay.pos.heights.x).toBe(384); expect(lay.W).toBeLessThan(FEE_W * 2);
   const v = vitalsOf(VIEW.blocks[0], VIEW);
-  expect(v.title).toBe('[SIC] Sicario'); expect(v.rows.map(r => r[0])).toEqual(['DISTRICT', 'POWER', 'RANK', 'STATUS']); expect(v.rows[2][1]).toBe('Capo III · #1');
-  expect(vitalsOf({ lm: 'house' }, VIEW).rows).toEqual([['MP', '7,158']]);
+  expect(v.title).toBe('[SIC] Sicario'); expect(v.groups.map(g => g[0])).toEqual(['WHO', 'STRENGTH', 'MONEY']);
+  expect(v.groups[1][1].map(r => r[0])).toEqual(['POWER', 'RANK']); expect(v.groups[1][1][1][1]).toBe('Capo III · #1');
+  expect(vitalsOf({ lm: 'house' }, VIEW).groups).toEqual([['LIVE', [['MP', '7,158']]]]);
 });
 
 test('Fee City is the landing: landmarks open their panel, a bridge gate crosses to another city, the street chat wears family tags, the ladder ranks', async () => {
@@ -36,9 +37,9 @@ test('Fee City is the landing: landmarks open their panel, a bridge gate crosses
   await act(async () => { root.render(<FamilyWorld addr="A" sess="s" onEnter={() => {}} />); });
   expect(q('fee-capital')).not.toBeNull(); expect(q('city-fee').getAttribute('aria-selected')).toBe('true');
   await act(async () => { q('lm-arena').click(); });
-  expect(q('mark-panel').textContent).toContain('never 4 vs 6'); expect(document.querySelector('.fc-vit').textContent).toContain('RAIDS');
+  expect(q('mark-panel').textContent).toContain('never 4 vs 6'); expect(q('city-vitals').textContent).toContain('RAIDS');
   await act(async () => { q('lm-arena').click(); });
-  expect(document.querySelector('.fc-vit')).toBeNull();                                     // tap again = zoom back out
+  expect(q('city-vitals')).toBeNull();                                                      // tap again = zoom back out
   expect(q('city-chat').textContent).toContain('SIC');
   await act(async () => { q('gate-heights').click(); });
   expect(q('fee-capital')).toBeNull(); expect(q('borough-heights')).not.toBeNull(); expect(q('borough-hills')).not.toBeNull();

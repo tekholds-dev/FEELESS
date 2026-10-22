@@ -21,24 +21,7 @@
 .fwd-side.t-cpu { border-color: rgba(255, 90, 110, .5); } .fwd-side.t-cartel { border-color: rgba(125, 255, 154, .4); } .fwd-side.t-mine { border-color: rgba(212, 175, 55, .6); }
 .fwd-acts { display: flex; flex-wrap: wrap; gap: 6px; }
 .fwd-raids { display: grid; gap: 12px; }
-.fwd-raid { display: grid; gap: 10px; padding: 12px; }
-.fwd-raid.live { border-color: rgba(255, 90, 110, .55); } .fwd-raid.done { opacity: .82; }
-.fwd-raid header { display: flex; flex-wrap: wrap; gap: 10px; align-items: baseline; }
-.fwd-raid header b { font: 700 15px 'Playfair Display', Georgia, serif; } .fwd-raid header small { font: 600 11px 'JetBrains Mono', monospace; color: var(--fg2); }
-.fwd-raid header em { margin-left: auto; font: 700 12px 'JetBrains Mono', monospace; font-style: normal; color: var(--cart); }
-.fwd-chess { display: grid; grid-template-columns: repeat(5, 1fr); max-width: 420px; border: 3px solid #3a2a12; border-radius: 6px; overflow: hidden; }
-.fwd-sq { aspect-ratio: 1; border: 0; display: grid; place-items: center; align-content: center; gap: 1px; cursor: pointer; color: #1a1205; transition: transform .12s, filter .12s; }
-.fwd-sq.lt { background: #e9d9b3; } .fwd-sq.dk { background: #9a7444; }
-.fwd-sq.has:not(:disabled):hover { transform: scale(1.06); filter: brightness(1.12); z-index: 1; }
-.fwd-sq:focus-visible { outline: 3px solid #ff5a6e; outline-offset: -3px; }
-.fwd-sq:disabled { cursor: default; }
-.fwd-sq i { font-style: normal; font-size: 20px; } .fwd-sq small { font: 700 9px 'JetBrains Mono', monospace; }
-.fwd-sq b { font: 700 9px 'JetBrains Mono', monospace; } .fwd-sq b.q { color: #7a1020; }
-.fwd-sq.is-down { filter: grayscale(1) brightness(.7); }
-.fwd-moves { display: flex; flex-wrap: wrap; gap: 6px; }
-.fwd-moves .m-btn.active { background: #ff5a6e; color: #fff; border-color: #ff5a6e; }
-.fwd-log, .fwd-wlog { margin: 0; padding: 0 0 0 16px; display: grid; gap: 3px; font-size: 11px; max-height: 160px; overflow: auto; scrollbar-width: thin; }
-.fwd-log li.s-a { color: #ffb3bd; } .fwd-log li.s-b { color: #c7d8ff; }
+.fwd-wlog { margin: 0; padding: 0 0 0 16px; display: grid; gap: 3px; font-size: 11px; max-height: 160px; overflow: auto; scrollbar-width: thin; }
 .fwd-jobs, .fwd-rc, .fwd-shop ul { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 10px; }
 .fwd-job { display: grid; gap: 8px; padding: 10px; border-radius: 12px; background: rgba(10, 8, 14, .78); border: 1px solid rgba(212, 175, 55, .16); }
 .fwd-job.is-ready { border-color: rgba(212, 175, 55, .55); }

@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Billboard, Bridge, Car, CAR_COLORS, hash, Plot } from './cityParts';
+import { Bridge, Car, CAR_COLORS, hash, Plot } from './cityParts';
 import { FeeCapital, FEE_W, FEE_H, feeSpot } from './FeeCapital';
 import '../styles/familyCity3d.css';
 import '../styles/feeCity.css';
@@ -28,12 +28,12 @@ export function bridgeRect(pa, pb) {
   const t = Math.min(pa.y, pb.y) + ISLAND; return { x: pa.x + ISLAND / 2 - 13, y: t - 6, w: 26, h: GAP + 12, horiz: false };
 }
 
-function Island({ b, p, blocks, boom, sel, onPick, reach }) {
+function Island({ b, p, blocks, boom, sel, onPick, reach, hot }) {
   return <div className={`fcy-isl ${boom === b.key ? 'is-boom' : ''} ${reach === false ? 'is-far' : ''} k-${b.key}`} style={{ transform: `translate(${p.x}px, ${p.y}px)` }} data-testid={`borough-${b.key}`}>
     <i className="fcy-lanes" aria-hidden="true" />
     {[0, 1, 2, 3, 4].flatMap(k => [<i key={`l${k}`} className="fcy-lamp" style={{ transform: `translate(${k * (LOT + 14) + 5}px, 3px) translateZ(14px)` }} />,
       <i key={`r${k}`} className="fcy-lamp" style={{ transform: `translate(${k * (LOT + 14) + 5}px, ${ISLAND - 7}px) translateZ(14px)` }} />])}
-    {blocks.map(x => <Plot key={x.id} x={x} r={{ ...lotPos(x.i), w: LOT, h: LOT }} sel={sel === x.id} onPick={onPick} />)}
+    {blocks.map(x => <Plot key={x.id} x={x} r={{ ...lotPos(x.i), w: LOT, h: LOT }} sel={sel === x.id} onPick={onPick} raid={hot?.has(x.owner)} />)}
     {['a', 'b', 'c'].map((r, i) => <Car key={r} route={r} i={i + b.col * 3 + b.row} color={CAR_COLORS[(hash(b.key) + i) % CAR_COLORS.length]} />)}
     {[0, 1, 2, 3].map(i => <i key={`p${i}`} className={`fcy-ped w-${i}`} style={{ '--i': i + b.col }} />)}
     <div className="fcy-sign"><b>{b.name}</b><small>×{b.tier}{boom === b.key ? ' · 🔥 BOOM' : ''}</small></div>
@@ -41,29 +41,35 @@ function Island({ b, p, blocks, boom, sel, onPick, reach }) {
 }
 
 // pure: the vitals that stand over a picked plot / landmark
+// pure: the vitals of a picked plot / landmark, in categories (WHO · STRENGTH · MONEY, a landmark's LIVE numbers, a fight's SCORE + STAKES)
 export function vitalsOf(x, v) {
   if (!x) return null;
   const n = k => Math.round(Number(k) || 0).toLocaleString('en-US');
   const ff = x.lm === 'arena' && (v.ffuse?.fights || []).find(f => f.status === 'live');
-  if (ff) return { title: `⚔ [${ff.a.tag}] vs [${ff.b.tag}]`, tone: 'lm', rows: [['SPARKS', ff.duel ? `${ff.duel.a} ⚡ ${ff.duel.b}` : '0 ⚡ 0'], ['CLOCK', `${Math.floor(ff.left / 60)}m left`, ff.left / (ff.mins * 60)],
-    ['POT', ff.stake === 'mp' ? `${n(2 * ff.mp)} MP` : 'paper'], ['CROWD', `${n(ff.crowd.total)} pts · ${ff.crowd.bidders} bidders`]] };
-  if (x.lm) { const m = (v.landmarks || []).find(l => l.key === x.lm); return { title: m?.name || x.lm, tone: 'lm', rows: Object.entries(m?.live || {}).filter(([, val]) => typeof val === 'number').map(([k, val]) => [k.toUpperCase(), n(val)]) }; }
+  if (ff) return { title: `⚔ [${ff.a.tag}] vs [${ff.b.tag}]`, tone: 'lm', groups: [['SCORE', [['SPARKS', ff.duel ? `${ff.duel.a} ⚡ ${ff.duel.b}` : '0 ⚡ 0'], ['CLOCK', `${Math.floor(ff.left / 60)}m left`, ff.left / (ff.mins * 60)]]],
+    ['STAKES', [['POT', ff.stake === 'mp' ? `${n(2 * ff.mp)} MP` : 'paper'], ['CROWD', `${n(ff.crowd.total)} pts · ${ff.crowd.bidders} bidders`]]]] };
+  if (x.lm) { const m = (v.landmarks || []).find(l => l.key === x.lm);
+    return { title: m?.name || x.lm, tone: 'lm', groups: [['LIVE', Object.entries(m?.live || {}).filter(([, val]) => typeof val === 'number').map(([k, val]) => [k.toUpperCase(), n(val)])]] }; }
   const bor = (v.boroughs || []).find(b => b.key === x.b); const top = Math.max(1, ...(v.blocks || []).map(b => b.power || 0));
-  const rk = (v.ranked || []).find(r => r.id === x.owner);
-  const rows = [['DISTRICT', `${bor?.name || x.b} ×${bor?.tier ?? 1}`]];
-  if (x.owner) { rows.push(['POWER', n(x.power), (x.power || 0) / top]); if (rk) rows.push(['RANK', `${rk.rank.name} ${rk.rank.div} · #${rk.place}`]); rows.push(['STATUS', x.home ? 'HOME BLOCK' : x.kind === 'cpu' ? 'CPU TOWN' : x.kind === 'cartel' ? 'CARTEL' : 'TURF']); }
-  else rows.push(['PRICE', v.me?.prices?.[x.id] != null ? `${n(v.me.prices[x.id])} MP` : 'sign in'], ['STATUS', 'FOR SALE']);
-  return { title: x.owner ? `[${x.tag}] ${x.name}` : `PLOT ${x.id.toUpperCase()}`, tone: x.mine ? 'mine' : x.kind || (x.owner ? 'family' : 'free'), rows };
+  const rk = (v.ranked || []).find(r => r.id === x.owner); const reach = v.me?.reach?.[x.b];
+  const who = [['DISTRICT', bor?.name || x.b], ['STATUS', !x.owner ? 'FOR SALE' : x.home ? 'HOME BLOCK' : x.kind === 'cpu' ? 'CPU TOWN' : x.kind === 'cartel' ? 'CARTEL' : 'TURF']];
+  const strength = x.owner ? [['POWER', n(x.power), (x.power || 0) / top], ...(rk ? [['RANK', `${rk.rank.name} ${rk.rank.div} · #${rk.place}`]] : [])] : [];
+  const money = [['TIER', `×${bor?.tier ?? 1} production`], ...(!x.owner ? [['PRICE', v.me?.prices?.[x.id] != null ? `${n(v.me.prices[x.id])} MP` : 'sign in']] : []),
+    ...(x.owner && !x.mine && reach != null ? [['REACH', reach ? 'in raid range' : 'out of range']] : [])];
+  return { title: x.owner ? `[${x.tag}] ${x.name}` : `PLOT ${x.id.toUpperCase()}`, tone: x.mine ? 'mine' : x.kind || (x.owner ? 'family' : 'free'),
+    groups: [['WHO', who], ['STRENGTH', strength], ['MONEY', money]].filter(g => g[1].length) };
 }
 
-function Vitals({ at, vit }) {
-  if (!at || !vit) return null;
-  return <Billboard x={at.x} y={at.y} z={at.z || 150} className={`fc-vit t-${vit.tone}`}><b>{vit.title}</b>
-    <dl>{vit.rows.map(([k, val, pct]) => <React.Fragment key={k}><dt>{k}</dt><dd key={val}>{val}{pct != null ? <u><s style={{ transform: `scaleX(${Math.max(0.03, Math.min(1, pct))})` }} /></u> : null}</dd></React.Fragment>)}</dl></Billboard>;
+// the vitals panel sits ON the stage (never inside the 3D scene, where towers cut through it), grouped, with a close
+function Vitals({ vit, onClose }) {
+  if (!vit) return null;
+  return <aside className={`fc-vpanel t-${vit.tone}`} data-testid="city-vitals"><header><b>{vit.title}</b><button type="button" onClick={onClose} aria-label="Close and zoom out" data-tip="Zoom back out">✕</button></header>
+    {vit.groups.map(([g, rows]) => <section key={g}><em>{g}</em><dl>{rows.map(([k, val, pct]) => <React.Fragment key={k}><dt>{k}</dt><dd key={val}>{val}
+      {pct != null ? <u><s style={{ transform: `scaleX(${Math.max(0.03, Math.min(1, pct))})` }} /></u> : null}</dd></React.Fragment>)}</dl></section>)}</aside>;
 }
 
 // 🎥 the camera: drag turns, wheel zooms, `focus` flies the camera to a world point and back
-function CityStage({ W, H, focus, wx, ctl, children }) {
+function CityStage({ W, H, focus, wx, ctl, hud, children }) {
   const stage = useRef(null); const rz = useRef(-28); const rx = useRef(54); const moved = useRef(false); const drag = useRef(null);
   const base = Math.max(0.42, Math.min(1.05, 760 / Math.max(W, H))); const zoom = useRef(base); const pan = useRef([0, 0]);
   const [spin, setSpin] = useState(false); const [fly, setFly] = useState(false);
@@ -85,7 +91,7 @@ function CityStage({ W, H, focus, wx, ctl, children }) {
     onClickCapture={e => { if (moved.current) { e.stopPropagation(); e.preventDefault(); moved.current = false; } }} data-testid="world-map">
     <div className="fcy-sky" aria-hidden="true"><i className="fcy-moon" />{Array.from({ length: 22 }, (_, i) => <i key={i} className="fcy-star" style={{ '--i': i }} />)}</div>
     <div className="fcy-skyline" aria-hidden="true">{Array.from({ length: 18 }, (_, i) => <i key={i} style={{ '--i': i, '--h': `${40 + ((i * 37) % 70)}px` }} />)}</div>
-    <div className="fcy-world" style={{ width: W, height: H }}><i className="fcy-water" aria-hidden="true" />{children}</div>
+    <div className="fcy-world" style={{ width: W, height: H }}><i className="fcy-water" aria-hidden="true" />{children}</div>{hud}
     {wx !== 'clear' ? <div className="fcy-wx" aria-hidden="true">{Array.from({ length: wx === 'fog' ? 4 : 30 }, (_, i) => <i key={i} style={{ '--i': i, '--x': `${(i * 37) % 100}%` }} />)}</div> : null}
     <div className="fcy-ctl"><button type="button" className={spin ? 'active' : ''} onClick={() => setSpin(s => !s)} aria-pressed={spin} data-tip="Slowly turn the whole city" data-testid="city-spin">{spin ? '⏸ Stop' : '⟲ 360°'}</button>
       <button type="button" onClick={() => zoomBy(1.2)} data-tip="Zoom in" aria-label="Zoom in">＋</button>
@@ -108,12 +114,12 @@ export function FamilyCity3D({ v, sel, setSel, city, setCity, tour }) {
   const home = (v.bridges || []).find(br => [br.a, br.b].includes('fee') && bors.some(b => [br.a, br.b].includes(b.key)));
   const homeP = home ? lay.pos[home.a === 'fee' ? home.b : home.a] : null;
   const fee = cities.find(c => c.key === 'fee');
-  return <CityStage W={W} H={H} focus={spot} wx={v.season?.weather || 'clear'} ctl={isFee ? tour.ctl : null}>
-    {isFee ? <FeeCapital v={v} sel={sel} onPick={setSel} onGo={k => { setSel(null); setCity(k); }} tour={tour.on} />
+  const hot = new Set((v.raids || []).filter(r => r.status === 'live').map(r => r.b.id));
+  return <CityStage W={W} H={H} focus={spot} wx={v.season?.weather || 'clear'} ctl={isFee ? tour.ctl : null} hud={<Vitals vit={vitalsOf(sel, v)} onClose={() => setSel(sel)} />}>
+    {isFee ? <FeeCapital v={v} sel={sel} onPick={setSel} onGo={k => { setSel(null); setCity(k); }} tour={tour.on} hot={hot} />
       : <>{inner.map(br => <Bridge key={br.name} r={bridgeRect(lay.pos[br.a], lay.pos[br.b])} name={br.name} />)}
         {homeP && fee ? <Bridge r={{ x: 0, y: homeP.y + ISLAND / 2 - 13, w: homeP.x + 6, h: 26, horiz: true }} name={home.name}
           gate={{ key: 'fee', at: 'w', name: 'FEE CITY', sub: `${fee.held}/${fee.plots} held`, go: () => { setSel(null); setCity('fee'); } }} /> : null}
-        {bors.map(b => <Island key={b.key} b={b} p={lay.pos[b.key]} blocks={byB[b.key] || []} boom={v.boom?.borough} sel={sel?.id} onPick={setSel} reach={v.me?.reach?.[b.key]} />)}</>}
-    <Vitals at={spot && { ...spot, z: sel?.lm === 'arena' ? 150 : sel?.lm ? 90 : 60 }} vit={vitalsOf(sel, v)} />
+        {bors.map(b => <Island key={b.key} b={b} p={lay.pos[b.key]} blocks={byB[b.key] || []} boom={v.boom?.borough} sel={sel?.id} onPick={setSel} reach={v.me?.reach?.[b.key]} hot={hot} />)}</>}
   </CityStage>;
 }

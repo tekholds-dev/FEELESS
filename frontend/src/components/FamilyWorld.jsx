@@ -4,6 +4,7 @@ import { apiUrl } from '../lib/api';
 import { FamilyCity3D } from './FamilyCity3D';
 import { CityChat, CityRail, RankBadge, RankLadder } from './FamiliaHud';
 import { FamilyFuseBoard } from './FamilyFuseBoard';
+import { RaidStage } from './RaidStage';
 import '../styles/familyWorld.css';
 
 // 🗺 THE FAMILIA WORLD (owner, 2026-10-21: "huge like a Sims build — bridges to other parts, seasons, buy blocks near rivals, CPU towns hard to
@@ -62,25 +63,6 @@ function BlockPanel({ x, v, act, busy, onEnter }) {
   </aside>;
 }
 
-function RaidBoard({ r, act, busy }) {
-  const [pick, setPick] = useState(r.side === 'b' ? 'guard' : 'hit');
-  const mySide = r.actions?.hit ? 'a' : 'b'; const myTurn = r.status === 'live' && r.turn === mySide;
-  const [left, setLeft] = useState(0);
-  useEffect(() => { const f = () => setLeft(Math.max(0, Math.round(r.deadline - Date.now() / 1000))); f(); const t = setInterval(f, 1000); return () => clearInterval(t); }, [r.deadline]);
-  const cells = Array.from({ length: 25 }, (_, i) => r.board.find(l => l.lot === i));
-  const send = (lot) => act({ act: mySide === 'a' ? 'attack' : 'defend', raid: r.id, kind: pick, lot }, 'Move made');
-  return <div className={`fwd-raid m-card ${r.status}`} data-testid={`raid-${r.id}`}>
-    <header><b>{r.a.tag} ⚔ {r.b.tag}</b><small>{r.status === 'live' ? `round ${r.round}/${r.rounds} · ${myTurn ? `YOUR MOVE · ${left}s` : `their move · ${left}s`}` : `${r.end} · ${mp(r.paid)} MP`}</small>
-      <em>loot {mp(r.loot)} / {mp(Math.floor(r.stash * 0.35))}</em></header>
-    <div className="fwd-chess">{cells.map((l, i) => <button key={i} type="button" className={`fwd-sq ${(i + Math.floor(i / 5)) % 2 ? 'dk' : 'lt'} ${l ? 'has' : ''} ${l?.down ? 'is-down' : ''}`}
-      disabled={!myTurn || busy || !l || pick === 'retreat' || pick === 'counter' || pick === 'lockdown'} onClick={() => send(i)} data-testid={`sq-${i}`}>
-      {l ? <><i>{STORE_ICON[l.b] || '🏬'}</i><small>L{l.lvl}</small><b className={l.def == null ? 'q' : ''}>{l.def == null ? '?' : `🛡${l.def + (l.shield || 0)}`}</b></> : null}</button>)}</div>
-    {r.status === 'live' ? <div className="fwd-moves">{Object.entries(r.actions || {}).map(([k, w]) => <button key={k} type="button" className={`m-btn ${pick === k ? 'active' : ''}`} onClick={() => { setPick(k); if (['retreat', 'counter', 'lockdown'].includes(k) && myTurn) act({ act: mySide === 'a' ? 'attack' : 'defend', raid: r.id, kind: k, lot: -1 }, 'Move made'); }}
-      disabled={!myTurn || busy} data-tip={w} data-testid={`mv-${k}`}>{k}</button>)}</div> : null}
-    <ol className="fwd-log">{(r.moves || []).slice().reverse().map((m, i) => <li key={i} className={`s-${m.side}`}>{m.word}</li>)}</ol>
-  </div>;
-}
-
 function Errand({ e, act, busy }) {
   const [game, setGame] = useState(null); const zone = useRef(null);
   const drag = DRAG.has(e.store);
@@ -136,7 +118,7 @@ export function FamilyWorld({ addr, sess, onEnter }) {
           {v.cities ? <CityChat city={city} name={(v.cities.find(c => c.key === city) || {}).name || 'the city'} addr={addr} sess={sess} /> : null}</div></div>
       {city === 'fee' && v.ffuse ? <FamilyFuseBoard v={v} setV={setV} addr={addr} sess={sess} /> : null}</>}
     {lens === 'ranked' && <RankLadder ranked={v.ranked} mine={me?.id} />}
-    {lens === 'raids' && <div className="fwd-raids">{(v.raids || []).length ? v.raids.slice().reverse().map(r => <RaidBoard key={r.id} r={r} act={act} busy={busy} />)
+    {lens === 'raids' && <div className="fwd-raids">{(v.raids || []).length ? v.raids.slice().reverse().map(r => <RaidStage key={r.id} r={r} act={act} busy={busy} />)
       : <p className="m-dim">No raids. Pick a rival block on the 🗺 City — a CPU town if you're brave.</p>}
       <ol className="fwd-wlog">{(v.log || []).map((l, i) => <li key={i}>{l.what}</li>)}</ol></div>}
     {lens === 'jobs' && (me ? <ul className="fwd-jobs">{me.errands.map(e => <Errand key={e.store} e={e} act={act} busy={busy} />)}</ul> : <p className="m-dim">Join a family to run errands.</p>)}

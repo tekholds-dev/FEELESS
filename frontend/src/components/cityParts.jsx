@@ -27,13 +27,13 @@ function FreeLot({ id }) {
     <i className="fcy-sale"><b>FOR SALE</b></i></>;
 }
 
-export function Plot({ x, r, sel, onPick, premium }) {
+export function Plot({ x, r, sel, onPick, premium, raid }) {
   const d = buildingOf(x);
   return <button type="button" className={`fcy-lot ${d ? `t-${d.kind}` : 't-free'} ${sel ? 'is-sel' : ''} ${x.home ? 'is-home' : ''} ${premium ? 'is-prem' : ''}`}
     style={{ transform: `translate(${r.x}px, ${r.y}px)`, width: r.w, height: r.h }} onClick={() => onPick(x)} data-testid={`blk-${x.id}`}
     data-tip={x.owner ? `[${x.tag}] ${x.name}${x.home ? ' · home block' : ''} · power ${Math.round(x.power || 0).toLocaleString('en-US')}` : `${premium ? 'Premium Fee City plot' : 'Free block'} — buy it for turf (+4 % production, +1 recruit seat, more reach)`}>
     {d ? <><Building l={d.l} nowS={0} /><i className="fcy-crown" /><span className="fcy-tag">{x.tag}</span></> : <FreeLot id={x.id} />}
-    {sel ? <i className="fcy-beamup" /> : null}
+    {sel ? <i className="fcy-beamup" /> : null}{raid ? <i className="fc-raid" aria-hidden="true" /> : null}
   </button>;
 }
 

@@ -65,16 +65,21 @@
 .fc-pin .fc-bbin { grid-template-columns: auto auto; column-gap: 6px; align-items: center; padding: 6px 10px; border-radius: 10px; background: #1a1206ee; border: 2px solid #ff9f45; box-shadow: 0 0 20px #ff9f4588; animation: fcIn .3s ease-out both; }
 .fc-pin i { grid-row: span 2; width: 24px; height: 24px; display: grid; place-items: center; border-radius: 50%; background: #ff9f45; color: #1a0c00; font: 900 13px 'JetBrains Mono', monospace; font-style: normal; }
 .fc-pin b { font: 800 11px 'JetBrains Mono', monospace; letter-spacing: .1em; color: #ffe0b8; white-space: nowrap; } .fc-pin small { font: 600 9.5px 'JetBrains Mono', monospace; color: #e8c79a; white-space: nowrap; }
-/* 🩺 the vitals card over a picked plot (the other signs step back while the camera is on it) */
+/* 🩺 the vitals panel of a picked plot: ON the stage, never inside the 3D scene (the other signs step back while the camera is on it) */
+.fc-vpanel { --vc: #ffd36b; position: absolute; left: 14px; top: 14px; z-index: 3; width: 236px; display: grid; gap: 8px; padding: 11px 12px; border-radius: 14px; cursor: default;
+  background: linear-gradient(160deg, rgba(20, 14, 26, .94), rgba(6, 16, 11, .94)); border: 1px solid var(--vc); box-shadow: 0 0 28px color-mix(in srgb, var(--vc) 35%, transparent), inset 0 1px 0 #ffffff22; animation: fcPanel .25s ease-out both; }
+.fc-vpanel.t-family { --vc: #b48cff; } .fc-vpanel.t-cpu { --vc: #ff3b55; } .fc-vpanel.t-cartel { --vc: #4dff88; } .fc-vpanel.t-free { --vc: #c9b38a; } .fc-vpanel.t-lm { --vc: #45e486; }
+.fc-vpanel header { display: flex; gap: 8px; align-items: center; justify-content: space-between; } .fc-vpanel header b { font: 800 12.5px 'JetBrains Mono', monospace; color: #fff5dc; text-shadow: 0 0 8px var(--vc); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.fc-vpanel header button { flex: none; width: 32px; height: 32px; border-radius: 9px; border: 1px solid #ffffff22; background: #ffffff0a; color: #fff; cursor: pointer; transition: transform .12s ease, border-color .12s ease; }
+.fc-vpanel header button:hover { border-color: var(--vc); transform: rotate(90deg); } .fc-vpanel header button:active { transform: scale(.9); } .fc-vpanel header button:focus-visible { outline: 2px solid var(--vc); }
+.fc-vpanel section { display: grid; gap: 4px; padding: 7px 8px; border-radius: 10px; background: #ffffff07; border-left: 2px solid var(--vc); }
+.fc-vpanel section em { font: 800 8px 'JetBrains Mono', monospace; font-style: normal; letter-spacing: .2em; color: var(--vc); }
+.fc-vpanel dl { display: grid; grid-template-columns: auto 1fr; gap: 3px 10px; margin: 0; } .fc-vpanel dt { font: 700 8.5px 'JetBrains Mono', monospace; letter-spacing: .12em; color: #9a8f7a; align-self: center; }
+.fc-vpanel dd { margin: 0; display: grid; gap: 2px; font: 800 11px 'JetBrains Mono', monospace; color: #fff3d6; animation: fcTick .5s ease-out; }
+.fc-vpanel dd u { display: block; height: 4px; border-radius: 2px; background: #ffffff14; overflow: hidden; } .fc-vpanel dd s { display: block; height: 100%; background: var(--vc); transform-origin: left; text-decoration: none; transition: transform .5s ease; }
+@keyframes fcPanel { from { opacity: 0; transform: translateX(-8px); } }
+body.theme-day .fc-vpanel { background: linear-gradient(160deg, #fffaf0f5, #f2fbf5f5); } body.theme-day .fc-vpanel header b, body.theme-day .fc-vpanel dd { color: #1a140a; text-shadow: none; }
 .fcy.is-focus .fc-bill, .fcy.is-focus .fc-title, .fc-bill.is-dim { opacity: .18; transition: opacity .3s ease; }
-.fc-vit .fc-bbin { min-width: 190px; padding: 9px 11px; border-radius: 12px; justify-items: stretch; background: linear-gradient(160deg, #141018f2, #07120cf2); border: 1px solid var(--vc, #ffd36b);
-  box-shadow: 0 0 26px color-mix(in srgb, var(--vc, #ffd36b) 45%, transparent), inset 0 1px 0 #ffffff22; animation: fcIn .35s ease-out both; }
-.fc-vit.t-mine { --vc: #ffd36b; } .fc-vit.t-family { --vc: #b48cff; } .fc-vit.t-cpu { --vc: #ff3b55; } .fc-vit.t-cartel { --vc: #4dff88; } .fc-vit.t-free { --vc: #c9b38a; } .fc-vit.t-lm { --vc: #45e486; }
-.fc-vit b { font: 800 12px 'JetBrains Mono', monospace; color: #fff5dc; letter-spacing: .06em; white-space: nowrap; text-shadow: 0 0 8px var(--vc); }
-.fc-vit dl { display: grid; grid-template-columns: auto 1fr; gap: 3px 10px; margin: 4px 0 0; }
-.fc-vit dt { font: 700 8px 'JetBrains Mono', monospace; letter-spacing: .14em; color: #9a8f7a; align-self: center; }
-.fc-vit dd { margin: 0; display: grid; gap: 2px; font: 800 11px 'JetBrains Mono', monospace; color: var(--vc); white-space: nowrap; animation: fcTick .5s ease-out; }
-.fc-vit dd u { display: block; height: 4px; border-radius: 2px; background: #ffffff14; overflow: hidden; } .fc-vit dd s { display: block; height: 100%; background: var(--vc); transform-origin: left; text-decoration: none; }
 /* 🌉 the gate sign at a bridge's far end: the way to another city */
 .fc-gate { position: absolute; padding: 6px 12px; min-height: 32px; border-radius: 9px; border: 2px solid #ffd36b; background: #120c04e6; color: #ffe9b0; cursor: pointer; pointer-events: auto;
   display: grid; justify-items: center; gap: 1px; transform-style: preserve-3d; transform: translateZ(34px) rotateZ(calc(var(--rz) * -1)) rotateX(calc(var(--rx) * -1)) translate(-50%, -100%); transform-origin: 0 0;
@@ -96,11 +101,10 @@
 @keyframes fcIn { from { opacity: 0; } } @keyframes fcTick { from { opacity: .3; } }
 body.fx-lite .fc-std-beam, body.fx-lite .fc-std-tier.t2::after, body.fx-lite .fc-ped, body.fx-lite .fc-search b { display: none; }
 body.fx-lite .fc-vault, body.fx-lite .fc-gold, body.fx-lite .fc-std-card, body.fx-lite .fc-std-clash, body.fx-lite .fc-fountain b, body.fx-lite .fc-rocket u { animation: none; }
-@media (prefers-reduced-motion: reduce) { .fc-std-beam, .fc-ped { display: none; } .fc-bbin, .fc-vit dd, .fc-bill small { animation: none; } }
+@media (prefers-reduced-motion: reduce) { .fc-std-beam, .fc-ped { display: none; } .fc-bbin, .fc-vpanel, .fc-vpanel dd, .fc-bill small { animation: none; } }
 body.theme-day .fc-isl { background: #4a4a52; } body.theme-day .fc-bill b, body.theme-day .fc-gate { background: #fff8e8ee; color: #2a1f0e; } body.theme-day .fc-gate small { color: #7a5a10; }
-body.theme-day .fc-vit .fc-bbin { background: linear-gradient(160deg, #fffaf0f5, #f2fbf5f5); } body.theme-day .fc-vit b { color: #1a140a; text-shadow: none; } body.theme-day .fc-vit dt { color: #6a5f4a; }
 body.theme-day .fc-title b { color: #6a4a0a; text-shadow: 0 0 10px #ffd36b; } body.theme-day .fc-title small { color: #6a4a0a; }
-@media (max-width: 640px) { .fc-title b { font-size: 24px; letter-spacing: 5px; } .fc-vit .fc-bbin { min-width: 160px; } .fc-bill small { display: none; } }
+@media (max-width: 640px) { .fc-title b { font-size: 24px; letter-spacing: 5px; } .fc-bill small { display: none; } .fc-vpanel { left: 8px; right: 8px; width: auto; top: 8px; } }
 /* 🧭 THE HUD: the city + its side column (picked plot / landmark, then that city's street chat) */
 .fwd-mapwrap { display: grid; grid-template-columns: minmax(0, 1fr) 300px; gap: 12px; align-items: start; }
 .fwd-col { display: grid; gap: 10px; min-width: 0; } .fwd-side.t-lm { border-color: rgba(69, 228, 134, .5); } .fwd-side .m-btn { text-decoration: none; text-align: center; }
