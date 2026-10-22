@@ -1,16 +1,17 @@
 import React from 'react';
 import { act } from 'react';
 import { createRoot } from 'react-dom/client';
-import { ChatFx, chatTheme, canUse, CHAT_THEMES } from './ChatFx';
+import { ChatFx, ChatThemePicker, chatTheme, canUse, CHAT_THEMES } from './ChatFx';
 import { moodOf, roomPair } from '../lib/coinMood';
 
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
 
 test('tiers: 4 free, 4 more at $5 of $FEE, 5 more at $100; a theme you lost falls back to Live', () => {
-  expect(CHAT_THEMES.filter(([, , usd]) => usd === 0).map(([id]) => id)).toEqual(['live', 'fee', 'feerain', 'off']);
+  expect(CHAT_THEMES.filter(([, , usd]) => usd === 0).map(([id]) => id)).toEqual(['live', 'fee', 'candles', 'off']);
   expect(CHAT_THEMES.filter(([, , usd]) => usd === 5)).toHaveLength(4);
   expect(CHAT_THEMES.filter(([, , usd]) => usd === 100)).toHaveLength(5);
-  expect(canUse('aurora', 4.99)).toBe(false); expect(canUse('aurora', 5)).toBe(true);
+  expect(canUse('depth', 4.99)).toBe(false); expect(canUse('depth', 5)).toBe(true); expect(canUse('aurora', 1e9)).toBe(false);   // a retired theme is gone for good
+  expect(canUse('lava', 0, ['lava'])).toBe(true);   // badge perks still unlock their theme
   expect(canUse('vortex', 99)).toBe(false); expect(canUse('vortex', 100)).toBe(true);
   const prefs = { themes: { 'coin-solana-PoolAAAAAAAAAAAAAAAAAAAAA-trenches': 'vortex' } };
   expect(chatTheme(prefs, 'coin-solana-PoolAAAAAAAAAAAAAAAAAAAAA-trenches', 250)).toBe('vortex');  // kept per coin room
@@ -27,7 +28,7 @@ test('live mood follows the coin: pump / dump / snipers cleared / calm', () => {
   expect(roomPair('solana-general')).toBeNull();
 });
 
-test('every theme shows the FEE mark; FEE rain drops logos; Plain shows nothing', () => {
+test('every theme shows the FEE mark and its drawn scene; Plain shows nothing', () => {
   const host = document.createElement('div'); document.body.appendChild(host);
   const root = createRoot(host);
   for (const [id] of CHAT_THEMES.filter(([t]) => t !== 'off')) {
@@ -35,8 +36,21 @@ test('every theme shows the FEE mark; FEE rain drops logos; Plain shows nothing'
     expect(host.querySelector('[data-testid="chat-fx"]').className).toContain(`fx-${id}`);
     expect(host.querySelector('.chat-fx-logo').getAttribute('src')).toBe('/assets/feeless-logo.png');
   }
-  act(() => root.render(<ChatFx theme="feerain" />));
-  expect(host.querySelectorAll('.chat-fx-drop').length).toBe(7);
+  act(() => root.render(<ChatFx theme="candles" />)); expect(host.querySelectorAll('.cfx-strip .cfx-candle').length).toBe(18);
+  act(() => root.render(<ChatFx theme="depth" />)); expect(host.querySelector('.cfx-depth .bid')).not.toBeNull();
+  act(() => root.render(<ChatFx theme="vortex" />)); expect(host.querySelectorAll('.cfx-orbit img').length).toBe(3);
+  act(() => root.render(<ChatFx theme="tape" />)); expect(host.querySelectorAll('.cfx-col').length).toBe(4);
   act(() => root.render(<ChatFx theme="off" />));
   expect(host.querySelector('[data-testid="chat-fx"]')).toBeNull();
+});
+
+test('the picker: live mini rooms by tier, locked tiles say how close you are, a pick saves this room only', () => {
+  const host = document.createElement('div'); document.body.appendChild(host); const root = createRoot(host); let saved = null;
+  act(() => root.render(<ChatThemePicker prefs={{ themes: { other: 'gold' } }} setPrefs={p => { saved = p; }} room="brain" feeUsd={7} unlocked={['vortex']} />));
+  expect(host.querySelector('[data-testid="chat-theme-depth"]').disabled).toBe(false);
+  expect(host.querySelector('[data-testid="chat-theme-moon"]').disabled).toBe(true);
+  expect(host.querySelector('[data-testid="chat-theme-vortex"]').disabled).toBe(false);   // badge perk
+  expect(host.textContent).toContain('$7 / $100 held');
+  act(() => host.querySelector('[data-testid="chat-theme-radar"]').click());
+  expect(saved).toEqual({ themes: { other: 'gold', brain: 'radar' } });
 });

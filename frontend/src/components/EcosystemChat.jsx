@@ -2,7 +2,7 @@ import { ChatBadgePicker } from './ChatBadgePicker';
 import '../styles/chatPrefs.css';
 import { TraderChip } from './TraderChip';
 import '../styles/chatPrefs.css';
-import { ChatFx, CHAT_THEMES, chatTheme, canUse, useFeeUsd, useBadgeBgs } from './ChatFx';
+import { ChatFx, ChatThemePicker, chatTheme, useFeeUsd, useBadgeBgs } from './ChatFx';
 import { PanelBoundary } from './PanelBoundary';
 import { useDraft } from '../lib/useDraft';
 import { RepMark } from './RepMark';
@@ -271,8 +271,7 @@ function EcosystemChatInner({ ecosystem, room: roomProp, compact = false, onConn
       {prefsOpen && <div className="chat-prefs" data-testid="chat-prefs">
         <header className="cp-head"><span className="m-label">⚙ CHAT SETTINGS</span><small>every chat on FEELESS · this browser</small></header>
         <section className="cp-sec"><span className="m-label">🎨 ROOM BACKGROUND · #{room}</span>
-          {[['FREE', 0], ['$5+ $FEE', 5], ['$100+ $FEE', 100]].map(([tier, usd]) => <div key={tier} className="cp-tier"><small>{tier}{usd > 0 && feeUsd < usd ? ' · 🔒' : ''}</small>
-            <div className="m-seg" role="radiogroup" aria-label={`Room background ${tier}`}>{CHAT_THEMES.filter(t => t[2] === usd).map(([id, label]) => <button key={id} type="button" role="radio" aria-checked={chatTheme(prefs, room, feeUsd, perkBgs) === id} className={chatTheme(prefs, room, feeUsd, perkBgs) === id ? 'active' : ''} disabled={!canUse(id, feeUsd, perkBgs)} data-tip={canUse(id, feeUsd, perkBgs) ? label : `Hold $${usd}+ of $FEE or earn its badge to unlock`} data-testid={`chat-theme-${id}`} onClick={() => setPrefs({ themes: { ...(prefs.themes || {}), [room]: id } })}>{canUse(id, feeUsd, perkBgs) ? label : `🔒 ${label}`}</button>)}</div></div>)}</section>
+          <ChatThemePicker prefs={prefs} setPrefs={setPrefs} room={room} feeUsd={feeUsd} unlocked={perkBgs} /></section>
         <section className="cp-sec"><span className="m-label">🏅 NAMES</span>
           <label className="cp-range"><span>Badges per name</span><input type="range" min="0" max={badgeCap} value={shownBadges} onChange={e => setPrefs({ maxBadges: Number(e.target.value) })} /><b className="m-num">{shownBadges}/{badgeCap}</b></label>
           <ChatBadgePicker wallet={wallet} signMessage={signMessage} featured={fx[wallet?.address]?.featuredBadges || []} limit={badgeCap} />

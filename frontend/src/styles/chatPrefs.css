@@ -2,9 +2,8 @@
 .chat-prefs { display: grid; gap: 10px; margin: 6px 0; padding: 12px; border-radius: 14px; border: 1px solid color-mix(in srgb, var(--m-accent) 25%, transparent);
   background: color-mix(in srgb, var(--m-bg) 96%, transparent); font-size: 12px; animation: cpIn .18s var(--m-ease) both; transform-origin: top right; }
 @keyframes cpIn { from { opacity: 0; transform: translateY(-6px) scale(.98); } to { opacity: 1; transform: none; } }
-.cp-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; } .cp-head small, .cp-tier small { color: var(--m-dim); font: 10px var(--m-mono); letter-spacing: .06em; }
+.cp-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; } .cp-head small { color: var(--m-dim); font: 10px var(--m-mono); letter-spacing: .06em; }
 .cp-sec { display: grid; gap: 7px; padding-top: 9px; border-top: 1px solid var(--m-line); }
-.cp-tier { display: grid; gap: 4px; } .cp-tier .m-seg { flex-wrap: wrap; }
 .cp-range { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 10px; }
 .cp-range input { accent-color: var(--m-accent); } .cp-range b { color: var(--m-accent); }
 .cp-toggles { display: flex; flex-wrap: wrap; gap: 8px 16px; }

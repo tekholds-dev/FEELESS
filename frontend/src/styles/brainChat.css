@@ -235,3 +235,10 @@ body.theme-day .cch-sub { background: rgba(12, 90, 50, .06); } body.theme-day .c
 body.fx-lite .cch-tbar u, body.fx-lite .cch-think { animation: none; } @media (prefers-reduced-motion: reduce) { .cch-tbar u, .cch-think { animation: none; } .cch-tbar i { transition: none; } }
 body.theme-day .cch-think { background: linear-gradient(120deg, rgba(225, 214, 255, .9), rgba(232, 248, 238, .95)); } body.theme-day .cch-think header b { color: #2a1a66; } body.theme-day .cch-tbar { background: rgba(0, 0, 0, .08); }
 @media (max-width: 640px) { .cch-navrow { flex-wrap: wrap; } .cch-think { max-width: 100%; } }
+/* 🎨 the Brain's own background (ChatFx) + its picker (ChatThemePicker) — the same themes as every chat on FEELESS */
+.cch-themebtn { min-width: 32px; min-height: 32px; border-radius: 8px; border: 1px solid rgba(183, 155, 255, .3); background: rgba(0, 0, 0, .25); cursor: pointer; transition: transform .12s ease, border-color .15s ease; }
+.cch-themebtn:hover { transform: translateY(-1px); border-color: #b79bff; } .cch-themebtn:active { transform: scale(.94); } .cch-themebtn:focus-visible { outline: 2px solid #b79bff; outline-offset: 2px; }
+.cch-themebtn.active { background: #b79bff; border-color: #b79bff; }
+.cch-themes { position: absolute; top: 46px; right: 10px; z-index: 5; width: min(360px, calc(100% - 20px)); max-height: 70%; overflow-y: auto; scrollbar-width: thin; padding: 10px; border-radius: 12px; background: rgba(10, 8, 18, .97); border: 1px solid rgba(183, 155, 255, .35); box-shadow: 0 18px 40px -16px #000; }
+.cch-themes > header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; }
+body.theme-day .cch-themes { background: #fbf8ff; }

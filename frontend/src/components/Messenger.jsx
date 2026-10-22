@@ -2,6 +2,8 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { MessageCircle, Send, Settings2 } from 'lucide-react';
 import { toast } from 'sonner';
+import { ChatFx, ChatThemePicker, chatTheme, useFeeUsd, useBadgeBgs } from './ChatFx';
+import { useChatPrefs } from '../lib/chatPrefs';
 import '../styles/messenger.css';
 
 // 💬 THE INBOX = A MESSENGER (owner, 2026-10-20: "chat should expand more vertically and look exactly like Facebook Messenger but better, with
@@ -47,6 +49,7 @@ function Text({ t }) {
 export function Messenger({ mine, wallet, session, start, threads, withPeer, setWith, msgs, text, setText, send, policy, prefs, pending, setThreads, endRef, onClose }) {
   const [q, setQ] = useState('');
   const [look, setLookS] = useState(readLook); const [gear, setGear] = useState(false); const [fold, setFold] = useState('all');
+  const [cprefs, setCprefs] = useChatPrefs(); const feeUsd = useFeeUsd(wallet?.address); const perkBgs = useBadgeBgs(wallet?.address);   // 🎨 the inbox's animated background (same themes as every chat)
   const setLook = patch => setLookS(l => { const n = { ...l, ...patch }; try { localStorage.setItem('feeless.dmLook', JSON.stringify(n)); } catch {} return n; });
   const toggle = (k, peer) => setLook({ [k]: (look[k] || []).includes(peer) ? look[k].filter(x => x !== peer) : [...(look[k] || []), peer] });
   const box = useRef(null);
@@ -78,6 +81,7 @@ export function Messenger({ mine, wallet, session, start, threads, withPeer, set
       <div className="msx-gr"><label className="msx-tg"><input type="checkbox" checked={!!look.spam} onChange={e => setLook({ spam: e.target.checked })} /><span>🛡 Spam filter — strangers pushing links, airdrops, "claim" or wallet verifies go to Spam</span></label>
         <label className="msx-tg"><input type="checkbox" checked={!!look.enter} onChange={e => setLook({ enter: e.target.checked })} /><span>⏎ Enter sends (Shift+Enter = new line)</span></label></div>
       {policy ? <div className="msx-gr"><span>WHO CAN MESSAGE ME</span><div className="msx-seg">{[['everyone', 'Everyone'], ['requests', 'Requests first'], ['nobody', 'Nobody']].map(([k, l]) => <button key={k} type="button" className={policy === k ? 'on' : ''} onClick={() => prefs({ policy: k })}>{l}</button>)}</div></div> : null}
+      <div className="msx-gr msx-motion"><span>MOTION · behind your chats</span><ChatThemePicker prefs={cprefs} setPrefs={setCprefs} room="inbox" feeUsd={feeUsd} unlocked={perkBgs} /></div>
       <small className="msx-gnote">Looks and filters live in this browser. Your messages stay between the two wallets.</small>
     </div> : null}
     {!wallet || !session ? <div className="msx-gate"><MessageCircle size={28} /><p>{wallet ? 'Sign once to chat privately (free, 7 days).' : 'Connect a wallet to chat.'}</p>
@@ -91,7 +95,7 @@ export function Messenger({ mine, wallet, session, start, threads, withPeer, set
             <span className="msx-rowtx"><b>{(look.pinned || []).includes(t.peer) ? '📌 ' : ''}@{t.handle}{t.request ? <em className="msx-req">request</em> : null}{isSpam(t) && look.spam ? <em className="msx-req is-spam">spam?</em> : null}</b><small>{t.last?.text || ''}</small></span>
             {t.last?.at ? <i className="msx-when">{hm(t.last.at)}</i> : null}</button>)}
         </aside> : null}
-        {withPeer ? <div className="msx-chat">
+        {withPeer ? <div className="msx-chat has-cfx"><ChatFx theme={chatTheme(cprefs, 'inbox', feeUsd, perkBgs)} room="inbox" />
           <div className="msx-msgs">{groups.map(g => g.day ? <p key={g.key} className="msx-day"><span>{g.day}</span></p>
             : <div key={g.key} className={`msx-grp ${g.me ? 'me' : 'them'}`}>{!g.me ? <span className="msx-ava is-sm" style={{ '--h': hue(g.from) }}>{ini(peer?.handle)}</span> : null}
               <div className="msx-bubs">{g.items.map((m, i) => <p key={m.id || i} className="msx-bub" onDoubleClick={() => copy(m.text)} title="Double-click to copy"><Text t={m.text} /></p>)}

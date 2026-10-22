@@ -13,6 +13,8 @@ import { toast } from 'sonner';
 import { uploadImage } from '../../lib/adminCall';
 import { holdFx } from '../../lib/fxPause';
 import '../../styles/brainChat.css';
+import { ChatFx, ChatThemePicker, chatTheme } from '../ChatFx';
+import { useChatPrefs } from '../../lib/chatPrefs';
 
 export const CHAT_MODES = [['chat', '💬 Chat', 'Talk to the model in normal language — it sees the desk\'s current state'],
   ['case', '🔎 Case', 'The structured read of the coin on the chart (validated JSON → shown as a verdict)'],
@@ -146,6 +148,7 @@ const Composer = memo(forwardRef(function Composer({ mode, busy, upl, isOwner, f
 }));
 
 export const AiChat = memo(function AiChat({ call, isOwner = true, focus, focusSym, variant = 'full', extras = [], onClose = null, lockProvider = null, title = null }) {
+  const [cprefs, setCprefs] = useChatPrefs(); const [themeOpen, setThemeOpen] = useState(false);
   const [mode, setMode] = useState('chat'); const comp = useRef(null); const [busy, setBusyS] = useState(false); const [pop, setPop] = useState(false);
   const [threads, setThreads] = useState({}); const [build, setBuild] = useState(null); const [showDone, setShowDone] = useState(false);
   const [provs, setProvs] = useState([]); const [provS, setProvS] = useState(() => { try { return localStorage.getItem('feeless.brainProv') || 'auto'; } catch { return 'auto'; } });
@@ -199,10 +202,15 @@ export const AiChat = memo(function AiChat({ call, isOwner = true, focus, focusS
   };
   const mood = brainMood(busy, brain, last); const pend = (props.pending || []).length;
   const sideOpen = pop || (openP ?? (variant !== 'mini' && variant !== 'drawer' && (mode === 'improve' || mode === 'build')));   // fixes fold outside 🛠 / 🧱 so the conversation keeps its room
-  const body = <section className={`cch is-${pop ? 'pop' : variant} is-${mood.key} ${(showQ ?? !hist.length) ? 'is-q' : ''}`} data-testid="cch" data-mode={mode}>
+  const room_ = lockProvider ? `brain-${lockProvider}` : 'brain';   // 🎨 the Brain + each model's own chat keep their own background (HQ = staff → every theme)
+  const body = <section className={`cch has-cfx is-${pop ? 'pop' : variant} is-${mood.key} ${(showQ ?? !hist.length) ? 'is-q' : ''}`} data-testid="cch" data-mode={mode}>
+    <ChatFx theme={chatTheme(cprefs, room_)} room={room_} />
+    {themeOpen ? <div className="cch-themes m-pop" data-testid="cch-themes"><header><span className="m-label">🎨 BACKGROUND · {room_.toUpperCase()}</span><button type="button" className="m-btn" onClick={() => setThemeOpen(false)} aria-label="Close">✕</button></header>
+      <ChatThemePicker prefs={cprefs} setPrefs={setCprefs} room={room_} feeUsd={Infinity} /></div> : null}
     <header className="cch-head">
       <span className="cch-orb" aria-hidden="true"><i /><i /><b>🧠</b></span>
       <span className="cch-title"><b>BRAIN{local?.boost ? <i className="cch-boostchip" data-testid="cch-boostchip" data-tip={`Local boost: ${local.why || ''} · every ${local.every ?? '—'}s · ${local.leftH}h left`}>💻 BOOST</i> : null}</b><small data-testid="cch-mood" data-mood={mood.key}><em>{mood.word}</em>{mood.line}</small></span>
+      <button type="button" className={`cch-themebtn ${themeOpen ? 'active' : ''}`} aria-pressed={themeOpen} onClick={() => setThemeOpen(v => !v)} data-tip="This chat's animated background" data-testid="cch-themebtn">🎨</button>
       {lockProvider ? <span className="cch-model is-locked" data-testid="cch-locked">{title || lockProvider.toUpperCase()}</span> : <select className="cch-model" value={prov} onChange={e => setProv(e.target.value)} aria-label="Which model answers" data-testid="cch-model" data-tip="Which model answers: Auto = the normal order · Duet = Gemma answers, Qwen reads it and agrees or pushes back (both shown)">
         <option value="auto">🤖 Auto</option><option value="duet">🤝 Duet · G4 + OSSY</option>{provs.some(p => p.key === 'win') ? null : <option value="win" disabled>🪟 NEXA · set WIN_LLM_BASE_URL</option>}{provs.map(p => <option key={p.key} value={p.key}>{p.state === 'ONLINE' ? '🟢' : p.state === 'UNTESTED' ? '⚪' : '🔴'} {p.label}{p.model ? ` · ${String(p.model).split('/').pop()}` : ''}</option>)}</select>}
       {saved.length ? <span className="cch-svwrap"><button type="button" className={`cch-model cch-saved ${showSaved ? 'is-on' : ''}`} onClick={() => setShowSaved(v => !v)} aria-expanded={showSaved} data-testid="cch-saved" data-tip="Saved chats: open · rename · delete">🗂 {saved.length} saved</button>

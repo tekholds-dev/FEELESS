@@ -1,0 +1,96 @@
+/* 🎨 CHAT THEMES (ChatFx.jsx `chat-fx` + `cfx-*`, picked in every chat's ⚙ / 🎨 by ChatThemePicker `ctp-*`). Owner, 2026-10-21: "every chat's theme
+   picker redone meta, researched, not the current set". Research: Telegram's wallpapers (a slow animated gradient under a drawn doodle pattern),
+   Discord Nitro themes (a palette per mood). FEELESS twist: every theme is drawn from the trade itself — candles, order flow, depth, the trench
+   radar, a ticker tape, the moon run, liquidation lava, the reserve vortex, the gold vault — always with the FEE mark. Calm motion only
+   (transform / opacity, no strobes), dies under fx-lite / reduced motion, paused off-screen by the FX governor. */
+.ecosystem-chat.has-fx, .has-cfx { position: relative; isolation: isolate; }
+.chat-fx { position: absolute; inset: 0; z-index: -1; overflow: hidden; pointer-events: none; border-radius: inherit; }
+.chat-fx > i { position: absolute; inset: -30%; will-change: transform; }
+.chat-fx-logo { position: absolute; left: 50%; top: 50%; width: 38%; max-width: 180px; transform: translate(-50%, -50%); opacity: .06; animation: cfxMark 6s ease-in-out infinite; }
+/* live: the coin's mood, soft and slow */
+.fx-live .chat-fx-a, .fx-fee .chat-fx-a { background: radial-gradient(35% 30% at 30% 35%, rgba(21, 209, 106, .14), transparent 70%); animation: cfxDrift 18s ease-in-out infinite alternate; }
+.fx-live .chat-fx-b { background: radial-gradient(40% 35% at 70% 70%, var(--mood, rgba(21, 209, 106, .1)), transparent 70%); animation: cfxBreathe 8s ease-in-out infinite; }
+.mood-pump { --mood: rgba(21, 209, 106, .2); } .mood-dump { --mood: rgba(255, 143, 163, .16); } .mood-clear { --mood: rgba(245, 196, 81, .2); } .mood-calm { --mood: rgba(111, 211, 255, .12); }
+.fx-live.mood-dump .chat-fx-a { opacity: .35; }
+/* fee: the brand glow, two greens breathing */
+.fx-fee .chat-fx-b { background: radial-gradient(30% 26% at 72% 70%, rgba(69, 228, 134, .12), transparent 70%); animation: cfxDrift 22s ease-in-out infinite alternate-reverse; }
+.fx-fee .chat-fx-logo { animation-name: cfxMarkHi; }
+/* candles: drawn green / red candles drifting down the room (a strip twice the room's height loops down, so the room is never empty) */
+.cfx-strip { position: absolute; left: 0; right: 0; top: -100%; height: 200%; animation: cfxStripDown 26s linear infinite; }
+.cfx-strip.is-up { top: 0; animation-name: cfxStripUp; animation-duration: 34s; }
+.cfx-candle { position: absolute; width: 7px; height: var(--h, 26px); border-radius: 2px; opacity: .24; }
+.cfx-candle::before { content: ''; position: absolute; left: 3px; top: -8px; bottom: -8px; width: 1px; background: currentColor; opacity: .8; }
+.cfx-candle.up { background: #15d16a; color: #15d16a; } .cfx-candle.dn { background: #ff5d73; color: #ff5d73; }
+/* flow: buys stream in from the left, sells from the right */
+.cfx-bar { position: absolute; height: 3px; width: var(--w, 30%); border-radius: 3px; opacity: 0; animation: cfxFlowB calc(7s + var(--i) * .6s) ease-in-out infinite; animation-delay: calc(var(--i) * -1.1s); }
+.cfx-bar.b { left: -40%; background: linear-gradient(90deg, transparent, rgba(21, 209, 106, .45)); } .cfx-bar.s { right: -40%; background: linear-gradient(270deg, transparent, rgba(255, 93, 115, .4)); animation-name: cfxFlowS; }
+/* depth: the order book's two cliffs, swaying */
+.cfx-depth { position: absolute; left: -5%; right: -5%; bottom: 0; height: 55%; animation: cfxSway 12s ease-in-out infinite alternate; }
+.cfx-depth .bid { fill: rgba(21, 209, 106, .14); stroke: rgba(21, 209, 106, .45); stroke-width: 1.2; } .cfx-depth .ask { fill: rgba(255, 93, 115, .12); stroke: rgba(255, 93, 115, .4); stroke-width: 1.2; }
+.cfx-depth .mid { stroke: rgba(255, 255, 255, .25); stroke-dasharray: 3 4; }
+/* radar: the trench radar sweeps, coins blink in */
+.fx-radar .chat-fx-b { inset: 0; background: repeating-radial-gradient(circle at 50% 55%, transparent 0 46px, rgba(21, 209, 106, .1) 46px 47px); }
+.fx-radar .chat-fx-a { inset: -40%; background: conic-gradient(from 0deg at 50% 55%, rgba(21, 209, 106, .16), transparent 18%); animation: cfxSpin 9s linear infinite; transform-origin: 50% 55%; }
+.cfx-blip { position: absolute; width: 6px; height: 6px; border-radius: 50%; background: #45e486; box-shadow: 0 0 10px #45e486; opacity: 0; animation: cfxBlip 9s ease-in-out infinite; animation-delay: calc(var(--i) * 2.2s); }
+/* grid: a terminal floor running to a green horizon */
+.fx-grid .chat-fx-a { inset: auto -50% -10% -50%; height: 70%; transform-origin: 50% 100%; transform: perspective(300px) rotateX(62deg);
+  background: linear-gradient(rgba(21, 209, 106, .22) 1px, transparent 1px) 0 0 / 100% 32px, linear-gradient(90deg, rgba(21, 209, 106, .14) 1px, transparent 1px) 0 0 / 42px 100%; animation: cfxRun 3s linear infinite; }
+.fx-grid .chat-fx-b { inset: auto 0 34% 0; height: 30%; background: radial-gradient(40% 70% at 50% 100%, rgba(69, 228, 134, .22), transparent 70%); }
+/* tape: the ticker tape scrolling up */
+.cfx-col { position: absolute; top: 0; display: grid; gap: 14px; font: 700 10px 'JetBrains Mono', monospace; white-space: nowrap; opacity: .14; animation: cfxTape calc(30s + var(--i) * 6s) linear infinite; animation-delay: calc(var(--i) * -7s); }
+.cfx-col .up { color: #15d16a; } .cfx-col .dn { color: #ff5d73; }
+/* moon: the moon, the run, the stars */
+.fx-moon .chat-fx-b { inset: 0; background: radial-gradient(1px 1px at 12% 18%, #fff9, transparent), radial-gradient(1px 1px at 46% 30%, #fff7, transparent), radial-gradient(1.5px 1.5px at 78% 62%, #fff8, transparent),
+  radial-gradient(1px 1px at 30% 80%, #fff6, transparent), radial-gradient(1px 1px at 88% 12%, #fff9, transparent); animation: cfxBreathe 7s ease-in-out infinite; }
+.cfx-moon { position: absolute; right: 8%; top: 8%; width: 70px; height: 70px; border-radius: 50%; background: radial-gradient(circle at 35% 35%, #fff8e0, #e8d9a8 55%, #9c8d62); opacity: .2; box-shadow: 0 0 40px rgba(255, 240, 200, .25); }
+.cfx-moon::before { content: ''; position: absolute; left: 22%; top: 40%; width: 14%; height: 14%; border-radius: 50%; background: rgba(0, 0, 0, .25); box-shadow: 20px -12px 0 -2px rgba(0, 0, 0, .2), 14px 14px 0 -3px rgba(0, 0, 0, .18); }
+.cfx-rocket { position: absolute; left: 4%; bottom: 6%; width: 3px; height: 3px; border-radius: 50%; background: #ffd36b; box-shadow: 0 0 8px #ff9f45, -6px 6px 0 -1px rgba(255, 159, 69, .6), -12px 12px 0 -1px rgba(255, 159, 69, .35); opacity: 0; animation: cfxRocket 11s ease-in infinite; }
+/* lava: liquidations rising like molten rock */
+.fx-lava .chat-fx-a { inset: 0; background: linear-gradient(0deg, rgba(255, 80, 40, .14), transparent 45%); }
+.cfx-blob { position: absolute; width: var(--s, 70px); height: var(--s, 70px); border-radius: 50%; background: radial-gradient(circle at 40% 35%, rgba(255, 170, 80, .32), rgba(220, 50, 30, .16) 60%, transparent 72%); animation: cfxBlob 7s ease-in-out infinite alternate; animation-delay: calc(var(--i) * -1.4s); }
+/* vortex: the FEE reserve turning, three coins in orbit */
+.fx-vortex .chat-fx-a { inset: -50%; background: conic-gradient(from 0deg, transparent, rgba(21, 209, 106, .12), transparent 30%, rgba(94, 200, 255, .1), transparent 60%); animation: cfxSpin 28s linear infinite; }
+.cfx-orbit { position: absolute; left: 50%; top: 50%; width: 0; height: 0; animation: cfxSpin calc(16s + var(--i) * 5s) linear infinite; }
+.cfx-orbit img { position: absolute; left: calc(var(--r, 90px) - 10px); top: -10px; width: 20px; opacity: .22; }
+/* gold: the vault — bars stacked, the dial turning, sparkles */
+.fx-gold .chat-fx-b { inset: 0; background: radial-gradient(1.5px 1.5px at 15% 20%, #f5c451, transparent), radial-gradient(2px 2px at 60% 50%, #ffe08a, transparent), radial-gradient(1.5px 1.5px at 80% 25%, #f5c451, transparent); animation: cfxBreathe 5s ease-in-out infinite; }
+.cfx-dial { position: absolute; left: 50%; top: 42%; width: 180px; height: 180px; margin: -90px 0 0 -90px; border-radius: 50%; border: 2px solid rgba(212, 175, 55, .16); opacity: .7; animation: cfxSpin 60s linear infinite; }
+.cfx-dial::before { content: ''; position: absolute; inset: 22px; border-radius: 50%; border: 1px dashed rgba(212, 175, 55, .2); }
+.cfx-dial::after { content: ''; position: absolute; left: 50%; top: 8px; bottom: 8px; width: 2px; margin-left: -1px; background: rgba(212, 175, 55, .18); }
+.cfx-bars { position: absolute; left: 50%; bottom: 4%; width: 150px; height: 46px; margin-left: -75px; opacity: .22;
+  background: linear-gradient(180deg, #ffe9a6, #c8922c) 25px 0 / 45px 14px no-repeat, linear-gradient(180deg, #ffe9a6, #c8922c) 80px 0 / 45px 14px no-repeat,
+  linear-gradient(180deg, #ffe9a6, #c8922c) 0 16px / 45px 14px no-repeat, linear-gradient(180deg, #ffe9a6, #c8922c) 52px 16px / 45px 14px no-repeat, linear-gradient(180deg, #ffe9a6, #c8922c) 105px 16px / 45px 14px no-repeat,
+  linear-gradient(180deg, #ffe9a6, #c8922c) 25px 32px / 45px 14px no-repeat, linear-gradient(180deg, #ffe9a6, #c8922c) 80px 32px / 45px 14px no-repeat; }
+@keyframes cfxBreathe { 0%, 100% { opacity: .25; } 50% { opacity: .9; } }
+@keyframes cfxDrift { 0% { transform: translate3d(-6%, -4%, 0); } 100% { transform: translate3d(6%, 5%, 0); } }
+@keyframes cfxStripDown { to { transform: translateY(50%); } }
+@keyframes cfxStripUp { to { transform: translateY(-50%); } }
+@keyframes cfxBlob { from { transform: scale(.85); } to { transform: scale(1.15); } }
+@keyframes cfxMark { 0%, 100% { opacity: .04; } 50% { opacity: .09; } }
+@keyframes cfxMarkHi { 0%, 100% { opacity: .08; } 50% { opacity: .16; } }
+@keyframes cfxFlowB { 0% { transform: translateX(0); opacity: 0; } 20% { opacity: 1; } 100% { transform: translateX(260%); opacity: 0; } }
+@keyframes cfxFlowS { 0% { transform: translateX(0); opacity: 0; } 20% { opacity: 1; } 100% { transform: translateX(-260%); opacity: 0; } }
+@keyframes cfxSway { 0% { transform: translateX(-3%); } 100% { transform: translateX(3%); } }
+@keyframes cfxSpin { to { transform: rotate(360deg); } }
+@keyframes cfxBlip { 0%, 80%, 100% { opacity: 0; transform: scale(.6); } 88% { opacity: .9; transform: scale(1.2); } }
+@keyframes cfxRun { to { background-position: 0 32px, 0 0; } }
+@keyframes cfxTape { to { transform: translateY(-50%); } }
+@keyframes cfxRocket { 0% { opacity: 0; transform: translate(0, 0); } 10% { opacity: .9; } 80% { opacity: .9; } 100% { opacity: 0; transform: translate(70vw, -60vh); } }
+/* 🎨 the picker: every theme is a live mini room, grouped by $FEE tier, locked ones show how close you are */
+.ctp { display: grid; gap: 8px; }
+.ctp-tier { display: grid; gap: 5px; } .ctp-tier > header { display: flex; align-items: center; gap: 8px; font: 700 9px 'JetBrains Mono', monospace; letter-spacing: .12em; text-transform: uppercase; color: var(--m-dim, #8a93a6); }
+.ctp-tier > header u { flex: 1; max-width: 90px; height: 3px; border-radius: 2px; background: #ffffff12; overflow: hidden; } .ctp-tier > header u s { display: block; height: 100%; transform-origin: left; text-decoration: none; background: linear-gradient(90deg, #15d16a, #ffd36b); }
+.ctp-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(84px, 1fr)); gap: 6px; }
+.ctp-tile { position: relative; display: grid; align-content: end; min-height: 58px; padding: 5px 7px; border-radius: 10px; overflow: hidden; isolation: isolate; cursor: pointer; text-align: left;
+  border: 1px solid rgba(255, 255, 255, .1); background: #050907; color: #e8fff1; transition: transform .12s ease, border-color .15s ease, box-shadow .15s ease; animation: ctpIn .3s ease both; animation-delay: calc(var(--i) * 35ms); }
+.ctp-tile:hover:not(:disabled) { transform: translateY(-2px); border-color: rgba(69, 228, 134, .6); } .ctp-tile:active:not(:disabled) { transform: scale(.97); } .ctp-tile:focus-visible { outline: 2px solid #45e486; outline-offset: 2px; }
+.ctp-tile.active { border-color: #45e486; box-shadow: 0 0 0 1px #45e486, 0 8px 18px -10px #45e486; }
+.ctp-tile.active::after { content: '✓'; position: absolute; top: 4px; right: 5px; width: 15px; height: 15px; display: grid; place-items: center; border-radius: 50%; font: 900 9px sans-serif; color: #04110a; background: #45e486; }
+.ctp-tile b { position: relative; font: 700 10.5px 'JetBrains Mono', monospace; text-shadow: 0 1px 4px #000; } .ctp-tile:disabled { cursor: not-allowed; } .ctp-tile:disabled > .chat-fx { opacity: .35; filter: grayscale(.8); }
+.ctp-lock { position: absolute; top: 4px; right: 6px; font-size: 10px; }
+@keyframes ctpIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+body.fx-lite .chat-fx *, body.fx-lite .chat-fx > i, body.fx-lite .ctp-tile { animation: none !important; }
+body.fx-lite .cfx-bar, body.fx-lite .cfx-rocket, body.fx-lite .cfx-blip { display: none; }
+@media (prefers-reduced-motion: reduce) { .chat-fx *, .chat-fx > i, .ctp-tile { animation: none !important; } .cfx-bar, .cfx-rocket, .cfx-blip { display: none; } .ctp-tile { transition: none; } }
+body.theme-day .chat-fx { opacity: .55; } body.theme-day .ctp-tile { background: #0b1410; }
+@media (max-width: 640px) { .ctp-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } .cfx-moon { width: 48px; height: 48px; } }
