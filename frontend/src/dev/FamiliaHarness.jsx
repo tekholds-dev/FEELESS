@@ -1,5 +1,7 @@
 import React, { useState } from 'react';
 import { Crews } from '../components/Crews';
+import { FamilyFuseBoard } from '../components/FamilyFuseBoard';
+import '../styles/feeCity.css';
 import '../styles/familyNoir.css';
 
 // 🧪 DEV ONLY (`/dev/familia?tab=wars|board|feed`): the Familia tabs on fixtures, no wallet — every read below is answered locally.
@@ -32,7 +34,25 @@ window.fetch = (u, o) => { const s = String(u);
   if (s.includes('/crews/price')) return json({}); if (/\/api\/reputation\/crews(\?|$)/.test(s)) return json(BOARD); return real(u, o); };
 try { sessionStorage.setItem('feeless.fam.tab', JSON.stringify(new URLSearchParams(window.location.search).get('tab') || 'wars')); } catch { /* */ }
 
+const SIDE = (i, extra) => ({ id: FAM[i].id, tag: FAM[i].tag, name: FAM[i].name, color: [FAM[i].badge.c2, FAM[i].badge.c3].find(c => c !== '#111111'), rating: [1180, 1040, 1420, 990, 1260][i], bracket: ['Made', 'Street', 'Don', 'Street', 'Capo'][i], ...extra });
+const FIGHTS = [
+  { id: 'f1', status: 'live', stake: 'mp', mp: 2500, mins: 30, left: 1240, ranked: true, by: 'Vito', a: SIDE(0, { card: { name: 'Meme Mafia', coins: 5 }, pct: 4.21 }), b: SIDE(1, { card: { name: 'Dog Pound', coins: 5 }, pct: -1.08 }),
+    duel: { a: 4, b: 2, seats: [{ seat: 1, a: { symbol: 'BONK', pct: 6.2 }, b: { symbol: 'WIF', pct: -2.1 }, win: 'a' }, { seat: 2, a: { symbol: 'POPCAT', pct: 1.4 }, b: { symbol: 'MEW', pct: 3.3 }, win: 'b' }] },
+    crowd: { pool: { a: 1800, b: 900 }, total: 2700, pays: { a: 1.43, b: 2.85 }, bidders: 14 }, bidsOpen: true, lockIn: 400 },
+  { id: 'f2', status: 'done', stake: 'paper', mp: 0, mins: 15, left: 0, ranked: true, winner: 'a', a: SIDE(2, { card: { name: 'Lion Den', coins: 4 }, pct: 7.7 }), b: SIDE(4, { card: { name: 'Fire Breath', coins: 3 }, pct: 1.2 }),
+    crowd: { pool: { a: 300, b: 200 }, total: 500, pays: { a: 1.58, b: 2.37 }, bidders: 5 }, paid: { fam: {}, bids: { x: 1 }, house: 25 }, elo: { a: [1404, 1420], b: [1276, 1260] } },
+  { id: 'f3', status: 'open', stake: 'paper', mp: 0, mins: 15, left: 1500, ranked: false, by: 'a member', a: SIDE(3, { card: { name: 'Black Rose', coins: 3 } }), b: SIDE(2, {}), crowd: { pool: { a: 0, b: 0 }, total: 0, pays: {}, bidders: 0 }, bidsOpen: true, lockIn: 900 },
+];
+const FV = { me: { id: 'c1', boss: false, pts: 1200, bank: 900 }, rules: { fuseMinMp: 2000 }, ranked: FAM, blocks: [],
+  ffuse: { fights: FIGHTS, mins: [15, 30, 60], cards: [{ key: 'k1', name: 'Meme Mafia', coins: 5 }], brackets: [{ key: 'street', word: 'Street', from: 0 }, { key: 'made', word: 'Made', from: 1100 }, { key: 'capo', word: 'Capo', from: 1250 }, { key: 'don', word: 'Don', from: 1400 }],
+    ladder: FAM.map((f, i) => ({ ...f, rating: [1180, 1040, 1420, 990, 1260][i], bracket: ['Made', 'Street', 'Don', 'Street', 'Capo'][i] })).sort((a, b) => b.rating - a.rating) } };
+
 export default function FamiliaHarness() {
+  const [fv, setFv] = useState(FV);
+  if (new URLSearchParams(window.location.search).get('tab') === 'fuse') return <div style={{ height: '100vh', overflowY: 'auto', boxSizing: 'border-box', padding: 16, background: '#070504', color: '#e9d3a0' }}><FamilyFuseBoard v={fv} setV={setFv} addr="dev" sess="" /></div>;
+  return <FamiliaTabs />;
+}
+function FamiliaTabs() {
   const [scene, setScene] = useState('');
   return <div style={{ height: '100vh', overflowY: 'auto', boxSizing: 'border-box', padding: 16, background: '#070504', color: '#e9d3a0' }} data-scene={scene}>
     <h2 className="m-label">🧪 DEV PREVIEW · Familia tabs (fixtures) · {scene}</h2>

@@ -14,6 +14,12 @@
 Points only — nothing here moves money.
 """
 MINS = (15, 30, 60)
+# 🎖 RANKED BRACKETS (owner, 2026-10-21: "ranked brackets … any player can fuse any player"): every family carries a Fuse rating (Elo, from
+# ELO0). Its bracket is the rating band below; a fight between families at most ONE bracket apart is RANKED (ratings move at settle, K-factor
+# ELO_K), anything wider is an EXHIBITION (glory only — a Don can't farm rating off a family three brackets down). Any member may call or answer
+# a PAPER fight; an MP fight spends the family bank, so it stays the Don's / Underboss's.
+ELO0, ELO_K = 1000, 32
+BRACKETS = (('street', 'Street', 0), ('made', 'Made', 1100), ('capo', 'Capo', 1250), ('don', 'Don', 1400))
 OPEN_SEC = 1800
 HOUSE = 0.05
 BID_MIN, BID_MAX = 10, 5000
@@ -35,6 +41,32 @@ def coins_ok(a, b):
     if abs(a - b) > 1:
         return False, f'{a} coins vs {b}: cards must have the same coin count or one apart.'
     return True, ''
+
+
+def bracket(rating):
+    """A rating → (key, word, index)."""
+    r = float(rating if rating is not None else ELO0)
+    i = max(k for k, (_, _, lo) in enumerate(BRACKETS) if r >= lo)
+    return BRACKETS[i][0], BRACKETS[i][1], i
+
+
+def ranked(ra, rb):
+    """At most one bracket apart → a ranked fight."""
+    return abs(bracket(ra)[2] - bracket(rb)[2]) <= 1
+
+
+def elo(ra, rb, score_a, k=ELO_K):
+    """New (ra, rb) after a fight; score_a = 1 win · 0.5 draw · 0 loss for A. Whole numbers, zero-sum."""
+    ra, rb = float(ra if ra is not None else ELO0), float(rb if rb is not None else ELO0)
+    ea = 1 / (1 + 10 ** ((rb - ra) / 400))
+    d = int(round(k * (score_a - ea)))
+    return int(round(ra)) + d, int(round(rb)) - d
+
+
+def may_run(stake, boss):
+    """Who may call / answer: anyone in the family for PAPER, the Don or Underboss when the family bank is on the line (MP)."""
+    if stake == 'mp' and not boss:
+        raise ValueError('An MP Family Fuse spends the family bank — only the Don or the Underboss calls or answers it.')
 
 
 def busy(store, cid):
@@ -146,9 +178,10 @@ def expire(f, now):
 
 def view(f, now, duel=None):
     """The fight as the stadium draws it (never the raw books)."""
-    side = lambda s: {k: f[s].get(k) for k in ('id', 'tag', 'name', 'color')} | {'card': {k: (f[s]['card'] or {}).get(k) for k in ('name', 'coins')} if f[s].get('card') else None,
+    side = lambda s: {k: f[s].get(k) for k in ('id', 'tag', 'name', 'color', 'rating', 'bracket')} | {'card': {k: (f[s]['card'] or {}).get(k) for k in ('name', 'coins')} if f[s].get('card') else None,
                                                                                  'pct': (f['books'].get(s) or {}).get('pct')}
     left = max(0, int((f.get('ends') or f['expires']) - now)) if f['status'] in ('open', 'live') else 0
     return {'id': f['id'], 'status': f['status'], 'stake': f['stake'], 'mp': f['mp'], 'mins': f['mins'], 'a': side('a'), 'b': side('b'), 'left': left,
+            'ranked': bool(f.get('ranked')), 'by': f.get('byName'), 'elo': f.get('elo'),
             'bidsOpen': f['status'] in ('open', 'live') and now <= lock_at(f), 'lockIn': max(0, int(lock_at(f) - now)), 'crowd': odds(f),
             'duel': duel if duel is not None else f.get('score'), 'winner': f.get('winner'), 'paid': f.get('paid'), 'at': f['at']}

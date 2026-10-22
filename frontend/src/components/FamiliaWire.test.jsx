@@ -13,3 +13,9 @@ test('the war rope leans to the family trading better and never leaves the track
   expect(tug({ a: { pct: 6.4 }, b: { pct: 2.1 } })).toBeCloseTo(0.6075); expect(tug(null)).toBe(0.5);
   expect(tug({ a: { pct: 90 }, b: { pct: -90 } })).toBe(0.94); expect(tug({ a: { pct: -90 }, b: { pct: 90 } })).toBe(0.06);
 });
+
+test('the fuse ladder fills each family toward its next bracket; the top bracket is full', () => {
+  const { nextBand } = require('./FamilyFuseBoard');
+  const B = [{ from: 0 }, { from: 1100 }, { from: 1250 }, { from: 1400 }];
+  expect(nextBand(1000, B)).toBeCloseTo(1000 / 1100); expect(nextBand(1175, B)).toBeCloseTo(0.5); expect(nextBand(1500, B)).toBe(1);
+});

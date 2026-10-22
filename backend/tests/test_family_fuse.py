@@ -98,3 +98,41 @@ def test_service_runs_a_whole_family_fuse(monkeypatch):
     assert s['house'] == 100 + 10
     v = c.get('/api/reputation/familia-world').json()['ffuse']
     assert v['fights'][0]['winner'] == 'a' and v['fights'][0]['a']['tag'] == 'AAA'
+
+
+def test_brackets_ranked_fights_and_ratings_move_zero_sum():
+    assert ff.bracket(None)[:2] == ('street', 'Street') and ff.bracket(1100)[1] == 'Made' and ff.bracket(1399)[1] == 'Capo' and ff.bracket(1700)[1] == 'Don'
+    assert ff.ranked(1000, 1150) and ff.ranked(1250, 1450) and not ff.ranked(1000, 1260)   # one bracket apart is ranked; two is an exhibition
+    a, b = ff.elo(1000, 1000, 1)
+    assert (a, b) == (1016, 984)
+    a, b = ff.elo(1400, 1000, 1)   # the favourite wins → barely moves
+    assert a - 1400 < 4 and a + b == 2400
+    assert ff.elo(1000, 1000, 0.5) == (1000, 1000)
+
+
+def test_any_member_runs_a_paper_fight_the_bank_stays_the_dons():
+    ff.may_run('paper', boss=False)
+    ff.may_run('mp', boss=True)
+    with pytest.raises(ValueError, match='Don or the Underboss'):
+        ff.may_run('mp', boss=False)
+
+
+def test_the_view_carries_ranked_the_caller_and_both_ratings():
+    st = {}
+    f, _ = ff.challenge(st, 'f1', {**A, 'rating': 1180, 'bracket': 'Made'}, {**B, 'rating': 1010, 'bracket': 'Street'}, card(3), 'paper', 0, 15, NOW, 0, 2000)
+    f.update(ranked=ff.ranked(1180, 1010), byName='Vito')
+    v = ff.view(f, NOW)
+    assert v['ranked'] and v['by'] == 'Vito' and (v['a']['rating'], v['a']['bracket'], v['b']['bracket']) == (1180, 'Made', 'Street')
+
+
+def test_a_settled_ranked_fight_moves_both_ratings_once_through_the_payout():
+    import reputation_service as rs
+    st = {'crews': {'fa': {'id': 'fa', 'tag': 'AAA', 'members': []}, 'fb': {'id': 'fb', 'tag': 'BBB', 'members': []}}}
+    f, _ = ff.challenge({}, 'f1', A, B, card(3), 'paper', 0, 15, NOW, 0, 2000)
+    f['ranked'] = True
+    ff.accept(f, card(3, 'd'), NOW, 0, 2000)
+    ff.settle(f, 'a', NOW + 900)
+    rs._ffuse_pay(st, f, NOW + 900)
+    assert st['crews']['fa']['world']['fuseElo'] == 1016 and st['crews']['fb']['world']['fuseElo'] == 984 and f['elo'] == {'a': [1000, 1016], 'b': [1000, 984]}
+    rs._ffuse_pay(st, f, NOW + 901)   # paid twice by mistake → ratings don't move again
+    assert st['crews']['fa']['world']['fuseElo'] == 1016

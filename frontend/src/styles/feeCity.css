@@ -209,3 +209,27 @@ body.fx-lite .ffb-fight, body.fx-lite .ffs span.s-live small { animation: none; 
 body.theme-day .ffb-fight { background: #fffaf0; } body.theme-day .ffb-mid b { color: #6a4a0a; text-shadow: none; } body.theme-day .ffb-seats li > span { color: #1a140a; }
 body.theme-day .ffs { background: linear-gradient(100deg, #fff3d6, #eefaf2); } body.theme-day .ffs > b, body.theme-day .ffs span i { color: #6a4a0a; }
 @media (max-width: 640px) { .ffb-seats li { grid-template-columns: 44px 56px minmax(0, 1fr) 56px 44px; gap: 4px; } .ffb-side i { font-size: 16px; } .ffb-mid b { font-size: 18px; } }
+/* 🎖 Family Fuse: brackets, ranked / exhibition, a chat per fight, the Fuse ladder (2026-10-22) */
+.ffb-side.b .ffb-br { justify-self: end; }
+.ffb-br { display: inline-block; justify-self: start; width: fit-content; margin: 2px 0; padding: 1px 7px; border-radius: 999px; font: 800 8.5px 'JetBrains Mono', monospace; letter-spacing: .1em; text-transform: uppercase; color: #160f05; background: linear-gradient(90deg, #c8922c, #ffe9a6); }
+.ffb-kind { display: inline-block; margin-top: 3px; padding: 2px 8px; border-radius: 999px; font: 800 8.5px 'JetBrains Mono', monospace; letter-spacing: .14em; color: #c9b38a; border: 1px solid #c9b38a55; }
+.ffb-kind.is-ranked { color: #160f05; background: #ffd36b; border-color: #ffe9a6; box-shadow: 0 0 12px #ffd36b66; }
+.ffb-by { display: block; font-size: 9.5px; opacity: .7; }
+.ffb-elo { margin: 0; font: 600 11px 'JetBrains Mono', monospace; color: #e9d3a0; } .ffb-elo b { font-weight: 900; }
+.ffb-chat > summary { cursor: pointer; min-height: 32px; display: flex; align-items: center; gap: 6px; font: 700 11px 'JetBrains Mono', monospace; list-style: none; color: #ffd36b; transition: color .15s ease; }
+.ffb-chat > summary:hover { color: #fff1c4; } .ffb-chat > summary:focus-visible { outline: 2px solid #ffd36b; outline-offset: 2px; } .ffb-chat > summary small { opacity: .65; font-weight: 600; }
+.ffb-chat[open] > summary { margin-bottom: 6px; }
+.ffb-ladder { display: grid; gap: 6px; padding-top: 6px; border-top: 1px solid #d4af3733; }
+.ffb-ladder ol { list-style: none; margin: 0; padding: 0; display: grid; gap: 3px; }
+.ffb-ladder li { display: grid; grid-template-columns: 22px 46px minmax(0, 1fr) 54px 90px 50px; gap: 8px; align-items: center; min-height: 30px; padding: 3px 8px; border-radius: 8px; background: rgba(255, 255, 255, .03);
+  animation: ffbIn .3s ease both; animation-delay: calc(var(--i) * 40ms); }
+.ffb-ladder li.is-me { box-shadow: inset 0 0 0 1px #ffd36b; background: rgba(255, 211, 107, .08); }
+.ffb-ladder li > b { font: 800 11px 'JetBrains Mono', monospace; color: #ffd36b; } .ffb-ladder li > i { font: 800 11px 'JetBrains Mono', monospace; font-style: normal; color: #f1d27a; }
+.ffb-ladder li > span { font: italic 700 13px 'Playfair Display', Georgia, serif; color: #f5e2b0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ffb-ladder li > em { font: 800 8.5px 'JetBrains Mono', monospace; letter-spacing: .12em; text-transform: uppercase; font-style: normal; color: #c9b38a; }
+.ffb-ladder li > u { height: 5px; border-radius: 3px; background: #ffffff12; overflow: hidden; } .ffb-ladder li > u s { display: block; height: 100%; transform-origin: left; background: linear-gradient(90deg, #7a0f1f, #ffd36b); text-decoration: none; transition: transform .6s ease; }
+.ffb-ladder li > strong { font: 900 12px 'JetBrains Mono', monospace; color: #fff3d6; text-align: right; }
+@keyframes ffbIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+body.fx-lite .ffb-ladder li { animation: none; } @media (prefers-reduced-motion: reduce) { .ffb-ladder li { animation: none; } .ffb-ladder li > u s { transition: none; } }
+body.theme-day .ffb-ladder li { background: #fff8ea; } body.theme-day .ffb-ladder li > span, body.theme-day .ffb-ladder li > strong { color: #3a2a0a; } body.theme-day .ffb-elo { color: #3a2a0a; }
+@media (max-width: 640px) { .ffb-ladder li { grid-template-columns: 20px 40px minmax(0, 1fr) 46px; } .ffb-ladder li > em, .ffb-ladder li > u { display: none; } }

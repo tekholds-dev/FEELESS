@@ -9415,6 +9415,12 @@ def _ffuse_pay(st, f, now):
         if o and pts:
             pm = o.setdefault('world', {}).setdefault('pts', {}); pm[w] = int(pm.get(w) or 0) + int(pts)
     st['house'] = int(st.get('house') or 0) + int(paid.get('house') or 0)
+    if f['status'] == 'done' and f.get('ranked') and not f.get('elo') and crews_.get(f['a']['id']) and crews_.get(f['b']['id']):   # 🎖 ranked → ratings move once
+        ca_, cb_ = crews_[f['a']['id']], crews_[f['b']['id']]
+        ra_, rb_ = [int(((x_.get('world') or {}).get('fuseElo')) or _ffuse.ELO0) for x_ in (ca_, cb_)]
+        na_, nb_ = _ffuse.elo(ra_, rb_, {'a': 1, 'b': 0}.get(f.get('winner'), 0.5))
+        ca_.setdefault('world', {})['fuseElo'] = na_; cb_.setdefault('world', {})['fuseElo'] = nb_
+        f['elo'] = {'a': [ra_, na_], 'b': [rb_, nb_]}
     w_ = st.setdefault('world', _fworld.blank())
     w_['log'] = ([{'at': now, 'what': (f"⚔ Family Fuse: [{f[f['winner']]['tag']}] beat [{f['b' if f['winner'] == 'a' else 'a']['tag']}]" + (f" · +{(paid.get('fam') or {}).get(f[f['winner']]['id'], 0):,} MP" if f['mp'] else ' · paper'))
                   if f.get('winner') in ('a', 'b') else f"⚔ Family Fuse [{f['a']['tag']}] vs [{f['b']['tag']}] — {'draw' if f['status'] == 'done' else 'nobody took it'}"}] + (w_.get('log') or []))[:60]
@@ -9454,7 +9460,11 @@ async def _ffuse_tick(now, force=False):
 def _ffuse_view(st, c, now):
     store = (st.get('world') or {}).get('ffuse') or {}
     rows = sorted(store.values(), key=lambda f: (f['status'] not in ('live', 'open'), -f['at']))
-    out = {'fights': [_ffuse.view(f, now) for f in rows[:8]], 'mins': list(_ffuse.MINS), 'bid': [_ffuse.BID_MIN, _ffuse.BID_MAX], 'house': _ffuse.HOUSE}
+    out = {'fights': [_ffuse.view(f, now) for f in rows[:8]], 'mins': list(_ffuse.MINS), 'bid': [_ffuse.BID_MIN, _ffuse.BID_MAX], 'house': _ffuse.HOUSE,
+           'brackets': [{'key': k_, 'word': w_, 'from': lo_} for k_, w_, lo_ in _ffuse.BRACKETS],
+           'ladder': sorted(({'id': x_['id'], 'tag': x_.get('tag'), 'name': x_.get('name'), 'rating': int(((x_.get('world') or {}).get('fuseElo')) or _ffuse.ELO0),
+                              'bracket': _ffuse.bracket(((x_.get('world') or {}).get('fuseElo')) or _ffuse.ELO0)[1], 'badge': x_.get('badge')} for x_ in (st.get('crews') or {}).values()),
+                             key=lambda r_: -r_['rating'])[:12]}
     if c:
         out['cards'] = _ffuse_cards(st, c)
     return out
@@ -9755,11 +9765,15 @@ async def familia_fuse_act(p: FamFuseAct):
         staff_ = _is_staff(me); boost_, rk_ = _city_ctx(c, me, now)
         boss = staff_ or me == c.get('owner') or rk_.get(me) == 'underboss'
         city = _fcity.city_of(c, now); min_mp = _familia_rules()['fuseMinMp']
-        me_ = lambda o: {'id': o['id'], 'tag': o.get('tag'), 'name': o.get('name'), 'color': ((o.get('badge') or {}).get('colors') or [None])[0]}
+        def me_(o):
+            r_ = int(((o.get('world') or {}).get('fuseElo')) or _ffuse.ELO0)
+            b_ = o.get('badge') or {}
+            lum_ = lambda h_: sum(int(str(h_)[i_:i_ + 2], 16) * w_ for i_, w_ in ((1, .299), (3, .587), (5, .114))) if isinstance(h_, str) and len(h_) == 7 else -1
+            col_ = max((b_.get(k_) for k_ in ('c1', 'c2', 'c3')), key=lum_, default=None) if b_ else None   # the family's brightest colour (a black c1 vanishes on the board)
+            return {'id': o['id'], 'tag': o.get('tag'), 'name': o.get('name'), 'color': col_ if lum_(col_) > 60 else None, 'rating': r_, 'bracket': _ffuse.bracket(r_)[1]}
         try:
-            if p.act in ('challenge', 'accept', 'decline', 'cancel') and not boss:
-                raise ValueError('Only the Don or the Underboss runs a Family Fuse.')
             if p.act == 'challenge':
+                _ffuse.may_run(p.stake, boss)   # 🎖 any member calls a PAPER fight; the bank (MP) stays the Don's / Underboss's
                 o = (st.get('crews') or {}).get(p.vs)
                 if not o:
                     raise ValueError('No such family.')
@@ -9767,6 +9781,7 @@ async def familia_fuse_act(p: FamFuseAct):
                 if not card:
                     raise ValueError('Pick one of your family\'s Fuse cards (build one in the Fuse tab).')
                 f, hold = _ffuse.challenge(store, f"ff{int(now * 1000) % 10**10}", me_(c), me_(o), card, p.stake, p.mp, p.mins, now, city['bank'], min_mp)
+                f.update(ranked=_ffuse.ranked(f['a']['rating'], f['b']['rating']), by=me, byName=_display_name(me))
                 city['bank'] -= hold
                 for m_ in o.get('members') or []:
                     a_ = m_.get('address') if isinstance(m_, dict) else m_
@@ -9781,6 +9796,7 @@ async def familia_fuse_act(p: FamFuseAct):
                     raise ValueError('No such challenge for your family.')
                 if not pre.get('card'):
                     raise ValueError('Pick one of your family\'s Fuse cards.')
+                _ffuse.may_run(f['stake'], boss)
                 hold = _ffuse.accept(f, pre['card'], now, city['bank'], min_mp)
                 prices, liqs = pre['px']
                 books = {s_: _ffuse_book(f, s_, prices, liqs, now) for s_ in ('a', 'b')}
@@ -9794,6 +9810,8 @@ async def familia_fuse_act(p: FamFuseAct):
                 f = store.get(p.fight)
                 if not f or f['status'] != 'open' or (p.act == 'decline' and f['b']['id'] != c['id']) or (p.act == 'cancel' and f['a']['id'] != c['id']):
                     raise ValueError('No such open challenge.')
+                if not boss and not (p.act == 'cancel' and f.get('by') == me) and f['stake'] == 'mp':
+                    raise ValueError('Only the Don, the Underboss or whoever called it can cancel it.')
                 f.update(status='expired', endAt=now); _ffuse_pay(st, f, now); res_ = _ffuse.view(f, now)
             elif p.act == 'bid':
                 f = store.get(p.fight)
