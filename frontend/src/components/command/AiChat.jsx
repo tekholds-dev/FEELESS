@@ -30,8 +30,17 @@ export const QUICK = {
   build: [['🫀 Missing vital', 'Which vital is UNKNOWN or PENDING most often in CONTEXT and would have changed a recent decision? Propose how to collect and draw it.'], ['📊 New live meter', 'Propose ONE new live visual for the desk that shows a number the owner cannot see today.'],
     ['🧪 Test for the last loss', 'Which check or test would have caught the last real loss? Propose it.'], ['🧹 What is clutter?', 'What on the desk is duplicate or never changes a decision? Propose what to cut.']],
 };
-const KIND = { cfg: '⚙ switch', lesson: '🎓 lesson', weight: '⚖ rank weight', tune: '🎚 exit notch → shadow', idea: '💡 idea' };
+const KIND = { cfg: '⚙ switch', lesson: '🎓 lesson', weight: '⚖ rank weight', tune: '🎚 exit notch → shadow', idea: '💡 idea', rig: '🎛 model setting' };
 const show = v => (v === true ? 'ON' : v === false ? 'OFF' : v == null ? '—' : String(v));
+// 🎛 a rig proposal in words: 'ctx=16384 par=1' → '16K context · ×1 at once'; 'local.timeout' → 'OSSY timeout'. Reloads are flagged.
+const RIG_WHO = { lan: 'G4', local: 'OSSY', win: 'NEXA', chat: 'BRAIN CHAT' };
+const RIG_W = { ctx: v => `${Math.round(v / 1024)}K context`, par: v => `×${v} at once`, flash: v => `flash ${+v ? 'ON' : 'OFF'}`, kv: v => `KV on ${+v ? 'GPU' : 'RAM'}`, batch: v => `batch ${v}` };
+export function rigShow(v) {
+  if (typeof v !== 'string' || !v.includes('=')) return show(v);
+  return v.split(/\s+/).map(x => x.split('=')).map(([k, n]) => (RIG_W[k] ? RIG_W[k](+n) : `${k} ${n}`)).join(' · ');
+}
+export const rigKey = k => { const [m, f] = String(k).split('.'); return `${RIG_WHO[m] || m} · ${f === 'load' ? 'LM Studio load' : f === 'len' ? 'answer length' : f === 'temp' ? 'temperature' : f}`; };
+export const rigReloads = k => /\.load$/.test(k) || /^win\.(ctx|parallel)$/.test(k);
 
 // pure: the meta line under an answer (provider · model · latency · tokens)
 export const metaLine = r => [r?.provider, r?.model, r?.ms != null ? `${(r.ms / 1000).toFixed(1)}s` : null, r?.tokens ? `${r.tokens.in}→${r.tokens.out} tok` : null].filter(Boolean).join(' · ');
@@ -54,10 +63,12 @@ export function LocalWatch({ w }) {
 }
 
 function Proposal({ p, busy, onDecide }) {
-  return <li className={`cch-prop is-${p.status}`} data-testid={`cch-prop-${p.id}`}>
-    <p className="cch-phead"><b>{String(p.agent).toUpperCase()}</b><em>{KIND[p.kind] || p.kind}</em><span>{p.key}</span>{p.status !== 'pending' ? <u>{p.status.toUpperCase()}</u> : null}</p>
+  const rig = p.kind === 'rig'; const sh = rig ? rigShow : show;
+  return <li className={`cch-prop is-${p.status} ${rig ? 'is-rig' : ''}`} data-testid={`cch-prop-${p.id}`}>
+    <p className="cch-phead"><b>{rig ? '🎛 RIG' : String(p.agent).toUpperCase()}</b><em>{KIND[p.kind] || p.kind}</em><span>{rig ? rigKey(p.key) : p.key}</span>{p.status !== 'pending' ? <u>{p.status.toUpperCase()}</u> : null}</p>
+    {rig && rigReloads(p.key) && p.status === 'pending' ? <p className="cch-reload" data-testid={`cch-reload-${p.id}`}>⚠ ✅ RELOADS {RIG_WHO[String(p.key).split('.')[0]]} — offline for a few seconds while it loads</p> : null}
     {p.kind === 'idea' ? <p className="cch-diff"><span className="is-new"><small>BUILD</small>{show(p.new)}</span></p>   /* an idea has no "now" value — only what would be built */
-      : <p className="cch-diff"><span className="is-old"><small>NOW</small>{show(p.old)}</span><i aria-hidden>→</i><span className="is-new"><small>PROPOSED</small>{show(p.new)}</span></p>}
+      : <p className="cch-diff"><span className="is-old"><small>NOW</small>{sh(p.old)}</span><i aria-hidden>→</i><span className="is-new"><small>PROPOSED</small>{sh(p.new)}</span></p>}
     <details className="cch-more"><summary>why · effect · rollback</summary>
       {p.reason ? <p className="cch-why"><small>WHY</small>{p.reason}</p> : null}
       {p.effect ? <p className="cch-why"><small>EFFECT</small>{p.effect}</p> : null}
@@ -142,7 +153,7 @@ const Composer = memo(forwardRef(function Composer({ mode, busy, upl, isOwner, f
     <button type="button" className="cch-ico cch-clip" onClick={() => fileRef.current?.click()} disabled={!isOwner || busy || upl || mode === 'case'} data-tip="Attach a picture (a chart, a screen): a cloud model that can see images reads it" aria-label="Attach a picture" data-testid="cch-attach">{upl ? '…' : '📎'}</button>
     <button type="button" className="cch-ico cch-clip" onClick={() => { const v = String(txt).trim(); if (v.length < 3) { toast.error('Describe the picture in the box first'); return; } setTxt(''); onDraw(v); }} disabled={!isOwner || busy || mode === 'case'} data-tip="Draw it: the text in the box becomes a picture (OpenRouter image model, a few cents)" aria-label="Generate a picture" data-testid="cch-draw">🎨</button>
     <input className="m-input" value={txt} onChange={e => setTxt(e.target.value)} disabled={!isOwner || busy} spellCheck={false} aria-label="Message to the model" data-testid="cch-input"
-      placeholder={mode === 'case' ? `${focusSym ? `$${focusSym}` : 'the coin on the chart'} — ask about it (optional)` : mode === 'improve' ? 'what should the agents do better?' : mode === 'build' ? 'what should we build next?' : 'talk to the brain…'} />
+      placeholder={mode === 'case' ? `${focusSym ? `$${focusSym}` : 'the coin on the chart'} — ask about it (optional)` : mode === 'improve' ? 'what should the agents do better?' : mode === 'build' ? 'what should we build next?' : 'talk to the brain… or set a model: “ossy context 16k, temp 0.6”'} />
     <button type="button" className="cch-ico cch-qt" onClick={onQ} aria-pressed={qOn} data-tip="One-tap prompts" aria-label="One-tap prompts" data-testid="cch-qt">⚡</button>
     <button type="submit" className="m-btn m-go cch-go" disabled={!isOwner || busy || (!String(txt).trim() && mode !== 'case')} data-testid="cch-send">{busy ? '…' : 'SEND IT'}</button></form>;
 }));
@@ -167,6 +178,8 @@ export const AiChat = memo(function AiChat({ call, isOwner = true, focus, focusS
   const pickMode = k => { setFresh({ mode: null, from: Infinity }); setMode(k); };
   const take = useCallback(r => { if (!r) return; if (r.threads) setThreads(r.threads); else if (r.history) setThreads(t => ({ ...t, [r.mode || 'chat']: r.history })); if (r.build) setBuild(r.build); if (r.providers) setProvs(r.providers); if (r.saved) setSaved(r.saved); if (r.settings) setSets(r.settings); if (r.proposals) setProps(r.proposals); if (r.learned != null) setLearned(r.learned); if (r.brain) setBrain(r.brain); if (r.local) setLocal(r.local); }, []);
   useEffect(() => { let on = true; if (isOwner && typeof call === 'function') Promise.resolve().then(() => call('/admin/ai/chat')).then(r => { if (on) { take(r); setErr(null); } }).catch(x => { if (on) setErr(x.message); }); return () => { on = false; }; }, [call, isOwner, take]);
+  useEffect(() => { const h = e => { const t = String(e?.detail?.text || ''); if (!t) return; setPane('talk'); pickMode('chat'); setTimeout(() => comp.current?.set(t), 0); };   // 🎛 Models › "say it" fills the box
+    window.addEventListener('feeless:brain-say', h); return () => window.removeEventListener('feeless:brain-say', h); }, []);   // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { if (!pop) return undefined; const k = e => { if (e.key === 'Escape') setPop(false); }; document.addEventListener('keydown', k); return () => document.removeEventListener('keydown', k); }, [pop]);
   const say = async (text, m = mode) => {
     const v = String(text || '').trim(); if (busy || (!v && m !== 'case')) return;
@@ -175,7 +188,7 @@ export const AiChat = memo(function AiChat({ call, isOwner = true, focus, focusS
     try { const r = await call('/admin/ai/chat', { method: 'POST', body: JSON.stringify({ text: v, mode: m, focus: focus || null, provider: prov, ...(pic ? { image: pic } : {}) }) });
       take(r); setLast(r); setErr(null);
       if (r.routed) pickMode(r.mode);   /* a chat message that asked for a change ran as 🛠 Fix agents */
-      if (!r.ok) toast.error(r.why || 'no provider answered'); else if ((r.new || []).length) { setOpenP(true); toast.success(`🛠 ${r.new.length} fix${r.new.length === 1 ? '' : 'es'} waiting for your call`); }
+      if (!r.ok) toast.error(r.why || 'no provider answered'); else if ((r.new || []).length) { setOpenP(true); toast.success(r.rig ? `🎛 ${r.new.length} model change${r.new.length === 1 ? '' : 's'} waiting for your ✅` : `🛠 ${r.new.length} fix${r.new.length === 1 ? '' : 'es'} waiting for your call`); }
     } catch (x) { toast.error(x.message); addMsg(m, { role: 'assistant', text: `⚠ ${x.message}` }); } finally { setBusy(false); }
   };
   const clear = useCallback(async index => { try { take(await call('/admin/ai/chat/clear', { method: 'POST', body: JSON.stringify(index == null ? { mode } : { index, mode }) })); if (index == null) setLast(null); } catch (x) { toast.error(x.message); } }, [call, mode, take]);

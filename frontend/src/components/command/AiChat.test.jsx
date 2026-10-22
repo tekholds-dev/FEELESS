@@ -239,3 +239,12 @@ test('the think bar reads the real call: elapsed ÷ that model\'s own average, p
   expect(thinkRead({ prov: 'win', sec: 40, typical: 30, pct: 99 }, 0).phase).toMatch(/longer than usual \(\+10s\)/);
   expect(thinkRead(null, 1000, 1000 + 4000)).toMatchObject({ sec: 4, typical: 20, who: 'the model' });
 });
+
+test('🎛 a rig proposal reads in words and warns before a reload', () => {
+  const { rigShow, rigKey, rigReloads } = require('./AiChat');
+  expect(rigShow('ctx=16384 par=1')).toBe('16K context · ×1 at once');
+  expect(rigShow('flash=0 kv=1')).toBe('flash OFF · KV on GPU');
+  expect(rigShow(0.6)).toBe('0.6');
+  expect(rigKey('local.load')).toBe('OSSY · LM Studio load'); expect(rigKey('chat.temp')).toBe('BRAIN CHAT · temperature');
+  expect(rigReloads('lan.load')).toBe(true); expect(rigReloads('win.ctx')).toBe(true); expect(rigReloads('lan.timeout')).toBe(false);
+});

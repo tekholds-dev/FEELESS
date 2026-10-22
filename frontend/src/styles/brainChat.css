@@ -63,6 +63,9 @@ body.theme-day .cch-web a { color: #0b6b9a; border-color: rgba(11, 107, 154, .35
 .cch-prop.is-approved { border-color: color-mix(in srgb, var(--br2) 45%, transparent); background: rgba(21, 209, 106, .06); } .cch-prop.is-rejected { border-color: var(--m-line); background: transparent; opacity: .65; }
 .cch-phead { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 8px; margin: 0; font: 700 9.5px var(--m-mono); color: var(--m-dim); }
 .cch-phead b { color: var(--m-text); letter-spacing: .08em; } .cch-phead em { font-style: normal; color: var(--gold, #f5c451); } .cch-phead u { margin-left: auto; text-decoration: none; font-weight: 800; letter-spacing: .08em; color: var(--m-mute); }
+.cch-prop.is-rig { border-color: rgba(111, 180, 255, .5); background: linear-gradient(160deg, rgba(111, 180, 255, .1), rgba(21, 209, 106, .05)); }
+.cch-reload { margin: 0; padding: 4px 7px; border-radius: 6px; background: rgba(255, 211, 107, .12); color: #ffd36b; font: 800 9px var(--m-mono); letter-spacing: .04em; }
+body.theme-day .cch-reload { color: #8a5a00; background: rgba(255, 190, 60, .18); }
 .cch-diff { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); gap: 6px; align-items: center; margin: 0; font: 700 10.5px var(--m-mono); color: var(--m-text); }
 .cch-diff span { display: grid; gap: 1px; padding: 4px 6px; border-radius: 6px; background: rgba(255, 255, 255, .05); overflow-wrap: anywhere; min-width: 0; } .cch-diff .is-new { background: rgba(21, 209, 106, .12); }
 .cch-diff small, .cch-why small { font: 800 7.5px var(--m-mono); letter-spacing: .1em; color: var(--m-mute); } .cch-diff i { font-style: normal; color: var(--m-mute); }
@@ -242,3 +245,17 @@ body.theme-day .cch-think { background: linear-gradient(120deg, rgba(225, 214, 2
 .cch-themes { position: absolute; top: 46px; right: 10px; z-index: 5; width: min(360px, calc(100% - 20px)); max-height: 70%; overflow-y: auto; scrollbar-width: thin; padding: 10px; border-radius: 12px; background: rgba(10, 8, 18, .97); border: 1px solid rgba(183, 155, 255, .35); box-shadow: 0 18px 40px -16px #000; }
 .cch-themes > header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; }
 body.theme-day .cch-themes { background: #fbf8ff; }
+/* 📱 THE BRAIN ON A PHONE (2026-10-22: at 360 px the fixes card sat on the composer and the log had no height) — one column that scrolls:
+   panes = one swipeable chip row, the conversation keeps ≥ 340 px, fixes stack under it at full height. */
+@media (max-width: 640px) {
+  .cch.is-full, .cch.is-pop { height: min(92dvh, 800px); }
+  .cch.is-full .cch-panes, .cch.is-pop .cch-panes { display: flex; gap: 5px; overflow-x: auto; scrollbar-width: none; }
+  .cch.is-full .cch-panes::-webkit-scrollbar { display: none; }
+  .cch.is-full .cch-panes > button, .cch.is-pop .cch-panes > button { flex: none; display: inline-flex; padding: 7px 11px; min-height: 32px; border-radius: 999px; transform: none; }
+  .cch.is-full .cch-navrow .cch-kpis u, .cch.is-pop .cch-navrow .cch-kpis u { padding: 4px 7px; }
+  .cch-talkpane { overflow-y: auto; overscroll-behavior: contain; scrollbar-width: thin; scrollbar-color: var(--br) transparent; }
+  .cch-talkpane > .cch-main, .cch.is-pop .cch-main { display: flex; flex-direction: column; flex: none; }
+  .cch-talk { flex: 1 0 auto; min-height: 340px; } .cch-log { max-height: 52dvh; }
+  .cch:not(.is-pop) .cch-side, .cch-side { max-height: none; overflow: visible; } .cch-props, .cch.is-pop .cch-props { max-height: none; }
+  .cch-modes > button { min-height: 34px; }
+}

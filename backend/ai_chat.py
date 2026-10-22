@@ -11,6 +11,8 @@ Only `decide(.., approve=True)` hands a proposal to the service's `apply` step, 
   weight  a ranking weight on one cause from the coach's fixed vocabulary (coach.py)
   tune    ONE Reaper setting, ONE notch → a SHADOW test only (office.model_candidate) — never live by approval alone
   idea    a suggestion with no setting behind it (which vitals to collect, which provider for which task): approved = filed, applies nothing
+  rig     a MODEL setting (ai_rig.check_change): what LM Studio loads G4 / OSSY with (reload on ✅ only), what FEELESS sends each model,
+          NEXA's runtime, the Brain's temperature / answer length — never anything about trading
 Everything about execution is out of reach: any key matching `PROTECTED` (slippage, price gap, sell-back, pool floor, wallet, limits, keeper,
 signing, funding, sizes, stops, seats …) is refused at parse time AND again at approval. The chat history is short and in memory; the
 stored proposal record is compact (no raw prompt, no raw response) and capped."""
@@ -25,7 +27,7 @@ PROPOSALS_PER_REPLY = 4
 AGENTS = ('tally', 'sherlock', 'weather', 'trigger', 'devil', 'warden', 'courier', 'reaper', 'archivist', 'judge', 'desk')
 SAFE_CFG = {'agentAiGate': (True, False), 'agentAiLearn': (True, False), 'chartWait': (True, False), 'agentCapital': (True, False), 'agentDial': ('chill', 'normal', 'crazy')}
 TUNE_KEYS = ('giveBackPct', 'protectAt', 'stopPct')
-KINDS = ('cfg', 'lesson', 'weight', 'tune', 'idea')
+KINDS = ('cfg', 'lesson', 'weight', 'tune', 'idea', 'rig')
 PROTECTED = re.compile(r'slip|gap|sell.?back|pool|liq|wallet|keeper|courier.?(health|block)|sign|fund|top.?up|withdraw|deposit|limit|max.?swap|daily|impact|'
                        r'size|seat|armed|paused|halt|rpc|api.?key|secret|private|order|route|quote|agent(tp|sl|trail|maxhold|control|paper|open|curve|authority|entry|switch|mc|back|feed|learnpct|seats|take|mode)', re.I)
 
@@ -39,6 +41,7 @@ IMPROVE_ASK = (
     "- weight: key = one cause from CONTEXT.vocab exactly; value = why it should rank a matching coin down\n"
     f"- tune: key one of {', '.join(TUNE_KEYS)}; value up|down (one notch, into a shadow test)\n"
     "- idea: anything else (a vital to collect, which provider for which task, a prompt change) — key = a short title, value = the idea\n"
+    "- rig: a model setting — key lan.load|local.load (value like \"ctx=16384 par=1 flash=1 kv=1\"), lan|local|win.timeout|perMin, win.ctx|parallel, chat.temp (0.1|0.3|0.6|0.9) or chat.len (short|normal|long)\n"
     "Never propose anything about execution: slippage, price gap, sell-back, pool floor, wallet or limits, sizes, seats, stops, orders, keys.")
 
 # 💬 CHAT: the desk voice (the 7B local model answered "improve decision accuracy · monitor and adjust" to "why don't we capitalize faster?")
@@ -289,6 +292,12 @@ def check(p, vocab=()):
         if key not in set(vocab or ()):
             return None, f'{key}: not a cause in the desk\'s vocabulary'
         val = clean(val, 120)
+    elif kind == 'rig':
+        import ai_rig as _rg
+        v = _rg.check_change(key, val)
+        if v is None:
+            return None, f'{key}: not a model setting the chat may change, or {val!r} is not one of its options'
+        val = v
     elif kind == 'tune':
         if key not in TUNE_KEYS or str(val).strip().lower() not in ('up', 'down'):
             return None, 'a tune is one of giveBackPct | protectAt | stopPct, up | down'
@@ -328,11 +337,25 @@ def parse_improve(text, vocab=(), only=None):
     return clean(j.get('reply') or j.get('summary') or ''), ok[:PROPOSALS_PER_REPLY], bad[:6]
 
 
-OLD_WORD = {'lesson': 'no such lesson', 'weight': 'no rule for this cause', 'idea': 'nothing — an idea changes no setting'}
+OLD_WORD = {'lesson': 'no such lesson', 'weight': 'no rule for this cause', 'idea': 'nothing — an idea changes no setting', 'rig': 'as loaded'}
 ROLLBACK = {'cfg': 'flip the same switch back in ⚙ operator controls (or approve the opposite proposal) — old value kept on this record',
             'lesson': 'remove it in 🎓 Teach the desk (✕ on the lesson)', 'weight': 'kill the rule in 👑 Coach (✕) — it also expires by itself in 24h',
             'tune': 'nothing to roll back: it only enters a 20-exit shadow test; a test that does not beat the live rule is rejected by itself',
-            'idea': 'nothing to roll back: filing an idea changes no setting'}
+            'idea': 'nothing to roll back: filing an idea changes no setting',
+            'rig': 'set it back in Brain › Models (the old value is kept on this record) — a load change reloads the model once more'}
+
+
+def rig_items(text):
+    """🎛 The owner's own settings line ("ossy context 16k, g4 parallel 1, temp 0.6") → validated `rig` proposals, read straight from the words
+    (ai_rig.parse_line — no model guesses the numbers). Empty = not a settings line."""
+    import ai_rig as _rg
+    out = []
+    for x in _rg.parse_line(text):
+        v, _why = check({'agent': 'desk', 'kind': 'rig', 'key': x['key'], 'value': x['value'], 'reason': f'you said: "{clean(text, 160)}"',
+                         'effect': x['words'] + (' — ⚠ the model goes offline for a few seconds while it reloads' if x['reload'] else ' — live at once')})
+        if v:
+            out.append(v)
+    return out[:PROPOSALS_PER_REPLY + 2]
 
 
 def propose(state, items, olds, now, source=None):

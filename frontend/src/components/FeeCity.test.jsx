@@ -19,7 +19,7 @@ const VIEW = {
   rules: { fuseMinMp: 2000 }, season: { name: 'S', weather: 'clear' }, cpu: [], cartels: [], log: [], rate: { mp: 1, feecat: 1 }, raids: [],
 };
 const q = id => document.querySelector(`[data-testid="${id}"]`);
-beforeEach(() => { global.fetch = jest.fn(url => Promise.resolve({ ok: true, json: () => Promise.resolve(String(url).includes('/chat/') ? { messages: [{ id: 'm1', username: 'don', text: 'gm', fam: { tag: 'SIC' } }] } : VIEW) })); });
+beforeEach(() => { global.fetch = jest.fn(url => Promise.resolve({ ok: true, json: () => Promise.resolve(String(url).includes('/familia/street/') ? { room: 'city-fee', lines: [{ id: 'm1', name: 'don', text: 'gm', ts: Date.now(), fam: { tag: 'SIC', don: true } }], here: [], hereN: 0, vitals: { spark: [0, 1], hour: 1 }, reacts: ['🔥'], mod: {} } : VIEW) })); });
 
 test('pure: plots, landmarks and outer cities have places; vitals read the real numbers', () => {
   expect(FEE_PLOTS).toHaveLength(24); expect(feeSpot({ lm: 'arena' }).x).toBeGreaterThan(feeSpot({ i: 8 }).x);

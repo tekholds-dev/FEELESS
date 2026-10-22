@@ -1,8 +1,6 @@
-import React, { useEffect, useRef, useState } from 'react';
-import { toast } from 'sonner';
-import { apiUrl } from '../lib/api';
+import React from 'react';
 
-// 🧭 The HUD around the Familia cities: the five-city rail (Fee City the widest), one chat per city where every line wears its family tag,
+// 🧭 The HUD around the Familia cities: the five-city rail (Fee City the widest) (the street chat lives in StreetChat.jsx),
 // Call-of-Duty style rank emblems (drawn: a shield, chevrons for the division, a crown for the Dons) and the ranked ladder.
 const n = x => Math.round(Number(x) || 0).toLocaleString('en-US');
 const DIV = { III: 1, II: 2, I: 3 };
@@ -19,29 +17,6 @@ export function CityRail({ cities, city, onGo }) {
   return <nav className="fh-rail" role="tablist" aria-label="Cities" data-testid="city-rail">{(cities || []).map((c, i) => <button key={c.key} type="button" role="tab" aria-selected={city === c.key}
     className={`fh-city k-${c.key} ${city === c.key ? 'active' : ''}`} style={{ '--i': i }} onClick={() => onGo(c.key)} data-testid={`city-${c.key}`} data-tip={`${c.name} — ${c.vibe}`}>
     <b>{c.name}</b><small>{c.vibe}</small><u><s style={{ transform: `scaleX(${c.plots ? Math.max(0.02, c.held / c.plots) : 0})` }} /></u><em key={c.held}>{c.held}/{c.plots} held</em></button>)}</nav>;
-}
-
-export function CityChat({ city, name, addr, sess }) {
-  const room = `city-${city}`; const [msgs, setMsgs] = useState([]); const [t, setT] = useState(''); const [busy, setBusy] = useState(false); const end = useRef(null);
-  useEffect(() => { let on = true;
-    const go = () => fetch(apiUrl(`/api/reputation/chat/${room}`)).then(r => (r.ok ? r.json() : null)).then(d => { if (on && d) setMsgs((d.messages || []).slice(-40)); }).catch(() => {});
-    go(); const p = setInterval(() => { if (!document.hidden) go(); }, 8000); return () => { on = false; clearInterval(p); }; }, [room]);
-  useEffect(() => { const el = end.current; if (el?.parentNode) el.parentNode.scrollTop = el.parentNode.scrollHeight; }, [msgs]);
-  const send = async e => {
-    e.preventDefault(); if (!t.trim()) return;
-    if (!addr || !sess) { toast.error('Connect your wallet + open chat once to sign in first.'); return; }
-    setBusy(true);
-    try { const r = await fetch(apiUrl('/api/reputation/chat'), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ room, address: addr, text: t.trim(), ts: Math.floor(Date.now() / 1000), session: sess }) });
-      const j = await r.json().catch(() => ({})); if (!r.ok) throw new Error(j.detail || 'Could not post'); setT(''); setMsgs(m => [...m, j.message].slice(-40)); }
-    catch (err) { toast.error(err.message); } finally { setBusy(false); }
-  };
-  return <section className="fh-chat m-card" data-testid="city-chat">
-    <header><b>💬 {name}</b><small>{msgs.length ? `${msgs.length} lines · live` : 'quiet streets'}</small></header>
-    <ol>{msgs.map(m => <li key={m.id}>{m.fam ? <i style={{ '--fc': m.fam.color || '#d4af37' }}>{m.fam.tag}</i> : <i className="is-free">free</i>}<b>{m.username || m.handle || 'anon'}</b><span>{m.text}</span></li>)}
-      {!msgs.length ? <li className="fh-nil">No one's talking in {name} yet. Say something — your family tag rides with you.</li> : null}<li ref={end} aria-hidden="true" className="fh-end" /></ol>
-    <form onSubmit={send}><input className="m-input" value={t} maxLength={280} onChange={e => setT(e.target.value)} placeholder={`Talk in ${name}…`} aria-label={`Chat in ${name}`} />
-      <button type="submit" className="m-btn" disabled={busy || !t.trim()} data-tip="Post to this city's street chat">Send</button></form>
-  </section>;
 }
 
 export function RankLadder({ ranked, mine }) {

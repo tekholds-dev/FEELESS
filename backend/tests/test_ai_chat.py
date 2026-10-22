@@ -217,3 +217,36 @@ def test_chat_context_carries_the_live_rules_and_the_germ_record():
     t = [{'thesis': {'germEntry': 'confirmed'}, 'realPct': 12.0}, {'thesis': {'germEntry': 'confirmed'}, 'realPct': -4.0}, {'thesis': {}, 'realPct': 3}]
     assert 'confirmed 2 trades, typical +4.0%, 50% won' in germ_record(t)
     assert LIVE_MECHANICS[0].startswith('🦠')
+
+
+def test_a_settings_line_becomes_rig_proposals_that_apply_only_on_approval():
+    import ai_chat as c
+    items = c.rig_items('ossy context 16k and temp 0.6')
+    assert {(x['kind'], x['key'], x['value']) for x in items} == {('rig', 'local.load', 'ctx=16384'), ('rig', 'chat.temp', 0.6)}
+    assert 'reloads' in next(x for x in items if x['key'] == 'local.load')['effect']
+    st, new = c.propose({}, items, {('rig', 'local.load'): 'ctx=7659 par=2'}, 1000.0, 'your line')
+    assert all(p['status'] == 'pending' for p in new) and next(p for p in new if p['key'] == 'local.load')['old'] == 'ctx=7659 par=2'
+    assert c.check({'kind': 'rig', 'key': 'local.slippage', 'value': 1})[0] is None   # money keys never pass, even as a "rig" change
+    assert c.check({'kind': 'rig', 'key': 'lan.timeout', 'value': 999})[0] is None
+    assert c.rig_items('why are we bleeding?') == []
+
+
+def test_an_approved_rig_change_applies_through_the_service(monkeypatch):
+    import asyncio
+    import reputation_service as rs
+    note = asyncio.run(rs._ai_proposal_apply({'kind': 'rig', 'key': 'lan.timeout', 'new': 120}, 1.0))
+    assert '→ 120' in note and rs._air.RIG['lan']['timeout'] == 120
+    asyncio.run(rs._ai_proposal_apply({'kind': 'rig', 'key': 'chat.temp', 'new': 0.6}, 1.0))
+    assert rs._chat['settings']['temp'] == 0.6
+    seen = {}
+
+    async def fake_reload(http, env, cfg, key, want):   # never the real LM Studio
+        seen.update(key=key, want=dict(want))
+        return {'ok': True, 'ms': 900, 'loaded': {'ctx': want['ctx'], 'par': 2}}
+    monkeypatch.setattr(rs._air.ROUTER, 'reload_model', fake_reload)
+    note = asyncio.run(rs._ai_proposal_apply({'kind': 'rig', 'key': 'local.load', 'new': 'ctx=16384'}, 1.0))
+    assert seen == {'key': 'local', 'want': {'ctx': 16384}} and 'reloaded' in note and '16K context' in note
+    import pytest
+    with pytest.raises(ValueError):
+        asyncio.run(rs._ai_proposal_apply({'kind': 'rig', 'key': 'lan.slippage', 'new': 5}, 1.0))
+    rs._air.RIG.clear()

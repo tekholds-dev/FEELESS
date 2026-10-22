@@ -1878,7 +1878,8 @@ class ReactPayload(BaseModel):
 
 @app.post('/api/reputation/reactions')
 async def react(payload: ReactPayload):
-    if payload.emoji not in REACTIONS or not (6 <= len(payload.voter) <= 80):
+    import street_chat as _stc
+    if payload.emoji not in (_stc.REACTS if payload.room.startswith('city-') else REACTIONS) or not (6 <= len(payload.voter) <= 80):
         raise HTTPException(400, 'Invalid reaction.')
     async with _react_lock:
         d = _react_load()
@@ -2494,7 +2495,7 @@ async def chat_post(payload: ChatPost):
             pass
         d['rooms'][payload.room] = room[-300:]
         CHAT_PATH.write_text(json.dumps(d))
-    if payload.room.startswith('feed-') and tokens:
+    if payload.room.startswith(('feed-', 'city-')) and tokens:   # 📞 a coin pasted on a Familia street gets a receipt too (points stay FEEd-only)
         _record_feed_calls(msg)
     return {'ok': True, 'message': msg}
 
@@ -8498,6 +8499,24 @@ def _crew_name(a):
     return pr.get('displayName') or pr.get('handle') or f'{a[:4]}…{a[-4:]}'
 
 
+def _seat_of(st, me):
+    """👑 The wallet that holds `me`'s family seat (owner, 2026-10-22: "the creator must see THEIR OWN Sicario family"): `me` itself, else any
+    wallet linked to `me`, else — for staff — any wallet linked to an HQ wallet (the creator's account is every one of them). → that wallet, or
+    `me` when none of them is seated (joins / creates then seat `me`)."""
+    by_ = (st or {}).get('by') or {}
+    if not me or me in by_:
+        return me
+    for w_ in linked_of(me):
+        if w_ in by_:
+            return w_
+    if _is_staff(me):
+        for a_ in _admin_wallets():
+            for w_ in linked_of(a_):
+                if w_ in by_:
+                    return w_
+    return me
+
+
 def _crew_cfg():
     try:   # 👥 the owner's families-per-wallet line (HQ › Familia) is applied on every crews read / write
         import crews as _cr0
@@ -8622,7 +8641,7 @@ async def crew_mine(address: str, session: str):
     """My crew with its members' week and the invite code (members only — needs the chat session)."""
     me = _session_or_401(address, session); st = _json_load(CREWS_PATH, {})
     import crews as _cr
-    c = _cr.crew_of(st, me); now = time.time(); _crew_cfg()
+    me = _seat_of(st, me); c = _cr.crew_of(st, me); now = time.time(); _crew_cfg()
     fams_ = [{'id': x_, 'tag': st['crews'][x_].get('tag'), 'name': st['crews'][x_].get('name'), 'active': i_ == 0} for i_, x_ in enumerate(_cr.families_of(st, me))]
     return {'crew': _crew_view(c, _crew_pieces(c['members'], now), with_code=True) if c else None,
             'invites': _cr.invites_for(st, me, now), 'sent': _cr.sent_by(st, c, now) if c else [], 'canAdd': _is_staff(me),
@@ -8759,7 +8778,7 @@ async def crew_seats(p: CrewSeats):
     me = _session_or_401(p.address, p.session); mine = set(linked_of(me)) | {me}
     async with _crews_lock:
         st = _json_load(CREWS_PATH, {})
-        c0 = _cr.crew_of(st, me)
+        me = _seat_of(st, me); mine = mine | {me}; c0 = _cr.crew_of(st, me)
         if not c0 or c0['owner'] != me:
             raise HTTPException(403, 'Only the family owner can add seats.')
         paid = {'sig': '', 'usd': 0.0, 'at': time.time(), 'staff': True} if _is_staff(me) else await _verify_sol_payment(p.signature, mine, _cr.price('seats', _crew_cfg()), st)
@@ -8821,7 +8840,7 @@ async def crew_act(p: CrewAct):
     import crews as _cr
     me = _session_or_401(p.address, p.session); now = time.time(); plain = None
     async with _crews_lock:
-        st = _json_load(CREWS_PATH, {})
+        st = _json_load(CREWS_PATH, {}); me = _seat_of(st, me) if p.act not in ('accept', 'decline') else me   # an invite is answered by the wallet it was sent to
         try:
             if p.act == 'code':
                 c, plain = _cr.set_code(st, me, p.code or None)
@@ -8924,7 +8943,7 @@ async def familia_city(address: str, session: str):
     import crews as _cr
     me = _session_or_401(address, session); now = time.time()
     async with _crews_lock:
-        st = _json_load(CREWS_PATH, {}); c = _cr.crew_of(st, me)
+        st = _json_load(CREWS_PATH, {}); me = _seat_of(st, me); c = _cr.crew_of(st, me)
         if not c:
             raise HTTPException(404, 'Join a family to build a block.')
         boost_, rk_ = _city_ctx(c, me, now)
@@ -8962,7 +8981,7 @@ async def familia_city_act(p: CityAct):
     import crews as _cr
     me = _session_or_401(p.address, p.session); now = time.time(); res_ = None
     async with _crews_lock:
-        st = _json_load(CREWS_PATH, {}); c = _cr.crew_of(st, me)
+        st = _json_load(CREWS_PATH, {}); me = _seat_of(st, me); c = _cr.crew_of(st, me)
         if not c:
             raise HTTPException(404, 'Join a family to build a block.')
         staff_ = _is_staff(me)
@@ -9257,6 +9276,7 @@ async def familia_world(address: str = '', session: str = ''):
         st = _json_load(CREWS_PATH, {}); _cr._norm(st)
         w = st.setdefault('world', _fworld.blank())
         _world_tick(st, w, now)
+        me = _seat_of(st, me) if me else None
         c = _cr.crew_of(st, me) if me else None
         v = _world_view(st, c, me, now, cartels_)
         _json_save(CREWS_PATH, st)
@@ -9286,7 +9306,7 @@ async def familia_world_act(p: WorldAct):
     cartels_ = await asyncio.to_thread(_cartels_now, now)
     async with _crews_lock:
         st = _json_load(CREWS_PATH, {}); _cr._norm(st)
-        c = _cr.crew_of(st, me)
+        me = _seat_of(st, me); c = _cr.crew_of(st, me)
         if not c:
             raise HTTPException(404, 'Join a family first.')
         w = st.setdefault('world', _fworld.blank())
@@ -9829,7 +9849,7 @@ async def familia_fuse_act(p: FamFuseAct):
             pre['card'] = mine_
             pre['px'] = await _ffuse_prices([f0['a']['card'], mine_])
     async with _crews_lock:
-        st = _json_load(CREWS_PATH, {}); _cr._norm(st); c = _cr.crew_of(st, me)
+        st = _json_load(CREWS_PATH, {}); _cr._norm(st); me = _seat_of(st, me); c = _cr.crew_of(st, me)
         if not c:
             raise HTTPException(404, 'Join a family first.')
         w = st.setdefault('world', _fworld.blank()); store = w.setdefault('ffuse', {})
@@ -9911,7 +9931,7 @@ class CrewBadge(BaseModel):
 async def crew_badge_catalog(address: str, session: str):
     """🌹 The badge builder for MY family: every part with locked / unlocked from the family's TRACKED numbers + what the restyle costs."""
     import crews as _cr
-    me = _session_or_401(address, session); st = _json_load(CREWS_PATH, {}); c = _cr.crew_of(st, me)
+    me = _session_or_401(address, session); st = _json_load(CREWS_PATH, {}); me = _seat_of(st, me); c = _cr.crew_of(st, me)
     if not c:
         raise HTTPException(404, 'You are not in a family.')
     met = _cr.family_metrics(c, st.get('awards'), _is_staff(c.get('owner')))
@@ -9927,7 +9947,7 @@ async def crew_badge(p: CrewBadge):
     import crews as _cr
     me = _session_or_401(p.address, p.session); mine = set(linked_of(me)) | {me}
     async with _crews_lock:
-        st = _json_load(CREWS_PATH, {}); c0 = _cr.crew_of(st, me)
+        st = _json_load(CREWS_PATH, {}); me = _seat_of(st, me); mine = mine | {me}; c0 = _cr.crew_of(st, me)
         if not c0 or c0['owner'] != me:
             raise HTTPException(403, 'Only the family head builds the badge.')
         try:
@@ -17153,7 +17173,15 @@ def _chat_olds():
     """What each proposable thing is RIGHT NOW (shown as the proposal's old value)."""
     rc = _prime.clean_cfg((_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('realCfg') or {})
     tn = _of.tunes(_office_state(), 'reaper')
-    return {**{('cfg', k_): rc.get(k_) for k_ in _aic.SAFE_CFG}, **{('tune', k_): tn.get(k_) for k_ in _aic.TUNE_KEYS}}
+    import ai_rig as _rg
+    rg_ = _rg.clean({}, _json_load(AI_RIG_PATH, {}))
+    st_ = _chat.get('settings') or {}
+    rig_ = {('rig', f'chat.{f_}'): st_.get(f_) for f_ in ('temp', 'len')}
+    rig_.update({('rig', f'{k_}.{f_}'): v_ for k_ in _rg.KEYS for f_, v_ in rg_[k_].items() if f_ != 'load'})
+    for k_ in _rg.LM_KEYS:   # a load's "now" = what LM Studio REPORTS it runs (last read), never the saved wish
+        ld_ = (((_lms_seen.get(k_) or (0, None))[1] or {}).get('loaded') or [None])[0]
+        rig_[('rig', f'{k_}.load')] = _rg.load_value({f_: ld_[f_] for f_ in _rg.LOAD_OPTIONS if ld_.get(f_) is not None}) if ld_ else 'not loaded'
+    return {**{('cfg', k_): rc.get(k_) for k_ in _aic.SAFE_CFG}, **{('tune', k_): tn.get(k_) for k_ in _aic.TUNE_KEYS}, **rig_}
 
 
 async def _ai_proposal_apply(p, now):
@@ -17185,6 +17213,36 @@ async def _ai_proposal_apply(p, now):
     if kind == 'tune':
         _coach['tuneAsk'] = {'key': key, 'dir': val, 'why': str(p.get('reason') or '')[:90], 'at': now}   # the office pass puts it in SHADOW (office.model_candidate) — never live
         return f"Reaper {key} {val}: queued for a 20-exit shadow test"
+    if kind == 'rig':   # 🎛 a MODEL setting the owner approved (ai_rig.check_change is the gate) — a load change reloads that model NOW, once
+        import ai_rig as _rg
+        v_ = _rg.check_change(key, val)
+        if v_ is None:
+            raise ValueError('not a model setting')
+        mk_, _s, f_ = str(key).partition('.')
+        if mk_ == 'chat':
+            _brain_load()
+            _chat['settings'] = _aic.clean_settings({f_: v_}, _chat['settings'])
+            _chat_persist()
+            return f"Brain chat {'temperature' if f_ == 'temp' else 'answer length'} → {v_} (live now)"
+        prev_ = _rg.clean({}, _json_load(AI_RIG_PATH, {}))
+        if f_ == 'load':
+            want_ = _rg.parse_load_value(v_)
+            new_ = _rg.clean({mk_: {'load': want_}}, prev_)
+            _json_save(AI_RIG_PATH, new_); _rig_apply()
+            res_ = await _air.ROUTER.reload_model(_ai_http(), os.environ, _ai_cfg(), mk_, new_[mk_]['load'])
+            _lms_seen.pop(mk_, None)
+            if not res_.get('ok'):
+                return f"{_rg.NAMES[mk_]}: saved {_rg.load_words(want_)}, but the reload FAILED — {res_.get('err')} (tap ⚡ Reload in Brain › Models to retry)"
+            got_ = res_.get('loaded') or {}
+            return (f"{_rg.NAMES[mk_]} reloaded in {res_['ms'] / 1000:.1f}s — LM Studio reports {_rg.load_words({k_: got_[k_] for k_ in _rg.LOAD_OPTIONS if got_.get(k_) is not None}) or 'loaded'}"
+                    + (f" · {res_['note']}" if res_.get('note') else ''))
+        new_ = _rg.clean({mk_: {f_: v_}}, prev_)
+        _json_save(AI_RIG_PATH, new_); _rig_apply()
+        t_ = _rg.win_target(new_['win'])
+        if mk_ == 'win' and f_ in ('ctx', 'parallel') and t_ and _rg.win_target(prev_['win']) != t_:
+            _nexa_kick(t_[0], t_[1])
+            return f"NEXA {f_} → {v_}: saved, her llamafile is restarting with {t_[0]} × {t_[1]} (checked on /props + /slots)"
+        return f"{_rg.NAMES[mk_]} {f_}: {prev_[mk_].get(f_)} → {v_} (live now — what FEELESS sends)"
     if kind == 'idea':   # 📋 approving an idea = permission to BUILD it: it joins the build queue the next engineering session works through
         try:
             _chat['build'], it_ = _aic.build_add(_build_state(), key, f"{val}" + (f" — why: {p.get('reason')}" if p.get('reason') else ''), f"approved · {p.get('agent') or 'desk'}", now)
@@ -17320,6 +17378,21 @@ def _nexa_kick(ctx, par, restart=False):
     return True
 
 
+_lms_reloading: set = set()   # ⚡ models reloading right now (one reload per model at a time)
+_lms_seen: dict = {}   # 🧠 {key: (at, lms_row)} — what each LM Studio REALLY runs (15s cache; a reload clears it)
+
+
+async def _lms_states(fresh=False):
+    """G4 + OSSY's LM Studio state, read in parallel (one cheap GET each, no inference) → {key: lms_row | None}."""
+    now_ = time.time()
+    keys_ = [k_ for k_ in ('lan', 'local') if fresh or now_ - (_lms_seen.get(k_) or (0, None))[0] > 15]
+    if keys_:
+        got_ = await asyncio.gather(*[_air.ROUTER.lms_state(_ai_http(), os.environ, _ai_cfg(), k_) for k_ in keys_], return_exceptions=True)
+        for k_, v_ in zip(keys_, got_):
+            _lms_seen[k_] = (now_, None if isinstance(v_, BaseException) else v_)
+    return {k_: (_lms_seen.get(k_) or (0, None))[1] for k_ in ('lan', 'local')}
+
+
 @app.get('/api/reputation/admin/ai/rig')
 async def admin_ai_rig(request: Request):
     """🎛 Owner: the model rig (ai_rig.py) — what FEELESS sends G4 / OSSY / NEXA, the load command that matches it, and for NEXA the runtime
@@ -17331,8 +17404,11 @@ async def admin_ai_rig(request: Request):
     v_ = _air.ROUTER.view(os.environ, _ai_cfg())
     live_ = {r_['key']: {'state': r_.get('state'), 'lastMs': r_.get('lastMs')} for r_ in v_.get('providers') or []}
     live_['win'] = {'state': _air.ROUTER.stats['win'].get('state'), 'lastMs': _air.ROUTER.stats['win'].get('lastMs')}
-    act_, ctl_ = await asyncio.gather(_nexa_actual(), _nexa_ctl_reachable())
-    return {**_rg.view(rig_, models_), 'live': live_, 'nexa': _rg.runtime_view(rig_['win'], act_, _nexa_job, ctl_)}
+    act_, ctl_, lms_ = await asyncio.gather(_nexa_actual(), _nexa_ctl_reachable(), _lms_states())
+    _brain_load()
+    set_ = _chat.get('settings') or {}
+    return {**_rg.view(rig_, models_, lms_), 'live': live_, 'nexa': _rg.runtime_view(rig_['win'], act_, _nexa_job, ctl_),
+            'chat': {'temp': set_.get('temp'), 'len': set_.get('len'), 'temps': list(_rg.CHAT_TEMPS), 'lens': _rg.CHAT_LENS}, 'reloading': sorted(_lms_reloading)}
 
 
 @app.post('/api/reputation/admin/ai/rig')
@@ -17348,6 +17424,19 @@ async def admin_ai_rig_set(request: Request):
     _json_save(AI_RIG_PATH, new_)
     _rig_apply()
     ad_ = _admin_load(); _audit(ad_, admin, 'ai-rig', str({k_: new_[k_] for k_ in _rg.KEYS})[:300]); _admin_save(ad_)
+    rl_ = body.get('reload')
+    if rl_ in _rg.LM_KEYS:   # ⚡ the owner's tap = the approval: reload THAT model with its wanted load (never automatic)
+        if rl_ in _lms_reloading:
+            raise HTTPException(429, f'{_rg.NAMES[rl_]} is already reloading.')
+        _lms_reloading.add(rl_)
+        try:
+            res_ = await _air.ROUTER.reload_model(_ai_http(), os.environ, _ai_cfg(), rl_, new_[rl_]['load'])
+        finally:
+            _lms_reloading.discard(rl_)
+        _lms_seen.pop(rl_, None)
+        ad_ = _admin_load(); _audit(ad_, admin, 'lms-reload', f"{rl_} {_rg.load_value(new_[rl_]['load'])} → {'ok' if res_.get('ok') else res_.get('err')}"[:200]); _admin_save(ad_)
+        out_ = await admin_ai_rig(request)
+        return {**out_, 'reload': res_}
     t_ = _rg.win_target(new_['win'])
     ask_ = body.get('nexa')
     if t_ and (ask_ in ('apply', 'restart') or _rg.win_target(prev_['win']) != t_):
@@ -17493,6 +17582,22 @@ async def admin_ai_chat(request: Request):
     asked, mode = mode, _aic.route_mode(mode, text)   # a chat message that asks for a change becomes proposals the owner approves
     if len(text) < 2 and mode != 'case':
         raise HTTPException(400, 'Type a message.')
+    if asked in ('chat', 'improve') and not (body or {}).get('image'):   # 🎛 "ossy context 16k, temp 0.6" = a SETTINGS LINE: read straight from your words
+        rig_items_ = _aic.rig_items(text)                              # → proposals at once (no model call); nothing applies before ✅
+        if rig_items_:
+            now = time.time(); _brain_load()
+            if any(x_['key'].endswith('.load') for x_ in rig_items_):
+                await _lms_states(fresh=True)
+            _chat['props'], new = _aic.propose(_chat_props(), rig_items_, _chat_olds(), now, '👤 your line')
+            _json_save(AI_PROPOSALS_PATH, _chat['props'])
+            reply = ('🎛 ' + (f"{len(new)} model change{'s' if len(new) != 1 else ''} waiting for your ✅: " if new else 'Already waiting for your ✅: ')
+                     + ' · '.join(p_['effect'].split(' — ')[0] for p_ in (new or rig_items_))
+                     + ('. A load change reloads that model once you approve it.' if any(x_['key'].endswith('.load') for x_ in rig_items_) else '. Live the moment you approve.'))
+            _chat['th'] = _aic.push_thread(_aic.push_thread(_chat['th'], asked, 'user', text), asked, 'assistant', reply, {'mode': asked, 'provider': '🎛 rig'})
+            _chat_persist()
+            ad_ = _admin_load(); _audit(ad_, 'owner', 'ai-proposals', f"{len(new)} rig change(s) from your line: " + ' · '.join(f"{p_['key']}={p_['new']}" for p_ in new)[:200]); _admin_save(ad_)
+            return {'ok': True, 'mode': asked, 'routed': False, 'reply': reply, 'provider': '🎛 rig', 'model': None, 'ms': 0, 'history': _chat['th'].get(asked) or [], **_chat_extra(),
+                    'new': [p_['id'] for p_ in new], 'refused': [], 'proposals': _aic.view(_chat_props()), 'rig': True}
     if _chat['busy']:
         raise HTTPException(429, 'The model is still answering your last message.')
     _chat['busy'] = True
@@ -23635,6 +23740,92 @@ async def presence_read(a: str = Query('', max_length=2400)):
     """🟢 Up to 50 wallets → online · away · offline (invisible reads as offline)."""
     now = time.time()
     return {x_: _pres.status(_presence, x_, now) for x_ in [y_.strip() for y_ in a.split(',') if y_.strip()][:50]}
+
+
+# 💬 THE STREETS — the Familia city chat, dressed (street_chat.py): crest + Don flag per line, call receipts, reactions, who is on the block, vitals
+import street_chat as _stc
+_street_here: dict = {}   # city → {wallet: last heartbeat} — memory only
+
+
+def _street_fams():
+    """wallet → its family's street look {id, tag, color, badge, don} — badge_view once per family per read."""
+    import crews as _cr
+    st_ = _json_load(CREWS_PATH, {}) or {}
+    cache_ = {}
+
+    def fam(addr):
+        c_ = _cr.crew_of(st_, primary_of(addr)) or _cr.crew_of(st_, addr)
+        if not c_:
+            return None
+        if c_['id'] not in cache_:
+            b_ = _cr.badge_view(c_, st_.get('awards'), _crew_cfg(), _is_staff(c_.get('owner')))
+            cache_[c_['id']] = {'id': c_['id'], 'tag': c_.get('tag'), 'name': c_.get('name'), 'color': b_.get('c1'), 'badge': b_, 'owner': c_.get('owner')}
+        f_ = cache_[c_['id']]
+        return {k_: v_ for k_, v_ in f_.items() if k_ != 'owner'} | {'don': primary_of(addr) == primary_of(f_.get('owner') or '')}
+    return fam
+
+
+@app.get('/api/reputation/familia/street/{city}')
+async def familia_street(city: str, viewer: str = Query('', max_length=64), session: str = Query('', max_length=400)):
+    """💬 One street read: the last 60 lines dressed (family crest · Don · receipts · reactions · @you), who is on the block, the street's vitals,
+    and whether the viewer may pull lines. A signed-in viewer's read also counts as their heartbeat on this block."""
+    room_ = _stc.room_of(city)
+    if not room_:
+        raise HTTPException(400, 'No such city.')
+    now = time.time()
+    me_ = primary_of(session_address(session) or '') if session else ''
+    me_ = me_ if me_ and viewer and primary_of(viewer) == me_ else ''
+    seen_ = lambda w: (_presence.get(w) or ('online', 0))[0] != 'invisible'   # 🟢 invisible (profile › online status) never shows on the block
+    if me_ and seen_(me_):
+        _stc.here_beat(_street_here, city, me_, now)
+    d_ = _chat_load()
+    fam = _street_fams()
+    reacts_ = (_react_load().get('rooms') or {}).get(room_) or {}
+    handles_ = [handle_of(me_)] if me_ else []
+    lines_ = _stc.dress(d_['rooms'].get(room_, [])[-60:], fam, _stc.receipts(_calls_load().get('calls'), room_), reacts_, me_ or None, handles_, linked_of(me_) if me_ else ())
+    here_ = _stc.here_list(_street_here, city, now, seen_)
+    vf_ = fam(me_) if me_ else None
+    staff_ = bool(me_) and _is_staff(me_)
+    return {'room': room_, 'lines': lines_, 'vitals': _stc.vitals(lines_, now * 1000), 'reacts': list(_stc.REACTS),
+            'here': [{'address': w_, 'name': _display_name(w_), 'fam': fam(w_)} for w_ in here_[:40]], 'hereN': len(here_),
+            'mod': {'staff': staff_, 'don': bool(vf_ and vf_.get('don')), 'famId': (vf_ or {}).get('id')}, 'me': {'fam': vf_, 'handle': handles_[0] if handles_ else None} if me_ else None}
+
+
+class StreetMod(BaseModel):
+    address: str = Field(..., max_length=64)
+    session: str = Field(..., max_length=400)
+    id: str = Field(..., max_length=40)
+    act: str = Field('pull', max_length=8)
+
+
+@app.post('/api/reputation/familia/street/{city}/mod')
+async def familia_street_mod(city: str, p: StreetMod):
+    """🛡 Pull a line off the street (staff: any line · a Don: their own family's lines) or mute its poster for an hour (staff only). Audited."""
+    room_ = _stc.room_of(city)
+    if not room_ or p.act not in ('pull', 'mute'):
+        raise HTTPException(400, 'Pull or mute a line on a real street.')
+    me_ = _session_or_401(p.address, p.session)
+    fam = _street_fams()
+    vf_ = fam(me_) or {}
+    staff_ = _is_staff(me_)
+    async with _chat_lock:
+        d_ = _chat_load()
+        msgs_ = d_['rooms'].get(room_, [])
+        m_ = next((x for x in msgs_ if x.get('id') == p.id), None)
+        if not m_:
+            raise HTTPException(404, 'That line is gone already.')
+        lf_ = fam(m_.get('address')) or {}
+        if p.act == 'mute' and not staff_:
+            raise HTTPException(403, 'Only FEELESS staff can mute.')
+        if not _stc.can_pull(staff_, vf_.get('id'), vf_.get('don'), lf_.get('id')):
+            raise HTTPException(403, "A Don can only pull their own family's lines.")
+        d_['rooms'][room_] = [x for x in msgs_ if x.get('id') != p.id]
+        CHAT_PATH.write_text(json.dumps(d_))
+    if p.act == 'mute' and staff_ and primary_of(m_.get('address') or '') not in _admin_wallets():
+        async with _admin_lock:
+            mu_ = _json_load(MUTES_PATH, {}); mu_[primary_of(m_['address'])] = time.time() + 3600; _json_save(MUTES_PATH, mu_)
+    ad_ = _admin_load(); _audit(ad_, me_, f'street-{p.act}', f"{room_} {p.id} @{handle_of(primary_of(m_.get('address') or ''))}: {str(m_.get('text') or '')[:80]}"); _admin_save(ad_)
+    return {'ok': True}
 
 
 @app.get('/api/reputation/admin/security/stores')

@@ -6,7 +6,8 @@ import { PoolHub, PoolRow, usePools } from './PoolHub';
 import { PLACES, usd } from '../lib/cityPlan';
 import { openWarRoom } from './WarRoomHost';
 import { FamilyHQ } from './FamilyHQ';
-import { CityChat, CityRail, RankBadge, RankLadder } from './FamiliaHud';
+import { CityRail, RankBadge, RankLadder } from './FamiliaHud';
+import StreetChat from './StreetChat';
 import { FamilyFuseBoard } from './FamilyFuseBoard';
 import { RaidStage } from './RaidStage';
 import { AvenueRoom, AVENUE_LENSES } from './CityAvenue';
@@ -249,7 +250,7 @@ export function FamilyWorld({ addr, sess, onEnter, onJoin, rooms = {} }) {
         overlay={<>{incoming(v.raids, me?.id) ? <RaidAlert r={incoming(v.raids, me?.id)} onDefend={() => { setLens('raids'); const h = (v.blocks || []).find(b => b.id === me?.home); if (h) setSelRaw(h); }} /> : null}<TheWire log={v.log} /><CityActions v={v} go={go} />{lens ? <PlacePanel lens={lens} live={live} onClose={() => setLensRaw(null)}>{place}</PlacePanel> : null}</>}
         tour={{ on: tour, ctl: <><PlacesMenu onGo={p => setLens(p.lens)} />{howBtn}</>, ctl3: howBtn }} />
       <div className="fwd-col"><BlockPanel x={sel} v={v} act={act} busy={busy} onEnter={onEnter} mk={mk} onPlace={k => setLensRaw(k)} pools={pools} onLink={link} />
-        {v.cities ? <CityChat city={city} name={(v.cities.find(c => c.key === city) || {}).name || 'the city'} addr={addr} sess={sess} /> : null}</div></div>
+        {v.cities ? <StreetChat city={city} name={(v.cities.find(c => c.key === city) || {}).name || 'the city'} addr={addr} sess={sess} /> : null}</div></div>
     {city === 'fee' && v.ffuse ? <FamilyFuseBoard v={v} setV={setV} addr={addr} sess={sess} /> : null}
     <PowerSkyline v={v} onPick={flyTo} onEmpty={() => go(v.me ? 'map' : 'join')} />
   </section>;

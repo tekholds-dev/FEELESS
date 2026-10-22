@@ -960,6 +960,62 @@ class Router:
         self.stats[key].update(state='UNTESTED', noModel=False, lastErr=None, coolUntil=0.0)
         return {'ok': True, 'model': p['model'], 'ctx': size, 'ms': round((time.time() - t0) * 1000)}
 
+    async def lms_state(self, http, env, cfg, key):
+        """🧠 What THIS LM Studio really runs: `GET /api/v1/models` → ai_rig.lms_row (model, format, max context, size, each loaded instance's
+        context / parallel / flash / KV). None = LM Studio did not answer. One cheap read, no inference."""
+        import ai_rig as _rg
+        if key not in LM:
+            return None
+        p = provider(env, key, cfg)
+        if not p['enabled'] or not p['base']:
+            return None
+        root = re.sub(r'/v1/?$', '', str(p['base']).rstrip('/'))
+        try:
+            r = await asyncio.wait_for(http.get(root + '/api/v1/models', **_lm_auth(env, key)), timeout=4)
+        except Exception:
+            return None
+        if r.status_code != 200:
+            return None
+        try:
+            return _rg.lms_row(r.json(), p['model'])
+        except Exception:
+            return None
+
+    async def reload_model(self, http, env, cfg, key, want):
+        """⚡ The OWNER's approved reload (✅ on a chat proposal, or ⚡ Reload in Brain › Models): unload THIS model's instances, then load it
+        with the wanted settings (context / parallel always; flash / KV / batch on GGUF only) and read back what LM Studio reports.
+        Never called by a timer. → {ok, ms, loaded, note} or {ok: False, err}."""
+        import ai_rig as _rg
+        if key not in LM:
+            return {'ok': False, 'err': 'Only an LM Studio model can be reloaded from here.'}
+        p = provider(env, key, cfg)
+        if not p['enabled'] or p['why'] or not p['model']:
+            return {'ok': False, 'err': p['why'] or 'switched off'}
+        root = re.sub(r'/v1/?$', '', str(p['base']).rstrip('/'))
+        st = await self.lms_state(http, env, cfg, key)
+        model = (st or {}).get('model') or p['model']
+        body = _rg.load_body(model, want, (st or {}).get('loaded'), (st or {}).get('fmt') or 'gguf')
+        t0 = time.time()
+        kw = {'timeout': 240} if type(http).__module__.startswith('httpx') else {}   # a 12 GB model takes longer than the shared client's 20s
+        try:
+            for inst in (st or {}).get('loaded') or []:
+                await asyncio.wait_for(http.post(root + '/api/v1/models/unload', json={'instance_id': inst['id']}, **_lm_auth(env, key), **kw), timeout=60)
+            r = await asyncio.wait_for(http.post(root + '/api/v1/models/load', json=body, **_lm_auth(env, key), **kw), timeout=240)
+            note = ''
+            if r.status_code == 400 and 'parallel' in body:   # an LM Studio that does not take `parallel` over REST: load the rest, say so
+                body.pop('parallel')
+                r = await asyncio.wait_for(http.post(root + '/api/v1/models/load', json=body, **_lm_auth(env, key), **kw), timeout=240)
+                note = 'this LM Studio does not take max-concurrent over its API — set it in its Load panel'
+        except Exception as e:
+            return {'ok': False, 'err': _clean_text(f'{type(e).__name__}: {e}', 160)}
+        if r.status_code >= 400:
+            return {'ok': False, 'err': _clean_text(r.text, 160) or f'HTTP {r.status_code}'}
+        self._beat[key] = 0.0
+        self._ctx.pop(key, None)
+        self.stats[key].update(state='UNTESTED', noModel=False, lastErr=None, coolUntil=0.0)
+        after = await self.lms_state(http, env, cfg, key)
+        return {'ok': True, 'model': model, 'ms': round((time.time() - t0) * 1000), 'loaded': ((after or {}).get('loaded') or [None])[0], 'note': note}
+
     def _budget_note(self, key, headers, now):
         """What the provider says is left of its tokens-per-minute budget (OpenAI-style `x-ratelimit-*` headers) → remembered per provider."""
         h = headers or {}

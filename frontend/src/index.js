@@ -46,6 +46,8 @@ if (process.env.NODE_ENV === 'development' && window.location.pathname === '/dev
   import('./dev/FamiliaHarness').then(m => root.render(<m.default />));
 } else if (process.env.NODE_ENV === 'development' && window.location.pathname === '/dev/pools') {   // 🧪 Pool Hub + deposit-here on fixtures (src/dev/PoolsHarness.jsx)
   import('./dev/PoolsHarness').then(m => root.render(<m.default />));
+} else if (process.env.NODE_ENV === 'development' && window.location.pathname === '/dev/brain') {   // 🧪 the Brain + LM Studio rig on fixtures (src/dev/BrainHarness.jsx)
+  import('./dev/BrainHarness').then(m => root.render(<m.default />));
 } else if (process.env.NODE_ENV === 'development' && window.location.pathname === '/dev/crest') {   // 🧪 crest forge + family cards on fixtures (src/dev/CrestHarness.jsx)
   import('./dev/CrestHarness').then(m => root.render(<m.default />));
 } else root.render(

@@ -122,15 +122,6 @@ body.theme-day .fc-title b { color: #6a4a0a; text-shadow: 0 0 10px #ffd36b; } bo
 .fh-city em { font: 700 9.5px 'JetBrains Mono', monospace; font-style: normal; color: #ffd36b; animation: fcTick .5s ease-out; }
 .fh-city::after { content: ''; position: absolute; inset: 0; background: linear-gradient(100deg, transparent 35%, rgba(255, 236, 180, .12) 50%, transparent 65%); transform: translateX(-100%); animation: fhSweep 6s ease-in-out infinite; pointer-events: none; }
 /* 💬 a city's street chat */
-.fh-chat { display: grid; gap: 8px; padding: 12px; } .fh-chat header { display: flex; justify-content: space-between; gap: 8px; align-items: baseline; }
-.fh-chat header b { font: 700 13px 'Cinzel', Georgia, serif; color: #ffe9b0; } .fh-chat header small { font: 600 10px 'JetBrains Mono', monospace; color: #b9a77a; }
-.fh-chat ol { list-style: none; margin: 0; padding: 0; display: grid; gap: 5px; max-height: 240px; overflow-y: auto; scrollbar-width: thin; scrollbar-color: #d4af37 transparent; }
-.fh-chat ol::-webkit-scrollbar { width: 6px; } .fh-chat ol::-webkit-scrollbar-thumb { background: #d4af37; border-radius: 6px; }
-.fh-chat li { display: flex; flex-wrap: wrap; gap: 3px 6px; align-items: baseline; font-size: 12px; line-height: 1.4; animation: fhIn .25s ease-out both; }
-.fh-chat li i { padding: 0 5px; border-radius: 4px; font: 800 9px 'JetBrains Mono', monospace; font-style: normal; color: #0a0806; background: var(--fc, #d4af37); }
-.fh-chat li i.is-free { background: #ffffff1c; color: #b9a77a; } .fh-chat li b { font: 700 11px 'JetBrains Mono', monospace; color: #f1d27a; } .fh-chat li span { color: #eee3c8; overflow-wrap: anywhere; }
-.fh-chat .fh-nil { color: #8f8470; font-size: 11px; } .fh-chat .fh-end { height: 0; }
-.fh-chat form { display: flex; gap: 6px; } .fh-chat form .m-input { flex: 1; min-width: 0; }
 /* 🎖 rank emblem: a drawn shield, chevrons for the division, a crown for the Dons; colour per rank */
 .fh-emb { --ec: #8a7a5a; display: inline-flex; align-items: center; gap: 7px; padding: 3px 9px 3px 3px; border-radius: 10px; background: rgba(255, 255, 255, .04); border: 1px solid color-mix(in srgb, var(--ec) 45%, transparent); }
 .fh-emb > i { position: relative; display: grid; align-content: center; justify-items: center; gap: 1px; width: 26px; height: 30px; font-style: normal;
@@ -153,10 +144,10 @@ body.theme-day .fc-title b { color: #6a4a0a; text-shadow: 0 0 10px #ffd36b; } bo
 .fh-ladder li strong { font: 800 13px 'JetBrains Mono', monospace; color: #ffe9b0; animation: fcTick .5s ease-out; }
 @keyframes fhIn { from { opacity: 0; transform: translateY(5px); } } @keyframes fhSweep { 0%, 60% { transform: translateX(-100%); } 100% { transform: translateX(100%); } }
 body.fx-lite .fh-city::after, body.fx-lite .fh-emb.is-don > i { animation: none; display: none; }
-@media (prefers-reduced-motion: reduce) { .fh-city, .fh-chat li, .fh-ladder li, .fh-city::after { animation: none; } }
+@media (prefers-reduced-motion: reduce) { .fh-city, .fh-ladder li, .fh-city::after { animation: none; } }
 body.theme-day .fh-city { background: linear-gradient(160deg, #fff8e8, #f3ead6); color: #2a1f0e; } body.theme-day .fh-city.active { background: linear-gradient(160deg, #ffe7a8, #f5d98a); }
-body.theme-day .fh-city.k-fee b { color: #6a4a0a; text-shadow: none; } body.theme-day .fh-city small, body.theme-day .fh-chat header small, body.theme-day .fh-ladder header small { color: #6a5a3a; }
-body.theme-day .fh-chat li span { color: #1a140a; } body.theme-day .fh-chat li b, body.theme-day .fh-chat header b { color: #6a4a0a; } body.theme-day .fh-ladder li em, body.theme-day .fh-ladder li strong { color: #1a140a; }
+body.theme-day .fh-city.k-fee b { color: #6a4a0a; text-shadow: none; } body.theme-day .fh-city small, body.theme-day .fh-ladder header small { color: #6a5a3a; }
+body.theme-day .fh-ladder li em, body.theme-day .fh-ladder li strong { color: #1a140a; }
 @media (max-width: 1280px) { .fwd-mapwrap { grid-template-columns: 1fr; } }
 @media (max-width: 640px) { .fh-rail { grid-template-columns: repeat(2, minmax(0, 1fr)); } .fh-city.k-fee { grid-column: span 2; } .fh-ladder li { grid-template-columns: 22px auto minmax(0, 1fr) auto; } .fh-ladder li u { display: none; } }
 
