@@ -45,7 +45,7 @@ test('Fee City is the landing: landmarks open their panel, a bridge gate crosses
   expect(q('fee-capital')).toBeNull(); expect(q('borough-heights')).not.toBeNull(); expect(q('borough-hills')).not.toBeNull();
   await act(async () => { q('gate-fee').click(); });
   expect(q('fee-capital')).not.toBeNull();
-  await act(async () => { q('wl-ranked').click(); });
+  await act(async () => { q('city-places').click(); }); await act(async () => { q('place-ranked').click(); });   // 📍 the lens tabs are places in the city now
   expect(q('rank-ladder').textContent).toContain('Capo');
   await act(async () => { root.unmount(); });
 });

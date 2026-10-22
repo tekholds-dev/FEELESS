@@ -1,3 +1,54 @@
+## 🔁 HANDOFF 2026-10-22 — read first (every owner request, done ✅ / open ⬜)
+Conserve usage · finish everything by priority · never dead-style. Owner rule: research the best sites first, then a FEELESS twist; every page
+complete top to bottom. Order = `CLAUDE.md › CURRENT TASKS` (fifth list, then fourth, then third).
+
+### ✅ DONE 2026-10-22 (this session — pushed to main, backend restarted, gate green)
+1. 🐆 Sicario's "decisions / timeframes / seat cards don't work": two real wiring bugs fixed in code — `focusMint` silently ignored any tapped coin
+   that wasn't a held seat / candidate / review item (most decision cards → the tap did nothing); hunting seats were plain divs (no click).
+   Now every tap opens its coin (a coin with no pool / cap gets one via `resolveCoin`), a hunting seat opens its READY coin (else the queue).
+   `lib/deadClick.js` (site-wide) files any layer that eats a press to HQ › Bugs as "[dead click] …" and re-delivers a click lost to a live
+   re-render. `/dev/hq` = HQ › Sicario's on fixtures, no wallet / no sign-in (dev build only) — hit-tests clean, clicks land under live ticks.
+2. 🧠 G4 "not connected": the desktop's LM Studio answered but held NO model (`/v1/models` empty). The provider row now says exactly that and
+   HQ › AI providers has an owner-only ⚡ Load (LM Studio REST `/api/v1/models/load`, context 8704). Never automatic (owner's 10-17 rule) —
+   the owner taps Load (Claude's own load call was blocked by the permission check, correctly).
+3. 🏙 FEE CITY IN REAL 3D (`FeeCity3D.jsx` · `lib/cityEngine.js` · `lib/cityPlan.js`): three.js + Kenney's CC0 City Kit Commercial, Car Kit,
+   City Kit Roads (`frontend/public/assets/city`, licence files beside them; opengameart.org/content/city-kit-commercial · car-kit · city-kit-roads).
+   Lit windows (made from the kit's own colour map), bloom, water, stars, moon, far skyline ring, fog, street lamps, cars on every avenue +
+   bridge that HOLD at red stoplights, a gold ring on the ground for the pick (no beams). Capital + 3 market islands over bridges:
+   MARKET ROW (DEXes) · VAULT DISTRICT (lend / perps / stake) · NEW MONEY (today's 12 top coins — fed by our own trending feed now, the
+   DexScreener "SOL" search only returned SOL pools). Each market = a tower sized by TVL / cap + a billboard + a roof light pulsing at its volume;
+   tap → camera flies + vitals + MarketPanel (Open on FEELESS for pools / coins, the market's own app ↗ otherwise — wallet signs, no custody).
+   Lens tabs are GONE → 📍 Places (The Ladder, The Precinct, Pawn & Gold, Job Board, The Gym, Card Room, Cartel Warehouse) = buildings you
+   tap / a signpost menu; the room pops out over the live city. Gates to the 4 outer cities on the far shores; outer cities draw in 3D too.
+   No WebGL / tests → the old CSS city (same props). fx-lite = no bloom, fewer cars; reduced motion = still; off-screen / hidden = paused.
+4. 🎬 Familia full custom page: `FamiliaBackdrop` scene per tab behind the WHOLE Leaderboard › Familia page — FEE CITY HARBOR (skyline,
+   searchlights, fog, gold dust) · THE MANSION (chandelier, drapes, cigar smoke) · THE WAR ROOM (red siren sweep, fire, embers) · THE
+   PODIUM (swaying spotlights, confetti, stage) · THE WIRE (radar, blips, scanlines); noir-gold head + tabs take each scene's accent.
+   Board = a drawn top-3 podium (open plinths wait for a family that ranks).
+
+### ⬜ OPEN — every owner request not finished yet (owner's order; detail in CLAUDE.md › CURRENT TASKS)
+- 🐆 Confirm Sicario's on the owner's real HQ: read HQ › Bugs for "[dead click]" lines first; if any, the line names the layer → fix it.
+- 🧠 Owner: tap ⚡ Load on G4 (HQ › AI providers) — or load qwen3-4b-2507 in LM Studio on the desktop. The desktop's own keeper script
+  (`~/.feeless/lan-keep.sh`) is not reloading it — check it runs on the desktop.
+- 🏙 Fee City: outer cities' own real-money markets (5th list 1c) · deposit / swap IN the city (wallet signs) · plot side panel with more
+  vitals · the viewer's own held coins as buildings · defenders see an incoming raid on their block · Cartel Docks congested (16 towers).
+- 🏙 Familia: real Fuse card faces in the Arena + ranked / $1K top-pot Family Fuse + a chat per fight + any player vs any player · Wars /
+  Live / My family content to the city's level (the scenes are done, the cards inside are still plain) · badges / cards / customization from
+  researched refs · ALL of FEE as city mechanics · MOBhouse styles · buildings ACTIVE/SHUT by funds, MP-only buildings, launched coins as
+  buildings · 2 families per wallet · real-money family wallets ($25 = $5 FEE + $20 wallet) AFTER the owner's custody pick.
+- 🛡 Security: no data hoarding (caps / TTLs on every store, log, model memory) + web3 defence that learns (replay, drainer / phishing,
+  approvals, RPC / API abuse, bots) — trace / block / tarpit / report, NEVER attack back. Not started.
+- 🪟 NEXA: narrow chat + left vitals column, fast reads + real trading with FeeCat (no 40 s waits on the i5).
+- 🧠 Brain: chat that truly changes LM Studio Load / Inference settings (proposal → applied, reloads only on approval) · one full LM Studio
+  + llama control view · Brain themes + every chat's theme picker (inbox too) redone · OSSY failing to load (memory — 248× since 10-16).
+- 🧹 Code health: dead files removable through the gate (build queue / git commit, tests green) · Lag catcher + Support clean-up ·
+  Lag catcher "build a better coin" track · HQ Agents tab dead areas / vault + pool pair builder live visual · Agents rebuild (no strat fits all;
+  run `scripts/edge-audit.py` first).
+- 📄 Pages below bar: Rep (real 3D, vitals, not left-boxed) · FEEd (dev/null × X twist, pop-out, live vitals) · MOB tab · Launch
+  click-through pages · Trade › Gas (SmolRefuel upgrade) · FeeCat lore + other tabs, trading cat + AI agent pairing, merge Create / Launch
+  a Cat · roadmap / whitepaper as a real 3D view · profile settings (online status).
+- 💵 REAL-MONEY CATS (docs/REAL_CATS.md) — needs the owner's custody decision before any code.
+
 ## 🔁 HANDOFF 2026-10-21 late — read first
 Conserve usage · finish everything by priority · never dead-style. Owner rule: research the best sites first, then a FEELESS twist; every page
 complete top to bottom. Order = `CLAUDE.md › CURRENT TASKS › FIFTH list`, then FOURTH, then THIRD.
@@ -98,7 +149,7 @@ server — attach, never start a second). Push to `main`; the owner's Mac auto-p
 - AI: G4 (desktop LAN) + OSSY (this Mac, gpt-oss-20b, 12 GB — the main reason this Mac swaps) take turns on one real seat; NEXA =
   the Windows i5 (llamafile, 1 slot): keep her chat prompt cached (re-warm after reads), answers ≤ 70 tokens, 20-min quiet after owner chat.
 - Familia: `family_city.py` (the block) + `family_world.py` (the map: FEE CITY hub + 6 boroughs in 4 outer cities, rules, ranks, paid-hit math; bridges, CPU towns, cartels from the blocklist, chess
-  raids, errands, challenges, rewards, FEECAT redeem claim). UI: `FamilyWorld` → `FamilyCity3D` (camera) → `FeeCapital` / outer islands, `cityParts`, `FamiliaHud`; HQ `FamiliaAdmin`.
+  raids, errands, challenges, rewards, FEECAT redeem claim). UI: `FamilyWorld` → `FeeCity3D` (three.js: `lib/cityEngine.js` draws `lib/cityPlan.js`; CC0 models in public/assets/city) — the CSS `FamilyCity3D` → `FeeCapital` is only the no-WebGL fallback — `FamiliaHud`, `FamiliaBackdrop` (page scene per tab); HQ `FamiliaAdmin`.
 - Edge audit: still no rule positive on unseen coins — say so before any real-money advice.
 
 ## 5 · How to work here (the owner's rules, short)

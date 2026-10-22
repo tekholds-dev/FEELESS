@@ -36,11 +36,11 @@ test('the city map opens a block, buys turf and runs a tap errand', async () => 
   await act(async () => { q('blk-harbor-1').click(); });
   await act(async () => { q('blk-buy').click(); });
   expect(posted('"buy"')).toBe(true);
-  await act(async () => { q('wl-jobs').click(); });
+  await act(async () => { q('city-places').click(); }); await act(async () => { q('place-jobs').click(); });   // 📍 the lens tabs are places in the city now
   await act(async () => { q('job-go-gas').click(); });
   for (let i = 0; i < 6; i += 1) await act(async () => { q('job-tap-gas').click(); });
   expect(posted('"errand"')).toBe(true);
-  await act(async () => { q('wl-cartels').click(); });
+  await act(async () => { q('city-places').click(); }); await act(async () => { q('place-cartels').click(); });   // 📍 the lens tabs are places in the city now
   expect(q('cartel-cartel-sniper-1').textContent).toContain('Block Zero Snipers');
   await act(async () => { root.unmount(); });
 });

@@ -43,7 +43,7 @@ function Island({ b, p, blocks, boom, sel, onPick, reach, hot }) {
 // pure: the vitals that stand over a picked plot / landmark
 // pure: the vitals of a picked plot / landmark, in categories (WHO · STRENGTH · MONEY, a landmark's LIVE numbers, a fight's SCORE + STAKES)
 export function vitalsOf(x, v) {
-  if (!x) return null;
+  if (!x || x.place || x.mk || x.gate) return null;
   const n = k => Math.round(Number(k) || 0).toLocaleString('en-US');
   const ff = x.lm === 'arena' && (v.ffuse?.fights || []).find(f => f.status === 'live');
   if (ff) return { title: `⚔ [${ff.a.tag}] vs [${ff.b.tag}]`, tone: 'lm', groups: [['SCORE', [['SPARKS', ff.duel ? `${ff.duel.a} ⚡ ${ff.duel.b}` : '0 ⚡ 0'], ['CLOCK', `${Math.floor(ff.left / 60)}m left`, ff.left / (ff.mins * 60)]]],
@@ -61,7 +61,7 @@ export function vitalsOf(x, v) {
 }
 
 // the vitals panel sits ON the stage (never inside the 3D scene, where towers cut through it), grouped, with a close
-function Vitals({ vit, onClose }) {
+export function Vitals({ vit, onClose }) {
   if (!vit) return null;
   return <aside className={`fc-vpanel t-${vit.tone}`} data-testid="city-vitals"><header><b>{vit.title}</b><button type="button" onClick={onClose} aria-label="Close and zoom out" data-tip="Zoom back out">✕</button></header>
     {vit.groups.map(([g, rows]) => <section key={g}><em>{g}</em><dl>{rows.map(([k, val, pct]) => <React.Fragment key={k}><dt>{k}</dt><dd key={val}>{val}
@@ -109,13 +109,13 @@ export function FamilyCity3D({ v, sel, setSel, city, setCity, tour, overlay }) {
   const byB = useMemo(() => { const m = {}; (v.blocks || []).forEach(x => { (m[x.b] = m[x.b] || []).push(x); }); return m; }, [v.blocks]);
   const lay = useMemo(() => cityLayout(bors), [bors]);
   const W = isFee ? FEE_W : lay.W; const H = isFee ? FEE_H : lay.H;
-  const spot = !sel ? null : isFee ? feeSpot(sel) : sel.b && lay.pos[sel.b] ? { x: lay.pos[sel.b].x + lotPos(sel.i).x + LOT / 2, y: lay.pos[sel.b].y + lotPos(sel.i).y + LOT / 2 } : null;
+  const spot = !sel || sel.place || sel.mk ? null : isFee ? feeSpot(sel) : sel.b && lay.pos[sel.b] ? { x: lay.pos[sel.b].x + lotPos(sel.i).x + LOT / 2, y: lay.pos[sel.b].y + lotPos(sel.i).y + LOT / 2 } : null;
   const inner = (v.bridges || []).filter(br => lay.pos[br.a] && lay.pos[br.b]);
   const home = (v.bridges || []).find(br => [br.a, br.b].includes('fee') && bors.some(b => [br.a, br.b].includes(b.key)));
   const homeP = home ? lay.pos[home.a === 'fee' ? home.b : home.a] : null;
   const fee = cities.find(c => c.key === 'fee');
   const hot = new Set((v.raids || []).filter(r => r.status === 'live').map(r => r.b.id));
-  return <CityStage W={W} H={H} focus={spot} wx={v.season?.weather || 'clear'} ctl={isFee ? tour.ctl : null} hud={<><Vitals vit={vitalsOf(sel, v)} onClose={() => setSel(sel)} />{overlay}</>}>
+  return <CityStage W={W} H={H} focus={spot} wx={v.season?.weather || 'clear'} ctl={tour.ctl} hud={<><Vitals vit={vitalsOf(sel, v)} onClose={() => setSel(sel)} />{overlay}</>}>
     {isFee ? <FeeCapital v={v} sel={sel} onPick={setSel} onGo={k => { setSel(null); setCity(k); }} tour={tour.on} hot={hot} />
       : <>{inner.map(br => <Bridge key={br.name} r={bridgeRect(lay.pos[br.a], lay.pos[br.b])} name={br.name} />)}
         {homeP && fee ? <Bridge r={{ x: 0, y: homeP.y + ISLAND / 2 - 13, w: homeP.x + 6, h: 26, horiz: true }} name={home.name}

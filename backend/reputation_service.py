@@ -9467,8 +9467,15 @@ async def _fmk_fetch():
             return (r.json() or {}).get('pairs') or []
         except Exception:
             return []
-    res = await asyncio.gather(*[tvl(m[3]) for m in _fmk.MARKETS], dex())
-    return {k: v for k, v in res[:-1] if v}, res[-1]
+
+    async def trending():   # 🪙 NEW MONEY: the search above answers SOL's own pools (no coins left after the SOL / stable filter) — our own trending feed has the coins
+        try:
+            r = await _fmk_http.get('http://127.0.0.1:5001/api/market/feed', params={'kind': 'trending', 'chain': 'solana', 'page': 1})
+            return (r.json() or {}).get('pairs') or []
+        except Exception:
+            return []
+    res = await asyncio.gather(*[tvl(m[3]) for m in _fmk.MARKETS], dex(), trending())
+    return {k: v for k, v in res[:-2] if v}, res[-2] + res[-1]
 
 
 # 📱 SCAN TO SIGN IN TO HQ (hq_pair.py): the computer shows a one-time QR, Phantom on the phone signs the normal HQ message, the computer

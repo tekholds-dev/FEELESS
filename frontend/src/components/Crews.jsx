@@ -213,9 +213,22 @@ export function FamilyPulse() {
   </section>;
 }
 
+// 🏆 THE PODIUM (Board tab): the week's top three families on drawn plinths — #1 in the middle, tallest, crowned; each plinth wears the family's
+// badge, its verified % (bar = the move) and its season-points prize. Ranks 4+ stay in the list under it.
+export function Podium({ rows }) {
+  const order = [1, 0, 2].map((k, i) => ({ r: (rows || [])[k] || null, place: [2, 1, 3][i] }));   // an empty plinth waits for a family that ranks
+  return <div className="fpd" data-testid="crew-podium">{order.map(({ r, place }, i) => (!r ? <div key={`open-${place}`} className={`fpd-step p${place} is-open`} style={{ '--i': i }} data-tip="Open — a family with 2+ members and 5 closed trades this week takes it">
+    <div className="fpd-who"><span className="fpd-ghost" aria-hidden="true" /><b>OPEN</b><small>rank to claim</small></div><div className="fpd-plinth"><strong>{place}</strong><small>+{PRIZES[place - 1]} pts</small></div></div>
+    : <div key={r.id} className={`fpd-step p${place}`} style={{ '--i': i }} data-tip={rankNote(r)}>
+    <div className="fpd-who">{place === 1 ? <i className="fpd-crown" aria-hidden="true" /> : null}{r.badge ? <FamilyBadge b={r.badge} size="md" /> : <span className="crw-tagc">{r.tag}</span>}
+      <b>{r.name}</b><em className={`m-num ${r.pct == null ? '' : r.pct >= 0 ? 'm-pos' : 'm-neg'}`} key={r.pct}>{pctTxt(r.pct)}</em>
+      <u><s style={{ transform: `scaleX(${Math.max(0.04, Math.min(1, Math.abs(Number(r.pct) || 0) / 50))})` }} className={r.pct >= 0 ? 'up' : 'dn'} /></u></div>
+    <div className="fpd-plinth"><strong>{place}</strong><small>+{PRIZES[place - 1]} pts</small></div></div>))}</div>;
+}
+
 // 🌹 the MOB & Rewards › Familia tabs (owner, 2026-10-21: "a landing page, all unique tabs for it")
 export const FAM_TABS = [['home', 'Fee City', MapIcon], ['family', 'My family', Crown], ['wars', 'Wars', Swords], ['board', 'Board', Trophy], ['feed', 'Live', Radio]];   // 👑 the city IS the landing (owner, 2026-10-21)
-export function Crews() {
+export function Crews({ onScene }) {
   const { wallet, provider } = useWallet() || {}; const addr = wallet?.address || ''; const sess = addr ? readChatSession(addr) : '';
   const board = useCrewBoard(); const warsD = useWars(); const [tab, setTab] = useRemembered('feeless.fam.tab', 'home'); const [file, setFile] = useState(null); const [block, setBlock] = useState(undefined);
   const liveWars = (warsD?.wars || []).filter(w => w.state === 'live').length;
@@ -242,9 +255,10 @@ export function Crews() {
   };
   const rows = board?.board || []; const owner = mine?.members?.find(m => m.owner)?.address === addr;
   const famTab = FAM_TABS.some(([k]) => k === tab) ? tab : 'home';
+  useEffect(() => { onScene?.(famTab); }, [famTab, onScene]);   // 🎬 the page behind takes this tab's scene
   const warAct = (a, body, ok) => act('/api/reputation/crews/act', { act: a, ...body }, ok);
   return <section className="crw crw-noir" data-testid="crews">
-    {famTab !== 'home' ? <MobScene heat={(mine?.vitals?.heat ?? 30) / 100} sign={mine ? mine.tag : 'FAMIGLIA'} /> : null}   {/* on the landing the city IS the backdrop */}
+    {famTab === 'family' ? <MobScene heat={(mine?.vitals?.heat ?? 30) / 100} sign={mine ? mine.tag : 'FAMIGLIA'} /> : null}   {/* the family's own street sign; every other tab's scene is the page backdrop */}
     <nav className="fam-tabs" role="tablist" aria-label="La Familia">{FAM_TABS.map(([k, label, Icon]) => <button key={k} type="button" role="tab" aria-selected={famTab === k} className={famTab === k ? 'active' : ''}
       onClick={() => setTab(k)} data-testid={`fam-tab-${k}`}><Icon size={14} aria-hidden="true" /><span>{k === 'family' && mine ? mine.tag : label}</span>{k === 'wars' && liveWars ? <b>{liveWars}</b> : null}</button>)}</nav>
     <InviteInbox invites={inv?.invites} inFamily={!!mine} addr={addr} sess={sess} onDone={loadMine} />
@@ -277,6 +291,7 @@ export function Crews() {
       <header><span className="m-label">🏆 WEEKLY FAMILY BOARD</span><small data-tip={board?.rule}>{board ? `${board.total} famil${board.total === 1 ? 'y' : 'ies'} · verified trades, last 7 days` : ''}</small></header>
       <p className="crw-prize" data-testid="crew-prizes">The top 3 families pay every member season points each week: <b>🥇 +{PRIZES[0]}</b> · <b>🥈 +{PRIZES[1]}</b> · <b>🥉 +{PRIZES[2]}</b></p>
       {board && !rows.length && <p className="crw-hint m-dim">No families yet. Start one, fill your seats and trade — the board ranks verified results.</p>}
+      <Podium rows={rows.filter(r => r.ranked).slice(0, 3)} />
       <ol>{rows.map((r, i) => <li key={r.id} className={r.ranked ? '' : 'is-off'} style={{ '--i': i }} data-testid={`crew-row-${r.tag}`}>
         <b className="crw-rank">{r.ranked ? i + 1 : '·'}</b>{r.badge ? <FamilyBadge b={r.badge} size="sm" /> : <span className="crw-tagc">{r.tag}</span>}<span className="crw-rname">{r.name}{r.launch ? <i> 🚀 ${r.launch}</i> : null}</span>
         <small>{r.members}/{r.seats} seats · {r.active} active</small><em className={`m-num ${r.pct == null ? '' : r.pct >= 0 ? 'm-pos' : 'm-neg'}`} key={r.pct}>{pctTxt(r.pct)}</em><small className="crw-note">{rankNote(r)}</small>

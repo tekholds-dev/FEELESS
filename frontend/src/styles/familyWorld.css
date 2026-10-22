@@ -2,12 +2,6 @@
    seasons as weather, the raid chessboard, errands (drag / tap), recruits as playing cards. transform / opacity only. */
 .fwd { --fg: #d4af37; --fg2: #f1d27a; --ink: #efe6d2; --cpu: #ff5a6e; --cart: #7dff9a; --fam: #b48cff; display: grid; gap: 12px; color: var(--ink); }
 .fwd-load { padding: 18px; }
-.fwd-lens { display: flex; flex-wrap: wrap; gap: 4px; padding: 4px; border-radius: 12px; background: rgba(0, 0, 0, .35); border: 1px solid rgba(212, 175, 55, .18); }
-.fwd-lens button { flex: 1 1 auto; padding: 7px 10px; border-radius: 9px; border: 0; background: transparent; color: var(--ink); font: 600 12px Inter, sans-serif; cursor: pointer; transition: background .15s, transform .15s; }
-.fwd-lens button:hover { background: rgba(212, 175, 55, .12); } .fwd-lens button:active { transform: scale(.97); }
-.fwd-lens button:focus-visible { outline: 2px solid var(--fg); outline-offset: 2px; }
-.fwd-lens button.active { background: linear-gradient(120deg, #d4af37, #ff9f45); color: #1a1205; }
-.fwd-lens b { margin-left: 5px; padding: 0 6px; border-radius: 8px; background: var(--cpu); color: #fff; font-size: 10px; }
 .fwd-side { display: grid; gap: 8px; padding: 12px; position: sticky; top: 10px; }
 .fwd-side header { display: grid; } .fwd-side header b { font: 700 14px 'Playfair Display', Georgia, serif; } .fwd-side p { margin: 0; font-size: 12px; line-height: 1.45; }
 .fwd-side.t-cpu { border-color: rgba(255, 90, 110, .5); } .fwd-side.t-cartel { border-color: rgba(125, 255, 154, .4); } .fwd-side.t-mine { border-color: rgba(212, 175, 55, .6); }
@@ -66,3 +60,34 @@ body.theme-day .fwd { --ink: #2a1f0e; }
 body.theme-day .fwd-job, body.theme-day .fwd-rc li, body.theme-day .fwd-shop li { background: rgba(255, 250, 238, .85); }
 body.theme-day .fwd-cart { background: rgba(236, 248, 238, .9); }
 @media (max-width: 980px) { .fwd-mapwrap { grid-template-columns: 1fr; } .fwd-side { position: static; } }
+
+/* 🚪 a PLACE you walked into (the old lens tabs): its room pops out over the city, the street stays live behind it */
+.fwd-place { position: absolute; z-index: 7; right: 14px; top: 14px; max-height: calc(100% - 78px); width: min(560px, calc(100% - 28px)); display: grid; grid-template-rows: auto minmax(0, 1fr);
+  border-radius: 16px; border: 1px solid color-mix(in srgb, var(--pc) 55%, transparent); background: linear-gradient(165deg, #17121fee, #0a0910f4);
+  box-shadow: inset 0 1px 0 #ffffff14, 0 0 0 1px #000a, 0 24px 60px -24px #000, 0 0 40px -18px var(--pc); animation: fwdPlaceIn .22s cubic-bezier(.2, .8, .2, 1) both; overflow: hidden; }
+.fwd-place > header { display: flex; align-items: center; gap: 10px; padding: 12px 14px; border-bottom: 1px solid #ffffff12; background: linear-gradient(90deg, color-mix(in srgb, var(--pc) 18%, transparent), transparent 70%); }
+.fwd-place > header > i { width: 10px; height: 10px; border-radius: 50%; background: var(--pc); box-shadow: 0 0 12px var(--pc); animation: fwdPlaceDot 1.4s ease-in-out infinite alternate; }
+.fwd-place > header span { flex: 1; display: grid; } .fwd-place > header b { font: 800 14px 'JetBrains Mono', monospace; letter-spacing: .12em; color: var(--pc); text-shadow: 0 0 10px color-mix(in srgb, var(--pc) 60%, transparent); }
+.fwd-place > header small { font: 600 10.5px 'JetBrains Mono', monospace; letter-spacing: .06em; color: #c9b47c; text-transform: uppercase; }
+.fwd-place > header button { width: 34px; height: 34px; border-radius: 10px; border: 1px solid #ffffff22; background: #ffffff08; color: #f1e6c8; font-size: 14px; cursor: pointer; transition: background .15s, transform .15s; }
+.fwd-place > header button:hover { background: #ffffff18; } .fwd-place > header button:active { transform: scale(.94); } .fwd-place > header button:focus-visible { outline: 2px solid var(--pc); outline-offset: 2px; }
+.fwd-placebody { overflow: auto; padding: 12px; scrollbar-width: thin; scrollbar-color: var(--pc) transparent; }
+.fwd-placebody::-webkit-scrollbar { width: 6px; } .fwd-placebody::-webkit-scrollbar-thumb { background: var(--pc); border-radius: 6px; }
+@keyframes fwdPlaceIn { from { opacity: 0; transform: translateX(18px) scale(.98); } to { opacity: 1; transform: none; } }
+@keyframes fwdPlaceDot { from { opacity: .45; } to { opacity: 1; } }
+/* 🏦 a real market + a place card in the side column */
+.fwd-side.t-mk { border-color: rgba(69, 228, 134, .5); } .fwd-side.t-mk.k-lend, .fwd-side.t-mk.k-perps, .fwd-side.t-mk.k-stake { border-color: rgba(245, 196, 81, .55); } .fwd-side.t-mk.k-coin { border-color: rgba(255, 143, 163, .5); }
+.fwd-side.t-mk header small, .fwd-side.t-place header small { font: 700 10px 'JetBrains Mono', monospace; letter-spacing: .1em; color: #c9b47c; }
+.fwd-side.t-place { border-color: color-mix(in srgb, var(--pc) 55%, transparent); box-shadow: 0 0 26px -14px var(--pc); }
+.fwd-mkv { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+.fwd-mkv span { display: grid; gap: 2px; padding: 7px 9px; border-radius: 10px; background: #ffffff07; border: 1px solid #ffffff10; animation: fwdPlaceIn .25s ease-out both; }
+.fwd-mkv span:first-child { grid-column: 1 / -1; }
+.fwd-mkv em { font: 700 9.5px 'JetBrains Mono', monospace; font-style: normal; letter-spacing: .12em; color: #9a8a62; }
+.fwd-mkv b { font: 800 14px 'JetBrains Mono', monospace; color: #fff3d6; animation: fwdNum .5s ease-out; }
+.fwd-mkv u { display: block; height: 4px; border-radius: 4px; background: #ffffff12; overflow: hidden; } .fwd-mkv u s { display: block; height: 100%; background: linear-gradient(90deg, #d4af37, #45e486); transform-origin: left; transition: transform .6s ease; }
+@keyframes fwdNum { from { opacity: .4; transform: translateY(3px); } to { opacity: 1; transform: none; } }
+body.fx-lite .fwd-place, body.fx-lite .fwd-place > header > i, body.fx-lite .fwd-mkv span, body.fx-lite .fwd-mkv b { animation: none; }
+@media (prefers-reduced-motion: reduce) { .fwd-place, .fwd-place > header > i, .fwd-mkv span, .fwd-mkv b { animation: none; } }
+body.theme-day .fwd-place { background: linear-gradient(165deg, #fffaf0f7, #f6efe0f7); } body.theme-day .fwd-place > header b { text-shadow: none; filter: brightness(.7); }
+body.theme-day .fwd-place > header small, body.theme-day .fwd-mkv em { color: #6a5a3a; } body.theme-day .fwd-mkv span { background: #ffffffb0; } body.theme-day .fwd-mkv b { color: #2a1f0e; }
+@media (max-width: 640px) { .fwd-place { left: 8px; right: 8px; top: 8px; max-height: calc(100% - 64px); width: auto; } .fwd-mkv { grid-template-columns: 1fr; } }

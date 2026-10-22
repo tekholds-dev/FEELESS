@@ -1,0 +1,40 @@
+/* 🌃 FEE CITY IN 3D (components/FeeCity3D.jsx + lib/cityEngine.js) — the stage around the WebGL city: a noir-gold frame, the "drawing the city"
+   skyline while the models load, the hover tag, the 📍 Places menu, the legend. Controls reuse .fcy-ctl / .fcy-key (familyCity3d.css).
+   One keyframe set (fc3*), transform / opacity only; fx-lite + reduced motion still; day theme; 640px. */
+.fc3 { position: relative; height: clamp(540px, 76vh, 860px); overflow: hidden; border-radius: 18px; isolation: isolate;
+  background: radial-gradient(120% 90% at 50% 0%, #1a1436 0%, #0a0b18 55%, #05060c 100%); border: 1px solid #d4af3740;
+  box-shadow: inset 0 1px 0 #ffffff14, 0 0 0 1px #00000080, 0 30px 80px -40px #d4af3755; }
+.fc3-host { position: absolute; inset: 0; } .fc3-host canvas.fc3-canvas { display: block; width: 100% !important; height: 100% !important; touch-action: none; outline: none; }
+.fc3::after { content: ''; position: absolute; inset: 0; z-index: 1; pointer-events: none; border-radius: inherit;
+  background: radial-gradient(120% 100% at 50% 40%, transparent 62%, #000000a6 100%); }
+.fc3-load { position: absolute; inset: 0; z-index: 2; display: grid; place-items: center; align-content: end; padding-bottom: 22%; }
+.fc3-sky { position: absolute; inset: 0; background: linear-gradient(180deg, #05060f 0%, #0d1434 55%, #2a1d3e 82%, #5a3a2e 100%); }
+.fc3-skyline { position: relative; display: flex; align-items: flex-end; gap: 6px; height: 110px; }
+.fc3-skyline b { width: 22px; height: var(--h); border-radius: 3px 3px 0 0; transform-origin: bottom; background: linear-gradient(#141a2e, #0a0d18);
+  box-shadow: inset 0 0 0 1px #d4af3722; animation: fc3Rise .9s cubic-bezier(.2, .8, .2, 1) calc(var(--i) * 60ms) both;
+  background-image: radial-gradient(circle, #ffcf7a 0 1.2px, transparent 1.6px); background-size: 7px 9px; background-color: #0e1324; }
+.fc3-load small { position: relative; margin-top: 14px; font: 700 11px 'JetBrains Mono', monospace; letter-spacing: .16em; text-transform: uppercase; color: #f1d27a; animation: fc3Pulse 1.2s ease-in-out infinite alternate; }
+@keyframes fc3Rise { from { transform: scaleY(0); opacity: 0; } to { transform: scaleY(1); opacity: 1; } }
+@keyframes fc3Pulse { from { opacity: .45; } to { opacity: 1; } }
+@keyframes fc3In { from { opacity: 0; transform: translateY(6px) scale(.98); } to { opacity: 1; transform: none; } }
+.fc3.is-ready .fc3-host { animation: fc3In .5s ease-out both; }
+.fc3-tip { position: fixed; left: 0; top: 0; z-index: 30; pointer-events: none; padding: 4px 9px; border-radius: 8px; border: 1px solid #d4af37aa; background: #0b0a12ee;
+  color: #ffe9b0; font: 700 11px 'JetBrains Mono', monospace; letter-spacing: .04em; white-space: nowrap; box-shadow: 0 6px 18px -8px #000, 0 0 12px -4px #d4af37; }
+.fc3-ctl { z-index: 5; flex-wrap: wrap; max-width: calc(100% - 24px); }
+.fc3-places { position: relative; }
+.fc3-menu { position: absolute; left: 0; bottom: calc(100% + 8px); z-index: 6; width: 250px; margin: 0; padding: 6px; list-style: none; display: grid; gap: 4px; border-radius: 12px;
+  border: 1px solid #d4af3766; background: linear-gradient(160deg, #15101fee, #0a0910f2); box-shadow: inset 0 1px 0 #ffffff12, 0 18px 40px -16px #000; animation: fc3In .16s ease-out both; }
+.fc3-menu li { animation: fc3In .2s ease-out calc(var(--i) * 45ms) both; }
+.fcy-ctl .fc3-menu button { width: 100%; height: auto; min-height: 38px; display: grid; gap: 1px; justify-items: start; padding: 6px 10px; text-align: left; border-color: transparent;
+  border-left: 3px solid var(--pc, #d4af37); background: #ffffff06; }
+.fcy-ctl .fc3-menu button b { font: 800 11.5px 'JetBrains Mono', monospace; color: var(--pc, #f1d27a); letter-spacing: .06em; }
+.fcy-ctl .fc3-menu button small { font: 600 10px 'JetBrains Mono', monospace; color: #c9b47c; }
+.fcy-ctl .fc3-menu button:hover, .fcy-ctl .fc3-menu button:focus-visible { background: #ffffff12; transform: translateX(2px); }
+.fc3-key { z-index: 5; } .fcy-key .t-mk { --glow: #45e486; } .fcy-key .t-place { --glow: #6ad7ff; }
+.fc3 .fc-vpanel { z-index: 6; } .fc-vpanel.t-mk { --vc: #45e486; }
+body.fx-lite .fc3-skyline b, body.fx-lite .fc3-load small, body.fx-lite .fc3.is-ready .fc3-host, body.fx-lite .fc3-menu, body.fx-lite .fc3-menu li { animation: none; }
+@media (prefers-reduced-motion: reduce) { .fc3-skyline b, .fc3-load small, .fc3.is-ready .fc3-host, .fc3-menu, .fc3-menu li { animation: none; } }
+body.theme-day .fc3 { border-color: #b8952a66; box-shadow: 0 20px 50px -30px #8a6a1a80; }
+body.theme-day .fc3-menu { background: #fffaf0f5; border-color: #b8952a88; } body.theme-day .fcy-ctl .fc3-menu button b { color: #6a4a00; } body.theme-day .fcy-ctl .fc3-menu button small { color: #6a5a3a; }
+body.theme-day .fc3-tip { background: #fffaf0f2; color: #3a2a00; }
+@media (max-width: 640px) { .fc3 { height: 74vh; min-height: 460px; border-radius: 14px; } .fc3-ctl small { display: none; } .fc3-key { display: none; } .fc3-menu { width: min(250px, 80vw); } }

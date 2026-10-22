@@ -1,7 +1,9 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import { apiUrl } from '../lib/api';
-import { FamilyCity3D } from './FamilyCity3D';
+import { FeeCity3D, PlacesMenu, useMarkets } from './FeeCity3D';
+import { PLACES, usd } from '../lib/cityPlan';
+import { openWarRoom } from './WarRoomHost';
 import { CityChat, CityRail, RankBadge, RankLadder } from './FamiliaHud';
 import { FamilyFuseBoard } from './FamilyFuseBoard';
 import { RaidStage } from './RaidStage';
@@ -43,9 +45,38 @@ function MarkPanel({ k, v }) {
     {go ? <a className="m-btn" href={go[0]} data-tip="Opens that part of FEELESS">{go[1]}</a> : null}</aside>;
 }
 
-function BlockPanel({ x, v, act, busy, onEnter }) {
+// 🏦 a REAL market in Fee City: what it offers, its live numbers, and the action — a DEX pool opens on FEELESS (our engine, your wallet
+// signs), everything else opens that market's own app (your wallet signs there; FEELESS never holds funds)
+const KIND_WORD = { dex: 'DEX', lend: 'LENDING', perps: 'PERPS', stake: 'LIQUID STAKING', coin: 'TOP COIN' };
+function MarketPanel({ k, mk }) {
+  const m = (mk?.markets || []).find(x => x.key === k) || (mk?.coins || []).map(c => ({ ...c, kind: 'coin', key: `coin-${c.mint || c.sym}`, name: `$${c.sym || c.symbol || '?'}`, symbol: c.sym || c.symbol })).find(x => x.key === k);
+  if (!m) return <aside className="fwd-side m-card t-mk"><b>Market</b><p className="m-dim">Reading the market…</p></aside>;
+  const pool = m.pool; const pair = pool?.pair || m.pair || m.pairAddress;
+  const meter = Math.max(0.03, Math.min(1, Math.log10(1 + (m.tvl || m.mc || 0)) / 10));
+  return <aside className={`fwd-side m-card t-mk k-${m.kind}`} data-testid="market-panel"><header><b>{m.name}</b><small>{KIND_WORD[m.kind] || m.kind} · {ISLAND_OF[m.kind]}</small></header>
+    {m.offer ? <p>{m.offer}</p> : null}
+    <div className="fwd-mkv"><span><em>{m.kind === 'coin' ? 'MARKET CAP' : 'TVL'}</em><b className="m-num" key={m.tvl || m.mc}>{usd(m.tvl || m.mc)}</b><u><s style={{ transform: `scaleX(${meter})` }} /></u></span>
+      {pool ? <><span><em>BUSIEST POOL</em><b>{pool.base}/{pool.quote}{pool.labels?.[0] ? ` · ${pool.labels[0]}` : ''}</b></span><span><em>POOL LIQ</em><b className="m-num">{usd(pool.liq)}</b></span>
+        <span><em>24H VOL</em><b className="m-num">{usd(pool.vol)}</b></span><span><em>24H</em><b className={`m-num ${pool.ch >= 0 ? 'm-pos' : 'm-neg'}`}>{pool.ch >= 0 ? '+' : ''}{Number(pool.ch || 0).toFixed(2)}%</b></span></> : null}
+      {m.kind === 'coin' && m.ch != null ? <span><em>24H</em><b className={`m-num ${m.ch >= 0 ? 'm-pos' : 'm-neg'}`}>{m.ch >= 0 ? '+' : ''}{Number(m.ch).toFixed(1)}%</b></span> : null}</div>
+    <div className="fwd-acts">{pair ? <button type="button" className="m-btn m-go" onClick={() => openWarRoom({ chainId: 'solana', pairAddress: pair, baseToken: { address: m.mint || pool?.baseMint, symbol: pool?.base || m.symbol } })}
+      data-tip="Open this pool's war room on FEELESS — chart, tape, swap through our engine; your wallet signs" data-testid="mk-open">📈 Open on FEELESS</button> : null}
+      {m.url ? <a className="m-btn" href={m.url} target="_blank" rel="noopener noreferrer" data-tip={`${m.name}'s own app — deposits / borrows happen there and your wallet signs; FEELESS never holds your funds`} data-testid="mk-app">↗ {m.name}</a> : null}</div>
+    <small className="m-dim">Live from the chain every minute · the roof light pulses with its volume.</small></aside>;
+}
+const ISLAND_OF = { dex: 'Market Row', lend: 'Vault District', perps: 'Vault District', stake: 'Vault District', coin: 'New Money' };
+
+function PlaceCard({ k, onOpen }) {
+  const p = PLACES.find(x => x.key === k); if (!p) return null;
+  return <aside className="fwd-side m-card t-place" style={{ '--pc': p.color }} data-testid="place-card"><header><b>{p.name}</b><small>FEE CITY · place</small></header><p>{p.sub}</p>
+    <button type="button" className="m-btn m-go" onClick={() => onOpen(p.lens)} data-testid="place-enter">Walk in</button></aside>;
+}
+
+function BlockPanel({ x, v, act, busy, onEnter, mk, onPlace }) {
+  if (x?.mk) return <MarketPanel k={x.mk} mk={mk} />;
+  if (x?.place) return <PlaceCard k={x.place} onOpen={onPlace} />;
   if (x?.lm) return <MarkPanel k={x.lm} v={v} />;
-  if (!x) return <aside className="fwd-side m-card"><b>Tap a block</b><p className="m-dim">Gold = yours · violet = families · red = CPU towns (hard) · green = cartels (bundlers, snipers, funders from FEELESS rep). You can raid where you hold a block or one bridge away.</p></aside>;
+  if (!x) return <aside className="fwd-side m-card"><b>Tap a building</b><p className="m-dim">Gold = yours · violet = families · red = CPU towns (hard) · green = cartels. Across the bridges: MARKET ROW (the DEXes), VAULT DISTRICT (lend · perps · stake) and NEW MONEY (today's top coins) — real markets, live. 📍 Places = the Ladder, the Precinct, the Gym, the Card Room…</p></aside>;
   const me = v.me; const tone = blockTone(x); const price = me?.prices?.[x.id];
   const cpu = (v.cpu || []).find(c => c.id === x.owner); const cart = (v.cartels || []).find(c => c.id === x.owner);
   return <aside className={`fwd-side m-card t-${tone}`} data-testid="block-panel">
@@ -89,16 +120,27 @@ export function CrewDeck({ crew }) {
     <span className="tl">{c.face}<i>{c.suit}</i></span><b>{c.suit}</b><small>{c.role}</small><span className="br">{c.face}<i>{c.suit}</i></span></div>; })}</div>;
 }
 
+// 🚪 inside a place: its room pops out OVER the city (the street stays live behind it) — Esc or ✕ walks back out
+function PlacePanel({ lens, live, onClose, children }) {
+  const p = PLACES.find(x => x.lens === lens);
+  useEffect(() => { const esc = e => { if (e.key === 'Escape') onClose(); }; window.addEventListener('keydown', esc); return () => window.removeEventListener('keydown', esc); }, [onClose]);
+  return <section className={`fwd-place k-${p?.key || lens}`} style={{ '--pc': p?.color || '#d4af37' }} role="dialog" aria-label={p?.name || lens} data-testid={`place-panel-${lens}`}>
+    <header><i aria-hidden="true" /><span><b>{p?.name || lens}</b><small>{p?.sub}{lens === 'raids' && live ? ` · ${live} live` : ''}</small></span>
+      <button type="button" onClick={onClose} aria-label="Walk back out" data-tip="Back to the street (Esc)" data-testid="place-close">✕</button></header>
+    <div className="fwd-placebody">{children}</div></section>;
+}
+
 export function FamilyWorld({ addr, sess, onEnter, onJoin }) {
-  const [v, setV] = useWorld(addr, sess); const [lens, setLens] = useState('map'); const [sel, setSelRaw] = useState(null); const [busy, setBusy] = useState(false);
+  const [v, setV] = useWorld(addr, sess); const [lens, setLensRaw] = useState(null); const mk = useMarkets(); const [sel, setSelRaw] = useState(null); const [busy, setBusy] = useState(false);   // lens = the place you walked into (null = the street)
   const [city, setCity] = useState('fee'); const [tour, setTour] = useState(false);
-  const setSel = x => setSelRaw(s => (x && s && ((x.id && s.id === x.id) || (x.lm && s.lm === x.lm)) ? null : x));   // tap the picked plot again = zoom back out
+  const setSel = x => setSelRaw(s => (x && s && ((x.id && s.id === x.id) || (x.lm && s.lm === x.lm) || (x.mk && s.mk === x.mk) || (x.place && s.place === x.place)) ? null : x));   // tap the picked plot again = zoom back out
   const [crew, setCrew] = useState(null);
+  const setLens = k => { if (!k || k === 'map') { setLensRaw(null); return; } const p = PLACES.find(x => x.lens === k); setLensRaw(k); setCity('fee'); if (p) setSelRaw({ place: p.key }); };
   useEffect(() => { if (!addr || !sess || lens !== 'deck') return; fetch(apiUrl(`/api/reputation/familia-city?address=${addr}&session=${encodeURIComponent(sess)}`)).then(r => (r.ok ? r.json() : null)).then(x => x && setCrew(x.crew || [])).catch(() => {}); }, [lens, addr, sess]);
   const act = async (body, ok) => {
     if (!sess) { toast.error('Connect your wallet + open chat once to sign in first.'); return; }
     setBusy(true);
-    try { const r = await post({ address: addr, session: sess, ...body }); setV(r); toast.success(r.result?.mp ? `${ok} · +${mp(r.result.mp)} MP` : ok); if (body.act === 'raid') setLens('raids'); }
+    try { const r = await post({ address: addr, session: sess, ...body }); setV(r); toast.success(r.result?.mp ? `${ok} · +${mp(r.result.mp)} MP` : ok); if (body.act === 'raid') setLensRaw('raids'); }
     catch (e) { toast.error(e.message); } finally { setBusy(false); }
   };
   if (!v) return <div className="fwd-load m-card">Reading the city…</div>;
@@ -106,42 +148,44 @@ export function FamilyWorld({ addr, sess, onEnter, onJoin }) {
   const go = to => {
     if (to === 'join') { onJoin?.(); return; }
     if (to === 'block') { if (v.me) onEnter(); else onJoin?.(); return; }
-    if (to === 'fuse') { setLens('map'); setCity('fee'); setTimeout(() => document.getElementById('family-fuse')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 60); return; }
-    setLens(to); if (to === 'map') window.scrollTo?.({ top: 0, behavior: 'smooth' });
+    if (to === 'fuse') { setLens(null); setCity('fee'); setTimeout(() => document.getElementById('family-fuse')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 60); return; }
+    setLens(to); document.querySelector('[data-testid="world-map"]')?.scrollIntoView?.({ behavior: 'smooth', block: 'center' });
   };
   const flyTo = r => { const home = (v.blocks || []).find(b => b.owner === r.id && b.home) || (v.blocks || []).find(b => b.owner === r.id);
-    if (!home) return; const c = (v.cities || []).find(x => x.boroughs.includes(home.b)); setLens('map'); if (c) setCity(c.key); setSelRaw(home); };
+    if (!home) return; const c = (v.cities || []).find(x => x.boroughs.includes(home.b)); setLensRaw(null); if (c) setCity(c.key); setSelRaw(home); };
   const me = v.me; const live = (v.raids || []).filter(r => r.status === 'live').length;
-  return <section className="fwd" data-testid="family-world">
-    <SeasonHud v={v} onJoin={onJoin} go={to => go(to)} />
-    <nav className="fwd-lens" role="tablist">{WORLD_LENSES.map(([k, w]) => <button key={k} type="button" role="tab" aria-selected={lens === k} className={lens === k ? 'active' : ''} onClick={() => setLens(k)} data-testid={`wl-${k}`}>{w}{k === 'raids' && live ? <b>{live}</b> : null}</button>)}</nav>
-    {lens === 'map' && <>{v.cities ? <CityRail cities={v.cities} city={city} onGo={k => { setSelRaw(null); setCity(k); }} /> : null}
-      <div className="fwd-mapwrap"><FamilyCity3D v={v} sel={sel} setSel={setSel} city={city} setCity={setCity} overlay={<><TheWire log={v.log} /><CityActions v={v} go={go} /></>}
-        tour={{ on: tour, ctl: <button type="button" className={tour ? 'active' : ''} onClick={() => setTour(t => !t)} aria-pressed={tour} data-tip="Show how Familia works, pinned on the city" data-testid="city-tour">❓ How it works</button> }} />
-        <div className="fwd-col"><BlockPanel x={sel} v={v} act={act} busy={busy} onEnter={onEnter} />
-          {v.cities ? <CityChat city={city} name={(v.cities.find(c => c.key === city) || {}).name || 'the city'} addr={addr} sess={sess} /> : null}</div></div>
-      {city === 'fee' && v.ffuse ? <FamilyFuseBoard v={v} setV={setV} addr={addr} sess={sess} /> : null}
-      <PowerSkyline v={v} onPick={flyTo} onEmpty={() => go(v.me ? 'map' : 'join')} /></>}
-    {lens === 'ranked' && <RankLadder ranked={v.ranked} mine={me?.id} />}
-    {lens === 'raids' && <div className="fwd-raids">{(v.raids || []).length ? v.raids.slice().reverse().map(r => <RaidStage key={r.id} r={r} act={act} busy={busy} />)
-      : <p className="m-dim">No raids. Pick a rival block on the 🗺 City — a CPU town if you're brave.</p>}
-      <ol className="fwd-wlog">{(v.log || []).map((l, i) => <li key={i}>{l.what}</li>)}</ol></div>}
-    {lens === 'jobs' && (me ? <ul className="fwd-jobs">{me.errands.map(e => <Errand key={e.store} e={e} act={act} busy={busy} />)}</ul> : <p className="m-dim">Join a family to run errands.</p>)}
-    {lens === 'rc' && (me ? <ul className="fwd-rc">{me.challenges.map(c => { const cc = cardOf(c.recruit); return <li key={c.key} className={c.done ? 'is-done' : c.ready ? 'is-ready' : ''} data-testid={`rc-${c.key}`}>
+  const place = {
+    ranked: <RankLadder ranked={v.ranked} mine={me?.id} />,
+    raids: <div className="fwd-raids">{(v.raids || []).length ? v.raids.slice().reverse().map(r => <RaidStage key={r.id} r={r} act={act} busy={busy} />)
+      : <p className="m-dim">No raids. Tap a rival building in the city — a CPU town if you're brave.</p>}
+      <ol className="fwd-wlog">{(v.log || []).map((l, i) => <li key={i}>{l.what}</li>)}</ol></div>,
+    jobs: me ? <ul className="fwd-jobs">{me.errands.map(e => <Errand key={e.store} e={e} act={act} busy={busy} />)}</ul> : <p className="m-dim">Join a family to run errands.</p>,
+    rc: me ? <ul className="fwd-rc">{me.challenges.map(c => { const cc = cardOf(c.recruit); return <li key={c.key} className={c.done ? 'is-done' : c.ready ? 'is-ready' : ''} data-testid={`rc-${c.key}`}>
       <b>{c.name}</b><small>{c.metric}: {mp(c.have)}/{mp(c.need)}</small><u><s style={{ transform: `scaleX(${Math.min(1, c.have / c.need)})` }} /></u>
       <span className={`fwd-mini ${cc.red ? 'red' : ''}`}>{cc.face}{cc.suit}</span><em>+{mp(c.mp)} MP</em>
-      <button type="button" className="m-btn" disabled={!c.ready || busy} onClick={() => act({ act: 'challenge', kind: c.key }, 'Recruit joined')}>{c.done ? '✓ claimed' : 'Claim'}</button></li>; })}</ul> : <p className="m-dim">Join a family to take challenges.</p>)}
-    {lens === 'deck' && <CrewDeck crew={crew} />}
-    {lens === 'shop' && (me ? <div className="fwd-shop"><ul>{me.rewards.map(r => <li key={r.key}><b>{r.name}</b><small>{r.what}</small>
+      <button type="button" className="m-btn" disabled={!c.ready || busy} onClick={() => act({ act: 'challenge', kind: c.key }, 'Recruit joined')}>{c.done ? '✓ claimed' : 'Claim'}</button></li>; })}</ul> : <p className="m-dim">Join a family to take challenges.</p>,
+    deck: <CrewDeck crew={crew} />,
+    shop: me ? <div className="fwd-shop"><ul>{me.rewards.map(r => <li key={r.key}><b>{r.name}</b><small>{r.what}</small>
       <button type="button" className="m-btn" disabled={busy || r.cost > me.bank} onClick={() => act({ act: 'reward', kind: r.key }, r.name)} data-testid={`rw-${r.key}`}>{mp(r.cost)} MP</button></li>)}</ul>
       <div className="fwd-redeem m-card" data-testid="redeem"><b>🐱 Redeem MP → FEECAT</b><p>{mp(v.rate?.mp)} MP = {mp(v.rate?.feecat)} FEECAT. The Don files the claim; the owner pays it by hand. You have {mp(me.bank)} MP ({Math.min(100, Math.round((me.bank / (v.rate?.mp || 1)) * 100))} % of one).</p>
         <u><s style={{ transform: `scaleX(${Math.min(1, me.bank / (v.rate?.mp || 1))})` }} /></u>
         <button type="button" className="m-btn m-go" disabled={busy || me.bank < (v.rate?.mp || Infinity)} onClick={() => { if (window.confirm('File a FEECAT redeem with your MP?')) act({ act: 'redeem' }, 'Redeem filed'); }}>File redeem</button>
-        {me.redeems?.length ? <ol>{me.redeems.map(x => <li key={x.id}>{mp(x.mp)} MP → {mp(x.feecat)} FEECAT · {x.status}</li>)}</ol> : null}</div></div> : <p className="m-dim">Join a family to spend MP.</p>)}
-    {lens === 'cartels' && <div className="fwd-carts">{(v.cartels || []).map(c => <div key={c.id} className={`fwd-cart r-${c.role}`} data-testid={`cartel-${c.id}`}>
+        {me.redeems?.length ? <ol>{me.redeems.map(x => <li key={x.id}>{mp(x.mp)} MP → {mp(x.feecat)} FEECAT · {x.status}</li>)}</ol> : null}</div></div> : <p className="m-dim">Join a family to spend MP.</p>,
+    cartels: <div className="fwd-carts">{(v.cartels || []).map(c => <div key={c.id} className={`fwd-cart r-${c.role}`} data-testid={`cartel-${c.id}`}>
       <header><i>{c.icon}</i><b>{c.name}</b><small>[{c.tag}] · level {c.level}</small></header>
       <span><em>WALLETS</em><b>{mp(c.members)}</b></span><span><em>HITS</em><b>{mp(c.hits)}</b></span><span><em>COINS</em><b>{mp(c.coins)}</b></span><span><em>ACTIVE 7D</em><b>{mp(c.active7d)}</b></span>
       <u><s style={{ transform: `scaleX(${Math.min(1, c.level / 10)})` }} /></u></div>)}
-      <p className="m-dim">Cartels are the wallets FEELESS's own rep flagged as {['bundler', 'sniper', 'funder'].join(' · ')}, grouped by the coins they hit together. They grow with their strikes and rank apart from the families. They live in Cartel Docks — raid them for a ×1.5 justice bonus.</p></div>}
+      <p className="m-dim">Cartels are the wallets FEELESS's own rep flagged as bundler · sniper · funder, grouped by the coins they hit together. They live in Cartel Docks — raid them for a ×1.5 justice bonus.</p></div>,
+  }[lens] || null;
+  return <section className="fwd" data-testid="family-world">
+    <SeasonHud v={v} onJoin={onJoin} go={to => go(to)} />
+    {v.cities ? <CityRail cities={v.cities} city={city} onGo={k => { setSelRaw(null); setLensRaw(null); setCity(k); }} /> : null}
+    <div className="fwd-mapwrap"><FeeCity3D v={v} sel={sel} setSel={setSel} city={city} setCity={setCity} markets={mk} onPlace={k => setLensRaw(k)}
+        overlay={<><TheWire log={v.log} /><CityActions v={v} go={go} />{lens ? <PlacePanel lens={lens} live={live} onClose={() => setLensRaw(null)}>{place}</PlacePanel> : null}</>}
+        tour={{ on: tour, ctl: <><PlacesMenu onGo={p => setLens(p.lens)} /><button type="button" className={tour ? 'active' : ''} onClick={() => setTour(t => !t)} aria-pressed={tour} data-tip="Show how Familia works, pinned on the city" data-testid="city-tour">❓ How it works</button></> }} />
+      <div className="fwd-col"><BlockPanel x={sel} v={v} act={act} busy={busy} onEnter={onEnter} mk={mk} onPlace={k => setLensRaw(k)} />
+        {v.cities ? <CityChat city={city} name={(v.cities.find(c => c.key === city) || {}).name || 'the city'} addr={addr} sess={sess} /> : null}</div></div>
+    {city === 'fee' && v.ffuse ? <FamilyFuseBoard v={v} setV={setV} addr={addr} sess={sess} /> : null}
+    <PowerSkyline v={v} onPick={flyTo} onEmpty={() => go(v.me ? 'map' : 'join')} />
   </section>;
 }
