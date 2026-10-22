@@ -129,10 +129,17 @@ export function seatCards(d, livePx) {
 // the coin the cockpit centres on: the owner's pick when it still exists, else the most pressed held seat, else the best READY coin,
 // else the best candidate, else the first owner review row
 const URGENT = ['EXIT', 'EXIT INVALIDATED', 'TAKE PROFIT', 'PROTECT', 'HOLD 5 MORE', 'HOLD', 'ORDER PENDING'];
-export function focusMint(d, pick) {
+// 🖱 a coin the owner TAPPED this session always wins (2026-10-22: "decisions, timeframe, seat cards don't work" — a decision card on a coin that
+// had left the candidate list set the pick and this quietly ignored it, so the tap did nothing). A REMEMBERED pick (a refresh) still has to be
+// on the desk somewhere — a seat, a candidate, the review list, a position, the decision tape or the trade tape — never a long-gone coin.
+export function knownMints(d) {
+  const o = d?.office || {};
+  return new Set([...seatCards(d).filter(s => !s.open), ...((o.kernel || {}).candidates || []), ...(o.ownerReview || []), ...(o.positions || []), ...(o.tape || []),
+    ...((o.tradeTape || {}).rows || [])].map(x => x?.mint).filter(Boolean));
+}
+export function focusMint(d, pick, tapped = null) {
   const o = d?.office || {}; const cands = (o.kernel || {}).candidates || []; const seats = seatCards(d).filter(s => !s.open);
-  const known = new Set([...seats.map(s => s.mint), ...cands.map(c => c.mint), ...(o.ownerReview || []).map(r => r.mint)]);
-  if (pick && known.has(pick)) return pick;
+  if (pick && (tapped?.has?.(pick) || knownMints(d).has(pick))) return pick;
   const hot = [...seats].sort((a, b) => URGENT.indexOf(a.badge) - URGENT.indexOf(b.badge))[0];
   if (hot) return hot.mint;
   const ready = cands.filter(c => c.status === 'READY').sort((a, b) => (b.rank || 0) - (a.rank || 0))[0];
@@ -156,14 +163,18 @@ export function chartMarkers(rows, fills) {
   return out.sort((a, b) => a.time - b.time);
 }
 // the coin on the chart: pair + MC + the agents' levels (entry / take / stop for a position; nothing invented for a candidate)
-export function chartModel(d, mint, livePx) {
+// `hint` = what the tap / the pool lookup knew about a coin the desk's lists don't carry ({ pair, symbol, price, mc }) — a decision card or a
+// traded coin still opens its chart
+export function chartModel(d, mint, livePx, hint = null) {
   if (!mint) return null;
   const o = d?.office || {}; const p = (o.positions || []).find(x => x.mint === mint); const c = ((o.kernel || {}).candidates || []).find(x => x.mint === mint);
   const s = (d?.card?.seats || []).find(x => x.mint === mint); const rv = (o.ownerReview || []).find(x => x.mint === mint);
-  const pair = p?.pair || c?.pair || s?.pair || rv?.pair || null; const symbol = p?.symbol || c?.symbol || s?.symbol || rv?.symbol || null;
+  const tr = [...(o.tape || []), ...((o.tradeTape || {}).rows || [])].find(x => x?.mint === mint && (x.pair || x.pairAddress)) || null;
+  const pair = p?.pair || c?.pair || s?.pair || rv?.pair || tr?.pair || tr?.pairAddress || hint?.pair || null;
+  const symbol = p?.symbol || c?.symbol || s?.symbol || rv?.symbol || tr?.symbol || tr?.sym || hint?.symbol || null;
   const lp = livePx && pair ? livePx.get?.(pair) : null;
-  const price = num(lp?.price) || num(p?.px) || num(c?.price) || num(rv?.price);
-  const supply = supplyFrom(price, p?.supply ?? c?.supply ?? rv?.supply, lp?.mc, mint);
+  const price = num(lp?.price) || num(p?.px) || num(c?.price) || num(rv?.price) || num(hint?.price);
+  const supply = supplyFrom(price, p?.supply ?? c?.supply ?? rv?.supply, lp?.mc || num(hint?.mc), mint);
   const mc = price > 0 && supply > 0 ? price * supply : null;
   const e = num(p?.entry); const lines = [];
   if (e > 0) {
@@ -401,4 +412,15 @@ export function exitTags(s) {
   if (/\bR6h\b|half banked/i.test(t) || s?.action === 'trim') out.push({ k: 'half', ic: '💰', word: 'BANKED', tip: `R6h scale-out: most of the coin sold at the take line, the rest rides the trail${/(\d+)% sold/.test(t) ? ` (${t.match(/(\d+)% sold/)[1]}% sold)` : ''}` });
   if (/comeback/i.test(t)) out.push({ k: 'comeback', ic: '🔁', word: 'COMEBACK', tip: 'sold green, ran past our exit, bought back inside the sit-out' });
   return out;
+}
+
+// 🪑 a HUNTING seat is a button too: tap → the coin it is closest to taking (the top READY candidate, else the coin it just refused) — null
+// means nothing is near, and the cockpit opens the review queue instead
+export function seatPick(s, d) {
+  if (!s?.open) return s?.mint || null;
+  const cands = ((d?.office || {}).kernel || {}).candidates || [];
+  const ready = cands.filter(c => c.status === 'READY' && c.mint).sort((a, b) => (b.rank || 0) - (a.rank || 0))[0];
+  if (ready) return ready.mint;
+  const ref = [...(s.refused || []), ...(s.tapeWait || [])].map(r => r.mint || cands.find(c => c.symbol && c.symbol === r.symbol)?.mint).find(Boolean);
+  return ref || null;
 }

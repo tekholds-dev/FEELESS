@@ -13,7 +13,8 @@ import { grabOrder } from '../../lib/chartGrab';
 import { useHub, hubApply, hubLoad, useAi } from '../../lib/agentHub';
 import { rankFill, READY_MIN, devilOf } from '../../lib/agentRead';
 import { seatCards, flowBar, focusMint, chartModel, decisionOf, tapeOf, tapeTone, TAPE_AGENT, AGE_BUCKETS, bucketCounts, reviewQueue, supplyWord,
-  seatState, STATE_CLS, missionTiles, letterMarkers, inputsOf, traceOf, CHAIN, maxIdByAgent, newEvents, queueStatus, queueMc, openPnl, groupTape, lossMap, measureRead, recWord, voteSplit , moneyOf, exitTags } from '../../lib/cockpit';
+  seatState, STATE_CLS, missionTiles, letterMarkers, inputsOf, traceOf, CHAIN, maxIdByAgent, newEvents, queueStatus, queueMc, openPnl, groupTape, lossMap, measureRead, recWord, voteSplit , moneyOf, exitTags, seatPick } from '../../lib/cockpit';
+import { resolveCoin } from '../../lib/resolveCoin';
 import { useEasedNumber } from '../../lib/easedNumber';
 import { STANCE_TONE } from '../../lib/aiRead';
 import { usd as cash, pct as pc, price as priceFmt } from '../../lib/num';
@@ -262,13 +263,14 @@ export function SeatHints({ s, call }) {
 
 function SeatCard({ s, on, onPick, readyN, same, call }) {
   const st = seatState(s, readyN);
-  if (s.open) return <div className={`ack-seat is-open ${on ? 'is-on' : ''}`} data-testid={`ack-seat-${s.seat}`}>
+  if (s.open) return <div role="button" tabIndex={0} className={`ack-seat is-open ${on ? 'is-on' : ''}`} data-testid={`ack-seat-${s.seat}`} onClick={() => onPick(s)}
+    onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onPick(s); } }} data-tip="Hunting — tap for the coin this seat is closest to taking (or the review queue)">
     <header><small>SEAT {s.seat}{s.kind === 'g4' ? <i className="ack-g4tag" data-tip={`${s.model || 'the model'}'s seat: it decides — the agents only argue`}>🧠 {s.model || '…'}</i> : null}</small><i className={`ack-badge ${STATE_CLS[st]}`} data-testid={`ack-seat-state-${s.seat}`}>{st}</i></header>
     <HuntLine why={s.why} ready={readyN} same={same} />
     {(s.refused || []).length ? <ul className="ack-refused" data-testid={`ack-seat-refused-${s.seat}`}>{s.refused.map(r => <li key={`${r.symbol}-${r.at}`} data-tip={`${r.by === 'keeper' ? "the keeper's own buy check" : 'the seat pre-check'} · ${ago(r.at)} ago`}><b>${r.symbol}</b><span>{r.why}</span></li>)}</ul> : null}
     {(s.tapeWait || []).length ? <ul className="ack-refused is-tape" data-testid={`ack-seat-tape-${s.seat}`}>{s.tapeWait.map(r => <li key={r.symbol} data-tip="🌊 the live tape held this READY coin back this tick — it is re-read on the next one"><b>🌊 ${r.symbol}</b><span>{r.why}</span></li>)}</ul> : null}</div>;
   const last = s.last; const [ic, nm] = TAPE_AGENT[last?.agent] || ['', '']; const rug = rugMark(s);
-  return <button type="button" className={`ack-seat ${on ? 'is-on' : ''} ${s.kind === 'g4' ? 'is-g4' : ''} ${s.pct > 0 ? 'is-up' : s.pct < 0 ? 'is-dn' : ''}`} onClick={() => onPick(s.mint)} aria-pressed={on} data-testid={`ack-seat-${s.seat}`}
+  return <button type="button" className={`ack-seat ${on ? 'is-on' : ''} ${s.kind === 'g4' ? 'is-g4' : ''} ${s.pct > 0 ? 'is-up' : s.pct < 0 ? 'is-dn' : ''}`} onClick={() => onPick(s)} aria-pressed={on} data-testid={`ack-seat-${s.seat}`}
     data-tip={`${s.tag || s.kind}${s.rule ? ` · Reaper ${s.rule}` : ''}${s.why ? ` — ${s.why}` : ''}`}>
     <header><small>SEAT {s.seat}{s.kind === 'g4' ? <i className="ack-g4tag" data-testid={`ack-seat-model-${s.seat}`}>🧠 {s.model || '…'}</i> : null}{rug ? <i className={`ack-rugdot is-${rug.level}`} data-tip={`${rug.level === 'bad' ? '🔴 RUG RISK' : '🟡 POOL THINNING'} — ${rug.why}`} aria-label={rug.level === 'bad' ? 'rug risk' : 'pool thinning'} data-testid={`ack-seat-rug-${s.seat}`} /> : null}</small><i className={`ack-badge ${STATE_CLS[st]}`} data-testid={`ack-seat-state-${s.seat}`}>{st}</i></header>
     <p className="ack-coin"><b>${s.symbol}<CopyCa mint={s.mint} sym={s.symbol} testid={`ack-seat-ca-${s.seat}`} /><GermChip mint={s.mint} compact /></b><span className="ack-pnl"><LiveNum v={s.pct} fmt={x => pc(x)} testid={`ack-seat-pct-${s.seat}`} /><LiveNum v={s.pnlUsd} fmt={signed} cls={`ack-usd ${tone(s.pnlUsd)}`} testid={`ack-seat-usd-${s.seat}`} /></span></p>
@@ -660,8 +662,15 @@ export function AgentCockpit({ call, isOwner = true, head = null, extra = [], li
     const smooth = !(typeof window !== 'undefined' && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) ? 'smooth' : 'auto';
     if (k === 'chart') window.scrollTo?.({ top: 0, behavior: smooth }); else deckRef.current?.scrollIntoView?.({ behavior: smooth, block: 'start' }); };
   const seats = useMemo(() => seatCards(d, cc?.livePx), [d, cc?.livePx]);
-  const mint = focusMint(d, pick);
-  const model = useMemo(() => chartModel(d, mint, cc?.livePx), [d, mint, cc?.livePx]);
+  const tapped = useRef(new Set()); const [hints, setHints] = useState({});   // 🖱 coins tapped this session + what the tap / pool lookup knew about them
+  const mint = focusMint(d, pick, tapped.current);
+  const model = useMemo(() => chartModel(d, mint, cc?.livePx, hints[mint]), [d, mint, cc?.livePx, hints]);
+  useEffect(() => {   // a tapped coin the desk's lists carry no pool for: look its pool up once (DexScreener → FEELESS), so its chart opens
+    if (!mint || (model?.pair && model?.mc) || hints[mint]?.tried || !tapped.current.has(mint)) return undefined;   // no pool, or no cap (MC UNAVAILABLE = a chart that never draws)
+    let alive = true; setHints(h => ({ ...h, [mint]: { ...(h[mint] || {}), tried: true } }));
+    resolveCoin('solana', mint, { alive: () => alive }).then(p => { if (alive && p?.pairAddress && !p.preMarket) setHints(h => ({ ...h, [mint]: { ...(h[mint] || {}), tried: true, pair: p.pairAddress, symbol: h[mint]?.symbol || p.baseToken?.symbol, price: Number(p.priceUsd) || null, mc: Number(p.marketCap || p.fdv) || null } })); }).catch(() => {});
+    return () => { alive = false; };
+  }, [mint, model?.pair, model?.mc]);   // eslint-disable-line react-hooks/exhaustive-deps
   const dec = useMemo(() => decisionOf(d, mint), [d, mint]);
   const pos = (o?.positions || []).find(p => p.mint === mint) || null; const cand = ((o?.kernel || {}).candidates || []).find(c => c.mint === mint) || null;
   const markers = useMemo(() => [...letterMarkers(tapeOf(o?.tape, { mint, n: 120 }), pos?.fills), ...ghostMarkers(pos)].sort((a, b) => a.time - b.time), [o?.tape, mint, pos?.fills, pos?.ghosts, pos?.entry]);   // ✂ where the agents would have sold
@@ -674,13 +683,19 @@ export function AgentCockpit({ call, isOwner = true, head = null, extra = [], li
     if (Object.keys(n).length) { const ids = new Set(Object.values(n)); setPulse(p => ({ ...p, ...n })); setFreshIds(ids); }
   }, [o?.tape]);
   const agentNow = agent || leadAgent(dec);
-  const onPick = m => { setPick(m); setAgentS(null); };
-  useEffect(() => { const on = e => { const m = e.detail?.mint; if (m) { setPick(m); setAgentS(null); } }; window.addEventListener('feeless:cockpit-coin', on); return () => window.removeEventListener('feeless:cockpit-coin', on); }, []);
+  // one pick for every tap in the cockpit: a mint, a seat card or a decision / trade row (its symbol + pool ride along as a hint)
+  const onPick = x => {
+    const m = typeof x === 'string' ? x : x?.open ? seatPick(x, d) : x?.mint;
+    if (!m) { if (x?.open) go('review'); return; }
+    tapped.current.add(m); setPick(m); setAgentS(null);
+    if (x && typeof x === 'object' && (x.pair || x.pairAddress || x.symbol || x.sym)) setHints(h => ({ ...h, [m]: { ...(h[m] || {}), pair: h[m]?.pair || x.pair || x.pairAddress, symbol: h[m]?.symbol || x.symbol || x.sym } }));
+  };
+  useEffect(() => { const on = e => { const m = e.detail?.mint; if (m) { tapped.current.add(m); setPick(m); setAgentS(null); } }; window.addEventListener('feeless:cockpit-coin', on); return () => window.removeEventListener('feeless:cockpit-coin', on); }, []);
   // 🧠 a $COIN chip in a Brain answer → that coin on the chart (a held seat first, then the desk's candidates)
   useEffect(() => { const on = e => { const y = String(e.detail?.sym || '').toUpperCase(); const hit = seatsRef.current.find(x => !x.open && String(x.symbol || '').toUpperCase() === y)
     || (((d?.office?.kernel || {}).candidates) || []).find(c => String(c.symbol || '').toUpperCase() === y)
     || (((d?.office?.tradeTape || {}).rows) || []).find(c => String(c.sym || c.symbol || '').toUpperCase() === y)   // a coin you already traded
-    || ((d?.office?.positions) || []).find(c => String(c.sym || c.symbol || '').toUpperCase() === y); if (hit?.mint) { setPick(hit.mint); setAgentS(null); setTab('live'); } };
+    || ((d?.office?.positions) || []).find(c => String(c.sym || c.symbol || '').toUpperCase() === y); if (hit?.mint) { tapped.current.add(hit.mint); setPick(hit.mint); setAgentS(null); setTab('live'); } };
     window.addEventListener('feeless:cockpit-coin-sym', on); return () => window.removeEventListener('feeless:cockpit-coin-sym', on); });   // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { const on = e => go(LENS_TAB[e.detail] || e.detail); window.addEventListener('feeless:agents-lens', on); return () => window.removeEventListener('feeless:agents-lens', on); });   // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { const on = () => setAiOpen(true); window.addEventListener('feeless:agents-ai', on); return () => window.removeEventListener('feeless:agents-ai', on); }, []);
@@ -704,7 +719,7 @@ export function AgentCockpit({ call, isOwner = true, head = null, extra = [], li
 </section>, seats.length ? held / seats.length : null, 'the seats: live P&L, Reaper\'s word, tap = its chart'],
       ['you', '👤 You', o.ownerStudy?.score != null ? `${o.ownerStudy.score}%` : null, <OwnerStudy study={o.ownerStudy} memory={o.aiMemory} />, null, 'your own moves graded, your seats vs the agents, what the study suggests'],
       ['live', '⚡ Live desk', (o.tape || []).length || null, <LiveDesk duo={<DuoSeat duo={d?.duo} call={call} />} matrix={<AgentMatrix o={o} gens={o?.generations || []} agent={agentNow} setAgent={a => { setAgentS(a); setTapeAgent(a); }} rows={o.tape} pulse={pulse} />}
-        tape={<DecisionTape rows={o.tape} agent={tapeAgent} setAgent={setTapeAgent} fresh={freshIds} onPick={r => { if (r.mint) setPick(r.mint); setAgentS(r.agent in AG ? r.agent : null); setTab('live'); }} />} tapeN={(o.tape || []).length} />, null, 'G4 × OSSY on their seat, the ten agents and every live decision — one place'],
+        tape={<DecisionTape rows={o.tape} agent={tapeAgent} setAgent={setTapeAgent} fresh={freshIds} onPick={r => { onPick(r); setAgentS(r.agent in AG ? r.agent : null); setTab('live'); }} />} tapeN={(o.tape || []).length} />, null, 'G4 × OSSY on their seat, the ten agents and every live decision — one place'],
       ['tape', '🎬 Trades', (o.tradeTape?.rows || []).length, <><LossMap court={o.court} capital={o.capital} /><TradeTape tape={o.tradeTape} mint={mint} onPick={onPick} /></>],
       ['review', '📋 Queue', (o.ownerReview || []).length || null, <ReviewQueue o={o} call={call} isOwner={isOwner} onPick={m => { onPick(m); if (m && !((o.kernel || {}).candidates || []).some(c => c.mint === m) && !(o.positions || []).some(p => p.mint === m) && !(o.ownerReview || []).some(r => r.mint === m)) openCoin({ mint: m }); }} sel={mint} />],
       ['controls', '🎛 Limits', null, <><CockpitControls o={o} call={call} isOwner={isOwner} onAi={() => setAiOpen(true)} />{limits}</>, null, 'EVERY control in one place: universe, exits, seats, buy gate, model + your creator limits (TP / SL / trail / hold / size / switching)'],
@@ -724,7 +739,7 @@ export function AgentCockpit({ call, isOwner = true, head = null, extra = [], li
         <RideBar s={seats.find(x => !x.open && x.mint === mint)} pos={pos} />
         <IntakeBand o={o} mint={mint} onPick={onPick} call={call} isOwner={isOwner} imp={d?.impostors} /></div>
       <div className="ack-right"><div className="ack-sidetabs m-seg" role="tablist" aria-label="Right column">{[['decision', '🧠 Decision'], ['desk', '⚡ Live desk']].map(([k, l]) => <button key={k} type="button" role="tab" aria-selected={side === k} className={side === k ? 'active' : ''} onClick={() => setSide(k)} data-testid={`ack-side-${k}`}>{l}</button>)}</div>
-      {side === 'desk' ? <div className="ack-sidedesk" data-testid="ack-sidedesk"><DuoSeat duo={d?.duo} call={call} /><DecisionTape rows={o.tape} agent={tapeAgent} setAgent={setTapeAgent} fresh={freshIds} onPick={r => { if (r.mint) setPick(r.mint); setSide('decision'); }} /></div> : <DecisionPanel o={o} dec={dec} pos={pos} cand={cand} mint={mint} seats={seats} readyN={readyN} agent={agentNow} setAgent={a => { setAgentS(a); setTapeAgent(a); }} tab={tab} setTab={setTab}
+      {side === 'desk' ? <div className="ack-sidedesk" data-testid="ack-sidedesk"><DuoSeat duo={d?.duo} call={call} /><DecisionTape rows={o.tape} agent={tapeAgent} setAgent={setTapeAgent} fresh={freshIds} onPick={r => { onPick(r); setSide('decision'); }} /></div> : <DecisionPanel o={o} dec={dec} pos={pos} cand={cand} mint={mint} seats={seats} readyN={readyN} agent={agentNow} setAgent={a => { setAgentS(a); setTapeAgent(a); }} tab={tab} setTab={setTab}
         pulse={pulse} call={call} isOwner={isOwner} onPick={onPick} mcNow={model?.mc} onAi={() => setAiOpen(true)} />}</div></div>
     <div ref={deckRef} className="ack-deckwrap"><Deck testid="ack-tapezone" bare on={nav === 'chart' ? navPane : nav} setOn={go} tabs={navTabs} /></div>
     {brainOpen ? createPortal(<BrainDrawer close={() => setBrainOpen(false)}><AiChat call={call} isOwner={isOwner} focus={mint} focusSym={dec?.symbol} variant="drawer" extras={brainExtras} onClose={() => setBrainOpen(false)} /></BrainDrawer>, document.body) : null}

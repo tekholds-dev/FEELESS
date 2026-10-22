@@ -39,7 +39,8 @@ PROVIDERS = {
     'custom': ('OPENAI-COMPATIBLE', 'AI_API_KEY', 'AI_MODEL', 'AI_BASE_URL', None, '', 10.0, 1),
 }
 LAN_BLOCKED = 'this Mac blocked the local network for the backend — run: bash scripts/background.sh start (from Terminal / Claude), then restart'
-LM = ('lan', 'local')   # LM Studio servers: no key needed, an optional token, a loaded context the prompt is fitted to
+LM = ('lan', 'local')
+NO_MODEL = 'LM Studio is up but holds NO model — tap ⚡ Load (or load it in LM Studio on that machine)'   # LM Studio servers: no key needed, an optional token, a loaded context the prompt is fitted to
 DEFAULT_ORDER = ('local', 'groq', 'openrouter', 'openai', 'xai', 'custom')
 ADVISORY_ROLES = ('sherlock', 'devil', 'judge', 'owner', 'manager', 'coach', 'lab', 'exit')   # 'exit' = the read on a HELD coin (exit_read.py) — Reaper only reads its cached word
 FORBIDDEN_ROLES = ('tally', 'trigger', 'reaper', 'courier', 'warden')        # hot loops + the money boundary: never a model
@@ -916,18 +917,46 @@ class Router:
         p = provider(env, key, cfg)
         if not p['enabled'] or p['why']:
             return None
+        answered = False
         try:
             r = await asyncio.wait_for(http.get(str(p['base']).rstrip('/') + '/models', **_lm_auth(env, key)), timeout=3)
-            ids = [m.get('id') for m in (r.json().get('data') or [])] if r.status_code == 200 else []
+            answered = r.status_code == 200
+            ids = [m.get('id') for m in (r.json().get('data') or [])] if answered else []
         except Exception:
             ids = []
         fb = str((env or {}).get('LOCAL_LLM_FALLBACK_MODEL' if key == 'local' else 'LAN_LLM_FALLBACK_MODEL') or '').strip() if key in ('local', 'lan') else ''
         up = bool(ids) and (not p['model'] or p['model'] in ids or (fb and fb in ids))
+        s['noModel'] = answered and not ids   # 🖥 LM Studio is UP but holds no model (2026-10-22: G4 read "not connected" while its desktop had simply dropped the model)
         if up:
             s.update(state='ONLINE', streak=0, coolUntil=0.0, lastErr=None, lastAt=now)
+        elif s['noModel']:
+            s.update(state='OFFLINE', lastErr=NO_MODEL, lastAt=now)
         elif s['state'] == 'UNTESTED':
             s.update(state='OFFLINE', lastErr='LM Studio server not reachable, or the model is not loaded', lastAt=now)
         return up
+
+    async def load_model(self, http, env, cfg, key, ctx=None):
+        """⚡ The OWNER's tap (Brain › Models · Load): ask that LM Studio to load ITS configured model through LM Studio's own REST API
+        (`POST /api/v1/models/load`). Never automatic — the owner's 2026-10-17 rule ("stop reloading the damn model") stands; the button is
+        the approval. → {ok, model, ms} or {ok: False, err}."""
+        if key not in LM:
+            return {'ok': False, 'err': 'Only an LM Studio model can be loaded from here.'}
+        p = provider(env, key, cfg)
+        if not p['enabled'] or p['why'] or not p['model']:
+            return {'ok': False, 'err': p['why'] or 'switched off'}
+        size = int(ctx or rig(key, 'ctx', 0) or _f((env or {}).get('LAN_LLM_CTX' if key == 'lan' else 'LOCAL_LLM_CTX'), 8704) or 8704)
+        root = re.sub(r'/v1/?$', '', str(p['base']).rstrip('/'))
+        t0 = time.time()
+        try:
+            r = await asyncio.wait_for(http.post(root + '/api/v1/models/load', json={'model': p['model'], 'context_length': size}, **_lm_auth(env, key)), timeout=180)
+        except Exception as e:
+            return {'ok': False, 'err': _clean_text(f'{type(e).__name__}: {e}', 160)}
+        if r.status_code >= 400:
+            return {'ok': False, 'err': _clean_text(r.text, 160) or f'HTTP {r.status_code}'}
+        self._beat[key] = 0.0
+        self._ctx.pop(key, None)
+        self.stats[key].update(state='UNTESTED', noModel=False, lastErr=None, coolUntil=0.0)
+        return {'ok': True, 'model': p['model'], 'ctx': size, 'ms': round((time.time() - t0) * 1000)}
 
     def _budget_note(self, key, headers, now):
         """What the provider says is left of its tokens-per-minute budget (OpenAI-style `x-ratelimit-*` headers) → remembered per provider."""
@@ -1368,7 +1397,7 @@ class Router:
             rows.append({'key': key, 'label': p['label'], 'priority': i + 1, 'enabled': p['enabled'], 'state': state, 'why': p['why'], 'model': p['model'] or None,
                          'host': _aik.host_of(p['base']) if p['base'] else None, 'keySet': p['keySet'], 'hint': p['hint'],
                          'lastMs': s['lastMs'], 'lastOkAt': s['lastOkAt'], 'failures': s['fail'], 'timeouts': s['timeouts'], 'rateLimited': s['rateLimited'],
-                         'requests': s['requests'], 'lastErr': s['lastErr'], 'coolSec': max(0, round(s['coolUntil'] - now)) if s['coolUntil'] > now else 0})
+                         'requests': s['requests'], 'lastErr': s['lastErr'], 'noModel': bool(s.get('noModel')), 'canLoad': key in LM, 'coolSec': max(0, round(s['coolUntil'] - now)) if s['coolUntil'] > now else 0})
         live = next((r for r in rows if r['state'] == 'ONLINE'), None)
         return {'providers': rows, 'order': [r['key'] for r in rows], 'active': live['key'] if live else None, 'totals': dict(self.totals), 'metrics': self.metrics(now),
                 'roles': list(ADVISORY_ROLES), 'never': list(FORBIDDEN_ROLES),

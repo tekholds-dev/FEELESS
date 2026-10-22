@@ -33,7 +33,9 @@
 .ack-seat:focus-visible { outline: 2px solid var(--m-accent); outline-offset: 2px; }
 .ack-seat.is-on { border-color: var(--m-accent); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--m-accent) 40%, transparent); }
 .ack-seat.is-up { background: linear-gradient(180deg, rgba(21, 209, 106, .08), transparent 60%); } .ack-seat.is-dn { background: linear-gradient(180deg, rgba(255, 85, 119, .07), transparent 60%); }
-.ack-seat.is-open { cursor: default; border-style: dashed; border-color: color-mix(in srgb, var(--m-warn) 45%, transparent); }
+.ack-seat.is-open { cursor: pointer; border-style: dashed; border-color: color-mix(in srgb, var(--m-warn) 45%, transparent); transition: border-color .15s, transform .15s; }
+.ack-seat.is-open:hover { border-color: var(--m-warn); transform: translateY(-1px); } .ack-seat.is-open:active { transform: translateY(0) scale(.99); }
+.ack-seat.is-open:focus-visible { outline: 2px solid var(--m-warn); outline-offset: 2px; }
 .ack-seat header { margin: 0; justify-content: space-between; } .ack-seat header small { font: 700 10px var(--m-mono); letter-spacing: .12em; color: var(--m-mute); }
 .ack-badge { font: 800 9.5px var(--m-mono); letter-spacing: .08em; font-style: normal; padding: 2px 8px; border-radius: 6px; border: 1px solid currentColor; white-space: nowrap; }
 .ack-badge.is-good { color: #0b1a12; background: var(--m-accent); border-color: var(--m-accent); } .ack-badge.is-hold { color: var(--m-text); }
@@ -203,6 +205,12 @@ button.ack-ml { cursor: pointer; transition: transform .12s var(--m-ease), borde
 .aip-state.is-on { color: #0b1a12; background: var(--m-accent); border-color: var(--m-accent); } .aip-state.is-warn { color: var(--m-warn); } .aip-state.is-bad { color: var(--m-danger); } .aip-state.is-off, .aip-state.is-wait { color: var(--m-mute); }
 .aip-stat { grid-area: stat; display: grid; font: 600 10px var(--m-mono); color: var(--m-dim); } .aip-err { color: var(--m-warn); }
 .aip-acts { grid-area: acts; display: flex; flex-wrap: wrap; gap: 5px; } .aip-acts .m-btn { padding: 3px 9px; font-size: 10.5px; }
+/* ⚡ Load: LM Studio is up but holds no model — the hot button glows until the owner taps it */
+.aip-acts .aip-load { border-color: var(--m-accent); color: #45e486; } .aip-acts .aip-load:hover { background: color-mix(in srgb, var(--m-accent) 18%, transparent); }
+.aip-acts .aip-load:active { transform: translateY(1px); } .aip-acts .aip-load:focus-visible { outline: 2px solid var(--m-accent); outline-offset: 2px; }
+.aip-acts .aip-load.is-hot { animation: aipHot 1.2s ease-in-out infinite alternate; } @keyframes aipHot { from { opacity: .7; } to { opacity: 1; } }
+body.fx-lite .aip-acts .aip-load.is-hot { animation: none; } @media (prefers-reduced-motion: reduce) { .aip-acts .aip-load.is-hot { animation: none; } }
+body.theme-day .aip-acts .aip-load { color: #0a7a3d; border-color: #0a7a3d; }
 .ack-ai { display: grid; gap: 8px; border: 1px solid var(--m-line); border-radius: var(--m-r); padding: 9px 11px; }
 .ack-ai header { display: flex; flex-wrap: wrap; gap: 4px 10px; margin: 0; } .ack-ai header b { font: 800 11px var(--m-mono); letter-spacing: .12em; color: var(--m-text); } .ack-ai header small { font: 600 10px var(--m-mono); color: var(--m-mute); }
 .ack-ai-row { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; } .ack-ai-row .m-input { flex: 1 1 200px; min-width: 0; font: 600 11.5px var(--m-mono); }

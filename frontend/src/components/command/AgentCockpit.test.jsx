@@ -241,3 +241,22 @@ test('🐋 wallet bubbles: each tagged trade at its time + market cap, the stron
   expect(p).toHaveLength(2); expect(p[0]).toMatchObject({ kind: 'wallet', icon: '🐋', action: 'SELL', cap: 2000000 }); expect(p[1]).toMatchObject({ icon: '🎯', action: 'BUY' });
   expect(walletPins(cw, 0)).toEqual([]);
 });
+
+test('🖱 every tap opens its coin: a decision card on a coin off the lists, a hunting seat → its READY coin, an unknown coin → its pool is looked up', async () => {
+  const realFetch = global.fetch;
+  global.fetch = jest.fn(async url => ({ ok: true, json: async () => (String(url).includes('/api/market/pairs/solana/GONE') ? { pairs: [{ pairAddress: 'POOLGONE', priceUsd: '0.001', marketCap: 50000, baseToken: { symbol: 'GONE' } }] } : {}) }));
+  const tape = [...(D.office.tape || []), { id: 999, at: Date.now() / 1000 - 30, agent: 'devil', action: 'VETO', symbol: 'GONE', mint: 'GONE', why: 'dropped off the board' }];
+  const d2 = { ...data, office: { ...data.office, tape } };
+  const hub = { d: d2, livePx: new Map(), sel: selectors(d2), load: jest.fn() };
+  const { root, q } = mount();
+  await act(async () => { root.render(<AgentHubProvider value={hub}><AgentCockpit call={jest.fn(async () => ({}))} /></AgentHubProvider>); });
+  await flush();
+  const card = [...document.querySelectorAll('[data-testid^="ack-tape-"]')].find(b => b.textContent.includes('$GONE'));
+  await act(async () => { card.click(); }); await flush(); await flush();
+  expect(q('ack-chart').textContent).toContain('$GONE');                                  // the tap stuck (it used to fall back to the hot seat)
+  expect(global.fetch.mock.calls.some(([u]) => String(u).includes('/api/market/pairs/solana/GONE'))).toBe(true);
+  const open = q('ack-seat-3'); expect(open.getAttribute('role')).toBe('button');
+  await act(async () => { open.click(); }); await flush();
+  expect(q('ack-chart').textContent).not.toContain('$GONE');                              // the hunting seat opened its READY coin
+  global.fetch = realFetch; await act(async () => { root.unmount(); });
+});

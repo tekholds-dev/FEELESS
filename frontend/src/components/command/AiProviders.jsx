@@ -36,6 +36,7 @@ export function AiProviders({ call, isOwner = true, ai, close }) {
   const move = (k, dir) => { const i = order.indexOf(k); const j = i + dir; if (j < 0 || j >= order.length) return; const nx = [...order]; [nx[i], nx[j]] = [nx[j], nx[i]]; post('/admin/ai/providers', { order: nx }); };
   const toggle = r => post('/admin/ai/providers', { enabled: { [r.key]: !r.enabled } });
   const test = r => post('/admin/ai/test', { provider: r.key }, x => (x.ok ? toast.success(`${r.label}: online · ${x.ms}ms`) : toast.error(`${r.label}: ${x.state || 'failed'} — ${x.err || ''}`)));
+  const load = r => { if (window.confirm(`Load ${r.model} in ${r.label}${r.host ? ` (${r.host})` : ''}? LM Studio loads it now (a few seconds on the desktop).`)) post('/admin/ai/load', { provider: r.key }, x => (x.ok ? toast.success(`${r.label}: ${x.model} loaded · ${Math.round(x.ms / 100) / 10}s`) : toast.error(`${r.label}: ${x.err || 'load failed'}`))); };
   return <div className="aip-shade" onMouseDown={e => { if (e.target === e.currentTarget) close(); }} data-testid="ai-providers-shade">
     <aside className="aip" role="dialog" aria-label="AI providers" data-testid="ai-providers">
       <header><b>🧠 AI PROVIDERS</b><small>fallback order · advisory only</small><button type="button" className="m-btn" onClick={close} aria-label="Close" data-testid="aip-close">✕</button></header>
@@ -51,7 +52,9 @@ export function AiProviders({ call, isOwner = true, ai, close }) {
           <button type="button" className="m-btn" disabled={!isOwner || !!busy || i === 0} onClick={() => move(r.key, -1)} aria-label={`Move ${r.label} up`} data-testid={`aip-up-${r.key}`}>▲</button>
           <button type="button" className="m-btn" disabled={!isOwner || !!busy || i === rows.length - 1} onClick={() => move(r.key, 1)} aria-label={`Move ${r.label} down`} data-testid={`aip-down-${r.key}`}>▼</button>
           <button type="button" className={`m-toggle ${r.enabled ? 'is-on' : ''}`} role="switch" aria-checked={r.enabled} disabled={!isOwner || !!busy} onClick={() => toggle(r)} data-testid={`aip-on-${r.key}`}>{r.enabled ? 'ON' : 'OFF'}</button>
-          <button type="button" className="m-btn" disabled={!isOwner || !!busy || !r.enabled} onClick={() => test(r)} data-testid={`aip-test-${r.key}`}>{busy === `/admin/ai/test${r.key}` ? 'Testing…' : 'Test'}</button></span></li>)}</ol>
+          <button type="button" className="m-btn" disabled={!isOwner || !!busy || !r.enabled} onClick={() => test(r)} data-testid={`aip-test-${r.key}`}>{busy === `/admin/ai/test${r.key}` ? 'Testing…' : 'Test'}</button>
+          {r.canLoad && r.state !== 'ONLINE' ? <button type="button" className={`m-btn aip-load ${r.noModel ? 'is-hot' : ''}`} disabled={!isOwner || !!busy || !r.enabled} onClick={() => load(r)} data-testid={`aip-load-${r.key}`}
+            data-tip="Load this model in its LM Studio now (your tap is the approval — nothing reloads a model on its own)">{busy === `/admin/ai/load${r.key}` ? 'Loading…' : '⚡ Load'}</button> : null}</span></li>)}</ol>
       <p className="aip-tot" data-testid="aip-totals">{v?.totals ? `${v.totals.asked} asked · ${v.totals.answered} answered · ${v.totals.fallbacks} fallbacks · ${v.totals.cached} cached · ${v.totals.none} deterministic only` : 'no requests yet'}
         {v?.lastAt ? ` · last advisory round ${ago(v.lastAt)}${v.lastMs != null ? ` (${v.lastMs}ms)` : ''}` : ''}</p>
       <AiKeyBox call={call} isOwner={isOwner} />

@@ -6,10 +6,12 @@ import App from "@/App";
 import { cleanBrowserStorage } from "@/lib/storageHygiene";
 import { installImageFallback } from "@/lib/imageFallback";
 import { installTipLayer } from "@/lib/tipLayer";
+import { installDeadClick } from "@/lib/deadClick";
 
 cleanBrowserStorage();
 installImageFallback();
 installTipLayer();
+installDeadClick();
 
 // Any link that leaves FEELESS opens in a new tab, even if a component forgot target=_blank.
 document.addEventListener('click', event => {
@@ -30,7 +32,9 @@ const queryClient = new QueryClient({
 });
 
 const root = ReactDOM.createRoot(document.getElementById("root"));
-root.render(
+if (process.env.NODE_ENV === 'development' && window.location.pathname === '/dev/hq') {   // 🧪 HQ on fixtures, no sign-in (src/dev/HqHarness.jsx)
+  import('./dev/HqHarness').then(m => root.render(<m.default />));
+} else root.render(
   <React.StrictMode>
     <QueryClientProvider client={queryClient}>
       <App />

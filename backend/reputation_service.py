@@ -16872,6 +16872,17 @@ async def admin_ai_test(request: Request):
     return {**res, **_ai_view()}
 
 
+@app.post('/api/reputation/admin/ai/load')
+async def admin_ai_load(request: Request):
+    """⚡ Owner only: load G4 / OSSY's configured model in its LM Studio (the desktop dropped G4's model → "not connected", 2026-10-22).
+    One tap = the owner's approval; nothing loads a model on its own."""
+    _require_owner(request)
+    body = await request.json()
+    key = str((body or {}).get('provider') or '')
+    res = await _air.ROUTER.load_model(_ai_http(), os.environ, _ai_cfg(), key)
+    return {**res, **_ai_view()}
+
+
 # ── 💬 DIRECT LM CHAT + OWNER-APPROVED AGENT UPDATES (ai_chat.py) ────────────────────────────────────────────────────────────────────
 import ai_chat as _aic
 BUILD_QUEUE_PATH = DATA_DIR / 'build_queue.json'   # 📋 owner-approved build items — the next engineering session reads this first
