@@ -6,7 +6,7 @@ import { fetchLeaderboard, fetchCreator, fetchClusters, BADGE_LABEL } from '../.
 import { CreatorProfileCard, AddressPill, WatchlistDashboard } from './CreatorProfile';
 import { RepTools } from '../RepTools';
 import { RepSection } from './RepStanding';
-import { RepHero, RepNav, REP_SECTIONS } from './RepHero';
+import { RepHero, RepNav, REP_SECTIONS, recordParts } from './RepHero';
 import { SupportButton } from '../SupportHub';
 import { useRemembered } from '../../lib/remember';
 
@@ -76,12 +76,6 @@ function ClusterExplorer({ chain, onScan }) {
 }
 
 // 📊 a creator's record at a glance: what its launches became (sustained · dumped · dead · rugged) as one segmented bar, and its score as a ring
-export function recordParts(row) {
-  const n = Math.max(1, Number(row.tokenCount) || 0);
-  const parts = [['sustained', row.sustainedCount, '#45e486'], ['dumped', row.dumpedCount, '#ffb347'], ['dead', row.deadCount, '#8a93a6'], ['rugged', row.ruggedCount, '#ff4d6d']]
-    .map(([k, v, c]) => ({ k, v: Number(v) || 0, c, w: (Number(v) || 0) / n })).filter(p => p.v > 0);
-  return { parts, other: Math.max(0, 1 - parts.reduce((a, p) => a + p.w, 0)), n };
-}
 function RecordBar({ row }) {
   const r = recordParts(row);
   return <span className="rep-rec" data-tip={`${r.n} launches: ${r.parts.map(p => `${p.v} ${p.k}`).join(' · ') || 'none judged yet'}`}><u>{r.parts.map(p => <i key={p.k} style={{ flexGrow: p.w, background: p.c }} />)}{r.other > 0 ? <i style={{ flexGrow: r.other }} className="is-open" /> : null}</u>

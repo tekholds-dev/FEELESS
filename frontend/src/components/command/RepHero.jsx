@@ -27,6 +27,13 @@ export function repVitals(rows) {
   return { trustedPct: Math.round(((by.trusted || 0) + (by.veteran || 0)) / n * 100), rugs: rs.reduce((a, r) => a + (Number(r.ruggedCount) || 0), 0),
     dumpers: rs.filter(r => r.serialDumper).length, mix: Object.entries(by).sort((a, b) => b[1] - a[1]).map(([k, c]) => ({ k, c, w: c / n })) };
 }
+// pure: what a creator's launches became, as bar parts
+export function recordParts(row) {
+  const n = Math.max(1, Number(row.tokenCount) || 0);
+  const parts = [['sustained', row.sustainedCount, '#45e486'], ['dumped', row.dumpedCount, '#ffb347'], ['dead', row.deadCount, '#8a93a6'], ['rugged', row.ruggedCount, '#ff4d6d']]
+    .map(([k, v, c]) => ({ k, v: Number(v) || 0, c, w: (Number(v) || 0) / n })).filter(p => p.v > 0);
+  return { parts, other: Math.max(0, 1 - parts.reduce((a, p) => a + p.w, 0)), n };
+}
 function Glide({ v, suffix = '' }) { const g = useGlide(Number(v) || 0, 900); return <>{Math.round(g || 0).toLocaleString('en-US')}{suffix}</>; }
 
 export function RepHero({ creators, tokens, chain, rows = [] }) {

@@ -11,7 +11,7 @@ test('trust radar: a cleaner record sits nearer the core; every creator keeps on
 });
 
 test('a creator record bar splits its launches by what they became', () => {
-  const { recordParts } = require('./ReputationCenter');
+  const { recordParts } = require('./RepHero');
   const r = recordParts({ tokenCount: 4, sustainedCount: 1, dumpedCount: 1, ruggedCount: 2 });
   expect(r.parts.map(p => [p.k, p.v])).toEqual([['sustained', 1], ['dumped', 1], ['rugged', 2]]); expect(r.other).toBe(0);
   expect(recordParts({ tokenCount: 1 }).parts).toEqual([]);
