@@ -187,3 +187,16 @@ def test_the_docks_show_six_cartels_and_a_familys_launch_stands_on_its_home():
     assert len(shown) == fw.CARTEL_BLOCKS and {b['tag'] for b in shown} == {f'X{i}' for i in range(12, 18)}   # the strongest six
     h = next(b for b in v['blocks'] if b['id'] == home)
     assert h['launch'] == {'mint': 'M1', 'symbol': 'FEE'} and h['state'] == 'active'
+
+
+def test_raids_are_capped_three_per_family_per_12h_both_ways():
+    w = fw.blank(); tgt = lambda i: {'id': i, 'tag': i.upper(), 'name': i, 'lots': [{'lot': 0, 'b': 'pizza', 'lvl': 1}], 'guards': []}
+    for k, t in enumerate(('x', 'y', 'z')):   # a family runs 3 raids …
+        w['raids'][fw.start(w, {'id': 'a', 'tag': 'A', 'name': 'A'}, tgt(t), 'me', 'don', [3], 1000, NOW + k)['id']]['status'] = 'done'
+    with pytest.raises(ValueError, match='3 raids in 12 hours'):
+        fw.start(w, {'id': 'a', 'tag': 'A', 'name': 'A'}, tgt('q'), 'me', 'don', [3], 1000, NOW + 10)
+    for k, att in enumerate(('b', 'c')):   # … and a target takes at most 3 in 12 h ('z' already took one)
+        w['raids'][fw.start(w, {'id': att, 'tag': att, 'name': att}, tgt('z'), 'me', 'don', [3], 1000, NOW + 20 + k)['id']]['status'] = 'done'
+    with pytest.raises(ValueError, match='raided 3'):
+        fw.start(w, {'id': 'e', 'tag': 'E', 'name': 'E'}, tgt('z'), 'me', 'don', [3], 1000, NOW + 30)
+    assert fw.start(w, {'id': 'a', 'tag': 'A', 'name': 'A'}, tgt('q'), 'me', 'don', [3], 1000, NOW + fw.RAID_CAP_SEC + 5)   # the window ages out

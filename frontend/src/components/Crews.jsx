@@ -2,7 +2,7 @@ import React, { Suspense, useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import { apiUrl } from '../lib/api';
 import { sharedJson } from '../lib/sharedJson';
-import { readChatSession } from '../lib/chatSession';
+import { readChatSession, getChatSession } from '../lib/chatSession';
 import { useWallet } from '../hooks/useWallet';
 import { useLivePrice } from '../lib/livePriceHub';
 import { price as pxWord } from '../lib/num';
@@ -220,7 +220,13 @@ export function Podium({ rows }) {
 // 🌹 the MOB & Rewards › Familia tabs (owner, 2026-10-21: "a landing page, all unique tabs for it")
 export const FAM_TABS = [['home', 'Fee City', MapIcon], ['family', 'My family', Crown], ['wars', 'Wars', Swords], ['board', 'Board', Trophy], ['feed', 'Live', Radio]];   // 👑 the city IS the landing (owner, 2026-10-21)
 export function Crews({ onScene }) {
-  const { wallet, provider } = useWallet() || {}; const addr = wallet?.address || ''; const sess = addr ? readChatSession(addr) : '';
+  const { wallet, provider, signMessage } = useWallet() || {}; const addr = wallet?.address || '';
+  // 🔑 sign in RIGHT HERE (one signature, no transaction) — Familia used to read the chat session only, so a wallet that never opened chat in
+  // this browser (or whose session expired) saw the city as a stranger: "not signed in", no family, no expand (owner, 2026-10-22)
+  const [sess, setSess] = useState(() => (addr ? readChatSession(addr) : ''));
+  useEffect(() => { setSess(addr ? readChatSession(addr) : ''); }, [addr]);
+  const signIn = async () => { if (!addr) { toast.error('Connect your wallet first.'); return ''; }
+    try { const t = await getChatSession(addr, signMessage); setSess(t); return t; } catch (e) { toast.error(e.code === 4001 ? 'Declined in wallet.' : e.message); return ''; } };
   const board = useCrewBoard(); const warsD = useWars(); const [tab, setTab] = useRemembered('feeless.fam.tab', 'home'); const [file, setFile] = useState(null); const [block, setBlock] = useState(undefined);
   const liveWars = (warsD?.wars || []).filter(w => w.state === 'live').length;
   const [mine, setMine] = useState(undefined); const [fams, setFams] = useState([]); const [inv, setInv] = useState(null); const [busy, setBusy] = useState(''); const [q, setQ] = useState(null);
@@ -236,7 +242,7 @@ export function Crews({ onScene }) {
     return sig;
   };
   const act = async (path, body, ok, kind) => {
-    if (!sess) { toast.error('Connect your wallet + open chat once to sign in first.'); return; }
+    if (!sess) { await signIn(); return; }
     setBusy(path);
     try {
       const signature = kind ? await pay(kind) : undefined;
@@ -297,10 +303,12 @@ export function Crews({ onScene }) {
       onClick={async () => { setBusy('switch'); try { await post('/api/reputation/crews/switch', { address: addr, session: sess, cid: f.id }); await loadMine(); sharedJson.freshAt = Date.now(); toast.success(`[${f.tag}] is your active family`); } catch (e) { toast.error(e.message); } finally { setBusy(''); } }}
       data-tip={f.active ? 'The family every Familia page shows now' : `Switch to [${f.tag}] ${f.name}`} data-testid={`fam-switch-${f.tag}`}>[{f.tag}] {f.name}</button>)}</div> : null}
     <InviteInbox invites={inv?.invites} inFamily={!!mine} addr={addr} sess={sess} onDone={loadMine} />
-    {famTab === 'home' && (block === undefined ? <><FamilyWorld addr={addr} sess={sess} onEnter={() => setBlock(null)} onJoin={() => setTab('family')} rooms={rooms} />
+    {addr && !sess ? <div className="m-note" role="status" data-testid="fam-signin"><b>🔑 You're connected but not signed in</b> — your family, turf and ＋expand show once you sign.
+      <button type="button" className="m-btn m-go" onClick={signIn} data-tip="One wallet signature — no transaction, no fee. Proves this wallet is yours." data-testid="fam-signin-go">🔑 Sign in · 1 signature</button></div> : null}
+    {famTab === 'home' && (block === undefined ? <><FamilyWorld addr={addr} sess={sess} onSignIn={signIn} onEnter={() => setBlock(null)} onJoin={() => setTab('family')} rooms={rooms} />
     </> : <FamilyBlock cid={block} addr={addr} sess={sess} onBack={() => setBlock(undefined)} />)}
     {famTab === 'family' && (mine ? <>
-      <FamilyTab mine={mine} addr={addr} sess={sess} tools={hqTools} onEnter={() => { setTab('home'); setBlock(null); }} onLeave={() => { if (window.confirm(`Leave ${mine.name}?`)) act('/api/reputation/crews/leave', {}, 'Left the family'); }} />
+      <FamilyTab mine={mine} addr={addr} sess={sess} onSignIn={signIn} tools={hqTools} onEnter={() => { setTab('home'); setBlock(null); }} onLeave={() => { if (window.confirm(`Leave ${mine.name}?`)) act('/api/reputation/crews/leave', {}, 'Left the family'); }} />
     </> : <>
       <header className="fnr-title"><span>🌹 LA FAMILIA</span><b>Famiglia prima di tutto.</b><small>Families rise on verified trades, settle scores in battle trenches, and wear what they earned.</small></header>
     {joinNode}

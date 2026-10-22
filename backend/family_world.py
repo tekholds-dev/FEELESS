@@ -53,6 +53,7 @@ TURF_MAX = 12
 MOVE_MP = 1500
 RESPOND_SEC = 240
 PAIR_COOL = 2 * 3600
+RAID_CAP, RAID_CAP_SEC = 3, 12 * 3600   # 🛡 anti-spam / anti-bot (owner, 2026-10-22): a family is raided ≤ 3× and raids ≤ 3× per 12 h (CPU towns + cartels exempt as targets)
 LOOT_MAX = 0.35
 JUSTICE = 1.5
 RANK_POWER = {'don': 3, 'underboss': 3, 'consigliere': 2, 'capo': 2, 'soldier': 1, 'associate': 1}
@@ -338,6 +339,11 @@ def start(world, att, target, sender, rank, hitters, stash, now, rounds=2, kind=
     live = [r for r in world['raids'].values() if r['status'] == 'live' and r['a']['id'] == att['id']]
     if live:
         raise ValueError('Finish the raid you are in first.')
+    recent = [r for r in world['raids'].values() if now - float(r.get('at') or 0) < RAID_CAP_SEC]
+    if sum(1 for r in recent if r['a']['id'] == att['id']) >= RAID_CAP:
+        raise ValueError(f'Your family already ran {RAID_CAP} raids in 12 hours — the crew lies low until the oldest one ages out.')
+    if kind == 'family' and sum(1 for r in recent if r['b']['id'] == target['id']) >= RAID_CAP:
+        raise ValueError(f'They were raided {RAID_CAP}× in the last 12 hours — the city protects them for now.')
     world['n'] = int(world.get('n') or 0) + 1
     rid = f"r{world['n']}-{_h(key + str(now)) % 100000}"
     r = {'id': rid, 'a': {k: att[k] for k in ('id', 'tag', 'name')}, 'b': {k: target[k] for k in ('id', 'tag', 'name')}, 'kind': kind,

@@ -171,10 +171,10 @@ export function CrewDeck({ crew }) {
 
 // 🏠 the My family TAB = the same Family HQ as the city's pop-out (owner, 2026-10-22: "the page of my family should be meta with vitals and tools —
 // strip the text"): its own world read (bank, turf, expansions) + the family's tools
-export function FamilyTab({ mine, addr, sess, tools, onEnter, onLeave }) {
+export function FamilyTab({ mine, addr, sess, tools, onEnter, onLeave, onSignIn }) {
   const [v, setV] = useWorld(addr, sess); const [busy, setBusy] = useState(false);
   const act = async (body, ok) => {
-    if (!sess) { toast.error('Connect your wallet + open chat once to sign in first.'); return; }
+    if (!sess) { if (onSignIn) await onSignIn(); else toast.error('Sign in first — one wallet signature, no transaction.'); return; }
     setBusy(true);
     try { const r = await post({ address: addr, session: sess, ...body }); setV(r); toast.success(ok); } catch (e) { toast.error(e.message); } finally { setBusy(false); }
   };
@@ -194,7 +194,7 @@ function PlacePanel({ lens, live, onClose, children }) {
     <div className="fwd-placebody">{children}</div></section>;
 }
 
-export function FamilyWorld({ addr, sess, onEnter, onJoin, rooms = {} }) {
+export function FamilyWorld({ addr, sess, onEnter, onJoin, onSignIn, rooms = {} }) {
   const [v, setV] = useWorld(addr, sess); const [lens, setLensRaw] = useState(null); const mk = useMarkets(); const pools = usePools(); const [sel, setSelRaw] = useState(null); const [busy, setBusy] = useState(false);   // lens = the place you walked into (null = the street)
   const [city, setCity] = useState('fee'); const [tour, setTour] = useState(false);
   const setSel = x => setSelRaw(s => (x && s && ((x.id && s.id === x.id) || (x.lm && s.lm === x.lm) || (x.mk && s.mk === x.mk) || (x.place && s.place === x.place)) ? null : x));   // tap the picked plot again = zoom back out
@@ -202,7 +202,7 @@ export function FamilyWorld({ addr, sess, onEnter, onJoin, rooms = {} }) {
   const setLens = k => { if (!k || k === 'map') { setLensRaw(null); return; } const p = PLACES.find(x => x.lens === k); setLensRaw(k); setCity('fee'); if (p) setSelRaw({ place: p.key }); };
   useEffect(() => { if (!addr || !sess || lens !== 'deck') return; fetch(apiUrl(`/api/reputation/familia-city?address=${addr}&session=${encodeURIComponent(sess)}`)).then(r => (r.ok ? r.json() : null)).then(x => x && setCrew(x.crew || [])).catch(() => {}); }, [lens, addr, sess]);
   const act = async (body, ok) => {
-    if (!sess) { toast.error('Connect your wallet + open chat once to sign in first.'); return; }
+    if (!sess) { if (onSignIn) await onSignIn(); else toast.error('Sign in first — one wallet signature, no transaction.'); return; }
     setBusy(true);
     try { const r = await post({ address: addr, session: sess, ...body }); setV(r); toast.success(r.result?.mp ? `${ok} · +${mp(r.result.mp)} MP` : ok); if (body.act === 'raid') setLensRaw('raids'); }
     catch (e) { toast.error(e.message); } finally { setBusy(false); }
