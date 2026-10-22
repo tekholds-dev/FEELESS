@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import { Coins, Shield, Crosshair, Briefcase, Eye, RotateCw, Hammer, ArrowLeft } from 'lucide-react';
 import { apiUrl } from '../lib/api';
+import { FamilyDeck } from './FamilyDeck';
 import '../styles/familyBlock.css';
 
 // 🏙 THE FAMILY BLOCK (owner, 2026-10-21: "enter your block and build a city — named crypto stores, MP, goons to protect / rob / boost, realistic
@@ -32,7 +33,20 @@ export function Building({ l, nowS }) {
   </div>;
 }
 
-export function FamilyBlock({ cid, addr, sess, onBack }) {
+// 🗼 THE DESK'S PICKS hovering over the block (owner: "coin buildings need a coin hovering over them"): the top 3 of the agents' intake list as
+// floating coins — tap one to open its war room (chart + Quick trade, the wallet signs). One shared 30 s read (the same as the Trench Towers).
+function BlockPicks() {
+  const [rows, setRows] = useState([]);
+  useEffect(() => { let on = true; const load = () => fetch(apiUrl('/api/reputation/familia/intake')).then(r => (r.ok ? r.json() : null)).then(x => on && x && setRows((x.coins || []).filter(c => c.pair).slice(0, 3))).catch(() => {});
+    load(); const t = setInterval(() => { if (!document.hidden) load(); }, 30000); return () => { on = false; clearInterval(t); }; }, []);
+  if (!rows.length) return null;
+  return <div className="fbk-picks" data-testid="block-picks">{rows.map((c, i) => <button key={c.mint} type="button" className={`fbk-pick ${(c.ch ?? 0) < 0 ? 'dn' : 'up'}`} style={{ '--i': i }}
+    onClick={e => { e.stopPropagation(); window.dispatchEvent(new CustomEvent('feeless:war-room', { detail: { chainId: 'solana', pairAddress: c.pair, baseToken: { address: c.mint, symbol: c.sym } } })); }}
+    onPointerDown={e => e.stopPropagation()} data-tip={`$${c.sym} · the desk's pick (${c.status || 'intake'}) · 5m ${c.ch == null ? '—' : `${c.ch >= 0 ? '+' : ''}${Number(c.ch).toFixed(1)}%`} — tap to trade it`} data-testid={`block-pick-${i}`}>
+    <b>${String(c.sym || '?').slice(0, 7)}</b><small>{c.ch == null ? '—' : `${c.ch >= 0 ? '+' : ''}${Number(c.ch).toFixed(1)}%`}</small></button>)}<em>DESK PICKS</em></div>;
+}
+
+export function FamilyBlock({ cid, addr, sess, onBack, mine: myFam = null, tools = null }) {
   const mine = !cid;
   const [v, setV] = useState(null); const [err, setErr] = useState(''); const [sel, setSel] = useState(null); const [busy, setBusy] = useState(false);
   const stageRef = useRef(null); const rzRef = useRef(-40); const [spin, setSpin] = useState(false);
@@ -80,6 +94,7 @@ export function FamilyBlock({ cid, addr, sess, onBack }) {
         {v.staff ? <span className="fbk-staff" data-tip="The creator wallet: every store unlocked, every build free">👑 CREATOR</span> : null}
       </header>
       <div className="fbk-wrap">
+        <div className="fbk-left">
         <div className="fbk-stage" ref={stageRef} onPointerDown={down} onPointerMove={move} onPointerUp={up} onPointerLeave={up} style={{ '--rz': `${rzRef.current}deg` }}>
           <div className="fbk-sky" aria-hidden="true" />
           <div className="fbk-plane">
@@ -90,8 +105,11 @@ export function FamilyBlock({ cid, addr, sess, onBack }) {
             </button>)}
             {Object.entries(v.goons || {}).flatMap(([k, n]) => Array.from({ length: Math.min(n, 4) }, (_, i) => <i key={`${k}-${i}`} className={`fbk-goon g-${k}`} style={{ '--i': i + (k === 'hitter' ? 4 : k === 'earner' ? 8 : 0) }}><b>{k === 'guard' ? '🛡' : k === 'hitter' ? '🔫' : '💼'}</b></i>))}
           </div>
+          <BlockPicks />
           {burst ? <i key={burst} className="fbk-burst" aria-hidden="true">{Array.from({ length: 10 }, (_, i) => <b key={i} style={{ '--i': i }}>🪙</b>)}</i> : null}
           <div className="fbk-ctl"><button type="button" className={spin ? 'active' : ''} onClick={() => setSpin(x => !x)} aria-pressed={spin} data-testid="block-spin"><RotateCw size={14} /> {spin ? 'Stop' : '360°'}</button><small>drag to turn</small></div>
+        </div>
+        <FamilyDeck mine={myFam && myFam.id === v.id ? myFam : null} tools={myFam && myFam.id === v.id ? tools : null} />
         </div>
         <aside className="fbk-side">
           {lot ? (lot.b ? <div className="fbk-card" data-testid="lot-card">

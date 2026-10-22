@@ -40,6 +40,8 @@ if (process.env.NODE_ENV === 'development' && window.location.pathname === '/dev
   import('./dev/ThemesHarness').then(m => root.render(<m.default />));
 } else if (process.env.NODE_ENV === 'development' && window.location.pathname === '/dev/security') {   // 🧪 HQ › Security defence + stores + approvals on fixtures
   import('./dev/SecurityHarness').then(m => root.render(<m.default />));
+} else if (process.env.NODE_ENV === 'development' && window.location.pathname === '/dev/block') {   // 🧪 a family's block + the Family Deck from the live backend (src/dev/BlockHarness.jsx)
+  import('./dev/BlockHarness').then(m => root.render(<m.default />));
 } else if (process.env.NODE_ENV === 'development' && window.location.pathname === '/dev/city') {   // 🧪 Fee City on a captured world + injected turf / raid (src/dev/CityHarness.jsx)
   import('./dev/CityHarness').then(m => root.render(<m.default />));
 } else if (process.env.NODE_ENV === 'development' && window.location.pathname === '/dev/familia') {   // 🧪 Familia Wars / Board / Live on fixtures (src/dev/FamiliaHarness.jsx)

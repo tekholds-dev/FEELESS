@@ -306,7 +306,7 @@ export function Crews({ onScene }) {
     {addr && !sess ? <div className="m-note" role="status" data-testid="fam-signin"><b>🔑 You're connected but not signed in</b> — your family, turf and ＋expand show once you sign.
       <button type="button" className="m-btn m-go" onClick={signIn} data-tip="One wallet signature — no transaction, no fee. Proves this wallet is yours." data-testid="fam-signin-go">🔑 Sign in · 1 signature</button></div> : null}
     {famTab === 'home' && (block === undefined ? <><FamilyWorld addr={addr} sess={sess} onSignIn={signIn} onEnter={() => setBlock(null)} onJoin={() => setTab('family')} rooms={rooms} />
-    </> : <FamilyBlock cid={block} addr={addr} sess={sess} onBack={() => setBlock(undefined)} />)}
+    </> : <FamilyBlock cid={block} addr={addr} sess={sess} onBack={() => setBlock(undefined)} mine={mine} tools={hqTools} />)}
     {famTab === 'family' && (mine ? <>
       <FamilyTab mine={mine} addr={addr} sess={sess} onSignIn={signIn} tools={hqTools} onEnter={() => { setTab('home'); setBlock(null); }} onLeave={() => { if (window.confirm(`Leave ${mine.name}?`)) act('/api/reputation/crews/leave', {}, 'Left the family'); }} />
     </> : <>
