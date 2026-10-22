@@ -160,6 +160,17 @@ chat (`StreetChat`) · 👑 creator's family on any linked / HQ wallet (`_seat_o
 VAULT (9th Avenue building, `sleep_money.py`) · 🏠 HQ one-stop tools + 📒 Books · 🏷 THE REALTOR · 🐛 Family Fuse cards (linked wallets + Prime cards).
 Earlier: Fee City 2× + FEELESS AVENUE · Pool Hall charts · Jupiter Lend deposit-here · defence · chat themes · Rep radar · online status.
 
+P0 — OWNER'S NEWEST (2026-10-22 late) — do these first, in order
+1. 🏙 "I still can't see / access my family and expand": `_seat_of` (linked + HQ wallets) is live in crews/mine + familia-world — find WHICH
+   wallet the owner connects (HQ › Bugs / console) and why it still misses; then make Family HQ + ＋expand reachable in one tap from the city.
+2. 🏙 Familia "astoundingly great": ALL assets as buildings (held coins, pools, launches, Fuse cards) + expansions · family members' VITALS on the
+   family page · Fuse wallet trades (lots) in the family Books.
+3. 🪟 NEXA struggles to read / isn't trade-ready like OSSY + G4 (177s reads) · 🧠 G4 health (stalls, WAITs) · Models tab BESIDE NEXA's chat with
+   vitals, aligned · prompt PRESETS per model (save / pick / apply) · no lag.
+4. 🐆 Sicario's seat button: more vitals + fix its alignment (owner screenshot).
+5. 🗂 Desktop clean-up (confirm the list with the owner before deleting — never the images): FEELESS old copies/, feeless-aisite/,
+   feeless-churnfix/, feeless-flow/, feeless-kernel/, feeless-meta/, feeless-ultra/ (keep `feeless v.o7`).
+
 P1 — FAMILIA = the one-stop shop in web3 (what is left)
 1. ❓ OWNER: city full-screen by default? (Realtor shipped as the clutter-free buy space; a dedicated for-sale ISLAND in 3D is still open.)
 2. 💤 Night Vault next: DCA / limit orders (Jupiter Recurring + Trigger APIs: build → verify programs like `lend_earn.verify` → wallet signs; an

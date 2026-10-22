@@ -141,3 +141,5 @@ body.theme-day .st-line.is-mine { background: linear-gradient(250deg, color-mix(
 body.theme-day .st-live, body.theme-day .st-pulse, body.theme-day .st-coin, body.theme-day .st-tools button, body.theme-day .st-send .m-input, body.theme-day .st-who-here { background: rgba(255, 255, 255, .8); }
 body.theme-day .st-name { color: #7a5600; } body.theme-day .st-title em { color: #8a6400; text-shadow: none; } body.theme-day .st-title b { text-shadow: none; }
 @media (max-width: 640px) { .st { padding: 10px; max-height: 78dvh; } .st-title b { font-size: 15px; } .st-line { max-width: 100%; } .st-neon { display: none; } .st-head { gap: 6px; } }
+body.theme-day .st-pulse b { color: #8a5a00; text-shadow: none; } body.theme-day .st-hot { background: rgba(255, 255, 255, .85); color: #22180a; } body.theme-day .st-hot b { color: #0d7a41; text-shadow: none; }
+body.theme-day .st-live { color: #22180a; } body.theme-day .st-coin.is-up em { color: #fff; background: #0d9a50; }

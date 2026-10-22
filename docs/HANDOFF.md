@@ -1,3 +1,14 @@
+## 🔁 HANDOFF 2026-10-22 (late) — read first · conserve usage · finish by priority · never dead-style
+NEXT = CLAUDE.md › CURRENT TASKS › P0 (owner's newest: my family access + expand, assets as buildings, member vitals, NEXA / G4 / models tab +
+prompt presets, Sicario's seat button, Desktop clean-up after the owner confirms the folder list).
+### ✅ Shipped this session (main, gate green each push; reputation restarted from Claude's watcher, 1 copy)
+AI: chat line → model settings (rig proposals, LM Studio reload only on ✅/⚡, keep-alive stands down) · LM Studio Load + Inference view · Brain
+at 360 px. Familia: THE STREETS chat (+📌 pin) · `_seat_of` · OVERWATCH · NIGHT VAULT · HQ one-stop tools + Books · REALTOR · Fuse cards from
+linked wallets + Prime cards · quiet world reads stop rewriting crews.json (load test: scripts/load-world.py). Pages: Launch click-through ·
+FeeCat Legend · Roadmap 3D track · pool builder live preview. Fixes: footer over ⤢ collapse, room panel over the dock, phone/day touch-ups.
+### ⬜ Not verified
+Owner's signed-in view (family access, Overwatch signature, a real LM Studio reload — tested on fakes only). Previews: /dev/city, /dev/brain.
+
 ## 🔁 HANDOFF 2026-10-22 (evening) — read first · conserve usage · finish everything by priority · never dead-style
 Owner: "fix AI first … then the rest of the full list · familia chat gotta be LITTY". All below pushed to main, gate green, reputation service
 restarted from Claude's tree (watcher `background.sh start` → kill → relaunched, 1 copy, LAN reachable).

@@ -63,4 +63,5 @@ body.theme-day .nv-title b { color: #1e1846; text-shadow: none; } body.theme-day
 body.theme-day .nv-calc, body.theme-day .nv-card, body.theme-day .nv-loop { background: rgba(255, 255, 255, .85); } body.theme-day .nv-head > span:first-child b, body.theme-day .nv-apy b { color: #1e1846; text-shadow: none; }
 body.theme-day .nv-earned, body.theme-day .nv-loopnums b.is-up { color: #0d7a41; text-shadow: none; } body.theme-day .nv-best, body.theme-day .nv-cushion, body.theme-day .nv-ltv b { color: #2a2160; }
 @media (max-width: 640px) { .nv-head { grid-template-columns: minmax(0, 1fr) auto; } .nv-out { grid-column: 1 / -1; justify-items: start; } .nv-risk { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .nv-amt > em { min-width: 0; flex-basis: 100%; } .nv-title b { font-size: 18px; } .nv-z { right: 76px; } }
+  .nv-amt > em { min-width: 0; flex-basis: 100%; } .nv-title { padding-right: 78px; } .nv-title b { font-size: 18px; } .nv-z { right: 76px; } }
+body.theme-day .nv-moon { background: #fff2bf; box-shadow: 0 0 22px rgba(255, 220, 120, .6); } body.theme-day .nv-moon::after { background: #cfc5f7; } body.theme-day .nv-best b { color: #1e1846; }

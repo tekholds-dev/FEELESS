@@ -114,4 +114,4 @@ body.fx-lite .fwd-siren, body.fx-lite .fwd-alert { animation: none; } @media (pr
 @media (max-width: 640px) { .fwd-alert { grid-template-columns: minmax(0, 1fr) auto; } .fwd-alert em { display: none; } }
 /* the room panel leaves the collapsed directory dock (46px + 12px gap) uncovered; on a phone the dock hides while a room is open */
 .fwd-place { width: min(560px, calc(100% - 88px)); }
-@media (max-width: 640px) { .fwd-place { width: auto; } .fwd-mapwrap:has(.fwd-place) .fc3-dir { display: none; } }
+@media (max-width: 640px) { .fwd-place { width: auto; } .fwd-mapwrap:has(.fwd-place) :is(.fc3-dir, .mh-acts) { display: none; } }

@@ -36,7 +36,7 @@ export function Realtor({ v, act, busy, onFly }) {
     {groups.map(({ tier: [k, label, , col], plots }) => <div key={k} className={`rl-tier k-${k}`} style={{ '--tc': col }} data-testid={`rl-tier-${k}`}>
       <p className="rl-tlabel"><b>{label}</b><small>{plots.length} plot{plots.length === 1 ? '' : 's'} · from {plots[0].mp != null ? `${mp(plots[0].mp)} MP` : '—'}</small></p>
       <ol className="rl-lots">{plots.slice(0, 12).map((p, i) => <li key={p.id} className={`rl-lot ${p.ok ? 'is-ok' : ''}`} style={{ '--i': i }} data-testid={`rl-lot-${p.id}`}>
-        <span className="rl-sign" aria-hidden="true"><i /><b>SOLD?</b></span>
+        <span className="rl-sign" aria-hidden="true"><i /><b>SALE</b></span>
         <span className="rl-id"><b>{p.id}</b><small>{p.icon} {p.name} · ×{p.tierMul}</small></span>
         <strong className="m-num">{p.mp != null ? `${mp(p.mp)} MP` : '—'}</strong>
         <span className="rl-acts">{onFly ? <button type="button" className="m-btn" onClick={() => onFly(p.id)} data-tip="Fly the city camera to this plot" aria-label={`Fly to ${p.id}`}>📍</button> : null}
