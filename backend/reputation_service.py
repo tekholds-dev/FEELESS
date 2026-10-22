@@ -16244,9 +16244,11 @@ async def _nexa_tick(now, env, cfg):
             'MEMORY': pk_.get('MEMORY'),
         }
 
-        if full_:
-            r_ = await _air.ROUTER.ask(_ai_http(), env, cfg, 'Read the packet.', context=nexa_pk_, role='exit', urgency='force', only=('win',), system=_fv_persona_sys('NEXA', _nexa.ASK), only_system=True, tune={'temp': 0.2, 'maxTok': 100})
-            d_ = _nexa.parse(r_.get('text'), pairs_, rules_, bounds_)
+        if full_:   # 🪶 the lean full read: tagged lines + rules / record / notes as text, no persona, enough tokens to finish (nexa.ASK_FULL)
+            lines_, ids_ = _nexa.fast_lines(pk_.get('OPEN'), pk_.get('NEXT'))
+            r_ = await _air.ROUTER.ask(_ai_http(), env, cfg, _nexa.full_text(lines_, rules_, bounds_, nexa_pk_['RECORD'], nexa_pk_['MEMORY']), role='exit', urgency='force',
+                                       only=('win',), system=_nexa.ASK_FULL, only_system=True, tune={'temp': 0.2, 'maxTok': _nexa.FULL_TOK})
+            d_ = _nexa.parse_full(r_.get('text'), ids_, rules_, bounds_)
         else:
             lines_, ids_ = _nexa.fast_lines(pk_.get('OPEN'), pk_.get('NEXT'))
             r_ = await _air.ROUTER.ask(_ai_http(), env, cfg, lines_, role='exit', urgency='force', only=('win',), system=_nexa.ASK_FAST, only_system=True, tune={'temp': 0.1, 'maxTok': _nexa.FAST_TOK})

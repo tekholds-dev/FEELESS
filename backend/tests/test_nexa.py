@@ -55,3 +55,16 @@ def test_the_full_read_runs_once_an_hour():
     assert nexa.full_due({}, 1000)
     assert not nexa.full_due({'fullAt': 1000}, 1000 + nexa.FULL_EVERY - 1)
     assert nexa.full_due({'fullAt': 1000}, 1000 + nexa.FULL_EVERY)
+
+
+def test_lean_full_read_fits_and_parses():
+    import nexa as nx
+    open_ = [{'pairAddress': 'P' * 44, 'symbol': 'AAA', 'cap': 40000, 'ageMin': 50, 'move5m': 3.2}]
+    next_ = [{'pairAddress': 'Q' * 44, 'symbol': 'BBB', 'cap': 22000, 'ageMin': 300}, {'pairAddress': 'R' * 44, 'symbol': 'CCC', 'cap': 9e5, 'ageMin': 4}]
+    lines, ids = nx.fast_lines(open_, next_)
+    txt = nx.full_text(lines, {'stopPct': 20}, {'stopPct': (10, 30)}, nx.record([]), ['[lesson] dips on fresh coins kill'] * 9)
+    assert 'P' * 44 not in txt and 'O1 $AAA' in txt and 'stopPct 20 [10 30]' in txt and txt.count('[lesson]') == nx.FULL_NOTES
+    assert 'persona' not in nx.ASK_FULL.lower() and len(nx.ASK_FULL) < 900
+    d = nx.parse_full('{"exit":["O1"],"avoid":["N2"],"favor":["N1"],"tune":{"stopPct":25},"lesson":"cap < 30K graduated held","why":"x"}', ids, {'stopPct': 20}, {'stopPct': (10, 30)})
+    assert d['exit'] == ['P' * 44] and d['avoid'] == ['R' * 44] and d['favor'] == ['Q' * 44] and d['lesson'].startswith('cap')
+    assert nx.parse_full('cut off {"exit":["O1"', ids, {}, {}) is None

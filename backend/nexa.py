@@ -48,6 +48,38 @@ ASK = (
     "Empty lists are a fine answer."
 )
 
+# 🪶 LEAN FULL READ (2026-10-22: her full read took ~177 s on the i5 and came back CUT OFF — 44-char pairAddresses + six fields could never fit
+# 100 tokens, so the JSON failed to parse and she "couldn't read"). Same O# / N# lines as the fast read, rules + record + notes as short text,
+# NO chat persona (it is for her voice, not a JSON read), ≤ 2 remembered facts, FULL_TOK to finish.
+FULL_TOK, FULL_NOTES = 180, 6
+ASK_FULL = (
+    "You are NEXA SICARIO, FeeCat's analyst. FeeCat trades PAPER. COINS: O# = her open trades, N# = coins she may buy (cap $, age min, 5m %, buyers, "
+    "pool $, top10 %, germ). THEORY = the desk's proven laws (fresh < 15 min loses; still on the curve loses; cap < $30K + graduated is the only proven "
+    "setup; exits first; holds 30 min+ win). RULES = name value [low high]. RECORD = how your calls did. NOTES = what you filed. Answer ONE JSON line "
+    "and nothing else: "
+    '{"exit":["O#"],"avoid":["N#"],"favor":["N#"],"tune":{"rule":number},"lesson":"one line, numbers","why":"under 15 words",'
+    '"remember":[["coin|creator|narrative|lesson|fact","key","short fact"]]}. '
+    "tune ≤ 2 RULES inside their bounds, only when RECORD shows the rule costs her. remember ≤ 2. Use only the lines given. Empty lists are fine."
+)
+
+
+def full_text(lines, rules, bounds, record_, notes):
+    """The lean full-read packet as plain text (the coin lines come from fast_lines)."""
+    rl = ' · '.join(f"{k} {v} [{(bounds.get(k) or ('?', '?'))[0]} {(bounds.get(k) or ('?', '?'))[1]}]" for k, v in list((rules or {}).items())[:10])
+    rc = ' · '.join(f"{k} n{v.get('n', 0)}" + (f" {v['rightPct']}% right typical {v['typical']:+.1f}%" if v.get('n') else '') for k, v in (record_ or {}).items())
+    return f"COINS\n{lines}\nRULES {rl or 'none'}\nRECORD {rc or 'none yet'}\nNOTES " + (' | '.join(str(n)[:120] for n in (notes or [])[-FULL_NOTES:]) or 'none')
+
+
+def parse_full(text, ids, rules, bounds):
+    """The lean full answer → parse()'s shape: tags mapped back to pairAddresses, tune clamped, lesson kept."""
+    d = first_json(text)
+    if d is None:
+        return None
+    out = parse_fast(text, ids)
+    out['tune'] = clamp_tune(d.get('tune') if isinstance(d.get('tune'), dict) else {}, rules, bounds)
+    out['lesson'] = ' '.join(str(d.get('lesson') or '').split())[:NOTE_LEN]
+    return out
+
 
 from fnum import plain as _f   # noqa: E402
 
