@@ -1,5 +1,5 @@
 ## 🔥 OWNER'S NEWEST REQUEST (2026-10-22 midday) — TOP PRIORITY → CLAUDE.md › CURRENT TASKS › SEVENTH LIST (5 items, in order)
-Creator wallet sees every family wallet / bank / trades (owner view) · city window bigger (done: 88vh) · MONEY WHILE YOU SLEEP in most buildings
+CREATOR (owner's account only) sees their own Sicario family + a creator-only FAMILY COMMAND CENTER (every family's wallet / bank / trades) · city window bigger (done: 88vh) · MONEY WHILE YOU SLEEP in most buildings
 (auto-compound vaults, lend loops / multiply, LST stacking, JLP, DCA / limit orders — live APY + 24h earned + deposit here, wallet signs, risk shown)
 · space for users to buy plots without clutter. Conserve usage · finish everything by priority · never dead-style.
 

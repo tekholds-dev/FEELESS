@@ -159,7 +159,9 @@ near full-screen with real charts + 24h earned · city window 88vh · Jupiter Le
 online status · FEEd pulse + pop-out · Gas fuel station · Family Wars / Board / Live redo · Fuse ladder + fight chats · turf ACTIVE / SHUT.
 
 P1 — FAMILIA = the one-stop shop in web3 (owner's 6th + 7th lists)
-1. 👑 Creator wallet (`_is_staff`) sees every family: wallet, bank, trades, pools, members — read-only owner view (HQ › 🏙 Familia + in-city).
+1. 👑 CREATOR (the owner's account only, `_is_staff` over EVERY linked wallet): signed in, the owner must see THEIR OWN Sicario family (the one
+   they built — check `crews.families_of` / `_seat` look at all linked wallets, not just the connected one) + a FAMILY COMMAND CENTER only the
+   creator can open: every family's wallet, bank, trades, pools, members, plus Familia pricing / limits / fees (HQ › 🏙 Familia + an in-city pop-out).
 2. 💸 MONEY WHILE YOU SLEEP in most buildings: auto-compound vaults, lend loops / multiply, LST stacking, JLP, yield stables, DCA / limit orders —
    live APY + 24h earned + calculator + deposit here (verify the tx's programs like `lend_earn.verify`; show liquidation / IL / depeg risk).
 3. 🏗 Space for users to buy without clutter: a for-sale district per city, plot tiers. Ask the owner: city full-screen by default?
