@@ -6,11 +6,15 @@
 // An island = a GRID of cells (roads between every cell) inside a ring of open LAND (parks, food stalls, a promenade). Family plots are 3 × 3
 // tiles; market towers sit on 4 × 4 cells. FEE CITY = the capital (8 × 6 cells: 24 family plots ring the stadium, The House, the Creator's
 // Mansion, Rug Shield HQ, the Launch Pad and Fee Plaza) + three market islands over bridges: MARKET ROW (east: the DEXes + the Pool Hall),
-// VAULT DISTRICT (west: lend / perps / stake), NEW MONEY (south: today's top coins). Each outer city = its boroughs + its own POOL DISTRICT.
-export const CELL = 3;        // a family plot
-export const MCELL = 4;       // a market tower
-export const LAND = 3;        // the open land ring around every island grid
-const GAP = 10;               // water between islands
+// VAULT DISTRICT (west: lend / perps / stake), NEW MONEY (south: today's top coins), FEELESS AVENUE (north: every FEELESS tool as a building
+// you walk into — Pump Radar, Runners, the Watchtower, Rep, FeeCat, Fuel, the Newsstand, the $FEE Bank). Each outer city = its boroughs + its
+// own POOL DISTRICT. Owner, 2026-10-22: "Fee City 2× bigger, the bridged towns need more space instead of every building side by side" →
+// cells are bigger than the buildings on them (FOOT): every building stands in its own yard, with wider land rings and wider water.
+export const CELL = 4;        // a family plot
+export const MCELL = 6;       // a market tower
+export const LAND = 5;        // the open land ring around every island grid
+const GAP = 16;               // water between islands
+export const FOOT = { lot: 2.6, tower: 3.8 };   // the most a building covers of its cell — the rest is its yard (grass, trees)
 export const stepOf = cell => cell + 1;
 export const STEP = stepOf(CELL);
 const spanOf = (n, cell = CELL) => n * stepOf(cell) + 1;
@@ -39,6 +43,15 @@ export const PLACES = [
   { key: 'gym', lens: 'rc', name: 'THE GYM', sub: 'challenges · win recruits', isl: 'money', art: 'gym', color: '#6ad7ff' },
   { key: 'cards', lens: 'deck', name: 'CARD ROOM', sub: 'your crew deck', isl: 'money', art: 'casino', color: '#b388ff' },
   { key: 'cartels', lens: 'cartels', name: 'CARTEL WAREHOUSE', sub: 'bundlers · snipers · funders', isl: 'money', art: 'warehouse', color: '#3ddc84' },
+  // 🛣 FEELESS AVENUE — the site's best tools as buildings: each pops out its live vitals + quick tools (`tool: true`, `page` = its full page)
+  { key: 'pumpradar', lens: 'pumpradar', name: 'PUMP RADAR', sub: 'hottest Pump coins · one-tap trade', isl: 'ave', art: 'radar', color: '#45e486', tool: true, page: '/terminal/pump' },
+  { key: 'runners', lens: 'runners', name: 'RUNNERS TRACK', sub: "FEELESS's live runner calls", isl: 'ave', art: 'track', color: '#ff9f45', tool: true, page: '/terminal/fuse?tab=runners' },
+  { key: 'watch', lens: 'watch', name: 'THE WATCHTOWER', sub: 'your watchlist · signal alerts', isl: 'ave', art: 'watch', color: '#6ad7ff', tool: true, page: '/terminal/watchlist' },
+  { key: 'court', lens: 'rep', name: 'REP COURTHOUSE', sub: 'case files · check anyone', isl: 'ave', art: 'court', color: '#d4af37', tool: true, page: '/terminal/reputation' },
+  { key: 'feecat', lens: 'feecat', name: 'FEECAT TOWER', sub: 'the trading cat, live', isl: 'ave', art: 'cat', color: '#b388ff', tool: true, page: '/terminal/feecat' },
+  { key: 'fuel', lens: 'gas', name: 'FUEL STATION', sub: 'gas on 12 chains', isl: 'ave', art: 'fuel', color: '#ffd36b', tool: true, page: '/terminal/trade' },
+  { key: 'news', lens: 'feedx', name: 'THE NEWSSTAND', sub: 'FEEd · every call, live', isl: 'ave', art: 'news', color: '#45e4c8', tool: true },
+  { key: 'feebank', lens: 'feebank', name: 'THE $FEE BANK', sub: '$FEE · rFEE · FEECAT — buys fee-free', isl: 'ave', art: 'bank', color: '#15d16a', tool: true, page: '/terminal/fee' },
 ];
 
 // the market islands: size in cells, which markets fill them
@@ -46,6 +59,7 @@ export const ISLANDS = {
   row: { name: 'MARKET ROW', sub: 'the DEXes · pools live', cols: 4, rows: 2, kinds: ['dex'], color: '#45e486' },
   vault: { name: 'VAULT DISTRICT', sub: 'lend · perps · stake', cols: 6, rows: 2, kinds: ['lend', 'perps', 'stake'], color: '#f5c451' },
   money: { name: 'NEW MONEY', sub: "today's top coins", cols: 5, rows: 3, kinds: ['coin'], color: '#ff8fa3' },
+  ave: { name: 'FEELESS AVENUE', sub: 'every FEELESS tool · one tap', cols: 4, rows: 2, kinds: [], color: '#15d16a' },
 };
 // each outer city's pool district (the Pool Hub's `cities`)
 export const DISTRICTS = {
@@ -106,14 +120,15 @@ export function feePlan(v, mk) {
   const vw = spanOf(ISLANDS.vault.cols, MCELL);
   const vault = island('vault', cap.x - GAP - LAND - vw, midZ - 0.5 - sM * Math.floor(ISLANDS.vault.rows / 2), ISLANDS.vault.cols, ISLANDS.vault.rows, MCELL, { name: ISLANDS.vault.name, sub: ISLANDS.vault.sub, color: ISLANDS.vault.color });
   const money = island('money', midX - 0.5 - sM * Math.floor(ISLANDS.money.cols / 2), cap.z + cap.d + GAP + LAND, ISLANDS.money.cols, ISLANDS.money.rows, MCELL, { name: ISLANDS.money.name, sub: ISLANDS.money.sub, color: ISLANDS.money.color });
-  const isl = [cap, row, vault, money]; const byKey = { row, vault, money };
+  const ave = island('ave', midX - 0.5 - sM * Math.floor(ISLANDS.ave.cols / 2), cap.z - GAP - LAND - spanOf(ISLANDS.ave.rows, MCELL), ISLANDS.ave.cols, ISLANDS.ave.rows, MCELL, { name: ISLANDS.ave.name, sub: ISLANDS.ave.sub, color: ISLANDS.ave.color });
+  const isl = [cap, row, vault, money, ave]; const byKey = { row, vault, money, ave };
   // family plots (server ids fee-*) on the capital
   const lots = (v?.blocks || []).filter(b => b.b === 'fee').map(b => ({ id: b.id, pick: { id: b.id }, kind: b.mine ? 'mine' : b.kind === 'cpu' ? 'cpu' : b.kind === 'cartel' ? 'cartel' : b.owner ? 'family' : 'free',
     tag: b.tag || null, owner: b.owner || null, home: !!b.home, power: b.power || 0, link: b.link || null, state: b.state || null, fundH: b.fundH ?? null, launch: b.launch || null, rect: rectOf(cap.gx, cap.gz, FEE_PLOTS[b.i] || [0, 0]), seed: hash(b.id) }));
   const marks = Object.entries(FEE_MARKS).map(([k, c]) => { const m = (v?.landmarks || []).find(l => l.key === k); return { key: k, pick: { lm: k }, name: m?.name || k.toUpperCase(), live: m?.live || null, rect: rectOf(cap.gx, cap.gz, c) }; });
   const plaza = rectOf(cap.gx, cap.gz, PLAZA);
   // markets onto their islands, biggest first; then the places; an island never overflows
-  const slots = { row: [], vault: [], money: [] };
+  const slots = { row: [], vault: [], money: [], ave: [] };
   for (const k of Object.keys(ISLANDS)) { const s = ISLANDS[k]; for (let r = 0; r < s.rows; r += 1) for (let c = 0; c < s.cols; c += 1) slots[k].push([c, r]); }
   const take = k => slots[k].shift();
   const placesOn = k => PLACES.filter(p => p.isl === k);
@@ -139,16 +154,17 @@ export function feePlan(v, mk) {
     { key: 'b-row', axis: 'x', z: midZ, a: cap.x + cap.w, b: row.x, name: 'Fee Street Bridge' },
     { key: 'b-vault', axis: 'x', z: midZ, a: vault.x + vault.w, b: cap.x, name: 'Vault Bridge' },
     { key: 'b-money', axis: 'z', x: midX, a: cap.z + cap.d, b: money.z, name: 'New Money Bridge' },
+    { key: 'b-ave', axis: 'z', x: midX, a: ave.z + ave.d, b: cap.z, name: 'Avenue Bridge' },
   ];
   const cityOf = k => (v?.cities || []).find(c => c.key === k);
   const gates = [
-    { key: 'heights', axis: 'z', x: midX, a: cap.z - GAP, b: cap.z, at: 'n' },
+    { key: 'heights', axis: 'z', x: midX, a: ave.z - GAP, b: ave.z, at: 'n' },
     { key: 'bay', axis: 'x', z: lineZ(row, 1), a: row.x + row.w, b: row.x + row.w + GAP, at: 'e' },
     { key: 'harbor', axis: 'x', z: lineZ(vault, 1), a: vault.x - GAP, b: vault.x, at: 'w' },
     { key: 'docks', axis: 'z', x: lineX(money, 2), a: money.z + money.d, b: money.z + money.d + GAP, at: 's' },
   ].map(g => ({ ...g, name: cityOf(g.key)?.name || g.key.toUpperCase(), held: cityOf(g.key) ? `${cityOf(g.key).held}/${cityOf(g.key).plots} held` : '' }));
   const lights = [...roads[0].nodes.filter(n => !n.edge).slice(0, 14), ...roads.slice(1).flatMap(r => r.nodes.filter(n => !n.edge).slice(0, 3))];
-  const loops = [ringOf(cap), loop(lineX(cap, 0), lineZ(cap, 4), lineX(cap, 8), lineZ(cap, 6)), loop(lineX(cap, 6), lineZ(cap, 0), lineX(cap, 8), lineZ(cap, 3)), ...[row, vault, money].map(ringOf)];
+  const loops = [ringOf(cap), loop(lineX(cap, 0), lineZ(cap, 4), lineX(cap, 8), lineZ(cap, 6)), loop(lineX(cap, 6), lineZ(cap, 0), lineX(cap, 8), lineZ(cap, 3)), ...[row, vault, money, ave].map(ringOf)];
   return { kind: 'fee', islands: isl, lots, marks, plaza, markets: mk_, places, spare, roads, bridges, gates, lights, loops, bounds: boundsOf(isl), center: { x: cap.x + cap.w / 2, z: cap.z + cap.d / 2 + 6 } };
 }
 

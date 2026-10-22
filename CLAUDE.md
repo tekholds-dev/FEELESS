@@ -151,6 +151,22 @@ The owner rejected work that shipped as "dull", "non degen", "emojis sliding aro
 
 
 ## 📋 CURRENT TASKS (update this list every session — newest first; finished items move to the history file)
+🔥 OWNER'S SEVENTH LIST (2026-10-22, midday) — TOP PRIORITY, ahead of the sixth list's open items, in this order:
+1. 👑 CREATOR WALLET sees EVERYTHING in Familia: sign in with the creator wallet (`_is_staff`) → every family's wallet / bank / trades / pools /
+   members in an owner view (read-only oversight; HQ › 🏙 Familia + a pop-out in the city). Never another user's keys.
+2. 🪟 CITY WINDOW BIGGER: DONE 2026-10-22 (`.fc3` height clamp(600px, 88vh, 1180px)); next: open full-screen by default on desktop?
+   (ask), side panel / chat as overlays so the 3D gets the width.
+3. 💸 MAKE MONEY WHILE YOU SLEEP in MOST buildings (not only v2 / v3 pools): rapid / auto-compounding (vault auto-compound, lend → loop / multiply
+   e.g. Kamino Multiply, LST stacking jitoSOL → lend, JLP, yield-bearing stables, funding-rate basis, DCA / recurring buys, limit orders, Jupiter
+   Lend Earn already wired) — each a building with live APY / 24h earned + a calculator + deposit HERE (the wallet signs, never custody, verify the
+   tx's programs like `lend_earn.verify`). Research the newest web3 earn tools first; RISK shown plainly (loop liquidation price, IL, depeg).
+4. 🏗 SPACE FOR USERS TO BUY without clutter: free plots / expansion land on every island (yards are in; next: an open "for sale" district per
+   city, plot sizes by tier, buildings never side by side).
+5. Fee City main = FEELESS site pop-outs (FEELESS AVENUE, done) AND the coolest newest web3 money tools in the majority of buildings (item 3).
+
+🔥 OWNER'S SIXTH LIST (2026-10-22, morning) — 1 (Pool Hall big + charts + real 24h), 2 (Fee City ~2×: cells > buildings = yards, LAND 5, GAP 16) and
+3 (FEELESS AVENUE: Pump Radar, Runners, Watchtower, Rep, FeeCat, Fuel, Newsstand, $FEE Bank as drawn buildings → live pop-outs, `CityAvenue.jsx`)
+DONE 2026-10-22. Still open: 4–8 below. Original text:
 🔥 OWNER'S SIXTH LIST (2026-10-22, morning) — TOP PRIORITY, ahead of every list below. Goal: FAMILIA = "the one-stop shop in web3" — thousands
 of people having fun, meta tech, addicting, REAL MONEY; ~90 % of buildings carry a real-money utility; every pop-out = live vitals + quick tools.
 1. 🏦 POOL HALL pop-out: much bigger (near full-screen), REAL data + CHARTS per pool (TVL + APY history — DefiLlama /chart/{pool}), REAL 24h

@@ -89,7 +89,7 @@ export function Gauge({ c, on, onPick }) {
     <b>{NAMES[c.chain] || c.chain}</b><small>{c.balance == null ? 'unavailable' : c.usd != null ? `$${c.usd.toFixed(2)}` : `${c.balance.toFixed(4)} ${c.symbol}`}</small>
     <em>{c.enough ? '✓ fuelled' : '⛽ running dry'}</em></button>;
 }
-function GetGas() {
+export function GetGas() {
   const r = useRoute();
   const [gas, setGas] = useState(null); const [target, setTarget] = useState(null); const [usd, setUsd] = useState('2');
   const address = r.wallet?.chain === 'evm' ? r.wallet.address : null;

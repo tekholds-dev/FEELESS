@@ -1,3 +1,18 @@
+## 🔥 OWNER'S NEWEST REQUEST (2026-10-22 midday) — TOP PRIORITY → CLAUDE.md › CURRENT TASKS › SEVENTH LIST (5 items, in order)
+Creator wallet sees every family wallet / bank / trades (owner view) · city window bigger (done: 88vh) · MONEY WHILE YOU SLEEP in most buildings
+(auto-compound vaults, lend loops / multiply, LST stacking, JLP, DCA / limit orders — live APY + 24h earned + deposit here, wallet signs, risk shown)
+· space for users to buy plots without clutter. Conserve usage · finish everything by priority · never dead-style.
+
+## ✅ DONE 2026-10-22 midday (owner to look at, /dev/city + /dev/pools)
+- POOL HALL near full-screen: every row = what $1,000 earned in 24h; 📈 Chart + 24h = real TVL/APY history (DefiLlama /chart, 7/30/90D) + calculator.
+- FEE CITY ~2× (cityPlan: CELL 4, MCELL 6, LAND 5, GAP 16, `FOOT` caps building footprints → every building in its own yard with trees; the
+  stadium's stands scale with the pitch). Outer towns get the same spacing.
+- FEELESS AVENUE (new island north of the capital, Avenue Bridge; the Heights gate moved past it): 8 drawn tool buildings (radar dish + sweep,
+  running track, searchlight tower, columned courthouse, cat ears + blinking eyes, fuel canopy + pumps, ticker band, spinning FEE coin). Each
+  pops out the REAL tool (`CityAvenue.jsx`): Pump Radar = drawn scope + vitals + ⚡ Trade (war room, wallet signs), $FEE Bank = fee-free buys,
+  plus RunnersPanel / Watchlist / RepTools / FeeCatProfile / GetGas / FEEd lazy-loaded; "Full page ↗" on each. Directory lists them.
+- Not checked yet: day theme + 360 px of the Avenue rooms (CSS blocks are written), outer cities' look at the new spacing.
+
 ## 🔥 OWNER'S NEWEST REQUEST (2026-10-22 morning) — TOP PRIORITY → CLAUDE.md › CURRENT TASKS › SIXTH LIST (8 items, in order)
 Pool Hall pop-out bigger with real charts + real 24h profit · Fee City 2× bigger, bridged towns spread out · FEELESS's best features as buildings
 with vitals + quick tools (Pump Radar building etc.) · My family = the one-stop shop in pop-outs · family wallet trades (custody pick first for

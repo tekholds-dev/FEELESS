@@ -1,4 +1,4 @@
-import { feePlan, outerPlan, spotOf, pulseHz, heightOf, usd, PLACES, centerOf } from './cityPlan';
+import { feePlan, outerPlan, spotOf, pulseHz, heightOf, usd, PLACES, centerOf, FOOT, CELL, MCELL } from './cityPlan';
 import { marketVitals } from '../components/FeeCity3D';
 
 const V = {
@@ -17,9 +17,9 @@ const MK = {
 };
 const overlap = (a, b) => a.x < b.x + b.w && b.x < a.x + a.w && a.z < b.z + b.d && b.z < a.z + a.d;
 
-test('🗺 Fee City: the capital + three market islands, every market on its island, the places, four gates, stoplights and traffic', () => {
+test('🗺 Fee City: the capital + four islands (three market + FEELESS AVENUE), every market on its island, the places, four gates, stoplights and traffic', () => {
   const p = feePlan(V, MK);
-  expect(p.islands.map(i => i.key)).toEqual(['fee', 'row', 'vault', 'money']);
+  expect(p.islands.map(i => i.key)).toEqual(['fee', 'row', 'vault', 'money', 'ave']);
   expect(p.lots.map(l => l.id)).toEqual(['fee-0', 'fee-5']);                                     // only the capital's own plots
   expect(p.lots[0]).toMatchObject({ kind: 'mine', tag: 'SIC', owner: 'c1' }); expect(p.lots[1].kind).toBe('free');
   expect(p.markets.find(m => m.key === 'raydium').island).toBe('row');
@@ -27,7 +27,7 @@ test('🗺 Fee City: the capital + three market islands, every market on its isl
   const php = p.markets.find(m => m.name === '$PHP'); expect(php).toMatchObject({ island: 'money', kind: 'coin', move: 1082, tvl: 1.4e6 });
   expect(p.places.map(x => x.key).sort()).toEqual(PLACES.map(x => x.key).sort());                // every old lens is a place
   expect(p.gates.map(g => [g.key, g.name])).toEqual([['heights', 'Raydium Heights'], ['bay', 'Bonk Bay'], ['harbor', 'Pump Harbor'], ['docks', 'Cartel Docks']]);
-  expect(p.bridges).toHaveLength(3); expect(p.lights.length).toBeGreaterThan(3); expect(p.loops.length).toBeGreaterThanOrEqual(6);
+  expect(p.bridges).toHaveLength(4); expect(p.lights.length).toBeGreaterThan(3); expect(p.loops.length).toBeGreaterThanOrEqual(6);
   // nothing built on top of anything else
   const rects = [...p.lots, ...p.marks, ...p.markets, ...p.places.filter(x => !x.virtual && !x.isl.startsWith('plaza')), ...p.spare].map(x => x.rect);
   for (let i = 0; i < rects.length; i += 1) for (let j = i + 1; j < rects.length; j += 1) expect(overlap(rects[i], rects[j])).toBe(false);
@@ -61,4 +61,23 @@ test('💡 live numbers drive the city: roof-light pulse from volume, tower heig
   const p = feePlan(V, MK);
   const v = marketVitals({ mk: 'kamino' }, p); expect(v.title).toBe('Kamino'); expect(JSON.stringify(v.groups)).toContain('$1.30B');
   expect(marketVitals({ place: 'gym' }, p).title).toBe('THE GYM');
+});
+
+test('🛣 FEELESS AVENUE: every site tool is a building on its own island (a pop-out with a full page), over a bridge north of the capital; the Heights gate moved past it', () => {
+  const p = feePlan(V, MK); const ave = p.islands.find(i => i.key === 'ave'); const cap = p.islands.find(i => i.key === 'fee');
+  const tools = p.places.filter(x => x.tool);
+  expect(tools.map(x => x.lens).sort()).toEqual(['feebank', 'feecat', 'feedx', 'gas', 'pumpradar', 'rep', 'runners', 'watch']);
+  for (const t of tools) { expect(t.isl).toBe('ave'); const c = centerOf(t.rect); expect(c.x > ave.x && c.x < ave.x + ave.w && c.z > ave.z && c.z < ave.z + ave.d).toBe(true); }
+  expect(new Set(PLACES.map(x => x.lens)).size).toBe(PLACES.length);                                  // one lens per place (the Wire keeps 'feed')
+  expect(ave.z + ave.d).toBeLessThan(cap.z);                                                         // north of the capital, water between
+  expect(p.bridges.find(b => b.key === 'b-ave')).toMatchObject({ axis: 'z', a: ave.z + ave.d, b: cap.z });
+  expect(p.gates.find(g => g.key === 'heights').b).toBe(ave.z);
+});
+
+test('🌳 more space: every cell is bigger than the building on it — each stands in its own yard, the land and the water are wide', () => {
+  expect(FOOT.lot).toBeLessThan(CELL - 1); expect(FOOT.tower).toBeLessThan(MCELL - 1.5);
+  const p = feePlan(V, MK); const [cap, row] = p.islands;
+  expect(row.x - (cap.x + cap.w)).toBeGreaterThanOrEqual(16);                                         // water between the capital and Market Row
+  expect(cap.w).toBeGreaterThanOrEqual(50);                                                           // the capital alone, ~2× the old 39 × 31 floor
+  const q = outerPlan(V, 'harbor'); expect(q.islands[1].x - (q.islands[0].x + q.islands[0].w)).toBeGreaterThanOrEqual(16);
 });

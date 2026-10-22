@@ -9,6 +9,7 @@ import { FamilyHQ } from './FamilyHQ';
 import { CityChat, CityRail, RankBadge, RankLadder } from './FamiliaHud';
 import { FamilyFuseBoard } from './FamilyFuseBoard';
 import { RaidStage } from './RaidStage';
+import { AvenueRoom, AVENUE_LENSES } from './CityAvenue';
 import { CityActions, PowerSkyline, SeasonHud, TheWire } from './MobHome';
 import '../styles/familyWorld.css';
 
@@ -70,8 +71,9 @@ const ISLAND_OF = { dex: 'Market Row', lend: 'Vault District', perps: 'Vault Dis
 
 function PlaceCard({ k, onOpen }) {
   const p = PLACES.find(x => x.key === k); if (!p) return null;
-  return <aside className="fwd-side m-card t-place" style={{ '--pc': p.color }} data-testid="place-card"><header><b>{p.name}</b><small>FEE CITY · place</small></header><p>{p.sub}</p>
-    <button type="button" className="m-btn m-go" onClick={() => onOpen(p.lens)} data-testid="place-enter">Walk in</button></aside>;
+  return <aside className="fwd-side m-card t-place" style={{ '--pc': p.color }} data-testid="place-card"><header><b>{p.name}</b><small>{p.tool ? 'FEELESS AVENUE · live tool' : 'FEE CITY · place'}</small></header><p>{p.sub}</p>
+    <div className="fwd-acts"><button type="button" className="m-btn m-go" onClick={() => onOpen(p.lens)} data-tip={p.tool ? 'Pop out the live tool over the city' : 'Walk in — the room pops out over the city'} data-testid="place-enter">Walk in</button>
+      {p.page ? <a className="m-btn" href={p.page} data-tip={`${p.name}'s full page`} data-testid="place-page">Full page ↗</a> : null}</div></aside>;
 }
 
 // 🏦 a pool building (an outer city's district): the same row as the Pool Hub, big — trade / stake through FEELESS, deposit on its own page,
@@ -180,7 +182,7 @@ export function FamilyTab({ mine, addr, sess, tools, onEnter, onLeave }) {
 function PlacePanel({ lens, live, onClose, children }) {
   const p = PLACES.find(x => x.lens === lens);
   useEffect(() => { const esc = e => { if (e.key === 'Escape') onClose(); }; window.addEventListener('keydown', esc); return () => window.removeEventListener('keydown', esc); }, [onClose]);
-  return <section className={`fwd-place k-${p?.key || lens}`} style={{ '--pc': p?.color || '#d4af37' }} role="dialog" aria-label={p?.name || lens} data-testid={`place-panel-${lens}`}>
+  return <section className={`fwd-place k-${p?.key || lens}${p?.tool ? ' is-tool' : ''}`} style={{ '--pc': p?.color || '#d4af37' }} role="dialog" aria-label={p?.name || lens} data-testid={`place-panel-${lens}`}>
     <header><i aria-hidden="true" /><span><b>{p?.name || lens}</b><small>{p?.sub}{lens === 'raids' && live ? ` · ${live} live` : ''}</small></span>
       <button type="button" onClick={onClose} aria-label="Walk back out" data-tip="Back to the street (Esc)" data-testid="place-close">✕</button></header>
     <div className="fwd-placebody">{children}</div></section>;
@@ -227,6 +229,7 @@ export function FamilyWorld({ addr, sess, onEnter, onJoin, rooms = {} }) {
     pools: <PoolHub pools={pools} blocks={myBlocks} onLink={link} />,
     family: typeof rooms.family === 'function' ? rooms.family({ v, act, busy, onEnter, fly: id => { const b = (v.blocks || []).find(x => x.id === id); if (!b) return; const c = (v.cities || []).find(x => x.boroughs.includes(b.b)); setLensRaw(null); if (c) setCity(c.key); setSelRaw(b); } }) : rooms.family || null,
     wars: rooms.wars || null, board: rooms.board || null, feed: rooms.feed || null,
+    ...Object.fromEntries(AVENUE_LENSES.map(k => [k, <AvenueRoom lens={k} />])),
     shop: me ? <div className="fwd-shop"><ul>{me.rewards.map(r => <li key={r.key}><b>{r.name}</b><small>{r.what}</small>
       <button type="button" className="m-btn" disabled={busy || r.cost > me.bank} onClick={() => act({ act: 'reward', kind: r.key }, r.name)} data-testid={`rw-${r.key}`}>{mp(r.cost)} MP</button></li>)}</ul>
       <div className="fwd-redeem m-card" data-testid="redeem"><b>🐱 Redeem MP → FEECAT</b><p>{mp(v.rate?.mp)} MP = {mp(v.rate?.feecat)} FEECAT. The Don files the claim; the owner pays it by hand. You have {mp(me.bank)} MP ({Math.min(100, Math.round((me.bank / (v.rate?.mp || 1)) * 100))} % of one).</p>
