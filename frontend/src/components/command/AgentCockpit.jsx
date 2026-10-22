@@ -267,6 +267,8 @@ function SeatCard({ s, on, onPick, readyN, same, call }) {
     onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onPick(s); } }} data-tip="Hunting — tap for the coin this seat is closest to taking (or the review queue)">
     <header><small>SEAT {s.seat}{s.kind === 'g4' ? <i className="ack-g4tag" data-tip={`${s.model || 'the model'}'s seat: it decides — the agents only argue`}>🧠 {s.model || '…'}</i> : null}</small><i className={`ack-badge ${STATE_CLS[st]}`} data-testid={`ack-seat-state-${s.seat}`}>{st}</i></header>
     <HuntLine why={s.why} ready={readyN} same={same} />
+    <p className="ack-huntkv" data-testid={`ack-seat-huntkv-${s.seat}`}><span data-tip="Who has the turn to open this seat">TURN<b>{s.kind === 'g4' ? `🧠 ${s.model || '…'}` : '🤖 agents'}</b></span>
+      <span data-tip="Coins that cleared every desk check right now">READY<b>{readyN || 0}</b></span><span data-tip="Buys this seat refused lately (the pre-check / keeper)">REFUSED<b>{(s.refused || []).length}</b></span></p>
     {(s.refused || []).length ? <ul className="ack-refused" data-testid={`ack-seat-refused-${s.seat}`}>{s.refused.map(r => <li key={`${r.symbol}-${r.at}`} data-tip={`${r.by === 'keeper' ? "the keeper's own buy check" : 'the seat pre-check'} · ${ago(r.at)} ago`}><b>${r.symbol}</b><span>{r.why}</span></li>)}</ul> : null}
     {(s.tapeWait || []).length ? <ul className="ack-refused is-tape" data-testid={`ack-seat-tape-${s.seat}`}>{s.tapeWait.map(r => <li key={r.symbol} data-tip="🌊 the live tape held this READY coin back this tick — it is re-read on the next one"><b>🌊 ${r.symbol}</b><span>{r.why}</span></li>)}</ul> : null}</div>;
   const last = s.last; const [ic, nm] = TAPE_AGENT[last?.agent] || ['', '']; const rug = rugMark(s);
@@ -733,7 +735,7 @@ export function AgentCockpit({ call, isOwner = true, head = null, extra = [], li
     <MoneyStrip d={d} seats={seats} mint={mint} onPick={onPick} nav={nav} go={go} navTabs={navTabs} ai={<AiChipBtn o={o} onClick={() => setAiOpen(true)} testid="ack-money-ai" />}
       brain={<button type="button" className={`ack-brainbtn ${brainOpen ? 'is-on' : ''}`} onClick={() => setBrainOpen(!brainOpen)} aria-pressed={brainOpen} data-testid="ack-brain-open" data-tip="the Brain — talk to G4 / OSSY, coach, teach, code lab (slides out on the right)">🧠 BRAIN</button>} />
     <div className="ack-topseats" data-testid="ack-topseats">
-      <div className="ack-seatrow">{seats.map((s, i) => <div key={s.seat} className="ack-seatwrap"><SeatCard s={s} call={call} on={!s.open && s.mint === mint} onPick={onPick} readyN={readyN} same={s.open ? seats.slice(0, i).find(x => x.open && x.why === s.why)?.seat : undefined} />{isOwner ? <QuickTrade s={s} call={call} tpl={d?.card?.tpl} /> : null}</div>)}</div></div>
+      <div className={`ack-seatrow n-${seats.length}`}>{seats.map((s, i) => <div key={s.seat} className="ack-seatwrap"><SeatCard s={s} call={call} on={!s.open && s.mint === mint} onPick={onPick} readyN={readyN} same={s.open ? seats.slice(0, i).find(x => x.open && x.why === s.why)?.seat : undefined} />{isOwner ? <QuickTrade s={s} call={call} tpl={d?.card?.tpl} /> : null}</div>)}</div></div>
     <div className="ack-main">
       <div className="ack-left"><CockpitChart duo={d?.duo} m={model} iv={iv} setIv={setIv} pos={pos} cand={cand} markers={markers} onAgent={a => { setAgentS(a); setTab('live'); }} tid={o?.tid} call={call} isOwner={isOwner} />
         <RideBar s={seats.find(x => !x.open && x.mint === mint)} pos={pos} />
