@@ -1,3 +1,4 @@
+import { MissionTrack } from './MissionTrack';
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Download, FileText, ArrowUpRight, Activity, Wallet, ShieldCheck } from 'lucide-react';
@@ -43,7 +44,7 @@ const MISSIONS = [
 export const MissionRoadmap = () => {
   const [filter, setFilter] = useState('ALL');
   return <div className="document-page mission-roadmap"><FeelessUniverse mode="road" /><div className="command-page-title"><span className="eyebrow">FEELESS / MISSION CONTROL</span><h1>A future in progress.</h1><p>Public platform launch target <b>Q2 2027</b>. Targets are not guarantees.</p>
-    <div className="mission-meter" data-testid="mission-meter">{['LIVE', 'TESTING', 'BUILDING', 'PLANNED'].map(st => { const n = MISSIONS.filter(m => m[2] === st).length; return <span key={st} className={`mm-${st.toLowerCase()}`} style={{ flexGrow: n }} data-tip={`${n} ${st.toLowerCase()}`}><b className="m-num">{n}</b><small>{st}</small></span>; })}</div></div><div className="mission-filters">{['ALL', 'PLANNED', 'BUILDING', 'TESTING', 'LIVE'].map(v => <button className={filter === v ? 'active' : ''} data-testid={`roadmap-filter-${v.toLowerCase()}`} key={v} onClick={() => setFilter(v)}>{v}</button>)}</div><div className="mission-timeline">{MISSIONS.filter(m => filter === 'ALL' || m[2] === filter).map(([n, title, state, text]) => <section key={n} className={`mission-${state.toLowerCase()}`} data-testid={`mission-${n}`}><div className="mission-node"><span>{n}</span><i /></div><div><span className="state-tag">{state}</span><h2>{title}</h2><p>{text}</p></div></section>)}{!MISSIONS.some(m => filter === 'ALL' || m[2] === filter) && <div className="truth-empty" data-testid="roadmap-filter-empty">No milestone currently carries this status.</div>}</div></div>;
+    <div className="mission-meter" data-testid="mission-meter">{['LIVE', 'TESTING', 'BUILDING', 'PLANNED'].map(st => { const n = MISSIONS.filter(m => m[2] === st).length; return <span key={st} className={`mm-${st.toLowerCase()}`} style={{ flexGrow: n }} data-tip={`${n} ${st.toLowerCase()}`}><b className="m-num">{n}</b><small>{st}</small></span>; })}</div></div><div className="mission-filters">{['ALL', 'PLANNED', 'BUILDING', 'TESTING', 'LIVE'].map(v => <button className={filter === v ? 'active' : ''} data-testid={`roadmap-filter-${v.toLowerCase()}`} key={v} onClick={() => setFilter(v)}>{v}</button>)}</div><MissionTrack missions={MISSIONS} filter={filter} />{!MISSIONS.some(m => filter === 'ALL' || m[2] === filter) && <div className="truth-empty" data-testid="roadmap-filter-empty">No milestone currently carries this status.</div>}</div>;
 };
 
 export const UnderstandFeeless = () => {

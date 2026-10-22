@@ -1220,8 +1220,7 @@ body.theme-day .clone-chip,body.theme-day .case-card .eyebrow{color:#8a5d00!impo
 /* Day contrast: remaining audit findings */
 body.theme-day .flow-track button span,body.theme-day .flow-track button>span:first-child{background:var(--day-surface,#f7faf7)!important;color:var(--day-ink)!important;border-color:var(--day-border)!important}
 body.theme-day .flow-track button.active span:first-child{background:var(--day-green)!important;color:#fff!important}
-body.theme-day .mission-node span{background:var(--day-surface,#f7faf7)!important;color:var(--day-ink)!important;border-color:var(--day-border)!important}
-body.theme-day .mission-live .mission-node span{background:var(--day-green)!important;color:#fff!important}
+
 body.theme-day :is(.alert-form,.advanced-filters,.calculator-input) label,body.theme-day .fee-flow li{color:var(--day-muted)!important}
 body.theme-day .sidebar-feecat-subnav span,body.theme-day .sidebar-feecat-subnav small{color:#8a5d00!important;border-color:#e0c77a!important}
 body.theme-day :is(.launchpad-guide,.launchpad-guide-card,.launchpad-guide-grid,.launchpad-card){background:var(--day-surface,#f7faf7)!important;background-image:none!important;border-color:var(--day-border)!important;color:var(--day-ink)!important}
