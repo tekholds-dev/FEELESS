@@ -240,20 +240,15 @@ export function Crews() {
       setMine(r.crew || null); sharedJson.freshAt = Date.now();
     } catch (e) { toast.error(e.message); } finally { setBusy(''); }
   };
-  const rows = board?.board || []; const owner = mine?.members?.find(m => m.owner)?.address === addr; const top = podium(rows);
+  const rows = board?.board || []; const owner = mine?.members?.find(m => m.owner)?.address === addr;
   const famTab = FAM_TABS.some(([k]) => k === tab) ? tab : 'home';
   const warAct = (a, body, ok) => act('/api/reputation/crews/act', { act: a, ...body }, ok);
   return <section className="crw crw-noir" data-testid="crews">
-    <MobScene heat={(mine?.vitals?.heat ?? 30) / 100} sign={mine ? mine.tag : 'FAMIGLIA'} />
+    {famTab !== 'home' ? <MobScene heat={(mine?.vitals?.heat ?? 30) / 100} sign={mine ? mine.tag : 'FAMIGLIA'} /> : null}   {/* on the landing the city IS the backdrop */}
     <nav className="fam-tabs" role="tablist" aria-label="La Familia">{FAM_TABS.map(([k, label, Icon]) => <button key={k} type="button" role="tab" aria-selected={famTab === k} className={famTab === k ? 'active' : ''}
       onClick={() => setTab(k)} data-testid={`fam-tab-${k}`}><Icon size={14} aria-hidden="true" /><span>{k === 'family' && mine ? mine.tag : label}</span>{k === 'wars' && liveWars ? <b>{liveWars}</b> : null}</button>)}</nav>
     <InviteInbox invites={inv?.invites} inFamily={!!mine} addr={addr} sess={sess} onDone={loadMine} />
-    {famTab === 'home' && (block === undefined ? <><FamilyWorld addr={addr} sess={sess} onEnter={() => setBlock(null)} />
-    <div className="crw-stage" data-testid="crew-podium">
-      <header><span className="m-label">🌹 LA FAMILIA · FAMILY WARS THIS WEEK</span><small>{board ? `${board.total} famil${board.total === 1 ? 'y' : 'ies'} · verified trades only · live` : 'reading…'}</small></header>
-      {top.length ? <div className="crw-podium">{[1, 0, 2].map(i => top[i] ? <div key={top[i].id} className={`crw-step ${['s1', 's2', 's3'][i]}`}><CrewCard3D r={top[i]} place={i + 1} /><span className="crw-plinth">{MEDAL[i]} +{PRIZES[i]} pts each</span></div> : null)}</div>
-        : <p className="crw-hint m-dim">No families yet — be the first Don on the stage.</p>}
-    </div>
+    {famTab === 'home' && (block === undefined ? <><FamilyWorld addr={addr} sess={sess} onEnter={() => setBlock(null)} onJoin={() => setTab('family')} />
     </> : <FamilyBlock cid={block} addr={addr} sess={sess} onBack={() => setBlock(undefined)} />)}
     {famTab === 'family' && (mine ? <>
       <FamilyHero mine={mine} busy={busy} onLeave={() => { if (window.confirm(`Leave ${mine.name}?`)) act('/api/reputation/crews/leave', {}, 'Left the family'); }} />

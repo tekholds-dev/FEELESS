@@ -22,11 +22,6 @@ body.theme-day .crw-prize b { color: #8a6100; } body.theme-day .crw-chip { color
 
 /* ⚡ CREW WARS (owner, 2026-10-19: "a huge ordeal — electric border, 3D, realtime"): podium of 3D cards whose electric border turns faster the hotter
    the crew (`--spin` from heat: activity + result), pointer tilt (`--rx/--ry`, transform only), crew HQ tabs, live board bars. One keyframe set `crw*`. */
-.crw-stage { position: relative; padding: 14px; border-radius: 18px; overflow: hidden; background: radial-gradient(120% 90% at 50% 110%, rgba(155, 92, 255, .22), transparent 60%), radial-gradient(90% 70% at 50% -10%, rgba(21, 209, 106, .16), transparent 60%), #05080a; border: 1px solid rgba(155, 92, 255, .25); }
-.crw-stage::before { content: ''; position: absolute; inset: auto -10% -40% -10%; height: 70%; background: repeating-linear-gradient(90deg, rgba(155, 92, 255, .14) 0 1px, transparent 1px 42px), repeating-linear-gradient(0deg, rgba(155, 92, 255, .14) 0 1px, transparent 1px 42px); transform: perspective(380px) rotateX(62deg); transform-origin: top; pointer-events: none; }
-.crw-podium { position: relative; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); align-items: end; gap: 14px; margin-top: 10px; perspective: 900px; }
-.crw-step { display: grid; justify-items: center; gap: 8px; } .crw-step.s1 { transform: translateY(-14px); } .crw-step.s3 { transform: translateY(8px); }
-.crw-plinth { font: 700 10px "JetBrains Mono", monospace; color: #ffd36b; padding: 3px 10px; border-radius: 999px; background: rgba(255, 211, 107, .08); border: 1px solid rgba(255, 211, 107, .25); }
 .crw-3d { --rx: 0deg; --ry: 0deg; position: relative; display: block; width: 100%; max-width: 230px; padding: 2px; border: 0; border-radius: 16px; cursor: pointer; color: inherit; background: transparent; isolation: isolate;
   transform: rotateX(var(--rx)) rotateY(var(--ry)); transform-style: preserve-3d; transition: transform .18s ease-out; overflow: hidden; }
 .crw-3d:hover { transform: rotateX(var(--rx)) rotateY(var(--ry)) translateZ(14px); } .crw-3d:active { transform: scale(.98); } .crw-3d:focus-visible { outline: 2px solid #c9a6ff; outline-offset: 3px; }
@@ -66,9 +61,8 @@ body.theme-day .crw-prize b { color: #8a6100; } body.theme-day .crw-chip { color
 @keyframes crwPop { from { transform: scale(1.15); opacity: .4; } to { transform: none; opacity: 1; } }
 body.fx-lite .crw-bolt, body.fx-lite .crw-3d.is-hot::after, body.fx-lite .crw-posts li, body.fx-lite .crw-pane, body.fx-lite .crw-3pct, body.fx-lite .crw-launch span, body.fx-lite .crw-board li em { animation: none; }
 @media (prefers-reduced-motion: reduce) { .crw-bolt, .crw-3d.is-hot::after, .crw-posts li, .crw-pane, .crw-3pct, .crw-launch span, .crw-board li em { animation: none; } .crw-3d { transition: none; } }
-body.theme-day .crw-stage { background: radial-gradient(120% 90% at 50% 110%, rgba(155, 92, 255, .14), transparent 60%), #f4f1fb; } body.theme-day .crw-face { background: linear-gradient(160deg, #fff, #f3fbf6); }
-body.theme-day .crw-3tag { color: #5a3aa8; text-shadow: none; } body.theme-day .crw-3d.p1 .crw-3tag { color: #8a6100; } body.theme-day .crw-posts li, body.theme-day .crw-bounties li { background: #f6f2fd; } body.theme-day .crw-plinth { color: #8a6100; }
-@media (max-width: 640px) { .crw-podium { gap: 6px; } .crw-face { padding: 10px 6px; } .crw-3tag { font-size: 15px; } .crw-3pct { font-size: 16px; } .crw-3meta { display: none; } .crw-top-row { gap: 5px; } .crw-step.s1 { transform: translateY(-8px); } }
+body.theme-day .crw-3tag { color: #5a3aa8; text-shadow: none; } body.theme-day .crw-3d.p1 .crw-3tag { color: #8a6100; } body.theme-day .crw-posts li, body.theme-day .crw-bounties li { background: #f6f2fd; }
+@media (max-width: 640px) { .crw-face { padding: 10px 6px; } .crw-3tag { font-size: 15px; } .crw-3pct { font-size: 16px; } .crw-3meta { display: none; } .crw-top-row { gap: 5px; } }
 
 /* 🔴 La Familia live (FamilyPulse) */
 .crw-pulse { padding: 14px 16px; margin-bottom: 14px; display: flex; flex-direction: column; gap: 10px; overflow: hidden; }

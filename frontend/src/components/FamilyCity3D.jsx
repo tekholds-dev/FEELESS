@@ -101,7 +101,7 @@ function CityStage({ W, H, focus, wx, ctl, hud, children }) {
   </div>;
 }
 
-export function FamilyCity3D({ v, sel, setSel, city, setCity, tour }) {
+export function FamilyCity3D({ v, sel, setSel, city, setCity, tour, overlay }) {
   const cities = v.cities?.length ? v.cities : [{ key: 'all', name: 'The city', boroughs: (v.boroughs || []).map(b => b.key) }];
   const cur = cities.find(c => c.key === city) || cities[0];
   const isFee = cur.key === 'fee';
@@ -115,7 +115,7 @@ export function FamilyCity3D({ v, sel, setSel, city, setCity, tour }) {
   const homeP = home ? lay.pos[home.a === 'fee' ? home.b : home.a] : null;
   const fee = cities.find(c => c.key === 'fee');
   const hot = new Set((v.raids || []).filter(r => r.status === 'live').map(r => r.b.id));
-  return <CityStage W={W} H={H} focus={spot} wx={v.season?.weather || 'clear'} ctl={isFee ? tour.ctl : null} hud={<Vitals vit={vitalsOf(sel, v)} onClose={() => setSel(sel)} />}>
+  return <CityStage W={W} H={H} focus={spot} wx={v.season?.weather || 'clear'} ctl={isFee ? tour.ctl : null} hud={<><Vitals vit={vitalsOf(sel, v)} onClose={() => setSel(sel)} />{overlay}</>}>
     {isFee ? <FeeCapital v={v} sel={sel} onPick={setSel} onGo={k => { setSel(null); setCity(k); }} tour={tour.on} hot={hot} />
       : <>{inner.map(br => <Bridge key={br.name} r={bridgeRect(lay.pos[br.a], lay.pos[br.b])} name={br.name} />)}
         {homeP && fee ? <Bridge r={{ x: 0, y: homeP.y + ISLAND / 2 - 13, w: homeP.x + 6, h: 26, horiz: true }} name={home.name}

@@ -2,14 +2,6 @@
    seasons as weather, the raid chessboard, errands (drag / tap), recruits as playing cards. transform / opacity only. */
 .fwd { --fg: #d4af37; --fg2: #f1d27a; --ink: #efe6d2; --cpu: #ff5a6e; --cart: #7dff9a; --fam: #b48cff; display: grid; gap: 12px; color: var(--ink); }
 .fwd-load { padding: 18px; }
-.fwd-top { display: flex; flex-wrap: wrap; gap: 12px; justify-content: space-between; align-items: center; padding: 12px 14px; border-radius: 14px;
-  background: linear-gradient(120deg, rgba(20, 12, 4, .92), rgba(10, 8, 18, .92)); border: 1px solid rgba(212, 175, 55, .28); }
-.fwd-top > div:first-child { display: grid; gap: 3px; }
-.fwd-top b { font: 700 15px 'Playfair Display', Georgia, serif; } .fwd-top small { font-size: 11px; color: var(--fg2); }
-.fwd-me { display: flex; flex-wrap: wrap; gap: 6px; }
-.fwd-me span { display: grid; padding: 5px 10px; border-radius: 10px; background: rgba(255, 255, 255, .04); border: 1px solid rgba(212, 175, 55, .2); }
-.fwd-me em { font: 600 9px 'JetBrains Mono', monospace; letter-spacing: .08em; font-style: normal; color: #b9a77a; }
-.fwd-me b { font: 700 14px 'JetBrains Mono', monospace; animation: fwdPop .35s ease; }
 .fwd-lens { display: flex; flex-wrap: wrap; gap: 4px; padding: 4px; border-radius: 12px; background: rgba(0, 0, 0, .35); border: 1px solid rgba(212, 175, 55, .18); }
 .fwd-lens button { flex: 1 1 auto; padding: 7px 10px; border-radius: 9px; border: 0; background: transparent; color: var(--ink); font: 600 12px Inter, sans-serif; cursor: pointer; transition: background .15s, transform .15s; }
 .fwd-lens button:hover { background: rgba(212, 175, 55, .12); } .fwd-lens button:active { transform: scale(.97); }
@@ -71,7 +63,6 @@
 body.fx-lite .fwd-drop { animation: none; }
 @media (prefers-reduced-motion: reduce) { .fwd *, .fwd *::after { animation: none !important; transition: none !important; } }
 body.theme-day .fwd { --ink: #2a1f0e; }
-body.theme-day .fwd-top, body.theme-day .fwd-job, body.theme-day .fwd-rc li, body.theme-day .fwd-shop li { background: rgba(255, 250, 238, .85); }
+body.theme-day .fwd-job, body.theme-day .fwd-rc li, body.theme-day .fwd-shop li { background: rgba(255, 250, 238, .85); }
 body.theme-day .fwd-cart { background: rgba(236, 248, 238, .9); }
 @media (max-width: 980px) { .fwd-mapwrap { grid-template-columns: 1fr; } .fwd-side { position: static; } }
-@media (max-width: 640px) { .fwd-top { padding: 10px; } }

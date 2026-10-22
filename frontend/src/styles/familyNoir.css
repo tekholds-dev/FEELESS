@@ -1,7 +1,7 @@
 /* 🎩 La Familia, Godfather style (fnr-*): a noir room — black, aged gold, blood red, slow cigar smoke. Scoped to .crw-noir; transform / opacity only. */
 .crw-noir { position: relative; isolation: isolate; display: grid; gap: 12px; padding: 14px; border-radius: 18px; min-height: 520px; --fnr-gold: #d4af37; --fnr-gold2: #f1d27a; --fnr-blood: #b3122e; }
-.crw-noir > .m-card, .crw-noir .crw-stage, .crw-noir .crw-mine { background: linear-gradient(180deg, #120d07d9 0%, #080604e6 100%); border-color: #d4af3733; }
-.crw-noir .m-label, .crw-noir .crw-stage > header .m-label { color: var(--fnr-gold); letter-spacing: 1.6px; }
+.crw-noir > .m-card, .crw-noir .crw-mine { background: linear-gradient(180deg, #120d07d9 0%, #080604e6 100%); border-color: #d4af3733; }
+.crw-noir .m-label { color: var(--fnr-gold); letter-spacing: 1.6px; }
 .crw-noir .crw-tabs.m-seg button.active { background: var(--fnr-gold); color: #160f05; border-color: var(--fnr-gold); }
 .crw-noir .crw-tabs.m-seg button:hover { border-color: var(--fnr-gold); color: #fff1cf; }
 .crw-noir .crw-board li { border-left-color: #d4af3788; }
@@ -21,7 +21,7 @@
 .crw-top .crw-top-row { gap: 6px; }
 .crw-top .crw-3d.is-small { zoom: .72; }
 .crw-top .fbadge.is-sm { zoom: .8; }
-body.theme-day .crw-noir > .m-card, body.theme-day .crw-noir .crw-stage, body.theme-day .crw-noir .crw-mine, body.theme-day .fnr-title { background: #fbf4e6; border-color: #c9a24a66; }
+body.theme-day .crw-noir > .m-card, body.theme-day .crw-noir .crw-mine, body.theme-day .fnr-title { background: #fbf4e6; border-color: #c9a24a66; }
 body.theme-day .fnr-title b { color: #3a2a0a; text-shadow: none; }
 @media (max-width: 640px) { .fnr-title b { font-size: 21px; } .crw-top .crw-3d.is-small { zoom: .62; } }
 .crw-seats { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
