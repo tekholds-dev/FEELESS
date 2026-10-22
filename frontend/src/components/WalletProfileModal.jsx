@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { X, UserRound, Pencil, ArrowUpRight } from 'lucide-react';
 import { useWallet } from '../hooks/useWallet';
 import { apiUrl } from '../lib/api';
+import { ApprovalsCheck } from './ApprovalsCheck';
 
 // Quick profile window: who you are on FEELESS at a glance, one tap to your profile or its editor.
 // Editing happens on the profile page itself (the single source of truth), so changes always show.
@@ -33,6 +34,7 @@ export default function WalletProfileModal({ open, onClose }) {
           <button type="button" className="btn-primary" onClick={() => go(false)} data-testid="goto-profile"><ArrowUpRight size={15} />Go to profile</button>
           <button type="button" className="btn-outline" onClick={() => go(true)}><Pencil size={14} />Edit profile</button>
         </div>
+        <ApprovalsCheck compact />
       </>}
     </div>
   </div>;

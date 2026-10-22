@@ -23086,10 +23086,42 @@ def _guard_save():
     _json_save(GUARD_PATH, {k: s[k] for k in ('suspects', 'blocks', 'log')})
 
 
+import defence as _def
+DEF_PATH = DATA_DIR / 'defence.json'
+_def_state = None
+_def_dirty = {'at': 0.0}
+
+
+def _def_s():
+    global _def_state
+    if _def_state is None:
+        _def_state = _def.new_state()
+        saved = _json_load(DEF_PATH, {})
+        for k in ('blocks', 'rules', 'incidents', 'uaHits'):
+            if isinstance(saved.get(k), type(_def_state[k])):
+                _def_state[k] = saved[k]
+    return _def_state
+
+
+def _def_save(force=False):
+    now = time.time()
+    if force or now - _def_dirty['at'] > 15:   # an attack burst writes the file at most every 15s
+        _def_dirty['at'] = now
+        s = _def_s(); _def.prune(s, now)
+        _json_save(DEF_PATH, {k: s[k] for k in ('blocks', 'rules', 'incidents', 'uaHits')})
+
+
 @app.middleware('http')
 async def _record_status(request: Request, call_next):
     gs = _guard_s()
     ip = _guard.client_ip(request.headers, request.client.host if request.client else '', os.environ.get('FEELESS_TRUST_PROXY') == '1')
+    ua = request.headers.get('user-agent', '')
+    d_ = _def.check(_def_s(), ip, ua, request.method, request.url.path, internal=_guard.is_internal(ip))   # 🛡 learned defence: decoys, rules, tarpits
+    if d_:
+        if d_[0] in ('block', 'honeypot'):
+            _def_save()
+            return JSONResponse({'detail': 'Not Found'}, status_code=404) if d_[0] == 'honeypot' else JSONResponse({'detail': 'Blocked.'}, status_code=403)
+        await asyncio.sleep(d_[1])   # 🐢 tarpit: slowed, never refused
     n_sus = len(gs['suspects'])
     stop = _guard.check(gs, ip, request.method, request.url.path)
     if stop:
@@ -23111,6 +23143,12 @@ def _require_admin(request: Request) -> str:
     """Session proof: the admin wallet signs `FEELESS HQ\\naddress:{a}\\nts:{ts}` (valid a day) — rules in hq_auth.py."""
     addr = _hq_auth.check_session(request.headers.get('x-admin-address', ''), request.headers.get('x-admin-ts', ''),
                                   request.headers.get('x-admin-sig', ''), _admin_wallets(), _verify_wallet, time.time())
+    try:   # 🛡 the same HQ signature from a new fingerprint = a stolen session (flagged + tarpitted, the owner sees it in Security)
+        ip_ = _guard.client_ip(request.headers, request.client.host if request.client else '', os.environ.get('FEELESS_TRUST_PROXY') == '1')
+        if _def.seen_sig(_def_s(), request.headers.get('x-admin-sig', ''), ip_, request.headers.get('user-agent', ''), request.url.path):
+            _def_save(force=True)
+    except Exception:
+        pass
     _role_gate(addr, request)
     return addr
 
@@ -23546,6 +23584,77 @@ async def admin_security(request: Request):
             'stats': {'chat24h': msgs24, 'chatRooms': len(rooms), 'blocklisted': sum(1 for r in bl.values() if _is_blocked(r)),
                       'openBugs': sum(1 for b in bugs if b['status'] in ('open', 'fixing')), 'customBadges': sum(len(v) for v in _admin_load()['badges'].values())},
             'audit': _admin_load()['audit'][-25:][::-1], 'at': now}
+
+
+@app.get('/api/reputation/admin/security/stores')
+async def admin_stores(request: Request):
+    """🗄 Every store under backend/data with its class, cap and state (ok · watch · over · stale snapshot · money kept whole). Read-only."""
+    import store_caps as _sc
+    _require_admin(request)
+    rows = []
+    for f in DATA_DIR.iterdir():
+        try:
+            if f.is_file():
+                st_ = f.stat(); rows.append((f.name, st_.st_size, st_.st_mtime))
+            elif f.is_dir():
+                size_, mt_ = 0, 0.0
+                for g in f.rglob('*'):
+                    if g.is_file():
+                        gs_ = g.stat(); size_ += gs_.st_size; mt_ = max(mt_, gs_.st_mtime)
+                rows.append((f.name + '/', size_, mt_))
+        except OSError:
+            continue
+    return _sc.audit(rows, time.time())
+
+
+_appr_hits = {}
+
+
+@app.get('/api/reputation/approvals/{address}')
+async def token_approvals(address: str, request: Request):
+    """🛡 APPROVALS CHECK (web3 defence for every user): the wallet's token accounts that let ANOTHER address move tokens (an SPL delegate —
+    what a drainer leaves behind). Read-only; the page builds the revoke and the wallet signs it. 20 checks an hour per IP."""
+    if not _re.match(_B58, address or ''):
+        raise HTTPException(400, 'Not a Solana address.')
+    ip_ = (request.client.host if request.client else '') or '?'; now = time.time()
+    h_ = [t_ for t_ in _appr_hits.get(ip_, []) if now - t_ < 3600]
+    if len(h_) >= 20:
+        raise HTTPException(429, 'Too many checks from here — try again in a while.')
+    _appr_hits[ip_] = h_ + [now]
+    if len(_appr_hits) > 5000:
+        _appr_hits.clear()
+    out = []
+    async with httpx.AsyncClient(timeout=12) as http:
+        res = await asyncio.gather(*[_rpc(http, 'getTokenAccountsByOwner', [address, {'programId': pid_}, {'encoding': 'jsonParsed'}])
+                                     for pid_ in ('TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA', 'TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb')], return_exceptions=True)
+    for pid_, r_ in zip(('TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA', 'TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb'), res):
+        for a_ in ((r_ or {}).get('value') or []) if isinstance(r_, dict) else []:
+            info_ = ((((a_.get('account') or {}).get('data') or {}).get('parsed') or {}).get('info') or {})
+            if info_.get('delegate'):
+                out.append({'account': a_.get('pubkey'), 'mint': info_.get('mint'), 'delegate': info_['delegate'], 'program': pid_,
+                            'amount': ((info_.get('delegatedAmount') or {}).get('uiAmountString')), 'balance': ((info_.get('tokenAmount') or {}).get('uiAmountString'))})
+    return {'address': address, 'approvals': out, 'checked': len(res), 'at': now}
+
+
+@app.get('/api/reputation/admin/security/defence')
+async def admin_defence(request: Request):
+    """🛡 The learned defence: live blocks (and why), learned rules, tarpits, every incident with its plain abuse report. Never a counter-attack."""
+    _require_admin(request)
+    return _def.view(_def_s())
+
+
+class DefenceLift(BaseModel):
+    fp: str = Field('', max_length=40)
+    ua: str = Field('', max_length=40)
+
+
+@app.post('/api/reputation/admin/security/defence/lift')
+async def admin_defence_lift(p: DefenceLift, request: Request):
+    admin = _require_admin(request)
+    _def.lift(_def_s(), p.fp or None, p.ua or None); _def_save(force=True)
+    async with _admin_lock:
+        d = _admin_load(); _audit(d, admin, 'defence-lift', p.fp or p.ua); _admin_save(d)
+    return _def.view(_def_s())
 
 
 @app.get('/api/reputation/admin/security/guard')
