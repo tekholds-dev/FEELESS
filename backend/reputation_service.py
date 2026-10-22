@@ -8494,6 +8494,14 @@ def _crew_pieces(members, now):
     return out
 
 
+def _crew_book(pieces, n=40):
+    """📒 THE BOOKS (owner, P1 #5 "family wallet trades view"): every member's verified FEELESS trades this week in one tape, newest first —
+    who, coin, return, $ result (price only, fees apart), how long it was held, the sell tx. Members' own wallets; nothing pooled."""
+    rows = [{'who': _crew_name(m), 'address': m, **{k: p.get(k) for k in ('symbol', 'mint', 'ret', 'usd', 'costUsd', 'holdMin', 'at', 'tx')}}
+            for m, ps in (pieces or {}).items() for p in ps or []]
+    return sorted(rows, key=lambda r: -(r.get('at') or 0))[:n]
+
+
 def _crew_name(a):
     pr = _profiles_load()['profiles'].get(primary_of(a)) or {}
     return pr.get('displayName') or pr.get('handle') or f'{a[:4]}…{a[-4:]}'
@@ -8643,7 +8651,8 @@ async def crew_mine(address: str, session: str):
     import crews as _cr
     me = _seat_of(st, me); c = _cr.crew_of(st, me); now = time.time(); _crew_cfg()
     fams_ = [{'id': x_, 'tag': st['crews'][x_].get('tag'), 'name': st['crews'][x_].get('name'), 'active': i_ == 0} for i_, x_ in enumerate(_cr.families_of(st, me))]
-    return {'crew': _crew_view(c, _crew_pieces(c['members'], now), with_code=True) if c else None,
+    pcs_ = _crew_pieces(c['members'], now) if c else {}
+    return {'crew': {**_crew_view(c, pcs_, with_code=True), 'book': _crew_book(pcs_)} if c else None,
             'invites': _cr.invites_for(st, me, now), 'sent': _cr.sent_by(st, c, now) if c else [], 'canAdd': _is_staff(me),
             'families': fams_, 'perWallet': _cr.PER_WALLET}
 

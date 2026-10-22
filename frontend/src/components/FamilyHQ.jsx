@@ -1,7 +1,11 @@
-import React, { useEffect, useRef, useState } from 'react';
-import { Armchair, Radio, IdCard, Mail, Flower2, MessagesSquare, Crosshair, Rocket, UserPlus, KeyRound, DoorOpen, MapPinned } from 'lucide-react';
+import React, { Suspense, lazy, useEffect, useMemo, useRef, useState } from 'react';
+import { Armchair, Radio, IdCard, Mail, Flower2, MessagesSquare, Crosshair, Rocket, UserPlus, KeyRound, DoorOpen, MapPinned, BookOpen, Waves, Moon, Zap, Coins, Dna } from 'lucide-react';
 import { FamilyBadge } from './FamilyBadge';
 import '../styles/familyHQ.css';
+const PoolsPop = lazy(() => import('./PoolHub').then(m => ({ default: () => { const pools = m.usePools(); return pools ? <m.PoolHub pools={pools} /> : <p className="m-dim">Reading the pools…</p>; } })));
+const NightVault = lazy(() => import('./NightVault').then(m => ({ default: m.NightVault })));
+const AvenueRoom = lazy(() => import('./CityAvenue').then(m => ({ default: m.AvenueRoom })));
+const FusePnl = lazy(() => import('./FuseHQ').then(m => ({ default: m.FusePnl })));
 
 // 🏠 YOUR FAMILY HQ (owner, 2026-10-22: "where do I see my family city and add town expansions … the page of my family should be meta with vitals
 // and tools — strip the text, real-time vital animations"): the room that pops out over the city from your block / the directory. No paragraphs:
@@ -27,7 +31,35 @@ function Dots({ label, have, of }) {
   return <span className="fhq-dots" data-tip={`${label}: ${have} of ${of}`}><em>{label}</em><span>{Array.from({ length: Math.min(of, 15) }, (_, i) => <i key={i} className={i < have ? 'on' : ''} style={{ '--i': i }} />)}</span><b className="m-num">{have}/{of}</b></span>;
 }
 export const TOOLS = [['table', 'Table', Armchair], ['wire', 'Wire', Radio], ['card', 'Card', IdCard], ['invite', 'Invite', Mail], ['badge', 'Badge', Flower2], ['board', 'Board', MessagesSquare],
-  ['bounty', 'Bounties', Crosshair], ['launch', 'Launch', Rocket], ['members', 'Seats', UserPlus], ['code', 'Code', KeyRound]];
+  ['bounty', 'Bounties', Crosshair], ['launch', 'Launch', Rocket], ['members', 'Seats', UserPlus], ['code', 'Code', KeyRound],
+  // 🏠 THE ONE-STOP SHOP (owner P1 #4: "pools, Fuse, trading, launch, wallet — without leaving Familia"): each pops out the real tool right here
+  ['books', 'Books', BookOpen], ['pools', 'Pools', Waves], ['vault', 'Night Vault', Moon], ['trade', 'Trade', Zap], ['fee', '$FEE', Coins], ['fuse', 'My Fuse', Dna]];
+const n2 = v => `${v < 0 ? '−' : '+'}$${Math.abs(Number(v) || 0).toFixed(2)}`;
+// pure: the Books' totals + per-member result (biggest first)
+export function bookSum(book) {
+  const rows = book || []; const by = {};
+  rows.forEach(r => { const k = r.address || r.who; by[k] = by[k] || { who: r.who, usd: 0, n: 0 }; by[k].usd += Number(r.usd) || 0; by[k].n += 1; });
+  const usd = rows.reduce((a, r) => a + (Number(r.usd) || 0), 0); const won = rows.filter(r => (Number(r.usd) || 0) > 0).length;
+  return { usd, n: rows.length, wonPct: rows.length ? Math.round((100 * won) / rows.length) : null, members: Object.values(by).sort((a, b) => b.usd - a.usd),
+    best: rows.reduce((m, r) => ((Number(r.ret) || -9) > (Number(m?.ret) || -9) ? r : m), null) };
+}
+// 📒 THE BOOKS: every member's verified FEELESS trades this week as one tape (their own wallets — nothing is pooled; P5 custody decides more)
+export function FamilyBooks({ book }) {
+  const s = useMemo(() => bookSum(book), [book]); const tot = useCount(s.usd); const top = Math.max(1, ...s.members.map(m => Math.abs(m.usd)));
+  return <div className="fhq-books" data-testid="family-books">
+    <div className="fhq-bsum"><span><em>THIS WEEK</em><b className={`m-num ${tot >= 0 ? 'up' : 'dn'}`}>{n2(tot)}</b></span><span><em>TRADES</em><b className="m-num">{s.n}</b></span>
+      <span><em>WON</em><b className="m-num">{s.wonPct == null ? '—' : `${s.wonPct}%`}</b></span>{s.best ? <span><em>BEST</em><b className="m-num up">${s.best.symbol} {Math.round((s.best.ret || 0) * 100)}%</b></span> : null}</div>
+    {s.members.length ? <ol className="fhq-bmem">{s.members.map((m, i) => <li key={m.who + i} style={{ '--i': i }}><b>{m.who}</b><u><s className={m.usd >= 0 ? 'up' : 'dn'} style={{ transform: `scaleX(${Math.max(0.03, Math.abs(m.usd) / top)})` }} /></u>
+      <em className={m.usd >= 0 ? 'up' : 'dn'}>{n2(m.usd)}</em><small>{m.n}</small></li>)}</ol> : null}
+    <ol className="fhq-tape">{(book || []).map((r, i) => <li key={`${r.tx || i}-${r.symbol}`} style={{ '--i': Math.min(i, 12) }}>
+      <b>${r.symbol}</b><span>{r.who}</span><em className={(r.ret || 0) >= 0 ? 'up' : 'dn'}>{(r.ret || 0) >= 0 ? '+' : ''}{Math.round((r.ret || 0) * 100)}%</em><strong className={(r.usd || 0) >= 0 ? 'up' : 'dn'}>{n2(r.usd)}</strong>
+      <small>{r.holdMin != null ? `${Math.round(r.holdMin)}m` : ''}</small>{r.tx ? <a href={`https://solscan.io/tx/${r.tx}`} target="_blank" rel="noopener noreferrer" data-tip="The sell, on-chain">↗</a> : <i />}</li>)}
+      {!(book || []).length ? <li className="fhq-nil">No verified trades from the family this week yet — every FEELESS trade a member closes lands here.</li> : null}</ol>
+    <p className="fhq-bnote">Price result only (fees apart) · each member trades from their own wallet · a shared family wallet waits on the custody pick.</p>
+  </div>;
+}
+const OWN = { books: m => <FamilyBooks book={m.book} />, pools: () => <PoolsPop />, vault: () => <NightVault />, trade: () => <AvenueRoom lens="pumpradar" />,
+  fee: () => <AvenueRoom lens="feebank" />, fuse: () => <FusePnl /> };
 
 // pure: the turf a family can expand into next — the cheapest free blocks it can afford first
 export function nextTurf(me, n_ = 4) {
@@ -64,6 +96,6 @@ export function FamilyHQ({ mine, world, act, busy, onEnter, onFly, tools }) {
     </div> : null}
     <nav className="fhq-tools" role="tablist" aria-label="Family tools">{TOOLS.map(([k, label, Icon], i) => <button key={k} type="button" role="tab" aria-selected={tool === k} className={tool === k ? 'active' : ''} style={{ '--i': i }}
       onClick={() => setTool(k)} data-tip={label} data-testid={`hq-tool-${k}`}><Icon size={16} aria-hidden="true" /><span>{label}</span>{k === 'bounty' && mine.bountiesOpen ? <b>{mine.bountiesOpen}</b> : null}</button>)}</nav>
-    <div className="fhq-pane" key={tool}>{tools ? tools(tool, setTool) : null}</div>
+    <div className="fhq-pane" key={tool}>{OWN[tool] ? <Suspense fallback={<p className="m-dim">Opening…</p>}>{OWN[tool](mine)}</Suspense> : tools ? tools(tool, setTool) : null}</div>
   </div>;
 }

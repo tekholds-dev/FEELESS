@@ -98,3 +98,13 @@ def test_overwatch_shows_every_family_to_the_owner_only(monkeypatch):
     assert sic['creator'] and sic['paidUsd'] == 25 and sic['week']['trades'] == 1 and sic['week']['usd'] == 12.0
     assert {m['address']: m['don'] for m in sic['members']} == {'HQ': True, 'M2': False}
     assert out['totals']['families'] == 2 and out['totals']['members'] == 3 and out['pricing']['baseSeats'] == 5 and 'custody' in out
+
+
+def test_the_books_tape_every_members_trades_newest_first(monkeypatch):
+    import reputation_service as rs
+    monkeypatch.setattr(rs, '_crew_name', lambda a: a.lower())
+    pcs = {'A': [{'symbol': 'WIF', 'mint': 'w', 'ret': 0.5, 'usd': 50.0, 'costUsd': 100.0, 'holdMin': 31, 'at': 100, 'tx': 't1'}],
+           'B': [{'symbol': 'BONK', 'mint': 'b', 'ret': -0.2, 'usd': -4.0, 'costUsd': 20.0, 'holdMin': 6, 'at': 200, 'tx': 't2'}]}
+    book = rs._crew_book(pcs)
+    assert [r['symbol'] for r in book] == ['BONK', 'WIF'] and book[0]['who'] == 'b' and book[1]['usd'] == 50.0
+    assert rs._crew_book({}) == [] and len(rs._crew_book({'A': pcs['A'] * 60})) == 40
