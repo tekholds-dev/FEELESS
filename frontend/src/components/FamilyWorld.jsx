@@ -197,6 +197,17 @@ export function FamilyTab({ mine, addr, sess, tools, onEnter, onLeave, onSignIn 
 // 🚪 inside a place: its room pops out OVER the city (the street stays live behind it) — Esc or ✕ walks back out
 const EXTRA_PLACES = { overwatch: { key: 'overwatch', name: '👑 OVERWATCH', sub: 'creator only · every family', color: '#ff8fa3' },
   realtor: { key: 'realtor', name: '🏷 THE REALTOR', sub: 'every plot for sale · by tier', color: '#45e4c8' } };
+// 📺 RENT A BILLBOARD: your coin + a line on Fee City's two billboards for 24 h (the family bank pays; Don / Underboss), every ad rotates
+function BillboardBox({ v, me, act, busy }) {
+  const [text, setText] = useState(''); const [mint, setMint] = useState(''); const cost = v.rules?.billboardMp || 5000; const ads = v.boards || [];
+  return <div className="fwd-board m-card" data-testid="billboard-box"><header><b>📺 BILLBOARDS</b><small>{ads.length}/6 up · {mp(cost)} MP / 24h from the family bank</small></header>
+    {ads.length ? <ul>{ads.map((a, i) => <li key={i} style={{ '--i': i }}><b>[{a.tag}]</b> {a.text}</li>)}</ul> : <p className="m-dim">No ads up — yours rotates on both billboards.</p>}
+    <form onSubmit={e => { e.preventDefault(); act({ act: 'billboard', text, mint }, 'Your billboard is up for 24 h'); setText(''); }}>
+      <input className="m-input" value={text} maxLength={42} onChange={e => setText(e.target.value)} placeholder="$TICKER — your line (no links)" aria-label="Billboard line" data-testid="billboard-text" />
+      <input className="m-input" value={mint} maxLength={44} onChange={e => setMint(e.target.value.trim())} placeholder="coin address (optional)" aria-label="Coin address" />
+      <button type="submit" className="m-btn m-go" disabled={busy || text.trim().length < 3 || (me.bank ?? 0) < cost} data-tip={`Rent a 24 h slot for ${mp(cost)} MP from the family bank (you have ${mp(me.bank)})`} data-testid="billboard-go">📺 Rent 24h</button></form></div>;
+}
+
 // 💸 THE MONEY MENU (owner, 2026-10-22: "every directory needs vital money making — at least 10 ways to make money in the pop-ups"): the same
 // 12 real doors under EVERY building's pop-out; each opens the real tool here in the city (never a dead link). How each one pays, in one line.
 export const MONEY_DOORS = [
@@ -276,7 +287,7 @@ export function FamilyWorld({ addr, sess, onEnter, onJoin, onSignIn, rooms = {} 
     family: typeof rooms.family === 'function' ? rooms.family({ v, act, busy, onEnter, fly: id => { const b = (v.blocks || []).find(x => x.id === id); if (!b) return; const c = (v.cities || []).find(x => x.boroughs.includes(b.b)); setLensRaw(null); if (c) setCity(c.key); setSelRaw(b); } }) : rooms.family || null,
     wars: rooms.wars || null, board: rooms.board || null, feed: rooms.feed || null,
     ...Object.fromEntries(AVENUE_LENSES.map(k => [k, <AvenueRoom lens={k} />])),
-    shop: me ? <div className="fwd-shop"><ul>{me.rewards.map(r => <li key={r.key}><b>{r.name}</b><small>{r.what}</small>
+    shop: me ? <div className="fwd-shop"><BillboardBox v={v} me={me} act={act} busy={busy} /><ul>{me.rewards.map(r => <li key={r.key}><b>{r.name}</b><small>{r.what}</small>
       <button type="button" className="m-btn" disabled={busy || r.cost > me.bank} onClick={() => act({ act: 'reward', kind: r.key }, r.name)} data-testid={`rw-${r.key}`}>{mp(r.cost)} MP</button></li>)}</ul>
       <div className="fwd-redeem m-card" data-testid="redeem"><b>🐱 Redeem MP → FEECAT</b><p>{mp(v.rate?.mp)} MP = {mp(v.rate?.feecat)} FEECAT. The Don files the claim; the owner pays it by hand. You have {mp(me.bank)} MP ({Math.min(100, Math.round((me.bank / (v.rate?.mp || 1)) * 100))} % of one).</p>
         <u><s style={{ transform: `scaleX(${Math.min(1, me.bank / (v.rate?.mp || 1))})` }} /></u>

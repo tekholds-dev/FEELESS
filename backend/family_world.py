@@ -615,6 +615,39 @@ def link_block(world, cid, bid, row):
     return links[bid]
 
 
+# 📺 BILLBOARDS (owner, 2026-10-22: "families buy mob points to advertise their coin on a building billboard showing slideshows"): a family spends
+# MP from its bank for a 24 h slot; the city's billboards rotate every live ad as a slideshow. ≤ BOARD_SLOTS at once (the cheapest way to stay
+# seen is to keep a slot); the text is cleaned (no links, no @ handles — the coin's ticker + a line).
+BOARD_MP, BOARD_SEC, BOARD_SLOTS, BOARD_LEN = 5000, 24 * 3600, 6, 42
+
+
+def board_text(t):
+    import re as _re
+    t = _re.sub(r'https?://\S+|www\.\S+|@\w+', '', ' '.join(str(t or '').split()))
+    return ' '.join(''.join(ch for ch in t if ch.isprintable()).split())[:BOARD_LEN].strip()
+
+
+def billboard(world, fam, bank, text, mint, now):
+    """→ MP spent. One live slot per family; ≤ BOARD_SLOTS families at once."""
+    t = board_text(text)
+    if len(t) < 3:
+        raise ValueError('Write a line for the billboard (3+ characters, no links).')
+    live = [b for b in world.setdefault('boards', []) if b['until'] > now]
+    if any(b['fam'] == fam['id'] for b in live):
+        raise ValueError('Your family already has a billboard up — it runs 24 h.')
+    if len(live) >= BOARD_SLOTS:
+        raise ValueError(f'All {BOARD_SLOTS} billboards are taken — the next frees up in {int((min(b["until"] for b in live) - now) // 60)} min.')
+    if bank < BOARD_MP:
+        raise ValueError(f'A billboard costs {BOARD_MP:,} MP from the family bank.')
+    m = str(mint or '').strip()
+    world['boards'] = live + [{'fam': fam['id'], 'tag': fam.get('tag'), 'text': t, 'mint': m if 32 <= len(m) <= 44 else None, 'at': now, 'until': now + BOARD_SEC}]
+    return BOARD_MP
+
+
+def boards_view(world, now):
+    return [{k: b[k] for k in ('tag', 'text', 'mint', 'until')} for b in world.get('boards') or [] if b['until'] > now]
+
+
 def map_view(world, families, cpu_rows, cartel_rows, me=None, boom_=None, now=0):
     """The whole city for the page: every block (owner, tag, power, kind), the boroughs, bridges, season and today's boom."""
     owners = {f['id']: {'tag': f.get('tag'), 'name': f.get('name'), 'power': f.get('power', 0), 'color': f.get('color'), 'kind': 'family', 'launch': f.get('launch')} for f in families}
@@ -643,13 +676,14 @@ def map_view(world, families, cpu_rows, cartel_rows, me=None, boom_=None, now=0)
             row.update(owner=c['id'], tag=c['tag'], name=c['name'], power=c['power'], kind='cartel', role=c['role'], icon=c['icon'])
         blocks.append(row)
     return {'boroughs': [{'key': k, 'name': n, 'icon': i, 'col': c, 'row': r, 'tier': t_, 'vibe': v} for k, n, i, c, r, t_, v in BOROUGHS],
-            'bridges': [{'a': a, 'b': b, 'name': n} for a, b, n in BRIDGES], 'blocks': blocks, 'season': season(now) if now else None, 'boom': boom_}
+            'bridges': [{'a': a, 'b': b, 'name': n} for a, b, n in BRIDGES], 'blocks': blocks, 'season': season(now) if now else None, 'boom': boom_,
+            'boards': boards_view(world, now) if now else []}
 
 
 # ── owner rules (HQ › 🏙 Familia) ───────────────────────────────────────────────────────────────────────────────────────────────────────────
 # LIVE = applied to the engine now (points). PLANNED = the real-money side, stored so the owner can price it, applied once custody is picked.
 RULES = {'blockMp': BLOCK_MP, 'feeTier': 2.5, 'turfMax': TURF_MAX, 'moveMp': MOVE_MP, 'fuseMinMp': 2000, 'upkeepMp': UPKEEP_MP,
-         'familiesPerWallet': 2, 'createUsd': 25.0, 'createFeeUsd': 5.0, 'hitRate': 0.000025, 'hitCapUsd': 0.10, 'hitMinUsd': 1.0}
+         'familiesPerWallet': 2, 'billboardMp': BOARD_MP, 'createUsd': 25.0, 'createFeeUsd': 5.0, 'hitRate': 0.000025, 'hitCapUsd': 0.10, 'hitMinUsd': 1.0}
 RULE_RANGE = {'blockMp': (100, 1_000_000), 'feeTier': (1.0, 20.0), 'turfMax': (1, 60), 'moveMp': (0, 1_000_000), 'fuseMinMp': (0, 1_000_000), 'upkeepMp': (0, 100_000),
               'familiesPerWallet': (1, 10), 'createUsd': (0, 1000), 'createFeeUsd': (0, 1000), 'hitRate': (0, 0.01), 'hitCapUsd': (0, 100), 'hitMinUsd': (0, 1000)}
 LIVE_RULES = ('blockMp', 'feeTier', 'turfMax', 'moveMp', 'fuseMinMp', 'upkeepMp', 'familiesPerWallet')

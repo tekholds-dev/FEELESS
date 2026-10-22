@@ -54,6 +54,12 @@
 @keyframes fwdPop { from { transform: scale(1.25); } to { transform: none; } }
 @keyframes fwdPulse { 50% { opacity: .5; } }
 @keyframes fwdDeal { from { transform: translateY(-30px) rotate(-12deg); opacity: 0; } }
+.fwd-board { display: grid; gap: 8px; margin-bottom: 10px; } .fwd-board header { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+.fwd-board header b { font: 800 11px 'JetBrains Mono', monospace; letter-spacing: .12em; color: #ffd76a; } .fwd-board header small { font: 600 10px 'JetBrains Mono', monospace; color: #a89f86; }
+.fwd-board ul { margin: 0; padding: 0; list-style: none; display: grid; gap: 4px; } .fwd-board li { font: 500 12px Inter, system-ui, sans-serif; color: #e8e3d6; animation: fwdWhy .3s ease-out both; animation-delay: calc(var(--i, 0) * 50ms); }
+.fwd-board li b { font: 800 11px 'JetBrains Mono', monospace; color: #d4af37; } .fwd-board form { display: grid; grid-template-columns: 1fr 1fr auto; gap: 6px; } .fwd-board .m-input { min-height: 34px; min-width: 0; }
+body.theme-day .fwd-board li { color: #2a2620; }
+@media (max-width: 640px) { .fwd-board form { grid-template-columns: 1fr; } }
 .fwd-money { display: grid; gap: 6px; margin-top: 12px; padding-top: 10px; border-top: 1px solid #ffffff12; }
 .fwd-money > em { font: 800 9.5px 'JetBrains Mono', monospace; letter-spacing: .16em; color: #d4af37; font-style: normal; }
 .fwd-money > div { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 6px; }

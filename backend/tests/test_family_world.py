@@ -200,3 +200,21 @@ def test_raids_are_capped_three_per_family_per_12h_both_ways():
     with pytest.raises(ValueError, match='raided 3'):
         fw.start(w, {'id': 'e', 'tag': 'E', 'name': 'E'}, tgt('z'), 'me', 'don', [3], 1000, NOW + 30)
     assert fw.start(w, {'id': 'a', 'tag': 'A', 'name': 'A'}, tgt('q'), 'me', 'don', [3], 1000, NOW + fw.RAID_CAP_SEC + 5)   # the window ages out
+
+
+def test_billboards_cost_mp_one_per_family_six_slots_clean_text():
+    w = fw.blank()
+    assert fw.board_text('  BUY $SIC https://x.y @dev now ') == 'BUY $SIC now'
+    assert fw.billboard(w, {'id': 'a', 'tag': 'A'}, 9000, 'SIC to the moon', 'M' * 44, NOW) == fw.BOARD_MP
+    with pytest.raises(ValueError, match='already has a billboard'):
+        fw.billboard(w, {'id': 'a', 'tag': 'A'}, 9000, 'again', '', NOW + 1)
+    with pytest.raises(ValueError, match='costs'):
+        fw.billboard(w, {'id': 'b', 'tag': 'B'}, 10, 'broke fam', '', NOW + 1)
+    for i in range(5):
+        fw.billboard(w, {'id': f'f{i}', 'tag': f'F{i}'}, 9000, f'family {i}', 'bad-mint', NOW + 2)
+    with pytest.raises(ValueError, match='taken'):
+        fw.billboard(w, {'id': 'z', 'tag': 'Z'}, 9000, 'too late', '', NOW + 3)
+    v = fw.boards_view(w, NOW + 10)
+    assert len(v) == fw.BOARD_SLOTS and v[0]['mint'] == 'M' * 44 and v[1]['mint'] is None
+    assert fw.boards_view(w, NOW + fw.BOARD_SEC + 5) == []                                     # 24 h, then gone
+    assert fw.billboard(w, {'id': 'z', 'tag': 'Z'}, 9000, 'my turn', '', NOW + fw.BOARD_SEC + 5)

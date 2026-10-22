@@ -55,3 +55,14 @@ test('💸 every building pop-out carries the Money Menu: 12 real doors, each op
   expect(q('place-panel-shop')).not.toBeNull();
   await act(async () => { root.unmount(); });
 });
+
+test('📺 Pawn & Gold rents a billboard: the line goes to the server as a billboard act', async () => {
+  const el = document.createElement('div'); document.body.appendChild(el); const root = createRoot(el);
+  await act(async () => { root.render(<FamilyWorld addr="A" sess="s" onEnter={() => {}} />); });
+  await act(async () => { q('city-places').click(); }); await act(async () => { q('place-rewards').click(); });
+  const inp = q('billboard-text'); const set = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set;
+  await act(async () => { set.call(inp, '$SIC runs the city'); inp.dispatchEvent(new Event('input', { bubbles: true })); });
+  await act(async () => { q('billboard-go').click(); });
+  expect(global.fetch.mock.calls.some(c => c[1]?.method === 'POST' && c[1].body.includes('"billboard"') && c[1].body.includes('$SIC runs the city'))).toBe(true);
+  await act(async () => { root.unmount(); });
+});

@@ -352,6 +352,11 @@ export function createCity(host, { onPick, onHover, onAnchors, lite = false, sti
     for (const x of p.spare) { side(x.rect, '#25272d'); const c = centerOf(x.rect); const all = [...MODELS.shop, ...MODELS.mid];
       const o = await make(all[Math.abs(Math.round(x.rect.x * 7 + x.rect.z * 3)) % all.length], { lit: true }); yard(x.rect, FOOT.tower - 0.6); fit(o, Math.min(FOOT.tower - 0.6, x.rect.w - 1), Math.min(FOOT.tower - 0.6, x.rect.d - 1)); o.position.set(c.x, 0.14, c.z); content.add(o); }
     for (const pl of p.places) await place(pl, yard);
+    for (const bb of p.billboards || []) {   // 📺 a billboard: two poles + a lit panel; its ads change every 6 s (texture swap, no layout)
+      [-1.4, 1.4].forEach(dx => box(0.12, 3.2, 0.12, '#55585f', bb.x + dx, 1.7, bb.z, content));
+      const slides = (bb.ads.length ? bb.ads : [{ tag: 'FEELESS', text: 'YOUR COIN HERE · 5,000 MP / 24h' }]).map(a => sign([`[${a.tag || '?'}]`, a.text], { color: '#ffd76a', w: 520 }));
+      slides.forEach((sl, k) => { sl.position.set(bb.x, 3.9, bb.z); sl.scale.multiplyScalar(1.25); sl.visible = k === 0; content.add(sl); });
+      if (slides.length > 1) anim.push(t => { const k = Math.floor(t / 6) % slides.length; slides.forEach((sl, j) => { sl.visible = j === k; }); }); }
     if (yardAt.length) { const m4 = new THREE.Matrix4(); const crown = new THREE.InstancedMesh(new THREE.ConeGeometry(0.3, 0.8, 7), M.leaf, yardAt.length);
       const trunk = new THREE.InstancedMesh(new THREE.CylinderGeometry(0.05, 0.07, 0.3, 6), M.trunk, yardAt.length);
       yardAt.forEach(([x, z], k) => { m4.makeTranslation(x, 0.7, z); crown.setMatrixAt(k, m4); m4.makeTranslation(x, 0.3, z); trunk.setMatrixAt(k, m4); }); content.add(crown, trunk); }
@@ -601,7 +606,7 @@ export function createCity(host, { onPick, onHover, onAnchors, lite = false, sti
       const key_ = `${p.kind}:${p.key || ''}:${p.islands.map(i => i.key).join(',')}`; const first = planKey !== key_; plan = p;
       if (first) { planKey = key_; sig = null; await buildWorld(p); const f = frameAll(); camera.position.set(f.x + f.dist * 0.5, f.dist * 0.5, f.z + f.dist * 0.75); controls.target.set(f.x, 0, f.z); }   // a low, cinematic first look
       const nextSig = JSON.stringify([p.kind, p.key, p.lots.map(l => [l.id, l.kind, l.tag, Math.round(Math.log10(1 + l.power) * 1.6), l.link?.pool, l.link?.apy]), p.markets.map(m => [m.key, usd(m.tvl), m.move == null ? null : Math.round(m.move), m.apy]),
-        [...(live.raided || [])], live.fight ? [live.fight.id, live.fight.a?.pct, live.fight.b?.pct] : null, Object.values(live.marks || {}).map(x => JSON.stringify(x))]);
+        (p.billboards?.[0]?.ads || []).map(a => a.tag + a.text), [...(live.raided || [])], live.fight ? [live.fight.id, live.fight.a?.pct, live.fight.b?.pct] : null, Object.values(live.marks || {}).map(x => JSON.stringify(x))]);
       if (first || nextSig !== sig) { sig = nextSig; await buildContent(p, live); }
       if (lights) { phaseWas = -1; lightNodes.forEach((_, k) => { lights.setColorAt(k * 2, green); lights.setColorAt(k * 2 + 1, red); }); if (lights.instanceColor) lights.instanceColor.needsUpdate = true; }
       dirty = true; return first;

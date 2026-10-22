@@ -9383,6 +9383,8 @@ class WorldAct(BaseModel):
     pool: str = Field(default='', max_length=64)
     mp: int = Field(default=0, ge=0, le=10_000_000)
     source: str = Field(default='own', max_length=8)
+    text: str = Field(default='', max_length=120)   # 📺 billboard line
+    mint: str = Field(default='', max_length=44)
 
 
 @app.post('/api/reputation/familia-world/act')
@@ -9409,7 +9411,7 @@ async def familia_world_act(p: WorldAct):
         for l in city['lots'].values():
             lv[l['b']] = max(lv.get(l['b'], 0), l['lvl'])
         try:
-            if p.act in ('buy', 'sell', 'move', 'raid', 'reward', 'redeem', 'link', 'unlink') and not boss:
+            if p.act in ('buy', 'sell', 'move', 'raid', 'reward', 'redeem', 'link', 'unlink', 'billboard') and not boss:
                 raise ValueError('Only the Don or the Underboss does that.')
             if p.act == 'fund':   # 💡 keep a turf block ACTIVE: any member from their own points, the Don / Underboss from the bank
                 up_ = int(_familia_rules().get('upkeepMp') or _fworld.UPKEEP_MP) or _fworld.UPKEEP_MP
@@ -9432,6 +9434,9 @@ async def familia_world_act(p: WorldAct):
                         raise ValueError('That pool is not in the hub right now — refresh the Pool Hub.')
                     row_ = _fpl.link_row(row_)
                 res_ = {'link': _fworld.link_block(w, c['id'], p.block, row_)}
+            elif p.act == 'billboard':   # 📺 a 24 h billboard slot from the family bank (Don / Underboss)
+                city['bank'] -= _fworld.billboard(w, {'id': c['id'], 'tag': c.get('tag')}, city['bank'], p.text, p.mint, now)
+                res_ = {'billboard': True}
             elif p.act == 'buy':
                 city['bank'] -= _fworld.buy_block(w, c['id'], city['bank'], p.block, staff_)
             elif p.act == 'sell':
