@@ -73,7 +73,7 @@ function Presets({ k, list, busy, onAct }) {
       <button type="submit" className="m-btn" disabled={!!busy || !name.trim()} data-tip="Save this model's settings right now as a preset" data-testid={`rig-${k}-preset-save`}>Save</button></form></div>;
 }
 
-export function ModelRig({ call }) {
+export function ModelRig({ call, only = null }) {   // `only` = one model's card (e.g. 'win' beside NEXA's chat)
   const [d, setD] = useState(null); const [busy, setBusy] = useState(''); const [err, setErr] = useState(''); const [note, setNote] = useState(null);
   const load = useCallback(() => call('/admin/ai/rig').then(setD).catch(e => setErr(String(e?.message || e))), [call]);
   const applying = d?.nexa?.state === 'applying' || (d?.reloading || []).length > 0;
@@ -103,7 +103,7 @@ export function ModelRig({ call }) {
         onClick={() => chatSet({ len: k })} data-testid={`rig-chat-len-${k}`}>{k}<small>{n}</small></button>)}</div></section> : null}
     <p className="mrg-say"><em>💬 OR SAY IT</em>{SAY.map(t => <button key={t} type="button" onClick={() => say(t)} data-tip="Puts this line in Talk — it becomes a proposal you ✅" data-testid={`rig-say-${t.split(' ')[0]}`}>“{t}”</button>)}</p>
     {note ? <p className={`mrg-note ${note.ok ? 'is-ok' : 'is-bad'}`} data-testid="rig-reload-note">{note.ok ? `✅ reloaded in ${(note.ms / 1000).toFixed(1)}s${note.note ? ` · ${note.note}` : ''}` : `✕ reload failed — ${note.err}`}</p> : null}
-    <div className="mrg-grid">{d.rows.map((r, i) => { const lv = d.live?.[r.key] || {}; const lm = r.lms; const gguf = String(lm?.fmt || 'gguf').toLowerCase() === 'gguf';
+    <div className={`mrg-grid ${only ? 'is-one' : ''}`}>{d.rows.filter(r => !only || r.key === only).map((r, i) => { const lv = d.live?.[r.key] || {}; const lm = r.lms; const gguf = String(lm?.fmt || 'gguf').toLowerCase() === 'gguf';
       const inst = lm?.loaded?.[0] || {}; const diff = Object.keys(r.diff || {}); const reloading = (d.reloading || []).includes(r.key) || busy === `reload.${r.key}`;
       return <section key={r.key} className={`mrg-card k-${r.key} ${diff.length ? 'is-diff' : ''}`} style={{ '--i': i }} data-testid={`rig-${r.key}`}>
         <header><span className="mrg-sweep" aria-hidden />{AV[r.key] ? <img src={AV[r.key]} alt="" /> : <i className="mrg-av">🪟</i>}<b>{r.name}</b>{lm?.name ? <small className="mrg-model">{String(lm.name).split('/').pop()}</small> : null}
