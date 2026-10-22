@@ -1,3 +1,6 @@
+## 🔥 OWNER'S NEWEST (2026-10-22 night) → CLAUDE.md › CURRENT TASKS › P0 (A AI + agents → B bugs/exploits → C Familia money city). Start at P0 #1.
+Conserve usage · finish everything by priority · never dead-style. Done this session: Fee City 2× + FEELESS AVENUE, Pool Hall charts, model presets.
+
 ## 🔁 HANDOFF 2026-10-22 (late) — read first · conserve usage · finish by priority · never dead-style
 NEXT = CLAUDE.md › CURRENT TASKS › P0 (owner's newest: my family access + expand, assets as buildings, member vitals, NEXA / G4 / models tab +
 prompt presets, Sicario's seat button, Desktop clean-up after the owner confirms the folder list).
