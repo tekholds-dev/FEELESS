@@ -284,6 +284,42 @@ function MySites({ look, set }) {
   </div>;
 }
 
+// 📈 THE PULSE (2026-10-22 — owner: "FEEd needs live vitals"): what the timeline is doing in the last hour, from the same shared read — posts per
+// 5 minutes as a drawn line, which sites are talking, and the coins being called most (tap → the coin). Nothing extra is fetched.
+export function feedPulse(posts, now = Date.now() / 1000) {
+  const hour = (posts || []).filter(p => now - Number(p.at) < 3600);
+  const buckets = Array.from({ length: 12 }, (_, i) => hour.filter(p => Math.min(11, Math.floor((now - Number(p.at)) / 300)) === 11 - i).length);
+  const bySrc = {}; const coins = {};
+  hour.forEach(p => { bySrc[p.src] = (bySrc[p.src] || 0) + 1; const c = p.coin?.symbol; if (c) { const k = c.toUpperCase(); coins[k] = coins[k] || { sym: c, mint: p.coin.mint, n: 0 }; coins[k].n += 1; } });
+  return { n: hour.length, buckets, bySrc: Object.entries(bySrc).sort((a, b) => b[1] - a[1]), top: Object.values(coins).sort((a, b) => b.n - a.n).slice(0, 5), calls: hour.filter(p => p.coin).length };
+}
+function FeedPulse({ src }) {
+  const d = useSocialFeed(src, true); const pu = feedPulse(d?.posts);
+  const max = Math.max(1, ...pu.buckets); const pts = pu.buckets.map((v, i) => `${(i / 11) * 200},${36 - (v / max) * 30}`).join(' ');
+  return <div className="fxp" data-testid="feed-pulse">
+    <span className="fxp-n" data-tip="Posts in the last hour across the sites you picked"><b key={pu.n}>{pu.n}</b><em>POSTS / HR</em></span>
+    <svg className="fxp-line" viewBox="0 0 200 40" preserveAspectRatio="none" aria-label="posts per 5 minutes, last hour"><polyline points={`0,40 ${pts} 200,40`} className="area" /><polyline points={pts} className="ln" /></svg>
+    <span className="fxp-src">{pu.bySrc.slice(0, 4).map(([k, n]) => <i key={k} data-tip={`${n} from ${SRC_BADGE[k] || k}`}>{(SRC_BADGE[k] || k).split(' ')[0]} {n}</i>)}</span>
+    <span className="fxp-top" data-tip="The coins called most this hour — tap to open">{pu.top.length ? pu.top.map(c => <button key={c.sym} type="button" onClick={() => c.mint && openCoin({ chainId: 'solana', baseToken: { address: c.mint, symbol: c.sym } })}>${c.sym}<b>{c.n}</b></button>) : <small>no calls yet this hour</small>}</span>
+  </div>;
+}
+// ⤢ FEEd POPPED OUT: a floating, draggable window that stays over any page (TerminalShell mounts the host once)
+export const openFeedPop = () => window.dispatchEvent(new Event('feeless:feed-pop'));
+export function FeedPopHost() {
+  const [open, setOpen] = useState(false); const [xy, setXy] = useState([0, 0]); const drag = useRef(null);
+  const { wallet } = useWallet() || {}; const me = wallet?.address || ''; const sess = me ? readChatSession(me) : '';
+  useEffect(() => { const f = () => setOpen(true); window.addEventListener('feeless:feed-pop', f); return () => window.removeEventListener('feeless:feed-pop', f); }, []);
+  if (!open) return null;
+  const down = e => { drag.current = { x: e.clientX - xy[0], y: e.clientY - xy[1] }; e.currentTarget.setPointerCapture(e.pointerId); };
+  const move = e => { if (drag.current) setXy([e.clientX - drag.current.x, e.clientY - drag.current.y]); };
+  return <aside className="fxpop" style={{ transform: `translate(${xy[0]}px, ${xy[1]}px)` }} data-testid="feed-pop" role="dialog" aria-label="FEEd">
+    <header onPointerDown={down} onPointerMove={move} onPointerUp={() => { drag.current = null; }} data-tip="Drag to move"><b className="feed-wordmark">FEEd</b><small>live · every site</small>
+      <button type="button" className="m-btn" onClick={() => setOpen(false)} aria-label="Close FEEd" data-tip="Close">✕</button></header>
+    <FeedPulse src="" />
+    <div className="fxpop-body"><Timeline src="" me={me} sess={sess} /></div>
+  </aside>;
+}
+
 export function FeedPanel({ onConnect }) {
   const { wallet } = useWallet() || {}; const me = wallet?.address || ''; const sess = me ? readChatSession(me) : '';
   const [srcs, setSrcs] = useState(readSrc);
@@ -302,6 +338,7 @@ export function FeedPanel({ onConnect }) {
       {FEED_SRC.map(([k, ic, label]) => { const on = srcs.includes(k); return <button key={k} type="button" className={`fx-bub ${on ? 'on' : ''}`} aria-pressed={on} onClick={() => pickSrc(k)} data-testid={`feed-src-${k}`}><i>{ic}</i><span>{label}</span></button>; })}
       <small className="fx-navnote">Post only</small>
       <button type="button" className={`fx-bub fx-lookbtn ${lookOpen ? 'on' : ''}`} aria-expanded={lookOpen} onClick={() => setLookOpen(o => !o)} data-testid="feed-look-open"><i>🎨</i><span>Look</span></button>
+      <button type="button" className="fx-bub" onClick={openFeedPop} data-tip="Pop FEEd out into a floating window that stays over any page" data-testid="feed-popout"><i>⤢</i><span>Pop out</span></button>
       {POST_ONLY.map(([k, ic, label]) => <span key={k} className="fx-bub is-post" data-tip={`${label} doesn't let a site read its feed without its own paid / registered API app. Post to it from the box on top — it opens ${label}'s own post page on your account.`}><i>{ic}</i><span>{label}</span></span>)}
     </nav>
     <div className="fx-main">
@@ -314,6 +351,7 @@ export function FeedPanel({ onConnect }) {
         <EcosystemChat key={cat} compact room={cat} ecosystem={{ id: cat, name: current[2] }} onConnect={onConnect} />
       </> : <>
         <header className="fx-head"><b>{srcs.includes('all') ? '✨ Everything' : srcs.map(k => (FEED_SRC.find(s => s[0] === k) || [])[2]).join(' + ')}</b><small>FEELESS · X · Pump · Telegram · Bluesky, newest first</small></header>
+        <FeedPulse src={q} />
         <Composer me={me} sess={sess} />
         <XShare me={me} sess={sess} />
         <Timeline src={q} me={me} sess={sess} />

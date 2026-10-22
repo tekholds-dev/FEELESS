@@ -73,3 +73,11 @@ describe('FEELESS call receipts', () => {
     expect(tabPosts(p, 'grave', {}, new Set(), new Set()).map(x => x.id)).toEqual([2]);
   });
 });
+
+test('the pulse counts the last hour in 12 five-minute buckets, by site, and the coins called most', () => {
+  const { feedPulse } = require('./FeedX');
+  const now = 10_000;
+  const p = feedPulse([{ at: now - 30, src: 'x', coin: { symbol: 'wif', mint: 'M1' } }, { at: now - 400, src: 'pump', coin: { symbol: 'WIF', mint: 'M1' } }, { at: now - 1000, src: 'x' }, { at: now - 7200, src: 'x', coin: { symbol: 'OLD' } }], now);
+  expect(p.n).toBe(3); expect(p.buckets).toHaveLength(12); expect(p.buckets[11]).toBe(1); expect(p.buckets[10]).toBe(1);
+  expect(p.bySrc).toEqual([['x', 2], ['pump', 1]]); expect(p.top).toEqual([{ sym: 'wif', mint: 'M1', n: 2 }]); expect(p.calls).toBe(2);
+});
