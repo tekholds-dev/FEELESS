@@ -550,6 +550,21 @@ def redeem_feecat(mp, rate=FEECAT_RATE):
     return units * per_mp, units * per_fc
 
 
+def link_block(world, cid, bid, row):
+    """🏦 SET YOUR BUILDING to a real pool (owner, 2026-10-22): a block you hold wears that pool's name, kind and live APY / TVL. Display only —
+    no funds move; the deposit itself happens on the pool's own page, the wallet signs. row=None clears it."""
+    if taken(world).get(bid) != cid:
+        raise ValueError('Hold that block first.')
+    links = world.setdefault('links', {})
+    if row is None:
+        links.pop(bid, None)
+        return None
+    if len(links) > 400 and bid not in links:
+        raise ValueError('Too many linked buildings right now.')
+    links[bid] = {k: row[k] for k in ('pool', 'sym', 'kind', 'proto')}
+    return links[bid]
+
+
 def map_view(world, families, cpu_rows, cartel_rows, me=None, boom_=None, now=0):
     """The whole city for the page: every block (owner, tag, power, kind), the boroughs, bridges, season and today's boom."""
     owners = {f['id']: {'tag': f.get('tag'), 'name': f.get('name'), 'power': f.get('power', 0), 'color': f.get('color'), 'kind': 'family'} for f in families}

@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import { apiUrl } from '../lib/api';
 import { FeeCity3D, PlacesMenu, useMarkets } from './FeeCity3D';
+import { PoolHub, PoolRow, usePools } from './PoolHub';
 import { PLACES, usd } from '../lib/cityPlan';
 import { openWarRoom } from './WarRoomHost';
 import { CityChat, CityRail, RankBadge, RankLadder } from './FamiliaHud';
@@ -72,7 +73,18 @@ function PlaceCard({ k, onOpen }) {
     <button type="button" className="m-btn m-go" onClick={() => onOpen(p.lens)} data-testid="place-enter">Walk in</button></aside>;
 }
 
-function BlockPanel({ x, v, act, busy, onEnter, mk, onPlace }) {
+// 🏦 a pool building (an outer city's district): the same row as the Pool Hub, big — trade / stake through FEELESS, deposit on its own page,
+// set your building to it
+function PoolPanel({ k, pools, blocks, onLink }) {
+  const r = (pools?.pools || []).find(x => `pool-${x.id}` === k) || Object.values(pools?.cities || {}).flat().find(x => `pool-${x.id}` === k);
+  if (!r) return <aside className="fwd-side m-card t-mk"><b>Pool</b><p className="m-dim">Reading the pool…</p></aside>;
+  return <aside className="fwd-side m-card t-mk t-pool" data-testid="pool-panel"><header><b>{r.sym}</b><small>{r.proto} · real pool</small></header>
+    <ul className="phb-list"><PoolRow r={r} big blocks={blocks} onLink={onLink} /></ul></aside>;
+}
+
+function BlockPanel({ x, v, act, busy, onEnter, mk, onPlace, pools, onLink }) {
+  const blocks = v.me ? [v.me.home, ...(v.me.turf || [])].filter(Boolean) : [];
+  if (x?.mk && String(x.mk).startsWith('pool-')) return <PoolPanel k={x.mk} pools={pools} blocks={blocks} onLink={onLink} />;
   if (x?.mk) return <MarketPanel k={x.mk} mk={mk} />;
   if (x?.place) return <PlaceCard k={x.place} onOpen={onPlace} />;
   if (x?.lm) return <MarkPanel k={x.lm} v={v} />;
@@ -130,8 +142,8 @@ function PlacePanel({ lens, live, onClose, children }) {
     <div className="fwd-placebody">{children}</div></section>;
 }
 
-export function FamilyWorld({ addr, sess, onEnter, onJoin }) {
-  const [v, setV] = useWorld(addr, sess); const [lens, setLensRaw] = useState(null); const mk = useMarkets(); const [sel, setSelRaw] = useState(null); const [busy, setBusy] = useState(false);   // lens = the place you walked into (null = the street)
+export function FamilyWorld({ addr, sess, onEnter, onJoin, rooms = {} }) {
+  const [v, setV] = useWorld(addr, sess); const [lens, setLensRaw] = useState(null); const mk = useMarkets(); const pools = usePools(); const [sel, setSelRaw] = useState(null); const [busy, setBusy] = useState(false);   // lens = the place you walked into (null = the street)
   const [city, setCity] = useState('fee'); const [tour, setTour] = useState(false);
   const setSel = x => setSelRaw(s => (x && s && ((x.id && s.id === x.id) || (x.lm && s.lm === x.lm) || (x.mk && s.mk === x.mk) || (x.place && s.place === x.place)) ? null : x));   // tap the picked plot again = zoom back out
   const [crew, setCrew] = useState(null);
@@ -154,6 +166,9 @@ export function FamilyWorld({ addr, sess, onEnter, onJoin }) {
   const flyTo = r => { const home = (v.blocks || []).find(b => b.owner === r.id && b.home) || (v.blocks || []).find(b => b.owner === r.id);
     if (!home) return; const c = (v.cities || []).find(x => x.boroughs.includes(home.b)); setLensRaw(null); if (c) setCity(c.key); setSelRaw(home); };
   const me = v.me; const live = (v.raids || []).filter(r => r.status === 'live').length;
+  const myBlocks = me ? [me.home, ...(me.turf || [])].filter(Boolean) : [];
+  const howBtn = <button type="button" className={tour ? 'active' : ''} onClick={() => setTour(t => !t)} aria-pressed={tour} data-tip="Show how Familia works, pinned on the city" data-testid="city-tour">❓ How it works</button>;
+  const link = (block, r) => act({ act: 'link', block, pool: r.id }, `${block} now wears ${r.sym}`);   // 🏠 set your building to a real pool (display only)
   const place = {
     ranked: <RankLadder ranked={v.ranked} mine={me?.id} />,
     raids: <div className="fwd-raids">{(v.raids || []).length ? v.raids.slice().reverse().map(r => <RaidStage key={r.id} r={r} act={act} busy={busy} />)
@@ -165,6 +180,9 @@ export function FamilyWorld({ addr, sess, onEnter, onJoin }) {
       <span className={`fwd-mini ${cc.red ? 'red' : ''}`}>{cc.face}{cc.suit}</span><em>+{mp(c.mp)} MP</em>
       <button type="button" className="m-btn" disabled={!c.ready || busy} onClick={() => act({ act: 'challenge', kind: c.key }, 'Recruit joined')}>{c.done ? '✓ claimed' : 'Claim'}</button></li>; })}</ul> : <p className="m-dim">Join a family to take challenges.</p>,
     deck: <CrewDeck crew={crew} />,
+    pools: <PoolHub pools={pools} blocks={myBlocks} onLink={link} />,
+    family: typeof rooms.family === 'function' ? rooms.family({ v, act, busy, onEnter, fly: id => { const b = (v.blocks || []).find(x => x.id === id); if (!b) return; const c = (v.cities || []).find(x => x.boroughs.includes(b.b)); setLensRaw(null); if (c) setCity(c.key); setSelRaw(b); } }) : rooms.family || null,
+    wars: rooms.wars || null, board: rooms.board || null, feed: rooms.feed || null,
     shop: me ? <div className="fwd-shop"><ul>{me.rewards.map(r => <li key={r.key}><b>{r.name}</b><small>{r.what}</small>
       <button type="button" className="m-btn" disabled={busy || r.cost > me.bank} onClick={() => act({ act: 'reward', kind: r.key }, r.name)} data-testid={`rw-${r.key}`}>{mp(r.cost)} MP</button></li>)}</ul>
       <div className="fwd-redeem m-card" data-testid="redeem"><b>🐱 Redeem MP → FEECAT</b><p>{mp(v.rate?.mp)} MP = {mp(v.rate?.feecat)} FEECAT. The Don files the claim; the owner pays it by hand. You have {mp(me.bank)} MP ({Math.min(100, Math.round((me.bank / (v.rate?.mp || 1)) * 100))} % of one).</p>
@@ -180,10 +198,10 @@ export function FamilyWorld({ addr, sess, onEnter, onJoin }) {
   return <section className="fwd" data-testid="family-world">
     <SeasonHud v={v} onJoin={onJoin} go={to => go(to)} />
     {v.cities ? <CityRail cities={v.cities} city={city} onGo={k => { setSelRaw(null); setLensRaw(null); setCity(k); }} /> : null}
-    <div className="fwd-mapwrap"><FeeCity3D v={v} sel={sel} setSel={setSel} city={city} setCity={setCity} markets={mk} onPlace={k => setLensRaw(k)}
+    <div className="fwd-mapwrap"><FeeCity3D v={v} sel={sel} setSel={setSel} city={city} setCity={setCity} markets={mk} pools={pools} onPlace={k => setLensRaw(k)} onGoPlace={p => setLens(p.lens)} active={lens}
         overlay={<><TheWire log={v.log} /><CityActions v={v} go={go} />{lens ? <PlacePanel lens={lens} live={live} onClose={() => setLensRaw(null)}>{place}</PlacePanel> : null}</>}
-        tour={{ on: tour, ctl: <><PlacesMenu onGo={p => setLens(p.lens)} /><button type="button" className={tour ? 'active' : ''} onClick={() => setTour(t => !t)} aria-pressed={tour} data-tip="Show how Familia works, pinned on the city" data-testid="city-tour">❓ How it works</button></> }} />
-      <div className="fwd-col"><BlockPanel x={sel} v={v} act={act} busy={busy} onEnter={onEnter} mk={mk} onPlace={k => setLensRaw(k)} />
+        tour={{ on: tour, ctl: <><PlacesMenu onGo={p => setLens(p.lens)} />{howBtn}</>, ctl3: howBtn }} />
+      <div className="fwd-col"><BlockPanel x={sel} v={v} act={act} busy={busy} onEnter={onEnter} mk={mk} onPlace={k => setLensRaw(k)} pools={pools} onLink={link} />
         {v.cities ? <CityChat city={city} name={(v.cities.find(c => c.key === city) || {}).name || 'the city'} addr={addr} sess={sess} /> : null}</div></div>
     {city === 'fee' && v.ffuse ? <FamilyFuseBoard v={v} setV={setV} addr={addr} sess={sess} /> : null}
     <PowerSkyline v={v} onPick={flyTo} onEmpty={() => go(v.me ? 'map' : 'join')} />

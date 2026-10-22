@@ -9125,6 +9125,14 @@ def _world_view(st, c, me, now, cartels_):
     v['cpu'] = [{'id': t['id'], 'name': t['name'], 'tag': t['tag'], 'borough': t['borough'], 'level': t['level'], 'guards': len(t['guards']),
                  'stash': int(_fworld.cpu_stash(w, t['id'], now)['stash'])} for t in cpu_]
     v['cartels'] = cartels_
+    links_ = w.get('links') or {}
+    if links_:   # 🏦 a building set to a real pool wears its live APY / TVL (the hub's last read)
+        live_p = {r['id']: r for r in ((_fpl_cache.get('v') or {}).get('pools') or [])}
+        for b in v['blocks']:
+            ln = links_.get(b['id'])
+            if ln and b.get('owner'):
+                lp_ = live_p.get(ln['pool']) or {}
+                b['link'] = {**ln, 'apy': lp_.get('apy'), 'tvl': lp_.get('tvl'), 'pair': lp_.get('pair'), 'hold': lp_.get('hold'), 'app': lp_.get('app')}
     v['log'] = w['log'][:20]
     v['actions'] = {'attack': _fworld.ACTIONS_A, 'defend': _fworld.ACTIONS_D}
     v['rate'] = {'mp': _world_feecat_rate()[0], 'feecat': _world_feecat_rate()[1]}
@@ -9234,6 +9242,7 @@ class WorldAct(BaseModel):
     kind: str = Field(default='', max_length=24)
     lot: int = Field(default=-1, ge=-1, le=24)
     raid: str = Field(default='', max_length=24)
+    pool: str = Field(default='', max_length=64)
 
 
 @app.post('/api/reputation/familia-world/act')
@@ -9260,9 +9269,18 @@ async def familia_world_act(p: WorldAct):
         for l in city['lots'].values():
             lv[l['b']] = max(lv.get(l['b'], 0), l['lvl'])
         try:
-            if p.act in ('buy', 'sell', 'move', 'raid', 'reward', 'redeem') and not boss:
+            if p.act in ('buy', 'sell', 'move', 'raid', 'reward', 'redeem', 'link', 'unlink') and not boss:
                 raise ValueError('Only the Don or the Underboss does that.')
-            if p.act == 'buy':
+            if p.act in ('link', 'unlink'):   # 🏦 set a held building to a real pool from the Pool Hub (display only, no funds)
+                row_ = None
+                if p.act == 'link':
+                    hub_ = (_fpl_cache.get('v') or {}).get('pools') or []
+                    row_ = next((r for r in hub_ if r['id'] == p.pool), None)
+                    if not row_:
+                        raise ValueError('That pool is not in the hub right now — refresh the Pool Hub.')
+                    row_ = _fpl.link_row(row_)
+                res_ = {'link': _fworld.link_block(w, c['id'], p.block, row_)}
+            elif p.act == 'buy':
                 city['bank'] -= _fworld.buy_block(w, c['id'], city['bank'], p.block, staff_)
             elif p.act == 'sell':
                 city['bank'] += _fworld.sell_block(w, c['id'], p.block)
@@ -9446,6 +9464,51 @@ def _ffuse_view(st, c, now):
 # live pools and today's top coins, in parallel, cached 60s, one pooled client. Read-only.
 import fee_markets as _fmk
 _fmk_cache = {'at': 0.0, 'v': None, 'prev': {}, 'lock': None}
+import fee_pools as _fpl
+_fpl_cache = {'at': 0.0, 'v': None, 'lock': None}
+FPL_SEC = 600
+
+
+async def _fpl_fetch():
+    """DefiLlama's yield list (every chain, ~10 MB — trimmed to the Solana rows we keep, never stored whole) + our own trending pair feed."""
+    global _fmk_http
+    if _fmk_http is None:
+        _fmk_http = httpx.AsyncClient(timeout=8, limits=httpx.Limits(max_connections=8))
+
+    async def llama():
+        try:
+            r = await _fmk_http.get('https://yields.llama.fi/pools', timeout=40)
+            return [x for x in ((r.json() or {}).get('data') or []) if x.get('chain') == 'Solana'] if r.status_code == 200 else []
+        except Exception:
+            return []
+
+    async def feed(kind):
+        try:
+            r = await _fmk_http.get('http://127.0.0.1:5001/api/market/feed', params={'kind': kind, 'chain': 'solana', 'page': 1})
+            return (r.json() or {}).get('pairs') or []
+        except Exception:
+            return []
+    ll, tr, nw = await asyncio.gather(llama(), feed('trending'), feed('new'))
+    return ll, tr + nw
+
+
+@app.get('/api/reputation/familia-pools')
+async def familia_pools():
+    """🏦 The Pool Hub: every top + rising Solana pool (v2 · v3 · DLMM · vaults · lending · staking · perps · RWA) with TVL / APY / 7-day move,
+    each with its exact deposit page and, for DEX pools, the exact pool for our war room; + each outer city's real-money district. ≤ 10 min old."""
+    now = time.time(); c = _fpl_cache
+    if c['v'] and now - c['at'] < FPL_SEC:
+        return c['v']
+    if c['lock'] is None:
+        c['lock'] = asyncio.Lock()
+    async with c['lock']:
+        if c['v'] and now - c['at'] < FPL_SEC:
+            return c['v']
+        ll, pairs = await _fpl_fetch()
+        v = _fpl.hub(ll, pairs, now)
+        if v['pools'] or not c['v']:   # a failed read keeps the last good hub
+            c.update(at=now, v=v)
+        return c['v']
 _fmk_http = None
 
 

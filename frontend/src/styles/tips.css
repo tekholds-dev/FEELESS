@@ -125,3 +125,7 @@ body.fx-lite .feed-bar-flare, body.fx-lite .trust-ring.loading .tr-num b { anima
 .alpha-event { animation-name: signalFlashCheap !important; }
 .live-gradient-text { animation: none !important; background-position: 40% 0; }
 body:has(.fuse-page) .ambient-scanline { display: none; }
+
+/* 🖱 A DECORATIVE LAYER NEVER TAKES A CLICK (2026-10-22: the OSSY / G4 "thinking" sweep `.dso-scan` sat over Sicario's seats, the Decision tab
+   and the timeframes whenever a model was busy — the dead-click catcher named it). Anything marked aria-hidden is art, never a target. */
+i[aria-hidden="true"], b[aria-hidden="true"], u[aria-hidden="true"], s[aria-hidden="true"], div[aria-hidden="true"]:not(:has(a, button, input, select, textarea, [role="button"])) { pointer-events: none; }

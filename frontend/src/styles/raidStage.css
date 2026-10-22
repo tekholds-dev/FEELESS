@@ -42,7 +42,7 @@
   clip-path: polygon(35% 0, 65% 0, 70% 22%, 100% 32%, 92% 62%, 75% 58%, 72% 100%, 56% 100%, 50% 70%, 44% 100%, 28% 100%, 25% 58%, 8% 62%, 0 32%, 30% 22%);
   background: linear-gradient(180deg, #e9d9b3 0 20%, #1a1a20 20% 60%, #2a2a33 60%); box-shadow: 0 0 6px #ff4d6d; animation: rdsBob 1.6s ease-in-out infinite; animation-delay: calc(var(--i) * -.3s); }
 .rds-man.is-down b { opacity: .25; animation: none; }
-.rds-siren { position: absolute; top: 14px; width: 60px; height: 60px; border-radius: 50%; pointer-events: none; animation: rdsSiren 1s steps(2) infinite; }
+.rds-siren { position: absolute; top: 14px; width: 60px; height: 60px; border-radius: 50%; pointer-events: none; animation: rdsSiren 2.4s ease-in-out infinite; }
 .rds-siren.r { left: 16px; background: radial-gradient(#ff4d6d, transparent 65%); } .rds-siren.b { right: 16px; background: radial-gradient(#4fa8ff, transparent 65%); animation-delay: -.5s; }
 .rds-sweep { position: absolute; left: 50%; top: -40%; width: 140px; height: 180%; margin-left: -70px; pointer-events: none; transform-origin: 50% 100%; background: linear-gradient(180deg, transparent, rgba(255, 244, 190, .09)); animation: rdsSweep 6s ease-in-out infinite alternate; }
 .rds-banner { position: absolute; left: 50%; top: 18px; max-width: 86%; margin: 0; padding: 8px 16px; border-radius: 12px; transform: translateX(-50%); text-align: center; pointer-events: none;
@@ -62,7 +62,7 @@
 .rds-log li { padding: 3px 8px; border-left: 2px solid; animation: rdsTick .4s ease-out; } .rds-log li.s-a { color: #ffb3bd; border-color: #ff4d6d; } .rds-log li.s-b { color: #c7e3ff; border-color: #4fa8ff; }
 /* a block under a live raid, seen from the city */
 .fc-raid { position: absolute; left: 50%; top: 50%; width: 10px; height: 160px; margin-left: -5px; pointer-events: none; transform-origin: 50% 0; transform: rotateX(-90deg);
-  background: linear-gradient(0deg, #ff4d6dcc, transparent); animation: rdsSiren 1s steps(2) infinite; }
+  background: linear-gradient(0deg, #ff4d6dcc, transparent); animation: rdsSiren 2.4s ease-in-out infinite; }
 @keyframes rdsTick { from { opacity: .3; } } @keyframes rdsDome { 50% { opacity: .55; } }
 @keyframes rdsSmoke { from { transform: translateZ(0) scale(.5); opacity: .9; } to { transform: translateZ(70px) scale(2.2); opacity: 0; } }
 @keyframes rdsBurst { 0% { opacity: 1; transform: translateZ(0); } 100% { opacity: 0; transform: translate3d(calc((var(--k) - 2.5) * 12px), calc((var(--k) % 3 - 1) * 12px), 70px); } }
@@ -70,7 +70,7 @@
 @keyframes rdsRing { from { opacity: 1; transform: scale(.3); } to { opacity: 0; transform: scale(1.6); } }
 @keyframes rdsBlast { from { opacity: 1; transform: scale(.2); } to { opacity: 0; transform: scale(2.2); } }
 @keyframes rdsBob { 50% { transform: rotateZ(calc(var(--rz, 0deg) * -1)) rotateX(-58deg) rotateX(-32deg) translateY(-2px); } }
-@keyframes rdsSiren { 50% { opacity: .15; } } @keyframes rdsSweep { from { transform: rotate(-28deg); } to { transform: rotate(28deg); } }
+@keyframes rdsSiren { 50% { opacity: .55; } }   /* calm: a slow swell, never an on / off strobe */ @keyframes rdsSweep { from { transform: rotate(-28deg); } to { transform: rotate(28deg); } }
 @keyframes rdsBanner { 0% { opacity: 0; } 8%, 75% { opacity: 1; } 100% { opacity: 0; } }
 body.fx-lite .rds-siren, body.fx-lite .rds-sweep, body.fx-lite .rds-smoke, body.fx-lite .fc-raid { animation: none; } body.fx-lite .rds-sweep { display: none; } body.fx-lite .rds-man b, body.fx-lite .rds-dome { animation: none; }
 @media (prefers-reduced-motion: reduce) { .rds *, .rds *::before, .fc-raid { animation: none !important; } .rds-banner { opacity: 1; } .rds-fx b { opacity: 0; } }

@@ -144,3 +144,15 @@ def test_paid_hit_payout_follows_the_owners_anchors():
     assert 0.05 <= fw.paid_hit_payout(4000, 4000, 4000) <= 0.10                        # equal $4K families, whole wallet: <= the cap
     assert fw.paid_hit_payout(5, 1000, 100) < fw.paid_hit_payout(5, 100, 1000)         # bullying a smaller family pays less
     assert fw.paid_hit_payout(1e9, 1, 1e9, cap_usd=0.1) == 0.1 and fw.paid_hit_payout(10, 10, 0) == 0
+
+
+def test_a_held_building_can_be_set_to_a_real_pool_and_cleared_never_someone_elses():
+    w = fw.blank()
+    h = fw.ensure_home(w, 'c1')
+    row = {'pool': 'jito', 'sym': 'JITOSOL', 'kind': 'stake', 'proto': 'Jito', 'tvl': 1}
+    assert fw.link_block(w, 'c1', h, row) == {'pool': 'jito', 'sym': 'JITOSOL', 'kind': 'stake', 'proto': 'Jito'}   # only the display fields are kept
+    assert w['links'][h]['pool'] == 'jito'
+    other = fw.ensure_home(w, 'c2')
+    with pytest.raises(ValueError):
+        fw.link_block(w, 'c1', other, row)                                    # not your block
+    assert fw.link_block(w, 'c1', h, None) is None and h not in w['links']

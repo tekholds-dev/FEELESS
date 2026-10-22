@@ -182,6 +182,10 @@ connected" = the desktop LM Studio held NO model → status says so + owner-only
 `lib/cityEngine.js` + `lib/cityPlan.js`, Kenney CC0 kits in public/assets/city): Market Row / Vault District / New Money islands with live
 markets, roof lights pulse with volume, stoplights (cars hold at red), pick ring on the ground (no beams), lens tabs → 📍 Places you walk into ·
 Familia full-page scene per tab (`FamiliaBackdrop`: harbor · mansion · war room · podium · wire) + noir-gold frame + Board podium.
+DONE 2026-10-22 (late): Sicario's blocker found + fixed (`.dso-scan` sweep over the cockpit; decorative layers click-through sitewide) · Pool Hub
+(`fee_pools.py`, /familia-pools) + pool districts in all 4 outer cities + Set building (`link` act) · city directory, day/night, expand, land,
+calm motion, real Fuse cards on the pitch, Family HQ pop-out. Open next (owner's order): confirm Sicario's · badge + card customization redo ·
+My family tab = FamilyHQ · in-city deposit tx builders · site-wide steps() strobes → fades. Detail: docs/HANDOFF.md top.
 OPEN, owner's FIFTH list (2026-10-21, late) — ahead of the fourth list, in this order:
 0. 🐆 AGENTS: the code-side dead taps are fixed (above). Still to confirm on the owner's real HQ — the dead-click catcher files any layer that
    eats a press to HQ › Bugs ("[dead click] …"); read those first next session.

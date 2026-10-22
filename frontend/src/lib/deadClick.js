@@ -3,6 +3,7 @@
 // no sign-in, no screen share. Two causes, both caught site-wide:
 //   1 · a LAYER on top: the topmost element under the press is not a control, has no pointer cursor, isn't a modal shade, and a real
 //       control sits under it → filed to HQ › Bugs as "[dead click] <layer> sits over <control>" (once per pair per page load, ≤ 4).
+//     When the layer is decorative (aria-hidden), the click is delivered to the control under it as well.
 //   2 · a REMOUNT under the press: a live tick replaced the pressed control between pointerdown and pointerup, so the browser sent the
 //       click to a parent. When the control now under the finger has the SAME test id, the click is delivered to it (that is the control
 //       the user pressed) and the remount is filed too.
@@ -45,11 +46,14 @@ export function installDeadClick({ doc = document, win = window, report } = {}) 
     const ctl = e.target?.closest?.(CONTROL) || null;
     down = { x: e.clientX, y: e.clientY, ctl, tid: ctl?.dataset?.testid || '' };
     const b = ctl ? null : blockerAt(e.clientX, e.clientY, doc, win);
-    if (b) file(`[dead click] ${describe(b.layer)} sits over ${describe(b.control)} — the press never reached it`);
+    if (b) { file(`[dead click] ${describe(b.layer)} sits over ${describe(b.control)} — the press never reached it`);
+      if (b.layer.closest?.('[aria-hidden="true"]')) down.through = b.control; }   // decorative art over a control: the click goes through to it
   }, { capture: true, passive: true });
   doc.addEventListener('click', e => { lastClick = { at: Date.now(), el: e.target }; }, { capture: true, passive: true });
   doc.addEventListener('pointerup', e => {
     const d = down; down = null;
+    if (d?.through && Math.hypot(e.clientX - d.x, e.clientY - d.y) < 8 && d.through.isConnected) { const to = d.through; const t0 = Date.now();
+      win.setTimeout(() => { if (!(lastClick.at >= t0 && lastClick.el && to.contains(lastClick.el))) to.click(); }, 0); return; }
     if (!d?.ctl || d.ctl.isConnected || !d.tid) return;
     const now = doc.elementFromPoint?.(e.clientX, e.clientY)?.closest?.(CONTROL);
     if (!now || now.dataset?.testid !== d.tid || now.disabled) return;

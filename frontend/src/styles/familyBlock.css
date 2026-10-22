@@ -37,7 +37,7 @@
   background-image: repeating-linear-gradient(0deg, rgba(0, 0, 0, .28) 0 2px, transparent 2px 9px), repeating-linear-gradient(90deg, transparent 0 3px, rgba(255, 222, 150, .7) 3px 7px, transparent 7px 10px); }
 .s-glass .fbk-n, .s-glass .fbk-s, .s-glass .fbk-e, .s-glass .fbk-w { background-image: linear-gradient(115deg, rgba(255, 255, 255, .45), transparent 40%), repeating-linear-gradient(0deg, rgba(10, 30, 50, .5) 0 1px, transparent 1px 7px), repeating-linear-gradient(90deg, rgba(10, 30, 50, .35) 0 1px, transparent 1px 8px); }
 .s-shop .fbk-n::after { content: ''; position: absolute; left: -3px; right: -3px; bottom: 34%; height: 7px; background: repeating-linear-gradient(90deg, #fff 0 5px, var(--c1) 5px 10px); box-shadow: 0 3px 4px #0006; }
-.s-club .fbk-n::after { content: ''; position: absolute; left: 10%; right: 10%; top: 12%; height: 6px; border-radius: 3px; background: #ffd36b; box-shadow: 0 0 10px #ffd36b; animation: fbkMarquee 1.4s steps(2) infinite; }
+.s-club .fbk-n::after { content: ''; position: absolute; left: 10%; right: 10%; top: 12%; height: 6px; border-radius: 3px; background: #ffd36b; box-shadow: 0 0 10px #ffd36b; animation: fbkMarquee 2.8s ease-in-out infinite; }
 .s-classic .fbk-n { background-image: repeating-linear-gradient(90deg, rgba(255, 255, 255, .25) 0 3px, transparent 3px 9px), linear-gradient(0deg, rgba(0, 0, 0, .3) 0 18%, transparent 18%); }
 .s-canopy .fbk-top { background: var(--c2); } .s-canopy .fbk-n { background-image: none; background-color: #c9c9cf; }
 .s-wide .fbk-n, .s-wide .fbk-e { background-image: repeating-linear-gradient(90deg, rgba(0, 0, 0, .25) 0 2px, transparent 2px 8px); }

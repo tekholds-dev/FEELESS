@@ -1,3 +1,43 @@
+## 🔁 HANDOFF 2026-10-22 (late) — read first · conserve usage · finish everything by priority · never dead-style
+Owner's order now: 1) Sicario's clicks · 2) Familia · 3) the rest of this file. Every request below is ✅ done or ⬜ open.
+
+### ✅ DONE (pushed, gate green, backend restarted)
+- 🐆 Sicario's seat / decision / timeframe taps: the dead-click catcher (lib/deadClick.js → HQ › Bugs) named the blocker — `.dso-scan`, the OSSY ×
+  G4 "thinking" sweep in DuoSeat, sat over the seats, the Decision tab and 1M/5M/15M whenever a model was busy. Fixed: pointer-events none on it
+  (+ .dso-ring / .dso-beam), every `aria-hidden` decorative layer site-wide is click-through (tips.css), and the catcher now DELIVERS a press that
+  lands on decorative art to the control under it. A remembered coin with no pool no longer sticks the chart on "$— no pool" (falls back to the
+  held seat). Earlier today: taps on coins off the board, hunting seats as buttons, pool look-up. ➜ Owner: confirm in the real HQ; any new
+  "[dead click]" line in HQ › Bugs names the next layer.
+- 🧠 G4 "not connected" = the desktop LM Studio holds NO model → status says so + owner ⚡ Load in AI providers (owner must tap it).
+- 🏙 FEE CITY (three.js + Kenney CC0 kits): open land ring on every island (parks, trees, food stalls — pizza, tacos, coffee…, people walking),
+  bigger plots (3×3) + market towers (4×4), buildings keep their TRUE shape (no stretched "ramps" — tall = a taller model), soft glow (bloom
+  cut to a third — owner: "less glow"), ☀ / 🌙 toggle (remembered), ⤢ expand to the whole window (Esc), district chips (fly to any island),
+  a CITY DIRECTORY dock: Your Family HQ · War Room · Podium · Wire · Pool Hall · Ladder · Precinct · Pawn & Gold · Job Board · Gym · Card Room
+  · Cartel Warehouse — each opens its room over the city. Real Fuse cards (the Arena's Prime / bred cards, MetaCard faces) stand over the
+  stadium pitch. CALM MOTION: nothing strobes — activity = a halo that turns (speed = volume), lights breathe ≤ 0.4 Hz; Familia CSS strobes
+  (lightning, raid siren, neon flicker, marquee) are slow fades now.
+- 🏦 POOL HUB (`fee_pools.py`, `GET /api/reputation/familia-pools`, 10-min cache): DefiLlama yields (every Solana pool: Raydium v2 / CLMM,
+  Orca, Kamino vaults + lending, Jupiter Lend, Save, marginfi, liquid staking, GMX, RWA) + our pair feed (Meteora DLMM, PumpSwap, exact pool
+  addresses). Pool Hall pop-out: filter kind, sort TOP / YIELD / RISING, search; each row: ⚡ trade / stake through OUR engine (war room quick
+  trade, wallet signs), ＋ Deposit on the pool's own page (exact page for DLMM / Raydium / Orca), 🏠 Set building (act `link`, Don /
+  Underboss, display only — the building wears the pool's name + live APY). Each OUTER CITY has its POOL DISTRICT island (Harbor = v2,
+  Heights = CLMM v3, Bay = DLMM + liquid staking, Docks = vaults / lending / RWA) — tap a tower → the same pool panel.
+- 🏠 FAMILY HQ pop-out (`FamilyHQ.jsx`): RESPECT / WON / HEAT rings, working-24h dots, trades / wars / war chest / MP bank / turf meters that
+  glide to their numbers, YOUR TOWN strip (Enter your block · Fly home · ＋ expand to the 4 cheapest blocks with MP price), one tool rail
+  (Table · Wire · Card · Invite · Badge · Board · Bounties · Launch · Seats · Code). Familia page backdrop per tab + Board podium (earlier).
+
+### ⬜ NOT FINISHED (in the owner's priority order)
+1. 🐆 Owner confirmation that Sicario's taps work now (code + catcher say yes; not seen in his signed-in HQ).
+2. 🎨 Badge + card customization redo (owner: "sucks") — research references, drawn parts, live preview; not started.
+3. 🏙 The My family TAB page itself still shows the old long layout (the new vitals-first HQ is the pop-out from the city) — make the tab
+   render `FamilyHQ` too and strip the remaining text. Wars / Board / Live tabs are reachable as city places; their cards inside are still plain.
+4. 🏦 In-city deposit WITHOUT leaving FEELESS (protocol SDK txs: Raydium / Orca / Meteora / Kamino) — today = exact deposit page ↗ + our
+   engine for trades / staking. Needs per-protocol tx builders + tests (never custody).
+5. 🌫 Site-wide strobes outside Familia still use steps(): auras.css (lightning / neon buzz), warSky.css (storm bolt), repPage.css (rpAlarm),
+   terminal.css (degen-glitch titles), chartBg.css (cursor), launchLab.css — convert to slow fades.
+6. Everything in the 2026-10-22 list below that is still ⬜ (Familia fight chat / ranked Family Fuse / MOBhouse / ACTIVE-SHUT buildings /
+   real-money family wallets after the custody pick · security · NEXA · Brain LM Studio control · code-health gate · page redos · real-money cats).
+
 ## 🔁 HANDOFF 2026-10-22 — read first (every owner request, done ✅ / open ⬜)
 Conserve usage · finish everything by priority · never dead-style. Owner rule: research the best sites first, then a FEELESS twist; every page
 complete top to bottom. Order = `CLAUDE.md › CURRENT TASKS` (fifth list, then fourth, then third).

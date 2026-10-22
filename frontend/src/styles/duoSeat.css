@@ -49,7 +49,7 @@
 .dso-side.is-turn .dso-state { color: #04110a; background: var(--c); border-color: var(--c); }
 .dso-state i { display: none; }
 .dso-side.is-busy .dso-state i { display: inline-block; width: 5px; height: 8px; margin-left: 4px; vertical-align: -1px; background: #04110a; animation: dsoBlink .8s steps(1) infinite; }
-.dso-scan { position: absolute; inset: 0 0 auto; height: 40%; z-index: -1; opacity: 0; background: linear-gradient(180deg, transparent, color-mix(in srgb, var(--c) 18%, transparent), transparent); }
+.dso-scan { position: absolute; inset: 0 0 auto; height: 40%; z-index: -1; opacity: 0; pointer-events: none; background: linear-gradient(180deg, transparent, color-mix(in srgb, var(--c) 18%, transparent), transparent); }
 .dso-side.is-busy .dso-scan { opacity: 1; animation: dsoScan 1.6s ease-in-out infinite; }
 
 .dso-stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 4px; }   /* 6 across overlapped in the ~160px side card */
@@ -82,8 +82,8 @@
   clip-path: polygon(25% 4%, 75% 4%, 100% 50%, 75% 96%, 25% 96%, 0 50%); background: radial-gradient(circle, rgba(21, 209, 106, .14), rgba(4, 12, 9, .95) 70%); }
 .dso-hex b { font: 900 14px var(--fz-font, var(--m-mono)); color: var(--m-text, #e9fff3); letter-spacing: .06em; }
 .dso-hex small { font-size: 7.5px; letter-spacing: .12em; }
-.dso-ring { position: absolute; inset: 8px; border-radius: 50%; border: 1px dashed rgba(21, 209, 106, .45); border-top-color: #15d16a; animation: dsoSpin 9s linear infinite; }
-.dso-beam { position: absolute; top: 50%; height: 2px; width: 60%; margin-top: -1px; background: linear-gradient(90deg, transparent, var(--bc, var(--g4)), transparent); opacity: 0; z-index: 2; animation: dsoBeam 1.1s ease-out 3; }
+.dso-ring { position: absolute; inset: 8px; pointer-events: none; border-radius: 50%; border: 1px dashed rgba(21, 209, 106, .45); border-top-color: #15d16a; animation: dsoSpin 9s linear infinite; }
+.dso-beam { position: absolute; top: 50%; pointer-events: none; height: 2px; width: 60%; margin-top: -1px; background: linear-gradient(90deg, transparent, var(--bc, var(--g4)), transparent); opacity: 0; z-index: 2; animation: dsoBeam 1.1s ease-out 3; }
 .dso-beam.from-l { left: -20%; --bc: var(--g4); } .dso-beam.from-r { right: -20%; --bc: var(--os); animation-name: dsoBeamR; } .dso-beam.from-c { left: 20%; --bc: var(--ag); animation-name: dsoBeamC; }
 .dso-beam.a-buy { --bc: #15d16a; height: 3px; } .dso-beam.a-noanswer { --bc: #ff6b81; }
 .dso-fate { text-align: center; max-width: 150px; line-height: 1.3; } .dso-fate.ok { color: #15d16a !important; } .dso-fate.go { color: #9fe3ff !important; } .dso-fate.no { color: #ff8fa3 !important; }

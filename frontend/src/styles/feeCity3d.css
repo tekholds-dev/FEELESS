@@ -38,3 +38,46 @@ body.theme-day .fc3 { border-color: #b8952a66; box-shadow: 0 20px 50px -30px #8a
 body.theme-day .fc3-menu { background: #fffaf0f5; border-color: #b8952a88; } body.theme-day .fcy-ctl .fc3-menu button b { color: #6a4a00; } body.theme-day .fcy-ctl .fc3-menu button small { color: #6a5a3a; }
 body.theme-day .fc3-tip { background: #fffaf0f2; color: #3a2a00; }
 @media (max-width: 640px) { .fc3 { height: 74vh; min-height: 460px; border-radius: 14px; } .fc3-ctl small { display: none; } .fc3-key { display: none; } .fc3-menu { width: min(250px, 80vw); } }
+
+/* ⤢ expanded: the city takes the whole window (Esc / the button brings it back) */
+.fc3.is-full { position: fixed; inset: 0; z-index: 4200; height: 100vh; border-radius: 0; border: 0; animation: fc3In .2s ease-out both; }
+body.fc3-lock { overflow: hidden; }
+/* 🧭 districts: fly the camera to an island */
+.fc3-isl { position: absolute; top: 12px; left: 50%; z-index: 5; display: flex; gap: 5px; transform: translateX(-50%); max-width: calc(100% - 340px); flex-wrap: wrap; justify-content: center; }
+.fc3-isl button { min-height: 30px; padding: 4px 11px; border-radius: 999px; border: 1px solid color-mix(in srgb, var(--dc) 55%, transparent); background: #0b0a12cc; color: var(--dc);
+  font: 800 10px 'JetBrains Mono', monospace; letter-spacing: .1em; cursor: pointer; animation: fc3In .3s ease-out calc(var(--i) * 50ms) both; transition: background .15s, transform .15s; }
+.fc3-isl button:hover { background: color-mix(in srgb, var(--dc) 18%, #0b0a12); transform: translateY(-1px); } .fc3-isl button:active { transform: scale(.96); }
+.fc3-isl button:focus-visible { outline: 2px solid var(--dc); outline-offset: 2px; }
+/* 📍 the CITY DIRECTORY dock: every place (the old tabs) one tap away */
+.fc3-dir { position: absolute; left: 12px; top: 12px; bottom: 60px; z-index: 5; display: grid; grid-template-rows: auto minmax(0, 1fr); gap: 6px; width: 46px; transition: width .2s ease; }
+.fc3-dir.is-open { width: 226px; }
+.fc3-dirtoggle { display: inline-flex; align-items: center; gap: 7px; min-height: 34px; padding: 0 11px; border-radius: 10px; border: 1px solid #d4af3766; background: #140c06e6; color: #f1d27a;
+  font: 800 10px 'JetBrains Mono', monospace; letter-spacing: .14em; cursor: pointer; overflow: hidden; white-space: nowrap; }
+.fc3-dir:not(.is-open) .fc3-dirtoggle span { display: none; }
+.fc3-dirtoggle:hover { background: #2a1a0a; } .fc3-dirtoggle:focus-visible { outline: 2px solid #ffd36b; outline-offset: 2px; }
+.fc3-dir ul { margin: 0; padding: 4px; list-style: none; display: grid; align-content: start; gap: 3px; overflow-y: auto; overflow-x: hidden; border-radius: 12px; border: 1px solid #ffffff14;
+  background: linear-gradient(170deg, #120d1ae6, #08070ce6); box-shadow: inset 0 1px 0 #ffffff12, 0 18px 40px -20px #000; scrollbar-width: thin; scrollbar-color: #d4af37 transparent; }
+.fc3-dir ul::-webkit-scrollbar { width: 6px; } .fc3-dir ul::-webkit-scrollbar-thumb { background: #d4af37; border-radius: 6px; }
+.fc3-dir li { animation: fc3In .25s ease-out calc(var(--i) * 35ms) both; }
+.fc3-dir li button { width: 100%; min-height: 36px; display: flex; align-items: center; gap: 9px; padding: 4px 8px; border-radius: 9px; border: 1px solid transparent; background: transparent; color: var(--pc);
+  cursor: pointer; text-align: left; transition: background .15s, border-color .15s, transform .15s; }
+.fc3-dir li button svg { flex: none; filter: drop-shadow(0 0 4px color-mix(in srgb, var(--pc) 60%, transparent)); }
+.fc3-dir li button span { display: grid; min-width: 0; } .fc3-dir:not(.is-open) li button span { display: none; }
+.fc3-dir li button b { font: 800 10.5px 'JetBrains Mono', monospace; letter-spacing: .06em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.fc3-dir li button small { font: 600 9.5px 'JetBrains Mono', monospace; color: #b9a983; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.fc3-dir li button:hover { background: color-mix(in srgb, var(--pc) 14%, transparent); border-color: color-mix(in srgb, var(--pc) 40%, transparent); transform: translateX(2px); }
+.fc3-dir li button:active { transform: scale(.97); } .fc3-dir li button:focus-visible { outline: 2px solid var(--pc); outline-offset: 1px; }
+.fc3-dir li button.active { background: color-mix(in srgb, var(--pc) 22%, transparent); border-color: var(--pc); box-shadow: 0 0 14px -6px var(--pc); }
+.fc3 .fc-vpanel { left: 70px; } .fc3-dir.is-open ~ .fc-vpanel { left: 250px; }
+/* ⚔ the real Fuse cards standing over the stadium pitch (positioned by the engine every frame — transform / opacity only) */
+.fc3-cards { position: absolute; inset: 0; z-index: 3; pointer-events: none; overflow: hidden; }
+.fc3-card { position: absolute; left: 0; top: 0; width: 150px; pointer-events: auto; transform-origin: 50% 100%; opacity: 0; transition: opacity .3s ease; text-decoration: none; will-change: transform;
+  filter: drop-shadow(0 14px 24px #000c); }
+.fc3-card:hover { z-index: 2; } .fc3-card:focus-visible { outline: 2px solid #ffd36b; outline-offset: 4px; border-radius: 14px; }
+/* ☀ the stage by day */
+.fc3.is-day { background: linear-gradient(180deg, #7fb6ea, #cfe3f4); border-color: #b8952a66; } .fc3.is-day::after { background: radial-gradient(120% 100% at 50% 40%, transparent 70%, #0000003a 100%); }
+body.fx-lite .fc3-isl button, body.fx-lite .fc3-dir li, body.fx-lite .fc3.is-full { animation: none; } body.fx-lite .fc3-card { filter: none; }
+@media (prefers-reduced-motion: reduce) { .fc3-isl button, .fc3-dir li, .fc3.is-full { animation: none; } .fc3-dir, .fc3-card { transition: none; } }
+body.theme-day .fc3-dir ul { background: #fffaf0f2; border-color: #b8952a55; } body.theme-day .fc3-dir li button small { color: #6a5a3a; } body.theme-day .fc3-isl button { background: #fffaf0e6; }
+@media (max-width: 640px) { .fc3-dir { bottom: 104px; } .fc3-dir.is-open { width: 200px; } .fc3-isl { top: auto; bottom: 104px; left: 60px; right: 10px; max-width: none; transform: none; justify-content: flex-start; flex-wrap: nowrap; overflow-x: auto; }
+  .fc3-card { width: 110px; } .fc3 .fc-vpanel, .fc3-dir.is-open ~ .fc-vpanel { left: 62px; right: 10px; width: auto; } }

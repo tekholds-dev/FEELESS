@@ -29,12 +29,14 @@ test('🗺 Fee City: the capital + three market islands, every market on its isl
   expect(p.gates.map(g => [g.key, g.name])).toEqual([['heights', 'Raydium Heights'], ['bay', 'Bonk Bay'], ['harbor', 'Pump Harbor'], ['docks', 'Cartel Docks']]);
   expect(p.bridges).toHaveLength(3); expect(p.lights.length).toBeGreaterThan(3); expect(p.loops.length).toBeGreaterThanOrEqual(6);
   // nothing built on top of anything else
-  const rects = [...p.lots, ...p.marks, ...p.markets, ...p.places.filter(x => x.isl !== 'plaza'), ...p.spare].map(x => x.rect);
+  const rects = [...p.lots, ...p.marks, ...p.markets, ...p.places.filter(x => !x.virtual && !x.isl.startsWith('plaza')), ...p.spare].map(x => x.rect);
   for (let i = 0; i < rects.length; i += 1) for (let j = i + 1; j < rects.length; j += 1) expect(overlap(rects[i], rects[j])).toBe(false);
   // every market / place sits inside its island
-  for (const m of [...p.markets, ...p.places.filter(x => x.isl !== 'plaza')]) { const isl = p.islands.find(i => i.key === (m.island || m.isl)); const c = centerOf(m.rect);
+  for (const m of [...p.markets, ...p.places.filter(x => !x.virtual && !x.isl.startsWith('plaza'))]) { const isl = p.islands.find(i => i.key === (m.island || m.isl)); const c = centerOf(m.rect);
     expect(c.x > isl.x && c.x < isl.x + isl.w && c.z > isl.z && c.z < isl.z + isl.d).toBe(true); }
   expect(spotOf(p, { mk: 'raydium' })).toEqual(centerOf(p.markets.find(m => m.key === 'raydium').rect));
+  expect(p.places.find(x => x.key === 'hq').rect).toEqual(p.lots.find(l => l.id === 'fee-0').rect);   // 🏠 your HQ = your home block
+  expect(spotOf(p, { isl: 'money' })).toMatchObject({ span: expect.any(Number) });
   expect(spotOf(p, { place: 'ranked' })).not.toBeNull(); expect(spotOf(p, { lm: 'arena' })).not.toBeNull(); expect(spotOf(p, { id: 'nope' })).toBeNull();
 });
 
@@ -43,6 +45,13 @@ test('🌉 an outer city: its boroughs as islands, a bridge between them, a gate
   expect(p.islands.map(i => i.key)).toEqual(['harbor', 'piers']); expect(p.lots).toHaveLength(2);
   expect(p.bridges).toHaveLength(1); expect(p.gates[0]).toMatchObject({ key: 'fee', name: 'FEE CITY', at: 'w' });
   expect(outerPlan(V, 'mars')).toBeNull();
+  // 🏦 with the Pool Hub: the city's own pool district — real pools as towers over a bridge
+  const pools = { cities: { harbor: [{ id: 'P1', sym: 'SOL-USDC', kind: 'v2', proto: 'Raydium', tvl: 9e6, apy: 14, vol: 2e6 }, { id: 'P2', sym: 'MEW-SOL', kind: 'v2', proto: 'Raydium', tvl: 3e6, apy: 59 }] } };
+  const q = outerPlan(V, 'harbor', pools);
+  expect(q.islands.map(i => i.key)).toEqual(['harbor', 'piers', 'mk-harbor']); expect(q.markets.map(m => [m.name, m.pool, m.apy])).toEqual([['SOL-USDC', true, 14], ['MEW-SOL', true, 59]]);
+  expect(q.spare).toHaveLength(6); expect(q.bridges).toHaveLength(2);
+  const rects = [...q.lots, ...q.markets, ...q.spare].map(x => x.rect);
+  for (let i = 0; i < rects.length; i += 1) for (let j = i + 1; j < rects.length; j += 1) expect(overlap(rects[i], rects[j])).toBe(false);
 });
 
 test('💡 live numbers drive the city: roof-light pulse from volume, tower height from TVL, compact $', () => {

@@ -134,8 +134,8 @@ const URGENT = ['EXIT', 'EXIT INVALIDATED', 'TAKE PROFIT', 'PROTECT', 'HOLD 5 MO
 // on the desk somewhere — a seat, a candidate, the review list, a position, the decision tape or the trade tape — never a long-gone coin.
 export function knownMints(d) {
   const o = d?.office || {};
-  return new Set([...seatCards(d).filter(s => !s.open), ...((o.kernel || {}).candidates || []), ...(o.ownerReview || []), ...(o.positions || []), ...(o.tape || []),
-    ...((o.tradeTape || {}).rows || [])].map(x => x?.mint).filter(Boolean));
+  return new Set([...seatCards(d).filter(s => !s.open), ...((o.kernel || {}).candidates || []), ...(o.ownerReview || []), ...(o.positions || []),
+    ...[...(o.tape || []), ...((o.tradeTape || {}).rows || [])].filter(x => x?.pair || x?.pairAddress)].map(x => x?.mint).filter(Boolean));   // a remembered tape coin only when it has a pool (2026-10-22: "$— no pool" stuck on the chart)
 }
 export function focusMint(d, pick, tapped = null) {
   const o = d?.office || {}; const cands = (o.kernel || {}).candidates || []; const seats = seatCards(d).filter(s => !s.open);

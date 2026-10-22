@@ -36,3 +36,13 @@ test('a press on a covered control is filed once; a control remounted under the 
   expect(onClick).toHaveBeenCalledTimes(1);
   expect(filed[1]).toContain('re-rendered under the press');
 });
+
+test('a press on decorative art (aria-hidden) over a control is delivered to that control', async () => {
+  document.body.innerHTML = '<section><button data-testid="ack-seat-1">seat</button><i class="dso-scan" aria-hidden="true"></i></section>';
+  const filed = []; installDeadClick({ report: t => filed.push(t) });
+  const btn = document.querySelector('button'); const art = document.querySelector('i'); const onClick = jest.fn(); btn.addEventListener('click', onClick);
+  document.elementsFromPoint = () => [art, btn, document.body];
+  ptr('pointerdown', art); ptr('pointerup', art); ptr('click', art);
+  await new Promise(r => setTimeout(r, 5));
+  expect(onClick).toHaveBeenCalledTimes(1); expect(filed[0]).toContain('i.dso-scan sits over button[ack-seat-1]');
+});

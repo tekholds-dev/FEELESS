@@ -1,0 +1,44 @@
+/* 🏠 YOUR FAMILY HQ (components/FamilyHQ.jsx) — the room over the city: rings + meters that glide to their numbers, the town strip, one tool rail.
+   Noir gold; one keyframe set (fhq*), transform / opacity only, calm (no flashing); fx-lite + reduced motion still; day theme; 640px. */
+.fhq { display: grid; gap: 12px; --g: #d4af37; --g2: #f1d27a; }
+.fhq-id { display: flex; align-items: center; gap: 10px; } .fhq-id > span { display: grid; flex: 1; min-width: 0; }
+.fhq-id b { font: 800 18px 'Playfair Display', Georgia, serif; color: var(--g2); text-shadow: 0 0 14px #d4af3744; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.fhq-id small { font: 700 10px 'JetBrains Mono', monospace; letter-spacing: .12em; color: #b9a983; }
+.fhq-rose { width: 34px; height: 34px; border-radius: 50%; background: radial-gradient(circle at 40% 35%, #ff6a7a, #8a1020 70%); box-shadow: 0 0 14px #ff4d6d55; }
+.fhq-week { font: 800 18px 'JetBrains Mono', monospace; } .fhq-week.up { color: #45e486; } .fhq-week.dn { color: #ff8fa3; }
+.fhq-vitals { display: grid; grid-template-columns: repeat(3, 84px) minmax(0, 1fr); gap: 10px; align-items: center; }
+.fhq-ring { position: relative; width: 84px; height: 84px; border-radius: 50%; display: grid; place-items: center; align-content: center; --c: var(--g);
+  background: conic-gradient(var(--c) calc(var(--k) * 360deg), #ffffff10 0); animation: fhqIn .4s ease-out both; }
+.fhq-ring.t-green { --c: #45e486; } .fhq-ring.t-red { --c: #ff6a5a; }
+.fhq-ring i { position: absolute; inset: 7px; border-radius: 50%; background: radial-gradient(circle at 50% 30%, #1d1610, #0b0806); box-shadow: inset 0 1px 0 #ffffff14; }
+.fhq-ring b { position: relative; font: 800 18px 'JetBrains Mono', monospace; color: #fff3d6; } .fhq-ring em { position: relative; font: 700 8px 'JetBrains Mono', monospace; font-style: normal; letter-spacing: .14em; color: var(--c); }
+.fhq-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; }
+.fhq-meter, .fhq-dots { display: grid; gap: 3px; padding: 7px 9px; border-radius: 10px; border: 1px solid #ffffff10; background: #ffffff06; animation: fhqIn .35s ease-out both; }
+.fhq-meter em, .fhq-dots em, .fhq-label { font: 700 8.5px 'JetBrains Mono', monospace; font-style: normal; letter-spacing: .14em; color: #9a8a62; }
+.fhq-meter b, .fhq-dots b { font: 800 13px 'JetBrains Mono', monospace; color: #fff3d6; animation: fhqNum .45s ease-out; }
+.fhq-meter u { display: block; height: 4px; border-radius: 4px; background: #ffffff12; overflow: hidden; } .fhq-meter u s { display: block; height: 100%; transform-origin: left; background: linear-gradient(90deg, #45e486, #b6ffd6); transition: transform .7s cubic-bezier(.2, .8, .2, 1); }
+.fhq-meter.is-gold u s { background: linear-gradient(90deg, #d4af37, #fff1b8); } .fhq-meter.is-red u s { background: linear-gradient(90deg, #ff4d5e, #ffb0a0); }
+.fhq-dots > span { display: flex; flex-wrap: wrap; gap: 3px; } .fhq-dots i { width: 9px; height: 9px; border-radius: 50%; background: #ffffff18; transform: scale(.85); transition: transform .3s ease, background .3s ease; }
+.fhq-dots i.on { background: #45e486; transform: scale(1); box-shadow: 0 0 6px #45e48688; }
+.fhq-town { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding: 9px 10px; border-radius: 12px; border: 1px solid #d4af3740; background: linear-gradient(110deg, #d4af3712, transparent 70%); }
+.fhq-label { display: inline-flex; align-items: center; gap: 5px; margin-right: 4px; color: var(--g); }
+.fhq-town .m-btn { min-height: 34px; display: inline-flex; align-items: center; gap: 6px; }
+.fhq-next { display: flex; flex-wrap: wrap; gap: 5px; margin: 0; padding: 0; list-style: none; } .fhq-next li { animation: fhqIn .3s ease-out calc(var(--i) * 60ms) both; }
+.fhq-next .m-btn { display: grid; justify-items: start; gap: 0; padding: 4px 10px; line-height: 1.15; font: 800 11px 'JetBrains Mono', monospace; }
+.fhq-next .m-btn small { font: 600 9.5px 'JetBrains Mono', monospace; color: #c9b47c; } .fhq-next .m-btn.is-short { opacity: .55; }
+.fhq-tools { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 5px; }
+.fhq-tools button { position: relative; display: grid; justify-items: center; gap: 3px; min-height: 52px; padding: 7px 4px; border-radius: 11px; border: 1px solid #ffffff12; background: #ffffff05;
+  color: #d8c896; cursor: pointer; animation: fhqIn .3s ease-out calc(var(--i) * 35ms) both; transition: background .15s, border-color .15s, transform .15s; }
+.fhq-tools button span { font: 700 9.5px 'JetBrains Mono', monospace; letter-spacing: .08em; text-transform: uppercase; }
+.fhq-tools button b { position: absolute; top: 4px; right: 6px; min-width: 16px; padding: 0 4px; border-radius: 8px; background: #ff4d5e; color: #fff; font: 800 9px 'JetBrains Mono', monospace; }
+.fhq-tools button:hover { background: #d4af3714; border-color: #d4af3766; transform: translateY(-1px); } .fhq-tools button:active { transform: scale(.96); }
+.fhq-tools button:focus-visible { outline: 2px solid var(--g); outline-offset: 2px; }
+.fhq-tools button.active { background: linear-gradient(140deg, var(--g), var(--g2)); color: #1a1205; border-color: transparent; box-shadow: 0 0 18px -8px var(--g); }
+.fhq-pane { animation: fhqIn .25s ease-out both; } .fhq-pane .crw-mine { padding: 10px; }
+@keyframes fhqIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+@keyframes fhqNum { from { opacity: .5; transform: translateY(2px); } to { opacity: 1; transform: none; } }
+body.fx-lite .fhq-ring, body.fx-lite .fhq-meter, body.fx-lite .fhq-dots, body.fx-lite .fhq-next li, body.fx-lite .fhq-tools button, body.fx-lite .fhq-pane, body.fx-lite .fhq-meter b { animation: none; }
+@media (prefers-reduced-motion: reduce) { .fhq-ring, .fhq-meter, .fhq-dots, .fhq-next li, .fhq-tools button, .fhq-pane, .fhq-meter b { animation: none; } .fhq-meter u s, .fhq-dots i { transition: none; } }
+body.theme-day .fhq-ring i { background: radial-gradient(circle at 50% 30%, #fffaf0, #efe4cc); } body.theme-day .fhq-ring b, body.theme-day .fhq-meter b, body.theme-day .fhq-dots b { color: #2a1f0e; }
+body.theme-day .fhq-id b { color: #6a4a00; text-shadow: none; } body.theme-day .fhq-tools button { color: #6a4a00; background: #ffffffb0; }
+@media (max-width: 640px) { .fhq-vitals { grid-template-columns: repeat(3, 1fr); } .fhq-grid { grid-column: 1 / -1; } .fhq-ring { width: 74px; height: 74px; margin: 0 auto; } .fhq-tools { grid-template-columns: repeat(5, minmax(0, 1fr)); } .fhq-tools button span { font-size: 8px; } }

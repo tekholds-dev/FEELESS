@@ -22,13 +22,13 @@
 .fx-gunsmoke i { background: radial-gradient(circle, rgba(180, 160, 140, .4), transparent 70%); width: calc(var(--sz) * .36); height: calc(var(--sz) * .36); margin: -18% 0 0 -18%; animation: fbSmoke 3.2s ease-out infinite; animation-delay: calc(var(--i) * .45s); }
 .fx-smoke i { background: radial-gradient(circle, rgba(220, 220, 220, .35), transparent 70%); width: calc(var(--sz) * .5); height: calc(var(--sz) * .5); margin: -25% 0 0 -25%; animation: fbSmoke 4.5s ease-out infinite; animation-delay: calc(var(--i) * .75s); }
 .fx-embers i { background: #ff9f45; width: 4px; height: 4px; box-shadow: 0 0 6px #ff9f45; animation: fbEmber 2.4s ease-out infinite; animation-delay: calc(var(--i) * .4s); }
-.fx-lightning { inset: auto; } .fx-lightning i { width: 2px; height: calc(var(--sz) * .5); border-radius: 1px; background: linear-gradient(#fff, var(--c1)); transform-origin: 50% 0; animation: fbBolt 2.2s steps(1) infinite; animation-delay: calc(var(--i) * .37s); }
+.fx-lightning { inset: auto; } .fx-lightning i { width: 2px; height: calc(var(--sz) * .5); border-radius: 1px; background: linear-gradient(#fff, var(--c1)); transform-origin: 50% 0; animation: fbBolt 3.2s ease-in-out infinite; animation-delay: calc(var(--i) * .37s); }
 .fx-rain i { width: auto; height: auto; border-radius: 0; font-size: calc(var(--sz) * .16); animation: fbRain 3s linear infinite; animation-delay: calc(var(--i) * .5s); } .fx-rain i::before { content: '💵'; }
 .fb-fx i:nth-child(1) { --dx: -38%; } .fb-fx i:nth-child(2) { --dx: 30%; } .fb-fx i:nth-child(3) { --dx: -12%; } .fb-fx i:nth-child(4) { --dx: 44%; } .fb-fx i:nth-child(5) { --dx: -46%; } .fb-fx i:nth-child(6) { --dx: 8%; }
 @keyframes fbTurn { to { transform: rotate(360deg); } }
 @keyframes fbSmoke { 0% { opacity: 0; transform: translate(0, 10%) scale(.6); } 30% { opacity: .7; } 100% { opacity: 0; transform: translate(var(--dx), -90%) scale(1.6); } }
 @keyframes fbEmber { 0% { opacity: 0; transform: translate(0, 30%); } 20% { opacity: 1; } 100% { opacity: 0; transform: translate(var(--dx), -140%) scale(.4); } }
-@keyframes fbBolt { 0%, 88% { opacity: 0; } 90% { opacity: 1; transform: translate(var(--dx), -110%) rotate(18deg); } 95% { opacity: .2; } 100% { opacity: 0; } }
+@keyframes fbBolt { 0%, 70% { opacity: 0; transform: translate(var(--dx), -110%) rotate(18deg); } 85% { opacity: .7; } 100% { opacity: 0; transform: translate(var(--dx), -110%) rotate(18deg); } }   /* calm: the bolt fades in and out */
 @keyframes fbRain { 0% { opacity: 0; transform: translate(var(--dx), -120%); } 15% { opacity: 1; } 100% { opacity: 0; transform: translate(var(--dx), 110%) rotate(25deg); } }
 body.fx-lite .fb-fx { display: none; } body.fx-lite .fb-holo .fb-ring::after { animation: none; }
 @media (prefers-reduced-motion: reduce) { .fb-fx { display: none; } .fb-holo .fb-ring::after { animation: none; } }

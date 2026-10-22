@@ -86,7 +86,7 @@
 .fcy-sign { position: absolute; left: 50%; top: -18px; transform-style: preserve-3d; pointer-events: none;
   transform: translateZ(70px) rotateZ(calc(var(--rz) * -1)) rotateX(calc(var(--rx) * -1)) translateX(-50%); display: grid; justify-items: center; gap: 2px; }
 .fcy-sign b { padding: 4px 12px; border-radius: 8px; border: 2px solid #ff4fa0; color: #ffe0ef; font: 700 15px 'Cinzel', Georgia, serif; letter-spacing: 1.5px; white-space: nowrap;
-  background: #14061088; text-shadow: 0 0 8px #ff4fa0, 0 0 18px #ff4fa0; box-shadow: 0 0 14px #ff4fa088, inset 0 0 10px #ff4fa055; animation: fcyNeon 4.2s steps(1) infinite; }
+  background: #14061088; text-shadow: 0 0 8px #ff4fa0, 0 0 18px #ff4fa0; box-shadow: 0 0 14px #ff4fa088, inset 0 0 10px #ff4fa055; animation: fcyNeon 4.2s ease-in-out infinite; }
 .k-heights .fcy-sign b, .k-hills .fcy-sign b { border-color: #4fd8ff; text-shadow: 0 0 8px #4fd8ff, 0 0 18px #4fd8ff; box-shadow: 0 0 14px #4fd8ff88, inset 0 0 10px #4fd8ff55; }
 .k-docks .fcy-sign b { border-color: #4dff88; text-shadow: 0 0 8px #4dff88, 0 0 18px #4dff88; box-shadow: 0 0 14px #4dff8888, inset 0 0 10px #4dff8855; }
 .k-bay .fcy-sign b, .k-market .fcy-sign b { border-color: #ffd36b; text-shadow: 0 0 8px #ffd36b, 0 0 18px #ffd36b; box-shadow: 0 0 14px #ffd36b88, inset 0 0 10px #ffd36b55; }
@@ -94,7 +94,7 @@
 .fcy-wx { position: absolute; inset: 0; pointer-events: none; z-index: 3; }
 .fcy-wx i { position: absolute; top: -12px; left: var(--x); width: 1px; height: 16px; background: rgba(190, 210, 255, .45); animation: fcyRain .9s linear infinite; animation-delay: calc(var(--i) * -.07s); }
 .wx-snow .fcy-wx i { width: 4px; height: 4px; border-radius: 50%; background: #fff; animation-duration: 6s; }
-.wx-storm .fcy-wx i { animation-duration: .5s; } .wx-storm .fcy-sky { animation: fcyFlash 7s steps(1) infinite; }
+.wx-storm .fcy-wx i { animation-duration: .5s; } .wx-storm .fcy-sky { animation: fcyFlash 7s ease-in-out infinite; }
 .wx-embers .fcy-wx i { top: auto; bottom: -10px; width: 3px; height: 3px; border-radius: 50%; background: #ff9f45; animation-name: fcyEmber; animation-duration: 5s; }
 .wx-fog .fcy-wx i { width: 70%; height: 120px; top: calc(var(--i) * 22% + 10%); left: -70%; border-radius: 50%; background: rgba(200, 190, 230, .08); animation: fcyFog 30s linear infinite; animation-delay: calc(var(--i) * -7s); }
 .fcy-ctl { position: absolute; left: 12px; bottom: 12px; z-index: 4; display: flex; align-items: center; gap: 6px; }
@@ -110,7 +110,7 @@
 @keyframes fcyTwinkle { 50% { opacity: .2; } }
 @keyframes fcyTide { to { transform: translateX(44px); } }
 @keyframes fcyPulse { 50% { opacity: .45; } }
-@keyframes fcyNeon { 0%, 100% { opacity: 1; } 47% { opacity: .55; } 48% { opacity: 1; } 49% { opacity: .7; } }
+@keyframes fcyNeon { 0%, 100% { opacity: 1; } 50% { opacity: .82; } }   /* calm: the sign breathes, no flicker */
 @keyframes fcyLoopA { 0% { transform: translate(7px, 7px) rotate(0); } 24% { transform: translate(293px, 7px) rotate(0); } 25% { transform: translate(293px, 7px) rotate(90deg); }
   49% { transform: translate(293px, 293px) rotate(90deg); } 50% { transform: translate(293px, 293px) rotate(180deg); } 74% { transform: translate(7px, 293px) rotate(180deg); }
   75% { transform: translate(7px, 293px) rotate(270deg); } 99% { transform: translate(7px, 7px) rotate(270deg); } 100% { transform: translate(7px, 7px) rotate(360deg); } }
@@ -122,7 +122,7 @@
 @keyframes fcyRain { to { transform: translateY(900px); } }
 @keyframes fcyEmber { to { transform: translateY(-900px); opacity: 0; } }
 @keyframes fcyFog { to { transform: translateX(260%); } }
-@keyframes fcyFlash { 0%, 100% { opacity: 1; } 31% { opacity: 1; } 32% { opacity: .2; } 33% { opacity: 1; } }
+@keyframes fcyFlash { 0%, 100% { opacity: 1; } 50% { opacity: .8; } }
 body.fx-lite .fcy-car, body.fx-lite .fcy-ped, body.fx-lite .fcy-bcar, body.fx-lite .fcy-wx, body.fx-lite .fcy-water::after { display: none; }
 body.fx-lite .fcy-sign b, body.fx-lite .fcy-crown, body.fx-lite .fcy-star { animation: none; }
 @media (prefers-reduced-motion: reduce) { .fcy *, .fcy *::before, .fcy *::after { animation: none !important; } .fcy-car, .fcy-ped, .fcy-bcar, .fcy-wx { display: none; } .fcy-world { transition: none; } }
