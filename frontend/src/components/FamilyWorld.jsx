@@ -13,6 +13,7 @@ import { RaidStage } from './RaidStage';
 import { AvenueRoom, AVENUE_LENSES } from './CityAvenue';
 import { CityActions, PowerSkyline, SeasonHud, TheWire } from './MobHome';
 import { FamiliaOverwatch } from './command/FamiliaOverwatch';
+import { Realtor } from './Realtor';
 import { useAdmin } from '../lib/adminCall';
 import '../styles/familyWorld.css';
 
@@ -182,7 +183,8 @@ export function FamilyTab({ mine, addr, sess, tools, onEnter, onLeave }) {
 }
 
 // 🚪 inside a place: its room pops out OVER the city (the street stays live behind it) — Esc or ✕ walks back out
-const EXTRA_PLACES = { overwatch: { key: 'overwatch', name: '👑 OVERWATCH', sub: 'creator only · every family', color: '#ff8fa3' } };
+const EXTRA_PLACES = { overwatch: { key: 'overwatch', name: '👑 OVERWATCH', sub: 'creator only · every family', color: '#ff8fa3' },
+  realtor: { key: 'realtor', name: '🏷 THE REALTOR', sub: 'every plot for sale · by tier', color: '#45e4c8' } };
 function PlacePanel({ lens, live, onClose, children }) {
   const p = PLACES.find(x => x.lens === lens) || EXTRA_PLACES[lens];
   useEffect(() => { const esc = e => { if (e.key === 'Escape') onClose(); }; window.addEventListener('keydown', esc); return () => window.removeEventListener('keydown', esc); }, [onClose]);
@@ -221,6 +223,7 @@ export function FamilyWorld({ addr, sess, onEnter, onJoin, rooms = {} }) {
   const link = (block, r) => act({ act: 'link', block, pool: r.id }, `${block} now wears ${r.sym}`);   // 🏠 set your building to a real pool (display only)
   const place = {
     overwatch: v.staff ? <FamiliaOverwatch call={adminCall} /> : null,   // 👑 creator only (the server re-checks the owner signature)
+    realtor: <Realtor v={v} act={act} busy={busy} onFly={id => { const b = (v.blocks || []).find(x => x.id === id); if (!b) return; const c = (v.cities || []).find(x => x.boroughs.includes(b.b)); setLensRaw(null); if (c) setCity(c.key); setSelRaw(b); }} />,
     ranked: <RankLadder ranked={v.ranked} mine={me?.id} />,
     raids: <div className="fwd-raids">{(v.raids || []).length ? v.raids.slice().reverse().map(r => <RaidStage key={r.id} r={r} act={act} busy={busy} />)
       : <p className="m-dim">No raids. Tap a rival building in the city — a CPU town if you're brave.</p>}

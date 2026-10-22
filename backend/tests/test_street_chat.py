@@ -1,4 +1,15 @@
+import pytest
 import street_chat as sc
+
+
+@pytest.fixture(autouse=True)
+def _keep_per_wallet():
+    """The service's _crew_cfg() sets the module-global crews.PER_WALLET from the Familia rules — put it back so test_crews (same xdist
+    worker, any order) never sees this module's value."""
+    import crews
+    was = crews.PER_WALLET
+    yield
+    crews.PER_WALLET = was
 
 
 def test_room_names_are_strict():
@@ -108,3 +119,18 @@ def test_the_books_tape_every_members_trades_newest_first(monkeypatch):
     book = rs._crew_book(pcs)
     assert [r['symbol'] for r in book] == ['BONK', 'WIF'] and book[0]['who'] == 'b' and book[1]['usd'] == 50.0
     assert rs._crew_book({}) == [] and len(rs._crew_book({'A': pcs['A'] * 60})) == 40
+
+
+def test_family_fuse_counts_cards_on_linked_wallets_and_the_creators_prime_cards(monkeypatch):
+    import json
+    import reputation_service as rs
+    leg = lambda p: {'pairAddress': p, 'symbol': p.upper(), 'mint': p}
+    rs.FUSES_PATH.write_text(json.dumps({'fuses': {'d1': {'name': 'mine', 'creator': 'LINKED', 'legs': [leg('a'), leg('b')]}, 'd2': {'name': 'theirs', 'creator': 'X', 'legs': [leg('c')]}}}))
+    rs.FUSE_HQ_PATH.write_text(json.dumps({'positions': [{'id': 'p1', 'wallet': 'LINKED', 'legs': [leg('d')]}],
+                                           'prime': {'cards': {'safe': {'legs': [leg('e'), leg('f')]}, 'degen': {'real': True, 'legs': [leg('g')]}}}}))
+    monkeypatch.setattr(rs, 'linked_of', lambda a: ['M', 'LINKED'] if a in ('M', 'LINKED') else [a])
+    monkeypatch.setattr(rs, '_is_staff', lambda a: a == 'HQ')
+    keys = [x['key'] for x in rs._ffuse_cards({}, {'owner': 'M', 'members': ['M']})]
+    assert keys == ['design:d1', 'card:p1']                                 # made / held on the member's linked wallet — was missed before
+    keys = [x['key'] for x in rs._ffuse_cards({}, {'owner': 'HQ', 'members': ['HQ']})]
+    assert keys[:2] == ['design:d1', 'design:d2'] and keys[2:] == ['prime:degen', 'prime:safe']   # the creator fields every design + the Prime cards, the real one first

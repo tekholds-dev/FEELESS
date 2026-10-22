@@ -9495,15 +9495,25 @@ _ffuse_mark = {'at': 0.0}
 def _ffuse_cards(st, c):
     """The cards a family can field: Fuse designs its members published + the Fuse cards its members hold (the creator family: every design)."""
     members = {m.get('address') if isinstance(m, dict) else m for m in c.get('members') or []}
+    members |= {w_ for m_ in list(members) if m_ for w_ in linked_of(m_)}   # 🐛 (P1 #7) a card made / held on a member's LINKED wallet counts too
     staff_ = _is_staff(c.get('owner'))
+    hq_ = _json_load(FUSE_HQ_PATH, {})
     out = []
     for fid, f in (_json_load(FUSES_PATH, {'fuses': {}}).get('fuses') or {}).items():
         if f.get('enabled', True) and (staff_ or f.get('creator') in members):
             out.append(_ffuse.card_of(f'design:{fid}', f.get('name'), f.get('legs')))
-    for pos in _json_load(FUSE_HQ_PATH, {}).get('positions') or []:
+    for pos in hq_.get('positions') or []:
         if pos.get('wallet') in members and not pos.get('closedAt'):
             out.append(_ffuse.card_of(f"card:{pos['id']}", pos.get('name'), pos.get('legs')))
-    return [x for x in out if x['coins']][:30]
+    if staff_:   # 👑 the creator family fields the Arena's own Prime cards too (the real card first) — the ones standing over the stadium
+        for k_, pc_ in sorted(((hq_.get('prime') or {}).get('cards') or {}).items(), key=lambda kv: not (kv[1] or {}).get('real')):
+            if isinstance(pc_, dict) and pc_.get('legs'):
+                out.append(_ffuse.card_of(f'prime:{k_}', pc_.get('name') or f"{'REAL · ' if pc_.get('real') else ''}{k_.title()}", pc_.get('legs')))
+    seen_, uniq_ = set(), []
+    for x_ in out:
+        if x_['coins'] and x_['key'] not in seen_:
+            seen_.add(x_['key']); uniq_.append(x_)
+    return uniq_[:30]
 
 
 async def _ffuse_prices(cards):
