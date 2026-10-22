@@ -12,6 +12,8 @@ Owner's order: the open list below, top first. Every item is ✅ done or ⬜ ope
   `FamilyCardArt.jsx`): drawn scene per style (noir alley · gold vault · blood rose · neon sign · ice · royal velvet, one calm moving layer each), crest
   header, Playfair name, WEEK % that glides, SEATS meter, rank plate, live dot; CardStudio scene tiles are mini cards. Preview: `/dev/crest` (dev only).
 - 🌫 Strobes: every steps() flash in every sheet → slow fade (list in FEELESS_HISTORY); `styles/noStrobe.test.js` keeps steps() out.
+- 🧠 G4 "out" in HQ › AI providers after this round's restart = the restarted service had no macOS Local Network access (relaunched by the
+  Oct-15 watcher). Fixed: watcher restarted from Claude (`background.sh start`, own session), service restarted by it → G4 ONLINE. Restart rule below updated.
 - 🪟 NEXA speed: background reads are FAST by default (O# / N# number lines, no pairAddresses, ≤ 48 tokens out, no web search); the FULL read (tune ·
   lesson · discovery) once an hour (`nexa.FULL_EVERY`). Desk returns `mode` + `reads`; chat = vitals column LEFT (+ HER READS strip), chat ≤ 680 px.
   Not measured on her i5 yet — read `HQ › NEXA › HER READS` for the real seconds after the next reads.
@@ -213,7 +215,7 @@ LIVE (backend restarted 13:05, one copy, all pushed to main, gate green):
 NOT DONE / NEXT: (1) re-run the exit report split before/after 12:12 and 13:05 (agent_archive positions, by rule + start red/green) and
 tell the owner the numbers first; (2) find an entry reading that predicts a RED START (26% won vs 68% green) — none separated yet;
 (3) G4 (desktop LAN) answered WAIT 70× in 6h — check its packet / candidate list isn't empty after the gun-line filter.
-Restart rule: check no `pending` in fuse_wallet.db books, `pkill`-by-PID the reputation uvicorn, keep-alive restarts it, confirm count = 1.
+Restart rule: check no `pending` in fuse_wallet.db books, then START THE WATCHER FROM CLAUDE (its own session: `/usr/bin/python3 -c 'import os; os.setsid(); os.execvp("bash", ["bash","scripts/background.sh","start"])'`), THEN `kill` the service PID — that watcher restarts it; confirm count = 1. (2026-10-22: a restart through the old Oct-15 watcher came back WITHOUT macOS Local Network access → G4 + NEXA OFFLINE, "this Mac blocked the local network for the backend".)
 
 # HANDOFF — start here (any Claude account, any new session)
 
