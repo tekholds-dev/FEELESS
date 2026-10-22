@@ -29,3 +29,11 @@ def test_familia_rules_route_is_owner_only_and_clamps(monkeypatch):
         assert d['blockPrice']['fee'] == int(3000 * 2.5) and len(d['economy']['cities']) == 5
     finally:
         rs._fworld.set_rules(rs._fworld.RULES)
+
+
+def test_points_are_created_before_they_are_read():
+    """A family's first errand crashed (KeyError 'pts'): the right-hand side read m['pts'] before setdefault made it (2026-10-21)."""
+    import inspect
+    import reputation_service as rs
+    src = inspect.getsource(rs)
+    assert "int(m['pts'].get(" not in src and "int(m['pts'][" not in src

@@ -28,7 +28,7 @@ export function nextMove(v) {
   return { k: 'build', word: 'Collect the stash and build a bigger store on your block', go: 'block' };
 }
 
-export function SeasonHud({ v, onJoin }) {
+export function SeasonHud({ v, onJoin, go }) {
   const [c, setC] = useState(() => seasonClock());
   useEffect(() => { const t = setInterval(() => setC(seasonClock()), 30000); return () => clearInterval(t); }, []);
   const me = v.me; const held = (v.blocks || []).filter(b => b.owner).length; const fights = (v.ffuse?.fights || []).filter(f => f.status === 'live').length;
@@ -39,6 +39,7 @@ export function SeasonHud({ v, onJoin }) {
       : <><i className="mh-tag is-ghost">?</i><span className="mh-ghost"><b>Your family goes here</b><small>walk the city first — no wallet needed</small></span>
         <button type="button" className="m-btn m-go" onClick={onJoin} data-testid="hud-join">Start or join</button></>}</div>
     <div className="mh-season"><em>SEASON · {v.season?.name || '—'}</em><b key={c.m}>{c.d}d {c.h}h {c.m}m</b><u data-tip="How much of the season has run — the board pays the top families at the end"><s style={{ transform: `scaleX(${c.pct})` }} /></u></div>
+    {(() => { const nm = nextMove(v); return <button type="button" className={`mh-next k-${nm.k}`} onClick={() => (go ? go(nm.go) : onJoin?.())} data-tip="The one move that grows your family most right now" data-testid="hud-next"><em>NEXT MOVE</em><b>{nm.word}</b></button>; })()}
     <div className="mh-res">{(me ? [['BANK', `${n(me.bank)} MP`, 'MP in the family bank'], ['YOUR PTS', n(me.pts), 'Your member points — errands, rewards, crowd bids'], ['TURF', `${(me.turf || []).length}/${v.rules?.turfMax || 12}`, 'Plots held beyond home']]
       : [['PLOTS HELD', `${held}/${(v.blocks || []).length}`, 'Every city'], ['FAMILIES', n((v.ranked || []).length), 'Ranked families'], ['CARTELS', n((v.cartels || []).length), 'Flagged wallet crews across the water']])
       .concat([['⚔ LIVE', `${raids} raid${raids === 1 ? '' : 's'} · ${fights} fuse`, 'Raids you are in + Family Fuse fights running now']])
@@ -63,40 +64,16 @@ export function CityActions({ v, go }) {
   </div>;
 }
 
-// pure: where step i of n sits on the orbit (% of the square ring; step 0 at the top)
-export const orbit = (i, n, r = 37) => { const a = (i / n) * 2 * Math.PI - Math.PI / 2; return { left: `${(50 + r * Math.cos(a)).toFixed(2)}%`, top: `${(50 + r * Math.sin(a)).toFixed(2)}%` }; };
-
-// ♻ HOW FAMILIES WORK — the loop, drawn, every step showing your live number
-export function MobLoop({ v, go }) {
-  const me = v.me; const nm = nextMove(v); const m = me?.metrics || {};
-  const steps = [['earn', '💰', 'EARN', me ? `${n(me.bank)} MP` : 'errands + stores', 'Stores fill the stash every hour; errands pay MP + points', 'jobs'],
-    ['turf', '🗺', 'TURF', me ? `${(me.turf || []).length} plots` : `${(v.blocks || []).filter(b => b.owner).length} held`, 'Buy plots with MP — Fee City pays ×2.5; turf is your raid reach', 'map'],
-    ['build', '🏗', 'BUILD', me ? `power ${n((v.ranked || []).find(r => r.id === me.id)?.power)}` : '25 lots a block', 'Bigger stores = more MP an hour = more power', 'block'],
-    ['raid', '⚔', 'RAID', me ? `${n(m.raidsWon)} won` : 'chess on their block', 'Send a hitter: hit, sabotage, scout — they guard, counter, lock down', 'raids'],
-    ['fuse', '🧬', 'FUSE', `${(v.ffuse?.fights || []).filter(f => f.status === 'live').length} live`, 'Family Fuse: your Fuse card vs theirs, six duels, the crowd bids', 'fuse'],
-    ['rank', '🎖', 'RANK', me?.rank ? `${me.rank.name} ${me.rank.div}` : 'Street Rat → Kingpin', 'Power climbs the divisions; the top 25 Kingpins are Dons of Fee City', 'ranked'],
-    ['season', '🏆', 'SEASON', v.season?.name || '—', 'The month is a season: the top families pay every member', 'shop']];
-  return <section className="mh-loop m-card" data-testid="mob-loop">
-    <header><span className="m-label">♻ HOW FAMILIES WORK · THE MOB LOOP</span><small>Seven steps, one loop — every step is live for {me ? `[${me.tag}]` : 'the city'}. Tap one to go there.</small></header>
-    <div className="mh-ring">
-      <i className="mh-orbit" aria-hidden="true" /><i className="mh-runner" aria-hidden="true"><b /></i>
-      {steps.map(([k, ico, name, val, tip, to], i) => <button key={k} type="button" className={`mh-node k-${k} ${nm.k === k ? 'is-next' : ''}`} style={{ ...orbit(i, steps.length), '--i': i }}
-        onClick={() => go(to)} data-tip={tip} data-testid={`loop-${k}`}><i>{ico}</i><b>{name}</b><small key={val}>{val}</small></button>)}
-      <div className="mh-core"><em>YOUR NEXT MOVE</em><b>{nm.word}</b><button type="button" className="m-btn m-go" onClick={() => go(nm.go)} data-testid="loop-go">Go</button></div>
-    </div>
-  </section>;
-}
-
 // 🏙 THE POWER SKYLINE — the top families as towers (height = power), their neon tag on the roof, their rank at the door
-export function PowerSkyline({ v, onPick }) {
+export function PowerSkyline({ v, onPick, onEmpty }) {
   const top = (v.ranked || []).slice(0, 10); const max = Math.max(1, ...top.map(r => r.power || 0));
   return <section className="mh-sky m-card" data-testid="power-skyline">
     <header><span className="m-label">🏙 THE POWER SKYLINE · TOP FAMILIES</span><small>Tower height = family power · tap a tower to fly to its home block</small></header>
     {top.length ? <div className="mh-towers">{top.map((r, i) => <button key={r.id} type="button" className={`mh-tower ${r.id === v.me?.id ? 'is-mine' : ''}`} style={{ '--h': Math.max(0.12, (r.power || 0) / max), '--i': i, '--fc': r.color || '#d4af37' }}
       onClick={() => onPick(r)} data-tip={`#${r.place} [${r.tag}] ${r.name} · power ${n(r.power)} · ${r.rank.name} ${r.rank.div}`} data-testid={`tower-${r.tag}`}>
       <span className="mh-tb"><i className="mh-tsign">{r.tag}</i><i className="mh-twin" /></span><RankBadge rank={r.rank} size="sm" /><em>#{r.place}</em><small key={r.power}>{n(r.power)}</small></button>)}
-      {Array.from({ length: Math.max(0, 6 - top.length) }, (_, k) => <span key={`e${k}`} className="mh-tower is-empty" style={{ '--h': 0.18 + (k % 3) * 0.08, '--i': top.length + k }} data-tip="An unclaimed lot on the skyline — the next family to rise takes it">
-        <span className="mh-tb"><i className="mh-tsign">#{top.length + k + 1}</i></span><em>FOR SALE</em></span>)}</div>
+      {Array.from({ length: Math.max(0, 6 - top.length) }, (_, k) => <button key={`e${k}`} type="button" className="mh-tower is-empty" style={{ '--h': 0.18 + (k % 3) * 0.08, '--i': top.length + k }} onClick={onEmpty}
+        data-tip="An empty spot on the skyline — buy plots and build to rise into it" data-testid={`tower-empty-${k}`}><span className="mh-tb"><i className="mh-tsign">#{top.length + k + 1}</i></span><em>CLAIM IT</em></button>)}</div>
       : <p className="m-dim">No families on the skyline yet — the first one builds the tallest tower.</p>}
   </section>;
 }

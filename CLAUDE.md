@@ -176,6 +176,23 @@ OPEN, owner's order (2026-10-21, second list — "do these after"):
 8. Agents may need a full redo — run `scripts/edge-audit.py` + the real ledger first and lead with the numbers.
 9. NEXA runtime work (`nexa_controller.py`, ModelRig NEXA wanted-vs-running) COMMITTED 2026-10-21 on the owner's "finish this work".
 
+OPEN, owner's FIFTH list (2026-10-21, late) — ahead of the fourth list, in this order:
+0. 🐆 AGENTS (Sicario's) tab: timeframes, decision seat cards and other clickables "stopped working hours ago". Backend: every /admin call
+   answers 200 (checked the logs). Suspect: 31bfd65d (11:18, `symTap` + `agentTips` on the whole cockpit) — needs a look in the owner's
+   signed-in HQ (the Browser pane cannot sign in) → reproduce, fix, test every clickable. TOP PRIORITY: it runs real money.
+1. 🏙 FEE CITY ×3 BIGGER, and the game lives IN the city (no tab row of lenses, no little boxes):
+   a. Ranked · Raids · Errands · Challenges · Crew deck · Rewards · Cartels become places / buildings you walk into in the city.
+   b. ~80 % of Fee City's buildings = REAL MARKETS: established + new DeFi (pools, vaults, v2 / v3 / CLMM, lending, perps…) with live
+      vitals (TVL, volume, APR, price) drawn on / over the building, a pop-out per market (what it offers, live numbers) and, where it can
+      be wired safely, the real action (deposit / swap through our engine, the wallet signs). Top coins held show in the city.
+   c. The four outer cities hold real-money markets too (new ideas that bring real money into buildings beyond pools).
+   d. Picking a plot: the side panel gets far more vitals. Traffic gets stoplights. No "wand" beams over buildings — a light per activity.
+   e. The landing: the loop circle is GONE (2026-10-21, next move = one HUD chip); skyline towers clickable, never clipped (fixed).
+2. 🛡 SECURITY: the site and the AI must not hoard data (caps / TTLs on every store, logs and model memory); the HQ Security tab gets real
+   web3 defence (signature replay, drainer / phishing detection, approvals, RPC + API abuse, bot / scraper detection) that LEARNS from each
+   attack (fingerprint → auto-block rules, honeypots). Hard limit: FEELESS never attacks anyone back — "hack back" is illegal and can hit
+   innocent relays; the response is trace, block, rate-limit, tarpit, report (abuse contacts, chain explorers), never firing an attack.
+
 OPEN, owner's FOURTH list (2026-10-21 night) — DO THESE FIRST, in this order. Owner's rule for all of them: RESEARCH the best web3 / degen
 sites first (what the greatest do), then build a FEELESS twist — never scratch-built from nothing; every page COMPLETE top to bottom
 (every tab, sub-page, chat and click-through under it), never a nice header over basic content.

@@ -5,7 +5,7 @@ import { FamilyCity3D } from './FamilyCity3D';
 import { CityChat, CityRail, RankBadge, RankLadder } from './FamiliaHud';
 import { FamilyFuseBoard } from './FamilyFuseBoard';
 import { RaidStage } from './RaidStage';
-import { CityActions, MobLoop, PowerSkyline, SeasonHud, TheWire } from './MobHome';
+import { CityActions, PowerSkyline, SeasonHud, TheWire } from './MobHome';
 import '../styles/familyWorld.css';
 
 // 🗺 THE FAMILIA WORLD (owner, 2026-10-21: "huge like a Sims build — bridges to other parts, seasons, buy blocks near rivals, CPU towns hard to
@@ -113,7 +113,7 @@ export function FamilyWorld({ addr, sess, onEnter, onJoin }) {
     if (!home) return; const c = (v.cities || []).find(x => x.boroughs.includes(home.b)); setLens('map'); if (c) setCity(c.key); setSelRaw(home); };
   const me = v.me; const live = (v.raids || []).filter(r => r.status === 'live').length;
   return <section className="fwd" data-testid="family-world">
-    <SeasonHud v={v} onJoin={onJoin} />
+    <SeasonHud v={v} onJoin={onJoin} go={to => go(to)} />
     <nav className="fwd-lens" role="tablist">{WORLD_LENSES.map(([k, w]) => <button key={k} type="button" role="tab" aria-selected={lens === k} className={lens === k ? 'active' : ''} onClick={() => setLens(k)} data-testid={`wl-${k}`}>{w}{k === 'raids' && live ? <b>{live}</b> : null}</button>)}</nav>
     {lens === 'map' && <>{v.cities ? <CityRail cities={v.cities} city={city} onGo={k => { setSelRaw(null); setCity(k); }} /> : null}
       <div className="fwd-mapwrap"><FamilyCity3D v={v} sel={sel} setSel={setSel} city={city} setCity={setCity} overlay={<><TheWire log={v.log} /><CityActions v={v} go={go} /></>}
@@ -121,7 +121,7 @@ export function FamilyWorld({ addr, sess, onEnter, onJoin }) {
         <div className="fwd-col"><BlockPanel x={sel} v={v} act={act} busy={busy} onEnter={onEnter} />
           {v.cities ? <CityChat city={city} name={(v.cities.find(c => c.key === city) || {}).name || 'the city'} addr={addr} sess={sess} /> : null}</div></div>
       {city === 'fee' && v.ffuse ? <FamilyFuseBoard v={v} setV={setV} addr={addr} sess={sess} /> : null}
-      <MobLoop v={v} go={go} /><PowerSkyline v={v} onPick={flyTo} /></>}
+      <PowerSkyline v={v} onPick={flyTo} onEmpty={() => go(v.me ? 'map' : 'join')} /></>}
     {lens === 'ranked' && <RankLadder ranked={v.ranked} mine={me?.id} />}
     {lens === 'raids' && <div className="fwd-raids">{(v.raids || []).length ? v.raids.slice().reverse().map(r => <RaidStage key={r.id} r={r} act={act} busy={busy} />)
       : <p className="m-dim">No raids. Pick a rival block on the 🗺 City — a CPU town if you're brave.</p>}

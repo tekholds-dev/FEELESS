@@ -1,7 +1,7 @@
 import React from 'react';
 import { createRoot } from 'react-dom/client';
 import { act } from 'react';
-import { MobLoop, PowerSkyline, SeasonHud, TheWire, nextMove, seasonClock } from './MobHome';
+import { PowerSkyline, SeasonHud, TheWire, nextMove, seasonClock } from './MobHome';
 
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
 const rank = (name, tier) => ({ name, div: 'II', tier, pct: 40, next: 900 });
@@ -33,13 +33,12 @@ test('the HUD: a ghost slot before you join, your rank + resources after; the wi
   const w = await mount(<TheWire log={BASE.log} />); expect(q(w, 'the-wire').children).toHaveLength(2);
 });
 
-test('the loop shows live numbers and routes; the skyline flies to a family', async () => {
-  const go = jest.fn(); const pick = jest.fn();
-  const el = await mount(<MobLoop v={{ ...BASE, me: ME }} go={go} />);
-  expect(q(el, 'loop-raid').textContent).toContain('4 won'); expect(q(el, 'loop-raid').className).toContain('is-next');
-  await act(async () => { q(el, 'loop-turf').click(); }); expect(go).toHaveBeenLastCalledWith('map');
-  await act(async () => { q(el, 'loop-go').click(); }); expect(go).toHaveBeenLastCalledWith('raids');
-  const s = await mount(<PowerSkyline v={BASE} onPick={pick} />);
+test('the HUD names the next move and goes there; the skyline flies to a family; empty spots are claimable', async () => {
+  const go = jest.fn(); const pick = jest.fn(); const empty = jest.fn();
+  const el = await mount(<SeasonHud v={{ ...BASE, me: ME }} onJoin={() => {}} go={go} />);
+  expect(q(el, 'hud-next').textContent).toContain('hitter'); await act(async () => { q(el, 'hud-next').click(); }); expect(go).toHaveBeenLastCalledWith('raids');
+  const s = await mount(<PowerSkyline v={BASE} onPick={pick} onEmpty={empty} />);
   expect(q(s, 'tower-AAA').style.getPropertyValue('--h')).toBe('1');
   await act(async () => { q(s, 'tower-BBB').click(); }); expect(pick).toHaveBeenCalledWith(expect.objectContaining({ id: 'fb' }));
+  await act(async () => { q(s, 'tower-empty-0').click(); }); expect(empty).toHaveBeenCalled();
 });

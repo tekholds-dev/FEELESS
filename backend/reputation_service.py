@@ -9303,7 +9303,7 @@ async def familia_world_act(p: WorldAct):
                 city['bank'] += mp
                 city['mpEver'] = city.get('mpEver', 0) + mp
                 m['errands'] = int(m.get('errands') or 0) + 1
-                m.setdefault('pts', {})[me] = int(m['pts'].get(me) or 0) + pts
+                pm_ = m.setdefault('pts', {}); pm_[me] = int(pm_.get(me) or 0) + pts   # setdefault FIRST: the right side ran before it and raised KeyError on a family's first errand
                 res_ = {'mp': mp, 'pts': pts}
             elif p.act == 'challenge':
                 done = m.setdefault('done', [])
