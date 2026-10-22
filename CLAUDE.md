@@ -151,6 +151,21 @@ The owner rejected work that shipped as "dull", "non degen", "emojis sliding aro
 
 
 ## 📋 CURRENT TASKS (update this list every session — newest first; finished items move to the history file)
+🔥 OWNER'S SIXTH LIST (2026-10-22, morning) — TOP PRIORITY, ahead of every list below. Goal: FAMILIA = "the one-stop shop in web3" — thousands
+of people having fun, meta tech, addicting, REAL MONEY; ~90 % of buildings carry a real-money utility; every pop-out = live vitals + quick tools.
+1. 🏦 POOL HALL pop-out: much bigger (near full-screen), REAL data + CHARTS per pool (TVL + APY history — DefiLlama /chart/{pool}), REAL 24h
+   profit (what $X earned in the last 24h: fees = volume × fee tier for AMMs, APY / 365 for vaults / lending / staking), compare pools, deposit here.
+2. 🏙 FEE CITY 2× bigger; the bridged towns / islands get MORE SPACE (buildings spread out with land between, not side by side; tower sizes readable
+   — screenshot 2 "too small").
+3. 🏢 FEELESS's best tabs + features AS BUILDINGS in Fee City, each with a pop-out of LIVE VITALS + QUICK TOOLS (buy / sell / open): Pump Radar
+   building = the whole pump radar + quick buy · Trade / Swap · Fuse (cards, arena) · Launch · FeeCat · Rep (scan a wallet) · Runners / Trenches ·
+   Radar / watchlist · $FEE & Fee-Back · Gas / bridge. 90 % of buildings = a real-money utility, all clickable.
+4. 🏠 MY FAMILY + expansion page = the one-stop shop: everything in pop-outs (pools, Fuse, trading, launch, wallet) without leaving Familia.
+5. 👛 FAMILY WALLET: see the family wallet's trades, use it from the quick tools — real money waits on the owner's CUSTODY pick (docs/REAL_CATS.md
+   pattern); until then each member's own wallet signs and the family view aggregates members' verified trades.
+6. 💬 Familia city chat ROBUST (per city, presence, mentions, coin cards, call receipts, mod tools) + new vital tools in it.
+7. 🐛 FUSE CARD BUG in Familia (owner reported — repro first: the real Fuse cards over the stadium / Family Fuse cards).
+8. ⚡ Scale for thousands: shared pollers, no per-building fetches, 3D perf (instancing, LOD, fx-lite), load tests on the world endpoints.
 DONE 2026-10-21 (owner to look at): Familia 3D city (`FamilyCity3D`) · FEEd call receipts + Heat / Graveyard + TRENCH WIRE · FeeCat stage
 (`FeeCatStage`) · Launch pad hero · Launch a Cat = Create a Cat fields · Fee buys again (Jupiter holder fallback) · HQ buttons never locked ·
 NEXA chat ≤ 70 tokens, re-warmed after reads (≈ 6s warm).

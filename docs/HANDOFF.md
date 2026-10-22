@@ -1,3 +1,8 @@
+## 🔥 OWNER'S NEWEST REQUEST (2026-10-22 morning) — TOP PRIORITY → CLAUDE.md › CURRENT TASKS › SIXTH LIST (8 items, in order)
+Pool Hall pop-out bigger with real charts + real 24h profit · Fee City 2× bigger, bridged towns spread out · FEELESS's best features as buildings
+with vitals + quick tools (Pump Radar building etc.) · My family = the one-stop shop in pop-outs · family wallet trades (custody pick first for
+real money) · robust city chat · Fuse card bug · scale for thousands. Make it meta, fun, addicting, real money.
+
 ## 🔁 HANDOFF 2026-10-22 (overnight) — read first · conserve usage · finish everything by priority · never dead-style
 Owner: "while I sleep do all remaining tasks in handoff in full". Every item below is ✅ done (gate green, pushed, auto-pull restarted the
 backend — G4 stayed ONLINE) or ⬜ open with the reason.
