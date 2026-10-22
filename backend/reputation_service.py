@@ -16495,6 +16495,15 @@ async def _g4_tick(now, env, cfg):
                     _g4_mem.put({**bm_, 'brakeNote': f'{first_}:{br_[first_]["since"]}', 'log': _seat.note(_seat.merge_log(st_['log'], bm_.get('log')), {'at': round(now), 'mode': mode_, 'model': 'SEAT', 'by': None, 'action': 'PASS',
                                  'why': f"🧯 {_air.model_name(env, first_)} is on a losing streak ({br_[first_]['why']}) — {_air.model_name(env, second_)} picks until {_air.model_name(env, first_)}'s calls prove right again"})}, now)
                 first_, second_ = second_, first_
+        if not held_ and mode_ == 'real':   # 🪑 PROOF BENCH: a model whose own last 150 FAVOR calls lose does not open the next real seat (ai_seat.bench)
+            done_ = (_ai.get('book') or {}).get('done') or []
+            b1_, b2_ = _seat.bench(done_, first_), _seat.bench(done_, second_)
+            if b1_['benched'] and not b2_['benched']:
+                bm_ = _g4_mem.get() or {}
+                if bm_.get('benchNote') != f"{first_}:{b1_['n']}:{b1_['upPct']}":
+                    _g4_mem.put({**bm_, 'benchNote': f"{first_}:{b1_['n']}:{b1_['upPct']}", 'log': _seat.note(_seat.merge_log(st_['log'], bm_.get('log')), {'at': round(now), 'mode': mode_, 'model': 'SEAT', 'by': None, 'action': 'PASS',
+                                 'why': f"🪑 {_air.model_name(env, first_)} is benched: its last {b1_['n']} FAVOR calls settled {b1_['median']:+.1f}% median, {b1_['upPct']}% up — {_air.model_name(env, second_)} opens until that turns"})}, now)
+                first_, second_ = second_, first_
         if mode_ == 'paper':
             rec_ = _seat.by_model(book_.get('closed')).get(first_) or {'n': 0}
         rows_ = [_seat.cand_row(c_, _g4_qwen(c_['mint'])) for c_ in cands_]

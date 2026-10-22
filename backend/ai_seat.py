@@ -162,6 +162,21 @@ def packet(cands, held, record=None, partner=None, pick=None, says=None, learn=N
     return out
 
 
+# 🪑 THE PROOF BENCH (2026-10-22, from ai_proof.json: G4's last 209 FAVOR calls settled at a −0.4 % median, only 43 % up — worse than a coin
+# flip — while OSSY's 108 sat at +0.4 %, 56 % up). A model whose OWN recent FAVOR record loses does not get the turn to OPEN a real seat; its
+# partner hunts until the record turns. Seats it already holds still run to their exit. Judged on its settled calls only (never a guess).
+BENCH_N, BENCH_MIN = 150, 60
+
+
+def bench(done, prov, n=BENCH_N, min_n=BENCH_MIN):
+    """→ {'benched': bool, 'n', 'median', 'upPct'} for one model's last `n` settled FAVOR calls."""
+    xs = [x['pct'] for x in (done or []) if isinstance(x, dict) and x.get('prov') == prov and x.get('stance') == 'FAVOR' and x.get('pct') is not None][-n:]
+    if not xs:
+        return {'benched': False, 'n': 0, 'median': None, 'upPct': None}
+    s_ = sorted(xs); med = s_[len(s_) // 2]; up = round(100 * sum(1 for v in xs if v > 0) / len(xs))
+    return {'benched': len(xs) >= min_n and med <= 0 and up < 50, 'n': len(xs), 'median': round(med, 2), 'upPct': up}
+
+
 def turn(log, a, b, holding=False, opener=None, holder=None):
     """🔁 ONE REAL TRADE EACH (owner, 2026-10-16: "they REALLY take turns choosing a coin for a REAL seat — when one is done trading the other chooses"):
     while the seat holds a coin, the model that OPENED it (`holder`, stamped on the leg when it was seated) runs it to the exit; once it is sold

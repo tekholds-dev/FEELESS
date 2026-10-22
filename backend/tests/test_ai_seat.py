@@ -334,3 +334,13 @@ def test_a_model_never_pulls_a_stop_into_the_price_and_line_jitter_is_ignored():
     assert s.line_change(leg, {'aiTrail': 30}, pct_now=1.0) == {}                   # 35 ↔ 30 every minute is noise
     assert s.line_change(leg, {'aiTrail': 45, 'aiTp': 60}, pct_now=1.0) == {'aiTrail': 45.0, 'aiTp': 60.0}
     assert s.parse('{"action": "HOLD", "sl": 3}', [], holding=True).get('sl') == 8.0
+
+
+def test_the_proof_bench_benches_a_model_whose_favor_calls_lose():
+    import ai_seat as seat
+    lose = [{'prov': 'lan', 'stance': 'FAVOR', 'pct': p} for p in ([-2, -1, 1, -3, 0.5] * 14)]          # 70 calls, 28 % up, median < 0
+    win = [{'prov': 'local', 'stance': 'FAVOR', 'pct': p} for p in ([2, -1, 1, 3, -0.5] * 14)]
+    b = seat.bench(lose + win, 'lan'); assert b['benched'] and b['n'] == 70 and b['upPct'] == 40
+    assert not seat.bench(lose + win, 'local')['benched']
+    assert not seat.bench(lose[:20], 'lan')['benched']                                               # too few calls to judge
+    assert not seat.bench([{'prov': 'lan', 'stance': 'CAUTION', 'pct': -9}] * 99, 'lan')['benched']    # only FAVOR calls count
