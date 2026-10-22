@@ -1,6 +1,6 @@
 import React from 'react';
 import { Building } from './FamilyBlock';
-import { Billboard, Bridge, Car, CAR_COLORS, Plot } from './cityParts';
+import { BUILT, Billboard, Bridge, Car, CAR_COLORS, Plot } from './cityParts';
 
 // 👑 FEE CITY — the capital (owner, 2026-10-21: "the main city … bigger than the 4 other cities … real looking bridges, land, atmosphere …
 // a big real-looking stadium for FUSE ARENA … feature our biggest money-makers"). One island, 8 × 6 cells: 24 premium plots ring five
@@ -56,9 +56,9 @@ function Stadium({ hot, fight }) {
 
 const ART = {
   arena: (live, fight) => <Stadium hot={(live?.raids || 0) > 0} fight={fight} />,
-  house: () => <><Building l={{ b: 'bank', lvl: 10 }} nowS={0} /><i className="fc-vault" /></>,
-  mansion: () => <><i className="fc-lawn" /><Building l={{ b: 'lounge', lvl: 9 }} nowS={0} /><i className="fc-gold" /></>,
-  shield: () => <><Building l={{ b: 'tower', lvl: 5 }} nowS={0} /><i className="fc-search"><b /></i></>,
+  house: () => <><Building l={{ b: 'bank', lvl: 10 }} nowS={BUILT} /><i className="fc-vault" /></>,
+  mansion: () => <><i className="fc-lawn" /><Building l={{ b: 'lounge', lvl: 9 }} nowS={BUILT} /><i className="fc-gold" /></>,
+  shield: () => <><Building l={{ b: 'tower', lvl: 5 }} nowS={BUILT} /><i className="fc-search"><b /></i></>,
   launch: () => <><i className="fc-pad" /><i className="fc-rocket"><b /><u /></i></>,
 };
 

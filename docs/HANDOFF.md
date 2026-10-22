@@ -17,6 +17,24 @@ complete top to bottom. Order = `CLAUDE.md › CURRENT TASKS › FIFTH list`, th
    construction (crane + scaffold = the "wand" the owner hates). Pass a real `nowS` (Date.now()/1000) in cityParts / FeeCapital / RaidStage.
 3. 🛡 Security list item (no data hoarding; defend + learn; never attack back) — not started.
 
+### EVERY OWNER REQUEST OF 2026-10-21 (this session) — ✅ done · ⬜ open (detail lives in CLAUDE.md › CURRENT TASKS lists 2–5)
+✅ Brain progress bar (ThinkBar) · ✅ NEXA wanted-vs-running runtime · ✅ HQ nav 6 groups · ✅ Fee City capital + 4 cities + stadium · ✅ tap-to-zoom
+vitals (grouped panel) · ✅ ranked ladder · ✅ HQ › Familia control center (live rules, planned $, paid-hit calc) · ✅ Family Fuse (±1 coins, paper/MP
+2K, crowd bids, on the pitch) · ✅ raids on the 3D block · ✅ season HUD, The Wire, action buttons, power skyline (loop circle removed) · ✅ errand
+500 fix · ✅ CSS parse guard · ✅ 📱 scan-to-open-HQ (Phantom deeplink) · ✅ markets backend · ✅ city "wand" (crane) bug.
+⬜ AGENTS clickables (see 1) · ⬜ Fee City ×3 market islands + pop-outs + live lights + stoplights + lenses into city places (see 2) · ⬜ real
+Fuse card faces / ranked + $1K top-pot Family Fuse / a chat per fight / any player vs any player · ⬜ Board, Live, Wars, My family tabs to the
+city's level · ⬜ Cartel Docks congested · ⬜ badges / cards / customization from researched refs · ⬜ ALL of FEE as Familia mechanics ·
+⬜ MOBhouse styles · ⬜ buildings ACTIVE/SHUT by funds, MP-only buildings, launched coins as Fee City buildings · ⬜ real-money family wallets
+($25 = $5 FEE + $20 wallet, paid hits) AFTER the owner's custody pick · ⬜ 2 families per wallet (engine is 1 today) · ⬜ defenders see an
+incoming raid on their block · ⬜ NEXA: narrow chat + left vitals, fast reads + real trading with FeeCat (no 40 s waits) · ⬜ full LM Studio /
+llama Load + Inference control in one view · ⬜ Brain themes + every chat's theme picker (inbox too) · ⬜ OSSY fails to load in LM Studio
+(248× since 10-16 — memory) · ⬜ security: no data hoarding, web3 defence that learns, NEVER attack back · ⬜ Rep tab redo (real 3D, vitals,
+not left-boxed) · ⬜ FEEd: dev/null × X twist, pop-out, live vitals · ⬜ MOB tab · ⬜ Launch click-through pages · ⬜ Trade › Gas (SmolRefuel
+upgrade) · ⬜ FeeCat lore + other tabs; trading cat + AI agent pairing; merge Create / Launch a Cat · ⬜ roadmap / whitepaper as a real 3D view
+· ⬜ profile settings (online status) · ⬜ Agents rebuild (no strat fits all) · ⬜ Lag catcher + Support clean · ⬜ dead files removable via the
+gate (Code health) · ⬜ Lag catcher "build a better coin" track · ⬜ REAL-MONEY CATS process (docs/REAL_CATS.md, custody decision).
+
 ## 🔁 HANDOFF 2026-10-17 13:05 — read first (session "Ossy v G4 turn-based trading")
 Conserve usage · finish everything by priority · never dead-style.
 LIVE (backend restarted 13:05, one copy, all pushed to main, gate green):

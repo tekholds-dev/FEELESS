@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Building, heightOf } from './FamilyBlock';
+import { BUILT } from './cityParts';
 import '../styles/familyBlock.css';
 import '../styles/raidStage.css';
 
@@ -59,7 +60,7 @@ export function RaidStage({ r, act, busy }) {
           return <button key={i} type="button" className={`fbk-lot ${l ? 'has-b' : 'is-empty'} rds-lot ${l?.down ? 'is-down' : ''} ${myTurn && l && NEEDS_LOT.has(pick) ? `aim-${pick}` : ''}`}
             style={{ '--h': `${l ? heightOf(l.b, l.lvl) : 0}px` }} disabled={!l || !myTurn || !NEEDS_LOT.has(pick) || busy} onClick={() => play(pick, i)} data-testid={`rl-${i}`}
             data-tip={l ? `${l.b} L${l.lvl} · ${Math.round((l.share || 0) * 100)} % of the stash · guards ${l.def == null ? 'unknown — scout it' : guard}${odds != null ? ` · your odds ${Math.round(odds * 100)} %` : ''}` : 'empty lot'}>
-            {l ? <><Building l={{ b: l.b, lvl: l.lvl, at: 0 }} nowS={0} />{guard > 0 || l.shield ? <i className="rds-dome" style={{ '--g': Math.min(1, guard / 10) }} /> : null}
+            {l ? <><Building l={{ b: l.b, lvl: l.lvl, at: 0 }} nowS={BUILT} />{guard > 0 || l.shield ? <i className="rds-dome" style={{ '--g': Math.min(1, guard / 10) }} /> : null}
               <span className="rds-tag"><b>{l.def == null ? '🛡 ?' : `🛡 ${guard}`}</b>{odds != null && mySide === 'a' ? <small>{Math.round(odds * 100)}%</small> : null}</span>
               {l.down ? <i className="rds-smoke" aria-hidden="true"><b /><b /><b /></i> : null}</> : null}
             {fx && fx.lot === i ? <i key={fx.n} className={`rds-fx k-${fx.kind} ${fx.win ? 'is-win' : 'is-miss'}`} aria-hidden="true">{Array.from({ length: 6 }, (_, k) => <b key={k} style={{ '--k': k }} />)}</i> : null}

@@ -1,6 +1,10 @@
 import React from 'react';
 import { Building } from './FamilyBlock';
 
+// a city building is always finished: Building draws a crane + scaffold while now − at < 45s, and at = 0 made EVERY city building look
+// under construction (the owner's "wand over the buildings", 2026-10-21)
+export const BUILT = 1e12;
+
 // 🧱 The pieces every Familia city draws with (Fee City + the four outer cities): a plot, a free lot, a car, a bridge with a gate sign.
 const STYLES = { family: ['tower', 'casino', 'lounge', 'bank', 'mart', 'lab'], cpu: ['casino', 'tower', 'lounge', 'bank'], cartel: ['docks', 'laundry', 'lab', 'pharma'], mine: ['tower', 'casino', 'bank', 'lounge'] };
 export const hash = s => { let h = 7; for (const ch of String(s)) h = (h * 31 + ch.charCodeAt(0)) >>> 0; return h; };
@@ -32,7 +36,7 @@ export function Plot({ x, r, sel, onPick, premium, raid }) {
   return <button type="button" className={`fcy-lot ${d ? `t-${d.kind}` : 't-free'} ${sel ? 'is-sel' : ''} ${x.home ? 'is-home' : ''} ${premium ? 'is-prem' : ''}`}
     style={{ transform: `translate(${r.x}px, ${r.y}px)`, width: r.w, height: r.h }} onClick={() => onPick(x)} data-testid={`blk-${x.id}`}
     data-tip={x.owner ? `[${x.tag}] ${x.name}${x.home ? ' · home block' : ''} · power ${Math.round(x.power || 0).toLocaleString('en-US')}` : `${premium ? 'Premium Fee City plot' : 'Free block'} — buy it for turf (+4 % production, +1 recruit seat, more reach)`}>
-    {d ? <><Building l={d.l} nowS={0} /><i className="fcy-crown" /><span className="fcy-tag">{x.tag}</span></> : <FreeLot id={x.id} />}
+    {d ? <><Building l={d.l} nowS={BUILT} /><i className="fcy-crown" /><span className="fcy-tag">{x.tag}</span></> : <FreeLot id={x.id} />}
     {sel ? <i className="fcy-beamup" /> : null}{raid ? <i className="fc-raid" aria-hidden="true" /> : null}
   </button>;
 }
