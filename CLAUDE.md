@@ -169,9 +169,9 @@ Drift / Hyperliquid) · 🏗 under construction when funds run out · 🏛 CITY 
 gate pinned to Node ≥ 18.
 
 P0 — still open from the night list, in order
-1. 🧠 G4 health (stalls / WAITs): needs the owner's live HQ › Brain › Models numbers (calls are in memory only) — read them first, then a
-   stall watchdog + fallback. Models tab BESIDE NEXA's chat (layout). Wire the trench theory into the deterministic agents only after a shadow test.
-2. 🐆 Sicario's seat button: more vitals + alignment — need the owner's screenshot (which seat / which view).
+1. 🧠 G4: 🪑 PROOF BENCH DONE 2026-10-22 (its last 209 FAVOR calls = −0.4 % median, 43 % up → OSSY opens real seats until G4's record turns).
+   Still: stalls (read HQ › Brain › Models live numbers first, then a stall watchdog). Models tab BESIDE NEXA's chat (layout). Wire the trench theory into the deterministic agents only after a shadow test.
+2. 🐆 Sicario's seat board: DONE 2026-10-22 (the odd 3rd seat spans its row, hunting seat shows TURN / READY / REFUSED) — owner to confirm it was the screenshot's issue.
 3. 💎 ONE points system (season pts + MP + rep-market chips) usable everywhere (badge pools boost…) — an ECONOMY decision for the owner first
    (rates, what converts to what). Real-USD rep market / Polymarket = owner + legal decision (prediction markets are regulated).
 4. 🏦 A building ASSIGNED to a real position (pool / vault) that goes under construction when the wallet's on-chain balance is pulled — needs
