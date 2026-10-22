@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { Suspense, lazy, useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import { apiUrl } from '../lib/api';
 import { FeeCity3D, PlacesMenu, useMarkets } from './FeeCity3D';
@@ -195,7 +195,9 @@ export function FamilyTab({ mine, addr, sess, tools, onEnter, onLeave, onSignIn 
 }
 
 // 🚪 inside a place: its room pops out OVER the city (the street stays live behind it) — Esc or ✕ walks back out
-const EXTRA_PLACES = { overwatch: { key: 'overwatch', name: '👑 OVERWATCH', sub: 'creator only · every family', color: '#ff8fa3' },
+const RepMarkets = lazy(() => import('./RepMarkets'));   // 🎲 the rep market, played inside the city
+const EXTRA_PLACES = {
+  repmk: { key: 'repmk', name: '🎲 THE REP MARKET', sub: 'call it right → chips pay → season points', color: '#b388ff', tool: true }, overwatch: { key: 'overwatch', name: '👑 OVERWATCH', sub: 'creator only · every family', color: '#ff8fa3' },
   realtor: { key: 'realtor', name: '🏷 THE REALTOR', sub: 'every plot for sale · by tier', color: '#45e4c8' },
   ...Object.fromEntries(Object.entries(HALLS).map(([k, h]) => [`hall-${k}`, { key: `hall-${k}`, name: `🏛 ${h.name}`, sub: h.sub, color: h.color, tool: true }])) };
 // 📺 RENT A BILLBOARD: your coin + a line on Fee City's two billboards for 24 h (the family bank pays; Don / Underboss), every ad rotates
@@ -261,7 +263,6 @@ export function FamilyWorld({ addr, sess, onEnter, onJoin, onSignIn, rooms = {} 
     if (to === 'join') { onJoin?.(); return; }
     if (to === 'block') { if (v.me) onEnter(); else onJoin?.(); return; }
     if (to === 'tt') { setLensRaw(null); setCity('fee'); setSelRaw({ isl: 'money' }); return; }   // 🗼 fly to the Trench Towers
-    if (to === 'repmk') { window.location.assign('/terminal/reputation'); return; }
     if (to === 'fuse') { setLens(null); setCity('fee'); setTimeout(() => document.getElementById('family-fuse')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 60); return; }
     setLens(to); document.querySelector('[data-testid="world-map"]')?.scrollIntoView?.({ behavior: 'smooth', block: 'center' });
   };
@@ -289,6 +290,7 @@ export function FamilyWorld({ addr, sess, onEnter, onJoin, onSignIn, rooms = {} 
     wars: rooms.wars || null, board: rooms.board || null, feed: rooms.feed || null,
     ...Object.fromEntries(AVENUE_LENSES.map(k => [k, <AvenueRoom lens={k} />])),
     ...Object.fromEntries(Object.keys(HALLS).map(k => [`hall-${k}`, <HallRoom city={k} />])),
+    repmk: <Suspense fallback={<p className="m-dim">Opening the market…</p>}><RepMarkets /></Suspense>,
     shop: me ? <div className="fwd-shop"><BillboardBox v={v} me={me} act={act} busy={busy} /><ul>{me.rewards.map(r => <li key={r.key}><b>{r.name}</b><small>{r.what}</small>
       <button type="button" className="m-btn" disabled={busy || r.cost > me.bank} onClick={() => act({ act: 'reward', kind: r.key }, r.name)} data-testid={`rw-${r.key}`}>{mp(r.cost)} MP</button></li>)}</ul>
       <div className="fwd-redeem m-card" data-testid="redeem"><b>🐱 Redeem MP → FEECAT</b><p>{mp(v.rate?.mp)} MP = {mp(v.rate?.feecat)} FEECAT. The Don files the claim; the owner pays it by hand. You have {mp(me.bank)} MP ({Math.min(100, Math.round((me.bank / (v.rate?.mp || 1)) * 100))} % of one).</p>
