@@ -54,6 +54,19 @@
 @keyframes fwdPop { from { transform: scale(1.25); } to { transform: none; } }
 @keyframes fwdPulse { 50% { opacity: .5; } }
 @keyframes fwdDeal { from { transform: translateY(-30px) rotate(-12deg); opacity: 0; } }
+.fwd-money { display: grid; gap: 6px; margin-top: 12px; padding-top: 10px; border-top: 1px solid #ffffff12; }
+.fwd-money > em { font: 800 9.5px 'JetBrains Mono', monospace; letter-spacing: .16em; color: #d4af37; font-style: normal; }
+.fwd-money > div { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 6px; }
+.fwd-money button { display: flex; align-items: center; gap: 8px; min-height: 44px; padding: 6px 9px; text-align: left; border-radius: 11px; border: 1px solid #d4af3733;
+  background: linear-gradient(160deg, #15120a, #0a0907); color: #e8e3d6; cursor: pointer; animation: fwdWhy .3s ease-out both; animation-delay: calc(var(--i, 0) * 40ms);
+  transition: transform .15s ease, border-color .15s ease, background .15s ease; }
+.fwd-money button:hover, .fwd-money button:focus-visible { transform: translateY(-2px); border-color: #ffd76a; outline: none; } .fwd-money button:active { transform: scale(.98); }
+.fwd-money button.active { background: #d4af37; color: #120e04; border-color: #d4af37; } .fwd-money button.active small { color: #3a2f0c; }
+.fwd-money i { font-style: normal; font-size: 18px; } .fwd-money span { display: grid; min-width: 0; }
+.fwd-money b { font: 800 11px 'JetBrains Mono', monospace; letter-spacing: .04em; } .fwd-money small { font: 500 10px Inter, system-ui, sans-serif; color: #a89f86; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+body.theme-day .fwd-money button { background: #fbf7ea; color: #2a2620; border-color: #b8901f44; } body.theme-day .fwd-money small { color: #6b6250; }
+@media (max-width: 640px) { .fwd-money > div { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (prefers-reduced-motion: reduce) { .fwd-money button { animation: none; transition: none; } }
 .fwd-tt { margin: 0; font: 500 11.5px/1.45 Inter, system-ui, sans-serif; color: #cfd8d2; } .fwd-tt b { font: 800 9.5px 'JetBrains Mono', monospace; letter-spacing: .12em; color: #d4af37; margin-right: 4px; }
 .fwd-why { display: grid; gap: 5px; padding: 9px 11px; border-radius: 12px; border: 1px solid #d4af3744; background: linear-gradient(160deg, #1a1508, #0b0a07); animation: fwdWhy .25s ease-out both; }
 .fwd-why > b { font: 800 12.5px 'JetBrains Mono', monospace; color: #ffd76a; } .fwd-why ul { margin: 0; padding: 0; list-style: none; display: grid; gap: 4px; }

@@ -44,3 +44,14 @@ test('the city map opens a block, buys turf and runs a tap errand', async () => 
   expect(q('cartel-cartel-sniper-1').textContent).toContain('Block Zero Snipers');
   await act(async () => { root.unmount(); });
 });
+
+test('💸 every building pop-out carries the Money Menu: 12 real doors, each opens its place in the city', async () => {
+  const el = document.createElement('div'); document.body.appendChild(el); const root = createRoot(el);
+  await act(async () => { root.render(<FamilyWorld addr="A" sess="s" onEnter={() => {}} />); });
+  await act(async () => { q('city-places').click(); }); await act(async () => { q('place-jobs').click(); });
+  expect(q('money-menu').querySelectorAll('button')).toHaveLength(12);
+  expect(q('money-jobs').className).toContain('active');
+  await act(async () => { q('money-shop').click(); });
+  expect(q('place-panel-shop')).not.toBeNull();
+  await act(async () => { root.unmount(); });
+});

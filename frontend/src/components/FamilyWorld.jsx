@@ -197,13 +197,29 @@ export function FamilyTab({ mine, addr, sess, tools, onEnter, onLeave, onSignIn 
 // 🚪 inside a place: its room pops out OVER the city (the street stays live behind it) — Esc or ✕ walks back out
 const EXTRA_PLACES = { overwatch: { key: 'overwatch', name: '👑 OVERWATCH', sub: 'creator only · every family', color: '#ff8fa3' },
   realtor: { key: 'realtor', name: '🏷 THE REALTOR', sub: 'every plot for sale · by tier', color: '#45e4c8' } };
-function PlacePanel({ lens, live, onClose, children }) {
+// 💸 THE MONEY MENU (owner, 2026-10-22: "every directory needs vital money making — at least 10 ways to make money in the pop-ups"): the same
+// 12 real doors under EVERY building's pop-out; each opens the real tool here in the city (never a dead link). How each one pays, in one line.
+export const MONEY_DOORS = [
+  ['tt', '🗼', 'Trench a TT coin', 'the desk\'s intake list · trade in the war room'], ['pumpradar', '📡', 'Pump Radar', 'hottest Pump coins · one-tap trade'],
+  ['runners', '🏃', 'Ride the runners', 'FEELESS\'s live calls'], ['sleep', '💤', 'Night Vault', 'earn while you sleep · live APY'],
+  ['pools', '🏦', 'Pool Hall', 'LP fees · what $1K earned in 24h'], ['feebank', '💵', '$FEE Bank', 'fee-free buys · holder perks'],
+  ['trades', '📈', 'Trade Center', 'follow the desk\'s real trades'], ['fuse', '⚔', 'Family Fuse', 'battles + bids in the Arena'],
+  ['feecat', '🐱', 'Launch a cat', 'a trader / agent cat of your own'], ['jobs', '🧰', 'Errands', 'MP every few minutes'],
+  ['shop', '🎁', 'Pawn & Gold', 'MP → FEECAT redeem'], ['repmk', '🎲', 'Rep market', 'call it right → season points'],
+];
+function MoneyMenu({ lens, onGo }) {
+  return <nav className="fwd-money" aria-label="Ways to make money" data-testid="money-menu"><em>💸 12 WAYS TO MAKE MONEY</em>
+    <div>{MONEY_DOORS.map(([k, ic, name, how], i) => <button key={k} type="button" className={k === lens ? 'active' : ''} style={{ '--i': i }} onClick={() => onGo(k)} data-tip={`${name} — ${how}`} data-testid={`money-${k}`}>
+      <i aria-hidden="true">{ic}</i><span><b>{name}</b><small>{how}</small></span></button>)}</div></nav>;
+}
+
+function PlacePanel({ lens, live, onClose, onGo, children }) {
   const p = PLACES.find(x => x.lens === lens) || EXTRA_PLACES[lens];
   useEffect(() => { const esc = e => { if (e.key === 'Escape') onClose(); }; window.addEventListener('keydown', esc); return () => window.removeEventListener('keydown', esc); }, [onClose]);
   return <section className={`fwd-place k-${p?.key || lens}${p?.tool ? ' is-tool' : ''}`} style={{ '--pc': p?.color || '#d4af37' }} role="dialog" aria-label={p?.name || lens} data-testid={`place-panel-${lens}`}>
     <header><i aria-hidden="true" /><span><b>{p?.name || lens}</b><small>{p?.sub}{lens === 'raids' && live ? ` · ${live} live` : ''}</small></span>
       <button type="button" onClick={onClose} aria-label="Walk back out" data-tip="Back to the street (Esc)" data-testid="place-close">✕</button></header>
-    <div className="fwd-placebody">{children}</div></section>;
+    <div className="fwd-placebody">{children}{onGo ? <MoneyMenu lens={lens} onGo={onGo} /> : null}</div></section>;
 }
 
 // 🗼 TT — the agents' INTAKE LIST as Fee City's coin towers (one shared 30 s read; falls back to today's top coins)
@@ -232,6 +248,8 @@ export function FamilyWorld({ addr, sess, onEnter, onJoin, onSignIn, rooms = {} 
   const go = to => {
     if (to === 'join') { onJoin?.(); return; }
     if (to === 'block') { if (v.me) onEnter(); else onJoin?.(); return; }
+    if (to === 'tt') { setLensRaw(null); setCity('fee'); setSelRaw({ isl: 'money' }); return; }   // 🗼 fly to the Trench Towers
+    if (to === 'repmk') { window.location.assign('/terminal/reputation'); return; }
     if (to === 'fuse') { setLens(null); setCity('fee'); setTimeout(() => document.getElementById('family-fuse')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 60); return; }
     setLens(to); document.querySelector('[data-testid="world-map"]')?.scrollIntoView?.({ behavior: 'smooth', block: 'center' });
   };
@@ -274,7 +292,7 @@ export function FamilyWorld({ addr, sess, onEnter, onJoin, onSignIn, rooms = {} 
     <SeasonHud v={v} onJoin={onJoin} go={to => go(to)} />
     {v.cities ? <CityRail cities={v.cities} city={city} onGo={k => { setSelRaw(null); setLensRaw(null); setCity(k); }} /> : null}
     <div className="fwd-mapwrap"><FeeCity3D v={v} sel={sel} setSel={setSel} city={city} setCity={setCity} markets={mk} pools={pools} onPlace={k => setLensRaw(k)} onGoPlace={p => setLens(p.lens)} active={lens}
-        overlay={<>{incoming(v.raids, me?.id) ? <RaidAlert r={incoming(v.raids, me?.id)} onDefend={() => { setLens('raids'); const h = (v.blocks || []).find(b => b.id === me?.home); if (h) setSelRaw(h); }} /> : null}<TheWire log={v.log} /><CityActions v={v} go={go} />{lens ? <PlacePanel lens={lens} live={live} onClose={() => setLensRaw(null)}>{place}</PlacePanel> : null}</>}
+        overlay={<>{incoming(v.raids, me?.id) ? <RaidAlert r={incoming(v.raids, me?.id)} onDefend={() => { setLens('raids'); const h = (v.blocks || []).find(b => b.id === me?.home); if (h) setSelRaw(h); }} /> : null}<TheWire log={v.log} /><CityActions v={v} go={go} />{lens ? <PlacePanel lens={lens} live={live} onGo={go} onClose={() => setLensRaw(null)}>{place}</PlacePanel> : null}</>}
         tour={{ on: tour, ctl: <><PlacesMenu onGo={p => setLens(p.lens)} />{howBtn}</>, ctl3: howBtn }} />
       <div className="fwd-col"><BlockPanel x={sel} v={v} act={act} busy={busy} onEnter={onEnter} mk={mk} onPlace={k => setLensRaw(k)} pools={pools} onLink={link} />
         {v.cities ? <StreetChat city={city} name={(v.cities.find(c => c.key === city) || {}).name || 'the city'} addr={addr} sess={sess} /> : null}</div></div>
