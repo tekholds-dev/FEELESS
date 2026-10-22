@@ -1,0 +1,32 @@
+/* ⛽ THE FUEL STATION (TradeDesk GetGas `gs-*`): one drawn gauge per chain (needle = your gas $ vs that chain's minimum; red zone below it, a full
+   tank = 4× it), the dry count on top, preset amounts, the route drawn as a pipe with fuel flowing. FEELESS green on dark; transform / opacity only. */
+.gs { display: grid; gap: 12px; }
+.gs-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px 12px; } .gs-head b { font: 800 13px 'JetBrains Mono', monospace; letter-spacing: .04em; }
+.gs-head b.is-low { color: #ffb347; } .gs-head b.is-ok { color: #45e486; } .gs-head small { font-size: 11px; color: var(--m-dim, #8a93a6); }
+.gs-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(116px, 1fr)); gap: 8px; } .gs-grid > span { animation: gsIn .3s ease both; animation-delay: calc(var(--i) * 40ms); }
+.gs-gauge { width: 100%; display: grid; justify-items: center; gap: 1px; padding: 8px 6px 9px; border-radius: 12px; border: 1px solid rgba(255, 255, 255, .08); background: linear-gradient(180deg, rgba(255, 255, 255, .035), rgba(0, 0, 0, .3));
+  color: inherit; cursor: pointer; transition: transform .12s ease, border-color .15s ease, box-shadow .15s ease; }
+.gs-gauge:hover { transform: translateY(-2px); border-color: rgba(69, 228, 134, .5); } .gs-gauge:active { transform: scale(.97); } .gs-gauge:focus-visible { outline: 2px solid #45e486; outline-offset: 2px; }
+.gs-gauge.on { border-color: #45e486; box-shadow: 0 0 0 1px #45e486, 0 10px 22px -12px #45e486; }
+.gs-gauge svg { width: 88px; height: 56px; overflow: visible; }
+.gs-gauge .trk { fill: none; stroke: rgba(255, 255, 255, .08); stroke-width: 7; stroke-linecap: round; } .gs-gauge .red { fill: none; stroke: rgba(255, 77, 109, .45); stroke-width: 7; stroke-linecap: round; }
+.gs-gauge .fill { fill: none; stroke: #45e486; stroke-width: 7; stroke-linecap: round; filter: drop-shadow(0 0 4px rgba(69, 228, 134, .6)); } .gs-gauge.low .fill { stroke: #ffb347; filter: none; }
+.gs-gauge .ndl { transform-box: view-box; transform-origin: 50px 56px; transition: transform .8s cubic-bezier(.2, .8, .2, 1); } .gs-gauge .ndl path { stroke: #f2fbf8; stroke-width: 2; stroke-linecap: round; } .gs-gauge .ndl circle { fill: #f2fbf8; }
+.gs-gauge b { font: 800 11px 'JetBrains Mono', monospace; } .gs-gauge small { font: 600 10.5px 'JetBrains Mono', monospace; color: #cfe; } .gs-gauge em { font: 700 8.5px 'JetBrains Mono', monospace; letter-spacing: .1em; font-style: normal; text-transform: uppercase; color: #45e486; }
+.gs-gauge.low em { color: #ffb347; }
+.gs-fill { display: grid; grid-template-columns: auto minmax(90px, 140px) minmax(0, 1fr) auto; gap: 10px; align-items: end; padding: 10px; border-radius: 12px; background: rgba(69, 228, 134, .05); border: 1px solid rgba(69, 228, 134, .18); animation: gsIn .2s ease both; }
+.gs-pre button { min-height: 34px; }
+.gs-route { display: flex; align-items: center; gap: 8px; min-width: 0; font: 700 11px 'JetBrains Mono', monospace; } .gs-route b { white-space: nowrap; }
+.gs-pipe { position: relative; flex: 1; min-width: 40px; height: 6px; border-radius: 3px; background: rgba(69, 228, 134, .15); overflow: hidden; }
+.gs-pipe i { position: absolute; top: 1px; left: -10px; width: 10px; height: 4px; border-radius: 2px; background: #45e486; animation: gsFlow 1.8s linear infinite; } .gs-pipe i:nth-child(2) { animation-delay: -.6s; } .gs-pipe i:nth-child(3) { animation-delay: -1.2s; }
+.gs-pump { position: relative; display: inline-block; width: 34px; height: 44px; } .gs-pump i { position: absolute; left: 0; bottom: 0; width: 24px; height: 40px; border-radius: 5px 5px 2px 2px; background: linear-gradient(180deg, #45e486, #0b6b35); }
+.gs-pump i::before { content: ''; position: absolute; left: 5px; top: 6px; width: 14px; height: 9px; border-radius: 2px; background: #062014; }
+.gs-pump u { position: absolute; right: 0; top: 8px; width: 9px; height: 22px; border: 2px solid #45e486; border-left: 0; border-radius: 0 6px 6px 0; animation: gsBreathe 3s ease-in-out infinite; }
+.gs-empty, .gs-load { display: grid; justify-items: center; gap: 8px; text-align: center; }
+@keyframes gsIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: none; } }
+@keyframes gsFlow { to { transform: translateX(260px); } }
+@keyframes gsBreathe { 0%, 100% { opacity: .6; } 50% { opacity: 1; } }
+body.fx-lite .gs-grid > span, body.fx-lite .gs-pipe i, body.fx-lite .gs-pump u, body.fx-lite .gs-fill { animation: none; }
+@media (prefers-reduced-motion: reduce) { .gs-grid > span, .gs-pipe i, .gs-pump u, .gs-fill { animation: none; } .gs-gauge, .gs-gauge .ndl { transition: none; } }
+body.theme-day .gs-gauge { background: #fff; border-color: #d6e6dc; } body.theme-day .gs-gauge small { color: #24463a; } body.theme-day .gs-gauge .ndl path { stroke: #082019; } body.theme-day .gs-gauge .ndl circle { fill: #082019; }
+@media (max-width: 640px) { .gs-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } .gs-fill { grid-template-columns: 1fr; } .gs-gauge svg { width: 72px; height: 46px; } }

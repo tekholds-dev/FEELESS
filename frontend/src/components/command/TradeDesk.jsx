@@ -11,6 +11,7 @@ import { CHAIN_ID, NATIVE, toUnits, fromUnits, lifiServerQuote, executeLifi } fr
 import { FollowingCalls } from './FollowingCalls';
 import { TopPumpCoins } from './TopPumpCoins';
 import { moneyConfirmed, watchBridge } from '../../lib/moneyConfirm';
+import '../../styles/gasStation.css';
 
 const DustCleanup = React.lazy(() => import('../DustCleanup'));
 // The trade desk: Swap (the existing Jupiter/LI.FI flows), Bridge (any EVM chain -> any EVM chain)
@@ -74,6 +75,20 @@ function Bridge() {
   </div>;
 }
 
+// ⛽ THE FUEL STATION (Trade › Get gas, 2026-10-22 meta redo of the SmolRefuel-style list): every chain is a drawn GAUGE — the needle sits at your
+// gas in $ against that chain's own minimum (red zone = below it, a full tank = 4× it) — the count of chains running dry on top, preset amounts,
+// and the route drawn from the chain you pay from to the one you fill (LI.FI quote, itemised, your wallet signs).
+export const gasFill = c => (c?.usd == null ? 0 : Math.max(0, Math.min(1, c.usd / ((c.minUsd || 0.25) * 4))));
+export function Gauge({ c, on, onPick }) {
+  const f = gasFill(c); const a = -95 + f * 190;   // the arc's ends sit level with the pivot: empty points left, full points right
+  return <button type="button" className={`gs-gauge ${c.enough ? 'ok' : 'low'} ${on ? 'on' : ''}`} onClick={onPick} aria-pressed={on}
+    data-tip={c.balance == null ? `${NAMES[c.chain] || c.chain}: balance unavailable` : `${NAMES[c.chain] || c.chain}: ${c.balance.toFixed(5)} ${c.symbol}${c.usd != null ? ` ≈ $${c.usd}` : ''} · needs ≥ $${c.minUsd}`} data-testid={`gas-${c.chain}`}>
+    <svg viewBox="0 0 100 64" aria-hidden="true"><path d="M12,56 A40,40 0 1 1 88,56" className="trk" /><path d="M12,56 A40,40 0 0 1 22.6,28.5" className="red" />
+      <path d="M12,56 A40,40 0 1 1 88,56" className="fill" pathLength="100" style={{ strokeDasharray: `${f * 100} 100` }} />
+      <g className="ndl" style={{ transform: `rotate(${a}deg)` }}><path d="M50,56 L50,22" /><circle cx="50" cy="56" r="4" /></g></svg>
+    <b>{NAMES[c.chain] || c.chain}</b><small>{c.balance == null ? 'unavailable' : c.usd != null ? `$${c.usd.toFixed(2)}` : `${c.balance.toFixed(4)} ${c.symbol}`}</small>
+    <em>{c.enough ? '✓ fuelled' : '⛽ running dry'}</em></button>;
+}
 function GetGas() {
   const r = useRoute();
   const [gas, setGas] = useState(null); const [target, setTarget] = useState(null); const [usd, setUsd] = useState('2');
@@ -84,16 +99,19 @@ function GetGas() {
     fetch(apiUrl(`/api/reputation/gas/${address}`)).then(x => x.json()).then(d => alive && setGas(d)).catch(() => {});
     return () => { alive = false; };
   }, [address]);
-  if (!address) return <div className="td-panel td-empty"><Fuel size={22} /><p>Connect an EVM wallet — FEELESS checks your gas on all 12 chains at once and routes what you already hold into gas where you're empty.</p></div>;
-  if (!gas) return <div className="td-panel"><p className="wp-bio">Checking gas on 12 chains…</p></div>;
+  if (!address) return <div className="td-panel td-empty gs-empty"><span className="gs-pump" aria-hidden="true"><i /><u /></span><p>Connect an EVM wallet — FEELESS reads your gas on all 12 chains at once and routes what you already hold into gas where you run dry.</p></div>;
+  if (!gas) return <div className="td-panel gs-load"><span className="gs-pump" aria-hidden="true"><i /><u /></span><p className="wp-bio">Reading 12 tanks…</p></div>;
   const source = gas.chains.find(c => c.enough && c.usd > Number(usd) * 1.5);
-  return <div className="td-panel">
-    <div className="td-gas-grid">{gas.chains.map(c => <button key={c.chain} type="button" className={`td-gas ${c.enough ? 'ok' : 'low'} ${target === c.chain ? 'on' : ''}`} onClick={() => { setTarget(c.chain); r.clear(); }}>
-      <b>{NAMES[c.chain] || c.chain}</b><small>{c.balance == null ? 'unavailable' : `${c.balance.toFixed(4)} ${c.symbol}`}</small><em>{c.enough ? '✓ gas ok' : '⛽ needs gas'}</em></button>)}</div>
-    {target && <div className="td-row">
-      <label className="td-field"><small>Gas to add (USD)</small><NumInput inputMode="decimal" value={usd} onChange={e => { setUsd(cleanAmount(e.target.value)); r.clear(); }} /></label>
-      {source ? <button type="button" className="btn-primary td-go" disabled={r.busy || source.chain === target} onClick={() => r.getQuote({ fromChain: source.chain, toChain: target, fromToken: NATIVE, toToken: NATIVE, amount: (Number(usd) / (source.usd / source.balance)).toFixed(8) })}>{r.busy ? 'Routing…' : `Use ${source.symbol} on ${NAMES[source.chain]} → gas on ${NAMES[target]}`}</button>
-        : <p className="wp-bio">No chain with enough spare balance to route from — add funds on any chain first.</p>}
+  const dry = gas.chains.filter(c => !c.enough).length; const tgt = gas.chains.find(c => c.chain === target);
+  return <div className="td-panel gs">
+    <header className="gs-head"><b className={dry ? 'is-low' : 'is-ok'}>{dry ? `${dry} of ${gas.chains.length} chains running dry` : `All ${gas.chains.length} chains fuelled`}</b><small>tap a tank to fill it from a chain with spare</small></header>
+    <div className="gs-grid">{gas.chains.map((c, i) => <span key={c.chain} style={{ '--i': i }}><Gauge c={c} on={target === c.chain} onPick={() => { setTarget(c.chain); r.clear(); }} /></span>)}</div>
+    {target && <div className="gs-fill">
+      <div className="m-seg gs-pre" role="radiogroup" aria-label="Gas to add">{['1', '2', '5', '10'].map(v => <button key={v} type="button" role="radio" aria-checked={usd === v} className={usd === v ? 'active' : ''} onClick={() => { setUsd(v); r.clear(); }}>${v}</button>)}</div>
+      <label className="td-field"><small>or USD</small><NumInput inputMode="decimal" value={usd} onChange={e => { setUsd(cleanAmount(e.target.value)); r.clear(); }} /></label>
+      {source ? <div className="gs-route" data-tip="Your spare gas on one chain becomes gas on the other (LI.FI, itemised on the quote)"><b>{NAMES[source.chain]}</b><span className="gs-pipe" aria-hidden="true"><i /><i /><i /></span><b>{NAMES[tgt?.chain] || target}</b></div> : null}
+      {source ? <button type="button" className="btn-primary td-go m-go" disabled={r.busy || source.chain === target} onClick={() => r.getQuote({ fromChain: source.chain, toChain: target, fromToken: NATIVE, toToken: NATIVE, amount: (Number(usd) / (source.usd / source.balance)).toFixed(8) })}>⛽ Quote ${usd} of gas</button>
+        : <p className="wp-bio">No chain with enough spare to route from — add funds on any chain first.</p>}
     </div>}
     <RouteReview quote={r.quote} busy={r.busy} step={r.step} onExecute={r.execute} onClear={r.clear} />
   </div>;
