@@ -9627,6 +9627,33 @@ async def familia_pools():
         if v['pools'] or not c['v']:   # a failed read keeps the last good hub
             c.update(at=now, v=v)
         return c['v']
+import sleep_money as _slm
+_slm_cache = {'at': 0.0, 'km': None}
+
+
+@app.get('/api/reputation/familia-pools/sleep')
+async def familia_pools_sleep():
+    """💤 THE NIGHT VAULT: money-while-you-sleep strategies (sleep_money.py) from the live Pool Hub + Kamino's public reserve rates (10 min):
+    LST stack · stable lend · JLP · auto-compound vaults · loops (net APY, LTV, cushion to liquidation). Each lists the hub rows it rides on."""
+    now = time.time()
+    hub_, km_ = await familia_pools(), None
+    if _slm_cache['km'] is not None and now - _slm_cache['at'] < FPL_SEC:
+        km_ = _slm_cache['km']
+    else:
+        try:
+            r_ = await _ai_http().get(f'https://api.kamino.finance/kamino-market/{_slm.KAMINO_MAIN}/reserves/metrics', timeout=12)
+            km_ = _slm.kamino_rates(r_.json() if r_.status_code == 200 else [])
+        except Exception:
+            km_ = None
+        if km_ or _slm_cache['km'] is None:
+            _slm_cache.update(at=now, km=km_ or {})
+        km_ = _slm_cache['km']
+    pools_ = (hub_ or {}).get('pools') or []
+    st_ = _slm.strategies(pools_, km_)
+    want_ = {i_ for s_ in st_ for i_ in s_.get('rows') or []} | {l_['id'] for s_ in st_ for l_ in s_.get('loops') or []}
+    return {'strategies': st_, 'rows': [r_ for r_ in pools_ if r_.get('id') in want_], 'kamino': bool(km_), 'at': round(now, 1)}
+
+
 _fpl_charts = {}   # pool id → (at, points) — 30 min, ≤ 300 pools kept
 
 

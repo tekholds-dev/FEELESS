@@ -436,6 +436,12 @@ export function createCity(host, { onPick, onHover, onAnchors, lite = false, sti
       const tx = new THREE.CanvasTexture(cv); tx.wrapS = THREE.RepeatWrapping; tx.colorSpace = THREE.SRGBColorSpace;
       const s = sizeOf(o); const band = new THREE.Mesh(new THREE.CylinderGeometry(Math.max(s.x, s.z) * 0.62, Math.max(s.x, s.z) * 0.62, 0.32, 40, 1, true), new THREE.MeshBasicMaterial({ map: tx, toneMapped: false, side: THREE.DoubleSide }));
       band.position.set(c.x, top + 0.25, c.z); content.add(band); anim.push(t => { tx.offset.x = (t * 0.05) % 1; }); return; }
+    if (pl.art === 'sleep') {   // 💤 THE NIGHT VAULT: a crescent moon rocking over the roof + a coin stack that breathes taller (money compounding)
+      const moon = new THREE.Group(); moon.position.set(c.x, top + 1.5, c.z); content.add(moon);
+      const disc = new THREE.Mesh(new THREE.TorusGeometry(0.42, 0.13, 10, 28, Math.PI * 1.25), neon('#fff2c4', 2.4)); disc.rotation.z = Math.PI * 0.35; moon.add(disc);
+      const stack = new THREE.Group(); stack.position.set(c.x + Math.min(r.w, 3) * 0.32, 0.2, c.z + Math.min(r.d, 3) * 0.32); content.add(stack);
+      for (let k = 0; k < 5; k += 1) { const coin = new THREE.Mesh(new THREE.CylinderGeometry(0.26, 0.26, 0.08, 20), new THREE.MeshStandardMaterial({ color: '#d4af37', metalness: 0.8, roughness: 0.3, emissive: '#5a4508', emissiveIntensity: 0.6 })); coin.position.y = k * 0.1; stack.add(coin); }
+      anim.push(t => { moon.rotation.y = Math.sin(t * 0.4) * 0.5; moon.position.y = top + 1.5 + Math.sin(t * 0.8) * 0.1; stack.scale.y = 1 + 0.35 * (0.5 + 0.5 * Math.sin(t * 0.5)); }); return; }
     if (pl.art === 'bank') {   // a giant FEE coin turning over the vault
       const cv = document.createElement('canvas'); cv.width = 128; cv.height = 128; const g = cv.getContext('2d'); g.fillStyle = '#0c3a20'; g.beginPath(); g.arc(64, 64, 62, 0, Math.PI * 2); g.fill();
       g.strokeStyle = '#45e486'; g.lineWidth = 6; g.beginPath(); g.arc(64, 64, 54, 0, Math.PI * 2); g.stroke(); g.fillStyle = '#e8ffe9'; g.font = 'bold 40px JetBrains Mono, monospace'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('FEE', 64, 66);
@@ -450,7 +456,7 @@ export function createCity(host, { onPick, onHover, onAnchors, lite = false, sti
     if (pl.virtual) { proxy({ x: r.x - 0.2, z: r.z - 0.2, w: r.w + 0.4, d: 0.4 }, 0.3, pl.pick, pl.name); return; }   // the HQ is your own block (or the Mansion): no new building
     box(r.w, 0.12, r.d, '#2c2a33', c.x, 0.08, c.z, content);
     const url = { hall: MODELS.big[2], tower: MODELS.sky[2], war: MODELS.big[1], podium: MODELS.mid[2], precinct: MODELS.mid[4], pawn: MODELS.mid[0], board: MODELS.shop[2], gym: MODELS.big[0], casino: MODELS.big[3], warehouse: MODELS.mid[4],
-      radar: MODELS.mid[1], track: MODELS.shop[1], watch: MODELS.sky[4], court: MODELS.mid[3], cat: MODELS.sky[0], fuel: MODELS.shop[0], news: MODELS.shop[3], bank: MODELS.big[3] }[pl.art] || MODELS.mid[0];
+      radar: MODELS.mid[1], track: MODELS.shop[1], watch: MODELS.sky[4], court: MODELS.mid[3], cat: MODELS.sky[0], fuel: MODELS.shop[0], news: MODELS.shop[3], bank: MODELS.big[3], sleep: MODELS.sky[3] }[pl.art] || MODELS.mid[0];
     const small = pl.art === 'track' || pl.art === 'fuel'; const fw = Math.min(small ? FOOT.lot : FOOT.tower, r.w - 0.7); const fd = Math.min(small ? FOOT.lot : FOOT.tower, r.d - 0.7);
     if (pl.art !== 'track') yard(r, fw);
     const o = await make(url, { lit: true }); fit(o, fw, fd); o.position.set(c.x + (pl.art === 'fuel' ? -r.w * 0.2 : 0), 0.14, c.z); content.add(o); const h = sizeOf(o).y;

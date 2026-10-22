@@ -52,6 +52,7 @@ export const PLACES = [
   { key: 'fuel', lens: 'gas', name: 'FUEL STATION', sub: 'gas on 12 chains', isl: 'ave', art: 'fuel', color: '#ffd36b', tool: true, page: '/terminal/trade' },
   { key: 'news', lens: 'feedx', name: 'THE NEWSSTAND', sub: 'FEEd · every call, live', isl: 'ave', art: 'news', color: '#45e4c8', tool: true },
   { key: 'feebank', lens: 'feebank', name: 'THE $FEE BANK', sub: '$FEE · rFEE · FEECAT — buys fee-free', isl: 'ave', art: 'bank', color: '#15d16a', tool: true, page: '/terminal/fee' },
+  { key: 'sleep', lens: 'sleep', name: 'THE NIGHT VAULT', sub: 'money while you sleep · live APY', isl: 'ave', art: 'sleep', color: '#9b8cff', tool: true },
 ];
 
 // the market islands: size in cells, which markets fill them
@@ -59,7 +60,7 @@ export const ISLANDS = {
   row: { name: 'MARKET ROW', sub: 'the DEXes · pools live', cols: 4, rows: 2, kinds: ['dex'], color: '#45e486' },
   vault: { name: 'VAULT DISTRICT', sub: 'lend · perps · stake', cols: 6, rows: 2, kinds: ['lend', 'perps', 'stake'], color: '#f5c451' },
   money: { name: 'NEW MONEY', sub: "today's top coins", cols: 5, rows: 3, kinds: ['coin'], color: '#ff8fa3' },
-  ave: { name: 'FEELESS AVENUE', sub: 'every FEELESS tool · one tap', cols: 4, rows: 2, kinds: [], color: '#15d16a' },
+  ave: { name: 'FEELESS AVENUE', sub: 'every FEELESS tool · one tap', cols: 5, rows: 2, kinds: [], color: '#15d16a' },
 };
 // each outer city's pool district (the Pool Hub's `cities`)
 export const DISTRICTS = {

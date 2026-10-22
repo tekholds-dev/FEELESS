@@ -47,7 +47,22 @@ const OW = { totals: { families: 3, members: 9, bankMp: 31840, trades7d: 41, usd
       pools: [], week: { trades: 15, usd: 401.3, pct: 9.1, wonPct: 55 }, paidUsd: 30, payments: 2, members: [mem('Don Vito', true, 9, 380, 60), mem('lefty', false, 6, 21.3, 50), mem('paulie', false, 0, 0, null)] },
     { id: 'c3', tag: 'BNK', name: 'Bonk Boys', badge: FAM.RUG.badge, owner: { name: 'bonkmaxi' }, seats: 5, power: 600, bankMp: 4000, chest: 300, record: { wins: 0, losses: 2 }, home: 'bay-1', turf: [],
       pools: [], week: { trades: 4, usd: -53.1, pct: -12.5, wonPct: 25 }, paidUsd: 30, payments: 1, members: [mem('bonkmaxi', true, 3, -60, 33), mem('pup', false, 1, 6.9, 100), mem('dog', false, 0, 0, null)] }] };
-window.fetch = (u, o) => (String(u).includes('/familia-world') ? json(V) : String(u).includes('/familia/street/') ? json(STREET) : String(u).includes('/admin/familia/overwatch') ? json(OW) : real(u, o));
+// 💤 THE NIGHT VAULT on fixtures (the live endpoint is /familia-pools/sleep)
+const RK = { contract: 1, depeg: 1, il: 0, liq: 0, note: 'LSTs track SOL + staking rewards.' };
+const NV = { kamino: true, at: now, rows: [
+    { id: 'n1', kind: 'stake', sym: 'JUPSOL', proto: 'Jupiter', apy: 7.42, base: 7.42, tvl: 9.1e8, hold: 'jupSoLaHXQiZZTSfEWMTRRgpnyFm8f6sZdosWBjx93v', app: 'https://jup.ag/', d7: 0.2 },
+    { id: 'n2', kind: 'stake', sym: 'JITOSOL', proto: 'Jito', apy: 6.91, base: 6.91, tvl: 2.1e9, hold: 'J1toso1uCk3RLmjorhTtrVwY9HJ7X8V9yYac6Y7kGCPn', app: 'https://www.jito.network/staking/', d7: -0.1 },
+    { id: 'n3', kind: 'lend', sym: 'USDC', proto: 'Jupiter Lend', project: 'jupiter-lend', apy: 6.12, base: 5.4, reward: 0.72, tvl: 4.9e8, stable: true, mints: ['EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v'], app: 'https://jup.ag/lend/earn' },
+    { id: 'n4', kind: 'perps', sym: 'JLP', proto: 'Jupiter Perps', apy: 19.8, base: 19.8, tvl: 1.2e9, hold: '27G8MtK7VtTcCHkpASjSDdkWWYfoqT6ggEuKidVJidD4', app: 'https://jup.ag/perps-earn' },
+    { id: 'n5', kind: 'vault', sym: 'SOL-USDC', proto: 'Kamino Vaults', apy: 31.4, base: 22, reward: 9.4, tvl: 6.2e6, il: true, app: 'https://app.kamino.finance/liquidity' }],
+  strategies: [
+    { key: 'lst', name: '🥩 STAKE STACK', sub: 'SOL → a liquid staking token: staking yield, still liquid', risk: RK, rows: ['n1', 'n2'], apy: 7.42, top: 'JUPSOL' },
+    { key: 'stable', name: '💵 STABLE SLEEP', sub: 'lend USDC / USDT — interest from borrowers', risk: { ...RK, note: 'Lending USDC.' }, rows: ['n3'], apy: 6.12, top: 'USDC' },
+    { key: 'jlp', name: '🎰 BE THE HOUSE · JLP', sub: "earn Jupiter perps' fees as the counterparty", risk: { contract: 1, depeg: 2, il: 2, liq: 0, note: 'JLP = the house.' }, rows: ['n4'], apy: 19.8, top: 'JLP' },
+    { key: 'vault', name: '🌀 AUTO-COMPOUND', sub: 'vaults that rebalance + compound a DEX position', risk: { contract: 2, depeg: 1, il: 2, liq: 0, note: 'IL is yours.' }, rows: ['n5'], apy: 31.4, top: 'SOL-USDC' },
+    { key: 'loop', name: '🔁 LOOP IT · MULTIPLY', sub: 'stake → borrow SOL at 5.3% on Kamino → stake again', risk: { contract: 2, depeg: 2, il: 0, liq: 3, note: 'Liquidation past the cushion.' }, rows: [], apy: 9.54, top: 'JUPSOL ×2',
+      loops: [{ id: 'n1', sym: 'JUPSOL', proto: 'Jupiter', lstApy: 7.42, borrow: 5.3, maxLtv: 0.65, app: 'https://app.kamino.finance/multiply', plays: [{ x: 1.5, apy: 8.48, ltv: 0.333, cushion: 0.487 }, { x: 2, apy: 9.54, ltv: 0.5, cushion: 0.231 }] }] }] };
+window.fetch = (u, o) => (String(u).includes('/familia-pools/sleep') ? json(NV) : String(u).includes('/familia-world') ? json(V) : String(u).includes('/familia/street/') ? json(STREET) : String(u).includes('/admin/familia/overwatch') ? json(OW) : real(u, o));
 
 export default function CityHarness() {
   return <div style={{ height: '100vh', overflowY: 'auto', boxSizing: 'border-box', padding: 12, background: '#070504', color: '#e9d3a0' }}>

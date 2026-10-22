@@ -35,6 +35,7 @@ export function poolRows(pools, lens = 'all', sort = 'tvl', q = '') {
 export function tradeOf(r) {
   if (!r) return null;
   if (r.kind === 'stake') return r.hold ? { word: `Stake · buy ${r.sym}`, mint: r.hold } : null;
+  if (r.kind === 'perps' && /JLP/i.test(r.sym || '') && r.hold) return { word: `Buy ${r.sym}`, mint: r.hold };   // 🎰 JLP is a token: buy it through our engine
   if (['v2', 'v3', 'dlmm'].includes(r.kind)) return r.pair ? { word: `Trade ${r.sym.split('-')[0]}`, pair: r.pair } : r.hold ? { word: `Trade ${r.sym.split('-')[0]}`, mint: r.hold } : null;
   return null;
 }
