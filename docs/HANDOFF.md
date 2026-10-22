@@ -1,3 +1,7 @@
+## ✅ DONE 2026-10-22 late — the block page is the one-stop shop (Family Deck), Arena best settings, FeeCat's Combo, Trade Center real record
+Owner decision waiting: a minimum hold for agent exits (evidence in docs/TRENCH_THEORY.md). Dev: /dev/block?cid=22376b shows the real FRT block.
+Never run jest while the gate runs (FuseMore flakes under load). Conserve usage · finish everything by priority · never dead-style.
+
 ## ✅ DONE 2026-10-22 night round (see CLAUDE.md › CURRENT TASKS › DONE) — conserve usage · finish everything by priority · never dead-style
 Open next: CLAUDE.md › P0 still open (G4 health from live numbers, Sicario seat needs a screenshot, ONE points system = owner's economy call,
 on-chain building assignment, in-app perps = owner's call). After a backend push: restart reputation_service via the watcher (merging locally

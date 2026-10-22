@@ -168,6 +168,13 @@ TOWERS (intake list, floating coins, why it pumped, theory) · ⚖ Courthouse to
 Drift / Hyperliquid) · 🏗 under construction when funds run out · 🏛 CITY HALLS (Pump / Raydium / Bonk / Docks) · 🎲 rep market inside the city ·
 gate pinned to Node ≥ 18.
 
+DONE 2026-10-22 late (owner's block-page screenshot "all requests never started"): 🧰 FAMILY DECK under the block (10 tools: Trade Center ·
+Trench Towers · Pools · Night Vault · Perps · Pump board · Cats · Rep market · Books · Members) · 🗼 desk picks hovering over the block · 🏆 Fuse
+Arena BEST SETTINGS (styles + what the top quarter shares) · 🐱 FeeCat's Combo on every Pool Hub (50/30/20 cash / SOL / fees, true math) · 📈 Trade
+Center REAL RECORD (each lane's closed lots) · 🪑 G4 proof bench · theory shadow-tested on the real card (docs/TRENCH_THEORY.md) · /dev/block.
+👉 OWNER DECISION (real money): a MINIMUM HOLD for agent-initiated exits — the real card's agent bails (78 lots, median 13 min) won 12 %, −6.9 %;
+1–3 h holds won 37 %. Advise only; never flipped automatically.
+
 P0 — still open from the night list, in order
 1. 🧠 G4: 🪑 PROOF BENCH DONE 2026-10-22 (its last 209 FAVOR calls = −0.4 % median, 43 % up → OSSY opens real seats until G4's record turns).
    Still: stalls (read HQ › Brain › Models live numbers first, then a stall watchdog). Models tab BESIDE NEXA's chat (layout). Wire the trench theory into the deterministic agents only after a shadow test.
