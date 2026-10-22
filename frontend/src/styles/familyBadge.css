@@ -1,81 +1,30 @@
-/* 🌹 FAMILY BADGE (FamilyBadge.jsx, `fb-*`): a round crest — frame ring per tier, the family's two colors, an earned FX layer, the emblem, the tag.
-   La familia look: velvet black, gold leaf, blood red, cigar smoke. transform / opacity only; FX hidden in fx-lite / reduced motion. */
-.fbadge { --sz: 64px; position: relative; display: inline-grid; justify-items: center; gap: 4px; vertical-align: middle; isolation: isolate; }
-.fbadge.is-sm { --sz: 22px; } .fbadge.is-lg { --sz: 128px; }
-.fb-ring { position: relative; width: var(--sz); height: var(--sz); border-radius: 50%; background: radial-gradient(circle at 35% 28%, color-mix(in srgb, var(--c1) 55%, #0a0606), #050304 70%);
-  box-shadow: inset 0 0 0 calc(var(--sz) * .06) var(--c2), inset 0 0 calc(var(--sz) * .25) rgba(0, 0, 0, .8), 0 calc(var(--sz) * .06) calc(var(--sz) * .2) rgba(0, 0, 0, .5); }
-.fb-core { position: absolute; top: 0; width: var(--sz); height: var(--sz); display: grid; place-items: center; align-content: center; gap: 0; }
-.fb-emblem { font-size: calc(var(--sz) * .44); line-height: 1; filter: drop-shadow(0 2px 3px rgba(0, 0, 0, .6)); }
-.fb-tag { font: 900 calc(var(--sz) * .15) "JetBrains Mono", monospace; letter-spacing: .14em; color: var(--c2); text-shadow: 0 1px 2px #000; margin-top: calc(var(--sz) * .02); }
-.fb-motto { max-width: calc(var(--sz) * 1.8); font: italic 600 11px Georgia, "Times New Roman", serif; color: #f1d9a8; text-align: center; }
-.fb-chips { display: flex; flex-wrap: wrap; justify-content: center; gap: 3px; } .fb-chips small { padding: 1px 6px; border-radius: 999px; font: 700 9px "JetBrains Mono", monospace; background: rgba(255, 211, 107, .1); border: 1px solid rgba(255, 211, 107, .35); color: #ffe08a; }
-/* frames */
-.fb-silver .fb-ring { box-shadow: inset 0 0 0 calc(var(--sz) * .07) #d9dde3, inset 0 0 0 calc(var(--sz) * .1) #6b717a, inset 0 0 calc(var(--sz) * .25) rgba(0, 0, 0, .8), 0 4px 12px rgba(0, 0, 0, .5); }
-.fb-gold .fb-ring { box-shadow: inset 0 0 0 calc(var(--sz) * .07) #ffd36b, inset 0 0 0 calc(var(--sz) * .1) #8a6100, inset 0 0 calc(var(--sz) * .25) rgba(0, 0, 0, .8), 0 0 calc(var(--sz) * .25) rgba(255, 211, 107, .35); }
-.fb-blood .fb-ring { box-shadow: inset 0 0 0 calc(var(--sz) * .07) #b3001b, inset 0 0 0 calc(var(--sz) * .1) #ffd36b, inset 0 0 calc(var(--sz) * .3) rgba(80, 0, 10, .9), 0 0 calc(var(--sz) * .3) rgba(255, 30, 60, .35); }
-.fb-holo .fb-ring::after { content: ''; position: absolute; inset: 0; border-radius: 50%; background: conic-gradient(from 0deg, #ff4d6d33, #ffd36b33, #45e48633, #6fd3ff33, #9b5cff33, #ff4d6d33); opacity: .8; animation: fbTurn 6s linear infinite; }
-.fb-black .fb-ring { background: radial-gradient(circle at 35% 28%, #2a2a2a, #000 70%); box-shadow: inset 0 0 0 calc(var(--sz) * .05) #ffd36b, inset 0 0 0 calc(var(--sz) * .09) #000, 0 0 calc(var(--sz) * .3) rgba(255, 211, 107, .25); }
-/* FX (earned) */
-.fb-fx { position: absolute; top: 0; width: var(--sz); height: var(--sz); pointer-events: none; z-index: -1; }
-.fb-fx i { position: absolute; left: 50%; top: 50%; width: calc(var(--sz) * .14); height: calc(var(--sz) * .14); border-radius: 50%; opacity: 0; }
-.fb-warlord .fb-ring { background: conic-gradient(from 210deg, #3a0008, #b3122e, #ffd36b, #b3122e, #3a0008); box-shadow: inset 0 0 0 calc(var(--sz) * .06) #120004, 0 0 calc(var(--sz) * .35) rgba(179, 18, 46, .45); }
-.fx-gunsmoke i { background: radial-gradient(circle, rgba(180, 160, 140, .4), transparent 70%); width: calc(var(--sz) * .36); height: calc(var(--sz) * .36); margin: -18% 0 0 -18%; animation: fbSmoke 3.2s ease-out infinite; animation-delay: calc(var(--i) * .45s); }
-.fx-smoke i { background: radial-gradient(circle, rgba(220, 220, 220, .35), transparent 70%); width: calc(var(--sz) * .5); height: calc(var(--sz) * .5); margin: -25% 0 0 -25%; animation: fbSmoke 4.5s ease-out infinite; animation-delay: calc(var(--i) * .75s); }
-.fx-embers i { background: #ff9f45; width: 4px; height: 4px; box-shadow: 0 0 6px #ff9f45; animation: fbEmber 2.4s ease-out infinite; animation-delay: calc(var(--i) * .4s); }
-.fx-lightning { inset: auto; } .fx-lightning i { width: 2px; height: calc(var(--sz) * .5); border-radius: 1px; background: linear-gradient(#fff, var(--c1)); transform-origin: 50% 0; animation: fbBolt 3.2s ease-in-out infinite; animation-delay: calc(var(--i) * .37s); }
-.fx-rain i { width: auto; height: auto; border-radius: 0; font-size: calc(var(--sz) * .16); animation: fbRain 3s linear infinite; animation-delay: calc(var(--i) * .5s); } .fx-rain i::before { content: '💵'; }
+/* 🌹 FAMILY BADGE (FamilyBadge.jsx, `fb-*`): the drawn crest (FamilyCrest.jsx, `fcr-*` in familyCrest.css) + its earned FX, the motto and
+   the rank chips. Calm FX only (≤ 0.4 Hz glows, slow drifts): transform / opacity, gone in fx-lite / reduced motion. */
+.fbadge { position: relative; display: inline-grid; justify-items: center; gap: 4px; vertical-align: middle; isolation: isolate; line-height: 0; }
+.fbadge > svg { filter: drop-shadow(0 6px 10px rgba(0, 0, 0, .45)); } .fbadge.is-sm > svg { filter: none; }
+.fb-motto { max-width: 220px; font: italic 700 12px/1.3 'Playfair Display', Georgia, serif; color: #f1d9a8; text-align: center; text-shadow: 0 1px 6px #000; }
+.fb-chips { display: flex; flex-wrap: wrap; justify-content: center; gap: 3px; line-height: 1.4; }
+.fb-chips small { padding: 1px 6px; border-radius: 999px; font: 700 9px "JetBrains Mono", monospace; background: rgba(255, 211, 107, .1); border: 1px solid rgba(255, 211, 107, .35); color: #ffe08a; }
+/* FX (earned) — behind the crest */
+.fb-fx { position: absolute; inset: 0 0 auto; height: 100%; pointer-events: none; z-index: -1; overflow: visible; }
+.fb-fx i { position: absolute; left: 50%; top: 45%; display: block; opacity: 0; }
 .fb-fx i:nth-child(1) { --dx: -38%; } .fb-fx i:nth-child(2) { --dx: 30%; } .fb-fx i:nth-child(3) { --dx: -12%; } .fb-fx i:nth-child(4) { --dx: 44%; } .fb-fx i:nth-child(5) { --dx: -46%; } .fb-fx i:nth-child(6) { --dx: 8%; }
-@keyframes fbTurn { to { transform: rotate(360deg); } }
-@keyframes fbSmoke { 0% { opacity: 0; transform: translate(0, 10%) scale(.6); } 30% { opacity: .7; } 100% { opacity: 0; transform: translate(var(--dx), -90%) scale(1.6); } }
-@keyframes fbEmber { 0% { opacity: 0; transform: translate(0, 30%); } 20% { opacity: 1; } 100% { opacity: 0; transform: translate(var(--dx), -140%) scale(.4); } }
-@keyframes fbBolt { 0%, 70% { opacity: 0; transform: translate(var(--dx), -110%) rotate(18deg); } 85% { opacity: .7; } 100% { opacity: 0; transform: translate(var(--dx), -110%) rotate(18deg); } }   /* calm: the bolt fades in and out */
-@keyframes fbRain { 0% { opacity: 0; transform: translate(var(--dx), -120%); } 15% { opacity: 1; } 100% { opacity: 0; transform: translate(var(--dx), 110%) rotate(25deg); } }
-body.fx-lite .fb-fx { display: none; } body.fx-lite .fb-holo .fb-ring::after { animation: none; }
-@media (prefers-reduced-motion: reduce) { .fb-fx { display: none; } .fb-holo .fb-ring::after { animation: none; } }
-body.theme-day .fb-chips small { color: #8a6100; background: rgba(255, 211, 107, .18); } body.theme-day .fb-motto { color: #6b3a00; }
-/* 🌹 the badge workshop (Crews.jsx BadgeBuilder, `fbb-*`): velvet stage + live crest, parts as tiles (locked = dim + 🔒 + what's missing) */
-.fbb { display: grid; grid-template-columns: minmax(180px, 240px) minmax(0, 1fr); gap: 14px; }
-.fbb-stage { display: grid; justify-items: center; align-content: start; gap: 10px; padding: 16px 10px; border-radius: 14px;
-  background: radial-gradient(90% 70% at 50% 20%, rgba(179, 0, 27, .28), transparent 70%), linear-gradient(180deg, #120507, #050304); border: 1px solid rgba(255, 211, 107, .25); }
-.fbb-met { display: grid; grid-template-columns: repeat(auto-fit, minmax(64px, 1fr)); gap: 4px; width: 100%; margin: 0; }
-.fbb-met span { display: grid; justify-items: center; padding: 4px; border-radius: 8px; background: rgba(255, 211, 107, .06); } .fbb-met b { font: 900 14px "JetBrains Mono", monospace; color: #ffe08a; } .fbb-met small { font-size: 8.5px; text-align: center; opacity: .7; }
-.fbb-sw { display: inline-flex; gap: 4px; padding-right: 8px; } .fbb-sw button { width: 20px; height: 20px; border-radius: 50%; border: 2px solid rgba(255, 255, 255, .15); cursor: pointer; transition: transform .12s; }
-.fbb-sw button:hover { transform: scale(1.12); } .fbb-sw button.active { border-color: #fff; box-shadow: 0 0 0 2px #ffd36b; }
-body.theme-day .fbb-stage { background: radial-gradient(90% 70% at 50% 20%, rgba(179, 0, 27, .14), transparent 70%), #fbf4ea; } body.theme-day .fbb-tabs button { color: #8a6100; }
-@media (max-width: 640px) { .fbb { grid-template-columns: minmax(0, 1fr); } }
+.fx-smoke i, .fx-gunsmoke i { width: 46%; height: 34%; margin-left: -23%; border-radius: 50%; animation: fbSmoke 7s ease-out infinite; animation-delay: calc(var(--i) * -1.1s); }
+.fx-smoke i { background: radial-gradient(closest-side, rgba(225, 220, 210, .32), transparent); } .fx-gunsmoke i { background: radial-gradient(closest-side, rgba(170, 150, 130, .38), transparent); }
+.fx-embers i { width: 4px; height: 4px; border-radius: 50%; background: #ffb066; box-shadow: 0 0 6px #ff9f45; animation: fbEmber 4.2s ease-out infinite; animation-delay: calc(var(--i) * -.7s); }
+.fx-lightning i { top: 8%; width: 60%; height: 60%; margin-left: -30%; border-radius: 50%; background: radial-gradient(closest-side, rgba(170, 205, 255, .4), transparent); animation: fbGlow 5s ease-in-out infinite; animation-delay: calc(var(--i) * -.85s); }
+.fx-lightning i:nth-child(n+3) { display: none; }
+.fx-rain i { top: 0; width: 9px; height: 9px; border-radius: 50%; background: radial-gradient(circle at 35% 30%, #fff4c2, #d4af37 55%, #7a5410); box-shadow: inset 0 0 0 1px #8a6116; animation: fbRain 5s linear infinite; animation-delay: calc(var(--i) * -.85s); }
+@keyframes fbSmoke { 0% { opacity: 0; transform: translate(0, 20%) scale(.6); } 30% { opacity: .8; } 100% { opacity: 0; transform: translate(var(--dx), -110%) scale(1.7); } }
+@keyframes fbEmber { 0% { opacity: 0; transform: translate(0, 40%); } 20% { opacity: 1; } 100% { opacity: 0; transform: translate(var(--dx), -320%) scale(.4); } }
+@keyframes fbGlow { 0%, 100% { opacity: 0; transform: translate(var(--dx), 0) scale(.8); } 50% { opacity: .9; transform: translate(var(--dx), 0) scale(1.1); } }   /* calm: a storm glow breathes, never strobes */
+@keyframes fbRain { 0% { opacity: 0; transform: translate(var(--dx), -40%) rotateY(0); } 15% { opacity: 1; } 100% { opacity: 0; transform: translate(var(--dx), 900%) rotateY(360deg); } }
+body.fx-lite .fb-fx { display: none; }
+@media (prefers-reduced-motion: reduce) { .fb-fx { display: none; } }
+body.theme-day .fb-chips small { color: #8a6100; background: rgba(255, 211, 107, .18); } body.theme-day .fb-motto { color: #6b3a00; text-shadow: none; }
+@media (max-width: 640px) { .fb-motto { font-size: 11px; } }
 /* HQ › Fees › 🌹 La Familia: the unlock lines (FuseAdminSettings CrewsPricing) */
 .fam-unl > summary { cursor: pointer; font: 700 11px "JetBrains Mono", monospace; margin: 8px 0; } .fam-unl > summary:hover { color: #ffd36b; }
 .fam-unl-part { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 6px; margin-bottom: 8px; } .fam-unl-part > b { grid-column: 1 / -1; font: 800 9.5px "JetBrains Mono", monospace; letter-spacing: .14em; color: #ffd36b; }
 .fam-unl-part label { display: grid; grid-template-columns: minmax(0, 1fr) 1.2fr 70px; gap: 5px; align-items: center; font-size: 11px; }
 
-/* 🌹 badge workshop v2 (owner, 2026-10-21: "badge customizing isn't complete") */
-.fbb2 { grid-template-columns: minmax(220px, 300px) minmax(0, 1fr); }
-.fbb2 .fbb-stage { position: relative; overflow: hidden; isolation: isolate; }
-.fbb-spot { position: absolute; left: 50%; top: -30%; width: 140%; height: 90%; margin-left: -70%; z-index: -1; background: radial-gradient(closest-side, #ffd36b33, transparent); }
-.fbb-turn { animation: fbbTurn 7s ease-in-out infinite; transform-style: preserve-3d; filter: drop-shadow(0 16px 24px #000a); }
-.fbb-open { display: grid; gap: 4px; width: 100%; margin: 0; font: 600 10.5px "JetBrains Mono", monospace; color: #c9b38a; text-align: center; } .fbb-open b { color: #ffd36b; font-size: 13px; }
-.fbb-open span { height: 5px; border-radius: 3px; background: #ffffff10; overflow: hidden; } .fbb-open span i { display: block; height: 100%; transform-origin: left; background: linear-gradient(90deg, #ff9f45, #ffd36b); transition: transform .6s ease; }
-.fbb-acts { display: flex; gap: 6px; flex-wrap: wrap; justify-content: center; }
-.fbb-tabs { margin-bottom: 4px; }
-.fbb-tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(104px, 1fr)); gap: 8px; }
-.fbb-tile { position: relative; display: grid; justify-items: center; gap: 4px; padding: 10px 6px 8px; border-radius: 12px; border: 1px solid rgba(255, 211, 107, .18); background: rgba(0, 0, 0, .35); color: #e9d3a0; cursor: pointer;
-  animation: fbbIn .3s ease both; animation-delay: calc(var(--i) * 30ms); transition: transform .12s ease, border-color .15s ease, box-shadow .15s ease; }
-.fbb-tile:hover:not(:disabled) { transform: translateY(-2px); border-color: #ffd36b; } .fbb-tile:active:not(:disabled) { transform: scale(.97); }
-.fbb-tile:focus-visible { outline: 2px solid #ffd36b; outline-offset: 2px; }
-.fbb-tile.active { border-color: #ffd36b; box-shadow: 0 0 0 1px #ffd36b, 0 10px 24px -12px #ffd36b; background: linear-gradient(180deg, rgba(255, 211, 107, .14), rgba(0, 0, 0, .35)); }
-.fbb-tile.is-locked { cursor: not-allowed; } .fbb-tile.is-locked .fbb-mini { opacity: .35; filter: grayscale(1); }
-.fbb-mini { pointer-events: none; } .fbb-tile small { font-size: 10.5px; text-align: center; }
-.fbb-lock { position: absolute; top: 6px; right: 7px; font-style: normal; font-size: 11px; }
-.fbb-prog { width: 80%; height: 3px; border-radius: 2px; background: #ffffff12; overflow: hidden; } .fbb-prog b { display: block; height: 100%; transform-origin: left; background: #ffd36b; }
-.fbb-tile em { font-size: 9px; font-style: normal; color: #a89070; text-align: center; line-height: 1.2; }
-.fbb-colors { display: grid; gap: 10px; } .fbb-pairs { display: flex; flex-wrap: wrap; gap: 6px; }
-.fbb-pairs button { display: inline-flex; gap: 2px; padding: 4px; border-radius: 10px; border: 1px solid rgba(255, 255, 255, .14); background: rgba(0, 0, 0, .3); cursor: pointer; transition: transform .12s ease; }
-.fbb-pairs button:hover:not(:disabled) { transform: translateY(-1px); } .fbb-pairs button.active { border-color: #ffd36b; box-shadow: 0 0 0 1px #ffd36b; }
-.fbb-pairs i { width: 22px; height: 22px; border-radius: 6px; } .fbb-sw em { font: 700 8.5px "JetBrains Mono", monospace; letter-spacing: 1px; color: #b89b5e; font-style: normal; margin-right: 6px; }
-.fbb-motto { display: grid; gap: 4px; } .fbb-motto small { font-size: 10px; color: #a89070; }
-@keyframes fbbTurn { 0%, 100% { transform: rotateY(-14deg); } 50% { transform: rotateY(14deg); } }
-@keyframes fbbIn { from { transform: translateY(6px); } to { transform: none; } }
-body.fx-lite .fbb-turn, body.fx-lite .fbb-tile { animation: none; }
-@media (prefers-reduced-motion: reduce) { .fbb-turn, .fbb-tile { animation: none; } .fbb-tile, .fbb-pairs button { transition: none; } }
-body.theme-day .fbb-tile { background: #fff8ea; color: #3a2a0a; }
-@media (max-width: 640px) { .fbb2 { grid-template-columns: 1fr; } .fbb-tiles { grid-template-columns: repeat(3, minmax(0, 1fr)); } }

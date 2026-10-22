@@ -7,7 +7,9 @@ import { useWallet } from '../hooks/useWallet';
 import { useLivePrice } from '../lib/livePriceHub';
 import { price as pxWord } from '../lib/num';
 import '../styles/crews.css';
-import { FamilyBadge, EMBLEM } from './FamilyBadge';
+import { FamilyBadge } from './FamilyBadge';
+import { CrestForge } from './CrestForge';
+import { FamilyCardArt } from './FamilyCardArt';
 import { WarRoom, WarStrip, PublicWars, useWars } from './FamilyWars';
 import { FamilyBlock } from './FamilyBlock';
 import { FamilyWorld, FamilyTab } from './FamilyWorld';
@@ -51,26 +53,45 @@ export function useCrewBoard(every = 20000) {
 // 🃏 the Don's card style (crews.CARD) — literal class names, one per option
 export const CARD_STYLE = { noir: 'cd-noir', gold: 'cd-gold', blood: 'cd-blood', neon: 'cd-neon', ice: 'cd-ice', royal: 'cd-royal' };
 export const CARD_FX = { smoke: 'cfx2-smoke', embers: 'cfx2-embers', rain: 'cfx2-rain', lightning: 'cfx2-lightning', stars: 'cfx2-stars' };
-// ⚡ one crew as a 3D card with an electric border: tilt follows the pointer (transform only), the border's arc turns faster the hotter the crew
+// pure: a number that glides to its new value (the card's week % counts up instead of jumping) — one short rAF tween per change
+export function useGlide(v, ms = 650) {
+  const [n, setN] = useState(v); const from = useRef(v);
+  useEffect(() => { if (v == null || typeof v !== 'number') { setN(v); from.current = v; return undefined; }
+    const a = typeof from.current === 'number' ? from.current : 0; if (a === v) { setN(v); return undefined; }
+    let raf = 0; const t0 = performance.now();
+    const step = t => { const k = Math.min(1, (t - t0) / ms); const e = 1 - (1 - k) ** 3; setN(+(a + (v - a) * e).toFixed(1)); if (k < 1) raf = requestAnimationFrame(step); else from.current = v; };
+    raf = requestAnimationFrame(step); return () => cancelAnimationFrame(raf); }, [v, ms]);
+  return n;
+}
+const PLACE = ['', 'is-p1', 'is-p2', 'is-p3'];
+// ⚡ THE FAMILY CARD (owner, 2026-10-22 redo: "a drawn trading card"): crest header over a drawn scene per style (FamilyCardArt), the name in
+// Playfair, the live vitals ON the card (week % that glides to its number, seats filled, rank plate), the Don's tagline, a calm live effect.
+// Tilt follows the pointer (transform only); the electric border's arc turns faster the hotter the family is.
 export function CrewCard3D({ r, place, small, onOpen }) {
   const el = useRef(null);
   const tilt = e => { const n = el.current; if (!n || small) return; const b = n.getBoundingClientRect(); n.style.setProperty('--rx', `${((e.clientY - b.top) / b.height - 0.5) * -14}deg`); n.style.setProperty('--ry', `${((e.clientX - b.left) / b.width - 0.5) * 16}deg`); };
   const flat = () => { el.current?.style.setProperty('--rx', '0deg'); el.current?.style.setProperty('--ry', '0deg'); };
   const h = heat(r);
   const cd = r.card || {};
-  return <button type="button" ref={el} className={`crw-3d ${['', 'p1', 'p2', 'p3', 'p4'][place] || ''} ${small ? 'is-small' : ''} ${h > 0.6 ? 'is-hot' : ''} ${CARD_STYLE[cd.style] || ''}`} style={{ '--heat': h.toFixed(2), '--spin': `${(6 - h * 4.5).toFixed(1)}s` }}
-    onPointerMove={tilt} onPointerLeave={flat} onClick={() => onOpen?.(r)} data-testid={`crew-3d-${r.tag}`} aria-label={`${r.name}: ${pctTxt(r.pct)} this week`}>
+  const pct = useGlide(r.pct == null ? null : Number(r.pct));
+  const fill = Math.max(0.04, Math.min(1, (r.members || 0) / Math.max(1, r.seats || 5)));
+  return <button type="button" ref={el} className={`crw-3d ${['', 'p1', 'p2', 'p3', 'p4'][place] || ''} ${small ? 'is-small' : ''} ${h > 0.6 ? 'is-hot' : ''} ${CARD_STYLE[cd.style] || 'cd-noir'}`} style={{ '--heat': h.toFixed(2), '--spin': `${(6 - h * 4.5).toFixed(1)}s` }}
+    onPointerMove={tilt} onPointerLeave={flat} onClick={() => onOpen?.(r)} data-testid={`crew-3d-${r.tag}`} aria-label={`${r.name}: ${pctTxt(r.pct)} this week`} data-tip={`${r.name} — tap to open the family`}>
     <span className="crw-bolt" aria-hidden="true" />
     <span className="crw-face">
+      <FamilyCardArt style={cd.style} />
       {CARD_FX[cd.fx] ? <span className={`crw-cfx ${CARD_FX[cd.fx]}`} aria-hidden="true"><i /><i /><i /><i /><i /></span> : null}
-      <span className="crw-medal">{MEDAL[place - 1] || '🌹'}</span>
-      {r.badge ? <FamilyBadge b={r.badge} size={small ? 'sm' : 'md'} chips={!small} /> : null}
-      <b className="crw-3tag">{r.tag}</b>
+      <span className="fcc-top"><b className={`fcc-rank ${PLACE[place] || ''}`}>{place && place <= 3 ? `#${place}` : '—'}</b><span className="fcc-live"><i aria-hidden="true" />{r.active || 0} live</span></span>
+      <span className="fcc-crest">{r.badge ? <FamilyBadge b={r.badge} size="md" px={small ? 44 : 64} chips={false} /> : <b className="crw-3tag">{r.tag}</b>}</span>
       <span className="crw-3name">{r.name}</span>
-      <em className={`crw-3pct ${r.pct == null ? '' : r.pct >= 0 ? 'm-pos' : 'm-neg'}`} key={r.pct}>{pctTxt(r.pct)}</em>
-      {cd.line ? <i className="crw-3line">“{cd.line}”</i> : null}
-      <span className="crw-3meta">{r.members}/{r.seats} · {r.active} live{r.launch ? ` · 🚀 $${r.launch}` : ''}{r.bounties ? ` · 🎯 ${r.bounties}` : ''}</span>
-      {!small && <span className="crw-heat" aria-hidden="true"><i style={{ transform: `scaleX(${Math.max(0.05, h)})` }} /></span>}
+      {cd.line && !small ? <i className="crw-3line">“{cd.line}”</i> : null}
+      <span className="fcc-vitals">
+        <span className="fcc-v"><em className={`crw-3pct ${r.pct == null ? '' : r.pct >= 0 ? 'm-pos' : 'm-neg'}`}>{pctTxt(pct)}</em><small>WEEK</small></span>
+        <span className="fcc-v"><b>{r.members}<s>/{r.seats}</s></b><small>SEATS</small><u aria-hidden="true"><i style={{ transform: `scaleX(${fill})` }} /></u></span>
+        {!small ? <span className="fcc-v"><b>{r.bounties || 0}</b><small>BOUNTIES</small></span> : null}
+      </span>
+      {!small && <span className="crw-heat" aria-hidden="true" data-tip="Heat = how active + how big the week's move is"><i style={{ transform: `scaleX(${Math.max(0.05, h)})` }} /></span>}
+      {r.launch && !small ? <span className="crw-3meta">🚀 ${r.launch}</span> : null}
     </span>
   </button>;
 }
@@ -104,54 +125,6 @@ function LaunchLive({ l }) {
     {l.note && <p>{l.note}</p>}<a href={`/terminal/coin/solana/${l.mint}`}>open chart →</a></div>;
 }
 
-export const BADGE_PARTS = [['emblem', '🎴 Emblem'], ['frame', '🖼 Frame'], ['fx', '✨ Effect'], ['colors', '🎨 Colors'], ['motto', '✒ Motto']];
-export const COLOR_PAIRS = [['#d4af37', '#111111'], ['#ff4d6d', '#111111'], ['#15d16a', '#ffd36b'], ['#9b5cff', '#6fd3ff'], ['#ffffff', '#ff4d6d'], ['#ff9f45', '#9b5cff']];
-// pure: how far a locked option is from unlocking (0–1), or null when the line is a place ('best') / unknown
-export function unlockProgress(o, metrics) {
-  if (o.ok) return 1;
-  if (!o.metric || o.metric === 'best' || !o.min) return null;
-  return Math.max(0, Math.min(1, (Number((metrics || {})[o.metric]) || 0) / o.min));
-}
-export function rollBadge(cat, d) {
-  const pick = rows => { const ok = rows.filter(o => o.ok); return ok.length ? ok[Math.floor(Math.random() * ok.length)].key : null; };
-  const pair = COLOR_PAIRS[Math.floor(Math.random() * COLOR_PAIRS.length)];
-  return { ...d, emblem: pick(cat.parts.emblem) || d.emblem, frame: pick(cat.parts.frame) || d.frame, fx: pick(cat.parts.fx) || d.fx, c1: pair[0], c2: pair[1] };
-}
-// 🌹 the badge workshop (owner, 2026-10-21: "badge customizing isn't complete"): a turntable preview under a spotlight, one part at a time as
-// big live tiles (each tile IS that option on your badge), locked tiles with how far the family is from them, colour pairs + swatches, a roll.
-function BadgeBuilder({ mine, owner, addr, sess, q, act, busy }) {
-  const [cat, setCat] = useState(null); const [d, setD] = useState(null); const [part, setPart] = useState('emblem');
-  useEffect(() => { let on = true; fetch(apiUrl(`/api/reputation/crews/badge/catalog?address=${addr}&session=${encodeURIComponent(sess)}`)).then(r => (r.ok ? r.json() : null))
-    .then(x => { if (on && x) { setCat(x); setD(cur => cur || { emblem: x.badge.emblem, frame: x.badge.frame, fx: x.badge.fx, c1: x.badge.c1 || x.colors[0], c2: x.badge.c2 || x.colors[1], motto: x.badge.motto || '' }); } }).catch(() => {});
-    return () => { on = false; }; }, [addr, sess, mine?.badge?.v]);   // eslint-disable-line react-hooks/exhaustive-deps
-  if (!cat || !d) return <p className="m-dim crw-hint">opening the badge workshop…</p>;
-  const prev = { ...d, tag: mine.tag, name: mine.name, ranks: cat.metrics };
-  const cost = cat.built && !cat.free ? (costText(q, 'badge') || `$${cat.restyleUsd}`) : 'free';
-  const all = Object.values(cat.parts).flat(); const open = all.filter(o => o.ok).length;
-  return <div className="fbb fbb2" data-testid="badge-builder">
-    <div className="fbb-stage"><i className="fbb-spot" aria-hidden="true" /><div className="fbb-turn"><FamilyBadge b={prev} size="lg" /></div>
-      <p className="fbb-open"><b>{open}</b>/{all.length} parts unlocked<span><i style={{ transform: `scaleX(${open / Math.max(1, all.length)})` }} /></span></p>
-      <p className="fbb-met">{Object.entries(cat.metrics).map(([k, v]) => <span key={k} data-tip={cat.metricWords[k]}><b>{v ?? '—'}</b><small>{cat.metricWords[k]}</small></span>)}</p>
-      {owner ? <div className="fbb-acts"><button type="button" className="m-btn" onClick={() => setD(x => rollBadge(cat, x))} data-testid="fbb-roll">🎲 Roll</button>
-        <button type="button" className="m-btn m-go" disabled={!!busy} onClick={() => act('/api/reputation/crews/badge', { badge: d }, cat.built ? '🌹 badge restyled' : '🌹 badge forged', cat.built && !cat.free ? 'badge' : undefined)} data-testid="fbb-save">
-          {cat.built ? `Restyle · ${cost}` : 'Forge it · free'}</button></div> : <p className="m-dim crw-hint">Only the Don forges the badge — every unlock comes from what the family really did.</p>}
-    </div>
-    <div className="fbb-parts">
-      <nav className="fbb-tabs m-seg" role="tablist">{BADGE_PARTS.map(([k, w]) => <button key={k} type="button" role="tab" aria-selected={part === k} className={part === k ? 'active' : ''} onClick={() => setPart(k)} data-testid={`fbb-tab-${k}`}>{w}</button>)}</nav>
-      {cat.parts[part] ? <div className="fbb-tiles">{cat.parts[part].map((o, i) => { const pr = unlockProgress(o, cat.metrics);
-        return <button key={o.key} type="button" disabled={!o.ok || !owner} style={{ '--i': i }} className={`fbb-tile ${d[part] === o.key ? 'active' : ''} ${o.ok ? '' : 'is-locked'}`}
-          onClick={() => setD(x => ({ ...x, [part]: o.key }))} data-tip={o.ok ? o.label : `🔒 ${o.need}`} data-testid={`fbb-${part}-${o.key}`}>
-          <span className="fbb-mini"><FamilyBadge b={{ ...prev, [part]: o.key }} size="sm" /></span><small>{o.label}</small>
-          {o.ok ? null : <><i className="fbb-lock">🔒</i>{pr != null ? <span className="fbb-prog"><b style={{ transform: `scaleX(${Math.max(0.04, pr)})` }} /></span> : null}<em>{o.need}</em></>}</button>; })}</div> : null}
-      {part === 'colors' ? <div className="fbb-colors">
-        <div className="fbb-pairs">{COLOR_PAIRS.map(([a1, a2]) => <button key={a1 + a2} type="button" disabled={!owner} className={d.c1 === a1 && d.c2 === a2 ? 'active' : ''} onClick={() => setD(x => ({ ...x, c1: a1, c2: a2 }))} aria-label={`colours ${a1} and ${a2}`}><i style={{ background: a1 }} /><i style={{ background: a2 }} /></button>)}</div>
-        {['c1', 'c2'].map(k => <span key={k} className="fbb-sw"><em>{k === 'c1' ? 'MAIN' : 'TRIM'}</em>{cat.colors.map(c => <button key={c} type="button" disabled={!owner} className={d[k] === c ? 'active' : ''} style={{ background: c }} onClick={() => setD(x => ({ ...x, [k]: c }))} aria-label={`${k} ${c}`} />)}</span>)}</div> : null}
-      {part === 'motto' ? <div className="fbb-motto"><input className="m-input" value={d.motto} maxLength={cat.mottoMax} disabled={!owner} placeholder="Famiglia prima di tutto" onChange={e => setD(x => ({ ...x, motto: e.target.value }))} aria-label="Family motto" />
-        <small>{d.motto.length}/{cat.mottoMax} · shown under the badge on every card</small></div> : null}
-    </div>
-  </div>;
-}
-
 export const TABS = [['card', '🃏 Card'], ['invite', '✉ Invite'], ['badge', '🌹 Badge'], ['board', '💬 Board'], ['bounty', '🎯 Bounties'], ['launch', '🚀 Launch'], ['members', '➕ Seats'], ['code', '🔐 Code']];
 
 function CrewHQ({ mine, owner, addr, sess, busy, setBusy, setMine, act, q, rows, inv, reload, tab: tabP, setTab: setTabP }) {
@@ -163,7 +136,7 @@ function CrewHQ({ mine, owner, addr, sess, busy, setBusy, setMine, act, q, rows,
     {tabP ? null : <nav className="crw-tabs m-seg" role="tablist">{TABS.map(([k, l]) => <button key={k} type="button" role="tab" aria-selected={tab === k} className={tab === k ? 'active' : ''} onClick={() => setTab(k)} data-testid={`crew-tab-${k}`}>{l}{k === 'bounty' && mine.bountiesOpen ? <b>{mine.bountiesOpen}</b> : null}</button>)}</nav>}
     <div className="crw-pane" key={tab}>
       {tab === 'card' && <CardStudio mine={mine} owner={owner} addr={addr} sess={sess} onChanged={c => c && setMine(c)} preview={d => { const r = rows.find(x => x.id === mine.id) || { id: mine.id, name: mine.name, tag: mine.tag, members: mine.members.length, seats: mine.seats, active: mine.vitals?.active || 0, pct: null, badge: mine.badge }; return <CrewCard3D r={{ ...r, card: d }} place={1} />; }} />}
-      {tab === 'badge' && <BadgeBuilder mine={mine} owner={owner} addr={addr} sess={sess} q={q} act={act} busy={busy} />}
+      {tab === 'badge' && <CrestForge mine={mine} owner={owner} addr={addr} sess={sess} costWord={costText(q, 'badge')} act={act} busy={busy} />}
       {tab === 'board' && <>
         <form className="crw-row" onSubmit={e => { e.preventDefault(); doAct('post', { text: txt }, '💬 posted'); }}><input className="m-input" placeholder="Talk to the family…" value={txt} maxLength={500} onChange={e => setTxt(e.target.value)} aria-label="Post" /><button type="submit" className="m-btn primary" disabled={!txt.trim() || !!busy}>Post</button></form>
         {!roots.length && <p className="m-dim crw-hint">The board is quiet. Drop a play, a lesson or a call — members only.</p>}

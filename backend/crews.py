@@ -329,17 +329,26 @@ def vitals(store, now):
 # paid. The creator tunes every unlock line and the restyle cost in HQ (fees.crews.unlocks / badgeUsd). One badge per family; the first build
 # is free, every restyle after costs `badgeUsd` in SOL (verified on-chain by the service, like the family itself). ----
 METRICS = {'members': 'members', 'podiums': 'weeks in the top 3', 'crowns': 'weeks at #1', 'best': 'best weekly place (1 = #1)', 'points': 'bounty points paid', 'wars': 'family wars won'}
+# 2026-10-22 crest redo (owner: "badge customizing sucks" → a Call of Duty emblem-editor style crest): SHAPE + FIELD + BANNER are free layers,
+# the EMBLEM is the drawn charge (FamilyCrest.jsx draws every option as SVG — no emoji art), and the charge carries its own adjustments
+# (es scale · er rotate · ef flip · c3 accent) that survive a shape change. Unlock lines below are unchanged.
 PARTS = {   # part → {option: (label, unlock metric or None, min)} — min for 'best' means "place ≤ min"
-    'emblem': {'rose': ('🌹 Rose', None, 0), 'skull': ('💀 Skull', None, 0), 'snake': ('🐍 Viper', None, 0), 'dice': ('🎲 Dice', None, 0),
-               'gun': ('🔫 Piece', 'members', 3), 'hat': ('🎩 Don\'s hat', 'members', 5), 'scorp': ('🦂 Scorpion', 'podiums', 1),
-               'dragon': ('🐉 Dragon', 'podiums', 3), 'crown': ('👑 Crown', 'crowns', 1), 'diamond': ('💎 Diamond', 'points', 1000),
-               'sword': ('⚔ Crossed blades', 'wars', 1), 'wolf': ('🐺 Wolf', 'wars', 3), 'lion': ('🦁 Lion', 'wars', 10)},
+    'shape': {'heater': ('Heater', None, 0), 'round': ('Round', None, 0), 'kite': ('Kite', None, 0), 'coin': ('Coin', None, 0),
+              'chevron': ('Chevron', None, 0), 'card': ('Black card', None, 0)},
+    'field': {'plain': ('Plain', None, 0), 'split': ('Split', None, 0), 'bend': ('Bend', None, 0), 'chevron': ('Chevron', None, 0),
+              'quarterly': ('Quarterly', None, 0), 'stripes': ('Stripes', None, 0)},
+    'emblem': {'rose': ('Rose', None, 0), 'skull': ('Skull', None, 0), 'snake': ('Viper', None, 0), 'dice': ('Dice', None, 0),
+               'gun': ('Piece', 'members', 3), 'hat': ('Don\'s hat', 'members', 5), 'scorp': ('Scorpion', 'podiums', 1),
+               'dragon': ('Dragon', 'podiums', 3), 'crown': ('Crown', 'crowns', 1), 'diamond': ('Diamond', 'points', 1000),
+               'sword': ('Crossed blades', 'wars', 1), 'wolf': ('Wolf', 'wars', 3), 'lion': ('Lion', 'wars', 10)},
     'frame': {'iron': ('Iron', None, 0), 'silver': ('Silver', 'members', 5), 'gold': ('Gold', 'podiums', 1), 'blood': ('Blood oath', 'crowns', 1),
               'holo': ('Holo', 'points', 500), 'black': ('Black card', 'best', 1), 'warlord': ('Warlord', 'wars', 5)},
     'fx': {'none': ('None', None, 0), 'smoke': ('Cigar smoke', 'members', 3), 'embers': ('Embers', 'podiums', 1), 'lightning': ('Lightning', 'crowns', 1),
            'rain': ('Money rain', 'points', 2000), 'gunsmoke': ('Gunsmoke', 'wars', 2)},
+    'banner': {'ribbon': ('Ribbon', None, 0), 'scroll': ('Scroll', None, 0), 'plate': ('Plate', None, 0)},
 }
-COLORS = ('#15d16a', '#ffd36b', '#ff4d6d', '#9b5cff', '#6fd3ff', '#ffffff', '#ff9f45', '#111111')
+COLORS = ('#15d16a', '#ffd36b', '#ff4d6d', '#9b5cff', '#6fd3ff', '#ffffff', '#ff9f45', '#111111', '#d4af37', '#7a0f1f', '#1b3a6b')
+ADJUST = {'es': (0.7, 1.3, 1.0), 'er': (-30, 30, 0)}   # the charge's scale / rotate (min, max, default) — clamped, never refused
 BADGE_USD = 2.0
 MOTTO_MAX = 24
 
@@ -385,6 +394,20 @@ def catalog(met, cfg=None):
     return out
 
 
+def _adjust(raw):
+    """The charge's own adjustments (scale / rotate / flip), clamped to ADJUST — a bad number falls back to the default, never an error."""
+    out = {}
+    for k, (lo, hi, d) in ADJUST.items():
+        try:
+            v = float(raw.get(k, d))
+        except (TypeError, ValueError):
+            v = d
+        v = d if v != v else min(hi, max(lo, v))   # NaN → default
+        out[k] = round(v, 2) if k == 'es' else int(round(v))
+    out['ef'] = bool(raw.get('ef'))
+    return out
+
+
 def clean_badge(raw, met, cfg=None):
     """A badge as saved: every part must be a known option the family has UNLOCKED, colors from the palette, a short clean motto."""
     raw = raw or {}
@@ -397,11 +420,12 @@ def clean_badge(raw, met, cfg=None):
         if not is_unlocked(m, n, met):
             raise ValueError(f"{opts[v][0]} is locked — needs {int(n)} {METRICS[m]}." if m != 'best' else f"{opts[v][0]} is locked — reach #{int(n)} in a week.")
         b[part] = v
-    for k in ('c1', 'c2'):
-        c = str(raw.get(k) or COLORS[0 if k == 'c1' else 1]).lower()
+    for k, dflt in (('c1', COLORS[0]), ('c2', COLORS[1]), ('c3', COLORS[5])):
+        c = str(raw.get(k) or dflt).lower()
         if c not in COLORS:
             raise ValueError('Pick colors from the palette.')
         b[k] = c
+    b.update(_adjust(raw))
     motto = ' '.join(str(raw.get('motto') or '').split())[:MOTTO_MAX]
     if motto and not re.fullmatch(r"[\w .,'!?&\-]+", motto):
         raise ValueError('The motto takes letters, numbers and simple punctuation.')
@@ -432,6 +456,10 @@ def badge_view(crew, awards, cfg=None, staff=False):
         v = raw.get(part)
         if v not in opts or not is_unlocked(*unlock_rule(part, v, cfg), met):
             raw[part] = next(iter(opts))
+    for k, dflt in (('c1', COLORS[0]), ('c2', COLORS[1]), ('c3', COLORS[5])):
+        if raw.get(k) not in COLORS:
+            raw[k] = dflt
+    raw.update(_adjust(raw))
     return {**raw, 'tag': crew.get('tag'), 'name': crew.get('name'), 'set': bool(crew.get('badge')), 'ranks': met}
 
 

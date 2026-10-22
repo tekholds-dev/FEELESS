@@ -9774,6 +9774,7 @@ async def crew_badge_catalog(address: str, session: str):
         raise HTTPException(404, 'You are not in a family.')
     met = _cr.family_metrics(c, st.get('awards'), _is_staff(c.get('owner')))
     return {'metrics': met, 'metricWords': _cr.METRICS, 'parts': _cr.catalog(met, _crew_cfg()), 'colors': list(_cr.COLORS), 'mottoMax': _cr.MOTTO_MAX,
+            'adjust': {k: {'min': lo, 'max': hi, 'default': d} for k, (lo, hi, d) in _cr.ADJUST.items()},
             'owner': c['owner'] == me, 'built': bool(c.get('badge')), 'restyleUsd': _crew_badge_usd(), 'free': _is_staff(me), 'badge': _cr.badge_view(c, st.get('awards'), _crew_cfg(), _is_staff(c.get('owner')))}
 
 

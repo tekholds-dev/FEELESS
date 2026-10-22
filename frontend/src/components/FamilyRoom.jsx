@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { toast } from 'sonner';
 import { apiUrl } from '../lib/api';
 import { FamilyBadge } from './FamilyBadge';
+import { FamilyCardArt, CARD_SCENE } from './FamilyCardArt';
 import { WalletPfp } from './WalletPfp';
 import { useFloatPop } from '../lib/floatPop';
 import '../styles/familyRoom.css';
@@ -182,8 +183,11 @@ export function CardStudio({ mine, owner, addr, sess, onChanged, preview }) {
   return <div className="frm-studio" data-testid="card-studio">
     <div className="frm-studio-prev">{preview(d)}</div>
     <div className="frm-studio-ctl">
-      {['style', 'fx'].map(k => <fieldset key={k}><legend>{k === 'style' ? '🎨 STYLE' : '✨ LIVE EFFECT'}</legend>
-        <div className="frm-opts">{(opts[k] || []).map(v => <button key={v} type="button" disabled={!owner} className={d[k] === v ? 'active' : ''} onClick={() => setD(x => ({ ...x, [k]: v }))} data-testid={`card-${k}-${v}`}>{CARD_WORD[v] || v}</button>)}</div></fieldset>)}
+      <fieldset><legend>🎨 SCENE</legend>
+        <div className="fcc-styles">{(opts.style || []).map((v, i) => <button key={v} type="button" disabled={!owner} style={{ '--i': i }} className={`fcc-mini ${d.style === v ? 'active' : ''}`} onClick={() => setD(x => ({ ...x, style: v }))} data-tip={`${CARD_SCENE[v] || v} — the drawn scene behind your crest`} data-testid={`card-style-${v}`}>
+          <FamilyCardArt style={v} />{mine.badge ? <FamilyBadge b={mine.badge} size="sm" px={30} /> : null}<small>{CARD_SCENE[v] || v}</small></button>)}</div></fieldset>
+      <fieldset><legend>✨ LIVE EFFECT</legend>
+        <div className="frm-opts">{(opts.fx || []).map(v => <button key={v} type="button" disabled={!owner} className={d.fx === v ? 'active' : ''} onClick={() => setD(x => ({ ...x, fx: v }))} data-tip="A calm effect over the scene" data-testid={`card-fx-${v}`}>{CARD_WORD[v] || v}</button>)}</div></fieldset>
       <fieldset><legend>✒ TAGLINE</legend><input className="m-input" value={d.line} maxLength={40} disabled={!owner} placeholder="Famiglia prima di tutto" onChange={e => setD(x => ({ ...x, line: e.target.value }))} aria-label="Card tagline" /></fieldset>
       {owner ? <button type="button" className="m-btn m-go" disabled={busy} onClick={save} data-testid="card-save">Save the family card</button> : <p className="frm-empty">Only the Don styles the family card.</p>}
     </div>
