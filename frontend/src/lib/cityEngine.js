@@ -65,6 +65,16 @@ async function tallest(urls, w, d, h) {
 }
 
 // ── canvas textures: signs, skies, water ripples, distant windows, awnings ──────────────────────────────────────────────────────────
+// 🪙 a coin disc with its ticker on both faces (TT towers float one; the $FEE Bank turns a big one)
+function coinDisc(text, color = '#15d16a', r = 0.75) {
+  const cv = document.createElement('canvas'); cv.width = 128; cv.height = 128; const g = cv.getContext('2d');
+  g.fillStyle = '#0b1a12'; g.beginPath(); g.arc(64, 64, 62, 0, Math.PI * 2); g.fill(); g.strokeStyle = color; g.lineWidth = 6; g.beginPath(); g.arc(64, 64, 54, 0, Math.PI * 2); g.stroke();
+  const t = String(text || '').slice(0, 6); g.fillStyle = '#f4fff6'; g.font = `bold ${t.length > 4 ? 26 : 36}px JetBrains Mono, monospace`; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(t, 64, 66);
+  const face = new THREE.CanvasTexture(cv); face.colorSpace = THREE.SRGBColorSpace; const fm = new THREE.MeshBasicMaterial({ map: face, toneMapped: false });
+  const rim = new THREE.MeshStandardMaterial({ color, metalness: 0.7, roughness: 0.3, emissive: color, emissiveIntensity: 0.35 });
+  const coin = new THREE.Mesh(new THREE.CylinderGeometry(r, r, 0.12, 36), [rim, fm, fm]); coin.rotation.x = Math.PI / 2; const piv = new THREE.Group(); piv.add(coin); return piv;
+}
+
 function sign(lines, { color = '#d4af37', w = 512, glow = true } = {}) {
   const c = document.createElement('canvas'); const big = lines[0] || ''; const small = lines.slice(1).filter(Boolean);
   c.width = w; c.height = 96 + small.length * 44; const g = c.getContext('2d');
@@ -332,6 +342,9 @@ export function createCity(host, { onPick, onHover, onAnchors, lite = false, sti
       const dot = new THREE.Mesh(new THREE.SphereGeometry(0.09, 8, 6), neon(tone, 1.8)); content.add(dot);
       anim.push(t => { const a = t * hz * 1.6; beacon.rotation.z = a; dot.position.set(c.x + Math.cos(a) * 0.62, h + 0.35, c.z + Math.sin(a) * 0.62); beacon.scale.setScalar(1 + 0.04 * Math.sin(t * 1.2)); });
       frame(m.rect, col);
+      if (m.kind === 'coin') {   // 🗼 TT: the coin itself floats over its tower, turning slowly
+        const cd = coinDisc(String(m.name || '').replace('$', ''), tone, 0.62); cd.position.set(c.x, h + 3.3, c.z); content.add(cd);
+        anim.push(t => { cd.rotation.y = t * 0.9; cd.position.y = h + 3.3 + Math.sin(t * 1.1 + c.x) * 0.1; }); }
       const sub = m.pool ? `${m.proto} · APY ${apyTxt(m.apy)}` : m.kind === 'coin' ? `${usd(m.tvl)} MC${m.move != null ? ` · ${m.move >= 0 ? '+' : ''}${Number(m.move).toFixed(1)}%` : ''}` : `TVL ${usd(m.tvl)}`;
       const s = sign(m.pool ? [m.name, sub, `TVL ${usd(m.tvl)}`] : [m.name, sub], { color: tone, w: 440 }); s.position.set(c.x, h + 1.7, c.z); content.add(s);
       proxy(m.rect, h + 0.4, m.pick, m.pool ? `${m.name} · ${m.proto}` : m.name);

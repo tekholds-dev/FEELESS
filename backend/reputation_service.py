@@ -9316,6 +9316,28 @@ async def admin_familia_rules_set(request: Request, body: dict):
     return await admin_familia_rules(request)
 
 
+_intake_cache: dict = {'at': 0.0, 'rows': []}
+
+
+@app.get('/api/reputation/familia/intake')
+async def familia_intake():
+    """🗼 TT — TRENCH TOWERS: the agents' INTAKE LIST (the coins the desk already cycled and ranked: READY first, then CONTENDING) as the
+    coin towers in Fee City, each with the trench theory's pre-read. One shared read every 30 s for every viewer (never per building)."""
+    now = time.time()
+    if now - _intake_cache['at'] > 30:
+        rows_ = []
+        for r_ in _agent_inherit_rows(limit=10):
+            x_ = _tk.KERNEL.candidate(r_['mint']) or {}
+            n_, v_, d_ = x_.get('nums') or {}, x_.get('vitals') or {}, _tk.KERNEL.dec.get(r_['mint']) or {}
+            row_ = {'mint': r_['mint'], 'sym': r_.get('symbol'), 'pair': r_.get('pairAddress'), 'mc': v_.get('mcap'), 'liq': r_.get('liq'),
+                    'ch': n_.get('d5'), 'ageMin': round(_fuse._f(r_.get('ageH')) * 60) if r_.get('ageH') is not None else None,
+                    'status': d_.get('status'), 'read': str(d_.get('why') or '')[:90]}
+            row_['theory'] = __import__('trench_theory').verdict({'ageMin': row_['ageMin'], 'cap': row_['mc'], 'liq': row_['liq'], 'status': (x_.get('chart') or {}).get('stage') or v_.get('stage')})['line'][:200]
+            rows_.append(row_)
+        _intake_cache.update(at=now, rows=rows_)
+    return {'coins': _intake_cache['rows'], 'at': round(_intake_cache['at'])}
+
+
 @app.get('/api/reputation/familia/trade-center')
 async def familia_trade_center(address: str = '', session: str = ''):
     """📈 The Trade Center building: the agents' real card live — the aggregate for everyone, every seat (coin · model · live %) for staff."""

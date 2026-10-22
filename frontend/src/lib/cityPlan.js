@@ -60,7 +60,7 @@ export const PLACES = [
 export const ISLANDS = {
   row: { name: 'MARKET ROW', sub: 'the DEXes · pools live', cols: 4, rows: 2, kinds: ['dex'], color: '#45e486' },
   vault: { name: 'VAULT DISTRICT', sub: 'lend · perps · stake', cols: 6, rows: 2, kinds: ['lend', 'perps', 'stake'], color: '#f5c451' },
-  money: { name: 'NEW MONEY', sub: "today's top coins", cols: 5, rows: 3, kinds: ['coin'], color: '#ff8fa3' },
+  money: { name: 'TT · TRENCH TOWERS', sub: "the desk's intake list · tap to trade", cols: 5, rows: 3, kinds: ['coin'], color: '#ff8fa3' },
   ave: { name: 'FEELESS AVENUE', sub: 'every FEELESS tool · one tap', cols: 5, rows: 2, kinds: [], color: '#15d16a' },
 };
 // each outer city's pool district (the Pool Hub's `cities`)

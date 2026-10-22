@@ -55,6 +55,15 @@ function MarkPanel({ k, v }) {
 // 🏦 a REAL market in Fee City: what it offers, its live numbers, and the action — a DEX pool opens on FEELESS (our engine, your wallet
 // signs), everything else opens that market's own app (your wallet signs there; FEELESS never holds funds)
 const KIND_WORD = { dex: 'DEX', lend: 'LENDING', perps: 'PERPS', stake: 'LIQUID STAKING', coin: 'TOP COIN' };
+// ❓ WHY IT PUMPED — the Rep engine's read of a coin, on tap (a coin someone already checked is free; a new one uses a daily check)
+function WhyPumped({ mint }) {
+  const [d, setD] = useState(null); const [busy, setBusy] = useState(false);
+  const go = async () => { setBusy(true); try { const r = await fetch(apiUrl(`/api/reputation/why-pump/${mint}`)); const x = await r.json().catch(() => ({})); if (!r.ok) throw new Error(x.detail || 'No read right now.'); setD(x); } catch (e) { toast.error(e.message); } finally { setBusy(false); } };
+  if (!d) return <button type="button" className="m-btn" disabled={busy || !mint} onClick={go} data-tip="Why did it pump? — the Rep engine's cited read (a coin already checked is free)" data-testid="mk-why">{busy ? '…reading' : '❓ Why it pumped'}</button>;
+  return <div className="fwd-why" data-testid="mk-why-read"><b>{d.headline || d.verdict || 'No clear driver yet'}</b>
+    <ul>{(d.drivers || []).slice(0, 3).map((x, i) => <li key={i} style={{ '--i': i }}>{x.why}<i>{x.source}</i></li>)}</ul>{d.risk ? <small>⚠ {d.risk}</small> : null}</div>;
+}
+
 function MarketPanel({ k, mk }) {
   const m = (mk?.markets || []).find(x => x.key === k) || (mk?.coins || []).map(c => ({ ...c, kind: 'coin', key: `coin-${c.mint || c.sym}`, name: `$${c.sym || c.symbol || '?'}`, symbol: c.sym || c.symbol })).find(x => x.key === k);
   if (!m) return <aside className="fwd-side m-card t-mk"><b>Market</b><p className="m-dim">Reading the market…</p></aside>;
@@ -65,13 +74,16 @@ function MarketPanel({ k, mk }) {
     <div className="fwd-mkv"><span><em>{m.kind === 'coin' ? 'MARKET CAP' : 'TVL'}</em><b className="m-num" key={m.tvl || m.mc}>{usd(m.tvl || m.mc)}</b><u><s style={{ transform: `scaleX(${meter})` }} /></u></span>
       {pool ? <><span><em>BUSIEST POOL</em><b>{pool.base}/{pool.quote}{pool.labels?.[0] ? ` · ${pool.labels[0]}` : ''}</b></span><span><em>POOL LIQ</em><b className="m-num">{usd(pool.liq)}</b></span>
         <span><em>24H VOL</em><b className="m-num">{usd(pool.vol)}</b></span><span><em>24H</em><b className={`m-num ${pool.ch >= 0 ? 'm-pos' : 'm-neg'}`}>{pool.ch >= 0 ? '+' : ''}{Number(pool.ch || 0).toFixed(2)}%</b></span></> : null}
-      {m.kind === 'coin' && m.ch != null ? <span><em>24H</em><b className={`m-num ${m.ch >= 0 ? 'm-pos' : 'm-neg'}`}>{m.ch >= 0 ? '+' : ''}{Number(m.ch).toFixed(1)}%</b></span> : null}</div>
+      {m.kind === 'coin' && m.status ? <span><em>DESK</em><b className="m-num">{m.status}</b></span> : null}
+      {m.kind === 'coin' && m.ch != null ? <span><em>{m.status ? '5M' : '24H'}</em><b className={`m-num ${m.ch >= 0 ? 'm-pos' : 'm-neg'}`}>{m.ch >= 0 ? '+' : ''}{Number(m.ch).toFixed(1)}%</b></span> : null}</div>
     <div className="fwd-acts">{pair ? <button type="button" className="m-btn m-go" onClick={() => openWarRoom({ chainId: 'solana', pairAddress: pair, baseToken: { address: m.mint || pool?.baseMint, symbol: pool?.base || m.symbol } })}
       data-tip="Open this pool's war room on FEELESS — chart, tape, swap through our engine; your wallet signs" data-testid="mk-open">📈 Open on FEELESS</button> : null}
       {m.url ? <a className="m-btn" href={m.url} target="_blank" rel="noopener noreferrer" data-tip={`${m.name}'s own app — deposits / borrows happen there and your wallet signs; FEELESS never holds your funds`} data-testid="mk-app">↗ {m.name}</a> : null}</div>
-    <small className="m-dim">Live from the chain every minute · the roof light pulses with its volume.</small></aside>;
+    {m.kind === 'coin' && (m.read || m.theory) ? <p className="fwd-tt" data-testid="mk-theory">{m.read ? <><b>DESK READ</b> {m.read}<br /></> : null}{m.theory ? <><b>THEORY</b> {m.theory}</> : null}</p> : null}
+    {m.kind === 'coin' && m.mint ? <WhyPumped key={m.mint} mint={m.mint} /> : null}
+    <small className="m-dim">{m.status ? 'TT · from the agents\' intake list (READY first) · Open = chart + Quick trade, your wallet signs.' : 'Live from the chain every minute · the roof light pulses with its volume.'}</small></aside>;
 }
-const ISLAND_OF = { dex: 'Market Row', lend: 'Vault District', perps: 'Vault District', stake: 'Vault District', coin: 'New Money' };
+const ISLAND_OF = { dex: 'Market Row', lend: 'Vault District', perps: 'Vault District', stake: 'Vault District', coin: 'TT · Trench Towers' };
 
 function PlaceCard({ k, onOpen }) {
   const p = PLACES.find(x => x.key === k); if (!p) return null;
@@ -194,8 +206,16 @@ function PlacePanel({ lens, live, onClose, children }) {
     <div className="fwd-placebody">{children}</div></section>;
 }
 
+// 🗼 TT — the agents' INTAKE LIST as Fee City's coin towers (one shared 30 s read; falls back to today's top coins)
+function useIntake() {
+  const [d, setD] = useState(null);
+  useEffect(() => { let on = true; const load = () => fetch(apiUrl('/api/reputation/familia/intake')).then(r => (r.ok ? r.json() : null)).then(x => on && x && setD(x.coins || [])).catch(() => {});
+    load(); const t = setInterval(() => { if (!document.hidden) load(); }, 30000); return () => { on = false; clearInterval(t); }; }, []);
+  return d;
+}
+
 export function FamilyWorld({ addr, sess, onEnter, onJoin, onSignIn, rooms = {} }) {
-  const [v, setV] = useWorld(addr, sess); const [lens, setLensRaw] = useState(null); const mk = useMarkets(); const pools = usePools(); const [sel, setSelRaw] = useState(null); const [busy, setBusy] = useState(false);   // lens = the place you walked into (null = the street)
+  const [v, setV] = useWorld(addr, sess); const [lens, setLensRaw] = useState(null); const mk0 = useMarkets(); const intake = useIntake(); const mk = intake?.length ? { ...(mk0 || {}), coins: intake } : mk0; const pools = usePools(); const [sel, setSelRaw] = useState(null); const [busy, setBusy] = useState(false);   // lens = the place you walked into (null = the street)
   const [city, setCity] = useState('fee'); const [tour, setTour] = useState(false);
   const setSel = x => setSelRaw(s => (x && s && ((x.id && s.id === x.id) || (x.lm && s.lm === x.lm) || (x.mk && s.mk === x.mk) || (x.place && s.place === x.place)) ? null : x));   // tap the picked plot again = zoom back out
   const [crew, setCrew] = useState(null); const { call: adminCall } = useAdmin();

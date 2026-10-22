@@ -54,6 +54,14 @@
 @keyframes fwdPop { from { transform: scale(1.25); } to { transform: none; } }
 @keyframes fwdPulse { 50% { opacity: .5; } }
 @keyframes fwdDeal { from { transform: translateY(-30px) rotate(-12deg); opacity: 0; } }
+.fwd-tt { margin: 0; font: 500 11.5px/1.45 Inter, system-ui, sans-serif; color: #cfd8d2; } .fwd-tt b { font: 800 9.5px 'JetBrains Mono', monospace; letter-spacing: .12em; color: #d4af37; margin-right: 4px; }
+.fwd-why { display: grid; gap: 5px; padding: 9px 11px; border-radius: 12px; border: 1px solid #d4af3744; background: linear-gradient(160deg, #1a1508, #0b0a07); animation: fwdWhy .25s ease-out both; }
+.fwd-why > b { font: 800 12.5px 'JetBrains Mono', monospace; color: #ffd76a; } .fwd-why ul { margin: 0; padding: 0; list-style: none; display: grid; gap: 4px; }
+.fwd-why li { font: 500 11.5px/1.4 Inter, system-ui, sans-serif; color: #e8e3d6; animation: fwdWhy .3s ease-out both; animation-delay: calc(var(--i, 0) * 50ms); }
+.fwd-why li i { margin-left: 6px; font: 700 9px 'JetBrains Mono', monospace; color: #9a8f6a; font-style: normal; } .fwd-why small { color: #ff8fa3; font: 600 10.5px 'JetBrains Mono', monospace; }
+@keyframes fwdWhy { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+body.theme-day .fwd-tt { color: #2a2f2b; } body.theme-day .fwd-why { background: #fbf6e6; border-color: #b8901f55; } body.theme-day .fwd-why > b { color: #7a5a00; } body.theme-day .fwd-why li { color: #2a2620; }
+@media (prefers-reduced-motion: reduce) { .fwd-why, .fwd-why li { animation: none; } }
 body.fx-lite .fwd-drop { animation: none; }
 @media (prefers-reduced-motion: reduce) { .fwd *, .fwd *::after { animation: none !important; transition: none !important; } }
 body.theme-day .fwd { --ink: #2a1f0e; }
