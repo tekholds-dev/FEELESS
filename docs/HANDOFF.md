@@ -1,3 +1,22 @@
+## 🔁 HANDOFF 2026-10-21 late — read first
+Conserve usage · finish everything by priority · never dead-style. Owner rule: research the best sites first, then a FEELESS twist; every page
+complete top to bottom. Order = `CLAUDE.md › CURRENT TASKS › FIFTH list`, then FOURTH, then THIRD.
+1. 🐆 AGENTS clickables (timeframes / seat cards / decision cards "stopped working"): NOT FOUND YET. Ruled out: backend (every /admin call
+   200, agent data fresh), crashes (none in bugs.json today), symTap (seat + tape cards are real buttons), QuickTrade (sibling, not nested).
+   NEXT: the owner signs HQ with the new 📱 scan (`/hq-link`, Phantom deeplink) in the Chrome the extension controls → open HQ › Sicario's
+   → click each control, read the console → fix with a test. (The Chrome profile the extension uses has no Phantom; the scan solves that.)
+2. 🏦 FEE CITY ×3 with real markets: BACKEND DONE (`fee_markets.py`, `GET /api/reputation/familia-markets`: 13 Solana markets with TVL +
+   busiest pool, `coins` = today's top 12 Solana coins; 60s cache). FRONTEND TODO: three market islands around Old Town in `FeeCapital`
+   (east MARKET ROW = dex, west VAULT DISTRICT = lend/perps/stake, south NEW MONEY = coins), internal bridges, gates move to the outer
+   islands (N heights / W harbor / E bay / S docks), world ≈ 2086×1170 (CityStage base zoom min → 0.3). A market = a big Building (dex
+   tower / lend bank / perps casino / stake lab / coin mart) + a billboard (name + TVL or 24h move) + an activity light whose pulse speed
+   follows volume; tap → camera flies + a MarketPanel (WHAT IT OFFERS · LIVE · ACTIONS: DEX pool → open on FEELESS; others → the market's
+   own app, the wallet signs there — never custody). Lenses (Ranked, Raids, Errands, Challenges, Crew deck, Rewards, Cartels) move into city
+   places (pop-out over the map from a landmark), the lens tab row goes. Stoplights at Old Town crossings (cars hold).
+   BUG to fix first: `cityParts.buildingOf` builds `{at: 0}` and `Plot` passes `nowS={0}` → `Building` thinks EVERY city building is under
+   construction (crane + scaffold = the "wand" the owner hates). Pass a real `nowS` (Date.now()/1000) in cityParts / FeeCapital / RaidStage.
+3. 🛡 Security list item (no data hoarding; defend + learn; never attack back) — not started.
+
 ## 🔁 HANDOFF 2026-10-17 13:05 — read first (session "Ossy v G4 turn-based trading")
 Conserve usage · finish everything by priority · never dead-style.
 LIVE (backend restarted 13:05, one copy, all pushed to main, gate green):
