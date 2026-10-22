@@ -5,6 +5,8 @@ import { resolveCoin } from '../lib/resolveCoin';
 import { openWarRoom } from './WarRoomHost';
 import { POOL_KIND, usd, apyTxt } from '../lib/cityPlan';
 import '../styles/poolHub.css';
+import { useWallet } from '../hooks/useWallet';
+import { LEND_SIDES, okAmount, lendLine, lendQuote, lendSign } from '../lib/lendEarn';
 
 // 🏦 THE POOL HUB (the Pool Hall in Fee City + every pool building in the outer cities): every top and rising Solana pool in ONE pop-out —
 // v2 AMMs, v3 / CLMM, DLMM bins, auto-compounding vaults, lending, liquid staking, perps, RWA — with live TVL, APY and its 7-day move.
@@ -50,8 +52,39 @@ function Gauge({ v }) {   // APY ring: fills to 50 % APY, gold past it
 }
 
 // one pool, the same row in the hub list and the side panel
+// 🏦 DEPOSIT HERE (Jupiter Lend rows): amount → the server builds + checks the transaction → you read exactly what runs → your wallet signs.
+export function LendBox({ r, onClose }) {
+  const { wallet, provider, connect } = useWallet() || {};
+  const [side, setSide] = useState('deposit'); const [amt, setAmt] = useState(''); const [q, setQ] = useState(null); const [st, setSt] = useState(''); const [busy, setBusy] = useState(false); const [sig, setSig] = useState('');
+  const sol = wallet?.chain === 'solana' && wallet?.address;
+  const review = async () => {
+    if (!sol) { await connect?.('solana'); return; }
+    setBusy(true); setQ(null); setSt('Building it with Jupiter…');
+    try { setQ(await lendQuote({ address: wallet.address, asset: r.mints[0], side, amount: amt })); setSt(''); } catch (e) { setSt(''); toast.error(e.message); }
+    setBusy(false);
+  };
+  const sign = async () => {
+    setBusy(true);
+    try { const s = await lendSign({ provider, address: wallet.address, quote: q, onStatus: setSt }); setSig(s); setQ(null); setSt(''); toast.success(`🏦 ${side === 'withdraw' ? 'Withdrawn' : 'Deposited'} — it landed`); } catch (e) { setSt(''); toast.error(e.message); }
+    setBusy(false);
+  };
+  return <div className="phb-lend" data-testid={`lend-${r.id}`}>
+    <header><b>🏦 {r.sym} · Jupiter Lend</b><small>your wallet signs · FEELESS never holds funds</small><button type="button" className="phb-x" onClick={onClose} aria-label="Close" data-tip="Close">✕</button></header>
+    <div className="phb-lend-row">
+      <div className="m-seg" role="tablist" aria-label="Deposit or withdraw">{LEND_SIDES.map(([k, w]) => <button key={k} type="button" role="tab" aria-selected={side === k} className={side === k ? 'active' : ''} onClick={() => { setSide(k); setQ(null); }} data-tip={k === 'deposit' ? 'Lend it out and earn the APY' : 'Take it back out to your wallet'}>{w}</button>)}</div>
+      <label className="phb-amt"><input className="m-input" inputMode="decimal" value={amt} onChange={e => { setAmt(e.target.value.replace(',', '.')); setQ(null); }} placeholder="0.00" aria-label={`Amount of ${r.sym}`} data-testid="lend-amt" /><em>{r.sym}</em></label>
+      <button type="button" className="m-btn" disabled={busy || (sol && !okAmount(amt))} onClick={review} data-tip="Jupiter builds it, FEELESS checks every program in it before your wallet sees it" data-testid="lend-review">{sol ? 'Review' : 'Connect wallet'}</button>
+    </div>
+    {q ? <div className="phb-lend-q" data-testid="lend-quote"><p>{lendLine(q, amt)}</p><small>Checked: you pay + sign alone · runs only {q.programs.join(' · ')}</small>
+      <button type="button" className="m-btn m-go" disabled={busy} onClick={sign} data-tip="Simulated first — nothing is signed if Solana would reject it" data-testid="lend-sign">Sign in wallet</button></div> : null}
+    {st ? <p className="phb-lend-st" aria-live="polite"><i aria-hidden="true" />{st}</p> : null}
+    {sig ? <p className="phb-lend-ok">✅ Landed · <a href={`https://solscan.io/tx/${sig}`} target="_blank" rel="noopener noreferrer">view on Solscan ↗</a> · <a href="https://jup.ag/lend/earn" target="_blank" rel="noopener noreferrer">your position on Jupiter ↗</a></p> : null}
+  </div>;
+}
+
 export function PoolRow({ r, i = 0, big = false, blocks = [], onLink }) {
-  const [pick, setPick] = useState(false); const t = tradeOf(r);
+  const [pick, setPick] = useState(false); const [lend, setLend] = useState(false); const t = tradeOf(r);
+  const canLend = r.project === 'jupiter-lend' && (r.mints || []).length > 0;
   const tvlK = Math.max(0.04, Math.min(1, (Math.log10(1 + (r.tvl || 0)) - 4) / 5.5));
   return <li className={`phb-row k-${r.kind} ${big ? 'is-big' : ''}`} style={{ '--i': Math.min(i, 14), '--kc': KIND_COLOR[r.kind] || '#45e486' }} data-testid={`pool-${r.id}`}>
     <span className="phb-id"><b>{r.sym}</b><small>{r.proto} · {POOL_KIND[r.kind] || r.kind}{r.meta ? ` · ${r.meta}` : ''}</small></span>
@@ -61,11 +94,12 @@ export function PoolRow({ r, i = 0, big = false, blocks = [], onLink }) {
     <span className={`phb-rise ${r.rise > 0 ? 'up' : r.rise < 0 ? 'dn' : ''}`} data-tip={r.d7 != null ? `APY move over 7 days: ${r.d7 >= 0 ? '+' : ''}${r.d7}` : 'How busy vs its size (24h volume ÷ liquidity)'}>{r.rise > 0 ? '▲' : r.rise < 0 ? '▼' : '•'} {Math.abs(r.rise || 0).toFixed(1)}</span>
     <span className="phb-acts">
       {t ? <button type="button" className="m-btn m-go" onClick={() => goTrade(r)} data-tip="Through FEELESS: the war room opens on this pool, you pick the amount, your wallet signs" data-testid={`pool-trade-${r.id}`}>⚡ {t.word}</button> : null}
+      {canLend ? <button type="button" className={`m-btn m-go ${lend ? 'active' : ''}`} aria-expanded={lend} onClick={() => setLend(v => !v)} data-tip="Deposit or withdraw right here — Jupiter builds it, FEELESS checks it, your wallet signs" data-testid={`pool-lend-${r.id}`}>🏦 Deposit here</button> : null}
       <a className="m-btn" href={r.app} target="_blank" rel="noopener noreferrer" data-tip={`${r.proto}'s own deposit page for this pool — your wallet signs there; FEELESS never holds your funds`} data-testid={`pool-deposit-${r.id}`}>＋ Deposit ↗</a>
       {onLink && blocks.length ? (pick ? <select className="m-input phb-pick" autoFocus defaultValue="" onChange={e => { if (e.target.value) { onLink(e.target.value, r); setPick(false); } }} onBlur={() => setPick(false)} aria-label="Which of your buildings">
         <option value="" disabled>Set which building…</option>{blocks.map(b => <option key={b} value={b}>{b}</option>)}</select>
         : <button type="button" className="m-btn" onClick={() => (blocks.length === 1 ? onLink(blocks[0], r) : setPick(true))} data-tip="Your family's building wears this pool: its name, kind and live APY on the billboard (display only)" data-testid={`pool-link-${r.id}`}>🏠 Set building</button>) : null}
-    </span></li>;
+    </span>{lend ? <LendBox r={r} onClose={() => setLend(false)} /> : null}</li>;
 }
 
 export function PoolHub({ pools, blocks = [], onLink, start = 'all' }) {

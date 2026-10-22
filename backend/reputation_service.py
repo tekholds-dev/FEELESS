@@ -9509,6 +9509,59 @@ async def familia_pools():
         if v['pools'] or not c['v']:   # a failed read keeps the last good hub
             c.update(at=now, v=v)
         return c['v']
+_fle_hits = {}   # ip → [times] (the deposit builder: 30 an hour per IP)
+
+
+@app.post('/api/reputation/familia-pools/earn')
+async def familia_pools_earn(request: Request):
+    """🏦 Deposit / withdraw in a Jupiter Lend market WITHOUT leaving FEELESS: Jupiter builds the unsigned transaction, `lend_earn.verify`
+    opens it (the user pays + signs alone, only Jupiter Lend + Solana's own programs) and only then hands it back for the wallet to sign.
+    FEELESS never holds funds and never signs. The market must be a Jupiter Lend row on the Pool Hub."""
+    import lend_earn as _le
+    body = await request.json()
+    try:
+        side_, asset_, signer_, amt_ = _le.clean_request(body)
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+    ip_ = (request.client.host if request.client else '') or '?'; now = time.time()
+    hits_ = [t_ for t_ in _fle_hits.get(ip_, []) if now - t_ < 3600]
+    if len(hits_) >= 30:
+        raise HTTPException(429, 'Too many deposit builds from here — try again in a while.')
+    _fle_hits[ip_] = hits_ + [now]
+    if len(_fle_hits) > 5000:
+        _fle_hits.clear()
+    hub_ = await familia_pools()
+    row_ = next((r_ for r_ in (hub_ or {}).get('pools') or [] if r_.get('project') == 'jupiter-lend' and asset_ in (r_.get('mints') or [])), None)
+    if not row_:
+        raise HTTPException(400, 'Only Jupiter Lend markets on the Pool Hub can be deposited from here.')
+    dec_ = await _mint_decimals(asset_)
+    units_ = _le.base_units(amt_, dec_) if dec_ is not None else None
+    if not units_:
+        raise HTTPException(400, 'Type an amount above zero.')
+    key_ = _jkeys.read_key(os.environ)
+    hosts_ = ([(_le.EARN, {'x-api-key': key_})] if key_ else []) + [(_le.EARN_PUBLIC, {})]
+    why_ = 'Jupiter did not answer.'
+    for base_, hdr_ in hosts_:
+        try:
+            r_ = await _ai_http().post(f"{base_}/{side_}", json={'asset': asset_, 'signer': signer_, 'amount': units_}, headers=hdr_, timeout=12)
+        except Exception:
+            continue
+        if r_.status_code == 429:
+            why_ = 'Jupiter is busy right now — try again in a minute.'
+            continue
+        tx_ = (r_.json() or {}).get('transaction') if r_.status_code == 200 else None
+        if not tx_:
+            why_ = f"Jupiter refused it: {str((r_.json() if r_.headers.get('content-type', '').startswith('application/json') else {}).get('error') or r_.status_code)[:120]}"
+            continue
+        ok_, bad_, progs_ = _le.verify(tx_, signer_)
+        if not ok_:
+            print('lend earn refused:', bad_, progs_)
+            raise HTTPException(502, f"Refused before your wallet saw it: {bad_}")
+        return {'transaction': tx_, 'side': side_, 'asset': asset_, 'units': units_, 'decimals': dec_, 'sym': row_.get('sym'), 'apy': row_.get('apy'),
+                'programs': sorted({_le.ALLOW[p_] for p_ in progs_})}
+    raise HTTPException(503, why_)
+
+
 _fmk_http = None
 
 
