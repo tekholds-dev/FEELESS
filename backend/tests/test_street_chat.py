@@ -78,3 +78,23 @@ def test_the_creator_sees_their_family_from_any_linked_or_hq_wallet(monkeypatch)
     src = open(rs.__file__).read()
     i = src.index('async def familia_world(')
     assert 'me = _seat_of(st, me) if me else None' in src[i:i + 1200]
+
+
+def test_overwatch_shows_every_family_to_the_owner_only(monkeypatch):
+    import asyncio
+    import json
+    import reputation_service as rs
+    st = {'crews': {'c1': {'id': 'c1', 'tag': 'SIC', 'name': 'Sicario', 'owner': 'HQ', 'members': ['HQ', 'M2'], 'seats': 5, 'paid': [{'usd': 25, 'at': 1}]},
+                    'c2': {'id': 'c2', 'tag': 'BNK', 'name': 'Bonk Boys', 'owner': 'B1', 'members': ['B1'], 'seats': 5, 'paid': []}},
+          'by': {'HQ': 'c1', 'M2': 'c1', 'B1': 'c2'}}
+    rs.CREWS_PATH.write_text(json.dumps(st))
+    monkeypatch.setattr(rs, '_is_staff', lambda a: a == 'HQ')
+    monkeypatch.setattr(rs, '_crew_pieces', lambda ms, now: {'M2': [{'usd': 12.0, 'costUsd': 100.0, 'at': now}]})
+    calls = []
+    monkeypatch.setattr(rs, '_require_owner', lambda req: calls.append(req) or 'HQ')
+    out = asyncio.run(rs.admin_familia_overwatch(object()))
+    assert calls and [f['tag'] for f in out['families']] == ['SIC', 'BNK']               # the creator's family first
+    sic = out['families'][0]
+    assert sic['creator'] and sic['paidUsd'] == 25 and sic['week']['trades'] == 1 and sic['week']['usd'] == 12.0
+    assert {m['address']: m['don'] for m in sic['members']} == {'HQ': True, 'M2': False}
+    assert out['totals']['families'] == 2 and out['totals']['members'] == 3 and out['pricing']['baseSeats'] == 5 and 'custody' in out

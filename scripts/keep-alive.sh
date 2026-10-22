@@ -28,6 +28,12 @@ lm_watch() {
   # LM Studio on ANOTHER machine (LAN base URL): that machine runs its own server + model — nothing to start or load here
   grep -E '^LOCAL_LLM_BASE_URL=' "$root/backend/.env" 2>/dev/null | head -1 | grep -qvE '//(127\.0\.0\.1|localhost)(:|/|$)' && return 0
   local model; model="$(lm_model)"; model="${model:-qwen2.5-7b-instruct-mlx}"
+  # 🚧 Brain › Models is reloading the model right now (backend writes data/lms_reloading, < 5 min old) — never load a second copy beside it
+  local mark="$root/backend/data/lms_reloading"
+  if [[ -f "$mark" ]] && (( $(date +%s) - $(stat -f %m "$mark" 2>/dev/null || echo 0) < 300 )); then return 0; fi
+  # 🎛 the owner's wanted context (Brain › Models / a chat line, data/ai_rig.json local.load.ctx) wins over the default
+  local want; want="$(python3 -c "import json; print(((json.load(open('$root/backend/data/ai_rig.json')).get('local') or {}).get('load') or {}).get('ctx') or '')" 2>/dev/null)"
+  local LM_CTX="${want:-$LM_CTX}"
   if ! curl -s -m 5 -o /dev/null http://127.0.0.1:1234/v1/models; then
     "$LMS" server start >/dev/null 2>&1 && echo "$(date '+%F %T') LM Studio server started"
     return 0

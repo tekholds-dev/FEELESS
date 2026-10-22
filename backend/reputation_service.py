@@ -9200,6 +9200,7 @@ def _world_view(st, c, me, now, cartels_):
     v['landmarks'] = [{'key': k, 'name': n, 'lore': lo, 'live': live_.get(k)} for k, n, lo in _fworld.LANDMARKS]
     v['rules'] = {k: _familia_rules()[k] for k in _fworld.LIVE_RULES}
     v['ffuse'] = _ffuse_view(st, c, now)
+    v['staff'] = bool(me and _is_staff(me))   # 👑 the creator sees the OVERWATCH door in the city
     if c:
         city = _fcity.city_of(c, now)
         met = _world_metrics(st, c, now)
@@ -9229,6 +9230,49 @@ def _world_view(st, c, me, now, cartels_):
         v['raids'] = [_fworld.raid_view(r, 'a' if r['a']['id'] == c['id'] else 'b') for r in w['raids'].values()
                       if c['id'] in (r['a']['id'], r['b']['id'])][-8:]
     return v
+
+
+@app.get('/api/reputation/admin/familia/overwatch')
+async def admin_familia_overwatch(request: Request):
+    """👑 OVERWATCH — the creator's eye on EVERY family (owner, 2026-10-22: "every family's wallet, bank, trades, pools, members, plus Familia
+    pricing / limits / fees"). Owner only, read-only: each family's members (wallets + their verified FEELESS trades this week), MP bank, war
+    chest + record, turf + home, buildings set to real pools (live APY), the fees it paid, its pinned launch; totals; the prices and limits HQ
+    sets. Family wallets with real money wait on the custody pick (P5) — this shows what exists today."""
+    _require_owner(request)
+    import crews as _cr
+    now = time.time(); st = _json_load(CREWS_PATH, {}); _cr._norm(st); w = st.get('world') or _fworld.blank()
+    crews_ = list((st.get('crews') or {}).values())
+    pieces_ = await asyncio.to_thread(_crew_pieces, sorted({m for c in crews_ for m in c.get('members') or []}), now)
+    links_ = w.get('links') or {}
+    live_p = {r['id']: r for r in ((_fpl_cache.get('v') or {}).get('pools') or [])}
+    fams = []
+    for c in crews_:
+        city_ = _fcity.city_of(c, now)
+        mem_ = []
+        for m in c.get('members') or []:
+            s_ = _cr.stats(pieces_.get(m, []))
+            mem_.append({'address': m, 'name': _crew_name(m), 'don': m == c.get('owner'), 'staff': _is_staff(m), **s_})
+        wk_ = _cr.stats([p_ for m in c.get('members') or [] for p_ in pieces_.get(m, [])])
+        turf_ = _fworld.turf_of(w, c['id'])
+        pools_ = [{'block': b_, 'name': ln_.get('name') or ln_.get('pool'), 'apy': (live_p.get(ln_.get('pool')) or {}).get('apy'), 'tvl': (live_p.get(ln_.get('pool')) or {}).get('tvl')}
+                  for b_, ln_ in links_.items() if (w.get('own') or {}).get(b_) == c['id']]
+        paid_ = [x for x in c.get('paid') or [] if isinstance(x, dict)]
+        fams.append({'id': c['id'], 'tag': c.get('tag'), 'name': c.get('name'), 'badge': _cr.badge_view(c, st.get('awards'), _crew_cfg(), _is_staff(c.get('owner'))),
+                     'owner': {'address': c.get('owner'), 'name': _crew_name(c.get('owner') or '')}, 'creator': _is_staff(c.get('owner')),
+                     'seats': c.get('seats'), 'members': mem_, 'bankMp': int(city_['bank']), 'power': _fcity.power(city_), 'chest': _fwar.chest(c),
+                     'record': _fwar.record(c), 'home': (w.get('home') or {}).get(c['id']), 'turf': turf_, 'pools': pools_, 'week': wk_,
+                     'paidUsd': round(sum(float(x.get('usd') or 0) for x in paid_), 2), 'payments': len([x for x in paid_ if x.get('usd')]),
+                     'launch': {'symbol': (c.get('launch') or {}).get('symbol'), 'mint': (c.get('launch') or {}).get('mint')} if (c.get('launch') or {}).get('mint') else None,
+                     'created': c.get('created'), 'code': bool(c.get('codeHash') or c.get('code'))})
+    fams.sort(key=lambda f: (-f['creator'], -f['power']))
+    cfg_ = _crew_cfg()
+    return {'families': fams, 'at': round(now, 1),
+            'totals': {'families': len(fams), 'members': sum(len(f['members']) for f in fams), 'bankMp': sum(f['bankMp'] for f in fams),
+                       'trades7d': sum(f['week']['trades'] for f in fams), 'usd7d': round(sum(f['week']['usd'] for f in fams), 2), 'paidUsd': round(sum(f['paidUsd'] for f in fams), 2),
+                       'turf': sum(len(f['turf']) for f in fams), 'pools': sum(len(f['pools']) for f in fams), 'houseMp': int(st.get('house') or 0)},
+            'pricing': {'createUsd': _cr.price('create', cfg_), 'packUsd': _cr.price('seats', cfg_), 'badgeUsd': _crew_badge_usd(), 'baseSeats': _cr.BASE_SEATS},
+            'limits': {k_: v_ for k_, v_ in _familia_rules().items() if k_ in ('familiesPerWallet', 'upkeepMp', 'fuseMinMp', 'hitCapPct', 'raidCooldownH', 'maxTurf')},
+            'custody': 'Family wallets that hold real money wait on the custody pick (CLAUDE.md P5) — every member trades from their own wallet today.'}
 
 
 @app.get('/api/reputation/admin/familia/rules')
@@ -17229,7 +17273,7 @@ async def _ai_proposal_apply(p, now):
             want_ = _rg.parse_load_value(v_)
             new_ = _rg.clean({mk_: {'load': want_}}, prev_)
             _json_save(AI_RIG_PATH, new_); _rig_apply()
-            res_ = await _air.ROUTER.reload_model(_ai_http(), os.environ, _ai_cfg(), mk_, new_[mk_]['load'])
+            res_ = await _lms_reload(mk_, new_[mk_]['load'])
             _lms_seen.pop(mk_, None)
             if not res_.get('ok'):
                 return f"{_rg.NAMES[mk_]}: saved {_rg.load_words(want_)}, but the reload FAILED — {res_.get('err')} (tap ⚡ Reload in Brain › Models to retry)"
@@ -17379,6 +17423,22 @@ def _nexa_kick(ctx, par, restart=False):
 
 
 _lms_reloading: set = set()   # ⚡ models reloading right now (one reload per model at a time)
+LMS_MARK_PATH = DATA_DIR / 'lms_reloading'   # 🚧 scripts/keep-alive.sh's LM watchdog stands down while this file is < 5 min old (no double load mid-reload)
+
+
+async def _lms_reload(key, want):
+    """⚡ The ONE door to an LM Studio reload (the owner's ✅ or ⚡ tap): marks the reload for the keep-alive watchdog, reloads, clears the mark."""
+    try:
+        LMS_MARK_PATH.write_text(f'{key} {time.time():.0f}')
+    except OSError:
+        pass
+    try:
+        return await _air.ROUTER.reload_model(_ai_http(), os.environ, _ai_cfg(), key, want)
+    finally:
+        try:
+            LMS_MARK_PATH.unlink()
+        except OSError:
+            pass
 _lms_seen: dict = {}   # 🧠 {key: (at, lms_row)} — what each LM Studio REALLY runs (15s cache; a reload clears it)
 
 
@@ -17430,7 +17490,7 @@ async def admin_ai_rig_set(request: Request):
             raise HTTPException(429, f'{_rg.NAMES[rl_]} is already reloading.')
         _lms_reloading.add(rl_)
         try:
-            res_ = await _air.ROUTER.reload_model(_ai_http(), os.environ, _ai_cfg(), rl_, new_[rl_]['load'])
+            res_ = await _lms_reload(rl_, new_[rl_]['load'])
         finally:
             _lms_reloading.discard(rl_)
         _lms_seen.pop(rl_, None)

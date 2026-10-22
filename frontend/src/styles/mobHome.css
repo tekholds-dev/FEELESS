@@ -33,7 +33,7 @@
 .mh-act { --ac: #ff4d6d; display: grid; justify-items: center; align-content: center; gap: 1px; width: 66px; height: 66px; border-radius: 50%; cursor: pointer; color: #fff;
   border: 2px solid var(--ac); background: radial-gradient(circle at 50% 30%, color-mix(in srgb, var(--ac) 55%, #000), #0a0610 75%); box-shadow: 0 0 18px color-mix(in srgb, var(--ac) 55%, transparent), inset 0 2px 0 #ffffff33;
   transition: transform .15s ease, box-shadow .15s ease; }
-.mh-act.k-fuse { --ac: #45e486; } .mh-act.k-earn { --ac: #ffd36b; } .mh-act i { font-style: normal; font-size: 22px; line-height: 1; } .mh-act b { font: 900 9px 'JetBrains Mono', monospace; letter-spacing: .12em; }
+.mh-act.k-fuse { --ac: #45e486; } .mh-act.k-earn { --ac: #ffd36b; } .mh-act.k-ow { --ac: #ff8fa3; } .mh-act i { font-style: normal; font-size: 22px; line-height: 1; } .mh-act b { font: 900 9px 'JetBrains Mono', monospace; letter-spacing: .12em; }
 .mh-act:hover:not(:disabled) { transform: scale(1.08); box-shadow: 0 0 28px var(--ac), inset 0 2px 0 #ffffff44; } .mh-act:active:not(:disabled) { transform: scale(.94); }
 .mh-act:focus-visible { outline: 2px solid #fff; outline-offset: 3px; } .mh-act:disabled { opacity: .4; cursor: not-allowed; }
 .mh-act.is-hot { animation: mhPulse 1.4s ease-in-out infinite; }

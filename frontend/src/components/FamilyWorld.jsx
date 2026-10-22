@@ -12,6 +12,8 @@ import { FamilyFuseBoard } from './FamilyFuseBoard';
 import { RaidStage } from './RaidStage';
 import { AvenueRoom, AVENUE_LENSES } from './CityAvenue';
 import { CityActions, PowerSkyline, SeasonHud, TheWire } from './MobHome';
+import { FamiliaOverwatch } from './command/FamiliaOverwatch';
+import { useAdmin } from '../lib/adminCall';
 import '../styles/familyWorld.css';
 
 // 🗺 THE FAMILIA WORLD (owner, 2026-10-21: "huge like a Sims build — bridges to other parts, seasons, buy blocks near rivals, CPU towns hard to
@@ -180,8 +182,9 @@ export function FamilyTab({ mine, addr, sess, tools, onEnter, onLeave }) {
 }
 
 // 🚪 inside a place: its room pops out OVER the city (the street stays live behind it) — Esc or ✕ walks back out
+const EXTRA_PLACES = { overwatch: { key: 'overwatch', name: '👑 OVERWATCH', sub: 'creator only · every family', color: '#ff8fa3' } };
 function PlacePanel({ lens, live, onClose, children }) {
-  const p = PLACES.find(x => x.lens === lens);
+  const p = PLACES.find(x => x.lens === lens) || EXTRA_PLACES[lens];
   useEffect(() => { const esc = e => { if (e.key === 'Escape') onClose(); }; window.addEventListener('keydown', esc); return () => window.removeEventListener('keydown', esc); }, [onClose]);
   return <section className={`fwd-place k-${p?.key || lens}${p?.tool ? ' is-tool' : ''}`} style={{ '--pc': p?.color || '#d4af37' }} role="dialog" aria-label={p?.name || lens} data-testid={`place-panel-${lens}`}>
     <header><i aria-hidden="true" /><span><b>{p?.name || lens}</b><small>{p?.sub}{lens === 'raids' && live ? ` · ${live} live` : ''}</small></span>
@@ -193,7 +196,7 @@ export function FamilyWorld({ addr, sess, onEnter, onJoin, rooms = {} }) {
   const [v, setV] = useWorld(addr, sess); const [lens, setLensRaw] = useState(null); const mk = useMarkets(); const pools = usePools(); const [sel, setSelRaw] = useState(null); const [busy, setBusy] = useState(false);   // lens = the place you walked into (null = the street)
   const [city, setCity] = useState('fee'); const [tour, setTour] = useState(false);
   const setSel = x => setSelRaw(s => (x && s && ((x.id && s.id === x.id) || (x.lm && s.lm === x.lm) || (x.mk && s.mk === x.mk) || (x.place && s.place === x.place)) ? null : x));   // tap the picked plot again = zoom back out
-  const [crew, setCrew] = useState(null);
+  const [crew, setCrew] = useState(null); const { call: adminCall } = useAdmin();
   const setLens = k => { if (!k || k === 'map') { setLensRaw(null); return; } const p = PLACES.find(x => x.lens === k); setLensRaw(k); setCity('fee'); if (p) setSelRaw({ place: p.key }); };
   useEffect(() => { if (!addr || !sess || lens !== 'deck') return; fetch(apiUrl(`/api/reputation/familia-city?address=${addr}&session=${encodeURIComponent(sess)}`)).then(r => (r.ok ? r.json() : null)).then(x => x && setCrew(x.crew || [])).catch(() => {}); }, [lens, addr, sess]);
   const act = async (body, ok) => {
@@ -217,6 +220,7 @@ export function FamilyWorld({ addr, sess, onEnter, onJoin, rooms = {} }) {
   const howBtn = <button type="button" className={tour ? 'active' : ''} onClick={() => setTour(t => !t)} aria-pressed={tour} data-tip="Show how Familia works, pinned on the city" data-testid="city-tour">❓ How it works</button>;
   const link = (block, r) => act({ act: 'link', block, pool: r.id }, `${block} now wears ${r.sym}`);   // 🏠 set your building to a real pool (display only)
   const place = {
+    overwatch: v.staff ? <FamiliaOverwatch call={adminCall} /> : null,   // 👑 creator only (the server re-checks the owner signature)
     ranked: <RankLadder ranked={v.ranked} mine={me?.id} />,
     raids: <div className="fwd-raids">{(v.raids || []).length ? v.raids.slice().reverse().map(r => <RaidStage key={r.id} r={r} act={act} busy={busy} />)
       : <p className="m-dim">No raids. Tap a rival building in the city — a CPU town if you're brave.</p>}

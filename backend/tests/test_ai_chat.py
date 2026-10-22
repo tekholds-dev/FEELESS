@@ -250,3 +250,18 @@ def test_an_approved_rig_change_applies_through_the_service(monkeypatch):
     with pytest.raises(ValueError):
         asyncio.run(rs._ai_proposal_apply({'kind': 'rig', 'key': 'lan.slippage', 'new': 5}, 1.0))
     rs._air.RIG.clear()
+
+
+def test_a_reload_marks_itself_for_the_keep_alive_watchdog(monkeypatch):
+    import asyncio
+    import reputation_service as rs
+    seen = {}
+
+    async def fake_reload(http, env, cfg, key, want):
+        seen['mark'] = rs.LMS_MARK_PATH.exists()
+        return {'ok': True, 'ms': 1, 'loaded': {}}
+    monkeypatch.setattr(rs._air.ROUTER, 'reload_model', fake_reload)
+    asyncio.run(rs._lms_reload('local', {'ctx': 8192}))
+    assert seen['mark'] is True and not rs.LMS_MARK_PATH.exists()   # marked during the reload, cleared after
+    sh = open(rs.__file__.replace('backend/reputation_service.py', 'scripts/keep-alive.sh')).read()
+    assert 'lms_reloading' in sh and "get('load')" in sh

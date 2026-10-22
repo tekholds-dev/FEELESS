@@ -1,3 +1,4 @@
+import { FamiliaOverwatch } from './FamiliaOverwatch';
 import React, { useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import '../../styles/familiaAdmin.css';
@@ -35,6 +36,7 @@ export function FamiliaAdmin({ call }) {
   if (!d) return <p className="cc-empty">Reading the city…</p>;
   const e = d.economy; const pay = hitPayout(+sim.stake, +sim.sender, +sim.target, +r.hitRate || 0, +r.hitCapUsd || 0);
   return <section className="fad m-stack" data-testid="familia-admin">
+    <FamiliaOverwatch call={call} />
     <div className="fad-kpis m-card m-live">{[['FAMILIES', e.families], ['MEMBERS', e.members], ['MP IN BANKS', e.bankMp], ['TOP BANK', e.topBankMp], ['🏦 THE HOUSE', e.houseMp], ['RAIDS LIVE', e.raidsLive], ['RAIDS 24H', e.raids24h]]
       .map(([k, v], i) => <span key={k} style={{ '--i': i }}><b key={v} className="m-num">{n(v)}</b><em>{k}</em></span>)}</div>
     <div className="fad-cities m-card"><span className="m-label">🗺 PLOTS HELD PER CITY</span>{e.cities.map((c, i) => <p key={c.key} className={c.key === 'fee' ? 'is-fee' : ''} style={{ '--i': i }}>

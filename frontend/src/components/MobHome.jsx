@@ -61,6 +61,7 @@ export function CityActions({ v, go }) {
     <button type="button" className={`mh-act k-raid ${live ? 'is-hot' : ''}`} onClick={() => go('raids')} data-tip={live ? 'Your raid is live — make your move' : 'Raids: pick a rival block on the city, then send a hitter'} data-testid="act-raid"><i>⚔</i><b>RAID</b></button>
     <button type="button" className="mh-act k-fuse" onClick={() => go('fuse')} data-tip="Family Fuse in the Fuse Arena stadium" data-testid="act-fuse"><i>🧬</i><b>FUSE</b></button>
     <button type="button" className="mh-act k-earn" onClick={() => go('jobs')} disabled={!me} data-tip={me ? 'Errands pay MP + your points' : 'Join a family to run errands'} data-testid="act-earn"><i>💰</i><b>EARN</b></button>
+    {v.staff ? <button type="button" className="mh-act k-ow" onClick={() => go('overwatch')} data-tip="Creator only: every family's wallets, bank, trades, pools, members + Familia prices" data-testid="act-overwatch"><i>👑</i><b>WATCH</b></button> : null}
   </div>;
 }
 
