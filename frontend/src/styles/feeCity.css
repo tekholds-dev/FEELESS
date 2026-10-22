@@ -26,7 +26,7 @@
   background: repeating-conic-gradient(#8a1f2a 0 3deg, #c9c2b0 3deg 5deg, #24406a 5deg 8deg, #b08a20 8deg 10deg, #1d1d24 10deg 12deg);
   -webkit-mask: radial-gradient(closest-side, transparent 74%, #000 75%); mask: radial-gradient(closest-side, transparent 74%, #000 75%); }
 .fc-std-tier.t1 { inset: 16px; transform: translateZ(8px); } .fc-std-tier.t2 { inset: 7px; transform: translateZ(17px); } .fc-std-tier.t3 { inset: -1px; transform: translateZ(27px); box-shadow: 0 0 0 2px #77777f; }
-.fc-std-tier.t2::after { content: ''; position: absolute; inset: 0; border-radius: 50%; background: radial-gradient(circle, #fff 0 1px, transparent 2px) 0 0 / 23px 17px; animation: fcFlash 1.7s steps(2) infinite; }
+.fc-std-tier.t2::after { content: ''; position: absolute; inset: 0; border-radius: 50%; background: radial-gradient(circle, #fff 0 1px, transparent 2px) 0 0 / 23px 17px; animation: fcFlash 3s ease-in-out infinite; }
 .fc-std-pitch { position: absolute; inset: 34px 46px; border-radius: 42%; transform: translateZ(3px); background: repeating-linear-gradient(90deg, #1f7a3a 0 16px, #24904a 16px 32px); box-shadow: 0 0 34px #45e48688, inset 0 0 0 2px #e8ffe988; }
 .fc-std-pitch b { position: absolute; left: 50%; top: 50%; width: 38px; height: 38px; margin: -19px; border-radius: 50%; border: 2px solid #e8ffe9aa; }
 .fc-std-pitch b::before { content: ''; position: absolute; left: 50%; top: -60px; bottom: -60px; width: 2px; margin-left: -1px; background: #e8ffe988; }

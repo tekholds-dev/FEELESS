@@ -19,18 +19,18 @@
 /* 2 · STATIC — TV noise crackling on the frame */
 .mca-static::before { content: ''; position: absolute; inset: 8%; border-radius: 22px; opacity: .55; mix-blend-mode: screen;
   background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='1.1' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  0 0 0 1.4 -0.4'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>");
-  -webkit-mask: radial-gradient(closest-side, transparent 78%, #000 92%); mask: radial-gradient(closest-side, transparent 78%, #000 92%); animation: auStatic .3s steps(4) infinite; }
+  -webkit-mask: radial-gradient(closest-side, transparent 78%, #000 92%); mask: radial-gradient(closest-side, transparent 78%, #000 92%); animation: auStatic 7s ease-in-out infinite alternate; }
 .mca-static i { left: 6%; right: 6%; height: 2px; top: calc(10% + var(--i) * 9%); background: rgba(255, 255, 255, .35); opacity: 0; animation: auScan 2.4s linear calc(var(--i) * .27s) infinite; }
 @keyframes auStatic { 0% { transform: translate(0, 0); } 25% { transform: translate(-6px, 4px); } 50% { transform: translate(5px, -3px); } 75% { transform: translate(-3px, -6px); } 100% { transform: translate(4px, 5px); } }
 @keyframes auScan { 0%, 88% { opacity: 0; transform: scaleX(.3); } 92% { opacity: .9; transform: scaleX(1); } 100% { opacity: 0; } }
 
 /* 3 · LIGHTNING — bolts strike the edges */
-.mca-lightning::before { content: ''; position: absolute; inset: 10%; border-radius: 24px; box-shadow: 0 0 40px 6px rgba(120, 180, 255, .35); opacity: .6; animation: auFlash 2.6s steps(1) infinite; }
+.mca-lightning::before { content: ''; position: absolute; inset: 10%; border-radius: 24px; box-shadow: 0 0 40px 6px rgba(120, 180, 255, .35); opacity: .6; animation: auFlash 4s ease-in-out infinite; }
 .mca-lightning i { top: calc(4% + var(--i) * 11%); left: calc(mod(var(--i), 2) * 88%); width: 12%; height: 22%; opacity: 0;
   background: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 60'><path d='M12 0 L4 26 L11 26 L6 60 L18 20 L11 20 L16 0 Z' fill='%23e8f6ff' stroke='%236ab8ff' stroke-width='1.5'/></svg>") center/contain no-repeat;
-  animation: auBolt 2.6s steps(1) calc(var(--i) * .41s) infinite; }
-@keyframes auBolt { 0%, 90% { opacity: 0; } 91% { opacity: 1; transform: scale(1.1); } 94% { opacity: .2; } 96% { opacity: 1; } 100% { opacity: 0; } }
-@keyframes auFlash { 0%, 89% { opacity: .35; } 90%, 95% { opacity: 1; } }
+  animation: auBolt 4.5s ease-in-out calc(var(--i) * .7s) infinite; }
+@keyframes auBolt { 0%, 70%, 100% { opacity: 0; } 84% { opacity: .85; transform: scale(1.05); } }
+@keyframes auFlash { 0%, 100% { opacity: .35; } 50% { opacity: .8; } }
 
 /* 4 · FROST — icy rim + drifting snowflakes */
 .mca-frost::before { content: ''; position: absolute; inset: 9%; border-radius: 24px; border: 2px solid rgba(190, 235, 255, .6); box-shadow: 0 0 28px rgba(140, 210, 255, .45), inset 0 0 18px rgba(200, 240, 255, .35); }
@@ -83,9 +83,9 @@
 
 /* 12 · NEON — double neon tube outline buzzing */
 .mca-neon::before, .mca-neon::after { content: ''; position: absolute; border-radius: 26px; }
-.mca-neon::before { inset: 9%; border: 2px solid #ff5ad1; box-shadow: 0 0 10px #ff5ad1, 0 0 26px #ff5ad1, inset 0 0 10px #ff5ad1; animation: auBuzz 3s steps(1) infinite; }
-.mca-neon::after { inset: 6%; border: 2px solid #00e5ff; box-shadow: 0 0 10px #00e5ff, 0 0 26px #00e5ff; animation: auBuzz 3s steps(1) -1.4s infinite; }
-@keyframes auBuzz { 0%, 70%, 74%, 100% { opacity: 1; } 72%, 76% { opacity: .25; } }
+.mca-neon::before { inset: 9%; border: 2px solid #ff5ad1; box-shadow: 0 0 10px #ff5ad1, 0 0 26px #ff5ad1, inset 0 0 10px #ff5ad1; animation: auBuzz 4s ease-in-out infinite; }
+.mca-neon::after { inset: 6%; border: 2px solid #00e5ff; box-shadow: 0 0 10px #00e5ff, 0 0 26px #00e5ff; animation: auBuzz 4s ease-in-out -2s infinite; }
+@keyframes auBuzz { 0%, 100% { opacity: 1; } 50% { opacity: .55; } }
 
 /* 13 · SHOCKWAVE — rings blasting out from the card */
 .mca-shockwave i { inset: 22% 18%; border-radius: 50%; border: 2px solid rgba(21, 209, 106, .8); opacity: 0; animation: auWave 2.4s ease-out calc(var(--i) * .6s) infinite; }

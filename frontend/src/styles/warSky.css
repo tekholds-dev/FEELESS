@@ -15,14 +15,14 @@
 .wsky.t-crab .wsky-p { animation-name: wskyDrift; width: 2px; height: 2px; }
 .wsky.t-rain .wsky-p, .wsky.t-storm .wsky-p { bottom: auto; top: -20px; width: 1px; height: 22px; border-radius: 1px; box-shadow: none; background: linear-gradient(transparent, var(--sk2)); animation-name: wskyFall; animation-duration: calc(var(--d) / 4); }
 .wsky-bolt { position: absolute; inset: 0; background: radial-gradient(70% 50% at 30% 10%, rgba(220, 200, 255, .5), transparent 60%); opacity: 0; }
-.wsky.t-storm .wsky-bolt { animation: wskyBolt 5.5s steps(1) infinite; }
+.wsky.t-storm .wsky-bolt { animation: wskyBolt 6s ease-in-out infinite; }
 @keyframes wskyRoll { to { transform: rotateX(62deg) translateY(60px); } }
 @keyframes wskyScan { from { transform: translateY(-140px); } to { transform: translateY(110vh); } }
 @keyframes wskyBreath { 50% { opacity: .22; transform: scale(1.05); } }
 @keyframes wskyRise { 0% { opacity: 0; transform: translateY(0); } 15% { opacity: .8; } 100% { opacity: 0; transform: translateY(-95vh); } }
 @keyframes wskyDrift { 0% { opacity: 0; transform: translate(0, -20vh); } 30% { opacity: .45; } 100% { opacity: 0; transform: translate(14vw, -50vh); } }
 @keyframes wskyFall { 0% { opacity: 0; transform: translateY(0); } 10% { opacity: .55; } 100% { opacity: 0; transform: translateY(100vh); } }
-@keyframes wskyBolt { 0%, 90%, 94%, 100% { opacity: 0; } 91%, 95% { opacity: 1; } }
+@keyframes wskyBolt { 0%, 78%, 100% { opacity: 0; } 88% { opacity: .6; } }   /* calm: the storm glows, never strobes */
 
 /* 🌦 coin weather */
 .dw-coin .dw-main em { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 4px; }

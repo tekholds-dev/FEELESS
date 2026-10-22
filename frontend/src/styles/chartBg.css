@@ -67,7 +67,7 @@
   animation: cbgTape calc(26s + (var(--i) % 3) * 9s) linear infinite; animation-delay: calc(var(--i) * -4.1s); }
 .cbg-trow:nth-of-type(2n) { animation-direction: reverse; opacity: .1; }
 .cbg-tape.is-tick .cbg-trow:nth-of-type(3) { animation: cbgTape 30s linear infinite, cbgRowFlash .5s ease-out; }
-.cbg-tape .cbg-cursor { left: 6%; bottom: 10%; width: 9px; height: 15px; background: #ffb547; opacity: .3; animation: cbgCursor 1s steps(1) infinite; }
+.cbg-tape .cbg-cursor { left: 6%; bottom: 10%; width: 9px; height: 15px; background: #ffb547; opacity: .3; animation: cbgCursor 2.6s ease-in-out infinite; }
 
 @keyframes cbgHz { 0% { transform: scaleY(5); opacity: 1; } 100% { transform: none; } }
 @keyframes cbgSunKick { 30% { transform: scale(1.12); opacity: .34; } }
@@ -80,7 +80,7 @@
 @keyframes cbgWord { 30% { opacity: .22; transform: scale(1.06); } }
 @keyframes cbgTape { from { transform: translate3d(0, 0, 0); } to { transform: translate3d(-50%, 0, 0); } }
 @keyframes cbgRowFlash { 30% { opacity: .5; } }
-@keyframes cbgCursor { 50% { opacity: 0; } }
+@keyframes cbgCursor { 50% { opacity: .05; } }
 
 /* compact on purpose: a wide picker pushed the toolbar's other buttons onto two lines — it shows the scene's icon, the list shows the names */
 .chart-bg-pick { height: 26px; width: 40px; flex: none; padding: 0 4px; text-overflow: clip; border-radius: 6px; border: 1px solid #203129; background: #0a1210; color: #b9cdc2; font: 10px "JetBrains Mono", monospace; cursor: pointer; transition: border-color .15s ease, color .15s ease; }

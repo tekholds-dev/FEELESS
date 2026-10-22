@@ -48,7 +48,7 @@
 .dso-state { position: relative; font: 800 8px var(--m-mono); font-style: normal; letter-spacing: .14em; padding: 2px 6px; border-radius: 999px; color: var(--m-mute, #8fb3a0); border: 1px solid rgba(255, 255, 255, .1); }
 .dso-side.is-turn .dso-state { color: #04110a; background: var(--c); border-color: var(--c); }
 .dso-state i { display: none; }
-.dso-side.is-busy .dso-state i { display: inline-block; width: 5px; height: 8px; margin-left: 4px; vertical-align: -1px; background: #04110a; animation: dsoBlink .8s steps(1) infinite; }
+.dso-side.is-busy .dso-state i { display: inline-block; width: 5px; height: 8px; margin-left: 4px; vertical-align: -1px; background: #04110a; animation: dsoBlink 2.4s ease-in-out infinite; }
 .dso-scan { position: absolute; inset: 0 0 auto; height: 40%; z-index: -1; opacity: 0; pointer-events: none; background: linear-gradient(180deg, transparent, color-mix(in srgb, var(--c) 18%, transparent), transparent); }
 .dso-side.is-busy .dso-scan { opacity: 1; animation: dsoScan 1.6s ease-in-out infinite; }
 
@@ -118,7 +118,7 @@
 .dso-cand em small { position: relative; font-size: 8px; padding-left: 3px; color: var(--m-text, #e9fff3); }
 .dso-pickw { color: var(--ag) !important; }
 @keyframes dsoSweep { from { transform: translateX(-100%); } to { transform: translateX(100%); } }
-@keyframes dsoBlink { 50% { opacity: 0; } }
+@keyframes dsoBlink { 50% { opacity: .15; } }
 @keyframes dsoScan { 0% { transform: translateY(-100%); } 100% { transform: translateY(250%); } }
 @keyframes dsoBar { from { transform: scaleY(0); } }
 @keyframes dsoNew { 50% { opacity: .35; } }

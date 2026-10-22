@@ -19,7 +19,7 @@
 .pgb-feecat .pgb-bits i { width: 3px; height: 3px; border-radius: 50%; background: #c08cff; box-shadow: 0 0 8px #c08cff; animation-name: pgbEmber; }
 .pgb-launch .pgb-bits i { width: 2px; height: 90px; background: linear-gradient(0deg, transparent, rgba(255, 170, 80, .7), #fff); animation-name: pgbRocket; }
 .pgb-eyes { position: absolute; right: 8%; top: 14%; display: flex; gap: 18px; opacity: .6; }
-.pgb-eyes b { width: 16px; height: 9px; border-radius: 50%; background: radial-gradient(circle at 50% 50%, #0a0a0a 0 22%, #c4ff6b 24% 60%, transparent 62%); box-shadow: 0 0 14px #c4ff6b88; animation: pgbBlink 6s steps(1) infinite; }
+.pgb-eyes b { width: 16px; height: 9px; border-radius: 50%; background: radial-gradient(circle at 50% 50%, #0a0a0a 0 22%, #c4ff6b 24% 60%, transparent 62%); box-shadow: 0 0 14px #c4ff6b88; animation: pgbBlink 6s ease-in-out infinite; }
 .pgb-vignette { position: absolute; inset: 0; background: radial-gradient(120% 80% at 50% 30%, transparent 55%, rgba(0, 0, 0, .55)); }
 @keyframes pgbDrift { 0%, 100% { transform: translate3d(0, 0, 0); } 50% { transform: translate3d(6vmax, 4vmax, 0); } }
 @keyframes pgbStreak { 0% { transform: translateY(0); opacity: 0; } 10% { opacity: 1; } 100% { transform: translateY(-110vh); opacity: 0; } }

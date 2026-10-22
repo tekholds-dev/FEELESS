@@ -48,7 +48,7 @@
 .k-chat .rt-fx i { width: 8px; height: 8px; border-radius: 50%; border: 1px solid #c08bff88; bottom: -10px; left: calc(20% + var(--n, 0) * 28%); animation: rpBubble 3.4s ease-in infinite; animation-delay: calc(var(--n, 0) * .9s); }
 .k-chat .rt-fx i:nth-child(2) { --n: 1; } .k-chat .rt-fx i:nth-child(3) { --n: 2; }
 /* ⚠ risk: red alarm flicker strip */
-.k-risk .rt-fx i { left: 0; right: 0; top: 0; height: 3px; background: #ff8fa3; opacity: 0; animation: rpAlarm 2.2s steps(2) infinite; }
+.k-risk .rt-fx i { left: 0; right: 0; top: 0; height: 3px; background: #ff8fa3; opacity: 0; animation: rpAlarm 3s ease-in-out infinite; }
 .k-risk .rt-fx i:nth-child(n+2) { display: none; }
 /* 🚀 hype: sparks shooting up */
 .k-hype .rt-fx i { width: 2px; height: 14px; border-radius: 2px; background: linear-gradient(#f5c451, transparent); bottom: 0; left: calc(25% + var(--n, 0) * 25%); opacity: 0; animation: rpSpark 1.8s ease-out infinite; animation-delay: calc(var(--n, 0) * .5s); }

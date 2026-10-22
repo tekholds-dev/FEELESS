@@ -17,7 +17,7 @@
 .llb-pile rect { fill: rgba(69, 228, 134, .35); stroke: #45e486; } .llb-pile.b rect { fill: rgba(155, 107, 255, .35); stroke: #9b6bff; }
 .llb-pile { transform-origin: 50% 100%; } .llb-pile.a { animation: llbShrink 4s ease-in-out infinite; } .llb-pile.b { animation: llbGrow 4s ease-in-out infinite; }
 .llb-buy circle { fill: #f5c542; } .llb-buy { animation: llbSwap 4s ease-in-out infinite; }
-.llb-bin { fill: rgba(69, 228, 134, .25); } .llb-active rect { fill: none; stroke: #f5c542; stroke-width: 2.5; } .llb-active { animation: llbBins 6s steps(1) infinite; }
+.llb-bin { fill: rgba(69, 228, 134, .25); } .llb-active rect { fill: none; stroke: #f5c542; stroke-width: 2.5; } .llb-active { animation: llbBins 8s ease-in-out infinite; }
 .llb-shackle path { stroke: #45e486; } .llb-shackle { animation: llbLock 4s ease-in-out infinite; } .llb-body { fill: #0b5a32; stroke: #45e486; }
 .llb-coin circle { fill: #f5c542; } .llb-coin { animation: llbFee 3s ease-out infinite; } .llb-coin.c1 { animation-delay: 1s; } .llb-coin.c2 { animation-delay: 2s; }
 .llb-how h3 { margin: 0 0 6px; font-size: 16px; } .llb-how h3 small { font-size: 11px; color: #8fae9d; font-weight: 500; }

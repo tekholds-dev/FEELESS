@@ -17,11 +17,11 @@
 @keyframes ackDrawerIn { from { opacity: 0; transform: translateX(24px); } to { opacity: 1; transform: none; } }
 
 /* 🩸 rug light: a blinking dot (red = draining, amber = thinning) — the why lives in the tip; it re-reads with every live update */
-.ack-rugdot { display: inline-block; width: 8px; height: 8px; margin-left: 7px; border-radius: 50%; vertical-align: middle; background: #ff4d6d; box-shadow: 0 0 6px 1px rgba(255, 77, 109, .7); animation: ackRugBlink 0.9s steps(2, jump-none) infinite; }
+.ack-rugdot { display: inline-block; width: 8px; height: 8px; margin-left: 7px; border-radius: 50%; vertical-align: middle; background: #ff4d6d; box-shadow: 0 0 6px 1px rgba(255, 77, 109, .7); animation: ackRugBlink 2.6s ease-in-out infinite; }
 .ack-rugdot.is-warn { background: #f5c451; box-shadow: 0 0 6px 1px rgba(245, 196, 81, .6); animation-duration: 1.8s; }
 .ack-rugtag { display: inline-flex; align-items: center; gap: 6px; font: 800 9px var(--m-mono); letter-spacing: .1em; font-style: normal; color: #ff8fa3; }
 .ack-rugtag.is-warn { color: var(--gold, #f5c451); } .ack-rugtag .ack-rugdot { margin-left: 0; }
-@keyframes ackRugBlink { 0% { opacity: 1; } 100% { opacity: .2; } }
+@keyframes ackRugBlink { 0%, 100% { opacity: 1; } 50% { opacity: .3; } }
 
 /* 🎞 ride bar */
 .ack-ride { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; padding: 6px 10px; border-radius: 10px; background: rgba(255, 255, 255, .03); border: 1px solid rgba(255, 255, 255, .06); font: 700 10px var(--m-mono); color: #e9fff3; }
