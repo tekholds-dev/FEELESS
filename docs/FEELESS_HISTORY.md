@@ -5327,3 +5327,149 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
 - 2026-10-22 · Security: defence.py (decoys → fingerprint blocks, learned tool rules never on browser strings, tarpits, replay flags, abuse reports, never attacks back) · store_caps.py (every store classed / capped, money whole) · approvals check + revoke · HQ › Security panel
 - 2026-10-22 · Chat themes redo (13 drawn trading scenes, ChatThemePicker in rooms / Brain / inbox; out of meta.css → chatThemes.css, budget 68 KB) · Code health dead files + gated removal queue · Rep trust radar + record bars + score rings, page centred · online status (memory-only presence)
 
+
+
+## 📦 ARCHIVE — CLAUDE.md CURRENT TASKS as of 2026-10-22 midday (lists 2–7, verbatim; replaced by one prioritized list)
+🔥 OWNER'S SEVENTH LIST (2026-10-22, midday) — TOP PRIORITY, ahead of the sixth list's open items, in this order:
+1. 👑 CREATOR WALLET sees EVERYTHING in Familia: sign in with the creator wallet (`_is_staff`) → every family's wallet / bank / trades / pools /
+   members in an owner view (read-only oversight; HQ › 🏙 Familia + a pop-out in the city). Never another user's keys.
+2. 🪟 CITY WINDOW BIGGER: DONE 2026-10-22 (`.fc3` height clamp(600px, 88vh, 1180px)); next: open full-screen by default on desktop?
+   (ask), side panel / chat as overlays so the 3D gets the width.
+3. 💸 MAKE MONEY WHILE YOU SLEEP in MOST buildings (not only v2 / v3 pools): rapid / auto-compounding (vault auto-compound, lend → loop / multiply
+   e.g. Kamino Multiply, LST stacking jitoSOL → lend, JLP, yield-bearing stables, funding-rate basis, DCA / recurring buys, limit orders, Jupiter
+   Lend Earn already wired) — each a building with live APY / 24h earned + a calculator + deposit HERE (the wallet signs, never custody, verify the
+   tx's programs like `lend_earn.verify`). Research the newest web3 earn tools first; RISK shown plainly (loop liquidation price, IL, depeg).
+4. 🏗 SPACE FOR USERS TO BUY without clutter: free plots / expansion land on every island (yards are in; next: an open "for sale" district per
+   city, plot sizes by tier, buildings never side by side).
+5. Fee City main = FEELESS site pop-outs (FEELESS AVENUE, done) AND the coolest newest web3 money tools in the majority of buildings (item 3).
+
+🔥 OWNER'S SIXTH LIST (2026-10-22, morning) — 1 (Pool Hall big + charts + real 24h), 2 (Fee City ~2×: cells > buildings = yards, LAND 5, GAP 16) and
+3 (FEELESS AVENUE: Pump Radar, Runners, Watchtower, Rep, FeeCat, Fuel, Newsstand, $FEE Bank as drawn buildings → live pop-outs, `CityAvenue.jsx`)
+DONE 2026-10-22. Still open: 4–8 below. Original text:
+🔥 OWNER'S SIXTH LIST (2026-10-22, morning) — TOP PRIORITY, ahead of every list below. Goal: FAMILIA = "the one-stop shop in web3" — thousands
+of people having fun, meta tech, addicting, REAL MONEY; ~90 % of buildings carry a real-money utility; every pop-out = live vitals + quick tools.
+1. 🏦 POOL HALL pop-out: much bigger (near full-screen), REAL data + CHARTS per pool (TVL + APY history — DefiLlama /chart/{pool}), REAL 24h
+   profit (what $X earned in the last 24h: fees = volume × fee tier for AMMs, APY / 365 for vaults / lending / staking), compare pools, deposit here.
+2. 🏙 FEE CITY 2× bigger; the bridged towns / islands get MORE SPACE (buildings spread out with land between, not side by side; tower sizes readable
+   — screenshot 2 "too small").
+3. 🏢 FEELESS's best tabs + features AS BUILDINGS in Fee City, each with a pop-out of LIVE VITALS + QUICK TOOLS (buy / sell / open): Pump Radar
+   building = the whole pump radar + quick buy · Trade / Swap · Fuse (cards, arena) · Launch · FeeCat · Rep (scan a wallet) · Runners / Trenches ·
+   Radar / watchlist · $FEE & Fee-Back · Gas / bridge. 90 % of buildings = a real-money utility, all clickable.
+4. 🏠 MY FAMILY + expansion page = the one-stop shop: everything in pop-outs (pools, Fuse, trading, launch, wallet) without leaving Familia.
+5. 👛 FAMILY WALLET: see the family wallet's trades, use it from the quick tools — real money waits on the owner's CUSTODY pick (docs/REAL_CATS.md
+   pattern); until then each member's own wallet signs and the family view aggregates members' verified trades.
+6. 💬 Familia city chat ROBUST (per city, presence, mentions, coin cards, call receipts, mod tools) + new vital tools in it.
+7. 🐛 FUSE CARD BUG in Familia (owner reported — repro first: the real Fuse cards over the stadium / Family Fuse cards).
+8. ⚡ Scale for thousands: shared pollers, no per-building fetches, 3D perf (instancing, LOD, fx-lite), load tests on the world endpoints.
+DONE 2026-10-21 (owner to look at): Familia 3D city (`FamilyCity3D`) · FEEd call receipts + Heat / Graveyard + TRENCH WIRE · FeeCat stage
+(`FeeCatStage`) · Launch pad hero · Launch a Cat = Create a Cat fields · Fee buys again (Jupiter holder fallback) · HQ buttons never locked ·
+NEXA chat ≤ 70 tokens, re-warmed after reads (≈ 6s warm).
+OPEN, owner's order (2026-10-21, second list — "do these after"):
+1. 🧠 Brain chat must TRULY change model settings (the LM Studio Load / Inference panel: context length, max concurrency, KV cache
+   quantization, prompt disk cache, temperature, response length, preset) — a chat line → a proposal → applied (`ai_rig` for what FEELESS
+   sends; `lms load …` for this Mac's model when the owner approves the reload; the desktop model only on the owner's explicit approval).
+2. 🎨 (PROGRESS BAR DONE 2026-10-21 — `ThinkBar` in AiChat, no HQ-wide bar for /admin/ai/) Redo the Brain + OSSY / G4 UI: cleaner, responsive, meta. NO overlay spinner while a model answers — a real progress bar (the call's
+   elapsed vs that model's own average, like Brain › Models). No lag site-wide.
+3. 🧹 Clean dead files for real from HQ › Lag catcher › Code health (today it only lists them): a "remove" action must go through the build
+   queue / a git commit with tests green — never delete from the UI without the gate.
+4. 🗂 HQ tab layout: DONE 2026-10-21 (6 groups ≤ 7 tools, one scrolling tools row, a one-line blurb per group, tips on every tool).
+   Still open: Agents tab dead clicks in some areas, Lag catcher + Support visual clean-up, unfinished sub-pages (vault / pool pair builder
+   needs a live visual of the user's picks).
+5. 🐆 Agents tab "can't click": code verified clickable at 1440 px with live data (2026-10-21). Cause on the owner's Mac = memory: OSSY
+   (gpt-oss-20b, 12 GB) + dev server + Chrome → 16.8 GB swap. Options for the owner: fast mode (`bash scripts/serve-fast.sh`, :51368),
+   OSSY → qwen3-4b-2507, or OSSY's LM Studio Load: Max Concurrency 1, KV cache quantization ON (halves the KV memory).
+6. 💵 REAL-MONEY CATS (Build a Cat shows every model, no paper; creator sets pricing in HQ) — FULL USER PROCESS must be designed before code
+   (`docs/REAL_CATS.md`): who holds the funds (user's own wallet signing = not autonomous; a FEELESS-held wallet = custody, against the
+   "never hold user keys" rule) → owner decision first. Then: pick models (whole OpenRouter list, pricing per decision) → fund → limits →
+   live → pull / withdraw → fees to the creator wallet → receipts. Never ship a half of it.
+7. Familia game loop on `family_world.py`: gold shop with owner pricing, raid board polish, room customization, season art.
+8. Agents may need a full redo — run `scripts/edge-audit.py` + the real ledger first and lead with the numbers.
+9. NEXA runtime work (`nexa_controller.py`, ModelRig NEXA wanted-vs-running) COMMITTED 2026-10-21 on the owner's "finish this work".
+
+DONE 2026-10-22 (owner to look at): Sicario's dead taps (decision cards on coins off the board were ignored by `focusMint`; hunting seats were
+not buttons) + site-wide dead-click catcher (`lib/deadClick.js` → HQ › Bugs) + `/dev/hq` fixture preview (no sign-in, dev only) · G4 "not
+connected" = the desktop LM Studio held NO model → status says so + owner-only ⚡ Load in AI providers · FEE CITY IN REAL 3D (`FeeCity3D` +
+`lib/cityEngine.js` + `lib/cityPlan.js`, Kenney CC0 kits in public/assets/city): Market Row / Vault District / New Money islands with live
+markets, roof lights pulse with volume, stoplights (cars hold at red), pick ring on the ground (no beams), lens tabs → 📍 Places you walk into ·
+Familia full-page scene per tab (`FamiliaBackdrop`: harbor · mansion · war room · podium · wire) + noir-gold frame + Board podium.
+DONE 2026-10-22 (overnight): Jupiter Lend deposit-here (verified tx) · Familia Wars / Board / Live redo, Fuse ratings + brackets + any-member paper
+fights + fight chats, turf ACTIVE / SHUT funds, Docks thinned, launch spires, defender siren, 2 families per wallet · defence that learns + store caps +
+approvals · 13 chat themes + shared picker (Brain + inbox too) · dead files → build queue · Rep trust radar · online status. NEXT: docs/HANDOFF.md top.
+DONE 2026-10-22 (crest round): crest + card redo (`FamilyCrest`, `CrestForge`, `FamilyCardArt`, /dev/crest) · no steps() strobes site-wide (noStrobe.test) ·
+NEXA fast reads + vitals LEFT. NEXT: in-city Jupiter Lend deposit (probe first — 429s blocked it) · Familia item 6. Detail: docs/HANDOFF.md top.
+DONE 2026-10-22 (final): NEXA self-heals (heartbeat) · G4 model loaded · My family tab = Family HQ · Brain › Models already sets full LM Studio Load +
+Inference (owner). NEXT: confirm Sicario's · BADGE + CARD REDO (spec in docs/HANDOFF.md top, item 2) · NEXA speed · strobes outside Familia.
+DONE 2026-10-22 (late): Sicario's blocker found + fixed (`.dso-scan` sweep over the cockpit; decorative layers click-through sitewide) · Pool Hub
+(`fee_pools.py`, /familia-pools) + pool districts in all 4 outer cities + Set building (`link` act) · city directory, day/night, expand, land,
+calm motion, real Fuse cards on the pitch, Family HQ pop-out. Open next (owner's order): confirm Sicario's · badge + card customization redo ·
+My family tab = FamilyHQ · in-city deposit tx builders · site-wide steps() strobes → fades. Detail: docs/HANDOFF.md top.
+OPEN, owner's FIFTH list (2026-10-21, late) — ahead of the fourth list, in this order:
+0. 🐆 AGENTS: the code-side dead taps are fixed (above). Still to confirm on the owner's real HQ — the dead-click catcher files any layer that
+   eats a press to HQ › Bugs ("[dead click] …"); read those first next session.
+1. 🏙 FEE CITY: a (places), b (real markets on 3 islands + pop-out + Open on FEELESS / the market's own app), d (stoplights, no beams) DONE
+   2026-10-22. Still open: c. the four outer cities' own real-money markets · deposit / swap wired in-city (the wallet signs) · a plot's side
+   panel with more vitals · "top coins HELD" (the viewer's own bag) as buildings.
+2. 🛡 SECURITY: the site and the AI must not hoard data (caps / TTLs on every store, logs and model memory); the HQ Security tab gets real
+   web3 defence (signature replay, drainer / phishing detection, approvals, RPC + API abuse, bot / scraper detection) that LEARNS from each
+   attack (fingerprint → auto-block rules, honeypots). Hard limit: FEELESS never attacks anyone back — "hack back" is illegal and can hit
+   innocent relays; the response is trace, block, rate-limit, tarpit, report (abuse contacts, chain explorers), never firing an attack.
+
+OPEN, owner's FOURTH list (2026-10-21 night) — DO THESE FIRST, in this order. Owner's rule for all of them: RESEARCH the best web3 / degen
+sites first (what the greatest do), then build a FEELESS twist — never scratch-built from nothing; every page COMPLETE top to bottom
+(every tab, sub-page, chat and click-through under it), never a nice header over basic content.
+1. 🏙 FAMILIA, finish the whole thing top to bottom:
+   a. The MOB landing (Fee City tab) end to end: the city + real-time data + HOW FAMILIES WORK shown visually (not text), and everything
+      below it (the old podium stage, Board, Live, My family, Wars) brought to the city's level. No dead-styled cards.
+   b. Fuse Arena: show the REAL Fuse cards (their card face / legs, `CardArt`), ranked brackets + TOP-POT battles ($1K+ once real money is
+      live), a battle chat per fight, any player can fuse any player (not only a Don's call-out). The stadium + board look richer: an even
+      layout, a chat under the board.
+   c. City: plots are hard to click (towers cover neighbours) — bigger hit areas / pick through buildings; Cartel Docks is congested
+      (16 cartel towers) — thin it; vitals panel = categories (DONE 2026-10-21: WHO · STRENGTH · MONEY on the stage, not in the 3D).
+   d. Family badges / cards / customization: redo from researched references (no "spinning rainbow" upgrades); MOBhouse styles.
+   e. ALL of FEE in Familia: $FEE, FeeCat, Fuse, Launch, Fee-Back… each as a fun mechanic in the city, not a link.
+2. 🪟 NEXA + 🧠 Brain:
+   a. NEXA's chat: narrower, with a vitals column on the LEFT (live log / her read / load), richer read + on-chat load vitals.
+   b. NEXA must run a read and TRADE fast (with FeeCat) — no 40 s+ waits on the i5 (prompt cache, smaller reads, stream, a fast path).
+   c. FULL LM Studio + llama control in one better view: every Load (context, GPU offload, KV cache quant, flash attention, max concurrency,
+      prompt cache, reload) and Inference (temperature, top-p/k, response length, preset) setting, read live + applied (the owner's approval
+      for reloads) — replaces the partial Model Rig.
+   d. Brain themes + EVERY chat's theme picker (inbox included) redone meta (researched, not the current set).
+3. 🪟 Raids: DONE 2026-10-21 — played on the target's 3D block (`RaidStage`: shield halos, crew at the kerb, effects on the struck building,
+   action bar keys 1–4, siren beam over raided plots in the city). Next: defenders see the incoming raid on THEIR block in the city view.
+
+OPEN, owner's THIRD list (2026-10-21 evening) — TOP PRIORITY = FAMILIA design + mechanics, then senior code clean-up:
+A. 🏙 FAMILIA = a next-level Sim City / Godfather-PSP game (free play AND pay-to-play, fair for both). The city IS the landing page.
+   DONE 2026-10-21 (slice 1, points only): Fee City = the landing (`FeeCapital.jsx`: 24 premium plots ×2.5, drawn stadium = Fuse Arena,
+   The House, Creator's Mansion, Rug Shield HQ, Launch Pad, Fee Plaza, live billboards, traffic) + 4 outer cities (`cities` in
+   family_world: Pump Harbor, Raydium Heights, Bonk Bay, Cartel Docks), city rail + one street chat per city (`city-<key>` rooms, lines
+   carry `fam` tag), tap a plot → camera flies in + vitals card, ❓ How it works pins, 🎖 Ranked (rank_of: Street Rat → Kingpin I–III,
+   top 25 = Don of Fee City), HQ › Build › 🏙 Familia (live rules + planned $ prices + paid-hit calculator = `paid_hit_payout`),
+   `family_fuse_ok` (±1 coin, MP needs 2K). DONE 2026-10-21 slice 2: FAMILY FUSE (`family_fuse.py` + `/familia-fuse/act`): Don /
+   Underboss challenge with a card their members built (Fuse designs + Fuse cards), paper or MP (stake held, min from HQ), rival answers
+   ±1 coin, the Arena's six duels at true fills, pari-mutuel member-point bids (5 % house), played on the stadium pitch + `FamilyFuseBoard`,
+   Fuse tab › Arena strip. NEXT: raids/hits played
+   in-city (no 2D cards), MOBhouse styles, building ACTIVE/SHUT by funds, MP-only buildings, launched coins as Fee City buildings,
+   then real-money family wallets after the custody pick.
+   - FEE CITY (main, biggest, needs an epic name on screen): real bridges, land, atmosphere, the most expensive / profitable real-money
+     plots, the creator family's HQ, FEELESS's biggest money-makers shown live as buildings, and a big real-looking STADIUM = FUSE ARENA.
+     Plus 4 smaller cities, ONE chat box per city. Every plot / building: lore, hover, click → zoom to it with live vitals + P&L on top.
+   - No 2D cards for hits / raids / bounties / alliances: they happen IN the city (chess / card play like Godfather PSP, harder + more
+     fun than Loaded Lion). Ranked like Call of Duty: one ladder for family-wallet $ rank, one for MP rank.
+   - Family wallet on creation: $25 = $5 to FEE + $20 into the new family wallet. Paid hits / raids / turf shakedowns pay from it; payout
+     = a small % of the target's wallet scaled by power gap (a $5 hit on a 10× bigger family ≈ $0.0001; equal-rank families ≈ $0.05–0.10
+     cap). Needs a custody decision (Circle / program-owned) — see `docs/REAL_CATS.md` pattern; never ship half.
+   - Plots/buildings can be plugged to real pools / vaults (v2 / v3 / newest staking / compounding); ACTIVE or SHUT DOWN by funding;
+     members add their own money → auto-calc share, or pool it to strengthen the family. Buy buildings with MP too (expensive, MP only
+     makes MP). Coins launched on FEELESS appear in Fee City. Expansions. 2 families per wallet (owner sets the limit + every fee).
+   - FAMILY FUSE: Fuse Arena battles (paper or SOL/USD) only in the stadium + in the Fuse tab; coin counts must match (same, +1 or −1);
+     spectators bid; MP Family Fuse needs 2,000 MP.
+   - Town looks: 3 atmospheres + 4 paid / ranked; MOBhouse = the private family chat (sewing shop → mansion → Tesla-style lot), with
+     vitals side panel. Chat badges per family, bounty + alliance with real mechanics. MP / season points boost things site-wide.
+   - HQ › 🏙 Familia owner control center (creator wallet only): pricing, limits, fees for every hit / raid / pool / expansion.
+B. 🧹 Senior code clean-up: dead files removable from Code health through the gate; fewer lines; Lag catcher + Support clean.
+C. Pages called out as below bar: Rep (fake "3D", left-boxed, slang with no real vitals) · FEEd (needs a real dev/null × X FEELESS twist,
+   pop-out, live vitals) · MOB · Launch click-through pages (the hero alone isn't the page) · Trade › Gas (meta upgrade of SmolRefuel) ·
+   FeeCat lore + other tabs (only the top was redone) · Roadmap / whitepaper as a real 3D view (text in a dropdown) · profile settings
+   (online status etc.) · NEXA chat too wide, model-loading vitals · OSSY / G4 duo chats · Agents need a clean new build (no strat fits all).
+D. FeeCat idea: a trading cat + an AI agent that pair and talk (Pinata-agents style, our twist); merge "Create a Cat" vs "Launch a Cat".
+E. Lag catcher › a "build a better coin" track: BTC-like fundamentals for FEELESS coins / pools.
