@@ -874,6 +874,93 @@ DESKTOP_MODEL = os.environ.get('LAN_LLM_MODEL') or 'qwen/qwen3-4b-2507'   # 🖥
 DESKTOP_FALLBACK = os.environ.get('LAN_LLM_FALLBACK_MODEL') or 'google/gemma-4-e2b'   # already on the desktop: loaded only when nothing else is (the keeper never downloads it)
 
 
+
+def nexa_ctl_token():
+    """The Windows NEXA controller's shared secret — the same file the backend uses (data/nexa_ctl.json), made here if the backend has not yet."""
+    import secrets as _sec
+    p = DATA / 'nexa_ctl.json'
+    try:
+        d = json.loads(p.read_text())
+    except Exception:
+        d = {}
+    if not d.get('token'):
+        d['token'] = _sec.token_urlsafe(32)
+        p.write_text(json.dumps(d))
+        try:
+            os.chmod(p, 0o600)
+        except OSError:
+            pass
+    return d['token']
+
+
+def nexa_install_ps1(base, tok, ctl_tok, ctl_port=8081):
+    """🪟 The ONE PowerShell script the Windows NEXA PC runs (`(iwr … /nexa-install.ps1).Content | iex`): installs Python if missing, pulls
+    nexa_controller.py, writes nexa_ctl.json (the llamafile + model it may manage, taken from the llamafile running NOW, else this folder),
+    opens the controller port to the local subnet only, starts it at every logon and now, then checks it answers. Safe to run again."""
+    return rf"""$ErrorActionPreference = 'Stop'
+$dir = Join-Path $env:USERPROFILE 'feeless-nexa'
+New-Item -ItemType Directory -Force $dir | Out-Null
+Write-Host '== FEELESS NEXA controller setup ==' -ForegroundColor Green
+[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+function Find-Py {{
+  foreach ($c in 'pythonw.exe', 'python.exe') {{ $g = Get-Command $c -ErrorAction SilentlyContinue; if ($g -and $g.Source -notlike '*WindowsApps*') {{ return $g.Source }} }}
+  $l = Get-Command py.exe -ErrorAction SilentlyContinue
+  if ($l) {{ try {{ $x = & py.exe -3 -c "import sys;print(sys.executable)" 2>$null; if ($x -and (Test-Path $x)) {{ return $x }} }} catch {{}} }}
+  $roots = @("$env:LOCALAPPDATA\Programs\Python", "$env:ProgramFiles", "${{env:ProgramFiles(x86)}}", 'C:\')
+  foreach ($r in $roots) {{ if (Test-Path $r) {{ $f = Get-ChildItem -Path $r -Filter 'pythonw.exe' -Recurse -Depth 2 -ErrorAction SilentlyContinue | Where-Object {{ $_.FullName -like '*Python3*' }} | Sort-Object FullName -Descending | Select-Object -First 1; if ($f) {{ return $f.FullName }} }} }}
+  return $null
+}}
+Write-Host '[1/5] Python...'
+$py = Find-Py
+if (-not $py) {{
+  $inst = Join-Path $env:TEMP 'python-3.12.7-amd64.exe'
+  Write-Host '      not found - downloading Python 3.12 from python.org (about 25 MB)...'
+  Invoke-WebRequest -UseBasicParsing 'https://www.python.org/ftp/python/3.12.7/python-3.12.7-amd64.exe' -OutFile $inst
+  Write-Host '      installing (quiet, just for this user)...'
+  Start-Process -FilePath $inst -ArgumentList '/quiet', 'InstallAllUsers=0', 'PrependPath=1', 'Include_launcher=1', 'Include_test=0' -Wait
+  $py = Find-Py
+}}
+if ($py -like '*python.exe') {{ $w = $py -replace 'python\.exe$', 'pythonw.exe'; if (Test-Path $w) {{ $py = $w }} }}
+if (-not $py -or -not (Test-Path $py)) {{ throw 'Python could not be installed - install Python 3 from python.org, then run this line again.' }}
+Write-Host "      $py"
+Write-Host '[2/5] Finding NEXA (llamafile + model)...'
+$run = Get-CimInstance Win32_Process -Filter "Name like 'llamafile%'" | Select-Object -First 1
+$exe = $null; $model = $null
+if ($run) {{
+  $exe = $run.ExecutablePath
+  if ($run.CommandLine -match '-m\s+"?([^"]+?\.gguf)"?(\s|$)') {{ $model = $Matches[1] }}
+}}
+if (-not $exe) {{ $f = Get-ChildItem -Path . -Filter 'llamafile*.exe' -ErrorAction SilentlyContinue | Select-Object -First 1; if ($f) {{ $exe = $f.FullName }} }}
+if (-not $exe) {{ throw 'llamafile is not running and no llamafile*.exe is in this folder - cd to the llamafile folder (or start NEXA) and run this again.' }}
+$exeDir = Split-Path $exe
+if ($model -and -not [System.IO.Path]::IsPathRooted($model)) {{ $model = Join-Path $(if ($run) {{ Split-Path $exe }} else {{ (Get-Location).Path }}) $model }}
+if (-not $model -or -not (Test-Path $model)) {{
+  $m = Get-ChildItem -Path $exeDir, (Get-Location).Path -Filter 'Qwen2.5-1.5B-Instruct-Q4_K_M.gguf' -ErrorAction SilentlyContinue | Select-Object -First 1
+  if (-not $m) {{ $m = Get-ChildItem -Path $exeDir, (Get-Location).Path -Filter '*.gguf' -ErrorAction SilentlyContinue | Select-Object -First 1 }}
+  if (-not $m) {{ throw 'No .gguf model found next to llamafile - cd to the model folder and run this again.' }}
+  $model = $m.FullName
+}}
+Write-Host "llamafile: $exe"; Write-Host "model:     $model"
+Write-Host '[3/5] Downloading the controller...'
+Invoke-WebRequest -UseBasicParsing -Headers @{{ Authorization = 'Bearer {tok}' }} '{base}/nexa_controller.py' -OutFile (Join-Path $dir 'nexa_controller.py')
+@{{ token = '{ctl_tok}'; exe = $exe; model = $model; host = '0.0.0.0'; port = 8080; ctlPort = {ctl_port} }} | ConvertTo-Json | Set-Content -Encoding ascii (Join-Path $dir 'nexa_ctl.json')
+Get-CimInstance Win32_Process | Where-Object {{ $_.CommandLine -like '*nexa_controller.py*' }} | ForEach-Object {{ Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }}
+Write-Host '[4/5] Firewall (local network only)...'
+try {{
+  Get-NetFirewallRule -DisplayName 'FEELESS NEXA controller' -ErrorAction SilentlyContinue | Remove-NetFirewallRule
+  New-NetFirewallRule -DisplayName 'FEELESS NEXA controller' -Direction Inbound -Protocol TCP -LocalPort {ctl_port} -RemoteAddress LocalSubnet -Action Allow | Out-Null
+  Get-NetFirewallRule -DisplayName 'FEELESS NEXA llamafile' -ErrorAction SilentlyContinue | Remove-NetFirewallRule
+  New-NetFirewallRule -DisplayName 'FEELESS NEXA llamafile' -Direction Inbound -Protocol TCP -LocalPort 8080 -RemoteAddress LocalSubnet -Action Allow | Out-Null
+}} catch {{ Write-Host 'Firewall rule not added (run PowerShell as Administrator for that).' -ForegroundColor Yellow }}
+Write-Host '[5/5] Starting the controller (and at every login)...'
+$ctl = Join-Path $dir 'nexa_controller.py'
+schtasks /Create /TN 'FEELESS-NEXA' /TR "`"$py`" `"$ctl`"" /SC ONLOGON /RL LIMITED /F | Out-Null
+Start-Process -FilePath $py -ArgumentList "`"$ctl`"" -WorkingDirectory $dir -WindowStyle Hidden
+Start-Sleep -Seconds 3
+try {{ $h = Invoke-RestMethod -TimeoutSec 5 'http://127.0.0.1:{ctl_port}/health'; if ($h.ok) {{ Write-Host 'NEXA controller is running on port {ctl_port}. Done - set NEXA in the Model Rig.' -ForegroundColor Green }} }}
+catch {{ Write-Host 'The controller did not answer - check that Python is installed, then run this again.' -ForegroundColor Red }}
+"""
+
 def install_script(url, tok, preset_json=None, prompt=None, install_url=None, model=None):
     """🖥 The ONE script the desktop Mac runs (`curl … /lan-install | bash`): writes the FEE preset into its LM Studio and merges a
     `feeless` entry (this Mac's MCP url + token) into ~/.lmstudio/mcp.json without touching any other server there. Pure text."""
@@ -1001,6 +1088,17 @@ def serve_http(host, port):
                 body = install_script(f'http://{host_}/mcp', tok).encode()
                 _log(f"lan-install pulled by {self.client_address[0]}")   # 🖥 proof the desktop's hourly update ran
                 self.send_response(200); self.send_header('Content-Type', 'text/x-shellscript; charset=utf-8'); self.send_header('Content-Length', str(len(body))); self.end_headers()
+                return self.wfile.write(body)
+            if self.path.split('?')[0].rstrip('/') == '/nexa_controller.py':   # 🪟 the Windows NEXA controller itself (read-only file)
+                body = (Path(__file__).resolve().parent / 'nexa_controller.py').read_bytes()
+                _log(f"nexa controller pulled by {self.client_address[0]}")
+                self.send_response(200); self.send_header('Content-Type', 'text/x-python; charset=utf-8'); self.send_header('Content-Length', str(len(body))); self.end_headers()
+                return self.wfile.write(body)
+            if self.path.split('?')[0].rstrip('/') == '/nexa-install.ps1':      # 🪟 the Windows PC's one-paste setup
+                host_ = re.sub(r'[^A-Za-z0-9.:\-\[\]]', '', self.headers.get('Host') or f'127.0.0.1:{port}')
+                body = nexa_install_ps1(f'http://{host_}', tok, nexa_ctl_token()).encode()
+                _log(f"nexa-install pulled by {self.client_address[0]}")
+                self.send_response(200); self.send_header('Content-Type', 'text/plain; charset=utf-8'); self.send_header('Content-Length', str(len(body))); self.end_headers()
                 return self.wfile.write(body)
             self._send(405, {'error': 'POST JSON-RPC to /mcp'}, {'Allow': 'POST'})
 

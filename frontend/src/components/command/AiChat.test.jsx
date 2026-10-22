@@ -231,3 +231,11 @@ test('⚙ research / voice / memory settings save their listed values', async ()
   for (const id of ['cch-search-quick', 'cch-voice-unhinged', 'cch-mem-off']) await act(async () => { el.querySelector(`[data-testid="${id}"]`).click(); });
   expect(sent.map(x => x[1])).toEqual([{ search: 'quick' }, { voice: 'unhinged' }, { memory: 'off' }]);
 });
+
+test('the think bar reads the real call: elapsed ÷ that model\'s own average, phase words, overtime', () => {
+  const { thinkRead } = require('./AiChat');
+  expect(thinkRead({ prov: 'local', sec: 3, typical: 30, pct: 10 }, 0)).toMatchObject({ who: 'OSSY', pct: 10, phase: 'reading the desk' });
+  expect(thinkRead({ prov: 'lan', sec: 15, typical: 30, pct: 50 }, 0).phase).toBe('thinking');
+  expect(thinkRead({ prov: 'win', sec: 40, typical: 30, pct: 99 }, 0).phase).toMatch(/longer than usual \(\+10s\)/);
+  expect(thinkRead(null, 1000, 1000 + 4000)).toMatchObject({ sec: 4, typical: 20, who: 'the model' });
+});

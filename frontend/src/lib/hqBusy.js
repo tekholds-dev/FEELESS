@@ -28,11 +28,12 @@ export function hqWrite(key, fn) {
   const btn = lastBtn && Date.now() - lastAt < CLICK_MS && lastBtn.isConnected !== false ? lastBtn : null;
   if (btn) btn.setAttribute('aria-busy', 'true');
   const free = btn ? setTimeout(() => btn.removeAttribute('aria-busy'), BUSY_MAX_MS) : null;   // a slow server never leaves a button dead: it is clickable again after 12s (the request keeps going, a second click shares it)
-  st.n += 1; if (st.n === 1) { st.since = Date.now(); st.label = (btn?.textContent || '').trim().slice(0, 40); }
+  const quiet = /\/admin\/ai\//.test(key);   // 🧠 a model answering shows its OWN progress bar in the Brain — never the HQ-wide "still working" bar
+  if (!quiet) { st.n += 1; if (st.n === 1) { st.since = Date.now(); st.label = (btn?.textContent || '').trim().slice(0, 40); } }
   emit();
   const p = Promise.resolve().then(fn).finally(() => {
     flights.delete(key); clearTimeout(free); if (btn) btn.removeAttribute('aria-busy');
-    st.n = Math.max(0, st.n - 1); emit();
+    if (!quiet) st.n = Math.max(0, st.n - 1); emit();
   });
   flights.set(key, p);
   return p;

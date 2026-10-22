@@ -158,11 +158,13 @@ OPEN, owner's order (2026-10-21, second list — "do these after"):
 1. 🧠 Brain chat must TRULY change model settings (the LM Studio Load / Inference panel: context length, max concurrency, KV cache
    quantization, prompt disk cache, temperature, response length, preset) — a chat line → a proposal → applied (`ai_rig` for what FEELESS
    sends; `lms load …` for this Mac's model when the owner approves the reload; the desktop model only on the owner's explicit approval).
-2. 🎨 Redo the Brain + OSSY / G4 UI: cleaner, responsive, meta. NO overlay spinner while a model answers — a real progress bar (the call's
+2. 🎨 (PROGRESS BAR DONE 2026-10-21 — `ThinkBar` in AiChat, no HQ-wide bar for /admin/ai/) Redo the Brain + OSSY / G4 UI: cleaner, responsive, meta. NO overlay spinner while a model answers — a real progress bar (the call's
    elapsed vs that model's own average, like Brain › Models). No lag site-wide.
 3. 🧹 Clean dead files for real from HQ › Lag catcher › Code health (today it only lists them): a "remove" action must go through the build
    queue / a git commit with tests green — never delete from the UI without the gate.
-4. 🗂 HQ tab layout clean-up (group bar + tools row, no wrapping walls of buttons).
+4. 🗂 HQ tab layout: DONE 2026-10-21 (6 groups ≤ 7 tools, one scrolling tools row, a one-line blurb per group, tips on every tool).
+   Still open: Agents tab dead clicks in some areas, Lag catcher + Support visual clean-up, unfinished sub-pages (vault / pool pair builder
+   needs a live visual of the user's picks).
 5. 🐆 Agents tab "can't click": code verified clickable at 1440 px with live data (2026-10-21). Cause on the owner's Mac = memory: OSSY
    (gpt-oss-20b, 12 GB) + dev server + Chrome → 16.8 GB swap. Options for the owner: fast mode (`bash scripts/serve-fast.sh`, :51368),
    OSSY → qwen3-4b-2507, or OSSY's LM Studio Load: Max Concurrency 1, KV cache quantization ON (halves the KV memory).
@@ -172,4 +174,30 @@ OPEN, owner's order (2026-10-21, second list — "do these after"):
    live → pull / withdraw → fees to the creator wallet → receipts. Never ship a half of it.
 7. Familia game loop on `family_world.py`: gold shop with owner pricing, raid board polish, room customization, season art.
 8. Agents may need a full redo — run `scripts/edge-audit.py` + the real ledger first and lead with the numbers.
-9. NEXA WIP files stay UNCOMMITTED until the owner says (`ai_router.py`, `nexa.py`, `nexa_controller.py`, `ai_rig.py`, `feeless_mcp.py`, ModelRig).
+9. NEXA runtime work (`nexa_controller.py`, ModelRig NEXA wanted-vs-running) COMMITTED 2026-10-21 on the owner's "finish this work".
+
+OPEN, owner's THIRD list (2026-10-21 evening) — TOP PRIORITY = FAMILIA design + mechanics, then senior code clean-up:
+A. 🏙 FAMILIA = a next-level Sim City / Godfather-PSP game (free play AND pay-to-play, fair for both). The city IS the landing page.
+   - FEE CITY (main, biggest, needs an epic name on screen): real bridges, land, atmosphere, the most expensive / profitable real-money
+     plots, the creator family's HQ, FEELESS's biggest money-makers shown live as buildings, and a big real-looking STADIUM = FUSE ARENA.
+     Plus 4 smaller cities, ONE chat box per city. Every plot / building: lore, hover, click → zoom to it with live vitals + P&L on top.
+   - No 2D cards for hits / raids / bounties / alliances: they happen IN the city (chess / card play like Godfather PSP, harder + more
+     fun than Loaded Lion). Ranked like Call of Duty: one ladder for family-wallet $ rank, one for MP rank.
+   - Family wallet on creation: $25 = $5 to FEE + $20 into the new family wallet. Paid hits / raids / turf shakedowns pay from it; payout
+     = a small % of the target's wallet scaled by power gap (a $5 hit on a 10× bigger family ≈ $0.0001; equal-rank families ≈ $0.05–0.10
+     cap). Needs a custody decision (Circle / program-owned) — see `docs/REAL_CATS.md` pattern; never ship half.
+   - Plots/buildings can be plugged to real pools / vaults (v2 / v3 / newest staking / compounding); ACTIVE or SHUT DOWN by funding;
+     members add their own money → auto-calc share, or pool it to strengthen the family. Buy buildings with MP too (expensive, MP only
+     makes MP). Coins launched on FEELESS appear in Fee City. Expansions. 2 families per wallet (owner sets the limit + every fee).
+   - FAMILY FUSE: Fuse Arena battles (paper or SOL/USD) only in the stadium + in the Fuse tab; coin counts must match (same, +1 or −1);
+     spectators bid; MP Family Fuse needs 2,000 MP.
+   - Town looks: 3 atmospheres + 4 paid / ranked; MOBhouse = the private family chat (sewing shop → mansion → Tesla-style lot), with
+     vitals side panel. Chat badges per family, bounty + alliance with real mechanics. MP / season points boost things site-wide.
+   - HQ › 🏙 Familia owner control center (creator wallet only): pricing, limits, fees for every hit / raid / pool / expansion.
+B. 🧹 Senior code clean-up: dead files removable from Code health through the gate; fewer lines; Lag catcher + Support clean.
+C. Pages called out as below bar: Rep (fake "3D", left-boxed, slang with no real vitals) · FEEd (needs a real dev/null × X FEELESS twist,
+   pop-out, live vitals) · MOB · Launch click-through pages (the hero alone isn't the page) · Trade › Gas (meta upgrade of SmolRefuel) ·
+   FeeCat lore + other tabs (only the top was redone) · Roadmap / whitepaper as a real 3D view (text in a dropdown) · profile settings
+   (online status etc.) · NEXA chat too wide, model-loading vitals · OSSY / G4 duo chats · Agents need a clean new build (no strat fits all).
+D. FeeCat idea: a trading cat + an AI agent that pair and talk (Pinata-agents style, our twist); merge "Create a Cat" vs "Launch a Cat".
+E. Lag catcher › a "build a better coin" track: BTC-like fundamentals for FEELESS coins / pools.

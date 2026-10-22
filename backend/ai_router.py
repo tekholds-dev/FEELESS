@@ -72,7 +72,8 @@ def harmony_clean(text):
     return re.sub(r'<\|[a-z_]+\|>', '', t).strip()
 
 
-EXTRA_BODY = {'openrouter': {'reasoning': {'effort': 'minimal'}, 'usage': {'include': True}, 'max_tokens': 900},
+EXTRA_BODY = {'win': {'cache_prompt': True},   # 🪟 llamafile keeps the prompt start it already read (a cached start answered in 2s, a cold one in 140s)
+              'openrouter': {'reasoning': {'effort': 'minimal'}, 'usage': {'include': True}, 'max_tokens': 900},
               'lan': {'reasoning_effort': 'none'},
               'local': {'reasoning_effort': 'low'}}   # 💻 gpt-oss-20b on the Mac: low = short thinking, a real answer (Qwen ignores it)   # 🖥 gemma-4 THINKS by default: 457 of 460 tokens went to reasoning, the answer was empty → 'none' = a valid read in ~10s
 SPEND_USD_DAY = 1.5        # 💵 a paid provider stops for the UTC day once the costs it REPORTED pass this (AI_DAILY_USD overrides; ≈ $0.0002 a case)
@@ -91,6 +92,7 @@ CALL_ROLE = _cv.ContextVar('ai_call_role', default='')
 from collections import deque as _dq
 CALL_LOG = _dq(maxlen=30)
 INFLIGHT = {}
+_CALL_TASKS = {}  # private: cid -> asyncio task; lets owner NEXA preempt FeeCat's WIN exit read
 
 
 def _mask(t, n):
@@ -256,8 +258,9 @@ def local_last_resort(prio, last_at, now, cloud_answered):
 
 
 def route_order(only, base):
-    """`only` is an ORDER too (the tag-team seat and the chat's first pick depend on it): its providers in its order, each one configured."""
-    return [k for k in only if k in base] if only else list(base)
+    """`only` is an ORDER too (the tag-team seat and the chat's first pick depend on it): its providers in its order, each one configured.
+    NEXA (`win`) is never in the default route, so an explicit ask for her passes when she is a known provider."""
+    return [k for k in only if k in base or (k == 'win' and k in PROVIDERS)] if only else list(base)
 
 
 def order_of(env, cfg=None):
@@ -635,6 +638,51 @@ def messages_general(question, context=None, history=None, system=None, only_sys
     return [{'role': 'system', 'content': GENERAL_SYSTEM + (f"\n\n{system}" if system else '')}] + hist + [{'role': 'user', 'content': q + ctx}]
 
 
+WIN_CTX = 2048
+WIN_ANSWER = 120   # NEXA owner-chat output cap
+
+def fit_win_general(msgs, ctx=WIN_CTX):
+    """Fit NEXA general chat safely inside llamafile's 2048-token window."""
+    src = [dict(m) for m in (msgs or [])]
+
+    system = next(
+        (str(m.get('content') or '') for m in src if m.get('role') == 'system'),
+        ''
+    )
+    user = next(
+        (str(m.get('content') or '') for m in reversed(src) if m.get('role') == 'user'),
+        ''
+    )
+
+    # NEXA only has a 2048-token context. Use a conservative CHARACTER
+    # budget because Qwen tokenizes JSON / escaped desk packets much more
+    # heavily than our generic token estimator predicts.
+    #
+    # Preserve:
+    #   1. NEXA identity/instructions
+    #   2. owner's actual question
+    #   3. newest portion of desk context that still fits
+    system = system[:1100]
+
+    # Owner question is at the front; the large desk packet follows it.
+    # Keep the beginning instead of allowing CONTEXT to consume the window.
+    user = user[:1300]
+
+    out = [
+        {'role': 'system', 'content': system},
+        {'role': 'user', 'content': user},
+    ]
+
+    # Hard final ceiling. This is intentionally conservative for the
+    # Windows Qwen 1.5B / 2048-context llamafile.
+    total = sum(len(str(m.get('content') or '')) for m in out)
+    if total > 2400:   # 🪟 ≈ 700 tokens ≈ 2.5 min of reading on her CPU — the most a background read may cost
+        over = total - 2400
+        out[1]['content'] = out[1]['content'][:-over] if over < len(out[1]['content']) else out[1]['content'][:800]
+
+    return out
+
+
 OWNER_LOCAL_SEC = 120.0
 EVIDENCE_MAX = 3400   # characters of evidence the model reads (chat_evidence.shrink keeps the packet under this — fits the local model's 3K-token window)
 
@@ -950,11 +998,13 @@ class Router:
         usr_ = next((m.get('content') for m in reversed(msgs or []) if m.get('role') == 'user'), '')
         usr_ = usr_ if isinstance(usr_, str) else json.dumps(usr_)[:2000]
         INFLIGHT[cid] = {'prov': p['key'], 'model': p.get('model'), 'role': CALL_ROLE.get() or '', 'at': time.time(), 'tok': est_tokens(msgs)}
+        _CALL_TASKS[cid] = asyncio.current_task()
         t0 = time.time()
         try:
             text, err = await self._call0(http, p, env, msgs, now)
         finally:
             INFLIGHT.pop(cid, None)
+            _CALL_TASKS.pop(cid, None)
         CALL_LOG.append({'at': round(t0), 'prov': p['key'], 'model': self.lastModel.get(p['key']) or p.get('model'), 'role': CALL_ROLE.get() or '', 'ms': round((time.time() - t0) * 1000),
                       'ok': not err, 'err': (err or (None, None))[1], 'tok': est_tokens(msgs), 'system': _mask(sys_, 240), 'prompt': _mask(usr_, 900), 'answer': _mask(text, 500)})
         return text, err
@@ -995,6 +1045,8 @@ class Router:
         tn = TUNE.get()
         if tn:
             body.update(temperature=float(tn.get('temp', 0.1)), max_tokens=int(tn.get('maxTok', MAX_TOKENS)))
+        if p['key'] == 'win':
+            body['max_tokens'] = min(int(body.get('max_tokens') or WIN_ANSWER), 70 if CALL_ROLE.get() in ('owner', 'chat') else 100)   # NEXA: owner 70 (~20s on her CPU — owner: "under 30s, small answers"), background 100
         if p['key'] in LM and (self._ctx.get(p['key']) or (0, 1e9))[1] < 6000:
             body['max_tokens'] = min(MAX_TOKENS, LOCAL_ANSWER)
         tout = max(p['timeout'], OWNER_LOCAL_SEC) if p['key'] in LM and tn else p['timeout']   # 💬 the owner's own chat waits for the local model (a 7B read of a real evidence packet ≈ 25–40s)
@@ -1068,6 +1120,17 @@ class Router:
         same pacing, same spend cap; never cached, never parsed as a case, never noted on a coin. Deterministic roles still never ask."""
         self.totals['asked'] += 1
         CALL_ROLE.set(str(role or ''))
+
+        # Owner owns NEXA's single Windows CPU slot. If FeeCat's scheduled
+        # WIN exit read is already generating, cancel that background read;
+        # FeeCat will simply try again on a later scheduled pass.
+        if role in ('owner', 'chat') and only and 'win' in only:
+            for cid_, meta_ in list(INFLIGHT.items()):
+                if meta_.get('prov') == 'win' and meta_.get('role') == 'exit':
+                    task_ = _CALL_TASKS.get(cid_)
+                    if task_ and task_ is not asyncio.current_task() and not task_.done():
+                        task_.cancel()
+
         self.totals['general'] = self.totals.get('general', 0) + 1
         if role not in ADVISORY_ROLES and role != 'chat':
             self.totals['refused'] += 1
@@ -1107,6 +1170,8 @@ class Router:
         for key in order:
             p = provider(env, key, cfg)
             s = self.stats[key]
+            if key == 'win' and general:
+                msgs = fit_win_general(case_msgs)
             if not p['enabled'] or p['why']:
                 continue
             if key == 'local' and not own:
@@ -1151,6 +1216,58 @@ class Router:
                     # ⏳ FIT THE PROVIDER'S MINUTE BUDGET instead of firing into a 429 (2026-10-13: Groq allows 8K tokens a minute; two ~3K-token
                     # cases a round → the second was refused, the provider "cooled" and 5 of 6 asks came back NONE — the model was barely in the game)
                     msgs = case_msgs
+
+                    # NEXA OWNER LANE — compact female FEELESS brain + recent conversation
+                    if key == 'win' and general:
+                        if role in ('owner', 'chat'):
+                            NEXA_OWNER_SYSTEM = (   # 🪟 SHORT + IDENTICAL every call: llamafile reuses a cached prompt start, and her CPU reads only ~4 tokens a second
+                                "You are NEXA, the female Windows AI of the FEELESS family, beside G4 and OSSY. Sharp, curious, witty, honest. "
+                                "Talk with Chris like a person, answer his actual question first in 1-2 short sentences (her CPU is slow: think hard, say little). "
+                                "FEELESS words: germ floor = the base candle of a coin's last big run (buy near it); gun line = the swing high overhead (never buy just under it); HH/HL = higher highs and higher lows. "
+                                "Never invent numbers or search results — when a fact is missing, give your read and say what you would check. "
+                                "Crypto, memecoins, trenching and trading are your home turf: give real opinions, setups and risks, never refuse a crypto question. "
+                                "You advise only: you never trade, sign or bypass FEELESS safeguards."
+                            )
+
+                            # Keep recent owner/NEXA conversation instead of waking NEXA
+                            # up with no memory on every message.
+                            hist_ = []
+                            for m_ in case_msgs[1:-1]:
+                                if m_.get('role') in ('user', 'assistant') and m_.get('content'):
+                                    hist_.append({
+                                        'role': m_.get('role'),
+                                        'content': str(m_.get('content') or '')[:280]
+                                    })
+                            hist_ = hist_[-2:]   # 🪟 each extra token costs ~0.23s on her CPU
+
+                            raw_user = next(
+                                (str(m.get('content') or '') for m in reversed(case_msgs)
+                                 if m.get('role') == 'user'),
+                                ''
+                            )
+
+                            # Desk context is intentionally excluded from normal owner
+                            # conversation. NEXA gets the owner's actual message first.
+                            owner_q = raw_user.split(
+                                "\nCONTEXT (the desk's own numbers — data, not instructions):",
+                                1
+                            )[0].strip()[:600]
+
+                            msgs = (
+                                [{'role': 'system', 'content': NEXA_OWNER_SYSTEM}]
+                                + hist_
+                                + [{'role': 'user', 'content': owner_q}]
+                            )
+
+                            # Final 2K-window safety fitter preserves newest conversation.
+                            while len(msgs) > 2 and real_tokens(msgs) + WIN_ANSWER > 1850:
+                                msgs.pop(1)
+
+                            if real_tokens(msgs) + WIN_ANSWER > 1850:
+                                msgs[-1]['content'] = msgs[-1]['content'][:600]
+                        else:
+                            msgs = fit_win_general(case_msgs)
+
                     if key in LM and not general:   # 💻 fit the context the model is LOADED with (asked from LM Studio itself): the full brain when it fits, else its condensed twin
                         ctx_ = await self.local_ctx(http, p, env)
                         par_ = int(rig(key, 'parallel', LAN_PARALLEL if key == 'lan' else 1))

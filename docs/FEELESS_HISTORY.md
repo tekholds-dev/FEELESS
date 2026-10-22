@@ -5306,3 +5306,4 @@ Degen trading terminal (Solana-first). Every feature ships **one and done**: sty
 - 🔁 G4 / OSSY: `ai_seat.streak_brake` (3 straight real losses → the partner hunts until the market grades the braked model back to even), COMPRESSION reads refused
   for model buys, `ai_seat.owner_line_live` (the owner's line only for THIS trade, ≤ 20 min, ≤ 2 replies). ⚡ Quick trade on every cockpit seat (`QuickTrade.jsx`).
   🪪 `WalletPfp` = the one wallet picture (profile image else a generated mark). 🗺 The Familia page tabs (`FAM_TABS`) · 🛡 Rep page sections (`REP_SECTIONS`).
+- 2026-10-21 · Brain: real progress bar (ThinkBar: model, phase, elapsed vs its own average; AI calls no longer trip the HQ-wide busy bar), tabs + counters share one row; NEXA runtime wanted-vs-running in ModelRig (nexa_controller); HQ nav = 6 short groups, one scrolling tools row with a blurb + tips.

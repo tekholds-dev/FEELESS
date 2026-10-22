@@ -140,8 +140,13 @@ export function HqDeck({ address, signMessage, onClose, startTab }) {
   </div></div>;
 
   // Grouped so the money + infra controls are always first; every tab id appears exactly once.
-  const TAB_GROUPS = [['Core', ['agents', 'launch', 'fees', 'money', 'latency']], ['Growth', ['numbers', 'traffic', 'pulse', 'marketing', 'kols', 'invites', 'ads', 'ideas']],
-    ['Community', ['holders', 'studio', 'airdrops', 'snapshots', 'badges', 'nfts', 'seasons', 'pools', 'fuse', 'feecat', 'broadcast']], ['Safety', ['investigate', 'shield', 'verify', 'overview', 'mod', 'access', 'bugs']]];
+  // 🗂 six short groups (owner, 2026-10-21: "clean up HQ so I can get to stuff quicker"): ≤ 7 tools each, one line that says what lives there.
+  const TAB_GROUPS = [['Core', ['agents', 'money', 'fees', 'latency'], '⚡', 'the real card, the treasury, every fee, lag'],
+    ['Build', ['launch', 'fuse', 'feecat', 'pools', 'verify'], '🧬', 'launches, Fuse, FeeCat, pools, coin checks'],
+    ['Growth', ['numbers', 'traffic', 'pulse', 'marketing', 'kols', 'ads', 'ideas'], '📈', 'who comes, from where, what they do'],
+    ['Holders', ['holders', 'studio', 'airdrops', 'snapshots', 'invites', 'broadcast'], '👥', 'holders, drops, invites, broadcasts'],
+    ['Rewards', ['badges', 'nfts', 'seasons'], '🏅', 'badges, NFT drops, seasons'],
+    ['Safety', ['investigate', 'shield', 'overview', 'mod', 'access', 'bugs'], '🛡', 'intel, shield, security, mods, roles, bugs']];
   // Granted roles see only their sections (the server refuses the rest anyway — ROLE_SCOPES in reputation_service).
   const ROLE_TABS = { moderator: ['investigate', 'shield', 'verify', 'overview', 'mod', 'bugs', 'latency'], marketing: ['marketing', 'broadcast', 'kols', 'ads', 'ideas', 'traffic', 'numbers'] };
   const allowed = id => !ROLE_TABS[role] || ROLE_TABS[role].includes(id);
@@ -150,8 +155,8 @@ export function HqDeck({ address, signMessage, onClose, startTab }) {
     <header className="cc-head"><div><h2 className="trenches-font live-gradient-text">HQ</h2><small>{role && role !== 'owner' ? `🔑 ${role}` : '👑'} {shortAddress(address)} · session signed · live</small></div><TreasuryPulse call={call} onOpen={openTab} />
       {/* two levels, one row each: pick a group, see only its tools (was four stacked rows of 30 buttons) */}
       <nav className="cc-tabs cc-nav2" data-testid="cc-nav"><HqJump tabs={TABS.filter(t => allowed(t[0]))} onGo={jump} />{(() => { const groups = TAB_GROUPS.filter(g => g[1].some(allowed)); const cur = grp || (groups.find(g => g[1].includes(tab)) || groups[0] || [''])[0];
-        return <><div className="m-seg cc-groups" role="tablist" aria-label="HQ sections">{groups.map(([group, ids]) => <button key={group} type="button" role="tab" aria-selected={cur === group} className={cur === group ? 'active' : ''} onClick={() => setGrp(group)} data-testid={`cc-group-${group.toLowerCase()}`}>{group}<i className="m-num">{ids.filter(allowed).length}</i></button>)}</div>
-          <div className="cc-tab-group" key={cur}>{((groups.find(g => g[0] === cur) || [0, []])[1]).filter(allowed).map(id => TABS.find(t => t[0] === id)).filter(Boolean).map(([id, label, Icon]) => <button key={id} type="button" className={tab === id ? 'active' : ''} onClick={() => setTab(id)}><Icon size={14} />{label}</button>)}</div></>; })()}</nav>
+        return <><div className="m-seg cc-groups" role="tablist" aria-label="HQ sections">{groups.map(([group, ids, ico, blurb]) => <button key={group} type="button" role="tab" aria-selected={cur === group} className={cur === group ? 'active' : ''} onClick={() => setGrp(group)} data-tip={blurb} data-testid={`cc-group-${group.toLowerCase()}`}><b aria-hidden="true">{ico}</b>{group}<i className="m-num">{ids.filter(allowed).length}</i></button>)}</div>
+          <div className="cc-tab-group" key={cur} data-testid="cc-tools"><small>{(groups.find(g => g[0] === cur) || [])[3]}</small>{((groups.find(g => g[0] === cur) || [0, []])[1]).filter(allowed).map(id => TABS.find(t => t[0] === id)).filter(Boolean).map(([id, label, Icon]) => <button key={id} type="button" className={tab === id ? 'active' : ''} onClick={() => setTab(id)} data-tip={TAB_INFO[id]?.[1] || label}><Icon size={14} />{label}</button>)}</div></>; })()}</nav>
       <button type="button" className="cc-close" onClick={onClose} aria-label="Close HQ"><X size={16} /></button></header>
     {TAB_INFO[tab] && <div className="cc-tab-hero" key={tab} data-testid="cc-tab-hero"><div><small>{TAB_GROUPS.find(g => g[1].includes(tab))?.[0]?.toUpperCase()}</small><h3>{TAB_INFO[tab][0]}</h3><p>{TAB_INFO[tab][1]}</p></div>{TAB_INFO[tab][2].length > 0 && <div className="cc-tab-does">{TAB_INFO[tab][2].map(x => <span key={x}>{x}</span>)}</div>}</div>}
 

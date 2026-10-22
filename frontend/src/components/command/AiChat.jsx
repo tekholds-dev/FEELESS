@@ -94,7 +94,27 @@ function AnswerCard({ text }) {
       <button type="button" className="cch-acmore" onClick={() => setAll(true)}>full answer{c.more ? ` · +${c.more}` : ''}</button></span></span>;
 }
 
-const ChatLog = memo(function ChatLog({ hist, err, busy, from, onRemember, onBuild, onEdit, onDelete }) {
+// ⏳ A REAL PROGRESS BAR while a model answers (owner, 2026-10-21: "no random loading over the screen — a true loading bar"): the owner's
+// call in flight from /admin/ai/calls (elapsed ÷ THAT model's own average answer time), its phase, and a plain word when it runs long.
+export const WHO = { lan: 'G4', local: 'OSSY', win: 'NEXA', groq: 'Groq', openrouter: 'OpenRouter', openai: 'OpenAI', xai: 'xAI' };
+export function thinkRead(row, t0, now = Date.now()) {
+  const sec = row?.sec ?? Math.max(0, (now - t0) / 1000); const typical = row?.typical || 20;
+  const pct = row?.pct ?? Math.min(95, Math.round((100 * sec) / typical));
+  const phase = pct < 25 ? 'reading the desk' : pct < 70 ? 'thinking' : pct < 99 ? 'writing the answer' : `taking longer than usual (+${Math.max(1, Math.round(sec - typical))}s)`;
+  return { pct, sec: Math.round(sec), typical: Math.round(typical), phase, who: WHO[row?.prov] || row?.prov || 'the model' };
+}
+function ThinkBar({ call }) {
+  const t0 = useRef(Date.now()); const [row, setRow] = useState(null); const [, tick] = useState(0);
+  useEffect(() => { let on = true;
+    const go = () => Promise.resolve().then(() => call('/admin/ai/calls')).then(d => { if (!on) return; const fl = (d?.inflight || []).filter(r => ['owner', 'chat'].includes(r.role)); setRow(fl[fl.length - 1] || null); }).catch(() => {});
+    go(); const p = setInterval(go, 900); const k = setInterval(() => tick(x => x + 1), 250); return () => { on = false; clearInterval(p); clearInterval(k); }; }, [call]);
+  const r = thinkRead(row, t0.current);
+  return <li className="cch-think" role="status" aria-live="polite" data-testid="cch-think">
+    <header><b>{r.who}</b><span>{r.phase}</span><em>{r.sec}s{row ? ` / ~${r.typical}s` : ''}</em></header>
+    <span className="cch-tbar"><i style={{ transform: `scaleX(${Math.max(0.03, r.pct / 100)})` }} /><u /></span></li>;
+}
+
+const ChatLog = memo(function ChatLog({ hist, err, busy, from, onRemember, onBuild, onEdit, onDelete, call }) {
   const end = useRef(null);
   useEffect(() => { const el = end.current; if (el && el.parentNode) el.parentNode.scrollTop = el.parentNode.scrollHeight; }, [hist, busy]);
   return <ol className="cch-log" data-testid="cch-log" aria-live="polite">
@@ -107,7 +127,7 @@ const ChatLog = memo(function ChatLog({ hist, err, busy, from, onRemember, onBui
         {t.role === 'user' ? <button type="button" onClick={() => onEdit(i, t.text)} disabled={busy} data-tip="Edit: rewinds the chat to here and puts your words back in the box" data-testid={`cch-edit-${i}`}>✏ Edit</button> : null}
         <button type="button" onClick={() => onDelete(i)} data-tip="Delete this message" aria-label="Delete this message" data-testid={`cch-del-${i}`}>✕</button></i></li>)
       : !err ? <li className="cch-nil">Sees the desk. Learns what you 🧠 remember. Fixes only on your ✅.</li> : null}
-    {busy ? <li className="cch-msg is-assistant is-wait is-fresh" role="status"><small>BRAIN</small><span><i /><i /><i /></span></li> : null}<li ref={end} aria-hidden className="cch-end" /></ol>;
+    {busy ? <ThinkBar call={call} /> : null}<li ref={end} aria-hidden className="cch-end" /></ol>;
 });
 
 // ⌨ the box owns its own text: a keystroke re-renders only this form, never the Brain, its log or the fixes (typing used to redraw everything)
@@ -183,9 +203,6 @@ export const AiChat = memo(function AiChat({ call, isOwner = true, focus, focusS
     <header className="cch-head">
       <span className="cch-orb" aria-hidden="true"><i /><i /><b>🧠</b></span>
       <span className="cch-title"><b>BRAIN{local?.boost ? <i className="cch-boostchip" data-testid="cch-boostchip" data-tip={`Local boost: ${local.why || ''} · every ${local.every ?? '—'}s · ${local.leftH}h left`}>💻 BOOST</i> : null}</b><small data-testid="cch-mood" data-mood={mood.key}><em>{mood.word}</em>{mood.line}</small></span>
-      <span className="cch-kpis"><u data-testid="cch-learned" data-tip="Lessons you taught the desk (🧠 Remember + 🎓 Teach): every fitting model read sees them">🎓 {learned ?? '—'}<small>LEARNED</small></u>
-        <u className={pend ? 'is-hot' : ''} data-tip="Fixes the model proposed, waiting for your Approve / Reject">🛠 {pend}<small>YOUR CALL</small></u>
-        <u data-testid="cch-bq" data-tip="Approved to build. The model in the app cannot write code: Claude Code builds these when you say: build the queue">📋 {build?.open ?? 0}<small>TO BUILD</small></u></span>
       {lockProvider ? <span className="cch-model is-locked" data-testid="cch-locked">{title || lockProvider.toUpperCase()}</span> : <select className="cch-model" value={prov} onChange={e => setProv(e.target.value)} aria-label="Which model answers" data-testid="cch-model" data-tip="Which model answers: Auto = the normal order · Duet = Gemma answers, Qwen reads it and agrees or pushes back (both shown)">
         <option value="auto">🤖 Auto</option><option value="duet">🤝 Duet · G4 + OSSY</option>{provs.some(p => p.key === 'win') ? null : <option value="win" disabled>🪟 NEXA · set WIN_LLM_BASE_URL</option>}{provs.map(p => <option key={p.key} value={p.key}>{p.state === 'ONLINE' ? '🟢' : p.state === 'UNTESTED' ? '⚪' : '🔴'} {p.label}{p.model ? ` · ${String(p.model).split('/').pop()}` : ''}</option>)}</select>}
       {saved.length ? <span className="cch-svwrap"><button type="button" className={`cch-model cch-saved ${showSaved ? 'is-on' : ''}`} onClick={() => setShowSaved(v => !v)} aria-expanded={showSaved} data-testid="cch-saved" data-tip="Saved chats: open · rename · delete">🗂 {saved.length} saved</button>
@@ -199,7 +216,6 @@ export const AiChat = memo(function AiChat({ call, isOwner = true, focus, focusS
       {onClose ? <button type="button" className="cch-ico" onClick={onClose} data-testid="ack-brain-close" data-tip="Close the Brain (Esc)" aria-label="Close the Brain">✕</button>
         : <button type="button" className="cch-ico" onClick={() => setPop(p => !p)} data-testid="cch-pop" data-tip={pop ? 'Close (Esc)' : 'Pop out — full window'} aria-label={pop ? 'Close the pop-out' : 'Pop out'}>{pop ? '✕' : '⤢'}</button>}
     </header>
-    <i className="cch-scan" aria-hidden="true" />
     {showSet ? <div className="cch-sets" data-testid="cch-sets">
       <p><small>🌡 HOW WILD</small>{[[0.1, 'exact'], [0.3, 'sharp'], [0.6, 'loose'], [0.9, 'wild']].map(([v, l]) => <button key={v} type="button" className={sets?.temp === v ? 'active' : ''} onClick={() => saveSet({ temp: v })} data-testid={`cch-temp-${v}`}>{l}</button>)}</p>
       <p><small>📏 ANSWER</small>{['short', 'normal', 'long'].map(v => <button key={v} type="button" className={sets?.len === v ? 'active' : ''} onClick={() => saveSet({ len: v })} data-testid={`cch-len-${v}`}>{v}</button>)}</p>
@@ -211,9 +227,12 @@ export const AiChat = memo(function AiChat({ call, isOwner = true, focus, focusS
       <LocalWatch w={local} />
       <p className="cch-setnote">Switches, rank weights and exit notches always wait for your ✅. Execution, limits and the wallet are never reachable.</p></div> : null}
     <div className="cch-shell">
-    {isOwner ? <div className="cch-panes" role="tablist" aria-label="Brain sections">{[['talk', '💬 Talk'], ['models', '🧠 Models'], ...(extras.length ? [['learn', '🎓 Learn']] : []), ['play', '🧩 Lab'], ['log', '📜 Activity']].map(([k, l]) => {
+    {isOwner ? <div className="cch-navrow"><div className="cch-panes" role="tablist" aria-label="Brain sections">{[['talk', '💬 Talk'], ['models', '🧠 Models'], ...(extras.length ? [['learn', '🎓 Learn']] : []), ['play', '🧩 Lab'], ['log', '📜 Activity']].map(([k, l]) => {
       const on = k === 'learn' ? extras.some(e => e[0] === pane) : pane === k;
-      return <button key={k} type="button" role="tab" aria-selected={on} className={on ? 'active' : ''} onClick={() => setPane(k === 'learn' ? (extras.find(e => e[0] === lastLearn.current) || extras[0])[0] : k)} data-testid={k === 'learn' ? 'cch-tab-learn' : `cch-pane-${k}`}>{l}</button>; })}</div> : null}
+      return <button key={k} type="button" role="tab" aria-selected={on} className={on ? 'active' : ''} onClick={() => setPane(k === 'learn' ? (extras.find(e => e[0] === lastLearn.current) || extras[0])[0] : k)} data-testid={k === 'learn' ? 'cch-tab-learn' : `cch-pane-${k}`}>{l}</button>; })}</div>
+<span className="cch-kpis"><u data-testid="cch-learned" data-tip="Lessons you taught the desk (🧠 Remember + 🎓 Teach): every fitting model read sees them">🎓 {learned ?? '—'}<small>LEARNED</small></u>
+        <u className={pend ? 'is-hot' : ''} data-tip="Fixes the model proposed, waiting for your Approve / Reject">🛠 {pend}<small>YOUR CALL</small></u>
+        <u data-testid="cch-bq" data-tip="Approved to build. The model in the app cannot write code: Claude Code builds these when you say: build the queue">📋 {build?.open ?? 0}<small>TO BUILD</small></u></span></div> : null}
     {isOwner && extras.length ? <div className="cch-sub" hidden={!extras.some(e => e[0] === pane)} role="tablist" aria-label="Learn sections">{extras.map(([k, l]) => <button key={k} type="button" role="tab" aria-selected={pane === k} className={pane === k ? 'active' : ''} onClick={() => { lastLearn.current = k; setPane(k); }} data-testid={`cch-pane-${k}`}>{l}</button>)}</div> : null}
     {isOwner && pane === 'models' ? <div className="cch-extra" data-testid="cch-extra-models"><ModelLive call={call} /></div> : null}
     {extras.map(([k, , node]) => <div key={k} className="cch-extra" hidden={pane !== k} data-testid={`cch-extra-${k}`}>{k === 'learned' && pane !== k ? null : node}</div>)}
@@ -223,7 +242,7 @@ export const AiChat = memo(function AiChat({ call, isOwner = true, focus, focusS
       onClick={() => pickMode(k)} data-tip={tip} data-testid={`cch-mode-${k}`}><i aria-hidden="true">{l.split(' ')[0]}</i><span>{l.split(' ').slice(1).join(' ')}</span></button>)}</div>
     <div className="cch-main">
       <div className="cch-talk">
-        <ChatLog hist={hist} err={err} busy={busy} from={fresh.mode === mode ? fresh.from : Infinity} onRemember={remember} onBuild={queueBuild} onEdit={edit} onDelete={clear} />
+        <ChatLog hist={hist} err={err} busy={busy} call={call} from={fresh.mode === mode ? fresh.from : Infinity} onRemember={remember} onBuild={queueBuild} onEdit={edit} onDelete={clear} />
         <div className="cch-quick" data-testid="cch-quick">{(QUICK[mode] || []).map(([l, q]) => <button key={l} type="button" disabled={!isOwner || busy} onClick={() => say(q)} data-testid={`cch-chip-${l.split(' ')[1] || l}`}>{l}</button>)}</div>
         {last && metaLine(last) ? <p className="cch-meta" data-testid="cch-meta">{metaLine(last)}{(last.refused || []).length ? ` · ${last.refused.length} suggestion${last.refused.length === 1 ? '' : 's'} refused (execution / money is out of reach)` : ''}</p> : null}
         {img ? <p className="cch-att" data-testid="cch-att"><img src={img} alt="to send" /><span>picture attached · goes to a cloud model that can see images</span><button type="button" className="cch-ico" onClick={() => setImg(null)} aria-label="Remove the picture">✕</button></p> : null}

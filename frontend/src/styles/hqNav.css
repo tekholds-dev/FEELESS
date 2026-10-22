@@ -1,14 +1,20 @@
 /* HQ nav, two levels (cc-nav2): a group bar, then that group's tools in one row. */
 .cc-nav2 { flex-direction: column; flex-wrap: nowrap; gap: 8px; align-items: stretch; }
 .cc-groups { align-self: flex-start; }
-.cc-groups > button { display: inline-flex; align-items: center; gap: 6px; }
+.cc-groups > button { display: inline-flex; align-items: center; gap: 6px; min-height: 32px; }
+.cc-groups > button b { font-size: 13px; line-height: 1; }
+/* one row of tools: never a wrapping wall — it scrolls sideways on a thin neon bar; the group's one-line "what lives here" leads it */
+.cc-nav2 .cc-tab-group { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: thin; scrollbar-color: #15d16a transparent; }
+.cc-nav2 .cc-tab-group::-webkit-scrollbar { height: 6px; } .cc-nav2 .cc-tab-group::-webkit-scrollbar-thumb { background: #15d16a; border-radius: 6px; }
+.cc-nav2 .cc-tab-group > button { flex: none; white-space: nowrap; min-height: 32px; }
+.cc-nav2 .cc-tab-group > small { flex: none; max-width: 260px; color: #7fdcaa; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-transform: uppercase; }
 .cc-groups > button i { font-style: normal; font-size: 10px; padding: 1px 6px; border-radius: 999px; background: color-mix(in srgb, currentColor 16%, transparent); }
 .cc-nav2 .cc-tab-group { animation: hqNavIn .18s ease both; }
 @keyframes hqNavIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
 body.fx-lite .cc-nav2 .cc-tab-group { animation: none; }
 @media (prefers-reduced-motion: reduce) { .cc-nav2 .cc-tab-group { animation: none; } }
 body.theme-day .cc-groups > button i { background: #0001; }
-@media (max-width: 640px) { .cc-groups { align-self: stretch; overflow-x: auto; flex-wrap: nowrap; } }
+@media (max-width: 640px) { .cc-groups { align-self: stretch; overflow-x: auto; flex-wrap: nowrap; } .cc-nav2 .cc-tab-group > small { display: none; } }
 /* the tab title is one tidy line, not a tall empty box above the data */
 .cc-shell .cc-tab-hero { padding: 10px 16px; margin: 0; }
 .cc-shell .cc-tab-hero > div:first-child { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 12px; }
@@ -34,3 +40,4 @@ body.theme-day .hqj { color: #4b5f55; } body.theme-day .hqj-list { background: #
 body.fx-lite .hq-busy > i, body.fx-lite .cc-shell [aria-busy="true"] { animation: none; } body.fx-lite .cc-shell [aria-busy="true"] { opacity: .5; }
 @media (prefers-reduced-motion: reduce) { .hq-busy > i, .cc-shell [aria-busy="true"] { animation: none; } .cc-shell [aria-busy="true"] { opacity: .5; } }
 body.theme-day .hq-busy > span { background: #fff; color: #8a5a00; border-color: rgba(138, 90, 0, .35); }
+body.theme-day .cc-nav2 .cc-tab-group > small { color: #0b6b3f; }

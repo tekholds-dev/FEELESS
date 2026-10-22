@@ -13,7 +13,7 @@ import json
 import re
 import time
 
-NEXA_EVERY = 300          # one read / 5 min: a 3B model on an old CPU answers in ~1–3 min
+NEXA_EVERY = 900          # one read / 15 min: her CPU reads ~4 tokens a second, so a read holds its ONE slot ~3 min — the owner's chat comes first
 TUNE_GAP = 3600           # at most one tuning change an hour
 MAX_KEYS = 2
 STEP = 0.15               # a single change moves a rule ≤ 15% of its allowed range
