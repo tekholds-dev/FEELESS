@@ -154,30 +154,26 @@ The owner rejected work that shipped as "dull", "non degen", "emojis sliding aro
 Rules for all: research the best web3 / degen sites first, then a FEELESS twist · every page complete top to bottom · real money = the wallet
 signs, FEELESS never holds keys · conserve usage · finish by priority · never dead-style.
 
-DONE (latest, owner to look at): Fee City ~2× with yards + FEELESS AVENUE (8 tool buildings → live pop-outs, `CityAvenue.jsx`) · Pool Hall
-near full-screen with real charts + 24h earned · city window 88vh · Jupiter Lend deposit-here · defence that learns · 13 chat themes · Rep radar ·
-online status · FEEd pulse + pop-out · Gas fuel station · Family Wars / Board / Live redo · Fuse ladder + fight chats · turf ACTIVE / SHUT.
+DONE (latest, owner to look at — 2026-10-22 evening): 🎛 Brain chat line → model settings for real ("ossy context 16k, temp 0.6" → ✅ → applied /
+LM Studio reload) + Brain › Models = ONE LM Studio Load + Inference view (LOADED vs WANTED, ⚡ Reload) + Brain fixed at 360 px · 💬 THE STREETS city
+chat (`StreetChat`) · 👑 creator's family on any linked / HQ wallet (`_seat_of`) + 👑 OVERWATCH (HQ › Familia + city WATCH door) · 💤 THE NIGHT
+VAULT (9th Avenue building, `sleep_money.py`) · 🏠 HQ one-stop tools + 📒 Books · 🏷 THE REALTOR · 🐛 Family Fuse cards (linked wallets + Prime cards).
+Earlier: Fee City 2× + FEELESS AVENUE · Pool Hall charts · Jupiter Lend deposit-here · defence · chat themes · Rep radar · online status.
 
-P1 — FAMILIA = the one-stop shop in web3 (owner's 6th + 7th lists)
-1. 👑 CREATOR (the owner's account only, `_is_staff` over EVERY linked wallet): signed in, the owner must see THEIR OWN Sicario family (the one
-   they built — check `crews.families_of` / `_seat` look at all linked wallets, not just the connected one) + a FAMILY COMMAND CENTER only the
-   creator can open: every family's wallet, bank, trades, pools, members, plus Familia pricing / limits / fees (HQ › 🏙 Familia + an in-city pop-out).
-2. 💸 MONEY WHILE YOU SLEEP in most buildings: auto-compound vaults, lend loops / multiply, LST stacking, JLP, yield stables, DCA / limit orders —
-   live APY + 24h earned + calculator + deposit here (verify the tx's programs like `lend_earn.verify`; show liquidation / IL / depeg risk).
-3. 🏗 Space for users to buy without clutter: a for-sale district per city, plot tiers. Ask the owner: city full-screen by default?
-4. 🏠 My family page = everything in pop-outs (pools, Fuse, trading, launch, wallet) without leaving Familia.
-5. 👛 Family wallet trades view (members' verified trades aggregated; real money waits on the custody pick, P5).
-6. 💬 Robust city chat: presence, mentions, coin cards, call receipts, mod tools, vital tools.
-7. 🐛 Fuse card bug in Familia — repro first (stadium cards / Family Fuse cards).
-8. ⚡ Scale for thousands: shared pollers, 3D perf (instancing, LOD), load tests on the world endpoints.
-9. ✅ Check the Avenue rooms in day theme + 360 px, and the outer towns at the new spacing.
-10. City leftovers: outer cities' real-money markets · in-city swap · your HELD coins + FEELESS-launched coins as buildings · ALL of FEE as city
-    mechanics · raids / hits played in-city · MP-only buildings + gold shop · $ and MP ladders · badge / card / MOBhouse customization.
+P1 — FAMILIA = the one-stop shop in web3 (what is left)
+1. ❓ OWNER: city full-screen by default? (Realtor shipped as the clutter-free buy space; a dedicated for-sale ISLAND in 3D is still open.)
+2. 💤 Night Vault next: DCA / limit orders (Jupiter Recurring + Trigger APIs: build → verify programs like `lend_earn.verify` → wallet signs; an
+   allowlist of blue chips only — memory: new buy doors need guards) · in-app Kamino Multiply / vault deposits need Kamino's SDK (owner's call).
+3. 🐛 Fuse card bug: the fix above is the one found in code — owner to confirm it was the bug they saw (if not: repro steps first).
+4. ⚡ Scale for thousands: shared pollers, 3D perf (instancing, LOD), load tests on familia-world / familia/street.
+5. ✅ Check day theme + 360 px: Avenue rooms (Night Vault included), Overwatch, Realtor (Street chat + Brain done at 360).
+6. 💬 Street chat next: per-street pinned call, slow-mode for Dons, coin-card mini charts.
+7. City leftovers: outer cities' real-money markets · in-city swap · HELD coins + FEELESS-launched coins as buildings · ALL of FEE as city mechanics ·
+   raids / hits played in-city · MP-only buildings + gold shop · $ and MP ladders · badge / card / MOBhouse customization.
 
 P2 — PAGES BELOW BAR: Launch click-through pages · FeeCat lore + other tabs · Roadmap / whitepaper as a 3D view · OSSY / G4 duo chats ·
    NEXA reads + trades fast (no 40 s waits on the i5).
-P3 — AI / BRAIN: a chat line truly changes model settings (proposal → applied; the owner approves reloads) · one full LM Studio Load + Inference
-   view · Brain / OSSY / G4 UI redo (progress bar done).
+P3 — AI / BRAIN: ✅ done 2026-10-22 (chat line → rig proposals, LM Studio rig view, Brain 360 px). Next only if asked: OSSY / G4 duo chat look.
 P4 — HQ: Agents dead clicks (read HQ › Bugs "[dead click]" first; on the owner's Mac it was memory) · Lag catcher + Support clean-up · vault /
    pool pair builder live visual · Agents rebuild only after `scripts/edge-audit.py` numbers.
 P5 — OWNER DECISIONS (blocking): CUSTODY pick for family wallets, real-money cats, top-pot Fuse ($1K+) — `docs/REAL_CATS.md` · LP SDK deposits.

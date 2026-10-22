@@ -61,7 +61,7 @@ def earn(apy, usd=1000.0):
 
 def strategies(pools, kamino=None, sol_mint='So11111111111111111111111111111111111111112'):
     """Pool Hub rows (+ Kamino rates) → the Night Vault's strategy cards, best first inside each. A strategy with no live row is left out."""
-    rows = [r for r in pools or [] if isinstance(r, dict) and r.get('apy') is not None]
+    rows = [r for r in pools or [] if isinstance(r, dict) and _f(r.get('apy')) > 0]   # an APY of 0 / None = not published (DefiLlama's JLP row) — never shown as 0%
     best = lambda rs, n: sorted(rs, key=lambda r: (-_f(r.get('apy')), -_f(r.get('tvl'))))[:n]
     lst = best([r for r in rows if r.get('kind') == 'stake'], 6)
     stable = best([r for r in rows if r.get('kind') == 'lend' and r.get('stable')], 6)

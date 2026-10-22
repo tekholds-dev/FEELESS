@@ -24,3 +24,16 @@ test('HQ sees the house config extra and can open on pools', async () => {
   expect(el.textContent).toContain('House config'); expect(el.querySelector('[data-testid="llb-amm"]').getAttribute('aria-selected')).toBe('true');
   act(() => root.unmount());
 });
+
+test('🚪 every launch type, platform and exclusive is a real door', async () => {
+  const { DOOR } = require('./LaunchLab');
+  expect(Object.keys(DOOR).sort()).toEqual(['amm', 'dbc', 'dlmm', 'launchlab', 'lock', 'pump']);
+  expect(DOOR.pump[0]).toBe('/terminal/launch?setup=feeless&rail=pump');
+  const el = document.createElement('div'); const root = createRoot(el);
+  await act(async () => { root.render(<LaunchLab />); });
+  expect(el.querySelector('[data-testid="llb-door-pump"]').getAttribute('href')).toBe('/terminal/launch?setup=feeless&rail=pump');
+  expect(el.querySelector('[data-testid="llb-plat-FEELESS"]').getAttribute('href')).toBe('/terminal/launch?setup=feeless');
+  expect(el.querySelector('[data-testid="llb-plat-Raydium"]').getAttribute('target')).toBe('_blank');
+  expect(el.querySelectorAll('.llb-exd').length).toBe(5);   // the HQ-only exclusive stays out of the public page
+  await act(async () => { root.unmount(); });
+});

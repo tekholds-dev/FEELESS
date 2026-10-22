@@ -35,7 +35,7 @@ export const LaunchpadDirectory = () => {
     return matchesFilter && matchesQuery;
   }), [filter, query]);
   const openMetaLaunch = () => { setEcosystem(feeless.id); nav('/terminal/launch?setup=feeless'); };
-  return <div className="directory-page launchpad-directory">
+  return <div className="directory-page launchpad-directory" id="launchpads">
     <div className="page-heading launchpad-page-heading">
       <div><span className="eyebrow">THE LAUNCHPAD RADAR</span><h1>Launch without the noise.</h1><p>Compare the rails, see what each one actually does, then open a real market context. FEELESS is the only flow that lets you review every mechanic before a wallet approval.</p></div>
       <div className="launchpad-directory-signal"><span><b>{LAUNCHPADS.length}</b><small>tracked rails</small></span><span><b>06</b><small>FEELESS boxes</small></span><span><b>100%</b><small>fee route check</small></span></div>

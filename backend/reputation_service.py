@@ -9328,11 +9328,16 @@ async def familia_world(address: str = '', session: str = ''):
     async with _crews_lock:
         st = _json_load(CREWS_PATH, {}); _cr._norm(st)
         w = st.setdefault('world', _fworld.blank())
+        # ⚡ scale (P1): a read rewrote crews.json on EVERY GET — now only when the world moved. CPU stashes are left out of the check: they
+        # refill by time (linear, capped), so recomputing them from the last saved point gives the same number.
+        quiet_ = lambda: json.dumps({k_: v_ for k_, v_ in w.items() if k_ != 'cpu'}, sort_keys=True, default=str)
+        sig_ = quiet_()
         _world_tick(st, w, now)
         me = _seat_of(st, me) if me else None
         c = _cr.crew_of(st, me) if me else None
         v = _world_view(st, c, me, now, cartels_)
-        _json_save(CREWS_PATH, st)
+        if quiet_() != sig_ or not CREWS_PATH.exists():
+            _json_save(CREWS_PATH, st)
     return v
 
 

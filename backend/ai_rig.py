@@ -206,7 +206,7 @@ def parse_line(text):
         if key is None and not seg.strip():
             continue
         m = _re.search(r'\btemp(?:erature)?\b\D{0,10}?' + r'(\d?\.\d+|\d)', seg)
-        if m and key in (None, 'lan', 'local'):
+        if m and key in (None, 'lan', 'local') and float(m.group(1)) <= 2:   # "temp 5 degrees" is weather talk, not a sampling temperature
             v = _snap(float(m.group(1)), CHAT_TEMPS)
             out.append({'key': 'chat.temp', 'value': v, 'words': f'Brain chat temperature {v}', 'reload': False})
         m = _re.search(r'(?:answers?|responses?|repl(?:y|ies))\s*(?:length|size)?\s*(?:to\s*|=\s*)?(short|normal|long)|(short|normal|long)\s*(?:answers|responses|replies)', seg)
@@ -218,7 +218,7 @@ def parse_line(text):
             continue
         budget = bool(_re.search(r'budget|send', seg))
         m = _re.search(r'\b(?:context(?:\s*(?:length|window|size))?|ctx|budget)\b\D{0,12}?' + _NUM + r'\s*(k)?', seg)
-        if m:
+        if m and (m.group(2) or float(m.group(1)) >= 1024):   # "context of 5 trades" is a question — a context size says 16k / 16384
             n = _ctx_of(m)
             if key in LM_KEYS and not budget:
                 v = _snap(n, LOAD_OPTIONS['ctx']); loads.setdefault(key, {})['ctx'] = v

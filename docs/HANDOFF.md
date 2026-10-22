@@ -1,3 +1,15 @@
+## 🔁 HANDOFF 2026-10-22 (evening) — read first · conserve usage · finish everything by priority · never dead-style
+Owner: "fix AI first … then the rest of the full list · familia chat gotta be LITTY". All below pushed to main, gate green, reputation service
+restarted from Claude's tree (watcher `background.sh start` → kill → relaunched, 1 copy, LAN reachable).
+### ✅ DONE
+- 🎛 AI: chat line → model settings (rig proposals, ✅ applies; LM Studio reload only on ✅ / ⚡; keep-alive stands down mid-reload) · Brain › Models =
+  one LM Studio Load + Inference view (LOADED vs WANTED) · Brain responsive at 360 px · preview /dev/brain.
+- 💬 THE STREETS city chat · 👑 creator family on any linked wallet + OVERWATCH · 💤 NIGHT VAULT · 🏠 HQ one-stop tools + 📒 Books · 🏷 REALTOR ·
+  🐛 Family Fuse cards (linked wallets + Prime cards). Fixtures: /dev/city (street, overwatch, night vault), /dev/brain.
+### ⬜ OPEN (CLAUDE.md › CURRENT TASKS P1 1–7, then P2 / P4 / P6)
+- ❓ Owner: city full-screen by default? · confirm the Fuse card bug fix is the one seen · DCA / limit orders (guarded) · Kamino SDK call.
+- Not seen in the owner's signed-in app: the reload button against the real LM Studio (tested on fakes only — never reloaded a real model).
+
 ## 🔥 OWNER'S NEWEST REQUEST (2026-10-22 midday) — TOP PRIORITY → CLAUDE.md › CURRENT TASKS › SEVENTH LIST (5 items, in order)
 CREATOR (owner's account only) sees their own Sicario family + a creator-only FAMILY COMMAND CENTER (every family's wallet / bank / trades) · city window bigger (done: 88vh) · MONEY WHILE YOU SLEEP in most buildings
 (auto-compound vaults, lend loops / multiply, LST stacking, JLP, DCA / limit orders — live APY + 24h earned + deposit here, wallet signs, risk shown)

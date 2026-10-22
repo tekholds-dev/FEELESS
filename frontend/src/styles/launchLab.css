@@ -30,8 +30,8 @@
 .llb-row.is-feeless { background: rgba(21, 209, 106, .12); border: 1px solid rgba(69, 228, 134, .4); } .llb-row.is-feeless b { color: #45e486; }
 .llb-note { margin: 0; font-size: 11px; color: #8fae9d; }
 .llb-ex { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 8px; }
-.llb-ex > div { display: grid; grid-template-columns: 28px 1fr; gap: 0 8px; padding: 10px; border-radius: 12px; border: 1px solid rgba(69, 228, 134, .2); background: rgba(21, 209, 106, .05); animation: llbIn .3s ease-out both; animation-delay: calc(var(--i) * 50ms); transition: transform .15s; }
-.llb-ex > div:hover { transform: translateY(-2px); } .llb-ex b { grid-row: span 2; font-size: 20px; } .llb-ex strong { font-size: 12.5px; } .llb-ex small { font-size: 11px; color: #9fbfae; }
+.llb-exd > div { position: relative; display: grid; grid-template-columns: 28px 1fr; gap: 0 8px; padding: 10px; border-radius: 12px; border: 1px solid rgba(69, 228, 134, .2); background: rgba(21, 209, 106, .05); animation: llbIn .3s ease-out both; animation-delay: calc(var(--i) * 50ms); transition: transform .15s; }
+.llb-exd:hover > div { transform: translateY(-2px); border-color: rgba(69, 228, 134, .55); } .llb-ex b { grid-row: span 2; font-size: 20px; } .llb-ex strong { font-size: 12.5px; } .llb-ex small { font-size: 11px; color: #9fbfae; }
 @keyframes llbIn { from { transform: translateY(6px); } to { transform: none; } }
 @keyframes llbFill { from { transform: scaleX(0); } 85%, to { transform: scaleX(1); } }
 @keyframes llbClimb { 0% { transform: translate(14px, 112px); } 30% { transform: translate(90px, 106px); } 55% { transform: translate(140px, 88px); } 75% { transform: translate(172px, 56px); } 85%, 100% { transform: translate(190px, 22px); } }
@@ -45,7 +45,7 @@
 @keyframes llbBlink { 50% { opacity: .4; } }
 body.fx-lite .llb *, body.reduced-motion-setting .llb * { animation: none !important; }
 @media (prefers-reduced-motion: reduce) { .llb * { animation: none !important; transition: none !important; } }
-body.theme-day .llb { background: rgba(236, 246, 240, .85); } body.theme-day .llb-types button, body.theme-day .llb-row, body.theme-day .llb-how ol, body.theme-day .llb-ex > div { color: #0b2a19; }
+body.theme-day .llb { background: rgba(236, 246, 240, .85); } body.theme-day .llb-types button, body.theme-day .llb-row, body.theme-day .llb-how ol, body.theme-day .llb-exd > div { position: relative; color: #0b2a19; }
 body.theme-day .llb-t { fill: #2c4a3a; } body.theme-day .llb-knobs li { color: #0b5a32; } body.theme-day .llb-ex small, body.theme-day .llb-note { color: #2c4a3a; }
 @media (max-width: 640px) { .llb-stage { grid-template-columns: 1fr; } .llb-types { grid-template-columns: repeat(2, 1fr); } }
 
@@ -93,3 +93,13 @@ body.fx-lite .llp-smoke, body.fx-lite .llp-star { display: none; } body.fx-lite 
 @media (prefers-reduced-motion: reduce) { .llp *, .llp *::before { animation: none !important; } .llp-smoke { display: none; } }
 body.theme-day .llp { background: linear-gradient(180deg, #ffd9a3 0%, #ffb067 55%, #f08a3a 100%); } body.theme-day .llp-hills { opacity: .5; }
 @media (max-width: 640px) { .llp { grid-template-columns: 1fr; min-height: 0; } .llp-site { height: 190px; } .llp-count { font-size: 40px; } }
+
+/* 🚪 click-through doors (DOOR / PLATFORM_DOOR / EX_DOOR in LaunchLab.jsx) */
+.llb-door { margin-top: 10px; justify-self: start; min-height: 36px; display: inline-flex; align-items: center; text-decoration: none; }
+.llb-plink { color: inherit; text-decoration: none; border-bottom: 1px dashed rgba(69, 228, 134, .45); transition: color .15s; }
+.llb-plink:hover { color: #45e486; } .llb-plink:focus-visible, .llb-exd:focus-visible { outline: 2px solid #45e486; outline-offset: 2px; border-radius: 6px; }
+.llb-exd { display: block; color: inherit; text-decoration: none; border-radius: 12px; } .llb-exd > div { transition: transform .15s, border-color .15s; } .llb-exd:active > div { transform: scale(.98); }
+.llb-exd em { position: absolute; right: 10px; top: 50%; margin-top: -9px; font-style: normal; font-size: 16px; color: #45e486; opacity: .5; transition: transform .15s, opacity .15s; }
+.llb-exd:hover em { opacity: 1; transform: translateX(3px); }
+@media (prefers-reduced-motion: reduce) { .llb-exd > div, .llb-exd em, .llb-plink { transition: none; } }
+body.theme-day .llb-plink:hover, body.theme-day .llb-exd em { color: #0d7a41; }

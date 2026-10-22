@@ -98,3 +98,9 @@ def test_an_approved_reload_unloads_then_loads_with_the_wanted_settings():
     res2 = asyncio.run(ai_router.Router().reload_model(h2, _env(), {}, 'local', {'ctx': 8192, 'par': 1}))
     assert res2['ok'] and res2['loaded']['ctx'] == 8192 and 'Load panel' in res2['note']
     assert asyncio.run(ai_router.Router().reload_model(h, _env(), {}, 'win', {'ctx': 8192}))['ok'] is False
+
+
+def test_a_question_that_mentions_context_or_temp_stays_a_question():
+    assert ai_rig.parse_line('ossy what do you think about the context of 5 trades') == []
+    assert ai_rig.parse_line('g4 the temp is 30 degrees outside lol') == []
+    assert ai_rig.parse_line('ossy context 16384')[0]['value'] == 'ctx=16384' and ai_rig.parse_line('g4 ctx 8k')[0]['value'] == 'ctx=8192'

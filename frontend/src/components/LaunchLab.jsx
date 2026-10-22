@@ -41,6 +41,26 @@ export const EXCLUSIVES = [
   ['⚡', 'Pump Pulse + callouts', 'Pulses and callouts on every chart that shows it.'],
 ];
 
+// 🚪 CLICK-THROUGH (owner P2: "Launch click-through pages — the hero alone isn't the page"): every type, platform row and exclusive is a real
+// door — the FEELESS launcher prefilled (Pump.fun or the FEELESS rail, your wallet signs), the platform's own launchpad, the directory below,
+// or the FEELESS tool the exclusive is about.
+export const DOOR = {
+  pump: ['/terminal/launch?setup=feeless&rail=pump', '🚀 Launch a Pump coin here', 'The FEELESS launcher on the Pump.fun rail — you sign, it lands with its war room'],
+  dbc: ['/terminal/launch?setup=feeless', '🚀 Launch on the FEELESS rail', 'Meteora DBC with the FEELESS rail: anti-snipe tax, locked liquidity, your fee cut'],
+  launchlab: ['https://raydium.io/launchpad/', '↗ Raydium LaunchLab', "Raydium's own launchpad (LetsBonk runs on it) — your wallet signs there"],
+  amm: ['#launchpads', '↓ Who makes these pools', 'The launchpad radar below — every rail and what it builds'],
+  dlmm: ['#launchpads', '↓ Who makes these pools', 'The launchpad radar below — every rail and what it builds'],
+  lock: ['/terminal/launch?setup=feeless', '🔒 Launch with liquidity locked', 'The FEELESS rail locks the graduated liquidity for good'],
+};
+const PLATFORM_DOOR = { 'Pump.fun': DOOR.pump[0], 'Raydium LaunchLab': DOOR.launchlab[0], 'Meteora DBC': '#launchpads', FEELESS: DOOR.dbc[0] };
+const EX_DOOR = { 'Rug shield from minute one': '/terminal/reputation', 'Its own war room + chat': '/terminal/chat', 'One signature, full receipt': '/terminal/launch?setup=feeless',
+  'House config (HQ)': '/terminal/hq', 'Fuse-ready': '/terminal/fuse', 'Pump Pulse + callouts': '/terminal/pump' };
+const ext = u => /^https?:/.test(u);
+export function Door({ to, children, className = '', tip, testId }) {
+  return <a className={className} href={to} data-tip={tip} data-testid={testId} {...(ext(to) ? { target: '_blank', rel: 'noopener noreferrer' } : {})}
+    onClick={e => { if (to.startsWith('#')) { e.preventDefault(); document.getElementById(to.slice(1))?.scrollIntoView({ behavior: 'smooth', block: 'start' }); } }}>{children}</a>;
+}
+
 function Demo({ kind }) {
   if (kind === 'amm') return <svg className="llb-svg llb-amm" viewBox="0 0 240 130" aria-hidden="true">
     <text x="120" y="16" className="llb-t">x · y = k</text>
@@ -102,11 +122,12 @@ export function LaunchLab({ start = 'pump', hq = false }) {
     <div className="llb-types" role="tablist">{TYPES.map(x => <button key={x.id} type="button" role="tab" aria-selected={x.id === id} className={x.id === id ? 'is-on' : ''} onClick={() => setId(x.id)} data-testid={`llb-${x.id}`}><b>{x.icon}</b>{x.name}<small>{x.where}</small></button>)}</div>
     <div className="llb-stage" key={t.id}><div className="llb-demo"><Demo kind={t.demo} /></div>
       <div className="llb-how"><h3>{t.icon} {t.name} <small>{t.where}</small></h3><ol>{t.steps.map((s, i) => <li key={s} style={{ '--i': i }}>{s}</li>)}</ol>
-        <h4>WHAT YOU SET</h4><ul className="llb-knobs">{t.knobs.map(k => <li key={k}>{k}</li>)}</ul></div></div>
+        <h4>WHAT YOU SET</h4><ul className="llb-knobs">{t.knobs.map(k => <li key={k}>{k}</li>)}</ul>
+        {DOOR[t.id] ? <Door to={DOOR[t.id][0]} className="m-btn m-go llb-door" tip={DOOR[t.id][2]} testId={`llb-door-${t.id}`}>{DOOR[t.id][1]}</Door> : null}</div></div>
     <div className="llb-table" role="table" aria-label="Launch platforms compared"><div className="llb-row is-head" role="row">{['', 'Curve', 'Graduates to', 'Creator earns', 'Anti-snipe', 'Liquidity after', 'You set'].map(h => <span key={h} role="columnheader">{h}</span>)}</div>
-      {PLATFORMS.map(p => <div key={p.name} className={`llb-row${p.feeless ? ' is-feeless' : ''}`} role="row"><b>{p.name}</b><span>{p.curve}</span><span>{p.grad}</span><span>{p.creator}</span><span>{p.antiSnipe}</span><span>{p.lp}</span><span>{p.you}</span></div>)}</div>
+      {PLATFORMS.map(p => <div key={p.name} className={`llb-row${p.feeless ? ' is-feeless' : ''}`} role="row"><b><Door to={PLATFORM_DOOR[p.name] || '#launchpads'} className="llb-plink" tip={`Open ${p.name}`} testId={`llb-plat-${p.name.split(' ')[0]}`}>{p.name} ›</Door></b><span>{p.curve}</span><span>{p.grad}</span><span>{p.creator}</span><span>{p.antiSnipe}</span><span>{p.lp}</span><span>{p.you}</span></div>)}</div>
     <p className="llb-note">Fee numbers change on each platform's side — check their docs. FEELESS's rail right now: {rail?.ready ? 'ready' : 'not set up yet'}{rail?.tab?.maxDevBuySol ? ` · dev buy up to ${rail.tab.maxDevBuySol} SOL` : ''}{rail?.costs?.pumpSlippagePct != null ? ` · Pump launch slippage ${rail.costs.pumpSlippagePct}%` : ''}.</p>
-    <h4 className="llb-h">⚡ ONLY ON FEELESS</h4><div className="llb-ex">{EXCLUSIVES.filter(e => hq || e[1] !== 'House config (HQ)').map(([i, n, w], k) => <div key={n} style={{ '--i': k }}><b>{i}</b><strong>{n}</strong><small>{w}</small></div>)}</div>
+    <h4 className="llb-h">⚡ ONLY ON FEELESS</h4><div className="llb-ex">{EXCLUSIVES.filter(e => hq || e[1] !== 'House config (HQ)').map(([i, n, w], k) => <Door key={n} to={EX_DOOR[n] || '#launchpads'} className="llb-exd" tip={`${n} — open it`} testId={`llb-ex-${k}`}><div style={{ '--i': k }}><b>{i}</b><strong>{n}</strong><small>{w}</small><em aria-hidden="true">›</em></div></Door>)}</div>
   </section>;
 }
 export default LaunchLab;

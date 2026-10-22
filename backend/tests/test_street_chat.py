@@ -134,3 +134,20 @@ def test_family_fuse_counts_cards_on_linked_wallets_and_the_creators_prime_cards
     assert keys == ['design:d1', 'card:p1']                                 # made / held on the member's linked wallet — was missed before
     keys = [x['key'] for x in rs._ffuse_cards({}, {'owner': 'HQ', 'members': ['HQ']})]
     assert keys[:2] == ['design:d1', 'design:d2'] and keys[2:] == ['prime:degen', 'prime:safe']   # the creator fields every design + the Prime cards, the real one first
+
+
+def test_a_quiet_world_read_does_not_rewrite_the_crews_store(monkeypatch):
+    import asyncio
+    import json
+    import reputation_service as rs
+    rs.CREWS_PATH.write_text(json.dumps({'crews': {}, 'by': {}}))
+    monkeypatch.setattr(rs, '_cartels_now', lambda now: [])
+
+    async def no_fuse(now):
+        return None
+    monkeypatch.setattr(rs, '_ffuse_tick', no_fuse)
+    asyncio.run(rs.familia_world('', ''))                       # the first read seeds the world (homes, blank state) → saved
+    saves = []
+    monkeypatch.setattr(rs, '_json_save', lambda path, d: saves.append(str(path)))
+    asyncio.run(rs.familia_world('', ''))
+    assert not [p for p in saves if p.endswith('crews.json')]     # nothing moved → nothing written

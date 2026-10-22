@@ -38,3 +38,5 @@ def test_strategies_ride_only_on_live_rows():
     assert st['loop']['risk']['liq'] == 3 and st['jlp']['risk']['il'] == 2
     assert [s['key'] for s in sm.strategies([POOLS[6]], {})] == []              # nothing live → nothing offered
     assert 'loop' not in {s['key'] for s in sm.strategies(POOLS, None)}          # Kamino unread → no loop numbers invented
+    zero = [dict(POOLS[4], apy=0.0)]
+    assert sm.strategies(zero, {}) == []                                         # JLP with no published APY is left out, never "0.00%"
