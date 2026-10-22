@@ -41,3 +41,14 @@ def test_the_hub_keeps_every_kind_with_the_token_you_hold_and_the_exact_deposit_
     assert {r['id'] for r in v['cities']['docks']} == {'k-vault', 'jl'} and {r['id'] for r in v['cities']['harbor']} == {'r-amm', 'PUMPpair'}
     assert v['kinds']['v3'] == 2 and v['at'] == 1000.0
     assert fp.link_row(by['jito']) == {'pool': 'jito', 'sym': 'JITOSOL', 'kind': 'stake', 'proto': 'Jito Liquid Staking'}
+
+
+def test_real_24h_earnings_and_thinned_charts():
+    import fee_pools as fp
+    e = fp.earn_24h({'apy': 7.3, 'base': 3.65, 'reward': 3.65, 'tvl': 3_650_000})
+    assert e == {'usd': 1000.0, 'total': 0.2, 'base': 0.1, 'reward': 0.1, 'poolDay': 730, 'apy': 7.3}
+    assert fp.earn_24h({'apy': None, 'tvl': 1}) is None                       # a DEX pool with no APY → no guessed fee tier
+    data = [{'timestamp': f'2026-07-{d:02d}T00:00:00.000Z', 'tvlUsd': d * 1000, 'apy': d / 10} for d in range(1, 31)] + [{'timestamp': 'junk'}]
+    pts = fp.chart_points(data, days=90, max_points=10)
+    assert len(pts) == 10 and pts[-1]['tvl'] == 30000 and pts[0]['t'] < pts[-1]['t']
+    assert fp.chart_points(data, days=5)[0]['tvl'] == 25000

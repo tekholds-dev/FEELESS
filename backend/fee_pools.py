@@ -152,3 +152,34 @@ def hub(llama_rows, pairs, now):
 def link_row(r):
     """What a family building shows once it is SET to a pool (stored on the block — sym, kind, protocol, never a balance)."""
     return {'pool': r['id'], 'sym': r['sym'], 'kind': r['kind'], 'proto': r['proto']}
+
+
+# 📈 REAL 24h EARNINGS + CHARTS (owner, 2026-10-22: "bigger pop-out with real data and charts and real 24h profit from pools").
+def earn_24h(row, usd=1000.0):
+    """What `usd` deposited earned in the last 24h at the pool's live APY, split fees / interest (base) vs reward tokens, and what the whole pool
+    paid out in 24h (TVL × APY / 365). DEX pools with no published APY → None (never a guessed fee tier)."""
+    apy, base, rew, tvl = row.get('apy'), row.get('base'), row.get('reward'), _f(row.get('tvl'))
+    if apy is None:
+        return None
+    day = lambda pct: round(usd * _f(pct) / 100 / 365, 4)
+    return {'usd': usd, 'total': day(apy), 'base': day(base if base is not None else apy), 'reward': day(rew or 0),
+            'poolDay': round(tvl * _f(apy) / 100 / 365), 'apy': _f(apy)}
+
+
+def chart_points(data, days=90, max_points=90):
+    """DefiLlama /chart/{pool} rows → [{t, tvl, apy}] for the last `days`, evenly thinned to ≤ max_points (the last point always kept)."""
+    rows = []
+    for d in data or []:
+        try:
+            t = d.get('timestamp'); ts = float(t) if isinstance(t, (int, float)) else __import__('datetime').datetime.fromisoformat(str(t).replace('Z', '+00:00')).timestamp()
+        except Exception:
+            continue
+        rows.append({'t': int(ts), 'tvl': round(_f(d.get('tvlUsd'))), 'apy': round(_f(d.get('apy')), 3)})
+    rows.sort(key=lambda r: r['t'])
+    if rows:
+        cut = rows[-1]['t'] - days * 86400
+        rows = [r for r in rows if r['t'] >= cut]
+    if len(rows) > max_points:
+        step = len(rows) / max_points
+        rows = [rows[int(i * step)] for i in range(max_points - 1)] + [rows[-1]]
+    return rows

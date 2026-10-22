@@ -9563,6 +9563,33 @@ async def familia_pools():
         if v['pools'] or not c['v']:   # a failed read keeps the last good hub
             c.update(at=now, v=v)
         return c['v']
+_fpl_charts = {}   # pool id → (at, points) — 30 min, ≤ 300 pools kept
+
+
+@app.get('/api/reputation/familia-pools/chart/{pool}')
+async def familia_pool_chart(pool: str):
+    """📈 One pool's TVL + APY history (DefiLlama /chart, last 90 days, ≤ 90 points) + what $1,000 earned in the last 24h. Cached 30 min."""
+    if not _re.match(r'^[A-Za-z0-9-]{8,64}$', pool or ''):
+        raise HTTPException(400, 'Not a pool id.')
+    now = time.time(); hit = _fpl_charts.get(pool)
+    row_ = next((r_ for r_ in ((await familia_pools()) or {}).get('pools') or [] if r_.get('id') == pool), None)
+    earn_ = _fpl.earn_24h(row_) if row_ else None
+    if hit and now - hit[0] < 1800:
+        return {'pool': pool, 'points': hit[1], 'earn': earn_}
+    pts_ = []
+    if row_ and row_.get('src') == 'llama':
+        try:
+            r_ = await _ai_http().get(f'https://yields.llama.fi/chart/{pool}', timeout=15)
+            pts_ = _fpl.chart_points((r_.json() or {}).get('data') if r_.status_code == 200 else [])
+        except Exception:
+            pts_ = []
+    _fpl_charts[pool] = (now, pts_)
+    if len(_fpl_charts) > 300:
+        for k_ in sorted(_fpl_charts, key=lambda k: _fpl_charts[k][0])[:len(_fpl_charts) - 300]:
+            _fpl_charts.pop(k_, None)
+    return {'pool': pool, 'points': pts_, 'earn': earn_}
+
+
 _fle_hits = {}   # ip → [times] (the deposit builder: 30 an hour per IP)
 
 
