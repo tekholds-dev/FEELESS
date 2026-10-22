@@ -166,7 +166,8 @@ P0 — OWNER'S NEWEST (2026-10-22 late) — do these first, in order
 2. 🏙 Familia "astoundingly great": ALL assets as buildings (held coins, pools, launches, Fuse cards) + expansions · family members' VITALS on the
    family page · Fuse wallet trades (lots) in the family Books.
 3. 🪟 NEXA struggles to read / isn't trade-ready like OSSY + G4 (177s reads) · 🧠 G4 health (stalls, WAITs) · Models tab BESIDE NEXA's chat with
-   vitals, aligned · prompt PRESETS per model (save / pick / apply) · no lag.
+   vitals, aligned · prompt PRESETS per model DONE 2026-10-22 (Brain › Models 🔖 chips: save / apply / ✕; `ai_rig.preset_*`, POST
+   /admin/ai/rig/preset; not yet opened in the browser) · no lag.
 4. 🐆 Sicario's seat button: more vitals + fix its alignment (owner screenshot).
 5. 🗂 Desktop clean-up (confirm the list with the owner before deleting — never the images): FEELESS old copies/, feeless-aisite/,
    feeless-churnfix/, feeless-flow/, feeless-kernel/, feeless-meta/, feeless-ultra/ (keep `feeless v.o7`).

@@ -319,3 +319,36 @@ def runtime_view(row, actual, job=None, ctl=None):
     return {'desired': want, 'actual': actual, 'state': state, 'active': state == 'active', 'controller': ctl or {'reachable': False},
             'job': {k: job.get(k) for k in ('state', 'msg', 'at', 'verified') if k in job} or None,
             'auto': t is None}
+
+
+# 🔖 PRESETS per model (owner, 2026-10-22: "prompt presets per model — save / pick / apply"): a named snapshot of one model's rig (Load + what
+# FEELESS sends). Applying one goes through `clean` (listed values only) — G4 / OSSY still reload only on the owner's ⚡ tap.
+PRESETS_MAX, PRESET_NAME_MAX = 8, 32
+
+
+def preset_name(s):
+    n = ' '.join(''.join(ch for ch in str(s or '') if ch.isprintable()).split())[:PRESET_NAME_MAX]
+    return n or None
+
+
+def preset_save(store, key, name, row, now):
+    """→ the store with `name` saved for `key` (same name = replaced; the newest PRESETS_MAX kept)."""
+    n = preset_name(name)
+    if key not in KEYS or not n or not isinstance(row, dict):
+        raise ValueError('Pick a model and a name.')
+    lst = [p for p in (store.get(key) or []) if p.get('name') != n]
+    store[key] = ([{'name': n, 'at': int(now), 'row': {f: v for f, v in row.items() if f in DEFAULTS[key] or f == 'load'}}] + lst)[:PRESETS_MAX]
+    return store
+
+
+def preset_get(store, key, name):
+    return next((p['row'] for p in store.get(key) or [] if p.get('name') == preset_name(name)), None)
+
+
+def preset_drop(store, key, name):
+    store[key] = [p for p in store.get(key) or [] if p.get('name') != preset_name(name)]
+    return store
+
+
+def presets_view(store):
+    return {k: [{'name': p['name'], 'at': p['at'], 'words': load_words(p['row']['load']) if isinstance(p['row'].get('load'), dict) else ''} for p in store.get(k) or []] for k in KEYS}

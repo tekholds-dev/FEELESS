@@ -17353,6 +17353,7 @@ AI_PLAY_PATH = DATA_DIR / 'ai_playground.json'
 
 
 AI_RIG_PATH = DATA_DIR / 'ai_rig.json'
+AI_PRESETS_PATH = DATA_DIR / 'ai_presets.json'   # 🔖 per-model rig presets (ai_rig.preset_*)
 
 
 def _rig_apply():
@@ -17519,7 +17520,36 @@ async def admin_ai_rig(request: Request):
     _brain_load()
     set_ = _chat.get('settings') or {}
     return {**_rg.view(rig_, models_, lms_), 'live': live_, 'nexa': _rg.runtime_view(rig_['win'], act_, _nexa_job, ctl_),
-            'chat': {'temp': set_.get('temp'), 'len': set_.get('len'), 'temps': list(_rg.CHAT_TEMPS), 'lens': _rg.CHAT_LENS}, 'reloading': sorted(_lms_reloading)}
+            'chat': {'temp': set_.get('temp'), 'len': set_.get('len'), 'temps': list(_rg.CHAT_TEMPS), 'lens': _rg.CHAT_LENS}, 'reloading': sorted(_lms_reloading),
+            'presets': _rg.presets_view(_json_load(AI_PRESETS_PATH, {}))}
+
+
+@app.post('/api/reputation/admin/ai/rig/preset')
+async def admin_ai_rig_preset(request: Request):
+    """🔖 Owner: a model's presets — `save` (snapshot its rig now under a name), `apply` (that snapshot → the rig, listed values only; G4 / OSSY
+    reload only on the ⚡ tap), `drop`."""
+    admin = _require_owner(request)
+    import ai_rig as _rg
+    body = await request.json(); body = body if isinstance(body, dict) else {}
+    key_, name_, act_ = body.get('key'), body.get('name'), body.get('act')
+    store_ = _json_load(AI_PRESETS_PATH, {}); rig_ = _rg.clean({}, _json_load(AI_RIG_PATH, {}))
+    try:
+        if act_ == 'save':
+            _rg.preset_save(store_, key_, name_, rig_.get(key_) or {}, time.time())
+        elif act_ == 'drop':
+            _rg.preset_drop(store_, key_, name_)
+        elif act_ == 'apply':
+            row_ = _rg.preset_get(store_, key_, name_)
+            if row_ is None:
+                raise ValueError('No such preset.')
+            _json_save(AI_RIG_PATH, _rg.clean({key_: row_}, rig_)); _rig_apply()
+        else:
+            raise ValueError('save, apply or drop.')
+    except ValueError as e_:
+        raise HTTPException(400, str(e_))
+    _json_save(AI_PRESETS_PATH, store_)
+    ad_ = _admin_load(); _audit(ad_, admin, 'ai-preset', f'{act_} {key_} {str(name_)[:32]}'); _admin_save(ad_)
+    return await admin_ai_rig(request)
 
 
 @app.post('/api/reputation/admin/ai/rig')

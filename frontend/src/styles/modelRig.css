@@ -83,6 +83,13 @@
 .mrg-nxacts { display: flex; flex-wrap: wrap; gap: 6px; } .mrg-nxacts .m-btn { font-size: 11px; padding: 5px 10px; min-height: 32px; }
 @keyframes mrgScan { from { transform: translateX(-100%); } to { transform: translateX(290%); } }
 @keyframes mrgSweep { 0%, 55% { transform: translateX(-110%); opacity: 0; } 65% { opacity: 1; } 100% { transform: translateX(260%); opacity: 0; } }
+/* 🔖 presets: chips to apply (✕ to drop) + a name field to save the current setup */
+.mrg-pchips { display: flex; flex-wrap: wrap; gap: 6px; }
+.mrg-pchip { display: inline-flex; border-radius: 999px; border: 1px solid color-mix(in srgb, var(--mrg-a, #15d16a) 45%, transparent); overflow: hidden; animation: mrgIn .25s ease-out both; animation-delay: calc(var(--i, 0) * 50ms); }
+.mrg-pchip button { min-height: 32px; padding: 0 11px; border: 0; background: rgba(21, 209, 106, .08); color: #d8f5e4; font: 700 11px 'JetBrains Mono', monospace; cursor: pointer; transition: background .15s ease, transform .15s ease; }
+.mrg-pchip button:hover, .mrg-pchip button:focus-visible { background: rgba(21, 209, 106, .22); outline: none; } .mrg-pchip button:active { transform: scale(.96); }
+.mrg-pchip .mrg-pdrop { min-width: 32px; padding: 0; color: #ff8fa3; border-left: 1px solid rgba(255, 255, 255, .08); } .mrg-pchip .mrg-pdrop:hover { background: rgba(255, 143, 163, .16); }
+.mrg-psave { display: flex; gap: 6px; } .mrg-psave .m-input { flex: 1; min-width: 0; min-height: 32px; }
 @keyframes mrgSlot { 0%, 100% { opacity: .55; } 50% { opacity: 1; } }
 @keyframes mrgPop { from { opacity: 0; transform: rotate(-90deg) scale(.7); } }
 @keyframes mrgIn { from { opacity: 0; transform: translateY(6px); } } @keyframes mrgBusy { to { opacity: .45; } }
@@ -94,4 +101,5 @@ body.theme-day .mrg-now, body.theme-day .mrg-grp, body.theme-day .mrg-inf { back
 body.theme-day .mrg-seg button { color: #164a2c; background: rgba(0, 60, 30, .04); border-color: rgba(0, 60, 30, .15); } body.theme-day .mrg-seg button.active { color: #021a0c; }
 body.theme-day .mrg-say button { color: #0d5a30; } body.theme-day .mrg-lbl { color: #0d7a3e; } body.theme-day .mrg-cmd { background: #e6f2eb; color: #0d5a30; }
 body.theme-day .mrg-nx { background: rgba(245, 240, 255, .9); } body.theme-day .mrg-nxg b, body.theme-day .mrg-nxh b { color: #2a1a4a; }
-@media (max-width: 640px) { .mrg-grid { grid-template-columns: 1fr; } .mrg-inf { gap: 6px; } }
+body.theme-day .mrg-pchip button { color: #0d5a30; background: rgba(0, 60, 30, .05); }
+@media (max-width: 640px) { .mrg-grid { grid-template-columns: 1fr; } .mrg-psave .m-btn { padding: 0 10px; } .mrg-inf { gap: 6px; } }

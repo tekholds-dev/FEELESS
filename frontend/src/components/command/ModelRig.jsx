@@ -61,6 +61,18 @@ export function LoadedNow({ lm }) {
   </div>;
 }
 
+// 🔖 a model's presets: save its rig now under a name, tap one to apply it (G4 / OSSY still reload only on ⚡), ✕ to drop
+function Presets({ k, list, busy, onAct }) {
+  const [name, setName] = useState('');
+  return <div className="mrg-grp mrg-pre" data-testid={`rig-${k}-presets`}><em className="mrg-lbl">🔖 PRESETS <small>save · pick · apply</small></em>
+    {list.length ? <div className="mrg-pchips">{list.map((p, i) => <span key={p.name} className="mrg-pchip" style={{ '--i': i }}>
+      <button type="button" disabled={!!busy} onClick={() => onAct({ act: 'apply', key: k, name: p.name })} data-tip={`Apply "${p.name}"${p.words ? ` — ${p.words}` : ''}`} data-testid={`rig-${k}-preset-${p.name}`}>{p.name}</button>
+      <button type="button" className="mrg-pdrop" disabled={!!busy} onClick={() => onAct({ act: 'drop', key: k, name: p.name })} aria-label={`Delete preset ${p.name}`} data-tip="Delete this preset">✕</button></span>)}</div> : null}
+    <form className="mrg-psave" onSubmit={e => { e.preventDefault(); if (name.trim()) { onAct({ act: 'save', key: k, name }); setName(''); } }}>
+      <input className="m-input" value={name} maxLength={32} onChange={e => setName(e.target.value)} placeholder="name this setup…" aria-label="Preset name" data-testid={`rig-${k}-preset-name`} />
+      <button type="submit" className="m-btn" disabled={!!busy || !name.trim()} data-tip="Save this model's settings right now as a preset" data-testid={`rig-${k}-preset-save`}>Save</button></form></div>;
+}
+
 export function ModelRig({ call }) {
   const [d, setD] = useState(null); const [busy, setBusy] = useState(''); const [err, setErr] = useState(''); const [note, setNote] = useState(null);
   const load = useCallback(() => call('/admin/ai/rig').then(setD).catch(e => setErr(String(e?.message || e))), [call]);
@@ -74,6 +86,7 @@ export function ModelRig({ call }) {
   const save = (key, f, v) => post(`${key}.${f}`, { [key]: { [f]: v } });
   const want = (key, f, v) => post(`${key}.load.${f}`, { [key]: { load: { [f]: v } } });
   const nexa = act => post(`nexa.${act}`, { nexa: act });
+  const preset = async body => { setBusy(`preset.${body.key}`); try { setD(await call('/admin/ai/rig/preset', { method: 'POST', body: JSON.stringify(body) })); setErr(''); } catch (e) { setErr(String(e?.message || e)); } setBusy(''); };
   const chatSet = async patch => {
     setBusy(`chat.${Object.keys(patch)[0]}`);
     try { await call('/admin/ai/chat/settings', { method: 'POST', body: JSON.stringify(patch) }); setD(x => ({ ...x, chat: { ...x.chat, ...patch } })); } catch (e) { setErr(String(e?.message || e)); }
@@ -110,6 +123,7 @@ export function ModelRig({ call }) {
           {FIELDS.filter(([f]) => r[f] !== undefined).map(([f, label, word, tip]) => <div key={f} className="mrg-row" data-tip={tip}><em>{label}</em>
             <div className="mrg-seg">{(d.options[f] || []).map(v => <button key={v} type="button" className={r[f] === v ? 'active' : ''} disabled={!!busy}
               aria-busy={busy === `${r.key}.${f}`} onClick={() => save(r.key, f, v)} data-testid={`rig-${r.key}-${f}-${v}`}>{word(v)}</button>)}</div></div>)}</div>
+        <Presets k={r.key} list={d.presets?.[r.key] || []} busy={busy} onAct={preset} />
         {r.key === 'win' ? <NexaRuntime n={d.nexa} busy={busy} onAct={nexa} /> : <code className="mrg-cmd" data-tip="The same load as a terminal command (run it where the model lives)">{r.cmd}</code>}
       </section>; })}</div>
     {err ? <p className="mrg-err">{err}</p> : null}
