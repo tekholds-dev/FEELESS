@@ -97,6 +97,12 @@
 .st-reacts button.is-on { border-color: var(--st-a); background: color-mix(in srgb, var(--st-a) 22%, transparent); }
 .st-reacts small { font: 700 9px 'JetBrains Mono', monospace; color: var(--st-ink); }
 .st-reacts .st-act { font-size: 11px; color: var(--st-dim); } .st-reacts .st-act.is-mod:hover { color: #ff8fa3; background: rgba(255, 143, 163, .12); }
+.st-pinned { position: relative; display: grid; gap: 4px; padding: 8px 34px 8px 10px; border-radius: 12px; background: linear-gradient(110deg, rgba(255, 211, 107, .16), rgba(10, 8, 12, .92) 70%);
+  border: 1px solid rgba(255, 211, 107, .55); box-shadow: 0 0 18px rgba(255, 211, 107, .18); animation: stIn .3s ease-out both; }
+.st-pinned em { font: 800 8.5px 'JetBrains Mono', monospace; font-style: normal; letter-spacing: .14em; color: #ffd36b; }
+.st-pinned p { margin: 0; font-size: 12px; color: var(--st-ink); overflow-wrap: anywhere; } .st-pinned p b { color: var(--st-a2); font-family: 'JetBrains Mono', monospace; font-size: 11px; }
+.st-pinned > .st-act { position: absolute; top: 6px; right: 6px; min-width: 28px; min-height: 28px; border-radius: 50%; border: 0; background: rgba(255, 255, 255, .08); color: var(--st-ink); cursor: pointer; }
+body.theme-day .st-pinned { background: linear-gradient(110deg, rgba(255, 211, 107, .3), #fffaf0 70%); }
 .st-nil { padding: 26px 10px; text-align: center; color: var(--st-dim); font: 600 12px 'JetBrains Mono', monospace; }
 
 /* composer + tools */

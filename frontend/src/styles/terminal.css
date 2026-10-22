@@ -1152,7 +1152,6 @@ body.theme-day .positive,
 body.theme-day .nav-hot,
 body.theme-day h1 em,
 body.theme-day .allocation-detail strong,
-body.theme-day .lore-tabs button.active,
 body.theme-day .learning-layers button.active,
 body.theme-day .sidebar-feecat-toggle,
 body.theme-day .sidebar-feecat-subnav a.active,
@@ -1161,11 +1160,7 @@ body.theme-day .negative{color:var(--day-danger)!important}
 body.theme-day .context-chain,
 body.theme-day .market-ticker small,
 body.theme-day header small{color:var(--day-muted)!important}
-body.theme-day .feecat-banner h1,
-body.theme-day .feecat-banner p,
-body.theme-day .feecat-banner span,
-body.theme-day .feecat-banner-copy *{color:#f1fff6!important}
-body.theme-day .feecat-banner h1 em{color:#6dffc4!important}
+
 body.theme-day .learning-layers button{background:var(--day-surface,#f7faf7)!important;color:var(--day-ink)!important;border-color:var(--day-border)!important}
 body.theme-day .learning-layers button.active{background:#e9f7f0!important;color:var(--day-green)!important;border-color:var(--day-green)!important}
 body.theme-day .btn-primary,
@@ -1573,8 +1568,6 @@ body.theme-day .sidebar-link .trenches-font{background:linear-gradient(90deg,#07
 .coin-chat-rooms .trenches-font{font-size:11px}
 /* ===== The Trenches — lit ===== */
 .trenches-lit{--neon1:#15d16a;--neon2:#ffd166;--neon3:#ff4d8d}
-
-
 
 .trenches-grid{display:grid;grid-template-columns:minmax(300px,1fr) minmax(0,1.5fr) minmax(280px,.9fr);gap:16px;align-items:start;margin-bottom:18px}
 .trenches-grid>.trenches-chat-section{position:sticky;top:12px}
@@ -3654,7 +3647,6 @@ body.profile-bg .wallet-profile-page{background:transparent!important}body.profi
 .pbg-feeglow{background:radial-gradient(60% 45% at 50% 0%,rgba(22,214,127,.22),transparent 70%),radial-gradient(40% 30% at 90% 100%,rgba(22,214,127,.12),transparent 70%),#020604}
 /* holders · animated */
 
-
 .pbg-glitter{background:radial-gradient(2px 2px at 20% 30%,#fff8,transparent),radial-gradient(2px 2px at 70% 60%,#ffd6ff99,transparent),radial-gradient(1.5px 1.5px at 40% 80%,#fff7,transparent),linear-gradient(160deg,#2a0b3d,#12051f 60%,#3a0a2a);background-size:220px 220px,260px 260px,180px 180px,100% 100%;background-position:50% 50%}
 .pbg-matrix{background:repeating-linear-gradient(180deg,transparent 0 22px,rgba(0,255,120,.10) 22px 24px),repeating-linear-gradient(90deg,transparent 0 18px,rgba(0,255,120,.05) 18px 20px),#000a03;animation:none}
 .pbg-sunset,.pbg-vapor,.pbg-aurora,.pbg-plasma,.pbg-goldrush,.pbg-neoncat,.pbg-alpha,.pbg-hologram,.pbg-diamond,.pbg-whale{background-size:300% 300%;background-position:50% 50%}
@@ -3989,18 +3981,11 @@ body.theme-day .net-grid button.active{background:#00c07c;color:#fff}
 .fcp-list{max-height:min(460px,55vh)!important;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));scrollbar-width:thin;scrollbar-color:#15d16a transparent}
 .fcp-list::-webkit-scrollbar{width:6px}.fcp-list::-webkit-scrollbar-thumb{background:#15d16a;border-radius:6px}
 .fcp-list>.wp-bio{grid-column:1/-1}
-.feecat-command .feecat-banner{min-height:0!important;padding-block:clamp(18px,3vw,34px)!important}
-.feecat-explain{display:grid;gap:12px;margin-top:14px;padding:14px;border-radius:16px;border:1px solid #15d16a22;background:#030a07b3}
-.feecat-explain-tabs{display:inline-flex;gap:2px;padding:3px;border-radius:11px;background:#020604;border:1px solid #15d16a26;width:fit-content;max-width:100%;overflow-x:auto;scrollbar-width:none}
-.feecat-explain-tabs button{border:0;border-radius:8px;padding:8px 13px;background:transparent;color:#ffffffb0;font:600 11px 'JetBrains Mono',monospace;letter-spacing:.05em;text-transform:uppercase;cursor:pointer;white-space:nowrap;transition:background .15s,color .15s}
-.feecat-explain-tabs button:hover{background:#15d16a14;color:#fff}.feecat-explain-tabs button:focus-visible{outline:2px solid #15d16a}
-.feecat-explain-tabs button.active{background:#15d16a;color:#02140c}
-.feecat-explain>*:not(nav){animation:bdgIn .18s ease-out}
-@media (prefers-reduced-motion:reduce){.feecat-explain>*{animation:none!important}}
-body.theme-day .fcp-tabs,body.theme-day .feecat-explain-tabs{background:#f1fbf6;border-color:#00875c33}
-body.theme-day .fcp-tabs button,body.theme-day .feecat-explain-tabs button{color:#0b1f16b0!important}
-body.theme-day .fcp-tabs button.active,body.theme-day .feecat-explain-tabs button.active{background:#00c07c!important;color:#fff!important}
-body.theme-day .feecat-explain{background:#ffffffd9;border-color:#00875c26}body.theme-day .fee-wall-pin summary span{color:#0b1f1680}
+
+body.theme-day .fcp-tabs{background:#f1fbf6;border-color:#00875c33}
+body.theme-day .fcp-tabs button{color:#0b1f16b0!important}
+body.theme-day .fcp-tabs button.active{background:#00c07c!important;color:#fff!important}
+body.theme-day .fee-wall-pin summary span{color:#0b1f1680}
 /* $FEE hero: heartbeat line, KPI chips, orbit + logo pulse (transform/opacity only) */
 .fee-ecg{position:absolute;left:0;right:0;bottom:18%;width:100%;height:60px;pointer-events:none;z-index:0;opacity:.55}
 .fee-ecg path{fill:none;stroke:#15d16a;stroke-width:1.6;stroke-linejoin:round;stroke-dasharray:180 900;stroke-dashoffset:1080;filter:drop-shadow(0 0 4px #15d16a);animation:feeEcg 3.2s linear infinite}

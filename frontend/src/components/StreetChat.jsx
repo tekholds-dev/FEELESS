@@ -57,7 +57,7 @@ function Receipt({ c, coin }) {
     {c ? <><em>{xWord(x)}</em>{c.peakX > 1.05 ? <u>peak {xWord(c.peakX)}</u> : null}</> : null}</button>;
 }
 
-const Line = memo(function Line({ l, fresh, reacts, canPull, staff, onReact, onReply, onMod, onAt }) {
+const Line = memo(function Line({ l, fresh, reacts, canPull, canPin, staff, onReact, onReply, onMod, onAt }) {
   const fam = l.fam;
   return <li className={`st-line ${l.mine ? 'is-mine' : ''} ${l.atMe ? 'is-atme' : ''} ${fam?.don ? 'is-don' : ''} ${fresh ? 'is-fresh' : ''} ${l.official ? 'is-official' : ''}`}
     style={{ '--fc': fam?.color || '#8f8470' }} data-testid={`st-line-${l.id}`}>
@@ -73,7 +73,8 @@ const Line = memo(function Line({ l, fresh, reacts, canPull, staff, onReact, onR
         data-tip={{ '🔥': 'Heat', '💀': 'Dead', '🫡': 'Respect', '💰': 'Paid' }[e]} data-testid={`st-react-${l.id}-${e}`}>{e}{r?.n ? <small>{r.n}</small> : null}</button>; })}
         <button type="button" className="st-act" onClick={() => onReply(l)} data-tip="Reply" aria-label="Reply">↩</button>
         {canPull ? <button type="button" className="st-act is-mod" onClick={() => onMod(l, 'pull')} data-tip="Pull this line off the street" aria-label="Pull this line" data-testid={`st-pull-${l.id}`}>🗑</button> : null}
-        {staff && !l.mine ? <button type="button" className="st-act is-mod" onClick={() => onMod(l, 'mute')} data-tip="Pull + mute the poster for 1 hour" aria-label="Mute for an hour">🔇</button> : null}</span>
+        {staff && !l.mine ? <button type="button" className="st-act is-mod" onClick={() => onMod(l, 'mute')} data-tip="Pull + mute the poster for 1 hour" aria-label="Mute for an hour">🔇</button> : null}
+        {canPin ? <button type="button" className="st-act" onClick={() => onMod(l, 'pin')} data-tip="📌 Pin this on top of the street for an hour (Dons + staff)" aria-label="Pin this line" data-testid={`st-pin-${l.id}`}>📌</button> : null}</span>
     </div>
   </li>;
 });
@@ -103,9 +104,9 @@ export default function StreetChat({ city, name, addr, sess }) {
     await fetch(apiUrl('/api/reputation/reactions'), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ room: d?.room || `city-${city}`, messageId: id, emoji, voter: voter(addr) }) }).catch(() => {});
   };
   const mod = async (l, act) => {
-    if (!need() || !window.confirm(act === 'mute' ? `Pull this line and mute ${l.name} for an hour?` : 'Pull this line off the street?')) return;
+    if (!need() || ((act === 'pull' || act === 'mute') && !window.confirm(act === 'mute' ? `Pull this line and mute ${l.name} for an hour?` : 'Pull this line off the street?'))) return;
     try { const r = await fetch(apiUrl(`/api/reputation/familia/street/${city}/mod`), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ address: addr, session: sess, id: l.id, act }) });
-      const j = await r.json().catch(() => ({})); if (!r.ok) throw new Error(j.detail || 'Could not pull it'); toast.success(act === 'mute' ? '🔇 pulled + muted 1h' : '🗑 pulled'); load(); }
+      const j = await r.json().catch(() => ({})); if (!r.ok) throw new Error(j.detail || 'Could not pull it'); toast.success({ mute: '🔇 pulled + muted 1h', pin: '📌 pinned for an hour', unpin: '📌 pin taken down' }[act] || '🗑 pulled'); load(); }
     catch (err) { toast.error(err.message); }
   };
   const put = s => { setT(v => (v ? `${v.trimEnd()} ${s}` : s)); setTimeout(() => input.current?.focus(), 0); };
@@ -123,8 +124,12 @@ export default function StreetChat({ city, name, addr, sess }) {
     {(d?.here || []).length ? <div className="st-here" data-testid="st-here">{d.here.slice(0, 14).map((h, i) => <button key={h.address} type="button" className="st-who-here" style={{ '--i': i, '--fc': h.fam?.color || '#8f8470' }}
       onClick={() => at(h.name)} data-tip={`${h.fam ? `[${h.fam.tag}] ` : ''}${h.name} — tap to mention`}>{h.fam?.badge ? <FamilyCrest b={h.fam.badge} px={18} banner={false} sheen={false} /> : <i>{String(h.name || '?')[0]}</i>}</button>)}
       {d.hereN > 14 ? <small>+{d.hereN - 14}</small> : null}{(v.families || []).length ? <em>{v.families.length} famil{v.families.length === 1 ? 'y' : 'ies'} talking</em> : null}</div> : null}
+    {d?.pinned ? <div className="st-pinned" data-testid="st-pinned"><em>📌 PINNED · {d.pinned.pinnedBy || 'a Don'} · {Math.ceil((d.pinned.left || 0) / 60)}m left</em>
+      <p><b>{d.pinned.fam ? `[${d.pinned.fam.tag}] ` : ''}{d.pinned.name}</b> {String(d.pinned.text || '').slice(0, 140)}</p>
+      {(d.pinned.calls || []).length ? <span className="st-coins">{d.pinned.calls.map(c => <Receipt key={c.pairAddress} c={c} />)}</span> : null}
+      {mods.staff || mods.don ? <button type="button" className="st-act" onClick={() => mod(d.pinned, 'unpin')} aria-label="Unpin" data-tip="Take the pin down">✕</button> : null}</div> : null}
     <ol className="st-log" ref={logRef} onScroll={e => { const el = e.currentTarget; stick.current = el.scrollHeight - el.scrollTop - el.clientHeight < 60; }}>
-      {lines.map(l => <Line key={l.id} l={l} fresh={fresh.has(l.id)} reacts={d?.reacts || ['🔥', '💀', '🫡', '💰']} canPull={mods.staff || (mods.don && l.fam?.id && l.fam.id === mods.famId)} staff={mods.staff}
+      {lines.map(l => <Line key={l.id} l={l} fresh={fresh.has(l.id)} reacts={d?.reacts || ['🔥', '💀', '🫡', '💰']} canPull={mods.staff || (mods.don && l.fam?.id && l.fam.id === mods.famId)} canPin={!!(mods.staff || mods.don)} staff={mods.staff}
         onReact={react} onReply={x => { setReply(x); input.current?.focus(); }} onMod={mod} onAt={at} />)}
       {!lines.length ? <li className="st-nil">{d ? `Dead quiet on ${name}. Say something — your family crest rides with you.` : 'Walking onto the block…'}</li> : null}
     </ol>

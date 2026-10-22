@@ -151,3 +151,12 @@ def test_a_quiet_world_read_does_not_rewrite_the_crews_store(monkeypatch):
     monkeypatch.setattr(rs, '_json_save', lambda path, d: saves.append(str(path)))
     asyncio.run(rs.familia_world('', ''))
     assert not [p for p in saves if p.endswith('crews.json')]     # nothing moved → nothing written
+
+
+def test_a_pinned_call_tops_the_street_for_an_hour():
+    lines = [{'id': 'm1', 'text': 'CALL $WIF'}, {'id': 'm2', 'text': 'gm'}]
+    v = sc.pin_view({'id': 'm1', 'by': '[SIC] Vito', 'at': 1000.0}, lines, 1600.0)
+    assert v['text'] == 'CALL $WIF' and v['pinnedBy'] == '[SIC] Vito' and v['left'] == 3000
+    assert sc.pin_view({'id': 'm1', 'at': 1000.0}, lines, 1000.0 + sc.PIN_SEC + 1) is None      # expired
+    assert sc.pin_view({'id': 'gone', 'at': 1000.0}, lines, 1100.0) is None and sc.pin_view(None, lines, 1.0) is None
+    assert sc.can_pin(True, False) and sc.can_pin(False, True) and not sc.can_pin(False, False)

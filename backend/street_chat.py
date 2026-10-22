@@ -12,6 +12,7 @@ ROOM_RE = re.compile(r'^[a-z0-9-]{2,24}$')
 HERE_SEC = 90            # a wallet is on the block for this long after its last heartbeat
 HERE_CAP = 400           # wallets remembered per city (memory only)
 REACTS = ('🔥', '💀', '🫡', '💰')
+PIN_SEC = 3600           # a 📌 pinned call stays on top of the street for an hour
 SPARK_BARS, SPARK_SEC = 12, 300   # vitals: 12 bars of 5 minutes = the last hour
 
 
@@ -89,3 +90,16 @@ def vitals(lines, now_ms):
 def can_pull(viewer_staff, viewer_crew_id, viewer_is_don, line_crew_id):
     """Who may pull a line off the street: staff any line; a Don the lines of their own family."""
     return bool(viewer_staff or (viewer_is_don and viewer_crew_id and viewer_crew_id == line_crew_id))
+
+
+def pin_view(pin, lines, now):
+    """The street's 📌 pin → the pinned line (dressed) + who pinned it + seconds left, or None (expired / the line is gone)."""
+    if not pin or now - float(pin.get('at') or 0) > PIN_SEC:
+        return None
+    line = next((l for l in lines or [] if l.get('id') == pin.get('id')), None)
+    return {**line, 'pinnedBy': pin.get('by'), 'left': int(PIN_SEC - (now - float(pin['at'])))} if line else None
+
+
+def can_pin(viewer_staff, viewer_is_don):
+    """Who may pin a line on a street: staff, or any family's Don (the last pin wins; it lasts an hour)."""
+    return bool(viewer_staff or viewer_is_don)

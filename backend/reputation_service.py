@@ -23897,7 +23897,8 @@ async def familia_street(city: str, viewer: str = Query('', max_length=64), sess
     here_ = _stc.here_list(_street_here, city, now, seen_)
     vf_ = fam(me_) if me_ else None
     staff_ = bool(me_) and _is_staff(me_)
-    return {'room': room_, 'lines': lines_, 'vitals': _stc.vitals(lines_, now * 1000), 'reacts': list(_stc.REACTS),
+    pin_ = _stc.pin_view(((d_.get('streetPins') or {}).get(room_)), lines_, now)
+    return {'room': room_, 'lines': lines_, 'vitals': _stc.vitals(lines_, now * 1000), 'reacts': list(_stc.REACTS), 'pinned': pin_,
             'here': [{'address': w_, 'name': _display_name(w_), 'fam': fam(w_)} for w_ in here_[:40]], 'hereN': len(here_),
             'mod': {'staff': staff_, 'don': bool(vf_ and vf_.get('don')), 'famId': (vf_ or {}).get('id')}, 'me': {'fam': vf_, 'handle': handles_[0] if handles_ else None} if me_ else None}
 
@@ -23913,8 +23914,8 @@ class StreetMod(BaseModel):
 async def familia_street_mod(city: str, p: StreetMod):
     """🛡 Pull a line off the street (staff: any line · a Don: their own family's lines) or mute its poster for an hour (staff only). Audited."""
     room_ = _stc.room_of(city)
-    if not room_ or p.act not in ('pull', 'mute'):
-        raise HTTPException(400, 'Pull or mute a line on a real street.')
+    if not room_ or p.act not in ('pull', 'mute', 'pin', 'unpin'):
+        raise HTTPException(400, 'Pull, mute or pin a line on a real street.')
     me_ = _session_or_401(p.address, p.session)
     fam = _street_fams()
     vf_ = fam(me_) or {}
@@ -23926,6 +23927,16 @@ async def familia_street_mod(city: str, p: StreetMod):
         if not m_:
             raise HTTPException(404, 'That line is gone already.')
         lf_ = fam(m_.get('address')) or {}
+        if p.act in ('pin', 'unpin'):   # 📌 staff or a Don pins one call on top of the street for an hour (the last pin wins)
+            if not _stc.can_pin(staff_, vf_.get('don')):
+                raise HTTPException(403, 'Only a Don (or FEELESS staff) pins a line on the street.')
+            pins_ = d_.setdefault('streetPins', {})
+            if p.act == 'pin':
+                pins_[room_] = {'id': p.id, 'by': f"[{vf_.get('tag')}] {_display_name(me_)}" if vf_.get('tag') else _display_name(me_), 'at': time.time()}
+            else:
+                pins_.pop(room_, None)
+            CHAT_PATH.write_text(json.dumps(d_))
+            return {'ok': True}
         if p.act == 'mute' and not staff_:
             raise HTTPException(403, 'Only FEELESS staff can mute.')
         if not _stc.can_pull(staff_, vf_.get('id'), vf_.get('don'), lf_.get('id')):
