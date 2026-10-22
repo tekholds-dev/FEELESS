@@ -9442,6 +9442,103 @@ def _ffuse_view(st, c, now):
     return out
 
 
+# 🏦 FEE CITY'S MARKETS (fee_markets.py): real DeFi markets as buildings — DefiLlama TVL (one tiny call a market) + ONE DexScreener search for the
+# live pools and today's top coins, in parallel, cached 60s, one pooled client. Read-only.
+import fee_markets as _fmk
+_fmk_cache = {'at': 0.0, 'v': None, 'prev': {}, 'lock': None}
+_fmk_http = None
+
+
+async def _fmk_fetch():
+    global _fmk_http
+    if _fmk_http is None:
+        _fmk_http = httpx.AsyncClient(timeout=8, limits=httpx.Limits(max_connections=8))
+
+    async def tvl(slug):
+        try:
+            r = await _fmk_http.get(f'https://api.llama.fi/tvl/{slug}')
+            return slug, float(r.text) if r.status_code == 200 else None
+        except Exception:
+            return slug, None
+
+    async def dex():
+        try:
+            r = await _fmk_http.get('https://api.dexscreener.com/latest/dex/search?q=SOL')
+            return (r.json() or {}).get('pairs') or []
+        except Exception:
+            return []
+    res = await asyncio.gather(*[tvl(m[3]) for m in _fmk.MARKETS], dex())
+    return {k: v for k, v in res[:-1] if v}, res[-1]
+
+
+# 📱 SCAN TO SIGN IN TO HQ (hq_pair.py): the computer shows a one-time QR, Phantom on the phone signs the normal HQ message, the computer
+# receives that session once. The signature is checked exactly like a normal sign-in before it is stored. Memory only.
+import hq_pair as _hqp
+_hqp_store = {}
+
+
+def _lan_ip():
+    import socket
+    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    try:
+        s.connect(('10.255.255.255', 1))   # no packet is sent: it only picks the interface the LAN route uses
+        return s.getsockname()[0]
+    except Exception:
+        return None
+    finally:
+        s.close()
+
+
+@app.post('/api/reputation/hq/pair')
+async def hq_pair_new():
+    """A fresh one-time code (3 min; at most 20 waiting — hq_pair.MAX_OPEN) + this computer's LAN address so a phone on the same Wi-Fi can open the link."""
+    return {'code': _hqp.new_code(_hqp_store, time.time()), 'ttl': _hqp.TTL, 'lan': _lan_ip()}
+
+
+class HqPairSig(BaseModel):
+    address: str = Field(..., max_length=64)
+    ts: int
+    sig: str = Field(..., max_length=200)
+
+
+@app.post('/api/reputation/hq/pair/{code}')
+async def hq_pair_sign(code: str, p: HqPairSig):
+    """The phone posts its signed HQ session — verified like a normal sign-in (owner / admin wallet, fresh, the signature matches)."""
+    now = time.time()
+    _hq_auth.check_session(p.address, str(p.ts), p.sig, _admin_wallets(), _verify_wallet, now)
+    try:
+        _hqp.put(_hqp_store, code[:64], {'address': p.address, 'ts': p.ts, 'sig': p.sig}, now)
+    except KeyError as e:
+        raise HTTPException(410, str(e.args[0]))
+    return {'ok': True}
+
+
+@app.get('/api/reputation/hq/pair/{code}')
+async def hq_pair_poll(code: str):
+    """The computer's poll: waiting · expired · the session, handed over once."""
+    return _hqp.take(_hqp_store, code[:64], time.time())
+
+
+@app.get('/api/reputation/familia-markets')
+async def familia_markets():
+    """🏦 Fee City's markets + today's top Solana coins, live (≤ 60s old)."""
+    now = time.time(); c = _fmk_cache
+    if c['v'] and now - c['at'] < 60:
+        return c['v']
+    if c['lock'] is None:
+        c['lock'] = asyncio.Lock()
+    async with c['lock']:
+        if c['v'] and now - c['at'] < 60:
+            return c['v']
+        tvl, pairs = await _fmk_fetch()
+        v = _fmk.build(tvl, {k: x for k, x in c['prev'].items() if now - x[1] >= 3600 or not c['v']}, pairs, now)
+        for k, t in tvl.items():   # 🕐 the "move" compares with a reading at least an hour old (the first reading of the day sets the base)
+            if k not in c['prev'] or now - c['prev'][k][1] > 6 * 3600:
+                c['prev'][k] = (t, now)
+        c.update(at=now, v=v)
+    return v
+
+
 @app.get('/api/reputation/familia-fuse')
 async def familia_fuse():
     """⚔ The Family Fuse fights (public, light: the Fuse tab's strip) — marked at live prices first."""

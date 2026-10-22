@@ -29,6 +29,7 @@ import { MobileTabBar } from './components/MobileTabBar';
 import { FeeCatWidget } from './components/FeeCatWidget';
 const Landing = lazy(() => import('./pages/Landing'));
 const Terminal = lazy(() => import('./pages/Terminal'));
+const HqLink = lazy(() => import('./components/HqLink'));   // 📱 scan to open HQ with Phantom on the phone
 
 class AppErrorBoundary extends React.Component {
   constructor(props) {
@@ -78,6 +79,7 @@ function AppShell() {
           <Suspense fallback={<div className="app-loading" data-testid="app-loading"><span className="loader" />Opening FEELESS…</div>}><Routes>
             <Route path="/" element={<Landing />} />
             <Route path="/terminal/*" element={<Terminal />} />
+            <Route path="/hq-link" element={<HqLink />} />
             <Route path="/whitepaper" element={<Navigate to="/terminal/whitepaper" replace />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes></Suspense>

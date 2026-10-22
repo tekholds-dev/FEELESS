@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { useWallet } from '../hooks/useWallet';
 import { sharedJson } from '../lib/sharedJson';
 import { useHqBusy } from '../lib/hqBusy';
+import { pairedAddress } from '../lib/hqPaired';
 import '../styles/hqPop.css';
 
 // ⚡ HQ POP-OUT (owner, 2026-10-13: "in my lil mini cat bottom right make a one click big HQ popout … so I don't have to keep running to
@@ -24,7 +25,7 @@ export function hqMood(b) {
 
 export function useIsCreator() {
   const { wallet } = useWallet() || {};
-  const addr = wallet?.chain === 'solana' || !wallet?.chain ? wallet?.address : null;
+  const addr = (wallet?.chain === 'solana' || !wallet?.chain ? wallet?.address : null) || pairedAddress();   // 📱 or the wallet that signed HQ from the phone (HqLink)
   const [yes, setYes] = useState(false);
   useEffect(() => {
     let alive = true; setYes(false);
