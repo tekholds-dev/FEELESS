@@ -35,6 +35,8 @@
 .fhq-tools button:focus-visible { outline: 2px solid var(--g); outline-offset: 2px; }
 .fhq-tools button.active { background: linear-gradient(140deg, var(--g), var(--g2)); color: #1a1205; border-color: transparent; box-shadow: 0 0 18px -8px var(--g); }
 .fhq-pane { animation: fhqIn .25s ease-out both; } .fhq-pane .crw-mine { padding: 10px; }
+.fwd-tab { position: relative; z-index: 1; display: grid; gap: 10px; padding: 14px; } .fhq-leave { justify-self: end; min-height: 32px; font-size: 11px; opacity: .8; }
+.fhq-leave:hover { opacity: 1; border-color: #ff8fa3; color: #ff8fa3; }
 @keyframes fhqIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
 @keyframes fhqNum { from { opacity: .5; transform: translateY(2px); } to { opacity: 1; transform: none; } }
 body.fx-lite .fhq-ring, body.fx-lite .fhq-meter, body.fx-lite .fhq-dots, body.fx-lite .fhq-next li, body.fx-lite .fhq-tools button, body.fx-lite .fhq-pane, body.fx-lite .fhq-meter b { animation: none; }

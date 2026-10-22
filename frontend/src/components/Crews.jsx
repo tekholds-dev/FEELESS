@@ -10,7 +10,7 @@ import '../styles/crews.css';
 import { FamilyBadge, EMBLEM } from './FamilyBadge';
 import { WarRoom, WarStrip, PublicWars, useWars } from './FamilyWars';
 import { FamilyBlock } from './FamilyBlock';
-import { FamilyWorld } from './FamilyWorld';
+import { FamilyWorld, FamilyTab } from './FamilyWorld';
 import { FamilyHQ } from './FamilyHQ';
 import { useRemembered } from '../lib/remember';
 import { Crown, Swords, Map as MapIcon, Trophy, Radio } from 'lucide-react';
@@ -35,7 +35,7 @@ export const podium = rows => { const r = (rows || []).filter(x => x.ranked); re
 export const heat = r => Math.max(0, Math.min(1, ((r?.active || 0) / Math.max(1, r?.members || 1)) * 0.5 + Math.min(1, Math.abs(Number(r?.pct) || 0) / 40) * 0.5));
 import { InviteInbox, InviteBox } from './FamilyInvites';
 import { MobScene } from './MobScene';
-import { FamilyHero, FamilyTable, FamilyWire, MemberFile, CardStudio } from './FamilyRoom';
+import { FamilyTable, FamilyWire, MemberFile, CardStudio } from './FamilyRoom';
 import '../styles/familyInvites.css';
 const post = (path, body) => fetch(apiUrl(path), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
   .then(async r => { const x = await r.json().catch(() => ({})); if (!r.ok) throw new Error(x.detail || 'Request failed'); return x; });
@@ -305,9 +305,7 @@ export function Crews({ onScene }) {
     {famTab === 'home' && (block === undefined ? <><FamilyWorld addr={addr} sess={sess} onEnter={() => setBlock(null)} onJoin={() => setTab('family')} rooms={rooms} />
     </> : <FamilyBlock cid={block} addr={addr} sess={sess} onBack={() => setBlock(undefined)} />)}
     {famTab === 'family' && (mine ? <>
-      <FamilyHero mine={mine} busy={busy} onLeave={() => { if (window.confirm(`Leave ${mine.name}?`)) act('/api/reputation/crews/leave', {}, 'Left the family'); }} />
-      <div className="frm-room"><FamilyTable mine={mine} owner={owner} addr={addr} sess={sess} onChanged={c => c && setMine(c)} onOpen={setFile} /><FamilyWire mine={mine} /></div>
-      <div className="crw-mine m-card"><CrewHQ mine={mine} owner={owner} addr={addr} sess={sess} busy={busy} setBusy={setBusy} setMine={setMine} act={act} q={q} rows={rows} inv={inv} reload={loadMine} /></div>
+      <FamilyTab mine={mine} addr={addr} sess={sess} tools={hqTools} onEnter={() => { setTab('home'); setBlock(null); }} onLeave={() => { if (window.confirm(`Leave ${mine.name}?`)) act('/api/reputation/crews/leave', {}, 'Left the family'); }} />
     </> : <>
       <header className="fnr-title"><span>🌹 LA FAMILIA</span><b>Famiglia prima di tutto.</b><small>Families rise on verified trades, settle scores in battle trenches, and wear what they earned.</small></header>
     {joinNode}

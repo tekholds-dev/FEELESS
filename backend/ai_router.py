@@ -284,7 +284,7 @@ def clean_cfg(body, prev=None):
 
 def _lm_auth(env, key='local'):
     """LM Studio with "require API token" on: LOCAL_LLM_API_KEY (this Mac) / LAN_LLM_API_KEY (the desktop Mac) → `Authorization: Bearer …`. Never logged."""
-    k = str((env or {}).get('LAN_LLM_API_KEY' if key == 'lan' else 'LOCAL_LLM_API_KEY') or '').strip()
+    k = str((env or {}).get({'lan': 'LAN_LLM_API_KEY', 'win': 'WIN_LLM_API_KEY'}.get(key, 'LOCAL_LLM_API_KEY')) or '').strip()   # NEXA's llamafile takes its own key (or none)
     return {'headers': {'Authorization': f'Bearer {k}'}} if k else {}
 
 
@@ -902,7 +902,9 @@ class Router:
         None (not due, already online, or switched off)."""
         now = now or time.time()
         out = None
-        for key in LM:   # 🖥 the desktop Mac's LM Studio heals itself the same way
+        for key in (*LM, 'win'):   # 🖥 the desktop Mac's LM Studio heals itself the same way · 🪟 NEXA too (2026-10-22: a slow i5 answer timed out → "not connected" for good)
+            if key not in PROVIDERS:
+                continue
             r_ = await self._beat1(http, env, cfg, key, now, every)
             out = r_ if key == 'local' or out is None else out
         return out
@@ -925,7 +927,7 @@ class Router:
         except Exception:
             ids = []
         fb = str((env or {}).get('LOCAL_LLM_FALLBACK_MODEL' if key == 'local' else 'LAN_LLM_FALLBACK_MODEL') or '').strip() if key in ('local', 'lan') else ''
-        up = bool(ids) and (not p['model'] or p['model'] in ids or (fb and fb in ids))
+        up = bool(ids) and (key == 'win' or not p['model'] or p['model'] in ids or (fb and fb in ids))   # llamafile names its one model after the file
         s['noModel'] = answered and not ids   # 🖥 LM Studio is UP but holds no model (2026-10-22: G4 read "not connected" while its desktop had simply dropped the model)
         if up:
             s.update(state='ONLINE', streak=0, coolUntil=0.0, lastErr=None, lastAt=now)

@@ -182,6 +182,8 @@ connected" = the desktop LM Studio held NO model → status says so + owner-only
 `lib/cityEngine.js` + `lib/cityPlan.js`, Kenney CC0 kits in public/assets/city): Market Row / Vault District / New Money islands with live
 markets, roof lights pulse with volume, stoplights (cars hold at red), pick ring on the ground (no beams), lens tabs → 📍 Places you walk into ·
 Familia full-page scene per tab (`FamiliaBackdrop`: harbor · mansion · war room · podium · wire) + noir-gold frame + Board podium.
+DONE 2026-10-22 (final): NEXA self-heals (heartbeat) · G4 model loaded · My family tab = Family HQ · Brain › Models already sets full LM Studio Load +
+Inference (owner). NEXT: confirm Sicario's · BADGE + CARD REDO (spec in docs/HANDOFF.md top, item 2) · NEXA speed · strobes outside Familia.
 DONE 2026-10-22 (late): Sicario's blocker found + fixed (`.dso-scan` sweep over the cockpit; decorative layers click-through sitewide) · Pool Hub
 (`fee_pools.py`, /familia-pools) + pool districts in all 4 outer cities + Set building (`link` act) · city directory, day/night, expand, land,
 calm motion, real Fuse cards on the pitch, Family HQ pop-out. Open next (owner's order): confirm Sicario's · badge + card customization redo ·

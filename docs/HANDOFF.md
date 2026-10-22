@@ -1,3 +1,45 @@
+## 🔁 HANDOFF 2026-10-22 (final) — read first · conserve usage · finish everything by priority · never dead-style
+Owner's order: 1) Sicario's clicks · 2) Familia (badge + card redo next) · 3) the rest of this file.
+
+### ✅ DONE in the last round (pushed, gate green, backend restarted)
+- 🪟 NEXA "not connected" while her llamafile answered in 31 ms: the AI heartbeat only healed G4 + OSSY → it now probes NEXA too (any model
+  llamafile names = up, her own WIN_LLM_API_KEY). Test: test_nexa_heals_herself_like_g4_and_ossy.
+- 🧠 G4: the desktop LM Studio now holds qwen/qwen3-4b-2507 (checked) — the provider row flips ONLINE on the next heartbeat (≤ 20 s).
+  Owner confirmed Brain › Models already sets the full LM Studio Load + Inference (context, KV, concurrency, temperature, length…) → that request is DONE.
+- 🏠 My family TAB = the Family HQ (FamilyWorld `FamilyTab`): rings + meters + town expansions + one tool rail; the old long hero / table / wire
+  layout is gone from the tab (dead `.frm-room` CSS removed). Leave the family = one small button under it.
+
+### ⬜ NOT DONE — with the specifics the owner asked for
+1. 🐆 SICARIO'S: confirm in the owner's signed-in HQ that seats / Decision tab / 1M-5M-15M click (blocker `.dso-scan` fixed). If anything is dead,
+   HQ › Bugs shows "[dead click] <layer> sits over <control>" — fix that layer (pointer-events none) and add it to the test in lib/deadClick.test.js.
+2. 🎨 BADGE + CARD CUSTOMIZATION REDO (owner: "sucks"). Research: Call of Duty's emblem editor (support.activision.com, "Emblems in Call of Duty
+   WWII") — layers you can move / scale / rotate / flip / fill-or-outline / colour, "change shape keeps the adjustments", a grid, a live canvas.
+   FEELESS twist, build exactly this:
+   a. FamilyCrest (SVG, one component used by FamilyBadge everywhere: board, podium, chips, cards, city signs): SHIELD SHAPE (heater · round ·
+      kite · coin · chevron · black card) → FIELD pattern (plain · split · bend · chevron · quarterly · stripes) in c1 / c2 → CHARGE = drawn SVG
+      art, NO emoji (rose, skull, viper, dice, piece, Don's hat, scorpion, dragon, crown, diamond, crossed blades, wolf, lion) → FRAME metal
+      (iron, silver, gold, blood, holo, black, warlord = rim gradient + rivets / spikes) → BANNER ribbon with the TAG + motto scroll → calm FX.
+   b. Backend crews.py: PARTS gains 'shape' + 'field' (free); clean_badge accepts es (scale 0.7–1.3), er (rotate −30…30°), ef (flip), c3 accent
+      from COLORS; badge_view returns them; unlock rules unchanged (members / podiums / crowns / best / points / wars) + tests.
+   c. The editor (replaces BadgeBuilder): big live crest on a turntable + a LAYER LIST (Shape · Field · Charge · Frame · Banner · FX), the
+      selected layer's controls (tiles that are mini crests, scale / rotate sliders, flip, colour swatches), locked tiles with their progress bar,
+      🎲 roll, Forge / Restyle (cost from HQ).
+   d. The FAMILY CARD (CrewCard3D + CardStudio): a drawn trading card — crest header, Playfair name, per-style drawn backdrop art (noir alley ·
+      gold vault · blood rose · neon sign · ice · royal velvet), live vitals on the card (week %, members, rank), calm FX; the studio's style
+      tiles are mini cards; tagline. Day theme + 640px + fx-lite + reduced motion.
+3. 🪟 NEXA SPEED (owner: "slow ass"): the Windows i5 llamafile, 1 slot; a cold prompt took 140 s, a cached one 2 s. Do: keep her system prompt
+   identical across calls (cache_prompt already on), cap reads at ≤ 70 tokens out + a short context, a fast path for trade reads (numbers only),
+   re-warm after each read, and show her live load in her chat (left vitals column — 4th list 2a).
+4. 🌫 Strobes left OUTSIDE Familia (steps() flashes): auras.css (lightning, neon buzz) · warSky.css (storm bolt) · repPage.css (rpAlarm) · terminal.css
+   (degen-glitch titles) · chartBg.css (cursor) · launchLab.css (bins) → slow fades (≤ 0.4 Hz).
+5. 🏦 In-city deposit WITHOUT leaving FEELESS: per-protocol tx builders (Raydium / Orca / Meteora / Kamino SDKs), the wallet signs, never custody,
+   tests that fake the network. Today: exact deposit page ↗ + our engine for trades / staking.
+6. 🏙 Familia still open: Wars / Board / Live room cards to the city's level · ranked + $1K top-pot Family Fuse, a chat per fight, any player vs any
+   player · MOBhouse styles · buildings ACTIVE / SHUT by funds, MP-only buildings, launched coins as buildings · 2 families per wallet · real-money
+   family wallets ($25 = $5 FEE + $20 wallet) AFTER the owner's custody pick · defenders see an incoming raid on their block · Cartel Docks congested.
+7. Everything else from the lists below (security that never attacks back · Brain themes + every chat's theme picker · code-health gate ·
+   page redos: Rep, FEEd, Launch, Gas, FeeCat, roadmap 3D, profile settings · Agents rebuild · real-money cats).
+
 ## 🔁 HANDOFF 2026-10-22 (late) — read first · conserve usage · finish everything by priority · never dead-style
 Owner's order now: 1) Sicario's clicks · 2) Familia · 3) the rest of this file. Every request below is ✅ done or ⬜ open.
 

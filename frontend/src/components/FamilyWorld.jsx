@@ -5,6 +5,7 @@ import { FeeCity3D, PlacesMenu, useMarkets } from './FeeCity3D';
 import { PoolHub, PoolRow, usePools } from './PoolHub';
 import { PLACES, usd } from '../lib/cityPlan';
 import { openWarRoom } from './WarRoomHost';
+import { FamilyHQ } from './FamilyHQ';
 import { CityChat, CityRail, RankBadge, RankLadder } from './FamiliaHud';
 import { FamilyFuseBoard } from './FamilyFuseBoard';
 import { RaidStage } from './RaidStage';
@@ -130,6 +131,19 @@ export function CrewDeck({ crew }) {
   return <div className="fwd-deck" data-testid="crew-deck">{crew.map((r, i) => { const c = cardOf(r); return <div key={r.id} className={`fwd-card ${c.red ? 'red' : ''} ${r.hurt ? 'is-hurt' : ''} ${r.special ? 'is-special' : ''}`} style={{ '--i': i }}
     data-tip={`${c.role} · level ${r.lvl}${r.next ? ` · ${r.xp}/${r.next} XP` : ''}${r.hurt ? ` · hurt, back in ${Math.ceil(r.hurt / 60)} min` : ''}`}>
     <span className="tl">{c.face}<i>{c.suit}</i></span><b>{c.suit}</b><small>{c.role}</small><span className="br">{c.face}<i>{c.suit}</i></span></div>; })}</div>;
+}
+
+// 🏠 the My family TAB = the same Family HQ as the city's pop-out (owner, 2026-10-22: "the page of my family should be meta with vitals and tools —
+// strip the text"): its own world read (bank, turf, expansions) + the family's tools
+export function FamilyTab({ mine, addr, sess, tools, onEnter, onLeave }) {
+  const [v, setV] = useWorld(addr, sess); const [busy, setBusy] = useState(false);
+  const act = async (body, ok) => {
+    if (!sess) { toast.error('Connect your wallet + open chat once to sign in first.'); return; }
+    setBusy(true);
+    try { const r = await post({ address: addr, session: sess, ...body }); setV(r); toast.success(ok); } catch (e) { toast.error(e.message); } finally { setBusy(false); }
+  };
+  return <section className="fwd-tab m-card" data-testid="family-tab"><FamilyHQ mine={mine} world={v} act={act} busy={busy} onEnter={onEnter} tools={tools} />
+    {onLeave ? <button type="button" className="m-btn fhq-leave" disabled={busy} onClick={onLeave} data-testid="crew-leave">Leave the family</button> : null}</section>;
 }
 
 // 🚪 inside a place: its room pops out OVER the city (the street stays live behind it) — Esc or ✕ walks back out
