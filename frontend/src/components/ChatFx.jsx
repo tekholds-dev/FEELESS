@@ -8,7 +8,7 @@ import '../styles/chatThemes.css';
 // ('brain'), the inbox ('inbox')). Drawn from the trade itself — candles, order flow, depth, the radar, a ticker tape, the moon run, liquidation
 // lava, the reserve vortex, the gold vault — always with the FEE mark. Free: 4 · $FEE ≥ $5: 4 more · ≥ $100: 5 more (badge perks unlock some).
 export const CHAT_THEMES = [
-  ['live', 'Live mood', 0], ['fee', 'FEE glow', 0], ['candles', 'Candle rain', 0], ['off', 'Plain', 0],
+  ['neural', 'Neural', 0], ['live', 'Live mood', 0], ['fee', 'FEE glow', 0], ['candles', 'Candle rain', 0], ['off', 'Plain', 0],
   ['flow', 'Order flow', 5], ['depth', 'Depth', 5], ['radar', 'Trench radar', 5], ['grid', 'Terminal', 5],
   ['tape', 'Ticker tape', 100], ['moon', 'Moon run', 100], ['lava', 'Liquidation lava', 100], ['vortex', 'Reserve vortex', 100], ['gold', 'Gold vault', 100],
 ];
@@ -16,7 +16,8 @@ const NEED = Object.fromEntries(CHAT_THEMES.map(([id, , usd]) => [id, usd]));
 // Unlocked by $FEE held, or by a badge perk (e.g. FRSV VIP → Vortex): `unlocked` is the perk list from your badges.
 export const canUse = (id, feeUsd, unlocked = []) => (Number(feeUsd) || 0) >= (NEED[id] ?? Infinity) || unlocked.includes(id);
 // A saved theme you no longer qualify for falls back to Live (nothing breaks, nothing is lost).
-export const chatTheme = (prefs, room, feeUsd = Infinity, unlocked = []) => { const t = (prefs?.themes || {})[room] || 'live'; return canUse(t, feeUsd, unlocked) ? t : 'live'; };
+// 🧠 a Brain room defaults to the drawn NEURAL net; every other room to Live mood
+export const chatTheme = (prefs, room, feeUsd = Infinity, unlocked = []) => { const t = (prefs?.themes || {})[room] || (String(room || '').startsWith('brain') ? 'neural' : 'live'); return canUse(t, feeUsd, unlocked) ? t : 'live'; };
 
 const tiers = sweepable('chatTiers', new Map(), { ttl: 900000, max: 300 });
 const perkCache = sweepable('chatPerks', new Map(), { ttl: 900000, max: 300 });
@@ -51,7 +52,14 @@ export function useFeeUsd(address) {
 
 const TICKS = [['$SOL', '+4.2%', 1], ['$BONK', '−3.1%', 0], ['$WIF', '+12.8%', 1], ['$FEE', '+6.6%', 1], ['$POPCAT', '−8.4%', 0], ['$JUP', '+1.9%', 1], ['$MEW', '+22%', 1], ['$PNUT', '−5.2%', 0], ['$GOAT', '+3.3%', 1], ['$TRUMP', '−1.4%', 0]];
 // the drawn parts of each scene (the two gradient layers come from the sheet)
+// 🧠 NEURAL (owner, 2026-10-22: "the whole Brain themed, not a bs background"): a drawn net — nodes, synapses, pulses firing along them
+const NODES = [[8, 18], [26, 10], [44, 24], [64, 12], [86, 20], [14, 48], [36, 42], [58, 52], [80, 44], [22, 80], [48, 74], [72, 84], [92, 72]];
+const LINKS = [[0, 1], [1, 2], [2, 3], [3, 4], [0, 5], [1, 6], [2, 6], [2, 7], [3, 7], [4, 8], [5, 6], [6, 7], [7, 8], [5, 9], [6, 10], [7, 10], [7, 11], [8, 12], [9, 10], [10, 11], [11, 12]];
 const SCENE = {
+  neural: () => <svg className="cfx-neural" viewBox="0 0 100 100" preserveAspectRatio="none">
+    {LINKS.map(([a, b], i) => <line key={`l${i}`} x1={NODES[a][0]} y1={NODES[a][1]} x2={NODES[b][0]} y2={NODES[b][1]} className="syn" style={{ '--i': i }} />)}
+    {LINKS.filter((_, i) => i % 3 === 0).map(([a, b], i) => <line key={`p${i}`} x1={NODES[a][0]} y1={NODES[a][1]} x2={NODES[b][0]} y2={NODES[b][1]} className="pulse" pathLength="100" style={{ '--i': i }} />)}
+    {NODES.map(([x, y], i) => <circle key={`n${i}`} cx={x} cy={y} r=".6" className="node" style={{ '--i': i }} />)}</svg>,
   candles: () => <span className="cfx-strip">{Array.from({ length: 18 }, (_, i) => <b key={i} className={`cfx-candle ${i % 3 === 1 ? 'dn' : 'up'}`} style={{ left: `${5 + (i % 9) * 11}%`, top: `${(i < 9 ? 0 : 50) + ((i * 37) % 44)}%`, '--h': `${18 + ((i * 13) % 26)}px` }} />)}</span>,
   flow: () => Array.from({ length: 10 }, (_, i) => <s key={i} className={`cfx-bar ${i % 2 ? 's' : 'b'}`} style={{ top: `${8 + i * 9}%`, '--i': i, '--w': `${22 + ((i * 17) % 30)}%` }} />),
   depth: () => <svg className="cfx-depth" viewBox="0 0 200 60" preserveAspectRatio="none"><path className="bid" d="M0,60 V18 H22 V26 H40 V33 H58 V40 H76 V47 H92 V54 H100 V60 Z" /><path className="ask" d="M200,60 V12 H176 V22 H156 V30 H138 V38 H122 V46 H108 V54 H100 V60 Z" /><path className="mid" d="M100,0 V60" /></svg>,

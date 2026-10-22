@@ -89,6 +89,16 @@
 .ctp-tile b { position: relative; font: 700 10.5px 'JetBrains Mono', monospace; text-shadow: 0 1px 4px #000; } .ctp-tile:disabled { cursor: not-allowed; } .ctp-tile:disabled > .chat-fx { opacity: .35; filter: grayscale(.8); }
 .ctp-lock { position: absolute; top: 4px; right: 6px; font-size: 10px; }
 @keyframes ctpIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+/* 🧠 NEURAL — the Brain's own theme: violet net, nodes breathing, pulses firing along the synapses (transform / opacity / dash only) */
+.fx-neural { background: radial-gradient(120% 80% at 20% 0%, #2a1858 0%, transparent 60%), radial-gradient(90% 70% at 100% 100%, #0d3a2a 0%, transparent 60%), linear-gradient(170deg, #0b0718, #05060c); }
+.cfx-neural { position: absolute; inset: 0; width: 100%; height: 100%; }
+.cfx-neural .syn { stroke: #9d8bff; stroke-width: 1; opacity: .42; vector-effect: non-scaling-stroke; }
+.cfx-neural .pulse { stroke: #45e486; stroke-width: 2; stroke-dasharray: 8 92; stroke-linecap: round; vector-effect: non-scaling-stroke; opacity: .85; animation: cfxFire 3.6s linear infinite; animation-delay: calc(var(--i, 0) * -.9s); }
+.cfx-neural .node { fill: #c9b8ff; opacity: .7; transform-box: fill-box; transform-origin: center; animation: cfxNode 4s ease-in-out infinite; animation-delay: calc(var(--i, 0) * -.45s); }
+@keyframes cfxFire { from { stroke-dashoffset: 100; } to { stroke-dashoffset: 0; } }
+@keyframes cfxNode { 0%, 100% { opacity: .45; transform: scale(.85); } 50% { opacity: 1; transform: scale(1.35); } }
+body.theme-day .fx-neural { background: radial-gradient(120% 80% at 20% 0%, #e7defe 0%, transparent 60%), linear-gradient(170deg, #f7f4ff, #eef6f1); } body.theme-day .cfx-neural .syn { stroke: #6a4fd6; opacity: .3; }
+body.fx-lite .cfx-neural .pulse, body.fx-lite .cfx-neural .node { animation: none; }
 body.fx-lite .chat-fx *, body.fx-lite .chat-fx > i, body.fx-lite .ctp-tile { animation: none !important; }
 body.fx-lite .cfx-bar, body.fx-lite .cfx-rocket, body.fx-lite .cfx-blip { display: none; }
 @media (prefers-reduced-motion: reduce) { .chat-fx *, .chat-fx > i, .ctp-tile { animation: none !important; } .cfx-bar, .cfx-rocket, .cfx-blip { display: none; } .ctp-tile { transition: none; } }
