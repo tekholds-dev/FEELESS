@@ -15,6 +15,7 @@ import '../styles/cityAvenue.css';
 const RunnersPanel = lazy(() => import('./RunnersPanel').then(m => ({ default: m.RunnersPanel })));
 const WatchlistDashboard = lazy(() => import('./command/CreatorProfile').then(m => ({ default: m.WatchlistDashboard })));
 const RepTools = lazy(() => import('./RepTools').then(m => ({ default: m.RepTools })));
+const FeeCatsPlatform = lazy(() => import('./command/FeeCatsPlatform'));
 const FeeCatProfile = lazy(() => import('./command/FeeCatProfile').then(m => ({ default: m.FeeCatProfile })));
 const GetGas = lazy(() => import('./command/TradeDesk').then(m => ({ default: m.GetGas })));
 const FeedPanel = lazy(() => import('./command/FeedX').then(m => ({ default: m.FeedPanel })));
@@ -152,10 +153,20 @@ function Courthouse() {
   </div>;
 }
 
+// 🐱 FEECAT TOWER — the leader live (her vitals, lives, open trades) + YOUR cats: their vitals, create / launch a cat right here (trader or agent)
+function CatTower() {
+  const [tab, setTab] = useState('live');
+  return <div className="av-court" data-testid="av-cats">
+    <div className="m-seg av-seg" role="tablist">{[['live', '🐱 FeeCat live'], ['mine', '🧪 Your cats + create']].map(([k, l]) => <button key={k} type="button" role="tab" aria-selected={tab === k} className={tab === k ? 'active' : ''} onClick={() => setTab(k)}
+      data-tip={k === 'live' ? 'FeeCat right now: her nine lives, discipline, open trades' : 'Your cats with their vitals — create or launch one here (trader or agent)'} data-testid={`av-cats-${k}`}>{l}</button>)}</div>
+    {tab === 'live' ? <FeeCatProfile catId="leader" /> : <FeeCatsPlatform />}
+  </div>;
+}
+
 const BODY = {
   trades: () => <TradeCenter />,
   pumpradar: () => <PumpRadar />, feebank: () => <FeeBank />, runners: () => <RunnersPanel />, watch: () => <WatchlistDashboard />, rep: () => <Courthouse />,
-  feecat: () => <FeeCatProfile catId="leader" />, gas: () => <GetGas />, sleep: () => <NightVault />,
+  feecat: () => <CatTower />, gas: () => <GetGas />, sleep: () => <NightVault />,
   feedx: () => <><div className="av-tools"><button type="button" className="m-btn" onClick={() => window.dispatchEvent(new Event('feeless:feed-pop'))} data-tip="Float FEEd over any page — keep reading while you trade" data-testid="av-feed-pop">⤢ Pop out FEEd</button></div><FeedPanel /></>,
 };
 
