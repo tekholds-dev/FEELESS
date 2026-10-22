@@ -1,3 +1,32 @@
+## 🔁 HANDOFF 2026-10-22 (crest round) — read first · conserve usage · finish everything by priority · never dead-style
+Owner's order: the open list below, top first. Every item is ✅ done or ⬜ open.
+
+### ✅ DONE this round (gate green, pushed to main)
+- 🐆 Sicario's: HQ › Bugs holds 4 "[dead click] i.dso-scan …" lines, all from 01:25 — BEFORE the 01:34 fix; none since. Code-side done; the owner's
+  real-HQ tap test is still his to confirm (those 4 old lines can be marked fixed in HQ › Bugs).
+- 🎨 BADGE + CARD REDO (spec 2a–2d): `FamilyCrest.jsx` (one SVG for FamilyBadge everywhere: 6 shapes · 6 fields in c1/c2 · 13 DRAWN charges, no emoji ·
+  7 metal frames, rivets, warlord spikes · ribbon / scroll / plate banner with the TAG · slow sheen), `CrestForge.jsx` replaces BadgeBuilder (turntable
+  + spotlight + dust, LAYER LIST Shape · Field · Charge · Frame · Banner · FX, tiles = mini crests, locked tiles with progress, charge scale 70–130 % /
+  rotate ±30° / flip / accent kept across shape changes, ▦ grid, 🎲 roll, Forge / Restyle). crews.py: shape / field / banner parts (free), es / er / ef
+  clamped, c3 accent, gold '#d4af37' + '#7a0f1f' + '#1b3a6b' in COLORS (the forge's gold pair was refused before). Family card (`CrewCard3D` +
+  `FamilyCardArt.jsx`): drawn scene per style (noir alley · gold vault · blood rose · neon sign · ice · royal velvet, one calm moving layer each), crest
+  header, Playfair name, WEEK % that glides, SEATS meter, rank plate, live dot; CardStudio scene tiles are mini cards. Preview: `/dev/crest` (dev only).
+- 🌫 Strobes: every steps() flash in every sheet → slow fade (list in FEELESS_HISTORY); `styles/noStrobe.test.js` keeps steps() out.
+- 🪟 NEXA speed: background reads are FAST by default (O# / N# number lines, no pairAddresses, ≤ 48 tokens out, no web search); the FULL read (tune ·
+  lesson · discovery) once an hour (`nexa.FULL_EVERY`). Desk returns `mode` + `reads`; chat = vitals column LEFT (+ HER READS strip), chat ≤ 680 px.
+  Not measured on her i5 yet — read `HQ › NEXA › HER READS` for the real seconds after the next reads.
+
+### ⬜ NOT DONE (owner's order)
+1. 🏦 In-city deposit (item 5): Jupiter Lend Earn has POST /lend/v1/earn/deposit · /withdraw → an UNSIGNED base64 tx (asset mint, amount, signer;
+   developers.jup.ag/docs/lend/earn/api). NOT built: both api.jup.ag and lite-api answered 429 from this Mac all session (the live backend uses the
+   quota), so the amount units, the response keys and the program ids a deposit touches were never seen. Next: probe once (deposit-instructions →
+   program ids), then server builds + VERIFIES (fee payer = user, programs ⊆ allowlist), client `signSend` (simulate first), positions shown in the
+   Pool Hall. LP deposits (Raydium / Orca / Meteora / Kamino) need their TS SDKs — a bundle-size + safety call for the owner.
+2. 🏙 Familia (item 6): Wars / Board / Live cards to the city's level · ranked + $1K top-pot Family Fuse, a chat per fight, any player vs any player ·
+   MOBhouse styles · ACTIVE / SHUT buildings, MP-only buildings, launched coins as buildings · 2 families per wallet · real-money family wallets after
+   the custody pick · defenders see an incoming raid · Cartel Docks congested. The crest now shows on city signs only where FamilyBadge is used.
+3. Item 7 list (security · Brain themes + chat theme pickers · code-health gate · page redos · Agents rebuild · real-money cats) — unchanged.
+
 ## 🔁 HANDOFF 2026-10-22 (final) — read first · conserve usage · finish everything by priority · never dead-style
 Owner's order: 1) Sicario's clicks · 2) Familia (badge + card redo next) · 3) the rest of this file.
 
