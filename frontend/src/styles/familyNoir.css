@@ -41,3 +41,6 @@ body.theme-day .crw-noir { background: #1a1410; }
 .fam-tabs b { min-width: 18px; padding: 0 5px; border-radius: 999px; background: #b3122e; color: #fff; font: 800 10px 'JetBrains Mono', monospace; }
 body.theme-day .fam-tabs { background: #fbf4e6e6; } body.theme-day .fam-tabs button { color: #6a5a3a; }
 @media (max-width: 640px) { .fam-tabs button { padding: 7px 9px; font-size: 11px; } }
+/* 👥 your families (2+ per wallet): the active one is the solid gold tab */
+.fam-switch { display: inline-flex; flex-wrap: wrap; gap: 4px; margin: 0 0 8px; } .fam-switch button { min-height: 32px; font: 700 11px 'JetBrains Mono', monospace; }
+.fam-switch button.active { background: #d4af37; color: #160f05; }

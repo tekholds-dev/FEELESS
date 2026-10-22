@@ -8499,6 +8499,11 @@ def _crew_name(a):
 
 
 def _crew_cfg():
+    try:   # 👥 the owner's families-per-wallet line (HQ › Familia) is applied on every crews read / write
+        import crews as _cr0
+        _cr0.PER_WALLET = int(_familia_rules().get('familiesPerWallet') or 1)
+    except Exception:
+        pass
     return (_fee_cfg().get('crews') or {})
 
 
@@ -8583,7 +8588,7 @@ async def crew_price(address: str = '', name: str = '', tag: str = ''):
            'badge': {'usd': bu, 'sol': round(bu / sol, 6) if sol > 0 else None}, 'ok': True, 'why': ''}
     if name or tag:
         try:
-            _cr.check_new(_json_load(CREWS_PATH, {}), me, name, tag)
+            _crew_cfg(); _cr.check_new(_json_load(CREWS_PATH, {}), me, name, tag)
         except ValueError as e:
             out.update(ok=False, why=str(e))
     return out
@@ -8617,9 +8622,32 @@ async def crew_mine(address: str, session: str):
     """My crew with its members' week and the invite code (members only — needs the chat session)."""
     me = _session_or_401(address, session); st = _json_load(CREWS_PATH, {})
     import crews as _cr
-    c = _cr.crew_of(st, me); now = time.time()
+    c = _cr.crew_of(st, me); now = time.time(); _crew_cfg()
+    fams_ = [{'id': x_, 'tag': st['crews'][x_].get('tag'), 'name': st['crews'][x_].get('name'), 'active': i_ == 0} for i_, x_ in enumerate(_cr.families_of(st, me))]
     return {'crew': _crew_view(c, _crew_pieces(c['members'], now), with_code=True) if c else None,
-            'invites': _cr.invites_for(st, me, now), 'sent': _cr.sent_by(st, c, now) if c else [], 'canAdd': _is_staff(me)}
+            'invites': _cr.invites_for(st, me, now), 'sent': _cr.sent_by(st, c, now) if c else [], 'canAdd': _is_staff(me),
+            'families': fams_, 'perWallet': _cr.PER_WALLET}
+
+
+class CrewSwitch(BaseModel):
+    address: str
+    session: str
+    cid: str = Field(..., max_length=40)
+
+
+@app.post('/api/reputation/crews/switch')
+async def crew_switch(p: CrewSwitch):
+    """👥 Make another of MY families the active one (every Familia page then shows that family)."""
+    import crews as _cr
+    me = _session_or_401(p.address, p.session)
+    async with _crews_lock:
+        st = _json_load(CREWS_PATH, {})
+        try:
+            c = _cr.switch(st, me, p.cid)
+        except ValueError as e:
+            raise HTTPException(400, str(e))
+        _json_save(CREWS_PATH, st)
+    return {'crew': {'id': c['id'], 'tag': c.get('tag'), 'name': c.get('name')}}
 
 
 @app.get('/api/reputation/crews/of/{address}')
@@ -8713,12 +8741,12 @@ async def crew_create(p: CrewCreate):
     async with _crews_lock:
         st = _json_load(CREWS_PATH, {})
         try:
-            name, tag = _cr.check_new(st, me, p.name, p.tag)
+            _crew_cfg(); name, tag = _cr.check_new(st, me, p.name, p.tag)
         except ValueError as e:
             raise HTTPException(400, str(e))
         paid = {'sig': '', 'usd': 0.0, 'at': time.time(), 'kind': 'create', 'staff': True} if _is_staff(me) else await _verify_sol_payment(p.signature, mine, _cr.price('create', _crew_cfg()), st)
         paid['kind'] = 'create'; paid['by'] = me
-        c = _cr.create(st, me, name, tag, time.time(), paid=paid)
+        _crew_cfg(); c = _cr.create(st, me, name, tag, time.time(), paid=paid)
         _json_save(CREWS_PATH, st)
     _crew_cache['data'] = None
     return {'crew': _crew_view(c, {}, with_code=True)}
@@ -8754,7 +8782,7 @@ async def crew_join(p: CrewJoin):
     async with _crews_lock:
         st = _json_load(CREWS_PATH, {})
         try:
-            c = _cr.join(st, me, p.code, time.time())
+            _crew_cfg(); c = _cr.join(st, me, p.code, time.time())
         except ValueError as e:
             raise HTTPException(400, str(e))
         _json_save(CREWS_PATH, st)
@@ -8828,11 +8856,11 @@ async def crew_act(p: CrewAct):
             elif p.act == 'add':        # 👑 the creator / HQ wallet adds a wallet straight into its own family
                 if not _is_staff(me):
                     raise ValueError('Only the creator wallet adds members directly — invite them instead.')
-                _cr.add_direct(st, me, p.to, now)
+                _crew_cfg(); _cr.add_direct(st, me, p.to, now)
             elif p.act == 'accept':
                 if _is_blocked(_block_load()['wallets'].get(me)):
                     raise ValueError('This wallet cannot join a family.')
-                _cr.accept(st, me, p.id, now)
+                _crew_cfg(); _cr.accept(st, me, p.id, now)
             elif p.act == 'decline':
                 _cr.decline(st, me, p.id, now)
             elif p.act == 'card':       # 🃏 the Don styles the family's card (fixed lists)

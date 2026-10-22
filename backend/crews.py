@@ -25,8 +25,49 @@ def clean_tag(s):
 
 
 def _norm(store):
-    store.setdefault('crews', {}); store.setdefault('by', {})
+    store.setdefault('crews', {}); store.setdefault('by', {}); store.setdefault('also', {})
     return store
+
+
+# 👥 FAMILIES PER WALLET (owner, 2026-10-21: "2 families per wallet, the owner sets the limit"): `by` stays the wallet's ACTIVE family — every route
+# reads that one, unchanged — and `also` holds the others. Joining / starting one more makes the new family active (the old one waits in `also`);
+# `switch` swaps them; leaving the active one promotes the next. The service sets PER_WALLET from HQ › Familia (familiesPerWallet).
+PER_WALLET = 1
+
+
+def families_of(store, wallet):
+    """→ [active cid, *others] (only families that still exist)."""
+    _norm(store)
+    ids = ([store['by'][wallet]] if wallet in store['by'] else []) + list(store['also'].get(wallet) or [])
+    return [c for c in dict.fromkeys(ids) if c in store['crews']]
+
+
+def _room(store, wallet, limit=None):
+    lim = max(1, int(limit if limit is not None else PER_WALLET))
+    if len(families_of(store, wallet)) >= lim:
+        raise ValueError('You are already in a family — leave it first.' if lim == 1 else f'You are in {lim} families already — the most a wallet may join.')
+
+
+def _seat(store, wallet, cid):
+    """Make `cid` the wallet's ACTIVE family; the one it had waits in `also`."""
+    old = store['by'].get(wallet)
+    if old and old != cid and old in store['crews']:
+        store['also'][wallet] = [old] + [c for c in (store['also'].get(wallet) or []) if c not in (old, cid)]
+    store['by'][wallet] = cid
+
+
+def switch(store, wallet, cid):
+    """Make one of the wallet's other families the active one."""
+    _norm(store)
+    if cid not in families_of(store, wallet):
+        raise ValueError('You are not in that family.')
+    if store['by'].get(wallet) == cid:
+        return store['crews'][cid]
+    store['also'][wallet] = [c for c in (store['also'].get(wallet) or []) if c != cid]
+    _seat(store, wallet, cid)
+    if not store['also'][wallet]:
+        store['also'].pop(wallet)
+    return store['crews'][cid]
 
 
 def crew_of(store, wallet):
@@ -43,8 +84,7 @@ def price(kind, cfg=None):
 def check_new(store, owner, name, tag):
     """Everything create() would refuse, checked BEFORE anyone pays. → (name, tag) cleaned; raises ValueError."""
     _norm(store)
-    if owner in store['by']:
-        raise ValueError('You are already in a family — leave it first.')
+    _room(store, owner)
     name, tag = clean_name(name), clean_tag(tag)
     for c in store['crews'].values():
         if c['name'].lower() == name.lower():
@@ -60,8 +100,7 @@ def sig_used(store, sig):
 
 def create(store, owner, name, tag, now, paid=None):
     _norm(store)
-    if owner in store['by']:
-        raise ValueError('You are already in a family — leave it first.')
+    _room(store, owner)
     name, tag = clean_name(name), clean_tag(tag)
     for c in store['crews'].values():
         if c['name'].lower() == name.lower():
@@ -70,7 +109,7 @@ def create(store, owner, name, tag, now, paid=None):
             raise ValueError('That tag is taken.')
     cid = secrets.token_hex(3)
     crew = {'id': cid, 'name': name, 'tag': tag, 'owner': owner, 'members': [owner], 'seats': BASE_SEATS, 'code': secrets.token_urlsafe(6)[:8], 'created': now, 'paid': [paid] if paid else []}
-    store['crews'][cid] = crew; store['by'][owner] = cid
+    store['crews'][cid] = crew; _seat(store, owner, cid)
     if paid and paid.get('sig'):
         store['sigs'] = (store.get('sigs') or [])[-500:] + [paid['sig']]            # a payment is never reused
     return crew
@@ -96,14 +135,15 @@ def add_seats(store, wallet, paid=None):
 
 def join(store, wallet, code, now=None):
     _norm(store)
-    if wallet in store['by']:
-        raise ValueError('You are already in a family — leave it first.')
+    _room(store, wallet)
     crew = find_by_code(store, code)
     if not crew:
         raise ValueError('That invite code does not match a family.')
     if len(crew['members']) >= crew.get('seats', BASE_SEATS):
         raise ValueError(f"That family is full ({crew.get('seats', BASE_SEATS)} seats) — its owner can add 5 more for ${PACK_USD:g}.")
-    crew['members'].append(wallet); store['by'][wallet] = crew['id']
+    if wallet in crew['members']:
+        raise ValueError('You are already in that family.')
+    crew['members'].append(wallet); _seat(store, wallet, crew['id'])
     if now:
         crew.setdefault('joined', {})[wallet] = now   # 🔴 the live feed says "a new member joined" (never who)
     return crew
@@ -116,6 +156,11 @@ def leave(store, wallet):
     crew = store['crews'].get(cid)
     if not crew:
         raise ValueError('You are not in a family.')
+    rest = [c for c in (store['also'].pop(wallet, None) or []) if c in store['crews'] and c != cid]
+    if rest:   # 👥 the next family becomes active
+        store['by'][wallet] = rest[0]
+        if rest[1:]:
+            store['also'][wallet] = rest[1:]
     crew['members'] = [m for m in crew['members'] if m != wallet]
     if not crew['members']:
         store['crews'].pop(cid, None)
@@ -487,8 +532,8 @@ def invite(store, by, to, now):
     to = (to or '').strip()
     if not (32 <= len(to) <= 44) or to == by:
         raise ValueError('Paste the wallet address you want to invite.')
-    if to in store['by']:
-        raise ValueError('That wallet is already in a family.')
+    if crew['id'] in families_of(store, to):
+        raise ValueError('That wallet is already in your family.')
     inv = _live_invites(store, now)
     if sum(1 for xs in inv.values() for x in xs if x['cid'] == crew['id']) >= INVITES_MAX:
         raise ValueError(f'Your family has {INVITES_MAX} invites waiting — let some answer first.')
@@ -506,12 +551,11 @@ def accept(store, wallet, cid, now):
     inv = _live_invites(store, now)
     if not any(x['cid'] == cid for x in inv.get(wallet, [])):
         raise ValueError('No invite from that family is waiting for you.')
-    if wallet in store['by']:
-        raise ValueError('You are already in a family — leave it first.')
+    _room(store, wallet)
     crew = store['crews'][cid]
     if len(crew['members']) >= crew.get('seats', BASE_SEATS):
         raise ValueError('That family is full right now — ask its head to add seats.')
-    crew['members'].append(wallet); store['by'][wallet] = cid
+    crew['members'].append(wallet); _seat(store, wallet, cid)
     crew.setdefault('joined', {})[wallet] = now
     inv.pop(wallet, None)
     return crew
@@ -533,11 +577,12 @@ def add_direct(store, by, to, now):
     to = (to or '').strip()
     if not (32 <= len(to) <= 44):
         raise ValueError('Paste the wallet address to add.')
-    if to in store['by']:
-        raise ValueError('That wallet is already in a family.')
+    if crew['id'] in families_of(store, to):
+        raise ValueError('That wallet is already in your family.')
+    _room(store, to)
     if len(crew['members']) >= crew.get('seats', BASE_SEATS):
         crew['seats'] = min(MAX_SEATS, crew.get('seats', BASE_SEATS) + PACK_SEATS)
-    crew['members'].append(to); store['by'][to] = crew['id']
+    crew['members'].append(to); _seat(store, to, crew['id'])
     crew.setdefault('joined', {})[to] = now
     _live_invites(store, now).pop(to, None)
     return crew

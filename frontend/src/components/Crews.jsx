@@ -223,9 +223,9 @@ export function Crews({ onScene }) {
   const { wallet, provider } = useWallet() || {}; const addr = wallet?.address || ''; const sess = addr ? readChatSession(addr) : '';
   const board = useCrewBoard(); const warsD = useWars(); const [tab, setTab] = useRemembered('feeless.fam.tab', 'home'); const [file, setFile] = useState(null); const [block, setBlock] = useState(undefined);
   const liveWars = (warsD?.wars || []).filter(w => w.state === 'live').length;
-  const [mine, setMine] = useState(undefined); const [inv, setInv] = useState(null); const [busy, setBusy] = useState(''); const [q, setQ] = useState(null);
+  const [mine, setMine] = useState(undefined); const [fams, setFams] = useState([]); const [inv, setInv] = useState(null); const [busy, setBusy] = useState(''); const [q, setQ] = useState(null);
   const [name, setName] = useState(''); const [tag, setTag] = useState(''); const [code, setCode] = useState(() => { try { return new URLSearchParams(window.location.search).get('join') || ''; } catch { return ''; } });
-  const loadMine = () => { if (!addr || !sess) { setMine(null); return Promise.resolve(); } return fetch(apiUrl(`/api/reputation/crews/mine?address=${addr}&session=${encodeURIComponent(sess)}`)).then(r => (r.ok ? r.json() : { crew: null })).then(d => { setMine(d.crew || null); setInv({ invites: d.invites || [], sent: d.sent || [], canAdd: !!d.canAdd }); }).catch(() => setMine(null)); };
+  const loadMine = () => { if (!addr || !sess) { setMine(null); return Promise.resolve(); } return fetch(apiUrl(`/api/reputation/crews/mine?address=${addr}&session=${encodeURIComponent(sess)}`)).then(r => (r.ok ? r.json() : { crew: null })).then(d => { setMine(d.crew || null); setFams(d.families || []); setInv({ invites: d.invites || [], sent: d.sent || [], canAdd: !!d.canAdd }); }).catch(() => setMine(null)); };
   useEffect(() => { loadMine(); const t = setInterval(() => { if (!document.hidden) loadMine(); }, 20000); return () => clearInterval(t); }, [addr, sess]);   // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { const t = setTimeout(() => fetch(apiUrl(`/api/reputation/crews/price?address=${addr}&name=${encodeURIComponent(name)}&tag=${encodeURIComponent(tag)}`)).then(r => (r.ok ? r.json() : null)).then(setQ).catch(() => {}), 300); return () => clearTimeout(t); }, [addr, name, tag, mine?.id]);
   const pay = async (kind) => {   // one SOL transfer YOU sign to the fee wallet → its signature goes with the request
@@ -293,6 +293,9 @@ export function Crews({ onScene }) {
     {famTab === 'family' ? <MobScene heat={(mine?.vitals?.heat ?? 30) / 100} sign={mine ? mine.tag : 'FAMIGLIA'} /> : null}   {/* the family's own street sign; every other tab's scene is the page backdrop */}
     <nav className="fam-tabs" role="tablist" aria-label="La Familia">{FAM_TABS.map(([k, label, Icon]) => <button key={k} type="button" role="tab" aria-selected={famTab === k} className={famTab === k ? 'active' : ''}
       onClick={() => setTab(k)} data-testid={`fam-tab-${k}`}><Icon size={14} aria-hidden="true" /><span>{k === 'family' && mine ? mine.tag : label}</span>{k === 'wars' && liveWars ? <b>{liveWars}</b> : null}</button>)}</nav>
+    {fams.length > 1 ? <div className="fam-switch m-seg" role="tablist" aria-label="Your families" data-testid="fam-switch">{fams.map(f => <button key={f.id} type="button" role="tab" aria-selected={f.active} className={f.active ? 'active' : ''} disabled={f.active || !!busy}
+      onClick={async () => { setBusy('switch'); try { await post('/api/reputation/crews/switch', { address: addr, session: sess, cid: f.id }); await loadMine(); sharedJson.freshAt = Date.now(); toast.success(`[${f.tag}] is your active family`); } catch (e) { toast.error(e.message); } finally { setBusy(''); } }}
+      data-tip={f.active ? 'The family every Familia page shows now' : `Switch to [${f.tag}] ${f.name}`} data-testid={`fam-switch-${f.tag}`}>[{f.tag}] {f.name}</button>)}</div> : null}
     <InviteInbox invites={inv?.invites} inFamily={!!mine} addr={addr} sess={sess} onDone={loadMine} />
     {famTab === 'home' && (block === undefined ? <><FamilyWorld addr={addr} sess={sess} onEnter={() => setBlock(null)} onJoin={() => setTab('family')} rooms={rooms} />
     </> : <FamilyBlock cid={block} addr={addr} sess={sess} onBack={() => setBlock(undefined)} />)}

@@ -101,3 +101,29 @@ def test_live_feed_shows_family_events_never_wallets():
     assert not any('WALLET' in str(e) for e in ev)
     v = cr.vitals(st, 2000.0)
     assert v['families'] == 1 and v['members'] == 2 and v['ptsWeek'] == 50 and v['joinedWeek'] == 1
+
+
+def test_two_families_per_wallet_active_switch_and_leave_promotes_the_next():
+    import crews as cr
+    st = {}; W, X, Y = 'W' * 44, 'X' * 44, 'Y' * 44
+    a = cr.create(st, X, 'Alpha Mob', 'ALF', 1); b = cr.create(st, Y, 'Beta Mob', 'BET', 1)
+    cr.PER_WALLET = 1
+    try:
+        cr.join(st, W, a['code'], 2)
+        try:
+            cr.join(st, W, b['code'], 3); raise AssertionError('one family only at limit 1')
+        except ValueError as e:
+            assert 'leave it first' in str(e)
+        cr.PER_WALLET = 2
+        cr.join(st, W, b['code'], 3)
+        assert cr.families_of(st, W) == [b['id'], a['id']] and cr.crew_of(st, W)['id'] == b['id']   # the new one is active
+        try:
+            cr.join(st, W, a['code'], 4); raise AssertionError('limit 2 reached')
+        except ValueError as e:
+            assert '2 families' in str(e)
+        cr.switch(st, W, a['id'])
+        assert cr.crew_of(st, W)['id'] == a['id'] and cr.families_of(st, W) == [a['id'], b['id']]
+        cr.leave(st, W)
+        assert cr.crew_of(st, W)['id'] == b['id'] and W not in st['crews'][a['id']]['members'] and cr.families_of(st, W) == [b['id']]
+    finally:
+        cr.PER_WALLET = 1

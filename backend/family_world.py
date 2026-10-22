@@ -646,7 +646,7 @@ RULES = {'blockMp': BLOCK_MP, 'feeTier': 2.5, 'turfMax': TURF_MAX, 'moveMp': MOV
          'familiesPerWallet': 2, 'createUsd': 25.0, 'createFeeUsd': 5.0, 'hitRate': 0.000025, 'hitCapUsd': 0.10, 'hitMinUsd': 1.0}
 RULE_RANGE = {'blockMp': (100, 1_000_000), 'feeTier': (1.0, 20.0), 'turfMax': (1, 60), 'moveMp': (0, 1_000_000), 'fuseMinMp': (0, 1_000_000), 'upkeepMp': (0, 100_000),
               'familiesPerWallet': (1, 10), 'createUsd': (0, 1000), 'createFeeUsd': (0, 1000), 'hitRate': (0, 0.01), 'hitCapUsd': (0, 100), 'hitMinUsd': (0, 1000)}
-LIVE_RULES = ('blockMp', 'feeTier', 'turfMax', 'moveMp', 'fuseMinMp', 'upkeepMp')
+LIVE_RULES = ('blockMp', 'feeTier', 'turfMax', 'moveMp', 'fuseMinMp', 'upkeepMp', 'familiesPerWallet')
 
 
 def clean_rules(raw, prev=None):
