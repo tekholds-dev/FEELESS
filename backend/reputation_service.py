@@ -9114,7 +9114,9 @@ def _world_view(st, c, me, now, cartels_):
     for o in (st.get('crews') or {}).values():
         _fworld.ensure_home(w, o['id'])
         oc = _fcity.city_of(o, now)
-        fams.append({'id': o['id'], 'tag': o.get('tag'), 'name': o.get('name'), 'power': _fcity.power(oc), 'color': ((o.get('badge') or {}).get('colors') or [None])[0]})
+        ln_ = o.get('launch') or {}
+        fams.append({'id': o['id'], 'tag': o.get('tag'), 'name': o.get('name'), 'power': _fcity.power(oc), 'color': (o.get('badge') or {}).get('c2') or ((o.get('badge') or {}).get('colors') or [None])[0],
+                     'launch': {'mint': ln_.get('mint'), 'symbol': ln_.get('symbol')} if ln_.get('mint') else None})
     cpu_ = [_fworld.cpu_town(x[0], now) for x in _fworld.CPU]
     try:
         tr_ = _mt.trending(_json_load(MEME_PATH, {}), now)
@@ -9243,6 +9245,8 @@ class WorldAct(BaseModel):
     lot: int = Field(default=-1, ge=-1, le=24)
     raid: str = Field(default='', max_length=24)
     pool: str = Field(default='', max_length=64)
+    mp: int = Field(default=0, ge=0, le=10_000_000)
+    source: str = Field(default='own', max_length=8)
 
 
 @app.post('/api/reputation/familia-world/act')
@@ -9271,7 +9275,19 @@ async def familia_world_act(p: WorldAct):
         try:
             if p.act in ('buy', 'sell', 'move', 'raid', 'reward', 'redeem', 'link', 'unlink') and not boss:
                 raise ValueError('Only the Don or the Underboss does that.')
-            if p.act in ('link', 'unlink'):   # 🏦 set a held building to a real pool from the Pool Hub (display only, no funds)
+            if p.act == 'fund':   # 💡 keep a turf block ACTIVE: any member from their own points, the Don / Underboss from the bank
+                up_ = int(_familia_rules().get('upkeepMp') or _fworld.UPKEEP_MP) or _fworld.UPKEEP_MP
+                if p.source == 'bank':
+                    if not boss:
+                        raise ValueError('Only the Don or the Underboss spends the bank.')
+                    take_, hrs_ = _fworld.fund_block(w, c['id'], p.block, min(p.mp, int(city['bank'])), now, up_)
+                    city['bank'] -= take_
+                else:
+                    pm_ = m.setdefault('pts', {}); have_ = int(pm_.get(me) or 0)
+                    take_, hrs_ = _fworld.fund_block(w, c['id'], p.block, min(p.mp, have_), now, up_)
+                    pm_[me] = have_ - take_
+                res_ = {'fund': {'block': p.block, 'mp': take_, 'hours': hrs_, 'state': 'active'}}
+            elif p.act in ('link', 'unlink'):   # 🏦 set a held building to a real pool from the Pool Hub (display only, no funds)
                 row_ = None
                 if p.act == 'link':
                     hub_ = (_fpl_cache.get('v') or {}).get('pools') or []

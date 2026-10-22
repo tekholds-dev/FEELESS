@@ -109,7 +109,7 @@ export function feePlan(v, mk) {
   const isl = [cap, row, vault, money]; const byKey = { row, vault, money };
   // family plots (server ids fee-*) on the capital
   const lots = (v?.blocks || []).filter(b => b.b === 'fee').map(b => ({ id: b.id, pick: { id: b.id }, kind: b.mine ? 'mine' : b.kind === 'cpu' ? 'cpu' : b.kind === 'cartel' ? 'cartel' : b.owner ? 'family' : 'free',
-    tag: b.tag || null, owner: b.owner || null, home: !!b.home, power: b.power || 0, link: b.link || null, rect: rectOf(cap.gx, cap.gz, FEE_PLOTS[b.i] || [0, 0]), seed: hash(b.id) }));
+    tag: b.tag || null, owner: b.owner || null, home: !!b.home, power: b.power || 0, link: b.link || null, state: b.state || null, fundH: b.fundH ?? null, launch: b.launch || null, rect: rectOf(cap.gx, cap.gz, FEE_PLOTS[b.i] || [0, 0]), seed: hash(b.id) }));
   const marks = Object.entries(FEE_MARKS).map(([k, c]) => { const m = (v?.landmarks || []).find(l => l.key === k); return { key: k, pick: { lm: k }, name: m?.name || k.toUpperCase(), live: m?.live || null, rect: rectOf(cap.gx, cap.gz, c) }; });
   const plaza = rectOf(cap.gx, cap.gz, PLAZA);
   // markets onto their islands, biggest first; then the places; an island never overflows
@@ -160,7 +160,7 @@ export function outerPlan(v, cityKey, pools = null) {
   const c0 = Math.min(...bors.map(b => b.col)); const r0 = Math.min(...bors.map(b => b.row)); const S = spanOf(4) + 2 * LAND;
   const isl = bors.map(b => island(b.key, (b.col - c0) * (S + GAP) + LAND, (b.row - r0) * (S + GAP) + LAND, 4, 4, CELL, { name: b.name, sub: `×${b.tier} production`, color: '#b388ff', boom: v?.boom?.borough === b.key }));
   const lots = (v?.blocks || []).filter(x => city.boroughs.includes(x.b)).map(x => { const i = isl.find(k => k.key === x.b);
-    return { id: x.id, pick: { id: x.id }, kind: x.mine ? 'mine' : x.kind === 'cpu' ? 'cpu' : x.kind === 'cartel' ? 'cartel' : x.owner ? 'family' : 'free', tag: x.tag || null, owner: x.owner || null, home: !!x.home,
+    return { id: x.id, pick: { id: x.id }, kind: x.mine ? 'mine' : x.kind === 'cpu' ? 'cpu' : x.kind === 'cartel' ? 'cartel' : x.owner ? 'family' : 'free', tag: x.tag || null, owner: x.owner || null, home: !!x.home, state: x.state || null, fundH: x.fundH ?? null, launch: x.launch || null,
       power: x.power || 0, link: x.link || null, rect: rectOf(i.gx, i.gz, [x.i % 4, Math.floor(x.i / 4)]), seed: hash(x.id) }; });
   const bridges = (v?.bridges || []).map(br => { const a = isl.find(i => i.key === br.a); const b = isl.find(i => i.key === br.b); if (!a || !b) return null;
     if (a.gz === b.gz) { const [l, r] = a.x < b.x ? [a, b] : [b, a]; return { key: br.name, axis: 'x', z: lineZ(l, 2), a: l.x + l.w, b: r.x, name: br.name }; }

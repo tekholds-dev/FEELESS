@@ -83,6 +83,34 @@ function PoolPanel({ k, pools, blocks, onLink }) {
     <ul className="phb-list"><PoolRow r={r} big blocks={blocks} onLink={onLink} /></ul></aside>;
 }
 
+// 💡 a turf block runs on a FUND its upkeep drains by the hour (family_world.UPKEEP_MP): ACTIVE (lit) while funded, SHUT (dark) when dry.
+// Any member tops it up from their own points; the Don / Underboss can pay from the family bank.
+export const fundPct = h => Math.max(0, Math.min(1, (Number(h) || 0) / (24 * 14)));
+export function FundMeter({ x, me, act, busy, upkeep }) {
+  const shut = x.state === 'shut'; const day = 24 * upkeep;
+  return <div className={`fwd-fund ${shut ? 'is-shut' : ''}`} data-testid="blk-fund">
+    <span><em>{shut ? '⏻ SHUT' : '💡 ACTIVE'}</em><b>{shut ? 'dark — fund it to light it' : `${x.fundH ?? 0}h funded`}</b></span>
+    <u aria-hidden="true"><s style={{ transform: `scaleX(${Math.max(0.02, fundPct(x.fundH))})` }} /></u>
+    <div className="fwd-acts"><button type="button" className="m-btn m-go" disabled={busy || (me?.pts ?? 0) < day} onClick={() => act({ act: 'fund', block: x.id, mp: day, source: 'own' }, `${x.id} funded for a day`)}
+      data-tip={`+24h from YOUR points (${day} MP; you have ${Math.round(me?.pts || 0)})`} data-testid="blk-fund-own">+24h · {day} MP mine</button>
+      {me?.boss ? <button type="button" className="m-btn" disabled={busy || (me?.bank ?? 0) < day * 7} onClick={() => act({ act: 'fund', block: x.id, mp: day * 7, source: 'bank' }, `${x.id} funded for a week`)}
+        data-tip={`+7 days from the family bank (${day * 7} MP)`} data-testid="blk-fund-bank">+7d · bank</button> : null}</div>
+  </div>;
+}
+
+// 🚨 INCOMING (owner, 2026-10-21: "defenders see the incoming raid on THEIR block in the city view"): a raid on your family pins a siren bar over
+// the city — who, what's at stake, whose turn, the clock to answer — and one tap opens the raid board and flies to your block.
+export function incoming(raids, meId) { return (raids || []).find(r => r.status === 'live' && meId && r.b?.id === meId) || null; }
+function RaidAlert({ r, onDefend }) {
+  const [now, setNow] = useState(() => Date.now() / 1000);
+  useEffect(() => { const t = setInterval(() => setNow(Date.now() / 1000), 1000); return () => clearInterval(t); }, []);
+  const left = Math.max(0, Math.round((r.deadline || now) - now));
+  return <div className="fwd-alert" role="alert" data-testid="raid-alert"><i className="fwd-siren" aria-hidden="true" />
+    <span><b>🚨 [{r.a?.tag}] IS RAIDING YOUR BLOCK</b><small>round {r.round}/{r.rounds} · {r.turn === 'b' ? 'YOUR move' : 'their move'} · stash at risk {mp(r.stash)} MP{r.loot ? ` · ${mp(r.loot)} taken` : ''}</small></span>
+    <em data-tip="Time to answer before the round passes">{Math.floor(left / 60)}:{String(left % 60).padStart(2, '0')}</em>
+    <button type="button" className="m-btn m-go" onClick={onDefend} data-tip="Open the raid board on your block — guard a lot or strike back" data-testid="raid-defend">🛡 Defend</button></div>;
+}
+
 function BlockPanel({ x, v, act, busy, onEnter, mk, onPlace, pools, onLink }) {
   const blocks = v.me ? [v.me.home, ...(v.me.turf || [])].filter(Boolean) : [];
   if (x?.mk && String(x.mk).startsWith('pool-')) return <PoolPanel k={x.mk} pools={pools} blocks={blocks} onLink={onLink} />;
@@ -100,6 +128,8 @@ function BlockPanel({ x, v, act, busy, onEnter, mk, onPlace, pools, onLink }) {
     {tone === 'free' && me ? <><p>Free turf: +4 % production and +1 recruit seat. Turf is reach — raid in this borough and one bridge out.</p>
       <div className="fwd-acts"><button type="button" className="m-btn m-go" disabled={busy || price > me.bank} onClick={() => act({ act: 'buy', block: x.id }, 'Block bought')} data-testid="blk-buy">Buy · {mp(price)} MP</button>
         <button type="button" className="m-btn" disabled={busy} onClick={() => act({ act: 'move', block: x.id }, 'Family moved')} data-tip="Move your home block here (the gas station cuts the fee)" data-testid="blk-move">Move home · {mp(me.moveMp?.[x.b])} MP</button></div></> : null}
+    {tone === 'mine' && !x.home ? <FundMeter x={x} me={me} act={act} busy={busy} upkeep={v.rules?.upkeepMp || 10} /> : null}
+    {x.launch?.symbol ? <p className="fwd-launch" data-tip="This family's pinned launch — the spire on its home block">🚀 Launch tower · <b>${x.launch.symbol}</b> <a href={`/terminal/coin/solana/${x.launch.mint}`}>chart ↗</a></p> : null}
     {tone === 'mine' ? <><p>{x.home ? '🏠 Your home block.' : '🗺 Your turf.'}</p><div className="fwd-acts"><button type="button" className="m-btn m-go" onClick={onEnter} data-testid="blk-enter">Enter the block</button>
       {!x.home ? <button type="button" className="m-btn" disabled={busy} onClick={() => act({ act: 'sell', block: x.id }, 'Turf sold')}>Sell turf</button> : null}</div></> : null}
     {['fam', 'cpu', 'cartel'].includes(tone) && me ? <div className="fwd-acts">
@@ -213,7 +243,7 @@ export function FamilyWorld({ addr, sess, onEnter, onJoin, rooms = {} }) {
     <SeasonHud v={v} onJoin={onJoin} go={to => go(to)} />
     {v.cities ? <CityRail cities={v.cities} city={city} onGo={k => { setSelRaw(null); setLensRaw(null); setCity(k); }} /> : null}
     <div className="fwd-mapwrap"><FeeCity3D v={v} sel={sel} setSel={setSel} city={city} setCity={setCity} markets={mk} pools={pools} onPlace={k => setLensRaw(k)} onGoPlace={p => setLens(p.lens)} active={lens}
-        overlay={<><TheWire log={v.log} /><CityActions v={v} go={go} />{lens ? <PlacePanel lens={lens} live={live} onClose={() => setLensRaw(null)}>{place}</PlacePanel> : null}</>}
+        overlay={<>{incoming(v.raids, me?.id) ? <RaidAlert r={incoming(v.raids, me?.id)} onDefend={() => { setLens('raids'); const h = (v.blocks || []).find(b => b.id === me?.home); if (h) setSelRaw(h); }} /> : null}<TheWire log={v.log} /><CityActions v={v} go={go} />{lens ? <PlacePanel lens={lens} live={live} onClose={() => setLensRaw(null)}>{place}</PlacePanel> : null}</>}
         tour={{ on: tour, ctl: <><PlacesMenu onGo={p => setLens(p.lens)} />{howBtn}</>, ctl3: howBtn }} />
       <div className="fwd-col"><BlockPanel x={sel} v={v} act={act} busy={busy} onEnter={onEnter} mk={mk} onPlace={k => setLensRaw(k)} pools={pools} onLink={link} />
         {v.cities ? <CityChat city={city} name={(v.cities.find(c => c.key === city) || {}).name || 'the city'} addr={addr} sess={sess} /> : null}</div></div>

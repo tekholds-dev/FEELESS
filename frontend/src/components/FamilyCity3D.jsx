@@ -54,7 +54,9 @@ export function vitalsOf(x, v) {
   const rk = (v.ranked || []).find(r => r.id === x.owner); const reach = v.me?.reach?.[x.b];
   const who = [['DISTRICT', bor?.name || x.b], ['STATUS', !x.owner ? 'FOR SALE' : x.home ? 'HOME BLOCK' : x.kind === 'cpu' ? 'CPU TOWN' : x.kind === 'cartel' ? 'CARTEL' : 'TURF']];
   const strength = x.owner ? [['POWER', n(x.power), (x.power || 0) / top], ...(rk ? [['RANK', `${rk.rank.name} ${rk.rank.div} · #${rk.place}`]] : [])] : [];
+  if (x.launch?.symbol) who.push(['LAUNCH', `$${x.launch.symbol}`]);
   const money = [['TIER', `×${bor?.tier ?? 1} production`], ...(!x.owner ? [['PRICE', v.me?.prices?.[x.id] != null ? `${n(v.me.prices[x.id])} MP` : 'sign in']] : []),
+    ...(x.state ? [['UPKEEP', x.state === 'shut' ? 'SHUT · unfunded' : x.fundH == null ? 'home · never shuts' : `ACTIVE · ${x.fundH}h`, x.fundH == null ? null : Math.min(1, x.fundH / 336)]] : []),
     ...(x.owner && !x.mine && reach != null ? [['REACH', reach ? 'in raid range' : 'out of range']] : [])];
   return { title: x.owner ? `[${x.tag}] ${x.name}` : `PLOT ${x.id.toUpperCase()}`, tone: x.mine ? 'mine' : x.kind || (x.owner ? 'family' : 'free'),
     groups: [['WHO', who], ['STRENGTH', strength], ['MONEY', money]].filter(g => g[1].length) };

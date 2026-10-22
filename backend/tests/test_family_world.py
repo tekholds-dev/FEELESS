@@ -156,3 +156,34 @@ def test_a_held_building_can_be_set_to_a_real_pool_and_cleared_never_someone_els
     with pytest.raises(ValueError):
         fw.link_block(w, 'c1', other, row)                                    # not your block
     assert fw.link_block(w, 'c1', h, None) is None and h not in w['links']
+
+
+def test_turf_blocks_run_on_a_fund_shut_when_dry_and_any_member_can_refill():
+    import family_world as fw
+    w = fw.blank(); now = 1_800_000_000.0
+    home = fw.ensure_home(w, 'fa'); turf = next(b for b in fw.block_ids('heights') if b not in fw.taken(w)); w['own'][turf] = 'fa'
+    assert fw.block_state(w, 'fa', home, now) == ('active', None)            # home never shuts
+    assert fw.block_state(w, 'fa', turf, now) == ('active', 24.0)            # first sight → a grace day
+    assert fw.block_state(w, 'fa', turf, now + 25 * 3600)[0] == 'shut'      # the fund ran dry
+    take, hrs = fw.fund_block(w, 'fa', turf, 240, now + 25 * 3600)
+    assert (take, hrs) == (240, 24.0) and fw.block_state(w, 'fa', turf, now + 26 * 3600)[0] == 'active'
+    import pytest
+    with pytest.raises(ValueError, match='never shuts'):
+        fw.fund_block(w, 'fa', home, 100, now)
+    with pytest.raises(ValueError, match='Hold that block'):
+        fw.fund_block(w, 'fb', turf, 100, now)
+    with pytest.raises(ValueError, match='at least'):
+        fw.fund_block(w, 'fa', turf, 5, now)
+    take, hrs = fw.fund_block(w, 'fa', turf, 10_000_000, now + 26 * 3600)   # capped at two weeks
+    assert hrs <= fw.FUND_MAX_H and take == int(round(hrs * fw.UPKEEP_MP))
+
+
+def test_the_docks_show_six_cartels_and_a_familys_launch_stands_on_its_home():
+    import family_world as fw
+    w = fw.blank(); now = 1_800_000_000.0; home = fw.ensure_home(w, 'fa')
+    carts = [{'id': f'cartel-x-{i}', 'tag': f'X{i}', 'name': f'C{i}', 'power': i, 'role': 'sniper', 'icon': '🎯'} for i in range(18)]
+    v = fw.map_view(w, [{'id': 'fa', 'tag': 'AAA', 'name': 'A', 'launch': {'mint': 'M1', 'symbol': 'FEE'}}], [], carts, me='fa', now=now)
+    shown = [b for b in v['blocks'] if b.get('kind') == 'cartel']
+    assert len(shown) == fw.CARTEL_BLOCKS and {b['tag'] for b in shown} == {f'X{i}' for i in range(12, 18)}   # the strongest six
+    h = next(b for b in v['blocks'] if b['id'] == home)
+    assert h['launch'] == {'mint': 'M1', 'symbol': 'FEE'} and h['state'] == 'active'

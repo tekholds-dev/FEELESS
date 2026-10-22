@@ -34,6 +34,8 @@ const queryClient = new QueryClient({
 const root = ReactDOM.createRoot(document.getElementById("root"));
 if (process.env.NODE_ENV === 'development' && window.location.pathname === '/dev/hq') {   // 🧪 HQ on fixtures, no sign-in (src/dev/HqHarness.jsx)
   import('./dev/HqHarness').then(m => root.render(<m.default />));
+} else if (process.env.NODE_ENV === 'development' && window.location.pathname === '/dev/city') {   // 🧪 Fee City on a captured world + injected turf / raid (src/dev/CityHarness.jsx)
+  import('./dev/CityHarness').then(m => root.render(<m.default />));
 } else if (process.env.NODE_ENV === 'development' && window.location.pathname === '/dev/familia') {   // 🧪 Familia Wars / Board / Live on fixtures (src/dev/FamiliaHarness.jsx)
   import('./dev/FamiliaHarness').then(m => root.render(<m.default />));
 } else if (process.env.NODE_ENV === 'development' && window.location.pathname === '/dev/pools') {   // 🧪 Pool Hub + deposit-here on fixtures (src/dev/PoolsHarness.jsx)

@@ -550,6 +550,50 @@ def redeem_feecat(mp, rate=FEECAT_RATE):
     return units * per_mp, units * per_fc
 
 
+# 💡 ACTIVE / SHUT (owner, 2026-10-21: "buildings ACTIVE or SHUT DOWN by funding; members add to it"): every TURF block (not the home) has a
+# FUND of MP that its upkeep drains by the hour. Funded = ACTIVE (lit, counts on the map); empty = SHUT (dark) until a member funds it again.
+# Points today — once the custody pick lands, the same fund can be real money. A block first seen gets a grace day (nobody wakes up dark).
+UPKEEP_MP = 10            # MP an hour per turf block (owner rule 'upkeepMp')
+FUND_MAX_H = 24 * 14      # a fund holds at most two weeks
+GRACE_H = 24
+CARTEL_BLOCKS = 6         # Cartel Docks shows its six strongest cartels as buildings (it was all 16 blocks — "congested")
+
+
+def fund_until(world, bid, now):
+    """When this block's fund runs dry (a never-funded block gets a grace day from the first time it is seen)."""
+    f = world.setdefault('funds', {})
+    if bid not in f:
+        f[bid] = now + GRACE_H * 3600
+    return float(f[bid])
+
+
+def block_state(world, cid, bid, now):
+    """→ ('active' | 'shut', hours left). The home block never shuts; a block you don't hold has no state."""
+    if world['home'].get(cid) == bid:
+        return 'active', None
+    left = (fund_until(world, bid, now) - now) / 3600
+    return ('active' if left > 0 else 'shut'), max(0.0, round(left, 1))
+
+
+def fund_block(world, cid, bid, mp, now, upkeep=UPKEEP_MP):
+    """A member puts MP into one of the family's turf blocks → (MP taken, hours added). Never past FUND_MAX_H."""
+    if taken(world).get(bid) != cid:
+        raise ValueError('Hold that block first.')
+    if world['home'].get(cid) == bid:
+        raise ValueError('Your home block never shuts — fund your turf.')
+    mp = int(mp)
+    if mp < upkeep:
+        raise ValueError(f'Put in at least {upkeep} MP (one hour).')
+    start = max(now, fund_until(world, bid, now))
+    room_h = max(0.0, (now + FUND_MAX_H * 3600 - start) / 3600)
+    hours = min(mp / upkeep, room_h)
+    if hours < 1:
+        raise ValueError('That block is funded for two weeks already.')
+    take = int(round(hours * upkeep))
+    world['funds'][bid] = start + hours * 3600
+    return take, round(hours, 1)
+
+
 def link_block(world, cid, bid, row):
     """🏦 SET YOUR BUILDING to a real pool (owner, 2026-10-22): a block you hold wears that pool's name, kind and live APY / TVL. Display only —
     no funds move; the deposit itself happens on the pool's own page, the wallet signs. row=None clears it."""
@@ -567,14 +611,14 @@ def link_block(world, cid, bid, row):
 
 def map_view(world, families, cpu_rows, cartel_rows, me=None, boom_=None, now=0):
     """The whole city for the page: every block (owner, tag, power, kind), the boroughs, bridges, season and today's boom."""
-    owners = {f['id']: {'tag': f.get('tag'), 'name': f.get('name'), 'power': f.get('power', 0), 'color': f.get('color'), 'kind': 'family'} for f in families}
+    owners = {f['id']: {'tag': f.get('tag'), 'name': f.get('name'), 'power': f.get('power', 0), 'color': f.get('color'), 'kind': 'family', 'launch': f.get('launch')} for f in families}
     for c in cpu_rows:
         owners[c['id']] = {'tag': c['tag'], 'name': c['name'], 'power': int(c['rate'] / 10), 'kind': 'cpu', 'level': c['level']}
     t = taken(world)
     blocks = []
     cartel_slots = iter(block_ids('docks'))
     cart_blocks = {}
-    for c in cartel_rows:
+    for c in sorted(cartel_rows or [], key=lambda x: -int(x.get('power') or 0))[:CARTEL_BLOCKS]:
         b = next(cartel_slots, None)
         if b and b not in t:
             cart_blocks[b] = c
@@ -582,7 +626,12 @@ def map_view(world, families, cpu_rows, cartel_rows, me=None, boom_=None, now=0)
         o = t.get(bid)
         row = {'id': bid, 'b': borough_of(bid), 'i': int(bid.split('-')[1])}
         if o and o in owners:
-            row.update(owner=o, **owners[o], home=world['home'].get(o) == bid, mine=o == me)
+            row.update(owner=o, **{k: v for k, v in owners[o].items() if k != 'launch'}, home=world['home'].get(o) == bid, mine=o == me)
+            if owners[o]['kind'] == 'family':
+                st_, left_ = block_state(world, o, bid, now) if now else ('active', None)
+                row.update(state=st_, fundH=left_)
+                if row['home'] and owners[o].get('launch'):
+                    row['launch'] = owners[o]['launch']   # 🚀 the family's pinned launch stands as a tower on its home block
         elif bid in cart_blocks:
             c = cart_blocks[bid]
             row.update(owner=c['id'], tag=c['tag'], name=c['name'], power=c['power'], kind='cartel', role=c['role'], icon=c['icon'])
@@ -593,11 +642,11 @@ def map_view(world, families, cpu_rows, cartel_rows, me=None, boom_=None, now=0)
 
 # ── owner rules (HQ › 🏙 Familia) ───────────────────────────────────────────────────────────────────────────────────────────────────────────
 # LIVE = applied to the engine now (points). PLANNED = the real-money side, stored so the owner can price it, applied once custody is picked.
-RULES = {'blockMp': BLOCK_MP, 'feeTier': 2.5, 'turfMax': TURF_MAX, 'moveMp': MOVE_MP, 'fuseMinMp': 2000,
+RULES = {'blockMp': BLOCK_MP, 'feeTier': 2.5, 'turfMax': TURF_MAX, 'moveMp': MOVE_MP, 'fuseMinMp': 2000, 'upkeepMp': UPKEEP_MP,
          'familiesPerWallet': 2, 'createUsd': 25.0, 'createFeeUsd': 5.0, 'hitRate': 0.000025, 'hitCapUsd': 0.10, 'hitMinUsd': 1.0}
-RULE_RANGE = {'blockMp': (100, 1_000_000), 'feeTier': (1.0, 20.0), 'turfMax': (1, 60), 'moveMp': (0, 1_000_000), 'fuseMinMp': (0, 1_000_000),
+RULE_RANGE = {'blockMp': (100, 1_000_000), 'feeTier': (1.0, 20.0), 'turfMax': (1, 60), 'moveMp': (0, 1_000_000), 'fuseMinMp': (0, 1_000_000), 'upkeepMp': (0, 100_000),
               'familiesPerWallet': (1, 10), 'createUsd': (0, 1000), 'createFeeUsd': (0, 1000), 'hitRate': (0, 0.01), 'hitCapUsd': (0, 100), 'hitMinUsd': (0, 1000)}
-LIVE_RULES = ('blockMp', 'feeTier', 'turfMax', 'moveMp', 'fuseMinMp')
+LIVE_RULES = ('blockMp', 'feeTier', 'turfMax', 'moveMp', 'fuseMinMp', 'upkeepMp')
 
 
 def clean_rules(raw, prev=None):

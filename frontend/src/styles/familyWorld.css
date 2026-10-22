@@ -91,3 +91,24 @@ body.fx-lite .fwd-place, body.fx-lite .fwd-place > header > i, body.fx-lite .fwd
 body.theme-day .fwd-place { background: linear-gradient(165deg, #fffaf0f7, #f6efe0f7); } body.theme-day .fwd-place > header b { text-shadow: none; filter: brightness(.7); }
 body.theme-day .fwd-place > header small, body.theme-day .fwd-mkv em { color: #6a5a3a; } body.theme-day .fwd-mkv span { background: #ffffffb0; } body.theme-day .fwd-mkv b { color: #2a1f0e; }
 @media (max-width: 640px) { .fwd-place { left: 8px; right: 8px; top: 8px; max-height: calc(100% - 64px); width: auto; } .fwd-mkv { grid-template-columns: 1fr; } }
+/* 💡 ACTIVE / SHUT (FamilyWorld FundMeter `fwd-fund`): the turf block's fund as a gold meter (two weeks = full), dark red when it is shut */
+.fwd-fund { display: grid; gap: 6px; padding: 9px 10px; border-radius: 10px; background: rgba(255, 211, 107, .06); border: 1px solid rgba(255, 211, 107, .2); }
+.fwd-fund > span { display: flex; align-items: baseline; gap: 8px; } .fwd-fund em { font: 800 9px 'JetBrains Mono', monospace; letter-spacing: .14em; font-style: normal; color: #ffd36b; }
+.fwd-fund b { font: 700 12px 'JetBrains Mono', monospace; color: #fff3d6; }
+.fwd-fund > u { height: 6px; border-radius: 3px; background: #ffffff10; overflow: hidden; } .fwd-fund > u s { display: block; height: 100%; transform-origin: left; text-decoration: none; background: linear-gradient(90deg, #8a6116, #ffd36b); transition: transform .6s ease; }
+.fwd-fund.is-shut { background: rgba(122, 15, 31, .18); border-color: rgba(255, 77, 109, .4); } .fwd-fund.is-shut em { color: #ff8fa3; animation: fwdShut 3s ease-in-out infinite; }
+.fwd-launch { margin: 0; font-size: 12px; } .fwd-launch b { font-family: 'JetBrains Mono', monospace; color: #ff9f45; } .fwd-launch a { color: inherit; }
+@keyframes fwdShut { 0%, 100% { opacity: 1; } 50% { opacity: .55; } }
+body.fx-lite .fwd-fund.is-shut em { animation: none; } @media (prefers-reduced-motion: reduce) { .fwd-fund.is-shut em { animation: none; } .fwd-fund > u s { transition: none; } }
+body.theme-day .fwd-fund b { color: #3a2a0a; } body.theme-day .fwd-fund { background: #fff8ea; }
+/* 🚨 the defender's siren bar over the city (FamilyWorld RaidAlert): a slow red sweep (≤ 0.4 Hz, never a strobe), who / stakes / turn / clock, Defend */
+.fwd-alert { position: absolute; left: 50%; top: 10px; z-index: 6; width: min(560px, calc(100% - 20px)); transform: translateX(-50%); display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: 10px; align-items: center;
+  padding: 9px 12px; border-radius: 12px; overflow: hidden; isolation: isolate; background: linear-gradient(90deg, rgba(80, 4, 14, .94), rgba(30, 4, 8, .94)); border: 1px solid #ff4d6d; box-shadow: 0 10px 30px -10px #ff2a3d; animation: fwdIn .25s ease-out both; }
+.fwd-siren { position: absolute; inset: 0; z-index: -1; background: linear-gradient(90deg, transparent, rgba(255, 42, 61, .35), transparent); transform: translateX(-100%); animation: fwdSweep 3s ease-in-out infinite; }
+.fwd-alert span { display: grid; gap: 2px; min-width: 0; } .fwd-alert b { font: 900 12px 'JetBrains Mono', monospace; letter-spacing: .06em; color: #fff1f3; } .fwd-alert small { font-size: 10.5px; color: #ffb3c0; }
+.fwd-alert em { font: 900 18px 'JetBrains Mono', monospace; font-style: normal; color: #ff8fa3; }
+.fwd-alert .m-btn { min-height: 34px; }
+@keyframes fwdSweep { 0% { transform: translateX(-100%); } 100% { transform: translateX(100%); } }
+@keyframes fwdIn { from { opacity: 0; transform: translate(-50%, -8px); } to { opacity: 1; transform: translateX(-50%); } }
+body.fx-lite .fwd-siren, body.fx-lite .fwd-alert { animation: none; } @media (prefers-reduced-motion: reduce) { .fwd-siren, .fwd-alert { animation: none; } }
+@media (max-width: 640px) { .fwd-alert { grid-template-columns: minmax(0, 1fr) auto; } .fwd-alert em { display: none; } }
