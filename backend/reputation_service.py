@@ -9316,6 +9316,14 @@ async def admin_familia_rules_set(request: Request, body: dict):
     return await admin_familia_rules(request)
 
 
+@app.get('/api/reputation/familia/trade-center')
+async def familia_trade_center(address: str = '', session: str = ''):
+    """📈 The Trade Center building: the agents' real card live — the aggregate for everyone, every seat (coin · model · live %) for staff."""
+    import trade_center as _tcn
+    me = _session_or_401(address, session) if address and session else None
+    return _tcn.summary(_agents.get('card') or (_agents.get('view') or {}).get('card'), staff=bool(me and _is_staff(address)))
+
+
 @app.get('/api/reputation/familia-world')
 async def familia_world(address: str = '', session: str = ''):
     """🗺 The whole Familia city: boroughs, bridges, every block, CPU towns, cartels, the season — and, signed in, my family's turf, raids,

@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Building2, Crown, Swords, Trophy, Radio, Waves, Medal, Siren, Gem, ClipboardList, Dumbbell, Spade, Warehouse, Radar, Activity, Eye, Scale, Cat, Fuel, Newspaper, Landmark, Sun, Moon, Maximize2, Minimize2 } from 'lucide-react';
+import { Building2, Crown, Swords, Trophy, Radio, Waves, Medal, Siren, Gem, ClipboardList, Dumbbell, Spade, Warehouse, Radar, Activity, Eye, Scale, Cat, Fuel, Newspaper, Landmark, TrendingUp, Sun, Moon, Maximize2, Minimize2 } from 'lucide-react';
 import { FamilyCity3D, Vitals, vitalsOf } from './FamilyCity3D';
 import { MetaCard } from './cards/MetaCard';
 import { tokenImageUrls } from './terminal/MarketPrimitives';
@@ -21,7 +21,7 @@ const still = () => typeof window !== 'undefined' && (window.matchMedia?.('(pref
 const MODE_KEY = 'feeless.city.mode';
 const startMode = () => { try { const m = localStorage.getItem(MODE_KEY); if (m === 'day' || m === 'night') return m; } catch { /* storage blocked */ } return typeof document !== 'undefined' && document.body.classList.contains('theme-day') ? 'day' : 'night'; };
 export const PLACE_ICON = { hq: Crown, warroom: Swords, podium: Trophy, wire: Radio, pools: Waves, ranked: Medal, raids: Siren, rewards: Gem, jobs: ClipboardList, gym: Dumbbell, cards: Spade, cartels: Warehouse,
-  pumpradar: Radar, runners: Activity, watch: Eye, court: Scale, feecat: Cat, fuel: Fuel, news: Newspaper, feebank: Landmark };
+  pumpradar: Radar, runners: Activity, watch: Eye, court: Scale, feecat: Cat, fuel: Fuel, news: Newspaper, feebank: Landmark, trades: TrendingUp };
 
 // 🏦 the live Solana markets + today's top coins (one shared read a minute, every viewer)
 export function useMarkets() {

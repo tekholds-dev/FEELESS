@@ -29,7 +29,7 @@ test('🏦 the $FEE Bank reads /assets: a row per coin with a pool, nothing inve
 });
 
 test('🛣 every Avenue building has a room: Pump Radar trades open the war room (the wallet signs), the Bank buys fee-free, full page links', async () => {
-  expect(AVENUE_LENSES.sort()).toEqual(['feebank', 'feecat', 'feedx', 'gas', 'pumpradar', 'rep', 'runners', 'sleep', 'watch']);
+  expect(AVENUE_LENSES.sort()).toEqual(['feebank', 'feecat', 'feedx', 'gas', 'pumpradar', 'rep', 'runners', 'sleep', 'trades', 'watch']);
   const seen = []; const on = e => seen.push(e.detail); window.addEventListener('feeless:war-room', on);
   const el = document.createElement('div'); document.body.appendChild(el); const root = createRoot(el);
   await act(async () => { root.render(<AvenueRoom lens="pumpradar" />); });
@@ -45,5 +45,19 @@ test('🛣 every Avenue building has a room: Pump Radar trades open the war room
   expect(q('av-coin-rfee')).toBeNull();
   await act(async () => { root.render(<AvenueRoom lens="nope" />); });
   expect(el.textContent).toBe('');
+  window.removeEventListener('feeless:war-room', on); act(() => root.unmount());
+});
+
+test('📈 the Trade Center shows the desk live: meters + by-model chips; staff rows open the seat\'s war room', async () => {
+  const TC = { open: 2, green: 1, avgPct: 4, by: { G4: { n: 1, avgPct: -4 }, OSSY: { n: 1, avgPct: 12 } }, staff: true,
+    rows: [{ symbol: 'AAA', pair: 'P1', who: 'OSSY', pct: 12, state: 'ride', action: '', why: '' }] };
+  global.fetch = jest.fn(() => Promise.resolve({ ok: true, json: () => Promise.resolve(TC) }));
+  const seen = []; const on = e => seen.push(e.detail); window.addEventListener('feeless:war-room', on);
+  const el = document.createElement('div'); document.body.appendChild(el); const root = createRoot(el);
+  await act(async () => { root.render(<AvenueRoom lens="trades" />); });
+  await act(async () => { await new Promise(r => setTimeout(r, 20)); });
+  expect(q('av-trades').textContent).toContain('1/2'); expect(q('av-trades').textContent).toContain('OSSY');
+  await act(async () => { q('av-seat-0').click(); });
+  expect(seen[0]).toMatchObject({ pairAddress: 'P1' });
   window.removeEventListener('feeless:war-room', on); act(() => root.unmount());
 });

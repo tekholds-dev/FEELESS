@@ -1,8 +1,11 @@
-import React, { Suspense, lazy } from 'react';
+import React, { Suspense, lazy, useEffect, useState } from 'react';
 import { useMarket } from '../hooks/useMarket';
 import { openWarRoom } from './WarRoomHost';
 import { TokenAvatar } from './terminal/MarketPrimitives';
 import { PLACES, usd } from '../lib/cityPlan';
+import { apiUrl } from '../lib/api';
+import { readChatSession } from '../lib/chatSession';
+import { useWallet } from '../hooks/useWallet';
 import '../styles/cityAvenue.css';
 
 // 🛣 FEELESS AVENUE (owner, 2026-10-22: "implement the site's best tabs and features in Fee City with a pop-out of vitals and quick tools to
@@ -100,7 +103,37 @@ function FeeBank() {
   </div>;
 }
 
+// 📈 THE TRADE CENTER — the agents' REAL card, live: everyone sees the record (seats, green, average %, by model — no coins, nobody front-runs
+// its exits); the creator / staff also see every seat with the model holding it and one tap to its war room. One read every 15 s while open.
+export function useTradeCenter() {
+  const { wallet } = useWallet() || {}; const a = wallet?.address || ''; const [d, setD] = useState(null);
+  useEffect(() => { let on = true; const s = a ? readChatSession(a) : '';
+    const load = () => fetch(apiUrl(`/api/reputation/familia/trade-center${a && s ? `?address=${a}&session=${encodeURIComponent(s)}` : ''}`)).then(r => (r.ok ? r.json() : null)).then(x => on && x && setD(x)).catch(() => {});
+    load(); const t = setInterval(() => { if (!document.hidden) load(); }, 15000); return () => { on = false; clearInterval(t); }; }, [a]);
+  return d;
+}
+function TradeCenter() {
+  const d = useTradeCenter();
+  if (!d) return <p className="m-dim">Reading the desk…</p>;
+  return <div className="av-tc" data-testid="av-trades">
+    <div className="av-vitals">
+      <Meter i={0} label="SEATS LIVE" value={String(d.open)} fill={d.open / 6} tip="Real-money seats the desk holds right now" />
+      <Meter i={1} label="GREEN NOW" value={`${d.green}/${d.open}`} fill={d.open ? d.green / d.open : 0} tone={d.green >= d.open / 2 ? 'is-up' : 'is-down'} tip="Seats up from their entry, live" />
+      <Meter i={2} label="AVG LIVE" value={pct(d.avgPct)} fill={heatOf(d.avgPct)} tone={(d.avgPct ?? 0) >= 0 ? 'is-up' : 'is-down'} tip="Average live % across the seats (fees never in P&L)" />
+      <Meter i={3} label="BY MODEL" value={Object.entries(d.by || {}).map(([k, v]) => `${k} ${v.n}`).join(' · ') || '—'} fill={Object.keys(d.by || {}).length / 4} tip="Who holds the seats: G4 · OSSY · the agents" />
+    </div>
+    <div className="av-models">{Object.entries(d.by || {}).map(([k, v], i) => <span key={k} className={`av-model ${(v.avgPct ?? 0) >= 0 ? 'up' : 'down'}`} style={{ '--i': i }} data-tip={`${k}: ${v.n} seat(s), average ${pct(v.avgPct)} live`}><b>{k}</b><em className="m-num">{pct(v.avgPct)}</em></span>)}</div>
+    {d.rows ? <ol className="av-list">{d.rows.map((r, i) => <li key={`${r.pair}-${i}`} style={{ '--i': i }}>
+      <em>{i + 1}</em><span className="av-who">{r.who}</span>
+      <span className="av-sym"><b>${r.symbol}</b><small>{[r.state, r.action, r.why].filter(Boolean).join(' · ') || 'holding'}</small></span>
+      <span className={`av-heat ${(r.pct ?? 0) < 0 ? 'down' : 'up'}`}><u aria-hidden="true"><s style={{ transform: `scaleX(${Math.max(0.04, heatOf(r.pct))})` }} /></u><b className="m-num">{pct(r.pct)}</b></span>
+      <button type="button" className="m-btn" onClick={() => trade({ chainId: 'solana', pairAddress: r.pair, baseToken: { symbol: r.symbol } })} data-tip="Open its war room — chart, tape, the desk's fills" data-testid={`av-seat-${i}`}>📈 Open</button></li>)}</ol>
+      : <p className="av-lede">Coins stay private so nobody front-runs the desk's exits — the creator sees every seat here.</p>}
+  </div>;
+}
+
 const BODY = {
+  trades: () => <TradeCenter />,
   pumpradar: () => <PumpRadar />, feebank: () => <FeeBank />, runners: () => <RunnersPanel />, watch: () => <WatchlistDashboard />, rep: () => <RepTools />,
   feecat: () => <FeeCatProfile catId="leader" />, gas: () => <GetGas />, sleep: () => <NightVault />,
   feedx: () => <><div className="av-tools"><button type="button" className="m-btn" onClick={() => window.dispatchEvent(new Event('feeless:feed-pop'))} data-tip="Float FEEd over any page — keep reading while you trade" data-testid="av-feed-pop">⤢ Pop out FEEd</button></div><FeedPanel /></>,

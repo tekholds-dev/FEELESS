@@ -52,6 +52,7 @@ export const PLACES = [
   { key: 'fuel', lens: 'gas', name: 'FUEL STATION', sub: 'gas on 12 chains', isl: 'ave', art: 'fuel', color: '#ffd36b', tool: true, page: '/terminal/trade' },
   { key: 'news', lens: 'feedx', name: 'THE NEWSSTAND', sub: 'FEEd · every call, live', isl: 'ave', art: 'news', color: '#45e4c8', tool: true },
   { key: 'feebank', lens: 'feebank', name: 'THE $FEE BANK', sub: '$FEE · rFEE · FEECAT — buys fee-free', isl: 'ave', art: 'bank', color: '#15d16a', tool: true, page: '/terminal/fee' },
+  { key: 'trades', lens: 'trades', name: 'THE TRADE CENTER', sub: 'the desk\'s real-money trades · live P&L', isl: 'ave', art: 'trade', color: '#45e486', tool: true },
   { key: 'sleep', lens: 'sleep', name: 'THE NIGHT VAULT', sub: 'money while you sleep · live APY', isl: 'ave', art: 'sleep', color: '#9b8cff', tool: true },
 ];
 
