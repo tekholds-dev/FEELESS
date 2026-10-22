@@ -107,7 +107,7 @@ body.fx-lite .fbk-b, body.fx-lite .fbk-goon, body.fx-lite .fbk-crane b, body.fx-
 @keyframes fbkFloat { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-8px); } }
 body.fx-lite .fbk-pick { animation: none; }
 @media (prefers-reduced-motion: reduce) { .fbk-pick { animation: none; transition: none; } }
-@media (max-width: 640px) { .fbk-pick { width: 54px; height: 54px; } .fbk-picks { gap: 8px; } }
+@media (max-width: 640px) { .fbk-pick { width: 54px; height: 54px; } .fbk-picks { gap: 8px; top: 26px; } }
 .fbk-left { display: grid; gap: 14px; align-content: start; min-width: 0; }
 .fdk { display: grid; gap: 10px; padding: 14px; border-radius: 18px; border: 1px solid #d4af3733; background: linear-gradient(170deg, rgba(20, 16, 8, .96), rgba(8, 7, 5, .98)); box-shadow: inset 0 1px 0 #ffffff12; }
 .fdk > header { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; } .fdk > header b { font: 800 12px 'JetBrains Mono', monospace; letter-spacing: .14em; color: #ffd76a; }
@@ -122,9 +122,9 @@ body.fx-lite .fbk-pick { animation: none; }
 .fdk-body { min-height: 220px; animation: fdkIn .25s ease-out both; }
 @keyframes fdkIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
 body.theme-day .fdk { background: linear-gradient(170deg, #fffaf0, #f6efdc); border-color: #b8901f44; } body.theme-day .fdk-tabs button { background: #fffdf6; color: #2a2620; border-color: #b8901f44; }
-body.theme-day .fdk-tabs small { color: #6b6250; }
+body.theme-day .fdk-tabs small { color: #6b6250; } body.theme-day .fdk > header b { color: #8a6400; }
 @media (max-width: 1100px) { .fdk-tabs { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
-@media (max-width: 640px) { .fdk-tabs { grid-template-columns: repeat(2, minmax(0, 1fr)); } .fdk { padding: 10px; } }
+@media (max-width: 640px) { .fdk-tabs { grid-template-columns: repeat(2, minmax(0, 1fr)); } .fdk { padding: 10px; } .fdk > header { flex-direction: column; align-items: flex-start; gap: 2px; } }
 @media (prefers-reduced-motion: reduce) { .fdk-tabs button, .fdk-body { animation: none; transition: none; } }
 body.fx-lite .fdk-tabs button { animation: none; }
 body.theme-day .fbk { background: linear-gradient(180deg, #fbf4e6, #f4ead4); } body.theme-day .fbk-card { background: #fff8ea; } body.theme-day .fbk-card > header b, body.theme-day .fbk-hud b { color: #3a2a0a; }
