@@ -23586,6 +23586,30 @@ async def admin_security(request: Request):
             'audit': _admin_load()['audit'][-25:][::-1], 'at': now}
 
 
+import presence as _pres
+_presence = {}   # 🟢 wallet → (mode, at) — memory only, capped in presence.py
+
+
+class PresenceBeat(BaseModel):
+    address: str = Field(..., max_length=64)
+    session: str = Field(..., max_length=400)
+    mode: str = Field('online', max_length=12)
+
+
+@app.post('/api/reputation/presence')
+async def presence_beat(p: PresenceBeat):
+    """🟢 A signed-in tab's heartbeat with its chosen mode (online · away · invisible). Memory only."""
+    me = _session_or_401(p.address, p.session)
+    return {'mode': _pres.beat(_presence, me, p.mode, time.time()), 'every': _pres.BEAT_SEC}
+
+
+@app.get('/api/reputation/presence')
+async def presence_read(a: str = Query('', max_length=2400)):
+    """🟢 Up to 50 wallets → online · away · offline (invisible reads as offline)."""
+    now = time.time()
+    return {x_: _pres.status(_presence, x_, now) for x_ in [y_.strip() for y_ in a.split(',') if y_.strip()][:50]}
+
+
 @app.get('/api/reputation/admin/security/stores')
 async def admin_stores(request: Request):
     """🗄 Every store under backend/data with its class, cap and state (ok · watch · over · stale snapshot · money kept whole). Read-only."""

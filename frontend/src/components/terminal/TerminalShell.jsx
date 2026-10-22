@@ -8,6 +8,7 @@ import { apiUrl } from '../../lib/api';
 import { FeelessMark, FeelessWordmark } from '../FeelessLogo';
 import { useMarket } from '../../hooks/useMarket';
 import { useWallet } from '../../hooks/useWallet';
+import { usePresenceBeat } from '../../lib/presence';
 import { formatUSD, shortAddress } from '../../lib/dexscreener';
 import { Change, DataStatus } from './MarketPrimitives';
 import { SearchBox } from './SearchBox';
@@ -25,6 +26,7 @@ const ITEMS = [
 export const TerminalHeader = ({ onWallet, onProfile, onMenu, query = '' }) => {
   const { ecosystem } = useWorkspace();
   const { wallet } = useWallet();
+  usePresenceBeat(wallet?.address);   // 🟢 your online status heartbeat (memory only on the server; Invisible reads offline)
   const [dayMode, setDayMode] = useState(() => {
     try { return localStorage.getItem('feeless-theme') === 'day'; } catch { return false; }
   });

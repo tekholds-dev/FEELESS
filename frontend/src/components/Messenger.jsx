@@ -4,6 +4,8 @@ import { MessageCircle, Send, Settings2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { ChatFx, ChatThemePicker, chatTheme, useFeeUsd, useBadgeBgs } from './ChatFx';
 import { useChatPrefs } from '../lib/chatPrefs';
+import { usePresence } from '../lib/presence';
+import { PresenceDot } from './PresenceDot';
 import '../styles/messenger.css';
 
 // 💬 THE INBOX = A MESSENGER (owner, 2026-10-20: "chat should expand more vertically and look exactly like Facebook Messenger but better, with
@@ -49,7 +51,7 @@ function Text({ t }) {
 export function Messenger({ mine, wallet, session, start, threads, withPeer, setWith, msgs, text, setText, send, policy, prefs, pending, setThreads, endRef, onClose }) {
   const [q, setQ] = useState('');
   const [look, setLookS] = useState(readLook); const [gear, setGear] = useState(false); const [fold, setFold] = useState('all');
-  const [cprefs, setCprefs] = useChatPrefs(); const feeUsd = useFeeUsd(wallet?.address); const perkBgs = useBadgeBgs(wallet?.address);   // 🎨 the inbox's animated background (same themes as every chat)
+  const online = usePresence((threads || []).map(t => t.peer));   const [cprefs, setCprefs] = useChatPrefs(); const feeUsd = useFeeUsd(wallet?.address); const perkBgs = useBadgeBgs(wallet?.address);   // 🎨 the inbox's animated background (same themes as every chat)
   const setLook = patch => setLookS(l => { const n = { ...l, ...patch }; try { localStorage.setItem('feeless.dmLook', JSON.stringify(n)); } catch {} return n; });
   const toggle = (k, peer) => setLook({ [k]: (look[k] || []).includes(peer) ? look[k].filter(x => x !== peer) : [...(look[k] || []), peer] });
   const box = useRef(null);
@@ -91,7 +93,7 @@ export function Messenger({ mine, wallet, session, start, threads, withPeer, set
           <input className="msx-search" value={q} onChange={e => setQ(e.target.value)} placeholder="Search chats" aria-label="Search chats" />
           <div className="msx-folds" role="tablist">{[['all', 'All'], ['requests', 'Requests'], ['spam', 'Spam'], ['muted', 'Muted']].map(([k, l]) => <button key={k} type="button" role="tab" aria-selected={fold === k} className={fold === k ? 'on' : ''} onClick={() => setFold(k)} data-testid={`dm-fold-${k}`}>{l}{counts[k] ? <b>{counts[k]}</b> : null}</button>)}</div>
           {!list.length ? <p className="msx-empty">{q ? 'No chat matches.' : 'No conversations yet.'}</p> : list.map(t => <button key={t.peer} type="button" className={`msx-row ${withPeer === t.peer ? 'on' : ''}`} onClick={() => setWith(t.peer)}>
-            <span className="msx-ava" style={{ '--h': hue(t.peer) }}>{ini(t.handle)}</span>
+            <span className="msx-ava" style={{ '--h': hue(t.peer) }}>{ini(t.handle)}<PresenceDot status={online[t.peer] || 'offline'} /></span>
             <span className="msx-rowtx"><b>{(look.pinned || []).includes(t.peer) ? '📌 ' : ''}@{t.handle}{t.request ? <em className="msx-req">request</em> : null}{isSpam(t) && look.spam ? <em className="msx-req is-spam">spam?</em> : null}</b><small>{t.last?.text || ''}</small></span>
             {t.last?.at ? <i className="msx-when">{hm(t.last.at)}</i> : null}</button>)}
         </aside> : null}

@@ -43,6 +43,7 @@ import { ProfileDM, RewardsCard } from '../Social';
 import { VerifiedMark } from '../terminal/VerifiedMark';
 import { PointsShop, PnlTracker } from '../MetaExtras';
 import { OnchainStrip, PerksCard, PortfolioCard, SetupCallout, SocialStrip, TradeCards, usePerks } from './ProfileExtras';
+import { PresenceDot, PresencePicker } from '../PresenceDot';
 import { useRemembered } from '../../lib/remember';
 
 const WIDE_Q = '(min-width: 1480px)';
@@ -195,6 +196,7 @@ export function WalletProfilePage({ address }) {
           {edit ? <input className="wp-name-input" maxLength={32} placeholder="Display name" value={draft.displayName} onChange={e => set('displayName', e.target.value)} /> : <h1 className={`namefx-${p.nameFx || 'none'}`}>{p.displayName || shortAddress(address)}{data?.verified && <VerifiedMark />}<RepMark address={address} /></h1>}
           <div className="xp-sub">{edit ? <input className="wp-handle-input" maxLength={21} placeholder="@handle (3–20: a-z 0-9 _)" value={draft.handle ? `@${draft.handle}` : ''} onChange={e => set('handle', e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, '').slice(0, 20))} /> : <span className="wp-handle">@{p.handle || address.slice(0, 6).toLowerCase()}</span>}<span className="xp-dot">·</span><code>{shortAddress(address)}</code><CopyBtn value={address} /></div>
           {edit ? <input className="wp-mood-input" maxLength={40} placeholder="Mood / status (e.g. 🔥 hunting 10×s)" value={draft.mood} onChange={e => set('mood', e.target.value)} /> : p.mood && <p className="wp-mood">{p.mood}</p>}
+          <div className="xp-presence"><PresenceDot address={address} label />{mine ? <PresencePicker /> : null}</div>
         </div>
         <div className="xp-actions"><ProfileDM peer={address} mine={mine} initialOpen={new URLSearchParams(window.location.search).get('dm') === '1'} /><button type="button" className="btn-outline xp-case" data-testid="open-case-file" onClick={() => investigate(address)}>🔎 Case file</button>{!mine && <CircleProfileEditButton address={address} onSaved={() => window.location.reload()} />}<button type="button" className="btn-outline wp-flip-btn" data-testid="profile-flip" onClick={() => setFlipped(f => !f)}>{flipped ? '↺ Profile' : '↻ Activity'}</button>{mine && <button type="button" className="wp-fuse-go" onClick={() => setFuseOpen(true)} data-tip="Build a Fuse card right here — one approval" data-testid="profile-fuse"><span className="fz-font">⚡ FUSE</span> a card</button>}{isAdmin && <button type="button" className="cc-launch" data-testid="open-hq" onClick={() => setCcOpen(true)}>👑 HQ</button>}{mine ? (edit ? <><button type="button" className="btn-primary" disabled={saving} onClick={save}><Save size={14} />{saving ? 'Saving…' : 'Save'}</button><button type="button" className="btn-outline" onClick={() => setEdit(false)}><X size={14} />Cancel</button></> : <button type="button" className="btn-outline" onClick={startEdit}><Pencil size={14} />Edit profile</button>) : !wallet?.address && <button type="button" className="btn-outline" onClick={() => connect?.('solana')}>Connect to edit yours</button>}</div>
       </div>

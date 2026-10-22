@@ -1,0 +1,12 @@
+/* 🟢 presence dots + the status picker (PresenceDot.jsx `prs-*`): online breathes (≤ 0.4 Hz), away is a quiet gold, offline is grey */
+.prs { display: inline-flex; align-items: center; gap: 5px; vertical-align: middle; } .prs i { width: 9px; height: 9px; border-radius: 50%; background: #5b6470; box-shadow: 0 0 0 2px rgba(0, 0, 0, .55); }
+.prs-online i { background: #15d16a; box-shadow: 0 0 0 2px rgba(0, 0, 0, .55), 0 0 8px #15d16a; animation: prsBreathe 2.6s ease-in-out infinite; } .prs-away i { background: #ffd36b; }
+.prs em { font: 700 9px 'JetBrains Mono', monospace; letter-spacing: .1em; text-transform: uppercase; font-style: normal; color: #8fb0a5; }
+.prs-pick { flex-wrap: wrap; } .prs-pick button { min-height: 32px; }
+/* where the dots sit: the profile header row, a DM avatar's corner */
+.xp-presence { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 6px; }
+.msx-ava { position: relative; } .msx-ava .prs { position: absolute; right: -2px; bottom: -2px; }
+@keyframes prsBreathe { 0%, 100% { opacity: 1; } 50% { opacity: .55; } }
+body.fx-lite .prs-online i { animation: none; } @media (prefers-reduced-motion: reduce) { .prs-online i { animation: none; } }
+body.theme-day .prs i { box-shadow: 0 0 0 2px #fff; } body.theme-day .prs em { color: #3d5a50; }
+@media (max-width: 640px) { .prs-pick button { flex: 1; } }
