@@ -130,6 +130,11 @@ function TradeCenter() {
       <span className={`av-heat ${(r.pct ?? 0) < 0 ? 'down' : 'up'}`}><u aria-hidden="true"><s style={{ transform: `scaleX(${Math.max(0.04, heatOf(r.pct))})` }} /></u><b className="m-num">{pct(r.pct)}</b></span>
       <button type="button" className="m-btn" onClick={() => trade({ chainId: 'solana', pairAddress: r.pair, baseToken: { symbol: r.symbol } })} data-tip="Open its war room — chart, tape, the desk's fills" data-testid={`av-seat-${i}`}>📈 Open</button></li>)}</ol>
       : <p className="av-lede">Coins stay private so nobody front-runs the desk's exits — the creator sees every seat here.</p>}
+    {d.closed?.n ? <div className="av-closed" data-testid="av-closed"><em className="av-sub">REAL RECORD · LAST {d.closed.n} CLOSED LOTS (price only, fees apart)</em>
+      <div className="av-models">{Object.entries(d.closed.by).map(([k, r], i) => <span key={k} className={`av-model ${r.median >= 0 ? 'up' : 'down'}`} style={{ '--i': i }} data-tip={`${k}: ${r.n} real trades, ${r.wonPct}% won, typical ${r.median}%`}>
+        <b>{k}</b><em className="m-num">{r.wonPct}% won · {pct(r.median)}</em></span>)}</div>
+      <ol className="av-list av-lots">{d.closed.last.map((r, i) => <li key={`${r.sym}-${r.at}-${i}`} style={{ '--i': i }}><span className="av-who">{r.who}</span>
+        <span className="av-sym"><b>${r.sym}</b><small>{r.rule || 'closed'}</small></span><b className={`m-num ${r.pct >= 0 ? 'm-pos' : 'm-neg'}`}>{pct(r.pct)}</b></li>)}</ol></div> : null}
   </div>;
 }
 

@@ -9376,7 +9376,8 @@ async def familia_trade_center(address: str = '', session: str = ''):
     """📈 The Trade Center building: the agents' real card live — the aggregate for everyone, every seat (coin · model · live %) for staff."""
     import trade_center as _tcn
     me = _session_or_401(address, session) if address and session else None
-    return _tcn.summary(_agents.get('card') or (_agents.get('view') or {}).get('card'), staff=bool(me and _is_staff(address)))
+    return {**_tcn.summary(_agents.get('card') or (_agents.get('view') or {}).get('card'), staff=bool(me and _is_staff(address))),
+            'closed': _tcn.closed_view((_json_load(ARCHIVE_PATH, {}) or {}).get('positions') or [])}
 
 
 @app.get('/api/reputation/familia-world')

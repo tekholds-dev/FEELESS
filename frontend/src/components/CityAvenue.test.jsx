@@ -50,6 +50,7 @@ test('🛣 every Avenue building has a room: Pump Radar trades open the war room
 
 test('📈 the Trade Center shows the desk live: meters + by-model chips; staff rows open the seat\'s war room', async () => {
   const TC = { open: 2, green: 1, avgPct: 4, by: { G4: { n: 1, avgPct: -4 }, OSSY: { n: 1, avgPct: 12 } }, staff: true,
+    closed: { n: 120, by: { G4: { n: 33, wonPct: 18, median: -6 } }, last: [{ sym: 'McRib', who: 'OWNER', pct: -13.1, rule: 'R2 stop' }] },
     rows: [{ symbol: 'AAA', pair: 'P1', who: 'OSSY', pct: 12, state: 'ride', action: '', why: '' }] };
   global.fetch = jest.fn(() => Promise.resolve({ ok: true, json: () => Promise.resolve(TC) }));
   const seen = []; const on = e => seen.push(e.detail); window.addEventListener('feeless:war-room', on);
@@ -57,6 +58,7 @@ test('📈 the Trade Center shows the desk live: meters + by-model chips; staff 
   await act(async () => { root.render(<AvenueRoom lens="trades" />); });
   await act(async () => { await new Promise(r => setTimeout(r, 20)); });
   expect(q('av-trades').textContent).toContain('1/2'); expect(q('av-trades').textContent).toContain('OSSY');
+  expect(q('av-closed').textContent).toContain('18% won'); expect(q('av-closed').textContent).toContain('McRib');
   await act(async () => { q('av-seat-0').click(); });
   expect(seen[0]).toMatchObject({ pairAddress: 'P1' });
   window.removeEventListener('feeless:war-room', on); act(() => root.unmount());

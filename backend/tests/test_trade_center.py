@@ -15,3 +15,12 @@ def test_staff_see_every_seat_with_its_model():
     s = tc.summary(CARD, staff=True)
     assert [r['who'] for r in s['rows']] == ['OSSY', 'G4', 'agent'] and s['rows'][2]['why'] == 'riding'
     assert tc.summary(None) == {'open': 0, 'green': 0, 'avgPct': None, 'by': {}, 'staff': False}
+
+
+def test_closed_lots_give_each_lane_its_honest_real_record():
+    pos = [{'g4': True, 'aiBy': 'lan', 'realPct': -6, 'sym': 'A'}, {'g4': True, 'aiBy': 'lan', 'realPct': 4, 'sym': 'B'}, {'g4': True, 'aiBy': 'local', 'realPct': 9, 'sym': 'C', 'rule': 'R7 trail'},
+           {'pick': True, 'realPct': -13, 'sym': 'D'}, {'realPct': -2, 'sym': 'E'}, {'sym': 'open, no result'}]
+    v = tc.closed_view(pos)
+    assert v['n'] == 5 and v['by']['G4'] == {'n': 2, 'wonPct': 50, 'median': 4.0} and v['by']['OSSY']['wonPct'] == 100
+    assert v['by']['OWNER']['n'] == 1 and v['by']['AGENTS']['median'] == -2.0
+    assert [r['sym'] for r in v['last']][:2] == ['E', 'D'] and v['last'][2]['rule'] == 'R7 trail'
