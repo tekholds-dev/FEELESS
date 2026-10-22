@@ -15954,14 +15954,16 @@ async def _nexa_tick(now, env, cfg):
         _nkb.auto(kb_, coins_, now)   # 🧠 what FEELESS already knows about these coins → her base
         keys_ = [x_.get('mint') for x_ in coins_] + [f"${x_.get('symbol')}" for x_ in coins_ if x_.get('symbol')]
         pk_['KNOWN'] = _nkb.recall(kb_, keys_, [x_.get('symbol') for x_ in coins_ if x_.get('symbol')], 24, now)
-        web_need_ = set(_nkb.need_web(kb_, [x_.get('mint') for x_ in coins_], now))
+        full_ = _nexa.full_due(st_, now)   # ⚡ most reads are the FAST numbers-only read; the full one (tune / lesson / web) once an hour
+        web_need_ = set(_nkb.need_web(kb_, [x_.get('mint') for x_ in coins_], now)) if full_ else set()
         web_ = []
         try:
-            import feeless_mcp as _mcp
-            qpk_ = {**pk_, 'NEXT': [x_ for x_ in pk_['NEXT'] if isinstance(x_, dict) and x_.get('mint') in web_need_]} if isinstance(pk_.get('NEXT'), list) else pk_   # 🧠 known coins skip the search
-            res_ = await asyncio.wait_for(asyncio.gather(*[asyncio.to_thread(_mcp._search_rows, q_, 4) for q_ in _nexa.queries(qpk_)], return_exceptions=True), timeout=12)
-            web_ = [{'title': (w_.get('title') or '')[:90], 'url': w_.get('url'), 'snippet': (w_.get('snippet') or '')[:140]} for r_ in res_ if isinstance(r_, list) for w_ in r_][:8]
-            pk_['SYSTEM'] = str(_mcp.living_now() or '')[:900]
+            if full_:   # the fast read sends no web block → no search (≤ 12 s saved)
+                import feeless_mcp as _mcp
+                qpk_ = {**pk_, 'NEXT': [x_ for x_ in pk_['NEXT'] if isinstance(x_, dict) and x_.get('mint') in web_need_]} if isinstance(pk_.get('NEXT'), list) else pk_   # 🧠 known coins skip the search
+                res_ = await asyncio.wait_for(asyncio.gather(*[asyncio.to_thread(_mcp._search_rows, q_, 4) for q_ in _nexa.queries(qpk_)], return_exceptions=True), timeout=12)
+                web_ = [{'title': (w_.get('title') or '')[:90], 'url': w_.get('url'), 'snippet': (w_.get('snippet') or '')[:140]} for r_ in res_ if isinstance(r_, list) for w_ in r_][:8]
+                pk_['SYSTEM'] = str(_mcp.living_now() or '')[:900]
         except Exception:
             pass
         pk_['WEB'] = web_
@@ -15985,8 +15987,13 @@ async def _nexa_tick(now, env, cfg):
             'MEMORY': pk_.get('MEMORY'),
         }
 
-        r_ = await _air.ROUTER.ask(_ai_http(), env, cfg, 'Read the packet.', context=nexa_pk_, role='exit', urgency='force', only=('win',), system=_fv_persona_sys('NEXA', _nexa.ASK), only_system=True, tune={'temp': 0.2, 'maxTok': 100})
-        d_ = _nexa.parse(r_.get('text'), pairs_, rules_, bounds_)
+        if full_:
+            r_ = await _air.ROUTER.ask(_ai_http(), env, cfg, 'Read the packet.', context=nexa_pk_, role='exit', urgency='force', only=('win',), system=_fv_persona_sys('NEXA', _nexa.ASK), only_system=True, tune={'temp': 0.2, 'maxTok': 100})
+            d_ = _nexa.parse(r_.get('text'), pairs_, rules_, bounds_)
+        else:
+            lines_, ids_ = _nexa.fast_lines(pk_.get('OPEN'), pk_.get('NEXT'))
+            r_ = await _air.ROUTER.ask(_ai_http(), env, cfg, lines_, role='exit', urgency='force', only=('win',), system=_nexa.ASK_FAST, only_system=True, tune={'temp': 0.1, 'maxTok': _nexa.FAST_TOK})
+            d_ = _nexa.parse_fast(r_.get('text'), ids_)
         try:
             _nkb.remember(kb_, ((_nexa.first_json(r_.get('text')) or {}).get('remember') or []), now)
             if d_ and d_.get('discovery'):
@@ -15997,7 +16004,8 @@ async def _nexa_tick(now, env, cfg):
         except Exception as e_:
             print('nexa kb:', str(e_)[:80])
         st_ = _nexa_mem.get() or {}
-        st_ = {**st_, 'at': now, 'ms': r_.get('ms'), 'ok': bool(d_), 'err': None if d_ else (r_.get('why') or 'no JSON in her answer')}
+        st_ = {**st_, 'at': now, 'ms': r_.get('ms'), 'ok': bool(d_), 'err': None if d_ else (r_.get('why') or 'no JSON in her answer'), 'mode': 'full' if full_ else 'fast',
+               **({'fullAt': now} if full_ and d_ else {}), 'reads': ((st_.get('reads') or []) + [{'at': round(now), 'ms': r_.get('ms'), 'mode': 'full' if full_ else 'fast', 'ok': bool(d_)}])[-24:]}
         if d_:
             mem_ = _nexa.remember(st_.get('mem') or [], 'lesson', d_['lesson'], now)
             mem_ = _nexa.remember(mem_, 'discovery', d_['discovery'], now)
@@ -25480,6 +25488,7 @@ async def admin_nexa(request: Request):
     return {'name': _air.model_name(os.environ, 'win'), 'provider': {'on': not pv_.get('why'), 'why': pv_.get('why'), 'model': pv_.get('model'), 'base': bool(pv_.get('base')),
             'label': _air.LABEL.get('win')}, 'busy': _nexa_rt['busy'],
             'every': _air.rig('win', 'every', _nexa.NEXA_EVERY), 'at': st_.get('at'), 'ok': st_.get('ok'), 'err': st_.get('err'), 'ms': st_.get('ms'), 'last': st_.get('last'),
+            'mode': st_.get('mode'), 'reads': (st_.get('reads') or [])[-24:], 'fullEvery': _nexa.FULL_EVERY,
             'record': _nexa.record(st_.get('grades') or []), 'tunes': (st_.get('tunes') or [])[-10:], 'cfg': st_.get('cfg') or {},
             'memory': (st_.get('mem') or [])[-40:], 'memN': len(st_.get('mem') or []),
             'kb': {**__import__('nexa_kb').stats(_nexa_kb_mem.get() or {}), 'latest': __import__('nexa_kb').latest(_nexa_kb_mem.get() or {}, 30)}, 'real': {'on': False, 'why': 'FeeCat trades paper. A real-money FeeCat needs her own keeper path (sign from a FeeCat wallet, the Fuse wallet checks) — not built yet; switching it on stays your call.'}}

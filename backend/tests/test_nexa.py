@@ -33,3 +33,25 @@ def test_calls_are_graded_an_hour_later():
     r = nexa.record(g)
     assert r['favor']['rightPct'] == 100 and r['avoid']['rightPct'] == 100
     assert nexa.tune_due({}, 5000, True) and not nexa.tune_due({'tunedAt': 4000}, 5000, True) and not nexa.tune_due({}, 5000, False)
+
+
+P1, P2, P3 = 'A' * 44, 'B' * 44, 'C' * 44
+
+
+def test_fast_read_is_number_lines_without_pair_addresses_and_maps_tags_back():
+    txt, ids = nexa.fast_lines([{'pairAddress': P1, 'symbol': 'BONK', 'cap': 45200, 'ageMin': 12, 'move5m': 3.24, 'status': 'riding'}],
+                               [{'pairAddress': P2, 'symbol': 'WIF', 'cap': 1_250_000, 'buyers': 40, 'pool': 12000, 'top10': 22.5, 'germ': 0.3},
+                                {'symbol': 'NOPAIR'}, {'pairAddress': P3, 'symbol': 'POPCAT', 'move5m': -7}])
+    assert ids == {'O1': P1, 'N1': P2, 'N2': P3}
+    assert txt.splitlines() == ['O1 $BONK cap 45K age 12 5m +3.2 riding', 'N1 $WIF cap 1.2M buyers 40 pool 12K top10 22 germ 0.3', 'N2 $POPCAT 5m -7.0']
+    assert P1 not in txt and '{' not in txt   # no 44-char addresses, no JSON keys in
+    d = nexa.parse_fast('sure: {"exit":["O1"],"avoid":["N2", "O1", "N9"],"favor":[1],"why":"WIF 40 buyers, POPCAT -7% 5m"}', ids)
+    assert d == {'avoid': [P3], 'exit': [P1], 'favor': [P2], 'tune': {}, 'lesson': '', 'discovery': '', 'why': 'WIF 40 buyers, POPCAT -7% 5m'}
+    assert nexa.parse_fast('no json here', ids) is None
+    assert len(nexa.ASK_FAST) < 520 and nexa.FAST_TOK <= 64   # the fast prompt stays short
+
+
+def test_the_full_read_runs_once_an_hour():
+    assert nexa.full_due({}, 1000)
+    assert not nexa.full_due({'fullAt': 1000}, 1000 + nexa.FULL_EVERY - 1)
+    assert nexa.full_due({'fullAt': 1000}, 1000 + nexa.FULL_EVERY)

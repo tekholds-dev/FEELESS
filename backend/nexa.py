@@ -21,6 +21,18 @@ MEM_MAX = 160             # notes kept (oldest out)
 NOTE_LEN = 220
 GRADE_SEC = 3600          # a favor / avoid call is judged an hour later
 GRADES_MAX = 400
+# ⚡ FAST READ (owner, 2026-10-22: NEXA "slow ass" on the i5): most reads are numbers only — the coins as short lines tagged O1 / N1 (a 44-char
+# pairAddress costs ~30 tokens in AND out), no JSON keys in, a tiny JSON out → a fraction of the prompt + ≤ FAST_TOK tokens of answer. The FULL read
+# (tune · lesson · discovery · remember) runs once per FULL_EVERY.
+FULL_EVERY = 3600
+FAST_TOK = 48
+FAST_OPEN, FAST_NEXT = 3, 5
+ASK_FAST = (
+    "You are NEXA SICARIO, FeeCat's analyst. FeeCat trades PAPER. Each line is a coin: O# = her open trades, N# = coins she may buy "
+    "(cap $, age min, 5m %, buyers, pool $, top10 %, germ). Answer ONE JSON line and nothing else: "
+    '{"exit":["O#"],"avoid":["N#"],"favor":["N#"],"why":"under 12 words, numbers"}. '
+    "exit = bank an open trade now. avoid = she should not buy it. favor = the best next coin. Use only the lines given. Empty lists are fine."
+)
 
 ASK = (
     "You are NEXA SICARIO, FeeCat's analyst and the family's discovery model. FeeCat trades PAPER. Read the packet: OPEN (her open trades), NEXT "
@@ -70,6 +82,59 @@ def clamp_tune(raw, rules, bounds):
         if abs(new - cur) > 1e-9:
             out[k] = new
     return out
+
+
+def full_due(st, now):
+    """The FULL read (tune + lesson + discovery) once per FULL_EVERY; every other read is the fast one."""
+    at = (st or {}).get('fullAt')
+    return not at or now - _f(at) >= FULL_EVERY
+
+
+def _k(v):
+    v = _f(v, None) if v is not None else None
+    if v is None:
+        return None
+    a = abs(v)
+    return f"{v / 1e6:.1f}M" if a >= 1e6 else f"{v / 1e3:.0f}K" if a >= 1e3 else (f"{v:.1f}" if a < 10 and v != int(v) else str(int(round(v))))
+
+
+def fast_lines(open_, next_):
+    """The packet as short number lines → (text, {'O1': pairAddress, 'N1': …}). Only coins with a pairAddress; ≤ FAST_OPEN open + FAST_NEXT next."""
+    rows, ids = [], {}
+    for pre, xs, n in (('O', open_, FAST_OPEN), ('N', next_, FAST_NEXT)):
+        i = 0
+        for x in (xs if isinstance(xs, list) else []):
+            if not isinstance(x, dict) or not x.get('pairAddress') or i >= n:
+                continue
+            i += 1
+            tag = f"{pre}{i}"
+            ids[tag] = x['pairAddress']
+            mv = _f(x.get('move5m'), None) if x.get('move5m') is not None else None
+            bits = [tag, f"${str(x.get('symbol') or '?')[:10]}", *(f"{w} {v}" for w, v in (
+                ('cap', _k(x.get('cap'))), ('age', _k(x.get('ageMin'))), ('5m', None if mv is None else f"{mv:+.1f}"), ('buyers', _k(x.get('buyers'))),
+                ('pool', _k(x.get('pool'))), ('top10', _k(x.get('top10'))), ('germ', _k(x.get('germ')))) if v is not None)]
+            if pre == 'O' and x.get('status'):
+                bits.append(str(x['status'])[:12])
+            rows.append(' '.join(bits))
+    return '\n'.join(rows) or 'no coins', ids
+
+
+def parse_fast(text, ids):
+    """The fast answer → the same shape as parse() (tune / lesson / discovery empty), tags mapped back to pairAddresses; None = no JSON."""
+    d = first_json(text)
+    if d is None:
+        return None
+
+    def pick(k, pre):
+        out = set()
+        for v in (d.get(k) or []) if isinstance(d.get(k), list) else []:
+            t = str(v).strip().upper()
+            t = t if t[:1] in ('O', 'N') else f"{pre}{t}"   # a bare 2 means N2 / O2
+            if t.startswith(pre) and t in ids:
+                out.add(ids[t])
+        return sorted(out)[:6]
+    return {'avoid': pick('avoid', 'N'), 'exit': pick('exit', 'O'), 'favor': pick('favor', 'N'), 'tune': {}, 'lesson': '', 'discovery': '',
+            'why': ' '.join(str(d.get('why') or '').split())[:NOTE_LEN]}
 
 
 def parse(text, pairs, rules, bounds):

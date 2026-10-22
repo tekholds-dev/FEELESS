@@ -61,7 +61,7 @@ export function NexaDesk({ call }) {
     </div>
     <p className="nxd-real" data-testid="nexa-real">💵 Real money: {d?.real?.why || 'FeeCat trades paper.'}</p>
     <details className="nxd-chat" data-testid="nexa-chat" open><summary>💬 Talk to Nexa <small>she answers from her own FeeCat desk — record, last read, tunes, notebook</small></summary>
-      <div className="nxd-chatrow"><div className="nxd-chatbox"><AiChat call={call} variant="mini" lockProvider="win" title="🪟 NEXA" /></div><NexaVitals call={call} /></div></details>
+      <div className="nxd-chatrow"><NexaVitals call={call} desk={d} /><div className="nxd-chatbox"><AiChat call={call} variant="mini" lockProvider="win" title="🪟 NEXA" /></div></div></details>
   </section>;
 }
 
@@ -74,7 +74,11 @@ export function nexaStats(calls) {
   return { n: mine.length, ok: ok.length, rate: mine.length ? Math.round((100 * ok.length) / mine.length) : null, med: ms.length ? ms[Math.floor(ms.length / 2)] : null,
     flight: (calls?.inflight || []).filter(x => x.prov === 'win'), recent: mine.slice(0, 5) };
 }
-export function NexaVitals({ call }) {
+// pure: her background reads as bars — height = seconds against the 240 s line (sqrt so a 2 s read still shows), fast vs full, failed
+export function readBars(reads, lim = 240) {
+  return (reads || []).slice(-16).map(r => ({ h: Math.max(0.06, Math.min(1, Math.sqrt((Number(r.ms) || 0) / 1000 / lim))), mode: r.mode === 'full' ? 'full' : 'fast', ok: r.ok !== false, sec: Math.round((Number(r.ms) || 0) / 1000), at: r.at }));
+}
+export function NexaVitals({ call, desk }) {
   const [c, setC] = React.useState(null); const [rig, setRig] = React.useState(null);
   React.useEffect(() => {
     let on = true; let t = null; let n = 0;
@@ -100,6 +104,9 @@ export function NexaVitals({ call }) {
       <span><em>TYPICAL</em><b>{st.med ? `${(st.med / 1000).toFixed(0)}s` : '—'}</b></span>
     </div>
     {nx ? <p className={`nxd-rt is-${nx.state}`}>{nx.state === 'active' ? '✅ runtime matches the rig' : nx.state === 'applying' ? '⏳ restarting her llamafile…' : nx.state === 'unreachable' ? '✕ her llamafile is not answering' : '⚠ runtime differs from the rig'}</p> : null}
+    {desk?.reads?.length ? <div className="nxd-reads" data-tip="Her background reads: ⚡ fast = numbers only (most), ◆ full = tune + lesson, once an hour. Taller = slower.">
+      <em>HER READS<b>{desk.mode === 'full' ? '◆ full' : '⚡ fast'} · {desk.ms ? `${Math.round(desk.ms / 1000)}s` : '—'}</b></em>
+      <span>{readBars(desk.reads).map((r, i) => <i key={`${r.at}-${i}`} className={`is-${r.mode} ${r.ok ? '' : 'is-err'}`} style={{ transform: `scaleY(${r.h})`, '--i': i }} title={`${r.mode} · ${r.sec}s${r.ok ? '' : ' · no answer'}`} />)}</span></div> : null}
     <ol className="nxd-calls">{st.recent.map((r, i) => <li key={`${r.at}-${i}`} className={r.ok ? '' : 'is-err'}><b>{r.role || 'call'}</b><span>{(r.ms / 1000).toFixed(0)}s</span><small>{r.ok ? '✓' : '✕'}</small></li>)}</ol>
   </aside>;
 }
