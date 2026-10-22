@@ -29,7 +29,7 @@ test('🏦 the $FEE Bank reads /assets: a row per coin with a pool, nothing inve
 });
 
 test('🛣 every Avenue building has a room: Pump Radar trades open the war room (the wallet signs), the Bank buys fee-free, full page links', async () => {
-  expect(AVENUE_LENSES.sort()).toEqual(['feebank', 'feecat', 'feedx', 'gas', 'pumpradar', 'rep', 'runners', 'sleep', 'trades', 'watch']);
+  expect(AVENUE_LENSES.sort()).toEqual(['feebank', 'feecat', 'feedx', 'gas', 'perps', 'pumpradar', 'rep', 'runners', 'sleep', 'trades', 'watch']);
   const seen = []; const on = e => seen.push(e.detail); window.addEventListener('feeless:war-room', on);
   const el = document.createElement('div'); document.body.appendChild(el); const root = createRoot(el);
   await act(async () => { root.render(<AvenueRoom lens="pumpradar" />); });
@@ -73,4 +73,16 @@ test('⚖ the Rep Courthouse leads with the week\'s top catches + vitals; a catc
   await act(async () => { q('av-case-0').click(); });
   expect(seen[0]).toBe('W'.repeat(40) + 'abcd');
   window.removeEventListener('feeless:investigate', on); act(() => root.unmount());
+});
+
+test('📉 the Perps Desk lists live markets with funding + leverage math and routes to each venue', async () => {
+  const PD = { markets: [{ coin: 'SOL', mark: 150, ch24: 3.2, fundApr: 12.5, oiUsd: 9e8, vol24: 2e9, maxLev: 40, venues: ['jupiter', 'drift', 'hyperliquid'] }] };
+  global.fetch = jest.fn(() => Promise.resolve({ ok: true, json: () => Promise.resolve(PD) }));
+  const el = document.createElement('div'); document.body.appendChild(el); const root = createRoot(el);
+  await act(async () => { root.render(<AvenueRoom lens="perps" />); });
+  await act(async () => { await new Promise(r => setTimeout(r, 20)); });
+  const t = q('av-perps').textContent; expect(t).toContain('SOL'); expect(t).toContain('10.0% move');   // 10× default → a 10 % move liquidates
+  const links = [...q('av-perps').querySelectorAll('a')].map(a => a.getAttribute('href'));
+  expect(links).toEqual(['https://jup.ag/perps/sol', 'https://app.drift.trade/SOL-PERP', 'https://app.hyperliquid.xyz/trade/SOL']);
+  act(() => root.unmount());
 });

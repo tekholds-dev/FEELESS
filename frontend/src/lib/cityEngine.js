@@ -454,7 +454,7 @@ export function createCity(host, { onPick, onHover, onAnchors, lite = false, sti
       const tx = new THREE.CanvasTexture(cv); tx.wrapS = THREE.RepeatWrapping; tx.colorSpace = THREE.SRGBColorSpace;
       const s = sizeOf(o); const band = new THREE.Mesh(new THREE.CylinderGeometry(Math.max(s.x, s.z) * 0.62, Math.max(s.x, s.z) * 0.62, 0.32, 40, 1, true), new THREE.MeshBasicMaterial({ map: tx, toneMapped: false, side: THREE.DoubleSide }));
       band.position.set(c.x, top + 0.25, c.z); content.add(band); anim.push(t => { tx.offset.x = (t * 0.05) % 1; }); return; }
-    if (pl.art === 'trade') {   // 📈 THE TRADE CENTER: three P&L bars on the roof breathing up and down (green / red / green), a slow tape of the desk
+    if (pl.art === 'trade' || pl.art === 'perps') {   // 📈 THE TRADE CENTER: three P&L bars on the roof breathing up and down (green / red / green), a slow tape of the desk
       [['#45e486', 0], ['#ff5d73', 1.3], ['#45e486', 2.4]].forEach(([col_, ph], k) => { const bar = new THREE.Mesh(new THREE.BoxGeometry(0.28, 1, 0.28), neon(col_, 1.8));
         bar.geometry.translate(0, 0.5, 0); bar.position.set(c.x - 0.45 + k * 0.45, top, c.z); content.add(bar); anim.push(t => { bar.scale.y = 0.55 + 0.45 * (0.5 + 0.5 * Math.sin(t * 0.7 + ph)); }); });
       return; }
@@ -478,7 +478,7 @@ export function createCity(host, { onPick, onHover, onAnchors, lite = false, sti
     if (pl.virtual) { proxy({ x: r.x - 0.2, z: r.z - 0.2, w: r.w + 0.4, d: 0.4 }, 0.3, pl.pick, pl.name); return; }   // the HQ is your own block (or the Mansion): no new building
     box(r.w, 0.12, r.d, '#2c2a33', c.x, 0.08, c.z, content);
     const url = { hall: MODELS.big[2], tower: MODELS.sky[2], war: MODELS.big[1], podium: MODELS.mid[2], precinct: MODELS.mid[4], pawn: MODELS.mid[0], board: MODELS.shop[2], gym: MODELS.big[0], casino: MODELS.big[3], warehouse: MODELS.mid[4],
-      radar: MODELS.mid[1], trade: MODELS.sky[3], track: MODELS.shop[1], watch: MODELS.sky[4], court: MODELS.mid[3], cat: MODELS.sky[0], fuel: MODELS.shop[0], news: MODELS.shop[3], bank: MODELS.big[3], sleep: MODELS.sky[3] }[pl.art] || MODELS.mid[0];
+      radar: MODELS.mid[1], trade: MODELS.sky[3], perps: MODELS.big[1], track: MODELS.shop[1], watch: MODELS.sky[4], court: MODELS.mid[3], cat: MODELS.sky[0], fuel: MODELS.shop[0], news: MODELS.shop[3], bank: MODELS.big[3], sleep: MODELS.sky[3] }[pl.art] || MODELS.mid[0];
     const small = pl.art === 'track' || pl.art === 'fuel'; const fw = Math.min(small ? FOOT.lot : FOOT.tower, r.w - 0.7); const fd = Math.min(small ? FOOT.lot : FOOT.tower, r.d - 0.7);
     if (pl.art !== 'track') yard(r, fw);
     const o = await make(url, { lit: true }); fit(o, fw, fd); o.position.set(c.x + (pl.art === 'fuel' ? -r.w * 0.2 : 0), 0.14, c.z); content.add(o); const h = sizeOf(o).y;

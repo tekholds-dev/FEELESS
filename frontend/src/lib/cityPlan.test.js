@@ -66,7 +66,7 @@ test('💡 live numbers drive the city: roof-light pulse from volume, tower heig
 test('🛣 FEELESS AVENUE: every site tool is a building on its own island (a pop-out with a full page), over a bridge north of the capital; the Heights gate moved past it', () => {
   const p = feePlan(V, MK); const ave = p.islands.find(i => i.key === 'ave'); const cap = p.islands.find(i => i.key === 'fee');
   const tools = p.places.filter(x => x.tool);
-  expect(tools.map(x => x.lens).sort()).toEqual(['feebank', 'feecat', 'feedx', 'gas', 'pumpradar', 'rep', 'runners', 'sleep', 'trades', 'watch']);
+  expect(tools.map(x => x.lens).sort()).toEqual(['feebank', 'feecat', 'feedx', 'gas', 'perps', 'pumpradar', 'rep', 'runners', 'sleep', 'trades', 'watch']);
   for (const t of tools) { expect(t.isl).toBe('ave'); const c = centerOf(t.rect); expect(c.x > ave.x && c.x < ave.x + ave.w && c.z > ave.z && c.z < ave.z + ave.d).toBe(true); }
   expect(new Set(PLACES.map(x => x.lens)).size).toBe(PLACES.length);                                  // one lens per place (the Wire keeps 'feed')
   expect(ave.z + ave.d).toBeLessThan(cap.z);                                                         // north of the capital, water between

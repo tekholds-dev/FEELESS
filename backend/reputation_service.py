@@ -9316,6 +9316,27 @@ async def admin_familia_rules_set(request: Request, body: dict):
     return await admin_familia_rules(request)
 
 
+_perps_cache: dict = {'at': 0.0, 'rows': []}
+
+
+@app.get('/api/reputation/familia/perps')
+async def familia_perps():
+    """📉 The Perps Desk building: the busiest perps markets (Hyperliquid's public market data) — one shared read a minute; read-only."""
+    global _fmk_http
+    import perps_desk as _pdk
+    now = time.time()
+    if now - _perps_cache['at'] > 60:
+        if _fmk_http is None:
+            _fmk_http = httpx.AsyncClient(timeout=8, limits=httpx.Limits(max_connections=8))
+        try:
+            r_ = await _fmk_http.post(_pdk.INFO, json={'type': 'metaAndAssetCtxs'}, timeout=8)
+            rows_ = _pdk.rows(r_.json()) if r_.status_code == 200 else []
+        except Exception:
+            rows_ = []
+        _perps_cache.update(at=now, rows=rows_ or _perps_cache['rows'])
+    return {'markets': _perps_cache['rows'], 'at': round(_perps_cache['at'])}
+
+
 _intake_cache: dict = {'at': 0.0, 'rows': []}
 
 

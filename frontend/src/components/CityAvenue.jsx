@@ -163,7 +163,37 @@ function CatTower() {
   </div>;
 }
 
+// 📉 THE PERPS DESK — the busiest perps markets live (Hyperliquid's public data: mark, 24h, funding APR, open interest, max leverage) + one tap
+// to each venue's own app (Jupiter Perps · Drift · Hyperliquid) where the wallet signs. Leverage math on screen; each venue's region rules apply.
+export const VENUE = { jupiter: ['Jupiter Perps', c => `https://jup.ag/perps/${c.toLowerCase()}`], drift: ['Drift', c => `https://app.drift.trade/${c}-PERP`], hyperliquid: ['Hyperliquid', c => `https://app.hyperliquid.xyz/trade/${c}`] };
+function PerpsDesk() {
+  const { data } = useMarketJson('/api/reputation/familia/perps', 60000); const rows = data?.markets || []; const [lev, setLev] = useState(10);
+  const oi = rows.reduce((s2, r) => s2 + (r.oiUsd || 0), 0); const hot = rows.reduce((b, r) => (Math.abs(r.fundApr || 0) > Math.abs(b?.fundApr || 0) ? r : b), null);
+  return <div className="av-court" data-testid="av-perps">
+    <div className="av-vitals">
+      <Meter i={0} label="MARKETS" value={String(rows.length)} fill={rows.length / 12} tip="The busiest perps markets by 24h volume" />
+      <Meter i={1} label="OPEN INTEREST" value={usd(oi)} fill={Math.log10(1 + oi) / 11} tip="Open positions across these markets, in $" />
+      <Meter i={2} label="HOTTEST FUNDING" value={hot ? `${hot.coin} ${hot.fundApr > 0 ? '+' : ''}${hot.fundApr}%` : '—'} fill={Math.min(1, Math.abs(hot?.fundApr || 0) / 100)} tone={(hot?.fundApr || 0) > 0 ? 'is-down' : 'is-up'} tip="Funding as a yearly rate — positive: longs pay shorts" />
+      <Meter i={3} label={`LIQUIDATED AT ${lev}×`} value={`${(100 / lev).toFixed(1)}% move`} fill={1 / lev * 5} tone="is-down" tip="How far the price can go against you before the position is gone (before fees)" />
+    </div>
+    <label className="phb-earn-in av-lev"><span>Leverage</span><input type="range" min="1" max="50" value={lev} onChange={e => setLev(Number(e.target.value))} aria-label="Leverage" data-testid="av-lev" /><b>{lev}×</b></label>
+    <ol className="av-list av-perps">{!rows.length ? <li className="m-dim">Reading the perps markets…</li> : null}
+      {rows.map((r, i) => <li key={r.coin} style={{ '--i': i }}><em>{i + 1}</em>
+        <span className="av-sym"><b>{r.coin}</b><small>${r.mark >= 100 ? r.mark.toLocaleString('en-US', { maximumFractionDigits: 0 }) : r.mark.toPrecision(4)} · OI {usd(r.oiUsd)} · up to {r.maxLev}×</small></span>
+        <span className={`av-heat ${(r.ch24 ?? 0) < 0 ? 'down' : 'up'}`}><u aria-hidden="true"><s style={{ transform: `scaleX(${Math.max(0.04, Math.min(1, Math.abs(r.ch24 || 0) / 15))})` }} /></u><b className="m-num">{pct(r.ch24)} · f {r.fundApr > 0 ? '+' : ''}{r.fundApr}%</b></span>
+        <span className="av-venues">{r.venues.map(v => <a key={v} className="m-btn" href={VENUE[v][1](r.coin)} target="_blank" rel="noopener noreferrer" data-tip={`Trade ${r.coin} perps on ${VENUE[v][0]} — your wallet signs there; their own region rules apply`}>{VENUE[v][0].split(' ')[0]} ↗</a>)}</span></li>)}</ol>
+    <p className="av-lede">⚠ Leverage cuts both ways: at {lev}× a {(100 / lev).toFixed(1)}% move against you liquidates the position. FEELESS shows the market; each venue runs its own checks.</p>
+  </div>;
+}
+function useMarketJson(url, every) {
+  const [data, setData] = useState(null);
+  useEffect(() => { let on = true; const load = () => fetch(apiUrl(url)).then(r => (r.ok ? r.json() : null)).then(x => on && x && setData(x)).catch(() => {}); load();
+    const t = setInterval(() => { if (!document.hidden) load(); }, every); return () => { on = false; clearInterval(t); }; }, [url, every]);
+  return { data };
+}
+
 const BODY = {
+  perps: () => <PerpsDesk />,
   trades: () => <TradeCenter />,
   pumpradar: () => <PumpRadar />, feebank: () => <FeeBank />, runners: () => <RunnersPanel />, watch: () => <WatchlistDashboard />, rep: () => <Courthouse />,
   feecat: () => <CatTower />, gas: () => <GetGas />, sleep: () => <NightVault />,
