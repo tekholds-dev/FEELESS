@@ -175,6 +175,13 @@ Center REAL RECORD (each lane's closed lots) · 🪑 G4 proof bench · theory sh
 👉 OWNER DECISION (real money): a MINIMUM HOLD for agent-initiated exits — the real card's agent bails (78 lots, median 13 min) won 12 %, −6.9 %;
 1–3 h holds won 37 %. Advise only; never flipped automatically.
 
+P0 — OWNER 2026-10-22 last (AI first): DONE: NEXA's 3 agendas in her persona (conversationalist · trench scientist on the measured laws ·
+new-tech discoverer with sources) · every model's LOADED vs SAVED Load + Inference beside NEXA's chat (ModelRig in NexaVitals, open).
+OPEN, in order: (1) NEXA trading a cat: cat brains (/api/cats/brains) are a catalog on rule_fallback — wire a model brain into the cat engine
+(NEXA = 'win' provider) so a cat assigned to NEXA trades PAPER on her reads; assignment UI in FeeCat cmd center. (2) WHOLE-BRAIN THEME: the
+theme layer (ChatFx) sits inside `.cch` only — render it behind the whole Brain drawer (`.ack-drawer`) + redo the theme set (owner: "horrible
+bg themes"); screenshot each. (3) Clean the Agents + FeeCat tabs (dead panels, alignment). (4) Confirm the G4 bench + theory in the live seat log.
+
 P0 — still open from the night list, in order
 1. 🧠 G4: 🪑 PROOF BENCH DONE 2026-10-22 (its last 209 FAVOR calls = −0.4 % median, 43 % up → OSSY opens real seats until G4's record turns).
    Still: stalls (read HQ › Brain › Models live numbers first, then a stall watchdog). Models tab BESIDE NEXA's chat (layout). Wire the trench theory into the deterministic agents only after a shadow test.

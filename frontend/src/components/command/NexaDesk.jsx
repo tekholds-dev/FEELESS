@@ -109,7 +109,7 @@ export function NexaVitals({ call, desk }) {
       <em>HER READS<b>{desk.mode === 'full' ? '◆ full' : '⚡ fast'} · {desk.ms ? `${Math.round(desk.ms / 1000)}s` : '—'}</b></em>
       <span>{readBars(desk.reads).map((r, i) => <i key={`${r.at}-${i}`} className={`is-${r.mode} ${r.ok ? '' : 'is-err'}`} style={{ transform: `scaleY(${r.h})`, '--i': i }} title={`${r.mode} · ${r.sec}s${r.ok ? '' : ' · no answer'}`} />)}</span></div> : null}
     <ol className="nxd-calls">{st.recent.map((r, i) => <li key={`${r.at}-${i}`} className={r.ok ? '' : 'is-err'}><b>{r.role || 'call'}</b><span>{(r.ms / 1000).toFixed(0)}s</span><small>{r.ok ? '✓' : '✕'}</small></li>)}</ol>
-    <details className="nxd-rig" data-testid="nexa-rig"><summary data-tip="NEXA's model settings right here: what FEELESS sends her, her llamafile runtime, presets">⚙ HER MODEL · settings + presets</summary>
-      <ModelRig call={call} only="win" /></details>
+    <details className="nxd-rig" data-testid="nexa-rig" open><summary data-tip="Every model's Load + Inference settings — LOADED now vs WANTED (saved): G4 + OSSY in LM Studio, NEXA's llamafile — with presets">⚙ MODELS · loaded vs saved · LM Studio + llama</summary>
+      <ModelRig call={call} /></details>
   </aside>;
 }
