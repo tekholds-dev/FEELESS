@@ -9,7 +9,7 @@
 .chl-files { margin: 0; font-family: var(--m-mono); }
 .chl-list { list-style: none; margin: 0; padding: 0; max-height: 460px; overflow: auto; scrollbar-width: thin; scrollbar-color: var(--m-accent) transparent; }
 .chl-list::-webkit-scrollbar { width: 6px; } .chl-list::-webkit-scrollbar-thumb { background: var(--m-accent); border-radius: 6px; }
-.chl-row { display: grid; grid-template-columns: minmax(180px, 1.1fr) 110px minmax(0, 2fr) auto; gap: 10px; align-items: center; padding: 7px 4px;
+.chl-row { display: grid; grid-template-columns: minmax(180px, 1.1fr) 110px minmax(0, 2fr) auto auto; gap: 10px; align-items: center; padding: 7px 4px;
   border-bottom: 1px solid var(--m-line); animation: chlIn .18s var(--m-ease) both; }
 .chl-row:hover { background: color-mix(in srgb, var(--m-accent) 6%, transparent); }
 .chl-loc { display: grid; gap: 1px; min-width: 0; text-decoration: none; color: var(--m-text); border-radius: var(--m-r-sm); outline: none; }
@@ -35,3 +35,6 @@ body.theme-day .chl-bar i { opacity: .4; }
   .chl-row { grid-template-columns: minmax(0, 1fr) auto; }
   .chl-bar, .chl-fix { grid-column: 1 / -1; }
 }
+/* 🗑 queue a removal (never deletes from here: build queue → a gated commit) */
+.chl-rm { min-height: 32px; font-size: 11px; white-space: nowrap; } .chl-rm:hover { border-color: #ff8fa3; color: #ff8fa3; }
+.chl-q { font: 700 10px 'JetBrains Mono', monospace; color: var(--gold, #ffd36b); white-space: nowrap; }

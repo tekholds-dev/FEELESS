@@ -6,6 +6,9 @@ Rows, each with file:line and the fix in plain words:
   dead_css      a class selector in styles/*.css whose name appears in no JS / JSX source
   big           the biggest Python functions and frontend components by lines
   dup           functions with an identical body (Python: AST, JS: normalized text) in two places
+  dead_file     a whole file nothing imports: a frontend module no other source imports (static, lazy `import()` or `require`), a backend module
+                no other backend file / script imports (service entry points + scripts' targets are kept). Removal goes through the BUILD QUEUE
+                (HQ queues it, an engineering session deletes it in a gated commit) — never from the UI.
 
 Heuristic by design (dynamic class names, getattr, string routes): every row says "check before deleting".
 `scripts/code-health.py` runs it and writes data/code_health.json; HQ › Lag catcher reads that file.
@@ -200,6 +203,58 @@ def scan_backend(back, extra_dirs=()):
     return rows
 
 
+_IMPORT = re.compile(r"""(?:from\s+|import\s*\(\s*|require\(\s*|^import\s+)['"]((?:\.{1,2}|@)/[^'"]+)['"]""", re.M)   # relative or the `@/` → src alias
+FE_KEEP = ('index.js', 'setupTests.js', 'App.js', 'App.jsx', 'reportWebVitals.js', 'serviceWorker.js', 'setupProxy.js')
+BE_KEEP = {'server', 'reputation_service', 'feecat_service', 'candles_service', 'conftest', 'env_loader', '__init__'}
+
+
+def _resolve(frm, spec, known, src=None):
+    base = (Path(src) / spec[2:]) if spec.startswith('@/') and src else (frm.parent / spec)
+    for cand in (base, base.with_suffix('.js'), base.with_suffix('.jsx'), base / 'index.js', base / 'index.jsx'):
+        try:
+            c = cand.resolve()
+        except OSError:
+            continue
+        if c in known:
+            return c
+    return None
+
+
+def dead_files(src, back, script_dirs=()):
+    """→ rows for whole files nothing imports (tests don't count as users; a test-only file says so)."""
+    rows = []
+    fe = {p.resolve(): p.read_text(errors='ignore') for p in _walk(src, JS_EXT)}
+    used, by_test = set(), set()
+    for p, t in fe.items():
+        for spec in _IMPORT.findall(t):
+            r = _resolve(p, spec, fe, src)
+            if r and r != p:
+                (by_test if _is_test(p) else used).add(r)
+    for p in fe:
+        if _is_test(p) or p.name in FE_KEEP or p in used:
+            continue
+        n = fe[p].count('\n') + 1
+        how = 'tests' if p in by_test else 'none'
+        rows.append(_row('dead_file', p, 1, p.name, ('Only its test imports it — delete it with its test.' if how == 'tests' else 'Nothing imports this file — delete it.')
+                         + ' Queue it: the build applies it with tests green.', lines=n, how=how))
+    py = {p: p.read_text(errors='ignore') for p in _walk(back, ('.py',))}
+    scripts = '\n'.join(q.read_text(errors='ignore') for d in script_dirs if Path(d).exists() for q in Path(d).rglob('*') if q.is_file() and q.suffix in ('.py', '.sh', ''))
+    mods = {p.stem: p for p in py if not _is_test(p) and p.parent == Path(back)}
+    blob = '\n'.join(t for p, t in py.items() if not _is_test(p))
+    tests = '\n'.join(t for p, t in py.items() if _is_test(p))
+    for m, p in mods.items():
+        if m in BE_KEEP:
+            continue
+        pat = re.compile(r'(?:^|\n)\s*(?:from\s+%s\s+import|import\s+(?:[\w, ]+,\s*)?%s\b)|__import__\([\'"]%s[\'"]\)|importlib\.import_module\([\'"]%s' % ((re.escape(m),) * 4))
+        others = '\n'.join(t for q, t in py.items() if q != p and not _is_test(q))
+        if pat.search(others) or re.search(r'\b%s\.py\b|\b%s:app\b' % (re.escape(m), re.escape(m)), scripts):
+            continue
+        in_tests = bool(pat.search(tests))
+        rows.append(_row('dead_file', p, 1, f'{m}.py', ('Only tests import this module — delete it with its tests.' if in_tests else 'No backend file or script imports this module — delete it.')
+                         + ' Queue it: the build applies it with tests green.', lines=py[p].count('\n') + 1, how='tests' if in_tests else 'none'))
+    return rows
+
+
 def file_sizes(root, paths):
     out = []
     for p in paths:
@@ -215,7 +270,7 @@ def scan(root):
     src, back = root / 'frontend' / 'src', root / 'backend'
     t0 = time.time()
     fe_rows, fe_files = scan_frontend(src)
-    rows = fe_rows + scan_css(src / 'styles', fe_files, root / 'frontend' / 'public') + scan_backend(back, (root / 'scripts',))
+    rows = fe_rows + scan_css(src / 'styles', fe_files, root / 'frontend' / 'public') + scan_backend(back, (root / 'scripts',)) + dead_files(src, back, (root / 'scripts',))
     for r in rows:
         r['file'] = _rel(r['file'], root)
         if r.get('twin'):

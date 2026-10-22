@@ -29417,11 +29417,39 @@ async def _code_health_loop():
         await asyncio.sleep(1800)
 
 
+CH_QUEUE_TAG = '🧹 Remove '
+
+
 @app.get('/api/reputation/admin/perf/code-health')
 async def perf_code_health(request: Request):
     """🧹 HQ › Lag catcher › Code health: the last scan (scripts/code-health.py · backend/code_health.py). Reads the cached file only."""
     _require_admin(request)
-    return {**_json_load(CODE_HEALTH_PATH, {}), 'scanning': _code_health_busy['on']}
+    queued_ = [i_.get('title', '')[len(CH_QUEUE_TAG):] for i_ in (_build_state().get('items') or []) if str(i_.get('title', '')).startswith(CH_QUEUE_TAG) and i_.get('status') in ('queued', 'building')]
+    return {**_json_load(CODE_HEALTH_PATH, {}), 'scanning': _code_health_busy['on'], 'queued': queued_}
+
+
+class ChQueue(BaseModel):
+    file: str = Field(..., max_length=200)
+    name: str = Field('', max_length=120)
+    kind: str = Field('', max_length=20)
+    fix: str = Field('', max_length=300)
+
+
+@app.post('/api/reputation/admin/perf/code-health/queue')
+async def perf_code_health_queue(p: ChQueue, request: Request):
+    """🧹 Queue a removal — it NEVER deletes anything from here: the item joins the build queue, and an engineering session applies it in a gated
+    commit (frontend + backend tests and the build green) or says why it must stay."""
+    admin = _require_owner(request)
+    if '..' in p.file or p.file.startswith('/') or not p.file.startswith(('frontend/src/', 'backend/')):
+        raise HTTPException(400, 'Only a source file in frontend/src or backend.')
+    what_ = f"{p.file}" + (f" · {p.name}" if p.name and p.kind != 'dead_file' else '')
+    try:
+        _chat['build'], it_ = _aic.build_add(_build_state(), f"{CH_QUEUE_TAG}{what_}", f"Code health says: {p.fix or 'unused'} ({p.kind}). Delete it only if nothing really "
+                                             f"uses it, in a commit with the full gate green; otherwise mark why it stays.", f'code health · {admin[:6]}', time.time())
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+    _json_save(BUILD_QUEUE_PATH, _chat['build'])
+    return {'queued': it_['id'], 'title': it_.get('title')}
 
 
 @app.post('/api/reputation/admin/perf/code-health/scan')

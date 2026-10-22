@@ -25,3 +25,10 @@ test('each row opens its file:line and says the fix; tabs switch', async () => {
   await act(async () => { el.querySelector('[data-testid=chl-tab-big]').click(); });
   expect(el.textContent).toContain('Z') ; expect(el.querySelector('.chl-bar em').textContent).toBe('400');
 });
+
+test('dead files: a row already in the build queue shows queued (titles are cut — match the path start)', () => {
+  const { isQueued, chRows } = require('./CodeHealth');
+  const r = { file: 'frontend/src/components/SomeVeryLongComponentNameThatGoesOnAndOn/AndHasAnEvenLongerFileName.jsx', name: 'X.jsx', kind: 'dead_file', how: 'none' };
+  expect(isQueued([`${r.file.slice(0, 66)}`], r)).toBe(true); expect(isQueued([], r)).toBe(false);
+  expect(chRows({ rows: [r, { ...r, how: 'tests', name: 'Y' }] }, 'dead_file', 'none').map(x => x.name)).toEqual(['X.jsx']);
+});
