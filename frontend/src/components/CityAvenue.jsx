@@ -132,9 +132,29 @@ function TradeCenter() {
   </div>;
 }
 
+// ⚖ THE REP COURTHOUSE — the week's TOP CATCHES (the Rep engine's real record: wallets caught bundling / sniping / funding, launches each hit,
+// blocklisted or not) with the vitals on top; tap a wallet → its cited case file. 🔎 Check anyone = the Rep tools.
+export const courtVitals = d => { const t = d?.totals || {}; return [['CAUGHT 7D', t.caught], ['BLOCKLISTED', t.blocklisted], ['FUNDERS', t.funders], ['RUGS', t.rugs]]; };
+function Courthouse() {
+  const [tab, setTab] = useState('catches'); const [d, setD] = useState(null);
+  useEffect(() => { let on = true; fetch(apiUrl('/api/reputation/rug-report?days=7')).then(r => (r.ok ? r.json() : null)).then(x => on && x && setD(x)).catch(() => {}); return () => { on = false; }; }, []);
+  const top = (d?.caught || []).slice().sort((a, b) => (b.launches || 0) - (a.launches || 0)).slice(0, 10); const max = Math.max(1, ...top.map(x => x.launches || 0));
+  const open = w => window.dispatchEvent(new CustomEvent('feeless:investigate', { detail: w }));   // the one case-file host (CaseFile.investigate)
+  return <div className="av-court" data-testid="av-court">
+    <div className="m-seg av-seg" role="tablist">{[['catches', '⚖ Top catches'], ['check', '🔎 Check anyone']].map(([k, l]) => <button key={k} type="button" role="tab" aria-selected={tab === k} className={tab === k ? 'active' : ''} onClick={() => setTab(k)} data-tip={k === 'catches' ? "The week's worst wallets the Rep engine caught" : 'Scan any wallet or coin'}>{l}</button>)}</div>
+    {tab === 'check' ? <RepTools /> : <>
+      <div className="av-vitals">{courtVitals(d).map(([l, v], i) => <Meter key={l} i={i} label={l} value={v == null ? '—' : Number(v).toLocaleString('en-US')} fill={Math.log10(1 + (v || 0)) / 4} tone={l === 'RUGS' ? 'is-down' : 'is-up'} tip={`${l.toLowerCase()} in the last 7 days — from the Rep engine's own records`} />)}</div>
+      <ol className="av-list av-catches">{!d ? <li className="m-dim">Reading the court record…</li> : null}
+        {top.map((x, i) => <li key={x.wallet} style={{ '--i': i }}><em>{i + 1}</em>
+          <span className="av-sym"><b>{x.wallet.slice(0, 4)}…{x.wallet.slice(-4)}</b><small>{(x.roles || []).join(' · ') || 'flagged'}{x.blocked ? ' · ⛔ blocklisted' : ''}</small></span>
+          <span className="av-heat down"><u aria-hidden="true"><s style={{ transform: `scaleX(${Math.max(0.04, (x.launches || 0) / max)})` }} /></u><b className="m-num">{x.launches} launches</b></span>
+          <button type="button" className="m-btn" onClick={() => open(x.wallet)} data-tip="Open its case file — every launch it hit, who funded it, the evidence" data-testid={`av-case-${i}`}>🔎 Case</button></li>)}</ol></>}
+  </div>;
+}
+
 const BODY = {
   trades: () => <TradeCenter />,
-  pumpradar: () => <PumpRadar />, feebank: () => <FeeBank />, runners: () => <RunnersPanel />, watch: () => <WatchlistDashboard />, rep: () => <RepTools />,
+  pumpradar: () => <PumpRadar />, feebank: () => <FeeBank />, runners: () => <RunnersPanel />, watch: () => <WatchlistDashboard />, rep: () => <Courthouse />,
   feecat: () => <FeeCatProfile catId="leader" />, gas: () => <GetGas />, sleep: () => <NightVault />,
   feedx: () => <><div className="av-tools"><button type="button" className="m-btn" onClick={() => window.dispatchEvent(new Event('feeless:feed-pop'))} data-tip="Float FEEd over any page — keep reading while you trade" data-testid="av-feed-pop">⤢ Pop out FEEd</button></div><FeedPanel /></>,
 };

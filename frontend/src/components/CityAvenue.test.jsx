@@ -61,3 +61,16 @@ test('📈 the Trade Center shows the desk live: meters + by-model chips; staff 
   expect(seen[0]).toMatchObject({ pairAddress: 'P1' });
   window.removeEventListener('feeless:war-room', on); act(() => root.unmount());
 });
+
+test('⚖ the Rep Courthouse leads with the week\'s top catches + vitals; a catch opens its case file', async () => {
+  const RR = { totals: { caught: 6732, blocklisted: 513, funders: 497, rugs: 15 }, caught: [{ wallet: 'W'.repeat(40) + 'abcd', roles: ['bundler', 'sniper'], launches: 42, blocked: true }, { wallet: 'X'.repeat(44), roles: ['sniper'], launches: 7, blocked: false }] };
+  global.fetch = jest.fn(() => Promise.resolve({ ok: true, json: () => Promise.resolve(RR) }));
+  const seen = []; const on = e => seen.push(e.detail); window.addEventListener('feeless:investigate', on);
+  const el = document.createElement('div'); document.body.appendChild(el); const root = createRoot(el);
+  await act(async () => { root.render(<AvenueRoom lens="rep" />); });
+  await act(async () => { await new Promise(r => setTimeout(r, 20)); });
+  expect(q('av-court').textContent).toContain('6,732'); expect(q('av-court').textContent).toContain('42 launches');
+  await act(async () => { q('av-case-0').click(); });
+  expect(seen[0]).toBe('W'.repeat(40) + 'abcd');
+  window.removeEventListener('feeless:investigate', on); act(() => root.unmount());
+});
