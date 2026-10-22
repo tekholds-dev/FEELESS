@@ -1,4 +1,5 @@
 import React, { Suspense, useEffect, useState } from 'react';
+import { ArenaBest } from './ArenaBest';
 import { toast } from 'sonner';
 import { apiUrl } from '../lib/api';
 const EcosystemChat = React.lazy(() => import('./EcosystemChat'));
@@ -106,12 +107,12 @@ export function FamilyFuseBoard({ v, setV, addr, sess }) {
     catch (e) { toast.error(e.message); } finally { setBusy(false); }
   };
   const mine = v.me && ff.fights.find(f => ['open', 'live'].includes(f.status) && [f.a.id, f.b.id].includes(v.me.id));
-  return <section className="ffb m-card m-live" id="family-fuse" data-testid="family-fuse">
+  return <><section className="ffb m-card m-live" id="family-fuse" data-testid="family-fuse">
     <header><span className="m-label">⚔ FUSE ARENA · FAMILY FUSE</span><small>Two families' Fuse cards · same coin count or one apart · six seat duels, most sparks wins · paper or MP ({n(v.rules?.fuseMinMp)} MP in the bank) · the crowd bids its points</small></header>
     {ff.fights.length ? ff.fights.map(f => <Fight key={f.id} f={f} me={v.me} cards={ff.cards} act={act} busy={busy} />) : <p className="ffb-hint">The stadium is quiet. The first family to call a rival out fills it.</p>}
     {v.me && !mine ? <Challenge v={v} act={act} busy={busy} /> : null}
     {ff.ladder?.length ? <FuseLadder rows={ff.ladder} brackets={ff.brackets} me={v.me} /> : null}
-  </section>;
+  </section><ArenaBest /></>;
 }
 
 // ⚔ the Fuse tab's window into the stadium: live + open Family Fuse fights, one tap into Fee City

@@ -5406,6 +5406,18 @@ def _card_look(body, prev):
     return out
 
 
+_arena_best_cache: dict = {'at': 0.0, 'v': None}
+
+
+@app.get('/api/reputation/fuses/arena-best')
+async def fuses_arena_best():
+    """🏆 Best settings for the Fuse Arena: styles by the Arena's own score + what the top quarter of cards share (fuse_best.best), 5 min cache."""
+    import fuse_best as _fb
+    if time.time() - _arena_best_cache['at'] > 300 or _arena_best_cache['v'] is None:
+        _arena_best_cache.update(at=time.time(), v=_fb.best(_json_load(FUSE_HQ_PATH, {}).get('arena') or []))
+    return _arena_best_cache['v']
+
+
 @app.get('/api/reputation/fuses/arena')
 async def fuse_arena_public():
     """Fuse 🧬 › Arena for everyone: strategies' settled paper runs, the honest outlook, and the Runners proof — no admin data."""

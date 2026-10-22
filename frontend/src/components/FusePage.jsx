@@ -29,6 +29,7 @@ import { FuseLab } from './FuseLab';
 import { FuseSide } from './FuseSide';
 import { FuseGo } from './FuseGo';
 import { RunnersPanel, Countdown } from './RunnersPanel';
+import { ArenaBest } from './ArenaBest';
 import { FuseCard, LiveFuseCard } from './FuseCard';
 import { FuseRoom } from './FuseRoom';
 import { StageBattles } from './StageBattles';
@@ -108,6 +109,7 @@ export function FusePage() {
         <aside className="fp-right"><FeaturedFuses onLoad={f => setIncoming({ legs: f.legs, sol: 0, n: Date.now() })} /><FuseSide /></aside></div>}
       {tab === 'runners' && <><RunnerPicker picks={runnerPicks} onPicks={setRunnerPicks} onDone={() => go('lab')} /><details className="hrt-fold fp-trench" data-testid="fp-trench"><summary>🗑 Trench metas <small>five ways to hunt fresh launches — tap one to see what it finds right now</small></summary><TrenchScan /></details></>}
       {tab === 'arena' && <FamilyFuseStrip />}
+      {tab === 'arena' && <ArenaBest />}
       {tab === 'arena' && <ArenaBoard onPicks={list => { setRunnerPicks(list); go('lab'); }} onLoad={(legs, from) => { const run = legs.filter(l => l.runner); if (run.length) setRunnerPicks(run.slice(0, MAX_RUNNERS).map(l => ({ mint: l.baseAddress, symbol: l.symbol, logo: l.logo, pairAddress: l.pairAddress, lane: l.lane || 'runner' })));
         setIncoming({ legs: legs.filter(l => !l.runner).sort((x, y) => (y.weight || 0) - (x.weight || 0)), sol: 0, n: Date.now(), ...(from || {}) }); go('lab'); }} />}
       {tab === 'cards' && <MyCards addr={addr} />}
