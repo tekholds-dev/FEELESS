@@ -9142,6 +9142,7 @@ def _world_view(st, c, me, now, cartels_):
              'launch': {'coins': sum(1 for o in (st.get('crews') or {}).values() if o.get('launch'))}}
     v['landmarks'] = [{'key': k, 'name': n, 'lore': lo, 'live': live_.get(k)} for k, n, lo in _fworld.LANDMARKS]
     v['rules'] = {k: _familia_rules()[k] for k in _fworld.LIVE_RULES}
+    v['ffuse'] = _ffuse_view(st, c, now)
     if c:
         city = _fcity.city_of(c, now)
         met = _world_metrics(st, c, now)
@@ -9164,7 +9165,8 @@ def _world_view(st, c, me, now, cartels_):
                    'moveMp': {b: int(_fworld.MOVE_MP * _fworld.tier(b) * (1 - 0.05 * lv.get('gas', 0))) for b in _fworld.BKEYS},
                    'redeems': [x for x in (st.get('redeems') or []) if x.get('cid') == c['id']][:10],
                    'rank': _fworld.rank_of(_fcity.power(city), next((r['place'] for r in v['ranked'] if r['id'] == c['id']), None)),
-                   'place': next((i + 1 for i, f in enumerate(ladder) if f['id'] == c['id']), None)}
+                   'place': next((i + 1 for i, f in enumerate(ladder) if f['id'] == c['id']), None),
+                   'boss': bool(me and (_is_staff(me) or me == c.get('owner') or _city_ctx(c, me, now)[1].get(me) == 'underboss'))}
         if _is_staff(c.get('owner')):
             v['me']['fuse'] = _fuse_family_stats(now)
         v['raids'] = [_fworld.raid_view(r, 'a' if r['a']['id'] == c['id'] else 'b') for r in w['raids'].values()
@@ -9212,6 +9214,7 @@ async def familia_world(address: str = '', session: str = ''):
     now = time.time()
     me = _session_or_401(address, session) if address and session else None
     cartels_ = await asyncio.to_thread(_cartels_now, now)
+    await _ffuse_tick(now)
     async with _crews_lock:
         st = _json_load(CREWS_PATH, {}); _cr._norm(st)
         w = st.setdefault('world', _fworld.blank())
@@ -9347,6 +9350,198 @@ async def familia_world_act(p: WorldAct):
         _json_save(CREWS_PATH, st)
     _crew_cache['data'] = None
     return {**v, 'result': res_}
+
+
+# ⚔ FAMILY FUSE (family_fuse.py): two families' Fuse cards in the Fuse Arena stadium — paper or MP, spectator bids, the Arena's six duels.
+import family_fuse as _ffuse
+_ffuse_mark = {'at': 0.0}
+
+
+def _ffuse_cards(st, c):
+    """The cards a family can field: Fuse designs its members published + the Fuse cards its members hold (the creator family: every design)."""
+    members = {m.get('address') if isinstance(m, dict) else m for m in c.get('members') or []}
+    staff_ = _is_staff(c.get('owner'))
+    out = []
+    for fid, f in (_json_load(FUSES_PATH, {'fuses': {}}).get('fuses') or {}).items():
+        if f.get('enabled', True) and (staff_ or f.get('creator') in members):
+            out.append(_ffuse.card_of(f'design:{fid}', f.get('name'), f.get('legs')))
+    for pos in _json_load(FUSE_HQ_PATH, {}).get('positions') or []:
+        if pos.get('wallet') in members and not pos.get('closedAt'):
+            out.append(_ffuse.card_of(f"card:{pos['id']}", pos.get('name'), pos.get('legs')))
+    return [x for x in out if x['coins']][:30]
+
+
+async def _ffuse_prices(cards):
+    legs = [{'chainId': 'solana', 'pairAddress': l['pairAddress'], 'mint': l.get('mint')} for cd in cards if cd for l in cd['legs']]
+    pairs_ = await _fuse_pairs(legs) if legs else {}
+    return ({k: _fuse._f(v.get('priceUsd')) for k, v in pairs_.items()}, {k: _fuse._f((v.get('liquidity') or {}).get('usd')) for k, v in pairs_.items()})
+
+
+def _ffuse_book(f, side, prices, liqs, now):
+    cd = f[side]['card']
+    return _pgb.paper_book(f"ff:{f['id']}:{side}", {'name': cd['name'], 'legs': [{**l, 'weight': l['usd']} for l in cd['legs']]}, prices, liqs, now, 100.0)
+
+
+def _ffuse_pay(st, f, now):
+    """Move a settled / expired fight's MP + points: banks, bidders' member points, the house."""
+    crews_ = st.get('crews') or {}
+    paid = f.get('paid') or {}
+    if f['status'] == 'expired':
+        paid = {'fam': {f['a']['id']: f['mp']} if f['mp'] else {}, 'bids': {w: b['pts'] for w, b in f['bids'].items()}, 'house': 0}
+    for cid, mp in (paid.get('fam') or {}).items():
+        if crews_.get(cid) and mp:
+            _fcity.city_of(crews_[cid], now)['bank'] += int(mp)
+    import crews as _cr
+    for w, pts in (paid.get('bids') or {}).items():
+        o = _cr.crew_of(st, w)
+        if o and pts:
+            pm = o.setdefault('world', {}).setdefault('pts', {}); pm[w] = int(pm.get(w) or 0) + int(pts)
+    st['house'] = int(st.get('house') or 0) + int(paid.get('house') or 0)
+    w_ = st.setdefault('world', _fworld.blank())
+    w_['log'] = ([{'at': now, 'what': (f"⚔ Family Fuse: [{f[f['winner']]['tag']}] beat [{f['b' if f['winner'] == 'a' else 'a']['tag']}]" + (f" · +{(paid.get('fam') or {}).get(f[f['winner']]['id'], 0):,} MP" if f['mp'] else ' · paper'))
+                  if f.get('winner') in ('a', 'b') else f"⚔ Family Fuse [{f['a']['tag']}] vs [{f['b']['tag']}] — {'draw' if f['status'] == 'done' else 'nobody took it'}"}] + (w_.get('log') or []))[:60]
+
+
+async def _ffuse_tick(now, force=False):
+    """Mark every live Family Fuse at live prices (≤ every 20s), settle the ones past their bell, expire untaken challenges."""
+    if not force and now - _ffuse_mark['at'] < 20:
+        return
+    _ffuse_mark['at'] = now
+    st0 = _json_load(CREWS_PATH, {})
+    live = [f for f in ((st0.get('world') or {}).get('ffuse') or {}).values() if f['status'] == 'live']
+    if not live and not any(f['status'] == 'open' for f in ((st0.get('world') or {}).get('ffuse') or {}).values()):
+        return
+    prices, liqs = await _ffuse_prices([f[s]['card'] for f in live for s in ('a', 'b')])
+    async with _crews_lock:
+        st = _json_load(CREWS_PATH, {}); store = st.setdefault('world', _fworld.blank()).setdefault('ffuse', {})
+        for f in list(store.values()):
+            if _ffuse.expire(f, now):
+                _ffuse_pay(st, f, now)
+            if f['status'] != 'live':
+                continue
+            for s_ in ('a', 'b'):
+                if f['books'].get(s_):
+                    f['books'][s_] = _pgb.paper_mark(f['books'][s_], prices, liqs, now)
+            d_ = _pgb.duels(f['books'].get('a'), f['books'].get('b'), f['bell'].get('a'), f['bell'].get('b'))
+            f['score'] = d_
+            if now >= f['ends']:
+                _ffuse.settle(f, _pgb.duel_winner(d_, (f['books'].get('a') or {}).get('pct'), (f['books'].get('b') or {}).get('pct')), now, d_)
+                _ffuse_pay(st, f, now)
+        done = sorted((f for f in store.values() if f['status'] in ('done', 'expired')), key=lambda f: -f.get('endAt', 0))
+        for f in done[_ffuse.LOG_KEEP:]:
+            store.pop(f['id'], None)
+        _json_save(CREWS_PATH, st)
+
+
+def _ffuse_view(st, c, now):
+    store = (st.get('world') or {}).get('ffuse') or {}
+    rows = sorted(store.values(), key=lambda f: (f['status'] not in ('live', 'open'), -f['at']))
+    out = {'fights': [_ffuse.view(f, now) for f in rows[:8]], 'mins': list(_ffuse.MINS), 'bid': [_ffuse.BID_MIN, _ffuse.BID_MAX], 'house': _ffuse.HOUSE}
+    if c:
+        out['cards'] = _ffuse_cards(st, c)
+    return out
+
+
+@app.get('/api/reputation/familia-fuse')
+async def familia_fuse():
+    """⚔ The Family Fuse fights (public, light: the Fuse tab's strip) — marked at live prices first."""
+    now = time.time()
+    await _ffuse_tick(now)
+    return _ffuse_view(_json_load(CREWS_PATH, {}), None, now)
+
+
+class FamFuseAct(BaseModel):
+    address: str
+    session: str
+    act: str = Field(..., max_length=12)
+    vs: str = Field(default='', max_length=40)
+    card: str = Field(default='', max_length=80)
+    stake: str = Field(default='paper', max_length=8)
+    mp: int = Field(default=0, ge=0, le=10_000_000)
+    mins: int = Field(default=15, ge=1, le=600)
+    fight: str = Field(default='', max_length=24)
+    side: str = Field(default='', max_length=2)
+    amount: int = Field(default=0, ge=0, le=10_000_000)
+
+
+@app.post('/api/reputation/familia-fuse/act')
+async def familia_fuse_act(p: FamFuseAct):
+    """⚔ challenge · accept · decline · cancel · bid. Don / Underboss challenge, accept, decline and cancel; any family member bids their
+    own points. Points only."""
+    import crews as _cr
+    me = _session_or_401(p.address, p.session); now = time.time()
+    st0 = _json_load(CREWS_PATH, {}); c0 = _cr.crew_of(st0, me)
+    if not c0:
+        raise HTTPException(404, 'Join a family first.')
+    pre = {}
+    if p.act == 'accept':   # 🔔 the bell needs live prices for both cards — fetched before the lock
+        f0 = (((st0.get('world') or {}).get('ffuse') or {}).get(p.fight)) or {}
+        mine_ = next((x for x in _ffuse_cards(st0, c0) if x['key'] == p.card), None)
+        if f0 and mine_:
+            pre['card'] = mine_
+            pre['px'] = await _ffuse_prices([f0['a']['card'], mine_])
+    async with _crews_lock:
+        st = _json_load(CREWS_PATH, {}); _cr._norm(st); c = _cr.crew_of(st, me)
+        if not c:
+            raise HTTPException(404, 'Join a family first.')
+        w = st.setdefault('world', _fworld.blank()); store = w.setdefault('ffuse', {})
+        staff_ = _is_staff(me); boost_, rk_ = _city_ctx(c, me, now)
+        boss = staff_ or me == c.get('owner') or rk_.get(me) == 'underboss'
+        city = _fcity.city_of(c, now); min_mp = _familia_rules()['fuseMinMp']
+        me_ = lambda o: {'id': o['id'], 'tag': o.get('tag'), 'name': o.get('name'), 'color': ((o.get('badge') or {}).get('colors') or [None])[0]}
+        try:
+            if p.act in ('challenge', 'accept', 'decline', 'cancel') and not boss:
+                raise ValueError('Only the Don or the Underboss runs a Family Fuse.')
+            if p.act == 'challenge':
+                o = (st.get('crews') or {}).get(p.vs)
+                if not o:
+                    raise ValueError('No such family.')
+                card = next((x for x in _ffuse_cards(st, c) if x['key'] == p.card), None)
+                if not card:
+                    raise ValueError('Pick one of your family\'s Fuse cards (build one in the Fuse tab).')
+                f, hold = _ffuse.challenge(store, f"ff{int(now * 1000) % 10**10}", me_(c), me_(o), card, p.stake, p.mp, p.mins, now, city['bank'], min_mp)
+                city['bank'] -= hold
+                for m_ in o.get('members') or []:
+                    a_ = m_.get('address') if isinstance(m_, dict) else m_
+                    try:
+                        notify(a_, 'familia', f"⚔ [{c.get('tag')}] called your family out to a Family Fuse ({p.stake.upper()}{f' · {hold:,} MP' if hold else ''}) — answer in Fee City", push=False)
+                    except Exception:
+                        pass
+                res_ = _ffuse.view(f, now)
+            elif p.act == 'accept':
+                f = store.get(p.fight)
+                if not f or f['b']['id'] != c['id']:
+                    raise ValueError('No such challenge for your family.')
+                if not pre.get('card'):
+                    raise ValueError('Pick one of your family\'s Fuse cards.')
+                hold = _ffuse.accept(f, pre['card'], now, city['bank'], min_mp)
+                prices, liqs = pre['px']
+                books = {s_: _ffuse_book(f, s_, prices, liqs, now) for s_ in ('a', 'b')}
+                if not all(books.values()):
+                    f.update(status='open', bell_at=None, ends=None); f['b']['card'] = None
+                    raise ValueError('Live prices for one of the cards are not answering — try again in a minute.')
+                city['bank'] -= hold
+                f['books'] = books; f['bell'] = {s_: _pgb.seat_prices(books[s_], prices) for s_ in ('a', 'b')}
+                res_ = _ffuse.view(f, now)
+            elif p.act in ('decline', 'cancel'):
+                f = store.get(p.fight)
+                if not f or f['status'] != 'open' or (p.act == 'decline' and f['b']['id'] != c['id']) or (p.act == 'cancel' and f['a']['id'] != c['id']):
+                    raise ValueError('No such open challenge.')
+                f.update(status='expired', endAt=now); _ffuse_pay(st, f, now); res_ = _ffuse.view(f, now)
+            elif p.act == 'bid':
+                f = store.get(p.fight)
+                if not f:
+                    raise ValueError('No such fight.')
+                pm = c.setdefault('world', {}).setdefault('pts', {})
+                take = _ffuse.bid(f, me, p.side, p.amount, int(pm.get(me) or 0), now, c['id'])
+                pm[me] = int(pm.get(me) or 0) - take
+                res_ = _ffuse.view(f, now)
+            else:
+                raise ValueError('Unknown Family Fuse action.')
+        except ValueError as e:
+            raise HTTPException(400, str(e))
+        _json_save(CREWS_PATH, st)
+    return {'result': res_, **_ffuse_view(st, c, now)}
 
 
 class CrewBadge(BaseModel):

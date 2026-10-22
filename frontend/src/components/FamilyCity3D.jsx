@@ -44,6 +44,9 @@ function Island({ b, p, blocks, boom, sel, onPick, reach }) {
 export function vitalsOf(x, v) {
   if (!x) return null;
   const n = k => Math.round(Number(k) || 0).toLocaleString('en-US');
+  const ff = x.lm === 'arena' && (v.ffuse?.fights || []).find(f => f.status === 'live');
+  if (ff) return { title: `⚔ [${ff.a.tag}] vs [${ff.b.tag}]`, tone: 'lm', rows: [['SPARKS', ff.duel ? `${ff.duel.a} ⚡ ${ff.duel.b}` : '0 ⚡ 0'], ['CLOCK', `${Math.floor(ff.left / 60)}m left`, ff.left / (ff.mins * 60)],
+    ['POT', ff.stake === 'mp' ? `${n(2 * ff.mp)} MP` : 'paper'], ['CROWD', `${n(ff.crowd.total)} pts · ${ff.crowd.bidders} bidders`]] };
   if (x.lm) { const m = (v.landmarks || []).find(l => l.key === x.lm); return { title: m?.name || x.lm, tone: 'lm', rows: Object.entries(m?.live || {}).filter(([, val]) => typeof val === 'number').map(([k, val]) => [k.toUpperCase(), n(val)]) }; }
   const bor = (v.boroughs || []).find(b => b.key === x.b); const top = Math.max(1, ...(v.blocks || []).map(b => b.power || 0));
   const rk = (v.ranked || []).find(r => r.id === x.owner);
@@ -111,6 +114,6 @@ export function FamilyCity3D({ v, sel, setSel, city, setCity, tour }) {
         {homeP && fee ? <Bridge r={{ x: 0, y: homeP.y + ISLAND / 2 - 13, w: homeP.x + 6, h: 26, horiz: true }} name={home.name}
           gate={{ key: 'fee', at: 'w', name: 'FEE CITY', sub: `${fee.held}/${fee.plots} held`, go: () => { setSel(null); setCity('fee'); } }} /> : null}
         {bors.map(b => <Island key={b.key} b={b} p={lay.pos[b.key]} blocks={byB[b.key] || []} boom={v.boom?.borough} sel={sel?.id} onPick={setSel} reach={v.me?.reach?.[b.key]} />)}</>}
-    <Vitals at={spot && { ...spot, z: sel?.lm ? 90 : 60 }} vit={vitalsOf(sel, v)} />
+    <Vitals at={spot && { ...spot, z: sel?.lm === 'arena' ? 150 : sel?.lm ? 90 : 60 }} vit={vitalsOf(sel, v)} />
   </CityStage>;
 }

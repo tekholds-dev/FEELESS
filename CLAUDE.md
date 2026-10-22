@@ -183,7 +183,10 @@ A. 🏙 FAMILIA = a next-level Sim City / Godfather-PSP game (free play AND pay-
    family_world: Pump Harbor, Raydium Heights, Bonk Bay, Cartel Docks), city rail + one street chat per city (`city-<key>` rooms, lines
    carry `fam` tag), tap a plot → camera flies in + vitals card, ❓ How it works pins, 🎖 Ranked (rank_of: Street Rat → Kingpin I–III,
    top 25 = Don of Fee City), HQ › Build › 🏙 Familia (live rules + planned $ prices + paid-hit calculator = `paid_hit_payout`),
-   `family_fuse_ok` (±1 coin, MP needs 2K). NEXT: Family Fuse battles in the stadium (wire to Fuse cards + bids), raids/hits played
+   `family_fuse_ok` (±1 coin, MP needs 2K). DONE 2026-10-21 slice 2: FAMILY FUSE (`family_fuse.py` + `/familia-fuse/act`): Don /
+   Underboss challenge with a card their members built (Fuse designs + Fuse cards), paper or MP (stake held, min from HQ), rival answers
+   ±1 coin, the Arena's six duels at true fills, pari-mutuel member-point bids (5 % house), played on the stadium pitch + `FamilyFuseBoard`,
+   Fuse tab › Arena strip. NEXT: raids/hits played
    in-city (no 2D cards), MOBhouse styles, building ACTIVE/SHUT by funds, MP-only buildings, launched coins as Fee City buildings,
    then real-money family wallets after the custody pick.
    - FEE CITY (main, biggest, needs an epic name on screen): real bridges, land, atmosphere, the most expensive / profitable real-money

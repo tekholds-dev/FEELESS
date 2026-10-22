@@ -1,3 +1,4 @@
+import { FamilyFuseStrip } from './FamilyFuseBoard';
 import { sharedJson } from '../lib/sharedJson';
 import React, { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react';
 import NumInput from './NumInput';
@@ -106,6 +107,7 @@ export function FusePage() {
       {tab === 'lab' && <div className="fz-split-view fp-lab"><FuseLab runnerPicks={runnerPicks} onRunnerPicks={setRunnerPicks} incoming={incoming} limits={limits} />
         <aside className="fp-right"><FeaturedFuses onLoad={f => setIncoming({ legs: f.legs, sol: 0, n: Date.now() })} /><FuseSide /></aside></div>}
       {tab === 'runners' && <><RunnerPicker picks={runnerPicks} onPicks={setRunnerPicks} onDone={() => go('lab')} /><details className="hrt-fold fp-trench" data-testid="fp-trench"><summary>🗑 Trench metas <small>five ways to hunt fresh launches — tap one to see what it finds right now</small></summary><TrenchScan /></details></>}
+      {tab === 'arena' && <FamilyFuseStrip />}
       {tab === 'arena' && <ArenaBoard onPicks={list => { setRunnerPicks(list); go('lab'); }} onLoad={(legs, from) => { const run = legs.filter(l => l.runner); if (run.length) setRunnerPicks(run.slice(0, MAX_RUNNERS).map(l => ({ mint: l.baseAddress, symbol: l.symbol, logo: l.logo, pairAddress: l.pairAddress, lane: l.lane || 'runner' })));
         setIncoming({ legs: legs.filter(l => !l.runner).sort((x, y) => (y.weight || 0) - (x.weight || 0)), sol: 0, n: Date.now(), ...(from || {}) }); go('lab'); }} />}
       {tab === 'cards' && <MyCards addr={addr} />}

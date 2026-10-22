@@ -3,6 +3,7 @@ import { toast } from 'sonner';
 import { apiUrl } from '../lib/api';
 import { FamilyCity3D } from './FamilyCity3D';
 import { CityChat, CityRail, RankBadge, RankLadder } from './FamiliaHud';
+import { FamilyFuseBoard } from './FamilyFuseBoard';
 import '../styles/familyWorld.css';
 
 // 🗺 THE FAMILIA WORLD (owner, 2026-10-21: "huge like a Sims build — bridges to other parts, seasons, buy blocks near rivals, CPU towns hard to
@@ -36,7 +37,8 @@ function MarkPanel({ k, v }) {
   const m = (v.landmarks || []).find(l => l.key === k); const go = MARK_GO[k];
   return <aside className={`fwd-side m-card t-lm k-${k}`} data-testid="mark-panel"><header><b>{m?.name || k}</b><small>FEE CITY · landmark</small></header><p>{m?.lore}</p>
     {k === 'arena' ? <p className="fwd-rule">Family Fuse rules: cards with the same coin count or one apart (never 4 vs 6) · paper or MP · an MP battle needs {mp(v.rules?.fuseMinMp)} MP in the family bank.</p> : null}
-    {go ? <a className="m-btn m-go" href={go[0]} data-tip="Opens that part of FEELESS">{go[1]}</a> : null}</aside>;
+    {k === 'arena' ? <button type="button" className="m-btn m-go" onClick={() => document.getElementById('family-fuse')?.scrollIntoView({ behavior: 'smooth', block: 'start' })} data-tip="The Family Fuse board: live fights, the crowd, your challenge">⚔ Family Fuse board</button> : null}
+    {go ? <a className="m-btn" href={go[0]} data-tip="Opens that part of FEELESS">{go[1]}</a> : null}</aside>;
 }
 
 function BlockPanel({ x, v, act, busy, onEnter }) {
@@ -131,7 +133,8 @@ export function FamilyWorld({ addr, sess, onEnter }) {
       <div className="fwd-mapwrap"><FamilyCity3D v={v} sel={sel} setSel={setSel} city={city} setCity={setCity}
         tour={{ on: tour, ctl: <button type="button" className={tour ? 'active' : ''} onClick={() => setTour(t => !t)} aria-pressed={tour} data-tip="Show how Familia works, pinned on the city" data-testid="city-tour">❓ How it works</button> }} />
         <div className="fwd-col"><BlockPanel x={sel} v={v} act={act} busy={busy} onEnter={onEnter} />
-          {v.cities ? <CityChat city={city} name={(v.cities.find(c => c.key === city) || {}).name || 'the city'} addr={addr} sess={sess} /> : null}</div></div></>}
+          {v.cities ? <CityChat city={city} name={(v.cities.find(c => c.key === city) || {}).name || 'the city'} addr={addr} sess={sess} /> : null}</div></div>
+      {city === 'fee' && v.ffuse ? <FamilyFuseBoard v={v} setV={setV} addr={addr} sess={sess} /> : null}</>}
     {lens === 'ranked' && <RankLadder ranked={v.ranked} mine={me?.id} />}
     {lens === 'raids' && <div className="fwd-raids">{(v.raids || []).length ? v.raids.slice().reverse().map(r => <RaidBoard key={r.id} r={r} act={act} busy={busy} />)
       : <p className="m-dim">No raids. Pick a rival block on the 🗺 City — a CPU town if you're brave.</p>}
