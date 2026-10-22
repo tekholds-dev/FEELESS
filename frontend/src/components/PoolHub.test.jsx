@@ -17,3 +17,14 @@ test('🎯 range tuner math: v2 IL is the classic curve, a range loses more vs h
   expect(ilRange(100, 1000)).toBeCloseTo(ilV2(100), 1);              // a huge range ≈ v2
   expect(rangeFactor(1.1)).toBeGreaterThan(20); expect(rangeFactor(2)).toBeCloseTo(3.41, 1);
 });
+
+test('🐱 FeeCat\'s combo: cash / SOL / fees legs from the live hub, blended APY and honest daily math', () => {
+  const { catCombo } = require('./PoolHub');
+  const rows = [{ id: 'l', kind: 'lend', stable: true, tvl: 4e8, apy: 6, sym: 'USDC', proto: 'Jupiter Lend' }, { id: 'l2', kind: 'lend', stable: true, tvl: 1e5, apy: 30, sym: 'USDC' },
+    { id: 's', kind: 'stake', tvl: 1e9, apy: 7.5, sym: 'JITOSOL' }, { id: 'p', kind: 'v3', tvl: 5e6, apy: 40, base: 32, sym: 'SOL-USDC' }, { id: 'e', kind: 'v3', tvl: 5e6, apy: 150, base: 10, sym: 'FARM' }];
+  const c = catCombo(rows, 100);
+  expect(c.legs.map(l => l.r.id)).toEqual(['l', 's', 'p']);                      // tiny pool + emission farm skipped
+  expect(c.apy).toBeCloseTo(0.5 * 6 + 0.3 * 7.5 + 0.2 * 40, 5);                  // 13.25 %
+  expect(c.day).toBeCloseTo(100 * 13.25 / 100 / 365, 6);
+  expect(catCombo([], 100).legs).toEqual([]);
+});

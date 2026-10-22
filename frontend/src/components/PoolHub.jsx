@@ -176,13 +176,41 @@ export function PoolRow({ r, i = 0, big = false, blocks = [], onLink }) {
     </span>{lend ? <LendBox r={r} onClose={() => setLend(false)} /> : null}{more ? <PoolDetail r={r} /> : null}</li>;
 }
 
+// 🐱 FEECAT'S COMBO (owner, 2026-10-22: "the cat suggests pool combos … real mass compound"): a 50 / 30 / 20 split picked from the LIVE hub —
+// the safest big stable lending market (cash leg), the deepest liquid-staking pool (SOL leg), the best FEE-earning pool (fees, not emissions,
+// so the yield is not just reward tokens). Blended APY + what it earns a day / a month at your amount — true math, every leg's risk named.
+export function catCombo(rows, amt = 100) {
+  const rs = (rows || []).filter(r => Number.isFinite(r?.apy) && r.apy > 0);
+  const top = (xs, k) => xs.reduce((b, r) => ((r[k] || 0) > (b?.[k] || 0) ? r : b), null);
+  const legs = [
+    ['CASH', 0.5, top(rs.filter(r => r.kind === 'lend' && r.stable && r.tvl >= 5e6 && r.apy <= 40), 'apy'), 'stablecoin lending · smart-contract risk only'],
+    ['SOL', 0.3, top(rs.filter(r => r.kind === 'stake' && r.tvl >= 1e7 && r.apy <= 20), 'apy'), 'liquid staking · moves with SOL\'s price'],
+    ['FEES', 0.2, top(rs.filter(r => ['v2', 'v3', 'dlmm', 'vault'].includes(r.kind) && r.tvl >= 1e6 && r.apy <= 200 && (r.base || 0) >= r.apy * 0.4), 'base'), 'trading fees · impermanent-loss risk'],
+  ].filter(l => l[2]);
+  const wsum = legs.reduce((a, l) => a + l[1], 0) || 1;
+  const apy = legs.reduce((a, l) => a + (l[1] / wsum) * l[2].apy, 0);
+  const day = (amt * apy) / 100 / 365;
+  return { legs: legs.map(([role, w, r, risk]) => ({ role, w: w / wsum, r, risk })), apy: Math.round(apy * 100) / 100, day, month: day * 30, year: amt * apy / 100 };
+}
+function CatCombo({ pools }) {
+  const [amt, setAmt] = useState(100); const c = useMemo(() => catCombo(pools?.pools, amt), [pools, amt]);
+  if (!c.legs.length) return null;
+  const m = v => (v >= 1 ? `$${v.toFixed(2)}` : `$${v.toFixed(3)}`);
+  return <div className="phb-combo" data-testid="cat-combo"><header><b>🐱 FEECAT'S COMBO</b><small>picked from the live hub · {c.legs.length} legs</small></header>
+    <label className="phb-earn-in"><span>Put in</span><input type="range" min="5" max="10000" step="5" value={amt} onChange={e => setAmt(Number(e.target.value))} aria-label="Amount for the combo" data-testid="combo-amt" /><b>${amt.toLocaleString('en-US')}</b></label>
+    <p className="phb-combo-big"><b key={amt}>{c.apy.toFixed(1)}% APY</b><span>≈ {m(c.day)} a day · {m(c.month)} a month · {m(c.year)} a year</span></p>
+    <ol>{c.legs.map((l, i) => <li key={l.role} style={{ '--i': i }}><em>{l.role} · {Math.round(l.w * 100)}%</em><span><b>{l.r.sym}</b><small>{l.r.proto} · TVL {usd(l.r.tvl)} · {l.risk}</small></span>
+      <strong className="m-num">{apyTxt(l.r.apy)}</strong>{l.r.app ? <a className="m-btn" href={l.r.app} target="_blank" rel="noopener noreferrer" data-tip={`Open ${l.r.proto} — your wallet signs there; FEELESS never holds funds`}>↗</a> : <i />}</li>)}</ol>
+    <small className="phb-warn">Real APYs move every day; this is today's math, not a promise. Lending + staking pay slowly — big daily % only comes with big risk.</small></div>;
+}
+
 export function PoolHub({ pools, blocks = [], onLink, start = 'all' }) {
   const [lens, setLens] = useState(start); const [sort, setSort] = useState('tvl'); const [q, setQ] = useState(''); const [qq, setQQ] = useState('');
   useEffect(() => { const t = setTimeout(() => setQQ(q), 250); return () => clearTimeout(t); }, [q]);
   const rows = useMemo(() => poolRows(pools?.pools, lens, sort, qq).slice(0, 60), [pools, lens, sort, qq]);
   const tvl = useMemo(() => (pools?.pools || []).reduce((a, r) => a + (r.tvl || 0), 0), [pools]);
   if (!pools) return <div className="phb phb-load" aria-live="polite"><i /><i /><i /><small>reading every pool…</small></div>;
-  return <div className="phb" data-testid="pool-hub">
+  return <div className="phb" data-testid="pool-hub"><CatCombo pools={pools} />
     <header className="phb-head"><span className="phb-big"><em>TRACKED TVL</em><b className="m-num" key={Math.round(tvl / 1e6)}>{usd(tvl)}</b></span>
       <span className="phb-kinds">{Object.entries(pools.kinds || {}).filter(([, n]) => n).map(([k, n]) => <i key={k} style={{ '--kc': KIND_COLOR[k] }} data-tip={`${n} ${POOL_KIND[k] || k} pools on Solana`}><b>{n}</b>{k.toUpperCase()}</i>)}</span></header>
     <div className="phb-ctl">
