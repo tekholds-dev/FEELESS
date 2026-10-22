@@ -7,7 +7,7 @@ import { moodOf, roomPair } from '../lib/coinMood';
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
 
 test('tiers: 4 free, 4 more at $5 of $FEE, 5 more at $100; a theme you lost falls back to Live', () => {
-  expect(CHAT_THEMES.filter(([, , usd]) => usd === 0).map(([id]) => id)).toEqual(['live', 'fee', 'candles', 'off']);
+  expect(CHAT_THEMES.filter(([, , usd]) => usd === 0).map(([id]) => id)).toEqual(['neural', 'live', 'fee', 'candles', 'off']);
   expect(CHAT_THEMES.filter(([, , usd]) => usd === 5)).toHaveLength(4);
   expect(CHAT_THEMES.filter(([, , usd]) => usd === 100)).toHaveLength(5);
   expect(canUse('depth', 4.99)).toBe(false); expect(canUse('depth', 5)).toBe(true); expect(canUse('aurora', 1e9)).toBe(false);   // a retired theme is gone for good
