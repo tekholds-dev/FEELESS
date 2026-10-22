@@ -809,7 +809,7 @@ body.theme-day .globe-terminal-cta:hover *{color:#fff!important}
 body.theme-day .reputation-badge.badge-trusted{color:#08764e}
 body.theme-day .reputation-badge.badge-flagged{color:#b42346}
 body.theme-day .reputation-badge.badge-building,body.theme-day .reputation-badge.badge-unproven,body.theme-day .reputation-badge.badge-unknown{color:#5c7767}
-.reputation-center{max-width:920px}
+.reputation-center{max-width:1180px;margin:0 auto;width:100%}
 
 .reputation-lookup{border:1px solid var(--line);border-radius:7px;padding:16px;background:#080f0c;margin-bottom:20px}
 .reputation-lookup form{display:flex;align-items:center;gap:10px;border:1px solid #254434;background:#09130f;padding:10px 13px;border-radius:6px;color:#93aa9c}
@@ -862,7 +862,7 @@ body.theme-day .reputation-badge.badge-building,body.theme-day .reputation-badge
 .reputation-leaderboard-tabs{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px}.reputation-leaderboard-tabs button{padding:8px 14px;border-radius:5px;border:1px solid var(--line);color:var(--muted);font-size:11px;white-space:nowrap}.reputation-leaderboard-tabs button.active{color:var(--mint);border-color:#15d16a2c;background:#15d16a0b}
 .reputation-view-hint{font-size:10px;color:var(--muted);margin-bottom:14px}
 .reputation-rank-list{display:flex;flex-direction:column;gap:6px}
-.reputation-rank-row{display:grid;grid-template-columns:28px 110px 150px 1fr 1fr 50px;align-items:center;gap:12px;padding:10px 14px;border:1px solid var(--line);border-radius:6px;font-size:11px;width:100%;text-align:left;background:transparent;color:inherit;cursor:pointer;transition:border-color .15s ease,background .15s ease}
+.reputation-rank-row{display:grid;grid-template-columns:28px 110px 150px .7fr .7fr minmax(120px,1.6fr) 50px;align-items:center;gap:12px;padding:10px 14px;border:1px solid var(--line);border-radius:6px;font-size:11px;width:100%;text-align:left;background:transparent;color:inherit;cursor:pointer;transition:border-color .15s ease,background .15s ease}
 .reputation-rank-row:hover{border-color:#15d16a4a;background:#15d16a08}
 .reputation-report-head{display:flex;align-items:center;gap:10px;margin-bottom:14px}
 .reputation-report-head code{color:var(--mint);font-size:12px}

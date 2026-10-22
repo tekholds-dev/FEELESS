@@ -75,6 +75,24 @@ function ClusterExplorer({ chain, onScan }) {
   </section>;
 }
 
+// 📊 a creator's record at a glance: what its launches became (sustained · dumped · dead · rugged) as one segmented bar, and its score as a ring
+export function recordParts(row) {
+  const n = Math.max(1, Number(row.tokenCount) || 0);
+  const parts = [['sustained', row.sustainedCount, '#45e486'], ['dumped', row.dumpedCount, '#ffb347'], ['dead', row.deadCount, '#8a93a6'], ['rugged', row.ruggedCount, '#ff4d6d']]
+    .map(([k, v, c]) => ({ k, v: Number(v) || 0, c, w: (Number(v) || 0) / n })).filter(p => p.v > 0);
+  return { parts, other: Math.max(0, 1 - parts.reduce((a, p) => a + p.w, 0)), n };
+}
+function RecordBar({ row }) {
+  const r = recordParts(row);
+  return <span className="rep-rec" data-tip={`${r.n} launches: ${r.parts.map(p => `${p.v} ${p.k}`).join(' · ') || 'none judged yet'}`}><u>{r.parts.map(p => <i key={p.k} style={{ flexGrow: p.w, background: p.c }} />)}{r.other > 0 ? <i style={{ flexGrow: r.other }} className="is-open" /> : null}</u>
+    <small>{r.parts.length ? r.parts.map(p => `${p.v} ${p.k}`).join(' · ') : `${r.n} launch${r.n === 1 ? '' : 'es'} · judging`}</small></span>;
+}
+function ScoreRing({ score, badge }) {
+  const v = Math.max(0, Math.min(100, Number(score) || 0)); const c = { trusted: '#45e486', veteran: '#7ff0cf', building: '#6fd3ff', risky: '#ffb347', flagged: '#ff4d6d' }[badge] || '#b9c4bf';
+  return <svg className="rep-ring" viewBox="0 0 44 44" role="img" aria-label={`score ${v}`} data-tip={`Score ${v} / 100`}><circle cx="22" cy="22" r="18" className="bg" />
+    <circle cx="22" cy="22" r="18" className="fg" style={{ stroke: c, strokeDasharray: `${(v / 100) * 113.1} 113.1` }} transform="rotate(-90 22 22)" /><text x="22" y="26">{v}</text></svg>;
+}
+
 export function ReputationCenter() {
   const { ecosystem } = useWorkspace();
   const navigate = useNavigate();
@@ -105,7 +123,7 @@ export function ReputationCenter() {
 
   const sec = REP_SECTIONS.some(([k]) => k === repSec) ? repSec : 'investigate';
   return <div className="reputation-center" data-testid="reputation-center">
-    <RepHero creators={data.totalCreators} tokens={data.totalTokensTracked} chain={ecosystem.name} />
+    <RepHero creators={data.totalCreators} tokens={data.totalTokensTracked} chain={ecosystem.name} rows={data.rows} />
     <div className="sup-row"><SupportButton /></div>
     <RepNav sec={sec} setSec={setRepSec} />
     <div className="rph-sec" key={sec}>
@@ -146,7 +164,8 @@ export function ReputationCenter() {
         <span className={`reputation-badge badge-${row.badge}`}><Icon size={11} />{BADGE_LABEL[row.badge]}</span>
         <span><small>TOKENS</small><b>{row.tokenCount}</b></span>
         {view === 'feeless' ? <span><small>BANGERS / DUMPS</small><b><span className="positive">{row.bigWinners}</span> / <span className={row.dumpedCount ? 'negative' : ''}>{row.dumpedCount}</span></b></span> : <span><small>DUMPED</small><b className={row.dumpedCount || row.ruggedCount ? 'negative' : ''}>{row.dumpedCount + row.ruggedCount}</b></span>}
-        <strong className="reputation-score">{row.score}</strong>
+        <RecordBar row={row} />
+        <ScoreRing score={row.score} badge={row.badge} />
       </div>; })}</div>{(data.rows || []).length > 12 && <button type="button" className="pf-more" onClick={() => setShowAll(v => !v)}>{showAll ? 'Show top 12' : `Show all ${(data.rows || []).length}`}</button>}
     </section>}
     </>}
