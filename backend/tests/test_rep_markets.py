@@ -93,3 +93,17 @@ def test_each_kind_prefers_a_coin_not_already_in_a_market():
     out = rm.new_markets(st, rows, {'A': 1, 'B': 1, 'C': 1}, NOW)
     by = {m['kind']: m['mint'] for m in out if m['kind'] != 'up'}
     assert by == {'double': 'C', 'rug': 'C'} or len({m['mint'] for m in out}) >= 3
+
+
+def test_a_lone_right_call_gets_paid_by_the_house_seed():
+    st = {'markets': [rm.make('up', 'M1', 'AAA', 1.0, 0, seed=rm.HOUSE_SEED)]}
+    m = st['markets'][0]
+    rm.stake(st, 'W1', m['id'], 'yes', 100, 10)
+    rm.mark(m, 1.5, 3000); rm.settle(st, 3700)
+    b = rm.bank(st, 'W1', 3700)
+    assert m['result'] == 'yes' and b['chips'] == rm.CHIPS_WEEK + rm.HOUSE_SEED and b['won'] == rm.HOUSE_SEED   # paid the house's NO seed
+    assert 'house' not in st['banks'] and rm.odds(m)['n'] == 1
+    # a lone WRONG call loses to the house (no free refund), and the house is never a bank
+    st2 = {'markets': [rm.make('up', 'M2', 'BBB', 1.0, 0, seed=rm.HOUSE_SEED)]}; m2 = st2['markets'][0]
+    rm.stake(st2, 'W2', m2['id'], 'yes', 50, 10); rm.mark(m2, 0.5, 3000); rm.settle(st2, 3700)
+    assert rm.bank(st2, 'W2', 3700)['chips'] == rm.CHIPS_WEEK - 50 and 'house' not in st2['banks']

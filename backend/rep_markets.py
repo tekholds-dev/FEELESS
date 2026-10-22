@@ -24,6 +24,9 @@ LOCK_SEC = 120
 KINDS = {'up': ('📈', 3600), 'double': ('🚀', 4 * 3600), 'rug': ('☠', 3600)}
 MARKETS_KEPT = 160
 GONE_SEC = 900
+HOUSE = 'house'
+HOUSE_SEED = 100   # 🏠 the house backs BOTH sides of every market (free chips, never banked): a lone right call still gets paid (2026-10-22 —
+                    # the owner bid alone, every market was one-sided, so a win only refunded the stake)
 WEEK = 7 * 86400
 
 from fnum import plain as _f   # noqa: E402
@@ -46,11 +49,11 @@ def question(kind, sym):
     return {'up': f'${sym} higher in 1 hour?', 'double': f'${sym} doubles within 4 hours?', 'rug': f'${sym} falls 80% within 1 hour?'}[kind]
 
 
-def make(kind, mint, sym, px, now, src=None):
+def make(kind, mint, sym, px, now, src=None, seed=0):
     icon, dur = KINDS[kind]
     return {'id': uuid.uuid4().hex[:10], 'kind': kind, 'icon': icon, 'mint': mint, 'sym': sym, 'q': question(kind, sym), 'src': src,
             'px0': _f(px), 'peak': _f(px), 'low': _f(px), 'lastPxAt': now, 'opensAt': now, 'closesAt': now + dur, 'state': 'open',
-            'stakes': [], 'path': [[round(now), 1.0]]}
+            'stakes': [{'w': HOUSE, 'side': sd, 'chips': seed, 'at': now, 'rep': 0} for sd in ('yes', 'no') if seed > 0], 'path': [[round(now), 1.0]]}
 
 
 def new_markets(st, rows, prices, now, per_hour=4):
@@ -63,7 +66,7 @@ def new_markets(st, rows, prices, now, per_hour=4):
         px = _f((prices or {}).get(r.get('mint')))
         if made >= per_hour or px <= 0 or (r['mint'], kind) in open_:
             return
-        m = make(kind, r['mint'], r.get('symbol') or r['mint'][:4], px, now, r.get('src'))
+        m = make(kind, r['mint'], r.get('symbol') or r['mint'][:4], px, now, r.get('src'), seed=HOUSE_SEED)
         out.append(m); open_.add((r['mint'], kind)); made += 1
     rows = [r for r in rows or [] if r.get('mint')]
     for r in rows[:2]:
@@ -88,10 +91,10 @@ def odds(m, rep_of=None):
     yes = sum(s['chips'] for s in m['stakes'] if s['side'] == 'yes')
     no = sum(s['chips'] for s in m['stakes'] if s['side'] == 'no')
     w = lambda s: s['chips'] * max(5.0, _f((rep_of or {}).get(s['w'], s.get('rep', 50))))   # rep 0 still counts a little
-    wy = sum(w(s) for s in m['stakes'] if s['side'] == 'yes'); wn = sum(w(s) for s in m['stakes'] if s['side'] == 'no')
+    wy = sum(w(s) for s in m['stakes'] if s['side'] == 'yes' and s['w'] != HOUSE); wn = sum(w(s) for s in m['stakes'] if s['side'] == 'no' and s['w'] != HOUSE)
     crowd = round(100 * yes / (yes + no)) if yes + no else 50
     rep = round(100 * wy / (wy + wn)) if wy + wn else 50
-    return {'yes': yes, 'no': no, 'crowd': crowd, 'rep': rep, 'split': abs(crowd - rep) >= SPLIT_PTS and yes + no > 0, 'n': len(m['stakes'])}
+    return {'yes': yes, 'no': no, 'crowd': crowd, 'rep': rep, 'split': abs(crowd - rep) >= SPLIT_PTS and wy + wn > 0, 'n': sum(1 for s in m['stakes'] if s['w'] != HOUSE)}
 
 
 def stake(st, wallet, mid, side, chips, now, rep=50):
@@ -148,10 +151,12 @@ def settle(st, now):
             continue
         m['state'], m['result'], m['settledAt'] = 'settled', res, now
         win = [s for s in m['stakes'] if s['side'] == res]; lose = [s for s in m['stakes'] if s['side'] != res]
-        tw, tl = sum(s['chips'] for s in win), sum(s['chips'] for s in lose)
+        tw, tl = sum(s['chips'] for s in win if s['w'] != HOUSE), sum(s['chips'] for s in lose)   # the house's winning seed takes no share (burned)
         for s in m['stakes']:
+            if s['w'] == HOUSE:   # the house's seed is never banked: what it loses pays the winners, what it wins is burned
+                s['paid'] = 0; continue
             b = bank(st, s['w'], now)
-            if not win or not lose:      # nobody on one side: everyone home
+            if not win or not lose:      # nobody on one side (a market without a house seed): everyone home
                 b['chips'] += s['chips']; s['paid'] = s['chips']
             elif s['side'] == res:
                 gain = round(tl * s['chips'] / tw)

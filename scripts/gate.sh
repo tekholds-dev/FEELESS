@@ -5,6 +5,14 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 out="${TMPDIR:-/tmp}/feeless-gate"; mkdir -p "$out"
 step() { printf '\n▶ %s\n' "$1"; }
+# 🟢 Node ≥ 18 for the frontend (Blob / fetch globals the tests mock): an nvm default of 16 turned the gate red on 2026-10-22
+node_ok() { "$1" -e 'process.exit(+process.versions.node.split(".")[0] >= 18 ? 0 : 1)' 2>/dev/null; }
+if ! node_ok node; then
+  for d in "$HOME"/.nvm/versions/node/v20*/bin "$HOME"/.nvm/versions/node/v22*/bin "$HOME"/.nvm/versions/node/v18*/bin /opt/homebrew/bin; do
+    if [ -x "$d/node" ] && node_ok "$d/node"; then PATH="$d:$PATH"; export PATH; break; fi
+  done
+fi
+echo "node $(node -v)"
 
 step "1/3 backend tests"
 PYTHONPATH=backend:. .venv/bin/python -m pytest backend/tests -q > "$out/pytest.txt" 2>&1 || { tail -40 "$out/pytest.txt"; echo "✋ GATE RED: backend tests"; exit 1; }
