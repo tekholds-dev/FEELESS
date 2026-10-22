@@ -34,6 +34,8 @@ const queryClient = new QueryClient({
 const root = ReactDOM.createRoot(document.getElementById("root"));
 if (process.env.NODE_ENV === 'development' && window.location.pathname === '/dev/hq') {   // 🧪 HQ on fixtures, no sign-in (src/dev/HqHarness.jsx)
   import('./dev/HqHarness').then(m => root.render(<m.default />));
+} else if (process.env.NODE_ENV === 'development' && window.location.pathname === '/dev/familia') {   // 🧪 Familia Wars / Board / Live on fixtures (src/dev/FamiliaHarness.jsx)
+  import('./dev/FamiliaHarness').then(m => root.render(<m.default />));
 } else if (process.env.NODE_ENV === 'development' && window.location.pathname === '/dev/pools') {   // 🧪 Pool Hub + deposit-here on fixtures (src/dev/PoolsHarness.jsx)
   import('./dev/PoolsHarness').then(m => root.render(<m.default />));
 } else if (process.env.NODE_ENV === 'development' && window.location.pathname === '/dev/crest') {   // 🧪 crest forge + family cards on fixtures (src/dev/CrestHarness.jsx)

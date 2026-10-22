@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { sharedJson } from '../lib/sharedJson';
 import { FamilyBadge } from './FamilyBadge';
 import NumInput from './NumInput';
+import { useGlide } from '../lib/useGlide';
 import '../styles/familyWars.css';
 
 // ⚔ THE WAR ROOM (family_wars.py): families call each other out, bid up a POINTS pot, set a bell and fight a battle trench — each team's verified
@@ -22,12 +23,35 @@ export function useWars(every = 15000) {
   return d;
 }
 
-function Side({ f, sc, win, pot }) {
-  return <div className={`fwr-side ${win ? 'is-win' : ''}`}>
-    {f?.badge?.emblem ? <FamilyBadge b={{ ...f.badge, tag: f.tag, name: f.name }} size="sm" /> : <span className="fwr-tag">{f?.tag}</span>}
-    <b>[{f?.tag}] {f?.name}</b>
-    <em className={sc?.pct == null ? '' : sc.pct >= 0 ? 'm-pos' : 'm-neg'} key={sc?.pct}>{sc?.pct == null ? '—' : `${sc.pct >= 0 ? '+' : ''}${sc.pct}%`}</em>
-    <small>{sc ? `${sc.trades} trades · ${sc.team} on the team` : ''}{pot != null ? ` · put in ${pot}` : ''}</small>
+// 🏟 the arena behind every war card (drawn, no emoji): two spotlights from the rafters onto the ring, the ropes, the crowd's heads in the dark,
+// haze on the floor. The lights take each family's colour (--ca / --cb); a live war's lights sway slowly, a settled one is lit for the winner only.
+function ArenaArt() {
+  return <svg className="fwr-arena" viewBox="0 0 400 170" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+    <path className="sp sp-a" d="M30,-10 L70,-10 L210,170 L110,170 Z" /><path className="sp sp-b" d="M330,-10 L370,-10 L290,170 L190,170 Z" />
+    <ellipse className="fl" cx="200" cy="168" rx="190" ry="26" />
+    <path className="rope" d="M40,128 Q200,138 360,128 M40,112 Q200,122 360,112" />
+    <path className="post" d="M40,100 V150 M360,100 V150" />
+    <g className="crowd">{Array.from({ length: 34 }, (_, i) => <circle key={i} cx={6 + i * 11.8} cy={160 - (i % 3) * 4} r={4.6 + (i % 2)} />)}</g>
+  </svg>;
+}
+// the VS mark: a ring, a bolt through it, the two letters
+function VsMark({ live }) {
+  return <svg className={`fwr-vsm ${live ? 'is-live' : ''}`} viewBox="0 0 64 64" aria-hidden="true">
+    <circle cx="32" cy="32" r="26" className="r1" /><circle cx="32" cy="32" r="20" className="r2" />
+    <path d="M36,6 L22,34 H31 L26,58 L44,26 H34 Z" className="bolt" />
+    <text x="32" y="38" textAnchor="middle" className="vs">VS</text>
+  </svg>;
+}
+function Side({ f, sc, win, lose, pot, max = 1, side }) {
+  const pct = useGlide(sc?.pct == null ? null : Number(sc.pct));
+  return <div className={`fwr-side s-${side} ${win ? 'is-win' : ''} ${lose ? 'is-lose' : ''}`}>
+    {win ? <span className="fwr-laurel" aria-label="winner"><i aria-hidden="true" />WINNER<i aria-hidden="true" /></span> : null}
+    <span className="fwr-crest">{f?.badge?.emblem ? <FamilyBadge b={{ ...f.badge, tag: f.tag, name: f.name }} size="md" px={74} chips={false} /> : <span className="fwr-tag">{f?.tag}</span>}</span>
+    <b>{f?.name}</b>
+    <em className={pct == null ? '' : pct >= 0 ? 'm-pos' : 'm-neg'} data-tip="Their members' verified FEELESS trades inside the war window (price result, fees apart)">{pct == null ? '—' : `${pct >= 0 ? '+' : ''}${pct}%`}</em>
+    {sc ? <span className="fwr-meters"><span data-tip={`${sc.trades} closed trades in the window`}><small>TRADES</small><u><i style={{ transform: `scaleX(${Math.max(0.04, Math.min(1, (sc.trades || 0) / Math.max(1, max)))})` }} /></u><b>{sc.trades}</b></span>
+      <span data-tip={`${sc.team} of 5 on the team`}><small>TEAM</small><s>{[0, 1, 2, 3, 4].map(k => <i key={k} className={k < (sc.team || 0) ? 'on' : ''} />)}</s></span></span> : null}
+    {pot != null ? <small className="fwr-put">put in <b>{pot}</b> pts</small> : null}
   </div>;
 }
 
@@ -35,18 +59,23 @@ function WarCard({ w, myId, owner, act, busy, now }) {
   const [stake, setStake] = useState(String(w.potSides?.a || 25));
   const mySide = w.a.id === myId ? 'a' : w.b.id === myId ? 'b' : (w.allies?.a || []).some(x => x.id === myId) ? 'a' : (w.allies?.b || []).some(x => x.id === myId) ? 'b' : null;
   const clock = w.state === 'open' || w.state === 'set' ? w.startAt - now : w.state === 'live' ? w.endAt - now : null;
-  const t = tug(w.score);
-  return <article className={`fwr-war s-${w.state} ${mySide ? 'is-mine' : ''}`} data-testid={`war-${w.id}`}>
-    <header><span className="fwr-state">{STATE_WORD[w.state] || w.state}</span><span className="fwr-pot" key={w.pot}><i>🪙</i>{w.pot.toLocaleString('en-US')}<small>PTS POT</small></span>
+  const t = tug(w.score); const max = Math.max(w.score?.a?.trades || 0, w.score?.b?.trades || 0, 1);
+  const win = w.state === 'done' ? w.winner : null;
+  return <article className={`fwr-war s-${w.state} ${mySide ? 'is-mine' : ''} ${win ? `won-${win}` : ''}`} style={{ '--ca': w.a.badge?.c1 || '#d4af37', '--cb': w.b.badge?.c1 || '#b3122e' }} data-testid={`war-${w.id}`}>
+    <ArenaArt />
+    {w.state === 'live' ? <span className="fwr-sparks" aria-hidden="true">{[0, 1, 2, 3, 4, 5, 6].map(i => <i key={i} style={{ '--i': i }} />)}</span> : null}
+    <header><span className="fwr-state">{STATE_WORD[w.state] || w.state}</span>
+      <span className="fwr-pot" key={w.pot} data-tip="Family points both sides put in — the winner takes the pot. Points, never money."><span className="fwr-coins" aria-hidden="true"><i /><i /><i /></span>{w.pot.toLocaleString('en-US')}<small>PTS POT</small></span>
       <span className="fwr-clock">{clock != null ? <>{w.state === 'live' ? 'ENDS IN' : 'BELL IN'} <b>{clockWord(clock)}</b></> : `${w.hours}h war`}</span></header>
     <div className="fwr-vs">
-      <Side f={w.a} sc={w.score?.a} win={w.winner === 'a'} pot={w.potSides?.a} />
-      <span className="fwr-x" aria-hidden>VS</span>
-      <Side f={w.b} sc={w.score?.b} win={w.winner === 'b'} pot={w.potSides?.b} />
+      <Side f={w.a} sc={w.score?.a} win={win === 'a'} lose={win === 'b'} pot={w.potSides?.a} max={max} side="a" />
+      <VsMark live={w.state === 'live'} />
+      <Side f={w.b} sc={w.score?.b} win={win === 'b'} lose={win === 'a'} pot={w.potSides?.b} max={max} side="b" />
     </div>
-    {(w.state === 'live' || w.state === 'done') && <div className="fwr-tug" aria-label="who is winning"><i style={{ transform: `scaleX(${t})` }} /><span style={{ transform: `translateX(${(t - 0.5) * 100}%)` }}>⚔</span></div>}
+    {(w.state === 'live' || w.state === 'done') && <div className="fwr-tug" aria-label={`who is winning: [${w.a.tag}] ${Math.round(t * 100)}%`} data-tip="The rope: whoever's members trade better pulls it their way">
+      <i className="ra" style={{ transform: `scaleX(${t})` }} /><i className="rb" style={{ transform: `scaleX(${1 - t})` }} /><span className="fwr-knot" style={{ transform: `translateX(${(t - 0.5) * 100}%)` }}><b /></span></div>}
     {(w.allies?.a?.length || w.allies?.b?.length) ? <p className="fwr-allies">🤝 {[...(w.allies.a || []).map(x => `[${x.tag}] with [${w.a.tag}]`), ...(w.allies.b || []).map(x => `[${x.tag}] with [${w.b.tag}]`)].join(' · ')}</p> : null}
-    <ol className="fwr-log">{(w.log || []).slice(-3).reverse().map(([at, line]) => <li key={at + line}>{line}</li>)}</ol>
+    <ol className="fwr-log">{(w.log || []).slice(-3).reverse().map(([at, line], i) => <li key={at + line} style={{ '--i': i }}>{line}</li>)}</ol>
     {owner && w.state === 'open' && w.b.id === myId && <div className="fwr-acts">
       <span className="fwr-unit"><NumInput className="m-input" value={stake} onChange={e => setStake(e.target.value)} aria-label="Your stake" /><i>pts</i></span>
       <button type="button" className="m-btn m-go" disabled={!!busy} onClick={() => act('answer', { id: w.id, ok: true, stake: Number(stake) }, '⚔ accepted — the bell is set')} data-testid="war-accept">Accept · match {w.potSides?.a}+</button>

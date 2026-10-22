@@ -1,0 +1,33 @@
+/* 📡 THE WIRE (Crews.jsx FamilyPulse `fwi-*`, the Familia › Live tab): a drawn radar whose arm sweeps (transform only, ≤ 0.2 Hz), one blip per
+   family event of the week (newer = nearer the middle, fresh ones breathe), counters that glide, and a teletype with each family's crest. */
+.fwi { position: relative; border-radius: 16px; border: 1px solid rgba(69, 228, 134, .22); background: radial-gradient(80% 60% at 20% 0%, rgba(21, 209, 106, .08), transparent 70%), linear-gradient(180deg, #06100b, #030705);
+  box-shadow: inset 0 1px 0 rgba(170, 255, 210, .08); }
+.fwi-top { display: grid; grid-template-columns: 200px minmax(0, 1fr); gap: 14px; align-items: center; }
+.fwi-radar { width: 200px; height: 200px; overflow: visible; }
+.fwi-radar .ring { fill: none; stroke: #15d16a; stroke-opacity: .22; stroke-width: 1; } .fwi-radar .ring.o { fill: rgba(21, 209, 106, .04); stroke-opacity: .45; }
+.fwi-radar .cross { stroke: #15d16a; stroke-opacity: .12; stroke-width: 1; } .fwi-radar .core { fill: #45e486; }
+.fwi-sweep { transform-box: view-box; transform-origin: 100px 100px; animation: fwiSweep 6s linear infinite; } .fwi-sweep path { fill: rgba(69, 228, 134, .16); }
+.fwi-blip .dot { fill: var(--bc); } .fwi-blip .halo { fill: var(--bc); opacity: .18; } .fwi-blip.is-fresh .halo { animation: fwiBreathe 3s ease-in-out infinite; transform-box: fill-box; transform-origin: center; }
+.fwi-vit { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
+.fwi-vit span { display: grid; gap: 2px; padding: 9px 10px; border-radius: 11px; background: linear-gradient(180deg, rgba(255, 255, 255, .04), rgba(0, 0, 0, .25)); border: 1px solid rgba(69, 228, 134, .16);
+  animation: fwiIn .35s ease both; animation-delay: calc(var(--i) * 50ms); }
+.fwi-vit em { font: 700 8px 'JetBrains Mono', monospace; font-style: normal; letter-spacing: .14em; color: #6f8f7d; }
+.fwi-vit b { font: 900 20px 'JetBrains Mono', monospace; color: #45e486; text-shadow: 0 0 14px rgba(21, 209, 106, .35); }
+.fwi-feed { margin: 0; padding: 0; list-style: none; display: grid; gap: 4px; max-height: 300px; overflow-y: auto; scrollbar-width: thin; scrollbar-color: #15d16a transparent; }
+.fwi-feed::-webkit-scrollbar { width: 6px; } .fwi-feed::-webkit-scrollbar-thumb { background: #15d16a; border-radius: 6px; }
+.fwi-feed li { display: grid; grid-template-columns: 30px auto minmax(0, 1fr) auto; gap: 8px; align-items: center; min-height: 36px; padding: 4px 10px 4px 6px; border-radius: 10px;
+  background: rgba(255, 255, 255, .025); border-left: 3px solid var(--bc); animation: fwiIn .3s ease both; animation-delay: calc(var(--i) * 45ms); transition: background .15s ease; }
+.fwi-feed li:hover { background: rgba(69, 228, 134, .07); }
+.fwi-feed li.is-fresh { background: linear-gradient(90deg, color-mix(in srgb, var(--bc) 14%, transparent), rgba(255, 255, 255, .02)); }
+.fwi-crest { display: grid; place-items: center; line-height: 0; } .fwi-crest > i { font-style: normal; font-size: 15px; line-height: 1; }
+.fwi-feed li > b { font: 800 11px 'JetBrains Mono', monospace; color: var(--bc); }
+.fwi-txt { font-size: 12.5px; color: #dff5e8; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; } .fwi-txt u { text-decoration: none; margin-right: 6px; }
+.fwi-feed li > small { font: 600 10px 'JetBrains Mono', monospace; color: #6f8f7d; }
+@keyframes fwiSweep { to { transform: rotate(360deg); } }
+@keyframes fwiBreathe { 0%, 100% { opacity: .12; transform: scale(.8); } 50% { opacity: .4; transform: scale(1.4); } }
+@keyframes fwiIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: none; } }
+body.fx-lite .fwi-sweep, body.fx-lite .fwi-blip .halo, body.fx-lite .fwi-vit span, body.fx-lite .fwi-feed li { animation: none; }
+@media (prefers-reduced-motion: reduce) { .fwi-sweep, .fwi-blip .halo, .fwi-vit span, .fwi-feed li { animation: none; } .fwi-feed li { transition: none; } }
+body.theme-day .fwi { background: #f3fbf6; border-color: rgba(10, 138, 68, .25); } body.theme-day .fwi-vit b { color: #0a8a44; text-shadow: none; } body.theme-day .fwi-txt { color: #0b3a1f; }
+body.theme-day .fwi-vit span { background: #fff; } body.theme-day .fwi-feed li { background: #fff; }
+@media (max-width: 640px) { .fwi-top { grid-template-columns: 1fr; justify-items: center; } .fwi-radar { width: 168px; height: 168px; } .fwi-vit { width: 100%; } .fwi-feed li { grid-template-columns: 28px auto minmax(0, 1fr); } .fwi-feed li > small { display: none; } }

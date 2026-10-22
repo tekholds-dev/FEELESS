@@ -10,6 +10,8 @@ import '../styles/crews.css';
 import { FamilyBadge } from './FamilyBadge';
 import { CrestForge } from './CrestForge';
 import { FamilyCardArt } from './FamilyCardArt';
+import { useGlide } from '../lib/useGlide';
+export { useGlide };
 import { WarRoom, WarStrip, PublicWars, useWars } from './FamilyWars';
 import { FamilyBlock } from './FamilyBlock';
 import { FamilyWorld, FamilyTab } from './FamilyWorld';
@@ -17,6 +19,8 @@ import { FamilyHQ } from './FamilyHQ';
 import { useRemembered } from '../lib/remember';
 import { Crown, Swords, Map as MapIcon, Trophy, Radio } from 'lucide-react';
 import '../styles/familyNoir.css';
+import '../styles/familiaBackdrop.css';
+import '../styles/familyWire.css';   // the Podium's own rules live there (it must never render bare without the page backdrop)
 
 // 🛡 CREWS (Leaderboard › Crews · Season & ranks): $25 in SOL to the FEELESS fee wallet starts a crew with 5 seats including you; +5 seats cost $5. A crew
 // shares no money — everyone signs their own trades. The weekly board ranks what members' VERIFIED FEELESS trades did over 7 days; the top 3 pay season
@@ -53,16 +57,6 @@ export function useCrewBoard(every = 20000) {
 // 🃏 the Don's card style (crews.CARD) — literal class names, one per option
 export const CARD_STYLE = { noir: 'cd-noir', gold: 'cd-gold', blood: 'cd-blood', neon: 'cd-neon', ice: 'cd-ice', royal: 'cd-royal' };
 export const CARD_FX = { smoke: 'cfx2-smoke', embers: 'cfx2-embers', rain: 'cfx2-rain', lightning: 'cfx2-lightning', stars: 'cfx2-stars' };
-// pure: a number that glides to its new value (the card's week % counts up instead of jumping) — one short rAF tween per change
-export function useGlide(v, ms = 650) {
-  const [n, setN] = useState(v); const from = useRef(v);
-  useEffect(() => { if (v == null || typeof v !== 'number') { setN(v); from.current = v; return undefined; }
-    const a = typeof from.current === 'number' ? from.current : 0; if (a === v) { setN(v); return undefined; }
-    let raf = 0; const t0 = performance.now();
-    const step = t => { const k = Math.min(1, (t - t0) / ms); const e = 1 - (1 - k) ** 3; setN(+(a + (v - a) * e).toFixed(1)); if (k < 1) raf = requestAnimationFrame(step); else from.current = v; };
-    raf = requestAnimationFrame(step); return () => cancelAnimationFrame(raf); }, [v, ms]);
-  return n;
-}
 const PLACE = ['', 'is-p1', 'is-p2', 'is-p3'];
 // ⚡ THE FAMILY CARD (owner, 2026-10-22 redo: "a drawn trading card"): crest header over a drawn scene per style (FamilyCardArt), the name in
 // Playfair, the live vitals ON the card (week % that glides to its number, seats filled, rank plate), the Don's tagline, a calm live effect.
@@ -172,17 +166,40 @@ function CrewHQ({ mine, owner, addr, sess, busy, setBusy, setMine, act, q, rows,
 // running feed + the live numbers (GET /crews/live: founded · joined · badge forged · bounty posted / claimed / paid · launch · crowned).
 const EV_ICON = { founded: '🌹', joined: '🤝', badge: '🛡', bounty: '🎯', claimed: '✋', paid: '💰', launch: '🚀', crown: '👑' };
 export const evAgo = t => { const s = Date.now() / 1000 - t; return s < 60 ? 'now' : s < 3600 ? `${Math.round(s / 60)}m` : s < 86400 ? `${Math.round(s / 3600)}h` : `${Math.round(s / 86400)}d`; };
-export function FamilyPulse() {
+// 📡 THE WIRE (Live tab, 2026-10-22 redo): a drawn radar — the arm sweeps, every family event of the week is a blip (closer to the centre =
+// newer, its angle = what kind of event) — the week's counters glide to their numbers, and the teletype under it wears each family's crest.
+const EV_ORDER = ['founded', 'joined', 'badge', 'bounty', 'claimed', 'paid', 'launch', 'crown'];
+const EV_COLOR = { founded: '#ff4d6d', joined: '#45e486', badge: '#d4af37', bounty: '#ff9f45', claimed: '#6fd3ff', paid: '#ffd36b', launch: '#9b5cff', crown: '#fff1c4' };
+// pure: where an event sits on the radar (newer = nearer the middle; the kind picks the slice)
+export function blipAt(e, now) {
+  const k = Math.max(0, EV_ORDER.indexOf(e.kind)); const age = Math.max(0, now - (e.at || now));
+  const r = 18 + Math.min(1, age / (7 * 86400)) * 70; const a = ((k + 0.5) / EV_ORDER.length) * Math.PI * 2 + ((String(e.id).length * 37) % 20 - 10) / 60;
+  return { x: +(100 + r * Math.cos(a)).toFixed(1), y: +(100 + r * Math.sin(a)).toFixed(1), fresh: age < 3600 };
+}
+function Glide({ n }) { const v = useGlide(n == null ? null : Number(n), 900); return v == null ? '—' : Math.round(v).toLocaleString('en-US'); }
+export function FamilyPulse({ rows }) {
   const [d, setD] = useState(null);
   useEffect(() => { let on = true; const load = () => sharedJson('/api/reputation/crews/live', { maxAge: 15000 }).then(x => on && x && setD(x)).catch(() => {});
     load(); const t = setInterval(() => { if (!document.hidden) load(); }, 20000); return () => { on = false; clearInterval(t); }; }, []);
-  const v = d?.vitals || {}; const ev = d?.events || [];
+  const v = d?.vitals || {}; const ev = d?.events || []; const now = Date.now() / 1000;
+  const crest = Object.fromEntries((rows || []).filter(r => r.badge).map(r => [r.tag, r.badge]));
   const tiles = [['FAMILIES', v.families], ['MEMBERS', v.members], ['JOINED 7D', v.joinedWeek], ['OPEN BOUNTIES', v.openBounties], ['PTS PAID 7D', v.ptsWeek], ['LAUNCHES', v.launches]];
-  return <section className="crw-pulse m-card" data-testid="family-pulse">
-    <header><span className="crw-live"><i />LIVE</span><b>LA FAMILIA · WHAT THE FAMILIES ARE DOING</b></header>
-    <div className="crw-vit">{tiles.map(([k, n], i) => <span key={k} style={{ '--i': i }}><em>{k}</em><b key={n}>{n == null ? '—' : Number(n).toLocaleString('en-US')}</b></span>)}</div>
-    {ev.length ? <ol className="crw-feed" data-testid="family-feed">{ev.slice(0, 12).map((e, i) => <li key={`${e.kind}-${e.id}-${e.at}`} className={`k-${e.kind}`} style={{ '--i': i }}>
-      <i>{EV_ICON[e.kind] || '•'}</i><b>[{e.fam}]</b><span>{e.text}</span><small>{evAgo(e.at)}</small></li>)}</ol>
+  return <section className="crw-pulse fwi" data-testid="family-pulse">
+    <header><span className="crw-live"><i />LIVE</span><b>THE WIRE · WHAT THE FAMILIES ARE DOING</b></header>
+    <div className="fwi-top">
+      <svg className="fwi-radar" viewBox="0 0 200 200" role="img" aria-label={`${ev.length} family events this week on the radar`}>
+        <circle cx="100" cy="100" r="92" className="ring o" /><circle cx="100" cy="100" r="62" className="ring" /><circle cx="100" cy="100" r="32" className="ring" />
+        <path d="M100,8 V192 M8,100 H192" className="cross" />
+        <g className="fwi-sweep"><path d="M100,100 L100,8 A92,92 0 0 1 165,35 Z" /></g>
+        {ev.slice(0, 24).map(e => { const p = blipAt(e, now); return <g key={`${e.kind}-${e.id}-${e.at}`} className={`fwi-blip ${p.fresh ? 'is-fresh' : ''}`} style={{ '--bc': EV_COLOR[e.kind] || '#45e486' }}>
+          <circle cx={p.x} cy={p.y} r="7" className="halo" /><circle cx={p.x} cy={p.y} r="3" className="dot" /><title>[{e.fam}] {e.text}</title></g>; })}
+        <circle cx="100" cy="100" r="3" className="core" />
+      </svg>
+      <div className="fwi-vit">{tiles.map(([k, n], i) => <span key={k} style={{ '--i': i }}><em>{k}</em><b><Glide n={n} /></b></span>)}</div>
+    </div>
+    {ev.length ? <ol className="fwi-feed" data-testid="family-feed">{ev.slice(0, 12).map((e, i) => <li key={`${e.kind}-${e.id}-${e.at}`} className={`k-${e.kind} ${now - e.at < 3600 ? 'is-fresh' : ''}`} style={{ '--i': i, '--bc': EV_COLOR[e.kind] || '#45e486' }}>
+      <span className="fwi-crest">{crest[e.fam] ? <FamilyBadge b={{ ...crest[e.fam], tag: e.fam }} size="sm" px={26} /> : <i>{EV_ICON[e.kind] || '•'}</i>}</span>
+      <b>[{e.fam}]</b><span className="fwi-txt"><u>{EV_ICON[e.kind] || '•'}</u>{e.text}</span><small>{evAgo(e.at)}</small></li>)}</ol>
       : <p className="crw-empty">{d ? 'Quiet this week — found a family, post a bounty, pin a launch.' : 'Reading the families…'}</p>}
   </section>;
 }
@@ -254,11 +271,13 @@ export function Crews({ onScene }) {
       {board && !rows.length && <p className="crw-hint m-dim">No families yet. Start one, fill your seats and trade — the board ranks verified results.</p>}
       <Podium rows={rows.filter(r => r.ranked).slice(0, 3)} />
       <ol>{rows.map((r, i) => <li key={r.id} className={r.ranked ? '' : 'is-off'} style={{ '--i': i }} data-testid={`crew-row-${r.tag}`}>
-        <b className="crw-rank">{r.ranked ? i + 1 : '·'}</b>{r.badge ? <FamilyBadge b={r.badge} size="sm" /> : <span className="crw-tagc">{r.tag}</span>}<span className="crw-rname">{r.name}{r.launch ? <i> 🚀 ${r.launch}</i> : null}</span>
+        <b className={`crw-rank ${r.ranked && i < 3 ? `fcc-rank is-p${i + 1}` : ''}`}>{r.ranked ? i + 1 : '·'}</b>{r.badge ? <FamilyBadge b={r.badge} size="sm" px={32} /> : <span className="crw-tagc">{r.tag}</span>}<span className="crw-rname">{r.name}{r.launch ? <i> 🚀 ${r.launch}</i> : null}</span>
         <small>{r.members}/{r.seats} seats · {r.active} active</small><em className={`m-num ${r.pct == null ? '' : r.pct >= 0 ? 'm-pos' : 'm-neg'}`} key={r.pct}>{pctTxt(r.pct)}</em><small className="crw-note">{rankNote(r)}</small>
         <span className="crw-bar" aria-hidden="true"><i style={{ transform: `scaleX(${Math.max(0.02, Math.min(1, Math.abs(Number(r.pct) || 0) / 50))})` }} className={r.pct >= 0 ? 'up' : 'dn'} /></span></li>)}</ol>
       <small className="m-dim crw-rule">{board?.rule}</small>
     </div>
+    <details className="crw-room crw-boardroom" open><summary data-tip="One room for every family on the board — trash talk, call-outs, congrats">💬 The board room <small>every family, one table</small></summary>
+      <Suspense fallback={<small className="m-dim">Opening the room…</small>}><div className="crw-chat"><EcosystemChat compact room="familia-board" ecosystem={{ id: 'familia-board', name: 'Familia · The board room' }} /></div></Suspense></details>
   </>;
   // 🏙 the Familia tabs as places IN the city (owner, 2026-10-22: "80 % of these tabs in the cities, easy to find, with a pop-out"): the city's
   // directory opens these rooms over the map — your Family HQ (vitals + tools), the War Room, the Podium, the Wire
@@ -268,7 +287,7 @@ export function Crews({ onScene }) {
   const rooms = {
     family: ctx => (mine ? <FamilyHQ mine={mine} world={ctx.v} act={ctx.act} busy={ctx.busy} onEnter={ctx.onEnter} onFly={ctx.fly} tools={hqTools} /> : joinNode),
     wars: <><WarStrip />{mine ? <div className="crw-mine m-card"><WarRoom mine={mine} owner={owner} rows={rows} busy={busy} act={warAct} /></div> : <PublicWars />}</>,
-    board: boardNode, feed: <FamilyPulse />,
+    board: boardNode, feed: <FamilyPulse rows={rows} />,
   };
   return <section className="crw crw-noir" data-testid="crews">
     {famTab === 'family' ? <MobScene heat={(mine?.vitals?.heat ?? 30) / 100} sign={mine ? mine.tag : 'FAMIGLIA'} /> : null}   {/* the family's own street sign; every other tab's scene is the page backdrop */}
@@ -287,7 +306,7 @@ export function Crews({ onScene }) {
     {famTab === 'board' && <>
     {boardNode}
     </>}
-    {famTab === 'feed' && <FamilyPulse />}
+    {famTab === 'feed' && <FamilyPulse rows={rows} />}
     {file && mine ? <MemberFile m={file} mine={mine} onClose={() => setFile(null)} /> : null}
   </section>;
 }
