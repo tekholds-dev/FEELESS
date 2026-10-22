@@ -53,8 +53,8 @@ function Meter({ label, value, fill, tone, tip, i }) {
 const trade = p => openWarRoom(p);
 
 // 📡 PUMP RADAR — the Pump board as a drawn scope (blips = coins, #1 nearest the centre, size = heat) + the ranked list with one-tap trade
-function PumpRadar() {
-  const { data, loading } = useMarket('/feed?kind=trending&chain=solana&page=1&scope=pump', 15000);
+function PumpRadar({ scope = 'pump' }) {
+  const { data, loading } = useMarket(`/feed?kind=trending&chain=solana&page=1&scope=${scope}`, 15000);
   const coins = (data?.pairs || []).filter(p => p.chainId === 'solana' && p.baseToken?.address).slice(0, 12);
   const v = pumpVitals(coins);
   return <div className="av-radar" data-testid="av-pumpradar">
@@ -199,6 +199,12 @@ const BODY = {
   feecat: () => <CatTower />, gas: () => <GetGas />, sleep: () => <NightVault />,
   feedx: () => <><div className="av-tools"><button type="button" className="m-btn" onClick={() => window.dispatchEvent(new Event('feeless:feed-pop'))} data-tip="Float FEEd over any page — keep reading while you trade" data-testid="av-feed-pop">⤢ Pop out FEEd</button></div><FeedPanel /></>,
 };
+
+// 🏛 an outer city's CITY HALL room: its own launchpad board as a live radar (Pump · LaunchLab · LetsBONK), or the court for Cartel Docks
+export function HallRoom({ city }) {
+  const scope = { harbor: 'pump', heights: 'raydium', bay: 'bonk' }[city];
+  return <div className="av-room" data-testid={`hall-${city}`}>{scope ? <PumpRadar scope={scope} /> : <Courthouse />}</div>;
+}
 
 // one Avenue room: the tool itself + its full page
 export function AvenueRoom({ lens }) {

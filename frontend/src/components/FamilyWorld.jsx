@@ -3,14 +3,14 @@ import { toast } from 'sonner';
 import { apiUrl } from '../lib/api';
 import { FeeCity3D, PlacesMenu, useMarkets } from './FeeCity3D';
 import { PoolHub, PoolRow, usePools } from './PoolHub';
-import { PLACES, usd } from '../lib/cityPlan';
+import { PLACES, HALLS, usd } from '../lib/cityPlan';
 import { openWarRoom } from './WarRoomHost';
 import { FamilyHQ } from './FamilyHQ';
 import { CityRail, RankBadge, RankLadder } from './FamiliaHud';
 import StreetChat from './StreetChat';
 import { FamilyFuseBoard } from './FamilyFuseBoard';
 import { RaidStage } from './RaidStage';
-import { AvenueRoom, AVENUE_LENSES } from './CityAvenue';
+import { AvenueRoom, AVENUE_LENSES, HallRoom } from './CityAvenue';
 import { CityActions, PowerSkyline, SeasonHud, TheWire } from './MobHome';
 import { FamiliaOverwatch } from './command/FamiliaOverwatch';
 import { Realtor } from './Realtor';
@@ -107,7 +107,7 @@ export const fundPct = h => Math.max(0, Math.min(1, (Number(h) || 0) / (24 * 14)
 export function FundMeter({ x, me, act, busy, upkeep }) {
   const shut = x.state === 'shut'; const day = 24 * upkeep;
   return <div className={`fwd-fund ${shut ? 'is-shut' : ''}`} data-testid="blk-fund">
-    <span><em>{shut ? '⏻ SHUT' : '💡 ACTIVE'}</em><b>{shut ? 'dark — fund it to light it' : `${x.fundH ?? 0}h funded`}</b></span>
+    <span><em>{shut ? '🏗 UNDER CONSTRUCTION' : '💡 ACTIVE'}</em><b>{shut ? 'funds pulled — fund it to reopen' : `${x.fundH ?? 0}h funded`}</b></span>
     <u aria-hidden="true"><s style={{ transform: `scaleX(${Math.max(0.02, fundPct(x.fundH))})` }} /></u>
     <div className="fwd-acts"><button type="button" className="m-btn m-go" disabled={busy || (me?.pts ?? 0) < day} onClick={() => act({ act: 'fund', block: x.id, mp: day, source: 'own' }, `${x.id} funded for a day`)}
       data-tip={`+24h from YOUR points (${day} MP; you have ${Math.round(me?.pts || 0)})`} data-testid="blk-fund-own">+24h · {day} MP mine</button>
@@ -196,7 +196,8 @@ export function FamilyTab({ mine, addr, sess, tools, onEnter, onLeave, onSignIn 
 
 // 🚪 inside a place: its room pops out OVER the city (the street stays live behind it) — Esc or ✕ walks back out
 const EXTRA_PLACES = { overwatch: { key: 'overwatch', name: '👑 OVERWATCH', sub: 'creator only · every family', color: '#ff8fa3' },
-  realtor: { key: 'realtor', name: '🏷 THE REALTOR', sub: 'every plot for sale · by tier', color: '#45e4c8' } };
+  realtor: { key: 'realtor', name: '🏷 THE REALTOR', sub: 'every plot for sale · by tier', color: '#45e4c8' },
+  ...Object.fromEntries(Object.entries(HALLS).map(([k, h]) => [`hall-${k}`, { key: `hall-${k}`, name: `🏛 ${h.name}`, sub: h.sub, color: h.color, tool: true }])) };
 // 📺 RENT A BILLBOARD: your coin + a line on Fee City's two billboards for 24 h (the family bank pays; Don / Underboss), every ad rotates
 function BillboardBox({ v, me, act, busy }) {
   const [text, setText] = useState(''); const [mint, setMint] = useState(''); const cost = v.rules?.billboardMp || 5000; const ads = v.boards || [];
@@ -287,6 +288,7 @@ export function FamilyWorld({ addr, sess, onEnter, onJoin, onSignIn, rooms = {} 
     family: typeof rooms.family === 'function' ? rooms.family({ v, act, busy, onEnter, fly: id => { const b = (v.blocks || []).find(x => x.id === id); if (!b) return; const c = (v.cities || []).find(x => x.boroughs.includes(b.b)); setLensRaw(null); if (c) setCity(c.key); setSelRaw(b); } }) : rooms.family || null,
     wars: rooms.wars || null, board: rooms.board || null, feed: rooms.feed || null,
     ...Object.fromEntries(AVENUE_LENSES.map(k => [k, <AvenueRoom lens={k} />])),
+    ...Object.fromEntries(Object.keys(HALLS).map(k => [`hall-${k}`, <HallRoom city={k} />])),
     shop: me ? <div className="fwd-shop"><BillboardBox v={v} me={me} act={act} busy={busy} /><ul>{me.rewards.map(r => <li key={r.key}><b>{r.name}</b><small>{r.what}</small>
       <button type="button" className="m-btn" disabled={busy || r.cost > me.bank} onClick={() => act({ act: 'reward', kind: r.key }, r.name)} data-testid={`rw-${r.key}`}>{mp(r.cost)} MP</button></li>)}</ul>
       <div className="fwd-redeem m-card" data-testid="redeem"><b>🐱 Redeem MP → FEECAT</b><p>{mp(v.rate?.mp)} MP = {mp(v.rate?.feecat)} FEECAT. The Don files the claim; the owner pays it by hand. You have {mp(me.bank)} MP ({Math.min(100, Math.round((me.bank / (v.rate?.mp || 1)) * 100))} % of one).</p>

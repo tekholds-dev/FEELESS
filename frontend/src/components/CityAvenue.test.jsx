@@ -1,7 +1,7 @@
 import React from 'react';
 import { createRoot } from 'react-dom/client';
 import { act } from 'react';
-import { AvenueRoom, AVENUE_LENSES, pumpVitals, heatOf, blipOf, bankRows } from './CityAvenue';
+import { AvenueRoom, AVENUE_LENSES, HallRoom, pumpVitals, heatOf, blipOf, bankRows } from './CityAvenue';
 
 const pair = (sym, m5, extra = {}) => ({ chainId: 'solana', pairAddress: `P-${sym}`, baseToken: { address: `M-${sym}xx`, symbol: sym }, priceChange: { m5 }, volume: { h1: 1000 }, marketCap: 2e5, ...extra });
 const PUMP = { pairs: [pair('AAA', 12), pair('BBB', -6), pair('CCC', 40)] };
@@ -84,5 +84,16 @@ test('📉 the Perps Desk lists live markets with funding + leverage math and ro
   const t = q('av-perps').textContent; expect(t).toContain('SOL'); expect(t).toContain('10.0% move');   // 10× default → a 10 % move liquidates
   const links = [...q('av-perps').querySelectorAll('a')].map(a => a.getAttribute('href'));
   expect(links).toEqual(['https://jup.ag/perps/sol', 'https://app.drift.trade/SOL-PERP', 'https://app.hyperliquid.xyz/trade/SOL']);
+  act(() => root.unmount());
+});
+
+test('🏛 each outer city hall runs its own platform board: Bonk Bay reads LetsBONK, the docks open the court', async () => {
+  global.fetch = jest.fn(() => Promise.resolve({ ok: true, status: 200, headers: { get: () => null }, json: () => Promise.resolve({ pairs: [], totals: {}, caught: [] }), text: () => Promise.resolve('') }));
+  const el = document.createElement('div'); document.body.appendChild(el); const root = createRoot(el);
+  await act(async () => { root.render(<HallRoom city="bay" />); });
+  await act(async () => { await new Promise(r => setTimeout(r, 20)); });
+  expect(global.fetch.mock.calls.some(c => String(c[0]).includes('scope=bonk'))).toBe(true);
+  await act(async () => { root.render(<HallRoom city="docks" />); });
+  expect(q('av-court')).not.toBeNull();
   act(() => root.unmount());
 });

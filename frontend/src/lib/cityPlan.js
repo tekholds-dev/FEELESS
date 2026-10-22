@@ -69,6 +69,13 @@ export const DISTRICTS = {
   harbor: { name: 'HARBOR POOLS', sub: 'v2 · constant product', color: '#ff9f45' }, heights: { name: 'HEIGHTS LIQUIDITY', sub: 'v3 · concentrated', color: '#6ad7ff' },
   bay: { name: 'BAY BINS + STAKES', sub: 'DLMM · liquid staking', color: '#ffd36b' }, docks: { name: 'THE LAUNDROMAT', sub: 'vaults · lending · RWA', color: '#3ddc84' },
 };
+// 🏛 each outer city's CITY HALL — that platform's live tools in a click (a radar of its own launchpad board, or the Rep court for the docks)
+export const HALLS = {
+  harbor: { name: 'PUMP HALL', sub: 'Pump.fun live · one-tap trade', art: 'radar', color: '#45e486', scope: 'pump' },
+  heights: { name: 'RAYDIUM HALL', sub: 'LaunchLab live · one-tap trade', art: 'radar', color: '#6ad7ff', scope: 'raydium' },
+  bay: { name: 'BONK HALL', sub: 'LetsBONK live · one-tap trade', art: 'radar', color: '#ffd36b', scope: 'bonk' },
+  docks: { name: 'DOCKS COURT', sub: 'the cartels caught this week', art: 'court', color: '#3ddc84', scope: null },
+};
 export const POOL_KIND = { v2: 'V2 · AMM', v3: 'V3 · CLMM', dlmm: 'DLMM', vault: 'AUTO-COMPOUND VAULT', lend: 'LENDING', stake: 'LIQUID STAKING', perps: 'PERPS', rwa: 'RWA' };
 
 // pure: compact $ (TVL / volume / caps)
@@ -196,13 +203,21 @@ export function outerPlan(v, cityKey, pools = null) {
     for (let k = 0; k < 8; k += 1) { const rect = rectOf(d.gx, d.gz, [k % 4, Math.floor(k / 4)], MCELL); if (rows[k]) markets.push(poolMarket(rows[k], rect, d.key)); else spare.push({ key: `spare-${d.key}-${k}`, island: d.key, rect }); }
     bridges.push({ key: `b-${d.key}`, axis: 'x', z: lineZ(east, 2), a: east.x + east.w, b: d.x, name: `${ds.name} Bridge` });
   }
+  // 🏛 the City Hall stands on its own islet west of the city, over a bridge — the gate home to Fee City moves past it
+  const west = isl.reduce((m, i) => (i.x < m.x ? i : m), isl[0]); const places = [];
+  const hd = HALLS[cityKey]; let gateFrom = west;
+  if (hd) {
+    const hs = spanOf(1, MCELL); const hall = island(`hall-${cityKey}`, west.x - GAP - LAND - hs, lineZ(west, 2) - 0.5, 1, 1, MCELL, { name: hd.name, sub: hd.sub, color: hd.color });
+    isl.push(hall); bridges.push({ key: `b-hall-${cityKey}`, axis: 'x', z: lineZ(west, 2), a: hall.x + hall.w, b: west.x, name: `${hd.name} Bridge` });
+    places.push({ key: `hall-${cityKey}`, lens: `hall-${cityKey}`, name: hd.name, sub: hd.sub, art: hd.art, color: hd.color, tool: true, isl: hall.key, pick: { place: `hall-${cityKey}` }, rect: rectOf(hall.gx, hall.gz, [0, 0], MCELL) });
+    gateFrom = hall;
+  }
   const roads = isl.map(i => roadsOf(i));
-  const west = isl.reduce((m, i) => (i.x < m.x ? i : m), isl[0]);
   const fee = (v?.cities || []).find(c => c.key === 'fee');
-  const gates = fee ? [{ key: 'fee', axis: 'x', z: lineZ(west, 2), a: west.x - GAP, b: west.x, at: 'w', name: 'FEE CITY', held: `${fee.held}/${fee.plots} held` }] : [];
+  const gates = fee ? [{ key: 'fee', axis: 'x', z: lineZ(west, 2), a: gateFrom.x - GAP, b: gateFrom.x, at: 'w', name: 'FEE CITY', held: `${fee.held}/${fee.plots} held` }] : [];
   const lights = roads.flatMap(r => r.nodes.filter(n => !n.edge).slice(0, 2));
   const b = boundsOf(isl);
-  return { kind: 'outer', key: cityKey, name: city.name, islands: isl, lots, marks: [], plaza: null, markets, places: [], spare, roads, bridges, gates, lights, loops: isl.map(ringOf),
+  return { kind: 'outer', key: cityKey, name: city.name, islands: isl, lots, marks: [], plaza: null, markets, places, spare, roads, bridges, gates, lights, loops: isl.map(ringOf),
     bounds: { ...b, x0: b.x0 - GAP }, center: { x: (b.x0 + b.x1) / 2, z: (b.z0 + b.z1) / 2 } };
 }
 

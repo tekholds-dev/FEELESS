@@ -308,13 +308,19 @@ export function createCity(host, { onPick, onHover, onAnchors, lite = false, sti
       o.position.set(c.x, 0.14, c.z); o.rotation.y = (l.seed % 4) * (Math.PI / 2); content.add(o);
       const shut = l.state === 'shut';   // 💡 an unfunded turf block goes dark: windows off, the walls dimmed, a grey frame, "SHUT" on its sign
       if (shut) o.traverse(n => { if (n.isMesh) { n.material = n.material.clone(); n.material.color.multiplyScalar(0.42); n.material.emissiveIntensity = 0.02; } });
+      if (shut) {   // 🏗 UNDER CONSTRUCTION (owner, 2026-10-22: "if they pull all funds the building goes in construction"): scaffolding + a crane whose arm swings slowly
+        const hh = sizeOf(o).y; const sc = new THREE.Mesh(new THREE.BoxGeometry(fw + 0.25, hh + 0.2, Math.min(FOOT.lot, l.rect.d - 0.6) + 0.25), new THREE.MeshBasicMaterial({ color: '#ffb35a', wireframe: true, transparent: true, opacity: 0.55 }));
+        sc.position.set(c.x, 0.14 + (hh + 0.2) / 2, c.z); content.add(sc);
+        const mx = c.x + l.rect.w / 2 - 0.4; const mz = c.z - l.rect.d / 2 + 0.4; box(0.1, hh + 1.6, 0.1, '#e8b23a', mx, (hh + 1.6) / 2 + 0.14, mz, content);
+        const arm = new THREE.Group(); arm.position.set(mx, hh + 1.7, mz); content.add(arm); box(2.2, 0.08, 0.08, '#e8b23a', -0.9, 0, 0, arm);
+        anim.push(t => { arm.rotation.y = Math.sin(t * 0.35) * 0.9; }); }
       const h = sizeOf(o).y; const col = shut ? '#6b6f78' : l.link ? MKT[l.link.kind] || KIND[l.kind] : KIND[l.kind] || KIND.family; frame(l.rect, col);
       if (l.launch?.symbol) {   // 🚀 the family's pinned launch: a neon spire beside its home with the ticker on top
         const sp = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.16, h + 1.6, 8), neon('#ff9f45', 1.4)); sp.position.set(c.x + l.rect.w / 2 - 0.45, (h + 1.6) / 2 + 0.14, c.z - l.rect.d / 2 + 0.45); content.add(sp);
         const ls = sign([`LAUNCH $${String(l.launch.symbol).slice(0, 10)}`], { color: '#ff9f45', w: 300 }); ls.position.set(sp.position.x, h + 2.2, sp.position.z); ls.scale.multiplyScalar(0.6); content.add(ls);
         anim.push(t => { sp.scale.x = sp.scale.z = 1 + 0.06 * Math.sin(t * 1.4); }); }
       if (l.kind === 'mine' || l.link) edges(o, c, col);
-      const lines = shut ? [`[${l.tag}] · SHUT`] : l.link ? [`[${l.tag}] ${l.link.sym}`, `${l.link.proto} · APY ${apyTxt(l.link.apy)}`] : l.tag ? [`[${l.tag}]`] : [];
+      const lines = shut ? [`[${l.tag}] · UNDER CONSTRUCTION`, 'fund it to reopen'] : l.link ? [`[${l.tag}] ${l.link.sym}`, `${l.link.proto} · APY ${apyTxt(l.link.apy)}`] : l.tag ? [`[${l.tag}]`] : [];
       if (lines.length) { const s = sign(lines, { color: col, w: l.link ? 420 : 260, glow: l.kind === 'mine' || !!l.link }); s.position.set(c.x, h + 0.9, c.z); s.scale.multiplyScalar(l.link ? 0.85 : 0.7); s.userData.small = !l.link; content.add(s); }
       const roof = new THREE.Mesh(new THREE.SphereGeometry(0.12, 10, 8), neon(col, 3)); roof.position.set(c.x, h + 0.3, c.z); roof.visible = !shut; content.add(roof);
       if (l.link) anim.push(t => { roof.scale.setScalar(0.95 + 0.08 * Math.sin(t * 1.6)); });   // calm: a slow breath, never a flash

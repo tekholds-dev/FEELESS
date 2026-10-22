@@ -90,7 +90,7 @@ export function FeeCity3D({ v, sel, setSel, city, setCity, tour, overlay, onPlac
   const pickRef = useRef(null);
   pickRef.current = pk => {
     if (pk?.gate) { setSel(null); setCity(pk.gate); return; }
-    if (pk?.place) { const p = PLACES.find(x => x.key === pk.place); setSel(pk); if (p) onPlace?.(p.lens); return; }
+    if (pk?.place) { const p = PLACES.find(x => x.key === pk.place) || (plan?.places || []).find(x => x.key === pk.place); setSel(pk); if (p) onPlace?.(p.lens); return; }
     setSel(pk);
   };
   useEffect(() => {   // mount the engine once (WebGL only)

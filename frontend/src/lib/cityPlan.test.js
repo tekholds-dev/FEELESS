@@ -42,14 +42,14 @@ test('🗺 Fee City: the capital + four islands (three market + FEELESS AVENUE),
 
 test('🌉 an outer city: its boroughs as islands, a bridge between them, a gate home to Fee City; an unknown city has no plan', () => {
   const p = outerPlan(V, 'harbor');
-  expect(p.islands.map(i => i.key)).toEqual(['harbor', 'piers']); expect(p.lots).toHaveLength(2);
-  expect(p.bridges).toHaveLength(1); expect(p.gates[0]).toMatchObject({ key: 'fee', name: 'FEE CITY', at: 'w' });
+  expect(p.islands.map(i => i.key)).toEqual(['harbor', 'piers', 'hall-harbor']); expect(p.lots).toHaveLength(2);
+  expect(p.bridges).toHaveLength(2); expect(p.places).toEqual([expect.objectContaining({ key: 'hall-harbor', lens: 'hall-harbor', tool: true, name: 'PUMP HALL' })]); expect(p.gates[0]).toMatchObject({ key: 'fee', name: 'FEE CITY', at: 'w' });
   expect(outerPlan(V, 'mars')).toBeNull();
   // 🏦 with the Pool Hub: the city's own pool district — real pools as towers over a bridge
   const pools = { cities: { harbor: [{ id: 'P1', sym: 'SOL-USDC', kind: 'v2', proto: 'Raydium', tvl: 9e6, apy: 14, vol: 2e6 }, { id: 'P2', sym: 'MEW-SOL', kind: 'v2', proto: 'Raydium', tvl: 3e6, apy: 59 }] } };
   const q = outerPlan(V, 'harbor', pools);
-  expect(q.islands.map(i => i.key)).toEqual(['harbor', 'piers', 'mk-harbor']); expect(q.markets.map(m => [m.name, m.pool, m.apy])).toEqual([['SOL-USDC', true, 14], ['MEW-SOL', true, 59]]);
-  expect(q.spare).toHaveLength(6); expect(q.bridges).toHaveLength(2);
+  expect(q.islands.map(i => i.key)).toEqual(['harbor', 'piers', 'mk-harbor', 'hall-harbor']); expect(q.markets.map(m => [m.name, m.pool, m.apy])).toEqual([['SOL-USDC', true, 14], ['MEW-SOL', true, 59]]);
+  expect(q.spare).toHaveLength(6); expect(q.bridges).toHaveLength(3);
   const rects = [...q.lots, ...q.markets, ...q.spare].map(x => x.rect);
   for (let i = 0; i < rects.length; i += 1) for (let j = i + 1; j < rects.length; j += 1) expect(overlap(rects[i], rects[j])).toBe(false);
 });
