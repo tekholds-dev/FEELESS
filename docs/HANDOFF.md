@@ -1,3 +1,39 @@
+## 🔁 HANDOFF 2026-10-22 (overnight) — read first · conserve usage · finish everything by priority · never dead-style
+Owner: "while I sleep do all remaining tasks in handoff in full". Every item below is ✅ done (gate green, pushed, auto-pull restarted the
+backend — G4 stayed ONLINE) or ⬜ open with the reason.
+
+### ✅ DONE overnight
+- 🏦 In-city deposit: Jupiter Lend Earn rows on the Pool Hub get 🏦 Deposit here (deposit / withdraw). `lend_earn.py` + `POST /familia-pools/earn`:
+  Jupiter builds the unsigned tx, the server opens it and refuses it unless you pay + sign alone and only Jupiter Lend + Solana's own programs
+  run (program ids from developers.jup.ag/docs/lend/program-addresses), the client simulates first, the wallet signs. 30 builds/h/IP.
+  Not done: LP deposits (Raydium / Orca / Meteora / Kamino) need their TS SDKs — a bundle-size + safety call for the owner.
+- 🏙 Familia: Wars = fight-night posters (drawn arena, crests across a lit VS, a rope tug-of-war in both colours, winner laurel, sparks) · Board =
+  metal rank plates + bigger crests + THE BOARD ROOM chat · Live = THE WIRE (radar of the week's events, gliding counters, teletype with crests) ·
+  Family Fuse: any member calls / answers PAPER (MP stays the Don's), Fuse ratings (Elo) + brackets Street → Made → Capo → Don, ranked ≤ 1 bracket
+  apart, a chat per fight, the Fuse ladder · turf ACTIVE / SHUT by an MP fund (upkeepMp 10/h, grace day, any member funds from own points, the
+  Don from the bank; shut = dark building) · Cartel Docks shows its 6 strongest cartels · a family's pinned launch = a neon spire on its home ·
+  defenders get a siren bar over the city (one-tap Defend) · 2 families per wallet (crews.by = active, crews.also, /crews/switch, header switcher;
+  HQ line familiesPerWallet is now LIVE).
+- 🛡 Security: `defence.py` — decoy paths block a fingerprint (24h doubling), a scanner TOOL from 3+ IPs becomes a rule (never a browser string),
+  scrapers + replayed HQ signatures are tarpitted, every incident has a plain abuse report; never attacks back. `store_caps.py` — every data store
+  classed + capped (money kept whole; 50 stale snapshots ≈ 12.6 MB and logos/ 151 MB flagged — the owner decides). Approvals check + Revoke for
+  any wallet (quick profile + HQ). HQ › Security shows it all.
+- 🎨 Chat themes: 13 drawn trading-native backgrounds + one ChatThemePicker of live mini rooms (rooms, the Brain + each model chat, the inbox).
+- 🧹 Code health: dead FILES (relative, @/ alias, lazy, require; backend modules + script targets) + 🗑 Queue removal → the build queue → a
+  gated commit. Tonight's scan: nothing truly dead (agents.py = kept legacy alias, rpf.py = a scored feature not wired yet).
+- 🛡 Rep page: the trust radar (real creators), gliding vitals + trust mix, record bars + score rings on the board, centred (was left-boxed).
+- 🟢 Profile: online status (Online · Away · Invisible; memory-only presence; dots on profiles + inbox threads).
+- Dev previews (dev builds only): /dev/crest · /dev/pools · /dev/familia?tab=wars|board|feed|fuse · /dev/city · /dev/security · /dev/themes.
+
+### ⬜ STILL OPEN (owner's order)
+1. 📄 Page redos not reached tonight: FEEd (dev/null × X twist, pop-out, live vitals) · Launch click-through pages · Trade › Gas (SmolRefuel) ·
+   FeeCat lore + other tabs (+ trading cat × AI agent pairing, merge Create / Launch a Cat) · roadmap / whitepaper as a real 3D view · MOB tab.
+2. 🏙 Familia: MOBhouse styles · ALL of FEE as city mechanics ($FEE, FeeCat, Fuse, Launch, Fee-Back) · the 4 outer cities' real-money markets +
+   "top coins HELD" as buildings · a true launch registry (coins launched through FEELESS, verified on-chain — today the spire = a family's pin).
+3. 💵 Needs the OWNER's custody decision first: real-money family wallets ($25 = $5 FEE + $20), $1K top-pot Family Fuse, REAL-MONEY CATS
+   (docs/REAL_CATS.md). Nothing was built on these.
+4. 🐆 Agents rebuild — run `scripts/edge-audit.py` + the real ledger first and lead with the numbers (memory: big-picture-before-features).
+
 ## 🔁 HANDOFF 2026-10-22 (crest round) — read first · conserve usage · finish everything by priority · never dead-style
 Owner's order: the open list below, top first. Every item is ✅ done or ⬜ open.
 
