@@ -71,6 +71,31 @@ export function chartPaths(points, days = 30) {
   const tvl = ps.map(p => `${x(p.t).toFixed(1)},${y(p.tvl, tMin * 0.98, tMax).toFixed(1)}`); const apy = ps.map(p => `${x(p.t).toFixed(1)},${y(p.apy, aMin * 0.95, aMax).toFixed(1)}`);
   return { area: `M0,160 L${tvl.join(' L')} L600,160 Z`, tvl: `M${tvl.join(' L')}`, apy: `M${apy.join(' L')}`, first: ps[0], last: ps[ps.length - 1], n: ps.length };
 }
+// 🎯 RANGE TUNER (owner, 2026-10-22: "if a user wants to tweak the v3 pool for better gains it should show TRUE data and impermanent loss").
+// Exact concentrated-liquidity math, start price 1, range [1/k, k]: value of the LP vs simply HOLDING the two coins after the price moves ×m.
+// ilV2 = the classic full-range pool. rangeFactor = how much more liquidity each $ provides in that range (= more fees per $, ONLY while in range).
+export const ilV2 = m => 2 * Math.sqrt(m) / (1 + m) - 1;
+export function ilRange(m, k) {
+  const pa = 1 / k, pb = k, sp = Math.sqrt;
+  const x0 = 1 - 1 / sp(pb), y0 = 1 - sp(pa);   // L = 1 at price 1
+  const v = m <= pa ? (1 / sp(pa) - 1 / sp(pb)) * m : m >= pb ? sp(pb) - sp(pa) : (1 / sp(m) - 1 / sp(pb)) * m + (sp(m) - sp(pa));
+  return v / (x0 * m + y0) - 1;
+}
+export const rangeFactor = k => 1 / (1 - 1 / Math.sqrt(k));
+export const MOVES = [0.5, 0.75, 0.9, 1.1, 1.25, 1.5];
+function RangeTuner() {
+  const [w, setW] = useState(25); const k = 1 + w / 100;
+  return <div className="phb-range" data-testid="range-tuner">
+    <header><b>🎯 RANGE TUNER</b><small>v3 / DLMM · exact math · vs just holding</small></header>
+    <label className="phb-earn-in"><span>Range ±</span><input type="range" min="2" max="100" step="1" value={w} onChange={e => setW(Number(e.target.value))} aria-label="Range width" data-testid="range-w" /><b>{w}%</b></label>
+    <p className="phb-range-f" data-tip="Liquidity per $ vs a full-range (v2) pool — that many times the fees while the price stays inside your range, zero outside it"><b key={w}>×{rangeFactor(k).toFixed(1)}</b> fees per $ while in range · out of range below {(100 / k).toFixed(0)}% / above {(100 * k).toFixed(0)}% of today's price</p>
+    <table className="phb-range-t"><thead><tr><th>price</th>{MOVES.map(m => <th key={m}>{m >= 1 ? '+' : ''}{Math.round((m - 1) * 100)}%</th>)}</tr></thead>
+      <tbody><tr><td>this range</td>{MOVES.map(m => { const il = ilRange(m, k) * 100; const out = m <= 1 / k || m >= k; return <td key={m} className={`${il < -5 ? 'bad' : ''} ${out ? 'out' : ''}`}>{il.toFixed(1)}%{out ? ' ⛔' : ''}</td>; })}</tr>
+        <tr><td>v2 pool</td>{MOVES.map(m => <td key={m}>{(ilV2(m) * 100).toFixed(1)}%</td>)}</tr></tbody></table>
+    <small className="phb-warn">Narrow = more fees while in range, but a bigger loss vs holding when the price runs, and nothing earned once it leaves (⛔ = out of range).</small>
+  </div>;
+}
+
 function PoolDetail({ r }) {
   const [d, setD] = useState(null); const [days, setDays] = useState(30); const [amt, setAmt] = useState(1000);
   useEffect(() => { let on = true; sharedJson(`/api/reputation/familia-pools/chart/${r.id}`, { maxAge: 600000 }).then(x => on && setD(x || { points: [] })).catch(() => on && setD({ points: [] })); return () => { on = false; }; }, [r.id]);
@@ -95,6 +120,7 @@ function PoolDetail({ r }) {
         {r.il ? <small className="phb-warn">⚠ impermanent-loss risk: a two-token pool can lose value vs holding when prices move apart.</small> : null}</>
         : <p className="phb-nochart">This DEX pool publishes no APY — its 24h volume is {usd(r.vol || 0)} ({Math.round(((r.vol || 0) / Math.max(1, r.tvl || 1)) * 100)}% of its size). Fees go to LPs in the pool's own coins.</p>}
     </div>
+    {['v3', 'dlmm'].includes(r.kind) || r.il ? <RangeTuner /> : null}
   </div>;
 }
 

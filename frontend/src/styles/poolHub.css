@@ -31,6 +31,16 @@
 @keyframes phbIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
 @keyframes phbNum { from { opacity: .4; transform: translateY(3px); } to { opacity: 1; transform: none; } }
 @keyframes phbBar { from { transform: scaleY(.35); } to { transform: scaleY(1); } }
+.phb-range { grid-column: 1 / -1; display: grid; gap: 8px; padding: 12px; border-radius: 14px; border: 1px solid #6ad7ff33; background: linear-gradient(160deg, #08141a, #060a0c); }
+.phb-range header { display: flex; justify-content: space-between; align-items: baseline; } .phb-range header b { font: 800 11px 'JetBrains Mono', monospace; letter-spacing: .12em; color: #6ad7ff; }
+.phb-range header small { font: 600 10px 'JetBrains Mono', monospace; color: #7d8a90; }
+.phb-range-f { margin: 0; font: 500 11.5px Inter, system-ui, sans-serif; color: #b9c8cf; } .phb-range-f b { font: 800 20px 'JetBrains Mono', monospace; color: #6ad7ff; margin-right: 6px; display: inline-block; animation: phbPop .3s ease-out; }
+.phb-range-t { width: 100%; border-collapse: collapse; font: 700 11px 'JetBrains Mono', monospace; }
+.phb-range-t th, .phb-range-t td { padding: 5px 4px; text-align: right; border-bottom: 1px solid #ffffff0d; color: #c9d4d8; } .phb-range-t th:first-child, .phb-range-t td:first-child { text-align: left; color: #7d8a90; }
+.phb-range-t td.bad { color: #ff8fa3; } .phb-range-t td.out { background: #ff5d7314; }
+body.theme-day .phb-range { background: #f2f9fc; border-color: #1a6a8a33; } body.theme-day .phb-range-t th, body.theme-day .phb-range-t td { color: #1d2b31; } body.theme-day .phb-range-f { color: #2d3d44; }
+@media (prefers-reduced-motion: reduce) { .phb-range-f b { animation: none; } }
+@media (max-width: 640px) { .phb-range-t { font-size: 10px; } .phb-range-t th, .phb-range-t td { padding: 4px 2px; } }
 body.fx-lite .phb-row, body.fx-lite .phb-big b, body.fx-lite .phb-load i { animation: none; }
 @media (prefers-reduced-motion: reduce) { .phb-row, .phb-big b, .phb-load i { animation: none; } .phb-row { transition: none; } }
 body.theme-day .phb-row { background: linear-gradient(100deg, color-mix(in srgb, var(--kc) 12%, #ffffff) 0%, #f8fafc 60%); border-color: #0000001a; }
