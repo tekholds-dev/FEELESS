@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import { apiUrl } from '../lib/api';
 import { FamilyCity3D } from './FamilyCity3D';
+import { CityChat, CityRail, RankBadge, RankLadder } from './FamiliaHud';
 import '../styles/familyWorld.css';
 
 // 🗺 THE FAMILIA WORLD (owner, 2026-10-21: "huge like a Sims build — bridges to other parts, seasons, buy blocks near rivals, CPU towns hard to
@@ -9,7 +10,7 @@ import '../styles/familyWorld.css';
 // playing cards for hitters and workers, points with real rewards"). Every number is the server's (family_world.py). Points only — the FEECAT
 // redeem is a claim the owner pays by hand.
 export const STORE_ICON = { pizza: '🍕', gas: '⛽', laundry: '🧺', pharma: '💊', mart: '🏪', lounge: '🍸', docks: '⚓', lab: '🧪', casino: '🎰', bank: '🏦', tower: '🏢', park: '🌳' };
-export const WORLD_LENSES = [['map', '🗺 City'], ['raids', '⚔ Raids'], ['jobs', '🧰 Errands'], ['rc', '🎖 Challenges'], ['deck', '🃏 Crew deck'], ['shop', '🎁 Rewards'], ['cartels', '🕳 Cartels']];
+export const WORLD_LENSES = [['map', '🗺 City'], ['ranked', '🎖 Ranked'], ['raids', '⚔ Raids'], ['jobs', '🧰 Errands'], ['rc', '🎖 Challenges'], ['deck', '🃏 Crew deck'], ['shop', '🎁 Rewards'], ['cartels', '🕳 Cartels']];
 const SUIT = { hitter: ['♠', 'Hitter'], guard: ['♣', 'Guard'], earner: ['♥', 'Earner'], spy: ['♦', 'Spy'] };
 const FACE = ['A', '2', '3', '4', '5', '6', '7', '8', '9', '10'];
 // pure: a recruit as a playing card — level 1 = Ace … 10 = 10; level 10 hitters are the Kings of the street
@@ -30,7 +31,16 @@ export function useWorld(addr, sess) {
   return [v, setV, load];
 }
 
+const MARK_GO = { arena: ['/terminal/fuse', '⚔ Build a Fuse card'], launch: ['/terminal/launch', '🚀 Launch a coin'], shield: ['/terminal/reputation', '🛡 Open Rug Shield'] };
+function MarkPanel({ k, v }) {
+  const m = (v.landmarks || []).find(l => l.key === k); const go = MARK_GO[k];
+  return <aside className={`fwd-side m-card t-lm k-${k}`} data-testid="mark-panel"><header><b>{m?.name || k}</b><small>FEE CITY · landmark</small></header><p>{m?.lore}</p>
+    {k === 'arena' ? <p className="fwd-rule">Family Fuse rules: cards with the same coin count or one apart (never 4 vs 6) · paper or MP · an MP battle needs {mp(v.rules?.fuseMinMp)} MP in the family bank.</p> : null}
+    {go ? <a className="m-btn m-go" href={go[0]} data-tip="Opens that part of FEELESS">{go[1]}</a> : null}</aside>;
+}
+
 function BlockPanel({ x, v, act, busy, onEnter }) {
+  if (x?.lm) return <MarkPanel k={x.lm} v={v} />;
   if (!x) return <aside className="fwd-side m-card"><b>Tap a block</b><p className="m-dim">Gold = yours · violet = families · red = CPU towns (hard) · green = cartels (bundlers, snipers, funders from FEELESS rep). You can raid where you hold a block or one bridge away.</p></aside>;
   const me = v.me; const tone = blockTone(x); const price = me?.prices?.[x.id];
   const cpu = (v.cpu || []).find(c => c.id === x.owner); const cart = (v.cartels || []).find(c => c.id === x.owner);
@@ -38,6 +48,7 @@ function BlockPanel({ x, v, act, busy, onEnter }) {
     <header><b>{x.owner ? `${x.icon || ''} [${x.tag}] ${x.name}` : `Block ${x.id}`}</b><small>{(v.boroughs || []).find(b => b.key === x.b)?.name}</small></header>
     {cpu ? <p>🤖 CPU town · level {cpu.level} · {cpu.guards} guards · stash {mp(cpu.stash)} MP — they never sleep and answer every move at once.</p> : null}
     {cart ? <p>{cart.icon} cartel of {mp(cart.members)} {cart.role} wallets · {mp(cart.hits)} flagged hits on {mp(cart.coins)} coins · {cart.active7d} active this week. Raids on a cartel pay ×1.5 (justice).</p> : null}
+    {tone === 'free' && !me ? <p>{x.b === 'fee' ? 'A premium Fee City plot: production ×2.5, contested from every bridge.' : 'Free turf.'} Join a family and sign in to buy it with MP.</p> : null}
     {tone === 'free' && me ? <><p>Free turf: +4 % production and +1 recruit seat. Turf is reach — raid in this borough and one bridge out.</p>
       <div className="fwd-acts"><button type="button" className="m-btn m-go" disabled={busy || price > me.bank} onClick={() => act({ act: 'buy', block: x.id }, 'Block bought')} data-testid="blk-buy">Buy · {mp(price)} MP</button>
         <button type="button" className="m-btn" disabled={busy} onClick={() => act({ act: 'move', block: x.id }, 'Family moved')} data-tip="Move your home block here (the gas station cuts the fee)" data-testid="blk-move">Move home · {mp(me.moveMp?.[x.b])} MP</button></div></> : null}
@@ -94,7 +105,9 @@ export function CrewDeck({ crew }) {
 }
 
 export function FamilyWorld({ addr, sess, onEnter }) {
-  const [v, setV] = useWorld(addr, sess); const [lens, setLens] = useState('map'); const [sel, setSel] = useState(null); const [busy, setBusy] = useState(false);
+  const [v, setV] = useWorld(addr, sess); const [lens, setLens] = useState('map'); const [sel, setSelRaw] = useState(null); const [busy, setBusy] = useState(false);
+  const [city, setCity] = useState('fee'); const [tour, setTour] = useState(false);
+  const setSel = x => setSelRaw(s => (x && s && ((x.id && s.id === x.id) || (x.lm && s.lm === x.lm)) ? null : x));   // tap the picked plot again = zoom back out
   const [crew, setCrew] = useState(null);
   useEffect(() => { if (!addr || !sess || lens !== 'deck') return; fetch(apiUrl(`/api/reputation/familia-city?address=${addr}&session=${encodeURIComponent(sess)}`)).then(r => (r.ok ? r.json() : null)).then(x => x && setCrew(x.crew || [])).catch(() => {}); }, [lens, addr, sess]);
   const act = async (body, ok) => {
@@ -107,14 +120,19 @@ export function FamilyWorld({ addr, sess, onEnter }) {
   const me = v.me; const live = (v.raids || []).filter(r => r.status === 'live').length;
   return <section className="fwd" data-testid="family-world">
     <header className="fwd-top">
-      <div><span className="m-label">🗺 THE CITY · {v.season?.name}</span><b>6 boroughs · {(v.blocks || []).filter(b => b.owner).length}/96 blocks held · {(v.cartels || []).length} cartels</b>
+      <div><span className="m-label">👑 FEE CITY + 4 CITIES · {v.season?.name}</span><b>{(v.blocks || []).filter(b => b.owner).length}/{(v.blocks || []).length} plots held · {(v.cartels || []).length} cartels · {(v.ranked || []).length} ranked families</b>
         {v.boom ? <small>🔥 today's boom: “{v.boom.word}” → {(v.boroughs || []).find(b => b.key === v.boom.borough)?.name} ×{v.boom.mult}</small> : null}</div>
-      {me ? <div className="fwd-me"><span><em>BANK</em><b key={me.bank}>{mp(me.bank)}</b></span><span><em>TURF</em><b>{me.turf.length}</b></span><span><em>YOUR PTS</em><b>{mp(me.pts)}</b></span>
+      {me ? <div className="fwd-me">{me.rank ? <RankBadge rank={me.rank} /> : null}<span><em>BANK</em><b key={me.bank}>{mp(me.bank)}</b></span><span><em>TURF</em><b>{me.turf.length}</b></span><span><em>YOUR PTS</em><b>{mp(me.pts)}</b></span>
         {me.fuse ? <span data-tip="The Fuse wallet's confirmed trades this week (fees apart)"><em>⚛ FUSE 7D</em><b className={me.fuse.realizedUsd >= 0 ? 'm-pos' : 'm-neg'}>{me.fuse.trades} · ${me.fuse.realizedUsd}</b></span> : null}
         {me.shield ? <span><em>🛡 TRUCE</em><b>{ago(me.shield)}</b></span> : null}{me.rush ? <span><em>⚡ RUSH</em><b>{ago(me.rush)}</b></span> : null}</div> : <small className="m-dim">Join a family to hold turf.</small>}
     </header>
     <nav className="fwd-lens" role="tablist">{WORLD_LENSES.map(([k, w]) => <button key={k} type="button" role="tab" aria-selected={lens === k} className={lens === k ? 'active' : ''} onClick={() => setLens(k)} data-testid={`wl-${k}`}>{w}{k === 'raids' && live ? <b>{live}</b> : null}</button>)}</nav>
-    {lens === 'map' && <div className="fwd-mapwrap"><FamilyCity3D v={v} sel={sel} setSel={setSel} /><BlockPanel x={sel} v={v} act={act} busy={busy} onEnter={onEnter} /></div>}
+    {lens === 'map' && <>{v.cities ? <CityRail cities={v.cities} city={city} onGo={k => { setSelRaw(null); setCity(k); }} /> : null}
+      <div className="fwd-mapwrap"><FamilyCity3D v={v} sel={sel} setSel={setSel} city={city} setCity={setCity}
+        tour={{ on: tour, ctl: <button type="button" className={tour ? 'active' : ''} onClick={() => setTour(t => !t)} aria-pressed={tour} data-tip="Show how Familia works, pinned on the city" data-testid="city-tour">❓ How it works</button> }} />
+        <div className="fwd-col"><BlockPanel x={sel} v={v} act={act} busy={busy} onEnter={onEnter} />
+          {v.cities ? <CityChat city={city} name={(v.cities.find(c => c.key === city) || {}).name || 'the city'} addr={addr} sess={sess} /> : null}</div></div></>}
+    {lens === 'ranked' && <RankLadder ranked={v.ranked} mine={me?.id} />}
     {lens === 'raids' && <div className="fwd-raids">{(v.raids || []).length ? v.raids.slice().reverse().map(r => <RaidBoard key={r.id} r={r} act={act} busy={busy} />)
       : <p className="m-dim">No raids. Pick a rival block on the 🗺 City — a CPU town if you're brave.</p>}
       <ol className="fwd-wlog">{(v.log || []).map((l, i) => <li key={i}>{l.what}</li>)}</ol></div>}

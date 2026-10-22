@@ -60,8 +60,8 @@ server — attach, never start a second). Push to `main`; the owner's Mac auto-p
 - The open list is `CLAUDE.md › 📋 CURRENT TASKS` (owner's order). Approved build ideas: `backend/data/build_queue.json`.
 - AI: G4 (desktop LAN) + OSSY (this Mac, gpt-oss-20b, 12 GB — the main reason this Mac swaps) take turns on one real seat; NEXA =
   the Windows i5 (llamafile, 1 slot): keep her chat prompt cached (re-warm after reads), answers ≤ 70 tokens, 20-min quiet after owner chat.
-- Familia: `family_city.py` (the block) + `family_world.py` (the map: 6 boroughs, bridges, CPU towns, cartels from the blocklist, chess
-  raids, errands, challenges, rewards, FEECAT redeem claim) — engine done + tested; its VISUAL city was rejected and must be redrawn.
+- Familia: `family_city.py` (the block) + `family_world.py` (the map: FEE CITY hub + 6 boroughs in 4 outer cities, rules, ranks, paid-hit math; bridges, CPU towns, cartels from the blocklist, chess
+  raids, errands, challenges, rewards, FEECAT redeem claim). UI: `FamilyWorld` → `FamilyCity3D` (camera) → `FeeCapital` / outer islands, `cityParts`, `FamiliaHud`; HQ `FamiliaAdmin`.
 - Edge audit: still no rule positive on unseen coins — say so before any real-money advice.
 
 ## 5 · How to work here (the owner's rules, short)

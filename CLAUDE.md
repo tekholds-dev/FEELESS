@@ -178,6 +178,14 @@ OPEN, owner's order (2026-10-21, second list — "do these after"):
 
 OPEN, owner's THIRD list (2026-10-21 evening) — TOP PRIORITY = FAMILIA design + mechanics, then senior code clean-up:
 A. 🏙 FAMILIA = a next-level Sim City / Godfather-PSP game (free play AND pay-to-play, fair for both). The city IS the landing page.
+   DONE 2026-10-21 (slice 1, points only): Fee City = the landing (`FeeCapital.jsx`: 24 premium plots ×2.5, drawn stadium = Fuse Arena,
+   The House, Creator's Mansion, Rug Shield HQ, Launch Pad, Fee Plaza, live billboards, traffic) + 4 outer cities (`cities` in
+   family_world: Pump Harbor, Raydium Heights, Bonk Bay, Cartel Docks), city rail + one street chat per city (`city-<key>` rooms, lines
+   carry `fam` tag), tap a plot → camera flies in + vitals card, ❓ How it works pins, 🎖 Ranked (rank_of: Street Rat → Kingpin I–III,
+   top 25 = Don of Fee City), HQ › Build › 🏙 Familia (live rules + planned $ prices + paid-hit calculator = `paid_hit_payout`),
+   `family_fuse_ok` (±1 coin, MP needs 2K). NEXT: Family Fuse battles in the stadium (wire to Fuse cards + bids), raids/hits played
+   in-city (no 2D cards), MOBhouse styles, building ACTIVE/SHUT by funds, MP-only buildings, launched coins as Fee City buildings,
+   then real-money family wallets after the custody pick.
    - FEE CITY (main, biggest, needs an epic name on screen): real bridges, land, atmosphere, the most expensive / profitable real-money
      plots, the creator family's HQ, FEELESS's biggest money-makers shown live as buildings, and a big real-looking STADIUM = FUSE ARENA.
      Plus 4 smaller cities, ONE chat box per city. Every plot / building: lore, hover, click → zoom to it with live vitals + P&L on top.

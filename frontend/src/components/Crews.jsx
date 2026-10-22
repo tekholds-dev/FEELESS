@@ -9,12 +9,10 @@ import { price as pxWord } from '../lib/num';
 import '../styles/crews.css';
 import { FamilyBadge, EMBLEM } from './FamilyBadge';
 import { WarRoom, WarStrip, PublicWars, useWars } from './FamilyWars';
-import { FamilyLanding } from './FamilyLanding';
-import { FamilyMap } from './FamilyMap';
 import { FamilyBlock } from './FamilyBlock';
 import { FamilyWorld } from './FamilyWorld';
 import { useRemembered } from '../lib/remember';
-import { Home, Crown, Swords, Map as MapIcon, Trophy, Radio } from 'lucide-react';
+import { Crown, Swords, Map as MapIcon, Trophy, Radio } from 'lucide-react';
 import '../styles/familyNoir.css';
 
 // 🛡 CREWS (Leaderboard › Crews · Season & ranks): $25 in SOL to the FEELESS fee wallet starts a crew with 5 seats including you; +5 seats cost $5. A crew
@@ -216,12 +214,10 @@ export function FamilyPulse() {
 }
 
 // 🌹 the MOB & Rewards › Familia tabs (owner, 2026-10-21: "a landing page, all unique tabs for it")
-export const FAM_TABS = [['home', 'Home', Home], ['family', 'My family', Crown], ['wars', 'Wars', Swords], ['map', 'The city', MapIcon], ['board', 'Board', Trophy], ['feed', 'Live', Radio]];
+export const FAM_TABS = [['home', 'Fee City', MapIcon], ['family', 'My family', Crown], ['wars', 'Wars', Swords], ['board', 'Board', Trophy], ['feed', 'Live', Radio]];   // 👑 the city IS the landing (owner, 2026-10-21)
 export function Crews() {
   const { wallet, provider } = useWallet() || {}; const addr = wallet?.address || ''; const sess = addr ? readChatSession(addr) : '';
   const board = useCrewBoard(); const warsD = useWars(); const [tab, setTab] = useRemembered('feeless.fam.tab', 'home'); const [file, setFile] = useState(null); const [block, setBlock] = useState(undefined);
-  const [live, setLive] = useState(null);
-  useEffect(() => { let on = true; const go = () => sharedJson('/api/reputation/crews/live', { maxAge: 15000 }).then(x => on && x && setLive(x)).catch(() => {}); go(); const t = setInterval(() => { if (!document.hidden) go(); }, 20000); return () => { on = false; clearInterval(t); }; }, []);
   const liveWars = (warsD?.wars || []).filter(w => w.state === 'live').length;
   const [mine, setMine] = useState(undefined); const [inv, setInv] = useState(null); const [busy, setBusy] = useState(''); const [q, setQ] = useState(null);
   const [name, setName] = useState(''); const [tag, setTag] = useState(''); const [code, setCode] = useState(() => { try { return new URLSearchParams(window.location.search).get('join') || ''; } catch { return ''; } });
@@ -252,13 +248,13 @@ export function Crews() {
     <nav className="fam-tabs" role="tablist" aria-label="La Familia">{FAM_TABS.map(([k, label, Icon]) => <button key={k} type="button" role="tab" aria-selected={famTab === k} className={famTab === k ? 'active' : ''}
       onClick={() => setTab(k)} data-testid={`fam-tab-${k}`}><Icon size={14} aria-hidden="true" /><span>{k === 'family' && mine ? mine.tag : label}</span>{k === 'wars' && liveWars ? <b>{liveWars}</b> : null}</button>)}</nav>
     <InviteInbox invites={inv?.invites} inFamily={!!mine} addr={addr} sess={sess} onDone={loadMine} />
-    {famTab === 'home' && <FamilyLanding board={board} live={live} wars={warsD} mine={mine} onGo={setTab} podium={
+    {famTab === 'home' && (block === undefined ? <><FamilyWorld addr={addr} sess={sess} onEnter={() => setBlock(null)} />
     <div className="crw-stage" data-testid="crew-podium">
       <header><span className="m-label">🌹 LA FAMILIA · FAMILY WARS THIS WEEK</span><small>{board ? `${board.total} famil${board.total === 1 ? 'y' : 'ies'} · verified trades only · live` : 'reading…'}</small></header>
       {top.length ? <div className="crw-podium">{[1, 0, 2].map(i => top[i] ? <div key={top[i].id} className={`crw-step ${['s1', 's2', 's3'][i]}`}><CrewCard3D r={top[i]} place={i + 1} /><span className="crw-plinth">{MEDAL[i]} +{PRIZES[i]} pts each</span></div> : null)}</div>
         : <p className="crw-hint m-dim">No families yet — be the first Don on the stage.</p>}
     </div>
-    } />}
+    </> : <FamilyBlock cid={block} addr={addr} sess={sess} onBack={() => setBlock(undefined)} />)}
     {famTab === 'family' && (mine ? <>
       <FamilyHero mine={mine} busy={busy} onLeave={() => { if (window.confirm(`Leave ${mine.name}?`)) act('/api/reputation/crews/leave', {}, 'Left the family'); }} />
       <div className="frm-room"><FamilyTable mine={mine} owner={owner} addr={addr} sess={sess} onChanged={c => c && setMine(c)} onOpen={setFile} /><FamilyWire mine={mine} /></div>
@@ -281,10 +277,6 @@ export function Crews() {
     </div>
     </>)}
     {famTab === 'wars' && <><WarStrip />{mine ? <div className="crw-mine m-card"><WarRoom mine={mine} owner={owner} rows={rows} busy={busy} act={warAct} /></div> : <PublicWars />}</>}
-    {famTab === 'map' && (block === undefined
-      ? <><FamilyWorld addr={addr} sess={sess} onEnter={() => setBlock(null)} />
-        <FamilyMap rows={rows} mineId={mine?.id} wars={warsD?.wars} onOpen={() => setTab('board')} onEnter={cid => { if (cid === null && (!mine || !sess)) { toast.error('Join a family to build your block.'); return; } setBlock(cid); }} /></>
-      : <FamilyBlock cid={block} addr={addr} sess={sess} onBack={() => setBlock(undefined)} />)}
     {famTab === 'board' && <>
     <div className="crw-board m-card">
       <header><span className="m-label">🏆 WEEKLY FAMILY BOARD</span><small data-tip={board?.rule}>{board ? `${board.total} famil${board.total === 1 ? 'y' : 'ies'} · verified trades, last 7 days` : ''}</small></header>

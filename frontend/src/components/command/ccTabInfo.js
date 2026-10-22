@@ -19,6 +19,7 @@ export const TAB_INFO = {
   snapshots: ['Snapshots', 'Freeze a holder list at a moment in time.', []],
   badges: ['Badges', 'Award badges and decide what % of which pool each badge earns.', ['Reserve pool', 'Badge × pool matrix', 'Award']],
   seasons: ['Seasons', 'Season themes, weeks, prizes and the reserve wallet.', []],
+  familia: ['Familia control center', 'Run the game: plot prices, Fee City multiplier, turf cap, Family Fuse minimum (live now) and the real-money prices (applied after the custody pick).', ['Economy', 'Rules', 'Paid-hit math']],
   pools: ['Pools', 'Create a locked TOKEN/SOL pool for a token that already exists.', ['Create pool', 'Verify pool']],
   feecat: ['Fee 🐱', "FeeCat's trading brain: rules, what she's learning, and her results.", ['Brain', 'Lessons', 'Book']],
   broadcast: ['Broadcast', 'Message everyone at once (site banner / push).', []],

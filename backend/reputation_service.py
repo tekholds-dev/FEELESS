@@ -2475,6 +2475,11 @@ async def chat_post(payload: ChatPost):
                'username': _display_name(primary_of(payload.address)), 'identity': primary_of(payload.address), 'text': text, 'ts': int(time.time() * 1000),
                'parentId': payload.parentId, 'mentions': sorted(set(MENTION_RE.findall(text)))[:10], 'tokens': tokens,
                'profile': {'address': primary_of(payload.address), 'chain': 'solana' if not primary_of(payload.address).startswith('0x') else 'evm'}}
+        if payload.room.startswith('city-'):   # 👑 the Familia city chats: every line wears the poster's family tag + colour
+            import crews as _cr
+            c_ = _cr.crew_of(_json_load(CREWS_PATH, {}), payload.address)
+            if c_:
+                msg['fam'] = {'tag': c_.get('tag'), 'color': ((c_.get('badge') or {}).get('colors') or [None])[0]}
         room = d['rooms'].setdefault(payload.room, [])
         room.append(msg)
         _track_pin(d, payload.room, room, payload.parentId)
@@ -9051,7 +9056,13 @@ def _world_settle(st, w, r, now):
     w['log'] = ([{'at': now, 'what': f"⚔ {r['a']['tag']} raided {r['b']['tag']} — {r['end']}, {int(r.get('paid') or 0):,} MP"}] + w['log'])[:60]
 
 
+def _familia_rules():
+    """🏙 The owner's Familia rules (HQ › Build › 🏙 Familia), clamped — LIVE ones are applied to the engine on every world read / act."""
+    return _fworld.clean_rules(_admin_load().get('familiaRules') or {})
+
+
 def _world_tick(st, w, now):
+    _fworld.set_rules(_familia_rules())
     for r in list(w['raids'].values()):
         _fworld.tick(r, now)
         _world_settle(st, w, r, now)
@@ -9117,6 +9128,20 @@ def _world_view(st, c, me, now, cartels_):
     v['log'] = w['log'][:20]
     v['actions'] = {'attack': _fworld.ACTIONS_A, 'defend': _fworld.ACTIONS_D}
     v['rate'] = {'mp': _world_feecat_rate()[0], 'feecat': _world_feecat_rate()[1]}
+    # 👑 the capital: five cities, Fee City's landmarks with their live numbers, the ranked ladder (power → CoD-style divisions)
+    v['cities'] = [{'key': k, 'name': n, 'boroughs': bs, 'vibe': vb, 'held': sum(1 for b in v['blocks'] if b['b'] in bs and b.get('owner')),
+                    'plots': sum(1 for b in v['blocks'] if b['b'] in bs)} for k, n, bs, vb in _fworld.CITIES]
+    ladder = sorted(fams, key=lambda f: -f['power'])
+    v['ranked'] = [{**f, 'place': i + 1, 'rank': _fworld.rank_of(f['power'], i + 1)} for i, f in enumerate(ladder[:25])]
+    creator = next((o for o in (st.get('crews') or {}).values() if _is_staff(o.get('owner'))), None)
+    stats_ = (_stats_cache.get('data') or {}) if isinstance(_stats_cache, dict) else {}
+    live_ = {'arena': {'raids': sum(1 for r in w['raids'].values() if r.get('status') == 'live'), 'minMp': int(_familia_rules()['fuseMinMp'])},
+             'house': {'mp': int(st.get('house') or 0)},
+             'mansion': {'tag': creator.get('tag'), 'name': creator.get('name'), 'power': next((f['power'] for f in fams if f['id'] == creator['id']), 0)} if creator else None,
+             'shield': {'flagged': int(stats_.get('blocklisted') or 0), 'snipers': int(stats_.get('snipers') or 0), 'bundlers': int(stats_.get('bundlers') or 0)},
+             'launch': {'coins': sum(1 for o in (st.get('crews') or {}).values() if o.get('launch'))}}
+    v['landmarks'] = [{'key': k, 'name': n, 'lore': lo, 'live': live_.get(k)} for k, n, lo in _fworld.LANDMARKS]
+    v['rules'] = {k: _familia_rules()[k] for k in _fworld.LIVE_RULES}
     if c:
         city = _fcity.city_of(c, now)
         met = _world_metrics(st, c, now)
@@ -9137,12 +9162,46 @@ def _world_view(st, c, me, now, cartels_):
                    'reach': {b: _fworld.reach(w, c['id'], b, docks) for b in _fworld.BKEYS},
                    'prices': {b['id']: _fworld.block_price(w, c['id'], b['id']) for b in v['blocks'] if not b.get('owner')},
                    'moveMp': {b: int(_fworld.MOVE_MP * _fworld.tier(b) * (1 - 0.05 * lv.get('gas', 0))) for b in _fworld.BKEYS},
-                   'redeems': [x for x in (st.get('redeems') or []) if x.get('cid') == c['id']][:10]}
+                   'redeems': [x for x in (st.get('redeems') or []) if x.get('cid') == c['id']][:10],
+                   'rank': _fworld.rank_of(_fcity.power(city), next((r['place'] for r in v['ranked'] if r['id'] == c['id']), None)),
+                   'place': next((i + 1 for i, f in enumerate(ladder) if f['id'] == c['id']), None)}
         if _is_staff(c.get('owner')):
             v['me']['fuse'] = _fuse_family_stats(now)
         v['raids'] = [_fworld.raid_view(r, 'a' if r['a']['id'] == c['id'] else 'b') for r in w['raids'].values()
                       if c['id'] in (r['a']['id'], r['b']['id'])][-8:]
     return v
+
+
+@app.get('/api/reputation/admin/familia/rules')
+async def admin_familia_rules(request: Request):
+    """🏙 HQ › Familia control center: the rules (live + planned), what each one means, and the economy right now."""
+    _require_owner(request)
+    import crews as _cr
+    now = time.time(); st = _json_load(CREWS_PATH, {}); _cr._norm(st); w = st.get('world') or _fworld.blank(); r_ = _familia_rules()
+    _fworld.set_rules(r_)
+    crews_ = list((st.get('crews') or {}).values())
+    banks = [int(_fcity.city_of(o, now)['bank']) for o in crews_]
+    blocks = _fworld.block_ids(); own = _fworld.taken(w)
+    cities = [{'key': k, 'name': n, 'plots': sum(1 for b in blocks if _fworld.borough_of(b) in bs), 'held': sum(1 for b in blocks if _fworld.borough_of(b) in bs and b in own)}
+              for k, n, bs, _ in _fworld.CITIES]
+    raids = list((w.get('raids') or {}).values())
+    return {'rules': r_, 'live': list(_fworld.LIVE_RULES), 'range': _fworld.RULE_RANGE,
+            'economy': {'families': len(crews_), 'members': sum(len(o.get('members') or []) for o in crews_), 'bankMp': sum(banks), 'topBankMp': max(banks or [0]),
+                        'houseMp': int(st.get('house') or 0), 'raidsLive': sum(1 for x in raids if x.get('status') == 'live'),
+                        'raids24h': sum(1 for x in raids if now - float(x.get('at') or x.get('startAt') or 0) < 86400), 'cities': cities},
+            'blockPrice': {b[0]: int(_fworld.BLOCK_MP * b[5]) for b in _fworld.BOROUGHS}}
+
+
+@app.post('/api/reputation/admin/familia/rules')
+async def admin_familia_rules_set(request: Request, body: dict):
+    """🏙 Owner only: save the Familia rules (clamped). Live ones change the engine at once; planned ones wait for the real-money custody pick."""
+    admin = _require_owner(request)
+    async with _admin_lock:
+        d = _admin_load(); d['familiaRules'] = _fworld.clean_rules(body if isinstance(body, dict) else {}, d.get('familiaRules'))
+        _audit(d, admin, 'familia', f"rules · block {d['familiaRules']['blockMp']:g} MP · Fee City ×{d['familiaRules']['feeTier']:g} · Family Fuse {d['familiaRules']['fuseMinMp']:g} MP")
+        _admin_save(d)
+    _fworld.set_rules(d['familiaRules'])
+    return await admin_familia_rules(request)
 
 
 @app.get('/api/reputation/familia-world')

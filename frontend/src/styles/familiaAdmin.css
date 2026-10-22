@@ -1,0 +1,24 @@
+/* 🏙 HQ › Familia control center (FamiliaAdmin.jsx, fad-*): economy tiles, plots per city, live + planned rules, the paid-hit calculator.
+   m-* tokens + Familia gold for the city bits; transform / opacity only. */
+.fad-kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); gap: 8px; padding: 12px; }
+.fad-kpis span { display: grid; gap: 2px; padding: 9px 11px; border-radius: 10px; background: rgba(255, 255, 255, .03); border: 1px solid var(--m-line, #15d16a33); animation: fadIn .35s ease-out both; animation-delay: calc(var(--i) * 50ms); }
+.fad-kpis b { font: 800 18px 'JetBrains Mono', monospace; color: var(--m-text, #e9fff2); animation: fadTick .5s ease-out; } .fad-kpis em { font: 700 8.5px 'JetBrains Mono', monospace; font-style: normal; letter-spacing: .14em; color: var(--m-mute, #7f9c8c); }
+.fad-cities { display: grid; gap: 7px; padding: 12px; }
+.fad-cities p { display: grid; grid-template-columns: 140px minmax(0, 1fr) 60px 90px; gap: 10px; align-items: center; margin: 0; animation: fadIn .35s ease-out both; animation-delay: calc(var(--i) * 50ms); }
+.fad-cities b { font: 700 12px 'Cinzel', Georgia, serif; color: #f1d27a; } .fad-cities .is-fee b { color: #ffe9b0; text-shadow: 0 0 8px #d4af37; }
+.fad-cities u { display: block; height: 6px; border-radius: 3px; background: #ffffff10; overflow: hidden; } .fad-cities s { display: block; height: 100%; background: linear-gradient(90deg, #8a6a12, #ffd36b); transform-origin: left; text-decoration: none; transition: transform .6s ease; }
+.fad-cities em { font: 800 11px 'JetBrains Mono', monospace; font-style: normal; color: #ffd36b; animation: fadTick .5s ease-out; } .fad-cities small { font: 600 10px 'JetBrains Mono', monospace; color: var(--m-mute, #7f9c8c); text-align: right; }
+.fad-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 10px; }
+.fad-box { display: grid; gap: 10px; padding: 12px; align-content: start; } .fad-box.is-planned { border-color: rgba(255, 211, 107, .35); }
+.fad-fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.fad-f { display: grid; gap: 4px; } .fad-f em { font: 700 8.5px 'JetBrains Mono', monospace; font-style: normal; letter-spacing: .12em; color: var(--m-mute, #7f9c8c); }
+.fad-f.is-live em { color: var(--m-accent, #15d16a); } .fad-f .m-input { min-height: 34px; }
+.fad-pay { display: grid; gap: 3px; padding: 12px; border-radius: 12px; background: radial-gradient(120% 140% at 0 0, rgba(255, 211, 107, .14), transparent 60%), rgba(0, 0, 0, .3); border: 1px solid rgba(255, 211, 107, .35); }
+.fad-pay em { font: 700 8.5px 'JetBrains Mono', monospace; font-style: normal; letter-spacing: .14em; color: #b9a77a; }
+.fad-pay b { font: 900 24px 'JetBrains Mono', monospace; color: #ffd36b; text-shadow: 0 0 14px rgba(255, 211, 107, .5); animation: fadTick .4s ease-out; } .fad-pay small { font-size: 11px; color: #c9b88f; }
+.fad-save { justify-self: start; min-height: 38px; padding: 0 22px; }
+@keyframes fadIn { from { opacity: 0; transform: translateY(5px); } } @keyframes fadTick { from { opacity: .35; } }
+body.fx-lite .fad-kpis span, body.fx-lite .fad-cities p { animation: none; }
+@media (prefers-reduced-motion: reduce) { .fad-kpis span, .fad-cities p, .fad-kpis b, .fad-pay b, .fad-cities em { animation: none; } .fad-cities s { transition: none; } }
+body.theme-day .fad-cities b { color: #6a4a0a; } body.theme-day .fad-cities .is-fee b { color: #4a3205; text-shadow: none; } body.theme-day .fad-pay { background: #fff8e8; } body.theme-day .fad-pay b { color: #8a5a00; text-shadow: none; }
+@media (max-width: 640px) { .fad-cities p { grid-template-columns: 1fr 60px; } .fad-cities u, .fad-cities small { display: none; } .fad-fields { grid-template-columns: 1fr; } }

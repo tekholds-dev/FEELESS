@@ -26,10 +26,28 @@ BOROUGHS = [('harbor', 'Pump Harbor',     '⚓', 0, 0, 1.0, 'launch piers, fresh
             ('hills', 'Jupiter Hills',     '🪐', 2, 0, 1.6, 'every route in town runs through here'),
             ('market', 'Meteora Market',   '☄', 0, 1, 1.2, 'dynamic stalls, dynamic fees'),
             ('bay', 'Bonk Bay',            '🐕', 1, 1, 1.0, 'the dog coins run the boardwalk'),
-            ('docks', 'Cartel Docks',      '🕳', 2, 1, 0.8, 'bundlers, snipers and funders — the cartels\' turf')]
+            ('docks', 'Cartel Docks',      '🕳', 2, 1, 0.8, 'bundlers, snipers and funders — the cartels\' turf'),
+            ('fee', 'Fee City',            '👑', 1, 2, 2.5, 'the capital: premium plots, the Fuse Arena, the house money')]
+# 👑 FEE CITY (owner, 2026-10-21: "the main city … most expensive / profitable plots … bigger than the 4 other cities, one chat box each"):
+# the hub every city bridges into, 24 premium plots, never a free home block (homes seed in the outer five). The four outer CITIES group the
+# old boroughs; raids, reach and turf still count by borough.
+PLOTS = {'fee': 24}
+CITIES = [('fee', 'FEE CITY', ['fee'], 'Capital of the Trenches'),
+          ('harbor', 'Pump Harbor', ['harbor', 'market'], 'launch piers + dynamic stalls'),
+          ('heights', 'Raydium Heights', ['heights', 'hills'], 'old money, every route'),
+          ('bay', 'Bonk Bay', ['bay'], 'the dog coins run the boardwalk'),
+          ('docks', 'Cartel Docks', ['docks'], 'the cartels\' turf')]
+# the capital's landmarks (never for sale): each one is a FEELESS money-maker, its live number comes from the service
+LANDMARKS = [('arena', '⚔ FUSE ARENA', 'The stadium. Family Fuse: two families\' Fuse cards (same coin count, ±1) battle for paper or MP; '
+              'MP battles need 2,000 MP in the bank. The crowd bids on the winner.'),
+             ('house', '🏦 THE HOUSE', 'Every collect in every city pays the house tax into this vault. The richest building in Fee City.'),
+             ('mansion', '🎩 CREATOR\'S MANSION', 'Home of the creator family — the FEELESS desk. Its lights are the real card\'s trades.'),
+             ('shield', '🛡 RUG SHIELD HQ', 'Every bundler, sniper and funder FEELESS has flagged. The cartels across the water fear this tower.'),
+             ('launch', '🚀 LAUNCH PAD', 'Coins launched by families on FEELESS land here first.')]
 BKEYS = [b[0] for b in BOROUGHS]
 BRIDGES = [('harbor', 'heights', 'Golden Fee Bridge'), ('heights', 'hills', 'Oracle Span'), ('harbor', 'market', 'Curve Causeway'),
-           ('heights', 'bay', 'Bonk Boardwalk'), ('hills', 'docks', 'Rug Bridge'), ('market', 'bay', 'Liquidity Link'), ('bay', 'docks', 'Sniper Strait')]
+           ('heights', 'bay', 'Bonk Boardwalk'), ('hills', 'docks', 'Rug Bridge'), ('market', 'bay', 'Liquidity Link'), ('bay', 'docks', 'Sniper Strait'),
+           ('fee', 'harbor', 'Crown Bridge'), ('fee', 'heights', 'Golden Gate of Fee'), ('fee', 'bay', 'Moonshot Span'), ('fee', 'docks', 'Last Call Bridge')]
 BLOCK_MP = 2400
 TURF_MAX = 12
 MOVE_MP = 1500
@@ -52,7 +70,7 @@ def _h(s):
 
 
 def block_ids(bk=None):
-    return [f'{b}-{i}' for b in ([bk] if bk else BKEYS) for i in range(BLOCKS_PER)]
+    return [f'{b}-{i}' for b in ([bk] if bk else BKEYS) for i in range(PLOTS.get(b, BLOCKS_PER))]
 
 
 def borough_of(bid):
@@ -556,3 +574,74 @@ def map_view(world, families, cpu_rows, cartel_rows, me=None, boom_=None, now=0)
         blocks.append(row)
     return {'boroughs': [{'key': k, 'name': n, 'icon': i, 'col': c, 'row': r, 'tier': t_, 'vibe': v} for k, n, i, c, r, t_, v in BOROUGHS],
             'bridges': [{'a': a, 'b': b, 'name': n} for a, b, n in BRIDGES], 'blocks': blocks, 'season': season(now) if now else None, 'boom': boom_}
+
+
+# ── owner rules (HQ › 🏙 Familia) ───────────────────────────────────────────────────────────────────────────────────────────────────────────
+# LIVE = applied to the engine now (points). PLANNED = the real-money side, stored so the owner can price it, applied once custody is picked.
+RULES = {'blockMp': BLOCK_MP, 'feeTier': 2.5, 'turfMax': TURF_MAX, 'moveMp': MOVE_MP, 'fuseMinMp': 2000,
+         'familiesPerWallet': 2, 'createUsd': 25.0, 'createFeeUsd': 5.0, 'hitRate': 0.000025, 'hitCapUsd': 0.10, 'hitMinUsd': 1.0}
+RULE_RANGE = {'blockMp': (100, 1_000_000), 'feeTier': (1.0, 20.0), 'turfMax': (1, 60), 'moveMp': (0, 1_000_000), 'fuseMinMp': (0, 1_000_000),
+              'familiesPerWallet': (1, 10), 'createUsd': (0, 1000), 'createFeeUsd': (0, 1000), 'hitRate': (0, 0.01), 'hitCapUsd': (0, 100), 'hitMinUsd': (0, 1000)}
+LIVE_RULES = ('blockMp', 'feeTier', 'turfMax', 'moveMp', 'fuseMinMp')
+
+
+def clean_rules(raw, prev=None):
+    """Owner input → rules: known keys only, each clamped to its range; the create fee never exceeds the create price."""
+    out = dict(RULES, **(prev or {}))
+    for k, (lo, hi) in RULE_RANGE.items():
+        try:
+            if k in (raw or {}):
+                out[k] = max(lo, min(hi, float(raw[k])))
+        except (TypeError, ValueError):
+            pass
+    for k in ('turfMax', 'familiesPerWallet'):
+        out[k] = int(out[k])
+    out['createFeeUsd'] = min(out['createFeeUsd'], out['createUsd'])
+    return out
+
+
+def set_rules(r):
+    """Apply the LIVE rules to the engine (the service calls it under its lock before every world read / act)."""
+    global BLOCK_MP, TURF_MAX, MOVE_MP, BOROUGHS
+    BLOCK_MP, TURF_MAX, MOVE_MP = int(r['blockMp']), int(r['turfMax']), int(r['moveMp'])
+    BOROUGHS = [b if b[0] != 'fee' else b[:5] + (float(r['feeTier']),) + b[6:] for b in BOROUGHS]
+
+
+def family_fuse_ok(a_coins, b_coins, bank_mp=0, stake='paper', min_mp=2000):
+    """⚔ FAMILY FUSE: cards must match (same coin count, or one apart — never 4 vs 6); an MP battle needs `min_mp` in the family bank."""
+    a, b = int(a_coins), int(b_coins)
+    if a < 1 or b < 1:
+        return False, 'Both families need a Fuse card.'
+    if abs(a - b) > 1:
+        return False, f'{a} coins vs {b}: cards must have the same coin count or one apart.'
+    if stake == 'mp' and bank_mp < min_mp:
+        return False, f'An MP Family Fuse needs {int(min_mp):,} MP in the bank.'
+    return True, ''
+
+
+# ── ranked (Call-of-Duty style divisions, FEELESS names) ────────────────────────────────────────────────────────────────────────────────────
+# thresholds are family POWER (family_city.power: lot levels × 10 + recruits × 2 + bank / 100)
+RANKS = [('Street Rat', 0), ('Runner', 40), ('Made Man', 160), ('Capo', 500), ('Underboss', 1_200), ('Boss', 3_000), ('Kingpin', 8_000)]
+TOP_TITLE, TOP_N = 'Don of Fee City', 25
+
+
+def rank_of(points, place=None):
+    """→ {name, div (III → I), tier index, pct to the next division}. The top 25 families by power wear 'Don of Fee City' (a CoD Top-250)."""
+    p = max(0.0, float(points or 0))
+    if place is not None and place <= TOP_N and p >= RANKS[-1][1]:
+        return {'name': TOP_TITLE, 'div': f'#{place}', 'tier': len(RANKS), 'pct': 100}
+    i = max(k for k, (_, lo) in enumerate(RANKS) if p >= lo)
+    lo = RANKS[i][1]; hi = RANKS[i + 1][1] if i + 1 < len(RANKS) else lo * 2.5
+    step = (hi - lo) / 3; d = min(2, int((p - lo) // step)) if step else 2
+    nxt = lo + step * (d + 1)
+    return {'name': RANKS[i][0], 'div': ('III', 'II', 'I')[d], 'tier': i, 'pct': int(min(100, 100 * (p - (lo + step * d)) / step)) if step else 100, 'next': int(nxt)}
+
+
+# ── paid hits (PLANNED — real money waits for the custody decision; this is the math the owner tunes in HQ) ──────────────────────────────
+def paid_hit_payout(stake_usd, sender_usd, target_usd, rate=0.000025, cap_usd=0.10):
+    """What a WON paid hit takes from the target's family wallet: stake × rate, nudged by the size gap (punching up pays a little more,
+    bullying a smaller family a lot less), never above the cap, never above 0.01 % of the target's wallet.
+    Owner's anchors: $5 on a 10× bigger family ≈ $0.0001; two equal $4K families, a whole-wallet hit ≈ $0.10 at most."""
+    stake, s, t = max(0.0, float(stake_usd)), max(0.01, float(sender_usd)), max(0.0, float(target_usd))
+    gap = min(2.0, max(0.05, t / s)) ** 0.5
+    return round(min(cap_usd, stake * rate * gap, t * 0.0001), 6)

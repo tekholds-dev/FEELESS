@@ -8,7 +8,7 @@ def test_home_turf_bridges_and_reach():
     w = fw.blank()
     h = fw.ensure_home(w, 'c1')
     assert fw.ensure_home(w, 'c1') == h and w['own'][h] == 'c1'
-    assert fw.hops('harbor', 'harbor') == 0 and fw.hops('harbor', 'heights') == 1 and fw.hops('harbor', 'docks') == 3
+    assert fw.hops('harbor', 'harbor') == 0 and fw.hops('harbor', 'heights') == 1 and fw.hops('harbor', 'docks') == 2   # Fee City is the hub: harbor → fee → docks
     free = next(b for b in fw.block_ids('market') if b not in fw.taken(w))
     with pytest.raises(ValueError):
         fw.buy_block(w, 'c1', 10, free)
@@ -100,7 +100,47 @@ def test_map_view_has_every_block_and_marks_mine():
     fw.ensure_home(w, 'c1')
     cs = fw.cartels({f'w{i}': {'mints': {'a': 'sniper', 'b': 'sniper', 'c': 'sniper'}} for i in range(3)}, NOW)
     v = fw.map_view(w, [{'id': 'c1', 'tag': 'SIC', 'name': 'S'}], [fw.cpu_town(c[0], NOW) for c in fw.CPU], cs, me='c1', boom_=fw.boom('ai'), now=NOW)
-    assert len(v['blocks']) == 96 and len(v['bridges']) == len(fw.BRIDGES)
+    assert len(v['blocks']) == 96 + fw.PLOTS['fee'] and len(v['bridges']) == len(fw.BRIDGES)
     assert sum(1 for b in v['blocks'] if b.get('mine')) == 1
     assert sum(1 for b in v['blocks'] if b.get('kind') == 'cpu') == 8
     assert any(b.get('kind') == 'cartel' for b in v['blocks']) and v['boom']['borough'] != 'docks'
+
+
+def test_fee_city_is_the_hub_with_premium_plots_and_never_a_free_home():
+    assert len(fw.block_ids('fee')) == 24 and all(fw.hops('fee', c) == 1 for c in ('harbor', 'heights', 'bay', 'docks'))
+    assert sorted(b for c in fw.CITIES for b in c[2]) == sorted(fw.BKEYS)            # every borough sits in exactly one city
+    w = fw.blank()
+    homes = [fw.ensure_home(w, f'c{i}') for i in range(40)]
+    assert not any(h.startswith('fee-') for h in homes)
+    assert fw.block_price(w, 'c0', 'fee-3') > fw.block_price(w, 'c0', 'harbor-3') * 2
+
+
+def test_owner_rules_are_clamped_and_live_ones_change_the_engine():
+    r = fw.clean_rules({'blockMp': 5, 'feeTier': 99, 'turfMax': '7', 'createUsd': 10, 'createFeeUsd': 50, 'junk': 1})
+    assert r['blockMp'] == 100 and r['feeTier'] == 20 and r['turfMax'] == 7 and r['createFeeUsd'] == 10 and 'junk' not in r
+    try:
+        fw.set_rules(dict(r, blockMp=1000, feeTier=3.0))
+        assert fw.BLOCK_MP == 1000 and fw.tier('fee') == 3.0 and fw.TURF_MAX == 7
+    finally:
+        fw.set_rules(fw.RULES)
+    assert fw.BLOCK_MP == 2400 and fw.tier('fee') == 2.5
+
+
+def test_family_fuse_cards_must_match_and_mp_battles_need_2k():
+    assert fw.family_fuse_ok(3, 3)[0] and fw.family_fuse_ok(3, 4)[0] and fw.family_fuse_ok(4, 3)[0]
+    assert not fw.family_fuse_ok(4, 6)[0] and not fw.family_fuse_ok(0, 1)[0]
+    assert not fw.family_fuse_ok(3, 3, bank_mp=1999, stake='mp')[0] and fw.family_fuse_ok(3, 3, bank_mp=2000, stake='mp')[0]
+
+
+def test_ranks_climb_in_divisions_and_the_top_25_are_dons():
+    assert fw.rank_of(0)['name'] == 'Street Rat' and fw.rank_of(0)['div'] == 'III'
+    assert fw.rank_of(600)['name'] == 'Capo' and fw.rank_of(1199)['div'] == 'I'
+    assert fw.rank_of(9000, place=3)['name'] == fw.TOP_TITLE and fw.rank_of(9000, place=26)['name'] == 'Kingpin'
+    assert fw.rank_of(100, place=1)['name'] == 'Runner'                                # #1 alone is not enough: Dons need Kingpin power
+
+
+def test_paid_hit_payout_follows_the_owners_anchors():
+    assert fw.paid_hit_payout(5, 100, 1000) < 0.0005                                   # $5 on a 10x bigger family ~ $0.0001
+    assert 0.05 <= fw.paid_hit_payout(4000, 4000, 4000) <= 0.10                        # equal $4K families, whole wallet: <= the cap
+    assert fw.paid_hit_payout(5, 1000, 100) < fw.paid_hit_payout(5, 100, 1000)         # bullying a smaller family pays less
+    assert fw.paid_hit_payout(1e9, 1, 1e9, cap_usd=0.1) == 0.1 and fw.paid_hit_payout(10, 10, 0) == 0

@@ -14,7 +14,8 @@
 .fcy-skyline i { flex: 1; height: var(--h); background: linear-gradient(180deg, #1c1430, #0b0814);
   background-image: repeating-linear-gradient(0deg, transparent 0 7px, rgba(255, 210, 120, .14) 7px 9px), linear-gradient(180deg, #1c1430, #0b0814); }
 .fcy-world { position: absolute; left: 50%; top: 58%; transform-style: preserve-3d;
-  transform: translate(-50%, -50%) scale(var(--zoom)) rotateX(var(--rx)) rotateZ(var(--rz)); transition: transform .08s linear; }
+  transform: translate(-50%, -50%) translateY(var(--dy, 0px)) scale(var(--zoom)) rotateX(var(--rx)) rotateZ(var(--rz)) translate(var(--px, 0px), var(--py, 0px)); transition: transform .08s linear; }
+.fcy.is-fly .fcy-world { transition: transform .8s cubic-bezier(.2, .8, .2, 1); }   /* tap a plot: the camera flies to it */
 .fcy-water { position: absolute; inset: -40px; border-radius: 30px; overflow: hidden;
   background: radial-gradient(60% 50% at 30% 40%, #10324a, transparent 70%), linear-gradient(135deg, #061a29, #04101b); box-shadow: 0 0 0 4px #0b2233, 0 80px 120px #000; }
 .fcy-water::after { content: ''; position: absolute; inset: -20%; background: repeating-linear-gradient(115deg, transparent 0 22px, rgba(140, 200, 255, .07) 22px 24px, transparent 24px 44px);

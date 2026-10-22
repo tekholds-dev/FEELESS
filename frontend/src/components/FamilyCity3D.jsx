@@ -1,97 +1,116 @@
-import React, { useMemo, useRef, useState } from 'react';
-import { Building } from './FamilyBlock';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { Billboard, Bridge, Car, CAR_COLORS, hash, Plot } from './cityParts';
+import { FeeCapital, FEE_W, FEE_H, feeSpot } from './FeeCapital';
 import '../styles/familyCity3d.css';
+import '../styles/feeCity.css';
 
-// 🌃 THE CITY IN 3D (owner, 2026-10-21: "it doesn't look nothing like the Sicario block and no cars — you have emojis sliding around a block").
-// The SAME building renderer as the family block (CSS 3D boxes: top + four walls, lit windows), six island districts on night water joined by
-// suspension bridges, asphalt streets with lane lines and lamps, cars with headlights + taillights driving the streets and crossing the bridges,
-// people on the sidewalks, a neon sign per district. Drag to turn, scroll to zoom. transform / opacity only; still in fx-lite / reduced motion.
+// 🌃 THE CITIES IN 3D (owner, 2026-10-21: "the city is dope, but needs different areas to go to … click any plot and it zooms in and shows
+// vitals on top of the plot"). One camera stage, one city drawn at a time (less to paint = no lag): FEE CITY, the capital, or one of the four
+// outer cities (their boroughs as islands, joined by suspension bridges, a bridge back to Fee City). Tap a plot or a landmark → the camera
+// flies to it and its live vitals stand over it. Drag to turn, scroll to zoom. transform / opacity only; still in fx-lite / reduced motion.
 export const ISLAND = 300;
 export const GAP = 84;
-export const MARGIN = 46;
+const SEA = 120;
 const LOT = (ISLAND - 14 * 5) / 4;          // 57.5 — four lots a row, 14px streets
 export const lotPos = i => ({ x: 14 + (i % 4) * (LOT + 14), y: 14 + Math.floor(i / 4) * (LOT + 14) });
-export const islandPos = (col, row) => ({ x: MARGIN + col * (ISLAND + GAP), y: MARGIN + row * (ISLAND + GAP) });
-const STYLES = { family: ['tower', 'casino', 'lounge', 'bank', 'mart', 'lab'], cpu: ['casino', 'tower', 'lounge', 'bank'], cartel: ['docks', 'laundry', 'lab', 'pharma'], mine: ['tower', 'casino', 'bank', 'lounge'] };
-const hash = s => { let h = 7; for (const ch of String(s)) h = (h * 31 + ch.charCodeAt(0)) >>> 0; return h; };
-// pure: what is drawn on a block — a store building for a held block (level from power), nothing on a free lot
-export function buildingOf(b) {
-  if (!b.owner) return null;
-  const kind = b.mine ? 'mine' : b.kind === 'cpu' ? 'cpu' : b.kind === 'cartel' ? 'cartel' : 'family';
-  const set = STYLES[kind];
-  const lvl = Math.max(1, Math.min(6, Math.round(Math.log10(1 + (b.power || 0)) * 1.6)));
-  return { kind, l: { b: b.home ? 'tower' : set[hash(b.id) % set.length], lvl, at: 0 } };
+
+// pure: a city's boroughs laid out on their own sea → { pos: { key: {x, y} }, W, H }
+export function cityLayout(bors) {
+  if (!bors.length) return { pos: {}, W: 2 * SEA + ISLAND, H: 2 * SEA + ISLAND };
+  const c0 = Math.min(...bors.map(b => b.col)); const r0 = Math.min(...bors.map(b => b.row));
+  const cols = Math.max(...bors.map(b => b.col)) - c0 + 1; const rows = Math.max(...bors.map(b => b.row)) - r0 + 1;
+  const pos = Object.fromEntries(bors.map(b => [b.key, { x: SEA + (b.col - c0) * (ISLAND + GAP), y: SEA + (b.row - r0) * (ISLAND + GAP) }]));
+  return { pos, W: 2 * SEA + cols * ISLAND + (cols - 1) * GAP, H: 2 * SEA + rows * ISLAND + (rows - 1) * GAP };
 }
-// pure: a bridge deck between two neighbouring islands → { x, y, w, h, horiz }
-export function bridgeRect(a, b) {
-  const pa = islandPos(a.col, a.row); const pb = islandPos(b.col, b.row);
-  if (a.row === b.row) { const l = Math.min(pa.x, pb.x) + ISLAND; return { x: l - 6, y: pa.y + ISLAND / 2 - 13, w: GAP + 12, h: 26, horiz: true }; }
+// pure: the deck between two neighbouring islands
+export function bridgeRect(pa, pb) {
+  if (pa.y === pb.y) { const l = Math.min(pa.x, pb.x) + ISLAND; return { x: l - 6, y: pa.y + ISLAND / 2 - 13, w: GAP + 12, h: 26, horiz: true }; }
   const t = Math.min(pa.y, pb.y) + ISLAND; return { x: pa.x + ISLAND / 2 - 13, y: t - 6, w: 26, h: GAP + 12, horiz: false };
 }
-const CAR_COLORS = ['#e8e3d6', '#1a1a1e', '#b3122e', '#d4af37', '#2a4a7a', '#7a2a6a', '#3a6a3a'];
 
-function Car({ route, i, color }) {
-  return <i className={`fcy-car r-${route}`} style={{ '--i': i, '--car': color }}><b className="fcy-cbody"><u className="fcy-croof" /></b><s className="fcy-beam" /></i>;
-}
-
-// an empty lot is never a bare tile: a parking lot with parked cars, or a little park — the FOR SALE sign shows on hover
-function FreeLot({ id }) {
-  const h = hash(id);
-  return <>{h % 2 ? <i className="fcy-park"><b className="fcy-tree a" /><b className="fcy-tree b" /><b className="fcy-tree c" /></i>
-    : <i className="fcy-lotp">{[0, 1, 2].map(k => <b key={k} className="fcy-parked" style={{ '--k': k, '--car': CAR_COLORS[(h + k) % CAR_COLORS.length] }} />)}</i>}
-    <i className="fcy-sale"><b>FOR SALE</b></i></>;
-}
-
-function Island({ b, blocks, boom, sel, onPick, reach }) {
-  const p = islandPos(b.col, b.row);
+function Island({ b, p, blocks, boom, sel, onPick, reach }) {
   return <div className={`fcy-isl ${boom === b.key ? 'is-boom' : ''} ${reach === false ? 'is-far' : ''} k-${b.key}`} style={{ transform: `translate(${p.x}px, ${p.y}px)` }} data-testid={`borough-${b.key}`}>
     <i className="fcy-lanes" aria-hidden="true" />
     {[0, 1, 2, 3, 4].flatMap(k => [<i key={`l${k}`} className="fcy-lamp" style={{ transform: `translate(${k * (LOT + 14) + 5}px, 3px) translateZ(14px)` }} />,
       <i key={`r${k}`} className="fcy-lamp" style={{ transform: `translate(${k * (LOT + 14) + 5}px, ${ISLAND - 7}px) translateZ(14px)` }} />])}
-    {blocks.map(x => { const d = buildingOf(x); const q = lotPos(x.i); return <button key={x.id} type="button" className={`fcy-lot ${d ? `t-${d.kind}` : 't-free'} ${sel === x.id ? 'is-sel' : ''} ${x.home ? 'is-home' : ''}`}
-      style={{ transform: `translate(${q.x}px, ${q.y}px)`, width: LOT, height: LOT }} onClick={() => onPick(x)} data-testid={`blk-${x.id}`}
-      data-tip={x.owner ? `[${x.tag}] ${x.name}${x.home ? ' · home block' : ''} · power ${Math.round(x.power || 0).toLocaleString('en-US')}` : 'Free block — buy it for turf (+4 % production, +1 recruit seat, more reach)'}>
-      {d ? <><Building l={d.l} nowS={0} /><i className="fcy-crown" /><span className="fcy-tag">{x.tag}</span></> : <FreeLot id={x.id} />}
-      {sel === x.id ? <i className="fcy-beamup" /> : null}
-    </button>; })}
+    {blocks.map(x => <Plot key={x.id} x={x} r={{ ...lotPos(x.i), w: LOT, h: LOT }} sel={sel === x.id} onPick={onPick} />)}
     {['a', 'b', 'c'].map((r, i) => <Car key={r} route={r} i={i + b.col * 3 + b.row} color={CAR_COLORS[(hash(b.key) + i) % CAR_COLORS.length]} />)}
     {[0, 1, 2, 3].map(i => <i key={`p${i}`} className={`fcy-ped w-${i}`} style={{ '--i': i + b.col }} />)}
     <div className="fcy-sign"><b>{b.name}</b><small>×{b.tier}{boom === b.key ? ' · 🔥 BOOM' : ''}</small></div>
   </div>;
 }
 
-export function FamilyCity3D({ v, sel, setSel }) {
-  const stage = useRef(null); const rz = useRef(-28); const rx = useRef(54); const zoom = useRef(0.62); const drag = useRef(null); const moved = useRef(false);
-  const [spin, setSpin] = useState(false);
-  const apply = () => { const s = stage.current; if (!s) return; s.style.setProperty('--rz', `${rz.current}deg`); s.style.setProperty('--rx', `${rx.current}deg`); s.style.setProperty('--zoom', zoom.current); };
-  const byB = useMemo(() => { const m = {}; (v.blocks || []).forEach(x => { (m[x.b] = m[x.b] || []).push(x); }); return m; }, [v.blocks]);
-  const bors = v.boroughs || [];
-  const W = MARGIN * 2 + 3 * ISLAND + 2 * GAP; const H = MARGIN * 2 + 2 * ISLAND + GAP;
-  const bridges = (v.bridges || []).map(br => { const a = bors.find(b => b.key === br.a); const b = bors.find(x => x.key === br.b); return a && b ? { ...br, r: bridgeRect(a, b) } : null; }).filter(Boolean);
-  React.useEffect(() => { apply(); if (!spin) return undefined; let raf; let last = performance.now();
-    const go = t => { rz.current += (t - last) * 0.006; last = t; apply(); raf = requestAnimationFrame(go); }; raf = requestAnimationFrame(go); return () => cancelAnimationFrame(raf); }, [spin]);
+// pure: the vitals that stand over a picked plot / landmark
+export function vitalsOf(x, v) {
+  if (!x) return null;
+  const n = k => Math.round(Number(k) || 0).toLocaleString('en-US');
+  if (x.lm) { const m = (v.landmarks || []).find(l => l.key === x.lm); return { title: m?.name || x.lm, tone: 'lm', rows: Object.entries(m?.live || {}).filter(([, val]) => typeof val === 'number').map(([k, val]) => [k.toUpperCase(), n(val)]) }; }
+  const bor = (v.boroughs || []).find(b => b.key === x.b); const top = Math.max(1, ...(v.blocks || []).map(b => b.power || 0));
+  const rk = (v.ranked || []).find(r => r.id === x.owner);
+  const rows = [['DISTRICT', `${bor?.name || x.b} ×${bor?.tier ?? 1}`]];
+  if (x.owner) { rows.push(['POWER', n(x.power), (x.power || 0) / top]); if (rk) rows.push(['RANK', `${rk.rank.name} ${rk.rank.div} · #${rk.place}`]); rows.push(['STATUS', x.home ? 'HOME BLOCK' : x.kind === 'cpu' ? 'CPU TOWN' : x.kind === 'cartel' ? 'CARTEL' : 'TURF']); }
+  else rows.push(['PRICE', v.me?.prices?.[x.id] != null ? `${n(v.me.prices[x.id])} MP` : 'sign in'], ['STATUS', 'FOR SALE']);
+  return { title: x.owner ? `[${x.tag}] ${x.name}` : `PLOT ${x.id.toUpperCase()}`, tone: x.mine ? 'mine' : x.kind || (x.owner ? 'family' : 'free'), rows };
+}
+
+function Vitals({ at, vit }) {
+  if (!at || !vit) return null;
+  return <Billboard x={at.x} y={at.y} z={at.z || 150} className={`fc-vit t-${vit.tone}`}><b>{vit.title}</b>
+    <dl>{vit.rows.map(([k, val, pct]) => <React.Fragment key={k}><dt>{k}</dt><dd key={val}>{val}{pct != null ? <u><s style={{ transform: `scaleX(${Math.max(0.03, Math.min(1, pct))})` }} /></u> : null}</dd></React.Fragment>)}</dl></Billboard>;
+}
+
+// 🎥 the camera: drag turns, wheel zooms, `focus` flies the camera to a world point and back
+function CityStage({ W, H, focus, wx, ctl, children }) {
+  const stage = useRef(null); const rz = useRef(-28); const rx = useRef(54); const moved = useRef(false); const drag = useRef(null);
+  const base = Math.max(0.42, Math.min(1.05, 760 / Math.max(W, H))); const zoom = useRef(base); const pan = useRef([0, 0]);
+  const [spin, setSpin] = useState(false); const [fly, setFly] = useState(false);
+  const apply = () => { const s = stage.current; if (!s) return; s.style.setProperty('--rz', `${rz.current}deg`); s.style.setProperty('--rx', `${rx.current}deg`);
+    s.style.setProperty('--zoom', zoom.current); s.style.setProperty('--px', `${pan.current[0]}px`); s.style.setProperty('--py', `${pan.current[1]}px`); s.style.setProperty('--dy', focus ? '110px' : '0px'); };
+  useEffect(() => {
+    pan.current = focus ? [W / 2 - focus.x, H / 2 - focus.y] : [0, 0]; zoom.current = focus ? Math.max(base * 1.8, 0.95) : base;
+    setFly(true); apply(); const t = setTimeout(() => setFly(false), 850); return () => clearTimeout(t);
+  }, [focus?.x, focus?.y, W, H]);   // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { apply(); if (!spin) return undefined; let raf; let last = performance.now();
+    const go = t => { rz.current += (t - last) * 0.006; last = t; apply(); raf = requestAnimationFrame(go); }; raf = requestAnimationFrame(go); return () => cancelAnimationFrame(raf); }, [spin]);   // eslint-disable-line react-hooks/exhaustive-deps
   const down = e => { drag.current = { x: e.clientX, y: e.clientY, rz: rz.current, rx: rx.current }; moved.current = false; };
   const move = e => { const d = drag.current; if (!d) return; const dx = e.clientX - d.x; const dy = e.clientY - d.y; if (Math.abs(dx) + Math.abs(dy) > 6) moved.current = true;
     rz.current = d.rz + dx * 0.35; rx.current = Math.max(30, Math.min(68, d.rx - dy * 0.15)); apply(); };
   const up = () => { drag.current = null; };
-  const wheel = e => { zoom.current = Math.max(0.38, Math.min(1.4, zoom.current * (e.deltaY > 0 ? 0.92 : 1.08))); apply(); };
-  const pick = x => { if (!moved.current) setSel(x); };
-  const wx = v.season?.weather || 'clear';
-  return <div className={`fcy wx-${wx}`} ref={stage} onPointerDown={down} onPointerMove={move} onPointerUp={up} onPointerLeave={up} onWheel={wheel} data-testid="world-map">
+  const wheel = e => { zoom.current = Math.max(0.38, Math.min(2.2, zoom.current * (e.deltaY > 0 ? 0.92 : 1.08))); apply(); };
+  const zoomBy = f => { zoom.current = Math.max(0.38, Math.min(2.2, zoom.current * f)); apply(); };
+  return <div className={`fcy wx-${wx} ${fly ? 'is-fly' : ''} ${focus ? 'is-focus' : ''}`} ref={stage} onPointerDown={down} onPointerMove={move} onPointerUp={up} onPointerLeave={up} onWheel={wheel}
+    onClickCapture={e => { if (moved.current) { e.stopPropagation(); e.preventDefault(); moved.current = false; } }} data-testid="world-map">
     <div className="fcy-sky" aria-hidden="true"><i className="fcy-moon" />{Array.from({ length: 22 }, (_, i) => <i key={i} className="fcy-star" style={{ '--i': i }} />)}</div>
     <div className="fcy-skyline" aria-hidden="true">{Array.from({ length: 18 }, (_, i) => <i key={i} style={{ '--i': i, '--h': `${40 + ((i * 37) % 70)}px` }} />)}</div>
-    <div className="fcy-world" style={{ width: W, height: H }}>
-      <i className="fcy-water" aria-hidden="true" />
-      {bridges.map(br => <div key={br.name} className={`fcy-bridge ${br.r.horiz ? 'is-h' : 'is-v'}`} style={{ transform: `translate(${br.r.x}px, ${br.r.y}px)`, width: br.r.w, height: br.r.h }} data-tip={`🌉 ${br.name}`}>
-        <i className="fcy-rail r1" /><i className="fcy-rail r2" /><i className="fcy-tower t1" /><i className="fcy-tower t2" /><i className="fcy-cable" />
-        <i className="fcy-bcar c1" style={{ '--car': '#ffd36b' }} /><i className="fcy-bcar c2" style={{ '--car': '#e8e3d6' }} /></div>)}
-      {bors.map(b => <Island key={b.key} b={b} blocks={byB[b.key] || []} boom={v.boom?.borough} sel={sel?.id} onPick={pick} reach={v.me?.reach?.[b.key]} />)}
-    </div>
+    <div className="fcy-world" style={{ width: W, height: H }}><i className="fcy-water" aria-hidden="true" />{children}</div>
     {wx !== 'clear' ? <div className="fcy-wx" aria-hidden="true">{Array.from({ length: wx === 'fog' ? 4 : 30 }, (_, i) => <i key={i} style={{ '--i': i, '--x': `${(i * 37) % 100}%` }} />)}</div> : null}
     <div className="fcy-ctl"><button type="button" className={spin ? 'active' : ''} onClick={() => setSpin(s => !s)} aria-pressed={spin} data-tip="Slowly turn the whole city" data-testid="city-spin">{spin ? '⏸ Stop' : '⟲ 360°'}</button>
-      <button type="button" onClick={() => { zoom.current = Math.min(1.4, zoom.current * 1.2); apply(); }} data-tip="Zoom in">＋</button>
-      <button type="button" onClick={() => { zoom.current = Math.max(0.38, zoom.current / 1.2); apply(); }} data-tip="Zoom out">－</button>
-      <small>drag to turn · scroll to zoom</small></div>
+      <button type="button" onClick={() => zoomBy(1.2)} data-tip="Zoom in" aria-label="Zoom in">＋</button>
+      <button type="button" onClick={() => zoomBy(1 / 1.2)} data-tip="Zoom out" aria-label="Zoom out">－</button>{ctl}
+      <small>drag to turn · scroll to zoom · tap a plot</small></div>
     <ul className="fcy-key"><li className="t-mine">yours</li><li className="t-family">families</li><li className="t-cpu">CPU towns</li><li className="t-cartel">cartels</li><li className="t-free">for sale</li></ul>
   </div>;
+}
+
+export function FamilyCity3D({ v, sel, setSel, city, setCity, tour }) {
+  const cities = v.cities?.length ? v.cities : [{ key: 'all', name: 'The city', boroughs: (v.boroughs || []).map(b => b.key) }];
+  const cur = cities.find(c => c.key === city) || cities[0];
+  const isFee = cur.key === 'fee';
+  const bors = useMemo(() => (v.boroughs || []).filter(b => cur.boroughs.includes(b.key)), [v.boroughs, cur]);
+  const byB = useMemo(() => { const m = {}; (v.blocks || []).forEach(x => { (m[x.b] = m[x.b] || []).push(x); }); return m; }, [v.blocks]);
+  const lay = useMemo(() => cityLayout(bors), [bors]);
+  const W = isFee ? FEE_W : lay.W; const H = isFee ? FEE_H : lay.H;
+  const spot = !sel ? null : isFee ? feeSpot(sel) : sel.b && lay.pos[sel.b] ? { x: lay.pos[sel.b].x + lotPos(sel.i).x + LOT / 2, y: lay.pos[sel.b].y + lotPos(sel.i).y + LOT / 2 } : null;
+  const inner = (v.bridges || []).filter(br => lay.pos[br.a] && lay.pos[br.b]);
+  const home = (v.bridges || []).find(br => [br.a, br.b].includes('fee') && bors.some(b => [br.a, br.b].includes(b.key)));
+  const homeP = home ? lay.pos[home.a === 'fee' ? home.b : home.a] : null;
+  const fee = cities.find(c => c.key === 'fee');
+  return <CityStage W={W} H={H} focus={spot} wx={v.season?.weather || 'clear'} ctl={isFee ? tour.ctl : null}>
+    {isFee ? <FeeCapital v={v} sel={sel} onPick={setSel} onGo={k => { setSel(null); setCity(k); }} tour={tour.on} />
+      : <>{inner.map(br => <Bridge key={br.name} r={bridgeRect(lay.pos[br.a], lay.pos[br.b])} name={br.name} />)}
+        {homeP && fee ? <Bridge r={{ x: 0, y: homeP.y + ISLAND / 2 - 13, w: homeP.x + 6, h: 26, horiz: true }} name={home.name}
+          gate={{ key: 'fee', at: 'w', name: 'FEE CITY', sub: `${fee.held}/${fee.plots} held`, go: () => { setSel(null); setCity('fee'); } }} /> : null}
+        {bors.map(b => <Island key={b.key} b={b} p={lay.pos[b.key]} blocks={byB[b.key] || []} boom={v.boom?.borough} sel={sel?.id} onPick={setSel} reach={v.me?.reach?.[b.key]} />)}</>}
+    <Vitals at={spot && { ...spot, z: sel?.lm ? 90 : 60 }} vit={vitalsOf(sel, v)} />
+  </CityStage>;
 }
