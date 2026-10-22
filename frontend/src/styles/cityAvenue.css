@@ -1,5 +1,6 @@
 /* 🛣 FEELESS AVENUE — the site's tools popped out over Fee City (CityAvenue.jsx). Built from m-* tokens; one keyframe set (av*). */
-.fwd-place.is-tool { width: min(1180px, calc(100% - 28px)); max-height: calc(100% - 28px); }
+.fwd-place.is-tool { width: min(1180px, calc(100% - 28px)); max-height: calc(100% - 28px); z-index: 9; background: linear-gradient(170deg, rgba(10, 14, 11, .97), rgba(5, 7, 6, .98)); }
+body.theme-day .fwd-place.is-tool { background: linear-gradient(170deg, rgba(250, 252, 250, .98), rgba(240, 246, 242, .98)); }
 .av-room { display: grid; gap: 12px; padding: 2px 2px 6px; animation: avIn .22s var(--m-ease, ease-out) both; }
 .av-page { justify-self: end; min-height: 34px; display: inline-flex; align-items: center; text-decoration: none; }
 .av-load { display: flex; gap: 8px; justify-content: center; padding: 40px 0; }

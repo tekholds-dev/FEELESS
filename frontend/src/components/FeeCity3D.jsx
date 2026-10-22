@@ -81,6 +81,7 @@ export function FeeCity3D({ v, sel, setSel, city, setCity, tour, overlay, onPlac
   const host = useRef(null); const eng = useRef(null); const stage = useRef(null); const cardEls = useRef({});
   const [ready, setReady] = useState(false); const [tip, setTip] = useState(null); const [spin, setSpin] = useState(false);
   const [mode, setMode] = useState(startMode); const [full, setFull] = useState(false); const [dir, setDir] = useState(() => typeof window === 'undefined' || window.innerWidth > 900);
+  useEffect(() => { if (active) setDir(false); }, [active]);   // walking into a room folds the directory away (it covered the room's left edge)
   const isFee = city === 'fee' || !v.cities?.length;
   const plan = useMemo(() => (isFee ? feePlan(v, markets) : outerPlan(v, city, pools)), [v, markets, city, isFee, pools]);
   const live = useMemo(() => ({ raided: new Set((v.raids || []).filter(r => r.status === 'live').map(r => r.b?.id).filter(Boolean)),
