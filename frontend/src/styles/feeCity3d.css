@@ -81,3 +81,8 @@ body.fx-lite .fc3-isl button, body.fx-lite .fc3-dir li, body.fx-lite .fc3.is-ful
 body.theme-day .fc3-dir ul { background: #fffaf0f2; border-color: #b8952a55; } body.theme-day .fc3-dir li button small { color: #6a5a3a; } body.theme-day .fc3-isl button { background: #fffaf0e6; }
 @media (max-width: 640px) { .fc3-dir { bottom: 104px; } .fc3-dir.is-open { width: 200px; } .fc3-isl { top: auto; bottom: 104px; left: 60px; right: 10px; max-width: none; transform: none; justify-content: flex-start; flex-wrap: nowrap; overflow-x: auto; }
   .fc3-card { width: 110px; } .fc3 .fc-vpanel, .fc3-dir.is-open ~ .fc-vpanel { left: 62px; right: 10px; width: auto; } }
+/* 🐛 dead clicks from HQ › Bugs (2026-10-22): an open room panel sat over the directory dock ("b / div.rn-lane sits over button[dir-…]") and the
+   site footer sat over the ⤢ collapse button in full screen ("footer.terminal-footer sits over button[city-full]") — the dock is always on top,
+   and the footer steps aside while the city has the window. */
+.fc3-dir { z-index: 8; }
+body.fc3-lock .terminal-footer { visibility: hidden; pointer-events: none; }

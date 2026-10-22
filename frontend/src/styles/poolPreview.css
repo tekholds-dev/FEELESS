@@ -1,0 +1,34 @@
+/* 🏊 PoolPreview.jsx — the pool as you type: two piles, the opening price, depth / supply / fee meters, the anti-snipe decay curve, the lock.
+   m-* palette, one keyframe set `ppv*`, transform / opacity only. */
+.ppv { display: grid; gap: 10px; margin: 10px 0; padding: 12px; border-radius: 14px; background: linear-gradient(165deg, rgba(21, 209, 106, .1), rgba(3, 10, 7, .92) 60%);
+  border: 1px solid rgba(21, 209, 106, .35); box-shadow: inset 0 1px 0 rgba(255, 255, 255, .06); }
+.ppv.is-empty { grid-template-columns: 34px 34px 1fr; align-items: end; } .ppv.is-empty p { margin: 0; font-size: 11.5px; color: #8fb3a0; } .ppv.is-empty .ppv-pile { height: 40px; opacity: .35; }
+.ppv-piles { display: grid; grid-template-columns: 70px minmax(0, 1fr) 70px; align-items: end; gap: 12px; height: 130px; }
+.ppv-pile { position: relative; display: grid; align-items: end; justify-items: center; height: 100%; border-radius: 10px 10px 4px 4px; transform-origin: bottom; transition: transform .45s cubic-bezier(.2, .8, .2, 1); }
+.ppv-pile.t { background: linear-gradient(180deg, #ffd36b, #b8860b); box-shadow: 0 0 18px rgba(255, 211, 107, .3); }
+.ppv-pile.s { background: linear-gradient(180deg, #9b8cff, #5a3fd0); box-shadow: 0 0 18px rgba(155, 140, 255, .35); }
+.ppv-pile b { padding: 3px 0; font: 800 8.5px 'JetBrains Mono', monospace; letter-spacing: .12em; color: #0b0905; }
+.ppv-price { position: relative; display: grid; justify-items: center; gap: 2px; align-self: center; padding: 8px; border-radius: 12px; background: rgba(0, 0, 0, .45); border: 1px solid rgba(255, 255, 255, .08); }
+.ppv-price em { font: 800 8px 'JetBrains Mono', monospace; font-style: normal; letter-spacing: .14em; color: #8fb3a0; }
+.ppv-price b { font: 800 16px 'JetBrains Mono', monospace; color: #e9fff2; text-shadow: 0 0 12px rgba(21, 209, 106, .5); } .ppv-price small { font-size: 10px; color: #8fb3a0; }
+.ppv-dot { position: absolute; top: -5px; left: 50%; width: 9px; height: 9px; margin-left: -4.5px; border-radius: 50%; background: #45e486; box-shadow: 0 0 10px #45e486; animation: ppvSwap 2.6s ease-in-out infinite; }
+.ppv-meters { display: grid; gap: 5px; }
+.ppv-meters p { display: grid; grid-template-columns: 130px minmax(0, 1fr) 54px; gap: 8px; align-items: center; margin: 0; }
+.ppv-meters em, .ppv-row em { font: 700 8px 'JetBrains Mono', monospace; font-style: normal; letter-spacing: .12em; color: #8fb3a0; }
+.ppv-meters u { display: block; height: 6px; border-radius: 3px; background: rgba(255, 255, 255, .08); overflow: hidden; }
+.ppv-meters s { display: block; height: 100%; background: linear-gradient(90deg, #15d16a, #45e486); transform-origin: left; transition: transform .45s ease; }
+.ppv-meters b, .ppv-row b { font: 800 11px 'JetBrains Mono', monospace; color: #e9fff2; text-align: right; }
+.ppv-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 10px; align-items: center; }
+.ppv-snipe, .ppv-lock { display: grid; gap: 3px; padding: 8px; border-radius: 10px; background: rgba(0, 0, 0, .35); border: 1px solid rgba(255, 255, 255, .07); }
+.ppv-snipe svg { width: 100%; max-width: 220px; height: 44px; } .ppv-axis { stroke: rgba(255, 255, 255, .15); stroke-width: 1; fill: none; }
+.ppv-curve { fill: none; stroke: #ff8fa3; stroke-width: 2.5; stroke-linecap: round; filter: drop-shadow(0 0 4px rgba(255, 143, 163, .6)); } .ppv-curve.is-off { stroke: #5d6b63; filter: none; }
+.ppv-snipe b, .ppv-lock b { text-align: left; }
+.ppv-lock { justify-items: center; } .ppv-lock svg { width: 34px; height: 38px; } .ppv-lock rect { fill: #3d4a43; } .ppv-shackle { fill: none; stroke: #5d6b63; stroke-width: 4; stroke-linecap: round; }
+.ppv-lock.is-on rect { fill: #15d16a; filter: drop-shadow(0 0 6px rgba(21, 209, 106, .7)); } .ppv-lock.is-on .ppv-shackle { stroke: #45e486; } .ppv-lock.is-on b { color: #45e486; }
+@keyframes ppvSwap { 0%, 100% { transform: translateX(-26px); opacity: .5; } 50% { transform: translateX(26px); opacity: 1; } }
+body.fx-lite .ppv * { animation: none !important; }
+@media (prefers-reduced-motion: reduce) { .ppv * { animation: none !important; transition: none !important; } }
+body.theme-day .ppv { background: linear-gradient(165deg, #e9f8ef, #f7fcf9 60%); border-color: rgba(0, 135, 92, .3); }
+body.theme-day .ppv-price, body.theme-day .ppv-snipe, body.theme-day .ppv-lock { background: rgba(255, 255, 255, .85); }
+body.theme-day .ppv-price b, body.theme-day .ppv-meters b, body.theme-day .ppv-row b { color: #0b2a19; text-shadow: none; }
+@media (max-width: 640px) { .ppv-piles { grid-template-columns: 52px minmax(0, 1fr) 52px; height: 110px; } .ppv-meters p { grid-template-columns: 100px minmax(0, 1fr) 46px; } .ppv-row { grid-template-columns: 1fr; } }
