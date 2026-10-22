@@ -160,34 +160,26 @@ chat (`StreetChat`) · 👑 creator's family on any linked / HQ wallet (`_seat_o
 VAULT (9th Avenue building, `sleep_money.py`) · 🏠 HQ one-stop tools + 📒 Books · 🏷 THE REALTOR · 🐛 Family Fuse cards (linked wallets + Prime cards).
 Earlier: Fee City 2× + FEELESS AVENUE · Pool Hall charts · Jupiter Lend deposit-here · defence · chat themes · Rep radar · online status.
 
-P0 — OWNER'S NEWEST (2026-10-22 night) — "agents still suck, G4 is killing us, NEXA can't read/trade" → AI + AGENTS FIRST, then Familia, in order
-A · AI + AGENTS
-1. 🧪 TRENCH THEORY: one scientific playbook for G4 / OSSY / NEXA / every agent (`docs/TRENCH_THEORY.md`) — start from `scripts/edge-audit.py` + the
-   real ledger (what paid: holds 30 min+ win, < 15 min lose, trims make the money); intake list → thesis → size → exit, one role per model; then
-   wire it into their prompts + the agents' rules, measured before / after.
-2. 🪟 NEXA reads + trades fast (177 s reads now → a fast path, smaller reads, stream) · 🧠 G4 health (stalls / WAITs → health check + fallback) ·
-   Models tab BESIDE NEXA's chat with vitals, aligned. (Presets per model: DONE 2026-10-22.)
-3. 📈 TRADE CENTER: live P&L of OSSY / G4 real-money trades (Agents tab data) — also shown in the family town.
-B · BUGS + EXPLOITS
-4. 🔑 "Not signed in" on the owner's own family town / can't expand — repro WHICH wallet is connected (HQ › Bugs / console), fix, one-tap Family HQ + ＋expand.
-5. 💸 REP MARKET: the owner bid and was not paid / lost money — audit its settlement ledger, fix, make good what is owed.
-6. 🛡 Raids + hits: max 3 per family per 12 h (anti-spam / bots); sweep Familia + the site for exploits (MP farming, double pays, bot play) and close them.
-C · FAMILIA = THE MONEY CITY (users never leave; no lag, Familia lazy-loaded as its own chunk, no big caches, no 20k-line dumps)
-7. Every directory building = a REAL-MONEY pop-out with ≥ 10 ways to make money; a building is ASSIGNED to a position (track + set it); funds pulled
-   ⇒ the building goes UNDER CONSTRUCTION.
-8. 🗼 TT — TRENCH TOWERS: the coin buildings show the best coins already cycled on site (the agents' INTAKE LIST), coin hovering over the tower;
-   pop-out = trench trade right there (TrenchChart + Quick trade) + "why it pumped" + rep vitals. Swap weak coins out.
-9. ⚖ Rep Courthouse: top catches + vitals (not a tool page). 🐱 FeeCat tower: the cats + vitals + live trades; create a cat there (trader or agent;
-   chat with it; it suggests pool combos for the family) — real money waits on the custody pick (P5).
-10. 🏦 Pools / vaults: TRUE data + impermanent loss for v3 range tweaks, the best settings shown, set up a pool AND its building in-city. HONEST
-    NUMBERS: ~5 % per 12 h ($0.25 on $5) is not a real sustainable yield — show real APY + risk, never promise it; compounding combos shown with math.
-11. 📉 PERPS: 2–3 venues via their official APIs (one high-leverage), liquidation price + risk on screen. ⚠ NO geo-block "loopholes" (Orca /
-    Hyperliquid in the USA): respect each venue's terms + region checks — FEELESS never helps evade them.
-12. 🎲 REP MARKET huge (Polymarket-style) + leaderboard + vitals; ONE points system (season pts + MP + market) usable everywhere (badge pools
-    boost…). Real-USD settlement / Polymarket wiring = OWNER + LEGAL decision first (prediction markets are regulated).
-13. Families unique + addictive: buy MP to advertise your coin on a city BILLBOARD (slideshow), family styles; outer cities (Bonk, Hype, Orca, Pump)
-    wired to that platform's best tools in click pop-outs. Fuse Arena: show the best settings.
-D · still open from before: 🐆 Sicario's seat button vitals + alignment · 🗂 Desktop clean-up (confirm the folder list with the owner first, never images).
+DONE 2026-10-22 night (owner to look at): 🧪 TRENCH THEORY (`trench_theory.py`, docs/TRENCH_THEORY.md — 7 measured laws ride on every coin case) ·
+🪟 NEXA's full read fixed (it was cut off at 100 tokens → parse failed; lean tagged read, no persona) · 💸 rep market pays a lone right call (house
+seed) · 🔑 Familia sign-in in one signature (no more "not signed in") · 🛡 raids ≤ 3 per family per 12 h both ways · 📈 TRADE CENTER · 🗼 TT TRENCH
+TOWERS (intake list, floating coins, why it pumped, theory) · ⚖ Courthouse top catches · 🐱 FeeCat tower (live + your cats + create) · 💸 MONEY MENU
+(12 doors under every room) · 🎯 v3 RANGE TUNER (exact IL) · 📺 BILLBOARDS (5,000 MP / 24 h, slideshow) · 📉 PERPS DESK (Hyperliquid data → Jupiter /
+Drift / Hyperliquid) · 🏗 under construction when funds run out · 🏛 CITY HALLS (Pump / Raydium / Bonk / Docks) · 🎲 rep market inside the city ·
+gate pinned to Node ≥ 18.
+
+P0 — still open from the night list, in order
+1. 🧠 G4 health (stalls / WAITs): needs the owner's live HQ › Brain › Models numbers (calls are in memory only) — read them first, then a
+   stall watchdog + fallback. Models tab BESIDE NEXA's chat (layout). Wire the trench theory into the deterministic agents only after a shadow test.
+2. 🐆 Sicario's seat button: more vitals + alignment — need the owner's screenshot (which seat / which view).
+3. 💎 ONE points system (season pts + MP + rep-market chips) usable everywhere (badge pools boost…) — an ECONOMY decision for the owner first
+   (rates, what converts to what). Real-USD rep market / Polymarket = owner + legal decision (prediction markets are regulated).
+4. 🏦 A building ASSIGNED to a real position (pool / vault) that goes under construction when the wallet's on-chain balance is pulled — needs
+   per-protocol balance reads (LP / receipt mints); MP-funded blocks already do it.
+5. Perps orders IN-APP (not just routed): each venue's SDK + guards (memory: new buy doors need guards) — owner's call. No geo-block loopholes, ever.
+6. 🗂 Desktop clean-up — confirm the folder list with the owner first (never images).
+NOTE: merging into main LOCALLY means auto-pull never restarts the backend — after a backend push, restart reputation_service via the watcher
+(memory: restart-from-claude-tree).
 
 P1 — FAMILIA = the one-stop shop in web3 (what is left)
 1. ❓ OWNER: city full-screen by default? (Realtor shipped as the clutter-free buy space; a dedicated for-sale ISLAND in 3D is still open.)

@@ -1,3 +1,8 @@
+## ✅ DONE 2026-10-22 night round (see CLAUDE.md › CURRENT TASKS › DONE) — conserve usage · finish everything by priority · never dead-style
+Open next: CLAUDE.md › P0 still open (G4 health from live numbers, Sicario seat needs a screenshot, ONE points system = owner's economy call,
+on-chain building assignment, in-app perps = owner's call). After a backend push: restart reputation_service via the watcher (merging locally
+means auto-pull won't). Gate now pins Node ≥ 18 (nvm default 16 broke it).
+
 ## 🔥 OWNER'S NEWEST (2026-10-22 night) → CLAUDE.md › CURRENT TASKS › P0 (A AI + agents → B bugs/exploits → C Familia money city). Start at P0 #1.
 Conserve usage · finish everything by priority · never dead-style. Done this session: Fee City 2× + FEELESS AVENUE, Pool Hall charts, model presets.
 
