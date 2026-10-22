@@ -15975,7 +15975,7 @@ def _ai_case(c):
     lm_ = _ai_learned(time.time())
     sn_ = _ai_snap(c.get('mint'), c.get('pair'))
     th_ = [f"your rule {k_} HITS this coin: {w_}" for k_, w_ in ((_office.get('taught') or {}).get(c.get('mint')) or {}).items()]
-    return {**_ai_brief(c.get('mint')), 'signals': _ai_signals(c), 'lessons': (th_ + _tch.for_case(_teach_state(), c.get('symbol'), c.get('mint')))[:7] or None,
+    return {**_ai_brief(c.get('mint')), 'signals': _ai_signals(c), 'theory': __import__('trench_theory').verdict(c)['line'], 'lessons': (th_ + _tch.for_case(_teach_state(), c.get('symbol'), c.get('mint')))[:7] or None,
             'learned': lm_['learned'], 'chartRec': lm_['chart'], 'predictRec': _ail.predict_line(_ail.predict_record(_ai_book())), 'candles': '; '.join(x_ for x_ in ((sn_ or {}).get('line'), _ccl.line(time.time())) if x_), 'owner': _ai_owner(time.time()), '_snap': sn_,
             **{k_: c.get(k_) for k_ in ('mint', 'symbol', 'status', 'rank', 'ageMin', 'cap', 'liq', 'vol5m', 'move5m', 'buyShare', 'narrative', 'trigger', 'size', 'unknown',
                                        'state', 'why', 'pending', 'result', 'cause', 'pct', 'peak', 'heldMin', 'rule', 'structure', 'phase')},

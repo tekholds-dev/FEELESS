@@ -477,10 +477,10 @@ CASE_KEYS = ('symbol', 'status', 'rank', 'ageMin', 'cap', 'liq', 'vol5m', 'move5
              'losses', 'wins', 'rules', 'vocab', 'vocabTable', 'trades', 'atFill', 'lessons',   # 🧪 the lab's case + 📍 a coin that just took a seat + what the desk learned
              # 👑 the coach's case: the last real trades as cause / result lines + the fixed vocabulary it may answer from
              'pct', 'peak', 'heldMin', 'decision', 'rule', 'reason', 'structure', 'phase', 'result', 'cause', 'state', 'why', 'pending',
-             'candles', 'owner', 'predictRec')   # 📸 the chart snapshot the model judges (ai_snapshot.py, the agents' own 1m rows) · 👤 how the OWNER trades (owner_moves record)
+             'candles', 'owner', 'predictRec', 'theory')   # 🧪 trench_theory.verdict: the desk's evidence-based pre-read (confirm or deny it)   # 📸 the chart snapshot the model judges (ai_snapshot.py, the agents' own 1m rows) · 👤 how the OWNER trades (owner_moves record)
 
 
-TEXT_LEN = {'candles': 520, 'owner': 360}   # the snapshot line + the owner's style need more than 240 characters
+TEXT_LEN = {'candles': 520, 'owner': 360, 'theory': 460}   # the snapshot line + the owner's style need more than 240 characters
 LONG_LISTS = {'vocabTable': 20, 'vocab': 60, 'lessons': 8, 'learned': 8}   # the lab reads a table, not 5 lines
 
 
