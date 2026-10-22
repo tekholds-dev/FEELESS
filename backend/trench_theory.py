@@ -15,7 +15,8 @@ EVIDENCE = {
     'curve':   ('still on the bonding curve = the worst bucket', '2,181 coins: typical −65.4 %, 9 % up'),
     'proven':  ('cap under $30K AND graduated = the ONLY rule positive on unseen coins', '110 coins: typical +1.0 %, capped avg +10.2 %, 52 % up'),
     'exits':   ('set the exit before entry: out at +50 / −30 beats holding', 'typical −9.9 % vs −42.8 % held an hour'),
-    'hold':    ('on the real card, holds of 30 min+ win and holds under 15 min lose; trims make the money', '943-piece ledger'),
+    'hold':    ('on the real card, holds under 15 min lose and holds of 1–3 h are the best bucket', '296 closed real lots: < 15 min = 150 lots, ~14 % won · 1–3 h = 37 % won, avg +0.8 %'),
+    'bail':    ("the agents' own early exits are the costliest habit on the card", '78 agent exits, median hold 13 min: 12 % won, median −6.9 % (stops: 3 % won, −15.6 %)'),
     'cost':    (f'a setup must expect more than the {COST_PCT:g} % round trip', 'every rule is scored after cost'),
     'thin':    ('a pool under $5K cannot take a real exit', 'slippage eats the move'),
 }
