@@ -89,7 +89,7 @@ body.theme-day .fwd-cart { background: rgba(236, 248, 238, .9); }
 @media (max-width: 980px) { .fwd-mapwrap { grid-template-columns: 1fr; } .fwd-side { position: static; } }
 
 /* 🚪 a PLACE you walked into (the old lens tabs): its room pops out over the city, the street stays live behind it */
-.fwd-place { position: absolute; z-index: 7; right: 14px; top: 14px; max-height: calc(100% - 78px); width: min(560px, calc(100% - 28px)); display: grid; grid-template-rows: auto minmax(0, 1fr);
+.fwd-place { position: absolute; z-index: 7; right: 14px; top: 14px; max-height: calc(100% - 78px); width: min(560px, calc(100% - 28px)); display: flex; flex-direction: column;   /* header · (room tabs) · body — a flex column: an added row never lands in the shrinking track (dead click 0e790c6e) */
   border-radius: 16px; border: 1px solid color-mix(in srgb, var(--pc) 55%, transparent); background: linear-gradient(165deg, #17121fee, #0a0910f4);
   box-shadow: inset 0 1px 0 #ffffff14, 0 0 0 1px #000a, 0 24px 60px -24px #000, 0 0 40px -18px var(--pc); animation: fwdPlaceIn .22s cubic-bezier(.2, .8, .2, 1) both; overflow: hidden; }
 .fwd-place > header { display: flex; align-items: center; gap: 10px; padding: 12px 14px; border-bottom: 1px solid #ffffff12; background: linear-gradient(90deg, color-mix(in srgb, var(--pc) 18%, transparent), transparent 70%); }
@@ -98,7 +98,7 @@ body.theme-day .fwd-cart { background: rgba(236, 248, 238, .9); }
 .fwd-place > header small { font: 600 10.5px 'JetBrains Mono', monospace; letter-spacing: .06em; color: #c9b47c; text-transform: uppercase; }
 .fwd-place > header button { width: 34px; height: 34px; border-radius: 10px; border: 1px solid #ffffff22; background: #ffffff08; color: #f1e6c8; font-size: 14px; cursor: pointer; transition: background .15s, transform .15s; }
 .fwd-place > header button:hover { background: #ffffff18; } .fwd-place > header button:active { transform: scale(.94); } .fwd-place > header button:focus-visible { outline: 2px solid var(--pc); outline-offset: 2px; }
-.fwd-placebody { overflow: auto; padding: 12px; scrollbar-width: thin; scrollbar-color: var(--pc) transparent; }
+.fwd-placebody { flex: 1 1 auto; min-height: 0; overflow: auto; padding: 12px; scrollbar-width: thin; scrollbar-color: var(--pc) transparent; }
 .fwd-placebody::-webkit-scrollbar { width: 6px; } .fwd-placebody::-webkit-scrollbar-thumb { background: var(--pc); border-radius: 6px; }
 @keyframes fwdPlaceIn { from { opacity: 0; transform: translateX(18px) scale(.98); } to { opacity: 1; transform: none; } }
 @keyframes fwdPlaceDot { from { opacity: .45; } to { opacity: 1; } }
@@ -141,9 +141,11 @@ body.fx-lite .fwd-siren, body.fx-lite .fwd-alert { animation: none; } @media (pr
 @media (max-width: 640px) { .fwd-alert { grid-template-columns: minmax(0, 1fr) auto; } .fwd-alert em { display: none; } }
 /* the room panel leaves the collapsed directory dock (46px + 12px gap) uncovered; on a phone the dock hides while a room is open */
 .fwd-place { width: min(560px, calc(100% - 88px)); }
+/* an open directory (226 px) and a room pop-out never overlap: the pop-out leaves the directory's width free (dead clicks 48292d9d · 9a863254) */
+@media (min-width: 641px) { .fwd-mapwrap:has(.fc3-dir.is-open) .fwd-place { width: min(560px, calc(100% - 268px)); } }
 @media (max-width: 640px) { .fwd-place { width: auto; } .fwd-mapwrap:has(.fwd-place) :is(.fc3-dir, .mh-acts) { display: none; } }
 /* 🚪 one building, several rooms (Fee City breathes, 2026-10-23): the host's rooms as a lit segmented strip under the pop-out header */
-.fwd-rooms { display: flex; gap: 6px; padding: 8px 12px; overflow-x: auto; scrollbar-width: none; border-bottom: 1px solid #ffffff10; background: #0000002e; }
+.fwd-rooms { flex: none; display: flex; gap: 6px; padding: 8px 12px; overflow-x: auto; scrollbar-width: none; border-bottom: 1px solid #ffffff10; background: #0000002e; }
 .fwd-rooms::-webkit-scrollbar { display: none; }
 .fwd-rooms button { --rc: var(--pc); flex: none; min-height: 34px; display: inline-flex; align-items: center; gap: 7px; padding: 0 12px; border-radius: 999px; border: 1px solid color-mix(in srgb, var(--rc) 40%, transparent);
   background: color-mix(in srgb, var(--rc) 8%, #0b0a10); color: color-mix(in srgb, var(--rc) 80%, #fff); font: 800 10.5px 'JetBrains Mono', monospace; letter-spacing: .1em; cursor: pointer;
