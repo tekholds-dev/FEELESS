@@ -50,7 +50,7 @@
 /* 🎨 inside the shell every m-* preset + the agents' paper panels wear the violet night (they were FEELESS-green boxes inside a violet page) */
 .fcx { --m-bg: #08050f; --m-surface: #120a22; --m-surface-2: #1a1030; --m-line: #2e1f4d; --m-line-hi: #5a3d99; --m-text: #ece4ff;
   --m-dim: rgba(236, 228, 255, .62); --m-mute: rgba(236, 228, 255, .4); --m-accent: #b388ff; --m-accent-ink: #12081f; }
-.fcx :is(.paper-panel, .paper-my-cats, .paper-cat-detail, .paper-create-card) { background: linear-gradient(165deg, #1a1030ee, #0c0817f2); border-color: #b388ff2b; box-shadow: inset 0 1px 0 #ffffff10; }
+.fcx :is(.paper-panel, .paper-my-cats, .paper-create-card) { background: linear-gradient(165deg, #1a1030ee, #0c0817f2); border-color: #b388ff2b; box-shadow: inset 0 1px 0 #ffffff10; }
 .fcx .paper-platform-tabs button.active { background: linear-gradient(135deg, #b388ff, #7c4dff); border-color: transparent; color: #12081f; box-shadow: 0 8px 20px -10px #7c4dff; }
 .fcx .paper-platform-tabs button:not(.active):hover { background: #b388ff17; }
 .fcx .paper-platform-head h1 em { color: #ffc2e4; text-shadow: 0 0 22px #ff5dbb66; }
@@ -61,7 +61,7 @@
   .fcx .fcp-tabs { display: flex; flex-wrap: wrap; } .fcx .fcp-tabs button { flex: 1 1 30%; min-width: 0; }
   .fcx .paper-platform-head { flex-wrap: wrap; } .fcx.fcx .fc-v2 .paper-platform-head h1 { font-size: 30px; } }
 body.theme-day .fcx { --m-bg: #fbf9ff; --m-surface: #ffffff; --m-surface-2: #f6f0ff; --m-line: #e2d6ff; --m-line-hi: #c4adff; --m-text: #2a1650; --m-dim: #5a4a7a; --m-mute: #8a7aa8; --m-accent: #7c4dff; --m-accent-ink: #fff; }
-body.theme-day .fcx :is(.paper-panel, .paper-my-cats, .paper-cat-detail, .paper-create-card) { background: #fff; border-color: #7c4dff26; }
+body.theme-day .fcx :is(.paper-panel, .paper-my-cats, .paper-create-card) { background: #fff; border-color: #7c4dff26; }
 body.theme-day .fcx .paper-platform-tabs button.active { color: #fff; } body.theme-day .fcx .paper-platform-head h1 em { color: #a3166b; text-shadow: none; }
 body.theme-day .fcx .eyebrow { color: #6d3fd0; }
 

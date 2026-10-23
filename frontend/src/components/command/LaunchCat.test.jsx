@@ -59,3 +59,17 @@ test('Launch a Cat asks the SAME identity + look + risk fields as Create a Cat w
   expect(el.querySelector('[data-testid="lct-next"]').disabled).toBe(true);     // 'h1' fails the shared rule
   act(() => root.unmount());
 });
+
+test('🧠 the brain socket: YOUR built cat sits in it, each picked brain is a lit orb wired into its head, an empty socket waits', async () => {
+  const { BrainSocket } = require('./LaunchCat');
+  const { createRoot: cr } = require('react-dom/client'); const { act: a } = require('react');
+  localStorage.setItem('feeless.myCat', JSON.stringify({ coat: 2, pattern: 'spots', look: { gear: 'halo' }, name: 'Specter' }));
+  const el = document.createElement('div'); document.body.appendChild(el); const root = cr(el);
+  await a(async () => { root.render(<BrainSocket picked={[]} />); });
+  expect(el.querySelectorAll('.lct-node.on')).toHaveLength(0); expect(el.querySelectorAll('.lct-wires .w.on')).toHaveLength(0);
+  expect(el.querySelector('.g-halo')).not.toBeNull();                                     // your cat, wearing what you built
+  await a(async () => { root.render(<BrainSocket picked={[{ id: 'a', name: 'OpenAI: GPT-5', tag: 'G4' }, { id: 'b', name: 'Qwen3 4B' }]} />); });
+  expect([...el.querySelectorAll('.lct-node.on')].map(n => n.textContent)).toEqual(['G4', 'Qwen3 ']);
+  expect(el.querySelectorAll('.lct-wires .w.on')).toHaveLength(2);
+  a(() => root.unmount()); localStorage.removeItem('feeless.myCat');
+});

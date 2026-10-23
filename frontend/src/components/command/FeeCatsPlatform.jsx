@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import NumInput from '../NumInput';
 import { createPortal } from 'react-dom';
-import { Activity, AlertTriangle, ArrowLeft, Cat, ChevronRight, CircleStop, Copy, Gauge, LockKeyhole, Play, Plus, RefreshCw, ShieldAlert, SlidersHorizontal, Trophy, Wallet, X } from 'lucide-react';
+import { Activity, AlertTriangle, ArrowLeft, Cat, ChevronRight, Gauge, Play, Plus, Trophy, X } from 'lucide-react';
 import { CAT_VARIATIONS, CatAvatar, catByName } from './catCoats';
 import { ShareGifButton } from '../ShareGif';
 import '../../styles/feecatPage.css';
@@ -11,6 +11,7 @@ import { LaunchCat, BrainPanel } from './LaunchCat';
 import { LookAvatar, LookPicker, DEFAULT_LOOK } from './CatLook';
 import { readMyCat } from '../../lib/myCat';
 import { EngineLine } from './CatBrainSwitch';
+import { CatDesk } from './CatDesk';
 import { AgentPicker, AGENT_MAX } from './AgentPicker';
 const OWNER_KEY = 'feeless-paper-owner';
 const api = async (path, options = {}) => {
@@ -27,7 +28,6 @@ const ownerId = () => {
   } catch { return 'preview-browser-owner'; }
 };
 const money = value => `${Number(value || 0) >= 0 ? '+' : ''}${Number(value || 0).toFixed(4)} SOL`;
-const short = value => value ? `${value.slice(0, 6)}…${value.slice(-5)}` : '—';
 const time = value => value ? new Date(value).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '—';
 const usd = value => Number(value) > 0 ? `$${Number(value).toLocaleString(undefined, { maximumFractionDigits: 0 })}` : 'MC unavailable';
 const eventSymbol = event => event.symbol || event.detail?.match(/\bof\s+([A-Z0-9_]{2,})\b/i)?.[1] || 'TRADE';
@@ -42,21 +42,6 @@ const tradeCard = event => ({
 
 function PaperBadge() {
   return <span className="paper-badge"><i /> PAPER TRADING · NO REAL SOL</span>;
-}
-
-function Sparkline({ points = [] }) {
-  const values = points.length ? points.map(point => Number(point.value || 0)) : [0];
-  const min = Math.min(...values, 0);
-  const max = Math.max(...values, 0);
-  const range = max - min || 1;
-  const polyline = values.map((value, index) => `${(index / Math.max(values.length - 1, 1)) * 100},${94 - ((value - min) / range) * 78}`).join(' ');
-  const zero = 94 - ((0 - min) / range) * 78; const last = values[values.length - 1];
-  const lastY = 94 - ((last - min) / range) * 78;
-  return <span className={`paper-chart-wrap ${last >= 0 ? 'is-up' : 'is-down'}`}><svg className="paper-pnl-chart" viewBox="0 0 100 100" preserveAspectRatio="none" role="img" aria-label="Paper realized and unrealized P/L history">
-    <defs><linearGradient id="fcp-area" x1="0" x2="0" y1="0" y2="1"><stop offset="0%" stopColor="currentColor" stopOpacity=".32" /><stop offset="100%" stopColor="currentColor" stopOpacity="0" /></linearGradient></defs>
-    <polygon className="chart-area" points={`0,${zero} ${polyline} 100,${zero}`} fill="url(#fcp-area)" />
-    <line x1="0" x2="100" y1={zero} y2={zero} className="chart-zero" /><polyline points={polyline} /></svg>
-    <i className="paper-chart-dot" style={{ top: `${lastY}%` }} aria-hidden="true" /></span>;
 }
 
 function AvatarPicker({ value, onChange }) {
@@ -148,26 +133,19 @@ function ActivityFeed({ catId }) {
   return <section className="paper-panel paper-activity"><div className="paper-panel-head"><div><span className="eyebrow"><Activity size={13} /> LIVE CAT ACTIVITY</span><h2>{catId ? 'This Cat’s audit trail.' : 'Watch the paper engine.'}</h2></div><span className="paper-live-dot"><i /> LIVE</span></div>{!data.events?.length && <div className="paper-empty"><Activity size={20} />No activity yet. Start a Cat to begin scanning.</div>}<div className="paper-event-list">{data.events?.map((event, k) => <article className={`paper-event event-${event.type.toLowerCase()}`} key={event.id} style={{ '--i': Math.min(k, 12) }}><span className="paper-event-icon">{event.type === 'BUY' ? '↗' : event.type === 'SELL' ? '↘' : event.type === 'STOPPED' ? '!' : '·'}</span><div><b>{event.catName} <small>{event.type}</small></b><p>{event.detail}</p><time>{time(event.ts)} · PAPER{event.decisionSource ? ` · ${event.decisionSource === 'selected_brain' ? `${event.brainLabel || 'Selected brain'} decision` : 'FEELESS rule engine · live prices'}` : ''}</time>{['BUY', 'SELL'].includes(event.type) && <small className="paper-event-mc">{event.type === 'BUY' ? `Entry MC: ${usd(event.marketCapUsd)}` : `Entry: ${usd(event.entryMarketCapUsd)} · Exit: ${usd(event.marketCapUsd)}`}</small>}</div>{event.pnlSol != null && <strong className={event.pnlSol >= 0 ? 'positive' : 'negative'}>{money(event.pnlSol)}</strong>}{['BUY', 'SELL'].includes(event.type) && <ShareGifButton className="btn-outline paper-event-share" label="🎞 Share" card={tradeCard(event)} />}</article>)}</div></section>;
 }
 
+// 🤖 one agent's desk = CatDesk.jsx (violet meta, 2026-10-23); this keeps its live read + the paper actions
 function CatDetail({ cat: initialCat, onBack, onChanged }) {
   const [cat, setCat] = useState(initialCat);
-  const [error, setError] = useState('');
-  const [withdrawAmount, setWithdrawAmount] = useState('');
+  const [error, setError] = useState(''); const [busy, setBusy] = useState(false);
   const brainChanged = useCallback(next => { setCat(next); onChanged?.(next); }, [onChanged]);
-  const [controls, setControls] = useState({ maxPositionSol: initialCat.risk.maxPositionSol, maxDailyLossSol: initialCat.risk.maxDailyLossSol, allowlist: initialCat.risk.allowlist.join(', '), blocklist: initialCat.risk.blocklist.join(', ') });
   useEffect(() => {
-    const refresh = async () => {
-      try {
-        const result = await api(`/api/cats/${initialCat.id}`);
-        if (result.cat) { setCat(result.cat); onChanged?.(result.cat); }
-      } catch {}
-    };
+    const refresh = async () => { if (document.hidden) return; try { const result = await api(`/api/cats/${initialCat.id}`); if (result.cat) { setCat(result.cat); onChanged?.(result.cat); } } catch {} };
     const interval = setInterval(refresh, 8000);
     return () => clearInterval(interval);
   }, [initialCat.id]); // eslint-disable-line react-hooks/exhaustive-deps
-  const act = async (action, extra = {}) => { setError(''); try { const result = await api(`/api/cats/${cat.id}/action`, { method: 'POST', body: JSON.stringify({ action, ...extra }) }); setCat(result.cat); onChanged?.(result.cat); } catch (requestError) { setError(requestError.message); } };
-  const copyWallet = async () => { try { await navigator.clipboard.writeText(cat.wallet); setError('Paper wallet address copied.'); } catch { setError('Paper wallet: ' + cat.wallet); } };
-  const updateControls = event => { event.preventDefault(); act('controls', controls); };
-  return <div className="paper-cat-detail"><button className="paper-back-link" type="button" onClick={onBack}><ArrowLeft size={14} /> All Cats</button><div className="paper-cat-hero"><div className="paper-cat-identity"><span className="paper-detail-avatar"><LookAvatar cat={catByName(cat.avatar)} look={cat.look} large /></span><div><PaperBadge /><h1>{cat.name}</h1><p>Level {cat.level} · {cat.xp} XP · {cat.strategyLabel}</p><button type="button" className="paper-wallet-address" onClick={copyWallet}><Wallet size={13} />{short(cat.wallet)}<Copy size={12} /></button></div></div><div className="paper-cat-actions">{cat.status === 'running' ? <button type="button" className="btn-outline stop-action" onClick={() => act('stop')}><CircleStop size={15} /> Emergency stop</button> : <button type="button" className="btn-primary" disabled={cat.revoked} onClick={() => act('start')}><Play size={15} /> Start paper agent</button>}<button type="button" className="btn-outline" onClick={() => act('run')}><RefreshCw size={14} /> Run cycle</button></div></div>{error && <div className="paper-inline-message"><AlertTriangle size={14} />{error}</div>}<div className="paper-stat-grid"><div style={{ '--i': 0 }}><small>BALANCE</small><strong className="fl-tick" key={cat.balanceSol}>{cat.balanceSol.toFixed(4)} SOL</strong><span>paper wallet</span></div><div style={{ '--i': 1 }}><small>REALIZED P/L</small><strong className={`fl-tick ${cat.realizedPnlSol >= 0 ? 'positive' : 'negative'}`} key={cat.realizedPnlSol}>{money(cat.realizedPnlSol)}</strong><span>price moves · fees apart</span></div><div><small>POSITIONS</small><strong>{cat.positions.length}</strong><span>open paper positions</span></div><div><small>WIN RATE</small><strong>{cat.winRate == null ? '—' : `${cat.winRate}%`}</strong><span>{cat.wins + cat.losses} closed trades</span></div></div><div className="paper-detail-grid"><div className="paper-detail-main">{cat.brainsCfg ? <BrainPanel cat={cat} api={api} onChanged={brainChanged} /> : null}<section className="paper-panel paper-chart-panel"><div className="paper-panel-head"><div><span className="eyebrow">P/L TRACE</span><h2>Performance over paper cycles</h2></div><span className="paper-muted">SOL · {cat.pnlHistory?.length || 1} points</span></div><Sparkline points={cat.pnlHistory} /><div className="paper-chart-labels"><span>START</span><strong className={cat.totalPnlSol >= 0 ? 'positive' : 'negative'}>{money(cat.totalPnlSol)}</strong><span>NOW</span></div></section><section className="paper-panel"><div className="paper-panel-head"><div><span className="eyebrow">OPEN POSITIONS</span><h2>What this Cat holds</h2></div><span className="paper-muted">Provider marked</span></div>{!cat.positions.length ? <div className="paper-empty">No open paper positions.</div> : <div className="paper-positions">{cat.positions.map(position => <PositionRow key={position.pairAddress || position.mint} position={position} />)}</div>}</section><ActivityFeed catId={cat.id} /></div><aside className="paper-detail-side"><section className="paper-panel paper-controls"><div className="paper-panel-head"><div><span className="eyebrow"><SlidersHorizontal size={13} /> STRATEGY + LIMITS</span><h2>Owner controls</h2></div></div><EngineLine /><form onSubmit={updateControls}><label>Strategy<select value={cat.strategy} disabled><option>{cat.strategyLabel}</option></select></label><label>Max position · SOL<NumInput type="number" min="0.01" max="2" step="0.01" value={controls.maxPositionSol} onChange={event => setControls({ ...controls, maxPositionSol: event.target.value })} /></label><label>Max daily loss · SOL<NumInput type="number" min="0.01" max="5" step="0.01" value={controls.maxDailyLossSol} onChange={event => setControls({ ...controls, maxDailyLossSol: event.target.value })} /></label><label>Allowlist<input value={controls.allowlist} onChange={event => setControls({ ...controls, allowlist: event.target.value })} placeholder="Any token if empty" /></label><label>Blocklist<input value={controls.blocklist} onChange={event => setControls({ ...controls, blocklist: event.target.value })} placeholder="No blocked tokens" /></label><button className="btn-outline" type="submit">Save controls</button></form><div className="paper-safety-row"><ShieldAlert size={15} /><span>Agent signing is disabled in paper MVP.<small>No real SOL can be spent.</small></span></div></section><section className="paper-panel paper-withdraw"><span className="eyebrow"><Wallet size={13} /> WITHDRAW</span><h2>Keep control of the balance.</h2><p>Paper withdrawals update the ledger only. No blockchain transfer is claimed.</p><div><NumInput type="number" min="0.0001" step="0.0001" value={withdrawAmount} onChange={event => setWithdrawAmount(event.target.value)} placeholder={cat.balanceSol.toFixed(4)} /><button type="button" className="btn-primary" onClick={() => act('withdraw', { amount: withdrawAmount || cat.balanceSol })}>Withdraw</button></div></section><section className="paper-panel paper-danger"><span className="eyebrow"><LockKeyhole size={13} /> ACCESS</span><h2>Revoke this agent</h2><p>Stops future cycles permanently for this Cat.</p><button type="button" className="btn-outline" onClick={() => act('revoke')} disabled={cat.revoked}>Revoke agent</button></section></aside></div><p className="paper-disclosure"><AlertTriangle size={13} /> PAPER MODE: balances are simulated; every entry and exit price is the real live DexScreener SOL price at that moment, with fees tracked apart from P/L. No private key or signing capability is exposed to the browser.</p></div>;
+  const act = async (action, extra = {}) => { setError(''); setBusy(true); try { const result = await api(`/api/cats/${cat.id}/action`, { method: 'POST', body: JSON.stringify({ action, ...extra }) }); setCat(result.cat); onChanged?.(result.cat); } catch (requestError) { setError(requestError.message); } setBusy(false); };
+  return <CatDesk cat={cat} busy={busy} error={error} onBack={onBack} onAct={act} Engine={<EngineLine />}
+    Brains={cat.brainsCfg ? <BrainPanel cat={cat} api={api} onChanged={brainChanged} /> : null} Activity={<ActivityFeed catId={cat.id} />} />;
 }
 
 // 🤖 AGENTS (FeeCat redo, 2026-10-23): your trading cats — MY AGENTS · NEW AGENT · LIVE ACTIVITY · LEADERBOARD. Fee's own desk, brain and lore

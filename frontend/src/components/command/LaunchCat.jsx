@@ -1,6 +1,9 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Panther } from '../Panther';
 import NumInput from '../NumInput';
+import { LookAvatar } from './CatLook';
+import { CAT_VARIATIONS } from './catCoats';
+import { useMyCat } from '../../lib/myCat';
 import '../../styles/launchCat.css';
 
 // 🚀 LAUNCH A CAT (owner, 2026-10-20): pick up to two AI brains from OpenRouter's whole public list, choose how they work together, write
@@ -41,6 +44,18 @@ function ModelTile({ m, on, onPick, i }) {
   </button>;
 }
 
+// 🧠 THE BRAIN SOCKET (FeeCat redo, 2026-10-23): YOUR built cat with the picked brains drawn as lit orbs, each wired into its head — the wire
+// pulses toward the cat; two brains = two wires; none = an empty socket waiting.
+export function BrainSocket({ picked, mood }) {
+  const mine = useMyCat(); const coat = CAT_VARIATIONS[mine?.coat ?? 0] || CAT_VARIATIONS[0];
+  const slots = [picked[0] || null, picked[1] || null];
+  return <div className={`lct-socket n-${picked.length}`} aria-hidden="true">
+    <svg className="lct-wires" viewBox="0 0 220 120" preserveAspectRatio="none">{slots.map((m, i) => <path key={i} className={`w w${i}${m ? ' on' : ''}`} d={i ? 'M188 30 C 160 30, 150 58, 118 60' : 'M32 30 C 60 30, 70 58, 102 60'} />)}</svg>
+    {slots.map((m, i) => <span key={i} className={`lct-node n${i}${m ? ' on' : ''}`}>{m ? (m.tag || m.name.replace(/^[^:]+:\s*/, '')).slice(0, 6) : '+'}</span>)}
+    <span className="lct-cat"><LookAvatar cat={[coat[0], coat[1], coat[2], mine?.pattern || coat[3]]} look={mine?.look} size={92} gesture={mood} /></span>
+  </div>;
+}
+
 function Duo({ mode, picked }) {
   const [a, b] = picked;
   return <div className={`lct-duo ${DUO[mode] || ''}${b ? '' : ' is-solo'}`} aria-hidden="true">
@@ -74,10 +89,10 @@ export function LaunchCat({ api, ownerId, onCreated, onCancel, Fields, Preview, 
     } catch (e) { setErr(e.message); } finally { setSaving(false); }
   };
   return <section className="lct" data-testid="launch-cat">
-    <header className="lct-head"><Panther size={72} gesture={saving ? 'pounce' : picked.length === 2 ? 'celebrate' : picked.length ? 'purr' : 'think'} />
+    <header className="lct-head"><BrainSocket picked={picked} mood={saving ? 'pounce' : picked.length === 2 ? 'celebrate' : picked.length ? 'purr' : 'think'} />
       <div><span className="eyebrow">🚀 LAUNCH A CAT · PAPER</span><h2>Give your cat <em>{picked.length === 2 ? 'two brains' : 'a brain'}</em>.</h2>
         <p>Pick up to two models from OpenRouter's whole list. They decide once before a buy and up to {d?.budget?.liveAsks ?? 3} times while a coin is live — only on a ±{d?.budget?.alertPct ?? 10}% move. You chime in; the cat trades.</p></div></header>
-    <nav className="lct-steps">{STEPS.map((s, i) => <button key={s} type="button" className={`${i === step ? 'is-on' : ''}${i < step ? ' is-done' : ''}`} onClick={() => i <= step || ready.slice(0, i).every(Boolean) ? setStep(i) : null} data-testid={`lct-step-${i}`}><b>{i + 1}</b>{s}</button>)}</nav>
+    <nav className="lct-steps" style={{ '--p': step / (STEPS.length - 1) }}><i className="lct-prog" aria-hidden="true"><u /></i>{STEPS.map((s, i) => <button key={s} type="button" className={`${i === step ? 'is-on' : ''}${i < step ? ' is-done' : ''}`} onClick={() => i <= step || ready.slice(0, i).every(Boolean) ? setStep(i) : null} data-testid={`lct-step-${i}`}><b>{i + 1}</b>{s}</button>)}</nav>
     {err ? <p className="lct-err" role="alert">⚠ {err}</p> : null}
     {step === 0 ? <div className="lct-pane">
       {!d ? <p className="lct-load">Reading OpenRouter's model list…</p> : <>
@@ -97,8 +112,9 @@ export function LaunchCat({ api, ownerId, onCreated, onCancel, Fields, Preview, 
       {Fields ? <div className="cct-split lct-ident">{<Fields form={form} update={update} />}{Preview ? <aside className="cct-preview m-live" data-testid="lct-preview"><Preview form={form} /></aside> : null}</div> : <>
         <label>Cat name<input className="m-input" maxLength={24} value={form.name} onChange={e => update('name', e.target.value)} placeholder="Midnight Prowler" data-testid="lct-name" /></label>
         <label>Starting paper balance · SOL<NumInput className="m-input" value={form.startingBalanceSol} onChange={e => update('startingBalanceSol', e.target.value)} /></label></>}
-      <label>📜 One-time brief — both brains read it for the cat's whole life. <b>It can never be changed.</b>
-        <textarea className="m-input" rows={6} maxLength={1200} value={prompt} onChange={e => setPrompt(e.target.value)} placeholder="e.g. Only buy coins sitting on their germ floor with higher lows. Bank half at +30%. Never chase a green candle." data-testid="lct-prompt" /><small>{prompt.length} / 1200</small></label>
+      <label className="lct-seal"><span><b>📜 THE BRIEF</b><em>sealed for life — both brains read it before every call; it can never be changed</em></span>
+        <textarea className="m-input" rows={6} maxLength={1200} value={prompt} onChange={e => setPrompt(e.target.value)} placeholder="e.g. Only buy coins sitting on their germ floor with higher lows. Bank half at +30%. Never chase a green candle." data-testid="lct-prompt" />
+        <i className="lct-len" aria-hidden="true"><u style={{ transform: `scaleX(${Math.max(0.01, prompt.length / 1200)})` }} /></i><small>{prompt.length} / 1200</small></label>
     </div> : null}
     {step === 3 ? <div className="lct-pane lct-pay">
       <div className="lct-modes">{(d?.billing || []).map(b => <button key={b.key} type="button" className={billing === b.key ? 'is-on' : ''} onClick={() => setBilling(b.key)} data-testid={`lct-bill-${b.key}`}><b>{b.label}</b></button>)}</div>
