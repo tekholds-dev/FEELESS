@@ -9086,7 +9086,7 @@ async def _fblock_reads(c, lots, now):
                 r_ = await http.post(f'https://mainnet.helius-rpc.com/?api-key={key_}', json={'jsonrpc': '2.0', 'id': 1, 'method': 'getAssetsByOwner', 'params': {'ownerAddress': w_, 'page': 1, 'limit': 1000}})
                 for it_ in ((r_.json() or {}).get('result') or {}).get('items') or []:
                     md_ = ((it_.get('content') or {}).get('metadata') or {})
-                    assets_.append({'name': md_.get('name'), 'symbol': md_.get('symbol')})
+                    assets_.append({'id': it_.get('id'), 'name': md_.get('name'), 'symbol': md_.get('symbol')})
             except Exception as e_:
                 print('block nfts:', str(e_)[:80])
         async def kamino(w_):
@@ -9108,7 +9108,7 @@ async def _fblock_reads(c, lots, now):
     for k_ in _bmk.NFT:
         n_ = _bmk.nft_count(assets_, k_)
         if n_:
-            out_[k_] = {'n': n_}
+            out_[k_] = {'n': n_, 'ranges': await _fblock_ranges(k_, [a_['id'] for a_ in assets_ if a_.get('id') and _bmk.nft_count([a_], k_)])}
     if kam_:
         usd_ = sum(_fuse._f(p_.get('totalValueUsd') or p_.get('usdValue') or p_.get('value')) for p_ in kam_)
         n_ = sum(1 for p_ in kam_ if _fuse._f(p_.get('totalShares') or p_.get('sharesAmount') or p_.get('stakedShares') or p_.get('unstakedShares')) > 0 or _fuse._f(p_.get('totalValueUsd') or p_.get('usdValue')) > 0)
@@ -9116,6 +9116,26 @@ async def _fblock_reads(c, lots, now):
             out_['kamino'] = {'n': n_, 'usd': round(usd_, 2) if usd_ else None}
     _fblock_held[c['id']] = (now, out_, keys_)
     return out_
+
+
+async def _fblock_ranges(kind, nft_mints):
+    """🎯 Each concentrated position's range vs its pool's price now (clmm_range): position PDAs → their accounts → their pools → in / out."""
+    import base64 as _b64
+    import clmm_range as _cr
+    if not nft_mints:
+        return None
+    try:
+        async with httpx.AsyncClient(timeout=12) as http:
+            pdas_ = [_cr.position_pda(kind, m_) for m_ in nft_mints[:20]]
+            acc_ = ((await _rpc(http, 'getMultipleAccounts', [pdas_, {'encoding': 'base64'}])) or {}).get('value') or []
+            pos_ = [_cr.parse_position(kind, _b64.b64decode((a_.get('data') or [''])[0])) if a_ else None for a_ in acc_]
+            pools_ = sorted({p_['pool'] for p_ in pos_ if p_})
+            pacc_ = ((await _rpc(http, 'getMultipleAccounts', [pools_, {'encoding': 'base64'}])) or {}).get('value') or [] if pools_ else []
+            pool_ = {k_: _cr.parse_pool(kind, _b64.b64decode((a_.get('data') or [''])[0])) for k_, a_ in zip(pools_, pacc_) if a_}
+        return _cr.summary([_cr.status(p_, pool_[p_['pool']]) for p_ in pos_ if p_ and pool_.get(p_['pool'])])
+    except Exception as e_:
+        print('block ranges:', str(e_)[:80])
+        return None
 
 
 async def _fblock_view(c, me=None, staff=False, rank=None):

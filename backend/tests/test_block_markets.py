@@ -89,3 +89,17 @@ def test_the_intake_adds_safe_pump_front_runners_beside_the_agents_list(monkeypa
     out = rs._intake_pump([{'mint': 'AGENTpump'}], 5)
     assert [r['mint'] for r in out] == ['AAApump', 'DDDpump'] and out[0]['src'] == 'pump' and out[0]['ageMin'] == 30 and 'scan clean' in out[0]['read']
     assert rs._intake_pump([], 1) == out[:1] and rs._intake_pump([], 0) == []
+
+
+def test_a_real_out_of_range_position_becomes_an_urgent_re_center_errand():
+    import clmm_range as cr
+    pos = {'lo': -1000, 'hi': 1000, 'liquidity': 1}
+    rg = cr.summary([cr.status(pos, {'tick': 2000}), cr.status(pos, {'tick': 0})])
+    v = bm.view([{'key': 'orca'}], MK, {'orca': {'n': 2, 'ranges': rg}}, mine=True)[0]
+    e = v['errands'][0]
+    assert v['state'] == 'built' and e['urgent'] and e['text'].startswith('1 of 2 out of range — price 10.5 % above your range')
+    near = cr.summary([cr.status(pos, {'tick': 950})])
+    e2 = bm.view([{'key': 'orca'}], MK, {'orca': {'n': 1, 'ranges': near}}, mine=True)[0]['errands'][0]
+    assert not e2['urgent'] and 'near the edge' in e2['text']
+    calm = cr.summary([cr.status(pos, {'tick': 0})])
+    assert bm.view([{'key': 'orca'}], MK, {'orca': {'n': 1, 'ranges': calm}}, mine=True)[0]['errands'] == []   # all in range: nothing to do

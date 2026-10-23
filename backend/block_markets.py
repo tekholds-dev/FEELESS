@@ -115,8 +115,17 @@ def errands(b, apys, url=None):
         if best and best[1] - apys[k] >= SWITCH_PP:
             out.append({'kind': 'switch', 'icon': '⚖', 'text': f"{SYMS[best[0]]} pays {best[1]:.2f}% vs your {SYMS[k]} {apys[k]:.2f}% — switch?",
                         'swap': {'from': MINTS[k], 'to': MINTS[best[0]]}, 'urgent': False, 'gain': round(best[1] - apys[k], 2)})
-    if k in NFT:
-        out.append({'kind': 'range', 'icon': '🎯', 'text': f"Check your {b['name']} range — out of range earns nothing", 'tool': 'range', 'urgent': False})
+    if k in NFT:   # 🎯 the positions' real ranges (clmm_range.summary) when read, else a plain check
+        rg = b.get('ranges') or {}
+        w = rg.get('worst') or {}
+        if rg.get('out'):
+            out.append({'kind': 'range', 'icon': '🎯', 'urgent': True, 'tool': 'range',
+                        'text': f"{rg['out']} of {rg['n']} out of range — price {w.get('outPct', 0):.1f} % {w.get('side', 'outside')} your range, it earns nothing. Re-center it"})
+        elif rg.get('near'):
+            out.append({'kind': 'range', 'icon': '🎯', 'urgent': False, 'tool': 'range',
+                        'text': f"{rg['near']} of {rg['n']} near the edge — {w.get('edgePct', 0):.1f} % of room left. Widen or re-center before it slips out"})
+        elif not rg.get('n'):
+            out.append({'kind': 'range', 'icon': '🎯', 'text': f"Check your {b['name']} range — out of range earns nothing", 'tool': 'range', 'urgent': False})
     if k == 'jlp':
         out.append({'kind': 'hedge', 'icon': '⚖', 'text': 'JLP is the house: it loses when traders win — size it against your SOL', 'tool': 'perps', 'urgent': False})
     return out
@@ -135,7 +144,7 @@ def view(lots, markets, held, prices=None, apys=None, mine=False):
         b = {'key': k, 'i': i, 'name': m.get('name') or k.title(), 'kind': m.get('kind') or 'dex', 'tvl': m.get('tvl'), 'url': m.get('url'), 'offer': m.get('offer'),
              'state': state, 'proof': how or 'none', 'why': (what if how is None else ''), 'apy': (apys or {}).get(k), 'band': band(h.get('usd')), 'at': x.get('at')}
         if mine:
-            b.update(amount=h.get('amount'), usd=h.get('usd'), n=h.get('n'), sym=SYMS.get(k))
+            b.update(amount=h.get('amount'), usd=h.get('usd'), n=h.get('n'), sym=SYMS.get(k), ranges=h.get('ranges'))
             b['errands'] = errands(b, apys or {}, m.get('url'))
         out.append(b)
     return out

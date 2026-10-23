@@ -4,6 +4,8 @@ import { act } from 'react';
 import { AgentPicker, AGENT_MAX } from './AgentPicker';
 import FeeCatsPlatform from './FeeCatsPlatform';
 
+jest.mock('react-router-dom', () => ({ Link: ({ to, children, ...p }) => require('react').createElement('a', { href: to, ...p }, children) }), { virtual: true });   // v7 does not resolve under jest here (FeeCatLore.test does the same)
+
 beforeEach(() => { global.fetch = jest.fn(url => Promise.resolve({ ok: true, json: () => Promise.resolve(String(url).includes('/models') ? { live: false, models: [] } : { cats: [], events: [] }) })); });
 const q = (el, id) => el.querySelector(`[data-testid="${id}"]`);
 
