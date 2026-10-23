@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { PaperPerps } from '../components/PaperPerps';
-import { RealLeverage } from '../components/RealLeverage';
+import { RealPerps } from '../components/RealPerps';
 import { PerpsEarn } from '../components/EarnStake';
 import { WalletProvider } from '../hooks/useWallet';
 
@@ -16,5 +16,5 @@ export default function PerpsHarness() {
   try { localStorage.setItem('feeless.lev.DEV1111111111111111111111111111111111111111', JSON.stringify([{ nftId: 10389, vaultId: 1, coin: 'SOL', mint: 'So11111111111111111111111111111111111111112', dec: 9, col: 0.24, debt: 12.5, entry: 98.4, lev: 1.5, liq: 61.3, apr: 8.31, at: Date.now() - 86400000 * 3, bought: true }])); } catch { /* private window */ }
   if (!window.__ppFetch) { window.__ppFetch = window.fetch; window.fetch = (u, o) => (String(u).includes('/paper-perps') ? Promise.resolve({ ok: true, json: () => Promise.resolve(BOOK) }) : window.__ppFetch(u, o)); }
   return <WalletProvider><div style={{ minHeight: '100vh', padding: 16, background: '#050407', boxSizing: 'border-box' }}><div style={{ maxWidth: 720 }}>
-    <PerpsEarn row={ROW} lev={lev} /><RealLeverage coin="SOL" devAddress="DEV1111111111111111111111111111111111111111" /><PaperPerps row={ROW} lev={lev} devAddress="DEV1111111111111111111111111111111111111111" /></div></div></WalletProvider>;
+    <PerpsEarn row={ROW} lev={lev} /><RealPerps coin="SOL" marks={{ SOL: 103.5, ETH: 3810, BTC: 81300 }} devAddress="DEV1111111111111111111111111111111111111111" /><PaperPerps row={ROW} lev={lev} devAddress="DEV1111111111111111111111111111111111111111" /></div></div></WalletProvider>;
 }

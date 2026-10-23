@@ -10238,6 +10238,94 @@ async def _jl_markets():
     return _flv_vaults.get('rows') or []
 
 
+_fjp_hits = {}    # ip → [times] (perps builds: 60 an hour per IP)
+_fjp_pool = {}    # 'at' + 'rows': Jupiter Perps pool info per market, read at most once a minute
+
+
+async def _jp_call(method, path, **kw):
+    """One Jupiter Perps API call → (status, body)."""
+    import jup_perps as _jp
+    try:
+        r_ = await _ai_http().request(method, f"{_jp.API}/{path}", timeout=15, **kw)
+    except Exception:
+        return 503, {'message': 'Jupiter Perps did not answer.'}
+    try:
+        return r_.status_code, r_.json()
+    except Exception:
+        return r_.status_code, {}
+
+
+@app.get('/api/reputation/familia/perps-real')
+async def familia_perps_real(address: str = ''):
+    """📉 REAL PERPS (Jupiter Perps): each market's live pool (open fee, borrow rate per hour, room left long / short) + the wallet's
+    open positions in plain dollars (P&L before fees; fees apart)."""
+    import jup_perps as _jp
+    if time.time() - _fjp_pool.get('at', 0) > 60 or not _fjp_pool.get('rows'):
+        got_ = await asyncio.gather(*[_jp_call('GET', 'pool-info', params={'mint': m_}) for m_ in _jp.MARKETS.values()])
+        rows_ = {}
+        for (a_, _m), (c_, b_) in zip(_jp.MARKETS.items(), got_):
+            if c_ == 200 and isinstance(b_, dict):
+                rows_[a_] = {k_: _jp._f(b_.get(k_)) for k_ in ('openFeePercent', 'longBorrowRatePercent', 'shortBorrowRatePercent', 'longUtilizationPercent',
+                                                              'shortUtilizationPercent', 'longAvailableLiquidity', 'shortAvailableLiquidity')}
+        if rows_:
+            _fjp_pool.update(at=time.time(), rows=rows_)
+    pos_ = []
+    if 32 <= len(address or '') <= 44:
+        c_, b_ = await _jp_call('GET', 'positions', params={'walletAddress': address})
+        pos_ = _jp.positions(b_) if c_ == 200 else []
+    return {'pools': _fjp_pool.get('rows') or {}, 'positions': pos_, 'min': _jp.MIN_USD, 'max': _jp.MAX_USD, 'maxLev': _jp.MAX_LEV}
+
+
+@app.post('/api/reputation/familia/perps-real')
+async def familia_perps_real_build(request: Request):
+    """📉 Open (increase) or close (decrease the entire position, paid out in USDC) a Jupiter Perps position: Jupiter builds it with its own
+    quote (entry, liquidation, fees), `jup_perps.verify` opens it, the wallet signs it next."""
+    import jup_perps as _jp
+    body = await request.json()
+    ip_ = (request.client.host if request.client else '') or '?'; now = time.time()
+    hits_ = [t_ for t_ in _fjp_hits.get(ip_, []) if now - t_ < 3600]
+    if len(hits_) >= 60:
+        raise HTTPException(429, 'Too many perps builds from here — try again in a while.')
+    _fjp_hits[ip_] = hits_ + [now]
+    if len(_fjp_hits) > 5000:
+        _fjp_hits.clear()
+    act_ = str((body or {}).get('act') or 'open')
+    try:
+        if act_ == 'close':
+            req_, what_, path_ = _jp.close_body(body), {'act': 'close'}, 'positions/decrease'
+        else:
+            req_, what_ = _jp.clean_open(body, await _sol_usd() if str((body or {}).get('input') or '').upper() == 'SOL' else None)
+            path_ = 'positions/increase'
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+    c_, b_ = await _jp_call('POST', path_, json=req_)
+    tx_ = (b_ or {}).get('serializedTxBase64') if c_ == 200 else None
+    if not tx_:
+        raise HTTPException(400 if c_ in (400, 422) else 502, f"Jupiter said no: {str((b_ or {}).get('message') or c_)[:160]}")
+    ok_, bad_ = _jp.verify(tx_, req_['walletAddress'])
+    if not ok_:
+        print('perps refused:', bad_)
+        raise HTTPException(502, f'Refused before your wallet saw it: {bad_}')
+    return {'transaction': tx_, 'action': 'decrease-position' if act_ == 'close' else 'increase-position', 'quote': (b_ or {}).get('quote') or {},
+            'positionPubkey': (b_ or {}).get('positionPubkey'), **what_}
+
+
+@app.post('/api/reputation/familia/perps-real/execute')
+async def familia_perps_real_execute(request: Request):
+    """📉 The wallet-signed perps transaction → Jupiter's /transaction/execute (its keeper co-signs and lands it). Checked again first."""
+    import jup_perps as _jp
+    body = await request.json()
+    act_, tx_, me_ = str((body or {}).get('action') or ''), str((body or {}).get('signed') or ''), str((body or {}).get('address') or '')
+    if act_ not in ('increase-position', 'decrease-position'):
+        raise HTTPException(400, 'Open or close only.')
+    ok_, bad_ = _jp.verify(tx_, me_, signed=True)
+    if not ok_:
+        raise HTTPException(400, f'Refused: {bad_}')
+    c_, b_ = await _jp_call('POST', 'transaction/execute', json={'action': act_, 'serializedTxBase64': tx_})
+    if c_ != 200 or not (b_ or {}).get('txid'):
+        raise HTTPException(502, f"Jupiter did not land it: {str((b_ or {}).get('message') or c_)[:160]}")
+    return {'txid': b_['txid'], 'action': act_}
+
 _frun_tok = {}   # 'at' + 'rows': Jupiter Lend Earn's USDC / SOL doors, read at most once a minute
 
 

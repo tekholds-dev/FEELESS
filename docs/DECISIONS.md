@@ -55,3 +55,11 @@ Longs only (Jupiter has no stable-collateral vault to short with); shorts + 50×
 $2,000 per open, Jupiter's own minimum loan, every transaction simulated before the wallet sees it. Counsel question: `COUNSEL_BRIEF.md` §6.
 Code: `backend/lend_borrow.py` · GET/POST `/api/reputation/familia/leverage` · `lib/leverage.js` · `components/RealLeverage.jsx` (Perps desk + MOON).
 
+## 8 · Real perps on Jupiter (owner, 2026-10-23: "do jupiter as a provider … we tryna long or short — that's what matters")
+**Decided by the owner: real perps through Jupiter Perps, for every user, the 🇺🇸 rule lifted for perps — the owner's call and the owner's legal
+risk (#1 and rule 1c stand for everything else).** Jupiter's Perps API builds each open / close with its own quote; `jup_perps.verify` refuses it
+unless the user pays + signs, only Jupiter's keeper co-signs, and only Jupiter Perps + its Doves price oracle + Solana's own programs run; the
+wallet signs, Jupiter's keeper lands it (/transaction/execute). Guards: SOL · ETH · BTC, 1.1–100×, $10 (Jupiter's minimum) to $1,000 collateral
+per open, 1 % price slippage, the quote must match the ticket. Simulated clean on mainnet 2026-10-23 (SOL long 25×, BTC short 50×, ETH long 100×).
+NEXT (owner): more venues, any chain, more leverage (gTrade and others) · the owner's own fee on top (HQ › Core).
+

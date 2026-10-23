@@ -6110,4 +6110,8 @@ P6 — IDEAS: FeeCat + AI agent pair that talk · "build a better coin" track in
   wallet's real on-chain balance + Jupiter's earnings ticking to 1e-8 $, a drawn 1-year curve, milestones; Night Vault amounts $5–$1K and
   earnings to the millionth (was rounded to cents → "+$0.000"); NEXT MOVE + EARN point at the run, never the MP drag errand · wide rooms (Pool
   Hall, tools) leave the DIRECTORY dock free (it covered their text).
+- 2026-10-23 night (Opus 5.5) · 3: 📉 REAL PERPS on Jupiter (DECISIONS #8): `backend/jup_perps.py` (open / close bodies, verify, positions) + GET/POST
+  /familia/perps-real + /execute; `RealPerps.jsx` + `styles/realPerps.css` (LONG / SHORT ticket $10–$100 × 2–100×, vitals, ☠ rail, Jupiter's quote
+  must match, positions with P&L before fees + liq meters, one-tap close) replaces the Jupiter Lend leverage in the Perps desk (it stays in MOON).
+  Simulated clean on mainnet. 🖥 rooms + START COMPOUNDING open big.
 

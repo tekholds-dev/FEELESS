@@ -172,6 +172,11 @@ P0 — OWNER 2026-10-23 (late night) · finished today → `docs/FEELESS_HISTORY
    real perps for a US user = an offshore venue (Jupiter Perps 1.1–250× SOL/ETH/BTC, wallet signs · Hyperliquid $10 min notional) vs the
    standing 🇺🇸 rule + DECISIONS #1 — ask, then build the dash (TrenchChart-style mark chart, long/short ticket from $1, positions with PnL + liq
    vitals, one-tap close) on the venue chosen. Weekly usage hit 95 % on 2026-10-23 — conserve.
+   → OWNER CHOSE (2026-10-23): Jupiter Perps NOW (DECISIONS #8, `jup_perps.py`, /familia/perps-real) + then MORE perps / options venues, any chain,
+   hella leverage (gTrade, others) — Jupiter's real minimum is $10 collateral.
+0b. ⛽ GAS must work on every chain the station lists · 🌉 BRIDGE must really bridge tokens (in-place, wallet signs) + a better bridge design
+   in the Trade tab · 💰 the owner sets HIS OWN fee on every Familia money action (perps, LP joins, $5 run, leverage) from HQ › Core — check each
+   provider's referral / fee field first (Jupiter swap fee already rides on the route) · 📊 the START COMPOUNDING desk = vitals, not row walls.
 1. ⚡ REAL LEVERAGE — SHIPPED 2026-10-23 (Coinbase / Kraken API orders dropped: "too many steps"): Jupiter Lend Borrow from the user's own
    wallet (DECISIONS #7, `lend_borrow.py`, `RealLeverage.jsx` in the Perps desk + MoneyDesk MOON). Open SIMULATED clean on mainnet through
    FEELESS. NEXT: the owner's first real open ($25 SOL 1.5×) + close end to end (close = sell to repay → repay-all/withdraw-all, built but
