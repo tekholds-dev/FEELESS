@@ -17869,6 +17869,111 @@ async def _lms_states(fresh=False):
     return {k_: (_lms_seen.get(k_) or (0, None))[1] for k_ in ('lan', 'local')}
 
 
+# 🎭 PROMPT STUDIO (owner, 2026-10-22): each model's live context, its record, what the record says is wrong, and four prompt sets written from it
+# (ELITE · DEGEN TRENCH · PROGRESSIVE · AUTO-TUNED). The owner applies one → the router appends it to every call that model gets (prompt_studio.py).
+import prompt_studio as _pstu   # noqa: E402
+PROMPT_STUDIO_PATH = DATA_DIR / 'prompt_studio.json'
+
+
+def _studio_apply():
+    """The applied sets → the router (`_air.STUDIO`). Returns the clean active map."""
+    act_ = _pstu.clean_active(_json_load(PROMPT_STUDIO_PATH, {}))
+    _air.STUDIO.clear()
+    _air.STUDIO.update({k_: v_['text'] for k_, v_ in act_.items()})
+    return act_
+
+
+def _studio_trades(key):
+    """A seat model's closed REAL trades from the ledger tape (trims included) → [{pct, peak, heldMin, at}], oldest first."""
+    if key not in ('lan', 'local'):
+        return []
+    pos_, tape_ = _duo_tape()
+    out = []
+    for row_ in tape_ or []:
+        if row_.get('state') != 'sold' or not row_.get('result'):
+            continue
+        p_ = next((x_ for x_ in pos_ or [] if x_.get('mint') == row_.get('mint') and abs(_fuse._f(x_.get('since')) - _fuse._f(row_.get('at'))) <= 900), None)
+        if (p_ or {}).get('aiBy') != key:
+            continue
+        r_ = row_['result']
+        out.append({'pct': r_.get('pct'), 'peak': r_.get('peak'), 'heldMin': r_.get('heldMin'), 'at': row_.get('at')})
+    return sorted(out, key=lambda t_: _fuse._f(t_.get('at')))
+
+
+def _studio_layer(k, label, text, note=None):
+    t_ = str(text or '')
+    return {'k': k, 'label': label, 'chars': len(t_), 'tok': (len(t_) + 3) // 4, 'text': t_[:4000], **({'note': note} if note else {})}
+
+
+async def _studio_view():
+    act_, rig_ = _studio_apply(), _rig_apply()
+    lms_ = await _lms_states()
+    v_ = _air.ROUTER.view(os.environ, _ai_cfg())
+    live_ = {r_['key']: r_.get('state') for r_ in v_.get('providers') or []}
+    live_['win'] = _air.ROUTER.stats['win'].get('state')
+    st_ = _g4_state()
+    done_ = (_ai.get('book') or {}).get('done') or []
+    nx_ = _nexa_mem.get() or {}
+    brain_ = _air.brain_text(os.environ) or ''
+    models_ = []
+    for k_ in _pstu.KEYS:
+        nm_ = _air.model_name(os.environ, k_)
+        trades_ = _studio_trades(k_)
+        calls_ = [r_ for r_ in st_['log'] if r_.get('model') == nm_ and r_.get('action') != 'LINES' and not r_.get('talk')] if k_ != 'win' else []
+        s_ = _pstu.stats(trades_, calls_, _seat.bench(done_, k_) if k_ != 'win' else None, _nexa.record(nx_.get('grades') or []) if k_ == 'win' else None)
+        fx_ = _pstu.diagnose(s_)
+        lm_ = (lms_ or {}).get(k_) or {}
+        ctx_ = int(_fuse._f(((lm_.get('loaded') or [{}])[0] or {}).get('ctx')) or _fuse._f((rig_.get(k_) or {}).get('ctx')) or 0) or None
+        a_ = act_.get(k_)
+        job_ = _seat.sys_for(_seat.SYSTEM, k_) if k_ != 'win' else _nxd.ASK_BUY + '\n' + _nxd.ASK_HOLD
+        layers_ = [_studio_layer('job', 'Seat prompt' if k_ != 'win' else 'Desk calls (YES / NO · HOLD / SELL)', job_),
+                   _studio_layer('identity', 'Identity', _air.identity_line(os.environ, k_), 'chat only'),
+                   *([_studio_layer('brain', 'Coin reads (brain)', brain_, 'background reads')] if k_ != 'win' and brain_ else []),
+                   _studio_layer('studio', 'Applied mindset', _pstu.overlay_block(a_['text']).strip() if a_ else '', None if a_ else 'none applied')]
+        models_.append({'key': k_, 'name': nm_, 'state': live_.get(k_), 'model': lm_.get('model') or (_air.provider(os.environ, k_, _ai_cfg()) or {}).get('model'), 'ctx': ctx_,
+                        'record': s_, 'fixes': fx_, 'sets': _pstu.sets(k_, s_, fx_), 'layers': layers_,
+                        'active': {**a_, 'since': _pstu.since(trades_, a_['at'])} if a_ else None})
+    return {'models': models_, 'dials': list(_pstu.DIAL_KEYS), 'at': time.time()}
+
+
+try:
+    _studio_apply()   # the owner's applied sets ride every call from the first one after a restart
+except Exception as _e_ps:
+    print('prompt studio:', str(_e_ps)[:80])
+
+
+@app.get('/api/reputation/admin/ai/prompts')
+async def admin_ai_prompts(request: Request):
+    """🎭 Owner: every model's live context (the layers it reads + its window), record, diagnosis and four prompt sets."""
+    _require_owner(request)
+    return await _studio_view()
+
+
+@app.post('/api/reputation/admin/ai/prompts')
+async def admin_ai_prompts_set(request: Request):
+    """🎭 Owner: apply a set to a model ({key, set, text?} — text = the owner's edit of that set) or revert it ({key, revert: true})."""
+    me_ = _require_owner(request)
+    body = await request.json()
+    body = body if isinstance(body, dict) else {}
+    k_ = body.get('key')
+    if k_ not in _pstu.KEYS:
+        raise HTTPException(400, 'unknown model')
+    raw_ = dict(_json_load(PROMPT_STUDIO_PATH, {}) or {})
+    if body.get('revert'):
+        raw_.pop(k_, None)
+    else:
+        set_ = body.get('set')
+        if set_ not in _pstu.SETS:
+            raise HTTPException(400, 'unknown prompt set')
+        gen_ = next((x_ for m_ in (await _studio_view())['models'] if m_['key'] == k_ for x_ in m_['sets'] if x_['set'] == set_), None) or {}
+        txt_ = ' '.join(str(body.get('text') or '').split()) or gen_.get('text') or ''
+        if not txt_:
+            raise HTTPException(400, 'empty prompt')
+        raw_[k_] = {'set': set_, 'text': txt_, 'at': time.time(), 'by': str(me_)[:44], 'edited': txt_ != gen_.get('text')}
+    _json_save(PROMPT_STUDIO_PATH, raw_)
+    return {**(await _studio_view()), 'applied': None if body.get('revert') else k_}
+
+
 @app.get('/api/reputation/admin/ai/rig')
 async def admin_ai_rig(request: Request):
     """🎛 Owner: the model rig (ai_rig.py) — what FEELESS sends G4 / OSSY / NEXA, the load command that matches it, and for NEXA the runtime

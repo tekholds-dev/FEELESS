@@ -119,6 +119,15 @@ def model_name(env, key):
     return (str((env or {}).get(var) or '').strip()[:24] if var else '') or NAME_DEFAULT.get(key)
 
 
+def with_studio(msgs, key):
+    """🎭 The owner's applied Prompt Studio set for THIS model, appended to the first system message (every call it gets: seat, desk, chat)."""
+    t = STUDIO.get(key)
+    if not t or not msgs or msgs[0].get('role') != 'system':
+        return msgs
+    import prompt_studio as _ps
+    return [{**msgs[0], 'content': str(msgs[0].get('content') or '') + _ps.overlay_block(t)}] + list(msgs[1:])
+
+
 def identity_line(env, key):
     """Who THIS model is in the owner's chat: a human name, its partner, its job — so 'who are you / pick a name' never stalls."""
     if key not in NAME_DEFAULT:
@@ -216,6 +225,7 @@ def cloud_ready(router, env, cfg, now):
     return False
 
 
+STUDIO = {}   # 🎭 Prompt Studio: {key: overlay text} the owner applied (prompt_studio.py) — set by the service, appended to that model's system prompt
 RIG = {}   # 🎛 owner's model rig (ai_rig.py): {key: {ctx, parallel, timeout, perMin}} — set by the service, read live
 
 
@@ -1122,6 +1132,7 @@ class Router:
             hdr['Authorization'] = f"Bearer {str(env.get('WIN_LLM_API_KEY')).strip()}"
         if IDENTITY.get() and msgs and msgs[0].get('role') == 'system' and identity_line(env, p['key']):
             msgs = [{'role': 'system', 'content': identity_line(env, p['key']) + '\n\n' + str(msgs[0].get('content') or '')}] + list(msgs[1:])
+        msgs = with_studio(msgs, p['key'])
         if p['key'] == 'lan':
             try:
                 await self.local_ctx(http, p, env)   # cached 2 min: which model is loaded right now

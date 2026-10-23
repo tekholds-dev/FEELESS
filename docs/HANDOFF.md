@@ -17,6 +17,12 @@
   drain — Jupiter's fallback liquidity is ONE side of the pool ($13.9K vs DexScreener $29.7K). Now `arena_prime.LIQ_SRC` keeps Jupiter depth
   out of the shield, a hand pick (`owner_pick`) only warns unless its pool is under a quarter (`RUG_PICK_LIQ`), and instant-loss + the tape's
   flow exit / rug radar / climax trim skip picks too (⚠ rug-warn events). Reputation restarted from Claude's watcher (1 copy, G4 ONLINE).
+- 🎭 PROMPT STUDIO (Brain › 🎭 Prompts): pick G4 / OSSY / NEXA → LIVE CONTEXT (the window as a lit stack: seat prompt · identity · brain ·
+  applied mindset, tokens vs the loaded ctx), THE RECORD (real seat trades from the ledger tape / NEXA's graded YES calls) + WHAT THE RECORD SAYS
+  (`prompt_studio.diagnose`: gives back winners · lets losers run · bails < 15 min · entries lose · FAVOR / YES calls lose · slow · misses), and
+  FOUR MINDSETS written from the record (ELITE · DEGEN TRENCH · PROGRESSIVE · AUTO-TUNED) with dial meters, ✎ edit, Apply, Revert, "since
+  applied" record. Apply = `data/prompt_studio.json` → `_air.STUDIO` → `ai_router.with_studio` appends it to the first system message of EVERY
+  call that model gets (LM Studio + NEXA's llamafile); the desk's rules / schema / money checks never change. NEXA's overlay ≤ 320 chars.
 - 🟢 Launch page backdrop = the official logo green (amber dusk read as mud). Gate flakes hardened: FuseLab preview timer, FuseGo PREPAY.
 ### ⬜ Still open — the owner's newest list is CLAUDE.md › P0 "LATEST-LATEST" (0 ✋ done · P prompt studio · A0 trade inside Familia ·
 A perps in the popout (⚠ venue geo rules stay) · B pools/perps that earn · C family town = main city engine, no lag · D Familia as its own

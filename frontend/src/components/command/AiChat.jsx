@@ -6,6 +6,7 @@ import { AiPlayground } from './AiPlayground';
 import BrainCards from './BrainCards';
 import { AiActivity } from './AiActivity';
 import { ModelLive } from './ModelLive';
+import { PromptStudio } from './PromptStudio';
 import { answerCard } from '../../lib/cockpitPlus';
 import React, { forwardRef, memo, useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
@@ -248,7 +249,7 @@ export const AiChat = memo(function AiChat({ call, isOwner = true, focus, focusS
       <LocalWatch w={local} />
       <p className="cch-setnote">Switches, rank weights and exit notches always wait for your ✅. Execution, limits and the wallet are never reachable.</p></div> : null}
     <div className="cch-shell">
-    {isOwner ? <div className="cch-navrow"><div className="cch-panes" role="tablist" aria-label="Brain sections">{[['talk', '💬 Talk'], ['models', '🧠 Models'], ...(extras.length ? [['learn', '🎓 Learn']] : []), ['play', '🧩 Lab'], ['log', '📜 Activity']].map(([k, l]) => {
+    {isOwner ? <div className="cch-navrow"><div className="cch-panes" role="tablist" aria-label="Brain sections">{[['talk', '💬 Talk'], ['models', '🧠 Models'], ['prompts', '🎭 Prompts'], ...(extras.length ? [['learn', '🎓 Learn']] : []), ['play', '🧩 Lab'], ['log', '📜 Activity']].map(([k, l]) => {
       const on = k === 'learn' ? extras.some(e => e[0] === pane) : pane === k;
       return <button key={k} type="button" role="tab" aria-selected={on} className={on ? 'active' : ''} onClick={() => setPane(k === 'learn' ? (extras.find(e => e[0] === lastLearn.current) || extras[0])[0] : k)} data-testid={k === 'learn' ? 'cch-tab-learn' : `cch-pane-${k}`}>{l}</button>; })}</div>
 <span className="cch-kpis"><u data-testid="cch-learned" data-tip="Lessons you taught the desk (🧠 Remember + 🎓 Teach): every fitting model read sees them">🎓 {learned ?? '—'}<small>LEARNED</small></u>
@@ -256,6 +257,7 @@ export const AiChat = memo(function AiChat({ call, isOwner = true, focus, focusS
         <u data-testid="cch-bq" data-tip="Approved to build. The model in the app cannot write code: Claude Code builds these when you say: build the queue">📋 {build?.open ?? 0}<small>TO BUILD</small></u></span></div> : null}
     {isOwner && extras.length ? <div className="cch-sub" hidden={!extras.some(e => e[0] === pane)} role="tablist" aria-label="Learn sections">{extras.map(([k, l]) => <button key={k} type="button" role="tab" aria-selected={pane === k} className={pane === k ? 'active' : ''} onClick={() => { lastLearn.current = k; setPane(k); }} data-testid={`cch-pane-${k}`}>{l}</button>)}</div> : null}
     {isOwner && pane === 'models' ? <div className="cch-extra" data-testid="cch-extra-models"><ModelLive call={call} /></div> : null}
+    {isOwner && pane === 'prompts' ? <div className="cch-extra" data-testid="cch-extra-prompts"><PromptStudio call={call} /></div> : null}
     {extras.map(([k, , node]) => <div key={k} className="cch-extra" hidden={pane !== k} data-testid={`cch-extra-${k}`}>{k === 'learned' && pane !== k ? null : node}</div>)}
     {isOwner && pane === 'play' ? <div className="cch-extra" data-testid="cch-extra-play"><AiPlayground call={call} prov={prov} /></div> : null}
     {isOwner && pane === 'log' ? <div className="cch-extra" data-testid="cch-extra-log"><AiActivity call={call} /></div> : null}

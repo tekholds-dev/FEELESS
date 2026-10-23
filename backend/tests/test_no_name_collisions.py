@@ -25,3 +25,18 @@ def test_no_top_level_name_is_bound_twice():
             if ks.count('def') > 1 or ('def' in ks and 'val' in ks):
                 bad.append(f'{f.name}: {name} bound at {[ln for _, ln in kinds]}')
     assert bad == []
+
+
+def test_no_module_alias_points_at_two_modules():
+    # 2026-10-22: `import prompt_studio as _ps` sat above an older `import pick_style as _ps` — the later import won and the studio called
+    # pick_style.clean_active (caught by a test, missed by pyflakes and the guard above)
+    bad = []
+    for f in sorted(pathlib.Path(__file__).resolve().parents[1].glob('*.py')):
+        mods = collections.defaultdict(set)
+        for node in ast.parse(f.read_text(), str(f)).body:   # module level: an import inside a function only shadows inside it
+            if isinstance(node, (ast.Import, ast.ImportFrom)):
+                for a in node.names:
+                    if a.asname:
+                        mods[a.asname].add(((node.module + '.') if isinstance(node, ast.ImportFrom) and node.module else '') + a.name)
+        bad += [f'{f.name}: {k} = {sorted(v)}' for k, v in mods.items() if len(v) > 1]
+    assert bad == []

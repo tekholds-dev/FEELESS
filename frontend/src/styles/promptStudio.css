@@ -1,0 +1,104 @@
+/* 🎭 PROMPT STUDIO (Brain › 🎭 Prompts, pst-*): a mixing desk for the models' minds — the context window as a lit stack, the record as rings,
+   four drawn mindset cards with dial meters. Built from m-* tokens; transform / opacity motion only; one keyframe set (pst*). */
+.pst { --pc: #b79bff; --pe: #f5c451; --pd: #45e486; --pp: #5fd4ff; position: relative; display: grid; gap: 12px; padding: 14px; overflow: hidden; container-type: inline-size;
+  background: radial-gradient(90% 70% at 0% 0%, rgba(183, 155, 255, .12), transparent 60%), radial-gradient(80% 60% at 100% 100%, rgba(21, 209, 106, .1), transparent 60%), var(--m-surface, #08130d); }
+.pst.is-load { min-height: 220px; place-content: center; }
+.pst-wait { display: flex; gap: 6px; align-items: center; font: 600 11px var(--m-mono); color: var(--m-dim); }
+.pst-wait i { width: 7px; height: 7px; border-radius: 50%; background: var(--pc); animation: pstBlink 1.2s ease-in-out infinite; } .pst-wait i:nth-child(2) { animation-delay: .2s; } .pst-wait i:nth-child(3) { animation-delay: .4s; }
+.pst-head { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; justify-content: space-between; }
+.pst-head > span { display: grid; gap: 2px; } .pst-head small, .pst-h small { font: 600 9.5px var(--m-mono); color: var(--m-mute); letter-spacing: .04em; }
+.pst-models button { display: inline-flex; align-items: center; gap: 6px; min-height: 34px; padding: 4px 12px; }
+.pst-models img { width: 20px; height: 20px; border-radius: 50%; object-fit: cover; box-shadow: 0 0 0 1.5px rgba(255, 255, 255, .25); }
+.pst-models small { font: 800 8px var(--m-mono); letter-spacing: .1em; padding: 1px 5px; border-radius: 6px; background: rgba(183, 155, 255, .22); color: #e4d9ff; }
+.pst-models button.active small { background: rgba(3, 23, 12, .25); color: inherit; }
+.pst-dot { width: 7px; height: 7px; border-radius: 50%; background: #6b7a72; } .pst-dot.is-on { background: #15d16a; box-shadow: 0 0 8px #15d16a; animation: pstBlink 2.4s ease-in-out infinite; }
+.pst-body { display: grid; grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr); gap: 12px; }
+.pst-ctx, .pst-rec { display: grid; gap: 9px; align-content: start; padding: 11px 12px; border-radius: 12px; border: 1px solid rgba(183, 155, 255, .2);
+  background: linear-gradient(160deg, rgba(255, 255, 255, .05), rgba(6, 10, 18, .6)); box-shadow: inset 0 1px 0 rgba(255, 255, 255, .07); animation: pstIn .35s ease-out both; }
+.pst-rec { animation-delay: 70ms; border-color: rgba(21, 209, 106, .2); }
+.pst-h { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; margin: 0; } .pst-h b { font: 800 9.5px var(--m-mono); letter-spacing: .14em; color: var(--m-text); }
+/* the context window: a ring (prompt share of the loaded window) + the lit stack of layers */
+.pst-win { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 4px 12px; align-items: center; }
+.pst-ring { --p: 0; position: relative; width: 64px; height: 64px; border-radius: 50%; display: grid; place-content: center; text-align: center; grid-row: span 2;
+  background: conic-gradient(var(--pc) calc(var(--p) * 1%), rgba(255, 255, 255, .07) 0); }
+.pst-ring::before { content: ''; position: absolute; inset: 6px; border-radius: 50%; background: var(--m-surface, #08130d); }
+.pst-ring b, .pst-ring small { position: relative; } .pst-ring b { font: 900 14px var(--m-mono); color: var(--m-text); animation: pstPop .4s ease-out; } .pst-ring small { font: 700 7px var(--m-mono); letter-spacing: .1em; color: var(--m-mute); }
+.pst-ring.is-won { background: conic-gradient(#15d16a calc(var(--p) * 1%), rgba(255, 143, 163, .35) 0); }
+.pst-bar { display: flex; height: 14px; border-radius: 7px; overflow: hidden; background: rgba(255, 255, 255, .05); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .06); }
+.pst-bar i { display: block; min-width: 3px; transform-origin: left; animation: pstGrow .6s ease-out both; }
+.pst-bar .s-job, .pst-layers .s-job > button i { background: linear-gradient(90deg, #6a4fc9, var(--pc)); } .pst-bar .s-identity, .pst-layers .s-identity > button i { background: #5fd4ff; }
+.pst-bar .s-brain, .pst-layers .s-brain > button i { background: #2a8f5a; } .pst-bar .s-studio, .pst-layers .s-studio > button i { background: linear-gradient(90deg, #f5c451, #ffe08a); box-shadow: 0 0 10px rgba(245, 196, 81, .6); }
+.pst-bar .s-free { min-width: 0; background: repeating-linear-gradient(90deg, rgba(255, 255, 255, .03) 0 6px, transparent 6px 12px); }
+.pst-winw { font: 600 9.5px var(--m-mono); color: var(--m-dim); }
+.pst-layers { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
+.pst-layers li { animation: pstIn .3s ease-out both; animation-delay: calc(var(--i, 0) * 50ms); }
+.pst-layers button { width: 100%; min-height: 32px; display: grid; grid-template-columns: 10px minmax(0, 1fr) auto; gap: 8px; align-items: center; padding: 5px 9px; border-radius: 8px; cursor: pointer;
+  border: 1px solid rgba(255, 255, 255, .07); background: rgba(255, 255, 255, .03); color: var(--m-text); text-align: left; transition: border-color .15s, background .15s; }
+.pst-layers button i { width: 10px; height: 10px; border-radius: 3px; } .pst-layers button b { font: 700 11px var(--m-mono); } .pst-layers button small { font: 600 9.5px var(--m-mono); color: var(--m-dim); }
+.pst-layers button:hover { border-color: rgba(183, 155, 255, .45); background: rgba(183, 155, 255, .07); } .pst-layers button:active { transform: scale(.99); }
+.pst-layers button:focus-visible, .pst-set button:focus-visible, .pst-models button:focus-visible { outline: 2px solid var(--pc); outline-offset: 2px; }
+.pst-pre { margin: 4px 0 2px; max-height: 210px; overflow: auto; white-space: pre-wrap; font: 500 10.5px/1.45 var(--m-mono); color: #d8dff0; padding: 9px 10px; border-radius: 8px;
+  background: rgba(3, 6, 12, .75); border: 1px solid rgba(183, 155, 255, .18); scrollbar-width: thin; scrollbar-color: var(--pc) transparent; animation: pstIn .2s ease-out; }
+.pst-pre::-webkit-scrollbar { width: 6px; } .pst-pre::-webkit-scrollbar-thumb { background: var(--pc); border-radius: 3px; }
+/* the record */
+.pst-vit { display: grid; grid-template-columns: 64px repeat(auto-fit, minmax(74px, 1fr)); gap: 6px; align-items: stretch; }   /* a fixed first track: auto-fit refuses an `auto` neighbour */
+.pst-kv { display: grid; gap: 2px; align-content: center; padding: 6px 8px; border-radius: 9px; background: rgba(255, 255, 255, .04); border: 1px solid rgba(255, 255, 255, .06); }
+.pst-kv em { font: 700 7.5px var(--m-mono); letter-spacing: .12em; font-style: normal; color: var(--m-mute); } .pst-kv b { font: 800 14px var(--m-mono); color: var(--m-text); animation: pstPop .4s ease-out; }
+.pst-kv.is-up b { color: #45e486; text-shadow: 0 0 10px rgba(21, 209, 106, .45); } .pst-kv.is-dn b { color: #ff8fa3; text-shadow: 0 0 10px rgba(255, 143, 163, .4); }
+.pst-fixes { list-style: none; margin: 0; padding: 0; display: grid; gap: 5px; }
+.pst-fixes li { display: grid; gap: 1px; padding: 6px 9px 6px 11px; border-radius: 8px; border-left: 3px solid #ff8fa3; background: linear-gradient(90deg, rgba(255, 143, 163, .12), rgba(255, 143, 163, .02));
+  animation: pstIn .3s ease-out both; animation-delay: calc(var(--i, 0) * 60ms); }
+.pst-fixes b { font: 800 11px var(--m-mono); color: #ffc2cd; } .pst-fixes small { font: 600 9.5px var(--m-mono); color: var(--m-dim); }
+.pst-ok { margin: 0; font: 700 11px var(--m-mono); color: #45e486; }
+/* the four mindsets */
+.pst-seth { margin-top: 2px; }
+.pst-sets { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.pst-set { --sc: var(--pc); position: relative; display: grid; gap: 8px; align-content: start; padding: 12px; border-radius: 14px; overflow: hidden; isolation: isolate;
+  border: 1px solid color-mix(in srgb, var(--sc) 30%, transparent); background: linear-gradient(165deg, color-mix(in srgb, var(--sc) 14%, rgba(255, 255, 255, .03)), rgba(5, 9, 14, .78) 62%);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .08), 0 16px 34px -26px var(--sc); animation: pstIn .4s ease-out both; animation-delay: calc(var(--i, 0) * 60ms); transition: transform .18s, border-color .18s; }
+.pst-set::after { content: ''; position: absolute; inset: -40% -60%; z-index: -1; pointer-events: none; background: linear-gradient(105deg, transparent 42%, color-mix(in srgb, var(--sc) 16%, transparent) 50%, transparent 58%);
+  transform: translateX(-60%); animation: pstSweep 7s ease-in-out infinite; animation-delay: calc(var(--i, 0) * 1.4s); }
+.pst-set:hover { transform: translateY(-2px); border-color: color-mix(in srgb, var(--sc) 55%, transparent); }
+.pst-set.k-elite { --sc: var(--pe); } .pst-set.k-degen { --sc: var(--pd); } .pst-set.k-progressive { --sc: var(--pp); } .pst-set.k-tuned { --sc: var(--pc); }
+.pst-set.is-on { border-color: var(--sc); box-shadow: 0 0 0 1px var(--sc), 0 0 26px -6px var(--sc), inset 0 1px 0 rgba(255, 255, 255, .1); }
+.pst-set header { display: grid; grid-template-columns: 44px minmax(0, 1fr) auto; gap: 10px; align-items: center; }
+.pst-art { width: 44px; height: 44px; display: grid; place-items: center; border-radius: 12px; background: radial-gradient(circle, color-mix(in srgb, var(--sc) 22%, transparent), rgba(0, 0, 0, .35) 72%);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--sc) 35%, transparent); } .pst-art svg { width: 36px; height: 36px; }
+.pst-needle { transform-origin: 24px 32px; animation: pstNeedle 3.2s ease-in-out infinite; }
+.pst-set header > span { display: grid; gap: 1px; min-width: 0; } .pst-set header b { font: 900 13px var(--m-mono); letter-spacing: .1em; color: var(--sc); text-shadow: 0 0 12px color-mix(in srgb, var(--sc) 45%, transparent); }
+.pst-set header small { font: 600 9.5px var(--m-mono); color: var(--m-dim); }
+.pst-on { font: 900 8px var(--m-mono); letter-spacing: .14em; font-style: normal; padding: 3px 8px; border-radius: 8px; background: var(--sc); color: #08100b; box-shadow: 0 0 12px var(--sc); }
+.pst-dials { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 4px 12px; }
+.pst-dials > span { display: grid; grid-template-columns: 72px minmax(0, 1fr) 24px; gap: 6px; align-items: center; }
+.pst-dials em { font: 700 7.5px var(--m-mono); letter-spacing: .12em; font-style: normal; color: var(--m-mute); }
+.pst-dials i { height: 5px; border-radius: 3px; background: rgba(255, 255, 255, .07); overflow: hidden; }
+.pst-dials i b { display: block; height: 100%; transform-origin: left; background: linear-gradient(90deg, color-mix(in srgb, var(--sc) 30%, transparent), var(--sc)); transition: transform .6s ease; }
+.pst-dials small { font: 800 10px var(--m-mono); color: var(--m-text); text-align: right; animation: pstPop .4s ease-out; }
+.pst-text { margin: 0; font: 500 11.5px/1.5 var(--m-body, inherit); color: #e3e9f2; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 4; overflow: hidden; }
+.pst-text.is-open { -webkit-line-clamp: unset; display: block; }
+.pst-why { margin: 0; font: 600 9.5px var(--m-mono); color: var(--m-dim); }
+.pst-since { margin: 0; display: flex; gap: 8px; align-items: center; padding: 5px 9px; border-radius: 8px; background: color-mix(in srgb, var(--sc) 12%, transparent); }
+.pst-since b { font: 900 8px var(--m-mono); letter-spacing: .12em; color: var(--sc); } .pst-since span { font: 700 10.5px var(--m-mono); color: var(--m-text); }
+.pst-edit { display: grid; gap: 3px; } .pst-edit textarea { width: 100%; resize: vertical; font: 500 11px/1.45 var(--m-mono); min-height: 110px; }
+.pst-edit small { justify-self: end; font: 700 9px var(--m-mono); color: var(--m-mute); } .pst-edit small.is-hot { color: var(--m-warn); }
+.pst-set footer { display: flex; flex-wrap: wrap; gap: 6px; } .pst-set footer .m-btn { min-height: 32px; }
+.pst-revert:hover { border-color: #ff8fa3; color: #ffc2cd; }
+@keyframes pstIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+@keyframes pstPop { from { transform: scale(1.18); } to { transform: none; } }
+@keyframes pstGrow { from { transform: scaleX(0); } to { transform: none; } }
+@keyframes pstSweep { 0%, 55% { transform: translateX(-60%); } 100% { transform: translateX(60%); } }
+@keyframes pstNeedle { 0%, 100% { transform: rotate(-8deg); } 50% { transform: rotate(10deg); } }
+@keyframes pstBlink { 50% { opacity: .35; } }
+@container (max-width: 720px) { .pst-body, .pst-sets { grid-template-columns: 1fr; } }
+@container (max-width: 380px) { .pst-dials { grid-template-columns: 1fr; } .pst-win { grid-template-columns: 1fr; } .pst-ring { grid-row: auto; justify-self: center; } }
+body.fx-lite .pst-set::after, body.fx-lite .pst-needle, body.fx-lite .pst-dot.is-on, body.fx-lite .pst-wait i { animation: none; }
+body.fx-lite .pst-set, body.fx-lite .pst-ctx, body.fx-lite .pst-rec, body.fx-lite .pst-layers li, body.fx-lite .pst-fixes li, body.fx-lite .pst-bar i { animation: none; }
+@media (prefers-reduced-motion: reduce) { .pst *, .pst *::after, .pst-set::after { animation: none !important; } .pst-set, .pst-dials i b { transition: none; } }
+body.theme-day .pst { background: radial-gradient(90% 70% at 0% 0%, rgba(110, 80, 200, .1), transparent 60%), #f6fbf8; }
+body.theme-day .pst-ctx, body.theme-day .pst-rec, body.theme-day .pst-kv, body.theme-day .pst-layers button { background: rgba(255, 255, 255, .75); border-color: rgba(13, 106, 53, .14); }
+body.theme-day .pst-set { background: linear-gradient(165deg, color-mix(in srgb, var(--sc) 12%, #fff), #ffffff 62%); }
+body.theme-day .pst-text, body.theme-day .pst-kv b, body.theme-day .pst-layers button b, body.theme-day .pst-since span { color: #10261a; }
+body.theme-day .pst-set header b { text-shadow: none; filter: brightness(.7); } body.theme-day .pst-pre { background: #f2f5fb; color: #1d2a3a; }
+body.theme-day .pst-ring::before { background: #f6fbf8; } body.theme-day .pst-ring b { color: #10261a; }
+body.theme-day .pst-fixes b { color: #b3263f; } body.theme-day .pst-kv.is-dn b { color: #c0344f; text-shadow: none; } body.theme-day .pst-kv.is-up b { color: #0d8a43; text-shadow: none; }
+@media (max-width: 640px) { .pst { padding: 10px; } .pst-h { flex-wrap: wrap; } .pst-h small { flex-basis: 100%; } .pst-body, .pst-sets { grid-template-columns: 1fr; } .pst-models { width: 100%; } .pst-models button { flex: 1; justify-content: center; } }
