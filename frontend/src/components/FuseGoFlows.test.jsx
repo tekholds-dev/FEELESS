@@ -120,6 +120,8 @@ test('PREPAY: a new card buy adds ONE prepaid-swaps transfer to the same approva
   const el = await run(<FuseGo legs={legs} onClose={() => {}} />);
   expect(mockSignAll.mock.calls[0][0].length).toBe(2);                     // 1 swap + 1 prepay, ONE approval
   await tick(5200);
-  const rec = posts.find(([p]) => p === '/fuses/position');
+  // under load an earlier test's still-mounted card posts its own record late into this list — wait for THIS card's (it carries the prepay)
+  for (let i = 0; i < 40 && !posts.some(([p, b]) => p === '/fuses/position' && b.prepaySig); i += 1) await tick(200);
+  const rec = posts.find(([p, b]) => p === '/fuses/position' && b.prepaySig) || posts.find(([p]) => p === '/fuses/position');
   expect(rec[1].prepaySig).toBe('PREPAYSIG'); expect(el.textContent).toContain('FUSED');
 });

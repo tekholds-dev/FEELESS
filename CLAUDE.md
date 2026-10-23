@@ -185,6 +185,11 @@ families; buildings represent realtime data"; hardest → easiest):
    owner's $MOON pick twice on Jupiter's ONE-SIDED depth ($13.9K vs DexScreener $29.7K); now it never judges a Jupiter reading and a hand pick
    only WARNS unless its pool falls under a quarter (`arena_prime.owner_pick`, `RUG_PICK_LIQ`, `LIQ_SRC`). Next: audit every other engine exit
    that can touch a hand pick (flat_leg picks=True, trench drop, agent pull) → each one a warning, the owner's own lines the only auto-sell.
+P. 🧠 PROMPT STUDIO for every model (owner, 2026-10-22): see each model's live CONTEXT + system prompt (G4 · OSSY · NEXA · any LM Studio /
+   llama model) and 3 auto-generated prompt sets per model — ELITE (supreme persona), DEGEN TRENCH (germ floor, buyers, fresh-pump laws),
+   and a PROGRESSIVE mix ("quick in, patient while in profit, rush when it runs") — one tap APPLIES to LM Studio / llama (rig reload path that
+   exists: Brain › Models). AUTO-TUNE: when a model's graded record turns red (proof bench, NEXA's YES grades, duo totals), propose the prompt
+   change that fixes its mindset, with the evidence; the owner applies. OSSY / G4 keep taking turns (one trade each, the holder runs it).
 A0. 🗼 TRADE IN FAMILIA, NO REDIRECTS: Trench Towers + every Familia tool trades in place (the war-room chart + Quick trade inside the pop-out,
    wallet signs) — never a jump to another FEELESS page.
 A. 📉 PERPS IN THE POPOUT, NO REDIRECT: the Perps building trades in place — one tap picks the provider (Jupiter Perps · Drift · Hyperliquid…),
