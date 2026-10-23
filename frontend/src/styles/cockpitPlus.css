@@ -11,7 +11,7 @@
 .ack-brainbtn:hover { transform: translateY(-1px); box-shadow: 0 6px 16px -8px #b79bff; } .ack-brainbtn:active { transform: scale(.97); }
 .ack-brainbtn:focus-visible { outline: 2px solid #b79bff; outline-offset: 2px; } .ack-brainbtn.is-on { background: #b79bff; color: #12081f; }
 .ack-drawer { position: fixed; top: 0; right: 0; bottom: 0; z-index: 5200; width: min(620px, 96vw); display: grid; grid-template-rows: minmax(0, 1fr);
-  background: #06100b; border-left: 1px solid rgba(183, 155, 255, .35); box-shadow: -18px 0 40px -18px rgba(0, 0, 0, .8); animation: ackDrawerIn .2s ease both; }
+  background: #0a0c0b; border-left: 1px solid rgba(183, 155, 255, .35); box-shadow: -18px 0 40px -18px rgba(0, 0, 0, .8); animation: ackDrawerIn .2s ease both; }
 .ack-drawerbody { min-height: 0; overflow: hidden; padding: 0; display: flex; scrollbar-width: thin; scrollbar-color: #15d16a transparent; }
 .ack-drawerbody::-webkit-scrollbar { width: 6px; } .ack-drawerbody::-webkit-scrollbar-thumb { background: #15d16a; border-radius: 3px; }
 @keyframes ackDrawerIn { from { opacity: 0; transform: translateX(24px); } to { opacity: 1; transform: none; } }
@@ -35,7 +35,7 @@
 
 body.fx-lite .ack-drawer { animation: none; }
 @media (prefers-reduced-motion: reduce) { .ack-rugdot, .ack-drawer { animation: none; } .ack-brainbtn, .ack-ridebtn, .ack-drawer header button { transition: none; } }
-body.theme-day .ack-drawer { background: #eef6f1; } body.theme-day .ack-ride, body.theme-day .ack-ridebtn, body.theme-day .ack-brainbtn { color: #10261a; }
+body.theme-day .ack-drawer { background: #eef6f1; } body.theme-day .ack-ride, body.theme-day .ack-ridebtn, body.theme-day .ack-brainbtn { color: #181e1b; }
 @media (max-width: 640px) { .ack-drawer { width: 100vw; } .ack-ride { font-size: 9px; } .ack-sidedesk { max-height: none; } }
 
 /* 📐 BIGGER CHART + SIDE BOX (owner, 2026-10-18: "chart and side box can be bigger"): the chart takes most of the screen height and the

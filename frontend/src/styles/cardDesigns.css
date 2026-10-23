@@ -11,7 +11,7 @@
 .d-nebula .mc-bg { background: radial-gradient(circle at 30% 20%, color-mix(in srgb, var(--a) 22%, transparent), transparent 55%), radial-gradient(circle at 75% 80%, color-mix(in srgb, var(--b) 25%, transparent), transparent 60%), #05030c; }
 .d-prism .mc-bg { background: linear-gradient(160deg, #0b0a14, #07050c 60%, #0d0816); }
 .d-plasma .mc-bg { background: radial-gradient(circle at 50% 42%, color-mix(in srgb, var(--a) 28%, transparent), transparent 62%), #04060c; }
-.d-matrix .mc-bg { background: linear-gradient(180deg, #010603, #02100a); }
+.d-matrix .mc-bg { background: linear-gradient(180deg, #030404, #080a09); }
 .d-vapor .mc-bg { background: linear-gradient(180deg, #120428 0%, #2a0a3a 52%, #07050c 70%); }
 @keyframes pdSpin { to { transform: rotate(360deg); } }
 @keyframes pdDrift { to { transform: translate(-6px, 8px); } }

@@ -1,5 +1,5 @@
 /* 🏁 Prime League table (PrimeStandings in ArenaPrime.jsx): every tier card as a lane in one race. transform / opacity only. */
-.pls { display: grid; gap: 8px; margin: 12px 0 14px; padding: 12px; border-radius: 14px; border: 1px solid rgba(245, 196, 81, .22); background: linear-gradient(180deg, rgba(34, 26, 8, .5), rgba(6, 10, 9, .7)); }
+.pls { display: grid; gap: 8px; margin: 12px 0 14px; padding: 12px; border-radius: 14px; border: 1px solid rgba(245, 196, 81, .22); background: linear-gradient(180deg, rgba(34, 26, 8, .5), rgba(7, 9, 8, .7)); }
 .pls-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 12px; } .pls-gap { font: 11px "JetBrains Mono", monospace; color: #d9cfae; } .pls-gap b { font-weight: 600; }
 .pls-lanes { list-style: none; margin: 0; padding: 0; display: grid; gap: 5px; } .pls-lanes li { animation: plsIn .32s ease both; animation-delay: calc(var(--i) * 55ms); }
 .pls-lane { width: 100%; display: grid; grid-template-columns: 26px minmax(86px, 130px) 62px 1fr 68px; align-items: center; gap: 8px; padding: 7px 10px; border-radius: 10px; border: 1px solid rgba(255, 255, 255, .08); background: rgba(0, 0, 0, .3); color: #e6e0cc; cursor: pointer; text-align: left; transition: border-color .15s ease, background .15s ease, transform .12s ease; }

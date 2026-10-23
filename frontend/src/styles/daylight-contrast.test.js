@@ -22,7 +22,7 @@ function contrast(foreground, background) {
 
 test('defines a daylight black and green hierarchy with readable contrast', () => {
   expect(contrast('#10251a', '#ffffff')).toBeGreaterThanOrEqual(12);
-  expect(contrast('#40654f', '#ffffff')).toBeGreaterThanOrEqual(5);
+  expect(contrast('#4d5853', '#ffffff')).toBeGreaterThanOrEqual(5);   // 🟢 2026-10-23 official-green sweep: neutral ink, no grey-green
   expect(contrast('#08764e', '#ffffff')).toBeGreaterThanOrEqual(4.5);
   expect(contrast('#07583c', '#d8f4e3')).toBeGreaterThanOrEqual(4.5);
   expect(contrast('#07583c', '#ffffff')).toBeGreaterThanOrEqual(7);
@@ -31,8 +31,8 @@ test('defines a daylight black and green hierarchy with readable contrast', () =
 
 test('keeps the daylight layer scoped and covers shared surfaces and focus states', () => {
   expect(css).toContain('body.theme-day{');
-  expect(css).toContain('--day-ink:#10251a');
-  expect(css).toContain('--day-muted:#40654f');
+  expect(css).toContain('--day-ink:#181d1b');
+  expect(css).toContain('--day-muted:#4d5853');
   expect(css).toContain('--day-green:#08764e');
   expect(css).toContain('body.theme-day .feeless-dialog');
   expect(css).toContain('body.theme-day .globe-webgl-fallback');
@@ -42,10 +42,10 @@ test('keeps the daylight layer scoped and covers shared surfaces and focus state
   expect(css).toContain('body.theme-day .market-error');
 });
 
-test('preserves the existing night palette outside the daylight scope', () => {
-  expect(css).toContain(':root{--mint:#15d16a;--mint-bright:#45e486;--ink:#070c0b');
+test('keeps the official night palette (logo green on near-black, owner 2026-10-23) outside the daylight scope', () => {
+  expect(css).toContain(':root{--mint:#15d16a;--mint-bright:#45e486;--ink:#090a0a');
   expect(css).toContain('.terminal-header{height:82px');
-  expect(css).toContain('background:#070d0b');
+  expect(css).toContain('background:#090b0a');   // the header: near-black, no green tint
 });
 
 test('keeps ambient backgrounds theme-aware and motion-safe', () => {

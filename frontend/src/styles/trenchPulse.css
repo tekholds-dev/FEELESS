@@ -1,6 +1,6 @@
 /* 🥊 Trench Pulse (TrenchPulse.jsx): verdict · pressure bars · counters · wallet race. m-* tokens, transform / opacity only, one keyframe set (tpl*). */
 .tpl { display: grid; gap: 7px; margin-bottom: 6px; min-width: 0; padding: 8px 10px; border-radius: 12px; border: 1px solid rgba(21, 209, 106, .2);
-  background: radial-gradient(120% 140% at 0% 0%, rgba(21, 209, 106, .1), transparent 55%), linear-gradient(180deg, rgba(6, 22, 14, .8), rgba(3, 10, 7, .85)); }
+  background: radial-gradient(120% 140% at 0% 0%, rgba(21, 209, 106, .1), transparent 55%), linear-gradient(180deg, rgba(13, 15, 14, .8), rgba(6, 7, 7, .85)); }
 .tpl.is-dn { border-color: rgba(255, 143, 163, .28); background: radial-gradient(120% 140% at 0% 0%, rgba(255, 92, 122, .1), transparent 55%), linear-gradient(180deg, rgba(22, 8, 12, .8), rgba(10, 4, 6, .85)); }
 .tpl.is-rug { border-color: rgba(255, 143, 163, .6); }
 .tpl-top { display: flex; align-items: baseline; gap: 8px; min-width: 0; }
@@ -59,7 +59,7 @@ body.fx-lite .tpl-word::after, body.fx-lite .tpl-tug u, body.fx-lite .tpl-col.is
 @keyframes tplAlarm { 0%, 100% { opacity: 1; } 50% { opacity: .45; } }
 body.fx-lite .tpl-word.is-rug { animation: none; } body.fx-lite .tpl-col i, body.fx-lite .tpl-net i, body.fx-lite .tpl-tug i, body.fx-lite .tpl-tug u { transition: none; }
 @media (prefers-reduced-motion: reduce) { .tpl-word, .tpl-word.is-rug { animation: none; } .tpl-col i, .tpl-net i, .tpl-row { transition: none; } }
-body.theme-day .tpl, body.theme-day .tpl.is-dn { background: rgba(236, 246, 240, .85); border-color: rgba(13, 122, 65, .2); } body.theme-day .tpl-word { text-shadow: none; } body.theme-day .tpl-tug u { background: #10261a; box-shadow: none; }
+body.theme-day .tpl, body.theme-day .tpl.is-dn { background: rgba(236, 246, 240, .85); border-color: rgba(13, 122, 65, .2); } body.theme-day .tpl-word { text-shadow: none; } body.theme-day .tpl-tug u { background: #181e1b; box-shadow: none; }
 body.theme-day .tpl-word.is-up, body.theme-day .tpl-row.is-b b { color: #0d7a41; } body.theme-day .tpl-word.is-dn, body.theme-day .tpl-word.is-rug, body.theme-day .tpl-row.is-s b { color: #b42346; }
-body.theme-day .tpl-word.is-mid { color: #8a6a12; } body.theme-day .tpl-kpis span { background: rgba(16, 38, 26, .05); }
+body.theme-day .tpl-word.is-mid { color: #8a6a12; } body.theme-day .tpl-kpis span { background: rgba(24, 30, 27, .05); }
 @media (max-width: 640px) { .tpl-kpis { grid-template-columns: repeat(3, minmax(0, 1fr)); } .tpl-bars { height: 42px; } }

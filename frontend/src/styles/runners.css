@@ -1,7 +1,7 @@
 /* 🏃 FUSE RUNNERS — degen meta: fire-orange accents over the royal green, live lanes, proof ring. */
 .rn { --rn-fire: #ff7a2f; --rn-ice: #6ad7ff; display: grid; gap: 14px; container-type: inline-size; }
 .rn-hero { position: relative; display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: 16px; align-items: center; padding: 18px; border-radius: 16px; overflow: hidden; isolation: isolate;
-  border: 1px solid color-mix(in srgb, var(--rn-fire) 45%, var(--m-line)); background: radial-gradient(120% 140% at 0% 0%, color-mix(in srgb, var(--rn-fire) 18%, transparent), transparent 55%), radial-gradient(100% 120% at 100% 100%, color-mix(in srgb, var(--m-accent) 16%, transparent), transparent 60%), #050a07; }
+  border: 1px solid color-mix(in srgb, var(--rn-fire) 45%, var(--m-line)); background: radial-gradient(120% 140% at 0% 0%, color-mix(in srgb, var(--rn-fire) 18%, transparent), transparent 55%), radial-gradient(100% 120% at 100% 100%, color-mix(in srgb, var(--m-accent) 16%, transparent), transparent 60%), #070808; }
 .rn-hero::before { content: ''; position: absolute; inset: -40% -10%; z-index: -1; background: repeating-linear-gradient(115deg, transparent 0 22px, color-mix(in srgb, var(--rn-fire) 7%, transparent) 22px 24px); animation: rnStreak 6s linear infinite; will-change: transform; }
 @keyframes rnStreak { to { transform: translateX(48px); } }
 .rn-hero.is-ghost { min-height: 160px; animation: mGhost 1.2s ease-in-out infinite alternate; }
@@ -9,7 +9,7 @@
 .rn-title p { margin: 0; max-width: 560px; font-size: 13px; color: var(--m-dim); line-height: 1.5; }
 .rn-proof { display: flex; align-items: center; gap: 12px; cursor: help; }
 .rn-ring { width: 92px; height: 92px; border-radius: 50%; display: grid; place-items: center; background: conic-gradient(var(--m-accent) var(--deg), color-mix(in srgb, var(--m-line) 80%, transparent) 0); padding: 6px; }
-.rn-ring > span { width: 100%; height: 100%; border-radius: 50%; background: #050a07; display: grid; place-items: center; align-content: center; } .rn-ring b { font-size: 16px; } .rn-ring small { font-family: var(--m-mono); font-size: 9px; color: var(--m-dim); }
+.rn-ring > span { width: 100%; height: 100%; border-radius: 50%; background: #070808; display: grid; place-items: center; align-content: center; } .rn-ring b { font-size: 16px; } .rn-ring small { font-family: var(--m-mono); font-size: 9px; color: var(--m-dim); }
 .rn-proof.is-lit .rn-ring { box-shadow: 0 0 26px -4px var(--m-accent); animation: rnPulse 1.8s ease-in-out infinite alternate; }
 @keyframes rnPulse { to { transform: scale(1.04); } }
 .rn-proof-txt { display: grid; gap: 2px; } .rn-proof-txt small { font-family: var(--m-mono); font-size: 9px; letter-spacing: .14em; color: var(--m-dim); } .rn-proof-txt b { font-size: 13px; color: var(--m-warn); } .rn-proof.is-lit .rn-proof-txt b { color: var(--m-accent); }

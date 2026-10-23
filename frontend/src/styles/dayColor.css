@@ -9,8 +9,8 @@ body.theme-day {
   --ink: #d8eadf;
   --panel: var(--day-panel);
   --line: var(--day-edge);
-  --muted: #3f6150;
-  --paper: #0c1f15;
+  --muted: #4a5651;
+  --paper: #131816;
   /* the m-* presets were pure white in day (every card, chip and input) */
   --day-surface: rgba(236, 246, 241, 0.6); --day-surface-2: rgba(228, 240, 235, 0.72);   /* 55 legacy panels: translucent so the wash shows through */
   --m-bg: #e2efe8; --m-surface: #eef6f1; --m-surface-2: #e4f0e9; --m-line: #bcd6c6;
@@ -26,7 +26,7 @@ body.theme-day .terminal-search, body.theme-day .icon-btn { background: #f1f8f4;
 body.theme-day .xp-card { background: linear-gradient(160deg, rgba(240, 249, 244, 0.96), rgba(226, 238, 247, 0.94)); }
 body.theme-day .m-card, body.theme-day .m-kv { background: var(--day-panel); border-color: var(--day-edge); }
 /* readable small text on every tinted surface */
-body.theme-day .terminal-main small, body.theme-day .terminal-main .muted, body.theme-day .terminal-main .m-dim { color: #3a5b4a; }
+body.theme-day .terminal-main small, body.theme-day .terminal-main .muted, body.theme-day .terminal-main .m-dim { color: #45504b; }
 /* selected segment = deep green: every label inside it (<b>, <small>, <em>) must be white, not the muted ink (measured 1.5–3:1) */
 body.theme-day .m-seg button.active, body.theme-day .m-seg button.active *, body.theme-day .m-seg button[aria-checked="true"] *,
 body.theme-day .fp-tabs button.active small { color: #ffffff !important; }

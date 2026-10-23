@@ -11,7 +11,7 @@
   min-width: 0;
   border: 1px solid #2f6948;
   background:
-    linear-gradient(145deg, #0d2416 0%, #09170f 52%, #0b1d12 100%);
+    linear-gradient(145deg, #161b19 0%, #0e1210 52%, #121614 100%);
   border-radius: 8px;
   box-shadow: 0 16px 38px #00000024, inset 0 1px #7fd49a12;
 }
@@ -20,7 +20,7 @@
 .route-intelligence .command-section-title {
   min-height: 64px;
   padding: 17px 20px;
-  border-bottom-color: #2b5539;
+  border-bottom-color: #3c4441;
   background: #0a1c11b8;
 }
 
@@ -78,7 +78,7 @@
 
 .slippage-controls button {
   color: #a8d9b6;
-  background: #0c2515;
+  background: #161b19;
   font-size: 9px;
 }
 
@@ -185,7 +185,7 @@
 }
 
 .fee-preview {
-  background: #101f14;
+  background: #151a18;
 }
 
 /* The setting deliberately affects the execution desk and route readout first:

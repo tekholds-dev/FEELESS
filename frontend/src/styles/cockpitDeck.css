@@ -91,7 +91,7 @@
 
 /* ── 💵 the money strip + nav: sticky on top, the only thing above the chart ── */
 .ack-money { position: sticky; top: 0; z-index: 30; display: grid; gap: 6px; padding: 8px 10px 6px; border: 1px solid color-mix(in srgb, var(--m-accent) 32%, transparent); border-radius: var(--m-r, 12px);
-  background: linear-gradient(180deg, rgba(4, 14, 9, .97), rgba(6, 18, 12, .95)); box-shadow: 0 10px 26px -18px rgba(0, 0, 0, .9); }
+  background: linear-gradient(180deg, rgba(8, 10, 9, .97), rgba(11, 13, 12, .95)); box-shadow: 0 10px 26px -18px rgba(0, 0, 0, .9); }
 .ack-money.is-paused { border-color: color-mix(in srgb, var(--m-danger) 55%, transparent); } .ack-money.is-night { border-color: rgba(140, 150, 255, .45); }
 .ack-mrow { display: grid; grid-template-columns: auto auto minmax(0, 1fr) auto; gap: 6px 18px; align-items: center; }
 .ack-mcell { position: relative; display: grid; gap: 1px; min-width: 0; cursor: help; }
@@ -134,11 +134,11 @@ body.fx-lite .cai-record[open] > :not(summary), body.fx-lite .cai-record > summa
 @media (prefers-reduced-motion: reduce) { .ack-vpop, .ack-vwave, .ack-tbadge, .ack-ain > i { animation: none; } .ack-tmeter > b { transition: none; } .ack-rtm > i, .ack-fbars > i { transition: none; } }
 @media (prefers-reduced-motion: reduce) { .cai-record[open] > :not(summary), .cai-record > summary::before, .ack-decktabs > button { animation: none; transition: none; } }
 body.theme-day .ack-money { background: linear-gradient(180deg, rgba(240, 250, 244, .97), rgba(232, 246, 238, .96)); border-color: rgba(13, 122, 65, .3); }
-body.theme-day .ack-mcell.is-card > .ack-num, body.theme-day .ack-mcell > .ack-num { color: #0f2419; } body.theme-day .ack-mseat.is-up .ack-num { color: #0d7a41; } body.theme-day .ack-mseat.is-dn .ack-num { color: #b42346; }
+body.theme-day .ack-mcell.is-card > .ack-num, body.theme-day .ack-mcell > .ack-num { color: #171c1a; } body.theme-day .ack-mseat.is-up .ack-num { color: #0d7a41; } body.theme-day .ack-mseat.is-dn .ack-num { color: #b42346; }
 body.theme-day .ack-mcell.is-night.is-night > b { color: #3b3fa8; } body.theme-day .ack-mcell.is-night.is-day > b { color: #8a5a00; } body.theme-day .ack-xchip.is-runway { color: #1f5fa8; } body.theme-day .ack-xchip.is-half { color: #8a5a00; } body.theme-day .ack-xchip.is-comeback { color: #0d7a41; }
 body.theme-day .ack-tbadge { background: rgba(13, 122, 65, .14); color: #0d7a41; } body.theme-day .ack-tmeter { background: rgba(10, 60, 35, .12); } body.theme-day .ack-tmeter > b { background: #0d7a41; }
 body.theme-day .ack-rtm { background: rgba(10, 60, 35, .1); } body.theme-day .ack-rtm > i, body.theme-day .ack-fbars .is-r { background: #0d7a41; }
-body.theme-day .cai-record { border-color: rgba(10, 60, 35, .18); } body.theme-day .cai-record > summary { color: #0d7a41; } body.theme-day .cai-record > summary small { color: #3f5a4a; }
+body.theme-day .cai-record { border-color: rgba(10, 60, 35, .18); } body.theme-day .cai-record > summary { color: #0d7a41; } body.theme-day .cai-record > summary small { color: #47524d; }
 @media (max-width: 640px) {
   .ack-mrow { grid-template-columns: auto auto auto; } .ack .ack-money .ack-nav > button { padding: 4px 6px; flex: 0 0 auto; } .ack-mcell.is-open { grid-column: 1 / -1; order: 5; } .ack-mseats { overflow-x: auto; scrollbar-width: none; } .ack-mcell > .ack-num { font-size: 16px; } .ack-mcell.is-card > .ack-num { font-size: 18px; } .ack-deckwrap { scroll-margin-top: 150px; }
   .ack-decktabs { grid-template-columns: repeat(3, minmax(0, 1fr)); } .ack-decktabs > button { font-size: 9.5px; min-height: 30px; }
@@ -151,7 +151,7 @@ body.theme-day .cai-record { border-color: rgba(10, 60, 35, .18); } body.theme-d
 .cca:hover { background: rgba(21, 209, 106, .16); transform: translateY(-1px); }
 .cca:active { transform: scale(.92); }
 .cca:focus-visible { outline: 2px solid #15d16a; outline-offset: 1px; }
-.cca.is-done { background: #15d16a; color: #04110a; }
+.cca.is-done { background: #15d16a; color: #090c0b; }
 body.theme-day .cca { color: #0d7a41; border-color: rgba(13, 122, 65, .4); }
 body.theme-day .cca.is-done { background: #0d7a41; color: #fff; }
 @media (prefers-reduced-motion: reduce) { .cca { transition: none; } }
@@ -172,11 +172,11 @@ body.theme-day .ack-warm { border-color: rgba(13, 122, 65, .3); }
 
 /* ✋ / 👍 one-click hints on a held seat */
 .ack-hints { display: flex; gap: 6px; margin: 4px 0 0; }
-.ack-hint { padding: 2px 8px; border-radius: 10px; border: 1px solid var(--m-line, #1f3d2a); background: rgba(4, 12, 8, .6); color: var(--m-mute, #a8c9b6);
+.ack-hint { padding: 2px 8px; border-radius: 10px; border: 1px solid var(--m-line, #2b312f); background: rgba(7, 9, 8, .6); color: var(--m-mute, #a8c9b6);
   font: 700 9.5px var(--m-mono, 'JetBrains Mono', monospace); letter-spacing: .04em; cursor: pointer; transition: transform .12s ease, border-color .12s ease; }
 .ack-hint:hover, .ack-hint:focus-visible { border-color: #45e486; color: #e9fff3; outline: none; transform: translateY(-1px); }
 .ack-hint:active { transform: scale(.96); }
-.ack-hint.is-on { background: #15d16a; border-color: #15d16a; color: #04140a; }
+.ack-hint.is-on { background: #15d16a; border-color: #15d16a; color: #0b0d0c; }
 body.theme-day .ack-hint { background: rgba(236, 246, 240, .9); color: #123a26; } body.theme-day .ack-hint.is-on { background: #0f8f4a; color: #fff; }
 @media (prefers-reduced-motion: reduce) { .ack-hint { transition: none; } }
 

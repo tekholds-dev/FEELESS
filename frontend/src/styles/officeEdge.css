@@ -96,15 +96,15 @@ button.oed-sym:active { transform: translateY(0); } button.oed-sym:focus-visible
 
 body.fx-lite .oed-box, body.fx-lite .oed-item, body.fx-lite .oed-means, body.fx-lite .oed-ready li > span, body.fx-lite .oed-arrow { animation: none !important; }
 @media (prefers-reduced-motion: reduce) { .oed-box, .oed-item, .oed-means, .oed-ready li > span, .oed-arrow { animation: none !important; } .oed-bar > i, .oed-info, .oed-sym { transition: none; } }
-body.theme-day .oed-box, body.theme-day .oed-ready { background: #f2faf5; border-color: #cfe6d8; color: #10261b; }
+body.theme-day .oed-box, body.theme-day .oed-ready { background: #f2faf5; border-color: #cfe6d8; color: #181e1b; }
 body.theme-day .oed-side, body.theme-day .oed-tiles > span, body.theme-day .oed-ctl > li, body.theme-day .oed-item, body.theme-day .oed-sub-box { background: #e8f4ed; border-color: #cfe6d8; } body.theme-day .oed-bar { background: #d6e9de; }
 body.theme-day .oed-up, body.theme-day .oed-lines li.is-ok > span { color: #0f8a45; } body.theme-day .oed-tag.is-ok, body.theme-day .oed-tag.is-go { color: #0f8a45; }
 .oed-seats { list-style: none; margin: 0; padding: 0; display: grid; gap: 3px; }
 .oed-seats li { display: grid; grid-template-columns: 54px auto 1fr; gap: 6px; align-items: center; font-size: 11px; }
 .oed-seats small { font-family: 'JetBrains Mono', monospace; font-size: 9.5px; letter-spacing: .1em; color: var(--m-dim); }
 .oed-seats em { font-style: normal; color: var(--m-dim); overflow-wrap: anywhere; min-width: 0; }
-body.theme-day .oed-seats em { color: #3e5a4b; }
-body.theme-day .oed-why, body.theme-day .oed-now, body.theme-day .oed-lesson { color: #3e5a4b; }
+body.theme-day .oed-seats em { color: #47514d; }
+body.theme-day .oed-why, body.theme-day .oed-now, body.theme-day .oed-lesson { color: #47514d; }
 @media (max-width: 1180px) { .oed-groups { grid-template-columns: 1fr; } .oed-split { grid-template-columns: 1fr; } }
 @media (max-width: 640px) { .oed-tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); } .oed-ready ol { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .oed-meter { grid-template-columns: 1fr auto; } .oed-meter > .oed-bar { grid-column: 1 / -1; grid-row: 2; } .oed-vs { grid-template-columns: 1fr; } .oed-arrow { transform: rotate(90deg); }

@@ -7,9 +7,9 @@
 .dcl-cands { display: grid; grid-template-columns: repeat(auto-fit, minmax(128px, 1fr)); gap: 8px; }
 .dcl-c { position: relative; display: grid; gap: 2px; justify-items: start; padding: 9px 11px; border-radius: 12px; border: 1px solid rgba(21, 209, 106, .3); background: rgba(0, 0, 0, .3); color: inherit; text-align: left; cursor: pointer; animation: dclIn .22s ease-out both; animation-delay: calc(var(--i, 0) * 50ms); transition: transform .15s, border-color .15s, box-shadow .15s, background .15s; }
 .dcl-c:hover:not(:disabled), .dcl-c:focus-visible { transform: translateY(-2px); border-color: #45e486; box-shadow: 0 0 14px -4px #15d16a; outline: none; } .dcl-c:active:not(:disabled) { transform: translateY(0); }
-.dcl-c:disabled { cursor: default; opacity: .8; } .dcl-c.is-mine { background: linear-gradient(180deg, #15d16a, #0b8f47); border-color: #45e486; color: #03150b; opacity: 1; }
+.dcl-c:disabled { cursor: default; opacity: .8; } .dcl-c.is-mine { background: linear-gradient(180deg, #15d16a, #0b8f47); border-color: #45e486; color: #0b0d0c; opacity: 1; }
 .dcl-c b { font: 700 14px "JetBrains Mono", monospace; } .dcl-c small { font-size: 10px; opacity: .75; } .dcl-c em { font-style: normal; font-size: 13px; } .dcl-c i { font: 700 9.5px "JetBrains Mono", monospace; font-style: normal; letter-spacing: .06em; }
-.dcl-c.is-mine em { color: #03150b; }
+.dcl-c.is-mine em { color: #0b0d0c; }
 .dcl > footer { display: flex; flex-wrap: wrap; gap: 6px 14px; align-items: flex-start; justify-content: space-between; } .dcl-last { font-size: 11.5px; }
 .dcl-board { font-size: 11px; } .dcl-board > summary { cursor: pointer; list-style: none; font-weight: 700; transition: color .15s; } .dcl-board > summary::-webkit-details-marker { display: none; } .dcl-board > summary:hover { color: #45e486; }
 .dcl-board ol { margin: 6px 0; padding-left: 18px; display: grid; gap: 2px; } .dcl-board li { display: flex; gap: 8px; } .dcl-board li a { color: inherit; text-decoration: none; font-weight: 600; } .dcl-board li a:hover { color: #45e486; } .dcl-board li em { font-style: normal; opacity: .75; }

@@ -19,7 +19,7 @@
 .mini-bar b { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 11.5px; }
 .mini-bar button { display: grid; place-items: center; width: 26px; height: 26px; border-radius: 50%; border: 1px solid color-mix(in srgb, var(--m-accent) 40%, transparent); background: none; color: inherit; cursor: pointer; transition: background .15s, transform .15s; }
 .mini-bar button:hover { background: color-mix(in srgb, var(--m-accent) 15%, transparent); } .mini-bar button:active { transform: scale(.92); } .mini-bar button:focus-visible { outline: 1px solid var(--m-accent); outline-offset: 2px; }
-.mini-bar .is-play { background: var(--m-accent); color: #04120b; border-color: var(--m-accent); }
+.mini-bar .is-play { background: var(--m-accent); color: #0a0c0b; border-color: var(--m-accent); }
 @keyframes mdIn { from { opacity: 0; transform: translateY(4px); } }
 body.fx-lite .md-list li { animation: none; }
 @media (prefers-reduced-motion: reduce) { .md-list li { animation: none; } .md-list button, .md-fuse, .mini-bar button { transition: none; } }

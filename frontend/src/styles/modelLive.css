@@ -27,7 +27,7 @@
 .mlv-wait { font-size: 10px; color: var(--m-mute); }
 body.fx-lite .mlv-bar i::after { animation: none; } body.fx-lite .mlv-bar i { transition: none; }
 @media (prefers-reduced-motion: reduce) { .mlv-bar i::after, .mlv-body { animation: none; } .mlv-bar i { transition: none; } }
-body.theme-day .mlv-row, body.theme-day .mlv-log li button { background: rgba(236, 246, 240, .7); border-color: rgba(12, 90, 50, .12); } body.theme-day .mlv-bar em { color: #0d2a1b; }
+body.theme-day .mlv-row, body.theme-day .mlv-log li button { background: rgba(236, 246, 240, .7); border-color: rgba(12, 90, 50, .12); } body.theme-day .mlv-bar em { color: #191e1c; }
 @media (max-width: 640px) { .mlv-log li button { grid-template-columns: 38px 60px 34px minmax(0, 1fr); } .mlv-log li button span:nth-of-type(3), .mlv-log li .mlv-ago { display: none; } }
 
 /* 🎭 a call that carried the applied Prompt Studio mindset — the proof it is live */

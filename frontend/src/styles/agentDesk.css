@@ -1,7 +1,7 @@
 /* 🤖 HQ › Agents (AgentDesk.jsx) — m-* tokens throughout. One keyframe set (agd*),transform / opacity only.
    Layout: hero → KPI tiles → office → agent picker → ONE lens. Agent colour = --ag (set per .is-<agent>). */
 .agd { --ag: var(--m-accent); --agd-up: #45e486; display: grid; grid-template-columns: minmax(0, 1fr); gap: 12px; padding: 14px; border-radius: 16px; border: 1px solid color-mix(in srgb, var(--m-accent) 30%, transparent);
-  background: linear-gradient(160deg, #06120d, #0b0a18); color: var(--m-text); min-width: 0; }
+  background: linear-gradient(160deg, #0b0d0c, #0b0a18); color: var(--m-text); min-width: 0; }
 .agd .is-tally { --ag: #1fd178; } .agd .is-sherlock { --ag: #a07bff; } .agd .is-trigger { --ag: #f5c451; } .agd .is-devil { --ag: #ff6b86; } .agd .is-desk { --ag: var(--m-accent); }
 /* ⚡ the tab-wide aurora stays STILL (measured 2026-10-14: drifting,it was the biggest per-frame cost of the tab — the whole 4,200px page
    re-composited every frame and the content above it needed its own 5.8 Mpx layer). The ribbon's own m-live keeps drifting on top. */
@@ -95,7 +95,7 @@
 .agd-tools .m-input { width: auto; min-height: 30px; padding: 4px 9px; font-size: 12px; } .agd-q { flex: 1 1 110px; max-width: 170px; } .agd-sort { flex: none; }
 .agd-th, .agd-trh { display: grid; grid-template-columns: minmax(70px, 104px) 58px 96px 64px 104px minmax(0, 1fr) 14px; gap: 8px; align-items: center; }
 .agd-th { font: 700 9.5px var(--m-mono); color: var(--m-mute); letter-spacing: .08em; text-transform: uppercase; padding: 2px 10px; }
-.agd-tr { border-radius: 10px; background: rgba(0, 0, 0, .3); border: 1px solid #16261e; border-left: 2px solid #16261e; transition: border-color .15s; }
+.agd-tr { border-radius: 10px; background: rgba(0, 0, 0, .3); border: 1px solid #1b211e; border-left: 2px solid #1b211e; transition: border-color .15s; }
 .agd-tr:hover { border-color: var(--m-line-hi); } .agd-tr.is-open { border-color: var(--m-line-hi); background: rgba(0, 0, 0, .42); }
 .agd-tr.is-go { border-color: color-mix(in srgb, var(--m-accent) 70%, transparent); background: color-mix(in srgb, var(--m-accent) 8%, rgba(0, 0, 0, .3)); } .agd-tr.is-obj { border-left-color: var(--m-danger); } .agd-tr.is-wait { border-left-color: color-mix(in srgb, var(--m-warn) 60%, transparent); }
 .agd-trh { all: unset; box-sizing: border-box; width: 100%; cursor: pointer; display: grid; grid-template-columns: minmax(70px, 104px) 58px 96px 64px 104px minmax(0, 1fr) 14px; gap: 8px; align-items: center; padding: 7px 10px; font-size: 11.5px; border-radius: 10px; }

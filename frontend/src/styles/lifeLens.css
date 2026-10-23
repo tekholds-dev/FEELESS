@@ -81,6 +81,6 @@ body.theme-day .lfl-pod, body.theme-day .lfl-rug { background: rgba(236, 246, 24
 @keyframes lflLive { 0%, 100% { transform: scale(var(--sz, 1)); } 50% { transform: scale(calc(var(--sz, 1) * 1.25)); } }
 body.fx-lite .lfl-orbit, body.fx-lite .lfl-crown::after, body.fx-lite .lfl-line li, body.fx-lite .lfl-line li.is-live > i, body.fx-lite .lfl-flip { animation: none; }
 @media (prefers-reduced-motion: reduce) { .lfl-orbit, .lfl-crown::after, .lfl-line li, .lfl-line li.is-live > i, .lfl-flip { animation: none; } .lfl-ring-fg { transition: none; } }
-body.theme-day .lfl-crown { background: rgba(236, 246, 240, .85); } body.theme-day .lfl-crown b, body.theme-day .lfl-ring em { color: #10301d; }
+body.theme-day .lfl-crown { background: rgba(236, 246, 240, .85); } body.theme-day .lfl-crown b, body.theme-day .lfl-ring em { color: #1d2321; }
 body.theme-day .lfl-vs.is-good .lfl-flip, body.theme-day .lfl-meter.is-good .lfl-flip, body.theme-day .lfl-crown.is-good .lfl-flip { color: #0e8a4a; }
 @media (max-width: 640px) { .lfl-meter { grid-template-columns: 50px 1fr 54px; } }

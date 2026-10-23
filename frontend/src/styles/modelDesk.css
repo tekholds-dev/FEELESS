@@ -60,7 +60,7 @@
 .mdk-seg { display: flex; flex-wrap: wrap; gap: 4px; }
 .mdk-seg button { min-height: 30px; min-width: 38px; padding: 3px 8px; border-radius: 7px; border: 1px solid rgba(255, 255, 255, .1); background: rgba(255, 255, 255, .03); color: var(--m-text); font: 700 10px var(--m-mono); cursor: pointer; transition: background .15s, border-color .15s; }
 .mdk-seg button:hover { border-color: color-mix(in srgb, var(--c) 60%, transparent); } .mdk-seg button:active { transform: scale(.96); }
-.mdk-seg button.active { background: var(--c); border-color: var(--c); color: #06100a; } .mdk-seg button:disabled { opacity: .55; cursor: wait; }
+.mdk-seg button.active { background: var(--c); border-color: var(--c); color: #0a0c0b; } .mdk-seg button:disabled { opacity: .55; cursor: wait; }
 .mdk-stop { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; } .mdk-stop .m-input { flex: 1; min-width: 120px; min-height: 30px; font-size: 11px; }
 .mdk-chip { min-height: 28px; padding: 2px 8px; border-radius: 999px; border: 1px solid rgba(255, 143, 163, .4); background: rgba(255, 143, 163, .08); color: #ffc2cd; font: 700 10px var(--m-mono); cursor: pointer; }
 .mdk-chip:hover { background: rgba(255, 143, 163, .18); }
@@ -81,7 +81,7 @@ body.fx-lite .mdk-vc, body.fx-lite .mdk-vc::after, body.fx-lite .mdk-dot.is-on, 
 @media (prefers-reduced-motion: reduce) { .mdk *, .mdk *::after, .mdk-vc::after { animation: none !important; } .mdk-vc, .mdk-bar s { transition: none; } }
 body.theme-day .mdk-vc, body.theme-day .mdk-panel { background: linear-gradient(160deg, color-mix(in srgb, var(--c) 10%, #fff), #ffffff 65%); }
 body.theme-day .mdk-ring::before { background: #fff; } body.theme-day .mdk-kv div, body.theme-day .mdk-knob, body.theme-day .mdk-ctx { background: rgba(255, 255, 255, .8); border-color: rgba(13, 106, 53, .12); }
-body.theme-day .mdk-kv dd, body.theme-day .mdk-bar b, body.theme-day .mdk-ring b, body.theme-day .mdk-ph span, body.theme-day .mdk-sys p, body.theme-day .mdk-seg button { color: #10261a; }
-body.theme-day .mdk-srv.is-ok b { color: #0d8a43; } body.theme-day .mdk-srv b { color: #b3263f; } body.theme-day .mdk-srv small, body.theme-day .mdk-note { color: #3f5a4a; }
+body.theme-day .mdk-kv dd, body.theme-day .mdk-bar b, body.theme-day .mdk-ring b, body.theme-day .mdk-ph span, body.theme-day .mdk-sys p, body.theme-day .mdk-seg button { color: #181e1b; }
+body.theme-day .mdk-srv.is-ok b { color: #0d8a43; } body.theme-day .mdk-srv b { color: #b3263f; } body.theme-day .mdk-srv small, body.theme-day .mdk-note { color: #47524d; }
 body.theme-day .mdk-vh b, body.theme-day .mdk-ph b, body.theme-day .mdk-ctx b { filter: brightness(.6); text-shadow: none; } body.theme-day .mdk-tools b { color: #1279a8; }
 @media (max-width: 640px) { .mdk-vit { grid-template-columns: 1fr; } .mdk-knobs { grid-template-columns: 1fr; } .mdk-kv { grid-template-columns: repeat(2, minmax(0, 1fr)); } }

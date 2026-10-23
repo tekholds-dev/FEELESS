@@ -1,5 +1,5 @@
 /* 🧬 Chart header strip (ChartVitals.jsx): status chips + socials, THE FEELESS EDGE (vital + read), one line of plain numbers. m-* tokens. */
-.cv { display: grid; gap: 8px; padding: 10px 14px 12px; border-bottom: 1px solid #1c2a23; background: linear-gradient(180deg, rgba(21, 209, 106, .06), transparent); min-width: 0; }
+.cv { display: grid; gap: 8px; padding: 10px 14px 12px; border-bottom: 1px solid #212523; background: linear-gradient(180deg, rgba(21, 209, 106, .06), transparent); min-width: 0; }
 .cv-row { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; min-width: 0; }
 .cv .m-chip { font-size: 10px; } .cv .is-grad { color: #45e486; border-color: rgba(21, 209, 106, .5); } .cv .is-curve { color: var(--gold); border-color: rgba(245, 196, 81, .5); } .cv .is-bad { color: #ff8fa3; border-color: rgba(255, 143, 163, .6); }
 .cv-soc { display: inline-flex; flex-wrap: wrap; gap: 4px; align-items: center; margin-left: auto; }
@@ -14,7 +14,7 @@
 @media (prefers-reduced-motion: reduce) { .cv-link { transition: none; } }
 body.theme-day .cv { border-color: var(--day-border); background: linear-gradient(180deg, rgba(21, 209, 106, .08), transparent); }
 body.theme-day .cv .is-grad { color: #0b7a4a; } body.theme-day .cv .is-bad { color: #b4233f; } body.theme-day .cv .is-curve { color: #8a6100; }
-body.theme-day .cv-nums { color: #234; } body.theme-day .cv-nums small { color: #4a6458; }
+body.theme-day .cv-nums { color: #234; } body.theme-day .cv-nums small { color: #515d58; }
 @media (max-width: 640px) { .cv-soc { margin-left: 0; } .cv-edge { grid-template-columns: minmax(0, 1fr); } }
 /* the war-room chart title row */
 .cv-head { background: linear-gradient(90deg, rgba(21, 209, 106, .1), transparent 70%); }

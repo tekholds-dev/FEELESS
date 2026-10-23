@@ -1,12 +1,12 @@
 /* 🏁 Season hub (SeasonLive.jsx): m-* tokens + the season's own accent (--season), transform / opacity motion only */
 .sl { --sa: var(--season, #15d16a); padding: 14px 16px; margin: 14px 0; display: flex; flex-direction: column; gap: 12px; }
 .sl header { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; } .sl header b { font: 800 11px 'JetBrains Mono', monospace; letter-spacing: .16em; color: #e9fff2; }
-.sl header small { color: #7f9c8c; font-size: 11.5px; }
+.sl header small { color: #89928e; font-size: 11.5px; }
 .sl-live { display: inline-flex; align-items: center; gap: 5px; padding: 2px 8px; border-radius: 999px; background: rgba(255, 77, 109, .14); color: #ff8fa3; font: 800 9.5px 'JetBrains Mono', monospace; letter-spacing: .1em; }
 .sl-live i { width: 7px; height: 7px; border-radius: 50%; background: #ff4d6d; animation: slBeat 1.2s ease-in-out infinite; }
 .sl-tiles { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; }
 .sl-tiles span { min-width: 0; padding: 9px 10px; border-radius: 11px; background: rgba(255, 255, 255, .03); border: 1px solid color-mix(in srgb, var(--sa) 30%, transparent); display: flex; flex-direction: column; gap: 3px; animation: slUp .4s ease-out both; animation-delay: calc(var(--i) * 40ms); }
-.sl-tiles em { font: 700 8.5px 'JetBrains Mono', monospace; font-style: normal; letter-spacing: .12em; color: #7f9c8c; }
+.sl-tiles em { font: 700 8.5px 'JetBrains Mono', monospace; font-style: normal; letter-spacing: .12em; color: #89928e; }
 .sl-tiles b { font: 800 15px 'JetBrains Mono', monospace; color: #f2fff7; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; animation: slFlip .4s ease-out; }
 .sl-tiles .is-tick b { color: var(--sa); animation: none; font-variant-numeric: tabular-nums; }
 .sl-race { display: flex; flex-direction: column; gap: 5px; }
@@ -19,14 +19,14 @@
 .sl-feed::-webkit-scrollbar { width: 6px; } .sl-feed::-webkit-scrollbar-thumb { background: var(--sa); border-radius: 6px; }
 .sl-feed li { display: grid; grid-template-columns: 22px minmax(0, 1fr) auto; gap: 8px; align-items: center; padding: 7px 9px; border-radius: 9px; background: rgba(255, 255, 255, .025);
   border-left: 2px solid rgba(255, 255, 255, .15); font-size: 12.5px; color: #dff5e8; animation: slSlide .35s ease-out both; animation-delay: calc(var(--i) * 35ms); transition: background .15s; }
-.sl-feed li:hover { background: rgba(255, 255, 255, .06); } .sl-feed li > i { font-style: normal; } .sl-feed li > span { overflow-wrap: anywhere; } .sl-feed li > small { color: #6f8f7d; font: 600 10px 'JetBrains Mono', monospace; }
+.sl-feed li:hover { background: rgba(255, 255, 255, .06); } .sl-feed li > i { font-style: normal; } .sl-feed li > span { overflow-wrap: anywhere; } .sl-feed li > small { color: #7a8480; font: 600 10px 'JetBrains Mono', monospace; }
 .sl-feed li.l-players { border-left-color: var(--gold, #ffd36b); } .sl-feed li.l-families { border-left-color: #ff5a8a; } .sl-feed li.l-fuse { border-left-color: #b48cff; }
-.sl-empty { margin: 0; color: #7f9c8c; font-size: 12px; }
+.sl-empty { margin: 0; color: #89928e; font-size: 12px; }
 @keyframes slBeat { 50% { transform: scale(.6); opacity: .5; } }
 @keyframes slUp { from { transform: translateY(4px); } }
 @keyframes slFlip { from { transform: translateY(-6px); opacity: .3; } }
 @keyframes slSlide { from { transform: translateX(-8px); } }
 body.fx-lite .sl * { animation: none !important; }
 @media (prefers-reduced-motion: reduce) { .sl * { animation: none !important; transition: none !important; } }
-body.theme-day .sl-tiles span, body.theme-day .sl-feed li { background: rgba(255, 255, 255, .7); } body.theme-day .sl-tiles b, body.theme-day .sl-lane b, body.theme-day .sl-feed li { color: #0b2a19; }
+body.theme-day .sl-tiles span, body.theme-day .sl-feed li { background: rgba(255, 255, 255, .7); } body.theme-day .sl-tiles b, body.theme-day .sl-lane b, body.theme-day .sl-feed li { color: #181d1b; }
 @media (max-width: 640px) { .sl-tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); } .sl-lane { grid-template-columns: 26px minmax(60px, 100px) 1fr auto; } }

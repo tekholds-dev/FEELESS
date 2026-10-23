@@ -13,7 +13,7 @@
 .fld-copy p { margin: 0; max-width: 46ch; color: #b7c4bd; font-size: 15px; line-height: 1.55; }
 .fld-live { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
 .fld-live span { display: grid; gap: 2px; padding: 10px 12px; border-radius: 12px; border: 1px solid #ffffff1a; background: #ffffff08; min-width: 0; }
-.fld-live small { font: 600 9px var(--m-mono, monospace); letter-spacing: .12em; color: #8fa39a; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.fld-live small { font: 600 9px var(--m-mono, monospace); letter-spacing: .12em; color: #959d9a; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .fld-live b.m-num { font-size: clamp(18px, 2.4cqw, 28px); color: #fff; line-height: 1.1; }
 .fld-cta { display: flex; flex-wrap: wrap; gap: 10px; } .fld-cta .m-btn { font-size: 14px; padding: 12px 20px; }
 .fld-rig { position: relative; display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); gap: 14px; align-items: center; perspective: 1400px; }
@@ -22,12 +22,12 @@
 .fld-hero { display: grid; gap: 2px; }
 .fld-hero span { font: 600 11px var(--m-mono, monospace); letter-spacing: .1em; text-transform: uppercase; color: #cbbcff; }
 .fld-hero b.m-num { font-size: clamp(44px, 7cqw, 96px); line-height: .95; }
-.fld-hero small { font: 500 11px var(--m-mono, monospace); color: #8fa39a; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.fld-hero small { font: 500 11px var(--m-mono, monospace); color: #959d9a; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .fld-notes { list-style: none; margin: 0; padding: 0; display: grid; gap: 26px; }
 .fld-notes li { display: flex; gap: 10px; align-items: flex-start; padding: 10px 12px; border-radius: 12px; border: 1px solid #ffffff1a; background: #0a0714d9; max-width: 210px;
   animation: fldNote .6s var(--m-ease, ease) both, fldFloat 6s ease-in-out infinite; animation-delay: calc(1.5s + var(--i) * .18s), calc(2.4s + var(--i) * .7s); }
 .fld-notes.is-l { justify-items: end; } .fld-notes li b { font-size: 18px; color: #15d16a; line-height: 1.1; }
-.fld-notes li span { display: grid; gap: 2px; font-size: 11.5px; color: #a9b6af; line-height: 1.4; } .fld-notes li strong { color: #fff; font-size: 12.5px; }
+.fld-notes li span { display: grid; gap: 2px; font-size: 11.5px; color: #acb3b0; line-height: 1.4; } .fld-notes li strong { color: #fff; font-size: 12.5px; }
 .fld-how { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
 .fld-how li { display: grid; gap: 4px; padding: 14px; border-radius: 14px; border: 1px solid var(--m-line); background: var(--m-surface, #0b0a12); animation: fldUp .5s var(--m-ease, ease) both; animation-delay: calc(1.9s + var(--i) * .08s);
   transition: transform .16s var(--m-ease, ease), border-color .16s; }
@@ -40,6 +40,6 @@
 @keyframes fldNote { from { opacity: 0; transform: scale(.9); } to { opacity: 1; transform: none; } }
 body.fx-lite .fld-card, body.fx-lite .fld-notes li, body.fx-lite .fld-copy, body.fx-lite .fld-how li { animation: none; } body.fx-lite .fld-cone, body.fx-lite .fld-floor { transition: none; }
 @media (prefers-reduced-motion: reduce) { .fld-card, .fld-notes li, .fld-copy, .fld-how li { animation: none; } .fld-cone, .fld-floor { transition: none; } }
-body.theme-day .fld-how li { background: #fff; } body.theme-day .fld-h { color: #0c1f17; } body.theme-day .fld-copy p, body.theme-day .fld-live small, body.theme-day .fld-hero small { color: #3d5348; } body.theme-day .fld-live b.m-num { color: #0c1f17; } body.theme-day .fld-live span { background: #fff; border-color: #d8e2dc; } body.theme-day .fld-hero span { color: #5b3fc4; }
+body.theme-day .fld-how li { background: #fff; } body.theme-day .fld-h { color: #131816; } body.theme-day .fld-copy p, body.theme-day .fld-live small, body.theme-day .fld-hero small { color: #434d49; } body.theme-day .fld-live b.m-num { color: #131816; } body.theme-day .fld-live span { background: #fff; border-color: #d8e2dc; } body.theme-day .fld-hero span { color: #5b3fc4; }
 @container (max-width: 980px) { .fld-stage { grid-template-columns: 1fr; padding: 12px 0; } .fld-card { zoom: 1.15; } .fld-cone, .fld-floor { left: 50%; } .fld-rig { grid-template-columns: 1fr; justify-items: center; } .fld-notes { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; width: 100%; } .fld-notes li { max-width: none; animation: fldNote .6s var(--m-ease, ease) both; } .fld-how { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 @media (max-width: 640px) { .fld-live { grid-template-columns: repeat(2, minmax(0, 1fr)); } .fld-how { grid-template-columns: 1fr; } .fld-notes { grid-template-columns: 1fr; } }

@@ -2,7 +2,7 @@
    the next-move chip and the Power Skyline. Noir gold + city night; transform / opacity only; still in fx-lite / reduced motion. */
 /* 🎮 the HUD — your family, rank + XP | the season clock | your resources */
 .mh-hud { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr) minmax(0, 1.4fr); gap: 10px; align-items: center; padding: 10px 12px; border-radius: 16px;
-  background: linear-gradient(100deg, rgba(60, 38, 8, .7), rgba(12, 8, 16, .92) 45%, rgba(10, 30, 20, .75)); border: 1px solid rgba(212, 175, 55, .35); box-shadow: inset 0 1px 0 #ffffff1a, 0 10px 30px #0008; }
+  background: linear-gradient(100deg, rgba(60, 38, 8, .7), rgba(12, 8, 16, .92) 45%, rgba(18, 22, 20, .75)); border: 1px solid rgba(212, 175, 55, .35); box-shadow: inset 0 1px 0 #ffffff1a, 0 10px 30px #0008; }
 .mh-me { display: flex; align-items: center; gap: 9px; min-width: 0; }
 .mh-tag { display: grid; place-items: center; flex: none; width: 48px; height: 48px; border-radius: 14px; font: 900 14px 'JetBrains Mono', monospace; font-style: normal; color: #1a1000;
   background: radial-gradient(circle at 30% 25%, #fff3c4, #ffd36b 45%, #8a6a12); box-shadow: 0 0 18px #ffd36b66, inset 0 -3px 0 #0003; }
@@ -24,7 +24,7 @@
 .mh-wire li:first-child { border-left-color: #ffd36b; box-shadow: 0 0 16px #ffd36b44; }
 /* ➡ the next move — one chip in the HUD, tap to go */
 .mh-next { grid-column: 1 / -1; display: flex; align-items: center; gap: 10px; min-height: 34px; padding: 6px 12px; border-radius: 11px; text-align: left; cursor: pointer; color: #fff3d6;
-  border: 1px solid rgba(69, 228, 134, .45); background: linear-gradient(100deg, rgba(69, 228, 134, .14), rgba(6, 18, 12, .6)); transition: border-color .15s ease, transform .15s ease; }
+  border: 1px solid rgba(69, 228, 134, .45); background: linear-gradient(100deg, rgba(69, 228, 134, .14), rgba(11, 13, 12, .6)); transition: border-color .15s ease, transform .15s ease; }
 .mh-next:hover { border-color: #45e486; transform: translateX(2px); } .mh-next:active { transform: scale(.99); } .mh-next:focus-visible { outline: 2px solid #45e486; outline-offset: 2px; }
 .mh-next em { flex: none; font: 800 8.5px 'JetBrains Mono', monospace; font-style: normal; letter-spacing: .16em; color: #45e486; } .mh-next b { font: 600 12px Inter, system-ui, sans-serif; }
 .mh-next::after { content: '▸'; margin-left: auto; color: #45e486; }

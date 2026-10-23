@@ -1,8 +1,8 @@
 /* ⏱ candle clock — the countdown under the live price on the axis (CandleClock.jsx) */
 .cck { position: absolute; left: 0; top: 0; z-index: 4; opacity: 0; pointer-events: none; text-align: center; box-sizing: border-box;
-  font: 700 9.5px/14px var(--m-mono, 'JetBrains Mono', monospace); letter-spacing: .04em; color: #cfe9da; background: rgba(8, 20, 14, .86);
+  font: 700 9.5px/14px var(--m-mono, 'JetBrains Mono', monospace); letter-spacing: .04em; color: #cfe9da; background: rgba(13, 15, 14, .86);
   border-radius: 0 0 3px 3px; will-change: transform; }
-.cck.is-end { color: #0a1a12; background: #45e486; }
+.cck.is-end { color: #101412; background: #45e486; }
 body.theme-day .cck { color: #123a26; background: rgba(236, 246, 240, .94); }
 body.theme-day .cck.is-end { color: #fff; background: #0f8f4a; }
 @media (max-width: 640px) { .cck { font-size: 8.5px; line-height: 12px; } }

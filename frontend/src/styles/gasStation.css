@@ -20,7 +20,7 @@
 .gs-pipe { position: relative; flex: 1; min-width: 40px; height: 6px; border-radius: 3px; background: rgba(69, 228, 134, .15); overflow: hidden; }
 .gs-pipe i { position: absolute; top: 1px; left: -10px; width: 10px; height: 4px; border-radius: 2px; background: #45e486; animation: gsFlow 1.8s linear infinite; } .gs-pipe i:nth-child(2) { animation-delay: -.6s; } .gs-pipe i:nth-child(3) { animation-delay: -1.2s; }
 .gs-pump { position: relative; display: inline-block; width: 34px; height: 44px; } .gs-pump i { position: absolute; left: 0; bottom: 0; width: 24px; height: 40px; border-radius: 5px 5px 2px 2px; background: linear-gradient(180deg, #45e486, #0b6b35); }
-.gs-pump i::before { content: ''; position: absolute; left: 5px; top: 6px; width: 14px; height: 9px; border-radius: 2px; background: #062014; }
+.gs-pump i::before { content: ''; position: absolute; left: 5px; top: 6px; width: 14px; height: 9px; border-radius: 2px; background: #111513; }
 .gs-pump u { position: absolute; right: 0; top: 8px; width: 9px; height: 22px; border: 2px solid #45e486; border-left: 0; border-radius: 0 6px 6px 0; animation: gsBreathe 3s ease-in-out infinite; }
 .gs-empty, .gs-load { display: grid; justify-items: center; gap: 8px; text-align: center; }
 @keyframes gsIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: none; } }
@@ -28,5 +28,5 @@
 @keyframes gsBreathe { 0%, 100% { opacity: .6; } 50% { opacity: 1; } }
 body.fx-lite .gs-grid > span, body.fx-lite .gs-pipe i, body.fx-lite .gs-pump u, body.fx-lite .gs-fill { animation: none; }
 @media (prefers-reduced-motion: reduce) { .gs-grid > span, .gs-pipe i, .gs-pump u, .gs-fill { animation: none; } .gs-gauge, .gs-gauge .ndl { transition: none; } }
-body.theme-day .gs-gauge { background: #fff; border-color: #d6e6dc; } body.theme-day .gs-gauge small { color: #24463a; } body.theme-day .gs-gauge .ndl path { stroke: #082019; } body.theme-day .gs-gauge .ndl circle { fill: #082019; }
+body.theme-day .gs-gauge { background: #fff; border-color: #d6e6dc; } body.theme-day .gs-gauge small { color: #313936; } body.theme-day .gs-gauge .ndl path { stroke: #121614; } body.theme-day .gs-gauge .ndl circle { fill: #121614; }
 @media (max-width: 640px) { .gs-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } .gs-fill { grid-template-columns: 1fr; } .gs-gauge svg { width: 72px; height: 46px; } }

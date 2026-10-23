@@ -15,14 +15,14 @@
 .clx-row.is-near .clx-line { opacity: 1; }
 .clx-row.is-quiet .clx-line { opacity: .22; height: 1px; } .clx-row.is-quiet .clx-run { display: none; }   /* 🧹 a line with no tag: the price is there, the noise is not */
 .clx-tag { position: absolute; right: 4px; top: -8px; display: inline-flex; align-items: center; gap: 5px; height: 15px; padding: 0 6px; border-radius: 4px;
-  font-family: var(--m-mono); white-space: nowrap; background: rgb(4, 14, 9); border: 1px solid color-mix(in srgb, var(--clx-c) 55%, transparent); color: var(--clx-c); z-index: 1; }
+  font-family: var(--m-mono); white-space: nowrap; background: rgb(8, 10, 9); border: 1px solid color-mix(in srgb, var(--clx-c) 55%, transparent); color: var(--clx-c); z-index: 1; }
 .clx-tag.is-moved { border-style: dashed; opacity: .82; }   /* pushed off its own line so nothing overlaps: the line still marks the level */
 .clx-tag small { display: none; } .clx-row.is-near .clx-tag small { display: inline; }   /* the level's price only when the price is near it — less on the chart */
 .clx-tag b { font-size: 8.5px; font-weight: 800; letter-spacing: .04em; } .clx-tag small { font-size: 8px; font-weight: 600; color: var(--m-dim); font-variant-numeric: tabular-nums; }
 .clx-tag em { font-style: normal; font-size: 8.5px; font-weight: 800; font-variant-numeric: tabular-nums; color: var(--m-ink, #e8fff1); }
 .clx-tag em:empty { display: none; }
-.clx-row:not(.is-key) .clx-tag { background: rgba(4, 14, 9, .88); border-color: transparent; } .clx-row:not(.is-key) .clx-tag small { display: none; }
-.clx-row.is-near .clx-tag { background: color-mix(in srgb, var(--clx-c) 88%, #000); color: var(--m-accent-ink, #04130a); border-color: var(--clx-c); }
+.clx-row:not(.is-key) .clx-tag { background: rgba(8, 10, 9, .88); border-color: transparent; } .clx-row:not(.is-key) .clx-tag small { display: none; }
+.clx-row.is-near .clx-tag { background: color-mix(in srgb, var(--clx-c) 88%, #000); color: var(--m-accent-ink, #0a0d0c); border-color: var(--clx-c); }
 .clx-row.is-near .clx-tag em, .clx-row.is-near .clx-tag small { color: inherit; }
 .clx-row.is-near .clx-tag::after { content: ''; width: 5px; height: 5px; border-radius: 50%; background: currentColor; animation: clxBeat .8s ease-in-out infinite; }
 .clx-row.is-off .clx-line { opacity: 0; } .clx-row.is-off .clx-tag { opacity: .75; border-style: dashed; }
@@ -32,9 +32,9 @@
 @keyframes clxHit { 0% { transform: scaleY(7); opacity: 1; } 100% { transform: scaleY(1); opacity: .8; } }
 body.fx-lite .clx-run, body.fx-lite .clx-tag::after, body.fx-lite .clx-row.is-hit .clx-line { animation: none; } body.fx-lite .clx-run { opacity: 0 !important; }
 @media (prefers-reduced-motion: reduce) { .clx-run, .clx-tag::after, .clx-row.is-hit .clx-line { animation: none; } .clx-run { opacity: 0 !important; } }
-body.theme-day .clx-tag, body.theme-day .clx-row:not(.is-key) .clx-tag { background: #f3faf5; } body.theme-day .clx-tag em { color: #10261a; } body.theme-day .clx-tag small { color: #3f5a4a; }
+body.theme-day .clx-tag, body.theme-day .clx-row:not(.is-key) .clx-tag { background: #f3faf5; } body.theme-day .clx-tag em { color: #181e1b; } body.theme-day .clx-tag small { color: #47524d; }
 body.theme-day .clx-row.tone-up { --clx-c: #0d7a41; } body.theme-day .clx-row.tone-dn { --clx-c: #b42346; } body.theme-day .clx-row.tone-gold { --clx-c: #9a6a00; }
-body.theme-day .clx-row.tone-ice { --clx-c: #0b6f9c; } body.theme-day .clx-row.tone-violet { --clx-c: #6a3fd0; } body.theme-day .clx-run { background: linear-gradient(90deg, transparent, #10261a 60%, transparent); }
+body.theme-day .clx-row.tone-ice { --clx-c: #0b6f9c; } body.theme-day .clx-row.tone-violet { --clx-c: #6a3fd0; } body.theme-day .clx-run { background: linear-gradient(90deg, transparent, #181e1b 60%, transparent); }
 body.theme-day .clx-row.is-near .clx-tag { color: #fff; }
 @media (max-width: 640px) { .clx-tag small { display: none; } .clx-row:not(.is-key) .clx-tag b { display: none; } }
 /* 🦠 GERM = ALIVE on every chart: a violet runner crawls the line, the tag's microbe spins and its edge pulses like a cell membrane,

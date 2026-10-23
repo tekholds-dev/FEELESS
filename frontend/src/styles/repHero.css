@@ -12,7 +12,7 @@
 .rph p { margin: 0; max-width: 560px; color: #9fbcb2; font-size: 14px; line-height: 1.5; }
 .rph-nums { display: grid; grid-template-columns: repeat(4, minmax(0, auto)); gap: 8px; margin-top: 4px; }
 .rph-nums span { display: grid; gap: 2px; padding: 10px 14px; border-radius: 12px; background: rgba(255, 255, 255, .04); border: 1px solid rgba(255, 255, 255, .07); backdrop-filter: none; }
-.rph-nums b { font: 800 20px 'JetBrains Mono', monospace; color: #fff; animation: rphPop .5s ease; } .rph-nums em { font: 700 8.5px 'JetBrains Mono', monospace; letter-spacing: .14em; font-style: normal; color: #7f9c92; }
+.rph-nums b { font: 800 20px 'JetBrains Mono', monospace; color: #fff; animation: rphPop .5s ease; } .rph-nums em { font: 700 8.5px 'JetBrains Mono', monospace; letter-spacing: .14em; font-style: normal; color: #89928e; }
 .rph-art { position: relative; display: grid; place-items: center; min-height: 240px; }
 /* 📡 the trust radar: drawn rings, a sweeping beam, real creators as dots (green core → red rim), the shield at the heart */
 .rph-radar { width: min(280px, 100%); height: auto; overflow: visible; filter: drop-shadow(0 12px 30px rgba(0, 0, 0, .45)); }
@@ -34,19 +34,19 @@
   cursor: pointer; transition: background .15s ease, color .15s ease, transform .12s ease; }
 .rph-nav button:hover { color: #e8fff7; background: rgba(127, 240, 207, .08); } .rph-nav button:active { transform: scale(.97); }
 .rph-nav button:focus-visible { outline: 2px solid #7ff0cf; outline-offset: 2px; }
-.rph-nav button.active { color: #03140f; background: linear-gradient(135deg, #7ff0cf, #45e486); box-shadow: 0 6px 18px -8px #45e486; }
+.rph-nav button.active { color: #0a0d0c; background: linear-gradient(135deg, #7ff0cf, #45e486); box-shadow: 0 6px 18px -8px #45e486; }
 .rph-sec { display: grid; gap: 12px; animation: rphIn .25s ease both; }
 @keyframes rphPop { from { transform: scale(1.1); } to { transform: none; } }
 @keyframes rphIn { from { transform: translateY(6px); } to { transform: none; } }
 body.fx-lite .rph-sweep, body.fx-lite .rph-node circle, body.fx-lite .rph-sec { animation: none; } body.fx-lite .rph-node circle { opacity: .95; }
 @media (prefers-reduced-motion: reduce) { .rph-art *, .rph-sec, .rph-nums b { animation: none !important; } .rph-node circle { opacity: .95; } .rph-nav button, .rph-node circle { transition: none; } }
-body.theme-day .rph { background: linear-gradient(160deg, #eefaf6, #f8fcfb); border-color: rgba(13, 122, 100, .2); } body.theme-day .rph h1 { color: #082019; }
-body.theme-day .rph-nums b { color: #082019; } body.theme-day .rph-nums b.is-good { color: #0a8a44; } body.theme-day .rph-nums b.is-bad { color: #c2185b; } body.theme-day .rph-radar .rl { fill: #3d5a50; } body.theme-day .rph-nav { background: rgba(248, 252, 251, .94); } body.theme-day .rph-nav button { color: #3d5a50; }
+body.theme-day .rph { background: linear-gradient(160deg, #eefaf6, #f8fcfb); border-color: rgba(13, 122, 100, .2); } body.theme-day .rph h1 { color: #121614; }
+body.theme-day .rph-nums b { color: #121614; } body.theme-day .rph-nums b.is-good { color: #0a8a44; } body.theme-day .rph-nums b.is-bad { color: #c2185b; } body.theme-day .rph-radar .rl { fill: #46514c; } body.theme-day .rph-nav { background: rgba(248, 252, 251, .94); } body.theme-day .rph-nav button { color: #46514c; }
 @media (max-width: 760px) { .rph { grid-template-columns: 1fr; padding: 18px; } .rph-art { min-height: 0; order: -1; } .rph-radar { width: min(230px, 100%); } .rph-nums { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 /* 📊 board rows: a record bar of what each creator's launches became + the score as a ring (ReputationCenter RecordBar / ScoreRing) */
 .rep-rec { display: grid; gap: 3px; min-width: 120px; } .rep-rec u { display: flex; gap: 2px; height: 7px; border-radius: 4px; overflow: hidden; background: rgba(255, 255, 255, .05); }
 .rep-rec u i { display: block; min-width: 3px; } .rep-rec u i.is-open { background: rgba(255, 255, 255, .06); } .rep-rec small { font: 600 9.5px 'JetBrains Mono', monospace; color: #8fb0a5; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .rep-ring { width: 44px; height: 44px; justify-self: end; } .rep-ring .bg { fill: none; stroke: rgba(255, 255, 255, .08); stroke-width: 4; } .rep-ring .fg { fill: none; stroke-width: 4; stroke-linecap: round; filter: drop-shadow(0 0 4px currentColor); }
 .rep-ring text { font: 800 12px 'JetBrains Mono', monospace; fill: #f2fbf8; text-anchor: middle; }
-body.theme-day .rep-ring text { fill: #082019; } body.theme-day .rep-rec small { color: #3d5a50; }
+body.theme-day .rep-ring text { fill: #121614; } body.theme-day .rep-rec small { color: #46514c; }
 @media (max-width: 760px) { .rep-rec { display: none; } }

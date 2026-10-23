@@ -52,7 +52,7 @@
 .cai-who { font: 800 10px var(--m-mono); color: var(--ag); white-space: nowrap; } .cai-sym { font: 800 11.5px var(--m-mono); color: var(--m-text); }
 .cai-age { margin-left: auto; font: 600 9.5px var(--m-mono); color: var(--m-mute); white-space: nowrap; }
 .cai-stance, .ack-ai-stance { font: 800 9px var(--m-mono); font-style: normal; letter-spacing: .08em; padding: 1px 7px; border-radius: 5px; border: 1px solid currentColor; white-space: nowrap; color: var(--m-text); }
-.cai-stance.is-good { color: #0b1a12; background: var(--m-accent); border-color: var(--m-accent); } .cai-stance.is-bad { color: #fff; background: #d9435f; border-color: #d9435f; }
+.cai-stance.is-good { color: #111413; background: var(--m-accent); border-color: var(--m-accent); } .cai-stance.is-bad { color: #fff; background: #d9435f; border-color: #d9435f; }
 .cai-stance.is-warn { color: var(--m-warn); } .cai-stance.is-off { color: var(--m-mute); }
 .cai-delta { position: relative; width: 46px; height: 5px; border-radius: 3px; background: rgba(255, 255, 255, .07); overflow: hidden; flex: none; }
 .cai-delta i { position: absolute; top: 0; bottom: 0; width: 50%; } .cai-delta i.is-up { left: 50%; background: var(--m-accent); transform-origin: left; } .cai-delta i.is-dn { right: 50%; background: var(--m-danger); transform-origin: right; }
@@ -123,9 +123,9 @@ body.theme-day .ack-ask { background: rgba(245, 196, 81, .14); } body.theme-day 
 body.fx-lite .cai-dot.is-on, body.fx-lite .cai-think i, body.fx-lite .cai-ans { animation: none; } body.fx-lite .ack-agent.is-on, body.fx-lite .ack-ptabs button.active { box-shadow: none; }
 @media (prefers-reduced-motion: reduce) { .cai-labrows li { transition: none; } .cai-dot.is-on, .cai-think i, .cai-ans { animation: none; } .cai-row button, .cai-meter i, .ack-ai-note.is-btn, .ack-agent { transition: none; } }
 body.theme-day .cai-head { background: linear-gradient(120deg, rgba(110, 80, 220, .1), rgba(13, 122, 65, .06)); border-color: rgba(90, 60, 200, .3); }
-body.theme-day .cai-lab { background: rgba(31, 95, 168, .05); border-color: rgba(31, 95, 168, .25); } body.theme-day .cai-lessons span { background: rgba(10, 60, 35, .05); color: #3f5a4a; } body.theme-day .cai-lessons b { color: #1f5fa8; }
-body.theme-day .cai-labrows b { color: #0f2419; } body.theme-day .cai-labst.is-live, body.theme-day .avt-sc.is-good { color: #0d7a41; } body.theme-day .cai-labst.is-failed, body.theme-day .avt-sc.is-bad { color: #b42346; } body.theme-day .cai-labst.is-proposed, body.theme-day .avt-sc.is-hold, body.theme-day .avt-sc.is-meme { color: #8a5a00; }
-body.theme-day .cai-metrics span { background: rgba(90, 60, 200, .07); } body.theme-day .cai-metrics b { color: #0f2419; }
+body.theme-day .cai-lab { background: rgba(31, 95, 168, .05); border-color: rgba(31, 95, 168, .25); } body.theme-day .cai-lessons span { background: rgba(10, 60, 35, .05); color: #47524d; } body.theme-day .cai-lessons b { color: #1f5fa8; }
+body.theme-day .cai-labrows b { color: #171c1a; } body.theme-day .cai-labst.is-live, body.theme-day .avt-sc.is-good { color: #0d7a41; } body.theme-day .cai-labst.is-failed, body.theme-day .avt-sc.is-bad { color: #b42346; } body.theme-day .cai-labst.is-proposed, body.theme-day .avt-sc.is-hold, body.theme-day .avt-sc.is-meme { color: #8a5a00; }
+body.theme-day .cai-metrics span { background: rgba(90, 60, 200, .07); } body.theme-day .cai-metrics b { color: #171c1a; }
 body.theme-day .cai-ask, body.theme-day .cai-row button { background: rgba(255, 255, 255, .6); border-color: rgba(10, 60, 35, .16); }
 body.theme-day .cai-src, body.theme-day .cai-think { color: #5a3cc8; border-color: rgba(90, 60, 200, .4); } body.theme-day .cai-think i { background: #5a3cc8; }
 body.theme-day .cai-stance.is-good { background: #0d7a41; border-color: #0d7a41; color: #fff; } body.theme-day .cai-agree.is-good { color: #0d7a41; } body.theme-day .cai-stance.is-warn, body.theme-day .cai-agree.is-warn, body.theme-day .cai-ans.is-warn { color: #8a5a00; }
@@ -139,7 +139,7 @@ body.theme-day .ack-ptabs button.active, body.theme-day .ack-iv button.active, b
 .cai-learn.is-in-use { border-color: color-mix(in srgb, var(--m-accent) 55%, transparent); background: rgba(21, 209, 106, .05); }
 .cai-lhead { display: flex; align-items: center; justify-content: space-between; gap: 8px; } .cai-lhead b { font: 800 10px var(--m-mono); letter-spacing: .1em; color: var(--m-text); }
 .cai-lhead em { font: 800 9px var(--m-mono); font-style: normal; letter-spacing: .1em; padding: 1px 7px; border-radius: 5px; border: 1px solid currentColor; color: var(--m-warn); white-space: nowrap; }
-.cai-learn.is-in-use .cai-lhead em { color: #0b1a12; background: var(--m-accent); border-color: var(--m-accent); } .cai-learn.is-no-edge-yet .cai-lhead em { color: var(--m-mute); }
+.cai-learn.is-in-use .cai-lhead em { color: #111413; background: var(--m-accent); border-color: var(--m-accent); } .cai-learn.is-no-edge-yet .cai-lhead em { color: var(--m-mute); }
 .cai-learn > small { font: 600 10px/1.4 var(--m-mono); color: var(--m-dim); }
 .cai-lrows { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
 .cai-lrows li { display: grid; grid-template-columns: 64px 44px minmax(0, 1fr) auto; align-items: center; gap: 7px; font: 600 9.5px var(--m-mono); color: var(--m-mute); }
@@ -148,7 +148,7 @@ body.theme-day .ack-ptabs button.active, body.theme-day .ack-iv button.active, b
 
 /* 📈 the cockpit chart stays INSIDE its box (the terminal's own chart heights — clamp(380px, 50vh, 580px) !important — are taller than the
    plot and spilled out of the bottom of the panel) */
-.ack-plot { --ack-h: clamp(320px, 48vh, 500px); height: auto; display: grid; grid-template-rows: auto var(--ack-h); overflow: hidden; border-radius: var(--m-r-sm); border: 1px solid var(--m-line); background: #060d0a; }
+.ack-plot { --ack-h: clamp(320px, 48vh, 500px); height: auto; display: grid; grid-template-rows: auto var(--ack-h); overflow: hidden; border-radius: var(--m-r-sm); border: 1px solid var(--m-line); background: #090a0a; }
 .ack-plot > * { height: auto; min-height: 0; } .ack-plot > :last-child { grid-row: 2; height: var(--ack-h); }
 .ack-plot .chart-area { min-height: var(--ack-h) !important; height: var(--ack-h) !important; overflow: hidden; border: 0 !important; border-radius: 0 !important; }
 .ack-plot .candle-canvas { height: var(--ack-h) !important; flex: none; }
@@ -162,7 +162,7 @@ body.theme-day .cai-lhead em { color: #8a5a00; } body.theme-day .cai-lrows li.is
 @media (max-width: 640px) { .ack-plot { --ack-h: 300px; } .ack-trade { gap: 4px 10px; } .cai-lrows li { grid-template-columns: 58px 30px minmax(0, 1fr) auto; } }
 
 /* ⚡ the live pulse: the desk, second by second (one 1s clock; the bar is a transform) */
-.ack-pulse { display: grid; grid-template-columns: repeat(auto-fit, minmax(118px, 1fr)); gap: 0; border: 1px solid var(--m-line); border-radius: var(--m-r); overflow: hidden; background: linear-gradient(180deg, rgba(10, 26, 18, .72), rgba(6, 14, 10, .82)); }
+.ack-pulse { display: grid; grid-template-columns: repeat(auto-fit, minmax(118px, 1fr)); gap: 0; border: 1px solid var(--m-line); border-radius: var(--m-r); overflow: hidden; background: linear-gradient(180deg, rgba(16, 20, 18, .72), rgba(9, 11, 10, .82)); }
 .ack-pulse.is-late { border-color: color-mix(in srgb, var(--m-warn) 55%, transparent); }
 .ack-pz { all: unset; box-sizing: border-box; display: grid; align-content: center; gap: 2px; padding: 6px 10px; border-right: 1px solid var(--m-line); min-width: 0; }
 .ack-pz:last-child { border-right: 0; } .ack-pz.is-wide { grid-column: span 2; }
@@ -190,7 +190,7 @@ body.theme-day .ack-pz.is-ai { background: linear-gradient(120deg, rgba(110, 80,
 .ack-open button { font: 700 9px var(--m-mono); padding: 1px 7px; border-radius: 999px; border: 1px solid rgba(255, 255, 255, .14); background: none; color: var(--m-ink, #e8fff1); cursor: pointer; transition: border-color .15s, transform .15s; }
 .ack-open button:hover, .ack-open button:focus-visible { border-color: var(--m-accent); outline: none; } .ack-open button:active { transform: scale(.96); }
 body.theme-day .ack-open { background: rgba(13, 122, 65, .08); border-color: rgba(13, 122, 65, .35); } body.theme-day .ack-open.is-dn { background: rgba(180, 35, 70, .07); border-color: rgba(180, 35, 70, .35); }
-body.theme-day .ack-open button { color: #10261a; border-color: rgba(16, 38, 26, .25); }
+body.theme-day .ack-open button { color: #181e1b; border-color: rgba(24, 30, 27, .25); }
 @media (max-width: 640px) { .ack-open i { display: none; } }
 
 .cai-general { white-space: pre-wrap; overflow-wrap: anywhere; }

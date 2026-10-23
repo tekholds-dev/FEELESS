@@ -1,6 +1,6 @@
 /* 🧵 FEEd v4 (owner, 2026-10-21: "dev/null type styling, a real build, not a board"): near-black stage, one accent per source, mono metadata,
    dense rows with a hover rail, glass composer, sticky tabs with a sliding underline, compact media. Scoped to .fx.fx-v4; transform / opacity only. */
-.fx.fx-v4 { --fx4-bg: #050606; --fx4-line: rgba(255, 255, 255, .07); --fx4-ink: #e8ece9; --fx4-mute: #7d8a83; --fx4-acc: #45e486; }
+.fx.fx-v4 { --fx4-bg: #050606; --fx4-line: rgba(255, 255, 255, .07); --fx4-ink: #e8ece9; --fx4-mute: #7f8884; --fx4-acc: #45e486; }
 .fx.fx-v4 .fx-main { background: radial-gradient(120% 40% at 50% 0%, rgba(69, 228, 134, .07), transparent 60%), linear-gradient(180deg, #070908, var(--fx4-bg));
   border: 1px solid var(--fx4-line); box-shadow: 0 30px 80px -40px #000, inset 0 1px 0 rgba(255, 255, 255, .05); }
 .fx.fx-v4 .fx-main::before { content: ''; position: absolute; inset: 0; z-index: -1; border-radius: inherit; pointer-events: none; opacity: .5;
@@ -32,9 +32,9 @@
 .fx.fx-v4 .fx-nav button, .fx.fx-v4 .fx-nav a { transition: transform .12s ease, background .15s ease; }
 .fx.fx-v4 .fx-nav button:hover, .fx.fx-v4 .fx-nav a:hover { transform: translateX(2px); }
 @media (prefers-reduced-motion: reduce) { .fx.fx-v4 .fx-post::before, .fx.fx-v4 .fx-tabs button::after { transition: none; } }
-body.theme-day .fx.fx-v4 { --fx4-bg: #f6f8f7; --fx4-line: rgba(0, 0, 0, .08); --fx4-ink: #142019; --fx4-mute: #5d6b63; --fx4-acc: #0d7a40; }
+body.theme-day .fx.fx-v4 { --fx4-bg: #f6f8f7; --fx4-line: rgba(0, 0, 0, .08); --fx4-ink: #171d1a; --fx4-mute: #5d6b63; --fx4-acc: #0d7a40; }
 body.theme-day .fx.fx-v4 .fx-main { background: #fbfdfc; } body.theme-day .fx.fx-v4 .fx-head, body.theme-day .fx.fx-v4 .fx-tabs { background: rgba(251, 253, 252, .94); }
-body.theme-day .fx.fx-v4 .fx-head b, body.theme-day .fx.fx-v4 .fx-body header b, body.theme-day .fx.fx-v4 .fx-tabs button.on { color: #0a140e; }
+body.theme-day .fx.fx-v4 .fx-head b, body.theme-day .fx.fx-v4 .fx-body header b, body.theme-day .fx.fx-v4 .fx-tabs button.on { color: #0d100f; }
 @media (max-width: 640px) { .fx.fx-v4 .fx-post { padding: 12px; } .fx.fx-v4 .fx-img { max-height: 240px; } .fx.fx-v4 .fx-tabs { top: 44px; } }
 /* 📈 THE PULSE (FeedX FeedPulse `fxp-*`) + ⤢ the popped-out FEEd (FeedPopHost `fxpop-*`) */
 .fxp { display: grid; grid-template-columns: auto minmax(120px, 1fr) auto; grid-template-areas: 'n line src' 'top top top'; gap: 6px 12px; align-items: center; padding: 10px 12px; border-radius: 14px;
@@ -45,9 +45,9 @@ body.theme-day .fx.fx-v4 .fx-head b, body.theme-day .fx.fx-v4 .fx-body header b,
 .fxp-top { grid-area: top; display: flex; flex-wrap: wrap; gap: 5px; } .fxp-top small { font-size: 11px; color: #8fb0a5; }
 .fxp-top button { display: inline-flex; align-items: center; gap: 5px; min-height: 30px; padding: 3px 10px; border-radius: 999px; border: 1px solid rgba(69, 228, 134, .3); background: rgba(0, 0, 0, .3); color: #e8fff1; font: 800 11px 'JetBrains Mono', monospace; cursor: pointer; transition: transform .12s ease, border-color .15s ease; }
 .fxp-top button:hover { transform: translateY(-1px); border-color: #45e486; } .fxp-top button:active { transform: scale(.96); } .fxp-top button:focus-visible { outline: 2px solid #45e486; outline-offset: 2px; }
-.fxp-top button b { font-size: 10px; padding: 0 5px; border-radius: 6px; background: #45e486; color: #04110a; }
+.fxp-top button b { font-size: 10px; padding: 0 5px; border-radius: 6px; background: #45e486; color: #090c0b; }
 .fxpop { position: fixed; right: 18px; bottom: 18px; z-index: 900; width: min(440px, calc(100vw - 24px)); height: min(72vh, 680px); display: grid; grid-template-rows: auto auto minmax(0, 1fr); gap: 8px; padding: 10px;
-  border-radius: 16px; background: rgba(5, 10, 8, .98); border: 1px solid rgba(69, 228, 134, .35); box-shadow: 0 24px 60px -20px #000, 0 0 0 1px rgba(0, 0, 0, .6); animation: fxpIn .2s ease-out both; }
+  border-radius: 16px; background: rgba(7, 8, 8, .98); border: 1px solid rgba(69, 228, 134, .35); box-shadow: 0 24px 60px -20px #000, 0 0 0 1px rgba(0, 0, 0, .6); animation: fxpIn .2s ease-out both; }
 .fxpop > header { display: flex; align-items: center; gap: 8px; cursor: grab; touch-action: none; user-select: none; } .fxpop > header:active { cursor: grabbing; } .fxpop > header small { font-size: 10px; color: #8fb0a5; } .fxpop > header .m-btn { margin-left: auto; min-width: 32px; min-height: 32px; }
 .fxpop-body { overflow-y: auto; scrollbar-width: thin; scrollbar-color: #15d16a transparent; } .fxpop-body::-webkit-scrollbar { width: 6px; } .fxpop-body::-webkit-scrollbar-thumb { background: #15d16a; border-radius: 6px; }
 .fxpop .fxp { grid-template-columns: auto minmax(0, 1fr); grid-template-areas: 'n line' 'src src' 'top top'; } .fxpop .fxp-src { justify-content: flex-start; }

@@ -12,8 +12,8 @@
 }
 
 .ambient-background {
-  --ambient-start: #06130e;
-  --ambient-end: #020705;
+  --ambient-start: #0b0e0d;
+  --ambient-end: #040505;
   --ambient-grid: rgba(54, 169, 111, .08);
   --ambient-glow-one: rgba(18, 192, 122, .14);
   --ambient-glow-two: rgba(76, 130, 255, .09);
@@ -163,7 +163,7 @@ body.reduced-motion-setting .ambient-background * {
   place-content: center;
   gap: 14px;
   padding: 32px;
-  background: #050b08;
+  background: #070908;
   color: #eafff3;
   text-align: left;
 }
@@ -179,7 +179,7 @@ body.reduced-motion-setting .ambient-background * {
 }
 
 .app-fatal p {
-  color: #91ad9b;
+  color: #9ba3a0;
   line-height: 1.7;
 }
 

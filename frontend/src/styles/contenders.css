@@ -7,7 +7,7 @@
 .cn-rule { margin: 0; }
 .cn-rows { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
 .cn-row { display: grid; grid-template-columns: 22px 30px minmax(120px, 1.4fr) repeat(4, minmax(64px, .7fr)) minmax(90px, 1fr) auto auto; align-items: center; gap: 10px;
-  padding: 8px 12px; border: 1px solid var(--m-line); border-radius: 12px; background: color-mix(in srgb, var(--m-surface, #07140e) 86%, transparent);
+  padding: 8px 12px; border: 1px solid var(--m-line); border-radius: 12px; background: color-mix(in srgb, var(--m-surface, #0c0f0e) 86%, transparent);
   animation: cnIn .32s var(--m-ease, ease) both; animation-delay: calc(var(--i) * 45ms); transition: transform .16s var(--m-ease, ease), border-color .16s; }
 .cn-row:hover { transform: translateY(-1px); border-color: var(--m-line-hi); }
 .cn-row.is-next { border-color: color-mix(in srgb, var(--m-accent) 60%, transparent); position: relative; }
@@ -102,7 +102,7 @@ body.theme-day .az-bar { box-shadow: 0 8px 18px -14px #0005; }
 .bf-rail { display: grid; gap: 6px; }
 .bf-rail-row { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 4px; scrollbar-width: thin; scrollbar-color: var(--m-accent) transparent; }
 .bf-rail-row::-webkit-scrollbar { height: 6px; } .bf-rail-row::-webkit-scrollbar-thumb { background: var(--m-accent); border-radius: 6px; }
-.bf-chip { flex: 0 0 auto; display: inline-flex; align-items: center; gap: 8px; padding: 5px 6px 5px 10px; border-radius: 999px; border: 1px solid var(--m-line); background: var(--m-surface, #0b1410);
+.bf-chip { flex: 0 0 auto; display: inline-flex; align-items: center; gap: 8px; padding: 5px 6px 5px 10px; border-radius: 999px; border: 1px solid var(--m-line); background: var(--m-surface, #0e1110);
   animation: cnIn .3s var(--m-ease, ease) both; animation-delay: calc(var(--i) * 40ms); }
 .bf-chip.br-out { opacity: .5; } .bf-chip.br-winners { border-color: color-mix(in srgb, var(--gold, #f5c451) 50%, transparent); }
 .bf-chip-name { background: none; border: 0; color: inherit; font-weight: 600; cursor: pointer; padding: 2px 2px; border-radius: 6px; max-width: 170px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

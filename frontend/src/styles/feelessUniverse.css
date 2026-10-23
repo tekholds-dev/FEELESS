@@ -1,6 +1,6 @@
 /* 🌌 FeelessUniverse.jsx — CSS 3D, transform / opacity only, m-* tokens, royal green accent */
 .fu { position: relative; overflow: hidden; isolation: isolate; margin: 0 0 22px; padding: 22px; border-radius: 20px;
-  background: radial-gradient(120% 90% at 50% 0%, rgba(21, 209, 106, .16), transparent 60%), linear-gradient(180deg, #04110a, #020805); border: 1px solid rgba(21, 209, 106, .28); }
+  background: radial-gradient(120% 90% at 50% 0%, rgba(21, 209, 106, .16), transparent 60%), linear-gradient(180deg, #090c0b, #040605); border: 1px solid rgba(21, 209, 106, .28); }
 .fu-stars { position: absolute; inset: 0; z-index: -1; pointer-events: none; }
 .fu-stars i { position: absolute; width: 2px; height: 2px; border-radius: 50%; background: #bfffd8; left: var(--x); top: var(--y);
   opacity: .5; animation: fuTwinkle 3.6s ease-in-out infinite; animation-delay: calc(var(--j) * -0.4s); }
@@ -11,19 +11,19 @@
 .fu-ring { position: absolute; border-radius: 50%; border: 1px solid rgba(69, 228, 134, .22); transform: rotateX(68deg); }
 .fu-ring.r1 { width: 86%; aspect-ratio: 1; animation: fuRing 40s linear infinite; } .fu-ring.r2 { width: 58%; aspect-ratio: 1; border-style: dashed; animation: fuRing 26s linear infinite reverse; }
 .fu-core { position: relative; z-index: 2; display: grid; place-items: center; gap: 2px; padding: 16px; border-radius: 50%;
-  background: radial-gradient(circle, rgba(21, 209, 106, .35), rgba(2, 8, 5, .9) 70%); box-shadow: 0 0 40px rgba(21, 209, 106, .35); animation: fuBreathe 4s ease-in-out infinite; }
+  background: radial-gradient(circle, rgba(21, 209, 106, .35), rgba(4, 6, 5, .9) 70%); box-shadow: 0 0 40px rgba(21, 209, 106, .35); animation: fuBreathe 4s ease-in-out infinite; }
 .fu-core small { font: 800 9px 'JetBrains Mono', monospace; letter-spacing: .3em; color: #bfffd8; }
 .fu-orbit { position: absolute; inset: 0; animation: fuSpin 60s linear infinite; }
 .fu-sky:hover .fu-orbit, .fu-sky:focus-within .fu-orbit { animation-play-state: paused; }
 .fu-planet { position: absolute; left: 50%; top: 50%; width: 0; height: 0; padding: 0; border: 0; background: none; cursor: pointer;
   transform: rotate(var(--a)) translateX(var(--R, 150px)) rotate(calc(var(--a) * -1)); }
 .fu-body { position: absolute; transform: translate(-50%, -50%); display: grid; place-items: center; gap: 2px; width: 74px; padding: 8px 4px; border-radius: 16px;
-  background: rgba(8, 26, 16, .88); border: 1px solid rgba(69, 228, 134, .32); animation: fuCounter 60s linear infinite; transition: transform .2s, border-color .2s, box-shadow .2s; }
+  background: rgba(15, 19, 17, .88); border: 1px solid rgba(69, 228, 134, .32); animation: fuCounter 60s linear infinite; transition: transform .2s, border-color .2s, box-shadow .2s; }
 .fu-sky:hover .fu-body, .fu-sky:focus-within .fu-body { animation-play-state: paused; }
 .fu-body i { font-style: normal; font-size: 22px; } .fu-body b { font: 800 9.5px 'JetBrains Mono', monospace; letter-spacing: .04em; color: #e9fff2; text-align: center; }
 .fu-planet:hover .fu-body, .fu-planet:focus-visible .fu-body { transform: translate(-50%, -50%) scale(1.12); border-color: #45e486; box-shadow: 0 0 18px rgba(69, 228, 134, .45); }
 .fu-planet:focus-visible { outline: none; }
-.fu-planet.is-on .fu-body { background: #15d16a; border-color: #45e486; } .fu-planet.is-on .fu-body b { color: #021a0c; }
+.fu-planet.is-on .fu-body { background: #15d16a; border-color: #45e486; } .fu-planet.is-on .fu-body b { color: #0d0f0e; }
 .fu-guide { padding: 16px; border-radius: 16px; background: rgba(255, 255, 255, .03); border: 1px solid rgba(255, 255, 255, .08); min-height: 230px; transform: translateY(6px); transition: transform .25s, border-color .25s; }
 .fu-guide.is-open { transform: none; border-color: rgba(21, 209, 106, .45); }
 .fu-gt { font-size: 17px; color: #f2fff7; } .fu-gs { margin: 4px 0 10px; color: #8fae9d; font-size: 12.5px; }
@@ -31,7 +31,7 @@
 .fu-guide li { display: grid; grid-template-columns: 22px 1fr; gap: 8px; align-items: start; padding: 7px 8px; border-radius: 10px; cursor: pointer; color: #9fbcad; font-size: 12.5px; transition: background .2s, color .2s, transform .2s; }
 .fu-guide li i { display: grid; place-items: center; width: 22px; height: 22px; border-radius: 50%; font: 800 10px 'JetBrains Mono', monospace; font-style: normal; background: rgba(255, 255, 255, .06); }
 .fu-guide li.is-done { color: #cfe9da; } .fu-guide li.is-done i { background: rgba(21, 209, 106, .35); }
-.fu-guide li.is-now { color: #f2fff7; background: rgba(21, 209, 106, .1); transform: translateX(3px); } .fu-guide li.is-now i { background: #15d16a; color: #021a0c; }
+.fu-guide li.is-now { color: #f2fff7; background: rgba(21, 209, 106, .1); transform: translateX(3px); } .fu-guide li.is-now i { background: #15d16a; color: #0d0f0e; }
 .fu-guide li:hover { background: rgba(255, 255, 255, .05); }
 .fu-hint { margin: 0; color: #8fae9d; font-size: 13px; }
 .fu-flag { display: grid; grid-template-columns: 180px minmax(0, 1fr); gap: 20px; align-items: center; margin-top: 20px; padding-top: 18px; border-top: 1px solid rgba(255, 255, 255, .07); }
@@ -41,9 +41,9 @@
   animation: fuCoin 6s linear infinite; animation-delay: calc(var(--i) * -2s); }
 .fu-coin.c-cat { background: radial-gradient(circle at 35% 30%, #ffe9a3, var(--gold, #ffd36b) 45%, #8a6410); }
 .fu-coin.c-rfee { background: radial-gradient(circle at 35% 30%, #cdb6ff, #8a5cff 45%, #3b1f7a); }
-.fu-coin b { font: 900 14px 'JetBrains Mono', monospace; color: #021a0c; }
+.fu-coin b { font: 900 14px 'JetBrains Mono', monospace; color: #0d0f0e; }
 .fu-flagtx h3 { margin: 4px 0 8px; color: #f2fff7; font-size: 18px; } .fu-flagtx ul { margin: 0 0 8px; padding-left: 16px; color: #bcd8c8; font-size: 12.5px; }
-.fu-flagtx li b { color: #45e486; } .fu-note { margin: 0; color: #7f9c8c; font-size: 11.5px; }
+.fu-flagtx li b { color: #45e486; } .fu-note { margin: 0; color: #89928e; font-size: 11.5px; }
 @keyframes fuSpin { to { transform: rotate(360deg); } }
 @keyframes fuRing { from { transform: rotateX(68deg) rotate(0deg); } to { transform: rotateX(68deg) rotate(360deg); } }
 @keyframes fuCounter { to { transform: translate(-50%, -50%) rotate(-360deg); } }
@@ -52,5 +52,5 @@
 @keyframes fuCoin { to { transform: rotateY(360deg); } }
 body.fx-lite .fu *, body.fx-lite .fu-orbit { animation: none !important; }
 @media (prefers-reduced-motion: reduce) { .fu *, .fu-orbit { animation: none !important; transition: none !important; } }
-body.theme-day .fu { background: radial-gradient(120% 90% at 50% 0%, rgba(21, 209, 106, .2), transparent 60%), linear-gradient(180deg, #06180d, #031009); }
+body.theme-day .fu { background: radial-gradient(120% 90% at 50% 0%, rgba(21, 209, 106, .2), transparent 60%), linear-gradient(180deg, #0d100f, #090a0a); }
 @media (max-width: 640px) { .fu { padding: 14px; } .fu-stage, .fu-flag { grid-template-columns: 1fr; } .fu-body { width: 58px; } .fu-body b { font-size: 8px; } .fu-coins { height: 140px; } }

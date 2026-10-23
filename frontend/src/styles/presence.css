@@ -8,5 +8,5 @@
 .msx-ava { position: relative; } .msx-ava .prs { position: absolute; right: -2px; bottom: -2px; }
 @keyframes prsBreathe { 0%, 100% { opacity: 1; } 50% { opacity: .55; } }
 body.fx-lite .prs-online i { animation: none; } @media (prefers-reduced-motion: reduce) { .prs-online i { animation: none; } }
-body.theme-day .prs i { box-shadow: 0 0 0 2px #fff; } body.theme-day .prs em { color: #3d5a50; }
+body.theme-day .prs i { box-shadow: 0 0 0 2px #fff; } body.theme-day .prs em { color: #46514c; }
 @media (max-width: 640px) { .prs-pick button { flex: 1; } }

@@ -1,11 +1,11 @@
 /* 🧠 THE BRAIN (AiChat.jsx): chat + owner-approved fixes. m-* tokens, transform / opacity only, no backdrop-filter. */
 .cch { --br: #b79bff; --br2: var(--m-accent, #15d16a); position: relative; display: flex; flex-direction: column; gap: 8px; padding: 10px; border-radius: 12px; min-height: 0;
-  border: 1px solid color-mix(in srgb, var(--br) 38%, transparent); background: linear-gradient(160deg, rgba(60, 34, 120, .34), rgba(6, 18, 12, .92) 46%, rgba(8, 40, 26, .6)); overflow: hidden; isolation: isolate; }
+  border: 1px solid color-mix(in srgb, var(--br) 38%, transparent); background: linear-gradient(160deg, rgba(60, 34, 120, .34), rgba(11, 13, 12, .92) 46%, rgba(22, 26, 24, .6)); overflow: hidden; isolation: isolate; }
 .cch::before { content: ''; position: absolute; inset: -40% -20% auto -20%; height: 90%; z-index: -1; pointer-events: none; opacity: .5;
   background: radial-gradient(closest-side, rgba(150, 110, 255, .35), transparent 70%); animation: cchDrift 14s ease-in-out infinite alternate; }
 .cch.is-full { height: clamp(420px, 62vh, 640px); } .cch.is-mini { height: min(62vh, 520px); border-radius: 0; border-width: 0; padding: 8px; }
 .cch.is-pop { width: min(1500px, 96vw); height: 92vh; box-shadow: 0 30px 90px rgba(0, 0, 0, .7); animation: cchPop .18s var(--m-ease, ease-out); }
-.cch-shade { position: fixed; inset: 0; z-index: 6000; display: grid; place-items: center; background: rgba(2, 6, 4, .86); animation: cchFade .16s ease-out; }
+.cch-shade { position: fixed; inset: 0; z-index: 6000; display: grid; place-items: center; background: rgba(4, 4, 4, .86); animation: cchFade .16s ease-out; }
 .cch-back { width: 100%; padding: 14px 10px; border-radius: 10px; border: 1px dashed color-mix(in srgb, #b79bff 50%, transparent); background: rgba(140, 110, 255, .07); color: #c9b8ff; font: 700 10.5px var(--m-mono); cursor: pointer; transition: transform .15s ease, background .15s ease; }
 .cch-back:hover { transform: translateY(-1px); background: rgba(140, 110, 255, .13); } .cch-back:focus-visible { outline: 2px solid #b79bff; outline-offset: 2px; }
 .cch-head { display: flex; align-items: center; gap: 8px; min-width: 0; }
@@ -24,7 +24,7 @@
 .cch-modes { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 4px; padding: 3px; border-radius: 10px; background: rgba(0, 0, 0, .35); border: 1px solid var(--m-line); }
 .cch-modes > button { padding: 6px 4px; border-radius: 7px; border: 0; background: transparent; color: var(--m-dim); font: 800 10px var(--m-mono); letter-spacing: .04em; white-space: nowrap; cursor: pointer; transition: transform .15s ease, background .15s ease, color .15s ease; }
 .cch-modes > button:hover { color: var(--m-text); background: rgba(255, 255, 255, .05); } .cch-modes > button:active { transform: scale(.97); } .cch-modes > button:focus-visible { outline: 2px solid var(--br); outline-offset: 1px; }
-.cch-modes > button.active { color: #07130c; background: linear-gradient(120deg, var(--br), var(--br2)); }
+.cch-modes > button.active { color: #0c0e0d; background: linear-gradient(120deg, var(--br), var(--br2)); }
 .cch-main { display: grid; gap: 8px; min-height: 0; grid-template-rows: minmax(0, 1fr) auto; } .cch.is-pop .cch-main { grid-template-rows: minmax(0, 1fr); grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); }
 .cch-talk { display: grid; grid-template-rows: minmax(0, 1fr) auto auto auto; gap: 6px; min-height: 0; }
 .cch-log { list-style: none; margin: 0; padding: 2px; display: flex; flex-direction: column; gap: 6px; min-height: 0; overflow-y: auto; scrollbar-width: thin; scrollbar-color: var(--br) transparent; }
@@ -88,7 +88,7 @@ body.theme-day .cch-reload { color: #8a5a00; background: rgba(255, 190, 60, .18)
 .cch-bqlist li.is-shipped em { color: var(--br2); } .cch-bqlist li.is-dropped { opacity: .45; } .cch-bqlist .cch-ico { width: 22px; height: 22px; font-size: 10px; }
 .cch-done { width: 100%; text-align: left; padding: 4px 8px; border-radius: 7px; border: 1px dashed var(--m-line); background: transparent; color: var(--m-mute); font: 700 9.5px var(--m-mono); cursor: pointer; transition: color .15s ease, border-color .15s ease; }
 .cch-done:hover { color: var(--m-text); border-color: var(--br); } .cch-done:focus-visible { outline: 2px solid var(--br); outline-offset: 1px; }
-body.theme-day .cch-bqlist li { color: #0f2419; }
+body.theme-day .cch-bqlist li { color: #171c1a; }
 /* pop-out + edit / new / model / picture, readable first */
 .cch-head { flex-wrap: wrap; row-gap: 6px; }
 .cch-model { flex: 0 1 190px; min-width: 0; height: 28px; padding: 0 8px; border-radius: 8px; border: 1px solid var(--m-line); background: rgba(0, 0, 0, .35); color: var(--m-text); font: 700 10px var(--m-mono); cursor: pointer; transition: border-color .15s ease; }
@@ -111,7 +111,7 @@ body.theme-day .cch-bqlist li { color: #0f2419; }
 .cch-sets p { display: flex; flex-wrap: wrap; align-items: center; gap: 5px; margin: 0; } .cch-sets small { flex: 0 0 104px; font: 800 8.5px var(--m-mono); letter-spacing: .12em; color: var(--m-mute); }
 .cch-sets button, .cch-panes > button { padding: 4px 10px; border-radius: 999px; border: 1px solid var(--m-line); background: transparent; color: var(--m-dim); font: 700 9.5px var(--m-mono); cursor: pointer; transition: transform .12s ease, color .12s ease, border-color .12s ease; }
 .cch-sets button:hover, .cch-panes > button:hover { color: var(--m-text); border-color: var(--br); } .cch-sets button:active, .cch-panes > button:active { transform: scale(.96); }
-.cch-sets button:focus-visible, .cch-panes > button:focus-visible { outline: 2px solid var(--br); outline-offset: 1px; } .cch-sets button.active, .cch-panes > button.active { color: #07130c; background: linear-gradient(120deg, var(--br), var(--br2)); border-color: transparent; }
+.cch-sets button:focus-visible, .cch-panes > button:focus-visible { outline: 2px solid var(--br); outline-offset: 1px; } .cch-sets button.active, .cch-panes > button.active { color: #0c0e0d; background: linear-gradient(120deg, var(--br), var(--br2)); border-color: transparent; }
 .cch-setnote { font: 600 9px var(--m-mono); color: var(--m-mute); }
 .cch-panes { display: grid; grid-template-columns: repeat(auto-fit, minmax(68px, 1fr)); gap: 4px; } .cch-panes > button { border-radius: 9px; padding: 6px 4px; }
 .cch-extra { min-height: 0; overflow-y: auto; scrollbar-width: thin; scrollbar-color: var(--br) transparent; } .cch-extra[hidden] { display: none; }
@@ -125,12 +125,12 @@ body.fx-lite .cch::before, body.fx-lite .cch-orb i, body.fx-lite .cch-msg.is-fre
 @media (hover: none) { .cch-mact { opacity: 1; } }
 @media (max-width: 640px) { .cch.is-pop { width: 100vw; height: 100dvh; border-radius: 0; } .cch.is-pop .cch-main { grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1fr) auto; } .cch-diff { grid-template-columns: minmax(0, 1fr); } .cch-diff i { display: none; } .cch-kpis small { display: none; } .cch-msg { max-width: 100%; } }
 body.theme-day .cch { background: linear-gradient(160deg, rgba(214, 200, 255, .7), rgba(238, 246, 241, .96) 46%, rgba(204, 240, 220, .8)); border-color: rgba(91, 63, 196, .35); --br: #5b3fc4; --br2: #0d7a41; }
-body.theme-day .cch::before { opacity: .25; } body.theme-day .cch-title b { color: #2a1a66; } body.theme-day .cch-msg, body.theme-day .cch-diff, body.theme-day .cch-phead b, body.theme-day .cch-kpis u, body.theme-day .cch-ico { color: #0f2419; }
+body.theme-day .cch::before { opacity: .25; } body.theme-day .cch-title b { color: #2a1a66; } body.theme-day .cch-msg, body.theme-day .cch-diff, body.theme-day .cch-phead b, body.theme-day .cch-kpis u, body.theme-day .cch-ico { color: #171c1a; }
 body.theme-day .cch-msg.is-user { background: rgba(13, 122, 65, .1); } body.theme-day .cch-msg.is-assistant { background: rgba(91, 63, 196, .1); } body.theme-day .cch-modes { background: rgba(10, 60, 35, .07); } body.theme-day .cch-modes > button.active { color: #fff; }
 body.theme-day .cch-quick button { color: #3a2a8a; background: rgba(91, 63, 196, .08); } body.theme-day .cch-ptitle b, body.theme-day .cch-phead em { color: #8a5a00; } body.theme-day .cch-diff span { background: rgba(10, 60, 35, .06); } body.theme-day .cch-shade { background: rgba(230, 240, 234, .92); }
-body.theme-day .cch-back { color: #5b3fc4; } body.theme-day .cch-gate b { color: #5b3fc4; } body.theme-day .cch-mact button { background: rgba(255, 255, 255, .7); color: #3f5a4a; }
+body.theme-day .cch-back { color: #5b3fc4; } body.theme-day .cch-gate b { color: #5b3fc4; } body.theme-day .cch-mact button { background: rgba(255, 255, 255, .7); color: #47524d; }
 /* 💻 local boost: header chip + the 24h watch bars (scaleY set once per answer, never animated) */
-.cch-boostchip { margin-left: 8px; padding: 1px 7px; border-radius: 999px; font: 800 8px var(--m-mono); font-style: normal; letter-spacing: .1em; color: #07130c; background: linear-gradient(120deg, #5fd0ff, var(--br2)); vertical-align: middle; }
+.cch-boostchip { margin-left: 8px; padding: 1px 7px; border-radius: 999px; font: 800 8px var(--m-mono); font-style: normal; letter-spacing: .1em; color: #0c0e0d; background: linear-gradient(120deg, #5fd0ff, var(--br2)); vertical-align: middle; }
 .cch-watch { display: grid; gap: 4px; } .cch-watch p { margin: 0; font: 600 9px var(--m-mono); color: var(--m-mute); } .cch-watch b { color: var(--m-text); }
 .cch-wbars { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); gap: 2px; height: 24px; align-items: end; }
 .cch-wbars i { display: block; height: 100%; border-radius: 2px 2px 0 0; background: #5fd0ff; transform-origin: bottom; } .cch-wbars i.is-fail { background: var(--m-danger); } .cch-wbars i.is-paused { background: var(--gold, #f5c451); }
@@ -140,7 +140,7 @@ body.theme-day .cch-wbars i { background: #0b6fa8; }
   background: linear-gradient(rgba(0, 0, 0, .38), rgba(0, 0, 0, .38)) padding-box, linear-gradient(90deg, var(--m-line), var(--m-line)) border-box; }
 .cch .cch-form .m-input:focus { outline: none; background: linear-gradient(rgba(0, 0, 0, .45), rgba(0, 0, 0, .45)) padding-box, linear-gradient(90deg, var(--br), var(--br2)) border-box; }
 .cch .cch-form .m-input::placeholder { color: var(--m-mute); font-size: 10px; } .cch .cch-form .m-btn.cch-go { min-height: 30px; padding: 0 12px; } .cch .cch-form .cch-ico { height: 30px; }
-body.theme-day .cch .cch-form .m-input { background: linear-gradient(rgba(255, 255, 255, .7), rgba(255, 255, 255, .7)) padding-box, linear-gradient(90deg, #b9cfc0, #b9cfc0) border-box; color: #10261a; }
+body.theme-day .cch .cch-form .m-input { background: linear-gradient(rgba(255, 255, 255, .7), rgba(255, 255, 255, .7)) padding-box, linear-gradient(90deg, #b9cfc0, #b9cfc0) border-box; color: #181e1b; }
 
 /* 🧭 SHELL (2026-10-14, "clean chat UI to more senior meta"): one column on the mini; a left SECTION RAIL + the open section beside it on the
    full Brain and the pop-out. Only the open section grows; the rail never scrolls the chat away. */
@@ -164,7 +164,7 @@ body.theme-day .cch .cch-form .m-input { background: linear-gradient(rgba(255, 2
 .cch-svwrap { position: relative; display: inline-flex; }
 .cch-saved.is-on { border-color: #15d16a; color: #45e486; }
 .cch-svpop { position: absolute; top: calc(100% + 6px); right: 0; z-index: 30; width: 300px; max-height: 340px; overflow-y: auto; display: grid; gap: 3px; padding: 6px;
-  border-radius: 12px; border: 1px solid rgba(21, 209, 106, .3); background: linear-gradient(180deg, rgba(8, 24, 16, .98), rgba(4, 12, 8, .98));
+  border-radius: 12px; border: 1px solid rgba(21, 209, 106, .3); background: linear-gradient(180deg, rgba(14, 18, 16, .98), rgba(7, 9, 8, .98));
   box-shadow: 0 14px 40px rgba(0, 0, 0, .55), 0 0 0 1px rgba(69, 228, 134, .06) inset; animation: cchSvIn .16s ease-out both; scrollbar-width: thin; scrollbar-color: #15d16a transparent; }
 .cch-svrow { display: grid; grid-template-columns: minmax(0, 1fr) 26px 26px; gap: 3px; align-items: center; }
 .cch-svopen { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 6px; align-items: center; min-width: 0; padding: 6px 8px; border: 0; border-radius: 8px;
@@ -189,8 +189,8 @@ body.theme-day .cch .cch-form .m-input { background: linear-gradient(rgba(255, 2
 @keyframes cchEdge { 0%, 100% { transform: translateY(0) scaleY(1); opacity: .9; } 50% { transform: translateY(170%) scaleY(.6); opacity: .5; } }
 body.fx-lite .cch-msg.is-assistant::after, body.fx-lite .cch-svpop { animation: none; }
 @media (prefers-reduced-motion: reduce) { .cch-msg.is-assistant::after, .cch-svpop { animation: none; } .cch-msg, .cch-svopen, .cch-svact { transition: none; } }
-body.theme-day .cch-svpop { background: #f4fbf7; border-color: rgba(13, 122, 65, .3); box-shadow: 0 14px 40px rgba(16, 38, 26, .18); }
-body.theme-day .cch-svopen { background: rgba(16, 38, 26, .04); } body.theme-day .cch-svclear { color: #b42346; }
+body.theme-day .cch-svpop { background: #f4fbf7; border-color: rgba(13, 122, 65, .3); box-shadow: 0 14px 40px rgba(24, 30, 27, .18); }
+body.theme-day .cch-svopen { background: rgba(24, 30, 27, .04); } body.theme-day .cch-svclear { color: #b42346; }
 body.theme-day .cch-msg.is-assistant { background: linear-gradient(100deg, rgba(13, 122, 65, .08), transparent); border-left-color: #0d7a41; }
 body.theme-day .cch-msg.is-user { border-color: rgba(30, 110, 170, .35); background: rgba(30, 110, 170, .06); }
 @media (max-width: 640px) { .cch-svpop { width: min(300px, 86vw); } }
@@ -205,7 +205,7 @@ body.theme-day .cch-msg.is-user { border-color: rgba(30, 110, 170, .35); backgro
 .cch-accoin:hover, .cch-acmore:hover { transform: translateY(-1px); } .cch-accoin:active, .cch-acmore:active { transform: scale(.96); }
 .cch-accoin:focus-visible, .cch-acmore:focus-visible { outline: 2px solid #15d16a; outline-offset: 1px; }
 @media (prefers-reduced-motion: reduce) { .cch-accoin, .cch-acmore { transition: none; } }
-body.theme-day .cch-achead { color: #10261a; } body.theme-day .cch-ac li, body.theme-day .cch-accoin, body.theme-day .cch-acmore { color: #10261a; }
+body.theme-day .cch-achead { color: #181e1b; } body.theme-day .cch-ac li, body.theme-day .cch-accoin, body.theme-day .cch-acmore { color: #181e1b; }
 
 /* 🧠 THE DRAWER (Agents tab, slides in on the right): one header, sections as a scrollable pill row, the chat takes the whole height,
    fixes fold under the chat */
@@ -220,14 +220,14 @@ body.theme-day .cch-achead { color: #10261a; } body.theme-day .cch-ac li, body.t
 .cch-sub[hidden] { display: none; }
 .cch-sub > button { padding: 3px 9px; border-radius: 999px; border: 0; background: transparent; color: var(--m-dim); font: 700 9px var(--m-mono); cursor: pointer; transition: transform .12s ease, color .12s ease; }
 .cch-sub > button:hover { color: var(--m-text); } .cch-sub > button:active { transform: scale(.96); } .cch-sub > button:focus-visible { outline: 2px solid var(--br); outline-offset: 1px; }
-.cch-sub > button.active { color: #07130c; background: var(--br); }
+.cch-sub > button.active { color: #0c0e0d; background: var(--br); }
 body.theme-day .cch-sub { background: rgba(12, 90, 50, .06); } body.theme-day .cch-sub > button.active { color: #fff; background: #0d7a41; }
 
 /* 🧭 the section tabs + the three desk counters share ONE row (the header stays clean: orb, title, model, icons) */
 .cch-navrow { display: flex; gap: 8px; align-items: center; min-width: 0; } .cch-navrow > .cch-panes { flex: 1 1 auto; min-width: 0; }
 /* ⏳ THE THINK BAR (owner, 2026-10-21): the model's real call — elapsed ÷ its own average, phase word, seconds. No overlay, no dots. */
 .cch-think { display: grid; gap: 6px; padding: 9px 11px; border-radius: 12px; max-width: min(460px, 92%); border: 1px solid color-mix(in srgb, var(--br) 40%, transparent);
-  background: linear-gradient(120deg, rgba(40, 24, 84, .55), rgba(6, 22, 14, .7)); animation: cchIn .2s ease-out; }
+  background: linear-gradient(120deg, rgba(40, 24, 84, .55), rgba(13, 15, 14, .7)); animation: cchIn .2s ease-out; }
 .cch-think header { display: flex; align-items: baseline; gap: 8px; min-width: 0; font: 700 10px var(--m-mono); }
 .cch-think header b { color: #e9e0ff; letter-spacing: .14em; } .cch-think header span { flex: 1 1 auto; min-width: 0; color: var(--m-dim); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .cch-think header em { font-style: normal; font-weight: 800; color: var(--br2); font-variant-numeric: tabular-nums; }

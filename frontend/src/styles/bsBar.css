@@ -9,9 +9,9 @@
 .bsb-bar small { position: absolute; inset: 0; display: grid; place-items: center; font: 700 9px "JetBrains Mono", monospace; color: #fff; text-shadow: 0 1px 2px #000; white-space: nowrap; }
 .bsb-fx { position: absolute; right: 4px; top: 50%; transform: translateY(-50%); font-size: 8px; text-decoration: none; }
 .bsb.is-sell .bsb-bar { box-shadow: 0 0 0 1px rgba(255, 107, 134, .7); } .bsb.is-buy .bsb-bar { box-shadow: 0 0 0 1px rgba(69, 228, 134, .7); } .bsb.is-none .bsb-bar { opacity: .55; }
-.bsb-pop { display: grid; gap: 3px; padding: 6px; border-radius: 10px; border: 1px solid rgba(69, 228, 134, .4); background: #06100b; box-shadow: 0 12px 30px rgba(0, 0, 0, .6); animation: bsbIn .15s ease both; }
+.bsb-pop { display: grid; gap: 3px; padding: 6px; border-radius: 10px; border: 1px solid rgba(69, 228, 134, .4); background: #0a0c0b; box-shadow: 0 12px 30px rgba(0, 0, 0, .6); animation: bsbIn .15s ease both; }
 .bsb-pop button { height: 24px; padding: 0 10px; border-radius: 7px; border: 1px solid rgba(255, 255, 255, .1); background: rgba(255, 255, 255, .03); color: #cfe3d8; font: 600 10.5px "JetBrains Mono", monospace; white-space: nowrap; cursor: pointer; text-align: left; transition: border-color .15s ease; }
-.bsb-pop button:hover, .bsb-pop button:focus-visible { border-color: #45e486; outline: none; } .bsb-pop button.active { background: #15d16a; color: #04130b; }
+.bsb-pop button:hover, .bsb-pop button:focus-visible { border-color: #45e486; outline: none; } .bsb-pop button.active { background: #15d16a; color: #0a0d0c; }
 @keyframes bsbIn { from { opacity: 0; transform: translateY(-3px); } to { opacity: 1; transform: none; } }
 
 .mch-bs { display: flex; justify-content: flex-end; padding: 2px 8px 0; }

@@ -5,7 +5,7 @@
 .ost h4 small, .ost-dim { font: 600 9.5px var(--m-mono); letter-spacing: 0; color: var(--m-dim); }
 .ost-ring { position: relative; width: 62px; height: 62px; border-radius: 50%; display: grid; place-items: center; align-content: center;
   background: conic-gradient(#15d16a calc(var(--p) * 360deg), rgba(255, 255, 255, .07) 0); }
-.ost-ring::before { content: ''; position: absolute; inset: 5px; border-radius: 50%; background: #071009; }
+.ost-ring::before { content: ''; position: absolute; inset: 5px; border-radius: 50%; background: #0a0d0c; }
 .ost-ring > * { position: relative; } .ost-ring b { font-size: 13px; color: #45e486; } .ost-ring small { font-size: 8px; color: var(--m-mute); }
 .ost-kinds { list-style: none; margin: 0; padding: 0; display: grid; gap: 5px; }
 .ost-kinds li { display: grid; grid-template-columns: minmax(130px, 1.2fr) 2fr 42px 44px; gap: 8px; align-items: center; animation: ostIn .3s both; animation-delay: calc(var(--i, 0) * 45ms); }

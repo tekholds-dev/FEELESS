@@ -1,7 +1,7 @@
 /* 🫀 VITAL BOARD (VitalBoard.jsx `vbd-*`) + 🎓 lesson-rule cards (`trl-*`): clickable vitals in the decision panel, tunable rules in Teach.
    Tones: good royal green · watch gold · bad pink · unk dim. Tiles stagger in (--i × 45ms); transform / opacity only. */
 .vbd { display: grid; gap: 6px; padding: 8px 9px; border-radius: 10px; border: 1px solid rgba(69, 228, 134, .18);
-  background: radial-gradient(120% 90% at 0% 0%, rgba(21, 209, 106, .1), transparent 60%), rgba(3, 12, 8, .72); min-width: 0; }
+  background: radial-gradient(120% 90% at 0% 0%, rgba(21, 209, 106, .1), transparent 60%), rgba(7, 8, 8, .72); min-width: 0; }
 .vbd > header { display: flex; align-items: center; gap: 7px; flex-wrap: wrap; }
 .vbd > header b { font: 800 10px var(--m-mono); letter-spacing: .12em; color: var(--m-text); }
 .vbd > header small { margin-left: auto; font: 600 8.5px var(--m-mono); color: var(--m-mute); }
@@ -15,7 +15,7 @@
 .vbd-tile { --t: var(--m-dim); display: flex; align-items: center; gap: 5px; min-width: 0; padding: 4px 6px; border-radius: 7px; cursor: pointer; text-align: left;
   border: 1px solid color-mix(in srgb, var(--t) 35%, transparent); background: color-mix(in srgb, var(--t) 8%, rgba(0, 0, 0, .35)); color: var(--m-text);
   animation: vbdIn .32s ease-out both; animation-delay: calc(var(--i) * 45ms); transition: transform .14s ease, border-color .14s ease, background .14s ease; }
-.vbd-tile.is-good { --t: #45e486; } .vbd-tile.is-watch { --t: #f5c451; } .vbd-tile.is-bad { --t: #ff8fa3; } .vbd-tile.is-unk { --t: #6f8f80; }
+.vbd-tile.is-good { --t: #45e486; } .vbd-tile.is-watch { --t: #f5c451; } .vbd-tile.is-bad { --t: #ff8fa3; } .vbd-tile.is-unk { --t: #7a8480; }
 .vbd-tile:hover { transform: translateY(-1px); border-color: var(--t); } .vbd-tile:active { transform: scale(.97); }
 .vbd-tile:focus-visible { outline: 1px solid #45e486; outline-offset: 1px; }
 .vbd-tile.is-open { background: color-mix(in srgb, var(--t) 22%, rgba(0, 0, 0, .4)); border-color: var(--t); box-shadow: 0 0 0 1px var(--t) inset; }
@@ -28,7 +28,7 @@
 .vbd-group:first-of-type .vbd-tiles { grid-template-columns: repeat(auto-fill, minmax(84px, 1fr)); }
 .vbd-tile > span { display: grid; min-width: 0; } .vbd-tile small { font: 800 7.5px var(--m-mono); letter-spacing: .1em; color: var(--m-mute); }
 .vbd-tile b { font: 800 10.5px var(--m-mono); color: var(--t); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.vbd-detail { --t: #6f8f80; display: grid; gap: 5px; padding: 7px 8px; border-radius: 8px; border-left: 2px solid var(--t); background: rgba(255, 255, 255, .035); animation: vbdPop .18s ease-out; }
+.vbd-detail { --t: #7a8480; display: grid; gap: 5px; padding: 7px 8px; border-radius: 8px; border-left: 2px solid var(--t); background: rgba(255, 255, 255, .035); animation: vbdPop .18s ease-out; }
 .vbd-detail.is-good { --t: #45e486; } .vbd-detail.is-watch { --t: #f5c451; } .vbd-detail.is-bad { --t: #ff8fa3; }
 .vbd-detail > p { display: flex; align-items: center; margin: 0; font: 800 10.5px var(--m-mono); color: var(--t); }
 .vbd-x { margin-left: auto; border: 0; background: none; color: var(--m-mute); cursor: pointer; font-size: 11px; } .vbd-x:hover { color: var(--m-danger); }
@@ -76,7 +76,7 @@
 body.fx-lite .vbd-tile, body.fx-lite .vbd-detail { animation: none; }
 @media (prefers-reduced-motion: reduce) { .vbd-tile, .vbd-detail { animation: none; } .vbd-tile, .trl, .trl-ex button, .vbd-meter s, .vbd-split s { transition: none; } }
 body.theme-day .vbd { background: rgba(236, 246, 240, .85); border-color: rgba(10, 90, 50, .2); } body.theme-day .trl { background: rgba(90, 60, 200, .05); }
-body.theme-day .vbd > header b, body.theme-day .trl > header b, body.theme-day .vbd-detail dd, body.theme-day .vbd-tile { color: #0f2419; }
+body.theme-day .vbd > header b, body.theme-day .trl > header b, body.theme-day .vbd-detail dd, body.theme-day .vbd-tile { color: #171c1a; }
 body.theme-day .vbd-tile.is-good { --t: #0c8a45; } body.theme-day .vbd-tile.is-watch { --t: #9a6a00; } body.theme-day .vbd-tile.is-bad { --t: #c2264a; }
 @media (max-width: 640px) { .vbd-tiles { grid-template-columns: repeat(auto-fill, minmax(84px, 1fr)); } .trl-row > small { flex-basis: 100%; } }
 /* 🦠 a coin sitting in the germ buy zone breathes green (transform / opacity only) */

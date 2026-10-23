@@ -85,7 +85,7 @@
 .st-coin:hover { transform: translateY(-1px); border-color: var(--st-a2); } .st-coin:active { transform: scale(.97); } .st-coin:focus-visible { outline: 2px solid var(--st-a2); outline-offset: 2px; }
 .st-coin img, .st-cdot { width: 22px; height: 22px; border-radius: 50%; object-fit: cover; background: var(--st-a); }
 .st-coin small { font-size: 9.5px; color: var(--st-dim); } .st-coin em { font-style: normal; font-weight: 800; padding: 1px 6px; border-radius: 6px; }
-.st-coin.is-up { border-color: rgba(69, 228, 134, .55); } .st-coin.is-up em { color: #021a0c; background: #45e486; box-shadow: 0 0 10px rgba(69, 228, 134, .5); }
+.st-coin.is-up { border-color: rgba(69, 228, 134, .55); } .st-coin.is-up em { color: #0d0f0e; background: #45e486; box-shadow: 0 0 10px rgba(69, 228, 134, .5); }
 .st-coin.is-down { border-color: rgba(255, 143, 163, .45); } .st-coin.is-down em { color: #2a0610; background: #ff8fa3; }
 .st-coin u { text-decoration: none; font-size: 9px; color: #45e486; }
 .st-reacts { display: flex; flex-wrap: wrap; align-items: center; gap: 3px; }

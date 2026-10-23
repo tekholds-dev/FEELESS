@@ -1,6 +1,6 @@
 /* 🎓 TEACH THE DESK (TeachBox.jsx `tch-*`): the creator's notes, narratives and chart lessons for the model; rows stagger in (--i × 50ms). */
 .tch { display: grid; gap: 7px; padding: 9px 10px; border-radius: var(--m-r-sm, 10px); border: 1px solid color-mix(in srgb, #c9b8ff 30%, transparent);
-  background: linear-gradient(160deg, rgba(140, 110, 255, .07), rgba(4, 14, 9, .65)); min-width: 0; }
+  background: linear-gradient(160deg, rgba(140, 110, 255, .07), rgba(8, 10, 9, .65)); min-width: 0; }
 .tch-head { display: flex; align-items: baseline; flex-wrap: wrap; gap: 8px; margin: 0; }
 .tch-head b { font: 800 10px var(--m-mono); letter-spacing: .12em; color: var(--m-text); } .tch-head small { flex: 1 1 180px; font: 600 8.5px var(--m-mono); color: var(--m-mute); }
 .tch-head em { font: 800 8.5px var(--m-mono); font-style: normal; letter-spacing: .06em; padding: 1px 7px; border-radius: 999px; border: 1px solid currentColor; color: #c9b8ff; }
@@ -28,5 +28,5 @@
 body.fx-lite .tch-list li { animation: none; }
 @media (prefers-reduced-motion: reduce) { .tch-list li { animation: none; } .tch-coin, .tch-list li, .tch-x { transition: none; } }
 body.theme-day .tch { background: linear-gradient(160deg, rgba(90, 60, 200, .06), rgba(236, 246, 240, .8)); border-color: rgba(90, 60, 200, .25); }
-body.theme-day .tch-head b, body.theme-day .tch-list p { color: #0f2419; } body.theme-day .tch-list li { background: rgba(10, 60, 35, .04); } body.theme-day .tch-words i { color: #5a3cc8; }
+body.theme-day .tch-head b, body.theme-day .tch-list p { color: #171c1a; } body.theme-day .tch-list li { background: rgba(10, 60, 35, .04); } body.theme-day .tch-words i { color: #5a3cc8; }
 @media (max-width: 640px) { .tch-list li { grid-template-columns: 18px minmax(0, 1fr) auto; } .tch-list li .tch-age { display: none; } }

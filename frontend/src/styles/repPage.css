@@ -38,7 +38,7 @@
 .rt-face small, .rt-back small { font: 700 9px var(--m-mono); letter-spacing: .12em; color: var(--k); display: flex; gap: 6px; align-items: center; }
 .rt-face b { font: 700 20px var(--m-mono); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; } .rt-face .m-num { font-size: 11px; color: var(--m-dim); }
 .rt-back code { font-size: 10px; color: var(--m-dim); }
-.rt-new { font-style: normal; padding: 0 5px; border-radius: 999px; background: var(--k); color: #04140c; animation: rpPulse 1.4s ease-in-out infinite; }
+.rt-new { font-style: normal; padding: 0 5px; border-radius: 999px; background: var(--k); color: #0b0d0c; animation: rpPulse 1.4s ease-in-out infinite; }
 .rt-fx { position: absolute; inset: 0; pointer-events: none; z-index: 0; } .rt-fx i { position: absolute; }
 .k-wave { --k: #6ad7ff; } .k-chat { --k: #c08bff; } .k-risk { --k: #ff8fa3; } .k-hype { --k: #f5c451; } .k-slang { --k: var(--m-accent); } .k-meta { --k: #19f5d0; }
 /* 🌊 wave: rolling swells along the bottom */
@@ -80,7 +80,7 @@ body.fx-lite .rep-v2 .rep-cat, body.fx-lite .rep-term, body.fx-lite .rep-v2 .rep
   .rep-v2 .rep-cat, .rep-term, .rep-v2 .rep-dark-row, .rep-v2 .rep-bar > i, .rt-new, .rep-glyph, .rep-sheen { animation: none !important; }
   .rt-face, .rt-back { transition: none; }
 }
-body.theme-day .rep-term { background: #fff; border-color: #d8e2dc; } body.theme-day .rt-face .m-num, body.theme-day .rt-back code { color: #4b5a52; }
+body.theme-day .rep-term { background: #fff; border-color: #d8e2dc; } body.theme-day .rt-face .m-num, body.theme-day .rt-back code { color: #4d5853; }
 body.theme-day .k-wave { --k: #0a6f9c; } body.theme-day .k-chat { --k: #6b2fd1; } body.theme-day .k-risk { --k: #c0123f; } body.theme-day .k-hype { --k: #8a6200; } body.theme-day .k-slang, body.theme-day .k-meta { --k: #0b7a4a; }
 body.theme-day .rt-radar { border-color: #0b7a4a22; background: conic-gradient(from 0deg, #0b7a4a22, transparent 22%); }
 @media (max-width: 640px) { .rep-memes-grid { grid-template-columns: 1fr 1fr; } .rt-face b { font-size: 16px; } .rt-radar { width: 180px; height: 180px; } }

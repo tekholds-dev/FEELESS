@@ -3,7 +3,7 @@
    cfk-up / cfk-dn on the chart area; never animated), marks faint enough that the candles lead, few elements, transform / opacity only,
    hidden in fx-lite / reduced motion, paused off-screen (`.cbg` is an fxPause surface). Keyframes: cbg* only. */
 .cbg { --c: #15d16a; --c2: #45e486; --c3: #8fd3ff; --v: #b48cff; position: absolute; inset: 0; z-index: 0; overflow: hidden; pointer-events: none; perspective: 900px;
-  background: radial-gradient(120% 80% at 50% 110%, rgba(21, 209, 106, .07), transparent 60%), linear-gradient(180deg, #050a08 0%, #030705 100%); }
+  background: radial-gradient(120% 80% at 50% 110%, rgba(21, 209, 106, .07), transparent 60%), linear-gradient(180deg, #070808 0%, #040605 100%); }
 .cfk-dn .cbg { --c: #ff8fa3; --c2: #ffb3c1; }
 .chart-area.has-bg .candle-canvas { position: relative; z-index: 1; }
 .cbg-stage { position: absolute; inset: 0; transform-style: preserve-3d; }
@@ -83,7 +83,7 @@
 @keyframes cbgCursor { 50% { opacity: .05; } }
 
 /* compact on purpose: a wide picker pushed the toolbar's other buttons onto two lines — it shows the scene's icon, the list shows the names */
-.chart-bg-pick { height: 26px; width: 40px; flex: none; padding: 0 4px; text-overflow: clip; border-radius: 6px; border: 1px solid #203129; background: #0a1210; color: #b9cdc2; font: 10px "JetBrains Mono", monospace; cursor: pointer; transition: border-color .15s ease, color .15s ease; }
+.chart-bg-pick { height: 26px; width: 40px; flex: none; padding: 0 4px; text-overflow: clip; border-radius: 6px; border: 1px solid #262b29; background: #0d0f0e; color: #b9cdc2; font: 10px "JetBrains Mono", monospace; cursor: pointer; transition: border-color .15s ease, color .15s ease; }
 .chart-bg-pick:hover { border-color: #15d16a88; color: #e7fff3; } .chart-bg-pick:active { border-color: #15d16a; } .chart-bg-pick:focus-visible { outline: 2px solid #45e486; outline-offset: 1px; }
 
 /* ⚡ LIVE TIDE on every scene: a green swell from below while the last real tick was up, a red one from above when it was down (opacity only) */

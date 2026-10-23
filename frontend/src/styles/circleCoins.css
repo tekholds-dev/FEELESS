@@ -22,7 +22,7 @@ body.theme-day .cwc-c { background: rgba(236, 246, 240, .8); } body.theme-day .c
 .cwc-c.is-act:hover, .cwc-c.is-open { border-color: #15d16a; transform: translateY(-1px); }
 .cwc-hit { position: absolute; inset: 0; z-index: 1; background: none; border: 0; border-radius: inherit; cursor: pointer; }
 .cwc-hit:focus-visible { outline: 2px solid #45e486; outline-offset: 2px; }
-.cwc-menu { position: absolute; top: calc(100% + 6px); left: 0; z-index: 5; display: flex; gap: 6px; padding: 6px; border-radius: 10px; background: #06100b;
+.cwc-menu { position: absolute; top: calc(100% + 6px); left: 0; z-index: 5; display: flex; gap: 6px; padding: 6px; border-radius: 10px; background: #0a0c0b;
   border: 1px solid rgba(69, 228, 134, .4); box-shadow: 0 10px 24px -10px #000; animation: cwcIn .15s ease-out both; }
 .cwc-menu .m-btn { padding: 4px 10px; font-size: 11px; white-space: nowrap; }
 .cwc-menu .is-burn { border-color: #ff8fa3; color: #ff8fa3; }

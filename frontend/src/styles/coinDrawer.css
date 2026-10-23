@@ -25,7 +25,7 @@
 /* 📈 the coin's chart, in the drawer: it floats a little on a turning Fuse gradient (green → violet → gold). transform / opacity only. */
 .cd-chart { position: relative; margin: 10px 0 6px; border-radius: 16px; padding: 2px; overflow: hidden; isolation: isolate; animation: cdFloat 5.5s ease-in-out infinite; box-shadow: 0 14px 34px -18px rgba(21, 209, 106, .55), 0 10px 30px -20px rgba(160, 110, 255, .6); }
 .cd-disco { position: absolute; left: 50%; top: 50%; width: 180%; aspect-ratio: 1; margin: -90% 0 0 -90%; z-index: -1; background: conic-gradient(#15d16a, #a06eff, #f5c451, #3cdcff, #ff5fd2, #15d16a); animation: cdDisco 7s linear infinite; }
-.cd-chart-in { position: relative; border-radius: 14px; overflow: hidden; background: #070c0b; }
+.cd-chart-in { position: relative; border-radius: 14px; overflow: hidden; background: #090a0a; }
 .cd-chart-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; padding: 7px 9px; border-bottom: 1px solid rgba(21, 209, 106, .16); }
 .cd-chart-bar .m-label { font-size: 9px; margin-right: auto; } .cd-chart-bar .m-seg button { font-size: 10px; padding: 3px 7px; }
 .cd-war { font-size: 11px; padding: 4px 10px; border-color: rgba(160, 110, 255, .6); } .cd-war:hover { border-color: #a06eff; box-shadow: 0 0 14px -4px #a06eff; } .cd-war:focus-visible { outline: 2px solid #45e486; outline-offset: 2px; }

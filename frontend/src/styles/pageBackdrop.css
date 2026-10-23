@@ -6,7 +6,7 @@
 .pgb-home { background: radial-gradient(70% 45% at 15% 0%, rgba(120, 140, 255, .14), transparent 60%), radial-gradient(60% 40% at 90% 10%, rgba(69, 228, 134, .12), transparent 60%), linear-gradient(180deg, #07080b, #050607 60%); }
 .pgb-feecat { background: radial-gradient(70% 50% at 50% 0%, rgba(160, 90, 255, .2), transparent 60%), radial-gradient(50% 40% at 0% 80%, rgba(60, 200, 220, .12), transparent 60%), linear-gradient(180deg, #0b0714, #060409 60%); }
 /* 🟢 Launch = the OFFICIAL logo green on near-black (owner, 2026-10-22: "better official site green than this shitty green" — the amber dusk read as mud) */
-.pgb-launch { background: radial-gradient(70% 50% at 70% 0%, rgba(21, 209, 106, .16), transparent 60%), radial-gradient(50% 40% at 0% 60%, rgba(40, 214, 196, .08), transparent 60%), linear-gradient(180deg, #03100a, #020604 60%); }
+.pgb-launch { background: radial-gradient(70% 50% at 70% 0%, rgba(21, 209, 106, .16), transparent 60%), radial-gradient(50% 40% at 0% 60%, rgba(40, 214, 196, .08), transparent 60%), linear-gradient(180deg, #090a0a, #040404 60%); }
 .pgb-glow { position: absolute; width: 46vmax; height: 46vmax; border-radius: 50%; opacity: .5; animation: pgbDrift 26s ease-in-out infinite; }
 .pgb-home .pgb-glow { background: radial-gradient(closest-side, rgba(120, 150, 255, .18), transparent); } .pgb-home .pgb-glow.g2 { background: radial-gradient(closest-side, rgba(69, 228, 134, .14), transparent); }
 .pgb-feecat .pgb-glow { background: radial-gradient(closest-side, rgba(170, 100, 255, .2), transparent); } .pgb-feecat .pgb-glow.g2 { background: radial-gradient(closest-side, rgba(80, 220, 230, .14), transparent); }
@@ -43,7 +43,7 @@ body.fx-lite .pgb * { animation: none !important; } body.fx-lite .pgb-bits { dis
 body.theme-day .pgb { opacity: .25; }
 body.theme-day .pg-home .m-card, body.theme-day .pg-feecat .m-card, body.theme-day .pg-launch .m-card, body.theme-day .pg-home .fee-heartbeat, body.theme-day .pg-home .market-section {
   background: rgba(255, 255, 255, .82) !important; border-color: rgba(0, 0, 0, .08) !important; }
-body.theme-day .pg-home .command-home-heading h1 { background: linear-gradient(90deg, #0a140e, #2a3a8a 60%, #0d7a40); -webkit-background-clip: text; background-clip: text; }
+body.theme-day .pg-home .command-home-heading h1 { background: linear-gradient(90deg, #0d100f, #2a3a8a 60%, #0d7a40); -webkit-background-clip: text; background-clip: text; }
 @media (max-width: 640px) { .pgb-floor { height: 30%; } .pgb-bits i:nth-child(2n) { display: none; } }
 /* 🚀 Launch Lab in the launch page's amber (was the same green as everything else) */
 .pg-launch .llb-types button.is-on { background: linear-gradient(135deg, #ffb46b, #ff7a45); color: #1a0c04; border-color: #ffb46b; } .pg-launch .llb-types button.is-on small { color: #4a2408; }
