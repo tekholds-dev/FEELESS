@@ -28,7 +28,7 @@ test('🏦 the $FEE Bank reads /assets: a row per coin with a pool, nothing inve
   expect(bankRows(null)).toEqual([]);
 });
 
-test('🛣 every Avenue building has a room: Pump Radar trades open the war room (the wallet signs), the Bank buys fee-free, full page links', async () => {
+test('🛣 every Avenue building has a room: Pump Radar trades (outside Familia: the war room; inside: the dock), the Bank buys fee-free, no full-page jumps', async () => {
   expect(AVENUE_LENSES.sort()).toEqual(['feebank', 'feecat', 'feedx', 'gas', 'perps', 'pumpradar', 'rep', 'runners', 'sleep', 'trades', 'watch']);
   const seen = []; const on = e => seen.push(e.detail); window.addEventListener('feeless:war-room', on);
   const el = document.createElement('div'); document.body.appendChild(el); const root = createRoot(el);
@@ -37,7 +37,7 @@ test('🛣 every Avenue building has a room: Pump Radar trades open the war room
   expect(q('av-pumpradar').textContent).toContain('2/3');
   await act(async () => { q('av-trade-M-CCCxx').click(); });
   expect(seen[0]).toMatchObject({ pairAddress: 'P-CCC' });
-  expect(q('av-page').getAttribute('href')).toBe('/terminal/pump');
+  expect(q('av-page')).toBeNull();   // 🏙 the room IS the tool — no jump to another FEELESS page
   await act(async () => { root.render(<AvenueRoom lens="feebank" />); });
   await act(async () => { await new Promise(r => setTimeout(r, 20)); });
   await act(async () => { q('av-buy-fee').click(); });

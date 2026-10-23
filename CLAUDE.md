@@ -194,8 +194,11 @@ P. ✅ SHIPPED 2026-10-22 (Brain › 🎭 Prompts, `prompt_studio.py`, `ai_route
    and a PROGRESSIVE mix ("quick in, patient while in profit, rush when it runs") — one tap APPLIES to LM Studio / llama (rig reload path that
    exists: Brain › Models). AUTO-TUNE: when a model's graded record turns red (proof bench, NEXA's YES grades, duo totals), propose the prompt
    change that fixes its mindset, with the evidence; the owner applies. OSSY / G4 keep taking turns (one trade each, the holder runs it).
-A0. 🗼 TRADE IN FAMILIA, NO REDIRECTS: Trench Towers + every Familia tool trades in place (the war-room chart + Quick trade inside the pop-out,
-   wallet signs) — never a jump to another FEELESS page.
+A0. ✅ SHIPPED 2026-10-23 — TRADE IN FAMILIA, NO REDIRECTS: `FamiliaTrade.jsx` — every ⚡ Trade in Familia (Pump Radar, $FEE Bank, Trade Center,
+   Trench Towers, Pool Hub, city markets) slides the FAMILIA TRADE DESK over the room (TrenchChart + Quick trade + vitals; wallet signs), the LST
+   switch errand opens the swap in the dock, rooms lost their "Full page ↗" jumps, a member's "Full profile ↗" = the case file in place. A guard
+   test fails on any openWarRoom / full-page jump in Familia. Still links out: landmark marks (Build a Fuse card · Launch · Rug Shield) and the
+   mini deck's Fuse cards — next: embed those too.
 A. 📉 PERPS IN THE POPOUT, NO REDIRECT: the Perps building trades in place — one tap picks the provider (Jupiter Perps · Drift · Hyperliquid…),
    size from $5, long / short, live position + P&L in the building; the wallet signs; guards (memory: new buy doors need guards). ⚠ LEGAL: a
    venue that blocks the user's region stays blocked in-app too (rule 1c — never a geo-block loophole); show which providers serve the user.

@@ -1,6 +1,6 @@
 import React, { Suspense, lazy, useEffect, useState } from 'react';
 import { useMarket } from '../hooks/useMarket';
-import { openWarRoom } from './WarRoomHost';
+import { familiaTrade } from './FamiliaTrade';
 import { TokenAvatar } from './terminal/MarketPrimitives';
 import { PLACES, usd } from '../lib/cityPlan';
 import { apiUrl } from '../lib/api';
@@ -11,7 +11,7 @@ import '../styles/cityAvenue.css';
 // 🛣 FEELESS AVENUE (owner, 2026-10-22: "implement the site's best tabs and features in Fee City with a pop-out of vitals and quick tools to
 // buy … like a Pump Radar building that shows all of Pump Radar … people go to Familia for the one-stop shop in web3"). Every building on the
 // Avenue pops out the REAL tool, not a link: Pump Radar (a drawn scope + one-tap trade), the $FEE Bank (fee-free buys), and the site's own
-// Runners / Watchlist / Rep / FeeCat / Fuel / FEEd panels, loaded only when you walk in. Trades open the coin's war room — the wallet signs.
+// Runners / Watchlist / Rep / FeeCat / Fuel / FEEd panels, loaded only when you walk in. Trades open INSIDE Familia (FamiliaTrade dock) — the wallet signs.
 const RunnersPanel = lazy(() => import('./RunnersPanel').then(m => ({ default: m.RunnersPanel })));
 const WatchlistDashboard = lazy(() => import('./command/CreatorProfile').then(m => ({ default: m.WatchlistDashboard })));
 const RepTools = lazy(() => import('./RepTools').then(m => ({ default: m.RepTools })));
@@ -40,7 +40,7 @@ export function blipOf(p, i, n) {
   const rr = 24 + (i / Math.max(1, n - 1 || 1)) * 70; const h = heatOf(p?.priceChange?.m5);
   return { x: 110 + Math.cos(a) * rr, y: 110 + Math.sin(a) * rr, r: 3.5 + h * 5, up: (num(p?.priceChange?.m5) ?? 0) >= 0 };
 }
-// pure: the $FEE family of coins from /assets → a row each (price, 24h, cap, liquidity) + its pool for the war room
+// pure: the $FEE family of coins from /assets → a row each (price, 24h, cap, liquidity) + its pool for the trade dock
 export function bankRows(data) {
   return (data?.assets || data?.items || []).filter(a => a?.pair).map(a => ({ id: a.id || a.symbol, sym: a.pair.baseToken?.symbol || a.symbol || a.id, price: num(a.pair.priceUsd),
     ch: num(a.pair.priceChange?.h24), mc: num(a.pair.marketCap ?? a.pair.fdv), liq: num(a.pair.liquidity?.usd), vol: num(a.pair.volume?.h24), pair: a.pair }));
@@ -50,7 +50,7 @@ function Meter({ label, value, fill, tone, tip, i }) {
   return <span className={`av-meter ${tone || ''}`} style={{ '--i': i }} data-tip={tip}><em>{label}</em><b className="m-num" key={value}>{value}</b>
     <u aria-hidden="true"><s style={{ transform: `scaleX(${Math.max(0.03, Math.min(1, fill || 0))})` }} /></u></span>;
 }
-const trade = p => openWarRoom(p);
+const trade = p => familiaTrade(p);   // 🏙 trades open INSIDE Familia (the dock), never another page
 
 // 📡 PUMP RADAR — the Pump board as a drawn scope (blips = coins, #1 nearest the centre, size = heat) + the ranked list with one-tap trade
 function PumpRadar({ scope = 'pump' }) {
@@ -70,7 +70,7 @@ function PumpRadar({ scope = 'pump' }) {
         <path d="M110 14 V206 M14 110 H206" className="av-cross" />
         <g className="av-sweep"><path d="M110 110 L110 14 A96 96 0 0 1 193 62 Z" /></g>
         {coins.map((p, i) => { const b = blipOf(p, i, coins.length); return <g key={p.pairAddress} className={`av-blip ${b.up ? 'up' : 'down'}`} style={{ '--i': i }} role="button" tabIndex={0}
-          onClick={() => trade(p)} onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); trade(p); } }} aria-label={`Trade ${p.baseToken.symbol}`} data-tip={`$${p.baseToken.symbol} · 5m ${pct(num(p.priceChange?.m5))} — tap to open its war room`}>
+          onClick={() => trade(p)} onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); trade(p); } }} aria-label={`Trade ${p.baseToken.symbol}`} data-tip={`$${p.baseToken.symbol} · 5m ${pct(num(p.priceChange?.m5))} — tap to trade it here`}>
           <circle cx={b.x} cy={b.y} r="15" className="av-hit" /><circle cx={b.x} cy={b.y} r={b.r} /><text x={b.x} y={b.y - b.r - 3}>{p.baseToken.symbol.slice(0, 6)}</text></g>; })}
       </svg>
       <ol className="av-list">
@@ -79,7 +79,7 @@ function PumpRadar({ scope = 'pump' }) {
           <em>{i + 1}</em><TokenAvatar pair={p} size={26} />
           <span className="av-sym"><b>${p.baseToken.symbol}</b><small>MC {usd(p.marketCap ?? p.fdv)} · 1h {usd(p.volume?.h1)}</small></span>
           <span className={`av-heat ${m5 != null && m5 < 0 ? 'down' : 'up'}`}><u aria-hidden="true"><s style={{ transform: `scaleX(${Math.max(0.04, heatOf(m5))})` }} /></u><b className="m-num">{pct(m5)}</b></span>
-          <button type="button" className="m-btn m-go" onClick={() => trade(p)} data-tip="Open its war room — chart, tape, Quick trade; your wallet signs" data-testid={`av-trade-${p.baseToken.address}`}>⚡ Trade</button></li>; })}
+          <button type="button" className="m-btn m-go" onClick={() => trade(p)} data-tip="Trade it right here — chart + Quick trade slide over the room; your wallet signs" data-testid={`av-trade-${p.baseToken.address}`}>⚡ Trade</button></li>; })}
         {!loading && !coins.length ? <li className="m-dim">No Pump coins pass the quality gates right now.</li> : null}
       </ol>
     </div>
@@ -99,13 +99,13 @@ function FeeBank() {
         <strong className="m-num" key={r.price}>{r.price == null ? '—' : r.price < 0.01 ? `$${r.price.toPrecision(3)}` : `$${r.price.toFixed(4)}`}</strong>
         <Meter i={i} label="MARKET CAP" value={usd(r.mc)} fill={Math.log10(1 + (r.mc || 0)) / 9} tip="Market cap (DexScreener, or Jupiter while on the curve)" />
         <Meter i={i + 1} label="LIQUIDITY" value={usd(r.liq)} fill={Math.log10(1 + (r.liq || 0)) / 7} tip="Pool liquidity — how much you can buy without moving it far" />
-        <button type="button" className="m-btn m-go" onClick={() => trade(r.pair)} data-tip={`Open $${r.sym}'s war room — buys are fee-free; your wallet signs`} data-testid={`av-buy-${r.id}`}>⚡ Buy fee-free</button>
+        <button type="button" className="m-btn m-go" onClick={() => trade(r.pair)} data-tip={`Buy $${r.sym} right here — fee-free; your wallet signs`} data-testid={`av-buy-${r.id}`}>⚡ Buy fee-free</button>
       </article>)}</div>
   </div>;
 }
 
 // 📈 THE TRADE CENTER — the agents' REAL card, live: everyone sees the record (seats, green, average %, by model — no coins, nobody front-runs
-// its exits); the creator / staff also see every seat with the model holding it and one tap to its war room. One read every 15 s while open.
+// its exits); the creator / staff also see every seat with the model holding it and one tap to its chart + Quick trade in the room. One read every 15 s while open.
 export function useTradeCenter() {
   const { wallet } = useWallet() || {}; const a = wallet?.address || ''; const [d, setD] = useState(null);
   useEffect(() => { let on = true; const s = a ? readChatSession(a) : '';
@@ -128,7 +128,7 @@ function TradeCenter() {
       <em>{i + 1}</em><span className="av-who">{r.who}</span>
       <span className="av-sym"><b>${r.symbol}</b><small>{[r.state, r.action, r.why].filter(Boolean).join(' · ') || 'holding'}</small></span>
       <span className={`av-heat ${(r.pct ?? 0) < 0 ? 'down' : 'up'}`}><u aria-hidden="true"><s style={{ transform: `scaleX(${Math.max(0.04, heatOf(r.pct))})` }} /></u><b className="m-num">{pct(r.pct)}</b></span>
-      <button type="button" className="m-btn" onClick={() => trade({ chainId: 'solana', pairAddress: r.pair, baseToken: { symbol: r.symbol } })} data-tip="Open its war room — chart, tape, the desk's fills" data-testid={`av-seat-${i}`}>📈 Open</button></li>)}</ol>
+      <button type="button" className="m-btn" onClick={() => trade({ chainId: 'solana', pairAddress: r.pair, baseToken: { symbol: r.symbol } })} data-tip="Its chart + Quick trade, right here in the room" data-testid={`av-seat-${i}`}>📈 Open</button></li>)}</ol>
       : <p className="av-lede">Coins stay private so nobody front-runs the desk's exits — the creator sees every seat here.</p>}
     {d.closed?.n ? <div className="av-closed" data-testid="av-closed"><em className="av-sub">REAL RECORD · LAST {d.closed.n} CLOSED LOTS (price only, fees apart)</em>
       <div className="av-models">{Object.entries(d.closed.by).map(([k, r], i) => <span key={k} className={`av-model ${r.median >= 0 ? 'up' : 'down'}`} style={{ '--i': i }} data-tip={`${k}: ${r.n} real trades, ${r.wonPct}% won, typical ${r.median}%`}>
@@ -208,7 +208,7 @@ export function TrenchList() {
       <span className="av-sym"><b>${r.sym}</b><small>{[r.status, r.mc ? `MC ${usd(r.mc)}` : null, r.ageMin != null ? `${ageWord(r.ageMin)} old` : null].filter(Boolean).join(' · ')}</small>
         {r.read || r.theory ? <small className="av-read" data-tip={r.theory || ''}>{r.read || r.theory}</small> : null}</span>
       <span className={`av-heat ${(r.ch ?? 0) < 0 ? 'down' : 'up'}`}><u aria-hidden="true"><s style={{ transform: `scaleX(${Math.max(0.04, heatOf(r.ch))})` }} /></u><b className="m-num">5m {pct(r.ch)}</b></span>
-      <button type="button" className="m-btn m-go" disabled={!r.pair} onClick={() => trade({ chainId: 'solana', pairAddress: r.pair, baseToken: { address: r.mint, symbol: r.sym } })} data-tip="Open its war room — chart, tape, Quick trade; your wallet signs" data-testid={`av-tt-${i}`}>⚡ Trade</button></li>)}</ol>;
+      <button type="button" className="m-btn m-go" disabled={!r.pair} onClick={() => trade({ chainId: 'solana', pairAddress: r.pair, baseToken: { address: r.mint, symbol: r.sym } })} data-tip="Trade it right here — chart + Quick trade slide over the room; your wallet signs" data-testid={`av-tt-${i}`}>⚡ Trade</button></li>)}</ol>;
 }
 
 const BODY = {
@@ -225,12 +225,11 @@ export function HallRoom({ city }) {
   return <div className="av-room" data-testid={`hall-${city}`}>{scope ? <PumpRadar scope={scope} /> : <Courthouse />}</div>;
 }
 
-// one Avenue room: the tool itself + its full page
+// one Avenue room: the tool itself — everything happens in the room (no jump to another FEELESS page)
 export function AvenueRoom({ lens }) {
   const p = PLACES.find(x => x.lens === lens && x.tool); const Body = BODY[lens];
   if (!p || !Body) return null;
   return <div className={`av-room k-${p.key}`} style={{ '--pc': p.color }} data-testid={`avenue-${lens}`}>
     <Suspense fallback={<div className="av-load" aria-busy="true"><i /><i /><i /></div>}><Body /></Suspense>
-    {p.page ? <a className="m-btn av-page" href={p.page} data-tip={`${p.name}'s full page on FEELESS`} data-testid="av-page">Open the full page ↗</a> : null}
   </div>;
 }

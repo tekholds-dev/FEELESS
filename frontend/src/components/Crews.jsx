@@ -43,6 +43,7 @@ import { InviteInbox, InviteBox } from './FamilyInvites';
 import { MobScene } from './MobScene';
 import { FamilyTable, FamilyWire, MemberFile, CardStudio } from './FamilyRoom';
 import '../styles/familyInvites.css';
+import { FamiliaTradeDock } from './FamiliaTrade';
 const post = (path, body) => fetch(apiUrl(path), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
   .then(async r => { const x = await r.json().catch(() => ({})); if (!r.ok) throw new Error(x.detail || 'Request failed'); return x; });
 
@@ -319,6 +320,7 @@ export function Crews({ onScene }) {
     </>}
     {famTab === 'feed' && <FamilyPulse rows={rows} />}
     {file && mine ? <MemberFile m={file} mine={mine} onClose={() => setFile(null)} /> : null}
+    <FamiliaTradeDock />
   </section>;
 }
 

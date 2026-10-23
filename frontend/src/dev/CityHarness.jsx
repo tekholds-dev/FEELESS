@@ -1,5 +1,6 @@
 import React from 'react';
 import { FamilyWorld, FundMeter } from '../components/FamilyWorld';
+import { FamiliaTradeDock } from '../components/FamiliaTrade';
 import '../styles/familyWorld.css';
 import WORLD from './world.fixture.json';
 import '../styles/familyNoir.css';
@@ -70,5 +71,6 @@ export default function CityHarness() {
       <aside className="fwd-side m-card t-mine"><b>[FRT] fee-4 · turf</b><FundMeter x={blocks.find(b => b.id === 'fee-4')} me={V.me} act={() => {}} busy={false} upkeep={10} /></aside>
       <aside className="fwd-side m-card t-mine"><b>[FRT] fee-7 · turf</b><FundMeter x={blocks.find(b => b.id === 'fee-7')} me={V.me} act={() => {}} busy={false} upkeep={10} /></aside></div>
     <FamilyWorld addr="dev" sess="dev" onEnter={() => {}} onJoin={() => {}} />
+    <FamiliaTradeDock />
   </div>;
 }

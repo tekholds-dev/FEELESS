@@ -1,0 +1,49 @@
+/* 🏙 FAMILIA TRADE DESK (ftd-*): a coin's desk slid over the room you are in — noir gold on city night, the chart + Quick trade inside.
+   Above the full-screen city (fc3 is-full = 4200). Transform / opacity motion only; one keyframe set (ftd*). */
+.ftd { position: fixed; inset: 0; z-index: 4600; display: flex; justify-content: flex-end; }
+.ftd-veil { position: absolute; inset: 0; border: 0; padding: 0; cursor: pointer; background: radial-gradient(120% 90% at 100% 50%, rgba(0, 0, 0, .25), rgba(2, 3, 6, .72)); animation: ftdFade .2s ease-out both; }
+.ftd-desk { --fg: #d4af37; --fg2: #f5d77a; position: relative; width: min(600px, 100vw); height: 100%; display: flex; flex-direction: column; gap: 8px; padding: 12px 14px 14px; overflow: hidden;
+  border-left: 1px solid rgba(212, 175, 55, .45); box-shadow: -24px 0 60px -20px rgba(0, 0, 0, .8), inset 1px 0 0 rgba(245, 215, 122, .18);
+  background: linear-gradient(180deg, rgba(10, 8, 4, .97), rgba(5, 8, 12, .98) 40%, #030507); animation: ftdIn .24s cubic-bezier(.2, .8, .2, 1) both; transition: width .2s ease; }
+.ftd-desk.is-wide { width: min(1080px, 100vw); }
+.ftd-sky { position: absolute; inset: 0 0 auto 0; height: 150px; pointer-events: none; overflow: hidden; opacity: .9;
+  background: linear-gradient(180deg, rgba(212, 175, 55, .1), transparent), repeating-linear-gradient(90deg, transparent 0 34px, rgba(245, 215, 122, .05) 34px 36px); }
+.ftd-sky b { position: absolute; bottom: -40px; width: 180px; height: 120px; border-radius: 50%; background: radial-gradient(closest-side, rgba(245, 215, 122, .22), transparent); animation: ftdDrift 14s ease-in-out infinite; }
+.ftd-sky b:nth-child(1) { left: -30px; } .ftd-sky b:nth-child(2) { left: 40%; animation-delay: -5s; background: radial-gradient(closest-side, rgba(21, 209, 106, .16), transparent); } .ftd-sky b:nth-child(3) { right: -40px; animation-delay: -9s; }
+.ftd-head { position: relative; display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 10px; align-items: center; }
+.ftd-av { width: 36px; height: 36px; border-radius: 50%; background: rgba(212, 175, 55, .18); animation: ftdBlink 1.2s ease-in-out infinite; }
+.ftd-id { display: grid; gap: 1px; min-width: 0; } .ftd-id em { font: 800 8px var(--m-mono); letter-spacing: .18em; font-style: normal; color: var(--fg); }
+.ftd-id b { font: 900 19px var(--m-mono); color: #fff6dc; text-shadow: 0 0 16px rgba(212, 175, 55, .45); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ftd-id small { font: 600 10px var(--m-mono); color: rgba(255, 246, 220, .55); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ftd-tools { display: flex; gap: 6px; }
+.ftd-ico { min-width: 34px; min-height: 34px; justify-content: center; border-color: rgba(212, 175, 55, .4); color: var(--fg2); }
+.ftd-ico:hover { border-color: var(--fg2); background: rgba(212, 175, 55, .14); } .ftd-ico:active { transform: scale(.94); } .ftd-ico:focus-visible { outline: 2px solid var(--fg2); outline-offset: 2px; }
+.ftd-vit { position: relative; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; }
+.ftd-vit span { display: grid; gap: 1px; padding: 6px 8px; border-radius: 9px; border: 1px solid rgba(212, 175, 55, .2); background: linear-gradient(160deg, rgba(212, 175, 55, .1), rgba(0, 0, 0, .35));
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .06); animation: ftdUp .3s ease-out both; animation-delay: calc(var(--i, 0) * 50ms); }
+.ftd-vit em { font: 700 7.5px var(--m-mono); letter-spacing: .14em; font-style: normal; color: rgba(255, 246, 220, .5); }
+.ftd-vit b { font: 800 13px var(--m-mono); color: #fff6dc; animation: ftdPop .4s ease-out; }
+.ftd-vit .is-up b { color: #45e486; text-shadow: 0 0 10px rgba(21, 209, 106, .5); } .ftd-vit .is-dn b { color: #ff8fa3; text-shadow: 0 0 10px rgba(255, 143, 163, .45); }
+.ftd-note { position: relative; margin: 0; display: flex; gap: 7px; align-items: center; font: 600 9.5px var(--m-mono); color: rgba(255, 246, 220, .6); }
+.ftd-note i { width: 7px; height: 7px; border-radius: 50%; background: #15d16a; box-shadow: 0 0 8px #15d16a; animation: ftdBlink 2.4s ease-in-out infinite; }
+.ftd-body { position: relative; flex: 1 1 auto; min-height: 0; overflow: auto; scrollbar-width: thin; scrollbar-color: var(--fg) transparent; padding-right: 2px; }
+.ftd-body::-webkit-scrollbar { width: 6px; } .ftd-body::-webkit-scrollbar-thumb { background: var(--fg); border-radius: 3px; }
+.ftd-chart { --chart-h: clamp(240px, 40vh, 420px); }
+.ftd-desk.is-wide .ftd-chart { --chart-h: clamp(320px, 58vh, 640px); }
+.ftd-swap { padding-top: 4px; }
+.ftd-load { display: flex; gap: 6px; align-items: center; padding: 30px 6px; font: 600 11px var(--m-mono); color: rgba(255, 246, 220, .6); }
+.ftd-load i { width: 7px; height: 7px; border-radius: 50%; background: var(--fg); animation: ftdBlink 1.2s ease-in-out infinite; } .ftd-load i:nth-child(2) { animation-delay: .2s; } .ftd-load i:nth-child(3) { animation-delay: .4s; }
+@keyframes ftdIn { from { transform: translateX(40px); opacity: 0; } to { transform: none; opacity: 1; } }
+@keyframes ftdFade { from { opacity: 0; } to { opacity: 1; } }
+@keyframes ftdUp { from { transform: translateY(4px); opacity: 0; } to { transform: none; opacity: 1; } }
+@keyframes ftdPop { from { transform: scale(1.15); } to { transform: none; } }
+@keyframes ftdDrift { 50% { transform: translateX(40px) scale(1.15); } }
+@keyframes ftdBlink { 50% { opacity: .35; } }
+body.fx-lite .ftd-sky b, body.fx-lite .ftd-note i, body.fx-lite .ftd-desk, body.fx-lite .ftd-vit span, body.fx-lite .ftd-veil { animation: none; }
+@media (prefers-reduced-motion: reduce) { .ftd *, .ftd-desk, .ftd-veil { animation: none !important; transition: none !important; } }
+body.theme-day .ftd-desk { background: linear-gradient(180deg, #fffaf0, #f6fbf8 40%, #ffffff); border-left-color: rgba(160, 120, 20, .45); }
+body.theme-day .ftd-id b { color: #2a1f05; text-shadow: none; } body.theme-day .ftd-id small, body.theme-day .ftd-note, body.theme-day .ftd-load { color: #5b5240; }
+body.theme-day .ftd-vit span { background: linear-gradient(160deg, rgba(212, 175, 55, .14), #fff); } body.theme-day .ftd-vit b { color: #2a1f05; } body.theme-day .ftd-vit em { color: #7a6a45; }
+body.theme-day .ftd-vit .is-up b { color: #0d8a43; text-shadow: none; } body.theme-day .ftd-vit .is-dn b { color: #c0344f; text-shadow: none; }
+body.theme-day .ftd-ico { color: #7a5a00; }
+@media (max-width: 640px) { .ftd-desk { width: 100vw; padding: 10px; } .ftd-vit { grid-template-columns: repeat(2, minmax(0, 1fr)); } .ftd-chart { --chart-h: clamp(220px, 34vh, 320px); } .ftd-tools [data-testid="ftd-wide"] { display: none; } }

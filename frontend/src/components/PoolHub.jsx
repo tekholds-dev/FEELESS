@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
 import { sharedJson } from '../lib/sharedJson';
 import { resolveCoin } from '../lib/resolveCoin';
-import { openWarRoom } from './WarRoomHost';
+import { familiaTrade } from './FamiliaTrade';
 import { POOL_KIND, usd, apyTxt } from '../lib/cityPlan';
 import '../styles/poolHub.css';
 import { useWallet } from '../hooks/useWallet';
@@ -10,7 +10,7 @@ import { LEND_SIDES, okAmount, lendLine, lendQuote, lendSign } from '../lib/lend
 
 // 🏦 THE POOL HUB (the Pool Hall in Fee City + every pool building in the outer cities): every top and rising Solana pool in ONE pop-out —
 // v2 AMMs, v3 / CLMM, DLMM bins, auto-compounding vaults, lending, liquid staking, perps, RWA — with live TVL, APY and its 7-day move.
-// Each row does the real-money thing without "running to each site": ⚡ trade / stake through OUR engine (the war room's quick trade, your
+// Each row does the real-money thing without "running to each site": ⚡ trade / stake through OUR engine (the chart + Quick trade slide over the room, your
 // wallet signs), ＋ deposit on the pool's OWN page (opened exactly, your wallet signs there — FEELESS never holds funds), 🏠 set your
 // family's building to it (display only). Data: /api/reputation/familia-pools (DefiLlama yields + our pair feed, ≤ 10 min old).
 export const KIND_COLOR = { v2: '#ff9f45', v3: '#6ad7ff', dlmm: '#ffd36b', vault: '#3ddc84', lend: '#f5c451', stake: '#45e4c8', perps: '#ff5dbb', rwa: '#e8e3d6' };
@@ -42,9 +42,9 @@ export function tradeOf(r) {
 
 export async function goTrade(r) {
   const t = tradeOf(r); if (!t) return;
-  if (t.pair) { openWarRoom({ chainId: 'solana', pairAddress: t.pair }); return; }
+  if (t.pair) { familiaTrade({ chainId: 'solana', pairAddress: t.pair }); return; }
   const p = await resolveCoin('solana', t.mint);
-  if (p?.pairAddress && !p.preMarket) openWarRoom({ chainId: 'solana', pairAddress: p.pairAddress }); else toast.error(`No pool to trade ${r.sym} through FEELESS yet — use ＋ Deposit on ${r.proto}.`);
+  if (p?.pairAddress && !p.preMarket) familiaTrade({ chainId: 'solana', pairAddress: p.pairAddress }); else toast.error(`No pool to trade ${r.sym} through FEELESS yet — use ＋ Deposit on ${r.proto}.`);
 }
 
 function Gauge({ v }) {   // APY ring: fills to 50 % APY, gold past it
@@ -106,7 +106,7 @@ function PoolDetail({ r }) {
       <header><b>TVL</b><i className="k-tvl" /> <b>APY</b><i className="k-apy" />{tvlMove != null ? <em className={tvlMove >= 0 ? 'up' : 'dn'}>{tvlMove >= 0 ? '+' : ''}{tvlMove.toFixed(1)}% TVL in {days}d</em> : null}
         <span className="m-seg">{[7, 30, 90].map(n => <button key={n} type="button" className={days === n ? 'active' : ''} onClick={() => setDays(n)} data-tip={`The last ${n} days`}>{n}D</button>)}</span></header>
       {c ? <svg viewBox="0 0 600 160" preserveAspectRatio="none" role="img" aria-label={`TVL and APY, last ${days} days`}><path d={c.area} className="area" /><path d={c.tvl} className="tvl" /><path d={c.apy} className="apy" /></svg>
-        : <p className="phb-nochart">{d ? (r.src === 'pair' ? 'A live DEX pool — no history published; trade it in the war room for its candles.' : 'No history for this pool yet.') : 'Reading its history…'}</p>}
+        : <p className="phb-nochart">{d ? (r.src === 'pair' ? 'A live DEX pool — no history published; ⚡ trade it here for its candles.' : 'No history for this pool yet.') : 'Reading its history…'}</p>}
       {c ? <footer><span>{usd(c.first.tvl)} → <b>{usd(c.last.tvl)}</b></span><span>APY {apyTxt(c.first.apy)} → <b>{apyTxt(c.last.apy)}</b></span><span>{c.n} days of data · DefiLlama</span></footer> : null}
     </div>
     <div className="phb-earn">
@@ -167,7 +167,7 @@ export function PoolRow({ r, i = 0, big = false, blocks = [], onLink }) {
     {e ? <span className="phb-24" data-tip={`$1,000 here earned ${money(e.total)} in the last 24h at today's APY (${money(e.base)} fees / interest + ${money(e.reward)} rewards)`}><em>$1K · 24h</em><b>+{money(e.total)}</b></span> : null}
     <span className="phb-acts">
       <button type="button" className={`m-btn ${more ? 'active' : ''}`} aria-expanded={more} onClick={() => setMore(v => !v)} data-tip="The pool's TVL + APY history and what your money would have earned" data-testid={`pool-more-${r.id}`}>📈 Chart + 24h</button>
-      {t ? <button type="button" className="m-btn m-go" onClick={() => goTrade(r)} data-tip="Through FEELESS: the war room opens on this pool, you pick the amount, your wallet signs" data-testid={`pool-trade-${r.id}`}>⚡ {t.word}</button> : null}
+      {t ? <button type="button" className="m-btn m-go" onClick={() => goTrade(r)} data-tip="Through FEELESS, right here: the chart + Quick trade open on this pool, you pick the amount, your wallet signs" data-testid={`pool-trade-${r.id}`}>⚡ {t.word}</button> : null}
       {canLend ? <button type="button" className={`m-btn m-go ${lend ? 'active' : ''}`} aria-expanded={lend} onClick={() => setLend(v => !v)} data-tip="Deposit or withdraw right here — Jupiter builds it, FEELESS checks it, your wallet signs" data-testid={`pool-lend-${r.id}`}>🏦 Deposit here</button> : null}
       <a className="m-btn" href={r.app} target="_blank" rel="noopener noreferrer" data-tip={`${r.proto}'s own deposit page for this pool — your wallet signs there; FEELESS never holds your funds`} data-testid={`pool-deposit-${r.id}`}>＋ Deposit ↗</a>
       {onLink && blocks.length ? (pick ? <select className="m-input phb-pick" autoFocus defaultValue="" onChange={e => { if (e.target.value) { onLink(e.target.value, r); setPick(false); } }} onBlur={() => setPick(false)} aria-label="Which of your buildings">

@@ -161,7 +161,7 @@ export function MemberFile({ m, mine, onClose }) {
       <h4 className="frm-h">📒 THEIR LAST TRADES</h4>
       {trades.length ? <ol className="frm-ftrades">{trades.map(r => <li key={`${r.at}-${r.sym}`} className={r.pct >= 0 ? 'is-up' : 'is-dn'}><b>${r.sym}</b><em>{r.pct >= 0 ? '+' : ''}{r.pct}%</em><small>{usdTxt(r.usd)} · {agoTxt(r.at)}</small></li>)}</ol>
         : <p className="frm-empty">No closed verified trades this week.</p>}
-      <a className="m-btn" href={`/terminal/profile/${m.address}`}>Full profile ↗</a>
+      <button type="button" className="m-btn" onClick={() => window.dispatchEvent(new CustomEvent('feeless:investigate', { detail: m.address }))} data-tip="Their wallet case file — trades, funders, flags — right here" data-testid="member-case">🔎 Case file</button>
     </article></div>, document.body);
 }
 

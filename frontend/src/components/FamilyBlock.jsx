@@ -5,6 +5,7 @@ import { apiUrl } from '../lib/api';
 import { FamilyDeck } from './FamilyDeck';
 import { FamilyBlock3D, BlockCard } from './FamilyBlock3D';
 import '../styles/familyBlock.css';
+import { familiaDocked, familiaSwap } from './FamiliaTrade';
 
 // 🏙 THE FAMILY BLOCK (owner, 2026-10-21: "enter your block and build a city — named crypto stores, MP, goons to protect / rob / boost, realistic
 // 3D like a game, clickable with vitals, everything explained; the creator wallet gets every unlock"). Drag to spin it 360°. Every number is
@@ -53,7 +54,8 @@ function BlockPicks() {
 // real position, errands from that position. The MP points game (stash, recruits, robberies) folds into one panel underneath.
 const RANGE_URL = { orca: 'https://www.orca.so/portfolio', raydium: 'https://raydium.io/portfolio/' };
 export function errandGo(e, b, nav = path => window.location.assign(path), open = (u) => window.open(u, '_blank', 'noopener,noreferrer')) {
-  if (e.kind === 'switch' && e.swap) {   // ⚖ a better-paying LST: FEELESS's own swap opens with both coins set (you still press Get quote)
+  if (e.kind === 'switch' && e.swap) {   // ⚖ a better-paying LST: the swap opens with both coins set (you still press Get quote) — INSIDE Familia's dock
+    if (familiaDocked()) { familiaSwap(e.swap); return 'swap'; }
     try { sessionStorage.setItem('feeless.swap.pair', JSON.stringify({ input: e.swap.from, output: e.swap.to })); } catch { /* storage blocked */ }
     nav('/terminal/trade'); return 'swap';
   }

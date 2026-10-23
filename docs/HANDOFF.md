@@ -28,6 +28,10 @@
   AI round, ≤ 1 / 5 min) applies AUTO-TUNED after any applied set's 6 h cooldown, never re-applies the same tune, logs `autoLog`.
   + 🏆 MINDSET LADDER: `history` of every apply / revert cuts each model's trades by the mindset on when they OPENED (plain = no set);
   proven (≥ 5) rank by average %, then proving, then not tried. All in data/prompt_studio.json.
+- 🏙 TRADE INSIDE FAMILIA (2026-10-23): `FamiliaTrade.jsx` — `familiaTrade(pair)` opens the FAMILIA TRADE DESK (z 4600, above the full-screen
+  city) when the Familia page's one `<FamiliaTradeDock />` is mounted (Crews.jsx; /dev/city mounts it too), else the war room as before.
+  TrenchChart + Quick trade + live vitals, ⤢ wide, Esc / ✕ back to the room; `familiaSwap({from,to})` = the swap with both coins set.
+  Guard: FamiliaTrade.test.jsx fails on openWarRoom / "Full page ↗" in Familia files.
 - 🟢 Launch page backdrop = the official logo green (amber dusk read as mud). Gate flakes hardened: FuseLab preview timer, FuseGo PREPAY.
 ### ⬜ Still open — the owner's newest list is CLAUDE.md › P0 "LATEST-LATEST" (0 ✋ done · P prompt studio · A0 trade inside Familia ·
 A perps in the popout (⚠ venue geo rules stay) · B pools/perps that earn · C family town = main city engine, no lag · D Familia as its own

@@ -4,7 +4,7 @@ import { apiUrl } from '../lib/api';
 import { FeeCity3D, PlacesMenu, useMarkets } from './FeeCity3D';
 import { PoolHub, PoolRow, usePools } from './PoolHub';
 import { PLACES, HALLS, usd } from '../lib/cityPlan';
-import { openWarRoom } from './WarRoomHost';
+import { familiaTrade } from './FamiliaTrade';
 import { FamilyHQ } from './FamilyHQ';
 import { CityRail, RankBadge, RankLadder } from './FamiliaHud';
 import StreetChat from './StreetChat';
@@ -76,20 +76,19 @@ function MarketPanel({ k, mk }) {
         <span><em>24H VOL</em><b className="m-num">{usd(pool.vol)}</b></span><span><em>24H</em><b className={`m-num ${pool.ch >= 0 ? 'm-pos' : 'm-neg'}`}>{pool.ch >= 0 ? '+' : ''}{Number(pool.ch || 0).toFixed(2)}%</b></span></> : null}
       {m.kind === 'coin' && m.status ? <span><em>DESK</em><b className="m-num">{m.status}</b></span> : null}
       {m.kind === 'coin' && m.ch != null ? <span><em>{m.status ? '5M' : '24H'}</em><b className={`m-num ${m.ch >= 0 ? 'm-pos' : 'm-neg'}`}>{m.ch >= 0 ? '+' : ''}{Number(m.ch).toFixed(1)}%</b></span> : null}</div>
-    <div className="fwd-acts">{pair ? <button type="button" className="m-btn m-go" onClick={() => openWarRoom({ chainId: 'solana', pairAddress: pair, baseToken: { address: m.mint || pool?.baseMint, symbol: pool?.base || m.symbol } })}
-      data-tip="Open this pool's war room on FEELESS — chart, tape, swap through our engine; your wallet signs" data-testid="mk-open">📈 Open on FEELESS</button> : null}
+    <div className="fwd-acts">{pair ? <button type="button" className="m-btn m-go" onClick={() => familiaTrade({ chainId: 'solana', pairAddress: pair, baseToken: { address: m.mint || pool?.baseMint, symbol: pool?.base || m.symbol } })}
+      data-tip="Trade it right here — chart + Quick trade slide over the city; your wallet signs" data-testid="mk-open">⚡ Trade here</button> : null}
       {m.url ? <a className="m-btn" href={m.url} target="_blank" rel="noopener noreferrer" data-tip={`${m.name}'s own app — deposits / borrows happen there and your wallet signs; FEELESS never holds your funds`} data-testid="mk-app">↗ {m.name}</a> : null}</div>
     {m.kind === 'coin' && (m.read || m.theory) ? <p className="fwd-tt" data-testid="mk-theory">{m.read ? <><b>DESK READ</b> {m.read}<br /></> : null}{m.theory ? <><b>THEORY</b> {m.theory}</> : null}</p> : null}
     {m.kind === 'coin' && m.mint ? <WhyPumped key={m.mint} mint={m.mint} /> : null}
-    <small className="m-dim">{m.status ? 'TT · from the agents\' intake list (READY first) · Open = chart + Quick trade, your wallet signs.' : 'Live from the chain every minute · the roof light pulses with its volume.'}</small></aside>;
+    <small className="m-dim">{m.status ? 'TT · from the agents\' intake list (READY first) · ⚡ Trade here = chart + Quick trade over the city, your wallet signs.' : 'Live from the chain every minute · the roof light pulses with its volume.'}</small></aside>;
 }
 const ISLAND_OF = { dex: 'Market Row', lend: 'Vault District', perps: 'Vault District', stake: 'Vault District', coin: 'TT · Trench Towers' };
 
 function PlaceCard({ k, onOpen }) {
   const p = PLACES.find(x => x.key === k); if (!p) return null;
   return <aside className="fwd-side m-card t-place" style={{ '--pc': p.color }} data-testid="place-card"><header><b>{p.name}</b><small>{p.tool ? 'FEELESS AVENUE · live tool' : 'FEE CITY · place'}</small></header><p>{p.sub}</p>
-    <div className="fwd-acts"><button type="button" className="m-btn m-go" onClick={() => onOpen(p.lens)} data-tip={p.tool ? 'Pop out the live tool over the city' : 'Walk in — the room pops out over the city'} data-testid="place-enter">Walk in</button>
-      {p.page ? <a className="m-btn" href={p.page} data-tip={`${p.name}'s full page`} data-testid="place-page">Full page ↗</a> : null}</div></aside>;
+    <div className="fwd-acts"><button type="button" className="m-btn m-go" onClick={() => onOpen(p.lens)} data-tip={p.tool ? 'Pop out the live tool over the city' : 'Walk in — the room pops out over the city'} data-testid="place-enter">Walk in</button></div></aside>;
 }
 
 // 🏦 a pool building (an outer city's district): the same row as the Pool Hub, big — trade / stake through FEELESS, deposit on its own page,
@@ -214,7 +213,7 @@ function BillboardBox({ v, me, act, busy }) {
 // 💸 THE MONEY MENU (owner, 2026-10-22: "every directory needs vital money making — at least 10 ways to make money in the pop-ups"): the same
 // 12 real doors under EVERY building's pop-out; each opens the real tool here in the city (never a dead link). How each one pays, in one line.
 export const MONEY_DOORS = [
-  ['tt', '🗼', 'Trench a TT coin', 'the desk\'s intake list · trade in the war room'], ['pumpradar', '📡', 'Pump Radar', 'hottest Pump coins · one-tap trade'],
+  ['tt', '🗼', 'Trench a TT coin', 'the desk\'s intake list · trade right here'], ['pumpradar', '📡', 'Pump Radar', 'hottest Pump coins · one-tap trade'],
   ['runners', '🏃', 'Ride the runners', 'FEELESS\'s live calls'], ['sleep', '💤', 'Night Vault', 'earn while you sleep · live APY'],
   ['pools', '🏦', 'Pool Hall', 'LP fees · what $1K earned in 24h'], ['feebank', '💵', '$FEE Bank', 'fee-free buys · holder perks'],
   ['trades', '📈', 'Trade Center', 'follow the desk\'s real trades'], ['fuse', '⚔', 'Family Fuse', 'battles + bids in the Arena'],
