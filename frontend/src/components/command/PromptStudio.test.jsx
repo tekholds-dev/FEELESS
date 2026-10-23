@@ -57,3 +57,9 @@ test('🤖 auto-tune strip reads red / green / proving / waiting; the switch pos
   await act(async () => { q('pst-model-local').click(); }); expect(q('pst-rung-progressive').textContent).toContain('ON NOW'); expect(q('pst-auto').className).toContain('is-ok');
   act(() => root.unmount());
 });
+
+test('📌 the prompt copied for LM Studio = exactly what FEELESS sends (seat prompt + the applied mindset, not the chat-only layers)', () => {
+  const { lmsPrompt } = require('./PromptStudio');
+  const m = { layers: [{ k: 'job', text: 'SEAT' }, { k: 'identity', text: 'chat only' }, { k: 'brain', text: 'reads' }, { k: 'studio', text: '🎭 MINDSET: quick in' }] };
+  expect(lmsPrompt(m)).toBe('SEAT\n\n🎭 MINDSET: quick in'); expect(lmsPrompt({})).toBe('');
+});

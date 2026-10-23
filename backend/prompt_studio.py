@@ -39,6 +39,8 @@ def stats(trades=None, calls=None, bench=None, grades=None):
     pct = [_f(t['pct']) for t in tr]
     wins, losses = [p for p in pct if p > 0], [p for p in pct if p <= 0]
     held = [_f(t.get('heldMin')) for t in tr]
+    win_held = [_f(t.get('heldMin')) for t in tr if _f(t['pct']) > 0 and _f(t.get('heldMin')) is not None]
+    loss_held = [_f(t.get('heldMin')) for t in tr if _f(t['pct']) <= 0 and _f(t.get('heldMin')) is not None]
     quick = [t for t in tr if _f(t.get('heldMin')) is not None and _f(t['heldMin']) < QUICK_MIN]
     gave = [t for t in tr if (_f(t.get('peak')) or 0) >= GIVE_PEAK and _f(t['pct']) <= GIVE_KEEP]
     cl = [c for c in calls or [] if isinstance(c, dict)]
@@ -46,7 +48,7 @@ def stats(trades=None, calls=None, bench=None, grades=None):
     fv = (grades or {}).get('favor') or {}
     return {'n': len(tr), 'wonPct': round(100 * len(wins) / len(tr)) if tr else None, 'avgPct': round(sum(pct) / len(pct), 1) if pct else None,
             'avgWin': round(sum(wins) / len(wins), 1) if wins else None, 'avgLoss': round(sum(losses) / len(losses), 1) if losses else None,
-            'medHeld': _med(held), 'quickN': len(quick), 'quickWonPct': round(100 * sum(1 for t in quick if _f(t['pct']) > 0) / len(quick)) if quick else None,
+            'medHeld': _med(held), 'winHeld': _med(win_held), 'lossHeld': _med(loss_held), 'quickN': len(quick), 'quickWonPct': round(100 * sum(1 for t in quick if _f(t['pct']) > 0) / len(quick)) if quick else None,
             'gaveN': len(gave), 'calls': len(cl), 'answerPct': round(100 * len(ok) / len(cl)) if cl else None,
             'medMs': _med([_f(c.get('ms')) for c in ok if _f(c.get('ms'))]),
             'favorN': (bench or {}).get('n') or 0, 'favorMed': (bench or {}).get('median'), 'favorUp': (bench or {}).get('upPct'),
@@ -111,8 +113,14 @@ def _dials(base, fixes=()):
     return {k: max(5, min(100, int(d.get(k, 50)))) for k in DIAL_KEYS}
 
 
-def sets(key, st, fixes=None):
-    """The four prompt sets for one model, each {set, label, tag, dials, text, why}. Text = the overlay the router appends, ≤ MAX_CHARS."""
+def best_rung(ladder_rows):
+    """The mindset that PROVED best for this model (≥ MIN_N trades opened under it, the best average) — None until one is proven and green."""
+    return next((x for x in ladder_rows or [] if (x.get('n') or 0) >= MIN_N and x.get('set') in SETS and (x.get('avgPct') or 0) > 0), None)
+
+
+def sets(key, st, fixes=None, best=None):
+    """The four prompt sets for one model, each {set, label, tag, dials, text, why}. Text = the overlay the router appends, ≤ MAX_CHARS.
+    `best` = the ladder's proven-best mindset: AUTO-TUNED keeps its core (owner, 2026-10-23: "G4 was losing — better auto-updated prompts")."""
     nm, s, fx = NAMES.get(key, key), st or {}, list(fixes or [])
     rec = _line(s)
     if key == 'win':   # NEXA: one word (YES / NO · HOLD / SELL) + ≤ 8 words — her overlay is a criteria line, not an essay
@@ -133,6 +141,10 @@ def sets(key, st, fixes=None):
                                 "and ride the rest. Red early = cut at your line, no hope holds. Speed on the way in, patience on the way up, zero patience on the way down. "
                                 f"{rec[0].upper() + rec[1:]}."),
                 'tuned': (f"AUTO-TUNED for {nm} from {rec}. Fix these habits first: " + ' '.join(f"({i + 1}) {f['rule']}" for i, f in enumerate(fx))
+                          + (f" Your winners held a median {s['winHeld']:.0f} min, your losers {s['lossHeld']:.0f} min — hold like your winners."
+                             if s.get('winHeld') is not None and s.get('lossHeld') is not None and abs(s['winHeld'] - s['lossHeld']) >= 5 else '')
+                          + (f" Your best proven mindset is {LABEL[best['set']]} ({best['avgPct']:+.1f} % avg over {best['n']} trades): keep its core."
+                             if best else '')
                           + " Everything else: your own style.") if fx else (f"AUTO-TUNED for {nm}: the record shows no losing habit yet ({rec}). Keep your style; "
                                                                              f"one upgrade — once a trade is +{GIVE_PEAK:g} %, the stop goes to break-even.")}
     base = {'elite': {'speed': 35, 'patience': 80, 'risk': 25, 'discipline': 95}, 'degen': {'speed': 75, 'patience': 55, 'risk': 70, 'discipline': 60},
@@ -174,6 +186,13 @@ RECENT_N = 10                 # "turned red" is read on the last 10 closed trade
 RED_WON = 40                  # red = losing on average AND under 40 % won (NEXA: her YES calls, judged the same way)
 AUTO_COOLDOWN = 6 * 3600.0    # any applied set (yours or the auto one) gets 6 h to prove itself before the switch moves it
 HIST_KEEP = 200
+AUTO_DEFAULT = ('lan', 'local')   # 🤖 owner, 2026-10-23: "G4 was losing so I asked for auto-updated prompts" — the seat models' switch is ON until the owner turns it off
+
+
+def auto_on(raw, key):
+    """Is the auto-tune switch on for this model? The owner's own choice wins; never set = ON for the seat models (G4, OSSY), off for NEXA."""
+    a = (raw or {}).get('auto') if isinstance(raw, dict) else None
+    return bool(a[key]) if isinstance(a, dict) and key in a else key in AUTO_DEFAULT
 PLAIN = 'plain'
 
 

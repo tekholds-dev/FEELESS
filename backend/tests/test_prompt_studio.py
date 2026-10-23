@@ -148,3 +148,43 @@ def test_every_call_that_carries_the_mindset_is_stamped(monkeypatch):
         assert 'mindset' not in ar.CALL_LOG[-1]                                                           # OSSY has none applied
     finally:
         ar.STUDIO.clear(); ar.STUDIO_SET.clear(); ar.MINDSET_SEEN.clear()
+
+
+def test_auto_tune_is_on_for_the_seat_models_until_the_owner_turns_it_off():
+    """🤖 owner, 2026-10-23: "G4 was losing so I asked for auto-updated prompts" — the switch was silently off for everyone."""
+    import prompt_studio as ps
+    assert ps.auto_on({}, 'lan') and ps.auto_on({}, 'local') and not ps.auto_on({}, 'win')
+    assert not ps.auto_on({'auto': {'lan': False}}, 'lan') and ps.auto_on({'auto': {'win': True}}, 'win')
+
+
+def test_auto_tuned_keeps_the_best_proven_mindset_and_how_winners_held():
+    import prompt_studio as ps
+    tr = [{'pct': 12, 'peak': 20, 'heldMin': 42, 'at': 10 + i} for i in range(3)] + [{'pct': -9, 'peak': 2, 'heldMin': 6, 'at': 20 + i} for i in range(9)]
+    st = ps.stats(tr)
+    assert st['winHeld'] == 42 and st['lossHeld'] == 6
+    best = ps.best_rung([{'set': 'plain', 'n': 9, 'avgPct': 3}, {'set': 'progressive', 'n': 6, 'avgPct': 1.4}, {'set': 'elite', 'n': 2, 'avgPct': 9}])
+    assert best['set'] == 'progressive'                                       # proven (≥ 5) and green; a 2-trade +9 % proves nothing
+    assert ps.best_rung([{'set': 'degen', 'n': 8, 'avgPct': -2}]) is None
+    tuned = next(x for x in ps.sets('lan', st, ps.diagnose(st), best) if x['set'] == 'tuned')['text']
+    assert 'winners held a median 42 min, your losers 6 min' in tuned and 'best proven mindset is PROGRESSIVE (+1.4 % avg over 6 trades)' in tuned
+    assert len(tuned) <= ps.MAX_CHARS['lan']
+
+
+def test_the_live_lm_studio_preset_mirrors_what_feeless_sends(tmp_path):
+    """📌 LM Studio's own box only feeds its chat window — FEELESS writes 'FEELESS LIVE · OSSY' with what OSSY really gets; never the owner's preset."""
+    import json
+    import lms_preset as lp
+    d = tmp_path / '.lmstudio' / 'config-presets'
+    assert lp.write('local', 'SEAT', home=tmp_path) is None                  # no LM Studio here → nothing written
+    d.mkdir(parents=True)
+    (d / 'FEELESS FEE Master.preset.json').write_text('{"name": "FEELESS FEE Master"}')
+    p = lp.write('local', 'SEAT PROMPT\n\n🎭 MINDSET: quick in', {'temp': 0.6, 'topP': 0.9, 'stop': ['</s>']}, home=tmp_path)
+    body = json.loads(open(p).read())
+    assert body['name'] == 'FEELESS LIVE · OSSY' and body['identifier'] == '@local:feeless-live-local'
+    f = {x['key']: x['value'] for x in body['operation']['fields']}
+    assert f['llm.prediction.systemPrompt'].endswith('quick in') and f['llm.prediction.temperature'] == 0.6
+    assert f['llm.prediction.topPSampling'] == {'checked': True, 'value': 0.9} and f['llm.prediction.stopStrings'] == ['</s>']
+    assert lp.write('local', 'SEAT PROMPT\n\n🎭 MINDSET: quick in', {'temp': 0.6, 'topP': 0.9, 'stop': ['</s>']}, home=tmp_path) is None   # unchanged → no rewrite
+    assert json.loads((d / 'FEELESS FEE Master.preset.json').read_text()) == {'name': 'FEELESS FEE Master'}   # the owner's own preset untouched
+    assert lp.write('lan', 'G4', home=tmp_path) is None                      # G4's LM Studio is on the desktop — never written from here
+    assert lp.write('local', 'X') is None                                    # a test never writes the real home folder

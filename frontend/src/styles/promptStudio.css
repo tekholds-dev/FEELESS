@@ -79,6 +79,11 @@
 .pst-why { margin: 0; font: 600 9.5px var(--m-mono); color: var(--m-dim); }
 .pst-since { margin: 0; display: flex; gap: 8px; align-items: center; padding: 5px 9px; border-radius: 8px; background: color-mix(in srgb, var(--sc) 12%, transparent); }
 .pst-since b { font: 900 8px var(--m-mono); letter-spacing: .12em; color: var(--sc); } .pst-since span { font: 700 10.5px var(--m-mono); color: var(--m-text); }
+/* 📌 the LM Studio mirror: which preset shows the live brain there (OSSY) or copy it (G4) */
+.pst-lms { margin: 0; display: flex; flex-wrap: wrap; gap: 6px 8px; align-items: center; padding: 6px 9px; border-radius: 8px; border: 1px dashed color-mix(in srgb, var(--sc) 45%, transparent); background: #0000002e; }
+.pst-lms b { font: 900 8px var(--m-mono); letter-spacing: .12em; color: var(--sc); } .pst-lms span { flex: 1 1 160px; font: 600 10px var(--m-mono); color: var(--m-dim); }
+.pst-lms em { font-style: normal; color: var(--m-text); font-weight: 800; } .pst-lms .m-btn { min-height: 32px; padding: 0 10px; font-size: 10px; }
+body.theme-day .pst-lms { background: #fff; } body.theme-day .pst-lms em { color: #181e1b; }
 .pst-edit { display: grid; gap: 3px; } .pst-edit textarea { width: 100%; resize: vertical; font: 500 11px/1.45 var(--m-mono); min-height: 110px; }
 .pst-edit small { justify-self: end; font: 700 9px var(--m-mono); color: var(--m-mute); } .pst-edit small.is-hot { color: var(--m-warn); }
 .pst-set footer { display: flex; flex-wrap: wrap; gap: 6px; } .pst-set footer .m-btn { min-height: 32px; }

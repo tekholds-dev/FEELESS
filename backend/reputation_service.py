@@ -17997,7 +17997,25 @@ def _studio_apply():
     _air.STUDIO.update({k_: v_['text'] for k_, v_ in act_.items()})
     _air.STUDIO_SET.clear()
     _air.STUDIO_SET.update({k_: v_['set'] for k_, v_ in act_.items()})
+    _studio_lms(act_)
     return act_
+
+
+_studio_lms_note = {}
+
+
+def _studio_lms(act_):
+    """📌 Keep LM Studio's "FEELESS LIVE · OSSY" preset = what FEELESS really sends OSSY: the seat prompt + the applied mindset + the sampling
+    overrides (lms_preset.py). The owner's own LM Studio preset is never touched."""
+    try:
+        import lms_preset as _lmp
+        a_ = act_.get('local')
+        sys_ = _seat.sys_for(_seat.SYSTEM, 'local') + (_pstu.overlay_block(a_['text']) if a_ else '')
+        p_ = _lmp.write('local', sys_, (_air.RIG.get('local') or {}).get('infer'))
+        if p_:
+            _studio_lms_note['local'] = {'name': _lmp.NAME['local'], 'path': p_, 'at': time.time(), 'set': (a_ or {}).get('set')}
+    except Exception as e:
+        print('lms preset:', str(e)[:80])
 
 
 def _studio_trades(key):
@@ -18028,7 +18046,9 @@ def _studio_core(k_, st_, done_, nx_):
         calls_ = [r_ for r_ in st_['log'] if r_.get('model') == nm_ and r_.get('action') != 'LINES' and not r_.get('talk')]
         s_ = _pstu.stats(trades_, calls_, _seat.bench(done_, k_))
     fx_ = _pstu.diagnose(s_)
-    return {'trades': trades_, 'stats': s_, 'fixes': fx_, 'sets': _pstu.sets(k_, s_, fx_)}
+    raw_ = _json_load(PROMPT_STUDIO_PATH, {}) or {}
+    best_ = _pstu.best_rung(_pstu.ladder(trades_, raw_.get('history'), k_, time.time(), _pstu.clean_active(raw_).get(k_)))
+    return {'trades': trades_, 'stats': s_, 'fixes': fx_, 'sets': _pstu.sets(k_, s_, fx_, best_)}
 
 
 _studio_auto_at = {'t': 0.0}
@@ -18041,7 +18061,7 @@ async def _studio_auto(now):
         return 0
     _studio_auto_at['t'] = now
     raw_ = dict(_json_load(PROMPT_STUDIO_PATH, {}) or {})
-    on_ = {k_ for k_, v_ in (raw_.get('auto') or {}).items() if v_ and k_ in _pstu.KEYS}
+    on_ = {k_ for k_ in _pstu.KEYS if _pstu.auto_on(raw_, k_)}
     if not on_:
         return 0
     act_ = _pstu.clean_active(raw_)
@@ -18107,10 +18127,11 @@ async def _studio_view():
                         'record': s_, 'fixes': fx_, 'sets': core_['sets'], 'layers': layers_,
                         'active': {**a_, 'since': _pstu.since(trades_, a_['at']),
                                    'seen': (lambda sn_: sn_ if sn_ and sn_.get('set') == a_['set'] and _fuse._f(sn_.get('at')) >= _fuse._f(a_['at']) - 1 else None)(_air.MINDSET_SEEN.get(k_))} if a_ else None,   # 🎭 proof: the last call that CARRIED it
-                        'auto': {'on': bool((raw_.get('auto') or {}).get(k_)), 'red': _pstu.is_red(rec_), 'recent': {x_: rec_.get(x_) for x_ in ('n', 'wonPct', 'avgPct')},
+                        'auto': {'on': _pstu.auto_on(raw_, k_), 'red': _pstu.is_red(rec_), 'recent': {x_: rec_.get(x_) for x_ in ('n', 'wonPct', 'avgPct')},
                                  'word': _pstu.red_word(rec_), 'last': last_, 'coolUntil': (_fuse._f(a_['at']) + _pstu.AUTO_COOLDOWN) if a_ and now_ - _fuse._f(a_['at']) < _pstu.AUTO_COOLDOWN else None,
                                  'n': _pstu.RECENT_N, 'won': _pstu.RED_WON},
-                        'ladder': _pstu.ladder(trades_, raw_.get('history'), k_, now_, a_)})
+                        'ladder': _pstu.ladder(trades_, raw_.get('history'), k_, now_, a_),
+                        'lms': _studio_lms_note.get(k_)})   # 📌 the LM Studio preset that mirrors it (OSSY, this Mac)
     return {'models': models_, 'dials': list(_pstu.DIAL_KEYS), 'at': time.time()}
 
 

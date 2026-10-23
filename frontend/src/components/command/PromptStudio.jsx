@@ -52,6 +52,7 @@ function SetCard({ s, m, i, active, busy, onApply, onRevert, dials }) {
       data-tip="FEELESS sends this mindset inside the system prompt of EVERY call it makes to this model (LM Studio / llamafile) — a model reload never loses it; LM Studio's own preset box is only for its own chat window">
       {active.seen?.ok ? <><b>✓ IN USE</b><span>last call {ago(active.seen.at)} ago carried it</span></> : active.seen ? <><b>⚠ SENT</b><span>its last call {ago(active.seen.at)} ago failed — the next one carries it again</span></>
         : <><b>⏳ APPLIED</b><span>rides {m.name}'s next call</span></>}</p> : null}
+    {active ? <LmsMirror m={m} /> : null}
     {active ? <p className="pst-since" data-testid="pst-since" data-tip="Trades that opened after you applied this set">
       <b>SINCE APPLIED</b><span>{active.since?.n ? `${active.since.n} trades · ${active.since.wonPct}% won · ${sgn(active.since.avgPct)} avg` : 'no trade closed yet'}</span></p> : null}
     <footer>
@@ -64,6 +65,22 @@ function SetCard({ s, m, i, active, busy, onApply, onRevert, dials }) {
       {active ? <button type="button" className="m-btn pst-revert" disabled={busy} onClick={onRevert} data-tip={`Back to ${m.name}'s plain prompt`} data-testid="pst-revert">Revert</button> : null}
     </footer>
   </article>;
+}
+
+// 📌 WHERE THE MINDSET SHOWS IN LM STUDIO (owner, 2026-10-23: "I don't see the Prompt Studio updates in LM Studio's System Prompt box"): LM
+// Studio's own preset box only feeds its chat window. OSSY (this Mac): FEELESS writes what it really sends into the preset "FEELESS LIVE · OSSY" —
+// pick it in LM Studio and the box shows the live brain. G4 (the desktop): copy the exact prompt and paste it into its preset there.
+export function lmsPrompt(m) {
+  return (m?.layers || []).filter(l => l.k === 'job' || l.k === 'studio').map(l => l.text).filter(Boolean).join('\n\n');
+}
+function LmsMirror({ m }) {
+  if (m.key === 'win') return null;
+  const copy = () => { try { navigator.clipboard.writeText(lmsPrompt(m)); toast.success(`${m.name}'s live prompt copied — paste it into its LM Studio preset`); } catch { toast.error('Copy blocked by the browser'); } };
+  return <p className="pst-lms" data-testid="pst-lms">
+    <b>📌 IN LM STUDIO</b>
+    {m.lms ? <span>pick the preset <em>{m.lms.name}</em> — written {ago(m.lms.at)} ago with this mindset</span>
+      : <span>{m.key === 'local' ? 'the preset FEELESS LIVE · OSSY appears once LM Studio is on this Mac' : `${m.name}'s LM Studio is on the desktop — paste its live prompt there`}</span>}
+    <button type="button" className="m-btn" onClick={copy} data-tip="Copies the exact system prompt FEELESS sends this model (seat prompt + this mindset)" data-testid="pst-lms-copy">📋 Copy prompt</button></p>;
 }
 
 // pure: the auto-tune strip's state — RED (the switch acts), GREEN, PROVING (too few trades), WAITING (an applied set is in its cooldown)
