@@ -9,8 +9,8 @@ def test_providers_are_asked_at_once_and_a_slow_one_fills_in_later(monkeypatch):
     budget (it used to wait for Alchemy, then Helius, one after another), and Alchemy's longer history becomes the cached answer later."""
     bars = lambda n: [[1000 + i * 60, 1.0, 1.1, 0.9, 1.0, 5.0] for i in range(n)]
     async def jup(*a): await asyncio.sleep(0.05); return bars(10)
-    async def alc(*a): await asyncio.sleep(0.6); return bars(80)
-    async def hel(*a): await asyncio.sleep(5); return bars(3)
+    async def alc(*a): await asyncio.sleep(1.5); return bars(80)   # margins sized for a busy Mac (the gate flaked at 0.6 s / 0.5 s, 2026-10-22)
+    async def hel(*a): await asyncio.sleep(8); return bars(3)
     async def none(*a, **k): return None
     monkeypatch.setattr(cs, 'jupiter_candles', jup); monkeypatch.setattr(cs, 'alchemy_candles', alc); monkeypatch.setattr(cs, 'helius_candles', hel)
     monkeypatch.setattr(cs, '_pair_base_token', none); monkeypatch.setattr(cs, '_stream_price', none)
@@ -21,10 +21,13 @@ def test_providers_are_asked_at_once_and_a_slow_one_fills_in_later(monkeypatch):
         t0 = time.time()
         out = await cs._build_candles('solana', 'PAIRX', '1m')
         took = time.time() - t0
-        await asyncio.sleep(0.8)   # Alchemy lands in the background
+        for _ in range(60):   # Alchemy lands in the background (poll, never a fixed sleep)
+            if (cs._resp_cache.get(('solana', 'PAIRX', '1m')) or (0, {}))[1].get('provider') == 'Alchemy':
+                break
+            await asyncio.sleep(0.1)
         return out, took
     out, took = asyncio.run(run())
-    assert out['provider'] == 'Jupiter' and took < 0.5
+    assert out['provider'] == 'Jupiter' and took < 1.2   # answered on Jupiter's bars, long before Alchemy's 1.5 s
     assert cs._resp_cache[('solana', 'PAIRX', '1m')][1]['provider'] == 'Alchemy'
 
 
