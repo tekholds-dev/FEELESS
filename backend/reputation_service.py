@@ -2416,7 +2416,7 @@ async def chat_post(payload: ChatPost):
             raise HTTPException(401, 'Chat session expired — sign in to chat again.')
     elif not _verify_wallet(payload.address, _chat_message_to_sign(payload.room, payload.address, payload.ts, text), payload.signature):
         raise HTTPException(401, 'Signature does not match this wallet.')
-    is_admin = primary_of(payload.address) in {primary_of(w) for w in _admin_wallets()}  # admins post anywhere, unthrottled
+    is_admin = _is_staff(payload.address)  # admins / the creator's linked wallets post anywhere, unthrottled (0c: staff unlock everything)
     _is_crew, _crew_ok = _crew_room_ok(payload.room, payload.address)
     if _is_crew and not _crew_ok and not is_admin:
         raise HTTPException(403, 'Only family members can post in a family room.')
@@ -2569,7 +2569,7 @@ async def _alpha_allowed(room: str, address: str) -> bool:
 @app.get('/api/reputation/alpha-rooms')
 async def alpha_rooms(address: str = ''):
     held = await _fee_usd(primary_of(address)) if address else 0.0
-    admin = primary_of(address) in _admin_wallets() if address else False
+    admin = _is_staff(address) if address else False
     d = _chat_load()
     return {'holdingUsd': held, 'rooms': [{**r, 'unlocked': admin or held >= r['minUsd'], 'messages': len(d['rooms'].get(r['id'], []))} for r in ALPHA_ROOMS]}
 
@@ -23937,7 +23937,7 @@ async def wallet_badges(address: str):
                            'why': ' · '.join(t['label'] for t in b['tasks']) + (' (granted by FEELESS HQ)' if b.get('granted') else '')})
     except Exception:
         pass
-    if address in _admin_wallets():
+    if address and _is_staff(address):
         badges.insert(0, {'id': 'feeless-hq', 'label': 'FEELESS HQ', 'icon': '👑', 'tone': 'gold', 'why': 'Created $FEE — runs the FEELESS HQ'})
     # Season cards count as badges too (best rarity first), so chat + profiles show them.
     rank = {'mythic': 5, 'legendary': 4, 'epic': 3, 'rare': 2, 'common': 1}
@@ -24192,7 +24192,7 @@ def _audit(d, admin, action, detail):
 
 @app.get('/api/reputation/admin/whoami')
 async def admin_whoami(address: str = ''):
-    return {'isAdmin': address in _admin_wallets(), 'isOwner': address in _owner_wallets()}   # two yes/no only (isOwner = show the creator's HQ pop-out button) — every HQ action still needs a signed admin session
+    return {'isAdmin': bool(address) and _is_staff(address), 'isOwner': address in _owner_wallets()}   # two yes/no only (isOwner = show the creator's HQ pop-out button) — every HQ action still needs a signed admin session
 
 
 async def _token_holders(mint: str):
@@ -26637,7 +26637,7 @@ async def admin_delete_msg(request: Request, payload: ModIn):
 async def admin_mute(request: Request, payload: ModIn):
     admin = _require_admin(request)
     target = primary_of(payload.address)
-    if target in _admin_wallets():
+    if _is_staff(target):
         raise HTTPException(400, "Can't mute the HQ wallet.")
     async with _admin_lock:
         d = _json_load(MUTES_PATH, {})
@@ -27135,7 +27135,7 @@ async def dm_send(payload: DmIn):
     pref = _dm_pref(to)
     thread = _json_load(DM_PATH, {}).get(_dm_key(me, to), [])
     replied = any(m['from'] == to for m in thread)  # they've written to me: the thread is open both ways
-    is_admin = primary_of(me) in {primary_of(w) for w in _admin_wallets()}
+    is_admin = _is_staff(me)
     request = False
     if not is_admin and not replied and me not in pref['accepted']:
         if pref['policy'] == 'nobody':
@@ -27278,7 +27278,7 @@ FEE_RESERVE_WALLET = 'Btiq3W3yhqSRbF1FEf2TQMNrwsknMpQmeb5K9TeD83qU'
 
 def is_verified(address: str) -> bool:
     a = primary_of(address or '')
-    return a in _admin_wallets() or a == FEE_RESERVE_WALLET or a in (_admin_load().get('verified') or [])
+    return bool(a) and (_is_staff(a) or a == FEE_RESERVE_WALLET or a in (_admin_load().get('verified') or []))
 
 
 @app.post('/api/reputation/admin/verify')
@@ -28144,7 +28144,7 @@ async def theme_set(p: ThemePayload):
             raise HTTPException(400, 'Colors must be #RRGGBB.')
     a = primary_of(p.address)
     held = await _eco_holding_usd(a)
-    if held < THEME_MIN_USD and a not in {primary_of(w) for w in _admin_wallets()}:
+    if held < THEME_MIN_USD and not _is_staff(a):
         raise HTTPException(403, f'Custom site colors unlock at ${THEME_MIN_USD:,.0f} held across $FEE coins (you hold ${held:,.2f}).')
     d = _json_load(THEMES_PATH, {})
     d[a] = {'accent': p.accent, 'accent2': p.accent2 or p.accent, 'logo': p.logo or p.accent, 'at': time.time()}
@@ -29617,7 +29617,7 @@ async def coin_profile_set(p: CoinProfileIn):
     if not _re.match(r'^[1-9A-HJ-NP-Za-km-z]{32,44}$', p.mint):
         raise HTTPException(400, 'Bad coin address.')
     creator = await resolve_creator('solana', p.mint)
-    is_admin = me in {primary_of(w) for w in _admin_wallets()}
+    is_admin = _is_staff(me)
     if not is_admin and (not creator or primary_of(creator) != me):
         raise HTTPException(403, "Only this coin's creator wallet can claim and edit its profile.")
     link = lambda v: v.strip()[:200] if v.strip().startswith('https://') else ''
@@ -29687,7 +29687,7 @@ async def pump_create_tx(p: PumpCreateIn):
         raise HTTPException(400, 'Bad address.')
     if not (0 <= p.devBuySol <= 50):
         raise HTTPException(400, 'Dev buy must be between 0 and 50 SOL.')
-    if primary_of(me) not in {primary_of(w) for w in set(_owner_wallets()) | set(_admin_wallets())}:   # owner + admins launch freely
+    if not (primary_of(me) in {primary_of(w) for w in _owner_wallets()} or _is_staff(me)):   # owner + staff (any linked wallet) launch freely
         tab = launch_meta.clean_tab(_json_load(LAUNCH_RAIL_PATH, {}).get('tab') or launch_meta.TAB_DEFAULT)
         if 'pump' not in tab['rails']:
             raise HTTPException(403, 'Pump.fun launches are switched off on FEELESS right now.')
