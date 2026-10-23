@@ -5,11 +5,12 @@
 .pgb { position: absolute; inset: -12px; z-index: -1; overflow: hidden; pointer-events: none; contain: paint; }
 .pgb-home { background: radial-gradient(70% 45% at 15% 0%, rgba(120, 140, 255, .14), transparent 60%), radial-gradient(60% 40% at 90% 10%, rgba(69, 228, 134, .12), transparent 60%), linear-gradient(180deg, #07080b, #050607 60%); }
 .pgb-feecat { background: radial-gradient(70% 50% at 50% 0%, rgba(160, 90, 255, .2), transparent 60%), radial-gradient(50% 40% at 0% 80%, rgba(60, 200, 220, .12), transparent 60%), linear-gradient(180deg, #0b0714, #060409 60%); }
-.pgb-launch { background: radial-gradient(70% 50% at 70% 0%, rgba(255, 150, 60, .2), transparent 60%), radial-gradient(50% 40% at 0% 60%, rgba(255, 80, 120, .12), transparent 60%), linear-gradient(180deg, #120a06, #070504 60%); }
+/* 🟢 Launch = the OFFICIAL logo green on near-black (owner, 2026-10-22: "better official site green than this shitty green" — the amber dusk read as mud) */
+.pgb-launch { background: radial-gradient(70% 50% at 70% 0%, rgba(21, 209, 106, .16), transparent 60%), radial-gradient(50% 40% at 0% 60%, rgba(40, 214, 196, .08), transparent 60%), linear-gradient(180deg, #03100a, #020604 60%); }
 .pgb-glow { position: absolute; width: 46vmax; height: 46vmax; border-radius: 50%; opacity: .5; animation: pgbDrift 26s ease-in-out infinite; }
 .pgb-home .pgb-glow { background: radial-gradient(closest-side, rgba(120, 150, 255, .18), transparent); } .pgb-home .pgb-glow.g2 { background: radial-gradient(closest-side, rgba(69, 228, 134, .14), transparent); }
 .pgb-feecat .pgb-glow { background: radial-gradient(closest-side, rgba(170, 100, 255, .2), transparent); } .pgb-feecat .pgb-glow.g2 { background: radial-gradient(closest-side, rgba(80, 220, 230, .14), transparent); }
-.pgb-launch .pgb-glow { background: radial-gradient(closest-side, rgba(255, 160, 70, .2), transparent); } .pgb-launch .pgb-glow.g2 { background: radial-gradient(closest-side, rgba(255, 90, 130, .14), transparent); }
+.pgb-launch .pgb-glow { background: radial-gradient(closest-side, rgba(21, 209, 106, .18), transparent); } .pgb-launch .pgb-glow.g2 { background: radial-gradient(closest-side, rgba(40, 214, 196, .12), transparent); }
 .pgb-glow.g1 { left: -10vmax; top: -16vmax; } .pgb-glow.g2 { right: -14vmax; top: 10vmax; animation-delay: -9s; animation-duration: 32s; } .pgb-glow.g3 { left: 30%; bottom: -24vmax; animation-delay: -17s; opacity: .3; }
 .pgb-floor { position: absolute; left: -20%; right: -20%; bottom: -10%; height: 46%; transform: perspective(600px) rotateX(64deg); transform-origin: bottom; opacity: .35;
   background-image: linear-gradient(rgba(255, 255, 255, .07) 1px, transparent 1px), linear-gradient(90deg, rgba(255, 255, 255, .07) 1px, transparent 1px); background-size: 56px 56px;
@@ -17,7 +18,7 @@
 .pgb-bits i { position: absolute; bottom: -10px; width: 2px; height: 70px; border-radius: 2px; opacity: 0; animation: pgbStreak 9s linear infinite; animation-delay: calc(var(--i) * -1.15s); }
 .pgb-home .pgb-bits i { background: linear-gradient(0deg, transparent, rgba(150, 170, 255, .5)); }
 .pgb-feecat .pgb-bits i { width: 3px; height: 3px; border-radius: 50%; background: #c08cff; box-shadow: 0 0 8px #c08cff; animation-name: pgbEmber; }
-.pgb-launch .pgb-bits i { width: 2px; height: 90px; background: linear-gradient(0deg, transparent, rgba(255, 170, 80, .7), #fff); animation-name: pgbRocket; }
+.pgb-launch .pgb-bits i { width: 2px; height: 90px; background: linear-gradient(0deg, transparent, rgba(69, 228, 134, .7), #fff); animation-name: pgbRocket; }
 .pgb-eyes { position: absolute; right: 8%; top: 14%; display: flex; gap: 18px; opacity: .6; }
 .pgb-eyes b { width: 16px; height: 9px; border-radius: 50%; background: radial-gradient(circle at 50% 50%, #0a0a0a 0 22%, #c4ff6b 24% 60%, transparent 62%); box-shadow: 0 0 14px #c4ff6b88; animation: pgbBlink 6s ease-in-out infinite; }
 .pgb-vignette { position: absolute; inset: 0; background: radial-gradient(120% 80% at 50% 30%, transparent 55%, rgba(0, 0, 0, .55)); }

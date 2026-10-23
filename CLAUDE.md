@@ -14,7 +14,7 @@ The owner rejected work that shipped as "dull", "non degen", "emojis sliding aro
    animation (values tick / flash / count up on change, bars fill), and an entrance (stagger via `--i`). transform/opacity only;
    pause off-screen (`lib/fxPause.js`), still under `body.fx-lite` + `prefers-reduced-motion`.
 3. **Degen meta, unique per page**: its own palette + backdrop + type (FEELESS green is home / trade; Familia = noir gold + city night;
-   FeeCat = violet night; Launch = amber dusk). Glass panels with an inner highlight, neon edges, glow on the hot number, segmented
+   FeeCat = violet night; Launch = the official logo green on near-black — owner 2026-10-22, amber dusk read as mud). Glass panels with an inner highlight, neon edges, glow on the hot number, segmented
    controls, no flat boxes-in-boxes, no bare paragraph walls — meters, rings, bars and charts instead of text.
 4. **A twist, never a copy**: when the owner names a reference ("dev/null", "Pump", "X"), take the IDEA and make a FEELESS version
    (our data, our language: germ floor, gun line, rep, rug, MP) — never a clone of the reference's UI.

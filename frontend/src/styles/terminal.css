@@ -2269,7 +2269,7 @@ body.theme-day .meta-panel{background:#ffffffee;border-color:var(--day-border);c
 .terminal-main::before{content:'';position:absolute;inset:0 0 auto 0;height:320px;pointer-events:none;z-index:0;background:radial-gradient(60% 100% at 50% 0,color-mix(in srgb,var(--page-accent) 18%,transparent),transparent 70%);opacity:.9}
 .terminal-main>*{position:relative;z-index:1}
 .page-home{--page-accent:#15d16a}.page-trade{--page-accent:#5ec8ff}.page-pump{--page-accent:#ff7ad9}.page-discover{--page-accent:#b388ff}.page-new{--page-accent:#7df9d0}.page-movers{--page-accent:#ff9f45}
-.page-launch{--page-accent:#f5c542}.page-watchlist{--page-accent:#ffd166}.page-chat{--page-accent:#39ff14}.page-alerts{--page-accent:#ff6b8b}.page-feeback{--page-accent:#15d16a}.page-fee{--page-accent:#1fb6ff}
+.page-launch{--page-accent:#15d16a}.page-watchlist{--page-accent:#ffd166}.page-chat{--page-accent:#39ff14}.page-alerts{--page-accent:#ff6b8b}.page-feeback{--page-accent:#15d16a}.page-fee{--page-accent:#1fb6ff}
 .page-feecat{--page-accent:#f5c542}.page-leaderboard{--page-accent:#f5c542}.page-learn{--page-accent:#fa708c}.page-roadmap{--page-accent:#8fe9ff}.page-whitepaper{--page-accent:#cfd8dc}.page-settings{--page-accent:#9fd3b6}
 .page-reputation{--page-accent:#7b2ff7}.page-profile{--page-accent:#5ec8ff}.page-coin{--page-accent:#f5c542}.page-legal{--page-accent:#9fd3b6}
 .terminal-main :is(.page-heading h1,.section-title h2 svg,.mp-head h2){color:var(--page-accent)}
