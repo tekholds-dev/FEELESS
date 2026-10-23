@@ -227,7 +227,6 @@ body.theme-day .globe-page .landing-copy h1,body.theme-day .globe-page .landing-
 .meta-launch-mechanics-flow i{font-style:normal;color:#6b9b78}
 .meta-launch-field>span{display:flex;justify-content:space-between;gap:8px;align-items:baseline}
 .meta-launch-field>span small{color:#5e8a6c;font-size:8px;font-weight:400}
-.meta-launch-fee-meter{display:grid;grid-template-columns:repeat(4,1fr);gap:7px;margin-top:16px;padding:10px;border:1px solid #373f3c;border-radius:5px;background:#0c0e0d}
 .meta-launch-toggle{display:flex;align-items:center;gap:10px;margin:14px 0;font-size:12px;color:var(--paper);cursor:pointer}
 .meta-launch-toggle input{width:16px;height:16px;accent-color:var(--mint)}
 .lock-launch-preview{margin-top:14px}
@@ -237,12 +236,6 @@ body.theme-day .globe-page .landing-copy h1,body.theme-day .globe-page .landing-
 .launch-eligibility.clear{border-color:#15d16a2c;background:#15d16a0b;color:var(--mint)}
 .launch-eligibility.blocked{border-color:#fa708c3a;background:#fa708c14;color:var(--rose)}
 .launch-eligibility.unknown{color:var(--muted)}
-.meta-launch-fee-meter>div{display:flex;flex-direction:column;gap:5px;padding-right:8px;border-right:1px solid #2f3734}
-.meta-launch-fee-meter>div:nth-child(3){border:0}
-.meta-launch-fee-meter span{font-size:9px;color:#7da88b}
-.meta-launch-fee-meter b{font:13px 'JetBrains Mono',monospace;color:#cde6d4}
-.meta-launch-fee-meter>strong{grid-column:1/-1;padding-top:7px;border-top:1px solid #2f3734;font:9px 'JetBrains Mono',monospace;color:var(--gold)}
-.meta-launch-fee-meter.complete>strong{color:var(--mint)}
 .meta-launch-sidebar-note{display:flex;align-items:flex-start;gap:8px;margin-top:12px;padding:12px;border:1px solid #3e4743;border-radius:5px;background:#101312;color:var(--mint)}
 .meta-launch-sidebar-note>span{display:flex;flex-direction:column;gap:4px}
 .meta-launch-sidebar-note b{font-size:10px}
@@ -1020,7 +1013,6 @@ body.theme-day .watch-row,
 body.theme-day .watch-feed-row,
 body.theme-day .launch-eligibility,
 body.theme-day .watch-dashboard-empty,
-body.theme-day .meta-launch-fee-meter{background:var(--day-surface,#f7faf7)!important;border-color:var(--day-border)!important;color:var(--day-ink)!important}
 body.theme-day .address-pill{background:#f2f7f4!important;border-color:var(--day-border)!important;color:var(--day-ink)!important}
 body.theme-day .address-pill:hover{border-color:var(--day-green)!important;color:var(--day-green)!important}
 body.theme-day .reputation-lookup-stats b,

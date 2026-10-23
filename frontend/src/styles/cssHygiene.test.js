@@ -13,7 +13,7 @@ const used = c => tokens.has(c) || dynamic.some(d => c.startsWith(d));
 
 // KB budgets. Legacy sheets: lower them when you delete CSS, never raise them. meta.css is where new UI lives, so it
 // has its own ceiling — keep presets generic so it stays small.
-const BUDGET = { 'terminal.css': 516, 'command.css': 85, 'trade.css': 6.5, 'meta.css': 68 };
+const BUDGET = { 'terminal.css': 514, 'command.css': 85, 'trade.css': 6.5, 'meta.css': 68 };
 
 test.each(fs.readdirSync(__dirname).filter(f => f.endsWith('.css')))('%s has no dead class rules', file => {
   const css = fs.readFileSync(path.join(__dirname, file), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '').replace(/url\([^)]*\)|\d+\.\d+/g, '');
