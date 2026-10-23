@@ -84,6 +84,19 @@ body.theme-day .fch-group, body.theme-day .fch-dialchips span { background: rgba
 .fcl-tape li b { font: 700 9px var(--m-mono, monospace); } .fcl-tape li small { text-align: right; color: var(--m-mute, #8fb3a0); }
 .fcl-tape li.is-buy b { color: #15d16a; } .fcl-tape li.is-sell b { color: #ff8fa3; } .fcl-tape li.is-learn b { color: #9fe3ff; }
 .fcl-tape li.is-new { animation: fclNew .9s ease-out both; }
+.fcl-tape li { align-items: center; min-height: 32px; transition: background .15s ease; } .fcl-tape li:hover { background: rgba(69, 228, 134, .07); }
+.fcl-tape li > b { display: grid; place-items: center; height: 20px; border-radius: 6px; border: 1px solid currentColor; }
+.fcl-tape li.is-buy > b { background: #15d16a; color: #04120a; border-color: transparent; box-shadow: 0 0 12px -3px #15d16a; }
+.fcl-tape li.is-sell > b { background: #ff8fa3; color: #1a0508; border-color: transparent; box-shadow: 0 0 12px -3px #ff8fa3; }
+.fcl-chips { display: flex; flex-wrap: wrap; gap: 5px; min-width: 0; }
+.fcl-chips i { font: 600 10.5px var(--m-mono, monospace); font-style: normal; padding: 2px 7px; border-radius: 999px; border: 1px solid rgba(69, 228, 134, .18); color: var(--m-text, #e6f4ec); background: rgba(4, 12, 8, .5); }
+.fcl-chips .fcl-coin { font-weight: 800; border-color: rgba(69, 228, 134, .4); }
+.fcl-chips .is-up { color: #45e486; border-color: rgba(69, 228, 134, .5); text-shadow: 0 0 8px rgba(69, 228, 134, .55); }
+.fcl-chips .is-dn { color: #ff8fa3; border-color: rgba(255, 143, 163, .45); }
+.fcl-chips .fcl-pnl { font-weight: 800; }
+.fcl-chips .fcl-ai { color: #e6dbff; border-color: rgba(180, 140, 255, .55); background: linear-gradient(90deg, rgba(180, 140, 255, .28), rgba(90, 209, 255, .16)); box-shadow: 0 0 10px -4px #b48cff; }
+.fcl-chips .fcl-tag { color: var(--gold, #e8c46a); border-color: rgba(232, 196, 106, .4); }
+body.theme-day .fcl-chips i { background: #fff; color: #10301f; } body.theme-day .fcl-chips .fcl-ai { color: #3b1d86; background: #efe7ff; }
 .fcl-rec { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; } .fcl-rec span { display: grid; } .fcl-rec small { font-size: 10px; color: var(--m-mute, #8fb3a0); }
 .fcl-les { list-style: none; margin: 6px 0; padding: 0; display: grid; gap: 6px; max-height: 220px; overflow-y: auto; scrollbar-width: thin; }
 .fcl-les li { display: grid; gap: 2px; font-size: 11px; } .fcl-les b { font-size: 10px; color: #9fe3ff; }

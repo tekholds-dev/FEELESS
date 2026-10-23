@@ -30,7 +30,7 @@ FAST_OPEN, FAST_NEXT = 3, 5
 ASK_FAST = (
     "You are NEXA SICARIO, FeeCat's analyst. FeeCat trades PAPER. Each line is a coin: O# = her open trades, N# = coins she may buy "
     "(cap $, age min, 5m %, buyers, pool $, top10 %, germ). Answer ONE JSON line and nothing else: "
-    '{"exit":["O#"],"avoid":["N#"],"favor":["N#"],"why":"under 12 words, numbers"}. '
+    '{"exit":["O#"],"avoid":["N#"],"favor":["N#"],"why":"<the numbers that decided it, max 12 words>"}. '
     "exit = bank an open trade now. avoid = she should not buy it. favor = the best next coin. Use only the lines given. Empty lists are fine."
 )
 
@@ -151,6 +151,16 @@ def fast_lines(open_, next_):
     return '\n'.join(rows) or 'no coins', ids
 
 
+_ECHO = re.compile(r'under 12 words|max 12 words|the numbers that decided|^numbers?$|^<.*>$|^why$', re.I)
+
+
+def real_why(w):
+    """🧽 Her small model echoes the prompt's placeholder ("under 12 words, numbers" landed on every FeeCat receipt, 2026-10-23) → ''.
+    A real reason passes untouched. Pure (tests)."""
+    w = ' '.join(str(w or '').split())[:NOTE_LEN]
+    return '' if _ECHO.search(w) else w
+
+
 def parse_fast(text, ids):
     """The fast answer → the same shape as parse() (tune / lesson / discovery empty), tags mapped back to pairAddresses; None = no JSON."""
     d = first_json(text)
@@ -166,7 +176,7 @@ def parse_fast(text, ids):
                 out.add(ids[t])
         return sorted(out)[:6]
     return {'avoid': pick('avoid', 'N'), 'exit': pick('exit', 'O'), 'favor': pick('favor', 'N'), 'tune': {}, 'lesson': '', 'discovery': '',
-            'why': ' '.join(str(d.get('why') or '').split())[:NOTE_LEN]}
+            'why': real_why(d.get('why'))}
 
 
 def parse(text, pairs, rules, bounds):
@@ -181,7 +191,7 @@ def parse(text, pairs, rules, bounds):
     if disc and not re.search(r'https?://', disc):
         disc = ''   # a discovery must carry its source
     return {'avoid': pick('avoid'), 'exit': pick('exit'), 'favor': pick('favor'), 'tune': clamp_tune(d.get('tune') if isinstance(d.get('tune'), dict) else {}, rules, bounds),
-            'lesson': clean('lesson'), 'discovery': disc, 'why': clean('why')}
+            'lesson': clean('lesson'), 'discovery': disc, 'why': real_why(d.get('why'))}
 
 
 def remember(mem, kind, text, now):

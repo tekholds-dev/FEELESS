@@ -52,7 +52,7 @@ function Pane({ list, idx, setIdx, pins }) {
       <PriceChart key={t.pair} pair={pair} interval="1m" metric="marketCap" showVolume={false} userEntry={t.entry || null} wallets={false} callouts={calls} />
     </React.Suspense></div>
     <p className="fcl-read" data-testid="fcl-read">{readWords(t).map(w => <span key={w}>{w}</span>)}{!readWords(t).length ? <span>no chart read yet — her own lanes decided</span> : null}</p>
-    {t.why ? <small className="fcl-why">{String(t.why).slice(0, 200)}</small> : null}
+    {t.why ? <small className="fcl-why" data-tip={String(t.why)}>{/FeeCat AI|NEXA/i.test(t.why) ? '🔮 FeeCat AI call · ' : ''}{String(t.why).split(/[;·]/)[0].replace(/🔮 FeeCat AI|🪟 ?NEXA/g, '').trim().slice(0, 60)}</small> : null}
   </div>;
 }
 
@@ -64,11 +64,35 @@ export function FeeCharts({ d }) {
   </article>;
 }
 
+// ⚡ One event → a row of chips, never a sentence wall (owner, 2026-10-23: "no long text, more vital live visuals"): coin · SOL · move % ·
+// P&L · 🔮 when FeeCat AI made the call · a short tag. The whole sentence stays on hover (data-tip).
+export function tapeRow(e) {
+  const t = String(e?.detail || '').split('\n')[0];
+  const coin = (t.match(/\$([A-Za-z0-9]{1,12})\b/) || t.match(/(?:of|Sold|winner|on)\s+\$?([A-Za-z0-9]{2,12})\b/) || [])[1] || null;
+  const sol = (t.match(/(\d+(?:\.\d+)?)\s*SOL/) || [])[1];
+  const move = (t.match(/at\s+([+-]\d+(?:\.\d+)?)%/) || [])[1];
+  const ai = /FeeCat AI|AI desk|NEXA/i.test(t);
+  const tag = /took profit/i.test(t) ? 'TP' : /Added/.test(t) ? 'ADD' : /stop|thesis broken|dumping/i.test(t) ? 'STOP' : /half size/.test(t) ? '½ SIZE'
+    : e?.type === 'LEARN' ? (t.split(/[:—(]/)[0].trim().slice(0, 28) || 'LEARN') : null;
+  return { coin, sol: sol != null ? +sol : null, move: move != null ? +move : null, pnl: e?.pnlSol ?? null, ai, tag, full: t };
+}
+
+function TapeChips({ r }) {
+  return <span className="fcl-chips" data-tip={r.full}>
+    {r.coin ? <i className="fcl-coin">${r.coin}</i> : null}
+    {r.sol != null ? <i>{r.sol} SOL</i> : null}
+    {r.move != null ? <i className={r.move >= 0 ? 'is-up' : 'is-dn'}>{r.move > 0 ? '+' : ''}{r.move}%</i> : null}
+    {r.pnl != null ? <i className={`fcl-pnl ${r.pnl >= 0 ? 'is-up' : 'is-dn'}`}>{r.pnl >= 0 ? '+' : ''}{(+r.pnl).toFixed(4)} SOL</i> : null}
+    {r.ai ? <i className="fcl-ai">🔮 FeeCat AI</i> : null}
+    {r.tag ? <i className="fcl-tag">{r.tag}</i> : null}
+  </span>;
+}
+
 export function FeeTape({ events }) {
   const ev = events || [];
   return <article className="fch-card fch-wide fcl-tape" data-testid="fcl-tape"><h4>⚡ LIVE ACTIVITY<small>{ev.length ? `newest ${agoS(ev[0].ts)} ago` : 'quiet'}</small></h4>
     {ev.length ? <ol>{ev.map((e, i) => <li key={e.id || i} className={`is-${String(e.type || '').toLowerCase()} ${i === 0 ? 'is-new' : ''}`}>
-      <b>{e.type}</b><span>{String(e.detail || '').split('\n')[0].slice(0, 180)}</span><small>{agoS(e.ts)}</small></li>)}</ol> : <p className="fch-nil">no moves yet on this paper trail</p>}
+      <b>{e.type}</b><TapeChips r={tapeRow(e)} /><small>{agoS(e.ts)}</small></li>)}</ol> : <p className="fch-nil">no moves yet on this paper trail</p>}
   </article>;
 }
 
