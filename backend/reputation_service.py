@@ -17356,11 +17356,36 @@ async def cats_ai():
     return out_
 
 
+_stall_seen: dict = {}   # 🩺 model key → when its stall alert last went out (one per STALL_ALERT_EVERY)
+STALL_ALERT_EVERY = 1800
+
+
+def _ai_stall_watch(now):
+    """🩺 G4 / OSSY / NEXA stall watchdog (owner night list: 'stalls — read Brain › Models live numbers first, then a stall watchdog'): a model
+    that keeps failing while FEELESS keeps asking alerts the owner once per 30 min with the evidence. It never reloads by itself."""
+    out_ = []
+    for k_ in ('lan', 'local', 'win'):
+        st_ = _mdk.stall_of(_air.ROUTER.stats.get(k_), now)
+        if not st_ or now - _stall_seen.get(k_, 0) < STALL_ALERT_EVERY:
+            continue
+        _stall_seen[k_] = now
+        nm_ = _air.model_name(os.environ, k_)
+        for w_ in _owner_wallets()[:2]:
+            notify(w_, 'shield', f"🩺 {nm_} stalled — {st_['why']}. Brain › Models › ⚡ Reload brings it back (your call).", url='/terminal/command?tab=agents',
+                   once=f"stall-{k_}-{int(now // STALL_ALERT_EVERY)}", meta={'claim': f'{nm_} keeps failing while the desk asks it', 'source': 'AI router stats'})
+        out_.append(k_)
+    return out_
+
+
 async def _ai_round(now):
     """One advisory round. Every answer is DISPLAYED (notes by coin + role, with its source); nothing it says reaches a decision."""
     env, cfg = os.environ, _ai_cfg()
     if not any(not r_['why'] and r_['enabled'] for r_ in (_air.provider(env, k_, cfg) for k_ in _air.PROVIDERS)):
         return 0
+    try:
+        _ai_stall_watch(now)   # 🩺 a stalled model alerts the owner (never auto-reloads)
+    except Exception:
+        pass
     asyncio.ensure_future(_local_lane_run(now))   # 💻 the local model's own lane (its own task: a 15–30s inference never holds this round)
     await _ai_learn_settle(now)   # 🧠 the model's earlier stances are judged against what the coin did (no model call)
     await _lab_tick(now, env, cfg)   # 🧪 the rule lab: the record re-judges every rule; at most once an hour the model proposes new ones
@@ -18100,7 +18125,7 @@ async def _model_desk_view():
         server_.update(timeout=rg_.get('timeout'), parallel=rg_.get('parallel'), perMin=rg_.get('perMin'), state=lv_.get('state'), lastOkAt=lv_.get('lastOkAt'))
         a_ = act_.get(k_)
         out_.append({'key': k_, 'name': _air.model_name(os.environ, k_), 'state': lv_.get('state'), 'model': (info_ or {}).get('name') or p_.get('model'),
-                     'info': info_, 'server': server_, 'vitals': _mdk.vitals(log_, _air.INFLIGHT, k_, ctx_),
+                     'info': info_, 'server': server_, 'vitals': _mdk.vitals(log_, _air.INFLIGHT, k_, ctx_), 'stall': _mdk.stall_of(_air.ROUTER.stats.get(k_), time.time()),
                      'inference': {'infer': rg_.get('infer') or {}, 'desk': {'temp': 0.1, 'maxTok': _air.MAX_TOKENS},
                                    'runtime': (info_ or {}).get('defaults') if k_ == 'win' else None,
                                    'reasoning': (info_ or {}).get('reasoning') if k_ != 'win' else None,

@@ -66,3 +66,27 @@ def test_mcp_view_and_the_endpoint(monkeypatch):
     g4, nexa = v['models'][0], v['models'][2]
     assert g4['info']['arch'] == 'gpt_oss' and g4['server']['endpoint'] == 'http://10.0.0.249:1236' and g4['server']['ok'] and g4['inference']['desk']['temp'] == 0.1
     assert nexa['info']['ctxPerSlot'] == 2048 and nexa['inference']['runtime']['top_k'] == 40.0 and nexa['server']['busy'] == 1
+
+
+def test_the_stall_watchdog_only_flags_a_model_that_keeps_failing_while_asked(monkeypatch):
+    import model_desk as md
+    now = 10_000.0
+    stalled = {'state': 'OFFLINE', 'streak': 4, 'timeouts': 4, 'lastOkAt': now - 1500, 'lastAt': now - 30, 'lastErr': 'timed out'}
+    st = md.stall_of(stalled, now)
+    assert st['streak'] == 4 and st['sinceOk'] == 1500 and st['why'].startswith('4 timeouts in a row, last good answer 25m ago')
+    assert md.stall_of({**stalled, 'state': 'ONLINE'}, now) is None                         # answering again
+    assert md.stall_of({**stalled, 'streak': 2}, now) is None                               # a blip, not a stall
+    assert md.stall_of({**stalled, 'lastOkAt': now - 120}, now) is None                     # a good answer 2 min ago
+    assert md.stall_of({**stalled, 'lastAt': now - 3600}, now) is None                      # nobody is asking it any more
+    assert md.stall_of({**stalled, 'lastOkAt': None}, now)['why'].endswith('no good answer yet (timed out)')
+    import reputation_service as rs
+    sent = []
+    monkeypatch.setattr(rs, 'notify', lambda *a, **k: sent.append((a, k)))
+    monkeypatch.setattr(rs, '_owner_wallets', lambda: ['OWNER'])
+    monkeypatch.setattr(rs._air.ROUTER, 'stats', {'lan': stalled, 'local': {'state': 'ONLINE'}, 'win': {}})
+    rs._stall_seen.clear()
+    assert rs._ai_stall_watch(now) == ['lan'] and 'stalled' in sent[0][0][2] and 'your call' in sent[0][0][2]
+    assert rs._ai_stall_watch(now + 60) == [] and len(sent) == 1                             # once per 30 min
+    src = open(rs._air.__file__).read()
+    assert 'Never called by a timer' in src                                                 # the watchdog alerts; the reload stays the owner's
+    rs._stall_seen.clear()

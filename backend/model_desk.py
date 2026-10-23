@@ -39,6 +39,25 @@ def vitals(log, inflight, key, ctx=None):
             'lastErr': (bad[-1].get('err') if bad else None), 'mindset': next((r.get('mindset') for r in reversed(rows) if r.get('mindset')), None)}
 
 
+STALL_STREAK, STALL_QUIET, STALL_RECENT = 3, 600, 900   # 🩺 3+ failures in a row · no good answer for 10 min · still being asked in the last 15 min
+
+
+def stall_of(stats, now):
+    """🩺 A model is STALLED when it keeps failing while FEELESS keeps asking: its router state is down, STALL_STREAK+ failures in a row, no
+    good answer for STALL_QUIET s (or never), and a call in the last STALL_RECENT s. → {streak, timeouts, sinceOk, why} or None. Detection only:
+    the reload stays the owner's tap (Brain › Models › ⚡ Reload — ai_router.reload_model is never called by a timer)."""
+    s = stats or {}
+    if s.get('state') not in ('OFFLINE', 'BAD ANSWER') or int(s.get('streak') or 0) < STALL_STREAK:
+        return None
+    ok_at, last_at = _f(s.get('lastOkAt')), _f(s.get('lastAt'))
+    if not last_at or now - last_at > STALL_RECENT or (ok_at and now - ok_at < STALL_QUIET):
+        return None
+    since = int(now - ok_at) if ok_at else None
+    why = f"{int(s['streak'])} {'timeouts' if int(s.get('timeouts') or 0) >= int(s['streak']) else 'failures'} in a row, " + \
+          (f"last good answer {since // 60}m ago" if since is not None else 'no good answer yet') + (f" ({s.get('lastErr')})" if s.get('lastErr') else '')
+    return {'streak': int(s['streak']), 'timeouts': int(s.get('timeouts') or 0), 'sinceOk': since, 'why': why[:160]}
+
+
 def lms_info(m):
     """LM Studio's own model row (`GET /api/v1/models`, the loaded one) → the INFO tab."""
     if not isinstance(m, dict):

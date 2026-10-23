@@ -38,3 +38,15 @@ test('🧠 vitals for every model, then the picked one: info · load · inferenc
   await act(async () => { q('mdk-tab-infer').click(); }); expect(q('mdk-knob-topK').textContent).toContain('40 · runtime');
   act(() => root.unmount());
 });
+
+test('🩺 a stalled model wears the watchdog flag with its evidence (the reload stays your tap)', async () => {
+  const d = desk(); d.models[0] = { ...d.models[0], stall: { streak: 4, timeouts: 4, sinceOk: 1500, why: '4 timeouts in a row, last good answer 25m ago' } };
+  const call = jest.fn(async () => d);
+  const el = document.createElement('div'); document.body.appendChild(el); const root = createRoot(el);
+  await act(async () => { root.render(<ModelDesk call={call} />); }); await act(async () => { await Promise.resolve(); });
+  const k = d.models[0].key;
+  expect(el.querySelector(`[data-testid="mdk-stall-${k}"]`).textContent).toContain('STALLED · 4 timeouts in a row');
+  expect(el.querySelector(`[data-testid="mdk-vc-${k}"]`).className).toContain('is-stalled');
+  expect(el.querySelectorAll('.mdk-stall')).toHaveLength(1);
+  await act(async () => { root.unmount(); });
+});

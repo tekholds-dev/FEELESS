@@ -41,7 +41,7 @@ function Bar({ v, max, label, word, tip }) {
 
 function VitalCard({ m, on, onPick, i }) {
   const v = m.vitals || {}; const live = String(m.state || '').toUpperCase() === 'ONLINE';
-  return <button type="button" className={`mdk-vc k-${m.key}${on ? ' is-on' : ''}`} style={{ '--i': i }} onClick={onPick} aria-pressed={on} data-testid={`mdk-vc-${m.key}`}
+  return <button type="button" className={`mdk-vc k-${m.key}${on ? ' is-on' : ''}${m.stall ? ' is-stalled' : ''}`} style={{ '--i': i }} onClick={onPick} aria-pressed={on} data-testid={`mdk-vc-${m.key}`}
     data-tip={`${m.name}: tap to open its INFO · LOAD · INFERENCE · SERVER · MCP`}>
     <span className="mdk-vh">{AV[m.key] ? <img src={AV[m.key]} alt="" /> : <i className="mdk-av" aria-hidden="true">N</i>}<b>{m.name}</b><i className={`mdk-dot ${live ? 'is-on' : ''}`} />
       <small>{String(m.model || '—').split('/').pop()}</small>{v.queue ? <u className="mdk-q" data-tip="Calls in flight right now">{v.queue} thinking</u> : null}</span>
@@ -53,6 +53,7 @@ function VitalCard({ m, on, onPick, i }) {
       </span></span>
     <span className="mdk-vf"><small>{v.calls || 0} calls · last answer {ago(v.lastOkAt)} ago</small>{v.errors ? <u className="mdk-err" data-tip={v.lastErr || ''}>✕ {v.errors}</u> : null}
       {v.mindset ? <u className="mdk-mind" data-tip="The 🎭 mindset its last call carried">🎭 {v.mindset}</u> : null}</span>
+    {m.stall ? <span className="mdk-stall" data-testid={`mdk-stall-${m.key}`} data-tip="The stall watchdog: it keeps failing while the desk keeps asking. It alerts you — the reload is your tap (⚡ Reload in its LOAD tab)."><i aria-hidden="true" />🩺 STALLED · {m.stall.why}</span> : null}
   </button>;
 }
 

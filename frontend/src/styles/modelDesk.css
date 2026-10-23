@@ -85,3 +85,11 @@ body.theme-day .mdk-kv dd, body.theme-day .mdk-bar b, body.theme-day .mdk-ring b
 body.theme-day .mdk-srv.is-ok b { color: #0d8a43; } body.theme-day .mdk-srv b { color: #b3263f; } body.theme-day .mdk-srv small, body.theme-day .mdk-note { color: #47524d; }
 body.theme-day .mdk-vh b, body.theme-day .mdk-ph b, body.theme-day .mdk-ctx b { filter: brightness(.6); text-shadow: none; } body.theme-day .mdk-tools b { color: #1279a8; }
 @media (max-width: 640px) { .mdk-vit { grid-template-columns: 1fr; } .mdk-knobs { grid-template-columns: 1fr; } .mdk-kv { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+/* 🩺 the stall watchdog's flag on a model card (detection only — the reload stays the owner's tap) */
+.mdk-vc.is-stalled { border-color: rgba(255, 143, 163, .6) !important; box-shadow: 0 0 18px rgba(255, 93, 115, .18); }
+.mdk-stall { display: flex; align-items: center; gap: 6px; margin-top: 4px; padding: 4px 8px; border-radius: 8px; background: rgba(255, 93, 115, .12); border: 1px solid rgba(255, 143, 163, .45);
+  font: 700 9.5px 'JetBrains Mono', monospace; color: #ffb3c0; text-align: left; }
+.mdk-stall i { flex: none; width: 7px; height: 7px; border-radius: 50%; background: #ff5d73; box-shadow: 0 0 8px #ff5d73; animation: mdkStall 1.2s ease-in-out infinite; }
+@keyframes mdkStall { 0%, 100% { opacity: .4; transform: scale(.85); } 50% { opacity: 1; transform: scale(1.15); } }
+body.fx-lite .mdk-stall i { animation: none; } @media (prefers-reduced-motion: reduce) { .mdk-stall i { animation: none; } }
+body.theme-day .mdk-stall { background: #fff0f2; color: #9a1a2e; }
