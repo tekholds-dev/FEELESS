@@ -22,7 +22,12 @@ Start of every task: `backend/.venv/bin/python scripts/cash-check.py degen 30` (
 coins atom for atom · 30 / 30 swaps match · 145 / 145 sells reconcile (realized −$1.81) · gas reserve short 0.010 SOL.
 
 Branch: everything on `main` (pushed; the owner's Mac auto-pulls). Gate + push from `.claude/worktrees/gate` (`git checkout -q --detach <sha>`,
-then `git push origin <sha>:main`; the pre-push hook runs the full gate ~5 min — run no tests beside it). No backend changes today → no restart.
+then `git push origin <sha>:main`; the pre-push hook runs the full gate ~5 min — run no tests beside it).
+🚨 RPC: Helius + Alchemy were both OUT OF QUOTA (2026-10-23 evening). The browser relay `/api/reputation/rpc` now falls through the pool on a 429
+(`_relay_spent`, test `test_rpc_relay_fallback.py`) — reputation_service restarted via the keep-alive watcher (PID 55631, Claude's tree) →
+1 copy, relay answering. G4 / NEXA LAN status was NOT re-checked after this restart. The owner still has to top up / add a keyed RPC.
+🔌 In-place LP: `lib/lpBuilder.js` (Meteora DAMM v2 join, simulated clean on mainnet for a real holder — script pattern in the history line) +
+`lib/hotPools.js` (guarded feed from Meteora's data API) → MOON desk › 🔥 HOT POOLS · JOIN HERE.
 
 ### Where today's work lives (frontend only; grep the history for "2026-10-23 evening")
 - 🌆 Fee City METRO: `lib/cityPlan.js` (`METRO`, `KEYS`, `feePlan(v, mk, pools)`, `moneyShare` = 81 %) · `lib/cityEngine.js` (merged neon trims,

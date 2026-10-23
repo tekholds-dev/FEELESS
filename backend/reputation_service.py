@@ -58,7 +58,7 @@ STORE_PATH = DATA_DIR / 'reputation.json'
 import loop_lag as _loop_lag
 import chain_rpc as _chain
 import hq_auth as _hq_auth
-from chain_rpc import quota_state as _rpc_quota_state, RPC_POOL, _alchemy, _dedicated, _rpc_cooldown_until, _next_rpc_endpoint, _rpc, broadcast as _rpc_broadcast, rpc_priority as _krpc  # noqa: F401
+from chain_rpc import quota_state as _rpc_quota_state, RPC_POOL, KEEPER_PUBLIC as _KEEPER_PUBLIC, _alchemy, _dedicated, _rpc_cooldown_until, _next_rpc_endpoint, _rpc, broadcast as _rpc_broadcast, rpc_priority as _krpc  # noqa: F401
 
 RUG_LIQUIDITY_DROP_PCT = 80          # % drop from peak liquidity counted as a rug signal
 RUG_MIN_AGE_SECONDS = 60 * 30        # token must have existed >=30min to be eligible to be flagged
@@ -29920,6 +29920,17 @@ RPC_ALLOW = {'getAccountInfo', 'getMultipleAccounts', 'getLatestBlockhash', 'get
 _rpc_hits: dict = {}
 
 
+def _relay_spent(r) -> bool:
+    """An RPC answer that means 'this endpoint is out of quota / rate-limited' (HTTP 429, or a JSON-RPC error with code 429)."""
+    if r.status_code == 429:
+        return True
+    try:
+        b = r.json()
+    except Exception:
+        return False
+    return any(isinstance(x, dict) and isinstance(x.get('error'), dict) and x['error'].get('code') in (429, -32429) for x in (b if isinstance(b, list) else [b]))
+
+
 @app.post('/api/reputation/rpc')
 async def rpc_relay(request: Request):
     ip = request.client.host if request.client else '?'
@@ -29934,6 +29945,17 @@ async def rpc_relay(request: Request):
     endpoint = _dedicated or _next_rpc_endpoint()
     async with httpx.AsyncClient(timeout=20) as http:
         r = await http.post(endpoint, json=body)
+        # 🚑 2026-10-23: the dedicated key ran out of monthly quota and EVERY wallet action (swaps, Jupiter Lend, LP joins, launches) died with it.
+        # A spent / rate-limited answer now falls through the other keyed lanes, then the public nodes — the keeper's own public node last.
+        if _relay_spent(r):
+            for alt in [e for e in RPC_POOL if e not in (endpoint, _KEEPER_PUBLIC)] + [_KEEPER_PUBLIC]:
+                try:
+                    r2 = await http.post(alt, json=body)
+                except Exception:
+                    continue
+                if not _relay_spent(r2):
+                    r = r2
+                    break
     from fastapi.responses import Response
     return Response(r.content, status_code=r.status_code, media_type='application/json')
 

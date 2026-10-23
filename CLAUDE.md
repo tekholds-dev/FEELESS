@@ -166,10 +166,10 @@ STANDING RULES (never "done"):
   hottest fee pools) with the risk named — SAFE yields are one tap away, never the headline. "Think big, not the same utilities."
 
 P0 — MAKE THE MONEY MOVE IN PLACE (owner 2026-10-23: "I tightened a v3 pool with $100 and made $120 — no redirects"), hardest → easiest
-1. 🔌 IN-PLACE LP: open a TIGHT-RANGE position from the MOON desk — Meteora DAMM v2 first (`@meteora-ag/cp-amm-sdk` is installed; pattern =
-   `lib/poolBuilder.js`: build in the browser → simulate → wallet signs), then Raydium CLMM + Orca Whirlpool (SDK) + Meteora DLMM, a one-SOL
-   zap (Jupiter swap half → deposit), positions as buildings that light up while IN RANGE, re-center / close / claim fees in place. Verify
-   every builder by SIMULATING against mainnet for a real wallet (no send) before it ships (DECISIONS #5 spirit).
+1. 🔌 IN-PLACE LP — DAMM v2 JOIN SHIPPED 2026-10-23 (`lib/lpBuilder.js` + `lib/hotPools.js`, MOON desk › 🔥 HOT POOLS; simulated clean on mainnet
+   for a real holder: PANGEA-SOL, err null). NEXT: your positions (`getAllPositionNftAccountByOwner`) as live buildings with fees earned ·
+   claim / remove / close in place · a one-tap zap (swap half → join in one flow) · Raydium CLMM + Orca Whirlpool + Meteora DLMM TIGHT ranges
+   (install their SDKs; simulate each against mainnet for a real wallet before it ships).
 2. 📉 PERPS YOU SEE LIVE: the paper desk on the real chart (entry / liq lines, P&L ticking); REAL orders stay blocked for US users until
    counsel answers DECISIONS #1 (`docs/COUNSEL_BRIEF.md` §1) — never route them to an offshore venue.
 3. 🏝 FAMILY TOWN EXPANDS: more islands joined by bridges, pick your own lots, MOVE buildings, add little stands (kiosks / food stalls / signs),
@@ -181,6 +181,9 @@ P0 — MAKE THE MONEY MOVE IN PLACE (owner 2026-10-23: "I tightened a v3 pool wi
 6. ⚡ SCALE FOR THOUSANDS: measure the metro's fps (trims merged + a car budget shipped 2026-10-23, unmeasured) · instancing / LOD · load tests.
 7. 🏙 CITY LEFTOVERS: outer cities' real-money markets · HELD + FEELESS-launched coins as buildings · raids played in-city · MP-only buildings ·
    $ / MP ladders · MOBhouse customization · a 3D for-sale island.
+0. 🚨 RPC QUOTA: Helius ("max usage reached") AND Alchemy ("Monthly capacity limit exceeded") were both out on 2026-10-23 evening — every
+   wallet-signed action through `/api/reputation/rpc` (swaps, Jupiter Lend, LP joins, launches) and maybe the keeper depend on them. Owner: top up
+   / upgrade one, or add a third RPC to the relay's fallback list.
 8. 🌍 A geo / KYC switch per feature (today there is none — COUNSEL_BRIEF §0) so a feature counsel restricts can be closed to US users.
 
 P1 — AGENTS + AI

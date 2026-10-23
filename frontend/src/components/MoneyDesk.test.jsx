@@ -8,6 +8,8 @@ import { PLACES } from '../lib/cityPlan';
 global.IS_REACT_ACT_ENVIRONMENT = true;
 jest.mock('./FamiliaTrade', () => ({ familiaDocked: () => true, familiaSwap: jest.fn(), familiaTrade: jest.fn() }));
 jest.mock('../lib/sharedJson', () => ({ sharedJson: () => new Promise(() => {}), _resetShared: () => {} }));   // no network: rows come in as props
+jest.mock('../lib/hotPools', () => ({ useHotPools: () => [{ id: 'H1', pool: 'H1', sym: 'PANGEA-SOL', coin: 'C1', coinSym: 'PANGEA', tvl: 115000, feeDay: 0.06, apy: 2190, ageH: 40, holders: 1962 }] }));
+jest.mock('../lib/lpBuilder', () => ({ dammQuote: jest.fn(), dammJoin: jest.fn() }));
 const { familiaSwap } = require('./FamiliaTrade');
 
 const ROWS = [
@@ -76,6 +78,8 @@ test('🚀 MOON by default where money can move fast: the best desk leads with t
   const el = document.createElement('div'); document.body.appendChild(el); const root = createRoot(el); const q = id => el.querySelector(`[data-testid="${id}"]`);
   await act(async () => { root.render(<MoneyDesk job="best" rows={[...ROWS, ...v3]} />); });
   expect(q('md-risk-moon').getAttribute('aria-checked')).toBe('true'); expect(q('md-moon').textContent).toContain('WXRP-USDC'); expect(q('md-go')).toBeNull();   // no safe clutter in MOON
+  expect(q('md-hot').textContent).toContain('PANGEA-SOL'); expect(q('md-hot').textContent).toContain('6.0%/day'); expect(q('md-hot').textContent).toContain('+$0.200');   // $10 × 6 % ÷ 3 overnight
+  await act(async () => { q('md-hot-join-H1').click(); }); expect(q('md-join-H1')).not.toBeNull(); expect(q('md-join-H1').querySelectorAll('a[href^="http"]')).toHaveLength(0);
   await act(async () => { q('md-risk-degen').click(); }); expect(q('md-hunters').textContent).toContain('X');
   await act(async () => { q('md-risk-safe').click(); }); expect(q('md-go')).not.toBeNull();
   act(() => root.unmount()); el.remove();

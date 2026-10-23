@@ -3,6 +3,10 @@ import { usd, apyTxt } from '../lib/cityPlan';
 import { familiaDocked, familiaSwap } from './FamiliaTrade';
 import { LendBox, goTrade, tradeOf, usePools, ilRange, rangeFactor } from './PoolHub';
 import { cash } from '../lib/earnStake';
+import { useHotPools } from '../lib/hotPools';
+import { dammQuote, dammJoin } from '../lib/lpBuilder';
+import { useWallet } from '../hooks/useWallet';
+import { useSolPrice } from '../lib/solPrice';
 import '../styles/moneyDesk.css';
 
 // 💸 THE MONEY DESK — every money building's pop-out DOES the money in place (owner, 2026-10-23: "no redirects — click to choose the platform /
@@ -96,6 +100,47 @@ function FeeHunters({ rows, amt, moon = false }) {
   </div>;
 }
 
+// 🔌 JOIN IN PLACE (owner: "I tightened a v3 pool with $100 and made $120 — no redirects"): half your amount in SOL, half in the coin, into a hot
+// Meteora pool — quote → (get the coin with an in-place swap if the wallet lacks it) → the deposit is built in the browser, SIMULATED, then your
+// wallet signs. The position is an NFT in your wallet; its fees grow with every trade in the pool.
+function JoinBox({ row, amt, onClose }) {
+  const { wallet, provider, connect } = useWallet() || {}; const solUsd = useSolPrice(); const sol = wallet?.chain === 'solana' && wallet?.address;
+  const [q, setQ] = useState(null); const [st, setSt] = useState(''); const [busy, setBusy] = useState(false); const [done, setDone] = useState(null); const [err, setErr] = useState(''); const [swap, setSwap] = useState(null);
+  const solIn = solUsd ? amt / 2 / solUsd : null;
+  const quote = async () => { if (!sol) { await connect?.('solana'); return; } if (!solIn) return; setBusy(true); setErr(''); setSt('Reading the pool…');
+    try { setQ(await dammQuote({ pool: row.pool, solAmount: solIn, owner: wallet.address })); } catch (e) { setErr(e.message); } setSt(''); setBusy(false); };
+  const getCoin = () => { const s2 = { from: SOL, to: row.coin, amount: solIn ? solIn.toFixed(4) : undefined };
+    if (familiaDocked()) { familiaSwap(s2); return; }
+    try { sessionStorage.setItem('feeless.swap.pair', JSON.stringify({ input: s2.from, output: s2.to, amount: s2.amount })); } catch { /* storage blocked */ } setSwap(`s${Date.now()}`); };
+  const join = async () => { setBusy(true); setErr(''); try { setDone(await dammJoin({ provider, owner: wallet.address, quote: q, onStatus: setSt })); setQ(null); } catch (e) { setErr(e.message); } setSt(''); setBusy(false); };
+  return <div className="md-join" data-testid={`md-join-${row.id}`}>
+    <div className="md-join-head"><b>＋ JOIN {row.sym}</b><small>{cash(amt / 2)} in SOL + {cash(amt / 2)} in ${row.coinSym} · your wallet signs</small><button type="button" className="md-x" onClick={onClose} aria-label="Close" data-tip="Close">✕</button></div>
+    {done ? <p className="md-join-ok" data-testid="md-join-ok">✅ You're in the pool — position <b>{done.position.slice(0, 6)}…</b> earns {(row.feeDay * 100).toFixed(1)}%/day at today's pace · tx {done.signature.slice(0, 8)}…</p>
+      : !q ? <button type="button" className="m-btn m-go" disabled={busy || (sol && !solIn)} onClick={quote} data-testid="md-join-quote" data-tip="Reads the pool and what your amount needs of each side">{sol ? (solIn ? `Quote ${cash(amt)} into the pool` : 'Reading the SOL price…') : 'Connect wallet'}</button>
+      : <div className="md-join-q">
+        <span><em>YOU PUT IN</em><b className="m-num">{(Number(q.lamports) / 1e9).toFixed(4)} SOL</b><b className="m-num">{q.coinUi.toLocaleString('en-US', { maximumFractionDigits: 2 })} ${row.coinSym}</b></span>
+        {q.short ? <button type="button" className="m-btn" onClick={getCoin} data-testid="md-join-getcoin" data-tip={`You hold less ${row.coinSym} than the pool needs — swap ${solIn ? solIn.toFixed(4) : ''} SOL into it here, then join`}>⚡ Get ${row.coinSym} first</button> : null}
+        <button type="button" className="m-btn m-go" disabled={busy || q.short} onClick={join} data-testid="md-join-sign" data-tip="Built with Meteora's SDK, simulated first — nothing is signed if the chain would reject it">✍ Join the pool</button></div>}
+    {swap ? <div className="md-swap"><Suspense fallback={<p className="md-empty">Opening the swap…</p>}><SwapWorkspace key={swap} pair={null} onWallet={() => {}} /></Suspense></div> : null}
+    {st ? <p className="md-empty" aria-live="polite">{st}</p> : null}{err ? <p className="md-join-err" role="alert">{err}</p> : null}
+    <small className="md-risk">A position also locks a little SOL as rent (back when you close it). If ${row.coinSym} dumps, you end up holding more of it — that's the risk the fees pay you for.</small>
+  </div>;
+}
+function HotPools({ amt }) {
+  const rows = useHotPools(); const [open, setOpen] = useState(null);
+  if (!rows) return <p className="md-empty">Reading Meteora's hottest pools…</p>; if (!rows.length) return null;
+  return <div className="md-hunt md-hot" data-testid="md-hot"><div className="md-hunt-head"><span><b>🔥 HOT POOLS · JOIN HERE</b><small>Meteora SOL pools paying LPs the most right now · ≥ $20K deep · ≥ 6 h old · ≥ 300 holders</small></span></div>
+    <ol>{rows.slice(0, 5).map((r, i) => { const day = amt * r.feeDay;
+      return <li key={r.id} style={{ '--i': i, '--g': Math.min(1, r.feeDay / 0.1) }}>
+        <span className="md-hunt-id"><b>{r.sym}</b><small>{Math.round(r.ageH)}h old · {r.holders.toLocaleString('en-US')} holders · {usd(r.tvl)} deep</small></span>
+        <span className="md-hunt-apy" data-tip={`LPs kept ${(r.feeDay * 100).toFixed(2)}% of the pool in fees over 24h (≈ ${Math.round(r.apy).toLocaleString('en-US')}% a year at that pace)`}><i aria-hidden="true"><s /></i><strong className="m-num">{(r.feeDay * 100).toFixed(1)}%/day</strong></span>
+        <span className="md-hunt-n"><em>OVERNIGHT</em><b className="m-num">+{cash(day / 3)}</b><small>{cash(day)} / day</small></span>
+        <button type="button" className={`m-btn m-go ${open === r.id ? 'active' : ''}`} aria-expanded={open === r.id} onClick={() => setOpen(x => (x === r.id ? null : r.id))} data-tip={`Join ${r.sym} with ${cash(amt)} right here`} data-testid={`md-hot-join-${r.id}`}>＋</button>
+        {open === r.id ? <JoinBox row={r} amt={amt} onClose={() => setOpen(null)} /> : null}</li>; })}</ol>
+    <small className="md-risk">⚠ 24h fee pace, not a promise — hot pools cool fast and memecoins can halve in an hour. No risk, no reward: size it like you can lose it.</small>
+  </div>;
+}
+
 // pure: the money math — daily compounding + an optional monthly top-up; `pts` = 13 monthly points for the curve
 export function growth(amt, apy, add = 0, months = 12) {
   const r = Math.max(0, Number(apy) || 0) / 100; const d = r / 365; let v = Number(amt) || 0; let paid = v; const pts = [v];
@@ -167,6 +212,7 @@ export function MoneyDesk({ job: job0 = 'lend', rows = null, focus: focus0 = nul
     <div className="md-amt"><span className="m-seg" role="radiogroup" aria-label="Amount">{AMOUNTS.map(a => <button key={a} type="button" role="radio" aria-checked={amt === a} className={amt === a ? 'active' : ''} onClick={() => setAmt(a)} data-tip={`Run the numbers at $${a.toLocaleString('en-US')}`} data-testid={`md-amt-${a}`}>${a >= 1000 ? `${a / 1000}K` : a}</button>)}</span>
       <label className="md-own"><em>$</em><input className="m-input" inputMode="decimal" value={amt} onChange={e => setAmt(Math.max(0, Number(e.target.value.replace(/[^\d.]/g, '')) || 0))} aria-label="Your amount in dollars" data-testid="md-amt" /></label>
       {risk === 'safe' ? <span className="m-seg md-add" role="radiogroup" aria-label="Add every month">{ADDS.map(a => <button key={a} type="button" role="radio" aria-checked={add === a} className={add === a ? 'active' : ''} onClick={() => setAdd(a)} data-tip={a ? `Add $${a} every month — compounding on top` : 'No top-ups'} data-testid={`md-add-${a}`}>{a ? `+$${a}/mo` : 'once'}</button>)}</span> : null}</div>
+    {risk !== 'safe' ? <HotPools amt={amt} /> : null}
     {risk !== 'safe' ? <FeeHunters rows={all} amt={amt} moon={risk === 'moon'} /> : null}
     {risk === 'safe' ? <>
     {provs.length ? <div className="md-prov" role="radiogroup" aria-label="Provider">{provs.map((x, i) => <button key={x.id} type="button" role="radio" aria-checked={x === p} className={x === p ? 'is-on' : ''} style={{ '--i': i }}
