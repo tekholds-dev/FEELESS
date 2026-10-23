@@ -5,6 +5,8 @@ Seconds, not the hours fuse-audit.py takes (it re-reads every swap since the boo
   2. every coin on the book is in the wallet, atom for atom; coins the card never bought (airdrops / dust) are listed apart
   3. the last N swaps re-read from the chain: the wallet's real SOL change = the ledger's (sell proceeds / buy cost + rent, − fee);
      a sell whose route parked rent is matched to the account close that brought that rent back
+  4. P&L in $: the card's own fills replayed with the book's average-cost rule (cost = $ that reached the pool, fees apart) — every sell's
+     cost basis and realized P&L must match; the realized total + fees are printed apart (P&L never includes fees)
 
   .venv/bin/python scripts/cash-check.py [card] [N]        (default: degen, 30)
 """
@@ -44,6 +46,42 @@ def explain(row, chain_delta, closes):
         if back + LAMPORT >= -gap:
             return 'route rent', gap
     return 'GAP', gap
+
+
+def pnl_replay(rows, cent=0.011):
+    """📒 The card's filled buys / sells (oldest first) replayed per coin with the book's rule: a buy adds its pool $ + units, a sell takes
+    cost × (units sold / units held); a drained pool's WRITE-OFF books its whole cost as a loss and leaves a $0 basis (the coins, if later
+    recovered and sold, then sell at $0 cost). Only coins whose first fill is in `rows` are judged (an older basis is unknown here).
+    → {sells, ok, off: [(symbol, book cost, replayed cost)], bad: sells whose realized ≠ proceeds − cost, writeoffs, realized, fees}."""
+    basis, held, seen = {}, {}, set()
+    out = {'sells': 0, 'ok': 0, 'off': [], 'bad': 0, 'writeoffs': 0, 'realized': 0.0, 'fees': 0.0}
+    for r in rows:
+        m, units = r.get('mint'), _f(r.get('units'))
+        out['fees'] += _f(r.get('feeUsd'))
+        if r.get('side') == 'buy':
+            seen.add(m)
+            basis[m] = basis.get(m, 0.0) + _f(r.get('usd')); held[m] = held.get(m, 0.0) + units
+            continue
+        if r.get('side') == 'writeoff':
+            out['writeoffs'] += 1; out['realized'] -= _f(r.get('costUsd'))
+            if m in basis:
+                basis[m] = 0.0
+            continue
+        if r.get('side') != 'sell':
+            continue
+        out['realized'] += _f(r.get('realizedPnlUsd'))
+        if abs(_f(r.get('proceedsUsd')) - _f(r.get('costUsd')) - _f(r.get('realizedPnlUsd'))) > cent:
+            out['bad'] += 1
+        if m not in seen or held.get(m, 0) <= 0:
+            continue
+        cost = basis[m] * min(1.0, units / held[m])
+        basis[m] -= cost; held[m] = max(0.0, held[m] - units)
+        out['sells'] += 1
+        if abs(cost - _f(r.get('costUsd'))) <= max(cent, 0.01 * cost):
+            out['ok'] += 1
+        else:
+            out['off'].append((r.get('symbol'), round(_f(r.get('costUsd')), 4), round(cost, 4)))
+    return out
 
 
 def coverage(wallet_sol, book, reserve_sol):
@@ -99,6 +137,15 @@ async def main(tid='degen', n=30):
                 print(f"   {r.get('symbol'):>10} {r['side']:4} {time.strftime('%H:%M', time.localtime(_f(r.get('at'))))} chain {delta:+.9f} vs ledger {ledger_delta(r):+.9f} → {verdict} {gap:+.9f}")
             await asyncio.sleep(0.12)
         print(f"3 SWAPS  last {len(swaps)} re-read from the chain: {len(swaps) - bad} match to the lamport (route rent returned by closes) · {bad} GAP")
+    fills = sorted((r for r in recent if r.get('card') == tid and _f(r.get('at')) >= _f(book.get('since'))
+                    and ((r.get('status') == 'filled' and r.get('side') in ('buy', 'sell')) or (r.get('side') == 'writeoff' and r.get('status') == 'done'))),
+                   key=lambda r: _f(r.get('at')))
+    pr = pnl_replay(fills)
+    worst = sorted(pr['off'], key=lambda x: -abs(x[1] - x[2]))[:3]
+    off_txt = f" · {len(pr['off'])} off {worst}" if pr['off'] else ' ✔'
+    print(f"4 P&L $  {pr['sells']} sells replayed with the book's average cost: {pr['ok']} match{off_txt}"
+          f" · {pr['bad']} where realized ≠ proceeds − cost · {pr['writeoffs']} drained-pool write-offs · realized ${pr['realized']:+.4f}"
+          f" (fees ${pr['fees']:.4f} apart, never in P&L)")
 
 
 if __name__ == '__main__':

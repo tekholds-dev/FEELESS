@@ -45,11 +45,15 @@ trade inside Familia (`FamiliaTrade.jsx`; a guard test fails on any jump out) ·
 the block = real markets (`block_markets.py`) · `scripts/cash-check.py` · `scripts/mindset-probe.py`.
 
 ### Open after this session (owner's order lives in CLAUDE.md › CURRENT TASKS — these are the specifics)
-1. 🤖 AGENTS HUB (users' cats): vitals, cost, P&L, model + context, credit + refill. Real-money agents = owner custody + pricing (docs/REAL_CATS.md).
-2. ⚙ FEES in one HQ Core panel — still hard-coded: FeeCat `FEE_PER_SIDE` 1 %, `MAX_CREATOR_BPS`, `FEECAT_RATE`.
-3. 🪟 NEXA one-line desk prompts in the trench style (`nexa_desk.ASK_BUY / ASK_HOLD`).
-4. 📒 Card P&L vs fills reconcile in $ (SOL side proven by cash-check).
-5. Block readers (Meteora DLMM · marginfi · Save · PumpSwap LP) · NEXA site age + snapshot · perps in the pop-out (legal first).
+DONE since the last list: 🤖 agents hub (CatDesk + BrainPanel: credit tank, spend, owed, model fees, top-up) · ⚙ house fees in HQ › Core
+(`/admin/fees/house`: Fuse creator cap, FeeCat paper fee — pushed to feecat_service — and the MP → FEECAT rate) · 🪟 NEXA desk prompts carry the
+trench laws + each coin's curve stage · 📒 card P&L in $: `cash-check.py` step 4 replays the card's fills with the book's average cost (144 / 144
+sells match; drained-pool write-offs counted) · 👑 0c: feature gates use `_is_staff` (guard test).
+1. Block readers still unwired: Meteora DLMM (PositionV2 accounts by owner) · marginfi · Save · PumpSwap LP — verify each layout against a real
+   account before shipping (wrong range facts on real money are worse than "no reader yet").
+2. NEXA discovery: site age (RDAP / WHOIS) + page snapshot → "real tech vs same-utility clone" verdict.
+3. Perps in the pop-out / in-app orders = owner + legal first (F0.1, A, A1).
+4. G: keep hunting dead text in Familia rooms (Wars done) · Familia PWA icon / install prompt.
 
 ### ✂ Cut list (owner to OK each)
 Fake model rows in `/api/cats/brains` · family_world drag-the-pizza ERRANDS + MP build catalog · 4 ways to start services → ONE supervisor ·
