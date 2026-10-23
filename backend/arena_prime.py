@@ -2394,7 +2394,7 @@ def tick(card, prices, pools, runners, cfg, now, anchors=(), mom=None, liqs=None
     instant_loss = _f(cfg.get('instantSwapPct'))
     if instant_loss > 0 and not c.get('holdAll'):
         for l in list(c['legs']):
-            if safe_anchor(l) or l.get('frozen') or l.get('ride') or l.get('rideOrRug') or l.get('placeholder') or l.get('buying') or int(l.get('freezeRounds') or 0) > 0:
+            if safe_anchor(l) or l.get('frozen') or l.get('ride') or l.get('rideOrRug') or l.get('placeholder') or l.get('buying') or int(l.get('freezeRounds') or 0) > 0 or owner_pick(l):   # ✋ your pick: only your own stop
                 continue
             px = _f(prices.get(l['pairAddress']))
             if px <= 0 or _f(l.get('entry')) <= 0 or _f(l.get('units')) <= 0:

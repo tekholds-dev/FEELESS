@@ -183,8 +183,9 @@ P0 — OWNER 2026-10-22 LATEST-LATEST (his words: "Familia Fee City has REAL bui
 families; buildings represent realtime data"; hardest → easiest):
 0. ✋ YOUR TRADES STAY (owner: "any trade I submit on the Agent / Sicario's tab should STAY"): FIXED 2026-10-22 — the rug shield sold the
    owner's $MOON pick twice on Jupiter's ONE-SIDED depth ($13.9K vs DexScreener $29.7K); now it never judges a Jupiter reading and a hand pick
-   only WARNS unless its pool falls under a quarter (`arena_prime.owner_pick`, `RUG_PICK_LIQ`, `LIQ_SRC`). Next: audit every other engine exit
-   that can touch a hand pick (flat_leg picks=True, trench drop, agent pull) → each one a warning, the owner's own lines the only auto-sell.
+   only WARNS unless its pool falls under a quarter (`arena_prime.owner_pick`, `RUG_PICK_LIQ`, `LIQ_SRC`). AUDITED: stop / trail / early cut /
+   trench drop / rotation / lock-bank / initial-out already skip picks; instant-loss + the tape's flow exit / rug radar / climax trim now skip
+   them too (⚠ warning every 10 min, `flow.flow_exits` `mine`). The owner's own lines + the −45 % line are the only auto-sells of a hand pick.
 P. 🧠 PROMPT STUDIO for every model (owner, 2026-10-22): see each model's live CONTEXT + system prompt (G4 · OSSY · NEXA · any LM Studio /
    llama model) and 3 auto-generated prompt sets per model — ELITE (supreme persona), DEGEN TRENCH (germ floor, buyers, fresh-pump laws),
    and a PROGRESSIVE mix ("quick in, patient while in profit, rush when it runs") — one tap APPLIES to LM Studio / llama (rig reload path that

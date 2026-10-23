@@ -46,6 +46,18 @@ def test_flow_exits_take_the_coin_off_like_a_fast_stop_and_respect_riders_and_pe
     assert hits2 == [('R', 'rug', hits2[0][2])] and c2['legs'][1]['placeholder']
 
 
+def test_your_pick_stays_the_tape_only_warns():
+    # owner, 2026-10-22: "any trade I submit should STAY" — flow exit / rug radar / climax trim never sell the owner's own pick
+    legs = [{'symbol': 'P', 'mint': 'MP', 'pairAddress': 'PP', 'units': 100, 'entry': 1.0, 'real': True, 'picked': True},
+            {'symbol': 'S', 'mint': 'MS', 'pairAddress': 'PS', 'units': 100, 'entry': 1.0, 'real': True, 'picked': True, 'aiSeat': True}]
+    sell = fl.window([T(80 - i * 8, 'sell' if i % 3 else 'buy', 30 if i % 3 else 5, 1.0 - i * 0.01) for i in range(9)], NOW)
+    c, hits = fl.flow_exits({'legs': legs, 'cash': 0}, {'PP': sell, 'PS': sell}, {'MP': 0.9, 'MS': 0.9}, {'flowExit': 'normal'}, NOW)
+    assert [h[0] for h in hits] == ['S'] and not c['legs'][0].get('placeholder') and c['legs'][0]['units'] == 100   # the model seat still exits
+    assert any(e['kind'] == 'rug-warn' and e['symbol'] == 'P' and 'kept' in e['why'] for e in c['events'])
+    c2, hits2 = fl.flow_exits(c, {'PP': sell}, {'MP': 0.9}, {'flowExit': 'normal'}, NOW + 60)
+    assert hits2 == [] and sum(e['kind'] == 'rug-warn' for e in c2['events']) == 1                                   # one warning per 10 min
+
+
 def test_entry_flow_blocks_buying_into_sellers():
     w = fl.window([T(50, 'buy', 10, 1.0), T(40, 'sell', 30, 0.99), T(30, 'sell', 30, 0.98), T(20, 'buy', 5, 0.97)], NOW)
     assert fl.entry_why(w) and fl.entry_why(None) is None

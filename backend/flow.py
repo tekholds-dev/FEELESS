@@ -178,13 +178,14 @@ def flow_exits(card, flows, px_by_mint, cfg, now, sell_usd=None, intel=None):
         win = (flows or {}).get(l.get('pairAddress'))
         it = (intel or {}).get(l.get('mint')) or {}
         why, kind = None, None
+        mine = bool(l.get('picked')) and not l.get('aiSeat') and not str((l.get('bought') or {}).get('tag') or '').startswith('🤖')   # ✋ the OWNER's own pick
         if rug_on:
             why = rug_why(win, it.get('creator'), it.get('watch') or (), l.get('liqNow') or l.get('liq'))
             kind = 'rug' if why else None
         held_ok = now - float(l.get('at') or 0) >= float((cfg or {}).get('flowMinHoldMins') or 0) * 60   # 🌊 tight exits wait out the first wobble
         px_c, e_c = _f((px_by_mint or {}).get(l.get('mint'))), _f(l.get('entry'))
         if (cfg or {}).get('flowExit', 'off') != 'off' and tape_read(win) == 'climax' and px_c > 0 and e_c > 0 and (px_c / e_c - 1) * 100 >= CLIMAX_GAIN \
-                and now - _f(l.get('climaxAt')) >= CLIMAX_EVERY and not l.get('frozen'):
+                and now - _f(l.get('climaxAt')) >= CLIMAX_EVERY and not l.get('frozen') and not mine:   # your pick is never trimmed for you
             # 🏔 SELL INTO STRENGTH: buyers are still piling in but the price stopped going up — half the profit goes now, the rest rides
             units, cost = _f(l['units']), _f(l.get('costUsd')) or _f(l['units']) * e_c
             part = max(0.0, (units * px_c - cost) * CLIMAX_PART) / (units * px_c)
@@ -202,6 +203,14 @@ def flow_exits(card, flows, px_by_mint, cfg, now, sell_usd=None, intel=None):
             why = exit_why(win, leg_mode(l, mode_card))
             kind = 'flow' if why else None
         if not why:
+            continue
+        if mine:   # ✋ owner, 2026-10-22: "any trade I make should STAY" — the tape's verdict on YOUR pick is a warning (every 10 min), never a sale
+            if not l.get('flowWarnAt') or now - _f(l['flowWarnAt']) >= 600:
+                if c is None:
+                    c = {**card, 'legs': [dict(x) for x in card['legs']], 'events': list(card.get('events') or [])}
+                c['legs'][i] = {**c['legs'][i], 'flowWarnAt': now}
+                c['events'].append({'at': now, 'kind': 'rug-warn', 'symbol': l.get('symbol'), 'mint': l.get('mint'), 'flowKind': kind,
+                                    'why': f"⚠ your pick ${l.get('symbol')}: {why} — kept (your call); your own stop line still acts"})
             continue
         px = _f((px_by_mint or {}).get(l.get('mint')))
         if px <= 0:
