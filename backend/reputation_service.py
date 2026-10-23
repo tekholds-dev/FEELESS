@@ -16499,6 +16499,83 @@ import nexa_desk as _nxd   # noqa: E402  🪟🐱 NEXA trades AS FeeCat (owner s
 NEXA_PATH = DATA_DIR / 'nexa.json'
 _nexa_mem = _ms0.MemStore(lambda: NEXA_PATH, 60.0, lambda p_, d_: _json_load(p_, d_), lambda p_, o_: _json_save(p_, o_))
 NEXA_KB_PATH = DATA_DIR / 'nexa_kb.json'   # 🧠 her discovery base (nexa_kb.py: capped short facts, a few hundred KB at most)
+NEXA_SITE_MAX, NEXA_SITE_FRESH = 2, 7 * 86400   # 🌐 her site reads: ≤ 2 new coin sites per full read, each re-read at most once a week
+
+
+def _nexa_site_of(mint):
+    """The coin's own website from the launch feed's DexScreener info (first listed), or None."""
+    for p_ in _open_pairs:
+        if (p_.get('baseToken') or {}).get('address') == mint:
+            for w_ in ((p_.get('info') or {}).get('websites') or []):
+                u_ = w_.get('url') if isinstance(w_, dict) else w_
+                if u_:
+                    return str(u_)
+    return None
+
+
+async def _nexa_site_fetch(url, hops=3):
+    """🌐 GET a coin's page for her site read — a coin's URL is untrusted: https only, EVERY hop's host must resolve to public addresses only
+    (site_probe.public_ip — no loopback / LAN / metadata), redirects followed by hand (≤ 3, each re-checked), 6 s, ≤ 300 KB, HTML only."""
+    import socket as _so
+    from urllib.parse import urljoin as _uj
+    import site_probe as _sp
+    url = 'https://' + url.split('://', 1)[1] if str(url).lower().startswith('http://') else str(url)
+    for _hop in range(hops):
+        host_ = _sp.host_of(url)
+        if not host_ or not url.lower().startswith('https://'):
+            return None
+        infos_ = await asyncio.get_running_loop().getaddrinfo(host_, 443, type=_so.SOCK_STREAM)
+        if not infos_ or not all(_sp.public_ip(i_[4][0]) for i_ in infos_):
+            return None
+        async with _ai_http().stream('GET', url, timeout=6, follow_redirects=False, headers={'User-Agent': 'Mozilla/5.0 (FEELESS site check)'}) as r_:
+            if r_.status_code in (301, 302, 303, 307, 308) and r_.headers.get('location'):
+                url = _uj(url, r_.headers['location'])
+                continue
+            if r_.status_code != 200 or 'html' not in str(r_.headers.get('content-type') or '').lower():
+                return None
+            buf_ = b''
+            async for ch_ in r_.aiter_bytes():
+                buf_ += ch_
+                if len(buf_) > 300_000:
+                    break
+            return buf_.decode('utf-8', 'replace')
+    return None
+
+
+async def _nexa_rdap(domain):
+    """RDAP for a registered domain (rdap.org bootstraps to the registry) → its JSON or None."""
+    try:
+        r_ = await _ai_http().get(f'https://rdap.org/domain/{domain}', timeout=6, follow_redirects=True)
+        return r_.json() if r_.status_code == 200 else None
+    except Exception:
+        return None
+
+
+async def _nexa_sites(kb_, coins_, now):
+    """🌐 Her SITE READ (owner P0 #2): for up to NEXA_SITE_MAX coins whose site she hasn't read this week — domain age (RDAP) + a page snapshot
+    → 🧪 REAL TECH / 🎭 TEMPLATE / 🪶 THIN, filed under the coin's mint as a 'site' fact (recalled with the coin from then on)."""
+    import nexa_kb as _nkb
+    import site_probe as _sp
+    box_ = kb_.get('site') or {}
+    todo_ = []
+    for c_ in coins_:
+        m_ = c_.get('mint')
+        if not m_ or any(t_[0] == m_ for t_ in todo_) or (box_.get(m_.lower()) and now - (box_[m_.lower()].get('at') or 0) < NEXA_SITE_FRESH):
+            continue
+        u_ = _nexa_site_of(m_)
+        h_ = _sp.host_of(u_)
+        if h_ and not _sp.skip(h_):
+            todo_.append((m_, u_, h_))
+        if len(todo_) >= NEXA_SITE_MAX:
+            break
+
+    async def one(m_, u_, h_):
+        html_, rd_ = await asyncio.gather(_nexa_site_fetch(u_), _nexa_rdap(_sp.registrable(h_)), return_exceptions=True)
+        snap_ = _sp.snapshot(html_) if isinstance(html_, str) and html_ else None
+        v_ = _sp.verdict(_sp.age_days(rd_ if isinstance(rd_, dict) else None, now), snap_)
+        _nkb.put(kb_, 'site', m_, _sp.fact(h_, v_, snap_), now, 'probe')
+    await asyncio.gather(*(one(*t_) for t_ in todo_), return_exceptions=True)
+    return len(todo_)
 _nexa_kb_mem = _ms0.MemStore(lambda: NEXA_KB_PATH, 120.0, lambda p_, d_: _json_load(p_, d_), lambda p_, o_: _json_save(p_, o_))
 _nexa_rt: dict = {'busy': False, 'at': 0.0, 'chatAt': 0.0}
 NEXA_CHAT_QUIET = 1200   # 🪟 no background read for 20 min after the owner talks to NEXA: her ONE CPU slot stays free + her chat prompt stays cached (<30s answers)
@@ -16540,6 +16617,11 @@ async def _nexa_tick(now, env, cfg):
         kb_ = _nexa_kb_mem.get() or {}
         coins_ = [x_ for k_ in ('OPEN', 'NEXT') if isinstance(pk_[k_], list) for x_ in pk_[k_] if isinstance(x_, dict)]
         _nkb.auto(kb_, coins_, now)   # 🧠 what FEELESS already knows about these coins → her base
+        if _nexa.full_due(st_, now):   # 🌐 her site reads ride the hourly full read only (≤ 2 new sites, ≤ 15 s)
+            try:
+                await asyncio.wait_for(_nexa_sites(kb_, coins_, now), timeout=15)
+            except Exception:
+                pass
         keys_ = [x_.get('mint') for x_ in coins_] + [f"${x_.get('symbol')}" for x_ in coins_ if x_.get('symbol')]
         pk_['KNOWN'] = _nkb.recall(kb_, keys_, [x_.get('symbol') for x_ in coins_ if x_.get('symbol')], 24, now)
         full_ = _nexa.full_due(st_, now)   # ⚡ most reads are the FAST numbers-only read; the full one (tune / lesson / web) once an hour
