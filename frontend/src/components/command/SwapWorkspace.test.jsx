@@ -80,6 +80,7 @@ test('restores a saved submitted order and checks its status without storing tra
 
   const { container, root } = mount();
   await act(async () => {});
+  for (let i = 0; i < 250 && !(container.querySelector('[data-testid="swap-result"] b')); i += 1) await act(async () => { await new Promise(r => setTimeout(r, 20)); });   // ≤ 5 s under gate load
 
   expect(global.fetch).toHaveBeenCalledWith(`/api/trading/order/${orderId}`, {});
   expect(container.querySelector('[data-testid="swap-result"] b').textContent).toBe('SUBMITTED');
@@ -129,6 +130,7 @@ test('clears a temporarily unavailable saved order only after an explicit fresh-
 
   const { container, root } = mount();
   await act(async () => {});
+  for (let i = 0; i < 250 && !(container.querySelector('[data-testid="swap-fresh-order"]')); i += 1) await act(async () => { await new Promise(r => setTimeout(r, 20)); });   // ≤ 5 s under gate load
 
   expect(localStorage.getItem('feeless.pending-swap-order')).not.toBeNull();
   act(() => container.querySelector('[data-testid="swap-fresh-order"]').click());
@@ -196,6 +198,7 @@ test('keeps an uncertain execution pending across reopen without resending the s
   );
   const reopened = mount({ feeAsset });
   await act(async () => {});
+  for (let i = 0; i < 250 && !(reopened.container.querySelector('[data-testid="swap-result"] b')); i += 1) await act(async () => { await new Promise(r => setTimeout(r, 20)); });   // ≤ 5 s under gate load
 
   expect(tradeCalls()[0]).toEqual([`/api/trading/order/${orderId}`, {}]);
   expect(reopened.container.querySelector('[data-testid="swap-result"] b').textContent).toBe('SUBMITTED');
