@@ -175,7 +175,7 @@ P0-QUICK — OWNER 2026-10-23 night (THE one list of unfinished asks — HANDOFF
 3. 🐱 FeeCat wallet switch — DONE for your cats 2026-10-23 (a lit 🧪 PAPER · GO REAL / 💵 REAL · n to sign pill on every "My agents" card →
    its desk opens on the wallet panel). OPEN: Fee herself (the leader, ownerId 'feeless-system') can't go real yet — owner-only real mode for
    her = proposals to the owner's wallet (backend `/action` gate). Plus: make FEE'S CHAT LITTY — her girly convos, bubbles, voice (owner).
-4. 💬 Agent chat bubbles on FeeCat's charts; internal model names (NEXA / OSSY / G4) never shown to users.
+4. 💬 Agent chat bubbles on FeeCat's charts (names already scrubbed: `feecat_service.public_words` / `_pub` on every public cat endpoint).
 5. ⏱ While NEXA holds a LIVE trade: quick questions to her faster (hold · skim · new SL · new TP), re-checked every ≤ 120 s (desk EVERY = 300 s today).
 6. 🔌 RPC lanes in HQ › Core (SOLANA_RPC_URL_2 … _6 — the keeper + relay already fall through them); Helius + Alchemy were OUT of quota.
 7. 🏝 Family town expands (bridges, pick lots, move buildings, stands, a MY POOLS combo building) · tight-range LP on Raydium / Orca / DLMM.
@@ -207,7 +207,6 @@ P1 — AGENTS + AI
 4. 🐱 Launch-a-cat AI flow restyled in the violet meta (like CatDesk / CatReal).
 
 P2 — CLEAN-UP (the 2026-10-22 cut list; owner's go 2026-10-23: "do all decisions")
-1. ✂ The fake model rows in `/api/cats/brains` (Claude / GPT / Grok labels that only run the rule engine) → out.
 2. ✂ family_world's drag-the-pizza ERRANDS UI (MobHome / FamilyWorld) + the MP store build catalog → retired for the block's real errands.
 3. ✂ 4 ways to start services (run-feeless.sh / start-backend.sh / background.sh / keep-alive) → ONE supervisor.
 4. ✂ Split `reputation_service.py` (31K lines; `tests/test_no_name_collisions.py` guards new helpers meanwhile).

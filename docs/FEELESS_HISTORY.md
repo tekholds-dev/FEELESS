@@ -6085,3 +6085,4 @@ P6 — IDEAS: FeeCat + AI agent pair that talk · "build a better coin" track in
 - 2026-10-23 late · Opus 5.5 — 🤖 NEXA wasn't trading: she answered every round (6 fresh YES) but FeeCat only walks her own lanes, which passed 0 of 42 coins → her YES is now a lane (`nexa_lane`, $5K pool floor, every guard still runs); first live tick passed 3 (2 hers), held back by FeeCat's safety check. One task list: CLAUDE.md › P0-QUICK.
 
 - 2026-10-23 🪟🐱 NEXA trades AS FeeCat: `feecat_service.nexa_drives` (her YES beats soft vetoes, half size on a veto; rug guards stay) + FeeCat's book / stop reasons in `CatBrainSwitch` + violet aurora / edge scan / YES shine (`catBrain.css`).
+- 2026-10-23 ✂ P2 #1: BRAIN_CATALOG → one honest RULE_ENGINE row (old cats healed on load, `honest_brain`); dead creator 'AI watch bot' + its fake model select out · 🔒 internal model names scrubbed from every public cat sink (`public_words` / `_pub`) · 🔮 AI desk pick chip on Fee's chart badge (`pos.nexa`).

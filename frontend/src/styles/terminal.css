@@ -842,7 +842,7 @@ body.theme-day .reputation-badge.badge-building,body.theme-day .reputation-badge
 .watch-row-controls label{display:flex;align-items:center;gap:6px;cursor:pointer}
 .watch-row-controls input[type=checkbox]{accent-color:var(--mint)}
 .watch-row-controls select{background:#0e1210;border:1px solid var(--line);color:var(--paper);font-size:10px;padding:4px 6px;border-radius:4px}
-.watch-bot-toggle{color:var(--mint)}
+
 .watch-feed-list{display:flex;flex-direction:column;gap:8px}
 .watch-feed-row{display:flex;align-items:flex-start;gap:9px;padding:10px;border:1px solid var(--line);border-radius:6px;font-size:11px}
 .watch-feed-row.type-flagged{border-color:#fa708c3a;background:#fa708c0c}
@@ -2837,6 +2837,8 @@ body.theme-day .swap-desk{background-image:linear-gradient(#fff,#fff),conic-grad
 .my-pnl{pointer-events:auto!important}.my-pnl-exit{grid-column:1 / -1;margin-top:6px;border:1px solid rgba(255,90,122,.5);background:rgba(255,90,122,.12);color:#ff8fa3;border-radius:8px;padding:5px;font-weight:700;font-size:11.5px;cursor:pointer}.my-pnl-exit:hover{background:rgba(255,90,122,.22)}
 .fee-pnl{position:absolute;z-index:6;right:70px;top:12px;display:flex;gap:8px;align-items:baseline;padding:6px 10px;border-radius:10px;background:rgba(5, 7, 6,.86);border:1px solid rgba(94,200,255,.5);backdrop-filter:blur(6px);pointer-events:none}
 .fee-pnl span{font-size:11px;font-weight:700;color:#7cc8ff}.fee-pnl b{font:800 15px 'JetBrains Mono',monospace}.fee-pnl small{font-size:10.5px;color:var(--muted)}.fee-pnl.up b{color:#15d16a}.fee-pnl.down b{color:#ff5a7a}
+.fee-pnl-ai{align-self:center;font:700 9.5px 'JetBrains Mono',monospace;font-style:normal;letter-spacing:.08em;text-transform:uppercase;padding:2px 7px;border-radius:999px;color:#e6dbff;background:linear-gradient(90deg,rgba(180,140,255,.32),rgba(90,209,255,.22));box-shadow:0 0 0 1px rgba(180,140,255,.55) inset,0 0 12px -3px #b48cff}
+body.theme-day .fee-pnl-ai{color:#3b1d86;background:#efe7ff}
 .chart-area{position:relative}
 /* ===== Form controls: one on-brand style site-wide (edit the tokens to restyle everything) ===== */
 :root{--field-bg:#0b0e0d;--field-border:rgba(255,255,255,.12);--field-focus:var(--mint,#15d16a);--field-text:#eafff3;--field-radius:10px}

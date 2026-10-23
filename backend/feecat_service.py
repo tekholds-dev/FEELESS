@@ -36,18 +36,9 @@ DATA_DIR.mkdir(exist_ok=True)
 STORE_PATH = DATA_DIR / 'feecats.json'
 
 TICK_SECONDS = 20
-BRAIN_CATALOG = [
-    {'id': 'claude-opus', 'provider': 'Anthropic', 'label': 'Claude Opus 5.5'},
-    {'id': 'claude-fable', 'provider': 'Anthropic', 'label': 'Claude Fable 5.1'},
-    {'id': 'gpt-astra', 'provider': 'OpenAI', 'label': 'GPT-6 Astra'},
-    {'id': 'gpt-sol', 'provider': 'OpenAI', 'label': 'GPT-6 Sol'},
-    {'id': 'muse', 'provider': 'Meta', 'label': 'Muse Spark 1.3'},
-    {'id': 'grok', 'provider': 'xAI', 'label': 'Grok 4.7'},
-    {'id': 'gemini', 'provider': 'Google', 'label': 'Gemini 3.8 Flash'},
-    {'id': 'qwen', 'provider': 'Alibaba', 'label': 'Qwen 3.8 Max'},
-    {'id': 'kimi', 'provider': 'Moonshot', 'label': 'Kimi K3'},
-    {'id': 'deepseek', 'provider': 'DeepSeek', 'label': 'DeepSeek V4 Pro'},
-]
+# ✂ 2026-10-23 (P2 #1): the old catalog showed Claude / GPT / Grok labels that only ever ran the rule engine — one honest row now. Real AI
+# brains are picked in Launch a Cat (`brains` / OpenRouter); FEELESS's own models come from cat_model.
+RULE_ENGINE = {'id': 'rules', 'provider': 'FEELESS', 'label': 'FEELESS rule engine'}
 STRATEGY_LABELS = {'balanced': 'Momentum', 'momentum': 'Breakouts', 'conservative': 'Scalping', 'signals': 'On-chain signals', 'trend': 'Trend following', 'conviction': 'Conviction'}
 
 
@@ -55,10 +46,22 @@ def _empty_store():
     return {'cats': {}, 'events': []}
 
 
+def honest_brain(cat):
+    """✂ A cat saved under the retired catalog (a 'GPT-6 Astra' label that only ran the rule engine) reads as what it is. Pure (tests)."""
+    if cat.get('brainsCfg') or cat.get('modelBrain') or cat.get('isLeader') or cat.get('brain') == RULE_ENGINE['id']:
+        return cat
+    cat.update(brain=RULE_ENGINE['id'], brainLabel=RULE_ENGINE['label'],
+               brainProfile={**(cat.get('brainProfile') or {}), 'provider': RULE_ENGINE['provider'], 'status': 'live', 'available': False})
+    return cat
+
+
 def _load() -> dict:
     if STORE_PATH.exists():
         try:
-            return json.loads(STORE_PATH.read_text())
+            store = json.loads(STORE_PATH.read_text())
+            for c in (store.get('cats') or {}).values():
+                honest_brain(c)
+            return store
         except Exception:
             pass
     return _empty_store()
@@ -68,12 +71,26 @@ def _save(store: dict):
     STORE_PATH.write_text(json.dumps(store, indent=2))
 
 
+_INTERNAL = re.compile(r'(?:🪟\s*)?\b(?:NEXA(?: SICARIO)?|OSSY|G4)\b', re.I)
+
+
+def public_words(text):
+    """🔒 P0-QUICK #4: internal model names (NEXA / OSSY / G4) never reach users — every public sink (events, receipts, Fee's chat posts,
+    position reasons on /api/cats/leader) says 'her AI desk'. The owner's HQ reads the `nexa` flag instead. Pure (tests)."""
+    return _INTERNAL.sub('🔮 her AI desk', text) if isinstance(text, str) else text
+
+
+def _pub(obj):
+    """🔒 A public response with every internal model name scrubbed (old events / reasons written before the scrub included)."""
+    return json.loads(public_words(json.dumps(obj, ensure_ascii=False)))
+
+
 def _log_event(store, cat, kind, detail, pnl=None, pair=None, price=None, market_cap=None, entry_market_cap=None):
     store['events'].insert(0, {
         'id': uuid.uuid4().hex, 'catId': cat['id'], 'catName': cat['name'],
-        'type': kind, 'detail': detail, 'ts': time.time() * 1000,
+        'type': kind, 'detail': public_words(detail), 'ts': time.time() * 1000,
         'pnlSol': pnl, 'decisionSource': 'selected_brain' if cat.get('brainProfile', {}).get('available') else 'rule_engine',
-        'brainLabel': cat.get('brainLabel'), 'pairAddress': pair, 'priceNative': price,
+        'brainLabel': public_words(cat.get('brainLabel')), 'pairAddress': pair, 'priceNative': price,
         # Persisted with the paper receipt so shared cards never invent MC data later.
         'marketCapUsd': market_cap, 'entryMarketCapUsd': entry_market_cap,
     })
@@ -433,7 +450,7 @@ def _learn(store, cat):
 def _post_as_fee(pair_address, text, register_call=False):
     try:
         key = (DATA_DIR / 'internal.key').read_text().strip()
-        r = httpx.post('http://127.0.0.1:5077/api/reputation/internal/fee-post', json={'pairAddress': pair_address, 'text': text, 'registerCall': register_call},
+        r = httpx.post('http://127.0.0.1:5077/api/reputation/internal/fee-post', json={'pairAddress': pair_address, 'text': public_words(text), 'registerCall': register_call},
                        headers={'x-feeless-internal': key}, timeout=15)
         if r.status_code != 200:
             print('fee post rejected', r.status_code, r.text[:200])
@@ -1063,7 +1080,7 @@ async def run_engine(store, cats):
                 'mint': (p.get('baseToken') or {}).get('address'), 'pairAddress': pa, 'symbol': sym, 'provider': 'DexScreener',
                 'url': p.get('url'), 'costSol': size, 'notionalSol': round(size * (1 - fee_side()), 6),
                 'entryPriceNative': px, 'entryPriceUsd': p.get('priceUsd'), 'entryChange': 0, 'currentChange': 0,
-                'peakChange': 0, 'openedAt': now, 'reason': reason,
+                'peakChange': 0, 'openedAt': now, 'reason': public_words(reason), 'nexa': bool(p.get('_nexa')),
                 'entryLiq': _num((p.get('liquidity') or {}).get('usd')), 'conviction': conviction,
                 'entryMarketCapUsd': _num(p.get('marketCap') or p.get('fdv')),
                 'entryVolH1': _num((p.get('volume') or {}).get('h1')), 'plannedSol': planned,
@@ -1264,7 +1281,7 @@ async def brains():
     async with httpx.AsyncClient(timeout=4) as http:
         nx = (await _duo_read(http)).get('nexa')
     own = [{**m, **_cm.status(nx), 'available': False, 'ownerOnly': True, 'trades': 'FeeCat', 'estimatedTokenCostUsd': 0, 'model': True} for m in _cm.MODELS.values()]   # 🪟 she trades FeeCat herself (owner's HQ switch), never a user's cat
-    return {'brains': own + [{**b, 'status': 'rule_fallback', 'available': False, 'estimatedTokenCostUsd': 0} for b in BRAIN_CATALOG]}
+    return {'brains': own + [{**RULE_ENGINE, 'status': 'live', 'available': True, 'estimatedTokenCostUsd': 0}]}
 
 
 def _set_model_brain(cat, model_id):
@@ -1296,7 +1313,7 @@ class CreatePayload(BaseModel):
     name: str
     handle: str
     avatar: Any = 0
-    brain: str = 'gpt-astra'
+    brain: str = 'rules'
     strategy: str = 'momentum'
     instructions: Optional[str] = ''
     startingBalanceSol: Any = '10'
@@ -1329,12 +1346,11 @@ async def create_cat(payload: CreatePayload):
     if sum(1 for c in store['cats'].values() if c.get('ownerId') == payload.ownerId and not c.get('revoked')) >= AGENT_MAX:
         raise HTTPException(400, f'You run {AGENT_MAX} agents — retire one to start another.')
     cat_id = uuid.uuid4().hex
-    brain_info = next((b for b in BRAIN_CATALOG if b['id'] == payload.brain), BRAIN_CATALOG[0])
     now = time.time()
     cat = {
         'id': cat_id, 'ownerId': payload.ownerId, 'name': payload.name, 'handle': payload.handle,
-        'avatar': payload.avatar, 'brain': payload.brain, 'brainLabel': brain_info['label'],
-        'brainProfile': {'provider': brain_info['provider'], 'status': 'rule_fallback', 'available': False, 'estimatedTokenCostUsd': 0},
+        'avatar': payload.avatar, 'brain': RULE_ENGINE['id'], 'brainLabel': RULE_ENGINE['label'],
+        'brainProfile': {'provider': RULE_ENGINE['provider'], 'status': 'live', 'available': False, 'estimatedTokenCostUsd': 0},
         'strategy': payload.strategy, 'strategyLabel': STRATEGY_LABELS.get(payload.strategy, 'Momentum'),
         'status': 'stopped', 'level': 1, 'xp': 0, 'wallet': 'paper',
         'balanceSol': float(payload.startingBalanceSol or 10), 'realizedPnlSol': 0, 'totalPnlSol': 0,
@@ -1388,7 +1404,7 @@ def cats_brain():
 async def leader():
     store = _load()
     _migrate(store)
-    return {'cat': store['cats'].get(LEADER_ID), 'rules': RULES, 'feePerSide': fee_side(), 'scan': store.get('scan')}
+    return _pub({'cat': store['cats'].get(LEADER_ID), 'rules': RULES, 'feePerSide': fee_side(), 'scan': store.get('scan')})
 
 
 class EvaluatePayload(BaseModel):
@@ -1416,7 +1432,7 @@ async def evaluate(payload: EvaluatePayload):
 @app.get('/api/cats/trades')
 async def cat_trades(pairAddress: str, catId: str = LEADER_ID):
     store = _load()
-    return {'trades': [e for e in store['events'] if e.get('pairAddress') == pairAddress and e['catId'] == catId and e['type'] in ('BUY', 'SELL')]}
+    return _pub({'trades': [e for e in store['events'] if e.get('pairAddress') == pairAddress and e['catId'] == catId and e['type'] in ('BUY', 'SELL')]})
 
 
 @app.get('/api/cats/leaderboard')
@@ -1430,7 +1446,7 @@ async def leaderboard(view: str = 'pnl'):
         rows.sort(key=lambda r: -r['winRate'])
     else:
         rows.sort(key=lambda r: -r['realizedPnlSol'])
-    return {'rows': rows[:50]}
+    return _pub({'rows': rows[:50]})
 
 
 @app.get('/api/cats/activity')
@@ -1439,7 +1455,7 @@ async def activity(catId: Optional[str] = None):
     events = store['events']
     if catId:
         events = [e for e in events if e['catId'] == catId]
-    return {'events': events[:60]}
+    return _pub({'events': events[:60]})
 
 
 @app.get('/api/cats/health')
@@ -1532,7 +1548,7 @@ async def cat_profile(cat_id: str):
     learn = cat.get('learn') or {}
     closed = cat.get('wins', 0) + cat.get('losses', 0)
     pnls = [e.get('pnlSol') for e in trades if e.get('pnlSol') is not None]
-    return {
+    return _pub({
         'cat': {k: cat.get(k) for k in ('id', 'name', 'title', 'avatar', 'strategyLabel', 'level', 'xp', 'balanceSol', 'startingBalanceSol', 'realizedPnlSol',
                                         'volumeSol', 'wins', 'losses', 'winRate', 'positions', 'pnlHistory', 'status', 'lastTick')},
         'stats': {'trades': closed, 'best': max(pnls) if pnls else None, 'worst': min(pnls) if pnls else None,
@@ -1548,7 +1564,7 @@ async def cat_profile(cat_id: str):
                      'playbook': feecat_brain.playbook(feecat_brain.edge_table(cat.get('setupMemory') or [])), 'memory': len(cat.get('setupMemory') or []),
                      'vetoes': (store.get('scan') or {}).get('brainRejects', [])[-5:] if cat.get('isLeader') else []},
         'rules': {k: RULES[k] for k in ('hardStop', 'add1At', 'add2At', 'takeProfit1', 'takeProfit2', 'runnerTrail', 'maxHoldHours', 'maxTop10Pct', 'maxInsiderPct', 'maxSnipers', 'maxBundled', 'maxM5Chase')},
-    }
+    })
 
 
 @app.get('/api/cats/{cat_id}')
@@ -1559,7 +1575,7 @@ async def get_cat(cat_id: str):
         raise HTTPException(404, 'Cat not found.')
     if _real.is_real(cat) and _real.expire(cat, time.time()):
         _save(store)
-    return {'cat': cat}
+    return _pub({'cat': cat})
 
 
 class ActionPayload(BaseModel):

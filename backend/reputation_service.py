@@ -701,8 +701,6 @@ class WatchPayload(BaseModel):
     address: str
     notifyNewToken: bool = True
     notifyFlag: bool = True
-    botEnabled: bool = False
-    botBrain: Optional[str] = None
 
 
 @app.post('/api/reputation/watch')
@@ -716,7 +714,6 @@ async def watch_creator(payload: WatchPayload):
         bucket[wkey] = {
             'chain': payload.chain, 'address': payload.address,
             'notifyNewToken': payload.notifyNewToken, 'notifyFlag': payload.notifyFlag,
-            'botEnabled': payload.botEnabled, 'botBrain': payload.botBrain,
             'addedAt': existing.get('addedAt', time.time()),
         }
         _save(store)

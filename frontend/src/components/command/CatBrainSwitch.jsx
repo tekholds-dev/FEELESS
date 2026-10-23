@@ -21,7 +21,7 @@ export function deskCounts(desk, now = Date.now() / 1000) {
 // YES didn't buy, the guard that stopped it (holders / pool floor never step aside). One 15 s poll of /api/cats/leader, only while NEXA trades.
 export function feeBook(lead) {
   const cat = lead?.cat || {}; const scan = lead?.scan || {};
-  const held = (cat.positions || []).map(p => ({ sym: p.symbol, ch: +p.currentChange || 0, sol: +p.costSol || 0, nexa: /NEXA/.test(p.reason || ''), pair: p.pairAddress }));
+  const held = (cat.positions || []).map(p => ({ sym: p.symbol, ch: +p.currentChange || 0, sol: +p.costSol || 0, nexa: !!p.nexa, pair: p.pairAddress }));
   const stops = [...(scan.safetyRejects || []), ...(scan.brainRejects || [])].slice(-3).reverse();
   return { held, stops, bal: +cat.balanceSol || 0 };
 }

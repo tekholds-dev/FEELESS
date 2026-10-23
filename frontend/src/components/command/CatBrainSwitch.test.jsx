@@ -35,7 +35,7 @@ test('🐱 NEXA trades FeeCat: owner switch, her round countdown, her last words
 });
 
 test('🐱 FeeCat\'s book under NEXA: her holdings (🪟 = NEXA\'s YES), the free SOL and the guard that stopped a YES', () => {
-  const b = feeBook({ cat: { balanceSol: 22.5, positions: [{ symbol: 'AAA', pairAddress: 'PA', currentChange: 12.3, costSol: 0.4, reason: '🪟 NEXA said YES' },
+  const b = feeBook({ cat: { balanceSol: 22.5, positions: [{ symbol: 'AAA', pairAddress: 'PA', currentChange: 12.3, costSol: 0.4, nexa: true },
     { symbol: 'BBB', pairAddress: 'PB', currentChange: -3, costSol: 0.2, reason: 'fresh lane' }] }, scan: { safetyRejects: [{ symbol: 'LUKE', why: 'top 10 wallets hold 25%' }] } });
   expect(b.bal).toBe(22.5);
   expect(b.held.map(h => [h.sym, h.nexa])).toEqual([['AAA', true], ['BBB', false]]);

@@ -179,16 +179,12 @@ export function CreatorProfileCard({ chain, address, result, loading, error, var
   </section>;
 }
 
-const BRAIN_OPTIONS = [
-  ['claude-opus', 'Claude Opus 5.5'], ['gpt-astra', 'GPT-6 Astra'], ['grok', 'Grok 4.7'], ['gemini', 'Gemini 3.8 Flash'],
-];
-
 function WatchedCreatorRow({ watch, ownerWallet, onChanged }) {
   const [busy, setBusy] = useState(false);
   const Icon = ICON[watch.badge] || Shield;
   const update = async patch => {
     setBusy(true);
-    try { await watchCreator(ownerWallet, watch.chain, watch.address, { notifyNewToken: watch.notifyNewToken, notifyFlag: watch.notifyFlag, botEnabled: watch.botEnabled, botBrain: watch.botBrain, ...patch }); onChanged(); }
+    try { await watchCreator(ownerWallet, watch.chain, watch.address, { notifyNewToken: watch.notifyNewToken, notifyFlag: watch.notifyFlag, ...patch }); onChanged(); }
     catch (err) { toast.error(err.message); }
     finally { setBusy(false); }
   };
@@ -208,8 +204,6 @@ function WatchedCreatorRow({ watch, ownerWallet, onChanged }) {
     <div className="watch-row-controls">
       <label><input type="checkbox" checked={watch.notifyNewToken} disabled={busy} onChange={e => update({ notifyNewToken: e.target.checked })} />New launches</label>
       <label><input type="checkbox" checked={watch.notifyFlag} disabled={busy} onChange={e => update({ notifyFlag: e.target.checked })} />Rug flags</label>
-      <label className="watch-bot-toggle"><input type="checkbox" checked={watch.botEnabled} disabled={busy} onChange={e => update({ botEnabled: e.target.checked, botBrain: watch.botBrain || BRAIN_OPTIONS[0][0] })} />AI watch bot</label>
-      {watch.botEnabled && <select value={watch.botBrain || BRAIN_OPTIONS[0][0]} disabled={busy} onChange={e => update({ botBrain: e.target.value })}>{BRAIN_OPTIONS.map(([id, label]) => <option key={id} value={id}>{label}</option>)}</select>}
     </div>
   </div>;
 }

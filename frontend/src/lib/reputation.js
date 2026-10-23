@@ -82,7 +82,7 @@ export async function watchCreator(ownerWallet, chain, address, options = {}, se
   const res = await fetch(apiUrl('/api/reputation/watch'), {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ ownerWallet, session, chain, address, notifyNewToken: true, notifyFlag: true, botEnabled: false, ...options }),
+    body: JSON.stringify({ ownerWallet, session, chain, address, notifyNewToken: true, notifyFlag: true, ...options }),
   });
   if (!res.ok) throw new Error('Could not save this wallet to your watchlist.');
   return res.json();
