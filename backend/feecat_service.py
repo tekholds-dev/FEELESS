@@ -76,8 +76,8 @@ _INTERNAL = re.compile(r'(?:🪟\s*)?\b(?:NEXA(?: SICARIO)?|OSSY|G4)\b', re.I)
 
 def public_words(text):
     """🔒 P0-QUICK #4: internal model names (NEXA / OSSY / G4) never reach users — every public sink (events, receipts, Fee's chat posts,
-    position reasons on /api/cats/leader) says 'her AI desk'. The owner's HQ reads the `nexa` flag instead. Pure (tests)."""
-    return _INTERNAL.sub('🔮 her AI desk', text) if isinstance(text, str) else text
+    position reasons on /api/cats/leader) says 'FeeCat AI'. The owner's HQ reads the `nexa` flag instead. Pure (tests)."""
+    return _INTERNAL.sub('🔮 FeeCat AI', text) if isinstance(text, str) else text
 
 
 def _pub(obj):
@@ -447,10 +447,26 @@ def _learn(store, cat):
         _log_event(store, cat, 'LEARN', note)
 
 
+FEE_OPENERS = {   # 💅 her voice (owner, 2026-10-23: "make Fee's chat litty — her girly convos"): one opener per post, the numbers stay hers
+    'buy': ('ok besties, hear me out 💅', 'not me aping again 🙈', 'mother is entering 👑', 'girls, we\'re so back ✨'),
+    'win': ('told y\'all 💖', 'secured the bag, obviously 💅', 'that\'s called taste ✨', 'hot girl profit szn 🔥'),
+    'loss': ('ugh, he ghosted me 🙄', 'not my finest moment 🫠', 'we move, bestie 💔', 'rules said bye, so bye 👋'),
+    'add': ('doubling down on my fave 💕', 'more of what works, babe ✨'),
+}
+
+
+def fee_voice(text):
+    """→ Fee's post with ONE opener in her voice, picked by what happened (buy / win / loss / add) and the text itself (stable). Pure (tests)."""
+    t = str(text or '')
+    kind = ('add' if 'Added' in t else 'win' if ('took profit' in t or ('sold' in t and 'P&L +' in t)) else 'loss' if 'sold' in t else 'buy')
+    pool = FEE_OPENERS[kind]
+    return f"{pool[sum(map(ord, t)) % len(pool)]}\n{t}"
+
+
 def _post_as_fee(pair_address, text, register_call=False):
     try:
         key = (DATA_DIR / 'internal.key').read_text().strip()
-        r = httpx.post('http://127.0.0.1:5077/api/reputation/internal/fee-post', json={'pairAddress': pair_address, 'text': public_words(text), 'registerCall': register_call},
+        r = httpx.post('http://127.0.0.1:5077/api/reputation/internal/fee-post', json={'pairAddress': pair_address, 'text': public_words(fee_voice(text)), 'registerCall': register_call},
                        headers={'x-feeless-internal': key}, timeout=15)
         if r.status_code != 200:
             print('fee post rejected', r.status_code, r.text[:200])
@@ -1087,7 +1103,7 @@ async def run_engine(store, cats):
                 'firstEntryPriceNative': px, 'adds': 0, 'profitTaken': 0, 'peakPx': px, 'brainBy': brain_by_, 'setup': setup, 'setups': p.get('_setups') or [], 'read': p.get('_read'), 'duoAtEntry': p.get('_duo'), 'midAtEntry': mid, 'solUsdAtEntry': sol_usd,
             })
             _log_event(store, cat, 'BUY', f"Bought {size} SOL of {sym} at live price — {reason} (paper).", None, pa, px, _num(p.get('marketCap') or p.get('fdv')))
-            if _real.is_real(cat):   # 💵 a REAL cat: the same buy, proposed to its owner's wallet (capped at their per-trade budget)
+            if _real.is_real(cat) and not (cat.get('isLeader') and not p.get('_nexa')):   # 💵 the same buy, proposed to the owner's wallet (≤ budget); real Fee proposes NEXA's calls only
                 p_ = _real.propose(cat, 'buy', (p.get('baseToken') or {}).get('address'), pa, sym, reason, now, sol=size, px=px)
                 if p_:
                     _notify_real(cat, p_)
@@ -1596,15 +1612,26 @@ class ActionPayload(BaseModel):
     text: Optional[str] = None
 
 
+def owner_wallets():
+    return [w.strip() for w in os.environ.get('FEELESS_ADMIN_WALLETS', '').split(',') if w.strip()]
+
+
+def fee_owner_real(cat, action, signed, owners=None):
+    """💵🐱 FEE GOES REAL — owner only (2026-10-23: "see NEXA trade real money as FeeCat"): Fee belongs to the system, so only a signed-in OWNER
+    wallet (FEELESS_ADMIN_WALLETS — never a granted role) may switch her real / paper or answer her proposals. Real = every buy NEXA calls is
+    a proposal that wallet signs (≤ its per-buy budget); FEELESS never moves the money. Pure (tests)."""
+    return bool(cat.get('isLeader') and action in ('real', 'paper', 'proposal') and signed and signed in (owner_wallets() if owners is None else owners))
+
+
 @app.post('/api/cats/{cat_id}/action')
 async def cat_action(cat_id: str, payload: ActionPayload, request: Request):
     store = _load()
     cat = store['cats'].get(cat_id)
     if not cat:
         raise HTTPException(404, 'Cat not found.')
-    if not payload.ownerId or payload.ownerId != cat.get('ownerId'):   # 🔒 was open to anyone with the cat id (cut list) — now the owner only
-        _internal(request)                                             # … or HQ (reputation's admin run, internal key)
     signed = _real.session_wallet(_real.load_sessions(DATA_DIR / 'chat_sessions.json'), payload.session)
+    if not fee_owner_real(cat, payload.action, signed) and (not payload.ownerId or payload.ownerId != cat.get('ownerId')):   # 🔒 the owner only
+        _internal(request)                                             # … or HQ (reputation's admin run, internal key)
     if payload.action in ('real', 'proposal') and (not signed or signed != payload.address):
         raise HTTPException(401, 'Sign in with your wallet first (one signature, no transaction).')
 

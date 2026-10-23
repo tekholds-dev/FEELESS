@@ -14,6 +14,7 @@ import { readMyCat } from '../../lib/myCat';
 import { EngineLine } from './CatBrainSwitch';
 import { CatDesk } from './CatDesk';
 import { CatReal } from './CatReal';
+import { useAdmin } from '../../lib/adminCall';
 import { AgentPicker, AGENT_MAX } from './AgentPicker';
 const OWNER_KEY = 'feeless-paper-owner';
 const api = async (path, options = {}) => {
@@ -149,13 +150,14 @@ function CatDetail({ cat: initialCat, onBack, onChanged }) {
   const [cat, setCat] = useState(initialCat);
   const [error, setError] = useState(''); const [busy, setBusy] = useState(false);
   const brainChanged = useCallback(next => { setCat(next); onChanged?.(next); }, [onChanged]);
+  const { isAdmin } = useAdmin();   // 💵 Fee's real switch shows to the owner only (the server re-checks the signed owner wallet)
   useEffect(() => {
     const refresh = async () => { if (document.hidden) return; try { const result = await api(`/api/cats/${initialCat.id}`); if (result.cat) { setCat(result.cat); onChanged?.(result.cat); } } catch {} };
     const interval = setInterval(refresh, 8000);
     return () => clearInterval(interval);
   }, [initialCat.id]); // eslint-disable-line react-hooks/exhaustive-deps
   const act = async (action, extra = {}) => { setError(''); setBusy(true); try { const result = await api(`/api/cats/${cat.id}/action`, { method: 'POST', body: JSON.stringify({ action, ...extra }) }); setCat(result.cat); onChanged?.(result.cat); } catch (requestError) { setError(requestError.message); } setBusy(false); };
-  return <CatDesk cat={cat} busy={busy} error={error} onBack={onBack} onAct={act} Engine={<EngineLine />} Real={cat.isLeader ? null : <CatReal cat={cat} busy={busy} onAct={act} />}
+  return <CatDesk cat={cat} busy={busy} error={error} onBack={onBack} onAct={act} Engine={<EngineLine />} Real={cat.isLeader && !isAdmin ? null : <CatReal cat={cat} busy={busy} onAct={act} />}
     Brains={cat.brainsCfg ? <BrainPanel cat={cat} api={api} onChanged={brainChanged} /> : null} Activity={<ActivityFeed catId={cat.id} />} />;
 }
 

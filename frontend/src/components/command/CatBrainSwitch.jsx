@@ -26,6 +26,15 @@ export function feeBook(lead) {
   return { held, stops, bal: +cat.balanceSol || 0 };
 }
 
+// ⚔ THE DUEL (P1 #1, first cut): NEXA's YES hit rate (graded an hour later) vs FeeCat's own closed trades — two bars, the leader glows. Not
+// apples to apples yet (a shadow ledger of the same coins is still open), so each side names what it counts.
+export function duel(rec, cat) {
+  const n = (+cat?.wins || 0) + (+cat?.losses || 0);
+  const nx = rec?.n ? { pct: +rec.rightPct || 0, n: rec.n, typical: +rec.typical || 0 } : null;
+  const rl = n ? { pct: Math.round(100 * (+cat.wins || 0) / n), n } : null;
+  return { nx, rl, lead: nx && rl ? (nx.pct > rl.pct ? 'nexa' : nx.pct < rl.pct ? 'rules' : 'tie') : null };
+}
+
 export function CatBrainSwitch({ d, busy, act }) {
   const [, tick] = useState(0);
   const [lead, setLead] = useState(null);
@@ -38,6 +47,7 @@ export function CatBrainSwitch({ d, busy, act }) {
     go(); const t = setInterval(go, 15000); return () => { alive = false; clearInterval(t); };
   }, [on]);
   const book = feeBook(lead);
+  const dv = duel(d?.record?.favor, lead?.cat);
   const every = d?.deskEvery || 300;
   const since = d?.deskAt ? Date.now() / 1000 - d.deskAt : every;
   const fill = on ? Math.max(0.04, Math.min(1, since / every)) : 0;
@@ -72,6 +82,14 @@ export function CatBrainSwitch({ d, busy, act }) {
         </div> : null}
       </div>
     </div>
+    {on && (dv.nx || dv.rl) ? <div className={`cb-duel is-${dv.lead || 'none'}`} data-testid="nexa-duel">
+      <span className="cb-duel-h">⚔ THE DUEL</span>
+      {[['nexa', '🪟 NEXA', dv.nx, dv.nx ? `her YES rose an hour later · ${dv.nx.n} graded · typical ${pct(dv.nx.typical)}` : 'no graded calls yet'],
+        ['rules', '⚙ RULES', dv.rl, dv.rl ? `FeeCat's closed trades won · ${dv.rl.n} trades` : 'no closed trades yet']].map(([k, label, v, tip], i) =>
+        <span key={k} className={`cb-side is-${k}`} style={{ '--i': i }} data-tip={tip}><small>{label}</small>
+          <i><em style={{ transform: `scaleX(${v ? Math.min(1, v.pct / 100) : 0})` }} /></i><b className="fl-tick" key={v?.pct}>{v ? `${v.pct}%` : '—'}</b></span>)}
+      <small className="cb-duel-why">{dv.lead === 'nexa' ? 'NEXA leads — real money still waits on a same-coin shadow ledger' : dv.lead === 'rules' ? 'the rules lead — NEXA stays on paper / signed proposals' : 'too early to call'}</small>
+    </div> : null}
     {on ? <div className="cb-book" data-testid="nexa-feebook">
       <span className="cb-book-h" data-tip="FeeCat's own paper book — NEXA's YES buys land here, as FeeCat">🐱 FEECAT'S BOOK<small>{book.bal.toFixed(2)} SOL free</small></span>
       {book.held.length ? book.held.map((h, i) => <span key={h.pair} className={`cb-pos ${h.ch >= 0 ? 'is-up' : 'is-dn'}`} style={{ '--i': i }}

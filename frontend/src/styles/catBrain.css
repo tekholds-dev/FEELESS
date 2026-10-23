@@ -59,6 +59,21 @@
   transform: translateX(-120%); animation: cbShine 3.2s ease-in-out infinite; animation-delay: calc(var(--i, 0) * 260ms); }
 .cb-calls li { transition: transform .15s ease, border-color .15s ease, background .15s ease; }
 .cb-calls li:hover { transform: translateX(3px); background: color-mix(in srgb, var(--cb-nexa) 12%, transparent); }
+/* ⚔ the duel — NEXA vs the rules, the leader glows */
+.cb-duel { display: grid; grid-template-columns: auto 1fr 1fr; gap: 6px 12px; align-items: center; padding: 8px 10px; border-radius: 10px;
+  background: linear-gradient(90deg, color-mix(in srgb, var(--cb-nexa) 12%, transparent), color-mix(in srgb, var(--m-accent) 10%, transparent));
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--cb-nexa) 30%, transparent) inset, inset 0 1px 0 rgba(255,255,255,.06); }
+.cb-duel-h { font: 700 10px var(--m-mono); letter-spacing: .14em; color: var(--m-text); }
+.cb-side { display: grid; grid-template-columns: auto 1fr auto; gap: 8px; align-items: center; min-height: 32px; animation: cbIn .32s ease both; animation-delay: calc(var(--i, 0) * 60ms); }
+.cb-side small { font: 700 9px var(--m-mono); letter-spacing: .1em; color: var(--m-dim); }
+.cb-side i { height: 8px; border-radius: 8px; background: var(--m-line); overflow: hidden; }
+.cb-side em { display: block; height: 100%; transform-origin: left; transition: transform .6s ease; }
+.cb-side.is-nexa em { background: linear-gradient(90deg, color-mix(in srgb, var(--cb-nexa) 40%, transparent), var(--cb-nexa)); }
+.cb-side.is-rules em { background: linear-gradient(90deg, color-mix(in srgb, var(--m-accent) 40%, transparent), var(--m-accent)); }
+.cb-side b { font: 700 13px var(--m-mono); color: var(--m-text); }
+.cb-duel.is-nexa .cb-side.is-nexa b { color: var(--cb-nexa); text-shadow: 0 0 10px var(--cb-nexa); }
+.cb-duel.is-rules .cb-side.is-rules b { color: var(--m-accent); text-shadow: 0 0 10px var(--m-accent); }
+.cb-duel-why { grid-column: 1 / -1; font: 10px var(--m-mono); color: var(--m-dim); }
 /* 🐱 FeeCat's book — what NEXA bought AS FeeCat + the guard that stopped a YES */
 .cb-book { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; padding: 8px; border-radius: 10px;
   background: linear-gradient(90deg, color-mix(in srgb, var(--m-accent) 8%, transparent), transparent 70%);
@@ -91,13 +106,13 @@
 @keyframes cbScan { to { transform: translateX(100%); } }
 @keyframes cbShine { 0%, 60% { transform: translateX(-120%); } 100% { transform: translateX(120%); } }
 @keyframes cbIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
-body.fx-lite .cb-halo, body.fx-lite .cb-wrap.is-live .cb-core, body.fx-lite .cb-num, body.fx-lite .cb-calls li, body.fx-lite .cb-pos,
+body.fx-lite .cb-side, body.fx-lite .cb-halo, body.fx-lite .cb-wrap.is-live .cb-core, body.fx-lite .cb-num, body.fx-lite .cb-calls li, body.fx-lite .cb-pos,
 body.fx-lite .cb-wrap.is-nexa::before, body.fx-lite .cb-wrap.is-nexa::after, body.fx-lite .cb-word.is-yes::after { animation: none; }
 body.fx-lite .cb-wrap.is-nexa::after, body.fx-lite .cb-word.is-yes::after { opacity: 0; }
-@media (prefers-reduced-motion: reduce) { .cb-halo, .cb-wrap.is-live .cb-core, .cb-num, .cb-calls li, .cb-pos, .cb-wrap.is-nexa::before, .cb-wrap.is-nexa::after, .cb-word.is-yes::after { animation: none; }
+@media (prefers-reduced-motion: reduce) { .cb-side, .cb-halo, .cb-wrap.is-live .cb-core, .cb-num, .cb-calls li, .cb-pos, .cb-wrap.is-nexa::before, .cb-wrap.is-nexa::after, .cb-word.is-yes::after { animation: none; }
   .cb-wrap.is-nexa::after, .cb-word.is-yes::after { opacity: 0; } .cb-arc, .cb-rec em { transition: none; } }
 body.theme-day .cb-wrap { --cb-nexa: #6d3fd1; background: linear-gradient(160deg, #f1ebff, #fff 70%); }
 body.theme-day .cb-num, body.theme-day .cb-calls li { background: #faf7ff; }
 body.theme-day .cb-wrap.is-nexa .cb-read > b { background: linear-gradient(90deg, #2a1660, var(--cb-nexa)); -webkit-background-clip: text; background-clip: text; }
-body.theme-day .cb-book { background: #f3fff8; } body.theme-day .cb-stops small { color: #8a6400; }
-@media (max-width: 640px) { .cb-body { grid-template-columns: 52px 1fr; } .cb-ring { width: 52px; height: 52px; } .cb-num { min-width: 46px; } .cb-calls li { grid-template-columns: 46px auto 1fr; } .cb-calls small { display: none; } .cb-pos { font-size: 11px; padding: 4px 8px; } }
+body.theme-day .cb-book { background: #f3fff8; } body.theme-day .cb-duel { background: #f6f1ff; } body.theme-day .cb-stops small { color: #8a6400; }
+@media (max-width: 640px) { .cb-body { grid-template-columns: 52px 1fr; } .cb-ring { width: 52px; height: 52px; } .cb-num { min-width: 46px; } .cb-calls li { grid-template-columns: 46px auto 1fr; } .cb-calls small { display: none; } .cb-pos { font-size: 11px; padding: 4px 8px; } .cb-duel { grid-template-columns: 1fr; } }

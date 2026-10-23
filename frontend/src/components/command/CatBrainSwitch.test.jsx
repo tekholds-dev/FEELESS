@@ -1,7 +1,7 @@
 import React from 'react';
 import { createRoot } from 'react-dom/client';
 import { act } from 'react';
-import { CatBrainSwitch, EngineLine, deskCounts, feeBook } from './CatBrainSwitch';
+import { CatBrainSwitch, EngineLine, deskCounts, feeBook, duel } from './CatBrainSwitch';
 
 const now = Date.now() / 1000;
 const DESK = [{ pair: 'PA', symbol: 'AAA', word: 'YES', why: 'buyers lead', line: '$AAA · MC 120K', ms: 9000, at: now - 60 },
@@ -41,4 +41,10 @@ test('🐱 FeeCat\'s book under NEXA: her holdings (🪟 = NEXA\'s YES), the fre
   expect(b.held.map(h => [h.sym, h.nexa])).toEqual([['AAA', true], ['BBB', false]]);
   expect(b.stops[0].why).toMatch(/top 10/);
   expect(feeBook(null)).toEqual({ held: [], stops: [], bal: 0 });
+});
+
+test('⚔ the duel: NEXA\'s graded YES vs FeeCat\'s closed trades, the higher one leads', () => {
+  expect(duel({ n: 147, rightPct: 43, typical: -1.55 }, { wins: 6, losses: 4 })).toMatchObject({ lead: 'rules', nx: { pct: 43 }, rl: { pct: 60, n: 10 } });
+  expect(duel({ n: 5, rightPct: 80 }, { wins: 1, losses: 3 }).lead).toBe('nexa');
+  expect(duel(null, null)).toEqual({ nx: null, rl: null, lead: null });
 });

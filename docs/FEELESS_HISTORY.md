@@ -6086,3 +6086,4 @@ P6 — IDEAS: FeeCat + AI agent pair that talk · "build a better coin" track in
 
 - 2026-10-23 🪟🐱 NEXA trades AS FeeCat: `feecat_service.nexa_drives` (her YES beats soft vetoes, half size on a veto; rug guards stay) + FeeCat's book / stop reasons in `CatBrainSwitch` + violet aurora / edge scan / YES shine (`catBrain.css`).
 - 2026-10-23 ✂ P2 #1: BRAIN_CATALOG → one honest RULE_ENGINE row (old cats healed on load, `honest_brain`); dead creator 'AI watch bot' + its fake model select out · 🔒 internal model names scrubbed from every public cat sink (`public_words` / `_pub`) · 🔮 AI desk pick chip on Fee's chart badge (`pos.nexa`).
+- 2026-10-23 💵 Fee owner-only real mode (`fee_owner_real`, NEXA calls only → owner-signed proposals) · 🔮 users see 'FeeCat AI' · 📈 FeeCat Live charts 340–520px · 💅 Fee's chat bubble (`feeChat.css`) + voice (`fee_voice`) · ⚔ NEXA vs rules duel meter.

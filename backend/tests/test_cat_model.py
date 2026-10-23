@@ -59,7 +59,7 @@ def test_nexa_cat_buys_her_pick_through_the_guards_and_sells_her_exit(monkeypatc
     syms = {p['symbol'] for p in cat['positions']}
     assert 'HHH' not in syms                                 # her EXIT sold it (paper, live price)
     assert syms == {'BBB'}                                   # only her favored coin — not the avoided AAA, not the unpicked CCC
-    assert cat['positions'][0]['reason'].startswith('🔮 her AI desk favored it') and cat['positions'][0]['nexa']   # public words + the owner's flag
+    assert cat['positions'][0]['reason'].startswith('🔮 FeeCat AI favored it') and cat['positions'][0]['nexa']   # public words + the owner's flag
     fs._set_model_brain(cat, 'rules')
     assert 'modelBrain' not in cat
     nexa['at'] = now - cm.FRESH_SEC - 60                    # 🐱 NEXA goes silent → FeeCat's own engine covers, half size, tagged

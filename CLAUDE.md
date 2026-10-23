@@ -172,9 +172,10 @@ P0-QUICK — OWNER 2026-10-23 night (THE one list of unfinished asks — HANDOFF
 2. 📉 REAL PERPS WITH YOUR OWN USD in FEELESS (owner: "no paper perps — I want to use my USD"): blocked for US users by the standing rule until
    counsel answers DECISIONS #1 (`docs/COUNSEL_BRIEF.md` §1) or a regulated venue's partner API (OAuth on the user's own account) is wired.
    Until then the Perps desk must be VISUAL (live charts / meters, never text-only) — no new paper features.
-3. 🐱 FeeCat wallet switch — DONE for your cats 2026-10-23 (a lit 🧪 PAPER · GO REAL / 💵 REAL · n to sign pill on every "My agents" card →
-   its desk opens on the wallet panel). OPEN: Fee herself (the leader, ownerId 'feeless-system') can't go real yet — owner-only real mode for
-   her = proposals to the owner's wallet (backend `/action` gate). Plus: make FEE'S CHAT LITTY — her girly convos, bubbles, voice (owner).
+3. 💵 FEE REAL (owner-only, 2026-10-23): HQ › FeeCat › Fee's desk shows the GO REAL panel to the owner; only a FEELESS_ADMIN_WALLETS wallet may
+   switch her (`fee_owner_real`); real Fee proposes NEXA's calls ONLY (no cover buys) to that wallet, ≤ budget, the wallet signs each. NOT
+   tested end to end with a real signature yet — owner: go real with a small budget, sign one, report. Fee's chat: her bubble (`feeChat.css`)
+   + voice openers (`fee_voice`) SHIPPED. Users see "🔮 FeeCat AI" (never NEXA / OSSY / G4).
 4. 💬 Agent chat bubbles on FeeCat's charts (names already scrubbed: `feecat_service.public_words` / `_pub` on every public cat endpoint).
 5. ⏱ While NEXA holds a LIVE trade: quick questions to her faster (hold · skim · new SL · new TP), re-checked every ≤ 120 s (desk EVERY = 300 s today).
 6. 🔌 RPC lanes in HQ › Core (SOLANA_RPC_URL_2 … _6 — the keeper + relay already fall through them); Helius + Alchemy were OUT of quota.
@@ -201,7 +202,9 @@ P0 — MAKE THE MONEY MOVE IN PLACE (owner 2026-10-23: "I tightened a v3 pool wi
 8. 🌍 A geo / KYC switch per feature (today there is none — COUNSEL_BRIEF §0) so a feature counsel restricts can be closed to US users.
 
 P1 — AGENTS + AI
-1. 🏆 NEXA earns real money only after her FeeCat record beats the rule engine in shadow — build the shadow ledger + the side-by-side.
+1. 🏆 NEXA auto-trading real money (no per-trade signature) only after a SAME-COIN shadow ledger shows her beating the rules after a 3% round trip.
+   ⚔ The duel meter on her desk (`CatBrainSwitch.duel`, YES-right vs closed-trade wins) is the first cut. 2026-10-23: NEXA 43% · −1.55% typical; edge-audit GATE HOLD.
+2a. 🧠 Learning / accept loops of the cats on par with NEXA's desk (owner ask 2026-10-23, not started: audit `feecat_brain` learn + `_learn` vs nexa.py grading).
 2. 🧠 G4: the Models tab beside NEXA's chat (layout) · wire the trench theory into the deterministic agents only after a shadow test.
 3. 🔥 More Pump coins on the intake.
 4. 🐱 Launch-a-cat AI flow restyled in the violet meta (like CatDesk / CatReal).
