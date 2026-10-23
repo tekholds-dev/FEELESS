@@ -67,7 +67,8 @@ export function nextTurf(me, n_ = 4) {
 }
 
 export function FamilyHQ({ mine, world, act, busy, onEnter, onFly, tools }) {
-  const [tool, setTool] = useState('table');
+  const [tool, setTool] = useState(() => { try { const t = sessionStorage.getItem('feeless.hq.tool'); if (t) { sessionStorage.removeItem('feeless.hq.tool'); return t; } } catch { /* storage blocked */ } return 'table'; });   // 🌹 the directory's crest door opens the badge tool
+  useEffect(() => { const go = e => { if (TOOLS.some(([k]) => k === e.detail)) setTool(e.detail); }; window.addEventListener('feeless:hq-tool', go); return () => window.removeEventListener('feeless:hq-tool', go); }, []);
   const vt = mine.vitals || {}; const war = mine.war || {}; const me = world?.me || null;
   const week = useCount(vt.usd || 0); const turfMax = world?.rules?.turfMax || 12; const turf = (me?.turf || []).length + (me?.home ? 1 : 0);
   const next = nextTurf(me);

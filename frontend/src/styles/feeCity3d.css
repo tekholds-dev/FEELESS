@@ -68,6 +68,22 @@ body.fc3-lock { overflow: hidden; }
 .fc3-dir li button:hover { background: color-mix(in srgb, var(--pc) 14%, transparent); border-color: color-mix(in srgb, var(--pc) 40%, transparent); transform: translateX(2px); }
 .fc3-dir li button:active { transform: scale(.97); } .fc3-dir li button:focus-visible { outline: 2px solid var(--pc); outline-offset: 1px; }
 .fc3-dir li button.active { background: color-mix(in srgb, var(--pc) 22%, transparent); border-color: var(--pc); box-shadow: 0 0 14px -6px var(--pc); }
+/* 💸 the directory leads with money: ⚡ START COMPOUNDING (a lit green door), group headers, money rows with a green edge */
+.fc3-dirh { padding: 8px 8px 2px; font: 800 9px 'JetBrains Mono', monospace; letter-spacing: .14em; color: #8a7a52; } .fc3-dir:not(.is-open) .fc3-dirh { display: none; }
+.fc3-dirgo button { min-height: 44px; border-color: #45e48666 !important; background: linear-gradient(120deg, #0c3a20, #08160e) !important; box-shadow: 0 0 18px -8px #45e486; }
+.fc3-dirgo button b { color: #45e486; } .fc3-dirgo button svg { animation: fc3Zap 2.4s ease-in-out infinite; }
+.fc3-dir li.is-money button { border-left: 2px solid color-mix(in srgb, var(--pc) 60%, transparent); }
+.fc3-desk { position: absolute; top: 12px; right: 12px; bottom: 60px; z-index: 6; width: min(440px, calc(100% - 24px)); overflow-y: auto; padding: 10px; border-radius: 18px;
+  background: rgba(8, 7, 5, .9); border: 1px solid #45e48655; box-shadow: 0 30px 60px -30px #000; scrollbar-width: thin; scrollbar-color: #45e486 transparent; animation: fc3DeskIn .2s ease-out both; }
+.fc3-desk::-webkit-scrollbar { width: 6px; } .fc3-desk::-webkit-scrollbar-thumb { background: #45e486; border-radius: 6px; }
+.fc3-deskx { position: sticky; top: 0; float: right; z-index: 2; width: 32px; height: 32px; margin: 0 0 4px 6px; border-radius: 10px; border: 1px solid #45e48666; background: #08160e; color: #45e486; cursor: pointer; transition: transform .15s ease; }
+.fc3-deskx:hover { transform: rotate(90deg); } .fc3-deskx:active { transform: scale(.92); } .fc3-deskx:focus-visible { outline: 2px solid #45e486; outline-offset: 2px; }
+@keyframes fc3Zap { 50% { transform: scale(1.18); } }
+@keyframes fc3DeskIn { from { opacity: 0; transform: translateX(16px); } to { opacity: 1; transform: none; } }
+body.fx-lite .fc3-dirgo button svg, body.fx-lite .fc3-desk { animation: none; } @media (prefers-reduced-motion: reduce) { .fc3-dirgo button svg, .fc3-desk { animation: none; } .fc3-deskx { transition: none; } }
+body.theme-day .fc3-dirgo button { background: linear-gradient(120deg, #e6f8ec, #f4fff8) !important; } body.theme-day .fc3-dirgo button b { color: #0d7a41; } body.theme-day .fc3-dirh { color: #6a5a3a; }
+body.theme-day .fc3-desk { background: #fffaf0f2; border-color: #0d7a4155; }
+@media (max-width: 640px) { .fc3-desk { left: 8px; right: 8px; top: auto; width: auto; max-height: 76%; } }
 .fc3 .fc-vpanel { left: 70px; } .fc3-dir.is-open ~ .fc-vpanel { left: 250px; }
 /* ⚔ the real Fuse cards standing over the stadium pitch (positioned by the engine every frame — transform / opacity only) */
 .fc3-cards { position: absolute; inset: 0; z-index: 3; pointer-events: none; overflow: hidden; }

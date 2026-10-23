@@ -4,6 +4,8 @@ import { apiUrl } from '../lib/api';
 import { useGlide } from '../lib/useGlide';
 import { FamilyCrest } from './FamilyCrest';
 import { familiaTrade } from './FamiliaTrade';
+import { sharedJson } from '../lib/sharedJson';
+import { useMarket } from '../hooks/useMarket';
 import '../styles/streetChat.css';
 
 // 💬 THE STREETS — the Familia city chat (backend/street_chat.py; owner: "familia chat gotta be LITTY"). A drawn street at night (skyline with
@@ -124,11 +126,41 @@ const Line = memo(function Line({ l, fresh, reacts, canPull, canPin, staff, onRe
   </li>;
 });
 
+// 🏆 THE BEST CALL STRIP (owner, 2026-10-23: "the family chat robust + fun, with a small best callout from the site or Pump"): two live chips over
+// the street — the site's best call of the last 24h (who called it, how far it ran) and Pump's hottest coin this minute. Tap = trade it in place;
+// ↩ drops it into your line as a call. One shared read each (calls a minute, the Pump board every 30 s).
+export function bestCall(calls, now = Date.now() / 1000) {
+  return (calls || []).filter(c => c && c.pairAddress && (c.at || 0) >= now - 86400 && Number(c.peakX) >= 1.2).sort((a, b) => b.peakX - a.peakX)[0] || null;
+}
+export function pumpHot(pairs) {
+  return (pairs || []).filter(p => p?.baseToken?.address && (Number(p.liquidity?.usd) || 0) >= 5000 && Number(p.priceChange?.m5) > 0).sort((a, b) => b.priceChange.m5 - a.priceChange.m5)[0] || null;
+}
+function BestStrip({ onCall }) {
+  const [calls, setCalls] = useState(null);
+  useEffect(() => { let on = true; const go = () => sharedJson('/api/reputation/calls/recent?limit=100', { maxAge: 55000 }).then(x => on && x && setCalls(x.calls || [])).catch(() => {});
+    go(); const t = setInterval(() => { if (!document.hidden) go(); }, 60000); return () => { on = false; clearInterval(t); }; }, []);
+  const { data } = useMarket('/feed?kind=trending&chain=solana&page=1&scope=pump', 30000);
+  const c = useMemo(() => bestCall(calls), [calls]); const p = useMemo(() => pumpHot(data?.pairs), [data]);
+  if (!c && !p) return null;
+  return <div className="st-best" data-testid="st-best">
+    {c ? <span className="st-bchip is-call" style={{ '--i': 0 }}><button type="button" className="st-bgo" onClick={() => familiaTrade({ chainId: c.chain || 'solana', pairAddress: c.pairAddress, baseToken: { symbol: c.symbol } })}
+      data-tip={`The best call on FEELESS in 24h: ${c.caller} called $${c.symbol} — it ran ${xWord(c.peakX)}, now ${xWord(c.x)}. Tap to trade it here`} data-testid="st-best-call">
+      <em>🏆 BEST CALL</em><b>${c.symbol}</b><strong>{xWord(c.peakX)}</strong><small>{String(c.caller || '').slice(0, 14)}</small></button>
+      {c.mint ? <button type="button" className="st-bput" onClick={() => onCall(c.mint)} aria-label={`Call $${c.symbol} on the street`} data-tip="Drop it into your line as a call">↩</button> : null}</span> : null}
+    {p ? <span className="st-bchip is-pump" style={{ '--i': 1 }}><button type="button" className="st-bgo" onClick={() => familiaTrade(p)}
+      data-tip={`Pump's hottest coin right now: $${p.baseToken.symbol} +${Number(p.priceChange.m5).toFixed(1)}% in 5 minutes · liquidity ${mcWord(p.liquidity?.usd)}. Tap to trade it here`} data-testid="st-best-pump">
+      <em>🔥 PUMP NOW</em><b>${String(p.baseToken.symbol).slice(0, 10)}</b><strong>+{Number(p.priceChange.m5).toFixed(0)}%</strong><small>5m</small></button>
+      <button type="button" className="st-bput" onClick={() => onCall(p.baseToken.address)} aria-label={`Call $${p.baseToken.symbol} on the street`} data-tip="Drop it into your line as a call">↩</button></span> : null}
+  </div>;
+}
+const STARTERS = ['🔥 GM, block', '📈 who\'s up today?', '💀 rug check — anyone holding?', '🫡 respect to the last caller'];
+
 export default function StreetChat({ city, name, addr, sess }) {
   const [d, setD] = useState(null); const [t, setT] = useState(''); const [busy, setBusy] = useState(false); const [reply, setReply] = useState(null); const [tool, setTool] = useState(null); const [cool, setCool] = useState(0); const [, tick] = useState(0); const coolDur = useRef(0); const typedAt = useRef(0);
   const logRef = useRef(null); const seen = useRef(null); const input = useRef(null); const stick = useRef(true);
   const url = `/api/reputation/familia/street/${city}${addr && sess ? `?viewer=${encodeURIComponent(addr)}&session=${encodeURIComponent(sess)}` : ''}`;
-  const load = useCallback(() => fetch(apiUrl(url)).then(r => (r.ok ? r.json() : null)).then(j => { if (j && Array.isArray(j.lines)) setD(j); }).catch(() => {}), [url]);
+  const [miss, setMiss] = useState(0);   // 📡 failed reads in a row: 2+ = the street shows it is reconnecting (the last lines stay)
+  const load = useCallback(() => fetch(apiUrl(url)).then(r => (r.ok ? r.json() : null)).then(j => { if (j && Array.isArray(j.lines)) { setD(j); setMiss(0); } else setMiss(m => m + 1); }).catch(() => setMiss(m => m + 1)), [url]);
   useEffect(() => { seen.current = null; setD(null); load(); const p = setInterval(() => { if (!document.hidden) load(); }, POLL_MS); return () => clearInterval(p); }, [load]);
   const coolFor = sec => { const u = Date.now() + sec * 1000; if (u > cool + 900) { coolDur.current = sec; setCool(u); } };
   useEffect(() => { if ((d?.slow?.wait || 0) > 0) coolFor(d.slow.wait); }, [d?.slow?.wait]);   // eslint-disable-line react-hooks/exhaustive-deps
@@ -186,6 +218,8 @@ export default function StreetChat({ city, name, addr, sess }) {
         data-tip={`Hottest call on this street: ${v.hot.by}${v.hot.fam ? ` [${v.hot.fam}]` : ''} · now ${xWord(v.hot.x)}`} data-testid="st-hot">🔥 ${v.hot.symbol} <b>{xWord(v.hot.peakX)}</b></button> : null}
     </header>
     <HitsTape hits={d?.hits} />
+    <BestStrip onCall={mint => put(`📞 CALL ${mint}`)} />
+    {miss >= 2 ? <p className="st-off" role="status" data-testid="st-off"><i />the street dropped — reconnecting… your last lines stay here</p> : null}
     {(d?.here || []).length ? <div className="st-here" data-testid="st-here">{d.here.slice(0, 14).map((h, i) => <button key={h.address} type="button" className="st-who-here" style={{ '--i': i, '--fc': h.fam?.color || '#8f8470' }}
       onClick={() => at(h.name)} data-tip={`${h.fam ? `[${h.fam.tag}] ` : ''}${h.name} — tap to mention`}>{h.fam?.badge ? <FamilyCrest b={h.fam.badge} px={18} banner={false} sheen={false} /> : <i>{String(h.name || '?')[0]}</i>}</button>)}
       {d.hereN > 14 ? <small>+{d.hereN - 14}</small> : null}{(v.families || []).length ? <em>{v.families.length} famil{v.families.length === 1 ? 'y' : 'ies'} talking</em> : null}</div> : null}
@@ -196,7 +230,7 @@ export default function StreetChat({ city, name, addr, sess }) {
     <ol className="st-log" ref={logRef} onScroll={e => { const el = e.currentTarget; stick.current = el.scrollHeight - el.scrollTop - el.clientHeight < 60; }}>
       {lines.map(l => <Line key={l.id} l={l} fresh={fresh.has(l.id)} replies={byParent.get(l.id)} parentName={l.parentId ? nameOf.get(l.parentId) || null : null} reacts={d?.reacts || ['🔥', '💀', '🫡', '💰']} canPull={mods.staff || (mods.don && l.fam?.id && l.fam.id === mods.famId)} canPin={!!(mods.staff || mods.don)} staff={mods.staff}
         onReact={react} onReply={x => { setReply(x); input.current?.focus(); }} onMod={mod} onAt={at} />)}
-      {!lines.length ? <li className="st-nil">{d ? `Dead quiet on ${name}. Say something — your family crest rides with you.` : 'Walking onto the block…'}</li> : null}
+      {!lines.length ? <li className="st-nil">{d ? <>Dead quiet on {name}. Break the silence — your family crest rides with you.<span className="st-starters">{STARTERS.map((x, i) => <button key={x} type="button" style={{ '--i': i }} onClick={() => put(x)} data-testid={`st-starter-${i}`}>{x}</button>)}</span></> : 'Walking onto the block…'}</li> : null}
     </ol>
     <form className="st-form" onSubmit={send}>
       {(d?.typing || []).length ? <p className="st-typing" data-testid="st-typing"><i /><i /><i /><span>{d.typing.slice(0, 3).join(', ')}{d.typing.length > 3 ? ` +${d.typing.length - 3}` : ''} typing…</span></p> : null}

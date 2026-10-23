@@ -14,7 +14,7 @@ test('pure: perps money at a stake × leverage — position, per 1 %, funding a 
   expect(m.fan.find(f => f.m === -10)).toEqual({ m: -10, pnl: -100, wiped: true });                        // at 10× a 10 % drop takes the whole stake
   expect(m.fan.find(f => f.m === 5)).toEqual({ m: 5, pnl: 50, wiped: false });
   expect(perpsMath(5, 2, { fundApr: -20 }).earner).toBe('LONGS'); expect(perpsMath(5, 2, { fundApr: 0 }).earner).toBeNull();
-  expect(cash(0.0011)).toBe('$0.0011'); expect(cash(0.055)).toBe('$0.055'); expect(cash(2.5)).toBe('$2.50'); expect(cash(1500)).toBe('$1.5K'); expect(STAKES).toEqual([5, 100, 1000]);
+  expect(cash(0.0011)).toBe('$0.0011'); expect(cash(0.055)).toBe('$0.055'); expect(cash(2.5)).toBe('$2.50'); expect(cash(1500)).toBe('$1.5K'); expect(STAKES).toEqual([100, 1000, 10000]);
 });
 
 test('one stake for the page: the picker re-quotes every pool row and the perps desk live', async () => {
@@ -25,9 +25,9 @@ test('one stake for the page: the picker re-quotes every pool row and the perps 
   await act(async () => { root.render(<><StakeSeg /><ol><PoolRow r={pool} /></ol><PerpsEarn row={BTC} lev={10} /></>); });
   expect(q('pool-earn-p1').textContent).toContain('$100 · DAY'); expect(q('pool-earn-p1').textContent).toContain('+$0.100'); expect(q('pool-earn-p1').textContent).toContain('$37 / yr');
   expect(q('perps-earn').textContent).toContain('$1.0K position'); expect(q('perps-earn').textContent).toContain('SHORTS EARN');
-  await act(async () => { q('stake-5').click(); });
-  expect(q('stake-5').getAttribute('aria-checked')).toBe('true');
-  expect(q('pool-earn-p1').textContent).toContain('$5 · DAY'); expect(q('perps-earn').textContent).toContain('$5 × 10× = $50 position');
+  await act(async () => { q('stake-10000').click(); });
+  expect(q('stake-10000').getAttribute('aria-checked')).toBe('true');
+  expect(q('pool-earn-p1').textContent).toContain('$10K · DAY'); expect(q('perps-earn').textContent).toContain('$10,000 × 10× = $100.0K position');
   expect(el.querySelectorAll('.es-bar.is-wiped')).toHaveLength(1);
   await act(async () => { q('stake-100').click(); });
   await act(async () => { root.unmount(); });

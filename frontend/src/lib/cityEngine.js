@@ -15,6 +15,7 @@ import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer
 import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass.js';
 import { OutputPass } from 'three/examples/jsm/postprocessing/OutputPass.js';
+import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { centerOf, usd, apyTxt, LAND, FOOT } from './cityPlan';
 
 const BASE = `${process.env.PUBLIC_URL || ''}/assets/city`;
@@ -139,7 +140,7 @@ export function createCity(host, { onPick, onHover, onAnchors, lite = false, sti
     asphalt: new THREE.MeshStandardMaterial({ color: '#15171d', roughness: 0.95 }), quay: new THREE.MeshStandardMaterial({ color: '#262a33', roughness: 0.9 }),
     leaf: new THREE.MeshStandardMaterial({ color: '#1f6b3a', roughness: 1 }), trunk: new THREE.MeshStandardMaterial({ color: '#4a3020', roughness: 1 }),
     far: new THREE.MeshStandardMaterial({ color: '#0b0f1c', emissive: '#ffffff', emissiveMap: windowsTexture(), emissiveIntensity: 0.32, roughness: 1 }) };
-  let mode = day ? 'day' : 'night'; let sky = {};
+  let mode = day ? 'day' : 'night'; let sky = {}; let fogK = 1;
 
   const world = new THREE.Group(); let content = new THREE.Group(); scene.add(world, content); let sig = null;
   const pickables = []; const anim = []; let cars = []; let walkers = null; let lights = null; let lightNodes = []; let planKey = null; let plan = null; let anchors = [];
@@ -153,18 +154,20 @@ export function createCity(host, { onPick, onHover, onAnchors, lite = false, sti
   const worldPicks = [];   // the gates live with the world (they survive a content swap)
   const proxy = (r, h, pick, label, inWorld = false) => { const m = new THREE.Mesh(new THREE.BoxGeometry(r.w, h, r.d), new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, depthWrite: false, colorWrite: false }));
     const c = centerOf(r); m.position.set(c.x, h / 2, c.z); m.userData = { pick, label, rect: r }; (inWorld ? world : content).add(m); (inWorld ? worldPicks : pickables).push(m); return m; };
-  const frame = (r, color, parent = content, y = 0.1, t = 0.06) => { const g = new THREE.Group(); const mat = neon(color, 1.05);
-    [[r.w, t, r.x + r.w / 2, r.z], [r.w, t, r.x + r.w / 2, r.z + r.d], [t, r.d, r.x, r.z + r.d / 2], [t, r.d, r.x + r.w, r.z + r.d / 2]].forEach(([w, d, x, z]) => box(w, 0.05, d, null, x, y, z, g, mat));
-    parent.add(g); return g; };
+  // ⚡ neon trims are ONE merged mesh each (a frame was 4 meshes, a tower's edges 8): the metro's ~60 towers cost ~120 draw calls, not ~720
+  const bars = (list, mat) => { const gs = list.map(([w, h, d, x, y, z]) => new THREE.BoxGeometry(w, h, d).translate(x, y, z)); const m = new THREE.Mesh(mergeGeometries(gs), mat); gs.forEach(g => g.dispose()); return m; };
+  const frameBars = (r, y, t) => [[r.w, 0.05, t, r.x + r.w / 2, y, r.z], [r.w, 0.05, t, r.x + r.w / 2, y, r.z + r.d], [t, 0.05, r.d, r.x, y, r.z + r.d / 2], [t, 0.05, r.d, r.x + r.w, y, r.z + r.d / 2]];
+  const frame = (r, color, parent = content, y = 0.1, t = 0.06) => { const g = new THREE.Group(); g.add(bars(frameBars(r, y, t), neon(color, 1.05))); parent.add(g); return g; };
   // ✨ neon edges up a tower's four corners + a crown — the "hella glow" (night), a thin trim by day
-  const edges = (o, c, color, parent = content) => { const s = sizeOf(o); const g = new THREE.Group(); const mat = neon(color, 0.9); const hx = s.x / 2 + 0.02; const hz = s.z / 2 + 0.02;
-    [[-hx, -hz], [hx, -hz], [hx, hz], [-hx, hz]].forEach(([dx, dz]) => box(0.03, s.y, 0.03, null, c.x + dx, 0.12 + s.y / 2, c.z + dz, g, mat));
-    frame({ x: c.x - hx, z: c.z - hz, w: hx * 2, d: hz * 2 }, color, g, 0.12 + s.y, 0.06); parent.add(g); return g; };
+  const edges = (o, c, color, parent = content) => { const s = sizeOf(o); const g = new THREE.Group(); const hx = s.x / 2 + 0.02; const hz = s.z / 2 + 0.02;
+    g.add(bars([...[[-hx, -hz], [hx, -hz], [hx, hz], [-hx, hz]].map(([dx, dz]) => [0.03, s.y, 0.03, c.x + dx, 0.12 + s.y / 2, c.z + dz]), ...frameBars({ x: c.x - hx, z: c.z - hz, w: hx * 2, d: hz * 2 }, 0.12 + s.y, 0.06)], neon(color, 0.9)));
+    parent.add(g); return g; };
 
   // ── the static world: water, sky dressing, islands + their land, roads, bridges, lamps, stoplights, traffic, people ──
   async function buildWorld(p) {
     clear(world); cars = []; lightNodes = []; lights = null; worldPicks.length = 0; walkers = null;
     const bx = p.bounds; const W = bx.x1 - bx.x0; const D = bx.z1 - bx.z0; const cx = (bx.x0 + bx.x1) / 2; const cz = (bx.z0 + bx.z1) / 2;
+    fogK = Math.max(1, Math.max(W, D) / 240); controls.maxDistance = 260 * fogK;   // 🌆 the metro is ~2× the old capital: the haze + the reach grow with it
     const ripple = noiseTexture(); ripple.repeat.set(W / 6, D / 6); M.water.bumpMap = ripple; M.water.bumpScale = 0.6; M.water.needsUpdate = true;
     const water = new THREE.Mesh(new THREE.PlaneGeometry(W + 400, D + 400), M.water);
     water.rotation.x = -Math.PI / 2; water.position.set(cx, -0.55, cz); world.add(water); anim.push(t => { ripple.offset.set(t * 0.012, t * 0.007); });
@@ -261,7 +264,7 @@ export function createCity(host, { onPick, onHover, onAnchors, lite = false, sti
       const total = segs.reduce((s, x) => s + x.len, 0); if (total < 2) continue;
       segs.forEach(s => { s.stops = lightNodes.filter(n => (Math.abs(s.a[1] - s.b[1]) < 0.01 ? Math.abs(n.z - s.a[1]) < 0.05 && n.x > Math.min(s.a[0], s.b[0]) && n.x < Math.max(s.a[0], s.b[0])
         : Math.abs(n.x - s.a[0]) < 0.05 && n.z > Math.min(s.a[1], s.b[1]) && n.z < Math.max(s.a[1], s.b[1]))).map(n => Math.hypot(n.x - s.a[0], n.z - s.a[1])).sort((x, y) => x - y); });
-      const n = li < p.loops.length ? perLoop + (li === 0 ? 3 : 0) : (lite ? 0 : 2);
+      const bi = li - p.loops.length; const n = li < p.loops.length ? (p.cars ? Math.max(lite ? 0 : 1, Math.round((p.cars[li] ?? 1) * (lite ? 0.4 : 1))) : perLoop + (li === 0 ? 3 : 0)) : (lite ? 0 : p.bridges[bi]?.cars ?? 2);   // 🚗 the plan's car budget (the metro: busy downtown, calm keys)
       for (let k = 0; k < n; k += 1) {
         const o = await make(MODELS.cars[(li * 3 + k) % MODELS.cars.length]); fit(o, 0.42, 0.8);
         const car = new THREE.Group(); car.add(o);
@@ -359,7 +362,8 @@ export function createCity(host, { onPick, onHover, onAnchors, lite = false, sti
         const cd = coinDisc(String(m.name || '').replace('$', ''), tone, 0.62); cd.position.set(c.x, h + 3.3, c.z); content.add(cd);
         anim.push(t => { cd.rotation.y = t * 0.9; cd.position.y = h + 3.3 + Math.sin(t * 1.1 + c.x) * 0.1; }); }
       const sub = m.pool ? `${m.proto} · APY ${apyTxt(m.apy)}` : m.kind === 'coin' ? `${usd(m.tvl)} MC${m.move != null ? ` · ${m.move >= 0 ? '+' : ''}${Number(m.move).toFixed(1)}%` : ''}` : `TVL ${usd(m.tvl)}`;
-      const s = sign(m.lines || (m.pool ? [m.name, sub, `TVL ${usd(m.tvl)}`] : [m.name, sub]), { color: tone, w: 440 });   // 🏙 a family block's building writes its own lines (your $ · APY · errands) s.position.set(c.x, h + 1.7, c.z); content.add(s);
+      const s = sign(m.lines || (m.pool ? [m.name, sub, `TVL ${usd(m.tvl)}`] : [m.name, sub]), { color: tone, w: 440 });   // 🏙 a family block's building writes its own lines (your $ · APY · errands)
+      s.position.set(c.x, h + 1.7, c.z); content.add(s);
       proxy(m.rect, h + 0.4, m.pick, m.pool ? `${m.name} · ${m.proto}` : m.name);
     }
     for (const x of p.spare) { const c = centerOf(x.rect);
@@ -552,7 +556,7 @@ export function createCity(host, { onPick, onHover, onAnchors, lite = false, sti
   // ── ☀ / 🌙 ──
   function applyMode() {
     const d = mode === 'day';
-    scene.background = d ? skyD : skyN; scene.fog.color.set(d ? '#bcd3e6' : '#0a1022'); scene.fog.near = d ? 140 : 90; scene.fog.far = d ? 520 : 330;
+    scene.background = d ? skyD : skyN; scene.fog.color.set(d ? '#bcd3e6' : '#0a1022'); scene.fog.near = (d ? 140 : 90) * fogK; scene.fog.far = (d ? 520 : 330) * fogK;
     hemi.color.set(d ? '#d8ecff' : '#4a5a95'); hemi.groundColor.set(d ? '#5a5444' : '#0b0b14'); hemi.intensity = d ? 1.7 : 1.25;
     key.color.set(d ? '#fff2d6' : '#a9bcff'); key.intensity = d ? 2.6 : 1.35; key.position.set(d ? 90 : -60, d ? 140 : 90, d ? 40 : -40); dusk.intensity = d ? 0.25 : 0.55;
     renderer.toneMappingExposure = d ? 1.0 : 0.98;
@@ -570,7 +574,7 @@ export function createCity(host, { onPick, onHover, onAnchors, lite = false, sti
 
   // ── camera ──
   let fly = null;
-  const frameAll = () => { const bx = plan.bounds; const span = Math.max(bx.x1 - bx.x0, bx.z1 - bx.z0); return { x: plan.center.x, z: plan.center.z, dist: span * 0.58 }; };
+  const frameAll = () => { const bx = plan.view || plan.bounds; const span = Math.max(bx.x1 - bx.x0, bx.z1 - bx.z0); return { x: plan.center.x, z: plan.center.z, dist: span * 0.58 }; };
   function flyTo(spot, dist = 12, ms = 900) {
     if (!plan) return;
     const to = spot || frameAll(); const d = spot ? (spot.span ? spot.span * 1.15 : dist) : to.dist;

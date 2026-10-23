@@ -1,10 +1,10 @@
-// 💸 THE STAKE — one amount every real-money building quotes its earnings at ($5 · $100 · $1K; owner, 2026-10-23: "pools + perps ain't bringing
-// no money — show what $5 / $100 earns live"). One shared value for the page (Pool Hall rows, the combo, the Perps desk), remembered per viewer.
+// 💸 THE STAKE — one amount every real-money building quotes its earnings at ($100 · $1K · $10K; owner, 2026-10-23: "pools + perps ain't bringing
+// no money" → then "$5 wouldn't do shit": the smallest quote is $100, the default $1K). One shared value for the page (Pool Hall rows, the combo, the Perps desk), remembered per viewer.
 import { useEffect, useState } from 'react';
 
-export const STAKES = [5, 100, 1000];
+export const STAKES = [100, 1000, 10000];
 const KEY = 'feeless.earn.stake';
-let cur = (() => { try { const v = Number(localStorage.getItem(KEY)); return STAKES.includes(v) ? v : 100; } catch { return 100; } })();
+let cur = (() => { try { const v = Number(localStorage.getItem(KEY)); return STAKES.includes(v) ? v : 1000; } catch { return 1000; } })();
 const subs = new Set();
 export function setStake(v) {
   if (!STAKES.includes(v) || v === cur) return;

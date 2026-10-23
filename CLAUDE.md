@@ -160,6 +160,16 @@ STANDING RULES (never "done"):
 - Real money = the user's wallet signs; FEELESS never holds keys or pooled funds (`docs/DECISIONS.md`). Every new buy door ships with guards.
 - Every building / family idea = a real function on live data, drawn and alive — no dead text.
 
+P0-NOW — OWNER 2026-10-23 (live, in progress)
+- 🧹 EVERY PAGE END TO END (owner: "you do the top of a page and act like the rest of the user flow is ok"): touching a page or tab = its WHOLE
+  flow (modals, steps 1…n, popouts, second tabs, empty states) restyled in that page's own meta, old useless bits deleted, tested, screenshotted.
+  No site-wide flat green leftovers. First: FeeCat's create-a-cat modal (violet night, not site green) · Launch's click-through flow.
+- 🏙 FAMILY BLOCK: ☀/🌙 + ⤢ expand like Fee City · every building's popout DOES the money in place (pick the platform / provider → act; no
+  redirects) · the range explained as a drawn picture, not jargon · real amounts (a $5 default does nothing) · ≥ 80 % of buildings carry a
+  real-money tool in their popout · the directory leads with compound + growth · create a badge + save it.
+- 🧼 SIDEBARS STAY CLEAN: a narrow side panel shows a summary + ONE button; big tools (the money desk) pop out over the city, never crammed in.
+- 💬 FAMILY CHAT robust + fun, with a small live BEST CALL strip (the site's best call or Pump's hottest coin, tap → trade in place).
+
 P0 — FAMILIA + FEE CITY (owner: "buildings represent realtime data — you can really do EVERYTHING from everywhere"), hardest → easiest
 1. 🌆 FEE CITY = SIMCITY SCALE: a bigger capital; ~80 % of the city real-money buildings (pools, vaults, lend, perps, LSTs, the desk) spread
    across districts, not packed on one island; family blocks as their own islands off the capital.

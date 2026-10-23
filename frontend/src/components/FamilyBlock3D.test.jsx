@@ -47,8 +47,8 @@ test('🏙 errands open the real tool: the swap with both coins set, the perps d
   expect(errandGo(BL.buildings[0].errands[0], BL.buildings[0], nav, open)).toBe('swap');
   expect(JSON.parse(sessionStorage.getItem('feeless.swap.pair'))).toEqual({ input: 'J1', output: 'jup' }); expect(nav).toHaveBeenCalledWith('/terminal/trade');
   errandGo({ kind: 'hedge' }, { key: 'jlp' }, nav, open); expect(seen.mock.calls[0][0].detail).toBe('perps');
-  errandGo({ kind: 'range' }, { key: 'orca' }, nav, open); expect(open).toHaveBeenCalledWith('https://www.orca.so/portfolio');
-  errandGo({ kind: 'build', url: 'https://jito.network' }, { key: 'jito' }, nav, open); expect(open).toHaveBeenLastCalledWith('https://jito.network');
+  expect(errandGo({ kind: 'range' }, { key: 'orca' }, nav)).toBe('range'); expect(open).not.toHaveBeenCalled();   // no redirects: the range is drawn in the pop-out
+  expect(errandGo({ kind: 'build', url: 'https://jito.network' }, { key: 'jito' }, nav)).toBe('desk'); expect(open).not.toHaveBeenCalled();
 });
 
 test('🏘 the town: the tool buildings the family picked stand on the block (TT burns its READY floors), the picker stands / takes them down, a standing one walks in', async () => {

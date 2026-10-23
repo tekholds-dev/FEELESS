@@ -57,17 +57,14 @@ function BlockPicks({ coins }) {
 // markets i wanna use, under construction until i actually buy … not these fake buildings and fake corny drag and drop errands, real errands"):
 // the block is the family's REAL market buildings in the same 3D engine as Fee City (FamilyBlock3D · backend/block_markets.py) — built only by a
 // real position, errands from that position. The MP points game (stash, recruits, robberies) folds into one panel underneath.
-const RANGE_URL = { orca: 'https://www.orca.so/portfolio', raydium: 'https://raydium.io/portfolio/' };
-export function errandGo(e, b, nav = path => window.location.assign(path), open = (u) => window.open(u, '_blank', 'noopener,noreferrer')) {
+export function errandGo(e, b, nav = path => window.location.assign(path)) {   // every errand runs IN FEELESS (owner: "no redirects")
   if (e.kind === 'switch' && e.swap) {   // ⚖ a better-paying LST: the swap opens with both coins set (you still press Get quote) — INSIDE Familia's dock
     if (familiaDocked()) { familiaSwap(e.swap); return 'swap'; }
     try { sessionStorage.setItem('feeless.swap.pair', JSON.stringify({ input: e.swap.from, output: e.swap.to })); } catch { /* storage blocked */ }
     nav('/terminal/trade'); return 'swap';
   }
   if (e.kind === 'hedge') { window.dispatchEvent(new CustomEvent('feeless:deck', { detail: 'perps' })); return 'deck'; }
-  const url = e.kind === 'range' ? RANGE_URL[b.key] || b.url : e.url || b.url;
-  if (url) open(url);
-  return url || null;
+  return e.kind === 'range' ? 'range' : 'desk';   // 🎯 the drawn range / 💸 the money desk open in the building's own pop-out
 }
 
 // 🎲 the MP street game under the block — the ONLY part that ticks every second (its live stash). It used to tick the whole block page
@@ -98,7 +95,7 @@ export function FamilyBlock({ cid, addr, sess, onBack, mine: myFam = null, tools
   const [v, setV] = useState(null); const [err, setErr] = useState(''); const [busy, setBusy] = useState(false);
   const [bl, setBl] = useState(null); const [bsel, setBsel] = useState(null); const coins = useIntakeCoins();
   const room = bsel?.town && TOWN[bsel.town] ? bsel.town : null;   // 🏘 a town building you walked into: its real tool pops out over the block
-  useEffect(() => { if (!room) return undefined; const esc = e => { if (e.key === 'Escape') setBsel(null); }; window.addEventListener('keydown', esc); return () => window.removeEventListener('keydown', esc); }, [room]);
+  useEffect(() => { if (!bsel) return undefined; const esc = e => { if (e.key === 'Escape') setBsel(null); }; window.addEventListener('keydown', esc); return () => window.removeEventListener('keydown', esc); }, [bsel]);
   const load = () => fetch(apiUrl(mine ? `/api/reputation/familia-city?address=${addr}&session=${encodeURIComponent(sess)}` : `/api/reputation/familia-city/${cid}`))
     .then(async r => { const b = await r.json().catch(() => ({})); if (!r.ok) throw new Error(b.detail || 'The block could not be read.'); setV({ ...b, _at: Date.now() / 1000 }); setErr(''); })
     .catch(e => setErr(e.message));
@@ -147,7 +144,8 @@ export function FamilyBlock({ cid, addr, sess, onBack, mine: myFam = null, tools
       </header>
       <div className="fbk-wrap">
         <div className="fbk-left">
-          <div className="fbk-stage3">{bl ? <FamilyBlock3D bl={bl} sel={bsel} onPick={setBsel} coins={coins} /> : <p className="fbk-wait">Surveying the block…</p>}<BlockPicks coins={coins} />
+          <div className="fbk-stage3">{bl ? <FamilyBlock3D bl={bl} sel={bsel} onPick={setBsel} coins={coins} onClosePop={() => setBsel(null)}
+            pop={bsel?.blk || bsel?.open != null ? <BlockCard bl={bl} sel={bsel} busy={busy} mine={mine} onAct={blAct} onErrand={(e, b) => errandGo(e, b)} /> : null} /> : <p className="fbk-wait">Surveying the block…</p>}<BlockPicks coins={coins} />
             {room ? <section className="ftr" style={{ '--tc': TOWN[room].color }} role="dialog" aria-label={TOWN[room].name} data-testid={`town-room-${room}`}>
               <header><i aria-hidden="true" /><span><b>{TOWN[room].name}</b><small>{TOWN[room].sub}</small></span>
                 <button type="button" onClick={() => setBsel(null)} aria-label="Walk back out" data-tip="Back to the block (Esc)" data-testid="town-room-close">✕</button></header>
@@ -156,7 +154,7 @@ export function FamilyBlock({ cid, addr, sess, onBack, mine: myFam = null, tools
         </div>
         <aside className="fbk-side">
           <div className="fbk-card"><TownPicker bl={bl} busy={busy} mine={mine} onAct={blAct} open={room} onOpen={k => setBsel({ town: k })} /></div>
-          {room ? null : <div className="fbk-card"><BlockCard bl={bl} sel={bsel} busy={busy} mine={mine} onAct={blAct} onErrand={(e, b) => errandGo(e, b)} /></div>}
+          {room ? null : <div className="fbk-card"><BlockCard bl={bl} sel={null} busy={busy} mine={mine} onAct={blAct} onErrand={(e, b) => errandGo(e, b)} /></div>}
           {mine ? <StreetGame v={v} act={act} busy={busy} can={can} /> : null}
         </aside>
       </div>

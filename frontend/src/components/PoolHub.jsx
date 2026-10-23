@@ -10,6 +10,7 @@ import { LEND_SIDES, okAmount, lendLine, lendQuote, lendSign } from '../lib/lend
 import { StakeSeg } from './EarnStake';
 import { useStake, cash } from '../lib/earnStake';
 import { FamEmpty } from './FamEmpty';
+import { MoneyDesk, RangePicture, JOB_OF } from './MoneyDesk';
 
 // 🏦 THE POOL HUB (the Pool Hall in Fee City + every pool building in the outer cities): every top and rising Solana pool in ONE pop-out —
 // v2 AMMs, v3 / CLMM, DLMM bins, auto-compounding vaults, lending, liquid staking, perps, RWA — with live TVL, APY and its 7-day move.
@@ -85,19 +86,6 @@ export function ilRange(m, k) {
   return v / (x0 * m + y0) - 1;
 }
 export const rangeFactor = k => 1 / (1 - 1 / Math.sqrt(k));
-export const MOVES = [0.5, 0.75, 0.9, 1.1, 1.25, 1.5];
-function RangeTuner() {
-  const [w, setW] = useState(25); const k = 1 + w / 100;
-  return <div className="phb-range" data-testid="range-tuner">
-    <header><b>🎯 RANGE TUNER</b><small>v3 / DLMM · exact math · vs just holding</small></header>
-    <label className="phb-earn-in"><span>Range ±</span><input type="range" min="2" max="100" step="1" value={w} onChange={e => setW(Number(e.target.value))} aria-label="Range width" data-testid="range-w" /><b>{w}%</b></label>
-    <p className="phb-range-f" data-tip="Liquidity per $ vs a full-range (v2) pool — that many times the fees while the price stays inside your range, zero outside it"><b key={w}>×{rangeFactor(k).toFixed(1)}</b> fees per $ while in range · out of range below {(100 / k).toFixed(0)}% / above {(100 * k).toFixed(0)}% of today's price</p>
-    <table className="phb-range-t"><thead><tr><th>price</th>{MOVES.map(m => <th key={m}>{m >= 1 ? '+' : ''}{Math.round((m - 1) * 100)}%</th>)}</tr></thead>
-      <tbody><tr><td>this range</td>{MOVES.map(m => { const il = ilRange(m, k) * 100; const out = m <= 1 / k || m >= k; return <td key={m} className={`${il < -5 ? 'bad' : ''} ${out ? 'out' : ''}`}>{il.toFixed(1)}%{out ? ' ⛔' : ''}</td>; })}</tr>
-        <tr><td>v2 pool</td>{MOVES.map(m => <td key={m}>{(ilV2(m) * 100).toFixed(1)}%</td>)}</tr></tbody></table>
-    <small className="phb-warn">Narrow = more fees while in range, but a bigger loss vs holding when the price runs, and nothing earned once it leaves (⛔ = out of range).</small>
-  </div>;
-}
 
 function PoolDetail({ r }) {
   const [d, setD] = useState(null); const [days, setDays] = useState(30); const [amt, setAmt] = useState(1000);
@@ -123,14 +111,14 @@ function PoolDetail({ r }) {
         {r.il ? <small className="phb-warn">⚠ impermanent-loss risk: a two-token pool can lose value vs holding when prices move apart.</small> : null}</>
         : <p className="phb-nochart">This DEX pool publishes no APY — its 24h volume is {usd(r.vol || 0)} ({Math.round(((r.vol || 0) / Math.max(1, r.tvl || 1)) * 100)}% of its size). Fees go to LPs in the pool's own coins.</p>}
     </div>
-    {['v3', 'dlmm'].includes(r.kind) || r.il ? <RangeTuner /> : null}
+    {['v3', 'dlmm'].includes(r.kind) ? <RangePicture /> : null}
   </div>;
 }
 
 // 🏦 DEPOSIT HERE (Jupiter Lend rows): amount → the server builds + checks the transaction → you read exactly what runs → your wallet signs.
-export function LendBox({ r, onClose }) {
+export function LendBox({ r, onClose, amount0 = '' }) {
   const { wallet, provider, connect } = useWallet() || {};
-  const [side, setSide] = useState('deposit'); const [amt, setAmt] = useState(''); const [q, setQ] = useState(null); const [st, setSt] = useState(''); const [busy, setBusy] = useState(false); const [sig, setSig] = useState('');
+  const [side, setSide] = useState('deposit'); const [amt, setAmt] = useState(amount0); const [q, setQ] = useState(null); const [st, setSt] = useState(''); const [busy, setBusy] = useState(false); const [sig, setSig] = useState('');
   const sol = wallet?.chain === 'solana' && wallet?.address;
   const review = async () => {
     if (!sol) { await connect?.('solana'); return; }
@@ -157,8 +145,8 @@ export function LendBox({ r, onClose }) {
   </div>;
 }
 
-export function PoolRow({ r, i = 0, big = false, blocks = [], onLink }) {
-  const [pick, setPick] = useState(false); const [lend, setLend] = useState(false); const [more, setMore] = useState(false); const t = tradeOf(r); const stake = useStake(); const e = earn24(r, stake);
+export function PoolRow({ r, i = 0, big = false, blocks = [], onLink, onDesk = null }) {
+  const [pick, setPick] = useState(false); const [lend, setLend] = useState(false); const [more, setMore] = useState(false); const [desk, setDesk] = useState(false); const t = tradeOf(r); const stake = useStake(); const e = earn24(r, stake);
   const canLend = r.project === 'jupiter-lend' && (r.mints || []).length > 0;
   const tvlK = Math.max(0.04, Math.min(1, (Math.log10(1 + (r.tvl || 0)) - 4) / 5.5));
   return <li className={`phb-row k-${r.kind} ${big ? 'is-big' : ''}`} style={{ '--i': Math.min(i, 14), '--kc': KIND_COLOR[r.kind] || '#45e486' }} data-testid={`pool-${r.id}`}>
@@ -173,11 +161,11 @@ export function PoolRow({ r, i = 0, big = false, blocks = [], onLink }) {
       <button type="button" className={`m-btn ${more ? 'active' : ''}`} aria-expanded={more} onClick={() => setMore(v => !v)} data-tip="The pool's TVL + APY history and what your money would have earned" data-testid={`pool-more-${r.id}`}>📈 Chart + 24h</button>
       {t ? <button type="button" className="m-btn m-go" onClick={() => goTrade(r)} data-tip="Through FEELESS, right here: the chart + Quick trade open on this pool, you pick the amount, your wallet signs" data-testid={`pool-trade-${r.id}`}>⚡ {t.word}</button> : null}
       {canLend ? <button type="button" className={`m-btn m-go ${lend ? 'active' : ''}`} aria-expanded={lend} onClick={() => setLend(v => !v)} data-tip="Deposit or withdraw right here — Jupiter builds it, FEELESS checks it, your wallet signs" data-testid={`pool-lend-${r.id}`}>🏦 Deposit here</button> : null}
-      <a className="m-btn" href={r.app} target="_blank" rel="noopener noreferrer" data-tip={`${r.proto}'s own deposit page for this pool — your wallet signs there; FEELESS never holds your funds`} data-testid={`pool-deposit-${r.id}`}>＋ Deposit ↗</a>
+      <button type="button" className={`m-btn m-go ${desk ? 'active' : ''}`} aria-expanded={desk} onClick={() => { if (!(onDesk && onDesk(r))) setDesk(v => !v); }} data-tip="Put money to work from here: pick the provider, your amount, see it compound — the action runs in FEELESS and your wallet signs" data-testid={`pool-desk-${r.id}`}>💸 Put it to work</button>
       {onLink && blocks.length ? (pick ? <select className="m-input phb-pick" autoFocus defaultValue="" onChange={e => { if (e.target.value) { onLink(e.target.value, r); setPick(false); } }} onBlur={() => setPick(false)} aria-label="Which of your buildings">
         <option value="" disabled>Set which building…</option>{blocks.map(b => <option key={b} value={b}>{b}</option>)}</select>
         : <button type="button" className="m-btn" onClick={() => (blocks.length === 1 ? onLink(blocks[0], r) : setPick(true))} data-tip="Your family's building wears this pool: its name, kind and live APY on the billboard (display only)" data-testid={`pool-link-${r.id}`}>🏠 Set building</button>) : null}
-    </span>{lend ? <LendBox r={r} onClose={() => setLend(false)} /> : null}{more ? <PoolDetail r={r} /> : null}</li>;
+    </span>{lend ? <LendBox r={r} onClose={() => setLend(false)} /> : null}{desk ? <MoneyDesk job={JOB_OF[r.kind] || 'lend'} focus={r} compact /> : null}{more ? <PoolDetail r={r} /> : null}</li>;
 }
 
 // 🐱 FEECAT'S COMBO (owner, 2026-10-22: "the cat suggests pool combos … real mass compound"): a 50 / 30 / 20 split picked from the LIVE hub —
@@ -197,14 +185,15 @@ export function catCombo(rows, amt = 100) {
   return { legs: legs.map(([role, w, r, risk]) => ({ role, w: w / wsum, r, risk })), apy: Math.round(apy * 100) / 100, day, month: day * 30, year: amt * apy / 100 };
 }
 function CatCombo({ pools }) {
-  const [amt, setAmt] = useState(100); const c = useMemo(() => catCombo(pools?.pools, amt), [pools, amt]);
+  const [amt, setAmt] = useState(1000); const [leg, setLeg] = useState(null); const c = useMemo(() => catCombo(pools?.pools, amt), [pools, amt]);
   if (!c.legs.length) return null;
   const m = v => (v >= 1 ? `$${v.toFixed(2)}` : `$${v.toFixed(3)}`);
   return <div className="phb-combo" data-testid="cat-combo"><header><b>🐱 FEECAT'S COMBO</b><small>picked from the live hub · {c.legs.length} legs</small></header>
-    <label className="phb-earn-in"><span>Put in</span><input type="range" min="5" max="10000" step="5" value={amt} onChange={e => setAmt(Number(e.target.value))} aria-label="Amount for the combo" data-testid="combo-amt" /><b>${amt.toLocaleString('en-US')}</b></label>
+    <label className="phb-earn-in"><span>Put in</span><input type="range" min="100" max="50000" step="100" value={amt} onChange={e => setAmt(Number(e.target.value))} aria-label="Amount for the combo" data-testid="combo-amt" /><b>${amt.toLocaleString('en-US')}</b></label>
     <p className="phb-combo-big"><b key={amt}>{c.apy.toFixed(1)}% APY</b><span>≈ {m(c.day)} a day · {m(c.month)} a month · {m(c.year)} a year</span></p>
     <ol>{c.legs.map((l, i) => <li key={l.role} style={{ '--i': i }}><em>{l.role} · {Math.round(l.w * 100)}%</em><span><b>{l.r.sym}</b><small>{l.r.proto} · TVL {usd(l.r.tvl)} · {l.risk}</small></span>
-      <strong className="m-num">{apyTxt(l.r.apy)}</strong>{l.r.app ? <a className="m-btn" href={l.r.app} target="_blank" rel="noopener noreferrer" data-tip={`Open ${l.r.proto} — your wallet signs there; FEELESS never holds funds`}>↗</a> : <i />}</li>)}</ol>
+      <strong className="m-num">{apyTxt(l.r.apy)}</strong><button type="button" className={`m-btn m-go ${leg === l.role ? 'active' : ''}`} aria-expanded={leg === l.role} onClick={() => setLeg(x => (x === l.role ? null : l.role))} data-tip={`Put this leg to work right here — your wallet signs`} data-testid={`combo-go-${l.role}`}>💸</button></li>)}</ol>
+    {leg ? <MoneyDesk key={leg} job={JOB_OF[c.legs.find(l => l.role === leg)?.r.kind] || 'lend'} focus={c.legs.find(l => l.role === leg)?.r} title={`${leg} LEG`} compact /> : null}
     <small className="phb-warn">Real APYs move every day; this is today's math, not a promise. Lending + staking pay slowly — big daily % only comes with big risk.</small></div>;
 }
 

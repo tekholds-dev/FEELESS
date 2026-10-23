@@ -17,6 +17,7 @@ import { Realtor } from './Realtor';
 import { useAdmin } from '../lib/adminCall';
 import '../styles/familyWorld.css';
 import { FamEmpty } from './FamEmpty';
+import { MoneyDesk, JOB_OF, openDesk } from './MoneyDesk';
 import { familiaRoom, ROOM_PATH } from '../lib/familiaRoom';
 
 // 🗺 THE FAMILIA WORLD (owner, 2026-10-21: "huge like a Sims build — bridges to other parts, seasons, buy blocks near rivals, CPU towns hard to
@@ -80,12 +81,19 @@ function MarketPanel({ k, mk }) {
       {m.kind === 'coin' && m.ch != null ? <span><em>{m.status ? '5M' : '24H'}</em><b className={`m-num ${m.ch >= 0 ? 'm-pos' : 'm-neg'}`}>{m.ch >= 0 ? '+' : ''}{Number(m.ch).toFixed(1)}%</b></span> : null}</div>
     <div className="fwd-acts">{pair ? <button type="button" className="m-btn m-go" onClick={() => familiaTrade({ chainId: 'solana', pairAddress: pair, baseToken: { address: m.mint || pool?.baseMint, symbol: pool?.base || m.symbol } })}
       data-tip="Trade it right here — chart + Quick trade slide over the city; your wallet signs" data-testid="mk-open">⚡ Trade here</button> : null}
-      {m.url ? <a className="m-btn" href={m.url} target="_blank" rel="noopener noreferrer" data-tip={`${m.name}'s own app — deposits / borrows happen there and your wallet signs; FEELESS never holds your funds`} data-testid="mk-app">↗ {m.name}</a> : null}</div>
+</div>
+    {JOB_OF[m.kind] ? <MarketDesk m={m} /> : null}
     {m.kind === 'coin' && (m.read || m.theory) ? <p className="fwd-tt" data-testid="mk-theory">{m.read ? <><b>DESK READ</b> {m.read}<br /></> : null}{m.theory ? <><b>THEORY</b> {m.theory}</> : null}</p> : null}
     {m.kind === 'coin' && m.mint ? <WhyPumped key={m.mint} mint={m.mint} /> : null}
     <small className="m-dim">{m.status ? 'TT · from the agents\' intake list (READY first) · ⚡ Trade here = chart + Quick trade over the city, your wallet signs.' : 'Live from the chain every minute · the roof light pulses with its volume.'}</small></aside>;
 }
-const ISLAND_OF = { dex: 'Market Row', lend: 'Vault District', perps: 'Vault District', stake: 'Vault District', coin: 'TT · Trench Towers' };
+// 💸 a market's money in the side panel = one clean button; the desk itself pops out big over the map (inline only when no map hosts it)
+function MarketDesk({ m }) {
+  const [inline, setInline] = useState(false); const job = JOB_OF[m.kind];
+  return <>{!inline ? <button type="button" className="m-btn m-go fwd-deskgo" onClick={() => { if (!openDesk({ job, title: `${m.name.toUpperCase()} · PUT IT TO WORK` })) setInline(true); }}
+    data-tip={`Pick a provider, your amount, watch it compound — the desk opens over the map; your wallet signs`} data-testid="mk-desk">💸 Put it to work</button> : <MoneyDesk job={job} compact title={`${m.name.toUpperCase()} · PUT IT TO WORK`} />}</>;
+}
+const ISLAND_OF = { dex: 'DEX Row', lend: 'Lend Street', perps: 'FEELESS Avenue', stake: 'Stake Heights', coin: 'TT · Trench Towers' };
 
 function PlaceCard({ k, onOpen }) {
   const p = PLACES.find(x => x.key === k); if (!p) return null;
@@ -99,7 +107,7 @@ function PoolPanel({ k, pools, blocks, onLink }) {
   const r = (pools?.pools || []).find(x => `pool-${x.id}` === k) || Object.values(pools?.cities || {}).flat().find(x => `pool-${x.id}` === k);
   if (!r) return <aside className="fwd-side m-card t-mk"><b>Pool</b><p className="m-dim">Reading the pool…</p></aside>;
   return <aside className="fwd-side m-card t-mk t-pool" data-testid="pool-panel"><header><b>{r.sym}</b><small>{r.proto} · real pool</small></header>
-    <ul className="phb-list"><PoolRow r={r} big blocks={blocks} onLink={onLink} /></ul></aside>;
+    <ul className="phb-list"><PoolRow r={r} big blocks={blocks} onLink={onLink} onDesk={x => openDesk({ job: JOB_OF[x.kind] || 'lend', focus: x, title: `${x.sym} · PUT IT TO WORK` })} /></ul></aside>;
 }
 
 // 💡 a turf block runs on a FUND its upkeep drains by the hour (family_world.UPKEEP_MP): ACTIVE (lit) while funded, SHUT (dark) when dry.
@@ -136,7 +144,7 @@ function BlockPanel({ x, v, act, busy, onEnter, mk, onPlace, pools, onLink }) {
   if (x?.mk) return <MarketPanel k={x.mk} mk={mk} />;
   if (x?.place) return <PlaceCard k={x.place} onOpen={onPlace} />;
   if (x?.lm) return <MarkPanel k={x.lm} v={v} />;
-  if (!x) return <aside className="fwd-side m-card"><b>Tap a building</b><p className="m-dim">Gold = yours · violet = families · red = CPU towns (hard) · green = cartels. Across the bridges: MARKET ROW (the DEXes), VAULT DISTRICT (lend · perps · stake) and NEW MONEY (today's top coins) — real markets, live. 📍 Places = the Ladder, the Precinct, the Gym, the Card Room…</p></aside>;
+  if (!x) return <aside className="fwd-side m-card"><b>Tap a building</b><p className="m-dim">Downtown is the stadium + the desk's money street; round it, eight money districts over the canals (DEX Row · Stake Heights · Lend Street · the Flats · Vault Row · CLMM Heights · FEELESS Avenue · TT) — tap any tower and put money to work from its pop-out. Family plots sit on the six keys off the shore: gold = yours · violet = families · red = CPU towns · green = cartels.</p></aside>;
   const me = v.me; const tone = blockTone(x); const price = me?.prices?.[x.id];
   const cpu = (v.cpu || []).find(c => c.id === x.owner); const cart = (v.cartels || []).find(c => c.id === x.owner);
   return <aside className={`fwd-side m-card t-${tone}`} data-testid="block-panel">

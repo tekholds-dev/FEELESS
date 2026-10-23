@@ -57,3 +57,12 @@ test('the street: crest plates, receipts, @you, block + pulse; react, post and a
   expect(calls.some(([u, o]) => u.includes('/familia/street/fee/mod') && JSON.parse(o.body).id === 'l1')).toBe(true);
   await act(async () => { root.unmount(); });
 });
+
+test('🏆 the best call strip picks the 24h best call (≥ 1.2x) and Pump\'s hottest liquid coin', () => {
+  const { bestCall, pumpHot } = require('./StreetChat'); const now = 1_800_000_000;
+  const calls = [{ pairAddress: 'A', symbol: 'OLD', peakX: 40, at: now - 90000 }, { pairAddress: 'B', symbol: 'MID', peakX: 3.1, at: now - 600 }, { pairAddress: 'C', symbol: 'TOP', peakX: 6.4, at: now - 3600 }, { pairAddress: 'D', symbol: 'FLAT', peakX: 1.05, at: now - 60 }];
+  expect(bestCall(calls, now).symbol).toBe('TOP'); expect(bestCall([calls[3]], now)).toBeNull(); expect(bestCall(null, now)).toBeNull();
+  const pairs = [{ baseToken: { address: 'x', symbol: 'THIN' }, liquidity: { usd: 900 }, priceChange: { m5: 300 } }, { baseToken: { address: 'y', symbol: 'HOT' }, liquidity: { usd: 40000 }, priceChange: { m5: 38 } },
+    { baseToken: { address: 'z', symbol: 'DOWN' }, liquidity: { usd: 90000 }, priceChange: { m5: -5 } }];
+  expect(pumpHot(pairs).baseToken.symbol).toBe('HOT'); expect(pumpHot([pairs[2]])).toBeNull();
+});

@@ -6,6 +6,9 @@
 .fwd-side header { display: grid; } .fwd-side header b { font: 700 14px 'Playfair Display', Georgia, serif; } .fwd-side p { margin: 0; font-size: 12px; line-height: 1.45; }
 .fwd-side.t-cpu { border-color: rgba(255, 90, 110, .5); } .fwd-side.t-cartel { border-color: rgba(125, 255, 154, .4); } .fwd-side.t-mine { border-color: rgba(212, 175, 55, .6); }
 .fwd-acts { display: flex; flex-wrap: wrap; gap: 6px; }
+.fwd-deskgo { width: 100%; min-height: 42px; justify-content: center; box-shadow: 0 0 22px -10px #45e486; animation: fwdDeskGo 3s ease-in-out infinite; }   /* 💸 the side panel's ONE money door */
+@keyframes fwdDeskGo { 50% { transform: translateY(-1px); } }
+body.fx-lite .fwd-deskgo { animation: none; } @media (prefers-reduced-motion: reduce) { .fwd-deskgo { animation: none; } }
 .fwd-raids { display: grid; gap: 12px; }
 .fwd-wlog { margin: 0; padding: 0 0 0 16px; display: grid; gap: 3px; font-size: 11px; max-height: 160px; overflow: auto; scrollbar-width: thin; }
 .fwd-jobs, .fwd-rc, .fwd-shop ul { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 10px; }

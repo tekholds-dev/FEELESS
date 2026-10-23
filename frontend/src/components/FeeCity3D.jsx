@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Building, Building2, Crown, Swords, Trophy, Radio, Waves, Medal, Siren, Gem, ClipboardList, Dumbbell, Spade, Warehouse, Radar, Activity, Eye, Scale, Cat, Fuel, Newspaper, Landmark, TrendingUp, CandlestickChart, Sun, Moon, Maximize2, Minimize2 } from 'lucide-react';
+import { Building, Building2, Zap, Flower2, Crown, Swords, Trophy, Radio, Waves, Medal, Siren, Gem, ClipboardList, Dumbbell, Spade, Warehouse, Radar, Activity, Eye, Scale, Cat, Fuel, Newspaper, Landmark, TrendingUp, CandlestickChart, Sun, Moon, Maximize2, Minimize2 } from 'lucide-react';
 import { FamilyCity3D, Vitals, vitalsOf } from './FamilyCity3D';
 import { MetaCard } from './cards/MetaCard';
 import { tokenImageUrls } from './terminal/MarketPrimitives';
@@ -7,6 +7,7 @@ import { feePlan, outerPlan, spotOf, PLACES, usd, apyTxt, POOL_KIND } from '../l
 import { sharedJson } from '../lib/sharedJson';
 import '../styles/feeCity3d.css';
 import { familiaRoom } from '../lib/familiaRoom';
+import { MoneyDesk, providersOf, deskHost } from './MoneyDesk';
 
 // 🌃 FEE CITY IN REAL 3D (owner, 2026-10-22: "way better design and animations … find free model sites and use the best" · "hella glow, day /
 // night" · "expand the city and go to places" · "80 % of the tabs in the cities, easy to find, with a pop-out" · "real Fuse cards in the
@@ -68,23 +69,50 @@ export function PlacesMenu({ onGo }) {
       <b>{p.name}</b><small>{p.sub}</small></button></li>)}</ul> : null}</span>;
 }
 
-// 🧭 the CITY DIRECTORY: every place one tap away, on the map itself (icons + names, the live one lit)
-function Directory({ onGo, open, setOpen, active }) {
+// 🧭 the CITY DIRECTORY (owner, 2026-10-23: "the majority of the directory doesn't help users get straight into rapid compound and growth"):
+// it LEADS with the money — ⚡ START COMPOUNDING (the best in-place yields, live) and the buildings that grow it — then the family, then the tools.
+// Every place is still one tap away; the crest forge has its own door.
+export const DIR_GROUPS = [['💸 GROW YOUR MONEY', ['sleep', 'pools', 'mymoney', 'trades', 'feebank', 'perps', 'tt', 'pumpradar', 'runners']],
+  ['🌹 THE FAMILY', ['hq', 'warroom', 'raids', 'cartels', 'podium', 'ranked', 'rewards', 'wire', 'jobs', 'gym', 'cards']], ['🛠 TOOLS', ['court', 'watch', 'feecat', 'fuel', 'news']]];
+// pure: the live line a money place wears in the directory (the Pool Hub's best numbers)
+export function dirLive(key, pools) {
+  const rs = (pools?.pools || []).filter(r => Number(r.apy) > 0); const top = k => rs.filter(r => k.includes(r.kind)).reduce((m, r) => Math.max(m, r.apy), 0);
+  if (key === 'sleep') { const v = top(['stake', 'lend']); return v ? `up to ${apyTxt(Math.min(v, 40))} while you sleep` : null; }
+  if (key === 'pools') { const v = rs.length; return v ? `${v} paying pools live` : null; }
+  return null;
+}
+function Directory({ onGo, open, setOpen, active, pools, onDesk, desk }) {
+  const best = providersOf('best', pools?.pools)[0];
+  let n = 0;
   return <nav className={`fc3-dir ${open ? 'is-open' : ''}`} aria-label="City directory" data-testid="city-directory">
-    <button type="button" className="fc3-dirtoggle" onClick={() => setOpen(o => !o)} aria-expanded={open} data-tip="Every place in the city — the old tabs live here now" data-testid="city-dir-toggle"><Building2 size={15} aria-hidden="true" /><span>DIRECTORY</span></button>
-    <ul>{PLACES.map((p, i) => { const Icon = PLACE_ICON[p.key] || Building2; const host = p.in ? PLACES.find(x => x.key === p.in) : null; return <li key={p.key} className={host ? 'is-room' : ''} style={{ '--i': i, '--pc': p.color }}>
-      <button type="button" className={active === p.lens ? 'active' : ''} onClick={() => onGo(p)} data-tip={`${p.name} — ${p.sub}${host ? ` · a room inside ${host.name}` : ''}`} data-testid={`dir-${p.key}`}><Icon size={16} aria-hidden="true" /><span><b>{p.name}</b><small>{host ? `↳ in ${host.name.replace(/^(THE|YOUR) /, '')}` : p.sub}</small></span></button></li>; })}</ul>
+    <button type="button" className="fc3-dirtoggle" onClick={() => setOpen(o => !o)} aria-expanded={open} data-tip="Every place in the city — money first" data-testid="city-dir-toggle"><Building2 size={15} aria-hidden="true" /><span>DIRECTORY</span></button>
+    <ul>
+      <li className="fc3-dirgo" style={{ '--i': 0, '--pc': '#45e486' }}><button type="button" className={desk && !desk.focus ? 'active' : ''} onClick={onDesk} aria-pressed={!!desk && !desk.focus} data-testid="dir-compound"
+        data-tip="The best yields you can start right here, live — pick one, pick your amount, watch it compound; your wallet signs"><Zap size={16} aria-hidden="true" /><span><b>START COMPOUNDING</b><small>{best ? `${best.sym} · ${apyTxt(best.apy)} · in place` : 'the best live yields, in place'}</small></span></button></li>
+      {DIR_GROUPS.map(([word, keys]) => <React.Fragment key={word}><li className="fc3-dirh" aria-hidden="true">{word}</li>
+        {keys.map(k => PLACES.find(x => x.key === k)).filter(Boolean).map(p => { n += 1; const Icon = PLACE_ICON[p.key] || Building2; const host = p.in ? PLACES.find(x => x.key === p.in) : null; const live = dirLive(p.key, pools);
+          return <li key={p.key} className={`${host ? 'is-room' : ''} ${p.money ? 'is-money' : ''}`} style={{ '--i': n, '--pc': p.color }}>
+            <button type="button" className={active === p.lens ? 'active' : ''} onClick={() => onGo(p)} data-tip={`${p.name} — ${p.sub}${host ? ` · a room inside ${host.name}` : ''}`} data-testid={`dir-${p.key}`}><Icon size={16} aria-hidden="true" />
+              <span><b>{p.name}</b><small>{live || (host ? `↳ in ${host.name.replace(/^(THE|YOUR) /, '')}` : p.sub)}</small></span></button></li>; })}
+        {word.includes('FAMILY') ? <li style={{ '--i': n + 1, '--pc': '#ff8fa3' }}><button type="button" onClick={() => { try { sessionStorage.setItem('feeless.hq.tool', 'badge'); } catch { /* storage blocked */ } window.dispatchEvent(new CustomEvent('feeless:hq-tool', { detail: 'badge' })); onGo(PLACES.find(x => x.key === 'hq')); }}
+          data-tip="Design your family's crest — shape, charge, colours, motto — and save it; every family sees it" data-testid="dir-crest"><Flower2 size={16} aria-hidden="true" /><span><b>FORGE YOUR CREST</b><small>design the badge · save it</small></span></button></li> : null}
+      </React.Fragment>)}
+    </ul>
   </nav>;
 }
+
+// 🧭 the district chips: every district, then ONE chip for the family keys (it flies to yours) — six key chips would bury the money districts
+export const chipsOf = plan => { const isl = plan?.islands || []; const keys = isl.filter(i => i.key_);
+  return [...isl.filter(i => !i.key_), ...(keys.length ? [{ key: 'keys', name: 'THE FAMILY KEYS', sub: `${keys.length} islands · 4 plots each · yours first`, color: '#d4af37' }] : [])]; };
 
 export function FeeCity3D({ v, sel, setSel, city, setCity, tour, overlay, onPlace, onGoPlace, active, markets, pools }) {
   const [gl] = useState(webglOk);
   const host = useRef(null); const eng = useRef(null); const stage = useRef(null); const cardEls = useRef({});
   const [ready, setReady] = useState(false); const [tip, setTip] = useState(null); const [spin, setSpin] = useState(false);
-  const [mode, setMode] = useState(startMode); const [full, setFull] = useState(false); const [dir, setDir] = useState(() => typeof window === 'undefined' || window.innerWidth > 900);
+  const [mode, setMode] = useState(startMode); const [full, setFull] = useState(false); const [desk, setDesk] = useState(false); const [dir, setDir] = useState(() => typeof window === 'undefined' || window.innerWidth > 900);
   useEffect(() => { if (active) setDir(false); }, [active]);   // walking into a room folds the directory away (it covered the room's left edge)
   const isFee = city === 'fee' || !v.cities?.length;
-  const plan = useMemo(() => (isFee ? feePlan(v, markets) : outerPlan(v, city, pools)), [v, markets, city, isFee, pools]);
+  const plan = useMemo(() => (isFee ? feePlan(v, markets, pools) : outerPlan(v, city, pools)), [v, markets, city, isFee, pools]);
   const live = useMemo(() => ({ raided: new Set((v.raids || []).filter(r => r.status === 'live').map(r => r.b?.id).filter(Boolean)),
     fight: (v.ffuse?.fights || []).find(f => f.status === 'live') || null, marks: Object.fromEntries((v.landmarks || []).map(m => [m.key, m.live || {}])) }), [v]);
   const arena = useArena(gl && isFee); const cards = useMemo(() => arenaCards(arena), [arena]);
@@ -115,6 +143,8 @@ export function FeeCity3D({ v, sel, setSel, city, setCity, tour, overlay, onPlac
     const c = { x: ar.rect.x + ar.rect.w / 2, z: ar.rect.z + ar.rect.d / 2 }; const off = [0, -1, 1];
     eng.current.setAnchors(cards.map((k, i) => ({ id: k.key, x: c.x + off[i] * ar.rect.w * 0.24, y: i === 0 ? 3.2 : 2.4, z: c.z })));
   }, [ready, cards, plan, isFee]);
+  useEffect(() => { deskHost(1); const open = e => setDesk(e.detail || true); window.addEventListener('feeless:desk', open); return () => { deskHost(-1); window.removeEventListener('feeless:desk', open); }; }, []);   // 💸 side panels open the desk HERE, big
+  useEffect(() => { if (!desk) return undefined; const esc = e => { if (e.key === 'Escape') setDesk(false); }; window.addEventListener('keydown', esc); return () => window.removeEventListener('keydown', esc); }, [desk]);
   useEffect(() => {   // ⤢ expanded: the city takes the window; Esc brings it back
     if (!full) return undefined; const esc = e => { if (e.key === 'Escape') setFull(false); };
     document.body.classList.add('fc3-lock'); window.addEventListener('keydown', esc); const t = setTimeout(() => eng.current?.resize(), 60);
@@ -130,8 +160,10 @@ export function FeeCity3D({ v, sel, setSel, city, setCity, tour, overlay, onPlac
     {ready && cards.length ? <div className="fc3-cards" aria-label="Fuse cards in the arena">{cards.map(k => <a key={k.key} href="/terminal/fuse" onClick={e => familiaRoom('fuse', e)} className="fc3-card" ref={el => { cardEls.current[k.key] = el; }} data-tip={`${k.title} — open the Fuse Arena`} data-testid={`arena-card-${k.key}`}>
       <MetaCard card={k} size="sm" /></a>)}</div> : null}
     {tip ? <span className="fc3-tip" style={{ transform: `translate(${tip.x + 14}px, ${tip.y + 12}px)` }}>{tip.label}</span> : null}
-    <nav className="fc3-isl" aria-label="Districts" data-testid="city-districts">{(plan?.islands || []).map((i, k) => <button key={i.key} type="button" style={{ '--i': k, '--dc': i.color || '#d4af37' }} onClick={() => goIsland(i.key)} data-tip={`Fly to ${i.name}${i.sub ? ` — ${i.sub}` : ''}`} data-testid={`isl-${i.key}`}>{i.name}</button>)}</nav>
-    {isFee ? <Directory onGo={p => onGoPlace?.(p)} open={dir} setOpen={setDir} active={active} /> : null}
+    <nav className="fc3-isl" aria-label="Districts" data-testid="city-districts">{chipsOf(plan).map((i, k) => <button key={i.key} type="button" style={{ '--i': k, '--dc': i.color || '#d4af37' }} onClick={() => goIsland(i.key)} data-tip={`Fly to ${i.name}${i.sub ? ` — ${i.sub}` : ''}`} data-testid={`isl-${i.key}`}>{i.name}</button>)}</nav>
+    {isFee ? <Directory onGo={p => { setDesk(false); onGoPlace?.(p); }} open={dir} setOpen={setDir} active={active} pools={pools} desk={desk} onDesk={() => setDesk(d => !d)} /> : null}
+    {desk ? <aside className="fc3-desk" role="dialog" aria-label="Start compounding" data-testid="city-desk"><button type="button" className="fc3-deskx" onClick={() => setDesk(false)} aria-label="Close" data-tip="Close (Esc)">✕</button>
+      <MoneyDesk key={desk.focus?.id || desk.title || 'best'} job={desk.job || 'best'} focus={desk.focus || null} rows={pools?.pools} title={desk.title || 'START COMPOUNDING'} /></aside> : null}
     <Vitals vit={vit} onClose={() => setSel(sel)} />
     {overlay}
     <div className="fcy-ctl fc3-ctl">

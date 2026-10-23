@@ -230,3 +230,38 @@ body.theme-day .st-name { color: #7a5600; } body.theme-day .st-title em { color:
 body.theme-day .st-pulse b { color: #8a5a00; text-shadow: none; } body.theme-day .st-hot { background: rgba(255, 255, 255, .85); color: #22180a; } body.theme-day .st-hot b { color: #0d7a41; text-shadow: none; }
 body.theme-day .st-live { color: #22180a; } body.theme-day .st-coin.is-up em { color: #fff; background: #0d9a50; }
 body.theme-day .st-heat-bars i:not(.is-on) { background: rgba(60, 40, 10, .16); } body.theme-day .st-heat small { color: #6f5d3a; }
+/* 🏆 the BEST CALL strip (site's best call 24h · Pump's hottest coin) + the reconnecting line + the quiet-street starters */
+.st-best { position: relative; z-index: 1; display: flex; gap: 6px; padding: 0 10px 6px; overflow-x: auto; scrollbar-width: none; } .st-best::-webkit-scrollbar { display: none; }
+.st-bchip { --bc: #ffd36b; flex: 1 1 0; min-width: 0; display: flex; align-items: stretch; border-radius: 11px; overflow: hidden; position: relative; isolation: isolate;
+  border: 1px solid color-mix(in srgb, var(--bc) 45%, transparent); background: linear-gradient(110deg, color-mix(in srgb, var(--bc) 16%, #0b0906), #07060a 75%);
+  animation: stBestIn .3s ease-out both; animation-delay: calc(var(--i, 0) * 70ms); }
+.st-bchip::after { content: ''; position: absolute; inset: 0; z-index: -1; pointer-events: none; background: linear-gradient(100deg, transparent 30%, color-mix(in srgb, var(--bc) 22%, transparent) 50%, transparent 70%);
+  transform: translateX(-100%); animation: stBestSweep 4.5s ease-in-out infinite; animation-delay: calc(var(--i, 0) * 1.3s); }
+.st-bchip.is-pump { --bc: #45e486; }
+.st-bgo { flex: 1; min-width: 0; min-height: 34px; display: flex; align-items: center; gap: 6px; padding: 4px 9px; border: 0; background: transparent; color: #f4ecd2; cursor: pointer; text-align: left; transition: background .15s ease; }
+.st-bgo:hover { background: color-mix(in srgb, var(--bc) 12%, transparent); } .st-bgo:active { transform: scale(.98); } .st-bgo:focus-visible, .st-bput:focus-visible { outline: 2px solid var(--bc); outline-offset: -2px; }
+.st-bgo em { flex: none; font: 800 8.5px 'JetBrains Mono', monospace; font-style: normal; letter-spacing: .1em; color: var(--bc); }
+.st-bgo b { font: 800 12px 'JetBrains Mono', monospace; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.st-bgo strong { font: 800 13px 'JetBrains Mono', monospace; color: var(--bc); text-shadow: 0 0 12px color-mix(in srgb, var(--bc) 55%, transparent); }
+.st-bgo small { margin-left: auto; font: 600 9.5px 'JetBrains Mono', monospace; color: var(--st-dim); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.st-bput { flex: none; width: 32px; border: 0; border-left: 1px solid color-mix(in srgb, var(--bc) 30%, transparent); background: rgba(0, 0, 0, .25); color: var(--bc); font: 800 13px 'JetBrains Mono', monospace; cursor: pointer; transition: background .15s ease, transform .15s ease; }
+.st-bput:hover { background: color-mix(in srgb, var(--bc) 20%, transparent); } .st-bput:active { transform: scale(.92); }
+.st-off { position: relative; z-index: 1; display: flex; align-items: center; gap: 8px; margin: 0 10px 6px; padding: 6px 10px; border-radius: 9px; border: 1px solid #ff8fa355; background: #2a0d14cc;
+  font: 700 10.5px 'JetBrains Mono', monospace; color: #ffb3c0; }
+.st-off i { width: 7px; height: 7px; border-radius: 50%; background: #ff8fa3; animation: stOff 1.2s ease-in-out infinite; }
+.st-starters { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px; margin-top: 12px; }
+.st-starters button { min-height: 32px; padding: 5px 11px; border-radius: 999px; border: 1px solid #d4af3766; background: #140c06cc; color: #f1d27a; font: 700 11px 'JetBrains Mono', monospace; cursor: pointer;
+  animation: stBestIn .3s ease-out both; animation-delay: calc(var(--i, 0) * 60ms); transition: transform .15s ease, background .15s ease; }
+.st-starters button:hover { transform: translateY(-2px); background: #2a1a0a; } .st-starters button:active { transform: scale(.95); } .st-starters button:focus-visible { outline: 2px solid #ffd36b; outline-offset: 2px; }
+@keyframes stBestIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: none; } }
+@keyframes stBestSweep { 0%, 55% { transform: translateX(-100%); } 85%, 100% { transform: translateX(100%); } }
+@keyframes stOff { 50% { opacity: .3; } }
+body.fx-lite .st-bchip, body.fx-lite .st-bchip::after, body.fx-lite .st-off i, body.fx-lite .st-starters button { animation: none; }
+@media (prefers-reduced-motion: reduce) { .st-bchip, .st-bchip::after, .st-off i, .st-starters button { animation: none; } .st-bgo, .st-bput, .st-starters button { transition: none; } }
+body.theme-day .st-bchip { background: linear-gradient(110deg, color-mix(in srgb, var(--bc) 18%, #fffaf0), #fffdf6 75%); } body.theme-day .st-bgo { color: #2a1f05; }
+body.theme-day .st-bgo em, body.theme-day .st-bgo strong, body.theme-day .st-bput { color: color-mix(in srgb, var(--bc) 50%, #3a2c08); text-shadow: none; } body.theme-day .st-bput { background: #fff8e8; }
+body.theme-day .st-off { background: #ffe8ec; color: #9a1f37; } body.theme-day .st-starters button { background: #fffaf0; color: #6a4a00; }
+@media (max-width: 640px) { .st-best { flex-direction: column; } .st-bgo small { display: none; } }
+/* the side column is narrow: the two best chips stack instead of squeezing their tickers */
+.st { container-type: inline-size; }
+@container (max-width: 440px) { .st-best { flex-direction: column; } .st-bchip { flex: none; } }

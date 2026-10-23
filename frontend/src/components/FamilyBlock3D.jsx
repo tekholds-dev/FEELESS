@@ -1,7 +1,9 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { MoneyDesk, RangePicture, JOB_OF } from './MoneyDesk';
 import { blockPlan, spotOf, usd, apyTxt, TOWN } from '../lib/cityPlan';
 import { webglOk } from './FeeCity3D';
 import { useTownLive } from '../lib/townLive';
+import '../styles/familyCity3d.css';
 import '../styles/familyBlock3d.css';
 import '../styles/familyTown.css';
 
@@ -12,23 +14,45 @@ import '../styles/familyTown.css';
 const lite = () => typeof document !== 'undefined' && document.body.classList.contains('fx-lite');
 const still = () => typeof window !== 'undefined' && (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches || document.body.classList.contains('reduced-motion-setting'));
 
-export function FamilyBlock3D({ bl, sel, onPick, coins = null }) {
+const MODE_KEY = 'feeless.city.mode';   // one ☀ / 🌙 for Fee City and every family block
+const startMode = () => { try { const m = localStorage.getItem(MODE_KEY); if (m === 'day' || m === 'night') return m; } catch { /* storage blocked */ } return typeof document !== 'undefined' && document.body.classList.contains('theme-day') ? 'day' : 'night'; };
+
+// 🎛 owner, 2026-10-23: "no day and night or expansion options for my family" → the block gets Fee City's controls: 360°, zoom, the whole block,
+// ☀ / 🌙 (shared with Fee City), ⤢ the whole window (Esc). A picked building's card POPS OUT over the stage (`pop`) — in the window or expanded.
+export function FamilyBlock3D({ bl, sel, onPick, coins = null, pop = null, onClosePop = null }) {
   const [gl] = useState(webglOk); const town = useTownLive(!!(bl?.town || []).length);
   const host = useRef(null); const eng = useRef(null); const [ready, setReady] = useState(false); const [tip, setTip] = useState(null);
+  const [mode, setMode] = useState(startMode); const [full, setFull] = useState(false); const [spin, setSpin] = useState(false);
   const plan = useMemo(() => blockPlan(bl, { coins, town }), [bl, coins, town]);
   const pickRef = useRef(onPick); pickRef.current = onPick;
   useEffect(() => {
     if (!gl || !host.current) return undefined; let alive = true;
     import('../lib/cityEngine').then(async m => { if (!alive) return; await m.preload(); if (!alive || !host.current) return;
-      eng.current = m.createCity(host.current, { onPick: pk => pickRef.current?.(pk), onHover: setTip, lite: lite(), still: still(), day: document.body.classList.contains('theme-day') });
+      eng.current = m.createCity(host.current, { onPick: pk => pickRef.current?.(pk), onHover: setTip, lite: lite(), still: still(), day: startMode() === 'day' });
       setReady(true); });
     return () => { alive = false; eng.current?.dispose(); eng.current = null; };
   }, [gl]);
   useEffect(() => { if (ready && eng.current) eng.current.setPlan(plan, {}); }, [ready, plan]);
   useEffect(() => { if (ready && eng.current && sel) eng.current.flyTo(spotOf(plan, sel), 16); }, [ready, sel?.blk, sel?.open, sel?.town]);   // eslint-disable-line react-hooks/exhaustive-deps
-  if (!gl) return <BlockGrid bl={bl} sel={sel} onPick={onPick} town={town} />;
-  return <div className="fb3" data-testid="block-3d"><div className="fb3-host" ref={host} />{!ready ? <p className="fb3-wait">Raising the block…</p> : null}
-    {tip?.label ? <span className="fb3-tip" style={{ transform: `translate(${tip.x + 14}px, ${tip.y + 12}px)` }}>{tip.label}</span> : null}</div>;   // the engine hovers {label, x, y}
+  useEffect(() => { eng.current?.setMode(mode); try { localStorage.setItem(MODE_KEY, mode); } catch { /* storage blocked */ } }, [mode, ready]);
+  useEffect(() => { eng.current?.spin(spin); }, [spin, ready]);
+  useEffect(() => {   // ⤢ the whole window; Esc closes the pop-out first, then the expansion
+    if (!full) return undefined; const esc = e => { if (e.key === 'Escape' && !pop) setFull(false); };
+    document.body.classList.add('fc3-lock'); window.addEventListener('keydown', esc); const t = setTimeout(() => eng.current?.resize(), 60);
+    return () => { document.body.classList.remove('fc3-lock'); window.removeEventListener('keydown', esc); clearTimeout(t); setTimeout(() => eng.current?.resize(), 60); };
+  }, [full, pop]);
+  if (!gl) return <>{<BlockGrid bl={bl} sel={sel} onPick={onPick} town={town} />}{pop ? <div className="fb3-pop is-flat" data-testid="block-pop">{pop}</div> : null}</>;
+  return <div className={`fb3 is-${mode} ${full ? 'is-full' : ''}`} data-testid="block-3d"><div className="fb3-host" ref={host} />{!ready ? <p className="fb3-wait">Raising the block…</p> : null}
+    {tip?.label ? <span className="fb3-tip" style={{ transform: `translate(${tip.x + 14}px, ${tip.y + 12}px)` }}>{tip.label}</span> : null}
+    {pop ? <div className="fb3-pop" role="dialog" aria-label="The building" data-testid="block-pop"><button type="button" className="fb3-x" onClick={onClosePop} aria-label="Close" data-tip="Back to the block (Esc)" data-testid="block-pop-x">✕</button>{pop}</div> : null}
+    <div className="fcy-ctl fb3-ctl">
+      <button type="button" className={spin ? 'active' : ''} onClick={() => setSpin(v => !v)} aria-pressed={spin} data-tip="Slowly turn the block" data-testid="block-spin">{spin ? '⏸' : '⟲ 360°'}</button>
+      <button type="button" onClick={() => eng.current?.zoom(1.25)} data-tip="Zoom in" aria-label="Zoom in">＋</button>
+      <button type="button" onClick={() => eng.current?.zoom(0.8)} data-tip="Zoom out" aria-label="Zoom out">－</button>
+      <button type="button" onClick={() => { onClosePop?.(); eng.current?.frameAll(); }} data-tip="See the whole block" aria-label="Whole block" data-testid="block-home">⌂</button>
+      <button type="button" onClick={() => setMode(m => (m === 'day' ? 'night' : 'day'))} aria-pressed={mode === 'day'} data-tip={mode === 'day' ? 'Night: neon + lit windows' : 'Day: sun, blue sky'} data-testid="block-mode" aria-label="Day or night">{mode === 'day' ? '🌙' : '☀'}</button>
+      <button type="button" className={full ? 'active' : ''} onClick={() => setFull(f => !f)} aria-pressed={full} data-tip={full ? 'Back to the page (Esc)' : 'Expand the block to the whole window'} data-testid="block-full" aria-label="Expand">{full ? '⤡' : '⤢'}</button>
+    </div></div>;
 }
 
 // the drawn CSS block: built towers lit, scaffolding + a crane on the ones not built yet, surveyed open plots
@@ -51,11 +75,15 @@ export function BlockGrid({ bl, sel, onPick, town = null }) {
 // 🗂 the side card: a building's REAL numbers + its errands (own family), or the add-a-market list on an open plot
 const PROOF_WORD = { mint: 'token balance', nft: 'position NFT', api: 'vault shares', none: 'no reader yet' };
 const RC = 2 * Math.PI * 22;
+// a protocol whose own deposit needs its SDK: the same job runs here through the in-place providers (said plainly, never a link out)
+const SDK_NOTE = { kamino: 'Kamino', marginfi: 'marginfi', save: 'Save', meteora: 'Meteora', orca: 'Orca', raydium: 'Raydium', pumpswap: 'PumpSwap', phoenix: 'Phoenix' };
 export function BlockCard({ bl, sel, busy, mine, onAct, onErrand }) {
+  const [tool, setTool] = useState(null);   // 🎯 an errand's in-place tool: the drawn range, or the money desk
+  useEffect(() => { setTool(null); }, [sel?.blk]);
   if (!bl) return null;
   const b = sel?.blk ? (bl.buildings || []).find(x => x.key === sel.blk) : null;
   if (b) {
-    const built = b.state === 'built';
+    const built = b.state === 'built'; const job = JOB_OF[b.kind] || 'lend';
     return <div className={`fbm is-${b.state}`} data-testid="blk-card">
       <div className="fbm-head"><svg className="fbm-ring" viewBox="0 0 56 56" aria-hidden="true"><circle className="t" cx="28" cy="28" r="22" /><circle className="a" cx="28" cy="28" r="22" strokeDasharray={`${((built ? 1 : 0.18) * RC).toFixed(1)} ${RC.toFixed(1)}`} /></svg>
         <div><b>{b.name}</b><small>{built ? '✅ built · a real position' : '🏗 under construction'}</small></div></div>
@@ -67,7 +95,11 @@ export function BlockCard({ bl, sel, busy, mine, onAct, onErrand }) {
       </div>
       {b.why ? <p className="fbm-why">⚠ {b.why} — it stays under construction.</p> : null}
       {mine && (b.errands || []).length ? <><span className="eyebrow">ERRANDS · REAL MONEY</span><ul className="fbm-errands">{b.errands.map(e => <li key={e.kind}>
-        <button type="button" onClick={() => onErrand(e, b)} data-testid={`errand-${e.kind}`} data-tip="Opens the real tool — your wallet signs there"><i>{e.icon}</i><span>{e.text}</span>{e.gain ? <em>+{e.gain} pp</em> : null}</button></li>)}</ul></> : null}
+        <button type="button" onClick={() => { const r = onErrand(e, b); if (r === 'range' || r === 'desk') setTool(r); }} data-testid={`errand-${e.kind}`} data-tip="Runs right here — your wallet signs"><i>{e.icon}</i><span>{e.text}</span>{e.gain ? <em>+{e.gain} pp</em> : null}</button></li>)}</ul></> : null}
+      {tool === 'range' ? <RangePicture /> : null}
+      <MoneyDesk job={job} prefer={b.sym} proto={job === 'lp' ? b.name : null} compact
+        title={job === 'lp' ? `${String(b.name).toUpperCase()} · TRADE IT OR EARN` : built ? `${String(b.sym || b.name).toUpperCase()} · ADD MORE` : `BUILD ${String(b.name).toUpperCase()} FOR REAL`}
+        note={SDK_NOTE[b.key] ? (job === 'lp' ? `${SDK_NOTE[b.key]} LP positions need ${SDK_NOTE[b.key]}'s SDK — not in FEELESS yet. Trade its busiest pool here, or earn on SOL / USDC with no range to watch.` : `${SDK_NOTE[b.key]}'s own deposit needs its SDK — the same kind of yield runs here through these providers.`) : null} />
       {mine && bl.canBuild ? <button type="button" className="m-btn" disabled={busy} onClick={() => onAct('remove', b.key)} data-testid="blk-remove" data-tip="Takes the building off the block (your position is untouched)">Remove building</button> : null}
     </div>;
   }
