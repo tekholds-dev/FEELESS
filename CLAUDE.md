@@ -236,8 +236,8 @@ A. 📉 PERPS IN THE POPOUT, NO REDIRECT: the Perps building trades in place —
    size from $5, long / short, live position + P&L in the building; the wallet signs; guards (memory: new buy doors need guards). ⚠ LEGAL: a
    venue that blocks the user's region stays blocked in-app too (rule 1c — never a geo-block loophole); show which providers serve the user.
 B. 💸 POOLS + PERPS MUST EARN: "aint bringing no money" — every real-money building shows what $5 / $100 earns live and deposits in place.
-C. 🏙 MY FAMILY TOWN = the main city's engine features (day / night, traffic, weather…) and NO LAG (it "lags so bad") — profile it first.
-D. 📦 FAMILIA LOADS AS ITS OWN APP PACKAGE (separate lazy bundle, preloaded on hover) — no lag sitewide.
+C. ⚡ LAG FIXED 2026-10-23 (engine per-frame scene walk gone, idle 30 fps, block 1 s re-render isolated; fps unmeasured). Was: 🏙 MY FAMILY TOWN = the main city's engine features (day / night, traffic, weather…) and NO LAG (it "lags so bad") — profile it first.
+D. ✅ 2026-10-23 (own lazy chunk, −282 KB per terminal load). Was: 📦 FAMILIA LOADS AS ITS OWN APP PACKAGE (separate lazy bundle, preloaded on hover) — no lag sitewide.
 E. 🪟 City window BIGGER. F. 💬 THE most litty chat on the internet (Familia / street chat). G. Every building + family idea = real function,
    visually advanced, live data, NO dead text.
 H. 🐱 FeeCat ✅ REDONE 2026-10-23 (see 0b). 🚀 Launch still: every process step lit-styled (drawn, live, animated), no dead forms.

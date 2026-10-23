@@ -37,6 +37,13 @@ Branch: everything lives on `main` (pushed; the owner's Mac auto-pulls). Worktre
 - 🎭 PROMPT STUDIO ↔ LM STUDIO: `lms_preset.py` writes "FEELESS LIVE · OSSY" (what FEELESS really sends) into ~/.lmstudio/config-presets; the
   owner's "FEELESS FEE Master" stays untouched and only feeds LM Studio's chat window. AUTO-TUNE is ON by default for G4 + OSSY (`auto_on`).
 
+- 🤖 AGENT DESK (`CatDesk.jsx`, violet: stage, meter tiles incl. today's loss vs cap, P/L curve, lit positions → war room, limits as meters) +
+  🚀 LAUNCH-A-CAT violet (`BrainSocket`: your cat + wired brain orbs, lit step rail, sealed brief). Fixed: the agent page crashed on held coins.
+- ⚡ LAG (C): city engine no longer walks the whole scene per frame (sign list, camera-gated), idle ambient ~30 fps; block page's 1 s re-render
+  isolated (`StreetGame`). Real fps NOT measured (browser pane hidden). 📦 D: Familia = its own lazy chunk (`lib/familiaLoad`, `CrewCard.jsx`
+  light pieces), terminal page JS 2,708 → 2,426 KB. E (bigger city window) was already done (88vh).
+- NEXT: F (littest chat) · G · H Launch page redo · B pools/perps earn · town building live numbers on signs · F0.1 perps = owner + legal.
+
 ### Still live from the day before (grep the history for details)
 Brain › Models (`ModelDesk.jsx`, `model_desk.py`) · Prompt Studio (`prompt_studio.py`, `ai_router.with_studio`) · OSSY × G4 strict turns ·
 trade inside Familia (`FamiliaTrade.jsx`; a guard test fails on any jump out) · US-legal Perps desk · owner picks stay (`arena_prime.owner_pick`) ·
