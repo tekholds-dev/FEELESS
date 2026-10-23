@@ -23,6 +23,7 @@ import { Crown, Swords, Map as MapIcon, Trophy, Radio } from 'lucide-react';
 import '../styles/familyNoir.css';
 import '../styles/familiaBackdrop.css';
 import '../styles/familyWire.css';   // the Podium's own rules live there (it must never render bare without the page backdrop)
+import { FamEmpty } from './FamEmpty';
 
 // 🛡 CREWS (Leaderboard › Crews · Season & ranks): $25 in SOL to the FEELESS fee wallet starts a crew with 5 seats including you; +5 seats cost $5. A crew
 // shares no money — everyone signs their own trades. The weekly board ranks what members' VERIFIED FEELESS trades did over 7 days; the top 3 pay season
@@ -53,7 +54,7 @@ const post = (path, body) => fetch(apiUrl(path), { method: 'POST', headers: { 'C
 function LaunchLive({ l }) {
   const lp = useLivePrice(l?.mint ? { chainId: 'solana', baseToken: { address: l.mint } } : null);
   const first = useRef(null);
-  if (!l) return <p className="m-dim crw-hint">No launch pinned. The head pins the coin the family is behind — every member sees it live here.</p>;
+  if (!l) return <FamEmpty art="launch" title="NO LAUNCH PINNED" note="The head pins the coin the family is behind — every member sees it live here." />;
   if (lp?.usd && !first.current) first.current = lp.usd;
   const since = lp?.usd && first.current ? (lp.usd / first.current - 1) * 100 : null;
   return <div className="crw-launch" data-testid="crew-launch"><b>🚀 ${l.symbol || l.mint.slice(0, 4)}</b><span key={lp?.usd}>{lp?.usd ? pxWord(lp.usd) : 'reading…'}</span>

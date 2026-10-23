@@ -9,6 +9,7 @@ import { useWallet } from '../hooks/useWallet';
 import { LEND_SIDES, okAmount, lendLine, lendQuote, lendSign } from '../lib/lendEarn';
 import { StakeSeg } from './EarnStake';
 import { useStake, cash } from '../lib/earnStake';
+import { FamEmpty } from './FamEmpty';
 
 // 🏦 THE POOL HUB (the Pool Hall in Fee City + every pool building in the outer cities): every top and rising Solana pool in ONE pop-out —
 // v2 AMMs, v3 / CLMM, DLMM bins, auto-compounding vaults, lending, liquid staking, perps, RWA — with live TVL, APY and its 7-day move.
@@ -221,6 +222,6 @@ export function PoolHub({ pools, blocks = [], onLink, start = 'all' }) {
       <div className="m-seg phb-lens" role="tablist" aria-label="Pool kind">{LENS.map(([k, w]) => <button key={k} type="button" role="tab" aria-selected={lens === k} className={lens === k ? 'active' : ''} onClick={() => setLens(k)} data-testid={`phb-lens-${k}`}>{w}</button>)}</div>
       <div className="m-seg" role="tablist" aria-label="Sort">{SORT.map(([k, w]) => <button key={k} type="button" role="tab" aria-selected={sort === k} className={sort === k ? 'active' : ''} onClick={() => setSort(k)} data-testid={`phb-sort-${k}`}>{w}</button>)}</div>
       <input className="m-input phb-q" value={q} onChange={e => setQ(e.target.value)} placeholder="SOL, JitoSOL, USDC…" aria-label="Search pools" data-testid="phb-q" /></div>
-    {rows.length ? <ol className="phb-list">{rows.map((r, i) => <PoolRow key={r.id} r={r} i={i} blocks={blocks} onLink={onLink} />)}</ol> : <p className="m-dim">No pool matches.</p>}
+    {rows.length ? <ol className="phb-list">{rows.map((r, i) => <PoolRow key={r.id} r={r} i={i} blocks={blocks} onLink={onLink} />)}</ol> : <FamEmpty art="search" title="NO POOL MATCHES" note="Try another coin, or clear the kind / search filter." />}
   </div>;
 }

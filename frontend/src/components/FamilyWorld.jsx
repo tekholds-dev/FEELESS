@@ -16,6 +16,7 @@ import { FamiliaOverwatch } from './command/FamiliaOverwatch';
 import { Realtor } from './Realtor';
 import { useAdmin } from '../lib/adminCall';
 import '../styles/familyWorld.css';
+import { FamEmpty } from './FamEmpty';
 
 // 🗺 THE FAMILIA WORLD (owner, 2026-10-21: "huge like a Sims build — bridges to other parts, seasons, buy blocks near rivals, CPU towns hard to
 // raid, CARTELS = the bundlers / snipers / funders from rep, chess moves when you enter a rival city, recruitment challenges, click / drag errands,
@@ -174,7 +175,7 @@ function Errand({ e, act, busy }) {
 }
 
 export function CrewDeck({ crew }) {
-  if (!crew?.length) return <p className="m-dim">No recruits yet — hire them on your block or win them in 🎖 Challenges.</p>;
+  if (!crew?.length) return <FamEmpty art="crew" title="NO RECRUITS YET" note="Hire them on your block or win them in 🎖 Challenges." />;
   return <div className="fwd-deck" data-testid="crew-deck">{crew.map((r, i) => { const c = cardOf(r); return <div key={r.id} className={`fwd-card ${c.red ? 'red' : ''} ${r.hurt ? 'is-hurt' : ''} ${r.special ? 'is-special' : ''}`} style={{ '--i': i }}
     data-tip={`${c.role} · level ${r.lvl}${r.next ? ` · ${r.xp}/${r.next} XP` : ''}${r.hurt ? ` · hurt, back in ${Math.ceil(r.hurt / 60)} min` : ''}`}>
     <span className="tl">{c.face}<i>{c.suit}</i></span><b>{c.suit}</b><small>{c.role}</small><span className="br">{c.face}<i>{c.suit}</i></span></div>; })}</div>;
@@ -203,7 +204,7 @@ const EXTRA_PLACES = {
 function BillboardBox({ v, me, act, busy }) {
   const [text, setText] = useState(''); const [mint, setMint] = useState(''); const cost = v.rules?.billboardMp || 5000; const ads = v.boards || [];
   return <div className="fwd-board m-card" data-testid="billboard-box"><header><b>📺 BILLBOARDS</b><small>{ads.length}/6 up · {mp(cost)} MP / 24h from the family bank</small></header>
-    {ads.length ? <ul>{ads.map((a, i) => <li key={i} style={{ '--i': i }}><b>[{a.tag}]</b> {a.text}</li>)}</ul> : <p className="m-dim">No ads up — yours rotates on both billboards.</p>}
+    {ads.length ? <ul>{ads.map((a, i) => <li key={i} style={{ '--i': i }}><b>[{a.tag}]</b> {a.text}</li>)}</ul> : <FamEmpty art="billboard" title="NO ADS UP" note="Yours rotates on both billboards." />}
     <form onSubmit={e => { e.preventDefault(); act({ act: 'billboard', text, mint }, 'Your billboard is up for 24 h'); setText(''); }}>
       <input className="m-input" value={text} maxLength={42} onChange={e => setText(e.target.value)} placeholder="$TICKER — your line (no links)" aria-label="Billboard line" data-testid="billboard-text" />
       <input className="m-input" value={mint} maxLength={44} onChange={e => setMint(e.target.value.trim())} placeholder="coin address (optional)" aria-label="Coin address" />
@@ -278,7 +279,7 @@ export function FamilyWorld({ addr, sess, onEnter, onJoin, onSignIn, rooms = {} 
     realtor: <Realtor v={v} act={act} busy={busy} onFly={id => { const b = (v.blocks || []).find(x => x.id === id); if (!b) return; const c = (v.cities || []).find(x => x.boroughs.includes(b.b)); setLensRaw(null); if (c) setCity(c.key); setSelRaw(b); }} />,
     ranked: <RankLadder ranked={v.ranked} mine={me?.id} />,
     raids: <div className="fwd-raids">{(v.raids || []).length ? v.raids.slice().reverse().map(r => <RaidStage key={r.id} r={r} act={act} busy={busy} />)
-      : <p className="m-dim">No raids. Tap a rival building in the city — a CPU town if you're brave.</p>}
+      : <FamEmpty art="raid" title="NO RAIDS ON" note="Tap a rival building in the city — a CPU town if you're brave." />}
       <ol className="fwd-wlog">{(v.log || []).map((l, i) => <li key={i}>{l.what}</li>)}</ol></div>,
     jobs: me ? <ul className="fwd-jobs">{me.errands.map(e => <Errand key={e.store} e={e} act={act} busy={busy} />)}</ul> : <p className="m-dim">Join a family to run errands.</p>,
     rc: me ? <ul className="fwd-rc">{me.challenges.map(c => { const cc = cardOf(c.recruit); return <li key={c.key} className={c.done ? 'is-done' : c.ready ? 'is-ready' : ''} data-testid={`rc-${c.key}`}>
