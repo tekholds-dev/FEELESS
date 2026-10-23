@@ -82,21 +82,22 @@ export function dirLive(key, pools) {
   return null;
 }
 function Directory({ onGo, open, setOpen, active, pools, onDesk, desk }) {
-  const best = providersOf('best', pools?.pools)[0];
+  const best = providersOf('best', pools?.pools)[0]; const [more, setMore] = useState(false);   // owner: "no fluff — only real ways to make money": the rest of the city folds away
   let n = 0;
   return <nav className={`fc3-dir ${open ? 'is-open' : ''}`} aria-label="City directory" data-testid="city-directory">
     <button type="button" className="fc3-dirtoggle" onClick={() => setOpen(o => !o)} aria-expanded={open} data-tip="Every place in the city — money first" data-testid="city-dir-toggle"><Building2 size={15} aria-hidden="true" /><span>DIRECTORY</span></button>
     <ul>
       <li className="fc3-dirgo" style={{ '--i': 0, '--pc': '#45e486' }}><button type="button" className={desk && !desk.focus ? 'active' : ''} onClick={onDesk} aria-pressed={!!desk && !desk.focus} data-testid="dir-compound"
         data-tip="The best yields you can start right here, live — pick one, pick your amount, watch it compound; your wallet signs"><Zap size={16} aria-hidden="true" /><span><b>START COMPOUNDING</b><small>{best ? `${best.sym} · ${apyTxt(best.apy)} · in place` : 'the best live yields, in place'}</small></span></button></li>
-      {DIR_GROUPS.map(([word, keys]) => <React.Fragment key={word}><li className="fc3-dirh" aria-hidden="true">{word}</li>
+      {DIR_GROUPS.map(([word, keys], gi) => (gi && !more ? null : <React.Fragment key={word}><li className="fc3-dirh" aria-hidden="true">{word}</li>
         {keys.map(k => PLACES.find(x => x.key === k)).filter(Boolean).map(p => { n += 1; const Icon = PLACE_ICON[p.key] || Building2; const host = p.in ? PLACES.find(x => x.key === p.in) : null; const live = dirLive(p.key, pools);
           return <li key={p.key} className={`${host ? 'is-room' : ''} ${p.money ? 'is-money' : ''}`} style={{ '--i': n, '--pc': p.color }}>
             <button type="button" className={active === p.lens ? 'active' : ''} onClick={() => onGo(p)} data-tip={`${p.name} — ${p.sub}${host ? ` · a room inside ${host.name}` : ''}`} data-testid={`dir-${p.key}`}><Icon size={16} aria-hidden="true" />
               <span><b>{p.name}</b><small>{live || (host ? `↳ in ${host.name.replace(/^(THE|YOUR) /, '')}` : p.sub)}</small></span></button></li>; })}
         {word.includes('FAMILY') ? <li style={{ '--i': n + 1, '--pc': '#ff8fa3' }}><button type="button" onClick={() => { try { sessionStorage.setItem('feeless.hq.tool', 'badge'); } catch { /* storage blocked */ } window.dispatchEvent(new CustomEvent('feeless:hq-tool', { detail: 'badge' })); onGo(PLACES.find(x => x.key === 'hq')); }}
           data-tip="Design your family's crest — shape, charge, colours, motto — and save it; every family sees it" data-testid="dir-crest"><Flower2 size={16} aria-hidden="true" /><span><b>FORGE YOUR CREST</b><small>design the badge · save it</small></span></button></li> : null}
-      </React.Fragment>)}
+      </React.Fragment>))}
+      <li className="fc3-dirmore"><button type="button" onClick={() => setMore(m => !m)} aria-expanded={more} data-tip={more ? 'Fold the family + tool places away' : 'The family places (HQ, wars, podium…) and the tools'} data-testid="dir-more"><span><b>{more ? '− LESS' : '＋ THE REST OF THE CITY'}</b><small>{more ? 'money only' : 'family · wars · tools'}</small></span></button></li>
     </ul>
   </nav>;
 }

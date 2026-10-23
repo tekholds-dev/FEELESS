@@ -160,41 +160,28 @@ STANDING RULES (never "done"):
 - Real money = the user's wallet signs; FEELESS never holds keys or pooled funds (`docs/DECISIONS.md`). Every new buy door ships with guards.
 - Every building / family idea = a real function on live data, drawn and alive — no dead text.
 
-P0-NOW — OWNER 2026-10-23 (live, in progress)
-- 🧹 EVERY PAGE END TO END (owner: "you do the top of a page and act like the rest of the user flow is ok"): touching a page or tab = its WHOLE
-  flow (modals, steps 1…n, popouts, second tabs, empty states) restyled in that page's own meta, old useless bits deleted, tested, screenshotted.
-  No site-wide flat green leftovers. First: FeeCat's create-a-cat modal (violet night, not site green) · Launch's click-through flow.
-- 🏙 FAMILY BLOCK: ☀/🌙 + ⤢ expand like Fee City · every building's popout DOES the money in place (pick the platform / provider → act; no
-  redirects) · the range explained as a drawn picture, not jargon · real amounts (a $5 default does nothing) · ≥ 80 % of buildings carry a
-  real-money tool in their popout · the directory leads with compound + growth · create a badge + save it.
-- 🧼 SIDEBARS STAY CLEAN: a narrow side panel shows a summary + ONE button; big tools (the money desk) pop out over the city, never crammed in.
-- 💬 FAMILY CHAT robust + fun, with a small live BEST CALL strip (the site's best call or Pump's hottest coin, tap → trade in place).
-- 💵 SMALL MONEY, HONEST: show what $5 / $10 makes OVERNIGHT in every pool (owner wants $5–10 → $0.50–1 a night = 5–10 %/night ≈ 1,800–3,600 %
-  APY — only hot memecoin LP fees reach it, with impermanent-loss / rug risk; staking + lending never will). A "FEE HUNTERS" lens: the
-  hottest REAL fee pools (turnover × fee), each with its risk + the cost to open a position (DLMM position rent ≈ 0.06 SOL eats $5).
-- 🔌 IN-PLACE LP DEPOSITS (no redirects): PumpSwap / Raydium / Orca / Meteora add-liquidity builders (SDK / IDL, verified like
-  `lend_earn.verify`, wallet signs) — the only way pools put small money to work without leaving FEELESS.
-- 📉 PERPS: no Kraken / Coinbase link-outs in the desk (owner: "don't want to go there"); paper perps stays; a real in-app venue waits
-  on DECISIONS #1 + counsel (US users).
-- 🏝 FAMILY TOWN EXPANDS: more islands joined by bridges, pick your own lots, MOVE buildings between lots, add little stands (kiosks /
-  food stalls / signs) — the block's layout stored server-side per family.
-- 🧭 EVERY DIRECTORY = one clean pop-out that puts money to work (no fluff, only real ways to make money).
-- 📚 Docs debt: CLAUDE.md / DECISIONS.md / HANDOFF.md / the other md's — prune finished items, record new decisions (counsel brief:
-  `docs/COUNSEL_BRIEF.md`).
+- 🧹 EVERY PAGE END TO END (owner, 2026-10-23): touching a page = its WHOLE flow (modals, steps, pop-outs, second tabs, empty states) in that
+  page's own meta, old bits deleted, tested, screenshotted. Narrow side panels = a summary + ONE button; big tools pop out over the page.
+- 🚀 NO RISK NO REWARD (owner): money surfaces lead with the aggressive play (MOON: tight v3 / DLMM bands on the busiest pools; DEGEN: the
+  hottest fee pools) with the risk named — SAFE yields are one tap away, never the headline. "Think big, not the same utilities."
 
-P0 — FAMILIA + FEE CITY (owner: "buildings represent realtime data — you can really do EVERYTHING from everywhere"), hardest → easiest
-1. 🌆 FEE CITY = SIMCITY SCALE: a bigger capital; ~80 % of the city real-money buildings (pools, vaults, lend, perps, LSTs, the desk) spread
-   across districts, not packed on one island; family blocks as their own islands off the capital.
-2. 🏦 BLOCK READERS (DECISIONS #5: each checked against a real on-chain account before it ships): Meteora DLMM · marginfi · Save · PumpSwap LP
-   · Phoenix (`block_markets.WHY_NONE` lists them). Then: a building assigned to a real position goes under construction when its balance is
-   pulled · members' wallets counted on the block (opt-in). (Orca / Raydium range reads + re-center errands are done: `clmm_range.py`.)
-3. 💤 NIGHT VAULT DCA / LIMIT ORDERS: Jupiter Recurring + Trigger APIs (build → verify the programs like `lend_earn.verify` → wallet signs;
-   blue-chip allowlist + guards). Kamino Multiply / vault deposits need Kamino's SDK.
-4. ⚡ SCALE FOR THOUSANDS: shared pollers, 3D perf (instancing, LOD), load tests on familia-world / familia/street; measure the family town's
-   fps (the 2026-10-23 lag fix is unmeasured).
-5. 🏙 CITY LEFTOVERS: outer cities' real-money markets · in-city swap · HELD coins + FEELESS-launched coins as buildings · all of FEE as city
-   mechanics · raids / hits played in-city · MP-only buildings + gold shop · $ and MP ladders · badge / card / MOBhouse customization · a 3D
-   for-sale island (the Realtor exists).
+P0 — MAKE THE MONEY MOVE IN PLACE (owner 2026-10-23: "I tightened a v3 pool with $100 and made $120 — no redirects"), hardest → easiest
+1. 🔌 IN-PLACE LP: open a TIGHT-RANGE position from the MOON desk — Meteora DAMM v2 first (`@meteora-ag/cp-amm-sdk` is installed; pattern =
+   `lib/poolBuilder.js`: build in the browser → simulate → wallet signs), then Raydium CLMM + Orca Whirlpool (SDK) + Meteora DLMM, a one-SOL
+   zap (Jupiter swap half → deposit), positions as buildings that light up while IN RANGE, re-center / close / claim fees in place. Verify
+   every builder by SIMULATING against mainnet for a real wallet (no send) before it ships (DECISIONS #5 spirit).
+2. 📉 PERPS YOU SEE LIVE: the paper desk on the real chart (entry / liq lines, P&L ticking); REAL orders stay blocked for US users until
+   counsel answers DECISIONS #1 (`docs/COUNSEL_BRIEF.md` §1) — never route them to an offshore venue.
+3. 🏝 FAMILY TOWN EXPANDS: more islands joined by bridges, pick your own lots, MOVE buildings, add little stands (kiosks / food stalls / signs),
+   a "MY POOLS" combo building (every LP / stake / lend position together, live) — the layout stored server-side per family.
+4. 🏦 BLOCK READERS (DECISIONS #5: each checked against a real on-chain account): Meteora DLMM · marginfi · Save · PumpSwap LP · Phoenix
+   (`block_markets.WHY_NONE`). Then: a building assigned to a position goes under construction when its balance is pulled · members' wallets
+   on the block (opt-in). (Orca / Raydium range reads + re-center errands: `clmm_range.py`.)
+5. 💤 NIGHT VAULT DCA / LIMIT ORDERS: Jupiter Recurring + Trigger (build → verify like `lend_earn.verify` → wallet signs; allowlist + guards).
+6. ⚡ SCALE FOR THOUSANDS: measure the metro's fps (trims merged + a car budget shipped 2026-10-23, unmeasured) · instancing / LOD · load tests.
+7. 🏙 CITY LEFTOVERS: outer cities' real-money markets · HELD + FEELESS-launched coins as buildings · raids played in-city · MP-only buildings ·
+   $ / MP ladders · MOBhouse customization · a 3D for-sale island.
+8. 🌍 A geo / KYC switch per feature (today there is none — COUNSEL_BRIEF §0) so a feature counsel restricts can be closed to US users.
 
 P1 — AGENTS + AI
 1. 🏆 NEXA earns real money only after her FeeCat record beats the rule engine in shadow — build the shadow ledger + the side-by-side.
@@ -221,7 +208,7 @@ WAITING ON THE OWNER
 - 🐛 Fuse card bug: is the fix found in code the bug you saw? (if not: repro steps first)
 - ❓ Fee City full-screen by default?
 - 🗂 Desktop clean-up: which folders (never images)?
-- ⚖ A lawyer's read of `docs/DECISIONS.md` before real volume.
+- ⚖ A lawyer's read of `docs/DECISIONS.md` before real volume — hand them `docs/COUNSEL_BRIEF.md` (the questions, the facts they'll ask for).
 
 IDEAS: FeeCat + AI agent pair that talk · "build a better coin" track in Lag catcher.
 

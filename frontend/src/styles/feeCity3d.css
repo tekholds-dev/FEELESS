@@ -73,6 +73,7 @@ body.fc3-lock { overflow: hidden; }
 .fc3-dirgo button { min-height: 44px; border-color: #45e48666 !important; background: linear-gradient(120deg, #0c3a20, #08160e) !important; box-shadow: 0 0 18px -8px #45e486; }
 .fc3-dirgo button b { color: #45e486; } .fc3-dirgo button svg { animation: fc3Zap 2.4s ease-in-out infinite; }
 .fc3-dir li.is-money button { border-left: 2px solid color-mix(in srgb, var(--pc) 60%, transparent); }
+.fc3-dirmore button { justify-content: center; border: 1px dashed #d4af3755 !important; color: #c9b47c; } .fc3-dir:not(.is-open) .fc3-dirmore { display: none; }
 .fc3-desk { position: absolute; top: 12px; right: 12px; bottom: 60px; z-index: 6; width: min(440px, calc(100% - 24px)); overflow-y: auto; padding: 10px; border-radius: 18px;
   background: rgba(8, 7, 5, .9); border: 1px solid #45e48655; box-shadow: 0 30px 60px -30px #000; scrollbar-width: thin; scrollbar-color: #45e486 transparent; animation: fc3DeskIn .2s ease-out both; }
 .fc3-desk::-webkit-scrollbar { width: 6px; } .fc3-desk::-webkit-scrollbar-thumb { background: #45e486; border-radius: 6px; }

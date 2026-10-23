@@ -15,10 +15,10 @@ test('📉 the paper desk: live book, a lit ticket, positions with liquidation m
   global.fetch = jest.fn((u, o) => { calls.push([String(u), o]); return Promise.resolve({ ok: true, json: () => Promise.resolve(BOOK) }); });
   const el = document.createElement('div'); document.body.appendChild(el); const root = createRoot(el);
   const q = id => el.querySelector(`[data-testid="${id}"]`);
-  await act(async () => { root.render(<PaperPerps row={ROW} lev={10} venues={{ kraken: ['Kraken Pro', () => 'https://pro.kraken.com/'] }} />); });
+  await act(async () => { root.render(<PaperPerps row={ROW} lev={10} />); });
   await act(async () => { await Promise.resolve(); });
   expect(q('paper-perps').textContent).toContain('BTC-PERP'); expect(q('pp-pos-p1').textContent).toContain('23.1% to liq');
-  expect(q('pp-real-kraken').getAttribute('href')).toBe('https://pro.kraken.com/');
+  expect(el.querySelectorAll('a[href^="http"]')).toHaveLength(0);   // no link-outs
   await act(async () => { q('pp-m-500').click(); });
   await act(async () => { q('pp-long').click(); });
   const open = calls.find(([u, o]) => o?.method === 'POST' && JSON.parse(o.body).act === 'open');

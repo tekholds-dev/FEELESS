@@ -10,7 +10,6 @@
 .md-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
 .md .md-head b { display: block; font-style: normal; font: 800 12px 'JetBrains Mono', monospace; letter-spacing: .12em; color: var(--mc); text-shadow: 0 0 14px color-mix(in srgb, var(--mc) 45%, transparent); }
 .md .md-head small { display: block; font-style: normal; font: 600 10px 'JetBrains Mono', monospace; color: #b9a97c; letter-spacing: .04em; }
-.md-best { flex: none; padding: 4px 9px; border-radius: 999px; font: 800 10.5px 'JetBrains Mono', monospace; font-style: normal; color: #0b0d08; background: var(--mc); box-shadow: 0 0 16px color-mix(in srgb, var(--mc) 55%, transparent); }
 /* providers */
 .md-prov { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(150px, 100%), 1fr)); gap: 6px; } .md > * { min-width: 0; }
 .md-prov button { display: grid; grid-template-columns: 1fr auto; grid-template-rows: auto auto; gap: 4px 8px; align-items: center; min-height: 52px; padding: 8px 10px; text-align: left; cursor: pointer;
@@ -76,3 +75,41 @@ body.theme-day .md .md-head b, body.theme-day .md-prov button strong, body.theme
 body.theme-day .md-tick { background: #eaf8ef; } body.theme-day .md-tick b { color: #0d7a41; text-shadow: none; } body.theme-day .md-note { color: #3a2c08; background: #fffdf6; }
 body.theme-day .md-range { background: #f2f9fc; border-color: #1a6a8a33; } body.theme-day .md-facts span { background: #fff; } body.theme-day .md-facts b, body.theme-day .md-range header b { color: #135a78; }
 @media (max-width: 640px) { .md { padding: 11px; } .md-tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); } .md-prov { grid-template-columns: 1fr 1fr; } .md-add { margin-left: 0; } .md-facts { grid-template-columns: 1fr; } }
+/* 💵 small money, honest: the goal bar (what $0.50 / day needs vs what this pays) + the FEE HUNTERS (the pools paying the most real fees) */
+.md-goal { display: grid; grid-template-columns: 1fr; gap: 5px; margin: 0; padding: 8px 10px; border-radius: 10px; background: rgba(255, 211, 107, .06); border: 1px solid rgba(255, 211, 107, .22);
+  font: 600 11px 'JetBrains Mono', monospace; color: #d9cfae; }
+.md-goal em { font-style: normal; font-weight: 800; font-size: 9px; letter-spacing: .12em; color: #ffd36b; margin-right: 4px; } .md-goal b { color: #ffd36b; }
+.md-goal u { display: block; height: 5px; border-radius: 4px; background: rgba(255, 255, 255, .07); overflow: hidden; }
+.md-goal u s { display: block; height: 100%; background: linear-gradient(90deg, #ff8fa3, #ffd36b, #45e486); transform-origin: 0 50%; transition: transform .5s ease; }
+.md-hunt { display: grid; gap: 8px; padding: 12px; border-radius: 14px; border: 1px solid rgba(255, 159, 69, .35); background: linear-gradient(165deg, rgba(40, 18, 6, .9), rgba(8, 7, 6, .95)); animation: mdIn .25s ease-out both; }
+.md-hunt-head b { display: block; font: 800 11px 'JetBrains Mono', monospace; letter-spacing: .12em; color: #ff9f45; } .md-hunt-head small { font: 600 10px 'JetBrains Mono', monospace; color: #b9a07c; }
+.md-hunt ol { margin: 0; padding: 0; list-style: none; display: grid; gap: 5px; }
+.md-hunt li { display: grid; grid-template-columns: minmax(0, 1fr) 92px 86px 34px; gap: 8px; align-items: center; padding: 6px 8px; border-radius: 10px; background: rgba(255, 255, 255, .03);
+  animation: mdIn .3s ease-out both; animation-delay: calc(var(--i, 0) * 55ms); }
+.md-hunt-id { display: grid; min-width: 0; } .md-hunt-id b { font: 800 12px 'JetBrains Mono', monospace; color: #f4ecd2; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.md-hunt-id small { font: 600 9.5px 'JetBrains Mono', monospace; color: #a99b74; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.md-hunt-apy { display: grid; gap: 3px; } .md-hunt-apy i { height: 4px; border-radius: 4px; background: rgba(255, 255, 255, .08); overflow: hidden; }
+.md-hunt-apy i s { display: block; height: 100%; background: linear-gradient(90deg, #ffd36b, #ff9f45, #ff5d73); transform-origin: 0 50%; transform: scaleX(var(--g, 0)); }
+.md-hunt-apy strong { font: 800 13px 'JetBrains Mono', monospace; color: #ff9f45; text-shadow: 0 0 12px rgba(255, 159, 69, .45); }
+.md-hunt-n { display: grid; justify-items: end; } .md-hunt-n em { font: 700 8.5px 'JetBrains Mono', monospace; font-style: normal; letter-spacing: .1em; color: #a99b74; }
+.md-hunt-n b { font: 800 13px 'JetBrains Mono', monospace; color: #45e486; } .md-hunt-n small { font: 600 9px 'JetBrains Mono', monospace; color: #8fd9ad; }
+.md-hunt li .m-btn { min-width: 32px; min-height: 32px; padding: 0; justify-content: center; }
+body.fx-lite .md-hunt, body.fx-lite .md-hunt li { animation: none; } @media (prefers-reduced-motion: reduce) { .md-hunt, .md-hunt li { animation: none; } .md-goal u s { transition: none; } }
+body.theme-day .md-goal { background: #fff8e6; color: #3a2c08; } body.theme-day .md-goal em, body.theme-day .md-goal b { color: #8a5a00; }
+body.theme-day .md-hunt { background: linear-gradient(165deg, #fff6ec, #fffdf8); } body.theme-day .md-hunt li { background: #fff; } body.theme-day .md-hunt-id b { color: #2a1f05; }
+body.theme-day .md-hunt-apy strong { color: #b8540c; text-shadow: none; } body.theme-day .md-hunt-n b { color: #0d7a41; }
+@media (max-width: 640px) { .md-hunt li { grid-template-columns: minmax(0, 1fr) 70px 34px; } .md-hunt-apy { display: none; } }
+.md.is-compact .md-hunt li { grid-template-columns: minmax(0, 1fr) 76px 34px; } .md.is-compact .md-hunt-apy { display: none; }
+/* 🎚 the risk dial (SAFE · DEGEN · MOON) + the MOON hunters (tight bands) + a tidy header (one line, never wraps into a paragraph) */
+.md-head { align-items: center; flex-wrap: wrap; } .md-head > span:first-child { min-width: 0; flex: 1 1 180px; }
+.md .md-head small { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.md-risk-dial { flex: none; } .md-risk-dial button { min-height: 32px; font: 800 10.5px 'JetBrains Mono', monospace; letter-spacing: .04em; }
+.md-risk-dial button.active.r-safe { background: #6ad7ff; color: #04121a; } .md-risk-dial button.active.r-degen { background: #ff9f45; color: #1a0c02; }
+.md-risk-dial button.active.r-moon { background: linear-gradient(110deg, #ff5dbb, #b388ff); color: #14061f; box-shadow: 0 0 16px -4px #ff5dbb; }
+.md-goal b.m-num { font: 800 12px 'JetBrains Mono', monospace; }
+.md-hunt-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; } .md-hunt-head > span:first-child { display: grid; min-width: 0; flex: 1 1 200px; }
+.md-band { display: inline-flex; flex: none; width: auto; } .md-band button { flex: none; min-height: 30px; padding: 0 10px; font: 800 10.5px 'JetBrains Mono', monospace; }
+.md-hunt.is-moon { border-color: rgba(255, 93, 187, .45); background: radial-gradient(120% 90% at 100% 0%, rgba(179, 136, 255, .18), transparent 60%), linear-gradient(165deg, rgba(30, 8, 34, .92), rgba(8, 6, 12, .96)); }
+.md-hunt.is-moon .md-hunt-head b { color: #ff8fd0; } .md-hunt.is-moon .md-hunt-apy strong { color: #ff8fd0; text-shadow: 0 0 14px rgba(255, 93, 187, .5); }
+.md-hunt.is-moon .md-hunt-apy i s { background: linear-gradient(90deg, #b388ff, #ff5dbb); }
+body.theme-day .md-hunt.is-moon { background: linear-gradient(165deg, #fdf0fb, #fffaff); } body.theme-day .md-hunt.is-moon .md-hunt-head b, body.theme-day .md-hunt.is-moon .md-hunt-apy strong { color: #a0247a; text-shadow: none; }

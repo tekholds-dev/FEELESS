@@ -176,7 +176,6 @@ function CatTower() {
 // funding APR, open interest, max leverage) + one tap to the regulated venue. Leverage math on screen.
 // 🇺🇸 US-legal venues only (owner, 2026-10-23): Kraken Pro (CFTC-regulated perps via Bitnomial) · Coinbase (perpetual-style futures, CFTC FCM).
 // Drift / Hyperliquid / Jupiter Perps are gone — they block or don't clearly serve US traders. In-app orders on these = the owner's call (API + legal).
-export const VENUE = { kraken: ['Kraken Pro', () => 'https://pro.kraken.com/'], coinbase: ['Coinbase', () => 'https://www.coinbase.com/derivatives'] };
 function PerpsDesk() {
   const { data } = useMarketJson('/api/reputation/familia/perps', 60000); const rows = data?.markets || []; const [lev, setLev] = useState(10);
   const [pick, setPick] = useState(null); const row = rows.find(r => r.coin === pick) || rows[0];
@@ -190,12 +189,12 @@ function PerpsDesk() {
     </div>
     <label className="phb-earn-in av-lev"><span>Leverage</span><input type="range" min="1" max="50" value={lev} onChange={e => setLev(Number(e.target.value))} aria-label="Leverage" data-testid="av-lev" /><b>{lev}×</b></label>
     <PerpsEarn row={row} lev={lev} />
-    <PaperPerps row={row} lev={lev} venues={VENUE} />
+    <PaperPerps row={row} lev={lev} />
     <ol className="av-list av-perps">{!rows.length ? <li className="m-dim">Reading the perps markets…</li> : null}
       {rows.map((r, i) => <li key={r.coin} style={{ '--i': i }}><em>{i + 1}</em>
         <button type="button" className={`av-sym av-pick ${row?.coin === r.coin ? 'is-on' : ''}`} aria-pressed={row?.coin === r.coin} onClick={() => setPick(r.coin)} data-tip={`See what your stake does on ${r.coin} perps`} data-testid={`perp-pick-${r.coin}`}><b>{r.coin}</b><small>${r.mark >= 100 ? r.mark.toLocaleString('en-US', { maximumFractionDigits: 0 }) : r.mark.toPrecision(4)} · OI {usd(r.oiUsd)} · up to {r.maxLev}×</small></button>
         <span className={`av-heat ${(r.ch24 ?? 0) < 0 ? 'down' : 'up'}`}><u aria-hidden="true"><s style={{ transform: `scaleX(${Math.max(0.04, Math.min(1, Math.abs(r.ch24 || 0) / 15))})` }} /></u><b className="m-num">{pct(r.ch24)} · f {r.fundApr > 0 ? '+' : ''}{r.fundApr}%</b></span>
-        <span className="av-venues">{r.venues.map(v => <a key={v} className="m-btn" href={VENUE[v][1](r.coin)} target="_blank" rel="noopener noreferrer" data-tip={`Trade ${r.coin} perps on ${VENUE[v][0]} — your wallet signs there; their own region rules apply`}>{VENUE[v][0].split(' ')[0]} ↗</a>)}</span></li>)}</ol>
+</li>)}</ol>
     <p className="av-lede">⚠ Leverage cuts both ways: at {lev}× a {(100 / lev).toFixed(1)}% move against you liquidates the position. FEELESS shows the market; each venue runs its own checks.</p>
   </div>;
 }

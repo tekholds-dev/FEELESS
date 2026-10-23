@@ -38,3 +38,9 @@ each one's positions); a top-pot Fuse is each player funding their own card from
 ## 5 · Block readers (Meteora DLMM · marginfi · Save · PumpSwap LP)
 **Decided: a reader ships only after its account layout is checked against a real on-chain account** — a wrong "out of range" on real
 money is worse than "no reader yet". Until then those buildings say so and stay under construction.
+
+## 6 · Money surfaces lead with risk, honestly (owner, 2026-10-23: "no risk no reward — don't be making safe shit")
+**Decided: every money desk has a SAFE · DEGEN · MOON dial; Familia's START COMPOUNDING opens on MOON** (tight v3 / DLMM bands on the busiest
+pools) with the risk written next to the number (impermanent loss, out-of-range = 0, memecoins can halve in an hour). SAFE = staking +
+Jupiter Lend. Tokenized treasuries (USDY, ONyc, BUIDL…) are never routed — their issuers exclude US persons and FEELESS has no geo check.
+Perps: paper only in FEELESS; no link-outs to venues (owner); real orders wait on counsel (#1). Questions for counsel: `docs/COUNSEL_BRIEF.md`.

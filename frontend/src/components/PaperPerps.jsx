@@ -14,7 +14,7 @@ const MARGINS = [25, 100, 500, 1000];
 const pct = v => `${v >= 0 ? '+' : ''}${Number(v).toFixed(1)}%`;
 const sgn = v => `${Number(v) < 0 ? '−' : '+'}${cash(Math.abs(Number(v) || 0))}`;   // −$20 · +$61, never $-20
 
-export function PaperPerps({ row, lev, venues = {}, devAddress = '' }) {   // devAddress: the /dev/perps preview only
+export function PaperPerps({ row, lev, devAddress = '' }) {   // owner, 2026-10-23: no Kraken / Coinbase link-outs — paper here; a real in-app venue waits on DECISIONS #1 + counsel   // devAddress: the /dev/perps preview only
   const { wallet, signMessage } = useWallet() || {}; const addr = (wallet?.chain === 'solana' ? wallet.address : '') || devAddress;
   const [sess, setSess] = useState(() => (devAddress ? 'dev' : addr ? readChatSession(addr) : ''));
   useEffect(() => { setSess(devAddress ? 'dev' : addr ? readChatSession(addr) : ''); }, [addr, devAddress]);
@@ -44,8 +44,6 @@ export function PaperPerps({ row, lev, venues = {}, devAddress = '' }) {   // de
       <span className="pp-read"><em>{L}× · {cash(size)} position</em><small>wiped at {liqMove.toFixed(1)}% against you</small></span>
       <span className="pp-go"><button type="button" className="pp-long" disabled={busy} onClick={() => act({ act: 'open', coin: row.coin, side: 'long', margin, lev: L })} data-tip={`Paper LONG ${row.coin}: $${margin} margin × ${L}× at the live mark`} data-testid="pp-long">▲ LONG</button>
         <button type="button" className="pp-short" disabled={busy} onClick={() => act({ act: 'open', coin: row.coin, side: 'short', margin, lev: L })} data-tip={`Paper SHORT ${row.coin}: $${margin} margin × ${L}× at the live mark`} data-testid="pp-short">▼ SHORT</button></span>
-      {(row.venues || []).length ? <span className="pp-real"><small>TAKE IT REAL — your account, their order ticket:</small>{row.venues.map(v => venues[v] ? <a key={v} className="m-btn" href={venues[v][1](row.coin)} target="_blank" rel="noopener noreferrer"
-        data-tip={`Open ${venues[v][0]} — you place the real order there on your own account; FEELESS never routes it`} data-testid={`pp-real-${v}`}>{venues[v][0]} ↗</a> : null)}</span> : null}
     </div> : null}
     {(b?.open || []).length ? <ol className="pp-pos">{b.open.map((p, i) => <li key={p.id} className={p.pnl >= 0 ? 'is-up' : 'is-dn'} style={{ '--i': i }} data-testid={`pp-pos-${p.id}`}>
       <b className={`pp-side is-${p.side}`}>{p.side === 'long' ? '▲' : '▼'} {p.coin} {p.lev}×</b>

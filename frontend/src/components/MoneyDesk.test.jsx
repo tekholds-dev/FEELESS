@@ -1,7 +1,7 @@
 import React from 'react';
 import { createRoot } from 'react-dom/client';
 import { act } from 'react';
-import { providersOf, growth, topPoolOf, MoneyDesk, SOL, USDC } from './MoneyDesk';
+import { providersOf, growth, topPoolOf, MoneyDesk, SOL, USDC, needApy, feeApy, feeHunters } from './MoneyDesk';
 import { DIR_GROUPS, dirLive } from './FeeCity3D';
 import { PLACES } from '../lib/cityPlan';
 
@@ -41,12 +41,14 @@ test('🖱 the desk: pick a provider + an amount → the numbers re-quote, the a
   const el = document.createElement('div'); document.body.appendChild(el); const root = createRoot(el); const q = id => el.querySelector(`[data-testid="${id}"]`);
   await act(async () => { root.render(<MoneyDesk job="stake" rows={ROWS} />); });
   expect(el.querySelectorAll('a[href^="http"]')).toHaveLength(0);
-  expect(q('md-prov-inf').getAttribute('aria-checked')).toBe('true'); expect(q('money-desk-stake').textContent).toContain('BEST 8.2%');
-  await act(async () => { q('md-amt-5000').click(); }); expect(q('money-desk-stake').textContent).toContain('+$1.12');   // $5K × 8.2 % / 365
+  expect(q('md-risk-safe').getAttribute('aria-checked')).toBe('true');   // a stake building opens on its safe yields
+  expect(q('md-prov-inf').getAttribute('aria-checked')).toBe('true'); expect(q('money-desk-stake').textContent).toContain('8.2%');
+  await act(async () => { q('md-amt-1000').click(); }); expect(q('money-desk-stake').textContent).toContain('+$0.225');   // $1K × 8.2 % / 365
+  expect(q('md-goal').textContent).toContain('18% APY');   // $0.50 a day on $1K = 18.25 % a year
   await act(async () => { q('md-prov-jito').click(); }); expect(q('md-go').textContent).toContain('SOL → JITOSOL');
   await act(async () => { q('md-go').click(); }); expect(familiaSwap).toHaveBeenCalledWith({ from: SOL, to: 'J1', amount: undefined });
   await act(async () => { root.render(<MoneyDesk job="lend" rows={ROWS} />); });
-  await act(async () => { q('md-go').click(); }); expect(q('lend-jl-usdc')).not.toBeNull(); expect(q('lend-amt').value).toBe('5000');   // Jupiter Lend, prefilled with the amount you picked, your wallet signs
+  await act(async () => { q('md-go').click(); }); expect(q('lend-jl-usdc')).not.toBeNull(); expect(q('lend-amt').value).toBe('1000');   // Jupiter Lend, prefilled with the amount you picked, your wallet signs
   act(() => root.unmount()); el.remove();
 });
 
@@ -54,4 +56,27 @@ test('🧭 the directory leads with the money and still reaches every place', ()
   const keys = DIR_GROUPS.flatMap(([, ks]) => ks); expect(keys.sort()).toEqual(PLACES.map(p => p.key).sort());
   expect(DIR_GROUPS[0][0]).toContain('MONEY'); expect(DIR_GROUPS[0][1].every(k => PLACES.find(p => p.key === k).money || ['pumpradar', 'runners'].includes(k))).toBe(true);
   expect(dirLive('sleep', { pools: ROWS })).toContain('while you sleep'); expect(dirLive('court', { pools: ROWS })).toBeNull();
+});
+
+test('💵 small money, honest: $0.50 a day on $10 needs ~1,825 % APY; only busy LP pools pay fees like that — and the hunters list says so', () => {
+  expect(Math.round(needApy(10))).toBe(1825); expect(Math.round(needApy(5))).toBe(3650); expect(needApy(1000)).toBeCloseTo(18.25, 2);
+  const kimchi = { id: 'k', kind: 'v2', proto: 'PumpSwap', sym: 'KIMCHI-SOL', src: 'pair', tvl: 370000, vol: 10.1e6 };   // 27× its size a day
+  expect(feeApy(kimchi)).toBeGreaterThan(1800);                                             // 10.1M × 0.20 % × 365 ÷ 370K ≈ 1,993 %
+  expect(feeApy({ ...kimchi, proto: 'Orca' })).toBeNull();                                  // unknown fee tier → no guess
+  expect(feeApy({ base: 25, proto: 'Raydium' })).toBe(25);                                  // a published fee APY wins
+  const list = feeHunters([kimchi, ROWS[7], { ...kimchi, id: 'thin', tvl: 5e4 }]); expect(list.map(x => x.r.id)).toEqual(['k']);   // ROWS[7] has no fee data · too thin never shows
+  expect(((10 * list[0].apy) / 100 / 365)).toBeGreaterThan(0.5);                          // $10 there ≈ $0.55 a day in fees (before price moves)
+});
+
+test('🚀 MOON by default where money can move fast: the best desk leads with tight v3 bands; ±5 % concentrates more than ±25 %', async () => {
+  const { moonHunters, bandBoost } = require('./MoneyDesk');
+  expect(bandBoost(5)).toBeGreaterThan(bandBoost(10)); expect(bandBoost(10)).toBeGreaterThan(bandBoost(25)); expect(bandBoost(100)).toBeCloseTo(1, 5);
+  const v3 = [{ id: 'a', kind: 'v3', proto: 'Raydium', sym: 'WXRP-USDC', tvl: 5e5, base: 66 }, { id: 'b', kind: 'v3', proto: 'Orca', sym: 'SOL-BONK', tvl: 3e5, base: 29 }, { id: 'c', kind: 'v2', proto: 'PumpSwap', sym: 'X', tvl: 4e5, vol: 9e6 }];
+  const m = moonHunters(v3, 10); expect(m.map(x => x.r.id)).toEqual(['a', 'b']); expect(m[0].apy).toBeCloseTo(66 * bandBoost(10), 5);   // v2 can't be tightened
+  const el = document.createElement('div'); document.body.appendChild(el); const root = createRoot(el); const q = id => el.querySelector(`[data-testid="${id}"]`);
+  await act(async () => { root.render(<MoneyDesk job="best" rows={[...ROWS, ...v3]} />); });
+  expect(q('md-risk-moon').getAttribute('aria-checked')).toBe('true'); expect(q('md-moon').textContent).toContain('WXRP-USDC'); expect(q('md-go')).toBeNull();   // no safe clutter in MOON
+  await act(async () => { q('md-risk-degen').click(); }); expect(q('md-hunters').textContent).toContain('X');
+  await act(async () => { q('md-risk-safe').click(); }); expect(q('md-go')).not.toBeNull();
+  act(() => root.unmount()); el.remove();
 });

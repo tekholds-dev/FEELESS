@@ -18,8 +18,6 @@
 .pp-short { background: linear-gradient(180deg, #ff9fd2, #ff5dbb); color: #2a0618; box-shadow: 0 0 18px -4px #ff5dbb; }
 .pp-long:hover, .pp-short:hover { transform: translateY(-1px); filter: brightness(1.08); } .pp-long:active, .pp-short:active { transform: scale(.96); }
 .pp-long:focus-visible, .pp-short:focus-visible { outline: 2px solid #fff; outline-offset: 2px; } .pp-long:disabled, .pp-short:disabled { opacity: .5; cursor: wait; }
-.pp-real { grid-column: 1 / -1; display: flex; flex-wrap: wrap; align-items: center; gap: 6px; } .pp-real small { font: 700 9px 'JetBrains Mono', monospace; color: #b3b3b3; letter-spacing: .06em; }
-.pp-real .m-btn { min-height: 32px; text-decoration: none; display: inline-flex; align-items: center; }
 .pp-pos { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
 .pp-pos li { display: grid; grid-template-columns: 110px minmax(0, 1fr) 120px auto; align-items: center; gap: 10px; padding: 7px 10px; border-radius: 11px; background: rgba(0, 0, 0, .45);
   border-left: 3px solid #45e486; animation: ppIn .3s ease-out both; animation-delay: calc(var(--i) * 50ms); } .pp-pos li.is-dn { border-left-color: #ff8fa3; }

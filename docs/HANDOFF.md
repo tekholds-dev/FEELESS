@@ -15,26 +15,25 @@ Read this (2 min) → `CLAUDE.md` (lean rules + 🎨 MANDATORY STYLING + 📋 CU
 >    LIVE visual (meters, bars, animation on real numbers), never bare text. `styles/cssCoverage.test.js` fails on an unstyled class.
 
 ## 🔁 NOW (rewrite this section in place every session)
-**Updated 2026-10-23 · Opus 5.5** — the open list is `CLAUDE.md › 📋 CURRENT TASKS` (open items only, priority order). Nothing open lives here.
+**Updated 2026-10-23 (evening) · Opus 5.5** — the open list is `CLAUDE.md › 📋 CURRENT TASKS`. Next up: **P0.1 IN-PLACE LP** (tight ranges from the
+MOON desk; Meteora DAMM v2 SDK already installed, pattern = `lib/poolBuilder.js`).
 
-Start of every task: `backend/.venv/bin/python scripts/cash-check.py degen 30` (≈ 1 min, sandbox off; 4 steps: cash · coins · swaps · P&L $).
-Last run 2026-10-23: card COVERED · coins atom for atom · 30 / 30 swaps match · 145 / 145 sells reconcile in $ (realized −$1.81, fees $0.34 apart).
+Start of every task: `backend/.venv/bin/python scripts/cash-check.py degen 30` (≈ 1 min, sandbox off). Last run 2026-10-23 09:42: card COVERED ·
+coins atom for atom · 30 / 30 swaps match · 145 / 145 sells reconcile (realized −$1.81) · gas reserve short 0.010 SOL.
 
-Branch: everything lives on `main` (pushed; the owner's Mac auto-pulls; the old `night-1022` branch is fully merged). Gate + push from
-`.claude/worktrees/gate` (`git checkout -q --detach <sha>` there, then `git push origin <sha>:main` — the pre-push hook runs the full gate on that
-snapshot, ~5 min; keep editing in the main tree meanwhile). Services restarted after the real-cats push (keep-alive PID 55631, LAN ONLINE):
-reputation (paper perps, points → MP, /internal/notify) + feecat (real mode, owner-only /action) — both live-checked (403 without owner / key).
+Branch: everything on `main` (pushed; the owner's Mac auto-pulls). Gate + push from `.claude/worktrees/gate` (`git checkout -q --detach <sha>`,
+then `git push origin <sha>:main`; the pre-push hook runs the full gate ~5 min — run no tests beside it). No backend changes today → no restart.
 
-### Where the 2026-10-23 work lives (all on main; details: grep the history)
-- 🧭 `docs/DECISIONS.md` — the owner's go on every open decision: paper perps + venue handoff · real cats = the wallet signs (option A) · one
-  points currency (1 pt → 100 MP, ≤ 1,000 / week) · no pooled custody · block readers only after a real-account check. A lawyer should read it.
-- 💵 Real cats: `cat_real.py` + `CatReal.jsx` on a cat's desk (`CatDesk.jsx`) — proposals → ✍ Sign it → prefilled swap → wallet signs. `/dev/cats`.
-- 📉 Paper perps: `paper_perps.py` + `PaperPerps.jsx` in the Perps building, `GET/POST /familia/paper-perps`. `/dev/perps`.
-- 🌹 La Familia = its own app (`FamiliaApp.jsx`, /familia/*, installable) · rooms over the city (`lib/familiaRoom`, `FamiliaTrade.jsx`) ·
-  YOUR MONEY tower (`my_money.py`, `/dev/money`) · town signs (`town_live.py`) · the Streets (`StreetChat.jsx`, `street_chat.py`, `/dev/street`).
-- 🚀 Launch drawn (`LaunchViz.jsx`, `/dev/launch`) · 💸 stake picker (`lib/earnStake`, `EarnStake.jsx`) · 🏠 house fees in HQ › Core (`/dev/fees`).
-- 🪟 NEXA: trench-law prompts + curve stage · site read (`site_probe.py`) · 🩺 stall watchdog (`model_desk.stall_of`) · 📒 `cash-check.py` step 4.
-- Owner confirmed: 🐆 Sicario's seat board is fixed.
+### Where today's work lives (frontend only; grep the history for "2026-10-23 evening")
+- 🌆 Fee City METRO: `lib/cityPlan.js` (`METRO`, `KEYS`, `feePlan(v, mk, pools)`, `moneyShare` = 81 %) · `lib/cityEngine.js` (merged neon trims,
+  `p.cars` budget, fog scales with the city) · `FeeCity3D.jsx` (`chipsOf`, money-first `Directory` + `DIR_GROUPS`, the `feeless:desk` host).
+- 💸 `components/MoneyDesk.jsx` + `styles/moneyDesk.css`: `providersOf` (in-place only), `growth`, SAFE · DEGEN · MOON (`feeHunters`,
+  `moonHunters`, `bandBoost`), `RangePicture`, `openDesk` (side panels open it over the map). Used by the family block pop-out
+  (`FamilyBlock3D.BlockCard`), Fee City market / pool panels, the Pool Hub, FeeCat's combo.
+- 🏙 Family block: `FamilyBlock3D` controls (☀ / 🌙 shared key `feeless.city.mode`, ⤢, 360°, ⌂) + `pop` over the stage; `errandGo` never links out.
+- 💬 `StreetChat.jsx`: `BestStrip` (`bestCall`, `pumpHot`), starters, reconnecting line. 🐱 `catForge.css` (scope `.cfv`) + violet `createCat.css`
+  + `StepRail`. 🚀 `launchFlow.css` + `STYLE_ART`, supply meter, `ReadyRing`. 📉 perps: no venue links (`PaperPerps`, `CityAvenue`).
+- ⚖ `docs/COUNSEL_BRIEF.md` + DECISIONS #6.
 
 ### Gate + restart rules learned the hard way
 - jest `--maxWorkers=4`; NEVER run tests while a gate runs; harden timing tests (poll, never a tight wall clock) — read the stack first.

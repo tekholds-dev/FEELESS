@@ -14,7 +14,7 @@ const SwapWorkspace = lazy(() => import('./command/SwapWorkspace').then(m => ({ 
 export const SOL = 'So11111111111111111111111111111111111111112';
 export const USDC = 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v';
 const JLP = '27G8MtK7VtTcCHkpASjSDdkWWYfoqT6ggEuKidVJidD4';
-export const AMOUNTS = [100, 500, 1000, 5000];
+export const AMOUNTS = [5, 10, 100, 1000];   // owner, 2026-10-23: "show what $5–10 does overnight" — small money first, honestly
 // 🧼 a narrow side panel never holds the desk (owner: "the right side bar can't hold ish like that"): it asks the page's desk host (Fee City's
 // big pop-out over the map) to open it. Returns false when no host is mounted, so the caller can show it inline instead.
 let deskHosts = 0;
@@ -22,6 +22,8 @@ export const deskHost = d => { deskHosts = Math.max(0, deskHosts + d); };
 export function openDesk(detail) { if (!deskHosts) return false; window.dispatchEvent(new CustomEvent('feeless:desk', { detail })); return true; }
 const ADDS = [0, 100, 500];   // + a month (DCA): the compounding that actually moves a number
 export const JOB_OF = { best: 'best', stake: 'stake', lend: 'lend', vault: 'lend', rwa: 'rwa', perps: 'perps', dex: 'lp', v2: 'lp', v3: 'lp', dlmm: 'lp' };
+const RISKS = [['safe', '🛡 SAFE', 'Staking + lending: slow, steady, the coin you put in'], ['degen', '🔥 DEGEN', 'The pools paying the most real fees today — full range, price risk'],
+  ['moon', '🚀 MOON', 'Tight v3 / DLMM bands on the busiest pools — the most fees, the most risk']];
 const JOB_WORD = { best: 'the best live yields you can start right here', stake: 'liquid staking · SOL that earns', lend: 'lending · interest every block', rwa: 'treasuries on-chain · dollar yield', perps: 'the house side of perps', lp: 'liquidity · swap fees' };
 export const RWA_NOTE = 'Tokenized treasuries (USDY, ONyc, BUIDL…) are closed to US persons by their issuers — FEELESS does not route them. Dollar yield here runs through Jupiter Lend\'s stablecoin markets.';
 const RISK = { best: 'Each yield carries its own risk (staking moves with SOL, lending is smart-contract risk) — pick, read the line, then sign.', stake: 'Moves with SOL\'s price · a staking token can trade slightly under SOL in a panic.', lend: 'Smart-contract risk; a stablecoin can de-peg. You can withdraw any time the market has cash.',
@@ -53,6 +55,46 @@ export function providersOf(job, rows, focus = null) {
 export const topPoolOf = (rows, proto) => (rows || []).filter(r => r && String(r.proto || '').toLowerCase().startsWith(String(proto).toLowerCase()) && ['v2', 'v3', 'dlmm'].includes(r.kind) && tradeOf(r))
   .sort((a, b) => ((Number(b.apy) || 0) >= 1) - ((Number(a.apy) || 0) >= 1) || /SOL/.test(b.sym) - /SOL/.test(a.sym) || (b.tvl || 0) - (a.tvl || 0))[0] || null;   // paying, then SOL pairs, then depth
 const dollars = v => (Math.abs(v) >= 1000 ? `$${Math.round(v).toLocaleString('en-US')}` : cash(v));
+
+// 💵 SMALL MONEY, HONEST (owner, 2026-10-23: "I want $5–10 to make $0.50–1"): what a goal needs vs what a pool pays. $0.50 a day on $10 is
+// 5 %/day ≈ 1,825 % APY — staking (~7 %) and lending (~8 %) never get there; only LP FEES on very busy pools do, with price risk.
+export const GOAL = 0.5;
+export const needApy = (amt, perDay = GOAL) => ((Number(perDay) || 0) / Math.max(0.01, Number(amt) || 0)) * 365 * 100;
+// LP share of the swap fee on pools whose 24h volume we read straight from the DEX (no published APY): PumpSwap 0.20 %, Raydium AMM 0.22 %
+const LP_FEE = { PumpSwap: 0.002, Raydium: 0.0022 };
+// pure: a pool's real FEE APY — the published base APY, else 24h volume × the LP fee × 365 ÷ liquidity (fees only, before price moves)
+export function feeApy(r) {
+  if (Number(r?.base) > 0) return Number(r.base);
+  const f = LP_FEE[r?.proto]; const v = Number(r?.vol) || 0; const t = Number(r?.tvl) || 0;
+  return f && v > 0 && t > 0 ? Math.round(((v * f * 365) / t) * 1000) / 10 : null;
+}
+// pure: the FEE HUNTERS — the LP pools paying the most real fees right now (≥ $100K deep, so a fill is real), best first
+export function feeHunters(rows, n = 5) {
+  return (rows || []).filter(r => r && ['v2', 'v3', 'dlmm'].includes(r.kind) && (Number(r.tvl) || 0) >= 1e5).map(r => ({ r, apy: feeApy(r) })).filter(x => x.apy > 0)
+    .sort((a, b) => b.apy - a.apy).slice(0, n);
+}
+// 🚀 MOON: a tight band on a v3 / DLMM pool earns the pool's fees × the band's concentration while the price stays inside (vs a wide ±100 % LP)
+export const BANDS = [5, 10, 25];
+export const bandBoost = w => rangeFactor(1 + w / 100) / rangeFactor(2);
+export function moonHunters(rows, w, n = 5) {
+  return (rows || []).filter(r => r && ['v3', 'dlmm'].includes(r.kind) && (Number(r.tvl) || 0) >= 1e5).map(r => ({ r, base: feeApy(r) })).filter(x => x.base > 0)
+    .map(x => ({ ...x, apy: x.base * bandBoost(w) })).sort((a, b) => b.apy - a.apy).slice(0, n);
+}
+function FeeHunters({ rows, amt, moon = false }) {
+  const [w, setW] = useState(10);
+  const list = useMemo(() => (moon ? moonHunters(rows, w) : feeHunters(rows)), [rows, moon, w]); if (!list.length) return null;
+  return <div className={`md-hunt ${moon ? 'is-moon' : ''}`} data-testid={moon ? 'md-moon' : 'md-hunters'}><div className="md-hunt-head"><span><b>{moon ? '🚀 MOON · TIGHT RANGES' : '🔥 FEE HUNTERS'}</b>
+      <small>{moon ? `v3 / DLMM fees × a ±${w}% band (×${bandBoost(w).toFixed(1)} vs a wide LP) — only while the price stays inside` : `the pools paying the most real fees today · what ${cash(amt)} would make`}</small></span>
+    {moon ? <span className="m-seg md-band" role="radiogroup" aria-label="Band">{BANDS.map(b => <button key={b} type="button" role="radio" aria-checked={w === b} className={w === b ? 'active' : ''} onClick={() => setW(b)} data-tip={`A ±${b}% band: ×${bandBoost(b).toFixed(1)} the fees of a wide LP while the price stays within ${b}%`} data-testid={`md-band-${b}`}>±{b}%</button>)}</span> : null}</div>
+    <ol>{list.map(({ r, apy }, i) => { const day = (amt * apy) / 100 / 365; const turn = (Number(r.vol) || 0) / Math.max(1, Number(r.tvl) || 1);
+      return <li key={r.id} style={{ '--i': i, '--g': Math.min(1, apy / 2000) }}>
+        <span className="md-hunt-id"><b>{r.sym}</b><small>{r.proto} · {turn >= 0.1 ? `${turn.toFixed(turn >= 10 ? 0 : 1)}× its size traded today` : 'quiet'}</small></span>
+        <span className="md-hunt-apy"><i aria-hidden="true"><s /></i><strong className="m-num">{apy >= 100 ? Math.round(apy).toLocaleString('en-US') : apy.toFixed(1)}%</strong></span>
+        <span className="md-hunt-n" data-tip={`At today's fee pace: ${cash(day / 3)} overnight (8h) · ${cash(day)} a day on ${cash(amt)} — fees only; the coins themselves can fall`}><em>OVERNIGHT</em><b className="m-num">+{cash(day / 3)}</b><small>{cash(day)} / day</small></span>
+        {tradeOf(r) ? <button type="button" className="m-btn" onClick={() => goTrade(r)} data-tip="Its coin on the chart + Quick trade, right here" data-testid={`md-hunt-trade-${r.id}`}>⚡</button> : <i />}</li>; })}</ol>
+    <small className="md-risk">⚠ {moon ? 'A tight band out-earns everything while the price sits inside it and earns 0 the moment it leaves; you end up holding the coin that fell (impermanent loss). Re-center it when it drifts.' : 'Fee pools pay in their own two coins: if one falls, you hold more of it (impermanent loss) — a memecoin pool can drop 50 % in an hour.'} No risk, no reward — size it like you can lose it.</small>
+  </div>;
+}
 
 // pure: the money math — daily compounding + an optional monthly top-up; `pts` = 13 monthly points for the curve
 export function growth(amt, apy, add = 0, months = 12) {
@@ -107,9 +149,8 @@ export function MoneyDesk({ job: job0 = 'lend', rows = null, focus: focus0 = nul
   const job = JOB_OF[job0] || job0;
   const focus = useMemo(() => focus0 || (proto ? topPoolOf(all, proto) : null), [focus0, proto, all]);   // a DEX building leads with its own busiest tradable pool
   const provs = useMemo(() => providersOf(job, all, focus), [job, all, focus]);
-  const [pid, setPid] = useState(null); const [amt, setAmt] = useState(1000); const [add, setAdd] = useState(0); const [go, setGo] = useState(null);
+  const [pid, setPid] = useState(null); const [amt, setAmt] = useState(10); const [risk, setRisk] = useState(job === 'best' || job === 'lp' ? 'moon' : 'safe'); const [add, setAdd] = useState(0); const [go, setGo] = useState(null);   // 🎚 owner: "no risk no reward — don't be making safe shit"
   const p = provs.find(x => x.id === pid) || (prefer && provs.find(x => String(x.sym).toUpperCase() === String(prefer).toUpperCase())) || provs[0] || null; const g = useMemo(() => growth(amt, p?.apy, add), [amt, p, add]);
-  const best = provs.reduce((m, x) => (Number(x.apy) > Number(m?.apy || -1) ? x : m), null);
   const run = () => {
     if (!p) return;
     if (p.how === 'lend') { setGo('lend'); return; }
@@ -122,27 +163,32 @@ export function MoneyDesk({ job: job0 = 'lend', rows = null, focus: focus0 = nul
   const verb = !p ? '' : p.how === 'lend' ? `🏦 Deposit into ${p.sym} · Jupiter Lend` : p.how === 'trade' ? `⚡ Trade ${String(p.sym).split('-')[0]} here` : `⚡ ${p.fromSym} → ${p.sym}`;
   return <section className={`md j-${job} ${compact ? 'is-compact' : ''}`} data-testid={`money-desk-${job}`}>
     <div className="md-head"><span><b>💸 {title || 'PUT IT TO WORK'}</b><small>{JOB_WORD[job]} · runs right here · your wallet signs</small></span>
-      {best?.apy ? <em className="md-best" data-tip="The best live APY you can start from this desk">BEST {apyTxt(best.apy)}</em> : null}</div>
+      <span className="m-seg md-risk-dial" role="radiogroup" aria-label="Risk">{RISKS.map(([k, w, tip]) => <button key={k} type="button" role="radio" aria-checked={risk === k} className={`${risk === k ? 'active' : ''} r-${k}`} onClick={() => setRisk(k)} data-tip={tip} data-testid={`md-risk-${k}`}>{w}</button>)}</span></div>
+    <div className="md-amt"><span className="m-seg" role="radiogroup" aria-label="Amount">{AMOUNTS.map(a => <button key={a} type="button" role="radio" aria-checked={amt === a} className={amt === a ? 'active' : ''} onClick={() => setAmt(a)} data-tip={`Run the numbers at $${a.toLocaleString('en-US')}`} data-testid={`md-amt-${a}`}>${a >= 1000 ? `${a / 1000}K` : a}</button>)}</span>
+      <label className="md-own"><em>$</em><input className="m-input" inputMode="decimal" value={amt} onChange={e => setAmt(Math.max(0, Number(e.target.value.replace(/[^\d.]/g, '')) || 0))} aria-label="Your amount in dollars" data-testid="md-amt" /></label>
+      {risk === 'safe' ? <span className="m-seg md-add" role="radiogroup" aria-label="Add every month">{ADDS.map(a => <button key={a} type="button" role="radio" aria-checked={add === a} className={add === a ? 'active' : ''} onClick={() => setAdd(a)} data-tip={a ? `Add $${a} every month — compounding on top` : 'No top-ups'} data-testid={`md-add-${a}`}>{a ? `+$${a}/mo` : 'once'}</button>)}</span> : null}</div>
+    {risk !== 'safe' ? <FeeHunters rows={all} amt={amt} moon={risk === 'moon'} /> : null}
+    {risk === 'safe' ? <>
     {provs.length ? <div className="md-prov" role="radiogroup" aria-label="Provider">{provs.map((x, i) => <button key={x.id} type="button" role="radio" aria-checked={x === p} className={x === p ? 'is-on' : ''} style={{ '--i': i }}
       onClick={() => { setPid(x.id); setGo(null); }} data-tip={`${x.name} · ${x.sym}${x.tvl ? ` · TVL ${usd(x.tvl)}` : ''} — ${x.how === 'lend' ? 'deposit right here, withdraw any time' : x.how === 'trade' ? 'the pool\'s coin on the chart + Quick trade' : `swap ${x.fromSym} into it right here; holding it earns`}`} data-testid={`md-prov-${x.id}`}>
       <span><b>{x.sym}</b><small>{x.name}</small></span><i className="md-gauge" style={{ '--g': Math.min(1, (Number(x.apy) || 0) / 15) }}><s /></i><strong className="m-num">{x.apy != null ? apyTxt(x.apy) : 'fees'}</strong></button>)}</div>
       : <p className="md-empty">Reading the live providers…</p>}
-    <div className="md-amt"><span className="m-seg" role="radiogroup" aria-label="Amount">{AMOUNTS.map(a => <button key={a} type="button" role="radio" aria-checked={amt === a} className={amt === a ? 'active' : ''} onClick={() => setAmt(a)} data-tip={`Run the numbers at $${a.toLocaleString('en-US')}`} data-testid={`md-amt-${a}`}>${a >= 1000 ? `${a / 1000}K` : a}</button>)}</span>
-      <label className="md-own"><em>$</em><input className="m-input" inputMode="decimal" value={amt} onChange={e => setAmt(Math.max(0, Number(e.target.value.replace(/[^\d.]/g, '')) || 0))} aria-label="Your amount in dollars" data-testid="md-amt" /></label>
-      <span className="m-seg md-add" role="radiogroup" aria-label="Add every month">{ADDS.map(a => <button key={a} type="button" role="radio" aria-checked={add === a} className={add === a ? 'active' : ''} onClick={() => setAdd(a)} data-tip={a ? `Add $${a} every month — compounding on top` : 'No top-ups'} data-testid={`md-add-${a}`}>{a ? `+$${a}/mo` : 'once'}</button>)}</span></div>
     {p && p.how === 'trade' && !(Number(p.apy) >= 0.5) ? <p className="md-note">A trade, not a yield: this pool publishes no APY worth compounding. ⚡ opens its chart + Quick trade right here — or pick a provider above that pays.</p> : null}
     {p && (p.how !== 'trade' || Number(p.apy) >= 0.5) ? <div className="md-grow">
       <div className="md-tiles">
-        <span style={{ '--i': 0 }}><em>A DAY</em><b className="m-num" key={`d${amt}${p.id}`}>+{cash(g.day)}</b></span>
-        <span style={{ '--i': 1 }}><em>A MONTH</em><b className="m-num" key={`m${amt}${p.id}`}>+{cash(g.month)}</b></span>
-        <span style={{ '--i': 2 }} className="is-hot"><em>IN 1 YEAR</em><b className="m-num" key={`y${amt}${p.id}${add}`}>{dollars(g.end)}</b><small>+{dollars(g.earned)} earned</small></span>
+        <span style={{ '--i': 0 }} className="is-hot"><em>OVERNIGHT</em><b className="m-num" key={`n${amt}${p.id}`}>+{cash(g.day / 3)}</b><small>8 hours</small></span>
+        <span style={{ '--i': 1 }}><em>A DAY</em><b className="m-num" key={`d${amt}${p.id}`}>+{cash(g.day)}</b><small>{cash(g.month)} / mo</small></span>
+        <span style={{ '--i': 2 }}><em>IN 1 YEAR</em><b className="m-num" key={`y${amt}${p.id}${add}`}>{dollars(g.end)}</b><small>+{dollars(g.earned)} earned</small></span>
         <span style={{ '--i': 3 }}><em>DOUBLES IN</em><b className="m-num">{g.double && g.double < 100 ? `${g.double.toFixed(g.double < 10 ? 1 : 0)} yr` : '—'}</b></span>
       </div>
+      <p className="md-goal" data-testid="md-goal"><em>YOUR GOAL</em> {cash(GOAL)} a day on {cash(amt)} needs <b className="m-num">{Math.round(needApy(amt)).toLocaleString('en-US')}% APY</b> · {p.sym} pays <b className="m-num">{apyTxt(p.apy)}</b>
+        <u aria-hidden="true"><s style={{ transform: `scaleX(${Math.max(0.01, Math.min(1, (Number(p.apy) || 0) / needApy(amt)))})` }} /></u></p>
       <Curve g={g} add={add} /><Ticker perSec={g.perSec} key={`${amt}${p.id}`} />
     </div> : null}
     {p ? <button type="button" className="m-btn m-go md-go" onClick={run} data-testid="md-go" data-tip={p.how === 'lend' ? 'Jupiter builds it, FEELESS checks every program in it, your wallet signs' : 'The swap opens with both coins set — you press Get quote, your wallet signs'}>{verb}</button> : null}
     {go === 'lend' && p?.how === 'lend' ? <LendBox r={p.row} amount0={/USD/.test(p.sym) ? String(amt) : ''} onClose={() => setGo(null)} /> : null}
     {go && go.startsWith('swap') ? <div className="md-swap" data-testid="md-swap"><Suspense fallback={<p className="md-empty">Opening the swap…</p>}><SwapWorkspace key={go} pair={null} onWallet={() => {}} /></Suspense></div> : null}
+    </> : null}
     {job === 'lp' && ['v3', 'dlmm'].includes(focus?.kind) ? <RangePicture /> : null}
     {note || job === 'rwa' ? <p className="md-note">{note || RWA_NOTE}</p> : null}
     <small className="md-risk">⚠ {RISK[job]} APYs move daily — today's math, not a promise.</small>
