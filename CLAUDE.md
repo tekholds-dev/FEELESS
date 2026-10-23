@@ -189,6 +189,9 @@ OPEN, hardest → easiest:
 1b. 🌆 FEE CITY = SIMCITY SCALE (owner): the capital BIGGER, and ~80 % of the city REAL-MONEY buildings (pools, vaults, lend, perps, LSTs, the
    desk) SPREAD across districts — not packed on one island; family blocks as their own islands off the capital.
 1c. 🇺🇸 US users: NO geo-block loopholes (rule, owner's legal exposure). Route them to venues + in-app deposits allowed for them instead.
+00. 🔝 OWNER LAST (2026-10-22 night): NEXA FALLBACK — FeeCat's engine covers when NEXA doesn't answer (today she blocks every buy) +
+   next-gen one-line desk prompts in her trench style · AGENTS HUB with vitals / cost / P&L / context / refill · FAST real-card cash audit +
+   prove card P&L is real · all FEELESS fees set from HQ › Core · declutter HQ › Fuse. Branch `night-1022` holds 4 ungated commits (HANDOFF).
 0. 🐱 USER CAT AGENTS (owner, 2026-10-22 late; HARDEST, real money): users pick 1–2 cat AI agents — (a) DO-ANYTHING agents that act through
    FEELESS with their own wallet funds on the user's request (trade, Polymarket-style markets where legal, tasks), or (b) one of 2 TRADE-ONLY
    agents with lit features. The user sees their cat's BRAIN and talks to it; agents are PAID (pricing + custody = owner decision first,

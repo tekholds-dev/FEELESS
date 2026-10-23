@@ -1,3 +1,32 @@
+## 🔁 HANDOFF 2026-10-22 (night, Opus) — READ FIRST · conserve usage · finish everything by priority · never dead-style
+### Branch state (do this first)
+- `origin/main` = 3482a65c. Local `main` = 0f741509 (hover-tip crash fix + NEXA Discovery-base CSS + tasks) — NOT pushed yet.
+- `night-1022` = 3e3c80e0 = main + 4 commits NOT on main: 60eb052b (candles test margins) · 6444df53 (🤖 New-agent door, 2-agent cap, 🔥 Pump
+  front-runners on the intake, logo test) · 5ca3944e (🎯 Orca/Raydium range errands `clmm_range.py`, router mock) · 3e3c80e0 (RunnerPicker
+  partial-payload guard, swap test wait). Their gate is NOT green yet: last run had 1 failure in FusePage/SwapWorkspace UNDER LOAD (Mac load
+  avg was 256 from Chrome WebGL tabs). Do: close heavy tabs → gate in the clean checkout `.claude/worktrees/gate` (`git checkout --detach
+  night-1022 && bash scripts/gate.sh`) → `git merge --ff-only night-1022` in the main folder → `git push origin main` (hook re-gates) →
+  restart reputation + feecat via the keep-alive (kill the PID; it relaunches with LAN access — G4 stayed ONLINE doing this tonight).
+- Gate rules learned tonight: jest now `--maxWorkers=4`; NEVER run tests while a gate runs (3 gates flaked from it); 5 timing tests were
+  hardened (candles, logo, swap, RunnerPicker was a REAL crash). `tests/test_no_name_collisions.py` now fails on a top-level name bound twice
+  (a new `_block_view()` silently replaced the blocklist cache — use the `_fblock_` prefix style for new helpers in reputation_service).
+### Shipped tonight (on origin/main unless noted)
+Familia/route crash fix · 🕰 15-min agent min hold (`arena_prime.AGENT_MIN_HOLD`, red soft exits only) · 🪟🐱 NEXA trades AS FeeCat (owner
+switch HQ › Fee › NEXA's desk; `nexa_desk.py` ≤ 3 one-line YES/NO · HOLD/SELL calls / 5 min; LIVE on the owner's screen) · 🎨 14 chat themes
+redrawn · HQ NEXA chat row (rig in its own column) · 🏙 THE BLOCK = REAL MARKETS (`block_markets.py`, `FamilyBlock3D`, `/familia-block`,
+under construction until a real position; 4 open plots; errands) · gate fixes. Not pushed: see branch state.
+### NEXT, in order (owner's newest first; details in CLAUDE.md › CURRENT TASKS)
+1. 🪟 NEXA FALLBACK (real gap): with the switch on, FeeCat buys ONLY on a fresh NEXA YES (`cat_model.buy_ok`) — if NEXA is offline FeeCat
+   buys nothing. Owner wants FeeCat's engine to COVER when she doesn't answer: after N min without a desk answer → rules at reduced size,
+   tagged "covered for NEXA". + "next-gen" desk prompts (her trench style: germ floor, buyers, fresh-pump laws) in `nexa_desk.ASK_*`.
+2. 🤖 AGENTS HUB (users' cats): every agent's vitals, cost spent, P&L, model + CONTEXT size, credit left + REFILL — in My agents / CatDetail.
+   Do-anything / real-money agents = owner custody + pricing decision first (docs/REAL_CATS.md); NEXA/OSSY/G4 stay owner-only.
+3. 💵 REAL CARD CASH CHECK: `scripts/fuse-audit.py degen` ran 2 h+ without finishing (re-reads every swap) — stopped it. Book read directly:
+   sol 0.00687, owed in/out 0, halt false, 0 pending. Build a FAST audit (last N swaps + live wallet balances) and answer the owner: is any
+   money missing from the real card? Also prove card P&L numbers are real (owner doubts): reconcile a card's P&L vs its fills ledger.
+4. ⚙ FEES set by the owner in HQ (find each fee constant → one HQ Core panel). Declutter HQ › Fuse ("congested").
+5. Then CLAUDE.md P0 list: Fee City SimCity scale · block readers (Meteora/marginfi/Save/PumpSwap) · NEXA site age + snapshot · palette sweep.
+
 ## ✅ DONE 2026-10-22 late — the block page is the one-stop shop (Family Deck), Arena best settings, FeeCat's Combo, Trade Center real record
 Owner decision waiting: a minimum hold for agent exits (evidence in docs/TRENCH_THEORY.md). Dev: /dev/block?cid=22376b shows the real FRT block.
 Never run jest while the gate runs (FuseMore flakes under load). Conserve usage · finish everything by priority · never dead-style.
