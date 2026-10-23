@@ -22,6 +22,7 @@ const FeeCatStage = lazy(() => import('./command/FeeCatStage').then(m => ({ defa
 const GetGas = lazy(() => import('./command/TradeDesk').then(m => ({ default: m.GetGas })));
 const FeedPanel = lazy(() => import('./command/FeedX').then(m => ({ default: m.FeedPanel })));
 const NightVault = lazy(() => import('./NightVault').then(m => ({ default: m.NightVault })));
+const MyMoney = lazy(() => import('./MyMoney'));   // 💵 YOUR MONEY tower's room
 
 export const AVENUE_LENSES = PLACES.filter(p => p.tool).map(p => p.lens);
 const num = v => { const n = Number(v); return Number.isFinite(n) ? n : null; };
@@ -221,7 +222,7 @@ const BODY = {
   perps: () => <PerpsDesk />, tt: () => <TrenchList />,
   trades: () => <TradeCenter />,
   pumpradar: () => <PumpRadar />, feebank: () => <FeeBank />, runners: () => <RunnersPanel />, watch: () => <WatchlistDashboard />, rep: () => <Courthouse />,
-  feecat: () => <CatTower />, gas: () => <GetGas />, sleep: () => <NightVault />,
+  feecat: () => <CatTower />, gas: () => <GetGas />, sleep: () => <NightVault />, mymoney: () => <MyMoney />,
   feedx: () => <><div className="av-tools"><button type="button" className="m-btn" onClick={() => window.dispatchEvent(new Event('feeless:feed-pop'))} data-tip="Float FEEd over any page — keep reading while you trade" data-testid="av-feed-pop">⤢ Pop out FEEd</button></div><FeedPanel /></>,
 };
 

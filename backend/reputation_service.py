@@ -27543,6 +27543,42 @@ async def wallet_pnl(address: str):
             'note': 'From verified FEELESS trade receipts. Trades made outside FEELESS are not included.'}
 
 
+_mm_cache: dict = {}   # wallet → (at, view) — 45 s
+
+
+@app.get('/api/reputation/familia/my-money')
+async def familia_my_money(address: str = Query('', max_length=64), session: str = Query('', max_length=400)):
+    """💵 YOUR MONEY tower (my_money.py): every position FEELESS can prove for this wallet, priced live — coins from its verified FEELESS trades
+    (value + the coin's 24 h move, never a fee-tainted P&L) and, signed in, its family block's real market positions. One read per wallet / 45 s."""
+    import my_money as _mym
+    if not address:
+        return _mym.assemble([], {}, [])
+    key_ = primary_of(address) + ('|s' if session else '')
+    hit_ = _mm_cache.get(key_)
+    if hit_ and time.time() - hit_[0] < 45:
+        return hit_[1]
+    held_ = [t_ for t_ in (await wallet_pnl(address)).get('tokens') or [] if (t_.get('holding') or 0) > 0][:30]
+    pairs_ = []
+    if held_:
+        try:
+            r_ = await _ai_http().get('https://api.dexscreener.com/tokens/v1/solana/' + ','.join(t_['mint'] for t_ in held_), timeout=8)
+            pairs_ = r_.json() if r_.status_code == 200 and isinstance(r_.json(), list) else []
+        except Exception:
+            pairs_ = []
+    blds_ = []
+    if session:
+        try:
+            blds_ = (await familia_block(address, session)).get('buildings') or []
+        except Exception:
+            blds_ = []
+    v_ = _mym.assemble(held_, _mym.best_prices(pairs_), blds_)
+    _mm_cache[key_] = (time.time(), v_)
+    if len(_mm_cache) > 500:
+        for k_ in sorted(_mm_cache, key=lambda k: _mm_cache[k][0])[:100]:
+            _mm_cache.pop(k_, None)
+    return v_
+
+
 # ---- Snipe risk for coin cards (cached intel only — never blocks a list) ----------------------
 @app.get('/api/reputation/snipe-risk')
 async def snipe_risk(mints: str):

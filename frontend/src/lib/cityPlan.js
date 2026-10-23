@@ -62,6 +62,8 @@ export const PLACES = [
   { key: 'perps', lens: 'perps', name: 'THE PERPS DESK', sub: 'perps markets live · funding · leverage', isl: 'ave', art: 'perps', color: '#ff5dbb', tool: true },
   { key: 'trades', lens: 'trades', name: 'THE TRADE CENTER', sub: 'the desk\'s real-money trades · live P&L', isl: 'ave', art: 'trade', color: '#45e486', tool: true },
   { key: 'sleep', lens: 'sleep', name: 'THE NIGHT VAULT', sub: 'money while you sleep · live APY', isl: 'ave', art: 'sleep', color: '#9b8cff', tool: true },
+  // 💵 YOUR MONEY (owner 1e): every position FEELESS can prove for your wallet, priced live — the Avenue's last cell
+  { key: 'mymoney', lens: 'mymoney', name: 'YOUR MONEY', sub: 'every proved position · live', isl: 'ave', art: 'money', color: '#45e486', tool: true },
 ];
 // 🚪 the rooms of one building: the host first, then every place that lives inside it (`in`)
 export const roomsOf = key => { const p = PLACES.find(x => x.key === key || x.lens === key); const host = p?.in || p?.key; return host ? PLACES.filter(x => x.key === host || x.in === host) : []; };

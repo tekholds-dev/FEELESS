@@ -68,7 +68,7 @@ test('💡 live numbers drive the city: roof-light pulse from volume, tower heig
 test('🛣 FEELESS AVENUE: every site tool is a building on its own island (a pop-out with a full page), over a bridge north of the capital; the Heights gate moved past it', () => {
   const p = feePlan(V, MK); const ave = p.islands.find(i => i.key === 'ave'); const cap = p.islands.find(i => i.key === 'fee');
   const tools = p.places.filter(x => x.tool);
-  expect(tools.map(x => x.lens).sort()).toEqual(['feebank', 'feecat', 'perps', 'pumpradar', 'rep', 'sleep', 'trades', 'tt']);
+  expect(tools.map(x => x.lens).sort()).toEqual(['feebank', 'feecat', 'mymoney', 'perps', 'pumpradar', 'rep', 'sleep', 'trades', 'tt']);
   for (const t of tools.filter(x => x.key !== 'tt')) { expect(t.isl).toBe('ave'); const c = centerOf(t.rect); expect(c.x > ave.x && c.x < ave.x + ave.w && c.z > ave.z && c.z < ave.z + ave.d).toBe(true); }
   expect(new Set(PLACES.map(x => x.lens)).size).toBe(PLACES.length);                                  // one lens per place (the Wire keeps 'feed')
   expect(ave.z + ave.d).toBeLessThan(cap.z);                                                         // north of the capital, water between
@@ -88,7 +88,7 @@ test('🌆 Fee City BREATHES (owner, 2026-10-23): far fewer, bigger buildings �
   const many = { markets: Array.from({ length: 30 }, (_, i) => ({ key: `m${i}`, name: `M${i}`, kind: ['dex', 'lend', 'stake', 'perps'][i % 4], tvl: 1e6 * (i + 1) })), coins: MK.coins };
   const p = feePlan(V, many);
   const off = p.markets.length + p.places.filter(x => !x.virtual && !String(x.isl).startsWith('plaza')).length;
-  expect(off).toBeLessThanOrEqual(20);                                                                // was ~47 market / tool buildings off the capital
+  expect(off).toBeLessThanOrEqual(21);                                                                // was ~47 off the capital (20 + 💵 YOUR MONEY, 1e)
   expect(p.markets.filter(m => m.island === 'row')).toHaveLength(4); expect(p.markets.filter(m => m.island === 'vault')).toHaveLength(4);
   expect(p.markets.filter(m => m.island === 'row').map(m => m.name)).toEqual(['M28', 'M24', 'M20', 'M16']);   // the biggest DEXes stand
   expect(p.spare.every(x => x.park)).toBe(true);                                                      // open land, never a filler building
