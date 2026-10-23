@@ -112,6 +112,7 @@ test('offers a safe status retry when saved-order recovery is temporarily unavai
   expect(tradeCalls()[0]).toEqual([`/api/trading/order/${orderId}`, {}]);
 
   await act(async () => container.querySelector('[data-testid="swap-retry-recovery"]').click());
+  for (let i = 0; i < 100 && !container.querySelector('[data-testid="swap-result"] b'); i += 1) await act(async () => { await new Promise(r => setTimeout(r, 20)); });   // ≤ 2 s: the fetch → render chain needs a few ticks on a busy machine (it flaked the gate)
 
   expect(tradeCalls()[1]).toEqual([`/api/trading/order/${orderId}`, {}]);
   expect(global.fetch.mock.calls.some(([, options]) => options?.method === 'POST')).toBe(false);

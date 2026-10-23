@@ -137,7 +137,7 @@ export const filterBySource = (rows, src) => (src === 'all' ? rows : rows.filter
 
 export function RunnerPicker({ picks, onPicks, onDone }) {
   const [d, setD] = useState(null); const [src, setSrc] = useState('all');
-  useEffect(() => { let alive = true; const load = () => fetch(apiUrl('/api/reputation/runners/discover')).then(r => (r.ok ? r.json() : null)).then(x => alive && x && setD(x)).catch(() => {});
+  useEffect(() => { let alive = true; const load = () => fetch(apiUrl('/api/reputation/runners/discover')).then(r => (r.ok ? r.json() : null)).then(x => alive && x && Array.isArray(x.runners) && setD(x)).catch(() => {});   // a partial / error payload keeps the last good list (it crashed the page on d.gates)
     load(); const t = setInterval(() => !document.hidden && load(), 20000); return () => { alive = false; clearInterval(t); }; }, []);
   const live = useLivePrices((d?.runners || []).map(x => x.pairAddress));
   if (!d) return <div className="fp-disc is-loading" data-testid="runner-picker"><div className="fp-scan" /><span className="m-dim">Scanning launchpads, the arena, the radar and the callers…</span></div>;
@@ -145,9 +145,9 @@ export function RunnerPicker({ picks, onPicks, onDone }) {
   const watch = (d.watching || []).filter(w => !(w.gates || []).includes('Pre-bond (still on the curve)'));
   return <section className="fp-disc" data-testid="runner-picker">
     <header className="fp-disc-head m-card m-live"><div><span className="m-label">🏃 RUNNER DISCOVERY · LIVE</span><h2>Good runners, found for you.</h2>
-      <p className="m-dim">Every coin here passed every gate right now ({d.gates.slice(0, 3).join(' · ')}…). The more sources that like it, the higher it sits.</p></div>
+      <p className="m-dim">Every coin here passed every gate right now ({(d.gates || []).slice(0, 3).join(' · ')}…). The more sources that like it, the higher it sits.</p></div>
       <div className="rn-clock"><small>NEXT ROUND</small><Countdown at={d.nextRoundAt} /></div></header>
-    <div className="m-seg fp-src" role="tablist" aria-label="Source">{[['all', '✨ All', (d.runners || []).length], ...Object.entries(d.sources).map(([k, l]) => [k, l, d.counts[k] || 0]).filter(([k, , n]) => n > 0 || k === src)].map(([k, l, n]) =>
+    <div className="m-seg fp-src" role="tablist" aria-label="Source">{[['all', '✨ All', (d.runners || []).length], ...Object.entries(d.sources || {}).map(([k, l]) => [k, l, (d.counts || {})[k] || 0]).filter(([k, , n]) => n > 0 || k === src)].map(([k, l, n]) =>
       <button key={k} type="button" role="tab" aria-selected={src === k} className={src === k ? 'active' : ''} onClick={() => setSrc(k)} data-testid={`src-${k}`}>{l} <em>{n}</em></button>)}</div>
     {(d.swaps || []).length > 0 && <div className="fp-swaps" aria-label="Auto-swaps">{d.swaps.slice().reverse().map(s => <span key={s.at} className="fp-swap">🔁 ${s.out.symbol} → ${s.in.symbol} <small>{s.why[0]}</small></span>)}</div>}
     {!rows.length && <p className="m-dim fp-none">Nothing from this source passes every gate right now — that's the gates working. Next scan in seconds.</p>}
