@@ -18135,10 +18135,15 @@ async def _studio_view():
     return {'models': models_, 'dials': list(_pstu.DIAL_KEYS), 'at': time.time()}
 
 
-try:
-    _studio_apply()   # the owner's applied sets ride every call from the first one after a restart
-except Exception as _e_ps:
-    print('prompt studio:', str(_e_ps)[:80])
+@app.on_event('startup')
+async def _studio_boot():
+    """The owner's applied mindsets ride every call from the FIRST one after a restart (+ the LM Studio live preset). This used to run at import
+    time, before `_json_load` exists further down this file — 'name _json_load is not defined' on every restart, so no mindset rode G4 / OSSY's
+    calls until someone opened Brain › Prompts (found 2026-10-23)."""
+    try:
+        _studio_apply()
+    except Exception as e:
+        print('prompt studio:', str(e)[:80])
 
 
 @app.get('/api/reputation/admin/ai/prompts')

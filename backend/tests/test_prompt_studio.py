@@ -188,3 +188,14 @@ def test_the_live_lm_studio_preset_mirrors_what_feeless_sends(tmp_path):
     assert json.loads((d / 'FEELESS FEE Master.preset.json').read_text()) == {'name': 'FEELESS FEE Master'}   # the owner's own preset untouched
     assert lp.write('lan', 'G4', home=tmp_path) is None                      # G4's LM Studio is on the desktop — never written from here
     assert lp.write('local', 'X') is None                                    # a test never writes the real home folder
+
+
+def test_the_applied_mindsets_ride_the_first_call_after_a_restart(monkeypatch):
+    """🐛 2026-10-23: the startup apply ran at import time before _json_load existed → no mindset after any restart until Brain › Prompts opened."""
+    import asyncio
+    import pytest
+    rs = pytest.importorskip('reputation_service')
+    rs._json_save(rs.PROMPT_STUDIO_PATH, {'lan': {'set': 'elite', 'text': 'ELITE MINDSET — G4 test', 'at': 1.0, 'by': 'owner'}})
+    rs._air.STUDIO.clear()
+    asyncio.run(rs._studio_boot())
+    assert rs._air.STUDIO.get('lan') == 'ELITE MINDSET — G4 test' and rs._air.STUDIO_SET.get('lan') == 'elite'

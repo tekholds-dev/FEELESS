@@ -87,7 +87,7 @@ const ISLAND_OF = { dex: 'Market Row', lend: 'Vault District', perps: 'Vault Dis
 
 function PlaceCard({ k, onOpen }) {
   const p = PLACES.find(x => x.key === k); if (!p) return null;
-  return <aside className="fwd-side m-card t-place" style={{ '--pc': p.color }} data-testid="place-card"><header><b>{p.name}</b><small>{p.tool ? 'FEELESS AVENUE · live tool' : 'FEE CITY · place'}</small></header><p>{p.sub}</p>
+  return <aside className="fwd-side m-card t-place" style={{ '--pc': p.color }} data-testid="place-card"><header><b>{p.name}</b><small>{p.key === 'tt' ? 'TT ISLAND · the landmark tower' : p.in ? `a room inside ${(PLACES.find(x => x.key === p.in)?.name || '').replace(/^(THE|YOUR) /, '')}` : p.tool ? 'FEELESS AVENUE · live tool' : 'FEE CITY · place'}</small></header><p>{p.sub}</p>
     <div className="fwd-acts"><button type="button" className="m-btn m-go" onClick={() => onOpen(p.lens)} data-tip={p.tool ? 'Pop out the live tool over the city' : 'Walk in — the room pops out over the city'} data-testid="place-enter">Walk in</button></div></aside>;
 }
 
