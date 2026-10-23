@@ -622,8 +622,9 @@ def test_the_desktop_is_asked_for_the_model_it_has_loaded_never_one_that_would_r
     assert r._loaded['lan'] == 'qwen/other'
 
 
-def test_lm_studio_up_with_no_model_says_so_and_only_the_owner_tap_loads_it():
-    """2026-10-22: G4 read "not connected" while the desktop's LM Studio was up and had simply dropped its model."""
+def test_lm_studio_up_with_no_model_loads_it_itself_once():
+    """2026-10-22: G4 read "not connected" while the desktop's LM Studio was up and had simply dropped its model. 2026-10-23 (owner: "I hate
+    walking to 2 other PCs"): the heartbeat loads it itself — once per AUTO_LOAD_SEC, never a reload — and the owner's tap still works."""
     import asyncio
     import ai_router as r
 
@@ -639,14 +640,13 @@ def test_lm_studio_up_with_no_model_says_so_and_only_the_owner_tap_loads_it():
     env = {'LAN_LLM_BASE_URL': 'http://192.168.1.9:1236/v1', 'LAN_LLM_MODEL': 'qwen/qwen3-4b-2507'}
     ro = r.Router(); http = Http()
     asyncio.run(ro.heartbeat(http, env, {}, now=5000.0))
-    st = ro.stats['lan']
-    assert st['state'] == 'OFFLINE' and st['noModel'] is True and st['lastErr'] == r.NO_MODEL and http.posts == []   # never loads on its own
-    row = next(x for x in ro.view(env, {}, now=5000.0)['providers'] if x['key'] == 'lan')
-    assert row['noModel'] is True and row['canLoad'] is True
-    out = asyncio.run(ro.load_model(http, env, {}, 'lan'))
+    load = ('http://192.168.1.9:1236/api/v1/models/load', {'model': 'qwen/qwen3-4b-2507', 'context_length': 8704})
+    assert http.posts == [load] and ro.stats['lan']['autoLoad']['ok'] is True and ro.stats['lan']['state'] == 'ONLINE'
+    ro.stats['lan']['state'] = 'OFFLINE'   # dropped again a minute later: no second load inside the window
+    asyncio.run(ro.heartbeat(http, env, {}, now=5060.0))
+    assert http.posts == [load]
+    out = asyncio.run(ro.load_model(http, env, {}, 'lan'))   # the owner's tap still loads on demand
     assert out['ok'] is True and out['model'] == 'qwen/qwen3-4b-2507'
-    assert http.posts == [('http://192.168.1.9:1236/api/v1/models/load', {'model': 'qwen/qwen3-4b-2507', 'context_length': 8704})]
-    assert ro.stats['lan']['noModel'] is False and ro.stats['lan']['state'] == 'UNTESTED'
     assert asyncio.run(ro.load_model(http, env, {}, 'groq'))['ok'] is False   # only an LM Studio model loads from here
 
 

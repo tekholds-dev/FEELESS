@@ -75,8 +75,8 @@ def harmony_clean(text):
 
 EXTRA_BODY = {'win': {'cache_prompt': True},   # 🪟 llamafile keeps the prompt start it already read (a cached start answered in 2s, a cold one in 140s)
               'openrouter': {'reasoning': {'effort': 'minimal'}, 'usage': {'include': True}, 'max_tokens': 900},
-              'lan': {'reasoning_effort': 'none'},
-              'local': {'reasoning_effort': 'low'}}   # 💻 gpt-oss-20b on the Mac: low = short thinking, a real answer (Qwen ignores it)   # 🖥 gemma-4 THINKS by default: 457 of 460 tokens went to reasoning, the answer was empty → 'none' = a valid read in ~10s
+              'lan': {'reasoning_effort': 'none', 'ttl': 604800},
+              'local': {'reasoning_effort': 'low', 'ttl': 604800}}   # 🔌 ttl (owner 2026-10-23: "models should never just be unloading"): LM Studio keeps a model 7 idle days, renewed every call   # 💻 gpt-oss-20b on the Mac: low = short thinking, a real answer (Qwen ignores it)   # 🖥 gemma-4 THINKS by default: 457 of 460 tokens went to reasoning, the answer was empty → 'none' = a valid read in ~10s
 SPEND_USD_DAY = 1.5        # 💵 a paid provider stops for the UTC day once the costs it REPORTED pass this (AI_DAILY_USD overrides; ≈ $0.0002 a case)
 LOCAL_BG_EVERY = 45.0      # 💻 the local model's background lane: at most one case per this many seconds…
 LOCAL_BG_PRIO = 2          # … only owner review / a split desk / a READY coin / the coach, and only when NO cloud provider could answer
@@ -806,6 +806,16 @@ def _err_word(r):
     return f' · {m[:90]}' if m else ''
 
 
+AUTO_LOAD_SEC = 600   # 🔌 an empty LM Studio is asked to load its model at most once per 10 min
+
+
+def auto_load_due(beats, key, now):
+    """🔌 MODELS COME BACK ON THEIR OWN (owner, 2026-10-23: "G4 keeps unloading … I hate walking to 2 other PCs"). Supersedes 2026-10-17's
+    "never automatic" for ONE case only: the server answers but holds no model → load it, ≤ once per AUTO_LOAD_SEC. A loaded model is never
+    reloaded. Pure (tests)."""
+    return now - float((beats or {}).get(f'load:{key}', 0.0)) >= AUTO_LOAD_SEC
+
+
 class Router:
     def __init__(self):
         self.stats = {k: {'requests': 0, 'ok': 0, 'fail': 0, 'timeouts': 0, 'rateLimited': 0, 'malformed': 0, 'lastMs': None, 'lastOkAt': None,
@@ -945,14 +955,21 @@ class Router:
             s.update(state='ONLINE', streak=0, coolUntil=0.0, lastErr=None, lastAt=now)
         elif s['noModel']:
             s.update(state='OFFLINE', lastErr=NO_MODEL, lastAt=now)
+            if key in LM and auto_load_due(self._beat, key, now):   # 🔌 the server is up but EMPTY: load its model ourselves (never a reload of a loaded one)
+                self._beat[f'load:{key}'] = now
+                lr = await self.load_model(http, env, cfg, key)
+                s['autoLoad'] = {'at': now, 'ok': bool(lr.get('ok')), 'err': lr.get('err')}
+                if lr.get('ok'):
+                    s.update(state='ONLINE', streak=0, coolUntil=0.0, lastErr=None, lastAt=now, noModel=False)
+                    up = True
         elif s['state'] == 'UNTESTED':
             s.update(state='OFFLINE', lastErr='LM Studio server not reachable, or the model is not loaded', lastAt=now)
         return up
 
-    async def load_model(self, http, env, cfg, key, ctx=None):
+    async def load_model(self, http, env, cfg, key, ctx=None):   # also the heartbeat's auto-load when LM Studio holds NO model (auto_load_due)
         """⚡ The OWNER's tap (Brain › Models · Load): ask that LM Studio to load ITS configured model through LM Studio's own REST API
-        (`POST /api/v1/models/load`). Never automatic — the owner's 2026-10-17 rule ("stop reloading the damn model") stands; the button is
-        the approval. → {ok, model, ms} or {ok: False, err}."""
+        (`POST /api/v1/models/load`). Never a RELOAD of a loaded model (the owner's 2026-10-17 rule); since 2026-10-23 the heartbeat
+        also calls it when the server holds NO model (auto_load_due). → {ok, model, ms} or {ok: False, err}."""
         if key not in LM:
             return {'ok': False, 'err': 'Only an LM Studio model can be loaded from here.'}
         p = provider(env, key, cfg)

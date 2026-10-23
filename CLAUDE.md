@@ -178,6 +178,8 @@ P0-QUICK — OWNER 2026-10-23 night (THE one list of unfinished asks — HANDOFF
    + voice openers (`fee_voice`) SHIPPED. Users see "🔮 FeeCat AI" (never NEXA / OSSY / G4).
 4. 💬 Agent chat bubbles on FeeCat's charts (names already scrubbed: `feecat_service.public_words` / `_pub` on every public cat endpoint).
 5. ⏱ While NEXA holds a LIVE trade: quick questions to her faster (hold · skim · new SL · new TP), re-checked every ≤ 120 s (desk EVERY = 300 s today).
+5b. 🔌 LM models stay loaded (2026-10-23): ttl 7 days on every G4 / OSSY call + the heartbeat loads an EMPTY LM Studio itself (≤ 1 / 10 min,
+   `ai_router.auto_load_due`). Verify on the next drop. NEXA's llamafile never unloads.
 6. 🔌 RPC lanes in HQ › Core (SOLANA_RPC_URL_2 … _6 — the keeper + relay already fall through them); Helius + Alchemy were OUT of quota.
 7. 🏝 Family town expands (bridges, pick lots, move buildings, stands, a MY POOLS combo building) · tight-range LP on Raydium / Orca / DLMM.
 
