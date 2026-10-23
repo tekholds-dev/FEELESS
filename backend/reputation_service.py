@@ -10205,9 +10205,12 @@ _flv_vaults = {}   # 'at' + 'rows': Jupiter Lend's vaults, read at most once eve
 
 
 async def _jl_borrow(method, path, **kw):
-    """One Jupiter Lend Borrow call over every key (a key at its rate limit falls through), then the public host. → (status, body)."""
-    import lend_borrow as _lb
-    hosts_ = [(_lb.BORROW, {'x-api-key': k_}) for k_ in _jkeys.lend_keys(os.environ)] + [(_lb.BORROW_PUBLIC, {})]
+    return await _jl_lend(method, f'borrow/{path}', **kw)
+
+
+async def _jl_lend(method, path, **kw):
+    """One Jupiter Lend call (earn/… or borrow/…) over every key (a key at its rate limit falls through), then the public host. → (status, body)."""
+    hosts_ = [('https://api.jup.ag/lend/v1', {'x-api-key': k_}) for k_ in _jkeys.lend_keys(os.environ)] + [('https://lite-api.jup.ag/lend/v1', {})]
     last_ = (503, {'error': 'Jupiter did not answer.'})
     for base_, hdr_ in hosts_:
         try:
@@ -10234,6 +10237,32 @@ async def _jl_markets():
             _flv_vaults.update(at=time.time(), rows=rows_)
     return _flv_vaults.get('rows') or []
 
+
+_frun_tok = {}   # 'at' + 'rows': Jupiter Lend Earn's USDC / SOL doors, read at most once a minute
+
+
+@app.get('/api/reputation/familia-pools/run')
+async def familia_pools_run(address: str = ''):
+    """💵 THE $5 RUN: the two Jupiter Lend Earn doors (USDC · SOL, live APY) + the wallet's own deposits in them — what each is worth NOW
+    (on-chain, compounding every block) and Jupiter's own earnings count. Deposits / withdrawals go through /familia-pools/earn."""
+    import lend_earn as _le
+    if time.time() - _frun_tok.get('at', 0) > 60 or not _frun_tok.get('rows'):
+        code_, b_ = await _jl_lend('GET', 'earn/tokens')
+        rows_ = _le.run_assets(b_) if code_ == 200 else []
+        if rows_:
+            _frun_tok.update(at=time.time(), rows=rows_)
+    assets_ = _frun_tok.get('rows') or []
+    pos_ = []
+    if assets_ and 32 <= len(address or '') <= 44:
+        code_, b_ = await _jl_lend('GET', 'earn/positions', params={'users': address})
+        live_ = _le.run_positions(b_, assets_) if code_ == 200 else []
+        earned_ = {}
+        for r_ in await asyncio.gather(*[_jl_lend('GET', 'earn/earnings', params={'user': address, 'positions': p_['jl']}) for p_ in live_]):
+            row_ = (r_[1] or [None])[0] if r_[0] == 200 and isinstance(r_[1], list) else None
+            if isinstance(row_, dict):
+                earned_[row_.get('address')] = row_.get('earnings')
+        pos_ = _le.run_positions(b_, assets_, earned_) if live_ else []
+    return {'assets': assets_, 'positions': pos_, 'minUsd': _le.RUN_MIN_USD, 'at': time.time()}
 
 @app.get('/api/reputation/familia/leverage')
 async def familia_leverage(address: str = ''):

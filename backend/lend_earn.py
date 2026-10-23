@@ -85,3 +85,47 @@ def verify(b64, signer, allow=None, must=('jup3YeL8QhtSx1e253b2FDvsMNC87fDrgQZiv
     if not any(p in must for p in progs):
         return False, 'It never calls Jupiter Lend — refused.', progs
     return True, None, progs
+
+
+# 💵 THE $5 RUN (owner, 2026-10-23: "a minimum of $5 to see REAL compound"): a Jupiter Lend Earn deposit compounds on-chain every block — the
+# run shows the wallet's own position (Jupiter's /earn/positions: `underlyingAssets` = what the deposit is worth now) and Jupiter's own
+# earnings count, ticking between reads at the live rate. Rates come as hundredths of a percent (728 = 7.28 %).
+RUN = {'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v': 'USDC', 'So11111111111111111111111111111111111111112': 'SOL'}
+RUN_MIN_USD = 5
+
+
+def _n(v):
+    try:
+        return float(v)
+    except (TypeError, ValueError):
+        return 0.0
+
+
+def run_assets(tokens):
+    """Jupiter's /earn/tokens → the run's two doors, USDC then SOL: {sym, mint, jl, dec, apy, price}."""
+    out = {}
+    for t in tokens if isinstance(tokens, list) else []:
+        try:
+            a = t['asset']; sym = RUN.get(a['address'])
+            if sym and sym not in out:
+                out[sym] = {'sym': sym, 'mint': a['address'], 'jl': t['address'], 'dec': int(t.get('decimals') or a.get('decimals') or 6),
+                            'apy': round(_n(t.get('totalRate')) / 100, 2), 'price': _n(a.get('price'))}
+        except (KeyError, TypeError, ValueError):
+            continue
+    return [out[k] for k in ('USDC', 'SOL') if k in out]
+
+
+def run_positions(positions, assets, earned=None):
+    """The wallet's live deposits in the run's assets (shares > 0) → {sym, mint, jl, balance, usd, apy, earned (Jupiter's count, $)}."""
+    by = {a['jl']: a for a in assets}; earned = earned or {}; out = []
+    for p in positions if isinstance(positions, list) else []:
+        try:
+            a = by.get(p['token']['address'])
+            if not a or _n(p.get('shares')) <= 0:
+                continue
+            bal = _n(p.get('underlyingAssets')) / 10 ** a['dec']
+        except (KeyError, TypeError):
+            continue
+        out.append({**a, 'balance': bal, 'usd': round(bal * a['price'], 6), 'earned': round(_n(earned.get(a['jl'])) / 10 ** a['dec'] * a['price'], 6)})
+    return out
+

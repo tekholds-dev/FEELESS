@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { hasRun } from './FiveRun';
 import { RankBadge } from './FamiliaHud';
 import '../styles/mobHome.css';
 
@@ -17,11 +18,11 @@ export function seasonClock(nowMs = Date.now()) {
 }
 
 // pure: the one move that grows this family most right now (shown in the loop's centre)
-export function nextMove(v) {
+export function nextMove(v, money = {}) {   // money.run: this wallet already has a $5 run going (FiveRun.hasRun)
   const me = v.me; const r = v.rules || {};
   if (!me) return { k: 'join', word: 'Start or join a family — your home block is free', go: 'join' };
   const free = (v.blocks || []).filter(b => !b.owner && me.prices?.[b.id] != null).sort((a, b) => me.prices[a.id] - me.prices[b.id])[0];
-  if (me.errands?.some(e => e.lvl && !e.ready)) return { k: 'earn', word: 'An errand is ready — run it for MP', go: 'jobs' };
+  if (!money.run) return { k: 'run', word: '💵 Start a $5 run — real money compounding while you sleep', go: 'sleep' };   // owner, 2026-10-23: real errands, no click-and-drop MP chores
   if (free && me.bank >= me.prices[free.id] && (me.turf || []).length < (r.turfMax || 12)) return { k: 'turf', word: `Buy turf: ${n(me.prices[free.id])} MP gets a plot (+4 % production, more reach)`, go: 'map' };
   if ((me.hitters || []).length && !(v.raids || []).some(x => x.status === 'live')) return { k: 'raid', word: `${me.hitters.length} hitter${me.hitters.length === 1 ? '' : 's'} ready — raid a rival in reach`, go: 'raids' };
   if (me.boss && (me.bank || 0) >= (r.fuseMinMp || 2000)) return { k: 'fuse', word: 'The bank can back an MP Family Fuse — call a family out', go: 'fuse' };
@@ -39,7 +40,7 @@ export function SeasonHud({ v, onJoin, go }) {
       : <><i className="mh-tag is-ghost">?</i><span className="mh-ghost"><b>Your family goes here</b><small>walk the city first — no wallet needed</small></span>
         <button type="button" className="m-btn m-go" onClick={onJoin} data-testid="hud-join">Start or join</button></>}</div>
     <div className="mh-season"><em>SEASON · {v.season?.name || '—'}</em><b key={c.m}>{c.d}d {c.h}h {c.m}m</b><u data-tip="How much of the season has run — the board pays the top families at the end"><s style={{ transform: `scaleX(${c.pct})` }} /></u></div>
-    {(() => { const nm = nextMove(v); return <button type="button" className={`mh-next k-${nm.k}`} onClick={() => (go ? go(nm.go) : onJoin?.())} data-tip="The one move that grows your family most right now" data-testid="hud-next"><em>NEXT MOVE</em><b>{nm.word}</b></button>; })()}
+    {(() => { const nm = nextMove(v, { run: hasRun() }); return <button type="button" className={`mh-next k-${nm.k}`} onClick={() => (go ? go(nm.go) : onJoin?.())} data-tip="The one move that grows your family most right now" data-testid="hud-next"><em>NEXT MOVE</em><b>{nm.word}</b></button>; })()}
     <div className="mh-res">{(me ? [['BANK', `${n(me.bank)} MP`, 'MP in the family bank'], ['YOUR PTS', n(me.pts), 'Your member points — errands, rewards, crowd bids'], ['TURF', `${(me.turf || []).length}/${v.rules?.turfMax || 12}`, 'Plots held beyond home']]
       : [['PLOTS HELD', `${held}/${(v.blocks || []).length}`, 'Every city'], ['FAMILIES', n((v.ranked || []).length), 'Ranked families'], ['CARTELS', n((v.cartels || []).length), 'Flagged wallet crews across the water']])
       .concat([['⚔ LIVE', `${raids} raid${raids === 1 ? '' : 's'} · ${fights} fuse`, 'Raids you are in + Family Fuse fights running now']])
@@ -60,7 +61,7 @@ export function CityActions({ v, go }) {
   return <div className="mh-acts" data-testid="city-actions">
     <button type="button" className={`mh-act k-raid ${live ? 'is-hot' : ''}`} onClick={() => go('raids')} data-tip={live ? 'Your raid is live — make your move' : 'Raids: pick a rival block on the city, then send a hitter'} data-testid="act-raid"><i>⚔</i><b>RAID</b></button>
     <button type="button" className="mh-act k-fuse" onClick={() => go('fuse')} data-tip="Family Fuse in the Fuse Arena stadium" data-testid="act-fuse"><i>🧬</i><b>FUSE</b></button>
-    <button type="button" className="mh-act k-earn" onClick={() => go('jobs')} disabled={!me} data-tip={me ? 'Errands pay MP + your points' : 'Join a family to run errands'} data-testid="act-earn"><i>💰</i><b>EARN</b></button>
+    <button type="button" className="mh-act k-earn" onClick={() => go('sleep')} data-tip="Real money: the Night Vault's $5 run — Jupiter Lend compounding every block, your wallet signs" data-testid="act-earn"><i>💵</i><b>EARN</b></button>
     <button type="button" className="mh-act k-buy" onClick={() => go('realtor')} data-tip="The Realtor: every plot for sale in every city, by tier, one-tap buy" data-testid="act-realtor"><i>🏷</i><b>BUY</b></button>
     {v.staff ? <button type="button" className="mh-act k-ow" onClick={() => go('overwatch')} data-tip="Creator only: every family's wallets, bank, trades, pools, members + Familia prices" data-testid="act-overwatch"><i>👑</i><b>WATCH</b></button> : null}
   </div>;

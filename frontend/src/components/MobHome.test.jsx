@@ -13,13 +13,14 @@ const ME = { id: 'fa', tag: 'AAA', bank: 5000, pts: 120, turf: ['harbor-5'], ran
 const mount = async node => { const el = document.createElement('div'); document.body.appendChild(el); await act(async () => { createRoot(el).render(node); }); return el; };
 const q = (el, id) => el.querySelector(`[data-testid="${id}"]`);
 
-test('the next move follows the family: join → errand → turf → raid → fuse → build', () => {
+test('the next move follows the family: join → a real $5 run → turf → raid → fuse → build', () => {
   expect(nextMove(BASE).go).toBe('join');
-  expect(nextMove({ ...BASE, me: { ...ME, errands: [{ lvl: 1, ready: 0 }] } }).k).toBe('earn');
-  expect(nextMove({ ...BASE, me: { ...ME, bank: 7000 } }).k).toBe('turf');
-  expect(nextMove({ ...BASE, me: ME }).k).toBe('raid');
-  expect(nextMove({ ...BASE, me: { ...ME, hitters: [] } }).k).toBe('fuse');
-  expect(nextMove({ ...BASE, me: { ...ME, hitters: [], bank: 10, boss: false } }).k).toBe('build');
+  expect(nextMove({ ...BASE, me: { ...ME, errands: [{ lvl: 1, ready: 0 }] } })).toMatchObject({ k: 'run', go: 'sleep' });   // real money first — the MP errand never leads
+  expect(nextMove({ ...BASE, me: { ...ME, errands: [{ lvl: 1, ready: 0 }], bank: 7000 } }, { run: true }).k).toBe('turf');
+  expect(nextMove({ ...BASE, me: { ...ME, bank: 7000 } }, { run: true }).k).toBe('turf');
+  expect(nextMove({ ...BASE, me: ME }, { run: true }).k).toBe('raid');
+  expect(nextMove({ ...BASE, me: { ...ME, hitters: [] } }, { run: true }).k).toBe('fuse');
+  expect(nextMove({ ...BASE, me: { ...ME, hitters: [], bank: 10, boss: false } }, { run: true }).k).toBe('build');
   const c = seasonClock(Date.UTC(2026, 9, 21, 12)); expect(c.d).toBe(10); expect(c.pct).toBeGreaterThan(0.6);
 });
 
@@ -35,7 +36,9 @@ test('the HUD: a ghost slot before you join, your rank + resources after; the wi
 
 test('the HUD names the next move and goes there; the skyline flies to a family; empty spots are claimable', async () => {
   const go = jest.fn(); const pick = jest.fn(); const empty = jest.fn();
-  const el = await mount(<SeasonHud v={{ ...BASE, me: ME }} onJoin={() => {}} go={go} />);
+  localStorage.removeItem('feeless.run'); const el0 = await mount(<SeasonHud v={{ ...BASE, me: ME }} onJoin={() => {}} go={go} />);
+  expect(q(el0, 'hud-next').textContent).toContain('$5 run'); await act(async () => { q(el0, 'hud-next').click(); }); expect(go).toHaveBeenLastCalledWith('sleep');   // no run yet → real money first
+  localStorage.setItem('feeless.run', '1'); const el = await mount(<SeasonHud v={{ ...BASE, me: ME }} onJoin={() => {}} go={go} />);
   expect(q(el, 'hud-next').textContent).toContain('hitter'); await act(async () => { q(el, 'hud-next').click(); }); expect(go).toHaveBeenLastCalledWith('raids');
   const s = await mount(<PowerSkyline v={BASE} onPick={pick} onEmpty={empty} />);
   expect(q(s, 'tower-AAA').style.getPropertyValue('--h')).toBe('1');

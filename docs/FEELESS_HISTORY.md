@@ -6104,4 +6104,10 @@ P6 — IDEAS: FeeCat + AI agent pair that talk · "build a better coin" track in
   (every Jupiter key, then public), `lib/leverage.js` (① lock+borrow → ② buy via the swap engine; close = sell → repay-all), `RealLeverage.jsx`
   + `styles/leverage.css` (yours-vs-lent stack, ☠ price rail, steps, positions) in the Perps desk, MoneyDesk MOON and `/dev/perps`. Open
   simulated clean on mainnet for a wallet with plain SOL and no USDC account. Jupiter Lend Earn deposits fell through a 429'd read key → fixed.
+- 2026-10-23 night (Opus 5.5) · 2: 🔌 model drop verified (G4 = qwen3.5-4b alone, 1 slot · ttl 604800 on lan/local calls · NEXA llamafile up, Qwen2.5-1.5B,
+  1 slot) · ✋ ARRANGE: drag lots (pointer, tap-swap kept) + 🏗 BUILD HERE on an open lot (`pendingAdds` → act add → layout) · 💵 THE $5 RUN
+  (`FiveRun.jsx` + `styles/fiveRun.css`, `lend_earn.run_assets/run_positions`, GET /familia-pools/run): a Jupiter Lend Earn deposit from $5, the
+  wallet's real on-chain balance + Jupiter's earnings ticking to 1e-8 $, a drawn 1-year curve, milestones; Night Vault amounts $5–$1K and
+  earnings to the millionth (was rounded to cents → "+$0.000"); NEXT MOVE + EARN point at the run, never the MP drag errand · wide rooms (Pool
+  Hall, tools) leave the DIRECTORY dock free (it covered their text).
 

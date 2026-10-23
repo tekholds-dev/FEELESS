@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { sharedJson } from '../lib/sharedJson';
 import { useGlide } from '../lib/useGlide';
 import { PoolRow } from './PoolHub';
+import { FiveRun } from './FiveRun';
 import '../styles/nightVault.css';
 
 // 💤 THE NIGHT VAULT — money while you sleep (FEELESS AVENUE building; backend sleep_money.py, GET /familia-pools/sleep). Five strategies from
@@ -9,14 +10,14 @@ import '../styles/nightVault.css';
 // APY, LTV and the cushion before liquidation). A calculator up top (amount × how long you sleep) turns every APY into dollars; each strategy
 // shows its risk as four drawn meters and rides on the Pool Hall's own rows (⚡ stake / buy through our engine, 🏦 verified Jupiter Lend
 // deposit here, or the protocol's page — your wallet signs, FEELESS never holds funds).
-const AMTS = [100, 1000, 10000, 100000];
+const AMTS = [5, 25, 100, 1000];   // owner, 2026-10-23: start at $5 — small money shown honestly, to the 1/100,000 of a dollar
 const NAPS = [['night', '8H NIGHT', 8 / 24], ['week', '1 WEEK', 7], ['month', '1 MONTH', 30], ['year', '1 YEAR', 365]];
 const RISKS = [['contract', 'CONTRACT'], ['depeg', 'DEPEG'], ['il', 'IMPERM. LOSS'], ['liq', 'LIQUIDATION']];
-export const usd0 = v => { const a = Math.abs(v); return `${v < 0 ? '-' : ''}$${a >= 1e6 ? `${(a / 1e6).toFixed(2)}M` : a >= 1e4 ? `${(a / 1e3).toFixed(1)}K` : a >= 100 ? a.toFixed(0) : a >= 1 ? a.toFixed(2) : a.toFixed(3)}`; };
+export const usd0 = v => { const a = Math.abs(v); return `${v < 0 ? '-' : ''}$${a >= 1e6 ? `${(a / 1e6).toFixed(2)}M` : a >= 1e4 ? `${(a / 1e3).toFixed(1)}K` : a >= 100 ? a.toFixed(0) : a >= 1 ? a.toFixed(2) : a >= 0.01 ? a.toFixed(3) : a.toFixed(5)}`; };
 // pure: what `amt` dollars earn at `apy` % over `days` (simple interest — what the protocols quote)
 export const sleepEarn = (amt, apy, days) => (Number(amt) || 0) * ((Number(apy) || 0) / 100) * ((Number(days) || 0) / 365);
 
-function Earned({ v }) { const g = useGlide(Math.round(v * 100) / 100); return <b className="nv-earned">+{usd0(g)}</b>; }
+function Earned({ v }) { const g = useGlide(Math.round(v * 1e6) / 1e6); return <b className="nv-earned">+{usd0(g)}</b>; }   // to the millionth: $5 overnight is real money, not +$0.000
 
 function RiskMeters({ r }) {
   return <div className="nv-risk" data-tip={r.note}>{RISKS.map(([k, l]) => <p key={k} className={`r-${r[k] || 0}`}><em>{l}</em><span>{[0, 1, 2].map(i => <i key={i} className={i < (r[k] || 0) ? 'is-on' : ''} />)}</span></p>)}</div>;
@@ -40,7 +41,7 @@ function LoopCard({ s, amt, days }) {
 }
 
 export function NightVault() {
-  const [d, setD] = useState(null); const [err, setErr] = useState(false); const [amt, setAmt] = useState(1000); const [nap, setNap] = useState('month'); const [open, setOpen] = useState('lst');
+  const [d, setD] = useState(null); const [err, setErr] = useState(false); const [amt, setAmt] = useState(5); const [nap, setNap] = useState('month'); const [open, setOpen] = useState('lst');
   useEffect(() => { let on = true; const go = () => sharedJson('/api/reputation/familia-pools/sleep', { maxAge: 240000 }).then(x => { if (on && x) { setD(x); setErr(false); } }).catch(() => on && setErr(true));
     go(); const t = setInterval(() => { if (!document.hidden) go(); }, 300000); return () => { on = false; clearInterval(t); }; }, []);
   const days = (NAPS.find(n => n[0] === nap) || NAPS[2])[2];
@@ -51,8 +52,9 @@ export function NightVault() {
     <header className="nv-sky"><span className="nv-moon" aria-hidden /><span className="nv-stars" aria-hidden>{Array.from({ length: 14 }, (_, i) => <i key={i} style={{ '--i': i }} />)}</span>
       <span className="nv-z" aria-hidden><i>z</i><i>z</i><i>Z</i></span><span className="nv-stack" aria-hidden>{[0, 1, 2, 3].map(i => <i key={i} style={{ '--i': i }} />)}</span>
       <span className="nv-title"><em>FEELESS AVENUE</em><b>THE NIGHT VAULT</b><small>money while you sleep · live APY · your wallet signs</small></span></header>
+    <FiveRun />
     <div className="nv-calc">
-      <div className="nv-amt"><em>PUT IN</em><div className="m-seg" role="radiogroup" aria-label="Amount">{AMTS.map(a => <button key={a} type="button" role="radio" aria-checked={amt === a} className={amt === a ? 'active' : ''} onClick={() => setAmt(a)} data-testid={`nv-amt-${a}`}>{usd0(a)}</button>)}</div>
+      <div className="nv-amt"><em>PUT IN</em><div className="m-seg" role="radiogroup" aria-label="Amount">{AMTS.map(a => <button key={a} type="button" role="radio" aria-checked={amt === a} className={amt === a ? 'active' : ''} onClick={() => setAmt(a)} data-testid={`nv-amt-${a}`}>${a >= 1000 ? `${a / 1000}K` : a}</button>)}</div>
         <input className="m-input" type="number" min="0" step="any" value={amt} onChange={e => setAmt(Math.max(0, Number(e.target.value) || 0))} aria-label="Dollars to put in" data-testid="nv-amt-input" /></div>
       <div className="nv-amt"><em>SLEEP FOR</em><div className="m-seg" role="radiogroup" aria-label="How long">{NAPS.map(([k, l]) => <button key={k} type="button" role="radio" aria-checked={nap === k} className={nap === k ? 'active' : ''} onClick={() => setNap(k)} data-testid={`nv-nap-${k}`}>{l}</button>)}</div></div>
       {best ? <p className="nv-best" data-tip="The highest live APY on this page — check its risk meters before you chase it">💤 best tonight: <b>{best.name}</b> · {best.top} · <b>{best.apy.toFixed(2)}%</b> → <Earned v={sleepEarn(amt, best.apy, days)} /></p> : null}

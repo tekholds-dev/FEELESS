@@ -172,9 +172,11 @@ P0 — OWNER 2026-10-23 (late night) · finished today → `docs/FEELESS_HISTORY
    never landed) · read Jupiter's `/borrow/positions` row shape off that first position (`lend_borrow.positions` keeps only vaultId + nftId
    today) · one-tap loops to 3–4× via Jupiter's flashloan (`@jup-ag/lend/flashloan`: borrow → swap → operate → payback in ONE tx).
 2. 💵 FEE REAL: the 👛 FEE'S WALLET pill (stage + HQ) is where to link / budget / go real — owner signs one small proposal end to end, report.
-3. 🏝 Town next: pick a lot for a NEW market right from ✋ ARRANGE · drag (not tap-swap) in the 3D block · each town building's real tool
-   done in place (perps above). Islands cost 3,000 MP (creator free) — tune with the owner.
-4. 🔌 Verify on the next drop: G4 = Qwen3.5-4B on ONE slot (the 8 GB M1 OOM'd on two) · LM ttl 7 days · NEXA's llamafile never unloads.
+3. 🏝 Town next: ✋ ARRANGE now drags lots + 🏗 BUILD HERE on a picked open lot (shipped 2026-10-23) · NEXT: drag inside the 3D block itself ·
+   each town building's real tool done in place. Islands cost 3,000 MP (creator free) — tune with the owner.
+4. 💵 THE $5 RUN (shipped 2026-10-23, `FiveRun.jsx` in the Night Vault · GET /familia-pools/run): NEXT = the owner's first $5 deposit lands and
+   the ticker reads it · a real "compound my LP fees" errand (claim → put into the run) · retire the MP drag errands UI (P2 #2) — NEXT MOVE + EARN
+   already point at the run.
 5. 📊 Every page end to end: text walls → visuals (HQ Agents + FeeCat tabs first); 80 % ACTIVE money = `cityPlan.activeMoney` (keep ≥ 0.8
    in `cityPlan.test.js`; outer cities next).
 6. ✅ LAST, ONLY WHEN EVERY ITEM ABOVE AND BELOW IS DONE (owner, 2026-10-23): click through EVERY tab / page / pop-out / modal / step of the

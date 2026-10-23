@@ -1,0 +1,38 @@
+/* 💵 FiveRun.jsx — THE $5 RUN inside the Night Vault: a lit money-green ledger on the vault's violet night — the compounding ticker (bright
+   cents, a dim rolling tail), the drawn one-year curve (area + line that draws itself, milestone dots, a pulsing NOW), four milestone chips,
+   one primary door. One keyframe set (fr*), transform / opacity only; fx-lite + reduced motion still; day theme + 640 px. */
+.fr { position: relative; display: grid; gap: 10px; margin: 0 0 12px; padding: 14px; border-radius: 16px; overflow: hidden; isolation: isolate;
+  border: 1px solid rgba(69, 228, 134, .4); background: linear-gradient(160deg, rgba(69, 228, 134, .12), rgba(28, 20, 60, .7) 45%, rgba(6, 5, 14, .92));
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .08), 0 0 30px -12px rgba(69, 228, 134, .7); animation: frIn .35s ease-out both; }
+.fr::before { content: ''; position: absolute; inset: -30% -20% auto auto; width: 60%; height: 120%; z-index: -1; pointer-events: none;
+  background: radial-gradient(closest-side, rgba(155, 140, 255, .22), transparent); animation: frDrift 10s ease-in-out infinite alternate; }
+.fr.is-live { border-color: #45e486; }
+.fr-head { display: flex; flex-wrap: wrap; align-items: flex-start; justify-content: space-between; gap: 8px; } .fr-head > span:first-child { display: grid; line-height: 1.2; }
+.fr-head em { font: 800 8.5px 'JetBrains Mono', monospace; font-style: normal; letter-spacing: .18em; color: #45e486; }
+.fr-head b { font: 900 15px 'JetBrains Mono', monospace; color: #fff; }
+.fr-seg button { min-height: 32px; min-width: 64px; font: 800 11px 'JetBrains Mono', monospace; } .fr-seg small { font-size: 9px; opacity: .8; }
+.fr-body { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); gap: 12px; align-items: center; }
+.fr-num { display: grid; gap: 2px; min-width: 0; } .fr-num > em { font: 800 8px 'JetBrains Mono', monospace; font-style: normal; letter-spacing: .16em; color: #b9b0ff; }
+.fr-tick { font: 900 34px/1.05 'JetBrains Mono', monospace; color: #fff; letter-spacing: -.01em; text-shadow: 0 0 22px rgba(69, 228, 134, .55); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.fr-tick small { font-size: 22px; color: #45e486; opacity: .75; }
+.fr-num > small { font: 600 10px 'JetBrains Mono', monospace; color: #b3b3b3; }
+.fr-curve { width: 100%; height: 90px; overflow: visible; }
+.fr-line { fill: none; stroke: #45e486; stroke-width: 2; stroke-dasharray: 1; stroke-dashoffset: 1; filter: drop-shadow(0 0 4px rgba(69, 228, 134, .7)); animation: frDraw 1.4s ease-out .15s forwards; }
+.fr-mile { fill: #0b0a16; stroke: #b9b0ff; stroke-width: 1.5; } .fr-now { fill: #45e486; transform-box: fill-box; transform-origin: center; animation: frPulse 1.6s ease-in-out infinite; }
+.fr-miles { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; }
+.fr-miles li { display: grid; gap: 1px; padding: 7px 9px; border-radius: 10px; background: rgba(0, 0, 0, .4); border: 1px solid rgba(155, 140, 255, .2); animation: frIn .3s ease-out both; animation-delay: calc(var(--i) * 60ms); }
+.fr-miles em { font: 800 8px 'JetBrains Mono', monospace; font-style: normal; letter-spacing: .14em; color: #b9b0ff; } .fr-miles b { font: 900 13px 'JetBrains Mono', monospace; color: #45e486; }
+.fr-go { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; } .fr-go .m-btn { min-height: 40px; } .fr-start { min-width: 240px; font-weight: 900; letter-spacing: .08em; }
+.fr-go .m-btn:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
+.fr-risk { flex: 1 1 200px; font: 600 9.5px 'JetBrains Mono', monospace; color: #a39fb8; }
+.fr-dim { margin: 0; font: 600 11px 'JetBrains Mono', monospace; color: #b3b3b3; }
+@keyframes frIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: none; } }
+@keyframes frDrift { from { transform: translate3d(0, 0, 0); } to { transform: translate3d(-12%, 8%, 0); } }
+@keyframes frDraw { to { stroke-dashoffset: 0; } }
+@keyframes frPulse { 0%, 100% { transform: scale(1); opacity: 1; } 50% { transform: scale(1.5); opacity: .55; } }
+body.fx-lite .fr, body.fx-lite .fr::before, body.fx-lite .fr-now, body.fx-lite .fr-miles li { animation: none; } body.fx-lite .fr-line { animation: none; stroke-dashoffset: 0; }
+@media (prefers-reduced-motion: reduce) { .fr, .fr::before, .fr-now, .fr-miles li { animation: none; } .fr-line { animation: none; stroke-dashoffset: 0; } }
+body.theme-day .fr { background: linear-gradient(160deg, rgba(69, 228, 134, .16), #f5f3ff 50%, #ffffff); border-color: rgba(10, 140, 70, .45); }
+body.theme-day .fr-head b, body.theme-day .fr-tick { color: #0b2a18; text-shadow: none; } body.theme-day .fr-tick small, body.theme-day .fr-miles b, body.theme-day .fr-head em { color: #0a8c46; }
+body.theme-day .fr-miles li { background: #fff; } body.theme-day .fr-num > small, body.theme-day .fr-risk { color: #4d4a5e; } body.theme-day .fr-mile { fill: #fff; }
+@media (max-width: 640px) { .fr-body { grid-template-columns: minmax(0, 1fr); } .fr-tick { font-size: 27px; } .fr-tick small { font-size: 17px; } .fr-miles { grid-template-columns: repeat(2, minmax(0, 1fr)); } .fr-start { min-width: 0; flex: 1; } }

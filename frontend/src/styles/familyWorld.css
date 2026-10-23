@@ -146,6 +146,9 @@ body.fx-lite .fwd-siren, body.fx-lite .fwd-alert { animation: none; } @media (pr
 .fwd-place { width: min(560px, calc(100% - 88px)); }
 /* an open directory (226 px) and a room pop-out never overlap: the pop-out leaves the directory's width free (dead clicks 48292d9d · 9a863254) */
 @media (min-width: 641px) { .fwd-mapwrap:has(.fc3-dir.is-open) .fwd-place { width: min(560px, calc(100% - 268px)); } }
+/* the WIDE rooms (Pool Hall, tool buildings) also leave the dock free — they once ran under it and the dock covered their text (owner, 2026-10-23) */
+@media (min-width: 641px) { .fwd-mapwrap .fwd-place:is(.is-tool, .k-pools) { width: min(1240px, calc(100% - 88px)); }
+  .fwd-mapwrap:has(.fc3-dir.is-open) .fwd-place:is(.is-tool, .k-pools) { width: min(1240px, calc(100% - 268px)); } }
 /* a room is open → the district buttons and the RAID / FUSE actions step aside instead of sitting under it (covered-button audit 2026-10-23) */
 .fwd-mapwrap:has(.fwd-place) :is(.fc3-isl, .mh-acts) { visibility: hidden; pointer-events: none; }
 @media (max-width: 640px) { .fwd-place { width: auto; } .fwd-mapwrap:has(.fwd-place) :is(.fc3-dir, .mh-acts) { display: none; } }

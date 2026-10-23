@@ -185,11 +185,11 @@ export function catCombo(rows, amt = 100) {
   return { legs: legs.map(([role, w, r, risk]) => ({ role, w: w / wsum, r, risk })), apy: Math.round(apy * 100) / 100, day, month: day * 30, year: amt * apy / 100 };
 }
 function CatCombo({ pools }) {
-  const [amt, setAmt] = useState(1000); const [leg, setLeg] = useState(null); const c = useMemo(() => catCombo(pools?.pools, amt), [pools, amt]);
+  const [amt, setAmt] = useState(25); const [leg, setLeg] = useState(null); const c = useMemo(() => catCombo(pools?.pools, amt), [pools, amt]);   // owner: from $5, honest small numbers
   if (!c.legs.length) return null;
-  const m = v => (v >= 1 ? `$${v.toFixed(2)}` : `$${v.toFixed(3)}`);
+  const m = v => (v >= 1 ? `$${v.toFixed(2)}` : v >= 0.01 ? `$${v.toFixed(3)}` : `$${v.toFixed(5)}`);
   return <div className="phb-combo" data-testid="cat-combo"><header><b>🐱 FEECAT'S COMBO</b><small>picked from the live hub · {c.legs.length} legs</small></header>
-    <label className="phb-earn-in"><span>Put in</span><input type="range" min="100" max="50000" step="100" value={amt} onChange={e => setAmt(Number(e.target.value))} aria-label="Amount for the combo" data-testid="combo-amt" /><b>${amt.toLocaleString('en-US')}</b></label>
+    <label className="phb-earn-in"><span>Put in</span><input type="range" min="5" max="50000" step="5" value={amt} onChange={e => setAmt(Number(e.target.value))} aria-label="Amount for the combo" data-testid="combo-amt" /><b>${amt.toLocaleString('en-US')}</b></label>
     <p className="phb-combo-big"><b key={amt}>{c.apy.toFixed(1)}% APY</b><span>≈ {m(c.day)} a day · {m(c.month)} a month · {m(c.year)} a year</span></p>
     <ol>{c.legs.map((l, i) => <li key={l.role} style={{ '--i': i }}><em>{l.role} · {Math.round(l.w * 100)}%</em><span><b>{l.r.sym}</b><small>{l.r.proto} · TVL {usd(l.r.tvl)} · {l.risk}</small></span>
       <strong className="m-num">{apyTxt(l.r.apy)}</strong><button type="button" className={`m-btn m-go ${leg === l.role ? 'active' : ''}`} aria-expanded={leg === l.role} onClick={() => setLeg(x => (x === l.role ? null : l.role))} data-tip={`Put this leg to work right here — your wallet signs`} data-testid={`combo-go-${l.role}`}>💸</button></li>)}</ol>
