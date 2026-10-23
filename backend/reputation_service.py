@@ -16676,7 +16676,7 @@ def _nexa_desk_coins(mint):
     x_ = (_tk.KERNEL.candidate(mint) or {}) if mint else {}
     n_, v_ = x_.get('nums') or {}, x_.get('vitals') or {}
     return {'mcap': v_.get('mcap'), 'ageMin': _fuse._f(v_['ageH']) * 60 if v_.get('ageH') is not None else None, 'd5': n_.get('d5'), 'c1': n_.get('c1'),
-            'buy': n_.get('buy'), 'liq': n_.get('liq') or v_.get('liq'), 'top10': v_.get('top10')}
+            'buy': n_.get('buy'), 'liq': n_.get('liq') or v_.get('liq'), 'top10': v_.get('top10'), 'stage': (x_.get('chart') or {}).get('stage') or v_.get('stage')}
 
 
 async def _nexa_desk_tick(now, env, cfg):

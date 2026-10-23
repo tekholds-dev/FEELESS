@@ -128,3 +128,13 @@ def test_a_user_runs_at_most_two_agents_and_a_retired_one_frees_its_slot(monkeyp
     assert r.status_code == 400 and 'retire one' in r.json()['detail']
     store['cats']['b']['revoked'] = True
     assert c.post('/api/cats', json={'ownerId': 'u', 'name': 'Third', 'handle': 'third'}).status_code == 200
+
+
+def test_nexa_reads_the_trench_laws_and_the_curve_stage():
+    import nexa_desk as nd
+    for law in ('under 15m old loses', 'on the curve', 'cap under 30K AND graduated', 'pool under 5K', '3% round trip'):
+        assert law in nd.ASK_BUY
+    assert 'exits under 15m lose' in nd.ASK_HOLD and 'ONE word, HOLD or SELL' in nd.ASK_HOLD
+    assert nd.stage_word('graduated → pumpswap') == 'graduated' and nd.stage_word('bonding curve 64%') == 'on curve' and nd.stage_word('') is None
+    assert nd.line({'symbol': 'AAA', 'stage': 'migrated', 'mcap': 25_000}) == '$AAA · graduated · MC 25K'
+    assert nd.line({'symbol': 'BBB', 'stage': 'weird', 'mcap': 25_000}) == '$BBB · MC 25K'                     # an unknown stage says nothing

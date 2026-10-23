@@ -15,10 +15,13 @@ FRESH = 900.0      # a YES / SELL counts for 15 min
 ASK_GAP = 900.0    # a coin she is NOT holding is asked again at most every 15 min
 MAX_TOK = 14
 KEEP = 60
-ASK_BUY = ("You trade FeeCat's paper desk on Solana memecoins. One coin, its live numbers. Reply with ONE word, YES (buy it now) or NO, "
-           "then at most 8 words why. Fresh pumps with sellers leading, tiny pools and top-heavy holders are NO.")
-ASK_HOLD = ("You trade FeeCat's paper desk on Solana memecoins. A coin she HOLDS, its live numbers. Reply with ONE word, HOLD or SELL, "
-            "then at most 8 words why. Sell when buyers left or the move is dying; hold a clean trend.")
+# 🧪 the desk's own trench laws (docs/TRENCH_THEORY.md, measured on 4,000 coins + the real card's ledger), one breath each — her call
+# confirms or denies a law instead of reasoning from zero (owner, 2026-10-22: "next-gen one-line desk prompts in her trench style")
+ASK_BUY = ("You run FeeCat's paper trench desk on Solana memecoins. Trench laws: under 15m old loses; still on the curve is the worst bucket; "
+           "cap under 30K AND graduated is the only setup that paid; pool under 5K can't be exited; sellers leading = no; top10 over 35% = no; "
+           "a move must beat the 3% round trip. One coin, live numbers. Reply ONE word, YES or NO, then at most 8 words: the law it passes or breaks.")
+ASK_HOLD = ("You run a coin FeeCat HOLDS on her paper trench desk. Trench laws: exits under 15m lose; 1-3h holds paid best; let +50 / -30 work; "
+            "sell when buyers left, the pool thins or the move died. Reply ONE word, HOLD or SELL, then at most 8 words: the law.")
 WORDS = {'buy': ('YES', 'NO'), 'hold': ('HOLD', 'SELL')}
 
 
@@ -37,11 +40,21 @@ def _pct(v):
         return None
 
 
+def stage_word(st):
+    """The coin's curve stage in one word, the way trench_theory reads it: 'graduated' · 'on curve' · None (unknown)."""
+    s = str(st or '').lower()
+    if any(w in s for w in ('graduat', 'migrat', 'amm', 'raydium', 'pumpswap')):
+        return 'graduated'
+    return 'on curve' if ('curve' in s or 'bond' in s) else None
+
+
 def line(c, held=None):
-    """One coin as one line of numbers. `c` = {symbol, mcap, ageMin, d5, c1, buy (buyers' share %), liq, top10}; `held` = {pct, peak, mins}."""
+    """One coin as one line of numbers. `c` = {symbol, mcap, ageMin, stage, d5, c1, buy (buyers' share %), liq, top10}; `held` = {pct, peak, mins}."""
     bits = [f"${str(c.get('symbol') or '?')[:12]}"]
     if held:
         bits.append(f"you {_pct(held.get('pct')) or '?'} (peak {_pct(held.get('peak')) or '?'}) held {int(held.get('mins') or 0)}m")
+    if c.get('stage') is not None and stage_word(c.get('stage')):
+        bits.append(stage_word(c.get('stage')))   # 🧪 CURVE / PROVEN laws need it
     for w, v in (('MC', _k(c.get('mcap'))), ('age', f"{int(c['ageMin'])}m" if c.get('ageMin') is not None else None), ('5m', _pct(c.get('d5'))),
                  ('1h', _pct(c.get('c1'))), ('buyers', f"{float(c['buy']):.0f}%" if c.get('buy') is not None else None),
                  ('pool', _k(c.get('liq'))), ('top10', f"{float(c['top10']):.0f}%" if c.get('top10') is not None else None)):
