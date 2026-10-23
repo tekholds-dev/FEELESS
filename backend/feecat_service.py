@@ -28,6 +28,7 @@ from pydantic import BaseModel
 
 import feecat_brain
 import launch_cat as _lc
+import cat_real as _real   # 💵 real-money cats = option A: the user's wallet signs every trade (docs/DECISIONS.md #2)
 import cat_model as _cm
 
 DATA_DIR = Path(__file__).parent / 'data'
@@ -422,7 +423,23 @@ def _post_as_fee(pair_address, text, register_call=False):
         print('fee post failed', exc)
 
 
+def _notify_real(cat, p):
+    """💵 Tell the cat's real wallet a proposal is waiting (inbox + phone, via reputation's internal notify). Never blocks the engine."""
+    try:
+        key = (DATA_DIR / 'internal.key').read_text().strip()
+        verb = f"BUY ${p['symbol']} with {p['sol']} SOL" if p['side'] == 'buy' else f"SELL {round(p['fraction'] * 100)}% of your ${p['symbol']}"
+        httpx.post('http://127.0.0.1:5077/api/reputation/internal/notify', headers={'x-feeless-internal': key}, timeout=2,
+                   json={'address': cat['realWallet'], 'kind': 'cat', 'text': f"🐱 {cat.get('name') or 'Your cat'} wants to {verb} — {p['why'][:80]}. Approve within 15 min; your wallet signs.",
+                         'url': '/terminal/feecat/agents', 'once': f"cat-prop-{p['id']}"})
+    except Exception:
+        pass
+
+
 def _close(store, cat, pos, price_native, why, fraction=1.0, market_cap=None):
+    if _real.is_real(cat):   # 💵 a REAL cat: its exit becomes a proposal for the coin the user really bought (sell X % — the wallet signs)
+        p_ = _real.propose(cat, 'sell', pos.get('mint'), pos.get('pairAddress'), pos.get('symbol'), why, time.time(), fraction=fraction, px=price_native)
+        if p_:
+            _notify_real(cat, p_)
     gross = pos['notionalSol'] * fraction * (price_native / pos['entryPriceNative'])
     # 🎯 TRUE FILL on the sell: price impact against the pool (entry liquidity, SOL→$ at entry) — what a wallet would receive
     r_usd = _num(pos.get('entryLiq')) / 2; su = _num(pos.get('solUsdAtEntry'))
@@ -1007,6 +1024,10 @@ async def run_engine(store, cats):
                 'firstEntryPriceNative': px, 'adds': 0, 'profitTaken': 0, 'peakPx': px, 'brainBy': brain_by_, 'setup': setup, 'setups': p.get('_setups') or [], 'read': p.get('_read'), 'duoAtEntry': p.get('_duo'), 'midAtEntry': mid, 'solUsdAtEntry': sol_usd,
             })
             _log_event(store, cat, 'BUY', f"Bought {size} SOL of {sym} at live price — {reason} (paper).", None, pa, px, _num(p.get('marketCap') or p.get('fdv')))
+            if _real.is_real(cat):   # 💵 a REAL cat: the same buy, proposed to its owner's wallet (capped at their per-trade budget)
+                p_ = _real.propose(cat, 'buy', (p.get('baseToken') or {}).get('address'), pa, sym, reason, now, sol=size, px=px)
+                if p_:
+                    _notify_real(cat, p_)
             if cat.get('isLeader'):
                 _post_as_fee(pa, _buy_analysis(p, size, sym, safe_why, conviction), register_call=True)
         cat['lastTick'] = now
@@ -1446,8 +1467,11 @@ async def internal_rules_set(request: Request):
 
 def _internal(request):
     import hmac
-    key = (DATA_DIR / 'internal.key').read_text().strip()
-    if not hmac.compare_digest(request.headers.get('x-feeless-internal', ''), key):
+    try:
+        key = (DATA_DIR / 'internal.key').read_text().strip()
+    except OSError:
+        key = ''
+    if not key or not hmac.compare_digest(request.headers.get('x-feeless-internal', ''), key):
         raise HTTPException(403, 'Internal only.')
 
 
@@ -1487,11 +1511,20 @@ async def get_cat(cat_id: str):
     cat = store['cats'].get(cat_id)
     if not cat:
         raise HTTPException(404, 'Cat not found.')
+    if _real.is_real(cat) and _real.expire(cat, time.time()):
+        _save(store)
     return {'cat': cat}
 
 
 class ActionPayload(BaseModel):
     action: str
+    ownerId: Optional[str] = None      # 🔒 every action is the cat's own owner's (the browser id that created it)
+    address: Optional[str] = None      # 💵 real mode: the signed-in wallet …
+    session: Optional[str] = None      # … and its FEELESS session (one signature, 7 days)
+    budgetSol: Any = None
+    proposal: Optional[str] = None
+    result: Optional[str] = None
+    sig: Optional[str] = None
     amount: Any = None
     recoveryKey: Optional[str] = None
     maxPositionSol: Any = None
@@ -1502,13 +1535,34 @@ class ActionPayload(BaseModel):
 
 
 @app.post('/api/cats/{cat_id}/action')
-async def cat_action(cat_id: str, payload: ActionPayload):
+async def cat_action(cat_id: str, payload: ActionPayload, request: Request):
     store = _load()
     cat = store['cats'].get(cat_id)
     if not cat:
         raise HTTPException(404, 'Cat not found.')
+    if not payload.ownerId or payload.ownerId != cat.get('ownerId'):   # 🔒 was open to anyone with the cat id (cut list) — now the owner only
+        _internal(request)                                             # … or HQ (reputation's admin run, internal key)
+    signed = _real.session_wallet(_real.load_sessions(DATA_DIR / 'chat_sessions.json'), payload.session)
+    if payload.action in ('real', 'proposal') and (not signed or signed != payload.address):
+        raise HTTPException(401, 'Sign in with your wallet first (one signature, no transaction).')
 
-    if payload.action == 'confirm_recovery':
+    if payload.action == 'real':   # 💵 option A: the cat proposes, this wallet signs every trade
+        try:
+            _real.go_real(cat, signed, payload.budgetSol, time.time())
+        except ValueError as e:
+            raise HTTPException(400, str(e))
+        _log_event(store, cat, 'STARTED', f"{cat['name']} is REAL now: it proposes every trade to your wallet (≤ {cat['budgetSol']} SOL a buy); you sign each one.")
+    elif payload.action == 'paper':
+        _real.go_paper(cat)
+        _log_event(store, cat, 'STOPPED', f"{cat['name']} is back on paper — no more proposals.")
+    elif payload.action == 'proposal':
+        if signed != cat.get('realWallet'):
+            raise HTTPException(403, "Only the cat's real wallet answers its proposals.")
+        try:
+            _real.resolve(cat, payload.proposal, payload.result, time.time(), payload.sig)
+        except ValueError as e:
+            raise HTTPException(400, str(e))
+    elif payload.action == 'confirm_recovery':
         pass
     elif payload.action == 'chime':   # 🚀 the owner's advice — the brain reads it, it never trades on it
         if not cat.get('brainsCfg'):

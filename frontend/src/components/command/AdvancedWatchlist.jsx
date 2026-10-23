@@ -93,7 +93,7 @@ export function AdvancedWatchlist() {
   const assignCat = async catId => {
     const symbols = watchlist.filter(p => p.chainId === 'solana').map(p => p.baseToken?.symbol).filter(Boolean).join(', ');
     if (!symbols) { toast.error('Cats trade Solana pairs — star a Solana coin first.'); return; }
-    const res = await fetch(`/api/cats/${catId}/action`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'controls', allowlist: symbols }) });
+    const res = await fetch(`/api/cats/${catId}/action`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'controls', allowlist: symbols, ownerId: (() => { try { return localStorage.getItem('feeless-paper-owner') || ''; } catch { return ''; } })() }) });
     toast[res.ok ? 'success' : 'error'](res.ok ? 'Your Cat now trades only your watchlist (paper).' : 'Could not update that Cat.');
   };
   const toggleNotify = async pair => {

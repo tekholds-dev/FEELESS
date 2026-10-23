@@ -15,7 +15,7 @@ Read this (2 min) → `CLAUDE.md` (lean rules + 🎨 MANDATORY STYLING + 📋 CU
 >    LIVE visual (meters, bars, animation on real numbers), never bare text. `styles/cssCoverage.test.js` fails on an unstyled class.
 
 ## 🔁 NOW (rewrite this section in place every session)
-**Updated 2026-10-23 ~09:00 · Opus 5.5**
+**Updated 2026-10-23 ~late morning · Opus 5.5**
 
 Start of every task: `backend/.venv/bin/python scripts/cash-check.py degen 30` (≈ 1 min, sandbox off) — now 4 steps (cash · coins · swaps ·
 P&L $). 2026-10-23 03:58: card COVERED · coins atom for atom · swaps match · 144 / 144 sells reconcile in $ (realized −$2.11, fees $0.35 apart).
@@ -43,6 +43,13 @@ LAN ONLINE): reputation (house fees, staff gates, NEXA site read + trench prompt
   presence + per-call threads · 🩺 stall watchdog (alerts; never reloads) · 🟢 38 inline grey-greens → neutral · 🖱 dead clicks fixed + a
   covered-button audit (clean) · 📲 La Familia installable. Services restarted ~08:55 (reputation: my-money, typing, watchdog).
 
+### 🧭 Then: the owner's go on EVERY open decision ("you got my ok and do all decisions") — `docs/DECISIONS.md`
+- 📉 Perps = PAPER desk in the building + "Take it real" on Kraken Pro / Coinbase (FEELESS never routes an order). `/dev/perps`.
+- 💎 Points = one currency; points shop → family bank (1 pt = 100 MP, ≤ 1,000 / week). No real-USD rep market.
+- 💵 Real-money cats = option A: a cat's desk › REAL MODE (`CatReal.jsx`, `cat_real.py`): proposals → ✍ Sign it → prefilled swap → wallet
+  signs. Inbox alert via reputation `/internal/notify`. `/dev/cats`. Cat `/action` is owner-only now (browser owner id or internal key).
+- No pooled custody (family wallets / top-pot Fuse) · block readers wait for a real-account layout check. A lawyer should read DECISIONS.md.
+
 ### Still live from the day before (grep the history for details)
 Brain › Models (`ModelDesk.jsx`, `model_desk.py`) · Prompt Studio (`prompt_studio.py`, `ai_router.with_studio`) · OSSY × G4 strict turns ·
 trade inside Familia (`FamiliaTrade.jsx`; a guard test fails on any jump out) · US-legal Perps desk · owner picks stay (`arena_prime.owner_pick`) ·
@@ -56,12 +63,12 @@ sells match; drained-pool write-offs counted) · 👑 0c: feature gates use `_is
 1. Block readers still unwired: Meteora DLMM (PositionV2 accounts by owner) · marginfi · Save · PumpSwap LP — verify each layout against a real
    account before shipping (wrong range facts on real money are worse than "no reader yet").
 2. NEXA discovery: site age (RDAP / WHOIS) + page snapshot → "real tech vs same-utility clone" verdict.
-3. Perps in the pop-out / in-app orders = owner + legal first (F0.1, A, A1).
+3. ✅ decided (paper desk + venue handoff). LATER: a venue partner API · cats option C (on-chain program) — both after a lawyer / audit.
 4. G: keep hunting dead text in Familia rooms (Wars done) · Familia PWA icon / install prompt.
 
 ### ✂ Cut list (owner to OK each)
 Fake model rows in `/api/cats/brains` · family_world drag-the-pizza ERRANDS + MP build catalog · 4 ways to start services → ONE supervisor ·
-cat `/action` with no owner check · split the 31K-line `reputation_service.py` (new helpers: `_fblock_`-style prefixes; `test_no_name_collisions.py`).
+✅ cat `/action` owner check · split the 31K-line `reputation_service.py` (new helpers: `_fblock_`-style prefixes; `test_no_name_collisions.py`).
 
 ### Gate + restart rules learned the hard way
 - jest `--maxWorkers=4`; NEVER run tests while a gate runs; harden timing tests (poll, never a tight wall clock) — read the stack first.

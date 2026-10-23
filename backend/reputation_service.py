@@ -2714,6 +2714,24 @@ def _internal_key():
     return INTERNAL_KEY_PATH.read_text().strip()
 
 
+class InternalNotify(BaseModel):
+    address: str = Field(..., max_length=64)
+    kind: str = Field('cat', max_length=16)
+    text: str = Field(..., max_length=400)
+    url: str = Field('', max_length=200)
+    once: str = Field('', max_length=80)
+
+
+@app.post('/api/reputation/internal/notify')
+async def internal_notify(p: InternalNotify, request: Request):
+    """💵 A local service (FeeCat: a real cat's proposal) notifies one wallet — inbox + phone. Internal key only."""
+    import hmac
+    if not hmac.compare_digest(request.headers.get('x-feeless-internal', ''), _internal_key()):
+        raise HTTPException(403, 'Internal endpoint.')
+    notify(p.address, p.kind, p.text, p.url, once=p.once, meta={'claim': 'Your cat proposes it — nothing trades until your wallet signs', 'source': 'FeeCat agent'})
+    return {'ok': True}
+
+
 @app.post('/api/reputation/internal/fee-post')
 async def fee_post(payload: FeeCallPayload, request: Request):
     """Only the local Fee engine (holder of the on-disk shared secret) may post as Fee."""
@@ -27187,7 +27205,7 @@ async def admin_feecat_set(request: Request):
     action = body.pop('action', None)
     async with httpx.AsyncClient(timeout=30) as http:
         if action == 'run':
-            run = await http.post('http://127.0.0.1:5088/api/cats/leader/action', json={'action': 'run'})
+            run = await http.post('http://127.0.0.1:5088/api/cats/leader/action', headers={'x-feeless-internal': _internal_key()}, json={'action': 'run'})
             if run.status_code != 200:
                 raise HTTPException(run.status_code, 'Fee service could not run the intelligence cycle.')
         r = await http.post('http://127.0.0.1:5088/api/cats/internal/rules', headers={'x-feeless-internal': _internal_key()}, json=body)

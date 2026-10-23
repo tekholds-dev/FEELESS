@@ -18,6 +18,10 @@ Option C (an on-chain cat program trading inside the user's signed limits) is LA
 **Pricing:** no extra charge to run a cat — each trade it proposes pays the normal FEELESS swap fee when the user signs it (HQ › Core). AI
 brains bill their model calls from the cat's credit as today. A per-decision markup can be switched on later in HQ.
 **Honesty rule:** every proposal shows the cat's own paper record (no cat has a proven edge on unseen coins yet — edge-audit).
+**Built (2026-10-23):** `backend/cat_real.py` + feecat_service (REAL / PAPER / proposal actions; real needs a wallet-signed session; only the
+cat's own wallet answers its proposals; every cat action now needs its owner id) · `CatReal.jsx` on the cat's desk (go real with a per-buy
+budget 0.02–0.5 SOL; proposals with a draining 15-min clock; ✍ Sign it → the swap opens with the coins + amount set; a confirmed swap marks it
+done with its signature) · each proposal also lands in the wallet's inbox (`/internal/notify`). Preview `/dev/cats`.
 
 ## 3 · One points system (economy)
 **Decided: season points are the ONE wallet currency, earned everywhere, never bought with money and never cashed out.**

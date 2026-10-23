@@ -1,0 +1,69 @@
+/* 💵 REAL MODE on one agent's desk (components/command/CatReal.jsx) — the FeeCat violet night with the money in gold-green: a drawn
+   read → propose → sign flow with a charging beam, a budget segment, live proposal rows with a draining clock. cr* keyframes, transform /
+   opacity only. */
+.cr { position: relative; overflow: hidden; border-color: #b388ff3a; }
+.cr::before { content: ''; position: absolute; inset: -40% -10% auto; height: 120%; background: radial-gradient(50% 50% at 50% 50%, #7c4dff26, transparent 70%); pointer-events: none;
+  animation: crDrift 9s ease-in-out infinite alternate; }
+.cr.is-real { border-color: #45e48655; box-shadow: inset 0 1px 0 #ffffff14, 0 0 0 1px #15d16a22, 0 18px 40px -30px #15d16a; }
+.cr.is-real::before { background: radial-gradient(50% 50% at 50% 50%, #15d16a1f, transparent 70%); }
+.cr > * { position: relative; }
+.cr-off { display: grid; gap: 11px; }
+.cr-flow { position: relative; display: grid; grid-template-columns: repeat(3, 1fr); padding: 6px 4px 2px; }
+.cr-flow::before { content: ''; position: absolute; left: 16.6%; right: 16.6%; top: 25px; height: 2px; background: #b388ff2a; border-radius: 2px; }
+.cr-beam { position: absolute; left: 16.6%; right: 16.6%; top: 25px; height: 2px; border-radius: 2px; background: linear-gradient(90deg, #b388ff, #45e486); transform-origin: left;
+  box-shadow: 0 0 10px #45e486aa; animation: crBeam 3s cubic-bezier(.5, 0, .3, 1) infinite; }
+.cr-flow span { display: grid; justify-items: center; gap: 5px; z-index: 1; }
+.cr-flow svg { width: 40px; height: 40px; padding: 8px; border-radius: 50%; fill: none; stroke: #e9dcff; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; box-sizing: border-box;
+  background: radial-gradient(circle at 35% 30%, #2e1a55, #0a0614); border: 1px solid #b388ff55; animation: crNode 3s ease-in-out calc(var(--i) * 1s) infinite; }
+.cr-flow span:last-child svg { stroke: #45e486; border-color: #45e48666; }
+.cr-flow em { font: 800 8.5px 'JetBrains Mono', monospace; letter-spacing: .16em; font-style: normal; color: #c9bce6; }
+.cr-budget { display: grid; gap: 5px; } .cr-budget > em { font: 800 8.5px 'JetBrains Mono', monospace; letter-spacing: .14em; font-style: normal; color: #9d8fbf; }
+.cr-budget .m-seg { display: flex; flex-wrap: wrap; gap: 2px; padding: 3px; border-radius: 10px; background: #0a0614; border: 1px solid #b388ff2a; }
+.cr-budget .m-seg > button { flex: 1 1 0; min-height: 32px; padding: 0 6px; font-size: 10px; color: #c9bce6; }
+.cr-budget .m-seg > button.active { background: linear-gradient(135deg, #b388ff, #7c4dff); color: #0a0614; box-shadow: 0 0 14px -2px #b388ff; }
+.cr-rec { margin: 0; padding: 7px 10px; border-radius: 10px; background: #f5c5420d; border: 1px solid #f5c54233; font: 700 9.5px 'JetBrains Mono', monospace; color: #ffe08a; }
+.cr-go { justify-self: stretch; min-height: 38px; }
+.cr-strip { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)) auto; gap: 8px; align-items: stretch; }
+.cr-strip > span { position: relative; display: grid; gap: 1px; padding: 7px 10px; border-radius: 12px; background: #0a0614; border: 1px solid #ffffff10; animation: crIn .3s ease-out calc(var(--i) * 50ms) both; }
+.cr-strip em { font: 800 8.5px 'JetBrains Mono', monospace; letter-spacing: .14em; font-style: normal; color: #9d8fbf; }
+.cr-strip b { font-size: 15px; color: #fff; animation: crTick .35s ease-out both; }
+.cr-strip .is-hot { border-color: #45e48666; } .cr-strip .is-hot b { color: #45e486; text-shadow: 0 0 12px #45e48688; }
+.cr-ping { position: absolute; top: 8px; right: 8px; width: 8px; height: 8px; border-radius: 50%; background: #45e486; }
+.cr-ping::after { content: ''; position: absolute; inset: 0; border-radius: 50%; border: 2px solid #45e486; animation: crPing 1.6s ease-out infinite; }
+.cr-paper { min-height: 36px; align-self: center; }
+.cr-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 7px; }
+.cr-p { display: grid; grid-template-columns: auto minmax(0, 1fr) auto auto; gap: 10px; align-items: center; padding: 8px 10px; border-radius: 13px; background: #0a0614; border: 1px solid #ffffff10;
+  animation: crIn .3s ease-out calc(var(--i) * 50ms) both; transition: border-color .15s, transform .15s; }
+.cr-p:hover { border-color: #b388ff55; transform: translateY(-1px); }
+.cr-p.st-pending.is-buy { border-color: #45e48644; box-shadow: inset 3px 0 0 #45e486; } .cr-p.st-pending.is-sell { border-color: #ff8fa344; box-shadow: inset 3px 0 0 #ff8fa3; }
+.cr-p:not(.st-pending) { opacity: .62; }
+.cr-side { display: grid; place-items: center; min-width: 44px; height: 26px; padding: 0 8px; border-radius: 8px; font: 900 9.5px 'JetBrains Mono', monospace; letter-spacing: .12em; }
+.cr-p.is-buy .cr-side { background: #15d16a22; color: #45e486; border: 1px solid #45e48655; } .cr-p.is-sell .cr-side { background: #ff5d7322; color: #ff8fa3; border: 1px solid #ff8fa355; }
+.cr-what { display: grid; gap: 1px; min-width: 0; } .cr-what b { font: 800 12.5px 'JetBrains Mono', monospace; color: #fff; }
+.cr-what small { font: 600 9.5px 'JetBrains Mono', monospace; color: #c9bce6; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cr-what .cr-r { color: #ffe08a; opacity: .85; }
+.cr-size { font-size: 13px; color: #fff; }
+.cr-acts { display: grid; grid-template-columns: 74px auto auto; gap: 6px; align-items: center; }
+.cr-acts .m-btn { min-height: 32px; padding: 0 10px; font-size: 10.5px; }
+.cr-clock { display: grid; gap: 3px; } .cr-clock em { font-style: normal; font-size: 10px; color: #c9bce6; text-align: center; }
+.cr-clock u { display: block; height: 5px; border-radius: 4px; background: #ffffff12; overflow: hidden; }
+.cr-clock s { display: block; height: 100%; transform-origin: left; transform: scaleX(0); background: linear-gradient(90deg, #f5c542, #45e486); animation-name: crDrain; animation-timing-function: linear; animation-fill-mode: forwards; }
+.cr-st { font: 900 9.5px 'JetBrains Mono', monospace; letter-spacing: .12em; color: #9d8fbf; } .cr-st.is-ok, .cr-st.is-ok a { color: #45e486; }
+.cr-st a { text-decoration: none; min-height: 32px; display: inline-flex; align-items: center; } .cr-st a:hover { text-decoration: underline; } .cr-st a:focus-visible { outline: 2px solid #45e486; outline-offset: 2px; }
+@keyframes crDrift { from { transform: translateX(-8%); } to { transform: translateX(8%); } }
+@keyframes crBeam { 0% { transform: scaleX(0); opacity: 1; } 70% { transform: scaleX(1); opacity: 1; } 100% { transform: scaleX(1); opacity: 0; } }
+@keyframes crNode { 0%, 100% { transform: scale(1); } 15% { transform: scale(1.1); } 30% { transform: scale(1); } }
+@keyframes crIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+@keyframes crTick { from { opacity: .3; transform: translateY(-3px); } to { opacity: 1; transform: none; } }
+@keyframes crPing { from { transform: scale(1); opacity: .9; } to { transform: scale(2.6); opacity: 0; } }
+@keyframes crDrain { from { transform: scaleX(var(--f)); } to { transform: scaleX(0); } }
+body.fx-lite .cr::before, body.fx-lite .cr-ping::after, body.fx-lite :is(.cr-beam, .cr-flow svg, .cr-strip > span, .cr-p) { animation: none; }
+body.fx-lite .cr-clock s { animation: none; transform: scaleX(var(--f)); }
+@media (prefers-reduced-motion: reduce) { .cr::before, .cr-ping::after, :is(.cr-beam, .cr-flow svg, .cr-strip > span, .cr-strip b, .cr-p) { animation: none; }
+  .cr-clock s { animation: none; transform: scaleX(var(--f)); } .cr-p { transition: none; } }
+body.theme-day .cr-flow svg { background: #fff; stroke: #4a2a8a; } body.theme-day :is(.cr-strip > span, .cr-p, .cr-budget .m-seg) { background: #fff; border-color: #7c4dff24; }
+body.theme-day :is(.cr-strip b, .cr-what b, .cr-size) { color: #2a1650; } body.theme-day :is(.cr-what small, .cr-flow em) { color: #5a4a7a; }
+body.theme-day .cr-rec, body.theme-day .cr-what .cr-r { color: #7a5a00; } body.theme-day .cr-budget .m-seg > button { color: #4a2a8a; }
+body.theme-day .cr-budget .m-seg > button.active { background: linear-gradient(135deg, #9c6bff, #6a3df0); color: #fff; box-shadow: 0 4px 14px -6px #6a3df0; }
+@media (max-width: 640px) { .cr-strip { grid-template-columns: repeat(3, minmax(0, 1fr)); } .cr-paper { grid-column: 1 / -1; justify-self: stretch; }
+  .cr-p { grid-template-columns: auto minmax(0, 1fr) auto; } .cr-acts { grid-column: 1 / -1; grid-template-columns: minmax(60px, 1fr) auto auto; } .cr-st { grid-column: 1 / -1; } }

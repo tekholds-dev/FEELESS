@@ -94,13 +94,13 @@ def test_nexa_desk_asks_held_coins_first_then_fresh_candidates_and_reads_one_wor
 def test_only_the_owner_switch_hands_feecat_to_nexa(monkeypatch, tmp_path):
     fs = pytest.importorskip('feecat_service')
     from fastapi.testclient import TestClient
-    store = {'cats': {'leader': {'id': 'leader', 'name': 'FeeCat', 'isLeader': True, 'positions': []}, 'u1': {'id': 'u1', 'name': 'Mine', 'positions': [], 'risk': {}}}, 'events': []}
+    store = {'cats': {'leader': {'id': 'leader', 'name': 'FeeCat', 'isLeader': True, 'positions': []}, 'u1': {'id': 'u1', 'name': 'Mine', 'ownerId': 'b1', 'positions': [], 'risk': {}}}, 'events': []}
     monkeypatch.setattr(fs, '_load', lambda: store); monkeypatch.setattr(fs, '_save', lambda s: None)
     monkeypatch.setattr(fs, '_log_event', lambda *a, **k: None)
     fs.DATA_DIR.mkdir(parents=True, exist_ok=True); (fs.DATA_DIR / 'internal.key').write_text('secret')
     c = TestClient(fs.app)
     assert c.post('/api/cats/internal/brain', json={'model': 'nexa'}).status_code == 403                # no internal key → refused
-    assert c.post('/api/cats/u1/action', json={'action': 'brain', 'text': 'nexa'}).status_code == 400   # a user's cat can't take NEXA
+    assert c.post('/api/cats/u1/action', json={'action': 'brain', 'text': 'nexa', 'ownerId': 'b1'}).status_code == 400   # a user's cat can't take NEXA
     monkeypatch.setattr(fs, '_internal', lambda request: None)
     assert c.post('/api/cats/internal/brain', json={'model': 'nexa'}).json() == {'model': 'nexa'}
     assert store['cats']['leader']['modelBrain'] == 'nexa' and 'modelBrain' not in store['cats']['u1']

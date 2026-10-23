@@ -25,11 +25,11 @@ def test_launch_with_two_brains_then_chime_pull_and_topup(tmp_path, monkeypatch)
     assert cat['brainsCfg']['promptLocked'] and cat['brainsCfg']['credit'] == lc.START_CREDIT and cat['brainLabel'] == 'gpt-oss-20b + qwen3-4b-2507'
     assert c.post('/api/cats', json={'ownerId': 'w', 'name': 'X', 'handle': 'x', 'brains': ['nope/model']}).status_code == 400
     cid = cat['id']
-    assert c.post(f'/api/cats/{cid}/action', json={'action': 'chime', 'text': 'watch the dev wallet'}).json()['cat']['brainsCfg']['chime'][0]['text'] == 'watch the dev wallet'
-    assert c.post(f'/api/cats/{cid}/action', json={'action': 'pull'}).json()['cat']['balanceSol'] == 0
-    assert c.post(f'/api/cats/{cid}/action', json={'action': 'start'}).status_code == 400
-    assert c.post(f'/api/cats/{cid}/action', json={'action': 'topup'}).json()['cat']['needsTopup'] is False
-    assert c.post(f'/api/cats/{cid}/action', json={'action': 'start'}).json()['cat']['status'] == 'running'
+    assert c.post(f'/api/cats/{cid}/action', json={'ownerId': 'w', 'action': 'chime', 'text': 'watch the dev wallet'}).json()['cat']['brainsCfg']['chime'][0]['text'] == 'watch the dev wallet'
+    assert c.post(f'/api/cats/{cid}/action', json={'ownerId': 'w', 'action': 'pull'}).json()['cat']['balanceSol'] == 0
+    assert c.post(f'/api/cats/{cid}/action', json={'ownerId': 'w', 'action': 'start'}).status_code == 400
+    assert c.post(f'/api/cats/{cid}/action', json={'ownerId': 'w', 'action': 'topup'}).json()['cat']['needsTopup'] is False
+    assert c.post(f'/api/cats/{cid}/action', json={'ownerId': 'w', 'action': 'start'}).json()['cat']['status'] == 'running'
 
 
 def test_calls_off_means_rule_engine_and_no_charge_on_means_charged_and_paused_at_zero(tmp_path, monkeypatch):

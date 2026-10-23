@@ -84,6 +84,7 @@
 .kd-wd > div { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; }
 .kd-danger { width: 100%; border-color: #ff5d7366; color: #ffb3c0; } .kd-danger:hover:not(:disabled) { background: #ff5d7322; }
 .kd-paper { margin: 0; justify-self: start; padding: 6px 10px; border-radius: 999px; border: 1px solid #f5c54244; background: #f5c5420d; font: 800 9px 'JetBrains Mono', monospace; letter-spacing: .12em; color: #ffe08a; }
+.kd-paper.is-real { border-color: #45e48655; background: #15d16a12; color: #45e486; }
 @keyframes kdIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
 @keyframes kdFill { from { transform: scaleX(0); } }
 @keyframes kdTick { from { opacity: .3; transform: translateY(-3px); } to { opacity: 1; transform: none; } }

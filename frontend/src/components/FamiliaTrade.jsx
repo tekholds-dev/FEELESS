@@ -28,7 +28,7 @@ export function familiaTrade(pair) {
   else openWarRoom(pair);
 }
 export function familiaSwap(swap) {   // {from, to} mints — the dock's swap reads them like the Trade tab does (you still press Get quote)
-  try { sessionStorage.setItem('feeless.swap.pair', JSON.stringify({ input: swap?.from, output: swap?.to })); } catch { /* storage blocked */ }
+  try { sessionStorage.setItem('feeless.swap.pair', JSON.stringify({ input: swap?.from, output: swap?.to, amount: swap?.amount, pct: swap?.pct })); } catch { /* storage blocked */ }
   window.dispatchEvent(new CustomEvent('feeless:familia-trade', { detail: { kind: 'swap', swap } }));
 }
 
@@ -44,7 +44,7 @@ export function FamiliaTradeDock() {
     let seq = 0;
     const open = e => {
       const d = e.detail || {}; const id = ++seq; setErr('');
-      if (d.kind === 'swap') { setDesk({ kind: 'swap', swap: d.swap }); return; }
+      if (d.kind === 'swap') { setDesk({ kind: 'swap', swap: d.swap, n: id }); return; }   // n: a new errand remounts the swap (it reads the coins once)
       if (ROOMS[d.kind]) { setDesk({ kind: d.kind }); return; }   // 🏙 a FEELESS tool as a room over Familia
       const p = d.pair || {};
       if (ready(p)) { setDesk({ kind: 'coin', pair: { chainId: 'solana', ...p } }); return; }
@@ -85,7 +85,7 @@ export function FamiliaTradeDock() {
       <header className="ftd-head">
         {coin ? <>{ready(p) ? <TokenAvatar pair={p} size={36} /> : <span className="ftd-av" aria-hidden="true" />}
           <span className="ftd-id"><em>🏙 FAMILIA TRADE DESK</em><b>${p?.baseToken?.symbol || '…'}</b><small>{p?.baseToken?.name || 'reading the pool…'}</small></span></>
-          : <span className="ftd-id"><em>🏙 FAMILIA TRADE DESK</em><b>⚖ Swap</b><small>both coins set — press Get quote; your wallet signs</small></span>}
+          : <span className="ftd-id"><em>{desk.swap?.title || '🏙 FAMILIA TRADE DESK'}</em><b>⚖ Swap</b><small>{desk.swap?.sub || 'both coins set — press Get quote; your wallet signs'}</small></span>}
         <span className="ftd-tools">
           <button type="button" className="m-btn ftd-ico" onClick={() => setWide(!wide)} aria-pressed={wide} data-tip={wide ? 'Narrow the desk' : 'Widen the desk — bigger chart, still in Familia'} data-testid="ftd-wide">{wide ? '⇥' : '⤢'}</button>
           <button type="button" className="m-btn ftd-ico" onClick={() => setDesk(null)} aria-label="Close" data-tip="Back to the room (Esc)" data-testid="ftd-close">✕</button></span>
@@ -93,13 +93,13 @@ export function FamiliaTradeDock() {
       {coin && ready(p) ? <div className="ftd-vit" data-testid="ftd-vitals">
         {[['MARKET CAP', usd(p.marketCap ?? p.fdv)], ['LIQUIDITY', usd(p.liquidity?.usd)], ['5M', pct(m5)], ['1H VOL', usd(p.volume?.h1)]].map(([k, v], i) => <span key={k} style={{ '--i': i }}
           className={k === '5M' && Number.isFinite(m5) ? (m5 >= 0 ? 'is-up' : 'is-dn') : ''}><em>{k}</em><b key={v}>{v}</b></span>)}</div> : null}
-      <p className="ftd-note"><i aria-hidden="true" />trading inside Familia · non-custodial — your wallet signs every order · 0% FEELESS fee on $FEE · rFEE · FEECAT buys</p>
+      <p className="ftd-note"><i aria-hidden="true" />{desk.swap?.where || 'trading inside Familia'} · non-custodial — your wallet signs every order · 0% FEELESS fee on $FEE · rFEE · FEECAT buys</p>
       <div className="ftd-body">
         {err ? <p className="m-note" role="alert">{err}</p> : null}
         {coin && !err && !ready(p) ? <div className="ftd-load" aria-busy="true"><i /><i /><i /><span>opening the desk…</span></div> : null}
         <Suspense fallback={<div className="ftd-load" aria-busy="true"><i /><i /><i /><span>loading the chart…</span></div>}>
           {coin && ready(p) ? <div className="eco-chart ftd-chart"><TrenchChart key={p.pairAddress} pair={p} /></div> : null}
-          {!coin ? <div className="ftd-swap"><SwapWorkspace pair={null} feeAsset={(assets.data?.assets || []).find(a => a.id === 'fee')} feeAssets={assets.data?.assets || []} onWallet={() => {}} /></div> : null}
+          {!coin ? <div className="ftd-swap"><SwapWorkspace key={desk.n} pair={null} feeAsset={(assets.data?.assets || []).find(a => a.id === 'fee')} feeAssets={assets.data?.assets || []} onWallet={() => {}} /></div> : null}
         </Suspense>
       </div>
     </aside>

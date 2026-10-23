@@ -195,9 +195,9 @@ P. ✅ SHIPPED 2026-10-22 (Brain › 🎭 Prompts, `prompt_studio.py`, `ai_route
    exists: Brain › Models). AUTO-TUNE: when a model's graded record turns red (proof bench, NEXA's YES grades, duo totals), propose the prompt
    change that fixes its mindset, with the evidence; the owner applies. OSSY / G4 keep taking turns (one trade each, the holder runs it).
 F0. 🏙 FAMILIA = ITS OWN APP (owner, 2026-10-23, LOUD: "no redirects!! … fun and addicting, not sending ppl everywhere"), hardest → easiest:
-   1. PERPS ORDERS IN THE POP-OUT: pick a provider, size, long / short, and the order is made right in the building — for US users only through a
-      US-legal venue's official API on the user's own account (Kraken Pro / Coinbase, OAuth or user keys, never FEELESS custody) → owner + legal
-      sign-off first; the build after that is the provider SDK + guards + a LIT order ticket. Never an offshore venue for US users (rule 1c).
+   1. ✅ DECIDED + SHIPPED 2026-10-23 (docs/DECISIONS.md #1): PAPER PERPS in the building (`paper_perps.py`, `PaperPerps.jsx`, /dev/perps — real
+      mark, real funding, liquidation at the real distance) + "Take it real" → Kraken Pro / Coinbase on the user's own account. FEELESS never
+      places or routes a perps order (introducing-broker line). LATER: a venue's official partner API (OAuth) after a lawyer's read.
    2. ✅ SHIPPED 2026-10-23 — 🏘 TOWN PICKER (block page, Don / Underboss / creator, 6 of 8 tools: TT · Perps · Pools · Trade Center · Night Vault
       · Pump Radar · FeeCat · Rep market; `block_markets.town_set`, act tadd / tdel): each stands on the 3D block, tap → its REAL tool pops out
       over the block; the Family Deck lists the town first. ✅ 2026-10-23 late: every town sign carries its tool's live number (`town_live.py`).
@@ -233,7 +233,7 @@ A1. 🇺🇸 PERPS FOR US TRADERS (owner, 2026-10-23: "no Drift or Hyperliquid i
    FCM, BTC / ETH at launch); Hyperliquid = price / funding reference only. IN-APP perps orders for US users = the user's Kraken / Coinbase account
    through their official APIs (OAuth / user keys, never FEELESS custody) — an OWNER + LEGAL decision first (FEELESS would be routing orders on a
    regulated venue). Kalshi's BTC perps are another regulated option. Never wire an offshore venue for US users (rule 1c).
-A. 📉 PERPS IN THE POPOUT, NO REDIRECT: the Perps building trades in place — one tap picks the provider (Jupiter Perps · Drift · Hyperliquid…),
+A. ✅ = F0.1 (paper desk in the building + venue handoff, DECISIONS #1). Was: 📉 PERPS IN THE POPOUT, NO REDIRECT: the Perps building trades in place — one tap picks the provider (Jupiter Perps · Drift · Hyperliquid…),
    size from $5, long / short, live position + P&L in the building; the wallet signs; guards (memory: new buy doors need guards). ⚠ LEGAL: a
    venue that blocks the user's region stays blocked in-app too (rule 1c — never a geo-block loophole); show which providers serve the user.
 B. ✅ 2026-10-23 late — one STAKE picker ($5 · $100 · $1K, `lib/earnStake`) re-quotes every Pool Hall row (a day + a year) and the Perps desk
@@ -264,7 +264,10 @@ OPEN, hardest → easiest:
 00. ✅ 2026-10-23 late (all but one): NEXA fallback (FeeCat covers at half size) · NEXA prompts carry the trench laws + curve stage · agents hub
    (CatDesk + BrainPanel credit / spend / top-up) · fast cash audit + card P&L proven in $ (`cash-check.py` step 4: 144 / 144 sells) · every
    FEELESS fee in HQ › Core (house fees block) · HQ › Fuse rail decluttered 13 → 11 stops.
-0. 🐱 USER CAT AGENTS (owner, 2026-10-22 late; HARDEST, real money): users pick 1–2 cat AI agents — (a) DO-ANYTHING agents that act through
+0. ✅ DECIDED + SHIPPED 2026-10-23 (DECISIONS #2, option A): 💵 REAL MODE on a cat's desk (`cat_real.py`, `CatReal.jsx`, /dev/cats) — the cat
+   proposes each buy / exit to the user's wallet (≤ their per-buy budget, its paper record on every proposal, inbox alert, 15-min expiry);
+   ✍ Sign it opens the swap prefilled → the wallet signs (normal swap fee). FEELESS never holds a cat's SOL. LATER: option C (on-chain cat
+   program, audited) · do-anything agents. Was: 🐱 USER CAT AGENTS (owner, 2026-10-22 late; HARDEST, real money): users pick 1–2 cat AI agents — (a) DO-ANYTHING agents that act through
    FEELESS with their own wallet funds on the user's request (trade, Polymarket-style markets where legal, tasks), or (b) one of 2 TRADE-ONLY
    agents with lit features. The user sees their cat's BRAIN and talks to it; agents are PAID (pricing + custody = owner decision first,
    docs/REAL_CATS.md; every real-money action needs guards + the wallet signs). NEXA / OSSY / G4 stay OWNER-ONLY for now.
@@ -274,8 +277,8 @@ OPEN, hardest → easiest:
 0c. ✅ 2026-10-23 — feature gates use `_is_staff` (any linked wallet; guard test `test_staff_unlocks.py`). 0d. 🔥 More Pump coins on the intake.
 1d. ✂ CUT (Claude's audit 2026-10-22, owner to OK): the fake model catalog in /api/cats/brains (Claude / GPT / Grok rows that only run the rule
    engine) · family_world's drag-the-pizza ERRANDS + the MP store build catalog (the block is real markets now) · 4 ways to start services
-   (run-feeless.sh / start-backend.sh / background.sh / keep-alive — two watchers were running at once tonight) → ONE supervisor · cat /action
-   endpoints with no owner check (paper, still wrong) · split reputation_service.py (31K lines; tonight a new helper silently replaced a cache —
+   (run-feeless.sh / start-backend.sh / background.sh / keep-alive — two watchers were running at once tonight) → ONE supervisor · ✅ cat /action
+   owner check (2026-10-23: owner id or the internal key) · split reputation_service.py (31K lines; tonight a new helper silently replaced a cache —
    guarded now by tests/test_no_name_collisions.py).
 1e. 🏆 ELITE adds: CLMM range reads → exact "out of range by X %, re-center to A–B" errands · NEXA's FeeCat record vs the rule engine → she earns
    real money only after beating it in shadow · ✅ "YOUR MONEY" tower on FEELESS Avenue (`MyMoney.jsx`,
@@ -294,11 +297,11 @@ P0 — still open from the night list, in order
 1. 🧠 G4: 🪑 PROOF BENCH DONE 2026-10-22 (its last 209 FAVOR calls = −0.4 % median, 43 % up → OSSY opens real seats until G4's record turns).
    ✅ stall watchdog (2026-10-23: `model_desk.stall_of`, alert once / 30 min, 🩺 flag on Brain › Models; reload stays the owner's tap). Models tab BESIDE NEXA's chat (layout). Wire the trench theory into the deterministic agents only after a shadow test.
 2. 🐆 Sicario's seat board: DONE 2026-10-22 (the odd 3rd seat spans its row, hunting seat shows TURN / READY / REFUSED) — owner to confirm it was the screenshot's issue.
-3. 💎 ONE points system (season pts + MP + rep-market chips) usable everywhere (badge pools boost…) — an ECONOMY decision for the owner first
-   (rates, what converts to what). Real-USD rep market / Polymarket = owner + legal decision (prediction markets are regulated).
+3. ✅ DECIDED + SHIPPED 2026-10-23 (DECISIONS #3): season points = the ONE wallet currency (never bought, never cashed); points shop → your
+   family's bank (1 pt = 100 MP, ≤ 1,000 pts / week). No real-USD rep market / Polymarket (regulated).
 4. 🏦 A building ASSIGNED to a real position (pool / vault) that goes under construction when the wallet's on-chain balance is pulled — needs
    per-protocol balance reads (LP / receipt mints); MP-funded blocks already do it.
-5. Perps orders IN-APP (not just routed): each venue's SDK + guards (memory: new buy doors need guards) — owner's call. No geo-block loopholes, ever.
+5. ✅ = F0.1 (paper desk + venue handoff, DECISIONS #1). No geo-block loopholes, ever.
 6. 🗂 Desktop clean-up — confirm the folder list with the owner first (never images).
 NOTE: merging into main LOCALLY means auto-pull never restarts the backend — after a backend push, restart reputation_service via the watcher
 (memory: restart-from-claude-tree).
@@ -320,5 +323,6 @@ P3 — AI / BRAIN: ✅ done 2026-10-22 (chat line → rig proposals, LM Studio r
 P4 — HQ: ✅ dead clicks (2026-10-23: the 9 HQ › Bugs reports read — 2 real overlaps fixed in Familia's room pop-out, the rest predated
    their fixes; a covered-button audit of every main page came back clean) · Lag catcher + Support clean-up · vault /
    pool pair builder live visual · Agents rebuild only after `scripts/edge-audit.py` numbers.
-P5 — OWNER DECISIONS (blocking): CUSTODY pick for family wallets, real-money cats, top-pot Fuse ($1K+) — `docs/REAL_CATS.md` · LP SDK deposits.
+P5 — ✅ DECIDED 2026-10-23 on the owner's go (`docs/DECISIONS.md`, a lawyer should still read it): no custody anywhere (no pooled family
+   wallet, no top-pot held by FEELESS) · real cats = option A (wallet signs) · block readers only after a real-account layout check.
 P6 — IDEAS: FeeCat + AI agent pair that talk · "build a better coin" track in Lag catcher.

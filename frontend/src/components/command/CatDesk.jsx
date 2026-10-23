@@ -10,7 +10,8 @@ import '../../styles/catDesk.css';
 // sidebar, a thin sparkline, a disclosure paragraph). Now: the cat on its own violet stage (it purrs while it hunts, pounces while it holds,
 // sleeps when stopped), live vitals as meters (balance vs start, realized, a win ring, slots, TODAY'S LOSS against its daily cap), the P/L curve
 // drawn big, each open position as a lit row with a diverging move bar (tap = its war room), what it learned, its brains, and its limits as
-// meters you drag. Paper only — nothing here signs or moves SOL. `Activity`, `BrainPanel`, `EngineLine` come from the agents page.
+// meters you drag. The desk itself never signs or moves SOL; `Real` (CatReal.jsx) turns its buys into proposals YOUR wallet signs.
+// `Activity`, `BrainPanel`, `EngineLine`, `Real` come from the agents page.
 const sol = v => `${(Number(v) || 0) >= 0 ? '+' : '−'}${Math.abs(Number(v) || 0).toFixed(4)}`;
 const short = v => (v ? `${v.slice(0, 5)}…${v.slice(-4)}` : '—');
 const RC = 2 * Math.PI * 24;
@@ -40,7 +41,8 @@ function Tile({ k, label, value, sub, fill, tone, tip, children }) {
     {fill != null ? <u aria-hidden="true"><s style={{ transform: `scaleX(${Math.max(0.02, Math.min(1, fill))})` }} /></u> : null}{sub ? <small>{sub}</small> : null}{children}</div>;
 }
 
-export function CatDesk({ cat, busy = false, error = '', onBack, onAct, Activity = null, Brains = null, Engine = null }) {
+export function CatDesk({ cat, busy = false, error = '', onBack, onAct, Activity = null, Brains = null, Engine = null, Real = null }) {
+  const isReal = cat.mode === 'real' && !!cat.realWallet;
   const v = useMemo(() => deskVitals(cat), [cat]); const cv = useMemo(() => curveOf(cat?.pnlHistory), [cat?.pnlHistory]);
   const r = cat.risk || {};
   const [lim, setLim] = useState(() => ({ maxPositionSol: r.maxPositionSol, maxDailyLossSol: r.maxDailyLossSol, allowlist: (r.allowlist || []).join(', '), blocklist: (r.blocklist || []).join(', ') }));
@@ -79,6 +81,7 @@ export function CatDesk({ cat, busy = false, error = '', onBack, onAct, Activity
     </div>
     <div className="kd-grid">
       <div className="kd-main">
+        {Real}
         <section className="kd-card kd-curve" data-testid="kd-curve"><header><b>📈 P/L CURVE</b><small>{(cat.pnlHistory || []).length} cycles · realized + open</small></header>
           <svg viewBox="0 0 100 40" preserveAspectRatio="none" className={cv.up ? 'up' : 'dn'} aria-label="Profit and loss over its cycles"><defs><linearGradient id="kdArea" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stopColor="currentColor" stopOpacity=".35" /><stop offset="1" stopColor="currentColor" stopOpacity="0" /></linearGradient></defs>
             <line x1="0" x2="100" y1={cv.zero} y2={cv.zero} className="z" /><path d={cv.area} fill="url(#kdArea)" /><path d={cv.line} className="l" /></svg>
@@ -110,7 +113,8 @@ export function CatDesk({ cat, busy = false, error = '', onBack, onAct, Activity
             <button type="button" className="m-btn" disabled={busy} onClick={() => onAct('withdraw', { amount: amt || v.bal })} data-testid="kd-withdraw">Withdraw</button></div></section>
         <section className="kd-card kd-revoke"><header><b>🔒 RETIRE IT</b><small>stops it for good · frees a slot</small></header>
           <button type="button" className="m-btn kd-danger" disabled={busy || cat.revoked} onClick={() => window.confirm(`Retire ${cat.name} for good? It never trades again.`) && onAct('revoke')} data-testid="kd-revoke">{cat.revoked ? 'Retired' : 'Retire agent'}</button></section>
-        <p className="kd-paper" data-tip="Every entry and exit uses the real live price at that moment; balances are simulated and no key lives in the browser">🧪 PAPER · live prices · no real SOL</p>
+        <p className={`kd-paper${isReal ? ' is-real' : ''}`} data-tip={isReal ? 'Its own ledger stays paper (its record); every real trade is a proposal your wallet signs' : 'Every entry and exit uses the real live price at that moment; balances are simulated and no key lives in the browser'}>
+          {isReal ? '💵 REAL · it proposes · your wallet signs' : '🧪 PAPER · live prices · no real SOL'}</p>
       </aside>
     </div>
   </section>;

@@ -5895,3 +5895,8 @@ NOT DONE / NEXT: (1) re-run the exit report split before/after 12:12 and 13:05 (
 tell the owner the numbers first; (2) find an entry reading that predicts a RED START (26% won vs 68% green) — none separated yet;
 (3) G4 (desktop LAN) answered WAIT 70× in 6h — check its packet / candidate list isn't empty after the gun-line filter.
 Restart rule: check no `pending` in fuse_wallet.db books, then START THE WATCHER FROM CLAUDE (its own session: `/usr/bin/python3 -c 'import os; os.setsid(); os.execvp("bash", ["bash","scripts/background.sh","start"])'`), THEN `kill` the service PID — that watcher restarts it; confirm count = 1. (2026-10-22: a restart through the old Oct-15 watcher came back WITHOUT macOS Local Network access → G4 + NEXA OFFLINE, "this Mac blocked the local network for the backend".)
+- 🧭 THE OPEN DECISIONS, MADE (2026-10-23, owner: "you got my ok and do all decisions") — `docs/DECISIONS.md`: perps = PAPER desk in the Perps
+  building (`paper_perps.py`, `PaperPerps.jsx`) + venue handoff, FEELESS never routes an order · points = one currency, 1 pt → 100 MP into your
+  family (≤ 1,000 / week), no real-USD rep market · no pooled custody anywhere · block readers only after a real-account layout check ·
+  💵 REAL-MONEY CATS option A: `cat_real.py` + `CatReal.jsx` — the cat proposes, the user's wallet signs each swap (prefilled amount; sells by %),
+  inbox alert, 15-min expiry, its paper record on every proposal; cat /action now owner-only (or the internal key). Previews /dev/perps · /dev/cats.

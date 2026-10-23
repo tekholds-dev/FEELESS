@@ -3,11 +3,12 @@ import { sweepable } from './cacheSweep';
 
 // Sign once, chat for 7 days. The token lives only in this browser for this wallet.
 const key = address => `feeless:chat-session:${address}`;
-export function readChatSession(address) {
+export function readChatSession(address, ownOnly = false) {   // ownOnly: this wallet's own session (a real cat must be signed by the wallet it trades for)
   const ok = s => s && s.expiresAt * 1000 > Date.now() + 60000;
   try {
     const own = JSON.parse(localStorage.getItem(key(address)) || 'null');
     if (ok(own)) return own.token;
+    if (ownOnly) return null;
     // A session signed by a linked account (other network) is valid too — the server checks the link.
     for (let i = 0; i < localStorage.length; i++) {
       const k = localStorage.key(i);
@@ -19,8 +20,8 @@ export function readChatSession(address) {
 export function clearChatSession(address) { try { localStorage.removeItem(key(address)); } catch { /* ignore */ } }
 const checked = sweepable('chatSession', new Map(), { max: 20 });
 // One signature, reused everywhere (chat, DMs, follows, rewards, shop) for 7 days and across linked networks.
-export async function getChatSession(address, signMessage) {
-  const cached = readChatSession(address);
+export async function getChatSession(address, signMessage, { own = false } = {}) {
+  const cached = readChatSession(address, own);
   if (cached) {
     if (!checked.has(cached)) checked.set(cached, fetch(apiUrl(`/api/reputation/chat/session/check?address=${address}&session=${encodeURIComponent(cached)}`)).then(r => r.json()).then(d => d.valid).catch(() => true));
     if (await checked.get(cached)) return cached;

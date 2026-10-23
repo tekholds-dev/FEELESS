@@ -85,7 +85,8 @@ export const SwapWorkspace = ({ pair, feeAsset, feeAssets = [], feeCat, onWallet
   // Coins picked elsewhere on the page (Top 10 on Pump) load into the receive side.
   useEffect(() => {   // 🏙 a family-block errand ("JupSOL pays more than your JitoSOL — switch?") hands over both coins; you still press Get quote
     try { const p = JSON.parse(sessionStorage.getItem('feeless.swap.pair') || 'null'); sessionStorage.removeItem('feeless.swap.pair');
-      if (p?.input && p?.output) { setInputMint(p.input); setOutputMint(p.output); } } catch { /* storage blocked */ }
+      if (p?.input && p?.output) { setInputMint(p.input); setOutputMint(p.output); }
+      if (Number(p?.amount) > 0) setAmount(String(p.amount)); else if (Number(p?.pct) > 0) pendingPct.current = Math.min(1, Number(p.pct)); } catch { /* storage blocked */ }
   }, []);   // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => {
     const onPick = e => { const t = e.detail; if (!t?.mint) return; addFound(t); setOutputMint(t.mint); setOrder(null); };
@@ -113,6 +114,7 @@ export const SwapWorkspace = ({ pair, feeAsset, feeAssets = [], feeCat, onWallet
   const outputAsset = options.find(asset => asset.mint === outputMint) || options[1] || solAsset;
   const chain = pair?.chainId || inputAsset.chain || outputAsset.chain || 'solana';
   const [amount, setAmount] = useDraft('swap-amount', '0.01');
+  const pendingPct = useRef(0);
   const [slippage, setSlippage] = useState('50'); const [order, setOrder] = useState(null);
   const [busy, setBusy] = useState(false); const [message, setMessage] = useState(''); const [review, setReview] = useState(false);
   const [result, setResult] = useState(null); const [tl, setTl] = useState(null); const [recoveryUnavailable, setRecoveryUnavailable] = useState(false); const lock = useRef(false); const recoveredOrder = useRef(null); const now = useClock();
@@ -203,6 +205,10 @@ export const SwapWorkspace = ({ pair, feeAsset, feeAssets = [], feeCat, onWallet
     }
   }, [selectedPairAsset?.mint, feeAsset?.mint, options, outputMint, inputMint]);
   const payHolding = holdings.find(h => h.mint === inputMint);   // after inputMint is declared
+  useEffect(() => {   // 🐱 a real cat's sell proposal ("sell 50 % of your $X") becomes an amount once your balance of that coin is read
+    if (!pendingPct.current || !payHolding) return;
+    setAmount(String(Math.floor(Number(payHolding.amount) * pendingPct.current * 1e6) / 1e6)); pendingPct.current = 0;
+  }, [payHolding]);   // eslint-disable-line react-hooks/exhaustive-deps
   // Same reserve as the server: a SOL-paid trade keeps ~0.0045 SOL for network fees + temporary rent.
   const SOL_RESERVE = 0.0045;
   const spendable = payHolding ? Math.max(0, Number(payHolding.amount) - (inputMint === SOL ? SOL_RESERVE : 0)) : null;

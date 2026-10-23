@@ -12,9 +12,12 @@ import { LookAvatar, LookPicker, DEFAULT_LOOK } from './CatLook';
 import { readMyCat } from '../../lib/myCat';
 import { EngineLine } from './CatBrainSwitch';
 import { CatDesk } from './CatDesk';
+import { CatReal } from './CatReal';
 import { AgentPicker, AGENT_MAX } from './AgentPicker';
 const OWNER_KEY = 'feeless-paper-owner';
 const api = async (path, options = {}) => {
+  // 🔒 every cat action carries this browser's owner id (the service refuses anyone else's cat)
+  if (/\/action$/.test(path) && options.body) options = { ...options, body: JSON.stringify({ ...JSON.parse(options.body), ownerId: ownerId() }) };
   const response = await fetch(path, { headers: { 'Content-Type': 'application/json', ...(options.headers || {}) }, ...options });
   const body = await response.json().catch(() => ({}));
   if (!response.ok) throw new Error(body.detail || body.error || 'Paper agent request failed.');
@@ -144,7 +147,7 @@ function CatDetail({ cat: initialCat, onBack, onChanged }) {
     return () => clearInterval(interval);
   }, [initialCat.id]); // eslint-disable-line react-hooks/exhaustive-deps
   const act = async (action, extra = {}) => { setError(''); setBusy(true); try { const result = await api(`/api/cats/${cat.id}/action`, { method: 'POST', body: JSON.stringify({ action, ...extra }) }); setCat(result.cat); onChanged?.(result.cat); } catch (requestError) { setError(requestError.message); } setBusy(false); };
-  return <CatDesk cat={cat} busy={busy} error={error} onBack={onBack} onAct={act} Engine={<EngineLine />}
+  return <CatDesk cat={cat} busy={busy} error={error} onBack={onBack} onAct={act} Engine={<EngineLine />} Real={cat.isLeader ? null : <CatReal cat={cat} busy={busy} onAct={act} />}
     Brains={cat.brainsCfg ? <BrainPanel cat={cat} api={api} onChanged={brainChanged} /> : null} Activity={<ActivityFeed catId={cat.id} />} />;
 }
 

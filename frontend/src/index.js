@@ -50,6 +50,8 @@ if (process.env.NODE_ENV === 'development' && window.location.pathname === '/dev
   import('./dev/PoolsHarness').then(m => root.render(<m.default />));
 } else if (process.env.NODE_ENV === 'development' && window.location.pathname === '/dev/brain') {   // 🧪 the Brain + LM Studio rig on fixtures (src/dev/BrainHarness.jsx)
   import('./dev/BrainHarness').then(m => root.render(<m.default />));
+} else if (process.env.NODE_ENV === 'development' && window.location.pathname === '/dev/cats') {   // 🧪 one agent's desk + REAL MODE proposals on a fixture cat (src/dev/CatHarness.jsx)
+  import('./dev/CatHarness').then(m => root.render(<m.default />));
 } else if (process.env.NODE_ENV === 'development' && window.location.pathname === '/dev/perps') {   // 🧪 the Perps money read + paper desk on fixtures (src/dev/PerpsHarness.jsx)
   import('./dev/PerpsHarness').then(m => root.render(<m.default />));
 } else if (process.env.NODE_ENV === 'development' && window.location.pathname === '/dev/money') {   // 🧪 the YOUR MONEY room on fixtures (src/dev/MoneyHarness.jsx)
