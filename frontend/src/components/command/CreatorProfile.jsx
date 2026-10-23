@@ -9,7 +9,7 @@ import { shortAddress } from '../../lib/dexscreener';
 import { useWallet } from '../../hooks/useWallet';
 
 const ICON = { trusted: ShieldCheck, building: Shield, unproven: ShieldQuestion, flagged: ShieldAlert };
-const BADGE_COLOR = { risky: '#ff9f45', trusted: '#15d16a', building: '#9bd6aa', unproven: '#899b93', flagged: '#fa708c', veteran: '#f5c542' };
+const BADGE_COLOR = { risky: '#ff9f45', trusted: '#15d16a', building: '#9bd6aa', unproven: '#929292', flagged: '#fa708c', veteran: '#f5c542' };
 
 export const timeAgo = seconds => {
   if (!seconds) return 'just now';
@@ -25,7 +25,7 @@ export const copyText = async (text, message) => {
 };
 
 function ScoreGauge({ score, badge, size = 92 }) {
-  const color = BADGE_COLOR[badge] || '#899b93';
+  const color = BADGE_COLOR[badge] || '#929292';
   const r = (size - 10) / 2;
   const circumference = 2 * Math.PI * r;
   const has = score != null && Number.isFinite(Number(score));
@@ -36,7 +36,7 @@ function ScoreGauge({ score, badge, size = 92 }) {
       strokeDasharray={circumference} strokeDashoffset={offset}
       transform={`rotate(-90 ${size / 2} ${size / 2})`} style={{ filter: `drop-shadow(0 0 6px ${color}70)`, transition: 'stroke-dashoffset .6s ease' }} />
     <text x="50%" y="46%" textAnchor="middle" dominantBaseline="middle" fill="#edf3ef" fontSize={size * 0.24} fontWeight="700" fontFamily="'JetBrains Mono',monospace">{has ? score : '—'}</text>
-    <text x="50%" y="66%" textAnchor="middle" dominantBaseline="middle" fill="#8ca394" fontSize={size * 0.1}>{has ? '/ 100' : 'no score'}</text>
+    <text x="50%" y="66%" textAnchor="middle" dominantBaseline="middle" fill="#989898" fontSize={size * 0.1}>{has ? '/ 100' : 'no score'}</text>
   </svg>;
 }
 

@@ -498,8 +498,8 @@ export default function Globe3D({ onSelect, onToken, selectedId, size = 640 }) {
           labelResolution={2}
           onLabelClick={p => onSelect?.(p.id)}
            pointLabel={p => p.isToken
-            ? `<div class="globe-point-tooltip" style="padding:7px 10px;background:#0a0f0d;border:1px solid ${p.color};border-radius:8px;color:#fff;font-family:sans-serif;font-size:12px;box-shadow:0 0 12px ${p.color}80;"><b>${escapeHtml(p.token.symbol)}</b> · ${escapeHtml(p.token.chain)}<br/>${fmtCap(p.token.marketCap)} ${p.token.mcKind === 'FDV' ? 'FDV' : 'MC'}${Number.isFinite(Number(p.token.change24h)) ? ` · ${Number(p.token.change24h) >= 0 ? '+' : ''}${Number(p.token.change24h).toFixed(1)}% 24h` : ''}</div>`
-            : `<div class="globe-point-tooltip" style="padding:6px 10px;background:#0a0f0d;border:1px solid ${p.color};border-radius:8px;color:#fff;font-family:sans-serif;font-size:12px;box-shadow:0 0 12px ${p.color}80;">${p.name} · ${p.symbol}</div>`}
+            ? `<div class="globe-point-tooltip" style="padding:7px 10px;background:#0c0c0c;border:1px solid ${p.color};border-radius:8px;color:#fff;font-family:sans-serif;font-size:12px;box-shadow:0 0 12px ${p.color}80;"><b>${escapeHtml(p.token.symbol)}</b> · ${escapeHtml(p.token.chain)}<br/>${fmtCap(p.token.marketCap)} ${p.token.mcKind === 'FDV' ? 'FDV' : 'MC'}${Number.isFinite(Number(p.token.change24h)) ? ` · ${Number(p.token.change24h) >= 0 ? '+' : ''}${Number(p.token.change24h).toFixed(1)}% 24h` : ''}</div>`
+            : `<div class="globe-point-tooltip" style="padding:6px 10px;background:#0c0c0c;border:1px solid ${p.color};border-radius:8px;color:#fff;font-family:sans-serif;font-size:12px;box-shadow:0 0 12px ${p.color}80;">${p.name} · ${p.symbol}</div>`}
           onPointClick={p => { if (p.isToken) openToken(p.token); else onSelect?.(p.id); }}
           onPointHover={p => document.body.style.cursor = p ? 'pointer' : 'default'}
           ringsData={rings}
@@ -513,7 +513,7 @@ export default function Globe3D({ onSelect, onToken, selectedId, size = 640 }) {
           objectAltitude={0.012}
           objectThreeObject={globeObject}
           objectFacesSurface
-          objectLabel={p => p.isNode ? `<div class="globe-point-tooltip" style="padding:7px 10px;background:#0a0f0d;border:1px solid ${p.color};border-radius:8px;color:#fff;font-family:sans-serif;font-size:12px;"><b>${escapeHtml(p.name)}</b><br/>Click to open its war room</div>` : `<div class="globe-point-tooltip" style="padding:7px 10px;background:#0a0f0d;border:1px solid ${p.color};border-radius:8px;color:#fff;font-family:sans-serif;font-size:12px;box-shadow:0 0 12px ${p.color}80;"><b>${escapeHtml(p.token.symbol)}</b> · ${escapeHtml(p.token.chain)}<br/>${fmtCap(p.token.marketCap)} ${p.token.mcKind === 'FDV' ? 'FDV' : 'MC'}${Number.isFinite(Number(p.token.change24h)) ? ` · ${Number(p.token.change24h) >= 0 ? '+' : ''}${Number(p.token.change24h).toFixed(1)}% 24h` : ''}</div>`}
+          objectLabel={p => p.isNode ? `<div class="globe-point-tooltip" style="padding:7px 10px;background:#0c0c0c;border:1px solid ${p.color};border-radius:8px;color:#fff;font-family:sans-serif;font-size:12px;"><b>${escapeHtml(p.name)}</b><br/>Click to open its war room</div>` : `<div class="globe-point-tooltip" style="padding:7px 10px;background:#0c0c0c;border:1px solid ${p.color};border-radius:8px;color:#fff;font-family:sans-serif;font-size:12px;box-shadow:0 0 12px ${p.color}80;"><b>${escapeHtml(p.token.symbol)}</b> · ${escapeHtml(p.token.chain)}<br/>${fmtCap(p.token.marketCap)} ${p.token.mcKind === 'FDV' ? 'FDV' : 'MC'}${Number.isFinite(Number(p.token.change24h)) ? ` · ${Number(p.token.change24h) >= 0 ? '+' : ''}${Number(p.token.change24h).toFixed(1)}% 24h` : ''}</div>`}
           onObjectClick={p => { if (p.isNode) onSelect?.(p.id); else openToken(p.token); }}
           onObjectHover={p => { document.body.style.cursor = p ? 'pointer' : 'default'; }}
           htmlElementsData={bubbles}

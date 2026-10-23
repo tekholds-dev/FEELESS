@@ -16,7 +16,7 @@
 .mdk-vh img, .mdk-av { width: 24px; height: 24px; border-radius: 50%; object-fit: cover; box-shadow: 0 0 0 1.5px color-mix(in srgb, var(--c) 60%, transparent); }
 .mdk-av { display: grid; place-items: center; font: 900 11px var(--m-mono); font-style: normal; color: #1a1200; background: var(--nx); }
 .mdk-vh b { font: 900 12px var(--m-mono); letter-spacing: .08em; color: var(--c); } .mdk-vh small { font: 600 9px var(--m-mono); color: var(--m-mute); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.mdk-dot { width: 8px; height: 8px; border-radius: 50%; background: #5a6a62; } .mdk-dot.is-on { background: #15d16a; box-shadow: 0 0 8px #15d16a; animation: mdkBlink 2.4s ease-in-out infinite; }
+.mdk-dot { width: 8px; height: 8px; border-radius: 50%; background: #626262; } .mdk-dot.is-on { background: #15d16a; box-shadow: 0 0 8px #15d16a; animation: mdkBlink 2.4s ease-in-out infinite; }
 .mdk-q { font: 800 8px var(--m-mono); text-decoration: none; padding: 2px 6px; border-radius: 6px; background: color-mix(in srgb, var(--c) 25%, transparent); color: var(--m-text); animation: mdkBlink 1.4s ease-in-out infinite; }
 .mdk-vb { display: grid; grid-template-columns: 58px minmax(0, 1fr); gap: 9px; align-items: center; }
 .mdk-ring { --p: 0; position: relative; width: 58px; height: 58px; border-radius: 50%; display: grid; place-content: center; text-align: center;
@@ -81,8 +81,8 @@ body.fx-lite .mdk-vc, body.fx-lite .mdk-vc::after, body.fx-lite .mdk-dot.is-on, 
 @media (prefers-reduced-motion: reduce) { .mdk *, .mdk *::after, .mdk-vc::after { animation: none !important; } .mdk-vc, .mdk-bar s { transition: none; } }
 body.theme-day .mdk-vc, body.theme-day .mdk-panel { background: linear-gradient(160deg, color-mix(in srgb, var(--c) 10%, #fff), #ffffff 65%); }
 body.theme-day .mdk-ring::before { background: #fff; } body.theme-day .mdk-kv div, body.theme-day .mdk-knob, body.theme-day .mdk-ctx { background: rgba(255, 255, 255, .8); border-color: rgba(13, 106, 53, .12); }
-body.theme-day .mdk-kv dd, body.theme-day .mdk-bar b, body.theme-day .mdk-ring b, body.theme-day .mdk-ph span, body.theme-day .mdk-sys p, body.theme-day .mdk-seg button { color: #181e1b; }
-body.theme-day .mdk-srv.is-ok b { color: #0d8a43; } body.theme-day .mdk-srv b { color: #b3263f; } body.theme-day .mdk-srv small, body.theme-day .mdk-note { color: #47524d; }
+body.theme-day .mdk-kv dd, body.theme-day .mdk-bar b, body.theme-day .mdk-ring b, body.theme-day .mdk-ph span, body.theme-day .mdk-sys p, body.theme-day .mdk-seg button { color: #1b1b1b; }
+body.theme-day .mdk-srv.is-ok b { color: #0d8a43; } body.theme-day .mdk-srv b { color: #b3263f; } body.theme-day .mdk-srv small, body.theme-day .mdk-note { color: #4d4d4d; }
 body.theme-day .mdk-vh b, body.theme-day .mdk-ph b, body.theme-day .mdk-ctx b { filter: brightness(.6); text-shadow: none; } body.theme-day .mdk-tools b { color: #1279a8; }
 @media (max-width: 640px) { .mdk-vit { grid-template-columns: 1fr; } .mdk-knobs { grid-template-columns: 1fr; } .mdk-kv { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 /* 🩺 the stall watchdog's flag on a model card (detection only — the reload stays the owner's tap) */

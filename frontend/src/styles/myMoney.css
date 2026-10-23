@@ -13,7 +13,7 @@
 .ym-total { display: grid; gap: 3px; padding-bottom: 6px; } .ym-total em { font: 800 8.5px 'JetBrains Mono', monospace; font-style: normal; letter-spacing: .2em; color: #8fe5b2; }
 .ym-total b { font: 900 34px 'JetBrains Mono', monospace; color: #e9fff2; text-shadow: 0 0 18px rgba(21, 209, 106, .55); animation: ymIn .35s ease-out; }
 .ym-total small { font: 700 10.5px 'JetBrains Mono', monospace; color: #9fb5a8; }
-.ym-legend { display: flex; flex-wrap: wrap; gap: 4px 10px; font: 600 9.5px 'JetBrains Mono', monospace; font-style: normal; color: #8fa496; }
+.ym-legend { display: flex; flex-wrap: wrap; gap: 4px 10px; font: 600 9.5px 'JetBrains Mono', monospace; font-style: normal; color: #9a9a9a; }
 .ym-legend u { display: inline-block; width: 9px; height: 9px; margin-right: 4px; border-radius: 2px; vertical-align: -1px; background: #45e486; } .ym-legend u.dn { background: #ff8fa3; } .ym-legend u.gold { background: #ffd36b; }
 .ym-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
 .ym-list li { display: grid; grid-template-columns: 28px minmax(0, 1.2fr) minmax(60px, 1fr) auto auto; align-items: center; gap: 10px; padding: 7px 10px; border-radius: 12px;
@@ -21,13 +21,13 @@
 .ym-list li.is-market { border-color: rgba(255, 211, 107, .3); }
 .ym-list img, .ym-dot { width: 26px; height: 26px; border-radius: 50%; object-fit: cover; background: #15d16a; } .ym-list li.is-market .ym-dot { background: #ffd36b; }
 .ym-id { display: grid; min-width: 0; } .ym-id b { font: 800 13px 'JetBrains Mono', monospace; color: #e9fff2; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.ym-id small { font: 600 9.5px 'JetBrains Mono', monospace; color: #8fa496; }
+.ym-id small { font: 600 9.5px 'JetBrains Mono', monospace; color: #9a9a9a; }
 .ym-share { height: 5px; border-radius: 5px; background: rgba(255, 255, 255, .06); overflow: hidden; } .ym-share s { display: block; height: 100%; background: #45e486; transform-origin: left; transition: transform .5s ease; }
 .ym-list li.is-market .ym-share s { background: #ffd36b; }
 .ym-usd { font: 900 14px 'JetBrains Mono', monospace; color: #45e486; } .ym-list li.is-market .ym-usd { color: #ffd36b; }
 .ym-go { min-height: 32px; padding: 0 10px; } .ym-tag { font: 700 9px 'JetBrains Mono', monospace; color: #c9a24a; }
-.ym-foot { margin: 0; font: 600 10px 'JetBrains Mono', monospace; color: #8fa496; }
-.ym-load { display: flex; align-items: center; gap: 6px; padding: 24px; color: #8fa496; font: 600 11px 'JetBrains Mono', monospace; }
+.ym-foot { margin: 0; font: 600 10px 'JetBrains Mono', monospace; color: #9a9a9a; }
+.ym-load { display: flex; align-items: center; gap: 6px; padding: 24px; color: #9a9a9a; font: 600 11px 'JetBrains Mono', monospace; }
 .ym-load i { width: 8px; height: 8px; border-radius: 50%; background: #45e486; animation: ymBeat 1s ease-in-out infinite; } .ym-load i:nth-child(2) { animation-delay: .15s; } .ym-load i:nth-child(3) { animation-delay: .3s; }
 @keyframes ymRise { from { opacity: 0; transform: scaleY(.2); } }
 @keyframes ymIn { from { opacity: 0; transform: translateY(5px); } }

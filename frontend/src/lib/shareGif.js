@@ -77,7 +77,7 @@ function drawFuseCard(g, fz, imgs, t) {
   const a1 = fz.accent || '#15d16a', a2 = fz.accent2 || '#0b7a3e';
   g.save(); g.translate(cx, cy + 4 * Math.sin(t * T)); g.rotate(0.035 * Math.sin(t * T)); g.translate(-cw / 2, -ch / 2);
   g.shadowColor = a1; g.shadowBlur = 26 + 10 * Math.sin(t * T * 2);
-  const bg = g.createLinearGradient(0, 0, cw, ch); bg.addColorStop(0, '#0b0f0c'); bg.addColorStop(1, '#050706');
+  const bg = g.createLinearGradient(0, 0, cw, ch); bg.addColorStop(0, '#0d0d0d'); bg.addColorStop(1, '#050706');
   g.fillStyle = bg; g.beginPath(); g.roundRect(0, 0, cw, ch, 16); g.fill(); g.shadowBlur = 0;
   const ed = g.createLinearGradient(0, 0, cw, ch); ed.addColorStop(0, a1); ed.addColorStop(1, a2); g.strokeStyle = ed; g.lineWidth = 3; g.stroke();
   g.save(); g.beginPath(); g.roundRect(0, 0, cw, ch, 16); g.clip();           // sheen sweeping across the face

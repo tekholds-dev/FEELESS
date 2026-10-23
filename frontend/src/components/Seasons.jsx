@@ -21,7 +21,7 @@ function ReservePot({ address }) {
     <span>{r.me ? <>your {r.me.tier} badge ≈ <em>{r.me.sol} SOL</em> ({r.me.sharePct}%)</> : `split by tier across ${r.wallets} wallets · reach Bronze to earn`}</span></div>;
 }
 
-const TIER_COLOR = { Recruit: '#8fa89a', Bronze: '#d08a4e', Silver: '#cfd8dc', Gold: '#f5c542', Diamond: '#7cc8ff', Legend: '#ff5ad1' };
+const TIER_COLOR = { Recruit: '#9c9c9c', Bronze: '#d08a4e', Silver: '#cfd8dc', Gold: '#f5c542', Diamond: '#7cc8ff', Legend: '#ff5ad1' };
 const HOW = [['📣', 'Sharp calls', '+100 for each Call Ledger call that reaches 2×'], ['🚩', 'Rug reports', '+25 per sniper/bundler you flag first (proof required, max 100 per coin)'], ['💎', 'Hold $FEE', '+20 a day while you hold $1+ of $FEE'], ['🔥', 'Show up', 'Daily check-in +10 (+5 per streak day), post +5, invites +75, profile +50'], ['🧹', 'Stay clean', 'Blocklisted wallets score zero — sniping or bundling ends your season']];
 
 // How points turn into rewards. Mirrors the server rules exactly; keep in sync with _distribute_drops.

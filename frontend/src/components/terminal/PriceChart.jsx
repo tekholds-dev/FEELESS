@@ -174,7 +174,7 @@ export const PriceChart = ({ pair, interval, showVolume, metric = 'price', marke
       autoSize: true,
       layout: {
         background: { type: ColorType.Solid, color: bgOn ? 'transparent' : dayMode ? '#edf4ef' : '#080e0d' },   /* 🎨 a picked scene shows through */
-        textColor: dayMode ? '#315b43' : '#8c9b94',
+        textColor: dayMode ? '#464646' : '#939393',
         fontFamily: 'JetBrains Mono',
         fontSize: 10,
         attributionLogo: true,
@@ -183,8 +183,8 @@ export const PriceChart = ({ pair, interval, showVolume, metric = 'price', marke
         vertLines: { color: dayMode ? '#d8e8dc' : '#ffffff04' },
         horzLines: { color: dayMode ? '#d8e8dc' : '#ffffff06' },
       },
-      rightPriceScale: { borderColor: dayMode ? '#aac7b3' : '#203129' },
-      timeScale: { borderColor: dayMode ? '#aac7b3' : '#203129', timeVisible: true, secondsVisible: false, maxBarSpacing: 14, rightOffset: 4 },
+      rightPriceScale: { borderColor: dayMode ? '#aac7b3' : '#282828' },
+      timeScale: { borderColor: dayMode ? '#aac7b3' : '#282828', timeVisible: true, secondsVisible: false, maxBarSpacing: 14, rightOffset: 4 },
       localization: { locale: 'en-US', priceFormatter: n => formatUSD(n) }, crosshair: { mode: 0 },
     });
     // Price precision sized to the coin: sub-cent memecoins need 6–10 decimals or every axis tick reads $0.00.
