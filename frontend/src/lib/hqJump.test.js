@@ -1,7 +1,7 @@
 import { HQ_JUMPS, jumpSearch } from './hqJump';
 
 test('wallet profiles is the first hit for the words an owner types', () => {
-  ['profiles', 'wallet profiles', 'pfp', 'circle profile'].forEach(q => expect(jumpSearch(q)[0].panel).toBe('profiles'));
+  ['profiles', 'wallet profiles', 'pfp', 'circle profile'].forEach(q => expect(jumpSearch(q)[0].panel).toBe('wallet'));
 });
 test('every typed word must match; empty finds nothing; tabs passed in are searchable', () => {
   expect(jumpSearch('')).toEqual([]);

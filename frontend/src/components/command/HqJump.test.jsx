@@ -13,7 +13,7 @@ test('typing "profiles" + Enter jumps to the wallet profiles panel', async () =>
   const onGo = jest.fn(), el = await mount(TABS, onGo); const input = await type(el, 'profiles');
   expect(list(el).textContent).toMatch(/Wallet profiles/);
   await act(async () => { input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true })); });
-  expect(onGo).toHaveBeenCalledWith(expect.objectContaining({ tab: 'fuse', panel: 'profiles' }));
+  expect(onGo).toHaveBeenCalledWith(expect.objectContaining({ tab: 'fuse', panel: 'wallet' }));
   expect(list(el)).toBeNull();
 });
 test('a plain tab is found by its label and clicked; no match says so', async () => {

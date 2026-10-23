@@ -2,7 +2,7 @@
 // `view` = a Money view. Tabs themselves are added by the caller (their labels live in HqDeck).
 export const HQ_JUMPS = [
   { label: "🎩 Sicario's", words: 'sicario sicarios agents agent desk tally sherlock trigger devil learn trade trench 5 min ai bots live board lens learning survival control office ideas', tab: 'agents' },
-  { label: '🪪 Wallet profiles', words: 'circle wallet profile name picture pfp bio edit search wallets', tab: 'fuse', panel: 'profiles' },
+  { label: '🪪 Wallet profiles', words: 'circle wallet profile name picture pfp bio edit search wallets', tab: 'fuse', panel: 'wallet' },   // profiles live under the Fuse wallet stop (2026-10-23 declutter)
   { label: '👛 Fuse wallet', words: 'fuse wallet real money arm kill limits top up dry run audit deposit keeper', tab: 'fuse', panel: 'wallet' },
   { label: '🔑 RPC keys', words: 'rpc key lane quota helius quicknode alchemy endpoint', tab: 'fuse', panel: 'wallet' },
   { label: '🏃 Runners', words: 'runners rounds lanes board gates', tab: 'fuse', panel: 'runners' },
@@ -14,7 +14,7 @@ export const HQ_JUMPS = [
   { label: '💸 Fuse payouts', words: 'payouts fee-back weekly pay creators', tab: 'fuse', panel: 'payouts' },
   { label: '🃏 Card rules', words: 'card rules auto profit levels copy cut auto-collect', tab: 'fuse', panel: 'rules' },
   { label: '⚡ Engine · gates', words: 'engine funnel gates dial runner settings top-10 buy share', tab: 'fuse', panel: 'engine' },
-  { label: '⛓ Contract', words: 'contract program go live checklist devnet audit', tab: 'fuse', panel: 'contract' },
+  { label: '⛓ Contract', words: 'contract program go live checklist devnet audit', tab: 'fuse', panel: 'vault' },   // one design-only stop now
   { label: '🏦 Vault', words: 'vault designer shares', tab: 'fuse', panel: 'vault' },
   { label: '🏛 Treasury', words: 'treasury balances wallets money', tab: 'money', view: 'treasury' },
   { label: '⭕ Circle', words: 'circle wallets move send pay', tab: 'money', view: 'circle' },

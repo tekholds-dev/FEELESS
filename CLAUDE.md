@@ -261,9 +261,9 @@ OPEN, hardest → easiest:
 1b. 🌆 FEE CITY = SIMCITY SCALE (owner): the capital BIGGER, and ~80 % of the city REAL-MONEY buildings (pools, vaults, lend, perps, LSTs, the
    desk) SPREAD across districts — not packed on one island; family blocks as their own islands off the capital.
 1c. 🇺🇸 US users: NO geo-block loopholes (rule, owner's legal exposure). Route them to venues + in-app deposits allowed for them instead.
-00. 🔝 OWNER LAST (2026-10-22 night): NEXA FALLBACK — FeeCat's engine covers when NEXA doesn't answer (today she blocks every buy) +
-   next-gen one-line desk prompts in her trench style · AGENTS HUB with vitals / cost / P&L / context / refill · FAST real-card cash audit +
-   prove card P&L is real · all FEELESS fees set from HQ › Core · declutter HQ › Fuse. Branch `night-1022` holds 4 ungated commits (HANDOFF).
+00. ✅ 2026-10-23 late (all but one): NEXA fallback (FeeCat covers at half size) · NEXA prompts carry the trench laws + curve stage · agents hub
+   (CatDesk + BrainPanel credit / spend / top-up) · fast cash audit + card P&L proven in $ (`cash-check.py` step 4: 144 / 144 sells) · every
+   FEELESS fee in HQ › Core (house fees block) · HQ › Fuse rail decluttered 13 → 11 stops.
 0. 🐱 USER CAT AGENTS (owner, 2026-10-22 late; HARDEST, real money): users pick 1–2 cat AI agents — (a) DO-ANYTHING agents that act through
    FEELESS with their own wallet funds on the user's request (trade, Polymarket-style markets where legal, tasks), or (b) one of 2 TRADE-ONLY
    agents with lit features. The user sees their cat's BRAIN and talks to it; agents are PAID (pricing + custody = owner decision first,
@@ -271,7 +271,7 @@ OPEN, hardest → easiest:
 0b. ✅ SHIPPED 2026-10-23 — 🐱 FEECAT TERMINAL REDONE: one violet shell + nav (LIVE DESK · HER BRAIN · LORE · AGENTS · BUILD A CAT) `FeeCatShell`,
    dup stats / tabs / picker cut, 🧠 brain page (`FeeCatBrainPage`), 🎨 real builder with drawn gear (`CatBuilder`, `lib/myCat`), agents =
    My agents · New · Activity · Leaderboard. Next: CatDetail (one agent's desk) in the same violet meta; Launch-a-cat AI flow restyle.
-0c. 👑 Creator wallet unlocks EVERY feature everywhere (`_is_staff` front + back) — audit each gate. 0d. 🔥 More Pump coins on the intake.
+0c. ✅ 2026-10-23 — feature gates use `_is_staff` (any linked wallet; guard test `test_staff_unlocks.py`). 0d. 🔥 More Pump coins on the intake.
 1d. ✂ CUT (Claude's audit 2026-10-22, owner to OK): the fake model catalog in /api/cats/brains (Claude / GPT / Grok rows that only run the rule
    engine) · family_world's drag-the-pizza ERRANDS + the MP store build catalog (the block is real markets now) · 4 ways to start services
    (run-feeless.sh / start-backend.sh / background.sh / keep-alive — two watchers were running at once tonight) → ONE supervisor · cat /action
@@ -279,8 +279,8 @@ OPEN, hardest → easiest:
    guarded now by tests/test_no_name_collisions.py).
 1e. 🏆 ELITE adds: CLMM range reads → exact "out of range by X %, re-center to A–B" errands · NEXA's FeeCat record vs the rule engine → she earns
    real money only after beating it in shadow · one "YOUR MONEY" tower in the capital (every proved position, live) · compliant US routing.
-2. 🌐 NEXA discovery: a site's AGE (RDAP / WHOIS) + a page SNAPSHOT (title, headings, tech fingerprint, template match) → "real tech vs another
-   same-utility site" verdict into her discovery base; one-line packet like her desk calls.
+2. ✅ 2026-10-23 — 🌐 NEXA site read (`site_probe.py`): domain age (RDAP) + page snapshot → 🧪 REAL TECH / 🎭 TEMPLATE / 🪶 THIN, a 'site' fact
+   under the coin's mint in her discovery base (≤ 2 per hourly full read, SSRF-guarded fetch).
 3. ✅ SWEPT 2026-10-23 (1,391 colour uses, 101 sheets: green-tinted surfaces → near-black, grey-green lines / text → neutral, meta tokens, the
    season band on the logo green). Next: inline JSX / three.js colours + a page-by-page look. Was: 🎨 Site palette (owner AGAIN 2026-10-22 late, Launch-page screenshot: "better official site green than this shitty green all over the site"):
    retire the muddy / olive / brown-green panels + backdrops ("color of manure") → the OFFICIAL FEELESS green of the logo (#15d16a / #45e486
