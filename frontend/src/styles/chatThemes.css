@@ -52,7 +52,7 @@
 .cfx-lane { position: absolute; left: 0; right: 0; height: 0; border-top: 1px solid rgba(255, 255, 255, .04); }
 .cfx-ride { position: absolute; left: 0; top: 0; width: 100%; height: 0; animation: cfxRideB var(--t) linear infinite; animation-delay: var(--dl); }
 .cfx-lane.s .cfx-ride { animation-name: cfxRideS; }
-.cfx-ride b { left: 0; top: calc(var(--s) / -2); width: var(--s); height: var(--s); border-radius: 50%; background: radial-gradient(circle at 35% 35%, #b6ffd6, #15d16a 60%, #0a6b37); box-shadow: 0 0 10px rgba(21, 209, 106, .6); }
+.cfx-ride b { left: 0; top: calc(var(--s) / -2); width: var(--s); height: var(--s); border-radius: 50%; opacity: .62; background: radial-gradient(circle at 35% 35%, #b6ffd6, #15d16a 60%, #0a6b37); box-shadow: 0 0 10px rgba(21, 209, 106, .6); }
 .cfx-ride b::after { content: ''; position: absolute; right: 100%; top: 50%; width: 70px; height: 2px; margin-top: -1px; background: linear-gradient(90deg, transparent, rgba(21, 209, 106, .5)); }
 .cfx-lane.s .cfx-ride b { background: radial-gradient(circle at 35% 35%, #ffc9d2, #ff5d73 60%, #8a1d2c); box-shadow: 0 0 10px rgba(255, 93, 115, .55); }
 .cfx-lane.s .cfx-ride b::after { right: auto; left: 100%; background: linear-gradient(270deg, transparent, rgba(255, 93, 115, .5)); }
@@ -88,10 +88,10 @@
 .fx-tape { background: radial-gradient(70% 50% at 50% 50%, rgba(21, 209, 106, .06), transparent 70%), linear-gradient(180deg, #050607, #07090a); }
 .cfx-col { position: absolute; left: -2%; right: -2%; height: 30px; margin-top: -15px; overflow: hidden; background: #020303; border-top: 1px solid rgba(255, 255, 255, .08); border-bottom: 1px solid rgba(0, 0, 0, .6);
   box-shadow: inset 0 0 18px rgba(0, 0, 0, .9), 0 0 0 1px rgba(21, 209, 106, .14); }
-.cfx-col::after { content: ''; position: absolute; inset: 0; background: radial-gradient(circle, transparent 0 1px, rgba(0, 0, 0, .55) 1.4px) 0 0 / 3px 3px; }
-.cfx-roll { position: absolute; left: 0; top: 50%; margin-top: -9px; display: flex; gap: 28px; width: max-content; white-space: nowrap; animation: cfxRoll calc(28s + var(--i) * 7s) linear infinite; }
+.cfx-col::after { content: ''; position: absolute; inset: 0; background: radial-gradient(circle, transparent 0 1px, rgba(0, 0, 0, .32) 1.4px) 0 0 / 3px 3px; }
+.cfx-roll { position: absolute; left: 0; top: 0; bottom: 0; display: flex; align-items: center; gap: 28px; width: max-content; white-space: nowrap; animation: cfxRoll calc(28s + var(--i) * 7s) linear infinite; }
 .cfx-col.r .cfx-roll { animation-direction: reverse; }
-.cfx-roll em { font: 800 14px 'JetBrains Mono', monospace; font-style: normal; letter-spacing: .06em; }
+.cfx-roll em { font: 800 14px/30px 'JetBrains Mono', monospace; font-style: normal; letter-spacing: .06em; }
 .cfx-roll em.up { color: #3dff8f; text-shadow: 0 0 8px rgba(61, 255, 143, .8); } .cfx-roll em.dn { color: #ff5d73; text-shadow: 0 0 8px rgba(255, 93, 115, .7); }
 /* 🌕 moon run — stars, a cratered moon, a rocket riding its line over the candle mountains */
 .fx-moon { background: radial-gradient(70% 50% at 82% 10%, rgba(120, 140, 255, .18), transparent 70%), linear-gradient(180deg, #050716 0%, #0b0b24 55%, #0a1612 100%); }
@@ -110,7 +110,7 @@
 .cfx-heat { position: absolute; left: 0; right: 0; bottom: 0; height: 45%; background: radial-gradient(60% 80% at 50% 100%, rgba(255, 140, 40, .32), transparent 70%); animation: cfxBreathe 4s ease-in-out infinite; }
 .cfx-melt { position: absolute; left: 0; width: 100%; bottom: 14%; height: 46%; } .cfx-melt .cn { opacity: .82; } .cfx-melt .cn rect, .cfx-melt .cn path { fill: #ff5d73; } .cfx-melt .cn line { stroke: #ff8fa3; stroke-width: 1.4; } .cfx-melt .rock { fill: #120405; }
 .cfx-lava { height: 34%; } .cfx-lava.b { animation-duration: 30s; animation-direction: reverse; opacity: .85; } .cfx-lava.b path { fill: #7a1a0a; }
-.cfx-lava.a { animation-duration: 18s; } .cfx-lava.a path { fill: #d9480f; } .cfx-lava.a .crust { fill: none; stroke: #ffcf6b; stroke-width: 2; vector-effect: non-scaling-stroke; opacity: .85; }
+.cfx-lava.a { animation-duration: 18s; opacity: .82; } .cfx-lava.a path { fill: #c2410c; } .cfx-lava.a .crust { fill: none; stroke: #ffcf6b; stroke-width: 2; vector-effect: non-scaling-stroke; opacity: .85; }
 .cfx-ember { background: #ffb347; box-shadow: 0 0 8px #ff6a1a; }
 /* 🌀 reserve vortex — the reserve as an accretion disk: orbits turning, three coins riding, a burning core */
 .fx-vortex { background: radial-gradient(40% 30% at 50% 52%, rgba(94, 200, 255, .18), transparent 70%), radial-gradient(80% 60% at 50% 50%, rgba(21, 209, 106, .1), transparent 70%), #03060a; }

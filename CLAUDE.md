@@ -181,9 +181,14 @@ DONE tonight: 🐛 Familia/route crash (FamilyDeck static imports) · 🕰 15-mi
 top10 → FeeCat buys only her YES through every guard, sells her SELL; user cats stay on the rule engine) · NEXA chat row: models rig in its own
 column (was overflowing onto the chat) · 🎨 all 14 chat themes redrawn as drawn scenes (radar, vault, lava lake, synthwave, LED tape…).
 OPEN, hardest → easiest:
-1. 🏙 FAMILY BLOCK = the new city look + EXPANDING: the owner adds buildings for the markets they will use; each stays UNDER CONSTRUCTION
-   until a REAL buy / deposit in that market (on-chain balance read); no fake buildings, no drag-drop errands → REAL errands (tighten a pool's
-   range, rebalance a vault, claim fees, top up a seat — vital, real money, fun; wallet signs). Merge with old P0 #4 (building ↔ real position).
+1. 🏙 FAMILY BLOCK — v1 SHIPPED (block_markets.py + FamilyBlock3D): real market buildings in the Fee City engine, UNDER CONSTRUCTION until a
+   real position (JitoSOL/JupSOL/mSOL/INF/JLP balances · Orca/Raydium position NFTs · Kamino vault shares), 4 OPEN PLOTS to add markets, errands
+   (build it · better LST → our swap prefilled · check range · size JLP → perps desk), MP game folded into one panel. NEXT: decode Orca / Raydium
+   positions → IN / OUT OF RANGE + "tighten / re-center" errand with the numbers; readers for Meteora DLMM (SDK) · marginfi · Save · PumpSwap LP;
+   count members' wallets (opt-in); retire family_world's drag-the-pizza ERRANDS UI (MobHome / FamilyWorld) for the block's real errands.
+1b. 🌆 FEE CITY = SIMCITY SCALE (owner): the capital BIGGER, and ~80 % of the city REAL-MONEY buildings (pools, vaults, lend, perps, LSTs, the
+   desk) SPREAD across districts — not packed on one island; family blocks as their own islands off the capital.
+1c. 🇺🇸 US users: NO geo-block loopholes (rule, owner's legal exposure). Route them to venues + in-app deposits allowed for them instead.
 2. 🌐 NEXA discovery: a site's AGE (RDAP / WHOIS) + a page SNAPSHOT (title, headings, tech fingerprint, template match) → "real tech vs another
    same-utility site" verdict into her discovery base; one-line packet like her desk calls.
 3. 🎨 Site palette: retire the muddy / olive greens ("color of manure") → lit royal green (#15d16a / #45e486 on near-black), token sweep sitewide.

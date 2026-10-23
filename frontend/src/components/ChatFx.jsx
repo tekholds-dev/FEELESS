@@ -77,7 +77,7 @@ const SKY = (() => { const r = prng(5); let x = 0; const out = []; while (x < 40
 const RADAR = [[38, 30, '$WIF'], [72, 120, '$FEE'], [55, 205, '$BONK'], [24, 290, '$MEW'], [80, 330, '$POPCAT']];
 const BOLTS = Array.from({ length: 16 }, (_, i) => [100 + 84 * Math.cos((i / 16) * Math.PI * 2), 100 + 84 * Math.sin((i / 16) * Math.PI * 2)]);
 const BOOK = [92, 74, 66, 58, 41, 37, 26, 18];
-const LANES = [[16, 'b', [0, 2.6, 5.1], [9, 6, 14]], [28, 'b', [1.2, 4.4], [6, 18]], [40, 'b', [0.6, 3.3, 6], [7, 5, 10]], [60, 's', [0.4, 3.8], [8, 16]], [72, 's', [1.8, 4.9, 6.6], [5, 9, 6]], [84, 's', [0.9, 3.1], [12, 7]]];
+const LANES = [[16, 'b', [0, 2.6, 5.1], [7, 5, 12]], [28, 'b', [1.2, 4.4], [5, 14]], [40, 'b', [0.6, 3.3, 6], [6, 4, 8]], [60, 's', [0.4, 3.8], [7, 14]], [72, 's', [1.8, 4.9, 6.6], [4, 7, 5]], [84, 's', [0.9, 3.1], [12, 6]]];
 // 🧠 NEURAL (owner, 2026-10-22: "the whole Brain themed, not a bs background"): a drawn net — nodes, synapses, pulses firing along them
 const NODES = [[8, 18], [26, 10], [44, 24], [64, 12], [86, 20], [14, 48], [36, 42], [58, 52], [80, 44], [22, 80], [48, 74], [72, 84], [92, 72]];
 const LINKS = [[0, 1], [1, 2], [2, 3], [3, 4], [0, 5], [1, 6], [2, 6], [2, 7], [3, 7], [4, 8], [5, 6], [6, 7], [7, 8], [5, 9], [6, 10], [7, 10], [7, 11], [8, 12], [9, 10], [10, 11], [11, 12]];
@@ -103,7 +103,7 @@ const SCENE = {
     <u className="cfx-last"><em>LAST</em></u></>,
   // 🌊 ORDER FLOW: buys stream right on the top lanes, sells left on the bottom ones — the size of each bubble is the size of the trade
   flow: () => <><u className="cfx-mid" />{LANES.map(([top, side, delays, sizes], li) => <span key={li} className={`cfx-lane ${side}`} style={{ top: `${top}%` }}>
-    {delays.map((dl, k) => <span key={k} className="cfx-ride" style={{ '--dl': `${-dl}s`, '--t': `${7 + li}s` }}><b className={sizes[k] >= 14 ? 'whale' : ''} style={{ '--s': `${sizes[k]}px` }} /></span>)}</span>)}</>,
+    {delays.map((dl, k) => <span key={k} className="cfx-ride" style={{ '--dl': `${-dl}s`, '--t': `${7 + li}s` }}><b className={sizes[k] >= 12 ? 'whale' : ''} style={{ '--s': `${sizes[k]}px` }} /></span>)}</span>)}</>,
   // 📚 DEPTH: the book as two drawn cliffs + its ladder — bids stacked left, asks right, the spread glowing between them
   depth: () => <><span className="cfx-book">{BOOK.map((w, i) => <i key={i} className="b" style={{ '--w': `${w}%`, '--i': i }} />)}{BOOK.map((w, i) => <i key={`a${i}`} className="a" style={{ '--w': `${BOOK[(i + 3) % 8]}%`, '--i': i }} />)}</span>
     <svg className="cfx-depth" viewBox="0 0 200 60" preserveAspectRatio="none"><path className="bid" d="M0,60 V14 H18 V20 H34 V27 H50 V33 H64 V40 H78 V46 H90 V53 H98 V60 Z" />

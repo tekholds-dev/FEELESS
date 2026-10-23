@@ -1,0 +1,75 @@
+/* 🏙 FamilyBlock3D — the family block as real market buildings (three.js stage `fb3`, CSS fallback `fb3-grid`, side card `fbm-*`).
+   Familia = noir gold + city night. Keyframes: fb3* */
+.fb3 { position: relative; height: clamp(360px, 58vh, 620px); border-radius: 16px; overflow: hidden; background: radial-gradient(80% 60% at 50% 100%, #1a1430, #05060c 70%);
+  box-shadow: 0 0 0 1px rgba(212, 175, 55, .28) inset, 0 24px 60px -36px rgba(212, 175, 55, .5); }
+.fb3-host { position: absolute; inset: 0; } .fb3-host canvas { display: block; width: 100%; height: 100%; }
+.fb3-wait { position: absolute; inset: 0; display: grid; place-items: center; margin: 0; font: 700 11px 'JetBrains Mono', monospace; letter-spacing: .14em; color: #d4af37; animation: fb3Pulse 1.6s ease-in-out infinite; }
+.fb3-tip { position: absolute; left: 12px; bottom: 12px; padding: 5px 10px; border-radius: 8px; font: 700 11px 'JetBrains Mono', monospace; color: #f5e6b8; background: rgba(8, 8, 14, .82); border: 1px solid rgba(212, 175, 55, .4); pointer-events: none; }
+/* the drawn CSS block (no WebGL / tests) */
+.fb3-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(132px, 1fr)); gap: 12px; padding: 16px; border-radius: 16px; min-height: 260px;
+  background: linear-gradient(180deg, #07081a 0%, #120c26 55%, #0b0f0c 100%); box-shadow: 0 0 0 1px rgba(212, 175, 55, .28) inset; }
+.fb3-b { position: relative; height: 190px; border: 1px solid rgba(255, 255, 255, .06); border-radius: 12px; overflow: hidden; cursor: pointer; padding: 0; text-align: left;
+  background: linear-gradient(180deg, transparent 70%, rgba(40, 60, 40, .55)), #0a0b14; color: #f5e6b8; animation: fb3In .4s ease both; animation-delay: calc(var(--i, 0) * 55ms);
+  transition: transform .15s ease, border-color .15s ease, box-shadow .15s ease; }
+.fb3-b:hover { transform: translateY(-3px); border-color: rgba(212, 175, 55, .55); } .fb3-b:active { transform: scale(.98); }
+.fb3-b:focus-visible { outline: 2px solid #d4af37; outline-offset: 2px; }
+.fb3-b.is-sel { border-color: #d4af37; box-shadow: 0 0 0 1px #d4af37, 0 12px 28px -14px #d4af37; }
+.fb3-tower { position: absolute; left: 22%; right: 22%; bottom: 14%; height: var(--h, 50%); border-radius: 3px 3px 0 0;
+  background: repeating-linear-gradient(0deg, transparent 0 9px, rgba(0, 0, 0, .55) 9px 12px), repeating-linear-gradient(90deg, #ffd27a 0 5px, rgba(10, 12, 24, .9) 5px 11px), #141826;
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, .06) inset, 0 -10px 30px -12px rgba(255, 210, 122, .35); }
+.fb3-tower u { position: absolute; left: 50%; top: -10px; width: 8px; height: 8px; margin-left: -4px; border-radius: 50%; background: #45e486; box-shadow: 0 0 12px #45e486; animation: fb3Pulse 2.4s ease-in-out infinite; }
+.fb3-b.k-stake .fb3-tower u { background: #6ad7ff; box-shadow: 0 0 12px #6ad7ff; } .fb3-b.k-lend .fb3-tower u, .fb3-b.k-vault .fb3-tower u { background: #f5c451; box-shadow: 0 0 12px #f5c451; }
+.fb3-b.k-perps .fb3-tower u { background: #ff5dbb; box-shadow: 0 0 12px #ff5dbb; }
+.fb3-b.is-construction .fb3-tower { background: linear-gradient(180deg, #2a2d36, #1a1c22); box-shadow: none; opacity: .75; } .fb3-b.is-construction .fb3-tower u { display: none; }
+.fb3-scaf { position: absolute; left: 16%; right: 16%; bottom: 14%; height: calc(var(--h, 40%) + 8%);
+  background: linear-gradient(45deg, transparent 46%, rgba(255, 179, 90, .55) 47% 53%, transparent 54%) 0 0 / 18px 18px, linear-gradient(-45deg, transparent 46%, rgba(255, 179, 90, .35) 47% 53%, transparent 54%) 0 0 / 18px 18px;
+  border: 1px solid rgba(255, 179, 90, .6); }
+.fb3-scaf s { position: absolute; right: -8%; top: -18%; width: 70%; height: 2px; background: #e8b23a; transform-origin: 100% 50%; animation: fb3Crane 6s ease-in-out infinite alternate; }
+.fb3-scaf s::after { content: ''; position: absolute; left: 4px; top: 2px; width: 1px; height: 22px; background: #e8b23a; }
+.fb3-b.is-open { background: repeating-linear-gradient(135deg, rgba(212, 175, 55, .05) 0 8px, transparent 8px 16px), #0a0b10; border: 1px dashed rgba(212, 175, 55, .45); }
+.fb3-stakes { position: absolute; left: 18%; right: 18%; bottom: 22%; height: 34%; border: 1px dashed rgba(212, 175, 55, .7); border-radius: 4px; }
+.fb3-stakes::before, .fb3-stakes::after { content: ''; position: absolute; top: -12px; width: 3px; height: 14px; background: #d4af37; box-shadow: 0 0 8px rgba(212, 175, 55, .8); }
+.fb3-stakes::before { left: -2px; } .fb3-stakes::after { right: -2px; }
+.fb3-sign { position: absolute; left: 8px; right: 8px; top: 8px; display: grid; gap: 1px; }
+.fb3-sign b { font: 800 12px 'JetBrains Mono', monospace; letter-spacing: .04em; color: #fff3c9; text-shadow: 0 0 10px rgba(212, 175, 55, .6); }
+.fb3-sign small { font: 700 9px 'JetBrains Mono', monospace; letter-spacing: .1em; color: #c9b38a; text-transform: uppercase; }
+.fb3-b.is-construction .fb3-sign small { color: #ffb35a; }
+.fb3-pin { position: absolute; right: 8px; bottom: 8px; min-width: 20px; height: 20px; padding: 0 5px; display: grid; place-items: center; border-radius: 10px; font: 800 10px 'JetBrains Mono', monospace; font-style: normal;
+  color: #1a1204; background: #d4af37; box-shadow: 0 0 12px rgba(212, 175, 55, .7); animation: fb3Pulse 2s ease-in-out infinite; }
+/* the side card: a building's real numbers + its errands, or the add-a-market list */
+.fbm { display: grid; gap: 10px; }
+.fbm-head { display: grid; grid-template-columns: 56px 1fr; gap: 10px; align-items: center; }
+.fbm-ring { width: 56px; height: 56px; } .fbm-ring circle { fill: none; stroke-width: 5; } .fbm-ring .t { stroke: rgba(255, 255, 255, .08); }
+.fbm-ring .a { stroke: #d4af37; stroke-linecap: round; transform: rotate(-90deg); transform-origin: 28px 28px; transition: stroke-dasharray .6s ease; } .fbm.is-construction .fbm-ring .a { stroke: #ffb35a; }
+.fbm-head b { display: block; font-size: 15px; color: #fff3c9; } .fbm-head small { font: 700 9px 'JetBrains Mono', monospace; letter-spacing: .12em; color: #c9b38a; text-transform: uppercase; }
+.fbm-kv { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+.fbm-kv span { display: grid; gap: 2px; padding: 7px; border-radius: 8px; background: rgba(212, 175, 55, .06); border: 1px solid rgba(212, 175, 55, .18); animation: fb3In .3s ease both; animation-delay: calc(var(--i, 0) * 50ms); }
+.fbm-kv em { font: 700 8.5px 'JetBrains Mono', monospace; letter-spacing: .12em; color: #a8987a; font-style: normal; } .fbm-kv b { font: 800 14px 'JetBrains Mono', monospace; color: #fff3c9; }
+.fbm-errands { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.fbm-errands button { width: 100%; min-height: 40px; display: grid; grid-template-columns: 26px 1fr auto; gap: 8px; align-items: center; padding: 8px 10px; border-radius: 10px; cursor: pointer; text-align: left;
+  color: #f5e6b8; background: linear-gradient(90deg, rgba(212, 175, 55, .14), rgba(212, 175, 55, .03)); border: 1px solid rgba(212, 175, 55, .35); transition: transform .12s ease, border-color .15s ease; }
+.fbm-errands button:hover { border-color: #d4af37; transform: translateX(2px); } .fbm-errands button:active { transform: scale(.98); } .fbm-errands button:focus-visible { outline: 2px solid #d4af37; outline-offset: 2px; }
+.fbm-errands i { font-style: normal; font-size: 16px; } .fbm-errands span { font-size: 12px; line-height: 1.35; } .fbm-errands em { font: 800 10px 'JetBrains Mono', monospace; font-style: normal; color: #45e486; }
+.fbm-why { margin: 0; font-size: 11.5px; color: #c9b38a; }
+.fbm-cat { list-style: none; margin: 0; padding: 0; display: grid; gap: 5px; max-height: 360px; overflow: auto; scrollbar-width: thin; scrollbar-color: #d4af37 transparent; }
+.fbm-cat::-webkit-scrollbar { width: 6px; } .fbm-cat::-webkit-scrollbar-thumb { background: #d4af37; border-radius: 3px; }
+.fbm-cat button { width: 100%; min-height: 40px; display: grid; grid-template-columns: 1fr auto; gap: 8px; align-items: center; padding: 7px 10px; border-radius: 9px; cursor: pointer; text-align: left;
+  color: #f5e6b8; background: rgba(255, 255, 255, .03); border: 1px solid rgba(255, 255, 255, .08); transition: border-color .15s ease, transform .12s ease; animation: fb3In .3s ease both; animation-delay: calc(var(--i, 0) * 30ms); }
+.fbm-cat button:hover:not(:disabled) { border-color: rgba(212, 175, 55, .6); transform: translateX(2px); } .fbm-cat button:disabled { opacity: .45; cursor: not-allowed; } .fbm-cat button:focus-visible { outline: 2px solid #d4af37; outline-offset: 2px; }
+.fbm-cat b { font-size: 12.5px; } .fbm-cat small { display: block; font-size: 10.5px; color: #a8987a; }
+.fbm-proof { font-style: normal; font: 800 9px 'JetBrains Mono', monospace; letter-spacing: .08em; padding: 2px 7px; border-radius: 999px; color: #45e486; border: 1px solid rgba(69, 228, 134, .45); }
+.fbm-proof.is-none { color: #ffb35a; border-color: rgba(255, 179, 90, .45); }
+/* the block page around it: the 3D stage (+ the desk's picks floating over it) and the folded MP street game */
+.fbk-stage3 { position: relative; }
+.fbk-stage3 > .fbk-wait { min-height: 300px; display: grid; place-items: center; }
+.fbk-mp > summary { cursor: pointer; min-height: 32px; display: flex; align-items: center; list-style: none; font: 800 10.5px 'JetBrains Mono', monospace; letter-spacing: .1em; color: #c9b38a; transition: color .15s; }
+.fbk-mp > summary::-webkit-details-marker { display: none; } .fbk-mp > summary:hover, .fbk-mp > summary:focus-visible { color: #fff3c9; outline: none; }
+.fbk-mp[open] > summary { margin-bottom: 8px; }
+@keyframes fb3In { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+@keyframes fb3Pulse { 0%, 100% { opacity: .55; } 50% { opacity: 1; } }
+@keyframes fb3Crane { from { transform: rotate(-10deg); } to { transform: rotate(12deg); } }
+body.fx-lite .fb3-b, body.fx-lite .fb3-tower u, body.fx-lite .fb3-scaf s, body.fx-lite .fb3-pin, body.fx-lite .fbm-kv span, body.fx-lite .fbm-cat button, body.fx-lite .fb3-wait { animation: none; }
+@media (prefers-reduced-motion: reduce) { .fb3-b, .fb3-tower u, .fb3-scaf s, .fb3-pin, .fbm-kv span, .fbm-cat button, .fb3-wait { animation: none; } .fb3-b, .fbm-errands button, .fbm-cat button, .fbm-ring .a { transition: none; } }
+body.theme-day .fbk-mp > summary { color: #6a5310; } body.theme-day .fb3-grid { background: linear-gradient(180deg, #dfe8f6, #f4efe2 60%, #e3eedf); } body.theme-day .fb3-b { background: linear-gradient(180deg, transparent 70%, rgba(80, 140, 80, .25)), #f8f6ef; color: #3a2c08; }
+body.theme-day .fb3-sign b { color: #5a4205; text-shadow: none; } body.theme-day .fbm-head b, body.theme-day .fbm-kv b { color: #3a2c08; } body.theme-day .fbm-errands button, body.theme-day .fbm-cat button { color: #3a2c08; background: #fbf6e6; }
+@media (max-width: 640px) { .fb3 { height: 380px; } .fb3-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); padding: 10px; gap: 8px; } .fb3-b { height: 160px; } .fbm-kv { grid-template-columns: repeat(2, 1fr); } }

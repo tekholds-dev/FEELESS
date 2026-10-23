@@ -83,6 +83,10 @@ export const SwapWorkspace = ({ pair, feeAsset, feeAssets = [], feeCat, onWallet
   const [slipOpen, setSlipOpen] = useState(false);
   const [network, setNetwork] = useState('solana');   // 'solana' = Jupiter; EVM networks swap through LI.FI
   // Coins picked elsewhere on the page (Top 10 on Pump) load into the receive side.
+  useEffect(() => {   // 🏙 a family-block errand ("JupSOL pays more than your JitoSOL — switch?") hands over both coins; you still press Get quote
+    try { const p = JSON.parse(sessionStorage.getItem('feeless.swap.pair') || 'null'); sessionStorage.removeItem('feeless.swap.pair');
+      if (p?.input && p?.output) { setInputMint(p.input); setOutputMint(p.output); } } catch { /* storage blocked */ }
+  }, []);   // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => {
     const onPick = e => { const t = e.detail; if (!t?.mint) return; addFound(t); setOutputMint(t.mint); setOrder(null); };
     window.addEventListener('feeless:swap-set-output', onPick);

@@ -291,6 +291,13 @@ export function createCity(host, { onPick, onHover, onAnchors, lite = false, sti
       [[0.55, 0.55], [r.w - 0.55, 0.55], [0.55, r.d - 0.55], [r.w - 0.55, r.d - 0.55]].forEach(([dx, dz]) => yardAt.push([r.x + dx, r.z + dz])); };
     for (const l of p.lots) {
       side(l.rect, '#2d3038'); const c = centerOf(l.rect);
+      if (l.open) {   // 🏙 an OPEN PLOT on a family block: surveyed land — gravel, four lit stakes, a gold outline, "OPEN PLOT · + add a market"
+        box(l.rect.w - 0.4, 0.05, l.rect.d - 0.4, '#3a3226', c.x, 0.15, c.z, content);
+        const st = neon('#d4af37', 1.6); [[-1, -1], [1, -1], [1, 1], [-1, 1]].forEach(([sx, sz]) => box(0.08, 0.7, 0.08, null, c.x + sx * (l.rect.w / 2 - 0.5), 0.5, c.z + sz * (l.rect.d / 2 - 0.5), content, st));
+        frame({ x: l.rect.x + 0.5, z: l.rect.z + 0.5, w: l.rect.w - 1, d: l.rect.d - 1 }, '#d4af37', content, 0.2, 0.05);
+        const os = sign(['OPEN PLOT', '+ add a market'], { color: '#d4af37', w: 320 }); os.position.set(c.x, 1.6, c.z); os.scale.multiplyScalar(0.6); content.add(os);
+        proxy(l.rect, 0.8, l.pick, 'Open plot · add a market'); continue;
+      }
       if (l.kind === 'free') {   // a free plot is LAND: a park, a car park, or a vacant building with a FOR SALE sign
         if (l.seed % 3 === 2) { const o = await make(MODELS.mid[l.seed % MODELS.mid.length], { lit: true }); yard(l.rect, FOOT.lot); fit(o, Math.min(FOOT.lot, l.rect.w - 0.8), Math.min(FOOT.lot, l.rect.d - 0.8)); o.position.set(c.x, 0.14, c.z); o.rotation.y = (l.seed % 4) * (Math.PI / 2);
           o.traverse(n => { if (n.isMesh) { n.material = n.material.clone(); n.material.color.multiplyScalar(0.62); n.material.emissiveIntensity = 0.12; } }); content.add(o);
@@ -320,7 +327,7 @@ export function createCity(host, { onPick, onHover, onAnchors, lite = false, sti
         const ls = sign([`LAUNCH $${String(l.launch.symbol).slice(0, 10)}`], { color: '#ff9f45', w: 300 }); ls.position.set(sp.position.x, h + 2.2, sp.position.z); ls.scale.multiplyScalar(0.6); content.add(ls);
         anim.push(t => { sp.scale.x = sp.scale.z = 1 + 0.06 * Math.sin(t * 1.4); }); }
       if (l.kind === 'mine' || l.link) edges(o, c, col);
-      const lines = shut ? [`[${l.tag}] · UNDER CONSTRUCTION`, 'fund it to reopen'] : l.link ? [`[${l.tag}] ${l.link.sym}`, `${l.link.proto} · APY ${apyTxt(l.link.apy)}`] : l.tag ? [`[${l.tag}]`] : [];
+      const lines = l.lines || (shut ? [`[${l.tag}] · UNDER CONSTRUCTION`, 'fund it to reopen'] : null) || (l.link ? [`[${l.tag}] ${l.link.sym}`, `${l.link.proto} · APY ${apyTxt(l.link.apy)}`] : l.tag ? [`[${l.tag}]`] : []);
       if (lines.length) { const s = sign(lines, { color: col, w: l.link ? 420 : 260, glow: l.kind === 'mine' || !!l.link }); s.position.set(c.x, h + 0.9, c.z); s.scale.multiplyScalar(l.link ? 0.85 : 0.7); s.userData.small = !l.link; content.add(s); }
       const roof = new THREE.Mesh(new THREE.SphereGeometry(0.12, 10, 8), neon(col, 3)); roof.position.set(c.x, h + 0.3, c.z); roof.visible = !shut; content.add(roof);
       if (l.link) anim.push(t => { roof.scale.setScalar(0.95 + 0.08 * Math.sin(t * 1.6)); });   // calm: a slow breath, never a flash
@@ -352,7 +359,7 @@ export function createCity(host, { onPick, onHover, onAnchors, lite = false, sti
         const cd = coinDisc(String(m.name || '').replace('$', ''), tone, 0.62); cd.position.set(c.x, h + 3.3, c.z); content.add(cd);
         anim.push(t => { cd.rotation.y = t * 0.9; cd.position.y = h + 3.3 + Math.sin(t * 1.1 + c.x) * 0.1; }); }
       const sub = m.pool ? `${m.proto} · APY ${apyTxt(m.apy)}` : m.kind === 'coin' ? `${usd(m.tvl)} MC${m.move != null ? ` · ${m.move >= 0 ? '+' : ''}${Number(m.move).toFixed(1)}%` : ''}` : `TVL ${usd(m.tvl)}`;
-      const s = sign(m.pool ? [m.name, sub, `TVL ${usd(m.tvl)}`] : [m.name, sub], { color: tone, w: 440 }); s.position.set(c.x, h + 1.7, c.z); content.add(s);
+      const s = sign(m.lines || (m.pool ? [m.name, sub, `TVL ${usd(m.tvl)}`] : [m.name, sub]), { color: tone, w: 440 });   // 🏙 a family block's building writes its own lines (your $ · APY · errands) s.position.set(c.x, h + 1.7, c.z); content.add(s);
       proxy(m.rect, h + 0.4, m.pick, m.pool ? `${m.name} · ${m.proto}` : m.name);
     }
     for (const x of p.spare) { side(x.rect, '#25272d'); const c = centerOf(x.rect); const all = [...MODELS.shop, ...MODELS.mid];

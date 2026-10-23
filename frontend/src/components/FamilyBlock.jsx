@@ -1,8 +1,9 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { toast } from 'sonner';
-import { Coins, Shield, Crosshair, Briefcase, Eye, RotateCw, Hammer, ArrowLeft } from 'lucide-react';
+import { Coins, Shield, Crosshair, Briefcase, Eye, ArrowLeft } from 'lucide-react';
 import { apiUrl } from '../lib/api';
 import { FamilyDeck } from './FamilyDeck';
+import { FamilyBlock3D, BlockCard } from './FamilyBlock3D';
 import '../styles/familyBlock.css';
 
 // 🏙 THE FAMILY BLOCK (owner, 2026-10-21: "enter your block and build a city — named crypto stores, MP, goons to protect / rob / boost, realistic
@@ -46,18 +47,35 @@ function BlockPicks() {
     <b>${String(c.sym || '?').slice(0, 7)}</b><small>{c.ch == null ? '—' : `${c.ch >= 0 ? '+' : ''}${Number(c.ch).toFixed(1)}%`}</small></button>)}<em>DESK PICKS</em></div>;
 }
 
+// 🏙 THE FAMILY BLOCK (owner, 2026-10-22: "my family block supposed to look like the new city design and expanding — me adding buildings for
+// markets i wanna use, under construction until i actually buy … not these fake buildings and fake corny drag and drop errands, real errands"):
+// the block is the family's REAL market buildings in the same 3D engine as Fee City (FamilyBlock3D · backend/block_markets.py) — built only by a
+// real position, errands from that position. The MP points game (stash, recruits, robberies) folds into one panel underneath.
+const RANGE_URL = { orca: 'https://www.orca.so/portfolio', raydium: 'https://raydium.io/portfolio/' };
+export function errandGo(e, b, nav = path => window.location.assign(path), open = (u) => window.open(u, '_blank', 'noopener,noreferrer')) {
+  if (e.kind === 'switch' && e.swap) {   // ⚖ a better-paying LST: FEELESS's own swap opens with both coins set (you still press Get quote)
+    try { sessionStorage.setItem('feeless.swap.pair', JSON.stringify({ input: e.swap.from, output: e.swap.to })); } catch { /* storage blocked */ }
+    nav('/terminal/trade'); return 'swap';
+  }
+  if (e.kind === 'hedge') { window.dispatchEvent(new CustomEvent('feeless:deck', { detail: 'perps' })); return 'deck'; }
+  const url = e.kind === 'range' ? RANGE_URL[b.key] || b.url : e.url || b.url;
+  if (url) open(url);
+  return url || null;
+}
+
 export function FamilyBlock({ cid, addr, sess, onBack, mine: myFam = null, tools = null }) {
   const mine = !cid;
-  const [v, setV] = useState(null); const [err, setErr] = useState(''); const [sel, setSel] = useState(null); const [busy, setBusy] = useState(false);
-  const stageRef = useRef(null); const rzRef = useRef(-40); const [spin, setSpin] = useState(false);
-  const setRz = f => { rzRef.current = typeof f === 'function' ? f(rzRef.current) : f; stageRef.current?.style.setProperty('--rz', `${rzRef.current}deg`); }; const [nowS, setNowS] = useState(() => Date.now() / 1000); const [burst, setBurst] = useState(0);
-  const drag = useRef(null);
+  const [v, setV] = useState(null); const [err, setErr] = useState(''); const [busy, setBusy] = useState(false);
+  const [bl, setBl] = useState(null); const [bsel, setBsel] = useState(null);
+  const [nowS, setNowS] = useState(() => Date.now() / 1000);
   const load = () => fetch(apiUrl(mine ? `/api/reputation/familia-city?address=${addr}&session=${encodeURIComponent(sess)}` : `/api/reputation/familia-city/${cid}`))
     .then(async r => { const b = await r.json().catch(() => ({})); if (!r.ok) throw new Error(b.detail || 'The block could not be read.'); setV({ ...b, _at: Date.now() / 1000 }); setErr(''); })
     .catch(e => setErr(e.message));
-  useEffect(() => { load(); const t = setInterval(() => { if (!document.hidden) load(); }, 20000); return () => clearInterval(t); }, [cid, addr, sess]);   // eslint-disable-line react-hooks/exhaustive-deps
+  const loadBl = () => fetch(apiUrl(mine ? `/api/reputation/familia-block?address=${addr}&session=${encodeURIComponent(sess)}` : `/api/reputation/familia-block/${cid}`))
+    .then(r => (r.ok ? r.json() : null)).then(b => { if (b) setBl(b); }).catch(() => {});
+  useEffect(() => { load(); loadBl(); const t = setInterval(() => { if (!document.hidden) load(); }, 20000); const u = setInterval(() => { if (!document.hidden) loadBl(); }, 60000);
+    return () => { clearInterval(t); clearInterval(u); }; }, [cid, addr, sess]);   // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { const t = setInterval(() => { if (!document.hidden) setNowS(Date.now() / 1000); }, 1000); return () => clearInterval(t); }, []);
-  useEffect(() => { if (!spin) return undefined; let raf; let last = performance.now(); const go = t => { setRz(z => z + (t - last) * 0.012); last = t; raf = requestAnimationFrame(go); }; raf = requestAnimationFrame(go); return () => cancelAnimationFrame(raf); }, [spin]);   // eslint-disable-line react-hooks/exhaustive-deps
   const act = async (body, ok) => {
     setBusy(true);
     try {
@@ -65,65 +83,47 @@ export function FamilyBlock({ cid, addr, sess, onBack, mine: myFam = null, tools
       const b = await r.json().catch(() => ({})); if (!r.ok) throw new Error(b.detail || 'Refused.');
       setV({ ...b, _at: Date.now() / 1000 });
       if (b.result?.stake) toast[b.result.win ? 'success' : 'error'](b.result.win ? `🎰 won ${Math.round(b.result.stake * 0.9).toLocaleString('en-US')} MP` : `🎰 lost ${b.result.stake.toLocaleString('en-US')} MP`);
-      if (b.result?.collected) { setBurst(x => x + 1); toast.success(`💰 ${b.result.collected.toLocaleString('en-US')} MP collected`); }
+      if (b.result?.collected) toast.success(`💰 ${b.result.collected.toLocaleString('en-US')} MP collected`);
       else if (b.result && 'win' in b.result) toast[b.result.win ? 'success' : 'error'](b.result.win ? `🔫 took ${b.result.take.toLocaleString('en-US')} MP` : '☠ the hit failed — one hitter lost');
-      else toast.success(ok);
+      else if (ok) toast.success(ok);
     } catch (e) { toast.error(e.message); }
     setBusy(false);
   };
-  const moved = useRef(false);
-  const down = e => { drag.current = { x: e.clientX, rz: rzRef.current }; moved.current = false; };
-  const move = e => { if (!drag.current) return; const dx = e.clientX - drag.current.x; if (Math.abs(dx) > 5) moved.current = true; setRz(drag.current.rz + dx * 0.5); };
-  const pick = i => { if (!moved.current) setSel(i); };
-  const up = () => { drag.current = null; };
+  const blAct = async (what, key) => {
+    setBusy(true);
+    try {
+      const r = await fetch(apiUrl('/api/reputation/familia-block/act'), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ address: addr, session: sess, act: what, key }) });
+      const b = await r.json().catch(() => ({})); if (!r.ok) throw new Error(b.detail || 'Refused.');
+      setBl(b); setBsel(what === 'add' ? { blk: key } : null);
+      toast.success(what === 'add' ? '🏗 on the block — it builds itself when you open a real position there' : 'Building removed');
+    } catch (e) { toast.error(e.message); }
+    setBusy(false);
+  };
   if (err) return <section className="fbk"><p className="fbk-err">{err}</p>{onBack ? <button type="button" className="m-btn" onClick={onBack}><ArrowLeft size={14} /> Back to the city</button> : null}</section>;
   if (!v) return <section className="fbk"><p className="fbk-wait">Opening the block…</p></section>;
-  const lot = sel != null ? v.lots[sel] : null;
   const stash = liveStash(v, nowS);
   const can = mine && v.canBuild;
+  const errands = (bl?.buildings || []).reduce((n, b) => n + (b.state === 'built' ? (b.errands || []).length : 0), 0);
   return (
     <section className="fbk" data-testid="family-block">
       <header className="fbk-hud">
         {onBack ? <button type="button" className="fbk-back" onClick={onBack}><ArrowLeft size={14} /> City</button> : null}
-        <b className="fbk-title">[{v.tag}] {v.name} · BLOCK LVL {v.level}</b>
-        <span data-tip="MP in the family bank — what builds, upgrades and goons are paid from"><em>BANK</em><b>{v.bank.toLocaleString('en-US')} MP</b></span>
-        <span data-tip={`Made by the stores, waiting to be collected — up to ${v.stashCap.toLocaleString('en-US')} MP (12h). Robbers can hit it; the bank is safe.`}><em>STASH</em><b key={stash}>{stash.toLocaleString('en-US')}</b><i className="fbk-cap"><u style={{ transform: `scaleX(${Math.min(1, stash / Math.max(1, v.stashCap))})` }} /></i></span>
-        <span data-tip="MP an hour from every store × level, parks and earners"><em>RATE</em><b>{v.rate}/h</b></span>
-        <span data-tip="Members' verified trades this week boost production (×1 to ×2)"><em>BOOST</em><b>×{v.boost}</b></span>
-        <span data-tip="Store levels × 10 + goons + bank ÷ 100 — counts toward the family's mob rank"><em>POWER</em><b>{v.power.toLocaleString('en-US')}</b></span>
-        {v.staff ? <span className="fbk-staff" data-tip="The creator wallet: every store unlocked, every build free">👑 CREATOR</span> : null}
+        <b className="fbk-title">[{v.tag}] {v.name} · THE BLOCK</b>
+        <span data-tip="Market buildings standing on a real position / all buildings on the block"><em>BUILT</em><b key={bl?.built}>{bl ? `${bl.built}/${(bl.buildings || []).length}` : '—'}</b>
+          <i className="fbk-cap"><u style={{ transform: `scaleX(${bl && (bl.buildings || []).length ? bl.built / bl.buildings.length : 0})` }} /></i></span>
+        {mine ? <span data-tip="What the family's wallets hold in the block's markets right now (live prices)"><em>IN MARKETS</em><b key={bl?.total}>{bl?.total ? `$${Math.round(bl.total).toLocaleString('en-US')}` : '$0'}</b></span> : null}
+        {mine ? <span data-tip="Real-money errands waiting on your built buildings"><em>ERRANDS</em><b>{errands}</b></span> : null}
+        <span data-tip="Mob points in the family bank (points only — the street game below)"><em>BANK</em><b>{v.bank.toLocaleString('en-US')} MP</b></span>
+        {v.staff ? <span className="fbk-staff" data-tip="The creator wallet: every unlock">👑 CREATOR</span> : null}
       </header>
       <div className="fbk-wrap">
         <div className="fbk-left">
-        <div className="fbk-stage" ref={stageRef} onPointerDown={down} onPointerMove={move} onPointerUp={up} onPointerLeave={up} style={{ '--rz': `${rzRef.current}deg` }}>
-          <div className="fbk-sky" aria-hidden="true" />
-          <div className="fbk-plane">
-            <i className="fbk-road" aria-hidden="true" />
-            {v.lots.map(l => <button key={l.lot} type="button" className={`fbk-lot ${l.b ? 'has-b' : 'is-empty'} ${l.b === 'park' ? 'is-park' : ''} ${sel === l.lot ? 'is-sel' : ''}`} onClick={() => pick(l.lot)} style={{ '--h': `${l.b ? heightOf(l.b, l.lvl) : 0}px` }}
-              aria-label={l.b ? `${l.name} level ${l.lvl}` : `Empty lot ${l.lot + 1}`} data-testid={`lot-${l.lot}`}>
-              {l.b ? <><Building l={l} nowS={nowS} /><span className="fbk-sign"><i>{l.icon}</i><small>{'★'.repeat(l.lvl)}</small></span></> : (can ? <span className="fbk-plus">+</span> : null)}
-            </button>)}
-            {Object.entries(v.goons || {}).flatMap(([k, n]) => Array.from({ length: Math.min(n, 4) }, (_, i) => <i key={`${k}-${i}`} className={`fbk-goon g-${k}`} style={{ '--i': i + (k === 'hitter' ? 4 : k === 'earner' ? 8 : 0) }}><b>{k === 'guard' ? '🛡' : k === 'hitter' ? '🔫' : '💼'}</b></i>))}
-          </div>
-          <BlockPicks />
-          {burst ? <i key={burst} className="fbk-burst" aria-hidden="true">{Array.from({ length: 10 }, (_, i) => <b key={i} style={{ '--i': i }}>🪙</b>)}</i> : null}
-          <div className="fbk-ctl"><button type="button" className={spin ? 'active' : ''} onClick={() => setSpin(x => !x)} aria-pressed={spin} data-testid="block-spin"><RotateCw size={14} /> {spin ? 'Stop' : '360°'}</button><small>drag to turn</small></div>
-        </div>
-        <FamilyDeck mine={myFam && myFam.id === v.id ? myFam : null} tools={myFam && myFam.id === v.id ? tools : null} />
+          <div className="fbk-stage3">{bl ? <FamilyBlock3D bl={bl} sel={bsel} onPick={setBsel} /> : <p className="fbk-wait">Surveying the block…</p>}<BlockPicks /></div>
+          <FamilyDeck mine={myFam && myFam.id === v.id ? myFam : null} tools={myFam && myFam.id === v.id ? tools : null} />
         </div>
         <aside className="fbk-side">
-          {lot ? (lot.b ? <div className="fbk-card" data-testid="lot-card">
-            <header><i>{lot.icon}</i><div><b>{lot.name}</b><small>LOT {lot.lot + 1} · LEVEL {lot.lvl}/5 {'★'.repeat(lot.lvl)}</small></div></header>
-            <p>{lot.what}</p>{lot.func ? <p className="fbk-func">⚙ {lot.func}</p> : null}
-            <div className="fbk-kv"><span><em>MAKES</em><b>{lot.mph} MP/h</b></span><span><em>NEXT LEVEL</em><b>{lot.next != null ? `${lot.next.toLocaleString('en-US')} MP` : 'max'}</b></span></div>
-            {can && lot.next != null ? <button type="button" className="m-btn m-go" disabled={busy} onClick={() => act({ act: 'upgrade', lot: lot.lot }, `⬆ ${lot.name} upgraded`)} data-testid="lot-upgrade"><Hammer size={14} /> Upgrade · {v.staff ? 'free' : `${lot.next.toLocaleString('en-US')} MP`}</button> : null}
-          </div> : <div className="fbk-card" data-testid="lot-build">
-            <header><i>🏗</i><div><b>Empty lot {lot.lot + 1}</b><small>{can ? 'pick a store to build' : mine ? 'only the Don or the Underboss builds' : "another family's lot"}</small></div></header>
-            {mine ? <ul className="fbk-cat">{(v.catalog || []).map(c => <li key={c.key}><button type="button" disabled={!can || !c.ok || busy || c.cost > v.bank} onClick={() => act({ act: 'build', lot: lot.lot, kind: c.key }, `🏗 ${c.name} going up`)} data-testid={`build-${c.key}`}>
-              <i>{c.icon}</i><span><b>{c.name}</b><small>{c.ok ? (c.func || c.what) : `🔒 ${c.need}`}</small></span><em>{c.mph ? `${c.mph}/h` : '+2 %'}<br />{c.cost ? `${c.cost.toLocaleString('en-US')} MP` : 'free'}</em></button></li>)}</ul> : null}
-          </div>) : <div className="fbk-card"><header><i>🏙</i><div><b>Tap a lot</b><small>see what it makes · build · upgrade</small></div></header>
-            <p>Stores make mob points (MP) every hour into the stash. Collect it into the bank, then build bigger stores. Bigger stores unlock as the family grows, wins wars and makes MP.</p></div>}
-          {mine ? <div className="fbk-card">
+          <div className="fbk-card"><BlockCard bl={bl} sel={bsel} busy={busy} mine={mine} onAct={blAct} onErrand={(e, b) => errandGo(e, b)} /></div>
+          {mine ? <details className="fbk-card fbk-mp" data-testid="block-mp"><summary data-tip="The MP points game: the stash your old stores make, recruits, robberies — points only, never money">🎲 Street game · {stash.toLocaleString('en-US')} MP in the stash</summary>
             <button type="button" className="m-btn m-go fbk-collect" disabled={busy || stash < 1} onClick={() => act({ act: 'collect' })} data-testid="block-collect"><Coins size={15} /> Collect {stash.toLocaleString('en-US')} MP</button>
             <p className="fbk-streak" data-tip="Collect every day: +5 % production a day, up to +50 %. Members' verified FEELESS trades this week boost production up to ×3.">🔥 streak {v.streak || 0}d · +{v.streakBonus || 0} % · trading boost ×{v.boost}{v.houseTax != null ? ` · house ${v.houseTax} %` : ''}</p>
             {v.casino ? <button type="button" className="m-btn fbk-dice" disabled={busy || v.bank < 200} onClick={() => act({ act: 'dice', lot: Math.max(10, Math.floor(v.bank * 0.05)) })} data-tip="Once an hour: stake 5 % of the bank, a win pays 1.9× — earned MP only, points only" data-testid="block-dice">🎰 Roll {Math.max(10, Math.floor(v.bank * 0.05)).toLocaleString('en-US')} MP</button> : null}
@@ -137,7 +137,7 @@ export function FamilyBlock({ cid, addr, sess, onBack, mine: myFam = null, tools
               <button type="button" disabled={!can || busy || !(v.goons.hitter > 0) || r.cool > 0} onClick={() => act({ act: 'rob', vs: r.id })} data-tip={`Your hitters vs their guards: ${Math.round(r.odds * 100)} % — a win takes 25 % of their stash; a loss costs a hitter`} data-testid={`rob-${r.tag}`}>
                 {r.cool > 0 ? `${Math.ceil(r.cool / 60)}m` : `${Math.round(r.odds * 100)} %`}</button></li>)}</ul></> : null}
             {(v.log || []).length ? <><h5>📜 THE STREET</h5><ol className="fbk-log">{v.log.slice(0, 8).map(([t, w]) => <li key={`${t}-${w}`}>{w}</li>)}</ol></> : null}
-          </div> : null}
+          </details> : null}
         </aside>
       </div>
     </section>

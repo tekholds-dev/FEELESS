@@ -9041,6 +9041,163 @@ async def familia_city_act(p: CityAct):
     return {**v_, 'result': res_}
 
 
+# 🏙 THE FAMILY BLOCK = REAL MARKETS (block_markets.py): the Don adds market buildings; each stays UNDER CONSTRUCTION until the family's wallets
+# really hold a position there (receipt tokens · position NFTs · Kamino vault shares), read once a minute per family. Points never build these.
+import block_markets as _bmk   # noqa: E402
+
+_block_held = {}   # cid → (at, {key: {amount, usd, n}})
+BLOCK_HELD_SEC = 60.0
+TOKEN_PROGRAM = 'TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA'
+
+
+def _block_wallets(c):
+    """The wallets whose positions build the block: the Don's seat wallet + every wallet linked to it (≤ 6)."""
+    own_ = (c or {}).get('owner')
+    return [w_ for w_ in dict.fromkeys([own_, *(linked_of(own_) if own_ else [])]) if w_][:6]
+
+
+async def _block_reads(c, lots, now):
+    """→ {key: {'amount', 'usd', 'n'}} for this family's buildings (cached BLOCK_HELD_SEC). Never raises: a failed read = nothing proved."""
+    hit_ = _block_held.get(c['id'])
+    keys_ = tuple(sorted(x['key'] for x in lots))
+    if hit_ and now - hit_[0] < BLOCK_HELD_SEC and hit_[2] == keys_:
+        return hit_[1]
+    need_ = _bmk.needs(lots); out_ = {}
+    wallets_ = _block_wallets(c)
+    if not wallets_ or os.environ.get('PYTEST_CURRENT_TEST'):
+        _block_held[c['id']] = (now, out_, keys_)
+        return out_
+    bal_ = {}; assets_ = []; kam_ = []
+    async with httpx.AsyncClient(timeout=12) as http:
+        async def toks(w_):
+            try:
+                r_ = await _rpc(http, 'getTokenAccountsByOwner', [w_, {'programId': TOKEN_PROGRAM}, {'encoding': 'jsonParsed'}])
+                for a_ in (r_ or {}).get('value') or []:
+                    inf_ = (((a_.get('account') or {}).get('data') or {}).get('parsed') or {}).get('info') or {}
+                    if inf_.get('mint') in need_['mints']:
+                        bal_[inf_['mint']] = bal_.get(inf_['mint'], 0.0) + float((inf_.get('tokenAmount') or {}).get('uiAmount') or 0)
+            except Exception as e_:
+                print('block toks:', str(e_)[:80])
+        async def nfts(w_):
+            key_ = _chain.helius_key()
+            if not key_:
+                return
+            try:
+                r_ = await http.post(f'https://mainnet.helius-rpc.com/?api-key={key_}', json={'jsonrpc': '2.0', 'id': 1, 'method': 'getAssetsByOwner', 'params': {'ownerAddress': w_, 'page': 1, 'limit': 1000}})
+                for it_ in ((r_.json() or {}).get('result') or {}).get('items') or []:
+                    md_ = ((it_.get('content') or {}).get('metadata') or {})
+                    assets_.append({'name': md_.get('name'), 'symbol': md_.get('symbol')})
+            except Exception as e_:
+                print('block nfts:', str(e_)[:80])
+        async def kamino(w_):
+            try:
+                r_ = await http.get(f'https://api.kamino.finance/kvaults/users/{w_}/positions')
+                for p_ in (r_.json() if r_.status_code == 200 else []) or []:
+                    if isinstance(p_, dict):
+                        kam_.append(p_)
+            except Exception as e_:
+                print('block kamino:', str(e_)[:80])
+        jobs_ = [toks(w_) for w_ in wallets_] if need_['mints'] else []
+        jobs_ += [nfts(w_) for w_ in wallets_] if need_['nft'] else []
+        jobs_ += [kamino(w_) for w_ in wallets_] if need_['kamino'] else []
+        await asyncio.gather(*jobs_)
+    px_ = await _live_px(list(bal_)) if bal_ else {}
+    for k_, m_ in _bmk.MINTS.items():
+        if bal_.get(m_):
+            out_[k_] = {'amount': round(bal_[m_], 6), 'usd': round(bal_[m_] * float(px_.get(m_) or 0), 2)}
+    for k_ in _bmk.NFT:
+        n_ = _bmk.nft_count(assets_, k_)
+        if n_:
+            out_[k_] = {'n': n_}
+    if kam_:
+        usd_ = sum(_fuse._f(p_.get('totalValueUsd') or p_.get('usdValue') or p_.get('value')) for p_ in kam_)
+        n_ = sum(1 for p_ in kam_ if _fuse._f(p_.get('totalShares') or p_.get('sharesAmount') or p_.get('stakedShares') or p_.get('unstakedShares')) > 0 or _fuse._f(p_.get('totalValueUsd') or p_.get('usdValue')) > 0)
+        if n_:
+            out_['kamino'] = {'n': n_, 'usd': round(usd_, 2) if usd_ else None}
+    _block_held[c['id']] = (now, out_, keys_)
+    return out_
+
+
+async def _block_view(c, me=None, staff=False, rank=None):
+    now = time.time()
+    lots_ = _bmk.lots_of(c)
+    mk_ = (await familia_markets()) or {}
+    markets_ = {m_['key']: m_ for m_ in mk_.get('markets') or []}
+    held_ = await _block_reads(c, lots_, now) if lots_ else {}
+    try:
+        pools_ = (await familia_pools()).get('pools') or []
+    except Exception:
+        pools_ = []
+    mine_ = me is not None
+    rows_ = _bmk.view(lots_, markets_, held_, apys=_bmk.lst_apys(pools_), mine=mine_)
+    built_ = [b_ for b_ in rows_ if b_['state'] == 'built']
+    out_ = {'id': c['id'], 'tag': c.get('tag'), 'name': c.get('name'), 'buildings': rows_, 'built': len(built_), 'max': _bmk.MAX,
+            'open': max(0, min(_bmk.OPEN, _bmk.MAX - len(rows_))), 'at': round(now)}   # open plots to build on: always 4 until the block is full
+    if mine_:
+        out_['total'] = round(sum(float(b_.get('usd') or 0) for b_ in built_), 2)
+        out_['canBuild'] = bool(staff or me == c.get('owner') or (rank or {}).get(me) == 'underboss')
+        on_ = {b_['key'] for b_ in rows_}
+        out_['catalog'] = [{'key': m_['key'], 'name': m_.get('name'), 'kind': m_.get('kind'), 'offer': m_.get('offer'), 'tvl': m_.get('tvl'),
+                            'proof': _bmk.proof_of(m_['key'])[0] or 'none', 'why': '' if _bmk.proof_of(m_['key'])[0] else _bmk.proof_of(m_['key'])[1]}
+                           for m_ in mk_.get('markets') or [] if m_.get('key') not in on_]
+    return out_
+
+
+@app.get('/api/reputation/familia-block')
+async def familia_block(address: str, session: str):
+    """🏙 My family's block of REAL market buildings: built (a real position, its $ value, APY, errands) or under construction, + the catalog."""
+    import crews as _cr
+    me = _session_or_401(address, session); now = time.time()
+    st = _json_load(CREWS_PATH, {}); me = _seat_of(st, me); c = _cr.crew_of(st, me)
+    if not c:
+        raise HTTPException(404, 'Join a family to build a block.')
+    _b, rk_ = _city_ctx(c, me, now)
+    return await _block_view(c, me, _is_staff(me), rk_)
+
+
+@app.get('/api/reputation/familia-block/{cid}')
+async def familia_block_visit(cid: str):
+    """🏙 Visit a family's market block (public): which markets stand, built or under construction, a value band — never a balance."""
+    import crews as _cr
+    st = _json_load(CREWS_PATH, {}); _cr._norm(st); c = (st.get('crews') or {}).get(cid)
+    if not c:
+        raise HTTPException(404, 'No such family.')
+    return await _block_view(c)
+
+
+class BlockAct(BaseModel):
+    address: str
+    session: str
+    act: str = Field(..., max_length=8)
+    key: str = Field(..., max_length=24)
+
+
+@app.post('/api/reputation/familia-block/act')
+async def familia_block_act(p: BlockAct):
+    """🏙 add / remove a market building (Don · Underboss · creator). Adding builds nothing by itself — a real position does."""
+    import crews as _cr
+    me = _session_or_401(p.address, p.session); now = time.time()
+    known_ = {m_['key'] for m_ in ((await familia_markets()) or {}).get('markets') or []}
+    async with _crews_lock:
+        st = _json_load(CREWS_PATH, {}); me = _seat_of(st, me); c = _cr.crew_of(st, me)
+        if not c:
+            raise HTTPException(404, 'Join a family to build a block.')
+        staff_ = _is_staff(me); _b, rk_ = _city_ctx(c, me, now)
+        try:
+            if p.act == 'add':
+                _bmk.add(c, p.key, me, now, staff_, rk_, known_)
+            elif p.act == 'remove':
+                _bmk.remove(c, p.key, me, staff_, rk_)
+            else:
+                raise ValueError('Unknown block action.')
+        except ValueError as e:
+            raise HTTPException(400, str(e))
+        _json_save(CREWS_PATH, st)
+    _crew_cache['data'] = None
+    _block_held.pop(c['id'], None)
+    return await _block_view(c, me, staff_, rk_)
+
+
 # 🗺 LA FAMILIA WORLD (family_world.py): the big city — 6 boroughs × 16 blocks, bridges, turf, CPU towns, cartels from FEELESS rep, raids as chess
 # moves, recruitment challenges, errands, rewards and the FEECAT redeem claim. Points only; the redeem is a claim the owner pays by hand.
 import family_world as _fworld

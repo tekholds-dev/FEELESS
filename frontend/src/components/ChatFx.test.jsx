@@ -45,7 +45,7 @@ test('every theme shows the FEE mark and its drawn scene; Plain shows nothing', 
   act(() => root.render(<ChatFx theme="radar" />)); expect(host.querySelectorAll('.cfx-blip').length).toBe(5); expect(host.querySelector('.cfx-sweep')).not.toBeNull();
   act(() => root.render(<ChatFx theme="moon" />)); expect(host.querySelector('.cfx-flyx .cfx-flyy .cfx-rocket svg')).not.toBeNull();
   act(() => root.render(<ChatFx theme="gold" />)); expect(host.querySelectorAll('.cfx-vault .bolt').length).toBe(16); expect(host.querySelectorAll('.cfx-bars .bar').length).toBe(6);
-  act(() => root.render(<ChatFx theme="flow" />)); expect(host.querySelectorAll('.cfx-ride b').length).toBe(15); expect(host.querySelectorAll('.cfx-ride b.whale').length).toBe(3);
+  act(() => root.render(<ChatFx theme="flow" />)); expect(host.querySelectorAll('.cfx-ride b').length).toBe(15); expect(host.querySelectorAll('.cfx-ride b.whale').length).toBe(4);
   act(() => root.render(<ChatFx theme="off" />));
   expect(host.querySelector('[data-testid="chat-fx"]')).toBeNull();
 });

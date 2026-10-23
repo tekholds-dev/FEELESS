@@ -15,6 +15,7 @@ Pure + tested; the service does the reads (one cached read per family per minute
 """
 
 MAX = 16
+OPEN = 4   # open plots shown beside the buildings (the block grows as they fill)
 LST = {'jito': ('J1toso1uCk3RLmjorhTtrVwY9HJ7X8V9yYac6Y7kGCPn', 'JitoSOL', 'JITOSOL'), 'jupsol': ('jupSoLaHXQiZZTSfEWMTRRgpnyFm8f6sZdosWBjx93v', 'JupSOL', 'JUPSOL'),
        'marinade': ('mSoLzYCxHdYgdzU16g5QSh3i5K3z3KZK7ytfqcJm7So', 'mSOL', 'MSOL'), 'sanctum': ('5oVNBeEEQvYi1cX3ir8Dx5n1P7pdxydbGF2X4TxVusJm', 'INF', 'INF')}
 MINTS = {**{k: v[0] for k, v in LST.items()}, 'jlp': '27G8MtK7VtTcCHkpASjSDdkWWYfoqT6ggEuKidVJidD4'}

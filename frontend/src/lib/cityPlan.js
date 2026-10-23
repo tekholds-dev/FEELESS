@@ -221,10 +221,36 @@ export function outerPlan(v, cityKey, pools = null) {
     bounds: { ...b, x0: b.x0 - GAP }, center: { x: (b.x0 + b.x1) / 2, z: (b.z0 + b.z1) / 2 } };
 }
 
+// 🏙 pure: a FAMILY BLOCK in the 3D city (owner, 2026-10-22: "my block supposed to look like the new city design and expanding — me adding
+// buildings for markets i wanna use, under construction until i actually buy … shows open plots"). One island that grows with the family's
+// market buildings: BUILT = a tower sized by the position's $ value with its live APY on the sign · NOT YET = scaffolding + a crane · OPEN PLOTS
+// = surveyed land with stakes, tap one to add a market. `bl` = /familia-block.
+export function blockPlan(bl) {
+  const blds = bl?.buildings || []; const open = Math.max(0, bl?.open ?? 3); const n = blds.length + open;
+  const cols = Math.max(3, Math.min(5, Math.ceil(Math.sqrt(n * 1.6)))); const rows = Math.max(2, Math.ceil(n / cols));
+  const isl = island('block', 0, 0, cols, rows, MCELL, { name: `[${bl?.tag || '?'}] ${String(bl?.name || 'THE BLOCK').toUpperCase()}`, sub: `${bl?.built || 0}/${blds.length} built${bl?.total ? ` · ${usd(bl.total)}` : ''}`, color: '#d4af37' });
+  const at = k => rectOf(isl.gx, isl.gz, [k % cols, Math.floor(k / cols)], MCELL);
+  const markets = []; const lots = [];
+  blds.forEach((b, k) => {
+    const rect = at(k); const pick = { blk: b.key };
+    if (b.state === 'built') {
+      const v = Number(b.usd) || 0;
+      markets.push({ key: `blk-${b.key}`, pick, kind: b.kind, name: b.sym || b.name, proto: b.name, pool: true, tvl: v || b.tvl, apy: b.apy, hz: pulseHz({ tvl: v * 50 }),
+        h: v ? heightOf(v * 40) * 1.2 : 2.6, rect, island: 'block', m: b,
+        lines: [`${b.sym || b.name}`, v ? `${usd(v)}${b.apy != null ? ` · APY ${apyTxt(b.apy)}` : ''}` : `${b.n || 1} position${(b.n || 1) > 1 ? 's' : ''}`, (b.errands || []).length ? `${b.errands.length} errand${b.errands.length > 1 ? 's' : ''}` : b.name] });
+    } else lots.push({ id: `blk-${b.key}`, pick, kind: 'mine', tag: bl?.tag, owner: bl?.id, state: 'shut', power: 3000, rect, seed: hash(b.key), lines: [`${b.name} · UNDER CONSTRUCTION`, b.why ? 'no position reader yet' : 'open a position to build it'] });
+  });
+  for (let k = 0; k < open; k += 1) lots.push({ id: `open-${k}`, pick: { open: k }, kind: 'free', open: true, rect: at(blds.length + k), seed: k });
+  const roads = [roadsOf(isl)];
+  return { kind: 'block', key: bl?.id || 'block', islands: [isl], lots, marks: [], plaza: null, markets, places: [], spare: [], roads, bridges: [], gates: [],
+    lights: roads[0].nodes.filter(nd => !nd.edge).slice(0, 6), loops: [ringOf(isl)], billboards: [], bounds: boundsOf([isl]), center: { x: isl.x + isl.w / 2, z: isl.z + isl.d / 2 } };
+}
+
 // pure: where the camera looks for a picked thing (plot id, landmark, market, place, island)
 export function spotOf(plan, sel) {
   if (!plan || !sel) return null;
   if (sel.isl) { const i = plan.islands.find(x => x.key === sel.isl); return i ? { x: i.x + i.w / 2, z: i.z + i.d / 2, span: Math.max(i.w, i.d) } : null; }
+  if (sel.blk || sel.open != null) { const id = sel.blk ? `blk-${sel.blk}` : `open-${sel.open}`; const b = plan.lots.find(l => l.id === id) || plan.markets.find(m => m.key === id); return b ? centerOf(b.rect) : null; }   // 🏙 the family block
   const hit = sel.id ? plan.lots.find(l => l.id === sel.id) : sel.lm ? plan.marks.find(m => m.key === sel.lm) : sel.mk ? plan.markets.find(m => m.key === sel.mk) : sel.place ? plan.places.find(p => p.key === sel.place) : null;
   return hit ? centerOf(hit.rect) : null;
 }

@@ -1,4 +1,4 @@
-import React, { Suspense, lazy } from 'react';
+import React, { Suspense, lazy, useEffect } from 'react';
 import { useRemembered } from '../lib/remember';
 // FamilyHQ is already in Crews' static graph — a lazy import of it split FamilyBadge into its own chunk and crashed Familia
 // ("Cannot read properties of undefined (reading 'call')", 2026-10-22), so the Books come in statically
@@ -24,6 +24,10 @@ export const DECK = [
 
 export function FamilyDeck({ mine, tools }) {
   const [tab, setTab] = useRemembered('feeless.fam.deck', 'trades');
+  useEffect(() => {   // 🏙 a block errand (e.g. "size JLP against your SOL") opens its tool here
+    const go = e => { if (DECK.some(d => d[0] === e.detail)) setTab(e.detail); };
+    window.addEventListener('feeless:deck', go); return () => window.removeEventListener('feeless:deck', go);
+  }, [setTab]);
   const body = {
     trades: <Avenue lens="trades" />, tt: <Trench />, pools: <Pools />, vault: <Vault />, perps: <Avenue lens="perps" />, radar: <Avenue lens="pumpradar" />,
     cats: <Avenue lens="feecat" />, rep: <RepMarkets />,

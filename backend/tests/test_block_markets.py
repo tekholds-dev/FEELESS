@@ -46,3 +46,34 @@ def test_a_building_is_under_construction_until_a_real_position_is_proved():
     assert [e['kind'] for e in v['orca']['errands']] == ['range']
     other = {b['key']: b for b in bm.view(lots, MK, held, apys=apys, mine=False)}
     assert 'usd' not in other['jito'] and 'errands' not in other['jito'] and other['jito']['band'] == '$$'   # other families: a band, never a balance
+
+
+def test_the_service_adds_a_market_and_only_a_real_position_builds_it(monkeypatch):
+    import asyncio
+    rs = pytest.importorskip('reputation_service')
+    don = 'D' * 44
+    rs._json_save(rs.CREWS_PATH, {'crews': {'c1': {'id': 'c1', 'tag': 'FRT', 'name': 'Sicario', 'owner': don, 'members': [don]}}, 'by': {don: 'c1'}})
+    monkeypatch.setattr(rs, '_session_or_401', lambda a, s: don)
+    monkeypatch.setattr(rs, '_city_ctx', lambda c, me, now: (1.0, {}))
+
+    async def mk():
+        return {'markets': [{'key': 'jito', 'name': 'Jito', 'kind': 'stake', 'url': 'https://jito.network'}, {'key': 'meteora', 'name': 'Meteora', 'kind': 'dex'}]}
+
+    async def pools():
+        return {'pools': [{'kind': 'stake', 'sym': 'JITOSOL', 'apy': 4.85}]}
+    monkeypatch.setattr(rs, 'familia_markets', mk); monkeypatch.setattr(rs, 'familia_pools', pools)
+    held = {}
+
+    async def reads(c, lots, now):
+        return held
+    monkeypatch.setattr(rs, '_block_reads', reads)
+    v = asyncio.run(rs.familia_block_act(rs.BlockAct(address=don, session='s', act='add', key='jito')))
+    assert [(b['key'], b['state']) for b in v['buildings']] == [('jito', 'construction')] and v['canBuild'] and v['open'] == 4
+    assert {m['key'] for m in v['catalog']} == {'meteora'}                       # the catalog offers what is not on the block yet
+    with pytest.raises(rs.HTTPException):
+        asyncio.run(rs.familia_block_act(rs.BlockAct(address=don, session='s', act='add', key='notamarket')))
+    held['jito'] = {'amount': 1.2, 'usd': 260.0}                                  # the Don really holds JitoSOL now
+    v = asyncio.run(rs.familia_block(don, 's'))
+    assert v['buildings'][0]['state'] == 'built' and v['total'] == 260.0 and v['built'] == 1 and v['buildings'][0]['apy'] == 4.85
+    pub = asyncio.run(rs.familia_block_visit('c1'))
+    assert pub['buildings'][0]['band'] == '$$' and 'usd' not in pub['buildings'][0] and 'catalog' not in pub   # visitors: a band, no balances
