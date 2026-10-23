@@ -204,7 +204,7 @@ F0. 🏙 FAMILIA = ITS OWN APP (owner, 2026-10-23, LOUD: "no redirects!! … fun
    3. ✅ SHIPPED 2026-10-23 — FEE CITY BREATHES: ~47 buildings off the capital → 18 (duplicates are ROOMS of one building with a room strip in the
       pop-out; market islands top 4; empty cells = PARKS; bigger cells, wider water). Next: profile the family town for lag (C).
    4. ✅ SHIPPED 2026-10-23 late — FAMILIA AS ITS OWN APP: /familia/* full-screen shell (`FamiliaApp.jsx`: rose bar, 5-place nav with deep links,
-      live pulse, wallet, ← FEELESS; phone dock), sidebar 'La Familia 🌹' + MOB › Familia door. Next: own PWA icon / install prompt.
+      live pulse, wallet, ← FEELESS; phone dock), sidebar 'La Familia 🌹' + MOB › Familia door. ✅ installable (familia.webmanifest + rose icons, ⬇ INSTALL in its bar).
 M. ✅ SHIPPED 2026-10-23 (Brain › 🧠 Models = `ModelDesk.jsx` + `model_desk.py`, /admin/ai/models): vitals for every model (tok/s from real usage,
    ok %, median · p90, queue, ctx fill, last answer, 🎭 mindset) + the picked model's INFO · LOAD · INFERENCE (overrides ride every call:
    `ai_rig.clean_infer` → `ai_router`) · SERVER · MCP; one model at a time (nothing cut off); NEXA's column shows only her rig. Was:
@@ -222,8 +222,8 @@ M. ✅ SHIPPED 2026-10-23 (Brain › 🧠 Models = `ModelDesk.jsx` + `model_desk
 A0. ✅ SHIPPED 2026-10-23 — TRADE IN FAMILIA, NO REDIRECTS: `FamiliaTrade.jsx` — every ⚡ Trade in Familia (Pump Radar, $FEE Bank, Trade Center,
    Trench Towers, Pool Hub, city markets) slides the FAMILIA TRADE DESK over the room (TrenchChart + Quick trade + vitals; wallet signs), the LST
    switch errand opens the swap in the dock, rooms lost their "Full page ↗" jumps, a member's "Full profile ↗" = the case file in place. A guard
-   test fails on any openWarRoom / full-page jump in Familia. Still links out: landmark marks (Build a Fuse card · Launch · Rug Shield) and the
-   mini deck's Fuse cards — next: embed those too.
+   test fails on any openWarRoom / full-page jump in Familia. ✅ 2026-10-23: the landmark marks, the arena's floating cards and the
+   mini deck's Fuse cards open the real tool as a ROOM over Familia (`lib/familiaRoom`, portal dock) — nothing links out any more.
 T. ✅ SHIPPED 2026-10-23 (drawn stepped skyscraper, lit floors = intake coins / READY white-hot, hottest coin on the crown, searchlight, one
    pop-out). Was: 🗼 TRENCH TOWERS = ITS OWN ISLAND with ONE huge tower (owner, 2026-10-23): no field of little coin towers and no side windows — one landmark
    tower (live: READY count lit on its floors, the hottest coin on its crown sign); tap it → ONE pop-out = the Trench Towers room (intake list,
@@ -278,11 +278,12 @@ OPEN, hardest → easiest:
    endpoints with no owner check (paper, still wrong) · split reputation_service.py (31K lines; tonight a new helper silently replaced a cache —
    guarded now by tests/test_no_name_collisions.py).
 1e. 🏆 ELITE adds: CLMM range reads → exact "out of range by X %, re-center to A–B" errands · NEXA's FeeCat record vs the rule engine → she earns
-   real money only after beating it in shadow · one "YOUR MONEY" tower in the capital (every proved position, live) · compliant US routing.
+   real money only after beating it in shadow · ✅ "YOUR MONEY" tower on FEELESS Avenue (`MyMoney.jsx`,
+   GET /familia/my-money, `my_money.py`) · compliant US routing.
 2. ✅ 2026-10-23 — 🌐 NEXA site read (`site_probe.py`): domain age (RDAP) + page snapshot → 🧪 REAL TECH / 🎭 TEMPLATE / 🪶 THIN, a 'site' fact
    under the coin's mint in her discovery base (≤ 2 per hourly full read, SSRF-guarded fetch).
 3. ✅ SWEPT 2026-10-23 (1,391 colour uses, 101 sheets: green-tinted surfaces → near-black, grey-green lines / text → neutral, meta tokens, the
-   season band on the logo green). Next: inline JSX / three.js colours + a page-by-page look. Was: 🎨 Site palette (owner AGAIN 2026-10-22 late, Launch-page screenshot: "better official site green than this shitty green all over the site"):
+   season band on the logo green). ✅ part 2 (2026-10-23): 38 inline JSX grey-greens → neutral; the ~900 barely-tinted near-blacks left on purpose. Was: 🎨 Site palette (owner AGAIN 2026-10-22 late, Launch-page screenshot: "better official site green than this shitty green all over the site"):
    retire the muddy / olive / brown-green panels + backdrops ("color of manure") → the OFFICIAL FEELESS green of the logo (#15d16a / #45e486
    neon on near-black, no olive tint in surfaces) — token sweep sitewide (meta.css m-* tokens first, then each sheet's hard-coded greens), Launch first.
 4. 📊 Text walls → realtime visuals (meters, rings, ticking numbers) + dead styles out — every page, starting with HQ (Agents + FeeCat tabs).
@@ -291,7 +292,7 @@ OPEN, hardest → easiest:
 
 P0 — still open from the night list, in order
 1. 🧠 G4: 🪑 PROOF BENCH DONE 2026-10-22 (its last 209 FAVOR calls = −0.4 % median, 43 % up → OSSY opens real seats until G4's record turns).
-   Still: stalls (read HQ › Brain › Models live numbers first, then a stall watchdog). Models tab BESIDE NEXA's chat (layout). Wire the trench theory into the deterministic agents only after a shadow test.
+   ✅ stall watchdog (2026-10-23: `model_desk.stall_of`, alert once / 30 min, 🩺 flag on Brain › Models; reload stays the owner's tap). Models tab BESIDE NEXA's chat (layout). Wire the trench theory into the deterministic agents only after a shadow test.
 2. 🐆 Sicario's seat board: DONE 2026-10-22 (the odd 3rd seat spans its row, hunting seat shows TURN / READY / REFUSED) — owner to confirm it was the screenshot's issue.
 3. 💎 ONE points system (season pts + MP + rep-market chips) usable everywhere (badge pools boost…) — an ECONOMY decision for the owner first
    (rates, what converts to what). Real-USD rep market / Polymarket = owner + legal decision (prediction markets are regulated).
@@ -309,14 +310,15 @@ P1 — FAMILIA = the one-stop shop in web3 (what is left)
 3. 🐛 Fuse card bug: the fix above is the one found in code — owner to confirm it was the bug they saw (if not: repro steps first).
 4. ⚡ Scale for thousands: shared pollers, 3D perf (instancing, LOD), load tests on familia-world / familia/street.
 5. ✅ Check day theme + 360 px: Avenue rooms (Night Vault included), Overwatch, Realtor (Street chat + Brain done at 360).
-6. 💬 Street chat ✅ pinned call · slow mode · mini charts (2026-10-23). Next: typing presence · a call's own thread.
+6. 💬 Street chat ✅ pinned call · slow mode · mini charts · typing presence · per-call threads (2026-10-23).
 7. City leftovers: outer cities' real-money markets · in-city swap · HELD coins + FEELESS-launched coins as buildings · ALL of FEE as city mechanics ·
    raids / hits played in-city · MP-only buildings + gold shop · $ and MP ladders · badge / card / MOBhouse customization.
 
 P2 — PAGES BELOW BAR: Launch click-through pages · FeeCat lore + other tabs · Roadmap / whitepaper as a 3D view · OSSY / G4 duo chats ·
    NEXA reads + trades fast (no 40 s waits on the i5).
 P3 — AI / BRAIN: ✅ done 2026-10-22 (chat line → rig proposals, LM Studio rig view, Brain 360 px). Next only if asked: OSSY / G4 duo chat look.
-P4 — HQ: Agents dead clicks (read HQ › Bugs "[dead click]" first; on the owner's Mac it was memory) · Lag catcher + Support clean-up · vault /
+P4 — HQ: ✅ dead clicks (2026-10-23: the 9 HQ › Bugs reports read — 2 real overlaps fixed in Familia's room pop-out, the rest predated
+   their fixes; a covered-button audit of every main page came back clean) · Lag catcher + Support clean-up · vault /
    pool pair builder live visual · Agents rebuild only after `scripts/edge-audit.py` numbers.
 P5 — OWNER DECISIONS (blocking): CUSTODY pick for family wallets, real-money cats, top-pot Fuse ($1K+) — `docs/REAL_CATS.md` · LP SDK deposits.
 P6 — IDEAS: FeeCat + AI agent pair that talk · "build a better coin" track in Lag catcher.

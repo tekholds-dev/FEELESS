@@ -15,7 +15,7 @@ Read this (2 min) → `CLAUDE.md` (lean rules + 🎨 MANDATORY STYLING + 📋 CU
 >    LIVE visual (meters, bars, animation on real numbers), never bare text. `styles/cssCoverage.test.js` fails on an unstyled class.
 
 ## 🔁 NOW (rewrite this section in place every session)
-**Updated 2026-10-23 ~05:00 · Opus 5.5**
+**Updated 2026-10-23 ~09:00 · Opus 5.5**
 
 Start of every task: `backend/.venv/bin/python scripts/cash-check.py degen 30` (≈ 1 min, sandbox off) — now 4 steps (cash · coins · swaps ·
 P&L $). 2026-10-23 03:58: card COVERED · coins atom for atom · swaps match · 144 / 144 sells reconcile in $ (realized −$2.11, fees $0.35 apart).
@@ -38,6 +38,10 @@ LAN ONLINE): reputation (house fees, staff gates, NEXA site read + trench prompt
   SSRF-guarded fetch, ≤ 2 per hourly full read, filed under the coin's mint).
 - 👑 0c: feature gates use `_is_staff` (guard `test_staff_unlocks.py`) · 📒 `cash-check.py` step 4 · ⚛ HQ › Fuse rail 13 → 11 stops.
 - Verified (no change needed): all 14 chat themes draw; NEURAL covers the whole Brain drawer; Night Vault at 360 px day theme.
+- Then (2026-10-23 morning): 🏙 Familia's last link-outs are ROOMS (`lib/familiaRoom` — Fuse cards · Launch · Rug Shield over the city) · 💵 YOUR
+  MONEY tower on the Avenue (`my_money.py`, GET /familia/my-money; value + 24 h move, never a fee-tainted P&L; /dev/money) · 💬 street typing
+  presence + per-call threads · 🩺 stall watchdog (alerts; never reloads) · 🟢 38 inline grey-greens → neutral · 🖱 dead clicks fixed + a
+  covered-button audit (clean) · 📲 La Familia installable. Services restarted ~08:55 (reputation: my-money, typing, watchdog).
 
 ### Still live from the day before (grep the history for details)
 Brain › Models (`ModelDesk.jsx`, `model_desk.py`) · Prompt Studio (`prompt_studio.py`, `ai_router.with_studio`) · OSSY × G4 strict turns ·
