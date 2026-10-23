@@ -24715,6 +24715,7 @@ async def presence_read(a: str = Query('', max_length=2400)):
 # 💬 THE STREETS — the Familia city chat, dressed (street_chat.py): crest + Don flag per line, call receipts, reactions, who is on the block, vitals
 import street_chat as _stc
 _street_here: dict = {}   # city → {wallet: last heartbeat} — memory only
+_street_typing: dict = {}   # city → {wallet: last keystroke beat} — memory only (✍ typing presence)
 
 
 def _street_fams():
@@ -24765,7 +24766,23 @@ async def familia_street(city: str, viewer: str = Query('', max_length=64), sess
     return {'room': room_, 'lines': lines_, 'vitals': v_, 'reacts': list(_stc.REACTS), 'pinned': pin_,
             'hits': _stc.hits(_calls_load().get('calls'), room_, now, fam), 'slow': slow_ and {**slow_, 'wait': wait_}, 'slowChoices': list(_stc.SLOW_CHOICES),
             'here': [{'address': w_, 'name': _display_name(w_), 'fam': fam(w_)} for w_ in here_[:40]], 'hereN': len(here_),
+            'typing': [_display_name(w_) for w_ in _stc.typing_list(_street_typing, city, now, me_ or None, seen_)[:4]],
             'mod': {'staff': staff_, 'don': bool(vf_ and vf_.get('don')), 'famId': (vf_ or {}).get('id')}, 'me': {'fam': vf_, 'handle': handles_[0] if handles_ else None} if me_ else None}
+
+
+class StreetTyping(BaseModel):
+    address: str = Field(..., max_length=64)
+    session: str = Field(..., max_length=400)
+
+
+@app.post('/api/reputation/familia/street/{city}/typing')
+async def familia_street_typing(city: str, p: StreetTyping):
+    """✍ A signed-in wallet is typing on this street (the client beats at most every 3 s while the box has text). Memory only."""
+    if not _stc.room_of(city):
+        raise HTTPException(400, 'No such city.')
+    me_ = primary_of(_session_or_401(p.address, p.session))
+    _stc.typing_beat(_street_typing, city, me_, time.time())
+    return {'ok': True}
 
 
 class StreetMod(BaseModel):

@@ -9,10 +9,11 @@ const READ = { room: 'city-fee', reacts: ['🔥', '💀', '🫡', '💰'], hereN
   vitals: { spark: [0, 2, 5], hour: 7, families: ['SIC'], hot: { symbol: 'WIF', peakX: 3.1, x: 2.4, by: 'kid', fam: 'SIC' }, heat: 3 },
   hits: [{ symbol: 'WIF', peakX: 3.1, x: 2.4, by: 'kid', ago: 600, pairAddress: 'P1', chain: 'solana', fam: { tag: 'SIC', color: '#d4af37' } },
     { symbol: 'BONK', peakX: 2, x: 1.4, by: 'vito', ago: 60, pairAddress: 'P2', chain: 'solana', fam: null }, { symbol: 'POPCAT', peakX: 1.6, x: 1.1, by: 'x', ago: 9, pairAddress: 'P3' }],
-  slow: { sec: 30, by: '[SIC] Vito', left: 1500, wait: 0 }, slowChoices: [0, 10, 30, 60],
+  slow: { sec: 30, by: '[SIC] Vito', left: 1500, wait: 0 }, slowChoices: [0, 10, 30, 60], typing: ['kid', 'pinky'],
   lines: [{ id: 'l1', ts: Date.now() - 60e3, name: 'kid', handle: 'kid', text: '@dev $WIF is cooking', fam: { ...FAM, don: false }, atMe: true,
     calls: [{ symbol: 'WIF', x: 2.4, peakX: 3.1, mcAtCall: 1.2e6, pairAddress: 'P1', chain: 'solana', trail: [[1000, 1], [1300, 2.2], [1600, 3.1], [1900, 2.6]] }], reacts: { '🔥': { n: 3, mine: false } } },
-    { id: 'l2', ts: Date.now() - 5e3, name: 'outsider', text: 'gm', fam: { id: 'c9', tag: 'BNK', color: '#ff5fa2', don: false } }] };
+    { id: 'l2', ts: Date.now() - 5e3, name: 'outsider', text: 'gm', fam: { id: 'c9', tag: 'BNK', color: '#ff5fa2', don: false } },
+    { id: 'l3', ts: Date.now() - 3e3, name: 'pinky', text: 'WIF still cooking?', parentId: 'l1', fam: null }] };
 
 test('pure: text parts, x and mcap words', () => {
   expect(streetParts('@dev buy $WIF EKpQGSJtjMFqKZ9KQanSqYXRcF8fBopzLHYxdM65zcjm now').map(p => p.k)).toEqual(['at', 'text', 'tick', 'text', 'ca', 'text']);
@@ -35,6 +36,12 @@ test('the street: crest plates, receipts, @you, block + pulse; react, post and a
   expect(q('st-tape').textContent).toContain('$BONK'); expect(el.querySelectorAll('.st-hit[aria-hidden]').length).toBe(3);   // the hits tape rolls (a duplicate run)
   expect(q('city-chat').className).toContain('is-heat-3'); expect(q('st-heat').textContent).toContain('ON FIRE'); expect(el.querySelector('.st-flash')).not.toBeNull();
   expect(q('st-slow').textContent).toContain('30s');
+  expect(q('st-typing').textContent).toContain('kid, pinky typing');                     // ✍ who is typing
+  expect(q('st-line-l3').textContent).toContain('↩ kid');                                  // a reply names its line
+  await act(async () => { q('st-thread-l1').click(); });
+  expect(q('st-thread-list-l1').textContent).toContain('WIF still cooking?');              // 💬 the call's own thread
+  await act(async () => { const inp = q('st-input'); const set = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set; set.call(inp, 'gm'); inp.dispatchEvent(new Event('input', { bubbles: true })); });
+  expect(calls.some(([u, o]) => u.includes('/familia/street/fee/typing') && JSON.parse(o.body).session === 's')).toBe(true);
   await act(async () => { q('st-tool-slow').click(); });
   await act(async () => { q('st-slow-10').click(); });
   expect(calls.some(([u, o]) => u.includes('/familia/street/fee/mod') && JSON.parse(o.body).act === 'slow' && JSON.parse(o.body).sec === 10)).toBe(true);

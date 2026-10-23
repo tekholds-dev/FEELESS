@@ -98,8 +98,8 @@ function HeatMeter({ heat = 0 }) {
     <span className="st-heat-bars">{[0, 1, 2, 3].map(i => <i key={i} className={i <= heat ? 'is-on' : ''} style={{ '--i': i }} />)}</span><small>{HEAT[heat] || 'CALM'}</small></span>;
 }
 
-const Line = memo(function Line({ l, fresh, reacts, canPull, canPin, staff, onReact, onReply, onMod, onAt }) {
-  const fam = l.fam; const [burst, setBurst] = useState(null);
+const Line = memo(function Line({ l, fresh, reacts, canPull, canPin, staff, onReact, onReply, onMod, onAt, replies = null, parentName = null }) {
+  const fam = l.fam; const [burst, setBurst] = useState(null); const [open, setOpen] = useState(false);
   useEffect(() => { if (!burst) return undefined; const t = setTimeout(() => setBurst(null), 900); return () => clearTimeout(t); }, [burst]);
   return <li className={`st-line ${l.mine ? 'is-mine' : ''} ${l.atMe ? 'is-atme' : ''} ${fam?.don ? 'is-don' : ''} ${fresh ? 'is-fresh' : ''} ${l.official ? 'is-official' : ''}`}
     style={{ '--fc': fam?.color || '#8f8470' }} data-testid={`st-line-${l.id}`}>
@@ -108,21 +108,24 @@ const Line = memo(function Line({ l, fresh, reacts, canPull, canPin, staff, onRe
       {fam?.don ? <b className="st-crown" aria-hidden="true" /> : null}</span>
     <div className="st-body">
       <p className="st-who">{fam ? <b className="st-tag">{fam.tag}</b> : null}<button type="button" className="st-name" onClick={() => onAt(l.handle || l.name)} data-tip="Mention them">{l.name}</button>
-        {fam?.don ? <u className="st-don">DON</u> : null}{l.atMe ? <u className="st-atme">@YOU</u> : null}<time>{ago(l.ts)}</time></p>
+        {fam?.don ? <u className="st-don">DON</u> : null}{l.atMe ? <u className="st-atme">@YOU</u> : null}{parentName ? <u className="st-re" data-tip="A reply in this line's thread">↩ {parentName}</u> : null}<time>{ago(l.ts)}</time></p>
       <p className="st-text">{streetParts(l.text).map((p, i) => p.k === 'text' ? <span key={i}>{p.t}</span> : <mark key={i} className={`st-${p.k}`}>{p.k === 'ca' ? `${p.t.slice(0, 4)}…${p.t.slice(-4)}` : p.t}</mark>)}</p>
       {(l.calls || []).length || (l.coins || []).length ? <span className="st-coins">{(l.calls || []).length ? l.calls.map(c => <Receipt key={c.pairAddress} c={c} />) : l.coins.map(c => <Receipt key={c.pairAddress} coin={c} />)}</span> : null}
       <span className="st-reacts">{reacts.map(e => { const r = l.reacts?.[e]; return <button key={e} type="button" className={r?.mine ? 'is-on' : ''} aria-pressed={!!r?.mine} onClick={() => { if (!r?.mine) setBurst({ e, k: Date.now() }); onReact(l.id, e); }}
         data-tip={{ '🔥': 'Heat', '💀': 'Dead', '🫡': 'Respect', '💰': 'Paid' }[e]} data-testid={`st-react-${l.id}-${e}`}>{e}{r?.n ? <small>{r.n}</small> : null}{burst?.e === e ? <span key={burst.k} className="st-burst" aria-hidden="true">{[0, 1, 2, 3, 4].map(i => <i key={i} style={{ '--i': i }}>{e}</i>)}</span> : null}</button>; })}
         <button type="button" className="st-act" onClick={() => onReply(l)} data-tip="Reply" aria-label="Reply">↩</button>
+        {replies?.length ? <button type="button" className={`st-act st-thr ${open ? 'is-on' : ''}`} aria-expanded={open} onClick={() => setOpen(v => !v)} data-tip={open ? 'Fold the thread' : `${replies.length} repl${replies.length === 1 ? 'y' : 'ies'} — open the thread`} data-testid={`st-thread-${l.id}`}>💬 {replies.length}</button> : null}
         {canPull ? <button type="button" className="st-act is-mod" onClick={() => onMod(l, 'pull')} data-tip="Pull this line off the street" aria-label="Pull this line" data-testid={`st-pull-${l.id}`}>🗑</button> : null}
         {staff && !l.mine ? <button type="button" className="st-act is-mod" onClick={() => onMod(l, 'mute')} data-tip="Pull + mute the poster for 1 hour" aria-label="Mute for an hour">🔇</button> : null}
         {canPin ? <button type="button" className="st-act" onClick={() => onMod(l, 'pin')} data-tip="📌 Pin this on top of the street for an hour (Dons + staff)" aria-label="Pin this line" data-testid={`st-pin-${l.id}`}>📌</button> : null}</span>
+      {open && replies?.length ? <ol className="st-thread" data-testid={`st-thread-list-${l.id}`}>{replies.map((r, i) => <li key={r.id} style={{ '--i': i, '--fc': r.fam?.color || '#8f8470' }}>
+        <b>{r.fam ? `[${r.fam.tag}] ` : ''}{r.name}</b><span>{String(r.text || '').slice(0, 200)}</span><time>{ago(r.ts)}</time></li>)}</ol> : null}
     </div>
   </li>;
 });
 
 export default function StreetChat({ city, name, addr, sess }) {
-  const [d, setD] = useState(null); const [t, setT] = useState(''); const [busy, setBusy] = useState(false); const [reply, setReply] = useState(null); const [tool, setTool] = useState(null); const [cool, setCool] = useState(0); const [, tick] = useState(0); const coolDur = useRef(0);
+  const [d, setD] = useState(null); const [t, setT] = useState(''); const [busy, setBusy] = useState(false); const [reply, setReply] = useState(null); const [tool, setTool] = useState(null); const [cool, setCool] = useState(0); const [, tick] = useState(0); const coolDur = useRef(0); const typedAt = useRef(0);
   const logRef = useRef(null); const seen = useRef(null); const input = useRef(null); const stick = useRef(true);
   const url = `/api/reputation/familia/street/${city}${addr && sess ? `?viewer=${encodeURIComponent(addr)}&session=${encodeURIComponent(sess)}` : ''}`;
   const load = useCallback(() => fetch(apiUrl(url)).then(r => (r.ok ? r.json() : null)).then(j => { if (j && Array.isArray(j.lines)) setD(j); }).catch(() => {}), [url]);
@@ -162,10 +165,15 @@ export default function StreetChat({ city, name, addr, sess }) {
       const j = await r.json().catch(() => ({})); if (!r.ok) throw new Error(j.detail || 'Could not set slow mode'); toast.success(sec ? `🐢 slow mode: one line every ${sec}s for 30 min` : '🐢 slow mode off'); setTool(null); load(); }
     catch (err) { toast.error(err.message); }
   };
+  // ✍ typing presence: a signed-in wallet with text in the box beats at most every 3 s (memory only on the server, gone in 6 s)
+  const typed = v => { setT(v); const now = Date.now(); if (!addr || !sess || !v.trim() || now - typedAt.current < 3000) return; typedAt.current = now;
+    fetch(apiUrl(`/api/reputation/familia/street/${city}/typing`), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ address: addr, session: sess }) }).catch(() => {}); };
   const put = s => { setT(v => (v ? `${v.trimEnd()} ${s}` : s)); setTimeout(() => input.current?.focus(), 0); };
   const at = h => put(`@${String(h).replace(/\s+/g, '')} `);
   const v = d?.vitals || {}; const mods = d?.mod || {};
   const heat = Math.max(0, Math.min(3, v.heat || 0)); const slow = d?.slow;
+  const byParent = useMemo(() => { const m = new Map(); lines.forEach(x => { if (x.parentId) m.set(x.parentId, [...(m.get(x.parentId) || []), x]); }); return m; }, [lines]);
+  const nameOf = useMemo(() => new Map(lines.map(x => [x.id, x.name])), [lines]);
   return <section className={`st m-card k-${city} is-heat-${heat}`} data-testid="city-chat">
     <StreetScene name={name} heat={heat} />
     <header className="st-head">
@@ -186,11 +194,12 @@ export default function StreetChat({ city, name, addr, sess }) {
       {(d.pinned.calls || []).length ? <span className="st-coins">{d.pinned.calls.map(c => <Receipt key={c.pairAddress} c={c} />)}</span> : null}
       {mods.staff || mods.don ? <button type="button" className="st-act" onClick={() => mod(d.pinned, 'unpin')} aria-label="Unpin" data-tip="Take the pin down">✕</button> : null}</div> : null}
     <ol className="st-log" ref={logRef} onScroll={e => { const el = e.currentTarget; stick.current = el.scrollHeight - el.scrollTop - el.clientHeight < 60; }}>
-      {lines.map(l => <Line key={l.id} l={l} fresh={fresh.has(l.id)} reacts={d?.reacts || ['🔥', '💀', '🫡', '💰']} canPull={mods.staff || (mods.don && l.fam?.id && l.fam.id === mods.famId)} canPin={!!(mods.staff || mods.don)} staff={mods.staff}
+      {lines.map(l => <Line key={l.id} l={l} fresh={fresh.has(l.id)} replies={byParent.get(l.id)} parentName={l.parentId ? nameOf.get(l.parentId) || null : null} reacts={d?.reacts || ['🔥', '💀', '🫡', '💰']} canPull={mods.staff || (mods.don && l.fam?.id && l.fam.id === mods.famId)} canPin={!!(mods.staff || mods.don)} staff={mods.staff}
         onReact={react} onReply={x => { setReply(x); input.current?.focus(); }} onMod={mod} onAt={at} />)}
       {!lines.length ? <li className="st-nil">{d ? `Dead quiet on ${name}. Say something — your family crest rides with you.` : 'Walking onto the block…'}</li> : null}
     </ol>
     <form className="st-form" onSubmit={send}>
+      {(d?.typing || []).length ? <p className="st-typing" data-testid="st-typing"><i /><i /><i /><span>{d.typing.slice(0, 3).join(', ')}{d.typing.length > 3 ? ` +${d.typing.length - 3}` : ''} typing…</span></p> : null}
       {reply ? <p className="st-reply"><span>↩ replying to <b>{reply.name}</b>: {String(reply.text).slice(0, 60)}</span><button type="button" onClick={() => setReply(null)} aria-label="Cancel the reply">✕</button></p> : null}
       <div className="st-tools m-seg" role="group" aria-label="Street tools">
         <button type="button" className={tool === 'call' ? 'active' : ''} onClick={() => { setTool(x => (x === 'call' ? null : 'call')); put('📞 CALL '); }} data-tip="Call a coin: paste its contract — the line becomes a coin card with a live receipt" data-testid="st-tool-call">📞 Call</button>
@@ -202,7 +211,7 @@ export default function StreetChat({ city, name, addr, sess }) {
         onClick={() => slowSet(s2)} data-tip={s2 ? `One line every ${s2}s per wallet` : 'Lift slow mode'} data-testid={`st-slow-${s2}`}>{s2 ? `${s2}s` : 'Off'}</button>)}</div> : null}
       {tool === 'at' ? <div className="st-atpick">{(d?.here || []).length ? d.here.slice(0, 12).map(h => <button key={h.address} type="button" onClick={() => { at(h.name); setTool(null); }}>{h.fam ? `[${h.fam.tag}] ` : ''}{h.name}</button>) : <small>No one else on the block right now.</small>}</div> : null}
       {tool === 'call' ? <p className="st-hint">Paste the coin's contract after 📞 CALL — FEELESS pins its price now and keeps the receipt.</p> : null}
-      <div className="st-send"><input ref={input} className="m-input" value={t} maxLength={280} onChange={e => setT(e.target.value)} placeholder={`Talk on ${name}…`} aria-label={`Chat on ${name}`} data-testid="st-input" />
+      <div className="st-send"><input ref={input} className="m-input" value={t} maxLength={280} onChange={e => typed(e.target.value)} placeholder={`Talk on ${name}…`} aria-label={`Chat on ${name}`} data-testid="st-input" />
         <button type="submit" className={`m-btn m-go st-go ${coolLeft ? 'is-cool' : ''}`} disabled={busy || !t.trim() || coolLeft > 0} data-tip={coolLeft ? `🐢 Slow mode — your next line in ${coolLeft}s` : 'Post to this street'} data-testid="st-send">
           {coolLeft ? <><span className="st-cool" style={{ '--s': `${coolDur.current || coolLeft}s` }} key={cool} />🐢 {coolLeft}s</> : busy ? '…' : 'SEND'}</button></div>
     </form>

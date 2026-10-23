@@ -182,6 +182,18 @@ body.theme-day .st-pinned { background: linear-gradient(110deg, rgba(255, 211, 1
 .st.is-heat-3 .st-neon { animation-name: stNeonHot; animation-duration: 1.3s; }
 .st-flash { position: absolute; inset: 0; background: radial-gradient(ellipse at 70% 0%, rgba(220, 230, 255, .5), transparent 60%); opacity: 0; animation: stFlash 9s linear infinite; }
 
+/* ✍ typing presence + 💬 a line's thread */
+.st-typing { display: flex; align-items: center; gap: 4px; margin: 0; font: 600 10.5px 'JetBrains Mono', monospace; color: var(--st-dim); animation: stIn .2s ease-out both; }
+.st-typing i { width: 5px; height: 5px; border-radius: 50%; background: var(--st-a2); animation: stType 1s ease-in-out infinite; } .st-typing i:nth-child(2) { animation-delay: .15s; } .st-typing i:nth-child(3) { animation-delay: .3s; }
+.st-typing span { margin-left: 4px; }
+.st-re { text-decoration: none; padding: 0 5px; border-radius: 4px; font: 700 8.5px 'JetBrains Mono', monospace; color: var(--st-dim); border: 1px solid color-mix(in srgb, var(--st-a) 35%, transparent); }
+.st-reacts .st-thr { opacity: 1; color: var(--st-a2); } .st-reacts .st-thr.is-on { border-color: var(--st-a); background: color-mix(in srgb, var(--st-a) 22%, transparent); }
+.st-thread { list-style: none; margin: 4px 0 0; padding: 0 0 0 10px; display: grid; gap: 4px; border-left: 2px solid color-mix(in srgb, var(--st-a) 45%, transparent); }
+.st-thread li { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 6px; align-items: baseline; padding: 4px 8px; border-radius: 8px; background: rgba(0, 0, 0, .35); border-left: 2px solid var(--fc);
+  font-size: 11.5px; color: var(--st-ink); animation: stIn .25s ease-out both; animation-delay: calc(var(--i) * 40ms); }
+.st-thread b { font: 700 10.5px 'JetBrains Mono', monospace; color: var(--st-a2); white-space: nowrap; } .st-thread span { overflow-wrap: anywhere; } .st-thread time { font: 600 9px 'JetBrains Mono', monospace; color: var(--st-dim); }
+@keyframes stType { 0%, 100% { opacity: .3; transform: translateY(0); } 50% { opacity: 1; transform: translateY(-3px); } }
+body.theme-day .st-thread li { background: rgba(255, 255, 255, .7); } body.theme-day .st-thread b { color: #7a5600; }
 @keyframes stRain { from { transform: translate3d(0, 0, 0); } to { transform: translate3d(-30px, 140px, 0); } }
 @keyframes stNeon { 0%, 100% { opacity: .35; } 50% { opacity: .7; } }
 @keyframes stLamp { 0%, 100% { opacity: .75; } 50% { opacity: 1; } }
@@ -196,7 +208,7 @@ body.theme-day .st-pinned { background: linear-gradient(110deg, rgba(255, 211, 1
 @keyframes stFlash { 0%, 91%, 100% { opacity: 0; } 92% { opacity: .9; } 93% { opacity: .1; } 94.5% { opacity: .6; } 96% { opacity: 0; } }
 @keyframes stNeonHot { 0%, 100% { opacity: .75; } 40% { opacity: .9; } 46% { opacity: .25; } 52% { opacity: .9; } }
 .fx-off .st-tape-run, .fx-off .st-flash, .fx-off .st-trail-now { animation-play-state: paused; }
-body.fx-lite .st-flash, body.fx-lite .st-burst { display: none; }
+body.fx-lite .st-flash, body.fx-lite .st-burst { display: none; } body.fx-lite .st-typing i, body.fx-lite .st-thread li { animation: none; }
 body.fx-lite .st-tape-track { overflow-x: auto; scrollbar-width: none; } body.fx-lite .st-hit[aria-hidden] { display: none; }
 @media (prefers-reduced-motion: reduce) { .st-flash, .st-burst { display: none; } .st-tape-track { overflow-x: auto; scrollbar-width: none; } .st-hit[aria-hidden] { display: none; } }
 body.theme-day .st-tape { background: linear-gradient(180deg, #fffaf0, #f4e8cc); } body.theme-day .st-hit { color: #22180a; } body.theme-day .st-hit em { color: #0d7a41; text-shadow: none; }

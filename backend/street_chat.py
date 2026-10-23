@@ -43,6 +43,25 @@ def here_list(here, city, now, visible=lambda w: True):
     return [w for w, at in sorted((here.get(city) or {}).items(), key=lambda kv: -kv[1]) if now - at <= HERE_SEC and visible(w)]
 
 
+TYPING_SEC = 6   # ✍ a wallet reads as "typing" for this long after its last keystroke beat
+
+
+def typing_beat(typing, city, wallet, now):
+    """✍ Note that `wallet` is typing on `city` (memory only; stale typers pruned, ≤ HERE_CAP per city)."""
+    m = typing.setdefault(city, {})
+    m[wallet] = now
+    for w in [w for w, at in m.items() if now - at > TYPING_SEC]:
+        m.pop(w, None)
+    while len(m) > HERE_CAP:
+        m.pop(min(m, key=m.get), None)
+    return m
+
+
+def typing_list(typing, city, now, me=None, visible=lambda w: True):
+    """Wallets typing on `city` right now (newest first), never the viewer, invisible ones left out."""
+    return [w for w, at in sorted((typing.get(city) or {}).items(), key=lambda kv: -kv[1]) if now - at <= TYPING_SEC and w != me and visible(w)]
+
+
 def mentions_me(text, handles):
     """True when the line @-mentions any of the viewer's handles."""
     hs = {str(h).lower().lstrip('@') for h in handles or () if h}

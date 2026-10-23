@@ -224,3 +224,25 @@ def test_slow_mode_through_the_service(monkeypatch):
     assert rs._stc.slow_wait(rs._chat_load()['streetSlow']['city-fee'], time.time() - 5, time.time()) >= 24
     asyncio.run(rs.familia_street_mod('fee', rs.StreetMod(address=don, session='s', act='slow', sec=0)))
     assert 'city-fee' not in rs._chat_load().get('streetSlow', {})
+
+
+def test_typing_presence_lasts_six_seconds_and_never_shows_yourself():
+    t = {}
+    sc.typing_beat(t, 'fee', 'A', 100.0); sc.typing_beat(t, 'fee', 'B', 103.0); sc.typing_beat(t, 'harbor', 'C', 103.0)
+    assert sc.typing_list(t, 'fee', 104.0) == ['B', 'A'] and sc.typing_list(t, 'fee', 104.0, me='B') == ['A']
+    assert sc.typing_list(t, 'fee', 107.0) == ['B']                                   # A's beat is 7 s old
+    assert sc.typing_list(t, 'fee', 104.0, visible=lambda w: w != 'A') == ['B']
+    sc.typing_beat(t, 'fee', 'D', 200.0)
+    assert set(t['fee']) == {'D'}                                                       # stale typers pruned on the next beat
+
+
+def test_the_typing_beat_is_signed_and_shows_on_the_read(monkeypatch):
+    import asyncio
+    import reputation_service as rs
+    monkeypatch.setattr(rs, '_session_or_401', lambda a, s: a)
+    monkeypatch.setattr(rs, '_display_name', lambda w: f'name-{w[:3]}')
+    rs._street_typing.clear()
+    asyncio.run(rs.familia_street_typing('fee', rs.StreetTyping(address='TYP' * 14, session='s')))
+    out = asyncio.run(rs.familia_street('fee', '', ''))
+    assert out['typing'] == ['name-TYP']
+    rs._street_typing.clear()
