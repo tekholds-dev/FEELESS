@@ -1281,7 +1281,7 @@ async def brains():
     async with httpx.AsyncClient(timeout=4) as http:
         nx = (await _duo_read(http)).get('nexa')
     own = [{**m, **_cm.status(nx), 'available': False, 'ownerOnly': True, 'trades': 'FeeCat', 'estimatedTokenCostUsd': 0, 'model': True} for m in _cm.MODELS.values()]   # 🪟 she trades FeeCat herself (owner's HQ switch), never a user's cat
-    return {'brains': own + [{**RULE_ENGINE, 'status': 'live', 'available': True, 'estimatedTokenCostUsd': 0}]}
+    return _pub({'brains': own + [{**RULE_ENGINE, 'status': 'live', 'available': True, 'estimatedTokenCostUsd': 0}]})
 
 
 def _set_model_brain(cat, model_id):
