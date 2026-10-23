@@ -160,7 +160,7 @@ export function Podium({ rows }) {
 
 // 🌹 the MOB & Rewards › Familia tabs (owner, 2026-10-21: "a landing page, all unique tabs for it")
 export const FAM_TABS = [['home', 'Fee City', MapIcon], ['family', 'My family', Crown], ['wars', 'Wars', Swords], ['board', 'Board', Trophy], ['feed', 'Live', Radio]];   // 👑 the city IS the landing (owner, 2026-10-21)
-export function Crews({ onScene }) {
+export function Crews({ onScene, tab: tabP, onTab, bare = false }) {   // 🌹 inside the Familia app (`bare`) the shell owns the nav + the tab (its URL)
   const { wallet, provider, signMessage } = useWallet() || {}; const addr = wallet?.address || '';
   // 🔑 sign in RIGHT HERE (one signature, no transaction) — Familia used to read the chat session only, so a wallet that never opened chat in
   // this browser (or whose session expired) saw the city as a stranger: "not signed in", no family, no expand (owner, 2026-10-22)
@@ -168,7 +168,7 @@ export function Crews({ onScene }) {
   useEffect(() => { setSess(addr ? readChatSession(addr) : ''); }, [addr]);
   const signIn = async () => { if (!addr) { toast.error('Connect your wallet first.'); return ''; }
     try { const t = await getChatSession(addr, signMessage); setSess(t); return t; } catch (e) { toast.error(e.code === 4001 ? 'Declined in wallet.' : e.message); return ''; } };
-  const board = useCrewBoard(); const warsD = useWars(); const [tab, setTab] = useRemembered('feeless.fam.tab', 'home'); const [file, setFile] = useState(null); const [block, setBlock] = useState(undefined);
+  const board = useCrewBoard(); const warsD = useWars(); const [tabR, setTabR] = useRemembered('feeless.fam.tab', 'home'); const tab = tabP ?? tabR; const setTab = onTab || setTabR; const [file, setFile] = useState(null); const [block, setBlock] = useState(undefined);
   const liveWars = (warsD?.wars || []).filter(w => w.state === 'live').length;
   const [mine, setMine] = useState(undefined); const [fams, setFams] = useState([]); const [inv, setInv] = useState(null); const [busy, setBusy] = useState(''); const [q, setQ] = useState(null);
   const [name, setName] = useState(''); const [tag, setTag] = useState(''); const [code, setCode] = useState(() => { try { return new URLSearchParams(window.location.search).get('join') || ''; } catch { return ''; } });
@@ -238,8 +238,8 @@ export function Crews({ onScene }) {
   };
   return <section className="crw crw-noir" data-testid="crews">
     {famTab === 'family' ? <MobScene heat={(mine?.vitals?.heat ?? 30) / 100} sign={mine ? mine.tag : 'FAMIGLIA'} /> : null}   {/* the family's own street sign; every other tab's scene is the page backdrop */}
-    <nav className="fam-tabs" role="tablist" aria-label="La Familia">{FAM_TABS.map(([k, label, Icon]) => <button key={k} type="button" role="tab" aria-selected={famTab === k} className={famTab === k ? 'active' : ''}
-      onClick={() => setTab(k)} data-testid={`fam-tab-${k}`}><Icon size={14} aria-hidden="true" /><span>{k === 'family' && mine ? mine.tag : label}</span>{k === 'wars' && liveWars ? <b>{liveWars}</b> : null}</button>)}</nav>
+    {bare ? null : <nav className="fam-tabs" role="tablist" aria-label="La Familia">{FAM_TABS.map(([k, label, Icon]) => <button key={k} type="button" role="tab" aria-selected={famTab === k} className={famTab === k ? 'active' : ''}
+      onClick={() => setTab(k)} data-testid={`fam-tab-${k}`}><Icon size={14} aria-hidden="true" /><span>{k === 'family' && mine ? mine.tag : label}</span>{k === 'wars' && liveWars ? <b>{liveWars}</b> : null}</button>)}</nav>}
     {fams.length > 1 ? <div className="fam-switch m-seg" role="tablist" aria-label="Your families" data-testid="fam-switch">{fams.map(f => <button key={f.id} type="button" role="tab" aria-selected={f.active} className={f.active ? 'active' : ''} disabled={f.active || !!busy}
       onClick={async () => { setBusy('switch'); try { await post('/api/reputation/crews/switch', { address: addr, session: sess, cid: f.id }); await loadMine(); sharedJson.freshAt = Date.now(); toast.success(`[${f.tag}] is your active family`); } catch (e) { toast.error(e.message); } finally { setBusy(''); } }}
       data-tip={f.active ? 'The family every Familia page shows now' : `Switch to [${f.tag}] ${f.name}`} data-testid={`fam-switch-${f.tag}`}>[{f.tag}] {f.name}</button>)}</div> : null}

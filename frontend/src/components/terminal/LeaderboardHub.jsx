@@ -1,5 +1,5 @@
 import React, { Suspense, lazy, useState } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { useWallet } from '../../hooks/useWallet';
 import { Season, useQuests } from '../QuestBoard';
 import { loadFamilia } from '../../lib/familiaLoad';
@@ -25,7 +25,8 @@ export function LeaderboardHub({ callers, crew }) {   // ⚔ Trench wars lens re
   const fam = lens === 'crews';
   return <section className={`radar-page ${fam ? `is-familia s-${scene}` : ''}`} data-testid="leaderboard-hub">
     {fam ? <FamiliaBackdrop scene={scene} /> : null}
-    <div className="radar-head"><div><span className="m-label">{fam ? 'LA FAMILIA' : 'LEADERBOARD'}</span>{fam ? <h1 key={scene}>{SCENES[scene]?.[0] || 'La Familia'}<small>{SCENES[scene]?.[1]}</small></h1> : <h1>Who's running the trenches.</h1>}</div>
+    <div className="radar-head"><div><span className="m-label">{fam ? 'LA FAMILIA' : 'LEADERBOARD'}</span>{fam ? <h1 key={scene}>{SCENES[scene]?.[0] || 'La Familia'}<small>{SCENES[scene]?.[1]}</small></h1> : <h1>Who's running the trenches.</h1>}
+      {fam ? <Link to="/familia/city" className="fa-open" onMouseEnter={loadFamilia} onFocus={loadFamilia} data-tip="La Familia as its own full-screen app — the city, your block, the streets, wars; everything stays inside" data-testid="fa-open">⛶ OPEN THE FAMILIA APP</Link> : null}</div>
       <div className="m-seg" role="tablist" aria-label="Leaderboard">{LENSES.map(([id, label]) => <button key={id} type="button" role="tab" aria-selected={lens === id} className={lens === id ? 'active' : ''} data-testid={`lb-${id}`} onMouseEnter={id === 'crews' ? loadFamilia : undefined} onClick={() => setParams({ lens: id })}>{label}</button>)}</div></div>
     {lens === 'season' ? <Season me={me} /> : lens === 'callers' ? callers : lens === 'crews' ? <Suspense fallback={<FamiliaLoading />}><Crews onScene={setScene} /></Suspense> : crew}
   </section>;

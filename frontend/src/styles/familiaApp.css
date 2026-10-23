@@ -1,0 +1,60 @@
+/* 🌹 FamiliaApp.jsx — La Familia as its own app: a full-screen noir-gold shell (the tab's drawn scene fills the screen, a glass top bar with the
+   drawn rose, the five places, the city's pulse, the wallet, one way out; a phone dock at the bottom). Accents follow the tab (--fam-acc from
+   familiaBackdrop.css). One keyframe set (fa*), transform / opacity only; fx-lite + reduced motion = still; day theme = dusk paper; 640 px. */
+.fa { position: relative; isolation: isolate; min-height: 100dvh; display: grid; grid-template-rows: auto minmax(0, 1fr); color: #f5e2b0; background: #050407; }
+.fa > .fbd { position: fixed; inset: 0; border-radius: 0; z-index: -1; }
+.fa-bar { position: sticky; top: 0; z-index: 30; display: flex; align-items: center; gap: 10px 14px; flex-wrap: wrap; padding: 10px clamp(12px, 2.4vw, 26px);
+  background: linear-gradient(180deg, rgba(8, 6, 10, .92), rgba(8, 6, 10, .78)); border-bottom: 1px solid color-mix(in srgb, var(--fam-acc) 40%, transparent);
+  box-shadow: inset 0 -1px 0 rgba(255, 236, 180, .06), 0 10px 30px rgba(0, 0, 0, .45); animation: faDrop .35s ease-out both; }
+.fa-exit { display: inline-flex; align-items: center; min-height: 34px; padding: 0 12px; border-radius: 999px; border: 1px solid rgba(255, 255, 255, .12); background: rgba(0, 0, 0, .4);
+  color: #c9b38a; font: 800 10px 'JetBrains Mono', monospace; letter-spacing: .12em; text-decoration: none; transition: transform .15s, border-color .15s, color .15s; }
+.fa-exit:hover { color: #fff3c9; border-color: var(--fam-acc); transform: translateX(-2px); } .fa-exit:active { transform: scale(.96); } .fa-exit:focus-visible { outline: 2px solid var(--fam-acc2); outline-offset: 2px; }
+.fa-brand { display: inline-flex; align-items: center; gap: 8px; } .fa-brand > span { display: grid; line-height: 1.05; }
+.fa-brand b { font: 700 19px 'Cinzel', 'Playfair Display', Georgia, serif; letter-spacing: .18em; color: #fff3c9; text-shadow: 0 0 18px color-mix(in srgb, var(--fam-acc) 60%, transparent); }
+.fa-brand small { font: 800 8.5px 'JetBrains Mono', monospace; letter-spacing: .24em; text-transform: uppercase; color: var(--fam-acc2); animation: faIn .3s ease-out both; }
+.fa-rose { width: 30px; height: 30px; filter: drop-shadow(0 0 8px rgba(255, 93, 115, .55)); animation: faBeat 3.2s ease-in-out infinite; }
+.fa-rose .st { fill: none; stroke: #3f8f4f; stroke-width: 1.8; stroke-linecap: round; } .fa-rose .lf { fill: #2f7a43; }
+.fa-rose .p3 { fill: #8a1026; } .fa-rose .p2 { fill: #c4162f; } .fa-rose .p1 { fill: #ff5d73; }
+.fa-nav { display: flex; gap: 4px; padding: 3px; border-radius: 14px; background: rgba(0, 0, 0, .45); border: 1px solid rgba(255, 255, 255, .07); margin-right: auto; }
+.fa-tab, .fa-dock-tab { position: relative; display: inline-flex; align-items: center; gap: 6px; min-height: 34px; padding: 0 12px; border: 1px solid transparent; border-radius: 11px; background: none;
+  color: #c9b38a; font: 800 10.5px 'JetBrains Mono', monospace; letter-spacing: .08em; cursor: pointer; transition: transform .15s, background .15s, color .15s; animation: faIn .3s ease-out both; animation-delay: calc(var(--i) * 45ms); }
+.fa-tab:hover, .fa-dock-tab:hover { color: #fff3c9; background: rgba(255, 255, 255, .05); transform: translateY(-1px); }
+.fa-tab:active, .fa-dock-tab:active { transform: scale(.96); } .fa-tab:focus-visible, .fa-dock-tab:focus-visible { outline: 2px solid var(--fam-acc2); outline-offset: 1px; }
+.fa-tab.active, .fa-dock-tab.active { color: #120c04; background: linear-gradient(180deg, var(--fam-acc2), var(--fam-acc)); border-color: var(--fam-acc2); box-shadow: 0 0 18px -4px var(--fam-acc); }
+.fa-badge { display: grid; place-items: center; min-width: 16px; height: 16px; padding: 0 4px; border-radius: 999px; background: #ff4d5e; color: #fff; font: 900 9px 'JetBrains Mono', monospace; box-shadow: 0 0 10px #ff4d5e; animation: faBeat 1.4s ease-in-out infinite; }
+.fa-pulse { display: inline-flex; gap: 8px; }
+.fa-pulse > span { display: inline-flex; align-items: baseline; gap: 5px; padding: 5px 10px; border-radius: 999px; background: rgba(0, 0, 0, .45); border: 1px solid rgba(255, 255, 255, .08); }
+.fa-pulse b { font: 900 14px 'JetBrains Mono', monospace; color: var(--fam-acc2); text-shadow: 0 0 10px color-mix(in srgb, var(--fam-acc) 55%, transparent); animation: faIn .35s ease-out; }
+.fa-pulse small { font: 800 7.5px 'JetBrains Mono', monospace; letter-spacing: .16em; color: #a8987a; }
+.fa-pulse > span.is-hot { border-color: rgba(255, 77, 94, .55); } .fa-pulse > span.is-hot b { color: #ffb0a0; }
+.fa-dot { align-self: center; width: 7px; height: 7px; border-radius: 50%; background: #45e486; box-shadow: 0 0 8px #45e486; animation: faBeat 2s ease-in-out infinite; }
+.fa-wallet { display: inline-flex; align-items: center; gap: 6px; min-height: 34px; padding: 0 12px; border-radius: 999px; border: 1px solid color-mix(in srgb, var(--fam-acc) 45%, transparent);
+  background: rgba(0, 0, 0, .5); color: #fff3c9; font: 800 10.5px 'JetBrains Mono', monospace; }
+.fa-wallet > i { width: 7px; height: 7px; border-radius: 50%; background: #45e486; box-shadow: 0 0 8px #45e486; }
+button.fa-wallet { cursor: pointer; background: linear-gradient(180deg, var(--fam-acc2), var(--fam-acc)); color: #120c04; transition: transform .15s; }
+button.fa-wallet:hover { transform: translateY(-1px); } button.fa-wallet:active { transform: scale(.96); } button.fa-wallet:focus-visible { outline: 2px solid #fff3c9; outline-offset: 2px; }
+.fa-main { min-width: 0; padding: 14px clamp(10px, 2.4vw, 26px) 40px; }
+.fa-main > .crw { max-width: 1500px; margin: 0 auto; }
+.fa-dock { display: none; }
+body.in-familia .feecat-widget { bottom: 84px; }
+@keyframes faDrop { from { opacity: 0; transform: translateY(-10px); } }
+@keyframes faIn { from { opacity: 0; transform: translateY(5px); } }
+@keyframes faBeat { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.08); } }
+body.fx-lite .fa-bar, body.fx-lite .fa-tab, body.fx-lite .fa-dock-tab, body.fx-lite .fa-rose, body.fx-lite .fa-badge, body.fx-lite .fa-dot, body.fx-lite .fa-pulse b, body.fx-lite .fa-brand small { animation: none; }
+@media (prefers-reduced-motion: reduce) { .fa-bar, .fa-tab, .fa-dock-tab, .fa-rose, .fa-badge, .fa-dot, .fa-pulse b, .fa-brand small { animation: none; } .fa-tab, .fa-dock-tab, .fa-exit { transition: none; } }
+body.theme-day .fa { background: #f6ecd2; color: #2a1f0c; } body.theme-day .fa-bar { background: linear-gradient(180deg, rgba(255, 250, 238, .96), rgba(250, 242, 222, .9)); box-shadow: 0 8px 20px rgba(80, 60, 20, .12); }
+body.theme-day .fa-brand b { color: #5a4205; text-shadow: none; } body.theme-day .fa-brand small { color: #8a6400; }
+body.theme-day .fa-nav, body.theme-day .fa-pulse > span, body.theme-day .fa-exit { background: rgba(255, 255, 255, .8); border-color: rgba(120, 90, 20, .2); }
+body.theme-day .fa-tab, body.theme-day .fa-dock-tab, body.theme-day .fa-exit { color: #5a4a24; } body.theme-day .fa-pulse b { color: #7a5600; text-shadow: none; } body.theme-day .fa-pulse small { color: #6f5d3a; }
+body.theme-day .fa-wallet { background: #fff; color: #2a1f0c; }
+@media (max-width: 1180px) { .fa-tab:not(.active) span { display: none; } .fa-tab { padding: 0 10px; } .fa-pulse small { letter-spacing: .08em; } }
+@media (max-width: 900px) { .fa-pulse > span:last-child { display: none; } .fa-brand small { display: none; } }
+@media (max-width: 760px) {
+  .fa-bar { gap: 8px; padding: 8px 10px; } .fa-nav, .fa-pulse > span:last-child { display: none; } .fa-brand b { font-size: 15px; } .fa-rose { width: 24px; height: 24px; }
+  .fa-pulse { margin-left: auto; } .fa-main { padding: 10px 8px 96px; }
+  .fa-dock { position: fixed; left: 8px; right: 8px; bottom: max(8px, env(safe-area-inset-bottom)); z-index: 40; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 2px; padding: 4px;
+    border-radius: 18px; background: rgba(8, 6, 10, .94); border: 1px solid color-mix(in srgb, var(--fam-acc) 40%, transparent); box-shadow: 0 -6px 26px rgba(0, 0, 0, .5); }
+  .fa-dock-tab { flex-direction: column; justify-content: center; gap: 2px; min-height: 48px; padding: 2px; font-size: 8.5px; letter-spacing: .02em; }
+  .fa-dock-tab .fa-badge { position: absolute; top: 2px; right: 10%; }
+  body.theme-day .fa-dock { background: rgba(255, 250, 238, .97); }
+}

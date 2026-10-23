@@ -29,7 +29,8 @@ import { MobileTabBar } from './components/MobileTabBar';
 import { FeeCatWidget } from './components/FeeCatWidget';
 const Landing = lazy(() => import('./pages/Landing'));
 const Terminal = lazy(() => import('./pages/Terminal'));
-const HqLink = lazy(() => import('./components/HqLink'));   // 📱 scan to open HQ with Phantom on the phone
+const HqLink = lazy(() => import('./components/HqLink'));
+const FamiliaApp = lazy(() => import('./components/FamiliaApp'));   // 🌹 La Familia = its own full-screen app (F0.4)   // 📱 scan to open HQ with Phantom on the phone
 
 class AppErrorBoundary extends React.Component {
   constructor(props) {
@@ -80,6 +81,7 @@ function AppShell() {
             <Route path="/" element={<Landing />} />
             <Route path="/terminal/*" element={<Terminal />} />
             <Route path="/hq-link" element={<HqLink />} />
+            <Route path="/familia/*" element={<FamiliaApp />} />
             <Route path="/whitepaper" element={<Navigate to="/terminal/whitepaper" replace />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes></Suspense>

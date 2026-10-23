@@ -120,3 +120,8 @@ body.theme-day .fpd-who b { color: #2a1f0e; }
 body.fx-lite .fam-load-rose, body.fx-lite .fam-load u s { animation: none; }
 @media (prefers-reduced-motion: reduce) { .fam-load-rose, .fam-load u s { animation: none; } }
 body.theme-day .fam-load b { color: #5a4205; text-shadow: none; } body.theme-day .fam-load small { color: #7a6630; }
+/* the door from MOB & Rewards › Familia into the full app */
+.fa-open { display: inline-flex; align-items: center; gap: 6px; min-height: 34px; margin-top: 8px; padding: 0 14px; border-radius: 999px; text-decoration: none; font: 800 10px 'JetBrains Mono', monospace; letter-spacing: .14em;
+  color: #120c04; background: linear-gradient(180deg, #f1d27a, #d4af37); box-shadow: 0 0 18px -4px #d4af37; transition: transform .15s; }
+.fa-open:hover { transform: translateY(-1px); } .fa-open:active { transform: scale(.97); } .fa-open:focus-visible { outline: 2px solid #fff3c9; outline-offset: 2px; }
+@media (prefers-reduced-motion: reduce) { .fa-open { transition: none; } }
