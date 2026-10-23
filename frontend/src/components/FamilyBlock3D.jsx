@@ -26,7 +26,7 @@ export function FamilyBlock3D({ bl, sel, onPick }) {
   useEffect(() => { if (ready && eng.current && sel) eng.current.flyTo(spotOf(plan, sel), 16); }, [ready, sel?.blk, sel?.open]);   // eslint-disable-line react-hooks/exhaustive-deps
   if (!gl) return <BlockGrid bl={bl} sel={sel} onPick={onPick} />;
   return <div className="fb3" data-testid="block-3d"><div className="fb3-host" ref={host} />{!ready ? <p className="fb3-wait">Raising the block…</p> : null}
-    {tip ? <span className="fb3-tip">{tip}</span> : null}</div>;
+    {tip?.label ? <span className="fb3-tip" style={{ transform: `translate(${tip.x + 14}px, ${tip.y + 12}px)` }}>{tip.label}</span> : null}</div>;   // the engine hovers {label, x, y}
 }
 
 // the drawn CSS block: built towers lit, scaffolding + a crane on the ones not built yet, surveyed open plots

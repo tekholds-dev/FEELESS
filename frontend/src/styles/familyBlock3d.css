@@ -4,7 +4,7 @@
   box-shadow: 0 0 0 1px rgba(212, 175, 55, .28) inset, 0 24px 60px -36px rgba(212, 175, 55, .5); }
 .fb3-host { position: absolute; inset: 0; } .fb3-host canvas { display: block; width: 100%; height: 100%; }
 .fb3-wait { position: absolute; inset: 0; display: grid; place-items: center; margin: 0; font: 700 11px 'JetBrains Mono', monospace; letter-spacing: .14em; color: #d4af37; animation: fb3Pulse 1.6s ease-in-out infinite; }
-.fb3-tip { position: absolute; left: 12px; bottom: 12px; padding: 5px 10px; border-radius: 8px; font: 700 11px 'JetBrains Mono', monospace; color: #f5e6b8; background: rgba(8, 8, 14, .82); border: 1px solid rgba(212, 175, 55, .4); pointer-events: none; }
+.fb3-tip { position: absolute; left: 0; top: 0; z-index: 3; padding: 5px 10px; border-radius: 8px; font: 700 11px 'JetBrains Mono', monospace; color: #f5e6b8; background: rgba(8, 8, 14, .82); border: 1px solid rgba(212, 175, 55, .4); pointer-events: none; }
 /* the drawn CSS block (no WebGL / tests) */
 .fb3-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(132px, 1fr)); gap: 12px; padding: 16px; border-radius: 16px; min-height: 260px;
   background: linear-gradient(180deg, #07081a 0%, #120c26 55%, #0b0f0c 100%); box-shadow: 0 0 0 1px rgba(212, 175, 55, .28) inset; }

@@ -189,6 +189,19 @@ OPEN, hardest → easiest:
 1b. 🌆 FEE CITY = SIMCITY SCALE (owner): the capital BIGGER, and ~80 % of the city REAL-MONEY buildings (pools, vaults, lend, perps, LSTs, the
    desk) SPREAD across districts — not packed on one island; family blocks as their own islands off the capital.
 1c. 🇺🇸 US users: NO geo-block loopholes (rule, owner's legal exposure). Route them to venues + in-app deposits allowed for them instead.
+0. 🐱 USER CAT AGENTS (owner, 2026-10-22 late; HARDEST, real money): users pick 1–2 cat AI agents — (a) DO-ANYTHING agents that act through
+   FEELESS with their own wallet funds on the user's request (trade, Polymarket-style markets where legal, tasks), or (b) one of 2 TRADE-ONLY
+   agents with lit features. The user sees their cat's BRAIN and talks to it; agents are PAID (pricing + custody = owner decision first,
+   docs/REAL_CATS.md; every real-money action needs guards + the wallet signs). NEXA / OSSY / G4 stay OWNER-ONLY for now.
+0b. 🐱 FEECAT TERMINAL: every tab + click-through correct; "Create a cat" ≠ "Build a cat" (two different flows); lit restyle, clean look.
+0c. 👑 Creator wallet unlocks EVERY feature everywhere (`_is_staff` front + back) — audit each gate. 0d. 🔥 More Pump coins on the intake.
+1d. ✂ CUT (Claude's audit 2026-10-22, owner to OK): the fake model catalog in /api/cats/brains (Claude / GPT / Grok rows that only run the rule
+   engine) · family_world's drag-the-pizza ERRANDS + the MP store build catalog (the block is real markets now) · 4 ways to start services
+   (run-feeless.sh / start-backend.sh / background.sh / keep-alive — two watchers were running at once tonight) → ONE supervisor · cat /action
+   endpoints with no owner check (paper, still wrong) · split reputation_service.py (31K lines; tonight a new helper silently replaced a cache —
+   guarded now by tests/test_no_name_collisions.py).
+1e. 🏆 ELITE adds: CLMM range reads → exact "out of range by X %, re-center to A–B" errands · NEXA's FeeCat record vs the rule engine → she earns
+   real money only after beating it in shadow · one "YOUR MONEY" tower in the capital (every proved position, live) · compliant US routing.
 2. 🌐 NEXA discovery: a site's AGE (RDAP / WHOIS) + a page SNAPSHOT (title, headings, tech fingerprint, template match) → "real tech vs another
    same-utility site" verdict into her discovery base; one-line packet like her desk calls.
 3. 🎨 Site palette: retire the muddy / olive greens ("color of manure") → lit royal green (#15d16a / #45e486 on near-black), token sweep sitewide.
