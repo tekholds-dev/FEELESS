@@ -4,6 +4,7 @@ import { Coins, Shield, Crosshair, Briefcase, Eye, ArrowLeft } from 'lucide-reac
 import { apiUrl } from '../lib/api';
 import { FamilyDeck, deckBody } from './FamilyDeck';
 import { FamilyBlock3D, BlockCard, TownPicker } from './FamilyBlock3D';
+import { BlockArranger, MyPoolsCard } from './BlockArranger';
 import { TOWN } from '../lib/cityPlan';
 import '../styles/familyBlock.css';
 import { familiaDocked, familiaSwap } from './FamiliaTrade';
@@ -96,7 +97,7 @@ function StreetGame({ v, act, busy, can }) {
 export function FamilyBlock({ cid, addr, sess, onBack, mine: myFam = null, tools = null, demo = null, lpOwner = null }) {   // lpOwner: the /dev/block preview only
   const mine = !cid;
   const [v, setV] = useState(null); const [err, setErr] = useState(''); const [busy, setBusy] = useState(false);
-  const [bl, setBl] = useState(null); const [bsel, setBsel] = useState(null); const coins = useIntakeCoins();
+  const [bl, setBl] = useState(null); const [bsel, setBsel] = useState(null); const coins = useIntakeCoins(); const [arrange, setArrange] = useState(false);
   const lp = useLpPositions(lpOwner || (mine ? addr : null));   // 🏗 your LP positions stand on your block as live towers
   const lpSel = bsel?.lp ? (lp || []).find(p => p.id === bsel.lp) : null;
   const room = bsel?.town && TOWN[bsel.town] ? bsel.town : null;   // 🏘 a town building you walked into: its real tool pops out over the block
@@ -105,7 +106,7 @@ export function FamilyBlock({ cid, addr, sess, onBack, mine: myFam = null, tools
     .then(async r => { const b = await r.json().catch(() => ({})); if (!r.ok) throw new Error(b.detail || 'The block could not be read.'); setV({ ...b, _at: Date.now() / 1000 }); setErr(''); })
     .catch(e => setErr(e.message));
   const loadBl = () => fetch(apiUrl(mine ? `/api/reputation/familia-block?address=${addr}&session=${encodeURIComponent(sess)}` : `/api/reputation/familia-block/${cid}`))
-    .then(r => (r.ok ? r.json() : null)).then(b => { if (b) setBl(demo && !b.town ? { ...b, ...demo } : b); }).catch(() => {});   // demo = the dev harness only
+    .then(r => (r.ok ? r.json() : null)).then(b => { if (b) setBl(demo ? { ...b, ...(b.town ? {} : demo), ...(demo.layout ? { layout: demo.layout, layoutSaved: true } : {}) } : b); }).catch(() => {});   // demo = the dev harness only
   useEffect(() => { load(); loadBl(); const t = setInterval(() => { if (!document.hidden) load(); }, 20000); const u = setInterval(() => { if (!document.hidden) loadBl(); }, 60000);
     return () => { clearInterval(t); clearInterval(u); }; }, [cid, addr, sess]);   // eslint-disable-line react-hooks/exhaustive-deps
   const act = async (body, ok) => {
@@ -131,6 +132,15 @@ export function FamilyBlock({ cid, addr, sess, onBack, mine: myFam = null, tools
     } catch (e) { toast.error(e.message); }
     setBusy(false);
   };
+  const saveLayout = async cells => {   // 🏝 ✋ Arrange → the family's layout, stored server-side (every member sees it)
+    setBusy(true);
+    try {
+      const r = await fetch(apiUrl('/api/reputation/familia-block/layout'), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ address: addr, session: sess, cells }) });
+      const b = await r.json().catch(() => ({})); if (!r.ok) throw new Error(b.detail || 'Refused.');
+      setBl(b); setArrange(false); toast.success('🏝 the block is arranged — every member sees it');
+    } catch (e) { toast.error(e.message); }
+    setBusy(false);
+  };
   if (err) return <section className="fbk"><p className="fbk-err">{err}</p>{onBack ? <button type="button" className="m-btn" onClick={onBack}><ArrowLeft size={14} /> Back to the city</button> : null}</section>;
   if (!v) return <section className="fbk"><p className="fbk-wait">Opening the block…</p></section>;
   const can = mine && v.canBuild;
@@ -147,11 +157,13 @@ export function FamilyBlock({ cid, addr, sess, onBack, mine: myFam = null, tools
         {(mine || lpOwner) && (lp || []).length ? <span className="fbk-lp" data-tip="Your LP positions on this block: worth now · fees earned and not claimed yet" data-testid="block-lp-hud"><em>IN POOLS</em><b key={lp.length}>{dollarsSmall(lp.reduce((a, p) => a + (p.valueUsd || 0), 0))}</b><small>+{dollarsSmall(lp.reduce((a, p) => a + (p.feeUsd || 0), 0))} fees</small></span> : null}
         <span data-tip="Mob points in the family bank (points only — the street game below)"><em>BANK</em><b>{v.bank.toLocaleString('en-US')} MP</b></span>
         {v.staff ? <span className="fbk-staff" data-tip="The creator wallet: every unlock">👑 CREATOR</span> : null}
+        {mine && bl?.canBuild ? <button type="button" className="m-btn fbk-arrange" onClick={() => setArrange(true)} disabled={busy} data-testid="block-arrange"
+          data-tip="Move buildings, pick lots, add stands, MY POOLS or a new island joined by a bridge — saved for the whole family">✋ ARRANGE</button> : null}
       </header>
       <div className="fbk-wrap">
         <div className="fbk-left">
           <div className="fbk-stage3">{bl ? <FamilyBlock3D bl={bl} sel={bsel} onPick={setBsel} coins={coins} onClosePop={() => setBsel(null)}
-            lp={lp} pop={lpSel ? <LpPositionCard p={lpSel} /> : bsel?.blk || bsel?.open != null ? <BlockCard bl={bl} sel={bsel} busy={busy} mine={mine} onAct={blAct} onErrand={(e, b) => errandGo(e, b)} /> : null} /> : <p className="fbk-wait">Surveying the block…</p>}{lpSel || bsel?.blk || bsel?.open != null ? null : <BlockPicks coins={coins} />}
+            lp={lp} pop={lpSel ? <LpPositionCard p={lpSel} /> : bsel?.pools ? <MyPoolsCard bl={bl} lp={lp} /> : bsel?.stand != null ? <p className="fbk-stand" data-testid="stand-card">☕ A street stand — it dresses the block (never money).{mine && bl?.canBuild ? ' Move it or clear it in ✋ ARRANGE.' : ''}</p> : bsel?.blk || bsel?.open != null ? <BlockCard bl={bl} sel={bsel} busy={busy} mine={mine} onAct={blAct} onErrand={(e, b) => errandGo(e, b)} /> : null} /> : <p className="fbk-wait">Surveying the block…</p>}{lpSel || bsel?.blk || bsel?.open != null ? null : <BlockPicks coins={coins} />}
             {room ? <section className="ftr" style={{ '--tc': TOWN[room].color }} role="dialog" aria-label={TOWN[room].name} data-testid={`town-room-${room}`}>
               <header><i aria-hidden="true" /><span><b>{TOWN[room].name}</b><small>{TOWN[room].sub}</small></span>
                 <button type="button" onClick={() => setBsel(null)} aria-label="Walk back out" data-tip="Back to the block (Esc)" data-testid="town-room-close">✕</button></header>
@@ -164,6 +176,7 @@ export function FamilyBlock({ cid, addr, sess, onBack, mine: myFam = null, tools
           {mine ? <StreetGame v={v} act={act} busy={busy} can={can} /> : null}
         </aside>
       </div>
+      {arrange && bl ? <BlockArranger bl={bl} busy={busy} onSave={saveLayout} onClose={() => setArrange(false)} /> : null}
     </section>
   );
 }

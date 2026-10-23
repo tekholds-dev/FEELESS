@@ -1,0 +1,49 @@
+/* 👑 FeeOwnerBar (FeeOwnerBar.jsx, `fob-*`): the creator's two lit pills (🎨 style · 👛 wallet) + their pop-outs. FeeCat violet night, m-* tokens,
+   transform / opacity only. Keyframes: fob* */
+.fob { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 8px 10px; border-radius: 14px; position: relative;
+  background: linear-gradient(120deg, rgba(255, 207, 92, .1), rgba(124, 77, 255, .12)); box-shadow: 0 0 0 1px rgba(255, 207, 92, .35) inset, inset 0 1px 0 rgba(255, 255, 255, .06); }
+.fob-crown { display: inline-block; animation: fobBob 3s ease-in-out infinite; } .fob-h { font: 800 9px var(--m-mono); letter-spacing: .16em; color: #ffcf5c; }
+.fob-pill { position: relative; min-height: 34px; display: inline-flex; align-items: center; gap: 7px; padding: 6px 14px; border-radius: 999px; cursor: pointer; font: 800 11px var(--m-mono); letter-spacing: .06em;
+  color: #f3ecff; background: rgba(124, 77, 255, .22); border: 1px solid rgba(180, 140, 255, .55); box-shadow: 0 0 18px -6px #b48cff; transition: transform .15s ease, box-shadow .15s ease, border-color .15s ease; }
+.fob-pill:hover { transform: translateY(-2px); box-shadow: 0 0 24px -4px #b48cff; } .fob-pill:active { transform: scale(.97); } .fob-pill:focus-visible { outline: 2px solid #ffcf5c; outline-offset: 2px; }
+.fob-pill b { font-weight: 700; padding: 1px 7px; border-radius: 999px; background: rgba(0, 0, 0, .3); color: #ffcf5c; }
+.fob-pill.is-wallet.is-real { border-color: #45e486; box-shadow: 0 0 22px -4px #45e486; } .fob-pill.is-wallet.is-real b { color: #45e486; }
+.fob-dot { width: 8px; height: 8px; border-radius: 50%; background: #ffcf5c; box-shadow: 0 0 10px #ffcf5c; animation: fobBeat 1.8s ease-in-out infinite; }
+.fob-pill.is-real .fob-dot { background: #45e486; box-shadow: 0 0 10px #45e486; }
+.fob-ping { position: absolute; top: -3px; right: -3px; width: 10px; height: 10px; border-radius: 50%; background: #ff8fa3; animation: fobBeat 1.2s ease-in-out infinite; }
+/* the pop-outs: a backdrop + a glass panel that scales in */
+.fob-back { position: fixed; inset: 0; z-index: 2000; display: grid; place-items: center; padding: 16px; background: rgba(6, 3, 14, .72); animation: fobFade .18s ease-out; }
+.fob-pop { width: min(860px, 100%); max-height: calc(100vh - 32px); overflow: auto; scrollbar-width: thin; scrollbar-color: #b48cff transparent; display: grid; gap: 12px; padding: 16px; border-radius: 16px;
+  background: radial-gradient(80% 60% at 0% 0%, rgba(124, 77, 255, .18), transparent 70%), #0b0817; box-shadow: 0 0 0 1px rgba(180, 140, 255, .4) inset, 0 30px 80px rgba(0, 0, 0, .6); animation: fobIn .2s ease-out; }
+.fob-pop::-webkit-scrollbar { width: 6px; } .fob-pop::-webkit-scrollbar-thumb { background: #b48cff; border-radius: 3px; }
+.fob-pop > header { display: flex; justify-content: space-between; align-items: center; gap: 8px; } .fob-pop > header b { font: 800 12px var(--m-mono); letter-spacing: .1em; color: #f3ecff; }
+.fob-x { width: 34px; height: 34px; border-radius: 10px; cursor: pointer; color: #c9bde6; background: rgba(255, 255, 255, .05); border: 1px solid rgba(255, 255, 255, .12); transition: transform .15s ease; }
+.fob-x:hover { transform: rotate(90deg); color: #fff; } .fob-x:focus-visible { outline: 2px solid #b48cff; outline-offset: 2px; }
+.fob-studio { display: grid; grid-template-columns: 230px minmax(0, 1fr); gap: 14px; }
+.fob-stage { position: relative; display: grid; justify-items: center; align-content: center; gap: 4px; min-height: 280px; border-radius: 14px; overflow: hidden;
+  background: radial-gradient(60% 50% at 50% 40%, rgba(124, 77, 255, .2), transparent 70%), #07040f; box-shadow: 0 0 0 1px rgba(180, 140, 255, .25) inset; }
+.fob-glow { position: absolute; left: 50%; top: 45%; width: 200px; height: 200px; margin: -100px 0 0 -100px; border-radius: 50%; background: radial-gradient(circle, var(--aura), transparent 65%); opacity: .55; animation: fobPulse 3.2s ease-in-out infinite; }
+.fob-stage .pt { position: relative; } .fob-name { position: relative; font: 800 16px var(--m-display, inherit); color: #fff; } .fob-stage small { position: relative; font-size: 11px; color: #c9bde6; text-align: center; padding: 0 10px; }
+.fob-picks { display: grid; gap: 10px; align-content: start; }
+.fob-row { display: grid; gap: 5px; } .fob-row > em, .fob-in > em { font: 700 9px var(--m-mono); letter-spacing: .14em; color: #9d90bd; font-style: normal; }
+.fob-opts { display: flex; flex-wrap: wrap; gap: 5px; }
+.fob-opts button { min-height: 32px; display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 999px; cursor: pointer; font: 700 10.5px var(--m-mono); color: #d8ccf5;
+  background: rgba(255, 255, 255, .04); border: 1px solid rgba(180, 140, 255, .25); transition: transform .15s ease, border-color .15s ease; }
+.fob-opts button:hover { transform: translateY(-1px); border-color: #b48cff; } .fob-opts button:active { transform: scale(.96); } .fob-opts button:focus-visible { outline: 2px solid #b48cff; outline-offset: 2px; }
+.fob-opts button.on { color: #120a24; background: #c9b6ff; border-color: transparent; box-shadow: 0 0 14px -3px #b48cff; }
+.fob-opts button i { width: 12px; height: 12px; border-radius: 50%; background: var(--d); box-shadow: 0 0 8px var(--d2, var(--d)); border: 1px solid rgba(255, 255, 255, .25); }
+.fob-in { display: grid; gap: 5px; }
+.fob-pop.is-wallet .cr { margin: 0; } .fob-pop.is-wallet .cr > header { display: flex; flex-wrap: wrap; align-items: baseline; gap: 10px; }
+@keyframes fobFade { from { opacity: 0; } to { opacity: 1; } }
+@keyframes fobIn { from { opacity: 0; transform: translateY(8px) scale(.98); } to { opacity: 1; transform: none; } }
+@keyframes fobBeat { 0%, 100% { transform: scale(1); opacity: 1; } 50% { transform: scale(1.35); opacity: .7; } }
+@keyframes fobBob { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-2px); } }
+@keyframes fobPulse { 0%, 100% { transform: scale(.94); opacity: .45; } 50% { transform: scale(1.06); opacity: .7; } }
+body.fx-lite .fob-crown, body.fx-lite .fob-dot, body.fx-lite .fob-ping, body.fx-lite .fob-glow, body.fx-lite .fob-back, body.fx-lite .fob-pop { animation: none; }
+@media (prefers-reduced-motion: reduce) { .fob-crown, .fob-dot, .fob-ping, .fob-glow, .fob-back, .fob-pop { animation: none; } .fob-pill, .fob-opts button, .fob-x { transition: none; } }
+body.theme-day .fob { background: linear-gradient(120deg, #fff6dd, #f1ebff); } body.theme-day .fob-h { color: #8a6100; }
+body.theme-day .fob-pill { color: #2a1650; background: #fff; } body.theme-day .fob-pill b { background: #f1ebff; color: #8a6100; }
+body.theme-day .fob-pop { background: #faf7ff; } body.theme-day .fob-pop > header b { color: #2a1650; } body.theme-day .fob-opts button { color: #2a1650; background: #fff; }
+body.theme-day .fob-opts button.on { background: #6d3fd1; color: #fff; } body.theme-day .fob-stage { background: radial-gradient(60% 50% at 50% 40%, rgba(124, 77, 255, .15), transparent 70%), #efe8ff; }
+body.theme-day .fob-name { color: #2a1650; } body.theme-day .fob-stage small { color: #4a3a6a; }
+@media (max-width: 640px) { .fob-studio { grid-template-columns: 1fr; } .fob-stage { min-height: 230px; } .fob-pill { padding: 6px 10px; font-size: 10px; } }

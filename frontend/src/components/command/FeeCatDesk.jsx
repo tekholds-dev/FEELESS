@@ -1,4 +1,6 @@
 import React, { useCallback, useEffect, useState } from 'react';
+import { FeeOwnerBar } from './FeeOwnerBar';
+import { realView } from './CatReal';
 import { toast } from 'sonner';
 import { FeeCharts, FeeTape, DuoLearn, readWords } from './FeeCatLive';
 import NumInput from '../NumInput';
@@ -105,7 +107,7 @@ export function FeeCatDesk({ call }) {
     <header className="fch-hero m-card m-live">
       <span className={`fch-orb ${running ? 'is-on' : ''}`} aria-hidden>🐱</span>
       <span className="fch-who"><b>FEE</b><small className={running ? 'is-on' : 'is-off'} data-testid="fch-status">{running ? `● LIVE · cycle ${cyc == null ? '…' : `${cyc}s ago`}` : '⏸ PAUSED'}</small>
-        <em>paper desk · she never signs or moves real SOL</em></span>
+        <em>{realView(c).real ? 'REAL · she proposes, your wallet signs each' : 'paper desk · go real from 👛 FEE\'S WALLET'}</em></span>
       <span className="fch-kpi"><small>EQUITY</small><b data-testid="fch-equity">{sol(equity)}</b><i className={roi >= 0 ? 'm-pos' : 'm-neg'}>{roi >= 0 ? '+' : ''}{roi.toFixed(1)}% vs {start} SOL</i></span>
       <span className="fch-kpi"><small>REALIZED</small><b className={(n(c.realizedPnlSol) || 0) >= 0 ? 'm-pos' : 'm-neg'}>{sol(c.realizedPnlSol)}</b><i>{trades} trades</i></span>
       <span className="fch-kpi fch-ring" style={{ '--k': (wr ?? 0) / 100 }}><small>WON</small><b>{wr == null ? '—' : `${Math.round(wr)}%`}</b></span>
@@ -113,6 +115,7 @@ export function FeeCatDesk({ call }) {
       <span className="fch-acts"><button type="button" className="m-btn" disabled={busy} onClick={() => save({ status: running ? 'paused' : 'running' })} data-testid="fch-toggle">{running ? '⏸ Pause' : '▶ Resume'}</button>
         <button type="button" className="m-btn m-go" disabled={busy || !running} onClick={() => save({ action: 'run' })} data-testid="fch-run">⚡ Run a cycle</button></span>
     </header>
+    <FeeOwnerBar cat={c} />
     <NexaDesk call={call} />
 
     <div className="fch-grid">

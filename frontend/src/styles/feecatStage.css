@@ -13,7 +13,7 @@
 .fcs-cat { position: relative; display: grid; place-items: center; height: 190px; }
 .fcs-spot { position: absolute; left: 50%; top: -30px; width: 220px; height: 240px; margin-left: -110px; background: conic-gradient(from 160deg at 50% 0%, transparent 0deg, rgba(200, 170, 255, .28) 20deg, transparent 40deg);
   transform-origin: 50% 0; animation: fcsSway 6s ease-in-out infinite; pointer-events: none; }
-.fcs-ring { position: absolute; bottom: 10px; width: 150px; height: 34px; border-radius: 50%; border: 2px solid rgba(180, 140, 255, .55); box-shadow: 0 0 22px #7c4dff88, inset 0 0 14px #7c4dff66;
+.fcs-ring { position: absolute; bottom: 10px; width: 150px; height: 34px; border-radius: 50%; border: 2px solid color-mix(in srgb, var(--fcs-aura, #b48cff) 60%, transparent); box-shadow: 0 0 22px color-mix(in srgb, var(--fcs-aura, #7c4dff) 55%, transparent), inset 0 0 14px color-mix(in srgb, var(--fcs-aura, #7c4dff) 40%, transparent);   /* 🎨 her aura (STYLE FEE) */
   animation: fcsPulse 2.4s ease-in-out infinite; }
 .fcs-copy { display: grid; gap: 8px; min-width: 0; }
 .fcs-status { justify-self: start; display: inline-flex; align-items: center; gap: 7px; padding: 4px 10px; border-radius: 999px; font: 800 10px 'JetBrains Mono', monospace; letter-spacing: .14em;

@@ -303,40 +303,87 @@ export const TOWN = {
   rep: { name: 'REP MARKET', sub: 'call it right → chips → points', art: 'casino', color: '#ffd36b' },
 };
 
+// 🏝 THE TOWN EXPANDS (owner, 2026-10-23): the family's own arrangement (backend block_markets.layout_of) — cells in order, ISLAND_CELLS an
+// island; a new island (and its bridge) every 15. Stands dress the streets; MY POOLS is one combo building of every position the block holds.
+export const ISLAND_CELLS = 15;
+export const STAND = { kiosk: { name: 'KIOSK', sub: 'coffee · street talk', color: '#ffd36b', icon: '☕' }, food: { name: 'FOOD STALL', sub: 'tacos for the trench', color: '#ff8fa3', icon: '🌮' },
+  sign: { name: 'BILLBOARD', sub: "the family's sign", color: '#45e486', icon: '🪧' }, fountain: { name: 'FOUNTAIN', sub: 'make a wish', color: '#7fe0ff', icon: '⛲' },
+  park: { name: 'PARK', sub: 'trees + a bench', color: '#5fd38a', icon: '🌳' }, garden: { name: 'GARDEN', sub: 'flower beds in bloom', color: '#ff7ac8', icon: '🌷' },
+  statue: { name: 'STATUE', sub: 'the Don in gold', color: '#ffcf5c', icon: '🗽' }, plaza: { name: 'PLAZA', sub: 'tiles + lamp posts', color: '#c9b6ff', icon: '🏛' },
+  pond: { name: 'POND', sub: 'koi + lily pads', color: '#5fc9ff', icon: '🪷' }, palms: { name: 'PALMS', sub: 'a beach corner', color: '#3ddc97', icon: '🌴' } };
+export const MY_POOLS = { name: 'MY POOLS', sub: 'every LP · stake · lend position, live', art: 'money', color: '#45e4c8' };
+
+// pure: the block's cells in order — the family's saved layout (✋ Arrange), else its buildings → your LP towers → the town → open plots.
+// Your LP towers are yours (not the family's), so they always follow the family's last market building.
+export function blockCells(bl, lps = []) {
+  const town = (bl?.town || []).filter(k => TOWN[k]);
+  const base = Array.isArray(bl?.layout) && bl.layout.length ? bl.layout.filter(c => !String(c).startsWith('town:') || TOWN[String(c).slice(5)])
+    : [...(bl?.buildings || []).map(b => `blk:${b.key}`), ...town.map(k => `town:${k}`)];
+  const last = base.reduce((i, c, j) => (String(c).startsWith('blk:') ? j : i), -1);
+  const cells = [...base.slice(0, last + 1), ...lps.map(p => `lp:${p.id}`), ...base.slice(last + 1)];
+  if (!bl?.layoutSaved) for (let k = 0; k < Math.max(0, bl?.open ?? 3); k += 1) cells.push('open');
+  return cells;
+}
+
+// pure: MY POOLS' live number — every built market building + every LP position the block shows ($ worth now, fees not claimed)
+export function myPools(bl, lps = []) {
+  const blds = (bl?.buildings || []).filter(b => b.state === 'built');
+  const v = blds.reduce((a, b) => a + (Number(b.usd) || 0), 0) + lps.reduce((a, p) => a + (Number(p.valueUsd) || 0), 0);
+  return { usd: v, fees: lps.reduce((a, p) => a + (Number(p.feeUsd) || 0), 0), n: blds.length + lps.length, inRange: lps.filter(p => p.inRange).length, rows: [...blds.map(b => ({ key: `blk-${b.key}`, sym: b.sym || b.name, usd: Number(b.usd) || 0, apy: b.apy, kind: b.kind })),
+    ...lps.map(p => ({ key: `lp-${p.id}`, sym: p.sym, usd: Number(p.valueUsd) || 0, fees: Number(p.feeUsd) || 0, inRange: !!p.inRange, kind: 'lp' }))] };
+}
+
 // 🏙 pure: a FAMILY BLOCK in the 3D city (owner, 2026-10-22: "my block supposed to look like the new city design and expanding — me adding
-// buildings for markets i wanna use, under construction until i actually buy … shows open plots"). One island that grows with the family's
-// market buildings: BUILT = a tower sized by the position's $ value with its live APY on the sign · NOT YET = scaffolding + a crane · OPEN PLOTS
-// = surveyed land with stakes, tap one to add a market. `bl` = /familia-block.
+// buildings for markets i wanna use, under construction until i actually buy … shows open plots"). Islands that grow with the family's market
+// buildings: BUILT = a tower sized by the position's $ value with its live APY on the sign · NOT YET = scaffolding + a crane · OPEN PLOTS =
+// surveyed land with stakes, tap one to add a market. `bl` = /familia-block (its `layout` places every cell; 15 cells an island + a bridge).
 export function blockPlan(bl, live = {}) {
-  const blds = bl?.buildings || []; const open = Math.max(0, bl?.open ?? 3); const town = (bl?.town || []).filter(k => TOWN[k]);
-  const lps = (live.lp || []).filter(p => p && !p.empty);   // 🏗 your LP positions (lib/lpPositions): a tower each, lit while IN RANGE
-  const n = blds.length + lps.length + town.length + open;
-  const cols = Math.max(3, Math.min(5, Math.ceil(Math.sqrt(n * 1.6)))); const rows = Math.max(2, Math.ceil(n / cols));
-  const isl = island('block', 0, 0, cols, rows, MCELL, { name: `[${bl?.tag || '?'}] ${String(bl?.name || 'THE BLOCK').toUpperCase()}`, sub: `${bl?.built || 0}/${blds.length} built${bl?.total ? ` · ${usd(bl.total)}` : ''}`, color: '#d4af37' });
-  const at = k => rectOf(isl.gx, isl.gz, [k % cols, Math.floor(k / cols)], MCELL);
-  const markets = []; const lots = [];
-  blds.forEach((b, k) => {
-    const rect = at(k); const pick = { blk: b.key };
-    if (b.state === 'built') {
-      const v = Number(b.usd) || 0;
-      markets.push({ key: `blk-${b.key}`, pick, kind: b.kind, name: b.sym || b.name, proto: b.name, pool: true, tvl: v || b.tvl, apy: b.apy, hz: pulseHz({ tvl: v * 50 }),
-        h: v ? heightOf(v * 40) * 1.2 : 2.6, rect, island: 'block', m: b,
-        lines: [`${b.sym || b.name}`, v ? `${usd(v)}${b.apy != null ? ` · APY ${apyTxt(b.apy)}` : ''}` : `${b.n || 1} position${(b.n || 1) > 1 ? 's' : ''}`, (b.errands || []).length ? `${b.errands.length} errand${b.errands.length > 1 ? 's' : ''}` : b.name] });
-    } else lots.push({ id: `blk-${b.key}`, pick, kind: 'mine', tag: bl?.tag, owner: bl?.id, state: 'shut', power: 3000, rect, seed: hash(b.key), lines: [`${b.name} · UNDER CONSTRUCTION`, b.why ? 'no position reader yet' : 'open a position to build it'] });
+  const blds = bl?.buildings || []; const byKey = Object.fromEntries(blds.map(b => [b.key, b]));
+  const lps = (live.lp || []).filter(p => p && !p.empty); const lpBy = Object.fromEntries(lps.map(p => [p.id, p]));   // 🏗 your LP positions: a tower each, lit while IN RANGE
+  const cells = blockCells(bl, lps); const per = Math.max(4, bl?.islandCells || ISLAND_CELLS);
+  const chunks = []; for (let i = 0; i < cells.length; i += per) chunks.push(cells.slice(i, i + per)); if (!chunks.length) chunks.push([]);
+  const islands = []; const slot = []; let gx = 0;
+  chunks.forEach((ch, j) => {
+    const n = Math.max(1, ch.length); const cols = chunks.length === 1 ? Math.max(3, Math.min(5, Math.ceil(Math.sqrt(n * 1.6)))) : 5; const rows = Math.max(2, Math.ceil(n / cols));
+    const isl = island(j ? `block-${j}` : 'block', gx, 0, cols, rows, MCELL, j ? { name: `[${bl?.tag || '?'}] ISLAND ${j + 1}`, sub: `${ch.length} lots`, color: '#d4af37' }
+      : { name: `[${bl?.tag || '?'}] ${String(bl?.name || 'THE BLOCK').toUpperCase()}`, sub: `${bl?.built || 0}/${blds.length} built${bl?.total ? ` · ${usd(bl.total)}` : ''}`, color: '#d4af37' });
+    islands.push(isl); ch.forEach((_, k) => slot.push({ rect: rectOf(isl.gx, isl.gz, [k % cols, Math.floor(k / cols)], MCELL), island: isl.key }));
+    gx = isl.x + isl.w + GAP + LAND;
   });
-  lps.forEach((p, j) => { const v = Number(p.valueUsd) || 0; const f = Number(p.feeUsd) || 0;
-    markets.push({ key: `lp-${p.id}`, pick: { lp: p.id }, kind: 'damm', name: p.sym, proto: 'Meteora DAMM v2', pool: true, tvl: v, apy: p.feeDay != null ? p.feeDay * 36500 : null, hz: p.inRange ? 1.8 : 0.4,
-      h: heightOf(Math.max(1, v) * 4000) * 1.2, rect: at(blds.length + j), island: 'block', m: p, tone: p.inRange ? '#45e486' : '#6b6f78',
-      lines: [p.sym, `${dollarsSmall(v)} · fees +${dollarsSmall(f)}`, p.inRange ? `IN RANGE · ${p.feeDay != null ? `${(p.feeDay * 100).toFixed(1)}%/day` : 'earning'}` : 'OUT OF RANGE · earning 0'] }); });
-  // 🏘 the town: the tool buildings the family picked, each a real tool (the TT tower burns its READY floors here too)
-  // 🏘 each sign carries its tool's own live number (live.town = lib/townLive → backend/town_live.py); a quiet source keeps the subtitle
-  const places = town.map((k, j) => { const t = TOWN[k]; const tt = k === 'tt' ? ttLive(live.coins) : null; const tl = live.town?.[k];
-    return { key: `town-${k}`, lens: k, pick: { town: k }, name: t.name, sub: t.sub, art: t.art, color: t.color, tool: true, isl: 'block', rect: at(blds.length + lps.length + j), live: tt,
-      lines: [t.name, tl?.line || (tt?.n ? `${tt.ready} READY · ${tt.n} on the intake` : t.sub)] }; });
-  for (let k = 0; k < open; k += 1) lots.push({ id: `open-${k}`, pick: { open: k }, kind: 'free', open: true, rect: at(blds.length + lps.length + town.length + k), seed: k });
-  const roads = [roadsOf(isl)];
-  return { kind: 'block', key: bl?.id || 'block', islands: [isl], lots, marks: [], plaza: null, markets, places, spare: [], roads, bridges: [], gates: [],
-    lights: roads[0].nodes.filter(nd => !nd.edge).slice(0, 6), loops: [ringOf(isl)], billboards: [], bounds: boundsOf([isl]), center: { x: isl.x + isl.w / 2, z: isl.z + isl.d / 2 } };
+  const bridges = islands.slice(1).map((isl, j) => bridgeOf(islands[j], isl, `${bl?.tag || 'Family'} Bridge ${j + 1}`)).filter(Boolean);
+  const markets = []; const lots = []; const places = []; let openK = 0; let standK = 0;
+  cells.forEach((c, k) => {
+    const { rect, island: isk } = slot[k]; const [kind, ...rest] = String(c).split(':'); const id = rest.join(':');
+    if (kind === 'blk' && byKey[id]) {
+      const b = byKey[id]; const pick = { blk: b.key };
+      if (b.state === 'built') {
+        const v = Number(b.usd) || 0;
+        markets.push({ key: `blk-${b.key}`, pick, kind: b.kind, name: b.sym || b.name, proto: b.name, pool: true, tvl: v || b.tvl, apy: b.apy, hz: pulseHz({ tvl: v * 50 }),
+          h: v ? heightOf(v * 40) * 1.2 : 2.6, rect, island: isk, m: b,
+          lines: [`${b.sym || b.name}`, v ? `${usd(v)}${b.apy != null ? ` · APY ${apyTxt(b.apy)}` : ''}` : `${b.n || 1} position${(b.n || 1) > 1 ? 's' : ''}`, (b.errands || []).length ? `${b.errands.length} errand${b.errands.length > 1 ? 's' : ''}` : b.name] });
+      } else lots.push({ id: `blk-${b.key}`, pick, kind: 'mine', tag: bl?.tag, owner: bl?.id, state: 'shut', power: 3000, rect, island: isk, seed: hash(b.key), lines: [`${b.name} · UNDER CONSTRUCTION`, b.why ? 'no position reader yet' : 'open a position to build it'] });
+    } else if (kind === 'lp' && lpBy[id]) {
+      const p = lpBy[id]; const v = Number(p.valueUsd) || 0; const f = Number(p.feeUsd) || 0;
+      markets.push({ key: `lp-${p.id}`, pick: { lp: p.id }, kind: 'damm', name: p.sym, proto: 'Meteora DAMM v2', pool: true, tvl: v, apy: p.feeDay != null ? p.feeDay * 36500 : null, hz: p.inRange ? 1.8 : 0.4,
+        h: heightOf(Math.max(1, v) * 4000) * 1.2, rect, island: isk, m: p, tone: p.inRange ? '#45e486' : '#6b6f78',
+        lines: [p.sym, `${dollarsSmall(v)} · fees +${dollarsSmall(f)}`, p.inRange ? `IN RANGE · ${p.feeDay != null ? `${(p.feeDay * 100).toFixed(1)}%/day` : 'earning'}` : 'OUT OF RANGE · earning 0'] });
+    } else if (kind === 'town' && TOWN[id]) {   // 🏘 a tool building — each sign carries its tool's own live number (lib/townLive)
+      const t = TOWN[id]; const tt = id === 'tt' ? ttLive(live.coins) : null; const tl = live.town?.[id];
+      places.push({ key: `town-${id}`, lens: id, pick: { town: id }, name: t.name, sub: t.sub, art: t.art, color: t.color, tool: true, isl: isk, rect, live: tt,
+        lines: [t.name, tl?.line || (tt?.n ? `${tt.ready} READY · ${tt.n} on the intake` : t.sub)] });
+    } else if (kind === 'pools') {   // 💧 MY POOLS: one combo building of every position the block holds, its live total on the sign
+      const mp = myPools(bl, lps);
+      places.push({ key: 'my-pools', lens: 'pools', pick: { pools: true }, name: MY_POOLS.name, sub: MY_POOLS.sub, art: MY_POOLS.art, color: MY_POOLS.color, tool: true, isl: isk, rect, money: true,
+        lines: [MY_POOLS.name, mp.n ? `${usd(mp.usd)} · ${mp.n} position${mp.n > 1 ? 's' : ''}${mp.fees ? ` · +${dollarsSmall(mp.fees)} fees` : ''}` : 'no positions yet — open one'] });
+    } else if (kind === 'stand' && STAND[id]) {   // ☕ a little street stand (dressing, never money)
+      const st = STAND[id]; places.push({ key: `stand-${standK}`, lens: 'stand', pick: { stand: standK }, name: st.name, sub: st.sub, art: 'stand', stand: id, color: st.color, isl: isk, rect, lines: [`${st.icon} ${st.name}`, st.sub] }); standK += 1;
+    } else if (kind === 'open') { lots.push({ id: `open-${openK}`, pick: { open: openK }, kind: 'free', open: true, rect, island: isk, seed: openK }); openK += 1; }
+    // 'gap' (or a building that left the block) = bare land
+  });
+  const roads = islands.map(i => roadsOf(i));
+  return { kind: 'block', key: bl?.id || 'block', islands, lots, marks: [], plaza: null, markets, places, spare: [], roads, bridges, gates: [],
+    lights: roads.flatMap(r => r.nodes.filter(nd => !nd.edge).slice(0, 6)), loops: islands.map(ringOf), billboards: [], bounds: boundsOf(islands),
+    center: { x: (islands[0].x + islands[islands.length - 1].x + islands[islands.length - 1].w) / 2, z: islands[0].z + islands[0].d / 2 } };
 }
 
 // pure: where the camera looks for a picked thing (plot id, landmark, market, place, island)
@@ -345,6 +392,8 @@ export function spotOf(plan, sel) {
   if (sel.isl === 'keys') { const mine = plan.lots.find(l => l.kind === 'mine'); const k = mine?.island || plan.islands.find(x => x.key_)?.key; return k ? spotOf(plan, { isl: k }) : null; }   // 🏝 your key (or the first)
   if (sel.isl) { const i = plan.islands.find(x => x.key === sel.isl); return i ? { x: i.x + i.w / 2, z: i.z + i.d / 2, span: Math.max(i.w, i.d) } : null; }
   if (sel.town) { const t = plan.places.find(p => p.pick?.town === sel.town); return t ? centerOf(t.rect) : null; }   // 🏘 a town building
+  if (sel.pools) { const t = plan.places.find(p => p.pick?.pools); return t ? centerOf(t.rect) : null; }   // 💧 MY POOLS
+  if (sel.stand != null) { const t = plan.places.find(p => p.pick?.stand === sel.stand); return t ? centerOf(t.rect) : null; }   // ☕ a stand
   if (sel.lp) { const b = plan.markets.find(m => m.key === `lp-${sel.lp}`); return b ? centerOf(b.rect) : null; }   // 🏗 an LP position's tower
   if (sel.blk || sel.open != null) { const id = sel.blk ? `blk-${sel.blk}` : `open-${sel.open}`; const b = plan.lots.find(l => l.id === id) || plan.markets.find(m => m.key === id); return b ? centerOf(b.rect) : null; }   // 🏙 the family block
   const hit = sel.id ? plan.lots.find(l => l.id === sel.id) : sel.lm ? plan.marks.find(m => m.key === sel.lm) : sel.mk ? plan.markets.find(m => m.key === sel.mk) : sel.place ? (plan.places.find(p => p.key === sel.place) || (plan.inside || []).find(p => p.key === sel.place)) : null;

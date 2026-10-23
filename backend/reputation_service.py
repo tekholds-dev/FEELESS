@@ -9182,7 +9182,9 @@ async def _fblock_view(c, me=None, staff=False, rank=None):
     built_ = [b_ for b_ in rows_ if b_['state'] == 'built']
     out_ = {'id': c['id'], 'tag': c.get('tag'), 'name': c.get('name'), 'buildings': rows_, 'built': len(built_), 'max': _bmk.MAX,
             'open': max(0, min(_bmk.OPEN, _bmk.MAX - len(rows_))), 'at': round(now),   # open plots to build on: always 4 until the block is full
-            'town': _bmk.town_of(c), 'townMax': _bmk.TOWN_MAX, 'townAll': list(_bmk.TOWN)}   # 🏘 the tool buildings the family picked
+            'town': _bmk.town_of(c), 'townMax': _bmk.TOWN_MAX, 'townAll': list(_bmk.TOWN),   # 🏘 the tool buildings the family picked
+            'layout': _bmk.layout_of(c), 'layoutSaved': isinstance(c.get('layout'), dict), 'islandCells': _bmk.ISLAND_CELLS, 'layoutMax': _bmk.LAYOUT_MAX, 'stands': list(_bmk.STANDS),
+            'islandsPaid': max(1, int(c.get('islands') or 1)), 'islandMp': 0 if staff else _bmk.ISLAND_MP}   # 🏝 its arrangement (cells in order, islands of 15)
     if mine_:
         out_['total'] = round(sum(float(b_.get('usd') or 0) for b_ in built_), 2)
         out_['canBuild'] = bool(staff or me == c.get('owner') or (rank or {}).get(me) == 'underboss')
@@ -9247,6 +9249,37 @@ async def familia_block_act(p: BlockAct):
         _json_save(CREWS_PATH, st)
     _crew_cache['data'] = None
     _fblock_held.pop(c['id'], None)
+    return await _fblock_view(c, me, staff_, rk_)
+
+
+class BlockLayout(BaseModel):
+    address: str
+    session: str
+    cells: list = Field(..., max_length=80)
+
+
+@app.post('/api/reputation/familia-block/layout')
+async def familia_block_layout(p: BlockLayout):
+    """🏝 Save the family block's arrangement (Don · Underboss · creator): cells in order — buildings moved, lots picked, stands, MY POOLS,
+    more islands joined by bridges. Stored server-side on the family; nothing is bought or sold by it."""
+    import crews as _cr
+    me = _session_or_401(p.address, p.session); now = time.time()
+    async with _crews_lock:
+        st = _json_load(CREWS_PATH, {}); me = _seat_of(st, me); c = _cr.crew_of(st, me)
+        if not c:
+            raise HTTPException(404, 'Join a family to build a block.')
+        staff_ = _is_staff(me); _b, rk_ = _city_ctx(c, me, now)
+        try:
+            n_, cost_ = _bmk.expand_cost(c, p.cells, staff_)   # 🏝 a new island = family MP (points); the creator wallet expands for free
+            _bmk.layout_set(__import__("copy").deepcopy(c), p.cells, me, staff_, rk_)   # every refusal BEFORE the bank is touched
+            if cost_:
+                import family_city as _fcy
+                _fcy._pay(_fcy.city_of(c, now), cost_, f'{n_ - max(1, int(c.get("islands") or 1))} new island(s)')
+            _bmk.layout_set(c, p.cells, me, staff_, rk_)
+        except ValueError as e:
+            raise HTTPException(400, str(e))
+        _json_save(CREWS_PATH, st)
+    _crew_cache['data'] = None
     return await _fblock_view(c, me, staff_, rk_)
 
 

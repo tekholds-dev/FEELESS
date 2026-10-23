@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { MoneyDesk, RangePicture, JOB_OF } from './MoneyDesk';
-import { blockPlan, spotOf, usd, apyTxt, TOWN, dollarsSmall } from '../lib/cityPlan';
+import { blockPlan, blockCells, myPools, spotOf, usd, apyTxt, TOWN, STAND, MY_POOLS, ISLAND_CELLS, dollarsSmall } from '../lib/cityPlan';
 import { webglOk } from './FeeCity3D';
 import { useTownLive } from '../lib/townLive';
 import '../styles/familyCity3d.css';
@@ -55,23 +55,39 @@ export function FamilyBlock3D({ bl, sel, onPick, coins = null, pop = null, onClo
     </div></div>;
 }
 
-// the drawn CSS block: built towers lit, scaffolding + a crane on the ones not built yet, surveyed open plots
+// the drawn CSS block: built towers lit, scaffolding + a crane on the ones not built yet, surveyed open plots — in the family's own order
+// (blockCells: ✋ Arrange), stands + MY POOLS included, a "🌉 island N" break every ISLAND_CELLS
 export function BlockGrid({ bl, sel, onPick, town = null, lp = null }) {
-  const blds = bl?.buildings || []; const open = Math.max(0, bl?.open ?? 3);
+  const blds = Object.fromEntries((bl?.buildings || []).map(b => [b.key, b])); const lps = (lp || []).filter(p => !p.empty); const lpBy = Object.fromEntries(lps.map(p => [p.id, p]));
+  const cells = blockCells(bl, lps); const per = bl?.islandCells || ISLAND_CELLS; let openK = 0; let standK = 0;
   return <div className="fb3-grid" data-testid="block-grid">
-    {blds.map((b, i) => <button key={b.key} type="button" className={`fb3-b is-${b.state} k-${b.kind} ${sel?.blk === b.key ? 'is-sel' : ''}`} style={{ '--i': i, '--h': `${b.state === 'built' ? 46 + Math.min(54, Math.log10(1 + (Number(b.usd) || 10)) * 14) : 40}%` }}
-      onClick={() => onPick({ blk: b.key })} data-testid={`blk-${b.key}`} data-tip={b.state === 'built' ? `${b.name}: a real position${b.usd ? ` · ${usd(b.usd)}` : ''}${b.apy != null ? ` · APY ${apyTxt(b.apy)}` : ''}` : b.why || `${b.name}: open a position there to build it`}>
-      <i className="fb3-tower"><u /></i>{b.state !== 'built' ? <i className="fb3-scaf"><s /></i> : null}
-      <span className="fb3-sign"><b>{b.sym || b.name}</b><small>{b.state === 'built' ? (b.usd ? usd(b.usd) : b.band || 'BUILT') : 'UNDER CONSTRUCTION'}</small></span>
-      {(b.errands || []).length && b.state === 'built' ? <em className="fb3-pin">{b.errands.length}</em> : null}</button>)}
-    {(lp || []).filter(p => !p.empty).map((p, j) => <button key={`lp-${p.id}`} type="button" className={`fb3-b is-built is-lp ${p.inRange ? 'is-in' : 'is-out'} ${sel?.lp === p.id ? 'is-sel' : ''}`} style={{ '--i': blds.length + j, '--h': '64%' }}
-      onClick={() => onPick({ lp: p.id })} data-testid={`blk-lp-${p.id}`} data-tip={`${p.sym}: your LP position · ${p.inRange ? 'in range, earning' : 'out of range, earning 0'} — tap to claim, remove or close`}>
-      <i className="fb3-tower"><u /></i><span className="fb3-sign"><b>{p.sym}</b><small>{p.inRange ? 'IN RANGE' : 'OUT OF RANGE'} · +{dollarsSmall(p.feeUsd)}</small></span></button>)}
-    {(bl?.town || []).filter(k => TOWN[k]).map((k, j) => { const t = TOWN[k]; const tl = town?.[k]; return <button key={`t-${k}`} type="button" className={`fb3-b is-built is-town a-${t.art} ${sel?.town === k ? 'is-sel' : ''}`}
-      style={{ '--i': blds.length + j, '--h': k === 'tt' ? '96%' : '70%', '--tc': t.color }} onClick={() => onPick({ town: k })} data-testid={`town-b-${k}`} data-tip={`${t.name} — ${tl?.line || t.sub}. Tap to walk in: the real tool opens over the block`}>
-      <i className="fb3-tower"><u /></i><span className="fb3-sign"><b>{t.name}</b>{tl ? <small className={`fb3-live is-${tl.tone}`} key={tl.line}>{tl.line}</small> : <small>{t.sub}</small>}</span></button>; })}
-    {Array.from({ length: open }, (_, k) => <button key={`o${k}`} type="button" className={`fb3-b is-open ${sel?.open === k ? 'is-sel' : ''}`} style={{ '--i': blds.length + k }} onClick={() => onPick({ open: k })}
-      data-testid={`open-${k}`} data-tip="An open plot — add a market you use; it builds itself when you open a real position there"><i className="fb3-stakes" /><span className="fb3-sign"><b>OPEN PLOT</b><small>+ add a market</small></span></button>)}
+    {cells.map((c, i) => { const [kind, ...rest] = String(c).split(':'); const id = rest.join(':'); const brk = i && i % per === 0 ? <span key={`isl-${i}`} className="fb3-isl" aria-hidden="true">🌉 ISLAND {i / per + 1}</span> : null;
+      let el = null;
+      if (kind === 'blk' && blds[id]) { const b = blds[id];
+        el = <button key={c} type="button" className={`fb3-b is-${b.state} k-${b.kind} ${sel?.blk === b.key ? 'is-sel' : ''}`} style={{ '--i': i, '--h': `${b.state === 'built' ? 46 + Math.min(54, Math.log10(1 + (Number(b.usd) || 10)) * 14) : 40}%` }}
+          onClick={() => onPick({ blk: b.key })} data-testid={`blk-${b.key}`} data-tip={b.state === 'built' ? `${b.name}: a real position${b.usd ? ` · ${usd(b.usd)}` : ''}${b.apy != null ? ` · APY ${apyTxt(b.apy)}` : ''}` : b.why || `${b.name}: open a position there to build it`}>
+          <i className="fb3-tower"><u /></i>{b.state !== 'built' ? <i className="fb3-scaf"><s /></i> : null}
+          <span className="fb3-sign"><b>{b.sym || b.name}</b><small>{b.state === 'built' ? (b.usd ? usd(b.usd) : b.band || 'BUILT') : 'UNDER CONSTRUCTION'}</small></span>
+          {(b.errands || []).length && b.state === 'built' ? <em className="fb3-pin">{b.errands.length}</em> : null}</button>; }
+      else if (kind === 'lp' && lpBy[id]) { const p = lpBy[id];
+        el = <button key={c} type="button" className={`fb3-b is-built is-lp ${p.inRange ? 'is-in' : 'is-out'} ${sel?.lp === p.id ? 'is-sel' : ''}`} style={{ '--i': i, '--h': '64%' }}
+          onClick={() => onPick({ lp: p.id })} data-testid={`blk-lp-${p.id}`} data-tip={`${p.sym}: your LP position · ${p.inRange ? 'in range, earning' : 'out of range, earning 0'} — tap to claim, remove or close`}>
+          <i className="fb3-tower"><u /></i><span className="fb3-sign"><b>{p.sym}</b><small>{p.inRange ? 'IN RANGE' : 'OUT OF RANGE'} · +{dollarsSmall(p.feeUsd)}</small></span></button>; }
+      else if (kind === 'town' && TOWN[id]) { const t = TOWN[id]; const tl = town?.[id];
+        el = <button key={c} type="button" className={`fb3-b is-built is-town a-${t.art} ${sel?.town === id ? 'is-sel' : ''}`}
+          style={{ '--i': i, '--h': id === 'tt' ? '96%' : '70%', '--tc': t.color }} onClick={() => onPick({ town: id })} data-testid={`town-b-${id}`} data-tip={`${t.name} — ${tl?.line || t.sub}. Tap to walk in: the real tool opens over the block`}>
+          <i className="fb3-tower"><u /></i><span className="fb3-sign"><b>{t.name}</b>{tl ? <small className={`fb3-live is-${tl.tone}`} key={tl.line}>{tl.line}</small> : <small>{t.sub}</small>}</span></button>; }
+      else if (kind === 'pools') { const mp = myPools(bl, lps);
+        el = <button key={c} type="button" className={`fb3-b is-built is-town is-pools ${sel?.pools ? 'is-sel' : ''}`} style={{ '--i': i, '--h': '78%', '--tc': MY_POOLS.color }} onClick={() => onPick({ pools: true })} data-testid="town-b-pools"
+          data-tip="MY POOLS — every LP · stake · lend position on the block together, live"><i className="fb3-tower"><u /></i><span className="fb3-sign"><b>{MY_POOLS.name}</b><small key={mp.usd}>{mp.n ? `${usd(mp.usd)} · ${mp.n} pos` : 'no positions yet'}</small></span></button>; }
+      else if (kind === 'stand' && STAND[id]) { const st = STAND[id]; const k = standK; standK += 1;
+        el = <button key={`${c}-${k}`} type="button" className={`fb3-b is-stand s-${id}`} style={{ '--i': i, '--tc': st.color }} onClick={() => onPick({ stand: k })} data-testid={`stand-${k}`} data-tip={`${st.name} — ${st.sub} (a street stand: dressing, never money)`}>
+          {id === 'kiosk' || id === 'food' ? <i className="fb3-awning" aria-hidden="true" /> : <i className="fb3-decor" aria-hidden="true">{st.icon}</i>}<span className="fb3-sign"><b>{st.icon} {st.name}</b><small>{st.sub}</small></span></button>; }
+      else if (kind === 'open') { const k = openK; openK += 1;
+        el = <button key={`o${k}`} type="button" className={`fb3-b is-open ${sel?.open === k ? 'is-sel' : ''}`} style={{ '--i': i }} onClick={() => onPick({ open: k })}
+          data-testid={`open-${k}`} data-tip="An open plot — add a market you use; it builds itself when you open a real position there"><i className="fb3-stakes" /><span className="fb3-sign"><b>OPEN PLOT</b><small>+ add a market</small></span></button>; }
+      else el = <span key={`g${i}`} className="fb3-b is-gap" aria-hidden="true" />;
+      return brk ? [brk, el] : el; })}
   </div>;
 }
 

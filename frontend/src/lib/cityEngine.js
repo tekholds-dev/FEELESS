@@ -507,6 +507,7 @@ export function createCity(host, { onPick, onHover, onAnchors, lite = false, sti
     const r = pl.rect; const c = centerOf(r);
     if (pl.virtual) { proxy({ x: r.x - 0.2, z: r.z - 0.2, w: r.w + 0.4, d: 0.4 }, 0.3, pl.pick, pl.name); return; }   // the HQ is your own block (or the Mansion): no new building
     if (pl.art === 'tt') { ttTower(pl, yard); return; }
+    if (pl.art === 'stand') { standProp(pl, yard); return; }
     box(r.w, 0.12, r.d, '#2c2a33', c.x, 0.08, c.z, content);
     const url = { hall: MODELS.big[2], tower: MODELS.sky[2], war: MODELS.big[1], podium: MODELS.mid[2], precinct: MODELS.mid[4], pawn: MODELS.mid[0], board: MODELS.shop[2], gym: MODELS.big[0], casino: MODELS.big[3], warehouse: MODELS.mid[4],
       radar: MODELS.mid[1], trade: MODELS.sky[3], perps: MODELS.big[1], track: MODELS.shop[1], watch: MODELS.sky[4], court: MODELS.mid[3], cat: MODELS.sky[0], fuel: MODELS.shop[0], news: MODELS.shop[3], bank: MODELS.big[3], sleep: MODELS.sky[3], money: MODELS.sky[2] }[pl.art] || MODELS.mid[0];
@@ -520,6 +521,68 @@ export function createCity(host, { onPick, onHover, onAnchors, lite = false, sti
     else if (!pl.tool) { const n = new THREE.Mesh(new THREE.TorusGeometry(0.46, 0.06, 8, 26), neon(pl.color, 2.8)); n.position.set(c.x, h + 0.45, c.z); content.add(n); anim.push(t => { n.rotation.y = t * 1.4; }); }
     const s = sign(pl.lines || [pl.name, pl.sub], { color: pl.color, w: 480 }); s.position.set(c.x, h + (pl.tool && pl.art !== 'track' && pl.art !== 'fuel' ? 2.5 : 1.6), c.z); content.add(s);
     proxy(r, h + 0.3, pl.pick, pl.name);
+  }
+
+  // ☕ A STREET STAND (owner, 2026-10-23: "add little stands — kiosks / food stalls / signs"): procedural, small, alive — a counter under a striped
+  // awning with a slowly turning lit sign (kiosk · food), a billboard on two posts with a light sweep, or a fountain whose water column breathes.
+  function standProp(pl, yard) {
+    const r = pl.rect; const c = centerOf(r); const col = pl.color || '#ffd36b';
+    box(r.w, 0.12, r.d, '#2c2a33', c.x, 0.08, c.z, content); yard(r, 2.2);
+    let top = 1.2;
+    if (pl.stand === 'fountain') {
+      const basin = new THREE.Mesh(new THREE.CylinderGeometry(1.5, 1.7, 0.45, 28), new THREE.MeshStandardMaterial({ color: '#8f97a3', roughness: 0.7 })); basin.position.set(c.x, 0.36, c.z); content.add(basin);
+      const pool = new THREE.Mesh(new THREE.CylinderGeometry(1.32, 1.32, 0.06, 28), neon('#5fc9ff', 1.6)); pool.position.set(c.x, 0.58, c.z); content.add(pool);
+      const jet = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.22, 1.6, 12), new THREE.MeshBasicMaterial({ color: '#bfefff', transparent: true, opacity: 0.75, toneMapped: false }));
+      jet.geometry.translate(0, 0.8, 0); jet.position.set(c.x, 0.6, c.z); content.add(jet); if (!still) anim.push(t => { jet.scale.y = 0.8 + 0.25 * Math.sin(t * 2.1); });
+      top = 2.3;
+    } else if (['park', 'palms', 'garden', 'pond', 'statue', 'plaza'].includes(pl.stand)) {   // 🌴 a beauty plot (no counter): drawn, a little alive
+      const tree = (x, z, palm = false) => {
+        const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.11, palm ? 1.7 : 0.9, 8), new THREE.MeshStandardMaterial({ color: palm ? '#8a6a42' : '#5b4128', roughness: 0.9 }));
+        trunk.position.set(x, palm ? 0.95 : 0.55, z); content.add(trunk);
+        const crown = palm ? new THREE.Mesh(new THREE.ConeGeometry(0.7, 0.35, 7), new THREE.MeshStandardMaterial({ color: '#2fae6a', roughness: 0.8 }))
+          : new THREE.Mesh(new THREE.SphereGeometry(0.55, 10, 8), new THREE.MeshStandardMaterial({ color: '#2f8f4e', roughness: 0.85 }));
+        crown.position.set(x, palm ? 1.85 : 1.2, z); content.add(crown);
+        if (!still) { const ph = x * 1.7 + z; anim.push(t => { crown.rotation.z = Math.sin(t * 0.9 + ph) * (palm ? 0.12 : 0.05); }); }
+      };
+      box(r.w - 0.4, 0.05, r.d - 0.4, null, c.x, 0.16, c.z, content, M.grass);
+      if (pl.stand === 'park') { [[-1.4, -1.2], [1.3, -1.4], [-1.2, 1.3], [1.5, 1.1], [0.1, -0.1]].forEach(([dx, dz]) => tree(c.x + dx, c.z + dz));
+        box(1.1, 0.08, 0.3, '#7a5a3a', c.x + 0.2, 0.42, c.z + 1.9, content); top = 1.9; }
+      else if (pl.stand === 'palms') { box(r.w - 1.2, 0.06, 1.6, '#e8d7a6', c.x, 0.2, c.z + 1.4, content);
+        [[-1.5, -0.8], [0.2, -1.6], [1.6, -0.4]].forEach(([dx, dz]) => tree(c.x + dx, c.z + dz, true)); top = 2.2; }
+      else if (pl.stand === 'garden') { ['#ff7ac8', '#ffd36b', '#b48cff', '#ff8fa3'].forEach((col2, k) => { const bed = box(r.w - 1.2, 0.18, 0.5, null, c.x, 0.28, c.z - 1.5 + k * 1, content, neon(col2, 0.9));
+        if (!still) anim.push(t => { bed.scale.y = 1 + 0.2 * Math.sin(t * 1.2 + k); }); }); top = 1.1; }
+      else if (pl.stand === 'pond') { const water = new THREE.Mesh(new THREE.CylinderGeometry(1.9, 1.9, 0.06, 32), neon('#3fb6ff', 1.2)); water.position.set(c.x, 0.2, c.z); content.add(water);
+        [[0.6, 0.4], [-0.8, -0.3], [0.1, -0.9]].forEach(([dx, dz], k) => { const pad = new THREE.Mesh(new THREE.CylinderGeometry(0.28, 0.28, 0.03, 12), new THREE.MeshStandardMaterial({ color: '#3fa860' }));
+          pad.position.set(c.x + dx, 0.25, c.z + dz); content.add(pad); if (!still) anim.push(t => { pad.position.y = 0.25 + 0.03 * Math.sin(t * 1.5 + k); }); });
+        const koi = box(0.3, 0.08, 0.12, null, c.x + 1.2, 0.25, c.z, content, neon('#ff8a3d', 2)); if (!still) anim.push(t => { koi.position.set(c.x + Math.cos(t * 0.6) * 1.2, 0.25, c.z + Math.sin(t * 0.6) * 1.2); koi.rotation.y = -t * 0.6; });
+        top = 1; }
+      else if (pl.stand === 'statue') { box(1.2, 0.8, 1.2, '#8f97a3', c.x, 0.55, c.z, content); const fig = new THREE.Group(); fig.position.set(c.x, 0.95, c.z); content.add(fig);
+        const gold = new THREE.MeshStandardMaterial({ color: '#d4af37', metalness: 0.8, roughness: 0.3 });
+        const body = new THREE.Mesh(new THREE.CylinderGeometry(0.25, 0.32, 1.1, 12), gold); body.position.y = 0.55; fig.add(body);
+        const head = new THREE.Mesh(new THREE.SphereGeometry(0.2, 12, 10), gold); head.position.y = 1.25; fig.add(head);
+        const hat = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.3, 0.06, 16), gold); hat.position.y = 1.42; fig.add(hat);
+        if (!still) anim.push(t => { fig.rotation.y = t * 0.25; }); top = 2.6; }
+      else { box(r.w - 0.8, 0.06, r.d - 0.8, '#bdb6a6', c.x, 0.18, c.z, content);   // plaza: pale tiles + four lamp posts with lit heads
+        [[-1.6, -1.6], [1.6, -1.6], [-1.6, 1.6], [1.6, 1.6]].forEach(([dx, dz], k) => { box(0.08, 1.4, 0.08, '#2a2a30', c.x + dx, 0.9, c.z + dz, content);
+          const lamp = box(0.26, 0.2, 0.26, null, c.x + dx, 1.7, c.z + dz, content, neon('#ffe9a8', 2.2)); if (!still) anim.push(t => { lamp.scale.setScalar(0.92 + 0.1 * Math.sin(t * 0.8 + k)); }); });
+        top = 1.8; }
+    } else if (pl.stand === 'sign') {
+      [-0.9, 0.9].forEach(dx => box(0.12, 2.2, 0.12, '#3a3d46', c.x + dx, 1.2, c.z, content));
+      const panel = box(2.6, 1.1, 0.12, null, c.x, 2.4, c.z, content, neon(col, 1.4)); const sweep = box(0.3, 1.1, 0.14, null, c.x - 1.1, 2.4, c.z, content, neon('#ffffff', 1.1));
+      if (!still) anim.push(t => { sweep.position.x = c.x - 1.15 + ((t * 0.5) % 1) * 2.3; });
+      top = 3.2; void panel;
+    } else {   // kiosk · food stall
+      box(2.2, 0.9, 1.3, '#4a3b2f', c.x, 0.6, c.z, content);
+      box(2.3, 0.08, 1.4, null, c.x, 1.06, c.z, content, neon(col, 0.9));
+      for (let k = 0; k < 5; k += 1) box(0.46, 0.06, 1.6, k % 2 ? '#f4efe6' : col, c.x - 0.92 + k * 0.46, 1.72 - (k % 2) * 0.02, c.z + 0.1, content);   // the striped awning
+      [-1.05, 1.05].forEach(dx => box(0.08, 1.2, 0.08, '#2a2a30', c.x + dx, 1.2, c.z + 0.7, content));
+      const plate = new THREE.Group(); plate.position.set(c.x, 2.35, c.z); content.add(plate);
+      const disc = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.5, 0.08, 24), neon(col, 2.2)); disc.rotation.x = Math.PI / 2; plate.add(disc);
+      if (!still) anim.push(t => { plate.rotation.y = t * 0.8; });
+      top = 2.9;
+    }
+    const s = sign(pl.lines || [pl.name], { color: col, w: 380 }); s.position.set(c.x, top + 0.8, c.z); s.scale.multiplyScalar(0.8); content.add(s);
+    proxy(r, top, pl.pick, pl.name);
   }
 
   // 🗼 THE TRENCH TOWERS (owner, 2026-10-23: "one huge tower on its own island"): a drawn stepped skyscraper — glass tiers with a neon floor band

@@ -1702,6 +1702,7 @@ class ActionPayload(BaseModel):
     allowlist: Optional[str] = None
     blocklist: Optional[str] = None
     text: Optional[str] = None
+    look: Optional[dict] = None        # 🎨 Fee's look (the creator's wallet only)
 
 
 def owner_wallets():
@@ -1712,7 +1713,22 @@ def fee_owner_real(cat, action, signed, owners=None):
     """💵🐱 FEE GOES REAL — owner only (2026-10-23: "see NEXA trade real money as FeeCat"): Fee belongs to the system, so only a signed-in OWNER
     wallet (FEELESS_ADMIN_WALLETS — never a granted role) may switch her real / paper or answer her proposals. Real = every buy NEXA calls is
     a proposal that wallet signs (≤ its per-buy budget); FEELESS never moves the money. Pure (tests)."""
-    return bool(cat.get('isLeader') and action in ('real', 'paper', 'proposal') and signed and signed in (owner_wallets() if owners is None else owners))
+    return bool(cat.get('isLeader') and action in ('real', 'paper', 'proposal', 'look') and signed and signed in (owner_wallets() if owners is None else owners))
+
+
+LOOK_KEYS = ('coat', 'pattern', 'gear', 'eyes', 'aura')
+
+
+def clean_fee_look(look):
+    """🎨 The creator's look for Fee (owner, 2026-10-23: "creator controls Fee — coat / gear / eyes / name"): each part one short lowercase key
+    (the page draws only keys it knows — an unknown one falls back to her default), her name ≤ 24 chars, her title ≤ 48. Pure (tests)."""
+    l = look if isinstance(look, dict) else {}
+    out = {k: str(l[k]).lower()[:16] for k in LOOK_KEYS if re.fullmatch(r'[A-Za-z0-9-]{1,16}', str(l.get(k) or ''))}
+    for k, n in (('name', 24), ('title', 48)):
+        v = ' '.join(re.sub(r'[<>{}\[\]]', '', str(l.get(k) or '')).split())[:n]
+        if v:
+            out[k] = public_words(v)
+    return out
 
 
 @app.post('/api/cats/{cat_id}/action')
@@ -1752,6 +1768,14 @@ async def cat_action(cat_id: str, payload: ActionPayload, request: Request):
             _lc.chime(cat['brainsCfg'], payload.text)
         except ValueError as e:
             raise HTTPException(400, str(e))
+    elif payload.action == 'look':   # 🎨 the creator restyles Fee (a signed owner wallet only — fee_owner_real; a user's cat look lives in Build a cat)
+        if not cat.get('isLeader') or not fee_owner_real(cat, 'look', signed):
+            raise HTTPException(403, "Only FEELESS's creator wallet styles Fee — sign in with it.")
+        cat['look'] = clean_fee_look(payload.look)
+        if cat['look'].get('name'):
+            cat['name'] = cat['look']['name']
+        if cat['look'].get('title'):
+            cat['title'] = cat['look']['title']
     elif payload.action == 'order':   # 🧭 a GENERAL cat: your order in plain words → one guarded proposal (real) or a paper fill
         if (cat.get('brainsCfg') or {}).get('kind') != 'general':
             raise HTTPException(400, 'Only a General AI cat takes orders — a Trading cat hunts on its own.')

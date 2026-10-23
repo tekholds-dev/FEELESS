@@ -30,6 +30,20 @@
 .fb3-stakes { position: absolute; left: 18%; right: 18%; bottom: 22%; height: 34%; border: 1px dashed rgba(212, 175, 55, .7); border-radius: 4px; }
 .fb3-stakes::before, .fb3-stakes::after { content: ''; position: absolute; top: -12px; width: 3px; height: 14px; background: #d4af37; box-shadow: 0 0 8px rgba(212, 175, 55, .8); }
 .fb3-stakes::before { left: -2px; } .fb3-stakes::after { right: -2px; }
+/* 🏝 the town expands (✋ Arrange): an island break, bare land, a street stand under a striped awning, MY POOLS */
+.fb3-isl { grid-column: 1 / -1; display: flex; align-items: center; gap: 8px; font: 800 10px var(--m-mono); letter-spacing: .16em; color: #d4af37; }
+.fb3-isl::before, .fb3-isl::after { content: ''; flex: 1; height: 2px; background: repeating-linear-gradient(90deg, rgba(212, 175, 55, .55) 0 10px, transparent 10px 16px); }
+.fb3-b.is-gap { min-height: 0; background: radial-gradient(ellipse at 50% 80%, rgba(80, 140, 90, .14), transparent 70%); border: 1px dashed rgba(255, 255, 255, .06); cursor: default; }
+.fb3-b.is-stand { background: linear-gradient(180deg, rgba(10, 12, 18, .9), #0b0d12); border: 1px solid color-mix(in srgb, var(--tc) 45%, transparent); }
+.fb3-awning { position: absolute; left: 22%; right: 22%; top: 30%; height: 18%; border-radius: 4px 4px 0 0; transform-origin: top;
+  background: repeating-linear-gradient(90deg, var(--tc) 0 12px, #f4efe6 12px 24px); box-shadow: 0 6px 14px -6px var(--tc); animation: fb3Sway 4s ease-in-out infinite; }
+.fb3-decor { position: absolute; left: 50%; top: 26%; font-size: 34px; font-style: normal; transform: translateX(-50%); filter: drop-shadow(0 6px 10px color-mix(in srgb, var(--tc) 60%, transparent)); animation: fb3Bob 3.4s ease-in-out infinite; }
+@keyframes fb3Bob { 0%, 100% { transform: translate(-50%, 0); } 50% { transform: translate(-50%, -4px); } }
+.fb3-b.is-pools .fb3-tower u { background: linear-gradient(180deg, color-mix(in srgb, var(--tc) 70%, transparent), transparent); }
+@keyframes fb3Sway { 0%, 100% { transform: scaleY(1); } 50% { transform: scaleY(.88); } }
+body.fx-lite .fb3-awning, body.fx-lite .fb3-decor { animation: none; }
+@media (prefers-reduced-motion: reduce) { .fb3-awning, .fb3-decor { animation: none; } }
+body.theme-day .fb3-b.is-stand { background: #fffaf0; } body.theme-day .fb3-isl { color: #8a6100; }
 .fb3-sign { position: absolute; left: 8px; right: 8px; top: 8px; display: grid; gap: 1px; }
 .fb3-sign b { font: 800 12px 'JetBrains Mono', monospace; letter-spacing: .04em; color: #fff3c9; text-shadow: 0 0 10px rgba(212, 175, 55, .6); }
 .fb3-sign small { font: 700 9px 'JetBrains Mono', monospace; letter-spacing: .1em; color: #c9b38a; text-transform: uppercase; }

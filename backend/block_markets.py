@@ -114,6 +114,64 @@ def town_set(c, key, on, me, staff=False, rank=None):
     return t
 
 
+# 🏝 THE TOWN EXPANDS (owner, 2026-10-23: "more islands joined by bridges, pick your own lots, MOVE buildings, add little stands, a MY POOLS
+# combo building — the layout stored server-side per family"). The family's layout is ONE ordered list of cells the 3D block draws in that
+# order, 15 cells an island (a new island + its bridge every 15): 'blk:<market>' · 'town:<tool>' · 'pools' (MY POOLS — every LP / stake / lend
+# position together, live) · 'stand:<kind>' (a kiosk, food stall, sign or fountain — dressing) · 'open' (a plot to build on) · 'gap' (empty
+# land). Buildings the list forgets are appended (nothing ever vanishes); unknown cells are dropped. Don / Underboss / creator only.
+ISLAND_CELLS = 15
+LAYOUT_MAX = 60
+STANDS = ('kiosk', 'food', 'sign', 'fountain', 'park', 'garden', 'statue', 'plaza', 'pond', 'palms')   # 🌴 beauty plots (owner: "other than real money")
+STANDS_MAX = 16
+ISLAND_MP = 3_000   # 🏝 a new island costs the family bank this (MP, points only) — the creator wallet expands for free (owner, 2026-10-23)
+
+
+def islands_of(n, per=ISLAND_CELLS):
+    return max(1, -(-int(n) // per))
+
+
+def expand_cost(c, cells, staff=False):
+    """→ (islands the block would have, MP the family pays). Only NEW islands past the ones already paid for cost; the creator pays nothing."""
+    want = islands_of(len(cells or []))
+    paid = max(1, int((c or {}).get('islands') or islands_of(len(layout_of(c)))))
+    return want, (0 if staff else max(0, want - paid) * ISLAND_MP)
+
+
+def layout_of(c):
+    """The family's cells, cleaned against what stands on its block now (+ anything missing appended)."""
+    have = [f"blk:{x['key']}" for x in lots_of(c)] + [f'town:{k}' for k in town_of(c)]
+    raw = ((c or {}).get('layout') or {}).get('cells') if isinstance((c or {}).get('layout'), dict) else None
+    out, seen, stands = [], set(), 0
+    for cell in raw if isinstance(raw, list) else []:
+        cell = str(cell or '')[:40]
+        if cell in ('open', 'gap'):
+            out.append(cell)
+        elif cell == 'pools' and 'pools' not in seen:
+            out.append(cell); seen.add(cell)
+        elif cell.startswith('stand:') and cell[6:] in STANDS and stands < STANDS_MAX:
+            out.append(cell); stands += 1
+        elif cell in have and cell not in seen:
+            out.append(cell); seen.add(cell)
+        if len(out) >= LAYOUT_MAX:
+            break
+    out += [h for h in have if h not in seen][:max(0, LAYOUT_MAX - len(out))]
+    return out
+
+
+def layout_set(c, cells, me, staff=False, rank=None):
+    """The Don / Underboss / creator saves the block's arrangement. Raises ValueError with words for the owner."""
+    if not _may(me, c, staff, rank):
+        raise ValueError('Only the Don or the Underboss arranges the block.')
+    if not isinstance(cells, list) or len(cells) > LAYOUT_MAX:
+        raise ValueError(f'A block holds at most {LAYOUT_MAX} cells ({LAYOUT_MAX // ISLAND_CELLS} islands).')
+    if sum(1 for x in cells if str(x).startswith('stand:')) > STANDS_MAX:
+        raise ValueError(f'At most {STANDS_MAX} stands — they dress the streets, they are not the town.')
+    c['layout'] = {'cells': [str(x)[:40] for x in cells]}
+    c['layout'] = {'cells': layout_of(c)}
+    c['islands'] = max(int(c.get('islands') or 1), islands_of(len(c['layout']['cells'])))
+    return c['layout']['cells']
+
+
 def needs(lots):
     """What the service must read for these buildings: {'mints': set, 'nft': bool, 'kamino': bool}."""
     ks = {x['key'] for x in lots}

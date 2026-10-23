@@ -69,7 +69,7 @@ export function CatReal({ cat, busy = false, onAct, devAddress = '' }) {
         <span style={{ '--i': 0 }} data-tip="The most it proposes for one buy"><em>A BUY ≤</em><b className="m-num">{v.budget} SOL</b></span>
         <span style={{ '--i': 1 }} className={v.pending ? 'is-hot' : ''} data-tip="Proposals waiting for your wallet"><em>WAITING</em><b className="m-num" key={v.pending}>{v.pending}</b>{v.pending ? <i className="cr-ping" aria-hidden="true" /> : null}</span>
         <span style={{ '--i': 2 }} data-tip={v.held.length ? v.held.map(h => `$${h.symbol}`).join(' · ') : 'Coins you bought through its proposals'}><em>REAL COINS</em><b className="m-num">{v.held.length}</b></span>
-        <button type="button" className="m-btn cr-paper" disabled={busy} onClick={() => onAct('paper')} data-testid="cr-paper" data-tip="Back to paper — waiting proposals are cancelled">⏸ Paper</button>
+        <button type="button" className="m-btn cr-paper" disabled={busy} onClick={() => send.current('paper')} data-testid="cr-paper" data-tip="Back to paper — waiting proposals are cancelled">⏸ Paper</button>
       </div>
       {wrong ? <p className="m-note" role="alert">This cat proposes to {short(v.wallet)} — connect that wallet to sign its trades.</p> : null}
       {v.list.length ? <ul className="cr-list">{v.list.map((p, i) => { const st = STATUS[p.status];
