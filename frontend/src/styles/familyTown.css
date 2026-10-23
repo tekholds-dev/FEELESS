@@ -1,0 +1,81 @@
+/* 🏘 THE TOWN (owner, 2026-10-23: "let my family pick which buildings our town has — Perps, Trench Towers, Pools"): the picker (drawn mini
+   buildings, an N / 6 slot meter), the town building's pop-out over the 3D block (its real tool), the deck's in-town tabs and the CSS
+   fallback's town towers. Noir gold frame (Familia), each building lit in its own colour (--tc). Motion: ftw* keyframes, transform / opacity. */
+.ftp { display: grid; gap: 10px; }
+.ftp > header { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.ftp > header span { display: grid; }
+.ftp > header b { font: 800 13px 'JetBrains Mono', monospace; letter-spacing: .14em; color: #f5e2b0; text-shadow: 0 0 12px #d4af3766; }
+.ftp > header small { font: 600 9.5px 'JetBrains Mono', monospace; letter-spacing: .08em; color: #b89b5e; text-transform: uppercase; }
+.ftp-meter { display: flex; gap: 3px; }
+.ftp-meter u { width: 10px; height: 16px; border-radius: 3px; background: #ffffff10; border: 1px solid #d4af3733; transition: background .25s, box-shadow .25s; }
+.ftp-meter u.on { background: linear-gradient(180deg, #ffe08a, #d4af37); border-color: #ffe08a; box-shadow: 0 0 8px -1px #d4af37; animation: ftwSlot .3s ease-out calc(var(--i) * 60ms) both; }
+.ftp > ul { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: 1fr; gap: 6px; }
+.ftp li { --tc: #d4af37; position: relative; display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 8px; padding: 5px 7px; border-radius: 12px; border: 1px solid #ffffff10;
+  background: linear-gradient(165deg, #15110c, #0a0807); box-shadow: inset 0 1px 0 #ffffff0d; animation: ftwIn .26s ease-out calc(var(--i) * 50ms) both; transition: border-color .2s, box-shadow .2s; }
+.ftp li.is-on { border-color: color-mix(in srgb, var(--tc) 55%, transparent); box-shadow: inset 0 1px 0 #ffffff14, 0 0 22px -12px var(--tc); }
+.ftp li.is-open { border-color: var(--tc); box-shadow: 0 0 0 1px var(--tc), 0 0 26px -10px var(--tc); }
+.ftp-go { display: grid; grid-template-columns: 38px minmax(0, 1fr); align-items: center; gap: 8px; min-height: 44px; padding: 2px; border: 0; border-radius: 9px; background: transparent;
+  color: #e8e3d6; text-align: left; cursor: pointer; transition: transform .15s, background .15s; }
+.ftp-go:hover:not(:disabled) { background: #ffffff08; transform: translateY(-1px); } .ftp-go:active:not(:disabled) { transform: scale(.97); }
+.ftp-go:focus-visible { outline: 2px solid var(--tc); outline-offset: 2px; } .ftp-go:disabled { cursor: default; }
+.ftp-go span { display: grid; min-width: 0; }
+.ftp-go b { font: 800 10.5px 'JetBrains Mono', monospace; letter-spacing: .08em; color: color-mix(in srgb, var(--tc) 85%, #fff); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ftp-go small { font: 600 9px 'JetBrains Mono', monospace; color: #a8987a; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ftp li:not(.is-on) .ftp-go { opacity: .55; } .ftp li:not(.is-on) .ftp-art { filter: grayscale(.7); }
+/* the drawn mini building: a facade with lit window rows (s), a roof piece per art (u), a beacon (em) */
+.ftp-art { position: relative; width: 38px; height: 40px; display: block; }
+.ftp-art s { position: absolute; left: 7px; right: 7px; bottom: 0; height: 30px; border-radius: 3px 3px 0 0; border: 1px solid color-mix(in srgb, var(--tc) 60%, #000);
+  background: repeating-linear-gradient(180deg, transparent 0 4px, color-mix(in srgb, var(--tc) 70%, transparent) 4px 6px), linear-gradient(180deg, #1d1b26, #0c0b10); }
+.ftp-art u { position: absolute; left: 50%; bottom: 30px; width: 16px; height: 8px; margin-left: -8px; background: var(--tc); clip-path: polygon(50% 0, 100% 100%, 0 100%); }
+.ftp-art em { position: absolute; left: 50%; top: 0; width: 6px; height: 6px; margin-left: -3px; border-radius: 50%; background: var(--tc); box-shadow: 0 0 8px var(--tc); opacity: .5; }
+.ftp li.is-on .ftp-art em { animation: ftwBeacon 1.8s ease-in-out infinite; }
+.ftp-art.a-tt s { left: 11px; right: 11px; height: 36px; } .ftp-art.a-tt u { bottom: 36px; width: 6px; margin-left: -3px; height: 4px; clip-path: none; }
+.ftp-art.a-hall s { left: 3px; right: 3px; height: 20px; } .ftp-art.a-hall u { bottom: 20px; width: 34px; margin-left: -17px; height: 6px; clip-path: none; border-radius: 6px 6px 0 0; }
+.ftp-art.a-sleep u { width: 12px; height: 12px; bottom: 31px; clip-path: none; border-radius: 50%; background: transparent; box-shadow: inset -4px 2px 0 0 #fff2c4; }
+.ftp-art.a-radar u { width: 18px; height: 9px; bottom: 30px; margin-left: -9px; clip-path: none; border-radius: 18px 18px 0 0; background: #d8dde6; }
+.ftp-art.a-cat u { width: 22px; margin-left: -11px; clip-path: polygon(0 100%, 18% 0, 36% 100%, 64% 100%, 82% 0, 100% 100%); }
+.ftp-art.a-trade u, .ftp-art.a-perps u { width: 18px; height: 10px; margin-left: -9px; clip-path: none; background: linear-gradient(90deg, #45e486 0 30%, transparent 30% 36%, #ff5d73 36% 64%, transparent 64% 70%, #45e486 70%); }
+.ftp-art.a-casino u { width: 26px; margin-left: -13px; height: 7px; clip-path: none; border-radius: 3px; background: repeating-linear-gradient(90deg, var(--tc) 0 4px, #b3122e 4px 8px); }
+.ftp-tog, .ftp-badge { min-width: 82px; min-height: 32px; padding: 0 8px; border-radius: 8px; font: 800 9.5px 'JetBrains Mono', monospace; letter-spacing: .12em; text-align: center; }
+.ftp-tog { border: 1px solid color-mix(in srgb, var(--tc) 45%, transparent); background: color-mix(in srgb, var(--tc) 10%, #0b0907); color: color-mix(in srgb, var(--tc) 85%, #fff); cursor: pointer;
+  transition: background .15s, transform .15s, box-shadow .15s; }
+.ftp-tog:hover:not(:disabled) { background: color-mix(in srgb, var(--tc) 24%, #0b0907); transform: translateY(-1px); } .ftp-tog:active:not(:disabled) { transform: scale(.96); }
+.ftp-tog:focus-visible { outline: 2px solid var(--tc); outline-offset: 2px; } .ftp-tog:disabled { opacity: .45; cursor: not-allowed; }
+.ftp-tog.is-on { background: var(--tc); color: #0b0907; border-color: var(--tc); box-shadow: 0 0 14px -4px var(--tc); }
+.ftp-badge { display: grid; place-items: center; font-style: normal; color: var(--tc); border: 1px dashed color-mix(in srgb, var(--tc) 45%, transparent); }
+
+/* the town building's pop-out over the 3D block: its real tool (the deck room), Esc / ✕ back to the block */
+.ftr { --tc: #d4af37; position: absolute; z-index: 6; inset: 12px 12px auto auto; width: min(560px, calc(100% - 24px)); max-height: calc(100% - 24px); display: grid; grid-template-rows: auto minmax(0, 1fr);
+  border-radius: 16px; border: 1px solid color-mix(in srgb, var(--tc) 55%, transparent); background: linear-gradient(165deg, #17121fee, #0a0910f6); overflow: hidden;
+  box-shadow: inset 0 1px 0 #ffffff14, 0 24px 60px -24px #000, 0 0 40px -18px var(--tc); animation: ftwPop .22s cubic-bezier(.2, .8, .2, 1) both; }
+.ftr > header { display: flex; align-items: center; gap: 10px; padding: 11px 13px; border-bottom: 1px solid #ffffff12; background: linear-gradient(90deg, color-mix(in srgb, var(--tc) 18%, transparent), transparent 70%); }
+.ftr > header > i { width: 10px; height: 10px; border-radius: 50%; background: var(--tc); box-shadow: 0 0 12px var(--tc); animation: ftwBeacon 1.4s ease-in-out infinite alternate; }
+.ftr > header span { flex: 1; display: grid; min-width: 0; }
+.ftr > header b { font: 800 13.5px 'JetBrains Mono', monospace; letter-spacing: .12em; color: var(--tc); text-shadow: 0 0 10px color-mix(in srgb, var(--tc) 60%, transparent); }
+.ftr > header small { font: 600 10px 'JetBrains Mono', monospace; letter-spacing: .06em; color: #c9b47c; text-transform: uppercase; }
+.ftr > header button { width: 34px; height: 34px; border-radius: 10px; border: 1px solid #ffffff22; background: #ffffff08; color: #f1e6c8; cursor: pointer; transition: background .15s, transform .15s; }
+.ftr > header button:hover { background: #ffffff18; } .ftr > header button:active { transform: scale(.94); } .ftr > header button:focus-visible { outline: 2px solid var(--tc); outline-offset: 2px; }
+.ftr-body { overflow: auto; padding: 12px; scrollbar-width: thin; scrollbar-color: var(--tc) transparent; }
+.ftr-body::-webkit-scrollbar { width: 6px; } .ftr-body::-webkit-scrollbar-thumb { background: var(--tc); border-radius: 6px; }
+
+/* the deck: the town's buildings first, each with a lit dot */
+.fdk-tabs button.in-town { position: relative; } .fdk-tabs button.in-town::after { content: ''; position: absolute; top: 6px; right: 6px; width: 6px; height: 6px; border-radius: 50%; background: #45e486; box-shadow: 0 0 8px #45e486; }
+
+/* the CSS fallback block: a town tower in its own colour */
+.fb3-b.is-town .fb3-tower { background: repeating-linear-gradient(180deg, transparent 0 9px, color-mix(in srgb, var(--tc) 55%, transparent) 9px 12px), linear-gradient(180deg, #1d1b26, #0c0b10);
+  border: 1px solid color-mix(in srgb, var(--tc) 60%, #000); }
+.fb3-b.is-town .fb3-tower u { background: var(--tc); box-shadow: 0 0 12px var(--tc); } .fb3-b.is-town .fb3-sign b { color: var(--tc); }
+
+@keyframes ftwIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: none; } }
+@keyframes ftwPop { from { opacity: 0; transform: translateY(8px) scale(.98); } to { opacity: 1; transform: none; } }
+@keyframes ftwSlot { from { opacity: 0; transform: scaleY(.3); } to { opacity: 1; transform: none; } }
+@keyframes ftwBeacon { 0%, 100% { opacity: .45; transform: scale(.85); } 50% { opacity: 1; transform: scale(1.1); } }
+body.fx-lite .ftp li, body.fx-lite .ftp-meter u.on, body.fx-lite .ftp li.is-on .ftp-art em, body.fx-lite .ftr, body.fx-lite .ftr > header > i { animation: none; }
+@media (prefers-reduced-motion: reduce) { .ftp li, .ftp-meter u.on, .ftp li.is-on .ftp-art em, .ftr, .ftr > header > i { animation: none; } .ftp-go, .ftp-tog, .ftr > header button { transition: none; } }
+body.theme-day .ftp > header b { color: #5a4205; text-shadow: none; } body.theme-day .ftp > header small { color: #7a6630; }
+body.theme-day .ftp li { background: linear-gradient(165deg, #fffaf0, #f3ead6); border-color: #b8901f33; } body.theme-day .ftp-go { color: #2a2620; } body.theme-day .ftp-go small { color: #6b6250; }
+body.theme-day .ftp-go b { color: color-mix(in srgb, var(--tc) 55%, #2a2620); } body.theme-day .ftp-tog { background: #fff; color: #2a2620; }
+body.theme-day .ftp-tog.is-on { background: var(--tc); color: #fff; } body.theme-day .ftp-meter u { background: #0000000d; }
+body.theme-day .ftr { background: linear-gradient(165deg, #fffaf0f4, #f4ecdaf6); } body.theme-day .ftr > header small { color: #6b5a2a; } body.theme-day .ftr > header button { color: #2a2620; border-color: #0000001a; }
+@media (max-width: 640px) { .ftp-tog, .ftp-badge { min-width: 70px; } .ftp-go { grid-template-columns: 30px minmax(0, 1fr); } .ftp-art { width: 30px; height: 34px; }
+  .ftr { inset: 6px; width: auto; max-height: calc(100% - 12px); } }

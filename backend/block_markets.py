@@ -73,6 +73,47 @@ def remove(c, key, me, staff=False, rank=None):
     return c['block']
 
 
+# 🏘 THE TOWN (owner, 2026-10-23: "let my family pick which buildings our town has — we're gonna be perps and trenching"): tool buildings the
+# family stands on its own block beside its market buildings — each one is its real tool with live data (the Family Deck's rooms), opened in a
+# pop-out over the block. The Don / Underboss / creator pick, TOWN_MAX at most; a family that never picked starts with TOWN_START.
+TOWN = ('tt', 'perps', 'pools', 'trades', 'vault', 'radar', 'cats', 'rep')
+TOWN_MAX = 6
+TOWN_START = ('tt', 'pools', 'trades')
+
+
+def town_of(c):
+    t = (c or {}).get('town')
+    if not isinstance(t, list):
+        return list(TOWN_START)
+    out = []
+    for k in t:
+        if k in TOWN and k not in out:
+            out.append(k)
+    return out[:TOWN_MAX]
+
+
+def town_set(c, key, on, me, staff=False, rank=None):
+    """Stand (on=True) or take down a tool building in the family's town. Raises ValueError with words for the owner."""
+    if not _may(me, c, staff, rank):
+        raise ValueError("Only the Don or the Underboss picks the town's buildings.")
+    key = str(key or '').strip().lower()
+    if key not in TOWN:
+        raise ValueError('That building is not in the town catalog.')
+    t = town_of(c)
+    if on:
+        if key in t:
+            raise ValueError('That building already stands in your town.')
+        if len(t) >= TOWN_MAX:
+            raise ValueError(f'Your town holds {TOWN_MAX} buildings — take one down first.')
+        t = t + [key]
+    else:
+        if key not in t:
+            raise ValueError('That building is not in your town.')
+        t = [k for k in t if k != key]
+    c['town'] = t
+    return t
+
+
 def needs(lots):
     """What the service must read for these buildings: {'mints': set, 'nft': bool, 'kamino': bool}."""
     ks = {x['key'] for x in lots}

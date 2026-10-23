@@ -362,7 +362,14 @@ export function createCity(host, { onPick, onHover, onAnchors, lite = false, sti
       const s = sign(m.lines || (m.pool ? [m.name, sub, `TVL ${usd(m.tvl)}`] : [m.name, sub]), { color: tone, w: 440 });   // 🏙 a family block's building writes its own lines (your $ · APY · errands) s.position.set(c.x, h + 1.7, c.z); content.add(s);
       proxy(m.rect, h + 0.4, m.pick, m.pool ? `${m.name} · ${m.proto}` : m.name);
     }
-    for (const x of p.spare) { side(x.rect, '#25272d'); const c = centerOf(x.rect); const all = [...MODELS.shop, ...MODELS.mid];
+    for (const x of p.spare) { const c = centerOf(x.rect);
+      if (x.park) {   // 🌳 an empty cell = a PARK (owner: "Fee City breathes"): lawn + corner trees + a round pond with a lit rim + two lamps — no building
+        side(x.rect, '#25272d'); yard(x.rect, 0); const pr = Math.min(x.rect.w, x.rect.d) * 0.2;
+        const pond = new THREE.Mesh(new THREE.CircleGeometry(pr, 28), M.water); pond.rotation.x = -Math.PI / 2; pond.position.set(c.x, 0.19, c.z); content.add(pond);
+        const rim = new THREE.Mesh(new THREE.TorusGeometry(pr, 0.05, 6, 36), neon('#45e4c8', 1.1)); rim.rotation.x = Math.PI / 2; rim.position.set(c.x, 0.2, c.z); content.add(rim);
+        [-1, 1].forEach(sx => { box(0.07, 1.1, 0.07, '#55585f', c.x + sx * (pr + 0.8), 0.7, c.z, content); box(0.2, 0.12, 0.2, null, c.x + sx * (pr + 0.8), 1.3, c.z, content, neon('#ffe9b0', 2)); });
+        continue; }
+      side(x.rect, '#25272d'); const all = [...MODELS.shop, ...MODELS.mid];
       const o = await make(all[Math.abs(Math.round(x.rect.x * 7 + x.rect.z * 3)) % all.length], { lit: true }); yard(x.rect, FOOT.tower - 0.6); fit(o, Math.min(FOOT.tower - 0.6, x.rect.w - 1), Math.min(FOOT.tower - 0.6, x.rect.d - 1)); o.position.set(c.x, 0.14, c.z); content.add(o); }
     for (const pl of p.places) await place(pl, yard);
     for (const bb of p.billboards || []) {   // 📺 a billboard: two poles + a lit panel; its ads change every 6 s (texture swap, no layout)
@@ -489,6 +496,7 @@ export function createCity(host, { onPick, onHover, onAnchors, lite = false, sti
   async function place(pl, yard = () => {}) {   // 📍 a lens you walk into: its own building, neon edges, a sign (+ the Avenue's drawn props)
     const r = pl.rect; const c = centerOf(r);
     if (pl.virtual) { proxy({ x: r.x - 0.2, z: r.z - 0.2, w: r.w + 0.4, d: 0.4 }, 0.3, pl.pick, pl.name); return; }   // the HQ is your own block (or the Mansion): no new building
+    if (pl.art === 'tt') { ttTower(pl, yard); return; }
     box(r.w, 0.12, r.d, '#2c2a33', c.x, 0.08, c.z, content);
     const url = { hall: MODELS.big[2], tower: MODELS.sky[2], war: MODELS.big[1], podium: MODELS.mid[2], precinct: MODELS.mid[4], pawn: MODELS.mid[0], board: MODELS.shop[2], gym: MODELS.big[0], casino: MODELS.big[3], warehouse: MODELS.mid[4],
       radar: MODELS.mid[1], trade: MODELS.sky[3], perps: MODELS.big[1], track: MODELS.shop[1], watch: MODELS.sky[4], court: MODELS.mid[3], cat: MODELS.sky[0], fuel: MODELS.shop[0], news: MODELS.shop[3], bank: MODELS.big[3], sleep: MODELS.sky[3] }[pl.art] || MODELS.mid[0];
@@ -500,8 +508,39 @@ export function createCity(host, { onPick, onHover, onAnchors, lite = false, sti
     if (pl.art === 'precinct') { const a = box(0.4, 0.14, 0.14, null, c.x - 0.24, h + 0.12, c.z, content, neon('#ff2a3d', 3.2)); const b2 = box(0.4, 0.14, 0.14, null, c.x + 0.24, h + 0.12, c.z, content, neon('#2a6bff', 3.2));
       anim.push(t => { const k = 0.5 + 0.5 * Math.sin(t * 1.3); a.material.color.set('#ff2a3d').multiplyScalar(0.7 + 0.7 * k); b2.material.color.set('#2a6bff').multiplyScalar(0.7 + 0.7 * (1 - k)); }); }   // a slow cross-fade, never a strobe
     else if (!pl.tool) { const n = new THREE.Mesh(new THREE.TorusGeometry(0.46, 0.06, 8, 26), neon(pl.color, 2.8)); n.position.set(c.x, h + 0.45, c.z); content.add(n); anim.push(t => { n.rotation.y = t * 1.4; }); }
-    const s = sign([pl.name, pl.sub], { color: pl.color, w: 480 }); s.position.set(c.x, h + (pl.tool && pl.art !== 'track' && pl.art !== 'fuel' ? 2.5 : 1.6), c.z); content.add(s);
+    const s = sign(pl.lines || [pl.name, pl.sub], { color: pl.color, w: 480 }); s.position.set(c.x, h + (pl.tool && pl.art !== 'track' && pl.art !== 'fuel' ? 2.5 : 1.6), c.z); content.add(s);
     proxy(r, h + 0.3, pl.pick, pl.name);
+  }
+
+  // 🗼 THE TRENCH TOWERS (owner, 2026-10-23: "one huge tower on its own island"): a drawn stepped skyscraper — glass tiers with a neon floor band
+  // every storey; the first READY floors burn hot (one per READY coin on the desk's intake), the rest glow dim; the hottest coin turns on the
+  // crown, the next two orbit it; a searchlight sweeps the water. Procedural (no model), so the floors ARE the live number.
+  function ttTower(pl, yard) {
+    const r = pl.rect; const c = centerOf(r); const col = pl.color; const live = pl.live || {}; const lite_ = !!lite || !!still;
+    const F = Math.min(FOOT.tt, r.w - 0.8, r.d - 0.8); const ks = F / FOOT.tt;   // a family block's TT stands on one cell: same tower, scaled
+    box(r.w, 0.12, r.d, '#2c2a33', c.x, 0.08, c.z, content); yard(r, F); frame(r, col);
+    const wt = windowsTexture(); wt.wrapS = THREE.RepeatWrapping; wt.wrapT = THREE.RepeatWrapping; wt.repeat.set(2, 3);   // lit windows on every face
+    const glass = new THREE.MeshStandardMaterial({ color: '#232838', metalness: 0.55, roughness: 0.28, emissive: '#ffffff', emissiveMap: wt, emissiveIntensity: 0.55 });
+    const tiers = [[F * 0.78, 5.2 * ks], [F * 0.6, 4.6 * ks], [F * 0.44, 4.2 * ks], [F * 0.3, 3.6 * ks]];
+    // floors: READY coins burn white-hot, the rest of the intake glows warm pink, the empty floors stay dark glass
+    const hot = neon('#ffe3ec', 2.6); const warm = neon(col, 1.5); const dim = neon('#4a3442', 0.9); const floors = []; let y = 0.14;
+    tiers.forEach(([w, hh]) => { box(w, hh, w, null, c.x, y + hh / 2, c.z, content, glass); frame({ x: c.x - w / 2, z: c.z - w / 2, w, d: w }, col, content, y + hh + 0.02, 0.08);
+      for (let f = 1; f * 1.15 * ks < hh; f += 1) floors.push([w, y + f * 1.15 * ks]); y += hh; });
+    const ready = Math.min(floors.length, Math.max(0, Number(live.ready) || 0)); const warmN = Math.min(floors.length, Math.max(ready, Number(live.n) || 0));
+    floors.forEach(([w, fy], k) => { const lvl = k < ready ? 2 : k < warmN ? 1 : 0; const band = box(w + 0.08, 0.12, w + 0.08, null, c.x, fy, c.z, content, lvl === 2 ? hot.clone() : lvl === 1 ? warm.clone() : dim);
+      if (lvl && !lite_) anim.push(t => { band.material.color.set(lvl === 2 ? '#ffe3ec' : col).multiplyScalar((lvl === 2 ? 0.9 : 0.55) + 0.4 * (0.5 + 0.5 * Math.sin(t * 1.2 - k * 0.4))); }); });   // a slow wave climbs the lit floors
+    [[-1, -1], [1, -1], [1, 1], [-1, 1]].forEach(([sx, sz]) => box(0.05, tiers[0][1], 0.05, null, c.x + sx * (tiers[0][0] / 2 + 0.03), 0.14 + tiers[0][1] / 2, c.z + sz * (tiers[0][0] / 2 + 0.03), content, neon(col, 1.3)));
+    const spire = new THREE.Mesh(new THREE.ConeGeometry(0.5, 3.2, 8), neon(col, 1.6)); spire.position.set(c.x, y + 1.6, c.z); content.add(spire); const top = y + 3.2;
+    const tops = (live.top || []).length ? live.top : live.hot ? [live.hot] : [{ sym: 'TT' }];
+    tops.slice(0, 3).forEach((t0, k) => { const tone = t0.ch == null ? col : t0.ch >= 0 ? '#45e486' : '#ff5d73'; const cd = coinDisc(String(t0.sym || '').replace('$', ''), tone, (k ? 0.7 : 1.15) * Math.max(0.7, ks));
+      content.add(cd); const R = k ? 2.6 * ks : 0; const ph = (k * Math.PI * 2) / 3;
+      const put = t => { const a = t * 0.5 + ph; cd.position.set(c.x + Math.cos(a) * R, (k ? top - 1.4 : top + 1.2) + Math.sin(t * 1.1 + k) * 0.12, c.z + Math.sin(a) * R); cd.rotation.y = t * 0.9; };
+      put(0); if (!lite_) anim.push(put); });
+    if (!lite_) { const cone = new THREE.Mesh(new THREE.ConeGeometry(2.4, 26, 24, 1, true), new THREE.MeshBasicMaterial({ color: '#ffd1dc', transparent: true, opacity: 0.06, depthWrite: false, side: THREE.DoubleSide, toneMapped: false }));
+      cone.geometry.translate(0, -13, 0); cone.userData.beam = true; const piv = new THREE.Group(); piv.position.set(c.x, y, c.z); piv.add(cone); cone.rotation.x = Math.PI * 0.7; content.add(piv);
+      anim.push(t => { piv.rotation.y = t * 0.28; }); }
+    const s = sign(pl.lines || [pl.name, pl.sub], { color: col, w: 560 }); s.position.set(c.x, top + 3.4 * ks, c.z); s.scale.multiplyScalar(ks < 1 ? 1 : 1.5); content.add(s);
+    proxy(r, top, pl.pick, `${pl.name} · tap to walk in`);
   }
 
   // ── ☀ / 🌙 ──

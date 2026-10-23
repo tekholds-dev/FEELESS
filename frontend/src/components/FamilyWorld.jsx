@@ -3,7 +3,7 @@ import { toast } from 'sonner';
 import { apiUrl } from '../lib/api';
 import { FeeCity3D, PlacesMenu, useMarkets } from './FeeCity3D';
 import { PoolHub, PoolRow, usePools } from './PoolHub';
-import { PLACES, HALLS, usd } from '../lib/cityPlan';
+import { PLACES, HALLS, usd, roomsOf } from '../lib/cityPlan';
 import { familiaTrade } from './FamiliaTrade';
 import { FamilyHQ } from './FamilyHQ';
 import { CityRail, RankBadge, RankLadder } from './FamiliaHud';
@@ -227,11 +227,14 @@ function MoneyMenu({ lens, onGo }) {
 }
 
 function PlacePanel({ lens, live, onClose, onGo, children }) {
-  const p = PLACES.find(x => x.lens === lens) || EXTRA_PLACES[lens];
+  const p = PLACES.find(x => x.lens === lens) || EXTRA_PLACES[lens]; const rooms = roomsOf(lens);   // 🚪 one building, several rooms (Fee City breathes)
   useEffect(() => { const esc = e => { if (e.key === 'Escape') onClose(); }; window.addEventListener('keydown', esc); return () => window.removeEventListener('keydown', esc); }, [onClose]);
   return <section className={`fwd-place k-${p?.key || lens}${p?.tool ? ' is-tool' : ''}`} style={{ '--pc': p?.color || '#d4af37' }} role="dialog" aria-label={p?.name || lens} data-testid={`place-panel-${lens}`}>
     <header><i aria-hidden="true" /><span><b>{p?.name || lens}</b><small>{p?.sub}{lens === 'raids' && live ? ` · ${live} live` : ''}</small></span>
       <button type="button" onClick={onClose} aria-label="Walk back out" data-tip="Back to the street (Esc)" data-testid="place-close">✕</button></header>
+    {rooms.length > 1 && onGo ? <nav className="fwd-rooms m-seg" role="tablist" aria-label={`Rooms in ${rooms[0].name}`} data-testid="place-rooms">{rooms.map((x, i) => <button key={x.key} type="button" role="tab" aria-selected={x.lens === lens}
+      className={x.lens === lens ? 'active' : ''} style={{ '--i': i, '--rc': x.color }} onClick={() => onGo(x.lens)} data-tip={`${x.name} — ${x.sub}${i ? ` (a room inside ${rooms[0].name})` : ''}`} data-testid={`room-${x.key}`}>
+      <i aria-hidden="true" /><b>{x.name.replace(/^(THE|YOUR) /, '')}</b></button>)}</nav> : null}
     <div className="fwd-placebody">{children}{onGo ? <MoneyMenu lens={lens} onGo={onGo} /> : null}</div></section>;
 }
 
@@ -261,7 +264,6 @@ export function FamilyWorld({ addr, sess, onEnter, onJoin, onSignIn, rooms = {} 
   const go = to => {
     if (to === 'join') { onJoin?.(); return; }
     if (to === 'block') { if (v.me) onEnter(); else onJoin?.(); return; }
-    if (to === 'tt') { setLensRaw(null); setCity('fee'); setSelRaw({ isl: 'money' }); return; }   // 🗼 fly to the Trench Towers
     if (to === 'fuse') { setLens(null); setCity('fee'); setTimeout(() => document.getElementById('family-fuse')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 60); return; }
     setLens(to); document.querySelector('[data-testid="world-map"]')?.scrollIntoView?.({ behavior: 'smooth', block: 'center' });
   };

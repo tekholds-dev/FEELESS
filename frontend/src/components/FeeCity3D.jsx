@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Building2, Crown, Swords, Trophy, Radio, Waves, Medal, Siren, Gem, ClipboardList, Dumbbell, Spade, Warehouse, Radar, Activity, Eye, Scale, Cat, Fuel, Newspaper, Landmark, TrendingUp, CandlestickChart, Sun, Moon, Maximize2, Minimize2 } from 'lucide-react';
+import { Building, Building2, Crown, Swords, Trophy, Radio, Waves, Medal, Siren, Gem, ClipboardList, Dumbbell, Spade, Warehouse, Radar, Activity, Eye, Scale, Cat, Fuel, Newspaper, Landmark, TrendingUp, CandlestickChart, Sun, Moon, Maximize2, Minimize2 } from 'lucide-react';
 import { FamilyCity3D, Vitals, vitalsOf } from './FamilyCity3D';
 import { MetaCard } from './cards/MetaCard';
 import { tokenImageUrls } from './terminal/MarketPrimitives';
@@ -21,7 +21,7 @@ const still = () => typeof window !== 'undefined' && (window.matchMedia?.('(pref
 const MODE_KEY = 'feeless.city.mode';
 const startMode = () => { try { const m = localStorage.getItem(MODE_KEY); if (m === 'day' || m === 'night') return m; } catch { /* storage blocked */ } return typeof document !== 'undefined' && document.body.classList.contains('theme-day') ? 'day' : 'night'; };
 export const PLACE_ICON = { hq: Crown, warroom: Swords, podium: Trophy, wire: Radio, pools: Waves, ranked: Medal, raids: Siren, rewards: Gem, jobs: ClipboardList, gym: Dumbbell, cards: Spade, cartels: Warehouse,
-  pumpradar: Radar, runners: Activity, watch: Eye, court: Scale, feecat: Cat, fuel: Fuel, news: Newspaper, feebank: Landmark, trades: TrendingUp, perps: CandlestickChart };
+  pumpradar: Radar, runners: Activity, watch: Eye, court: Scale, feecat: Cat, fuel: Fuel, news: Newspaper, feebank: Landmark, trades: TrendingUp, perps: CandlestickChart, tt: Building, sleep: Moon };
 
 // 🏦 the live Solana markets + today's top coins (one shared read a minute, every viewer)
 export function useMarkets() {
@@ -71,8 +71,8 @@ export function PlacesMenu({ onGo }) {
 function Directory({ onGo, open, setOpen, active }) {
   return <nav className={`fc3-dir ${open ? 'is-open' : ''}`} aria-label="City directory" data-testid="city-directory">
     <button type="button" className="fc3-dirtoggle" onClick={() => setOpen(o => !o)} aria-expanded={open} data-tip="Every place in the city — the old tabs live here now" data-testid="city-dir-toggle"><Building2 size={15} aria-hidden="true" /><span>DIRECTORY</span></button>
-    <ul>{PLACES.map((p, i) => { const Icon = PLACE_ICON[p.key] || Building2; return <li key={p.key} style={{ '--i': i, '--pc': p.color }}>
-      <button type="button" className={active === p.lens ? 'active' : ''} onClick={() => onGo(p)} data-tip={`${p.name} — ${p.sub}`} data-testid={`dir-${p.key}`}><Icon size={16} aria-hidden="true" /><span><b>{p.name}</b><small>{p.sub}</small></span></button></li>; })}</ul>
+    <ul>{PLACES.map((p, i) => { const Icon = PLACE_ICON[p.key] || Building2; const host = p.in ? PLACES.find(x => x.key === p.in) : null; return <li key={p.key} className={host ? 'is-room' : ''} style={{ '--i': i, '--pc': p.color }}>
+      <button type="button" className={active === p.lens ? 'active' : ''} onClick={() => onGo(p)} data-tip={`${p.name} — ${p.sub}${host ? ` · a room inside ${host.name}` : ''}`} data-testid={`dir-${p.key}`}><Icon size={16} aria-hidden="true" /><span><b>{p.name}</b><small>{host ? `↳ in ${host.name.replace(/^(THE|YOUR) /, '')}` : p.sub}</small></span></button></li>; })}</ul>
   </nav>;
 }
 
@@ -104,7 +104,7 @@ export function FeeCity3D({ v, sel, setSel, city, setCity, tour, overlay, onPlac
     return () => { alive = false; eng.current?.dispose(); eng.current = null; };
   }, [gl]);
   useEffect(() => { if (!ready || !eng.current || !plan) return; eng.current.setPlan(plan, live).then(first => { if (first && sel) eng.current?.flyTo(spotOf(plan, sel)); }); }, [ready, plan, live]);   // eslint-disable-line react-hooks/exhaustive-deps
-  useEffect(() => { if (!ready || !eng.current || !plan) return; const s = spotOf(plan, sel); eng.current.flyTo(s, sel?.mk || sel?.place ? 22 : sel?.lm ? 20 : 17); }, [ready, sel?.id, sel?.lm, sel?.mk, sel?.place, plan?.kind, plan?.key]);   // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { if (!ready || !eng.current || !plan) return; const s = spotOf(plan, sel); eng.current.flyTo(s, sel?.place === 'tt' ? 46 : sel?.mk || sel?.place ? 26 : sel?.lm ? 22 : 19); }, [ready, sel?.id, sel?.lm, sel?.mk, sel?.place, plan?.kind, plan?.key]);   // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { eng.current?.spin(spin); }, [spin, ready]);
   useEffect(() => { eng.current?.setMode(mode); try { localStorage.setItem(MODE_KEY, mode); } catch { /* storage blocked */ } }, [mode, ready]);
   useEffect(() => {   // the real Fuse cards stand over the pitch: three anchors above the stadium (Fee City only)

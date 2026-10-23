@@ -1,4 +1,4 @@
-import { feePlan, outerPlan, spotOf, pulseHz, heightOf, usd, PLACES, centerOf, FOOT, CELL, MCELL } from './cityPlan';
+import { feePlan, outerPlan, spotOf, pulseHz, heightOf, usd, PLACES, centerOf, FOOT, CELL, MCELL, roomsOf, ttLive } from './cityPlan';
 import { marketVitals } from '../components/FeeCity3D';
 
 const V = {
@@ -13,7 +13,7 @@ const V = {
 const MK = {
   markets: [{ key: 'raydium', name: 'Raydium', kind: 'dex', tvl: 1.2e9, pool: { vol: 3e5 } }, { key: 'orca', name: 'Orca', kind: 'dex', tvl: 3e8 }, { key: 'kamino', name: 'Kamino', kind: 'lend', tvl: 1.3e9, offer: 'Lending' },
     { key: 'jlp', name: 'Jupiter Perps', kind: 'perps', tvl: 7e8 }, { key: 'jito', name: 'Jito', kind: 'stake', tvl: 1e9 }],
-  coins: [{ mint: 'M1', sym: 'PHP', mc: 1.4e6, ch: 1082, vol: 6.6e6, pair: 'P1' }, { mint: 'M2', sym: 'CYBER', mc: 9e5, ch: -12, vol: 2e6, pair: 'P2' }],
+  coins: [{ mint: 'M1', sym: 'PHP', mc: 1.4e6, ch: 1082, vol: 6.6e6, pair: 'P1', status: 'READY' }, { mint: 'M2', sym: 'CYBER', mc: 9e5, ch: -12, vol: 2e6, pair: 'P2' }],
 };
 const overlap = (a, b) => a.x < b.x + b.w && b.x < a.x + a.w && a.z < b.z + b.d && b.z < a.z + a.d;
 
@@ -24,15 +24,17 @@ test('🗺 Fee City: the capital + four islands (three market + FEELESS AVENUE),
   expect(p.lots[0]).toMatchObject({ kind: 'mine', tag: 'SIC', owner: 'c1' }); expect(p.lots[1].kind).toBe('free');
   expect(p.markets.find(m => m.key === 'raydium').island).toBe('row');
   expect(p.markets.find(m => m.key === 'kamino').island).toBe('vault'); expect(p.markets.find(m => m.key === 'jito').island).toBe('vault');
-  const php = p.markets.find(m => m.name === '$PHP'); expect(php).toMatchObject({ island: 'money', kind: 'coin', move: 1082, tvl: 1.4e6 });
-  expect(p.places.map(x => x.key).sort()).toEqual(PLACES.map(x => x.key).sort());                // every old lens is a place
+  expect(p.markets.some(m => m.kind === 'coin')).toBe(false);                                     // 🗼 no field of little coin towers
+  const tt = p.places.find(x => x.key === 'tt'); expect(tt).toMatchObject({ isl: 'money', art: 'tt', live: { ready: 1, n: 2, hot: { sym: 'PHP' } } });
+  expect(tt.lines.join(' ')).toContain('1 READY'); expect(tt.lines.join(' ')).toContain('HOT $PHP');
+  expect([...p.places, ...p.inside].map(x => x.key).sort()).toEqual(PLACES.map(x => x.key).sort());   // every old lens is a place or a room
   expect(p.gates.map(g => [g.key, g.name])).toEqual([['heights', 'Raydium Heights'], ['bay', 'Bonk Bay'], ['harbor', 'Pump Harbor'], ['docks', 'Cartel Docks']]);
   expect(p.bridges).toHaveLength(4); expect(p.lights.length).toBeGreaterThan(3); expect(p.loops.length).toBeGreaterThanOrEqual(6);
   // nothing built on top of anything else
-  const rects = [...p.lots, ...p.marks, ...p.markets, ...p.places.filter(x => !x.virtual && !x.isl.startsWith('plaza')), ...p.spare].map(x => x.rect);
+  const rects = [...p.lots, ...p.marks, ...p.markets, ...p.places.filter(x => !x.virtual && !String(x.isl).startsWith('plaza')), ...p.spare].map(x => x.rect);
   for (let i = 0; i < rects.length; i += 1) for (let j = i + 1; j < rects.length; j += 1) expect(overlap(rects[i], rects[j])).toBe(false);
   // every market / place sits inside its island
-  for (const m of [...p.markets, ...p.places.filter(x => !x.virtual && !x.isl.startsWith('plaza'))]) { const isl = p.islands.find(i => i.key === (m.island || m.isl)); const c = centerOf(m.rect);
+  for (const m of [...p.markets, ...p.places.filter(x => !x.virtual && !String(x.isl).startsWith('plaza'))]) { const isl = p.islands.find(i => i.key === (m.island || m.isl)); const c = centerOf(m.rect);
     expect(c.x > isl.x && c.x < isl.x + isl.w && c.z > isl.z && c.z < isl.z + isl.d).toBe(true); }
   expect(spotOf(p, { mk: 'raydium' })).toEqual(centerOf(p.markets.find(m => m.key === 'raydium').rect));
   expect(p.places.find(x => x.key === 'hq').rect).toEqual(p.lots.find(l => l.id === 'fee-0').rect);   // 🏠 your HQ = your home block
@@ -66,8 +68,8 @@ test('💡 live numbers drive the city: roof-light pulse from volume, tower heig
 test('🛣 FEELESS AVENUE: every site tool is a building on its own island (a pop-out with a full page), over a bridge north of the capital; the Heights gate moved past it', () => {
   const p = feePlan(V, MK); const ave = p.islands.find(i => i.key === 'ave'); const cap = p.islands.find(i => i.key === 'fee');
   const tools = p.places.filter(x => x.tool);
-  expect(tools.map(x => x.lens).sort()).toEqual(['feebank', 'feecat', 'feedx', 'gas', 'perps', 'pumpradar', 'rep', 'runners', 'sleep', 'trades', 'watch']);
-  for (const t of tools) { expect(t.isl).toBe('ave'); const c = centerOf(t.rect); expect(c.x > ave.x && c.x < ave.x + ave.w && c.z > ave.z && c.z < ave.z + ave.d).toBe(true); }
+  expect(tools.map(x => x.lens).sort()).toEqual(['feebank', 'feecat', 'perps', 'pumpradar', 'rep', 'sleep', 'trades', 'tt']);
+  for (const t of tools.filter(x => x.key !== 'tt')) { expect(t.isl).toBe('ave'); const c = centerOf(t.rect); expect(c.x > ave.x && c.x < ave.x + ave.w && c.z > ave.z && c.z < ave.z + ave.d).toBe(true); }
   expect(new Set(PLACES.map(x => x.lens)).size).toBe(PLACES.length);                                  // one lens per place (the Wire keeps 'feed')
   expect(ave.z + ave.d).toBeLessThan(cap.z);                                                         // north of the capital, water between
   expect(p.bridges.find(b => b.key === 'b-ave')).toMatchObject({ axis: 'z', a: ave.z + ave.d, b: cap.z });
@@ -77,7 +79,26 @@ test('🛣 FEELESS AVENUE: every site tool is a building on its own island (a po
 test('🌳 more space: every cell is bigger than the building on it — each stands in its own yard, the land and the water are wide', () => {
   expect(FOOT.lot).toBeLessThan(CELL - 1); expect(FOOT.tower).toBeLessThan(MCELL - 1.5);
   const p = feePlan(V, MK); const [cap, row] = p.islands;
-  expect(row.x - (cap.x + cap.w)).toBeGreaterThanOrEqual(16);                                         // water between the capital and Market Row
+  expect(row.x - (cap.x + cap.w)).toBeGreaterThanOrEqual(22);                                         // water between the capital and Market Row
   expect(cap.w).toBeGreaterThanOrEqual(50);                                                           // the capital alone, ~2× the old 39 × 31 floor
-  const q = outerPlan(V, 'harbor'); expect(q.islands[1].x - (q.islands[0].x + q.islands[0].w)).toBeGreaterThanOrEqual(16);
+  const q = outerPlan(V, 'harbor'); expect(q.islands[1].x - (q.islands[0].x + q.islands[0].w)).toBeGreaterThanOrEqual(22);
+});
+
+test('🌆 Fee City BREATHES (owner, 2026-10-23): far fewer, bigger buildings — duplicates are rooms inside one building, TT is ONE tower, empty cells are parks', () => {
+  const many = { markets: Array.from({ length: 30 }, (_, i) => ({ key: `m${i}`, name: `M${i}`, kind: ['dex', 'lend', 'stake', 'perps'][i % 4], tvl: 1e6 * (i + 1) })), coins: MK.coins };
+  const p = feePlan(V, many);
+  const off = p.markets.length + p.places.filter(x => !x.virtual && !String(x.isl).startsWith('plaza')).length;
+  expect(off).toBeLessThanOrEqual(20);                                                                // was ~47 market / tool buildings off the capital
+  expect(p.markets.filter(m => m.island === 'row')).toHaveLength(4); expect(p.markets.filter(m => m.island === 'vault')).toHaveLength(4);
+  expect(p.markets.filter(m => m.island === 'row').map(m => m.name)).toEqual(['M28', 'M24', 'M20', 'M16']);   // the biggest DEXes stand
+  expect(p.spare.every(x => x.park)).toBe(true);                                                      // open land, never a filler building
+  // rooms: no building of their own, the camera flies to the host, the pop-out lists the host's rooms
+  expect(p.inside.find(x => x.key === 'ranked')).toMatchObject({ host: 'podium', rect: p.places.find(x => x.key === 'podium').rect });
+  expect(spotOf(p, { place: 'raids' })).toEqual(centerOf(p.places.find(x => x.key === 'warroom').rect));
+  expect(roomsOf('raids').map(x => x.key)).toEqual(['warroom', 'raids', 'cartels']); expect(roomsOf('rc').map(x => x.key)).toEqual(['hq', 'jobs', 'gym', 'cards']);
+  expect(roomsOf('tt').map(x => x.key)).toEqual(['tt']);
+  // the TT tower covers the whole TT island grid (one landmark), and is far bigger than a market tower
+  const tt = p.places.find(x => x.key === 'tt'); const mkt = p.markets[0];
+  expect(tt.rect.w * tt.rect.d).toBeGreaterThan(4 * mkt.rect.w * mkt.rect.d); expect(FOOT.tt).toBeGreaterThan(2 * FOOT.tower - 1);
+  expect(ttLive([])).toMatchObject({ n: 0, ready: 0, hot: null }); expect(ttLive([{ sym: 'A', ch: 2 }, { sym: 'B', ch: 9, status: 'ready' }])).toMatchObject({ ready: 1, hot: { sym: 'B' } });
 });

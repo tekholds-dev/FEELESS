@@ -103,3 +103,44 @@ def test_a_real_out_of_range_position_becomes_an_urgent_re_center_errand():
     assert not e2['urgent'] and 'near the edge' in e2['text']
     calm = cr.summary([cr.status(pos, {'tick': 0})])
     assert bm.view([{'key': 'orca'}], MK, {'orca': {'n': 1, 'ranges': calm}}, mine=True)[0]['errands'] == []   # all in range: nothing to do
+
+
+def test_the_family_picks_its_towns_tool_buildings():
+    """🏘 owner, 2026-10-23: "my family picks which buildings our town has (Perps, Trench Towers, Pools)" — Don / Underboss / creator only."""
+    c = {'owner': 'DON'}
+    assert bm.town_of(c) == list(bm.TOWN_START)                                  # a family that never picked gets a starter town
+    assert bm.town_set(c, 'trades', False, 'DON') == ['tt', 'pools']
+    assert bm.town_set(c, 'perps', True, 'UB', rank={'UB': 'underboss'}) == ['tt', 'pools', 'perps']   # "we're gonna be perps and trenching"
+    for bad in (('radar', True, 'SOLDIER'), ('perps', True, 'DON'), ('casino', True, 'DON'), ('vault', False, 'DON')):
+        with pytest.raises(ValueError):
+            bm.town_set(c, bad[0], bad[1], bad[2])                              # a soldier · already standing · not in the catalog · not standing
+    for k in ('vault', 'radar', 'cats'):
+        bm.town_set(c, k, True, 'ANY', staff=True)
+    assert len(bm.town_of(c)) == bm.TOWN_MAX
+    with pytest.raises(ValueError):
+        bm.town_set(c, 'rep', True, 'DON')                                       # the town is full
+    c['town'] = ['tt', 'tt', 'nope', 'perps']
+    assert bm.town_of(c) == ['tt', 'perps']                                      # a hand-edited store never shows junk
+
+
+def test_the_service_stands_a_town_building(monkeypatch):
+    import asyncio
+    rs = pytest.importorskip('reputation_service')
+    don = 'D' * 44
+    rs._json_save(rs.CREWS_PATH, {'crews': {'c1': {'id': 'c1', 'tag': 'FRT', 'name': 'Sicario', 'owner': don, 'members': [don]}}, 'by': {don: 'c1'}})
+    monkeypatch.setattr(rs, '_session_or_401', lambda a, s: don)
+    monkeypatch.setattr(rs, '_city_ctx', lambda c, me, now: (1.0, {}))
+
+    async def mk():
+        return {'markets': []}
+
+    async def pools():
+        return {'pools': []}
+    monkeypatch.setattr(rs, 'familia_markets', mk); monkeypatch.setattr(rs, 'familia_pools', pools)
+    v = asyncio.run(rs.familia_block_act(rs.BlockAct(address=don, session='s', act='tadd', key='perps')))
+    assert v['town'] == ['tt', 'pools', 'trades', 'perps'] and v['townMax'] == bm.TOWN_MAX and 'radar' in v['townAll']
+    v = asyncio.run(rs.familia_block_act(rs.BlockAct(address=don, session='s', act='tdel', key='pools')))
+    assert v['town'] == ['tt', 'trades', 'perps']
+    assert asyncio.run(rs.familia_block_visit('c1'))['town'] == ['tt', 'trades', 'perps']   # visitors see which tools the family runs
+    with pytest.raises(rs.HTTPException):
+        asyncio.run(rs.familia_block_act(rs.BlockAct(address=don, session='s', act='tadd', key='casino')))

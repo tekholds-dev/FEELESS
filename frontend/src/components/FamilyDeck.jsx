@@ -22,22 +22,28 @@ export const DECK = [
   ['books', '📒', 'Books', 'the family\'s trades this week'], ['members', '👥', 'Members', 'seats · vitals · roles'],
 ];
 
-export function FamilyDeck({ mine, tools }) {
-  const [tab, setTab] = useRemembered('feeless.fam.deck', 'trades');
-  useEffect(() => {   // 🏙 a block errand (e.g. "size JLP against your SOL") opens its tool here
-    const go = e => { if (DECK.some(d => d[0] === e.detail)) setTab(e.detail); };
-    window.addEventListener('feeless:deck', go); return () => window.removeEventListener('feeless:deck', go);
-  }, [setTab]);
-  const body = {
+// one deck room (also the 🏘 town building pop-out over the block — the same real tool, never a copy)
+export function deckBody(tab, mine, tools) {
+  return {
     trades: <Avenue lens="trades" />, tt: <Trench />, pools: <Pools />, vault: <Vault />, perps: <Avenue lens="perps" />, radar: <Avenue lens="pumpradar" />,
     cats: <Avenue lens="feecat" />, rep: <RepMarkets />,
     books: mine ? <Books book={mine.book} /> : <p className="m-dim">Join a family to see its Books.</p>,
     members: mine && tools ? tools('table') : <p className="m-dim">Your family's seats show here once you're in one.</p>,
   }[tab] || null;
+}
+
+export function FamilyDeck({ mine, tools, town = null }) {
+  const [tab, setTab] = useRemembered('feeless.fam.deck', 'trades');
+  const deck = town ? [...DECK.filter(d => town.includes(d[0])), ...DECK.filter(d => !town.includes(d[0]))] : DECK;   // 🏘 the town's buildings first
+  useEffect(() => {   // 🏙 a block errand (e.g. "size JLP against your SOL") opens its tool here
+    const go = e => { if (DECK.some(d => d[0] === e.detail)) setTab(e.detail); };
+    window.addEventListener('feeless:deck', go); return () => window.removeEventListener('feeless:deck', go);
+  }, [setTab]);
+  const body = deckBody(tab, mine, tools);
   return <section className="fdk m-card" data-testid="family-deck">
     <header><b>🧰 FAMILY DECK</b><small>{DECK.length} tools · run the money from the block</small></header>
-    <nav className="fdk-tabs" role="tablist" aria-label="Family tools">{DECK.map(([k, ic, name, how], i) => <button key={k} type="button" role="tab" aria-selected={tab === k}
-      className={tab === k ? 'active' : ''} style={{ '--i': i }} onClick={() => setTab(k)} data-tip={`${name} — ${how}`} data-testid={`deck-${k}`}><i aria-hidden="true">{ic}</i><span><b>{name}</b><small>{how}</small></span></button>)}</nav>
+    <nav className="fdk-tabs" role="tablist" aria-label="Family tools">{deck.map(([k, ic, name, how], i) => <button key={k} type="button" role="tab" aria-selected={tab === k}
+      className={`${tab === k ? 'active' : ''}${town?.includes(k) ? ' in-town' : ''}`} style={{ '--i': i }} onClick={() => setTab(k)} data-tip={`${name} — ${how}`} data-testid={`deck-${k}`}><i aria-hidden="true">{ic}</i><span><b>{name}</b><small>{how}</small></span></button>)}</nav>
     <div className="fdk-body" key={tab}><Suspense fallback={<p className="m-dim">Opening {DECK.find(d => d[0] === tab)?.[2]}…</p>}>{body}</Suspense></div>
   </section>;
 }

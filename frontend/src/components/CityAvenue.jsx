@@ -214,7 +214,7 @@ export function TrenchList() {
 }
 
 const BODY = {
-  perps: () => <PerpsDesk />,
+  perps: () => <PerpsDesk />, tt: () => <TrenchList />,
   trades: () => <TradeCenter />,
   pumpradar: () => <PumpRadar />, feebank: () => <FeeBank />, runners: () => <RunnersPanel />, watch: () => <WatchlistDashboard />, rep: () => <Courthouse />,
   feecat: () => <CatTower />, gas: () => <GetGas />, sleep: () => <NightVault />,

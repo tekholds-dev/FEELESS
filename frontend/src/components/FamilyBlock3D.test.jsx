@@ -1,9 +1,9 @@
 import React from 'react';
 import { createRoot } from 'react-dom/client';
 import { act } from 'react';
-import { FamilyBlock3D, BlockCard } from './FamilyBlock3D';
+import { FamilyBlock3D, BlockCard, TownPicker } from './FamilyBlock3D';
 import { errandGo } from './FamilyBlock';
-import { blockPlan, spotOf } from '../lib/cityPlan';
+import { blockPlan, spotOf, TOWN } from '../lib/cityPlan';
 
 const BL = { id: 'c1', tag: 'FRT', name: 'Sicario', built: 1, total: 260, open: 4, canBuild: true,
   buildings: [{ key: 'jito', name: 'Jito', sym: 'JitoSOL', kind: 'stake', state: 'built', usd: 260, apy: 4.85, proof: 'mint', band: '$$',
@@ -49,4 +49,28 @@ test('🏙 errands open the real tool: the swap with both coins set, the perps d
   errandGo({ kind: 'hedge' }, { key: 'jlp' }, nav, open); expect(seen.mock.calls[0][0].detail).toBe('perps');
   errandGo({ kind: 'range' }, { key: 'orca' }, nav, open); expect(open).toHaveBeenCalledWith('https://www.orca.so/portfolio');
   errandGo({ kind: 'build', url: 'https://jito.network' }, { key: 'jito' }, nav, open); expect(open).toHaveBeenLastCalledWith('https://jito.network');
+});
+
+test('🏘 the town: the tool buildings the family picked stand on the block (TT burns its READY floors), the picker stands / takes them down, a standing one walks in', async () => {
+  const bl = { ...BL, town: ['tt', 'perps'], townMax: 6, townAll: Object.keys(TOWN) };
+  const p = blockPlan(bl, { coins: [{ sym: 'PHP', ch: 40, status: 'READY' }, { sym: 'CYB', ch: -3 }] });
+  expect(p.places.map(x => [x.key, x.art, x.pick.town])).toEqual([['town-tt', 'tt', 'tt'], ['town-perps', 'perps', 'perps']]);
+  expect(p.places[0].live).toMatchObject({ ready: 1, n: 2, hot: { sym: 'PHP' } }); expect(p.places[0].lines[1]).toBe('1 READY · 2 on the intake');
+  expect(spotOf(p, { town: 'perps' })).not.toBeNull(); expect(p.lots.filter(l => l.open)).toHaveLength(4);
+  const all = [...p.lots, ...p.markets, ...p.places].map(x => `${x.rect.x},${x.rect.z}`); expect(new Set(all).size).toBe(all.length);   // nothing stacked
+  const el = document.createElement('div'); document.body.appendChild(el); const root = createRoot(el); const onAct = jest.fn(); const onOpen = jest.fn(); const pick = jest.fn();
+  const q = id => el.querySelector(`[data-testid="${id}"]`);
+  await act(async () => { root.render(<FamilyBlock3D bl={bl} sel={null} onPick={pick} />); });
+  act(() => q('town-b-perps').click()); expect(pick).toHaveBeenLastCalledWith({ town: 'perps' });   // the drawn block: a town tower walks in
+  await act(async () => { root.render(<TownPicker bl={bl} mine busy={false} onAct={onAct} onOpen={onOpen} open={null} />); });
+  expect(q('town-picker').textContent).toContain('2/6'); expect(el.querySelectorAll('.ftp-meter u.on')).toHaveLength(2);
+  act(() => q('town-tog-pools').click()); expect(onAct).toHaveBeenLastCalledWith('tadd', 'pools');
+  act(() => q('town-tog-perps').click()); expect(onAct).toHaveBeenLastCalledWith('tdel', 'perps');
+  act(() => q('town-open-tt').click()); expect(onOpen).toHaveBeenLastCalledWith('tt');
+  expect(q('town-open-radar').disabled).toBe(true);                                                    // not standing → nothing to walk into
+  await act(async () => { root.render(<TownPicker bl={{ ...bl, town: ['tt', 'perps', 'pools', 'trades', 'vault', 'radar'] }} mine onAct={onAct} onOpen={onOpen} />); });
+  expect(q('town-tog-cats').disabled).toBe(true);                                                      // full: take one down first
+  await act(async () => { root.render(<TownPicker bl={{ ...bl, canBuild: false }} mine onAct={onAct} onOpen={onOpen} />); });
+  expect(q('town-tog-tt')).toBeNull(); expect(q('town-picker').textContent).toContain('Only the Don or the Underboss');
+  act(() => root.unmount());
 });

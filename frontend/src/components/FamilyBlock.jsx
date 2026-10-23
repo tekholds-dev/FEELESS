@@ -2,8 +2,9 @@ import React, { useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import { Coins, Shield, Crosshair, Briefcase, Eye, ArrowLeft } from 'lucide-react';
 import { apiUrl } from '../lib/api';
-import { FamilyDeck } from './FamilyDeck';
-import { FamilyBlock3D, BlockCard } from './FamilyBlock3D';
+import { FamilyDeck, deckBody } from './FamilyDeck';
+import { FamilyBlock3D, BlockCard, TownPicker } from './FamilyBlock3D';
+import { TOWN } from '../lib/cityPlan';
 import '../styles/familyBlock.css';
 import { familiaDocked, familiaSwap } from './FamiliaTrade';
 
@@ -37,10 +38,14 @@ export function Building({ l, nowS }) {
 
 // 🗼 THE DESK'S PICKS hovering over the block (owner: "coin buildings need a coin hovering over them"): the top 3 of the agents' intake list as
 // floating coins — tap one to open its war room (chart + Quick trade, the wallet signs). One shared 30 s read (the same as the Trench Towers).
-function BlockPicks() {
-  const [rows, setRows] = useState([]);
-  useEffect(() => { let on = true; const load = () => fetch(apiUrl('/api/reputation/familia/intake')).then(r => (r.ok ? r.json() : null)).then(x => on && x && setRows((x.coins || []).filter(c => c.pair).slice(0, 3))).catch(() => {});
+function useIntakeCoins() {   // one 30 s read of the desk's intake for the picks AND the town's TT tower floors
+  const [coins, setCoins] = useState(null);
+  useEffect(() => { let on = true; const load = () => fetch(apiUrl('/api/reputation/familia/intake')).then(r => (r.ok ? r.json() : null)).then(x => on && x && setCoins(x.coins || [])).catch(() => {});
     load(); const t = setInterval(() => { if (!document.hidden) load(); }, 30000); return () => { on = false; clearInterval(t); }; }, []);
+  return coins;
+}
+function BlockPicks({ coins }) {
+  const rows = (coins || []).filter(c => c.pair).slice(0, 3);
   if (!rows.length) return null;
   return <div className="fbk-picks" data-testid="block-picks">{rows.map((c, i) => <button key={c.mint} type="button" className={`fbk-pick ${(c.ch ?? 0) < 0 ? 'dn' : 'up'}`} style={{ '--i': i }}
     onClick={e => { e.stopPropagation(); window.dispatchEvent(new CustomEvent('feeless:war-room', { detail: { chainId: 'solana', pairAddress: c.pair, baseToken: { address: c.mint, symbol: c.sym } } })); }}
@@ -65,16 +70,18 @@ export function errandGo(e, b, nav = path => window.location.assign(path), open 
   return url || null;
 }
 
-export function FamilyBlock({ cid, addr, sess, onBack, mine: myFam = null, tools = null }) {
+export function FamilyBlock({ cid, addr, sess, onBack, mine: myFam = null, tools = null, demo = null }) {
   const mine = !cid;
   const [v, setV] = useState(null); const [err, setErr] = useState(''); const [busy, setBusy] = useState(false);
-  const [bl, setBl] = useState(null); const [bsel, setBsel] = useState(null);
+  const [bl, setBl] = useState(null); const [bsel, setBsel] = useState(null); const coins = useIntakeCoins();
+  const room = bsel?.town && TOWN[bsel.town] ? bsel.town : null;   // 🏘 a town building you walked into: its real tool pops out over the block
+  useEffect(() => { if (!room) return undefined; const esc = e => { if (e.key === 'Escape') setBsel(null); }; window.addEventListener('keydown', esc); return () => window.removeEventListener('keydown', esc); }, [room]);
   const [nowS, setNowS] = useState(() => Date.now() / 1000);
   const load = () => fetch(apiUrl(mine ? `/api/reputation/familia-city?address=${addr}&session=${encodeURIComponent(sess)}` : `/api/reputation/familia-city/${cid}`))
     .then(async r => { const b = await r.json().catch(() => ({})); if (!r.ok) throw new Error(b.detail || 'The block could not be read.'); setV({ ...b, _at: Date.now() / 1000 }); setErr(''); })
     .catch(e => setErr(e.message));
   const loadBl = () => fetch(apiUrl(mine ? `/api/reputation/familia-block?address=${addr}&session=${encodeURIComponent(sess)}` : `/api/reputation/familia-block/${cid}`))
-    .then(r => (r.ok ? r.json() : null)).then(b => { if (b) setBl(b); }).catch(() => {});
+    .then(r => (r.ok ? r.json() : null)).then(b => { if (b) setBl(demo && !b.town ? { ...b, ...demo } : b); }).catch(() => {});   // demo = the dev harness only
   useEffect(() => { load(); loadBl(); const t = setInterval(() => { if (!document.hidden) load(); }, 20000); const u = setInterval(() => { if (!document.hidden) loadBl(); }, 60000);
     return () => { clearInterval(t); clearInterval(u); }; }, [cid, addr, sess]);   // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { const t = setInterval(() => { if (!document.hidden) setNowS(Date.now() / 1000); }, 1000); return () => clearInterval(t); }, []);
@@ -96,8 +103,8 @@ export function FamilyBlock({ cid, addr, sess, onBack, mine: myFam = null, tools
     try {
       const r = await fetch(apiUrl('/api/reputation/familia-block/act'), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ address: addr, session: sess, act: what, key }) });
       const b = await r.json().catch(() => ({})); if (!r.ok) throw new Error(b.detail || 'Refused.');
-      setBl(b); setBsel(what === 'add' ? { blk: key } : null);
-      toast.success(what === 'add' ? '🏗 on the block — it builds itself when you open a real position there' : 'Building removed');
+      setBl(b); setBsel(what === 'add' ? { blk: key } : what === 'tadd' ? { town: key } : null);
+      toast.success({ add: '🏗 on the block — it builds itself when you open a real position there', tadd: `🏘 ${TOWN[key]?.name || key} stands in your town — walk in`, tdel: `${TOWN[key]?.name || key} taken down` }[what] || 'Building removed');
     } catch (e) { toast.error(e.message); }
     setBusy(false);
   };
@@ -120,11 +127,16 @@ export function FamilyBlock({ cid, addr, sess, onBack, mine: myFam = null, tools
       </header>
       <div className="fbk-wrap">
         <div className="fbk-left">
-          <div className="fbk-stage3">{bl ? <FamilyBlock3D bl={bl} sel={bsel} onPick={setBsel} /> : <p className="fbk-wait">Surveying the block…</p>}<BlockPicks /></div>
-          <FamilyDeck mine={myFam && myFam.id === v.id ? myFam : null} tools={myFam && myFam.id === v.id ? tools : null} />
+          <div className="fbk-stage3">{bl ? <FamilyBlock3D bl={bl} sel={bsel} onPick={setBsel} coins={coins} /> : <p className="fbk-wait">Surveying the block…</p>}<BlockPicks coins={coins} />
+            {room ? <section className="ftr" style={{ '--tc': TOWN[room].color }} role="dialog" aria-label={TOWN[room].name} data-testid={`town-room-${room}`}>
+              <header><i aria-hidden="true" /><span><b>{TOWN[room].name}</b><small>{TOWN[room].sub}</small></span>
+                <button type="button" onClick={() => setBsel(null)} aria-label="Walk back out" data-tip="Back to the block (Esc)" data-testid="town-room-close">✕</button></header>
+              <div className="ftr-body"><React.Suspense fallback={<p className="m-dim">Opening {TOWN[room].name}…</p>}>{deckBody(room, myFam && myFam.id === v.id ? myFam : null, tools)}</React.Suspense></div></section> : null}</div>
+          <FamilyDeck mine={myFam && myFam.id === v.id ? myFam : null} tools={myFam && myFam.id === v.id ? tools : null} town={bl?.town || null} />
         </div>
         <aside className="fbk-side">
-          <div className="fbk-card"><BlockCard bl={bl} sel={bsel} busy={busy} mine={mine} onAct={blAct} onErrand={(e, b) => errandGo(e, b)} /></div>
+          <div className="fbk-card"><TownPicker bl={bl} busy={busy} mine={mine} onAct={blAct} open={room} onOpen={k => setBsel({ town: k })} /></div>
+          {room ? null : <div className="fbk-card"><BlockCard bl={bl} sel={bsel} busy={busy} mine={mine} onAct={blAct} onErrand={(e, b) => errandGo(e, b)} /></div>}
           {mine ? <details className="fbk-card fbk-mp" data-testid="block-mp"><summary data-tip="The MP points game: the stash your old stores make, recruits, robberies — points only, never money">🎲 Street game · {stash.toLocaleString('en-US')} MP in the stash</summary>
             <button type="button" className="m-btn m-go fbk-collect" disabled={busy || stash < 1} onClick={() => act({ act: 'collect' })} data-testid="block-collect"><Coins size={15} /> Collect {stash.toLocaleString('en-US')} MP</button>
             <p className="fbk-streak" data-tip="Collect every day: +5 % production a day, up to +50 %. Members' verified FEELESS trades this week boost production up to ×3.">🔥 streak {v.streak || 0}d · +{v.streakBonus || 0} % · trading boost ×{v.boost}{v.houseTax != null ? ` · house ${v.houseTax} %` : ''}</p>

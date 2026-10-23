@@ -86,3 +86,5 @@ body.theme-day .fc3-dir ul { background: #fffaf0f2; border-color: #b8952a55; } b
    and the footer steps aside while the city has the window. */
 .fc3-dir { z-index: 8; }
 body.fc3-lock .terminal-footer { visibility: hidden; pointer-events: none; }
+/* 🚪 a room inside another building (Fee City breathes): indented, its host named */
+.fc3-dir li.is-room button { padding-left: 18px; opacity: .86; } .fc3-dir li.is-room small { color: color-mix(in srgb, var(--pc) 70%, #fff); }

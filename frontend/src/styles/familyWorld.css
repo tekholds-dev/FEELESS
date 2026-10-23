@@ -142,3 +142,19 @@ body.fx-lite .fwd-siren, body.fx-lite .fwd-alert { animation: none; } @media (pr
 /* the room panel leaves the collapsed directory dock (46px + 12px gap) uncovered; on a phone the dock hides while a room is open */
 .fwd-place { width: min(560px, calc(100% - 88px)); }
 @media (max-width: 640px) { .fwd-place { width: auto; } .fwd-mapwrap:has(.fwd-place) :is(.fc3-dir, .mh-acts) { display: none; } }
+/* 🚪 one building, several rooms (Fee City breathes, 2026-10-23): the host's rooms as a lit segmented strip under the pop-out header */
+.fwd-rooms { display: flex; gap: 6px; padding: 8px 12px; overflow-x: auto; scrollbar-width: none; border-bottom: 1px solid #ffffff10; background: #0000002e; }
+.fwd-rooms::-webkit-scrollbar { display: none; }
+.fwd-rooms button { --rc: var(--pc); flex: none; min-height: 34px; display: inline-flex; align-items: center; gap: 7px; padding: 0 12px; border-radius: 999px; border: 1px solid color-mix(in srgb, var(--rc) 40%, transparent);
+  background: color-mix(in srgb, var(--rc) 8%, #0b0a10); color: color-mix(in srgb, var(--rc) 80%, #fff); font: 800 10.5px 'JetBrains Mono', monospace; letter-spacing: .1em; cursor: pointer;
+  transition: background .15s, transform .15s, box-shadow .15s; animation: fwdRoomIn .22s ease-out calc(var(--i) * 50ms) both; }
+.fwd-rooms button i { width: 7px; height: 7px; border-radius: 50%; background: var(--rc); box-shadow: 0 0 8px var(--rc); }
+.fwd-rooms button:hover { background: color-mix(in srgb, var(--rc) 20%, #0b0a10); transform: translateY(-1px); }
+.fwd-rooms button:active { transform: scale(.96); } .fwd-rooms button:focus-visible { outline: 2px solid var(--rc); outline-offset: 2px; }
+.fwd-rooms button.active { background: var(--rc); color: #0b0a10; box-shadow: 0 0 16px -4px var(--rc); } .fwd-rooms button.active i { background: #0b0a10; box-shadow: none; }
+@keyframes fwdRoomIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+body.theme-day .fwd-rooms { background: #fbf7ea; border-color: #b8901f33; } body.theme-day .fwd-rooms button { background: #fff; color: #2a2620; }
+body.theme-day .fwd-rooms button.active { background: var(--rc); color: #fff; }
+body.fx-lite .fwd-rooms button { animation: none; }
+@media (prefers-reduced-motion: reduce) { .fwd-rooms button { animation: none; transition: none; } }
+@media (max-width: 640px) { .fwd-rooms { padding: 6px 8px; } .fwd-rooms button { padding: 0 10px; font-size: 10px; } }

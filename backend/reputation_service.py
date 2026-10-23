@@ -9152,7 +9152,8 @@ async def _fblock_view(c, me=None, staff=False, rank=None):
     rows_ = _bmk.view(lots_, markets_, held_, apys=_bmk.lst_apys(pools_), mine=mine_)
     built_ = [b_ for b_ in rows_ if b_['state'] == 'built']
     out_ = {'id': c['id'], 'tag': c.get('tag'), 'name': c.get('name'), 'buildings': rows_, 'built': len(built_), 'max': _bmk.MAX,
-            'open': max(0, min(_bmk.OPEN, _bmk.MAX - len(rows_))), 'at': round(now)}   # open plots to build on: always 4 until the block is full
+            'open': max(0, min(_bmk.OPEN, _bmk.MAX - len(rows_))), 'at': round(now),   # open plots to build on: always 4 until the block is full
+            'town': _bmk.town_of(c), 'townMax': _bmk.TOWN_MAX, 'townAll': list(_bmk.TOWN)}   # 🏘 the tool buildings the family picked
     if mine_:
         out_['total'] = round(sum(float(b_.get('usd') or 0) for b_ in built_), 2)
         out_['canBuild'] = bool(staff or me == c.get('owner') or (rank or {}).get(me) == 'underboss')
@@ -9194,7 +9195,7 @@ class BlockAct(BaseModel):
 
 @app.post('/api/reputation/familia-block/act')
 async def familia_block_act(p: BlockAct):
-    """🏙 add / remove a market building (Don · Underboss · creator). Adding builds nothing by itself — a real position does."""
+    """🏙 add / remove a market building, tadd / tdel a town tool building (Don · Underboss · creator). Adding builds nothing by itself — a real position does."""
     import crews as _cr
     me = _session_or_401(p.address, p.session); now = time.time()
     known_ = {m_['key'] for m_ in ((await familia_markets()) or {}).get('markets') or []}
@@ -9208,6 +9209,8 @@ async def familia_block_act(p: BlockAct):
                 _bmk.add(c, p.key, me, now, staff_, rk_, known_)
             elif p.act == 'remove':
                 _bmk.remove(c, p.key, me, staff_, rk_)
+            elif p.act in ('tadd', 'tdel'):   # 🏘 stand / take down a tool building in the family's town
+                _bmk.town_set(c, p.key, p.act == 'tadd', me, staff_, rk_)
             else:
                 raise ValueError('Unknown block action.')
         except ValueError as e:
