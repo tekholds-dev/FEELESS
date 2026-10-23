@@ -1,11 +1,13 @@
-import { FeeCatBrain } from './FuseOpsPanels';
 import { FeeCatStage } from './FeeCatStage';
 import { FeeCatLore } from './FeeCatLore';
+import { FeeCatShell } from './FeeCatShell';
+import { FeeCatBrainPage } from './FeeCatBrainPage';
+import { CatBuilder } from './CatBuilder';
+import { FeeLiveTab } from './FeeLiveTab';
 import NumInput from '../NumInput';
-import { FeeCatMark } from '../FeeCatMark';
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowUpRight, Coins, Cat, Wallet, Activity, Shuffle, Sparkles, Copy, CheckCircle2 } from 'lucide-react';
+import { ArrowUpRight, Coins, Cat, Wallet, Activity } from 'lucide-react';
 import { useWallet } from '../../hooks/useWallet';
 import { useMarket } from '../../hooks/useMarket';
 import { formatUSD } from '../../lib/dexscreener';
@@ -41,64 +43,26 @@ export const FeeBackCenter = ({ feeCat }) => {
   return <div className="fee-back-center"><div className="command-page-title"><span className="eyebrow">THE ECONOMIC FEE-RETURN LAYER</span><h1>The fees come back.<br /><em>The story moves forward.</em></h1><FeeReportChip address={wallet?.address} /><p>100% of eligible tracked fees. Equivalent dollar value. Delivered through FeeCat under program rules.</p><span className="state-tag amber">PROGRAM PLANNED · NO PAYOUTS ACTIVATED</span></div><div className="fee-back-summary">{[['ELIGIBLE TRACKED FEES', 'Awaiting rules'], ['PENDING FEECAT', 'Not activated'], ['COMPLETED DISTRIBUTIONS', 'No verified records'], ['REFERENCE PRICE', feeCat?.status === 'market_observed' ? 'Distribution point not set yet' : 'Awaiting verified market']].map(([label, value], i) => <div key={label}><small>{label}</small><strong data-testid={`feeback-summary-${i}`}>{value}</strong></div>)}</div><FeeBackFlow /><div className="feeback-two-col"><FeeBackCalculator feeCat={feeCat} /><section className="program-rules"><span className="eyebrow">THE IMPORTANT DISTINCTION</span><h2>Economically fee-less.<br />Not magically gas-free.</h2><p>Network, DEX and provider fees can still apply. Fee-Back records eligible USD value and returns its FEECAT equivalent at a defined distribution point.</p><ul><li>Eligibility is not automatic for every fee.</li><li>Quoted fees are not settled fee records.</li><li>FEECAT can change in value after distribution.</li><li>No guaranteed profit, yield or future value.</li></ul><Link data-testid="feeback-whitepaper-link" to="/terminal/whitepaper">Read the full architecture<ArrowUpRight size={14} /></Link></section></div><section className="distribution-history"><div className="command-section-title"><span>TRANSACTION REFERENCES</span><small>APPLICATION-SUBMITTED SWAPS / NOT REWARDS</small></div>{!wallet && <div className="truth-empty" data-testid="feeback-wallet-required"><Wallet size={24} /><span>Connect your wallet to view its application transaction references.</span></div>}{wallet && !history?.transactions?.length && <div className="truth-empty" data-testid="feeback-history-empty">No verified application transaction references for this wallet.</div>}{history?.transactions?.map(tx => <a data-testid={`feeback-transaction-${tx.order_id}`} key={tx.order_id} target="_blank" rel="noreferrer" href={`https://solscan.io/tx/${tx.signature}`}><span>{tx.state}</span><code>{tx.signature.slice(0, 20)}…</code><ArrowUpRight size={14} /></a>)}</section></div>;
 };
 
-const BASE_CAT_VARIATIONS = [
-  ['Mint Mackerel', '#b9f4d7', '#087a58', 'stripes'], ['Midnight Patch', '#1c2930', '#f7d36b', 'patch'], ['Solaris', '#ffbf69', '#d94e41', 'spots'],
-  ['Cloud Nine', '#f5f0e8', '#a9b9c8', 'patch'], ['Berry Socks', '#e78aa8', '#5b2b55', 'spots'], ['Lime Sprout', '#c9ee68', '#3e8e52', 'stripes'],
-  ['Copper Tabby', '#c87842', '#713d27', 'stripes'], ['Bluebell', '#99b8ef', '#4b54a8', 'spots'], ['Tux Bloom', '#f4f4ec', '#171c25', 'patch'],
-  ['Peach Fizz', '#ffc7a4', '#e55c72', 'spots'], ['Mossy', '#849c75', '#314a36', 'patch'], ['Lavender Loop', '#cbb8ed', '#6b54a5', 'stripes'],
-  ['Neon Paws', '#66f2d0', '#734cf2', 'spots'], ['Caramel Dot', '#d99d59', '#8a4b35', 'patch'], ['Moonstone', '#c7d2d9', '#54616e', 'stripes'],
-  ['Rosewater', '#f4b4be', '#9c3d65', 'spots'], ['Golden Hour', '#f1d36b', '#b36a2e', 'patch'], ['Inkblot', '#41485a', '#10141c', 'spots'],
-  ['Cactus Cat', '#a4d58c', '#2a6a5b', 'stripes'], ['Creamsicle', '#ffe0a3', '#f08042', 'patch'], ['Orchid', '#df9ce8', '#763e9a', 'spots'],
-  ['Raincoat', '#89c6d8', '#284f72', 'stripes'], ['Pistachio', '#d7e8a4', '#718e47', 'patch'], ['Firefly', '#e9ed72', '#574278', 'spots'],
-  ['Paper Tiger', '#eee5d0', '#b87952', 'stripes'],
-];
+export { CAT_VARIATIONS, CatAvatar, catByName } from './catCoats';
 
-export const CAT_VARIATIONS = [
-  ...BASE_CAT_VARIATIONS,
-  ...BASE_CAT_VARIATIONS.map(cat => [`${cat[0]} Spots`, cat[1], cat[2], 'spots']),
-];
+// 🎨 /terminal/feecat/cats = BUILD A CAT (the old collection grid is gone — see CatBuilder.jsx)
+export const FeelessCats = () => <FeeCatShell tab="build"><CatBuilder /></FeeCatShell>;
 
-const FUR_FILTER_LABELS = { all: 'All', spots: 'Spotted', patch: 'Patchy', stripes: 'Tabby' };
-
-// Every FeeCat is Fee's animated rig in its own coat: same silhouette, blink and tail, different fur.
-export const CatAvatar = ({ cat, large = false }) => {
-  const [name, fur, accent, pattern] = cat;
-  return <span className={`feeless-cat-art ${large ? 'large' : ''}`}><FeeCatMark size={large ? 120 : 56} colors={[fur, accent]} pattern={pattern} label={`${name} Feeless Cat`} /></span>;
-};
-
-export const FeelessCats = () => {
-  const [selected, setSelected] = useState(0);
-  const [filter, setFilter] = useState('all');
-  const [notice, setNotice] = useState('');
-  const visibleCats = useMemo(() => filter === 'all' ? CAT_VARIATIONS : CAT_VARIATIONS.filter(([, , , pattern]) => pattern === filter), [filter]);
-  const activeCat = CAT_VARIATIONS[selected] || CAT_VARIATIONS[0];
-  const selectedOutsideFilter = filter !== 'all' && activeCat[3] !== filter;
-  const pickCat = cat => { const index = CAT_VARIATIONS.indexOf(cat); setSelected(index); setNotice(`${cat[0]} selected`); };
-  const randomCat = () => {
-    if (CAT_VARIATIONS.length < 2) return;
-    const nextIndex = (selected + 1 + Math.floor(Math.random() * (CAT_VARIATIONS.length - 1))) % CAT_VARIATIONS.length;
-    pickCat(CAT_VARIATIONS[nextIndex]);
-  };
-  const copyName = async () => { try { await navigator.clipboard.writeText(`FEECAT-${String(selected + 1).padStart(2, '0')}`); setNotice('Cat ID copied'); } catch { setNotice('Cat ID ready to copy'); } };
-  return <div className="feeless-cats-page">
-    <div className="cats-page-head"><div><span className="eyebrow"><Cat size={13} /> FEECAT COLLECTION / {CAT_VARIATIONS.length} VARIATIONS</span><h1>Find your <em>Feeless Cat.</em></h1><p>Pick a color, claim a mood, and make your corner of the FEELESS network recognizable.</p></div><Link to="/terminal/feecat" className="btn-outline" data-testid="feecats-back">FeeCat home <ArrowUpRight size={14} /></Link></div>
-    <div className="cats-stat-row"><div><strong>{CAT_VARIATIONS.length}</strong><span>CAT VARIATIONS</span></div><div><strong>3</strong><span>FUR PATTERNS</span></div><div><strong className="positive">LIVE</strong><span>COLLECTION STATUS</span></div><button className="btn-primary" type="button" onClick={randomCat} data-testid="feecats-random"><Shuffle size={15} /> Surprise me</button></div>
-    <div className="cats-workbench">
-      <section className="cats-gallery"><div className="cats-section-head"><div><h2>Choose a coat</h2><small>Every cat is different. None are minted or owned yet.</small></div><div className="cats-filters" role="group" aria-label="Filter cats">{[['all', 'All'], ['spots', 'Spotted'], ['patch', 'Patchy'], ['stripes', 'Tabby']].map(([id, label]) => <button type="button" key={id} className={filter === id ? 'active' : ''} aria-pressed={filter === id} onClick={() => setFilter(id)} data-testid={`feecats-filter-${id}`}>{label}</button>)}</div></div>{selectedOutsideFilter && <><div className="cats-filter-note" id="feecats-filter-selection-note" role="status" data-testid="feecats-filter-selection-note"><span className="cats-filter-note-marker" aria-hidden="true">!</span><b>Current pick: {activeCat[0]}</b><small>is outside the {FUR_FILTER_LABELS[filter]} filter. The preview stays active.</small></div><div className="cats-pinned-pick" data-testid="feecats-pinned-pick"><div className="cats-pinned-head"><div><span className="eyebrow">CURRENT PICK</span><strong>{activeCat[0]}</strong></div><span className="state-tag amber">OUTSIDE {FUR_FILTER_LABELS[filter].toUpperCase()} FILTER</span></div><button type="button" className="cat-card-pinned selected" aria-label={`${activeCat[0]}, current pick, outside the ${FUR_FILTER_LABELS[filter]} filter`} aria-describedby="feecats-filter-selection-note" aria-pressed="true" onClick={() => pickCat(activeCat)} data-testid={`feecat-card-${activeCat[0].toLowerCase().replaceAll(' ', '-')}`}><span className="cat-card-art"><CatAvatar cat={activeCat} /></span><span className="cat-card-info"><b>{activeCat[0]}</b><small>FEECAT #{String(selected + 1).padStart(2, '0')} · CURRENT PICK</small></span><span className="cat-card-swatch" style={{ background: activeCat[1] }} /></button></div></>}<div className="cat-card-grid">{visibleCats.map(cat => <button type="button" className={`cat-card ${activeCat === cat ? 'selected' : ''}`} aria-pressed={activeCat === cat} key={cat[0]} onClick={() => pickCat(cat)} data-testid={`feecat-card-${cat[0].toLowerCase().replaceAll(' ', '-')}`}><span className="cat-card-art"><CatAvatar cat={cat} /></span><span className="cat-card-info"><b>{cat[0]}</b><small>FEECAT #{String(CAT_VARIATIONS.indexOf(cat) + 1).padStart(2, '0')}</small></span><span className="cat-card-swatch" style={{ background: cat[1] }} /></button>)}</div></section>
-      <aside className="cat-preview-panel"><div className="cat-preview-top"><span className={`state-tag ${selectedOutsideFilter ? 'amber' : ''}`}>{selectedOutsideFilter ? 'CURRENT PICK · OUTSIDE FILTER' : 'AVAILABLE TO EXPLORE'}</span><button type="button" title="Copy cat ID" aria-label="Copy cat ID" onClick={copyName}><Copy size={15} /></button></div><div className="cat-preview-art"><span className="cat-preview-glow" /><CatAvatar cat={activeCat} large /></div><span className="eyebrow">YOUR CURRENT PICK</span><h2>{activeCat[0]}</h2><p>FEECAT #{String(selected + 1).padStart(2, '0')} · {activeCat[3]} coat · community edition{selectedOutsideFilter ? ` · not in ${FUR_FILTER_LABELS[filter]}` : ''}</p><div className="cat-traits"><span><small>COAT</small><b>{activeCat[3].toUpperCase()}</b></span><span><small>STATUS</small><b className="positive">OPEN</b></span></div><button type="button" className="btn-primary cat-select-button" onClick={() => setNotice(`${activeCat[0]} is your featured cat`)} data-testid="feecats-select">Set as featured cat <Sparkles size={15} /></button><Link className="btn-outline cat-agent-button" to={`/terminal/feecat/agents?create=1&avatar=${CAT_VARIATIONS.indexOf(activeCat)}`} data-testid="feecats-make-agent">Make this my paper agent <ArrowUpRight size={15} /></Link>{notice && <p className="cat-action-notice" role="status"><CheckCircle2 size={14} />{notice}</p>}<small className="cat-preview-footnote">This is a visual collection experience. No wallet signature or purchase is requested.</small></aside>
-    </div>
-  </div>;
-};
-
-// 🐱 the three FeeCat tabs, each with what it is for (owner: "FeeCat terminal tabs need to make sense")
-export const FC_TABS = [['desk', '🐱 Live desk', 'Fee trading right now — her balance, open trades, every call on her wall, and how to copy her alerts.'],
-  ['brain', '🧠 Her brain', 'How she decides — the rules she trades by, what she learned from her own results, and why she skips a coin.'],
-  ['lore', '📜 Lore & Fee-Back', 'Who Fee is, the FEELESS cats, and the Fee-Back rewards she shares with holders.']];
+// 🐱 /terminal/feecat = Fee, the leader, in the FeeCat shell: LIVE DESK (stage + her scan · chart · calls + her book) · HER BRAIN · LORE.
+// `?view=brain|lore` picks the view (the shell's nav links there); the old `feeless:feecat-view` event still switches it.
+export const FC_VIEWS = ['desk', 'brain', 'lore'];
+const viewOf = () => { const v = typeof window === 'undefined' ? null : new URLSearchParams(window.location.search).get('view'); return FC_VIEWS.includes(v) ? v : 'desk'; };
 export const FeeCatCenter = ({ asset, community, onSelect, children }) => {
-  const [view, setView] = useState('desk');
-  useEffect(() => { const go = e => { if (FC_TABS.some(t => t[0] === e.detail)) setView(e.detail); }; window.addEventListener('feeless:feecat-view', go); return () => window.removeEventListener('feeless:feecat-view', go); }, []);
-  const tabs = <FeeCatStage tabs={FC_TABS} view={view} onView={setView} />;   // the rail shows each tab's why
-  if (view === 'desk') return <div className="feecat-command">{tabs}{children}</div>;
-  if (view === 'brain') return <div className="feecat-command">{tabs}<FeeCatBrain /></div>;
-  return <div className="feecat-command">{tabs}<FeeCatLore asset={asset} community={community} onSelect={onSelect}>{t => (t === 'calc' ? <FeeBackCalculator feeCat={asset} /> : <FeeBackFlow />)}</FeeCatLore></div>;
+  const [view, setView] = useState(viewOf);
+  useEffect(() => {
+    const go = e => { if (FC_VIEWS.includes(e.detail)) setView(e.detail); }; const pop = () => setView(viewOf());
+    window.addEventListener('feeless:feecat-view', go); window.addEventListener('popstate', pop);
+    return () => { window.removeEventListener('feeless:feecat-view', go); window.removeEventListener('popstate', pop); };
+  }, []);
+  return <FeeCatShell tab={view}>
+    {view !== 'lore' ? <FeeCatStage /> : null}
+    {view === 'desk' ? <><FeeLiveTab />{children}</> : null}
+    {view === 'brain' ? <FeeCatBrainPage /> : null}
+    {view === 'lore' ? <FeeCatLore asset={asset} community={community} onSelect={onSelect}>{t => (t === 'calc' ? <FeeBackCalculator feeCat={asset} /> : <FeeBackFlow />)}</FeeCatLore> : null}
+  </FeeCatShell>;
 };

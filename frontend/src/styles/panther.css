@@ -39,8 +39,3 @@ body.fx-lite .pt *, body.reduced-motion-setting .pt * { animation: none !importa
 body.theme-day .pt-pick button, body.theme-day .pt-gest button { color: #0b2a19; }
 @media (max-width: 640px) { .pt-pick { grid-template-columns: repeat(4, 1fr); } }
 .pt.is-still * { animation: none !important; }
-.fcp-panther { margin: 10px 0; border: 1px solid rgba(69, 228, 134, .2); border-radius: 14px; padding: 8px 12px; background: rgba(6, 16, 11, .5); }
-.fcp-panther summary { cursor: pointer; font: 700 11px 'JetBrains Mono', monospace; letter-spacing: .06em; color: #8fe8b4; }
-.fcp-panther-in { display: grid; grid-template-columns: minmax(220px, 1fr) 2fr; gap: 14px; align-items: center; padding-top: 10px; }
-body.theme-day .fcp-panther { background: rgba(236, 246, 240, .7); } body.theme-day .fcp-panther summary { color: #0b5a32; }
-@media (max-width: 640px) { .fcp-panther-in { grid-template-columns: 1fr; } }

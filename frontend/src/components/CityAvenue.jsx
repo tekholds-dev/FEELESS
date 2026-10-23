@@ -17,6 +17,7 @@ const WatchlistDashboard = lazy(() => import('./command/CreatorProfile').then(m 
 const RepTools = lazy(() => import('./RepTools').then(m => ({ default: m.RepTools })));
 const FeeCatsPlatform = lazy(() => import('./command/FeeCatsPlatform'));
 const FeeCatProfile = lazy(() => import('./command/FeeCatProfile').then(m => ({ default: m.FeeCatProfile })));
+const FeeCatStage = lazy(() => import('./command/FeeCatStage').then(m => ({ default: m.FeeCatStage })));
 const GetGas = lazy(() => import('./command/TradeDesk').then(m => ({ default: m.GetGas })));
 const FeedPanel = lazy(() => import('./command/FeedX').then(m => ({ default: m.FeedPanel })));
 const NightVault = lazy(() => import('./NightVault').then(m => ({ default: m.NightVault })));
@@ -164,7 +165,7 @@ function CatTower() {
   return <div className="av-court" data-testid="av-cats">
     <div className="m-seg av-seg" role="tablist">{[['live', '🐱 FeeCat live'], ['mine', '🧪 Your cats + create']].map(([k, l]) => <button key={k} type="button" role="tab" aria-selected={tab === k} className={tab === k ? 'active' : ''} onClick={() => setTab(k)}
       data-tip={k === 'live' ? 'FeeCat right now: her nine lives, discipline, open trades' : 'Your cats with their vitals — create or launch one here (trader or agent)'} data-testid={`av-cats-${k}`}>{l}</button>)}</div>
-    {tab === 'live' ? <FeeCatProfile catId="leader" /> : <FeeCatsPlatform />}
+    {tab === 'live' ? <><FeeCatStage /><FeeCatProfile catId="leader" /></> : <FeeCatsPlatform />}
   </div>;
 }
 

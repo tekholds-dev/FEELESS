@@ -1,5 +1,5 @@
 import React from 'react';
-import { CatAvatar } from './FeeBack';
+import { CatAvatar } from './catCoats';
 import '../../styles/createCat.css';
 
 // 🐆 Make the cat yours: a gear piece, an aura, eyes and a name tag on top of its coat. Pure look — the engine never reads it.
@@ -19,14 +19,12 @@ export const cleanLook = l => {
     tag: String(x.tag || '').replace(/[^\w .$-]/g, '').slice(0, 12) };
 };
 
-export function LookAvatar({ cat, look, large = false }) {
+// the gear + eyes are DRAWN on the panther (Panther › Gear / EYE_COLOR) and move with it; the aura is a soft glow behind; the tag a neon plate
+export function LookAvatar({ cat, look, large = false, full = false, size = null, gesture = null }) {
   const l = cleanLook(look);
-  const g = LOOK.gear.find(([id]) => id === l.gear);
-  return <span className={`clk clk-a-${l.aura} clk-e-${l.eyes} ${large ? 'is-large' : ''}`} data-testid="cat-look-avatar">
+  return <span className={`clk clk-a-${l.aura} clk-e-${l.eyes} ${large ? 'is-large' : ''}`} data-testid="cat-look-avatar" data-gear={l.gear}>
     {l.aura !== 'none' && <span className="clk-aura" aria-hidden><i /><i /></span>}
-    <CatAvatar cat={cat} large={large} />
-    {l.eyes !== 'classic' && <span className="clk-eyes" aria-hidden><i /><i /></span>}
-    {g && g[2] && <span className={`clk-gear clk-g-${l.gear}`} aria-hidden>{g[2]}</span>}
+    <CatAvatar cat={cat} large={large} gear={l.gear} eyes={l.eyes} full={full} size={size} gesture={gesture} />
     {l.tag && <span className="clk-tag">{l.tag}</span>}
   </span>;
 }

@@ -1,0 +1,61 @@
+/* 🧠 HER BRAIN — violet night cards (inside the FeeCat shell): the entry gate as meters, the exit ladder on a % axis, the playbook as diverging
+   bars, nine lanterns. Motion: fbr* keyframes, transform / opacity only. */
+.fbr { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.fbr-wait { color: #9d8fbf; font: 600 12px 'JetBrains Mono', monospace; padding: 20px; }
+.fbr-card { position: relative; display: grid; gap: 10px; align-content: start; padding: 14px; border-radius: 16px; border: 1px solid #b388ff2b;
+  background: linear-gradient(165deg, #1a1030ee, #0c0817f2); box-shadow: inset 0 1px 0 #ffffff12, 0 20px 40px -30px #7c4dff; animation: fbrIn .32s ease-out both; }
+.fbr-card > header { display: grid; gap: 2px; } .fbr-card > header b { font: 900 12.5px 'JetBrains Mono', monospace; letter-spacing: .16em; color: #e9dcff; text-shadow: 0 0 12px #b388ff66; }
+.fbr-card > header small { font: 600 10px 'JetBrains Mono', monospace; color: #9d8fbf; }
+.fbr-gate { grid-column: 1 / -1; }
+.fbr-gate ul { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; }
+.fbr-gate li { display: grid; gap: 4px; padding: 9px 10px; border-radius: 12px; border: 1px solid #ffffff10; background: #0a0614; animation: fbrIn .3s ease-out calc(var(--i) * 45ms) both; }
+.fbr-gate li.is-moved { border-color: #ff5dbb55; box-shadow: 0 0 18px -10px #ff5dbb; }
+.fbr-gate em { font: 800 9px 'JetBrains Mono', monospace; letter-spacing: .14em; font-style: normal; color: #9d8fbf; }
+.fbr-gate b { font-size: 15px; color: #fff; } .fbr-gate small { font: 600 9px 'JetBrains Mono', monospace; color: #ff9dd4; }
+.fbr-gate u, .fbr-setups i { display: block; height: 4px; border-radius: 3px; background: #ffffff10; overflow: hidden; }
+.fbr-gate u s { display: block; height: 100%; background: linear-gradient(90deg, #7c4dff, #b388ff); transform-origin: left; animation: fbrFill .7s cubic-bezier(.2, .8, .2, 1) both; }
+.fbr-gate li.is-moved u s { background: linear-gradient(90deg, #ff5dbb, #ffb3e0); }
+.fbr-ladder { position: relative; height: 92px; margin: 6px 8px 0; }
+.fbr-axis { position: absolute; left: 0; right: 0; top: 34px; height: 6px; border-radius: 4px; background: linear-gradient(90deg, #ff5d73 0%, #3a2a50 30%, #3a2a50 45%, #45e486 100%); opacity: .55; }
+.fbr-axis s { display: block; height: 100%; width: 100%; transform-origin: left; background: #ff5d7333; }
+.fbr-mk { position: absolute; top: 18px; display: grid; justify-items: center; gap: 3px; transform: translateX(-50%); animation: fbrIn .3s ease-out calc(var(--i) * 70ms) both; }
+.fbr-mk i { width: 12px; height: 12px; margin-top: 12px; border-radius: 50%; border: 2px solid #0c0817; background: #b388ff; box-shadow: 0 0 10px #b388ff; }
+.fbr-mk.k-stop i { background: #ff5d73; box-shadow: 0 0 10px #ff5d73; } .fbr-mk.k-take i { background: #45e486; box-shadow: 0 0 10px #45e486; }
+.fbr-mk.k-entry i { background: #fff; box-shadow: 0 0 12px #fff; } .fbr-mk.k-guard i { background: #f5c542; box-shadow: 0 0 10px #f5c542; }
+.fbr-mk b { order: -1; font-size: 11px; color: #fff; position: absolute; top: -6px; } .fbr-mk small { font: 800 8.5px 'JetBrains Mono', monospace; letter-spacing: .1em; color: #c9bce6; white-space: nowrap; }
+.fbr-runner { position: absolute; top: 31px; left: 0; width: 12px; height: 12px; border-radius: 50%; background: radial-gradient(circle, #fff, #45e486); box-shadow: 0 0 14px #45e486; animation: fbrRun 6s ease-in-out infinite; }
+.fbr-line { margin: 0; font: 500 12px/1.5 'Inter', system-ui, sans-serif; color: #c9bce6; } .fbr-line b { font-family: 'JetBrains Mono', monospace; }
+.fbr-setups { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.fbr-setups li { display: grid; grid-template-columns: minmax(80px, 1fr) minmax(60px, 1.4fr) auto; grid-template-rows: auto auto; column-gap: 8px; align-items: center; animation: fbrIn .3s ease-out calc(var(--i) * 50ms) both; }
+.fbr-setups span { font: 700 10.5px 'JetBrains Mono', monospace; color: #e9dcff; } .fbr-setups b { font-size: 12px; } .fbr-setups small { grid-column: 1 / -1; font: 600 9px 'JetBrains Mono', monospace; color: #9d8fbf; }
+.fbr-setups li.up u { background: linear-gradient(90deg, #15d16a, #45e486); } .fbr-setups li.dn u { background: linear-gradient(90deg, #ff5d73, #ff8fa3); }
+.fbr-setups u { display: block; height: 100%; transform-origin: left; animation: fbrFill .7s cubic-bezier(.2, .8, .2, 1) both; }
+.fbr-setups li.up b { color: #45e486; } .fbr-setups li.dn b { color: #ff8fa3; }
+.fbr-empty { margin: 0; font: 500 12px 'Inter', system-ui, sans-serif; color: #9d8fbf; }
+.fbr-params, .fbr-kv { display: flex; flex-wrap: wrap; gap: 8px; }
+.fbr-params span, .fbr-kv span { display: grid; gap: 1px; min-width: 96px; padding: 7px 10px; border-radius: 10px; background: #0a0614; border: 1px solid #ffffff10; }
+.fbr-params em, .fbr-kv em { font: 800 8.5px 'JetBrains Mono', monospace; letter-spacing: .14em; font-style: normal; color: #9d8fbf; }
+.fbr-params b, .fbr-kv b { font-size: 14px; color: #fff; } .fbr-params small { font: 600 9px 'JetBrains Mono', monospace; color: #c9bce6; }
+.fbr-log { margin: 0; padding-left: 16px; display: grid; gap: 4px; font: 500 11px/1.4 'Inter', system-ui, sans-serif; color: #c9bce6; }
+.fbr-log li.dn::marker { color: #ff8fa3; } .fbr-log li.up::marker { color: #45e486; }
+.fbr-lanterns { display: flex; gap: 8px; padding: 6px 2px; }
+.fbr-lanterns i { position: relative; width: 20px; height: 28px; border-radius: 6px 6px 9px 9px; background: #1f1630; border: 1px solid #ffffff14; }
+.fbr-lanterns i.on { background: radial-gradient(circle at 50% 60%, #fff3c4, #f5c542 55%, #8a5a10); border-color: #ffe9a0; box-shadow: 0 0 14px -2px #f5c542; animation: fbrFlicker 2.4s ease-in-out calc(var(--i) * -.3s) infinite; }
+.fbr-lanterns i s { position: absolute; left: 50%; top: -6px; width: 2px; height: 6px; margin-left: -1px; background: #6d5a96; }
+.fbr-veto ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.fbr-veto li { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 8px; align-items: baseline; padding: 7px 10px; border-radius: 10px; background: #2a0f1c80; border: 1px solid #ff5d7333; animation: fbrIn .3s ease-out calc(var(--i) * 50ms) both; }
+.fbr-veto b { font: 800 11px 'JetBrains Mono', monospace; color: #ff8fa3; } .fbr-veto span { font: 500 11px 'Inter', system-ui, sans-serif; color: #e9dcff; }
+@keyframes fbrIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+@keyframes fbrFill { from { transform: scaleX(0); } }
+@keyframes fbrRun { 0%, 100% { transform: translateX(0); opacity: .2; } 20% { opacity: 1; } 70% { transform: translateX(min(560px, 70vw)); opacity: 1; } 90% { opacity: 0; } }
+@keyframes fbrFlicker { 0%, 100% { opacity: 1; } 45% { opacity: .78; } 50% { opacity: .95; } }
+body.fx-lite .fbr-card, body.fx-lite .fbr-gate li, body.fx-lite .fbr-mk, body.fx-lite .fbr-runner, body.fx-lite .fbr-lanterns i.on, body.fx-lite .fbr-setups li, body.fx-lite .fbr-veto li { animation: none; }
+body.fx-lite .fbr-runner { display: none; }
+@media (prefers-reduced-motion: reduce) { .fbr-card, .fbr-gate li, .fbr-gate u s, .fbr-mk, .fbr-runner, .fbr-lanterns i.on, .fbr-setups li, .fbr-setups u, .fbr-veto li { animation: none; } .fbr-runner { display: none; } }
+body.theme-day .fbr-card { background: linear-gradient(165deg, #fff, #f6f0ff); border-color: #7c4dff26; } body.theme-day .fbr-card > header b { color: #3a1d73; text-shadow: none; }
+body.theme-day .fbr-card > header small, body.theme-day .fbr-line, body.theme-day .fbr-log { color: #5a4a7a; }
+body.theme-day .fbr-gate li, body.theme-day .fbr-params span, body.theme-day .fbr-kv span { background: #fff; border-color: #7c4dff1f; }
+body.theme-day .fbr-gate b, body.theme-day .fbr-params b, body.theme-day .fbr-kv b, body.theme-day .fbr-mk b { color: #2a1650; } body.theme-day .fbr-setups span, body.theme-day .fbr-veto span { color: #2a1650; }
+body.theme-day .fbr-mk small { color: #5a4a7a; } body.theme-day .fbr-veto li { background: #fff0f3; }
+@media (max-width: 760px) { .fbr { grid-template-columns: 1fr; } }
+@media (max-width: 640px) { .fbr-card { padding: 11px; } .fbr-gate ul { grid-template-columns: repeat(2, minmax(0, 1fr)); } .fbr-mk small { display: none; } .fbr-ladder { height: 70px; } }

@@ -34,6 +34,7 @@ import { SeasonsPage, SeasonBanner } from '../components/Seasons';
 import { SupportHub, SupportButton } from '../components/SupportHub';
 import { SimpleTrade } from '../components/command/TradeDesk';
 import FeeCatsPlatform from '../components/command/FeeCatsPlatform';
+import { FeeCatShell } from '../components/command/FeeCatShell';
 import { PageBackdrop, BACKDROP_OF, PAGE_CLASS } from '../components/PageBackdrop';
 import { SwapWorkspace } from '../components/command/SwapWorkspace';
 import { WatchlistDashboard } from '../components/command/CreatorProfile';
@@ -225,7 +226,7 @@ export default function Terminal() {
         watching={<><AdvancedWatchlist /><CopyTrading /><div className="command-section-title unified-watch-title"><span>CREATORS YOU FOLLOW</span><small>Launches and rug flags from wallets you've starred</small></div><WatchlistDashboard /></>} />}
          {page === 'chat' && <QuestNudge />}{page === 'chat' && <TrenchesView pairs={trenchPairs} newPairs={trenchNewPairs} onSelect={onSelect} selectedPair={selected} selectedPerspective={perspective} onPerspectiveChange={onPerspectiveChange} onConnect={() => setWalletOpen(true)} />}
       {page === 'fee' && <ReserveProgress />}{page === 'fee' && <FeeAssetPage asset={fee}>{fee?.pair ? <TokenFocus pair={fee.pair} has={has} toggle={toggle} /> : <FeeHeartbeat asset={fee} loading={assets.loading} />}</FeeAssetPage>}
-        {page === 'feeback' && <FeeBackCenter feeCat={feeCat} />}{page === 'feecat' && <FeeCatCenter asset={feeCat} community={community} onSelect={onSelect}><FeeCatProfile /></FeeCatCenter>}{page === 'feecat/cats' && <FeelessCats />}{page === 'feecat/agents' && <FeeCatsPlatform />}
+        {page === 'feeback' && <FeeBackCenter feeCat={feeCat} />}{page === 'feecat' && <FeeCatCenter asset={feeCat} community={community} onSelect={onSelect}><FeeCatProfile /></FeeCatCenter>}{page === 'feecat/cats' && <FeelessCats />}{page === 'feecat/agents' && <FeeCatShell tab="agents"><FeeCatsPlatform /></FeeCatShell>}
       {page === 'reputation' && <ReputationCenter />}
       {!page.startsWith('profile/') && page !== 'legal' && <AdBanner placement="banner" />}
       <Shortcuts />

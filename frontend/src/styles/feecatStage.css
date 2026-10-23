@@ -41,15 +41,6 @@
 .fcs-ringtile svg { width: 50px; height: 50px; transform: rotate(-90deg); }
 .fcs-ringtile circle { fill: none; stroke-width: 6; } .fcs-ringtile .bg { stroke: #24143e; } .fcs-ringtile .fg { stroke: url(#none); stroke: #b48cff; stroke-linecap: round; transition: stroke-dasharray .8s ease; filter: drop-shadow(0 0 4px #b48cff); }
 .fcs-ringtile span { display: grid; gap: 2px; }
-.fcs-rail { position: relative; display: grid; grid-template-columns: repeat(var(--n), minmax(0, 1fr)); gap: 0; padding: 4px; border-radius: 16px; background: rgba(8, 4, 16, .7); border: 1px solid rgba(180, 140, 255, .25); }
-.fcs-slide { position: absolute; top: 4px; bottom: 4px; left: 4px; width: calc((100% - 8px) / var(--n)); border-radius: 12px; transform: translateX(calc(var(--x) * 100%));
-  background: linear-gradient(120deg, #7c4dff, #b44dff 60%, #ff6fd8); box-shadow: 0 0 24px #7c4dff99; transition: transform .35s cubic-bezier(.3, .9, .3, 1); pointer-events: none; }
-.fcs-rail button { position: relative; z-index: 1; display: grid; gap: 2px; padding: 10px 12px; border: 0; border-radius: 12px; background: transparent; color: #d8ccf3; text-align: left; cursor: pointer; min-height: 52px; }
-.fcs-rail button b { font: 800 13px 'JetBrains Mono', monospace; letter-spacing: .04em; }
-.fcs-rail button small { font: 500 10.5px/1.35 system-ui, sans-serif; color: #a993d6; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
-.fcs-rail button:hover:not(.active) { background: rgba(180, 140, 255, .1); } .fcs-rail button:active { transform: scale(.98); }
-.fcs-rail button:focus-visible { outline: 2px solid #ff6fd8; outline-offset: 2px; }
-.fcs-rail button.active, .fcs-rail button.active small { color: #fff; }
 @keyframes fcsDrift { to { transform: translate(18%, 10%) scale(1.15); } }
 @keyframes fcsRise { from { transform: translateY(0); opacity: 0; } 10% { opacity: 1; } to { transform: translateY(-340px); opacity: 0; } }
 @keyframes fcsSway { 0%, 100% { transform: rotate(-8deg); } 50% { transform: rotate(8deg); } }
@@ -59,8 +50,15 @@
 body.fx-lite .fcs-aur, body.fx-lite .fcs-spark, body.fx-lite .fcs-spot { animation: none; } body.fx-lite .fcs-spark { display: none; }
 @media (prefers-reduced-motion: reduce) { .fcs *, .fcs *::before { animation: none !important; transition: none !important; } .fcs-spark { display: none; } }
 body.theme-day .fcs { background: radial-gradient(120% 90% at 20% 0%, #efe4ff 0%, #f8f3ff 60%); border-color: rgba(124, 77, 255, .3); }
-body.theme-day .fcs-copy p, body.theme-day .fcs-rail button { color: #3a2a5a; } body.theme-day .fcs-tile { background: #fff; } body.theme-day .fcs-tile b { color: #2a1a44; }
-body.theme-day .fcs-rail { background: #fff; } body.theme-day .fcs-copy h1 { color: #2a1050; text-shadow: none; }
+body.theme-day .fcs-copy p { color: #3a2a5a; } body.theme-day .fcs-tile { background: #fff; } body.theme-day .fcs-tile b { color: #2a1a44; } body.theme-day .fcs-copy h1 { color: #2a1050; text-shadow: none; }
 @media (max-width: 980px) { .fcs-hero { grid-template-columns: 150px minmax(0, 1fr); } .fcs-tiles { grid-column: 1 / -1; grid-template-columns: repeat(4, minmax(0, 1fr)); } }
 @media (max-width: 640px) { .fcs { padding: 12px; } .fcs-hero { grid-template-columns: 1fr; justify-items: center; text-align: center; } .fcs-cat { height: 150px; }
-  .fcs-status { justify-self: center; } .fcs-tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); width: 100%; } .fcs-rail button small { display: none; } .fcs-copy h1 { font-size: 26px; } }
+  .fcs-status { justify-self: center; } .fcs-tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); width: 100%; } .fcs-copy h1 { font-size: 26px; } }
+/* 🔔 Follow Fee — in the stage hero (2026-10-23 redo: it lived in a second header under the stage) */
+.fcs .fcp-follow { justify-self: start; min-height: 36px; margin-top: 4px; padding: 0 14px; border-radius: 999px; border: 1px solid #b388ff66; background: #b388ff14; color: #ece4ff;
+  font: 800 10.5px 'JetBrains Mono', monospace; letter-spacing: .14em; cursor: pointer; transition: background .15s, transform .15s, box-shadow .15s; }
+.fcs .fcp-follow:hover { background: #b388ff2a; transform: translateY(-1px); box-shadow: 0 8px 20px -10px #b388ff; } .fcs .fcp-follow:active { transform: scale(.97); }
+.fcs .fcp-follow:focus-visible { outline: 2px solid #b388ff; outline-offset: 2px; }
+.fcs .fcp-follow.is-on { background: linear-gradient(135deg, #b388ff, #7c4dff); color: #12081f; border-color: transparent; }
+body.theme-day .fcs .fcp-follow { color: #2a1650; background: #fff; } body.theme-day .fcs .fcp-follow.is-on { color: #fff; background: #7c4dff; }
+@media (prefers-reduced-motion: reduce) { .fcs .fcp-follow { transition: none; } }

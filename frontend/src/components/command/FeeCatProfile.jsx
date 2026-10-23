@@ -1,11 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import EcosystemChat from '../EcosystemChat';
 import { toast } from 'sonner';
-import { Panther, PantherPicker, PantherStage } from '../Panther';
 import { PnlCard } from './MetaPanels';
-
-const LEARN_LABELS = { runnerTrail: 'Runner trailing stop', takeProfit1: 'First profit target' };
 import { ShareGifButton } from '../ShareGif';
+import { useLeaderProfile } from '../../lib/feeLeader';
 import { currentSubscription, enablePush, readPushPrefs, savePushPrefs, syncPush } from '../../lib/push';
 
 const sol = v => (v == null ? '—' : `${v >= 0 ? '+' : ''}${Number(v).toFixed(4)} SOL`);
@@ -22,9 +20,8 @@ const feeCard = t => {
 const exitCard = e => ({ mascot: 'feecat', tone: e.peakAfter >= 40 ? 'down' : 'up', kicker: 'FEECAT · AFTER THE SELL', title: `$${e.symbol}`,
   big: `${e.changeAtExit >= 0 ? '+' : ''}${e.changeAtExit}%`, lines: [`Sold: ${e.why}`.slice(0, 60), `After: best +${e.peakAfter}% · low ${e.lowAfter}%`, e.peakAfter >= 40 ? '🧠 Lesson learned: give runners room' : '✅ The exit held up'], footer: 'feeless · she learns from every sell' });
 
-export function FeeCatProfile({ catId = 'leader' }) {
-  const [d, setD] = useState(null);
-  const [tab, setTab] = useState('wall');
+// 🔔 follow Fee = a push every time she trades (lives in the stage hero; the FeeCat tower in Familia shows it too)
+export function FollowFee() {
   const [following, setFollowing] = useState(() => Boolean(readPushPrefs().followFee));
   const follow = async () => {
     const prefs = { ...readPushPrefs(), followFee: !following };
@@ -35,31 +32,29 @@ export function FeeCatProfile({ catId = 'leader' }) {
       toast.success(!following ? '🐱 You\'ll get a push every time Fee trades.' : 'Stopped following Fee.');
     } catch (e) { toast.error(e.message); }
   };
+  return <button type="button" className={`fcp-follow ${following ? 'is-on' : ''}`} data-testid="follow-fee" onClick={follow} aria-pressed={following}
+    data-tip={following ? 'You get a push every time Fee trades — tap to stop' : 'Get a push every time Fee buys or sells (copy her alerts)'}>{following ? '✓ FOLLOWING FEE' : '🔔 FOLLOW FEE'}</button>;
+}
+
+// 🐱 Fee's book under the live desk (2026-10-23 redo: her name / balance / win-rate header lived here AND in the stage — the stage keeps them;
+// the panther picker moved to 🎨 Build a cat; her learning moved to 🧠 Her brain): open trades, her wall, every trade, what happened after each sell.
+export function FeeCatProfile({ catId = 'leader' }) {
+  const shared = useLeaderProfile(catId === 'leader');
+  const [own, setOwn] = useState(null);
+  const [tab, setTab] = useState('wall');
   useEffect(() => {
-    let alive = true;
-    const load = () => fetch(`/api/cats/${catId}/profile`).then(r => r.json()).then(x => alive && setD(x)).catch(() => {});
-    load(); const t = setInterval(load, 20000);
+    if (catId === 'leader') return undefined; let alive = true;
+    const load = () => fetch(`/api/cats/${catId}/profile`).then(r => r.json()).then(x => alive && setOwn(x)).catch(() => {});
+    load(); const t = setInterval(() => { if (!document.hidden) load(); }, 20000);
     return () => { alive = false; clearInterval(t); };
   }, [catId]);
+  const d = catId === 'leader' ? shared : own;
   if (!d) return <section className="fcp" data-testid="feecat-profile"><p className="wp-bio">Loading Fee…</p></section>;
-  const c = d.cat || {}; const L = { params: {}, defaults: {}, log: [], missed: 0, good: 0, ...(d.learning || {}) }; const R = d.rules || {};
+  const c = d.cat || {};
   return <section className="fcp" data-testid="feecat-profile">
-    <header className="fcp-head">
-      <div className="fcp-avatar"><Panther size={64} gesture={c.status === 'running' ? ((c.realizedPnlSol || 0) >= 0 ? 'purr' : 'think') : 'sleep'} /><i className="flr-dot" /></div>
-      <div className="fcp-id"><h2 className="live-gradient-text">{c.name} <small>{c.title || 'The Leader'}</small></h2><span>{c.strategyLabel} · level {c.level} · {c.status === 'running' ? 'trading live (paper)' : c.status}</span></div>
-      <button type="button" className={`btn-${following ? 'outline' : 'primary'} fcp-follow`} data-testid="follow-fee" onClick={follow}>{following ? '✓ Following Fee' : '🔔 Follow Fee (copy alerts)'}</button>
-      <div className="fcp-kpis">
-        <span><small>Balance</small><b>{Number.isFinite(Number(c.balanceSol)) ? `${Number(c.balanceSol).toFixed(2)} SOL` : '—'}</b></span>
-        <span><small>Realized PnL</small><b className={c.realizedPnlSol >= 0 ? 'positive' : 'negative'}>{sol(c.realizedPnlSol)}</b></span>
-        <span><small>Win rate</small><b>{c.winRate != null ? `${c.winRate}%` : '—'}</b></span>
-        <span><small>Trades</small><b>{d.stats?.trades}</b></span>
-        <span><small>Best / worst</small><b>{sol(d.stats?.best)} / {sol(d.stats?.worst)}</b></span>
-      </div>
-    </header>
-    <details className="fcp-panther" data-testid="fcp-panther"><summary>🐆 Fee's look — 8 gestures · pick a panther</summary><div className="fcp-panther-in"><PantherStage size={200} /><PantherPicker /></div></details>
     {c.positions?.length > 0 && <div className="fcp-open"><h4>Open now</h4>{c.positions.map(p => <a key={p.pairAddress} className="fcp-pos" href={`/terminal/chat?chain=solana&pair=${p.pairAddress}&room=bulls`} target="_blank" rel="noopener noreferrer">
       <b>${p.symbol}</b><span className={p.currentChange >= 0 ? 'positive' : 'negative'}>{p.currentChange >= 0 ? '+' : ''}{Number(p.currentChange).toFixed(1)}%</span><em className="fcp-mirror" onClick={e => { e.preventDefault(); window.location.href = `/terminal/chat?chain=solana&pair=${p.pairAddress}&room=bulls`; }}>Mirror this trade →</em><small>{Number(p.costSol).toFixed(2)} SOL · peak +{Number(p.peakChange || 0).toFixed(1)}%{p.scaled ? ' · runner' : ''}{p.conviction ? ` · ${p.conviction}×` : ''}</small></a>)}</div>}
-    <nav className="fcp-tabs" role="tablist">{[['wall', '💬 Wall', null], ['trades', '📈 Trades', (d.trades || []).length], ['after', '👀 After the sell', (d.exits || []).length], ['brain', '🧠 Learning', (L.log || []).length]].map(([k, l, n]) => <button key={k} type="button" role="tab" aria-selected={tab === k} className={tab === k ? 'active' : ''} onClick={() => setTab(k)}>{l}{n ? <em>{n}</em> : null}</button>)}</nav>
+    <nav className="fcp-tabs m-seg" role="tablist" aria-label="Fee's book">{[['wall', '💬 Her wall', null], ['trades', '📈 Every trade', (d.trades || []).length], ['after', '👀 After the sell', (d.exits || []).length]].map(([k, l, n]) => <button key={k} type="button" role="tab" aria-selected={tab === k} className={tab === k ? 'active' : ''} onClick={() => setTab(k)} data-testid={`fcp-tab-${k}`}>{l}{n ? <em>{n}</em> : null}</button>)}</nav>
     {tab === 'wall' && <div className="fcp-wall" data-testid="fee-wall"><details className="fee-wall-pin" data-testid="fee-wall-pin"><summary><b>📌 What Fee does</b><span>trades like a desk · calls every buy · trench report every 30 min</span></summary>
         <ul><li data-testid="feecat-crowd-edge"><b>🧠 Learns from users</b> — every 10 min FEELESS scores its traders on their verified buys (≥24h old); the proven ones are "elite". When elites buy a coin she leans in a little (≤×1.15) and files it in her memory, so following them only keeps its weight if it actually wins.</li>
           <li data-testid="feecat-fuse-edge"><b>⚛️ Fuse edge</b> — skips any coin the Fuse runner gates already failed (the gate is her reason), gives a small boost (≤×1.2) to coins several Fuse sources agree on, and her setup memory learns whether Fuse-backed entries actually pay. Never while discipline is cutting her size.</li>
@@ -70,14 +65,5 @@ export function FeeCatProfile({ catId = 'leader' }) {
     {tab === 'trades' && <div className="fcp-list">{!(d.trades || []).length ? <p className="wp-bio">No trades yet.</p> : (d.trades || []).map(t => <div key={t.id} className={`fcp-trade t-${t.type.toLowerCase()}`}><em>{t.type}</em>{t.pnlSol != null && <b className={`fcp-result ${t.pnlSol >= 0 ? 'win' : 'loss'}`}>{t.pnlSol >= 0 ? 'WIN' : 'LOSS'} {t.pnlSol >= 0 ? '+' : ''}{t.pnlSol.toFixed(4)}</b>}<p>{t.detail}</p><small>{ago(t.ts / 1000)} ago{t.pnlSol != null ? ` · ${sol(t.pnlSol)}` : ''}</small><ShareGifButton className="fcp-share" label="🎞" card={feeCard(t)} /></div>)}</div>}
     {tab === 'after' && <div className="fcp-list">{!(d.exits || []).length ? <p className="wp-bio">No exits yet.</p> : (d.exits || []).map(e => <a key={`${e.pairAddress}-${e.exitAt}`} className={`fcp-exit ${e.peakAfter >= 40 ? 'missed' : ''}`} href={`/terminal/chat?chain=solana&pair=${e.pairAddress}&room=bulls`} target="_blank" rel="noopener noreferrer">
       <b>${e.symbol}</b><span>sold {e.changeAtExit >= 0 ? '+' : ''}{e.changeAtExit}% · {e.why}</span><span>after: best <b className="positive">+{e.peakAfter}%</b> · low <b className="negative">{e.lowAfter}%</b></span><small>{ago(e.exitAt)} ago{e.peakAfter >= 40 ? ' · 🧠 lesson: sold a runner' : ''}</small><ShareGifButton className="fcp-share" label="🎞" card={exitCard(e)} /></a>)}{(d.exits || [])[0] && <PnlCard symbol={(d.exits || [])[0]?.symbol} pnlPct={(d.exits || [])[0]?.changeAtExit} pnlSol={(d.exits || [])[0]?.pnlSol} note={(d.exits || [])[0]?.why} />}</div>}
-    {tab === 'brain' && <div className="fcp-brain">
-      <p className="wp-bio">Fee watches every coin for 24h after selling. Runners she sold too early give winners more room next time; good exits pull her back to the defaults. Bounded so it never gets reckless.</p>
-      <div className="fcp-params">{Object.entries(L.params || {}).filter(([k]) => LEARN_LABELS[k]).map(([k, v]) => <span key={k}><small>{LEARN_LABELS[k]}</small><b>{k === 'takeProfit1' ? '+' : ''}{v}%</b><em>{v !== L.defaults?.[k] ? `default ${L.defaults?.[k]}%` : 'default'}</em></span>)}</div>
-      <div className="fcp-score"><span>🧠 Runners missed: <b>{L.missed}</b></span><span>✅ Good exits: <b>{L.good}</b></span><span>📚 Trades remembered: <b>{L.memory ?? 0}</b></span></div>
-      {(L.playbook?.best?.length > 0 || L.playbook?.worst?.length > 0) && <div className="fcp-playbook"><div><small>SETUPS THAT PAY HER</small>{(L.playbook.best || []).map(r => <p key={r.setup} className="up">{r.setup.replace('=', ': ')} <b>{r.winRate}% · {r.avgRet >= 0 ? '+' : ''}{r.avgRet}%</b></p>)}</div>
-        <div><small>SETUPS SHE AVOIDS</small>{(L.playbook.worst || []).map(r => <p key={r.setup} className="down">{r.setup.replace('=', ': ')} <b>{r.winRate}% · {r.avgRet}%</b></p>)}</div></div>}
-      <div className="fcp-list">{(L.log || []).map((x, i) => <div key={i} className={`fcp-trade ${x.missed ? 't-sell' : 't-buy'}`}><em>LEARN</em><p>{x.note}</p><small>{ago(x.at)} ago</small></div>)}{!(L.log || []).length && <p className="wp-bio">First lessons land 6h after each exit.</p>}</div>
-      <p className="wp-bio">Safety rules that never loosen: hard stop {R.hardStop}% from her average entry, dip adds only at {R.add1At}% / {R.add2At}% while the thesis holds, first profit at +{R.takeProfit1}%, runner trail {R.runnerTrail}%, skip top-10 &gt; {R.maxTop10Pct}%, insiders &gt; {R.maxInsiderPct}%, &gt;{R.maxSnipers} snipers, &gt;{R.maxBundled} bundled, no chasing &gt; +{R.maxM5Chase}% in 5m. Paper trading on live prices — not financial advice.</p>
-    </div>}
   </section>;
 }

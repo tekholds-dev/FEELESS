@@ -24,9 +24,36 @@ export function useCoat() {
   return c;
 }
 
-export function Panther({ size = 120, coat, gesture, auto = false, crop, colors, label, onGesture, className = '' }) {
+// 🎨 a user's built cat (owner, 2026-10-23 FeeCat redo: "drawn, not emoji props"): its COAT PATTERN drawn on the head, its GEAR drawn in SVG
+// inside the head group (it moves with every gesture), its EYES recoloured. Mirrors feecat_service.LOOK_OPTIONS + CatLook.LOOK.
+// pure: a coat's highlight — its fur lifted 30 % toward white (the head's radial light), so a dark coat stays dark
+export const lift = (hex, k = 0.3) => { const m = /^#?([0-9a-f]{6})$/i.exec(String(hex || '')); if (!m) return hex; const n = parseInt(m[1], 16);
+  const ch = sh => Math.round(((n >> sh) & 255) + (255 - ((n >> sh) & 255)) * k); return `#${[16, 8, 0].map(sh => ch(sh).toString(16).padStart(2, '0')).join('')}`; };
+export const EYE_COLOR = { laser: '#ff2a3d', gold: '#f5c542', ice: '#7fd3ff', void: '#b48cff' };
+function Pattern({ kind, color }) {
+  if (kind === 'stripes') return <g className="pt-pat" fill={color} opacity=".55"><path d="M94 34l3 14 3-14zM84 37l4 12 2-12zM110 37l-4 12-2-12z" /><path d="M58 76l14 2-14 4zM142 76l-14 2 14 4zM60 88l12 0-11 4zM140 88l-12 0 11 4z" /></g>;
+  if (kind === 'spots') return <g className="pt-pat" fill="none" stroke={color} strokeWidth="2.2" opacity=".6"><circle cx="78" cy="44" r="4" /><circle cx="122" cy="46" r="3.5" /><circle cx="100" cy="40" r="3" /><circle cx="66" cy="84" r="3" /><circle cx="134" cy="84" r="3.5" /></g>;
+  if (kind === 'patch') return <path className="pt-pat" d="M104 38c18-2 34 10 36 30 1 12-6 20-16 22-10-8-18-24-20-52z" fill={color} opacity=".5" />;
+  return null;
+}
+export function Gear({ kind }) {
+  switch (kind) {
+    case 'crown': return <g className="pt-gear g-crown"><path d="M76 34l6-22 9 13 9-18 9 18 9-13 6 22z" fill="#f5c542" stroke="#8a6410" strokeWidth="1.6" strokeLinejoin="round" /><path d="M76 34h48" stroke="#8a6410" strokeWidth="2" /><circle cx="100" cy="10" r="2.6" fill="#ff5d73" /><circle cx="82" cy="14" r="2" fill="#6ad7ff" /><circle cx="118" cy="14" r="2" fill="#45e486" /></g>;
+    case 'shades': return <g className="pt-gear g-shades"><path d="M63 59h31l-3 12c-1 5-5 7-11 7h-5c-6 0-10-3-11-8zM106 59h31l-1 11c-1 5-5 8-11 8h-5c-6 0-10-2-11-7z" fill="#0b0d14" stroke="#d6d9e0" strokeWidth="1.6" /><path d="M94 62h12" stroke="#d6d9e0" strokeWidth="2.4" /><path d="M69 63l9-1M112 63l9-1" stroke="#fff" strokeWidth="2" opacity=".55" strokeLinecap="round" /></g>;
+    case 'chain': return <g className="pt-gear g-chain"><path d="M66 100c10 18 58 18 68 0" fill="none" stroke="#f5c542" strokeWidth="4.5" strokeDasharray="5 3" strokeLinecap="round" /><circle cx="100" cy="117" r="7" fill="#f5c542" stroke="#8a6410" strokeWidth="1.5" /><path d="M100 112v10M97 114h5a2 2 0 010 4h-4a2 2 0 000 4h5" stroke="#5a3d00" strokeWidth="1.4" fill="none" /></g>;
+    case 'headset': return <g className="pt-gear g-headset"><path d="M57 70c0-38 86-38 86 0" fill="none" stroke="#22252e" strokeWidth="6" strokeLinecap="round" /><rect x="49" y="60" width="13" height="22" rx="6" fill="#15d16a" /><rect x="138" y="60" width="13" height="22" rx="6" fill="#15d16a" /><path d="M55 82c3 14 16 19 31 19" stroke="#22252e" strokeWidth="2.6" fill="none" strokeLinecap="round" /><circle cx="88" cy="101" r="3.4" fill="#45e486" /></g>;
+    case 'halo': return <g className="pt-gear g-halo"><ellipse cx="100" cy="16" rx="27" ry="6.5" fill="none" stroke="#ffe9a0" strokeWidth="4.5" /><ellipse cx="100" cy="16" rx="27" ry="6.5" fill="none" stroke="#fff" strokeWidth="1.2" opacity=".8" /></g>;
+    case 'cap': return <g className="pt-gear g-cap"><path d="M60 46c3-26 77-26 80 0z" fill="#ff5d73" /><path d="M60 46c-12 1-24 5-29 12h37z" fill="#c23a50" /><path d="M100 22v24" stroke="#c23a50" strokeWidth="1.4" /><circle cx="100" cy="21" r="3" fill="#c23a50" /><text x="112" y="40" fontSize="11" fontWeight="900" fill="#fff" fontFamily="JetBrains Mono, monospace">F</text></g>;
+    case 'bow': return <g className="pt-gear g-bow" transform="translate(128 30)"><path d="M0 0l-15-9v18zM0 0l15-9v18z" fill="#ff7ab0" stroke="#c2185b" strokeWidth="1.2" /><circle r="4.5" fill="#ff4d8f" /></g>;
+    case 'rose': return <g className="pt-gear g-rose" transform="translate(70 30)"><path d="M3 6c7 5 14 5 18 0" stroke="#2f8a3a" strokeWidth="2.6" fill="none" strokeLinecap="round" /><circle r="7.5" fill="#e0234e" /><path d="M-4-1c2-5 7-5 9 0M-2 3c2 2 5 2 6 0" stroke="#7a0a22" strokeWidth="1.3" fill="none" /></g>;
+    default: return null;
+  }
+}
+
+export function Panther({ size = 120, coat, gesture, auto = false, crop, colors, label, onGesture, className = '', pattern = null, gear = null, eyes = null }) {
   const mine = useCoat();
-  const C = colors ? { fur: colors[0], fur2: colors[1], eye: '#45e486', nose: '#2a2a2a', glow: `${colors[1]}88` } : (COATS[coat || mine] || COATS.black);
+  const C0 = colors ? { fur: colors[0], fur2: lift(colors[0]), eye: '#45e486', nose: '#2a2a2a', glow: `${colors[1]}88` } : (COATS[coat || mine] || COATS.black);   // the fur is the fur; the accent draws the pattern
+  const C = EYE_COLOR[eyes] ? { ...C0, eye: EYE_COLOR[eyes] } : C0;
   const id = `pt-${useId().replace(/[^a-zA-Z0-9]/g, '')}`;
   const [g, setG] = useState(gesture || 'idle'); const timer = useRef(null);
   const play = useCallback((name, ms = 2600) => { setG(name); onGesture?.(name); clearTimeout(timer.current); if (name !== 'idle' && name !== 'sleep') timer.current = setTimeout(() => setG('idle'), ms); }, [onGesture]);
@@ -35,7 +62,8 @@ export function Panther({ size = 120, coat, gesture, auto = false, crop, colors,
   useEffect(() => { if (!auto) return undefined; let i = 0; const t = setInterval(() => { if (document.hidden) return; i = (i + 1) % GESTURES.length; play(GESTURES[i] === 'sleep' ? 'purr' : GESTURES[i]); }, 9000); return () => clearInterval(t); }, [auto, play]);
   const head = crop === 'head';
   const pick = () => play(GESTURES[1 + Math.floor(Math.random() * (GESTURES.length - 1))]);
-  return <svg className={`pt pt-g-${g}${head ? ' is-head' : ''} ${className}`} width={size} height={size} viewBox={head ? '52 18 96 92' : '0 0 200 200'} role="img"
+  const worn = gear && gear !== 'none';
+  return <svg className={`pt pt-g-${g}${head ? ' is-head' : ''}${eyes && eyes !== 'classic' ? ` pt-e-${eyes}` : ''} ${className}`} width={size} height={size} viewBox={head ? (worn ? '44 2 112 124' : '52 18 96 92') : '0 0 200 200'} role="img"
     aria-label={label || `FeeCat, the ${C.name || 'panther'} — ${g}`} onClick={head ? undefined : pick} onMouseEnter={head ? undefined : () => g === 'idle' && play('wave', 1800)}
     style={{ '--pt-glow': C.glow, '--pt-eye': C.eye }} data-gesture={g}>
     <defs>
@@ -63,6 +91,8 @@ export function Panther({ size = 120, coat, gesture, auto = false, crop, colors,
         <g className="pt-mouth"><path d="M100 84v4M100 88c-3 4-8 4-10 1M100 88c3 4 8 4 10 1" stroke={C.nose} strokeWidth="1.6" fill="none" strokeLinecap="round" />
           <path className="pt-roar" d="M88 90c4 12 20 12 24 0-6 3-18 3-24 0z" fill="#6b1a2a" /><path className="pt-fangs" d="M92 91l2 5 2-5zM104 91l2 5 2-5z" fill="#fff" /></g>
         <g className="pt-whisk" stroke={C.fur2} strokeWidth="1" opacity=".6" strokeLinecap="round"><path d="M86 84l-22-2M86 87l-21 4M114 84l22-2M114 87l21 4" /></g>
+        {pattern ? <Pattern kind={pattern} color={colors ? colors[1] : C.fur2} /> : null}
+        {worn ? <Gear kind={gear} /> : null}
       </g>
       {!head ? <g className="pt-fx" aria-hidden="true">
         <text className="pt-z" x="146" y="40">z</text><text className="pt-z z2" x="156" y="26">Z</text>

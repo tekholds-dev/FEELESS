@@ -51,17 +51,10 @@
 .clk-aura > i:last-child { background: radial-gradient(circle, var(--aura) 0%, transparent 62%); opacity: .35; animation: clkBreathe 3.2s ease-in-out infinite; }
 .clk-a-royal { --aura: #15d16a; --aura2: #45e486; } .clk-a-gold { --aura: #f1c15a; --aura2: #fff0b0; } .clk-a-ice { --aura: #8fd8ff; --aura2: #e6f8ff; }
 .clk-a-blaze { --aura: #ff7a3c; --aura2: #ffd36b; } .clk-a-nebula { --aura: #a96bff; --aura2: #ff7ad9; } .clk-a-toxic { --aura: #b8ff3c; --aura2: #3cffc4; }
-.clk-eyes { position: absolute; z-index: 2; top: 44%; left: 50%; display: flex; gap: 17%; width: 44%; transform: translate(-50%, -50%); pointer-events: none; }
-.clk-eyes > i { flex: 1; aspect-ratio: 1; border-radius: 50%; background: var(--eye); box-shadow: 0 0 8px var(--eye); opacity: .85; mix-blend-mode: screen; }
-.clk-e-laser { --eye: #ff3b5c; } .clk-e-gold { --eye: #ffd36b; } .clk-e-ice { --eye: #9fe6ff; } .clk-e-void { --eye: #a96bff; }
-.clk-e-laser .clk-eyes > i { animation: clkBreathe 1.4s ease-in-out infinite; }
-.clk-gear { position: absolute; z-index: 3; line-height: 1; filter: drop-shadow(0 2px 3px #0009); pointer-events: none; font-size: 22px; }
-.clk.is-large .clk-gear { font-size: 40px; }
-.clk-g-crown, .clk-g-halo, .clk-g-cap, .clk-g-headset, .clk-g-bow { top: -8%; left: 50%; transform: translateX(-50%); }
-.clk-g-halo { top: -16%; } .clk-g-bow { left: 70%; }
-.clk-g-shades { top: 38%; left: 50%; transform: translate(-50%, -50%); }
-.clk-g-chain { bottom: -4%; left: 50%; transform: translateX(-50%); }
-.clk-g-rose { bottom: 4%; left: 78%; }
+/* drawn eyes + gear live on the panther itself (Panther › Gear / EYE_COLOR); laser / void eyes glow */
+.pt.pt-e-laser .pt-eye { filter: drop-shadow(0 0 3px #ff2a3d) drop-shadow(0 0 6px #ff2a3d); } .pt.pt-e-void .pt-eye { filter: drop-shadow(0 0 4px #b48cff); }
+.pt.pt-e-gold .pt-eye { filter: drop-shadow(0 0 3px #f5c542); } .pt.pt-e-ice .pt-eye { filter: drop-shadow(0 0 3px #7fd3ff); }
+.pt .pt-gear { filter: drop-shadow(0 1.5px 1.5px #0008); } .pt .g-halo { filter: drop-shadow(0 0 4px #ffe9a0); }
 .clk-tag { position: absolute; z-index: 4; bottom: -8%; left: 50%; transform: translateX(-50%); padding: 2px 7px; border-radius: 6px; white-space: nowrap;
   background: #061009; border: 1px solid #15d16a66; color: #bff5d3; font: 700 8px 'JetBrains Mono', monospace; letter-spacing: .8px; }
 .clk.is-large .clk-tag { font-size: 10px; bottom: -12%; }
@@ -80,8 +73,8 @@
 @keyframes clkSpin { to { transform: rotate(360deg); } }
 @keyframes clkBreathe { 0%, 100% { opacity: .3; transform: scale(.96); } 50% { opacity: .75; transform: scale(1.04); } }
 
-body.fx-lite .clk-aura > i, body.fx-lite .clk-eyes > i { animation: none; }
-@media (prefers-reduced-motion: reduce) { .clk-aura > i, .clk-eyes > i { animation: none; } .clk-seg button, .cct-body .paper-avatar-picker button { transition: none; } }
+body.fx-lite .clk-aura > i { animation: none; }
+@media (prefers-reduced-motion: reduce) { .clk-aura > i { animation: none; } .clk-seg button, .cct-body .paper-avatar-picker button { transition: none; } }
 body.theme-day .cct-field .m-input, body.theme-day .clk-row .m-input { background: #f3faf5; color: #10301d; border-color: #9cc9ad; }
 body.theme-day .cct-field > span, body.theme-day .clk-row > .paper-field-label { color: #2c6a45; }
 body.theme-day .clk-picker { background: #eef6f1; border-color: #b9dcc6; }

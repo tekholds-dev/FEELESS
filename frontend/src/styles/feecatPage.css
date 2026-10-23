@@ -8,21 +8,12 @@
 .fc-v2 .paper-platform-tabs button.active { background: var(--m-accent); color: #04140c; border-color: var(--m-accent); }
 .fc-v2 .paper-platform-tabs button.active span { color: #04140c; }
 .fc-v2 .paper-panel { border-radius: 16px; border-color: var(--m-line); background: var(--m-surface); }
-.fc-v2 .leader-panel { position: relative; }
-.fc-v2 .leader-panel > * { position: relative; z-index: 1; }
-.fc-v2 .leader-avatar .feeless-cat-art { width: 78px !important; height: 92px !important; }
-.fc-v2 .leader-avatar { animation: fcpFloat 4s ease-in-out infinite; }
 .fc-v2 .paper-stat-grid { gap: 10px; border: 0; padding: 0 16px; margin: 14px 0; }
 .fc-v2 .paper-stat-grid > div { border: 1px solid var(--m-line); border-radius: 12px; background: var(--m-bg); animation: fcpIn .4s var(--m-ease, ease-out) backwards; animation-delay: calc(var(--i, 0) * 60ms); transition: transform .15s, border-color .15s; }
 .fc-v2 .paper-stat-grid > div:hover { transform: translateY(-2px); border-color: color-mix(in srgb, var(--m-accent) 45%, transparent); }
 .fc-v2 .paper-stat-grid small { font-size: 9.5px; letter-spacing: .12em; } .fc-v2 .paper-stat-grid strong { font-size: 22px; } .fc-v2 .paper-stat-grid span { font-size: 11px; }
-.fc-meter { display: block; height: 4px; border-radius: 4px; background: var(--m-line); overflow: hidden; }
-.fc-meter > i { display: block; height: 100%; background: linear-gradient(90deg, #0b6b42, var(--m-accent)); transform-origin: left; transition: transform .8s var(--m-ease, ease); }
 .fc-slots { display: flex; gap: 4px; } .fc-slots i { width: 14px; height: 6px; border-radius: 3px; background: var(--m-line); } .fc-slots i.is-on { background: var(--m-accent); box-shadow: 0 0 8px var(--m-accent); }
-.fc-v2 .paper-field-label { font-size: 12px; } .fc-v2 .leader-scan p { font-size: 15px; }
-.fc-v2 .leader-rejects span { position: relative; overflow: hidden; font-size: 12px; animation: fcpIn .35s ease-out backwards; animation-delay: calc(var(--i, 0) * 50ms); }
-.fc-rej { position: absolute; left: 0; bottom: 0; height: 2px; width: 100%; background: #ff8fa3; transform-origin: left; opacity: .8; transition: transform .6s var(--m-ease, ease); }
-.fc-brainrow { padding: 4px 16px 10px; }
+.fc-v2 .paper-field-label { font-size: 12px; }
 .fc-v2 .paper-event { animation: fcpRow .3s ease-out backwards; animation-delay: calc(var(--i, 0) * 40ms); transition: background .15s; }
 .fc-v2 .paper-event:hover { background: color-mix(in srgb, var(--m-accent) 5%, transparent); }
 .fc-v2 .paper-event b { font-size: 13px; } .fc-v2 .paper-event p { font-size: 12.5px; } .fc-v2 .paper-event time { font-size: 10px; }
@@ -34,8 +25,8 @@
 @keyframes fcpIn { from { opacity: 0; transform: translateY(8px); } }
 @keyframes fcpRow { from { opacity: 0; transform: translateX(-6px); } }
 @keyframes fcpFloat { 50% { transform: translateY(-4px); } }
-body.fx-lite .fc-v2 .leader-avatar, body.fx-lite .fc-v2 .paper-stat-grid > div, body.fx-lite .fc-v2 .paper-event, body.fx-lite .fc-v2 .leader-rejects span { animation: none; }
-@media (prefers-reduced-motion: reduce) { .fc-v2 .leader-avatar, .fc-v2 .paper-stat-grid > div, .fc-v2 .paper-event, .fc-v2 .leader-rejects span { animation: none; } .fc-meter > i, .fc-rej { transition: none; } }
+ body.fx-lite .fc-v2 .paper-stat-grid > div, body.fx-lite .fc-v2 .paper-event { animation: none; }
+@media (prefers-reduced-motion: reduce) {  .fc-v2 .paper-stat-grid > div, .fc-v2 .paper-event { animation: none; } }
 body.theme-day .fc-v2 .paper-panel, body.theme-day .fc-v2 .paper-stat-grid > div, body.theme-day .fc-v2 .paper-platform-tabs { background: #fff; border-color: #d8e2dc; }
 body.theme-day .fc-v2 .paper-platform-tabs button.active { background: #0b7a4a; color: #fff; } body.theme-day .fc-v2 .paper-leaderboard-tabs button.active { background: #0b7a4a; color: #fff; }
 body.theme-day .fc-v2 .paper-event p, body.theme-day .fc-v2 .paper-stat-grid span { color: #4b5a52; }
@@ -51,8 +42,6 @@ body.theme-day .fc-v2 .paper-event p, body.theme-day .fc-v2 .paper-stat-grid spa
 .fc-v2 .paper-pnl-chart polyline { stroke: currentColor; stroke-width: 2; }
 .paper-chart-dot { position: absolute; right: 18px; width: 9px; height: 9px; margin: -4px -4px 0 0; border-radius: 50%; background: currentColor; box-shadow: 0 0 10px currentColor; animation: fcpPulse 1.6s ease-in-out infinite; }
 .fc-v2 .paper-chart-labels { font-size: 10px; } .fc-v2 .paper-chart-labels strong { font-size: 15px; }
-.fc-v2 .paper-position b { font-size: 13px; } .fc-v2 .paper-position small { font-size: 10px; } .fc-v2 .paper-position strong, .fc-v2 .paper-position > span { font-size: 12px; }
-.fc-v2 .paper-position { transition: background .15s; } .fc-v2 .paper-position:hover { background: color-mix(in srgb, var(--m-accent) 5%, transparent); }
 .fc-v2 .paper-controls label { font-size: 12px; } .fc-v2 .paper-controls label small { font-size: 10.5px; }
 .fc-v2 .paper-controls input, .fc-v2 .paper-controls select, .fc-v2 .paper-withdraw input { font-size: 13px; border-radius: 10px; border-color: var(--m-line); background: var(--m-bg); transition: border-color .15s, box-shadow .15s; }
 .fc-v2 .paper-controls input:focus, .fc-v2 .paper-withdraw input:focus { border-color: var(--m-accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--m-accent) 20%, transparent); outline: none; }

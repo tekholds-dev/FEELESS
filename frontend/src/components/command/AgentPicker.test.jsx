@@ -21,16 +21,19 @@ test('🤖 one door, two different agents: the rule trader (free) or the AI trad
   act(() => root.unmount());
 });
 
-test('🐱 the lab: New agent opens the picker, the rule trader opens its wizard, 🎨 Build your cat goes to the look collection', async () => {
+test('🤖 the agents page: no agents → the brain picker right there; the rule trader opens its wizard wearing YOUR built cat; Fee\'s desk is not repeated here', async () => {
   const el = document.createElement('div'); document.body.appendChild(el); const root = createRoot(el);
-  const nav = jest.fn(); window.addEventListener('popstate', nav);
+  localStorage.setItem('feeless.myCat', JSON.stringify({ coat: 3, pattern: 'spots', look: { gear: 'crown', aura: 'gold', eyes: 'laser', tag: '' }, name: 'Specter' }));
   await act(async () => { root.render(<FeeCatsPlatform />); });
   expect(q(el, 'fc-tab-cats').textContent).toContain(`0/${AGENT_MAX}`);
-  await act(async () => { q(el, 'fc-new-agent').click(); });
-  expect(q(el, 'agent-picker')).not.toBeNull();
+  expect(q(el, 'agent-picker')).not.toBeNull();                                         // empty "My agents" = pick a brain, no dead end
+  expect(q(el, 'fc-tab-live')).toBeNull(); expect(q(el, 'fc-tab-build')).toBeNull(); expect(q(el, 'leader-panel')).toBeNull();   // cut: Fee lives in the shell's other tabs
+  await act(async () => { q(el, 'fc-tab-activity').click(); });
+  expect(q(el, 'agent-picker')).toBeNull();
+  await act(async () => { q(el, 'fc-tab-new').click(); });
   await act(async () => { q(el, 'agent-create').click(); });
   expect(document.body.querySelector('#create-cat-title')?.textContent).toBe('Create a paper agent');
-  await act(async () => { q(el, 'fc-tab-build').click(); });
-  expect(window.location.pathname).toBe('/terminal/feecat/cats'); expect(nav).toHaveBeenCalled();
-  act(() => root.unmount()); window.history.pushState({}, '', '/');
+  expect(document.body.querySelector('[data-testid="cat-name"]').value).toBe('Specter');   // 🎨 the agent starts from the cat you built
+  expect(document.body.querySelector('[data-testid="cat-look-avatar"]').getAttribute('data-gear')).toBe('crown');
+  act(() => root.unmount()); localStorage.removeItem('feeless.myCat'); document.body.innerHTML = '';
 });
