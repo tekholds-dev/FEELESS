@@ -179,6 +179,17 @@ Center REAL RECORD (each lane's closed lots) · 🪑 G4 proof bench · theory sh
 ✅ OWNER DECIDED "15 minutes not 30": agent bails of a red real coin wait 15 min from the buy (`AGENT_MIN_HOLD`; stops / rugs / green sales
 never wait) + REAL_MIN_HOLD 15. 🐛 Familia crash ("reading 'call'" at Lazy) fixed: FamilyDeck imports FamilyHQ / CityAvenue / PoolHub statically.
 
+P0 — OWNER 2026-10-22 LATEST-LATEST (his words: "Familia Fee City has REAL buildings = you can really do EVERYTHING from everywhere in
+families; buildings represent realtime data"; hardest → easiest):
+A. 📉 PERPS IN THE POPOUT, NO REDIRECT: the Perps building trades in place — one tap picks the provider (Jupiter Perps · Drift · Hyperliquid…),
+   size from $5, long / short, live position + P&L in the building; the wallet signs; guards (memory: new buy doors need guards). ⚠ LEGAL: a
+   venue that blocks the user's region stays blocked in-app too (rule 1c — never a geo-block loophole); show which providers serve the user.
+B. 💸 POOLS + PERPS MUST EARN: "aint bringing no money" — every real-money building shows what $5 / $100 earns live and deposits in place.
+C. 🏙 MY FAMILY TOWN = the main city's engine features (day / night, traffic, weather…) and NO LAG (it "lags so bad") — profile it first.
+D. 📦 FAMILIA LOADS AS ITS OWN APP PACKAGE (separate lazy bundle, preloaded on hover) — no lag sitewide.
+E. 🪟 City window BIGGER. F. 💬 THE most litty chat on the internet (Familia / street chat). G. Every building + family idea = real function,
+   visually advanced, live data, NO dead text.
+
 P0 — OWNER 2026-10-22 LATEST (hardest first; finish in-flight work first, conserve usage, never dead-style)
 DONE tonight: 🐛 Familia/route crash (FamilyDeck static imports) · 🕰 15-min agent min hold (`AGENT_MIN_HOLD`) · 🪟🐱 NEXA TRADES AS FEECAT
 (owner switch HQ › Fee › NEXA's desk; `nexa_desk.py`: ≤ 3 one-line YES/NO · HOLD/SELL calls per 5 min on MC / age / 5m / 1h / buyers / pool /
