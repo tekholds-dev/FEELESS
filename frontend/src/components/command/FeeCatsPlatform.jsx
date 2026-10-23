@@ -5,6 +5,7 @@ import { Activity, AlertTriangle, ArrowLeft, Cat, ChevronRight, Gauge, Play, Plu
 import { CAT_VARIATIONS, CatAvatar, catByName } from './catCoats';
 import { ShareGifButton } from '../ShareGif';
 import '../../styles/feecatPage.css';
+import '../../styles/catForge.css';
 
 import { tiny } from '../../lib/num';
 import { LaunchCat, BrainPanel } from './LaunchCat';
@@ -105,18 +106,25 @@ function CreateCat({ onCreated, onCancel, preset, presetAvatar = 0 }) {
   return <CreateCatWizard form={form} update={update} step={step} setStep={setStep} onCancel={onCancel} submit={submit} error={error} saving={saving} />;
 }
 
+// 🪜 the drawn step rail (violet): every step a bar that fills as you reach it — "where am I in this" at a glance, no eyebrow line
+export const STEPS = ['IDENTITY · LOOK · RISK', 'CONFIRM'];
+export function StepRail({ at, steps = STEPS }) {
+  return <div className="cf-steps" style={{ '--n': steps.length }} role="progressbar" aria-valuemin={1} aria-valuemax={steps.length} aria-valuenow={at} aria-label={`Step ${at} of ${steps.length}`} data-testid="cat-steps">
+    {steps.map((w, i) => <span key={w} className={`cf-step ${i + 1 === at ? 'is-on' : i + 1 < at ? 'is-done' : ''}`}><u><s /></u><em>{i + 1 < at ? '✓' : i + 1} · {w}</em></span>)}</div>;
+}
+
 function CreateCatWizard({ form, update, step, setStep, onCancel, submit, error, saving }) {
-  return createPortal(<div className="paper-modal-backdrop"><section className="paper-create-card paper-wizard-card" role="dialog" aria-modal="true" aria-labelledby="create-cat-title">
+  return createPortal(<div className="paper-modal-backdrop cfv"><section className="paper-create-card paper-wizard-card" role="dialog" aria-modal="true" aria-labelledby="create-cat-title">
     <div className="paper-wizard-visual"><div className="paper-wizard-cat-strip">{CAT_VARIATIONS.slice(1, 4).map(cat => <span key={cat[0]}><CatAvatar cat={cat} /></span>)}</div><button className="icon-btn" type="button" onClick={onCancel} aria-label="Close Create Cat"><X size={18} /></button></div>
     {step === 2 && <div className="paper-wizard-body cct-body">
-      <div className="cct-head"><span className="eyebrow">STEP 1 OF 2 / IDENTITY + LOOK + RISK</span><h2 id="create-cat-title">Create a paper agent</h2>
+      <div className="cct-head"><StepRail at={1} /><h2 id="create-cat-title">Create a paper agent</h2>
         <p className="paper-helper">Your Cat runs the Leader's engine on live prices: −10% stop, +22% take-profit, trailing stop, 4h max hold, 1% fee a side. You pick the name, the look and the limits.</p></div>
       <div className="cct-split">
         <CatFields form={form} update={update} />
         <aside className="cct-preview m-live" data-testid="cat-preview"><CatPreview form={form} /></aside>
       </div>
       <div className="paper-wizard-bottom"><button className="btn-outline" type="button" onClick={onCancel}>Cancel</button><button className="btn-primary m-go" type="button" disabled={!catOk(form)} onClick={() => setStep(3)} data-testid="cat-continue">Continue <ChevronRight size={16} /></button></div></div>}
-    {step === 3 && <form onSubmit={submit} className="paper-wizard-body"><button type="button" className="paper-wizard-back" onClick={() => setStep(2)}><ArrowLeft size={14} /> Back</button><span className="eyebrow">STEP 2 OF 2 / CONFIRM</span><div className="cct-confirm-head"><LookAvatar cat={CAT_VARIATIONS[form.avatar] || CAT_VARIATIONS[0]} look={form.look} /><h2>Start {form.name || 'your Cat'}</h2></div><div className="paper-confirm-list"><div><small>Starting paper balance</small><b>{form.startingBalanceSol} SOL</b></div><div><small>Max per position</small><b>{form.maxPositionSol} SOL</b></div><div><small>Daily loss limit</small><b>{form.maxDailyLossSol} SOL</b></div><div><small>Prices</small><b>Live DexScreener, SOL-native</b></div></div><p className="paper-wizard-disclosure"><AlertTriangle size={14} /> Paper mode: the money is simulated, the prices are real. Nothing is signed or broadcast.</p>{error && <div className="paper-form-error" role="alert"><AlertTriangle size={15} />{error}</div>}<div className="paper-create-actions"><button className="btn-outline" type="button" onClick={onCancel}>Cancel</button><button className="btn-primary" type="submit" disabled={saving}><Play size={15} />{saving ? 'Starting…' : 'Create & start trading'}</button></div></form>}
+    {step === 3 && <form onSubmit={submit} className="paper-wizard-body"><button type="button" className="paper-wizard-back" onClick={() => setStep(2)}><ArrowLeft size={14} /> Back</button><StepRail at={2} /><div className="cct-confirm-head"><LookAvatar cat={CAT_VARIATIONS[form.avatar] || CAT_VARIATIONS[0]} look={form.look} /><h2>Start {form.name || 'your Cat'}</h2></div><div className="paper-confirm-list"><div><small>Starting paper balance</small><b>{form.startingBalanceSol} SOL</b></div><div><small>Max per position</small><b>{form.maxPositionSol} SOL</b></div><div><small>Daily loss limit</small><b>{form.maxDailyLossSol} SOL</b></div><div><small>Prices</small><b>Live DexScreener, SOL-native</b></div></div><p className="paper-wizard-disclosure"><AlertTriangle size={14} /> Paper mode: the money is simulated, the prices are real. Nothing is signed or broadcast.</p>{error && <div className="paper-form-error" role="alert"><AlertTriangle size={15} />{error}</div>}<div className="paper-create-actions"><button className="btn-outline" type="button" onClick={onCancel}>Cancel</button><button className="btn-primary" type="submit" disabled={saving}><Play size={15} />{saving ? 'Starting…' : 'Create & start trading'}</button></div></form>}
   </section></div>, document.body);
 }
 

@@ -23,6 +23,7 @@ export function openDesk(detail) { if (!deskHosts) return false; window.dispatch
 const ADDS = [0, 100, 500];   // + a month (DCA): the compounding that actually moves a number
 export const JOB_OF = { best: 'best', stake: 'stake', lend: 'lend', vault: 'lend', rwa: 'rwa', perps: 'perps', dex: 'lp', v2: 'lp', v3: 'lp', dlmm: 'lp' };
 const JOB_WORD = { best: 'the best live yields you can start right here', stake: 'liquid staking · SOL that earns', lend: 'lending · interest every block', rwa: 'treasuries on-chain · dollar yield', perps: 'the house side of perps', lp: 'liquidity · swap fees' };
+export const RWA_NOTE = 'Tokenized treasuries (USDY, ONyc, BUIDL…) are closed to US persons by their issuers — FEELESS does not route them. Dollar yield here runs through Jupiter Lend\'s stablecoin markets.';
 const RISK = { best: 'Each yield carries its own risk (staking moves with SOL, lending is smart-contract risk) — pick, read the line, then sign.', stake: 'Moves with SOL\'s price · a staking token can trade slightly under SOL in a panic.', lend: 'Smart-contract risk; a stablecoin can de-peg. You can withdraw any time the market has cash.',
   rwa: 'Issuer + custody risk (a real fund behind the token); some can only be redeemed by verified holders.', perps: 'JLP is the house: it earns fees and loses when traders win.',
   lp: 'Two coins: if the prices split you end up with more of the loser (impermanent loss). Out of range earns nothing.' };
@@ -35,8 +36,9 @@ export function providersOf(job, rows, focus = null) {
     .map(r => ({ id: r.id, name: r.proto, sym: r.sym, apy: r.apy, tvl: r.tvl, how: 'swap', from: SOL, to: r.hold, fromSym: 'SOL', row: r }));
   const lend = rs.filter(r => r.kind === 'lend' && r.project === 'jupiter-lend' && (r.mints || []).length && Number(r.apy) > 0).sort((a, b) => b.apy - a.apy).slice(0, 6)
     .map(r => ({ id: r.id, name: 'Jupiter Lend', sym: r.sym, apy: r.apy, tvl: r.tvl, how: 'lend', row: r }));
-  const rwa = rs.filter(r => r.kind === 'rwa' && r.hold && Number(r.apy) > 0).sort((a, b) => b.apy - a.apy).slice(0, 4)
-    .map(r => ({ id: r.id, name: r.proto, sym: r.sym, apy: r.apy, tvl: r.tvl, how: 'swap', from: USDC, to: r.hold, fromSym: 'USDC', row: r }));
+  // 🇺🇸 tokenized treasuries (USDY, ONyc, BUIDL …) are closed to US persons by their issuers and FEELESS has no geo check — so they are NEVER a
+  // provider here (standing rule: no geo loopholes). Their towers say so; dollar yield routes to Jupiter Lend's stablecoin markets instead.
+  const rwa = [];
   const jlpRow = rs.find(r => /JLP/i.test(r.sym || '') && r.hold);
   const jlp = { id: 'jlp', name: 'Jupiter Perps', sym: 'JLP', apy: jlpRow?.apy ?? null, tvl: jlpRow?.tvl ?? null, how: 'swap', from: USDC, to: jlpRow?.hold || JLP, fromSym: 'USDC', row: jlpRow || null };
   const f = focus && tradeOf(focus) && ['v2', 'v3', 'dlmm'].includes(focus.kind) ? [{ id: focus.id, name: focus.proto, sym: focus.sym, apy: focus.apy ?? null, tvl: focus.tvl, how: 'trade', row: focus }] : [];
@@ -142,7 +144,7 @@ export function MoneyDesk({ job: job0 = 'lend', rows = null, focus: focus0 = nul
     {go === 'lend' && p?.how === 'lend' ? <LendBox r={p.row} amount0={/USD/.test(p.sym) ? String(amt) : ''} onClose={() => setGo(null)} /> : null}
     {go && go.startsWith('swap') ? <div className="md-swap" data-testid="md-swap"><Suspense fallback={<p className="md-empty">Opening the swap…</p>}><SwapWorkspace key={go} pair={null} onWallet={() => {}} /></Suspense></div> : null}
     {job === 'lp' && ['v3', 'dlmm'].includes(focus?.kind) ? <RangePicture /> : null}
-    {note ? <p className="md-note">{note}</p> : null}
+    {note || job === 'rwa' ? <p className="md-note">{note || RWA_NOTE}</p> : null}
     <small className="md-risk">⚠ {RISK[job]} APYs move daily — today's math, not a promise.</small>
   </section>;
 }

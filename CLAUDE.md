@@ -169,6 +169,18 @@ P0-NOW — OWNER 2026-10-23 (live, in progress)
   real-money tool in their popout · the directory leads with compound + growth · create a badge + save it.
 - 🧼 SIDEBARS STAY CLEAN: a narrow side panel shows a summary + ONE button; big tools (the money desk) pop out over the city, never crammed in.
 - 💬 FAMILY CHAT robust + fun, with a small live BEST CALL strip (the site's best call or Pump's hottest coin, tap → trade in place).
+- 💵 SMALL MONEY, HONEST: show what $5 / $10 makes OVERNIGHT in every pool (owner wants $5–10 → $0.50–1 a night = 5–10 %/night ≈ 1,800–3,600 %
+  APY — only hot memecoin LP fees reach it, with impermanent-loss / rug risk; staking + lending never will). A "FEE HUNTERS" lens: the
+  hottest REAL fee pools (turnover × fee), each with its risk + the cost to open a position (DLMM position rent ≈ 0.06 SOL eats $5).
+- 🔌 IN-PLACE LP DEPOSITS (no redirects): PumpSwap / Raydium / Orca / Meteora add-liquidity builders (SDK / IDL, verified like
+  `lend_earn.verify`, wallet signs) — the only way pools put small money to work without leaving FEELESS.
+- 📉 PERPS: no Kraken / Coinbase link-outs in the desk (owner: "don't want to go there"); paper perps stays; a real in-app venue waits
+  on DECISIONS #1 + counsel (US users).
+- 🏝 FAMILY TOWN EXPANDS: more islands joined by bridges, pick your own lots, MOVE buildings between lots, add little stands (kiosks /
+  food stalls / signs) — the block's layout stored server-side per family.
+- 🧭 EVERY DIRECTORY = one clean pop-out that puts money to work (no fluff, only real ways to make money).
+- 📚 Docs debt: CLAUDE.md / DECISIONS.md / HANDOFF.md / the other md's — prune finished items, record new decisions (counsel brief:
+  `docs/COUNSEL_BRIEF.md`).
 
 P0 — FAMILIA + FEE CITY (owner: "buildings represent realtime data — you can really do EVERYTHING from everywhere"), hardest → easiest
 1. 🌆 FEE CITY = SIMCITY SCALE: a bigger capital; ~80 % of the city real-money buildings (pools, vaults, lend, perps, LSTs, the desk) spread

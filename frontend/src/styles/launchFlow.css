@@ -1,0 +1,69 @@
+/* 🚀 the LAUNCH WIZARD, end to end (owner, 2026-10-23: "you do the top of a page and act like the rest of the flow is ok"): every section below
+   the drawn stage — identity, style, supply, graduation, fee routing, protection, the lock, the drop, the rail, the readiness, the review — as
+   glass panels in Launch's own meta (the official logo green on near-black, owner 2026-10-22). Drawn: each style's curve (launch-style-art), a
+   size meter on every supply pick (supply-bar), the readiness ring (launch-ready-ring). Motion: transform / opacity only, one keyframe set (lf*). */
+.meta-launch-page .meta-launch-section { position: relative; overflow: hidden; isolation: isolate; background: linear-gradient(170deg, #0d1712, #070a09 65%); border: 1px solid #1d3a2a;
+  box-shadow: inset 0 1px 0 #ffffff0f, 0 24px 50px -40px #15d16a55; animation: lfIn .3s ease-out both; }
+.meta-launch-page .meta-launch-section::before { content: ''; position: absolute; inset: 0 auto auto 0; width: 60%; height: 1px; z-index: -1; pointer-events: none;
+  background: linear-gradient(90deg, transparent, #45e486, transparent); animation: lfEdge 6s ease-in-out infinite; }
+.meta-launch-page .meta-launch-section:hover { border-color: #2c5a40; }
+.meta-launch-page .meta-launch-section-heading > svg { flex: none; width: 34px; height: 34px; padding: 8px; border-radius: 11px; color: #45e486; background: radial-gradient(circle at 50% 35%, #15d16a33, #0a1a10);
+  box-shadow: 0 0 0 1px #15d16a44, 0 0 18px -6px #15d16a; }
+.meta-launch-page .meta-launch-section-heading h2 { letter-spacing: -.01em; } .meta-launch-page .meta-launch-section-heading p { color: #8fae9a; }
+/* inputs: one look, a green focus halo */
+.meta-launch-page .meta-launch-field input, .meta-launch-page .meta-launch-field select, .meta-launch-page .meta-launch-field textarea { min-height: 40px; border-radius: 10px; border-color: #1f4a32; background: #050b08;
+  color: #e8f6ec; transition: border-color .15s ease, box-shadow .15s ease, background .15s ease; }
+.meta-launch-page .meta-launch-field input:hover, .meta-launch-page .meta-launch-field select:hover, .meta-launch-page .meta-launch-field textarea:hover { border-color: #2f6f4a; }
+.meta-launch-page .meta-launch-field input:focus, .meta-launch-page .meta-launch-field select:focus, .meta-launch-page .meta-launch-field textarea:focus { border-color: #15d16a; box-shadow: 0 0 0 3px #15d16a26; background: #07120c; }
+.meta-launch-page .meta-launch-field > span { color: #9cc4aa; font-family: 'JetBrains Mono', monospace; font-size: 10px; letter-spacing: .1em; text-transform: uppercase; }
+/* launch styles: a card with its drawn curve */
+.meta-launch-page .launch-style-card { position: relative; background: linear-gradient(170deg, #0b1410, #060908); border-color: #1d3a2a; border-radius: 14px; animation: lfIn .3s ease-out both; }
+.meta-launch-page .launch-style-card:nth-child(2) { animation-delay: 50ms; } .meta-launch-page .launch-style-card:nth-child(3) { animation-delay: 100ms; } .meta-launch-page .launch-style-card:nth-child(4) { animation-delay: 150ms; }
+.meta-launch-page .launch-style-card:nth-child(5) { animation-delay: 200ms; } .meta-launch-page .launch-style-card:nth-child(6) { animation-delay: 250ms; }
+.meta-launch-page .launch-style-card:active { transform: scale(.98); } .meta-launch-page .launch-style-card:focus-visible { outline: 2px solid #45e486; outline-offset: 2px; }
+.meta-launch-page .launch-style-card.selected { background: linear-gradient(170deg, #0f2a1a, #07100b); border-color: #15d16a; box-shadow: 0 0 0 1px #15d16a, 0 14px 34px -18px #15d16a; }
+.meta-launch-page .launch-style-card.selected::after { content: '✓'; position: absolute; top: 10px; right: 10px; width: 22px; height: 22px; display: grid; place-items: center; border-radius: 50%;
+  font: 800 12px 'JetBrains Mono', monospace; color: #031208; background: #15d16a; box-shadow: 0 0 14px #15d16a; animation: lfPop .25s ease-out both; }
+.launch-style-art { width: 100%; height: 34px; margin: 2px 0; }
+.launch-style-art path { fill: none; stroke: #2f6f4a; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; transition: stroke .2s ease; }
+.launch-style-card:hover .launch-style-art path { stroke: #45e486; }
+.launch-style-card.selected .launch-style-art path { stroke: #45e486; stroke-dasharray: 1; stroke-dashoffset: 0; filter: drop-shadow(0 0 4px #15d16a); animation: lfDraw .7s ease-out both; }
+.launch-style-card.style-ember .launch-style-art path { stroke: #ff9f45; } .launch-style-card.style-locked .launch-style-art path { stroke: #ffd36b; }
+/* supply: each pick wears its size */
+.meta-launch-page .supply-options button { position: relative; border-radius: 12px; transition: transform .15s ease, border-color .15s ease, background .15s ease; }
+.meta-launch-page .supply-options button:hover { transform: translateY(-2px); } .meta-launch-page .supply-options button:active { transform: scale(.97); }
+.meta-launch-page .supply-options button:focus-visible { outline: 2px solid #45e486; outline-offset: 2px; }
+.meta-launch-page .supply-options button.selected { border-color: #15d16a; background: #15d16a14; box-shadow: 0 0 0 1px #15d16a55; }
+.supply-bar { display: block; height: 3px; margin-top: 6px; border-radius: 3px; background: #ffffff10; overflow: hidden; }
+.supply-bar s { display: block; height: 100%; background: linear-gradient(90deg, #0e8f48, #45e486); transform-origin: 0 50%; transition: transform .4s ease; }
+/* the image drop + the rail picker + the toggles */
+.meta-launch-page .image-drop { transition: border-color .15s ease, background .15s ease; } .meta-launch-page .image-drop:hover, .meta-launch-page .image-drop.is-over { border-color: #45e486; background: #15d16a0d; }
+.meta-launch-page .meta-launch-provider-option { border-radius: 14px; transition: transform .15s ease, border-color .15s ease; } .meta-launch-page .meta-launch-provider-option:hover { transform: translateY(-2px); }
+.meta-launch-page .meta-launch-provider-option.selected { border-color: #15d16a; box-shadow: 0 0 0 1px #15d16a, 0 12px 30px -18px #15d16a; }
+.meta-launch-page .meta-launch-provider-option:focus-visible, .meta-launch-page .meta-launch-toggle input:focus-visible { outline: 2px solid #45e486; outline-offset: 2px; }
+/* the readiness ring */
+.launch-ready-ring { display: flex; align-items: center; gap: 12px; padding: 4px 0 10px; }
+.launch-ready-ring svg { width: 54px; height: 54px; transform: rotate(-90deg); flex: none; }
+.launch-ready-ring .t { fill: none; stroke: #ffffff12; stroke-width: 5; } .launch-ready-ring .a { fill: none; stroke: #ffd36b; stroke-width: 5; stroke-linecap: round; transition: stroke-dasharray .5s ease; }
+.launch-ready-ring.is-go .a { stroke: #15d16a; filter: drop-shadow(0 0 4px #15d16a); }
+.launch-ready-ring span { display: grid; gap: 1px; } .launch-ready-ring em { font: 800 9.5px 'JetBrains Mono', monospace; font-style: normal; letter-spacing: .14em; color: #8fae9a; }
+.launch-ready-ring b { font: 800 20px 'JetBrains Mono', monospace; color: #ffd36b; } .launch-ready-ring.is-go b { color: #45e486; } .launch-ready-ring small { font: 600 10.5px 'JetBrains Mono', monospace; color: #8fae9a; }
+.meta-launch-page .meta-launch-status { border-radius: 12px; transition: border-color .2s ease; } .meta-launch-page .meta-launch-status.ready { border-color: #15d16a66; }
+/* the review page */
+.meta-launch-page .meta-launch-review-cards > * { animation: lfIn .3s ease-out both; }
+@keyframes lfIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+@keyframes lfEdge { 0% { transform: translateX(-100%); opacity: 0; } 20% { opacity: 1; } 60%, 100% { transform: translateX(170%); opacity: 0; } }
+@keyframes lfPop { from { opacity: 0; transform: scale(.6); } to { opacity: 1; transform: none; } }
+@keyframes lfDraw { from { stroke-dashoffset: 1; } to { stroke-dashoffset: 0; } }
+body.fx-lite .meta-launch-page .meta-launch-section, body.fx-lite .meta-launch-page .meta-launch-section::before, body.fx-lite .meta-launch-page .launch-style-card, body.fx-lite .launch-style-card.selected .launch-style-art path,
+body.fx-lite .meta-launch-page .launch-style-card.selected::after, body.fx-lite .meta-launch-page .meta-launch-review-cards > * { animation: none; }
+@media (prefers-reduced-motion: reduce) { .meta-launch-page .meta-launch-section, .meta-launch-page .meta-launch-section::before, .meta-launch-page .launch-style-card, .launch-style-card.selected .launch-style-art path,
+  .meta-launch-page .launch-style-card.selected::after, .meta-launch-page .meta-launch-review-cards > * { animation: none; }
+  .meta-launch-page .supply-options button, .supply-bar s, .launch-ready-ring .a, .meta-launch-page .meta-launch-provider-option, .launch-style-art path { transition: none; } }
+body.theme-day .meta-launch-page .meta-launch-section { background: linear-gradient(170deg, #ffffff, #f3faf5); border-color: #cfe6d9; box-shadow: 0 18px 40px -34px #0d7a41; }
+body.theme-day .meta-launch-page .meta-launch-section-heading > svg { color: #0d7a41; background: #e6f8ec; } body.theme-day .meta-launch-page .meta-launch-section-heading p { color: #4a6656; }
+body.theme-day .meta-launch-page .meta-launch-field input, body.theme-day .meta-launch-page .meta-launch-field select, body.theme-day .meta-launch-page .meta-launch-field textarea { background: #fff; color: #0f2418; border-color: #cfe6d9; }
+body.theme-day .meta-launch-page .meta-launch-field > span, body.theme-day .launch-ready-ring em, body.theme-day .launch-ready-ring small { color: #3d6a50; }
+body.theme-day .launch-style-art path { stroke: #9cc9ad; } body.theme-day .launch-style-card.selected .launch-style-art path { stroke: #0d7a41; filter: none; } body.theme-day .supply-bar { background: #0d7a4114; }
+body.theme-day .launch-ready-ring .t { stroke: #0d7a4118; } body.theme-day .launch-ready-ring b { color: #9a6a00; } body.theme-day .launch-ready-ring.is-go b { color: #0d7a41; }
+@media (max-width: 640px) { .launch-style-art { height: 28px; } .launch-ready-ring svg { width: 46px; height: 46px; } }

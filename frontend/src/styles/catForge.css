@@ -1,0 +1,65 @@
+/* 🐱 FeeCat AGENTS in its own VIOLET NIGHT (owner, 2026-10-23: "you do the top of a page and act like the rest of the flow is ok with the ugly
+   green site-wide"): the agents page (.fc-v2) and the create-a-cat modal (.cfv, portalled to <body>) — every legacy paper-* rule that read the
+   site's --mint now reads violet; the modal is a glass card over a drawn violet night (stars + a drifting nebula), a drawn STEP RAIL (cf-step*)
+   instead of an eyebrow line, violet → pink go buttons. Motion: transform / opacity only, one keyframe set (cf*). */
+.fc-v2, .cfv { --mint: #b388ff; --m-accent: #b388ff; --m-accent-ink: #12081f; --m-line: #2a1d47; --m-line-hi: #5a3f9a; --m-surface: #0d0918; --m-surface-2: #130d22; }
+.fc-v2 .paper-platform-head h1 em { color: #b388ff; text-shadow: 0 0 22px #b388ff66; }
+.fc-v2 .paper-platform-tabs button:hover, .fc-v2 .paper-platform-tabs button.active { border-color: #b388ff55; }
+.fc-v2 .paper-panel, .fc-v2 .paper-my-cats { background: linear-gradient(170deg, #120c22, #0a0713); border-color: #2a1d47; box-shadow: inset 0 1px 0 #ffffff0d; }
+.fc-v2 .paper-panel-head, .fc-v2 .paper-leaderboard-tabs, .fc-v2 .paper-disclosure, .fc-v2 .paper-event { border-color: #22183a; }
+.fc-v2 .paper-rank-row:hover { background: #b388ff0f; } .fc-v2 .paper-rank-avatar, .fc-v2 .paper-my-cat-art { background: #24163f; }
+.fc-v2 .paper-my-cat-card { background: #130d22; border-color: #2a1d47; color: #ece4ff; transition: transform .15s ease, border-color .15s ease; }
+.fc-v2 .paper-my-cat-card:hover { border-color: #b388ff; background: #1a1230; transform: translateY(-2px); } .fc-v2 .paper-my-cat-card:active { transform: scale(.98); }
+.fc-v2 .paper-my-cat-card:focus-visible { outline: 2px solid #b388ff; outline-offset: 2px; }
+.fc-v2 .paper-event-icon { border-color: #3d2a66; } .fc-v2 .paper-event b { color: #ece4ff; } .fc-v2 .paper-event b small { color: #b9a3ec; }
+.fc-v2 .paper-empty svg { color: #9d7bea; }
+
+/* the modal: a drawn violet night behind a glass card */
+.cfv.paper-modal-backdrop { background: radial-gradient(70% 60% at 50% 20%, #241046f0, #07040efa 70%); backdrop-filter: none; }
+.cfv.paper-modal-backdrop::before, .cfv.paper-modal-backdrop::after { content: ''; position: fixed; inset: 0; pointer-events: none; z-index: -1; }
+.cfv.paper-modal-backdrop::before { background-image: radial-gradient(1.4px 1.4px at 12% 18%, #fff 50%, transparent 51%), radial-gradient(1px 1px at 34% 72%, #e9dcff 50%, transparent 51%),
+  radial-gradient(1.2px 1.2px at 58% 12%, #fff 50%, transparent 51%), radial-gradient(1px 1px at 76% 44%, #d9c8ff 50%, transparent 51%), radial-gradient(1.6px 1.6px at 88% 82%, #fff 50%, transparent 51%),
+  radial-gradient(1px 1px at 22% 88%, #fff 50%, transparent 51%), radial-gradient(1.2px 1.2px at 66% 64%, #f2eaff 50%, transparent 51%); animation: cfTwinkle 5s ease-in-out infinite alternate; }
+.cfv.paper-modal-backdrop::after { background: radial-gradient(40% 30% at 30% 30%, #7c4dff2e, transparent 70%), radial-gradient(35% 28% at 72% 70%, #ff5dbb22, transparent 70%); animation: cfNebula 14s ease-in-out infinite alternate; }
+.cfv .paper-wizard-card { background: linear-gradient(170deg, #150e28f2, #0a0714f7); border: 1px solid #5a3f9a88; border-radius: 22px; box-shadow: inset 0 1px 0 #ffffff14, 0 40px 120px -40px #7c4dff88;
+  scrollbar-width: thin; scrollbar-color: #b388ff transparent; animation: cfCardIn .22s ease-out both; }
+.cfv .paper-wizard-card::-webkit-scrollbar { width: 6px; } .cfv .paper-wizard-card::-webkit-scrollbar-thumb { background: #b388ff; border-radius: 6px; }
+.cfv .paper-wizard-visual { background: radial-gradient(60% 120% at 50% 0%, #4a2a8a, #1a1030 60%, #0d0918 100%); border-color: #2a1d47; border-radius: 22px 22px 0 0; overflow: hidden; }
+.cfv .paper-wizard-cat-strip span { border-color: #6a4fb0; background: #1a1230; box-shadow: 0 10px 30px -14px #b388ff; animation: cfBob 3.6s ease-in-out infinite; }
+.cfv .paper-wizard-cat-strip span:nth-child(2) { animation-delay: .5s; transform: translateY(-6px); } .cfv .paper-wizard-cat-strip span:nth-child(3) { animation-delay: 1s; }
+.cfv .icon-btn { border-color: #5a3f9a; background: #120a22; color: #e6dcff; transition: transform .15s ease, background .15s ease; }
+.cfv .icon-btn:hover { background: #24163f; transform: rotate(90deg); } .cfv .icon-btn:active { transform: scale(.92); } .cfv .icon-btn:focus-visible { outline: 2px solid #b388ff; outline-offset: 2px; }
+.cfv .paper-wizard-body h2, .cfv .cct-head h2 { color: #f4efff; } .cfv .cct-head h2 { font-size: 30px; letter-spacing: -.02em; }
+.cfv .paper-wizard-bottom, .cfv .paper-create-actions { border-color: #2a1d47; }
+.cfv .btn-outline { border-color: #5a3f9a; color: #e6dcff; background: transparent; transition: background .15s ease, transform .15s ease; }
+.cfv .btn-outline:hover { background: #b388ff14; transform: translateY(-1px); } .cfv .btn-outline:active { transform: scale(.97); } .cfv .btn-outline:focus-visible { outline: 2px solid #b388ff; outline-offset: 2px; }
+.cfv .btn-primary { border: 0; color: #12081f; font-weight: 800; background: linear-gradient(110deg, #7c4dff, #b388ff 55%, #ff8fd0); box-shadow: 0 12px 30px -14px #b388ff; transition: transform .15s ease, box-shadow .15s ease; }
+.cfv .btn-primary:hover:not(:disabled) { transform: translateY(-2px); box-shadow: 0 16px 36px -14px #ff8fd0; } .cfv .btn-primary:active:not(:disabled) { transform: scale(.97); }
+.cfv .btn-primary:focus-visible { outline: 2px solid #ffd6f0; outline-offset: 2px; } .cfv .btn-primary:disabled { opacity: .45; filter: grayscale(.4); }
+.cfv .paper-wizard-back { color: #c9bce6; } .cfv .paper-wizard-back:hover { color: #b388ff; }
+.cfv .paper-confirm-list > div { border-color: #2a1d47; background: #130d22; } .cfv .paper-confirm-list small { color: #9d8fbf; } .cfv .paper-confirm-list b { color: #f4efff; }
+.cfv .paper-wizard-disclosure { border-color: #5a3f9a; background: #b388ff12; color: #e6dcff; }
+.cfv .paper-avatar-picker button { border-color: #2e2050; background: #130d22; } .cfv .paper-avatar-picker button:hover, .cfv .paper-avatar-picker button.selected { border-color: #b388ff; background: #b388ff14; box-shadow: 0 0 0 1px #b388ff55; }
+/* the drawn step rail */
+.cf-steps { display: grid; grid-template-columns: repeat(var(--n, 2), minmax(0, 1fr)); gap: 6px; margin-bottom: 4px; }
+.cf-step { display: grid; gap: 5px; } .cf-step u { display: block; height: 5px; border-radius: 4px; background: #2a1d47; overflow: hidden; }
+.cf-step u s { display: block; height: 100%; background: linear-gradient(90deg, #7c4dff, #b388ff, #ff8fd0); transform-origin: 0 50%; transform: scaleX(0); transition: transform .4s ease; }
+.cf-step.is-on u s, .cf-step.is-done u s { transform: scaleX(1); } .cf-step.is-on u s { animation: cfFill .5s ease-out both; }
+.cf-step em { font: 800 9.5px 'JetBrains Mono', monospace; font-style: normal; letter-spacing: .12em; color: #6f6291; } .cf-step.is-on em { color: #c9a8ff; } .cf-step.is-done em { color: #9d8fbf; }
+@keyframes cfCardIn { from { opacity: 0; transform: translateY(10px) scale(.985); } to { opacity: 1; transform: none; } }
+@keyframes cfTwinkle { from { opacity: .45; } to { opacity: 1; } }
+@keyframes cfNebula { from { transform: translate3d(-3%, -2%, 0); } to { transform: translate3d(3%, 2%, 0); } }
+@keyframes cfBob { 50% { transform: translateY(-5px); } }
+@keyframes cfFill { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+body.fx-lite .cfv.paper-modal-backdrop::before, body.fx-lite .cfv.paper-modal-backdrop::after, body.fx-lite .cfv .paper-wizard-card, body.fx-lite .cfv .paper-wizard-cat-strip span, body.fx-lite .cf-step.is-on u s { animation: none; }
+@media (prefers-reduced-motion: reduce) { .cfv.paper-modal-backdrop::before, .cfv.paper-modal-backdrop::after, .cfv .paper-wizard-card, .cfv .paper-wizard-cat-strip span, .cf-step.is-on u s { animation: none; }
+  .fc-v2 .paper-my-cat-card, .cfv .icon-btn, .cfv .btn-outline, .cfv .btn-primary, .cf-step u s { transition: none; } }
+body.theme-day .fc-v2, body.theme-day .cfv { --m-surface: #ffffff; --m-surface-2: #f7f3fe; --m-line: #e2d8f6; --m-accent-ink: #ffffff; }
+body.theme-day .fc-v2 .paper-panel, body.theme-day .fc-v2 .paper-my-cats, body.theme-day .fc-v2 .paper-my-cat-card { background: #fff; border-color: #e2d8f6; color: #24163f; }
+body.theme-day .fc-v2 .paper-event b { color: #24163f; } body.theme-day .fc-v2 .paper-platform-head h1 em { color: #6a3fd0; text-shadow: none; }
+body.theme-day .cfv.paper-modal-backdrop { background: radial-gradient(70% 60% at 50% 20%, #e9defccc, #f5f0fdf2 70%); } body.theme-day .cfv.paper-modal-backdrop::before { opacity: .15; }
+body.theme-day .cfv .paper-wizard-card { background: linear-gradient(170deg, #fffdff, #f7f3fe); border-color: #d5c6f2; box-shadow: 0 30px 80px -40px #7c4dff66; }
+body.theme-day .cfv .paper-wizard-visual { background: radial-gradient(60% 120% at 50% 0%, #d9c8ff, #efe8ff 70%); } body.theme-day .cfv .paper-wizard-body h2, body.theme-day .cfv .cct-head h2 { color: #1d1233; }
+body.theme-day .cfv .btn-outline { color: #3d2a66; } body.theme-day .cfv .paper-confirm-list > div { background: #fff; } body.theme-day .cfv .paper-confirm-list b { color: #1d1233; } body.theme-day .cfv .paper-wizard-disclosure { color: #3d2a66; }
+body.theme-day .cf-step u { background: #e2d8f6; } body.theme-day .cf-step em { color: #8f80b3; } body.theme-day .cf-step.is-on em { color: #6a3fd0; }
+@media (max-width: 640px) { .cfv .cct-head h2 { font-size: 24px; } .cfv .paper-wizard-card { border-radius: 18px; } .cf-step em { font-size: 8.5px; } }

@@ -22,7 +22,8 @@ const ROWS = [
 test('💸 providers are only what runs IN FEELESS: LSTs by swap, Jupiter Lend by deposit, treasuries by swap — best paying first, the tapped one leads', () => {
   const st = providersOf('stake', ROWS); expect(st.map(p => p.sym)).toEqual(['INF', 'JITOSOL']); expect(st[0]).toMatchObject({ how: 'swap', from: SOL, to: 'I1' });
   const ln = providersOf('lend', ROWS); expect(ln[0]).toMatchObject({ how: 'lend', sym: 'USDC', name: 'Jupiter Lend' }); expect(ln.some(p => p.id === 'k-usdc')).toBe(false);
-  expect(providersOf('rwa', ROWS)[0]).toMatchObject({ how: 'swap', from: USDC, to: 'Y1' });
+  expect(providersOf('rwa', ROWS).some(p => p.id === 'usdy')).toBe(false); expect(providersOf('best', ROWS).some(p => p.id === 'usdy')).toBe(false);   // 🇺🇸 issuer-restricted treasuries are never routed
+  expect(providersOf('rwa', ROWS)[0]).toMatchObject({ how: 'lend', sym: 'USDC' });
   expect(providersOf('stake', ROWS, ROWS[0])[0].id).toBe('jito');                                       // the building / row you tapped leads
   expect(providersOf('perps', ROWS)[0]).toMatchObject({ sym: 'JLP', how: 'swap', from: USDC });          // the house side of perps, as a token
   expect(providersOf('best', ROWS).map(p => p.apy)).toEqual([...providersOf('best', ROWS).map(p => p.apy)].sort((a, b) => b - a));
