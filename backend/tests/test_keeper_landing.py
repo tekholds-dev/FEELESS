@@ -169,7 +169,7 @@ def test_self_fix_never_overrides_the_owners_5_min_degen_settings():
     assert rs._brain_patch(owner, {}, best, prev) == {'rotateConfirm': 4, 'rotateMinDrop': 8.0}           # without the owner's mark it would move both
     assert rs._brain_patch(owner, {}, best, prev, owner_set=['rotateConfirm', 'rotateHours', 'minHoldMins']) == {'rotateMinDrop': 8.0}
     guarded, _ = ap.real_guard(ap.clean_cfg({**owner, 'instantSwapPct': 10}))                              # the real guard keeps them too
-    assert guarded['rotateConfirm'] == 2 and guarded['minHoldMins'] == 10 and guarded['rotateHours'] == 0.08
+    assert guarded['rotateConfirm'] == 2 and guarded['minHoldMins'] == 15 and guarded['rotateHours'] == 0.08
 
 
 def test_scanners_only_get_their_share_of_the_dedicated_endpoint(monkeypatch):

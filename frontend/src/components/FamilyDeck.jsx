@@ -1,16 +1,18 @@
 import React, { Suspense, lazy } from 'react';
 import { useRemembered } from '../lib/remember';
+// FamilyHQ is already in Crews' static graph — a lazy import of it split FamilyBadge into its own chunk and crashed Familia
+// ("Cannot read properties of undefined (reading 'call')", 2026-10-22), so the Books come in statically
+import { FamilyBooks as Books } from './FamilyHQ';
+import { AvenueRoom as Avenue, TrenchList as Trench } from './CityAvenue';   // already in Familia's graph (FamilyWorld) — static, same reason
+import { PoolHub, usePools } from './PoolHub';
 
 // 🧰 THE FAMILY DECK (owner, 2026-10-22, on the block page: "img shows all requests never started" — the block had a 3D city over an empty void):
 // every real tool runs right here under the family's own block — the desk's live P&L, the Trench Towers coins with one-tap trade, pools with the
 // range tuner, the Night Vault, perps, the Pump board, cats, the rep market, the family Books and the members. One tab at a time, each loaded only
 // when opened (no lag, nothing fetched for tabs you never open).
-const Avenue = lazy(() => import('./CityAvenue').then(m => ({ default: m.AvenueRoom })));
-const Trench = lazy(() => import('./CityAvenue').then(m => ({ default: m.TrenchList })));
-const Pools = lazy(() => import('./PoolHub').then(m => ({ default: () => { const p = m.usePools(); return p ? <m.PoolHub pools={p} /> : <p className="m-dim">Reading the pools…</p>; } })));
+function Pools() { const p = usePools(); return p ? <PoolHub pools={p} /> : <p className="m-dim">Reading the pools…</p>; }
 const Vault = lazy(() => import('./NightVault').then(m => ({ default: m.NightVault })));
 const RepMarkets = lazy(() => import('./RepMarkets'));
-const Books = lazy(() => import('./FamilyHQ').then(m => ({ default: m.FamilyBooks })));
 
 export const DECK = [
   ['trades', '📈', 'Trade Center', 'the desk\'s real trades · live P&L'], ['tt', '🗼', 'Trench Towers', 'the intake list · trade it'],

@@ -640,9 +640,32 @@ def tier_cfg(cfg, tid):
 # A real round trip costs ~2% (impact + slippage + network fee), so a rule that swaps on a 5% dip turns noise into loss:
 # a $7 card once made 350 real swaps in 39h on a 5-min clock with no hold time and a −5% instant swap. The 5-min clock stays
 # (protection + rides still run every tick); what is floored is how fast a coin may be flipped back out.
-REAL_MIN_HOLD = 10.0      # minutes a real buy is held before a ROUND rotation may sell it (clocks ≤ 15 min) = 2 rounds of 5 min.
+REAL_MIN_HOLD = 15.0      # minutes a real buy is held before a ROUND rotation may sell it (clocks ≤ 15 min) = 3 rounds of 5 min — owner 2026-10-22: "15 minutes" (real card: exits < 15 min won ~14 %, docs/TRENCH_THEORY.md)
                           # ⚡ instant swap, stops and the rug shield are never delayed by it.
-REAL_MIN_CONFIRM = 2      # losing rounds in a row before a real rotation (the owner's degen setting: 2 rounds on a 5-min clock)
+# 🕰 AGENT MIN HOLD (owner 2026-10-22, "15 minutes not 30"; theory BAIL: 78 agent exits, median 13 min held, 12 % won, −6.9 %): on the real card an
+# agent's / model's OWN exit of a RED coin (dead coin, thesis, momentum, time, "I said sell") waits until the buy has been held 15 min.
+# Stops, rug / drain / dump / pulled, the catastrophic line and any sale while the coin is GREEN (banking a gain) never wait.
+AGENT_MIN_HOLD = 15.0
+AGENT_HARD_RULES = frozenset(('R1', 'R2', 'R3', 'R4', 'R4r', 'R4d', 'R4e', 'R5', 'R5x', 'R5c', 'R5m', 'R5g', 'R9c'))   # = office.HINT_HARD
+AGENT_HARD_WORDS = ('stop', 'rug', 'drain', 'dump', 'pulled', 'honeypot', 'catastroph', 'scan fail')
+
+
+def agent_hold_wait(leg, px, why, now, mins=AGENT_MIN_HOLD):
+    """→ seconds an agent's exit of this real leg must still wait (0 = it may sell now). Only a soft exit of a red, non-owner coin bought
+    less than `mins` ago waits."""
+    l = leg or {}
+    if mins <= 0 or l.get('picked') or l.get('ownerLvAt') or _f(l.get('at')) <= 0:
+        return 0.0
+    left = _f(l.get('at')) + mins * 60 - now
+    if left <= 0 or not (_f(l.get('entry')) > 0 and 0 < _f(px) < _f(l['entry'])):
+        return 0.0
+    w = str(why or '')
+    if any(k in w.lower() for k in AGENT_HARD_WORDS) or any(c in AGENT_HARD_RULES for c in re.findall(r'\b(R\d+[a-z]?)\b', w)):
+        return 0.0
+    return round(left, 1)
+
+
+REAL_MIN_CONFIRM = 2     # losing rounds in a row before a real rotation (the owner's degen setting: 2 rounds on a 5-min clock)
 REAL_MIN_INSTANT = 10.0   # ⚡ instant swap is OFF (0) or at least −10% — never inside normal memecoin noise
 REAL_OWNER_RESHAPE = 3    # … unless the OWNER set it: their own 3 is kept (a fix still re-shapes every 6)
 REAL_MAX_RESHAPE = 6      # a real card re-shapes at most every 6 rounds (0 = never stays never) — also while a safe / rescue fix is on

@@ -742,7 +742,7 @@ def test_real_card_config_is_separate_from_hq_paper_config(monkeypatch):
     pr = {'cfg': {'rotateHours': 0.08, 'rotateConfirm': 1}, 'realCfg': {'rotateHours': 0.08, 'rotateConfirm': 3, 'minHoldMins': 10}}
     monkeypatch.setattr(rs, '_prime_cfg', lambda: {**ap.clean_cfg(pr['cfg']), 'paperFeeUsd': 0.02})
     r = rs._prime_real_cfg(pr)
-    assert r['rotateHours'] == 0.08 and r['rotateConfirm'] == 3 and r['minHoldMins'] == 10   # 5-min real rounds allowed; the real-money guard floors the hold at 10 min (2 rounds)
+    assert r['rotateHours'] == 0.08 and r['rotateConfirm'] == 3 and r['minHoldMins'] == 15   # 5-min real rounds allowed; the real-money guard floors the hold at 15 min (3 rounds)
     pr['cfg']['rotateConfirm'] = 6                                                           # an HQ paper edit…
     assert rs._prime_real_cfg(pr)['rotateConfirm'] == 3                                      # …never reaches the real card
     assert rs._prime_real_cfg({'cfg': pr['cfg']})['paperFeeUsd'] == 0.02                     # unset → starts from paper
@@ -1017,7 +1017,7 @@ def test_all_cards_get_their_own_exits_back_and_the_real_card_is_never_touched(m
     assert len(set(sigs.values())) == len(ap.TEMPLATES) and pr['cfg']['tp'] == 0                       # all unique again, TP back to 'tier'
     assert pr['realCfg'] == real                                                                         # 💵 Blaze real untouched
     r = rs._prime_real_cfg()
-    assert (r['rotateConfirm'], r['minHoldMins'], r['rideAt'], r['rideTrail'], r['instantSwapPct']) == (2, 10, 15, 8, 15)
+    assert (r['rotateConfirm'], r['minHoldMins'], r['rideAt'], r['rideTrail'], r['instantSwapPct']) == (2, 15, 15, 8, 15)
     with pytest.raises(rs.HTTPException):                                                                # no "all cards" action any more
         asyncio.run(rs.fuse_verdict_act(None, rs.VerdictActIn(area='🧠 Sim config', name='take-profit = 300', act='apply')))
     class Rq:
@@ -1029,7 +1029,7 @@ def test_all_cards_get_their_own_exits_back_and_the_real_card_is_never_touched(m
 
 def test_every_real_card_setting_reaches_the_engine(monkeypatch):
     rs = pytest.importorskip('reputation_service')
-    real = {'rotateHours': 0.08, 'rotateConfirm': 2, 'minHoldMins': 10, 'rideAt': 15, 'rideTrail': 8, 'instantSwapPct': 15, 'rescuePct': 0,
+    real = {'rotateHours': 0.08, 'rotateConfirm': 2, 'minHoldMins': 15, 'rideAt': 15, 'rideTrail': 8, 'instantSwapPct': 15, 'rescuePct': 0,
             'floorPct': 40, 'floorRestMins': 0, 'tp': 300, 'sl': 30, 'slMode': 'replace', 'coins': 4}
     rs._json_save(rs.FUSE_HQ_PATH, {'prime': {'cfg': {}, 'realCfg': real, 'realOwnerSet': sorted(real), 'cards': {}}})
     e = rs._prime_real_cfg()
@@ -2930,3 +2930,16 @@ def test_paper_cards_buy_at_the_germ_and_each_coin_gets_its_own_lines():
     ln = ap.coin_lines({'mint': 'x'}, t, {'atr': 5.0, 'support': None}, 'UPTREND', {'liq': 80000, 'ageH': 10})
     assert ln['tp'] == 60 and 0 < ln['sl'] <= 20
     assert ap.coin_lines({'mint': 'x', 'picked': True}, t, {'atr': 5.0}) == {} and ap.coin_lines({'mint': 'x'}, t, None) == {}
+
+
+def test_agent_min_hold_waits_only_for_soft_exits_of_red_coins():
+    # 🕰 owner 2026-10-22 "15 minutes not 30": an agent's own bail of a red coin waits 15 min from the buy; stops / rugs / gains never wait
+    now = 10_000.0
+    leg = {'at': now - 5 * 60, 'entry': 1.0}
+    assert ap.agent_hold_wait(leg, 0.95, "🧠 G4 sold: Godfather said dead coin — R11", now) == 600.0
+    assert ap.agent_hold_wait(leg, 0.95, 'R8 momentum failed', now) > 0
+    assert ap.agent_hold_wait(leg, 0.95, '☠ Reaper R5 stop (⚡ 6-second guard): -5.4%', now) == 0
+    assert ap.agent_hold_wait(leg, 0.95, 'R4r rug radar', now) == 0 and ap.agent_hold_wait(leg, 0.95, 'liquidity pulled', now) == 0
+    assert ap.agent_hold_wait(leg, 1.05, 'R8 momentum failed', now) == 0                           # green: banking a gain never waits
+    assert ap.agent_hold_wait({**leg, 'at': now - 16 * 60}, 0.95, 'R8 momentum failed', now) == 0  # held 15+ min
+    assert ap.agent_hold_wait({**leg, 'picked': True}, 0.95, 'R8 momentum failed', now) == 0       # the owner's pick: not the agents' bail

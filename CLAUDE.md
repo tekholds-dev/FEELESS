@@ -172,8 +172,8 @@ DONE 2026-10-22 late (owner's block-page screenshot "all requests never started"
 Trench Towers · Pools · Night Vault · Perps · Pump board · Cats · Rep market · Books · Members) · 🗼 desk picks hovering over the block · 🏆 Fuse
 Arena BEST SETTINGS (styles + what the top quarter shares) · 🐱 FeeCat's Combo on every Pool Hub (50/30/20 cash / SOL / fees, true math) · 📈 Trade
 Center REAL RECORD (each lane's closed lots) · 🪑 G4 proof bench · theory shadow-tested on the real card (docs/TRENCH_THEORY.md) · /dev/block.
-👉 OWNER DECISION (real money): a MINIMUM HOLD for agent-initiated exits — the real card's agent bails (78 lots, median 13 min) won 12 %, −6.9 %;
-1–3 h holds won 37 %. Advise only; never flipped automatically.
+✅ OWNER DECIDED "15 minutes not 30": agent bails of a red real coin wait 15 min from the buy (`AGENT_MIN_HOLD`; stops / rugs / green sales
+never wait) + REAL_MIN_HOLD 15. 🐛 Familia crash ("reading 'call'" at Lazy) fixed: FamilyDeck imports FamilyHQ / CityAvenue / PoolHub statically.
 
 P0 — OWNER 2026-10-22 last (AI first): DONE: NEXA's 3 agendas in her persona (conversationalist · trench scientist on the measured laws ·
 new-tech discoverer with sources) · every model's LOADED vs SAVED Load + Inference beside NEXA's chat (ModelRig in NexaVitals, open).

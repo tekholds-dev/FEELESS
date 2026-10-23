@@ -12723,6 +12723,12 @@ async def _prime_tick_inner(now):
                         if lg_g:
                             cur['germRebuy'] = {**{m_: v_ for m_, v_ in (cur.get('germRebuy') or {}).items() if now - _fuse._f(v_.get('at')) < GERM_REBUY_SEC},
                                                 lg_g.get('mint'): {'pair': x['pair'], 'symbol': lg_g.get('symbol'), 'lens': lg_g.get('gstop') or 'both', 'at': now, 'px': _fuse._f(px.get(x['pair']))}}
+                    if real_t and x['action'] in ('pull', 'trim') and ctl_:   # 🕰 agent min hold: a soft exit of a red coin waits 15 min from the buy
+                        lg_w = next((l for l in cur.get('legs') or [] if l.get('pairAddress') == x['pair']), None)
+                        w_ = _prime.agent_hold_wait(lg_w, px.get(x['pair']), x.get('why'), now)
+                        if w_ > 0:
+                            x['held'] = f"🕰 min hold: {round(w_ / 60)} min left before an agent may sell it (stops / rug still act)"
+                            continue
                     if x['action'] == 'pull' and ctl_:
                         was_ = cur
                         lg_ = next((l for l in cur.get('legs') or [] if l.get('pairAddress') == x['pair']), None)
@@ -16065,7 +16071,7 @@ def _feecat_packet():
     st_ = _json_load(DATA_DIR / 'feecats.json', {}) or {}
     pos_ = [{'symbol': p_.get('symbol'), 'pairAddress': p_.get('pairAddress'), 'costSol': p_.get('costSol'), 'peakPct': p_.get('peakChange'),
              'heldMin': round((time.time() - _fuse._f(p_.get('openedAt') or p_.get('at'))) / 60) if (p_.get('openedAt') or p_.get('at')) else None}
-            for c_ in (st_.get('cats') or {}).values() for p_ in c_.get('positions') or []][:6]
+            for c_ in sorted((st_.get('cats') or {}).values(), key=lambda c_: not c_.get('modelBrain')) for p_ in c_.get('positions') or []][:6]   # 🪟 her own cats' trades first: she reads what she runs
     cand_ = []
     for r_ in _agent_inherit_rows(limit=6):
         x_ = _tk.KERNEL.candidate(r_['mint']) or {}
@@ -16929,7 +16935,7 @@ async def cats_ai():
         out_['exit'] = sorted(set(out_.get('exit') or []) | set(nx_.get('exit') or []))
         out_['read'] = max(_fuse._f(out_.get('read')), _fuse._f(nx_.get('at')))
         out_['models'] = list(out_.get('models') or []) + ['NEXA']
-    out_['nexa'] = {k_: nx_.get(k_) for k_ in ('avoid', 'exit', 'favor', 'why', 'at')} if nx_ else None
+    out_['nexa'] = {**{k_: nx_.get(k_) for k_ in ('avoid', 'exit', 'favor', 'why', 'at')}, 'record': _nexa.record((_nexa_mem.get() or {}).get('grades'))} if nx_ else None
     return out_
 
 

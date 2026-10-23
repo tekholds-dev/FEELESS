@@ -24,5 +24,6 @@ Re-run: `.venv/bin/python scripts/edge-audit.py` → update `EVIDENCE` in `trenc
 ## Shadow test on the real card (2026-10-22, 267 closed lots with launch facts)
 - The entry laws (FRESH / CURVE) would have blocked only 3 lots — the desk already avoids them; they don't explain the losses.
 - The losses come from HOW the card exits: agent bails at ~13 min (12 % won), stops (3 % won). Owner's manual sells: 33 % won, −1.1 %, ~59 min.
-- 👉 OWNER DECISION (never flipped automatically, real money): a MINIMUM HOLD for agent-initiated exits (not stops / rugs) — e.g. no agent
-  bail before 30 min unless the stop or a rug signal fires. Advise the min hold, never a slower clock (the owner keeps 5-min rounds).
+- ✅ OWNER DECIDED 2026-10-22 "15 minutes not 30": `arena_prime.AGENT_MIN_HOLD` = 15 — on the real card an agent's / model's own exit of a
+  RED coin waits until the buy is 15 min old (stops, rug / drain / dump, the catastrophic line and any green sale never wait); round
+  rotations floor at `REAL_MIN_HOLD` = 15 too. The 5-min clock stays. Re-check the BAIL row after a week of lots.
