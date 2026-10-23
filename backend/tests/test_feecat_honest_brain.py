@@ -41,3 +41,8 @@ def test_fee_speaks_in_her_voice_numbers_untouched():
     assert fs.fee_voice('🐱 Fee sold $AAA at -12%\nP&L -0.01 SOL').split('\n')[0] in fs.FEE_OPENERS['loss']
     assert fs.fee_voice('🐱 Added 0.1 SOL to winner').split('\n')[0] in fs.FEE_OPENERS['add']
     assert fs.fee_voice('x') == fs.fee_voice('x')   # stable
+
+
+def test_old_receipts_lose_the_echo_and_the_old_name():
+    assert fs.public_words('🔮 FeeCat AI said exit: under 12 words, numbers. P&L') == '🔮 FeeCat AI said exit. P&L'
+    assert fs.public_words('🔮 her AI desk said exit') == '🔮 FeeCat AI said exit'

@@ -183,7 +183,19 @@ P0-QUICK — OWNER 2026-10-23 night (THE one list of unfinished asks — HANDOFF
 6. 🔌 RPC lanes in HQ › Core (SOLANA_RPC_URL_2 … _6 — the keeper + relay already fall through them); Helius + Alchemy were OUT of quota.
 7. 🏝 Family town expands (bridges, pick lots, move buildings, stands, a MY POOLS combo building) · tight-range LP on Raydium / Orca / DLMM.
 
-P0 — MAKE THE MONEY MOVE IN PLACE (owner 2026-10-23: "I tightened a v3 pool with $100 and made $120 — no redirects"), hardest → easiest
+P0-NEXT — OWNER 2026-10-23 late (screens: `docs/previews/owner-2026-10-23/` 1 = HQ NEXA desk · 2 = public FeeCat page · 3 = HQ Fee desk)
+1. 🐛 BUILD A CAT → REAL MODEL PICK: some user flows stop after "Build a cat" and never reach the model pick / real-wallet step — trace every
+   entry (FeeCat › Build a cat, Agents › My agents, Launch a Cat) to the same end: pick models → fund / link the user's wallet → REAL.
+2. 🤖 TWO KINDS OF AI CAT (user's own wallet, real money, NO paper): (a) TRADING — 1-2 trading models; (b) GENERAL — 1-2 all-round models that
+   do anything the user asks with the AI wallet they fund. Build a cat → link it to real-money models. (Paper stays only as a test toggle.)
+3. 🎨 CREATOR CONTROLS FEE: the owner / creator wallet edits Fee's look (coat / gear / eyes / name) from the public FeeCat page + HQ — today only
+   users' cats get Build-a-cat controls.
+4. 👛 FEECAT CIRCLE WALLET: the owner can't find where to link / fund Fee's wallet (HQ Fee desk or terminal, creator signed in) — one lit
+   "FEE'S WALLET" pill on both pages (fund · budget · go real), owner-only.
+5. 📊 Text → visuals everywhere still (owner: "no long text"): public FeeCat "HER CALLS" + "HER LAST SCAN" reasons → chip rows like the HQ tape
+   (`FeeCatLive.tapeRow`); NEXA desk call rows show "no provider answered — deterministic only" text → an icon state.
+
+ (owner 2026-10-23: "I tightened a v3 pool with $100 and made $120 — no redirects"), hardest → easiest
 1. 🔌 IN-PLACE LP — SHIPPED 2026-10-23: join (`lib/lpBuilder.js`), one-tap ZAP (swap half via the FEELESS engine `lib/swapEngine.js` → join),
    YOUR POSITIONS live (`lib/lpPositions.js`: worth now, unclaimed fees, in range) as towers on your family block + in the money desk, with
    claim / remove / close in place (`components/LpPositions.jsx`) — join, claim, remove, close each SIMULATED clean on mainnet for real

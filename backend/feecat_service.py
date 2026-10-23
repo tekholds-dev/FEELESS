@@ -71,13 +71,17 @@ def _save(store: dict):
     STORE_PATH.write_text(json.dumps(store, indent=2))
 
 
+_ECHO_OLD = re.compile(r':?\s*under 12 words, numbers')
 _INTERNAL = re.compile(r'(?:🪟\s*)?\b(?:NEXA(?: SICARIO)?|OSSY|G4)\b', re.I)
 
 
 def public_words(text):
     """🔒 P0-QUICK #4: internal model names (NEXA / OSSY / G4) never reach users — every public sink (events, receipts, Fee's chat posts,
     position reasons on /api/cats/leader) says 'FeeCat AI'. The owner's HQ reads the `nexa` flag instead. Pure (tests)."""
-    return _INTERNAL.sub('🔮 FeeCat AI', text) if isinstance(text, str) else text
+    if not isinstance(text, str):
+        return text
+    text = _ECHO_OLD.sub('', _INTERNAL.sub('🔮 FeeCat AI', text))   # receipts written before nexa.real_why still carry her placeholder
+    return text.replace('her AI desk', 'FeeCat AI')
 
 
 def _pub(obj):
