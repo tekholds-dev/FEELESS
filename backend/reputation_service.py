@@ -9509,6 +9509,29 @@ async def familia_perps():
 _intake_cache: dict = {'at': 0.0, 'rows': []}
 
 
+INTAKE_MAX = 20
+
+
+def _intake_pump(have, room):
+    """🔥 The hottest Pump.fun front-runners of the open trench board that its safety scan did not fail, beside the agents' list (never twice,
+    up to `room`), tagged src 'pump' so a tower says where it came from."""
+    seen_ = {r_.get('mint') for r_ in have}; out_ = []
+    for r_ in (_open_board() or []) if room > 0 else []:
+        m_ = r_.get('mint')
+        if not m_ or m_ in seen_ or not str(m_).endswith('pump') or r_.get('safe') is False:
+            continue
+        seen_.add(m_)
+        age_ = round(_fuse._f(r_.get('ageH')) * 60) if r_.get('ageH') is not None else None
+        cap_ = r_.get('mcap') or r_.get('cap')
+        row_ = {'mint': m_, 'sym': r_.get('symbol'), 'pair': r_.get('pairAddress') or r_.get('pair'), 'mc': cap_, 'liq': r_.get('liq'), 'ch': r_.get('chg5m'),
+                'ageMin': age_, 'status': 'PUMP', 'src': 'pump', 'read': f"Pump front-runner #{r_.get('rank') or '?'}" + (' · scan clean' if r_.get('safe') else ' · not scanned yet')}
+        row_['theory'] = __import__('trench_theory').verdict({'ageMin': age_, 'cap': cap_, 'liq': r_.get('liq'), 'status': r_.get('stage')})['line'][:200]
+        out_.append(row_)
+        if len(out_) >= room:
+            break
+    return out_
+
+
 @app.get('/api/reputation/familia/intake')
 async def familia_intake():
     """🗼 TT — TRENCH TOWERS: the agents' INTAKE LIST (the coins the desk already cycled and ranked: READY first, then CONTENDING) as the
@@ -9524,6 +9547,7 @@ async def familia_intake():
                     'status': d_.get('status'), 'read': str(d_.get('why') or '')[:90]}
             row_['theory'] = __import__('trench_theory').verdict({'ageMin': row_['ageMin'], 'cap': row_['mc'], 'liq': row_['liq'], 'status': (x_.get('chart') or {}).get('stage') or v_.get('stage')})['line'][:200]
             rows_.append(row_)
+        rows_ += _intake_pump(rows_, INTAKE_MAX - len(rows_))   # 🔥 owner, 2026-10-22: "more pump coins on intake"
         _intake_cache.update(at=now, rows=rows_)
     return {'coins': _intake_cache['rows'], 'at': round(_intake_cache['at'])}
 

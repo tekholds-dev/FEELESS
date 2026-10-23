@@ -1241,9 +1241,14 @@ async def cat_models():
     return {**(await _or_models()), 'live': _brains_live()}
 
 
+AGENT_MAX = 2   # 🤖 a user runs at most 2 agents (owner, 2026-10-22: "users pick if they want 1-2 cat AI agents"); a revoked one frees its slot
+
+
 @app.post('/api/cats')
 async def create_cat(payload: CreatePayload):
     store = _load()
+    if sum(1 for c in store['cats'].values() if c.get('ownerId') == payload.ownerId and not c.get('revoked')) >= AGENT_MAX:
+        raise HTTPException(400, f'You run {AGENT_MAX} agents — retire one to start another.')
     cat_id = uuid.uuid4().hex
     brain_info = next((b for b in BRAIN_CATALOG if b['id'] == payload.brain), BRAIN_CATALOG[0])
     now = time.time()

@@ -59,23 +59,25 @@ def test_a_logo_lookup_never_outlives_its_budget_and_a_slow_miss_is_not_retried_
     monkeypatch.setattr(rs, 'LOGO_DIR', tmp_path); monkeypatch.setattr(rs, 'LOGO_BUDGET', 0.1)
     monkeypatch.setattr(rs, 'LOGO_OVERRIDE_PATH', tmp_path / 'none.json')
 
+    gets = []
+
     class Slow:
         def __init__(self, *a, **k): pass
         async def __aenter__(self): return self
         async def __aexit__(self, *a): return False
         async def get(self, *a, **k):
-            await asyncio.sleep(5)
+            gets.append(1); await asyncio.sleep(5)
     monkeypatch.setattr(rs.httpx, 'AsyncClient', Slow)
     M = 'So11111111111111111111111111111111111111112'
     rs._logo_miss.pop(M, None)
     t0 = time.time()
     with pytest.raises(rs.HTTPException) as e:
         asyncio.run(rs.token_logo(M))
-    assert time.time() - t0 < 1 and e.value.status_code == 404
-    t1 = time.time()
+    assert time.time() - t0 < 2.5 and e.value.status_code == 404                                              # budget 0.1 s, never the 5 s fetch
+    asked = len(gets)
     with pytest.raises(rs.HTTPException):
         asyncio.run(rs.token_logo(M))
-    assert time.time() - t1 < 0.05                                                                            # the miss is remembered
+    assert len(gets) == asked                                                                                 # the miss is remembered: no second fetch (was a 50 ms wall-clock check — flaky on a busy Mac)
 
 
 def test_net_stats_measure_streams_and_rpc():

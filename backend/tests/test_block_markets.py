@@ -77,3 +77,15 @@ def test_the_service_adds_a_market_and_only_a_real_position_builds_it(monkeypatc
     assert v['buildings'][0]['state'] == 'built' and v['total'] == 260.0 and v['built'] == 1 and v['buildings'][0]['apy'] == 4.85
     pub = asyncio.run(rs.familia_block_visit('c1'))
     assert pub['buildings'][0]['band'] == '$$' and 'usd' not in pub['buildings'][0] and 'catalog' not in pub   # visitors: a band, no balances
+
+
+def test_the_intake_adds_safe_pump_front_runners_beside_the_agents_list(monkeypatch):
+    rs = pytest.importorskip('reputation_service')
+    board = [{'mint': 'AAApump', 'symbol': 'AAA', 'pairAddress': 'PA', 'mcap': 50_000, 'liq': 9_000, 'chg5m': 4.0, 'ageH': 0.5, 'safe': True, 'rank': 1},
+             {'mint': 'BBBpump', 'symbol': 'BBB', 'safe': False, 'rank': 2},                      # failed its scan → never shown
+             {'mint': 'CCCxyz', 'symbol': 'CCC', 'safe': True, 'rank': 3},                        # not a Pump coin
+             {'mint': 'DDDpump', 'symbol': 'DDD', 'safe': None, 'rank': 4}, {'mint': 'AGENTpump', 'symbol': 'AG', 'safe': True}]
+    monkeypatch.setattr(rs, '_open_board', lambda n=None: board)
+    out = rs._intake_pump([{'mint': 'AGENTpump'}], 5)
+    assert [r['mint'] for r in out] == ['AAApump', 'DDDpump'] and out[0]['src'] == 'pump' and out[0]['ageMin'] == 30 and 'scan clean' in out[0]['read']
+    assert rs._intake_pump([], 1) == out[:1] and rs._intake_pump([], 0) == []

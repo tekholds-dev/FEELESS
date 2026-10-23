@@ -109,3 +109,15 @@ def test_feecat_reads_nexas_desk_words_only_while_the_owner_switch_is_on():
     assert nx['favor'] == ['PA'] and nx['exit'] == ['PH'] and nx['trades'] is True and cm.read_of(nx, now)['favor'] == {'PA'}
     rs._nexa_mem.put({'cfg': {'trade': False}, 'desk': desk}, now)
     assert asyncio.run(rs.cats_ai())['nexa'] is None                     # switch off: her desk words never reach FeeCat
+
+
+def test_a_user_runs_at_most_two_agents_and_a_retired_one_frees_its_slot(monkeypatch):
+    fs = pytest.importorskip('feecat_service')
+    from fastapi.testclient import TestClient
+    store = {'cats': {'a': {'id': 'a', 'ownerId': 'u', 'revoked': False}, 'b': {'id': 'b', 'ownerId': 'u', 'revoked': False}}, 'events': []}
+    monkeypatch.setattr(fs, '_load', lambda: store); monkeypatch.setattr(fs, '_save', lambda s: None)
+    c = TestClient(fs.app)
+    r = c.post('/api/cats', json={'ownerId': 'u', 'name': 'Third', 'handle': 'third'})
+    assert r.status_code == 400 and 'retire one' in r.json()['detail']
+    store['cats']['b']['revoked'] = True
+    assert c.post('/api/cats', json={'ownerId': 'u', 'name': 'Third', 'handle': 'third'}).status_code == 200
