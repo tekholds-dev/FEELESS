@@ -17,6 +17,7 @@ import { Realtor } from './Realtor';
 import { useAdmin } from '../lib/adminCall';
 import '../styles/familyWorld.css';
 import { FamEmpty } from './FamEmpty';
+import { familiaRoom, ROOM_PATH } from '../lib/familiaRoom';
 
 // 🗺 THE FAMILIA WORLD (owner, 2026-10-21: "huge like a Sims build — bridges to other parts, seasons, buy blocks near rivals, CPU towns hard to
 // raid, CARTELS = the bundlers / snipers / funders from rep, chess moves when you enter a rival city, recruitment challenges, click / drag errands,
@@ -44,13 +45,13 @@ export function useWorld(addr, sess) {
   return [v, setV, load];
 }
 
-const MARK_GO = { arena: ['/terminal/fuse', '⚔ Build a Fuse card'], launch: ['/terminal/launch', '🚀 Launch a coin'], shield: ['/terminal/reputation', '🛡 Open Rug Shield'] };
+const MARK_GO = { arena: ['fuse', '⚔ Build a Fuse card'], launch: ['launch', '🚀 Launch a coin'], shield: ['shield', '🛡 Open Rug Shield'] };   // 🏙 each opens as a room IN Familia
 function MarkPanel({ k, v }) {
   const m = (v.landmarks || []).find(l => l.key === k); const go = MARK_GO[k];
   return <aside className={`fwd-side m-card t-lm k-${k}`} data-testid="mark-panel"><header><b>{m?.name || k}</b><small>FEE CITY · landmark</small></header><p>{m?.lore}</p>
     {k === 'arena' ? <p className="fwd-rule">Family Fuse rules: cards with the same coin count or one apart (never 4 vs 6) · paper or MP · an MP battle needs {mp(v.rules?.fuseMinMp)} MP in the family bank.</p> : null}
     {k === 'arena' ? <button type="button" className="m-btn m-go" onClick={() => document.getElementById('family-fuse')?.scrollIntoView({ behavior: 'smooth', block: 'start' })} data-tip="The Family Fuse board: live fights, the crowd, your challenge">⚔ Family Fuse board</button> : null}
-    {go ? <a className="m-btn" href={go[0]} data-tip="Opens that part of FEELESS">{go[1]}</a> : null}</aside>;
+    {go ? <a className="m-btn" href={ROOM_PATH[go[0]]} onClick={e => familiaRoom(go[0], e)} data-tip="Opens right here, over the city — the real tool, your wallet signs" data-testid={`mark-go-${k}`}>{go[1]}</a> : null}</aside>;
 }
 
 // 🏦 a REAL market in Fee City: what it offers, its live numbers, and the action — a DEX pool opens on FEELESS (our engine, your wallet

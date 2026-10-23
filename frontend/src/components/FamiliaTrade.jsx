@@ -1,22 +1,30 @@
 import React, { Suspense, lazy, useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { searchTokens } from '../lib/dexscreener';
 import { useMarket } from '../hooks/useMarket';
 import { openWarRoom } from './WarRoomHost';
 import { TokenAvatar } from './terminal/MarketPrimitives';
+import { familiaDocked as docked, dockCount, ROOM_PATH } from '../lib/familiaRoom';
 import '../styles/familiaTrade.css';
 
 const TrenchChart = lazy(() => import('./terminal/TrenchChart').then(m => ({ default: m.TrenchChart })));
 const SwapWorkspace = lazy(() => import('./command/SwapWorkspace').then(m => ({ default: m.SwapWorkspace })));
+// 🏙 the FEELESS tools that open as a room over Familia (lib/familiaRoom) — the real page, not a link out
+const FusePage = lazy(() => import('./FusePage').then(m => ({ default: m.FusePage })));
+const MetaLaunchSetup = lazy(() => import('./terminal/MetaLaunchSetup'));
+const ReputationCenter = lazy(() => import('./command/ReputationCenter').then(m => ({ default: m.ReputationCenter })));
+const ROOMS = { fuse: ['⚔', 'FUSE CARDS', 'build a card · the Arena · your cards — your wallet signs', FusePage],
+  launch: ['🚀', 'LAUNCH A COIN', 'the curve, the fees, the shield — your wallet signs', MetaLaunchSetup],
+  shield: ['🛡', 'RUG SHIELD', 'paste any coin — holders, dev, snipers, bundles, the verdict', ReputationCenter] };
 
 // 🏙 TRADE INSIDE FAMILIA (owner, 2026-10-22: "Trench Towers etc. on Familia all need to be able to trade IN Familia — no redirects to other
 // parts of FEELESS"): every ⚡ Trade in a Familia building slides the coin's desk over the room you are in — the same TrenchChart the war room
 // uses (chart, your trades on candles, Quick trade, Dip / Rip, rug shield; your wallet signs), and a coin-for-coin errand opens the swap with both
 // coins set. The Familia page mounts ONE dock; anywhere else (no dock) the same call opens the war room as before.
-let docks = 0;
-export const familiaDocked = () => docks > 0;
+export const familiaDocked = docked;
 export function familiaTrade(pair) {
   if (!pair?.pairAddress) return;
-  if (docks > 0) window.dispatchEvent(new CustomEvent('feeless:familia-trade', { detail: { kind: 'coin', pair } }));
+  if (docked()) window.dispatchEvent(new CustomEvent('feeless:familia-trade', { detail: { kind: 'coin', pair } }));
   else openWarRoom(pair);
 }
 export function familiaSwap(swap) {   // {from, to} mints — the dock's swap reads them like the Trade tab does (you still press Get quote)
@@ -32,11 +40,12 @@ export function FamiliaTradeDock() {
   const [desk, setDesk] = useState(null); const [err, setErr] = useState(''); const [wide, setWide] = useState(false);
   const assets = useMarket(desk?.kind === 'swap' ? '/assets' : null, 300000);
   useEffect(() => {
-    docks += 1;
+    dockCount(1);
     let seq = 0;
     const open = e => {
       const d = e.detail || {}; const id = ++seq; setErr('');
       if (d.kind === 'swap') { setDesk({ kind: 'swap', swap: d.swap }); return; }
+      if (ROOMS[d.kind]) { setDesk({ kind: d.kind }); return; }   // 🏙 a FEELESS tool as a room over Familia
       const p = d.pair || {};
       if (ready(p)) { setDesk({ kind: 'coin', pair: { chainId: 'solana', ...p } }); return; }
       setDesk({ kind: 'coin', pair: { chainId: 'solana', ...p }, loading: true });
@@ -48,12 +57,28 @@ export function FamiliaTradeDock() {
     };
     const esc = e => { if (e.key === 'Escape') setDesk(null); };
     window.addEventListener('feeless:familia-trade', open); window.addEventListener('keydown', esc);
-    return () => { docks -= 1; window.removeEventListener('feeless:familia-trade', open); window.removeEventListener('keydown', esc); };
+    return () => { dockCount(-1); window.removeEventListener('feeless:familia-trade', open); window.removeEventListener('keydown', esc); };
   }, []);
   if (!desk) return null;
+  const room = ROOMS[desk.kind];
+  if (room) {
+    const [ic, name, sub, Page] = room;
+    return createPortal(<div className="ftd" data-testid="familia-trade">
+      <button type="button" className="ftd-veil" aria-label="Close" onClick={() => setDesk(null)} />
+      <aside className="ftd-desk is-wide is-room" role="dialog" aria-label={`${name} inside Familia`} data-testid={`familia-room-${desk.kind}`}>
+        <i className="ftd-sky" aria-hidden="true"><b /><b /><b /></i>
+        <header className="ftd-head"><span className="ftd-av ftd-room-ic" aria-hidden="true">{ic}</span>
+          <span className="ftd-id"><em>🏙 INSIDE FAMILIA</em><b>{name}</b><small>{sub}</small></span>
+          <span className="ftd-tools"><a className="m-btn ftd-ico" href={ROOM_PATH[desk.kind]} data-tip="Open it as a full FEELESS page instead" data-testid="ftd-full">↗</a>
+            <button type="button" className="m-btn ftd-ico" onClick={() => setDesk(null)} aria-label="Close" data-tip="Back to the room (Esc)" data-testid="ftd-close">✕</button></span>
+        </header>
+        <div className="ftd-body ftd-room"><Suspense fallback={<div className="ftd-load" aria-busy="true"><i /><i /><i /><span>opening {name.toLowerCase()}…</span></div>}><Page /></Suspense></div>
+      </aside>
+    </div>, document.body);   // 🪟 a portal: the dock sits above every Familia bar / stacking context
+  }
   const p = desk.pair; const coin = desk.kind === 'coin';
   const m5 = Number(p?.priceChange?.m5);
-  return <div className="ftd" data-testid="familia-trade">
+  return createPortal(<div className="ftd" data-testid="familia-trade">
     <button type="button" className="ftd-veil" aria-label="Close the trade desk" onClick={() => setDesk(null)} />
     <aside className={`ftd-desk${wide ? ' is-wide' : ''}`} role="dialog" aria-label={coin ? `Trade ${p?.baseToken?.symbol || 'coin'} inside Familia` : 'Swap inside Familia'}>
       <i className="ftd-sky" aria-hidden="true"><b /><b /><b /></i>
@@ -78,5 +103,5 @@ export function FamiliaTradeDock() {
         </Suspense>
       </div>
     </aside>
-  </div>;
+  </div>, document.body);
 }

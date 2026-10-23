@@ -7,6 +7,7 @@ import { useHeldList } from '../lib/myHoldings';
 import { TokenAvatar } from './terminal/MarketPrimitives';
 import { openCoin } from './CoinDrawer';
 import '../styles/miniDeck.css';
+import { familiaRoom } from '../lib/familiaRoom';
 
 // 🧰 The bottom-right mini box's own panes: 💼 Mine (coins you hold + your Fuse cards) and 🔥 Top 10 (the busiest Solana launch
 // coins under 12 hours old, by the last hour's volume). One fetch each, only while the pane is open; rows open the coin drawer.
@@ -55,10 +56,10 @@ export function MiniMine() {
   if (!addr) return <div className="md" data-testid="mini-mine"><p className="m-note">Connect a Solana wallet to see what you hold.</p></div>;
   const cards = fuse?.held?.cards || fuse?.positions || 0;
   return <div className="md" data-testid="mini-mine"><span className="m-label">⚛️ MY FUSE CARDS</span>
-    {(cards > 0 || !real.length) && <a className="md-fuse" href="/terminal/fuse?tab=cards" data-testid="mini-fuse">{cards ? <><b>{cards} card{cards === 1 ? '' : 's'}</b><span className="m-num">{usd(fuse.valueUsd)}</span>
+    {(cards > 0 || !real.length) && <a className="md-fuse" href="/terminal/fuse?tab=cards" onClick={e => familiaRoom('fuse', e)} data-testid="mini-fuse">{cards ? <><b>{cards} card{cards === 1 ? '' : 's'}</b><span className="m-num">{usd(fuse.valueUsd)}</span>
       <em className={`m-num ${(fuse.pnlUsd || 0) >= 0 ? 'm-pos' : 'm-neg'}`}>{(fuse.pnlUsd || 0) >= 0 ? '+' : '−'}{usd(Math.abs(fuse.pnlUsd || 0))} · {pct(fuse.pnlPct)}</em></> : <b>No open cards — open My cards →</b>}</a>}
     {real.map(c => { const put = c.realBook?.fundedUsd || c.startUsd || 0; const pnl = (c.math?.pnlUsd != null ? c.math.pnlUsd : (c.valueUsd || 0) - put);
-      return <a key={c.tpl} className="md-fuse" href="/terminal/fuse?tab=cards" data-testid={`mini-real-${c.tpl}`}><b>💵 {c.label}</b><span className="m-num">{usd(c.valueUsd)}</span>
+      return <a key={c.tpl} className="md-fuse" href="/terminal/fuse?tab=cards" onClick={e => familiaRoom('fuse', e)} data-testid={`mini-real-${c.tpl}`}><b>💵 {c.label}</b><span className="m-num">{usd(c.valueUsd)}</span>
         <em className={`m-num ${pnl >= 0 ? 'm-pos' : 'm-neg'}`}>{pnl >= 0 ? '+' : '−'}{usd(Math.abs(pnl))} all-time · {pct(c.pnlPct)} this run</em></a>; })}
     <span className="m-label">💼 COINS I HOLD</span>
     {held.length ? <ol className="md-list is-plain">{held.slice(0, 12).map((t, i) => <li key={t.mint} style={{ '--i': i }}>

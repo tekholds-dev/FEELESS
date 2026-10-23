@@ -6,6 +6,7 @@ import { tokenImageUrls } from './terminal/MarketPrimitives';
 import { feePlan, outerPlan, spotOf, PLACES, usd, apyTxt, POOL_KIND } from '../lib/cityPlan';
 import { sharedJson } from '../lib/sharedJson';
 import '../styles/feeCity3d.css';
+import { familiaRoom } from '../lib/familiaRoom';
 
 // 🌃 FEE CITY IN REAL 3D (owner, 2026-10-22: "way better design and animations … find free model sites and use the best" · "hella glow, day /
 // night" · "expand the city and go to places" · "80 % of the tabs in the cities, easy to find, with a pop-out" · "real Fuse cards in the
@@ -126,7 +127,7 @@ export function FeeCity3D({ v, sel, setSel, city, setCity, tour, overlay, onPlac
   return <div className={`fc3 is-${mode} ${ready ? 'is-ready' : ''} ${full ? 'is-full' : ''}`} ref={stage} data-testid="world-map">
     <div className="fc3-host" ref={host} aria-label={isFee ? 'Fee City in 3D — drag to turn, scroll to zoom, tap a building' : `${plan?.name || 'The city'} in 3D`} role="img" />
     {!ready ? <div className="fc3-load" aria-live="polite"><i className="fc3-sky" /><span className="fc3-skyline">{Array.from({ length: 14 }, (_, i) => <b key={i} style={{ '--i': i, '--h': `${30 + ((i * 37) % 60)}px` }} />)}</span><small>drawing the city…</small></div> : null}
-    {ready && cards.length ? <div className="fc3-cards" aria-label="Fuse cards in the arena">{cards.map(k => <a key={k.key} href="/terminal/fuse" className="fc3-card" ref={el => { cardEls.current[k.key] = el; }} data-tip={`${k.title} — open the Fuse Arena`} data-testid={`arena-card-${k.key}`}>
+    {ready && cards.length ? <div className="fc3-cards" aria-label="Fuse cards in the arena">{cards.map(k => <a key={k.key} href="/terminal/fuse" onClick={e => familiaRoom('fuse', e)} className="fc3-card" ref={el => { cardEls.current[k.key] = el; }} data-tip={`${k.title} — open the Fuse Arena`} data-testid={`arena-card-${k.key}`}>
       <MetaCard card={k} size="sm" /></a>)}</div> : null}
     {tip ? <span className="fc3-tip" style={{ transform: `translate(${tip.x + 14}px, ${tip.y + 12}px)` }}>{tip.label}</span> : null}
     <nav className="fc3-isl" aria-label="Districts" data-testid="city-districts">{(plan?.islands || []).map((i, k) => <button key={i.key} type="button" style={{ '--i': k, '--dc': i.color || '#d4af37' }} onClick={() => goIsland(i.key)} data-tip={`Fly to ${i.name}${i.sub ? ` — ${i.sub}` : ''}`} data-testid={`isl-${i.key}`}>{i.name}</button>)}</nav>

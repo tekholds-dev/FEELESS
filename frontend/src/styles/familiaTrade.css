@@ -47,3 +47,7 @@ body.theme-day .ftd-vit span { background: linear-gradient(160deg, rgba(212, 175
 body.theme-day .ftd-vit .is-up b { color: #0d8a43; text-shadow: none; } body.theme-day .ftd-vit .is-dn b { color: #c0344f; text-shadow: none; }
 body.theme-day .ftd-ico { color: #7a5a00; }
 @media (max-width: 640px) { .ftd-desk { width: 100vw; padding: 10px; } .ftd-vit { grid-template-columns: repeat(2, minmax(0, 1fr)); } .ftd-chart { --chart-h: clamp(220px, 34vh, 320px); } .ftd-tools [data-testid="ftd-wide"] { display: none; } }
+/* 🏙 a FEELESS tool as a room over Familia (Fuse cards · Launch · Rug Shield): the full page inside the noir desk */
+.ftd-desk.is-room { width: min(1240px, 100vw); }
+.ftd-room-ic { animation: none; display: grid; place-items: center; width: 36px; height: 36px; border-radius: 50%; font-size: 18px; background: radial-gradient(circle at 40% 35%, #3a2a0e, #0b0806); box-shadow: 0 0 14px -4px var(--fg); }
+.ftd-room { padding: 2px 4px 30px; } .ftd-room > * { max-width: 100%; }
