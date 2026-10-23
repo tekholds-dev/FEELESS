@@ -38,23 +38,25 @@ async function allowance(provider, token, owner, spender) {
   return BigInt(out && out !== '0x' ? out : '0x0');
 }
 
-export function checkQuote(quote, wallet) {
+// `payTo`: a bridge to the other eco (Solana) pays your OWN wallet there — the address your wallet itself gave (useWallet.peekAddress).
+export const samePayout = (to, mine) => !to || (String(to).startsWith('0x') ? String(to).toLowerCase() === String(mine || '').toLowerCase() : to === mine);
+export function checkQuote(quote, wallet, payTo) {
   const tx = quote?.transactionRequest || {};
   const approval = String(quote?.estimate?.approvalAddress || '').toLowerCase();
   if (!LIFI_CONTRACTS.has(String(tx.to || '').toLowerCase())) throw new Error('Blocked: this route does not go to LI.FI’s contract.');
   if (approval && !LIFI_CONTRACTS.has(approval)) throw new Error('Blocked: unexpected approval target.');
   if (String(quote?.action?.fromAddress || '').toLowerCase() !== String(wallet?.address || '').toLowerCase()) throw new Error('Blocked: this quote was made for a different wallet. Get a fresh quote.');
-  const to = String(quote?.action?.toAddress || '').toLowerCase();
-  if (to && to !== String(quote?.action?.fromAddress || '').toLowerCase()) throw new Error('Blocked: this route pays out to a different wallet than yours.');
+  if (!samePayout(quote?.action?.toAddress, payTo || quote?.action?.fromAddress)) throw new Error('Blocked: this route pays out to a different wallet than yours.');
   if (!chainKey(tx.chainId)) throw new Error('Blocked: unsupported network.');
 }
 
-// Returns { hash, receipt, status } once the source transaction lands (and, for bridges, the destination).
-export async function executeLifi({ quote, wallet, provider, switchTo, onStep = () => {} }) {
-  checkQuote(quote, wallet);
+// Returns { hash, receipt, status, landed } once the source transaction lands (and, for bridges, the destination). `onStep(text, phase)`:
+// phase = switch · approve · sim · sign · source · bridge (the bridge desk's step rail).
+export async function executeLifi({ quote, wallet, provider, switchTo, payTo, onStep = () => {} }) {
+  checkQuote(quote, wallet, payTo);
   const tx = quote.transactionRequest;
   const net = chainKey(tx.chainId);
-  onStep(`Switching your wallet to ${net}…`);
+  onStep(`Switching your wallet to ${net}…`, 'switch');
   const switched = await switchTo?.(net);
   const prov = switched?.provider || provider;
   const on = parseInt(await prov.request({ method: 'eth_chainId' }), 16);
@@ -65,28 +67,31 @@ export async function executeLifi({ quote, wallet, provider, switchTo, onStep = 
   if (fromToken.toLowerCase() !== NATIVE && quote.estimate.approvalAddress) {
     const spender = quote.estimate.approvalAddress;
     if ((await allowance(prov, fromToken, from, spender)) < amount) {
-      onStep(`Approve exactly ${fromUnits(amount, quote.action.fromToken.decimals).toLocaleString(undefined, { maximumFractionDigits: 6 })} ${quote.action.fromToken.symbol} in your wallet…`);
+      onStep(`Approve exactly ${fromUnits(amount, quote.action.fromToken.decimals).toLocaleString(undefined, { maximumFractionDigits: 6 })} ${quote.action.fromToken.symbol} in your wallet…`, 'approve');
       const data = `0x095ea7b3${spender.slice(2).toLowerCase().padStart(64, '0')}${amount.toString(16).padStart(64, '0')}`;
       const ah = await prov.request({ method: 'eth_sendTransaction', params: [{ from, to: fromToken, data }] });
       onStep('Approval sent — waiting for it to confirm…');
       await waitReceipt(prov, ah);
     }
   }
-  onStep('Confirm the swap in your wallet…');
+  onStep('Simulating it on-chain…', 'sim');   // a dry run first: nothing is signed if the chain would reject it
+  try { await prov.request({ method: 'eth_call', params: [{ from, to: tx.to, data: tx.data, value: tx.value || '0x0' }, 'latest'] }); }
+  catch (e) { throw new Error(`Simulation failed — nothing was signed. ${String(e?.message || e).slice(0, 140)}`); }
+  onStep('Confirm in your wallet…', 'sign');
   const hash = await prov.request({ method: 'eth_sendTransaction', params: [{ from, to: tx.to, data: tx.data, value: tx.value, gas: tx.gasLimit }] });
-  onStep('Submitted — waiting for the network…');
+  onStep('Submitted — waiting for the network…', 'source');
   const receipt = await waitReceipt(prov, hash);
-  let status = 'DONE';
+  let status = 'DONE'; let landed = null;
   if (quote.action.fromChainId !== quote.action.toChainId) {
-    onStep('Bridging — waiting for funds to arrive on the other chain…');
+    onStep('Bridging — waiting for funds to arrive on the other chain…', 'bridge');
     for (let i = 0; i < 90; i++) {
       const s = await fetch(apiUrl(`/api/lifi/status?txHash=${hash}&fromChain=${quote.action.fromChainId}&toChain=${quote.action.toChainId}`)).then(r => r.json()).catch(() => null);
-      if (s?.status === 'DONE' || s?.status === 'FAILED') { status = s.status; break; }
+      if (s?.status === 'DONE' || s?.status === 'FAILED') { status = s.status; landed = s; break; }
       await new Promise(res => setTimeout(res, 5000));
       status = 'PENDING';
     }
   }
-  return { hash, receipt, status };
+  return { hash, receipt, status, landed };
 }
 
 // ⚡ ONE APPROVAL FOR MANY SWAPS (EIP-5792 `wallet_sendCalls`): every approve + swap on ONE chain goes to the wallet as a single request, when the

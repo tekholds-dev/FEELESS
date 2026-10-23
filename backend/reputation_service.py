@@ -28558,6 +28558,12 @@ async def _darkside_compute(limit):
 
 # ---- Gas check: native balance on every EVM chain, one call -----------------------------------
 GAS_MIN_USD = {'ethereum': 3.0}  # everywhere else ~$0.25 covers several swaps
+# ⛽ 2026-10-23: the station read EVERY tank as "unavailable" once Alchemy ran out of quota — each chain now falls through to a public node.
+# Zora is off the station: LI.FI no longer routes it, so a Zora tank could never be filled in place.
+GAS_RPC_PUBLIC = {'ethereum': 'https://ethereum-rpc.publicnode.com', 'base': 'https://base-rpc.publicnode.com', 'bsc': 'https://bsc-rpc.publicnode.com',
+                  'arbitrum': 'https://arbitrum-one-rpc.publicnode.com', 'avalanche': 'https://avalanche-c-chain-rpc.publicnode.com',
+                  'polygon': 'https://polygon-bor-rpc.publicnode.com', 'optimism': 'https://optimism-rpc.publicnode.com', 'zksync': 'https://mainnet.era.zksync.io',
+                  'cronos': 'https://cronos-evm-rpc.publicnode.com', 'unichain': 'https://unichain-rpc.publicnode.com', 'worldchain': 'https://worldchain.drpc.org'}
 NATIVE_SYMBOL = {'ethereum': 'ETH', 'base': 'ETH', 'arbitrum': 'ETH', 'optimism': 'ETH', 'zksync': 'ETH', 'zora': 'ETH', 'unichain': 'ETH',
                  'worldchain': 'ETH', 'bsc': 'BNB', 'avalanche': 'AVAX', 'polygon': 'POL', 'cronos': 'CRO'}
 _native_px = {'at': 0, 'px': {}}
@@ -28580,28 +28586,46 @@ async def _native_prices(http):
 
 
 @app.get('/api/reputation/gas/{address}')
-async def gas_check(address: str):
+async def gas_check(address: str, sol: str = ''):
     """Which chains this wallet can (and can't) pay gas on — so the trade desk can offer a one-click
-    route that converts something it already holds into gas where it's missing."""
+    route that converts something it already holds into gas where it's missing. `sol`: the same wallet's Solana side, read as a SOURCE
+    (SOL pays for gas on any listed chain through LI.FI)."""
     if not _re.match(r'^0x[0-9a-fA-F]{40}$', address):
         raise HTTPException(400, 'EVM address required (0x…).')
     async with httpx.AsyncClient(timeout=8) as http:
         px = await _native_prices(http)
 
         async def bal(chain, url):
+            for u in dict.fromkeys([url, GAS_RPC_PUBLIC.get(chain)]):
+                if not u:
+                    continue
+                try:
+                    r = await http.post(u, json={'jsonrpc': '2.0', 'id': 1, 'method': 'eth_getBalance', 'params': [address, 'latest']})
+                    return chain, int(r.json()['result'], 16) / 1e18
+                except Exception:
+                    continue
+            return chain, None
+
+        async def sol_bal():
+            if not _re.match(r'^[1-9A-HJ-NP-Za-km-z]{32,44}$', sol or ''):
+                return None
             try:
-                r = await http.post(url, json={'jsonrpc': '2.0', 'id': 1, 'method': 'eth_getBalance', 'params': [address, 'latest']})
-                return chain, int(r.json()['result'], 16) / 1e18
+                return (((await _rpc(http, 'getBalance', [sol])) or {}).get('value') or 0) / 1e9
             except Exception:
-                return chain, None
-        res = await asyncio.gather(*(bal(c, u) for c, u in EVM_RPC.items()))
+                return None
+        res, sol_amt, sol_px = await asyncio.gather(asyncio.gather(*(bal(c, u) for c, u in EVM_RPC.items() if c in GAS_RPC_PUBLIC)), sol_bal(),
+                                                    _sol_usd() if sol else asyncio.sleep(0, None))
     out = []
     for chain, amt in res:
         sym = NATIVE_SYMBOL.get(chain, 'ETH'); usd = amt * px.get(sym, 0) if amt is not None else None
         need = GAS_MIN_USD.get(chain, 0.25)
         out.append({'chain': chain, 'symbol': sym, 'balance': amt, 'usd': round(usd, 2) if usd is not None else None,
                     'enough': usd is not None and usd >= need, 'minUsd': need})
-    return {'address': address, 'chains': sorted(out, key=lambda x: -(x['usd'] or 0)), 'at': time.time()}
+    src = None
+    if sol_amt is not None:
+        usd = sol_amt * (sol_px or 0) if sol_px else None
+        src = {'chain': 'solana', 'symbol': 'SOL', 'address': sol, 'balance': sol_amt, 'usd': round(usd, 2) if usd is not None else None}
+    return {'address': address, 'chains': sorted(out, key=lambda x: -(x['usd'] or 0)), 'solana': src, 'at': time.time()}
 
 
 @app.get('/api/reputation/fees/public')

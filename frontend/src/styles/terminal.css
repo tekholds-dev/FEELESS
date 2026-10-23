@@ -2581,14 +2581,10 @@ body.theme-day .chat-pinned p{color:#212724}
 .td-modes button.active{background:rgba(18,192,122,.14);color:var(--mint)}
 .td-panel{display:grid;gap:10px;padding:12px;border-radius:14px;border:1px solid rgba(255,255,255,.08);background:rgba(255,255,255,.02)}
 .td-empty{justify-items:center;text-align:center;color:var(--muted);font-size:13px}.td-empty svg{color:var(--mint)}
-.td-row{display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap}.td-field{display:grid;gap:4px;flex:1;min-width:120px}.td-field small{font-size:10.5px;color:var(--muted);text-transform:uppercase;letter-spacing:.4px}
+.td-field{display:grid;gap:4px;flex:1;min-width:120px}.td-field small{font-size:10.5px;color:var(--muted);text-transform:uppercase;letter-spacing:.4px}
 .td-field select,.td-field input{padding:9px 10px;border-radius:10px;border:1px solid rgba(255,255,255,.12);background:rgba(0,0,0,.25);color:inherit;font:inherit}
-.td-swapbtn{height:38px;width:38px;border-radius:10px;border:1px solid rgba(255,255,255,.12);background:transparent;color:var(--mint);cursor:pointer;display:grid;place-items:center}
 .td-go{width:100%}
-.td-review{display:grid;gap:8px;padding:11px;border-radius:12px;border:1px solid rgba(18,192,122,.3);background:rgba(18,192,122,.05);animation:stage-in .35s both}
-.td-review b{font:700 18px 'JetBrains Mono',monospace;display:block}.td-review small{font-size:11px;color:var(--muted)}
-.td-review-meta{display:flex;flex-wrap:wrap;gap:6px 12px;font-size:11px;color:var(--muted)}.td-review-actions{display:flex;gap:8px;justify-content:flex-end}
-body.theme-day .td-fee b,body.theme-day .td-review b{color:#121715}body.theme-day .td-field select,body.theme-day .td-field input{background:#eef6f1}
+body.theme-day .td-fee b{color:#121715}body.theme-day .td-field select,body.theme-day .td-field input{background:#eef6f1}
 /* Holder theme */
 .holder-theme .feeless-mark img{filter:hue-rotate(var(--logo-hue,0deg)) saturate(1.1)}
 .holder-theme-card{display:grid;gap:8px;padding:14px;border-radius:16px;border:1px solid color-mix(in srgb,var(--mint) 35%,transparent);background:linear-gradient(160deg,color-mix(in srgb,var(--mint) 8%,transparent),transparent)}

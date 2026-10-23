@@ -2,82 +2,27 @@ import React, { useEffect, useState } from 'react';
 import NumInput from '../NumInput';
 import { toast } from 'sonner';
 import { ArrowLeftRight, Fuel, Repeat, ShieldCheck } from 'lucide-react';
-import { useWallet } from '../../hooks/useWallet';
 import { apiUrl } from '../../lib/api';
 import { EdgeScore } from '../terminal/EdgeScore';
 import { useMarket } from '../../hooks/useMarket';
-import { lifiFeelessFee } from '../../lib/lifiFee';
-import { CHAIN_ID, NATIVE, toUnits, fromUnits, lifiServerQuote, executeLifi } from '../../lib/lifiExec';
+import { toUnits } from '../../lib/lifiExec';
+import { CHAIN, isSol } from '../../lib/bridgeExec';
+import { BridgeDesk, ChainOrb, Landed, RouteScene, StepRail, Vitals, stepOf, useBridgeRoute, useSides } from './BridgeDesk';
 import { FollowingCalls } from './FollowingCalls';
 import { TopPumpCoins } from './TopPumpCoins';
-import { moneyConfirmed, watchBridge } from '../../lib/moneyConfirm';
 import '../../styles/gasStation.css';
 
 const DustCleanup = React.lazy(() => import('../DustCleanup'));
-// The trade desk: Swap (the existing Jupiter/LI.FI flows), Bridge (any EVM chain -> any EVM chain)
-// and Get Gas (turn what you hold on one chain into gas on another). Non-custodial throughout:
+// The trade desk: Swap (the existing Jupiter/LI.FI flows), Bridge (Solana <-> every EVM chain LI.FI routes, BridgeDesk)
+// and Get Gas (turn SOL, or spare gas on one chain, into gas on another). Non-custodial throughout:
 // every route is a quote the user reviews, and every transaction is signed in their own wallet.
-const NAMES = { ethereum: 'Ethereum', base: 'Base', bsc: 'BNB Chain', arbitrum: 'Arbitrum', avalanche: 'Avalanche', polygon: 'Polygon', optimism: 'Optimism', zksync: 'zkSync', zora: 'Zora', cronos: 'Cronos', unichain: 'Unichain', worldchain: 'World Chain' };
-const USDC_DECIMALS = { bsc: 18 }; // Binance-Peg USDC has 18 decimals; everywhere else it is 6
+const NAMES = { ethereum: 'Ethereum', base: 'Base', bsc: 'BNB Chain', arbitrum: 'Arbitrum', avalanche: 'Avalanche', polygon: 'Polygon', optimism: 'Optimism', zksync: 'zkSync', cronos: 'Cronos', unichain: 'Unichain', worldchain: 'World Chain' };
 const cleanAmount = v => { const [w, ...f] = v.replace(/[^0-9.]/g, '').split('.'); return f.length ? `${w}.${f.join('')}` : w; };
-
-// One LI.FI route: quote (FEELESS server, verified) -> review -> secure execute. Shared by Bridge and Get Gas.
-function useRoute() {
-  const { wallet, provider, switchTo, connect } = useWallet() || {};
-  const [quote, setQuote] = useState(null); const [busy, setBusy] = useState(false); const [step, setStep] = useState('');
-  const ensureEvm = async chain => { let w = wallet; if (!w || w.chain !== 'evm') w = (await (switchTo ? switchTo(chain) : connect('evm'))).wallet; return w; };
-  const getQuote = async ({ fromChain, toChain, fromToken, toToken, amount, decimals = 18 }) => {
-    setBusy(true); setQuote(null);
-    try {
-      const w = await ensureEvm(fromChain);
-      setQuote(await lifiServerQuote({ fromChain: CHAIN_ID[fromChain], toChain: CHAIN_ID[toChain], fromToken, toToken, fromAmount: toUnits(amount, decimals), fromAddress: w.address, slippage: 0.01 }));
-    } catch (e) { toast.error(e.code === 4001 ? 'Declined in wallet.' : e.message); } finally { setBusy(false); }
-  };
-  const execute = async () => {
-    setBusy(true);
-    try {
-      const out = await executeLifi({ quote, wallet, provider, switchTo, onStep: setStep });
-      const done = out.status === 'DONE'; const fc = quote.action.fromChainId, tc = quote.action.toChainId;
-      if (done || fc === tc) moneyConfirmed({ title: fc === tc ? 'Swap confirmed' : 'Bridge delivered', chain: fc, hash: out.hash, wallet: wallet?.address });
-      else { toast.info('Bridge sent — source confirmed', { description: 'Cross-chain routes land in 1–5 min. We\'ll confirm when funds arrive.' }); watchBridge({ hash: out.hash, fromChainId: fc, toChainId: tc }); }
-      setQuote(null);
-    } catch (e) { toast.error(e.code === 4001 ? 'Declined in wallet — nothing sent.' : e.message); } finally { setBusy(false); setStep(''); }
-  };
-  return { wallet, quote, busy, step, getQuote, execute, clear: () => setQuote(null) };
-}
-
-function RouteReview({ quote, busy, step, onExecute, onClear }) {
-  if (!quote) return null;
-  const out = fromUnits(quote.estimate.toAmount, quote.action.toToken.decimals);
-  const gasUsd = (quote.estimate.gasCosts || []).reduce((a, g) => a + Number(g.amountUSD || 0), 0);
-  const feeUsd = (quote.estimate.feeCosts || []).reduce((a, g) => a + Number(g.amountUSD || 0), 0);
-  return <div className="td-review" data-testid="td-review">
-    <div><small>You receive ≈</small><b>{out.toLocaleString(undefined, { maximumFractionDigits: 6 })} {quote.action.toToken.symbol}</b></div>
-    <div className="td-review-meta"><span>via {quote.toolDetails?.name || quote.tool}</span><span>network gas ≈ ${gasUsd.toFixed(2)}</span><span>provider / route fees ≈ ${feeUsd.toFixed(2)}</span><span>{lifiFeelessFee(quote) ? `FEELESS fee ${(Number(lifiFeelessFee(quote).percentage || 0) * 100).toFixed(2)}% ≈ $${Number(lifiFeelessFee(quote).amountUSD || 0).toFixed(2)} (included above)` : 'FEELESS platform fee: 0%'}</span><span>~{Math.max(1, Math.round((quote.estimate.executionDuration || 30) / 60))} min</span></div>
-    <div className="td-review-actions"><button type="button" className="btn-outline" onClick={onClear}>Cancel</button><button type="button" className="btn-primary" disabled={busy} onClick={onExecute}>{busy ? (step || 'Confirm in wallet…') : 'Confirm & sign'}</button></div>
-  </div>;
-}
-
-function ChainSelect({ value, onChange, label }) {
-  return <label className="td-field"><small>{label}</small><select value={value} onChange={e => onChange(e.target.value)}>{Object.keys(CHAIN_ID).map(c => <option key={c} value={c}>{NAMES[c]}</option>)}</select></label>;
-}
-
-function Bridge() {
-  const r = useRoute();
-  const [from, setFrom] = useState('base'); const [to, setTo] = useState('arbitrum');
-  const [asset, setAsset] = useState('native'); const [amount, setAmount] = useState('0.01');
-  const tok = c => (asset === 'native' ? NATIVE : 'USDC');
-  return <div className="td-panel">
-    <div className="td-row"><ChainSelect label="From" value={from} onChange={v => { setFrom(v); r.clear(); }} /><button type="button" className="td-swapbtn" aria-label="Flip chains" onClick={() => { setFrom(to); setTo(from); r.clear(); }}><ArrowLeftRight size={15} /></button><ChainSelect label="To" value={to} onChange={v => { setTo(v); r.clear(); }} /></div>
-    <div className="td-row"><label className="td-field"><small>Asset</small><select value={asset} onChange={e => { setAsset(e.target.value); r.clear(); }}><option value="native">Native gas coin</option><option value="usdc">USDC</option></select></label><label className="td-field"><small>Amount</small><NumInput inputMode="decimal" value={amount} onChange={e => { setAmount(cleanAmount(e.target.value)); r.clear(); }} /></label></div>
-    {!r.quote && <button type="button" className="btn-primary td-go" disabled={r.busy || from === to || !Number(amount)} onClick={() => r.getQuote({ fromChain: from, toChain: to, fromToken: tok(from), toToken: tok(to), amount, decimals: asset === 'usdc' ? (USDC_DECIMALS[from] ?? 6) : 18 })}>{r.busy ? 'Finding the best route…' : from === to ? 'Pick two different chains' : 'Get bridge quote'}</button>}
-    <RouteReview quote={r.quote} busy={r.busy} step={r.step} onExecute={r.execute} onClear={r.clear} />
-  </div>;
-}
 
 // ⛽ THE FUEL STATION (Trade › Get gas, 2026-10-22 meta redo of the SmolRefuel-style list): every chain is a drawn GAUGE — the needle sits at your
 // gas in $ against that chain's own minimum (red zone = below it, a full tank = 4× it) — the count of chains running dry on top, preset amounts,
-// and the route drawn from the chain you pay from to the one you fill (LI.FI quote, itemised, your wallet signs).
+// and the route drawn from the chain you pay from to the one you fill (LI.FI quote, itemised, your wallet signs). 2026-10-23: pay with SOL (Solana-
+// first), every tank read even when the keyed RPC is spent, Zora off (LI.FI dropped it); the quote's vitals + step rail are the bridge desk's.
 export const gasFill = c => (c?.usd == null ? 0 : Math.max(0, Math.min(1, c.usd / ((c.minUsd || 0.25) * 4))));
 export function Gauge({ c, on, onPick }) {
   const f = gasFill(c); const a = -95 + f * 190;   // the arc's ends sit level with the pivot: empty points left, full points right
@@ -90,30 +35,42 @@ export function Gauge({ c, on, onPick }) {
     <em>{c.enough ? '✓ fuelled' : '⛽ running dry'}</em></button>;
 }
 export function GetGas() {
-  const r = useRoute();
-  const [gas, setGas] = useState(null); const [target, setTarget] = useState(null); const [usd, setUsd] = useState('2');
-  const address = r.wallet?.chain === 'evm' ? r.wallet.address : null;
+  const r = useBridgeRoute();
+  const sides = useSides(r, 'solana', 'base'); const sol = sides.from; const evm = sides.to;
+  const [gas, setGas] = useState(null); const [target, setTarget] = useState(null); const [usd, setUsd] = useState('2'); const [payWith, setPayWith] = useState(null);
   useEffect(() => {
-    if (!address) { setGas(null); return undefined; }
+    if (!evm) { setGas(null); return undefined; }
     let alive = true;
-    fetch(apiUrl(`/api/reputation/gas/${address}`)).then(x => x.json()).then(d => alive && setGas(d)).catch(() => {});
+    fetch(apiUrl(`/api/reputation/gas/${evm}${sol ? `?sol=${sol}` : ''}`)).then(x => x.json()).then(d => alive && setGas(d)).catch(() => {});
     return () => { alive = false; };
-  }, [address]);
-  if (!address) return <div className="td-panel td-empty gs-empty"><span className="gs-pump" aria-hidden="true"><i /><u /></span><p>Connect an EVM wallet — FEELESS reads your gas on all 12 chains at once and routes what you already hold into gas where you run dry.</p></div>;
-  if (!gas) return <div className="td-panel gs-load"><span className="gs-pump" aria-hidden="true"><i /><u /></span><p className="wp-bio">Reading 12 tanks…</p></div>;
-  const source = gas.chains.find(c => c.enough && c.usd > Number(usd) * 1.5);
-  const dry = gas.chains.filter(c => !c.enough).length; const tgt = gas.chains.find(c => c.chain === target);
+  }, [evm, sol, r.landed]);
+  if (!evm) return <div className="td-panel td-empty gs-empty"><span className="gs-pump" aria-hidden="true"><i /><u /></span><p>FEELESS reads your gas on every chain at once and fills any tank from SOL — or from spare gas on another chain. Your wallet signs; the gas lands in your own wallet.</p>
+    <button type="button" className="btn-primary m-go" data-tip="Your wallet hands over its EVM address (the tanks); nothing is signed" onClick={() => sides.need('base').catch(e => toast.error(e.message))} data-testid="gas-connect">⛽ Read my tanks</button></div>;
+  if (!gas) return <div className="td-panel gs-load"><span className="gs-pump" aria-hidden="true"><i /><u /></span><p className="wp-bio">Reading your tanks…</p></div>;
+  const want = Number(usd) || 0; const spare = c => c && c.usd != null && c.balance > 0 && c.usd > want * 1.5;
+  const sources = [gas.solana, ...gas.chains.filter(c => c.enough)].filter(c => spare(c) && c.chain !== target);
+  const source = sources.find(c => c.chain === payWith) || sources[0];
+  const dry = gas.chains.filter(c => !c.enough).length;
+  const quote = () => { const units = toUnits((want / (source.usd / source.balance)).toFixed(isSol(source.chain) ? 9 : 12), isSol(source.chain) ? 9 : 18);
+    r.fetchQuote({ from: source.chain, to: target, asset: 'native', amountUnits: units, fromAddress: isSol(source.chain) ? sol : evm, toAddress: evm }); };
+  const step = stepOf(r.phase);
   return <div className="td-panel gs">
-    <header className="gs-head"><b className={dry ? 'is-low' : 'is-ok'}>{dry ? `${dry} of ${gas.chains.length} chains running dry` : `All ${gas.chains.length} chains fuelled`}</b><small>tap a tank to fill it from a chain with spare</small></header>
+    <header className="gs-head"><b className={dry ? 'is-low' : 'is-ok'}>{dry ? `${dry} of ${gas.chains.length} chains running dry` : `All ${gas.chains.length} chains fuelled`}</b><small>tap a tank to fill it{gas.solana ? ` · ◎ ${gas.solana.balance.toFixed(3)} SOL ready to pay` : ''}</small></header>
     <div className="gs-grid">{gas.chains.map((c, i) => <span key={c.chain} style={{ '--i': i }}><Gauge c={c} on={target === c.chain} onPick={() => { setTarget(c.chain); r.clear(); }} /></span>)}</div>
     {target && <div className="gs-fill">
       <div className="m-seg gs-pre" role="radiogroup" aria-label="Gas to add">{['1', '2', '5', '10'].map(v => <button key={v} type="button" role="radio" aria-checked={usd === v} className={usd === v ? 'active' : ''} onClick={() => { setUsd(v); r.clear(); }}>${v}</button>)}</div>
       <label className="td-field"><small>or USD</small><NumInput inputMode="decimal" value={usd} onChange={e => { setUsd(cleanAmount(e.target.value)); r.clear(); }} /></label>
-      {source ? <div className="gs-route" data-tip="Your spare gas on one chain becomes gas on the other (LI.FI, itemised on the quote)"><b>{NAMES[source.chain]}</b><span className="gs-pipe" aria-hidden="true"><i /><i /><i /></span><b>{NAMES[tgt?.chain] || target}</b></div> : null}
-      {source ? <button type="button" className="btn-primary td-go m-go" disabled={r.busy || source.chain === target} onClick={() => r.getQuote({ fromChain: source.chain, toChain: target, fromToken: NATIVE, toToken: NATIVE, amount: (Number(usd) / (source.usd / source.balance)).toFixed(8) })}>⛽ Quote ${usd} of gas</button>
-        : <p className="wp-bio">No chain with enough spare to route from — add funds on any chain first.</p>}
+      {sources.length ? <div className="m-seg gs-pay" role="radiogroup" aria-label="Pay with">{sources.slice(0, 4).map(c => <button key={c.chain} type="button" role="radio" aria-checked={source === c} className={source === c ? 'active' : ''}
+        data-tip={`Pay with ${c.symbol} on ${CHAIN[c.chain]?.name || c.chain} · $${c.usd} there`} onClick={() => { setPayWith(c.chain); r.clear(); }}><ChainOrb k={c.chain} size={16} />{c.symbol} ${c.usd}</button>)}</div>
+        : <p className="wp-bio">No chain with enough spare to pay from — add SOL (or gas on any chain) first.</p>}
     </div>}
-    <RouteReview quote={r.quote} busy={r.busy} step={r.step} onExecute={r.execute} onClear={r.clear} />
+    {target && source ? <RouteScene from={source.chain} to={target} v={r.vitals} step={r.quote || r.busy || r.landed ? step : -1} asset="native" /> : null}
+    {target && source ? <><Vitals v={r.vitals} refreshIn={r.quote && !r.busy ? r.refreshIn : null} /><StepRail step={r.quote || r.busy || r.landed || r.failed ? step : -1} failed={r.failed} /></> : null}
+    {r.msg ? <p className={`br-msg ${r.failed ? 'bad' : ''}`} role="status">{r.msg}</p> : null}
+    <Landed landed={r.landed} to={target} />
+    {target && source ? <div className="br-go">{r.quote ? <><button type="button" className="m-btn" onClick={r.clear} disabled={r.busy}>Cancel</button>
+      <button type="button" className="btn-primary td-go m-go" disabled={r.busy} onClick={r.execute} data-testid="gas-sign">{r.busy ? (r.msg || 'Confirm in wallet…') : `⛽ Sign + fill $${usd}`}</button></>
+      : <button type="button" className="btn-primary td-go m-go" disabled={r.busy || !want} onClick={quote} data-testid="gas-quote">{r.busy ? 'Finding the best route…' : `⛽ Quote $${usd} of gas`}</button>}</div> : null}
   </div>;
 }
 
@@ -141,7 +98,7 @@ export function TradeDesk({ swap }) {
   return <section className="trade-desk" data-testid="trade-desk">
     <nav className="td-modes">{modes.map(([k, l, Icon]) => <button key={k} type="button" className={mode === k ? 'active' : ''} onClick={() => setMode(k)} data-testid={`td-mode-${k}`}>{Icon ? <Icon size={15} /> : null}{l}</button>)}</nav>
     {mode === 'swap' && swap}
-    {mode === 'bridge' && <Bridge />}
+    {mode === 'bridge' && <BridgeDesk />}
     {mode === 'gas' && <GetGas />}
     {mode === 'dust' && <React.Suspense fallback={<p className="m-dim">Loading…</p>}><DustCleanup /></React.Suspense>}
     <FeeExplainer onMode={setMode} />
@@ -181,8 +138,8 @@ export function SimpleTrade({ swap, pair }) {
     {edgePair && <section className="td-edge" data-testid="trade-edge"><h3>FEELESS Edge score · ${edgePair.baseToken?.symbol || 'this coin'}</h3><EdgeScore pair={edgePair} /></section>}
     <div className="td-info">
       <div><b>Swap</b><span>Best route across Solana DEXs (Jupiter) or any EVM chain (LI.FI). You see the exact output, price impact and fees before signing.</span></div>
-      <div><b>Bridge</b><span>Move native coins or USDC between 12 EVM chains. Most routes land in 1–5 minutes.</span></div>
-      <div><b>Gas</b><span>Empty on a chain? FEELESS turns coin you already hold elsewhere into gas there — one route, one signature.</span></div>
+      <div><b>Bridge</b><span>Move SOL, USDC or ETH between Solana and 11 EVM chains. Most routes land in seconds to a few minutes.</span></div>
+      <div><b>Gas</b><span>Empty on a chain? FEELESS turns SOL (or spare gas elsewhere) into gas there — one route, one signature.</span></div>
     </div>
   </div>;
 }

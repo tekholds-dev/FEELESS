@@ -25,7 +25,7 @@ export function watchBridge({ hash, fromChainId, toChainId, title = 'Bridge deli
   const tick = async () => {
     if (stop || n++ >= tries) { if (!stop) toast.warning('Bridge still pending', { description: 'Check the transaction on the explorer — nothing was resent.' }); return; }
     const s = await fetchImpl(apiUrl(`/api/lifi/status?txHash=${hash}&fromChain=${fromChainId}&toChain=${toChainId}`)).then(r => r.json()).catch(() => null);
-    if (s?.status === 'DONE') { moneyConfirmed({ title, chain: toChainId, hash: s.receiving?.txHash || hash, detail: 'Funds arrived on the destination chain.' }); return; }
+    if (s?.status === 'DONE') { moneyConfirmed({ title, chain: toChainId, hash: s.receiving || hash, detail: 'Funds arrived on the destination chain.' }); return; }
     if (s?.status === 'FAILED') { toast.error('Bridge failed', { description: s.substatusMessage || 'LI.FI reported the route failed. Check the explorer.' }); return; }
     setTimeout(tick, every);
   };

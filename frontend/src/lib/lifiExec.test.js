@@ -7,6 +7,13 @@ test('a clean LI.FI route to your own wallet passes', () => {
   expect(() => checkQuote(base(), { address: me.toLowerCase() })).not.toThrow();
 });
 
+test('a bridge to Solana pays YOUR Solana wallet (payTo), nobody else', () => {
+  const q = { ...base(), action: { fromAddress: me, toAddress: 'SoLMine1111111111111111111111111111111111111' } };
+  expect(() => checkQuote(q, { address: me }, 'SoLMine1111111111111111111111111111111111111')).not.toThrow();
+  expect(() => checkQuote(q, { address: me }, 'SoLOther111111111111111111111111111111111111')).toThrow(/different wallet/);
+  expect(() => checkQuote(q, { address: me })).toThrow(/different wallet/);
+});
+
 test('payout to someone else is refused', () => {
   const q = base(); q.action.toAddress = '0x0000000000000000000000000000000000000bad';
   expect(() => checkQuote(q, { address: me })).toThrow(/different wallet/);

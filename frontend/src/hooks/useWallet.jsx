@@ -207,6 +207,17 @@ export const WalletProvider = ({ children }) => {
     setWallet(next);
     return { wallet: next, provider: current.provider };
   };
+  // 🌉 The same wallet's OTHER side (Phantom Solana ↔ Phantom 0x…), read WITHOUT switching the active wallet — a bridge or a gas fill pays
+  // out there, so the destination is always an address your own wallet handed over. `silent`: only if the wallet already trusts the site.
+  const peekAddress = async (type, { silent = false } = {}) => {
+    if (wallet?.chain === type && !wallet.readOnly) return wallet.address;
+    const p = pairedProvider(brandOf(provider), type) || (type === 'solana' ? solanaProvider() : evmProvider());
+    if (!p) return null;
+    try {
+      if (type === 'solana') { const r = await p.connect(silent ? { onlyIfTrusted: true } : undefined); return (r?.publicKey || p.publicKey)?.toString() || null; }
+      const a = await p.request({ method: silent ? 'eth_accounts' : 'eth_requestAccounts' }); return a?.[0] || null;
+    } catch (e) { if (silent) return null; throw e; }
+  };
   const signMessage = async message => {
     if (!wallet || !provider) throw new Error('Connect a wallet before signing.');
     if (wallet.chain === 'solana') {
@@ -229,6 +240,6 @@ export const WalletProvider = ({ children }) => {
     provider.on?.(event, changed); provider.on?.('disconnect', reset); provider.on?.('chainChanged', chainChanged);
     return () => { provider.removeListener?.(event, changed); provider.removeListener?.('disconnect', reset); provider.removeListener?.('chainChanged', chainChanged); };
   }, [provider, wallet?.chain]); // eslint-disable-line react-hooks/exhaustive-deps
-  return <WalletContext.Provider value={{ wallet, connect, disconnect, provider, signMessage, switchTo, linkCandidate, linkAccounts }}>{children}</WalletContext.Provider>;
+  return <WalletContext.Provider value={{ wallet, connect, disconnect, provider, signMessage, switchTo, peekAddress, linkCandidate, linkAccounts }}>{children}</WalletContext.Provider>;
 };
 export const useWallet = () => useContext(WalletContext);
