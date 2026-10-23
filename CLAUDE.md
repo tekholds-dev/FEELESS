@@ -165,13 +165,18 @@ STANDING RULES (never "done"):
 - 🚀 NO RISK NO REWARD (owner): money surfaces lead with the aggressive play (MOON: tight v3 / DLMM bands on the busiest pools; DEGEN: the
   hottest fee pools) with the risk named — SAFE yields are one tap away, never the headline. "Think big, not the same utilities."
 
-P0-QUICK — OWNER 2026-10-23 night (right after the LP positions work)
-1. 🤖 NEXA isn't trading — find why (desk / gate / model stall) and fix.
-2. 🐱 FeeCat: one clear place to switch / apply a cat's WALLET (real mode) and watch it trade live.
-3. 💬 Agent chat bubbles on FeeCat's charts; the internal model names (NEXA / OSSY / G4) never shown to users yet.
-4. ⏱ While NEXA has a LIVE trade: quick trade questions to her faster (hold · skim · new SL · new TP), the live trade re-checked every ≤ 120 s.
-5. 🔌 RPC lanes: HQ › Core shows / takes SOLANA_RPC_URL_2 … _6 (free plans from different providers add up; the keeper + relay fall
-   through them) so the owner stops topping up one provider.
+P0-QUICK — OWNER 2026-10-23 night (THE one list of unfinished asks — HANDOFF.md only points here)
+1. 🤖 NEXA — FIXED at the root 2026-10-23: FeeCat's own lanes passed 0 of 42 coins, so her YES never reached a buy; her fresh YES is now a lane
+   (`feecat_service.nexa_lane`, $5K pool floor; every guard still runs). Watch: her picks now die at FeeCat's safety check (top-10 holders /
+   "no holder intel yet") — decide whether NEXA's YES should relax THAT guard (owner's call; today it does not).
+2. 📉 REAL PERPS WITH YOUR OWN USD in FEELESS (owner: "no paper perps — I want to use my USD"): blocked for US users by the standing rule until
+   counsel answers DECISIONS #1 (`docs/COUNSEL_BRIEF.md` §1) or a regulated venue's partner API (OAuth on the user's own account) is wired.
+   Until then the Perps desk must be VISUAL (live charts / meters, never text-only) — no new paper features.
+3. 🐱 FeeCat: one clear place to switch / apply a cat's WALLET (real mode) and watch it trade live.
+4. 💬 Agent chat bubbles on FeeCat's charts; internal model names (NEXA / OSSY / G4) never shown to users.
+5. ⏱ While NEXA holds a LIVE trade: quick questions to her faster (hold · skim · new SL · new TP), re-checked every ≤ 120 s (desk EVERY = 300 s today).
+6. 🔌 RPC lanes in HQ › Core (SOLANA_RPC_URL_2 … _6 — the keeper + relay already fall through them); Helius + Alchemy were OUT of quota.
+7. 🏝 Family town expands (bridges, pick lots, move buildings, stands, a MY POOLS combo building) · tight-range LP on Raydium / Orca / DLMM.
 
 P0 — MAKE THE MONEY MOVE IN PLACE (owner 2026-10-23: "I tightened a v3 pool with $100 and made $120 — no redirects"), hardest → easiest
 1. 🔌 IN-PLACE LP — SHIPPED 2026-10-23: join (`lib/lpBuilder.js`), one-tap ZAP (swap half via the FEELESS engine `lib/swapEngine.js` → join),
@@ -179,8 +184,6 @@ P0 — MAKE THE MONEY MOVE IN PLACE (owner 2026-10-23: "I tightened a v3 pool wi
    claim / remove / close in place (`components/LpPositions.jsx`) — join, claim, remove, close each SIMULATED clean on mainnet for real
    wallets. NEXT: Raydium CLMM + Orca Whirlpool + Meteora DLMM TIGHT ranges (install their SDKs; simulate each the same way) · re-center when
    out of range · auto-compound (claim → re-join) as a Night Vault errand.
-2. 📉 PERPS YOU SEE LIVE: the paper desk on the real chart (entry / liq lines, P&L ticking); REAL orders stay blocked for US users until
-   counsel answers DECISIONS #1 (`docs/COUNSEL_BRIEF.md` §1) — never route them to an offshore venue.
 3. 🏝 FAMILY TOWN EXPANDS: more islands joined by bridges, pick your own lots, MOVE buildings, add little stands (kiosks / food stalls / signs),
    a "MY POOLS" combo building (every LP / stake / lend position together, live) — the layout stored server-side per family.
 4. 🏦 BLOCK READERS (DECISIONS #5: each checked against a real on-chain account): Meteora DLMM · marginfi · Save · PumpSwap LP · Phoenix

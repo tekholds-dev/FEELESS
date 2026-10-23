@@ -15,8 +15,8 @@ Read this (2 min) → `CLAUDE.md` (lean rules + 🎨 MANDATORY STYLING + 📋 CU
 >    LIVE visual (meters, bars, animation on real numbers), never bare text. `styles/cssCoverage.test.js` fails on an unstyled class.
 
 ## 🔁 NOW (rewrite this section in place every session)
-**Updated 2026-10-23 (evening) · Opus 5.5** — the open list is `CLAUDE.md › 📋 CURRENT TASKS`. Next up: **P0.1 IN-PLACE LP** (tight ranges from the
-MOON desk; Meteora DAMM v2 SDK already installed, pattern = `lib/poolBuilder.js`).
+**Updated 2026-10-23 (late) · Opus 5.5** — ALL unfinished asks live in ONE place: `CLAUDE.md › 📋 CURRENT TASKS › P0-QUICK` (then P0…). Next up:
+item 3 (FeeCat wallet switch) unless the owner says otherwise. NEXA's lane shipped (feecat_service restarted via the watcher).
 
 Start of every task: `backend/.venv/bin/python scripts/cash-check.py degen 30` (≈ 1 min, sandbox off). Last run 2026-10-23 09:42: card COVERED ·
 coins atom for atom · 30 / 30 swaps match · 145 / 145 sells reconcile (realized −$1.81) · gas reserve short 0.010 SOL.

@@ -249,6 +249,17 @@ async def _sol_pairs(http, mints):
     return out
 
 
+NEXA_MIN_LIQ = 5000.0   # 🪟 trench law: a pool under $5K can't be exited — her YES never overrides that
+
+
+def nexa_lane(p):
+    """🪟 NEXA's YES is the lane: (score, reason) when the pool can be exited, else (None, why). Pure (tests)."""
+    liq = _num((p.get('liquidity') or {}).get('usd'))
+    if liq < NEXA_MIN_LIQ:
+        return None, f'🪟 NEXA said yes but the pool is under ${NEXA_MIN_LIQ / 1000:.0f}K — no exit'
+    return 1.0, '🪟 NEXA said YES'
+
+
 async def _pair_prices(http, pair_addresses):
     out = {}
     for i in range(0, len(pair_addresses), 30):
@@ -760,16 +771,36 @@ async def run_engine(store, cats):
         candidates, fuse_view, crowd_feed, duo = await asyncio.gather(_market_candidates(http), _fuse_discover(http), _crowd_feed(http), _duo_read(http))
     duo_avoid, duo_exit = set(duo.get('avoid') or []), set(duo.get('exit') or [])   # 🐱🤝 only what BOTH AI models agreed on
     nexa_read = _cm.read_of(duo.get('nexa'), now)   # 🪟 a cat assigned to NEXA buys her favored coins + sells her exits (fresh reads only)
+    # 🪟 NEXA'S LANE (owner, 2026-10-23: "nexa not trading"): her desk said YES to 6 coins while FeeCat's own lanes passed 0 of 42 — FeeCat only
+    # walks her own list, so NEXA never traded. Her fresh YES now IS the lane (it replaces the age / cap-band filters); every guard still runs:
+    # the chart's setup gate, a $5K pool floor, the rug / safety check, cooldowns, discipline. Her picks the feed didn't carry are fetched.
+    nx_fav = set(nexa_read['favor']) if nexa_read and any(_cm.model_of(c_) for c_ in cats) else set()
+    if nx_fav:
+        have_ = {p_.get('pairAddress') for p_ in candidates}
+        miss_ = sorted(nx_fav - have_)[:12]
+        if miss_:
+            try:
+                async with httpx.AsyncClient(timeout=10) as http_n:
+                    r_n = await http_n.get(f'https://api.dexscreener.com/latest/dex/pairs/solana/{",".join(miss_)}')
+                    candidates = list(candidates) + [p_ for p_ in (r_n.json().get('pairs') or []) if p_.get('pairAddress') in nx_fav]
+            except Exception:
+                pass
     ranked, rejections = [], {}
     for p in candidates:
         score, reason = (None, None)
-        if p.get('_src') == 'agents':   # 🐱🤖 the agents' coins: the agents' band (+ her overrides), not her old lanes
+        if p.get('pairAddress') in nx_fav:
+            score, reason = nexa_lane(p)
+            if score is None:
+                rejections[reason] = rejections.get(reason, 0) + 1
+                continue
+            p['_nexa'] = True
+        if score is None and p.get('_src') == 'agents':   # 🐱🤖 the agents' coins: the agents' band (+ her overrides), not her old lanes
             score, reason = _agents_qualifies(p, now, agent_lane(_POOL_META.get('limits'), (store['cats'].get(LEADER_ID) or {}).get('agentLane')))
             if score is not None:
                 p['_agentsLane'] = True
-        if score is None and p.get('_src') != 'agents':
+        if score is None and p.get('_src') != 'agents' and not p.get('_nexa'):
             score, reason = _qualifies(p, now)
-        if score is None and p.get('_src') != 'agents':
+        if score is None and p.get('_src') != 'agents' and not p.get('_nexa'):
             fscore, freason = _fresh_qualifies(p, now)
             if fscore is not None:
                 p['_fresh'] = True
