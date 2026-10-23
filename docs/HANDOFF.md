@@ -28,6 +28,12 @@
   AI round, ≤ 1 / 5 min) applies AUTO-TUNED after any applied set's 6 h cooldown, never re-applies the same tune, logs `autoLog`.
   + 🏆 MINDSET LADDER: `history` of every apply / revert cuts each model's trades by the mindset on when they OPENED (plain = no set);
   proven (≥ 5) rank by average %, then proving, then not tried. All in data/prompt_studio.json.
+- 🧠 BRAIN › MODELS = LM STUDIO'S PANEL (2026-10-23): `ModelDesk.jsx` (vital cards for G4 / OSSY / NEXA + the picked model's ℹ INFO · ⚙ LOAD
+  (ModelRig only + bare) · 🌡 INFERENCE · 🖥 SERVER · 🔌 MCP) fed by `/admin/ai/models` (`model_desk.py`: LM Studio GET /api/v1/models, llamafile
+  /props + /slots, the router's CALL_LOG with real usage tokens, FEELESS MCP tools/list). Inference overrides (temp, length, top-p/k, min-p, repeat
+  penalty, seed, stop) live in ai_rig.json `infer` and ride every call before the chat's own tuning. Preview /dev/brain › Models.
+- 🏙 OWNER'S NEWEST FAMILIA ORDER (2026-10-23) → CLAUDE.md › F0: perps orders in the pop-out (US-legal venue APIs, owner + legal first) · pick
+  your town's buildings · a city that breathes · Familia as its own app.
 - 🎭 MINDSET REACHES THE MODELS — proved 2026-10-23 00:20 with `scripts/mindset-probe.py` (one call each through ai_router._call1, a test mindset
   with a codename, nothing stored): G4 (LAN LM Studio, qwen3-4b) "GREEN-FALCON" 1.1 s · OSSY (Mac LM Studio, gpt-oss-20b) "GOLD-VIPER" 25 s · NEXA
   (Windows llamafile) "NIGHT-OWL" 20 s. FEELESS sends it inside every API call's system message; LM Studio's own preset box never shows it.

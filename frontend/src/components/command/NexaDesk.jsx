@@ -65,8 +65,8 @@ export function NexaDesk({ call }) {
     <p className="nxd-real" data-testid="nexa-real">💵 Real money: {d?.real?.why || 'FeeCat trades paper.'}</p>
     <details className="nxd-chat" data-testid="nexa-chat" open><summary>💬 Talk to Nexa <small>she answers from her own FeeCat desk — record, last read, tunes, notebook</small></summary>
       <div className="nxd-chatrow"><NexaVitals call={call} desk={d} /><div className="nxd-chatbox"><AiChat call={call} variant="mini" lockProvider="win" title="🪟 NEXA" /></div>
-        <aside className="nxd-rigcol"><details className="nxd-rig" data-testid="nexa-rig" open><summary data-tip="Every model's Load + Inference settings — LOADED now vs WANTED (saved): G4 + OSSY in LM Studio, NEXA's llamafile — with presets">⚙ MODELS · loaded vs saved · LM Studio + llama</summary>
-          <ModelRig call={call} /></details></aside></div></details>
+        <aside className="nxd-rigcol"><details className="nxd-rig" data-testid="nexa-rig" open><summary data-tip="NEXA's own llamafile settings — what she runs vs what is saved, presets. Every model's full panel (info · load · inference · server · MCP) is Brain › 🧠 Models">⚙ NEXA'S RIG · llamafile</summary>
+          <ModelRig call={call} only="win" bare /></details></aside></div></details>
   </section>;
 }
 

@@ -17875,6 +17875,112 @@ async def _lms_states(fresh=False):
     return {k_: (_lms_seen.get(k_) or (0, None))[1] for k_ in ('lan', 'local')}
 
 
+# 🧠 THE MODEL DESK (owner, 2026-10-23: "the Models tab should really show it all — server settings, MCP, load, inference … more vitals"):
+# Brain › Models per model = INFO · LOAD · INFERENCE · SERVER · MCP + live VITALS for every model (model_desk.py). One cached read per source.
+import model_desk as _mdk   # noqa: E402
+_mdk_seen: dict = {}
+
+
+async def _mdk_cached(tag, ttl, fn):
+    hit = _mdk_seen.get(tag)
+    if hit and time.time() - hit[0] < ttl:
+        return hit[1]
+    try:
+        v = await fn()
+    except Exception as e:
+        v = {'err': type(e).__name__}
+    _mdk_seen[tag] = (time.time(), v)
+    return v
+
+
+async def _mdk_lms(key):
+    """LM Studio's own model list for one model's server → {data, ms, base} (raw, so INFO shows every field it reports)."""
+    async def go():
+        p_ = _air.provider(os.environ, key, _ai_cfg())
+        if not p_.get('enabled') or not p_.get('base'):
+            return {'err': p_.get('why') or 'off', 'base': p_.get('base')}
+        root_ = _re.sub(r'/v1/?$', '', str(p_['base']).rstrip('/'))
+        t0_ = time.perf_counter()
+        r_ = await asyncio.wait_for(_ai_http().get(root_ + '/api/v1/models', **_air._lm_auth(os.environ, key)), timeout=5)
+        return {'data': r_.json() if r_.status_code == 200 else None, 'ms': round((time.perf_counter() - t0_) * 1000), 'base': p_['base'],
+                'err': None if r_.status_code == 200 else f'HTTP {r_.status_code}', 'model': p_.get('model')}
+    return await _mdk_cached(f'lms:{key}', 15, go)
+
+
+async def _mdk_llama():
+    """NEXA's llamafile: /props + /slots + /health → {props, slots, ms}."""
+    async def go():
+        root_ = _nexa_root()
+        if not root_:
+            return {'err': 'NEXA is not configured'}
+        t0_ = time.perf_counter()
+        p_, s_ = await asyncio.wait_for(asyncio.gather(_ai_http().get(f'{root_}/props'), _ai_http().get(f'{root_}/slots')), timeout=5)
+        return {'props': p_.json() if p_.status_code == 200 else None, 'slots': s_.json() if s_.status_code == 200 else None,
+                'ms': round((time.perf_counter() - t0_) * 1000), 'base': root_, 'err': None if p_.status_code == 200 else f'HTTP {p_.status_code}'}
+    return await _mdk_cached('llama', 10, go)
+
+
+async def _mdk_mcp():
+    """FEELESS's MCP server (feeless_mcp.py) as a model sees it: tools/list over its authenticated JSON-RPC."""
+    async def go():
+        import feeless_mcp as _mcp_
+        port_ = int(os.environ.get('FEELESS_MCP_PORT', '8765'))
+        t0_ = time.perf_counter()
+        try:
+            r_ = await asyncio.wait_for(_ai_http().post(f'http://127.0.0.1:{port_}/mcp', json={'jsonrpc': '2.0', 'id': 1, 'method': 'tools/list'},
+                                                        headers={'Authorization': f'Bearer {_mcp_.token()}', 'Accept': 'application/json, text/event-stream'}), timeout=5)
+            tools_ = ((r_.json() or {}).get('result') or {}).get('tools') or [] if r_.status_code == 200 else []
+            return _mdk.mcp_view(tools_, round((time.perf_counter() - t0_) * 1000), None if r_.status_code == 200 else f'HTTP {r_.status_code}', f':{port_}/mcp')
+        except Exception as e:
+            return _mdk.mcp_view([], None, type(e).__name__, f':{port_}/mcp')
+    return await _mdk_cached('mcp', 60, go)
+
+
+async def _model_desk_view():
+    rig_ = _rig_apply()
+    lan_, local_, llama_, mcp_ = await asyncio.gather(_mdk_lms('lan'), _mdk_lms('local'), _mdk_llama(), _mdk_mcp())
+    v_ = _air.ROUTER.view(os.environ, _ai_cfg())
+    live_ = {r_['key']: r_ for r_ in v_.get('providers') or []}
+    live_['win'] = {'state': _air.ROUTER.stats['win'].get('state'), 'lastMs': _air.ROUTER.stats['win'].get('lastMs')}
+    log_ = list(_air.CALL_LOG)
+    act_ = _studio_apply()
+    out_ = []
+    for k_, raw_ in (('lan', lan_), ('local', local_), ('win', llama_)):
+        lv_ = live_.get(k_) or {}
+        p_ = _air.provider(os.environ, k_, _ai_cfg())
+        if k_ == 'win':
+            info_ = _mdk.llama_info((raw_ or {}).get('props'), (raw_ or {}).get('slots')) if not (raw_ or {}).get('err') else None
+            ctx_ = (info_ or {}).get('ctxPerSlot')
+            server_ = {'endpoint': _mdk.host_of((raw_ or {}).get('base')), 'api': 'llamafile (llama.cpp) · OpenAI /v1 + /props /slots /health', 'ok': bool(info_),
+                       'ms': (raw_ or {}).get('ms'), 'err': (raw_ or {}).get('err'), 'slots': (info_ or {}).get('slots'), 'busy': (info_ or {}).get('busy'),
+                       'keySet': bool(str(os.environ.get('WIN_LLM_API_KEY') or '').strip())}
+        else:
+            row_, listed_ = _mdk.lms_pick((raw_ or {}).get('data'), (raw_ or {}).get('model'))
+            info_ = _mdk.lms_info(row_)
+            ctx_ = (info_ or {}).get('loadedCtx')
+            server_ = {'endpoint': _mdk.host_of((raw_ or {}).get('base')), 'api': 'LM Studio · OpenAI /v1 + REST /api/v1', 'ok': bool((raw_ or {}).get('data')),
+                       'ms': (raw_ or {}).get('ms'), 'err': (raw_ or {}).get('err'), 'listed': listed_, 'instances': (info_ or {}).get('instances'),
+                       'keySet': bool(_air._lm_auth(os.environ, k_).get('headers'))}
+        rg_ = rig_.get(k_) or {}
+        server_.update(timeout=rg_.get('timeout'), parallel=rg_.get('parallel'), perMin=rg_.get('perMin'), state=lv_.get('state'), lastOkAt=lv_.get('lastOkAt'))
+        a_ = act_.get(k_)
+        out_.append({'key': k_, 'name': _air.model_name(os.environ, k_), 'state': lv_.get('state'), 'model': (info_ or {}).get('name') or p_.get('model'),
+                     'info': info_, 'server': server_, 'vitals': _mdk.vitals(log_, _air.INFLIGHT, k_, ctx_),
+                     'inference': {'infer': rg_.get('infer') or {}, 'desk': {'temp': 0.1, 'maxTok': _air.MAX_TOKENS},
+                                   'runtime': (info_ or {}).get('defaults') if k_ == 'win' else None,
+                                   'reasoning': (info_ or {}).get('reasoning') if k_ != 'win' else None,
+                                   'mindset': {'set': a_['set'], 'seen': _air.MINDSET_SEEN.get(k_)} if a_ else None,
+                                   'speculative': (info_ or {}).get('speculative') if k_ == 'win' else None}})
+    return {'models': out_, 'mcp': mcp_, 'bounds': {k_: [lo_, hi_] for k_, (lo_, hi_, _t) in __import__('ai_rig').INFER_BOUNDS.items()}, 'at': time.time()}
+
+
+@app.get('/api/reputation/admin/ai/models')
+async def admin_ai_models(request: Request):
+    """🧠 Owner: Brain › Models — every model's INFO · SERVER · INFERENCE · VITALS (what LM Studio / llamafile really report) + FEELESS's MCP."""
+    _require_owner(request)
+    return await _model_desk_view()
+
+
 # 🎭 PROMPT STUDIO (owner, 2026-10-22): each model's live context, its record, what the record says is wrong, and four prompt sets written from it
 # (ELITE · DEGEN TRENCH · PROGRESSIVE · AUTO-TUNED). The owner applies one → the router appends it to every call that model gets (prompt_studio.py).
 import prompt_studio as _pstu   # noqa: E402

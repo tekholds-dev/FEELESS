@@ -1,6 +1,7 @@
 import React, { useCallback, useRef } from 'react';
 import { AiChat } from '../components/command/AiChat';
 import { STUDIO } from '../components/command/__fixtures__/promptStudio';
+import { desk } from '../components/command/__fixtures__/modelDesk';
 
 // 🧪 DEV ONLY (`/dev/brain`, never in a production build — index.js imports it behind NODE_ENV): the Brain on fixtures — Talk with a settings
 // line that becomes 🎛 rig proposals, and Brain › Models = the LM Studio rig (OSSY MLX loaded, G4 GGUF, NEXA llamafile). No backend touched.
@@ -22,11 +23,12 @@ export default function BrainHarness() {
   const props = () => ({ pending: st.current.props.filter(p => p.status === 'pending'), decided: st.current.props.filter(p => p.status !== 'pending') });
   const call = useCallback(async (u, o) => { const s = st.current; const b = o?.body ? JSON.parse(o.body) : null;
     await new Promise(r => setTimeout(r, 120));
+    if (u === '/admin/ai/models') return desk({ lan: s.rig.lan.infer, local: s.rig.local.infer, win: s.rig.win.infer });   // 🧠 Model Desk on fixtures
     if (u === '/admin/ai/prompts') { if (b) s.studio = { ...(s.studio || STUDIO), models: (s.studio || STUDIO).models.map(m => (m.key !== b.key ? m : 'auto' in b ? { ...m, auto: { ...m.auto, on: b.auto } }
       : { ...m, active: b.revert ? null : { set: b.set, text: b.text || '', at: Date.now() / 1000, edited: !!b.text, since: { n: 0 } } })) };
       return s.studio || STUDIO; }   // 🎭 Prompt Studio on fixtures
     if (u === '/admin/ai/rig') { if (b?.reload) return { ...view(), reload: { ok: true, ms: 9100 } };
-      if (b) Object.entries(b).forEach(([k, row]) => { if (row?.load) s.rig[k].load = { ...s.rig[k].load, ...row.load }; else Object.assign(s.rig[k], row); }); return view(); }
+      if (b) Object.entries(b).forEach(([k, row]) => { if (row?.infer) { s.rig[k].infer = Object.fromEntries(Object.entries({ ...(s.rig[k].infer || {}), ...row.infer }).filter(([, v]) => v != null)); return; } if (row?.load) s.rig[k].load = { ...s.rig[k].load, ...row.load }; else Object.assign(s.rig[k], row); }); return view(); }
     if (u === '/admin/ai/chat/settings') { Object.assign(s.chat, b); return { ok: true, settings: s.chat }; }
     if (u === '/admin/ai/calls') return { inflight: [] };
     if (u === '/admin/ai/proposals/decide') { const p = s.props.find(x => x.id === b.id); p.status = b.approve ? 'approved' : 'rejected'; if (b.approve) p.applied = p.key.endsWith('.load') ? 'OSSY reloaded in 9.1s — LM Studio reports 16K context · ×1 at once' : 'live now'; return { ok: true, applied: p.applied, proposals: props() }; }

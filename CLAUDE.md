@@ -194,7 +194,18 @@ P. ✅ SHIPPED 2026-10-22 (Brain › 🎭 Prompts, `prompt_studio.py`, `ai_route
    and a PROGRESSIVE mix ("quick in, patient while in profit, rush when it runs") — one tap APPLIES to LM Studio / llama (rig reload path that
    exists: Brain › Models). AUTO-TUNE: when a model's graded record turns red (proof bench, NEXA's YES grades, duo totals), propose the prompt
    change that fixes its mindset, with the evidence; the owner applies. OSSY / G4 keep taking turns (one trade each, the holder runs it).
-M. 🧠 BRAIN › MODELS = LM STUDIO'S OWN PANEL, IN FEELESS (owner, 2026-10-23, hardest → easiest):
+F0. 🏙 FAMILIA = ITS OWN APP (owner, 2026-10-23, LOUD: "no redirects!! … fun and addicting, not sending ppl everywhere"), hardest → easiest:
+   1. PERPS ORDERS IN THE POP-OUT: pick a provider, size, long / short, and the order is made right in the building — for US users only through a
+      US-legal venue's official API on the user's own account (Kraken Pro / Coinbase, OAuth or user keys, never FEELESS custody) → owner + legal
+      sign-off first; the build after that is the provider SDK + guards + a LIT order ticket. Never an offshore venue for US users (rule 1c).
+   2. CHOOSE YOUR TOWN'S BUILDINGS: the family picks which buildings its town has (a Perps desk, Trench Towers, a Pool…) — "we're gonna be
+      perps and trenching"; each chosen building = its real tool + live data.
+   3. FEE CITY BREATHES: far fewer, bigger, spaced-out buildings; every useless / duplicate building cut; open land between districts.
+   4. FAMILIA AS ITS OWN APPLICATION in FEELESS: its own bundle (lazy, preloaded), own shell + nav, everything done inside it.
+M. ✅ SHIPPED 2026-10-23 (Brain › 🧠 Models = `ModelDesk.jsx` + `model_desk.py`, /admin/ai/models): vitals for every model (tok/s from real usage,
+   ok %, median · p90, queue, ctx fill, last answer, 🎭 mindset) + the picked model's INFO · LOAD · INFERENCE (overrides ride every call:
+   `ai_rig.clean_infer` → `ai_router`) · SERVER · MCP; one model at a time (nothing cut off); NEXA's column shows only her rig. Was:
+   🧠 BRAIN › MODELS = LM STUDIO'S OWN PANEL, IN FEELESS (owner, 2026-10-23, hardest → easiest):
    1. Per model the LM Studio tabs — INFO (model, params, format, quant, size, arch, max ctx) · LOAD (context, GPU offload, CPU threads, eval
       batch, flash attention, KV cache, keep in memory, mmap, seed, parallel — the `lms load` reload path that exists) · INFERENCE (preset,
       SYSTEM PROMPT = what FEELESS really sends: seat prompt + the 🎭 applied mindset, temperature, limit response length, context overflow,

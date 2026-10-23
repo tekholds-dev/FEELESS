@@ -73,7 +73,7 @@ function Presets({ k, list, busy, onAct }) {
       <button type="submit" className="m-btn" disabled={!!busy || !name.trim()} data-tip="Save this model's settings right now as a preset" data-testid={`rig-${k}-preset-save`}>Save</button></form></div>;
 }
 
-export function ModelRig({ call, only = null }) {   // `only` = one model's card (e.g. 'win' beside NEXA's chat)
+export function ModelRig({ call, only = null, bare = false, cards = true }) {   // `only` = one model's card · `bare` = no header / chat strip (Brain › Models › LOAD) · `cards` false = the chat strip alone
   const [d, setD] = useState(null); const [busy, setBusy] = useState(''); const [err, setErr] = useState(''); const [note, setNote] = useState(null);
   const load = useCallback(() => call('/admin/ai/rig').then(setD).catch(e => setErr(String(e?.message || e))), [call]);
   const applying = d?.nexa?.state === 'applying' || (d?.reloading || []).length > 0;
@@ -95,15 +95,15 @@ export function ModelRig({ call, only = null }) {   // `only` = one model's card
   const say = t => window.dispatchEvent(new CustomEvent('feeless:brain-say', { detail: { text: t } }));
   if (!d?.rows) return <p className="mrg-wait">{err || 'reading the rig…'}</p>;
   return <div className="mrg" data-testid="model-rig">
-    <header className="mrg-head"><b>🎛 LM STUDIO RIG</b><small>LOADED = what LM Studio reports · LOAD = applied only when you tap ⚡ Reload · SENDS + INFERENCE = live at once</small></header>
-    {d.chat ? <section className="mrg-inf" data-testid="rig-inference"><em className="mrg-lbl">🌡 INFERENCE · BRAIN CHAT</em>
+    {!bare && cards ? <header className="mrg-head"><b>🎛 LM STUDIO RIG</b><small>LOADED = what LM Studio reports · LOAD = applied only when you tap ⚡ Reload · SENDS + INFERENCE = live at once</small></header> : null}
+    {d.chat && !bare ? <section className="mrg-inf" data-testid="rig-inference"><em className="mrg-lbl">🌡 INFERENCE · BRAIN CHAT</em>
       <div className="mrg-seg" data-tip="Temperature: how loose the answers get">{TEMPS.map(([v, l]) => <button key={v} type="button" className={d.chat.temp === v ? 'active' : ''} disabled={!!busy}
         onClick={() => chatSet({ temp: v })} data-testid={`rig-chat-temp-${v}`}>{l}<small>{v}</small></button>)}</div>
       <div className="mrg-seg" data-tip="Response length (max tokens per answer)">{Object.entries(d.chat.lens || {}).map(([k, n]) => <button key={k} type="button" className={d.chat.len === k ? 'active' : ''} disabled={!!busy}
         onClick={() => chatSet({ len: k })} data-testid={`rig-chat-len-${k}`}>{k}<small>{n}</small></button>)}</div></section> : null}
-    <p className="mrg-say"><em>💬 OR SAY IT</em>{SAY.map(t => <button key={t} type="button" onClick={() => say(t)} data-tip="Puts this line in Talk — it becomes a proposal you ✅" data-testid={`rig-say-${t.split(' ')[0]}`}>“{t}”</button>)}</p>
+    {bare ? null : <p className="mrg-say"><em>💬 OR SAY IT</em>{SAY.map(t => <button key={t} type="button" onClick={() => say(t)} data-tip="Puts this line in Talk — it becomes a proposal you ✅" data-testid={`rig-say-${t.split(' ')[0]}`}>“{t}”</button>)}</p>}
     {note ? <p className={`mrg-note ${note.ok ? 'is-ok' : 'is-bad'}`} data-testid="rig-reload-note">{note.ok ? `✅ reloaded in ${(note.ms / 1000).toFixed(1)}s${note.note ? ` · ${note.note}` : ''}` : `✕ reload failed — ${note.err}`}</p> : null}
-    <div className={`mrg-grid ${only ? 'is-one' : ''}`}>{d.rows.filter(r => !only || r.key === only).map((r, i) => { const lv = d.live?.[r.key] || {}; const lm = r.lms; const gguf = String(lm?.fmt || 'gguf').toLowerCase() === 'gguf';
+    {cards ? <div className={`mrg-grid ${only ? 'is-one' : ''}`}>{d.rows.filter(r => !only || r.key === only).map((r, i) => { const lv = d.live?.[r.key] || {}; const lm = r.lms; const gguf = String(lm?.fmt || 'gguf').toLowerCase() === 'gguf';
       const inst = lm?.loaded?.[0] || {}; const diff = Object.keys(r.diff || {}); const reloading = (d.reloading || []).includes(r.key) || busy === `reload.${r.key}`;
       return <section key={r.key} className={`mrg-card k-${r.key} ${diff.length ? 'is-diff' : ''}`} style={{ '--i': i }} data-testid={`rig-${r.key}`}>
         <header><span className="mrg-sweep" aria-hidden />{AV[r.key] ? <img src={AV[r.key]} alt="" /> : <i className="mrg-av">🪟</i>}<b>{r.name}</b>{lm?.name ? <small className="mrg-model">{String(lm.name).split('/').pop()}</small> : null}
@@ -125,7 +125,7 @@ export function ModelRig({ call, only = null }) {   // `only` = one model's card
               aria-busy={busy === `${r.key}.${f}`} onClick={() => save(r.key, f, v)} data-testid={`rig-${r.key}-${f}-${v}`}>{word(v)}</button>)}</div></div>)}</div>
         <Presets k={r.key} list={d.presets?.[r.key] || []} busy={busy} onAct={preset} />
         {r.key === 'win' ? <NexaRuntime n={d.nexa} busy={busy} onAct={nexa} /> : <code className="mrg-cmd" data-tip="The same load as a terminal command (run it where the model lives)">{r.cmd}</code>}
-      </section>; })}</div>
+      </section>; })}</div> : null}
     {err ? <p className="mrg-err">{err}</p> : null}
   </div>;
 }

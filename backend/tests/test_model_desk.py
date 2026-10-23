@@ -1,0 +1,68 @@
+"""🧠 Brain › Models (owner, 2026-10-23): INFO / SERVER / INFERENCE / VITALS read from what LM Studio, NEXA's llamafile, the router and the
+FEELESS MCP really report — and the owner's Inference overrides ride every call to that model."""
+import asyncio
+
+import ai_rig as rg
+import ai_router as ar
+import model_desk as md
+
+LMS = {'models': [{'type': 'llm', 'publisher': 'openai', 'key': 'openai/gpt-oss-20b', 'display_name': 'GPT-OSS 20B', 'architecture': 'gpt_oss',
+                   'quantization': {'name': 'MXFP4', 'bits_per_weight': 4}, 'size_bytes': 12104314420, 'params_string': '20B', 'max_context_length': 131072,
+                   'loaded_instances': [{'id': 'openai/gpt-oss-20b', 'config': {'context_length': 8192, 'parallel': 2}}], 'format': 'mlx',
+                   'capabilities': {'vision': False, 'trained_for_tool_use': True, 'reasoning': {'allowed_options': ['low', 'medium', 'high'], 'default': 'low'}},
+                   'selected_variant': 'openai/gpt-oss-20b@mxfp4'}, {'type': 'embedding', 'key': 'nomic'}]}
+PROPS = {'default_generation_settings': {'params': {'temperature': 0.8, 'top_k': 40, 'top_p': 0.95, 'min_p': 0.05, 'repeat_penalty': 1.0, 'seed': 4294967295}},
+         'model_path': '/C/Users/User/Downloads/Qwen2.5-1.5B-Instruct-Q4_K_M.gguf', 'total_slots': 1}
+SLOTS = [{'id': 0, 'n_ctx': 2048, 'speculative': False, 'is_processing': True}]
+
+
+def test_info_reads_lm_studio_and_llamafile_as_they_report():
+    row, n = md.lms_pick(LMS, 'openai/gpt-oss-20b')
+    i = md.lms_info(row)
+    assert n == 1 and i['name'] == 'GPT-OSS 20B' and i['arch'] == 'gpt_oss' and i['quant'] == 'MXFP4' and i['bits'] == 4 and i['sizeGb'] == 12.1
+    assert i['loadedCtx'] == 8192 and i['parallel'] == 2 and i['toolUse'] and not i['vision'] and i['reasoning'] == {'options': ['low', 'medium', 'high'], 'default': 'low'}
+    n_ = md.llama_info(PROPS, SLOTS)
+    assert n_['model'] == 'Qwen2.5-1.5B-Instruct-Q4_K_M.gguf' and n_['format'] == 'GGUF' and n_['quant'] == 'Q4_K_M' and n_['ctxPerSlot'] == 2048
+    assert n_['slots'] == 1 and n_['busy'] == 1 and n_['defaults']['temperature'] == 0.8 and n_['defaults']['top_k'] == 40.0
+    assert md.lms_info(None) is None and md.host_of('http://10.0.0.249:1236/v1') == 'http://10.0.0.249:1236'
+
+
+def test_vitals_from_the_call_log():
+    log = [{'prov': 'lan', 'ok': True, 'ms': 2000, 'out': 100, 'in': 3000, 'at': 10}, {'prov': 'lan', 'ok': True, 'ms': 4000, 'out': 100, 'at': 20},
+           {'prov': 'lan', 'ok': False, 'err': 'timeout', 'at': 30, 'tok': 4352, 'mindset': 'elite'}, {'prov': 'local', 'ok': True, 'ms': 9000, 'at': 40}]
+    v = md.vitals(log, {'c1': {'prov': 'lan'}, 'c2': {'prov': 'local'}}, 'lan', 8704)
+    assert v['calls'] == 3 and v['okPct'] == 67 and v['medMs'] == 4000 and v['tokPerSec'] == 50.0 and v['queue'] == 1 and v['errors'] == 1
+    assert v['lastErr'] == 'timeout' and v['ctxFill'] == 0.5 and v['lastOkAt'] == 20 and v['mindset'] == 'elite'
+    assert md.vitals([], {}, 'win')['okPct'] is None
+
+
+def test_inference_overrides_are_bounded_and_ride_every_call():
+    r = rg.clean({'lan': {'infer': {'temp': 3, 'maxTok': 10, 'topK': 40, 'stop': 'END|###|', 'bogus': 1}}})
+    assert r['lan']['infer'] == {'temp': 1.5, 'maxTok': 32, 'topK': 40, 'stop': ['END', '###']}
+    r2 = rg.clean({'lan': {'infer': {'temp': None, 'stop': ''}}}, r)
+    assert r2['lan']['infer'] == {'maxTok': 32, 'topK': 40} and 'infer' not in r2['local']
+    assert rg.infer_body({'temp': 0.4, 'topP': 0.9, 'stop': ['X']}) == {'temperature': 0.4, 'top_p': 0.9, 'stop': ['X']}
+    src = open(ar.__file__).read()
+    assert "inf_ = (RIG.get(p['key']) or {}).get('infer')" in src and src.index("body.update(_rg.infer_body(inf_))") < src.index("tn = TUNE.get()")   # chat tuning still wins
+
+
+def test_mcp_view_and_the_endpoint(monkeypatch):
+    m = md.mcp_view([{'name': 'now', 'description': "Today's date. Call it."}, {'description': 'nameless'}], 12, None, ':8765/mcp')
+    assert m['ok'] and m['n'] == 1 and m['tools'][0] == {'name': 'now', 'desc': "Today's date"}
+    assert not md.mcp_view([], None, 'ConnectError')['ok']
+    import reputation_service as rs
+
+    async def lms(key):
+        return {'data': LMS, 'ms': 30, 'base': 'http://10.0.0.249:1236/v1', 'model': 'openai/gpt-oss-20b'}
+
+    async def llama():
+        return {'props': PROPS, 'slots': SLOTS, 'ms': 40, 'base': 'http://10.0.0.5:8080'}
+
+    async def mcp():
+        return m
+    monkeypatch.setattr(rs, '_mdk_lms', lms); monkeypatch.setattr(rs, '_mdk_llama', llama); monkeypatch.setattr(rs, '_mdk_mcp', mcp)
+    v = asyncio.run(rs._model_desk_view())
+    assert [x['key'] for x in v['models']] == ['lan', 'local', 'win'] and v['mcp']['n'] == 1 and v['bounds']['temp'] == [0.0, 1.5]
+    g4, nexa = v['models'][0], v['models'][2]
+    assert g4['info']['arch'] == 'gpt_oss' and g4['server']['endpoint'] == 'http://10.0.0.249:1236' and g4['server']['ok'] and g4['inference']['desk']['temp'] == 0.1
+    assert nexa['info']['ctxPerSlot'] == 2048 and nexa['inference']['runtime']['top_k'] == 40.0 and nexa['server']['busy'] == 1

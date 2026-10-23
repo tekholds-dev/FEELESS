@@ -112,9 +112,52 @@ def load_diff(want, loaded):
     return {k: (cur.get(k), v) for k, v in (want or {}).items() if cur.get(k) != v}
 
 
+# 🌡 INFERENCE OVERRIDES (owner, 2026-10-23: LM Studio's Inference panel in FEELESS): what FEELESS sends with EVERY call to one model — the same
+# knobs LM Studio's panel has (temperature, limit response length, sampling, stop strings, seed). Unset = FEELESS's own default (the desk's 0.1,
+# its answer budget). The Brain chat's own temp / length still win in chat; NEXA's answer cap still clamps her (speed).
+INFER_BOUNDS = {'temp': (0.0, 1.5, float), 'maxTok': (32, 4096, int), 'topP': (0.05, 1.0, float), 'topK': (1, 200, int), 'minP': (0.0, 0.5, float),
+                'repeatPenalty': (0.8, 1.5, float), 'seed': (0, 2 ** 31 - 1, int)}
+INFER_SEND = {'temp': 'temperature', 'maxTok': 'max_tokens', 'topP': 'top_p', 'topK': 'top_k', 'minP': 'min_p', 'repeatPenalty': 'repeat_penalty', 'seed': 'seed', 'stop': 'stop'}
+
+
+def clean_infer(d, prev=None):
+    """Owner input → bounded overrides. None / '' clears a field (back to FEELESS's default); stop = ≤ 4 strings ≤ 24 chars."""
+    out = dict(prev or {})
+    for k, v in (d or {}).items() if isinstance(d, dict) else ():
+        if k not in INFER_SEND:
+            continue
+        if v is None or v == '' or v == []:
+            out.pop(k, None)
+            continue
+        if k == 'stop':
+            xs = [str(x)[:24] for x in (v if isinstance(v, list) else str(v).split('|')) if str(x).strip()][:4]
+            if xs:
+                out[k] = xs
+            else:
+                out.pop(k, None)
+            continue
+        lo, hi, typ = INFER_BOUNDS[k]
+        try:
+            x = typ(float(v))
+        except (TypeError, ValueError):
+            continue
+        out[k] = max(lo, min(hi, x)) if typ is int else round(max(lo, min(hi, x)), 3)
+    return out
+
+
+def infer_body(infer):
+    """The overrides as request-body fields (OpenAI-compatible names LM Studio and llama.cpp both read)."""
+    return {INFER_SEND[k]: v for k, v in (infer or {}).items() if k in INFER_SEND}
+
+
 def clean(body, prev=None):
     """Owner input → a rig with listed values only (anything else keeps the previous / default value)."""
     out = {k: dict(DEFAULTS[k], **((prev or {}).get(k) or {})) for k in KEYS}
+    for k in KEYS:
+        if 'infer' in out[k]:
+            out[k]['infer'] = clean_infer(out[k]['infer'])
+            if not out[k]['infer']:
+                out[k].pop('infer')
     for k in LM_KEYS:
         out[k]['load'] = clean_load(out[k].get('load'))
     out['win'].pop('load', None)
@@ -124,6 +167,11 @@ def clean(body, prev=None):
         for f, v in row.items():
             if f == 'load' and k in LM_KEYS and isinstance(v, dict):
                 out[k]['load'] = clean_load(v, out[k]['load']); continue
+            if f == 'infer' and isinstance(v, dict):
+                out[k]['infer'] = clean_infer(v, out[k].get('infer'))
+                if not out[k]['infer']:
+                    out[k].pop('infer')
+                continue
             if f in OPTIONS and f in DEFAULTS[k]:
                 try:
                     v = int(v)

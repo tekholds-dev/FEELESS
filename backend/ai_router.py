@@ -1098,6 +1098,7 @@ class Router:
         usr_ = usr_ if isinstance(usr_, str) else json.dumps(usr_)[:2000]
         INFLIGHT[cid] = {'prov': p['key'], 'model': p.get('model'), 'role': CALL_ROLE.get() or '', 'at': time.time(), 'tok': est_tokens(msgs)}
         _CALL_TASKS[cid] = asyncio.current_task()
+        u0_ = self.lastUsage.get(p['key'])   # this call's own token usage = a NEW usage row after it (tokens / s on Brain › Models)
         t0 = time.time()
         try:
             text, err = await self._call0(http, p, env, msgs, now)
@@ -1109,7 +1110,8 @@ class Router:
             MINDSET_SEEN[p['key']] = {'set': mind_, 'at': round(t0), 'ok': not err}
         CALL_LOG.append({'at': round(t0), 'prov': p['key'], 'model': self.lastModel.get(p['key']) or p.get('model'), 'role': CALL_ROLE.get() or '', 'ms': round((time.time() - t0) * 1000),
                       'ok': not err, 'err': (err or (None, None))[1], 'tok': est_tokens(msgs), 'system': _mask(sys_, 240), 'prompt': _mask(usr_, 900), 'answer': _mask(text, 500),
-                      **({'mindset': mind_} if mind_ else {})})
+                      **({'mindset': mind_} if mind_ else {}),
+                      **({'in': self.lastUsage[p['key']].get('in'), 'out': self.lastUsage[p['key']].get('out')} if self.lastUsage.get(p['key']) is not u0_ and self.lastUsage.get(p['key']) else {})})
         return text, err
 
     async def _call0(self, http, p, env, msgs, now):
@@ -1146,6 +1148,10 @@ class Router:
                 pass
         mdl_ = (self._loaded.get(p['key']) if p['key'] == 'lan' else None) or p['model']   # 🖥 never ask the desktop for a model it hasn't loaded (that reloaded it to defaults)
         body = {'model': mdl_, 'messages': msgs, 'temperature': 0.1, 'max_tokens': MAX_TOKENS, 'stream': False, **EXTRA_BODY.get(p['key'], {})}
+        inf_ = (RIG.get(p['key']) or {}).get('infer')
+        if inf_:   # 🌡 the owner's Inference panel for THIS model (Brain › Models): temperature, length, sampling, stop, seed — every call it gets
+            import ai_rig as _rg
+            body.update(_rg.infer_body(inf_))
         tn = TUNE.get()
         if tn:
             body.update(temperature=float(tn.get('temp', 0.1)), max_tokens=int(tn.get('maxTok', MAX_TOKENS)))
