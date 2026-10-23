@@ -56,6 +56,26 @@ test('🔁 the turn stepper reads the server phase', () => {
   expect(turnStep({ phase: 'HUNTING', next: 'G4' }).word).toMatch(/G4's turn/);
 });
 
+test('🏁 a closed trade never reads "running $?": SOLD keeps it in the seat with the cash it put back; the deck shows the seat\'s vitals', () => {
+  const { turnStep, deckOf } = require('./DuoSeat');
+  const rooms = [{ mint: 'M', symbol: 'MOON', model: 'OSSY', closed: true, pct: -8.8, usd: -0.033, inUsd: 0.375, back: 0.342 }];
+  expect(turnStep({ phase: 'HOLDING', next: 'G4', rooms })).toMatchObject({ i: 3 });                 // stale HOLDING with no coin = it closed
+  expect(turnStep({ phase: 'SOLD', next: 'G4', rooms }).word).toMatch(/\$MOON closed -8\.8% · \$0\.342 back in card cash — OSSY reviews it, then G4 picks/);
+  const d = deckOf({ next: 'G4', rooms, seats: { used: 2, max: 4 }, hunt: { by: 'G4', since: 100, turnSec: 600 }, live: { cands: [{ symbol: 'ABC', buyers: 61 }] },
+    totals: { G4: { n: 4, won: 1, usd: -1.2 }, OSSY: { n: 6, won: 3, usd: 0.4 } }, log: [{ model: 'AGENTS' }, { model: 'G4' }] }, 280);
+  const k = Object.fromEntries(d.map(t => [t.k, t]));
+  expect(k.last).toMatchObject({ val: '$MOON -8.8%', tone: 'dn' }); expect(k.last.sub).toBe('$0.375 in → $0.342 back · card cash ✔');
+  expect(k.seats).toMatchObject({ val: '2/4', fill: 0.5 }); expect(k.clock).toMatchObject({ val: '3:00', fill: 0.3 });
+  expect(k.table.sub).toBe('top $ABC · buy 61%'); expect(k.rec).toMatchObject({ val: '−$0.800', tone: 'dn', fill: 0.4 });
+  expect(k.agents).toMatchObject({ val: '1', fill: 0.5 });
+  const el = document.createElement('div'); document.body.appendChild(el); const root = createRoot(el);
+  act(() => root.render(<DuoSeat duo={{ mode: 'real', next: 'G4', phase: 'SOLD', rooms, seats: { used: 0, max: 4 }, log: [] }} />));
+  expect(el.querySelector('.dso-hex').className).toContain('is-sold'); expect(el.querySelector('.dso-hex').textContent).toContain('$MOON');
+  expect(el.querySelectorAll('[data-testid="duo-deck"] .dso-tile').length).toBe(6);
+  expect(el.querySelector('[data-testid="duo-turn"]').dataset.step).toBe('3');
+  act(() => root.unmount());
+});
+
 test('👍👎 verdict dots read the 5m / 1h / 24h settlements', () => {
   const { verdictDots } = require('./DuoSeat');
   expect(verdictDots([[300, 1, 12.5, true], [3600, null, null, null]])).toEqual([{ w: '5m', ok: 1, move: 12.5, mine: true }, { w: '1h', ok: null, move: null, mine: null }, { w: '24h', ok: null, move: null, mine: null }]);

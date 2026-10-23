@@ -9,6 +9,8 @@ import { avatarOf } from '../../lib/aiAvatars';
 const ago = at => { const s = Math.max(0, Math.round(Date.now() / 1000 - (Number(at) || 0))); return s < 60 ? `${s}s` : s < 3600 ? `${Math.round(s / 60)}m` : `${Math.round(s / 3600)}h`; };
 const sgn = v => `${v >= 0 ? '+' : ''}${Number(v).toFixed(1)}%`;
 const secs = ms => (ms == null ? '—' : `${(ms / 1000).toFixed(1)}s`);
+const usd = v => `${v < 0 ? '−' : ''}$${Math.abs(Number(v) || 0).toFixed(Math.abs(v) < 1 ? 3 : 2)}`;
+const clock = s => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
 const ACT = ['talk', 'buy', 'sell', 'hold', 'wait', 'noanswer'];
 const actKey = a => { const k = String(a || '').toLowerCase().replace(/\s/g, ''); return ACT.includes(k) ? k : 'wait'; };
 
@@ -78,7 +80,7 @@ function Side({ s, pod, turn, busy, side, tot, think }) {
     </div>
     <span className="dso-rec"><i style={{ transform: `scaleX(${pod.fill})` }} /></span>
     {tot?.n ? <p className={`dso-total ${tot.usd >= 0 ? 'is-up' : 'is-dn'}`} data-testid={`duo-total-${s.name}`}><small>TOTAL P&L · REAL</small><strong key={tot.usd}>{`${tot.usd >= 0 ? '+' : '−'}$${Math.abs(tot.usd).toFixed(3)}`}</strong>
-      <span>{tot.n} closed · {Math.round((tot.won / tot.n) * 100)}% won · {tot.pct >= 0 ? '+' : ''}{tot.pct}% summed</span></p>
+      <span>{tot.n} closed · {Math.round((tot.won / tot.n) * 100)}% won · avg {sgn(tot.pct / tot.n)} a trade</span></p>
       : <small className="dso-recw">{pod.n ? `${pod.n} closed · ${pod.won}% won · ${sgn(pod.med)}` : 'no closed trades yet'}</small>}
     <p className="dso-last">{s.last ? <><b className={`a-${actKey(s.last.action)}`}>{s.last.action}{s.last.symbol ? ` $${s.last.symbol}` : ''}</b> {s.last.why} <small>· {ago(s.last.at)}</small></> : '—'}</p>
   </section>;
@@ -93,6 +95,39 @@ export function thinkOf(live, typicalMs, nowS, limitS) {
   const frac = Math.min(1, el / typ);
   const limit = Math.max(typ * 1.2, Number(limitS) || 120);   // the call's real deadline (its timeout) — the line runs against it
   return { el, typ, frac, limit, step: Math.min(THINK_STEPS.length - 1, Math.floor(frac * THINK_STEPS.length)), over: el > typ * 1.5 };
+}
+
+// 🎛 THE SEAT DECK (owner, 2026-10-22: "the empty bubble needs alignment and more vitals"): six live tiles beside the hex — the last model
+// trade and the cash it put back in the card, the card's seats, the hunt / hold clock, the coins on the table, the duo's real record, agents backup.
+export function deckOf(duo, nowS) {
+  const log = duo?.log || []; const h = duo?.holding;
+  const last = (duo?.rooms || []).find(r => r.closed) || null;
+  const tot = Object.values(duo?.totals || {}).reduce((a, t) => ({ n: a.n + (t?.n || 0), won: a.won + (t?.won || 0), usd: a.usd + (Number(t?.usd) || 0) }), { n: 0, won: 0, usd: 0 });
+  const seats = duo?.seats; const cands = duo?.live?.cands || []; const top = cands[0];
+  const hunt = !h && duo?.hunt?.since ? { by: duo.hunt.by, el: Math.max(0, nowS - duo.hunt.since), lim: duo.hunt.turnSec || 600 } : null;
+  const agentsN = log.filter(r => r.model === 'AGENTS').length;
+  const tone = v => (v == null ? '' : v >= 0 ? 'up' : 'dn');
+  return [
+    last ? { k: 'last', label: 'LAST TRADE', val: `$${last.symbol} ${last.pct != null ? sgn(last.pct) : ''}`, tone: tone(last.pct), fill: Math.min(1, Math.abs(last.pct || 0) / 25),
+      sub: last.back != null ? `${last.inUsd != null ? `${usd(last.inUsd)} in → ` : ''}${usd(last.back)} back · card cash ✔` : `${last.model}'s trade${last.heldMin != null ? ` · ${Math.round(last.heldMin)}m held` : ''}`,
+      tip: `${last.model} ran $${last.symbol}: ${last.pct != null ? sgn(last.pct) : '—'}${last.usd != null ? ` (${usd(last.usd)})` : ''} — every sell confirmed on-chain, the proceeds are back in the card's cash` }
+      : { k: 'last', label: 'LAST TRADE', val: '—', fill: 0, sub: 'no model trade closed yet', tip: 'The newest closed OSSY / G4 trade and what it put back in the card' },
+    seats ? { k: 'seats', label: 'CARD SEATS', val: `${seats.used}/${seats.max}`, tone: seats.used >= seats.max ? 'dn' : '', fill: seats.max ? seats.used / seats.max : 0,
+      sub: seats.used >= seats.max ? 'full — the models wait' : `${seats.max - seats.used} open for the models`, tip: 'Coins on the real card vs its seats — the models only buy into an open seat' } : null,
+    h ? { k: 'clock', label: 'HELD', val: `${Math.round(h.heldMin || 0)}m`, fill: Math.min(1, (h.heldMin || 0) / 60), sub: `TP ${h.tp ? `+${h.tp}%` : '—'} · SL ${h.sl ? `−${h.sl}%` : '−45'}`, tip: 'How long the seat has held this coin (the bar fills at 1 hour) and its own take-profit / stop lines' }
+      : hunt ? { k: 'clock', label: 'HUNT CLOCK', val: clock(hunt.el), tone: hunt.el > hunt.lim ? 'dn' : '', fill: Math.min(1, hunt.el / hunt.lim), sub: `${hunt.by} hunts · turn passes at ${Math.round(hunt.lim / 60)}m`, tip: 'The hunter\'s turn: no clean entry by the end of it and the other model hunts', live: true }
+        : { k: 'clock', label: 'HUNT CLOCK', val: '—', fill: 0, sub: `${duo?.next || '—'} hunts next`, tip: 'Starts when a model starts hunting for the open seat' },
+    { k: 'table', label: 'ON THE TABLE', val: `${cands.length}`, fill: Math.min(1, cands.length / 8), sub: top ? `top $${top.symbol}${top.buyers != null ? ` · buy ${top.buyers}%` : ''}` : 'no coins read yet', tip: 'Coins in the newest packet the deciding model read (8 fills the bar)' },
+    { k: 'rec', label: 'DUO RECORD', val: tot.n ? usd(tot.usd) : '—', tone: tot.n ? tone(tot.usd) : '', fill: tot.n ? tot.won / tot.n : 0, sub: tot.n ? `${tot.n} closed · ${Math.round((100 * tot.won) / tot.n)}% won` : 'no closed trades', tip: 'OSSY + G4 together: every real closed seat trade from the ledger (fees apart); the bar = win rate' },
+    { k: 'agents', label: 'AGENTS BACKUP', val: `${agentsN}`, tone: agentsN ? 'warn' : '', fill: log.length ? agentsN / log.length : 0, sub: `🤝 agents backed up ${agentsN}${duo?.agents?.n ? ` · ${duo.agents.n} closed, ${duo.agents.won}% won` : ''}`, tip: 'Minutes neither model answered, so the agents decided the seat (the bar = share of the last calls)' },
+  ].filter(Boolean);
+}
+function SeatDeck({ duo }) {
+  const [now, setNow] = useState(() => Date.now() / 1000);
+  const ticking = !duo?.holding && !!duo?.hunt?.since;
+  useEffect(() => { if (!ticking) return undefined; const t = setInterval(() => { if (!document.hidden) setNow(Date.now() / 1000); }, 1000); return () => clearInterval(t); }, [ticking]);
+  return <div className="dso-deck" data-testid="duo-deck">{deckOf(duo, now).map((t, i) => <span key={t.k} className={`dso-tile k-${t.k}${t.tone ? ` is-${t.tone}` : ''}`} style={{ '--i': i }} data-tip={t.tip}>
+    <em>{t.label}</em><b key={t.live ? undefined : t.val}>{t.val}</b><span className="dso-tm"><span style={{ transform: `scaleX(${Math.max(0, Math.min(1, t.fill))})` }} /></span><small>{t.sub}</small></span>)}</div>;
 }
 
 const bar = (v, lo, hi) => Math.max(0.06, Math.min(1, ((Number(v) || 0) - lo) / (hi - lo)));
@@ -125,7 +160,9 @@ export const TURN_STEPS = [['HUNTING', '🔎 picks a coin'], ['BOUGHT', '🛒 bo
 export function turnStep(duo) {
   const ph = String(duo?.phase || '').toUpperCase();
   if (ph === 'SEATS FULL') return { i: -1, word: '🪑 every seat full — waiting for one to open' };
-  if (ph === 'HOLDING') return { i: 2, word: `${duo.holder || duo.next} is running $${duo.holding?.symbol || '?'} — they go back and forth every call` };
+  if (ph === 'HOLDING' && duo.holding) return { i: 2, word: `${duo.holder || duo.next} is running $${duo.holding.symbol} — they go back and forth every call` };
+  const sold = (duo?.rooms || []).find(r => r.closed);
+  if (ph === 'SOLD' || ph === 'HOLDING') return { i: 3, word: sold ? `$${sold.symbol} closed ${sold.pct != null ? sgn(sold.pct) : ''}${sold.back != null ? ` · ${usd(sold.back)} back in card cash` : ''} — ${sold.model} reviews it, then ${duo.next || '—'} picks` : `the trade closed — ${duo?.next || '—'} picks next` };   // 🏁 a closed trade never reads 'running $?'
   if (/seated/.test(duo?.fate?.why || '')) return { i: 1, word: `$${duo.fate.symbol} took the seat — the keeper buys it` };
   return { i: 0, word: `${duo?.next || '—'}'s turn to pick a coin` };
 }
@@ -161,7 +198,7 @@ function TradeRoom({ duo, call }) {
   const coins = duo?.coinRooms || []; const coin = roomC ? coins.find(c => c.mint === roomC) || null : null;   // 💬 one chat per coin on the card ($ELON's talk lives in $ELON's room)
   const pick = (m, c) => { setRoomM(m); setRoomC(c); };
   const between = !coin && !duo?.holding && !roomM && (duo?.between || []).length ? duo.between : null;   // 💬 no trade open: the talk between trades
-  const h = coin ? { symbol: coin.symbol } : between ? { symbol: 'between trades' } : past ? { symbol: past.symbol } : duo?.holding; const rows = coin ? coin.rows : between || (past ? past.rows : duo?.trade || []);
+  const h = coin ? { symbol: coin.symbol } : between ? { symbol: 'between trades' } : past ? { symbol: past.symbol } : duo?.holding; const rows = (coin ? coin.rows : between || (past ? past.rows : duo?.trade)) || [];   // a room with no talk yet renders empty, never crashes the seat
   if (!h && !rooms.length && !coins.length) return null;
   const post = async body => { if (!call) return; setBusy(true); try { const r = await call('/admin/ai/seat', { method: 'POST', body: JSON.stringify(body) }); if (r && r.trade) hubApply({ kind: 'duo_update', data: r }); } catch (e) { window.dispatchEvent(new CustomEvent('feeless:toast', { detail: String(e?.message || e) })); } finally { setBusy(false); } };
   const conf = duo.conf || {};
@@ -187,7 +224,7 @@ function DuoSeatBody({ duo, call }) {
   const g4 = sideOf('G4', log), os = sideOf('OSSY', log);
   const last = log[0];
   const from = last?.model === 'OSSY' ? 'r' : last?.model === 'AGENTS' ? 'c' : 'l';
-  const agentsN = log.filter(r => r.model === 'AGENTS').length;
+  const sold = !duo.holding && turnStep(duo).i === 3 ? (duo.rooms || []).find(r => r.closed) || null : null;   // 🏁 the review minute: the closed trade stays in the seat
   return <div className={`dso is-${duo.mode}`} data-testid="duo-seat">
     <header className="dso-head"><b>🔁 OSSY ⚔ G4 · {String(duo.mode).toUpperCase()}</b>
       <small>{duo.busy ? `${duo.next} is thinking…` : last ? `last call ${ago(last.at)} ago · ${duo.next} next` : 'first call within a minute'}</small></header>
@@ -197,13 +234,13 @@ function DuoSeatBody({ duo, call }) {
         <TurnBar duo={duo} />
         <div className="dso-core" data-testid="duo-open">
           {last ? <i key={`${last.at}-${from}`} className={`dso-beam from-${from} a-${actKey(last.action)}`} aria-hidden="true" /> : null}
-          <div className="dso-hex"><i className="dso-ring" aria-hidden="true" />
-            <small>{duo.holding ? `${duo.holder || '—'} HOLDS` : 'SEAT'}</small><b>{duo.holding ? <span className="dso-coin">🪙 {duo.holding.symbol}</span> : duo.open ? `$${duo.open.symbol}` : 'EMPTY'}</b>
-            {duo.holding ? <SeatPnl h={duo.holding} /> : <small>{duo.open ? `${duo.open.by === 'local' ? 'OSSY' : duo.open.by === 'agents' ? 'agents' : 'G4'} · peak ${sgn(duo.open.peak || 0)}` : `${duo.next} calls next`}</small>}
+          <div className={`dso-hex${sold ? ` is-sold is-${(sold.pct || 0) >= 0 ? 'up' : 'dn'}` : ''}`}><i className="dso-ring" aria-hidden="true" />
+            <small>{duo.holding ? `${duo.holder || '—'} HOLDS` : sold ? 'CLOSED · REVIEW' : 'SEAT'}</small><b>{duo.holding ? <span className="dso-coin">🪙 {duo.holding.symbol}</span> : sold ? <span className="dso-coin">${sold.symbol}</span> : duo.open ? `$${duo.open.symbol}` : 'OPEN'}</b>
+            {duo.holding ? <SeatPnl h={duo.holding} /> : sold ? <strong className="dso-sold" key={sold.pct}>{sold.pct != null ? sgn(sold.pct) : '—'}</strong> : <small>{duo.open ? `${duo.open.by === 'local' ? 'OSSY' : duo.open.by === 'agents' ? 'agents' : 'G4'} · peak ${sgn(duo.open.peak || 0)}` : `${duo.next} calls next`}</small>}
           </div>
+          <SeatDeck duo={duo} />
           {duo.fate ? <small className={`dso-fate ${/^seated/.test(duo.fate.why) ? 'ok' : /sent/.test(duo.fate.why) ? 'go' : 'no'}`} data-testid="duo-fate" title="What happened to the newest model BUY">
             🧾 {duo.fate.symbol ? `$${duo.fate.symbol}` : 'buy'}: {duo.fate.why} · {ago(duo.fate.at)}</small> : null}
-          <small className="dso-agents" title="Minutes neither model answered, so the agents decided the seat">🤝 agents backed up {agentsN}{duo.agents?.n ? ` · ${duo.agents.n} closed, ${duo.agents.won}% won` : ''}</small>
         </div>
         <TradeRoom duo={duo} call={call} />
       </div>

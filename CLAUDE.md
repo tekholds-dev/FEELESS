@@ -154,6 +154,10 @@ The owner rejected work that shipped as "dull", "non degen", "emojis sliding aro
 Rules for all: research the best web3 / degen sites first, then a FEELESS twist · every page complete top to bottom · real money = the wallet
 signs, FEELESS never holds keys · conserve usage · finish by priority · never dead-style.
 
+DONE 2026-10-22 late night (owner to look at): 🚚 Opus round landed on main (range errands · New-agent door · Pump intake · NEXA cover) ·
+💵 `scripts/cash-check.py` = fast real-card cash proof (wallet covers cash, coins atom for atom, last N swaps matched to the chain) · 🏁 duo
+seat never "running $?" after a close (SOLD phase, closed trade stays in the seat with its cash back) · 🎛 SEAT DECK (6 live tiles) beside the hex.
+
 DONE (latest, owner to look at — 2026-10-22 evening): 🎛 Brain chat line → model settings for real ("ossy context 16k, temp 0.6" → ✅ → applied /
 LM Studio reload) + Brain › Models = ONE LM Studio Load + Inference view (LOADED vs WANTED, ⚡ Reload) + Brain fixed at 360 px · 💬 THE STREETS city
 chat (`StreetChat`) · 👑 creator's family on any linked / HQ wallet (`_seat_of`) + 👑 OVERWATCH (HQ › Familia + city WATCH door) · 💤 THE NIGHT
@@ -207,7 +211,9 @@ OPEN, hardest → easiest:
    real money only after beating it in shadow · one "YOUR MONEY" tower in the capital (every proved position, live) · compliant US routing.
 2. 🌐 NEXA discovery: a site's AGE (RDAP / WHOIS) + a page SNAPSHOT (title, headings, tech fingerprint, template match) → "real tech vs another
    same-utility site" verdict into her discovery base; one-line packet like her desk calls.
-3. 🎨 Site palette: retire the muddy / olive greens ("color of manure") → lit royal green (#15d16a / #45e486 on near-black), token sweep sitewide.
+3. 🎨 Site palette (owner AGAIN 2026-10-22 late, Launch-page screenshot: "better official site green than this shitty green all over the site"):
+   retire the muddy / olive / brown-green panels + backdrops ("color of manure") → the OFFICIAL FEELESS green of the logo (#15d16a / #45e486
+   neon on near-black, no olive tint in surfaces) — token sweep sitewide (meta.css m-* tokens first, then each sheet's hard-coded greens), Launch first.
 4. 📊 Text walls → realtime visuals (meters, rings, ticking numbers) + dead styles out — every page, starting with HQ (Agents + FeeCat tabs).
 5. Screenshot each chat theme in the Brain drawer + a room; confirm the theme layer covers the whole drawer (NEURAL default).
 6. Restart reputation + feecat services (from Claude's watcher) so tonight's backend is live; confirm NEXA's desk calls land.

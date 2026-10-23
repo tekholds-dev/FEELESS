@@ -1,3 +1,27 @@
+## 🔁 HANDOFF 2026-10-22 (late night, Opus 5.5) — READ FIRST · conserve usage · finish everything by priority · never dead-style
+### ✅ Done this round
+- 🚚 The Opus "ultra" round (`night-1022`: range errands `clmm_range.py`, 🤖 New-agent door + 2-agent cap, 🔥 Pump front-runners on the
+  intake, FeeCat covers for NEXA, gate hardening) was gated GREEN in `.claude/worktrees/gate` and fast-forwarded onto main + pushed.
+- 💵 REAL CARD CASH CHECK, FAST: `scripts/cash-check.py [card] [N]` (≈ 1 min, read-only): wallet covers the card's cash · every book coin
+  in the wallet atom for atom · the last N swaps re-read from the chain and matched to the lamport (a sell whose route parked rent is
+  matched to the close that returned it). 2026-10-22 22:20: card 0.006128 SOL COVERED · MOON + SSB in the wallet · 30/30 swaps match ·
+  0 unassigned. Owner's "my trade disappeared" = OSSY's $MOON closed −8.8 % at 22:02:59 → +0.003278 SOL ($0.342) back in card cash.
+  ⚠ gas reserve holds 0.0075 SOL vs its 0.019 target (fees / rent float, NOT card money) — the owner tops it up when they choose.
+- 🏁 Duo seat "running $?" over an EMPTY seat: the review minute after a close returned before the phase moved → `_g4['phase'] = 'SOLD'`
+  + `_duo_phase()` (a HOLDING with no coin reads SOLD). The seat keeps the closed trade (CLOSED · REVIEW, its %), the turn bar says
+  "$MOON closed −8.8 % · $0.342 back in card cash — OSSY reviews it, then G4 picks".
+- 🎛 SEAT DECK beside the hex (owner: "needs alignment and more vitals"): LAST TRADE ($ in → $ back · card cash ✔) · CARD SEATS · HUNT
+  CLOCK (ticks; HELD + TP/SL while holding) · ON THE TABLE · DUO RECORD (both models, ledger) · AGENTS BACKUP. Payload adds `seats`,
+  `hunt`, rooms `inUsd` / `back` / `heldMin`. Preview: /dev/hq?duo=sold|hunt|hold → ⚡ Live desk.
+### ⬜ Still open (in order)
+1. 🤖 AGENTS HUB (users' cats): vitals, cost spent, P&L, model + context size, credit left + refill (night list #2). Real-money agents =
+   owner custody + pricing first (docs/REAL_CATS.md).
+2. ⚙ FEES in ONE HQ Core panel: the configurable ones already live in HQ › Trading & fees (`FEE_DEFAULTS`: platformFeeBps, bundle,
+   rounds, lifiFeeBps, tier discounts); still hard-coded: FeeCat `FEE_PER_SIDE` 1 %, `MAX_CREATOR_BPS`, `FEECAT_RATE` (MP → FEECAT).
+3. 🪟 NEXA "next-gen" one-line desk prompts (`nexa_desk.ASK_BUY / ASK_HOLD`) in the trench style.
+4. 📒 Card P&L vs fills reconcile in $ (the SOL side is proven by cash-check; the $ side moves with SOL's price).
+5. Then CLAUDE.md › P0: Fee City SimCity scale · block readers (Meteora / marginfi / Save / PumpSwap) · NEXA site age + snapshot · palette.
+
 ## 🔁 HANDOFF 2026-10-22 (night, Opus) — READ FIRST · conserve usage · finish everything by priority · never dead-style
 ### Branch state (do this first)
 - `origin/main` = 3482a65c. Local `main` = 0f741509 (hover-tip crash fix + NEXA Discovery-base CSS + tasks) — NOT pushed yet.

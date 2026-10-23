@@ -16744,6 +16744,7 @@ async def _g4_tick(now, env, cfg):
                 lv_['snapAt'] = now
             _g4_mem.put({**(_g4_mem.get() or {}), 'live': lv_}, now)
         elif mode_ == 'real' and not held_ and lv_:   # 🏁 the trade closed: its holder reviews it BEFORE the turn moves on (this minute is the review)
+            _g4['phase'] = 'SOLD'   # 🏁 never a stale HOLDING with no coin ("G4 is running $?" while the seat read EMPTY — owner: "my trade disappeared")
             await _g4_review(now, env, cfg, st_, lv_, mode_)
             return
         if mode_ == 'real' and not held_:   # 🪑 no open seat on the card → the models WAIT for one (no call, one line per 5 min)
@@ -21602,8 +21603,12 @@ def _duo_rooms(log, keep=8):
         seen.add(m_)
         rows_ = _seat.chat_window([r2_ for r2_ in log if r2_.get('mint') == m_ and (r2_.get('at') or 0) >= (r_.get('at') or 0) - 5])[::-1]
         tr_ = next((x_ for x_ in _duo_tape()[1] if x_.get('mint') == m_ and abs(_fuse._f(x_.get('at')) - _fuse._f(r_.get('at'))) <= 900), None)   # 🏁 the whole position from the ledger (trims included)
+        sl_ = [s_ for s_ in (tr_ or {}).get('sells') or [] if s_.get('sig')]
         out.append({'mint': m_, 'symbol': r_.get('symbol'), 'model': r_.get('model'), 'at': r_.get('at'), 'pct': ((tr_ or {}).get('result') or {}).get('pct', (p_ or {}).get('realPct')),
                     'usd': ((tr_ or {}).get('result') or {}).get('usd'), 'banked': (tr_ or {}).get('banked'), 'closed': bool((p_ or {}).get('closedAt')) or (tr_ or {}).get('state') == 'sold',
+                    'inUsd': ((tr_ or {}).get('buy') or {}).get('usd'), 'heldMin': ((tr_ or {}).get('result') or {}).get('heldMin'),
+                    'back': round(sum(_fuse._f(s_.get('usd')) for s_ in sl_), 3) if sl_ else None,   # 💵 what the confirmed sells put back in the card's cash (each one has its chain signature)
+                    'closedAt': (tr_ or {}).get('closedAt'),
                     'rows': [{**{k_: x_.get(k_) for k_ in ('at', 'model', 'action', 'view', 'why', 'conf', 'pct', 'talk')}, 'key': _dv_key(x_), 'mine': x_.get('by') == 'owner',
                               'votes': _dv.view(_dv_mem.get() or {}, _dv_key(x_))} for x_ in rows_]})
         if len(out) >= keep:
@@ -21693,6 +21698,13 @@ def _duo_cap(mint):
         return None
 
 
+def _duo_phase(phase, held):
+    """The seat's phase as the screen must read it: a HOLDING left over from the last tick with no coin in the seat is the trade that just
+    closed (its review minute) → SOLD, never 'running $?' over an EMPTY seat."""
+    ph = phase or ('HOLDING' if held else 'HUNTING')
+    return 'SOLD' if ph == 'HOLDING' and not held else 'HOLDING' if held and ph in ('HUNTING', 'SOLD') else ph
+
+
 def _duo_view(env=None):
     """🔁 The G4 × OSSY seat for the Agents tab (small: mode, whose turn, each model's record, the open paper seat, the last 8 calls)."""
     try:
@@ -21702,8 +21714,12 @@ def _duo_view(env=None):
         legs_ = [l for c_ in (((_json_load(FUSE_HQ_PATH, {}) or {}).get('prime') or {}).get('cards') or {}).values() if (c_ or {}).get('real') for l in c_.get('legs') or [] if l.get('aiSeat') and not l.get('placeholder')]
         first_, _s = _seat.turn(st_['log'], _duet.LEAD, _duet.SECOND, bool((st_['book'] or {}).get('open')) or bool(legs_), opener=st_.get('opener'), holder=(legs_[0].get('aiBy') if legs_ else ((st_['book'] or {}).get('open') or {}).get('by')))
         held_l = legs_[0] if legs_ else None
+        hm_ = _g4_mem.get() or {}
+        card_l = _duo_card_legs()
         return {'mode': _oe.clean_policy(_prime_real_cfg())['agentAiSeat'], 'next': nm(first_), 'at': st_['at'], 'busy': _g4['busy'],
-                'phase': _g4.get('phase') or ('HOLDING' if held_l else 'HUNTING'), 'holder': nm(held_l.get('aiBy')) if held_l and held_l.get('aiBy') else None,
+                'phase': _duo_phase(_g4.get('phase'), held_l), 'holder': nm(held_l.get('aiBy')) if held_l and held_l.get('aiBy') else None,
+                'seats': {'used': len(card_l), 'max': int(_fuse._f(_prime_real_cfg().get('coins')) or 4)},   # 🪑 the real card's seats (the models need one open)
+                'hunt': {'by': nm(hm_['huntBy']), 'since': hm_.get('huntSince'), 'turnSec': _seat.HUNT_TURN_SEC} if not held_l and hm_.get('huntBy') else None,   # ⏱ the hunter's clock
                 'holding': _duo_holding(held_l) if held_l else None,
                 'totals': _duo_totals(),   # 💰 each model's REAL closed-trade total: trades, won, $ and % (all time)
                 'rooms': _duo_rooms(st_['log']),   # 🗂 every past model trade's own room: its convo + result, reopenable

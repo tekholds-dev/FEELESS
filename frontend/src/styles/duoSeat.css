@@ -12,8 +12,11 @@
 /* 🎛 the stage (owner, 2026-10-21: "G4 vitals glass on the left, OSSY's on the right, the chat skinnier in the middle") */
 .dso-stage { display: grid; grid-template-columns: minmax(190px, 240px) minmax(0, 1fr) minmax(190px, 240px); gap: 10px; align-items: start; }
 .dso-mid { display: grid; gap: 8px; min-width: 0; }
-.dso-mid .dso-core { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 4px 12px; align-items: center; }
-.dso-mid .dso-core .dso-hex { grid-row: span 2; }
+/* 🎛 seat core = hex + the seat deck (owner, 2026-10-22: "the empty bubble needs alignment and more vitals"): one glass bay, hex centred in its column */
+.dso-mid .dso-core { display: grid; grid-template-columns: 124px minmax(0, 1fr); gap: 8px 14px; align-items: center; justify-items: stretch; padding: 10px 12px; border-radius: 12px;
+  border: 1px solid rgba(21, 209, 106, .18); background: linear-gradient(160deg, rgba(21, 209, 106, .07), rgba(4, 12, 9, .55) 55%); box-shadow: inset 0 1px 0 rgba(255, 255, 255, .07); overflow: hidden; }
+.dso-mid .dso-core .dso-hex { grid-row: span 2; justify-self: center; }
+.dso-mid .dso-core > .dso-fate { grid-column: 2; text-align: left; max-width: none; }
 .dso-stage > .dso-side { position: sticky; top: 8px; backdrop-filter: none; background: linear-gradient(160deg, color-mix(in srgb, var(--c) 14%, rgba(255, 255, 255, .05)), rgba(8, 10, 18, .72) 60%);
   border: 1px solid color-mix(in srgb, var(--c) 38%, transparent); box-shadow: inset 0 1px 0 rgba(255, 255, 255, .08), 0 18px 40px -26px var(--c); }
 .dso-av { width: 26px; height: 26px; border-radius: 50%; box-shadow: 0 0 0 2px color-mix(in srgb, var(--c) 60%, transparent); }
@@ -87,7 +90,6 @@
 .dso-beam.from-l { left: -20%; --bc: var(--g4); } .dso-beam.from-r { right: -20%; --bc: var(--os); animation-name: dsoBeamR; } .dso-beam.from-c { left: 20%; --bc: var(--ag); animation-name: dsoBeamC; }
 .dso-beam.a-buy { --bc: #15d16a; height: 3px; } .dso-beam.a-noanswer { --bc: #ff6b81; }
 .dso-fate { text-align: center; max-width: 150px; line-height: 1.3; } .dso-fate.ok { color: #15d16a !important; } .dso-fate.go { color: #9fe3ff !important; } .dso-fate.no { color: #ff8fa3 !important; }
-.dso-agents { text-align: center; color: var(--ag) !important; }
 
 .dso-log { list-style: none; margin: 0; padding: 0; display: grid; gap: 3px; max-height: 190px; overflow: auto; scrollbar-width: thin; scrollbar-color: #15d16a transparent; }
 .dso-log::-webkit-scrollbar { width: 6px; } .dso-log::-webkit-scrollbar-thumb { background: #15d16a; border-radius: 3px; }
@@ -211,3 +213,28 @@ body.theme-day .dso-room { background: rgba(240, 234, 252, .8); } body.theme-day
 .dsb .dsb-av { display: inline-block; }
 .dso-rooms button.is-coin { border-style: dashed; } .dso-rooms button.is-coin small { font-size: 8.5px; opacity: .75; }
 
+
+/* 🎛 THE SEAT DECK — six live tiles: last trade + cash back · card seats · hunt / hold clock · on the table · duo record · agents backup */
+.dso-deck { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; min-width: 0; }
+.dso-tile { --tc: #15d16a; position: relative; display: grid; gap: 3px; min-width: 0; padding: 7px 9px 8px; border-radius: 9px; border: 1px solid rgba(255, 255, 255, .07);
+  background: linear-gradient(160deg, rgba(255, 255, 255, .05), rgba(4, 12, 9, .62)); box-shadow: inset 0 1px 0 rgba(255, 255, 255, .06); animation: dsoTileIn .32s ease-out both; animation-delay: calc(var(--i, 0) * 50ms); }
+.dso-tile.is-up { --tc: #45e486; border-color: rgba(69, 228, 134, .3); } .dso-tile.is-dn { --tc: #ff8fa3; border-color: rgba(255, 143, 163, .3); } .dso-tile.is-warn { --tc: var(--ag); }
+.dso-tile em { font: 700 7.5px var(--m-mono, monospace); letter-spacing: .14em; font-style: normal; color: var(--m-mute, #8fb3a0); }
+.dso-tile b { font: 800 14px var(--m-mono, 'JetBrains Mono', monospace); color: var(--m-text, #e9fff3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; animation: dsoPop .4s ease-out; }
+.dso-tile.is-up b, .dso-tile.is-dn b, .dso-tile.is-warn b { color: var(--tc); text-shadow: 0 0 10px color-mix(in srgb, var(--tc) 55%, transparent); }
+.dso-tm { display: block; height: 4px; border-radius: 2px; background: rgba(255, 255, 255, .07); overflow: hidden; }
+.dso-tm span { display: block; height: 100%; transform-origin: left; background: linear-gradient(90deg, color-mix(in srgb, var(--tc) 30%, transparent), var(--tc)); transition: transform .6s ease; }
+.dso-tile small { font-size: 8.5px; line-height: 1.3; overflow: hidden; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
+.dso-tile.k-last small { color: #b8e8cc; }
+.dso-hex.is-sold small { color: #f3d27a; } .dso-hex.is-sold .dso-ring { animation-duration: 3s; }
+.dso-hex.is-sold.is-up .dso-ring { border-color: #15d16a; } .dso-hex.is-sold.is-dn .dso-ring { border-color: #ff8fa3; }
+.dso-sold { font: 900 17px var(--m-mono, monospace); animation: dsoPop .5s ease-out; } .dso-hex.is-up .dso-sold { color: #45e486; text-shadow: 0 0 12px #15d16a; } .dso-hex.is-dn .dso-sold { color: #ff8fa3; text-shadow: 0 0 12px #ff8fa3; }
+@keyframes dsoTileIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+@container (max-width: 560px) { .dso-deck { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@container (max-width: 400px) { .dso-mid .dso-core { grid-template-columns: 1fr; } .dso-mid .dso-core .dso-hex { grid-row: auto; } .dso-mid .dso-core > .dso-fate { grid-column: 1; text-align: center; } }
+body.fx-lite .dso-tile, body.fx-lite .dso-tile b, body.fx-lite .dso-sold { animation: none; }
+@media (prefers-reduced-motion: reduce) { .dso-tile, .dso-tile b, .dso-sold { animation: none; } .dso-tm span { transition: none; } }
+body.theme-day .dso-mid .dso-core { background: linear-gradient(160deg, rgba(21, 209, 106, .1), rgba(255, 255, 255, .6)); border-color: rgba(13, 106, 53, .2); }
+body.theme-day .dso-tile { background: rgba(255, 255, 255, .7); border-color: rgba(13, 106, 53, .14); } body.theme-day .dso-tile b { color: #10261a; } body.theme-day .dso-tile.k-last small { color: #2c5a40; }
+body.theme-day .dso-tile.is-up b { color: #0d8a43; } body.theme-day .dso-tile.is-dn b { color: #c0344f; }
+@media (max-width: 640px) { .dso-deck { grid-template-columns: repeat(2, minmax(0, 1fr)); } .dso-tile b { font-size: 13px; } }
