@@ -7,7 +7,7 @@ import { feePlan, outerPlan, spotOf, PLACES, usd, apyTxt, POOL_KIND } from '../l
 import { sharedJson } from '../lib/sharedJson';
 import '../styles/feeCity3d.css';
 import { familiaRoom } from '../lib/familiaRoom';
-import { MoneyDesk, providersOf, deskHost } from './MoneyDesk';
+import { MoneyDesk, providersOf, deskHost, JOB_OF } from './MoneyDesk';
 
 // 🌃 FEE CITY IN REAL 3D (owner, 2026-10-22: "way better design and animations … find free model sites and use the best" · "hella glow, day /
 // night" · "expand the city and go to places" · "80 % of the tabs in the cities, easy to find, with a pop-out" · "real Fuse cards in the
@@ -53,10 +53,22 @@ export function marketVitals(m, plan) {
   if (m.place) { const p = (plan?.places || []).find(x => x.key === m.place) || PLACES.find(x => x.key === m.place);
     return p ? { title: p.name, tone: 'lm', groups: [['PLACE', [['WHAT', p.sub], ['OPEN', 'tap again or use the panel']]]] } : null; }
   const x = (plan?.markets || []).find(k => k.key === m.mk); if (!x) return null; const mm = x.m || {};
-  if (x.pool) return { title: x.name, tone: 'mk', groups: [['POOL', [['KIND', POOL_KIND[x.kind] || x.kind], ['PROTOCOL', x.proto]]], ['LIVE', [['TVL', usd(x.tvl), Math.min(1, Math.log10(1 + (x.tvl || 0)) / 10)], ['APY', apyTxt(x.apy)], ...(mm.vol ? [['24H VOL', usd(mm.vol)]] : [])]]] };
+  const act = deskAct(x);   // 💸 every money building is ACTIVE (owner, 2026-10-23: "80 % active real money buildings"): its own in-place action
+  if (x.pool) return { title: x.name, tone: 'mk', act, groups: [['POOL', [['KIND', POOL_KIND[x.kind] || x.kind], ['PROTOCOL', x.proto]]], ['LIVE', [['TVL', usd(x.tvl), Math.min(1, Math.log10(1 + (x.tvl || 0)) / 10)], ['APY', apyTxt(x.apy)], ...(mm.vol ? [['24H VOL', usd(mm.vol)]] : [])]]] };
   const live = x.kind === 'coin' ? [['MARKET CAP', usd(x.tvl)], ...(x.move != null ? [['24H', `${x.move >= 0 ? '+' : ''}${Number(x.move).toFixed(1)}%`]] : []), ...(mm.vol ? [['24H VOL', usd(mm.vol)]] : [])]
     : [['TVL', usd(x.tvl), Math.min(1, Math.log10(1 + (x.tvl || 0)) / 10)], ...(mm.pool ? [['BUSIEST POOL', `${mm.pool.base}/${mm.pool.quote}${mm.pool.labels?.length ? ` · ${mm.pool.labels[0]}` : ''}`], ['POOL LIQ', usd(mm.pool.liq)], ['POOL 24H VOL', usd(mm.pool.vol)]] : [])];
-  return { title: x.name, tone: 'mk', groups: [['WHAT', [['KIND', String(x.kind).toUpperCase()], ...(mm.offer ? [['OFFERS', mm.offer]] : [])]], ['LIVE', live], ['ACTIVITY', [['HALO', `turns at ${x.hz}× = its volume`]]]] };
+  return { title: x.name, tone: 'mk', act, groups: [['WHAT', [['KIND', String(x.kind).toUpperCase()], ...(mm.offer ? [['OFFERS', mm.offer]] : [])]], ['LIVE', live], ['ACTIVITY', [['HALO', `turns at ${x.hz}× = its volume`]]]] };
+}
+
+// pure: a market building's in-place money action — a pool → its own desk row (stake / lend / LP / trade), a protocol → the desk on its job led by
+// its busiest pool, a coin → the swap dock (you press Get quote; your wallet signs). Never a link out.
+export function deskAct(x) {
+  if (!x) return null; const mm = x.m || {};
+  if (x.kind === 'coin') { const to = mm.mint || mm.address; return to ? { word: `⚡ BUY $${x.name} HERE`, swap: { to, title: `${x.name} · BUY IT HERE` } } : null; }
+  const job = JOB_OF[x.kind] || 'best';
+  const word = { stake: '⚡ STAKE HERE', lend: '⚡ LEND HERE', lp: '⚡ ADD LIQUIDITY HERE', perps: '⚡ TRADE PERPS HERE', rwa: '⚡ EARN HERE', best: '⚡ PUT MONEY IN HERE' }[job] || '⚡ PUT MONEY IN HERE';
+  return x.pool ? { word, desk: { job, focus: mm, title: `${String(x.name).toUpperCase()} · ${word.replace('⚡ ', '')}` } }
+    : { word, desk: { job, proto: x.proto || x.name, title: `${String(x.name).toUpperCase()} · ${word.replace('⚡ ', '')}` } };
 }
 
 // 📍 every place in Fee City (the old lens tabs) as one signpost menu — used by the CSS fallback city's controls
@@ -164,7 +176,7 @@ export function FeeCity3D({ v, sel, setSel, city, setCity, tour, overlay, onPlac
     <nav className="fc3-isl" aria-label="Districts" data-testid="city-districts">{chipsOf(plan).map((i, k) => <button key={i.key} type="button" style={{ '--i': k, '--dc': i.color || '#d4af37' }} onClick={() => goIsland(i.key)} data-tip={`Fly to ${i.name}${i.sub ? ` — ${i.sub}` : ''}`} data-testid={`isl-${i.key}`}>{i.name}</button>)}</nav>
     {isFee ? <Directory onGo={p => { setDesk(false); onGoPlace?.(p); }} open={dir} setOpen={setDir} active={active} pools={pools} desk={desk} onDesk={() => setDesk(d => !d)} /> : null}
     {desk ? <aside className="fc3-desk" role="dialog" aria-label="Start compounding" data-testid="city-desk"><button type="button" className="fc3-deskx" onClick={() => setDesk(false)} aria-label="Close" data-tip="Close (Esc)">✕</button>
-      <MoneyDesk key={desk.focus?.id || desk.title || 'best'} job={desk.job || 'best'} focus={desk.focus || null} rows={pools?.pools} title={desk.title || 'START COMPOUNDING'} /></aside> : null}
+      <MoneyDesk key={desk.focus?.id || desk.title || 'best'} job={desk.job || 'best'} focus={desk.focus || null} proto={desk.proto || null} rows={pools?.pools} title={desk.title || 'START COMPOUNDING'} /></aside> : null}
     <Vitals vit={vit} onClose={() => setSel(sel)} />
     {overlay}
     <div className="fcy-ctl fc3-ctl">

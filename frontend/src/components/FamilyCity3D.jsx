@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Bridge, Car, CAR_COLORS, hash, Plot } from './cityParts';
 import { FeeCapital, FEE_W, FEE_H, feeSpot } from './FeeCapital';
+import { familiaSwap } from './FamiliaTrade';
 import '../styles/familyCity3d.css';
 import '../styles/feeCity.css';
 
@@ -63,9 +64,12 @@ export function vitalsOf(x, v) {
 }
 
 // the vitals panel sits ON the stage (never inside the 3D scene, where towers cut through it), grouped, with a close
+const SOL_MINT = 'So11111111111111111111111111111111111111112';
 export function Vitals({ vit, onClose }) {
   if (!vit) return null;
   return <aside className={`fc-vpanel t-${vit.tone}`} data-testid="city-vitals"><header><b>{vit.title}</b><button type="button" onClick={onClose} aria-label="Close and zoom out" data-tip="Zoom back out">✕</button></header>
+    {vit.act ? <button type="button" className="m-btn m-go fc-vact" onClick={() => (vit.act.swap ? familiaSwap({ from: SOL_MINT, to: vit.act.swap.to, amount: 0.05, title: vit.act.swap.title, where: 'the city', sub: 'press Get quote — your wallet signs' })
+      : window.dispatchEvent(new CustomEvent('feeless:desk', { detail: vit.act.desk })))} data-testid="city-vitals-act" data-tip="Real money, right here — the desk opens over the city; your wallet signs every step">{vit.act.word}</button> : null}
     {vit.groups.map(([g, rows]) => <section key={g}><em>{g}</em><dl>{rows.map(([k, val, pct]) => <React.Fragment key={k}><dt>{k}</dt><dd key={val}>{val}
       {pct != null ? <u><s style={{ transform: `scaleX(${Math.max(0.03, Math.min(1, pct))})` }} /></u> : null}</dd></React.Fragment>)}</dl></section>)}</aside>;
 }

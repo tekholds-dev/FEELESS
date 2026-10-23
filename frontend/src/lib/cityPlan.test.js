@@ -1,5 +1,5 @@
 import { feePlan, outerPlan, spotOf, pulseHz, heightOf, usd, PLACES, centerOf, FOOT, CELL, MCELL, roomsOf, ttLive, moneyShare, METRO, KEYS } from './cityPlan';
-import { marketVitals, chipsOf } from '../components/FeeCity3D';
+import { marketVitals, chipsOf, deskAct } from '../components/FeeCity3D';
 
 const V = {
   blocks: [{ id: 'fee-0', b: 'fee', i: 0, owner: 'c1', tag: 'SIC', power: 900, kind: 'family', mine: true, home: true }, { id: 'fee-5', b: 'fee', i: 5 },
@@ -53,7 +53,9 @@ test('🌆 Fee City = a METRO: downtown + eight money districts over canals + si
 test('💵 ~80 % of Fee City is REAL MONEY (owner): pools / LSTs / lend / perps / vaults across the districts, the desk downtown; no pool twice, no dust', () => {
   const many = { markets: [...MK.markets, { key: 'orca2', name: 'Phoenix', kind: 'dex', tvl: 2e7 }, { key: 'save', name: 'Save', kind: 'lend', tvl: 8e7 }], coins: MK.coins };
   const p = feePlan(V, many, POOLS);
-  expect(moneyShare(p)).toBeGreaterThanOrEqual(0.78); expect(p.share).toBe(moneyShare(p)); expect(p.islands[0].sub).toMatch(/\d+% real money/);
+  expect(moneyShare(p)).toBeGreaterThanOrEqual(0.8); expect(p.share).toBe(moneyShare(p)); expect(p.islands[0].sub).toMatch(/\d+% real money/);
+  const dead = p.markets.filter(m => !deskAct(m)); expect(dead.map(m => m.key)).toEqual([]);                   // 💸 every market building is ACTIVE: tap → its own in-place desk / swap
+  expect(marketVitals({ mk: p.markets[0].key }, p).act.word).toMatch(/^⚡ /);
   const pools = p.markets.filter(m => m.pool); expect(new Set(pools.map(m => m.key)).size).toBe(pools.length);
   expect(pools.some(m => m.name === 'DUST')).toBe(false);                                         // under $100K TVL never stands
   expect(pools.some(m => m.key === 'pool-H1')).toBe(false);                                        // already in an outer city's district → fresh ones first

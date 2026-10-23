@@ -64,7 +64,7 @@ export const PLACES = [
   // 🗼 TT — ONE landmark tower on its own island (owner, 2026-10-23): READY coins lit on its floors, the hottest coin on its crown; one pop-out
   { key: 'tt', lens: 'tt', name: 'TRENCH TOWERS', sub: "the desk's intake list · trade it right here", isl: 'money', art: 'tt', color: '#ff8fa3', tool: true, money: true },
   // 🛣 FEELESS AVENUE — the site's best tools as buildings: each pops out its live vitals + quick tools (`tool: true`, `page` = its full page)
-  { key: 'pumpradar', lens: 'pumpradar', name: 'PUMP RADAR', sub: 'hottest Pump coins · one-tap trade', isl: 'ave', art: 'radar', color: '#45e486', tool: true, page: '/terminal/pump' },
+  { key: 'pumpradar', lens: 'pumpradar', name: 'PUMP RADAR', sub: 'hottest Pump coins · one-tap trade', isl: 'ave', art: 'radar', color: '#45e486', tool: true, money: true, page: '/terminal/pump' },
   { key: 'runners', lens: 'runners', name: 'RUNNERS TRACK', sub: "FEELESS's live runner calls", in: 'pumpradar', art: 'track', color: '#ff9f45', tool: true, page: '/terminal/fuse?tab=runners' },
   { key: 'watch', lens: 'watch', name: 'THE WATCHTOWER', sub: 'your watchlist · signal alerts', in: 'court', art: 'watch', color: '#6ad7ff', tool: true, page: '/terminal/watchlist' },
   { key: 'court', lens: 'rep', name: 'REP COURTHOUSE', sub: 'case files · check anyone', isl: 'ave', art: 'court', color: '#d4af37', tool: true, page: '/terminal/reputation' },
@@ -169,9 +169,12 @@ function bridgeOf(a, b, name, extra = {}) {
   return side ? { key: `b-${a.key}-${b.key}`, axis: 'x', z: at, a: l.x + l.w, b: r.x, name, ...extra } : { key: `b-${a.key}-${b.key}`, axis: 'z', x: at, a: l.z + l.d, b: r.z, name, ...extra };
 }
 // pure: the share of the city's buildings that are real money (markets, pools, the desk's money places) — the owner's ~80 %
+// 2026-10-23 (owner: "80 % ACTIVE real money buildings"): a building counts only when tapping it does real money right there — every market /
+// pool opens its own desk (FeeCity3D.deskAct), a coin needs its mint for the swap dock, a place needs `money` (an in-place money tool).
+export const activeMoney = x => (x?.pick?.mk ? (x.kind !== 'coin' || !!(x.m?.mint || x.m?.address)) : !!x?.money);
 export function moneyShare(p) {
   const bld = [...(p?.markets || []), ...(p?.places || []).filter(x => !x.virtual), ...(p?.marks || [])];
-  const money = bld.filter(x => x.pick?.mk || x.money).length; return bld.length ? Math.round((money / bld.length) * 100) / 100 : 0;
+  const money = bld.filter(activeMoney).length; return bld.length ? Math.round((money / bld.length) * 100) / 100 : 0;
 }
 
 // pure: the Fee City plan. `v` = the world payload, `mk` = { markets, coins }, `pools` = the Pool Hub (any may be missing — the city still draws)

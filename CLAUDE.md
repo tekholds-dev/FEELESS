@@ -165,35 +165,20 @@ STANDING RULES (never "done"):
 - 🚀 NO RISK NO REWARD (owner): money surfaces lead with the aggressive play (MOON: tight v3 / DLMM bands on the busiest pools; DEGEN: the
   hottest fee pools) with the risk named — SAFE yields are one tap away, never the headline. "Think big, not the same utilities."
 
-P0-QUICK — OWNER 2026-10-23 night (THE one list of unfinished asks — HANDOFF.md only points here)
-1. 🤖 NEXA trades AS FeeCat — 2026-10-23 late: her YES on her own cat outranks FeeCat's soft second opinions (chart setup, desk skip, Fuse /
-   proof / memory vetoes → half size, named on the receipt); rug guards ($5K floor, holders, discipline) never step aside. FeeCat's book +
-   the guard that stopped a YES now show under her calls. Owner 2026-10-23: the holder guard stays STRICT for NEXA (top-10 cap never relaxes on her YES).
-2. 📉 REAL PERPS WITH YOUR OWN USD in FEELESS (owner: "no paper perps — I want to use my USD"): blocked for US users by the standing rule until
-   counsel answers DECISIONS #1 (`docs/COUNSEL_BRIEF.md` §1) or a regulated venue's partner API (OAuth on the user's own account) is wired.
-   Until then the Perps desk must be VISUAL (live charts / meters, never text-only) — no new paper features.
-3. 💵 FEE REAL (owner-only, 2026-10-23): HQ › FeeCat › Fee's desk shows the GO REAL panel to the owner; only a FEELESS_ADMIN_WALLETS wallet may
-   switch her (`fee_owner_real`); real Fee proposes NEXA's calls ONLY (no cover buys) to that wallet, ≤ budget, the wallet signs each. NOT
-   tested end to end with a real signature yet — owner: go real with a small budget, sign one, report. Fee's chat: her bubble (`feeChat.css`)
-   + voice openers (`fee_voice`) SHIPPED. Users see "🔮 FeeCat AI" (never NEXA / OSSY / G4).
-4. 💬 Agent chat bubbles on FeeCat's charts (names already scrubbed: `feecat_service.public_words` / `_pub` on every public cat endpoint).
-5. ⏱ While NEXA holds a LIVE trade: quick questions to her faster (hold · skim · new SL · new TP), re-checked every ≤ 120 s (desk EVERY = 300 s today).
-5b. 🔌 LM models stay loaded (2026-10-23): ttl 7 days on every G4 / OSSY call + the heartbeat loads an EMPTY LM Studio itself (≤ 1 / 10 min,
-   `ai_router.auto_load_due`). Verify on the next drop. NEXA's llamafile never unloads.
-6. 🔌 RPC lanes in HQ › Core (SOLANA_RPC_URL_2 … _6 — the keeper + relay already fall through them); Helius + Alchemy were OUT of quota.
-7. 🏝 Family town expands (bridges, pick lots, move buildings, stands, a MY POOLS combo building) · tight-range LP on Raydium / Orca / DLMM.
-
-P0-NEXT — OWNER 2026-10-23 late (screens: `docs/previews/owner-2026-10-23/` 1 = HQ NEXA desk · 2 = public FeeCat page · 3 = HQ Fee desk)
-1. 🐛 BUILD A CAT → REAL MODEL PICK: some user flows stop after "Build a cat" and never reach the model pick / real-wallet step — trace every
-   entry (FeeCat › Build a cat, Agents › My agents, Launch a Cat) to the same end: pick models → fund / link the user's wallet → REAL.
-2. 🤖 TWO KINDS OF AI CAT (user's own wallet, real money, NO paper): (a) TRADING — 1-2 trading models; (b) GENERAL — 1-2 all-round models that
-   do anything the user asks with the AI wallet they fund. Build a cat → link it to real-money models. (Paper stays only as a test toggle.)
-3. 🎨 CREATOR CONTROLS FEE: the owner / creator wallet edits Fee's look (coat / gear / eyes / name) from the public FeeCat page + HQ — today only
-   users' cats get Build-a-cat controls.
-4. 👛 FEECAT CIRCLE WALLET: the owner can't find where to link / fund Fee's wallet (HQ Fee desk or terminal, creator signed in) — one lit
-   "FEE'S WALLET" pill on both pages (fund · budget · go real), owner-only.
-5. 📊 Text → visuals everywhere still (owner: "no long text"): public FeeCat "HER CALLS" + "HER LAST SCAN" reasons → chip rows like the HQ tape
-   (`FeeCatLive.tapeRow`); NEXA desk call rows show "no provider answered — deterministic only" text → an icon state.
+P0 — OWNER 2026-10-23 (late night) · finished today → `docs/FEELESS_HISTORY.md` (grep "2026-10-23 late night")
+1. 📉 REAL PERPS IN THE FAMILY TOWN, 3 venues (owner: "perps desk needs to be real money!! pick from at least 3 providers"). Researched:
+   🇺🇸 Coinbase Derivatives (CFTC-regulated US perpetual-style futures `BIP-20DEC30-CDE` via the Advanced Trade API — the US-legal path;
+   the owner's own CDP key, server-side, owner-only first) · 🪐 Jupiter Perps (Solana, wallet signs; no official API yet → build from its
+   Anchor IDL, simulate like the LP work) · a third (Flash Trade / Hyperliquid builder codes). Non-US venues stay LOCKED for US users by
+   the standing rule + their own terms (ship with the geo / KYC switch, money list #8) — never a bypass. Desk = PERPS DESK in the town.
+2. 💵 FEE REAL: the 👛 FEE'S WALLET pill (stage + HQ) is where to link / budget / go real — owner signs one small proposal end to end, report.
+3. 🏝 Town next: pick a lot for a NEW market right from ✋ ARRANGE · drag (not tap-swap) in the 3D block · each town building's real tool
+   done in place (perps above). Islands cost 3,000 MP (creator free) — tune with the owner.
+4. 🔌 Verify on the next drop: G4 = Qwen3.5-4B on ONE slot (the 8 GB M1 OOM'd on two) · LM ttl 7 days · NEXA's llamafile never unloads.
+5. 📊 Every page end to end: text walls → visuals (HQ Agents + FeeCat tabs first); 80 % ACTIVE money = `cityPlan.activeMoney` (keep ≥ 0.8
+   in `cityPlan.test.js`; outer cities next).
+6. ✅ LAST, ONLY WHEN EVERY ITEM ABOVE AND BELOW IS DONE (owner, 2026-10-23): click through EVERY tab / page / pop-out / modal / step of the
+   site (day + night, 360 px, fx-lite) — nothing unreadable, nothing unwired, every button does its thing; fix what fails; screenshot proof.
 
  (owner 2026-10-23: "I tightened a v3 pool with $100 and made $120 — no redirects"), hardest → easiest
 1. 🔌 IN-PLACE LP — SHIPPED 2026-10-23: join (`lib/lpBuilder.js`), one-tap ZAP (swap half via the FEELESS engine `lib/swapEngine.js` → join),

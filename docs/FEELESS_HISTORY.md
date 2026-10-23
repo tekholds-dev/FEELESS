@@ -6089,3 +6089,13 @@ P6 — IDEAS: FeeCat + AI agent pair that talk · "build a better coin" track in
 - 2026-10-23 💵 Fee owner-only real mode (`fee_owner_real`, NEXA calls only → owner-signed proposals) · 🔮 users see 'FeeCat AI' · 📈 FeeCat Live charts 340–520px · 💅 Fee's chat bubble (`feeChat.css`) + voice (`fee_voice`) · ⚔ NEXA vs rules duel meter.
 - 2026-10-23 🔌 G4 / OSSY keep loaded: ttl 604800 on LM calls + heartbeat auto-load of an empty LM Studio (≤ 1/10 min; supersedes 10-17's never-automatic for that one case).
 - 2026-10-23 ⚡ FeeCat Live tape = chip rows (`tapeRow`: coin · SOL · move · P&L · 🔮 · tag; sentence on hover) · 🧽 NEXA's echoed placeholder why dropped (`nexa.real_why`, prompt placeholder rewritten).
+- 2026-10-23 late night (Opus 5.5): 🧠 G4 → Qwen3.5-4B (MLX 4-bit, ONE slot — 2 slots OOM'd the 8 GB M1; router / heartbeat / desktop keeper all load 1) ·
+  🫡 owner SELL in the trade room = an order (`ai_seat.owner_order` / `obey`, the seat sells next tick) · 💵 YOURPNL per model in every seat packet
+  (own $ / win rate / avg, partner's, live trade $) · a red book never skips a hunting turn (strict turns unless the guards button) ·
+  ⏱ NEXA re-checks a live FeeCat trade every 2 min (HOLD / SELL / SKIM / SL n / TP n; `nexa_desk.round_kind`, `cat_model.skim_now` /
+  `line_exit`) · 💬 🔮 FeeCat AI bubbles on the public chart (`nexa_desk.talk`, /api/cats/leader `talk`) · public calls + scan = chip rows
+  (`lib/feeTape.js`) · 🔒 scrubs: OSSY / G4 off Fee's hero, "under N words" off receipts, "FEELESS PICK" model tags · 🔌 RPC LANES strip in
+  HQ › Core › Lag catcher (6 lanes) · 🧭 two AI cat kinds (Trading hunts · General takes plain-words orders → guarded proposals, `cat_orders.py`),
+  every Build-a-cat entry → models → wallet → REAL · 👑 FeeOwnerBar (🎨 STYLE FEE · 👛 FEE'S WALLET, owner wallets only) · 🏝 family town:
+  per-family layout (`block_markets.layout_of/_set`, POST /familia-block/layout), ✋ ARRANGE, islands of 15 + bridges (3,000 MP, creator free),
+  10 beauty plots drawn in 3D, 💧 MY POOLS · 💸 every city market building is ACTIVE (vitals ⚡ action → in-place desk / swap; `activeMoney` ≥ 80 %).

@@ -130,3 +130,8 @@ body.theme-day .fcy { background: radial-gradient(120% 70% at 50% 115%, #f6c98a 
 body.theme-day .fcy-water { background: linear-gradient(135deg, #2f6f9a, #1e4f74); } body.theme-day .fcy-moon { background: radial-gradient(circle, #fff3c4, #ffd36b); box-shadow: 0 0 80px #ffd36b; }
 body.theme-day .fcy-key { background: #fff8e8dd; color: #2a1f0e; }
 @media (max-width: 640px) { .fcy { height: 460px; } .fcy-ctl small, .fcy-key { display: none; } }
+
+/* 💸 a money building's in-place action on its vitals panel (every market is ACTIVE real money) */
+.fc-vact { width: 100%; margin: 4px 0 8px; min-height: 40px; animation: fcVact 2.6s ease-in-out infinite; }
+@keyframes fcVact { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-1px); } }
+body.fx-lite .fc-vact { animation: none; } @media (prefers-reduced-motion: reduce) { .fc-vact { animation: none; } }

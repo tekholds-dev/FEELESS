@@ -15,22 +15,14 @@ Read this (2 min) → `CLAUDE.md` (lean rules + 🎨 MANDATORY STYLING + 📋 CU
 >    LIVE visual (meters, bars, animation on real numbers), never bare text. `styles/cssCoverage.test.js` fails on an unstyled class.
 
 ## 🔁 NOW (rewrite this section in place every session)
-**Updated 2026-10-23 (late) · Opus 5.5** — ALL unfinished asks live in ONE place: `CLAUDE.md › 📋 CURRENT TASKS › P0-QUICK` (then P0…). Next up:
-item 3 (FeeCat wallet switch) unless the owner says otherwise. NEXA's lane shipped (feecat_service restarted via the watcher).
+**Updated 2026-10-23 (late night) · Opus 5.5** — the open list is `CLAUDE.md › 📋 CURRENT TASKS › P0` (perps first). Done today: grep the history
+for "2026-10-23 late night". G4 runs Qwen3.5-4B on the desktop (10.0.0.249:1236, ONE slot — never load it with 2 on the 8 GB M1).
+Dev previews: `/dev/nexa` (`?owner` = creator bar) · `/dev/hq?rpc` · `/dev/cats?general` · `/dev/block?layout=…`.
 
-Start of every task: `backend/.venv/bin/python scripts/cash-check.py degen 30` (≈ 1 min, sandbox off). Last run 2026-10-23 09:42: card COVERED ·
-coins atom for atom · 30 / 30 swaps match · 145 / 145 sells reconcile (realized −$1.81) · gas reserve short 0.010 SOL.
-
-Branch: everything on `main` (pushed; the owner's Mac auto-pulls). Gate + push from `.claude/worktrees/gate` (`git checkout -q --detach <sha>`,
-then `git push origin <sha>:main`; the pre-push hook runs the full gate ~5 min — run no tests beside it).
-🚨 RPC: Helius + Alchemy were both OUT OF QUOTA (2026-10-23 evening). The browser relay `/api/reputation/rpc` now falls through the pool on a 429
-(`_relay_spent`, test `test_rpc_relay_fallback.py`) — reputation_service restarted via the keep-alive watcher (PID 55631, Claude's tree) →
-1 copy, relay answering. G4 / NEXA LAN status was NOT re-checked after this restart. The owner still has to top up / add a keyed RPC.
-🔌 In-place LP: `lib/lpBuilder.js` (join + `dammZap`) · `lib/swapEngine.js` (the /api/trading path as two calls) · `lib/lpPositions.js` (read +
-claim / remove / close) · `components/LpPositions.jsx` (card + list) · `lib/hotPools.js` (guarded feed) → MOON desk + LP towers on the family block
-(`blockPlan(bl, { lp })`; `/dev/block?lp=<wallet>` previews a wallet's positions read-only). The relay allows `getTokenAccountsByOwner` +
-`getBlockTime` (never `getProgramAccounts`). Simulation scripts: scratchpad pattern in the history line (recent pool trader / position owner as
-the wallet, sigVerify off, public RPC for program-wide scans).
+Start of every task: `backend/.venv/bin/python scripts/cash-check.py degen 30` (≈ 1 min, sandbox off).
+Branch: everything on `main`. Gate + push from `.claude/worktrees/gate` (`git checkout -q --detach <sha>`, then `git push origin <sha>:main`;
+the pre-push hook runs the full gate ~8 min — run no tests beside it). Restart a service = kill its uvicorn PID; the keep-alive watcher relaunches it.
+🚨 RPC: Helius + Alchemy were OUT OF QUOTA (2026-10-23) — the owner adds a key in HQ › Core › Lag catcher › 🔌 RPC LANES.
 
 ### Where today's work lives (frontend only; grep the history for "2026-10-23 evening")
 - 🌆 Fee City METRO: `lib/cityPlan.js` (`METRO`, `KEYS`, `feePlan(v, mk, pools)`, `moneyShare` = 81 %) · `lib/cityEngine.js` (merged neon trims,
