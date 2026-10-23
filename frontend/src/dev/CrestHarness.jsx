@@ -1,6 +1,6 @@
 import React from 'react';
 import { CrestForge } from '../components/CrestForge';
-import { CrewCard3D } from '../components/Crews';
+import { CrewCard3D } from '../components/CrewCard';
 import { CardStudio } from '../components/FamilyRoom';
 import { FamilyBadge } from '../components/FamilyBadge';
 import '../styles/familyNoir.css';

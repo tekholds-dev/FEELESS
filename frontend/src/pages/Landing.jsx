@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { TopCrews } from '../components/Crews';
+import { TopCrews } from '../components/CrewCard';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { ArrowUpRight, Rocket, Globe2, ArrowRight, ShieldCheck } from 'lucide-react';
 import Globe3D from '../components/Globe3D';

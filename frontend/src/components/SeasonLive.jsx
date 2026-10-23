@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { sharedJson } from '../lib/sharedJson';
-import { evAgo } from './Crews';
+import { evAgo } from './CrewCard';
 import '../styles/seasonLive.css';
 
 // 🏁 SEASON LIVE (owner, 2026-10-20: "finish the season tab — more versatile with every social event and cool vitals"): one hub on top of the

@@ -1,5 +1,5 @@
 import { AlphaRooms } from '../components/AlphaRooms';
-import { TopCrews } from '../components/Crews';
+import { TopCrews } from '../components/CrewCard';
 import { CaseFileModal } from '../components/CaseFile';
 import { PanelBoundary } from '../components/PanelBoundary';
 import { CoinAura } from '../components/CoinAura';

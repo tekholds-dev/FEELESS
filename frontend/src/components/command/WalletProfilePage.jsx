@@ -17,7 +17,7 @@ import { CopyBtn } from '../CopyBtn';
 import { MintedTimeline } from '../MintedTimeline';
 import { FuseReceipts, FuseHeldCards, FuseScore, TraderCard, MyBattles, FusePopup } from '../FusePage';
 import { TrackRecord } from '../TrackRecord';
-import { CrewChip, CrewProfile } from '../Crews';
+import { CrewChip, CrewProfile } from '../CrewCard';
 import { PrimeShowcase } from '../ArenaPrime';
 import React, { lazy, Suspense, useCallback, useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
