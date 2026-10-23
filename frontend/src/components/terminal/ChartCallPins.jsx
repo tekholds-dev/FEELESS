@@ -49,7 +49,7 @@ export function trailKey(c) {
   if (!c) return null;
   if (c.kind === 'agent') return 'agents';
   if (c.kind === 'feecat') return 'fee';
-  if (c.kind === 'ai' || c.kind === 'talk') { const w = String(c.who || '').toUpperCase(); return w === 'OSSY' || w === 'G4' || w === 'REAPER' ? w.toLowerCase() : null; }
+  if (c.kind === 'ai' || c.kind === 'talk') { const w = String(c.who || '').toUpperCase(); return w === 'OSSY' || w === 'G4' || w === 'REAPER' ? w.toLowerCase() : w === 'FEECAT AI' ? 'fcai' : null; }
   return null;
 }
 export function trailPaths(pts) {

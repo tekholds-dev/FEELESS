@@ -70,6 +70,7 @@ body.theme-day .fch-bars li b, body.theme-day .fch-skip span, body.theme-day .fc
 body.theme-day .fch-group, body.theme-day .fch-dialchips span { background: rgba(236, 246, 240, .8); }
 
 /* 🐱 FEE, LIVE — two charts, her read, live tape, what she learned from OSSY · G4 */
+.fcl-chart :is(.chart-foot-chips, .chart-style-toggle, .chart-source, .chart-stale-note) { display: none !important; }   /* the pin lens sits there (HQ twin charts) */
 .fcl-two { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
 .fcl-pane { display: grid; gap: 6px; padding: 8px; border-radius: 12px; border: 1px solid rgba(69, 228, 134, .18); background: rgba(4, 12, 8, .6); min-width: 0; }
 .fcl-pane.is-open { border-color: rgba(69, 228, 134, .45); }

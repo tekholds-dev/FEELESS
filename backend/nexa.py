@@ -151,7 +151,7 @@ def fast_lines(open_, next_):
     return '\n'.join(rows) or 'no coins', ids
 
 
-_ECHO = re.compile(r'under 12 words|max 12 words|the numbers that decided|^numbers?$|^<.*>$|^why$', re.I)
+_ECHO = re.compile(r'under \d{1,2} words|max \d{1,2} words|the numbers that decided|^numbers?$|^<.*>$|^why$', re.I)   # "under 15 words" (her read's why) echoed too, 2026-10-23
 
 
 def real_why(w):

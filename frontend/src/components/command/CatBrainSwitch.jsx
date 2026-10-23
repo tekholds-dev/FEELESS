@@ -9,10 +9,12 @@ const C = 2 * Math.PI * 26;
 const FRESH = 900;
 const ago = t => { const s = Date.now() / 1000 - t; return s < 60 ? `${Math.max(0, Math.round(s))}s` : `${Math.round(s / 60)}m`; };
 const pct = v => `${v > 0 ? '+' : ''}${(+v || 0).toFixed(1)}%`;
-const TONE = { YES: 'is-yes', HOLD: 'is-hold', NO: 'is-no', SELL: 'is-sell' };
+const TONE = { YES: 'is-yes', HOLD: 'is-hold', NO: 'is-no', SELL: 'is-sell', SKIM: 'is-skim' };
+// 🎯 her stop / take on a held coin (2-min live-trade check) as one chip: "SL −15 · TP +60"
+export const linesChip = l => [l?.sl ? `SL −${l.sl}` : null, l?.tp ? `TP +${l.tp}` : null].filter(Boolean).join(' · ');
 
 export function deskCounts(desk, now = Date.now() / 1000) {
-  const out = { YES: 0, NO: 0, SELL: 0, HOLD: 0 };
+  const out = { YES: 0, NO: 0, SELL: 0, HOLD: 0, SKIM: 0 };
   (desk || []).forEach(c => { if (c.word && now - c.at <= FRESH) out[c.word] = (out[c.word] || 0) + 1; });
   return out;
 }
@@ -48,14 +50,17 @@ export function CatBrainSwitch({ d, busy, act }) {
   }, [on]);
   const book = feeBook(lead);
   const dv = duel(d?.record?.favor, lead?.cat);
-  const every = d?.deskEvery || 300;
-  const since = d?.deskAt ? Date.now() / 1000 - d.deskAt : every;
+  const fast = on && book.held.length > 0;   // ⏱ a live trade: held-only checks every 2 min (hold · skim · new SL · new TP)
+  const every = fast ? (d?.heldEvery || 120) : (d?.deskEvery || 300);
+  const last = fast ? Math.max(d?.deskAt || 0, d?.heldAt || 0) : d?.deskAt;
+  const since = last ? Date.now() / 1000 - last : every;
   const fill = on ? Math.max(0.04, Math.min(1, since / every)) : 0;
   const n = deskCounts(d?.desk);
   const rec = d?.record?.favor || {};
   const calls = (d?.desk || []).slice(-6).reverse();
-  const nums = [['YES', n.YES, 'coins she said YES to in the last 15 min — the only ones FeeCat may buy'], ['NO', n.NO, 'coins she passed on'], ['SELL', n.SELL, 'held coins she said to sell']];
-  return <article className={`cb-wrap nxd-trade${on ? ' is-nexa' : ''}${on && d?.provider?.on ? ' is-live' : ''}`} data-testid="nexa-trade">
+  const nums = [['YES', n.YES, 'coins she said YES to in the last 15 min — the only ones FeeCat may buy'], ['NO', n.NO, 'coins she passed on'], ['SELL', n.SELL, 'held coins she said to sell'],
+    ['SKIM', n.SKIM, 'held coins she said to bank half of — FeeCat skims once per call']];
+  return <article className={`cb-wrap nxd-trade${on ? ' is-nexa' : ''}${on && d?.provider?.on ? ' is-live' : ''}${fast ? ' is-fast' : ''}`} data-testid="nexa-trade">
     <header className="cb-top"><span className="eyebrow">🐱 WHO TRADES FEECAT</span>
       <div className="m-seg cb-seg" role="radiogroup" aria-label="Who trades FeeCat">
         <button type="button" role="radio" aria-checked={!on} disabled={busy || !d} onClick={() => on && act({ trade: false })} data-tip="FeeCat trades on her own rule engine (NEXA still advises: skip / bank)">⚙ Her rules</button>
@@ -75,6 +80,7 @@ export function CatBrainSwitch({ d, busy, act }) {
       <div className="cb-read">
         <b>{on ? 'NEXA trades FeeCat' : 'FeeCat on her own rules'}</b>
         <small data-tip="The ring fills toward her next desk round">{!on ? 'switch on to hand her the desk · paper' : !d?.provider?.on ? 'NEXA is not connected — FeeCat holds, her stops still run'
+          : fast && last ? `⏱ live trade · checked ${ago(last)} ago · next in ${Math.max(0, Math.round(every - since))}s`
           : d?.deskAt ? `last round ${ago(d.deskAt)} ago · next in ${Math.max(0, Math.round((every - since) / 60))}m` : 'first round starting…'}</small>
         <div className="cb-nums">{nums.map(([k, v, tip], i) => <span key={k} className={`cb-num ${TONE[k]}`} style={{ '--i': i }} data-tip={tip}><b className="fl-tick" key={v}>{v}</b><small>{k}</small></span>)}</div>
         {rec.n ? <div className="cb-rec" data-tip={`Her YES / favored coins an hour later: ${rec.rightPct}% rose · typical ${rec.typical > 0 ? '+' : ''}${rec.typical}% (${rec.n} graded)`}>
@@ -99,7 +105,10 @@ export function CatBrainSwitch({ d, busy, act }) {
       {book.stops.length ? <span className="cb-stops">{book.stops.map((x, i) => <small key={`${x.symbol}-${i}`} data-tip="The guard that stopped this buy — rug guards never step aside for NEXA">🛡 ${x.symbol}: {x.why}</small>)}</span> : null}
     </div> : null}
     {calls.length ? <ol className="cb-calls">{calls.map((c, i) => <li key={`${c.at}-${c.pair}`} style={{ '--i': i }} data-tip={c.line}>
-      <span className={`cb-word ${TONE[c.word] || 'is-none'}`}>{c.word || '—'}</span><b>${c.symbol || c.pair?.slice(0, 5)}</b><em>{c.why || (c.word ? '' : 'no clear word')}</em>
+      {c.word ? <span className={`cb-word ${TONE[c.word] || 'is-none'}`}>{c.word}</span>
+        : <span className="cb-word is-off" data-tip={`No word back: ${c.why || 'her model was silent'} — FeeCat's own stops keep running`} data-testid="nexa-silent" aria-label="no answer"><i /></span>}
+      <b>${c.symbol || c.pair?.slice(0, 5)}</b>
+      <em>{c.lines && linesChip(c.lines) ? <i className="cb-lines" data-tip="Her new stop / take on this coin — FeeCat sells when it is hit">🎯 {linesChip(c.lines)}</i> : null}{c.word ? c.why : ''}</em>
       <small>{c.ms ? `${Math.round(c.ms / 1000)}s · ` : ''}{ago(c.at)}</small></li>)}</ol> : on ? <p className="cb-why">Her desk calls land here — one line of numbers per coin, one word back.</p> : null}
   </article>;
 }

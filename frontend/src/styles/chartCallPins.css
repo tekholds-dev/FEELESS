@@ -88,6 +88,9 @@ body.theme-day .ccp-lens { background: rgba(255, 255, 255, .9); border-color: rg
 .ccp-trail.t-reaper .ccp-tl, .ccp-trail.t-reaper .ccp-td { stroke: #ff8fa3; }
 .ccp-trail.t-agents .ccp-tl, .ccp-trail.t-agents .ccp-td { stroke: #45e486; }
 .ccp-trail.t-agents .ccp-tl { opacity: .35; }
+.ccp-trail.t-fcai .ccp-tl, .ccp-trail.t-fcai .ccp-td { stroke: #e08cff; } .ccp-trail.t-fcai .ccp-beat { stroke: #e08cff; }   /* 🔮 FeeCat AI's desk words (public FeeCat chart) */
+.ccp-pin.a-yes { border-color: #45e486; } .ccp-pin.a-skim { border-color: #ffcf5c; } .ccp-pin.a-no { border-color: rgba(255, 255, 255, .35); }
+.ccp-act.a-yes { background: rgba(21, 209, 106, .2); color: #45e486; } .ccp-act.a-no { background: rgba(255, 255, 255, .08); color: #b9c9c0; } .ccp-act.a-skim { background: rgba(255, 207, 92, .2); color: #ffcf5c; }
 /* 🔥 live trails: each voice's newest call is its beating head; hot pins wear a ring (transform / opacity only) */
 .ccp-beat { fill: none; stroke-width: 1.6; transform-box: fill-box; transform-origin: center; animation: ccpHead 1.6s ease-out infinite; }
 .ccp-trail.t-ossy .ccp-beat { stroke: #b48cff; } .ccp-trail.t-g4 .ccp-beat { stroke: #6fd3ff; } .ccp-trail.t-reaper .ccp-beat { stroke: #ff8fa3; } .ccp-trail.t-agents .ccp-beat { stroke: #45e486; }

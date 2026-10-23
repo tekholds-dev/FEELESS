@@ -30,7 +30,8 @@ def read_of(nexa, now=None):
         return None
     pick = lambda k: {str(p) for p in (n.get(k) or []) if p}
     return {'favor': pick('favor'), 'exit': pick('exit'), 'avoid': pick('avoid'), 'why': ' '.join(str(n.get('why') or '').split())[:160],
-            'at': at, 'age': round(now - at)}
+            'at': at, 'age': round(now - at), 'skim': {str(p): float(t or 0) for p, t in (n.get('skim') or {}).items() if p},
+            'lines': {str(p): v for p, v in (n.get('lines') or {}).items() if p and isinstance(v, dict)}}
 
 
 def buy_ok(read, pair):
@@ -48,6 +49,25 @@ def sell_now(read, pair):
     """→ the sale's reason when her fresh read named this held coin EXIT, else None."""
     if read and pair in read['exit']:
         return '🪟 NEXA said exit' + (f": {read['why']}" if read['why'] else '')
+    return None
+
+
+def skim_now(read, pos):
+    """→ the reason to bank HALF of this held coin when her fresh read said SKIM on it and that call wasn't skimmed yet (pos['nxSkimAt'])."""
+    at = (read or {}).get('skim', {}).get((pos or {}).get('pairAddress'))
+    if not at or float((pos or {}).get('nxSkimAt') or 0) >= at:
+        return None
+    return '🪟 NEXA said skim: banked half'
+
+
+def line_exit(read, pos, change):
+    """🎯 Her own stop / take on a held coin ({'sl': 15, 'tp': 60} in % from the average entry) → the sale's reason, else None. FeeCat's rug
+    stops keep running underneath; her lines only ever sell (never widen a stop)."""
+    ln = (read or {}).get('lines', {}).get((pos or {}).get('pairAddress')) or {}
+    if ln.get('sl') and change <= -float(ln['sl']):
+        return f"🪟 NEXA's stop −{float(ln['sl']):g}% hit ({change:+.1f}%)"
+    if ln.get('tp') and change >= float(ln['tp']):
+        return f"🪟 NEXA's take +{float(ln['tp']):g}% hit ({change:+.1f}%)"
     return None
 
 

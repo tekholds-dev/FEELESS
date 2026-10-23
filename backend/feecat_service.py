@@ -71,7 +71,7 @@ def _save(store: dict):
     STORE_PATH.write_text(json.dumps(store, indent=2))
 
 
-_ECHO_OLD = re.compile(r':?\s*under 12 words, numbers')
+_ECHO_OLD = re.compile(r':?\s*under \d{1,2} words(?:, numbers)?')
 _INTERNAL = re.compile(r'(?:🪟\s*)?\b(?:NEXA(?: SICARIO)?|OSSY|G4)\b', re.I)
 
 
@@ -814,6 +814,8 @@ async def run_engine(store, cats):
         prices = await _pair_prices(http, held) if held else {}
         candidates, fuse_view, crowd_feed, duo = await asyncio.gather(_market_candidates(http), _fuse_discover(http), _crowd_feed(http), _duo_read(http))
     duo_avoid, duo_exit = set(duo.get('avoid') or []), set(duo.get('exit') or [])   # 🐱🤝 only what BOTH AI models agreed on
+    if isinstance((duo.get('nexa') or {}).get('talk'), list):   # 💬 her desk words → bubbles on FeeCat's public charts (scrubbed by _pub on the way out)
+        store['aiTalk'] = duo['nexa']['talk'][-24:]
     nexa_read = _cm.read_of(duo.get('nexa'), now)   # 🪟 a cat assigned to NEXA buys her favored coins + sells her exits (fresh reads only)
     # 🪟 NEXA'S LANE (owner, 2026-10-23: "nexa not trading"): her desk said YES to 6 coins while FeeCat's own lanes passed 0 of 42 — FeeCat only
     # walks her own list, so NEXA never traded. Her fresh YES now IS the lane (it replaces the age / cap-band filters); every guard still runs:
@@ -909,6 +911,16 @@ async def run_engine(store, cats):
                 cat['positions'].remove(pos)
                 _close(store, cat, pos, px, nx_out)
                 continue
+            nx_chg = (px / pos['entryPriceNative'] - 1) * 100 if pos.get('entryPriceNative') else 0.0
+            nx_line = _cm.line_exit(nexa_read, pos, nx_chg) if _cm.model_of(cat) else None
+            if nx_line:   # 🎯 her 2-min check moved a stop / take on this coin and it was hit
+                cat['positions'].remove(pos)
+                _close(store, cat, pos, px, nx_line)
+                continue
+            nx_skim = _cm.skim_now(nexa_read, pos) if _cm.model_of(cat) else None
+            if nx_skim:   # ✂ her SKIM: bank half once per call, the rest rides her lines + FeeCat's stops
+                pos['nxSkimAt'] = nexa_read['skim'][pos['pairAddress']]
+                _close(store, cat, pos, px, nx_skim, 0.5)
             change = (px / pos['entryPriceNative'] - 1) * 100            # vs average entry
             from_first = (px / pos['firstEntryPriceNative'] - 1) * 100   # vs first buy (drives the dip ladder)
             pos['currentChange'] = round(change, 2)
@@ -1424,7 +1436,7 @@ def cats_brain():
 async def leader():
     store = _load()
     _migrate(store)
-    return _pub({'cat': store['cats'].get(LEADER_ID), 'rules': RULES, 'feePerSide': fee_side(), 'scan': store.get('scan')})
+    return _pub({'cat': store['cats'].get(LEADER_ID), 'rules': RULES, 'feePerSide': fee_side(), 'scan': store.get('scan'), 'talk': store.get('aiTalk') or []})
 
 
 class EvaluatePayload(BaseModel):

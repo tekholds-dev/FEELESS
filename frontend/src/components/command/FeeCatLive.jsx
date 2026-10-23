@@ -5,6 +5,7 @@ import React, { useMemo, useState } from 'react';
 import { useLivePrices } from '../../lib/livePrices';
 import { chartCalls } from './AgentCockpit';
 import { avatarOf } from '../../lib/aiAvatars';
+import { tapeRow } from '../../lib/feeTape';
 
 const PriceChart = React.lazy(() => import('../terminal/PriceChart').then(m => ({ default: m.PriceChart })));
 const n = v => (v == null || v === '' || Number.isNaN(Number(v)) ? null : Number(v));
@@ -64,18 +65,8 @@ export function FeeCharts({ d }) {
   </article>;
 }
 
-// ⚡ One event → a row of chips, never a sentence wall (owner, 2026-10-23: "no long text, more vital live visuals"): coin · SOL · move % ·
-// P&L · 🔮 when FeeCat AI made the call · a short tag. The whole sentence stays on hover (data-tip).
-export function tapeRow(e) {
-  const t = String(e?.detail || '').split('\n')[0];
-  const coin = (t.match(/\$([A-Za-z0-9]{1,12})\b/) || t.match(/(?:of|Sold|winner|on)\s+\$?([A-Za-z0-9]{2,12})\b/) || [])[1] || null;
-  const sol = (t.match(/(\d+(?:\.\d+)?)\s*SOL/) || [])[1];
-  const move = (t.match(/at\s+([+-]\d+(?:\.\d+)?)%/) || [])[1];
-  const ai = /FeeCat AI|AI desk|NEXA/i.test(t);
-  const tag = /took profit/i.test(t) ? 'TP' : /Added/.test(t) ? 'ADD' : /stop|thesis broken|dumping/i.test(t) ? 'STOP' : /half size/.test(t) ? '½ SIZE'
-    : e?.type === 'LEARN' ? (t.split(/[:—(]/)[0].trim().slice(0, 28) || 'LEARN') : null;
-  return { coin, sol: sol != null ? +sol : null, move: move != null ? +move : null, pnl: e?.pnlSol ?? null, ai, tag, full: t };
-}
+// ⚡ One event → a row of chips (lib/feeTape.js — the public FeeCat page reads the same rows)
+export { tapeRow };
 
 function TapeChips({ r }) {
   return <span className="fcl-chips" data-tip={r.full}>

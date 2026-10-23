@@ -16853,7 +16853,11 @@ async def _nexa_desk_tick(now, env, cfg):
     """🪟🐱 NEXA TRADES AS FEECAT (owner switch, HQ › Fee): ≤ 3 one-line yes / no questions per 5 min — her held coins first (HOLD / SELL), then
     the coins FeeCat would buy (YES / NO). FeeCat acts on the fresh words through cat_model (every guard of hers still applies). Paper."""
     st_ = _nexa_mem.get() or {}
-    if not (st_.get('cfg') or {}).get('trade') or not _nxd.due(st_, now) or _nexa_rt['busy'] or now - _nexa_rt['chatAt'] < NEXA_DESK_QUIET:
+    if not (st_.get('cfg') or {}).get('trade') or _nexa_rt['busy'] or now - _nexa_rt['chatAt'] < NEXA_DESK_QUIET:
+        return
+    lead_ = ((_json_load(DATA_DIR / 'feecats.json', {}) or {}).get('cats') or {}).get('leader') or {}
+    kind_ = _nxd.round_kind(st_, now, any(p_.get('pairAddress') for p_ in lead_.get('positions') or []))   # ⏱ a live trade is re-checked every 2 min (held coins only)
+    if not kind_:
         return
     if (_air.ROUTER.prioWait.get('win') or {}).get(0, 0) > 0 or any(x_.get('prov') == 'win' and x_.get('role') in ('owner', 'chat') for x_ in _air.INFLIGHT.values()):
         return
@@ -16862,7 +16866,6 @@ async def _nexa_desk_tick(now, env, cfg):
     _nexa_rt['busy'] = True
     try:
         fc_ = _json_load(DATA_DIR / 'feecats.json', {}) or {}
-        lead_ = (fc_.get('cats') or {}).get('leader') or {}
         held_ = [{**_nexa_desk_coins(p_.get('mint')), 'pair': p_.get('pairAddress'), 'mint': p_.get('mint'), 'symbol': p_.get('symbol'), 'pct': p_.get('currentChange'),
                   'peak': p_.get('peakChange'), 'mins': (now - _fuse._f(p_.get('openedAt') or now)) / 60} for p_ in lead_.get('positions') or [] if p_.get('pairAddress')]
         seen_, cands_ = set(), []
@@ -16872,14 +16875,15 @@ async def _nexa_desk_tick(now, env, cfg):
                 seen_.add(pa_)
                 cands_.append({**_nexa_desk_coins(r_.get('mint')), 'pair': pa_, 'mint': r_.get('mint'), 'symbol': r_.get('symbol')})
         calls_ = list(st_.get('desk') or [])
-        jobs_ = _nxd.pick(held_, cands_, calls_, now)
-        st_['deskAt'] = now
+        jobs_ = _nxd.pick(held_, cands_, calls_, now, held_only=kind_ == 'held')
+        stamp_ = {'deskAt': now} if kind_ == 'full' else {'heldAt': now}
+        st_.update(stamp_)
         _nexa_mem.put(st_, now)
         for j_ in jobs_:
             r_ = await _air.ROUTER.ask(_ai_http(), env, cfg, j_['line'], role='exit', urgency='force', only=('win',), system=_nxd.ASK_HOLD if j_['kind'] == 'hold' else _nxd.ASK_BUY,
                                        only_system=True, tune={'temp': 0.1, 'maxTok': _nxd.MAX_TOK})
             w_, why_ = _nxd.parse(r_.get('text'), j_['kind'])
-            calls_ = _nxd.note(calls_, j_, w_, why_ or ('' if w_ else (r_.get('why') or 'no clear word')), r_.get('ms'), time.time())
+            calls_ = _nxd.note(calls_, j_, w_, why_ or ('' if w_ else (r_.get('why') or 'no clear word')), r_.get('ms'), time.time(), lines=_nxd.lines_of(r_.get('text')) if w_ else None)
         yes_ = [c_['pair'] for c_ in calls_[-len(jobs_):] if c_.get('word') == 'YES'] if jobs_ else []
         st_ = _nexa_mem.get() or {}
         if yes_:   # 📏 her YES calls are graded an hour later like her favors
@@ -16888,7 +16892,7 @@ async def _nexa_desk_tick(now, env, cfg):
                 st_['grades'] = _nexa.note_calls(st_.get('grades') or [], {'favor': yes_}, {c_['pair']: lp_.get(c_.get('mint')) for c_ in calls_ if c_.get('mint') in lp_}, now)
             except Exception:
                 pass
-        _nexa_mem.put({**st_, 'desk': calls_, 'deskAt': now}, now)
+        _nexa_mem.put({**st_, 'desk': calls_, **stamp_}, now)
     except Exception as e:
         print('nexa desk:', str(e)[:100])
     finally:
@@ -17458,7 +17462,8 @@ async def cats_ai():
         out_['exit'] = sorted(set(out_.get('exit') or []) | set(nx_.get('exit') or []))
         out_['read'] = max(_fuse._f(out_.get('read')), _fuse._f(nx_.get('at')))
         out_['models'] = list(out_.get('models') or []) + ['NEXA']
-    out_['nexa'] = {**{k_: nx_.get(k_) for k_ in ('avoid', 'exit', 'favor', 'why', 'at')}, 'record': _nexa.record(nst_.get('grades')), 'trades': bool(dk_ is not None)} if nx_ else None
+    out_['nexa'] = {**{k_: nx_.get(k_) for k_ in ('avoid', 'exit', 'favor', 'why', 'at')}, 'record': _nexa.record(nst_.get('grades')), 'trades': bool(dk_ is not None),
+                    **({'skim': dk_['skim'], 'lines': dk_['lines'], 'talk': _nxd.talk(nst_.get('desk'), time.time())} if dk_ else {})} if nx_ else None   # ✂ her SKIM (bank half, once per call) + 🎯 her stop / take on held coins
     return out_
 
 
@@ -27142,7 +27147,7 @@ async def admin_nexa(request: Request):
             'record': _nexa.record(st_.get('grades') or []), 'tunes': (st_.get('tunes') or [])[-10:], 'cfg': st_.get('cfg') or {},
             'memory': (st_.get('mem') or [])[-40:], 'memN': len(st_.get('mem') or []),
             'kb': {**__import__('nexa_kb').stats(_nexa_kb_mem.get() or {}), 'latest': __import__('nexa_kb').latest(_nexa_kb_mem.get() or {}, 30)},
-            'trade': bool((st_.get('cfg') or {}).get('trade')), 'desk': (st_.get('desk') or [])[-12:], 'deskAt': st_.get('deskAt'), 'deskEvery': _nxd.EVERY, 'deskCalls': _nxd.CALLS, 'real': {'on': False, 'why': 'FeeCat trades paper. A real-money FeeCat needs her own keeper path (sign from a FeeCat wallet, the Fuse wallet checks) — not built yet; switching it on stays your call.'}}
+            'trade': bool((st_.get('cfg') or {}).get('trade')), 'desk': (st_.get('desk') or [])[-12:], 'deskAt': st_.get('deskAt'), 'deskEvery': _nxd.EVERY, 'heldAt': st_.get('heldAt'), 'heldEvery': _nxd.HELD_EVERY, 'deskCalls': _nxd.CALLS, 'real': {'on': False, 'why': 'FeeCat trades paper. A real-money FeeCat needs her own keeper path (sign from a FeeCat wallet, the Fuse wallet checks) — not built yet; switching it on stays your call.'}}
 
 
 @app.post('/api/reputation/admin/nexa')

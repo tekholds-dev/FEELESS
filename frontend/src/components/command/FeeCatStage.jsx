@@ -24,7 +24,7 @@ export function FeeCatStage() {
       <div className="fcs-copy">
         <span className={`fcs-status ${nap ? 'nap' : 'hunt'}`}><i />{nap ? 'NAPPING' : open ? `HUNTING · ${open} OPEN` : 'HUNTING'}</span>
         <h1>Fee <em>{c.title || 'The Leader of the FEELESS Cats'}</em></h1>
-        <p>{disc.why && disc.why !== 'normal size' ? disc.why : nap ? 'Paused — she waits for the market to come back to her.' : 'Reading every live pair the agents and OSSY / G4 back — she only enters on a germ floor, a higher low or a held breakout.'}</p>
+        <p>{disc.why && disc.why !== 'normal size' ? disc.why : nap ? 'Paused — she waits for the market to come back to her.' : 'Reading every live pair the agents and 🔮 FeeCat AI back — she only enters on a germ floor, a higher low or a held breakout.'}</p>
         <div className="fcs-lives" aria-label={`${lives} of 9 lives`}>{Array.from({ length: 9 }, (_, i) => <i key={i} className={i < lives ? 'on' : ''} style={{ '--i': i }} />)}<small>{lives}/9 lives</small></div>
         <FollowFee />
       </div>

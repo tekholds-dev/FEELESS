@@ -99,6 +99,19 @@
 .cb-word.is-yes { background: var(--m-accent); color: var(--m-accent-ink); border-color: transparent; box-shadow: 0 0 12px -2px var(--m-accent); }
 .cb-word.is-sell { background: var(--m-danger); color: #1a0508; border-color: transparent; box-shadow: 0 0 12px -2px var(--m-danger); }
 .cb-word.is-hold { color: var(--cb-nexa); border-color: color-mix(in srgb, var(--cb-nexa) 55%, transparent); }
+.cb-word.is-skim { background: color-mix(in srgb, var(--gold, #ffc94d) 85%, transparent); color: #241800; border-color: transparent; box-shadow: 0 0 12px -3px var(--gold, #ffc94d); }
+.cb-num.is-skim b { color: var(--gold, #ffc94d); }
+/* 📴 no word back = an icon state (a dim plug whose dot breathes), never a sentence */
+.cb-word.is-off { position: relative; border-style: dashed; }
+.cb-word.is-off i { width: 12px; height: 8px; border: 1.5px solid var(--m-dim); border-radius: 2px 2px 4px 4px; position: relative; }
+.cb-word.is-off i::before, .cb-word.is-off i::after { content: ''; position: absolute; top: -5px; width: 1.5px; height: 4px; background: var(--m-dim); }
+.cb-word.is-off i::before { left: 2px; } .cb-word.is-off i::after { right: 2px; }
+.cb-word.is-off::after { content: ''; position: absolute; right: 4px; top: 4px; width: 4px; height: 4px; border-radius: 50%; background: var(--m-danger); animation: cbPulse 2.4s ease-in-out infinite; }
+.cb-lines { display: inline-block; margin-right: 6px; padding: 1px 6px; border-radius: 999px; font: 700 10px var(--m-mono); font-style: normal; color: var(--cb-nexa);
+  border: 1px solid color-mix(in srgb, var(--cb-nexa) 50%, transparent); background: color-mix(in srgb, var(--cb-nexa) 12%, transparent); }
+/* ⏱ live trade: the ring spins up a second, faster halo */
+.cb-wrap.is-fast .cb-halo circle { stroke: var(--gold, #ffc94d); } .cb-wrap.is-fast .cb-halo { animation-duration: 4s; }
+.cb-wrap.is-fast .cb-read > small { color: var(--gold, #ffc94d); }
 .cb-why { margin: 0; font-size: 12px; line-height: 1.4; color: var(--m-dim); font-style: italic; }
 @keyframes cbSpin { to { transform: rotate(360deg); } }
 @keyframes cbPulse { 0%, 100% { transform: scale(1); opacity: 1; } 50% { transform: scale(1.35); opacity: .7; } }
@@ -109,10 +122,14 @@
 body.fx-lite .cb-side, body.fx-lite .cb-halo, body.fx-lite .cb-wrap.is-live .cb-core, body.fx-lite .cb-num, body.fx-lite .cb-calls li, body.fx-lite .cb-pos,
 body.fx-lite .cb-wrap.is-nexa::before, body.fx-lite .cb-wrap.is-nexa::after, body.fx-lite .cb-word.is-yes::after { animation: none; }
 body.fx-lite .cb-wrap.is-nexa::after, body.fx-lite .cb-word.is-yes::after { opacity: 0; }
+body.fx-lite .cb-word.is-off::after { animation: none; }
+@media (prefers-reduced-motion: reduce) { .cb-word.is-off::after { animation: none; } }
 @media (prefers-reduced-motion: reduce) { .cb-side, .cb-halo, .cb-wrap.is-live .cb-core, .cb-num, .cb-calls li, .cb-pos, .cb-wrap.is-nexa::before, .cb-wrap.is-nexa::after, .cb-word.is-yes::after { animation: none; }
   .cb-wrap.is-nexa::after, .cb-word.is-yes::after { opacity: 0; } .cb-arc, .cb-rec em { transition: none; } }
 body.theme-day .cb-wrap { --cb-nexa: #6d3fd1; background: linear-gradient(160deg, #f1ebff, #fff 70%); }
 body.theme-day .cb-num, body.theme-day .cb-calls li { background: #faf7ff; }
 body.theme-day .cb-wrap.is-nexa .cb-read > b { background: linear-gradient(90deg, #2a1660, var(--cb-nexa)); -webkit-background-clip: text; background-clip: text; }
+body.theme-day .cb-seg button[aria-checked="false"] { color: #3d3358; opacity: 1; }   /* readable unselected side in day */
+body.theme-day .cb-word.is-skim { background: #f0b429; } body.theme-day .cb-wrap.is-fast .cb-read > small { color: #8a6400; } body.theme-day .cb-lines { background: #efe6ff; }
 body.theme-day .cb-book { background: #f3fff8; } body.theme-day .cb-duel { background: #f6f1ff; } body.theme-day .cb-stops small { color: #8a6400; }
 @media (max-width: 640px) { .cb-body { grid-template-columns: 52px 1fr; } .cb-ring { width: 52px; height: 52px; } .cb-num { min-width: 46px; } .cb-calls li { grid-template-columns: 46px auto 1fr; } .cb-calls small { display: none; } .cb-pos { font-size: 11px; padding: 4px 8px; } .cb-duel { grid-template-columns: 1fr; } }
