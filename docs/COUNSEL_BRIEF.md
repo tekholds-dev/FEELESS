@@ -46,6 +46,11 @@ each decision, exactly what the product does today, the question to answer, and 
   Ask: is showing their APY as information (no action) acceptable?
 - **The Launch wizard** (launch a coin with fee routing to the creator, holders, buyback-burn; anti-sniper tax; locked launch). Ask: does
   FEELESS facilitating token issuance + declaring creator revenue shares make it an issuer's agent / platform with securities exposure?
+- **⚡ Real leverage (DECISIONS #7)** — the Perps building + the Money Desk's MOON tab build a **Jupiter Lend borrow** from the user's own
+  wallet (lock SOL / BTC / JUP, borrow USDC against it, buy more of the coin = 1.3–1.7× long with a liquidation price). Not a futures
+  contract; FEELESS never lends, holds the collateral or signs. Ask: is an interface that builds a margined spot purchase through a
+  third-party lending protocol a "retail commodity transaction" (CEA 2(c)(2)(D)) issue for US users — does the coins landing in the user's
+  own wallet at once count as "actual delivery"? Does it make FEELESS an introducing broker? Is the risk line on the desk enough?
 - **The swap fee itself** on non-custodial swaps: confirm no money-transmitter (FinCEN MSB / state MTL) exposure, given FEELESS never
   controls the user's funds and the fee is part of the signed transaction.
 

@@ -10177,8 +10177,7 @@ async def familia_pools_earn(request: Request):
     units_ = _le.base_units(amt_, dec_) if dec_ is not None else None
     if not units_:
         raise HTTPException(400, 'Type an amount above zero.')
-    key_ = _jkeys.read_key(os.environ)
-    hosts_ = ([(_le.EARN, {'x-api-key': key_})] if key_ else []) + [(_le.EARN_PUBLIC, {})]
+    hosts_ = [(_le.EARN, {'x-api-key': k_}) for k_ in _jkeys.lend_keys(os.environ)] + [(_le.EARN_PUBLIC, {})]   # a key at its limit never blocks a deposit
     why_ = 'Jupiter did not answer.'
     for base_, hdr_ in hosts_:
         try:
@@ -10199,6 +10198,93 @@ async def familia_pools_earn(request: Request):
         return {'transaction': tx_, 'side': side_, 'asset': asset_, 'units': units_, 'decimals': dec_, 'sym': row_.get('sym'), 'apy': row_.get('apy'),
                 'programs': sorted({_le.ALLOW[p_] for p_ in progs_})}
     raise HTTPException(503, why_)
+
+
+_flv_hits = {}     # ip → [times] (the leverage builder: 30 an hour per IP)
+_flv_vaults = {}   # 'at' + 'rows': Jupiter Lend's vaults, read at most once every 30 s
+
+
+async def _jl_borrow(method, path, **kw):
+    """One Jupiter Lend Borrow call over every key (a key at its rate limit falls through), then the public host. → (status, body)."""
+    import lend_borrow as _lb
+    hosts_ = [(_lb.BORROW, {'x-api-key': k_}) for k_ in _jkeys.lend_keys(os.environ)] + [(_lb.BORROW_PUBLIC, {})]
+    last_ = (503, {'error': 'Jupiter did not answer.'})
+    for base_, hdr_ in hosts_:
+        try:
+            r_ = await _ai_http().request(method, f"{base_}/{path}", headers=hdr_, timeout=12, **kw)
+        except Exception:
+            continue
+        try:
+            b_ = r_.json()
+        except Exception:
+            b_ = {}
+        if r_.status_code == 429:
+            last_ = (429, {'error': 'Jupiter is busy right now — try again in a minute.'})
+            continue
+        return r_.status_code, b_
+    return last_
+
+
+async def _jl_markets():
+    import lend_borrow as _lb
+    if time.time() - _flv_vaults.get('at', 0) > 30 or not _flv_vaults.get('rows'):
+        code_, b_ = await _jl_borrow('GET', 'vaults')
+        rows_ = _lb.markets(b_) if code_ == 200 else []
+        if rows_:
+            _flv_vaults.update(at=time.time(), rows=rows_)
+    return _flv_vaults.get('rows') or []
+
+
+@app.get('/api/reputation/familia/leverage')
+async def familia_leverage(address: str = ''):
+    """⚡ REAL LEVERAGE markets (Jupiter Lend: SOL · BTC · JUP against USDC — max leverage, liquidation threshold, borrow APR, room to
+    borrow) + the wallet's open Jupiter Lend positions in them."""
+    import lend_borrow as _lb
+    rows_ = await _jl_markets()
+    pos_ = []
+    if rows_ and 32 <= len(address or '') <= 44:
+        code_, b_ = await _jl_borrow('GET', 'positions', params={'users': address})
+        pos_ = _lb.positions(b_, {r_['vaultId']: r_ for r_ in rows_}) if code_ == 200 else []
+    return {'markets': rows_, 'positions': pos_, 'maxUsd': _lb.MAX_USD}
+
+
+@app.post('/api/reputation/familia/leverage')
+async def familia_leverage_build(request: Request):
+    """⚡ Open (lock + borrow) or close (repay all + withdraw all) a Jupiter Lend position WITHOUT leaving FEELESS: Jupiter builds the
+    unsigned transaction, `lend_borrow.verify` opens it (the user pays + signs alone, only Jupiter Lend + Solana's own programs) and only
+    then hands it back for the wallet to sign. FEELESS never holds the collateral, the loan or a key."""
+    import lend_borrow as _lb
+    body = await request.json()
+    try:
+        act_, signer_, vid_, pid_, col_, lev_ = _lb.clean_request(body)
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+    ip_ = (request.client.host if request.client else '') or '?'; now = time.time()
+    hits_ = [t_ for t_ in _flv_hits.get(ip_, []) if now - t_ < 3600]
+    if len(hits_) >= 30:
+        raise HTTPException(429, 'Too many leverage builds from here — try again in a while.')
+    _flv_hits[ip_] = hits_ + [now]
+    if len(_flv_hits) > 5000:
+        _flv_hits.clear()
+    m_ = next((r_ for r_ in await _jl_markets() if r_['vaultId'] == vid_), None)
+    if not m_:
+        raise HTTPException(400, 'Only the SOL · BTC · JUP leverage markets open from here.')
+    plan_ = None
+    if act_ == 'open':
+        try:
+            plan_ = _lb.plan(m_, col_, lev_)
+        except ValueError as e:
+            raise HTTPException(400, str(e))
+    code_, b_ = await _jl_borrow('POST', 'operate', json=_lb.body_for(act_, signer_, vid_, pid_, plan_))
+    tx_ = (b_ or {}).get('transaction') if code_ == 200 else None
+    if not tx_:
+        raise HTTPException(503 if code_ in (429, 503) else 502, f"Jupiter refused it: {str((b_ or {}).get('error') or (b_ or {}).get('message') or code_)[:120]}")
+    ok_, bad_, progs_ = _lb.verify(tx_, signer_)
+    if not ok_:
+        print('leverage refused:', bad_, progs_)
+        raise HTTPException(502, f"Refused before your wallet saw it: {bad_}")
+    return {'transaction': tx_, 'act': act_, 'nftId': (b_ or {}).get('nftId') or pid_, 'vaultId': vid_, 'coin': m_['coin'], 'plan': plan_,
+            'programs': sorted({_lb.ALLOW[p_] for p_ in progs_})}
 
 
 _fmk_http = None

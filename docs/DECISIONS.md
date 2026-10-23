@@ -44,3 +44,14 @@ money is worse than "no reader yet". Until then those buildings say so and stay 
 pools) with the risk written next to the number (impermanent loss, out-of-range = 0, memecoins can halve in an hour). SAFE = staking +
 Jupiter Lend. Tokenized treasuries (USDY, ONyc, BUIDL…) are never routed — their issuers exclude US persons and FEELESS has no geo check.
 Perps: paper only in FEELESS; no link-outs to venues (owner); real orders wait on counsel (#1). Questions for counsel: `docs/COUNSEL_BRIEF.md`.
+
+## 7 · Real leverage without a broker account (owner, 2026-10-23: "too many damn steps to do perps with coinbase — find another way")
+**Decided: ⚡ REAL LEVERAGE on Jupiter Lend Borrow, from the user's own wallet; Coinbase / Kraken API orders dropped.** Lock SOL / BTC / JUP
+in a Jupiter Lend vault, borrow USDC against it, buy more of the coin through the FEELESS swap engine → a 1.3–1.7× long (leverage capped 10
+points under the vault's max loan-to-value) with the liquidation price on screen. Two signatures, no account, no KYC, no link-out, no geo
+loophole (it is a loan in a protocol, not an offshore perps venue). FEELESS never lends, holds the collateral or signs; Jupiter builds every
+transaction and `lend_borrow.verify` refuses it unless the user pays + signs alone and only Jupiter Lend's vaults program + Solana's own run.
+Longs only (Jupiter has no stable-collateral vault to short with); shorts + 50× stay on the paper desk. Guards: SOL · BTC · JUP vs USDC only,
+$2,000 per open, Jupiter's own minimum loan, every transaction simulated before the wallet sees it. Counsel question: `COUNSEL_BRIEF.md` §6.
+Code: `backend/lend_borrow.py` · GET/POST `/api/reputation/familia/leverage` · `lib/leverage.js` · `components/RealLeverage.jsx` (Perps desk + MOON).
+

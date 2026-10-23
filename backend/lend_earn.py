@@ -53,8 +53,10 @@ def clean_request(raw):
     return side, asset, signer, raw.get('amount')
 
 
-def verify(b64, signer):
-    """The transaction Jupiter built → (ok, why, programs). Refused unless the user pays + is the only signer and every program is on ALLOW."""
+def verify(b64, signer, allow=None, must=('jup3YeL8QhtSx1e253b2FDvsMNC87fDrgQZivbrndc9', 'jupeiUmn818Jg1ekPURTpr4mFo29p46vygyykFJ3wZC')):
+    """The transaction Jupiter built → (ok, why, programs). Refused unless the user pays + is the only signer, every program is on `allow`
+    (default ALLOW) and one of `must` runs (`lend_borrow` passes Jupiter Lend's vaults program)."""
+    allow = ALLOW if allow is None else allow
     from solders.transaction import VersionedTransaction
     try:
         raw = base64.b64decode(str(b64 or ''), validate=True)
@@ -77,9 +79,9 @@ def verify(b64, signer):
         if i >= len(keys):
             return False, 'It calls a program it does not list.', progs
         progs.append(keys[i])
-    bad = sorted({p for p in progs if p not in ALLOW})
+    bad = sorted({p for p in progs if p not in allow})
     if bad:
         return False, f"It calls a program FEELESS does not know ({bad[0][:6]}…) — refused.", progs
-    if not any(p in ('jup3YeL8QhtSx1e253b2FDvsMNC87fDrgQZivbrndc9', 'jupeiUmn818Jg1ekPURTpr4mFo29p46vygyykFJ3wZC') for p in progs):
+    if not any(p in must for p in progs):
         return False, 'It never calls Jupiter Lend — refused.', progs
     return True, None, progs

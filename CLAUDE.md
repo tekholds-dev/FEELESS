@@ -166,11 +166,11 @@ STANDING RULES (never "done"):
   hottest fee pools) with the risk named — SAFE yields are one tap away, never the headline. "Think big, not the same utilities."
 
 P0 — OWNER 2026-10-23 (late night) · finished today → `docs/FEELESS_HISTORY.md` (grep "2026-10-23 late night")
-1. 📉 REAL PERPS IN THE FAMILY TOWN, 3 venues (owner: "perps desk needs to be real money!! pick from at least 3 providers"). Researched:
-   🇺🇸 Coinbase Derivatives (CFTC-regulated US perpetual-style futures `BIP-20DEC30-CDE` via the Advanced Trade API — the US-legal path;
-   the owner's own CDP key, server-side, owner-only first) · 🪐 Jupiter Perps (Solana, wallet signs; no official API yet → build from its
-   Anchor IDL, simulate like the LP work) · a third (Flash Trade / Hyperliquid builder codes). Non-US venues stay LOCKED for US users by
-   the standing rule + their own terms (ship with the geo / KYC switch, money list #8) — never a bypass. Desk = PERPS DESK in the town.
+1. ⚡ REAL LEVERAGE — SHIPPED 2026-10-23 (Coinbase / Kraken API orders dropped: "too many steps"): Jupiter Lend Borrow from the user's own
+   wallet (DECISIONS #7, `lend_borrow.py`, `RealLeverage.jsx` in the Perps desk + MoneyDesk MOON). Open SIMULATED clean on mainnet through
+   FEELESS. NEXT: the owner's first real open ($25 SOL 1.5×) + close end to end (close = sell to repay → repay-all/withdraw-all, built but
+   never landed) · read Jupiter's `/borrow/positions` row shape off that first position (`lend_borrow.positions` keeps only vaultId + nftId
+   today) · one-tap loops to 3–4× via Jupiter's flashloan (`@jup-ag/lend/flashloan`: borrow → swap → operate → payback in ONE tx).
 2. 💵 FEE REAL: the 👛 FEE'S WALLET pill (stage + HQ) is where to link / budget / go real — owner signs one small proposal end to end, report.
 3. 🏝 Town next: pick a lot for a NEW market right from ✋ ARRANGE · drag (not tap-swap) in the 3D block · each town building's real tool
    done in place (perps above). Islands cost 3,000 MP (creator free) — tune with the owner.
@@ -195,9 +195,11 @@ P0 — OWNER 2026-10-23 (late night) · finished today → `docs/FEELESS_HISTORY
 6. ⚡ SCALE FOR THOUSANDS: measure the metro's fps (trims merged + a car budget shipped 2026-10-23, unmeasured) · instancing / LOD · load tests.
 7. 🏙 CITY LEFTOVERS: outer cities' real-money markets · HELD + FEELESS-launched coins as buildings · raids played in-city · MP-only buildings ·
    $ / MP ladders · MOBhouse customization · a 3D for-sale island.
-0. 🚨 RPC QUOTA: Helius ("max usage reached") AND Alchemy ("Monthly capacity limit exceeded") were both out on 2026-10-23 evening — every
+0. 🚨 RPC QUOTA: the relay answered again late 2026-10-23 (getLatestBlockhash + simulate OK) but Helius ("max usage reached") AND Alchemy ("Monthly capacity limit exceeded") were both out on 2026-10-23 evening — every
    wallet-signed action through `/api/reputation/rpc` (swaps, Jupiter Lend, LP joins, launches) and maybe the keeper depend on them. Owner: top up
    / upgrade one, or add a third RPC to the relay's fallback list.
+9. 🔑 Jupiter keys: the READ key (+ key 2) sat at their rate limit (429) on 2026-10-23 — Lend builds now fall through every key
+   (`jup_keys.lend_keys`); the owner may add a key (portal.jup.ag) so reads stop starving.
 8. 🌍 A geo / KYC switch per feature (today there is none — COUNSEL_BRIEF §0) so a feature counsel restricts can be closed to US users.
 
 P1 — AGENTS + AI

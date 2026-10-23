@@ -8,6 +8,7 @@ import { readChatSession } from '../lib/chatSession';
 import { useWallet } from '../hooks/useWallet';
 import { PerpsEarn } from './EarnStake';
 import { PaperPerps } from './PaperPerps';
+import { RealLeverage } from './RealLeverage';
 import '../styles/cityAvenue.css';
 
 // 🛣 FEELESS AVENUE (owner, 2026-10-22: "implement the site's best tabs and features in Fee City with a pop-out of vitals and quick tools to
@@ -175,7 +176,8 @@ function CatTower() {
 // 📉 THE PERPS DESK — the perps US traders can legally use (Kraken Pro · Coinbase), priced live from a global reference board (mark, 24h,
 // funding APR, open interest, max leverage) + one tap to the regulated venue. Leverage math on screen.
 // 🇺🇸 US-legal venues only (owner, 2026-10-23): Kraken Pro (CFTC-regulated perps via Bitnomial) · Coinbase (perpetual-style futures, CFTC FCM).
-// Drift / Hyperliquid / Jupiter Perps are gone — they block or don't clearly serve US traders. In-app orders on these = the owner's call (API + legal).
+// Drift / Hyperliquid / Jupiter Perps are gone — they block or don't clearly serve US traders. REAL money here = ⚡ RealLeverage (a Jupiter Lend
+// loan from the user's own wallet, DECISIONS #7); the paper desk keeps 50× longs / shorts for practice.
 function PerpsDesk() {
   const { data } = useMarketJson('/api/reputation/familia/perps', 60000); const rows = data?.markets || []; const [lev, setLev] = useState(10);
   const [pick, setPick] = useState(null); const row = rows.find(r => r.coin === pick) || rows[0];
@@ -189,6 +191,7 @@ function PerpsDesk() {
     </div>
     <label className="phb-earn-in av-lev"><span>Leverage</span><input type="range" min="1" max="50" value={lev} onChange={e => setLev(Number(e.target.value))} aria-label="Leverage" data-testid="av-lev" /><b>{lev}×</b></label>
     <PerpsEarn row={row} lev={lev} />
+    <RealLeverage coin={row?.coin} />
     <PaperPerps row={row} lev={lev} />
     <ol className="av-list av-perps">{!rows.length ? <li className="m-dim">Reading the perps markets…</li> : null}
       {rows.map((r, i) => <li key={r.coin} style={{ '--i': i }}><em>{i + 1}</em>

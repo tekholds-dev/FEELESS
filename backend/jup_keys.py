@@ -36,3 +36,10 @@ def keeper_keys(env):
     """The keeper's lanes: every key except the read key."""
     rk = read_key(env)
     return [k for k in keys(env) if k != rk]
+
+
+def lend_keys(env):
+    """Jupiter Lend builds (a user's own deposit / borrow, rare): the read key first, then the keeper's lanes from the last — one key at
+    its rate limit (429) never blocks a user's transaction while another key is free."""
+    rk = read_key(env)
+    return ([rk] if rk else []) + [k for k in reversed(keeper_keys(env))]

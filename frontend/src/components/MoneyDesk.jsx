@@ -17,6 +17,7 @@ import '../styles/moneyDesk.css';
 // deposit (built + checked server-side, your wallet signs) · a SOL → LST / USDC → yield-token swap (the swap opens with both coins set) · the
 // pool's coin on the chart + Quick trade. Nothing here opens another site; FEELESS never holds the money.
 const SwapWorkspace = lazy(() => import('./command/SwapWorkspace').then(m => ({ default: m.SwapWorkspace })));
+const RealLeverage = lazy(() => import('./RealLeverage').then(x => ({ default: x.RealLeverage })));   // ⚡ MOON's leverage door (Jupiter Lend, DECISIONS #7)
 export const SOL = 'So11111111111111111111111111111111111111112';
 export const USDC = 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v';
 const JLP = '27G8MtK7VtTcCHkpASjSDdkWWYfoqT6ggEuKidVJidD4';
@@ -223,6 +224,7 @@ export function MoneyDesk({ job: job0 = 'lend', rows = null, focus: focus0 = nul
       {risk === 'safe' ? <span className="m-seg md-add" role="radiogroup" aria-label="Add every month">{ADDS.map(a => <button key={a} type="button" role="radio" aria-checked={add === a} className={add === a ? 'active' : ''} onClick={() => setAdd(a)} data-tip={a ? `Add $${a} every month — compounding on top` : 'No top-ups'} data-testid={`md-add-${a}`}>{a ? `+$${a}/mo` : 'once'}</button>)}</span> : null}</div>
     {risk !== 'safe' ? <HotPools amt={amt} /> : null}
     {risk !== 'safe' ? <FeeHunters rows={all} amt={amt} moon={risk === 'moon'} /> : null}
+    {risk === 'moon' && !compact ? <Suspense fallback={null}><RealLeverage /></Suspense> : null}
     {risk === 'safe' ? <>
     {provs.length ? <div className="md-prov" role="radiogroup" aria-label="Provider">{provs.map((x, i) => <button key={x.id} type="button" role="radio" aria-checked={x === p} className={x === p ? 'is-on' : ''} style={{ '--i': i }}
       onClick={() => { setPid(x.id); setGo(null); }} data-tip={`${x.name} · ${x.sym}${x.tvl ? ` · TVL ${usd(x.tvl)}` : ''} — ${x.how === 'lend' ? 'deposit right here, withdraw any time' : x.how === 'trade' ? 'the pool\'s coin on the chart + Quick trade' : `swap ${x.fromSym} into it right here; holding it earns`}`} data-testid={`md-prov-${x.id}`}>

@@ -6099,3 +6099,9 @@ P6 — IDEAS: FeeCat + AI agent pair that talk · "build a better coin" track in
   every Build-a-cat entry → models → wallet → REAL · 👑 FeeOwnerBar (🎨 STYLE FEE · 👛 FEE'S WALLET, owner wallets only) · 🏝 family town:
   per-family layout (`block_markets.layout_of/_set`, POST /familia-block/layout), ✋ ARRANGE, islands of 15 + bridges (3,000 MP, creator free),
   10 beauty plots drawn in 3D, 💧 MY POOLS · 💸 every city market building is ACTIVE (vitals ⚡ action → in-place desk / swap; `activeMoney` ≥ 80 %).
+- 2026-10-23 night (Opus 5.5): ⚡ REAL LEVERAGE replaces the Coinbase/Kraken perps plan (owner: "too many steps") — Jupiter Lend Borrow from
+  the user's wallet: `backend/lend_borrow.py` (markets / plan / verify / positions, 7 tests), GET+POST `/api/reputation/familia/leverage`
+  (every Jupiter key, then public), `lib/leverage.js` (① lock+borrow → ② buy via the swap engine; close = sell → repay-all), `RealLeverage.jsx`
+  + `styles/leverage.css` (yours-vs-lent stack, ☠ price rail, steps, positions) in the Perps desk, MoneyDesk MOON and `/dev/perps`. Open
+  simulated clean on mainnet for a wallet with plain SOL and no USDC account. Jupiter Lend Earn deposits fell through a 429'd read key → fixed.
+
