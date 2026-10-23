@@ -133,3 +133,18 @@ def test_the_auto_switch_runs_on_the_ai_round(monkeypatch):
     rs._json_save(rs.PROMPT_STUDIO_PATH, {})
     rs._studio_apply()
     assert "asyncio.ensure_future(_studio_auto_safe(now))" in open(rs.__file__).read()
+
+
+def test_every_call_that_carries_the_mindset_is_stamped(monkeypatch):
+    # owner, 2026-10-23: "when I reload a model I have no way of seeing if the prompt loaded" — the call log + the studio show the last call that CARRIED it
+    async def fake_call0(self, http, p, env, msgs, now):
+        return '{"ok":1}', None
+    monkeypatch.setattr(ar.Router, '_call0', fake_call0)
+    try:
+        ar.STUDIO['lan'] = 'rush in'; ar.STUDIO_SET['lan'] = 'progressive'
+        asyncio.run(ar.ROUTER._call(None, {'key': 'lan', 'model': 'm'}, {}, [{'role': 'system', 'content': 'RULES'}, {'role': 'user', 'content': 'q'}], 0))
+        assert ar.CALL_LOG[-1]['mindset'] == 'progressive' and ar.MINDSET_SEEN['lan']['set'] == 'progressive' and ar.MINDSET_SEEN['lan']['ok']
+        asyncio.run(ar.ROUTER._call(None, {'key': 'local', 'model': 'm'}, {}, [{'role': 'system', 'content': 'RULES'}], 0))
+        assert 'mindset' not in ar.CALL_LOG[-1]                                                           # OSSY has none applied
+    finally:
+        ar.STUDIO.clear(); ar.STUDIO_SET.clear(); ar.MINDSET_SEEN.clear()

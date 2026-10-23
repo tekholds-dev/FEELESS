@@ -226,6 +226,8 @@ def cloud_ready(router, env, cfg, now):
 
 
 STUDIO = {}   # 🎭 Prompt Studio: {key: overlay text} the owner applied (prompt_studio.py) — set by the service, appended to that model's system prompt
+STUDIO_SET = {}   # 🎭 {key: the applied set's name} — stamped on every call that carried it
+MINDSET_SEEN = {}   # 🎭 {key: {set, at, ok}} — the last call that really CARRIED the applied mindset (the owner's proof it is live, no trip to the desktop)
 RIG = {}   # 🎛 owner's model rig (ai_rig.py): {key: {ctx, parallel, timeout, perMin}} — set by the service, read live
 
 
@@ -1102,8 +1104,12 @@ class Router:
         finally:
             INFLIGHT.pop(cid, None)
             _CALL_TASKS.pop(cid, None)
+        mind_ = STUDIO_SET.get(p['key']) if STUDIO.get(p['key']) and msgs and msgs[0].get('role') == 'system' else None   # with_studio appended it in _call1
+        if mind_:
+            MINDSET_SEEN[p['key']] = {'set': mind_, 'at': round(t0), 'ok': not err}
         CALL_LOG.append({'at': round(t0), 'prov': p['key'], 'model': self.lastModel.get(p['key']) or p.get('model'), 'role': CALL_ROLE.get() or '', 'ms': round((time.time() - t0) * 1000),
-                      'ok': not err, 'err': (err or (None, None))[1], 'tok': est_tokens(msgs), 'system': _mask(sys_, 240), 'prompt': _mask(usr_, 900), 'answer': _mask(text, 500)})
+                      'ok': not err, 'err': (err or (None, None))[1], 'tok': est_tokens(msgs), 'system': _mask(sys_, 240), 'prompt': _mask(usr_, 900), 'answer': _mask(text, 500),
+                      **({'mindset': mind_} if mind_ else {})})
         return text, err
 
     async def _call0(self, http, p, env, msgs, now):

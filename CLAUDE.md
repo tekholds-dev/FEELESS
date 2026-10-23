@@ -194,6 +194,17 @@ P. ✅ SHIPPED 2026-10-22 (Brain › 🎭 Prompts, `prompt_studio.py`, `ai_route
    and a PROGRESSIVE mix ("quick in, patient while in profit, rush when it runs") — one tap APPLIES to LM Studio / llama (rig reload path that
    exists: Brain › Models). AUTO-TUNE: when a model's graded record turns red (proof bench, NEXA's YES grades, duo totals), propose the prompt
    change that fixes its mindset, with the evidence; the owner applies. OSSY / G4 keep taking turns (one trade each, the holder runs it).
+M. 🧠 BRAIN › MODELS = LM STUDIO'S OWN PANEL, IN FEELESS (owner, 2026-10-23, hardest → easiest):
+   1. Per model the LM Studio tabs — INFO (model, params, format, quant, size, arch, max ctx) · LOAD (context, GPU offload, CPU threads, eval
+      batch, flash attention, KV cache, keep in memory, mmap, seed, parallel — the `lms load` reload path that exists) · INFERENCE (preset,
+      SYSTEM PROMPT = what FEELESS really sends: seat prompt + the 🎭 applied mindset, temperature, limit response length, context overflow,
+      stop strings, SAMPLING top-k / top-p / min-p / repeat penalty, structured output, speculative decoding — all per-request params FEELESS
+      sends) · SERVER (port, CORS, JIT load, idle TTL, serve on network — read what LM Studio exposes) · MCP (feeless_mcp tools it can call).
+      NEXA (llamafile) gets the same tabs for what llamafile exposes (/props, /slots).
+   2. More VITALS for every model: tokens/s, time to first token, queue depth, error rate, context fill, uptime, last reload — live.
+   3. Fix the Models tab look in the Brain: the model cards are cut off at the bottom and a second rig panel repeats on the right.
+   (The 🎭 mindset is sent by FEELESS inside every API call's system message — LM Studio's own "System Prompt" box only feeds its own chat
+   window, so it never shows there; the proof is "✓ IN USE · last call carried it" in Brain › Prompts and 🎭 tags on Models › live calls.)
 A0. ✅ SHIPPED 2026-10-23 — TRADE IN FAMILIA, NO REDIRECTS: `FamiliaTrade.jsx` — every ⚡ Trade in Familia (Pump Radar, $FEE Bank, Trade Center,
    Trench Towers, Pool Hub, city markets) slides the FAMILIA TRADE DESK over the room (TrenchChart + Quick trade + vitals; wallet signs), the LST
    switch errand opens the swap in the dock, rooms lost their "Full page ↗" jumps, a member's "Full profile ↗" = the case file in place. A guard

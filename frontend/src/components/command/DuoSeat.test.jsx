@@ -131,3 +131,17 @@ test('💬 a coin on the card has its own room, and its chime-in names that coin
   expect(sent[0]).toEqual({ comment: 'hold elon', mint: 'eM' });
   act(() => root.unmount());
 });
+
+test('🔁 strict turns by default: the switch posts the guards; a weak record only warns', async () => {
+  const posts = [];
+  const call = jest.fn(async (path, o) => { posts.push([path, JSON.parse(o.body)]); return { ok: true, guards: true }; });
+  const el = document.createElement('div'); document.body.appendChild(el); const root = createRoot(el);
+  const duo = { mode: 'real', next: 'G4', guards: false, bench: { G4: { benched: true, n: 150, median: -0.8, upPct: 40 }, OSSY: { benched: false } }, log: [] };
+  await act(async () => { root.render(<DuoSeat duo={duo} call={call} />); });
+  const q = id => el.querySelector(`[data-testid="${id}"]`);
+  expect(q('duo-guards').textContent).toBe('🔁 STRICT TURNS'); expect(q('duo-bench-warn').textContent).toContain("G4's last 150 FAVOR calls settled -0.8% median, 40% up — it still takes its turn");
+  await act(async () => { q('duo-guards').click(); }); expect(posts[0]).toEqual(['/admin/ai/seat', { guards: true }]);
+  await act(async () => { root.render(<DuoSeat duo={{ ...duo, guards: true }} call={call} />); });
+  expect(q('duo-guards').textContent).toBe('🪑 GUARDS ON'); expect(q('duo-bench-warn')).toBeNull();
+  act(() => root.unmount());
+});

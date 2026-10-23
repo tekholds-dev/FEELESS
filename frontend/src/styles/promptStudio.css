@@ -117,6 +117,11 @@
 .pst-div i.is-dn { right: 50%; transform-origin: right; background: linear-gradient(270deg, rgba(255, 143, 163, .35), #ff8fa3); }
 .pst-rnum { display: grid; justify-items: end; gap: 1px; } .pst-rnum b { font: 900 13px var(--m-mono); animation: pstPop .4s ease-out; } .pst-rnum b.is-up { color: #45e486; } .pst-rnum b.is-dn { color: #ff8fa3; }
 .pst-rnum small { font: 600 9px var(--m-mono); color: var(--m-dim); white-space: nowrap; }
+.pst-proof { margin: 0; display: flex; gap: 8px; align-items: center; padding: 5px 9px; border-radius: 8px; border: 1px dashed rgba(245, 196, 81, .45); background: rgba(245, 196, 81, .08); }
+.pst-proof b { font: 900 8.5px var(--m-mono); letter-spacing: .12em; color: #ffe08a; } .pst-proof span { font: 700 10px var(--m-mono); color: var(--m-text); }
+.pst-proof.is-live { border-style: solid; border-color: rgba(69, 228, 134, .55); background: rgba(21, 209, 106, .1); } .pst-proof.is-live b { color: #45e486; text-shadow: 0 0 10px rgba(21, 209, 106, .5); }
+.pst-models small.is-live { background: rgba(21, 209, 106, .3); color: #b6ffd2; }
+body.theme-day .pst-proof span { color: #10261a; } body.theme-day .pst-proof.is-live b { color: #0d8a43; text-shadow: none; } body.theme-day .pst-proof b { color: #7a5a00; }
 @keyframes pstPulse { 50% { transform: scale(1.08); opacity: .8; } }
 @keyframes pstIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
 @keyframes pstPop { from { transform: scale(1.18); } to { transform: none; } }

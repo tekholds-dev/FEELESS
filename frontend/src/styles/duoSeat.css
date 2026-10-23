@@ -238,3 +238,13 @@ body.theme-day .dso-mid .dso-core { background: linear-gradient(160deg, rgba(21,
 body.theme-day .dso-tile { background: rgba(255, 255, 255, .7); border-color: rgba(13, 106, 53, .14); } body.theme-day .dso-tile b { color: #10261a; } body.theme-day .dso-tile.k-last small { color: #2c5a40; }
 body.theme-day .dso-tile.is-up b { color: #0d8a43; } body.theme-day .dso-tile.is-dn b { color: #c0344f; }
 @media (max-width: 640px) { .dso-deck { grid-template-columns: repeat(2, minmax(0, 1fr)); } .dso-tile b { font-size: 13px; } }
+
+/* 🔁 strict turns / guards switch + the warning for a weak record that still keeps its turn */
+.dso-head { flex-wrap: wrap; }
+.dso-guard { margin-left: auto; min-height: 30px; padding: 3px 10px; border-radius: 9px; cursor: pointer; font: 800 9px var(--m-mono, monospace); letter-spacing: .1em;
+  border: 1px solid rgba(21, 209, 106, .5); background: rgba(21, 209, 106, .12); color: #45e486; transition: background .15s, border-color .15s; }
+.dso-guard.is-on { border-color: rgba(245, 197, 66, .55); background: rgba(245, 197, 66, .12); color: #ffe08a; }
+.dso-guard:hover { background: rgba(21, 209, 106, .22); } .dso-guard.is-on:hover { background: rgba(245, 197, 66, .22); } .dso-guard:active { transform: scale(.97); }
+.dso-guard:focus-visible { outline: 2px solid #45e486; outline-offset: 2px; } .dso-guard:disabled { opacity: .6; cursor: wait; }
+.dso-benchw { margin: 0; padding: 4px 9px; border-radius: 8px; border-left: 3px solid #f5c542; background: rgba(245, 197, 66, .08); font: 700 9.5px var(--m-mono, monospace); color: #ffe08a; }
+body.theme-day .dso-guard { color: #0d6a35; } body.theme-day .dso-guard.is-on { color: #7a5a00; } body.theme-day .dso-benchw { color: #7a5a00; }

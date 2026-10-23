@@ -25,7 +25,7 @@ export const STUDIO = {
         { key: 'jumpy', title: 'bails inside 15 min', evidence: '48 of 76 trades closed under 15 min, 12 % of those won', rule: 'A clean trade gets at least 15 minutes.' }],
       sets: SETS('G4') },
     { key: 'local', name: 'OSSY', state: 'ONLINE', model: 'openai/gpt-oss-20b', ctx: 16384, layers: layers(2600, 190),
-      active: { set: 'progressive', text: 'PROGRESSIVE MINDSET — OSSY…', at: Date.now() / 1000 - 5400, by: 'owner', edited: false, since: { n: 4, wonPct: 50, avgPct: 2.6 } },
+      active: { set: 'progressive', text: 'PROGRESSIVE MINDSET — OSSY…', at: Date.now() / 1000 - 5400, by: 'owner', edited: false, since: { n: 4, wonPct: 50, avgPct: 2.6 }, seen: { set: 'progressive', at: Date.now() / 1000 - 12, ok: true } },
       record: { n: 100, wonPct: 26, avgPct: -0.4, medHeld: 22, calls: 30, answerPct: 100, medMs: 51200 }, fixes: [], sets: SETS('OSSY'),
       auto: { on: false, red: false, recent: { n: 10, wonPct: 60, avgPct: 2.1 }, word: 'last 10 trades: 60 % won, +2.1 % avg', last: null, coolUntil: now() + 3600, n: 10, won: 40 },
       ladder: [rung('progressive', 'PROGRESSIVE', 4, 50, 2.6, 0.03, { active: true }), rung('plain', 'PLAIN PROMPT', 96, 25, -0.5, -0.09), rung('elite', 'ELITE', 0, null, null, null), rung('degen', 'DEGEN TRENCH', 0, null, null, null), rung('tuned', 'AUTO-TUNED', 0, null, null, null)] },

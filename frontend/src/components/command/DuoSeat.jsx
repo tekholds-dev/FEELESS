@@ -216,6 +216,17 @@ function TradeRoom({ duo, call }) {
       <button type="submit" className="m-btn" disabled={busy || !txt.trim()}>Send</button></form> : null}</>}</div>;
 }
 
+// 🔁 STRICT TURNS (owner, 2026-10-23: "ossy and g4 not taking turns?"): off = one real trade each, always; on = the streak brake (3 straight
+// losses) and the proof bench (losing FAVOR calls) may hand a losing model's turn to its partner.
+function TurnGuard({ duo, call }) {
+  const [busy, setBusy] = useState(false); const on = !!duo.guards;
+  const flip = async () => { setBusy(true); try { const r = await call('/admin/ai/seat', { method: 'POST', body: JSON.stringify({ guards: !on }) }); if (r && r.trade) hubApply({ kind: 'duo_update', data: r }); }
+    catch (e) { window.dispatchEvent(new CustomEvent('feeless:toast', { detail: String(e?.message || e) })); } finally { setBusy(false); } };
+  return <button type="button" role="switch" aria-checked={on} className={`dso-guard ${on ? 'is-on' : ''}`} disabled={busy} onClick={flip} data-testid="duo-guards"
+    data-tip={on ? 'Guards ON: a model on a losing streak or with losing FAVOR calls skips its turn — its partner opens. Tap for strict turns' : 'Strict turns: OSSY and G4 open one real trade each, always. Tap to let the streak brake + proof bench skip a losing model'}>
+    {on ? '🪑 GUARDS ON' : '🔁 STRICT TURNS'}</button>;
+}
+
 function DuoSeatBody({ duo, call }) {
   const [now, setNow] = useState(() => Date.now() / 1000);
   useEffect(() => { if (!duo?.busy) return undefined; const t = setInterval(() => { if (!document.hidden) setNow(Date.now() / 1000); }, 1000); return () => clearInterval(t); }, [duo?.busy]);
@@ -227,7 +238,10 @@ function DuoSeatBody({ duo, call }) {
   const sold = !duo.holding && turnStep(duo).i === 3 ? (duo.rooms || []).find(r => r.closed) || null : null;   // 🏁 the review minute: the closed trade stays in the seat
   return <div className={`dso is-${duo.mode}`} data-testid="duo-seat">
     <header className="dso-head"><b>🔁 OSSY ⚔ G4 · {String(duo.mode).toUpperCase()}</b>
-      <small>{duo.busy ? `${duo.next} is thinking…` : last ? `last call ${ago(last.at)} ago · ${duo.next} next` : 'first call within a minute'}</small></header>
+      <small>{duo.busy ? `${duo.next} is thinking…` : last ? `last call ${ago(last.at)} ago · ${duo.next} next` : 'first call within a minute'}</small>
+      {call ? <TurnGuard duo={duo} call={call} /> : null}</header>
+    {!duo.guards ? Object.entries(duo.bench || {}).filter(([, b]) => b?.benched).map(([k, b]) => <p key={k} className="dso-benchw" data-testid="duo-bench-warn"
+      data-tip="Strict turns: it still gets its turn. Switch the guards on to let the partner open while this record is red">⚠ {k}'s last {b.n} FAVOR calls settled {b.median >= 0 ? '+' : ''}{b.median}% median, {b.upPct}% up — it still takes its turn</p>) : null}
     <div className="dso-stage">
       <Side tot={duo.totals?.G4} s={g4} pod={podOf('G4', duo.rec)} turn={duo.next === 'G4'} busy={duo.busy} side="l" think={duo.busy && duo.next === 'G4' ? thinkOf(duo.live, g4.medMs, now, duo.limits?.G4) : null} />
       <div className="dso-mid">

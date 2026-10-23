@@ -48,6 +48,10 @@ function SetCard({ s, m, i, active, busy, onApply, onRevert, dials }) {
       <small className={txt.length > max * 0.9 ? 'is-hot' : ''}>{txt.length} / {max}</small></label>
       : <p className={`pst-text${open ? ' is-open' : ''}`} data-testid={`pst-text-${s.set}`}>{s.text}</p>}
     <p className="pst-why">{s.why}</p>
+    {active ? <p className={`pst-proof ${active.seen?.ok ? 'is-live' : 'is-wait'}`} data-testid="pst-proof"
+      data-tip="FEELESS sends this mindset inside the system prompt of EVERY call it makes to this model (LM Studio / llamafile) — a model reload never loses it; LM Studio's own preset box is only for its own chat window">
+      {active.seen?.ok ? <><b>✓ IN USE</b><span>last call {ago(active.seen.at)} ago carried it</span></> : active.seen ? <><b>⚠ SENT</b><span>its last call {ago(active.seen.at)} ago failed — the next one carries it again</span></>
+        : <><b>⏳ APPLIED</b><span>rides {m.name}'s next call</span></>}</p> : null}
     {active ? <p className="pst-since" data-testid="pst-since" data-tip="Trades that opened after you applied this set">
       <b>SINCE APPLIED</b><span>{active.since?.n ? `${active.since.n} trades · ${active.since.wonPct}% won · ${sgn(active.since.avgPct)} avg` : 'no trade closed yet'}</span></p> : null}
     <footer>
@@ -118,7 +122,7 @@ export function PromptStudio({ call }) {
     <header className="pst-head"><span><b className="m-label">🎭 PROMPT STUDIO</b><small>what each model reads · how it trades · the mindset you give it</small></span>
       <div className="m-seg pst-models" role="tablist" aria-label="Model">{d.models.map(x => <button key={x.key} type="button" role="tab" aria-selected={x.key === m.key} className={x.key === m.key ? 'active' : ''}
         onClick={() => { setKey(x.key); setPeek(null); }} data-testid={`pst-model-${x.key}`} data-tip={`${x.name} · ${x.model || 'model'} · ${x.state || 'state unknown'}`}>
-        {avatarOf(x.name) ? <img src={avatarOf(x.name)} alt="" /> : null}<b>{x.name}</b><i className={`pst-dot ${x.state === 'ONLINE' ? 'is-on' : ''}`} />{x.active ? <small>{x.active.set.toUpperCase()}</small> : null}</button>)}</div></header>
+        {avatarOf(x.name) ? <img src={avatarOf(x.name)} alt="" /> : null}<b>{x.name}</b><i className={`pst-dot ${x.state === 'ONLINE' ? 'is-on' : ''}`} />{x.active ? <small className={x.active.seen?.ok ? 'is-live' : ''}>{x.active.seen?.ok ? '✓ ' : ''}{x.active.set.toUpperCase()}</small> : null}</button>)}</div></header>
     <AutoTune m={m} busy={busy} onToggle={on => post({ key: m.key, auto: on }, on ? `🤖 auto-tune ON for ${m.name} — it acts when the record turns red` : `auto-tune OFF for ${m.name}`)} />
     <div className="pst-body">
       <section className="pst-ctx" data-testid="pst-ctx">

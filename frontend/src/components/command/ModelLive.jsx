@@ -48,7 +48,7 @@ export function ModelLive({ call }) {
       <ol>{log.map((r, i) => { const k = `${r.at}-${r.prov}-${i}`; const o = open === k;
         return <li key={k} className={`${r.ok ? '' : 'is-err'} p-${r.prov} ${o ? 'is-open' : ''}`} data-testid="mlv-call">
           <button type="button" onClick={() => setOpen(o ? null : k)} aria-expanded={o}>
-            <b>{who(r.prov, d.names)}</b><span>{r.role || 'call'}</span><span>{(r.ms / 1000).toFixed(1)}s</span><span>~{r.tok} tok</span><span className="mlv-ago">{ago(r.at)}</span>
+            <b>{who(r.prov, d.names)}</b><span>{r.role || 'call'}</span><span>{(r.ms / 1000).toFixed(1)}s</span><span>~{r.tok} tok</span>{r.mindset ? <span className="mlv-mind" data-tip={`This call carried the 🎭 ${r.mindset.toUpperCase()} mindset you applied in Brain › Prompts`} data-testid="mlv-mind">🎭 {r.mindset}</span> : null}<span className="mlv-ago">{ago(r.at)}</span>
             <em>{r.ok ? (r.answer || '—').slice(0, 90) : `✕ ${r.err}`}</em>
           </button>
           {o ? <div className="mlv-body"><p><small>SENT</small>{r.prompt || '—'}</p><p><small>ANSWER</small>{r.ok ? r.answer : r.err}</p><p className="mlv-sys"><small>SYSTEM</small>{r.system}</p></div> : null}

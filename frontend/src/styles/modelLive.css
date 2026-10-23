@@ -29,3 +29,7 @@ body.fx-lite .mlv-bar i::after { animation: none; } body.fx-lite .mlv-bar i { tr
 @media (prefers-reduced-motion: reduce) { .mlv-bar i::after, .mlv-body { animation: none; } .mlv-bar i { transition: none; } }
 body.theme-day .mlv-row, body.theme-day .mlv-log li button { background: rgba(236, 246, 240, .7); border-color: rgba(12, 90, 50, .12); } body.theme-day .mlv-bar em { color: #0d2a1b; }
 @media (max-width: 640px) { .mlv-log li button { grid-template-columns: 38px 60px 34px minmax(0, 1fr); } .mlv-log li button span:nth-of-type(3), .mlv-log li .mlv-ago { display: none; } }
+
+/* 🎭 a call that carried the applied Prompt Studio mindset — the proof it is live */
+.mlv-mind { font: 800 8.5px var(--m-mono, monospace); letter-spacing: .08em; padding: 1px 6px; border-radius: 6px; background: rgba(245, 196, 81, .18); color: #ffe08a; text-transform: uppercase; }
+body.theme-day .mlv-mind { background: rgba(160, 120, 20, .14); color: #7a5a00; }

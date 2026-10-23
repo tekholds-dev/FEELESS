@@ -24,3 +24,12 @@ def test_the_review_minute_marks_the_seat_sold_and_rooms_carry_the_cash_back():
     assert "'back'" in rooms and "'inUsd'" in rooms
     view = inspect.getsource(rs._duo_view)
     assert "'seats'" in view and "'hunt'" in view and '_duo_phase(' in view
+
+
+def test_strict_turns_unless_the_owner_switches_the_guards_on():
+    # owner, 2026-10-23: "ossy and g4 not taking turns?" — G4 sat on the proof bench and OSSY opened every trade
+    src = inspect.getsource(rs)
+    assert "guards_ = bool((_g4_mem.get() or {}).get('guards'))" in src
+    assert "if not held_ and mode_ == 'real' and guards_:   # 🧯 STREAK BRAKE" in src and "if not held_ and mode_ == 'real' and guards_:   # 🪑 PROOF BENCH" in src
+    view = inspect.getsource(rs._duo_view)
+    assert "'guards': bool(hm_.get('guards'))" in view and "'bench':" in view

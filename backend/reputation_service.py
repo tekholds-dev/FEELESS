@@ -16776,7 +16776,8 @@ async def _g4_tick(now, env, cfg):
                              'log': _seat.note(_seat.merge_log(st_['log'], hm_.get('log')), {'at': round(now), 'mode': mode_, 'model': 'SEAT', 'by': None, 'action': 'PASS', 'why': f"⏱ {_air.model_name(env, first_)} found no clean entry in {_seat.HUNT_TURN_SEC / 60:.0f} min — {_air.model_name(env, second_)}'s turn"})}, now)
                 st_['opener'] = first_
                 first_, second_ = second_, first_   # 🔁 one REAL trade each: the opener runs it to the exit, then the other hunts
-        if not held_ and mode_ == 'real':   # 🧯 STREAK BRAKE: a model on 3 straight real losses does not take a buy turn — its partner hunts
+        guards_ = bool((_g4_mem.get() or {}).get('guards'))   # 🔁 owner, 2026-10-23 ("ossy and g4 not taking turns?"): STRICT TURNS by default — the streak brake + proof bench skip a turn only when the owner switches them on
+        if not held_ and mode_ == 'real' and guards_:   # 🧯 STREAK BRAKE: a model on 3 straight real losses does not take a buy turn — its partner hunts
             br_ = _g4_brake(now)
             if br_.get(first_) and not br_.get(second_):
                 bm_ = _g4_mem.get() or {}
@@ -16784,7 +16785,7 @@ async def _g4_tick(now, env, cfg):
                     _g4_mem.put({**bm_, 'brakeNote': f'{first_}:{br_[first_]["since"]}', 'log': _seat.note(_seat.merge_log(st_['log'], bm_.get('log')), {'at': round(now), 'mode': mode_, 'model': 'SEAT', 'by': None, 'action': 'PASS',
                                  'why': f"🧯 {_air.model_name(env, first_)} is on a losing streak ({br_[first_]['why']}) — {_air.model_name(env, second_)} picks until {_air.model_name(env, first_)}'s calls prove right again"})}, now)
                 first_, second_ = second_, first_
-        if not held_ and mode_ == 'real':   # 🪑 PROOF BENCH: a model whose own last 150 FAVOR calls lose does not open the next real seat (ai_seat.bench)
+        if not held_ and mode_ == 'real' and guards_:   # 🪑 PROOF BENCH: a model whose own last 150 FAVOR calls lose does not open the next real seat (ai_seat.bench)
             done_ = (_ai.get('book') or {}).get('done') or []
             b1_, b2_ = _seat.bench(done_, first_), _seat.bench(done_, second_)
             if b1_['benched'] and not b2_['benched']:
@@ -17148,6 +17149,10 @@ async def admin_ai_seat_post(request: Request):
     admin = _require_owner(request)
     body = await request.json()
     now = time.time()
+    if 'guards' in body:   # 🔁 strict turns (off) · or the streak brake + proof bench may skip a losing model's turn (on)
+        _g4_mem.put({**(_g4_mem.get() or {}), 'guards': bool(body.get('guards'))}, time.time())
+        _duo_push()
+        return {'ok': True, 'guards': bool(body.get('guards')), **_duo_view()}
     if body.get('vote'):
         vt_ = body['vote'] or {}
         st_, ok_ = _dv.vote(_dv_mem.get() or {}, str(vt_.get('key') or ''), 'owner', int(_fuse._f(vt_.get('v'))))
@@ -17881,6 +17886,8 @@ def _studio_apply():
     act_ = _pstu.clean_active(_json_load(PROMPT_STUDIO_PATH, {}))
     _air.STUDIO.clear()
     _air.STUDIO.update({k_: v_['text'] for k_, v_ in act_.items()})
+    _air.STUDIO_SET.clear()
+    _air.STUDIO_SET.update({k_: v_['set'] for k_, v_ in act_.items()})
     return act_
 
 
@@ -17989,7 +17996,8 @@ async def _studio_view():
         last_ = next((x_ for x_ in reversed(raw_.get('autoLog') or []) if x_.get('key') == k_), None)
         models_.append({'key': k_, 'name': nm_, 'state': live_.get(k_), 'model': lm_.get('model') or (_air.provider(os.environ, k_, _ai_cfg()) or {}).get('model'), 'ctx': ctx_,
                         'record': s_, 'fixes': fx_, 'sets': core_['sets'], 'layers': layers_,
-                        'active': {**a_, 'since': _pstu.since(trades_, a_['at'])} if a_ else None,
+                        'active': {**a_, 'since': _pstu.since(trades_, a_['at']),
+                                   'seen': (lambda sn_: sn_ if sn_ and sn_.get('set') == a_['set'] and _fuse._f(sn_.get('at')) >= _fuse._f(a_['at']) - 1 else None)(_air.MINDSET_SEEN.get(k_))} if a_ else None,   # 🎭 proof: the last call that CARRIED it
                         'auto': {'on': bool((raw_.get('auto') or {}).get(k_)), 'red': _pstu.is_red(rec_), 'recent': {x_: rec_.get(x_) for x_ in ('n', 'wonPct', 'avgPct')},
                                  'word': _pstu.red_word(rec_), 'last': last_, 'coolUntil': (_fuse._f(a_['at']) + _pstu.AUTO_COOLDOWN) if a_ and now_ - _fuse._f(a_['at']) < _pstu.AUTO_COOLDOWN else None,
                                  'n': _pstu.RECENT_N, 'won': _pstu.RED_WON},
@@ -21893,6 +21901,8 @@ def _duo_view(env=None):
         return {'mode': _oe.clean_policy(_prime_real_cfg())['agentAiSeat'], 'next': nm(first_), 'at': st_['at'], 'busy': _g4['busy'],
                 'phase': _duo_phase(_g4.get('phase'), held_l), 'holder': nm(held_l.get('aiBy')) if held_l and held_l.get('aiBy') else None,
                 'seats': {'used': len(card_l), 'max': int(_fuse._f(_prime_real_cfg().get('coins')) or 4)},   # 🪑 the real card's seats (the models need one open)
+                'guards': bool(hm_.get('guards')),   # 🔁 off = strict turns (one trade each); on = a losing model's turn can be skipped
+                'bench': {nm(k_): _seat.bench((_ai.get('book') or {}).get('done') or [], k_) for k_ in (_duet.LEAD, _duet.SECOND)},   # 🪑 each model's FAVOR-call record (a warning while guards are off)
                 'hunt': {'by': nm(hm_['huntBy']), 'since': hm_.get('huntSince'), 'turnSec': _seat.HUNT_TURN_SEC} if not held_l and hm_.get('huntBy') else None,   # ⏱ the hunter's clock
                 'holding': _duo_holding(held_l) if held_l else None,
                 'totals': _duo_totals(),   # 💰 each model's REAL closed-trade total: trades, won, $ and % (all time)
