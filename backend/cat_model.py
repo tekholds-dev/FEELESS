@@ -2,7 +2,8 @@
 (`/api/reputation/cats-ai` → `nexa`: favor / exit / avoid by pairAddress, one read per ~15 min on her CPU model) — no extra inference per cat:
 
 - BUY: only a coin she FAVORED in a fresh read, and only after every FeeCat guard passed it (lanes, safety, Fuse veto, setup memory,
-  discipline) — her word picks among guarded coins, it never opens a new buy door.
+  discipline) — her word picks among guarded coins, it never opens a new buy door. NEXA SILENT (no fresh read) → FeeCat's own engine covers
+  at COVER_MULT size, tagged, so the desk never stalls on her CPU.
 - SELL: a coin she named EXIT in a fresh read is sold at the live price. Stops, trails and the rug rules keep running underneath her.
 - AVOID: never bought.
 A read older than FRESH_SEC is not acted on (the cat simply holds and its rules run). Pure + tested; feecat_service does the I/O.
@@ -10,6 +11,8 @@ A read older than FRESH_SEC is not acted on (the cat simply holds and its rules 
 import time
 
 FRESH_SEC = 1800.0   # her read runs every 15 min (~3 min on the i5): a read older than 30 min is stale → the cat's own rules only
+COVER_MULT = 0.5     # NEXA silent (no fresh read) → FeeCat's own engine covers at half size (owner: "feecat's engine covers if she doesn't answer")
+COVER_WHY = "🐱 FeeCat covers for NEXA (no fresh answer) — her own rules, half size"
 MODELS = {'nexa': {'id': 'nexa', 'name': 'NEXA', 'key': 'win', 'provider': 'FEELESS · local model', 'label': 'NEXA · FEELESS local model'}}
 
 

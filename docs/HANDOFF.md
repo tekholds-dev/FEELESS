@@ -10,15 +10,28 @@
 - Gate rules learned tonight: jest now `--maxWorkers=4`; NEVER run tests while a gate runs (3 gates flaked from it); 5 timing tests were
   hardened (candles, logo, swap, RunnerPicker was a REAL crash). `tests/test_no_name_collisions.py` now fails on a top-level name bound twice
   (a new `_block_view()` silently replaced the blocklist cache — use the `_fblock_` prefix style for new helpers in reputation_service).
+### ✂ What to CUT (owner to OK each)
+- The fake model catalog in `/api/cats/brains` (Claude / GPT / Grok rows that only run the rule engine) — misleading; show only real brains.
+- `family_world` drag-the-pizza ERRANDS + the MP store build catalog — the block is real markets now; keep MP only as the street-game points.
+- 4 ways to start services (run-feeless.sh · start-backend.sh · background.sh · keep-alive) — two watchers ran at once tonight → ONE supervisor.
+- Cat `/api/cats/{id}/action` with no owner check (paper, still wrong) → sign or key it.
+- The 31K-line `reputation_service.py` → split by area (familia · nexa · fuse · chat · hq) behind one app; tonight a new helper silently
+  replaced a cache (now guarded by `tests/test_no_name_collisions.py`, but the split is the real fix).
+### 🏆 What makes it ELITE (rapid, natural growth)
+- Every errand backed by a real position (range, yield switch, claim fees) → one tap to the tool, the wallet signs. Users come back daily.
+- One "YOUR MONEY" tower in the capital: every proved position, live — the reason to open FEELESS first every morning.
+- NEXA earns real money only after her graded record beats the rule engine in shadow — then market it ("the AI that earned its seat").
+- Shareable proof: block + card P&L reconciled to fills, a public "verified" badge — trust is the growth engine for a trading site.
+- Fees from HQ › Core with a live "what fees paid today" meter; FEE-holder perks visible on every surface (the reason to hold $FEE).
+- Speed + calm: fx governor, shared pollers, no text walls — meters, rings, ticking numbers everywhere.
 ### Shipped tonight (on origin/main unless noted)
 Familia/route crash fix · 🕰 15-min agent min hold (`arena_prime.AGENT_MIN_HOLD`, red soft exits only) · 🪟🐱 NEXA trades AS FeeCat (owner
 switch HQ › Fee › NEXA's desk; `nexa_desk.py` ≤ 3 one-line YES/NO · HOLD/SELL calls / 5 min; LIVE on the owner's screen) · 🎨 14 chat themes
 redrawn · HQ NEXA chat row (rig in its own column) · 🏙 THE BLOCK = REAL MARKETS (`block_markets.py`, `FamilyBlock3D`, `/familia-block`,
 under construction until a real position; 4 open plots; errands) · gate fixes. Not pushed: see branch state.
 ### NEXT, in order (owner's newest first; details in CLAUDE.md › CURRENT TASKS)
-1. 🪟 NEXA FALLBACK (real gap): with the switch on, FeeCat buys ONLY on a fresh NEXA YES (`cat_model.buy_ok`) — if NEXA is offline FeeCat
-   buys nothing. Owner wants FeeCat's engine to COVER when she doesn't answer: after N min without a desk answer → rules at reduced size,
-   tagged "covered for NEXA". + "next-gen" desk prompts (her trench style: germ floor, buyers, fresh-pump laws) in `nexa_desk.ASK_*`.
+1. 🪟 NEXA: fallback DONE on night-1022 (no fresh NEXA read → FeeCat's own rules buy at half size, tagged `cat_model.COVER_WHY`, tested).
+   Still: "next-gen" one-line desk prompts in her trench style (germ floor, buyers, fresh-pump laws) in `nexa_desk.ASK_BUY / ASK_HOLD`.
 2. 🤖 AGENTS HUB (users' cats): every agent's vitals, cost spent, P&L, model + CONTEXT size, credit left + REFILL — in My agents / CatDetail.
    Do-anything / real-money agents = owner custody + pricing decision first (docs/REAL_CATS.md); NEXA/OSSY/G4 stay owner-only.
 3. 💵 REAL CARD CASH CHECK: `scripts/fuse-audit.py degen` ran 2 h+ without finishing (re-reads every swap) — stopped it. Book read directly:

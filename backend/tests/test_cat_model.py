@@ -62,6 +62,13 @@ def test_nexa_cat_buys_her_pick_through_the_guards_and_sells_her_exit(monkeypatc
     assert cat['positions'][0]['reason'].startswith('🪟 NEXA favored it')
     fs._set_model_brain(cat, 'rules')
     assert 'modelBrain' not in cat
+    nexa['at'] = now - cm.FRESH_SEC - 60                    # 🐱 NEXA goes silent → FeeCat's own engine covers, half size, tagged
+    cov = {**cat, 'id': 'c2', 'positions': [], 'balanceSol': 10.0}
+    fs._set_model_brain(cov, 'nexa'); store['cats']['c2'] = cov
+    asyncio.run(fs.run_engine(store, [cov]))
+    assert cov['positions'] and all(p['reason'].startswith(cm.COVER_WHY) for p in cov['positions'])
+    conv0 = cat['positions'][0]['conviction']                 # the NEXA-approved buy, same coin data
+    assert all(p['conviction'] == round(conv0 * cm.COVER_MULT, 2) for p in cov['positions'])   # exactly half the conviction
 
 
 def test_nexa_desk_asks_held_coins_first_then_fresh_candidates_and_reads_one_word():

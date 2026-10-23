@@ -894,7 +894,11 @@ async def run_engine(store, cats):
                 store.setdefault('scan', {}).setdefault('brainRejects', []).append({'symbol': sym, 'why': '🤝 the FEELESS desk: skip it now', 'at': now})
                 store['scan']['brainRejects'] = store['scan']['brainRejects'][-10:]
                 continue
-            if _cm.model_of(cat):   # 🪟 NEXA's cat: only her favored coins (every guard below still has to pass them)
+            nx_cover = False
+            if _cm.model_of(cat) and nexa_read is None:   # 🐱 NEXA silent: FeeCat's own engine covers, half size
+                nx_cover = True
+                reason = f'{_cm.COVER_WHY}; {reason}'
+            elif _cm.model_of(cat):   # 🪟 NEXA's cat: only her favored coins (every guard below still has to pass them)
                 nx_ok, nx_why = _cm.buy_ok(nexa_read, pa)
                 if not nx_ok:
                     continue
@@ -955,6 +959,8 @@ async def run_engine(store, cats):
             if ce['mult'] != 1.0 and not disc_cut:
                 conviction = round(conviction * ce['mult'], 2)
                 reason = f"{reason}; learned from users: {ce['why']} ×{ce['mult']}"
+            if nx_cover:
+                conviction = round(conviction * _cm.COVER_MULT, 2)
             reason = f'{reason}; holders: {safe_why}; conviction {conviction}×'
             px = _num(p.get('priceNative'))
             planned = round(min(float(cat['risk']['maxPositionSol']), cat['balanceSol'] * 0.1 * conviction) * (R['freshSize'] if p.get('_fresh') else LEARN_SIZE if p.get('_learn') else (1 if p.get('_status') == 'READY' else 0.5) if p.get('_agentsLane') else 1), 4)
