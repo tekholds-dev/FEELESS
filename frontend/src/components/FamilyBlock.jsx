@@ -4,7 +4,7 @@ import { Coins, Shield, Crosshair, Briefcase, Eye, ArrowLeft } from 'lucide-reac
 import { apiUrl } from '../lib/api';
 import { FamilyDeck, deckBody } from './FamilyDeck';
 import { FamilyBlock3D, BlockCard, TownPicker } from './FamilyBlock3D';
-import { BlockArranger, MyPoolsCard } from './BlockArranger';
+import { BlockArranger, MyPoolsCard, pendingAdds } from './BlockArranger';
 import { TOWN } from '../lib/cityPlan';
 import '../styles/familyBlock.css';
 import { familiaDocked, familiaSwap } from './FamiliaTrade';
@@ -132,9 +132,14 @@ export function FamilyBlock({ cid, addr, sess, onBack, mine: myFam = null, tools
     } catch (e) { toast.error(e.message); }
     setBusy(false);
   };
-  const saveLayout = async cells => {   // 🏝 ✋ Arrange → the family's layout, stored server-side (every member sees it)
+  const saveLayout = async picked => {   // 🏝 ✋ Arrange → the family's layout, stored server-side (every member sees it)
     setBusy(true);
     try {
+      const { adds, cells } = pendingAdds(picked);   // 🏗 markets picked on an open lot: added first, then they stand on that lot
+      for (const key of adds) {
+        const a = await fetch(apiUrl('/api/reputation/familia-block/act'), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ address: addr, session: sess, act: 'add', key }) });
+        if (!a.ok) throw new Error((await a.json().catch(() => ({}))).detail || `Could not add ${key}.`);
+      }
       const r = await fetch(apiUrl('/api/reputation/familia-block/layout'), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ address: addr, session: sess, cells }) });
       const b = await r.json().catch(() => ({})); if (!r.ok) throw new Error(b.detail || 'Refused.');
       setBl(b); setArrange(false); toast.success('🏝 the block is arranged — every member sees it');

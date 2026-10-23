@@ -1,6 +1,6 @@
 import React, { act } from 'react';
 import { createRoot } from 'react-dom/client';
-import { BlockArranger, MyPoolsCard, startCells, swap, newIsland, removable } from './BlockArranger';
+import { BlockArranger, MyPoolsCard, startCells, swap, newIsland, removable, pendingAdds } from './BlockArranger';
 import { blockPlan, blockCells, myPools, spotOf } from '../lib/cityPlan';
 
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
@@ -40,6 +40,28 @@ test('✋ arrange: tap two lots to swap, add beauty plots + MY POOLS once, a new
   await act(async () => { q('bar-save').click(); });
   const cells = save.mock.calls[0][0]; expect(cells[0]).toBe('blk:jito'); expect(cells).toContain('stand:pond'); expect(cells).toHaveLength(18);
   act(() => root.unmount()); document.body.innerHTML = '';
+});
+
+test('🏗 build on a picked open lot + ✋ drag a lot onto another: the market is added on save and stands on THAT lot', async () => {
+  expect(pendingAdds(['open', 'new:kamino', 'blk:jito'])).toEqual({ adds: ['kamino'], cells: ['open', 'blk:kamino', 'blk:jito'] }); expect(removable('new:kamino')).toBe(true);
+  const bl = { ...BL, catalog: [{ key: 'jito', name: 'Jito', offer: 'stake SOL', proof: 'mint' }, { key: 'kamino', name: 'Kamino', offer: 'lend USDC', proof: 'kamino' }, { key: 'save', name: 'Save', offer: 'lend', proof: 'none', why: 'no reader yet' }] };
+  const save = jest.fn(); const el = document.createElement('div'); document.body.appendChild(el); const root = createRoot(el);
+  await act(async () => { root.render(<BlockArranger bl={bl} busy={false} onSave={save} onClose={() => {}} />); });
+  const q = id => document.querySelector(`[data-testid="${id}"]`);
+  expect(q('bar-build')).toBeNull();
+  await act(async () => { q('bar-cell-4').click(); });                                         // the open lot
+  expect(q('bar-build-jito')).toBeNull(); expect(q('bar-build-save').textContent).toContain('no reader yet');   // what already stands is not offered
+  await act(async () => { q('bar-build-kamino').click(); });
+  expect(q('bar-cell-4').textContent).toContain('Kamino'); expect(q('bar-build')).toBeNull();
+  const fire = (node, type, x, y) => { const e = new MouseEvent(type, { bubbles: true, clientX: x, clientY: y, button: 0 }); e.pointerId = 1; node.dispatchEvent(e); };
+  document.elementFromPoint = () => q('bar-cell-0');                                          // drop target under the pointer
+  await act(async () => { fire(q('bar-cell-4'), 'pointerdown', 10, 10); fire(q('bar-cell-4'), 'pointermove', 60, 40); });
+  expect(q('bar-cell-4').className).toContain('is-drag'); expect(q('bar-cell-0').className).toContain('is-over');
+  await act(async () => { fire(q('bar-cell-4'), 'pointerup', 60, 40); q('bar-cell-4').click(); });   // the click after a drag is not a tap
+  expect(q('bar-cell-0').textContent).toContain('Kamino'); expect(q('bar-cell-4').textContent).not.toContain('Kamino'); expect(q('bar-build')).toBeNull();
+  await act(async () => { q('bar-save').click(); });
+  expect(save.mock.calls[0][0][0]).toBe('new:kamino');
+  delete document.elementFromPoint; act(() => root.unmount()); document.body.innerHTML = '';
 });
 
 test('💧 MY POOLS card: every position biggest first with its bar, the total on top', async () => {

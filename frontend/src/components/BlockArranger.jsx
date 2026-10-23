@@ -1,12 +1,13 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { TOWN, STAND, MY_POOLS, ISLAND_CELLS, myPools, usd, dollarsSmall, apyTxt } from '../lib/cityPlan';
 import '../styles/blockArranger.css';
 
 // ✋ ARRANGE THE BLOCK (owner, 2026-10-23: "more islands joined by bridges, pick your own lots, MOVE buildings, add little stands, a MY POOLS
 // combo building — the layout stored server-side per family"): the family's cells as drawn lots, island by island (15 a island, a bridge between
-// each). Tap one lot, tap another → they swap (buildings move, plots get picked). Add an open lot, a stand, MY POOLS or a whole new island; the
-// bin clears the picked land (buildings come off the block from their own card). Save = /familia-block/layout (Don · Underboss · creator).
+// each). DRAG a lot onto another (or tap one, tap another) → they swap (buildings move, plots get picked). Pick an OPEN lot → 🏗 BUILD HERE lists
+// the city's markets: the one you choose is added on save (/familia-block/act add) and stands on THAT lot. Add an open lot, a stand, MY POOLS or a
+// whole new island; the bin clears the picked land (buildings come off the block from their own card). Save = /familia-block/layout.
 export const LAYOUT_MAX = 60;
 export const STANDS_MAX = 16;   // beauty plots (block_markets.STANDS_MAX)
 export const startCells = bl => [...(bl?.layout || []), ...(bl?.layoutSaved ? [] : Array.from({ length: Math.max(0, bl?.open ?? 3) }, () => 'open'))];
@@ -14,12 +15,15 @@ export const swap = (cells, a, b) => { const c = [...cells]; [c[a], c[b]] = [c[b
 export const addCell = (cells, cell) => (cells.length >= LAYOUT_MAX ? cells : [...cells, cell]);
 export const newIsland = (cells, per = ISLAND_CELLS) => { const pad = (per - (cells.length % per)) % per; const out = [...cells, ...Array.from({ length: pad }, () => 'gap'), 'open', 'open', 'open'];
   return out.length > LAYOUT_MAX ? cells : out; };
-export const removable = cell => cell === 'open' || cell === 'gap' || cell === 'pools' || String(cell).startsWith('stand:');
+export const removable = cell => cell === 'open' || cell === 'gap' || cell === 'pools' || /^(stand|new):/.test(String(cell));
+// pure: the markets picked in Arrange (`new:<key>` lots) → the adds to make first, then the layout with them standing on their lots
+export const pendingAdds = cells => ({ adds: cells.filter(c => String(c).startsWith('new:')).map(c => String(c).slice(4)), cells: cells.map(c => (String(c).startsWith('new:') ? `blk:${String(c).slice(4)}` : c)) });
 export function cellLook(cell, bl) {
   const [kind, ...rest] = String(cell).split(':'); const id = rest.join(':');
   if (kind === 'blk') { const b = (bl?.buildings || []).find(x => x.key === id); return { icon: b?.state === 'built' ? '🏙' : '🏗', name: b?.sym || b?.name || id, tone: b?.state === 'built' ? 'built' : 'build', color: '#d4af37' }; }
   if (kind === 'town' && TOWN[id]) return { icon: '🏘', name: TOWN[id].name, tone: 'town', color: TOWN[id].color };
   if (kind === 'stand' && STAND[id]) return { icon: STAND[id].icon, name: STAND[id].name, tone: 'stand', color: STAND[id].color };
+  if (kind === 'new') { const m = (bl?.catalog || []).find(x => x.key === id); return { icon: '🏗', name: m?.name || id, tone: 'new', color: '#45e486' }; }
   if (cell === 'pools') return { icon: '💧', name: MY_POOLS.name, tone: 'pools', color: MY_POOLS.color };
   if (cell === 'open') return { icon: '📍', name: 'OPEN LOT', tone: 'open', color: '#d4af37' };
   return { icon: '🌿', name: 'LAND', tone: 'gap', color: '#4f7a5a' };
@@ -31,12 +35,21 @@ export function BlockArranger({ bl, busy, onSave, onClose }) {
   const per = bl?.islandCells || ISLAND_CELLS;
   const isles = useMemo(() => { const out = []; for (let i = 0; i < Math.max(1, cells.length); i += per) out.push(cells.slice(i, i + per).map((c, k) => [c, i + k])); return out; }, [cells, per]);
   const stands = cells.filter(c => String(c).startsWith('stand:')).length; const hasPools = cells.includes('pools');
-  const tap = i => { if (pick == null) setPick(i); else { if (pick !== i) setCells(c => swap(c, pick, i)); setPick(null); } };
+  const tap = i => { if (drag.current?.moved) { drag.current = null; return; } if (pick == null) setPick(i); else { if (pick !== i) setCells(c => swap(c, pick, i)); setPick(null); } };
+  // ✋ drag: the lot lifts and follows the pointer (transform only); dropped on another lot → they swap. A press that never moves stays a tap.
+  const drag = useRef(null); const [dg, setDg] = useState(null);
+  const cellAt = (x, y) => { const el = document.elementFromPoint?.(x, y)?.closest?.('[data-cell]'); return el ? Number(el.dataset.cell) : null; };
+  const down = (e, i) => { if (e.button > 0) return; drag.current = { i, x: e.clientX, y: e.clientY, moved: false }; e.currentTarget.setPointerCapture?.(e.pointerId); };
+  const move = e => { const d = drag.current; if (!d) return; const dx = e.clientX - d.x, dy = e.clientY - d.y;
+    if (!d.moved && Math.hypot(dx, dy) < 6) return; d.moved = true; setDg({ i: d.i, dx, dy, over: cellAt(e.clientX, e.clientY) }); };
+  const up = e => { const d = drag.current; if (!d) return; if (d.moved) { const t = cellAt(e.clientX, e.clientY); if (t != null && t !== d.i) setCells(c => swap(c, d.i, t)); setPick(null); setDg(null); setTimeout(() => { drag.current = null; }, 0); } else drag.current = null; };
+  const onLot = pick != null && cells[pick] === 'open'; const standing = new Set([...(bl?.buildings || []).map(b => b.key), ...pendingAdds(cells).adds]);
+  const menu = onLot ? (bl?.catalog || []).filter(m => !standing.has(m.key)) : [];
   const add = cell => { setCells(c => addCell(c, cell)); setPick(null); };
   const tools = [['open', '📍 Open lot', 'A plot to build a market on'], ...Object.entries(STAND).map(([k, s]) => [`stand:${k}`, `${s.icon} ${s.name.toLowerCase()}`, `${s.name} — ${s.sub} (a beauty plot, never money)`])];
   return createPortal(<div className="bar-back" onClick={e => e.target === e.currentTarget && onClose()}>
     <section className="bar" role="dialog" aria-modal="true" aria-label="Arrange the block" data-testid="block-arranger">
-      <header className="bar-top"><b>✋ ARRANGE THE BLOCK</b><small>tap a lot, tap another — they swap</small>
+      <header className="bar-top"><b>✋ ARRANGE THE BLOCK</b><small>drag a lot onto another — they swap · pick an open lot to build on it</small>
         <span className="bar-meters"><span data-tip={`Lots on the block (${LAYOUT_MAX} max)`}><em>LOTS</em><b key={cells.length}>{cells.length}</b><i><u style={{ transform: `scaleX(${cells.length / LAYOUT_MAX})` }} /></i></span>
           <span data-tip={`Islands — a new one (and its bridge) every 15 lots · ${bl?.islandsPaid || 1} owned`} className={isles.length > (bl?.islandsPaid || 1) && bl?.islandMp ? 'is-cost' : ''}><em>ISLANDS</em><b>{isles.length}</b>
             {isles.length > (bl?.islandsPaid || 1) && bl?.islandMp ? <small data-testid="bar-cost">−{((isles.length - (bl.islandsPaid || 1)) * bl.islandMp).toLocaleString('en-US')} MP</small> : null}</span>
@@ -50,11 +63,16 @@ export function BlockArranger({ bl, busy, onSave, onClose }) {
         <button type="button" className="is-bin" onClick={() => { setCells(c => c.filter((_, i) => i !== pick)); setPick(null); }} disabled={pick == null || !removable(cells[pick])}
           data-tip={pick != null && !removable(cells[pick]) ? 'Buildings come off the block from their own card — move it instead' : 'Clear the picked lot (open lots, land, stands, MY POOLS)'} data-testid="bar-bin">🗑 clear picked</button>
       </div>
+      {onLot ? <div className="bar-build" data-testid="bar-build"><b>🏗 BUILD A MARKET ON THIS LOT</b><small>it stands here once you save · it lights up when a member opens a real position</small>
+        {menu.length ? <div className="bar-build-list">{menu.map((m, k) => <button key={m.key} type="button" style={{ '--i': k }} onClick={() => { setCells(c => c.map((x, j) => (j === pick ? `new:${m.key}` : x))); setPick(null); }}
+          data-tip={m.proof === 'none' ? m.why : `${m.name} — ${m.offer}`} data-testid={`bar-build-${m.key}`}><span>{m.name}</span><small>{m.offer}</small><i className={m.proof === 'none' ? 'is-none' : ''}>{m.proof === 'none' ? 'no reader yet' : 'live'}</i></button>)}</div>
+          : <p className="bar-build-nil">Every market in the city already stands on your block.</p>}</div> : null}
       <div className="bar-isles">{isles.map((row, j) => <div key={j} className="bar-isle" style={{ '--j': j }}>
         <span className="bar-isle-h">🏝 ISLAND {j + 1}<small>{row.length}/{per}</small>{j ? <i className="bar-bridge" aria-hidden="true" /> : null}</span>
         <div className="bar-grid">{row.map(([c, i]) => { const l = cellLook(c, bl);
-          return <button key={`${c}-${i}`} type="button" className={`bar-cell t-${l.tone} ${pick === i ? 'is-pick' : ''} ${pick != null && pick !== i ? 'is-target' : ''}`} style={{ '--c': l.color, '--i': i % per }}
-            onClick={() => tap(i)} aria-pressed={pick === i} data-testid={`bar-cell-${i}`} data-tip={pick == null ? `${l.name} — tap, then tap where it goes` : pick === i ? 'Picked — tap another lot to swap' : `Swap with ${cellLook(cells[pick], bl).name}`}>
+          return <button key={`${c}-${i}`} type="button" className={`bar-cell t-${l.tone} ${pick === i ? 'is-pick' : ''} ${pick != null && pick !== i ? 'is-target' : ''} ${dg?.i === i ? 'is-drag' : ''} ${dg && dg.over === i && dg.i !== i ? 'is-over' : ''}`}
+            style={{ '--c': l.color, '--i': i % per, ...(dg?.i === i ? { transform: `translate(${dg.dx}px, ${dg.dy}px) scale(1.06)` } : null) }} data-cell={i}
+            onPointerDown={e => down(e, i)} onPointerMove={move} onPointerUp={up} onPointerCancel={() => { drag.current = null; setDg(null); }} onClick={() => tap(i)} aria-pressed={pick === i} data-testid={`bar-cell-${i}`} data-tip={pick == null ? `${l.name} — drag it onto another lot (or tap, then tap where it goes)${c === 'open' ? ' · tap to build a market here' : ''}` : pick === i ? 'Picked — tap another lot to swap' : `Swap with ${cellLook(cells[pick], bl).name}`}>
             <i aria-hidden="true">{l.icon}</i><b>{l.name}</b></button>; })}</div></div>)}</div>
       <footer className="bar-foot"><button type="button" className="m-btn" onClick={() => { setCells(startCells(bl)); setPick(null); }} disabled={busy} data-tip="Back to the saved layout">↺ Reset</button>
         <button type="button" className="m-btn m-go" disabled={busy} onClick={() => onSave(cells)} data-testid="bar-save" data-tip="Saved on the family — every member sees it (nothing is bought or sold)">{busy ? 'Saving…' : '💾 Save the block'}</button></footer>
