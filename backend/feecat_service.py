@@ -28,6 +28,7 @@ from pydantic import BaseModel
 
 import feecat_brain
 import launch_cat as _lc
+import cat_model as _cm
 
 DATA_DIR = Path(__file__).parent / 'data'
 DATA_DIR.mkdir(exist_ok=True)
@@ -622,7 +623,7 @@ async def _duo_read(http):
     try:
         r = await http.get('http://127.0.0.1:5077/api/reputation/cats-ai', timeout=3)
         d = r.json() if r.status_code == 200 else {}
-        return d if time.time() - float(d.get('read') or 0) <= 900 else {}
+        return d if time.time() - float(d.get('read') or 0) <= 900 else {'nexa': d.get('nexa')}   # 🪟 her cats judge her read's age themselves
     except Exception:
         return {}
 
@@ -735,6 +736,7 @@ async def run_engine(store, cats):
         prices = await _pair_prices(http, held) if held else {}
         candidates, fuse_view, crowd_feed, duo = await asyncio.gather(_market_candidates(http), _fuse_discover(http), _crowd_feed(http), _duo_read(http))
     duo_avoid, duo_exit = set(duo.get('avoid') or []), set(duo.get('exit') or [])   # 🐱🤝 only what BOTH AI models agreed on
+    nexa_read = _cm.read_of(duo.get('nexa'), now)   # 🪟 a cat assigned to NEXA buys her favored coins + sells her exits (fresh reads only)
     ranked, rejections = [], {}
     for p in candidates:
         score, reason = (None, None)
@@ -802,6 +804,11 @@ async def run_engine(store, cats):
                     continue
                 if d_ and d_[0] == 'TRIM':
                     _close(store, cat, pos, px, f"🧠 {d_[1].split('/')[-1]} trimmed half: {d_[2] or 'its call'}", 0.5)
+            nx_out = _cm.sell_now(nexa_read, pos.get('pairAddress')) if _cm.model_of(cat) else None
+            if nx_out:   # 🪟 her fresh read named this coin EXIT: sold at the live price (paper)
+                cat['positions'].remove(pos)
+                _close(store, cat, pos, px, nx_out)
+                continue
             change = (px / pos['entryPriceNative'] - 1) * 100            # vs average entry
             from_first = (px / pos['firstEntryPriceNative'] - 1) * 100   # vs first buy (drives the dip ladder)
             pos['currentChange'] = round(change, 2)
@@ -887,6 +894,11 @@ async def run_engine(store, cats):
                 store.setdefault('scan', {}).setdefault('brainRejects', []).append({'symbol': sym, 'why': '🤝 the FEELESS desk: skip it now', 'at': now})
                 store['scan']['brainRejects'] = store['scan']['brainRejects'][-10:]
                 continue
+            if _cm.model_of(cat):   # 🪟 NEXA's cat: only her favored coins (every guard below still has to pass them)
+                nx_ok, nx_why = _cm.buy_ok(nexa_read, pa)
+                if not nx_ok:
+                    continue
+                reason = f'{nx_why}; {reason}'
             if now - cat.get('cooldowns', {}).get(pa, 0) < R['cooldownHours'] * 3600:
                 last = next((e for e in reversed(cat.get('exits', [])) if e['pairAddress'] == pa), None)
                 tx1 = (p.get('txns') or {}).get('h1') or {}
@@ -1169,7 +1181,23 @@ async def _start_engine():
 
 @app.get('/api/cats/brains')
 async def brains():
-    return {'brains': [{**b, 'status': 'rule_fallback', 'available': False, 'estimatedTokenCostUsd': 0} for b in BRAIN_CATALOG]}
+    """The brain list: FEELESS's own model(s) first (🪟 NEXA = live when her desk read is fresh), the catalog rows run on the rule engine."""
+    async with httpx.AsyncClient(timeout=4) as http:
+        nx = (await _duo_read(http)).get('nexa')
+    own = [{**m, **_cm.status(nx), 'available': True, 'estimatedTokenCostUsd': 0, 'model': True} for m in _cm.MODELS.values()]
+    return {'brains': own + [{**b, 'status': 'rule_fallback', 'available': False, 'estimatedTokenCostUsd': 0} for b in BRAIN_CATALOG]}
+
+
+def _set_model_brain(cat, model_id):
+    """🪟 Assign a FEELESS model to a cat (or back to the rule engine). Paper only — cats never hold real money."""
+    m = _cm.MODELS.get(str(model_id or '').lower())
+    if m:
+        cat['modelBrain'] = m['id']; cat['brain'] = m['id']; cat['brainLabel'] = m['name']
+        cat['brainProfile'] = {'provider': m['provider'], 'status': 'live', 'available': True, 'estimatedTokenCostUsd': 0}
+    else:
+        cat.pop('modelBrain', None)
+        cat['brainProfile'] = {**(cat.get('brainProfile') or {}), 'status': 'rule_fallback', 'available': False}
+    return m
 
 
 LOOK_OPTIONS = {'gear': ('none', 'crown', 'shades', 'chain', 'headset', 'halo', 'cap', 'bow', 'rose'), 'aura': ('none', 'royal', 'gold', 'ice', 'blaze', 'nebula', 'toxic'),
@@ -1235,6 +1263,8 @@ async def create_cat(payload: CreatePayload):
         'revoked': False, 'createdAt': now, 'lastTick': now, 'engine': ENGINE_VERSION,
         'startingBalanceSol': float(payload.startingBalanceSol or 10), 'look': clean_look(payload.look),
     }
+    if _cm.MODELS.get(str(payload.brain or '').lower()):   # 🪟 born on NEXA's reads
+        _set_model_brain(cat, payload.brain)
     if payload.brains:
         cat_ = await _or_models()
         ids_ = {m['id'] for m in cat_.get('models') or []}
@@ -1457,6 +1487,11 @@ async def cat_action(cat_id: str, payload: ActionPayload):
             _lc.chime(cat['brainsCfg'], payload.text)
         except ValueError as e:
             raise HTTPException(400, str(e))
+    elif payload.action == 'brain':   # 🪟 assign NEXA (text='nexa') or back to the rule engine (text='rules')
+        if cat.get('isLeader'):
+            raise HTTPException(400, 'FeeCat herself runs the FEELESS desk — assign a model to one of your own cats.')
+        m_ = _set_model_brain(cat, payload.text)
+        _log_event(store, cat, 'LEARN', f"🪟 {cat['name']} now trades PAPER on {m_['name']}'s reads — her favored coins only (every guard still applies), her exits sold." if m_ else f"{cat['name']} is back on the FEELESS rule engine.")
     elif payload.action == 'pull':   # 🚀 pull everything: positions sold at the last live price, balance out, locked until a top-up
         for pos in list(cat['positions']):
             cat['positions'].remove(pos)

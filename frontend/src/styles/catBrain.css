@@ -1,0 +1,44 @@
+/* 🪟 CatBrainSwitch — who trades a cat (rule engine | NEXA). FeeCat violet night; built from m-* tokens. Keyframes: cb* */
+.cb-wrap { --cb-nexa: #b48cff; position: relative; display: grid; gap: 10px; padding: 14px; border-radius: 12px; overflow: hidden;
+  background: linear-gradient(160deg, color-mix(in srgb, var(--cb-nexa) 10%, var(--m-bg)), var(--m-bg) 70%);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--cb-nexa) 26%, transparent) inset, inset 0 1px 0 rgba(255,255,255,.06); }
+.cb-wrap.is-nexa { box-shadow: 0 0 0 1px color-mix(in srgb, var(--cb-nexa) 55%, transparent) inset, inset 0 1px 0 rgba(255,255,255,.08), 0 14px 34px -22px var(--cb-nexa); }
+.cb-seg { justify-self: start; }
+.cb-seg > button { min-height: 32px; }
+.cb-seg > button:disabled { opacity: .55; cursor: not-allowed; }
+.cb-body { display: grid; grid-template-columns: 64px 1fr; gap: 12px; align-items: center; }
+.cb-ring { width: 64px; height: 64px; overflow: visible; }
+.cb-track { fill: none; stroke: var(--m-line); stroke-width: 4; }
+.cb-arc { fill: none; stroke: var(--cb-nexa); stroke-width: 4; stroke-linecap: round; transform: rotate(-90deg); transform-origin: 32px 32px;
+  filter: drop-shadow(0 0 4px var(--cb-nexa)); transition: stroke-dasharray .6s ease; }
+.cb-halo circle { fill: none; stroke: var(--cb-nexa); stroke-width: 1; stroke-dasharray: 3 9; opacity: .45; }
+.cb-halo { transform-origin: 32px 32px; animation: cbSpin 14s linear infinite; }
+.cb-net line { stroke: color-mix(in srgb, var(--cb-nexa) 70%, transparent); stroke-width: 1.4; }
+.cb-net circle { fill: var(--cb-nexa); }
+.cb-core { transform-origin: 32px 38px; }
+.cb-wrap.is-live .cb-core { animation: cbPulse 1.8s ease-in-out infinite; }
+.cb-read { display: grid; gap: 6px; min-width: 0; }
+.cb-read > b { font-size: 14px; color: var(--m-text); }
+.cb-read > small { font-family: var(--m-mono); font-size: 10px; letter-spacing: .08em; text-transform: uppercase; color: var(--m-dim); }
+.cb-wrap.is-live .cb-read > small { color: var(--cb-nexa); }
+.cb-nums { display: flex; gap: 6px; flex-wrap: wrap; }
+.cb-num { display: grid; justify-items: center; min-width: 52px; padding: 4px 8px; border-radius: 8px; border: 1px solid var(--m-line);
+  background: color-mix(in srgb, var(--cb-nexa) 6%, transparent); animation: cbIn .32s ease both; animation-delay: calc(var(--i, 0) * 50ms); }
+.cb-num b { font-family: var(--m-mono); font-size: 16px; color: var(--m-text); text-shadow: 0 0 10px color-mix(in srgb, var(--cb-nexa) 60%, transparent); }
+.cb-num small { font-family: var(--m-mono); font-size: 9px; letter-spacing: .1em; text-transform: uppercase; color: var(--m-dim); }
+.cb-rec { display: grid; grid-template-columns: auto 1fr auto; gap: 8px; align-items: center; }
+.cb-rec small { font-family: var(--m-mono); font-size: 9px; letter-spacing: .1em; color: var(--m-dim); }
+.cb-rec i { height: 6px; border-radius: 6px; background: var(--m-line); overflow: hidden; }
+.cb-rec em { display: block; height: 100%; background: linear-gradient(90deg, color-mix(in srgb, var(--cb-nexa) 50%, transparent), var(--cb-nexa));
+  transform-origin: left; transition: transform .6s ease; }
+.cb-rec b { font-family: var(--m-mono); font-size: 12px; color: var(--cb-nexa); }
+.paper-controls .cb-wrap { margin: 15px 17px 0; }
+.cb-why { margin: 0; font-size: 12px; line-height: 1.4; color: var(--m-dim); font-style: italic; }
+@keyframes cbSpin { to { transform: rotate(360deg); } }
+@keyframes cbPulse { 0%, 100% { transform: scale(1); opacity: 1; } 50% { transform: scale(1.35); opacity: .7; } }
+@keyframes cbIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+body.fx-lite .cb-halo, body.fx-lite .cb-wrap.is-live .cb-core, body.fx-lite .cb-num { animation: none; }
+@media (prefers-reduced-motion: reduce) { .cb-halo, .cb-wrap.is-live .cb-core, .cb-num { animation: none; } .cb-arc, .cb-rec em { transition: none; } }
+body.theme-day .cb-wrap { --cb-nexa: #6d3fd1; background: linear-gradient(160deg, #f1ebff, #fff 70%); }
+body.theme-day .cb-num { background: #faf7ff; }
+@media (max-width: 640px) { .cb-body { grid-template-columns: 52px 1fr; } .cb-ring { width: 52px; height: 52px; } .cb-num { min-width: 46px; } }
