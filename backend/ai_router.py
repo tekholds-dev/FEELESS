@@ -26,10 +26,10 @@ import time
 import ai_keys as _aik
 
 # key → (label, key env var or None, model env var, base env var or None, fixed base, default model, timeout s, concurrency)
-LAN_PARALLEL = max(1, min(4, int(os.environ.get('LAN_LLM_PARALLEL') or 2)))   # 🖥 the desktop runs `lms load --parallel 2`: two requests at once (the seat call never waits behind a background read)
+LAN_PARALLEL = max(1, min(4, int(os.environ.get('LAN_LLM_PARALLEL') or 1)))   # 🖥 the desktop runs `lms load --parallel 2`: two requests at once (the seat call never waits behind a background read)
 
 PROVIDERS = {
-    'lan': ('LAN LM STUDIO', None, 'LAN_LLM_MODEL', 'LAN_LLM_BASE_URL', '', 'qwen/qwen3-4b-2507', 90.0, LAN_PARALLEL),   # 🖥 (150s: a full agent case on the desktop's model ran past 60s, every read timed out → OFFLINE forever, 2026-10-15) LM Studio on the desktop Mac (LAN): asked FIRST — no GPU shared with the browser here
+    'lan': ('LAN LM STUDIO', None, 'LAN_LLM_MODEL', 'LAN_LLM_BASE_URL', '', 'qwen/qwen3.5-4b', 90.0, LAN_PARALLEL),   # 🖥 (150s: a full agent case on the desktop's model ran past 60s, every read timed out → OFFLINE forever, 2026-10-15) LM Studio on the desktop Mac (LAN): asked FIRST — no GPU shared with the browser here
     'local': ('LOCAL LM STUDIO', None, 'LOCAL_LLM_MODEL', 'LOCAL_LLM_BASE_URL', 'http://127.0.0.1:1234/v1', 'qwen2.5-7b-instruct-mlx', 60.0, 1),   # the vitals answer took 16–31s on the owner's Mac (its own loop: nothing waits on it)
     'win': ('WINDOWS LLAMAFILE', None, 'WIN_LLM_MODEL', 'WIN_LLM_BASE_URL', '', 'Ministral-3-3B-Instruct-2512', 240.0, 1),   # 🪟 NEXA SICARIO (owner, 2026-10-20): llamafile on the owner's old Windows PC (CPU only, no AVX2 → slow): FeeCat's desk ONLY, never in DEFAULT_ORDER
     'groq': ('GROQ', 'GROQ_API_KEY', 'GROQ_MODEL', None, 'https://api.groq.com/openai/v1', 'qwen/qwen3.8-27b', 8.0, 1),   # 2026-10-13: llama-3.1-8b-instant is gone from Groq (404 → the fallback never answered); this one answers the vitals schema in ~0.9s
@@ -976,10 +976,11 @@ class Router:
         if not p['enabled'] or p['why'] or not p['model']:
             return {'ok': False, 'err': p['why'] or 'switched off'}
         size = int(ctx or rig(key, 'ctx', 0) or _f((env or {}).get('LAN_LLM_CTX' if key == 'lan' else 'LOCAL_LLM_CTX'), 8704) or 8704)
+        par = int(_f(((RIG.get(key) or {}).get('load') or {}).get('par')) or (LAN_PARALLEL if key == 'lan' else 0))   # 🧯 the 8 GB M1 ran OUT OF GPU MEMORY on 2 slots of Qwen3.5-4B (2026-10-23): load with the rig's slot count, never LM Studio's default 4
         root = re.sub(r'/v1/?$', '', str(p['base']).rstrip('/'))
         t0 = time.time()
         try:
-            r = await asyncio.wait_for(http.post(root + '/api/v1/models/load', json={'model': p['model'], 'context_length': size}, **_lm_auth(env, key)), timeout=180)
+            r = await asyncio.wait_for(http.post(root + '/api/v1/models/load', json={'model': p['model'], 'context_length': size, **({'parallel': par} if par else {})}, **_lm_auth(env, key)), timeout=180)
         except Exception as e:
             return {'ok': False, 'err': _clean_text(f'{type(e).__name__}: {e}', 160)}
         if r.status_code >= 400:

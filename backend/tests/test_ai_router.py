@@ -640,7 +640,7 @@ def test_lm_studio_up_with_no_model_loads_it_itself_once():
     env = {'LAN_LLM_BASE_URL': 'http://192.168.1.9:1236/v1', 'LAN_LLM_MODEL': 'qwen/qwen3-4b-2507'}
     ro = r.Router(); http = Http()
     asyncio.run(ro.heartbeat(http, env, {}, now=5000.0))
-    load = ('http://192.168.1.9:1236/api/v1/models/load', {'model': 'qwen/qwen3-4b-2507', 'context_length': 8704})
+    load = ('http://192.168.1.9:1236/api/v1/models/load', {'model': 'qwen/qwen3-4b-2507', 'context_length': 8704, 'parallel': r.LAN_PARALLEL})   # 🧯 never LM Studio's default 4 slots on the 8 GB M1
     assert http.posts == [load] and ro.stats['lan']['autoLoad']['ok'] is True and ro.stats['lan']['state'] == 'ONLINE'
     ro.stats['lan']['state'] = 'OFFLINE'   # dropped again a minute later: no second load inside the window
     asyncio.run(ro.heartbeat(http, env, {}, now=5060.0))

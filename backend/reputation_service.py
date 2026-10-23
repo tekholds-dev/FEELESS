@@ -16510,9 +16510,10 @@ def _g4_qwen(mint):
     return None
 
 
-def _g4_real_record():
-    """G4's REAL closed trades (archive positions it held) → the same record shape as paper."""
-    rows_ = [{'pct': p_.get('realPct')} for p_ in (_json_load(ARCHIVE_PATH, {}) or {}).get('positions') or [] if p_.get('g4') and p_.get('realPct') is not None]
+def _g4_real_record(by=None):
+    """The models' REAL closed trades (archive positions an AI seat held) → the same record shape as paper; `by` = only that model's own
+    (2026-10-23: G4 read the DUO's 23% as "my win rate" and bragged past OSSY's 26%)."""
+    rows_ = [{'pct': p_.get('realPct')} for p_ in (_json_load(ARCHIVE_PATH, {}) or {}).get('positions') or [] if p_.get('g4') and p_.get('realPct') is not None and (by is None or p_.get('aiBy') == by)]
     return _seat.record(rows_)
 
 
@@ -17018,6 +17019,8 @@ async def _g4_tick(now, env, cfg):
                 first_, second_ = second_, first_
         if mode_ == 'paper':
             rec_ = _seat.by_model(book_.get('closed')).get(first_) or {'n': 0}
+        else:
+            rec_ = _g4_real_record(first_)   # 💵 its OWN record, never the duo's
         rows_ = [_seat.cand_row(c_, _g4_qwen(c_['mint'])) for c_ in cands_]
         for r_c in rows_:   # 🐋 who has been trading each candidate (the chart's own wallet tags, cache only): read it, don't fear it
             cw_c = (_cw_cache.get(r_c.get('mint')) or (0, None))[1]
@@ -17043,7 +17046,16 @@ async def _g4_tick(now, env, cfg):
         if on_:
             learn_['ownerSays'] = str(on_.get('why') or '')[:600]   # 👤 the owner chimed in on this trade
         await _dv_settle(now)
-        pk_ = _seat.packet(rows_, held_, _seat.record_words(rec_), _seat.partner_of(st_['log'], first_), (pick_ or {}).get('symbol'), says_, learn_)
+        try:   # 💵 each model's OWN money (owner, 2026-10-23: "they need to be aware of their individual live PnL"): its all-time real $, its partner's, this trade live in $
+            tot_ = _duo_totals()
+            nm1_, nm2_ = _air.model_name(env, first_), _air.model_name(env, second_)
+            live_ = _duo_holding(leg_) if (held_ and leg_) else None
+            pnl_ = _seat.pnl_words(nm1_, tot_.get(nm1_), nm2_, tot_.get(nm2_), live_)
+            pnl2_ = _seat.pnl_words(nm2_, tot_.get(nm2_), nm1_, tot_.get(nm1_))
+        except Exception as e:
+            print('seat pnl:', str(e)[:80]); pnl_ = pnl2_ = None
+        order_ = _seat.owner_order(learn_.get('ownerSays')) if held_ else None   # 🫡 the Godfather's SELL / TRIM on this trade is final
+        pk_ = _seat.packet(rows_, held_, _seat.record_words(rec_), _seat.partner_of(st_['log'], first_), (pick_ or {}).get('symbol'), says_, learn_, pnl=pnl_)
         if held_ and leg_:   # 🐋 what the snipers / bundles / dev / top holders / whales / top traders did since YOUR buy — see it, then move
             tr_h = _flow_trades.get(leg_.get('pairAddress'))
             if tr_h and now - tr_h[0] < 60:
@@ -17086,6 +17098,7 @@ async def _g4_tick(now, env, cfg):
         if held_ and dec_:   # 🦠 a base (germ floor / higher lows) on slow volume is held — unless sellers lead the 90s tape
             dec_ = _seat.structure_hold(dec_, {**held_, 'sl': (leg_ or {}).get('aiSl')}, held_ch, sellers=str(((_office.get('flow') or {}).get(held_m) or {}).get('state') or '').upper() == 'SELLERS')
             dec_ = _seat.line_hold(dec_, {**held_, 'sl': (leg_ or {}).get('aiSl'), 'tp': (leg_ or {}).get('aiTp')}, held_ch, sellers=str(((_office.get('flow') or {}).get(held_m) or {}).get('state') or '').upper() == 'SELLERS')   # 🎯 between its SL and TP a SELL needs a chart reason
+            dec_ = _seat.obey(dec_, order_, True)   # 🫡 after every hold-guard: the owner's order is never cooked / line-held back into a HOLD
         ms_ = round((time.perf_counter() - t0_) * 1000)
         miss_ = None
         if not dec_:   # 🤝 no model answered (busy / timed out / unreadable): the agents decide the seat this minute instead of a dead minute
@@ -17097,9 +17110,9 @@ async def _g4_tick(now, env, cfg):
             book_, ev_ = _seat.paper_step(book_, dec_, by_, px_of, now, by_m)
         if dec_ and mode_ == 'real' and held_ and leg_ and (dec_.get('tp') or dec_.get('sl') or dec_.get('trail')) and by_m != 'agents':   # 🎯 the holder sets its own lines on its own trade
             _g4['set'] = {'pair': leg_.get('pairAddress'), 'tp': dec_.get('tp'), 'sl': dec_.get('sl'), 'trail': dec_.get('trail'), 'at': time.time(), 'by': _air.model_name(env, by_m)}
-        elif dec_ and mode_ == 'real' and dec_['action'] in ('BUY', 'SELL', 'TRIM'):
+        if dec_ and mode_ == 'real' and dec_['action'] in ('BUY', 'SELL', 'TRIM'):   # (a TRIM that also moved its lines used to set the lines and drop the trim)
             want_ = {**dec_, 'by': by_m, 'model': 'AGENTS' if by_m == 'agents' else _air.model_name(env, by_m), 'thinkAt': now, 'symbol': (by_.get(dec_['mint']) or {}).get('symbol') if dec_['action'] == 'BUY' else (leg_ or {}).get('symbol'), 'at': time.time(), 'pair': (by_.get(dec_['mint']) or {}).get('pair') if dec_['action'] == 'BUY' else (leg_ or {}).get('pairAddress')}   # ⏱ fresh from the ANSWER (a 30–90s think read as stale)
-        propose_ = f"{dec_['action']}{(' ' + str(dec_.get('pct') or '') + '%') if dec_['action'] == 'TRIM' else ''} ${(held_ or {}).get('symbol')} — {str(dec_.get('why') or '')[:120]}" if (mode_ == 'real' and held_ and want_ and want_['action'] in ('SELL', 'TRIM') and by_m != 'agents') else None   # 🤝 a real move waits for the partner's word (line moves never wait)
+        propose_ = f"{dec_['action']}{(' ' + str(dec_.get('pct') or '') + '%') if dec_['action'] == 'TRIM' else ''} ${(held_ or {}).get('symbol')} — {str(dec_.get('why') or '')[:120]}" if (mode_ == 'real' and held_ and want_ and want_['action'] in ('SELL', 'TRIM') and by_m != 'agents' and not dec_.get('obeyed')) else None   # 🤝 a real move waits for the partner's word (never the Godfather's order) (line moves never wait)
         focus_ = by_.get((dec_ or {}).get('mint')) if (dec_ or {}).get('action') == 'BUY' else None
         row_ = {'at': round(now), 'mode': mode_, 'model': 'AGENTS' if by_m == 'agents' else _air.model_name(env, by_m), 'by': by_m if dec_ else None, 'ms': ms_, 'miss': miss_,
                 'action': (dec_ or {}).get('action') or 'NO ANSWER', 'why': (dec_ or {}).get('why') or str(r_.get('why') or 'the model did not answer')[:160],
@@ -17137,7 +17150,7 @@ async def _g4_tick(now, env, cfg):
             talk_at = now
             try:
                 t0b = time.perf_counter()
-                ra_ = await asyncio.wait_for(_air.ROUTER.ask(_ai_http(), env, cfg, 'Advise on your partner\'s open trade.', context={**_seat.advise_packet(pk_, _air.model_name(env, first_), _air.model_name(env, second_)), **({'HOLDERPROPOSES': propose_} if propose_ else {})}, role='exit', urgency='seat', only=(second_,), system=_seat.sys_for(_seat.ADVISE, second_), only_system=True), timeout=ADVISE_SEC)
+                ra_ = await asyncio.wait_for(_air.ROUTER.ask(_ai_http(), env, cfg, 'Advise on your partner\'s open trade.', context={**_seat.advise_packet(pk_, _air.model_name(env, first_), _air.model_name(env, second_), mine=pnl2_), **({'HOLDERPROPOSES': propose_} if propose_ else {})}, role='exit', urgency='seat', only=(second_,), system=_seat.sys_for(_seat.ADVISE, second_), only_system=True), timeout=ADVISE_SEC)
                 da_ = _seat.parse(ra_.get('text'), [], True, spoke=bool(learn_.get('ownerSays')))
                 oth_ = _seat._sym_in((da_ or {}).get('why'), {l_.get('symbol'): l_.get('mint') for l_ in _duo_card_legs() if l_.get('symbol')}) if da_ else None
                 if da_ and oth_ and oth_ != held_m:   # 💬 the advice is about ANOTHER coin on the card ($ELON on the $Kimchi trade) → it goes to that coin's own room, never the holder's chat
@@ -17387,9 +17400,15 @@ async def admin_ai_seat_post(request: Request):
         legs_ = [l for c_ in (((_json_load(FUSE_HQ_PATH, {}) or {}).get('prime') or {}).get('cards') or {}).values() if (c_ or {}).get('real') for l in c_.get('legs') or [] if l.get('aiSeat') and not l.get('placeholder')]
         m_ = str(body.get('mint') or '') or (legs_[0].get('mint') if legs_ else None) or None   # 💬 a coin room's chime-in is about THAT coin
         lc_ = next((l_ for l_ in _duo_card_legs() if l_.get('mint') == m_), None) if body.get('mint') else None
-        act_ = 'SELL' if _re.search(r'\b(sell|dump|exit|out)\b', txt_, _re.I) else 'HOLD' if _re.search(r'\b(hold|moon|send|buy|ride)\b', txt_, _re.I) else 'NOTE'
+        od_ = _seat.owner_order(txt_)   # 🫡 "sell it / get out / should've been sold" = an ORDER on the seat's coin, not a suggestion
+        act_ = 'SELL' if od_ else 'HOLD' if _re.search(r"\b(hold|moon|send|buy|ride)\b|\b(?:don'?t|do not|never)\s+sell\b", txt_, _re.I) else 'NOTE'
         row_ = {'at': round(now), 'mode': 'real', 'model': 'YOU', 'by': 'owner', 'talk': True, 'action': 'TALK', 'view': act_ if act_ != 'NOTE' else None, 'why': txt_, 'mint': m_,
                 'symbol': (lc_ or {}).get('symbol') or (legs_[0].get('symbol') if legs_ else None), **({'coinTalk': True} if lc_ and not (legs_ and legs_[0].get('mint') == m_) else {})}
+        sl_ = next((l_ for l_ in legs_ if l_.get('mint') == m_), None) if (od_ and m_) else None
+        if sl_:   # 🫡 owner, 2026-10-23: "I told him to sell … he won't do what I want" — the seat's coin is sold (or trimmed) on the next tier tick, no model vote
+            _g4['want'] = {'action': od_['action'], **({'trim': od_['pct']} if od_['action'] == 'TRIM' else {}), 'pair': sl_.get('pairAddress'), 'mint': m_, 'symbol': sl_.get('symbol'),
+                           'by': 'owner', 'model': 'YOU', 'why': f"your order in the trade room — “{txt_[:80]}”", 'thinkAt': now, 'at': time.time()}
+            row_['why'] = f"{txt_} · 🫡 " + ('selling it now' if od_['action'] == 'SELL' else f"trimming {od_['pct']}% now") + ' — your order, the seat acts on the next tick'
         ln_ = _seat.owner_lines(txt_)
         if ln_ and m_:   # ✋ "tp 80 · sl 20 · trail 35" in the chat = YOUR line on that coin, set now (the same path as a drag on the chart)
             async with _admin_lock:

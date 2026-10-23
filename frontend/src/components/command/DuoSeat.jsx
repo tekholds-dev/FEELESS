@@ -212,7 +212,7 @@ function TradeRoom({ duo, call }) {
     {['G4', 'OSSY'].map(k => conf[k] ? <em key={k} className={conf[k].boost > 0 ? 'm-pos' : conf[k].boost < 0 ? 'm-neg' : ''} data-tip={conf[k].words}>{k} conf {conf[k].boost > 0 ? '+' : ''}{conf[k].boost}</em> : null)}</p>
     <ol>{rows.map((r, i) => <Bubble key={`${r.at}-${i}`} r={r} busy={busy || !call} onVote={(key, v) => post({ vote: { key, v } })} />)}</ol>
     {call && !roomM ? <form className="dso-say" onSubmit={e => { e.preventDefault(); if (txt.trim()) { post({ comment: txt.trim(), ...(coin ? { mint: coin.mint } : {}) }); setTxt(''); } }}>
-      <input className="m-input" value={txt} onChange={e => setTxt(e.target.value)} maxLength={240} placeholder={coin ? `chime in on $${coin.symbol} — both models read it` : duo?.holding ? `chime in — ${duo.holder || 'the holder'} reads it next minute (say hold / sell and the market grades you too)` : `chime in — ${duo?.next || 'the next model'} reads it on its turn`} data-testid="duo-say" />
+      <input className="m-input" value={txt} onChange={e => setTxt(e.target.value)} maxLength={240} placeholder={coin ? `chime in on $${coin.symbol} — both models read it` : duo?.holding ? `chime in — ${duo.holder || 'the holder'} reads it next minute · say “sell” = sold now · “sell half” · tp 80 · sl 15` : `chime in — ${duo?.next || 'the next model'} reads it on its turn`} data-testid="duo-say" />
       <button type="submit" className="m-btn" disabled={busy || !txt.trim()}>Send</button></form> : null}</>}</div>;
 }
 

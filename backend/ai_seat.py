@@ -55,6 +55,11 @@ The trade you bought is YOURS to run: tp / sl are your own take-profit and stop 
 CONFIDENCE in LEARN = what the market's verdicts on your calls (and the votes on them) earned you. The agents only advise.
 ELITE RULES: buy at or near the GERM floor or a 1m / 5m FVG SUPPORT (fvg / fvg5 = % above the gap; negative = inside it) with higher lows (HH/HL) after a pullback — never pressed under the gun line, never right after a spike (those coins are not on your list). Let a trade COOK: a SELL in its first 4 minutes is ignored unless it is down 10%+ — set your stop instead. One red 5-minute candle is not an exit; sellers taking over the tape, a broken higher low, or your stop are.
 READ BOTH CHARTS every decision: CHART1M and CHART5M (germ floor distance on each, structure, higher / lower lows). A coin sitting on its 1m or 5m germ floor, or printing higher lows with no lower low, is a HOLD even when volume is slow — volume picks up from a base. Sell a base only when it breaks (a lower low / under the germ) or sellers lead.
+YOURPNL = YOUR OWN real money (each model has its own): your all-time $ result, win rate and average trade, your partner's beside it, and THIS
+trade's live P/L in % AND $ with its peak. Say your own $ number in your why. Down money overall = play defense: bank green, never let a +20% peak
+ride back under +5%, no "I'm not selling" pride on a red book — dollars grade you, not words.
+THE GODFATHER'S SELL IS FINAL: when OWNER tells you to sell / get out / cut it (or says it should have been sold), your action is SELL — the
+seat already sold it on his word; never answer "I'm not selling" to him. He may only be argued with on the market, never disobeyed.
 THE OWNER TALKS TO YOU: OWNER = his newest line on this trade / for your next pick. Answer it FIRST in your why ("you said X — I …"), agree or say exactly why not; he grades you on it. When he asks to adjust TP / SL / trail, SET the new numbers in "tp" / "sl" / "trail" in THIS answer.
 WALLETS = what the snipers, bundles, the dev, top holders, whales and top traders did since your buy (candidates carry "wallets" too).
 Don't be scared of it — read it: early hands dumping into a green coin = tighten your stop toward break-even; whales / top traders buying = more room.
@@ -136,12 +141,14 @@ def held_row(leg, px, now, pressure=None, qwen=None):
 HELD_LEARN = ('confidence', 'holdLessons', 'ownerHints', 'ownerHoldWins')   # what a model managing its trade still reads
 
 
-def packet(cands, held, record=None, partner=None, pick=None, says=None, learn=None):
+def packet(cands, held, record=None, partner=None, pick=None, says=None, learn=None, pnl=None):
     """The ONE thing the deciding model reads each minute (+ its partner's last call + the agents' own pick)."""
     lr = dict(learn or {})
     out = {}
     if lr.get('ownerSays'):   # 👤 the owner's words FIRST — answer them before anything else (he asked G4 to adjust TP three times)
         out['OWNER'] = lr.pop('ownerSays')
+    if pnl:   # 💵 its OWN money next (owner, 2026-10-23: "they need to be aware of their individual live PnL" — G4 at −$1.55 told him "I'm not selling")
+        out['YOURPNL'] = pnl
     out['yourSeat'] = held or 'EMPTY'
     if held and held.get('symbol'):   # 🎯 one trade at a time: the model was quoting an old coin ($QUID) as if it were the trade it holds
         out['NOW'] = f"you hold ${held['symbol']} — every word is about ${held['symbol']}; any other coin below is a PAST lesson"
@@ -200,7 +207,7 @@ If OWNER is there, answer the Godfather first. NOW names the ONE coin you talk a
 If HOLDERPROPOSES is there, your partner is about to sell / trim that coin and waits for your word: SELL = you back it, HOLD = you'd keep it — say why in one line.
 """ + VOICE
 
-def advise_packet(pk, holder, me):
+def advise_packet(pk, holder, me, mine=None):
     """💬 The partner's OWN view of the trade (owner, 2026-10-17: "OSSY speaking like it's his trade when it's G4's"): the holder's packet
     re-labelled — HIS seat, HIS record, HIS lines — so "you hold" never reaches the partner."""
     pk = dict(pk or {})
@@ -213,6 +220,11 @@ def advise_packet(pk, holder, me):
     out[f'{holder}Seat'] = seat
     if 'yourRecord' in pk:
         out[f'{holder}Record'] = pk.pop('yourRecord')
+    if pk.get('YOURPNL'):
+        out[f'{holder}PnL'] = pk.pop('YOURPNL')
+    pk.pop('YOURPNL', None)
+    if mine:
+        out['YOURPNL'] = mine   # 💵 the adviser's OWN money (never the holder's line re-labelled as "yours")
     pk.pop('partner', None)   # that is the PARTNER's own last call as the holder saw it
     for k, v in pk.items():
         out[k] = v
@@ -424,6 +436,66 @@ def owner_lines(text):
         m = re.search(pat, t)
         if m:
             out[k] = float(m.group(1))
+    return out
+
+
+_NO_SELL = re.compile(r"\b(?:don'?t|do\s+not|never|no|not|stop)\s+(?:\w+\s+){0,2}?(?:sell|selling|dump|exit)\b|\bhold\s+(?:it|on|tight)\b", re.I)
+_SELL_HALF = re.compile(r"\b(?:sell|dump|bank|take)\s+(?:a\s+)?(?:half|50\s*%|some|part)\b|\btrim\b", re.I)
+_SELL = re.compile(r"\b(?:sell|dump|exit|get\s+(?:the\s+fuck\s+)?out|cut\s+(?:it|the\s+loss|losses|this)|close\s+(?:it|this|the\s+trade|the\s+position)|bank\s+it|take\s+(?:the\s+)?(?:profit|win|gain)s?(?!\s*(?:to|at|=|:)?\s*\+?\d))\b"
+                   r"|\bshould\s*(?:'?ve|\s+have|a)?\s*(?:been\s+)?sold\b|\bwhy\s+(?:didn'?t|did\s+not|don'?t|won'?t)\s+(?:you|u|he|g4|ossy)\s+sell\b", re.I)
+_ASK = re.compile(r"\bshould\s+(?:we|i|you|u)\s+sell\b[^.!]*\?|\b(?:would|will)\s+you\s+sell\b[^.!]*\?", re.I)
+
+
+def owner_order(text):
+    """🫡 The owner's ORDER in the trade chat → {'action': 'SELL'} | {'action': 'TRIM', 'pct': 25|50|75} | None — executed DIRECTLY on the
+    seat's coin (owner, 2026-10-23: "I told him to sell … he won't do what I want when he's losing badly"). A question ("should we sell?"),
+    a "don't sell" or a pure line move ("tp 80") is never an order."""
+    t = re.sub(r'\s+', ' ', str(text or '')).strip()
+    if not t or _NO_SELL.search(t) or _ASK.search(t):
+        return None
+    if _SELL_HALF.search(t):
+        m = re.search(r'\b(25|50|75)\s*%', t)
+        return {'action': 'TRIM', 'pct': int(m.group(1)) if m else 50}
+    if _SELL.search(t):
+        return {'action': 'SELL'}
+    return None
+
+
+def obey(dec, order, holding):
+    """The model answered HOLD to the Godfather's SELL → the seat sells anyway (his word is final; the model's line is kept for the record)."""
+    if not order or not holding or not dec or dec.get('action') == order['action'] or (order['action'] == 'TRIM' and dec.get('action') == 'SELL'):
+        return dec
+    keep = {k: v for k, v in dec.items() if not (order['action'] == 'SELL' and k in ('tp', 'sl', 'trail'))}   # a SELL carries no lines (lines would route it to "set lines")
+    return {**keep, 'action': order['action'], **({'trim': order['pct']} if order['action'] == 'TRIM' else {}), 'obeyed': dec.get('action'),
+            'why': ("(🫡 the Godfather's order — " + order['action'] + ") " + str(dec.get('why') or ''))[:WHY_MAX + 80]}
+
+
+def _usd(v):
+    v = _f(v)
+    return ('+' if v >= 0 else '−') + f"${abs(v):,.2f}"
+
+
+def pnl_words(me, mine, partner=None, theirs=None, live=None):
+    """💵 A model's OWN money in one line: its all-time REAL $ / win rate / avg trade, its partner's beside it, and the trade it holds now
+    in % AND $ with the peak it gave back. `mine` / `theirs` = {n, won, usd, pct (sum of %)} (the duo totals); `live` = the held trade."""
+    def book(name, t):
+        t = t or {}
+        if not t.get('n'):
+            return f"{name}: no closed real trades yet"
+        return f"{name}: {_usd(t.get('usd'))} real over {t['n']} closed · {round(100 * _f(t.get('won')) / t['n'])}% won · avg {_f(t.get('pct')) / t['n']:+.1f}% a trade"
+    out = 'YOU (' + book(me, mine).split(': ', 1)[0] + '): ' + book(me, mine).split(': ', 1)[1]
+    if (mine or {}).get('n'):
+        up, ahead = _f(mine.get('usd')) >= 0, _f(mine.get('usd')) >= _f((theirs or {}).get('usd'))
+        out += ' — ' + ('UP money' if up else 'DOWN money') + (f", {'ahead of' if ahead else 'behind'} {partner}" if partner and (theirs or {}).get('n') else '')
+    if partner:
+        out += ' · ' + book(partner, theirs)
+    lv = live or {}
+    if lv.get('pct') is not None:
+        out += f" · THIS TRADE ${lv.get('symbol') or '?'}: {_f(lv['pct']):+.1f}%"
+        if lv.get('pnlUsd') is not None:
+            out += f" ({_usd(lv['pnlUsd'])} on ${_f(lv.get('inUsd')):,.2f} in)"
+        if lv.get('peak') is not None and _f(lv['peak']) > _f(lv['pct']):
+            out += f" · peak {_f(lv['peak']):+.1f}% — {(_f(lv['peak']) - _f(lv['pct'])):.1f} points given back"
     return out
 
 

@@ -88,8 +88,8 @@ def test_a_line_move_is_graded_like_a_call():
 
 def test_desktop_installer_picks_the_server_model_and_falls_back():
     import feeless_mcp as f
-    t = f.install_script('http://x/mcp', 'T', model='qwen/qwen3-4b-2507')
-    assert 'qwen/qwen3-4b-2507' in t and '" get ' not in t and 'unload --all' not in t   # 🚫 the keeper never downloads / loads / unloads a model
+    t = f.install_script('http://x/mcp', 'T', model='qwen/qwen3.5-4b')
+    assert 'qwen/qwen3.5-4b' in t and '" get ' not in t and 'unload --all' not in t   # 🚫 the keeper never downloads / loads / unloads a model
     assert 'FEELESS_LM_MODEL="$MODEL"' not in t                                         # the hourly re-pull no longer pins the old model
 
 
@@ -104,11 +104,11 @@ def test_duo_update_is_a_stream_kind():
     assert 'duo_update' in events.KINDS
 
 
-def test_desktop_runs_two_parallel_slots():
+def test_desktop_runs_one_slot_on_8gb():
     import feeless_mcp as f, ai_router as ar
     t = f.install_script('http://x/mcp', 'T')
     assert 'lms unload' not in t and 'empty-count' in t   # 🚫 never unloads / reloads; loads (with --parallel) only when LM Studio holds no model for 3 min
-    assert ar.PROVIDERS['lan'][7] == ar.LAN_PARALLEL == 2                                 # the router sends two at once to match
+    assert 'FEELESS_LM_PAR:-1' in t and ar.PROVIDERS['lan'][7] == ar.LAN_PARALLEL == 1    # 🧯 Qwen3.5-4B on 2 slots ran the 8 GB M1 out of GPU memory (2026-10-23): one slot, one call at a time
 
 
 def test_both_models_get_the_voice_and_respect_the_boss():

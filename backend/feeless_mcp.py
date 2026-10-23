@@ -870,7 +870,7 @@ def write_local_preset():
     return True
 
 
-DESKTOP_MODEL = os.environ.get('LAN_LLM_MODEL') or 'qwen/qwen3-4b-2507'   # 🖥 desktop = M1 · 8 GB: Qwen3-4B Instruct 2507 (MLX ≈ 2.3 GB, text only). Gemma 4 E4B GGUF (vision build) swapped the 8 GB Mac: 'say hi' took > 150s (2026-10-17)
+DESKTOP_MODEL = os.environ.get('LAN_LLM_MODEL') or 'qwen/qwen3.5-4b'   # 🖥 desktop = M1 · 8 GB: Qwen3.5-4B (MLX 4-bit ≈ 3.1 GB, ONE slot — two slots ran the M1 out of GPU memory, 2026-10-23). Before: Qwen3-4B Instruct 2507 (MLX ≈ 2.3 GB, text only). Gemma 4 E4B GGUF (vision build) swapped the 8 GB Mac: 'say hi' took > 150s (2026-10-17)
 DESKTOP_FALLBACK = os.environ.get('LAN_LLM_FALLBACK_MODEL') or 'google/gemma-4-e2b'   # already on the desktop: loaded only when nothing else is (the keeper never downloads it)
 
 
@@ -1012,7 +1012,7 @@ FEELESS_JS_EOF
 # 🖥 KEEP IT RUNNING (owner, 2026-10-15: "ensure it stays running when sleep etc and updates are in it"): two LaunchAgents on THIS Mac —
 #  · com.feeless.lankeep = every 60s: LM Studio's server up on port $PORT + the model loaded; every 10 min: re-run this installer from
 #    FEELESS so the preset / prompt / these helpers update by themselves. Re-running this script replaces only its own files.
-PORT="${{FEELESS_LM_PORT:-1236}}"; MODEL="${{FEELESS_LM_MODEL:-{model or DESKTOP_MODEL}}}"; FALLBACK="{DESKTOP_FALLBACK}"; CTX="${{FEELESS_LM_CTX:-8704}}"; PAR="${{FEELESS_LM_PAR:-2}}"
+PORT="${{FEELESS_LM_PORT:-1236}}"; MODEL="${{FEELESS_LM_MODEL:-{model or DESKTOP_MODEL}}}"; FALLBACK="{DESKTOP_FALLBACK}"; CTX="${{FEELESS_LM_CTX:-8704}}"; PAR="${{FEELESS_LM_PAR:-1}}"
 mkdir -p "$HOME/.feeless" "$HOME/Library/LaunchAgents"
 cat > "$HOME/.feeless/lan-keep.sh" <<FEELESS_KEEP_EOF
 #!/bin/bash
