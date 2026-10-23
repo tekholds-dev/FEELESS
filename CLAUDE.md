@@ -198,9 +198,11 @@ F0. 🏙 FAMILIA = ITS OWN APP (owner, 2026-10-23, LOUD: "no redirects!! … fun
    1. PERPS ORDERS IN THE POP-OUT: pick a provider, size, long / short, and the order is made right in the building — for US users only through a
       US-legal venue's official API on the user's own account (Kraken Pro / Coinbase, OAuth or user keys, never FEELESS custody) → owner + legal
       sign-off first; the build after that is the provider SDK + guards + a LIT order ticket. Never an offshore venue for US users (rule 1c).
-   2. CHOOSE YOUR TOWN'S BUILDINGS: the family picks which buildings its town has (a Perps desk, Trench Towers, a Pool…) — "we're gonna be
-      perps and trenching"; each chosen building = its real tool + live data.
-   3. FEE CITY BREATHES: far fewer, bigger, spaced-out buildings; every useless / duplicate building cut; open land between districts.
+   2. ✅ SHIPPED 2026-10-23 — 🏘 TOWN PICKER (block page, Don / Underboss / creator, 6 of 8 tools: TT · Perps · Pools · Trade Center · Night Vault
+      · Pump Radar · FeeCat · Rep market; `block_markets.town_set`, act tadd / tdel): each stands on the 3D block, tap → its REAL tool pops out
+      over the block; the Family Deck lists the town first. Next: a town building's own live number on its sign (pools APY, desk P&L).
+   3. ✅ SHIPPED 2026-10-23 — FEE CITY BREATHES: ~47 buildings off the capital → 18 (duplicates are ROOMS of one building with a room strip in the
+      pop-out; market islands top 4; empty cells = PARKS; bigger cells, wider water). Next: profile the family town for lag (C).
    4. FAMILIA AS ITS OWN APPLICATION in FEELESS: its own bundle (lazy, preloaded), own shell + nav, everything done inside it.
 M. ✅ SHIPPED 2026-10-23 (Brain › 🧠 Models = `ModelDesk.jsx` + `model_desk.py`, /admin/ai/models): vitals for every model (tok/s from real usage,
    ok %, median · p90, queue, ctx fill, last answer, 🎭 mindset) + the picked model's INFO · LOAD · INFERENCE (overrides ride every call:
@@ -221,7 +223,8 @@ A0. ✅ SHIPPED 2026-10-23 — TRADE IN FAMILIA, NO REDIRECTS: `FamiliaTrade.jsx
    switch errand opens the swap in the dock, rooms lost their "Full page ↗" jumps, a member's "Full profile ↗" = the case file in place. A guard
    test fails on any openWarRoom / full-page jump in Familia. Still links out: landmark marks (Build a Fuse card · Launch · Rug Shield) and the
    mini deck's Fuse cards — next: embed those too.
-T. 🗼 TRENCH TOWERS = ITS OWN ISLAND with ONE huge tower (owner, 2026-10-23): no field of little coin towers and no side windows — one landmark
+T. ✅ SHIPPED 2026-10-23 (drawn stepped skyscraper, lit floors = intake coins / READY white-hot, hottest coin on the crown, searchlight, one
+   pop-out). Was: 🗼 TRENCH TOWERS = ITS OWN ISLAND with ONE huge tower (owner, 2026-10-23): no field of little coin towers and no side windows — one landmark
    tower (live: READY count lit on its floors, the hottest coin on its crown sign); tap it → ONE pop-out = the Trench Towers room (intake list,
    desk read, theory line) where ⚡ Trade opens the Familia trade desk.
 A1. 🇺🇸 PERPS FOR US TRADERS (owner, 2026-10-23: "no Drift or Hyperliquid if there's no way in the USA"): ✅ the Perps desk now lists only coins a
@@ -237,7 +240,7 @@ C. 🏙 MY FAMILY TOWN = the main city's engine features (day / night, traffic, 
 D. 📦 FAMILIA LOADS AS ITS OWN APP PACKAGE (separate lazy bundle, preloaded on hover) — no lag sitewide.
 E. 🪟 City window BIGGER. F. 💬 THE most litty chat on the internet (Familia / street chat). G. Every building + family idea = real function,
    visually advanced, live data, NO dead text.
-H. 🐱🚀 REDO the unfinished parts of the FeeCat + Launch tabs / pages: every process step lit-styled (drawn, live, animated), no dead forms.
+H. 🐱 FeeCat ✅ REDONE 2026-10-23 (see 0b). 🚀 Launch still: every process step lit-styled (drawn, live, animated), no dead forms.
 
 P0 — OWNER 2026-10-22 LATEST (hardest first; finish in-flight work first, conserve usage, never dead-style)
 DONE tonight: 🐛 Familia/route crash (FamilyDeck static imports) · 🕰 15-min agent min hold (`AGENT_MIN_HOLD`) · 🪟🐱 NEXA TRADES AS FEECAT
@@ -260,7 +263,9 @@ OPEN, hardest → easiest:
    FEELESS with their own wallet funds on the user's request (trade, Polymarket-style markets where legal, tasks), or (b) one of 2 TRADE-ONLY
    agents with lit features. The user sees their cat's BRAIN and talks to it; agents are PAID (pricing + custody = owner decision first,
    docs/REAL_CATS.md; every real-money action needs guards + the wallet signs). NEXA / OSSY / G4 stay OWNER-ONLY for now.
-0b. 🐱 FEECAT TERMINAL: every tab + click-through correct; "Create a cat" ≠ "Build a cat" (two different flows); lit restyle, clean look.
+0b. ✅ SHIPPED 2026-10-23 — 🐱 FEECAT TERMINAL REDONE: one violet shell + nav (LIVE DESK · HER BRAIN · LORE · AGENTS · BUILD A CAT) `FeeCatShell`,
+   dup stats / tabs / picker cut, 🧠 brain page (`FeeCatBrainPage`), 🎨 real builder with drawn gear (`CatBuilder`, `lib/myCat`), agents =
+   My agents · New · Activity · Leaderboard. Next: CatDetail (one agent's desk) in the same violet meta; Launch-a-cat AI flow restyle.
 0c. 👑 Creator wallet unlocks EVERY feature everywhere (`_is_staff` front + back) — audit each gate. 0d. 🔥 More Pump coins on the intake.
 1d. ✂ CUT (Claude's audit 2026-10-22, owner to OK): the fake model catalog in /api/cats/brains (Claude / GPT / Grok rows that only run the rule
    engine) · family_world's drag-the-pizza ERRANDS + the MP store build catalog (the block is real markets now) · 4 ways to start services
@@ -271,7 +276,8 @@ OPEN, hardest → easiest:
    real money only after beating it in shadow · one "YOUR MONEY" tower in the capital (every proved position, live) · compliant US routing.
 2. 🌐 NEXA discovery: a site's AGE (RDAP / WHOIS) + a page SNAPSHOT (title, headings, tech fingerprint, template match) → "real tech vs another
    same-utility site" verdict into her discovery base; one-line packet like her desk calls.
-3. 🎨 Site palette (owner AGAIN 2026-10-22 late, Launch-page screenshot: "better official site green than this shitty green all over the site"):
+3. ✅ SWEPT 2026-10-23 (1,391 colour uses, 101 sheets: green-tinted surfaces → near-black, grey-green lines / text → neutral, meta tokens, the
+   season band on the logo green). Next: inline JSX / three.js colours + a page-by-page look. Was: 🎨 Site palette (owner AGAIN 2026-10-22 late, Launch-page screenshot: "better official site green than this shitty green all over the site"):
    retire the muddy / olive / brown-green panels + backdrops ("color of manure") → the OFFICIAL FEELESS green of the logo (#15d16a / #45e486
    neon on near-black, no olive tint in surfaces) — token sweep sitewide (meta.css m-* tokens first, then each sheet's hard-coded greens), Launch first.
 4. 📊 Text walls → realtime visuals (meters, rings, ticking numbers) + dead styles out — every page, starting with HQ (Agents + FeeCat tabs).

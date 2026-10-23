@@ -15,7 +15,7 @@ Read this (2 min) → `CLAUDE.md` (lean rules + 🎨 MANDATORY STYLING + 📋 CU
 >    LIVE visual (meters, bars, animation on real numbers), never bare text. `styles/cssCoverage.test.js` fails on an unstyled class.
 
 ## 🔁 NOW (rewrite this section in place every session)
-**Updated 2026-10-23 · Opus 5.5 (ultracode round)**
+**Updated 2026-10-23 late · Opus 5.5 (ultracode round)**
 
 Start of every task: `backend/.venv/bin/python scripts/cash-check.py degen 30` (≈ 1 min, sandbox off). 2026-10-23 01:11: card 0.008513 SOL
 COVERED · coins atom for atom · 30/30 swaps match · 0 gap. Gas reserve 0.0074 vs 0.019 target (not card money — owner tops it up).
@@ -23,20 +23,24 @@ COVERED · coins atom for atom · 30/30 swaps match · 0 gap. Gas reserve 0.0074
 Branch: everything lives on `main` (pushed; the owner's Mac auto-pulls). Worktrees `night-1022`, `cat-program-*`, `cool-murdock-*`,
 `loving-pare-*` are old — nothing on them that main lacks unless a line below says so. Gate in `.claude/worktrees/gate` (memory: gate-under-load).
 
-### In flight this session (finish before anything new)
-- 🌆 Fee City breathes (F0.3) + 🏘 the family picks its town's buildings (F0.2) — `lib/cityPlan.js`, `FamilyBlock3D`, `block_markets.py`.
-- 🐱 FeeCat terminal full redo (every tab, H / 0b) · 🟢 official FEELESS green sweep (P0 3) · 🎭 mindset visible in LM Studio + G4 auto-tune.
+### Shipped this session (2026-10-23, Opus 5.5 ultracode) — owner to look at
+- 🌆 FEE CITY BREATHES (`lib/cityPlan.js`): duplicates are ROOMS of one building (`in:` — Ladder in the Podium, Precinct + Cartels in the War
+  Room, Gym / Cards / Jobs in your HQ, Runners in Pump Radar, Watchtower in the Courthouse, Fuel in the $FEE Bank, Newsstand in the Wire; the
+  pop-out shows a room strip, `roomsOf`), market islands keep their top 4, empty cells are PARKS, bigger cells + wider water (~47 → 18 buildings).
+- 🗼 TT = ONE drawn landmark tower (`cityEngine.ttTower`): lit floors = intake coins (READY white-hot), hottest coin on the crown, searchlight.
+- 🏘 TOWN PICKER on the block: `block_markets.TOWN / town_set`, `/familia-block/act` tadd / tdel, `TownPicker` + the tool pop-out over the 3D block
+  (`deckBody`), preview `/dev/block?town=tt,perps,pools`. NEEDS the reputation restart to serve `town` (done at the end of this session if noted below).
+- 🐱 FEECAT TERMINAL REDONE: `FeeCatShell` (violet nav for all 5 pages + Fee live + your cat), `FeeCatBrainPage`, `CatBuilder` (drawn gear /
+  patterns / eyes in `Panther`, `lib/myCat`), agents = 4 tabs, `lib/feeLeader` one shared poll. Coats = 25 (`catCoats.jsx`, `catByName` for old names).
+- 🟢 OFFICIAL GREEN SWEEP: green-tinted near-black surfaces → neutral near-black, grey-green lines / text → neutral (101 sheets), meta tokens.
+  Re-run safely: the sweep keeps neon greens, golds, reds, blues and light colours (Familia / FeeCat / Launch / chat themes excluded).
+- 🎭 PROMPT STUDIO ↔ LM STUDIO: `lms_preset.py` writes "FEELESS LIVE · OSSY" (what FEELESS really sends) into ~/.lmstudio/config-presets; the
+  owner's "FEELESS FEE Master" stays untouched and only feeds LM Studio's chat window. AUTO-TUNE is ON by default for G4 + OSSY (`auto_on`).
 
-### Shipped in the last two days (one line each — details: grep the history)
-- 🧠 Brain › Models = LM Studio's own panel (`ModelDesk.jsx`, `model_desk.py`, /admin/ai/models): vitals, INFO · LOAD · INFERENCE · SERVER · MCP.
-- 🎭 Prompt Studio (`prompt_studio.py`, Brain › Prompts): 4 mindsets from each model's record, Apply → `ai_router.with_studio` appends it to the
-  system message of EVERY call (LM Studio's own preset box never shows it — proof: "✓ IN USE" + 🎭 tags; `scripts/mindset-probe.py`).
-  🤖 AUTO-TUNE per model (last 10 red → AUTO-TUNED, 6 h cooldown) + 🏆 mindset ladder.
-- 🔁 OSSY × G4 strict turns by default; proof bench + streak brake only with 🪑 GUARDS ON (`ai_seat.json` guards).
-- 🏙 Trade inside Familia (`FamiliaTrade.jsx`, `familiaTrade(pair)`); guard test fails on openWarRoom / "Full page ↗" in Familia files.
-- 🇺🇸 Perps desk US-legal (Kraken Pro / Coinbase links, Hyperliquid = reference only). In-app perps orders = owner + legal first.
-- ✋ Owner picks stay (`arena_prime.owner_pick`, `LIQ_SRC`, `RUG_PICK_LIQ`) · 🏁 duo seat SOLD phase · 🎛 SEAT DECK · 💵 `scripts/cash-check.py`.
-- 🏙 The block = real markets (`block_markets.py`, `FamilyBlock3D`, `/familia-block`, under construction until a real position, errands).
+### Still live from the day before (grep the history for details)
+Brain › Models (`ModelDesk.jsx`, `model_desk.py`) · Prompt Studio (`prompt_studio.py`, `ai_router.with_studio`) · OSSY × G4 strict turns ·
+trade inside Familia (`FamiliaTrade.jsx`; a guard test fails on any jump out) · US-legal Perps desk · owner picks stay (`arena_prime.owner_pick`) ·
+the block = real markets (`block_markets.py`) · `scripts/cash-check.py` · `scripts/mindset-probe.py`.
 
 ### Open after this session (owner's order lives in CLAUDE.md › CURRENT TASKS — these are the specifics)
 1. 🤖 AGENTS HUB (users' cats): vitals, cost, P&L, model + context, credit + refill. Real-money agents = owner custody + pricing (docs/REAL_CATS.md).

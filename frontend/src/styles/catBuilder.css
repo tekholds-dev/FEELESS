@@ -1,6 +1,7 @@
 /* 🎨 BUILD A CAT — violet night studio (spotlight, a lit floor ring, your full panther) + the bench of drawn options. Motion: cbx* keyframes,
    transform / opacity only. */
-.cbx { display: grid; grid-template-columns: minmax(280px, 0.9fr) minmax(0, 1.1fr); gap: 14px; align-items: start; }
+.cbx { display: grid; grid-template-columns: minmax(280px, 0.9fr) minmax(0, 1.1fr); gap: 14px; align-items: start; min-width: 0; }
+.cbx > * { min-width: 0; }
 .cbx-studio { --aura: #b388ff; position: sticky; top: 12px; display: grid; justify-items: center; gap: 10px; min-height: 470px; padding: 18px 14px 14px; border-radius: 20px; overflow: hidden;
   background: radial-gradient(90% 60% at 50% 18%, #3a2066 0%, #160c2a 55%, #08050f 100%); border: 1px solid #b388ff33; box-shadow: inset 0 1px 0 #ffffff14, 0 30px 60px -36px #7c4dff; }
 .cbx-spot { position: absolute; left: 50%; top: -30px; width: 340px; height: 420px; margin-left: -170px; pointer-events: none;
@@ -57,6 +58,6 @@ body.theme-day .cbx-plate { background: #ffffffd9; } body.theme-day .cbx-plate b
 body.theme-day .cbx-step { background: linear-gradient(165deg, #fff, #f6f0ff); border-color: #7c4dff24; } body.theme-day .cbx-step > header b { color: #2a1650; }
 body.theme-day .cbx-tiles button, body.theme-day .cbx-dots button { background: #fff; color: #2a1650; } body.theme-day .cbx-tiles button small, body.theme-day .cbx-dots button small { color: #5a4a7a; }
 body.theme-day .cbx-tiles button.on, body.theme-day .cbx-dots button.on { background: #ffe6f4; } body.theme-day .cbx-moves button { color: #2a1650; background: #fff; }
-@media (max-width: 900px) { .cbx { grid-template-columns: 1fr; } .cbx-studio { position: relative; top: 0; min-height: 400px; } .cbx-floor { top: 290px; } }
+@media (max-width: 900px) { .cbx { grid-template-columns: minmax(0, 1fr); } .cbx-studio { position: relative; top: 0; min-height: 400px; } .cbx-floor { top: 290px; } }
 @media (max-width: 640px) { .cbx-studio { min-height: 360px; padding: 12px 8px; } .cbx-cat .clk.is-large { width: 210px; height: 210px; } .cbx-floor { top: 240px; width: 200px; margin-left: -100px; }
   .cbx-row2, .cbx-names { grid-template-columns: 1fr; } .cbx-go { justify-content: stretch; } .cbx-go .m-btn { flex: 1 1 100%; } .cbx-tiles { grid-template-columns: repeat(3, minmax(0, 1fr)); } }

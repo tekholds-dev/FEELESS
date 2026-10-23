@@ -44,7 +44,8 @@
 .fcx-mine small { font: 800 9px 'JetBrains Mono', monospace; letter-spacing: .12em; color: #ffc2e4; max-width: 90px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .fcx-plus { display: grid; place-items: center; width: 34px; height: 34px; border-radius: 10px; border: 1px solid #ff5dbb66; color: var(--fpink); font: 800 18px 'JetBrains Mono', monospace; }
 .fcx-mine .clk { width: 36px; height: 36px; }
-.fcx-body { display: grid; gap: 14px; min-width: 0; }
+.fcx-body { display: grid; grid-template-columns: minmax(0, 1fr); gap: 14px; min-width: 0; }
+.fcx { grid-template-columns: minmax(0, 1fr); } .fcx-body > * { min-width: 0; }
 
 /* 🎨 inside the shell every m-* preset + the agents' paper panels wear the violet night (they were FEELESS-green boxes inside a violet page) */
 .fcx { --m-bg: #08050f; --m-surface: #120a22; --m-surface-2: #1a1030; --m-line: #2e1f4d; --m-line-hi: #5a3d99; --m-text: #ece4ff;
@@ -55,6 +56,10 @@
 .fcx .paper-platform-head h1 em { color: #ffc2e4; text-shadow: 0 0 22px #ff5dbb66; }
 .fcx :is(.btn-primary, .m-btn.m-go) { background: linear-gradient(135deg, #b388ff, #7c4dff); color: #12081f; border-color: transparent; }
 .fcx .eyebrow { color: #c9a8ff; }
+.fcx .fee-cats-platform { margin: 0; width: 100%; max-width: none; min-width: 0; }   /* auto margins made it shrink-to-fit its widest row */
+@media (max-width: 640px) { .fcx .paper-platform-tabs { display: flex; flex-wrap: wrap; width: 100%; } .fcx .paper-platform-tabs button { flex: 1 1 40%; padding: 8px 10px; font-size: 11.5px; }
+  .fcx .fcp-tabs { display: flex; flex-wrap: wrap; } .fcx .fcp-tabs button { flex: 1 1 30%; min-width: 0; }
+  .fcx .paper-platform-head { flex-wrap: wrap; } .fcx.fcx .fc-v2 .paper-platform-head h1 { font-size: 30px; } }
 body.theme-day .fcx { --m-bg: #fbf9ff; --m-surface: #ffffff; --m-surface-2: #f6f0ff; --m-line: #e2d6ff; --m-line-hi: #c4adff; --m-text: #2a1650; --m-dim: #5a4a7a; --m-mute: #8a7aa8; --m-accent: #7c4dff; --m-accent-ink: #fff; }
 body.theme-day .fcx :is(.paper-panel, .paper-my-cats, .paper-cat-detail, .paper-create-card) { background: #fff; border-color: #7c4dff26; }
 body.theme-day .fcx .paper-platform-tabs button.active { color: #fff; } body.theme-day .fcx .paper-platform-head h1 em { color: #a3166b; text-shadow: none; }
@@ -74,6 +79,7 @@ body.theme-day .fcx-nav a { color: #2a1650; background: #fff; } body.theme-day .
 body.theme-day .fcx-nav a.active { color: #fff; } body.theme-day .fcx-nav a.active small { color: #efe6ff; }
 body.theme-day .fcx-chip { background: #fff; color: #2a1650; } body.theme-day .fcx-mine { background: #fff0f8; color: #2a1650; } body.theme-day .fcx-mine small { color: #a3166b; }
 body.theme-day .fcx-star { display: none; }
-@media (max-width: 980px) { .fcx-bar { grid-template-columns: 1fr auto; } .fcx-nav { grid-column: 1 / -1; grid-row: 2; } }
+@media (max-width: 980px) { .fcx-bar { grid-template-columns: minmax(0, 1fr) auto; } .fcx-nav { grid-column: 1 / -1; grid-row: 2; } }
 @media (max-width: 640px) { .fcx { padding: 8px; border-radius: 16px; gap: 10px; } .fcx-bar { gap: 8px; padding: 6px; } .fcx-brand small, .fcx-nav a small, .fcx-lives { display: none; }
+  .fcx-brand span:last-child b { font-size: 12px; letter-spacing: .16em; } .fcx-live { gap: 5px; min-width: 0; } .fcx-chip { padding: 0 8px; }
   .fcx-nav a { padding: 4px 10px; min-height: 40px; } .fcx-mine small { display: none; } .fcx-mine { padding: 3px; } }
