@@ -168,9 +168,11 @@ function CatTower() {
   </div>;
 }
 
-// 📉 THE PERPS DESK — the busiest perps markets live (Hyperliquid's public data: mark, 24h, funding APR, open interest, max leverage) + one tap
-// to each venue's own app (Jupiter Perps · Drift · Hyperliquid) where the wallet signs. Leverage math on screen; each venue's region rules apply.
-export const VENUE = { jupiter: ['Jupiter Perps', c => `https://jup.ag/perps/${c.toLowerCase()}`], drift: ['Drift', c => `https://app.drift.trade/${c}-PERP`], hyperliquid: ['Hyperliquid', c => `https://app.hyperliquid.xyz/trade/${c}`] };
+// 📉 THE PERPS DESK — the perps US traders can legally use (Kraken Pro · Coinbase), priced live from a global reference board (mark, 24h,
+// funding APR, open interest, max leverage) + one tap to the regulated venue. Leverage math on screen.
+// 🇺🇸 US-legal venues only (owner, 2026-10-23): Kraken Pro (CFTC-regulated perps via Bitnomial) · Coinbase (perpetual-style futures, CFTC FCM).
+// Drift / Hyperliquid / Jupiter Perps are gone — they block or don't clearly serve US traders. In-app orders on these = the owner's call (API + legal).
+export const VENUE = { kraken: ['Kraken Pro', () => 'https://pro.kraken.com/'], coinbase: ['Coinbase', () => 'https://www.coinbase.com/derivatives'] };
 function PerpsDesk() {
   const { data } = useMarketJson('/api/reputation/familia/perps', 60000); const rows = data?.markets || []; const [lev, setLev] = useState(10);
   const oi = rows.reduce((s2, r) => s2 + (r.oiUsd || 0), 0); const hot = rows.reduce((b, r) => (Math.abs(r.fundApr || 0) > Math.abs(b?.fundApr || 0) ? r : b), null);

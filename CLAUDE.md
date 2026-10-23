@@ -210,6 +210,14 @@ A0. ✅ SHIPPED 2026-10-23 — TRADE IN FAMILIA, NO REDIRECTS: `FamiliaTrade.jsx
    switch errand opens the swap in the dock, rooms lost their "Full page ↗" jumps, a member's "Full profile ↗" = the case file in place. A guard
    test fails on any openWarRoom / full-page jump in Familia. Still links out: landmark marks (Build a Fuse card · Launch · Rug Shield) and the
    mini deck's Fuse cards — next: embed those too.
+T. 🗼 TRENCH TOWERS = ITS OWN ISLAND with ONE huge tower (owner, 2026-10-23): no field of little coin towers and no side windows — one landmark
+   tower (live: READY count lit on its floors, the hottest coin on its crown sign); tap it → ONE pop-out = the Trench Towers room (intake list,
+   desk read, theory line) where ⚡ Trade opens the Familia trade desk.
+A1. 🇺🇸 PERPS FOR US TRADERS (owner, 2026-10-23: "no Drift or Hyperliquid if there's no way in the USA"): ✅ the Perps desk now lists only coins a
+   US-legal venue offers and links Kraken Pro (CFTC-regulated perps via Bitnomial, since 2026-06-15) + Coinbase (perpetual-style futures via its
+   FCM, BTC / ETH at launch); Hyperliquid = price / funding reference only. IN-APP perps orders for US users = the user's Kraken / Coinbase account
+   through their official APIs (OAuth / user keys, never FEELESS custody) — an OWNER + LEGAL decision first (FEELESS would be routing orders on a
+   regulated venue). Kalshi's BTC perps are another regulated option. Never wire an offshore venue for US users (rule 1c).
 A. 📉 PERPS IN THE POPOUT, NO REDIRECT: the Perps building trades in place — one tap picks the provider (Jupiter Perps · Drift · Hyperliquid…),
    size from $5, long / short, live position + P&L in the building; the wallet signs; guards (memory: new buy doors need guards). ⚠ LEGAL: a
    venue that blocks the user's region stays blocked in-app too (rule 1c — never a geo-block loophole); show which providers serve the user.

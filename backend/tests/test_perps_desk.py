@@ -8,8 +8,8 @@ PAYLOAD = [{'universe': [{'name': 'BTC', 'maxLeverage': 40}, {'name': 'HYPE', 'm
 
 def test_perps_rows_busiest_first_with_funding_apr_and_oi():
     r = pd.rows(PAYLOAD)
-    assert [x['coin'] for x in r] == ['HYPE', 'BTC']                                   # delisted dropped, busiest first
-    btc = r[1]; assert btc['oiUsd'] == 2_000_000 and btc['ch24'] == 2.04 and btc['fundApr'] == 11.0 and btc['maxLev'] == 40
-    assert btc['venues'][0] == 'jupiter' and r[0]['venues'] == ['drift', 'hyperliquid'] and r[0]['fundApr'] < 0
+    assert [x['coin'] for x in r] == ['BTC']                                           # delisted dropped · HYPE has no US venue → not shown
+    btc = r[0]; assert btc['oiUsd'] == 2_000_000 and btc['ch24'] == 2.04 and btc['fundApr'] == 11.0 and btc['maxLev'] == 40
+    assert btc['venues'] == ['kraken', 'coinbase'] and pd.venues_for('LINK') == ['kraken'] and pd.venues_for('HYPE') == []   # US-legal venues only
     assert pd.rows(None) == [] and pd.rows([{}]) == []
     assert pd.liq_move(50) == 2.0 and pd.liq_move(0) == 100.0
