@@ -168,7 +168,7 @@ STANDING RULES (never "done"):
 P0-QUICK — OWNER 2026-10-23 night (THE one list of unfinished asks — HANDOFF.md only points here)
 1. 🤖 NEXA trades AS FeeCat — 2026-10-23 late: her YES on her own cat outranks FeeCat's soft second opinions (chart setup, desk skip, Fuse /
    proof / memory vetoes → half size, named on the receipt); rug guards ($5K floor, holders, discipline) never step aside. FeeCat's book +
-   the guard that stopped a YES now show under her calls. Watch: LUKE-type coins still die at top-10 25% (owner's call to relax).
+   the guard that stopped a YES now show under her calls. Owner 2026-10-23: the holder guard stays STRICT for NEXA (top-10 cap never relaxes on her YES).
 2. 📉 REAL PERPS WITH YOUR OWN USD in FEELESS (owner: "no paper perps — I want to use my USD"): blocked for US users by the standing rule until
    counsel answers DECISIONS #1 (`docs/COUNSEL_BRIEF.md` §1) or a regulated venue's partner API (OAuth on the user's own account) is wired.
    Until then the Perps desk must be VISUAL (live charts / meters, never text-only) — no new paper features.
