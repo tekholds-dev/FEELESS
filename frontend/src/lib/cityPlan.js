@@ -272,9 +272,10 @@ export function blockPlan(bl, live = {}) {
     } else lots.push({ id: `blk-${b.key}`, pick, kind: 'mine', tag: bl?.tag, owner: bl?.id, state: 'shut', power: 3000, rect, seed: hash(b.key), lines: [`${b.name} · UNDER CONSTRUCTION`, b.why ? 'no position reader yet' : 'open a position to build it'] });
   });
   // 🏘 the town: the tool buildings the family picked, each a real tool (the TT tower burns its READY floors here too)
-  const places = town.map((k, j) => { const t = TOWN[k]; const tt = k === 'tt' ? ttLive(live.coins) : null;
+  // 🏘 each sign carries its tool's own live number (live.town = lib/townLive → backend/town_live.py); a quiet source keeps the subtitle
+  const places = town.map((k, j) => { const t = TOWN[k]; const tt = k === 'tt' ? ttLive(live.coins) : null; const tl = live.town?.[k];
     return { key: `town-${k}`, lens: k, pick: { town: k }, name: t.name, sub: t.sub, art: t.art, color: t.color, tool: true, isl: 'block', rect: at(blds.length + j), live: tt,
-      lines: [t.name, tt?.n ? `${tt.ready} READY · ${tt.n} on the intake` : t.sub] }; });
+      lines: [t.name, tl?.line || (tt?.n ? `${tt.ready} READY · ${tt.n} on the intake` : t.sub)] }; });
   for (let k = 0; k < open; k += 1) lots.push({ id: `open-${k}`, pick: { open: k }, kind: 'free', open: true, rect: at(blds.length + town.length + k), seed: k });
   const roads = [roadsOf(isl)];
   return { kind: 'block', key: bl?.id || 'block', islands: [isl], lots, marks: [], plaza: null, markets, places, spare: [], roads, bridges: [], gates: [],

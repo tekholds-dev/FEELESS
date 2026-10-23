@@ -74,3 +74,21 @@ test('🏘 the town: the tool buildings the family picked stand on the block (TT
   expect(q('town-tog-tt')).toBeNull(); expect(q('town-picker').textContent).toContain('Only the Don or the Underboss');
   act(() => root.unmount());
 });
+
+test('🏘 town signs: each standing building wears its tool\'s live number (one shared read) on the 3D sign, the drawn block and the picker', async () => {
+  const SIGNS = { perps: { line: 'BTC $67,120 · +2.0% · f +11%', v: 2, tone: 'up' }, tt: { line: '3 READY · 9 on the intake', v: 3, tone: 'hot' } };
+  const bl = { ...BL, town: ['tt', 'perps'], townMax: 6, townAll: Object.keys(TOWN) };
+  const p = blockPlan(bl, { coins: [{ sym: 'PHP', status: 'READY' }], town: SIGNS });
+  expect(p.places.map(x => x.lines[1])).toEqual(['3 READY · 9 on the intake', 'BTC $67,120 · +2.0% · f +11%']);
+  expect(blockPlan(bl, { town: { tt: SIGNS.tt } }).places[1].lines[1]).toBe(TOWN.perps.sub);           // a quiet source keeps the subtitle
+  const seen = []; const was = global.fetch;
+  global.fetch = jest.fn(u => { seen.push(String(u)); return Promise.resolve({ ok: true, json: () => Promise.resolve({ signs: SIGNS }) }); });
+  const el = document.createElement('div'); document.body.appendChild(el); const root = createRoot(el);
+  const q = id => el.querySelector(`[data-testid="${id}"]`);
+  await act(async () => { root.render(<><FamilyBlock3D bl={bl} sel={null} onPick={() => {}} /><TownPicker bl={bl} mine onAct={() => {}} onOpen={() => {}} /></>); });
+  await act(async () => { await Promise.resolve(); });
+  expect(q('town-b-perps').textContent).toContain('BTC $67,120'); expect(q('town-b-perps').querySelector('.fb3-live.is-up')).not.toBeNull();
+  expect(q('town-live-tt').textContent).toBe('3 READY · 9 on the intake'); expect(q('town-live-pools')).toBeNull();   // only standing buildings
+  expect(seen.filter(u => u.includes('/familia-town/live'))).toHaveLength(1);                         // one read for every surface
+  act(() => root.unmount()); global.fetch = was;
+});

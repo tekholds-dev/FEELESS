@@ -9598,6 +9598,39 @@ async def familia_trade_center(address: str = '', session: str = ''):
             'closed': _tcn.closed_view((_json_load(ARCHIVE_PATH, {}) or {}).get('positions') or [])}
 
 
+_town_live_cache: dict = {'at': 0.0, 'v': None, 'lock': None}
+TOWN_LIVE_SEC = 45
+
+
+@app.get('/api/reputation/familia-town/live')
+async def familia_town_live():
+    """🏘 Every town building's sign number (town_live.py) in ONE shared read every 45 s: each tool's own cached read, fetched in parallel
+    (a slow or failed source leaves only its sign on the plain subtitle). Public numbers only — the desk's aggregate, never a seat."""
+    import town_live as _twl
+    now = time.time(); c_ = _town_live_cache
+    if c_['v'] is not None and now - c_['at'] < TOWN_LIVE_SEC:
+        return c_['v']
+    if c_['lock'] is None:
+        c_['lock'] = asyncio.Lock()
+    async with c_['lock']:
+        if c_['v'] is not None and time.time() - c_['at'] < TOWN_LIVE_SEC:
+            return c_['v']
+
+        async def cat_():
+            r_ = await _ai_http().get('http://127.0.0.1:5088/api/cats/leader/profile', timeout=4)
+            return r_.json() if r_.status_code == 200 else None
+
+        async def board_():
+            return await asyncio.to_thread(_open_board)
+
+        jobs_ = {'tt': familia_intake(), 'perps': familia_perps(), 'pools': familia_pools(), 'vault': familia_pools_sleep(),
+                 'trades': familia_trade_center('', ''), 'rep': rep_markets(''), 'cats': cat_(), 'radar': board_()}
+        got_ = await asyncio.gather(*(asyncio.wait_for(j_, 12) for j_ in jobs_.values()), return_exceptions=True)
+        v_ = {'signs': _twl.signs(dict(zip(jobs_, got_))), 'at': round(time.time())}
+        c_.update(at=time.time(), v=v_)
+        return v_
+
+
 @app.get('/api/reputation/familia-world')
 async def familia_world(address: str = '', session: str = ''):
     """🗺 The whole Familia city: boroughs, bridges, every block, CPU towns, cartels, the season — and, signed in, my family's turf, raids,

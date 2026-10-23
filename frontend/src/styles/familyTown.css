@@ -79,3 +79,8 @@ body.theme-day .ftp-tog.is-on { background: var(--tc); color: #fff; } body.theme
 body.theme-day .ftr { background: linear-gradient(165deg, #fffaf0f4, #f4ecdaf6); } body.theme-day .ftr > header small { color: #6b5a2a; } body.theme-day .ftr > header button { color: #2a2620; border-color: #0000001a; }
 @media (max-width: 640px) { .ftp-tog, .ftp-badge { min-width: 70px; } .ftp-go { grid-template-columns: 30px minmax(0, 1fr); } .ftp-art { width: 30px; height: 34px; }
   .ftr { inset: 6px; width: auto; max-height: calc(100% - 12px); } }
+/* 🏘 a standing building's live number (lib/townLive): it ticks in when the number changes, coloured by its tone */
+.ftp-go small.ftp-live { color: #e8dcc0; font-weight: 800; letter-spacing: .02em; text-transform: none; animation: ftwIn .35s ease-out both; }
+.ftp-live.is-up, .ftp-live.is-hot { color: #45e486 !important; text-shadow: 0 0 8px rgba(21, 209, 106, .45); } .ftp-live.is-down { color: #ff8fa3 !important; } .ftp-live.is-calm { color: #c9b38a !important; }
+body.fx-lite .ftp-live { animation: none; } @media (prefers-reduced-motion: reduce) { .ftp-live { animation: none; } }
+body.theme-day .ftp-live.is-up, body.theme-day .ftp-live.is-hot { color: #0d7a41 !important; text-shadow: none; } body.theme-day .ftp-live.is-down { color: #b4233f !important; }
