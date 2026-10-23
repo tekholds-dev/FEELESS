@@ -29,6 +29,28 @@ function useLiveWars() {
   return n;
 }
 
+// 📲 La Familia installs as its own app (public/familia.webmanifest: start /familia/city, its own rose icon, standalone): the shell swaps in
+// that manifest + theme colour while it is open and shows ⬇ INSTALL only when the browser offers it (beforeinstallprompt).
+export function useFamiliaInstall() {
+  const [ask, setAsk] = useState(null);
+  useEffect(() => {
+    const head = document.head; const made = [];
+    const put = (sel, make) => { let el = head.querySelector(sel); const was = el ? { el, attrs: [...el.attributes].map(a => [a.name, a.value]) } : null; if (!el) { el = make(); head.appendChild(el); made.push(el); } return [el, was]; };
+    const [mf, mfWas] = put('link[rel="manifest"]', () => Object.assign(document.createElement('link'), { rel: 'manifest' }));
+    mf.setAttribute('href', '/familia.webmanifest');
+    const [tc, tcWas] = put('meta[name="theme-color"]', () => Object.assign(document.createElement('meta'), { name: 'theme-color' }));
+    tc.setAttribute('content', '#0b0806');
+    const [ai] = put('link[rel="apple-touch-icon"]', () => Object.assign(document.createElement('link'), { rel: 'apple-touch-icon' }));
+    ai.setAttribute('href', '/assets/familia/icon-192.png');
+    const on = e => { e.preventDefault(); setAsk(() => e); };
+    window.addEventListener('beforeinstallprompt', on);
+    return () => { window.removeEventListener('beforeinstallprompt', on); made.forEach(el => el.remove());
+      [[mf, mfWas], [tc, tcWas]].forEach(([el, was]) => { if (was) { [...el.attributes].forEach(a => el.removeAttribute(a.name)); was.attrs.forEach(([k, v]) => el.setAttribute(k, v)); } }); };
+  }, []);
+  const install = async () => { if (!ask) return; ask.prompt(); try { await ask.userChoice; } catch { /* dismissed */ } setAsk(null); };
+  return [!!ask, install];
+}
+
 function Loading() {
   return <div className="fam-load" role="status" data-testid="familia-loading"><i className="fam-load-rose" aria-hidden="true" /><b>OPENING LA FAMILIA</b><small>the city, your block, the rooms…</small><u aria-hidden="true"><s /></u></div>;
 }
@@ -41,7 +63,7 @@ export default function FamiliaApp() {
   const nav = useNavigate(); const seg = (useParams()['*'] || '').split('/')[0];
   const tab = TAB_OF[seg] || 'home'; const setTab = k => nav(`/familia/${PATH_OF[k] || 'city'}`);
   const [scene, setScene] = useState('home');
-  const { wallet, connect } = useWallet() || {}; const board = useCrewBoard(); const wars = useLiveWars();
+  const { wallet, connect } = useWallet() || {}; const board = useCrewBoard(); const wars = useLiveWars(); const [canInstall, install] = useFamiliaInstall();
   useEffect(() => { const was = document.title; document.title = 'La Familia · FEELESS'; document.body.classList.add('in-familia');
     return () => { document.title = was; document.body.classList.remove('in-familia'); }; }, []);
   const short = a => (a ? `${a.slice(0, 4)}…${a.slice(-4)}` : '');
@@ -56,6 +78,7 @@ export default function FamiliaApp() {
       <span className="fa-pulse" data-tip="The families right now: how many there are and how many wars are burning">
         <span><i className="fa-dot" /><b className="m-num" key={board?.total}>{board?.total ?? '—'}</b><small>FAMILIES</small></span>
         <span className={wars ? 'is-hot' : ''}><b className="m-num" key={wars}>{wars}</b><small>WARS LIVE</small></span></span>
+      {canInstall ? <button type="button" className="fa-install" onClick={install} data-tip="Install La Familia as its own app — its own icon, opens straight into Fee City" data-testid="fa-install">⬇ INSTALL</button> : null}
       {wallet?.address ? <span className="fa-wallet" data-tip={`Signed with ${wallet.name || 'your wallet'} · ${wallet.address}`} data-testid="fa-wallet"><i />{short(wallet.address)}</span>
         : <button type="button" className="fa-wallet is-off" onClick={() => connect?.('solana')} data-tip="Connect your Solana wallet — your family, your block and your trades live here" data-testid="fa-connect">Connect</button>}
     </header>

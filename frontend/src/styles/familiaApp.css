@@ -58,3 +58,11 @@ body.theme-day .fa-wallet { background: #fff; color: #2a1f0c; }
   .fa-dock-tab .fa-badge { position: absolute; top: 2px; right: 10%; }
   body.theme-day .fa-dock { background: rgba(255, 250, 238, .97); }
 }
+/* 📲 install La Familia as its own app (only shown when the browser offers it) */
+.fa-install { min-height: 34px; padding: 0 12px; border-radius: 999px; border: 1px dashed color-mix(in srgb, var(--fam-acc) 60%, transparent); background: rgba(0, 0, 0, .45);
+  color: var(--fam-acc2); font: 800 10px 'JetBrains Mono', monospace; letter-spacing: .12em; cursor: pointer; transition: transform .15s, background .15s; animation: faIn .3s ease-out both; }
+.fa-install:hover { background: color-mix(in srgb, var(--fam-acc) 18%, transparent); transform: translateY(-1px); } .fa-install:active { transform: scale(.96); }
+.fa-install:focus-visible { outline: 2px solid var(--fam-acc2); outline-offset: 2px; }
+body.fx-lite .fa-install { animation: none; } @media (prefers-reduced-motion: reduce) { .fa-install { animation: none; transition: none; } }
+body.theme-day .fa-install { background: #fff; color: #7a5600; }
+@media (max-width: 760px) { .fa-install { padding: 0 9px; letter-spacing: .06em; } }

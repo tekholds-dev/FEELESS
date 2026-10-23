@@ -32,3 +32,21 @@ test('the phone tab bar hides inside La Familia (it has its own dock)', () => {
   const el = document.createElement('div'); const root = createRoot(el);
   act(() => root.render(<MobileTabBar />)); expect(el.querySelector('.mobile-tabbar')).toBeNull(); act(() => root.unmount());
 });
+
+
+test('📲 the Familia shell swaps in its own manifest + theme colour, offers ⬇ INSTALL only when the browser does, and puts the page back after', async () => {
+  const FamiliaApp = require('./FamiliaApp').default;
+  const meta = document.createElement('meta'); meta.name = 'theme-color'; meta.content = '#000000'; document.head.appendChild(meta);
+  const el = document.createElement('div'); document.body.appendChild(el); const root = createRoot(el);
+  await act(async () => { root.render(<FamiliaApp />); }); await act(async () => { await Promise.resolve(); });
+  expect(document.head.querySelector('link[rel="manifest"]').getAttribute('href')).toBe('/familia.webmanifest');
+  expect(meta.getAttribute('content')).toBe('#0b0806');
+  expect(el.querySelector('[data-testid="fa-install"]')).toBeNull();                       // nothing to install yet
+  const prompt = jest.fn(); const ev = new Event('beforeinstallprompt'); ev.prompt = prompt; ev.userChoice = Promise.resolve({ outcome: 'accepted' });
+  await act(async () => { window.dispatchEvent(ev); });
+  await act(async () => { el.querySelector('[data-testid="fa-install"]').click(); });
+  expect(prompt).toHaveBeenCalled(); expect(el.querySelector('[data-testid="fa-install"]')).toBeNull();
+  await act(async () => { root.unmount(); });
+  expect(document.head.querySelector('link[rel="manifest"]')).toBeNull(); expect(meta.getAttribute('content')).toBe('#000000');   // the terminal's own again
+  meta.remove();
+});
