@@ -116,9 +116,9 @@ def split(amount_sol, legs):
     return parts
 
 
-def creator_cut(fee_usd, creator_bps):
-    """Creator's share of the FEELESS fee on a Fuse buy (capped at MAX_CREATOR_BPS)."""
-    bps = max(0, min(MAX_CREATOR_BPS, int(_f(creator_bps))))
+def creator_cut(fee_usd, creator_bps, cap=MAX_CREATOR_BPS):
+    """Creator's share of the FEELESS fee on a Fuse buy (capped at `cap` — HQ › Core › house fees, MAX_CREATOR_BPS by default)."""
+    bps = max(0, min(int(cap), int(_f(creator_bps))))
     return round(_f(fee_usd) * bps / 10000, 6)
 
 

@@ -223,3 +223,8 @@ def test_a_new_major_must_trade_like_one():
     assert fuse.solid_major({**good, 'logo': None}) == ['no logo']
     assert fuse.solid_major({**good, 'volume24h': 100_000})                       # size nobody trades
     assert fuse.solid_major({'mcap': 0, 'volume24h': 1, 'liquidityUsd': 1})       # unknown = not solid
+
+
+def test_the_creator_cap_follows_hq_core():
+    import fuse as f
+    assert f.creator_cut(2.0, 8000, cap=10_000) == 1.6 and f.creator_cut(2.0, 8000, cap=2500) == 0.5 and f.creator_cut(2.0, 8000) == 1.0

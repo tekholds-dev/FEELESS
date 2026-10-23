@@ -50,6 +50,8 @@ if (process.env.NODE_ENV === 'development' && window.location.pathname === '/dev
   import('./dev/PoolsHarness').then(m => root.render(<m.default />));
 } else if (process.env.NODE_ENV === 'development' && window.location.pathname === '/dev/brain') {   // 🧪 the Brain + LM Studio rig on fixtures (src/dev/BrainHarness.jsx)
   import('./dev/BrainHarness').then(m => root.render(<m.default />));
+} else if (process.env.NODE_ENV === 'development' && window.location.pathname === '/dev/fees') {   // 🧪 HQ › Core house fees on a fake call (src/dev/FeesHarness.jsx)
+  import('./dev/FeesHarness').then(m => root.render(<m.default />));
 } else if (process.env.NODE_ENV === 'development' && window.location.pathname === '/dev/launch') {   // 🧪 the launch wizard pre-filled, nothing signs (src/dev/LaunchHarness.jsx)
   import('./dev/LaunchHarness').then(m => root.render(<m.default />));
 } else if (process.env.NODE_ENV === 'development' && window.location.pathname === '/dev/street') {   // 🧪 THE STREETS on a fixture read (src/dev/StreetHarness.jsx)

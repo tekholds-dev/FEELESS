@@ -114,6 +114,34 @@ export function CrewsPricing({ call, initial }) {
     <button type="button" className="btn-primary" onClick={save} data-testid="crews-save">Save La Familia settings</button></div>;
 }
 
+// 🏠 HQ › Core › HOUSE FEES (owner: "all FEELESS fees set from HQ › Core") — the three that used to be hard-coded: the Fuse creator's max share
+// of the FEELESS fee, FeeCat's paper fee per side (pushed to her service on save), the MP → FEECAT redeem rate. Each shows what it does live.
+export const HOUSE_DEFAULT = { fuseCreatorMaxBps: 5000, feecatFeePct: 1, redeemMp: 1000000, redeemFeecat: 10000 };
+export function houseExamples(h) {
+  const c = { ...HOUSE_DEFAULT, ...(h || {}) }; const f = (Number(c.feecatFeePct) || 0) / 100;
+  return { creatorOn100: (100 * Math.min(10000, Number(c.fuseCreatorMaxBps) || 0)) / 10000, roundTrip: 1 - (1 - f) * (1 - f), mpPerFeecat: (Number(c.redeemMp) || 1) / Math.max(1, Number(c.redeemFeecat) || 1) };
+}
+export function HousePricing({ call, initial }) {
+  const [h, setH] = useState({ ...HOUSE_DEFAULT, ...(initial || {}) }); const [busy, setBusy] = useState(false);
+  useEffect(() => { if (initial) setH(x => ({ ...x, ...initial })); }, [initial]);
+  const x = houseExamples(h);
+  const save = async () => { setBusy(true); try { const d = await call('/admin/fees/house', { method: 'POST', body: JSON.stringify({ fuseCreatorMaxBps: Number(h.fuseCreatorMaxBps), feecatFeePct: Number(h.feecatFeePct), redeemMp: Number(h.redeemMp), redeemFeecat: Number(h.redeemFeecat) }) });
+    setH(d.house); toast.success(d.feecatSynced ? '🏠 House fees saved — FeeCat has her new fee.' : '🏠 Saved — FeeCat did not answer; her old fee stays until she is back (save again then).'); } catch (e) { toast.error(e.message); } finally { setBusy(false); } };
+  return <div className="cc-block fee-bundle fee-house" data-testid="house-pricing"><h4>10 · 🏠 House fees (were hard-coded)</h4>
+    <div className="cc-mini-grid">
+      <label data-tip="The most a Fuse card's creator can take of the FEELESS fee on their card's buys (basis points: 5000 = half)">Fuse creator cap (bps)<NumInput type="number" step="100" min="0" max="10000" value={h.fuseCreatorMaxBps} onChange={e => setH({ ...h, fuseCreatorMaxBps: e.target.value })} data-testid="house-creator" /></label>
+      <label data-tip="FeeCat's PAPER fee on each side of her trades (her receipts and P/L model it) — 0 to 5 %">FeeCat fee / side (%)<NumInput type="number" step="0.1" min="0" max="5" value={h.feecatFeePct} onChange={e => setH({ ...h, feecatFeePct: e.target.value })} data-testid="house-feecat" /></label>
+      <label data-tip="How many Familia MP a redeem takes">MP per redeem<NumInput type="number" step="10000" min="10000" value={h.redeemMp} onChange={e => setH({ ...h, redeemMp: e.target.value })} data-testid="house-mp" /></label>
+      <label data-tip="How many FEECAT that redeem pays">FEECAT per redeem<NumInput type="number" step="100" min="1" value={h.redeemFeecat} onChange={e => setH({ ...h, redeemFeecat: e.target.value })} data-testid="house-feecat-out" /></label>
+    </div>
+    <ul className="bundle-ex" data-testid="house-examples">
+      <li><b>$100 FEELESS fee on a Fuse</b><span className="m-num">${x.creatorOn100.toFixed(2)}</span><small>max to its creator</small><u className="fh-bar"><s style={{ transform: `scaleX(${Math.min(1, x.creatorOn100 / 100)})` }} /></u></li>
+      <li><b>FeeCat 1 SOL in + out</b><span className="m-num">{(x.roundTrip * 100).toFixed(2)}%</span><small>{x.roundTrip.toFixed(4)} SOL in paper fees</small><u className="fh-bar"><s style={{ transform: `scaleX(${Math.min(1, x.roundTrip * 10)})` }} /></u></li>
+      <li><b>1 FEECAT</b><span className="m-num">{Math.round(x.mpPerFeecat).toLocaleString('en-US')} MP</span><small>{Number(h.redeemMp).toLocaleString('en-US')} MP → {Number(h.redeemFeecat).toLocaleString('en-US')} FEECAT</small></li>
+    </ul>
+    <button type="button" className="btn-primary" onClick={save} disabled={busy} data-testid="house-save">{busy ? 'Saving…' : 'Save house fees'}</button></div>;
+}
+
 // HQ › Fuse › Card rules: what traders can pick (auto-profit levels, counted after fees from their confirmed buy),
 // the swap-mode trigger, the Arena top tier, and Fuse Fee-Back (share of fees paid on a card, unlocked by holding it;
 // loyalty + Arena bonuses; cap). The book shows earned / paid / owed per wallet; "Paid" records a payout you sent.

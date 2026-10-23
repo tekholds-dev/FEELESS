@@ -859,3 +859,8 @@ body:has(.fuse-page) .ambient-background > :not(.ambient-grid), body:has(.fuse-p
 .fuse-page .cfx > i { mix-blend-mode: normal; }
 body:has(.fuse-page) .mouse-glow { display: none; }
 .sp-more { justify-self: center; margin-top: 6px; }
+/* 🏠 HQ › Core › house fees: each example row wears a lit bar of its share */
+.fee-house .bundle-ex li { position: relative; } .fh-bar { grid-column: 1 / -1; height: 4px; border-radius: 4px; background: var(--m-line, #0d311e); overflow: hidden; }
+.fh-bar s { display: block; height: 100%; background: var(--m-acc, #15d16a); transform-origin: left; transition: transform .35s ease; }
+@media (prefers-reduced-motion: reduce) { .fh-bar s { transition: none; } }
+body.theme-day .fh-bar { background: #e2eee7; }

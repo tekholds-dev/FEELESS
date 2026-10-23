@@ -79,13 +79,19 @@ def _log_event(store, cat, kind, detail, pnl=None, pair=None, price=None, market
     store['events'] = store['events'][:200]
 
 
-FEE_PER_SIDE = 0.01
+FEE_PER_SIDE = 0.01   # the default paper fee per side — HQ › Core › house fees sets the live one (RULES['feePerSidePct'])
+
+
+def fee_side():
+    """FeeCat's paper fee per side as a fraction (HQ › Core can change it: 0–5 %)."""
+    return float(RULES.get('feePerSidePct', FEE_PER_SIDE * 100)) / 100
+
 ENGINE_VERSION = 'arena-v1'   # 2026-10-15: arena / agent coins only — the paper trail restarted (old store archived once)
 LEADER_ID = 'leader'
 POOL_URL = 'http://127.0.0.1:5077/api/reputation/fuses/feecat-pool'   # 🐱 arena + agent coins only (2026-10-15)
 RULES = {'minLiquidity': 40_000, 'minVolume24h': 100_000, 'minMarketCap': 150_000, 'maxMarketCap': 50_000_000,
          'minAgeHours': 3, 'coreMinAgeHours': 72, 'h1Min': 3, 'h1Max': 40, 'h6Max': 120, 'h24Max': 400, 'minBuySellRatio': 1.2,
-         'maxPositions': 5, 'cooldownHours': 2,
+         'maxPositions': 5, 'cooldownHours': 2, 'feePerSidePct': 1.0,
          # safety gates at entry
          'maxM5Chase': 8, 'maxTop10Pct': 35, 'maxInsiderPct': 20, 'maxDevPct': 10, 'maxSnipers': 15, 'maxBundled': 10,
          # Trench Lord v2 — thesis-based position management (see run_engine):
@@ -422,7 +428,7 @@ def _close(store, cat, pos, price_native, why, fraction=1.0, market_cap=None):
     r_usd = _num(pos.get('entryLiq')) / 2; su = _num(pos.get('solUsdAtEntry'))
     if r_usd > 0 and su > 0:
         gross = gross / (1 + gross * su / r_usd)
-    proceeds = gross * (1 - FEE_PER_SIDE)
+    proceeds = gross * (1 - fee_side())
     # 🔒 Same rule as real cards: P&L = the price move on the money that reached the pool (fees apart). The balance still
     # receives `proceeds` (real money after the sell fee); both sides' fees are tracked in `feesSol`, never inside P&L.
     pnl = round(gross - pos['notionalSol'] * fraction, 6)
@@ -853,11 +859,11 @@ async def run_engine(store, cats):
                     add = round(min(pos['plannedSol'] * R['pyramidFraction'], cat['balanceSol']), 4)
                     if add >= 0.01:
                         old_avg_mc = _num(pos.get('entryMarketCapUsd'))
-                        tokens_old = pos['notionalSol'] / pos['entryPriceNative']; tokens_new = add * (1 - FEE_PER_SIDE) / px
-                        pos['entryPriceNative'] = (pos['notionalSol'] + add * (1 - FEE_PER_SIDE)) / (tokens_old + tokens_new)
+                        tokens_old = pos['notionalSol'] / pos['entryPriceNative']; tokens_new = add * (1 - fee_side()) / px
+                        pos['entryPriceNative'] = (pos['notionalSol'] + add * (1 - fee_side())) / (tokens_old + tokens_new)
                         if old_avg_mc and mc_now:
                             pos['entryMarketCapUsd'] = round((old_avg_mc * tokens_old + mc_now * tokens_new) / (tokens_old + tokens_new), 2)
-                        pos['costSol'] = round(pos['costSol'] + add, 6); pos['notionalSol'] = round(pos['notionalSol'] + add * (1 - FEE_PER_SIDE), 6)
+                        pos['costSol'] = round(pos['costSol'] + add, 6); pos['notionalSol'] = round(pos['notionalSol'] + add * (1 - fee_side()), 6)
                         pos['adds'] += 1; pos['peakChange'] = 0; pos['peakPx'] = px
                         cat['balanceSol'] = round(cat['balanceSol'] - add, 6); cat['volumeSol'] = round(cat.get('volumeSol', 0) + add, 6)
                         detail = (f"Added {add} SOL to winner {pos['symbol']} at {_fmt_usd(mc_now)} MC ({from_first:+.0f}% from my first buy) — buyers, volume and liquidity still hold. "
@@ -992,7 +998,7 @@ async def run_engine(store, cats):
             px = px * (1 + size * sol_usd / r_usd) if r_usd > 0 and sol_usd > 0 else px
             cat['positions'].append({
                 'mint': (p.get('baseToken') or {}).get('address'), 'pairAddress': pa, 'symbol': sym, 'provider': 'DexScreener',
-                'url': p.get('url'), 'costSol': size, 'notionalSol': round(size * (1 - FEE_PER_SIDE), 6),
+                'url': p.get('url'), 'costSol': size, 'notionalSol': round(size * (1 - fee_side()), 6),
                 'entryPriceNative': px, 'entryPriceUsd': p.get('priceUsd'), 'entryChange': 0, 'currentChange': 0,
                 'peakChange': 0, 'openedAt': now, 'reason': reason,
                 'entryLiq': _num((p.get('liquidity') or {}).get('usd')), 'conviction': conviction,
@@ -1315,7 +1321,7 @@ def cats_brain():
 async def leader():
     store = _load()
     _migrate(store)
-    return {'cat': store['cats'].get(LEADER_ID), 'rules': RULES, 'feePerSide': FEE_PER_SIDE, 'scan': store.get('scan')}
+    return {'cat': store['cats'].get(LEADER_ID), 'rules': RULES, 'feePerSide': fee_side(), 'scan': store.get('scan')}
 
 
 class EvaluatePayload(BaseModel):
@@ -1378,7 +1384,7 @@ async def health():
 TUNABLE = {'minLiquidity': (10_000, 500_000), 'minVolume24h': (20_000, 5_000_000), 'minMarketCap': (20_000, 5_000_000), 'maxMarketCap': (500_000, 500_000_000),
            'minAgeHours': (0.5, 72), 'maxPositions': (1, 8), 'maxTop10Pct': (15, 50), 'maxSnipers': (0, 40), 'maxBundled': (0, 20), 'maxM5Chase': (3, 20),
            'add1At': (-35, -8), 'add2At': (-50, -15), 'hardStop': (-40, -10), 'takeProfit1': (20, 150), 'takeProfit2': (50, 400),
-           'runnerTrail': (15, 50), 'maxHoldHours': (6, 96), 'maxExposure': (0.1, 0.8)}
+           'runnerTrail': (15, 50), 'maxHoldHours': (6, 96), 'maxExposure': (0.1, 0.8), 'feePerSidePct': (0.0, 5.0)}
 
 
 def _apply_overrides(store):

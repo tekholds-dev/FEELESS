@@ -9363,6 +9363,9 @@ def _fuse_family_stats(now):
 
 
 def _world_feecat_rate():
+    h_ = (_fee_cfg().get('house') or {})   # 🏠 HQ › Core › house fees wins (the owner sets every fee in one place)
+    if h_.get('redeemMp') and h_.get('redeemFeecat'):
+        return (max(10_000, int(h_['redeemMp'])), max(1, int(h_['redeemFeecat'])))
     cfg = _crew_cfg()
     try:
         return (max(10_000, int(cfg.get('redeemMp') or _fworld.FEECAT_RATE[0])), max(1, int(cfg.get('redeemFeecat') or _fworld.FEECAT_RATE[1])))
@@ -23413,7 +23416,7 @@ async def fuse_buy(fid: str, payload: FuseBuy):
         self_deal = primary_of(f.get('creator') or '') == me or me in set(linked_of(primary_of(f.get('creator') or '')))
         bot = (await _shield_of(me))['verdict'] == 'bot'
         store.setdefault('buys', []).append({'fuse': fid, 'sig': payload.signature, 'wallet': me, 'usd': float(trade.get('usd') or trade.get('poolUsd') or 0),
-                                             'feeUsd': fee, 'creatorUsd': 0.0 if self_deal or bot else _fuse.creator_cut(fee, f.get('creatorBps', 0)),
+                                             'feeUsd': fee, 'creatorUsd': 0.0 if self_deal or bot else _fuse.creator_cut(fee, f.get('creatorBps', 0), _house()['fuseCreatorMaxBps']),
                                              'selfDeal': self_deal, 'bot': bot, 'at': time.time()})
         _json_save(FUSES_PATH, store)
     return {'ok': True, 'counted': True}
@@ -23425,7 +23428,7 @@ async def admin_fuses(request: Request):
     store = _json_load(FUSES_PATH, {'fuses': {}})
     views = await asyncio.gather(*[_fuse_view(fid, f, store) for fid, f in store['fuses'].items()])
     pay = await asyncio.gather(*[_fuse_pay_to(store['fuses'][v['id']]) for v in views])
-    return {'fuses': [{**v, 'payTo': p, 'card': store['fuses'][v['id']].get('card')} for v, p in zip(views, pay)], 'maxCreatorBps': _fuse.MAX_CREATOR_BPS, 'maxLegs': _fuse.MAX_LEGS}
+    return {'fuses': [{**v, 'payTo': p, 'card': store['fuses'][v['id']].get('card')} for v, p in zip(views, pay)], 'maxCreatorBps': _house()['fuseCreatorMaxBps'], 'maxLegs': _fuse.MAX_LEGS}
 
 
 @app.post('/api/reputation/admin/fuses')
@@ -23450,7 +23453,7 @@ async def admin_fuses_save(request: Request):
             base = {**(prev.get('basePrices') or {}), **{leg['pairAddress']: float(pairs[leg['pairAddress']].get('priceUsd') or 0) for leg in legs
                                                          if pairs.get(leg['pairAddress']) and leg['pairAddress'] not in (prev.get('basePrices') or {})}}
             store['fuses'][fid] = {'name': name, 'emoji': str(body.get('emoji') or '⚛️')[:4], 'tagline': str(body.get('tagline') or '')[:120], 'legs': legs,
-                                   'creator': body.get('creator') or prev.get('creator') or admin, 'creatorBps': max(0, min(_fuse.MAX_CREATOR_BPS, int(body.get('creatorBps') or 0))),
+                                   'creator': body.get('creator') or prev.get('creator') or admin, 'creatorBps': max(0, min(_house()['fuseCreatorMaxBps'], int(body.get('creatorBps') or 0))),
                                    'enabled': bool(body.get('enabled', True)), 'basePrices': base, 'createdAt': prev.get('createdAt') or time.time(),
                                    'featured': bool(body.get('featured', prev.get('featured', False))), 'aura': prev.get('aura', ''),
                                    'arena': bool(body.get('arena', prev.get('arena', not prev))),   # a NEW HQ card goes on the Arena by default
@@ -25636,10 +25639,45 @@ async def fuse_rounds(p: RoundsIn):
     return {'ok': True, 'roundsLeft': _hq.rounds_left(pos), 'roundsOwedUsd': pos.get('roundsOwedUsd') or 0}
 
 
+# 🏠 HOUSE FEES — the fees that used to be hard-coded, set in HQ › Core with the rest (owner: "all FEELESS fees set from HQ › Core"):
+# the Fuse creator's max share of the FEELESS fee, FeeCat's paper fee per side (pushed to her service), the MP → FEECAT redeem rate.
+HOUSE_DEFAULTS = {'fuseCreatorMaxBps': 5000, 'feecatFeePct': 1.0, 'redeemMp': 1_000_000, 'redeemFeecat': 10_000}
+
+
+def _house():
+    h_ = _fee_cfg().get('house') or {}
+    return {**HOUSE_DEFAULTS, **{k_: h_[k_] for k_ in HOUSE_DEFAULTS if h_.get(k_) is not None}}
+
+
+class HouseFees(BaseModel):
+    fuseCreatorMaxBps: int = Field(5000, ge=0, le=10_000)
+    feecatFeePct: float = Field(1.0, ge=0, le=5)
+    redeemMp: int = Field(1_000_000, ge=10_000, le=1_000_000_000)
+    redeemFeecat: int = Field(10_000, ge=1, le=1_000_000_000)
+
+
+@app.post('/api/reputation/admin/fees/house')
+async def admin_fees_house(request: Request, p: HouseFees):
+    """🏠 Save the house fees (audited); FeeCat's paper fee is pushed to her service right away (a failed push says so — her old fee stays)."""
+    admin = _require_admin(request)
+    async with _admin_lock:
+        d = _admin_load()
+        d.setdefault('fees', {})['house'] = p.dict()
+        _audit(d, admin, 'fees-house', f"Fuse creator cap {p.fuseCreatorMaxBps / 100:g}% · FeeCat paper fee {p.feecatFeePct:g}%/side · {p.redeemMp:,} MP → {p.redeemFeecat:,} FEECAT")
+        _admin_save(d)
+    synced = False
+    try:
+        r_ = await _ai_http().post('http://127.0.0.1:5088/api/cats/internal/rules', headers={'x-feeless-internal': _internal_key()}, json={'rules': {'feePerSidePct': p.feecatFeePct}}, timeout=5)
+        synced = r_.status_code == 200
+    except Exception:
+        synced = False
+    return {'ok': True, 'house': _house(), 'feecatSynced': synced}
+
+
 @app.get('/api/reputation/admin/fees')
 async def admin_fees_get(request: Request):
     _require_admin(request)
-    return {'fees': {**_fee_cfg(), 'bundle': _hq.clean_bundle(_fee_cfg().get('bundle')), 'rounds': _rounds_cfg()}, 'limits': {'minBps': 0, 'maxBps': SWAP_MAX_BPS, 'ultraMinBps': JUP_MIN_BPS, 'ultraMaxBps': JUP_MAX_BPS, 'priorityMaxLamports': PRIORITY_MAX_LAMPORTS}}
+    return {'fees': {**_fee_cfg(), 'bundle': _hq.clean_bundle(_fee_cfg().get('bundle')), 'rounds': _rounds_cfg(), 'house': _house()}, 'limits': {'minBps': 0, 'maxBps': SWAP_MAX_BPS, 'ultraMinBps': JUP_MIN_BPS, 'ultraMaxBps': JUP_MAX_BPS, 'priorityMaxLamports': PRIORITY_MAX_LAMPORTS}}
 
 
 @app.get('/api/reputation/admin/fees/balances')
@@ -26197,7 +26235,7 @@ async def admin_fees_set(request: Request, payload: FeeCfg):
                      'lifiIntegrator': integrator, 'lifiFeeBps': payload.lifiFeeBps if integrator else 0,
                      'engine': payload.engine, 'ultraFallback': payload.ultraFallback, 'feeAccountSol': payload.feeAccountSol,
                      'feeAccountUsdc': payload.feeAccountUsdc, 'priorityMaxLamports': payload.priorityMaxLamports,
-                     'vaultFeeWallet': payload.vaultFeeWallet, **{k: v for k, v in (d.get('fees') or {}).items() if k in ('bundle', 'rounds', 'prepay', 'crews')}}
+                     'vaultFeeWallet': payload.vaultFeeWallet, **{k: v for k, v in (d.get('fees') or {}).items() if k in ('bundle', 'rounds', 'prepay', 'crews', 'house')}}
         tier_txt = ' / '.join(f"{float(tiers.get(k, 0)):g}%" for k in ('0', '1', '2', '3'))
         _audit(d, admin, 'fees', f"{'Swap API' if payload.engine == 'swap' else 'Ultra'} · fee {payload.platformFeeBps / 100:.2f}% · Ultra fallback {'on' if payload.ultraFallback else 'off'} · "
                                  f"holder discounts {tier_txt} · promo {promo['discountPct']:.0f}% · speed tip ≤ {payload.priorityMaxLamports / 1e9:.4f} SOL")

@@ -10,7 +10,7 @@ import { FuseLab } from '../FuseLab';
 import { FuseHQ } from '../FuseHQ';
 import { FuseDeck, VaultMath } from '../FuseDeck';
 import { RunnersPanel } from '../RunnersPanel';
-import { BundlePricing, RoundsPricing, CrewsPricing, EngineSuggest, RunnerSettings, CardRules, AutoYieldDefault, FusePayouts } from './FuseAdminSettings';
+import { BundlePricing, RoundsPricing, CrewsPricing, HousePricing, EngineSuggest, RunnerSettings, CardRules, AutoYieldDefault, FusePayouts } from './FuseAdminSettings';
 import { FuseWallet, CircleProfiles } from './FuseWallet';
 import { HqJump } from './HqJump';
 import { FuseFees } from './FuseFees';
@@ -498,6 +498,7 @@ function FeesPanel({ call }) {
       <BundlePricing call={call} initial={cfg.bundle} swapBps={Number(cfg.platformFeeBps) || 0} />
       <RoundsPricing call={call} initial={cfg.rounds} />
       <CrewsPricing call={call} initial={cfg.crews} />
+      <HousePricing call={call} initial={cfg.house} />
     </div>
 
     <div className="cc-block fee-selftest" data-testid="fee-selftest"><h4>5 · Prove it <Explain>Runs real quotes through the same endpoints the swap boxes use. Nothing is signed or sent. A pass means FEELESS is paid on real trades.</Explain></h4>
