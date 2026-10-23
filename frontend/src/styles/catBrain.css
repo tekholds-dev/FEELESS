@@ -2,6 +2,13 @@
 .cb-wrap { --cb-nexa: #b48cff; position: relative; display: grid; gap: 10px; padding: 14px; border-radius: 12px; overflow: hidden;
   background: linear-gradient(160deg, color-mix(in srgb, var(--cb-nexa) 10%, var(--m-bg)), var(--m-bg) 70%);
   box-shadow: 0 0 0 1px color-mix(in srgb, var(--cb-nexa) 26%, transparent) inset, inset 0 1px 0 rgba(255,255,255,.06); }
+.cb-wrap > * { position: relative; z-index: 1; }
+/* 💜 LIT: a drifting violet aurora + a neon edge scan (2 pseudo-layers, transform/opacity only) */
+.cb-wrap.is-nexa::before { content: ''; position: absolute; inset: -40% -20%; z-index: 0; pointer-events: none;
+  background: radial-gradient(40% 50% at 20% 30%, color-mix(in srgb, var(--cb-nexa) 22%, transparent), transparent 70%),
+    radial-gradient(35% 45% at 80% 70%, color-mix(in srgb, #5ad1ff 16%, transparent), transparent 70%); animation: cbAurora 16s ease-in-out infinite alternate; }
+.cb-wrap.is-nexa::after { content: ''; position: absolute; left: 0; right: 0; top: 0; height: 2px; z-index: 0; pointer-events: none;
+  background: linear-gradient(90deg, transparent, var(--cb-nexa), #5ad1ff, transparent); transform: translateX(-100%); animation: cbScan 5s linear infinite; }
 .cb-wrap.is-nexa { box-shadow: 0 0 0 1px color-mix(in srgb, var(--cb-nexa) 55%, transparent) inset, inset 0 1px 0 rgba(255,255,255,.08), 0 14px 34px -22px var(--cb-nexa); }
 .cb-seg { justify-self: start; }
 .cb-seg > button { min-height: 32px; }
@@ -40,6 +47,35 @@
 .cb-calls { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
 .cb-calls li { display: grid; grid-template-columns: 52px auto 1fr auto; gap: 8px; align-items: center; padding: 6px 8px; border-radius: 8px; min-height: 32px;
   background: color-mix(in srgb, var(--cb-nexa) 5%, transparent); border: 1px solid var(--m-line); animation: cbIn .32s ease both; animation-delay: calc(var(--i, 0) * 50ms); }
+.cb-wrap.is-live .cb-ring { filter: drop-shadow(0 0 10px color-mix(in srgb, var(--cb-nexa) 70%, transparent)); }
+.cb-read > b { font-family: var(--m-display, inherit); letter-spacing: .02em; }
+.cb-wrap.is-nexa .cb-read > b { background: linear-gradient(90deg, #fff, var(--cb-nexa) 60%, #5ad1ff); -webkit-background-clip: text; background-clip: text; color: transparent; }
+.cb-num { transition: transform .15s ease, border-color .15s ease; }
+.cb-num:hover { transform: translateY(-2px); border-color: color-mix(in srgb, var(--cb-nexa) 60%, transparent); }
+.cb-num.is-yes { border-color: color-mix(in srgb, var(--m-accent) 45%, transparent); box-shadow: 0 0 18px -8px var(--m-accent) inset; }
+.cb-rec em { box-shadow: 0 0 10px var(--cb-nexa); }
+.cb-word.is-yes { position: relative; overflow: hidden; }
+.cb-word.is-yes::after { content: ''; position: absolute; inset: 0; background: linear-gradient(100deg, transparent 30%, rgba(255,255,255,.55) 50%, transparent 70%);
+  transform: translateX(-120%); animation: cbShine 3.2s ease-in-out infinite; animation-delay: calc(var(--i, 0) * 260ms); }
+.cb-calls li { transition: transform .15s ease, border-color .15s ease, background .15s ease; }
+.cb-calls li:hover { transform: translateX(3px); background: color-mix(in srgb, var(--cb-nexa) 12%, transparent); }
+/* 🐱 FeeCat's book — what NEXA bought AS FeeCat + the guard that stopped a YES */
+.cb-book { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; padding: 8px; border-radius: 10px;
+  background: linear-gradient(90deg, color-mix(in srgb, var(--m-accent) 8%, transparent), transparent 70%);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--m-accent) 28%, transparent) inset, inset 0 1px 0 rgba(255,255,255,.05); }
+.cb-book-h { display: grid; font: 700 10px var(--m-mono); letter-spacing: .12em; color: var(--m-accent); margin-right: 4px; }
+.cb-book-h small { font-weight: 400; color: var(--m-dim); letter-spacing: .06em; }
+.cb-pos { display: inline-flex; gap: 6px; align-items: center; min-height: 32px; padding: 4px 10px; border-radius: 999px; border: 1px solid var(--m-line);
+  font-family: var(--m-mono); font-size: 12px; animation: cbIn .32s ease both; animation-delay: calc(var(--i, 0) * 50ms); }
+.cb-pos i { font-style: normal; }
+.cb-pos b { color: var(--m-text); }
+.cb-pos.is-up { border-color: color-mix(in srgb, var(--m-accent) 55%, transparent); box-shadow: 0 0 14px -6px var(--m-accent); }
+.cb-pos.is-up em { color: var(--m-accent); font-style: normal; text-shadow: 0 0 8px color-mix(in srgb, var(--m-accent) 60%, transparent); }
+.cb-pos.is-dn { border-color: color-mix(in srgb, var(--m-danger) 50%, transparent); }
+.cb-pos.is-dn em { color: var(--m-danger); font-style: normal; }
+.cb-pos.is-flat { color: var(--m-dim); font-size: 11px; }
+.cb-stops { display: grid; gap: 2px; flex-basis: 100%; }
+.cb-stops small { font-family: var(--m-mono); font-size: 10px; color: var(--gold, #e8c46a); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .cb-calls li:hover { border-color: color-mix(in srgb, var(--cb-nexa) 50%, transparent); }
 .cb-calls b { font-family: var(--m-mono); font-size: 12px; color: var(--m-text); }
 .cb-calls em { font-size: 11px; color: var(--m-dim); font-style: normal; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
@@ -51,9 +87,17 @@
 .cb-why { margin: 0; font-size: 12px; line-height: 1.4; color: var(--m-dim); font-style: italic; }
 @keyframes cbSpin { to { transform: rotate(360deg); } }
 @keyframes cbPulse { 0%, 100% { transform: scale(1); opacity: 1; } 50% { transform: scale(1.35); opacity: .7; } }
+@keyframes cbAurora { from { transform: translate3d(-4%, -2%, 0) scale(1); } to { transform: translate3d(4%, 3%, 0) scale(1.08); } }
+@keyframes cbScan { to { transform: translateX(100%); } }
+@keyframes cbShine { 0%, 60% { transform: translateX(-120%); } 100% { transform: translateX(120%); } }
 @keyframes cbIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
-body.fx-lite .cb-halo, body.fx-lite .cb-wrap.is-live .cb-core, body.fx-lite .cb-num, body.fx-lite .cb-calls li { animation: none; }
-@media (prefers-reduced-motion: reduce) { .cb-halo, .cb-wrap.is-live .cb-core, .cb-num, .cb-calls li { animation: none; } .cb-arc, .cb-rec em { transition: none; } }
+body.fx-lite .cb-halo, body.fx-lite .cb-wrap.is-live .cb-core, body.fx-lite .cb-num, body.fx-lite .cb-calls li, body.fx-lite .cb-pos,
+body.fx-lite .cb-wrap.is-nexa::before, body.fx-lite .cb-wrap.is-nexa::after, body.fx-lite .cb-word.is-yes::after { animation: none; }
+body.fx-lite .cb-wrap.is-nexa::after, body.fx-lite .cb-word.is-yes::after { opacity: 0; }
+@media (prefers-reduced-motion: reduce) { .cb-halo, .cb-wrap.is-live .cb-core, .cb-num, .cb-calls li, .cb-pos, .cb-wrap.is-nexa::before, .cb-wrap.is-nexa::after, .cb-word.is-yes::after { animation: none; }
+  .cb-wrap.is-nexa::after, .cb-word.is-yes::after { opacity: 0; } .cb-arc, .cb-rec em { transition: none; } }
 body.theme-day .cb-wrap { --cb-nexa: #6d3fd1; background: linear-gradient(160deg, #f1ebff, #fff 70%); }
 body.theme-day .cb-num, body.theme-day .cb-calls li { background: #faf7ff; }
-@media (max-width: 640px) { .cb-body { grid-template-columns: 52px 1fr; } .cb-ring { width: 52px; height: 52px; } .cb-num { min-width: 46px; } .cb-calls li { grid-template-columns: 46px auto 1fr; } .cb-calls small { display: none; } }
+body.theme-day .cb-wrap.is-nexa .cb-read > b { background: linear-gradient(90deg, #2a1660, var(--cb-nexa)); -webkit-background-clip: text; background-clip: text; }
+body.theme-day .cb-book { background: #f3fff8; } body.theme-day .cb-stops small { color: #8a6400; }
+@media (max-width: 640px) { .cb-body { grid-template-columns: 52px 1fr; } .cb-ring { width: 52px; height: 52px; } .cb-num { min-width: 46px; } .cb-calls li { grid-template-columns: 46px auto 1fr; } .cb-calls small { display: none; } .cb-pos { font-size: 11px; padding: 4px 8px; } }

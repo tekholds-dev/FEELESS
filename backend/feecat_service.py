@@ -260,6 +260,13 @@ def nexa_lane(p):
     return 1.0, '🪟 NEXA said YES'
 
 
+def nexa_drives(cat, p):
+    """🪟🐱 NEXA TRADES AS FEECAT (owner, 2026-10-23: "I wanted nexa trading in feecat's tab AS FEECAT"): on her own cat, her fresh YES is the
+    call — FeeCat's soft second opinions (chart setup, the desk's skip, Fuse / proof / setup-memory vetoes) step aside. The rug guards never
+    do: the $5K pool floor, the holder check, discipline, daily loss, cooldown, exposure. Paper only. Pure (tests)."""
+    return bool(p.get('_nexa') and _cm.model_of(cat))
+
+
 async def _pair_prices(http, pair_addresses):
     out = {}
     for i in range(0, len(pair_addresses), 30):
@@ -812,6 +819,8 @@ async def run_engine(store, cats):
                     score, reason = lscore, lreason
         if score is not None:
             ok_, why_, mult_, tags_ = setup_gate(p)
+            if not ok_ and p.get('_nexa'):   # 🪟 her YES outranks the chart's second opinion (rug guards still run below)
+                ok_, why_, mult_ = True, f'🪟 over the chart ({why_})', 1.0
             if not ok_:
                 rejections[why_] = rejections.get(why_, 0) + 1
                 continue
@@ -944,7 +953,8 @@ async def run_engine(store, cats):
                 continue
             if any(x['pairAddress'] == pa for x in cat['positions']):
                 continue
-            if pa in duo_avoid:   # 🐱🤝 both AI models said skip it: she only ever trades LESS on their word
+            nx_drive = nexa_drives(cat, p)
+            if pa in duo_avoid and not nx_drive:   # 🐱🤝 both AI models said skip it: she only ever trades LESS on their word
                 store.setdefault('scan', {}).setdefault('brainRejects', []).append({'symbol': sym, 'why': '🤝 the FEELESS desk: skip it now', 'at': now})
                 store['scan']['brainRejects'] = store['scan']['brainRejects'][-10:]
                 continue
@@ -980,12 +990,12 @@ async def run_engine(store, cats):
                 reason = f'{reason}; retesting a 5m fair value gap (${gap[0]:.6g}–${gap[1]:.6g})'
             # Fuse edge: a coin the runner gates already failed is skipped; one several Fuse sources like gets a small boost.
             fe = feecat_brain.fuse_edge((p.get('baseToken') or {}).get('address'), fuse_view)
-            if fe['veto']:
+            if fe['veto'] and not nx_drive:
                 store.setdefault('scan', {}).setdefault('brainRejects', []).append({'symbol': sym, 'why': fe['why'], 'at': now})
                 store['scan']['brainRejects'] = store['scan']['brainRejects'][-10:]
                 continue
             pg = feecat_brain.proof_gate(cat.get('exits') or [], now)
-            if pg['sit_out']:
+            if pg['sit_out'] and not nx_drive:
                 store.setdefault('scan', {}).setdefault('brainRejects', []).append({'symbol': sym, 'why': pg['why'], 'at': now})
                 store['scan']['brainRejects'] = store['scan']['brainRejects'][-10:]
                 continue
@@ -993,10 +1003,15 @@ async def run_engine(store, cats):
             ce = feecat_brain.crowd_edge((p.get('baseToken') or {}).get('address'), crowd_feed)
             setup = feecat_brain.setup_features(p, now, fresh=bool(p.get('_fresh')), gap=bool(gap), fuse=fe['tag'], crowd=ce['tag'])
             brain = feecat_brain.setup_edge(setup, feecat_brain.edge_table(cat.get('setupMemory') or []))
-            if brain['veto']:
+            if brain['veto'] and not nx_drive:
                 store.setdefault('scan', {}).setdefault('brainRejects', []).append({'symbol': sym, 'why': brain['why'], 'at': now})
                 store['scan']['brainRejects'] = store['scan']['brainRejects'][-10:]
                 continue
+            if nx_drive:   # 🪟 she overrode a veto: half size, the risk named on the receipt
+                for v_ in (brain, fe):
+                    if v_.get('veto'):
+                        reason = f"{reason}; 🪟 NEXA over: {v_['why']} (half size)"
+                        v_['mult'] = 0.5
             disc_cut = disc['sizeMult'] < 1.0   # discipline only ever makes her trade LESS: no Fuse boost while it's cutting size
             if disc['sizeMult'] != 1.0:
                 conviction = round(conviction * disc['sizeMult'], 2)

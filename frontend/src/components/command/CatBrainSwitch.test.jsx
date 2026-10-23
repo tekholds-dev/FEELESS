@@ -1,7 +1,7 @@
 import React from 'react';
 import { createRoot } from 'react-dom/client';
 import { act } from 'react';
-import { CatBrainSwitch, EngineLine, deskCounts } from './CatBrainSwitch';
+import { CatBrainSwitch, EngineLine, deskCounts, feeBook } from './CatBrainSwitch';
 
 const now = Date.now() / 1000;
 const DESK = [{ pair: 'PA', symbol: 'AAA', word: 'YES', why: 'buyers lead', line: '$AAA · MC 120K', ms: 9000, at: now - 60 },
@@ -32,4 +32,13 @@ test('🐱 NEXA trades FeeCat: owner switch, her round countdown, her last words
   await act(async () => { root.render(<EngineLine />); });
   expect(el.textContent).toContain('FEELESS rule engine');
   act(() => root.unmount());
+});
+
+test('🐱 FeeCat\'s book under NEXA: her holdings (🪟 = NEXA\'s YES), the free SOL and the guard that stopped a YES', () => {
+  const b = feeBook({ cat: { balanceSol: 22.5, positions: [{ symbol: 'AAA', pairAddress: 'PA', currentChange: 12.3, costSol: 0.4, reason: '🪟 NEXA said YES' },
+    { symbol: 'BBB', pairAddress: 'PB', currentChange: -3, costSol: 0.2, reason: 'fresh lane' }] }, scan: { safetyRejects: [{ symbol: 'LUKE', why: 'top 10 wallets hold 25%' }] } });
+  expect(b.bal).toBe(22.5);
+  expect(b.held.map(h => [h.sym, h.nexa])).toEqual([['AAA', true], ['BBB', false]]);
+  expect(b.stops[0].why).toMatch(/top 10/);
+  expect(feeBook(null)).toEqual({ held: [], stops: [], bal: 0 });
 });

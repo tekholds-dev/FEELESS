@@ -166,9 +166,9 @@ STANDING RULES (never "done"):
   hottest fee pools) with the risk named — SAFE yields are one tap away, never the headline. "Think big, not the same utilities."
 
 P0-QUICK — OWNER 2026-10-23 night (THE one list of unfinished asks — HANDOFF.md only points here)
-1. 🤖 NEXA — FIXED at the root 2026-10-23: FeeCat's own lanes passed 0 of 42 coins, so her YES never reached a buy; her fresh YES is now a lane
-   (`feecat_service.nexa_lane`, $5K pool floor; every guard still runs). Watch: her picks now die at FeeCat's safety check (top-10 holders /
-   "no holder intel yet") — decide whether NEXA's YES should relax THAT guard (owner's call; today it does not).
+1. 🤖 NEXA trades AS FeeCat — 2026-10-23 late: her YES on her own cat outranks FeeCat's soft second opinions (chart setup, desk skip, Fuse /
+   proof / memory vetoes → half size, named on the receipt); rug guards ($5K floor, holders, discipline) never step aside. FeeCat's book +
+   the guard that stopped a YES now show under her calls. Watch: LUKE-type coins still die at top-10 25% (owner's call to relax).
 2. 📉 REAL PERPS WITH YOUR OWN USD in FEELESS (owner: "no paper perps — I want to use my USD"): blocked for US users by the standing rule until
    counsel answers DECISIONS #1 (`docs/COUNSEL_BRIEF.md` §1) or a regulated venue's partner API (OAuth on the user's own account) is wired.
    Until then the Perps desk must be VISUAL (live charts / meters, never text-only) — no new paper features.

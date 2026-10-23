@@ -15,3 +15,10 @@ def test_only_her_fresh_picks_pass_her_gate():
     read = cm.read_of({'favor': ['P1'], 'avoid': ['P2'], 'at': 1000.0}, now=1100.0)
     assert cm.buy_ok(read, 'P1')[0] is True and cm.buy_ok(read, 'P2')[0] is False and cm.buy_ok(read, 'P3')[0] is False
     assert cm.read_of({'favor': ['P1'], 'at': 1000.0}, now=1000.0 + cm.FRESH_SEC + 1) is None   # stale → her cat waits
+
+
+def test_nexa_drives_only_her_own_cat_on_her_yes():
+    her = {'modelBrain': next(iter(cm.MODELS))}
+    assert fs.nexa_drives(her, {'_nexa': True}) is True
+    assert fs.nexa_drives(her, {}) is False            # a coin she didn't say YES to: FeeCat's own guards decide
+    assert fs.nexa_drives({}, {'_nexa': True}) is False  # a rule-engine cat never trades on her word
