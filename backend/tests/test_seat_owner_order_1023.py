@@ -41,6 +41,7 @@ def test_packet_reads_owner_then_its_own_money_and_the_adviser_never_wears_the_h
     assert ad['G4PnL'] == 'YOU (G4): −$1.55' and ad['YOURPNL'] == 'YOU (OSSY): +$0.05'
     assert 'YOURPNL' not in seat.advise_packet(pk, 'G4', 'OSSY')   # no own line given → never the holder's re-labelled as "yours"
     assert 'THE GODFATHER\'S SELL IS FINAL' in seat.SYSTEM and 'YOURPNL' in seat.SYSTEM
+    assert 'NEVER a reason to skip' in seat.SYSTEM   # a red book tightens the held trade — it never makes a model sit out its turn
 
 
 def test_owner_sell_in_the_trade_room_sells_the_seats_coin(monkeypatch):
