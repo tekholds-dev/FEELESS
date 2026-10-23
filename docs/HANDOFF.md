@@ -4,7 +4,7 @@ Owner, 2026-10-23: "the handoff should be ONE — it is where all Claudes are wo
 end of every session — never stack a new dated handoff on top.** Finished work → one line in `docs/FEELESS_HISTORY.md` (the end); the
 open list → `CLAUDE.md › 📋 CURRENT TASKS`. Old stacked handoffs live in `docs/FEELESS_HISTORY.md › 📦 ARCHIVED HANDOFFS` (grep, never load).
 
-Read this (2 min) → `CLAUDE.md` (lean rules + 🎨 MANDATORY STYLING + 📋 CURRENT TASKS) → only the history lines your task touches
+Read this (2 min) → `CLAUDE.md` (lean rules + 🎨 MANDATORY STYLING + 📋 CURRENT TASKS) → `docs/DECISIONS.md` (before any money / custody work) → only the history lines your task touches
 (`grep -n "<topic>" docs/FEELESS_HISTORY.md`).
 
 > ⚡ EVERY SESSION (owner, 2026-10-15 — repeat in anything you hand off):
@@ -15,66 +15,34 @@ Read this (2 min) → `CLAUDE.md` (lean rules + 🎨 MANDATORY STYLING + 📋 CU
 >    LIVE visual (meters, bars, animation on real numbers), never bare text. `styles/cssCoverage.test.js` fails on an unstyled class.
 
 ## 🔁 NOW (rewrite this section in place every session)
-**Updated 2026-10-23 ~late morning · Opus 5.5**
+**Updated 2026-10-23 · Opus 5.5** — the open list is `CLAUDE.md › 📋 CURRENT TASKS` (open items only, priority order). Nothing open lives here.
 
-Start of every task: `backend/.venv/bin/python scripts/cash-check.py degen 30` (≈ 1 min, sandbox off) — now 4 steps (cash · coins · swaps ·
-P&L $). 2026-10-23 03:58: card COVERED · coins atom for atom · swaps match · 144 / 144 sells reconcile in $ (realized −$2.11, fees $0.35 apart).
+Start of every task: `backend/.venv/bin/python scripts/cash-check.py degen 30` (≈ 1 min, sandbox off; 4 steps: cash · coins · swaps · P&L $).
+Last run 2026-10-23: card COVERED · coins atom for atom · 30 / 30 swaps match · 145 / 145 sells reconcile in $ (realized −$1.81, fees $0.34 apart).
 
-Branch: everything lives on `main` (pushed; the owner's Mac auto-pulls). Gate + push from `.claude/worktrees/gate` (`git checkout --detach <sha>`
-there, then `git push origin <sha>:main` — the pre-push hook runs the full gate on that snapshot, ~5 min; keep editing in the main tree meanwhile;
-grep `Test Suites:` too — a suite that fails to RUN never shows in `Tests:`). Services restarted ~04:55 via the watcher (keep-alive PID 55631;
-LAN ONLINE): reputation (house fees, staff gates, NEXA site read + trench prompts) + feecat (tunable `feePerSidePct`).
+Branch: everything lives on `main` (pushed; the owner's Mac auto-pulls; the old `night-1022` branch is fully merged). Gate + push from
+`.claude/worktrees/gate` (`git checkout -q --detach <sha>` there, then `git push origin <sha>:main` — the pre-push hook runs the full gate on that
+snapshot, ~5 min; keep editing in the main tree meanwhile). Services restarted after the real-cats push (keep-alive PID 55631, LAN ONLINE):
+reputation (paper perps, points → MP, /internal/notify) + feecat (real mode, owner-only /action) — both live-checked (403 without owner / key).
 
-### Shipped this session (2026-10-23 late → dawn) — owner to look at
-- 💬 THE STREETS go lit (`StreetChat.jsx`, `street_chat.py`): receipt mini charts, 📟 HITS tape, street HEAT → drawn scene, 🐢 Don slow mode
-  (enforced on POST /chat), reaction bursts, coins trade in place. /dev/street?heat=0-3.
-- 🏘 TOWN SIGNS live (`town_live.py`, GET /familia-town/live, `lib/townLive`). 🏟 Wars quiet front (`QuietFront`) + 🌹 drawn empty rooms (`FamEmpty`).
-- 🚀 LAUNCH drawn (`LaunchViz.jsx`): stage + rocket riding your steps, step rings, coin face, fee ring ($ per $10K), sniper decay, lit inputs /
-  review. /dev/launch.
-- 💸 STAKE picker ($5 · $100 · $1K, `lib/earnStake`): Pool Hall rows a day + a year; Perps money read + P&L fan (`EarnStake.jsx`).
-- 🌹 LA FAMILIA = ITS OWN APP: /familia/* (`FamiliaApp.jsx`): own bar + nav (deep links), pulse, wallet, phone dock; sidebar 'La Familia 🌹'.
-- 🏠 HOUSE FEES in HQ › Core (`/admin/fees/house`, `HousePricing`): Fuse creator cap · FeeCat paper fee (pushed to her) · MP → FEECAT. /dev/fees.
-- 🪟 NEXA: trench-law desk prompts + curve stage per coin · 🌐 site read (`site_probe.py`: RDAP age + page snapshot → REAL TECH / TEMPLATE,
-  SSRF-guarded fetch, ≤ 2 per hourly full read, filed under the coin's mint).
-- 👑 0c: feature gates use `_is_staff` (guard `test_staff_unlocks.py`) · 📒 `cash-check.py` step 4 · ⚛ HQ › Fuse rail 13 → 11 stops.
-- Verified (no change needed): all 14 chat themes draw; NEURAL covers the whole Brain drawer; Night Vault at 360 px day theme.
-- Then (2026-10-23 morning): 🏙 Familia's last link-outs are ROOMS (`lib/familiaRoom` — Fuse cards · Launch · Rug Shield over the city) · 💵 YOUR
-  MONEY tower on the Avenue (`my_money.py`, GET /familia/my-money; value + 24 h move, never a fee-tainted P&L; /dev/money) · 💬 street typing
-  presence + per-call threads · 🩺 stall watchdog (alerts; never reloads) · 🟢 38 inline grey-greens → neutral · 🖱 dead clicks fixed + a
-  covered-button audit (clean) · 📲 La Familia installable. Services restarted ~08:55 (reputation: my-money, typing, watchdog).
-
-### 🧭 Then: the owner's go on EVERY open decision ("you got my ok and do all decisions") — `docs/DECISIONS.md`
-- 📉 Perps = PAPER desk in the building + "Take it real" on Kraken Pro / Coinbase (FEELESS never routes an order). `/dev/perps`.
-- 💎 Points = one currency; points shop → family bank (1 pt = 100 MP, ≤ 1,000 / week). No real-USD rep market.
-- 💵 Real-money cats = option A: a cat's desk › REAL MODE (`CatReal.jsx`, `cat_real.py`): proposals → ✍ Sign it → prefilled swap → wallet
-  signs. Inbox alert via reputation `/internal/notify`. `/dev/cats`. Cat `/action` is owner-only now (browser owner id or internal key).
-- No pooled custody (family wallets / top-pot Fuse) · block readers wait for a real-account layout check. A lawyer should read DECISIONS.md.
-
-### Still live from the day before (grep the history for details)
-Brain › Models (`ModelDesk.jsx`, `model_desk.py`) · Prompt Studio (`prompt_studio.py`, `ai_router.with_studio`) · OSSY × G4 strict turns ·
-trade inside Familia (`FamiliaTrade.jsx`; a guard test fails on any jump out) · US-legal Perps desk · owner picks stay (`arena_prime.owner_pick`) ·
-the block = real markets (`block_markets.py`) · `scripts/cash-check.py` · `scripts/mindset-probe.py`.
-
-### Open after this session (owner's order lives in CLAUDE.md › CURRENT TASKS — these are the specifics)
-DONE since the last list: 🤖 agents hub (CatDesk + BrainPanel: credit tank, spend, owed, model fees, top-up) · ⚙ house fees in HQ › Core
-(`/admin/fees/house`: Fuse creator cap, FeeCat paper fee — pushed to feecat_service — and the MP → FEECAT rate) · 🪟 NEXA desk prompts carry the
-trench laws + each coin's curve stage · 📒 card P&L in $: `cash-check.py` step 4 replays the card's fills with the book's average cost (144 / 144
-sells match; drained-pool write-offs counted) · 👑 0c: feature gates use `_is_staff` (guard test).
-1. Block readers still unwired: Meteora DLMM (PositionV2 accounts by owner) · marginfi · Save · PumpSwap LP — verify each layout against a real
-   account before shipping (wrong range facts on real money are worse than "no reader yet").
-2. NEXA discovery: site age (RDAP / WHOIS) + page snapshot → "real tech vs same-utility clone" verdict.
-3. ✅ decided (paper desk + venue handoff). LATER: a venue partner API · cats option C (on-chain program) — both after a lawyer / audit.
-4. G: keep hunting dead text in Familia rooms (Wars done) · Familia PWA icon / install prompt.
-
-### ✂ Cut list (owner to OK each)
-Fake model rows in `/api/cats/brains` · family_world drag-the-pizza ERRANDS + MP build catalog · 4 ways to start services → ONE supervisor ·
-✅ cat `/action` owner check · split the 31K-line `reputation_service.py` (new helpers: `_fblock_`-style prefixes; `test_no_name_collisions.py`).
+### Where the 2026-10-23 work lives (all on main; details: grep the history)
+- 🧭 `docs/DECISIONS.md` — the owner's go on every open decision: paper perps + venue handoff · real cats = the wallet signs (option A) · one
+  points currency (1 pt → 100 MP, ≤ 1,000 / week) · no pooled custody · block readers only after a real-account check. A lawyer should read it.
+- 💵 Real cats: `cat_real.py` + `CatReal.jsx` on a cat's desk (`CatDesk.jsx`) — proposals → ✍ Sign it → prefilled swap → wallet signs. `/dev/cats`.
+- 📉 Paper perps: `paper_perps.py` + `PaperPerps.jsx` in the Perps building, `GET/POST /familia/paper-perps`. `/dev/perps`.
+- 🌹 La Familia = its own app (`FamiliaApp.jsx`, /familia/*, installable) · rooms over the city (`lib/familiaRoom`, `FamiliaTrade.jsx`) ·
+  YOUR MONEY tower (`my_money.py`, `/dev/money`) · town signs (`town_live.py`) · the Streets (`StreetChat.jsx`, `street_chat.py`, `/dev/street`).
+- 🚀 Launch drawn (`LaunchViz.jsx`, `/dev/launch`) · 💸 stake picker (`lib/earnStake`, `EarnStake.jsx`) · 🏠 house fees in HQ › Core (`/dev/fees`).
+- 🪟 NEXA: trench-law prompts + curve stage · site read (`site_probe.py`) · 🩺 stall watchdog (`model_desk.stall_of`) · 📒 `cash-check.py` step 4.
+- Owner confirmed: 🐆 Sicario's seat board is fixed.
 
 ### Gate + restart rules learned the hard way
 - jest `--maxWorkers=4`; NEVER run tests while a gate runs; harden timing tests (poll, never a tight wall clock) — read the stack first.
+- A test's fixture clock must be the real clock when the component reads `Date.now()` (a fixed future epoch silently expires later).
 - Restart backend: no `pending` in fuse_wallet.db books → start the watcher FROM CLAUDE (`/usr/bin/python3 -c 'import os; os.setsid();
   os.execvp("bash", ["bash","scripts/background.sh","start"])'`, sandbox off) → kill the PID, let the watcher relaunch it → 1 copy + LAN ONLINE.
 - Merging into main locally never restarts the backend — after a backend push, restart reputation_service yourself.
+- Every cat `/action` call needs the cat's `ownerId` (the browser id, `FeeCatsPlatform` adds it) or the internal key — tests too.
 
 ## 1 · What this is
 FEELESS = a Solana degen trading terminal. One owner, one REAL money card run by ten agents, plus a big site (trade, Fuse, Arena,
@@ -103,8 +71,8 @@ server — attach, never start a second). Push to `main`; the owner's Mac auto-p
 | AI | `backend/ai_router.py` (providers, `with_studio`) · `prompt_studio.py` · `model_desk.py` · `ai_rig.py` · `ai_chat.py` (Brain) · `nexa_desk.py` |
 | owner's LM Studio | `backend/feeless_mcp.py` (read-only MCP) · `docs/lm_fee_prompt.txt` · `docs/LM_STUDIO_MCP.md` · `docs/FEE_BRAIN.md` |
 | big service | `backend/reputation_service.py` (31K lines — grep, never read whole) |
-| Familia | `family_city.py` · `family_world.py` · `block_markets.py` → `FamilyWorld` → `FeeCity3D` (`lib/cityEngine.js` draws `lib/cityPlan.js`) · `FamilyBlock3D` · `FamiliaTrade.jsx` |
-| FeeCat | `backend/feecat_service.py` · `feecat_brain.py` · `cat_model.py` → `components/feecat/` |
+| Familia | `family_city.py` · `family_world.py` · `block_markets.py` → `FamilyWorld` → `FeeCity3D` (`lib/cityEngine.js` draws `lib/cityPlan.js`) · `FamilyBlock3D` · `FamiliaTrade.jsx` · `FamiliaApp.jsx` · `paper_perps.py` · `clmm_range.py` |
+| FeeCat | `backend/feecat_service.py` · `feecat_brain.py` · `cat_model.py` · `cat_real.py` (real mode) → `components/feecat/` · `command/CatDesk.jsx` + `CatReal.jsx` |
 | UI | `frontend/src/components/command/` (HQ) · `components/HomeEngine.jsx` · `styles/` (map in CLAUDE.md › CSS map) |
 
 ## 4 · How to work here (the owner's rules, short)

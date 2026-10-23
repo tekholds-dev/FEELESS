@@ -150,179 +150,58 @@ The owner rejected work that shipped as "dull", "non degen", "emojis sliding aro
 - HQ settings that matter at scale (keys, engine, fees) must be visible in its **Core** group.
 
 
-## 📋 CURRENT TASKS (one list, priority order — update every session; finished items → docs/FEELESS_HISTORY.md, old lists archived there 2026-10-22)
+## 📋 CURRENT TASKS — OPEN ONLY, priority order (rewrite every session; a finished item leaves this list → one line in
+`docs/FEELESS_HISTORY.md`. Everything done up to 2026-10-23 is archived there: grep "📦 TASK LIST 2026-10-23")
 Rules for all: research the best web3 / degen sites first, then a FEELESS twist · every page complete top to bottom · real money = the wallet
 signs, FEELESS never holds keys · conserve usage · finish by priority · never dead-style.
 
-DONE 2026-10-22 late night (owner to look at): 🚚 Opus round landed on main (range errands · New-agent door · Pump intake · NEXA cover) ·
-💵 `scripts/cash-check.py` = fast real-card cash proof (wallet covers cash, coins atom for atom, last N swaps matched to the chain) · 🏁 duo
-seat never "running $?" after a close (SOLD phase, closed trade stays in the seat with its cash back) · 🎛 SEAT DECK (6 live tiles) beside the hex.
+STANDING RULES (never "done"):
+- 🇺🇸 US users: no geo-block loopholes, ever — route them only to venues + in-app deposits allowed for them (the owner's legal exposure).
+- Real money = the user's wallet signs; FEELESS never holds keys or pooled funds (`docs/DECISIONS.md`). Every new buy door ships with guards.
+- Every building / family idea = a real function on live data, drawn and alive — no dead text.
 
-DONE (latest, owner to look at — 2026-10-22 evening): 🎛 Brain chat line → model settings for real ("ossy context 16k, temp 0.6" → ✅ → applied /
-LM Studio reload) + Brain › Models = ONE LM Studio Load + Inference view (LOADED vs WANTED, ⚡ Reload) + Brain fixed at 360 px · 💬 THE STREETS city
-chat (`StreetChat`) · 👑 creator's family on any linked / HQ wallet (`_seat_of`) + 👑 OVERWATCH (HQ › Familia + city WATCH door) · 💤 THE NIGHT
-VAULT (9th Avenue building, `sleep_money.py`) · 🏠 HQ one-stop tools + 📒 Books · 🏷 THE REALTOR · 🐛 Family Fuse cards (linked wallets + Prime cards).
-Earlier: Fee City 2× + FEELESS AVENUE · Pool Hall charts · Jupiter Lend deposit-here · defence · chat themes · Rep radar · online status.
+P0 — FAMILIA + FEE CITY (owner: "buildings represent realtime data — you can really do EVERYTHING from everywhere"), hardest → easiest
+1. 🌆 FEE CITY = SIMCITY SCALE: a bigger capital; ~80 % of the city real-money buildings (pools, vaults, lend, perps, LSTs, the desk) spread
+   across districts, not packed on one island; family blocks as their own islands off the capital.
+2. 🏦 BLOCK READERS (DECISIONS #5: each checked against a real on-chain account before it ships): Meteora DLMM · marginfi · Save · PumpSwap LP
+   · Phoenix (`block_markets.WHY_NONE` lists them). Then: a building assigned to a real position goes under construction when its balance is
+   pulled · members' wallets counted on the block (opt-in). (Orca / Raydium range reads + re-center errands are done: `clmm_range.py`.)
+3. 💤 NIGHT VAULT DCA / LIMIT ORDERS: Jupiter Recurring + Trigger APIs (build → verify the programs like `lend_earn.verify` → wallet signs;
+   blue-chip allowlist + guards). Kamino Multiply / vault deposits need Kamino's SDK.
+4. ⚡ SCALE FOR THOUSANDS: shared pollers, 3D perf (instancing, LOD), load tests on familia-world / familia/street; measure the family town's
+   fps (the 2026-10-23 lag fix is unmeasured).
+5. 🏙 CITY LEFTOVERS: outer cities' real-money markets · in-city swap · HELD coins + FEELESS-launched coins as buildings · all of FEE as city
+   mechanics · raids / hits played in-city · MP-only buildings + gold shop · $ and MP ladders · badge / card / MOBhouse customization · a 3D
+   for-sale island (the Realtor exists).
 
-DONE 2026-10-22 night (owner to look at): 🧪 TRENCH THEORY (`trench_theory.py`, docs/TRENCH_THEORY.md — 7 measured laws ride on every coin case) ·
-🪟 NEXA's full read fixed (it was cut off at 100 tokens → parse failed; lean tagged read, no persona) · 💸 rep market pays a lone right call (house
-seed) · 🔑 Familia sign-in in one signature (no more "not signed in") · 🛡 raids ≤ 3 per family per 12 h both ways · 📈 TRADE CENTER · 🗼 TT TRENCH
-TOWERS (intake list, floating coins, why it pumped, theory) · ⚖ Courthouse top catches · 🐱 FeeCat tower (live + your cats + create) · 💸 MONEY MENU
-(12 doors under every room) · 🎯 v3 RANGE TUNER (exact IL) · 📺 BILLBOARDS (5,000 MP / 24 h, slideshow) · 📉 PERPS DESK (Hyperliquid data → Jupiter /
-Drift / Hyperliquid) · 🏗 under construction when funds run out · 🏛 CITY HALLS (Pump / Raydium / Bonk / Docks) · 🎲 rep market inside the city ·
-gate pinned to Node ≥ 18.
+P1 — AGENTS + AI
+1. 🏆 NEXA earns real money only after her FeeCat record beats the rule engine in shadow — build the shadow ledger + the side-by-side.
+2. 🧠 G4: the Models tab beside NEXA's chat (layout) · wire the trench theory into the deterministic agents only after a shadow test.
+3. 🔥 More Pump coins on the intake.
+4. 🐱 Launch-a-cat AI flow restyled in the violet meta (like CatDesk / CatReal).
 
-DONE 2026-10-22 late (owner's block-page screenshot "all requests never started"): 🧰 FAMILY DECK under the block (10 tools: Trade Center ·
-Trench Towers · Pools · Night Vault · Perps · Pump board · Cats · Rep market · Books · Members) · 🗼 desk picks hovering over the block · 🏆 Fuse
-Arena BEST SETTINGS (styles + what the top quarter shares) · 🐱 FeeCat's Combo on every Pool Hub (50/30/20 cash / SOL / fees, true math) · 📈 Trade
-Center REAL RECORD (each lane's closed lots) · 🪑 G4 proof bench · theory shadow-tested on the real card (docs/TRENCH_THEORY.md) · /dev/block.
-✅ OWNER DECIDED "15 minutes not 30": agent bails of a red real coin wait 15 min from the buy (`AGENT_MIN_HOLD`; stops / rugs / green sales
-never wait) + REAL_MIN_HOLD 15. 🐛 Familia crash ("reading 'call'" at Lazy) fixed: FamilyDeck imports FamilyHQ / CityAvenue / PoolHub statically.
+P2 — CLEAN-UP (the 2026-10-22 cut list; owner's go 2026-10-23: "do all decisions")
+1. ✂ The fake model rows in `/api/cats/brains` (Claude / GPT / Grok labels that only run the rule engine) → out.
+2. ✂ family_world's drag-the-pizza ERRANDS UI (MobHome / FamilyWorld) + the MP store build catalog → retired for the block's real errands.
+3. ✂ 4 ways to start services (run-feeless.sh / start-backend.sh / background.sh / keep-alive) → ONE supervisor.
+4. ✂ Split `reputation_service.py` (31K lines; `tests/test_no_name_collisions.py` guards new helpers meanwhile).
 
-P0 — OWNER 2026-10-22 LATEST-LATEST (his words: "Familia Fee City has REAL buildings = you can really do EVERYTHING from everywhere in
-families; buildings represent realtime data"; hardest → easiest):
-0. ✋ YOUR TRADES STAY (owner: "any trade I submit on the Agent / Sicario's tab should STAY"): FIXED 2026-10-22 — the rug shield sold the
-   owner's $MOON pick twice on Jupiter's ONE-SIDED depth ($13.9K vs DexScreener $29.7K); now it never judges a Jupiter reading and a hand pick
-   only WARNS unless its pool falls under a quarter (`arena_prime.owner_pick`, `RUG_PICK_LIQ`, `LIQ_SRC`). AUDITED: stop / trail / early cut /
-   trench drop / rotation / lock-bank / initial-out already skip picks; instant-loss + the tape's flow exit / rug radar / climax trim now skip
-   them too (⚠ warning every 10 min, `flow.flow_exits` `mine`). The owner's own lines + the −45 % line are the only auto-sells of a hand pick.
-P. ✅ SHIPPED 2026-10-22 (Brain › 🎭 Prompts, `prompt_studio.py`, `ai_router.with_studio`, /admin/ai/prompts; preview /dev/brain). + ✅ 🤖 AUTO-TUNE
-   switch per model (last 10 trades red = losing on average AND < 40 % won → AUTO-TUNED applied on the AI round; any applied set gets 6 h
-   first; `_studio_auto`) + 🏆 MINDSET LADDER (each trade credited to the mindset on when it opened; proven ≥ 5 trades rank by avg %).
-   Was: 🧠 PROMPT STUDIO for every model (owner, 2026-10-22): see each model's live CONTEXT + system prompt (G4 · OSSY · NEXA · any LM Studio /
-   llama model) and 3 auto-generated prompt sets per model — ELITE (supreme persona), DEGEN TRENCH (germ floor, buyers, fresh-pump laws),
-   and a PROGRESSIVE mix ("quick in, patient while in profit, rush when it runs") — one tap APPLIES to LM Studio / llama (rig reload path that
-   exists: Brain › Models). AUTO-TUNE: when a model's graded record turns red (proof bench, NEXA's YES grades, duo totals), propose the prompt
-   change that fixes its mindset, with the evidence; the owner applies. OSSY / G4 keep taking turns (one trade each, the holder runs it).
-F0. 🏙 FAMILIA = ITS OWN APP (owner, 2026-10-23, LOUD: "no redirects!! … fun and addicting, not sending ppl everywhere"), hardest → easiest:
-   1. ✅ DECIDED + SHIPPED 2026-10-23 (docs/DECISIONS.md #1): PAPER PERPS in the building (`paper_perps.py`, `PaperPerps.jsx`, /dev/perps — real
-      mark, real funding, liquidation at the real distance) + "Take it real" → Kraken Pro / Coinbase on the user's own account. FEELESS never
-      places or routes a perps order (introducing-broker line). LATER: a venue's official partner API (OAuth) after a lawyer's read.
-   2. ✅ SHIPPED 2026-10-23 — 🏘 TOWN PICKER (block page, Don / Underboss / creator, 6 of 8 tools: TT · Perps · Pools · Trade Center · Night Vault
-      · Pump Radar · FeeCat · Rep market; `block_markets.town_set`, act tadd / tdel): each stands on the 3D block, tap → its REAL tool pops out
-      over the block; the Family Deck lists the town first. ✅ 2026-10-23 late: every town sign carries its tool's live number (`town_live.py`).
-   3. ✅ SHIPPED 2026-10-23 — FEE CITY BREATHES: ~47 buildings off the capital → 18 (duplicates are ROOMS of one building with a room strip in the
-      pop-out; market islands top 4; empty cells = PARKS; bigger cells, wider water). Next: profile the family town for lag (C).
-   4. ✅ SHIPPED 2026-10-23 late — FAMILIA AS ITS OWN APP: /familia/* full-screen shell (`FamiliaApp.jsx`: rose bar, 5-place nav with deep links,
-      live pulse, wallet, ← FEELESS; phone dock), sidebar 'La Familia 🌹' + MOB › Familia door. ✅ installable (familia.webmanifest + rose icons, ⬇ INSTALL in its bar).
-M. ✅ SHIPPED 2026-10-23 (Brain › 🧠 Models = `ModelDesk.jsx` + `model_desk.py`, /admin/ai/models): vitals for every model (tok/s from real usage,
-   ok %, median · p90, queue, ctx fill, last answer, 🎭 mindset) + the picked model's INFO · LOAD · INFERENCE (overrides ride every call:
-   `ai_rig.clean_infer` → `ai_router`) · SERVER · MCP; one model at a time (nothing cut off); NEXA's column shows only her rig. Was:
-   🧠 BRAIN › MODELS = LM STUDIO'S OWN PANEL, IN FEELESS (owner, 2026-10-23, hardest → easiest):
-   1. Per model the LM Studio tabs — INFO (model, params, format, quant, size, arch, max ctx) · LOAD (context, GPU offload, CPU threads, eval
-      batch, flash attention, KV cache, keep in memory, mmap, seed, parallel — the `lms load` reload path that exists) · INFERENCE (preset,
-      SYSTEM PROMPT = what FEELESS really sends: seat prompt + the 🎭 applied mindset, temperature, limit response length, context overflow,
-      stop strings, SAMPLING top-k / top-p / min-p / repeat penalty, structured output, speculative decoding — all per-request params FEELESS
-      sends) · SERVER (port, CORS, JIT load, idle TTL, serve on network — read what LM Studio exposes) · MCP (feeless_mcp tools it can call).
-      NEXA (llamafile) gets the same tabs for what llamafile exposes (/props, /slots).
-   2. More VITALS for every model: tokens/s, time to first token, queue depth, error rate, context fill, uptime, last reload — live.
-   3. Fix the Models tab look in the Brain: the model cards are cut off at the bottom and a second rig panel repeats on the right.
-   (The 🎭 mindset is sent by FEELESS inside every API call's system message — LM Studio's own "System Prompt" box only feeds its own chat
-   window, so it never shows there; the proof is "✓ IN USE · last call carried it" in Brain › Prompts and 🎭 tags on Models › live calls.)
-A0. ✅ SHIPPED 2026-10-23 — TRADE IN FAMILIA, NO REDIRECTS: `FamiliaTrade.jsx` — every ⚡ Trade in Familia (Pump Radar, $FEE Bank, Trade Center,
-   Trench Towers, Pool Hub, city markets) slides the FAMILIA TRADE DESK over the room (TrenchChart + Quick trade + vitals; wallet signs), the LST
-   switch errand opens the swap in the dock, rooms lost their "Full page ↗" jumps, a member's "Full profile ↗" = the case file in place. A guard
-   test fails on any openWarRoom / full-page jump in Familia. ✅ 2026-10-23: the landmark marks, the arena's floating cards and the
-   mini deck's Fuse cards open the real tool as a ROOM over Familia (`lib/familiaRoom`, portal dock) — nothing links out any more.
-T. ✅ SHIPPED 2026-10-23 (drawn stepped skyscraper, lit floors = intake coins / READY white-hot, hottest coin on the crown, searchlight, one
-   pop-out). Was: 🗼 TRENCH TOWERS = ITS OWN ISLAND with ONE huge tower (owner, 2026-10-23): no field of little coin towers and no side windows — one landmark
-   tower (live: READY count lit on its floors, the hottest coin on its crown sign); tap it → ONE pop-out = the Trench Towers room (intake list,
-   desk read, theory line) where ⚡ Trade opens the Familia trade desk.
-A1. 🇺🇸 PERPS FOR US TRADERS (owner, 2026-10-23: "no Drift or Hyperliquid if there's no way in the USA"): ✅ the Perps desk now lists only coins a
-   US-legal venue offers and links Kraken Pro (CFTC-regulated perps via Bitnomial, since 2026-06-15) + Coinbase (perpetual-style futures via its
-   FCM, BTC / ETH at launch); Hyperliquid = price / funding reference only. IN-APP perps orders for US users = the user's Kraken / Coinbase account
-   through their official APIs (OAuth / user keys, never FEELESS custody) — an OWNER + LEGAL decision first (FEELESS would be routing orders on a
-   regulated venue). Kalshi's BTC perps are another regulated option. Never wire an offshore venue for US users (rule 1c).
-A. ✅ = F0.1 (paper desk in the building + venue handoff, DECISIONS #1). Was: 📉 PERPS IN THE POPOUT, NO REDIRECT: the Perps building trades in place — one tap picks the provider (Jupiter Perps · Drift · Hyperliquid…),
-   size from $5, long / short, live position + P&L in the building; the wallet signs; guards (memory: new buy doors need guards). ⚠ LEGAL: a
-   venue that blocks the user's region stays blocked in-app too (rule 1c — never a geo-block loophole); show which providers serve the user.
-B. ✅ 2026-10-23 late — one STAKE picker ($5 · $100 · $1K, `lib/earnStake`) re-quotes every Pool Hall row (a day + a year) and the Perps desk
-   (`EarnStake.jsx`: position, $ / 1 %, funding / day + who earns it, wipe-out move, drawn P&L fan). Deposits in place: Jupiter Lend + LST stake
-   already; perps orders in place = owner + legal (F0.1).
-C. ⚡ LAG FIXED 2026-10-23 (engine per-frame scene walk gone, idle 30 fps, block 1 s re-render isolated; fps unmeasured). Was: 🏙 MY FAMILY TOWN = the main city's engine features (day / night, traffic, weather…) and NO LAG (it "lags so bad") — profile it first.
-D. ✅ 2026-10-23 (own lazy chunk, −282 KB per terminal load). Was: 📦 FAMILIA LOADS AS ITS OWN APP PACKAGE (separate lazy bundle, preloaded on hover) — no lag sitewide.
-E. 🪟 City window BIGGER. F. ✅ 2026-10-23 late — THE STREETS go lit (receipt mini charts, 📟 HITS tape, street HEAT drives the scene, 🐢 Don
-   slow mode, reaction bursts, coins trade in place; /dev/street). G. Every building + family idea = real function,
-   visually advanced, live data, NO dead text.
-H. 🐱 FeeCat ✅ REDONE 2026-10-23 (see 0b). 🚀 Launch ✅ 2026-10-23 late — the wizard drawn (`LaunchViz.jsx`: launch stage with the curve +
-   a rocket riding your steps, step rings, minted coin face, fee ring with $ per $10K, sniper-tax decay, lit inputs + review; /dev/launch).
+P3 — PAGES + HQ BELOW THE BAR
+1. 📊 Text walls → live visuals (meters, rings, ticking numbers) + dead styles out on every page — HQ's Agents + FeeCat tabs first.
+2. Launch click-through pages · FeeCat lore + its other tabs · Roadmap / whitepaper as a 3D view · OSSY / G4 duo chats · NEXA reads + trades
+   fast (no 40 s waits on the i5).
+3. HQ: Lag catcher + Support clean-up · vault / pool pair builder live visual · Agents rebuild only after `scripts/edge-audit.py` numbers.
 
-P0 — OWNER 2026-10-22 LATEST (hardest first; finish in-flight work first, conserve usage, never dead-style)
-DONE tonight: 🐛 Familia/route crash (FamilyDeck static imports) · 🕰 15-min agent min hold (`AGENT_MIN_HOLD`) · 🪟🐱 NEXA TRADES AS FEECAT
-(owner switch HQ › Fee › NEXA's desk; `nexa_desk.py`: ≤ 3 one-line YES/NO · HOLD/SELL calls per 5 min on MC / age / 5m / 1h / buyers / pool /
-top10 → FeeCat buys only her YES through every guard, sells her SELL; user cats stay on the rule engine) · NEXA chat row: models rig in its own
-column (was overflowing onto the chat) · 🎨 all 14 chat themes redrawn as drawn scenes (radar, vault, lava lake, synthwave, LED tape…).
-OPEN, hardest → easiest:
-1. 🏙 FAMILY BLOCK — v1 SHIPPED (block_markets.py + FamilyBlock3D): real market buildings in the Fee City engine, UNDER CONSTRUCTION until a
-   real position (JitoSOL/JupSOL/mSOL/INF/JLP balances · Orca/Raydium position NFTs · Kamino vault shares), 4 OPEN PLOTS to add markets, errands
-   (build it · better LST → our swap prefilled · check range · size JLP → perps desk), MP game folded into one panel. NEXT: decode Orca / Raydium
-   positions → IN / OUT OF RANGE + "tighten / re-center" errand with the numbers; readers for Meteora DLMM (SDK) · marginfi · Save · PumpSwap LP;
-   count members' wallets (opt-in); retire family_world's drag-the-pizza ERRANDS UI (MobHome / FamilyWorld) for the block's real errands.
-1b. 🌆 FEE CITY = SIMCITY SCALE (owner): the capital BIGGER, and ~80 % of the city REAL-MONEY buildings (pools, vaults, lend, perps, LSTs, the
-   desk) SPREAD across districts — not packed on one island; family blocks as their own islands off the capital.
-1c. 🇺🇸 US users: NO geo-block loopholes (rule, owner's legal exposure). Route them to venues + in-app deposits allowed for them instead.
-00. ✅ 2026-10-23 late (all but one): NEXA fallback (FeeCat covers at half size) · NEXA prompts carry the trench laws + curve stage · agents hub
-   (CatDesk + BrainPanel credit / spend / top-up) · fast cash audit + card P&L proven in $ (`cash-check.py` step 4: 144 / 144 sells) · every
-   FEELESS fee in HQ › Core (house fees block) · HQ › Fuse rail decluttered 13 → 11 stops.
-0. ✅ DECIDED + SHIPPED 2026-10-23 (DECISIONS #2, option A): 💵 REAL MODE on a cat's desk (`cat_real.py`, `CatReal.jsx`, /dev/cats) — the cat
-   proposes each buy / exit to the user's wallet (≤ their per-buy budget, its paper record on every proposal, inbox alert, 15-min expiry);
-   ✍ Sign it opens the swap prefilled → the wallet signs (normal swap fee). FEELESS never holds a cat's SOL. LATER: option C (on-chain cat
-   program, audited) · do-anything agents. Was: 🐱 USER CAT AGENTS (owner, 2026-10-22 late; HARDEST, real money): users pick 1–2 cat AI agents — (a) DO-ANYTHING agents that act through
-   FEELESS with their own wallet funds on the user's request (trade, Polymarket-style markets where legal, tasks), or (b) one of 2 TRADE-ONLY
-   agents with lit features. The user sees their cat's BRAIN and talks to it; agents are PAID (pricing + custody = owner decision first,
-   docs/REAL_CATS.md; every real-money action needs guards + the wallet signs). NEXA / OSSY / G4 stay OWNER-ONLY for now.
-0b. ✅ SHIPPED 2026-10-23 — 🐱 FEECAT TERMINAL REDONE: one violet shell + nav (LIVE DESK · HER BRAIN · LORE · AGENTS · BUILD A CAT) `FeeCatShell`,
-   dup stats / tabs / picker cut, 🧠 brain page (`FeeCatBrainPage`), 🎨 real builder with drawn gear (`CatBuilder`, `lib/myCat`), agents =
-   My agents · New · Activity · Leaderboard. Next: CatDetail (one agent's desk) in the same violet meta; Launch-a-cat AI flow restyle.
-0c. ✅ 2026-10-23 — feature gates use `_is_staff` (any linked wallet; guard test `test_staff_unlocks.py`). 0d. 🔥 More Pump coins on the intake.
-1d. ✂ CUT (Claude's audit 2026-10-22, owner to OK): the fake model catalog in /api/cats/brains (Claude / GPT / Grok rows that only run the rule
-   engine) · family_world's drag-the-pizza ERRANDS + the MP store build catalog (the block is real markets now) · 4 ways to start services
-   (run-feeless.sh / start-backend.sh / background.sh / keep-alive — two watchers were running at once tonight) → ONE supervisor · ✅ cat /action
-   owner check (2026-10-23: owner id or the internal key) · split reputation_service.py (31K lines; tonight a new helper silently replaced a cache —
-   guarded now by tests/test_no_name_collisions.py).
-1e. 🏆 ELITE adds: CLMM range reads → exact "out of range by X %, re-center to A–B" errands · NEXA's FeeCat record vs the rule engine → she earns
-   real money only after beating it in shadow · ✅ "YOUR MONEY" tower on FEELESS Avenue (`MyMoney.jsx`,
-   GET /familia/my-money, `my_money.py`) · compliant US routing.
-2. ✅ 2026-10-23 — 🌐 NEXA site read (`site_probe.py`): domain age (RDAP) + page snapshot → 🧪 REAL TECH / 🎭 TEMPLATE / 🪶 THIN, a 'site' fact
-   under the coin's mint in her discovery base (≤ 2 per hourly full read, SSRF-guarded fetch).
-3. ✅ SWEPT 2026-10-23 (1,391 colour uses, 101 sheets: green-tinted surfaces → near-black, grey-green lines / text → neutral, meta tokens, the
-   season band on the logo green). ✅ part 2 (2026-10-23): 38 inline JSX grey-greens → neutral; the ~900 barely-tinted near-blacks left on purpose. Was: 🎨 Site palette (owner AGAIN 2026-10-22 late, Launch-page screenshot: "better official site green than this shitty green all over the site"):
-   retire the muddy / olive / brown-green panels + backdrops ("color of manure") → the OFFICIAL FEELESS green of the logo (#15d16a / #45e486
-   neon on near-black, no olive tint in surfaces) — token sweep sitewide (meta.css m-* tokens first, then each sheet's hard-coded greens), Launch first.
-4. 📊 Text walls → realtime visuals (meters, rings, ticking numbers) + dead styles out — every page, starting with HQ (Agents + FeeCat tabs).
-5. Screenshot each chat theme in the Brain drawer + a room; confirm the theme layer covers the whole drawer (NEURAL default).
-6. Restart reputation + feecat services (from Claude's watcher) so tonight's backend is live; confirm NEXA's desk calls land.
+LATER — a lawyer / audit first (`docs/DECISIONS.md`): a perps venue's official partner API (OAuth on the user's own account) · real cats
+option C (an on-chain cat program) · do-anything agents · an on-chain pot program (family pot / top-pot Fuse).
 
-P0 — still open from the night list, in order
-1. 🧠 G4: 🪑 PROOF BENCH DONE 2026-10-22 (its last 209 FAVOR calls = −0.4 % median, 43 % up → OSSY opens real seats until G4's record turns).
-   ✅ stall watchdog (2026-10-23: `model_desk.stall_of`, alert once / 30 min, 🩺 flag on Brain › Models; reload stays the owner's tap). Models tab BESIDE NEXA's chat (layout). Wire the trench theory into the deterministic agents only after a shadow test.
-2. 🐆 Sicario's seat board: DONE 2026-10-22 (the odd 3rd seat spans its row, hunting seat shows TURN / READY / REFUSED) — owner to confirm it was the screenshot's issue.
-3. ✅ DECIDED + SHIPPED 2026-10-23 (DECISIONS #3): season points = the ONE wallet currency (never bought, never cashed); points shop → your
-   family's bank (1 pt = 100 MP, ≤ 1,000 pts / week). No real-USD rep market / Polymarket (regulated).
-4. 🏦 A building ASSIGNED to a real position (pool / vault) that goes under construction when the wallet's on-chain balance is pulled — needs
-   per-protocol balance reads (LP / receipt mints); MP-funded blocks already do it.
-5. ✅ = F0.1 (paper desk + venue handoff, DECISIONS #1). No geo-block loopholes, ever.
-6. 🗂 Desktop clean-up — confirm the folder list with the owner first (never images).
-NOTE: merging into main LOCALLY means auto-pull never restarts the backend — after a backend push, restart reputation_service via the watcher
+WAITING ON THE OWNER
+- 🐛 Fuse card bug: is the fix found in code the bug you saw? (if not: repro steps first)
+- ❓ Fee City full-screen by default?
+- 🗂 Desktop clean-up: which folders (never images)?
+- ⚖ A lawyer's read of `docs/DECISIONS.md` before real volume.
+
+IDEAS: FeeCat + AI agent pair that talk · "build a better coin" track in Lag catcher.
+
+NOTE: merging into main LOCALLY never restarts the backend — after a backend push, restart reputation_service via the watcher
 (memory: restart-from-claude-tree).
-
-P1 — FAMILIA = the one-stop shop in web3 (what is left)
-1. ❓ OWNER: city full-screen by default? (Realtor shipped as the clutter-free buy space; a dedicated for-sale ISLAND in 3D is still open.)
-2. 💤 Night Vault next: DCA / limit orders (Jupiter Recurring + Trigger APIs: build → verify programs like `lend_earn.verify` → wallet signs; an
-   allowlist of blue chips only — memory: new buy doors need guards) · in-app Kamino Multiply / vault deposits need Kamino's SDK (owner's call).
-3. 🐛 Fuse card bug: the fix above is the one found in code — owner to confirm it was the bug they saw (if not: repro steps first).
-4. ⚡ Scale for thousands: shared pollers, 3D perf (instancing, LOD), load tests on familia-world / familia/street.
-5. ✅ Check day theme + 360 px: Avenue rooms (Night Vault included), Overwatch, Realtor (Street chat + Brain done at 360).
-6. 💬 Street chat ✅ pinned call · slow mode · mini charts · typing presence · per-call threads (2026-10-23).
-7. City leftovers: outer cities' real-money markets · in-city swap · HELD coins + FEELESS-launched coins as buildings · ALL of FEE as city mechanics ·
-   raids / hits played in-city · MP-only buildings + gold shop · $ and MP ladders · badge / card / MOBhouse customization.
-
-P2 — PAGES BELOW BAR: Launch click-through pages · FeeCat lore + other tabs · Roadmap / whitepaper as a 3D view · OSSY / G4 duo chats ·
-   NEXA reads + trades fast (no 40 s waits on the i5).
-P3 — AI / BRAIN: ✅ done 2026-10-22 (chat line → rig proposals, LM Studio rig view, Brain 360 px). Next only if asked: OSSY / G4 duo chat look.
-P4 — HQ: ✅ dead clicks (2026-10-23: the 9 HQ › Bugs reports read — 2 real overlaps fixed in Familia's room pop-out, the rest predated
-   their fixes; a covered-button audit of every main page came back clean) · Lag catcher + Support clean-up · vault /
-   pool pair builder live visual · Agents rebuild only after `scripts/edge-audit.py` numbers.
-P5 — ✅ DECIDED 2026-10-23 on the owner's go (`docs/DECISIONS.md`, a lawyer should still read it): no custody anywhere (no pooled family
-   wallet, no top-pot held by FEELESS) · real cats = option A (wallet signs) · block readers only after a real-account layout check.
-P6 — IDEAS: FeeCat + AI agent pair that talk · "build a better coin" track in Lag catcher.
