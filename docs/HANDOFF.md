@@ -13,7 +13,14 @@
 - 🎛 SEAT DECK beside the hex (owner: "needs alignment and more vitals"): LAST TRADE ($ in → $ back · card cash ✔) · CARD SEATS · HUNT
   CLOCK (ticks; HELD + TP/SL while holding) · ON THE TABLE · DUO RECORD (both models, ledger) · AGENTS BACKUP. Payload adds `seats`,
   `hunt`, rooms `inUsd` / `back` / `heldMin`. Preview: /dev/hq?duo=sold|hunt|hold → ⚡ Live desk.
-### ⬜ Still open (in order)
+- ✋ YOUR PICK STAYS (owner: "any trade I submit should STAY"): the rug shield sold the owner's $MOON pick twice at break-even on a FALSE
+  drain — Jupiter's fallback liquidity is ONE side of the pool ($13.9K vs DexScreener $29.7K). Now `arena_prime.LIQ_SRC` keeps Jupiter depth
+  out of the shield, a hand pick (`owner_pick`) only warns unless its pool is under a quarter (`RUG_PICK_LIQ`), and instant-loss + the tape's
+  flow exit / rug radar / climax trim skip picks too (⚠ rug-warn events). Reputation restarted from Claude's watcher (1 copy, G4 ONLINE).
+- 🟢 Launch page backdrop = the official logo green (amber dusk read as mud). Gate flakes hardened: FuseLab preview timer, FuseGo PREPAY.
+### ⬜ Still open — the owner's newest list is CLAUDE.md › P0 "LATEST-LATEST" (0 ✋ done · P prompt studio · A0 trade inside Familia ·
+A perps in the popout (⚠ venue geo rules stay) · B pools/perps that earn · C family town = main city engine, no lag · D Familia as its own
+bundle · E bigger city window · F littest chat · G real functions everywhere · H FeeCat + Launch redo), then the older items below.
 1. 🤖 AGENTS HUB (users' cats): vitals, cost spent, P&L, model + context size, credit left + refill (night list #2). Real-money agents =
    owner custody + pricing first (docs/REAL_CATS.md).
 2. ⚙ FEES in ONE HQ Core panel: the configurable ones already live in HQ › Trading & fees (`FEE_DEFAULTS`: platformFeeBps, bundle,
