@@ -36,7 +36,7 @@ test('🏙 outside Familia a trade is the war room; inside, the dock opens the c
 });
 
 test('🚫 no Familia building jumps to another FEELESS page or the war room', () => {
-  const dir = __dirname; const files = ['CityAvenue.jsx', 'FamilyWorld.jsx', 'PoolHub.jsx', 'FamilyDeck.jsx', 'FamilyHQ.jsx', 'FamilyRoom.jsx', 'NightVault.jsx', 'Realtor.jsx'];
+  const dir = __dirname; const files = ['CityAvenue.jsx', 'FamilyWorld.jsx', 'PoolHub.jsx', 'FamilyDeck.jsx', 'FamilyHQ.jsx', 'FamilyRoom.jsx', 'NightVault.jsx', 'Realtor.jsx', 'StreetChat.jsx'];
   for (const f of files) {
     const src = fs.readFileSync(path.join(dir, f), 'utf8');
     expect([f, /openWarRoom\(/.test(src)]).toEqual([f, false]);

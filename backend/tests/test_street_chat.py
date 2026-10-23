@@ -34,7 +34,7 @@ def test_lines_are_dressed_for_the_street():
     calls = {'m1:P1': {'room': 'city-fee', 'messageId': 'm1', 'priceAtCall': 1.0, 'lastPrice': 2.5, 'peakPrice': 3.0, 'symbol': 'WIF', 'pairAddress': 'P1', 'chain': 'solana'},
              'x': {'room': 'feed-sol', 'messageId': 'm1', 'priceAtCall': 1.0, 'lastPrice': 9.0, 'peakPrice': 9.0, 'symbol': 'X'}}
     rec = sc.receipts(calls, 'city-fee')
-    assert rec == {'m1': [{'symbol': 'WIF', 'x': 2.5, 'peakX': 3.0, 'mcAtCall': None, 'pairAddress': 'P1', 'chain': 'solana', 'image': None}]}   # another room's call never shows
+    assert rec == {'m1': [{'symbol': 'WIF', 'x': 2.5, 'peakX': 3.0, 'mcAtCall': None, 'pairAddress': 'P1', 'chain': 'solana', 'image': None, 'trail': [[0, 1.0]]}]}   # another room's call never shows
     lines = sc.dress(msgs, fams.get, rec, {'m2': {'🫡': ['W1', 'W9'], '🚀': ['W1']}}, viewer='W2', handles=['boss'])
     a, b = lines
     assert a['fam']['tag'] == 'SIC' and a['calls'][0]['x'] == 2.5 and a['coins'][0] == {'symbol': 'WIF', 'pairAddress': 'P1', 'chain': 'solana', 'image': 'i.png', 'mc': 2e6}
@@ -160,3 +160,67 @@ def test_a_pinned_call_tops_the_street_for_an_hour():
     assert sc.pin_view({'id': 'm1', 'at': 1000.0}, lines, 1000.0 + sc.PIN_SEC + 1) is None      # expired
     assert sc.pin_view({'id': 'gone', 'at': 1000.0}, lines, 1100.0) is None and sc.pin_view(None, lines, 1.0) is None
     assert sc.can_pin(True, False) and sc.can_pin(False, True) and not sc.can_pin(False, False)
+
+
+def test_a_receipt_draws_its_whole_life_in_at_most_40_points():
+    c = {'priceAtCall': 2.0, 'at': 1000.0}
+    sc.trail_add(c, 3.0, 1100.0); sc.trail_add(c, 9.0, 1200.0)          # the second sample is < 5 min after the first → skipped
+    assert c['trail'] == [[1100, 1.5]]
+    for i in range(1, 60):
+        sc.trail_add(c, 2.0 + i / 10, 1100.0 + i * sc.TRAIL_EVERY)
+    assert len(c['trail']) <= sc.TRAIL_CAP and c['trail'][0] == [1100, 1.5]   # thinned, the first point kept
+    assert sc.trail_add({'priceAtCall': 0}, 1.0, 1.0) == []
+    r = sc.receipts({'a': {**c, 'room': 'city-fee', 'messageId': 'm1', 'lastPrice': 4.0, 'peakPrice': 5.0, 'symbol': 'WIF'}}, 'city-fee')['m1'][0]
+    assert r['trail'][0] == [1000, 1.0] and r['x'] == 2.0 and r['peakX'] == 2.5   # starts at the call: 1x
+
+
+def test_the_hits_tape_shows_the_streets_best_calls_of_the_day():
+    base = {'room': 'city-fee', 'priceAtCall': 1.0, 'lastPrice': 1.0, 'at': 10_000.0, 'caller': 'kid', 'callerAddress': 'W1'}
+    calls = {'a': {**base, 'symbol': 'A', 'peakPrice': 4.0}, 'b': {**base, 'symbol': 'B', 'peakPrice': 1.2},     # B never ran 1.5x
+             'c': {**base, 'symbol': 'C', 'peakPrice': 2.0}, 'd': {**base, 'symbol': 'D', 'peakPrice': 9.0, 'room': 'city-harbor'},
+             'e': {**base, 'symbol': 'E', 'peakPrice': 9.0, 'at': 10_000.0 - sc.HIT_SEC - 5}}                      # older than a day
+    h = sc.hits(calls, 'city-fee', 10_100.0, fam_of=lambda a: {'tag': 'SIC', 'color': '#d4af37'})
+    assert [x['symbol'] for x in h] == ['A', 'C'] and h[0]['fam'] == {'tag': 'SIC', 'color': '#d4af37'} and h[0]['by'] == 'kid' and h[0]['ago'] == 100
+
+
+def test_street_heat_reads_the_pulse():
+    assert sc.heat({'hour': 0}) == 0 and sc.heat({'hour': 5}) == 1 and sc.heat({'hour': 20}) == 2 and sc.heat({'hour': 50}) == 3
+    assert sc.heat({'hour': 5, 'hot': {'peakX': 2.4}}) == 2 and sc.heat({'hour': 50, 'hot': {'peakX': 9}}) == 3
+    assert sc.heat({'hour': 0}, reacts=9) == 1                                     # reactions count too
+
+
+def test_slow_mode_holds_30_minutes_and_spares_dons_and_staff():
+    slow = {'sec': 30, 'by': '[SIC] Vito', 'at': 1000.0}
+    assert sc.slow_view(slow, 1100.0) == {'sec': 30, 'by': '[SIC] Vito', 'left': sc.SLOW_TTL - 100}
+    assert sc.slow_view(slow, 1000.0 + sc.SLOW_TTL + 1) is None and sc.slow_view({'sec': 0, 'at': 1000.0}, 1001.0) is None
+    assert sc.slow_wait(slow, 1090.0, 1100.0) == 20 and sc.slow_wait(slow, 1050.0, 1100.0) == 0
+    assert sc.slow_wait(slow, 1090.0, 1100.0, exempt=True) == 0 and sc.slow_wait(slow, None, 1100.0) == 0
+
+
+def test_slow_mode_through_the_service(monkeypatch):
+    import asyncio
+    import json
+    import time
+    import pytest
+    from fastapi import HTTPException
+    import reputation_service as rs
+    don, kid = 'D' * 44, 'K' * 44
+    monkeypatch.setattr(rs, '_session_or_401', lambda a, s: a)
+    monkeypatch.setattr(rs, '_street_fams', lambda: (lambda a: {'id': 'c1', 'tag': 'SIC', 'don': a == don} if a in (don, kid) else None))
+    monkeypatch.setattr(rs, '_audit', lambda *a, **k: None)
+    with pytest.raises(HTTPException) as e:
+        asyncio.run(rs.familia_street_mod('fee', rs.StreetMod(address=kid, session='s', act='slow', sec=30)))
+    assert e.value.status_code == 403                                             # a member can't slow the street
+    with pytest.raises(HTTPException):
+        asyncio.run(rs.familia_street_mod('fee', rs.StreetMod(address=don, session='s', act='slow', sec=45)))   # not a choice
+    out = asyncio.run(rs.familia_street_mod('fee', rs.StreetMod(address=don, session='s', act='slow', sec=30)))
+    assert out['slow']['sec'] == 30
+    d = rs._chat_load()
+    d.setdefault('streetLastAt', {})['city-fee'] = {rs.primary_of(kid): time.time() - 5}
+    rs.CHAT_PATH.write_text(json.dumps(d))
+    src = open(rs.__file__).read()
+    i = src.index('async def chat_post(')
+    assert "_stc.slow_wait(d['streetSlow'][payload.room]" in src[i:src.index('\n\n\n', i)]   # the post path enforces it
+    assert rs._stc.slow_wait(rs._chat_load()['streetSlow']['city-fee'], time.time() - 5, time.time()) >= 24
+    asyncio.run(rs.familia_street_mod('fee', rs.StreetMod(address=don, session='s', act='slow', sec=0)))
+    assert 'city-fee' not in rs._chat_load().get('streetSlow', {})

@@ -1783,6 +1783,8 @@ async def _refresh_calls():
                         c['lastPrice'] = px
                         c['peakPrice'] = max(c['peakPrice'], px)
                         c['checkedAt'] = time.time()
+                        if time.time() - c['at'] < 3 * 86400:   # 📈 the receipt's mini chart (street coin cards draw it)
+                            _stc.trail_add(c, px, time.time())
                     _award_feed_call(c)
                 _calls_save(d)
         except Exception as exc:
@@ -2463,12 +2465,24 @@ async def chat_post(payload: ChatPost):
             raise HTTPException(409, 'Replay rejected — sign a fresh message.')
         if not is_admin and time.time() - d.get('lastAt', {}).get(payload.address, 0) < 3:
             raise HTTPException(429, 'Slow down — one message every 3 seconds.')
+        if payload.room.startswith('city-') and not is_admin and (d.get('streetSlow') or {}).get(payload.room):   # 🐢 a Don / staff slowed this street
+            _fam_ = _street_fams()(payload.address) or {}
+            wait_ = _stc.slow_wait(d['streetSlow'][payload.room], ((d.get('streetLastAt') or {}).get(payload.room) or {}).get(primary_of(payload.address)), time.time(),
+                                   _is_staff(payload.address) or bool(_fam_.get('don')))
+            if wait_:
+                raise HTTPException(429, f"🐢 Slow mode on this street — your next line in {wait_}s.")
         verdict = None if is_admin else _spam_check(d, payload.room, payload.address, text, tier)
         if verdict:
             CHAT_PATH.write_text(json.dumps(d))
             raise HTTPException(429 if verdict.startswith('Slow') else 403, verdict)
         d['lastTs'][payload.address] = payload.ts
         d.setdefault('lastAt', {})[payload.address] = time.time()
+        if payload.room.startswith('city-'):   # 🐢 per-street last line (slow mode reads it); ≤ 400 wallets per street
+            sla_ = d.setdefault('streetLastAt', {}).setdefault(payload.room, {})
+            sla_[primary_of(payload.address)] = time.time()
+            if len(sla_) > 400:
+                for w_, _t in sorted(sla_.items(), key=lambda kv: kv[1])[:len(sla_) - 400]:
+                    sla_.pop(w_, None)
         if boosted:
             _boost_last[payload.address] = time.time()
         msg = {'id': uuid.uuid4().hex[:16], 'handle': handle_of(primary_of(payload.address)), 'room': payload.room, 'address': payload.address, 'chain': 'evm' if payload.address.startswith('0x') else 'solana',
@@ -24625,7 +24639,13 @@ async def familia_street(city: str, viewer: str = Query('', max_length=64), sess
     vf_ = fam(me_) if me_ else None
     staff_ = bool(me_) and _is_staff(me_)
     pin_ = _stc.pin_view(((d_.get('streetPins') or {}).get(room_)), lines_, now)
-    return {'room': room_, 'lines': lines_, 'vitals': _stc.vitals(lines_, now * 1000), 'reacts': list(_stc.REACTS), 'pinned': pin_,
+    v_ = _stc.vitals(lines_, now * 1000)
+    v_['heat'] = _stc.heat(v_, sum(r_.get('n', 0) for l_ in lines_[-20:] for r_ in (l_.get('reacts') or {}).values()))
+    slow_ = _stc.slow_view((d_.get('streetSlow') or {}).get(room_), now)
+    wait_ = _stc.slow_wait((d_.get('streetSlow') or {}).get(room_), ((d_.get('streetLastAt') or {}).get(room_) or {}).get(me_), now,
+                           staff_ or bool(vf_ and vf_.get('don'))) if me_ else 0
+    return {'room': room_, 'lines': lines_, 'vitals': v_, 'reacts': list(_stc.REACTS), 'pinned': pin_,
+            'hits': _stc.hits(_calls_load().get('calls'), room_, now, fam), 'slow': slow_ and {**slow_, 'wait': wait_}, 'slowChoices': list(_stc.SLOW_CHOICES),
             'here': [{'address': w_, 'name': _display_name(w_), 'fam': fam(w_)} for w_ in here_[:40]], 'hereN': len(here_),
             'mod': {'staff': staff_, 'don': bool(vf_ and vf_.get('don')), 'famId': (vf_ or {}).get('id')}, 'me': {'fam': vf_, 'handle': handles_[0] if handles_ else None} if me_ else None}
 
@@ -24633,15 +24653,16 @@ async def familia_street(city: str, viewer: str = Query('', max_length=64), sess
 class StreetMod(BaseModel):
     address: str = Field(..., max_length=64)
     session: str = Field(..., max_length=400)
-    id: str = Field(..., max_length=40)
+    id: str = Field('', max_length=40)
     act: str = Field('pull', max_length=8)
+    sec: int = Field(0, ge=0, le=600)
 
 
 @app.post('/api/reputation/familia/street/{city}/mod')
 async def familia_street_mod(city: str, p: StreetMod):
     """🛡 Pull a line off the street (staff: any line · a Don: their own family's lines) or mute its poster for an hour (staff only). Audited."""
     room_ = _stc.room_of(city)
-    if not room_ or p.act not in ('pull', 'mute', 'pin', 'unpin'):
+    if not room_ or p.act not in ('pull', 'mute', 'pin', 'unpin', 'slow'):
         raise HTTPException(400, 'Pull, mute or pin a line on a real street.')
     me_ = _session_or_401(p.address, p.session)
     fam = _street_fams()
@@ -24649,6 +24670,19 @@ async def familia_street_mod(city: str, p: StreetMod):
     staff_ = _is_staff(me_)
     async with _chat_lock:
         d_ = _chat_load()
+        if p.act == 'slow':   # 🐢 staff or a Don slows the street (one line per wallet every N s, lifts after 30 min; staff + Dons exempt)
+            if not _stc.can_pin(staff_, vf_.get('don')):
+                raise HTTPException(403, 'Only a Don (or FEELESS staff) sets slow mode on the street.')
+            if p.sec not in _stc.SLOW_CHOICES:
+                raise HTTPException(400, f'Slow mode is one of {", ".join(map(str, _stc.SLOW_CHOICES))} seconds.')
+            sl_ = d_.setdefault('streetSlow', {})
+            if p.sec:
+                sl_[room_] = {'sec': p.sec, 'by': f"[{vf_.get('tag')}] {_display_name(me_)}" if vf_.get('tag') else _display_name(me_), 'at': time.time()}
+            else:
+                sl_.pop(room_, None)
+            CHAT_PATH.write_text(json.dumps(d_))
+            ad_ = _admin_load(); _audit(ad_, me_, 'street-slow', f'{room_} {p.sec}s'); _admin_save(ad_)
+            return {'ok': True, 'slow': _stc.slow_view(sl_.get(room_), time.time())}
         msgs_ = d_['rooms'].get(room_, [])
         m_ = next((x for x in msgs_ if x.get('id') == p.id), None)
         if not m_:
