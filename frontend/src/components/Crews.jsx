@@ -233,7 +233,7 @@ export function Crews({ onScene, tab: tabP, onTab, bare = false }) {   // 🌹 i
       : <div className="crw-mine m-card"><CrewHQ mine={mine} owner={owner} addr={addr} sess={sess} busy={busy} setBusy={setBusy} setMine={setMine} act={act} q={q} rows={rows} inv={inv} reload={loadMine} tab={tool} setTab={setTool} /></div>);
   const rooms = {
     family: ctx => (mine ? <FamilyHQ mine={mine} world={ctx.v} act={ctx.act} busy={ctx.busy} onEnter={ctx.onEnter} onFly={ctx.fly} tools={hqTools} /> : joinNode),
-    wars: <><WarStrip />{mine ? <div className="crw-mine m-card"><WarRoom mine={mine} owner={owner} rows={rows} busy={busy} act={warAct} /></div> : <PublicWars />}</>,
+    wars: <><WarStrip />{mine ? <div className="crw-mine m-card"><WarRoom mine={mine} owner={owner} rows={rows} busy={busy} act={warAct} /></div> : <PublicWars onJoin={() => setTab('family')} />}</>,
     board: boardNode, feed: <FamilyPulse rows={rows} />,
   };
   return <section className="crw crw-noir" data-testid="crews">
@@ -254,7 +254,7 @@ export function Crews({ onScene, tab: tabP, onTab, bare = false }) {   // 🌹 i
       <header className="fnr-title"><span>🌹 LA FAMILIA</span><b>Famiglia prima di tutto.</b><small>Families rise on verified trades, settle scores in battle trenches, and wear what they earned.</small></header>
     {joinNode}
     </>)}
-    {famTab === 'wars' && <><WarStrip />{mine ? <div className="crw-mine m-card"><WarRoom mine={mine} owner={owner} rows={rows} busy={busy} act={warAct} /></div> : <PublicWars />}</>}
+    {famTab === 'wars' && <><WarStrip />{mine ? <div className="crw-mine m-card"><WarRoom mine={mine} owner={owner} rows={rows} busy={busy} act={warAct} /></div> : <PublicWars onJoin={() => setTab('family')} />}</>}
     {famTab === 'board' && <>
     {boardNode}
     </>}

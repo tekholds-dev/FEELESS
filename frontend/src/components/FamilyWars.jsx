@@ -3,6 +3,7 @@ import { sharedJson } from '../lib/sharedJson';
 import { FamilyBadge } from './FamilyBadge';
 import NumInput from './NumInput';
 import { useGlide } from '../lib/useGlide';
+import { useCrewBoard } from './CrewCard';
 import '../styles/familyWars.css';
 
 // ⚔ THE WAR ROOM (family_wars.py): families call each other out, bid up a POINTS pot, set a bell and fight a battle trench — each team's verified
@@ -86,6 +87,23 @@ function WarCard({ w, myId, owner, act, busy, now }) {
   </article>;
 }
 
+// 🏟 THE QUIET FRONT (owner: "no dead text"): an empty war room is the drawn ring with nobody in it, the families that could step in (their
+// crest + this week's verified %, ranked), and how a war runs as four lit steps — never a bare line
+const HOWTO = [['📣', 'CALL OUT', 'a Don picks a family'], ['🪙', 'POT', '25 – 1,000 pts from the war chest'], ['🔔', 'BELL', '1 h – 3 d to answer'], ['⚔', 'FIGHT', 'verified trades in the window decide it']];
+export function QuietFront({ rows, note, cta = null }) {
+  const fams = (rows || []).filter(r => r.tag).slice(0, 6); const top = Math.max(5, ...fams.map(r => Math.abs(Number(r.pct) || 0)));
+  return <div className="fwr-quiet" data-testid="war-quiet">
+    <div className="fwr-quiet-ring"><ArenaArt /><VsMark /><span className="fwr-quiet-sign"><b>THE RING IS EMPTY</b><small>{note}</small></span></div>
+    {fams.length ? <div className="fwr-contenders"><em>WHO COULD STEP IN · THIS WEEK</em><ol>{fams.map((r, i) => <li key={r.id || r.tag} style={{ '--i': i }} data-tip={`[${r.tag}] ${r.name}: ${r.members}/${r.seats} seats · verified trades this week`}>
+      {r.badge?.emblem ? <FamilyBadge b={{ ...r.badge, tag: r.tag, name: r.name }} size="sm" px={30} chips={false} /> : <span className="fwr-tag">{r.tag}</span>}
+      <span className="fwr-cname"><b>{r.name}</b><small>{r.members}/{r.seats} seats</small></span>
+      <u aria-hidden="true"><s className={(Number(r.pct) || 0) >= 0 ? 'up' : 'dn'} style={{ transform: `scaleX(${Math.max(0.04, Math.min(1, Math.abs(Number(r.pct) || 0) / top))})` }} /></u>
+      <em className={r.pct == null ? '' : r.pct >= 0 ? 'm-pos' : 'm-neg'}>{r.pct == null ? '—' : `${r.pct >= 0 ? '+' : ''}${r.pct}%`}</em></li>)}</ol></div> : null}
+    <ol className="fwr-howto">{HOWTO.map(([ic, k, d], i) => <li key={k} style={{ '--i': i }}><i aria-hidden="true">{ic}</i><b>{k}</b><small>{d}</small></li>)}</ol>
+    {cta}
+  </div>;
+}
+
 function CallOut({ mine, rows, act, busy }) {
   const others = (rows || []).filter(r => r.id !== mine.id);
   const [vs, setVs] = useState(''); const [stake, setStake] = useState(100); const [bell, setBell] = useState(3600); const [hours, setHours] = useState(4);
@@ -116,7 +134,7 @@ export function WarRoom({ mine, owner, rows, act, busy }) {
     <div className="fwr-vitals">{[['🪙 WAR CHEST', mine.war?.chest ?? 500], ['🏆 WARS WON', mine.war?.wins ?? 0], ['☠ LOST', mine.war?.losses ?? 0], ['⚔ ON NOW', mineWars.filter(w => w.state === 'live').length], ['🤝 ALLIES', myAllies.length]].map(([k, v], i) =>
       <span key={k} style={{ '--i': i }}><em>{k}</em><b key={v}>{Number(v).toLocaleString('en-US')}</b></span>)}</div>
     <section className="fwr-list">{mineWars.length ? mineWars.map(w => <WarCard key={w.id} w={w} myId={mine.id} owner={owner} act={act} busy={busy} now={now} />)
-      : <p className="m-dim fwr-empty">No war on. {owner ? 'Call a family out below — set a pot and a bell.' : 'Your Don calls the wars.'}</p>}</section>
+      : <QuietFront rows={(rows || []).filter(r => r.id !== mine.id)} note={owner ? 'Call a family out below — set a pot and a bell.' : 'Your Don calls the wars.'} />}</section>
     {owner && <CallOut mine={mine} rows={rows} act={act} busy={busy} />}
     <section className="fwr-ally"><b className="fwr-h">🤝 ALLIANCES</b>
       <p>{myAllies.length ? myAllies.map(t => <span key={t} className="m-chip">[{t}]{owner && <button type="button" onClick={() => act('unally', { vs: t }, `alliance with [${t}] broken`)} aria-label={`break alliance with ${t}`}>✕</button>}</span>) : <small className="m-dim">No allies yet — an ally can join your side of any war.</small>}</p>
@@ -138,10 +156,12 @@ export function WarStrip() {
 
 
 // 🏟 every war, for anyone (no family needed): live first, then set, open, finished — read-only cards
-export function PublicWars() {
-  const d = useWars(); const [now, setNow] = useState(() => Date.now() / 1000);
+export function PublicWars({ onJoin }) {
+  const d = useWars(); const board = useCrewBoard(); const [now, setNow] = useState(() => Date.now() / 1000);
   useEffect(() => { const t = setInterval(() => { if (!document.hidden) setNow(Date.now() / 1000); }, 1000); return () => clearInterval(t); }, []);
   const wars = (d?.wars || []).slice(0, 12);
   return <div className="fwr" data-testid="public-wars">{wars.length ? <section className="fwr-list">{wars.map(w => <WarCard key={w.id} w={w} myId={null} owner={false} act={() => {}} busy now={now} />)}</section>
-    : <p className="m-dim fwr-empty">{d ? 'No family wars yet — join a family and your Don can call one out.' : 'Reading the war room…'}</p>}</div>;
+    : d ? <QuietFront rows={board?.board} note="No family wars yet — join a family and your Don can call one out."
+      cta={onJoin ? <button type="button" className="m-btn m-go fwr-quiet-go" onClick={onJoin} data-tip="Start a family or join one — then your Don can call a war" data-testid="war-join">🌹 Join a family</button> : null} />
+      : <p className="m-dim fwr-empty">Reading the war room…</p>}</div>;
 }

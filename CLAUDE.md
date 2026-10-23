@@ -200,10 +200,11 @@ F0. 🏙 FAMILIA = ITS OWN APP (owner, 2026-10-23, LOUD: "no redirects!! … fun
       sign-off first; the build after that is the provider SDK + guards + a LIT order ticket. Never an offshore venue for US users (rule 1c).
    2. ✅ SHIPPED 2026-10-23 — 🏘 TOWN PICKER (block page, Don / Underboss / creator, 6 of 8 tools: TT · Perps · Pools · Trade Center · Night Vault
       · Pump Radar · FeeCat · Rep market; `block_markets.town_set`, act tadd / tdel): each stands on the 3D block, tap → its REAL tool pops out
-      over the block; the Family Deck lists the town first. Next: a town building's own live number on its sign (pools APY, desk P&L).
+      over the block; the Family Deck lists the town first. ✅ 2026-10-23 late: every town sign carries its tool's live number (`town_live.py`).
    3. ✅ SHIPPED 2026-10-23 — FEE CITY BREATHES: ~47 buildings off the capital → 18 (duplicates are ROOMS of one building with a room strip in the
       pop-out; market islands top 4; empty cells = PARKS; bigger cells, wider water). Next: profile the family town for lag (C).
-   4. FAMILIA AS ITS OWN APPLICATION in FEELESS: its own bundle (lazy, preloaded), own shell + nav, everything done inside it.
+   4. ✅ SHIPPED 2026-10-23 late — FAMILIA AS ITS OWN APP: /familia/* full-screen shell (`FamiliaApp.jsx`: rose bar, 5-place nav with deep links,
+      live pulse, wallet, ← FEELESS; phone dock), sidebar 'La Familia 🌹' + MOB › Familia door. Next: own PWA icon / install prompt.
 M. ✅ SHIPPED 2026-10-23 (Brain › 🧠 Models = `ModelDesk.jsx` + `model_desk.py`, /admin/ai/models): vitals for every model (tok/s from real usage,
    ok %, median · p90, queue, ctx fill, last answer, 🎭 mindset) + the picked model's INFO · LOAD · INFERENCE (overrides ride every call:
    `ai_rig.clean_infer` → `ai_router`) · SERVER · MCP; one model at a time (nothing cut off); NEXA's column shows only her rig. Was:
@@ -235,12 +236,16 @@ A1. 🇺🇸 PERPS FOR US TRADERS (owner, 2026-10-23: "no Drift or Hyperliquid i
 A. 📉 PERPS IN THE POPOUT, NO REDIRECT: the Perps building trades in place — one tap picks the provider (Jupiter Perps · Drift · Hyperliquid…),
    size from $5, long / short, live position + P&L in the building; the wallet signs; guards (memory: new buy doors need guards). ⚠ LEGAL: a
    venue that blocks the user's region stays blocked in-app too (rule 1c — never a geo-block loophole); show which providers serve the user.
-B. 💸 POOLS + PERPS MUST EARN: "aint bringing no money" — every real-money building shows what $5 / $100 earns live and deposits in place.
+B. ✅ 2026-10-23 late — one STAKE picker ($5 · $100 · $1K, `lib/earnStake`) re-quotes every Pool Hall row (a day + a year) and the Perps desk
+   (`EarnStake.jsx`: position, $ / 1 %, funding / day + who earns it, wipe-out move, drawn P&L fan). Deposits in place: Jupiter Lend + LST stake
+   already; perps orders in place = owner + legal (F0.1).
 C. ⚡ LAG FIXED 2026-10-23 (engine per-frame scene walk gone, idle 30 fps, block 1 s re-render isolated; fps unmeasured). Was: 🏙 MY FAMILY TOWN = the main city's engine features (day / night, traffic, weather…) and NO LAG (it "lags so bad") — profile it first.
 D. ✅ 2026-10-23 (own lazy chunk, −282 KB per terminal load). Was: 📦 FAMILIA LOADS AS ITS OWN APP PACKAGE (separate lazy bundle, preloaded on hover) — no lag sitewide.
-E. 🪟 City window BIGGER. F. 💬 THE most litty chat on the internet (Familia / street chat). G. Every building + family idea = real function,
+E. 🪟 City window BIGGER. F. ✅ 2026-10-23 late — THE STREETS go lit (receipt mini charts, 📟 HITS tape, street HEAT drives the scene, 🐢 Don
+   slow mode, reaction bursts, coins trade in place; /dev/street). G. Every building + family idea = real function,
    visually advanced, live data, NO dead text.
-H. 🐱 FeeCat ✅ REDONE 2026-10-23 (see 0b). 🚀 Launch still: every process step lit-styled (drawn, live, animated), no dead forms.
+H. 🐱 FeeCat ✅ REDONE 2026-10-23 (see 0b). 🚀 Launch ✅ 2026-10-23 late — the wizard drawn (`LaunchViz.jsx`: launch stage with the curve +
+   a rocket riding your steps, step rings, minted coin face, fee ring with $ per $10K, sniper-tax decay, lit inputs + review; /dev/launch).
 
 P0 — OWNER 2026-10-22 LATEST (hardest first; finish in-flight work first, conserve usage, never dead-style)
 DONE tonight: 🐛 Familia/route crash (FamilyDeck static imports) · 🕰 15-min agent min hold (`AGENT_MIN_HOLD`) · 🪟🐱 NEXA TRADES AS FEECAT
@@ -304,7 +309,7 @@ P1 — FAMILIA = the one-stop shop in web3 (what is left)
 3. 🐛 Fuse card bug: the fix above is the one found in code — owner to confirm it was the bug they saw (if not: repro steps first).
 4. ⚡ Scale for thousands: shared pollers, 3D perf (instancing, LOD), load tests on familia-world / familia/street.
 5. ✅ Check day theme + 360 px: Avenue rooms (Night Vault included), Overwatch, Realtor (Street chat + Brain done at 360).
-6. 💬 Street chat next: per-street pinned call, slow-mode for Dons, coin-card mini charts.
+6. 💬 Street chat ✅ pinned call · slow mode · mini charts (2026-10-23). Next: typing presence · a call's own thread.
 7. City leftovers: outer cities' real-money markets · in-city swap · HELD coins + FEELESS-launched coins as buildings · ALL of FEE as city mechanics ·
    raids / hits played in-city · MP-only buildings + gold shop · $ and MP ladders · badge / card / MOBhouse customization.
 

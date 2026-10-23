@@ -15,34 +15,29 @@ Read this (2 min) → `CLAUDE.md` (lean rules + 🎨 MANDATORY STYLING + 📋 CU
 >    LIVE visual (meters, bars, animation on real numbers), never bare text. `styles/cssCoverage.test.js` fails on an unstyled class.
 
 ## 🔁 NOW (rewrite this section in place every session)
-**Updated 2026-10-23 late · Opus 5.5 (ultracode round)**
+**Updated 2026-10-23 ~04:00 · Opus 5.5**
 
-Start of every task: `backend/.venv/bin/python scripts/cash-check.py degen 30` (≈ 1 min, sandbox off). 2026-10-23 01:11: card 0.008513 SOL
-COVERED · coins atom for atom · 30/30 swaps match · 0 gap. Gas reserve 0.0074 vs 0.019 target (not card money — owner tops it up).
+Start of every task: `backend/.venv/bin/python scripts/cash-check.py degen 30` (≈ 1 min, sandbox off). 2026-10-23 03:12: card 0.009203 SOL
+COVERED · coins atom for atom · 30/30 swaps match · 0 gap. Gas reserve 0.0089 vs 0.019 target (not card money — owner tops it up).
 
-Branch: everything lives on `main` (pushed; the owner's Mac auto-pulls). Worktrees `night-1022`, `cat-program-*`, `cool-murdock-*`,
-`loving-pare-*` are old — nothing on them that main lacks unless a line below says so. Gate in `.claude/worktrees/gate` (memory: gate-under-load).
+Branch: everything lives on `main` (pushed; the owner's Mac auto-pulls). Old worktrees (`night-1022`, `cat-program-*`, `cool-murdock-*`,
+`loving-pare-*`) hold nothing main lacks. Gate + push from `.claude/worktrees/gate` (`git checkout --detach <sha>` there, then
+`git push origin <sha>:main` — the pre-push hook runs the full gate on that snapshot, ~5 min; keep editing in the main tree meanwhile).
+Services: reputation restarted 03:31 via the watcher (keep-alive PID 55631, LAN ONLINE) — serves the street slow mode / hits + town signs.
 
-### Shipped this session (2026-10-23, Opus 5.5 ultracode) — owner to look at
-- 🌆 FEE CITY BREATHES (`lib/cityPlan.js`): duplicates are ROOMS of one building (`in:` — Ladder in the Podium, Precinct + Cartels in the War
-  Room, Gym / Cards / Jobs in your HQ, Runners in Pump Radar, Watchtower in the Courthouse, Fuel in the $FEE Bank, Newsstand in the Wire; the
-  pop-out shows a room strip, `roomsOf`), market islands keep their top 4, empty cells are PARKS, bigger cells + wider water (~47 → 18 buildings).
-- 🗼 TT = ONE drawn landmark tower (`cityEngine.ttTower`): lit floors = intake coins (READY white-hot), hottest coin on the crown, searchlight.
-- 🏘 TOWN PICKER on the block: `block_markets.TOWN / town_set`, `/familia-block/act` tadd / tdel, `TownPicker` + the tool pop-out over the 3D block
-  (`deckBody`), preview `/dev/block?town=tt,perps,pools`. NEEDS the reputation restart to serve `town` (done at the end of this session if noted below).
-- 🐱 FEECAT TERMINAL REDONE: `FeeCatShell` (violet nav for all 5 pages + Fee live + your cat), `FeeCatBrainPage`, `CatBuilder` (drawn gear /
-  patterns / eyes in `Panther`, `lib/myCat`), agents = 4 tabs, `lib/feeLeader` one shared poll. Coats = 25 (`catCoats.jsx`, `catByName` for old names).
-- 🟢 OFFICIAL GREEN SWEEP: green-tinted near-black surfaces → neutral near-black, grey-green lines / text → neutral (101 sheets), meta tokens.
-  Re-run safely: the sweep keeps neon greens, golds, reds, blues and light colours (Familia / FeeCat / Launch / chat themes excluded).
-- 🎭 PROMPT STUDIO ↔ LM STUDIO: `lms_preset.py` writes "FEELESS LIVE · OSSY" (what FEELESS really sends) into ~/.lmstudio/config-presets; the
-  owner's "FEELESS FEE Master" stays untouched and only feeds LM Studio's chat window. AUTO-TUNE is ON by default for G4 + OSSY (`auto_on`).
-
-- 🤖 AGENT DESK (`CatDesk.jsx`, violet: stage, meter tiles incl. today's loss vs cap, P/L curve, lit positions → war room, limits as meters) +
-  🚀 LAUNCH-A-CAT violet (`BrainSocket`: your cat + wired brain orbs, lit step rail, sealed brief). Fixed: the agent page crashed on held coins.
-- ⚡ LAG (C): city engine no longer walks the whole scene per frame (sign list, camera-gated), idle ambient ~30 fps; block page's 1 s re-render
-  isolated (`StreetGame`). Real fps NOT measured (browser pane hidden). 📦 D: Familia = its own lazy chunk (`lib/familiaLoad`, `CrewCard.jsx`
-  light pieces), terminal page JS 2,708 → 2,426 KB. E (bigger city window) was already done (88vh).
-- NEXT: F (littest chat) · G · H Launch page redo · B pools/perps earn · town building live numbers on signs · F0.1 perps = owner + legal.
+### Shipped this session (2026-10-23 late) — owner to look at
+- 💬 THE STREETS go lit (`StreetChat.jsx`, `street_chat.py`): receipt mini charts (call → now, ≤ 40-point trail kept by the 60 s call refresh),
+  📟 HITS tape (best calls of 24 h), street HEAT 0–3 drives the drawn street (rain / neon / windows / lightning) + heat meter, 🐢 slow mode
+  (Dons + staff; 10 / 30 / 60 s, 30 min, enforced on POST /chat for `city-*`), reaction bursts, coins open the Familia trade desk. /dev/street?heat=0-3.
+- 🏘 TOWN SIGNS live: GET /api/reputation/familia-town/live (`town_live.py`, 45 s, all sources in parallel) → 3D signs, CSS block, picker.
+- 🚀 LAUNCH drawn (`LaunchViz.jsx`, `launchViz.css`): launch stage (your curve, rocket rides the steps), step rings, coin face, fee ring with
+  $ per $10K, sniper-tax decay, lit inputs, lit review + deploy phases. Visual only. /dev/launch (pre-filled; press Review).
+- 💸 one STAKE picker ($5 · $100 · $1K, `lib/earnStake`): Pool Hall rows quote a day + a year; Perps desk money read + P&L fan (`EarnStake.jsx`).
+- 🌹 LA FAMILIA = ITS OWN APP: /familia/* (`FamiliaApp.jsx`, `familiaApp.css`) — own bar + nav (deep links), pulse, wallet, phone dock;
+  sidebar 'La Familia 🌹'; MOB › Familia has '⛶ OPEN THE FAMILIA APP'. Crews takes `bare` + `tab` / `onTab`.
+- NEXT (CLAUDE.md order): G (every building / family idea = real function, live, no dead text — Wars empty state is bare text) ·
+  ⚙ fees in HQ › Core (FeeCat `FEE_PER_SIDE`, `MAX_CREATOR_BPS`, `FEECAT_RATE` still hard-coded) · HQ Agents + FeeCat tabs text walls → visuals ·
+  block readers (Orca / Raydium in-range) · NEXA one-line prompts · F0.1 / A perps in-app = owner + legal first.
 
 ### Still live from the day before (grep the history for details)
 Brain › Models (`ModelDesk.jsx`, `model_desk.py`) · Prompt Studio (`prompt_studio.py`, `ai_router.with_studio`) · OSSY × G4 strict turns ·

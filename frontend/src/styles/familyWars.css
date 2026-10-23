@@ -100,3 +100,29 @@ body.fx-lite .fwr-arena .sp, body.fx-lite .fwr-vsm .bolt, body.fx-lite .fwr-spar
 @media (prefers-reduced-motion: reduce) { .fwr-arena .sp, .fwr-vsm .bolt, .fwr-log li { animation: none; } .fwr-sparks { display: none; } .fwr-crest, .fwr-meters u i { transition: none; } }
 body.theme-day .fwr-side b { color: #3a2a0a; } body.theme-day .fwr-arena .fl, body.theme-day .fwr-arena .crowd circle { opacity: .12; } body.theme-day .fwr-meters > span > b { color: #3a2a0a; }
 @media (max-width: 640px) { .fwr-vs { grid-template-columns: minmax(0, 1fr) 40px minmax(0, 1fr); gap: 4px; } .fwr-vsm { width: 40px; height: 40px; } .fwr-side { padding: 8px 4px; } .fwr-side b { font-size: 12.5px; } .fwr-side em { font-size: 16px; } .fwr-meters > span { grid-template-columns: 34px minmax(0, 1fr) auto; } }
+/* 🏟 the quiet front — an empty war room drawn: the ring with nobody in it, the families that could step in, how a war runs in 4 lit steps */
+.fwr-quiet { display: grid; gap: 12px; padding: 12px; border-radius: 16px; border: 1px solid #d4af3740; background: linear-gradient(170deg, #1a0c0a, #0b0605 60%); box-shadow: inset 0 1px 0 #ffe9a81a; animation: fwrIn .35s ease-out both; }
+.fwr-quiet-ring { position: relative; isolation: isolate; overflow: hidden; display: grid; place-items: center; gap: 4px; min-height: 170px; border-radius: 12px; --ca: #d4af37; --cb: #b3122e; }
+.fwr-quiet-ring .fwr-arena .sp { opacity: .14; animation: fwrSway 9s ease-in-out infinite; } .fwr-quiet-ring .fwr-arena .sp-b { animation-delay: -4.5s; }
+.fwr-quiet-ring .fwr-vsm .bolt { animation: fwrBreathe 3.4s ease-in-out infinite; }
+.fwr-quiet-sign { display: grid; justify-items: center; gap: 2px; padding: 6px 14px; border-radius: 10px; border: 2px solid #ff4d6d; background: #0b0605cc; box-shadow: 0 0 16px #ff4d6d55, inset 0 0 10px #ff4d6d33; }
+.fwr-quiet-sign b { font: 900 13px 'JetBrains Mono', monospace; letter-spacing: .24em; color: #ffd1d8; text-shadow: 0 0 10px #ff4d6d; animation: fwrPulse 2.6s ease-in-out infinite; }
+.fwr-quiet-sign small { font: 600 10.5px 'JetBrains Mono', monospace; color: #e8c9a0; text-align: center; max-width: 340px; }
+.fwr-contenders > em { font: 800 8.5px 'JetBrains Mono', monospace; font-style: normal; letter-spacing: .18em; color: #c9a24a; }
+.fwr-contenders ol { list-style: none; margin: 6px 0 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 6px; }
+.fwr-contenders li { display: grid; grid-template-columns: 30px minmax(0, 1fr) 70px auto; align-items: center; gap: 8px; padding: 6px 9px; border-radius: 10px; border: 1px solid #d4af3730; background: #0d0806cc; animation: fwrIn .3s ease-out both; animation-delay: calc(var(--i) * 50ms); }
+.fwr-cname { display: grid; min-width: 0; } .fwr-cname b { font: italic 700 13px 'Playfair Display', Georgia, serif; color: #f5e2b0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.fwr-cname small { font: 600 9px 'JetBrains Mono', monospace; color: #a8987a; }
+.fwr-contenders u { height: 5px; border-radius: 5px; background: #ffffff10; overflow: hidden; } .fwr-contenders s { display: block; height: 100%; transform-origin: left; background: #45e486; transition: transform .5s ease; } .fwr-contenders s.dn { background: #ff8fa3; }
+.fwr-contenders li > em { font: 800 12px 'JetBrains Mono', monospace; font-style: normal; }
+.fwr-howto { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; }
+.fwr-howto li { position: relative; display: grid; gap: 2px; padding: 8px 10px; border-radius: 10px; border: 1px solid #d4af3733; background: linear-gradient(160deg, #2a140e, #0d0806); animation: fwrIn .3s ease-out both; animation-delay: calc(var(--i) * 60ms); }
+.fwr-howto li:not(:last-child)::after { content: '›'; position: absolute; right: -7px; top: 50%; transform: translateY(-50%); color: #d4af37; font: 900 14px 'JetBrains Mono', monospace; z-index: 1; }
+.fwr-howto i { font-style: normal; font-size: 16px; } .fwr-howto b { font: 900 10px 'JetBrains Mono', monospace; letter-spacing: .14em; color: #f1d27a; } .fwr-howto small { font: 600 9.5px 'JetBrains Mono', monospace; color: #c8b58c; }
+.fwr-quiet-go { justify-self: center; min-height: 38px; }
+body.fx-lite .fwr-quiet, body.fx-lite .fwr-quiet-ring .fwr-arena .sp, body.fx-lite .fwr-quiet-ring .fwr-vsm .bolt, body.fx-lite .fwr-quiet-sign b, body.fx-lite .fwr-contenders li, body.fx-lite .fwr-howto li { animation: none; }
+@media (prefers-reduced-motion: reduce) { .fwr-quiet, .fwr-quiet-ring .fwr-arena .sp, .fwr-quiet-ring .fwr-vsm .bolt, .fwr-quiet-sign b, .fwr-contenders li, .fwr-howto li { animation: none; } .fwr-contenders s { transition: none; } }
+body.theme-day .fwr-quiet { background: #fbf4e6; border-color: #c9a24a66; } body.theme-day .fwr-quiet-sign { background: #fff8eacc; } body.theme-day .fwr-quiet-sign b { color: #9a1a2e; text-shadow: none; }
+body.theme-day .fwr-quiet-sign small, body.theme-day .fwr-howto small, body.theme-day .fwr-cname small { color: #6a5a3a; } body.theme-day .fwr-contenders li, body.theme-day .fwr-howto li { background: #fff8ea; }
+body.theme-day .fwr-cname b { color: #3a2a0a; } body.theme-day .fwr-howto b { color: #8a6400; }
+@media (max-width: 640px) { .fwr-howto { grid-template-columns: 1fr 1fr; } .fwr-howto li:nth-child(2)::after { display: none; } .fwr-contenders ol { grid-template-columns: 1fr; } }
