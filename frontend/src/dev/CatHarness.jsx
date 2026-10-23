@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { MemoryRouter } from 'react-router-dom';
 import { CatDesk } from '../components/command/CatDesk';
 import { CatReal } from '../components/command/CatReal';
+import { BrainPanel } from '../components/command/LaunchCat';
 import { WalletProvider } from '../hooks/useWallet';
 
 // 🧪 DEV ONLY (`/dev/cats`): one agent's desk with REAL MODE on a fixture cat — paper (go-real) and real (proposals) — nothing reaches the server.
@@ -20,6 +21,13 @@ export default function CatHarness() {
   const [mode, setMode] = useState(window.location.search.includes('paper') ? 'paper' : 'real');
   const cat = mode === 'real' ? { ...BASE, mode: 'real', realWallet: DEV, budgetSol: 0.05, proposals: PROPS, realHeld: { M1: { symbol: 'GERM' } } } : BASE;
   const act = async a => { if (a === 'real') setMode('real'); if (a === 'paper') setMode('paper'); };
+  // 🧭 ?general = a General AI cat: its brain panel with YOUR ORDERS (one proposed, one filled on paper, one stopped by a guard)
+  const gen = window.location.search.includes('general');
+  const g = gen ? { ...cat, brainsCfg: { kind: 'general', brains: ['openai/gpt-oss-20b'], brainMode: 'turns', credit: 9.2, asks: 3, spent: 0.8, owed: 0, billing: 'profit', prompt: 'small buys only', decisions: [], chime: [] },
+    orders: [{ at: now - 900, text: 'buy 1 SOL of $RUG', order: { side: 'buy', coin: 'RUG', sol: 1 }, state: 'refused', why: '💧 pool $3,000 — under the $5,000 floor (you could not get out)' },
+      { at: now - 400, text: 'sell half of $GERM', order: { side: 'sell', coin: 'GERM', fraction: 0.5 }, state: 'filled', why: '📄 paper: sold 50% at the live price' },
+      { at: now - 60, text: 'buy 0.05 SOL of $JUP', order: { side: 'buy', coin: 'JUP', sol: 0.05 }, state: 'proposed', why: '✍ buy 0.05 SOL — guards passed, waiting for your wallet\'s signature' }] } : cat;
   return <MemoryRouter><WalletProvider><div style={{ minHeight: '100vh', padding: 16, background: '#07040d', boxSizing: 'border-box' }}><div style={{ maxWidth: 1180, margin: '0 auto' }}>
-    <CatDesk cat={cat} onBack={() => {}} onAct={act} Real={<CatReal cat={cat} onAct={act} devAddress={DEV} />} /></div></div></WalletProvider></MemoryRouter>;
+    <CatDesk cat={g} onBack={() => {}} onAct={act} Real={<CatReal cat={g} onAct={act} devAddress={DEV} />}
+      Brains={gen ? <BrainPanel cat={g} api={async () => ({ cat: g })} onChanged={() => {}} /> : null} /></div></div></WalletProvider></MemoryRouter>;
 }

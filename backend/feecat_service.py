@@ -29,6 +29,7 @@ from pydantic import BaseModel
 import feecat_brain
 import launch_cat as _lc
 import cat_real as _real   # 💵 real-money cats = option A: the user's wallet signs every trade (docs/DECISIONS.md #2)
+import cat_orders as _co   # 🧭 a General AI cat's plain-words orders → one guarded proposal
 import cat_model as _cm
 
 DATA_DIR = Path(__file__).parent / 'data'
@@ -990,6 +991,8 @@ async def run_engine(store, cats):
             _log_event(store, cat, 'LEARN', f"Discipline: {disc['why']}.")
         if disc['pause']:
             continue
+        if (cat.get('brainsCfg') or {}).get('kind') == 'general':   # 🧭 a General cat buys only what YOU order (its stops still run above)
+            continue
         block = {x.upper() for x in cat['risk'].get('blocklist') or []}
         allow = {x.upper() for x in cat['risk'].get('allowlist') or []}
         safety_checks = 0
@@ -1358,6 +1361,7 @@ class CreatePayload(BaseModel):
     blocklist: Optional[str] = ''
     brains: Optional[list] = None
     brainMode: Optional[str] = None
+    brainKind: Optional[str] = None    # 📈 trading · 🧭 general (set once at launch)
     billing: Optional[str] = None
     prompt: Optional[str] = None
     look: Optional[dict] = None
@@ -1610,6 +1614,78 @@ async def get_cat(cat_id: str):
     return _pub({'cat': cat})
 
 
+async def _order_pair(http, coin):
+    """An order's coin → its deepest Solana pool (a mint → DexScreener /tokens; a symbol → /search)."""
+    try:
+        if re.fullmatch(_co.MINT, str(coin)):
+            r = await http.get(f'https://api.dexscreener.com/latest/dex/tokens/{coin}')
+        else:
+            r = await http.get('https://api.dexscreener.com/latest/dex/search', params={'q': str(coin).lstrip('$')})
+        return _co.best_pair((r.json() or {}).get('pairs') or [], coin)
+    except Exception:
+        return None
+
+
+async def _run_order(store, cat, text, http):
+    """🧭 A General cat's order: understood (words first, its brain only when the words don't parse) → guarded → REAL = a proposal your wallet
+    signs · paper = a paper fill. → the order-log row (also on cat['orders'])."""
+    now = time.time()
+    b = cat.get('brainsCfg') or {}
+    order = _co.parse_order(text)
+    if not order and _brains_live() and _lc.can_ask(b) and b.get('brains'):
+        reply, usd = await _or_call(b['brains'][0], [{'role': 'system', 'content': _co.ORDER_SYS}, {'role': 'user', 'content': str(text)[:300]}])
+        _lc.charge(b, usd)
+        order = _co.order_from_json(reply)
+    if not order:
+        return _co.note(cat, text, None, 'unclear', '🤔 not a buy or a sell of one coin — try "buy 0.05 SOL of $BONK" or "sell half of $WIF"', now)
+    if order['side'] == 'sell':
+        pos = _co.held_of(cat.get('positions'), order['coin'])
+        if not pos:
+            return _co.note(cat, text, order, 'refused', f"🫥 it holds no ${order['coin']}", now, order['coin'])
+        if _real.is_real(cat):
+            p_ = _real.propose(cat, 'sell', pos.get('mint'), pos.get('pairAddress'), pos.get('symbol'), f"your order: {text}", now, fraction=order['fraction'], px=pos.get('lastPx'))
+            if not p_:
+                return _co.note(cat, text, order, 'refused', '🫥 nothing real behind that coin to sell', now, pos.get('symbol'))
+            _notify_real(cat, p_)
+            return _co.note(cat, text, order, 'proposed', f"✍ sell {round(order['fraction'] * 100)}% — waiting for your wallet's signature", now, pos.get('symbol'), p_['id'])
+        live = (await _pair_prices(http, [pos['pairAddress']])).get(pos['pairAddress']) or {}
+        px = _num(live.get('priceNative')) or _num(pos.get('lastPx'))
+        if not px:
+            return _co.note(cat, text, order, 'refused', '📡 no live price right now — try again in a minute', now, pos.get('symbol'))
+        if order['fraction'] >= 0.999:
+            cat['positions'].remove(pos)
+        _close(store, cat, pos, px, f"🧭 your order: {text}", order['fraction'], _num(live.get('marketCap') or live.get('fdv')))
+        return _co.note(cat, text, order, 'filled', f"📄 paper: sold {round(order['fraction'] * 100)}% at the live price", now, pos.get('symbol'))
+    p = await _order_pair(http, order['coin'])
+    ok, why = _co.buy_guards(p, now * 1000)
+    if not ok:
+        return _co.note(cat, text, order, 'refused', why, now, order['coin'])
+    sym = (p.get('baseToken') or {}).get('symbol') or order['coin']
+    safe, swhy, _conv = await _safety(http, p)
+    if not safe:
+        return _co.note(cat, text, order, 'refused', f'🛡 {swhy}', now, sym)
+    real = _real.is_real(cat)
+    sol, capped = _co.size_of(order, _num((cat.get('risk') or {}).get('maxPositionSol')) or None, cat.get('budgetSol') if real else None)
+    px = _num(p.get('priceNative'))
+    if real:
+        p_ = _real.propose(cat, 'buy', (p.get('baseToken') or {}).get('address'), p.get('pairAddress'), sym, f"your order: {text}", now, sol=sol, px=px)
+        if not p_:
+            return _co.note(cat, text, order, 'refused', '🫥 could not build the proposal', now, sym)
+        _notify_real(cat, p_)
+        return _co.note(cat, text, order, 'proposed', f"✍ buy {p_['sol']:g} SOL{capped} — guards passed, waiting for your wallet's signature", now, sym, p_['id'])
+    if sol <= 0 or cat.get('balanceSol', 0) < sol or not px:
+        return _co.note(cat, text, order, 'refused', f"💰 paper balance {cat.get('balanceSol', 0):.3f} SOL — not enough for {sol:g} SOL", now, sym)
+    cat['balanceSol'] = round(cat['balanceSol'] - sol, 6)
+    cat['positions'].append({'mint': (p.get('baseToken') or {}).get('address'), 'pairAddress': p.get('pairAddress'), 'symbol': sym, 'provider': 'DexScreener',
+                             'url': p.get('url'), 'costSol': sol, 'notionalSol': round(sol * (1 - fee_side()), 6), 'entryPriceNative': px, 'entryPriceUsd': p.get('priceUsd'),
+                             'entryChange': 0, 'currentChange': 0, 'peakChange': 0, 'openedAt': now, 'reason': public_words(f'🧭 your order: {text}'),
+                             'entryLiq': _num((p.get('liquidity') or {}).get('usd')), 'conviction': 1.0, 'entryMarketCapUsd': _num(p.get('marketCap') or p.get('fdv')),
+                             'entryVolH1': _num((p.get('volume') or {}).get('h1')), 'plannedSol': sol, 'firstEntryPriceNative': px, 'adds': 0, 'profitTaken': 0,
+                             'peakPx': px, 'order': True})
+    _log_event(store, cat, 'BUY', f"Bought {sol} SOL of {sym} at live price — 🧭 your order (paper).", None, p.get('pairAddress'), px, _num(p.get('marketCap') or p.get('fdv')))
+    return _co.note(cat, text, order, 'filled', f"📄 paper: bought {sol:g} SOL{capped} at the live price — guards passed", now, sym)
+
+
 class ActionPayload(BaseModel):
     action: str
     ownerId: Optional[str] = None      # 🔒 every action is the cat's own owner's (the browser id that created it)
@@ -1676,6 +1752,13 @@ async def cat_action(cat_id: str, payload: ActionPayload, request: Request):
             _lc.chime(cat['brainsCfg'], payload.text)
         except ValueError as e:
             raise HTTPException(400, str(e))
+    elif payload.action == 'order':   # 🧭 a GENERAL cat: your order in plain words → one guarded proposal (real) or a paper fill
+        if (cat.get('brainsCfg') or {}).get('kind') != 'general':
+            raise HTTPException(400, 'Only a General AI cat takes orders — a Trading cat hunts on its own.')
+        if not str(payload.text or '').strip():
+            raise HTTPException(400, 'Write the order first — e.g. "buy 0.05 SOL of $BONK".')
+        async with httpx.AsyncClient(timeout=15) as http_o:
+            await _run_order(store, cat, payload.text, http_o)
     elif payload.action == 'pull':   # 🚀 pull everything: positions sold at the last live price, balance out, locked until a top-up
         for pos in list(cat['positions']):
             cat['positions'].remove(pos)

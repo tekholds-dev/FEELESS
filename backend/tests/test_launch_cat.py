@@ -17,7 +17,7 @@ def test_slim_categorizes_and_prices_a_decision():
 
 def test_catalog_puts_our_three_on_top_when_listed():
     c = lc.catalog([ROW, BIG, {'id': 'a/b:batch'}])
-    assert [r['tag'] for r in c['rec']] == ['OSSY'] and len(c['models']) == 2
+    assert [r['tag'] for r in c['rec']] == ['FEELESS PICK'] and len(c['models']) == 2   # 🔒 public tags never name OSSY / G4 / NEXA
     assert any(k['key'] == 'meta' and k['n'] == 1 for k in c['cats'])
 
 

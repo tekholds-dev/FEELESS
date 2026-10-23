@@ -45,8 +45,8 @@ const tradeCard = event => ({
   footer: 'FEELESS · trade receipt',
 });
 
-function PaperBadge() {
-  return <span className="paper-badge"><i /> PAPER TRADING · NO REAL SOL</span>;
+function PaperBadge() {   // 💵 the AI cats are real-first (your wallet signs every trade); paper is the test toggle
+  return <span className="paper-badge" data-tip="FEELESS never holds your SOL or a key — every real trade is a proposal YOUR wallet signs. Paper is a free test."><i /> YOUR WALLET SIGNS · NO KEYS HELD</span>;
 }
 
 function AvatarPicker({ value, onChange }) {
@@ -167,7 +167,9 @@ export default function FeeCatsPlatform() {
   const launchParams = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : new URLSearchParams();
   const mine = readMyCat(); const pa = Number(launchParams.get('avatar'));
   const presetAvatar = Number.isInteger(pa) && pa >= 0 && launchParams.get('avatar') !== null ? pa : (mine ? mine.coat : 0);
-  const [view, setView] = useState(launchParams.get('create') === '1' ? 'create' : 'cats');
+  const [view, setView] = useState(launchParams.get('create') === '1' ? 'new' : 'cats');   // 🎨 Build a cat › "Give it a job" lands on the brain pick (it used to skip to the paper wizard)
+  const [kind, setKind] = useState('trading');
+  const pickKind = k => { if (k === 'trading' || k === 'general') { setKind(k); setView('launch'); } else setView(k); };   // 📈 / 🧭 → models → your wallet → REAL
   const [cats, setCats] = useState([]);
   const [selected, setSelected] = useState(null);
   const [error, setError] = useState('');
@@ -175,24 +177,24 @@ export default function FeeCatsPlatform() {
   useEffect(() => { loadCats(); }, [loadCats]);
   const openCat = cat => { setSelected(cat); setView('cat'); };
   const openReal = cat => { openCat(cat); setTimeout(() => document.querySelector('[data-testid="cat-real"]')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 250); };   // 💵 straight to its wallet switch
-  const created = cat => { setCats(current => [cat, ...current]); openCat(cat); };
+  const created = cat => { setCats(current => [cat, ...current]); openReal(cat); };   // 💵 a new cat lands on its wallet switch (link → budget → REAL)
   const live = cats.filter(c => !c.revoked);   // 🤖 agents that count toward the 2-agent limit
   const TABS = [['cats', <><Cat size={14} /> My agents <span>{live.length}/{AGENT_MAX}</span></>, 'Your trading cats with their live P&L'],
-    ['new', <><Plus size={14} /> New agent</>, 'Pick a rule trader or an AI trader — up to 2 agents'],
+    ['new', <><Plus size={14} /> New agent</>, 'A Trading AI cat or a General AI cat — models → your wallet → REAL · up to 2 agents'],
     ['activity', <><Activity size={14} /> Live activity</>, 'Every cat\'s buys and sells as they happen'],
     ['leaderboard', <><Trophy size={14} /> Leaderboard</>, 'Every cat ranked by real paper results']];
   const on = k => (k === 'new' ? ['new', 'create', 'launch'].includes(view) : k === 'cats' ? ['cats', 'cat'].includes(view) : view === k);
-  return <div className="fee-cats-platform fc-v2"><header className="paper-platform-head"><div><span className="eyebrow"><Cat size={14} /> AGENTS · CATS THAT TRADE FOR YOU</span><h1>Give your cat a <em>job.</em></h1><p>Paper agents on real, live Solana prices — your name, your look, your limits. No real SOL at risk.</p></div>
+  return <div className="fee-cats-platform fc-v2"><header className="paper-platform-head"><div><span className="eyebrow"><Cat size={14} /> AGENTS · CATS THAT TRADE FOR YOU</span><h1>Give your cat a <em>job.</em></h1><p>AI cats on live Solana — 1–2 models, your name, your look, your limits. Every real trade is a proposal your wallet signs; test it on paper first if you like.</p></div>
     <div className="paper-platform-actions"><PaperBadge /><span className="fc-slots" data-tip={`${live.length} of ${AGENT_MAX} agent slots used`} aria-label={`${live.length} of ${AGENT_MAX} agents`}>{Array.from({ length: AGENT_MAX }, (_, k) => <i key={k} className={k < live.length ? 'is-on' : ''} />)}</span></div></header>
     <nav className="paper-platform-tabs" aria-label="Agents">{TABS.map(([k, label, tip]) => <button key={k} type="button" className={on(k) ? 'active' : ''} onClick={() => { setSelected(null); setView(k); }} data-testid={`fc-tab-${k}`} data-tip={tip}>{label}</button>)}</nav>
     {error && <div className="paper-inline-message" role="alert"><AlertTriangle size={14} />{error}</div>}
-    {view === 'new' && <AgentPicker count={live.length} onPick={k => setView(k)} />}
+    {view === 'new' && <AgentPicker count={live.length} onPick={pickKind} />}
     {view === 'create' && <CreateCat onCreated={created} onCancel={() => setView('cats')} presetAvatar={presetAvatar} />}
     {view === 'cat' && selected && <CatDetail cat={selected} onBack={() => setView('cats')} onChanged={cat => { setSelected(cat); setCats(current => current.map(item => item.id === cat.id ? cat : item)); }} />}
     {view === 'activity' && <div className="paper-single-column"><ActivityFeed /></div>}
-    {view === 'launch' && <LaunchCat api={api} ownerId={ownerId} onCreated={created} onCancel={() => setView('cats')} Fields={CatFields} newForm={catForm} formOk={catOk} avatarOf={i => (CAT_VARIATIONS[i] || CAT_VARIATIONS[0])[0]} Preview={CatPreview} />}
+    {view === 'launch' && <LaunchCat key={kind} kind={kind} api={api} ownerId={ownerId} onCreated={created} onCancel={() => setView('cats')} Fields={CatFields} newForm={() => catForm(presetAvatar)} formOk={catOk} avatarOf={i => (CAT_VARIATIONS[i] || CAT_VARIATIONS[0])[0]} Preview={CatPreview} />}
     {view === 'leaderboard' && <div className="paper-single-column"><Leaderboard onOpen={openCat} /></div>}
-    {view === 'cats' && <section className="paper-my-cats">{!cats.length ? <><div className="paper-panel-head"><div><span className="eyebrow">YOUR AGENTS · 0/{AGENT_MAX}</span><h2>No cats on the job yet — pick a brain.</h2></div></div><AgentPicker count={0} onPick={k => setView(k)} /></>
+    {view === 'cats' && <section className="paper-my-cats">{!cats.length ? <><div className="paper-panel-head"><div><span className="eyebrow">YOUR AGENTS · 0/{AGENT_MAX}</span><h2>No cats on the job yet — pick a brain.</h2></div></div><AgentPicker count={0} onPick={pickKind} /></>
       : <><div className="paper-panel-head"><div><span className="eyebrow">YOUR AGENTS · {live.length}/{AGENT_MAX}</span><h2>Tap a cat to see its desk</h2></div><button type="button" className="btn-outline" onClick={() => setView('new')} disabled={live.length >= AGENT_MAX}><Plus size={14} /> New agent</button></div>
         <div className="paper-my-cat-grid">{cats.map(cat => { const real = cat.mode === 'real' && !!cat.realWallet; const pend = (cat.proposals || []).filter(p => p.status === 'pending').length;
           return <div key={cat.id} className={`cw-card ${real ? 'is-real' : ''}`} data-testid={`cw-${cat.id}`}><button type="button" className="paper-my-cat-card" onClick={() => openCat(cat)}><span className="paper-my-cat-art"><LookAvatar cat={catByName(cat.avatar)} look={cat.look} /></span><span><b>{cat.name}</b><small>{cat.status.toUpperCase()} · LVL {cat.level}</small></span><strong className={cat.realizedPnlSol >= 0 ? 'positive' : 'negative'}>{money(cat.realizedPnlSol)}</strong><ChevronRight size={15} /></button>

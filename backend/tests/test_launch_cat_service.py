@@ -18,7 +18,7 @@ def _svc(tmp_path, monkeypatch):
 
 def test_launch_with_two_brains_then_chime_pull_and_topup(tmp_path, monkeypatch):
     fs, c = _svc(tmp_path, monkeypatch)
-    assert c.get('/api/cats/models').json()['rec'][0]['tag'] == 'OSSY'
+    assert c.get('/api/cats/models').json()['rec'][0]['tag'] == 'FEELESS PICK'
     r = c.post('/api/cats', json={'ownerId': 'w', 'name': 'Duo', 'handle': 'duo', 'brains': ['openai/gpt-oss-20b', 'qwen/qwen3-4b-2507'],
                                   'brainMode': 'battle', 'billing': 'payg', 'prompt': 'only buy germ floors'})
     cat = r.json()['cat']

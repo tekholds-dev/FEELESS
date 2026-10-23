@@ -90,6 +90,7 @@
 .lct-dec { list-style: none; margin: 0; padding: 0; display: grid; gap: 5px; }
 .lct-dec li { display: grid; grid-template-columns: 54px 1fr; gap: 2px 10px; padding: 7px 9px; border-radius: 10px; background: #ffffff06; font-size: 11.5px; animation: lctIn .25s ease-out both; animation-delay: calc(var(--i, 0) * 40ms); }
 .lct-dec li b { grid-row: span 2; align-self: center; font: 800 11px 'JetBrains Mono', monospace; } .lct-dec li small { color: #9d8fbf; }
+.lct-dec li.lct-load { display: block; }   /* the empty line spans the row (it was squeezed into the 54px word column) */
 .lct-dec .w-buy b, .lct-dec .w-hold b { color: #45e486; } .lct-dec .w-sell b, .lct-dec .w-skip b { color: #ff8fa3; } .lct-dec .w-trim b { color: #ffe08a; } .lct-dec .w-rules b { color: #9d8fbf; }
 .lct-chime { display: flex; gap: 6px; } .lct-chime .m-input { flex: 1; } .lct-acts { display: flex; flex-wrap: wrap; gap: 8px; }
 @keyframes lctIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
@@ -98,8 +99,35 @@
 @keyframes lctBeam { 0% { transform: scaleX(0); } 50% { transform: scaleX(1); } 100% { transform: scaleX(0) translateX(120px); } }
 @keyframes lctSpin { to { transform: rotate(360deg); } }
 @keyframes lctClashL { 50% { transform: translateX(34px) rotate(-8deg); } } @keyframes lctClashR { 50% { transform: translateX(-34px) rotate(8deg); } }
+/* 💵 the path after launch: launch → link your wallet → budget → REAL (chips on a beam) */
+.lct-next { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 0; font: 700 10px 'JetBrains Mono', monospace; color: #c9bce6; }
+.lct-next i { font-style: normal; padding: 3px 9px; border-radius: 999px; background: rgba(255, 255, 255, .05); border: 1px solid rgba(180, 140, 255, .3); }
+.lct-next i.is-real { color: #08170e; background: #45e486; border-color: transparent; box-shadow: 0 0 14px -3px #45e486; }
+.lct-next u { position: relative; width: 22px; height: 2px; overflow: hidden; background: rgba(180, 140, 255, .25); } .lct-next u::before { content: ''; position: absolute; inset: 0; width: 60%;
+  background: linear-gradient(90deg, transparent, #c9b6ff, transparent); animation: lctRun 1.8s linear infinite; }
+@keyframes lctRun { from { transform: translateX(-100%); } to { transform: translateX(220%); } }
+.lct.is-general { --lct-k: #5ad1ff; } .lct.is-general .lct-head .eyebrow { color: #5ad1ff; }
+/* 🧭 a General cat's orders: the box, examples, and the log (icon · what it understood · what happened) */
+.lct-orders { display: grid; gap: 8px; padding: 12px; border-radius: 12px; background: linear-gradient(160deg, rgba(90, 209, 255, .1), rgba(10, 8, 20, .6)); border: 1px solid rgba(90, 209, 255, .35); }
+.lct-orders-h { display: flex; justify-content: space-between; gap: 8px; flex-wrap: wrap; } .lct-orders-h b { font: 800 11px 'JetBrains Mono', monospace; letter-spacing: .12em; color: #5ad1ff; }
+.lct-orders-h small { font-size: 11px; color: #b8acd6; }
+.lct-order-form { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 6px; }
+.lct-order-ex { display: flex; flex-wrap: wrap; gap: 6px; } .lct-order-ex button { min-height: 32px; padding: 4px 10px; border-radius: 999px; cursor: pointer; font: 700 10.5px 'JetBrains Mono', monospace;
+  color: #bfe9ff; background: rgba(90, 209, 255, .08); border: 1px dashed rgba(90, 209, 255, .4); transition: transform .15s ease, border-color .15s ease; }
+.lct-order-ex button:hover { transform: translateY(-1px); border-color: #5ad1ff; } .lct-order-ex button:active { transform: scale(.97); } .lct-order-ex button:focus-visible { outline: 2px solid #5ad1ff; outline-offset: 2px; }
+.lct-order-log { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
+.lct-order-log li { display: grid; grid-template-columns: 24px auto minmax(0, 1fr); gap: 8px; align-items: center; padding: 6px 8px; border-radius: 9px; background: rgba(255, 255, 255, .03);
+  border-left: 3px solid #5ad1ff; animation: lctIn .3s ease both; animation-delay: calc(var(--i, 0) * 50ms); }
+.lct-order-log li i { font-style: normal; } .lct-order-log li b { font: 800 10.5px 'JetBrains Mono', monospace; color: #fff; white-space: nowrap; }
+.lct-order-log li small { font-size: 11px; color: #b8acd6; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.lct-order-log li.is-fill { border-left-color: #45e486; } .lct-order-log li.is-prop { border-left-color: #ffd36b; } .lct-order-log li.is-stop { border-left-color: #ff8fa3; } .lct-order-log li.is-unclear { border-left-color: #9d90bd; }
 body.fx-lite .lct *, body.reduced-motion-setting .lct * { animation: none !important; }
+body.fx-lite .lct-order-log li, body.fx-lite .lct-next u::before { animation: none; }
 @media (prefers-reduced-motion: reduce) { .lct *, .lct-brains * { animation: none !important; transition: none !important; } }
+body.theme-day .lct-orders { background: #eefaff; } body.theme-day .lct-orders-h b { color: #0a6e96; } body.theme-day .lct-orders-h small, body.theme-day .lct-order-log li small { color: #3f5868; }
+body.theme-day .lct-order-log li { background: #fff; } body.theme-day .lct-order-log li b { color: #102530; } body.theme-day .lct-order-ex button { color: #0a6e96; background: #fff; }
+body.theme-day .lct-next { color: #4a3a6a; } body.theme-day .lct-next i { background: #fff; } body.theme-day .lct-next i.is-real { background: #0c8a45; color: #fff; }
+@media (max-width: 640px) { .lct-order-form { grid-template-columns: 1fr; } .lct-order-log li { grid-template-columns: 22px minmax(0, 1fr); } .lct-order-log li small { grid-column: 2; } }
 body.theme-day .lct { background: radial-gradient(110% 70% at 0% 0%, #ece2ff 0%, #f7f2ff 55%, #fff 100%); border-color: #7c4dff33; }
 body.theme-day .lct-head h2 { color: #2a1650; } body.theme-day .lct-head h2 em { color: #a3166b; text-shadow: none; }
 body.theme-day .lct-tile, body.theme-day .lct-modes button, body.theme-day .lct-steps button { color: #2a1650; background: #fff; border-color: #7c4dff26; }

@@ -10,7 +10,12 @@ import '../../styles/launchCat.css';
 // ONE brief they keep for life, choose how model calls are paid. A brain is asked once before a buy and ≤ 3 times while the coin is live,
 // only on a ±10% move — so credit pays for decisions, never a chat loop. You can chime in (advice); you never trade for it. Paper cats.
 export const SORTS = [['smart', '♟ Smartest'], ['cheap', '💸 Cheapest'], ['ctx', '📚 Biggest memory'], ['new', '🆕 Newest']];
-export const STEPS = ['🧠 Brains', '🤝 How they work', '🐱 Identity + risk + brief', '🚀 Launch'];
+export const STEPS = ['🧠 Brains', '🤝 How they work', '🐱 Identity + risk + brief', '🚀 Launch → 💵 go real'];
+// 📈 TRADING hunts coins on its own · 🧭 GENERAL does what you order (owner, 2026-10-23) — both end on the wallet switch (link → budget → REAL)
+export const KIND = { trading: { eyebrow: '📈 TRADING AI CAT', cat: 'trading', brief: '📜 THE BRIEF', hint: 'e.g. Only buy coins sitting on their germ floor with higher lows. Bank half at +30%. Never chase a green candle.',
+  pitch: 'Pick 1–2 trading models. They decide once before a buy and up to 3 times while a coin is live — only on a ±10% move.' },
+  general: { eyebrow: '🧭 GENERAL AI CAT', cat: '', brief: '📜 STANDING ORDERS', hint: 'e.g. Keep it simple: small buys only, never more than 0.1 SOL a coin. Check the pool and holders before every buy.',
+  pitch: 'Pick 1–2 all-round models. You order in plain words — "buy 0.05 SOL of $JUP", "sell half of my WIF" — it checks the coin, then your wallet signs.' } };
 const PAGE = 60;
 const CHIP = { degen: 'lct-c-degen', trading: 'lct-c-trading', thinking: 'lct-c-thinking', reasoning: 'lct-c-reasoning', meta: 'lct-c-meta', free: 'lct-c-free' };
 const DUO = { turns: 'is-turns', discuss: 'is-discuss', together: 'is-together', battle: 'is-battle' };
@@ -66,9 +71,10 @@ function Duo({ mode, picked }) {
 const plainForm = () => ({ name: '', handle: '', avatar: 0, startingBalanceSol: '10', maxPositionSol: '0.5', dailyBuyLimitSol: '2', maxDailyLossSol: '0.5' });
 const plainOk = f => f.name.trim().length > 1;
 
-export function LaunchCat({ api, ownerId, onCreated, onCancel, Fields, Preview, newForm = plainForm, formOk = plainOk, avatarOf = () => 'Fee' }) {
+export function LaunchCat({ api, ownerId, onCreated, onCancel, Fields, Preview, newForm = plainForm, formOk = plainOk, avatarOf = () => 'Fee', kind = 'trading' }) {
+  const K = KIND[kind] || KIND.trading;
   const [d, setD] = useState(null); const [err, setErr] = useState('');
-  const [step, setStep] = useState(0); const [q, setQ] = useState(''); const [cat, setCat] = useState(''); const [sort, setSort] = useState('smart'); const [n, setN] = useState(PAGE);
+  const [step, setStep] = useState(0); const [q, setQ] = useState(''); const [cat, setCat] = useState(K.cat); const [sort, setSort] = useState('smart'); const [n, setN] = useState(PAGE);
   const [picked, setPicked] = useState([]); const [mode, setMode] = useState('turns'); const [billing, setBilling] = useState('profit');
   const [form, setForm] = useState(() => newForm()); const update = (k, v) => setForm(f => ({ ...f, [k]: v })); const name = form.name;
   const [prompt, setPrompt] = useState(''); const [saving, setSaving] = useState(false);
@@ -83,23 +89,23 @@ export function LaunchCat({ api, ownerId, onCreated, onCancel, Fields, Preview, 
     try {
       const handle = form.handle || form.name.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').slice(0, 20) || 'cat';
       const r = await api('/api/cats', { method: 'POST', body: JSON.stringify({ strategy: 'momentum', ...form, ownerId: ownerId(), name: form.name.trim(), handle, avatar: avatarOf(form.avatar),
-        brains: picked.map(m => m.id), brainMode: mode, billing, prompt }) });
+        brains: picked.map(m => m.id), brainMode: mode, billing, prompt, brainKind: kind }) });
       const started = await api(`/api/cats/${r.cat.id}/action`, { method: 'POST', body: JSON.stringify({ action: 'start' }) }).catch(() => r);   // same as Create a Cat: it starts trading at once
       onCreated?.(started.cat || r.cat);
     } catch (e) { setErr(e.message); } finally { setSaving(false); }
   };
-  return <section className="lct" data-testid="launch-cat">
+  return <section className={`lct is-${kind}`} data-testid="launch-cat">
     <header className="lct-head"><BrainSocket picked={picked} mood={saving ? 'pounce' : picked.length === 2 ? 'celebrate' : picked.length ? 'purr' : 'think'} />
-      <div><span className="eyebrow">🚀 LAUNCH A CAT · PAPER</span><h2>Give your cat <em>{picked.length === 2 ? 'two brains' : 'a brain'}</em>.</h2>
-        <p>Pick up to two models from OpenRouter's whole list. They decide once before a buy and up to {d?.budget?.liveAsks ?? 3} times while a coin is live — only on a ±{d?.budget?.alertPct ?? 10}% move. You chime in; the cat trades.</p></div></header>
+      <div><span className="eyebrow" data-testid="lct-kind">{K.eyebrow} · REAL WITH YOUR WALLET</span><h2>Give your cat <em>{picked.length === 2 ? 'two brains' : 'a brain'}</em>.</h2>
+        <p>{K.pitch}</p></div></header>
     <nav className="lct-steps" style={{ '--p': step / (STEPS.length - 1) }}><i className="lct-prog" aria-hidden="true"><u /></i>{STEPS.map((s, i) => <button key={s} type="button" className={`${i === step ? 'is-on' : ''}${i < step ? ' is-done' : ''}`} onClick={() => i <= step || ready.slice(0, i).every(Boolean) ? setStep(i) : null} data-testid={`lct-step-${i}`}><b>{i + 1}</b>{s}</button>)}</nav>
     {err ? <p className="lct-err" role="alert">⚠ {err}</p> : null}
     {step === 0 ? <div className="lct-pane">
       {!d ? <p className="lct-load">Reading OpenRouter's model list…</p> : <>
-        {d.rec?.length ? <><h4 className="lct-h">⭐ OUR THREE — the brains FEELESS already runs</h4><div className="lct-rec">{d.rec.map((m, i) => <ModelTile key={m.id} m={m} i={i} on={picked.some(x => x.id === m.id)} onPick={pick} />)}</div></> : null}
+        {d.rec?.length ? <><h4 className="lct-h">⭐ FEELESS PICKS — the brains FEELESS already runs</h4><div className="lct-rec">{d.rec.map((m, i) => <ModelTile key={m.id} m={m} i={i} on={picked.some(x => x.id === m.id)} onPick={pick} />)}</div></> : null}
         <div className="lct-bar"><input className="m-input" placeholder={`Search ${d.models.length} models…`} value={q} onChange={e => setQ(e.target.value)} data-testid="lct-q" />
           <div className="m-seg">{SORTS.map(([k, l]) => <button key={k} type="button" className={sort === k ? 'is-on' : ''} onClick={() => setSort(k)}>{l}</button>)}</div></div>
-        <div className="lct-cats"><button type="button" className={!cat ? 'is-on' : ''} onClick={() => setCat('')}>✨ All <small>{d.models.length}</small></button>{d.cats.map(c => <button key={c.key} type="button" className={cat === c.key ? 'is-on' : ''} onClick={() => setCat(c.key === cat ? '' : c.key)} data-tip={c.why} data-testid={`lct-cat-${c.key}`}>{c.label} <small>{c.n}</small></button>)}</div>
+        <div className="lct-cats"><button type="button" className={!cat ? 'is-on' : ''} onClick={() => setCat('')}>✨ All <small>{d.models.length}</small></button>{(d.cats || []).map(c => <button key={c.key} type="button" className={cat === c.key ? 'is-on' : ''} onClick={() => setCat(c.key === cat ? '' : c.key)} data-tip={c.why} data-testid={`lct-cat-${c.key}`}>{c.label} <small>{c.n}</small></button>)}</div>
         <div className="lct-grid">{rows.slice(0, n).map((m, i) => <ModelTile key={m.id} m={m} i={i} on={picked.some(x => x.id === m.id)} onPick={pick} />)}</div>
         {rows.length > n ? <button type="button" className="m-btn lct-more" onClick={() => setN(x => x + PAGE)}>Show {Math.min(PAGE, rows.length - n)} more of {rows.length}</button> : null}
         {!rows.length ? <p className="lct-load">No model matches that.</p> : null}</>}
@@ -112,8 +118,8 @@ export function LaunchCat({ api, ownerId, onCreated, onCancel, Fields, Preview, 
       {Fields ? <div className="cct-split lct-ident">{<Fields form={form} update={update} />}{Preview ? <aside className="cct-preview m-live" data-testid="lct-preview"><Preview form={form} /></aside> : null}</div> : <>
         <label>Cat name<input className="m-input" maxLength={24} value={form.name} onChange={e => update('name', e.target.value)} placeholder="Midnight Prowler" data-testid="lct-name" /></label>
         <label>Starting paper balance · SOL<NumInput className="m-input" value={form.startingBalanceSol} onChange={e => update('startingBalanceSol', e.target.value)} /></label></>}
-      <label className="lct-seal"><span><b>📜 THE BRIEF</b><em>sealed for life — both brains read it before every call; it can never be changed</em></span>
-        <textarea className="m-input" rows={6} maxLength={1200} value={prompt} onChange={e => setPrompt(e.target.value)} placeholder="e.g. Only buy coins sitting on their germ floor with higher lows. Bank half at +30%. Never chase a green candle." data-testid="lct-prompt" />
+      <label className="lct-seal"><span><b>{K.brief}</b><em>sealed for life — both brains read it before every call; it can never be changed</em></span>
+        <textarea className="m-input" rows={6} maxLength={1200} value={prompt} onChange={e => setPrompt(e.target.value)} placeholder={K.hint} data-testid="lct-prompt" />
         <i className="lct-len" aria-hidden="true"><u style={{ transform: `scaleX(${Math.max(0.01, prompt.length / 1200)})` }} /></i><small>{prompt.length} / 1200</small></label>
     </div> : null}
     {step === 3 ? <div className="lct-pane lct-pay">
@@ -122,11 +128,31 @@ export function LaunchCat({ api, ownerId, onCreated, onCancel, Fields, Preview, 
         <span><small>${d?.budget?.start ?? 10} CREDIT COVERS</small><b>{plan.trades == null ? '∞ (free models)' : `≈ ${plan.trades.toLocaleString()} trades`}</b></span>
         <i className="lct-tank"><em style={{ transform: `scaleX(${plan.trades == null ? 1 : Math.min(1, plan.trades / 500)})` }} /></i></div> : null}
       <p className="lct-note">{d?.live ? '🟢 Model calls are ON.' : '⏸ Model calls are OFF until FEELESS switches them on — until then the FEELESS rule engine trades your cat and nothing is charged.'} The ${d?.budget?.start ?? 10} starting credit is paper credit: real billing isn't built yet.</p>
-      <button type="button" className="m-btn m-go lct-go" disabled={saving || !ready.slice(0, 3).every(Boolean)} onClick={launch} data-testid="lct-launch">{saving ? 'Launching…' : `🚀 Launch ${name || 'the cat'}`}</button>
+      <p className="lct-next" data-testid="lct-next-real"><i>🚀 launch</i><u /><i>👛 link your wallet</i><u /><i>🎚 set its budget</i><u /><i className="is-real">💵 REAL — you sign every trade</i></p>
+      <button type="button" className="m-btn m-go lct-go" disabled={saving || !ready.slice(0, 3).every(Boolean)} onClick={launch} data-testid="lct-launch">{saving ? 'Launching…' : `🚀 Launch ${name || 'the cat'} → go real`}</button>
     </div> : null}
     <footer className="lct-foot"><span>{picked.length ? picked.map(m => m.tag || m.name.replace(/^[^:]+:\s*/, '')).join(' + ') : 'no brain picked'}{plan ? ` · ${fmtUsd(plan.perDecision)} a decision` : ''}</span>
       <span>{onCancel ? <button type="button" className="m-btn" onClick={onCancel}>Cancel</button> : null}{step < 3 ? <button type="button" className="m-btn m-go" disabled={!ready[step]} onClick={() => setStep(s => s + 1)} data-testid="lct-next">Next ›</button> : null}</span></footer>
   </section>;
+}
+
+// 🧭 A GENERAL cat's orders (owner, 2026-10-23): you order in plain words → the cat checks the coin (pool · age · already-ran · rug / holders) →
+// REAL = a proposal your wallet signs (it lands in the real panel) · paper = a paper fill. Each order shows what it understood and what happened.
+export const ORDER_STATE = { proposed: ['✍', 'waiting for your signature', 'is-prop'], filled: ['📄', 'filled on paper', 'is-fill'], refused: ['🛡', 'stopped by a guard', 'is-stop'], unclear: ['🤔', 'not understood', 'is-unclear'] };
+export const ORDER_EXAMPLES = ['buy 0.05 SOL of $JUP', 'sell half of $WIF', 'sell all $BONK'];
+export const orderWords = o => (!o ? '—' : o.side === 'buy' ? `BUY ${o.sol} SOL · $${String(o.coin).slice(0, 12)}` : `SELL ${Math.round((o.fraction || 1) * 100)}% · $${String(o.coin).slice(0, 12)}`);
+export function OrderBox({ cat, act }) {
+  const [t, setT] = useState(''); const [busy, setBusy] = useState(false);
+  const rows = (cat.orders || []).slice(-6).reverse();
+  const go = async e => { e?.preventDefault?.(); if (!t.trim() || busy) return; setBusy(true); if (await act('order', { text: t })) setT(''); setBusy(false); };
+  return <div className="lct-orders" data-testid="cat-orders">
+    <span className="lct-orders-h"><b>🧭 YOUR ORDERS</b><small>{cat.mode === 'real' ? 'each one → a proposal your wallet signs' : 'paper fills — go real to sign them'}</small></span>
+    <form className="lct-order-form" onSubmit={go}><input className="m-input" maxLength={200} value={t} onChange={e => setT(e.target.value)} placeholder="Order it in plain words — buy 0.05 SOL of $JUP" data-testid="order-text" aria-label="Your order" />
+      <button type="submit" className="m-btn m-go" disabled={busy || !t.trim()} data-testid="order-go" data-tip="It checks the coin first (pool, age, already-ran, rug / holders) — a stopped order says which guard">{busy ? 'Checking…' : '🧭 Order'}</button></form>
+    <span className="lct-order-ex">{ORDER_EXAMPLES.map(x => <button key={x} type="button" onClick={() => setT(x)} data-tip="Fill the box with this order">{x}</button>)}</span>
+    {rows.length ? <ol className="lct-order-log">{rows.map((r, i) => { const [ic, word, cls] = ORDER_STATE[r.state] || ORDER_STATE.unclear;
+      return <li key={`${r.at}-${i}`} className={cls} style={{ '--i': i }} data-tip={`You said: “${r.text}” — ${word}`}><i aria-hidden="true">{ic}</i><b>{orderWords(r.order)}</b><small>{r.why}</small></li>; })}</ol> : null}
+  </div>;
 }
 
 // 🧠 a launched cat's brains: credit tank, decisions, the brief, battle records, chime in, pull / top up — re-read every 10s
@@ -148,6 +174,7 @@ export function BrainPanel({ cat, api, onChanged }) {
     {b.prompt ? <details className="lct-fold"><summary>📜 Its one-time brief (locked)</summary><p>{b.prompt}</p></details> : null}
     <ul className="lct-dec">{(b.decisions || []).slice(-8).reverse().map((x, i) => <li key={`${x.at}-${i}`} style={{ '--i': i }} className={WORD[x.word] || ''}><b>{x.word}</b><span>${x.sym} · {x.by}</span><small>{x.why}</small></li>)}
       {!(b.decisions || []).length ? <li className="lct-load">No decision yet — the first comes before its first buy.</li> : null}</ul>
+    {b.kind === 'general' ? <OrderBox cat={cat} act={act} /> : null}
     <form className="lct-chime" onSubmit={async e => { e.preventDefault(); if (text.trim() && await act('chime', { text })) setText(''); }}>
       <input className="m-input" maxLength={280} value={text} onChange={e => setText(e.target.value)} placeholder="Chime in — advice it reads, never an order" data-testid="brain-chime" /><button type="submit" className="m-btn">💬 Send</button></form>
     {(b.chime || []).length ? <p className="lct-note">Last said: “{b.chime[b.chime.length - 1].text}”</p> : null}

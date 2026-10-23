@@ -9,13 +9,16 @@ jest.mock('react-router-dom', () => ({ Link: ({ to, children, ...p }) => require
 beforeEach(() => { global.fetch = jest.fn(url => Promise.resolve({ ok: true, json: () => Promise.resolve(String(url).includes('/models') ? { live: false, models: [] } : { cats: [], events: [] }) })); });
 const q = (el, id) => el.querySelector(`[data-testid="${id}"]`);
 
-test('🤖 one door, two different agents: the rule trader (free) or the AI trader (talk to it); 2 agents max', async () => {
+test('🤖 one door, two AI cats (Trading · General) that both walk models → your wallet → REAL; the rule trader is a paper test link; 2 agents max', async () => {
   const el = document.createElement('div'); document.body.appendChild(el); const root = createRoot(el); const pick = jest.fn();
   await act(async () => { root.render(<AgentPicker count={1} onPick={pick} />); });
   expect(el.textContent).toContain(`1/${AGENT_MAX} RUNNING`);
-  expect(q(el, 'agent-create').textContent).toContain('FREE'); expect(q(el, 'agent-launch').textContent).toContain('PAY AS YOU GO');
-  expect(q(el, 'agent-launch').textContent).toContain("model calls off");   // honest when the owner's model switch is off
-  act(() => q(el, 'agent-launch').click()); expect(pick).toHaveBeenCalledWith('launch');
+  expect(q(el, 'agent-trading').textContent).toContain('REAL · YOUR WALLET SIGNS'); expect(q(el, 'agent-general').textContent).toContain('plain words');
+  expect(q(el, 'agent-trading').querySelector('.agp-flow').textContent).toBe('🧠 models👛 your wallet💵 REAL');
+  expect(q(el, 'agent-general').textContent).toContain('model calls off');   // honest when the owner's model switch is off
+  expect(q(el, 'agent-create').textContent).toContain('Test first on paper');
+  act(() => q(el, 'agent-general').click()); expect(pick).toHaveBeenCalledWith('general');
+  act(() => q(el, 'agent-create').click()); expect(pick).toHaveBeenLastCalledWith('create');
   await act(async () => { root.render(<AgentPicker count={AGENT_MAX} onPick={pick} />); });
   expect(q(el, 'agent-create').disabled).toBe(true); expect(q(el, 'agent-full')).not.toBeNull();
   act(() => root.unmount());
@@ -36,4 +39,15 @@ test('🤖 the agents page: no agents → the brain picker right there; the rule
   expect(document.body.querySelector('[data-testid="cat-name"]').value).toBe('Specter');   // 🎨 the agent starts from the cat you built
   expect(document.body.querySelector('[data-testid="cat-look-avatar"]').getAttribute('data-gear')).toBe('crown');
   act(() => root.unmount()); localStorage.removeItem('feeless.myCat'); document.body.innerHTML = '';
+});
+
+test('🎨 Build a cat › "Give it a job" (?create=1) lands on the brain pick — never the paper wizard; a General cat launches with brainKind general', async () => {
+  const el = document.createElement('div'); document.body.appendChild(el); const root = createRoot(el);
+  window.history.pushState({}, '', '/terminal/feecat/agents?create=1&avatar=2');
+  await act(async () => { root.render(<FeeCatsPlatform />); });
+  expect(q(el, 'agent-picker')).not.toBeNull(); expect(document.body.querySelector('#create-cat-title')).toBeNull();
+  await act(async () => { q(el, 'agent-general').click(); });
+  expect(q(el, 'lct-kind').textContent).toBe('🧭 GENERAL AI CAT · REAL WITH YOUR WALLET');
+  expect(q(el, 'lct-step-3').textContent).toContain('go real');
+  act(() => root.unmount()); window.history.pushState({}, '', '/'); document.body.innerHTML = '';
 });

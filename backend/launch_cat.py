@@ -17,6 +17,8 @@ MODES = {
     'together': ('🤝 Work together', 'both must agree to buy or sell, else it holds', 2),
     'battle': ('⚔ Battle', 'each brain takes every other buy and runs that trade to its exit — two records, side by side', 1),
 }
+KINDS = {'trading': ('📈 Trading AI cat', '1-2 trading models hunt coins for you; every trade is a proposal your wallet signs'),
+         'general': ('🧭 General AI cat', '1-2 all-round models do what you order in plain words; each order is a proposal your wallet signs')}
 BILLING = {'profit': '💸 profit pays the fees (owed until a winning sale)', 'payg': '💳 pay as you go (pauses at $0 until you top up)'}
 CATS = {
     'degen': ('🔥 Degen', 'cheap + fast enough to fire on every alert'),
@@ -26,10 +28,11 @@ CATS = {
     'meta': ('👁 Meta', 'reads pictures too — charts as images'),
     'free': ('🆓 Free', 'no token cost'),
 }
-REC = [   # FEELESS's own three, as they exist on OpenRouter
-    ('openai/gpt-oss-20b', 'OSSY', 'our Mac model — laid back, sharp on charts, very cheap'),
-    ('qwen/qwen3-4b-2507', 'G4', 'our desktop model — the Corleone-cold one, tiny and quick'),
-    ('mistralai/ministral-3b-2512', 'NEXA', 'our Windows model — research + discovery'),
+REC = [   # FEELESS's own three, as they exist on OpenRouter — PUBLIC tags (users never see NEXA / OSSY / G4: owner, 2026-10-23)
+    ('openai/gpt-oss-20b', 'FEELESS PICK', 'the chart-reading model behind FeeCat AI — laid back, sharp on charts, very cheap'),
+    ('qwen/qwen3.5-4b', 'FEELESS PICK', 'the tiny, quick trench reader on our desk'),
+    ('qwen/qwen3-4b-2507', 'FEELESS PICK', 'the tiny, quick trench reader on our desk'),
+    ('mistralai/ministral-3b-2512', 'FEELESS PICK', 'FeeCat AI\'s research + discovery model'),
 ]
 PROMPT_MAX, NAME_MAX, CHIME_MAX, CHIMES = 1200, 24, 280, 12
 
@@ -81,9 +84,12 @@ def decision_usd(r):
 def catalog(rows):
     rows = [slim(m) for m in rows if m.get('id') and not str(m.get('id')).endswith(':batch')]
     by = {r['id']: r for r in rows}
-    rec = [{**by[i], 'tag': t, 'why': w} for i, t, w in REC if i in by]
+    rec, seen = [], set()
+    for i, t, w in REC:   # one tile per desk seat (the newer Qwen first; the older only when the newer isn't listed)
+        if i in by and w not in seen:
+            seen.add(w); rec.append({**by[i], 'tag': t, 'why': w})
     counts = {k: sum(1 for r in rows if k in r['cats']) for k in CATS}
-    return {'models': rows, 'rec': rec, 'cats': [{'key': k, 'label': v[0], 'why': v[1], 'n': counts[k]} for k, v in CATS.items()],
+    return {'models': rows, 'rec': rec, 'kinds': [{'key': k, 'label': v[0], 'why': v[1]} for k, v in KINDS.items()], 'cats': [{'key': k, 'label': v[0], 'why': v[1], 'n': counts[k]} for k, v in CATS.items()],
             'modes': [{'key': k, 'label': v[0], 'why': v[1]} for k, v in MODES.items()],
             'billing': [{'key': k, 'label': v} for k, v in BILLING.items()], 'budget': {'start': START_CREDIT, 'liveAsks': LIVE_ASKS, 'alertPct': ALERT_PCT}}
 
@@ -113,7 +119,10 @@ def clean(body, prev=None, ids=None):
     if billing not in BILLING:
         raise ValueError('unknown billing')
     prompt = prev.get('prompt') if prev.get('prompt') else ' '.join(str(body.get('prompt') or '').split())[:PROMPT_MAX]
-    return {'brains': brains, 'brainMode': mode if len(brains) > 1 else 'turns', 'billing': billing, 'prompt': prompt,
+    kind = prev.get('kind') or body.get('brainKind') or 'trading'   # 📈 trading = hunts coins itself · 🧭 general = does what you order (set once)
+    if kind not in KINDS:
+        raise ValueError('unknown kind')
+    return {'brains': brains, 'brainMode': mode if len(brains) > 1 else 'turns', 'billing': billing, 'prompt': prompt, 'kind': kind,
             'promptLocked': bool(prompt), 'credit': prev.get('credit', START_CREDIT), 'owed': prev.get('owed', 0.0),
             'spent': prev.get('spent', 0.0), 'asks': prev.get('asks', 0), 'chime': prev.get('chime', []), 'decisions': prev.get('decisions', [])}
 

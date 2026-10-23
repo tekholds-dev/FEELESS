@@ -1,6 +1,6 @@
 import React, { act } from 'react';
 import { createRoot } from 'react-dom/client';
-import { LaunchCat, BrainPanel, filterModels, planOf } from './LaunchCat';
+import { LaunchCat, BrainPanel, OrderBox, filterModels, planOf, orderWords } from './LaunchCat';
 
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
 const M = (id, o = {}) => ({ id, name: id, provider: id.split('/')[0], ctx: 131072, inUsd: 0.02, outUsd: 0.09, perDecision: 0.0001, cats: ['degen'], intel: 40, created: 1, desc: '', ...o });
@@ -21,6 +21,8 @@ test('pick two brains, choose battle, write the brief, launch', async () => {
   const onCreated = jest.fn(); const el = document.createElement('div'); const root = createRoot(el);
   await act(async () => { root.render(<LaunchCat api={api} ownerId={() => 'o'} onCreated={onCreated} />); });
   const click = sel => act(() => el.querySelector(sel).click());
+  expect(el.querySelector('.lct-grid [data-testid="lct-m-x/big"]')).toBeNull();          // 📈 a Trading cat opens on the trading models…
+  click('.lct-cats button');                                                                // …✨ All shows the whole list
   click('.lct-rec [data-testid="lct-m-openai/gpt-oss-20b"]'); click('.lct-grid [data-testid="lct-m-x/big"]');
   click('[data-testid="lct-next"]'); click('[data-testid="lct-mode-battle"]'); click('[data-testid="lct-next"]');
   const set = (sel, v) => act(() => { const i = el.querySelector(sel); const proto = Object.getPrototypeOf(i); Object.getOwnPropertyDescriptor(proto, 'value').set.call(i, v); i.dispatchEvent(new Event('input', { bubbles: true })); });
@@ -28,7 +30,8 @@ test('pick two brains, choose battle, write the brief, launch', async () => {
   click('[data-testid="lct-next"]');
   expect(el.textContent).toContain('Model calls are OFF');
   await act(async () => { el.querySelector('[data-testid="lct-launch"]').click(); });
-  expect(posted[0]).toMatchObject({ brains: ['openai/gpt-oss-20b', 'x/big'], brainMode: 'battle', prompt: 'germ floors only', name: 'Duo', maxPositionSol: '0.5', maxDailyLossSol: '0.5', dailyBuyLimitSol: '2' });
+  expect(el.querySelector('[data-testid="lct-next-real"]').textContent).toContain('👛 link your wallet');   // the launch says what comes next: wallet → budget → REAL
+  expect(posted[0]).toMatchObject({ brains: ['openai/gpt-oss-20b', 'x/big'], brainMode: 'battle', prompt: 'germ floors only', name: 'Duo', maxPositionSol: '0.5', maxDailyLossSol: '0.5', dailyBuyLimitSol: '2', brainKind: 'trading' });
   expect(posted[1]).toEqual({ action: 'start' });                          // starts trading at once, like Create a Cat
   expect(onCreated).toHaveBeenCalled();
   act(() => root.unmount());
@@ -72,4 +75,20 @@ test('🧠 the brain socket: YOUR built cat sits in it, each picked brain is a l
   expect([...el.querySelectorAll('.lct-node.on')].map(n => n.textContent)).toEqual(['G4', 'Qwen3 ']);
   expect(el.querySelectorAll('.lct-wires .w.on')).toHaveLength(2);
   a(() => root.unmount()); localStorage.removeItem('feeless.myCat');
+});
+
+test('🧭 a General cat takes orders in plain words: examples fill the box, each order shows what it understood and what happened', async () => {
+  expect(orderWords({ side: 'buy', coin: 'JUP', sol: 0.05 })).toBe('BUY 0.05 SOL · $JUP'); expect(orderWords({ side: 'sell', coin: 'WIF', fraction: 0.5 })).toBe('SELL 50% · $WIF');
+  const cat = { id: 'g1', mode: 'real', orders: [{ at: 1, text: 'buy 0.05 SOL of $JUP', order: { side: 'buy', coin: 'JUP', sol: 0.05 }, state: 'proposed', why: '✍ buy 0.05 SOL — waiting for your signature' },
+    { at: 2, text: 'buy 1 SOL of $RUG', order: { side: 'buy', coin: 'RUG', sol: 1 }, state: 'refused', why: '💧 pool $3,000 — under the $5,000 floor' }] };
+  const act_ = jest.fn(async () => true); const el = document.createElement('div'); const root = createRoot(el);
+  await act(async () => { root.render(<OrderBox cat={cat} act={act_} />); });
+  const rows = el.querySelectorAll('.lct-order-log li');
+  expect(rows[0].className).toBe('is-stop'); expect(rows[0].textContent).toContain('💧 pool $3,000'); expect(rows[1].className).toBe('is-prop');
+  expect(el.textContent).toContain('a proposal your wallet signs');
+  await act(async () => { el.querySelector('.lct-order-ex button').click(); });
+  expect(el.querySelector('[data-testid="order-text"]').value).toBe('buy 0.05 SOL of $JUP');
+  await act(async () => { el.querySelector('.lct-order-form').dispatchEvent(new Event('submit', { bubbles: true, cancelable: true })); });
+  expect(act_).toHaveBeenCalledWith('order', { text: 'buy 0.05 SOL of $JUP' });
+  act(() => root.unmount());
 });
