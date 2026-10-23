@@ -62,3 +62,50 @@ def test_nexa_cat_buys_her_pick_through_the_guards_and_sells_her_exit(monkeypatc
     assert cat['positions'][0]['reason'].startswith('🪟 NEXA favored it')
     fs._set_model_brain(cat, 'rules')
     assert 'modelBrain' not in cat
+
+
+def test_nexa_desk_asks_held_coins_first_then_fresh_candidates_and_reads_one_word():
+    import nexa_desk as nd
+    held = [{'pair': 'PH', 'mint': 'MH', 'symbol': 'HHH', 'pct': 12.3, 'peak': 20, 'mins': 25, 'mcap': 150_000, 'd5': -3, 'buy': 41}]
+    cands = [{'pair': 'PH', 'symbol': 'HHH'}, {'pair': 'PA', 'mint': 'MA', 'symbol': 'AAA', 'mcap': 120_000, 'ageMin': 45, 'd5': 4.2, 'c1': 30, 'buy': 62, 'liq': 40_000, 'top10': 22},
+             {'pair': 'PB', 'symbol': 'BBB'}, {'pair': 'PC', 'symbol': 'CCC'}]
+    jobs = nd.pick(held, cands, [{'pair': 'PB', 'at': NOW - 60}], NOW)
+    assert [(j['kind'], j['pair']) for j in jobs] == [('hold', 'PH'), ('buy', 'PA'), ('buy', 'PC')]   # held first · never a held coin as a buy · PB asked 1 min ago
+    assert jobs[0]['line'].startswith('$HHH · you +12.3% (peak +20.0%) held 25m · MC 150K')
+    assert jobs[1]['line'] == '$AAA · MC 120K · age 45m · 5m +4.2% · 1h +30.0% · buyers 62% · pool 40K · top10 22%'
+    assert nd.parse('YES — buyers lead, pool deep', 'buy') == ('YES', 'buyers lead, pool deep')
+    assert nd.parse('<think>hmm</think> sell: momentum died', 'hold') == ('SELL', 'momentum died')
+    assert nd.parse('maybe later', 'buy') == (None, '')
+    calls = nd.note([], jobs[1], 'YES', 'clean', 900, NOW - 100)
+    calls = nd.note(calls, jobs[0], 'SELL', 'dying', 900, NOW - 50)
+    calls = nd.note(calls, {'pair': 'PZ', 'kind': 'buy', 'line': 'x'}, 'YES', '', 900, NOW - nd.FRESH - 5)   # stale
+    m = nd.merge(calls, NOW)
+    assert m['favor'] == ['PA'] and m['exit'] == ['PH'] and m['at'] == NOW - 50
+    assert nd.due({'deskAt': NOW - 100}, NOW) is False and nd.due({}, NOW) is True
+
+
+def test_only_the_owner_switch_hands_feecat_to_nexa(monkeypatch, tmp_path):
+    fs = pytest.importorskip('feecat_service')
+    from fastapi.testclient import TestClient
+    store = {'cats': {'leader': {'id': 'leader', 'name': 'FeeCat', 'isLeader': True, 'positions': []}, 'u1': {'id': 'u1', 'name': 'Mine', 'positions': [], 'risk': {}}}, 'events': []}
+    monkeypatch.setattr(fs, '_load', lambda: store); monkeypatch.setattr(fs, '_save', lambda s: None)
+    monkeypatch.setattr(fs, '_log_event', lambda *a, **k: None)
+    fs.DATA_DIR.mkdir(parents=True, exist_ok=True); (fs.DATA_DIR / 'internal.key').write_text('secret')
+    c = TestClient(fs.app)
+    assert c.post('/api/cats/internal/brain', json={'model': 'nexa'}).status_code == 403                # no internal key → refused
+    assert c.post('/api/cats/u1/action', json={'action': 'brain', 'text': 'nexa'}).status_code == 400   # a user's cat can't take NEXA
+    monkeypatch.setattr(fs, '_internal', lambda request: None)
+    assert c.post('/api/cats/internal/brain', json={'model': 'nexa'}).json() == {'model': 'nexa'}
+    assert store['cats']['leader']['modelBrain'] == 'nexa' and 'modelBrain' not in store['cats']['u1']
+    assert c.post('/api/cats/internal/brain', json={'model': 'rules'}).json() == {'model': 'rules'}
+
+
+def test_feecat_reads_nexas_desk_words_only_while_the_owner_switch_is_on():
+    rs = pytest.importorskip('reputation_service')
+    now = time.time()
+    desk = [{'pair': 'PA', 'word': 'YES', 'at': now - 30}, {'pair': 'PH', 'word': 'SELL', 'at': now - 20}, {'pair': 'PN', 'word': 'NO', 'at': now - 10}]
+    rs._nexa_mem.put({'cfg': {'trade': True}, 'desk': desk}, now)
+    nx = asyncio.run(rs.cats_ai())['nexa']
+    assert nx['favor'] == ['PA'] and nx['exit'] == ['PH'] and nx['trades'] is True and cm.read_of(nx, now)['favor'] == {'PA'}
+    rs._nexa_mem.put({'cfg': {'trade': False}, 'desk': desk}, now)
+    assert asyncio.run(rs.cats_ai())['nexa'] is None                     # switch off: her desk words never reach FeeCat

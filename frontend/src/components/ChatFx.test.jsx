@@ -36,10 +36,16 @@ test('every theme shows the FEE mark and its drawn scene; Plain shows nothing', 
     expect(host.querySelector('[data-testid="chat-fx"]').className).toContain(`fx-${id}`);
     expect(host.querySelector('.chat-fx-logo').getAttribute('src')).toBe('/assets/feeless-logo.png');
   }
-  act(() => root.render(<ChatFx theme="candles" />)); expect(host.querySelectorAll('.cfx-strip .cfx-candle').length).toBe(18);
-  act(() => root.render(<ChatFx theme="depth" />)); expect(host.querySelector('.cfx-depth .bid')).not.toBeNull();
-  act(() => root.render(<ChatFx theme="vortex" />)); expect(host.querySelectorAll('.cfx-orbit img').length).toBe(3);
-  act(() => root.render(<ChatFx theme="tape" />)); expect(host.querySelectorAll('.cfx-col').length).toBe(4);
+  // 🎨 redrawn scenes (2026-10-22): real drawn art, motion on whole layers
+  act(() => root.render(<ChatFx theme="candles" />)); expect(host.querySelectorAll('.cfx-candles.near rect').length).toBe(96);   // 24 candles × 4 seamless copies
+  expect(host.querySelector('.cfx-candles.far')).not.toBeNull(); expect(host.querySelector('.cfx-last').textContent).toBe('LAST');
+  act(() => root.render(<ChatFx theme="depth" />)); expect(host.querySelector('.cfx-depth .bid')).not.toBeNull(); expect(host.querySelectorAll('.cfx-book i').length).toBe(16);
+  act(() => root.render(<ChatFx theme="vortex" />)); expect(host.querySelectorAll('.cfx-orbit img').length).toBe(3); expect(host.querySelectorAll('.cfx-ring').length).toBe(4);
+  act(() => root.render(<ChatFx theme="tape" />)); expect(host.querySelectorAll('.cfx-col').length).toBe(3); expect(host.querySelector('.cfx-roll em').textContent).toMatch(/^[▲▼] \$/);
+  act(() => root.render(<ChatFx theme="radar" />)); expect(host.querySelectorAll('.cfx-blip').length).toBe(5); expect(host.querySelector('.cfx-sweep')).not.toBeNull();
+  act(() => root.render(<ChatFx theme="moon" />)); expect(host.querySelector('.cfx-flyx .cfx-flyy .cfx-rocket svg')).not.toBeNull();
+  act(() => root.render(<ChatFx theme="gold" />)); expect(host.querySelectorAll('.cfx-vault .bolt').length).toBe(16); expect(host.querySelectorAll('.cfx-bars .bar').length).toBe(6);
+  act(() => root.render(<ChatFx theme="flow" />)); expect(host.querySelectorAll('.cfx-ride b').length).toBe(15); expect(host.querySelectorAll('.cfx-ride b.whale').length).toBe(3);
   act(() => root.render(<ChatFx theme="off" />));
   expect(host.querySelector('[data-testid="chat-fx"]')).toBeNull();
 });

@@ -52,7 +52,10 @@ body.fx-lite .nxd-kbbars span { animation: none; } @media (prefers-reduced-motio
 .nxd-chat { border-top: 1px solid #ffffff14; padding-top: 8px; }
 .nxd-chat > summary { cursor: pointer; list-style: none; font: 700 11.5px 'JetBrains Mono', monospace; color: #e9d3ff; display: flex; flex-wrap: wrap; gap: 4px 10px; align-items: baseline; transition: color .15s; }
 .nxd-chat > summary::-webkit-details-marker { display: none; } .nxd-chat > summary:hover { color: #fff; } .nxd-chat > summary small { font: 400 10.5px system-ui, sans-serif; color: #a99bc2; }
-.nxd-chatrow { display: grid; grid-template-columns: minmax(210px, 250px) minmax(0, 680px); gap: 10px; margin-top: 8px; align-items: stretch; }   /* vitals LEFT, the chat narrower (owner, 4th list 2a) */
+.nxd-chatrow { display: grid; grid-template-columns: minmax(210px, 250px) minmax(0, 1fr) minmax(300px, 400px); gap: 10px; margin-top: 8px; align-items: start; }   /* vitals | chat | models rig — the rig used to overflow the vitals column onto the chat (owner screenshot 2026-10-22) */
+.nxd-rigcol { min-width: 0; max-height: clamp(460px, 72vh, 780px); overflow: auto; padding-right: 2px; scrollbar-width: thin; scrollbar-color: #b38cff transparent; }
+.nxd-rigcol::-webkit-scrollbar { width: 6px; } .nxd-rigcol::-webkit-scrollbar-thumb { background: #b38cff; border-radius: 3px; }
+.nxd-rigcol .nxd-rig { border-top: 0; padding-top: 0; }
 .nxd-reads { display: grid; gap: 5px; } .nxd-reads em { display: flex; justify-content: space-between; font: 700 8px 'JetBrains Mono', monospace; letter-spacing: .12em; font-style: normal; color: #a99bc2; }
 .nxd-reads em b { font-size: 10px; letter-spacing: .04em; color: #e2d0ff; }
 .nxd-reads span { display: flex; align-items: flex-end; gap: 3px; height: 38px; padding: 4px; border-radius: 8px; background: #ffffff06; border: 1px solid #b38cff22; }
@@ -61,7 +64,7 @@ body.fx-lite .nxd-kbbars span { animation: none; } @media (prefers-reduced-motio
 @keyframes nxdBar { from { opacity: 0; } to { opacity: 1; } }
 body.fx-lite .nxd-reads i { animation: none; } @media (prefers-reduced-motion: reduce) { .nxd-reads i { animation: none; transition: none; } }
 body.theme-day .nxd-reads em b { color: #3a2a6a; } body.theme-day .nxd-reads span { background: #f6f2fd; }
-.nxd-chatbox { height: 460px; border-radius: 12px; overflow: hidden; border: 1px solid #b38cff44; }
+.nxd-chatbox { height: clamp(460px, 72vh, 780px); border-radius: 12px; overflow: hidden; border: 1px solid #b38cff44; }
 .nxd-vit { display: grid; gap: 9px; align-content: start; padding: 12px; border-radius: 12px; border: 1px solid #b38cff55;
   background: linear-gradient(160deg, rgba(179, 140, 255, .14), rgba(10, 6, 20, .78) 60%); box-shadow: inset 0 1px 0 rgba(255, 255, 255, .07), 0 16px 40px -26px #b38cff; }
 .nxd-vit header { display: flex; align-items: center; gap: 8px; } .nxd-vit header b { font: 900 14px 'JetBrains Mono', monospace; letter-spacing: .12em; color: #e2d0ff; }
@@ -84,7 +87,8 @@ body.theme-day .nxd-reads em b { color: #3a2a6a; } body.theme-day .nxd-reads spa
 .nxd-rig > summary::-webkit-details-marker { display: none; } .nxd-rig > summary:hover, .nxd-rig > summary:focus-visible { color: #e0d6ff; outline: none; }
 .nxd-rig[open] > summary { margin-bottom: 8px; } .nxd-rig .mrg-grid.is-one { grid-template-columns: 1fr; }
 body.theme-day .nxd-rig > summary { color: #4a2fa0; }
-@media (max-width: 980px) { .nxd-chatrow { grid-template-columns: 1fr; } .nxd-chatrow .nxd-vit { order: 2; } }   /* phone: the chat first */
+@media (max-width: 1280px) { .nxd-chatrow { grid-template-columns: minmax(210px, 250px) minmax(0, 1fr); } .nxd-rigcol { grid-column: 1 / -1; max-height: none; } }
+@media (max-width: 980px) { .nxd-chatrow { grid-template-columns: 1fr; } .nxd-chatrow .nxd-vit { order: 2; } .nxd-rigcol { order: 3; } }   /* phone: the chat first */
 .cch-model.is-locked { display: inline-flex; align-items: center; cursor: default; color: #e9d3ff; border-color: #b38cff66; }
 body.theme-day .nxd-chat > summary { color: #4a2a7a; }
 body.theme-day .nxd-vit { background: rgba(245, 240, 255, .92); } body.theme-day .nxd-vg b, body.theme-day .nxd-vit header b { color: #2a1a4a; }

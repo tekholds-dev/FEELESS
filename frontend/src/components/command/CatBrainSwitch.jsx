@@ -1,38 +1,43 @@
 import React, { useEffect, useState } from 'react';
 import '../../styles/catBrain.css';
 
-// 🪟 WHO TRADES THIS CAT (owner, 2026-10-22: "NEXA trading a cat"): the FEELESS rule engine, or NEXA — the cat then buys only the coins her
-// fresh desk read FAVORS (every FeeCat guard still has to pass them) and sells what she names EXIT. Paper only. Her read's freshness is the
-// ring (a read older than 30 min is not acted on), her picks / exits / avoids and her graded record sit beside it.
-const FRESH_MIN = 30;
+// 🪟🐱 NEXA TRADES FEECAT (owner, 2026-10-22: "nexa can do 2-3 calls every 5 mins to trade AS feecat … yay or nay"; owner only, HQ › Fee ›
+// NEXA's desk). ⚙ Her rules | 🪟 NEXA: with NEXA on, FeeCat buys only coins NEXA said YES to (every guard still applies) and sells what she
+// says SELL — paper. The ring counts down to her next desk round (≤ 3 one-line questions), beside it her last 15 min of words, her graded
+// record and the calls themselves (the exact numbers she saw on hover).
 const C = 2 * Math.PI * 26;
+const FRESH = 900;
+const ago = t => { const s = Date.now() / 1000 - t; return s < 60 ? `${Math.max(0, Math.round(s))}s` : `${Math.round(s / 60)}m`; };
+const TONE = { YES: 'is-yes', HOLD: 'is-hold', NO: 'is-no', SELL: 'is-sell' };
 
-export function CatBrainSwitch({ cat, act }) {
-  const [nexa, setNexa] = useState(null);
-  const [busy, setBusy] = useState(false);
-  useEffect(() => {
-    let live = true;
-    const load = () => fetch('/api/cats/brains').then(r => r.json()).then(d => { if (live) setNexa((d.brains || []).find(b => b.id === 'nexa') || null); }).catch(() => {});
-    load();
-    const t = setInterval(load, 30000);
-    return () => { live = false; clearInterval(t); };
-  }, []);
-  const on = cat.modelBrain === 'nexa';
-  const pick = async v => { if (busy || (v === 'nexa') === on) return; setBusy(true); try { await act('brain', { text: v }); } finally { setBusy(false); } };
-  const live = nexa?.state === 'live';
-  const fresh = live ? Math.max(0.04, 1 - (nexa.ageMin || 0) / FRESH_MIN) : 0;
-  const rec = nexa?.record?.favor || {};
-  const nums = [['picks', nexa?.favor, 'coins she favored in her last read — the only ones this cat may buy'], ['exits', nexa?.exit, 'held coins she said to sell'], ['avoid', nexa?.avoid, 'coins she said never to buy']];
-  return <div className={`cb-wrap${on ? ' is-nexa' : ''}${live ? ' is-live' : ''}`}>
-    <span className="eyebrow">DECISION ENGINE</span>
-    <div className="m-seg cb-seg" role="radiogroup" aria-label="Who trades this cat">
-      <button type="button" role="radio" aria-checked={!on} disabled={busy} onClick={() => pick('rules')} data-tip="The FEELESS rule engine picks and exits on its own transparent rules">⚙ Rules</button>
-      <button type="button" role="radio" aria-checked={on} disabled={busy || cat.isLeader} onClick={() => pick('nexa')} data-tip="NEXA trades this cat on PAPER: only her favored coins (every guard still applies), her exits sold">🪟 NEXA</button>
-    </div>
+export function deskCounts(desk, now = Date.now() / 1000) {
+  const out = { YES: 0, NO: 0, SELL: 0, HOLD: 0 };
+  (desk || []).forEach(c => { if (c.word && now - c.at <= FRESH) out[c.word] = (out[c.word] || 0) + 1; });
+  return out;
+}
+
+export function CatBrainSwitch({ d, busy, act }) {
+  const [, tick] = useState(0);
+  useEffect(() => { const t = setInterval(() => tick(x => x + 1), 5000); return () => clearInterval(t); }, []);
+  const on = !!d?.trade;
+  const every = d?.deskEvery || 300;
+  const since = d?.deskAt ? Date.now() / 1000 - d.deskAt : every;
+  const fill = on ? Math.max(0.04, Math.min(1, since / every)) : 0;
+  const n = deskCounts(d?.desk);
+  const rec = d?.record?.favor || {};
+  const calls = (d?.desk || []).slice(-6).reverse();
+  const nums = [['YES', n.YES, 'coins she said YES to in the last 15 min — the only ones FeeCat may buy'], ['NO', n.NO, 'coins she passed on'], ['SELL', n.SELL, 'held coins she said to sell']];
+  return <article className={`cb-wrap nxd-trade${on ? ' is-nexa' : ''}${on && d?.provider?.on ? ' is-live' : ''}`} data-testid="nexa-trade">
+    <header className="cb-top"><span className="eyebrow">🐱 WHO TRADES FEECAT</span>
+      <div className="m-seg cb-seg" role="radiogroup" aria-label="Who trades FeeCat">
+        <button type="button" role="radio" aria-checked={!on} disabled={busy || !d} onClick={() => on && act({ trade: false })} data-tip="FeeCat trades on her own rule engine (NEXA still advises: skip / bank)">⚙ Her rules</button>
+        <button type="button" role="radio" aria-checked={on} disabled={busy || !d} onClick={() => !on && act({ trade: true })} data-testid="nexa-trade-on"
+          data-tip={`NEXA trades FeeCat on paper: ≤ ${d?.deskCalls || 3} yes / no questions every ${Math.round(every / 60)} min — FeeCat buys only her YES (every guard still applies), sells her SELL`}>🪟 NEXA trades</button>
+      </div></header>
     <div className="cb-body">
       <svg className="cb-ring" viewBox="0 0 64 64" aria-hidden="true">
         <circle className="cb-track" cx="32" cy="32" r="26" />
-        <circle className="cb-arc" cx="32" cy="32" r="26" strokeDasharray={`${(fresh * C).toFixed(1)} ${C.toFixed(1)}`} />
+        <circle className="cb-arc" cx="32" cy="32" r="26" strokeDasharray={`${(fill * C).toFixed(1)} ${C.toFixed(1)}`} />
         <g className="cb-halo"><circle cx="32" cy="32" r="30" /></g>
         <g className="cb-net">
           <line x1="22" y1="26" x2="32" y2="38" /><line x1="32" y1="38" x2="42" y2="26" /><line x1="22" y1="26" x2="42" y2="26" />
@@ -40,14 +45,22 @@ export function CatBrainSwitch({ cat, act }) {
         </g>
       </svg>
       <div className="cb-read">
-        <b>{on ? 'NEXA trades this cat' : 'FEELESS rule engine'}</b>
-        <small data-tip="Her desk read runs about every 15 min on her own CPU model; a read older than 30 min is not acted on">{live ? `her read · ${nexa.ageMin} min old` : nexa ? 'waiting for her next read' : 'reading NEXA…'}</small>
-        <div className="cb-nums">{nums.map(([k, v, tip], i) => <span key={k} className="cb-num" style={{ '--i': i }} data-tip={tip}><b className="fl-tick" key={v ?? '-'}>{v ?? '—'}</b><small>{k}</small></span>)}</div>
-        {rec.n ? <div className="cb-rec" data-tip={`Her favored coins an hour later: ${rec.rightPct}% rose · typical ${rec.typical > 0 ? '+' : ''}${rec.typical}% (${rec.n} graded)`}>
-          <small>PICKS RIGHT</small><i><em style={{ transform: `scaleX(${Math.min(1, (rec.rightPct || 0) / 100)})` }} /></i><b>{rec.rightPct}%</b>
+        <b>{on ? 'NEXA trades FeeCat' : 'FeeCat on her own rules'}</b>
+        <small data-tip="The ring fills toward her next desk round">{!on ? 'switch on to hand her the desk · paper' : !d?.provider?.on ? 'NEXA is not connected — FeeCat holds, her stops still run'
+          : d?.deskAt ? `last round ${ago(d.deskAt)} ago · next in ${Math.max(0, Math.round((every - since) / 60))}m` : 'first round starting…'}</small>
+        <div className="cb-nums">{nums.map(([k, v, tip], i) => <span key={k} className={`cb-num ${TONE[k]}`} style={{ '--i': i }} data-tip={tip}><b className="fl-tick" key={v}>{v}</b><small>{k}</small></span>)}</div>
+        {rec.n ? <div className="cb-rec" data-tip={`Her YES / favored coins an hour later: ${rec.rightPct}% rose · typical ${rec.typical > 0 ? '+' : ''}${rec.typical}% (${rec.n} graded)`}>
+          <small>YES RIGHT</small><i><em style={{ transform: `scaleX(${Math.min(1, (rec.rightPct || 0) / 100)})` }} /></i><b>{rec.rightPct}%</b>
         </div> : null}
       </div>
     </div>
-    {on && nexa?.why ? <p className="cb-why">“{nexa.why}”</p> : null}
-  </div>;
+    {calls.length ? <ol className="cb-calls">{calls.map((c, i) => <li key={`${c.at}-${c.pair}`} style={{ '--i': i }} data-tip={c.line}>
+      <span className={`cb-word ${TONE[c.word] || 'is-none'}`}>{c.word || '—'}</span><b>${c.symbol || c.pair?.slice(0, 5)}</b><em>{c.why || (c.word ? '' : 'no clear word')}</em>
+      <small>{c.ms ? `${Math.round(c.ms / 1000)}s · ` : ''}{ago(c.at)}</small></li>)}</ol> : on ? <p className="cb-why">Her desk calls land here — one line of numbers per coin, one word back.</p> : null}
+  </article>;
+}
+
+// A user's cat: the FEELESS rule engine (NEXA trades only FeeCat herself, from the owner's HQ).
+export function EngineLine() {
+  return <div className="cb-wrap cb-engine"><span className="eyebrow">DECISION ENGINE</span><b>FEELESS rule engine</b><small>Live DexScreener prices · transparent entry / exit rules</small></div>;
 }

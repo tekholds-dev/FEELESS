@@ -1,4 +1,4 @@
-/* 🪟 CatBrainSwitch — who trades a cat (rule engine | NEXA). FeeCat violet night; built from m-* tokens. Keyframes: cb* */
+/* 🪟🐱 CatBrainSwitch — who trades FeeCat (her rules | NEXA, HQ owner only) + EngineLine on users' cats. FeeCat violet night; m-* tokens. Keyframes: cb* */
 .cb-wrap { --cb-nexa: #b48cff; position: relative; display: grid; gap: 10px; padding: 14px; border-radius: 12px; overflow: hidden;
   background: linear-gradient(160deg, color-mix(in srgb, var(--cb-nexa) 10%, var(--m-bg)), var(--m-bg) 70%);
   box-shadow: 0 0 0 1px color-mix(in srgb, var(--cb-nexa) 26%, transparent) inset, inset 0 1px 0 rgba(255,255,255,.06); }
@@ -33,12 +33,28 @@
   transform-origin: left; transition: transform .6s ease; }
 .cb-rec b { font-family: var(--m-mono); font-size: 12px; color: var(--cb-nexa); }
 .paper-controls .cb-wrap { margin: 15px 17px 0; }
+.nxd-trade { grid-column: 1 / -1; }
+.cb-top { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+.cb-engine > b { font-size: 13px; color: var(--m-text); }
+.cb-engine > small { font-size: 11px; color: var(--m-dim); }
+.cb-num.is-yes b { color: var(--m-accent); } .cb-num.is-no b { color: var(--m-dim); } .cb-num.is-sell b { color: var(--m-danger); }
+.cb-calls { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
+.cb-calls li { display: grid; grid-template-columns: 52px auto 1fr auto; gap: 8px; align-items: center; padding: 6px 8px; border-radius: 8px; min-height: 32px;
+  background: color-mix(in srgb, var(--cb-nexa) 5%, transparent); border: 1px solid var(--m-line); animation: cbIn .32s ease both; animation-delay: calc(var(--i, 0) * 50ms); }
+.cb-calls li:hover { border-color: color-mix(in srgb, var(--cb-nexa) 50%, transparent); }
+.cb-calls b { font-family: var(--m-mono); font-size: 12px; color: var(--m-text); }
+.cb-calls em { font-size: 11px; color: var(--m-dim); font-style: normal; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.cb-calls small { font-family: var(--m-mono); font-size: 10px; color: var(--m-dim); }
+.cb-word { display: grid; place-items: center; height: 20px; border-radius: 6px; font: 700 10px var(--m-mono); letter-spacing: .08em; color: var(--m-dim); border: 1px solid var(--m-line); }
+.cb-word.is-yes { background: var(--m-accent); color: var(--m-accent-ink); border-color: transparent; box-shadow: 0 0 12px -2px var(--m-accent); }
+.cb-word.is-sell { background: var(--m-danger); color: #1a0508; border-color: transparent; box-shadow: 0 0 12px -2px var(--m-danger); }
+.cb-word.is-hold { color: var(--cb-nexa); border-color: color-mix(in srgb, var(--cb-nexa) 55%, transparent); }
 .cb-why { margin: 0; font-size: 12px; line-height: 1.4; color: var(--m-dim); font-style: italic; }
 @keyframes cbSpin { to { transform: rotate(360deg); } }
 @keyframes cbPulse { 0%, 100% { transform: scale(1); opacity: 1; } 50% { transform: scale(1.35); opacity: .7; } }
 @keyframes cbIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
-body.fx-lite .cb-halo, body.fx-lite .cb-wrap.is-live .cb-core, body.fx-lite .cb-num { animation: none; }
-@media (prefers-reduced-motion: reduce) { .cb-halo, .cb-wrap.is-live .cb-core, .cb-num { animation: none; } .cb-arc, .cb-rec em { transition: none; } }
+body.fx-lite .cb-halo, body.fx-lite .cb-wrap.is-live .cb-core, body.fx-lite .cb-num, body.fx-lite .cb-calls li { animation: none; }
+@media (prefers-reduced-motion: reduce) { .cb-halo, .cb-wrap.is-live .cb-core, .cb-num, .cb-calls li { animation: none; } .cb-arc, .cb-rec em { transition: none; } }
 body.theme-day .cb-wrap { --cb-nexa: #6d3fd1; background: linear-gradient(160deg, #f1ebff, #fff 70%); }
-body.theme-day .cb-num { background: #faf7ff; }
-@media (max-width: 640px) { .cb-body { grid-template-columns: 52px 1fr; } .cb-ring { width: 52px; height: 52px; } .cb-num { min-width: 46px; } }
+body.theme-day .cb-num, body.theme-day .cb-calls li { background: #faf7ff; }
+@media (max-width: 640px) { .cb-body { grid-template-columns: 52px 1fr; } .cb-ring { width: 52px; height: 52px; } .cb-num { min-width: 46px; } .cb-calls li { grid-template-columns: 46px auto 1fr; } .cb-calls small { display: none; } }

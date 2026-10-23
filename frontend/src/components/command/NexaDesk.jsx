@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { ModelRig } from './ModelRig';
 import { AiChat } from './AiChat';
+import { CatBrainSwitch } from './CatBrainSwitch';
 import { toast } from 'sonner';
 import '../../styles/nexaDesk.css';
 
@@ -31,6 +32,7 @@ export function NexaDesk({ call }) {
     {st === 'offline' ? <p className="nxd-off" data-testid="nexa-off">🪟 {d?.provider?.why || 'Not reachable.'} — on the Windows PC run llamafile with <code>--server --host 0.0.0.0 --port 8080</code>, then set <code>WIN_LLM_BASE_URL=http://&lt;its-ip&gt;:8080/v1</code> in backend/.env and restart.</p> : null}
     {d?.err ? <p className="nxd-err">⚠ last read: {d.err}</p> : null}
     <div className="nxd-grid">
+      <CatBrainSwitch d={d} busy={busy} act={act} />
       <article className="nxd-card"><h4>🎯 HER CALL NOW</h4>
         {L.at ? <><p className="nxd-why">{L.why || '—'}</p>
           <p className="nxd-chips">{(L.avoid || []).map(p => <span key={`a${p}`} className="is-bad" data-tip="FeeCat won't buy it while this read is fresh">✋ skip {p.slice(0, 6)}…</span>)}
@@ -62,7 +64,9 @@ export function NexaDesk({ call }) {
     </div>
     <p className="nxd-real" data-testid="nexa-real">💵 Real money: {d?.real?.why || 'FeeCat trades paper.'}</p>
     <details className="nxd-chat" data-testid="nexa-chat" open><summary>💬 Talk to Nexa <small>she answers from her own FeeCat desk — record, last read, tunes, notebook</small></summary>
-      <div className="nxd-chatrow"><NexaVitals call={call} desk={d} /><div className="nxd-chatbox"><AiChat call={call} variant="mini" lockProvider="win" title="🪟 NEXA" /></div></div></details>
+      <div className="nxd-chatrow"><NexaVitals call={call} desk={d} /><div className="nxd-chatbox"><AiChat call={call} variant="mini" lockProvider="win" title="🪟 NEXA" /></div>
+        <aside className="nxd-rigcol"><details className="nxd-rig" data-testid="nexa-rig" open><summary data-tip="Every model's Load + Inference settings — LOADED now vs WANTED (saved): G4 + OSSY in LM Studio, NEXA's llamafile — with presets">⚙ MODELS · loaded vs saved · LM Studio + llama</summary>
+          <ModelRig call={call} /></details></aside></div></details>
   </section>;
 }
 
@@ -109,7 +113,5 @@ export function NexaVitals({ call, desk }) {
       <em>HER READS<b>{desk.mode === 'full' ? '◆ full' : '⚡ fast'} · {desk.ms ? `${Math.round(desk.ms / 1000)}s` : '—'}</b></em>
       <span>{readBars(desk.reads).map((r, i) => <i key={`${r.at}-${i}`} className={`is-${r.mode} ${r.ok ? '' : 'is-err'}`} style={{ transform: `scaleY(${r.h})`, '--i': i }} title={`${r.mode} · ${r.sec}s${r.ok ? '' : ' · no answer'}`} />)}</span></div> : null}
     <ol className="nxd-calls">{st.recent.map((r, i) => <li key={`${r.at}-${i}`} className={r.ok ? '' : 'is-err'}><b>{r.role || 'call'}</b><span>{(r.ms / 1000).toFixed(0)}s</span><small>{r.ok ? '✓' : '✕'}</small></li>)}</ol>
-    <details className="nxd-rig" data-testid="nexa-rig" open><summary data-tip="Every model's Load + Inference settings — LOADED now vs WANTED (saved): G4 + OSSY in LM Studio, NEXA's llamafile — with presets">⚙ MODELS · loaded vs saved · LM Studio + llama</summary>
-      <ModelRig call={call} /></details>
   </aside>;
 }

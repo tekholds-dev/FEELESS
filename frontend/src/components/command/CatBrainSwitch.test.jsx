@@ -1,28 +1,35 @@
 import React from 'react';
 import { createRoot } from 'react-dom/client';
 import { act } from 'react';
-import { CatBrainSwitch } from './CatBrainSwitch';
+import { CatBrainSwitch, EngineLine, deskCounts } from './CatBrainSwitch';
 
-const NEXA = { id: 'nexa', name: 'NEXA', state: 'live', ageMin: 6, favor: 2, exit: 1, avoid: 3, why: 'BBB has real buyers', record: { favor: { n: 40, rightPct: 55, typical: 1.2 } } };
-beforeEach(() => { global.fetch = jest.fn(() => Promise.resolve({ ok: true, json: () => Promise.resolve({ brains: [NEXA, { id: 'gpt-astra' }] }) })); });
+const now = Date.now() / 1000;
+const DESK = [{ pair: 'PA', symbol: 'AAA', word: 'YES', why: 'buyers lead', line: '$AAA · MC 120K', ms: 9000, at: now - 60 },
+  { pair: 'PH', symbol: 'HHH', word: 'SELL', why: 'move died', line: '$HHH · you +4%', ms: 8000, at: now - 50 },
+  { pair: 'PN', symbol: 'NNN', word: 'NO', why: '', line: '$NNN', ms: 7000, at: now - 40 }, { pair: 'PO', symbol: 'OLD', word: 'YES', at: now - 2000 }];
 
-test('🪟 a cat can be handed to NEXA: her live read (age, picks / exits / avoids, record) and one tap to assign or go back to rules', async () => {
+test('🐱 NEXA trades FeeCat: owner switch, her round countdown, her last words (YES / NO / SELL) and the calls with the numbers she saw', async () => {
+  expect(deskCounts(DESK, now)).toEqual({ YES: 1, NO: 1, SELL: 1, HOLD: 0 });   // only the last 15 min count
   const el = document.createElement('div'); document.body.appendChild(el); const root = createRoot(el);
-  const act_ = jest.fn(() => Promise.resolve());
-  await act(async () => { root.render(<CatBrainSwitch cat={{ id: 'c1' }} act={act_} />); });
+  const act_ = jest.fn();
+  await act(async () => { root.render(<CatBrainSwitch d={{ trade: false, provider: { on: true }, desk: [] }} act={act_} />); });
   const [rules, nexa] = el.querySelectorAll('[role="radio"]');
   expect(rules.getAttribute('aria-checked')).toBe('true');
-  expect(el.textContent).toContain('her read · 6 min old');
-  expect(el.querySelector('.cb-nums').textContent).toBe('2picks1exits3avoid');
-  expect(el.querySelector('.cb-rec').textContent).toContain('55%');
   await act(async () => { nexa.click(); });
-  expect(act_).toHaveBeenCalledWith('brain', { text: 'nexa' });
-  await act(async () => { root.render(<CatBrainSwitch cat={{ id: 'c1', modelBrain: 'nexa' }} act={act_} />); });
-  expect(el.textContent).toContain('NEXA trades this cat');
-  expect(el.querySelector('.cb-why').textContent).toContain('BBB has real buyers');
+  expect(act_).toHaveBeenCalledWith({ trade: true });
+  await act(async () => { root.render(<CatBrainSwitch d={{ trade: true, provider: { on: true }, desk: DESK, deskAt: now - 60, deskEvery: 300, record: { favor: { n: 40, rightPct: 55, typical: 1.2 } } }} act={act_} />); });
+  expect(el.textContent).toContain('NEXA trades FeeCat');
+  expect(el.textContent).toContain('next in 4m');
+  expect(el.querySelector('.cb-nums').textContent).toBe('1YES1NO1SELL');
+  expect(el.querySelectorAll('.cb-calls li')).toHaveLength(4);
+  expect(el.querySelectorAll('.cb-calls li')[1].getAttribute('data-tip')).toBe('$NNN');   // hover = the exact line she was asked
+  expect(el.querySelector('.cb-word.is-sell').closest('li').textContent).toContain('$HHH');
+  expect(el.querySelector('.cb-rec').textContent).toContain('55%');
   await act(async () => { el.querySelectorAll('[role="radio"]')[0].click(); });
-  expect(act_).toHaveBeenLastCalledWith('brain', { text: 'rules' });
-  await act(async () => { root.render(<CatBrainSwitch cat={{ id: 'lead', isLeader: true }} act={act_} />); });
-  expect(el.querySelectorAll('[role="radio"]')[1].disabled).toBe(true);   // FeeCat herself runs the desk
+  expect(act_).toHaveBeenLastCalledWith({ trade: false });
+  await act(async () => { root.render(<CatBrainSwitch d={{ trade: true, provider: { on: false }, desk: [] }} act={act_} />); });
+  expect(el.textContent).toContain('NEXA is not connected — FeeCat holds');
+  await act(async () => { root.render(<EngineLine />); });
+  expect(el.textContent).toContain('FEELESS rule engine');
   act(() => root.unmount());
 });

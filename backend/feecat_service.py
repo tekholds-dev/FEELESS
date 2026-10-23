@@ -1184,12 +1184,12 @@ async def brains():
     """The brain list: FEELESS's own model(s) first (🪟 NEXA = live when her desk read is fresh), the catalog rows run on the rule engine."""
     async with httpx.AsyncClient(timeout=4) as http:
         nx = (await _duo_read(http)).get('nexa')
-    own = [{**m, **_cm.status(nx), 'available': True, 'estimatedTokenCostUsd': 0, 'model': True} for m in _cm.MODELS.values()]
+    own = [{**m, **_cm.status(nx), 'available': False, 'ownerOnly': True, 'trades': 'FeeCat', 'estimatedTokenCostUsd': 0, 'model': True} for m in _cm.MODELS.values()]   # 🪟 she trades FeeCat herself (owner's HQ switch), never a user's cat
     return {'brains': own + [{**b, 'status': 'rule_fallback', 'available': False, 'estimatedTokenCostUsd': 0} for b in BRAIN_CATALOG]}
 
 
 def _set_model_brain(cat, model_id):
-    """🪟 Assign a FEELESS model to a cat (or back to the rule engine). Paper only — cats never hold real money."""
+    """🪟 Assign a FEELESS model to a cat (or back to the rule engine). Owner-only, FeeCat herself (`/api/cats/internal/brain`). Paper only."""
     m = _cm.MODELS.get(str(model_id or '').lower())
     if m:
         cat['modelBrain'] = m['id']; cat['brain'] = m['id']; cat['brainLabel'] = m['name']
@@ -1263,8 +1263,6 @@ async def create_cat(payload: CreatePayload):
         'revoked': False, 'createdAt': now, 'lastTick': now, 'engine': ENGINE_VERSION,
         'startingBalanceSol': float(payload.startingBalanceSol or 10), 'look': clean_look(payload.look),
     }
-    if _cm.MODELS.get(str(payload.brain or '').lower()):   # 🪟 born on NEXA's reads
-        _set_model_brain(cat, payload.brain)
     if payload.brains:
         cat_ = await _or_models()
         ids_ = {m['id'] for m in cat_.get('models') or []}
@@ -1388,6 +1386,21 @@ async def internal_rules_get(request: Request):
             'agentLane': store['cats'][LEADER_ID].get('agentLane') or {}, 'agentLimits': _POOL_META.get('limits') or {}}
 
 
+@app.post('/api/cats/internal/brain')
+async def internal_brain(request: Request):
+    """🪟🐱 Owner only (via HQ › Fee › NEXA's desk): NEXA trades AS FeeCat (model='nexa') or FeeCat is back on her own rules ('rules'). Paper."""
+    _internal(request)
+    body = await request.json()
+    store = _load()
+    cat = store['cats'].get(LEADER_ID)
+    if not cat:
+        raise HTTPException(404, 'FeeCat is not set up yet.')
+    m = _set_model_brain(cat, body.get('model'))
+    _log_event(store, cat, 'LEARN', f"🪟 NEXA now trades FeeCat (paper): she buys only coins NEXA says YES to — every guard still applies — and sells what NEXA says SELL." if m else 'FeeCat is back on her own rule engine.')
+    _save(store)
+    return {'model': cat.get('modelBrain') or 'rules'}
+
+
 @app.post('/api/cats/internal/rules')
 async def internal_rules_set(request: Request):
     _internal(request)
@@ -1487,11 +1500,6 @@ async def cat_action(cat_id: str, payload: ActionPayload):
             _lc.chime(cat['brainsCfg'], payload.text)
         except ValueError as e:
             raise HTTPException(400, str(e))
-    elif payload.action == 'brain':   # 🪟 assign NEXA (text='nexa') or back to the rule engine (text='rules')
-        if cat.get('isLeader'):
-            raise HTTPException(400, 'FeeCat herself runs the FEELESS desk — assign a model to one of your own cats.')
-        m_ = _set_model_brain(cat, payload.text)
-        _log_event(store, cat, 'LEARN', f"🪟 {cat['name']} now trades PAPER on {m_['name']}'s reads — her favored coins only (every guard still applies), her exits sold." if m_ else f"{cat['name']} is back on the FEELESS rule engine.")
     elif payload.action == 'pull':   # 🚀 pull everything: positions sold at the last live price, balance out, locked until a top-up
         for pos in list(cat['positions']):
             cat['positions'].remove(pos)

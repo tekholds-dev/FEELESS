@@ -175,12 +175,21 @@ Center REAL RECORD (each lane's closed lots) · 🪑 G4 proof bench · theory sh
 ✅ OWNER DECIDED "15 minutes not 30": agent bails of a red real coin wait 15 min from the buy (`AGENT_MIN_HOLD`; stops / rugs / green sales
 never wait) + REAL_MIN_HOLD 15. 🐛 Familia crash ("reading 'call'" at Lazy) fixed: FamilyDeck imports FamilyHQ / CityAvenue / PoolHub statically.
 
-P0 — OWNER 2026-10-22 last (AI first): DONE: NEXA's 3 agendas in her persona (conversationalist · trench scientist on the measured laws ·
-new-tech discoverer with sources) · every model's LOADED vs SAVED Load + Inference beside NEXA's chat (ModelRig in NexaVitals, open).
-OPEN, in order: (1) NEXA trading a cat: cat brains (/api/cats/brains) are a catalog on rule_fallback — wire a model brain into the cat engine
-(NEXA = 'win' provider) so a cat assigned to NEXA trades PAPER on her reads; assignment UI in FeeCat cmd center. (2) WHOLE-BRAIN THEME: the
-theme layer (ChatFx) sits inside `.cch` only — render it behind the whole Brain drawer (`.ack-drawer`) + redo the theme set (owner: "horrible
-bg themes"); screenshot each. (3) Clean the Agents + FeeCat tabs (dead panels, alignment). (4) Confirm the G4 bench + theory in the live seat log.
+P0 — OWNER 2026-10-22 LATEST (hardest first; finish in-flight work first, conserve usage, never dead-style)
+DONE tonight: 🐛 Familia/route crash (FamilyDeck static imports) · 🕰 15-min agent min hold (`AGENT_MIN_HOLD`) · 🪟🐱 NEXA TRADES AS FEECAT
+(owner switch HQ › Fee › NEXA's desk; `nexa_desk.py`: ≤ 3 one-line YES/NO · HOLD/SELL calls per 5 min on MC / age / 5m / 1h / buyers / pool /
+top10 → FeeCat buys only her YES through every guard, sells her SELL; user cats stay on the rule engine) · NEXA chat row: models rig in its own
+column (was overflowing onto the chat) · 🎨 all 14 chat themes redrawn as drawn scenes (radar, vault, lava lake, synthwave, LED tape…).
+OPEN, hardest → easiest:
+1. 🏙 FAMILY BLOCK = the new city look + EXPANDING: the owner adds buildings for the markets they will use; each stays UNDER CONSTRUCTION
+   until a REAL buy / deposit in that market (on-chain balance read); no fake buildings, no drag-drop errands → REAL errands (tighten a pool's
+   range, rebalance a vault, claim fees, top up a seat — vital, real money, fun; wallet signs). Merge with old P0 #4 (building ↔ real position).
+2. 🌐 NEXA discovery: a site's AGE (RDAP / WHOIS) + a page SNAPSHOT (title, headings, tech fingerprint, template match) → "real tech vs another
+   same-utility site" verdict into her discovery base; one-line packet like her desk calls.
+3. 🎨 Site palette: retire the muddy / olive greens ("color of manure") → lit royal green (#15d16a / #45e486 on near-black), token sweep sitewide.
+4. 📊 Text walls → realtime visuals (meters, rings, ticking numbers) + dead styles out — every page, starting with HQ (Agents + FeeCat tabs).
+5. Screenshot each chat theme in the Brain drawer + a room; confirm the theme layer covers the whole drawer (NEURAL default).
+6. Restart reputation + feecat services (from Claude's watcher) so tonight's backend is live; confirm NEXA's desk calls land.
 
 P0 — still open from the night list, in order
 1. 🧠 G4: 🪑 PROOF BENCH DONE 2026-10-22 (its last 209 FAVOR calls = −0.4 % median, 43 % up → OSSY opens real seats until G4's record turns).
