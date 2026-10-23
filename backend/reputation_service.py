@@ -9546,6 +9546,78 @@ async def familia_perps():
     return {'markets': _perps_cache['rows'], 'at': round(_perps_cache['at'])}
 
 
+PAPER_PERPS_PATH = DATA_DIR / 'paper_perps.json'   # 📉 one paper book per wallet (paper_perps.py) — never money, never an order
+_pperp_lock = asyncio.Lock()
+
+
+def _pperp_board():
+    """The Perps desk's live board → {coin: {mark, fundApr, maxLev, venues}} (the shared 60 s read)."""
+    return {r_['coin']: r_ for r_ in (_perps_cache.get('rows') or []) if r_.get('coin')}
+
+
+@app.get('/api/reputation/familia/paper-perps')
+async def familia_paper_perps(address: str = Query('', max_length=64), session: str = Query('', max_length=400)):
+    """📉 Your paper perps book at live marks (liquidations settle on the read). Signed in; paper only (docs/DECISIONS.md #1)."""
+    import paper_perps as _pp
+    me_ = _session_or_401(address, session)
+    if not _perps_cache.get('rows'):
+        await familia_perps()
+    now_ = time.time()
+    async with _pperp_lock:
+        d_ = _json_load(PAPER_PERPS_PATH, {}) or {}
+        book_ = d_.get(me_) or _pp.blank(now_)
+        v_ = _pp.view(book_, _pperp_board(), now_)
+        if v_['liquidated'] or me_ not in d_:
+            d_[me_] = book_; _json_save(PAPER_PERPS_PATH, d_)
+    return v_
+
+
+class PaperPerpAct(BaseModel):
+    address: str = Field(..., max_length=64)
+    session: str = Field(..., max_length=400)
+    act: str = Field(..., max_length=8)
+    coin: str = Field('', max_length=16)
+    side: str = Field('', max_length=6)
+    margin: float = Field(0, ge=0, le=1e7)
+    lev: int = Field(1, ge=1, le=100)
+    id: str = Field('', max_length=16)
+
+
+@app.post('/api/reputation/familia/paper-perps')
+async def familia_paper_perps_act(p: PaperPerpAct):
+    """📉 open · close · reset a paper perps position at the live mark. Paper only — nothing is sent to any venue."""
+    import paper_perps as _pp
+    me_ = _session_or_401(p.address, p.session)
+    if not _perps_cache.get('rows'):
+        await familia_perps()
+    bd_ = _pperp_board(); now_ = time.time()
+    async with _pperp_lock:
+        d_ = _json_load(PAPER_PERPS_PATH, {}) or {}
+        book_ = d_.get(me_) or _pp.blank(now_)
+        try:
+            if p.act == 'open':
+                r_ = bd_.get(p.coin.upper())
+                if not r_:
+                    raise ValueError('That market is not on the board right now.')
+                _pp.open_pos(book_, r_['coin'], p.side, p.margin, p.lev, r_.get('mark'), r_.get('maxLev'), now_)
+            elif p.act == 'close':
+                pos_ = next((x_ for x_ in book_['open'] if x_['id'] == p.id), None)
+                b_ = bd_.get((pos_ or {}).get('coin')) or {}
+                _pp.close_pos(book_, p.id, b_.get('mark'), b_.get('fundApr'), now_)
+            elif p.act == 'reset':
+                book_ = _pp.blank(now_)
+            else:
+                raise ValueError('open, close or reset.')
+        except ValueError as e:
+            raise HTTPException(400, str(e))
+        d_[me_] = book_
+        if len(d_) > 5000:
+            for k_ in sorted(d_, key=lambda k: (d_[k].get('since') or 0))[:500]:
+                d_.pop(k_, None)
+        _json_save(PAPER_PERPS_PATH, d_)
+        return _pp.view(book_, bd_, now_)
+
+
 _intake_cache: dict = {'at': 0.0, 'rows': []}
 
 
@@ -27463,7 +27535,10 @@ SHOP = [
     {'id': 'boost-3', 'label': '3 chat boosts (any tier)', 'cost': 150, 'kind': 'boost', 'grant': {'boosts': 3}},
     {'id': 'raffle', 'label': 'Airdrop raffle ticket', 'cost': 100, 'kind': 'raffle', 'grant': {'tickets': 1}},
     {'id': 'badge-og', 'label': '"Points OG" badge (permanent)', 'cost': 2000, 'kind': 'badge', 'grant': {'badge': 'points-og'}},
+    # 💎 ONE points system (docs/DECISIONS.md #3): points power your family — 1 point = 100 MP into its bank, ≤ PTS_TO_MP_WEEK points a week
+    {'id': 'family-mp', 'label': '10,000 MP into your family bank', 'cost': 100, 'kind': 'mp', 'grant': {'mp': 10_000}},
 ]
+MP_PER_PT, PTS_TO_MP_WEEK = 100, 1000
 
 
 def _unlocks(address: str):
@@ -27490,6 +27565,14 @@ async def shop_buy(payload: BuyIn):
     it = next((x for x in SHOP if x['id'] == payload.item), None)
     if not it:
         raise HTTPException(404, 'Unknown item.')
+    week_ = time.strftime('%G-W%V', time.gmtime())
+    if it['kind'] == 'mp':   # 💎 points → your family's bank: a family first, and the weekly cap
+        import crews as _cr
+        if not _cr.crew_of(_json_load(CREWS_PATH, {}), _seat_of(_json_load(CREWS_PATH, {}), me)):
+            raise HTTPException(400, 'Join a family first — the MP goes into its bank.')
+        wk_ = (_pts().get(me) or {}).get('mpWeek') or {}
+        if (wk_.get('pts', 0) if wk_.get('wk') == week_ else 0) + it['cost'] > PTS_TO_MP_WEEK:
+            raise HTTPException(400, f'{PTS_TO_MP_WEEK:,} points a week can go into the family bank — the rest waits for next week.')
     async with _admin_lock:
         d = _pts(); rec = d.get(me) or {'total': 0, 'claims': {}, 'log': []}
         balance = rec.get('total', 0) - rec.get('spent', 0)
@@ -27505,11 +27588,25 @@ async def shop_buy(payload: BuyIn):
             rec['boostCredits'] = rec.get('boostCredits', 0) + g['boosts']
         elif it['kind'] == 'raffle':
             rec['tickets'] = rec.get('tickets', 0) + 1
+        elif it['kind'] == 'mp':
+            wk_ = rec.get('mpWeek') or {}
+            rec['mpWeek'] = {'wk': week_, 'pts': (wk_.get('pts', 0) if wk_.get('wk') == week_ else 0) + it['cost']}
         else:
             un[f"badge:{g['badge']}"] = 'forever'
         rec.setdefault('log', []).insert(0, {'id': it['id'], 'label': f"Bought {it['label']}", 'points': -it['cost'], 'at': time.time()})
         d[me] = rec; _json_save(POINTS_PATH, d)
     _badge_cache.pop(me, None)
+    if it['kind'] == 'mp':   # the points are spent → the MP lands in the family bank (refunded if the family vanished meanwhile)
+        import crews as _cr
+        async with _crews_lock:
+            st_ = _json_load(CREWS_PATH, {}); c_ = _cr.crew_of(st_, _seat_of(st_, me))
+            if c_:
+                city_ = _fcity.city_of(c_, time.time()); city_['bank'] += it['grant']['mp']
+                _json_save(CREWS_PATH, st_)
+        if not c_:
+            async with _admin_lock:
+                d = _pts(); rec = d.get(me) or rec; rec['spent'] = max(0, rec.get('spent', 0) - it['cost']); d[me] = rec; _json_save(POINTS_PATH, d)
+            raise HTTPException(409, 'Your family was not found — the points are back.')
     return {'ok': True, 'balance': rec['total'] - rec['spent']}
 
 

@@ -7,6 +7,7 @@ import { apiUrl } from '../lib/api';
 import { readChatSession } from '../lib/chatSession';
 import { useWallet } from '../hooks/useWallet';
 import { PerpsEarn } from './EarnStake';
+import { PaperPerps } from './PaperPerps';
 import '../styles/cityAvenue.css';
 
 // 🛣 FEELESS AVENUE (owner, 2026-10-22: "implement the site's best tabs and features in Fee City with a pop-out of vitals and quick tools to
@@ -189,6 +190,7 @@ function PerpsDesk() {
     </div>
     <label className="phb-earn-in av-lev"><span>Leverage</span><input type="range" min="1" max="50" value={lev} onChange={e => setLev(Number(e.target.value))} aria-label="Leverage" data-testid="av-lev" /><b>{lev}×</b></label>
     <PerpsEarn row={row} lev={lev} />
+    <PaperPerps row={row} lev={lev} venues={VENUE} />
     <ol className="av-list av-perps">{!rows.length ? <li className="m-dim">Reading the perps markets…</li> : null}
       {rows.map((r, i) => <li key={r.coin} style={{ '--i': i }}><em>{i + 1}</em>
         <button type="button" className={`av-sym av-pick ${row?.coin === r.coin ? 'is-on' : ''}`} aria-pressed={row?.coin === r.coin} onClick={() => setPick(r.coin)} data-tip={`See what your stake does on ${r.coin} perps`} data-testid={`perp-pick-${r.coin}`}><b>{r.coin}</b><small>${r.mark >= 100 ? r.mark.toLocaleString('en-US', { maximumFractionDigits: 0 }) : r.mark.toPrecision(4)} · OI {usd(r.oiUsd)} · up to {r.maxLev}×</small></button>
