@@ -580,15 +580,20 @@ export function createCity(host, { onPick, onHover, onAnchors, lite = false, sti
     ray.setFromCamera(ptr, camera); return ray.intersectObjects([...pickables, ...worldPicks], false)[0]?.object || null; };
   const onDown = e => { down = { x: e.clientX, y: e.clientY }; };
   const onUp = e => { if (!down) return; const moved = Math.hypot(e.clientX - down.x, e.clientY - down.y); down = null; if (moved > 6) return; const o = hit(e); if (o) onPick?.(o.userData.pick); };
-  const onMove = e => { hoverAt = e; };
+  const onMove = e => { hoverAt = e; touchedAt = performance.now(); };
   const el = renderer.domElement; el.addEventListener('pointerdown', onDown); el.addEventListener('pointerup', onUp); el.addEventListener('pointermove', onMove);
   el.addEventListener('pointerleave', () => { hoverAt = null; if (hover) { hover = null; hoverFrame.visible = false; el.style.cursor = ''; onHover?.(null); } });
 
   // ── the loop ──
   let raf = 0; let visible = true; let last = performance.now(); let t = 0; let phaseWas = -1; let dirty = true;
+  // ⚡ NO LAG (owner, 2026-10-23: "my family town lags so bad"): (1) the signs are a LIST collected once per rebuild — the loop used to walk the
+  // whole scene graph (every mesh of every model) every animated frame to find them; (2) they rescale only when the camera moved; (3) while
+  // nobody touches the city its ambient life (cars, walkers, lights) renders at ~30 fps instead of 60 — touch, fly or hover and it is 60 again.
+  let signs = []; let signsAt = ''; let lastRender = 0; let touchedAt = performance.now();
+  const collectSigns = () => { signs = []; for (const g of [content, world]) g.traverse(n => { if (n.userData?.sign) signs.push(n); }); signsAt = ''; };
   const io = typeof IntersectionObserver !== 'undefined' ? new IntersectionObserver(([en]) => { visible = en.isIntersecting; }, { threshold: 0.01 }) : null; io?.observe(host);
   const ro = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(() => size()) : null; ro?.observe(host);
-  controls.addEventListener('change', () => { dirty = true; });
+  controls.addEventListener('change', () => { dirty = true; touchedAt = performance.now(); });
   function size() { const w = host.clientWidth || 800; const h = host.clientHeight || 520; renderer.setSize(w, h, false); composer?.setSize(w, h); camera.aspect = w / h; camera.updateProjectionMatrix(); dirty = true; }
   const green = new THREE.Color('#2dff7a').multiplyScalar(1.5); const amber = new THREE.Color('#ffb020').multiplyScalar(1.5); const red = new THREE.Color('#ff2a3d').multiplyScalar(1.5);
   const phaseOf = tt => { const c = tt % 10; return c < 4.2 ? 0 : c < 5 ? 1 : c < 9.2 ? 2 : 3; };   // 0 x-green · 1 x-amber · 2 z-green · 3 z-amber
@@ -643,11 +648,15 @@ export function createCity(host, { onPick, onHover, onAnchors, lite = false, sti
       if (ring.visible) { const k = 1 + Math.sin(t * 1.6) * 0.05; ring.scale.set(k, k, 1); ring.material.opacity = 0.8 + Math.sin(t * 1.6) * 0.1; }
       dirty = true;
     }
+    if (!dirty) return;
+    const busy_ = fly || now - touchedAt < 2500;
+    if (!busy_ && now - lastRender < 31) return;   // idle: ambient life at ~30 fps (dirty stays set, the next frame draws it)
     const far = camera.position.distanceTo(controls.target) > 60;
-    if (dirty) for (const g of [content, world]) g.traverse(n => { if (!n.userData?.sign) return;   // 🪧 a sign never fills the screen: it shrinks as you get close
+    const camKey = `${camera.position.x.toFixed(2)},${camera.position.y.toFixed(2)},${camera.position.z.toFixed(2)}`;
+    if (camKey !== signsAt) { signsAt = camKey; for (const n of signs) {   // 🪧 a sign never fills the screen: it shrinks as you get close
       if (!n.userData.base) n.userData.base = n.scale.clone(); const wp = n.getWorldPosition(pv); const f = Math.max(0.28, Math.min(1, camera.position.distanceTo(wp) / 34)); n.scale.copy(n.userData.base).multiplyScalar(f);
-      if (n.userData.small) n.visible = !far; });
-    if (!dirty) return; dirty = false;
+      if (n.userData.small) n.visible = !far; } }
+    dirty = false; lastRender = now;
     if (composer) composer.render(); else renderer.render(scene, camera);
     emitAnchors();
   }
@@ -656,10 +665,10 @@ export function createCity(host, { onPick, onHover, onAnchors, lite = false, sti
   return {
     async setPlan(p, live = {}) {
       const key_ = `${p.kind}:${p.key || ''}:${p.islands.map(i => i.key).join(',')}`; const first = planKey !== key_; plan = p;
-      if (first) { planKey = key_; sig = null; await buildWorld(p); const f = frameAll(); camera.position.set(f.x + f.dist * 0.5, f.dist * 0.5, f.z + f.dist * 0.75); controls.target.set(f.x, 0, f.z); }   // a low, cinematic first look
+      if (first) { planKey = key_; sig = null; await buildWorld(p); collectSigns(); const f = frameAll(); camera.position.set(f.x + f.dist * 0.5, f.dist * 0.5, f.z + f.dist * 0.75); controls.target.set(f.x, 0, f.z); }   // a low, cinematic first look
       const nextSig = JSON.stringify([p.kind, p.key, p.lots.map(l => [l.id, l.kind, l.tag, Math.round(Math.log10(1 + l.power) * 1.6), l.link?.pool, l.link?.apy]), p.markets.map(m => [m.key, usd(m.tvl), m.move == null ? null : Math.round(m.move), m.apy]),
         (p.billboards?.[0]?.ads || []).map(a => a.tag + a.text), [...(live.raided || [])], live.fight ? [live.fight.id, live.fight.a?.pct, live.fight.b?.pct] : null, Object.values(live.marks || {}).map(x => JSON.stringify(x))]);
-      if (first || nextSig !== sig) { sig = nextSig; await buildContent(p, live); }
+      if (first || nextSig !== sig) { sig = nextSig; await buildContent(p, live); collectSigns(); }
       if (lights) { phaseWas = -1; lightNodes.forEach((_, k) => { lights.setColorAt(k * 2, green); lights.setColorAt(k * 2 + 1, red); }); if (lights.instanceColor) lights.instanceColor.needsUpdate = true; }
       dirty = true; return first;
     },

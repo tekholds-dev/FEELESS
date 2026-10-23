@@ -70,13 +70,35 @@ export function errandGo(e, b, nav = path => window.location.assign(path), open 
   return url || null;
 }
 
+// 🎲 the MP street game under the block — the ONLY part that ticks every second (its live stash). It used to tick the whole block page
+// (3D wrapper, deck, cards) once a second — one of the "my family town lags" causes (2026-10-23).
+function StreetGame({ v, act, busy, can }) {
+  const [nowS, setNowS] = useState(() => Date.now() / 1000);
+  useEffect(() => { const t = setInterval(() => { if (!document.hidden) setNowS(Date.now() / 1000); }, 1000); return () => clearInterval(t); }, []);
+  const stash = liveStash(v, nowS);
+  return <details className="fbk-card fbk-mp" data-testid="block-mp"><summary data-tip="The MP points game: the stash your old stores make, recruits, robberies — points only, never money">🎲 Street game · {stash.toLocaleString('en-US')} MP in the stash</summary>
+            <button type="button" className="m-btn m-go fbk-collect" disabled={busy || stash < 1} onClick={() => act({ act: 'collect' })} data-testid="block-collect"><Coins size={15} /> Collect {stash.toLocaleString('en-US')} MP</button>
+            <p className="fbk-streak" data-tip="Collect every day: +5 % production a day, up to +50 %. Members' verified FEELESS trades this week boost production up to ×3.">🔥 streak {v.streak || 0}d · +{v.streakBonus || 0} % · trading boost ×{v.boost}{v.houseTax != null ? ` · house ${v.houseTax} %` : ''}</p>
+            {v.casino ? <button type="button" className="m-btn fbk-dice" disabled={busy || v.bank < 200} onClick={() => act({ act: 'dice', lot: Math.max(10, Math.floor(v.bank * 0.05)) })} data-tip="Once an hour: stake 5 % of the bank, a win pays 1.9× — earned MP only, points only" data-testid="block-dice">🎰 Roll {Math.max(10, Math.floor(v.bank * 0.05)).toLocaleString('en-US')} MP</button> : null}
+            <h5>RECRUITS · {(v.crew || []).length}/{v.goonCap}</h5>
+            {(v.crew || []).length ? <ul className="fbk-crew">{v.crew.map(r => <li key={r.id} className={r.hurt ? 'is-hurt' : ''} data-tip={r.hurt ? `hurt — back in ${Math.ceil(r.hurt / 60)} min` : r.next ? `level ${r.lvl} · ${r.xp}/${r.next} XP — trains every hour` : 'top level'}>
+              <i>{r.icon}</i><b>L{r.lvl}</b><u><s style={{ transform: `scaleX(${r.next ? Math.min(1, r.xp / r.next) : 1})` }} /></u></li>)}</ul> : null}
+            <div className="fbk-goons">{(v.goonTypes || []).map(g => { const Ic = g.key === 'guard' ? Shield : g.key === 'hitter' ? Crosshair : g.key === 'spy' ? Eye : Briefcase;
+              return <button key={g.key} type="button" disabled={!can || busy || g.cost > v.bank || g.ok === false} onClick={() => act({ act: 'hire', kind: g.key }, `${g.icon} ${g.name} hired`)} data-tip={g.what} data-testid={`hire-${g.key}`}>
+                <Ic size={15} /><b>{v.goons[g.key] || 0}</b><small>{g.name}</small><em>{g.cost ? `${g.cost} MP` : 'free'}</em></button>; })}</div>
+            {(v.rivals || []).length ? <><h5>🔫 ROB A STASH</h5><ul className="fbk-rivals">{v.rivals.map(r => <li key={r.id}><span><b>[{r.tag}]</b> {r.name}<small>stash {r.stash.toLocaleString('en-US')} · 🛡 {r.guards}</small></span>
+              <button type="button" disabled={!can || busy || !(v.goons.hitter > 0) || r.cool > 0} onClick={() => act({ act: 'rob', vs: r.id })} data-tip={`Your hitters vs their guards: ${Math.round(r.odds * 100)} % — a win takes 25 % of their stash; a loss costs a hitter`} data-testid={`rob-${r.tag}`}>
+                {r.cool > 0 ? `${Math.ceil(r.cool / 60)}m` : `${Math.round(r.odds * 100)} %`}</button></li>)}</ul></> : null}
+            {(v.log || []).length ? <><h5>📜 THE STREET</h5><ol className="fbk-log">{v.log.slice(0, 8).map(([t, w]) => <li key={`${t}-${w}`}>{w}</li>)}</ol></> : null}
+          </details>;
+}
+
 export function FamilyBlock({ cid, addr, sess, onBack, mine: myFam = null, tools = null, demo = null }) {
   const mine = !cid;
   const [v, setV] = useState(null); const [err, setErr] = useState(''); const [busy, setBusy] = useState(false);
   const [bl, setBl] = useState(null); const [bsel, setBsel] = useState(null); const coins = useIntakeCoins();
   const room = bsel?.town && TOWN[bsel.town] ? bsel.town : null;   // 🏘 a town building you walked into: its real tool pops out over the block
   useEffect(() => { if (!room) return undefined; const esc = e => { if (e.key === 'Escape') setBsel(null); }; window.addEventListener('keydown', esc); return () => window.removeEventListener('keydown', esc); }, [room]);
-  const [nowS, setNowS] = useState(() => Date.now() / 1000);
   const load = () => fetch(apiUrl(mine ? `/api/reputation/familia-city?address=${addr}&session=${encodeURIComponent(sess)}` : `/api/reputation/familia-city/${cid}`))
     .then(async r => { const b = await r.json().catch(() => ({})); if (!r.ok) throw new Error(b.detail || 'The block could not be read.'); setV({ ...b, _at: Date.now() / 1000 }); setErr(''); })
     .catch(e => setErr(e.message));
@@ -84,7 +106,6 @@ export function FamilyBlock({ cid, addr, sess, onBack, mine: myFam = null, tools
     .then(r => (r.ok ? r.json() : null)).then(b => { if (b) setBl(demo && !b.town ? { ...b, ...demo } : b); }).catch(() => {});   // demo = the dev harness only
   useEffect(() => { load(); loadBl(); const t = setInterval(() => { if (!document.hidden) load(); }, 20000); const u = setInterval(() => { if (!document.hidden) loadBl(); }, 60000);
     return () => { clearInterval(t); clearInterval(u); }; }, [cid, addr, sess]);   // eslint-disable-line react-hooks/exhaustive-deps
-  useEffect(() => { const t = setInterval(() => { if (!document.hidden) setNowS(Date.now() / 1000); }, 1000); return () => clearInterval(t); }, []);
   const act = async (body, ok) => {
     setBusy(true);
     try {
@@ -110,7 +131,6 @@ export function FamilyBlock({ cid, addr, sess, onBack, mine: myFam = null, tools
   };
   if (err) return <section className="fbk"><p className="fbk-err">{err}</p>{onBack ? <button type="button" className="m-btn" onClick={onBack}><ArrowLeft size={14} /> Back to the city</button> : null}</section>;
   if (!v) return <section className="fbk"><p className="fbk-wait">Opening the block…</p></section>;
-  const stash = liveStash(v, nowS);
   const can = mine && v.canBuild;
   const errands = (bl?.buildings || []).reduce((n, b) => n + (b.state === 'built' ? (b.errands || []).length : 0), 0);
   return (
@@ -137,21 +157,7 @@ export function FamilyBlock({ cid, addr, sess, onBack, mine: myFam = null, tools
         <aside className="fbk-side">
           <div className="fbk-card"><TownPicker bl={bl} busy={busy} mine={mine} onAct={blAct} open={room} onOpen={k => setBsel({ town: k })} /></div>
           {room ? null : <div className="fbk-card"><BlockCard bl={bl} sel={bsel} busy={busy} mine={mine} onAct={blAct} onErrand={(e, b) => errandGo(e, b)} /></div>}
-          {mine ? <details className="fbk-card fbk-mp" data-testid="block-mp"><summary data-tip="The MP points game: the stash your old stores make, recruits, robberies — points only, never money">🎲 Street game · {stash.toLocaleString('en-US')} MP in the stash</summary>
-            <button type="button" className="m-btn m-go fbk-collect" disabled={busy || stash < 1} onClick={() => act({ act: 'collect' })} data-testid="block-collect"><Coins size={15} /> Collect {stash.toLocaleString('en-US')} MP</button>
-            <p className="fbk-streak" data-tip="Collect every day: +5 % production a day, up to +50 %. Members' verified FEELESS trades this week boost production up to ×3.">🔥 streak {v.streak || 0}d · +{v.streakBonus || 0} % · trading boost ×{v.boost}{v.houseTax != null ? ` · house ${v.houseTax} %` : ''}</p>
-            {v.casino ? <button type="button" className="m-btn fbk-dice" disabled={busy || v.bank < 200} onClick={() => act({ act: 'dice', lot: Math.max(10, Math.floor(v.bank * 0.05)) })} data-tip="Once an hour: stake 5 % of the bank, a win pays 1.9× — earned MP only, points only" data-testid="block-dice">🎰 Roll {Math.max(10, Math.floor(v.bank * 0.05)).toLocaleString('en-US')} MP</button> : null}
-            <h5>RECRUITS · {(v.crew || []).length}/{v.goonCap}</h5>
-            {(v.crew || []).length ? <ul className="fbk-crew">{v.crew.map(r => <li key={r.id} className={r.hurt ? 'is-hurt' : ''} data-tip={r.hurt ? `hurt — back in ${Math.ceil(r.hurt / 60)} min` : r.next ? `level ${r.lvl} · ${r.xp}/${r.next} XP — trains every hour` : 'top level'}>
-              <i>{r.icon}</i><b>L{r.lvl}</b><u><s style={{ transform: `scaleX(${r.next ? Math.min(1, r.xp / r.next) : 1})` }} /></u></li>)}</ul> : null}
-            <div className="fbk-goons">{(v.goonTypes || []).map(g => { const Ic = g.key === 'guard' ? Shield : g.key === 'hitter' ? Crosshair : g.key === 'spy' ? Eye : Briefcase;
-              return <button key={g.key} type="button" disabled={!can || busy || g.cost > v.bank || g.ok === false} onClick={() => act({ act: 'hire', kind: g.key }, `${g.icon} ${g.name} hired`)} data-tip={g.what} data-testid={`hire-${g.key}`}>
-                <Ic size={15} /><b>{v.goons[g.key] || 0}</b><small>{g.name}</small><em>{g.cost ? `${g.cost} MP` : 'free'}</em></button>; })}</div>
-            {(v.rivals || []).length ? <><h5>🔫 ROB A STASH</h5><ul className="fbk-rivals">{v.rivals.map(r => <li key={r.id}><span><b>[{r.tag}]</b> {r.name}<small>stash {r.stash.toLocaleString('en-US')} · 🛡 {r.guards}</small></span>
-              <button type="button" disabled={!can || busy || !(v.goons.hitter > 0) || r.cool > 0} onClick={() => act({ act: 'rob', vs: r.id })} data-tip={`Your hitters vs their guards: ${Math.round(r.odds * 100)} % — a win takes 25 % of their stash; a loss costs a hitter`} data-testid={`rob-${r.tag}`}>
-                {r.cool > 0 ? `${Math.ceil(r.cool / 60)}m` : `${Math.round(r.odds * 100)} %`}</button></li>)}</ul></> : null}
-            {(v.log || []).length ? <><h5>📜 THE STREET</h5><ol className="fbk-log">{v.log.slice(0, 8).map(([t, w]) => <li key={`${t}-${w}`}>{w}</li>)}</ol></> : null}
-          </details> : null}
+          {mine ? <StreetGame v={v} act={act} busy={busy} can={can} /> : null}
         </aside>
       </div>
     </section>
