@@ -28,6 +28,12 @@
   AI round, ≤ 1 / 5 min) applies AUTO-TUNED after any applied set's 6 h cooldown, never re-applies the same tune, logs `autoLog`.
   + 🏆 MINDSET LADDER: `history` of every apply / revert cuts each model's trades by the mindset on when they OPENED (plain = no set);
   proven (≥ 5) rank by average %, then proving, then not tried. All in data/prompt_studio.json.
+- 🎭 MINDSET REACHES THE MODELS — proved 2026-10-23 00:20 with `scripts/mindset-probe.py` (one call each through ai_router._call1, a test mindset
+  with a codename, nothing stored): G4 (LAN LM Studio, qwen3-4b) "GREEN-FALCON" 1.1 s · OSSY (Mac LM Studio, gpt-oss-20b) "GOLD-VIPER" 25 s · NEXA
+  (Windows llamafile) "NIGHT-OWL" 20 s. FEELESS sends it inside every API call's system message; LM Studio's own preset box never shows it.
+  Live proof in the app: Brain › Prompts "✓ IN USE · last call carried it" + 🎭 tags on Models › live calls (`ai_router.MINDSET_SEEN`).
+- 🔁 OSSY × G4 STRICT TURNS (2026-10-23): G4 sat on the proof bench (−0.8 % median FAVOR calls) and OSSY opened every trade; the bench + streak
+  brake now act only when the owner flips 🪑 GUARDS ON on the seat (`ai_seat.json` guards). Default = one real trade each.
 - 🏙 TRADE INSIDE FAMILIA (2026-10-23): `FamiliaTrade.jsx` — `familiaTrade(pair)` opens the FAMILIA TRADE DESK (z 4600, above the full-screen
   city) when the Familia page's one `<FamiliaTradeDock />` is mounted (Crews.jsx; /dev/city mounts it too), else the war room as before.
   TrenchChart + Quick trade + live vitals, ⤢ wide, Esc / ✕ back to the room; `familiaSwap({from,to})` = the swap with both coins set.
