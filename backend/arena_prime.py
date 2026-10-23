@@ -86,6 +86,8 @@ DEFAULT_CYCLES = {'safe': 'safe', 'balanced': 'adaptive', 'degen': 'classic', 'n
 DEFAULT_CLOCKS = {'degen': 0.08, 'next': 0.25, 'balanced': 0.5, 'ever': 1.0, 'safe': 2.0}
 DEFAULT_PAYOUTS = {'safe': 25, 'balanced': 50, 'degen': 0, 'next': 25, 'ever': 75}   # % of every profit take paid straight to the wallet
 RUG_LIQ = 0.65  # (was 0.5 — tightened 2026-10-06: a pool that has lost a third of its depth is already being drained) # 🚨 rug shield: pool liquidity at ≤ 65% of entry = being pulled → sell at once
+RUG_PICK_LIQ = 0.25   # ✋ YOUR pick (owner, 2026-10-22: "any trade I make should STAY"): a thinning pool only WARNS; a pool down to a quarter is a real pull
+LIQ_SRC: dict = {}     # pair → 'jupiter' when this tick's depth came from Jupiter's token data (ONE side of the pool) — set by the service each tick
 TRAIL_AT, TRAIL_KEEP = 50.0, 5.0   # 🔒 a coin that ran ≥ +50% is sold before it gives it all back (≤ +5% left)
 FIX_DAY_PCT = -40.0   # 🔧 a tier card whose DAY falls to −40% gets its config fixed: re-dealt fresh on the safe cycle (logged)
 RIDE_AT, RIDE_TRAIL = 150.0, 30.0
@@ -750,6 +752,11 @@ def top_victim(card, prices, now, hold_sec):
         if g <= TOP_SEAT_KEEP:
             out.append((g, l))
     return min(out, key=lambda t: t[0])[1] if out else None
+
+
+def owner_pick(l):
+    """✋ A coin the OWNER put on the card by hand (a pick that is not an OSSY / G4 seat or an agent-desk buy)."""
+    return bool((l or {}).get('picked')) and not (l or {}).get('aiSeat') and not agent_leg(l)
 
 
 def agent_leg(l):
@@ -2446,6 +2453,13 @@ def tick(card, prices, pools, runners, cfg, now, anchors=(), mom=None, liqs=None
         if safe_anchor(l) or l.get('frozen') or lq <= 0 or lq0 <= 0 or lq > lq0 * RUG_LIQ:
             continue
         if c.get('real') and not l.get('real'):   # the wallet does not hold it yet (a seat whose buy has not landed): nothing to pull — $S402 was "pulled" 3× without ever being bought
+            continue
+        if LIQ_SRC.get(l['pairAddress']) == 'jupiter':   # 🧪 Jupiter's liquidity is ONE side of the pool ($MOON: $13.9K vs DexScreener's $29.7K) — never judged against an entry
+            continue                                     #    read on DexScreener's two-sided scale (two false "rugs" sold the owner's $MOON pick at break-even, 2026-10-22)
+        if owner_pick(l) and lq > lq0 * RUG_PICK_LIQ:
+            if not l.get('rugWarnAt') or now - _f(l['rugWarnAt']) >= 600:   # one warning per 10 min
+                l['rugWarnAt'] = now
+                ev(kind='rug-warn', symbol=l['symbol'], why=f"⚠ your pick ${l['symbol']}: pool ${lq0 / 1000:.0f}K → ${lq / 1000:.0f}K (−{(1 - lq / lq0) * 100:.0f}%) — kept (your call); it is pulled only if the pool falls under a quarter")
             continue
         px = _f(prices.get(l['pairAddress'])) or l['entry']
         usd = sell_usd(l['units'], px, lq)

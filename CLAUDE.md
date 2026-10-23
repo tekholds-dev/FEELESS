@@ -181,6 +181,12 @@ never wait) + REAL_MIN_HOLD 15. 🐛 Familia crash ("reading 'call'" at Lazy) fi
 
 P0 — OWNER 2026-10-22 LATEST-LATEST (his words: "Familia Fee City has REAL buildings = you can really do EVERYTHING from everywhere in
 families; buildings represent realtime data"; hardest → easiest):
+0. ✋ YOUR TRADES STAY (owner: "any trade I submit on the Agent / Sicario's tab should STAY"): FIXED 2026-10-22 — the rug shield sold the
+   owner's $MOON pick twice on Jupiter's ONE-SIDED depth ($13.9K vs DexScreener $29.7K); now it never judges a Jupiter reading and a hand pick
+   only WARNS unless its pool falls under a quarter (`arena_prime.owner_pick`, `RUG_PICK_LIQ`, `LIQ_SRC`). Next: audit every other engine exit
+   that can touch a hand pick (flat_leg picks=True, trench drop, agent pull) → each one a warning, the owner's own lines the only auto-sell.
+A0. 🗼 TRADE IN FAMILIA, NO REDIRECTS: Trench Towers + every Familia tool trades in place (the war-room chart + Quick trade inside the pop-out,
+   wallet signs) — never a jump to another FEELESS page.
 A. 📉 PERPS IN THE POPOUT, NO REDIRECT: the Perps building trades in place — one tap picks the provider (Jupiter Perps · Drift · Hyperliquid…),
    size from $5, long / short, live position + P&L in the building; the wallet signs; guards (memory: new buy doors need guards). ⚠ LEGAL: a
    venue that blocks the user's region stays blocked in-app too (rule 1c — never a geo-block loophole); show which providers serve the user.
@@ -189,6 +195,7 @@ C. 🏙 MY FAMILY TOWN = the main city's engine features (day / night, traffic, 
 D. 📦 FAMILIA LOADS AS ITS OWN APP PACKAGE (separate lazy bundle, preloaded on hover) — no lag sitewide.
 E. 🪟 City window BIGGER. F. 💬 THE most litty chat on the internet (Familia / street chat). G. Every building + family idea = real function,
    visually advanced, live data, NO dead text.
+H. 🐱🚀 REDO the unfinished parts of the FeeCat + Launch tabs / pages: every process step lit-styled (drawn, live, animated), no dead forms.
 
 P0 — OWNER 2026-10-22 LATEST (hardest first; finish in-flight work first, conserve usage, never dead-style)
 DONE tonight: 🐛 Familia/route crash (FamilyDeck static imports) · 🕰 15-min agent min hold (`AGENT_MIN_HOLD`) · 🪟🐱 NEXA TRADES AS FEECAT

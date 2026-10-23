@@ -321,6 +321,26 @@ def test_rug_shield_sells_a_coin_whose_liquidity_was_pulled():
     assert 'r1' not in [l['mint'] for l in out['legs']] and any(e['kind'] == 'rug' and 'pulled' in e['why'] for e in out['events'])
 
 
+def test_rug_shield_never_trusts_jupiters_one_sided_depth_and_your_pick_stays():
+    # 2026-10-22: $MOON's pool was $29.7K on DexScreener but $13.9K on Jupiter (the SOL side alone) — each DexScreener miss read as a "rug" and sold the pick
+    card = ap.deal('degen', [P('a', 1)], [{**R('r1', 1), 'liquidityUsd': 100_000}, R('r2', 1)], CFG, 0, SOL[:1])
+    try:
+        ap.LIQ_SRC['Pr1'] = 'jupiter'
+        out = ap.tick(card, {'Psol': 1, 'Pa': 1, 'Pr1': 0.9, 'Pr2': 1}, [], [], CFG, 30, SOL, None, {'Pr1': 40_000})
+        assert 'r1' in [l['mint'] for l in out['legs']] and not any(e['kind'] == 'rug' for e in out['events'])
+    finally:
+        ap.LIQ_SRC.pop('Pr1', None)
+    card = ap.deal('degen', [P('a', 1)], [{**R('r1', 1), 'liquidityUsd': 100_000}, R('r2', 1)], CFG, 0, SOL[:1])
+    for l in card['legs']:
+        if l['mint'] == 'r1':
+            l['picked'] = True                                                                # ✋ the owner's own pick
+    out = ap.tick(card, {'Psol': 1, 'Pa': 1, 'Pr1': 0.9, 'Pr2': 1}, [], [], CFG, 30, SOL, None, {'Pr1': 40_000})
+    assert 'r1' in [l['mint'] for l in out['legs']] and any(e['kind'] == 'rug-warn' and 'kept' in e['why'] for e in out['events'])
+    out = ap.tick(out, {'Psol': 1, 'Pa': 1, 'Pr1': 0.5, 'Pr2': 1}, [], [], CFG, 60, SOL, None, {'Pr1': 20_000})   # a real pull: under a quarter
+    assert 'r1' not in [l['mint'] for l in out['legs']] and any(e['kind'] == 'rug' for e in out['events'])
+    assert ap.owner_pick({'picked': True}) and not ap.owner_pick({'picked': True, 'aiSeat': True}) and not ap.owner_pick({'picked': True, 'bought': {'tag': '🤖 x'}})
+
+
 def test_rounds_per_run_close_the_run_and_math_reads_plainly():
     cfg = ap.clean_cfg({'roundsPerRun': 5})
     assert cfg['roundsPerRun'] == 5 and ap.clean_cfg({'roundsPerRun': 7})['roundsPerRun'] == 0

@@ -12372,6 +12372,7 @@ async def _prime_tick_inner(now):
     for tid in order_t:
         cur = cards.get(tid)
         liqs = {k: _fuse._f((v.get('liquidity') or {}).get('usd')) for k, v in pairs_.items()}
+        _prime.LIQ_SRC.update({k: v.get('source') or 'dex' for k, v in pairs_.items()})   # 🧪 the rug shield never compares Jupiter's one-sided depth with a DexScreener entry
         cfg_t = {**_prime.clean_cfg(locks[tid]), 'paperFeeUsd': cfg['paperFeeUsd']} if tid in locks else _prime.tier_cfg(cfg, tid)   # 🔒 a locked tier runs its own frozen config · every other tier its own ⏱ clock
         _raw_paper = (d.get('prime') or {}).get('cfg') or {}
         cfg_t = {**cfg_t, **{k: v for k, v in _prime.PAPER_TRY.items() if k not in _raw_paper}}   # 🧪 fed lock + second ticket are tried on paper first
