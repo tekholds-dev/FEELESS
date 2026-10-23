@@ -22,7 +22,8 @@ export default function BrainHarness() {
   const props = () => ({ pending: st.current.props.filter(p => p.status === 'pending'), decided: st.current.props.filter(p => p.status !== 'pending') });
   const call = useCallback(async (u, o) => { const s = st.current; const b = o?.body ? JSON.parse(o.body) : null;
     await new Promise(r => setTimeout(r, 120));
-    if (u === '/admin/ai/prompts') { if (b) s.studio = { ...(s.studio || STUDIO), models: (s.studio || STUDIO).models.map(m => (m.key !== b.key ? m : { ...m, active: b.revert ? null : { set: b.set, text: b.text || '', at: Date.now() / 1000, edited: !!b.text, since: { n: 0 } } })) };
+    if (u === '/admin/ai/prompts') { if (b) s.studio = { ...(s.studio || STUDIO), models: (s.studio || STUDIO).models.map(m => (m.key !== b.key ? m : 'auto' in b ? { ...m, auto: { ...m.auto, on: b.auto } }
+      : { ...m, active: b.revert ? null : { set: b.set, text: b.text || '', at: Date.now() / 1000, edited: !!b.text, since: { n: 0 } } })) };
       return s.studio || STUDIO; }   // 🎭 Prompt Studio on fixtures
     if (u === '/admin/ai/rig') { if (b?.reload) return { ...view(), reload: { ok: true, ms: 9100 } };
       if (b) Object.entries(b).forEach(([k, row]) => { if (row?.load) s.rig[k].load = { ...s.rig[k].load, ...row.load }; else Object.assign(s.rig[k], row); }); return view(); }

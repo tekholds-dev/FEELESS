@@ -10,20 +10,29 @@ const layers = (job, studio) => [{ k: 'job', label: 'Seat prompt', chars: job * 
   { k: 'identity', label: 'Identity', chars: 420, tok: 105, text: 'Your name is G4 — the lead trench analyst…', note: 'chat only' },
   { k: 'brain', label: 'Coin reads (brain)', chars: 9200, tok: 2300, text: '# FEELESS brain…', note: 'background reads' },
   { k: 'studio', label: 'Applied mindset', chars: studio * 4, tok: studio, text: studio ? '🎭 MINDSET … PROGRESSIVE MINDSET — OSSY: quick in, patient in profit…' : '', ...(studio ? {} : { note: 'none applied' }) }];
+const rung = (set, label, n, wonPct, avgPct, usd, extra = {}) => ({ set, label, n, wonPct, avgPct, usd, proving: n > 0 && n < 5, active: false, ...extra });
+const now = () => Date.now() / 1000;
 export const STUDIO = {
   dials: ['speed', 'patience', 'risk', 'discipline'], at: 0,
   models: [
     { key: 'lan', name: 'G4', state: 'ONLINE', model: 'qwen/qwen3-4b-2507', ctx: 8704, layers: layers(2600, 0), active: null,
       record: { n: 76, wonPct: 17, avgPct: -4.7, avgWin: 4.1, avgLoss: -11.2, medHeld: 11, quickN: 48, quickWonPct: 12, gaveN: 21, calls: 30, answerPct: 100, medMs: 15600 },
+      auto: { on: true, red: true, recent: { n: 10, wonPct: 20, avgPct: -3.4 }, word: 'last 10 trades: 20 % won, -3.4 % avg', coolUntil: null, n: 10, won: 40,
+        last: { key: 'lan', at: now() - 7200, why: 'record turned red (last 10 trades: 10 % won, -5.1 % avg) → AUTO-TUNED applied', fixes: ['rides winners back to red', 'lets losers run'] } },
+      ladder: [rung('tuned', 'AUTO-TUNED', 6, 50, 1.8, 0.04), rung('plain', 'PLAIN PROMPT', 70, 14, -5.2, -1.62), rung('elite', 'ELITE', 3, 67, 4.1, 0.03), rung('degen', 'DEGEN TRENCH', 0, null, null, null), rung('progressive', 'PROGRESSIVE', 0, null, null, null)],
       fixes: [{ key: 'giveback', title: 'rides winners back to red', evidence: '21 of 76 trades peaked +10 % and closed under +2 %', rule: 'Once a trade is +10 %, your stop goes to break-even.' },
         { key: 'bleed', title: 'lets losers run', evidence: 'average loss −11.2 % vs average win +4.1 %', rule: 'Cut a loser at the line you set BEFORE the buy.' },
         { key: 'jumpy', title: 'bails inside 15 min', evidence: '48 of 76 trades closed under 15 min, 12 % of those won', rule: 'A clean trade gets at least 15 minutes.' }],
       sets: SETS('G4') },
     { key: 'local', name: 'OSSY', state: 'ONLINE', model: 'openai/gpt-oss-20b', ctx: 16384, layers: layers(2600, 190),
       active: { set: 'progressive', text: 'PROGRESSIVE MINDSET — OSSY…', at: Date.now() / 1000 - 5400, by: 'owner', edited: false, since: { n: 4, wonPct: 50, avgPct: 2.6 } },
-      record: { n: 100, wonPct: 26, avgPct: -0.4, medHeld: 22, calls: 30, answerPct: 100, medMs: 51200 }, fixes: [], sets: SETS('OSSY') },
+      record: { n: 100, wonPct: 26, avgPct: -0.4, medHeld: 22, calls: 30, answerPct: 100, medMs: 51200 }, fixes: [], sets: SETS('OSSY'),
+      auto: { on: false, red: false, recent: { n: 10, wonPct: 60, avgPct: 2.1 }, word: 'last 10 trades: 60 % won, +2.1 % avg', last: null, coolUntil: now() + 3600, n: 10, won: 40 },
+      ladder: [rung('progressive', 'PROGRESSIVE', 4, 50, 2.6, 0.03, { active: true }), rung('plain', 'PLAIN PROMPT', 96, 25, -0.5, -0.09), rung('elite', 'ELITE', 0, null, null, null), rung('degen', 'DEGEN TRENCH', 0, null, null, null), rung('tuned', 'AUTO-TUNED', 0, null, null, null)] },
     { key: 'win', name: 'NEXA', state: 'ONLINE', model: 'Ministral-3-3B', ctx: 4096, layers: [{ k: 'job', label: 'Desk calls (YES / NO · HOLD / SELL)', chars: 380, tok: 95, text: "You trade FeeCat's paper desk…" }, { k: 'studio', label: 'Applied mindset', chars: 0, tok: 0, text: '', note: 'none applied' }],
       active: null, record: { n: 0, yesN: 42, yesRight: 45, yesTypical: -1.2 },
+      auto: { on: false, red: false, recent: { n: 3, wonPct: 33, avgPct: -0.8 }, word: 'last 3 trades: 33 % won, -0.8 % avg', last: null, coolUntil: null, n: 10, won: 40 },
+      ladder: [rung('plain', 'PLAIN PROMPT', 42, 45, -1.2, null, { active: true }), rung('elite', 'ELITE', 0, null, null, null), rung('degen', 'DEGEN TRENCH', 0, null, null, null), rung('progressive', 'PROGRESSIVE', 0, null, null, null), rung('tuned', 'AUTO-TUNED', 0, null, null, null)],
       fixes: [{ key: 'yes', title: 'its YES calls lose', evidence: '42 YES calls graded: 45 % right, typical -1.2 %', rule: 'YES only when graduated, cap under $30K, buyers over 55 % and the pool over $10K.' }],
       sets: SETS('NEXA').map(s => ({ ...s, text: s.text.slice(0, 300) })) },
   ],

@@ -80,3 +80,56 @@ def test_the_studio_view_and_apply(monkeypatch):
     rs._json_save(rs.PROMPT_STUDIO_PATH, {})
     rs._studio_apply()
     assert 'lan' not in rs._air.STUDIO
+
+
+RED = [{'pct': -8.0, 'peak': 3, 'heldMin': 12, 'usd': -0.03, 'at': 1000 + i} for i in range(7)] + [{'pct': 4.0, 'peak': 6, 'heldMin': 40, 'usd': 0.01, 'at': 2000 + i} for i in range(2)]
+
+
+def test_red_is_read_on_the_recent_window_and_needs_a_sample():
+    assert ps.is_red(ps.recent(RED)) and not ps.is_red(ps.recent(RED[:3]))                               # 3 trades prove nothing
+    assert not ps.is_red(ps.recent([{'pct': 5, 'at': i} for i in range(8)]))
+    assert ps.recent([{'pct': -1, 'at': i} for i in range(30)] + [{'pct': 9, 'at': 100 + i} for i in range(10)])['wonPct'] == 100   # the LAST 10
+    assert 'last 9 trades: 22 % won' in ps.red_word(ps.recent(RED))
+
+
+def test_the_switch_applies_auto_tuned_only_when_on_red_and_past_the_cooldown():
+    tuned = {'set': 'tuned', 'text': 'cut red at your line'}
+    rec = ps.recent(RED)
+    assert ps.auto_pick(False, None, rec, tuned, 10_000) is None                                         # switch off
+    pick = ps.auto_pick(True, None, rec, tuned, 10_000)
+    assert pick['set'] == 'tuned' and pick['text'] == 'cut red at your line' and 'turned red' in pick['why']
+    assert ps.auto_pick(True, None, ps.recent(RED[-2:] * 4), tuned, 10_000) is None                     # green → nothing
+    assert ps.auto_pick(True, {'set': 'progressive', 'at': 9_000}, rec, tuned, 10_000) is None          # your set gets its 6 h
+    assert ps.auto_pick(True, {'set': 'progressive', 'at': 1}, rec, tuned, 30_000)['set'] == 'tuned'
+    assert ps.auto_pick(True, {'set': 'tuned', 'text': 'cut red at your line', 'at': 1}, rec, tuned, 90_000) is None   # already on this tune
+    assert ps.auto_pick(True, {'set': 'tuned', 'text': 'older tune', 'at': 1}, rec, tuned, 90_000)['set'] == 'tuned'  # the record moved → a new tune
+
+
+def test_the_ladder_credits_each_trade_to_the_mindset_active_when_it_opened():
+    hist = ps.hist_add(ps.hist_add(ps.hist_add([], 'lan', 'elite', 1500, 'owner'), 'lan', 'progressive', 1990, 'owner'), 'local', 'degen', 1, 'owner')
+    trades = RED + [{'pct': 12.0, 'at': 2500 + i, 'usd': 0.04} for i in range(5)]
+    lad = ps.ladder(trades, hist, 'lan', 3000, {'set': 'progressive', 'at': 1990})
+    by = {r['set']: r for r in lad}
+    assert by['plain']['n'] == 7 and by['progressive']['n'] == 7 and by['elite']['n'] == 0 and by['degen']['n'] == 0   # OSSY's history is not G4's
+    assert lad[0]['set'] == 'progressive' and lad[0]['avgPct'] > 0 and lad[0]['active'] and lad[1]['set'] == 'plain'
+    assert by['progressive']['usd'] == 0.22 and [r['set'] for r in lad[-3:]] == ['elite', 'degen', 'tuned']
+    assert ps.periods(None, 'lan', 100, {'set': 'elite', 'at': 50}) == [('plain', 0.0, 50.0), ('elite', 50.0, 101.0)]
+    assert ps.ladder(trades, [], 'lan', 3000)[0]['set'] == 'plain'                                       # nothing applied yet: all plain
+
+
+def test_the_auto_switch_runs_on_the_ai_round(monkeypatch):
+    import reputation_service as rs
+    monkeypatch.setattr(rs, '_duo_tape', lambda: ([{'mint': f'M{i}', 'since': t['at'], 'aiBy': 'lan'} for i, t in enumerate(RED)],
+                                                   [{'mint': f'M{i}', 'at': t['at'], 'state': 'sold', 'result': {'pct': t['pct'], 'peak': t['peak'], 'heldMin': t['heldMin'], 'usd': t['usd']}} for i, t in enumerate(RED)]))
+    rs._json_save(rs.PROMPT_STUDIO_PATH, {'auto': {'lan': True}})
+    rs._studio_auto_at['t'] = 0.0
+    assert asyncio.run(rs._studio_auto(50_000)) == 1
+    raw = rs._json_load(rs.PROMPT_STUDIO_PATH, {})
+    assert raw['lan']['set'] == 'tuned' and raw['lan']['by'] == 'auto' and raw['history'][-1]['set'] == 'tuned' and 'turned red' in raw['autoLog'][-1]['why']
+    assert rs._air.STUDIO['lan'] == raw['lan']['text'] and 'local' not in raw                          # OSSY's switch is off
+    assert asyncio.run(rs._studio_auto(50_100)) == 0                                                    # once per 5 min
+    rs._studio_auto_at['t'] = 0.0
+    assert asyncio.run(rs._studio_auto(50_400)) == 0                                                    # already on this tune
+    rs._json_save(rs.PROMPT_STUDIO_PATH, {})
+    rs._studio_apply()
+    assert "asyncio.ensure_future(_studio_auto_safe(now))" in open(rs.__file__).read()

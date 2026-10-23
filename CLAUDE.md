@@ -186,8 +186,9 @@ families; buildings represent realtime data"; hardest → easiest):
    only WARNS unless its pool falls under a quarter (`arena_prime.owner_pick`, `RUG_PICK_LIQ`, `LIQ_SRC`). AUDITED: stop / trail / early cut /
    trench drop / rotation / lock-bank / initial-out already skip picks; instant-loss + the tape's flow exit / rug radar / climax trim now skip
    them too (⚠ warning every 10 min, `flow.flow_exits` `mine`). The owner's own lines + the −45 % line are the only auto-sells of a hand pick.
-P. ✅ SHIPPED 2026-10-22 (Brain › 🎭 Prompts, `prompt_studio.py`, `ai_router.with_studio`, /admin/ai/prompts; preview /dev/brain). Next: a
-   one-tap "apply the AUTO-TUNED set when the record turns red" switch, and a per-set record ladder (which mindset paid most per model).
+P. ✅ SHIPPED 2026-10-22 (Brain › 🎭 Prompts, `prompt_studio.py`, `ai_router.with_studio`, /admin/ai/prompts; preview /dev/brain). + ✅ 🤖 AUTO-TUNE
+   switch per model (last 10 trades red = losing on average AND < 40 % won → AUTO-TUNED applied on the AI round; any applied set gets 6 h
+   first; `_studio_auto`) + 🏆 MINDSET LADDER (each trade credited to the mindset on when it opened; proven ≥ 5 trades rank by avg %).
    Was: 🧠 PROMPT STUDIO for every model (owner, 2026-10-22): see each model's live CONTEXT + system prompt (G4 · OSSY · NEXA · any LM Studio /
    llama model) and 3 auto-generated prompt sets per model — ELITE (supreme persona), DEGEN TRENCH (germ floor, buyers, fresh-pump laws),
    and a PROGRESSIVE mix ("quick in, patient while in profit, rush when it runs") — one tap APPLIES to LM Studio / llama (rig reload path that

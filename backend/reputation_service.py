@@ -17226,6 +17226,7 @@ async def _ai_round(now):
     await _lab_tick(now, env, cfg)   # 🧪 the rule lab: the record re-judges every rule; at most once an hour the model proposes new ones
     asyncio.ensure_future(_nexa_safe(now, env, cfg))   # 🪟 Nexa: FeeCat's own model, its own task (CPU llamafile, minutes per answer)
     asyncio.ensure_future(_nexa_desk_safe(now, env, cfg))   # 🐱 …and, when the owner switched it on, she trades AS FeeCat (≤ 3 yes / no calls per 5 min)
+    asyncio.ensure_future(_studio_auto_safe(now))   # 🤖 Prompt Studio auto-tune: a model whose switch is on and whose last trades turned red gets its AUTO-TUNED set
     asyncio.ensure_future(_feecat_duo_safe(now, env, cfg))   # 🐱🤝 its own task: a stuck desktop model never holds the round (OSSY's minute waited behind it)   # FeeCat's one duo read per 10 min (both models must agree before she acts on it)
     await _coach_ai(now, env, cfg)   # 👑 at most every 15 min: the model reads the last real trades and may instruct the agents (bounded, coach.py)
     jobs = _ai_jobs(now)
@@ -17896,8 +17897,62 @@ def _studio_trades(key):
         if (p_ or {}).get('aiBy') != key:
             continue
         r_ = row_['result']
-        out.append({'pct': r_.get('pct'), 'peak': r_.get('peak'), 'heldMin': r_.get('heldMin'), 'at': row_.get('at')})
+        out.append({'pct': r_.get('pct'), 'peak': r_.get('peak'), 'heldMin': r_.get('heldMin'), 'usd': r_.get('usd'), 'at': row_.get('at')})
     return sorted(out, key=lambda t_: _fuse._f(t_.get('at')))
+
+
+def _studio_core(k_, st_, done_, nx_):
+    """One model's record → {trades, stats, fixes, sets} (the view and the auto-tune switch read the same numbers)."""
+    nm_ = _air.model_name(os.environ, k_)
+    if k_ == 'win':
+        trades_ = _pstu.nexa_trades(nx_.get('grades') or [])
+        s_ = _pstu.stats(trades_, None, None, _nexa.record(nx_.get('grades') or []))
+    else:
+        trades_ = _studio_trades(k_)
+        calls_ = [r_ for r_ in st_['log'] if r_.get('model') == nm_ and r_.get('action') != 'LINES' and not r_.get('talk')]
+        s_ = _pstu.stats(trades_, calls_, _seat.bench(done_, k_))
+    fx_ = _pstu.diagnose(s_)
+    return {'trades': trades_, 'stats': s_, 'fixes': fx_, 'sets': _pstu.sets(k_, s_, fx_)}
+
+
+_studio_auto_at = {'t': 0.0}
+
+
+async def _studio_auto(now):
+    """🤖 AUTO-TUNE (owner, 2026-10-22): every 5 min, for each model whose switch is ON — when its last trades turn RED, its AUTO-TUNED set is
+    applied (after any applied set's 6 h cooldown), logged and put on the ladder's history. Never touches a model whose switch is off."""
+    if now - _studio_auto_at['t'] < 300:
+        return 0
+    _studio_auto_at['t'] = now
+    raw_ = dict(_json_load(PROMPT_STUDIO_PATH, {}) or {})
+    on_ = {k_ for k_, v_ in (raw_.get('auto') or {}).items() if v_ and k_ in _pstu.KEYS}
+    if not on_:
+        return 0
+    act_ = _pstu.clean_active(raw_)
+    st_, done_, nx_ = _g4_state(), (_ai.get('book') or {}).get('done') or [], _nexa_mem.get() or {}
+    n_ = 0
+    for k_ in sorted(on_):
+        core_ = _studio_core(k_, st_, done_, nx_)
+        tuned_ = next((x_ for x_ in core_['sets'] if x_['set'] == 'tuned'), None)
+        pick_ = _pstu.auto_pick(True, act_.get(k_), _pstu.recent(core_['trades']), tuned_, now)
+        if not pick_:
+            continue
+        raw_[k_] = {'set': 'tuned', 'text': pick_['text'], 'at': now, 'by': 'auto', 'edited': False}
+        raw_['history'] = _pstu.hist_add(raw_.get('history'), k_, 'tuned', now, 'auto')
+        raw_['autoLog'] = (list(raw_.get('autoLog') or []) + [{'key': k_, 'at': round(now), 'why': pick_['why'], 'fixes': [f_['title'] for f_ in core_['fixes']]}])[-60:]
+        n_ += 1
+        print(f"prompt studio: auto-tuned {_air.model_name(os.environ, k_)} — {pick_['why']}")
+    if n_:
+        _json_save(PROMPT_STUDIO_PATH, raw_)
+        _studio_apply()
+    return n_
+
+
+async def _studio_auto_safe(now):
+    try:
+        await _studio_auto(now)
+    except Exception as e:
+        print('prompt studio auto:', str(e)[:100])
 
 
 def _studio_layer(k, label, text, note=None):
@@ -17915,13 +17970,13 @@ async def _studio_view():
     done_ = (_ai.get('book') or {}).get('done') or []
     nx_ = _nexa_mem.get() or {}
     brain_ = _air.brain_text(os.environ) or ''
+    raw_ = _json_load(PROMPT_STUDIO_PATH, {}) or {}
+    now_ = time.time()
     models_ = []
     for k_ in _pstu.KEYS:
         nm_ = _air.model_name(os.environ, k_)
-        trades_ = _studio_trades(k_)
-        calls_ = [r_ for r_ in st_['log'] if r_.get('model') == nm_ and r_.get('action') != 'LINES' and not r_.get('talk')] if k_ != 'win' else []
-        s_ = _pstu.stats(trades_, calls_, _seat.bench(done_, k_) if k_ != 'win' else None, _nexa.record(nx_.get('grades') or []) if k_ == 'win' else None)
-        fx_ = _pstu.diagnose(s_)
+        core_ = _studio_core(k_, st_, done_, nx_)
+        trades_, s_, fx_ = core_['trades'], core_['stats'], core_['fixes']
         lm_ = (lms_ or {}).get(k_) or {}
         ctx_ = int(_fuse._f(((lm_.get('loaded') or [{}])[0] or {}).get('ctx')) or _fuse._f((rig_.get(k_) or {}).get('ctx')) or 0) or None
         a_ = act_.get(k_)
@@ -17930,9 +17985,15 @@ async def _studio_view():
                    _studio_layer('identity', 'Identity', _air.identity_line(os.environ, k_), 'chat only'),
                    *([_studio_layer('brain', 'Coin reads (brain)', brain_, 'background reads')] if k_ != 'win' and brain_ else []),
                    _studio_layer('studio', 'Applied mindset', _pstu.overlay_block(a_['text']).strip() if a_ else '', None if a_ else 'none applied')]
+        rec_ = _pstu.recent(trades_)
+        last_ = next((x_ for x_ in reversed(raw_.get('autoLog') or []) if x_.get('key') == k_), None)
         models_.append({'key': k_, 'name': nm_, 'state': live_.get(k_), 'model': lm_.get('model') or (_air.provider(os.environ, k_, _ai_cfg()) or {}).get('model'), 'ctx': ctx_,
-                        'record': s_, 'fixes': fx_, 'sets': _pstu.sets(k_, s_, fx_), 'layers': layers_,
-                        'active': {**a_, 'since': _pstu.since(trades_, a_['at'])} if a_ else None})
+                        'record': s_, 'fixes': fx_, 'sets': core_['sets'], 'layers': layers_,
+                        'active': {**a_, 'since': _pstu.since(trades_, a_['at'])} if a_ else None,
+                        'auto': {'on': bool((raw_.get('auto') or {}).get(k_)), 'red': _pstu.is_red(rec_), 'recent': {x_: rec_.get(x_) for x_ in ('n', 'wonPct', 'avgPct')},
+                                 'word': _pstu.red_word(rec_), 'last': last_, 'coolUntil': (_fuse._f(a_['at']) + _pstu.AUTO_COOLDOWN) if a_ and now_ - _fuse._f(a_['at']) < _pstu.AUTO_COOLDOWN else None,
+                                 'n': _pstu.RECENT_N, 'won': _pstu.RED_WON},
+                        'ladder': _pstu.ladder(trades_, raw_.get('history'), k_, now_, a_)})
     return {'models': models_, 'dials': list(_pstu.DIAL_KEYS), 'at': time.time()}
 
 
@@ -17959,8 +18020,14 @@ async def admin_ai_prompts_set(request: Request):
     if k_ not in _pstu.KEYS:
         raise HTTPException(400, 'unknown model')
     raw_ = dict(_json_load(PROMPT_STUDIO_PATH, {}) or {})
+    if 'auto' in body:   # 🤖 the auto-tune switch for this model
+        raw_['auto'] = {**(raw_.get('auto') or {}), k_: bool(body.get('auto'))}
+        _json_save(PROMPT_STUDIO_PATH, raw_)
+        _studio_auto_at['t'] = 0.0   # judged on the next AI round, not in 5 min
+        return {**(await _studio_view()), 'applied': None}
     if body.get('revert'):
         raw_.pop(k_, None)
+        raw_['history'] = _pstu.hist_add(raw_.get('history'), k_, None, time.time(), me_)
     else:
         set_ = body.get('set')
         if set_ not in _pstu.SETS:
@@ -17970,6 +18037,7 @@ async def admin_ai_prompts_set(request: Request):
         if not txt_:
             raise HTTPException(400, 'empty prompt')
         raw_[k_] = {'set': set_, 'text': txt_, 'at': time.time(), 'by': str(me_)[:44], 'edited': txt_ != gen_.get('text')}
+        raw_['history'] = _pstu.hist_add(raw_.get('history'), k_, set_, time.time(), me_)
     _json_save(PROMPT_STUDIO_PATH, raw_)
     return {**(await _studio_view()), 'applied': None if body.get('revert') else k_}
 

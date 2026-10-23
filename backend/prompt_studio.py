@@ -166,3 +166,88 @@ def since(trades, at):
     a = _f(at) or 0.0
     s = stats([t for t in trades or [] if (_f((t or {}).get('at')) or 0.0) >= a]) if a else stats([])
     return {'n': s['n'], 'wonPct': s['wonPct'], 'avgPct': s['avgPct']}
+
+
+# ── 🤖 AUTO-TUNE + 🏆 the MINDSET LADDER (owner, 2026-10-22: "apply the AUTO-TUNED set automatically when a model's record turns red, plus a
+# ladder of which mindset paid most per model") ──────────────────────────────────────────────────────────────────────────────────────────
+RECENT_N = 10                 # "turned red" is read on the last 10 closed trades (NEXA: her last graded YES calls)
+RED_WON = 40                  # red = losing on average AND under 40 % won (NEXA: her YES calls, judged the same way)
+AUTO_COOLDOWN = 6 * 3600.0    # any applied set (yours or the auto one) gets 6 h to prove itself before the switch moves it
+HIST_KEEP = 200
+PLAIN = 'plain'
+
+
+def recent(trades, n=RECENT_N):
+    """The record of the last `n` closed trades (oldest → newest by open time)."""
+    tr = sorted([t for t in trades or [] if _f((t or {}).get('pct')) is not None], key=lambda t: _f(t.get('at')) or 0.0)
+    return stats(tr[-n:])
+
+
+def nexa_trades(grades):
+    """NEXA's graded YES calls in the trade shape the ladder reads ({pct = the move after the call, at})."""
+    return [{'pct': g.get('res'), 'at': g.get('at')} for g in grades or [] if isinstance(g, dict) and g.get('call') == 'favor' and g.get('res') is not None]
+
+
+def is_red(st):
+    """Is this window of the record red? Too few trades = never red (nothing proved yet)."""
+    s = st or {}
+    if (s.get('n') or 0) >= MIN_N:
+        return (s.get('avgPct') or 0) < 0 and (s.get('wonPct') or 0) < RED_WON
+    return False
+
+
+def red_word(st):
+    s = st or {}
+    return f"last {s['n']} trades: {s['wonPct']} % won, {s['avgPct']:+.1f} % avg" if s.get('n') else 'not enough trades yet'
+
+
+def auto_pick(on, active, rec_st, tuned, now, cooldown=AUTO_COOLDOWN):
+    """The switch's decision for one model → None or {'set': 'tuned', 'text', 'why'}. Only when the switch is ON, the recent record is RED,
+    the model is not already on this exact tune, and whatever is applied has had its cooldown."""
+    if not on or not tuned or not tuned.get('text') or not is_red(rec_st):
+        return None
+    if active and active.get('set') == 'tuned' and active.get('text') == tuned['text']:
+        return None
+    if active and (_f(now) or 0) - (_f(active.get('at')) or 0) < cooldown:
+        return None
+    return {'set': 'tuned', 'text': tuned['text'], 'why': f"record turned red ({red_word(rec_st)}) → AUTO-TUNED applied"}
+
+
+def hist_add(history, key, set_, now, by):
+    """One apply / revert on the history the ladder is cut from (set None = back to the plain prompt)."""
+    return (list(history or []) + [{'key': key, 'set': set_ if set_ in SETS else None, 'at': round(_f(now) or 0.0, 1), 'by': str(by or '')[:44]}])[-HIST_KEEP:]
+
+
+def periods(history, key, now, active=None):
+    """[(set or 'plain', start, end)] — which mindset ran when. No history but a set applied = it ran from its apply time."""
+    hs = sorted([h for h in history or [] if isinstance(h, dict) and h.get('key') == key], key=lambda h: _f(h.get('at')) or 0.0)
+    if not hs and active:
+        hs = [{'set': active.get('set'), 'at': active.get('at')}]
+    out, cur, start = [], PLAIN, 0.0
+    for h in hs:
+        at = _f(h.get('at')) or 0.0
+        out.append((cur, start, at))
+        cur, start = (h.get('set') if h.get('set') in SETS else PLAIN), at
+    out.append((cur, start, (_f(now) or 0.0) + 1))
+    return [p for p in out if p[2] > p[1]]
+
+
+def ladder(trades, history, key, now, active=None):
+    """🏆 Which mindset paid most for this model: every closed trade goes to the mindset that was active when it OPENED. Proven rows
+    (≥ MIN_N trades) rank by average % first, then the ones still proving, then the ones never tried."""
+    per = periods(history, key, now, active)
+    rows = {s: [] for s in (PLAIN,) + SETS}
+    for t in trades or []:
+        at = _f((t or {}).get('at'))
+        if at is None or _f(t.get('pct')) is None:
+            continue
+        hit = next((s for s, a, b in per if a <= at < b), PLAIN)
+        rows[hit].append(t)
+    out = []
+    for s, ts in rows.items():
+        st = stats(ts)
+        usd = [_f(t.get('usd')) for t in ts if _f(t.get('usd')) is not None]
+        out.append({'set': s, 'label': LABEL.get(s, 'PLAIN PROMPT'), 'n': st['n'], 'wonPct': st['wonPct'], 'avgPct': st['avgPct'],
+                    'usd': round(sum(usd), 3) if usd else None, 'proving': 0 < st['n'] < MIN_N, 'active': (active or {}).get('set', PLAIN) == s if active else s == PLAIN})
+    rank = lambda r: -(r['avgPct'] if r['avgPct'] is not None else -1e9)
+    return (sorted([r for r in out if r['n'] >= MIN_N], key=rank) + sorted([r for r in out if r['proving']], key=rank) + [r for r in out if not r['n']])

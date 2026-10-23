@@ -62,6 +62,46 @@ function SetCard({ s, m, i, active, busy, onApply, onRevert, dials }) {
   </article>;
 }
 
+// pure: the auto-tune strip's state — RED (the switch acts), GREEN, PROVING (too few trades), WAITING (an applied set is in its cooldown)
+export function autoState(a) {
+  if (!a) return { tone: 'idle', word: '—' };
+  const r = a.recent || {};
+  if ((r.n || 0) < 5) return { tone: 'idle', word: `proving — ${r.n || 0} of 5 trades` };
+  if (!a.red) return { tone: 'ok', word: `GREEN — ${a.word}` };
+  if (a.coolUntil && a.coolUntil > Date.now() / 1000) return { tone: 'wait', word: `RED — ${a.word} · the applied set proves itself until ${new Date(a.coolUntil * 1000).toTimeString().slice(0, 5)}` };
+  return { tone: 'red', word: `RED — ${a.word}${a.on ? ' · AUTO-TUNED goes on next round' : ' · switch on to auto-tune'}` };
+}
+
+function AutoTune({ m, busy, onToggle }) {
+  const a = m.auto || {}; const st = autoState(a); const r = a.recent || {};
+  return <section className={`pst-auto is-${st.tone}`} data-testid="pst-auto">
+    <span className="pst-auto-art" aria-hidden="true"><svg viewBox="0 0 40 40"><circle cx="20" cy="20" r="15" fill="none" stroke="currentColor" strokeOpacity=".25" strokeWidth="3" />
+      <circle className="pst-auto-arc" cx="20" cy="20" r="15" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeDasharray={`${Math.round(0.94 * (r.wonPct ?? 0))} 100`} transform="rotate(-90 20 20)" pathLength="94" />
+      <path d="M14 21 l4 4 l8 -10" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" /></svg></span>
+    <span className="pst-auto-mid"><b>🤖 AUTO-TUNE · {m.name}</b><small key={st.word}>{st.word}</small>
+      <span className="pst-auto-bar" data-tip={`Won % of the last ${a.n || 10} trades — under ${a.won || 40}% while losing on average = RED`}><i style={{ transform: `scaleX(${Math.max(0.02, (r.wonPct || 0) / 100)})` }} /><b style={{ left: `${a.won || 40}%` }} aria-hidden="true" /></span>
+      {a.last ? <small className="pst-auto-last" data-testid="pst-auto-last">last auto-tune {ago(a.last.at)} ago · {(a.last.fixes || []).join(' · ') || a.last.why}</small> : null}</span>
+    <label className="m-toggle pst-auto-sw" data-tip={a.on ? `On: when ${m.name}'s last ${a.n || 10} trades turn red, its AUTO-TUNED set is applied (any applied set gets 6 h first)` : `Off: ${m.name} keeps whatever you applied`}>
+      <input type="checkbox" role="switch" checked={!!a.on} disabled={busy} onChange={e => onToggle(e.target.checked)} data-testid="pst-auto-switch" aria-label={`Auto-tune ${m.name}`} /><span>{a.on ? 'ON' : 'OFF'}</span></label>
+  </section>;
+}
+
+const MEDAL = ['#f5c451', '#cfd8e3', '#d08a4e'];
+function Ladder({ m }) {
+  const rows = m.ladder || []; const top = Math.max(5, ...rows.map(r => Math.abs(r.avgPct || 0)));
+  return <section className="pst-lad" data-testid="pst-ladder">
+    <p className="pst-h"><b>🏆 MINDSET LADDER · {m.name}</b><small>each trade counts for the mindset that was on when it opened · ranked by average %</small></p>
+    <ol>{rows.map((r, i) => { const tried = r.n > 0; const v = r.avgPct || 0;
+      return <li key={r.set} className={`k-${r.set}${r.active ? ' is-on' : ''}${tried ? '' : ' is-untried'}`} style={{ '--i': i }} data-testid={`pst-rung-${r.set}`}>
+        <span className="pst-medal" style={tried && !r.proving && i < 3 ? { '--mc': MEDAL[i] } : undefined}>{tried ? i + 1 : '·'}</span>
+        <span className="pst-rung"><b>{r.label}</b>{r.active ? <em className="pst-chip is-on">ON NOW</em> : null}{r.proving ? <em className="pst-chip">proving</em> : null}{!tried ? <em className="pst-chip is-dim">not tried</em> : null}</span>
+        <span className="pst-div" data-tip={tried ? `${r.n} trades · ${r.wonPct}% won · ${sgn(r.avgPct)} average` : 'No trade opened while this mindset was on'}>
+          <i className={v >= 0 ? 'is-up' : 'is-dn'} style={{ transform: `scaleX(${tried ? Math.max(0.03, Math.min(1, Math.abs(v) / top)) : 0})` }} /></span>
+        <span className="pst-rnum"><b className={v >= 0 ? 'is-up' : 'is-dn'} key={r.avgPct}>{tried ? sgn(r.avgPct) : '—'}</b><small>{tried ? `${r.n} · ${r.wonPct}% won${r.usd != null ? ` · ${r.usd >= 0 ? '+' : '−'}$${Math.abs(r.usd).toFixed(2)}` : ''}` : ''}</small></span>
+      </li>; })}</ol>
+  </section>;
+}
+
 export function PromptStudio({ call }) {
   const [d, setD] = useState(null); const [key, setKey] = useState('lan'); const [busy, setBusy] = useState(false); const [err, setErr] = useState(''); const [peek, setPeek] = useState(null);
   const load = useCallback(async () => { try { setD(await call('/admin/ai/prompts')); setErr(''); } catch (e) { setErr(String(e?.message || e)); } }, [call]);
@@ -79,6 +119,7 @@ export function PromptStudio({ call }) {
       <div className="m-seg pst-models" role="tablist" aria-label="Model">{d.models.map(x => <button key={x.key} type="button" role="tab" aria-selected={x.key === m.key} className={x.key === m.key ? 'active' : ''}
         onClick={() => { setKey(x.key); setPeek(null); }} data-testid={`pst-model-${x.key}`} data-tip={`${x.name} · ${x.model || 'model'} · ${x.state || 'state unknown'}`}>
         {avatarOf(x.name) ? <img src={avatarOf(x.name)} alt="" /> : null}<b>{x.name}</b><i className={`pst-dot ${x.state === 'ONLINE' ? 'is-on' : ''}`} />{x.active ? <small>{x.active.set.toUpperCase()}</small> : null}</button>)}</div></header>
+    <AutoTune m={m} busy={busy} onToggle={on => post({ key: m.key, auto: on }, on ? `🤖 auto-tune ON for ${m.name} — it acts when the record turns red` : `auto-tune OFF for ${m.name}`)} />
     <div className="pst-body">
       <section className="pst-ctx" data-testid="pst-ctx">
         <p className="pst-h"><b>LIVE CONTEXT</b><small>{m.model || '—'}</small></p>
@@ -105,6 +146,7 @@ export function PromptStudio({ call }) {
           : <p className="pst-ok">✓ {r.n || r.yesN ? 'no losing habit shows in the record' : 'no closed record yet — the sets still use the trench theory'}</p>}
       </section>
     </div>
+    <Ladder m={m} />
     <p className="pst-h pst-seth"><b>FOUR MINDSETS FOR {m.name}</b><small>written from its record · apply one, revert any time · the desk's rules and money checks never change</small></p>
     <div className="pst-sets">{(m.sets || []).map((s, i) => <SetCard key={`${m.key}-${s.set}`} s={s} m={m} i={i} busy={busy} dials={d.dials}
       active={m.active && m.active.set === s.set ? m.active : null}

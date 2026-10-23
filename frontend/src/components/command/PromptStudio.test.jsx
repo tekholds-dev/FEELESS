@@ -1,6 +1,6 @@
 import React, { act } from 'react';
 import { createRoot } from 'react-dom/client';
-import { PromptStudio, windowOf } from './PromptStudio';
+import { PromptStudio, windowOf, autoState } from './PromptStudio';
 import { STUDIO } from './__fixtures__/promptStudio';
 
 jest.mock('sonner', () => ({ toast: { success: jest.fn(), error: jest.fn() } }));
@@ -37,5 +37,22 @@ test('🎭 pick a model → its context, record, habits and four mindsets; apply
   expect(q('pst-set-progressive').className).toContain('is-on'); expect(q('pst-since').textContent).toContain('4 trades · 50% won · +2.6% avg');
   await act(async () => { q('pst-model-win').click(); });
   expect(q('pst-rec').textContent).toContain('45%'); expect(q('pst-rec').textContent).toContain('YES CALLS');
+  act(() => root.unmount());
+});
+
+test('🤖 auto-tune strip reads red / green / proving / waiting; the switch posts; 🏆 the ladder ranks the mindsets', async () => {
+  expect(autoState(STUDIO.models[0].auto)).toMatchObject({ tone: 'red' }); expect(autoState(STUDIO.models[0].auto).word).toContain('AUTO-TUNED goes on next round');
+  expect(autoState(STUDIO.models[1].auto).tone).toBe('ok'); expect(autoState(STUDIO.models[2].auto).word).toContain('proving — 3 of 5');
+  expect(autoState({ ...STUDIO.models[0].auto, coolUntil: Date.now() / 1000 + 600 }).tone).toBe('wait');
+  const posts = []; let state = JSON.parse(JSON.stringify(STUDIO));
+  const call = jest.fn(async (path, o) => { if (o?.method === 'POST') { const b = JSON.parse(o.body); posts.push(b); state = { ...state, models: state.models.map(m => (m.key === b.key ? { ...m, auto: { ...m.auto, on: b.auto } } : m)) }; } return state; });
+  const el = document.createElement('div'); document.body.appendChild(el); const root = createRoot(el);
+  await act(async () => { root.render(<PromptStudio call={call} />); });
+  const q = id => el.querySelector(`[data-testid="${id}"]`);
+  expect(q('pst-auto').className).toContain('is-red'); expect(q('pst-auto-last').textContent).toContain('rides winners back to red');
+  expect([...el.querySelectorAll('[data-testid="pst-ladder"] li')].map(li => li.dataset.testid)).toEqual(['pst-rung-tuned', 'pst-rung-plain', 'pst-rung-elite', 'pst-rung-degen', 'pst-rung-progressive']);
+  expect(q('pst-rung-tuned').textContent).toContain('+1.8%'); expect(q('pst-rung-elite').textContent).toContain('proving'); expect(q('pst-rung-degen').className).toContain('is-untried');
+  await act(async () => { q('pst-auto-switch').click(); }); expect(posts[0]).toEqual({ key: 'lan', auto: false }); expect(q('pst-auto-switch').checked).toBe(false);
+  await act(async () => { q('pst-model-local').click(); }); expect(q('pst-rung-progressive').textContent).toContain('ON NOW'); expect(q('pst-auto').className).toContain('is-ok');
   act(() => root.unmount());
 });
