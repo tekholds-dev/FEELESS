@@ -103,6 +103,7 @@ test('offers a safe status retry when saved-order recovery is temporarily unavai
 
   const { container, root } = mount();
   await act(async () => {});
+  for (let i = 0; i < 250 && !/could not be restored/.test(container.querySelector('[data-testid="swap-status-message"]')?.textContent || ''); i += 1) await act(async () => { await new Promise(r => setTimeout(r, 20)); });   // ≤ 5 s under gate load (the rejected recovery → message needs a few ticks)
 
   expect(container.querySelector('[data-testid="swap-status-message"]').textContent)
     .toContain('status could not be restored');

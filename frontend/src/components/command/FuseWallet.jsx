@@ -1,4 +1,5 @@
 import '../../styles/fuseMoney.css';
+import '../../styles/rpcLanes.css';
 import NumInput from '../NumInput';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
@@ -19,7 +20,15 @@ const LIMITS = [['maxCardUsd', 'Biggest a card can get ($)', 'Fund + top-ups can
   ['slippageBps', 'Max slippage (bps · 100 = 1%)', 'A swap fails rather than fill worse than this. 200 = 2%.'],
   ['maxImpactPct', 'Max price impact (%)', 'A quote that would move the pool more than this is skipped.']];
 
-/* 🔑 RPC keys (owner): which keeper lanes work, and ONE paste to add a key — tested before it is saved, live at once, never shown again. */
+/* 🔌 RPC LANES (owner; HQ › Core › Lag catcher + the Fuse wallet tab): the keeper's six keyed lanes (SOLANA_RPC_URL … _6) as a live strip —
+   lit = in quota, red + a countdown ring = out of quota until it resets, dashed = empty (tap to fill it). ONE paste adds a key: tested before
+   it is saved, live at once, never shown again. The keeper + the browser relay fall through the lanes in order. */
+const backIn = m => (m >= 90 ? `${Math.round(m / 60)}h` : `${m}m`);
+export function laneCells(d) {
+  const lanes = d?.lanes || []; const slots = (d?.slots || []).length ? d.slots.map(q => q.slot) : [1, 2, 3, 4, 5, 6];
+  return slots.map(n => { const l = lanes.find(x => x.slot === n);
+    return l ? { n, provider: l.provider, state: l.spent ? 'spent' : 'live', back: l.backInMin || 0 } : { n, state: 'empty' }; });
+}
 export function RpcKey({ call }) {
   const [d, setD] = useState(null);
   const [slot, setSlot] = useState(1);
@@ -30,26 +39,33 @@ export function RpcKey({ call }) {
   const load = useCallback(() => call('/admin/rpc').then(x => { setD(x); return x; }).catch(() => setD({ lanes: [], error: true })), [call]);
   useEffect(() => { load().then(x => { const ask = new URLSearchParams(window.location.search).get('rpc');
     if (x && (x.needsKey || ask)) { const free = (x.slots || []).find(q => !q.set); const dead = (x.lanes || []).find(l => l.spent && l.slot);
-      setSlot(free ? free.slot : dead ? dead.slot : 1); if (ask && box.current) { box.current.open = true; box.current.querySelector('input')?.focus(); } } });
+      setSlot(free ? free.slot : dead ? dead.slot : 1); if (ask && box.current) box.current.querySelector('input')?.focus(); } });
     const t = setInterval(() => !document.hidden && load(), 60000); return () => clearInterval(t); }, [load]);
   if (!d || d.error) return null;
-  const lanes = d.lanes || [];
+  const cells = laneCells(d); const live = cells.filter(c => c.state === 'live').length;
+  const pick = n => { setSlot(n); box.current?.querySelector('input')?.focus(); };
   const save = async e => { e.preventDefault(); if (!url.trim()) return; setBusy(true); setMsg(null);
     try { const r = await call('/admin/rpc', { method: 'POST', body: JSON.stringify({ slot, url: url.trim() }) });
       setUrl(''); setMsg({ ok: true, text: `✓ Lane ${r.slot} is live on ${r.provider} (${r.ms} ms${r.holders ? ' · holder scans OK' : ' · no holder scans on this plan'}). Saved — nothing to restart for real swaps.` });
       toast.success('RPC key saved and live'); await load(); }
     catch (er) { setMsg({ ok: false, text: er.message || 'Not saved' }); } finally { setBusy(false); } };
-  return <details ref={box} className={`hrt-fold rpck ${d.needsKey ? 'is-need' : ''}`} data-testid="rpc-key" open={d.needsKey || undefined}>
-    <summary><b>🔑 RPC keys</b><span>{!lanes.length ? 'no key set — real swaps use slower public nodes' : lanes.map(l => `${l.provider} ${l.spent ? `out of quota · back in ${l.backInMin >= 90 ? `${Math.round(l.backInMin / 60)}h` : `${l.backInMin}m`}` : 'ok'}`).join(' · ')}</span>
-      {d.needsKey && <i className="rpck-need" data-testid="rpc-need">ADD A KEY</i>}</summary>
-    <div className="rpck-body">
-      <ul className="rpck-lanes">{lanes.map(l => <li key={l.lane} className={l.spent ? 'is-spent' : 'is-ok'} data-tip={l.spent ? 'This plan is used up — the keeper skips it until it resets' : 'In quota — the keeper uses it'}><b>LANE {l.lane}</b><span>{l.provider}</span><em>{l.spent ? `out · ${l.backInMin}m` : '● ok'}</em></li>)}</ul>
-      <form className="rpck-form" onSubmit={save}>
-        <div className="m-seg" role="group" aria-label="Which lane">{((d.slots || []).length ? d.slots.map(q => q.slot) : [1, 2]).map(n => <button key={n} type="button" className={slot === n ? 'on' : ''} disabled={busy} data-testid={`rpc-slot-${n}`} data-tip={n === 1 ? 'The keeper asks this one first' : `Backup ${n - 1}: used the moment the lanes before it are busy or out of quota`} onClick={() => setSlot(n)}>{n}{(d.slots || []).find(q => q.slot === n)?.set ? ' ●' : ''}</button>)}</div>
-        <input className="m-input" type="password" autoComplete="off" spellCheck={false} placeholder="Paste the https:// RPC URL from Helius / QuickNode" value={url} disabled={busy} data-testid="rpc-url" aria-label="RPC URL" onChange={e => setUrl(e.target.value)} />
-        <button type="submit" className="m-btn m-go" disabled={busy || !url.trim()} data-testid="rpc-save">{busy ? 'Testing…' : 'Test & save'}</button></form>
-      {msg && <small className={`m-note ${msg.ok ? '' : 'warn'}`} data-testid="rpc-msg">{msg.text}</small>}
-      <small className="m-dim">The URL is tested first (it must answer), saved on this machine only, and never shown again. Other services pick it up at their next restart.</small></div></details>;
+  return <section ref={box} className={`rpcl m-card ${d.needsKey ? 'is-need' : ''}`} data-testid="rpc-key">
+    <header className="rpcl-top"><span className="m-label">🔌 RPC LANES</span>
+      <b className={`rpcl-count ${live ? '' : 'is-zero'}`} data-tip="Keyed lanes in quota right now — the keeper and the browser relay use them in order, then fall to public nodes"><i className="fl-tick" key={live}>{live}</i><small>/ {cells.length} live</small></b>
+      {d.needsKey && <i className="rpcl-need" data-testid="rpc-need">ADD A KEY</i>}</header>
+    <ol className="rpcl-lanes">{cells.map((c, i) => <li key={c.n} style={{ '--i': i }} className={`is-${c.state}`} data-testid={`rpc-lane-${c.n}`}>
+      <button type="button" onClick={() => pick(c.n)} className={slot === c.n ? 'is-pick' : ''} data-testid={`rpc-slot-${c.n}`} aria-pressed={slot === c.n}
+        data-tip={c.state === 'live' ? `Lane ${c.n} · ${c.provider} · in quota — tap to replace its key` : c.state === 'spent' ? `Lane ${c.n} · ${c.provider} · out of quota, back in ${backIn(c.back)} — the keeper skips it; tap to paste a new key` : `Lane ${c.n} is empty — tap, then paste an RPC URL`}>
+        <span className="rpcl-n">L{c.n}</span>
+        {c.state === 'spent' ? <svg className="rpcl-ring" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9" /><circle className="rpcl-arc" cx="12" cy="12" r="9" style={{ strokeDasharray: `${(56.5 * Math.min(1, c.back / 1440)).toFixed(1)} 56.5` }} /></svg>
+          : <i className="rpcl-dot" aria-hidden="true" />}
+        <b>{c.provider || '+ add'}</b><em>{c.state === 'live' ? 'LIVE' : c.state === 'spent' ? `back in ${backIn(c.back)}` : 'empty'}</em></button></li>)}</ol>
+    <form className="rpck-form" onSubmit={save}>
+      <span className="rpcl-for" data-tip="The lane your paste goes to — tap a lane above to change it">LANE {slot}</span>
+      <input className="m-input" type="password" autoComplete="off" spellCheck={false} placeholder="Paste the https:// RPC URL from Helius / QuickNode / Triton" value={url} disabled={busy} data-testid="rpc-url" aria-label="RPC URL" onChange={e => setUrl(e.target.value)} />
+      <button type="submit" className="m-btn m-go" disabled={busy || !url.trim()} data-testid="rpc-save" data-tip="Tested first (it must answer) — saved on this machine only, never shown again">{busy ? 'Testing…' : 'Test & save'}</button></form>
+    {msg && <small className={`m-note ${msg.ok ? '' : 'warn'}`} data-testid="rpc-msg">{msg.text}</small>}
+  </section>;
 }
 
 /* ♻ FREE THE RENT OF DEAD COINS (owner, 2026-10-13: "real money cash back"): coin accounts no card holds whose leftover is worth under $0.05

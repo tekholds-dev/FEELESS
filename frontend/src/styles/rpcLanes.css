@@ -1,0 +1,36 @@
+/* 🔌 RPC LANES (FuseWallet.jsx RpcKey, `rpcl-*` + the paste form `rpck-form`): six keyed lanes as a live strip — lit / spent + countdown ring /
+   empty. m-* tokens; transform / opacity only; keyframes rpcl*. */
+.rpcl { display: grid; gap: 10px; position: relative; overflow: hidden; }
+.rpcl.is-need { border-color: color-mix(in srgb, var(--gold) 70%, transparent); }
+.rpcl.is-need::after { content: ''; position: absolute; inset: 0; border-radius: inherit; border: 1px solid var(--gold); pointer-events: none; animation: rpclGlow 1.4s ease-in-out infinite alternate; }
+.rpcl-top { display: flex; align-items: center; gap: 10px; }
+.rpcl-count { margin-left: auto; display: inline-flex; align-items: baseline; gap: 4px; font-family: var(--m-mono); }
+.rpcl-count i { font-style: normal; font-size: 22px; font-weight: 800; color: var(--m-accent); text-shadow: 0 0 14px color-mix(in srgb, var(--m-accent) 55%, transparent); }
+.rpcl-count.is-zero i { color: #ff8fa3; text-shadow: 0 0 14px rgba(255, 143, 163, .5); } .rpcl-count small { font-size: 10px; color: var(--m-dim); letter-spacing: .08em; }
+.rpcl-need { font-style: normal; font-family: var(--m-mono); font-size: 10px; letter-spacing: .12em; padding: 2px 8px; border-radius: 999px; background: var(--gold); color: #120d00; }
+.rpcl-lanes { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 6px; }
+.rpcl-lanes li { animation: rpclIn .3s ease-out both; animation-delay: calc(var(--i, 0) * 50ms); min-width: 0; }
+.rpcl-lanes button { width: 100%; min-height: 64px; display: grid; justify-items: center; align-content: center; gap: 3px; padding: 6px 4px; border-radius: 10px; cursor: pointer;
+  border: 1px solid var(--m-line); background: rgba(255, 255, 255, .03); color: var(--m-text); font-family: var(--m-mono); transition: transform .15s ease, border-color .15s ease, background .15s ease; }
+.rpcl-lanes button:hover { transform: translateY(-2px); border-color: var(--m-line-hi); } .rpcl-lanes button:active { transform: scale(.97); }
+.rpcl-lanes button:focus-visible { outline: 2px solid var(--m-accent); outline-offset: 2px; }
+.rpcl-lanes button.is-pick { box-shadow: 0 0 0 1px var(--m-accent) inset; }
+.rpcl-n { font-size: 9px; letter-spacing: .14em; color: var(--m-dim); }
+.rpcl-lanes b { font-size: 10px; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; } .rpcl-lanes em { font-style: normal; font-size: 9px; letter-spacing: .08em; color: var(--m-dim); }
+.rpcl-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--m-line); }
+.is-live .rpcl-dot { background: var(--m-accent); box-shadow: 0 0 10px var(--m-accent); animation: rpclBeat 1.8s ease-in-out infinite; }
+.is-live button { border-color: color-mix(in srgb, var(--m-accent) 45%, transparent); background: color-mix(in srgb, var(--m-accent) 8%, transparent); } .is-live em { color: var(--m-accent); }
+.is-spent button { border-color: color-mix(in srgb, #ff8fa3 50%, transparent); background: rgba(255, 143, 163, .06); } .is-spent em { color: #ff8fa3; }
+.is-empty button { border-style: dashed; } .is-empty b { color: var(--m-dim); }
+.rpcl-ring { width: 18px; height: 18px; transform: rotate(-90deg); } .rpcl-ring circle { fill: none; stroke: rgba(255, 143, 163, .2); stroke-width: 3; }
+.rpcl-ring .rpcl-arc { stroke: #ff8fa3; stroke-linecap: round; transition: stroke-dasharray .5s ease; }
+.rpcl-for { font: 700 10px var(--m-mono); letter-spacing: .1em; color: var(--m-accent); padding: 0 6px; }
+.rpck-form { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 6px; align-items: center; }
+@keyframes rpclGlow { from { opacity: .25; } to { opacity: 1; } }
+@keyframes rpclBeat { 0%, 100% { transform: scale(1); opacity: 1; } 50% { transform: scale(1.4); opacity: .7; } }
+@keyframes rpclIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+body.fx-lite .rpcl.is-need::after, body.fx-lite .rpcl-lanes li, body.fx-lite .is-live .rpcl-dot { animation: none; }
+@media (prefers-reduced-motion: reduce) { .rpcl.is-need::after, .rpcl-lanes li, .is-live .rpcl-dot { animation: none; } .rpcl-lanes button, .rpcl-ring .rpcl-arc { transition: none; } }
+body.theme-day .rpcl-lanes button { background: #fff; } body.theme-day .rpcl-need { color: #fff; background: #9a6b00; } body.theme-day .rpcl-count i { color: #0c8a45; text-shadow: none; }
+body.theme-day .is-live button { background: #ecfbf2; } body.theme-day .is-spent button { background: #fff0f3; } body.theme-day .rpcl-for { color: #0c8a45; }
+@media (max-width: 640px) { .rpcl-lanes { grid-template-columns: repeat(3, minmax(0, 1fr)); } .rpck-form { grid-template-columns: 1fr; } .rpcl-for { padding: 0; } }

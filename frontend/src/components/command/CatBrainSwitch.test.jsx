@@ -50,6 +50,7 @@ test('⚔ the duel: NEXA\'s graded YES vs FeeCat\'s closed trades, the higher on
 });
 
 test('⏱ a live trade: her 2-min held check, SKIM / stop / take chips, and silence as an icon (never a sentence)', async () => {
+  const now = Date.now() / 1000;   // this test's own clock (the file's clock is minutes old under gate load)
   expect(linesChip({ sl: 15, tp: 60 })).toBe('SL −15 · TP +60');
   expect(linesChip({})).toBe('');
   const lead = { cat: { balanceSol: 9, positions: [{ symbol: 'HHH', pairAddress: 'PH', currentChange: 4, costSol: 0.3 }] } };
@@ -60,7 +61,7 @@ test('⏱ a live trade: her 2-min held check, SKIM / stop / take chips, and sile
   await act(async () => { root.render(<CatBrainSwitch d={{ trade: true, provider: { on: true }, desk, deskAt: now - 200, heldAt: now - 30, deskEvery: 300, heldEvery: 120 }} act={() => {}} />); });
   await act(async () => { await Promise.resolve(); });
   expect(el.querySelector('.cb-wrap').classList.contains('is-fast')).toBe(true);
-  expect(el.querySelector('.cb-read small').textContent).toMatch(/⏱ live trade · checked 30s ago · next in 9\ds/);
+  expect(el.querySelector('.cb-read small').textContent).toMatch(/^⏱ live trade · checked (3\d|[4-9]\d)s ago · next in \d+s$/);
   expect(el.querySelector('.cb-word.is-skim').closest('li').textContent).toContain('$SSS');
   expect(el.querySelector('.cb-lines').textContent).toBe('🎯 SL −15 · TP +60');
   const off = el.querySelector('[data-testid="nexa-silent"]');

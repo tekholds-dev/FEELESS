@@ -11,7 +11,7 @@ import { FuseHQ } from '../FuseHQ';
 import { FuseDeck, VaultMath } from '../FuseDeck';
 import { RunnersPanel } from '../RunnersPanel';
 import { BundlePricing, RoundsPricing, CrewsPricing, HousePricing, EngineSuggest, RunnerSettings, CardRules, AutoYieldDefault, FusePayouts } from './FuseAdminSettings';
-import { FuseWallet, CircleProfiles } from './FuseWallet';
+import { FuseWallet, CircleProfiles, RpcKey } from './FuseWallet';
 import { HqJump } from './HqJump';
 import { FuseFees } from './FuseFees';
 import { ArenaOps, ContractStatus, EngineDial, FeeCatTune, EnginePlayground, SimBrain, EngineFunnel } from './FuseOpsPanels';
@@ -165,7 +165,7 @@ export function HqDeck({ address, signMessage, onClose, startTab }) {
     {tab === 'agents' && <AgentDesk call={call} isOwner={isOwner} />}
     {tab === 'launch' && <LaunchRailAdmin call={call} isOwner={isOwner} />}
     {tab === 'verify' && <CoinVerifyPanel call={call} />}
-    {tab === 'latency' && <><LagCatcher call={call} /><LatencyPanel call={call} /></>}
+    {tab === 'latency' && <>{isOwner ? <RpcKey call={call} /> : null}<LagCatcher call={call} /><LatencyPanel call={call} /></>}
     {tab === 'numbers' && <NumbersPanel call={call} />}
     {tab === 'kols' && <KolAdmin call={call} />}
     {tab === 'traffic' && <TrafficPanel call={call} />}

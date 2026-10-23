@@ -1,5 +1,6 @@
 import React from 'react';
 import { AgentDesk } from '../components/command/AgentDesk';
+import { RpcKey } from '../components/command/FuseWallet';
 import { D } from '../components/command/__fixtures__/cockpit';
 import office from '../components/command/__fixtures__/office.json';
 import { hubLoad } from '../lib/agentHub';
@@ -28,12 +29,15 @@ let tick = 0;   // every snapshot is a NEW object with moved numbers, like the l
 const live = () => { tick += 1; const j = v => (typeof v === 'number' ? v * (1 + 0.01 * Math.sin(tick)) : v);
   return { ...DATA, duo: DUO, card: { ...DATA.card, seats: (DATA.card.seats || []).map(s => ({ ...s, pct: j(s.pct) })) },
     office: { ...DATA.office, positions: (DATA.office.positions || []).map(p => ({ ...p, pct: j(p.pct), last: j(p.last) })), tape: [...(DATA.office.tape || [])] } }; };
-const call = async path => (path === '/admin/agents' ? live() : { ok: true });
+// 🔌 ?rpc = HQ › Core › Lag catcher's RPC lanes on fixtures (one live, one out of quota, four empty)
+const RPC = { needsKey: false, slots: [1, 2, 3, 4, 5, 6].map(n => ({ slot: n, set: n <= 2 })),
+  lanes: [{ lane: 1, slot: 1, provider: 'helius-rpc.com', spent: true, backInMin: 420 }, { lane: 2, slot: 2, provider: 'quiknode.pro', spent: false, backInMin: 0 }] };
+const call = async path => (path === '/admin/agents' ? live() : path === '/admin/rpc' ? RPC : { ok: true });
 window.__hubLoad = hubLoad;
 
 export default function HqHarness() {
   return <div className="hqp is-idle" data-testid="hq-pop" role="dialog" aria-label="HQ (dev preview)">
     <header className="hqp-bar"><span className="hqp-mark" aria-hidden="true"><i /><i /><b>HQ</b></span><span className="hqp-mood"><b>🧪 DEV PREVIEW</b><small>fixture data · no sign-in</small></span></header>
-    <div className="hqp-body"><div className="cc-shell" data-testid="hq-shell"><AgentDesk call={call} isOwner /></div></div>
+    <div className="hqp-body"><div className="cc-shell" data-testid="hq-shell">{window.location.search.includes('rpc') ? <RpcKey call={call} /> : <AgentDesk call={call} isOwner />}</div></div>
   </div>;
 }
