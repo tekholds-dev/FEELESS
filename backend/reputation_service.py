@@ -29916,7 +29916,8 @@ async def token_meta_get(name: str):
 # only read/send methods pass. Nothing here can sign — the user's wallet signs in the browser.
 RPC_ALLOW = {'getAccountInfo', 'getMultipleAccounts', 'getLatestBlockhash', 'getMinimumBalanceForRentExemption', 'sendTransaction',
              'getSignatureStatuses', 'simulateTransaction', 'getBalance', 'getTokenAccountBalance', 'getFeeForMessage', 'getSlot',
-             'getBlockHeight', 'isBlockhashValid', 'getEpochInfo'}
+             'getBlockHeight', 'isBlockhashValid', 'getEpochInfo',
+             'getTokenAccountsByOwner', 'getBlockTime'}   # 🏗 LP positions in place (2026-10-23): the wallet's position NFTs + a pool's activation clock
 _rpc_hits: dict = {}
 
 

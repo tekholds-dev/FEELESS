@@ -27,7 +27,7 @@ export const MODELS = {
   lamp: [`${BASE}/roads/light-square.glb`], signal: [`${BASE}/roads/traffic-light.glb`],
 };
 const KIND = { mine: '#ffcc4d', family: '#b388ff', cpu: '#ff5d73', cartel: '#3ddc84', free: '#5b6577' };
-const MKT = { dex: '#45e486', lend: '#f5c451', perps: '#ff5dbb', stake: '#6ad7ff', coin: '#ff8fa3', v2: '#ff9f45', v3: '#6ad7ff', dlmm: '#ffd36b', vault: '#3ddc84', rwa: '#e8e3d6' };
+const MKT = { damm: '#45e486', dex: '#45e486', lend: '#f5c451', perps: '#ff5dbb', stake: '#6ad7ff', coin: '#ff8fa3', v2: '#ff9f45', v3: '#6ad7ff', dlmm: '#ffd36b', vault: '#3ddc84', rwa: '#e8e3d6' };
 const FOOD = [['PIZZA', '#ff6a3d'], ['TACOS', '#ffd36b'], ['COFFEE', '#c98a5a'], ['BOBA', '#ff8fd0'], ['WINGS', '#ff9f45'], ['NOODLES', '#6ad7ff']];
 
 // ── models: one load per file, clones share geometry + the lit-window material ─────────────────────────────────────────────────────
@@ -351,7 +351,7 @@ export function createCity(host, { onPick, onHover, onAnchors, lite = false, sti
       const fw = Math.min(FOOT.tower, m.rect.w - 0.7); const fd = Math.min(FOOT.tower, m.rect.d - 0.7); yard(m.rect, fw);
       const o = await make(await tallest(pool_, fw, fd, want), { lit: true }); fit(o, fw, fd, want);
       o.position.set(c.x, 0.14, c.z); content.add(o); const h = sizeOf(o).y;
-      const tone = m.kind === 'coin' && m.move != null ? (m.move >= 0 ? '#45e486' : '#ff5d73') : col;
+      const tone = m.tone || (m.kind === 'coin' && m.move != null ? (m.move >= 0 ? '#45e486' : '#ff5d73') : col);   // 🏗 an LP tower: green in range, grey out
       edges(o, c, tone);
       const beacon = new THREE.Mesh(new THREE.TorusGeometry(0.62, 0.06, 8, 30), neon(tone, 1.5)); beacon.rotation.x = Math.PI / 2; beacon.position.set(c.x, h + 0.35, c.z); content.add(beacon);
       const hz = m.hz || 1; beacon.rotation.y = 0.35;   // activity = how FAST the halo turns (volume), never a flash

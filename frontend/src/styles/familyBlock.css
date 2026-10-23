@@ -122,3 +122,6 @@ body.theme-day .fbk { background: linear-gradient(180deg, #fbf4e6, #f4ead4); } b
 .fbk-crew s { display: block; height: 100%; background: linear-gradient(90deg, #d4af37, #ff9f45); transform-origin: left; text-decoration: none; }
 body.theme-day .fbk-crew li { background: rgba(60, 40, 10, .05); } body.theme-day .fbk-crew b { color: #8a5a00; }
 @media (prefers-reduced-motion: reduce) { .fbk-crew li, .fbk-dice { transition: none; }}
+/* 🏗 IN POOLS on the block's HUD: your LP positions' worth + their unclaimed fees */
+.fbk-hud > span.fbk-lp { border-color: rgba(69, 228, 134, .45); background: rgba(21, 209, 106, .08); } .fbk-lp b { color: #45e486 !important; } .fbk-lp small { font: 700 9px 'JetBrains Mono', monospace; color: #9cc4aa; }
+body.theme-day .fbk-hud > span.fbk-lp { background: #eefbf3; } body.theme-day .fbk-lp b { color: #0d7a41 !important; }

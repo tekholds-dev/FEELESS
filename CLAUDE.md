@@ -165,11 +165,20 @@ STANDING RULES (never "done"):
 - 🚀 NO RISK NO REWARD (owner): money surfaces lead with the aggressive play (MOON: tight v3 / DLMM bands on the busiest pools; DEGEN: the
   hottest fee pools) with the risk named — SAFE yields are one tap away, never the headline. "Think big, not the same utilities."
 
+P0-QUICK — OWNER 2026-10-23 night (right after the LP positions work)
+1. 🤖 NEXA isn't trading — find why (desk / gate / model stall) and fix.
+2. 🐱 FeeCat: one clear place to switch / apply a cat's WALLET (real mode) and watch it trade live.
+3. 💬 Agent chat bubbles on FeeCat's charts; the internal model names (NEXA / OSSY / G4) never shown to users yet.
+4. ⏱ While NEXA has a LIVE trade: quick trade questions to her faster (hold · skim · new SL · new TP), the live trade re-checked every ≤ 120 s.
+5. 🔌 RPC lanes: HQ › Core shows / takes SOLANA_RPC_URL_2 … _6 (free plans from different providers add up; the keeper + relay fall
+   through them) so the owner stops topping up one provider.
+
 P0 — MAKE THE MONEY MOVE IN PLACE (owner 2026-10-23: "I tightened a v3 pool with $100 and made $120 — no redirects"), hardest → easiest
-1. 🔌 IN-PLACE LP — DAMM v2 JOIN SHIPPED 2026-10-23 (`lib/lpBuilder.js` + `lib/hotPools.js`, MOON desk › 🔥 HOT POOLS; simulated clean on mainnet
-   for a real holder: PANGEA-SOL, err null). NEXT: your positions (`getAllPositionNftAccountByOwner`) as live buildings with fees earned ·
-   claim / remove / close in place · a one-tap zap (swap half → join in one flow) · Raydium CLMM + Orca Whirlpool + Meteora DLMM TIGHT ranges
-   (install their SDKs; simulate each against mainnet for a real wallet before it ships).
+1. 🔌 IN-PLACE LP — SHIPPED 2026-10-23: join (`lib/lpBuilder.js`), one-tap ZAP (swap half via the FEELESS engine `lib/swapEngine.js` → join),
+   YOUR POSITIONS live (`lib/lpPositions.js`: worth now, unclaimed fees, in range) as towers on your family block + in the money desk, with
+   claim / remove / close in place (`components/LpPositions.jsx`) — join, claim, remove, close each SIMULATED clean on mainnet for real
+   wallets. NEXT: Raydium CLMM + Orca Whirlpool + Meteora DLMM TIGHT ranges (install their SDKs; simulate each the same way) · re-center when
+   out of range · auto-compound (claim → re-join) as a Night Vault errand.
 2. 📉 PERPS YOU SEE LIVE: the paper desk on the real chart (entry / liq lines, P&L ticking); REAL orders stay blocked for US users until
    counsel answers DECISIONS #1 (`docs/COUNSEL_BRIEF.md` §1) — never route them to an offshore venue.
 3. 🏝 FAMILY TOWN EXPANDS: more islands joined by bridges, pick your own lots, MOVE buildings, add little stands (kiosks / food stalls / signs),

@@ -4,7 +4,9 @@ import { familiaDocked, familiaSwap } from './FamiliaTrade';
 import { LendBox, goTrade, tradeOf, usePools, ilRange, rangeFactor } from './PoolHub';
 import { cash } from '../lib/earnStake';
 import { useHotPools } from '../lib/hotPools';
-import { dammQuote, dammJoin } from '../lib/lpBuilder';
+import { dammQuote, dammJoin, dammZap } from '../lib/lpBuilder';
+import { lpChanged } from '../lib/lpPositions';
+import { LpPositions } from './LpPositions';
 import { useWallet } from '../hooks/useWallet';
 import { useSolPrice } from '../lib/solPrice';
 import '../styles/moneyDesk.css';
@@ -112,11 +114,17 @@ function JoinBox({ row, amt, onClose }) {
   const getCoin = () => { const s2 = { from: SOL, to: row.coin, amount: solIn ? solIn.toFixed(4) : undefined };
     if (familiaDocked()) { familiaSwap(s2); return; }
     try { sessionStorage.setItem('feeless.swap.pair', JSON.stringify({ input: s2.from, output: s2.to, amount: s2.amount })); } catch { /* storage blocked */ } setSwap(`s${Date.now()}`); };
-  const join = async () => { setBusy(true); setErr(''); try { setDone(await dammJoin({ provider, owner: wallet.address, quote: q, onStatus: setSt })); setQ(null); } catch (e) { setErr(e.message); } setSt(''); setBusy(false); };
+  const join = async () => { setBusy(true); setErr(''); try { setDone(await dammJoin({ provider, owner: wallet.address, quote: q, onStatus: setSt })); setQ(null); lpChanged(); } catch (e) { setErr(e.message); } setSt(''); setBusy(false); };
+  // ⚡ ONE TAP: half the SOL buys the coin through the FEELESS swap engine, the other half + what it bought joins (two wallet approvals)
+  const zap = async () => { if (!sol) { await connect?.('solana'); return; } if (!solIn) return; setBusy(true); setErr(''); setQ(null);
+    try { setDone(await dammZap({ provider, owner: wallet.address, pool: row.pool, coin: row.coin, solAmount: solIn * 2, onStatus: setSt })); lpChanged(); } catch (e) { setErr(e.code === 4001 ? 'Declined in the wallet — nothing more was sent.' : e.message); } setSt(''); setBusy(false); };
   return <div className="md-join" data-testid={`md-join-${row.id}`}>
     <div className="md-join-head"><b>＋ JOIN {row.sym}</b><small>{cash(amt / 2)} in SOL + {cash(amt / 2)} in ${row.coinSym} · your wallet signs</small><button type="button" className="md-x" onClick={onClose} aria-label="Close" data-tip="Close">✕</button></div>
-    {done ? <p className="md-join-ok" data-testid="md-join-ok">✅ You're in the pool — position <b>{done.position.slice(0, 6)}…</b> earns {(row.feeDay * 100).toFixed(1)}%/day at today's pace · tx {done.signature.slice(0, 8)}…</p>
-      : !q ? <button type="button" className="m-btn m-go" disabled={busy || (sol && !solIn)} onClick={quote} data-testid="md-join-quote" data-tip="Reads the pool and what your amount needs of each side">{sol ? (solIn ? `Quote ${cash(amt)} into the pool` : 'Reading the SOL price…') : 'Connect wallet'}</button>
+    {done ? <p className="md-join-ok" data-testid="md-join-ok">✅ You're in the pool{done.swap ? ' (zapped)' : ''} — position <b>{done.position.slice(0, 6)}…</b> earns {(row.feeDay * 100).toFixed(1)}%/day at today's pace · tx {done.signature.slice(0, 8)}…</p>
+      : !q ? <div className="md-join-go"><button type="button" className="m-btn m-go md-zap" disabled={busy || (sol && !solIn)} onClick={zap} data-testid="md-join-zap"
+          data-tip={`One tap: swap ${solIn ? solIn.toFixed(4) : '½'} SOL → $${row.coinSym} (FEELESS swap engine), then join with the other half + what it bought — two wallet approvals, each simulated first`}>
+          {sol ? (solIn ? `⚡ ZAP ${cash(amt)} — ${solIn.toFixed(4)} SOL → $${row.coinSym}, then join` : 'Reading the SOL price…') : 'Connect wallet'}</button>
+        {sol ? <button type="button" className="m-btn" disabled={busy || !solIn} onClick={quote} data-testid="md-join-quote" data-tip="Already hold the coin? Quote the join with what's in your wallet">Join with what I hold</button> : null}</div>
       : <div className="md-join-q">
         <span><em>YOU PUT IN</em><b className="m-num">{(Number(q.lamports) / 1e9).toFixed(4)} SOL</b><b className="m-num">{q.coinUi.toLocaleString('en-US', { maximumFractionDigits: 2 })} ${row.coinSym}</b></span>
         {q.short ? <button type="button" className="m-btn" onClick={getCoin} data-testid="md-join-getcoin" data-tip={`You hold less ${row.coinSym} than the pool needs — swap ${solIn ? solIn.toFixed(4) : ''} SOL into it here, then join`}>⚡ Get ${row.coinSym} first</button> : null}
@@ -209,6 +217,7 @@ export function MoneyDesk({ job: job0 = 'lend', rows = null, focus: focus0 = nul
   return <section className={`md j-${job} ${compact ? 'is-compact' : ''}`} data-testid={`money-desk-${job}`}>
     <div className="md-head"><span><b>💸 {title || 'PUT IT TO WORK'}</b><small>{JOB_WORD[job]} · runs right here · your wallet signs</small></span>
       <span className="m-seg md-risk-dial" role="radiogroup" aria-label="Risk">{RISKS.map(([k, w, tip]) => <button key={k} type="button" role="radio" aria-checked={risk === k} className={`${risk === k ? 'active' : ''} r-${k}`} onClick={() => setRisk(k)} data-tip={tip} data-testid={`md-risk-${k}`}>{w}</button>)}</span></div>
+    <LpPositions compact />
     <div className="md-amt"><span className="m-seg" role="radiogroup" aria-label="Amount">{AMOUNTS.map(a => <button key={a} type="button" role="radio" aria-checked={amt === a} className={amt === a ? 'active' : ''} onClick={() => setAmt(a)} data-tip={`Run the numbers at $${a.toLocaleString('en-US')}`} data-testid={`md-amt-${a}`}>${a >= 1000 ? `${a / 1000}K` : a}</button>)}</span>
       <label className="md-own"><em>$</em><input className="m-input" inputMode="decimal" value={amt} onChange={e => setAmt(Math.max(0, Number(e.target.value.replace(/[^\d.]/g, '')) || 0))} aria-label="Your amount in dollars" data-testid="md-amt" /></label>
       {risk === 'safe' ? <span className="m-seg md-add" role="radiogroup" aria-label="Add every month">{ADDS.map(a => <button key={a} type="button" role="radio" aria-checked={add === a} className={add === a ? 'active' : ''} onClick={() => setAdd(a)} data-tip={a ? `Add $${a} every month — compounding on top` : 'No top-ups'} data-testid={`md-add-${a}`}>{a ? `+$${a}/mo` : 'once'}</button>)}</span> : null}</div>

@@ -76,3 +76,10 @@ def test_relay_keeps_a_healthy_key(monkeypatch):
 @pytest.mark.parametrize('method', ['getSlot'])
 def test_method_still_allow_listed(method):
     assert method in rs.RPC_ALLOW
+
+
+def test_lp_reads_are_allowed_but_scans_are_not():
+    """🏗 the browser reads its own LP positions (token accounts by owner) and a pool's clock (block time) — never a program-wide scan."""
+    for m in ('getTokenAccountsByOwner', 'getBlockTime', 'simulateTransaction', 'sendTransaction'):
+        assert m in rs.RPC_ALLOW
+    assert 'getProgramAccounts' not in rs.RPC_ALLOW

@@ -1,0 +1,39 @@
+/* 🏗 LP positions (lpc-* the card, lpl-* the list): a lit green edge while IN RANGE (earning), dim grey when out; the fees number glows and pops
+   when it changes. Familia noir glass. Motion: transform / opacity only, one keyframe set (lp*). */
+.lpc { display: grid; gap: 9px; padding: 12px; border-radius: 14px; border: 1px solid rgba(69, 228, 134, .45); background: radial-gradient(120% 80% at 0% 0%, rgba(69, 228, 134, .12), transparent 60%), linear-gradient(170deg, #0b1610, #060807);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .06), 0 16px 34px -26px #15d16a; animation: lpIn .22s ease-out both; }
+.lpc.is-out { border-color: rgba(154, 163, 178, .35); background: linear-gradient(170deg, #111318, #07080a); box-shadow: inset 0 1px 0 rgba(255, 255, 255, .05); }
+.lpc-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; } .lpc-head > span { display: grid; min-width: 0; }
+.lpc-head b { font: 800 13px 'JetBrains Mono', monospace; color: #e8f6ec; } .lpc-head small { font: 600 9.5px 'JetBrains Mono', monospace; color: #8fae9a; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.lpc-range { flex: none; padding: 4px 8px; border-radius: 999px; font: 800 9.5px 'JetBrains Mono', monospace; font-style: normal; letter-spacing: .08em; color: #031208; background: #45e486; box-shadow: 0 0 14px -2px #45e486; }
+.lpc.is-out .lpc-range { color: #e8e3d6; background: #3a3f4a; box-shadow: none; } .lpc.is-empty .lpc-range { background: #2a2d34; color: #9aa3b2; }
+.lpc-tiles { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
+.lpc-tiles span { display: grid; gap: 2px; padding: 8px; border-radius: 10px; background: rgba(255, 255, 255, .035); border: 1px solid rgba(255, 255, 255, .06); animation: lpIn .3s ease-out both; animation-delay: calc(var(--i, 0) * 55ms); min-width: 0; }
+.lpc-tiles em { font: 700 8.5px 'JetBrains Mono', monospace; font-style: normal; letter-spacing: .12em; color: #8fae9a; } .lpc-tiles b { font: 800 14px 'JetBrains Mono', monospace; color: #f4ecd2; animation: lpPop .3s ease-out; }
+.lpc-tiles small { font: 600 9px 'JetBrains Mono', monospace; color: #8fae9a; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.lpc-tiles .is-hot { border-color: rgba(69, 228, 134, .4); background: rgba(21, 209, 106, .1); } .lpc-tiles .is-hot b { color: #45e486; text-shadow: 0 0 12px rgba(69, 228, 134, .5); }
+.lpc-acts { display: flex; flex-wrap: wrap; gap: 6px; } .lpc-acts .m-btn { min-height: 34px; flex: 1 1 auto; justify-content: center; }
+.lpc-st { display: flex; align-items: center; gap: 8px; margin: 0; font: 600 10.5px 'JetBrains Mono', monospace; color: #9cc4aa; }
+.lpc-st i { width: 7px; height: 7px; border-radius: 50%; background: #45e486; animation: lpBreath 1.2s ease-in-out infinite; }
+.lpc-ok { margin: 0; padding: 7px 9px; border-radius: 9px; background: rgba(21, 209, 106, .12); font: 700 10.5px 'JetBrains Mono', monospace; color: #bff5d3; }
+.lpc-err { margin: 0; font: 600 10.5px 'JetBrains Mono', monospace; color: #ff8fa3; }
+.lpl { display: grid; gap: 6px; padding: 12px; border-radius: 14px; border: 1px solid rgba(69, 228, 134, .35); background: linear-gradient(165deg, rgba(6, 22, 12, .92), rgba(6, 8, 7, .96)); animation: lpIn .25s ease-out both; }
+.lpl-head b { display: block; font: 800 11px 'JetBrains Mono', monospace; letter-spacing: .12em; color: #45e486; } .lpl-head small { font: 600 10px 'JetBrains Mono', monospace; color: #9cc4aa; }
+.lpl ol { margin: 0; padding: 0; list-style: none; display: grid; gap: 5px; } .lpl li { animation: lpIn .3s ease-out both; animation-delay: calc(var(--i, 0) * 50ms); }
+.lpl-row { width: 100%; min-height: 40px; display: grid; grid-template-columns: 10px minmax(0, 1fr) auto auto; gap: 8px; align-items: center; padding: 6px 9px; border-radius: 10px; border: 1px solid rgba(255, 255, 255, .06);
+  background: rgba(255, 255, 255, .03); color: #e8f6ec; text-align: left; cursor: pointer; transition: transform .15s ease, border-color .15s ease; }
+.lpl-row:hover { transform: translateY(-1px); border-color: rgba(69, 228, 134, .45); } .lpl-row:active { transform: scale(.98); } .lpl-row:focus-visible { outline: 2px solid #45e486; outline-offset: 2px; }
+.lpl-row > i { width: 8px; height: 8px; border-radius: 50%; background: #45e486; box-shadow: 0 0 10px #45e486; animation: lpBreath 2.4s ease-in-out infinite; }
+.lpl li.is-out .lpl-row > i { background: #5b6577; box-shadow: none; animation: none; }
+.lpl-row span { display: grid; min-width: 0; } .lpl-row b { font: 800 12px 'JetBrains Mono', monospace; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; } .lpl-row small { font: 600 9.5px 'JetBrains Mono', monospace; color: #8fae9a; }
+.lpl-row strong { font: 800 12.5px 'JetBrains Mono', monospace; } .lpl-row em { font: 800 11.5px 'JetBrains Mono', monospace; font-style: normal; color: #45e486; }
+.lpl li .lpc { margin-top: 5px; }
+@keyframes lpIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+@keyframes lpPop { from { opacity: .4; transform: scale(.94); } to { opacity: 1; transform: none; } }
+@keyframes lpBreath { 50% { opacity: .35; } }
+body.fx-lite .lpc, body.fx-lite .lpc-tiles span, body.fx-lite .lpc-tiles b, body.fx-lite .lpc-st i, body.fx-lite .lpl, body.fx-lite .lpl li, body.fx-lite .lpl-row > i { animation: none; }
+@media (prefers-reduced-motion: reduce) { .lpc, .lpc-tiles span, .lpc-tiles b, .lpc-st i, .lpl, .lpl li, .lpl-row > i { animation: none; } .lpl-row { transition: none; } }
+body.theme-day .lpc { background: linear-gradient(170deg, #f1fbf5, #fff); } body.theme-day .lpc.is-out { background: #f5f6f8; } body.theme-day .lpc-head b, body.theme-day .lpc-tiles b { color: #0f2418; }
+body.theme-day .lpc-tiles span { background: #fff; } body.theme-day .lpc-tiles .is-hot b { color: #0d7a41; text-shadow: none; }
+body.theme-day .lpl { background: linear-gradient(165deg, #eefbf3, #fff); } body.theme-day .lpl-row { background: #fff; color: #0f2418; } body.theme-day .lpl-row em, body.theme-day .lpl-head b { color: #0d7a41; }
+@media (max-width: 640px) { .lpc-tiles { grid-template-columns: 1fr 1fr; } .lpl-row { grid-template-columns: 10px minmax(0, 1fr) auto; } .lpl-row em { display: none; } }

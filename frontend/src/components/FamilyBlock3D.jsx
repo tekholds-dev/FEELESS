@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { MoneyDesk, RangePicture, JOB_OF } from './MoneyDesk';
-import { blockPlan, spotOf, usd, apyTxt, TOWN } from '../lib/cityPlan';
+import { blockPlan, spotOf, usd, apyTxt, TOWN, dollarsSmall } from '../lib/cityPlan';
 import { webglOk } from './FeeCity3D';
 import { useTownLive } from '../lib/townLive';
 import '../styles/familyCity3d.css';
@@ -19,11 +19,11 @@ const startMode = () => { try { const m = localStorage.getItem(MODE_KEY); if (m 
 
 // 🎛 owner, 2026-10-23: "no day and night or expansion options for my family" → the block gets Fee City's controls: 360°, zoom, the whole block,
 // ☀ / 🌙 (shared with Fee City), ⤢ the whole window (Esc). A picked building's card POPS OUT over the stage (`pop`) — in the window or expanded.
-export function FamilyBlock3D({ bl, sel, onPick, coins = null, pop = null, onClosePop = null }) {
+export function FamilyBlock3D({ bl, sel, onPick, coins = null, pop = null, onClosePop = null, lp = null }) {
   const [gl] = useState(webglOk); const town = useTownLive(!!(bl?.town || []).length);
   const host = useRef(null); const eng = useRef(null); const [ready, setReady] = useState(false); const [tip, setTip] = useState(null);
   const [mode, setMode] = useState(startMode); const [full, setFull] = useState(false); const [spin, setSpin] = useState(false);
-  const plan = useMemo(() => blockPlan(bl, { coins, town }), [bl, coins, town]);
+  const plan = useMemo(() => blockPlan(bl, { coins, town, lp }), [bl, coins, town, lp]);
   const pickRef = useRef(onPick); pickRef.current = onPick;
   useEffect(() => {
     if (!gl || !host.current) return undefined; let alive = true;
@@ -33,7 +33,7 @@ export function FamilyBlock3D({ bl, sel, onPick, coins = null, pop = null, onClo
     return () => { alive = false; eng.current?.dispose(); eng.current = null; };
   }, [gl]);
   useEffect(() => { if (ready && eng.current) eng.current.setPlan(plan, {}); }, [ready, plan]);
-  useEffect(() => { if (ready && eng.current && sel) eng.current.flyTo(spotOf(plan, sel), 16); }, [ready, sel?.blk, sel?.open, sel?.town]);   // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { if (ready && eng.current && sel) eng.current.flyTo(spotOf(plan, sel), 16); }, [ready, sel?.blk, sel?.open, sel?.town, sel?.lp]);   // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { eng.current?.setMode(mode); try { localStorage.setItem(MODE_KEY, mode); } catch { /* storage blocked */ } }, [mode, ready]);
   useEffect(() => { eng.current?.spin(spin); }, [spin, ready]);
   useEffect(() => {   // ⤢ the whole window; Esc closes the pop-out first, then the expansion
@@ -41,7 +41,7 @@ export function FamilyBlock3D({ bl, sel, onPick, coins = null, pop = null, onClo
     document.body.classList.add('fc3-lock'); window.addEventListener('keydown', esc); const t = setTimeout(() => eng.current?.resize(), 60);
     return () => { document.body.classList.remove('fc3-lock'); window.removeEventListener('keydown', esc); clearTimeout(t); setTimeout(() => eng.current?.resize(), 60); };
   }, [full, pop]);
-  if (!gl) return <>{<BlockGrid bl={bl} sel={sel} onPick={onPick} town={town} />}{pop ? <div className="fb3-pop is-flat" data-testid="block-pop">{pop}</div> : null}</>;
+  if (!gl) return <>{<BlockGrid bl={bl} sel={sel} onPick={onPick} town={town} lp={lp} />}{pop ? <div className="fb3-pop is-flat" data-testid="block-pop">{pop}</div> : null}</>;
   return <div className={`fb3 is-${mode} ${full ? 'is-full' : ''}`} data-testid="block-3d"><div className="fb3-host" ref={host} />{!ready ? <p className="fb3-wait">Raising the block…</p> : null}
     {tip?.label ? <span className="fb3-tip" style={{ transform: `translate(${tip.x + 14}px, ${tip.y + 12}px)` }}>{tip.label}</span> : null}
     {pop ? <div className="fb3-pop" role="dialog" aria-label="The building" data-testid="block-pop"><button type="button" className="fb3-x" onClick={onClosePop} aria-label="Close" data-tip="Back to the block (Esc)" data-testid="block-pop-x">✕</button>{pop}</div> : null}
@@ -56,7 +56,7 @@ export function FamilyBlock3D({ bl, sel, onPick, coins = null, pop = null, onClo
 }
 
 // the drawn CSS block: built towers lit, scaffolding + a crane on the ones not built yet, surveyed open plots
-export function BlockGrid({ bl, sel, onPick, town = null }) {
+export function BlockGrid({ bl, sel, onPick, town = null, lp = null }) {
   const blds = bl?.buildings || []; const open = Math.max(0, bl?.open ?? 3);
   return <div className="fb3-grid" data-testid="block-grid">
     {blds.map((b, i) => <button key={b.key} type="button" className={`fb3-b is-${b.state} k-${b.kind} ${sel?.blk === b.key ? 'is-sel' : ''}`} style={{ '--i': i, '--h': `${b.state === 'built' ? 46 + Math.min(54, Math.log10(1 + (Number(b.usd) || 10)) * 14) : 40}%` }}
@@ -64,6 +64,9 @@ export function BlockGrid({ bl, sel, onPick, town = null }) {
       <i className="fb3-tower"><u /></i>{b.state !== 'built' ? <i className="fb3-scaf"><s /></i> : null}
       <span className="fb3-sign"><b>{b.sym || b.name}</b><small>{b.state === 'built' ? (b.usd ? usd(b.usd) : b.band || 'BUILT') : 'UNDER CONSTRUCTION'}</small></span>
       {(b.errands || []).length && b.state === 'built' ? <em className="fb3-pin">{b.errands.length}</em> : null}</button>)}
+    {(lp || []).filter(p => !p.empty).map((p, j) => <button key={`lp-${p.id}`} type="button" className={`fb3-b is-built is-lp ${p.inRange ? 'is-in' : 'is-out'} ${sel?.lp === p.id ? 'is-sel' : ''}`} style={{ '--i': blds.length + j, '--h': '64%' }}
+      onClick={() => onPick({ lp: p.id })} data-testid={`blk-lp-${p.id}`} data-tip={`${p.sym}: your LP position · ${p.inRange ? 'in range, earning' : 'out of range, earning 0'} — tap to claim, remove or close`}>
+      <i className="fb3-tower"><u /></i><span className="fb3-sign"><b>{p.sym}</b><small>{p.inRange ? 'IN RANGE' : 'OUT OF RANGE'} · +{dollarsSmall(p.feeUsd)}</small></span></button>)}
     {(bl?.town || []).filter(k => TOWN[k]).map((k, j) => { const t = TOWN[k]; const tl = town?.[k]; return <button key={`t-${k}`} type="button" className={`fb3-b is-built is-town a-${t.art} ${sel?.town === k ? 'is-sel' : ''}`}
       style={{ '--i': blds.length + j, '--h': k === 'tt' ? '96%' : '70%', '--tc': t.color }} onClick={() => onPick({ town: k })} data-testid={`town-b-${k}`} data-tip={`${t.name} — ${tl?.line || t.sub}. Tap to walk in: the real tool opens over the block`}>
       <i className="fb3-tower"><u /></i><span className="fb3-sign"><b>{t.name}</b>{tl ? <small className={`fb3-live is-${tl.tone}`} key={tl.line}>{tl.line}</small> : <small>{t.sub}</small>}</span></button>; })}

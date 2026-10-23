@@ -7,6 +7,9 @@ import { FamilyBlock3D, BlockCard, TownPicker } from './FamilyBlock3D';
 import { TOWN } from '../lib/cityPlan';
 import '../styles/familyBlock.css';
 import { familiaDocked, familiaSwap } from './FamiliaTrade';
+import { useLpPositions } from '../lib/lpPositions';
+import { LpPositionCard } from './LpPositions';
+import { dollarsSmall } from '../lib/cityPlan';
 
 // 🏙 THE FAMILY BLOCK (owner, 2026-10-21: "enter your block and build a city — named crypto stores, MP, goons to protect / rob / boost, realistic
 // 3D like a game, clickable with vitals, everything explained; the creator wallet gets every unlock"). Drag to spin it 360°. Every number is
@@ -90,10 +93,12 @@ function StreetGame({ v, act, busy, can }) {
           </details>;
 }
 
-export function FamilyBlock({ cid, addr, sess, onBack, mine: myFam = null, tools = null, demo = null }) {
+export function FamilyBlock({ cid, addr, sess, onBack, mine: myFam = null, tools = null, demo = null, lpOwner = null }) {   // lpOwner: the /dev/block preview only
   const mine = !cid;
   const [v, setV] = useState(null); const [err, setErr] = useState(''); const [busy, setBusy] = useState(false);
   const [bl, setBl] = useState(null); const [bsel, setBsel] = useState(null); const coins = useIntakeCoins();
+  const lp = useLpPositions(lpOwner || (mine ? addr : null));   // 🏗 your LP positions stand on your block as live towers
+  const lpSel = bsel?.lp ? (lp || []).find(p => p.id === bsel.lp) : null;
   const room = bsel?.town && TOWN[bsel.town] ? bsel.town : null;   // 🏘 a town building you walked into: its real tool pops out over the block
   useEffect(() => { if (!bsel) return undefined; const esc = e => { if (e.key === 'Escape') setBsel(null); }; window.addEventListener('keydown', esc); return () => window.removeEventListener('keydown', esc); }, [bsel]);
   const load = () => fetch(apiUrl(mine ? `/api/reputation/familia-city?address=${addr}&session=${encodeURIComponent(sess)}` : `/api/reputation/familia-city/${cid}`))
@@ -139,13 +144,14 @@ export function FamilyBlock({ cid, addr, sess, onBack, mine: myFam = null, tools
           <i className="fbk-cap"><u style={{ transform: `scaleX(${bl && (bl.buildings || []).length ? bl.built / bl.buildings.length : 0})` }} /></i></span>
         {mine ? <span data-tip="What the family's wallets hold in the block's markets right now (live prices)"><em>IN MARKETS</em><b key={bl?.total}>{bl?.total ? `$${Math.round(bl.total).toLocaleString('en-US')}` : '$0'}</b></span> : null}
         {mine ? <span data-tip="Real-money errands waiting on your built buildings"><em>ERRANDS</em><b>{errands}</b></span> : null}
+        {(mine || lpOwner) && (lp || []).length ? <span className="fbk-lp" data-tip="Your LP positions on this block: worth now · fees earned and not claimed yet" data-testid="block-lp-hud"><em>IN POOLS</em><b key={lp.length}>{dollarsSmall(lp.reduce((a, p) => a + (p.valueUsd || 0), 0))}</b><small>+{dollarsSmall(lp.reduce((a, p) => a + (p.feeUsd || 0), 0))} fees</small></span> : null}
         <span data-tip="Mob points in the family bank (points only — the street game below)"><em>BANK</em><b>{v.bank.toLocaleString('en-US')} MP</b></span>
         {v.staff ? <span className="fbk-staff" data-tip="The creator wallet: every unlock">👑 CREATOR</span> : null}
       </header>
       <div className="fbk-wrap">
         <div className="fbk-left">
           <div className="fbk-stage3">{bl ? <FamilyBlock3D bl={bl} sel={bsel} onPick={setBsel} coins={coins} onClosePop={() => setBsel(null)}
-            pop={bsel?.blk || bsel?.open != null ? <BlockCard bl={bl} sel={bsel} busy={busy} mine={mine} onAct={blAct} onErrand={(e, b) => errandGo(e, b)} /> : null} /> : <p className="fbk-wait">Surveying the block…</p>}<BlockPicks coins={coins} />
+            lp={lp} pop={lpSel ? <LpPositionCard p={lpSel} /> : bsel?.blk || bsel?.open != null ? <BlockCard bl={bl} sel={bsel} busy={busy} mine={mine} onAct={blAct} onErrand={(e, b) => errandGo(e, b)} /> : null} /> : <p className="fbk-wait">Surveying the block…</p>}{lpSel || bsel?.blk || bsel?.open != null ? null : <BlockPicks coins={coins} />}
             {room ? <section className="ftr" style={{ '--tc': TOWN[room].color }} role="dialog" aria-label={TOWN[room].name} data-testid={`town-room-${room}`}>
               <header><i aria-hidden="true" /><span><b>{TOWN[room].name}</b><small>{TOWN[room].sub}</small></span>
                 <button type="button" onClick={() => setBsel(null)} aria-label="Walk back out" data-tip="Back to the block (Esc)" data-testid="town-room-close">✕</button></header>

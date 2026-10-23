@@ -48,3 +48,20 @@ export async function dammJoin({ provider, owner, quote, slippageBps = 100, onSt
   keepReceipt(signature, owner, 'pool');   // the server's receipt kinds: an LP join files as a pool action
   return { signature, position: nft.publicKey.toBase58() };
 }
+
+// ⚡ THE ZAP (owner: "one-tap zap — swap half → join"): half the SOL buys the coin through FEELESS's own swap engine (simulated, the wallet signs,
+// the server sends it once), then the other half + exactly what that bought joins the pool (simulated, the wallet signs). Two signatures, one tap.
+// If the price moved between the two, the join shrinks its SOL side to fit the coin the swap really delivered — never asks for more.
+export async function dammZap({ provider, owner, pool, coin, solAmount, onStatus, steps = null }) {
+  const { engineQuote, engineSwap } = await import('./swapEngine');
+  const half = Math.floor((Number(solAmount) / 2) * 1e9) / 1e9; if (!(half > 0)) throw new Error('Type an amount above zero.');
+  onStatus?.('Quoting the swap…'); const order = await engineQuote({ inputMint: SOL, outputMint: coin, amount: half.toFixed(9), wallet: owner });
+  steps?.({ swap: { sol: half, out: order.quote.outAmount } });
+  const swap = await engineSwap({ provider, wallet: owner, order, onStatus });
+  onStatus?.('Swap confirmed — quoting the join…');
+  let q = await dammQuote({ pool, solAmount: half, owner });
+  if (q.short && Number(q.held) > 0) q = await dammQuote({ pool, solAmount: half * (Number(q.held) / Number(withSlip(q.coinUnits))) * 0.995, owner });   // fit the coin we really got
+  if (q.short) throw new Error('The swap landed but the coin side is still short — join with what you hold from the pool row.');
+  const join = await dammJoin({ provider, owner, quote: q, onStatus });
+  return { swap: swap.signature, ...join };
+}

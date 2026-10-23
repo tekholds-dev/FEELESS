@@ -118,6 +118,7 @@ export const POOL_KIND = { v2: 'V2 · AMM', v3: 'V3 · CLMM', dlmm: 'DLMM', vaul
 
 // pure: compact $ (TVL / volume / caps)
 export const usd = v => { const n = Number(v); if (!Number.isFinite(n) || n <= 0) return '—'; return n >= 1e9 ? `$${(n / 1e9).toFixed(2)}B` : n >= 1e6 ? `$${(n / 1e6).toFixed(1)}M` : n >= 1e3 ? `$${(n / 1e3).toFixed(1)}K` : `$${Math.round(n)}`; };
+export const dollarsSmall = v => { const n = Number(v) || 0; return n >= 1000 ? usd(n) : n >= 1 ? `$${n.toFixed(2)}` : `$${n.toFixed(3)}`; };   // small money keeps its cents
 export const apyTxt = v => (v == null || !Number.isFinite(Number(v)) ? '—' : `${Number(v) >= 100 ? Math.round(v) : Number(v).toFixed(1)}%`);
 // pure: how fast a market's activity light pulses (0.4 – 2.4 Hz) from its 24h volume (or its TVL when no volume is known)
 export const pulseHz = m => { const v = Number(m?.pool?.vol) || Number(m?.vol) || Number(m?.tvl) / 50 || 0; return Math.round((0.4 + Math.min(2, Math.log10(1 + v) / 4)) * 100) / 100; };
@@ -307,7 +308,9 @@ export const TOWN = {
 // market buildings: BUILT = a tower sized by the position's $ value with its live APY on the sign · NOT YET = scaffolding + a crane · OPEN PLOTS
 // = surveyed land with stakes, tap one to add a market. `bl` = /familia-block.
 export function blockPlan(bl, live = {}) {
-  const blds = bl?.buildings || []; const open = Math.max(0, bl?.open ?? 3); const town = (bl?.town || []).filter(k => TOWN[k]); const n = blds.length + town.length + open;
+  const blds = bl?.buildings || []; const open = Math.max(0, bl?.open ?? 3); const town = (bl?.town || []).filter(k => TOWN[k]);
+  const lps = (live.lp || []).filter(p => p && !p.empty);   // 🏗 your LP positions (lib/lpPositions): a tower each, lit while IN RANGE
+  const n = blds.length + lps.length + town.length + open;
   const cols = Math.max(3, Math.min(5, Math.ceil(Math.sqrt(n * 1.6)))); const rows = Math.max(2, Math.ceil(n / cols));
   const isl = island('block', 0, 0, cols, rows, MCELL, { name: `[${bl?.tag || '?'}] ${String(bl?.name || 'THE BLOCK').toUpperCase()}`, sub: `${bl?.built || 0}/${blds.length} built${bl?.total ? ` · ${usd(bl.total)}` : ''}`, color: '#d4af37' });
   const at = k => rectOf(isl.gx, isl.gz, [k % cols, Math.floor(k / cols)], MCELL);
@@ -321,12 +324,16 @@ export function blockPlan(bl, live = {}) {
         lines: [`${b.sym || b.name}`, v ? `${usd(v)}${b.apy != null ? ` · APY ${apyTxt(b.apy)}` : ''}` : `${b.n || 1} position${(b.n || 1) > 1 ? 's' : ''}`, (b.errands || []).length ? `${b.errands.length} errand${b.errands.length > 1 ? 's' : ''}` : b.name] });
     } else lots.push({ id: `blk-${b.key}`, pick, kind: 'mine', tag: bl?.tag, owner: bl?.id, state: 'shut', power: 3000, rect, seed: hash(b.key), lines: [`${b.name} · UNDER CONSTRUCTION`, b.why ? 'no position reader yet' : 'open a position to build it'] });
   });
+  lps.forEach((p, j) => { const v = Number(p.valueUsd) || 0; const f = Number(p.feeUsd) || 0;
+    markets.push({ key: `lp-${p.id}`, pick: { lp: p.id }, kind: 'damm', name: p.sym, proto: 'Meteora DAMM v2', pool: true, tvl: v, apy: p.feeDay != null ? p.feeDay * 36500 : null, hz: p.inRange ? 1.8 : 0.4,
+      h: heightOf(Math.max(1, v) * 4000) * 1.2, rect: at(blds.length + j), island: 'block', m: p, tone: p.inRange ? '#45e486' : '#6b6f78',
+      lines: [p.sym, `${dollarsSmall(v)} · fees +${dollarsSmall(f)}`, p.inRange ? `IN RANGE · ${p.feeDay != null ? `${(p.feeDay * 100).toFixed(1)}%/day` : 'earning'}` : 'OUT OF RANGE · earning 0'] }); });
   // 🏘 the town: the tool buildings the family picked, each a real tool (the TT tower burns its READY floors here too)
   // 🏘 each sign carries its tool's own live number (live.town = lib/townLive → backend/town_live.py); a quiet source keeps the subtitle
   const places = town.map((k, j) => { const t = TOWN[k]; const tt = k === 'tt' ? ttLive(live.coins) : null; const tl = live.town?.[k];
-    return { key: `town-${k}`, lens: k, pick: { town: k }, name: t.name, sub: t.sub, art: t.art, color: t.color, tool: true, isl: 'block', rect: at(blds.length + j), live: tt,
+    return { key: `town-${k}`, lens: k, pick: { town: k }, name: t.name, sub: t.sub, art: t.art, color: t.color, tool: true, isl: 'block', rect: at(blds.length + lps.length + j), live: tt,
       lines: [t.name, tl?.line || (tt?.n ? `${tt.ready} READY · ${tt.n} on the intake` : t.sub)] }; });
-  for (let k = 0; k < open; k += 1) lots.push({ id: `open-${k}`, pick: { open: k }, kind: 'free', open: true, rect: at(blds.length + town.length + k), seed: k });
+  for (let k = 0; k < open; k += 1) lots.push({ id: `open-${k}`, pick: { open: k }, kind: 'free', open: true, rect: at(blds.length + lps.length + town.length + k), seed: k });
   const roads = [roadsOf(isl)];
   return { kind: 'block', key: bl?.id || 'block', islands: [isl], lots, marks: [], plaza: null, markets, places, spare: [], roads, bridges: [], gates: [],
     lights: roads[0].nodes.filter(nd => !nd.edge).slice(0, 6), loops: [ringOf(isl)], billboards: [], bounds: boundsOf([isl]), center: { x: isl.x + isl.w / 2, z: isl.z + isl.d / 2 } };
@@ -338,6 +345,7 @@ export function spotOf(plan, sel) {
   if (sel.isl === 'keys') { const mine = plan.lots.find(l => l.kind === 'mine'); const k = mine?.island || plan.islands.find(x => x.key_)?.key; return k ? spotOf(plan, { isl: k }) : null; }   // 🏝 your key (or the first)
   if (sel.isl) { const i = plan.islands.find(x => x.key === sel.isl); return i ? { x: i.x + i.w / 2, z: i.z + i.d / 2, span: Math.max(i.w, i.d) } : null; }
   if (sel.town) { const t = plan.places.find(p => p.pick?.town === sel.town); return t ? centerOf(t.rect) : null; }   // 🏘 a town building
+  if (sel.lp) { const b = plan.markets.find(m => m.key === `lp-${sel.lp}`); return b ? centerOf(b.rect) : null; }   // 🏗 an LP position's tower
   if (sel.blk || sel.open != null) { const id = sel.blk ? `blk-${sel.blk}` : `open-${sel.open}`; const b = plan.lots.find(l => l.id === id) || plan.markets.find(m => m.key === id); return b ? centerOf(b.rect) : null; }   // 🏙 the family block
   const hit = sel.id ? plan.lots.find(l => l.id === sel.id) : sel.lm ? plan.marks.find(m => m.key === sel.lm) : sel.mk ? plan.markets.find(m => m.key === sel.mk) : sel.place ? (plan.places.find(p => p.key === sel.place) || (plan.inside || []).find(p => p.key === sel.place)) : null;
   return hit ? centerOf(hit.rect) : null;

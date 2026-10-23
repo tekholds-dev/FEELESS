@@ -26,8 +26,11 @@ then `git push origin <sha>:main`; the pre-push hook runs the full gate ~5 min �
 🚨 RPC: Helius + Alchemy were both OUT OF QUOTA (2026-10-23 evening). The browser relay `/api/reputation/rpc` now falls through the pool on a 429
 (`_relay_spent`, test `test_rpc_relay_fallback.py`) — reputation_service restarted via the keep-alive watcher (PID 55631, Claude's tree) →
 1 copy, relay answering. G4 / NEXA LAN status was NOT re-checked after this restart. The owner still has to top up / add a keyed RPC.
-🔌 In-place LP: `lib/lpBuilder.js` (Meteora DAMM v2 join, simulated clean on mainnet for a real holder — script pattern in the history line) +
-`lib/hotPools.js` (guarded feed from Meteora's data API) → MOON desk › 🔥 HOT POOLS · JOIN HERE.
+🔌 In-place LP: `lib/lpBuilder.js` (join + `dammZap`) · `lib/swapEngine.js` (the /api/trading path as two calls) · `lib/lpPositions.js` (read +
+claim / remove / close) · `components/LpPositions.jsx` (card + list) · `lib/hotPools.js` (guarded feed) → MOON desk + LP towers on the family block
+(`blockPlan(bl, { lp })`; `/dev/block?lp=<wallet>` previews a wallet's positions read-only). The relay allows `getTokenAccountsByOwner` +
+`getBlockTime` (never `getProgramAccounts`). Simulation scripts: scratchpad pattern in the history line (recent pool trader / position owner as
+the wallet, sigVerify off, public RPC for program-wide scans).
 
 ### Where today's work lives (frontend only; grep the history for "2026-10-23 evening")
 - 🌆 Fee City METRO: `lib/cityPlan.js` (`METRO`, `KEYS`, `feePlan(v, mk, pools)`, `moneyShare` = 81 %) · `lib/cityEngine.js` (merged neon trims,

@@ -129,3 +129,4 @@ body.theme-day .md-hunt.is-moon { background: linear-gradient(165deg, #fdf0fb, #
 body.fx-lite .md-join { animation: none; } @media (prefers-reduced-motion: reduce) { .md-join { animation: none; } .md-x { transition: none; } }
 body.theme-day .md-hot { background: linear-gradient(165deg, #eefbf3, #fbfffc); } body.theme-day .md-hot .md-hunt-head b, body.theme-day .md-hot .md-hunt-apy strong { color: #0d7a41; text-shadow: none; }
 body.theme-day .md-join { background: #f4fcf7; } body.theme-day .md-join-q b { color: #0f2418; } body.theme-day .md-join-ok { color: #0d5a31; }
+.md-join-go { display: grid; gap: 6px; } .md-zap { width: 100%; min-height: 40px; justify-content: center; font-size: 12px; }

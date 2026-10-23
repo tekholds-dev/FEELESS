@@ -82,7 +82,7 @@ body.theme-day .fb3-live.is-up, body.theme-day .fb3-live.is-hot { color: #0d7a41
 .fb3-ctl { z-index: 5; flex-wrap: wrap; max-width: calc(100% - 24px); }
 .fb3.is-day { background: radial-gradient(80% 60% at 50% 100%, #cfe3f4, #8fbde6 70%); }
 .fb3.is-full { position: fixed; inset: 0; z-index: 4200; height: 100vh; border-radius: 0; animation: fb3Grow .2s ease-out both; }
-.fb3-pop { position: absolute; top: 12px; right: 12px; bottom: 56px; z-index: 6; width: min(420px, calc(100% - 24px)); overflow-y: auto; padding: 12px; border-radius: 16px;
+.fb3-pop { position: absolute; top: 12px; right: 12px; max-height: calc(100% - 68px); z-index: 6; width: min(420px, calc(100% - 24px)); overflow-y: auto; padding: 12px; border-radius: 16px;
   background: linear-gradient(170deg, rgba(20, 15, 8, .94), rgba(6, 7, 12, .97)); border: 1px solid rgba(212, 175, 55, .45); box-shadow: inset 0 1px 0 rgba(255, 255, 255, .08), 0 24px 60px -30px #000;
   scrollbar-width: thin; scrollbar-color: #d4af37 transparent; animation: fb3Pop .2s ease-out both; }
 .fb3-pop::-webkit-scrollbar { width: 6px; } .fb3-pop::-webkit-scrollbar-thumb { background: #d4af37; border-radius: 6px; }
@@ -96,3 +96,5 @@ body.theme-day .fb3-live.is-up, body.theme-day .fb3-live.is-hot { color: #0d7a41
 body.fx-lite .fb3.is-full, body.fx-lite .fb3-pop { animation: none; } @media (prefers-reduced-motion: reduce) { .fb3.is-full, .fb3-pop { animation: none; } .fb3-x { transition: none; } }
 body.theme-day .fb3-pop { background: linear-gradient(170deg, #fffaf0f5, #f6efe0f5); border-color: #b8952a88; } body.theme-day .fb3-x { background: #fffaf0; color: #6a4a00; }
 @media (max-width: 640px) { .fb3-pop { top: auto; left: 8px; right: 8px; bottom: 52px; width: auto; max-height: 72%; } }
+/* 🏗 an LP position on the drawn block: a green beacon while IN RANGE, grey + dim when out */
+.fb3-b.is-lp.is-in .fb3-tower u { background: #45e486; box-shadow: 0 0 14px #45e486; } .fb3-b.is-lp.is-out .fb3-tower { opacity: .55; } .fb3-b.is-lp.is-out .fb3-tower u { background: #5b6577; box-shadow: none; animation: none; }
