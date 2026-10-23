@@ -143,6 +143,8 @@ body.fx-lite .fwd-siren, body.fx-lite .fwd-alert { animation: none; } @media (pr
 .fwd-place { width: min(560px, calc(100% - 88px)); }
 /* an open directory (226 px) and a room pop-out never overlap: the pop-out leaves the directory's width free (dead clicks 48292d9d · 9a863254) */
 @media (min-width: 641px) { .fwd-mapwrap:has(.fc3-dir.is-open) .fwd-place { width: min(560px, calc(100% - 268px)); } }
+/* a room is open → the district buttons and the RAID / FUSE actions step aside instead of sitting under it (covered-button audit 2026-10-23) */
+.fwd-mapwrap:has(.fwd-place) :is(.fc3-isl, .mh-acts) { visibility: hidden; pointer-events: none; }
 @media (max-width: 640px) { .fwd-place { width: auto; } .fwd-mapwrap:has(.fwd-place) :is(.fc3-dir, .mh-acts) { display: none; } }
 /* 🚪 one building, several rooms (Fee City breathes, 2026-10-23): the host's rooms as a lit segmented strip under the pop-out header */
 .fwd-rooms { flex: none; display: flex; gap: 6px; padding: 8px 12px; overflow-x: auto; scrollbar-width: none; border-bottom: 1px solid #ffffff10; background: #0000002e; }
