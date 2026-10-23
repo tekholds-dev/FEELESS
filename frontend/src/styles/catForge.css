@@ -63,3 +63,13 @@ body.theme-day .cfv .paper-wizard-visual { background: radial-gradient(60% 120% 
 body.theme-day .cfv .btn-outline { color: #3d2a66; } body.theme-day .cfv .paper-confirm-list > div { background: #fff; } body.theme-day .cfv .paper-confirm-list b { color: #1d1233; } body.theme-day .cfv .paper-wizard-disclosure { color: #3d2a66; }
 body.theme-day .cf-step u { background: #e2d8f6; } body.theme-day .cf-step em { color: #8f80b3; } body.theme-day .cf-step.is-on em { color: #6a3fd0; }
 @media (max-width: 640px) { .cfv .cct-head h2 { font-size: 24px; } .cfv .paper-wizard-card { border-radius: 18px; } .cf-step em { font-size: 8.5px; } }
+/* 💵 the wallet switch on every cat card: a lit PAPER → GO REAL pill, a green breathing REAL pill with what's waiting to be signed */
+.cw-card { display: grid; gap: 6px; } .cw-card.is-real .paper-my-cat-card { border-color: #45e48699; box-shadow: 0 0 0 1px #45e48633, 0 12px 28px -18px #45e486; }
+.cw-go { display: flex; align-items: center; justify-content: center; gap: 7px; min-height: 34px; border-radius: 999px; border: 1px solid #b388ff66; cursor: pointer;
+  background: linear-gradient(110deg, #2a1650, #12081f); color: #e6dcff; font: 800 10.5px 'JetBrains Mono', monospace; letter-spacing: .08em; transition: transform .15s ease, box-shadow .15s ease; }
+.cw-go:hover { transform: translateY(-2px); box-shadow: 0 10px 24px -12px #b388ff; } .cw-go:active { transform: scale(.97); } .cw-go:focus-visible { outline: 2px solid #b388ff; outline-offset: 2px; }
+.cw-go i { width: 7px; height: 7px; border-radius: 50%; background: #b388ff; }
+.cw-go.is-real { border-color: #45e486aa; background: linear-gradient(110deg, #0c3a20, #061009); color: #bff5d3; } .cw-go.is-real i { background: #45e486; box-shadow: 0 0 10px #45e486; animation: cwBreath 1.6s ease-in-out infinite; }
+@keyframes cwBreath { 50% { opacity: .35; } }
+body.fx-lite .cw-go.is-real i { animation: none; } @media (prefers-reduced-motion: reduce) { .cw-go.is-real i { animation: none; } .cw-go { transition: none; } }
+body.theme-day .cw-go { background: #f5f0fd; color: #3d2a66; } body.theme-day .cw-go.is-real { background: #eafbf1; color: #0d5a31; }

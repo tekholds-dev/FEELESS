@@ -172,7 +172,9 @@ P0-QUICK — OWNER 2026-10-23 night (THE one list of unfinished asks — HANDOFF
 2. 📉 REAL PERPS WITH YOUR OWN USD in FEELESS (owner: "no paper perps — I want to use my USD"): blocked for US users by the standing rule until
    counsel answers DECISIONS #1 (`docs/COUNSEL_BRIEF.md` §1) or a regulated venue's partner API (OAuth on the user's own account) is wired.
    Until then the Perps desk must be VISUAL (live charts / meters, never text-only) — no new paper features.
-3. 🐱 FeeCat: one clear place to switch / apply a cat's WALLET (real mode) and watch it trade live.
+3. 🐱 FeeCat wallet switch — DONE for your cats 2026-10-23 (a lit 🧪 PAPER · GO REAL / 💵 REAL · n to sign pill on every "My agents" card →
+   its desk opens on the wallet panel). OPEN: Fee herself (the leader, ownerId 'feeless-system') can't go real yet — owner-only real mode for
+   her = proposals to the owner's wallet (backend `/action` gate). Plus: make FEE'S CHAT LITTY — her girly convos, bubbles, voice (owner).
 4. 💬 Agent chat bubbles on FeeCat's charts; internal model names (NEXA / OSSY / G4) never shown to users.
 5. ⏱ While NEXA holds a LIVE trade: quick questions to her faster (hold · skim · new SL · new TP), re-checked every ≤ 120 s (desk EVERY = 300 s today).
 6. 🔌 RPC lanes in HQ › Core (SOLANA_RPC_URL_2 … _6 — the keeper + relay already fall through them); Helius + Alchemy were OUT of quota.

@@ -172,6 +172,7 @@ export default function FeeCatsPlatform() {
   const loadCats = useCallback(async () => { try { const result = await api(`/api/cats?ownerId=${encodeURIComponent(ownerId())}`); setCats(result.cats || []); setError(''); } catch (requestError) { setError(requestError.message); } }, []);
   useEffect(() => { loadCats(); }, [loadCats]);
   const openCat = cat => { setSelected(cat); setView('cat'); };
+  const openReal = cat => { openCat(cat); setTimeout(() => document.querySelector('[data-testid="cat-real"]')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 250); };   // 💵 straight to its wallet switch
   const created = cat => { setCats(current => [cat, ...current]); openCat(cat); };
   const live = cats.filter(c => !c.revoked);   // 🤖 agents that count toward the 2-agent limit
   const TABS = [['cats', <><Cat size={14} /> My agents <span>{live.length}/{AGENT_MAX}</span></>, 'Your trading cats with their live P&L'],
@@ -191,6 +192,10 @@ export default function FeeCatsPlatform() {
     {view === 'leaderboard' && <div className="paper-single-column"><Leaderboard onOpen={openCat} /></div>}
     {view === 'cats' && <section className="paper-my-cats">{!cats.length ? <><div className="paper-panel-head"><div><span className="eyebrow">YOUR AGENTS · 0/{AGENT_MAX}</span><h2>No cats on the job yet — pick a brain.</h2></div></div><AgentPicker count={0} onPick={k => setView(k)} /></>
       : <><div className="paper-panel-head"><div><span className="eyebrow">YOUR AGENTS · {live.length}/{AGENT_MAX}</span><h2>Tap a cat to see its desk</h2></div><button type="button" className="btn-outline" onClick={() => setView('new')} disabled={live.length >= AGENT_MAX}><Plus size={14} /> New agent</button></div>
-        <div className="paper-my-cat-grid">{cats.map(cat => <button type="button" className="paper-my-cat-card" key={cat.id} onClick={() => openCat(cat)}><span className="paper-my-cat-art"><LookAvatar cat={catByName(cat.avatar)} look={cat.look} /></span><span><b>{cat.name}</b><small>{cat.status.toUpperCase()} · LVL {cat.level}</small></span><strong className={cat.realizedPnlSol >= 0 ? 'positive' : 'negative'}>{money(cat.realizedPnlSol)}</strong><ChevronRight size={15} /></button>)}</div></>}</section>}
+        <div className="paper-my-cat-grid">{cats.map(cat => { const real = cat.mode === 'real' && !!cat.realWallet; const pend = (cat.proposals || []).filter(p => p.status === 'pending').length;
+          return <div key={cat.id} className={`cw-card ${real ? 'is-real' : ''}`} data-testid={`cw-${cat.id}`}><button type="button" className="paper-my-cat-card" onClick={() => openCat(cat)}><span className="paper-my-cat-art"><LookAvatar cat={catByName(cat.avatar)} look={cat.look} /></span><span><b>{cat.name}</b><small>{cat.status.toUpperCase()} · LVL {cat.level}</small></span><strong className={cat.realizedPnlSol >= 0 ? 'positive' : 'negative'}>{money(cat.realizedPnlSol)}</strong><ChevronRight size={15} /></button>
+            <button type="button" className={`cw-go ${real ? 'is-real' : ''}`} onClick={() => openReal(cat)} data-testid={`cw-go-${cat.id}`}
+              data-tip={real ? `REAL on ${cat.realWallet.slice(0, 4)}…${cat.realWallet.slice(-4)} — open its live proposals` : 'Switch this cat to REAL: pick a per-buy budget, it proposes, your wallet signs every trade'}>
+              <i aria-hidden="true" />{real ? `💵 REAL · ${pend ? `${pend} to sign` : 'live'}` : '🧪 PAPER · GO REAL'}</button></div>; })}</div></>}</section>}
   </div>;
 }
