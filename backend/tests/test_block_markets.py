@@ -66,7 +66,7 @@ def test_the_service_adds_a_market_and_only_a_real_position_builds_it(monkeypatc
 
     async def reads(c, lots, now):
         return held
-    monkeypatch.setattr(rs, '_block_reads', reads)
+    monkeypatch.setattr(rs, '_fblock_reads', reads)
     v = asyncio.run(rs.familia_block_act(rs.BlockAct(address=don, session='s', act='add', key='jito')))
     assert [(b['key'], b['state']) for b in v['buildings']] == [('jito', 'construction')] and v['canBuild'] and v['open'] == 4
     assert {m['key'] for m in v['catalog']} == {'meteora'}                       # the catalog offers what is not on the block yet

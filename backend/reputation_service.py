@@ -9045,27 +9045,27 @@ async def familia_city_act(p: CityAct):
 # really hold a position there (receipt tokens · position NFTs · Kamino vault shares), read once a minute per family. Points never build these.
 import block_markets as _bmk   # noqa: E402
 
-_block_held = {}   # cid → (at, {key: {amount, usd, n}})
-BLOCK_HELD_SEC = 60.0
+_fblock_held = {}   # cid → (at, {key: {amount, usd, n}})
+FBLOCK_HELD_SEC = 60.0
 TOKEN_PROGRAM = 'TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA'
 
 
-def _block_wallets(c):
+def _fblock_wallets(c):
     """The wallets whose positions build the block: the Don's seat wallet + every wallet linked to it (≤ 6)."""
     own_ = (c or {}).get('owner')
     return [w_ for w_ in dict.fromkeys([own_, *(linked_of(own_) if own_ else [])]) if w_][:6]
 
 
-async def _block_reads(c, lots, now):
-    """→ {key: {'amount', 'usd', 'n'}} for this family's buildings (cached BLOCK_HELD_SEC). Never raises: a failed read = nothing proved."""
-    hit_ = _block_held.get(c['id'])
+async def _fblock_reads(c, lots, now):
+    """→ {key: {'amount', 'usd', 'n'}} for this family's buildings (cached FBLOCK_HELD_SEC). Never raises: a failed read = nothing proved."""
+    hit_ = _fblock_held.get(c['id'])
     keys_ = tuple(sorted(x['key'] for x in lots))
-    if hit_ and now - hit_[0] < BLOCK_HELD_SEC and hit_[2] == keys_:
+    if hit_ and now - hit_[0] < FBLOCK_HELD_SEC and hit_[2] == keys_:
         return hit_[1]
     need_ = _bmk.needs(lots); out_ = {}
-    wallets_ = _block_wallets(c)
+    wallets_ = _fblock_wallets(c)
     if not wallets_ or os.environ.get('PYTEST_CURRENT_TEST'):
-        _block_held[c['id']] = (now, out_, keys_)
+        _fblock_held[c['id']] = (now, out_, keys_)
         return out_
     bal_ = {}; assets_ = []; kam_ = []
     async with httpx.AsyncClient(timeout=12) as http:
@@ -9114,16 +9114,16 @@ async def _block_reads(c, lots, now):
         n_ = sum(1 for p_ in kam_ if _fuse._f(p_.get('totalShares') or p_.get('sharesAmount') or p_.get('stakedShares') or p_.get('unstakedShares')) > 0 or _fuse._f(p_.get('totalValueUsd') or p_.get('usdValue')) > 0)
         if n_:
             out_['kamino'] = {'n': n_, 'usd': round(usd_, 2) if usd_ else None}
-    _block_held[c['id']] = (now, out_, keys_)
+    _fblock_held[c['id']] = (now, out_, keys_)
     return out_
 
 
-async def _block_view(c, me=None, staff=False, rank=None):
+async def _fblock_view(c, me=None, staff=False, rank=None):
     now = time.time()
     lots_ = _bmk.lots_of(c)
     mk_ = (await familia_markets()) or {}
     markets_ = {m_['key']: m_ for m_ in mk_.get('markets') or []}
-    held_ = await _block_reads(c, lots_, now) if lots_ else {}
+    held_ = await _fblock_reads(c, lots_, now) if lots_ else {}
     try:
         pools_ = (await familia_pools()).get('pools') or []
     except Exception:
@@ -9152,7 +9152,7 @@ async def familia_block(address: str, session: str):
     if not c:
         raise HTTPException(404, 'Join a family to build a block.')
     _b, rk_ = _city_ctx(c, me, now)
-    return await _block_view(c, me, _is_staff(me), rk_)
+    return await _fblock_view(c, me, _is_staff(me), rk_)
 
 
 @app.get('/api/reputation/familia-block/{cid}')
@@ -9162,7 +9162,7 @@ async def familia_block_visit(cid: str):
     st = _json_load(CREWS_PATH, {}); _cr._norm(st); c = (st.get('crews') or {}).get(cid)
     if not c:
         raise HTTPException(404, 'No such family.')
-    return await _block_view(c)
+    return await _fblock_view(c)
 
 
 class BlockAct(BaseModel):
@@ -9194,8 +9194,8 @@ async def familia_block_act(p: BlockAct):
             raise HTTPException(400, str(e))
         _json_save(CREWS_PATH, st)
     _crew_cache['data'] = None
-    _block_held.pop(c['id'], None)
-    return await _block_view(c, me, staff_, rk_)
+    _fblock_held.pop(c['id'], None)
+    return await _fblock_view(c, me, staff_, rk_)
 
 
 # 🗺 LA FAMILIA WORLD (family_world.py): the big city — 6 boroughs × 16 blocks, bridges, turf, CPU towns, cartels from FEELESS rep, raids as chess
