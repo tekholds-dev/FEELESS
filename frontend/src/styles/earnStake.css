@@ -1,0 +1,41 @@
+/* 💸 EarnStake.jsx — the stake picker + the Perps desk's money read (tiles + a drawn P&L fan). m-* tokens, the logo green for gains, #ff8fa3 for
+   losses, gold for funding; transform / opacity motion only (one keyframe set `es*`), still under fx-lite + reduced motion; day + 640 px at the end. */
+.es-seg { display: inline-flex; align-items: center; gap: 6px; } .es-seg > em { font: 800 8px 'JetBrains Mono', monospace; font-style: normal; letter-spacing: .16em; color: var(--m-dim, #8fa496); }
+.es-seg .m-seg button { min-height: 32px; min-width: 46px; font-family: 'JetBrains Mono', monospace; font-weight: 800; }
+.es-perps { position: relative; display: grid; gap: 10px; margin: 10px 0; padding: 12px; border-radius: 14px; border: 1px solid rgba(255, 93, 187, .32);
+  background: radial-gradient(90% 120% at 100% 0%, rgba(255, 93, 187, .1), transparent 55%), linear-gradient(170deg, rgba(21, 209, 106, .05), rgba(0, 0, 0, .55));
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .06), 0 10px 26px rgba(0, 0, 0, .35); animation: esIn .3s ease-out both; }
+.es-perps > header { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; }
+.es-perps > header > span:first-child { display: grid; line-height: 1.15; }
+.es-perps > header em { font: 800 8px 'JetBrains Mono', monospace; font-style: normal; letter-spacing: .18em; color: #ff9fd2; }
+.es-perps > header b { font: 800 17px 'JetBrains Mono', monospace; color: #fff; text-shadow: 0 0 12px rgba(255, 93, 187, .5); }
+.es-perps > header small { font: 700 10px 'JetBrains Mono', monospace; color: #cfd8d2; }
+.es-tiles { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.es-tile { display: grid; gap: 2px; padding: 9px 10px; border-radius: 12px; border: 1px solid rgba(255, 255, 255, .08); background: rgba(0, 0, 0, .45); animation: esIn .3s ease-out both; animation-delay: calc(var(--i) * 60ms); }
+.es-tile em { font: 800 7.5px 'JetBrains Mono', monospace; font-style: normal; letter-spacing: .16em; color: #8fa496; }
+.es-tile b { font: 900 18px 'JetBrains Mono', monospace; color: #e9fff2; animation: esTick .4s ease-out; } .es-tile small { font: 700 9px 'JetBrains Mono', monospace; color: #8fa496; }
+.es-tile.is-up { border-color: rgba(69, 228, 134, .35); } .es-tile.is-up b { color: #45e486; text-shadow: 0 0 10px rgba(21, 209, 106, .45); }
+.es-tile.is-gold { border-color: rgba(255, 211, 107, .4); } .es-tile.is-gold b { color: #ffd36b; text-shadow: 0 0 10px rgba(255, 211, 107, .35); } .es-tile.is-gold small { color: #ffd36b; }
+.es-tile.is-down { border-color: rgba(255, 143, 163, .35); } .es-tile.is-down b { color: #ff8fa3; }
+.es-fan { width: 100%; height: auto; max-height: 150px; } .es-zero { stroke: rgba(255, 255, 255, .25); stroke-width: 1; stroke-dasharray: 3 3; }
+.es-bar rect { transform-box: fill-box; animation: esGrow .45s cubic-bezier(.2, .8, .2, 1) both; animation-delay: calc(var(--i) * 45ms); }
+.es-bar.is-up rect { fill: #15d16a; transform-origin: bottom; filter: drop-shadow(0 0 4px rgba(21, 209, 106, .6)); } .es-bar.is-down rect { fill: #ff8fa3; transform-origin: top; }
+.es-bar.is-wiped rect { fill: #5a1220; stroke: #ff5d73; stroke-width: 1; stroke-dasharray: 3 2; transform-origin: top; }
+.es-val { font: 800 8.5px 'JetBrains Mono', monospace; fill: #e9fff2; } .es-bar.is-wiped .es-val { fill: #ff5d73; } .es-mv { font: 700 8px 'JetBrains Mono', monospace; fill: #8fa496; }
+.es-foot { margin: 0; font: 600 10px 'JetBrains Mono', monospace; color: #9fb5a8; }
+/* the Pool Hall row's earn chip at the stake */
+.phb-24 small.es-yr { font: 700 9px 'JetBrains Mono', monospace; color: #8fa496; }
+@keyframes esIn { from { opacity: 0; transform: translateY(6px); } }
+@keyframes esGrow { from { transform: scaleY(0); } }
+@keyframes esTick { from { opacity: .4; transform: translateY(-3px); } }
+body.fx-lite .es-perps, body.fx-lite .es-tile, body.fx-lite .es-tile b, body.fx-lite .es-bar rect { animation: none; }
+@media (prefers-reduced-motion: reduce) { .es-perps, .es-tile, .es-tile b, .es-bar rect { animation: none; } }
+body.theme-day .es-perps { background: linear-gradient(170deg, rgba(255, 93, 187, .06), #fff 50%); border-color: rgba(190, 40, 120, .25); }
+body.theme-day .es-perps > header b { color: #2a0f1f; text-shadow: none; } body.theme-day .es-perps > header small, body.theme-day .es-foot { color: #4b5f53; }
+body.theme-day .es-tile { background: #fff; border-color: rgba(0, 0, 0, .1); } body.theme-day .es-tile b { color: #10241a; text-shadow: none; }
+body.theme-day .es-tile.is-up b { color: #0a8a44; } body.theme-day .es-tile.is-gold b, body.theme-day .es-tile.is-gold small { color: #9a6b00; } body.theme-day .es-tile.is-down b { color: #b4233f; }
+body.theme-day .es-val { fill: #10241a; } body.theme-day .es-zero { stroke: rgba(0, 0, 0, .25); }
+@media (max-width: 640px) { .es-tiles { grid-template-columns: 1fr 1fr; } .es-tile:last-child { grid-column: 1 / -1; } .es-tile b { font-size: 15px; } .es-perps > header b { font-size: 14px; } }
+.av-pick { display: grid; min-width: 0; min-height: 32px; padding: 2px 6px; margin: -2px -6px; border: 1px solid transparent; border-radius: 8px; background: none; color: inherit; text-align: left; cursor: pointer; transition: background .12s, border-color .12s; }
+.av-pick:hover { background: rgba(255, 93, 187, .08); } .av-pick:active { transform: scale(.98); } .av-pick:focus-visible { outline: 2px solid #ff9fd2; outline-offset: 1px; }
+.av-pick.is-on { border-color: rgba(255, 93, 187, .5); background: rgba(255, 93, 187, .12); box-shadow: 0 0 12px rgba(255, 93, 187, .18); }

@@ -7,6 +7,8 @@ import { POOL_KIND, usd, apyTxt } from '../lib/cityPlan';
 import '../styles/poolHub.css';
 import { useWallet } from '../hooks/useWallet';
 import { LEND_SIDES, okAmount, lendLine, lendQuote, lendSign } from '../lib/lendEarn';
+import { StakeSeg } from './EarnStake';
+import { useStake, cash } from '../lib/earnStake';
 
 // 🏦 THE POOL HUB (the Pool Hall in Fee City + every pool building in the outer cities): every top and rising Solana pool in ONE pop-out —
 // v2 AMMs, v3 / CLMM, DLMM bins, auto-compounding vaults, lending, liquid staking, perps, RWA — with live TVL, APY and its 7-day move.
@@ -155,7 +157,7 @@ export function LendBox({ r, onClose }) {
 }
 
 export function PoolRow({ r, i = 0, big = false, blocks = [], onLink }) {
-  const [pick, setPick] = useState(false); const [lend, setLend] = useState(false); const [more, setMore] = useState(false); const t = tradeOf(r); const e = earn24(r);
+  const [pick, setPick] = useState(false); const [lend, setLend] = useState(false); const [more, setMore] = useState(false); const t = tradeOf(r); const stake = useStake(); const e = earn24(r, stake);
   const canLend = r.project === 'jupiter-lend' && (r.mints || []).length > 0;
   const tvlK = Math.max(0.04, Math.min(1, (Math.log10(1 + (r.tvl || 0)) - 4) / 5.5));
   return <li className={`phb-row k-${r.kind} ${big ? 'is-big' : ''}`} style={{ '--i': Math.min(i, 14), '--kc': KIND_COLOR[r.kind] || '#45e486' }} data-testid={`pool-${r.id}`}>
@@ -164,7 +166,8 @@ export function PoolRow({ r, i = 0, big = false, blocks = [], onLink }) {
     <span className="phb-apy" data-tip={r.apy == null ? 'No APY published for this DEX pool — its 24h volume vs liquidity shows how busy it is' : `APY ${apyTxt(r.apy)}${r.base != null ? ` · base ${apyTxt(r.base)}` : ''}${r.reward ? ` · rewards ${apyTxt(r.reward)}` : ''}${r.il ? ' · impermanent-loss risk' : ''}`}>
       <Gauge v={r.apy} /><span><em>{r.apy == null ? 'TURNOVER' : 'APY'}</em><b className="m-num">{r.apy == null ? `${Math.round(((r.vol || 0) / Math.max(1, r.tvl || 1)) * 100)}%` : apyTxt(r.apy)}</b></span></span>
     <span className={`phb-rise ${r.rise > 0 ? 'up' : r.rise < 0 ? 'dn' : ''}`} data-tip={r.d7 != null ? `APY move over 7 days: ${r.d7 >= 0 ? '+' : ''}${r.d7}` : 'How busy vs its size (24h volume ÷ liquidity)'}>{r.rise > 0 ? '▲' : r.rise < 0 ? '▼' : '•'} {Math.abs(r.rise || 0).toFixed(1)}</span>
-    {e ? <span className="phb-24" data-tip={`$1,000 here earned ${money(e.total)} in the last 24h at today's APY (${money(e.base)} fees / interest + ${money(e.reward)} rewards)`}><em>$1K · 24h</em><b>+{money(e.total)}</b></span> : null}
+    {e ? <span className="phb-24" data-tip={`$${stake.toLocaleString('en-US')} here earned ${money(e.total)} in the last 24h at today's APY (${money(e.base)} fees / interest + ${money(e.reward)} rewards) — ${cash(e.total * 30)} a month, ${cash(e.total * 365)} a year`} data-testid={`pool-earn-${r.id}`}>
+      <em>${stake >= 1000 ? `${stake / 1000}K` : stake} · DAY</em><b key={stake}>+{cash(e.total)}</b><small className="es-yr">{cash(e.total * 365)} / yr</small></span> : null}
     <span className="phb-acts">
       <button type="button" className={`m-btn ${more ? 'active' : ''}`} aria-expanded={more} onClick={() => setMore(v => !v)} data-tip="The pool's TVL + APY history and what your money would have earned" data-testid={`pool-more-${r.id}`}>📈 Chart + 24h</button>
       {t ? <button type="button" className="m-btn m-go" onClick={() => goTrade(r)} data-tip="Through FEELESS, right here: the chart + Quick trade open on this pool, you pick the amount, your wallet signs" data-testid={`pool-trade-${r.id}`}>⚡ {t.word}</button> : null}
@@ -212,6 +215,7 @@ export function PoolHub({ pools, blocks = [], onLink, start = 'all' }) {
   if (!pools) return <div className="phb phb-load" aria-live="polite"><i /><i /><i /><small>reading every pool…</small></div>;
   return <div className="phb" data-testid="pool-hub"><CatCombo pools={pools} />
     <header className="phb-head"><span className="phb-big"><em>TRACKED TVL</em><b className="m-num" key={Math.round(tvl / 1e6)}>{usd(tvl)}</b></span>
+      <StakeSeg />
       <span className="phb-kinds">{Object.entries(pools.kinds || {}).filter(([, n]) => n).map(([k, n]) => <i key={k} style={{ '--kc': KIND_COLOR[k] }} data-tip={`${n} ${POOL_KIND[k] || k} pools on Solana`}><b>{n}</b>{k.toUpperCase()}</i>)}</span></header>
     <div className="phb-ctl">
       <div className="m-seg phb-lens" role="tablist" aria-label="Pool kind">{LENS.map(([k, w]) => <button key={k} type="button" role="tab" aria-selected={lens === k} className={lens === k ? 'active' : ''} onClick={() => setLens(k)} data-testid={`phb-lens-${k}`}>{w}</button>)}</div>
