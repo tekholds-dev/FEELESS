@@ -29,8 +29,9 @@ export function BrokerDesk({ devAddress = '' }) {   // devAddress: the /dev/brok
   const val = useGlide(d?.value ?? null, 600);
   if (!a || !s) return <section className="bk" data-testid="broker-desk"><b className="bk-t">🏦 YOUR BROKER</b><p className="bk-dim">Sign in to Familia with your wallet, then add your broker here.</p></section>;
   if (d && !d.linked) return <section className="bk" data-testid="broker-desk"><b className="bk-t">🏦 YOUR BROKER · STOCKS · ETFS · CRYPTO</b>
-    <AlpacaKeys signup={d.signup} post={post} onSaved={load} />
-    {d.snaptrade ? <button type="button" className="bk-sm bk-any" disabled={!!busy} onClick={link} data-tip="Log in to Webull · Coinbase · Kraken · E*TRADE … on SnapTrade's secure portal — FEELESS never sees your password" data-testid="bk-link">{busy || '🔗 OR LINK ANY BROKER'}</button> : null}</section>;
+    {d.snaptrade ? <button type="button" className="bk-go bk-any" disabled={!!busy} onClick={link} data-tip="Log in to YOUR broker (TradeStation · Webull · Coinbase · Kraken · E*TRADE …) on SnapTrade's secure portal — once; FEELESS never sees your password" data-testid="bk-link">{busy || '🔗 LINK MY BROKER · TRADESTATION · WEBULL · ANY'}</button> : null}
+    {d.snaptrade ? <small className="bk-dim">— or paste free Alpaca keys —</small> : null}
+    <AlpacaKeys signup={d.signup} post={post} onSaved={load} /></section>;
   return <section className="bk" data-testid="broker-desk">
     <header className="bk-h"><b className="bk-t">🏦 THE BROKERAGE</b><span className="bk-val"><em>ALL ACCOUNTS</em><b className="m-num">{$(val)}</b>
       <small className={`m-num ${(d?.pnl ?? 0) >= 0 ? 'is-up' : 'is-dn'}`}>{(d?.pnl ?? 0) >= 0 ? '+' : '−'}{$(d?.pnl)} open P&L</small></span>

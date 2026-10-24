@@ -9742,6 +9742,19 @@ async def _brk_call(method, path, query=None, body=None):
     return d_
 
 
+def _brk_q(primary):
+    """The SnapTrade query for this wallet: a PERSONAL key → {} for the owner's (staff) wallets only, else None; a commercial key → its own
+    sealed SnapTrade user ({userId, userSecret}) or None until it links."""
+    import brokers as _bk
+    c_ = _bk.keys(os.environ)[0]
+    if not c_:
+        return None
+    if _bk.personal(c_):
+        return {} if _is_staff(primary) else None
+    u_ = _brk_user(primary)
+    return {'userId': u_[0], 'userSecret': u_[1]} if u_ else None
+
+
 def _brk_user(primary):
     """(userId, userSecret) for this wallet, or None."""
     import brokers as _bk
@@ -9821,17 +9834,19 @@ async def familia_broker(address: str = Query('', max_length=64), session: str =
         return {'ready': True, 'snaptrade': snap_, 'linked': False, 'signup': _bk.ALPACA_SIGNUP}
     me_ = _session_or_401(address, session)
     _brk_seal()
-    u_ = _brk_user(me_) if snap_ else None
+    snap_ = snap_ and (not _bk.personal(_bk.keys(os.environ)[0]) or _is_staff(me_))   # a PERSONAL key = the owner's own accounts only
+    q_ = _brk_q(me_) if snap_ else None
     ak_ = _brk_alpaca(me_)
-    if not u_ and not ak_:
+    if q_ is None and not ak_:
         return {'ready': True, 'snaptrade': snap_, 'linked': False, 'signup': _bk.ALPACA_SIGNUP}
     hit_ = _brk_cache.get(me_)
     if hit_ and time.time() - hit_[0] < 20:
         return hit_[1]
     accts_, pos_, bal_ = [], {}, {}
-    if u_:
-        q_ = {'userId': u_[0], 'userSecret': u_[1]}
+    if q_ is not None:
         accts_ = await _brk_call('GET', '/accounts', q_) or []
+        if not accts_ and not ak_:   # set up, nothing linked yet → the LINK MY BROKER door
+            return {'ready': True, 'snaptrade': True, 'linked': False, 'signup': _bk.ALPACA_SIGNUP}
         ids_ = [a_.get('id') for a_ in accts_ if a_.get('id')]
         got_ = await asyncio.gather(*[asyncio.gather(_brk_call('GET', f'/accounts/{i_}/positions', q_), _brk_call('GET', f'/accounts/{i_}/balances', q_), return_exceptions=True) for i_ in ids_])
         pos_ = {i_: (g_[0] if isinstance(g_[0], list) else []) for i_, g_ in zip(ids_, got_)}
@@ -9857,6 +9872,14 @@ async def familia_broker_link(request: Request):
     b_ = await request.json()
     me_ = _session_or_401(str((b_ or {}).get('address') or ''), str((b_ or {}).get('session') or ''))
     _brk_need()
+    if _bk.personal(_bk.keys(os.environ)[0]):   # 🔑 PERSONAL key: the owner links THEIR broker in SnapTrade's portal (no SnapTrade user to make)
+        if not _is_staff(me_):
+            raise HTTPException(403, 'Linking any broker is the owner\'s own for now — add your free Alpaca keys instead.')
+        d_ = await _brk_call('POST', '/snapTrade/login', None, {'connectionType': 'trade-if-available', 'darkMode': True})
+        if not d_.get('redirectURI'):
+            raise HTTPException(502, 'SnapTrade gave no portal link.')
+        _brk_cache.pop(me_, None)
+        return {'url': d_['redirectURI']}
     async with _brk_lock:
         u_ = _brk_user(me_)
         if not u_:
@@ -9897,10 +9920,9 @@ async def familia_broker_order(request: Request):
         _brk_cache.pop(me_, None)
         return {'status': d_.get('status'), 'id': d_.get('id'), 'filled': d_.get('filled_qty'), 'price': d_.get('filled_avg_price'), 'symbol': ob_['symbol'], 'action': ob_['side'].upper()}
     _brk_need()
-    u_ = _brk_user(me_)
-    if not u_:
+    q_ = _brk_q(me_)
+    if q_ is None:
         raise HTTPException(409, 'Link a broker first.')
-    q_ = {'userId': u_[0], 'userSecret': u_[1]}
     ids_ = [a_.get('id') for a_ in (await _brk_call('GET', '/accounts', q_) or []) if a_.get('id')]
     try:
         body_ = _bk.order_body(b_, ids_)

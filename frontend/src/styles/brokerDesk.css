@@ -28,7 +28,7 @@ body.theme-day .bk { background: linear-gradient(170deg, rgba(255, 211, 107, .18
 .bk-steps i { display: grid; place-items: center; width: 26px; height: 26px; border-radius: 50%; font: 900 12px 'JetBrains Mono', monospace; font-style: normal; color: #1a1204; background: #ffd36b; box-shadow: 0 0 12px -2px #ffd36b; }
 .bk-steps b { font: 900 11px 'JetBrains Mono', monospace; letter-spacing: .1em; } .bk-steps small { display: block; font: 600 9.5px 'JetBrains Mono', monospace; color: #c2b28a; }
 .bk-keys input { width: 100%; box-sizing: border-box; } .bk-keys .m-seg button.active { background: #ffd36b; color: #1a1204; } .bk-keys .bk-go { width: 100%; }
-.bk-sm { display: inline-flex; align-items: center; justify-content: center; text-decoration: none; } .bk-any { justify-self: start; }
+.bk-sm { display: inline-flex; align-items: center; justify-content: center; text-decoration: none; } .bk-any { width: 100%; }
 .bk-err { margin: 0; font: 700 10.5px 'JetBrains Mono', monospace; color: #ff8fa3; }
 body.fx-lite .bk-steps li { animation: none; } @media (prefers-reduced-motion: reduce) { .bk-steps li { animation: none; } }
 body.theme-day .bk-keys { background: #fff; } body.theme-day .bk-steps li { background: #fff8e6; }

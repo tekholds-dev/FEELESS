@@ -36,6 +36,12 @@ def keys(env):
     return (c, k) if c and k else (None, None)
 
 
+def personal(client_id):
+    """A SnapTrade PERSONAL key (`PERS-…`): it reaches the key owner's OWN linked broker accounts — calls carry no userId / userSecret, and
+    FEELESS opens it to the owner's (staff) wallets only. A commercial key registers one SnapTrade user per wallet instead."""
+    return str(client_id or '').startswith('PERS-')
+
+
 def user_id(primary):
     """The one SnapTrade user per FEELESS primary wallet (stable, no PII)."""
     return 'fl-' + hashlib.sha256(f'feeless-broker:{primary}'.encode()).hexdigest()[:32]

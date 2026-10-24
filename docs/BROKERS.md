@@ -10,7 +10,12 @@ the account (`GET /v2/account`), then seals them to the wallet with `BROKER_SECR
 itself (`backend/data/.broker_seal`, 0600). Endpoint: POST `/familia/broker/keys` (`{remove: true}` deletes them); orders with `accountId:
 'alpaca'` go to Alpaca `/v2/orders` (stocks `day`, crypto `BTC/USD` `gtc`). Preview `/dev/broker` (`?linked`).
 
-**Any broker via SnapTrade — owner setup (once, ~5 min):** sign up at snaptrade.com (Build tier: free, 5 connections with trading; Launch: $100 / mo + $1–2 per user) →
+**OWNER'S OWN BROKER — a SnapTrade PERSONAL key (set 2026-10-24, `PERS-…`):** reaches the owner's own linked accounts only (no SnapTrade
+users, no userId / userSecret on calls — `brokers.personal`, `_brk_q`). The owner's (staff) wallet sees 🔗 LINK MY BROKER → SnapTrade's portal →
+log in to TradeStation (or any broker) ONCE → from then on 🏦 shows it live and trades it. Everyone else gets the Alpaca door. To serve every
+user's own broker through SnapTrade, switch to a commercial key (the code already handles both).
+
+**Any broker via SnapTrade — commercial key setup:** sign up at snaptrade.com (Build tier: free, 5 connections with trading; Launch: $100 / mo + $1–2 per user) →
 put in `backend/.env`: `SNAPTRADE_CLIENT_ID=`, `SNAPTRADE_CONSUMER_KEY=`, `BROKER_SECRET_KEY=` (any long random string — seals each user's
 SnapTrade secret) → restart reputation_service. Until then the building shows 🔒 and every endpoint answers 503.
 

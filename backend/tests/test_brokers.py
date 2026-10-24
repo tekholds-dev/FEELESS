@@ -190,3 +190,58 @@ def test_alpaca_keys_are_proven_live_then_sealed_and_trade_your_own_account(monk
     assert o['status'] == 'accepted' and calls[-1][2] == {'symbol': 'SPY', 'side': 'buy', 'type': 'market', 'time_in_force': 'day', 'notional': '5.00'}
     assert asyncio.run(rs.familia_broker_keys(Q({'address': 'W', 'session': 's', 'remove': True}))) == {'ok': True}
     assert 'WALLET' not in (rs._json_load(rs.BROKERS_PATH, {}) or {})
+
+
+def test_a_personal_snaptrade_key_is_the_owners_own_broker(monkeypatch):
+    import reputation_service as rs
+    monkeypatch.setenv('SNAPTRADE_CLIENT_ID', 'PERS-TESTCLIENT'); monkeypatch.setenv('SNAPTRADE_CONSUMER_KEY', 'CKEY'); monkeypatch.setenv('BROKER_SECRET_KEY', 'k' * 40)
+    monkeypatch.setattr(rs, '_session_or_401', lambda a, s: a)
+    monkeypatch.setattr(rs, '_is_staff', lambda a: a == 'OWNER')
+    monkeypatch.setattr(rs, '_brk_cache', {})
+    calls = []
+    accounts = []
+
+    class R:
+        def __init__(self, code, b):
+            self.status_code, self.b = code, b
+
+        def json(self):
+            return self.b
+
+    class C:
+        async def request(self, method, url, headers=None, json=None, timeout=None):
+            path = url.split('/api/v1', 1)[1].split('?')[0]
+            calls.append((method, path, url))
+            assert 'userId' not in url and 'userSecret' not in url                                       # a personal key never sends user creds
+            if path == '/accounts':
+                return R(200, accounts)
+            if path == '/snapTrade/login':
+                return R(200, {'redirectURI': 'https://app.snaptrade.com/x'})
+            if path.endswith('/positions') or path.endswith('/balances'):
+                return R(200, [])
+            if path == '/trade/place':
+                return R(200, {'status': 'ACCEPTED', 'brokerage_order_id': 'T1'})
+            return R(404, {})
+    monkeypatch.setattr(rs, '_fmk_http', C())
+
+    class Q:
+        def __init__(self, b):
+            self.b = b
+
+        async def json(self):
+            return self.b
+    assert bk.personal('PERS-X') and not bk.personal('CID')
+    v = asyncio.run(rs.familia_broker('OWNER', 's'))
+    assert v['snaptrade'] and not v['linked']                                                               # set up, nothing linked → the link door
+    assert asyncio.run(rs.familia_broker_link(Q({'address': 'OWNER', 'session': 's'})))['url'].startswith('https://app.snaptrade.com/')
+    assert not [c for c in calls if c[1] == '/snapTrade/registerUser']
+    with pytest.raises(rs.HTTPException) as e:
+        asyncio.run(rs.familia_broker_link(Q({'address': 'SOMEONE', 'session': 's'})))
+    assert e.value.status_code == 403
+    assert asyncio.run(rs.familia_broker('SOMEONE', 's'))['snaptrade'] is False                            # others get the Alpaca door only
+    accounts.append({'id': 'TS1', 'institution_name': 'TradeStation', 'name': 'Margin', 'number': '11112222'})
+    rs._brk_cache.clear()
+    v = asyncio.run(rs.familia_broker('OWNER', 's'))
+    assert v['linked'] and v['accounts'][0]['broker'] == 'TradeStation'
+    o = asyncio.run(rs.familia_broker_order(Q({'address': 'OWNER', 'session': 's', 'accountId': 'TS1', 'symbol': 'SPY', 'action': 'BUY', 'usd': 5})))
+    assert o['status'] == 'ACCEPTED'

@@ -6198,3 +6198,6 @@ P6 — IDEAS: FeeCat + AI agent pair that talk · "build a better coin" track in
   (free, no minimum, commission-free; paper keys instant) — `brokers.alpaca_*` (keys shape, order bodies stock $ / shares / limit / crypto gtc,
   view), POST /familia/broker/keys (checked live, sealed; remove), orders on `accountId: 'alpaca'`, the seal key FEELESS makes for itself
   (`data/.broker_seal`, 0600) when BROKER_SECRET_KEY is unset, `AlpacaKeys` 3-step UI, `/dev/broker`. Tests: test_brokers (11).
+- 2026-10-24 · Opus 5.5 — 🏦 the owner's SnapTrade PERSONAL key wired (the `.env` line "client id: … consumer key: …" rewritten into
+  SNAPTRADE_CLIENT_ID / SNAPTRADE_CONSUMER_KEY): personal mode (`brokers.personal`, `_brk_q`) — the owner's wallet links TradeStation / any
+  broker once in SnapTrade's portal, then 🏦 shows + trades it; no user creds sent; others keep the Alpaca door. Probe: portal OK, 0 accounts yet.
