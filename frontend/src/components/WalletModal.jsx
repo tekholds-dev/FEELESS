@@ -21,6 +21,18 @@ const MORE = [
 ];
 const WalletMark = ({ w, size }) => (w.icon && /^data:image\/(svg\+xml|png|webp)|^https:\/\//.test(w.icon) ? <img className="wallet-icon" src={w.icon} alt="" width={size} height={size} /> : <WalletIcon brand={w.iconBrand || w.brand} size={size} />);
 
+// Mobile Safari cannot see wallet providers installed in separate iOS apps. Open the current
+// FEELESS page inside the wallet's own browser so its normal injected provider can connect.
+const mobileWalletUrl = brand => {
+  if (typeof window === 'undefined' || !/iPhone|iPad|iPod|Android/i.test(navigator.userAgent)) return null;
+  const page = window.location.href;
+  const ref = window.location.origin;
+  if (brand === 'phantom') return `https://phantom.app/ul/browse/${encodeURIComponent(page)}?ref=${encodeURIComponent(ref)}`;
+  if (brand === 'solflare') return `https://solflare.com/ul/v1/browse/${encodeURIComponent(page)}?ref=${encodeURIComponent(ref)}`;
+  if (brand === 'trust') return `https://link.trustwallet.com/open_url?coin_id=501&url=${encodeURIComponent(page)}`;
+  return null;
+};
+
 function WalletChooser({ busy, onPick }) {
   const found = detectWallets();
   const installed = brand => brand === 'metamask'
@@ -34,14 +46,15 @@ function WalletChooser({ busy, onPick }) {
     const types = hit ? hit.types : [];
     const primary = types.includes('solana') ? 'solana' : types[0];
     const testId = w.brand === 'phantom' ? 'wallet-connect-phantom' : w.brand === 'metamask' ? 'wallet-connect-evm' : `wallet-connect-${w.brand}`;
+    const mobileUrl = !hit ? mobileWalletUrl(w.brand) : null;
     return <div key={w.brand} className={`wallet-choice ${featured ? 'is-featured' : ''} ${hit ? 'is-installed' : ''}`}>
       {hit
         ? <button type="button" className="wallet-choice-main" data-testid={testId} disabled={busy} onClick={() => onPick(primary, pickBrand(w))}>
             <WalletMark w={{ ...w, icon: hit.icon }} size={featured ? 40 : 30} /><span><b>{w.label}</b><small>{featured ? w.tag : primary === 'solana' ? 'Solana' : 'Ethereum & EVM'}</small></span>
             <em className="wallet-choice-state">Detected</em><ArrowUpRight size={16} /></button>
-        : <a className="wallet-choice-main" href={w.url} target="_blank" rel="noopener noreferrer" data-testid={`wallet-install-${w.brand}`}>
-            <WalletIcon brand={w.brand} size={featured ? 40 : 30} /><span><b>{w.label}</b><small>{featured ? w.tag : 'Not installed'}</small></span>
-            <em className="wallet-choice-state is-get"><Download size={12} />Install</em></a>}
+        : <a className="wallet-choice-main" href={mobileUrl || w.url} target="_blank" rel="noopener noreferrer" data-testid={mobileUrl ? `wallet-open-${w.brand}` : `wallet-install-${w.brand}`}>
+            <WalletIcon brand={w.brand} size={featured ? 40 : 30} /><span><b>{w.label}</b><small>{mobileUrl ? 'Open FEELESS in wallet' : featured ? w.tag : 'Not installed'}</small></span>
+            <em className="wallet-choice-state is-get">{mobileUrl ? <ArrowUpRight size={12} /> : <Download size={12} />}{mobileUrl ? 'Open' : 'Install'}</em></a>}
       {hit && types.length > 1 && <button type="button" className="wallet-choice-alt" disabled={busy} onClick={() => onPick('evm', pickBrand(w))} data-testid={`wallet-connect-${w.brand}-evm`}>EVM</button>}
     </div>;
   };
