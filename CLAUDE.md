@@ -170,7 +170,8 @@ P0 — OWNER 2026-10-23 (late night) · finished today → `docs/FEELESS_HISTORY
    mechanics a real perps desk has, only realtime vitals, true chart data ALWAYS, live TP / SL before the trade on the chart, from $1".
    SHIPPED late night: the FEELESS PERPS terminal (true Coinbase candles + live prints, draggable TP / SL, Jupiter oracle + basis, spread, borrow,
    crowding; TP / SL ride the open; positions with live P&L, TP / SL move / cancel / add, close 25–100 %) + the Kalshi (US-legal, $1) trade path.
-   US venue truth: Hyperliquid / gTrade / Drift bar US persons — OUT. NEXT: ① 🔑 OWNER: DFlow production key → `DFLOW_API_KEY` (Kalshi trading
+   US venue truth (re-checked): gTrade (incl. Solana) / Aster / Hyperliquid / Drift bar US persons in their terms — owner asked "any chain,
+   500× with $1"; DECISION PENDING: wire gTrade behind a non-US attestation (default) or lift the rule (DECISIONS #9). + 🌊 LIVE FLOW shipped. NEXT: ① 🔑 OWNER: DFlow production key → `DFLOW_API_KEY` (Kalshi trading
    turns on) · ② first real Jupiter open with TP / SL + a 50 % close · ③ limit orders · ④ the owner's fee on opens (`*-with-fee`, HQ › Core).
    Also open from this ask: pools make visual sense from any $ typed · every Familia money surface relevant + vitals.
 0b. ⛽🌉 GAS + BRIDGE — SHIPPED 2026-10-23 (grep the history "🌉 BRIDGE"; `lifi.verify_svm`, `lib/bridgeExec.js`, `BridgeDesk.jsx`, /dev/bridge ·

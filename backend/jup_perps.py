@@ -175,3 +175,12 @@ def positions(raw):
         except (KeyError, TypeError):
             continue
     return sorted(out, key=lambda x: -(x['at'] or 0))
+
+
+def leaders(raw, k=5):
+    """GET /top-traders (one market, one ISO week) → the week's volume + the top `k` by P&L and the busiest `k` (P&L can be red), plain $."""
+    d = raw if isinstance(raw, dict) else {}
+    row = lambda r: {'wallet': str(r.get('owner') or ''), 'pnl': _usd(r.get('totalPnlUsd')), 'vol': _usd(r.get('totalVolumeUsd'))}
+    return {'vol': _usd(d.get('totalVolumeUsd')), 'from': d.get('startTimestamp'), 'to': d.get('endTimestamp'),
+            'pnl': [row(r) for r in (d.get('topTradersByPnl') or [])[:k] if r.get('owner')],
+            'busy': [row(r) for r in (d.get('topTradersByVolume') or [])[:k] if r.get('owner')]}

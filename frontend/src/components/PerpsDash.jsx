@@ -7,6 +7,7 @@ import { MKTS, perpPlan } from '../lib/perps';
 import { PerpTicket } from './perps/PerpTicket';
 import { PerpPositions } from './perps/PerpPositions';
 import { KalshiDesk } from './perps/KalshiDesk';
+import { LiveFlow } from './perps/LiveFlow';
 import { PaperPerps } from './PaperPerps';
 import '../styles/perpsDash.css';
 
@@ -17,7 +18,8 @@ import '../styles/perpsDash.css';
 //   SPREAD · BORROW / HR long vs short · WHO'S CROWDED · OI + FUNDING.
 // · THE CHART — true candles (lib/cbFeed) with every level: the ticket's ☠ liq · TP · SL (drag them), and each position's entry / liq / TP / SL.
 // · THE TICKET — side · collateral · leverage · TP / SL → Jupiter's quote → the wallet signs (perps/PerpTicket).
-// · BELOW — POSITIONS (live P&L, TP / SL edit, partial close) · ⏱ KALSHI 15-MIN (US-legal up / down from $1) · 🧪 PRACTICE.
+// · BELOW — POSITIONS (live P&L, TP / SL edit, partial close) · ⏱ KALSHI 15-MIN (US-legal up / down from $1) · 🧪 PRACTICE, beside 🌊 LIVE FLOW
+//   (taker pressure, momentum, RVOL, whale prints, Jupiter's top traders this week — perps/LiveFlow).
 const PerpsChart = lazy(() => import('./perps/PerpsChart').then(m => ({ default: m.PerpsChart })));   // the chart library loads only when the desk opens
 const IVS = [['1m', '1M'], ['5m', '5M'], ['15m', '15M'], ['1h', '1H']];
 const px = v => (v == null || !Number.isFinite(v) ? '—' : v >= 1000 ? `$${v.toLocaleString('en-US', { maximumFractionDigits: 1 })}` : `$${Number(v).toFixed(v >= 10 ? 2 : 4)}`);
@@ -120,11 +122,14 @@ export function PerpsDash({ devAddress = '' }) {
       <PerpTicket asset={asset} mark={mark} pool={pool} t={t} set={set} addr={addr} wallet={wallet} provider={provider} connect={connect} onOpened={() => { reloadJp(); setTab('pos'); }} />
     </div>
     <div className="pd-below">
+      <div className="pd-bl">
       <div className="pd-tabs m-seg" role="tablist" aria-label="Panels">{[['pos', `POSITIONS${positions.length ? ` · ${positions.length}` : ''}`, 'Your Jupiter positions, marked live'], ['kalshi', '⏱ KALSHI 15-MIN', 'US-legal 15-minute up / down from $1'], ['practice', '🧪 PRACTICE', 'Paper perps at the real mark — no money moves']].map(([k, l, tip]) =>
         <button key={k} type="button" role="tab" aria-selected={below === k} className={below === k ? 'active' : ''} onClick={() => setTab(k)} data-tip={tip} data-testid={`pd-b-${k}`}>{l}</button>)}</div>
       {below === 'pos' ? <PerpPositions positions={positions} marks={marks} addr={addr} provider={provider} wallet={wallet} connect={connect} reload={reloadJp} onPick={pick} />
         : below === 'kalshi' ? <KalshiDesk asset={asset} k={ks?.coins?.[asset]} mark={mark} now={now} tradable={!!ks?.tradable} addr={addr} wallet={wallet} provider={provider} connect={connect} />
           : <PaperPerps row={{ ...brd, coin: asset, mark }} lev={Math.round(t.lev)} devAddress={devAddress} />}
+      </div>
+      <LiveFlow asset={asset} />
     </div>
   </section>;
 }

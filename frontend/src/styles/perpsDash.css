@@ -171,3 +171,37 @@ body.theme-day :is(.pd-c.is-up, .pd-cell .is-up, .pt-at .is-up, .pp-pnl.is-up b,
   .pd-pnl { flex: 1; justify-items: start; } .pd-strip { grid-template-columns: 1fr 1fr; } .pd-cell { border-right: 1px solid var(--ln); } .pd-cell:nth-child(2n) { border-right: 0; } .pd-hero { font-size: 18px !important; }
   .pd-plot { height: 340px; } .pt { padding: 10px; } .pt-vit { grid-template-columns: 1fr 1fr; } .pt-vit > span:nth-child(2) { border-right: 0; } .pd-below { padding: 10px; }
   .pp-row { grid-template-columns: 1fr 1fr; } .pp-tpsl, .pp-close, .pp-liq { grid-column: span 2; } .kd-odds { grid-template-columns: 1fr 1fr; } .kd-hero b { font-size: 24px; } }
+/* 🌊 LIVE FLOW (perps/LiveFlow, `lf-*`) — beside the positions: taker pressure, momentum, RVOL, whale prints, Jupiter's week */
+.pd-below { grid-template-columns: minmax(0, 1fr) minmax(300px, 380px); align-items: start; } .pd-bl { display: grid; gap: 10px; min-width: 0; }
+.lf { position: relative; overflow: hidden; display: grid; gap: 10px; padding: 12px; border-radius: 14px; border: 1px solid var(--ln); background: linear-gradient(180deg, rgba(255, 93, 187, .08), rgba(0, 0, 0, .45)); }
+.lf::after { content: ''; position: absolute; left: 0; right: 0; top: 0; height: 2px; pointer-events: none; background: linear-gradient(90deg, transparent, var(--pk), transparent); transform: translateX(-100%); animation: pdScan 3s linear infinite; }
+.lf.is-up::after { background: linear-gradient(90deg, transparent, var(--up), transparent); }
+.lf-h { display: flex; justify-content: space-between; align-items: baseline; } .lf-h b { font: 900 12px 'JetBrains Mono', monospace; letter-spacing: .12em; color: #fff; } .lf-h small { font: 800 8px 'JetBrains Mono', monospace; letter-spacing: .12em; color: var(--pk2); }
+.lf em { font: 800 7.5px 'JetBrains Mono', monospace; letter-spacing: .16em; color: var(--mu); font-style: normal; }
+.lf-press { display: grid; grid-template-columns: 1fr auto; gap: 4px 8px; align-items: end; }
+.lf-hero { display: grid; line-height: 1.05; } .lf-hero b { font: 900 30px 'JetBrains Mono', monospace; color: #fff; }
+.lf.is-up .lf-hero b { color: var(--up); text-shadow: 0 0 18px rgba(69, 228, 134, .55); } .lf.is-dn .lf-hero b { color: var(--dn); text-shadow: 0 0 18px rgba(255, 93, 143, .45); }
+.lf-amts { display: grid; justify-items: end; } .lf-amts small { font: 800 10px 'JetBrains Mono', monospace; } .lf .is-up { color: var(--up); } .lf .is-dn { color: var(--dn); }
+.lf-split { grid-column: 1 / -1; position: relative; height: 8px; border-radius: 6px; overflow: hidden; background: rgba(0, 0, 0, .5); } .lf-split.is-thin { height: 3px; opacity: .7; }
+.lf-split s { position: absolute; top: 0; bottom: 0; width: 100%; transition: transform .35s ease; } .lf-split .is-up { left: 0; transform-origin: left; background: linear-gradient(90deg, #0d7a3e, var(--up)); }
+.lf-split .is-dn { right: 0; transform-origin: right; background: linear-gradient(270deg, #8a1a5c, var(--pk)); }
+.lf-mv { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 4px; }
+.lf-mv > span { display: grid; gap: 2px; padding: 6px; border-radius: 9px; background: rgba(0, 0, 0, .4); border: 1px solid var(--ln); min-width: 0; }
+.lf-mv b { font: 900 11px 'JetBrains Mono', monospace; white-space: nowrap; } .lf-mv u { height: 3px; border-radius: 3px; background: rgba(255, 255, 255, .06); overflow: hidden; }
+.lf-mv s { display: block; height: 100%; transform-origin: left; transition: transform .5s ease; background: currentColor; } .lf-mv .is-hot b { color: var(--or); } .lf-mv .is-hot s { background: var(--or); }
+.lf-whales ol, .lf-lead ol { list-style: none; margin: 4px 0 0; padding: 0; display: grid; gap: 3px; }
+.lf-whales li { display: grid; grid-template-columns: 62px 1fr auto; gap: 8px; align-items: center; padding: 4px 8px; border-radius: 7px; background: rgba(0, 0, 0, .35); border-left: 3px solid; font: 800 10.5px 'JetBrains Mono', monospace; }
+.lf-whales li.is-up { border-left-color: var(--up); } .lf-whales li.is-dn { border-left-color: var(--dn); } .lf-whales li i { font-style: normal; color: #fff; } .lf-whales li small { color: var(--mu); font-size: 9px; }
+.lf-whales li.is-new { animation: lfIn .5s ease-out; box-shadow: 0 0 16px -6px currentColor; }
+.lf-dim { margin: 4px 0 0; font: 700 9.5px 'JetBrains Mono', monospace; color: var(--mu); }
+.lf-lead > b { display: block; font: 900 14px 'JetBrains Mono', monospace; color: #fff; }
+.lf-lead button { display: grid; grid-template-columns: 14px 78px 1fr auto; gap: 8px; align-items: center; width: 100%; min-height: 32px; padding: 0 8px; border-radius: 7px; border: 1px solid transparent; background: rgba(0, 0, 0, .3);
+  color: inherit; cursor: pointer; font: 800 10px 'JetBrains Mono', monospace; text-align: left; transition: border-color .12s, transform .12s; animation: pdIn .3s ease-out both; animation-delay: calc(var(--i, 0) * 50ms); }
+.lf-lead button:hover { border-color: var(--pk); } .lf-lead button:active { transform: scale(.98); } .lf-lead button:focus-visible { outline: 2px solid var(--pk2); }
+.lf-lead i { font-style: normal; color: var(--pk2); } .lf-lead u { height: 4px; border-radius: 4px; background: rgba(255, 255, 255, .06); overflow: hidden; } .lf-lead s { display: block; height: 100%; transform-origin: left; background: var(--gold); transition: transform .5s ease; }
+@keyframes lfIn { from { opacity: 0; transform: translateX(-8px); } to { opacity: 1; transform: none; } }
+body.fx-lite .lf::after { animation: none; opacity: .4; transform: none; } body.fx-lite .lf-whales li.is-new, body.fx-lite .lf-lead button { animation: none; }
+@media (prefers-reduced-motion: reduce) { .lf::after, .lf-whales li.is-new, .lf-lead button { animation: none; } .lf-split s, .lf-mv s, .lf-lead s { transition: none; } }
+body.theme-day .lf, body.theme-day .lf-mv > span, body.theme-day .lf-whales li, body.theme-day .lf-lead button { background: #fff; } body.theme-day :is(.lf-hero b, .lf-h b, .lf-lead > b, .lf-whales li i) { color: #2a0f1f; text-shadow: none; }
+@media (max-width: 980px) { .pd-below { grid-template-columns: 1fr; } }
+@media (max-width: 640px) { .lf-mv { grid-template-columns: repeat(3, minmax(0, 1fr)); } .lf-hero b { font-size: 24px; } }

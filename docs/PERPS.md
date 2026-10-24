@@ -4,13 +4,18 @@ Owner, 2026-10-23: *"perps / options TRADING DASH, quick trades, as low as $1 �
 true chart data ALWAYS … live TP / SL before the trade on the chart … look better than other perps dashes."* Read this before touching
 anything perps. Money rules (CLAUDE.md › Money rules) and `docs/DECISIONS.md` #1 / #8 still apply.
 
-## 1 · Venues — the truth (researched 2026-10-23)
-| Venue | Status in FEELESS | US users | Min | Notes |
+## 1 · Venues — the truth (researched 2026-10-23, re-checked at the owner's ask "any chain, Base, BNB… US based, 500× with $1")
+| Venue | Chains | Leverage / min | US users | In FEELESS |
 | --- | --- | --- | --- | --- |
-| **Jupiter Perps** (Solana) | ✅ LIVE — wallet signs | owner lifted the 🇺🇸 rule for Jupiter only (DECISIONS #8, owner's legal risk) | **$10 collateral** | SOL · ETH · BTC, 1.1–100× (API allows 250×), TP / SL ≤ 150× |
-| **Kalshi via DFlow** (Solana tokens) | ⏳ built, waits on DFlow's production key | ✅ CFTC-regulated, US-legal | **$1** (contracts $0.01–$1) | 15-min UP / DOWN + hourly / daily strike ladders = binary options; Proof KYC |
-| Hyperliquid · gTrade · Drift · dYdX | ❌ not wired | ❌ bar US persons in their own terms | — | would break standing rule 1 — owner: "how ima use HYPE in the US" |
-| Coinbase CFM nano perps · Kalshi BTCPERP · Webull (Nov 2026) | ❌ | ✅ but KYC'd broker accounts, no wallet signing | — | owner dropped broker-API orders ("too many steps") |
+| **Jupiter Perps** | Solana | 1.1–100× here (API 250×) · **$10** | owner lifted the 🇺🇸 rule for Jupiter only (DECISIONS #8) | ✅ LIVE — wallet signs, TP / SL, partial close |
+| **Kalshi via DFlow** (event contracts as Solana tokens) | Solana | binary · **$1** ($0.01–$1 a contract) | ✅ CFTC-regulated | ⏳ built — on with `DFLOW_API_KEY` |
+| **gTrade** (Gains Network) | Solana · Arbitrum · Base · Polygon · MegaETH | up to 500× (degen pairs) · tiny mins | ❌ terms (gains.trade/terms-of-service): use from the US is "STRICTLY PROHIBITED, REGARDLESS OF THE USER'S IP ADDRESS", VPNs too; users warrant they are not US persons | ❌ not wired — owner decision pending (non-US-only attestation gate is the default proposal) |
+| **Aster** | BNB · Arbitrum | up to 1001× BTC | ❌ terms list the US as prohibited | ❌ |
+| **Hyperliquid** | its L1 | 40–50× · $10 notional | ❌ front end restricts US | ❌ — Payward (Kraken) + Bitnomial announced a US-regulated HIP-3 market (2026-09-16, allowlisted, NOT live) → add it the day it launches |
+| **Avantis** | Base | up to 500× | unverified (terms moved) | ❌ |
+| **Kalshi BTCPERP** | Kalshi account (not tokenized) | perp · CFTC | ✅ live since 2026-06-03 (Webull resells from Nov 2026) | ❌ account venue — no wallet path |
+| **Kraken US perps (Bitnomial)** · **Coinbase US futures (CFM nano)** | broker accounts | ~10× · contract mins | ✅ regulated | ❌ owner dropped broker-API orders ("too many steps") |
+A site loading from the US is not permission: the venue's own terms decide. Standing rule 1 + DECISIONS #8 stand until the owner records otherwise.
 
 ## 2 · What the desk is (frontend)
 `components/PerpsDash.jsx` (the Avenue's 📉 Perps room via `CityAvenue.PerpsDesk`; preview `/dev/perps`) + `components/perps/*` +
@@ -31,6 +36,10 @@ anything perps. Money rules (CLAUDE.md › Money rules) and `docs/DECISIONS.md` 
 - **⏱ Kalshi 15-MIN** (`perps/KalshiDesk.jsx`) — live odds (target vs true price, countdown, $1 pays UP / DOWN, the nearest ladder strike);
   with the key: 🪪 Proof → UP / DOWN from $1 → fill status → your contracts → REDEEM winners.
 - **🧪 Practice** — `PaperPerps` (paper book at the real mark).
+- **🌊 LIVE FLOW** (`perps/LiveFlow.jsx`, always beside the positions) — TAKER PRESSURE (market buys vs sells $ over 60 s + 5 min from every
+  Coinbase print; Coinbase's `side` is the maker's, so a filled resting sell = a taker BUY) · MOMENTUM 1 m / 5 m / 15 m / 1 h (1-second samples) ·
+  RVOL (last hour, annualized) · 🐋 WHALE PRINTS (BTC $50K+ · ETH $25K+ · SOL $10K+) · 🏆 Jupiter's top traders THIS week on the market (tap →
+  case file). Pure helpers in `lib/cbFeed.js`: `flowOf`, `whales`, `moveOf`, `rvol`.
 - Pure math + signing: `lib/perps.js` (`perpPlan`, `quoteMatches`, `atPrice`, `tpOk`, `slOk`, `levelAt`, `rr`, `liveRow`, `signTx`, `signRun`).
 
 ## 3 · Backend
@@ -40,6 +49,7 @@ anything perps. Money rules (CLAUDE.md › Money rules) and `docs/DECISIONS.md` 
 | `GET /api/reputation/familia/perps-real?address=` | Jupiter pools (fee, borrow / h, utilisation, room) 60 s · **market-stats** (Jupiter mark, 24 h hi / lo / vol) 10 s · the wallet's positions (+ TP / SL requests, fees, borrow) |
 | `POST /api/reputation/familia/perps-real` | `act`: open (default; `tp` / `sl` + `mark` ride the open) · `close` (`pct` 25 / 50 / 75 / 100 + `size`) · `tpsl-add` · `tpsl-edit` · `tpsl-cancel` → Jupiter builds, `jup_perps.verify` checks, returns `{transaction, action, quote, tpsl}` |
 | `POST /api/reputation/familia/perps-real/execute` | the wallet-signed tx → Jupiter `/transaction/execute` (actions: increase / decrease-position, create / update / cancel-tpsl) |
+| `GET /api/reputation/familia/perps-real/leaders?asset=` | Jupiter's weekly top traders (P&L + volume) — `jup_perps.leaders`, 5 min |
 | `GET /api/reputation/familia/kalshi` | Kalshi odds per coin (15-min + nearest strike of the soonest day), 10 s, `tradable` = DFlow key present |
 | `GET /familia/kalshi/proof?address=` · `POST /familia/kalshi/order` · `POST /familia/kalshi/send` · `GET /familia/kalshi/status` · `GET /familia/kalshi/positions` | the Kalshi trade path (503 until `DFLOW_API_KEY`) |
 

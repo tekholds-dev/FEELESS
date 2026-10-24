@@ -10488,6 +10488,29 @@ async def familia_perps_real(address: str = ''):
     return {'pools': _fjp_pool.get('rows') or {}, 'stats': _fjp_stats.get('rows') or {}, 'positions': pos_, 'min': _jp.MIN_USD, 'max': _jp.MAX_USD, 'maxLev': _jp.MAX_LEV}
 
 
+_fjp_lead: dict = {}   # asset → (at, leaders) — Jupiter's weekly top traders, 5 min
+
+
+@app.get('/api/reputation/familia/perps-real/leaders')
+async def familia_perps_real_leaders(asset: str = 'SOL'):
+    """🏆 Jupiter Perps' top traders THIS week on one market (P&L + volume, plain $) — the smart money on the desk; 5-min cache."""
+    import datetime as _dt
+    import jup_perps as _jp
+    a_ = str(asset or 'SOL').upper()
+    if a_ not in _jp.MARKETS:
+        raise HTTPException(400, 'SOL, ETH or BTC.')
+    hit_ = _fjp_lead.get(a_)
+    if hit_ and time.time() - hit_[0] < 300:
+        return hit_[1]
+    y_, w_, _d = _dt.datetime.utcnow().isocalendar()
+    c_, b_ = await _jp_call('GET', 'top-traders', params={'marketMint': _jp.MARKETS[a_], 'year': y_, 'week': w_})
+    if c_ != 200:
+        return hit_[1] if hit_ else {'vol': None, 'pnl': [], 'busy': []}
+    out_ = {**_jp.leaders(b_), 'asset': a_}
+    _fjp_lead[a_] = (time.time(), out_)
+    return out_
+
+
 @app.post('/api/reputation/familia/perps-real')
 async def familia_perps_real_build(request: Request):
     """📉 Open (increase) or close (decrease the entire position, paid out in USDC) a Jupiter Perps position: Jupiter builds it with its own

@@ -6169,3 +6169,9 @@ P6 — IDEAS: FeeCat + AI agent pair that talk · "build a better coin" track in
   on-chain, user-only signer; fingerprint sent once; Proof KYC; redeem) + 5 endpoints, 503 until `DFLOW_API_KEY`; `KalshiDesk`. RealPerps +
   realPerps.css deleted. US venue truth: Hyperliquid / gTrade / Drift bar US persons. Tests: test_jup_perps, test_kalshi_trade, perps.test,
   cbFeed.test, PerpsDash.test, PerpTicket.test. Screens: /dev/perps 1440 / 360 / day; TP drag verified (TP $104.64 → $105.47 · +$7.03).
+- 2026-10-24 early · Opus 5.5 — 🌊 LIVE FLOW on the perps desk + the venue re-check (owner: "any ecosystem, Base, BNB… US based, I can long 500×
+  with $1, we need provider options"). `perps/LiveFlow.jsx`: taker pressure 60 s / 5 m, momentum 1 m–1 h, RVOL, 🐋 whale prints, Jupiter's
+  weekly top traders (GET /familia/perps-real/leaders, `jup_perps.leaders`). Venues (docs/PERPS.md §1): gTrade's live terms prohibit US use
+  regardless of IP (incl. gTrade Solana); Aster + Hyperliquid bar US; Kalshi BTCPERP (live 06-03) / Kraken-Bitnomial / Coinbase CFM are
+  account-only; Payward's US HIP-3 is announced, not live. Owner gave no preference on wiring offshore venues → pending (DECISIONS #9 or a
+  non-US attestation gate).

@@ -126,3 +126,11 @@ def test_partial_closes_and_tp_sl_on_a_live_position():
     rows = jp.positions({'dataList': [{'positionPubkey': P, 'asset': 'SOL', 'side': 'long', 'leverage': '10', 'sizeUsd': '100000000', 'entryPriceUsd': '102000000',
                                        'tpslRequests': [{'positionRequestPubkey': 'R1', 'requestType': 'tp', 'triggerPriceUsd': '110000000', 'entirePosition': True}]}]})
     assert rows[0]['tpsl'] == [{'id': 'R1', 'kind': 'tp', 'price': 110.0, 'pct': None, 'all': True}] and rows[0]['size'] == 100.0
+
+
+def test_the_weeks_top_traders_in_plain_dollars():
+    d = jp.leaders({'totalVolumeUsd': '368507274586035', 'startTimestamp': 1, 'endTimestamp': 2,
+                    'topTradersByPnl': [{'owner': 'A', 'totalPnlUsd': '36036989827', 'totalVolumeUsd': '11134702966336'}, {'owner': ''}],
+                    'topTradersByVolume': [{'owner': 'B', 'totalPnlUsd': '-7990933123', 'totalVolumeUsd': '13829085250466'}]})
+    assert round(d['vol']) == 368507275 and d['pnl'] == [{'wallet': 'A', 'pnl': 36036.989827, 'vol': 11134702.966336}] and d['busy'][0]['pnl'] == -7990.933123
+    assert jp.leaders(None) == {'vol': None, 'from': None, 'to': None, 'pnl': [], 'busy': []}

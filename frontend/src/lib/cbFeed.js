@@ -37,11 +37,14 @@ function open() {
     let m; try { m = JSON.parse(e.data); } catch { return; }
     if (m.type !== 'ticker' || !m.product_id) return;
     const a = Object.keys(PRODUCT).find(k => PRODUCT[k] === m.product_id); if (!a) return;
-    const now = Date.now(); const prev = state[a] || { trades: [] };
+    const now = Date.now(); const prev = state[a] || { trades: [], flow: [], px: [] };
     const price = Number(m.price); const size = Number(m.last_size) || 0; const t = m.time ? Date.parse(m.time) : now;
+    const buy = m.side === 'sell';   // Coinbase's `side` is the MAKER's: a resting sell filled = a taker BUY (an up-tick)
+    const flow = [...prev.flow.filter(x => now - x.t < 300000), { t: now, usd: price * size, buy }].slice(-6000);
+    const px = prev.px.length && now - prev.px[prev.px.length - 1].t < 1000 ? prev.px : [...prev.px.filter(x => now - x.t < 3600000), { t: now, p: price }].slice(-3700);
     state[a] = { price, bid: Number(m.best_bid) || null, ask: Number(m.best_ask) || null, open24: Number(m.open_24h) || null, high24: Number(m.high_24h) || null,
       low24: Number(m.low_24h) || null, vol24: Number(m.volume_24h) || null, side: m.side, size, at: now, prev: prev.price,
-      trades: [...prev.trades.filter(x => now - x < 60000), now].slice(-2000) };
+      trades: [...prev.trades.filter(x => now - x < 60000), now].slice(-2000), flow, px };
     tradeSubs.forEach(fn => fn(a, price, size, t / 1000));
     dirty = true;
   };
@@ -67,4 +70,24 @@ export function useTickers() {
   const [, setN] = useState(0);
   useEffect(() => { const fn = () => setN(n => n + 1); subs.add(fn); use(true); return () => { subs.delete(fn); use(false); }; }, []);
   return Object.fromEntries(Object.keys(PRODUCT).map(a => [a, state[a] ? { ...state[a], tpm: state[a].trades.length } : null]));
+}
+
+// ── order flow (pure): taker buy vs sell $ in a window, the whale prints, the move over a window, realized volatility ────────────────
+export const WHALE_USD = { BTC: 50000, ETH: 25000, SOL: 10000 };
+export function flowOf(flow, ms, now) {
+  let b = 0; let s = 0; let n = 0; let top = null;
+  (flow || []).forEach(x => { if (now - x.t > ms) return; n += 1; if (x.buy) b += x.usd; else s += x.usd; if (!top || x.usd > top.usd) top = x; });
+  return { buy: b, sell: s, n, top, share: b + s > 0 ? b / (b + s) : null };
+}
+export const whales = (flow, min, k = 8) => (flow || []).filter(x => x.usd >= min).slice(-k).reverse();
+export function moveOf(px, ms, now) {
+  const w = (px || []).filter(x => now - x.t <= ms); if (w.length < 2) return null;
+  return (w[w.length - 1].p / w[0].p - 1) * 100;
+}
+// realized volatility over the last hour of 1-second samples → annualized % (√ of seconds a year)
+export function rvol(px) {
+  const p = (px || []).map(x => x.p); if (p.length < 30) return null;
+  const r = []; for (let i = 1; i < p.length; i += 1) if (p[i - 1] > 0) r.push(Math.log(p[i] / p[i - 1]));
+  const m = r.reduce((a, b) => a + b, 0) / r.length; const v = r.reduce((a, b) => a + (b - m) ** 2, 0) / Math.max(1, r.length - 1);
+  return Math.sqrt(v) * Math.sqrt(365 * 24 * 3600) * 100;
 }
