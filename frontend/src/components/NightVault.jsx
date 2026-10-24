@@ -1,7 +1,8 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { sharedJson } from '../lib/sharedJson';
 import { useGlide } from '../lib/useGlide';
-import { PoolRow } from './PoolHub';
+import { EarnTicker } from './EarnTicker';
+import { JOB_OF, openDesk } from './MoneyDesk';
 import { FiveRun } from './FiveRun';
 import '../styles/nightVault.css';
 
@@ -40,6 +41,20 @@ function LoopCard({ s, amt, days }) {
   </div>;
 }
 
+// 💤 an open strategy = its top 3 picks as live APY bars, what your amount earns while you look, and ONE button: the money desk pops out
+// big with the best pick in focus (owner, 2026-10-24: "clean summary + one pop-out, live ticking vitals" — no wall of pool rows)
+function Picks({ s, rows, amt }) {
+  const top = rows.slice(0, 3); const hi = Math.max(1, ...top.map(r => Number(r.apy) || 0)); const best = top[0];
+  if (!best) return <p className="nv-note">No live pick for this one right now.</p>;
+  return <div className="nv-picks" data-testid={`nv-picks-${s.key}`}>
+    <ol>{top.map((r, i) => <li key={r.id} style={{ '--i': i }} data-tip={`${r.sym} · ${r.proto} · TVL $${Math.round((r.tvl || 0) / 1e6)}M`}><b>{r.sym}</b><small>{r.proto}</small>
+      <u aria-hidden="true"><s style={{ transform: `scaleX(${Math.max(0.04, (Number(r.apy) || 0) / hi)})` }} /></u><i className="m-num">{(Number(r.apy) || 0).toFixed(2)}%</i></li>)}</ol>
+    <EarnTicker usd={amt} apy={best.apy} label={`$${amt} IN ${best.sym}`} testid={`nv-earn-${s.key}`} />
+    <button type="button" className="m-btn m-go nv-go" onClick={() => openDesk({ job: JOB_OF[best.kind] || 'lend', focus: best, title: `${s.name} · PUT IT TO WORK` })}
+      data-tip="The money desk pops out big — the best pick in focus, your amount, watch it compound; your wallet signs" data-testid={`nv-go-${s.key}`}>⚡ PUT IT TO WORK</button>
+  </div>;
+}
+
 export function NightVault() {
   const [d, setD] = useState(null); const [err, setErr] = useState(false); const [amt, setAmt] = useState(5); const [nap, setNap] = useState('month'); const [open, setOpen] = useState('lst');
   useEffect(() => { let on = true; const go = () => sharedJson('/api/reputation/familia-pools/sleep', { maxAge: 240000 }).then(x => { if (on && x) { setD(x); setErr(false); } }).catch(() => on && setErr(true));
@@ -51,7 +66,7 @@ export function NightVault() {
   return <section className="nv" data-testid="night-vault">
     <header className="nv-sky"><span className="nv-moon" aria-hidden /><span className="nv-stars" aria-hidden>{Array.from({ length: 14 }, (_, i) => <i key={i} style={{ '--i': i }} />)}</span>
       <span className="nv-z" aria-hidden><i>z</i><i>z</i><i>Z</i></span><span className="nv-stack" aria-hidden>{[0, 1, 2, 3].map(i => <i key={i} style={{ '--i': i }} />)}</span>
-      <span className="nv-title"><em>FEELESS AVENUE</em><b>THE NIGHT VAULT</b><small>money while you sleep · live APY · your wallet signs</small></span></header>
+      <span className="nv-title" data-tip="APYs are live and move. Simple interest shown (before compounding). Nothing here is advice — every deposit is signed by your wallet, on the protocol's own contracts."><em>FEELESS AVENUE</em><b>THE NIGHT VAULT</b><small>money while you sleep · live APY · your wallet signs</small></span></header>
     <FiveRun />
     <div className="nv-calc">
       <div className="nv-amt"><em>PUT IN</em><div className="m-seg" role="radiogroup" aria-label="Amount">{AMTS.map(a => <button key={a} type="button" role="radio" aria-checked={amt === a} className={amt === a ? 'active' : ''} onClick={() => setAmt(a)} data-testid={`nv-amt-${a}`}>${a >= 1000 ? `${a / 1000}K` : a}</button>)}</div>
@@ -67,9 +82,8 @@ export function NightVault() {
         <span className="nv-out"><em>{usd0(amt)} · {(NAPS.find(n => n[0] === nap) || [])[1]}</em><Earned v={sleepEarn(amt, s.apy, days)} /></span></button>
       <RiskMeters r={s.risk || {}} />
       {open === s.key ? (s.key === 'loop' ? <LoopCard s={s} amt={amt} days={days} />
-        : <ul className="nv-rows phb-list">{(s.rows || []).map((id, k) => (byId[id] ? <PoolRow key={id} r={byId[id]} i={k} /> : null))}</ul>) : null}
+        : <Picks s={s} rows={(s.rows || []).map(id => byId[id]).filter(Boolean)} amt={amt} />) : null}
     </article>)}</div>
     {d && !d.kamino ? <p className="nv-note">Kamino's rates did not answer — loops are hidden until they do (no guessed borrow rates).</p> : null}
-    <p className="nv-note">APYs are live and move. Simple interest shown (before compounding). Nothing here is advice — every deposit is signed by your wallet, on the protocol's own contracts.</p>
   </section>;
 }

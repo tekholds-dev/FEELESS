@@ -131,9 +131,9 @@ function TradeCenter() {
     {d.rows ? <ol className="av-list">{d.rows.map((r, i) => <li key={`${r.pair}-${i}`} style={{ '--i': i }}>
       <em>{i + 1}</em><span className="av-who">{r.who}</span>
       <span className="av-sym"><b>${r.symbol}</b><small>{[r.state, r.action, r.why].filter(Boolean).join(' · ') || 'holding'}</small></span>
-      <span className={`av-heat ${(r.pct ?? 0) < 0 ? 'down' : 'up'}`}><u aria-hidden="true"><s style={{ transform: `scaleX(${Math.max(0.04, heatOf(r.pct))})` }} /></u><b className="m-num">{pct(r.pct)}</b></span>
+      <span className={`av-heat ${(r.pct ?? 0) < 0 ? 'down' : 'up'}`}><u aria-hidden="true"><s style={{ transform: `scaleX(${Math.max(0.04, heatOf(r.pct))})` }} /></u><b className="m-num av-flash" key={r.pct}>{pct(r.pct)}</b></span>
       <button type="button" className="m-btn" onClick={() => trade({ chainId: 'solana', pairAddress: r.pair, baseToken: { symbol: r.symbol } })} data-tip="Its chart + Quick trade, right here in the room" data-testid={`av-seat-${i}`}>📈 Open</button></li>)}</ol>
-      : <p className="av-lede">Coins stay private so nobody front-runs the desk's exits — the creator sees every seat here.</p>}
+      : <span className="av-lock" data-tip="Coins stay private so nobody front-runs the desk's exits — the creator sees every seat here">🔒 SEATS PRIVATE · RECORD BELOW</span>}
     {d.closed?.n ? <div className="av-closed" data-testid="av-closed"><em className="av-sub">REAL RECORD · LAST {d.closed.n} CLOSED LOTS (price only, fees apart)</em>
       <div className="av-models">{Object.entries(d.closed.by).map(([k, r], i) => <span key={k} className={`av-model ${r.median >= 0 ? 'up' : 'down'}`} style={{ '--i': i }} data-tip={`${k}: ${r.n} real trades, ${r.wonPct}% won, typical ${r.median}%`}>
         <b>{k}</b><em className="m-num">{r.wonPct}% won · {pct(r.median)}</em></span>)}</div>

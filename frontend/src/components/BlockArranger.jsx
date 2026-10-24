@@ -1,6 +1,8 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { TOWN, STAND, MY_POOLS, ISLAND_CELLS, myPools, usd, dollarsSmall, apyTxt } from '../lib/cityPlan';
+import { EarnTicker } from './EarnTicker';
+import { JOB_OF, openDesk } from './MoneyDesk';
 import '../styles/blockArranger.css';
 
 // ✋ ARRANGE THE BLOCK (owner, 2026-10-23: "more islands joined by bridges, pick your own lots, MOVE buildings, add little stands, a MY POOLS
@@ -82,6 +84,7 @@ export function BlockArranger({ bl, busy, onSave, onClose }) {
 // 💧 MY POOLS — the combo building's card: every position on the block, live, biggest first, its total on top
 export function MyPoolsCard({ bl, lp }) {
   const mp = myPools(bl, (lp || []).filter(p => !p.empty)); const rows = [...mp.rows].sort((a, b) => b.usd - a.usd); const top = Math.max(1, ...rows.map(r => r.usd));
+  const yr = rows.reduce((t, r) => t + (r.apy > 0 ? (r.usd || 0) * r.apy / 100 : 0), 0);
   return <div className="mpc" data-testid="my-pools-card">
     <div className="mpc-head"><span className="mpc-orb" aria-hidden="true"><i /><i /><i /></span><div><b>💧 MY POOLS</b><small>every LP · stake · lend position on the block</small></div>
       <strong className="fl-tick" key={mp.usd}>{usd(mp.usd) || '$0'}</strong></div>
@@ -90,5 +93,7 @@ export function MyPoolsCard({ bl, lp }) {
       data-tip={r.kind === 'lp' ? `${r.sym}: ${r.inRange ? 'in range, earning' : 'out of range, earning 0'} · fees +${dollarsSmall(r.fees)}` : `${r.sym}: a real position · APY ${apyTxt(r.apy)}`}>
       <b>{r.sym}</b><i><u style={{ transform: `scaleX(${Math.max(0.03, r.usd / top)})` }} /></i><em>{dollarsSmall(r.usd)}</em></li>)}</ul>
       : <p className="mpc-nil">No positions yet — open one from a building's card (or the money desk) and it lands here.</p>}
+    {yr > 0 ? <EarnTicker perYear={yr} label="MY POOLS · EARNING NOW" tip="Every position on the block at its live APY — what they earn while you look (LP fees ride on top)" testid="mpc-earn" /> : null}
+    <button type="button" className="m-btn m-go mpc-go" onClick={() => openDesk({ job: JOB_OF[rows[0]?.kind] || 'best', title: 'MY POOLS · PUT MORE TO WORK' })} data-tip="The money desk pops out big — add to a pool, stake or lend; your wallet signs" data-testid="mpc-go">⚡ PUT MORE TO WORK</button>
   </div>;
 }

@@ -95,3 +95,7 @@ body.theme-day .av-model { background: #f3f8f5; border-color: #0b3a2026; } body.
   .av-list li { grid-template-columns: 18px 24px minmax(0, 1fr) auto; } .av-list li .av-heat { display: none; }
   .av-meter b { font-size: 15px; } .av-tt li { grid-template-columns: 18px minmax(0, 1fr) auto; } .av-tt li .av-heat { display: none; } .av-catches li { grid-template-columns: 18px minmax(0, 1fr) auto; } .av-catches li .av-heat { display: none; } .av-tc .av-list li { grid-template-columns: 18px 48px minmax(0, 1fr) auto; }
 }
+/* 📈 the Trade Center: a live % flashes on every read; the private-seat lock as a chip, not a paragraph */
+.av-flash { display: inline-block; animation: avFlash .5s ease-out; } @keyframes avFlash { from { opacity: .35; transform: translateY(-3px); } to { opacity: 1; transform: none; } }
+.av-lock { justify-self: start; padding: 4px 10px; border-radius: 999px; border: 1px dashed rgba(212, 175, 55, .45); font: 800 9px 'JetBrains Mono', monospace; letter-spacing: .12em; color: #d4af37; }
+body.fx-lite .av-flash { animation: none; } @media (prefers-reduced-motion: reduce) { .av-flash { animation: none; } } body.theme-day .av-lock { color: #7a5a00; }

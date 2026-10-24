@@ -6,6 +6,7 @@ import { useGlide } from '../lib/useGlide';
 import { cash } from '../lib/earnStake';
 import { familiaTrade } from './FamiliaTrade';
 import { FamEmpty } from './FamEmpty';
+import { EarnTicker } from './EarnTicker';
 import '../styles/myMoney.css';
 
 // 💵 YOUR MONEY (owner 1e: "one YOUR MONEY tower in the capital — every proved position, live"): the Avenue building's room. Your positions
@@ -33,6 +34,7 @@ export default function MyMoney({ devAddress = '' }) {   // devAddress: the /dev
   if (!addr) return <FamEmpty art="tower" title="CONNECT TO LIGHT YOUR TOWER" note="Your money tower lights one floor for every position FEELESS can prove — coins you traded here and your family block's markets." testid="ym-empty" />;
   if (!d) return <div className="ym-load" aria-busy="true"><i /><i /><i /><span>counting your money…</span></div>;
   const fl = towerFloors(d.positions);
+  const yr = (d.positions || []).filter(x => x.kind === 'market' && x.apy > 0).reduce((t, x) => t + (x.usd || 0) * x.apy / 100, 0);   // $ a year the markets pay, live APY
   const H = 22 + fl.length * 17;
   return <div className="ym" data-testid="my-money">
     <div className="ym-hero">
@@ -42,9 +44,10 @@ export default function MyMoney({ devAddress = '' }) {   // devAddress: the /dev
           <rect x={70 - f.w / 2} y={y} width={f.w} height="14" rx="2" />{Array.from({ length: Math.max(2, Math.round(f.w / 14)) }, (_, j) => <rect key={j} className="ym-win" x={70 - f.w / 2 + 5 + j * 12} y={y + 4} width="5" height="6" />)}</g>; })}
         <rect className="ym-base" x="30" y={34 + fl.length * 17} width="80" height="6" rx="2" />
       </svg>
-      <span className="ym-total"><em>YOUR MONEY · PROVED · LIVE</em><b className="m-num" key={Math.round(d.total)}>{cash(total)}</b>
+      <span className="ym-total" data-tip="Proved = coins from your verified FEELESS trades + your family block's on-chain positions. P&L lives on each trade's receipt — fees never mixed in."><em>YOUR MONEY · PROVED · LIVE</em><b className="m-num" key={Math.round(d.total)}>{cash(total)}</b>
         <small>{d.coins} coin{d.coins === 1 ? '' : 's'} · {d.markets} market{d.markets === 1 ? '' : 's'}{d.dust ? ` · ${d.dust} dust` : ''}{d.unpriced ? ` · ${d.unpriced} unpriced` : ''}</small>
-        <i className="ym-legend"><u className="up" />coin up 24h <u className="dn" />coin down <u className="gold" />market earning APY</i></span>
+        <i className="ym-legend"><u className="up" />coin up 24h <u className="dn" />coin down <u className="gold" />market earning APY</i>
+        {yr > 0 ? <EarnTicker perYear={yr} label="YOUR MARKETS · EARNING NOW" tip="Your block's markets at their live APY — what they earn while you look" testid="ym-earn" /> : null}</span>
     </div>
     {!(d.positions || []).length ? <FamEmpty art="tower" title="NO PROVED POSITIONS YET" note="Trade a coin through FEELESS or build a market on your family block — each one lights a floor." testid="ym-none" />
       : <ol className="ym-list">{d.positions.map((x, i) => <li key={x.key} style={{ '--i': i }} className={`is-${x.kind}`} data-testid={`ym-row-${x.key}`}>
@@ -54,6 +57,5 @@ export default function MyMoney({ devAddress = '' }) {   // devAddress: the /dev
         <b className="m-num ym-usd">{cash(x.usd)}</b>
         {x.kind === 'coin' && x.pair ? <button type="button" className="m-btn m-go ym-go" onClick={() => familiaTrade({ chainId: 'solana', pairAddress: x.pair, baseToken: { address: x.key, symbol: x.sym } })}
           data-tip={`$${x.sym}: its chart + Quick trade, right here — your wallet signs`} data-testid={`ym-trade-${x.key}`}>⚡ Trade</button> : <small className="ym-tag">on your block</small>}</li>)}</ol>}
-    <p className="ym-foot">Proved = coins from your verified FEELESS trades + your family block's on-chain positions. P&amp;L lives on each trade's receipt — fees never mixed in.</p>
   </div>;
 }

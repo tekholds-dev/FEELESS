@@ -38,7 +38,13 @@
 .nv-risk p { display: grid; gap: 3px; margin: 0; } .nv-risk em { font: 700 7.5px 'JetBrains Mono', monospace; font-style: normal; letter-spacing: .1em; color: #a9a1d6; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .nv-risk span { display: flex; gap: 2px; } .nv-risk span i { flex: 1; height: 5px; border-radius: 3px; background: rgba(255, 255, 255, .08); }
 .nv-risk .r-1 i.is-on { background: #45e486; } .nv-risk .r-2 i.is-on { background: #ffd36b; } .nv-risk .r-3 i.is-on { background: #ff8fa3; box-shadow: 0 0 6px rgba(255, 143, 163, .6); }
-.nv-rows { animation: nvIn .25s ease-out both; }
+.nv-picks { display: grid; gap: 8px; animation: nvIn .25s ease-out both; } .nv-picks ol { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
+.nv-picks li { display: grid; grid-template-columns: minmax(0, 1fr) 90px minmax(60px, 1fr) auto; gap: 8px; align-items: center; padding: 5px 8px; border-radius: 8px; background: rgba(255, 255, 255, .03); animation: nvIn .3s ease-out both; animation-delay: calc(var(--i, 0) * 55ms); }
+.nv-picks li b { font: 800 11px 'JetBrains Mono', monospace; color: #fff; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; } .nv-picks li small { font: 600 9.5px 'JetBrains Mono', monospace; color: #a9a1d6; }
+.nv-picks u { height: 6px; border-radius: 6px; background: rgba(255, 255, 255, .06); overflow: hidden; } .nv-picks s { display: block; height: 100%; transform-origin: left; background: linear-gradient(90deg, #7c6cff, #45e486); transition: transform .6s ease; }
+.nv-picks li i { font: 900 12px 'JetBrains Mono', monospace; font-style: normal; color: #45e486; } .nv-go { width: 100%; min-height: 40px; justify-content: center; }
+body.theme-day .nv-picks li b { color: #1a1430; } body.theme-day .nv-picks li { background: #fff; }
+@media (max-width: 640px) { .nv-picks li { grid-template-columns: 1fr auto; } .nv-picks li small, .nv-picks u { display: none; } }
 .nv-loop { display: grid; gap: 8px; padding: 10px; border-radius: 12px; background: rgba(0, 0, 0, .35); border: 1px solid rgba(255, 143, 163, .25); animation: nvIn .25s ease-out both; }
 .nv-seg button { min-height: 32px; }
 .nv-loopnums { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 10px; align-items: end; }

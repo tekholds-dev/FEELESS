@@ -17,8 +17,9 @@ import { Realtor } from './Realtor';
 import { useAdmin } from '../lib/adminCall';
 import '../styles/familyWorld.css';
 import { FamEmpty } from './FamEmpty';
-import { MoneyDesk, JOB_OF, openDesk } from './MoneyDesk';
+import { JOB_OF, openDesk } from './MoneyDesk';
 import { useGlide } from '../lib/useGlide';
+import { EarnTicker } from './EarnTicker';
 import { familiaRoom, ROOM_PATH } from '../lib/familiaRoom';
 
 // 🗺 THE FAMILIA WORLD (owner, 2026-10-21: "huge like a Sims build — bridges to other parts, seasons, buy blocks near rivals, CPU towns hard to
@@ -73,27 +74,27 @@ function MarketPanel({ k, mk }) {
   if (!m) return <aside className="fwd-side m-card t-mk"><b>Market</b><p className="m-dim">Reading the market…</p></aside>;
   const pool = m.pool; const pair = pool?.pair || m.pair || m.pairAddress;
   const meter = Math.max(0.03, Math.min(1, Math.log10(1 + (m.tvl || m.mc || 0)) / 10));
-  return <aside className={`fwd-side m-card t-mk k-${m.kind}`} data-testid="market-panel"><header><b>{m.name}</b><small>{KIND_WORD[m.kind] || m.kind} · {ISLAND_OF[m.kind]}</small></header>
-    {m.offer ? <p>{m.offer}</p> : null}
-    <div className="fwd-mkv"><span><em>{m.kind === 'coin' ? 'MARKET CAP' : 'TVL'}</em><b className="m-num" key={m.tvl || m.mc}>{usd(m.tvl || m.mc)}</b><u><s style={{ transform: `scaleX(${meter})` }} /></u></span>
-      {pool ? <><span><em>BUSIEST POOL</em><b>{pool.base}/{pool.quote}{pool.labels?.[0] ? ` · ${pool.labels[0]}` : ''}</b></span><span><em>POOL LIQ</em><b className="m-num">{usd(pool.liq)}</b></span>
-        <span><em>24H VOL</em><b className="m-num">{usd(pool.vol)}</b></span><span><em>24H</em><b className={`m-num ${pool.ch >= 0 ? 'm-pos' : 'm-neg'}`}>{pool.ch >= 0 ? '+' : ''}{Number(pool.ch || 0).toFixed(2)}%</b></span></> : null}
+  const job = JOB_OF[m.kind]; const apy = Number(m.apy ?? m.pool?.apy) || 0; const tvl = m.tvl || m.mc;
+  const trade = pair ? () => familiaTrade({ chainId: 'solana', pairAddress: pair, baseToken: { address: m.mint || pool?.baseMint, symbol: pool?.base || m.symbol } }) : null;
+  const work = job ? () => { if (!openDesk({ job, focus: m.pool ? { ...m.pool, kind: m.kind } : undefined, title: `${m.name.toUpperCase()} · PUT IT TO WORK` })) trade?.(); } : null;
+  // a money building's side panel = live vitals + ONE button (owner, 2026-10-24): the money desk pops out big, or — a coin — the trade slides in
+  return <aside className={`fwd-side m-card t-mk k-${m.kind} fwd-msum`} data-testid="market-panel"><header data-tip={[m.offer, m.status ? "TT · from the agents' intake list (READY first)" : 'Live from the chain every minute · the roof light pulses with its volume'].filter(Boolean).join(' — ')}>
+    <b>{m.name}</b><small>{KIND_WORD[m.kind] || m.kind} · {ISLAND_OF[m.kind]}</small></header>
+    <div className="fwd-mkv"><span><em>{m.kind === 'coin' ? 'MARKET CAP' : 'TVL'}</em><LiveUsd v={tvl} /><u><s style={{ transform: `scaleX(${meter})` }} /></u></span>
+      {pool ? <><span><em>BUSIEST POOL</em><b>{pool.base}/{pool.quote}{pool.labels?.[0] ? ` · ${pool.labels[0]}` : ''}</b></span><span><em>POOL LIQ</em><LiveUsd v={pool.liq} /></span>
+        <span><em>24H VOL</em><LiveUsd v={pool.vol} /></span><span><em>24H</em><b className={`m-num ${pool.ch >= 0 ? 'm-pos' : 'm-neg'}`} key={pool.ch}>{pool.ch >= 0 ? '+' : ''}{Number(pool.ch || 0).toFixed(2)}%</b></span></> : null}
       {m.kind === 'coin' && m.status ? <span><em>DESK</em><b className="m-num">{m.status}</b></span> : null}
-      {m.kind === 'coin' && m.ch != null ? <span><em>{m.status ? '5M' : '24H'}</em><b className={`m-num ${m.ch >= 0 ? 'm-pos' : 'm-neg'}`}>{m.ch >= 0 ? '+' : ''}{Number(m.ch).toFixed(1)}%</b></span> : null}</div>
-    <div className="fwd-acts">{pair ? <button type="button" className="m-btn m-go" onClick={() => familiaTrade({ chainId: 'solana', pairAddress: pair, baseToken: { address: m.mint || pool?.baseMint, symbol: pool?.base || m.symbol } })}
-      data-tip="Trade it right here — chart + Quick trade slide over the city; your wallet signs" data-testid="mk-open">⚡ Trade here</button> : null}
-</div>
-    {JOB_OF[m.kind] ? <MarketDesk m={m} /> : null}
-    {m.kind === 'coin' && (m.read || m.theory) ? <p className="fwd-tt" data-testid="mk-theory">{m.read ? <><b>DESK READ</b> {m.read}<br /></> : null}{m.theory ? <><b>THEORY</b> {m.theory}</> : null}</p> : null}
+      {m.kind === 'coin' && m.ch != null ? <span><em>{m.status ? '5M' : '24H'}</em><b className={`m-num ${m.ch >= 0 ? 'm-pos' : 'm-neg'}`} key={m.ch}>{m.ch >= 0 ? '+' : ''}{Number(m.ch).toFixed(1)}%</b></span> : null}</div>
+    {apy > 0 ? <EarnTicker usd={100} apy={apy} label={`$100 HERE · ${apy.toFixed(1)}% APY`} testid="mk-earn" /> : null}
+    {m.kind === 'coin' && (m.read || m.theory) ? <p className="fwd-tt" data-testid="mk-theory">{m.read ? <><b>DESK READ</b> {m.read}</> : <><b>THEORY</b> {m.theory}</>}</p> : null}
     {m.kind === 'coin' && m.mint ? <WhyPumped key={m.mint} mint={m.mint} /> : null}
-    <small className="m-dim">{m.status ? 'TT · from the agents\' intake list (READY first) · ⚡ Trade here = chart + Quick trade over the city, your wallet signs.' : 'Live from the chain every minute · the roof light pulses with its volume.'}</small></aside>;
+    {work ? <button type="button" className="m-btn m-go fwd-deskgo" onClick={work} data-tip="The money desk pops out big over the city — pick a provider + your amount, watch it compound; your wallet signs" data-testid="mk-desk">⚡ PUT IT TO WORK</button>
+      : trade ? <button type="button" className="m-btn m-go fwd-deskgo" onClick={trade} data-tip="Trade it right here — chart + Quick trade slide over the city; your wallet signs" data-testid="mk-open">⚡ TRADE HERE</button> : null}
+  </aside>;
 }
-// 💸 a market's money in the side panel = one clean button; the desk itself pops out big over the map (inline only when no map hosts it)
-function MarketDesk({ m }) {
-  const [inline, setInline] = useState(false); const job = JOB_OF[m.kind];
-  return <>{!inline ? <button type="button" className="m-btn m-go fwd-deskgo" onClick={() => { if (!openDesk({ job, title: `${m.name.toUpperCase()} · PUT IT TO WORK` })) setInline(true); }}
-    data-tip={`Pick a provider, your amount, watch it compound — the desk opens over the map; your wallet signs`} data-testid="mk-desk">💸 Put it to work</button> : <MoneyDesk job={job} compact title={`${m.name.toUpperCase()} · PUT IT TO WORK`} />}</>;
-}
+// a live $ number: glides to each new read
+function LiveUsd({ v }) { const g = useGlide(Number(v) || 0, 800); return <b className="m-num">{usd(g)}</b>; }
+
 const ISLAND_OF = { dex: 'DEX Row', lend: 'Lend Street', perps: 'FEELESS Avenue', stake: 'Stake Heights', coin: 'TT · Trench Towers' };
 
 function PlaceCard({ k, onOpen }) {

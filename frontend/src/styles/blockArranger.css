@@ -75,3 +75,4 @@ body.theme-day .bar-isle { background: linear-gradient(180deg, #e4f1e6, #f4efe2)
 body.theme-day .mpc-head strong { color: #0b2a24; text-shadow: none; } body.theme-day .mpc-kv span, body.theme-day .mpc-rows li { background: #f4fbf8; } body.theme-day .mpc-kv b, body.theme-day .mpc-rows b { color: #0b2a24; } body.theme-day .mpc-rows em { color: #0f6b58; }
 body.theme-day .bar-build { background: #f1faf4; } body.theme-day .bar-build-list button { color: #2a2416; background: #fff; } body.theme-day .bar-build > b { color: #0a8c46; }
 @media (max-width: 640px) { .bar-build-list { grid-template-columns: minmax(0, 1fr); } .bar-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } .bar-meters { margin-left: 0; } .bar-tools .is-bin { margin-left: 0; } }
+.mpc-go { width: 100%; min-height: 40px; justify-content: center; } .mpc .etk { justify-self: stretch; }   /* MY POOLS: the live ticker + ONE pop-out */

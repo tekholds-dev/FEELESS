@@ -194,8 +194,9 @@ P0 — OWNER 2026-10-23 (late night) · finished today → `docs/FEELESS_HISTORY
    the ticker reads it · a real "compound my LP fees" errand (claim → put into the run) · retire the MP drag errands UI (P2 #2) — NEXT MOVE + EARN
    already point at the run.
 5. 💸 EVERY FAMILIA REAL-MONEY BUILDING (owner 2026-10-24, screenshots: "not a damn popout… no real money live animation vitals"): a click = a clean
-   summary + ONE button that pops the big window; every room shows live ticking vitals, no row walls. DONE 2026-10-24: pool buildings, the Pool
-   Hall combo, dead pools hidden. NEXT: market buildings (lend / stake / perps panels), Night Vault, $5 run, MY POOLS, Trade Center, YOUR MONEY.
+   summary + ONE button that pops the big window; every room shows live ticking vitals, no row walls. DONE 2026-10-24: pool + market buildings
+   (lend / stake / perps / DEX / coin: vitals + $100 ticker + ONE button), Pool Hall combo, Night Vault picks, MY POOLS + YOUR MONEY earning
+   tickers (`EarnTicker`), Trade Center flash. NEXT: screenshot-verify the market panel + YOUR MONEY with a real wallet; the money desk itself.
    📊 Every page end to end: text walls → visuals (HQ Agents + FeeCat tabs first); 80 % ACTIVE money = `cityPlan.activeMoney` (keep ≥ 0.8
    in `cityPlan.test.js`; outer cities next).
 6. ✅ LAST, ONLY WHEN EVERY ITEM ABOVE AND BELOW IS DONE (owner, 2026-10-23): click through EVERY tab / page / pop-out / modal / step of the

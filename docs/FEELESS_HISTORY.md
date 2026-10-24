@@ -6188,3 +6188,9 @@ P6 — IDEAS: FeeCat + AI agent pair that talk · "build a better coin" track in
   crammed in a side panel) · Pool Hall: `deadPool` (DEX ≤ 0.05 % APY never leads), huge TVL moves read as ×, the combo's live split bar +
   "earned while you look" ticker · Brokerage gate fix (directory) · NEXA offline since `backend/.env` lost WIN_LLM_BASE_URL in the 23:30 edit →
   restored. Tests: indicators.test, PoolHub.test.
+- 2026-10-24 · Opus 5.5 — 💸 every Familia money building = clean summary + ONE pop-out + live ticking vitals: `EarnTicker` (money counting up
+  each second at the live APY) · market buildings (lend / stake / perps / DEX / coin: glide numbers, $100 ticker, ONE button — the desk or the
+  trade; offer + footer → tooltips; `MarketDesk` deleted) · Night Vault (an open strategy = top 3 picks as APY bars + ticker + ⚡ PUT IT TO WORK,
+  no pool-row wall; notes → tooltip) · YOUR MONEY + MY POOLS earning tickers (+ MY POOLS' one button) · Trade Center % flash, private-seat chip.
+  Tests: EarnTicker.test, NightVault.test. Screens: Night Vault (1440); market panel + YOUR MONEY not screenshotted (need a picked building /
+  a signed wallet).

@@ -20,7 +20,7 @@ test('the Night Vault: strategies with risk meters, the calculator moves every n
   const q = id => el.querySelector(`[data-testid="${id}"]`);
   expect(q('night-vault').textContent).toContain('THE NIGHT VAULT'); expect(q('nv-lst').textContent).toContain('7.20%');
   expect(q('nv-lst').querySelectorAll('.nv-risk p').length).toBe(4);
-  expect(q('pool-p1')).not.toBeNull();                                          // the open strategy rides on the Pool Hall's own row (⚡ stake)
+  expect(q('nv-picks-lst')).not.toBeNull(); expect(q('nv-go-lst').textContent).toContain('PUT IT TO WORK'); expect(q('nv-earn-lst')).not.toBeNull();   // top picks + ONE pop-out + the live ticker (no row wall)
   await act(async () => { q('nv-loop').querySelector('.nv-head').click(); });
   const loopCard = q('nv-loopcard');
   expect(loopCard.textContent).toContain('9.10%'); expect(q('nv-cushion').textContent).toContain('23%');
