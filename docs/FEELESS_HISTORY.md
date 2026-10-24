@@ -6175,3 +6175,7 @@ P6 — IDEAS: FeeCat + AI agent pair that talk · "build a better coin" track in
   regardless of IP (incl. gTrade Solana); Aster + Hyperliquid bar US; Kalshi BTCPERP (live 06-03) / Kraken-Bitnomial / Coinbase CFM are
   account-only; Payward's US HIP-3 is announced, not live. Owner gave no preference on wiring offshore venues → pending (DECISIONS #9 or a
   non-US attestation gate).
+- 2026-10-24 early · Opus 5.5 — ⏱ KALSHI UP / DOWN widened (owner: "add S&P 500 hourly, Nasdaq, DOGE + XRP from $1"): `kalshi_odds.MARKETS`
+  (BTC · ETH · SOL · DOGE · XRP 15-min + ladders; S&P 500 KXINXU · Nasdaq-100 KXNASDAQ100U = the soonest window's at-the-money strike via
+  /events → that event's markets; `strike` reads custom_strike / the ticker tail), `ticket` takes every listed market, the desk's market
+  picker with each one's live UP %. Trading still waits on DFLOW_API_KEY. Tests: test_kalshi_odds, test_kalshi_trade, PerpsDash.test.

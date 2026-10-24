@@ -123,10 +123,10 @@ export function PerpsDash({ devAddress = '' }) {
     </div>
     <div className="pd-below">
       <div className="pd-bl">
-      <div className="pd-tabs m-seg" role="tablist" aria-label="Panels">{[['pos', `POSITIONS${positions.length ? ` · ${positions.length}` : ''}`, 'Your Jupiter positions, marked live'], ['kalshi', '⏱ KALSHI 15-MIN', 'US-legal 15-minute up / down from $1'], ['practice', '🧪 PRACTICE', 'Paper perps at the real mark — no money moves']].map(([k, l, tip]) =>
+      <div className="pd-tabs m-seg" role="tablist" aria-label="Panels">{[['pos', `POSITIONS${positions.length ? ` · ${positions.length}` : ''}`, 'Your Jupiter positions, marked live'], ['kalshi', '⏱ KALSHI UP / DOWN', 'US-legal up / down from $1 — BTC · ETH · SOL · DOGE · XRP · S&P 500 · Nasdaq'], ['practice', '🧪 PRACTICE', 'Paper perps at the real mark — no money moves']].map(([k, l, tip]) =>
         <button key={k} type="button" role="tab" aria-selected={below === k} className={below === k ? 'active' : ''} onClick={() => setTab(k)} data-tip={tip} data-testid={`pd-b-${k}`}>{l}</button>)}</div>
       {below === 'pos' ? <PerpPositions positions={positions} marks={marks} addr={addr} provider={provider} wallet={wallet} connect={connect} reload={reloadJp} onPick={pick} />
-        : below === 'kalshi' ? <KalshiDesk asset={asset} k={ks?.coins?.[asset]} mark={mark} now={now} tradable={!!ks?.tradable} addr={addr} wallet={wallet} provider={provider} connect={connect} />
+        : below === 'kalshi' ? <KalshiDesk asset={asset} rows={ks?.coins} marks={marks} now={now} tradable={!!ks?.tradable} addr={addr} wallet={wallet} provider={provider} connect={connect} />
           : <PaperPerps row={{ ...brd, coin: asset, mark }} lev={Math.round(t.lev)} devAddress={devAddress} />}
       </div>
       <LiveFlow asset={asset} />

@@ -9599,8 +9599,9 @@ _kalshi_cache: dict = {'at': 0.0, 'rows': {}}
 
 @app.get('/api/reputation/familia/kalshi')
 async def familia_kalshi():
-    """⏱ Kalshi's live odds for the perps coins (US-legal, CFTC-regulated; read-only): each coin's 15-minute "up?" market + the 5 pm strike
-    nearest the live mark. One shared read every 10 s (kalshi_odds.py); a failed read keeps the last good one."""
+    """⏱ Kalshi's live UP / DOWN markets (US-legal, CFTC-regulated; read-only) — kalshi_odds.MARKETS: BTC · ETH · SOL · DOGE · XRP (each one's
+    15-minute "up?" + the ladder strike nearest the live mark) and S&P 500 · Nasdaq-100 (the soonest window's at-the-money strike). One shared
+    read every 10 s, every market in parallel; a failed read keeps the last good one."""
     global _fmk_http
     import kalshi_odds as _ko
     now = time.time()
@@ -9609,21 +9610,34 @@ async def familia_kalshi():
             _fmk_http = httpx.AsyncClient(timeout=8, limits=httpx.Limits(max_connections=8))
         marks_ = {r_.get('coin'): r_.get('mark') for r_ in _perps_cache.get('rows') or []}
 
-        async def one(coin, kind):
+        async def get(path_, params_):
             try:
-                r_ = await _fmk_http.get(_ko.API, params={'series_ticker': _ko.series(coin, kind), 'status': 'open', 'limit': 1000}, timeout=8)
-                return r_.json().get('markets') or [] if r_.status_code == 200 else None
+                r_ = await _fmk_http.get(f'{_ko.API}/{path_}', params=params_, timeout=8)
+                return r_.json() if r_.status_code == 200 else None
             except Exception:
                 return None
-        got_ = await asyncio.gather(*[one(c_, k_) for c_ in _ko.COINS for k_ in ('15m', 'day')])
-        rows_ = dict(_kalshi_cache['rows'])
-        for i_, c_ in enumerate(_ko.COINS):
-            f_, d_ = got_[2 * i_], got_[2 * i_ + 1]
+
+        async def one(key_, m_):
+            if m_['kind'] == 'index':   # the soonest window only (the Nasdaq ladder is 1,000+ rows across days)
+                ev_ = await get('events', {'series_ticker': m_['day'], 'status': 'open', 'limit': 20})
+                et_ = _ko.soonest_event((ev_ or {}).get('events')) if ev_ is not None else None
+                mk_ = await get('markets', {'event_ticker': et_, 'limit': 1000}) if et_ else None
+                if ev_ is None or (et_ and mk_ is None):
+                    return key_, None
+                return key_, {'up': _ko.atm((mk_ or {}).get('markets')), 'day': None}
+            f_, d_ = await asyncio.gather(get('markets', {'series_ticker': m_['m15'], 'status': 'open', 'limit': 50}),
+                                          get('markets', {'series_ticker': m_['day'], 'status': 'open', 'limit': 1000}))
             if f_ is None and d_ is None:
+                return key_, None
+            m15_ = _ko.fifteen((f_ or {}).get('markets')) if f_ is not None else None
+            return key_, {'up': m15_, 'm15': m15_, 'day': _ko.nearest((d_ or {}).get('markets'), marks_.get(key_) or (m15_ or {}).get('target')) if d_ is not None else None}
+        got_ = await asyncio.gather(*[one(k_, m_) for k_, m_ in _ko.MARKETS.items()])
+        rows_ = dict(_kalshi_cache['rows'])
+        for k_, row_ in got_:
+            if row_ is None:
                 continue
-            old_ = rows_.get(c_) or {}
-            m15_ = _ko.fifteen(f_) if f_ is not None else old_.get('m15')
-            rows_[c_] = {'m15': m15_, 'day': _ko.nearest(d_, marks_.get(c_) or (m15_ or {}).get('target')) if d_ is not None else old_.get('day')}   # no board mark yet → the 15-min target is the live price
+            old_ = rows_.get(k_) or {}
+            rows_[k_] = {**row_, 'up': row_['up'] or old_.get('up'), 'name': _ko.MARKETS[k_]['name'], 'kind': _ko.MARKETS[k_]['kind']}
         _kalshi_cache.update(at=now, rows=rows_)
     import kalshi_trade as _kt
     return {'coins': _kalshi_cache['rows'], 'at': round(_kalshi_cache['at']), 'venue': 'Kalshi (CFTC-regulated)', 'tradable': bool(_kt.key(os.environ)), 'min': _kt.MIN_USD, 'max': _kt.MAX_USD}
@@ -9715,9 +9729,9 @@ async def familia_kalshi_order(request: Request):
             raise HTTPException(400, why_)
         if not await _kt_proof(addr_):
             raise HTTPException(403, 'PROOF: verify this wallet with DFlow Proof first (free, one time) — Kalshi is a regulated market.')
-        live_ = ((await familia_kalshi())['coins'].get(coin_) or {}).get('m15') or {}
+        live_ = ((await familia_kalshi())['coins'].get(coin_) or {}).get('up') or {}
         if not live_.get('ticker'):
-            raise HTTPException(409, f'No live 15-minute {coin_} market right now — the next window opens in a moment.')
+            raise HTTPException(409, f'No live {coin_} window right now — the next one opens soon.')
         m_ = await _kt_market(f"market/{live_['ticker']}", f"t:{live_['ticker']}", ttl=60, miss_ttl=30)
         yes_, no_ = kt_.side_mints(m_)
         if not m_ or m_.get('status') not in ('active', 'open') or not (yes_ and no_):

@@ -8,7 +8,7 @@ anything perps. Money rules (CLAUDE.md › Money rules) and `docs/DECISIONS.md` 
 | Venue | Chains | Leverage / min | US users | In FEELESS |
 | --- | --- | --- | --- | --- |
 | **Jupiter Perps** | Solana | 1.1–100× here (API 250×) · **$10** | owner lifted the 🇺🇸 rule for Jupiter only (DECISIONS #8) | ✅ LIVE — wallet signs, TP / SL, partial close |
-| **Kalshi via DFlow** (event contracts as Solana tokens) | Solana | binary · **$1** ($0.01–$1 a contract) | ✅ CFTC-regulated | ⏳ built — on with `DFLOW_API_KEY` |
+| **Kalshi via DFlow** (event contracts as Solana tokens) | Solana | binary up / down · **$1** ($0.01–$1 a contract) — BTC · ETH · SOL · DOGE · XRP (15-min) + S&P 500 · Nasdaq-100 (hourly at-the-money) | ✅ CFTC-regulated | ⏳ built — on with `DFLOW_API_KEY` |
 | **gTrade** (Gains Network) | Solana · Arbitrum · Base · Polygon · MegaETH | up to 500× (degen pairs) · tiny mins | ❌ terms (gains.trade/terms-of-service): use from the US is "STRICTLY PROHIBITED, REGARDLESS OF THE USER'S IP ADDRESS", VPNs too; users warrant they are not US persons | ❌ not wired — owner decision pending (non-US-only attestation gate is the default proposal) |
 | **Aster** | BNB · Arbitrum | up to 1001× BTC | ❌ terms list the US as prohibited | ❌ |
 | **Hyperliquid** | its L1 | 40–50× · $10 notional | ❌ front end restricts US | ❌ — Payward (Kraken) + Bitnomial announced a US-regulated HIP-3 market (2026-09-16, allowlisted, NOT live) → add it the day it launches |
@@ -33,7 +33,9 @@ A site loading from the US is not permission: the venue's own terms decide. Stan
   $ P&L + ROE at each; R : R) → REVIEW (Jupiter's quote: entry, ☠, fee, Jupiter's own P&L at each trigger) → SIGN + OPEN.
 - **Positions** (`perps/PerpPositions.jsx`) — live P&L / ROE on the true price, ☠ distance meter, TP / SL chips (move · cancel · + add), close
   25 / 50 / 75 / 100 %.
-- **⏱ Kalshi 15-MIN** (`perps/KalshiDesk.jsx`) — live odds (target vs true price, countdown, $1 pays UP / DOWN, the nearest ladder strike);
+- **⏱ Kalshi UP / DOWN** (`perps/KalshiDesk.jsx`) — a market picker (BTC · ETH · SOL · DOGE · XRP · S&P 500 · NASDAQ, each with its live UP %)
+  and the picked window's odds (target vs true price, countdown, $1 pays UP / DOWN, the nearest ladder strike; indexes = the soonest hourly
+  window's at-the-money strike, `kalshi_odds.atm`);
   with the key: 🪪 Proof → UP / DOWN from $1 → fill status → your contracts → REDEEM winners.
 - **🧪 Practice** — `PaperPerps` (paper book at the real mark).
 - **🌊 LIVE FLOW** (`perps/LiveFlow.jsx`, always beside the positions) — TAKER PRESSURE (market buys vs sells $ over 60 s + 5 min from every

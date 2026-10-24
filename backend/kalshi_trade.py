@@ -57,9 +57,10 @@ def side_mints(market, settle=USDC):
 
 
 def ticket(coin, side, usd):
-    """The user's ticket → (ok, why). UP = YES ("price up in the next 15 mins?"), DOWN = NO."""
-    if str(coin or '').upper() not in ('BTC', 'ETH', 'SOL'):
-        return False, 'BTC, ETH or SOL only.'
+    """The user's ticket → (ok, why). UP = YES ("up in the next 15 mins?" / "above the at-the-money strike at the close"), DOWN = NO."""
+    import kalshi_odds as _ko
+    if str(coin or '').upper() not in _ko.MARKETS:
+        return False, 'Pick one of the listed markets.'
     if side not in ('up', 'down'):
         return False, 'UP or DOWN.'
     u = _f(usd)

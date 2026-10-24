@@ -59,7 +59,7 @@ def test_the_safety_check_fails_closed():
 
 
 def test_the_ticket_the_order_match_and_settlement_rules():
-    assert kt.ticket('SOL', 'up', 1) == (True, None) and kt.ticket('DOGE', 'up', 5)[0] is False
+    assert kt.ticket('SOL', 'up', 1) == (True, None) and kt.ticket('PEPE', 'up', 5)[0] is False and kt.ticket('SPX', 'down', 1) == (True, None)
     assert kt.ticket('BTC', 'up', 0.5)[0] is False and kt.ticket('BTC', 'sideways', 5)[0] is False and kt.ticket('BTC', 'down', 501)[0] is False
     o = {'inputMint': kt.USDC, 'outputMint': 'YES', 'inAmount': '1000000', 'transaction': 'x'}
     assert kt.matches(o, kt.USDC, 'YES', 1_000_000) == (True, None)

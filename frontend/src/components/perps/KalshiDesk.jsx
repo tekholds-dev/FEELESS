@@ -4,24 +4,27 @@ import { apiUrl } from '../../lib/api';
 import { useGlide } from '../../lib/useGlide';
 import { post, signTx } from '../../lib/perps';
 
-// ⏱ KALSHI 15-MIN UP / DOWN — the US-legal (CFTC-regulated) side of the perps desk, tokenized on Solana by DFlow (backend/kalshi_trade.py).
+// ⏱ KALSHI UP / DOWN — the US-legal (CFTC-regulated) side of the perps desk, tokenized on Solana by DFlow (backend/kalshi_trade.py):
+// BTC · ETH · SOL · DOGE · XRP (15-minute windows) and the S&P 500 · Nasdaq-100 (the soonest hourly window's at-the-money strike).
 // Live odds on the picked coin (the window's target vs the true price, its countdown, what $1 pays) and — once DFlow's production key is in
 // (`tradable`) — the trade: 🪪 Proof (DFlow's free KYC, once per person; FEELESS never sees ID data) → UP / DOWN from $1 → the wallet signs
 // DFlow's transaction → FEELESS sends only what it built → the fill is followed → settled winners redeem to USDC.
-const STAKES = [1, 5, 10, 25];
+const STAKES = [1, 5, 10, 25];   // dollars — from $1, every market
 const px = v => (v == null || !Number.isFinite(v) ? '—' : v >= 1000 ? `$${v.toLocaleString('en-US', { maximumFractionDigits: 2 })}` : `$${Number(v).toFixed(v >= 10 ? 2 : 4)}`);
 
+export const KMKTS = [['BTC', '₿ BTC'], ['ETH', 'ETH'], ['SOL', 'SOL'], ['DOGE', 'DOGE'], ['XRP', 'XRP'], ['SPX', 'S&P 500'], ['NDX', 'NASDAQ']];
 export function kalshiRead(k, mark, now) {
-  const m = k?.m15; if (!m || (m.yes == null && m.no == null)) return null;
+  const m = k?.up || k?.m15; if (!m || (m.yes == null && m.no == null)) return null;
   const end = Date.parse(m.closes || ''); const left = Number.isFinite(end) ? Math.max(0, Math.round((end - now) / 1000)) : null;
-  const up = m.yes != null ? m.yes : 1 - m.no;
-  return { up, left, frac: left == null ? 0 : Math.min(1, left / 900), above: m.target > 0 && mark > 0 ? mark - m.target : null, target: m.target,
+  const up = m.yes != null ? m.yes : 1 - m.no; const index = k?.kind === 'index';
+  return { up, left, index, frac: left == null ? 0 : Math.min(1, left / (index ? 3600 : 900)), above: m.target > 0 && mark > 0 ? mark - m.target : null, target: m.target,
     payUp: m.yes > 0 ? 1 / m.yes : null, payDn: m.no > 0 ? 1 / m.no : null, day: k?.day || null };
 }
 const dayWord = iso => { const d = new Date(iso); return Number.isFinite(d.getTime()) ? d.toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric' }).toUpperCase() : 'CLOSE'; };
 
-export function KalshiDesk({ asset, k, mark, now, tradable, addr, wallet, provider, connect }) {
-  const r = kalshiRead(k, mark, now); const g = useGlide(r ? Math.round(r.up * 1000) / 10 : 50, 600);
+export function KalshiDesk({ asset: perp, rows, marks, now, tradable, addr, wallet, provider, connect }) {
+  const [asset, setAsset] = useState(perp || 'BTC'); useEffect(() => { if (perp) setAsset(perp); }, [perp]);
+  const k = rows?.[asset]; const mark = marks?.[asset]; const r = kalshiRead(k, mark, now); const nm = k?.name || asset; const g = useGlide(r ? Math.round(r.up * 1000) / 10 : 50, 600);
   const [usd, setUsd] = useState(5); const [busy, setBusy] = useState(''); const [proof, setProof] = useState(null); const [pos, setPos] = useState([]);
   const loadProof = useCallback(() => { if (!tradable || !addr) return; fetch(apiUrl(`/api/reputation/familia/kalshi/proof?address=${addr}`)).then(x => (x.ok ? x.json() : null)).then(x => x && setProof(!!x.verified)).catch(() => {}); }, [tradable, addr]);
   const loadPos = useCallback(() => { if (!tradable || !addr) return; fetch(apiUrl(`/api/reputation/familia/kalshi/positions?address=${addr}`)).then(x => (x.ok ? x.json() : null)).then(x => x && setPos(x.positions || [])).catch(() => {}); }, [tradable, addr]);
@@ -41,11 +44,15 @@ export function KalshiDesk({ asset, k, mark, now, tradable, addr, wallet, provid
       if (st === 'closed') toast.success(`✅ ${label} — filled`); else if (st === 'failed' || st === 'expired') toast.error(`${label} — ${st}, your USDC stays`); else toast(`${label} — sent, still filling`);
       loadPos(); }
     catch (e) { if (String(e.message).startsWith('PROOF')) setProof(false); toast.error(e.message); } finally { setBusy(''); } };
-  if (!r) return <div className="kd is-off" data-testid="kalshi-desk"><b>⏱ KALSHI</b><small>no live 15-minute window on {asset} right now</small></div>;
-  const mm = r.left == null ? '—' : `${Math.floor(r.left / 60)}:${String(r.left % 60).padStart(2, '0')}`;
-  return <div className={`kd ${r.up >= 0.5 ? 'is-up' : 'is-dn'}`} data-testid="kalshi-desk">
-    <div className="kd-odds" data-testid="pd-odds" data-tip={`Kalshi (CFTC-regulated, US-legal): "${asset} price up in the next 15 mins?" — UP pays $1 a contract if ${asset} ends the window at or above the target`}>
-      <span className="kd-hero"><em>⏱ {asset} UP IN 15 MIN?</em><b className="m-num">{g.toFixed(0)}%</b><small>KALSHI · US · CFTC</small></span>
+  const pickRow = <div className="m-seg kd-mkts" role="radiogroup" aria-label="Kalshi market">{KMKTS.map(([key, l]) => { const x = kalshiRead(rows?.[key], marks?.[key], now);
+    return <button key={key} type="button" role="radio" aria-checked={asset === key} className={asset === key ? 'active' : ''} onClick={() => setAsset(key)}
+      data-tip={`${rows?.[key]?.name || key}: ${x ? `${Math.round(x.up * 100)}% UP right now` : 'no live window'}`} data-testid={`kd-m-${key}`}>{l}{x ? <i className="m-num">{Math.round(x.up * 100)}%</i> : null}</button>; })}</div>;
+  if (!r) return <div className="kd is-off" data-testid="kalshi-desk">{pickRow}<b>⏱ KALSHI</b><small>no live window on {nm} right now</small></div>;
+  const mm = r.left == null ? '—' : r.left >= 3600 ? `${Math.floor(r.left / 3600)}h ${String(Math.floor((r.left % 3600) / 60)).padStart(2, '0')}m` : `${Math.floor(r.left / 60)}:${String(r.left % 60).padStart(2, '0')}`;
+  const q = r.index ? `${nm} ABOVE ${px(r.target)} AT ${dayWord(k?.up?.closes)}?` : `${nm} UP IN 15 MIN?`;
+  return <div className={`kd ${r.up >= 0.5 ? 'is-up' : 'is-dn'}`} data-testid="kalshi-desk">{pickRow}
+    <div className="kd-odds" data-testid="pd-odds" data-tip={`Kalshi (CFTC-regulated, US-legal): "${q}" — UP pays $1 a contract if ${nm} closes the window at or above the target`}>
+      <span className="kd-hero"><em>⏱ {q}</em><b className="m-num">{g.toFixed(0)}%</b><small>KALSHI · US · CFTC</small></span>
       <span className="kd-k"><em>TARGET</em><b className="m-num">{px(r.target)}</b><small className={`m-num ${(r.above ?? 0) >= 0 ? 'is-up' : 'is-dn'}`}>{r.above == null ? '' : `live ${r.above >= 0 ? '▲ +' : '▼ −'}${px(Math.abs(r.above))}`}</small></span>
       <span className="kd-k kd-clock"><em>CLOSES IN</em><b className="m-num">{mm}</b><u aria-hidden="true"><s style={{ transform: `scaleX(${r.frac})` }} /></u></span>
       <span className="kd-k"><em>$1 PAYS</em><b className="m-num is-up">{r.payUp ? `$${r.payUp.toFixed(2)}` : '—'} <i>UP</i></b><b className="m-num is-dn">{r.payDn ? `$${r.payDn.toFixed(2)}` : '—'} <i>DOWN</i></b></span>

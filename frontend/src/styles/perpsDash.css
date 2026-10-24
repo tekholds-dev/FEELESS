@@ -205,3 +205,7 @@ body.fx-lite .lf::after { animation: none; opacity: .4; transform: none; } body.
 body.theme-day .lf, body.theme-day .lf-mv > span, body.theme-day .lf-whales li, body.theme-day .lf-lead button { background: #fff; } body.theme-day :is(.lf-hero b, .lf-h b, .lf-lead > b, .lf-whales li i) { color: #2a0f1f; text-shadow: none; }
 @media (max-width: 980px) { .pd-below { grid-template-columns: 1fr; } }
 @media (max-width: 640px) { .lf-mv { grid-template-columns: repeat(3, minmax(0, 1fr)); } .lf-hero b { font-size: 24px; } }
+/* ⏱ the Kalshi market picker — crypto 15-minute windows + the S&P 500 / Nasdaq hourly windows, each with its live UP % */
+.kd-mkts { justify-self: start; flex-wrap: wrap; } .kd-mkts button { display: inline-flex; align-items: baseline; gap: 6px; min-width: 52px; }
+.kd-mkts button i { font: 800 9px 'JetBrains Mono', monospace; font-style: normal; opacity: .75; } .kd.is-off { flex-wrap: wrap; }
+@media (max-width: 640px) { .kd-mkts button { min-width: 0; padding: 0 8px; } }

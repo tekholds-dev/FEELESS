@@ -25,9 +25,21 @@ def test_the_5pm_strike_nearest_the_live_mark_and_the_payout_per_dollar():
     assert ko.series('SOL', '15m') == 'KXSOL15M' and ko.series('ETH', 'day') == 'KXETHD'
 
 
-def test_the_service_reads_every_coin_once_in_parallel_and_keeps_the_last_good_read(monkeypatch):
+def test_index_ladders_trade_their_at_the_money_strike_and_strikes_come_from_any_field():
+    lad = [{'ticker': 'NDX-T29340', 'status': 'active', 'floor_strike': 29340, 'yes_ask_dollars': '0.8100', 'no_ask_dollars': '0.2100', 'close_time': 'a'},
+           {'ticker': 'NDX-T29440', 'status': 'active', 'floor_strike': 29440, 'yes_ask_dollars': '0.5000', 'no_ask_dollars': '0.5200', 'close_time': 'a'},
+           {'ticker': 'NDX-T29540', 'status': 'active', 'floor_strike': 29540, 'yes_ask_dollars': '0.2200', 'no_ask_dollars': '0.8000', 'close_time': 'a'}]
+    a = ko.atm(lad)
+    assert (a['ticker'], a['target'], a['yes'], a['no']) == ('NDX-T29440', 29440.0, 0.5, 0.52) and ko.atm([]) is None
+    assert ko.strike({'custom_strike': {'floor_strike': '0.2649999'}}) == 0.2649999 and ko.strike({'ticker': 'KXXRPD-26OCT2401-T2.0399'}) == 2.0399
+    assert ko.soonest_event([{'event_ticker': 'B', 'strike_date': '2026-10-26T15:00:00Z'}, {'event_ticker': 'A', 'strike_date': '2026-10-26T14:00:00Z'}]) == 'A'
+    assert set(ko.MARKETS) == {'BTC', 'ETH', 'SOL', 'DOGE', 'XRP', 'SPX', 'NDX'} and ko.series('DOGE', '15m') == 'KXDOGE15M' and ko.series('SPX', 'day') == 'KXINXU'
+
+
+def test_the_service_reads_every_market_once_in_parallel_and_keeps_the_last_good_read(monkeypatch):
     import reputation_service as rs
     asked = []
+    LAD = [{'ticker': 'SPX-T7795', 'status': 'active', 'floor_strike': 7795, 'yes_ask_dollars': '0.4800', 'no_ask_dollars': '0.5400', 'close_time': 'z'}]
 
     class R:
         status_code = 200
@@ -36,19 +48,26 @@ def test_the_service_reads_every_coin_once_in_parallel_and_keeps_the_last_good_r
             self.b = b
 
         def json(self):
-            return {'markets': self.b}
+            return self.b
 
     class C:
         async def get(self, url, params=None, timeout=None):
-            asked.append(params['series_ticker'])
-            if params['series_ticker'].startswith('KXETH'):
+            key = params.get('series_ticker') or params.get('event_ticker')
+            asked.append(key)
+            if key.startswith('KXETH'):
                 raise RuntimeError('down')
-            return R(M15 if params['series_ticker'].endswith('15M') else DAY)
+            if url.endswith('/events'):
+                return R({'events': [{'event_ticker': key + '-EV', 'strike_date': '2026-10-26T14:00:00Z'}]})
+            if params.get('event_ticker'):
+                return R({'markets': LAD})
+            return R({'markets': M15 if key.endswith('15M') else DAY})
     monkeypatch.setattr(rs, '_fmk_http', C())
     monkeypatch.setitem(rs._perps_cache, 'rows', [{'coin': 'BTC', 'mark': 80700}])
-    monkeypatch.setattr(rs, '_kalshi_cache', {'at': 0.0, 'rows': {'ETH': {'m15': {'yes': 0.4}, 'day': None}}})
+    monkeypatch.setattr(rs, '_kalshi_cache', {'at': 0.0, 'rows': {'ETH': {'up': {'yes': 0.4}, 'm15': {'yes': 0.4}, 'day': None}}})
     out = asyncio.run(rs.familia_kalshi())
-    assert sorted(asked) == sorted(['KXBTC15M', 'KXBTCD', 'KXETH15M', 'KXETHD', 'KXSOL15M', 'KXSOLD'])
-    assert out['coins']['BTC']['m15']['yes'] == 0.9 and out['coins']['BTC']['day']['ticker'] == 'KXBTCD-T81'
-    assert out['coins']['ETH'] == {'m15': {'yes': 0.4}, 'day': None}                                  # ETH's read failed → its last good read stays
-    asyncio.run(rs.familia_kalshi()); assert len(asked) == 6                                           # cached 10 s — one shared read
+    assert {'KXBTC15M', 'KXBTCD', 'KXDOGE15M', 'KXXRPD', 'KXINXU', 'KXINXU-EV', 'KXNASDAQ100U', 'KXNASDAQ100U-EV'} <= set(asked)
+    c = out['coins']
+    assert c['BTC']['up']['yes'] == 0.9 and c['BTC']['day']['ticker'] == 'KXBTCD-T81' and c['BTC']['name'] == 'Bitcoin'
+    assert c['SPX']['up']['target'] == 7795 and c['SPX']['kind'] == 'index' and c['SPX']['day'] is None
+    assert c['ETH']['up'] == {'yes': 0.4}                                                              # ETH's read failed → its last good read stays
+    n = len(asked); asyncio.run(rs.familia_kalshi()); assert len(asked) == n                          # cached 10 s — one shared read
