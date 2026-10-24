@@ -34,15 +34,19 @@ async function signRun(provider, address, built) {   // the wallet signs Jupiter
   return post('/api/reputation/familia/perps-real/execute', { address, action: built.action, signed: btoa(String.fromCharCode(...signed.serialize())) });
 }
 
-export function RealPerps({ marks = {}, coin = '', devAddress = '' }) {
+export function RealPerps({ marks = {}, coin = '', devAddress = '', asset: assetIn = '', onAsset = null, onTicket = null, onPositions = null, onPools = null }) {
   const { wallet, provider, connect } = useWallet() || {}; const addr = (wallet?.chain === 'solana' ? wallet.address : '') || devAddress;
-  const [d, setD] = useState(null); const [asset, setAsset] = useState(['SOL', 'ETH', 'BTC'].includes(coin) ? coin : 'SOL'); const [side, setSide] = useState('long');
+  const [d, setD] = useState(null); const [assetOwn, setAssetOwn] = useState(['SOL', 'ETH', 'BTC'].includes(coin) ? coin : 'SOL'); const asset = assetIn || assetOwn; const setAsset = onAsset || setAssetOwn; const [side, setSide] = useState('long');   // 📉 the dash drives the market
   const [usd, setUsd] = useState(10); const [lev, setLev] = useState(10); const [built, setBuilt] = useState(null); const [busy, setBusy] = useState('');
   const load = useCallback(() => fetch(apiUrl(`/api/reputation/familia/perps-real?address=${encodeURIComponent(addr || '')}`)).then(r => (r.ok ? r.json() : null)).then(x => x && setD(x)).catch(() => {}), [addr]);
   useEffect(() => { load(); const t = setInterval(() => { if (!document.hidden) load(); }, 10000); return () => clearInterval(t); }, [load]);
   useEffect(() => { setBuilt(null); }, [asset, side, usd, lev]);
   const pool = d?.pools?.[asset] || {}; const mark = Number(marks[asset]) || null; const p = perpPlan(mark, usd, lev, side, pool.openFeePercent ?? 0.06);
   const size = useGlide(p?.size || 0); const pos = d?.positions || []; const total = pos.reduce((s, x) => s + (x.pnl || 0), 0);
+  const liqNow = p ? (built?.quote ? Number(built.quote.liquidationPriceUsd) || p.liq : p.liq) : null;
+  useEffect(() => { onTicket?.(liqNow ? { side, lev, liq: liqNow } : null); }, [onTicket, side, lev, liqNow]);   // 📈 the chart's ☠ line follows the ticket
+  useEffect(() => { onPositions?.(d?.positions || []); }, [onPositions, d?.positions]);
+  useEffect(() => { onPools?.(d?.pools || null); }, [onPools, d?.pools]);   // 📊 Jupiter's live pool vitals (who's crowded, borrow / hr) for the dash
   const need = async () => { if (!wallet?.address || !provider) { await connect?.('solana'); return false; } return true; };
   const review = async () => { if (!(await need())) return; setBusy('Asking Jupiter for the real quote…');
     try { setBuilt(await post('/api/reputation/familia/perps-real', { address: addr, asset, side, usd, lev })); } catch (e) { toast.error(e.message); } finally { setBusy(''); } };
@@ -54,10 +58,10 @@ export function RealPerps({ marks = {}, coin = '', devAddress = '' }) {
   const q = built?.quote; const ok = quoteMatches(q, side, usd * lev);
   const rail = p ? (side === 'long' ? 50 - Math.min(46, p.liqPct * 2) : 50 + Math.min(46, p.liqPct * 2)) : 50;
   return <section className={`rp is-${side}`} data-testid="real-perps">
-    <header className="rp-head"><span><em>📉 REAL PERPS · JUPITER · YOUR WALLET SIGNS</em><b>Long or short {asset} up to {d?.maxLev || 100}×</b></span>
+    <header className="rp-head"><span><em>{onAsset ? `TICKET · ${asset}-PERP · from $${d?.min || 10}` : '📉 REAL PERPS · JUPITER · YOUR WALLET SIGNS'}</em><b>{onAsset ? `${side === 'long' ? '▲ Long' : '▼ Short'} ${asset} · ${px(mark)}` : `Long or short ${asset} up to ${d?.maxLev || 100}×`}</b></span>
       {pos.length ? <i className={`rp-tot ${total >= 0 ? 'up' : 'dn'}`} data-tip="Open P&L across your positions, before fees">{sgn(total)} open</i> : <i className="rp-fee" data-tip="Jupiter's open fee on the position size">fee {pool.openFeePercent ?? 0.06}%</i>}</header>
-    <div className="m-seg rp-mkts" role="radiogroup" aria-label="Market">{['SOL', 'ETH', 'BTC'].map(a => <button key={a} type="button" role="radio" aria-checked={a === asset} className={a === asset ? 'active' : ''} onClick={() => setAsset(a)}
-      data-tip={`${a}-PERP on Jupiter · ${marks[a] ? px(marks[a]) : 'reading the price'}`} data-testid={`rp-a-${a}`}><b>{a}</b><small>{marks[a] ? px(marks[a]) : '…'}</small></button>)}</div>
+    {onAsset ? null : <div className="m-seg rp-mkts" role="radiogroup" aria-label="Market">{['SOL', 'ETH', 'BTC'].map(a => <button key={a} type="button" role="radio" aria-checked={a === asset} className={a === asset ? 'active' : ''} onClick={() => setAsset(a)}
+      data-tip={`${a}-PERP on Jupiter · ${marks[a] ? px(marks[a]) : 'reading the price'}`} data-testid={`rp-a-${a}`}><b>{a}</b><small>{marks[a] ? px(marks[a]) : '…'}</small></button>)}</div>}
     <div className="rp-sides"><button type="button" className={`rp-long ${side === 'long' ? 'is-on' : ''}`} onClick={() => setSide('long')} aria-pressed={side === 'long'} data-tip={`Bet ${asset} goes UP`} data-testid="rp-long">▲ LONG</button>
       <button type="button" className={`rp-short ${side === 'short' ? 'is-on' : ''}`} onClick={() => setSide('short')} aria-pressed={side === 'short'} data-tip={`Bet ${asset} goes DOWN`} data-testid="rp-short">▼ SHORT</button></div>
     <div className="rp-pick"><span className="m-seg" role="radiogroup" aria-label="Collateral">{SIZES.map(s => <button key={s} type="button" role="radio" aria-checked={usd === s} className={usd === s ? 'active' : ''} onClick={() => setUsd(s)} data-tip={`Put up $${s} (Jupiter's minimum is $10)`} data-testid={`rp-u-${s}`}>${s}</button>)}</span>
@@ -65,7 +69,7 @@ export function RealPerps({ marks = {}, coin = '', devAddress = '' }) {
     {p ? <div className="rp-vit">
       <span><em>POSITION</em><b className="m-num">{cash(size)}</b><small>{cash(usd)} × {lev}×</small></span>
       <span><em>EVERY 1% MOVE</em><b className="m-num">±{cash(p.per1)}</b><small>{side === 'long' ? 'up = you win' : 'down = you win'}</small></span>
-      <span className="is-dn"><em>WIPED AT</em><b className="m-num">{px(q ? Number(q.liquidationPriceUsd) : p.liq)}</b><small>{p.liqPct.toFixed(1)}% {side === 'long' ? 'drop' : 'pump'}</small></span>
+      <span className="is-dn" data-tip={`At ${lev}× a ${(100 / lev).toFixed(1)}% move against you liquidates the collateral. Jupiter runs the market; FEELESS never holds your money.`}><em>WIPED AT</em><b className="m-num">{px(q ? Number(q.liquidationPriceUsd) : p.liq)}</b><small>{p.liqPct.toFixed(1)}% {side === 'long' ? 'drop' : 'pump'}</small></span>
       <span><em>OPEN FEE</em><b className="m-num">{cash(q ? Number(q.openFeeUsd) : p.fee)}</b><small>{q ? 'Jupiter quote' : 'estimate'}</small></span>
       <div className="rp-rail" aria-hidden="true"><s className="rp-zone" style={{ left: side === 'long' ? 0 : `${rail}%`, right: side === 'long' ? `${100 - rail}%` : 0 }} /><i className="rp-liq" style={{ left: `${rail}%` }}>☠</i><i className="rp-now" /></div>
     </div> : <p className="rp-dim">Reading {asset}'s live price…</p>}
@@ -80,6 +84,6 @@ export function RealPerps({ marks = {}, coin = '', devAddress = '' }) {
         <span className="rp-n"><em className="m-num">{sgn(x.pnl)}</em><small>{x.pnlPct != null ? `${x.pnlPct >= 0 ? '+' : ''}${x.pnlPct.toFixed(1)}%` : ''} · size {cash(x.size)} · fees {cash(x.fees)} apart</small></span>
         <span className="rp-meter" data-tip={`Entry ${px(x.entry)} · now ${px(x.mark)} · wiped at ${px(x.liq)}`}><u><s style={{ transform: `scaleX(${Math.max(0.03, Math.min(1, (dist || 0) / 50))})` }} /></u><small>{dist != null ? `${dist.toFixed(1)}% to liq` : ''}</small></span>
         <button type="button" className="m-btn" disabled={!!busy} onClick={() => close(x)} data-tip="Close it all — USDC back to your wallet" data-testid={`rp-close-${i}`}>Close</button></li>; })}</ol> : null}
-    <p className="rp-lede">⚠ Perps can wipe your collateral fast: at {lev}× a {(100 / lev).toFixed(1)}% move against you liquidates it. Jupiter runs the market; FEELESS never holds your money.</p>
+    {onAsset ? null : <p className="rp-lede">⚠ Perps can wipe your collateral fast: at {lev}× a {(100 / lev).toFixed(1)}% move against you liquidates it. Jupiter runs the market; FEELESS never holds your money.</p>}
   </section>;
 }

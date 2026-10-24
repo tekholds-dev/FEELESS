@@ -18,9 +18,11 @@ Read this (2 min) → `CLAUDE.md` (lean rules + 🎨 MANDATORY STYLING + 📋 CU
 **Updated 2026-10-23 (late night) · Opus 5.5** — the open list is `CLAUDE.md › 📋 CURRENT TASKS › P0`. Done today (grep the history for
 "2026-10-23 night" / "late night"): ⚡ REAL LEVERAGE (Jupiter Lend Borrow, DECISIONS #7) · 📉 REAL PERPS on Jupiter (DECISIONS #8, `jup_perps.py`,
 /familia/perps-real) · 🌉 BRIDGE + ⛽ GAS through LI.FI · 🕸 intake revived (DexScreener fallback when Jupiter's read key 429s) · 📌 the Agents
-cockpit chart no longer swaps coins every poll. Agents: edge-audit GATE HOLD (0 / 753 rules positive on unseen coins), FeeCat paused (1 / 9
+cockpit chart no longer swaps coins every poll · 🧠 OSSY / G4 stop chasing (PARABOLIC / spike entries refused) · 📉 the FEELESS PERPS dash
+(pink, live vitals; `PerpsDash.jsx`). Only Jupiter Perps is wired — more venues from $1 (Hyperliquid, gTrade, Drift, options) = P0 #0, ask the
+owner about the 🇺🇸 rule first. Agents: edge-audit GATE HOLD (0 / 753 rules positive on unseen coins), FeeCat paused (1 / 9
 lives), NEXA 43 % — no agent is proven to make money; a top-up sits idle until one is. G4 runs Qwen3.5-4B on the desktop (10.0.0.249:1236, ONE
-slot). Dev previews: `/dev/hq?snap` (the LIVE agents desk — copy `backend/data/agents_view.json` → `frontend/public/dev-agents.json`) · `/dev/perps`
+slot). Dev previews: `/dev/perps` (the perps dash on live markets) · `/dev/hq?snap` (the LIVE agents desk — copy `backend/data/agents_view.json` → `frontend/public/dev-agents.json`)
 · `/dev/bridge` · `/dev/gas` · `/dev/nexa` · `/dev/hq?rpc` · `/dev/block`.
 🔑 Jupiter: 3 keys → key 3 is the shared READ key for every price read sitewide and sits at 429 most of the day; the owner adding a 4th key
 (portal.jup.ag → `JUPITER_READ_KEY`) frees it. The intake no longer depends on it.
@@ -38,7 +40,7 @@ the pre-push hook runs the full gate ~8 min — run no tests beside it). Restart
   (`FamilyBlock3D.BlockCard`), Fee City market / pool panels, the Pool Hub, FeeCat's combo.
 - 🏙 Family block: `FamilyBlock3D` controls (☀ / 🌙 shared key `feeless.city.mode`, ⤢, 360°, ⌂) + `pop` over the stage; `errandGo` never links out.
 - 💬 `StreetChat.jsx`: `BestStrip` (`bestCall`, `pumpHot`), starters, reconnecting line. 🐱 `catForge.css` (scope `.cfv`) + violet `createCat.css`
-  + `StepRail`. 🚀 `launchFlow.css` + `STYLE_ART`, supply meter, `ReadyRing`. 📉 perps: no venue links (`PaperPerps`, `CityAvenue`).
+  + `StepRail`. 🚀 `launchFlow.css` + `STYLE_ART`, supply meter, `ReadyRing`. 📉 perps: `PerpsDash` (the room) → `RealPerps` (Jupiter ticket) + `PaperPerps` (🧪 practice).
 - ⚖ `docs/COUNSEL_BRIEF.md` + DECISIONS #6.
 
 ### Gate + restart rules learned the hard way

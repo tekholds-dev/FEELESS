@@ -6141,3 +6141,14 @@ P6 — IDEAS: FeeCat + AI agent pair that talk · "build a better coin" track in
   spike more than `G4_SPIKE_GERM` = 5 % over its germ floor (5–10 %: 12 trades −10.7 %; ≤ 5 %: +1.8 %) — it also guards the agent doors
   (`_agent_entry_ok`). Live desk: 2 of 18 coins refused. Not fixed: stop slippage on curve coins; G4 often "did not answer" (LM Studio on the desktop).
   `test_g4_gun_line.py`.
+- 2026-10-23 late night · Opus 5.5 — 📉 FEELESS PERPS DASH (owner: "this doesn't look like a perps desk … basic, ugly, not the pink, no live vitals").
+  The Perps room was stacked text: meters + a leverage slider + the what-if fan (PerpsEarn) + the Jupiter ticket buried mid-page + the paper desk +
+  a market list. Now ONE dash (`PerpsDash.jsx`, `styles/perpsDash.css`, pink meta `pd-*`): SOL · ETH · BTC tiles tick every 2 s off the shared live
+  price hub (glide + flash, a real tick trail, seconds since the last tick), the picked market's vitals (WHO'S CROWDED = Jupiter long vs short
+  pool utilisation as a tug-of-war, BORROW / HR bars, a FUNDING needle, OI counting, the 1-MIN MOVE from the ticks), the live chart of the
+  market's deepest Solana pool (`PERP_POOLS`) with the ticket's ☠ liquidation line moving as you change leverage + your positions' entry / liq,
+  the Jupiter ticket beside it (RealPerps now controlled: `asset` / `onAsset` / `onTicket` / `onPositions` / `onPools`), 🧪 PRACTICE = the paper
+  desk. Edge lights only on the live vitals; fx-lite / reduced motion / day / 360 px. PerpsEarn + perpsMath + its CSS deleted (`.av-perps`,
+  `.av-lev`, `.av-pick`, `es-perps/tile/fan/bar`). Big rooms: the map's side column (place card + street chat) painted over the room — hidden
+  while one is open (`familyWorld.css`). Venue truth: only Jupiter is wired — gTrade / Hyperliquid / Drift / options = CLAUDE.md P0 #0 NEXT.
+  Tests: `PerpsDash.test.js`, `CityAvenue.test.jsx`, `EarnStake.test.jsx`. Screenshots: /dev/perps 1440 + 360, the real Fee City room.

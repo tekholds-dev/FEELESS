@@ -1,4 +1,5 @@
 import React, { Suspense, lazy, useEffect, useState } from 'react';
+import { PerpsDash } from './PerpsDash';
 import { useMarket } from '../hooks/useMarket';
 import { familiaTrade } from './FamiliaTrade';
 import { TokenAvatar } from './terminal/MarketPrimitives';
@@ -6,9 +7,6 @@ import { PLACES, usd } from '../lib/cityPlan';
 import { apiUrl } from '../lib/api';
 import { readChatSession } from '../lib/chatSession';
 import { useWallet } from '../hooks/useWallet';
-import { PerpsEarn } from './EarnStake';
-import { PaperPerps } from './PaperPerps';
-import { RealPerps } from './RealPerps';
 import '../styles/cityAvenue.css';
 
 // 🛣 FEELESS AVENUE (owner, 2026-10-22: "implement the site's best tabs and features in Fee City with a pop-out of vitals and quick tools to
@@ -173,34 +171,9 @@ function CatTower() {
   </div>;
 }
 
-// 📉 THE PERPS DESK — the perps US traders can legally use (Kraken Pro · Coinbase), priced live from a global reference board (mark, 24h,
-// funding APR, open interest, max leverage) + one tap to the regulated venue. Leverage math on screen.
-// 🇺🇸 US-legal venues only (owner, 2026-10-23): Kraken Pro (CFTC-regulated perps via Bitnomial) · Coinbase (perpetual-style futures, CFTC FCM).
-// The board lists what US venues list; REAL money here = 📉 RealPerps (Jupiter Perps,
-// wallet signs, DECISIONS #8 — the owner lifted the US rule for perps); the paper desk keeps practice trades.
-function PerpsDesk() {
-  const { data } = useMarketJson('/api/reputation/familia/perps', 60000); const rows = data?.markets || []; const [lev, setLev] = useState(10);
-  const [pick, setPick] = useState(null); const row = rows.find(r => r.coin === pick) || rows[0];
-  const oi = rows.reduce((s2, r) => s2 + (r.oiUsd || 0), 0); const hot = rows.reduce((b, r) => (Math.abs(r.fundApr || 0) > Math.abs(b?.fundApr || 0) ? r : b), null);
-  return <div className="av-court" data-testid="av-perps">
-    <div className="av-vitals">
-      <Meter i={0} label="MARKETS" value={String(rows.length)} fill={rows.length / 12} tip="The busiest perps markets by 24h volume" />
-      <Meter i={1} label="OPEN INTEREST" value={usd(oi)} fill={Math.log10(1 + oi) / 11} tip="Open positions across these markets, in $" />
-      <Meter i={2} label="HOTTEST FUNDING" value={hot ? `${hot.coin} ${hot.fundApr > 0 ? '+' : ''}${hot.fundApr}%` : '—'} fill={Math.min(1, Math.abs(hot?.fundApr || 0) / 100)} tone={(hot?.fundApr || 0) > 0 ? 'is-down' : 'is-up'} tip="Funding as a yearly rate — positive: longs pay shorts" />
-      <Meter i={3} label={`LIQUIDATED AT ${lev}×`} value={`${(100 / lev).toFixed(1)}% move`} fill={1 / lev * 5} tone="is-down" tip="How far the price can go against you before the position is gone (before fees)" />
-    </div>
-    <label className="phb-earn-in av-lev"><span>Leverage</span><input type="range" min="1" max="50" value={lev} onChange={e => setLev(Number(e.target.value))} aria-label="Leverage" data-testid="av-lev" /><b>{lev}×</b></label>
-    <PerpsEarn row={row} lev={lev} />
-    <RealPerps coin={row?.coin} marks={Object.fromEntries(rows.map(r => [r.coin, r.mark]))} />
-    <PaperPerps row={row} lev={lev} />
-    <ol className="av-list av-perps">{!rows.length ? <li className="m-dim">Reading the perps markets…</li> : null}
-      {rows.map((r, i) => <li key={r.coin} style={{ '--i': i }}><em>{i + 1}</em>
-        <button type="button" className={`av-sym av-pick ${row?.coin === r.coin ? 'is-on' : ''}`} aria-pressed={row?.coin === r.coin} onClick={() => setPick(r.coin)} data-tip={`See what your stake does on ${r.coin} perps`} data-testid={`perp-pick-${r.coin}`}><b>{r.coin}</b><small>${r.mark >= 100 ? r.mark.toLocaleString('en-US', { maximumFractionDigits: 0 }) : r.mark.toPrecision(4)} · OI {usd(r.oiUsd)} · up to {r.maxLev}×</small></button>
-        <span className={`av-heat ${(r.ch24 ?? 0) < 0 ? 'down' : 'up'}`}><u aria-hidden="true"><s style={{ transform: `scaleX(${Math.max(0.04, Math.min(1, Math.abs(r.ch24 || 0) / 15))})` }} /></u><b className="m-num">{pct(r.ch24)} · f {r.fundApr > 0 ? '+' : ''}{r.fundApr}%</b></span>
-</li>)}</ol>
-    <p className="av-lede">⚠ Leverage cuts both ways: at {lev}× a {(100 / lev).toFixed(1)}% move against you liquidates the position. FEELESS shows the market; each venue runs its own checks.</p>
-  </div>;
-}
+// 📉 THE PERPS DESK = the FEELESS perps trading dash (PerpsDash: market strip · live chart with your lines · Jupiter ticket · positions ·
+// 🧪 practice) — DECISIONS #8, your wallet signs, FEELESS never holds the margin.
+function PerpsDesk() { return <PerpsDash />; }
 function useMarketJson(url, every) {
   const [data, setData] = useState(null);
   useEffect(() => { let on = true; const load = () => fetch(apiUrl(url)).then(r => (r.ok ? r.json() : null)).then(x => on && x && setData(x)).catch(() => {}); load();

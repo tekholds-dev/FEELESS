@@ -1,0 +1,97 @@
+/* 📉 PerpsDash.jsx — FEELESS PERPS in the Perps building's PINK meta (`pd-*`): hot pink #ff5dbb neon on a magenta-black night, glass vitals
+   with an inner highlight, longs neon green / shorts pink only where a side is meant. Motion = the live numbers (marks flash + glide, the tick
+   beat, the tug / bars / needle easing to each read) + edge lights on the live vitals. One keyframe set (pd*), transform / opacity only; still
+   under fx-lite + reduced motion; day theme + 640 px at the end. */
+.pd { --pk: #ff5dbb; --pk2: #ff9fd2; --up: #45e486; --dn: #ff8fa3; --gold: #ffd36b; position: relative; display: grid; gap: 12px; padding: 16px; border-radius: 20px;
+  isolation: isolate; overflow: hidden; color: #ffeaf6;
+  background: radial-gradient(90% 60% at 10% 0%, rgba(255, 93, 187, .18), transparent 60%), radial-gradient(70% 50% at 100% 100%, rgba(140, 40, 255, .12), transparent 60%), linear-gradient(180deg, #0d0510, #050206);
+  border: 1px solid rgba(255, 93, 187, .45); box-shadow: inset 0 1px 0 rgba(255, 255, 255, .08), 0 0 0 1px rgba(255, 93, 187, .08), 0 0 60px -20px var(--pk); }
+.pd::after { content: ''; position: absolute; left: 0; right: 0; top: 0; height: 2px; pointer-events: none; background: linear-gradient(90deg, transparent, var(--pk2), transparent);
+  transform: translateX(-100%); animation: pdScan 4.5s linear infinite; }
+.pd-head { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 16px; }
+.pd-title { display: grid; line-height: 1.05; margin-right: auto; }
+.pd-title em { font: 800 8.5px 'JetBrains Mono', monospace; font-style: normal; letter-spacing: .2em; color: var(--pk2); }
+.pd-title b { font: 900 26px 'JetBrains Mono', monospace; letter-spacing: .08em; color: #fff; text-shadow: 0 0 22px rgba(255, 93, 187, .55); }
+.pd-title b i { font-style: normal; color: var(--pk); }
+.pd-seg button { min-height: 36px; min-width: 100px; font: 800 11px 'JetBrains Mono', monospace; letter-spacing: .08em; }
+.pd .m-seg button.active { background: var(--pk); color: #2a0618; box-shadow: 0 0 16px -4px var(--pk); }
+.pd .m-seg button:hover:not(.active) { color: var(--pk2); } .pd .m-seg button:focus-visible { outline: 2px solid var(--pk2); outline-offset: 2px; }
+.pd-pnl { position: relative; overflow: hidden; display: grid; justify-items: end; line-height: 1.1; min-width: 120px; padding: 7px 14px; border-radius: 14px;
+  background: linear-gradient(180deg, rgba(255, 93, 187, .1), rgba(0, 0, 0, .55)); border: 1px solid rgba(255, 93, 187, .35); box-shadow: inset 0 1px 0 rgba(255, 255, 255, .08); }
+.pd-pnl em, .pd-vit > em { font: 800 8px 'JetBrains Mono', monospace; font-style: normal; letter-spacing: .18em; color: #c9a3b9; }
+.pd-pnl b { font: 900 22px 'JetBrains Mono', monospace; color: #fff; } .pd-pnl small { font: 700 9.5px 'JetBrains Mono', monospace; color: #b893a9; }
+.pd-pnl.is-up b { color: var(--up); text-shadow: 0 0 16px rgba(69, 228, 134, .6); } .pd-pnl.is-dn b { color: var(--dn); text-shadow: 0 0 16px rgba(255, 93, 115, .5); }
+/* the market strip — each tile ticks on its own */
+.pd-mkts { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+.pd-mkt { position: relative; overflow: hidden; display: grid; grid-template-columns: auto 1fr; grid-template-rows: auto 30px auto; align-items: center; gap: 4px 10px; min-height: 104px;
+  padding: 12px 14px 10px; border-radius: 16px; cursor: pointer; text-align: left; color: #ffeaf6; font: inherit;
+  background: linear-gradient(180deg, rgba(255, 255, 255, .06), rgba(10, 2, 10, .7)); border: 1px solid rgba(255, 93, 187, .18);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .07); transition: transform .15s, border-color .15s, box-shadow .15s; animation: pdIn .4s ease-out both; animation-delay: calc(var(--i, 0) * 60ms); }
+.pd-mkt:hover { transform: translateY(-2px); border-color: rgba(255, 93, 187, .55); } .pd-mkt:active { transform: scale(.98); } .pd-mkt:focus-visible { outline: 2px solid var(--pk2); outline-offset: 2px; }
+.pd-mkt.is-on { border-color: var(--pk); background: linear-gradient(180deg, rgba(255, 93, 187, .2), rgba(20, 2, 16, .8)); box-shadow: inset 0 1px 0 rgba(255, 255, 255, .12), 0 0 30px -8px var(--pk); }
+.pd-sym { display: grid; line-height: 1; } .pd-sym b { font: 900 18px 'JetBrains Mono', monospace; } .pd-sym small { font: 800 8.5px 'JetBrains Mono', monospace; letter-spacing: .14em; color: #b893a9; }
+.pd-mark { justify-self: end; font: 900 22px 'JetBrains Mono', monospace; color: #fff; }
+.pd-mark.is-up { color: var(--up); text-shadow: 0 0 14px rgba(69, 228, 134, .6); animation: pdFlash .6s ease-out; } .pd-mark.is-dn { color: var(--dn); text-shadow: 0 0 14px rgba(255, 93, 115, .5); animation: pdFlash .6s ease-out; }
+.pd-mkt.is-up { box-shadow: inset 0 0 0 1px rgba(69, 228, 134, .35), 0 0 26px -10px var(--up); } .pd-mkt.is-dn { box-shadow: inset 0 0 0 1px rgba(255, 93, 115, .35), 0 0 26px -10px var(--dn); }
+.pd-trail { grid-column: 1 / -1; width: 100%; height: 30px; overflow: visible; }
+.pd-trail polyline { fill: none; stroke-width: 1.6; vector-effect: non-scaling-stroke; stroke-linejoin: round; } .pd-trail .is-up { stroke: var(--up); } .pd-trail .is-dn { stroke: var(--dn); }
+.pd-foot { grid-column: 1 / -1; display: flex; justify-content: space-between; align-items: center; }
+.pd-foot small { font: 700 10px 'JetBrains Mono', monospace; } .pd-foot .is-up { color: var(--up); } .pd-foot .is-dn { color: var(--dn); }
+.pd-age { display: inline-flex; align-items: center; gap: 5px; color: #b893a9; }
+.pd-beat { width: 7px; height: 7px; border-radius: 50%; background: var(--pk); box-shadow: 0 0 8px var(--pk); animation: pdBeat 1s ease-out; }
+/* the picked market's vitals */
+.pd-vits { display: grid; grid-template-columns: 1.6fr 1fr .9fr 1fr 1fr; gap: 10px; }
+.pd-vit { position: relative; overflow: hidden; display: grid; align-content: start; gap: 5px; min-height: 84px; padding: 10px 12px; border-radius: 14px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, .05), rgba(8, 2, 8, .7)); border: 1px solid rgba(255, 93, 187, .2); box-shadow: inset 0 1px 0 rgba(255, 255, 255, .07);
+  animation: pdIn .4s ease-out both; animation-delay: calc(120ms + var(--i, 0) * 55ms); }
+.pd-vit b { font: 900 18px 'JetBrains Mono', monospace; color: #fff; } .pd-vit small { font: 700 9.5px 'JetBrains Mono', monospace; color: #b893a9; }
+.pd-vit b.is-up, .pd-vit.is-up .pd-hot { color: var(--up); text-shadow: 0 0 12px rgba(69, 228, 134, .5); } .pd-vit b.is-dn, .pd-vit.is-dn .pd-hot { color: var(--dn); }
+.pd-hot { font-size: 21px !important; animation: pdFlash .5s ease-out; }
+.pd-tug { position: relative; display: flex; height: 14px; border-radius: 7px; overflow: hidden; background: rgba(0, 0, 0, .5); border: 1px solid rgba(255, 255, 255, .08); }
+.pd-tug s { flex: none; width: 100%; height: 100%; } .pd-tug s.is-l { position: absolute; left: 0; transform-origin: left; background: linear-gradient(90deg, #0d7a3e, var(--up)); transition: transform .7s ease; }
+.pd-tug s.is-s { position: absolute; right: 0; transform-origin: right; background: linear-gradient(270deg, #8a1a5c, var(--pk)); transition: transform .7s ease; }
+.pd-tug i { position: absolute; left: 50%; top: -2px; bottom: -2px; width: 3px; margin-left: -1.5px; background: #fff; box-shadow: 0 0 10px #fff; transition: transform .7s ease; }
+.pd-tugn { display: flex; justify-content: space-between; align-items: baseline; } .pd-tugn b { font-size: 14px; } .pd-tugn small { letter-spacing: .12em; color: var(--pk2); }
+.pd-tugn .is-up { color: var(--up); } .pd-tugn .is-dn { color: var(--pk); }
+.pd-bars { display: grid; gap: 6px; } .pd-bars > span { display: grid; gap: 2px; } .pd-bars u { height: 6px; border-radius: 6px; background: rgba(255, 255, 255, .06); overflow: hidden; }
+.pd-bars s { display: block; height: 100%; transform-origin: left; transition: transform .6s ease; } .pd-bars s.is-up { background: var(--up); box-shadow: 0 0 8px var(--up); } .pd-bars s.is-dn { background: var(--pk); box-shadow: 0 0 8px var(--pk); }
+.pd-gauge { position: relative; width: 64px; height: 34px; } .pd-gauge svg { width: 64px; height: 34px; }
+.pd-arc { fill: none; stroke-width: 5; stroke-linecap: round; stroke: rgba(255, 93, 187, .35); }
+.pd-gauge i { position: absolute; left: 31px; bottom: 3px; width: 2px; height: 24px; border-radius: 2px; background: var(--gold); box-shadow: 0 0 8px var(--gold); transform-origin: bottom center; transition: transform .8s cubic-bezier(.2, .8, .2, 1.2); }
+/* edge lights on the live vitals (owner: "vital edge animations") */
+:is(.pd-mkt.is-on, .pd-pnl, .pd-vit, .pd-chart, .pd .rp-vit)::after { content: ''; position: absolute; left: 0; right: 0; bottom: 0; height: 2px; pointer-events: none;
+  background: linear-gradient(90deg, transparent, var(--pk), transparent); transform: translateX(-100%); animation: pdScan 3.4s linear infinite; }
+.pd-vit::after { animation-delay: calc(var(--i, 0) * .45s); } .pd-pnl::after { animation-duration: 2.4s; } .pd-chart::after { top: 0; bottom: auto; animation-duration: 6s; }
+.pd-pnl.is-up::after, .pd-vit.is-up::after { background: linear-gradient(90deg, transparent, var(--up), transparent); }
+/* chart + ticket */
+.pd-grid { display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(330px, 1fr); gap: 12px; align-items: start; }
+.pd-chart { position: relative; overflow: hidden; display: grid; gap: 8px; min-width: 0; padding: 10px; border-radius: 16px; background: rgba(6, 1, 6, .75); border: 1px solid rgba(255, 93, 187, .25); box-shadow: inset 0 1px 0 rgba(255, 255, 255, .06); }
+.pd-cbar { display: flex; align-items: center; gap: 10px; } .pd-cname { display: flex; align-items: baseline; gap: 10px; margin-right: auto; }
+.pd-cname b { font: 900 16px 'JetBrains Mono', monospace; color: #fff; } .pd-cname b i { font-style: normal; color: var(--pk); font-size: 11px; } .pd-cname small { font: 800 13px 'JetBrains Mono', monospace; color: var(--pk2); }
+.pd-iv button { min-height: 32px; min-width: 42px; font: 800 10.5px 'JetBrains Mono', monospace; }
+.pd-plot { position: relative; height: clamp(360px, 52vh, 560px); border-radius: 12px; overflow: hidden; }
+.pd-plot .chart-area, .pd-plot .candle-canvas { height: 100% !important; }
+.pd-plot :is(.cpl, .cfk-aura, .cfk-ring, .cfk-open, .chart-foot-chips, .ctl) { display: none; }   /* coin-only overlays (rug read, age, Fee) — a perps mark has none */
+.pd-dim { margin: 0; padding: 40px 0; text-align: center; font: 600 11px 'JetBrains Mono', monospace; color: #b893a9; }
+.pd .rp { --rs: #ff5dbb; margin: 0; border-color: rgba(255, 93, 187, .45); background: linear-gradient(170deg, rgba(255, 93, 187, .14), rgba(8, 2, 8, .92) 55%); }
+.pd .rp::before { display: none; } .pd .rp-vit { position: relative; overflow: hidden; border-color: rgba(255, 93, 187, .2); }
+@keyframes pdIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+@keyframes pdScan { to { transform: translateX(100%); } }
+@keyframes pdFlash { from { opacity: .4; transform: translateY(-3px) scale(1.04); } to { opacity: 1; transform: none; } }
+@keyframes pdBeat { from { transform: scale(1.9); opacity: .4; } to { transform: none; opacity: 1; } }
+body.fx-lite .pd::after, body.fx-lite .pd-mkt, body.fx-lite .pd-vit, body.fx-lite :is(.pd-mkt.is-on, .pd-pnl, .pd-vit, .pd-chart, .pd .rp-vit)::after { animation: none; }
+body.fx-lite :is(.pd-mkt.is-on, .pd-pnl, .pd-vit, .pd-chart, .pd .rp-vit)::after { transform: none; opacity: .45; }
+@media (prefers-reduced-motion: reduce) { .pd::after, .pd-mkt, .pd-vit, .pd-mark, .pd-hot, .pd-beat, :is(.pd-mkt.is-on, .pd-pnl, .pd-vit, .pd-chart, .pd .rp-vit)::after { animation: none; }
+  .pd-mkt, .pd-tug s, .pd-tug i, .pd-bars s, .pd-gauge i { transition: none; } }
+body.theme-day .pd { color: #2a0f1f; background: radial-gradient(90% 60% at 10% 0%, rgba(255, 93, 187, .14), transparent 60%), #fff7fb; border-color: rgba(200, 40, 130, .35); }
+body.theme-day :is(.pd-title b, .pd-mark, .pd-cname b, .pd-vit b, .pd-pnl b, .pd-mkt) { color: #2a0f1f; text-shadow: none; }
+body.theme-day :is(.pd-mkt, .pd-vit, .pd-pnl, .pd-chart) { background: #fff; border-color: rgba(200, 40, 130, .22); box-shadow: 0 2px 12px rgba(120, 20, 80, .07); }
+body.theme-day .pd-mkt.is-on { background: #ffe8f4; border-color: #d4357f; }
+body.theme-day :is(.pd-title em, .pd-pnl em, .pd-vit > em, .pd-vit small, .pd-sym small, .pd-age, .pd-pnl small) { color: #7a4a63; }
+body.theme-day :is(.pd-mark.is-up, .pd-foot .is-up, .pd-vit b.is-up, .pd-pnl.is-up b) { color: #0a8a44; } body.theme-day :is(.pd-mark.is-dn, .pd-foot .is-dn, .pd-vit b.is-dn, .pd-pnl.is-dn b) { color: #b4233f; }
+body.theme-day .pd .rp { background: linear-gradient(170deg, rgba(255, 93, 187, .08), #fff 55%); }
+@media (max-width: 1100px) { .pd-vits { grid-template-columns: repeat(3, minmax(0, 1fr)); } .pd-tugv { grid-column: 1 / -1; } }
+@media (max-width: 980px) { .pd-grid { grid-template-columns: 1fr; } }
+@media (max-width: 640px) { .pd { padding: 10px; gap: 10px; } .pd-title b { font-size: 19px; } .pd-mkts { gap: 6px; } .pd-mkt { grid-template-columns: 1fr; min-height: 96px; padding: 8px; }
+  .pd-mark { justify-self: start; font-size: 15px; } .pd-sym b { font-size: 14px; } .pd-age { display: none; } .pd-vits { grid-template-columns: 1fr 1fr; } .pd-vit { min-height: 70px; }
+  .pd-plot { height: 320px; } .pd-seg button { min-width: 0; } .pd-pnl { justify-items: start; } }

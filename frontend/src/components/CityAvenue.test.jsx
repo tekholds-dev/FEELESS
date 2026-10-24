@@ -2,6 +2,7 @@ import React from 'react';
 import { createRoot } from 'react-dom/client';
 import { act } from 'react';
 import { AvenueRoom, AVENUE_LENSES, HallRoom, pumpVitals, heatOf, blipOf, bankRows } from './CityAvenue';
+jest.mock('./terminal/PriceChart', () => ({ PriceChart: () => null }));   // the dash's live chart (canvas) — not under test here
 
 const pair = (sym, m5, extra = {}) => ({ chainId: 'solana', pairAddress: `P-${sym}`, baseToken: { address: `M-${sym}xx`, symbol: sym }, priceChange: { m5 }, volume: { h1: 1000 }, marketCap: 2e5, ...extra });
 const PUMP = { pairs: [pair('AAA', 12), pair('BBB', -6), pair('CCC', 40)] };
@@ -77,14 +78,17 @@ test('⚖ the Rep Courthouse leads with the week\'s top catches + vitals; a catc
   window.removeEventListener('feeless:investigate', on); act(() => root.unmount());
 });
 
-test('📉 the Perps Desk lists live markets with funding + leverage math — and never links out (owner: no redirects)', async () => {
-  const PD = { markets: [{ coin: 'SOL', mark: 150, ch24: 3.2, fundApr: 12.5, oiUsd: 9e8, vol24: 2e9, maxLev: 40, venues: ['kraken', 'coinbase'] }] };
-  global.fetch = jest.fn(() => Promise.resolve({ ok: true, json: () => Promise.resolve(PD) }));
+test('📉 the Perps room is the trading dash: live market strip, the chart, the Jupiter ticket — and never links out (owner: no redirects)', async () => {
+  const PD = { markets: [{ coin: 'SOL', mark: 150, ch24: 3.2, fundApr: 12.5, oiUsd: 9e8, vol24: 2e9, maxLev: 40 }, { coin: 'BTC', mark: 80000, ch24: -1.1, fundApr: 11, oiUsd: 3e9, maxLev: 40 }] };
+  global.fetch = jest.fn(u => Promise.resolve({ ok: true, json: () => Promise.resolve(String(u).includes('perps-real') ? { pools: {}, positions: [], min: 10, maxLev: 100 } : PD) }));
   const el = document.createElement('div'); document.body.appendChild(el); const root = createRoot(el);
   await act(async () => { root.render(<AvenueRoom lens="perps" />); });
   await act(async () => { await new Promise(r => setTimeout(r, 20)); });
-  const t = q('av-perps').textContent; expect(t).toContain('SOL'); expect(t).toContain('10.0% move');   // 10× default → a 10 % move liquidates
-  expect(q('av-perps').querySelectorAll('a[href^="http"]')).toHaveLength(0);   // paper here; no Kraken / Coinbase hand-off
+  expect(q('perps-dash')).toBeTruthy(); expect(q('pd-m-SOL').textContent).toContain('+3.20% 24h'); expect(q('pd-chart')).toBeTruthy(); expect(q('real-perps')).toBeTruthy();
+  expect(q('perps-earn')).toBeNull(); expect(q('av-perps')).toBeNull();                                   // the what-if fan + market list are gone
+  await act(async () => { q('pd-m-BTC').click(); });
+  expect(q('pd-m-BTC').getAttribute('aria-checked')).toBe('true'); expect(q('real-perps').textContent).toContain('BTC-PERP');   // one pick drives the chart + the ticket
+  expect(q('perps-dash').querySelectorAll('a[href^="http"]')).toHaveLength(0);
   act(() => root.unmount());
 });
 

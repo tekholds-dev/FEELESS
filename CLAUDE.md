@@ -166,14 +166,17 @@ STANDING RULES (never "done"):
   hottest fee pools) with the risk named — SAFE yields are one tap away, never the headline. "Think big, not the same utilities."
 
 P0 — OWNER 2026-10-23 (late night) · finished today → `docs/FEELESS_HISTORY.md` (grep "2026-10-23 late night")
-0. 🔥 OWNER 2026-10-23 (latest, CAPS): "REAL PERPS — a perps / options TRADING DASH, quick trades, $1 minimum, litty" (the Jupiter Lend
-   leverage read as "BS") · pools must make visual sense: type a $ amount → see how FEELESS rapid-compounds even the smallest money · EVERY real-
-   money surface in Familia relevant + visually enhanced with vitals · rooms open as a BIG window (shipped). BLOCKED on the owner's venue call:
-   real perps for a US user = an offshore venue (Jupiter Perps 1.1–250× SOL/ETH/BTC, wallet signs · Hyperliquid $10 min notional) vs the
-   standing 🇺🇸 rule + DECISIONS #1 — ask, then build the dash (TrenchChart-style mark chart, long/short ticket from $1, positions with PnL + liq
-   vitals, one-tap close) on the venue chosen. Weekly usage hit 95 % on 2026-10-23 — conserve.
-   → OWNER CHOSE (2026-10-23): Jupiter Perps NOW (DECISIONS #8, `jup_perps.py`, /familia/perps-real) + then MORE perps / options venues, any chain,
-   hella leverage (gTrade, others) — Jupiter's real minimum is $10 collateral.
+0. 🔥📉 PERPS / OPTIONS — PICK A PROVIDER AND TRADE, FROM $1 (owner, 2026-10-23 late night, CAPS: "I thought gTrade and other perps / options
+   desks were wired already — if not do better, always style better than last, no BS text and buttons, vital edge animations only; we pick the
+   provider and trade with as low as $1"). TRUTH: only Jupiter Perps is wired (DECISIONS #8; gTrade / Hyperliquid / Drift / options never were).
+   SHIPPED: the FEELESS PERPS dash (`PerpsDash.jsx` + `perpsDash.css`, pink meta: marks ticking every 2 s with tick trails, WHO'S CROWDED tug,
+   borrow / hr, funding needle, OI, 1-min move; live chart with the ticket's ☠ line + your positions; Jupiter ticket; 🧪 practice tab).
+   NEXT, in order: ① a PROVIDER rail on the dash (each venue = its real min, max lev, fee, chain, live mark — no dead buttons: a venue shows only
+   once it trades) · ② Hyperliquid ($10 min NOTIONAL → $1 collateral at 10×; USDC deposit via Arbitrum, EIP-712 orders the user's EVM wallet
+   signs) · ③ gTrade (Arbitrum / Base, EVM wallet signs; check its min position) · ④ Drift (Solana, small mins, needs a user account) · ⑤ options
+   (Aevo / Derive). Each: build → verify the tx like `jup_perps.verify` → wallet signs, test faking the network. ⚖ Before ② ③ ④ ⑤ ask the owner:
+   DECISIONS #8 lifted the 🇺🇸 rule for Jupiter only, and Hyperliquid / gTrade / Drift bar US persons in their own terms (standing rule 1).
+   Also open from this ask: pools make visual sense from any $ typed · every Familia money surface relevant + vitals.
 0b. ⛽🌉 GAS + BRIDGE — SHIPPED 2026-10-23 (grep the history "🌉 BRIDGE"; `lifi.verify_svm`, `lib/bridgeExec.js`, `BridgeDesk.jsx`, /dev/bridge ·
    /dev/gas). NEXT: the owner's first real bridge ($5 USDC Solana → Base and back) + a $2 gas fill read back on its tank · Zora coins: LI.FI dropped
    Zora, so EVM swaps on Zora coins fail too (no Zora venue yet) · 💰 the owner sets their own fee on every Familia money action (perps, LP joins,
