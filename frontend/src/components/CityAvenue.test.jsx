@@ -2,7 +2,8 @@ import React from 'react';
 import { createRoot } from 'react-dom/client';
 import { act } from 'react';
 import { AvenueRoom, AVENUE_LENSES, HallRoom, pumpVitals, heatOf, blipOf, bankRows } from './CityAvenue';
-jest.mock('./terminal/PriceChart', () => ({ PriceChart: () => null }));   // the dash's live chart (canvas) — not under test here
+jest.mock('./terminal/PriceChart', () => ({ PriceChart: () => null }));
+jest.mock('./perps/PerpsChart', () => ({ PerpsChart: () => null }));   // the true-candle chart (canvas + Coinbase) — not under test here   // the dash's live chart (canvas) — not under test here
 
 const pair = (sym, m5, extra = {}) => ({ chainId: 'solana', pairAddress: `P-${sym}`, baseToken: { address: `M-${sym}xx`, symbol: sym }, priceChange: { m5 }, volume: { h1: 1000 }, marketCap: 2e5, ...extra });
 const PUMP = { pairs: [pair('AAA', 12), pair('BBB', -6), pair('CCC', 40)] };
@@ -84,10 +85,10 @@ test('📉 the Perps room is the trading dash: live market strip, the chart, the
   const el = document.createElement('div'); document.body.appendChild(el); const root = createRoot(el);
   await act(async () => { root.render(<AvenueRoom lens="perps" />); });
   await act(async () => { await new Promise(r => setTimeout(r, 20)); });
-  expect(q('perps-dash')).toBeTruthy(); expect(q('pd-m-SOL').textContent).toContain('+3.20% 24h'); expect(q('pd-chart')).toBeTruthy(); expect(q('real-perps')).toBeTruthy();
+  expect(q('perps-dash')).toBeTruthy(); expect(q('pd-m-SOL').textContent).toContain('SOL-PERP'); expect(q('pd-chart')).toBeTruthy(); expect(q('perp-ticket')).toBeTruthy();
   expect(q('perps-earn')).toBeNull(); expect(q('av-perps')).toBeNull();                                   // the what-if fan + market list are gone
   await act(async () => { q('pd-m-BTC').click(); });
-  expect(q('pd-m-BTC').getAttribute('aria-checked')).toBe('true'); expect(q('real-perps').textContent).toContain('BTC-PERP');   // one pick drives the chart + the ticket
+  expect(q('pd-m-BTC').getAttribute('aria-checked')).toBe('true'); expect(q('pd-chart').textContent).toContain('BTC'); expect(q('pt-long').getAttribute('data-tip')).toContain('BTC'); expect(q('pt-go').textContent).toContain('CONNECT WALLET');   // one pick drives the chart + the ticket
   expect(q('perps-dash').querySelectorAll('a[href^="http"]')).toHaveLength(0);
   act(() => root.unmount());
 });

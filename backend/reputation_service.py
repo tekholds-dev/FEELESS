@@ -9625,7 +9625,176 @@ async def familia_kalshi():
             m15_ = _ko.fifteen(f_) if f_ is not None else old_.get('m15')
             rows_[c_] = {'m15': m15_, 'day': _ko.nearest(d_, marks_.get(c_) or (m15_ or {}).get('target')) if d_ is not None else old_.get('day')}   # no board mark yet → the 15-min target is the live price
         _kalshi_cache.update(at=now, rows=rows_)
-    return {'coins': _kalshi_cache['rows'], 'at': round(_kalshi_cache['at']), 'venue': 'Kalshi (CFTC-regulated)'}
+    import kalshi_trade as _kt
+    return {'coins': _kalshi_cache['rows'], 'at': round(_kalshi_cache['at']), 'venue': 'Kalshi (CFTC-regulated)', 'tradable': bool(_kt.key(os.environ)), 'min': _kt.MIN_USD, 'max': _kt.MAX_USD}
+
+
+# ⏱ KALSHI TRADES FROM THE WALLET (kalshi_trade.py — DFlow's tokenized Kalshi markets; Proof KYC; the wallet signs; FEELESS sends only what it built)
+_kproof: dict = {}       # wallet → True (verified is cached; "not verified" never is)
+_kmeta: dict = {}        # ticker / mint → (at, market | None) — 60 s (10 min for a mint that is not a Kalshi outcome token)
+
+
+def _kt_need():
+    import kalshi_trade as _kt
+    if not _kt.key(os.environ):
+        raise HTTPException(503, "Kalshi trading opens when DFlow's production key lands (DFLOW_API_KEY) — the odds stay live meanwhile.")
+    return _kt
+
+
+async def _kt_proof(addr):
+    import kalshi_trade as _kt
+    if _kproof.get(addr):
+        return True
+    try:
+        r_ = await _fmk_http_get().get(f'{_kt.PROOF}/{addr}', timeout=8)
+        ok_ = bool(r_.status_code == 200 and (r_.json() or {}).get('verified'))
+    except Exception:
+        ok_ = False
+    if ok_:
+        _kproof[addr] = True
+    return ok_
+
+
+def _fmk_http_get():
+    global _fmk_http
+    if _fmk_http is None:
+        _fmk_http = httpx.AsyncClient(timeout=8, limits=httpx.Limits(max_connections=8))
+    return _fmk_http
+
+
+async def _kt_market(path_, cache_key, ttl=60, miss_ttl=60):
+    import kalshi_trade as _kt
+    hit_ = _kmeta.get(cache_key)
+    if hit_ and time.time() - hit_[0] < (ttl if hit_[1] else miss_ttl):
+        return hit_[1]
+    try:
+        r_ = await _fmk_http_get().get(f'{_kt.META}/{path_}', headers=_kt.headers(os.environ), timeout=8)
+        m_ = r_.json() if r_.status_code == 200 else None
+        if r_.status_code not in (200, 404):
+            return hit_[1] if hit_ else None   # DFlow blinked: the last good read, never a guess
+    except Exception:
+        return hit_[1] if hit_ else None
+    _kmeta[cache_key] = (time.time(), m_ if isinstance(m_, dict) else None)
+    if len(_kmeta) > 3000:
+        _kmeta.clear()
+    return _kmeta[cache_key][1]
+
+
+def _kt_addr(a):
+    a_ = str(a or '')
+    if not (32 <= len(a_) <= 44) or any(c_ not in '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz' for c_ in a_):
+        raise HTTPException(400, 'Not a Solana wallet.')
+    return a_
+
+
+@app.get('/api/reputation/familia/kalshi/proof')
+async def familia_kalshi_proof(address: str = ''):
+    """🪪 Is this wallet Proof-verified (DFlow's free KYC)? Public check; FEELESS never sees identity data."""
+    return {'verified': await _kt_proof(_kt_addr(address))}
+
+
+@app.post('/api/reputation/familia/kalshi/order')
+async def familia_kalshi_order(request: Request):
+    """🎟 Build a Kalshi order the wallet signs: {address, coin, side: up | down, usd} buys this 15-minute window's YES (up) / NO (down);
+    {address, act: 'redeem', mint, amount} cashes settled winners. DFlow builds it; FEELESS checks it is exactly the ticket and safe."""
+    kt_ = _kt_need()
+    b_ = await request.json()
+    addr_ = _kt_addr((b_ or {}).get('address'))
+    if (b_ or {}).get('act') == 'redeem':
+        mint_, amt_ = str(b_.get('mint') or ''), int(_fuse._f(b_.get('amount')))
+        m_ = await _kt_market(f'market/by-mint/{mint_}', f'mint:{mint_}', ttl=30, miss_ttl=600)
+        ok_, why_ = kt_.redeemable(m_, mint_)
+        if not ok_ or amt_ <= 0:
+            raise HTTPException(400, why_ or 'Nothing to redeem.')
+        in_, out_, amount_ = mint_, kt_.USDC, amt_
+        meta_ = {'act': 'redeem', 'ticker': m_.get('ticker')}
+    else:
+        coin_, side_, usd_ = str(b_.get('coin') or '').upper(), str(b_.get('side') or ''), _fuse._f(b_.get('usd'))
+        ok_, why_ = kt_.ticket(coin_, side_, usd_)
+        if not ok_:
+            raise HTTPException(400, why_)
+        if not await _kt_proof(addr_):
+            raise HTTPException(403, 'PROOF: verify this wallet with DFlow Proof first (free, one time) — Kalshi is a regulated market.')
+        live_ = ((await familia_kalshi())['coins'].get(coin_) or {}).get('m15') or {}
+        if not live_.get('ticker'):
+            raise HTTPException(409, f'No live 15-minute {coin_} market right now — the next window opens in a moment.')
+        m_ = await _kt_market(f"market/{live_['ticker']}", f"t:{live_['ticker']}", ttl=60, miss_ttl=30)
+        yes_, no_ = kt_.side_mints(m_)
+        if not m_ or m_.get('status') not in ('active', 'open') or not (yes_ and no_):
+            raise HTTPException(409, 'This window is not tradable on Solana yet — try the next one.')
+        in_, out_, amount_ = kt_.USDC, yes_ if side_ == 'up' else no_, int(round(usd_ * 1e6))
+        meta_ = {'act': 'buy', 'coin': coin_, 'side': side_, 'usd': usd_, 'ticker': live_['ticker'], 'target': live_.get('target'), 'closes': live_.get('closes'),
+                 'ask': live_.get('yes') if side_ == 'up' else live_.get('no')}
+    try:
+        r_ = await _fmk_http_get().get(f'{kt_.TRADE}/order', params=kt_.order_params(in_, out_, amount_, addr_), headers=kt_.headers(os.environ), timeout=12)
+        o_ = r_.json() if r_.status_code == 200 else None
+    except Exception:
+        o_ = None
+    if not o_:
+        raise HTTPException(502, 'DFlow did not build the order — try again.')
+    ok_, why_ = kt_.matches(o_, in_, out_, amount_)
+    if not ok_:
+        raise HTTPException(502, why_)
+    ok_, why_, fp_ = kt_.verify(o_['transaction'], addr_)
+    if not ok_:
+        raise HTTPException(502, f'Refused by FEELESS safety check: {why_}')
+    kt_.remember(fp_, addr_)
+    return {**meta_, 'transaction': o_['transaction'], 'outAmount': o_.get('outAmount'), 'executionMode': o_.get('executionMode'),
+            'lastValidBlockHeight': o_.get('lastValidBlockHeight'), 'safety': {'verified': True, 'fingerprint': fp_}}
+
+
+@app.post('/api/reputation/familia/kalshi/send')
+async def familia_kalshi_send(request: Request):
+    """✍ A wallet-signed Kalshi order → checked again (signed, a fingerprint FEELESS built, once) → broadcast through the RPC relay."""
+    kt_ = _kt_need()
+    signed_ = str(((await request.json()) or {}).get('signed') or '')
+    try:
+        from solders.transaction import VersionedTransaction
+        payer_ = str(VersionedTransaction.from_bytes(base64.b64decode(signed_, validate=True)).message.account_keys[0])
+    except Exception:
+        raise HTTPException(400, 'Not a transaction.')
+    ok_, why_, fp_ = kt_.verify(signed_, payer_, signed=True)
+    if not ok_:
+        raise HTTPException(400, f'Refused: {why_}')
+    if not kt_.take(fp_, payer_):
+        raise HTTPException(409, 'This order was not built by FEELESS, expired, or was already sent — get a fresh one.')
+    try:
+        r_ = await _fmk_http_get().post('http://127.0.0.1:5077/api/reputation/rpc', json={'jsonrpc': '2.0', 'id': 1, 'method': 'sendTransaction',
+                                        'params': [signed_, {'encoding': 'base64', 'skipPreflight': False, 'preflightCommitment': 'confirmed', 'maxRetries': 3}]}, timeout=25)
+        out_ = r_.json()
+    except Exception:
+        kt_.remember(fp_, payer_)   # the same signed bytes may go again (same signature — never a second order)
+        raise HTTPException(503, 'Solana did not answer — try again.')
+    if out_.get('error') or not out_.get('result'):
+        kt_.remember(fp_, payer_)
+        raise HTTPException(400, f"Solana refused it: {str((out_.get('error') or {}).get('message') or 'no signature')[:200]}")
+    return {'signature': out_['result']}
+
+
+@app.get('/api/reputation/familia/kalshi/status')
+async def familia_kalshi_status(signature: str = '', lastValidBlockHeight: int = 0):
+    """⏳ DFlow's fill status for a sent order (pending · open · closed = filled · failed · expired)."""
+    kt_ = _kt_need()
+    try:
+        r_ = await _fmk_http_get().get(f'{kt_.TRADE}/order-status', params={'signature': signature, 'lastValidBlockHeight': lastValidBlockHeight},
+                                       headers=kt_.headers(os.environ), timeout=10)
+        d_ = r_.json() if r_.status_code == 200 else {}
+    except Exception:
+        d_ = {}
+    return {'status': d_.get('status') or 'pending', 'outAmount': d_.get('outAmount'), 'reverts': d_.get('reverts')}
+
+
+@app.get('/api/reputation/familia/kalshi/positions')
+async def familia_kalshi_positions(address: str = ''):
+    """🎫 The wallet's Kalshi outcome tokens (UP / DOWN contracts), each with its market, settled / won and redeemable — read on-chain."""
+    kt_ = _kt_need()
+    addr_ = _kt_addr(address)
+    async with httpx.AsyncClient(timeout=12) as http_:
+        accs_ = await _sol_token_accounts(http_, addr_)
+    held_ = [a_ for a_ in accs_ if a_['raw'] > 0 and a_['mint'] != kt_.USDC][:40]
+    mk_ = await asyncio.gather(*[_kt_market(f"market/by-mint/{a_['mint']}", f"mint:{a_['mint']}", ttl=30, miss_ttl=600) for a_ in held_])
+    rows_ = [kt_.position(m_, a_['mint'], a_['raw'], a_['decimals']) for a_, m_ in zip(held_, mk_) if m_]
+    return {'positions': [r_ for r_ in rows_ if r_]}
 
 
 PAPER_PERPS_PATH = DATA_DIR / 'paper_perps.json'   # 📉 one paper book per wallet (paper_perps.py) — never money, never an order
@@ -10289,6 +10458,9 @@ async def _jp_call(method, path, **kw):
         return r_.status_code, {}
 
 
+_fjp_stats: dict = {}   # 📊 Jupiter Perps market-stats per market, 10 s
+
+
 @app.get('/api/reputation/familia/perps-real')
 async def familia_perps_real(address: str = ''):
     """📉 REAL PERPS (Jupiter Perps): each market's live pool (open fee, borrow rate per hour, room left long / short) + the wallet's
@@ -10307,7 +10479,13 @@ async def familia_perps_real(address: str = ''):
     if 32 <= len(address or '') <= 44:
         c_, b_ = await _jp_call('GET', 'positions', params={'walletAddress': address})
         pos_ = _jp.positions(b_) if c_ == 200 else []
-    return {'pools': _fjp_pool.get('rows') or {}, 'positions': pos_, 'min': _jp.MIN_USD, 'max': _jp.MAX_USD, 'maxLev': _jp.MAX_LEV}
+    if time.time() - _fjp_stats.get('at', 0) > 10:   # 📊 Jupiter's own mark + 24 h range / volume per market (its oracle — what the trade fills at)
+        got_ = await asyncio.gather(*[_jp_call('GET', 'market-stats', params={'mint': m_}) for m_ in _jp.MARKETS.values()])
+        st_ = {a_: {'price': _jp._f(b_.get('price')), 'ch24': _jp._f(b_.get('priceChange24H')), 'hi24': _jp._f(b_.get('priceHigh24H')),
+                    'lo24': _jp._f(b_.get('priceLow24H')), 'vol24': _jp._f(b_.get('volume'))} for a_, (c_, b_) in zip(_jp.MARKETS, got_) if c_ == 200 and isinstance(b_, dict)}
+        if st_:
+            _fjp_stats.update(at=time.time(), rows=st_)
+    return {'pools': _fjp_pool.get('rows') or {}, 'stats': _fjp_stats.get('rows') or {}, 'positions': pos_, 'min': _jp.MIN_USD, 'max': _jp.MAX_USD, 'maxLev': _jp.MAX_LEV}
 
 
 @app.post('/api/reputation/familia/perps-real')
@@ -10324,24 +10502,29 @@ async def familia_perps_real_build(request: Request):
     if len(_fjp_hits) > 5000:
         _fjp_hits.clear()
     act_ = str((body or {}).get('act') or 'open')
+    meth_, exec_ = 'POST', None
     try:
-        if act_ == 'close':
-            req_, what_, path_ = _jp.close_body(body), {'act': 'close'}, 'positions/decrease'
+        if act_.startswith('tpsl-'):
+            meth_, path_, req_, exec_ = _jp.tpsl_body(body)
+            what_ = {'act': act_}
+        elif act_ == 'close':
+            req_, what_, path_ = _jp.close_body(body), {'act': 'close', 'pct': _jp._f(body.get('pct')) or 100}, 'positions/decrease'
         else:
             req_, what_ = _jp.clean_open(body, await _sol_usd() if str((body or {}).get('input') or '').upper() == 'SOL' else None)
             path_ = 'positions/increase'
     except ValueError as e:
         raise HTTPException(400, str(e))
-    c_, b_ = await _jp_call('POST', path_, json=req_)
+    c_, b_ = await _jp_call(meth_, path_, json=req_)
     tx_ = (b_ or {}).get('serializedTxBase64') if c_ == 200 else None
     if not tx_:
         raise HTTPException(400 if c_ in (400, 422) else 502, f"Jupiter said no: {str((b_ or {}).get('message') or c_)[:160]}")
-    ok_, bad_ = _jp.verify(tx_, req_['walletAddress'])
+    ok_, bad_ = _jp.verify(tx_, str((body or {}).get('address') or ''))
     if not ok_:
         print('perps refused:', bad_)
         raise HTTPException(502, f'Refused before your wallet saw it: {bad_}')
-    return {'transaction': tx_, 'action': 'decrease-position' if act_ == 'close' else 'increase-position', 'quote': (b_ or {}).get('quote') or {},
-            'positionPubkey': (b_ or {}).get('positionPubkey'), **what_}
+    return {'transaction': tx_, 'action': exec_ or ('decrease-position' if act_ == 'close' else 'increase-position'), 'quote': (b_ or {}).get('quote') or {},
+            'positionPubkey': (b_ or {}).get('positionPubkey'), 'tpsl': [{'kind': r_.get('requestType'), 'pnl': _jp._usd(r_.get('estimatedPnlUsd')),
+            'pnlPct': _jp._f(r_.get('estimatedPnlPercent'))} for r_ in (b_ or {}).get('tpslRequests') or []], **what_}
 
 
 @app.post('/api/reputation/familia/perps-real/execute')
@@ -10350,8 +10533,8 @@ async def familia_perps_real_execute(request: Request):
     import jup_perps as _jp
     body = await request.json()
     act_, tx_, me_ = str((body or {}).get('action') or ''), str((body or {}).get('signed') or ''), str((body or {}).get('address') or '')
-    if act_ not in ('increase-position', 'decrease-position'):
-        raise HTTPException(400, 'Open or close only.')
+    if act_ not in ('increase-position', 'decrease-position', 'create-tpsl', 'update-tpsl', 'cancel-tpsl'):
+        raise HTTPException(400, 'Open, close or TP / SL only.')
     ok_, bad_ = _jp.verify(tx_, me_, signed=True)
     if not ok_:
         raise HTTPException(400, f'Refused: {bad_}')

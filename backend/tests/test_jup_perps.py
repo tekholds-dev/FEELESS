@@ -27,7 +27,7 @@ def test_open_bodies_follow_jupiters_rules_and_our_guards():
     me = str(ME.pubkey())
     b, w = jp.clean_open({'address': me, 'asset': 'sol', 'side': 'long', 'usd': 25, 'lev': 50}, None)
     assert b['collateralMint'] == jp.SOL and b['inputMint'] == jp.USDC and b['collateralTokenDelta'] == '25000000' and b['leverage'] == '50.0'
-    assert w == {'asset': 'SOL', 'side': 'long', 'usd': 25.0, 'lev': 50.0, 'input': 'USDC'}
+    assert w == {'asset': 'SOL', 'side': 'long', 'usd': 25.0, 'lev': 50.0, 'input': 'USDC', 'tp': None, 'sl': None} and 'tpsl' not in b
     b, _ = jp.clean_open({'address': me, 'asset': 'BTC', 'side': 'short', 'usd': 10, 'lev': 10, 'input': 'SOL'}, 100.0)
     assert b['collateralMint'] == jp.USDC and b['marketMint'] == jp.MARKETS['BTC'] and b['inputMint'] == jp.SOL and b['collateralTokenDelta'] == '100000000'
     for bad, why in (({'asset': 'DOGE', 'side': 'long', 'usd': 10, 'lev': 5}, 'Pick'), ({'asset': 'SOL', 'side': 'long', 'usd': 5, 'lev': 5}, 'minimum'),
@@ -90,3 +90,39 @@ def test_routes_build_verify_execute(monkeypatch):
     r = c.post('/api/reputation/familia/perps-real/execute', json={'address': str(me), 'action': 'increase-position', 'signed': signed})
     assert r.status_code == 200 and r.json()['txid'] == 'SIG' and seen[-1][2] == {'action': 'increase-position', 'serializedTxBase64': signed}
     assert c.post('/api/reputation/familia/perps-real/execute', json={'address': str(me), 'action': 'increase-position', 'signed': good}).status_code == 400   # unsigned
+
+
+ME_ = 'W' * 43
+
+
+def test_tp_sl_ride_the_open_on_the_right_side_of_the_live_mark():
+    b, w = jp.clean_open({'address': ME_, 'asset': 'SOL', 'side': 'long', 'usd': 10, 'lev': 10, 'tp': 110, 'sl': 98, 'mark': 102.7}, None)
+    assert b['tpsl'] == [{'requestType': 'tp', 'triggerPrice': '110000000', 'desiredMint': jp.USDC, 'entirePosition': True},
+                         {'requestType': 'sl', 'triggerPrice': '98000000', 'desiredMint': jp.USDC, 'entirePosition': True}]   # Jupiter's live shape
+    assert w['tp'] == 110 and w['sl'] == 98
+    b, _ = jp.clean_open({'address': ME_, 'asset': 'BTC', 'side': 'short', 'usd': 10, 'lev': 5, 'sl': 85000, 'mark': 80900}, None)
+    assert [x['requestType'] for x in b['tpsl']] == ['sl']
+    for bad in ({'tp': 100, 'mark': 102.7}, {'sl': 105, 'mark': 102.7}, {'tp': 110}):                    # TP under / SL over a long's price · no live price
+        with pytest.raises(ValueError):
+            jp.clean_open({'address': ME_, 'asset': 'SOL', 'side': 'long', 'usd': 10, 'lev': 10, **bad}, None)
+    with pytest.raises(ValueError):
+        jp.clean_open({'address': ME_, 'asset': 'SOL', 'side': 'short', 'usd': 10, 'lev': 10, 'tp': 110, 'mark': 102.7}, None)
+
+
+def test_partial_closes_and_tp_sl_on_a_live_position():
+    P = 'P' * 43
+    assert jp.close_body({'address': ME_, 'positionPubkey': P})['entirePosition'] is True
+    half = jp.close_body({'address': ME_, 'positionPubkey': P, 'pct': 50, 'size': 250})
+    assert half['entirePosition'] is False and half['sizeUsdDelta'] == '125000000'
+    for bad in ({'pct': 33, 'size': 100}, {'pct': 50}):
+        with pytest.raises(ValueError):
+            jp.close_body({'address': ME_, 'positionPubkey': P, **bad})
+    m, path, body, ex = jp.tpsl_body({'address': ME_, 'act': 'tpsl-add', 'positionPubkey': P, 'side': 'long', 'tp': 120, 'mark': 103})
+    assert (m, path, ex) == ('POST', 'tpsl', 'create-tpsl') and body['tpsl'][0]['triggerPrice'] == '120000000' and body['transactionType'] == 'instant'
+    assert jp.tpsl_body({'address': ME_, 'act': 'tpsl-edit', 'positionRequestPubkey': P, 'price': 99.5})[2]['triggerPrice'] == '99500000'
+    assert jp.tpsl_body({'address': ME_, 'act': 'tpsl-cancel', 'positionRequestPubkey': P})[:2] == ('DELETE', 'tpsl')
+    with pytest.raises(ValueError):
+        jp.tpsl_body({'address': ME_, 'act': 'tpsl-add', 'positionPubkey': P, 'side': 'long', 'mark': 103})
+    rows = jp.positions({'dataList': [{'positionPubkey': P, 'asset': 'SOL', 'side': 'long', 'leverage': '10', 'sizeUsd': '100000000', 'entryPriceUsd': '102000000',
+                                       'tpslRequests': [{'positionRequestPubkey': 'R1', 'requestType': 'tp', 'triggerPriceUsd': '110000000', 'entirePosition': True}]}]})
+    assert rows[0]['tpsl'] == [{'id': 'R1', 'kind': 'tp', 'price': 110.0, 'pct': None, 'all': True}] and rows[0]['size'] == 100.0

@@ -6159,3 +6159,13 @@ P6 — IDEAS: FeeCat + AI agent pair that talk · "build a better coin" track in
   /api/reputation/familia/kalshi (one shared read / 10 s, 6 series in parallel, limit 1000, last good read kept) + `KalshiOdds` in PerpsDash
   (odds split, target vs live, window countdown, $1 pays UP / DOWN, the ladder strike). Trading waits on DFlow's production key (metadata API
   403s without it; the dev host in old guides is gone). Tests: `test_kalshi_odds.py`, `PerpsDash.test.js`.
+- 2026-10-23 late night · Opus 5.5 — 📉 THE PERPS TERMINAL v3 + ⏱ KALSHI TRADE PATH (owner: "cards dead … no live TP / SL on the chart …
+  true chart data ALWAYS … all mechanics a real perps desk has"). Full doc: `docs/PERPS.md`. Chart = TRUE candles (Coinbase Exchange REST +
+  one shared trade websocket, `lib/cbFeed.js`; the live candle folds every print) with draggable TP / SL + ☠ / position lines (`perps/PerpsChart`).
+  Ticket (`perps/PerpTicket`): collateral input, leverage slider, TP / SL by price / % / drag with $ + ROE + R:R, Jupiter's P&L at each trigger.
+  Positions (`perps/PerpPositions`): live P&L on the true price, TP / SL move / cancel / add, close 25–100 %. Backend: `jup_perps` tpsl on the
+  open (Jupiter's LIVE shape: desiredMint + triggerPrice — the published spec shape is rejected), `close_body` partial, `tpsl_body`,
+  market-stats (Jupiter oracle + 24 h). Kalshi via DFlow: `kalshi_trade.py` (fail-closed verify — DFlow prediction program `pReDicT…` read
+  on-chain, user-only signer; fingerprint sent once; Proof KYC; redeem) + 5 endpoints, 503 until `DFLOW_API_KEY`; `KalshiDesk`. RealPerps +
+  realPerps.css deleted. US venue truth: Hyperliquid / gTrade / Drift bar US persons. Tests: test_jup_perps, test_kalshi_trade, perps.test,
+  cbFeed.test, PerpsDash.test, PerpTicket.test. Screens: /dev/perps 1440 / 360 / day; TP drag verified (TP $104.64 → $105.47 · +$7.03).
