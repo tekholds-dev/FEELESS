@@ -17598,13 +17598,24 @@ def _g4_brake(now):
 
 
 
+G4_SPIKE_GERM = 5.0   # 🚀 a model may take a 5-min spike only this close (%) to its germ floor — the agents' 15% germ line let $mil (+23.9% in 5 min, 12% over its floor) through
+
+
 def _g4_bad_entry(c):
     """🔫 The entry the models may NOT take (owner, 2026-10-17: "not entering or even suggesting at the gun line"): pressed under its gun
-    line, a breakout chase, after a spike, or the chart's own call is SKIP. → reason or None. Checked when the list is built AND again at the fill."""
+    line, a breakout chase, after a spike, or the chart's own call is SKIP. → reason or None. Checked when the list is built AND again at the fill.
+    2026-10-23 audit of 179 closed model trades: PARABOLIC / "E2 no chasing" entries 10 trades, 1 won, −9.9% avg; a spike bought 5–10% over
+    its germ floor 12 trades, −10.7% avg (within 5%: 8 trades, +1.8%) — both refused here, like COMPRESSION."""
     try:
-        st_c = str(((_office.get('charts') or {}).get(c.get('mint')) or {}).get('state') or c.get('structure') or '').upper()
+        ch_ = c.get('chart') if isinstance(c.get('chart'), dict) else {}
+        st_c = str(((_office.get('charts') or {}).get(c.get('mint')) or {}).get('state') or ch_.get('state') or c.get('structure') or '').upper()
+        rule_ = str(((ch_.get('entry') or [None, None]) + [None])[1] or '')
+        d5_, gd_ = (c.get('nums') or {}).get('d5'), _opp.germ_d(ch_)[0]
         return (_opp.gun_wall(c) or _opp.gun_chase(c) or _opp.spike_chase(c) or ('chart says SKIP' if str(c.get('chartCall') or '').upper().startswith('SKIP') else None)
-                or ("COMPRESSION — the models' own record there: 46 real trades, 9 won" if st_c == 'COMPRESSION' else None))
+                or ("COMPRESSION — the models' own record there: 46 real trades, 9 won" if st_c == 'COMPRESSION' else None)
+                or ("PARABOLIC — no chasing vertical candles (the models' own record: 10 real trades, 1 won, −9.9% avg)" if st_c == 'PARABOLIC' or rule_.startswith('E2') else None)
+                or (f"🚀 {_fuse._f(d5_):+.0f}% in 5 min and {gd_:.0f}% over its germ floor — a model waits until it's within {G4_SPIKE_GERM:.0f}%"
+                    if d5_ is not None and _fuse._f(d5_) >= _opp.SPIKE_5M and gd_ is not None and gd_ > G4_SPIKE_GERM else None))
     except Exception:
         return None
 

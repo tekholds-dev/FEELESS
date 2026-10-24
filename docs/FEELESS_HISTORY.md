@@ -6133,3 +6133,11 @@ P6 — IDEAS: FeeCat + AI agent pair that talk · "build a better coin" track in
   candidate #1" and ranks reshuffle every 18 s pass → the chart swapped (remounted) onto a new coin nearly every poll. `focusMint(d, pick, tapped, prev)`
   keeps the coin it showed while it's still on the desk (a READY coin still takes over a tracked one). Dev: `/dev/hq?snap` = the LIVE desk (copy
   `backend/data/agents_view.json` → `frontend/public/dev-agents.json`, gitignored). Tests: `test_intake.py`, `cockpit.test.js`.
+- 2026-10-23 late night · Opus 5.5 — 🧠 MODELS AUDIT (owner: "assure models trading good or figure why"). Edge audit first: GATE HOLD, 0 / 787 rules
+  positive on unseen coins after a 3% round trip. 179 closed OSSY / G4 trades: 23 % win, −2.0 % avg, Σ −358 % (G4 78 trades Σ −341 %, OSSY 101 Σ −16 %).
+  The leak is ENTRIES: 78 trades never peaked over +2 % (Σ −620 %); trades that reached +10 % made Σ +511 %; sold < 5 min = 0 % win (the stops firing
+  on those bad entries); 18 exits slipped past −15 % (avg −23 %). $mil (+23.9 % in 5 min, 12 % over its germ) passed `spike_chase` because the
+  15 % germ line counts it as "back at the germ". `_g4_bad_entry` now also refuses PARABOLIC / "E2 no chasing" (10 trades, 1 won, −9.9 %) and a
+  spike more than `G4_SPIKE_GERM` = 5 % over its germ floor (5–10 %: 12 trades −10.7 %; ≤ 5 %: +1.8 %) — it also guards the agent doors
+  (`_agent_entry_ok`). Live desk: 2 of 18 coins refused. Not fixed: stop slippage on curve coins; G4 often "did not answer" (LM Studio on the desktop).
+  `test_g4_gun_line.py`.

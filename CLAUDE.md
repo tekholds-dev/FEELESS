@@ -221,6 +221,8 @@ P0 — OWNER 2026-10-23 (late night) · finished today → `docs/FEELESS_HISTORY
 P1 — AGENTS + AI
 1. 🏆 NEXA auto-trading real money (no per-trade signature) only after a SAME-COIN shadow ledger shows her beating the rules after a 3% round trip.
    ⚔ The duel meter on her desk (`CatBrainSwitch.duel`, YES-right vs closed-trade wins) is the first cut. 2026-10-23: NEXA 43% · −1.55% typical; edge-audit GATE HOLD.
+   OSSY / G4 audit 2026-10-23: 179 closed trades 23 % win, Σ −358 % — bad entries are the leak (grep history "MODELS AUDIT"); PARABOLIC + far-from-germ
+   spikes now refused. NEXT: re-run the audit after ~50 new model trades; G4 "did not answer" often (desktop LM Studio) — check its uptime.
 2a. 🧠 Learning / accept loops of the cats on par with NEXA's desk (owner ask 2026-10-23, not started: audit `feecat_brain` learn + `_learn` vs nexa.py grading).
 2. 🧠 G4: the Models tab beside NEXA's chat (layout) · wire the trench theory into the deterministic agents only after a shadow test.
 3. 🔥 More Pump coins on the intake (revived 2026-10-23 late night: 24 unique mints/min, 66 rows/pass) — next: watch the 0–15 m fresh bucket fill.
