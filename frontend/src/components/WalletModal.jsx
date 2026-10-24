@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Wallet, ArrowUpRight, ShieldCheck, LogOut, ChevronDown, Download } from 'lucide-react';
+import { Wallet, ArrowUpRight, ShieldCheck, LogOut, ChevronDown, Download, Smartphone, QrCode } from 'lucide-react';
 import { Dialog, DialogContent, DialogTitle, DialogDescription } from './ui/dialog';
 import { useWallet, EVM_CHAINS, networkLabel, signWith, detectWallets } from '../hooks/useWallet';
 import { WalletIcon } from './WalletIcon';
@@ -21,6 +21,13 @@ const MORE = [
 ];
 const WalletMark = ({ w, size }) => (w.icon && /^data:image\/(svg\+xml|png|webp)|^https:\/\//.test(w.icon) ? <img className="wallet-icon" src={w.icon} alt="" width={size} height={size} /> : <WalletIcon brand={w.iconBrand || w.brand} size={size} />);
 
+const isMobileBrowser = () => typeof navigator !== 'undefined' && /Android|iPhone|iPad|iPod/i.test(navigator.userAgent || '');
+const phantomBrowseUrl = () => {
+  if (typeof window === 'undefined') return 'https://phantom.app/';
+  const page = window.location.href;
+  return `https://phantom.app/ul/browse/${encodeURIComponent(page)}?ref=${encodeURIComponent(window.location.origin)}`;
+};
+
 function WalletChooser({ busy, onPick }) {
   const found = detectWallets();
   const installed = brand => brand === 'metamask'
@@ -28,18 +35,34 @@ function WalletChooser({ busy, onPick }) {
     : found.find(w => w.brand === brand);
   const listed = new Set([...FEATURED, ...MORE].map(w => installed(w.brand)).filter(Boolean));
   const [more, setMore] = useState(() => MORE.some(w => installed(w.brand)) && !FEATURED.some(w => installed(w.brand)));
+  const [phantomMenu, setPhantomMenu] = useState(false);
+  const [phantomQr, setPhantomQr] = useState(false);
+  const mobile = isMobileBrowser();
   const pickBrand = w => (w.brand === 'metamask' ? installed('metamask')?.brand || null : w.brand);
+  const phantomUrl = phantomBrowseUrl();
+  const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=220x220&margin=12&data=${encodeURIComponent(phantomUrl)}`;
+  const phantomMobile = w => mobile && w.brand === 'phantom' && !installed('phantom');
   const row = (w, featured) => {
     const hit = installed(w.brand);
     const types = hit ? hit.types : [];
     const primary = types.includes('solana') ? 'solana' : types[0];
     const testId = w.brand === 'phantom' ? 'wallet-connect-phantom' : w.brand === 'metamask' ? 'wallet-connect-evm' : `wallet-connect-${w.brand}`;
+    const mobilePhantom = phantomMobile(w);
     return <div key={w.brand} className={`wallet-choice ${featured ? 'is-featured' : ''} ${hit ? 'is-installed' : ''}`}>
       {hit
         ? <button type="button" className="wallet-choice-main" data-testid={testId} disabled={busy} onClick={() => onPick(primary, pickBrand(w))}>
             <WalletMark w={{ ...w, icon: hit.icon }} size={featured ? 40 : 30} /><span><b>{w.label}</b><small>{featured ? w.tag : primary === 'solana' ? 'Solana' : 'Ethereum & EVM'}</small></span>
             <em className="wallet-choice-state">Detected</em><ArrowUpRight size={16} /></button>
-        : <a className="wallet-choice-main" href={w.url} target="_blank" rel="noopener noreferrer" data-testid={`wallet-install-${w.brand}`}>
+        : mobilePhantom
+          ? <><button type="button" className="wallet-choice-main" data-testid="wallet-mobile-phantom" onClick={() => { setPhantomMenu(v => !v); setPhantomQr(false); }}>
+              <WalletIcon brand="phantom" size={40} /><span><b>Phantom</b><small>Connect on mobile</small></span>
+              <em className="wallet-choice-state is-get" style={{ color: '#ab9ff2' }}>Choose</em><ChevronDown size={16} style={{ transform: phantomMenu ? 'rotate(180deg)' : 'none' }} /></button>
+            {phantomMenu && <div data-testid="wallet-mobile-phantom-menu" style={{ margin: '8px 10px 12px', padding: 10, border: '1px solid rgba(171,159,242,.28)', borderRadius: 16, background: 'linear-gradient(145deg, rgba(171,159,242,.11), rgba(20,241,149,.045))', boxShadow: '0 14px 34px rgba(0,0,0,.24)' }}>
+              <a href={phantomUrl} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '12px 13px', borderRadius: 12, textDecoration: 'none', color: 'inherit', background: 'rgba(171,159,242,.12)', border: '1px solid rgba(171,159,242,.2)' }} data-testid="wallet-open-phantom"><Smartphone size={19} /><span style={{ flex: 1 }}><b style={{ display: 'block' }}>Open FEELESS in Phantom</b><small style={{ opacity: .65 }}>Fastest way on this iPhone</small></span><ArrowUpRight size={16} /></a>
+              <button type="button" onClick={() => setPhantomQr(v => !v)} style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 10, marginTop: 8, padding: '12px 13px', borderRadius: 12, color: 'inherit', background: 'rgba(255,255,255,.035)', border: '1px solid rgba(255,255,255,.09)', textAlign: 'left' }} data-testid="wallet-phantom-qr"><QrCode size={19} /><span style={{ flex: 1 }}><b style={{ display: 'block' }}>Scan QR</b><small style={{ opacity: .65 }}>Use Phantom on another phone</small></span><ChevronDown size={16} style={{ transform: phantomQr ? 'rotate(180deg)' : 'none' }} /></button>
+              {phantomQr && <div style={{ marginTop: 10, padding: 14, borderRadius: 14, textAlign: 'center', background: 'rgba(0,0,0,.22)' }} data-testid="wallet-phantom-qr-code"><img src={qrUrl} width="190" height="190" alt="Open FEELESS in Phantom QR code" style={{ display: 'block', maxWidth: '100%', height: 'auto', margin: '0 auto', padding: 7, borderRadius: 12, background: '#fff' }} /><small style={{ display: 'block', marginTop: 9, opacity: .68, lineHeight: 1.35 }}>Scan with your other phone to open this FEELESS page directly in Phantom.</small></div>}
+            </div>}</>
+          : <a className="wallet-choice-main" href={w.url} target="_blank" rel="noopener noreferrer" data-testid={`wallet-install-${w.brand}`}>
             <WalletIcon brand={w.brand} size={featured ? 40 : 30} /><span><b>{w.label}</b><small>{featured ? w.tag : 'Not installed'}</small></span>
             <em className="wallet-choice-state is-get"><Download size={12} />Install</em></a>}
       {hit && types.length > 1 && <button type="button" className="wallet-choice-alt" disabled={busy} onClick={() => onPick('evm', pickBrand(w))} data-testid={`wallet-connect-${w.brand}-evm`}>EVM</button>}
