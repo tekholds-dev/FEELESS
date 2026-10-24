@@ -40,11 +40,13 @@ the pre-push hook runs the full gate ~8 min — run no tests beside it). Restart
   (`FamilyBlock3D.BlockCard`), Fee City market / pool panels, the Pool Hub, FeeCat's combo.
 - 🏙 Family block: `FamilyBlock3D` controls (☀ / 🌙 shared key `feeless.city.mode`, ⤢, 360°, ⌂) + `pop` over the stage; `errandGo` never links out.
 - 💬 `StreetChat.jsx`: `BestStrip` (`bestCall`, `pumpHot`), starters, reconnecting line. 🐱 `catForge.css` (scope `.cfv`) + violet `createCat.css`
-  + `StepRail`. 🚀 `launchFlow.css` + `STYLE_ART`, supply meter, `ReadyRing`. 📉 perps: `PerpsDash` (the room) → `RealPerps` (Jupiter ticket) + `PaperPerps` (🧪 practice).
+  + `StepRail`. 🚀 `launchFlow.css` + `STYLE_ART`, supply meter, `ReadyRing`. 📉 perps: `PerpsDash` (the room) → `perps/PerpsChart` · `PerpTicket` · `PerpPositions` · `KalshiDesk` + `PaperPerps` (🧪) — all in `docs/PERPS.md`.
 - ⚖ `docs/COUNSEL_BRIEF.md` + DECISIONS #6.
 
 ### Gate + restart rules learned the hard way
 - jest `--maxWorkers=4`; NEVER run tests while a gate runs; harden timing tests (poll, never a tight wall clock) — read the stack first.
+- Chart libraries (`lightweight-charts`) load LAZILY from anything the city renders — jest can't parse their ESM; a static import turned 9
+  Familia suites red on 2026-10-23 ("Test suite failed to run" with 0 failed tests = an import, not a test).
 - A test's fixture clock must be the real clock when the component reads `Date.now()` (a fixed future epoch silently expires later).
 - Restart backend: no `pending` in fuse_wallet.db books → start the watcher FROM CLAUDE (`/usr/bin/python3 -c 'import os; os.setsid();
   os.execvp("bash", ["bash","scripts/background.sh","start"])'`, sandbox off) → kill the PID, let the watcher relaunch it → 1 copy + LAN ONLINE.

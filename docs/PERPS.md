@@ -70,7 +70,18 @@ send only a fingerprint FEELESS built, once · redeem only settled winners with 
 `backend/tests/test_jup_perps.py` · `test_kalshi_odds.py` · `test_kalshi_trade.py` · `frontend/src/lib/perps.test.js` · `lib/cbFeed.test.js` ·
 `components/PerpsDash.test.js` · `components/perps/PerpTicket.test.jsx` · `components/CityAvenue.test.jsx`.
 
-## 7 · Open (owner actions first)
+## 7 · Your first real trade (the owner's test, ~2 min)
+1. Fee City → 📉 Perps → **Walk in** (or the Avenue directory). Connect Phantom (Solana) with ≥ $11 USDC + a little SOL for fees.
+2. Pick **SOL**, **▲ LONG**, **$10** (Jupiter's floor), **10×**. Tap **+5%** under TAKE PROFIT and **−2%** under STOP LOSS (or drag the lines on
+   the chart). The ticket shows the $ + ROE at each and the R : R.
+3. **REVIEW** → Jupiter's quote appears (entry, ☠, fee, Jupiter's P&L at each trigger). It must match the ticket or nothing is signed.
+4. **⚡ SIGN + OPEN** → Phantom asks once → Jupiter's keeper lands it (a few seconds). POSITIONS shows it with live P&L, its TP / SL chips,
+   and its entry / ☠ / TP / SL lines on the chart.
+5. Try **50%** (partial close) and moving the TP chip → each is one more Phantom signature. **CLOSE** = all of it, USDC back to the wallet.
+Verified 2026-10-23 through FEELESS's backend (build only, nothing signed): $10 SOL long 10× + TP +5 % / SL −3 % → entry $102.47, ☠ $92.50,
+fee $0.06, Jupiter's P&L at TP +$4.95 / SL −$2.97; a long's TP under the price is refused.
+
+## 8 · Open (owner actions first)
 1. 🔑 **DFlow production key** (requested 2026-10-23 via pond.dflow.net/get-started/api-key; 2–5 days) → `backend/.env` `DFLOW_API_KEY=` →
    restart reputation_service → Kalshi trading turns on (`tradable: true`). Then: first real $1 UP order end to end; confirm the metadata paths
    (`/market/{ticker}`, `/market/by-mint/{mint}`) on the prod host. *PayBox (MoonPay, api.paybox.sh) is NOT the DFlow key — it gives an AI
