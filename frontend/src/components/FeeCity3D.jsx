@@ -23,7 +23,7 @@ const still = () => typeof window !== 'undefined' && (window.matchMedia?.('(pref
 const MODE_KEY = 'feeless.city.mode';
 const startMode = () => { try { const m = localStorage.getItem(MODE_KEY); if (m === 'day' || m === 'night') return m; } catch { /* storage blocked */ } return typeof document !== 'undefined' && document.body.classList.contains('theme-day') ? 'day' : 'night'; };
 export const PLACE_ICON = { hq: Crown, warroom: Swords, podium: Trophy, wire: Radio, pools: Waves, ranked: Medal, raids: Siren, rewards: Gem, jobs: ClipboardList, gym: Dumbbell, cards: Spade, cartels: Warehouse,
-  pumpradar: Radar, runners: Activity, watch: Eye, court: Scale, feecat: Cat, fuel: Fuel, news: Newspaper, feebank: Landmark, trades: TrendingUp, perps: CandlestickChart, tt: Building, sleep: Moon };
+  pumpradar: Radar, runners: Activity, watch: Eye, court: Scale, feecat: Cat, fuel: Fuel, news: Newspaper, feebank: Landmark, brokers: Landmark, trades: TrendingUp, perps: CandlestickChart, tt: Building, sleep: Moon };
 
 // 🏦 the live Solana markets + today's top coins (one shared read a minute, every viewer)
 export function useMarkets() {
@@ -84,7 +84,7 @@ export function PlacesMenu({ onGo }) {
 // 🧭 the CITY DIRECTORY (owner, 2026-10-23: "the majority of the directory doesn't help users get straight into rapid compound and growth"):
 // it LEADS with the money — ⚡ START COMPOUNDING (the best in-place yields, live) and the buildings that grow it — then the family, then the tools.
 // Every place is still one tap away; the crest forge has its own door.
-export const DIR_GROUPS = [['💸 GROW YOUR MONEY', ['sleep', 'pools', 'mymoney', 'trades', 'feebank', 'perps', 'tt', 'pumpradar', 'runners']],
+export const DIR_GROUPS = [['💸 GROW YOUR MONEY', ['sleep', 'pools', 'mymoney', 'brokers', 'trades', 'feebank', 'perps', 'tt', 'pumpradar', 'runners']],
   ['🌹 THE FAMILY', ['hq', 'warroom', 'raids', 'cartels', 'podium', 'ranked', 'rewards', 'wire', 'jobs', 'gym', 'cards']], ['🛠 TOOLS', ['court', 'watch', 'feecat', 'fuel', 'news']]];
 // pure: the live line a money place wears in the directory (the Pool Hub's best numbers)
 export function dirLive(key, pools) {
