@@ -68,7 +68,9 @@ test('WalletConnect sessions populate the existing wallet context and disconnect
   localStorage.clear();
 });
 
-test('restored WalletConnect sessions do not call the provider event API that crashes mobile Safari', async () => {
+test('restored WalletConnect sessions work without environment configuration and skip the crashing provider event API', async () => {
+  const previousProjectId = process.env.REACT_APP_REOWN_PROJECT_ID;
+  delete process.env.REACT_APP_REOWN_PROJECT_ID;
   localStorage.setItem('feeless:last-wallet', JSON.stringify({ type: 'solana', brand: 'walletconnect' }));
   const provider = {
     request: jest.fn().mockResolvedValue('0x1'),
@@ -100,4 +102,6 @@ test('restored WalletConnect sessions do not call the provider event API that cr
   document.body.removeChild(host);
   delete window.__capturedWalletContext;
   localStorage.clear();
+  if (previousProjectId === undefined) delete process.env.REACT_APP_REOWN_PROJECT_ID;
+  else process.env.REACT_APP_REOWN_PROJECT_ID = previousProjectId;
 });

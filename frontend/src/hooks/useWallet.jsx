@@ -191,7 +191,7 @@ export const WalletProvider = ({ children }) => {
     let last = null;
     try { last = JSON.parse(localStorage.getItem('feeless:last-wallet') || 'null'); } catch { /* ignore */ }
     const type = wallet?.connection === 'walletconnect' ? wallet.chain : last?.brand === 'walletconnect' ? last.type : null;
-    if (!['solana', 'evm'].includes(type) || !process.env.REACT_APP_REOWN_PROJECT_ID) return undefined;
+    if (!['solana', 'evm'].includes(type)) return undefined;
     let alive = true;
     let unsubscribe;
     import('../lib/reownWalletConnect')

@@ -17,7 +17,7 @@ import {
   zora,
 } from '@reown/appkit/networks';
 
-const projectId = process.env.REACT_APP_REOWN_PROJECT_ID;
+const projectId = process.env.REACT_APP_REOWN_PROJECT_ID || "50f487511daa54a44d297dbe7a4376ce";
 const namespaceFor = type => (type === 'solana' ? 'solana' : 'eip155');
 const networks = [mainnet, base, bsc, arbitrum, avalanche, polygon, optimism, zksync, zora, cronos, unichain, worldchain, solana];
 const appKit = projectId && typeof window !== 'undefined'
