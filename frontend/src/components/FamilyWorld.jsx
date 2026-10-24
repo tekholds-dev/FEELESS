@@ -2,8 +2,8 @@ import React, { Suspense, lazy, useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import { apiUrl } from '../lib/api';
 import { FeeCity3D, PlacesMenu, useMarkets } from './FeeCity3D';
-import { PoolHub, PoolRow, usePools } from './PoolHub';
-import { PLACES, HALLS, usd, roomsOf } from '../lib/cityPlan';
+import { PoolHub, usePools } from './PoolHub';
+import { PLACES, HALLS, usd, roomsOf, POOL_KIND } from '../lib/cityPlan';
 import { familiaTrade } from './FamiliaTrade';
 import { FamilyHQ } from './FamilyHQ';
 import { CityRail, RankBadge, RankLadder } from './FamiliaHud';
@@ -18,6 +18,7 @@ import { useAdmin } from '../lib/adminCall';
 import '../styles/familyWorld.css';
 import { FamEmpty } from './FamEmpty';
 import { MoneyDesk, JOB_OF, openDesk } from './MoneyDesk';
+import { useGlide } from '../lib/useGlide';
 import { familiaRoom, ROOM_PATH } from '../lib/familiaRoom';
 
 // 🗺 THE FAMILIA WORLD (owner, 2026-10-21: "huge like a Sims build — bridges to other parts, seasons, buy blocks near rivals, CPU towns hard to
@@ -101,13 +102,20 @@ function PlaceCard({ k, onOpen }) {
     <div className="fwd-acts"><button type="button" className="m-btn m-go" onClick={() => onOpen(p.lens)} data-tip={p.tool ? 'Pop out the live tool over the city' : 'Walk in — the room pops out over the city'} data-testid="place-enter">Walk in</button></div></aside>;
 }
 
-// 🏦 a pool building (an outer city's district): the same row as the Pool Hub, big — trade / stake through FEELESS, deposit on its own page,
-// set your building to it
-function PoolPanel({ k, pools, blocks, onLink }) {
+// 🏦 a pool building: the side panel is a SUMMARY + ONE button (owner, 2026-10-24: "all real money is supposed to pop out and be clean") —
+// live TVL, the APY as a ring, what $100 earns a day; ⚡ PUT IT TO WORK pops the big money desk out over the city (MoneyDesk, wallet signs).
+function PoolPanel({ k, pools }) {
   const r = (pools?.pools || []).find(x => `pool-${x.id}` === k) || Object.values(pools?.cities || {}).flat().find(x => `pool-${x.id}` === k);
+  const apy = useGlide(r ? Math.round((Number(r.apy) || 0) * 10) / 10 : 0, 700); const tvl = useGlide(r ? Number(r.tvl) || 0 : 0, 900);
   if (!r) return <aside className="fwd-side m-card t-mk"><b>Pool</b><p className="m-dim">Reading the pool…</p></aside>;
-  return <aside className="fwd-side m-card t-mk t-pool" data-testid="pool-panel"><header><b>{r.sym}</b><small>{r.proto} · real pool</small></header>
-    <ul className="phb-list"><PoolRow r={r} big blocks={blocks} onLink={onLink} onDesk={x => openDesk({ job: JOB_OF[x.kind] || 'lend', focus: x, title: `${x.sym} · PUT IT TO WORK` })} /></ul></aside>;
+  const day = 100 * (Number(r.apy) || 0) / 100 / 365; const ring = Math.min(1, (Number(r.apy) || 0) / 60);
+  const go = () => openDesk({ job: JOB_OF[r.kind] || 'lend', focus: r, title: `${r.sym} · PUT IT TO WORK` });
+  return <aside className="fwd-side m-card t-mk t-pool fwd-psum" data-testid="pool-panel"><header><b>{r.sym}</b><small>{r.proto} · {POOL_KIND[r.kind] || r.kind}</small></header>
+    <div className="fwd-pvit"><span className="fwd-pring" style={{ '--a': `${ring * 360}deg` }} data-tip="APY today — the pool's real fee / interest rate, annualized"><b className="m-num">{apy.toFixed(1)}%</b><small>APY</small></span>
+      <span className="fwd-pk"><em>TVL</em><b className="m-num">{tvl >= 1e6 ? `$${(tvl / 1e6).toFixed(2)}M` : `$${(tvl / 1e3).toFixed(1)}K`}</b><u aria-hidden="true"><s style={{ transform: `scaleX(${Math.min(1, Math.log10(1 + (Number(r.tvl) || 0)) / 9)})` }} /></u></span>
+      <span className="fwd-pk"><em>$100 · A DAY</em><b className="m-num is-up">+${day.toFixed(day < 0.1 ? 3 : 2)}</b><small>${(day * 30).toFixed(2)} a month</small></span></div>
+    <button type="button" className="m-btn m-go fwd-deskgo" onClick={go} data-tip="The money desk pops out big over the city — pick your amount, watch it compound, your wallet signs" data-testid="pool-go">⚡ PUT IT TO WORK</button>
+  </aside>;
 }
 
 // 💡 a turf block runs on a FUND its upkeep drains by the hour (family_world.UPKEEP_MP): ACTIVE (lit) while funded, SHUT (dark) when dry.
@@ -140,7 +148,7 @@ function RaidAlert({ r, onDefend }) {
 
 function BlockPanel({ x, v, act, busy, onEnter, mk, onPlace, pools, onLink }) {
   const blocks = v.me ? [v.me.home, ...(v.me.turf || [])].filter(Boolean) : [];
-  if (x?.mk && String(x.mk).startsWith('pool-')) return <PoolPanel k={x.mk} pools={pools} blocks={blocks} onLink={onLink} />;
+  if (x?.mk && String(x.mk).startsWith('pool-')) return <PoolPanel k={x.mk} pools={pools} />;
   if (x?.mk) return <MarketPanel k={x.mk} mk={mk} />;
   if (x?.place) return <PlaceCard k={x.place} onOpen={onPlace} />;
   if (x?.lm) return <MarkPanel k={x.lm} v={v} />;

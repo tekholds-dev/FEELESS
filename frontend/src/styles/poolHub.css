@@ -89,3 +89,12 @@ body.theme-day .phb-lend { background: #f4fbf6; } body.theme-day .phb-lend-q p {
 body.fx-lite .phb-detail, body.fx-lite .phb-earn-big b { animation: none; } @media (prefers-reduced-motion: reduce) { .phb-detail, .phb-earn-big b { animation: none; } }
 body.theme-day .phb-chart, body.theme-day .phb-earn { background: #fff; } body.theme-day .phb-24 b, body.theme-day .phb-earn-big b { color: #0a8a44; text-shadow: none; } body.theme-day .phb-chart footer b { color: #0b3a1f; }
 @media (max-width: 640px) { .phb-row { grid-template-columns: 1fr auto; grid-template-areas: 'id rise' 'tvl apy' 'd24 d24' 'acts acts'; } .phb-detail { grid-template-columns: 1fr; } .phb-big b { font-size: 20px; } }
+/* 💸 the combo, alive (ComboLive): the split as a stacked bar that fills in, and the money ticking up while you look */
+.phb-clive { display: grid; grid-template-columns: 1fr auto; gap: 12px; align-items: center; }
+.phb-cbar { display: flex; height: 10px; border-radius: 6px; overflow: hidden; background: rgba(255, 255, 255, .05); gap: 2px; }
+.phb-cbar s { flex: var(--w) 1 0; background: var(--c); box-shadow: 0 0 10px -2px var(--c); transform-origin: left; animation: phbFill .7s cubic-bezier(.2, .8, .2, 1) both; animation-delay: calc(var(--i, 0) * 120ms); }
+.phb-ctick { display: grid; justify-items: end; line-height: 1.1; } .phb-ctick em { font: 800 7.5px 'JetBrains Mono', monospace; font-style: normal; letter-spacing: .16em; color: #a99bd0; }
+.phb-ctick b { font: 900 18px 'JetBrains Mono', monospace; color: #45e486; text-shadow: 0 0 12px rgba(69, 228, 134, .5); }
+@keyframes phbFill { from { transform: scaleX(0); } to { transform: none; } }
+body.fx-lite .phb-cbar s { animation: none; } @media (prefers-reduced-motion: reduce) { .phb-cbar s { animation: none; } }
+body.theme-day .phb-ctick b { color: #0a8a44; text-shadow: none; }

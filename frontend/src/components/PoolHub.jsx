@@ -28,10 +28,13 @@ export function usePools() {
   return v;
 }
 
+// pure: a DEX pool paying ~nothing (APY ≤ 0.05 %) is dead money — it never leads a list (a search still finds it). 2026-10-24: IOST-USDC led V3 TOP
+// on a stale $90.7M TVL at 0.0 % APY.
+export const deadPool = r => ['v2', 'v3', 'dlmm'].includes(r?.kind) && !(Number(r?.apy) > 0.05);
 // pure: the rows a lens + sort + search show
 export function poolRows(pools, lens = 'all', sort = 'tvl', q = '') {
   const s = String(q || '').trim().toLowerCase();
-  const rows = (pools || []).filter(r => (lens === 'all' || r.kind === lens) && (!s || `${r.sym} ${r.proto}`.toLowerCase().includes(s)));
+  const rows = (pools || []).filter(r => (lens === 'all' || r.kind === lens) && (!s || `${r.sym} ${r.proto}`.toLowerCase().includes(s)) && (s || !deadPool(r)));
   const key = { tvl: r => r.tvl || 0, apy: r => (r.apy == null ? -1 : r.apy), rise: r => r.rise || 0 }[sort] || (r => r.tvl || 0);
   return rows.slice().sort((a, b) => key(b) - key(a));
 }
@@ -94,7 +97,7 @@ function PoolDetail({ r }) {
   const tvlMove = c ? ((c.last.tvl / Math.max(1, c.first.tvl)) - 1) * 100 : null;
   return <div className="phb-detail" data-testid={`pool-detail-${r.id}`}>
     <div className="phb-chart">
-      <header><b>TVL</b><i className="k-tvl" /> <b>APY</b><i className="k-apy" />{tvlMove != null ? <em className={tvlMove >= 0 ? 'up' : 'dn'}>{tvlMove >= 0 ? '+' : ''}{tvlMove.toFixed(1)}% TVL in {days}d</em> : null}
+      <header><b>TVL</b><i className="k-tvl" /> <b>APY</b><i className="k-apy" />{tvlMove != null ? <em className={tvlMove >= 0 ? 'up' : 'dn'}>{tvlMove >= 900 ? `${(c.last.tvl / Math.max(1, c.first.tvl)).toLocaleString('en-US', { maximumFractionDigits: 0 })}×` : `${tvlMove >= 0 ? '+' : ''}${tvlMove.toFixed(1)}%`} TVL in {days}d</em> : null}
         <span className="m-seg">{[7, 30, 90].map(n => <button key={n} type="button" className={days === n ? 'active' : ''} onClick={() => setDays(n)} data-tip={`The last ${n} days`}>{n}D</button>)}</span></header>
       {c ? <svg viewBox="0 0 600 160" preserveAspectRatio="none" role="img" aria-label={`TVL and APY, last ${days} days`}><path d={c.area} className="area" /><path d={c.tvl} className="tvl" /><path d={c.apy} className="apy" /></svg>
         : <p className="phb-nochart">{d ? (r.src === 'pair' ? 'A live DEX pool — no history published; ⚡ trade it here for its candles.' : 'No history for this pool yet.') : 'Reading its history…'}</p>}
@@ -188,13 +191,26 @@ function CatCombo({ pools }) {
   const [amt, setAmt] = useState(25); const [leg, setLeg] = useState(null); const c = useMemo(() => catCombo(pools?.pools, amt), [pools, amt]);   // owner: from $5, honest small numbers
   if (!c.legs.length) return null;
   const m = v => (v >= 1 ? `$${v.toFixed(2)}` : v >= 0.01 ? `$${v.toFixed(3)}` : `$${v.toFixed(5)}`);
-  return <div className="phb-combo" data-testid="cat-combo"><header><b>🐱 FEECAT'S COMBO</b><small>picked from the live hub · {c.legs.length} legs</small></header>
+  return <div className="phb-combo" data-testid="cat-combo"><header data-tip="Real APYs move every day; this is today's math, not a promise. Lending + staking pay slowly — big daily % only comes with big risk."><b>🐱 FEECAT'S COMBO</b><small>picked from the live hub · {c.legs.length} legs</small></header>
+    <ComboLive c={c} amt={amt} />
     <label className="phb-earn-in"><span>Put in</span><input type="range" min="5" max="50000" step="5" value={amt} onChange={e => setAmt(Number(e.target.value))} aria-label="Amount for the combo" data-testid="combo-amt" /><b>${amt.toLocaleString('en-US')}</b></label>
     <p className="phb-combo-big"><b key={amt}>{c.apy.toFixed(1)}% APY</b><span>≈ {m(c.day)} a day · {m(c.month)} a month · {m(c.year)} a year</span></p>
     <ol>{c.legs.map((l, i) => <li key={l.role} style={{ '--i': i }}><em>{l.role} · {Math.round(l.w * 100)}%</em><span><b>{l.r.sym}</b><small>{l.r.proto} · TVL {usd(l.r.tvl)} · {l.risk}</small></span>
       <strong className="m-num">{apyTxt(l.r.apy)}</strong><button type="button" className={`m-btn m-go ${leg === l.role ? 'active' : ''}`} aria-expanded={leg === l.role} onClick={() => setLeg(x => (x === l.role ? null : l.role))} data-tip={`Put this leg to work right here — your wallet signs`} data-testid={`combo-go-${l.role}`}>💸</button></li>)}</ol>
     {leg ? <MoneyDesk key={leg} job={JOB_OF[c.legs.find(l => l.role === leg)?.r.kind] || 'lend'} focus={c.legs.find(l => l.role === leg)?.r} title={`${leg} LEG`} compact /> : null}
-    <small className="phb-warn">Real APYs move every day; this is today's math, not a promise. Lending + staking pay slowly — big daily % only comes with big risk.</small></div>;
+  </div>;
+}
+// 💸 the combo, alive: the split as a stacked bar (each leg's weight, its own colour) + the money it would have earned since you opened the
+// hall, ticking every second at your amount and today's blended APY (true math, before gas)
+const LEG_C = { CASH: '#6ad7ff', SOL: '#b388ff', FEES: '#45e486' };
+function ComboLive({ c, amt }) {
+  const [t0] = useState(() => Date.now()); const [now, setNow] = useState(() => Date.now());
+  useEffect(() => { const t = setInterval(() => { if (!document.hidden) setNow(Date.now()); }, 1000); return () => clearInterval(t); }, []);
+  const earned = (amt * c.apy / 100) * ((now - t0) / 1000) / (365 * 24 * 3600);
+  return <div className="phb-clive" data-testid="combo-live">
+    <div className="phb-cbar" aria-hidden="true">{c.legs.map((l, i) => <s key={l.role} style={{ '--w': l.w, '--c': LEG_C[l.role] || '#ffd36b', '--i': i }} />)}</div>
+    <span className="phb-ctick" data-tip="What your amount would have earned since you opened the hall, at today's blended APY"><em>EARNED WHILE YOU LOOK</em><b className="m-num">+${earned.toFixed(earned < 0.01 ? 6 : 4)}</b></span>
+  </div>;
 }
 
 export function PoolHub({ pools, blocks = [], onLink, start = 'all' }) {

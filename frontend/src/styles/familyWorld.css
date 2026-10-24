@@ -174,3 +174,14 @@ body.fx-lite .fwd-rooms button { animation: none; }
   body.theme-day .fwd-mapwrap .fwd-place:is(.is-tool, .k-pools) { background: #f7faf8; box-shadow: 0 0 0 100vmax rgba(20, 24, 22, .45); }
   /* the side column (place card + street chat) sits outside the map's stacking context and painted OVER the big room — hidden while one is open */
   .fwd-mapwrap:has(.fwd-place:is(.is-tool, .k-pools)) > .fwd-col { visibility: hidden; } }
+/* 🏦 a pool building's side panel = SUMMARY + ONE button (the desk pops out big): an APY ring, TVL bar, what $100 earns a day */
+.fwd-psum { gap: 10px; } .fwd-pvit { display: grid; grid-template-columns: auto 1fr; grid-template-rows: auto auto; gap: 8px 12px; align-items: center; }
+.fwd-pring { grid-row: span 2; display: grid; place-items: center; align-content: center; width: 84px; height: 84px; border-radius: 50%;
+  background: radial-gradient(closest-side, #0b0a12 78%, transparent 80% 100%), conic-gradient(#45e486 var(--a), rgba(255, 255, 255, .08) 0); box-shadow: 0 0 22px -8px #45e486; animation: fwdPop .4s ease-out both; }
+.fwd-pring b { font: 900 16px 'JetBrains Mono', monospace; color: #45e486; line-height: 1; } .fwd-pring small { font: 800 7.5px 'JetBrains Mono', monospace; letter-spacing: .16em; color: #c9b47c; }
+.fwd-pk { display: grid; gap: 2px; } .fwd-pk em { font: 800 7.5px 'JetBrains Mono', monospace; font-style: normal; letter-spacing: .16em; color: #c9b47c; } .fwd-pk b { font: 900 15px 'JetBrains Mono', monospace; color: #fff; }
+.fwd-pk b.is-up { color: #45e486; text-shadow: 0 0 10px rgba(69, 228, 134, .45); } .fwd-pk small { font: 700 9px 'JetBrains Mono', monospace; color: #a99c7a; }
+.fwd-pk u { height: 4px; border-radius: 4px; background: rgba(255, 255, 255, .07); overflow: hidden; } .fwd-pk s { display: block; height: 100%; transform-origin: left; background: linear-gradient(90deg, #d4af37, #ffd36b); transition: transform .6s ease; }
+@keyframes fwdPop { from { opacity: 0; transform: scale(.9); } to { opacity: 1; transform: none; } }
+body.fx-lite .fwd-pring { animation: none; } @media (prefers-reduced-motion: reduce) { .fwd-pring { animation: none; } .fwd-pk s { transition: none; } }
+body.theme-day .fwd-pring { background: radial-gradient(closest-side, #fff 78%, transparent 80% 100%), conic-gradient(#0a8a44 var(--a), rgba(0, 0, 0, .08) 0); } body.theme-day .fwd-pk b { color: #1a1a1a; }

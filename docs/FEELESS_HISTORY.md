@@ -6182,3 +6182,9 @@ P6 — IDEAS: FeeCat + AI agent pair that talk · "build a better coin" track in
 - 2026-10-24 · Opus 5.5 — 🏦 THE BROKERAGE (DECISIONS #9, docs/BROKERS.md): a user's own broker via SnapTrade linked to the Familia wallet
   session — `brokers.py` (signing, Fernet-sealed per-user secret, order guards, view) + GET /familia/broker · POST link / order / unlink +
   `BrokerDesk` (room inside YOUR MONEY). Waits on the owner's SnapTrade keys. Tests: test_brokers (5), CityAvenue.
+- 2026-10-24 · Opus 5.5 — owner screenshots round: perps PROVIDER rail (Jupiter $10 live · Kalshi $1 key-pending · 🏦 your broker key-pending,
+  one tap = its panel) + chart INDICATORS (`lib/indicators.js`: EMA 9/21 · VWAP · BB 20·2 · RSI 14 in its own pane, toggles remembered) +
+  🏦 YOUR BROKER tab in the desk · Fee City pool building = summary (APY ring, TVL, $100 a day) + ⚡ one pop-out (was the full Pool Hub row
+  crammed in a side panel) · Pool Hall: `deadPool` (DEX ≤ 0.05 % APY never leads), huge TVL moves read as ×, the combo's live split bar +
+  "earned while you look" ticker · Brokerage gate fix (directory) · NEXA offline since `backend/.env` lost WIN_LLM_BASE_URL in the 23:30 edit →
+  restored. Tests: indicators.test, PoolHub.test.

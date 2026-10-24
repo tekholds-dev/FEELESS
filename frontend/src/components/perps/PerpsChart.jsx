@@ -1,14 +1,18 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { createChart, CandlestickSeries, HistogramSeries, ColorType, LineStyle, CrosshairMode } from 'lightweight-charts';
+import { createChart, CandlestickSeries, HistogramSeries, LineSeries, ColorType, LineStyle, CrosshairMode } from 'lightweight-charts';
+import { ema, vwap, bollinger, rsi } from '../../lib/indicators';
 import { fetchBars, foldTrade, onTrade, GRAN } from '../../lib/cbFeed';
 
 // 📈 the perps desk's chart: TRUE candles (Coinbase Exchange — a US-regulated venue; the live candle folds every trade as it prints) + volume,
 // and YOUR levels on it: entry / mark, ☠ liquidation, TP + SL. TP and SL DRAG straight on the chart before the trade (and on a live
 // position): grab a line within 8 px, move, release → `onDrag(id, price)`. Lines: [{ id, price, color, title, drag, dash }].
+// `ind` = the indicators on (lib/indicators: EMA 9/21 · VWAP · BB 20·2 on the price pane, RSI 14 in its own pane) — recomputed from the
+// true candles at most once a second while trades print.
 const near = 8;
-export function PerpsChart({ asset, iv = '1m', lines = [], onDrag, onPrice }) {
+export function PerpsChart({ asset, iv = '1m', lines = [], onDrag, onPrice, ind = [] }) {
   const host = useRef(null); const chartRef = useRef(null); const seriesRef = useRef(null); const volRef = useRef(null); const lastRef = useRef(null);
-  const drawn = useRef({}); const linesRef = useRef(lines); const drag = useRef(null);
+  const drawn = useRef({}); const linesRef = useRef(lines); const drag = useRef(null); const barsRef = useRef([]); const indRef = useRef({}); const indOn = useRef(ind); const paint = useRef(() => {});
+  indOn.current = ind;
   const [state, setState] = useState('loading'); const [hot, setHot] = useState(null);
   linesRef.current = lines;
 
@@ -32,13 +36,30 @@ export function PerpsChart({ asset, iv = '1m', lines = [], onDrag, onPrice }) {
       } });
     const vol = chart.addSeries(HistogramSeries, { priceFormat: { type: 'volume' }, priceScaleId: 'v', lastValueVisible: false, priceLineVisible: false });
     chart.priceScale('v').applyOptions({ scaleMargins: { top: 0.82, bottom: 0 } });
-    chartRef.current = chart; seriesRef.current = series; volRef.current = vol; drawn.current = {}; lastRef.current = null;
+    chartRef.current = chart; seriesRef.current = series; volRef.current = vol; drawn.current = {}; lastRef.current = null; indRef.current = {};
+    const line = (id, color, w = 1, pane = 0, dash = false) => indRef.current[id] || (indRef.current[id] = chart.addSeries(LineSeries, { color, lineWidth: w, lineStyle: dash ? LineStyle.Dashed : LineStyle.Solid,
+      priceLineVisible: false, lastValueVisible: false, crosshairMarkerVisible: false }, pane));
+    let paintAt = 0;
+    paint.current = (force = false) => {   // the indicators on, from the bars loaded + the live candle (≤ 1 / s while trades print)
+      const now = Date.now(); if (!force && now - paintAt < 1000) return; paintAt = now;
+      const bars = barsRef.current; const on = new Set(indOn.current || []);
+      const set = (id, data, color, w, pane, dash) => { if (data) line(id, color, w, pane, dash).setData(data); else if (indRef.current[id]) indRef.current[id].setData([]); };
+      set('e9', on.has('ema') ? ema(bars, 9) : null, '#ffd36b', 1.5); set('e21', on.has('ema') ? ema(bars, 21) : null, '#9b8cff', 1.5);
+      set('vw', on.has('vwap') ? vwap(bars) : null, '#6ad7ff', 2, 0, true);
+      const bb = on.has('bb') ? bollinger(bars, 20, 2) : null;
+      set('bu', bb && bb.upper, 'rgba(255,159,210,.65)', 1); set('bm', bb && bb.mid, 'rgba(255,159,210,.35)', 1, 0, true); set('bl', bb && bb.lower, 'rgba(255,159,210,.65)', 1);
+      if (on.has('rsi')) { const r = line('rsi', '#ff9fd2', 1.5, 1); r.setData(rsi(bars, 14));
+        if (!indRef.current.rsiLines) { r.createPriceLine({ price: 70, color: 'rgba(255,93,143,.5)', lineStyle: LineStyle.Dashed, axisLabelVisible: false, title: '70' });
+          r.createPriceLine({ price: 30, color: 'rgba(69,228,134,.5)', lineStyle: LineStyle.Dashed, axisLabelVisible: false, title: '30' }); indRef.current.rsiLines = true; }
+        try { chart.panes()[1]?.setHeight(110); } catch { /* older pane api */ } }
+      else if (indRef.current.rsi) { try { chart.removeSeries(indRef.current.rsi); } catch { /* gone */ } delete indRef.current.rsi; delete indRef.current.rsiLines; }
+    };
     let alive = true; setState('loading');
     const volBar = b => ({ time: b.time, value: b.volume, color: b.close >= b.open ? 'rgba(69,228,134,.35)' : 'rgba(255,93,143,.35)' });
     fetchBars(asset, iv).then(bars => {
       if (!alive) return;
       if (!bars.length) { setState('empty'); return; }
-      series.setData(bars); vol.setData(bars.map(volBar)); lastRef.current = bars[bars.length - 1];
+      series.setData(bars); vol.setData(bars.map(volBar)); lastRef.current = bars[bars.length - 1]; barsRef.current = bars; paint.current(true);
       chart.timeScale().scrollToRealTime(); setState('live'); onPrice?.(lastRef.current.close);
     }).catch(() => alive && setState('error'));
     const off = onTrade((a, price, size, t) => {   // every print → the live candle (opens at the previous close; never a gap)
@@ -46,9 +67,12 @@ export function PerpsChart({ asset, iv = '1m', lines = [], onDrag, onPrice }) {
       const next = foldTrade(lastRef.current, price, size, t, GRAN[iv] || 60);
       if (next === lastRef.current) return;
       lastRef.current = next; series.update(next); vol.update(volBar(next));
+      const bs = barsRef.current; barsRef.current = bs.length && bs[bs.length - 1].time === next.time ? [...bs.slice(0, -1), next] : [...bs, next]; paint.current();
     });
     return () => { alive = false; off(); chart.remove(); chartRef.current = null; seriesRef.current = null; };
   }, [asset, iv]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => { paint.current(true); }, [ind.join('|')]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {   // YOUR levels: redraw only what changed
     const s = seriesRef.current; if (!s) return;

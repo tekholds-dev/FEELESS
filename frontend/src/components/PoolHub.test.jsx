@@ -28,3 +28,11 @@ test('🐱 FeeCat\'s combo: cash / SOL / fees legs from the live hub, blended AP
   expect(c.day).toBeCloseTo(100 * 13.25 / 100 / 365, 6);
   expect(catCombo([], 100).legs).toEqual([]);
 });
+
+test('💀 a DEX pool paying ~nothing never leads a list — a search still finds it', () => {
+  const { poolRows, deadPool } = require('./PoolHub');
+  const rows = [{ id: 'a', sym: 'IOST-USDC', proto: 'Raydium', kind: 'v3', tvl: 9e7, apy: 0 }, { id: 'b', sym: 'SOL-USDC', proto: 'Orca', kind: 'v3', tvl: 3e7, apy: 18 },
+    { id: 'c', sym: 'USDC', proto: 'Kamino', kind: 'lend', tvl: 5e7, apy: 0 }];
+  expect(deadPool(rows[0])).toBe(true); expect(deadPool(rows[2])).toBe(false);
+  expect(poolRows(rows, 'v3', 'tvl').map(r => r.id)).toEqual(['b']); expect(poolRows(rows, 'v3', 'tvl', 'iost').map(r => r.id)).toEqual(['a']);
+});

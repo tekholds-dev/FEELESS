@@ -8,6 +8,8 @@ import { PerpTicket } from './perps/PerpTicket';
 import { PerpPositions } from './perps/PerpPositions';
 import { KalshiDesk } from './perps/KalshiDesk';
 import { LiveFlow } from './perps/LiveFlow';
+import { BrokerDesk } from './BrokerDesk';
+import { INDICATORS } from '../lib/indicators';
 import { PaperPerps } from './PaperPerps';
 import '../styles/perpsDash.css';
 
@@ -66,6 +68,9 @@ function Flash({ v, fmt, cls = '' }) {   // a live number: glides to each print,
 export function PerpsDash({ devAddress = '' }) {
   const { wallet, provider, connect } = useWallet() || {}; const addr = (wallet?.chain === 'solana' ? wallet.address : '') || devAddress;
   const [asset, setAsset] = useState('SOL'); const [iv, setIv] = useState('1m'); const [tab, setTab] = useState('pos');
+  const [ind, setInd] = useState(() => { try { return JSON.parse(localStorage.getItem('feeless.perps.ind') || '["ema","vwap"]'); } catch { return ['ema', 'vwap']; } });
+  const flip = k => setInd(o => { const n = o.includes(k) ? o.filter(x => x !== k) : [...o, k]; try { localStorage.setItem('feeless.perps.ind', JSON.stringify(n)); } catch { /* private */ } return n; });
+  const [brk] = useJson('/api/reputation/familia/broker', 60000);
   const [t, setT] = useState({ side: 'long', usd: 10, lev: 10, tp: null, sl: null }); const set = useCallback(x => setT(o => ({ ...o, ...x })), []);
   const tk = useTickers(); const now = useNow();
   const [board] = useJson('/api/reputation/familia/perps', 30000);
@@ -98,6 +103,13 @@ export function PerpsDash({ devAddress = '' }) {
       <span className={`pd-pnl ${total > 0 ? 'is-up' : total < 0 ? 'is-dn' : ''}`} data-tip="Open P&L across your positions on the true price, before fees"><em>OPEN P&L</em>
         <b className="m-num">{positions.length ? `${tot < 0 ? '−' : '+'}$${Math.abs(tot).toFixed(2)}` : '$0.00'}</b><small>{positions.length ? `${positions.length} live` : 'flat'}</small></span>
     </header>
+    <div className="pd-prov" role="radiogroup" aria-label="Provider" data-testid="pd-prov">{[
+      ['jup', 'JUPITER PERPS', 'SOL · ETH · BTC · long / short · up to 100×', 'FROM $10', 'LIVE', true, 'pos', 'Real perps on Jupiter (Solana) — your wallet signs; TP / SL + partial close'],
+      ['kalshi', 'KALSHI UP / DOWN', 'BTC · ETH · SOL · DOGE · XRP · S&P · NASDAQ', 'FROM $1', ks?.tradable ? 'LIVE' : 'KEY PENDING', !!ks?.tradable, 'kalshi', 'US-legal (CFTC) up / down contracts tokenized on Solana — needs the DFlow key'],
+      ['broker', '🏦 YOUR BROKER', 'stocks · ETFs · crypto in your own account', 'FROM $1', brk?.ready ? 'LIVE' : 'KEY PENDING', !!brk?.ready, 'broker', 'Your own broker (Webull · Coinbase · Kraken · Alpaca · E*TRADE) linked to your wallet — needs the SnapTrade keys']]
+      .map(([k, n, sub, min, st, on, go, tip], i) => <button key={k} type="button" role="radio" aria-checked={(k === 'jup' && !['kalshi', 'broker'].includes(tab)) || tab === go}
+        className={`pd-pv ${on ? 'is-live' : 'is-wait'} ${(k === 'jup' && !['kalshi', 'broker'].includes(tab)) || tab === go ? 'is-on' : ''}`} style={{ '--i': i }} onClick={() => setTab(go)} data-tip={tip} data-testid={`pd-pv-${k}`}>
+        <b>{n}</b><small>{sub}</small><span><i className="m-num">{min}</i><em>{st}</em></span></button>)}</div>
     <div className="pd-strip" data-testid="pd-vits">
       <span className="pd-cell pd-mark" data-tip="True price: the last Coinbase print"><em>MARK <i className="pd-beat" key={live?.at} /></em><Flash v={mark} fmt={px} cls="pd-hero" /><small className="m-num">{live ? `${live.tpm} prints/min · ${age != null ? `${age.toFixed(1)}s` : ''}` : 'connecting…'}</small></span>
       <span className="pd-cell" data-tip="Jupiter's oracle price (what the trade fills at) and how far the true price sits from it"><em>JUP ORACLE</em><b className="m-num">{px(st.price)}</b><small className={`m-num ${(basis ?? 0) >= 0 ? 'is-up' : 'is-dn'}`}>{basis == null ? '' : `basis ${pc(basis, 3)}`}</small></span>
@@ -115,17 +127,19 @@ export function PerpsDash({ devAddress = '' }) {
     <div className="pd-main">
       <div className="pd-chart" data-testid="pd-chart">
         <div className="pd-cbar"><span className="pd-cname"><b>{asset}<i>-PERP</i></b><small>TRUE CANDLES · COINBASE · LIVE</small></span>
+          <span className="pd-ind" role="group" aria-label="Indicators">{INDICATORS.map(([k, l, tip]) => <button key={k} type="button" aria-pressed={ind.includes(k)} className={ind.includes(k) ? 'is-on' : ''} onClick={() => flip(k)} data-tip={tip} data-testid={`pd-ind-${k}`}>{l}</button>)}</span>
           {t.tp || t.sl ? <span className="pd-lv">{t.tp ? <i className="is-tp">TP {px(t.tp)}</i> : null}{t.sl ? <i className="is-sl">SL {px(t.sl)}</i> : null}</span> : null}
           <span className="m-seg pd-iv" role="radiogroup" aria-label="Candle size">{IVS.map(([k, l]) => <button key={k} type="button" role="radio" aria-checked={iv === k} className={iv === k ? 'active' : ''} onClick={() => setIv(k)} data-tip={`${l} candles`} data-testid={`pd-iv-${k}`}>{l}</button>)}</span></div>
-        <div className="pd-plot"><Suspense fallback={<p className="pc-msg">Loading true candles…</p>}><PerpsChart asset={asset} iv={iv} lines={lines} onDrag={onDrag} /></Suspense></div>
+        <div className="pd-plot"><Suspense fallback={<p className="pc-msg">Loading true candles…</p>}><PerpsChart asset={asset} iv={iv} lines={lines} onDrag={onDrag} ind={ind} /></Suspense></div>
       </div>
       <PerpTicket asset={asset} mark={mark} pool={pool} t={t} set={set} addr={addr} wallet={wallet} provider={provider} connect={connect} onOpened={() => { reloadJp(); setTab('pos'); }} />
     </div>
     <div className="pd-below">
       <div className="pd-bl">
-      <div className="pd-tabs m-seg" role="tablist" aria-label="Panels">{[['pos', `POSITIONS${positions.length ? ` · ${positions.length}` : ''}`, 'Your Jupiter positions, marked live'], ['kalshi', '⏱ KALSHI UP / DOWN', 'US-legal up / down from $1 — BTC · ETH · SOL · DOGE · XRP · S&P 500 · Nasdaq'], ['practice', '🧪 PRACTICE', 'Paper perps at the real mark — no money moves']].map(([k, l, tip]) =>
+      <div className="pd-tabs m-seg" role="tablist" aria-label="Panels">{[['pos', `POSITIONS${positions.length ? ` · ${positions.length}` : ''}`, 'Your Jupiter positions, marked live'], ['kalshi', '⏱ KALSHI UP / DOWN', 'US-legal up / down from $1 — BTC · ETH · SOL · DOGE · XRP · S&P 500 · Nasdaq'], ['broker', '🏦 YOUR BROKER', 'Stocks · ETFs · crypto in your own broker account'], ['practice', '🧪 PRACTICE', 'Paper perps at the real mark — no money moves']].map(([k, l, tip]) =>
         <button key={k} type="button" role="tab" aria-selected={below === k} className={below === k ? 'active' : ''} onClick={() => setTab(k)} data-tip={tip} data-testid={`pd-b-${k}`}>{l}</button>)}</div>
       {below === 'pos' ? <PerpPositions positions={positions} marks={marks} addr={addr} provider={provider} wallet={wallet} connect={connect} reload={reloadJp} onPick={pick} />
+        : below === 'broker' ? <BrokerDesk />
         : below === 'kalshi' ? <KalshiDesk asset={asset} rows={ks?.coins} marks={marks} now={now} tradable={!!ks?.tradable} addr={addr} wallet={wallet} provider={provider} connect={connect} />
           : <PaperPerps row={{ ...brd, coin: asset, mark }} lev={Math.round(t.lev)} devAddress={devAddress} />}
       </div>

@@ -15,17 +15,24 @@ Read this (2 min) → `CLAUDE.md` (lean rules + 🎨 MANDATORY STYLING + 📋 CU
 >    LIVE visual (meters, bars, animation on real numbers), never bare text. `styles/cssCoverage.test.js` fails on an unstyled class.
 
 ## 🔁 NOW (rewrite this section in place every session)
-**Updated 2026-10-23 (late night) · Opus 5.5** — the open list is `CLAUDE.md › 📋 CURRENT TASKS › P0`. Done today (grep the history for
-"2026-10-23 night" / "late night"): ⚡ REAL LEVERAGE (Jupiter Lend Borrow, DECISIONS #7) · 📉 REAL PERPS on Jupiter (DECISIONS #8, `jup_perps.py`,
-/familia/perps-real) · 🌉 BRIDGE + ⛽ GAS through LI.FI · 🕸 intake revived (DexScreener fallback when Jupiter's read key 429s) · 📌 the Agents
-cockpit chart no longer swaps coins every poll · 🧠 OSSY / G4 stop chasing (PARABOLIC / spike entries refused) · 📉 the FEELESS PERPS terminal
-(true candles, draggable TP / SL, Jupiter TP / SL + partial close) + ⏱ Kalshi $1 up / down (waits on the DFlow key). **Perps = `docs/PERPS.md`.** **Brokers = `docs/BROKERS.md`** (SnapTrade keys pending).
-Hyperliquid / gTrade / Drift bar US users — out. Agents: edge-audit GATE HOLD (0 / 753 rules positive on unseen coins), FeeCat paused (1 / 9
-lives), NEXA 43 % — no agent is proven to make money; a top-up sits idle until one is. G4 runs Qwen3.5-4B on the desktop (10.0.0.249:1236, ONE
-slot). Dev previews: `/dev/perps` (the perps dash on live markets) · `/dev/hq?snap` (the LIVE agents desk — copy `backend/data/agents_view.json` → `frontend/public/dev-agents.json`)
-· `/dev/bridge` · `/dev/gas` · `/dev/nexa` · `/dev/hq?rpc` · `/dev/block`.
-🔑 Jupiter: 3 keys → key 3 is the shared READ key for every price read sitewide and sits at 429 most of the day; the owner adding a 4th key
-(portal.jup.ag → `JUPITER_READ_KEY`) frees it. The intake no longer depends on it.
+**Updated 2026-10-24 (early) · Opus 5.5.** Open list = `CLAUDE.md › 📋 CURRENT TASKS`. **Familia is NOT done** — every P0–P3 item there is open.
+
+| Area | State | Doc |
+| --- | --- | --- |
+| 📉 Perps desk (Fee City › THE PERPS DESK, `/dev/perps`) | LIVE: provider rail · true Coinbase candles + EMA / VWAP / BB / RSI · draggable TP / SL riding the Jupiter open · positions (live P&L, TP / SL move / cancel / add, close 25–100 %) · 🌊 LIVE FLOW. Jupiter's floor is **$10**. No real trade landed yet. | `docs/PERPS.md` |
+| ⏱ Kalshi up / down ($1, US-legal) | odds LIVE for BTC · ETH · SOL · DOGE · XRP · S&P 500 · Nasdaq; trading BUILT, locked until **`DFLOW_API_KEY`** | `docs/PERPS.md` |
+| 🏦 Brokerage (stocks · ETFs · crypto, own broker) | BUILT, locked until **`SNAPTRADE_CLIENT_ID` · `SNAPTRADE_CONSUMER_KEY` · `BROKER_SECRET_KEY`** | `docs/BROKERS.md` |
+| 💸 Pools (Pool Hall, Fee City pool buildings) | pool click = summary + ⚡ one pop-out (2026-10-24) · dead 0 %-APY DEX pools never lead · combo is a live split bar + earnings ticker. STILL OPEN: every Familia money building end to end in pop-outs with live vitals (P0 #5) | history "2026-10-24" |
+| 🧠 Agents / models | OSSY / G4 chase guard live (23 % win over 179 trades — re-audit after ~50); NEXA came back only after `WIN_LLM_BASE_URL` was restored (see 🚨) | `docs/DEGEN_PLAYBOOK.md` |
+| 🕸 Intake | DexScreener fallback when Jupiter's read key 429s — 24 unique mints / min | history "INTAKE" |
+
+🚨 **`backend/.env` lost ~400 bytes at 2026-10-23 23:30** (not by a Claude commit). NEXA's `WIN_LLM_BASE_URL` was among them (restored
+2026-10-24 → `http://10.0.0.116:8080/v1`; her model falls back to the built-in default). **Owner: check the rest of `.env`** against what you
+had (keys you added that evening). A copy from before the fix: Claude's scratchpad `env.before-nexa-fix`.
+
+🔑 **Owner keys that turn features on:** DFlow (Kalshi) · SnapTrade ×3 (Brokerage) · a 4th Jupiter key as `JUPITER_READ_KEY` (prices sitewide) ·
+Helius / Alchemy quota (every wallet-signed action). US rule: gTrade / Aster / Hyperliquid / Drift bar US persons — not wired (owner
+gave no preference on a non-US gate). Dev previews: `/dev/perps` · `/dev/hq?snap` · `/dev/bridge` · `/dev/gas` · `/dev/nexa` · `/dev/block`.
 
 Start of every task: `backend/.venv/bin/python scripts/cash-check.py degen 30` (≈ 1 min, sandbox off).
 Branch: everything on `main`. Gate + push from `.claude/worktrees/gate` (`git checkout -q --detach <sha>`, then `git push origin <sha>:main`;

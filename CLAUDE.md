@@ -193,7 +193,10 @@ P0 — OWNER 2026-10-23 (late night) · finished today → `docs/FEELESS_HISTORY
 4. 💵 THE $5 RUN (shipped 2026-10-23, `FiveRun.jsx` in the Night Vault · GET /familia-pools/run): NEXT = the owner's first $5 deposit lands and
    the ticker reads it · a real "compound my LP fees" errand (claim → put into the run) · retire the MP drag errands UI (P2 #2) — NEXT MOVE + EARN
    already point at the run.
-5. 📊 Every page end to end: text walls → visuals (HQ Agents + FeeCat tabs first); 80 % ACTIVE money = `cityPlan.activeMoney` (keep ≥ 0.8
+5. 💸 EVERY FAMILIA REAL-MONEY BUILDING (owner 2026-10-24, screenshots: "not a damn popout… no real money live animation vitals"): a click = a clean
+   summary + ONE button that pops the big window; every room shows live ticking vitals, no row walls. DONE 2026-10-24: pool buildings, the Pool
+   Hall combo, dead pools hidden. NEXT: market buildings (lend / stake / perps panels), Night Vault, $5 run, MY POOLS, Trade Center, YOUR MONEY.
+   📊 Every page end to end: text walls → visuals (HQ Agents + FeeCat tabs first); 80 % ACTIVE money = `cityPlan.activeMoney` (keep ≥ 0.8
    in `cityPlan.test.js`; outer cities next).
 6. ✅ LAST, ONLY WHEN EVERY ITEM ABOVE AND BELOW IS DONE (owner, 2026-10-23): click through EVERY tab / page / pop-out / modal / step of the
    site (day + night, 360 px, fx-lite) — nothing unreadable, nothing unwired, every button does its thing; fix what fails; screenshot proof.

@@ -209,3 +209,21 @@ body.theme-day .lf, body.theme-day .lf-mv > span, body.theme-day .lf-whales li, 
 .kd-mkts { justify-self: start; flex-wrap: wrap; } .kd-mkts button { display: inline-flex; align-items: baseline; gap: 6px; min-width: 52px; }
 .kd-mkts button i { font: 800 9px 'JetBrains Mono', monospace; font-style: normal; opacity: .75; } .kd.is-off { flex-wrap: wrap; }
 @media (max-width: 640px) { .kd-mkts button { min-width: 0; padding: 0 8px; } }
+/* 🧭 the PROVIDER rail (each venue: its real minimum + live status; one tap = its trade panel) + 📐 indicator chips on the chart bar */
+.pd-prov { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; padding: 10px 14px; border-bottom: 1px solid var(--ln); background: rgba(0, 0, 0, .25); }
+.pd-pv { position: relative; overflow: hidden; display: grid; gap: 2px; min-height: 58px; padding: 8px 12px; border-radius: 12px; border: 1px solid var(--ln); background: rgba(0, 0, 0, .35); color: #ffeaf6; text-align: left; cursor: pointer; font: inherit;
+  transition: transform .15s, border-color .15s, box-shadow .15s; animation: pdIn .35s ease-out both; animation-delay: calc(var(--i, 0) * 55ms); }
+.pd-pv b { font: 900 12px 'JetBrains Mono', monospace; letter-spacing: .1em; } .pd-pv small { font: 700 9px 'JetBrains Mono', monospace; color: var(--mu); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pd-pv span { display: flex; justify-content: space-between; align-items: center; } .pd-pv span i { font: 900 11px 'JetBrains Mono', monospace; font-style: normal; color: var(--gold); }
+.pd-pv span em { font: 800 8px 'JetBrains Mono', monospace; font-style: normal; letter-spacing: .14em; padding: 2px 7px; border-radius: 999px; }
+.pd-pv.is-live span em { color: #04140b; background: var(--up); } .pd-pv.is-wait span em { color: var(--pk2); border: 1px dashed var(--ln); }
+.pd-pv:hover { transform: translateY(-1px); border-color: rgba(255, 93, 187, .5); } .pd-pv:active { transform: scale(.98); } .pd-pv:focus-visible { outline: 2px solid var(--pk2); outline-offset: 2px; }
+.pd-pv.is-on { border-color: var(--pk); background: linear-gradient(180deg, rgba(255, 93, 187, .2), rgba(20, 2, 16, .6)); box-shadow: 0 0 22px -8px var(--pk); }
+.pd-pv.is-on.is-live::after { content: ''; position: absolute; left: 0; right: 0; bottom: 0; height: 2px; background: linear-gradient(90deg, transparent, var(--up), transparent); transform: translateX(-100%); animation: pdScan 3s linear infinite; }
+.pd-ind { display: flex; flex-wrap: wrap; gap: 3px; }
+.pd-ind button { min-height: 32px; padding: 0 8px; border-radius: 8px; border: 1px solid var(--ln); background: rgba(0, 0, 0, .35); color: var(--mu); cursor: pointer; font: 800 9.5px 'JetBrains Mono', monospace; letter-spacing: .06em; transition: color .12s, background .12s, transform .12s; }
+.pd-ind button:hover { color: #fff; } .pd-ind button:active { transform: scale(.95); } .pd-ind button:focus-visible { outline: 2px solid var(--pk2); outline-offset: 1px; }
+.pd-ind button.is-on { color: #2a0618; background: var(--pk2); border-color: transparent; }
+body.fx-lite .pd-pv, body.fx-lite .pd-pv.is-on.is-live::after { animation: none; } @media (prefers-reduced-motion: reduce) { .pd-pv, .pd-pv.is-on.is-live::after { animation: none; } .pd-pv { transition: none; } }
+body.theme-day .pd-pv { background: #fff; color: #2a0f1f; } body.theme-day .pd-ind button { background: #fff; }
+@media (max-width: 640px) { .pd-prov { grid-template-columns: 1fr; padding: 8px 10px; } }
