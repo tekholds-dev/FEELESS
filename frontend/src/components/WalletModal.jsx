@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Wallet, ArrowUpRight, ShieldCheck, LogOut, ChevronDown, Download } from 'lucide-react';
 import { Dialog, DialogContent, DialogTitle, DialogDescription } from './ui/dialog';
 import { useWallet, EVM_CHAINS, networkLabel, signWith, detectWallets } from '../hooks/useWallet';
@@ -21,18 +21,36 @@ const MORE = [
 ];
 const WalletMark = ({ w, size }) => (w.icon && /^data:image\/(svg\+xml|png|webp)|^https:\/\//.test(w.icon) ? <img className="wallet-icon" src={w.icon} alt="" width={size} height={size} /> : <WalletIcon brand={w.iconBrand || w.brand} size={size} />);
 
-function WalletChooser({ busy, onPick }) {
-  const found = detectWallets();
+function WalletChooser({ busy, found, onPick }) {
+  const mobile = /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent || '');
   const installed = brand => brand === 'metamask'
     ? found.find(w => /metamask/i.test(w.label) && (!w.brand || w.brand.startsWith('eip6963:')))
     : found.find(w => w.brand === brand);
-  const listed = new Set([...FEATURED, ...MORE].map(w => installed(w.brand)).filter(Boolean));
   const [more, setMore] = useState(() => MORE.some(w => installed(w.brand)) && !FEATURED.some(w => installed(w.brand)));
+  if (mobile) {
+    return <div className="wallet-chooser">
+      <p className="wallet-mobile-guidance">Choose a wallet, approve the connection in its app, then return to this browser.</p>
+      <div className="wallet-mobile-actions">
+        <button type="button" className="btn-primary" data-testid="wallet-mobile-connect-solana" disabled={busy} onClick={() => onPick('solana', 'walletconnect')}>Connect a Solana wallet</button>
+        <button type="button" className="btn-outline" data-testid="wallet-mobile-connect-evm" disabled={busy} onClick={() => onPick('evm', 'walletconnect')}>Connect an EVM wallet</button>
+      </div>
+      {found.length > 0 && <div className="wallet-mobile-detected">
+        <small>Wallets already available in this browser</small>
+        {found.map(w => {
+          const type = w.types.includes('solana') ? 'solana' : w.types[0];
+          return <button type="button" key={w.brand || w.label} className="wallet-choice wallet-mobile-detected-choice" disabled={busy} onClick={() => onPick(type, w.brand || null)}>
+            <WalletMark w={w} size={28} /><span><b>{w.label}</b><small>{type === 'solana' ? 'Solana' : 'Ethereum & EVM'}</small></span><em className="wallet-choice-state">Detected</em>
+          </button>;
+        })}
+      </div>}
+    </div>;
+  }
+  const listed = new Set([...FEATURED, ...MORE].map(w => installed(w.brand)).filter(Boolean));
   const pickBrand = w => (w.brand === 'metamask' ? installed('metamask')?.brand || null : w.brand);
   const row = (w, featured) => {
     const hit = installed(w.brand);
     const types = hit ? hit.types : [];
-    const primary = types.includes('solana') ? 'solana' : types[0];
+    const primary = types.includes('solana') ? 'solana' : (types[0] || (w.types.includes('solana') ? 'solana' : w.types[0]));
     const testId = w.brand === 'phantom' ? 'wallet-connect-phantom' : w.brand === 'metamask' ? 'wallet-connect-evm' : `wallet-connect-${w.brand}`;
     return <div key={w.brand} className={`wallet-choice ${featured ? 'is-featured' : ''} ${hit ? 'is-installed' : ''}`}>
       {hit
@@ -62,6 +80,26 @@ function WalletChooser({ busy, onPick }) {
   </div>;
 }
 
+function useAvailableWallets(active) {
+  const [found, setFound] = useState(() => detectWallets());
+  useEffect(() => {
+    if (!active) return undefined;
+    const refresh = () => setFound(detectWallets());
+    refresh();
+    window.addEventListener('eip6963:announceProvider', refresh);
+    window.addEventListener('ethereum#initialized', refresh);
+    window.addEventListener('wallet-standard:register-wallet', refresh);
+    const timer = window.setInterval(refresh, 350);
+    return () => {
+      window.removeEventListener('eip6963:announceProvider', refresh);
+      window.removeEventListener('ethereum#initialized', refresh);
+      window.removeEventListener('wallet-standard:register-wallet', refresh);
+      window.clearInterval(timer);
+    };
+  }, [active]);
+  return found;
+}
+
 export default function WalletModal({ open, onClose }) {
   const { wallet, connect, disconnect, switchTo, linkCandidate, linkAccounts } = useWallet();
   const [switching, setSwitching] = useState('');
@@ -71,16 +109,23 @@ export default function WalletModal({ open, onClose }) {
   const current = wallet?.chain === 'solana' ? 'solana' : Object.entries(EVM_CHAINS).find(([, c]) => c.chainId === String(wallet?.evmChainId || '').toLowerCase())?.[0];
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  const found = useAvailableWallets(open && !wallet);
   const handle = async (type, brand, chain) => {
     setBusy(true); setError('');
-    try { const r = await connect(type, brand, chain ? { chain } : undefined); onClose(); try { await getChatSession(r.wallet.address, msg => signWith(r.provider, r.wallet.chain, r.wallet.address, msg)); } catch { /* declined: they'll be asked once when they first post/follow */ } } catch (e) { setError(e.code === 4001 ? 'Connection declined. Your wallet is unchanged.' : e.message || 'Connection failed.'); } finally { setBusy(false); }
+    try {
+      const r = await connect(type, brand, chain ? { chain } : undefined);
+      onClose();
+      if (brand !== 'walletconnect') {
+        try { await getChatSession(r.wallet.address, msg => signWith(r.provider, r.wallet.chain, r.wallet.address, msg)); } catch { /* declined: they'll be asked once when they first post/follow */ }
+      }
+    } catch (e) { setError(e.code === 4001 ? 'Connection declined. Your wallet is unchanged.' : e.message || 'Connection failed.'); } finally { setBusy(false); }
   };
   return <Dialog open={open} onOpenChange={value => { if (!value) { onClose(); setError(''); } }}><DialogContent className="feeless-dialog" data-testid="wallet-dialog"><span className="dialog-icon"><Wallet size={26} /></span><DialogTitle>{wallet ? 'Connected wallet' : 'Your wallet. Your keys.'}</DialogTitle><DialogDescription>Connecting exposes your public account. Swap signing is a separate action requiring your wallet approval.</DialogDescription>
-    {wallet ? <><code className="wallet-address" data-testid="connected-wallet-address">{wallet.address}</code>
+      {wallet ? <><code className="wallet-address" data-testid="connected-wallet-address">{wallet.address}</code>
       <div className="wallet-networks" data-testid="wallet-networks"><small>{wallet.name} · {wallet.chain === 'solana' ? 'Solana' : networkLabel(wallet.evmChainId) || 'EVM'} — switch network (same wallet)</small>
         <div>{[['solana', 'Solana'], ...Object.entries(EVM_CHAINS).map(([k, c]) => [k, c.chainName.replace(' Smart Chain', '').replace(' C-Chain', '').replace(' One', '')])].map(([k, l]) => <button key={k} type="button" className={current === k ? 'active' : ''} disabled={Boolean(switching)} onClick={() => hop(k)}>{switching === k ? '…' : l}</button>)}</div></div>
       {linkCandidate && !linked && <div className="wallet-link"><span>Link your {linkCandidate.a.wallet.chain === 'solana' ? 'Solana' : 'EVM'} and {linkCandidate.b.wallet.chain === 'solana' ? 'Solana' : 'EVM'} accounts so your profile, posts and badges show on every network.</span><button type="button" className="btn-outline" disabled={busy} onClick={link}>Link accounts (2 signatures)</button></div>}
-      {linked && <div className="wallet-link ok">✓ Linked — you're one identity on every network.</div>}<button className="btn-primary" data-testid="wallet-disconnect" onClick={async () => { await disconnect(); onClose(); }}><LogOut size={16} />Disconnect from FEELESS</button></> : <WalletChooser busy={busy} onPick={handle} />}
+      {linked && <div className="wallet-link ok">✓ Linked — you're one identity on every network.</div>}<button className="btn-primary" data-testid="wallet-disconnect" onClick={async () => { await disconnect(); onClose(); }}><LogOut size={16} />Disconnect from FEELESS</button></> : <WalletChooser busy={busy} found={found} onPick={handle} />}
     {error && <div data-testid="wallet-error" role="alert" className="market-error">{error}</div>}{busy && <p data-testid="wallet-connecting" className="muted">Waiting for wallet approval…</p>}<div className="wallet-note"><ShieldCheck size={16} />Non-custodial. Always.</div>
   </DialogContent></Dialog>;
 }

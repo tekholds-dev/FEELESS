@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import React, { createContext, useContext, useEffect, useRef, useState } from 'react';
 const WalletContext = createContext(null);
 const solanaProvider = () => window.phantom?.solana || window.trustwallet?.solana || window.solflare || window.backpack?.solana || window.solana;
 const evmProvider = () => window.trustwallet?.ethereum || window.ethereum || window.phantom?.ethereum;
@@ -98,8 +98,34 @@ export async function signWith(prov, chain, address, message) {
 export const WalletProvider = ({ children }) => {
   const [wallet, setWallet] = useState(null);
   const [provider, setProvider] = useState(null);
+  const walletRef = useRef(wallet);
+  useEffect(() => { walletRef.current = wallet; }, [wallet]);
   const connect = async (type, brand, opts = {}) => {
     if (!brand && opts.silent) brand = brandOf(provider);
+    if (brand === 'walletconnect') {
+      const { connectWalletConnect } = await import('../lib/reownWalletConnect');
+      const session = await connectWalletConnect(type);
+      const p = session.provider;
+      let evmChainId = session.chainId || null;
+      const want = type === 'evm' && opts.chain && EVM_CHAINS[opts.chain];
+      if (want && String(evmChainId || '').toLowerCase() !== want.chainId) {
+        try { await p.request({ method: 'wallet_switchEthereumChain', params: [{ chainId: want.chainId }] }); }
+        catch (e) { if (e?.code !== 4902) throw e; await p.request({ method: 'wallet_addEthereumChain', params: [want] }); }
+        evmChainId = want.chainId;
+      }
+      const nextWallet = {
+        name: session.name || 'WalletConnect',
+        chain: type,
+        address: session.address,
+        ...(type === 'evm' ? { evmChainId } : {}),
+        connection: 'walletconnect',
+      };
+      try { localStorage.setItem('feeless:last-wallet', JSON.stringify({ type, brand: 'walletconnect' })); } catch { /* ignore */ }
+      walletRef.current = nextWallet;
+      setWallet(nextWallet);
+      setProvider(p);
+      return { wallet: nextWallet, provider: p };
+    }
     const p = (brand && pairedProvider(brand, type)) || (type === 'solana' ? solanaProvider() : evmProvider());
     if (brand && !pairedProvider(brand, type)) throw new Error(`Your ${walletName(provider, wallet?.chain)} doesn't expose a ${type === 'solana' ? 'Solana' : 'EVM'} account in this browser — enable it in the wallet's settings.`);
     if (!p) throw new Error(type === 'solana' ? 'No Solana wallet found. Phantom, Trust Wallet, Solflare and Backpack all work — enable Solana in your wallet.' : 'No EVM wallet detected in this browser.');
@@ -108,6 +134,7 @@ export const WalletProvider = ({ children }) => {
       if (!result.publicKey) throw new Error('No wallet account was returned.');
       const nextWallet = { name: walletName(p, 'solana'), chain: type, address: result.publicKey.toString() };
       try { localStorage.setItem('feeless:last-wallet', JSON.stringify({ type, brand: brandOf(p) })); } catch { /* ignore */ }
+      walletRef.current = nextWallet;
       setWallet(nextWallet);
       setProvider(p);
       return { wallet: nextWallet, provider: p };
@@ -123,6 +150,7 @@ export const WalletProvider = ({ children }) => {
       }
       const nextWallet = { name: walletName(p, 'evm'), chain: type, address: accounts[0], evmChainId };
       try { localStorage.setItem('feeless:last-wallet', JSON.stringify({ type, brand: brandOf(p) })); } catch { /* ignore */ }
+      walletRef.current = nextWallet;
       setWallet(nextWallet);
       setProvider(p);
       return { wallet: nextWallet, provider: p };
@@ -140,7 +168,7 @@ export const WalletProvider = ({ children }) => {
   useEffect(() => {
     let last = null;
     try { last = JSON.parse(localStorage.getItem('feeless:last-wallet') || 'null'); } catch { /* ignore */ }
-    if (!last || wallet) return;
+    if (!last || last.brand === 'walletconnect' || wallet) return;
     let alive = true;
     const tryIt = async () => {
       const p = (last.brand && pairedProvider(last.brand, last.type)) || (last.type === 'solana' ? solanaProvider() : evmProvider());
@@ -159,9 +187,51 @@ export const WalletProvider = ({ children }) => {
     const t = setTimeout(tryIt, 300); // wallets inject slightly after page load
     return () => { alive = false; clearTimeout(t); };
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    let last = null;
+    try { last = JSON.parse(localStorage.getItem('feeless:last-wallet') || 'null'); } catch { /* ignore */ }
+    const type = wallet?.connection === 'walletconnect' ? wallet.chain : last?.brand === 'walletconnect' ? last.type : null;
+    if (!['solana', 'evm'].includes(type) || !process.env.REACT_APP_REOWN_PROJECT_ID) return undefined;
+    let alive = true;
+    let unsubscribe;
+    import('../lib/reownWalletConnect')
+      .then(({ subscribeWalletConnectSession }) => subscribeWalletConnectSession(type, session => {
+        if (!alive) return;
+        const current = walletRef.current;
+        if (!session) {
+          if (!current || (current.connection === 'walletconnect' && current.chain === type)) {
+            walletRef.current = null;
+            setWallet(null);
+            setProvider(null);
+            try { localStorage.removeItem('feeless:last-wallet'); } catch { /* ignore */ }
+          }
+          return;
+        }
+        if (current && (current.connection !== 'walletconnect' || current.chain !== type)) return;
+        const restoredWallet = {
+          name: session.name || 'WalletConnect',
+          chain: type,
+          address: session.address,
+          ...(type === 'evm' ? { evmChainId: session.chainId || null } : {}),
+          connection: 'walletconnect',
+        };
+        walletRef.current = restoredWallet;
+        setWallet(restoredWallet);
+        setProvider(session.provider);
+      }))
+      .then(stop => { if (!alive) stop?.(); else unsubscribe = stop; })
+      .catch(error => console.warn('Could not restore the mobile wallet session.', error));
+    return () => { alive = false; unsubscribe?.(); };
+  }, [wallet?.connection, wallet?.chain]);
   const disconnect = async () => {
+    if (wallet?.connection === 'walletconnect') {
+      const { disconnectWalletConnect } = await import('../lib/reownWalletConnect');
+      await disconnectWalletConnect(wallet.chain);
+    } else if (wallet?.chain === 'solana') {
+      await provider?.disconnect?.();
+    }
     try { localStorage.removeItem('feeless:last-wallet'); } catch { /* ignore */ }
-    if (wallet?.chain === 'solana') await provider?.disconnect?.();
+    walletRef.current = null;
     setWallet(null); setProvider(null);
   };
   // Move the connected wallet onto the eco/network a coin lives on.
@@ -192,7 +262,7 @@ export const WalletProvider = ({ children }) => {
   const switchToInner = async chain => {
     const eco = ecoOf(chain);
     if (!eco) throw new Error(`FEELESS can't sign on ${chain} yet.`);
-    const brand = brandOf(provider);
+    const brand = wallet?.connection === 'walletconnect' ? 'walletconnect' : brandOf(provider);
     if (eco === 'solana') return wallet?.chain === 'solana' ? { wallet, provider } : connect('solana', brand);
     let current = wallet?.chain === 'evm' ? { wallet, provider } : await connect('evm', brand);
     const target = EVM_CHAINS[chain];
@@ -211,7 +281,13 @@ export const WalletProvider = ({ children }) => {
   // out there, so the destination is always an address your own wallet handed over. `silent`: only if the wallet already trusts the site.
   const peekAddress = async (type, { silent = false } = {}) => {
     if (wallet?.chain === type && !wallet.readOnly) return wallet.address;
-    const p = pairedProvider(brandOf(provider), type) || (type === 'solana' ? solanaProvider() : evmProvider());
+    const brand = wallet?.connection === 'walletconnect' ? 'walletconnect' : brandOf(provider);
+    if (brand === 'walletconnect') {
+      const { getWalletConnectSession, connectWalletConnect } = await import('../lib/reownWalletConnect');
+      const session = silent ? await getWalletConnectSession(type) : await connectWalletConnect(type);
+      return session?.address || null;
+    }
+    const p = pairedProvider(brand, type) || (type === 'solana' ? solanaProvider() : evmProvider());
     if (!p) return null;
     try {
       if (type === 'solana') { const r = await p.connect(silent ? { onlyIfTrusted: true } : undefined); return (r?.publicKey || p.publicKey)?.toString() || null; }
@@ -229,17 +305,21 @@ export const WalletProvider = ({ children }) => {
     return provider.request({ method: 'personal_sign', params: [stringToHex(message), wallet.address] });
   };
   useEffect(() => {
-    if (!provider || !wallet) return;
+    if (!provider || !wallet || wallet.connection === 'walletconnect') return;
     const changed = value => {
       const address = wallet.chain === 'solana' ? value?.toString() : value?.[0];
       setWallet(current => address && current ? { ...current, address } : null);
     };
-    const reset = () => setWallet(null);
+    const reset = () => {
+      walletRef.current = null;
+      setWallet(null);
+      try { localStorage.removeItem('feeless:last-wallet'); } catch { /* ignore */ }
+    };
     const chainChanged = evmChainId => setWallet(current => (current ? { ...current, evmChainId } : current));
     const event = wallet.chain === 'solana' ? 'accountChanged' : 'accountsChanged';
     provider.on?.(event, changed); provider.on?.('disconnect', reset); provider.on?.('chainChanged', chainChanged);
     return () => { provider.removeListener?.(event, changed); provider.removeListener?.('disconnect', reset); provider.removeListener?.('chainChanged', chainChanged); };
-  }, [provider, wallet?.chain]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [provider, wallet?.chain, wallet?.connection]); // eslint-disable-line react-hooks/exhaustive-deps
   return <WalletContext.Provider value={{ wallet, connect, disconnect, provider, signMessage, switchTo, peekAddress, linkCandidate, linkAccounts }}>{children}</WalletContext.Provider>;
 };
 export const useWallet = () => useContext(WalletContext);

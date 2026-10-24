@@ -3327,6 +3327,14 @@ body.theme-day{--royal-edge:rgba(11,138,87,.22);--royal-glow:0 10px 26px -14px r
 
 /* ---- Connect wallet card ---- */
 .wallet-chooser{display:grid;gap:10px;margin-top:6px}
+.wallet-mobile-guidance{margin:0;color:var(--muted);font-size:12px;line-height:1.5}
+.wallet-mobile-actions{display:grid;gap:8px}
+.wallet-mobile-actions>button{width:100%;min-height:44px}
+.wallet-mobile-detected{display:grid;gap:8px;margin-top:8px}
+.wallet-mobile-detected>small{color:var(--muted);font-size:11px}
+.wallet-mobile-detected-choice{width:100%;padding:10px 12px;color:inherit;text-align:left;cursor:pointer}
+.wallet-mobile-detected-choice>span:not(.wallet-icon){display:grid;gap:2px;flex:1}
+.wallet-mobile-detected-choice small{color:var(--muted);font-size:11px}
 .wallet-featured{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 .wallet-choice{position:relative;display:flex;align-items:stretch;border:1px solid var(--royal-edge,rgba(18,192,122,.22));border-radius:14px;background:linear-gradient(160deg,rgba(18,192,122,.07),rgba(255,255,255,.02));overflow:hidden;transition:border-color .18s,box-shadow .2s,transform .2s}
 .wallet-choice:hover{border-color:rgba(62,227,156,.55);box-shadow:0 10px 28px -14px rgba(18,192,122,.5);transform:translateY(-1px)}
