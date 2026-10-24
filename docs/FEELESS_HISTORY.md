@@ -6152,3 +6152,10 @@ P6 — IDEAS: FeeCat + AI agent pair that talk · "build a better coin" track in
   `.av-lev`, `.av-pick`, `es-perps/tile/fan/bar`). Big rooms: the map's side column (place card + street chat) painted over the room — hidden
   while one is open (`familyWorld.css`). Venue truth: only Jupiter is wired — gTrade / Hyperliquid / Drift / options = CLAUDE.md P0 #0 NEXT.
   Tests: `PerpsDash.test.js`, `CityAvenue.test.jsx`, `EarnStake.test.jsx`. Screenshots: /dev/perps 1440 + 360, the real Fee City room.
+- 2026-10-23 late night · Opus 5.5 — ⏱ KALSHI ODDS ON THE PERPS DASH (owner: "other US-only web3 platforms — how ima use HYPE in the US?").
+  Research: no wallet-signed perps venue is US-legal (Hyperliquid / gTrade / Drift bar US persons; US perps = KYC'd brokers: Coinbase CFM, Kalshi
+  BTCPERP, Webull Nov 2026). The US-legal wallet route = Kalshi (CFTC) tokenized on Solana via DFlow — 15-min up / down + strike ladders from
+  $0.01. Shipped read-only: `backend/kalshi_odds.py` (fifteen / nearest — the soonest day's strike nearest the mark / payout) + GET
+  /api/reputation/familia/kalshi (one shared read / 10 s, 6 series in parallel, limit 1000, last good read kept) + `KalshiOdds` in PerpsDash
+  (odds split, target vs live, window countdown, $1 pays UP / DOWN, the ladder strike). Trading waits on DFlow's production key (metadata API
+  403s without it; the dev host in old guides is gone). Tests: `test_kalshi_odds.py`, `PerpsDash.test.js`.

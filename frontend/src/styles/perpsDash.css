@@ -95,3 +95,25 @@ body.theme-day .pd .rp { background: linear-gradient(170deg, rgba(255, 93, 187, 
 @media (max-width: 640px) { .pd { padding: 10px; gap: 10px; } .pd-title b { font-size: 19px; } .pd-mkts { gap: 6px; } .pd-mkt { grid-template-columns: 1fr; min-height: 96px; padding: 8px; }
   .pd-mark { justify-self: start; font-size: 15px; } .pd-sym b { font-size: 14px; } .pd-age { display: none; } .pd-vits { grid-template-columns: 1fr 1fr; } .pd-vit { min-height: 70px; }
   .pd-plot { height: 320px; } .pd-seg button { min-width: 0; } .pd-pnl { justify-items: start; } }
+/* ⏱ the Kalshi 15-minute odds strip (US-legal) — the odds split, target vs live, the window's countdown bar, what $1 pays */
+.pd-odds { position: relative; overflow: hidden; display: grid; grid-template-columns: 1.1fr 1fr 1fr .9fr 1.1fr 1fr; align-items: center; gap: 6px 14px; padding: 10px 14px; border-radius: 14px;
+  background: linear-gradient(90deg, rgba(255, 93, 187, .14), rgba(8, 2, 8, .75) 40%); border: 1px solid rgba(255, 93, 187, .3); box-shadow: inset 0 1px 0 rgba(255, 255, 255, .07);
+  animation: pdIn .4s ease-out both; animation-delay: .4s; }
+.pd-odds::after { content: ''; position: absolute; left: 0; right: 0; bottom: 0; height: 2px; pointer-events: none; background: linear-gradient(90deg, transparent, var(--pk), transparent); transform: translateX(-100%); animation: pdScan 3s linear infinite; }
+.pd-odds.is-up::after { background: linear-gradient(90deg, transparent, var(--up), transparent); }
+.pd-oh { display: grid; line-height: 1.1; } .pd-oh em, .pd-ostat em { font: 800 7.5px 'JetBrains Mono', monospace; font-style: normal; letter-spacing: .16em; color: #c9a3b9; }
+.pd-oh b { font: 900 26px 'JetBrains Mono', monospace; color: #fff; } .pd-odds.is-up .pd-oh b { color: var(--up); text-shadow: 0 0 16px rgba(69, 228, 134, .55); } .pd-odds.is-dn .pd-oh b { color: var(--dn); }
+.pd-oh small { font: 800 8px 'JetBrains Mono', monospace; letter-spacing: .14em; color: var(--pk2); }
+.pd-osplit { grid-column: 1 / -1; order: 9; position: relative; height: 6px; border-radius: 6px; overflow: hidden; background: rgba(0, 0, 0, .5); }
+.pd-osplit s { position: absolute; top: 0; bottom: 0; width: 100%; transition: transform .6s ease; } .pd-osplit .is-up { left: 0; transform-origin: left; background: var(--up); box-shadow: 0 0 8px var(--up); }
+.pd-osplit .is-dn { right: 0; transform-origin: right; background: var(--pk); box-shadow: 0 0 8px var(--pk); }
+.pd-ostat { display: grid; gap: 2px; line-height: 1.1; } .pd-ostat b { font: 900 15px 'JetBrains Mono', monospace; color: #fff; } .pd-ostat b i { font: 800 8px 'JetBrains Mono', monospace; font-style: normal; letter-spacing: .1em; opacity: .75; }
+.pd-ostat b.is-up, .pd-ostat small.is-up { color: var(--up); } .pd-ostat b.is-dn, .pd-ostat small.is-dn { color: var(--pk); } .pd-ostat small { font: 700 9.5px 'JetBrains Mono', monospace; }
+.pd-ostat u { display: block; height: 4px; border-radius: 4px; background: rgba(255, 255, 255, .07); overflow: hidden; } .pd-ostat u s { display: block; height: 100%; transform-origin: left; background: var(--gold); transition: transform 1s linear; }
+body.fx-lite .pd-odds, body.fx-lite .pd-odds::after { animation: none; }
+@media (prefers-reduced-motion: reduce) { .pd-odds, .pd-odds::after { animation: none; } .pd-osplit s, .pd-ostat u s { transition: none; } }
+body.theme-day .pd-odds { background: linear-gradient(90deg, #ffe8f4, #fff 45%); border-color: rgba(200, 40, 130, .25); }
+body.theme-day :is(.pd-oh b, .pd-ostat b) { color: #2a0f1f; text-shadow: none; } body.theme-day :is(.pd-oh em, .pd-ostat em) { color: #7a4a63; }
+body.theme-day .pd-odds.is-up .pd-oh b, body.theme-day .pd-ostat .is-up { color: #0a8a44; } body.theme-day .pd-odds.is-dn .pd-oh b, body.theme-day .pd-ostat .is-dn { color: #b4233f; }
+@media (max-width: 1100px) { .pd-odds { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+@media (max-width: 640px) { .pd-odds { grid-template-columns: 1fr 1fr; padding: 10px; } .pd-oh b { font-size: 22px; } }

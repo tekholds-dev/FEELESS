@@ -171,11 +171,15 @@ P0 — OWNER 2026-10-23 (late night) · finished today → `docs/FEELESS_HISTORY
    provider and trade with as low as $1"). TRUTH: only Jupiter Perps is wired (DECISIONS #8; gTrade / Hyperliquid / Drift / options never were).
    SHIPPED: the FEELESS PERPS dash (`PerpsDash.jsx` + `perpsDash.css`, pink meta: marks ticking every 2 s with tick trails, WHO'S CROWDED tug,
    borrow / hr, funding needle, OI, 1-min move; live chart with the ticket's ☠ line + your positions; Jupiter ticket; 🧪 practice tab).
-   NEXT, in order: ① a PROVIDER rail on the dash (each venue = its real min, max lev, fee, chain, live mark — no dead buttons: a venue shows only
-   once it trades) · ② Hyperliquid ($10 min NOTIONAL → $1 collateral at 10×; USDC deposit via Arbitrum, EIP-712 orders the user's EVM wallet
-   signs) · ③ gTrade (Arbitrum / Base, EVM wallet signs; check its min position) · ④ Drift (Solana, small mins, needs a user account) · ⑤ options
-   (Aevo / Derive). Each: build → verify the tx like `jup_perps.verify` → wallet signs, test faking the network. ⚖ Before ② ③ ④ ⑤ ask the owner:
-   DECISIONS #8 lifted the 🇺🇸 rule for Jupiter only, and Hyperliquid / gTrade / Drift bar US persons in their own terms (standing rule 1).
+   🇺🇸 VENUE TRUTH (researched 2026-10-23): Hyperliquid / gTrade / Drift / dYdX bar US persons — OUT (owner: "how ima use HYPE in the US"). US-legal
+   perps run only through KYC'd brokers (Coinbase CFM nano BTC / ETH, Kalshi BTCPERP approved May 2026, Webull from Nov 2026) — no wallet-signed
+   route. The US-legal, wallet-signed, $1 route = KALSHI (CFTC-regulated) tokenized on Solana through DFlow: BTC / ETH / SOL "up in 15 min?" +
+   hourly / daily strike ladders = binary options, $0.01–$1 a contract. SHIPPED: live Kalshi odds on the dash (`kalshi_odds.py`,
+   GET /familia/kalshi, `KalshiOdds` — odds split, target vs live, countdown, $1 pays). NEXT: ① 🔑 OWNER: request DFlow's production API key
+   (pond.dflow.net/get-started/api-key — the Kalshi→Solana metadata API 403s without it; the dev trade API answers) · ② the trade path: DFlow
+   /order builds the tx → verify (programs allow-listed, user pays + signs, amount = the ticket) → wallet signs → /order-status; ③ Proof KYC in place
+   (GET proof.dflow.net/verify/{wallet} public; deep link dflow.net/proof signed "Proof KYC verification: {ms}"; free, Stripe Identity; FEELESS
+   never sees ID data) · ④ redeem winnings after settlement · ⑤ a PROVIDER rail (Jupiter perps · Kalshi up/down) — a venue shows only once it trades.
    Also open from this ask: pools make visual sense from any $ typed · every Familia money surface relevant + vitals.
 0b. ⛽🌉 GAS + BRIDGE — SHIPPED 2026-10-23 (grep the history "🌉 BRIDGE"; `lifi.verify_svm`, `lib/bridgeExec.js`, `BridgeDesk.jsx`, /dev/bridge ·
    /dev/gas). NEXT: the owner's first real bridge ($5 USDC Solana → Base and back) + a $2 gas fill read back on its tank · Zora coins: LI.FI dropped

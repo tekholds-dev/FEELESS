@@ -9594,6 +9594,40 @@ async def familia_perps():
     return {'markets': _perps_cache['rows'], 'at': round(_perps_cache['at'])}
 
 
+_kalshi_cache: dict = {'at': 0.0, 'rows': {}}
+
+
+@app.get('/api/reputation/familia/kalshi')
+async def familia_kalshi():
+    """⏱ Kalshi's live odds for the perps coins (US-legal, CFTC-regulated; read-only): each coin's 15-minute "up?" market + the 5 pm strike
+    nearest the live mark. One shared read every 10 s (kalshi_odds.py); a failed read keeps the last good one."""
+    global _fmk_http
+    import kalshi_odds as _ko
+    now = time.time()
+    if now - _kalshi_cache['at'] > 10:
+        if _fmk_http is None:
+            _fmk_http = httpx.AsyncClient(timeout=8, limits=httpx.Limits(max_connections=8))
+        marks_ = {r_.get('coin'): r_.get('mark') for r_ in _perps_cache.get('rows') or []}
+
+        async def one(coin, kind):
+            try:
+                r_ = await _fmk_http.get(_ko.API, params={'series_ticker': _ko.series(coin, kind), 'status': 'open', 'limit': 1000}, timeout=8)
+                return r_.json().get('markets') or [] if r_.status_code == 200 else None
+            except Exception:
+                return None
+        got_ = await asyncio.gather(*[one(c_, k_) for c_ in _ko.COINS for k_ in ('15m', 'day')])
+        rows_ = dict(_kalshi_cache['rows'])
+        for i_, c_ in enumerate(_ko.COINS):
+            f_, d_ = got_[2 * i_], got_[2 * i_ + 1]
+            if f_ is None and d_ is None:
+                continue
+            old_ = rows_.get(c_) or {}
+            m15_ = _ko.fifteen(f_) if f_ is not None else old_.get('m15')
+            rows_[c_] = {'m15': m15_, 'day': _ko.nearest(d_, marks_.get(c_) or (m15_ or {}).get('target')) if d_ is not None else old_.get('day')}   # no board mark yet → the 15-min target is the live price
+        _kalshi_cache.update(at=now, rows=rows_)
+    return {'coins': _kalshi_cache['rows'], 'at': round(_kalshi_cache['at']), 'venue': 'Kalshi (CFTC-regulated)'}
+
+
 PAPER_PERPS_PATH = DATA_DIR / 'paper_perps.json'   # 📉 one paper book per wallet (paper_perps.py) — never money, never an order
 _pperp_lock = asyncio.Lock()
 

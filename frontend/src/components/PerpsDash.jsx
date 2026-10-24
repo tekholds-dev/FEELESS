@@ -15,6 +15,7 @@ import '../styles/perpsDash.css';
 //   the FUNDING needle, OPEN INTEREST counting, the 1-MINUTE MOVE from the real ticks;
 // · the LIVE chart of the market's deepest Solana pool with YOUR lines (the ticket's ☠ liquidation price moves as you change leverage; open
 //   positions draw entry + liq) beside the Jupiter ticket (your wallet signs). 🧪 PRACTICE = the paper desk, one tap away.
+// · ⏱ KALSHI — the US-legal 15-minute up / down odds on the same coin (read-only until DFlow's production key; CLAUDE.md › P0 #0).
 const PriceChart = lazy(() => import('./terminal/PriceChart').then(m => ({ default: m.PriceChart })));
 export const PERP_POOLS = {   // the deepest USDC pool on Solana per market (DexScreener, 2026-10-23) — the chart's candles + the live tick; Jupiter's oracle marks the trade
   SOL: { pairAddress: 'Czfq3xZZDmsdGdUyrNLtRhGc47cXcZtLG4crryfu44zE', mint: 'So11111111111111111111111111111111111111112', symbol: 'SOL' },
@@ -76,11 +77,38 @@ function Vital({ label, tip, children, cls = '', i = 0 }) {
   return <div className={`pd-vit ${cls}`} style={{ '--i': i }} data-tip={tip}><em>{label}</em>{children}</div>;
 }
 
+// ⏱ KALSHI — US-legal (CFTC-regulated) odds on the picked coin: the 15-minute "up?" window (target vs the live mark, the odds as a split,
+// the window's own countdown, what $1 pays either way) + the 5 pm strike nearest the mark. Read-only until DFlow's key lands (no dead button).
+export function kalshiRead(k, mark, now) {
+  const m = k?.m15; if (!m || (m.yes == null && m.no == null)) return null;
+  const end = Date.parse(m.closes || ''); const left = Number.isFinite(end) ? Math.max(0, Math.round((end - now) / 1000)) : null;
+  const up = m.yes != null ? m.yes : 1 - m.no;
+  return { up, left, frac: left == null ? 0 : Math.min(1, left / 900), above: m.target > 0 && mark > 0 ? mark - m.target : null, target: m.target,
+    payUp: m.yes > 0 ? 1 / m.yes : null, payDn: m.no > 0 ? 1 / m.no : null, day: k?.day || null };
+}
+const dayWord = iso => { const d = new Date(iso); return Number.isFinite(d.getTime()) ? d.toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric' }).toUpperCase() : 'CLOSE'; };
+function KalshiOdds({ asset, k, mark, now }) {
+  const r = kalshiRead(k, mark, now); const g = useGlide(r ? Math.round(r.up * 1000) / 10 : 50, 600);
+  if (!r) return null;
+  const mm = r.left == null ? '—' : `${Math.floor(r.left / 60)}:${String(r.left % 60).padStart(2, '0')}`;
+  return <div className={`pd-odds ${r.up >= 0.5 ? 'is-up' : 'is-dn'}`} data-testid="pd-odds" data-tip={`Kalshi (CFTC-regulated, US-legal): "${asset} price up in the next 15 mins?" — YES pays $1 if ${asset} ends the window at or above the target`}>
+    <span className="pd-oh"><em>⏱ KALSHI · {asset} UP IN 15 MIN?</em><b className="m-num">{g.toFixed(0)}%</b><small>US · CFTC-REGULATED</small></span>
+    <div className="pd-osplit" aria-hidden="true"><s className="is-up" style={{ transform: `scaleX(${g / 100})` }} /><s className="is-dn" style={{ transform: `scaleX(${1 - g / 100})` }} /></div>
+    <span className="pd-ostat"><em>TARGET</em><b className="m-num">{px(r.target)}</b><small className={`m-num ${(r.above ?? 0) >= 0 ? 'is-up' : 'is-dn'}`}>{r.above == null ? '' : `live ${r.above >= 0 ? '▲ +' : '▼ −'}${px(Math.abs(r.above))}`}</small></span>
+    <span className="pd-ostat pd-oclock"><em>CLOSES IN</em><b className="m-num">{mm}</b><u aria-hidden="true"><s style={{ transform: `scaleX(${r.frac})` }} /></u></span>
+    <span className="pd-ostat"><em>$1 PAYS</em><b className="m-num is-up">{r.payUp ? `$${r.payUp.toFixed(2)}` : '—'} <i>UP</i></b><b className="m-num is-dn">{r.payDn ? `$${r.payDn.toFixed(2)}` : '—'} <i>DOWN</i></b></span>
+    {r.day ? <span className="pd-ostat"><em>{dayWord(r.day.closes)} · ABOVE {px(r.day.strike)}</em><b className="m-num">{Math.round(r.day.yes * 100)}%</b><u aria-hidden="true"><s style={{ transform: `scaleX(${r.day.yes})` }} /></u></span> : null}
+  </div>;
+}
+
 export function PerpsDash({ devAddress = '' }) {
   const [rows, setRows] = useState([]);
   useEffect(() => { let on = true; const load = () => fetch(apiUrl('/api/reputation/familia/perps')).then(r => (r.ok ? r.json() : null)).then(x => on && x && setRows(x.markets || [])).catch(() => {});
     load(); const t = setInterval(() => { if (!document.hidden) load(); }, 15000); return () => { on = false; clearInterval(t); }; }, []);
   const by = useMemo(() => Object.fromEntries(rows.map(r => [r.coin, r])), [rows]);
+  const [ks, setKs] = useState({});
+  useEffect(() => { let on = true; const load = () => fetch(apiUrl('/api/reputation/familia/kalshi')).then(r => (r.ok ? r.json() : null)).then(x => on && x && setKs(x.coins || {})).catch(() => {});
+    load(); const t = setInterval(() => { if (!document.hidden) load(); }, 10000); return () => { on = false; clearInterval(t); }; }, []);
   const [ticks, setTicks] = useState({}); const onTick = useMemo(() => (a, tr) => setTicks(t => ({ ...t, [a]: tr })), []);
   const marks = useMemo(() => Object.fromEntries(MKTS.map(a => [a, (ticks[a] || []).slice(-1)[0]?.v || by[a]?.mark])), [by, ticks]);
   const [asset, setAsset] = useState('SOL'); const [iv, setIv] = useState('1m'); const [tab, setTab] = useState('live');
@@ -117,6 +145,7 @@ export function PerpsDash({ devAddress = '' }) {
       <Vital i={4} cls={m1 == null ? '' : m1 >= 0 ? 'is-up' : 'is-dn'} label="1-MIN MOVE" tip="The move over the last 60 s of live ticks (3 min under it)">
         <b className="m-num pd-hot" key={Math.round((m1 || 0) * 1000)}>{pc(m1, 3)}</b><small className="m-num">3m {pc(m3, 3)}</small></Vital>
     </div>
+    <KalshiOdds asset={asset} k={ks[asset]} mark={marks[asset]} now={now} />
     {tab === 'live' ? <div className="pd-grid">
       <div className="pd-chart" data-testid="pd-chart">
         <div className="pd-cbar"><span className="pd-cname"><b>{asset}<i>-PERP</i></b><small className="m-num">{px(marks[asset])}</small></span>
