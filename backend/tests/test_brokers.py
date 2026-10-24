@@ -100,7 +100,7 @@ def test_the_endpoints_link_read_trade_and_unlink_on_the_wallet_session(monkeypa
 
         async def json(self):
             return self.b
-    assert asyncio.run(rs.familia_broker('WALLET', 'ok')) == {'ready': True, 'linked': False}
+    assert asyncio.run(rs.familia_broker('WALLET', 'ok')) == {'ready': True, 'snaptrade': True, 'linked': False, 'signup': bk.ALPACA_SIGNUP}
     out = asyncio.run(rs.familia_broker_link(Q({'address': 'WALLET', 'session': 'ok', 'back': 'http://localhost:51367/familia'})))
     assert out['url'].startswith('https://app.snaptrade.com/')
     stored = json.dumps(rs._json_load(rs.BROKERS_PATH, {}))
@@ -115,3 +115,78 @@ def test_the_endpoints_link_read_trade_and_unlink_on_the_wallet_session(monkeypa
         asyncio.run(rs.familia_broker_link(Q({'address': 'WALLET', 'session': 'bad'})))                           # no signed session, no link
     assert asyncio.run(rs.familia_broker_unlink(Q({'address': 'WALLET', 'session': 'ok'}))) == {'ok': True}
     assert 'WALLET' not in (rs._json_load(rs.BROKERS_PATH, {}) or {}) and ('DELETE', '/snapTrade/deleteUser', None) in calls
+
+
+KEY, SEC = 'PK' + 'A1B2C3D4E5F6G7H8', 'x' * 40
+
+
+def test_alpaca_bring_your_own_key_bodies_and_view():
+    assert bk.alpaca_keys_ok(KEY, SEC) and not bk.alpaca_keys_ok('short', SEC) and not bk.alpaca_keys_ok(KEY, 'tiny')
+    assert bk.alpaca_order({'symbol': 'spy', 'action': 'BUY', 'usd': 5}) == {'symbol': 'SPY', 'side': 'buy', 'type': 'market', 'time_in_force': 'day', 'notional': '5.00'}
+    assert bk.alpaca_order({'symbol': 'BTC', 'action': 'BUY', 'usd': 10})['symbol'] == 'BTC/USD' and bk.alpaca_order({'symbol': 'BTC', 'action': 'BUY', 'usd': 10})['time_in_force'] == 'gtc'
+    assert bk.alpaca_order({'symbol': 'AAPL', 'action': 'SELL', 'units': 2})['qty'] == '2.0'
+    lim = bk.alpaca_order({'symbol': 'TSLA', 'action': 'BUY', 'type': 'Limit', 'price': 200, 'units': 3})
+    assert (lim['type'], lim['limit_price'], lim['qty']) == ('limit', '200.0', '3.0')
+    for bad in ({'symbol': 'SPY', 'action': 'BUY', 'usd': 0.5}, {'symbol': 'SPY', 'action': 'SHORT', 'usd': 5}, {'symbol': 'SPY', 'action': 'BUY'}):
+        with pytest.raises(ValueError):
+            bk.alpaca_order(bad)
+    v = bk.alpaca_view({'account_number': 'PA12345678', 'cash': '40.5', 'buying_power': '81', 'equity': '640.5', 'status': 'ACTIVE'},
+                       [{'symbol': 'SPY', 'qty': '1', 'current_price': '600', 'market_value': '600', 'unrealized_pl': '100', 'unrealized_plpc': '0.2', 'asset_class': 'us_equity'}], True)
+    assert (v['id'], v['broker'], v['number'], v['value'], v['positions'][0]['pnlPct']) == ('alpaca', 'Alpaca · PAPER', '5678', 640.5, 20.0)
+
+
+def test_the_seal_key_is_made_once_and_private(tmp_path):
+    import os
+    p = tmp_path / '.broker_seal'
+    k = bk.seal_key_file(p)
+    assert len(k) > 40 and bk.seal_key_file(p) == k and oct(os.stat(p).st_mode)[-3:] == '600'
+
+
+def test_alpaca_keys_are_proven_live_then_sealed_and_trade_your_own_account(monkeypatch):
+    import reputation_service as rs
+    monkeypatch.delenv('SNAPTRADE_CLIENT_ID', raising=False); monkeypatch.delenv('BROKER_SECRET_KEY', raising=False)
+    monkeypatch.setattr(rs, '_session_or_401', lambda a, s: 'WALLET')
+    monkeypatch.setattr(rs, '_brk_cache', {})
+    calls = []
+
+    class R:
+        def __init__(self, code, b):
+            self.status_code, self.b = code, b
+
+        def json(self):
+            return self.b
+
+    class C:
+        async def request(self, method, url, headers=None, json=None, timeout=None):
+            calls.append((method, url, json))
+            if headers['APCA-API-SECRET-KEY'] != SEC:
+                return R(401, {'message': 'unauthorized.'})
+            assert url.startswith('https://paper-api.alpaca.markets')
+            if url.endswith('/v2/account'):
+                return R(200, {'account_number': 'PA1', 'cash': '100', 'buying_power': '200', 'equity': '100'})
+            if url.endswith('/v2/positions'):
+                return R(200, [])
+            if url.endswith('/v2/orders'):
+                return R(200, {'id': 'o1', 'status': 'accepted', 'filled_qty': '0'})
+            return R(404, {})
+    monkeypatch.setattr(rs, '_fmk_http', C())
+
+    class Q:
+        def __init__(self, b):
+            self.b = b
+
+        async def json(self):
+            return self.b
+    with pytest.raises(rs.HTTPException):                                                               # wrong secret → nothing stored
+        asyncio.run(rs.familia_broker_keys(Q({'address': 'W', 'session': 's', 'key': KEY, 'secret': 'y' * 40, 'paper': True})))
+    assert 'WALLET' not in (rs._json_load(rs.BROKERS_PATH, {}) or {})
+    out = asyncio.run(rs.familia_broker_keys(Q({'address': 'W', 'session': 's', 'key': KEY, 'secret': SEC, 'paper': True})))
+    assert out['ok'] and out['account']['broker'] == 'Alpaca · PAPER'
+    raw = json.dumps(rs._json_load(rs.BROKERS_PATH, {}))
+    assert SEC not in raw and KEY not in raw and rs.BROKER_SEAL_PATH.exists()                              # sealed with FEELESS's own key
+    v = asyncio.run(rs.familia_broker('W', 's'))
+    assert v['linked'] and v['accounts'][0]['id'] == 'alpaca' and v['accounts'][0]['cash'] == 100
+    o = asyncio.run(rs.familia_broker_order(Q({'address': 'W', 'session': 's', 'accountId': 'alpaca', 'symbol': 'SPY', 'action': 'BUY', 'usd': 5})))
+    assert o['status'] == 'accepted' and calls[-1][2] == {'symbol': 'SPY', 'side': 'buy', 'type': 'market', 'time_in_force': 'day', 'notional': '5.00'}
+    assert asyncio.run(rs.familia_broker_keys(Q({'address': 'W', 'session': 's', 'remove': True}))) == {'ok': True}
+    assert 'WALLET' not in (rs._json_load(rs.BROKERS_PATH, {}) or {})

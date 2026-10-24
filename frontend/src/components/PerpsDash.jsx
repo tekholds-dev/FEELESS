@@ -106,7 +106,7 @@ export function PerpsDash({ devAddress = '' }) {
     <div className="pd-prov" role="radiogroup" aria-label="Provider" data-testid="pd-prov">{[
       ['jup', 'JUPITER PERPS', 'SOL · ETH · BTC · long / short · up to 100×', 'FROM $10', 'LIVE', true, 'pos', 'Real perps on Jupiter (Solana) — your wallet signs; TP / SL + partial close'],
       ['kalshi', 'KALSHI UP / DOWN', 'BTC · ETH · SOL · DOGE · XRP · S&P · NASDAQ', 'FROM $1', ks?.tradable ? 'LIVE' : 'KEY PENDING', !!ks?.tradable, 'kalshi', 'US-legal (CFTC) up / down contracts tokenized on Solana — needs the DFlow key'],
-      ['broker', '🏦 YOUR BROKER', 'stocks · ETFs · crypto in your own account', 'FROM $1', brk?.ready ? 'LIVE' : 'KEY PENDING', !!brk?.ready, 'broker', 'Your own broker (Webull · Coinbase · Kraken · Alpaca · E*TRADE) linked to your wallet — needs the SnapTrade keys']]
+      ['broker', '🏦 YOUR BROKER', 'stocks · ETFs · crypto in your own account', 'FROM $1', 'LIVE', true, 'broker', 'Your own broker: paste your FREE Alpaca keys ($0 to start) — or link any broker when SnapTrade is set up']]
       .map(([k, n, sub, min, st, on, go, tip], i) => <button key={k} type="button" role="radio" aria-checked={(k === 'jup' && !['kalshi', 'broker'].includes(tab)) || tab === go}
         className={`pd-pv ${on ? 'is-live' : 'is-wait'} ${(k === 'jup' && !['kalshi', 'broker'].includes(tab)) || tab === go ? 'is-on' : ''}`} style={{ '--i': i }} onClick={() => setTab(go)} data-tip={tip} data-testid={`pd-pv-${k}`}>
         <b>{n}</b><small>{sub}</small><span><i className="m-num">{min}</i><em>{st}</em></span></button>)}</div>

@@ -6194,3 +6194,7 @@ P6 — IDEAS: FeeCat + AI agent pair that talk · "build a better coin" track in
   no pool-row wall; notes → tooltip) · YOUR MONEY + MY POOLS earning tickers (+ MY POOLS' one button) · Trade Center % flash, private-seat chip.
   Tests: EarnTicker.test, NightVault.test. Screens: Night Vault (1440); market panel + YOUR MONEY not screenshotted (need a picked building /
   a signed wallet).
+- 2026-10-24 · Opus 5.5 — 🔑 BRING YOUR OWN KEY (owner: "users add their own keys … fastest, easiest, won't charge nothing to start"): Alpaca
+  (free, no minimum, commission-free; paper keys instant) — `brokers.alpaca_*` (keys shape, order bodies stock $ / shares / limit / crypto gtc,
+  view), POST /familia/broker/keys (checked live, sealed; remove), orders on `accountId: 'alpaca'`, the seal key FEELESS makes for itself
+  (`data/.broker_seal`, 0600) when BROKER_SECRET_KEY is unset, `AlpacaKeys` 3-step UI, `/dev/broker`. Tests: test_brokers (11).

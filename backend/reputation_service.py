@@ -9707,11 +9707,22 @@ _brk_cache: dict = {}
 _brk_lock = asyncio.Lock()
 
 
+BROKER_SEAL_PATH = DATA_DIR / '.broker_seal'   # 🔐 the seal key FEELESS made for itself (0600) when BROKER_SECRET_KEY is not in .env
+
+
+def _brk_seal():
+    """Make sure a seal key exists (env first, else FEELESS's own 0600 file) — users' broker secrets are never stored in the clear."""
+    import brokers as _bk
+    if not os.environ.get('BROKER_SECRET_KEY'):
+        os.environ['BROKER_SECRET_KEY'] = _bk.seal_key_file(BROKER_SEAL_PATH)
+
+
 def _brk_need():
     import brokers as _bk
     c_, k_ = _bk.keys(os.environ)
-    if not c_ or not os.environ.get('BROKER_SECRET_KEY'):
-        raise HTTPException(503, 'The Brokerage opens when SnapTrade is set up (SNAPTRADE_CLIENT_ID · SNAPTRADE_CONSUMER_KEY · BROKER_SECRET_KEY).')
+    _brk_seal()
+    if not c_:
+        raise HTTPException(503, 'Linking ANY broker opens when SnapTrade is set up (SNAPTRADE_CLIENT_ID · SNAPTRADE_CONSUMER_KEY) — Alpaca keys work now.')
     return _bk, c_, k_
 
 
@@ -9743,29 +9754,97 @@ def _brk_user(primary):
         return None
 
 
+def _brk_alpaca(primary):
+    """This wallet's own Alpaca keys {key, secret, paper} (unsealed), or None."""
+    import brokers as _bk
+    rec_ = ((_json_load(BROKERS_PATH, {}) or {}).get(primary) or {}).get('alpaca')
+    if not rec_:
+        return None
+    try:
+        k_ = json.loads(_bk.unseal(rec_['sec'], os.environ))
+        return {'key': k_['key'], 'secret': k_['secret'], 'paper': bool(rec_.get('paper'))}
+    except Exception:
+        return None
+
+
+async def _alpaca_call(ak, method, path, body=None):
+    import brokers as _bk
+    try:
+        r_ = await _fmk_http_get().request(method, _bk.alpaca_base(ak['paper']) + path, headers=_bk.alpaca_headers(ak['key'], ak['secret']), json=body, timeout=15)
+    except Exception:
+        raise HTTPException(503, 'Alpaca did not answer — try again.')
+    try:
+        d_ = r_.json()
+    except Exception:
+        d_ = {}
+    if r_.status_code in (401, 403):
+        raise HTTPException(400, 'Alpaca refused these keys (check Key ID + Secret, and PAPER vs LIVE).')
+    if r_.status_code >= 400:
+        raise HTTPException(400, f"Alpaca: {str((d_ or {}).get('message') or r_.status_code)[:160]}")
+    return d_
+
+
+@app.post('/api/reputation/familia/broker/keys')
+async def familia_broker_keys(request: Request):
+    """🔑 Add (or remove) YOUR OWN Alpaca keys: checked live against your account first, then sealed to your wallet — no SnapTrade, no owner
+    setup, $0 to start (a free Alpaca account; paper keys work the same minute). {remove: true} deletes them."""
+    import brokers as _bk
+    b_ = await request.json()
+    me_ = _session_or_401(str((b_ or {}).get('address') or ''), str((b_ or {}).get('session') or ''))
+    _brk_seal()
+    st_ = _json_load(BROKERS_PATH, {}) or {}
+    rec_ = dict(st_.get(me_) or {})
+    if (b_ or {}).get('remove'):
+        rec_.pop('alpaca', None)
+        if rec_:
+            st_[me_] = rec_
+        else:
+            st_.pop(me_, None)
+        _json_save(BROKERS_PATH, st_); _brk_cache.pop(me_, None)
+        return {'ok': True}
+    key_, sec_, paper_ = str(b_.get('key') or '').strip(), str(b_.get('secret') or '').strip(), bool(b_.get('paper'))
+    if not _bk.alpaca_keys_ok(key_, sec_):
+        raise HTTPException(400, 'That does not look like an Alpaca Key ID + Secret.')
+    acct_ = await _alpaca_call({'key': key_, 'secret': sec_, 'paper': paper_}, 'GET', '/v2/account')   # proves the keys before anything is stored
+    rec_['alpaca'] = {'sec': _bk.seal(json.dumps({'key': key_, 'secret': sec_}), os.environ), 'paper': paper_, 'at': time.time()}
+    st_[me_] = rec_
+    _json_save(BROKERS_PATH, st_); _brk_cache.pop(me_, None)
+    return {'ok': True, 'account': _bk.alpaca_view(acct_, [], paper_)}
+
+
 @app.get('/api/reputation/familia/broker')
 async def familia_broker(address: str = Query('', max_length=64), session: str = Query('', max_length=400)):
     """🏦 Your linked broker accounts, live: cash, buying power, value, positions with P&L (one read / 20 s). `ready` = SnapTrade is set up."""
     import brokers as _bk
-    ready_ = bool(_bk.keys(os.environ)[0] and os.environ.get('BROKER_SECRET_KEY'))
+    snap_ = bool(_bk.keys(os.environ)[0])
     if not address or not session:
-        return {'ready': ready_, 'linked': False}
+        return {'ready': True, 'snaptrade': snap_, 'linked': False, 'signup': _bk.ALPACA_SIGNUP}
     me_ = _session_or_401(address, session)
-    if not ready_:
-        return {'ready': False, 'linked': False}
-    u_ = _brk_user(me_)
-    if not u_:
-        return {'ready': True, 'linked': False}
+    _brk_seal()
+    u_ = _brk_user(me_) if snap_ else None
+    ak_ = _brk_alpaca(me_)
+    if not u_ and not ak_:
+        return {'ready': True, 'snaptrade': snap_, 'linked': False, 'signup': _bk.ALPACA_SIGNUP}
     hit_ = _brk_cache.get(me_)
     if hit_ and time.time() - hit_[0] < 20:
         return hit_[1]
-    q_ = {'userId': u_[0], 'userSecret': u_[1]}
-    accts_ = await _brk_call('GET', '/accounts', q_) or []
-    ids_ = [a_.get('id') for a_ in accts_ if a_.get('id')]
-    got_ = await asyncio.gather(*[asyncio.gather(_brk_call('GET', f'/accounts/{i_}/positions', q_), _brk_call('GET', f'/accounts/{i_}/balances', q_), return_exceptions=True) for i_ in ids_])
-    pos_ = {i_: (g_[0] if isinstance(g_[0], list) else []) for i_, g_ in zip(ids_, got_)}
-    bal_ = {i_: (g_[1] if isinstance(g_[1], list) else []) for i_, g_ in zip(ids_, got_)}
-    out_ = {'ready': True, 'linked': True, **_bk.view(accts_, pos_, bal_), 'at': round(time.time())}
+    accts_, pos_, bal_ = [], {}, {}
+    if u_:
+        q_ = {'userId': u_[0], 'userSecret': u_[1]}
+        accts_ = await _brk_call('GET', '/accounts', q_) or []
+        ids_ = [a_.get('id') for a_ in accts_ if a_.get('id')]
+        got_ = await asyncio.gather(*[asyncio.gather(_brk_call('GET', f'/accounts/{i_}/positions', q_), _brk_call('GET', f'/accounts/{i_}/balances', q_), return_exceptions=True) for i_ in ids_])
+        pos_ = {i_: (g_[0] if isinstance(g_[0], list) else []) for i_, g_ in zip(ids_, got_)}
+        bal_ = {i_: (g_[1] if isinstance(g_[1], list) else []) for i_, g_ in zip(ids_, got_)}
+    v_ = _bk.view(accts_, pos_, bal_)
+    if ak_:
+        try:
+            a_, p_ = await asyncio.gather(_alpaca_call(ak_, 'GET', '/v2/account'), _alpaca_call(ak_, 'GET', '/v2/positions'))
+            av_ = _bk.alpaca_view(a_, p_ if isinstance(p_, list) else [], ak_['paper'])
+            v_['accounts'] = [av_] + v_['accounts']; v_['value'] = round(v_['value'] + av_['value'], 2); v_['pnl'] = round(v_['pnl'] + sum(x['pnl'] for x in av_['positions']), 2)
+        except HTTPException as e:
+            v_['alpacaError'] = e.detail
+    out_ = {'ready': True, 'snaptrade': snap_, 'linked': True, **v_, 'at': round(time.time())}
     _brk_cache[me_] = (time.time(), out_)
     return out_
 
@@ -9805,6 +9884,18 @@ async def familia_broker_order(request: Request):
     import brokers as _bk
     b_ = await request.json()
     me_ = _session_or_401(str((b_ or {}).get('address') or ''), str((b_ or {}).get('session') or ''))
+    _brk_seal()
+    if str((b_ or {}).get('accountId') or '') == 'alpaca':   # 🔑 the user's own Alpaca keys
+        ak_ = _brk_alpaca(me_)
+        if not ak_:
+            raise HTTPException(409, 'Add your Alpaca keys first.')
+        try:
+            ob_ = _bk.alpaca_order(b_)
+        except ValueError as e:
+            raise HTTPException(400, str(e))
+        d_ = await _alpaca_call(ak_, 'POST', '/v2/orders', ob_)
+        _brk_cache.pop(me_, None)
+        return {'status': d_.get('status'), 'id': d_.get('id'), 'filled': d_.get('filled_qty'), 'price': d_.get('filled_avg_price'), 'symbol': ob_['symbol'], 'action': ob_['side'].upper()}
     _brk_need()
     u_ = _brk_user(me_)
     if not u_:

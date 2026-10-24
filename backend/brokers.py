@@ -129,3 +129,88 @@ def view(accounts, positions, balances):
         out.append({'id': aid, 'broker': a.get('institution_name') or (a.get('meta') or {}).get('institution_name') or 'Broker', 'name': a.get('name') or 'Account',
                     'number': str(a.get('number') or '')[-4:], 'cash': round(cash, 2), 'buyingPower': round(bp, 2), 'value': round(value, 2), 'positions': rows})
     return {'accounts': out, 'value': round(tv, 2), 'pnl': round(tp, 2)}
+
+
+# 🔑 BRING YOUR OWN KEY — Alpaca (owner, 2026-10-24: "users add their own keys … fastest, easiest, won't charge nothing to start"): a free
+# Alpaca account, no minimum, commission-free US stocks · ETFs · crypto; API keys are self-serve in its dashboard (paper keys at once, live after
+# its ID check). The user pastes Key ID + Secret once; FEELESS seals them to their wallet (`seal`) and trades their own account with them.
+ALPACA = {'live': 'https://api.alpaca.markets', 'paper': 'https://paper-api.alpaca.markets'}
+ALPACA_SIGNUP = 'https://app.alpaca.markets/signup'
+
+
+def alpaca_base(paper):
+    return ALPACA['paper' if paper else 'live']
+
+
+def alpaca_headers(key, secret):
+    return {'APCA-API-KEY-ID': str(key or '').strip(), 'APCA-API-SECRET-KEY': str(secret or '').strip(), 'Accept': 'application/json'}
+
+
+def alpaca_keys_ok(key, secret):
+    """Shape check before any call (Alpaca key ids are 16–32 upper-case letters / digits; secrets 32–64 chars)."""
+    k, s = str(key or '').strip(), str(secret or '').strip()
+    return bool(re.match(r'^[A-Z0-9]{16,32}$', k)) and bool(re.match(r'^[A-Za-z0-9/+=_\-]{30,72}$', s))
+
+
+def is_crypto(sym):
+    return '/' in str(sym or '')
+
+
+def alpaca_order(raw):
+    """The ticket → Alpaca's POST /v2/orders body, or ValueError. Stocks / ETFs: Market by $ (notional, `day`) or shares, Limit by shares + price;
+    crypto (`BTC/USD`): `gtc`. Same caps as every broker ticket (MAX_ORDER_USD)."""
+    r = raw if isinstance(raw, dict) else {}
+    sym = str(r.get('symbol') or '').strip().upper()
+    if '/' not in sym and sym in ('BTC', 'ETH', 'SOL', 'DOGE', 'XRP', 'LTC', 'AVAX', 'LINK', 'SHIB', 'UNI'):
+        sym = f'{sym}/USD'   # a bare crypto ticker → Alpaca's pair
+    side, kind = str(r.get('action') or '').lower(), str(r.get('type') or 'Market').lower()
+    if not SYMBOL.match(sym):
+        raise ValueError('Type the ticker (AAPL, SPY, BTC …).')
+    if side not in ('buy', 'sell') or kind not in ('market', 'limit'):
+        raise ValueError('BUY or SELL · Market or Limit.')
+    usd, units, price = _f(r.get('usd')), _f(r.get('units')), _f(r.get('price'))
+    body = {'symbol': sym, 'side': side, 'type': kind, 'time_in_force': 'gtc' if is_crypto(sym) else 'day'}
+    if kind == 'limit':
+        if not (price > 0 and units > 0):
+            raise ValueError('A limit order needs a price and a share count.')
+        if price * units > MAX_ORDER_USD:
+            raise ValueError(f'Max ${MAX_ORDER_USD:,} a ticket for now.')
+        body.update(limit_price=str(round(price, 4)), qty=str(units))
+    elif usd > 0:
+        if not (1 <= usd <= MAX_ORDER_USD):
+            raise ValueError(f'From $1 to ${MAX_ORDER_USD:,} a ticket.')
+        body['notional'] = f'{usd:.2f}'
+    elif units > 0:
+        body['qty'] = str(units)
+    else:
+        raise ValueError('Set a $ amount or a share count.')
+    return body
+
+
+def alpaca_view(account, positions, paper):
+    """Alpaca /v2/account + /v2/positions → one account in the building's shape (id 'alpaca')."""
+    a = account or {}
+    rows = []
+    for p in positions or []:
+        units, price, val, pnl = _num(p.get('qty')), _num(p.get('current_price')), _num(p.get('market_value')), _num(p.get('unrealized_pl'))
+        rows.append({'ticker': p.get('symbol') or '?', 'name': None, 'units': units, 'price': price, 'value': round(val, 2), 'pnl': round(pnl, 2),
+                     'pnlPct': round(_num(p.get('unrealized_plpc')) * 100, 2) if p.get('unrealized_plpc') is not None else None, 'kind': p.get('asset_class')})
+    rows.sort(key=lambda x: -x['value'])
+    return {'id': 'alpaca', 'broker': 'Alpaca' + (' · PAPER' if paper else ''), 'name': 'Your keys', 'number': str(a.get('account_number') or '')[-4:],
+            'cash': round(_num(a.get('cash')), 2), 'buyingPower': round(_num(a.get('buying_power')), 2), 'value': round(_num(a.get('equity') or a.get('portfolio_value')), 2),
+            'positions': rows, 'paper': bool(paper), 'status': a.get('status')}
+
+
+def seal_key_file(path):
+    """The seal key FEELESS makes for itself when BROKER_SECRET_KEY is not set: 48 random bytes in a 0600 file beside the data (never printed,
+    never in git). Returns the key string."""
+    import os
+    import secrets
+    from pathlib import Path
+    p = Path(path)
+    if p.exists():
+        return p.read_text().strip()
+    k = secrets.token_urlsafe(48)
+    p.write_text(k)
+    os.chmod(p, 0o600)
+    return k

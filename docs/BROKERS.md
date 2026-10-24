@@ -4,7 +4,13 @@
 cash / buying power / positions live in 🏦 THE BROKERAGE (a room inside YOUR MONEY in Fee City), and BUY / SELL stocks · ETFs · crypto from $1
 in their own account. US-legal by construction (their own regulated broker). Schwab is read-only via SnapTrade; Robinhood does not allow trading.
 
-**Owner setup (once, ~5 min):** sign up at snaptrade.com (Build tier: free, 5 connections with trading; Launch: $100 / mo + $1–2 per user) →
+**$0 START — NO OWNER SETUP (2026-10-24):** each user pastes their OWN free **Alpaca** keys (alpaca.markets: free account, no minimum,
+commission-free US stocks · ETFs · crypto; PAPER keys work the same minute, LIVE after Alpaca's ID check). FEELESS checks the keys live against
+the account (`GET /v2/account`), then seals them to the wallet with `BROKER_SECRET_KEY` — or, when that is not set, a key FEELESS makes for
+itself (`backend/data/.broker_seal`, 0600). Endpoint: POST `/familia/broker/keys` (`{remove: true}` deletes them); orders with `accountId:
+'alpaca'` go to Alpaca `/v2/orders` (stocks `day`, crypto `BTC/USD` `gtc`). Preview `/dev/broker` (`?linked`).
+
+**Any broker via SnapTrade — owner setup (once, ~5 min):** sign up at snaptrade.com (Build tier: free, 5 connections with trading; Launch: $100 / mo + $1–2 per user) →
 put in `backend/.env`: `SNAPTRADE_CLIENT_ID=`, `SNAPTRADE_CONSUMER_KEY=`, `BROKER_SECRET_KEY=` (any long random string — seals each user's
 SnapTrade secret) → restart reputation_service. Until then the building shows 🔒 and every endpoint answers 503.
 
