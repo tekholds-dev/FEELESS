@@ -31,7 +31,7 @@ test('🏦 the $FEE Bank reads /assets: a row per coin with a pool, nothing inve
 });
 
 test('🛣 every Avenue building has a room: Pump Radar trades (outside Familia: the war room; inside: the dock), the Bank buys fee-free, no full-page jumps', async () => {
-  expect(AVENUE_LENSES.sort()).toEqual(['feebank', 'feecat', 'feedx', 'gas', 'mymoney', 'perps', 'pumpradar', 'rep', 'runners', 'sleep', 'trades', 'tt', 'watch']);
+  expect(AVENUE_LENSES.sort()).toEqual(['brokers', 'feebank', 'feecat', 'feedx', 'gas', 'mymoney', 'perps', 'pumpradar', 'rep', 'runners', 'sleep', 'trades', 'tt', 'watch']);
   const seen = []; const on = e => seen.push(e.detail); window.addEventListener('feeless:war-room', on);
   const el = document.createElement('div'); document.body.appendChild(el); const root = createRoot(el);
   await act(async () => { root.render(<AvenueRoom lens="pumpradar" />); });

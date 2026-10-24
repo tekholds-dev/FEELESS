@@ -9701,6 +9701,144 @@ def _kt_addr(a):
     return a_
 
 
+# 🏦 THE BROKERAGE (brokers.py, DECISIONS #9): the user's OWN broker through SnapTrade, linked to their Familia wallet session
+BROKERS_PATH = DATA_DIR / 'brokers.json'   # primary wallet → {uid, sec (Fernet-sealed SnapTrade secret), at}
+_brk_cache: dict = {}
+_brk_lock = asyncio.Lock()
+
+
+def _brk_need():
+    import brokers as _bk
+    c_, k_ = _bk.keys(os.environ)
+    if not c_ or not os.environ.get('BROKER_SECRET_KEY'):
+        raise HTTPException(503, 'The Brokerage opens when SnapTrade is set up (SNAPTRADE_CLIENT_ID · SNAPTRADE_CONSUMER_KEY · BROKER_SECRET_KEY).')
+    return _bk, c_, k_
+
+
+async def _brk_call(method, path, query=None, body=None):
+    bk_, c_, k_ = _brk_need()
+    url_, hd_ = bk_.signed(method, path, query, body, c_, k_)
+    try:
+        r_ = await _fmk_http_get().request(method, url_, headers=hd_, json=body if body not in (None, {}) else None, timeout=20)
+    except Exception:
+        raise HTTPException(503, 'SnapTrade did not answer — try again.')
+    try:
+        d_ = r_.json()
+    except Exception:
+        d_ = {}
+    if r_.status_code >= 400:
+        raise HTTPException(502 if r_.status_code >= 500 else 400, f"Broker: {str((d_ or {}).get('detail') or (d_ or {}).get('message') or r_.status_code)[:160]}")
+    return d_
+
+
+def _brk_user(primary):
+    """(userId, userSecret) for this wallet, or None."""
+    import brokers as _bk
+    rec_ = (_json_load(BROKERS_PATH, {}) or {}).get(primary)
+    if not rec_:
+        return None
+    try:
+        return rec_['uid'], _bk.unseal(rec_['sec'], os.environ)
+    except Exception:
+        return None
+
+
+@app.get('/api/reputation/familia/broker')
+async def familia_broker(address: str = Query('', max_length=64), session: str = Query('', max_length=400)):
+    """🏦 Your linked broker accounts, live: cash, buying power, value, positions with P&L (one read / 20 s). `ready` = SnapTrade is set up."""
+    import brokers as _bk
+    ready_ = bool(_bk.keys(os.environ)[0] and os.environ.get('BROKER_SECRET_KEY'))
+    if not address or not session:
+        return {'ready': ready_, 'linked': False}
+    me_ = _session_or_401(address, session)
+    if not ready_:
+        return {'ready': False, 'linked': False}
+    u_ = _brk_user(me_)
+    if not u_:
+        return {'ready': True, 'linked': False}
+    hit_ = _brk_cache.get(me_)
+    if hit_ and time.time() - hit_[0] < 20:
+        return hit_[1]
+    q_ = {'userId': u_[0], 'userSecret': u_[1]}
+    accts_ = await _brk_call('GET', '/accounts', q_) or []
+    ids_ = [a_.get('id') for a_ in accts_ if a_.get('id')]
+    got_ = await asyncio.gather(*[asyncio.gather(_brk_call('GET', f'/accounts/{i_}/positions', q_), _brk_call('GET', f'/accounts/{i_}/balances', q_), return_exceptions=True) for i_ in ids_])
+    pos_ = {i_: (g_[0] if isinstance(g_[0], list) else []) for i_, g_ in zip(ids_, got_)}
+    bal_ = {i_: (g_[1] if isinstance(g_[1], list) else []) for i_, g_ in zip(ids_, got_)}
+    out_ = {'ready': True, 'linked': True, **_bk.view(accts_, pos_, bal_), 'at': round(time.time())}
+    _brk_cache[me_] = (time.time(), out_)
+    return out_
+
+
+@app.post('/api/reputation/familia/broker/link')
+async def familia_broker_link(request: Request):
+    """🔗 Link a broker: one SnapTrade user per wallet (its secret sealed at rest) → SnapTrade's Connection Portal URL (5 min) where the user
+    logs in to THEIR broker — FEELESS never sees a broker password. Trading is asked for (`trade-if-available`; read-only where a broker can't)."""
+    import brokers as _bk
+    b_ = await request.json()
+    me_ = _session_or_401(str((b_ or {}).get('address') or ''), str((b_ or {}).get('session') or ''))
+    _brk_need()
+    async with _brk_lock:
+        u_ = _brk_user(me_)
+        if not u_:
+            d_ = await _brk_call('POST', '/snapTrade/registerUser', None, {'userId': _bk.user_id(me_)})
+            if not d_.get('userSecret'):
+                raise HTTPException(502, 'SnapTrade did not register the user.')
+            st_ = _json_load(BROKERS_PATH, {}) or {}
+            st_[me_] = {'uid': d_.get('userId') or _bk.user_id(me_), 'sec': _bk.seal(d_['userSecret'], os.environ), 'at': time.time()}
+            _json_save(BROKERS_PATH, st_)
+            u_ = (st_[me_]['uid'], d_['userSecret'])
+    back_ = str((b_ or {}).get('back') or '')
+    body_ = {'connectionType': 'trade-if-available', 'darkMode': True, **({'broker': str(b_['broker'])[:40]} if (b_ or {}).get('broker') else {}),
+             **({'customRedirect': back_, 'immediateRedirect': True} if _re.match(r'^https?://(localhost(:\d+)?|127\.0\.0\.1(:\d+)?|[a-z0-9.-]*feeless[a-z0-9.-]*)(/|$)', back_) else {})}
+    d_ = await _brk_call('POST', '/snapTrade/login', {'userId': u_[0], 'userSecret': u_[1]}, body_)
+    if not d_.get('redirectURI'):
+        raise HTTPException(502, 'SnapTrade gave no portal link.')
+    _brk_cache.pop(me_, None)
+    return {'url': d_['redirectURI']}
+
+
+@app.post('/api/reputation/familia/broker/order')
+async def familia_broker_order(request: Request):
+    """🎟 BUY / SELL in YOUR linked account (stocks · ETFs · crypto where the broker allows): Market by $ or units, or Limit — checked here
+    (your own account, a real ticker, ≤ brokers.MAX_ORDER_USD) then sent through SnapTrade to the broker."""
+    import brokers as _bk
+    b_ = await request.json()
+    me_ = _session_or_401(str((b_ or {}).get('address') or ''), str((b_ or {}).get('session') or ''))
+    _brk_need()
+    u_ = _brk_user(me_)
+    if not u_:
+        raise HTTPException(409, 'Link a broker first.')
+    q_ = {'userId': u_[0], 'userSecret': u_[1]}
+    ids_ = [a_.get('id') for a_ in (await _brk_call('GET', '/accounts', q_) or []) if a_.get('id')]
+    try:
+        body_ = _bk.order_body(b_, ids_)
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+    d_ = await _brk_call('POST', '/trade/place', q_, body_)
+    _brk_cache.pop(me_, None)
+    return {'status': d_.get('status'), 'id': d_.get('brokerage_order_id'), 'filled': d_.get('filled_quantity'), 'price': d_.get('execution_price'),
+            'symbol': body_['symbol'], 'action': body_['action']}
+
+
+@app.post('/api/reputation/familia/broker/unlink')
+async def familia_broker_unlink(request: Request):
+    """✂ Unlink: deletes this wallet's SnapTrade user (every broker connection with it) and FEELESS's sealed secret."""
+    b_ = await request.json()
+    me_ = _session_or_401(str((b_ or {}).get('address') or ''), str((b_ or {}).get('session') or ''))
+    u_ = _brk_user(me_)
+    if u_:
+        try:
+            await _brk_call('DELETE', '/snapTrade/deleteUser', {'userId': u_[0]})
+        except HTTPException:
+            pass
+    st_ = _json_load(BROKERS_PATH, {}) or {}
+    st_.pop(me_, None)
+    _json_save(BROKERS_PATH, st_)
+    _brk_cache.pop(me_, None)
+    return {'ok': True}
+
+
 @app.get('/api/reputation/familia/kalshi/proof')
 async def familia_kalshi_proof(address: str = ''):
     """🪪 Is this wallet Proof-verified (DFlow's free KYC)? Public check; FEELESS never sees identity data."""

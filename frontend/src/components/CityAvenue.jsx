@@ -1,5 +1,6 @@
 import React, { Suspense, lazy, useEffect, useState } from 'react';
 import { PerpsDash } from './PerpsDash';
+import { BrokerDesk } from './BrokerDesk';
 import { useMarket } from '../hooks/useMarket';
 import { familiaTrade } from './FamiliaTrade';
 import { TokenAvatar } from './terminal/MarketPrimitives';
@@ -196,7 +197,7 @@ export function TrenchList() {
 }
 
 const BODY = {
-  perps: () => <PerpsDesk />, tt: () => <TrenchList />,
+  perps: () => <PerpsDesk />, tt: () => <TrenchList />, brokers: () => <BrokerDesk />,
   trades: () => <TradeCenter />,
   pumpradar: () => <PumpRadar />, feebank: () => <FeeBank />, runners: () => <RunnersPanel />, watch: () => <WatchlistDashboard />, rep: () => <Courthouse />,
   feecat: () => <CatTower />, gas: () => <GetGas />, sleep: () => <NightVault />, mymoney: () => <MyMoney />,

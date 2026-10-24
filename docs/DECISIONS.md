@@ -63,3 +63,15 @@ wallet signs, Jupiter's keeper lands it (/transaction/execute). Guards: SOL · E
 per open, 1 % price slippage, the quote must match the ticket. Simulated clean on mainnet 2026-10-23 (SOL long 25×, BTC short 50×, ETH long 100×).
 NEXT (owner): more venues, any chain, more leverage (gTrade and others) · the owner's own fee on top (HQ › Core).
 
+
+## 9 · Brokers linked to the Familia wallet (owner, 2026-10-24: "find easy setup brokers … make it happen … smooth for users to hook up a broker via their crypto wallet in fam, log in and get to it, see all data in the buildings")
+**Decided by the owner: FEELESS connects a user's OWN broker account through SnapTrade (Webull · Coinbase · Kraken · Alpaca · E*TRADE …;
+trading where the broker allows it, read-only elsewhere), keyed to their Familia wallet session.** This is the "official partner API on the
+user's own account" item that `CLAUDE.md › LATER` had parked behind a lawyer — the owner chose to ship it; it goes on `COUNSEL_BRIEF.md`.
+- FEELESS never sees a broker password: the user logs in on SnapTrade's Connection Portal. FEELESS keeps ONE thing per wallet — SnapTrade's
+  per-user secret, sealed with Fernet (`BROKER_SECRET_KEY`); without that key nothing is stored. Unlink deletes the SnapTrade user + connections.
+- Orders: only in the user's own linked accounts, a real ticker, BUY / SELL, Market ($1–$2,500 notional or units) or Limit (≤ $2,500), each
+  confirmed on screen, every call on the signed Familia session (`brokers.order_body`, `/familia/broker/order`).
+- US-legal by construction: the user trades their own regulated broker account (stocks, ETFs, crypto, options later) — no geo loophole.
+- Owner setup: a SnapTrade account (free Build tier = 5 connections with trading; Launch $100 / mo + $1–2 per connected user) →
+  `SNAPTRADE_CLIENT_ID`, `SNAPTRADE_CONSUMER_KEY` and a long random `BROKER_SECRET_KEY` in `backend/.env`. Doc: `docs/BROKERS.md`.

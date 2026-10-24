@@ -19,7 +19,7 @@ Read this (2 min) → `CLAUDE.md` (lean rules + 🎨 MANDATORY STYLING + 📋 CU
 "2026-10-23 night" / "late night"): ⚡ REAL LEVERAGE (Jupiter Lend Borrow, DECISIONS #7) · 📉 REAL PERPS on Jupiter (DECISIONS #8, `jup_perps.py`,
 /familia/perps-real) · 🌉 BRIDGE + ⛽ GAS through LI.FI · 🕸 intake revived (DexScreener fallback when Jupiter's read key 429s) · 📌 the Agents
 cockpit chart no longer swaps coins every poll · 🧠 OSSY / G4 stop chasing (PARABOLIC / spike entries refused) · 📉 the FEELESS PERPS terminal
-(true candles, draggable TP / SL, Jupiter TP / SL + partial close) + ⏱ Kalshi $1 up / down (waits on the DFlow key). **Perps = `docs/PERPS.md`.**
+(true candles, draggable TP / SL, Jupiter TP / SL + partial close) + ⏱ Kalshi $1 up / down (waits on the DFlow key). **Perps = `docs/PERPS.md`.** **Brokers = `docs/BROKERS.md`** (SnapTrade keys pending).
 Hyperliquid / gTrade / Drift bar US users — out. Agents: edge-audit GATE HOLD (0 / 753 rules positive on unseen coins), FeeCat paused (1 / 9
 lives), NEXA 43 % — no agent is proven to make money; a top-up sits idle until one is. G4 runs Qwen3.5-4B on the desktop (10.0.0.249:1236, ONE
 slot). Dev previews: `/dev/perps` (the perps dash on live markets) · `/dev/hq?snap` (the LIVE agents desk — copy `backend/data/agents_view.json` → `frontend/public/dev-agents.json`)

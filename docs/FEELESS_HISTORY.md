@@ -6179,3 +6179,6 @@ P6 — IDEAS: FeeCat + AI agent pair that talk · "build a better coin" track in
   (BTC · ETH · SOL · DOGE · XRP 15-min + ladders; S&P 500 KXINXU · Nasdaq-100 KXNASDAQ100U = the soonest window's at-the-money strike via
   /events → that event's markets; `strike` reads custom_strike / the ticker tail), `ticket` takes every listed market, the desk's market
   picker with each one's live UP %. Trading still waits on DFLOW_API_KEY. Tests: test_kalshi_odds, test_kalshi_trade, PerpsDash.test.
+- 2026-10-24 · Opus 5.5 — 🏦 THE BROKERAGE (DECISIONS #9, docs/BROKERS.md): a user's own broker via SnapTrade linked to the Familia wallet
+  session — `brokers.py` (signing, Fernet-sealed per-user secret, order guards, view) + GET /familia/broker · POST link / order / unlink +
+  `BrokerDesk` (room inside YOUR MONEY). Waits on the owner's SnapTrade keys. Tests: test_brokers (5), CityAvenue.

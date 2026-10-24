@@ -76,6 +76,8 @@ export const PLACES = [
   { key: 'trades', lens: 'trades', name: 'THE TRADE CENTER', sub: 'the desk\'s real-money trades · live P&L', isl: 'fee', art: 'trade', color: '#45e486', tool: true, money: true },
   { key: 'sleep', lens: 'sleep', name: 'THE NIGHT VAULT', sub: 'money while you sleep · live APY', isl: 'vault', art: 'sleep', color: '#9b8cff', tool: true, money: true },
   // 💵 YOUR MONEY (owner 1e): every position FEELESS can prove for your wallet, priced live — the Avenue's last cell
+  // 🏦 THE BROKERAGE (DECISIONS #9): your own broker linked to your wallet — stocks · ETFs · crypto, live, trade from $1
+  { key: 'brokers', lens: 'brokers', name: 'THE BROKERAGE', sub: 'your broker linked · stocks · crypto · live', in: 'mymoney', art: 'bank', color: '#ffd36b', tool: true, money: true },
   { key: 'mymoney', lens: 'mymoney', name: 'YOUR MONEY', sub: 'every proved position · live', isl: 'fee', art: 'money', color: '#45e486', tool: true, money: true },
 ];
 // 🚪 the rooms of one building: the host first, then every place that lives inside it (`in`)

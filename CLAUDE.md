@@ -174,6 +174,9 @@ P0 — OWNER 2026-10-23 (late night) · finished today → `docs/FEELESS_HISTORY
    500× with $1"; DECISION PENDING: wire gTrade behind a non-US attestation (default) or lift the rule (DECISIONS #9). + 🌊 LIVE FLOW shipped. NEXT: ① 🔑 OWNER: DFlow production key → `DFLOW_API_KEY` (Kalshi trading
    turns on) · ② first real Jupiter open with TP / SL + a 50 % close · ③ limit orders · ④ the owner's fee on opens (`*-with-fee`, HQ › Core).
    Also open from this ask: pools make visual sense from any $ typed · every Familia money surface relevant + vitals.
+0a. 🏦 THE BROKERAGE (owner 2026-10-24, DECISIONS #9, `docs/BROKERS.md`): your own broker (Webull · Coinbase · Kraken · Alpaca · E*TRADE via
+   SnapTrade) linked to the Familia wallet — live accounts + positions, BUY / SELL stocks · ETFs · crypto from $1. BUILT, waits on the OWNER's
+   SnapTrade keys (`SNAPTRADE_CLIENT_ID` · `SNAPTRADE_CONSUMER_KEY` · `BROKER_SECRET_KEY`). Familia is NOT "done": every item below stays open.
 0b. ⛽🌉 GAS + BRIDGE — SHIPPED 2026-10-23 (grep the history "🌉 BRIDGE"; `lifi.verify_svm`, `lib/bridgeExec.js`, `BridgeDesk.jsx`, /dev/bridge ·
    /dev/gas). NEXT: the owner's first real bridge ($5 USDC Solana → Base and back) + a $2 gas fill read back on its tank · Zora coins: LI.FI dropped
    Zora, so EVM swaps on Zora coins fail too (no Zora venue yet) · 💰 the owner sets their own fee on every Familia money action (perps, LP joins,
