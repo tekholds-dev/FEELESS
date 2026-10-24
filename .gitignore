@@ -113,3 +113,4 @@ circle/node_modules/
 *-recovery-file.json
 lan_bundle/
 ai_pfp_picks/
+frontend/public/dev-agents.json

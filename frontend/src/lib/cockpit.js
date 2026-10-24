@@ -137,13 +137,16 @@ export function knownMints(d) {
   return new Set([...seatCards(d).filter(s => !s.open), ...((o.kernel || {}).candidates || []), ...(o.ownerReview || []), ...(o.positions || []),
     ...[...(o.tape || []), ...((o.tradeTape || {}).rows || [])].filter(x => x?.pair || x?.pairAddress)].map(x => x?.mint).filter(Boolean));   // a remembered tape coin only when it has a pool (2026-10-22: "$— no pool" stuck on the chart)
 }
-export function focusMint(d, pick, tapped = null) {
+// `prev` = the coin the chart auto-showed last poll: it STAYS while it is still on the desk (and still READY when anything is READY) —
+// ranks reshuffle every 18 s pass, and following the #1 rank swapped (remounted) the chart onto a new coin almost every poll (2026-10-23)
+export function focusMint(d, pick, tapped = null, prev = null) {
   const o = d?.office || {}; const cands = (o.kernel || {}).candidates || []; const seats = seatCards(d).filter(s => !s.open);
   if (pick && (tapped?.has?.(pick) || knownMints(d).has(pick))) return pick;
   const hot = [...seats].sort((a, b) => URGENT.indexOf(a.badge) - URGENT.indexOf(b.badge))[0];
   if (hot) return hot.mint;
-  const ready = cands.filter(c => c.status === 'READY').sort((a, b) => (b.rank || 0) - (a.rank || 0))[0];
-  return ready?.mint || cands[0]?.mint || (o.ownerReview || [])[0]?.mint || null;
+  const ready = cands.filter(c => c.status === 'READY').sort((a, b) => (b.rank || 0) - (a.rank || 0));
+  if (prev && cands.some(c => c.mint === prev && (c.status === 'READY' || !ready.length))) return prev;
+  return ready[0]?.mint || cands[0]?.mint || (o.ownerReview || [])[0]?.mint || null;
 }
 
 // ── the chart ─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────

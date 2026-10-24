@@ -15,10 +15,15 @@ Read this (2 min) → `CLAUDE.md` (lean rules + 🎨 MANDATORY STYLING + 📋 CU
 >    LIVE visual (meters, bars, animation on real numbers), never bare text. `styles/cssCoverage.test.js` fails on an unstyled class.
 
 ## 🔁 NOW (rewrite this section in place every session)
-**Updated 2026-10-23 (night) · Opus 5.5** — the open list is `CLAUDE.md › 📋 CURRENT TASKS › P0`. Done tonight: ⚡ REAL LEVERAGE (Jupiter Lend
-Borrow, DECISIONS #7 — grep the history for "2026-10-23 night"). Agents: edge-audit GATE HOLD (0 / 753 rules positive on unseen coins), FeeCat
-paused (1 / 9 lives, cold market), NEXA 43 % — no agent is proven to make money; a top-up sits idle until one is. G4 runs Qwen3.5-4B on the
-desktop (10.0.0.249:1236, ONE slot). Dev previews: `/dev/perps` (⚡ leverage on LIVE Jupiter markets) · `/dev/bridge` · `/dev/gas` · `/dev/nexa` · `/dev/hq?rpc` · `/dev/block`.
+**Updated 2026-10-23 (late night) · Opus 5.5** — the open list is `CLAUDE.md › 📋 CURRENT TASKS › P0`. Done today (grep the history for
+"2026-10-23 night" / "late night"): ⚡ REAL LEVERAGE (Jupiter Lend Borrow, DECISIONS #7) · 📉 REAL PERPS on Jupiter (DECISIONS #8, `jup_perps.py`,
+/familia/perps-real) · 🌉 BRIDGE + ⛽ GAS through LI.FI · 🕸 intake revived (DexScreener fallback when Jupiter's read key 429s) · 📌 the Agents
+cockpit chart no longer swaps coins every poll. Agents: edge-audit GATE HOLD (0 / 753 rules positive on unseen coins), FeeCat paused (1 / 9
+lives), NEXA 43 % — no agent is proven to make money; a top-up sits idle until one is. G4 runs Qwen3.5-4B on the desktop (10.0.0.249:1236, ONE
+slot). Dev previews: `/dev/hq?snap` (the LIVE agents desk — copy `backend/data/agents_view.json` → `frontend/public/dev-agents.json`) · `/dev/perps`
+· `/dev/bridge` · `/dev/gas` · `/dev/nexa` · `/dev/hq?rpc` · `/dev/block`.
+🔑 Jupiter: 3 keys → key 3 is the shared READ key for every price read sitewide and sits at 429 most of the day; the owner adding a 4th key
+(portal.jup.ag → `JUPITER_READ_KEY`) frees it. The intake no longer depends on it.
 
 Start of every task: `backend/.venv/bin/python scripts/cash-check.py degen 30` (≈ 1 min, sandbox off).
 Branch: everything on `main`. Gate + push from `.claude/worktrees/gate` (`git checkout -q --detach <sha>`, then `git push origin <sha>:main`;

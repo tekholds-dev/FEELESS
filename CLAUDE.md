@@ -213,8 +213,9 @@ P0 — OWNER 2026-10-23 (late night) · finished today → `docs/FEELESS_HISTORY
 0. 🚨 RPC QUOTA: the relay answered again late 2026-10-23 (getLatestBlockhash + simulate OK) but Helius ("max usage reached") AND Alchemy ("Monthly capacity limit exceeded") were both out on 2026-10-23 evening — every
    wallet-signed action through `/api/reputation/rpc` (swaps, Jupiter Lend, LP joins, launches) and maybe the keeper depend on them. Owner: top up
    / upgrade one, or add a third RPC to the relay's fallback list.
-9. 🔑 Jupiter keys: the READ key (+ key 2) sat at their rate limit (429) on 2026-10-23 — Lend builds now fall through every key
-   (`jup_keys.lend_keys`); the owner may add a key (portal.jup.ag) so reads stop starving.
+9. 🔑 Jupiter keys: the READ key (+ key 2) sat at their rate limit (429) on 2026-10-23 — Lend builds fall through every key
+   (`jup_keys.lend_keys`) and the agents' intake now falls back to DexScreener (it had starved to 5 rows / pass); the owner adds a 4th key
+   (portal.jup.ag → `JUPITER_READ_KEY`) so charts / prices stop starving too.
 8. 🌍 A geo / KYC switch per feature (today there is none — COUNSEL_BRIEF §0) so a feature counsel restricts can be closed to US users.
 
 P1 — AGENTS + AI
@@ -222,7 +223,7 @@ P1 — AGENTS + AI
    ⚔ The duel meter on her desk (`CatBrainSwitch.duel`, YES-right vs closed-trade wins) is the first cut. 2026-10-23: NEXA 43% · −1.55% typical; edge-audit GATE HOLD.
 2a. 🧠 Learning / accept loops of the cats on par with NEXA's desk (owner ask 2026-10-23, not started: audit `feecat_brain` learn + `_learn` vs nexa.py grading).
 2. 🧠 G4: the Models tab beside NEXA's chat (layout) · wire the trench theory into the deterministic agents only after a shadow test.
-3. 🔥 More Pump coins on the intake.
+3. 🔥 More Pump coins on the intake (revived 2026-10-23 late night: 24 unique mints/min, 66 rows/pass) — next: watch the 0–15 m fresh bucket fill.
 4. 🐱 Launch-a-cat AI flow restyled in the violet meta (like CatDesk / CatReal).
 
 P2 — CLEAN-UP (the 2026-10-22 cut list; owner's go 2026-10-23: "do all decisions")

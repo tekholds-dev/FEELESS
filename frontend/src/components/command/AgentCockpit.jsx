@@ -665,7 +665,9 @@ export function AgentCockpit({ call, isOwner = true, head = null, extra = [], li
     if (k === 'chart') window.scrollTo?.({ top: 0, behavior: smooth }); else deckRef.current?.scrollIntoView?.({ behavior: smooth, block: 'start' }); };
   const seats = useMemo(() => seatCards(d, cc?.livePx), [d, cc?.livePx]);
   const tapped = useRef(new Set()); const [hints, setHints] = useState({});   // 🖱 coins tapped this session + what the tap / pool lookup knew about them
-  const mint = focusMint(d, pick, tapped.current);
+  const auto = useRef(null);   // 📌 the coin the chart followed last poll (sticky — never a new coin every pass)
+  const mint = focusMint(d, pick, tapped.current, auto.current);
+  if (!pick) auto.current = mint;
   const model = useMemo(() => chartModel(d, mint, cc?.livePx, hints[mint]), [d, mint, cc?.livePx, hints]);
   useEffect(() => {   // a tapped coin the desk's lists carry no pool for: look its pool up once (DexScreener → FEELESS), so its chart opens
     if (!mint || (model?.pair && model?.mc) || hints[mint]?.tried || !tapped.current.has(mint)) return undefined;   // no pool, or no cap (MC UNAVAILABLE = a chart that never draws)

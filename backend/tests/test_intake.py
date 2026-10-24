@@ -145,3 +145,58 @@ def test_a_deep_review_always_says_why_the_coin_was_due():
     assert rs._deep_bucket('never deep-reviewed') == 'first look' and rs._deep_bucket('was not rejected') == 'not rejected'
     assert rs._deep_bucket('changed: price +6.0%') == 'news' and rs._deep_bucket('cooldown over') == 'cooldown over'
     assert rs.OFFICE_CANDLE_CASES + rs.OFFICE_CANDLE_NEW <= 30                                # deep review stays selective
+
+
+def test_jupiter_at_its_rate_limit_never_starves_the_desk_dexscreener_fills_the_rows(monkeypatch):
+    # 2026-10-23: the shared Jupiter read key + the public lane both answered 429 → 107 of 112 fresh coins never got a row, the desk went dead
+    import reputation_service as rs
+    from intake import deepest_pairs
+    monkeypatch.delenv('PYTEST_CURRENT_TEST', raising=False)
+    for k, v in (('_runner_cands', []), ('_lens_rows', {})):
+        monkeypatch.setattr(rs, k, v)
+    monkeypatch.setitem(rs._intake, 'reg', {})
+    monkeypatch.setitem(rs._office, 'load', {})
+    monkeypatch.setitem(rs._pump_calls, 'calls', [])
+    monkeypatch.setitem(rs._feeders, 'board', {})
+    monkeypatch.setitem(rs._radar, 'pairs', {})
+    monkeypatch.setattr(rs, '_intake_ds', {})
+    pair = lambda m, liq, pa: {'chainId': 'solana', 'dexId': 'pumpfun', 'pairAddress': pa, 'baseToken': {'address': m, 'symbol': 'HOT'}, 'priceUsd': '0.0002',
+                               'liquidity': {'usd': liq}, 'marketCap': 20_000, 'volume': {'h1': 9000, 'm5': 2000}, 'txns': {'h1': {'buys': 60, 'sells': 20}}, 'priceChange': {'m5': 8}}
+    asked = []
+
+    class R:
+        def __init__(self, body, code=200):
+            self.body, self.status_code = body, code
+
+        def json(self):
+            return self.body
+
+    class C:
+        def __init__(self, *a, **k):
+            pass
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *a):
+            return False
+
+        async def get(self, url, params=None):
+            if url.endswith('/api/pump/pulse'):
+                return R({'status': 'live', 'launches': [{'mint': 'HOTpump', 'symbol': 'HOT', 'at': 999_000.0}, {'mint': 'GHOSTpump', 'at': 999_000.0}]})
+            asked.append(url)
+            assert url.startswith('https://api.dexscreener.com/tokens/v1/solana/')
+            return R([pair('HOTpump', 500, 'SHALLOW'), pair('HOTpump', 7000, 'DEEP'), pair('OTHER', 1, 'X')])
+
+    async def jt(mints):
+        return {}                                                                                   # 429 on every Jupiter lane
+    monkeypatch.setattr(rs.httpx, 'AsyncClient', C)
+    monkeypatch.setattr(rs, '_jup_tokens', jt)
+    monkeypatch.setattr(rs, '_json_load', lambda path, default=None: default if default is not None else {})
+    extra, fresh, _ = asyncio.run(rs._intake_pass([], 1000.0))
+    assert [(r['mint'], r['pairAddress'], r['curve'], r['via']) for r in extra] == [('HOTpump', 'DEEP', True, 'dex')]   # the deepest pool, on its curve
+    assert extra[0]['safe'] is None and extra[0]['outlet'] and rs._intake['last']['rowsDex'] == 1 and rs._intake['last']['pending'] == 1   # GHOST: no market yet
+    assert len(asked) == 1 and 'HOTpump' in asked[0] and 'GHOSTpump' in asked[0]               # one batched call
+    asyncio.run(rs._intake_pass([], 1010.0))
+    assert len(asked) == 1                                                                      # cached 45 s — no re-ask every pass
+    assert set(deepest_pairs([pair('A', 1, 'a'), {**pair('A', 2, 'b'), 'chainId': 'base'}], ['A'])) == {'A'}   # other chains never count

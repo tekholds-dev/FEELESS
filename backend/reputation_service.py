@@ -21406,6 +21406,37 @@ def _intake_reg():
     return _intake['reg']
 
 
+_intake_ds: dict = {}   # mint → (at, DexScreener pair | None) — 45s
+
+
+async def _intake_dex(mints, now):
+    """📡 {mint: deepest DexScreener pair} for coins Jupiter's token read did not answer (30 a call, in parallel, cached 45s)."""
+    out, need = {}, []
+    for m_ in dict.fromkeys(mints):
+        hit = _intake_ds.get(m_)
+        if hit and now - hit[0] < 45:
+            if hit[1]:
+                out[m_] = hit[1]
+        else:
+            need.append(m_)
+    if need:
+        async with httpx.AsyncClient(timeout=8) as http:
+            async def one(chunk):
+                try:
+                    r = await http.get('https://api.dexscreener.com/tokens/v1/solana/' + ','.join(chunk))
+                    return r.json() if r.status_code == 200 else []
+                except Exception:
+                    return []
+            rows = [p for got in await asyncio.gather(*[one(need[i:i + 30]) for i in range(0, len(need), 30)]) if isinstance(got, list) for p in got]
+        best = _in.deepest_pairs(rows, need)
+        for m_ in need:
+            _intake_ds[m_] = (now, best.get(m_))
+        out.update(best)
+        for m_ in [k for k, v in _intake_ds.items() if now - v[0] > 300]:
+            _intake_ds.pop(m_, None)
+    return out
+
+
 async def _intake_pass(ob, now, owner=()):
     """🕸 Every existing outlet → the registry; rows for the coins the board does not carry → (extra rows, fresh {mint: [pulse|migr]},
     outlets {mint: [calls|feeders|radar|runner]}). One local read of the Pump pulse (PumpPortal live stream, already running) and ONE
@@ -21462,7 +21493,25 @@ async def _intake_pass(ob, now, owner=()):
             extra.append(r)
             if not any((p.get('baseToken') or {}).get('address') == m_ for p in _open_pairs[-400:]):
                 _intake.setdefault('pairs', {})[m_] = pr   # the pair a fill / candle / live check needs (memory only)
+        # 📡 Jupiter's read lane at its limit (429) must never starve the desk: the coins it did not answer → DexScreener (own quota)
+        got_ = {r['mint'] for r in extra}
+        try:
+            dex_ = await _intake_dex([m_ for m_ in want if m_ not in got_], now)
+        except Exception:
+            dex_ = {}
+        for m_, pr in dex_.items():
+            r = _trench.open_row(pr, now * 1000)
+            if not r:
+                continue
+            r['curve'] = pr.get('dexId') == 'pumpfun'
+            sc = _open_scan_judge(pr, m_, rcfg)
+            r.update({'front': _trench.front_score(r), 'safe': None if not sc else bool(sc[0]), 'fails': ['not scanned yet — holders unknown'] if not sc else list(sc[1] or []),
+                      'soft': True, 'open': True, 'outlet': True, 'via': 'dex', **({k_: v_ for k_, v_ in (sc[2] or {}).items() if v_ is not None} if sc and len(sc) > 2 else {})})
+            extra.append(r)
+            if not any((p.get('baseToken') or {}).get('address') == m_ for p in _open_pairs[-400:]):
+                _intake.setdefault('pairs', {})[m_] = pr
     _intake['last'] = {'at': now, 'newBy': {k_: len(v_) for k_, v_ in new_by.items()}, 'new': len(new_all), 'newMints': new_all[:40], 'want': len(want), 'rows': len(extra),
+                       'rowsDex': sum(1 for r in extra if r.get('via') == 'dex'),
                        'pending': len(want) - len(extra), 'pulseStatus': pl.get('status'), 'pulsePerMin': (pl.get('launchesPerMinute') or [None])[-2] if pl.get('launchesPerMinute') else None,
                        'seen': _in.cycle(reg, seen, new_by, new_all, [], [], now)['uniqueSeen']}
     return extra, fresh, outlets

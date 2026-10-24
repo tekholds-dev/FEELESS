@@ -157,3 +157,17 @@ def cycle(reg, seen_now, new_by, new_all, table_mints, prev_table, now):
     return {'uniqueSeen': len({x.get('mint') for rows in (seen_now or {}).values() for x in rows or () if x.get('mint')}), 'newUnique': len(new_all or ()),
             'newBy': {k: len(v) for k, v in (new_by or {}).items()}, 'desk': len(t), 'deskNew': len(t - set(prev_table or ())),
             'mix': dict(sorted(mix.items(), key=lambda kv: -kv[1]))}
+
+
+def deepest_pairs(pairs, want=None):
+    """DexScreener pairs → {mint: its deepest pool} (only mints in `want`, when given). The intake's fallback when Jupiter's token read
+    answers 429: 2026-10-23 the shared read key + the public lane were both rate-limited and 107 of 112 fresh coins never got a row."""
+    keep = set(want) if want is not None else None
+    out = {}
+    for p in pairs or []:
+        m = ((p or {}).get('baseToken') or {}).get('address')
+        if not m or (keep is not None and m not in keep) or (p.get('chainId') or 'solana') != 'solana':
+            continue
+        if m not in out or _f((p.get('liquidity') or {}).get('usd')) > _f((out[m].get('liquidity') or {}).get('usd')):
+            out[m] = p
+    return out

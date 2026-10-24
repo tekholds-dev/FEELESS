@@ -6125,3 +6125,11 @@ P6 — IDEAS: FeeCat + AI agent pair that talk · "build a better coin" track in
   orbs on a suspension span with cargo, vitals send / get / cost / time, step rail QUOTE → LANDED, 10 s quote refresh. Mainnet: SOL → all 11 EVM
   chains + USDC → Base / Arbitrum simulated clean (real funded wallet); Base / Arbitrum / BSC ETH → SOL and Base / Arbitrum USDC → Solana USDC
   pass `eth_call`. Nothing was sent. `test_lifi_bridge.py`, `bridgeExec.test.js`, `BridgeDesk.test.jsx`.
+- 2026-10-23 late night · Opus 5.5 — 🕸 INTAKE REVIVED + 📌 AGENTS CHART STEADY. Intake: the feeds still saw ~1,000 new mints/h but the desk took 0.85/min —
+  `_intake_pass` built rows for coins the board doesn't carry from ONE Jupiter token read, and the shared READ key (key 3) + lite-api both answered 429
+  (`want 112 · rows 5 · pending 107`, 0 coins under 15 min reached the desk). Now the mints Jupiter doesn't answer go to DexScreener in parallel
+  batches of 30, deepest pool each (`intake.deepest_pairs`, `_intake_dex`, cached 45 s, rows tagged `via: 'dex'`, `last.rowsDex`); never the keeper's
+  keys. After the restart: rows 66 / pass, 24.5 unique mints/min, 57 tracking. Chart: with no seat held the cockpit followed "#1 READY by rank, else
+  candidate #1" and ranks reshuffle every 18 s pass → the chart swapped (remounted) onto a new coin nearly every poll. `focusMint(d, pick, tapped, prev)`
+  keeps the coin it showed while it's still on the desk (a READY coin still takes over a tracked one). Dev: `/dev/hq?snap` = the LIVE desk (copy
+  `backend/data/agents_view.json` → `frontend/public/dev-agents.json`, gitignored). Tests: `test_intake.py`, `cockpit.test.js`.

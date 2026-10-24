@@ -32,7 +32,9 @@ const live = () => { tick += 1; const j = v => (typeof v === 'number' ? v * (1 +
 // 🔌 ?rpc = HQ › Core › Lag catcher's RPC lanes on fixtures (one live, one out of quota, four empty)
 const RPC = { needsKey: false, slots: [1, 2, 3, 4, 5, 6].map(n => ({ slot: n, set: n <= 2 })),
   lanes: [{ lane: 1, slot: 1, provider: 'helius-rpc.com', spent: true, backInMin: 420 }, { lane: 2, slot: 2, provider: 'quiknode.pro', spent: false, backInMin: 0 }] };
-const call = async path => (path === '/admin/agents' ? live() : path === '/admin/rpc' ? RPC : { ok: true });
+// 📸 ?snap = the LIVE desk: copy backend/data/agents_view.json → frontend/public/dev-agents.json (gitignored) to see the owner's real cockpit
+const SNAP = new URLSearchParams(window.location.search).has('snap');
+const call = async path => (path === '/admin/agents' ? (SNAP ? (await fetch('/dev-agents.json')).json() : live()) : path === '/admin/rpc' ? RPC : { ok: true });
 window.__hubLoad = hubLoad;
 
 export default function HqHarness() {

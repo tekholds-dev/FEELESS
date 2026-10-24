@@ -42,6 +42,13 @@ test('the chart: the position\'s levels + REAL markers (ledger fills at their fi
 
 test('focus, decisions, tape, review queue', () => {
   expect(focusMint(D, null)).toBe(PUMP); expect(focusMint(D, 'MINTZYN')).toBe('MINTZYN'); expect(focusMint(D, 'GONE')).toBe(PUMP);
+  // 📌 no seat held: the chart keeps the coin it showed while it is still on the desk — a rank reshuffle never swaps it (2026-10-23 "chart trippin")
+  const noSeat = { ...D, card: { ...D.card, seats: [] }, office: { ...D.office, positions: [], kernel: { candidates: [{ mint: 'A', status: 'TRACKING', rank: 90 }, { mint: 'B', status: 'TRACKING', rank: 80 }] } } };
+  const flip = { ...noSeat, office: { ...noSeat.office, kernel: { candidates: [{ mint: 'B', status: 'TRACKING', rank: 95 }, { mint: 'A', status: 'TRACKING', rank: 70 }] } } };
+  expect(focusMint(noSeat, null)).toBe('A'); expect(focusMint(flip, null, null, 'A')).toBe('A');
+  const hot = { ...noSeat, office: { ...noSeat.office, kernel: { candidates: [{ mint: 'A', status: 'TRACKING' }, { mint: 'C', status: 'READY', rank: 50 }] } } };
+  expect(focusMint(hot, null, null, 'A')).toBe('C');                                            // a READY coin still takes over a tracked one
+  expect(focusMint({ ...noSeat, office: { ...noSeat.office, kernel: { candidates: [{ mint: 'B' }] } } }, null, null, 'A')).toBe('B');   // gone → next
   const z = decisionOf(D, 'MINTZYN');
   expect(z).toMatchObject({ kind: 'candidate', verdict: '🟢 READY', state: 'go' }); expect(z.kernel.devil.verdict).toBe('warn'); expect(z.market).toMatchObject({ ageMin: 3, vol5m: 9000 });
   expect(decisionOf(D, PUMP)).toMatchObject({ kind: 'position', verdict: 'PROTECT', rule: 'R7 trail' });
