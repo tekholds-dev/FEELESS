@@ -12,6 +12,22 @@ body {
     -moz-osx-font-smoothing: grayscale;
 }
 
+/* Keep text, commands and values selectable/copyable site-wide, including iOS Safari. */
+html,
+body,
+#root,
+#root * {
+    -webkit-user-select: text;
+    user-select: text;
+}
+
+input,
+textarea,
+[contenteditable="true"] {
+    -webkit-user-select: text;
+    user-select: text;
+}
+
 code {
     font-family:
         source-code-pro, Menlo, Monaco, Consolas, "Courier New", monospace;
