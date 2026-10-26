@@ -15,29 +15,21 @@ Read this (2 min) → `CLAUDE.md` (lean rules + 🎨 MANDATORY STYLING + 📋 CU
 >    LIVE visual (meters, bars, animation on real numbers), never bare text. `styles/cssCoverage.test.js` fails on an unstyled class.
 
 ## 🔁 NOW (rewrite this section in place every session)
-**Updated 2026-10-24 (early) · Opus 5.5.** Open list = `CLAUDE.md › 📋 CURRENT TASKS`. **Familia is NOT done** — every P0–P3 item there is open.
+**Updated 2026-10-26 · Opus 5.5.** Open list = `CLAUDE.md › 📋 CURRENT TASKS` (the new "P0 — OWNER 2026-10-26" block leads). Shipped today → history "2026-10-26".
 
-| Area | State | Doc |
+| Area | State | Where |
 | --- | --- | --- |
-| 📉 Perps desk (Fee City › THE PERPS DESK, `/dev/perps`) | LIVE: provider rail · true Coinbase candles + EMA / VWAP / BB / RSI · draggable TP / SL riding the Jupiter open · positions (live P&L, TP / SL move / cancel / add, close 25–100 %) · 🌊 LIVE FLOW. Jupiter's floor is **$10**. No real trade landed yet. | `docs/PERPS.md` |
-| ⏱ Kalshi up / down ($1, US-legal) | odds LIVE for BTC · ETH · SOL · DOGE · XRP · S&P 500 · Nasdaq; trading BUILT, locked until **`DFLOW_API_KEY`** | `docs/PERPS.md` |
-| 🏦 Brokerage (stocks · ETFs · crypto, own broker) | BUILT, locked until **`SNAPTRADE_CLIENT_ID` · `SNAPTRADE_CONSUMER_KEY` · `BROKER_SECRET_KEY`** | `docs/BROKERS.md` |
-| 💸 Pools (Pool Hall, Fee City pool buildings) | pool click = summary + ⚡ one pop-out (2026-10-24) · dead 0 %-APY DEX pools never lead · combo is a live split bar + earnings ticker. STILL OPEN: every Familia money building end to end in pop-outs with live vitals (P0 #5) | history "2026-10-24" |
-| 🧠 Agents / models | OSSY / G4 chase guard live (23 % win over 179 trades — re-audit after ~50); NEXA came back only after `WIN_LLM_BASE_URL` was restored (see 🚨) | `docs/DEGEN_PLAYBOOK.md` |
-| 🕸 Intake | DexScreener fallback when Jupiter's read key 429s — 24 unique mints / min | history "INTAKE" |
+| 📋 iPhone Safari copy / paste / zoom | FIXED sitewide (polyfill at boot; every `navigator.clipboard.writeText` works over LAN http) | `lib/clipboard.js` |
+| 👛 mobile sign-in every refresh | FIXED (WalletConnect hint no longer wiped on boot; in-app wallets retried) — verify on the owner's phone | `hooks/useWallet.jsx` |
+| 📉 Perps desk | 250× · PAY WITH USDC/SOL · LANDED card · provider rail recolors + swaps the trade station (Jupiter · Crypto.com · Kalshi · broker) | `docs/PERPS.md`, `PerpsDash.jsx` |
+| 🔑 Crypto.com keys | BUILT + unit-tested (signing per their reference); NOT tried against a real key yet | `brokers.cdc_*` |
+| 🎯 Range Lab + AUTO-RANGE | LIVE in Pool Hall / money desk / family block (plan; each real re-center = a wallet signature, not automated on-chain yet) | `MoneyDesk.RangePicture` |
+| 🎨 Settings | Day/Night · chart theme (5) · Lite | `CommandDocuments.SiteLook`, `lib/chartTheme.js` |
+| 📱📱 Duo / foldable / sideways | split layouts on Perps + Trenches floor + discovery | `lib/duo.js`, `styles/duo.css` |
+| 🏟 Arena paper | one-time reset to $100 (PRIME_RESET `paper100a`, LEAGUE_RESET `restart3-100`) — runs on the next tick after a backend restart | `reputation_service.py` |
 
-🚨 **`backend/.env` lost ~400 bytes at 2026-10-23 23:30** (not by a Claude commit). NEXA's `WIN_LLM_BASE_URL` was among them (restored
-2026-10-24 → `http://10.0.0.116:8080/v1`; her model falls back to the built-in default). **Owner: check the rest of `.env`** against what you
-had (keys you added that evening). A copy from before the fix: Claude's scratchpad `env.before-nexa-fix`.
-
-🔑 **Owner keys that turn features on:** DFlow (Kalshi) · SnapTrade ×3 (Brokerage) · a 4th Jupiter key as `JUPITER_READ_KEY` (prices sitewide) ·
-Helius / Alchemy quota (every wallet-signed action). US rule: gTrade / Aster / Hyperliquid / Drift bar US persons — not wired (owner
-gave no preference on a non-US gate). Dev previews: `/dev/perps` · `/dev/hq?snap` · `/dev/bridge` · `/dev/gas` · `/dev/nexa` · `/dev/block`.
-
-Start of every task: `backend/.venv/bin/python scripts/cash-check.py degen 30` (≈ 1 min, sandbox off).
-Branch: everything on `main`. Gate + push from `.claude/worktrees/gate` (`git checkout -q --detach <sha>`, then `git push origin <sha>:main`;
-the pre-push hook runs the full gate ~8 min — run no tests beside it). Restart a service = kill its uvicorn PID; the keep-alive watcher relaunches it.
-🚨 RPC: Helius + Alchemy were OUT OF QUOTA (2026-10-23) — the owner adds a key in HQ › Core › Lag catcher › 🔌 RPC LANES.
+🔑 Owner keys still gating features: DFlow (Kalshi) · SnapTrade (any broker) · Jupiter key 4 · Helius/Alchemy quota. Replit's "preview branch" is not
+on GitHub — if it lives only on Replit, push it to a branch and a Claude can cherry-pick fixes from it.
 
 ### Where today's work lives (frontend only; grep the history for "2026-10-23 evening")
 - 🌆 Fee City METRO: `lib/cityPlan.js` (`METRO`, `KEYS`, `feePlan(v, mk, pools)`, `moneyShare` = 81 %) · `lib/cityEngine.js` (merged neon trims,

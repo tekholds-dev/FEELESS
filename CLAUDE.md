@@ -165,6 +165,23 @@ STANDING RULES (never "done"):
 - 🚀 NO RISK NO REWARD (owner): money surfaces lead with the aggressive play (MOON: tight v3 / DLMM bands on the busiest pools; DEGEN: the
   hottest fee pools) with the risk named — SAFE yields are one tap away, never the headline. "Think big, not the same utilities."
 
+P0 — OWNER 2026-10-26 (the "finish it" list; shipped this day → history "2026-10-26") — open, priority order:
+a. 📉 PERPS: the owner's first real Jupiter open after the 250× / pay-with / landing-card fix (read the LANDED card + positions) · Coinbase Advanced
+   (US perp-style futures, CDP JWT keys) as a 3rd key door · Kalshi still waits on `DFLOW_API_KEY`.
+b. 🗳 REPMARKET ← Polymarket: one-time sign-in / API key per user (Polymarket US is the US-legal door — check its API first), USD in, saved per user.
+c. 🔑 ONE KEY VAULT: users = one Familia spot for every key (Alpaca · Crypto.com · Polymarket · DFlow proof) · owner = HQ › Core "needs a human"
+   list (DFlow, SnapTrade, RPC quota, Jupiter key 4) in one card.
+d. 🧠 NSFA agents: ≤ 5 real agents that learn per coin from the ledger's faults (owner's + the 3 AIs'), size by what went wrong before, never
+   ban — retune; live "generation" vitals on the agents tab · user FUSE DASHBOARD (half of HQ Agents: 2 charts, up to 3 agents, intake tank levels).
+e. 🚀 LAUNCH: coin first + a POOLS switch (Range Lab before signing), pair with any coin (SOL / FEELESS first), pick platforms (Pump · Raydium) then
+   their real configs — no dropdown walls.
+f. 🏙 FAMILIA: glass live P&L on any building holding a coin / perp · Trench towers = live vitals · errands = real money + MP game (raids by MP or
+   family cash) · MP / points from every real-money $ → rank + badge pools · other families' backdrops (big holders upload).
+g. 🖥 HQ: Fuse tab de-cluttered · fee tab = every real-money fee (swap · trench · perps · pools · launch) set by the owner · Fuse family view at
+   the page bottom renders oddly (owner screenshot) · every HQ tab ≤ 1 screen.
+h. 📱 Trenches + Pump radar mobile flow redo (one-thumb), Duo per-tab features beyond the split layouts (lib/duo.js is the hook).
+i. ✅ the full click-through (P0 #6 below) + a page watcher (overflow / overlap detector in the Lag catcher).
+
 P0 — OWNER 2026-10-23 (late night) · finished today → `docs/FEELESS_HISTORY.md` (grep "2026-10-23 late night")
 0. 🔥📉 PERPS / OPTIONS — ONE PAGE: `docs/PERPS.md` (venues truth, the desk, endpoints, guards, tests, open items). Owner 2026-10-23: "all
    mechanics a real perps desk has, only realtime vitals, true chart data ALWAYS, live TP / SL before the trade on the chart, from $1".

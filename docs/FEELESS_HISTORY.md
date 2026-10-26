@@ -6201,3 +6201,10 @@ P6 — IDEAS: FeeCat + AI agent pair that talk · "build a better coin" track in
 - 2026-10-24 · Opus 5.5 — 🏦 the owner's SnapTrade PERSONAL key wired (the `.env` line "client id: … consumer key: …" rewritten into
   SNAPTRADE_CLIENT_ID / SNAPTRADE_CONSUMER_KEY): personal mode (`brokers.personal`, `_brk_q`) — the owner's wallet links TradeStation / any
   broker once in SnapTrade's portal, then 🏦 shows + trades it; no user creds sent; others keep the Alpaca door. Probe: portal OK, 0 accounts yet.
+- 2026-10-26 · Opus 5.5 — 📋 Safari copy (lib/clipboard.js: insecure-http iPhones had NO navigator.clipboard) + iOS no focus-zoom · phones keep the
+  wallet across refresh (WalletConnect boot glitch wiped the hint; in-app wallets retried ~6s) · 📉 Jupiter Perps to 250× (checked live: 300 refused),
+  PAY WITH USDC | SOL + live balances + "not enough" state, LANDED card + 1.5s poll until listed · 🧭 provider rail owns the trade station + colors,
+  🔑 Crypto.com Exchange BYOK (brokers.cdc_*) · 🎯 Range Lab (MoneyDesk.RangePicture: $ → 24h vol × fee ÷ TVL × band boost, live price on the band,
+  earns only in range, 🤖 AUTO-RANGE re-center after N min) · 🔭 Trenches discovery first, 24+, FRESH tab, refresh timer · 🏙 city pick eases ≤25% ·
+  🏟 Arena paper + league reset once to $100 · 🎨 Settings: chart themes (lib/chartTheme.js) on both charts, Day/Night, Lite · 📱📱 lib/duo.js +
+  styles/duo.css (wide touch / hinge / sideways split layouts) · 🦠 intake purple germ bubbles. Replit "preview branch": not on GitHub (only stale Sept branches).
