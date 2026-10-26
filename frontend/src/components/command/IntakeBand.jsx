@@ -47,9 +47,9 @@ export function IntakeBand({ o, mint, onPick, call, isOwner, imp }) {
         <i className="ib-zone" style={{ left: `${lo * 100}%`, width: `${Math.max(0, (hi - lo) * 100)}%` }} />
         {LANES.map(([k, l], i) => <i key={k} className={`ib-lane is-${k}`} style={{ '--l': i }}><small>{l}</small></i>)}
         {TICKS.map(([v, l]) => <em key={l} className="ib-tick" style={{ left: `${capX(v) * 100}%` }}>{l}</em>)}
-        {dots.map(x => <button key={x.mint} type="button" className={`ib-dot is-${x.stage} ${x.inside ? '' : 'is-out'} ${x.mint === mint ? 'is-on' : ''} ${x.mint === sel ? 'is-sel' : ''}`}
+        {dots.map(x => <button key={x.mint} type="button" className={`ib-dot is-${x.stage} ${x.inside ? '' : 'is-out'} ${x.atGerm ? 'is-germ' : ''} ${x.mint === mint ? 'is-on' : ''} ${x.mint === sel ? 'is-sel' : ''}`}
           style={{ left: `${x.x * 100}%`, '--l': x.lane }} onClick={() => setSel(s => (s === x.mint ? null : x.mint))}
-          aria-label={`$${x.sym || x.mint.slice(0, 4)} ${x.stage}`} data-tip={`$${x.sym || '…'} · ${x.stage.toUpperCase()} · rank ${Math.round(x.rank)}`} data-testid={`ib-dot-${x.mint}`}><i /></button>)}
+          aria-label={`$${x.sym || x.mint.slice(0, 4)} ${x.stage}`} data-tip={`$${x.sym || '…'} · ${x.stage.toUpperCase()} · rank ${Math.round(x.rank)}${x.germ != null ? ` · 🦠 ${x.germ >= 0 ? '+' : ''}${x.germ.toFixed(1)}% vs its germ floor` : ''}`} data-testid={`ib-dot-${x.mint}`}><i /></button>)}
       </div>
       <ol className="ib-funnel" data-testid="ib-funnel">{LANES.slice().reverse().map(([k, l, tip]) => <li key={k} className={`is-${k}`} data-tip={tip}><b>{n[k]}</b><small>{l}</small></li>)}</ol>
     </div>

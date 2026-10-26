@@ -20,6 +20,8 @@
 .ib-dot.is-out i { opacity: .35; }
 .ib-dot.is-contending i { background: #8fd3ff; }
 .ib-dot.is-ready i { background: #45e486; box-shadow: 0 0 8px rgba(69, 228, 134, .8); animation: ibBreath 1.6s ease-in-out infinite; }
+.ib-dot.is-germ i { background: radial-gradient(circle at 35% 30%, #e6ccff, #a259ff 55%, #6a2bd1); box-shadow: 0 0 10px rgba(162, 89, 255, .9); }
+.ib-dot.is-germ::before { content: ''; position: absolute; inset: -2px; border-radius: 50%; border: 1px solid rgba(186, 130, 255, .7); animation: ibRing 2.6s ease-out infinite; }
 .ib-dot.is-picked i { background: var(--gold, #f5c542); }
 .ib-dot.is-picked::after { content: ''; position: absolute; inset: -1px; border-radius: 50%; border: 1.5px solid var(--gold, #f5c542); animation: ibRing 2.2s ease-out infinite; }
 .ib-dot.is-on i { outline: 2px solid #fff; } .ib-dot.is-sel i { transform: scale(1.8); }
@@ -42,6 +44,8 @@
 .ib-acts { display: flex; flex-wrap: wrap; gap: 4px; }
 .m-btn.ib-act { padding: 3px 8px; font: 800 9px var(--m-mono); letter-spacing: .06em; transition: transform .12s ease; } .m-btn.ib-act:hover { transform: translateY(-1px); } .m-btn.ib-act:active { transform: translateY(1px); }
 .m-btn.ib-act.is-arm { border-color: #45e486; color: #45e486; } .m-btn.ib-act.is-ignore { color: var(--m-mute); } .m-btn.ib-act[aria-busy='true'] { opacity: .55; }
+body.fx-lite .ib-dot.is-germ::before { animation: none; opacity: .6; } @media (prefers-reduced-motion: reduce) { .ib-dot.is-germ::before { animation: none; } }
+body.theme-day .ib-dot.is-germ i { background: #7a3fe0; }
 @keyframes ibPop { from { opacity: 0; transform: translate3d(0, calc((3 - var(--l)) * 23px), 0) scale(.2); } }
 @keyframes ibBreath { 50% { transform: scale(1.35); } }
 @keyframes ibRing { from { transform: scale(.8); opacity: .9; } to { transform: scale(2.1); opacity: 0; } }

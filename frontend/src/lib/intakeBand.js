@@ -10,13 +10,20 @@ const LANE_OF = { DISCOVERED: 'in', TRACKING: 'in', CONTENDING: 'contending', RE
 export const MAX_DOTS = 140;
 
 /** cands (kernel candidates) + held mints → dots {mint, sym, x 0–1, lane 0–3, stage, inside, rank, c}; picked + ready first, newest coins after. */
+// 🦠 how far a coin sits above its germ floor (%), from whichever lens the agents wrote (1m first, then 5m) — null when no floor is on file
+export function germOf(c) {
+  const x = c || {}; const v = [x.germDist, x.chart?.germDist, x.ch?.germDist, x.thesis?.germDist, x.germ?.dist, x.germ5Dist, x.chart?.germ5Dist].find(n => n != null && Number.isFinite(Number(n)));
+  return v == null ? null : Number(v);
+}
+export const AT_GERM = [-3, 10];   // within 3% under … 10% over the floor = the purple bubble (the agents' buy zone)
 export function intakeDots(cands, held = [], band = {}) {
   const hs = new Set(held || []);
   const mn = Number(band?.min) || 0; const mx = Number(band?.max) || 3e5;
   const rows = (cands || []).map(c => {
     const stage = hs.has(c.mint) ? 'picked' : LANE_OF[c.status] || 'in';
     const cap = capOf(c);
-    return { mint: c.mint, sym: c.symbol, x: capX(cap), cap, lane: LANES.findIndex(([k]) => k === stage), stage, inside: cap > mn && cap < mx, rank: Number(c.rank) || 0, c };
+    const g = germOf(c);
+    return { mint: c.mint, sym: c.symbol, x: capX(cap), cap, lane: LANES.findIndex(([k]) => k === stage), stage, inside: cap > mn && cap < mx, rank: Number(c.rank) || 0, germ: g, atGerm: g != null && g >= AT_GERM[0] && g <= AT_GERM[1], c };
   }).filter(d => d.mint && d.x != null);
   const order = { picked: 0, ready: 1, contending: 2, in: 3 };
   return rows.sort((a, b) => order[a.stage] - order[b.stage] || b.rank - a.rank).slice(0, MAX_DOTS);
