@@ -1,0 +1,19 @@
+/* 🎨 SETTINGS › the site's look (SiteLook in CommandDocuments): theme seg, chart-theme swatches (each a tiny live candle set in its colors),
+   lite effects. One keyframe (cfgIn), transform/opacity only; fx-lite + reduced motion + day + 640px at the end. */
+.cfg-look { display: grid; gap: 8px; padding: 10px; border-radius: 12px; border: 1px solid rgba(21, 209, 106, .2); background: linear-gradient(160deg, rgba(21, 209, 106, .06), rgba(0, 0, 0, .25)); box-shadow: inset 0 1px 0 rgba(255, 255, 255, .06); }
+.cfg-look .m-seg button { min-height: 34px; }
+.cfg-charts { display: grid; grid-template-columns: repeat(auto-fill, minmax(58px, 1fr)); gap: 6px; }
+.cfg-charts button { display: grid; gap: 4px; justify-items: center; min-height: 64px; padding: 6px 4px; border-radius: 10px; border: 1px solid rgba(255, 255, 255, .1); background: rgba(0, 0, 0, .35); color: #cfe; cursor: pointer;
+  animation: cfgIn .25s ease-out both; transition: border-color .15s, transform .15s, background .15s; }
+.cfg-charts button:nth-child(2) { animation-delay: 45ms; } .cfg-charts button:nth-child(3) { animation-delay: 90ms; } .cfg-charts button:nth-child(4) { animation-delay: 135ms; } .cfg-charts button:nth-child(5) { animation-delay: 180ms; }
+.cfg-charts button:hover { border-color: rgba(21, 209, 106, .5); transform: translateY(-1px); } .cfg-charts button:active { transform: scale(.97); } .cfg-charts button:focus-visible { outline: 2px solid #15d16a; outline-offset: 2px; }
+.cfg-charts button.is-on { border-color: #15d16a; background: rgba(21, 209, 106, .14); box-shadow: 0 0 18px -6px #15d16a; }
+.cfg-charts i { display: flex; align-items: flex-end; gap: 3px; height: 26px; } .cfg-charts s { display: block; width: 5px; height: 26px; border-radius: 2px; transform-origin: bottom; }
+.cfg-charts b { font: 800 8.5px 'JetBrains Mono', monospace; letter-spacing: .08em; }
+@keyframes cfgIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+body.fx-lite .cfg-charts button { animation: none; } @media (prefers-reduced-motion: reduce) { .cfg-charts button { animation: none; transition: none; } }
+body.theme-day .cfg-look { background: #f3faf6; border-color: #b9dcc8; } body.theme-day .cfg-charts button { background: #fff; color: #10301f; border-color: #cfe3d6; } body.theme-day .cfg-charts button.is-on { background: #e3f6eb; border-color: #08764e; }
+
+/* containment: nothing in a settings card spills past its edge; cards hug their content (no stretched buttons) */
+.terminal-config .cfg-grid > * { min-width: 0; align-content: start; } .terminal-config .m-input, .terminal-config .m-field { width: 100%; max-width: 100%; box-sizing: border-box; min-width: 0; }
+.terminal-config .cfg-look, .terminal-config .m-toggle { min-width: 0; } .terminal-config .m-toggle { white-space: normal; }

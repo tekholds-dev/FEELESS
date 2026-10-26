@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { createChart, CandlestickSeries, HistogramSeries, LineSeries, ColorType, LineStyle, CrosshairMode } from 'lightweight-charts';
 import { ema, vwap, bollinger, rsi } from '../../lib/indicators';
 import { fetchBars, foldTrade, onTrade, GRAN } from '../../lib/cbFeed';
+import { chartColors, useChartTheme } from '../../lib/chartTheme';
 
 // 📈 the perps desk's chart: TRUE candles (Coinbase Exchange — a US-regulated venue; the live candle folds every trade as it prints) + volume,
 // and YOUR levels on it: entry / mark, ☠ liquidation, TP + SL. TP and SL DRAG straight on the chart before the trade (and on a live
@@ -71,6 +72,14 @@ export function PerpsChart({ asset, iv = '1m', lines = [], onDrag, onPrice, ind 
     });
     return () => { alive = false; off(); chart.remove(); chartRef.current = null; seriesRef.current = null; };
   }, [asset, iv]); // eslint-disable-line react-hooks/exhaustive-deps
+  const [ct] = useChartTheme(); const [day, setDay] = useState(() => typeof document !== 'undefined' && document.body.classList.contains('theme-day'));
+  useEffect(() => { const mo = new MutationObserver(() => setDay(document.body.classList.contains('theme-day'))); mo.observe(document.body, { attributes: true, attributeFilter: ['class'] }); return () => mo.disconnect(); }, []);
+  useEffect(() => {   // 🎨 Settings › chart theme + day / night, applied in place (no rebuild, the live candle keeps forming)
+    const sr = seriesRef.current; const c = chartRef.current; if (!sr || !c) return;
+    const { up, down } = chartColors(day, ct);
+    sr.applyOptions({ upColor: up, downColor: down, borderUpColor: up, borderDownColor: down, wickUpColor: up, wickDownColor: down });
+    c.applyOptions({ layout: { textColor: day ? '#5a2a45' : '#c9a3b9' }, grid: { vertLines: { color: day ? 'rgba(120,40,90,.07)' : 'rgba(255,93,187,.05)' }, horzLines: { color: day ? 'rgba(120,40,90,.08)' : 'rgba(255,93,187,.06)' } } });
+  }, [day, ct, asset, iv]);
 
   useEffect(() => { paint.current(true); }, [ind.join('|')]); // eslint-disable-line react-hooks/exhaustive-deps
 

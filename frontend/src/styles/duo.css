@@ -1,0 +1,22 @@
+/* 📱📱 DUO layouts (lib/duo.js sets the body classes). Layout only — no new motion; every rule is scoped to a duo class. */
+/* Perps: chart | trade station side by side, the station scrolls on its own, positions underneath */
+body.is-duo .pd-main { grid-template-columns: minmax(0, 1.25fr) minmax(300px, 1fr); }
+body.is-duo .pd-chart { border-right: 1px solid var(--ln); border-bottom: 0; }
+body.is-duo .pd-main > .pt, body.is-duo .pd-side { max-height: calc(100dvh - 120px); overflow: auto; position: sticky; top: 0; scrollbar-width: thin; }
+body.is-duo .pd-strip { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+/* Trenches floor: chart (with its Quick trade) | the coin's chat, tools below */
+body.is-duo .trenches-grid { grid-template-columns: minmax(0, 1.3fr) minmax(280px, 1fr) !important; grid-template-areas: "chart chat" "tools tools" !important; }
+body.is-duo .trenches-grid > .trenches-chat-section { position: sticky; top: 8px; height: calc(100dvh - 16px); }
+/* Discovery: two dense columns of live cards */
+body.is-duo .trend-grid { grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); }
+/* A hinge: each column sits on its own screen segment */
+body.is-duo-split .pd-main, body.is-duo-split .trenches-grid { grid-template-columns: env(viewport-segment-width 0 0, 1fr) env(viewport-segment-width 1 0, 1fr) !important; column-gap: calc(env(viewport-segment-left 1 0, 0px) - env(viewport-segment-right 0 0, 0px)); }
+/* Phone sideways: a full-height chart beside the ticket */
+body.is-phone-land .pd-main { grid-template-columns: minmax(0, 1.4fr) minmax(260px, 1fr); }
+body.is-phone-land .pd-plot { height: calc(100dvh - 70px); min-height: 220px; }
+body.is-phone-land .pd-top, body.is-phone-land .pd-prov { padding-top: 4px; padding-bottom: 4px; }
+body.is-phone-land .terminal-header { min-height: 44px; padding-top: 2px; padding-bottom: 2px; }
+body.is-duo .pd-mkt { grid-template-columns: 1fr; min-width: 0; } body.is-duo .pd-mkt > .pd-flash { justify-self: start; font-size: 14px; }
+body.is-phone-land .pd-strip, body.is-phone-land .pd-brand small, body.is-phone-land .pd-pv small, body.is-phone-land .pd-pv > span { display: none; }
+body.is-phone-land .pd-prov { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 4px; } body.is-phone-land .pd-pv { min-height: 34px; padding: 4px 8px; }
+body.is-phone-land .pd-mkt { min-height: 40px; padding: 4px 8px; } body.is-phone-land .pd-pnl small { display: none; }

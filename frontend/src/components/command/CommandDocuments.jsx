@@ -1,5 +1,8 @@
 import { MissionTrack } from './MissionTrack';
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
+import { CHART_THEMES, chartColors, useChartTheme } from '../../lib/chartTheme';
+import { liteMode, isAutoLite, setLite } from '../../lib/perfWatch';
+import '../../styles/settings.css';
 import { Link } from 'react-router-dom';
 import { Download, FileText, ArrowUpRight, Activity, Wallet, ShieldCheck } from 'lucide-react';
 import { useMarket } from '../../hooks/useMarket';
@@ -53,6 +56,28 @@ export const UnderstandFeeless = () => {
   return <div className="document-page"><div className="command-page-title"><span className="eyebrow">UNDERSTAND FEELESS</span><h1>One system.<br /><em>Connected layers.</em></h1></div><div className="learning-layers">{Object.entries(layers).map(([id, [name]]) => <button key={id} data-testid={`learn-layer-${id}`} className={layer === id ? 'active' : ''} onClick={() => setLayer(id)}>{name}</button>)}</div><div className="learning-layer-detail" data-testid="learn-layer-detail"><FeelessMark size={64} /><div><h2>{layers[layer][0]}</h2><p>{layers[layer][1]}</p></div></div><FeeBackFlow /><Tokenomics /><div className="learning-disclosure"><ShieldCheck size={23} /><div><h2>The real rule: never invent the signal.</h2><p>A new pool is not necessarily a new token. An indexed contract is not an audit. A quoted fee is not an eligible settled fee. A calculator is not a payout.</p><Link to="/terminal/whitepaper" data-testid="learn-full-whitepaper">Read the complete whitepaper<ArrowUpRight size={14} /></Link></div></div></div>;
 };
 
+// 🎨 THE SITE'S LOOK, per browser: night / day (the header's ☀ toggle, same key), the chart theme (every candle chart), lite effects (battery /
+// older phones: drops the heavy animated layers) — each applies at once, nothing to reload.
+function SiteLook() {
+  const [ct, setCt] = useChartTheme();
+  const [day, setDay] = useState(() => typeof document !== 'undefined' && document.body.classList.contains('theme-day'));
+  const [lite, setLiteOn] = useState(() => !!liteMode() && !isAutoLite(liteMode()));
+  useEffect(() => { const mo = new MutationObserver(() => setDay(document.body.classList.contains('theme-day'))); mo.observe(document.body, { attributes: true, attributeFilter: ['class'] }); return () => mo.disconnect(); }, []);
+  const flip = want => { if (want !== day) document.querySelector('[data-testid="theme-toggle"]')?.click(); };
+  const sw = [['night', 'NIGHT', 'Dark terminal'], ['day', 'DAY', 'Light terminal — charts switch too']];
+  const { up, down } = chartColors(day, ct);
+  return <div className="cfg-look" data-testid="settings-look">
+    <span className="m-label">THEME</span>
+    <span className="m-seg" role="radiogroup" aria-label="Theme">{sw.map(([k, l, tip]) => <button key={k} type="button" role="radio" aria-checked={(k === 'day') === day} className={(k === 'day') === day ? 'active' : ''} onClick={() => flip(k === 'day')} data-tip={tip} data-testid={`settings-theme-${k}`}>{l}</button>)}</span>
+    <span className="m-label">CHART THEME</span>
+    <span className="cfg-charts" role="radiogroup" aria-label="Chart theme">{Object.entries(CHART_THEMES).map(([k, t]) => { const c = chartColors(day, k);
+      return <button key={k} type="button" role="radio" aria-checked={ct === k} className={ct === k ? 'is-on' : ''} onClick={() => setCt(k)} data-tip={`${t.name} candles on every chart`} data-testid={`settings-chart-${k}`}>
+        <i aria-hidden="true">{[0.7, 0.4, 0.9, 0.55, 0.8].map((h, j) => <s key={j} style={{ background: j % 2 ? c.down : c.up, transform: `scaleY(${h})` }} />)}</i><b>{t.name}</b></button>; })}</span>
+    <small className="m-dim">Now: <b style={{ color: up }}>▲ up</b> · <b style={{ color: down }}>▼ down</b></small>
+    <label className="m-toggle"><input type="checkbox" checked={lite} onChange={e => { setLiteOn(e.target.checked); setLite(e.target.checked ? 'on' : ''); }} data-testid="settings-lite" />Lite effects · saves battery</label>
+  </div>;
+}
+
 export const TerminalConfiguration = ({ settings, setSettings, onWallet }) => {
   const { ecosystem, setEcosystem } = useWorkspace(); const { wallet } = useWallet();
   const { data } = useMarket('/api/trading/status', 0);
@@ -76,6 +101,7 @@ export const TerminalConfiguration = ({ settings, setSettings, onWallet }) => {
         <label className="m-field"><span>Data density</span><select {...sel} data-testid="config-density" value={compact ? 'compact' : 'comfortable'} onChange={e => update('compact', e.target.value === 'compact')}><option value="comfortable">Comfortable</option><option value="compact">Compact</option></select></label>
         <label className="m-field"><span>Text size</span><select {...sel} data-testid="config-text-size" value={fontScale} onChange={e => update('fontScale', normalizeFontScale(e.target.value))}><option value="normal">Normal</option><option value="large">Large</option><option value="xlarge">Extra large</option></select></label>
         <label className="m-field"><span>Default candle interval</span><select {...sel} data-testid="config-chart-interval" value={chartInterval} onChange={e => update('chartInterval', normalizeChartInterval(e.target.value))}>{CHART_INTERVAL_VALUES.map(t => <option key={t}>{t}</option>)}</select></label>
+        <SiteLook />
         <label className="m-toggle"><input data-testid="settings-reduced-motion" type="checkbox" checked={reducedMotion} onChange={e => update('reducedMotion', e.target.checked)} />Reduced motion</label>
         <label className="m-toggle"><input data-testid="settings-autorefresh" type="checkbox" checked={autoRefresh} onChange={e => update('autoRefresh', e.target.checked)} />Discovery auto-refresh</label></section>
       <section className="m-card m-stack"><span className="m-label"><Activity size={13} /> PROVIDERS</span>

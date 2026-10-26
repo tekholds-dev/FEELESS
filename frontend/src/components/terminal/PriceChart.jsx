@@ -32,6 +32,7 @@ import { scrubCandles } from '../../lib/chartMath';
 import { fetchLivePrice } from '../../lib/livePrice';
 import { computeFeeRead } from './FeeLiveRead';
 import { snapMarkers } from '../../lib/chartMarkers';
+import { chartColors, useChartTheme } from '../../lib/chartTheme';
 
 const LIVE_INTERVAL_SECONDS = { '1m': 60, '5m': 300, '15m': 900, '1h': 3600, '4h': 14400, '1d': 86400 };
 
@@ -89,6 +90,7 @@ export const PriceChart = ({ pair, interval, showVolume, metric = 'price', marke
     const o = new MutationObserver(sync); o.observe(document.body, { attributes: true, attributeFilter: ['class'] }); return () => o.disconnect(); }, []);
   const bgOn = bgKind !== 'default' && !fxLite && !plain;   /* `plain` = a working chart (the Agents cockpit): candles + levels only, no scene */   /* lite mode / reduced motion = the plain chart, whatever was picked */
   const [dayMode, setDayMode] = useState(() => typeof document !== 'undefined' && document.body.classList.contains('theme-day'));
+  const [chartTheme] = useChartTheme();
   // Candles come only from the FEELESS candle service (Jupiter/Alchemy/Helius behind a shared cache + our own ticks).
   const { data, loading } = useMarket(null);
   const metricLabel = metric === 'marketCap' ? 'Market cap' : 'FDV';
@@ -201,10 +203,10 @@ export const PriceChart = ({ pair, interval, showVolume, metric = 'price', marke
     const lineData = sparse ? displayCandles.map(([time, , , , close]) => ({ time, value: close })) : trail;
     if (displayCandles.length && !sparse) {
       const series = chart.addSeries(CandlestickSeries, {
-        upColor: dayMode ? '#08764e' : '#00e7a0',
-        downColor: '#b42346',
-        wickUpColor: dayMode ? '#08764e' : '#00e7a0',
-        wickDownColor: '#b42346',
+        upColor: chartColors(dayMode, chartTheme).up,
+        downColor: chartColors(dayMode, chartTheme).down,
+        wickUpColor: chartColors(dayMode, chartTheme).up,
+        wickDownColor: chartColors(dayMode, chartTheme).down,
         borderVisible: false,
         priceFormat: { type: 'custom', formatter: axisFormat, minMove }, autoscaleInfoProvider: keepScale,
       });
@@ -271,7 +273,7 @@ export const PriceChart = ({ pair, interval, showVolume, metric = 'price', marke
     ro?.observe(box_);
     bumpChart(box_);   // new data drawn
     return () => { ro?.disconnect(); ts.unsubscribeVisibleLogicalRangeChange(onRange); seriesRef.current = null; chartRef.current = null; markersRef.current = null; chart.remove(); };
-  }, [displayCandles, trail, hasChart, dayMode, showVolume, chartStyle, bgOn]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [displayCandles, trail, hasChart, dayMode, showVolume, chartStyle, bgOn, chartTheme]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Meta overlays (Trenches calls, Fee's trades) snapped to the candle they happened in.
   useEffect(() => {
