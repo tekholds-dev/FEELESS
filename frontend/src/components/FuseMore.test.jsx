@@ -5,6 +5,9 @@ import { FuseSide } from './FuseSide';
 import { FuseCardMint } from './nft/FuseCardMint';
 import { installTipLayer } from '../lib/tipLayer';
 
+// the first test here cold-requires FusePage (the biggest module); under a 4-worker gate that alone ran past 30s (2026-10-26) — not a hang
+jest.setTimeout(90000);
+
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
 jest.mock('sonner', () => ({ toast: { error: jest.fn(), success: jest.fn() } }));
 jest.mock('../hooks/useWallet', () => ({ useWallet: () => ({ wallet: { chain: 'solana', address: 'W' }, provider: {} }) }));
