@@ -207,6 +207,90 @@ def alpaca_view(account, positions, paper):
             'positions': rows, 'paper': bool(paper), 'status': a.get('status')}
 
 
+# 🔑 BRING YOUR OWN KEY — Crypto.com Exchange (owner, 2026-10-26: "select usa providers like crypto.com … enter my api" ): the user makes an API key
+# in their own Crypto.com Exchange account (Settings › API Keys, trading on, withdrawals OFF), pastes key + secret once; FEELESS checks it
+# against private/user-balance, seals it to the wallet, and sends spot BUY / SELL to private/create-order. Signing (exchange-docs.crypto.com):
+# HMAC-SHA256(secret, method + id + api_key + params-string + nonce), hex; the params string = sorted keys, each key then its value.
+CDC_API = 'https://api.crypto.com/exchange/v1'
+CDC_SIGNUP = 'https://crypto.com/exchange'
+
+
+def cdc_keys_ok(key, secret):
+    k, s = str(key or '').strip(), str(secret or '').strip()
+    return bool(re.match(r'^[A-Za-z0-9_\-]{16,64}$', k)) and bool(re.match(r'^[A-Za-z0-9_\-]{16,96}$', s))
+
+
+def cdc_params(obj, level=0):
+    """Crypto.com's canonical params string (its reference algorithm): sorted keys, key + value, lists flattened, None → 'null'."""
+    if level >= 3 or not isinstance(obj, dict):
+        return str(obj)
+    out = ''
+    for k in sorted(obj):
+        out += k
+        v = obj[k]
+        if v is None:
+            out += 'null'
+        elif isinstance(v, list):
+            out += ''.join(cdc_params(x, level + 1) for x in v)
+        else:
+            out += str(v)
+    return out
+
+
+def cdc_signed(method, params, key, secret, nonce=None, req_id=1):
+    """The signed JSON body for POST {CDC_API}/{method}."""
+    nonce = int(nonce if nonce is not None else time.time() * 1000)
+    params = params or {}
+    payload = f'{method}{req_id}{key}{cdc_params(params)}{nonce}'
+    sig = hmac.new(str(secret).encode(), payload.encode(), hashlib.sha256).hexdigest()
+    return {'id': req_id, 'method': method, 'api_key': key, 'params': params, 'nonce': nonce, 'sig': sig}
+
+
+def cdc_order(raw):
+    """The ticket → private/create-order params, or ValueError. Spot vs USD: Market BUY by $ (notional), Market SELL by units, Limit by units + price."""
+    r = raw if isinstance(raw, dict) else {}
+    sym = re.sub(r'[/_-]?USDT?$', '', str(r.get('symbol') or '').strip().upper())
+    side, kind = str(r.get('action') or '').upper(), str(r.get('type') or 'Market').upper()
+    if not re.match(r'^[A-Z0-9]{2,12}$', sym):
+        raise ValueError('Type the coin (BTC, ETH, SOL, CRO …).')
+    if side not in ('BUY', 'SELL') or kind not in ('MARKET', 'LIMIT'):
+        raise ValueError('BUY or SELL · Market or Limit.')
+    usd, units, price = _f(r.get('usd')), _f(r.get('units')), _f(r.get('price'))
+    body = {'instrument_name': f'{sym}_USD', 'side': side, 'type': kind}
+    if kind == 'LIMIT':
+        if not (price > 0 and units > 0):
+            raise ValueError('A limit order needs a price and an amount.')
+        if price * units > MAX_ORDER_USD:
+            raise ValueError(f'Max ${MAX_ORDER_USD:,} a ticket for now.')
+        body.update(price=f'{price:g}', quantity=f'{units:g}')
+    elif side == 'BUY' and usd > 0:
+        if not (1 <= usd <= MAX_ORDER_USD):
+            raise ValueError(f'From $1 to ${MAX_ORDER_USD:,} a ticket.')
+        body['notional'] = f'{usd:.2f}'
+    elif units > 0:
+        body['quantity'] = f'{units:g}'
+    else:
+        raise ValueError('Market BUY by $ · SELL by the amount of coin.')
+    return body
+
+
+def cdc_view(res):
+    """private/user-balance's result → one account in the building's shape (id 'cdc')."""
+    d = ((res or {}).get('data') or [{}])[0] if isinstance((res or {}).get('data'), list) else {}
+    rows = []
+    for p in d.get('position_balances') or []:
+        units, val = _num(p.get('quantity')), _num(p.get('market_value'))
+        if units <= 0:
+            continue
+        rows.append({'ticker': p.get('instrument_name') or '?', 'name': None, 'units': units, 'price': round(val / units, 6) if units else None,
+                     'value': round(val, 2), 'pnl': 0.0, 'pnlPct': None, 'kind': 'crypto'})
+    rows.sort(key=lambda x: -x['value'])
+    cash = next((x['value'] for x in rows if x['ticker'] in ('USD', 'USDC', 'USDT')), 0.0)
+    return {'id': 'cdc', 'broker': 'Crypto.com', 'name': 'Your keys', 'number': '', 'cash': round(cash, 2),
+            'buyingPower': round(_num(d.get('total_available_balance')), 2), 'value': round(_num(d.get('total_cash_balance')) or sum(x['value'] for x in rows), 2),
+            'positions': rows, 'paper': False, 'status': 'ACTIVE'}
+
+
 def seal_key_file(path):
     """The seal key FEELESS makes for itself when BROKER_SECRET_KEY is not set: 48 random bytes in a 0600 file beside the data (never printed,
     never in git). Returns the key string."""

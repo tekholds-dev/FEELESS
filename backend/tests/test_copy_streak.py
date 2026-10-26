@@ -285,14 +285,14 @@ def test_league_seeds_a_capped_field_on_20_dollar_books_and_settles_each_bell(rs
     asyncio.run(rs._battle_tick(now))                                                  # season #1 dealt
     d = rs._json_load(rs.FUSE_HQ_PATH, {})
     assert d['league']['n'] == 1 and len(d['league']['field']) == 2 and len(d['battles']['pairs']) == 1
-    assert all(abs(b['startUsd'] - 20.0) < 1e-9 for b in d['battles']['paper'].values())   # everyone starts on $20
+    assert all(abs(b['startUsd'] - 100.0) < 1e-9 for b in d['battles']['paper'].values())   # everyone starts on $20
     px.update(PX=1.3, PX2=1.3)                                                          # X's coins run this bell
     d['battles']['endsAt'] = now - 1; rs._json_save(rs.FUSE_HQ_PATH, d)
     res = asyncio.run(rs._battle_tick(now + 60))
     d = rs._json_load(rs.FUSE_HQ_PATH, {})
     assert res[0]['winnerKey'] == 'user:x' and d['league']['round'] == 1
     assert {r['key']: r['pts'] for r in d['league']['field']} == {'user:x': 3, 'lit:y': 0}
-    assert d['battles']['paper']['user:x']['startUsd'] == 20.0 and d['battles']['paper']['user:x']['valueUsd'] > 20   # the SAME book carries on
+    assert d['battles']['paper']['user:x']['startUsd'] == 100.0 and d['battles']['paper']['user:x']['valueUsd'] > 100   # the SAME book carries on
     v = rs._battle_view(rs._arena_mega_cache['data'], now + 61)
     assert v['league']['round'] == 1 and v['bracket']['board'][0]['key'] == 'user:x' and v['bracket']['board'][0]['pts'] == 3
     assert abs(v['pairs'][0]['a']['now']) < 0.5                                         # this bell's move, not the season's

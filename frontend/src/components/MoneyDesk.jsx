@@ -9,6 +9,7 @@ import { lpChanged } from '../lib/lpPositions';
 import { LpPositions } from './LpPositions';
 import { useWallet } from '../hooks/useWallet';
 import { useSolPrice } from '../lib/solPrice';
+import { useLivePrice } from '../lib/livePriceHub';
 import '../styles/moneyDesk.css';
 
 // 💸 THE MONEY DESK — every money building's pop-out DOES the money in place (owner, 2026-10-23: "no redirects — click to choose the platform /
@@ -175,26 +176,62 @@ function Curve({ g, add }) {
     <circle cx={xy(g.end, 12)[0]} cy={xy(g.end, 12)[1]} r="3.4" className="md-dot" /></svg>;
 }
 
-// 🎯 THE RANGE, DRAWN (owner: "no way to understand the lame range ish"): a price line, your band glowing where it EARNS, dark where it stops,
-// today's price as a dot; slide the width → three plain numbers (fee boost · the move that stops it · what a run costs vs holding)
-export function RangePicture({ start = 25 }) {
-  const [w, setW] = useState(start); const k = 1 + w / 100; const boost = rangeFactor(k); const lag = ilRange(1.2, k) * 100;
-  const X = v => 20 + ((Math.log(v) + Math.log(2.2)) / (2 * Math.log(2.2))) * 260;   // a log price axis: ÷2.2 … ×2.2
-  return <div className="md-range" data-testid="range-picture">
-    <header><b>🎯 YOUR RANGE, DRAWN</b><small>v3 / DLMM pools pay only while the price sits inside your band</small></header>
-    <svg viewBox="0 0 300 70" role="img" aria-label={`A band ±${w}% around today's price`}>
-      <line x1="20" x2="280" y1="40" y2="40" className="md-axis" />
-      <rect x={X(1 / k)} y="22" width={X(k) - X(1 / k)} height="36" rx="6" className="md-band" />
-      <text x={(X(1 / k) + X(k)) / 2} y="16" textAnchor="middle" className="md-bandw">EARNS ×{boost.toFixed(1)}</text>
-      <text x={(20 + X(1 / k)) / 2} y="64" textAnchor="middle" className="md-off">earns 0</text><text x={(X(k) + 280) / 2} y="64" textAnchor="middle" className="md-off">earns 0</text>
-      <g className="md-price"><circle cx="150" cy="40" r="5" /><text x="150" y="16" textAnchor="middle" className="md-now">{w > 60 ? '' : 'today'}</text></g>
-    </svg>
-    <label className="md-slide"><span>Band ±</span><input type="range" min="2" max="100" value={w} onChange={e => setW(Number(e.target.value))} aria-label="Range width" data-testid="range-w" /><b>{w}%</b></label>
-    <div className="md-facts">
-      <span style={{ '--i': 0 }}><em>FEES PER $</em><b className="m-num" key={`b${w}`}>×{boost.toFixed(1)}</b><small>vs a plain v2 pool</small></span>
-      <span style={{ '--i': 1 }}><em>STOPS EARNING</em><b className="m-num">−{(100 - 100 / k).toFixed(0)}% / +{w}%</b><small>price move either way</small></span>
-      <span style={{ '--i': 2 }} className={lag < -2 ? 'is-bad' : ''}><em>IF IT RUNS +20%</em><b className="m-num">{lag.toFixed(1)}%</b><small>vs just holding the coins</small></span>
+// 🎯 RANGE LAB (owner 2026-10-26: "img 3 is unacceptable" · "a NEW web3 idea … auto ranging"): your $ → the pool's REAL fee rate (24h volume ×
+// fee tier ÷ TVL, else its APY) × the band's boost = what the band pays a day; the token's LIVE price rides across the drawn band; the money
+// ticks up ONLY while the price is inside. 🤖 AUTO-RANGE = the twist: you set the first band (or AUTO picks it from the fee tier), and once the
+// price sits outside for N minutes the band re-centers on it (each real re-center is a transaction your wallet signs — FEELESS never holds it).
+export const feeTier = meta => { const m = /(\d+(?:\.\d+)?)\s*%/.exec(String(meta || '')); return m ? Number(m[1]) / 100 : null; };
+// pure: $ a FULL-RANGE dollar earns per day in this pool — the pool's own volume × fee ÷ TVL (real 24h), else its APY ÷ 365
+export function poolDayRate(pool) {
+  const f = feeTier(pool?.meta); const v = Number(pool?.vol) || 0; const t = Number(pool?.tvl) || 0;
+  if (f && v > 0 && t > 0) return { rate: (v * f) / t, src: `24h volume × ${(f * 100).toFixed(2)}% fee ÷ TVL` };
+  const apy = Number(pool?.apy) || 0; return apy > 0 ? { rate: apy / 100 / 365, src: 'the pool\'s APY ÷ 365' } : { rate: 0, src: 'no fee data' };
+}
+export const autoBand = pool => (pool?.stable ? 1 : (feeTier(pool?.meta) || 0.003) >= 0.01 ? 25 : (feeTier(pool?.meta) || 0.003) >= 0.0025 ? 12 : 6);
+const AUTO_MIN = [['off', 'OFF'], [5, '5 MIN'], [15, '15 MIN'], [60, '1 HOUR']];
+const AMTS = [5, 25, 100, 1000];
+
+export function RangePicture({ pool = null, amt: amt0 = null, start = null }) {
+  const [own, setOwn] = useState(amt0 || 25); const amt = amt0 || own;
+  const [w, setW] = useState(() => start || autoBand(pool)); const [auto, setAuto] = useState(15);
+  const lp = useLivePrice(pool?.hold ? { chainId: 'solana', baseToken: { address: pool.hold } } : null); const px = lp?.live ? lp.usd : null;
+  const [center, setCenter] = useState(null); const [outAt, setOutAt] = useState(null); const [moves, setMoves] = useState(0);
+  const [earned, setEarned] = useState(0); const [inSec, setInSec] = useState(0); const [allSec, setAllSec] = useState(0); const [now, setNow] = useState(() => Date.now());
+  useEffect(() => { if (px && !center) setCenter(px); }, [px, center]);
+  const k = 1 + w / 100; const boost = rangeFactor(k); const { rate, src } = poolDayRate(pool);
+  const m = px && center ? px / center : 1; const inside = m >= 1 / k && m <= k; const day = amt * rate * boost; const perSec = day / 86400;
+  const lag = ilRange(m, k) * 100; const lag20 = ilRange(1.2, k) * 100;
+  useEffect(() => { const still = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;   // 💵 earnings tick only while in range
+    const t = setInterval(() => { if (document.hidden) return; setNow(Date.now()); setAllSec(x => x + 1); if (inside) { setInSec(x => x + 1); if (!still) setEarned(x => x + perSec); } }, 1000);
+    return () => clearInterval(t); }, [inside, perSec]);
+  useEffect(() => { if (inside) { setOutAt(null); return; } if (!outAt) setOutAt(Date.now()); }, [inside]); // eslint-disable-line react-hooks/exhaustive-deps
+  const due = auto !== 'off' && outAt ? Math.max(0, outAt + auto * 60000 - now) : null;
+  const recenter = () => { if (!px) return; setCenter(px); setOutAt(null); setMoves(n => n + 1); };
+  useEffect(() => { if (due === 0) recenter(); }, [due]); // eslint-disable-line react-hooks/exhaustive-deps
+  const span = Math.max(1.06, k ** 2.2); const pos = v => `${Math.max(0, Math.min(100, 50 + (Math.log(v) / Math.log(span)) * 50))}%`;   // a log axis scaled to the band: it fills ~45% of the lane
+  const up = inSec / Math.max(1, allSec); const mmss = ms => `${Math.floor(ms / 60000)}:${String(Math.floor((ms % 60000) / 1000)).padStart(2, '0')}`;
+  return <div className={`md-range rl ${inside ? 'is-in' : 'is-out'}`} data-testid="range-picture">
+    <header className="rl-head"><b>🎯 RANGE LAB</b><small>{pool?.sym ? `${pool.sym} · ` : ''}v3 / DLMM pay only while the price is inside your band</small>
+      <span className={`rl-state ${inside ? 'is-in' : 'is-out'}`} role="status">{inside ? '● EARNING' : due != null ? `○ OUT · AUTO-RANGE IN ${mmss(due)}` : '○ OUT · EARNS 0'}</span></header>
+    <div className="rl-amt" role="group" aria-label="Amount">{amt0 ? <b className="m-num">{cash(amt)}</b> : <>{AMTS.map(a => <button key={a} type="button" className={amt === a ? 'is-on' : ''} onClick={() => setOwn(a)} data-tip={`Plan it with $${a}`}>${a >= 1000 ? '1K' : a}</button>)}
+      <label className="rl-in"><span>$</span><input type="number" min="1" value={own} onChange={e => setOwn(Math.max(1, Number(e.target.value) || 1))} aria-label="Amount in dollars" /></label></>}</div>
+    <div className="rl-lane" aria-label={`Band ±${w}%: ${inside ? 'the price is inside' : 'the price is outside'}`}>
+      <span className="rl-zone is-off" style={{ left: 0, width: pos(1 / k) }}><em>EARNS 0</em></span>
+      <span className="rl-band" style={{ left: pos(1 / k), width: `calc(${pos(k)} - ${pos(1 / k)})` }}><em>EARNS ×{boost.toFixed(1)}</em><i aria-hidden="true" /></span>
+      <span className="rl-zone is-off" style={{ left: pos(k), right: 0 }}><em>EARNS 0</em></span>
+      <span className="rl-px" style={{ left: pos(m) }} data-tip="The token's live price (FEELESS price hub, every 2s)"><i aria-hidden="true" /><b className="m-num">{px ? `$${px >= 1 ? px.toFixed(4) : px.toPrecision(4)}` : 'no live price'}</b></span>
     </div>
+    <label className="md-slide"><span>Band ±</span><input type="range" min="1" max="100" value={w} onChange={e => setW(Number(e.target.value))} aria-label="Range width" data-testid="range-w" /><b>{w}%</b>
+      <button type="button" className="m-btn rl-autoband" onClick={() => setW(autoBand(pool))} data-tip="AUTO first band: tight for stable pairs, wider for high-fee (volatile) pools">AUTO</button></label>
+    <div className="rl-auto"><em>🤖 AUTO-RANGE</em><span className="m-seg" role="radiogroup" aria-label="Auto-range after">{AUTO_MIN.map(([v, l]) => <button key={v} type="button" role="radio" aria-checked={auto === v} className={auto === v ? 'active' : ''} onClick={() => setAuto(v)}
+      data-tip={v === 'off' ? 'Manual: you re-center' : `Out of range for ${l.toLowerCase()} → re-center on the live price (your wallet signs each move)`}>{l}</button>)}</span>
+      <button type="button" className="m-btn" onClick={recenter} disabled={!px} data-tip="Center the band on the live price now">⟲ RE-CENTER</button></div>
+    <div className="md-facts rl-facts">
+      <span style={{ '--i': 0 }} data-tip={`Real fee rate: ${src}, × the band's boost`}><em>{cash(amt)} EARNS / DAY</em><b className="m-num" key={`d${w}${amt}`}>{cash(day)}</b><small>{cash(day * 30)} a month · in range</small></span>
+      <span style={{ '--i': 1 }} className="rl-live" data-tip="Since you opened the lab — counts only the seconds the live price sat inside your band"><em>EARNED WHILE YOU LOOK</em><b className="m-num">+${earned.toFixed(5)}</b><small>{Math.round(up * 100)}% in range · {moves} re-center{moves === 1 ? '' : 's'}</small></span>
+      <span style={{ '--i': 2 }} className={lag < -1 || lag20 < -2 ? 'is-bad' : ''} data-tip="Impermanent loss vs just holding the two coins"><em>IL NOW · IF +20%</em><b className="m-num">{lag.toFixed(2)}% · {lag20.toFixed(1)}%</b><small>stops at −{(100 - 100 / k).toFixed(0)}% / +{w}%</small></span>
+    </div>
+    <small className="rl-src">Fees: {src}{pool?.vol ? ` · $${Math.round(pool.vol).toLocaleString()} traded 24h` : ''} · a tighter band earns more per $ and leaves range sooner — that is the risk.</small>
   </div>;
 }
 
@@ -246,7 +283,7 @@ export function MoneyDesk({ job: job0 = 'lend', rows = null, focus: focus0 = nul
     {go === 'lend' && p?.how === 'lend' ? <LendBox r={p.row} amount0={/USD/.test(p.sym) ? String(amt) : ''} onClose={() => setGo(null)} /> : null}
     {go && go.startsWith('swap') ? <div className="md-swap" data-testid="md-swap"><Suspense fallback={<p className="md-empty">Opening the swap…</p>}><SwapWorkspace key={go} pair={null} onWallet={() => {}} /></Suspense></div> : null}
     </> : null}
-    {job === 'lp' && ['v3', 'dlmm'].includes(focus?.kind) ? <RangePicture /> : null}
+    {job === 'lp' && ['v3', 'dlmm'].includes(focus?.kind) ? <RangePicture pool={focus} amt={amt} /> : null}
     {note || job === 'rwa' ? <p className="md-note">{note || RWA_NOTE}</p> : null}
     <small className="md-risk">⚠ {RISK[job]} APYs move daily — today's math, not a promise.</small>
   </section>;

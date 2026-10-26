@@ -106,7 +106,7 @@ function PoolDetail({ r }) {
     <div className="phb-earn">
       <header><b>💵 REAL 24h</b><small>at today's APY · before gas</small></header>
       {e ? <>
-        <label className="phb-earn-in"><span>If you had</span><input type="range" min="100" max="100000" step="100" value={amt} onChange={e2 => setAmt(Number(e2.target.value))} aria-label="Amount deposited" /><b>{usd(amt)}</b></label>
+        <label className="phb-earn-in"><span>If you had</span><input type="range" min="5" max="100000" step="5" value={amt} onChange={e2 => setAmt(Number(e2.target.value))} aria-label="Amount deposited" /><b>{usd(amt)}</b></label>
         <p className="phb-earn-big"><b key={amt}>+{money(e.total)}</b><small>in 24h · {money(e.total * 30)} a month</small></p>
         <span className="phb-earn-split"><i style={{ flexGrow: Math.max(0.01, e.base) }} className="b" data-tip="Fees / interest — paid in the pool's own assets" /><i style={{ flexGrow: Math.max(0.0001, e.reward) }} className="r" data-tip="Reward tokens — their price can fall" /></span>
         <small className="phb-earn-legend"><em className="b">fees / interest {money(e.base)}</em><em className="r">rewards {money(e.reward)}</em></small>
@@ -114,7 +114,7 @@ function PoolDetail({ r }) {
         {r.il ? <small className="phb-warn">⚠ impermanent-loss risk: a two-token pool can lose value vs holding when prices move apart.</small> : null}</>
         : <p className="phb-nochart">This DEX pool publishes no APY — its 24h volume is {usd(r.vol || 0)} ({Math.round(((r.vol || 0) / Math.max(1, r.tvl || 1)) * 100)}% of its size). Fees go to LPs in the pool's own coins.</p>}
     </div>
-    {['v3', 'dlmm'].includes(r.kind) ? <RangePicture /> : null}
+    {['v3', 'dlmm'].includes(r.kind) ? <RangePicture pool={r} amt={amt} /> : null}
   </div>;
 }
 

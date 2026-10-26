@@ -28,6 +28,16 @@ textarea,
     user-select: text;
 }
 
+/* Buttons stay tap targets: a long-press on one must not start a text selection on iOS. */
+button,
+[role="button"],
+.m-seg,
+.m-chip {
+    -webkit-user-select: none;
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
+}
+
 code {
     font-family:
         source-code-pro, Menlo, Monaco, Consolas, "Courier New", monospace;

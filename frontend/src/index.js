@@ -7,11 +7,14 @@ import { cleanBrowserStorage } from "@/lib/storageHygiene";
 import { installImageFallback } from "@/lib/imageFallback";
 import { installTipLayer } from "@/lib/tipLayer";
 import { installDeadClick } from "@/lib/deadClick";
+import { installClipboard, installNoFocusZoom } from "@/lib/clipboard";
 
 cleanBrowserStorage();
 installImageFallback();
 installTipLayer();
 installDeadClick();
+installClipboard();
+installNoFocusZoom();
 
 // Any link that leaves FEELESS opens in a new tab, even if a component forgot target=_blank.
 document.addEventListener('click', event => {

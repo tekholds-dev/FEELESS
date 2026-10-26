@@ -6,7 +6,7 @@ the user's wallet signs it, FEELESS passes it to Jupiter's /transaction/execute,
 positions). `verify` opens every transaction before the wallet sees it and refuses it unless the user pays, the user is a signer, at most
 Jupiter's keeper signers sign beside them, and only the Perps program + Solana's own programs run. Longs on SOL / ETH / BTC hold the asset
 as collateral, shorts hold USDC (Jupiter's rule); the user funds with USDC or SOL. Jupiter's minimum is $10 of collateral per new position.
-Guards: those three markets only, leverage 1.1–100×, $10–$1,000 collateral per open, 1 % max price slippage. TP / SL ride the open (≤ 2,
+Guards: those three markets only, leverage 1.1–250× (Jupiter's cap), $10–$1,000 collateral per open, 1 % max price slippage. TP / SL ride the open (≤ 2,
 checked against the side + the live mark) or are added / moved / cancelled on a live position (`tpsl_body`); closes are 25 / 50 / 75 / 100 %.
 Pure: no network here.
 """
@@ -21,7 +21,7 @@ USDC = 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v'
 SOL = 'So11111111111111111111111111111111111111112'
 MARKETS = {'SOL': SOL, 'ETH': '7vfCXTUXx5WJV5JADk17DUJ4ksgau7utNKj4b963voxs', 'BTC': '3NZ9JMVBmGAqocybic2c7LQCJScmgsAZ6vQqTDzcqmJh'}
 INPUTS = {'USDC': (USDC, 6), 'SOL': (SOL, 9)}
-MIN_USD, MAX_USD, MIN_LEV, MAX_LEV, SLIP_BPS = 10, 1000, 1.1, 100, 100
+MIN_USD, MAX_USD, MIN_LEV, MAX_LEV, SLIP_BPS = 10, 1000, 1.1, 250, 100   # 250× = Jupiter's own cap (it refuses 300: "cannot exceed 250")
 MAX_TX_BYTES = 1232
 
 

@@ -48,7 +48,8 @@ export async function signTx(provider, address, b64) {
   const signed = await provider.signTransaction(tx);
   return btoa(String.fromCharCode(...signed.serialize()));
 }
-export async function signRun(provider, address, built) {   // Jupiter: the wallet signs, Jupiter's keeper co-signs + lands it
+export async function signRun(provider, address, built, onSigned) {   // Jupiter: the wallet signs, Jupiter's keeper co-signs + lands it
   const signed = await signTx(provider, address, built.transaction);
+  onSigned?.();
   return post('/api/reputation/familia/perps-real/execute', { address, action: built.action, signed });
 }

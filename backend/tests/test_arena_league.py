@@ -8,7 +8,7 @@ def card(k, n=4):
 def test_field_is_capped_like_the_playground_and_everyone_starts_at_20():
     s = lg.new_season([card(f'c{i}') for i in range(12)] + [card('c1')], 1, 0)
     assert len(s['field']) == lg.FIELD_MAX == 8 and s['rounds'] == 7
-    assert all(r['hist'] == [20.0] for r in s['field'])
+    assert all(r['hist'] == [100.0] for r in s['field'])
 
 
 def test_points_table_and_no_rematch():
@@ -29,7 +29,7 @@ def test_cards_at_one_dollar_or_down_75_in_3_rounds_are_cycled_for_playground_ca
     s, moves = lg.cycle(s, [card('a'), card('pg1'), card('pg2')], 10)
     keys = [r['key'] for r in s['field']]
     assert sorted(m['outKey'] for m in moves) == ['b', 'c'] and 'pg1' in keys and 'pg2' in keys and 'a' in keys
-    assert next(r for r in s['field'] if r['key'] == 'pg1')['hist'] == [20.0]
+    assert next(r for r in s['field'] if r['key'] == 'pg1')['hist'] == [100.0]
     assert 'lost 78%' in next(m['why'] for m in moves if m['outKey'] == 'c')
 
 
@@ -47,7 +47,7 @@ def test_paper_tier_cards_start_over_on_20_once_and_real_cards_are_untouched():
                                                                                 'gold': {'label': 'Gold', 'startUsd': 100, 'putInUsd': 100}}}})
     assert asyncio.run(rs._prime_reset_paper(1.0)) == 1
     pr = rs._json_load(rs.FUSE_HQ_PATH, {})['prime']
-    assert set(pr['cards']) == {'degen'} and pr['cfg']['sizeUsd'] == 20.0 and pr['archive'][-1]['cards']['gold']['startUsd'] == 100
+    assert set(pr['cards']) == {'degen'} and pr['cfg']['sizeUsd'] == 100.0 and pr['archive'][-1]['cards']['gold']['startUsd'] == 100
     assert asyncio.run(rs._prime_reset_paper(2.0)) == 0          # once only
 
 

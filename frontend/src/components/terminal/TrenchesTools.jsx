@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { Flame, Crown, Megaphone, Zap, RefreshCw } from 'lucide-react';
 import { apiUrl } from '../../lib/api';
+import '../../styles/discovery.css';
 import { AnimatedNumber } from './AnimatedNumber';
 import { formatUSD } from '../../lib/dexscreener';
 import { LivePrice, LiveChange24 } from './LiveCells';
@@ -119,39 +120,47 @@ const TREND_SORTS = [
 ];
 const TFS = [['m5', '5m'], ['h1', '1h'], ['h6', '6h'], ['h24', '24h']];
 
-export function TrendingCards({ pairs = [], onPick }) {
+const LIST = [['all', '🌐 ALL LIVE'], ['new', '🆕 FRESH POOLS']];
+const AUTO_SEC = 15;
+export function TrendingCards({ pairs = [], newPairs = [], onPick }) {
   const [sort, setSort] = useState('hot');
   const [tf, setTf] = useState('h24');
+  const [src, setSrc] = useState('all');
+  const [shown, setShown] = useState(24);
   const [fresh, setFresh] = useState({});
   const [refreshing, setRefreshing] = useState(false);
   const [updatedAt, setUpdatedAt] = useState(null);
-  const merged = pairs.filter(p => p?.baseToken?.symbol).map(p => fresh[p.pairAddress] || p);
+  const base = src === 'new' && newPairs.length ? newPairs : [...pairs, ...newPairs.filter(n => !pairs.some(p => p.pairAddress === n.pairAddress))];
+  const merged = base.filter(p => p?.baseToken?.symbol).map(p => fresh[p.pairAddress] || p);
   const scorer = TREND_SORTS.find(x => x.id === sort) || TREND_SORTS[0];
-  const list = [...merged].sort((a, b) => scorer.score(b, tf) - scorer.score(a, tf)).slice(0, 12);
+  const ranked = [...merged].sort((a, b) => scorer.score(b, tf) - scorer.score(a, tf));
+  const list = ranked.slice(0, shown);
   const listKey = merged.map(p => `${p.chainId}:${p.pairAddress}`).join(',');
-  // Pull fresh numbers straight from DexScreener for every coin in the grid.
+  // Pull fresh numbers for every coin on the board; the spin always shows for ≥ 0.7s so a fast (cached) answer still reads as a refresh.
   const refresh = useCallback(async () => {
     const byChain = {};
     listKey.split(',').filter(Boolean).forEach(k => { const [c, a] = k.split(':'); (byChain[c] = byChain[c] || []).push(a); });
     setRefreshing(true);
+    const t0 = Date.now();
     try {
       const next = {};
       await Promise.all(Object.entries(byChain).flatMap(([chain, addrs]) => {
         const chunks = []; for (let i = 0; i < addrs.length; i += 30) chunks.push(addrs.slice(i, i + 30));
-        return chunks.map(c => fetch(`/api/market/pairs/${chain}/${c.join(',')}`).then(r => (r.ok ? r.json() : null)).then(d => (d?.pairs || []).forEach(p => { next[p.pairAddress] = p; })).catch(() => {}));
+        return chunks.map(c => fetch(apiUrl(`/api/market/pairs/${chain}/${c.join(',')}`)).then(r => (r.ok ? r.json() : null)).then(d => (d?.pairs || []).forEach(p => { next[p.pairAddress] = p; })).catch(() => {}));
       }));
       setFresh(f => ({ ...f, ...next })); setUpdatedAt(Date.now());
-    } finally { setRefreshing(false); }
+    } finally { setTimeout(() => setRefreshing(false), Math.max(0, 700 - (Date.now() - t0))); }
   }, [listKey]);
-  useEffect(() => { const t = setInterval(() => { if (!document.hidden) refresh(); }, 30000); return () => clearInterval(t); }, [refresh]);
+  useEffect(() => { const t = setInterval(() => { if (!document.hidden) refresh(); }, AUTO_SEC * 1000); return () => clearInterval(t); }, [refresh]);
   if (!list.length) return null;
   const tfLabel = TFS.find(x => x[0] === tf)?.[1];
   return <section className="trend-cards" data-testid="trend-cards">
-    <div className="trend-cards-head"><h2 className="trenches-font live-gradient-text">Trending right now</h2><small>Pick a coin and trench it — chart, chat and quick trade open together.</small>
+    <div className="trend-cards-head"><h2 className="trenches-font live-gradient-text">Discovery</h2><small>{merged.length} live coins · every number re-read each {AUTO_SEC}s · tap one to trench it</small>
       <div className="trend-controls">
+        <div className="trend-sorts trend-src" role="tablist" aria-label="Which coins">{LIST.map(([k, l]) => <button key={k} type="button" role="tab" aria-selected={src === k} className={src === k ? 'active' : ''} onClick={() => { setSrc(k); setShown(24); }} data-tip={k === 'new' ? 'Only pools that just opened' : 'Trending + fresh pools together'}>{l}<small>{k === 'new' ? newPairs.length : merged.length}</small></button>)}</div>
         <div className="trend-sorts" role="tablist">{TREND_SORTS.map(x => <button key={x.id} type="button" role="tab" aria-selected={sort === x.id} className={sort === x.id ? 'active' : ''} onClick={() => setSort(x.id)}>{x.label}</button>)}</div>
         <div className="trend-tfs">{TFS.map(([k, l]) => <button key={k} type="button" className={tf === k ? 'active' : ''} onClick={() => setTf(k)}>{l}</button>)}</div>
-        <button type="button" className={`trend-refresh ${refreshing ? 'spinning' : ''}`} onClick={refresh} disabled={refreshing} title={updatedAt ? `Updated ${new Date(updatedAt).toLocaleTimeString()}` : 'Refresh from DexScreener'} aria-label="Refresh trending"><RefreshCw size={14} />{refreshing ? 'Refreshing' : 'Refresh'}</button>
+        <button type="button" className={`trend-refresh ${refreshing ? 'spinning' : ''}`} onClick={refresh} disabled={refreshing} title={updatedAt ? `Updated ${new Date(updatedAt).toLocaleTimeString()}` : 'Refresh from DexScreener'} aria-label="Refresh trending" data-tip={`Re-read every coin now (auto every ${AUTO_SEC}s)`}><RefreshCw size={14} />{refreshing ? 'Refreshing' : 'Refresh'}<u className="trend-timer" aria-hidden="true"><s key={updatedAt || 0} /></u></button>
       </div>
     </div>
     <div className="trend-grid">{list.map((p, i) => {
@@ -167,5 +176,6 @@ export function TrendingCards({ pairs = [], onPick }) {
         <span className="trend-go trenches-font">Trench it →</span>
       </article>;
     })}</div>
+    {ranked.length > shown ? <button type="button" className="trenches-show-more" onClick={() => setShown(n => n + 24)} data-tip="Load the next 24 coins">Show {Math.min(24, ranked.length - shown)} more · {ranked.length - shown} left</button> : null}
   </section>;
 }

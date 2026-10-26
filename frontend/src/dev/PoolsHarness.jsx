@@ -10,6 +10,7 @@ const USDC = 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v';
 const POOLS = [
   { id: 'jl-usdc', src: 'llama', kind: 'lend', project: 'jupiter-lend', proto: 'Jupiter Lend', sym: 'USDC', tvl: 499308781, apy: 5.07, base: 5.07, reward: 0, d7: 0.4, rise: 0.4, mints: [USDC], app: 'https://jup.ag/lend/earn' },
   { id: 'jl-sol', src: 'llama', kind: 'lend', project: 'jupiter-lend', proto: 'Jupiter Lend', sym: 'SOL', tvl: 188000000, apy: 4.9, d7: -0.2, rise: -0.2, mints: ['So11111111111111111111111111111111111111112'], app: 'https://jup.ag/lend/earn' },
+  { id: 'ray-jup', src: 'llama', kind: 'v3', project: 'raydium-amm', proto: 'Raydium', sym: 'JUP-USDC', meta: 'Concentrated - 0.25%', tvl: 4200000, apy: 38.2, base: 38.2, reward: 0, d7: 1.2, rise: 1.2, vol: 1850000, il: true, stable: false, mints: ['JUPyiwrYJFskUPiHa7hkeR8VUtAeFoSYbKedZNsDvCN', USDC], hold: 'JUPyiwrYJFskUPiHa7hkeR8VUtAeFoSYbKedZNsDvCN', app: 'https://raydium.io/clmm/' },
   { id: 'kam', src: 'llama', kind: 'vault', project: 'kamino-liquidity', proto: 'Kamino Vaults', sym: 'SOL-USDC', tvl: 52000000, apy: 18.4, d7: 2.1, rise: 2.1, mints: [], app: 'https://app.kamino.finance/liquidity' },
 ];
 export default function PoolsHarness() {

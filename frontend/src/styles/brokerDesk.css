@@ -33,3 +33,7 @@ body.theme-day .bk { background: linear-gradient(170deg, rgba(255, 211, 107, .18
 body.fx-lite .bk-steps li { animation: none; } @media (prefers-reduced-motion: reduce) { .bk-steps li { animation: none; } }
 body.theme-day .bk-keys { background: #fff; } body.theme-day .bk-steps li { background: #fff8e6; }
 .bk-acct li > :is(small, b, i) { font: 800 11px 'JetBrains Mono', monospace; white-space: nowrap; } .bk-acct li > b { font-size: 12.5px; color: #fff; } .bk-ah span b { font-size: 13px; }   /* row numbers stay row-sized (m-num would inflate them) */
+/* 🔑 venue switch on the key door — Alpaca gold / Crypto.com blue */
+.bk-venue { display: grid; grid-template-columns: 1fr 1fr; } .bk-venue button { min-height: 34px; }
+.bk-keys.is-cdc { border-color: rgba(17, 153, 250, .35); } .bk-keys.is-cdc .bk-steps li { background: rgba(17, 153, 250, .06); } .bk-keys.is-cdc .bk-steps i { background: #1199fa; color: #fff; box-shadow: 0 0 12px -2px #1199fa; }
+body.theme-day .bk-keys.is-cdc .bk-steps li { background: #eef6ff; }

@@ -74,10 +74,14 @@ export function PerpsDash({ devAddress = '' }) {
   const [t, setT] = useState({ side: 'long', usd: 10, lev: 10, tp: null, sl: null }); const set = useCallback(x => setT(o => ({ ...o, ...x })), []);
   const tk = useTickers(); const now = useNow();
   const [board] = useJson('/api/reputation/familia/perps', 30000);
-  const [jp, reloadJp] = useJson(`/api/reputation/familia/perps-real?address=${encodeURIComponent(addr || '')}`, 5000);
+  const [landing, setLanding] = useState(null);   // a just-signed open: shown at once, polled fast until Jupiter lists it (≤ 60s)
+  const [jp, reloadJp] = useJson(`/api/reputation/familia/perps-real?address=${encodeURIComponent(addr || '')}`, landing ? 1500 : 5000);
   const [ks] = useJson('/api/reputation/familia/kalshi', 10000);
   const by = useMemo(() => Object.fromEntries((board?.markets || []).map(r => [r.coin, r])), [board]);
   const stats = jp?.stats || {}; const pools = jp?.pools || {}; const positions = jp?.positions || [];
+  useEffect(() => { if (!landing) return undefined;
+    if (positions.some(p => p.asset === landing.asset && p.side === landing.side && (p.size || 0) >= landing.size * 0.5)) { setLanding(null); return undefined; }
+    const t = setTimeout(() => setLanding(null), Math.max(0, 60000 - (Date.now() - landing.at))); return () => clearTimeout(t); }, [landing, positions]);
   const marks = useMemo(() => Object.fromEntries(MKTS.map(a => [a, tk[a]?.price || stats[a]?.price || by[a]?.mark || null])), [tk, stats, by]);
   const mark = marks[asset]; const live = tk[asset]; const st = stats[asset] || {}; const pool = pools[asset]; const cr = crowd(pool); const brd = by[asset] || {};
   const ch24 = live?.open24 > 0 ? (live.price / live.open24 - 1) * 100 : st.ch24; const hi = live?.high24 || st.hi24; const lo = live?.low24 || st.lo24;
@@ -85,14 +89,15 @@ export function PerpsDash({ devAddress = '' }) {
   const basis = st.price > 0 && mark > 0 ? (mark / st.price - 1) * 100 : null; const age = live?.at ? Math.max(0, (now - live.at) / 1000) : null;
   const plan = perpPlan(mark, t.usd, t.lev, t.side, pool?.openFeePercent ?? 0.06);
   const liqKey = plan ? Math.round(plan.liq * 100) : 0;
-  const lines = useMemo(() => perpLines(asset, t, plan, mark, positions), [asset, t, liqKey, positions]); // eslint-disable-line react-hooks/exhaustive-deps
+  const lines = useMemo(() => perpLines(asset, t, plan, mark, landing ? [...positions, landing] : positions), [asset, t, liqKey, positions, landing]); // eslint-disable-line react-hooks/exhaustive-deps
   const onDrag = useCallback((id, p) => { if (id === 'tp' || id === 'sl') set({ [id]: p }); }, [set]);
   const total = positions.reduce((s, p) => { const m = marks[p.asset]; return s + (m > 0 && p.entry > 0 ? p.size * (m / p.entry - 1) * (p.side === 'long' ? 1 : -1) : (p.pnl || 0)); }, 0);
   const tot = useGlide(Math.round(total * 100) / 100, 400); const tug = useGlide(cr ? cr.share * 100 : 50, 700);
   const vol24 = live?.vol24 && mark ? live.vol24 * mark : st.vol24; const bmax = Math.max(pool?.longBorrowRatePercent || 0, pool?.shortBorrowRatePercent || 0, 1e-9);
   const pick = a => { setAsset(a); set({ tp: null, sl: null }); };
-  const below = tab === 'practice' ? 'practice' : tab;
-  return <section className={`pd is-${t.side}`} data-testid="perps-dash">
+  const prov = ['kalshi', 'broker', 'cdc'].includes(tab) ? tab : 'jup';   // 🧭 the provider picked on the rail owns the trade station + the colors
+  const below = tab === 'practice' ? 'practice' : 'pos';
+  return <section className={`pd is-${t.side} pv-${prov}`} data-testid="perps-dash">
     <header className="pd-top">
       <span className="pd-brand"><i aria-hidden="true" /><b>FEELESS<em>PERPS</em></b><small>JUPITER · WALLET SIGNS · TRUE DATA</small></span>
       <div className="pd-mkts" role="radiogroup" aria-label="Market">{MKTS.map((a, i) => { const x = tk[a]; const c = x?.open24 > 0 ? (x.price / x.open24 - 1) * 100 : stats[a]?.ch24;
@@ -104,11 +109,12 @@ export function PerpsDash({ devAddress = '' }) {
         <b className="m-num">{positions.length ? `${tot < 0 ? '−' : '+'}$${Math.abs(tot).toFixed(2)}` : '$0.00'}</b><small>{positions.length ? `${positions.length} live` : 'flat'}</small></span>
     </header>
     <div className="pd-prov" role="radiogroup" aria-label="Provider" data-testid="pd-prov">{[
-      ['jup', 'JUPITER PERPS', 'SOL · ETH · BTC · long / short · up to 100×', 'FROM $10', 'LIVE', true, 'pos', 'Real perps on Jupiter (Solana) — your wallet signs; TP / SL + partial close'],
+      ['jup', 'JUPITER PERPS', 'SOL · ETH · BTC · long / short · up to 250×', 'FROM $10', 'LIVE', true, 'pos', 'Real perps on Jupiter (Solana) — your wallet signs; TP / SL + partial close'],
+      ['cdc', 'CRYPTO.COM', 'spot BTC · ETH · SOL · CRO · your own account', 'FROM $1', 'YOUR KEY', true, 'cdc', 'Your Crypto.com Exchange account: paste its API key once (trading on, withdrawals off) — trade it from here'],
       ['kalshi', 'KALSHI UP / DOWN', 'BTC · ETH · SOL · DOGE · XRP · S&P · NASDAQ', 'FROM $1', ks?.tradable ? 'LIVE' : 'KEY PENDING', !!ks?.tradable, 'kalshi', 'US-legal (CFTC) up / down contracts tokenized on Solana — needs the DFlow key'],
       ['broker', '🏦 YOUR BROKER', 'stocks · ETFs · crypto in your own account', 'FROM $1', 'LIVE', true, 'broker', 'Your own broker: paste your FREE Alpaca keys ($0 to start) — or link any broker when SnapTrade is set up']]
-      .map(([k, n, sub, min, st, on, go, tip], i) => <button key={k} type="button" role="radio" aria-checked={(k === 'jup' && !['kalshi', 'broker'].includes(tab)) || tab === go}
-        className={`pd-pv ${on ? 'is-live' : 'is-wait'} ${(k === 'jup' && !['kalshi', 'broker'].includes(tab)) || tab === go ? 'is-on' : ''}`} style={{ '--i': i }} onClick={() => setTab(go)} data-tip={tip} data-testid={`pd-pv-${k}`}>
+      .map(([k, n, sub, min, st, on, go, tip], i) => <button key={k} type="button" role="radio" aria-checked={prov === k}
+        className={`pd-pv is-${k} ${on ? 'is-live' : 'is-wait'} ${prov === k ? 'is-on' : ''}`} style={{ '--i': i }} onClick={() => setTab(go)} data-tip={tip} data-testid={`pd-pv-${k}`}>
         <b>{n}</b><small>{sub}</small><span><i className="m-num">{min}</i><em>{st}</em></span></button>)}</div>
     <div className="pd-strip" data-testid="pd-vits">
       <span className="pd-cell pd-mark" data-tip="True price: the last Coinbase print"><em>MARK <i className="pd-beat" key={live?.at} /></em><Flash v={mark} fmt={px} cls="pd-hero" /><small className="m-num">{live ? `${live.tpm} prints/min · ${age != null ? `${age.toFixed(1)}s` : ''}` : 'connecting…'}</small></span>
@@ -132,15 +138,20 @@ export function PerpsDash({ devAddress = '' }) {
           <span className="m-seg pd-iv" role="radiogroup" aria-label="Candle size">{IVS.map(([k, l]) => <button key={k} type="button" role="radio" aria-checked={iv === k} className={iv === k ? 'active' : ''} onClick={() => setIv(k)} data-tip={`${l} candles`} data-testid={`pd-iv-${k}`}>{l}</button>)}</span></div>
         <div className="pd-plot"><Suspense fallback={<p className="pc-msg">Loading true candles…</p>}><PerpsChart asset={asset} iv={iv} lines={lines} onDrag={onDrag} ind={ind} /></Suspense></div>
       </div>
-      <PerpTicket asset={asset} mark={mark} pool={pool} t={t} set={set} addr={addr} wallet={wallet} provider={provider} connect={connect} onOpened={() => { reloadJp(); setTab('pos'); }} />
+      {prov === 'kalshi' ? <div className="pd-side" data-testid="pd-side-kalshi"><KalshiDesk asset={asset} rows={ks?.coins} marks={marks} now={now} tradable={!!ks?.tradable} addr={addr} wallet={wallet} provider={provider} connect={connect} /></div>
+        : prov !== 'jup' ? <div className="pd-side" data-testid={`pd-side-${prov}`}><BrokerDesk venue={prov === 'cdc' ? 'cdc' : null} /></div>
+        : <PerpTicket asset={asset} mark={mark} pool={pool} t={t} set={set} addr={addr} wallet={wallet} provider={provider} connect={connect} solPx={marks.SOL} onOpened={x => { setLanding(x); reloadJp(); setTab('pos');
+        setTimeout(() => document.querySelector('[data-testid="pd-below"]')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' }), 60); }} />}
     </div>
-    <div className="pd-below">
+    <div className="pd-below" data-testid="pd-below">
       <div className="pd-bl">
-      <div className="pd-tabs m-seg" role="tablist" aria-label="Panels">{[['pos', `POSITIONS${positions.length ? ` · ${positions.length}` : ''}`, 'Your Jupiter positions, marked live'], ['kalshi', '⏱ KALSHI UP / DOWN', 'US-legal up / down from $1 — BTC · ETH · SOL · DOGE · XRP · S&P 500 · Nasdaq'], ['broker', '🏦 YOUR BROKER', 'Stocks · ETFs · crypto in your own broker account'], ['practice', '🧪 PRACTICE', 'Paper perps at the real mark — no money moves']].map(([k, l, tip]) =>
-        <button key={k} type="button" role="tab" aria-selected={below === k} className={below === k ? 'active' : ''} onClick={() => setTab(k)} data-tip={tip} data-testid={`pd-b-${k}`}>{l}</button>)}</div>
+      <div className="pd-tabs m-seg" role="tablist" aria-label="Panels">{[['pos', `JUPITER POSITIONS${positions.length ? ` · ${positions.length}` : ''}`, 'Your Jupiter positions, marked live'], ['practice', '🧪 PRACTICE', 'Paper perps at the real mark — no money moves']].map(([k, l, tip]) =>
+        <button key={k} type="button" role="tab" aria-selected={below === k} className={below === k ? 'active' : ''} onClick={() => setTab(k === 'pos' && prov !== 'jup' ? tab : k)} data-tip={tip} data-testid={`pd-b-${k}`}>{l}</button>)}</div>
+      {below === 'pos' && landing ? <div className={`pp-landing is-${landing.side}`} data-testid="pp-landing" role="status">
+        <i aria-hidden="true" /><b>{landing.side === 'long' ? '▲' : '▼'} {landing.asset} {landing.lev}× · ${Math.round(landing.size).toLocaleString()}</b>
+        <small>LANDED on-chain · waiting for Jupiter to list it</small>
+        <a href={`https://solscan.io/tx/${landing.txid}`} target="_blank" rel="noopener noreferrer" data-tip="Open the transaction on Solscan">{String(landing.txid).slice(0, 8)}… ↗</a></div> : null}
       {below === 'pos' ? <PerpPositions positions={positions} marks={marks} addr={addr} provider={provider} wallet={wallet} connect={connect} reload={reloadJp} onPick={pick} />
-        : below === 'broker' ? <BrokerDesk />
-        : below === 'kalshi' ? <KalshiDesk asset={asset} rows={ks?.coins} marks={marks} now={now} tradable={!!ks?.tradable} addr={addr} wallet={wallet} provider={provider} connect={connect} />
           : <PaperPerps row={{ ...brd, coin: asset, mark }} lev={Math.round(t.lev)} devAddress={devAddress} />}
       </div>
       <LiveFlow asset={asset} />

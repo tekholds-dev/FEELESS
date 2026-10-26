@@ -13,7 +13,7 @@ Ranking only: it never trades and never promises a result.
 
 FIELD_MAX = 8
 ROUNDS = 7
-START_USD = 20.0
+START_USD = 100.0   # 2026-10-26: owner — "reset paper money with $100 each"
 CUT_USD = 1.0          # a book at or under this is out
 CUT_DROP = 75.0        # … or one that lost this much over its last CUT_BELLS bells
 CUT_BELLS = 3

@@ -640,7 +640,9 @@ export function createCity(host, { onPick, onHover, onAnchors, lite = false, sti
   const frameAll = () => { const bx = plan.view || plan.bounds; const span = Math.max(bx.x1 - bx.x0, bx.z1 - bx.z0); return { x: plan.center.x, z: plan.center.z, dist: span * 0.58 }; };
   function flyTo(spot, dist = 12, ms = 900) {
     if (!plan) return;
-    const to = spot || frameAll(); const d = spot ? (spot.span ? spot.span * 1.15 : dist) : to.dist;
+    const to = spot || frameAll(); const cur = camera.position.distanceTo(controls.target);
+    // a building pick PANS to it and eases in at most 25% (owner: "click a building, it zooms in crazy"), never closer than 2.2× its framing
+    const d = spot ? (spot.span ? spot.span * 1.15 : Math.max(controls.minDistance + 2, Math.min(cur, Math.max(cur * 0.75, dist * 2.2)))) : to.dist;
     const cine = new THREE.Vector3(0.5, 0.5, 0.75).normalize();   // the whole city / a district = the cinematic angle; a pick keeps the angle you turned to
     let dir = camera.position.clone().sub(controls.target); dir = !spot || spot.span || dir.lengthSq() < 1e-6 ? cine : dir.normalize(); if (dir.y < 0.38) { dir.y = 0.5; dir.normalize(); }
     fly = { t0: performance.now(), ms: still ? 1 : ms, fromT: controls.target.clone(), toT: new THREE.Vector3(to.x, 0, to.z), fromP: camera.position.clone(), toP: new THREE.Vector3(to.x, 0, to.z).add(dir.multiplyScalar(d)) };

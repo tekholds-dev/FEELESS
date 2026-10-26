@@ -170,9 +170,13 @@ export const WalletProvider = ({ children }) => {
     try { last = JSON.parse(localStorage.getItem('feeless:last-wallet') || 'null'); } catch { /* ignore */ }
     if (!last || last.brand === 'walletconnect' || wallet) return;
     let alive = true;
+    let timer = null;
+    let tries = 0;
     const tryIt = async () => {
+      if (!alive || walletRef.current) return;
       const p = (last.brand && pairedProvider(last.brand, last.type)) || (last.type === 'solana' ? solanaProvider() : evmProvider());
-      if (!p) return;
+      // Mobile in-app browsers (Phantom, Solflare) inject the provider late: keep looking for ~6s instead of one 300ms shot.
+      if (!p) { if (++tries < 8) timer = setTimeout(tryIt, 250 * 2 ** Math.min(tries, 3)); return; }
       try {
         if (last.type === 'solana') {
           const r = await p.connect({ onlyIfTrusted: true });
@@ -184,8 +188,8 @@ export const WalletProvider = ({ children }) => {
         }
       } catch { /* not trusted yet → user connects manually */ }
     };
-    const t = setTimeout(tryIt, 300); // wallets inject slightly after page load
-    return () => { alive = false; clearTimeout(t); };
+    timer = setTimeout(tryIt, 300); // wallets inject slightly after page load
+    return () => { alive = false; clearTimeout(timer); };
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => {
     let last = null;
@@ -199,7 +203,9 @@ export const WalletProvider = ({ children }) => {
         if (!alive) return;
         const current = walletRef.current;
         if (!session) {
-          if (!current || (current.connection === 'walletconnect' && current.chain === type)) {
+          // Only a WalletConnect wallet that was live on this page can drop. AppKit reports "disconnected" for a beat on boot
+          // before it rehydrates — wiping the hint then is why phones had to reconnect on every refresh.
+          if (current?.connection === 'walletconnect' && current.chain === type) {
             walletRef.current = null;
             setWallet(null);
             setProvider(null);

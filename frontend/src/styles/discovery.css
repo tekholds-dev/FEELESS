@@ -1,0 +1,9 @@
+/* 🔭 DISCOVERY (TrendingCards on the Trenches landing) — the auto-refresh timer drains under Refresh (restarts each read), source tabs.
+   One keyframe (trendTimer), transform only; still under fx-lite + reduced motion; day theme + 640px. */
+.trend-refresh{position:relative;overflow:hidden;min-height:32px}.trend-refresh:hover{background:rgba(21,209,106,.18)}.trend-refresh:active{transform:scale(.96)}.trend-refresh:focus-visible{outline:2px solid var(--mint);outline-offset:2px}
+.trend-timer{position:absolute;left:0;right:0;bottom:0;height:2px;background:rgba(21,209,106,.15)}.trend-timer s{position:absolute;inset:0;background:var(--mint);transform-origin:left;animation:trendTimer 15s linear forwards}
+.trend-src button small{margin-left:6px;font:700 10px 'JetBrains Mono',monospace;opacity:.7}
+@keyframes trendTimer{from{transform:scaleX(1)}to{transform:scaleX(0)}}
+body.fx-lite .trend-timer s{animation:none}@media (prefers-reduced-motion:reduce){.trend-timer s,.trend-refresh.spinning svg{animation:none}}
+body.theme-day .trend-timer{background:rgba(7,120,79,.15)}body.theme-day .trend-timer s{background:#07784f}
+@media (max-width:640px){.trend-controls{margin-left:0;width:100%}.trend-src{width:100%}}

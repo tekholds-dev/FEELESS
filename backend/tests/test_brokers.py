@@ -245,3 +245,23 @@ def test_a_personal_snaptrade_key_is_the_owners_own_broker(monkeypatch):
     assert v['linked'] and v['accounts'][0]['broker'] == 'TradeStation'
     o = asyncio.run(rs.familia_broker_order(Q({'address': 'OWNER', 'session': 's', 'accountId': 'TS1', 'symbol': 'SPY', 'action': 'BUY', 'usd': 5})))
     assert o['status'] == 'ACCEPTED'
+
+
+def test_cryptocom_signing_order_and_view():
+    import hashlib
+    import hmac as _h
+    import brokers as bk
+    # the params string is Crypto.com's reference algorithm: sorted keys, key then value
+    assert bk.cdc_params({'side': 'BUY', 'instrument_name': 'BTC_USD', 'notional': '25.00'}) == 'instrument_nameBTC_USDnotional25.00sideBUY'
+    b = bk.cdc_signed('private/create-order', {'side': 'BUY', 'instrument_name': 'BTC_USD'}, 'KEY', 'SECRET', nonce=1700000000000, req_id=7)
+    want = _h.new(b'SECRET', b'private/create-order7KEYinstrument_nameBTC_USDsideBUY1700000000000', hashlib.sha256).hexdigest()
+    assert b['sig'] == want and b['nonce'] == 1700000000000 and b['api_key'] == 'KEY'
+    assert bk.cdc_order({'symbol': 'sol', 'action': 'buy', 'usd': 25}) == {'instrument_name': 'SOL_USD', 'side': 'BUY', 'type': 'MARKET', 'notional': '25.00'}
+    assert bk.cdc_order({'symbol': 'BTC/USD', 'action': 'sell', 'units': 0.001})['quantity'] == '0.001'
+    for bad in ({'symbol': 'BTC', 'action': 'buy', 'usd': 0.5}, {'symbol': 'BTC', 'action': 'hold', 'usd': 5}, {'symbol': 'BTC', 'action': 'buy', 'type': 'limit', 'units': 1}):
+        with pytest.raises(ValueError):
+            bk.cdc_order(bad)
+    v = bk.cdc_view({'data': [{'total_available_balance': '40', 'total_cash_balance': '120.5', 'position_balances': [
+        {'instrument_name': 'USD', 'quantity': '40', 'market_value': '40'}, {'instrument_name': 'SOL', 'quantity': '0.5', 'market_value': '80.5'}, {'instrument_name': 'CRO', 'quantity': '0'}]}]})
+    assert v['id'] == 'cdc' and v['cash'] == 40 and v['value'] == 120.5 and [r['ticker'] for r in v['positions']] == ['SOL', 'USD']
+    assert bk.cdc_keys_ok('a' * 24, 'b' * 32) and not bk.cdc_keys_ok('short', 'b' * 32)

@@ -5793,7 +5793,7 @@ async def _battle_tick(now):
         league, cycled_now = _lg.cycle(league, fresh, now)
         for m in cycled_now:
             new_paper.pop(m['outKey'], None)
-            _fuse_chat('fuse-lab', f"♻ {m['out']} cycled out ({m['why']}){' — ' + m['in'] + ' takes its seat on $20' if m.get('in') else ''}.", f"cycle-{int(now)}-{m['outKey']}")
+            _fuse_chat('fuse-lab', f"♻ {m['out']} cycled out ({m['why']}){' — ' + m['in'] + ' takes its seat on $' + format(_lg.START_USD, 'g') if m.get('in') else ''}.", f"cycle-{int(now)}-{m['outKey']}")
     restart_ = d.get('leagueReset') != LEAGUE_RESET   # 🔁 one-time: the owner restarted every Arena card's money (new season, all books back on $20)
     d['leagueReset'] = LEAGUE_RESET
     if restart_ or not league or _lg.done(league) or len(league.get('field') or []) < 2:
@@ -9797,6 +9797,36 @@ async def _alpaca_call(ak, method, path, body=None):
     return d_
 
 
+def _brk_cdc(primary):
+    """This wallet's own Crypto.com Exchange keys {key, secret} (unsealed), or None."""
+    import brokers as _bk
+    rec_ = ((_json_load(BROKERS_PATH, {}) or {}).get(primary) or {}).get('cdc')
+    if not rec_:
+        return None
+    try:
+        k_ = json.loads(_bk.unseal(rec_['sec'], os.environ))
+        return {'key': k_['key'], 'secret': k_['secret']}
+    except Exception:
+        return None
+
+
+async def _cdc_call(ck, method, params=None):
+    import brokers as _bk
+    try:
+        r_ = await _fmk_http_get().post(f'{_bk.CDC_API}/{method}', json=_bk.cdc_signed(method, params or {}, ck['key'], ck['secret']), timeout=15)
+    except Exception:
+        raise HTTPException(503, 'Crypto.com did not answer — try again.')
+    try:
+        d_ = r_.json()
+    except Exception:
+        d_ = {}
+    if r_.status_code in (401, 403) or str((d_ or {}).get('code')) in ('40101', '40102', '40103'):
+        raise HTTPException(400, 'Crypto.com refused these keys (check the key + secret, and that the key can trade).')
+    if r_.status_code >= 400 or (d_ or {}).get('code') not in (0, '0', None):
+        raise HTTPException(400, f"Crypto.com: {str((d_ or {}).get('message') or (d_ or {}).get('code') or r_.status_code)[:160]}")
+    return (d_ or {}).get('result') or {}
+
+
 @app.post('/api/reputation/familia/broker/keys')
 async def familia_broker_keys(request: Request):
     """🔑 Add (or remove) YOUR OWN Alpaca keys: checked live against your account first, then sealed to your wallet — no SnapTrade, no owner
@@ -9807,8 +9837,9 @@ async def familia_broker_keys(request: Request):
     _brk_seal()
     st_ = _json_load(BROKERS_PATH, {}) or {}
     rec_ = dict(st_.get(me_) or {})
+    venue_ = 'cdc' if str((b_ or {}).get('venue') or '') == 'cdc' else 'alpaca'
     if (b_ or {}).get('remove'):
-        rec_.pop('alpaca', None)
+        rec_.pop(venue_, None)
         if rec_:
             st_[me_] = rec_
         else:
@@ -9816,6 +9847,14 @@ async def familia_broker_keys(request: Request):
         _json_save(BROKERS_PATH, st_); _brk_cache.pop(me_, None)
         return {'ok': True}
     key_, sec_, paper_ = str(b_.get('key') or '').strip(), str(b_.get('secret') or '').strip(), bool(b_.get('paper'))
+    if venue_ == 'cdc':   # 🔑 Crypto.com Exchange: proved against the user's own balance before anything is stored
+        if not _bk.cdc_keys_ok(key_, sec_):
+            raise HTTPException(400, 'That does not look like a Crypto.com Exchange API key + secret.')
+        bal_ = await _cdc_call({'key': key_, 'secret': sec_}, 'private/user-balance')
+        rec_['cdc'] = {'sec': _bk.seal(json.dumps({'key': key_, 'secret': sec_}), os.environ), 'at': time.time()}
+        st_[me_] = rec_
+        _json_save(BROKERS_PATH, st_); _brk_cache.pop(me_, None)
+        return {'ok': True, 'account': _bk.cdc_view(bal_)}
     if not _bk.alpaca_keys_ok(key_, sec_):
         raise HTTPException(400, 'That does not look like an Alpaca Key ID + Secret.')
     acct_ = await _alpaca_call({'key': key_, 'secret': sec_, 'paper': paper_}, 'GET', '/v2/account')   # proves the keys before anything is stored
@@ -9837,7 +9876,8 @@ async def familia_broker(address: str = Query('', max_length=64), session: str =
     snap_ = snap_ and (not _bk.personal(_bk.keys(os.environ)[0]) or _is_staff(me_))   # a PERSONAL key = the owner's own accounts only
     q_ = _brk_q(me_) if snap_ else None
     ak_ = _brk_alpaca(me_)
-    if q_ is None and not ak_:
+    ck_ = _brk_cdc(me_)
+    if q_ is None and not ak_ and not ck_:
         return {'ready': True, 'snaptrade': snap_, 'linked': False, 'signup': _bk.ALPACA_SIGNUP}
     hit_ = _brk_cache.get(me_)
     if hit_ and time.time() - hit_[0] < 20:
@@ -9845,7 +9885,7 @@ async def familia_broker(address: str = Query('', max_length=64), session: str =
     accts_, pos_, bal_ = [], {}, {}
     if q_ is not None:
         accts_ = await _brk_call('GET', '/accounts', q_) or []
-        if not accts_ and not ak_:   # set up, nothing linked yet → the LINK MY BROKER door
+        if not accts_ and not ak_ and not ck_:   # set up, nothing linked yet → the LINK MY BROKER door
             return {'ready': True, 'snaptrade': True, 'linked': False, 'signup': _bk.ALPACA_SIGNUP}
         ids_ = [a_.get('id') for a_ in accts_ if a_.get('id')]
         got_ = await asyncio.gather(*[asyncio.gather(_brk_call('GET', f'/accounts/{i_}/positions', q_), _brk_call('GET', f'/accounts/{i_}/balances', q_), return_exceptions=True) for i_ in ids_])
@@ -9859,6 +9899,12 @@ async def familia_broker(address: str = Query('', max_length=64), session: str =
             v_['accounts'] = [av_] + v_['accounts']; v_['value'] = round(v_['value'] + av_['value'], 2); v_['pnl'] = round(v_['pnl'] + sum(x['pnl'] for x in av_['positions']), 2)
         except HTTPException as e:
             v_['alpacaError'] = e.detail
+    if ck_:
+        try:
+            cv_ = _bk.cdc_view(await _cdc_call(ck_, 'private/user-balance'))
+            v_['accounts'] = v_['accounts'] + [cv_]; v_['value'] = round(v_['value'] + cv_['value'], 2)
+        except HTTPException as e:
+            v_['cdcError'] = e.detail
     out_ = {'ready': True, 'snaptrade': snap_, 'linked': True, **v_, 'at': round(time.time())}
     _brk_cache[me_] = (time.time(), out_)
     return out_
@@ -9908,6 +9954,17 @@ async def familia_broker_order(request: Request):
     b_ = await request.json()
     me_ = _session_or_401(str((b_ or {}).get('address') or ''), str((b_ or {}).get('session') or ''))
     _brk_seal()
+    if str((b_ or {}).get('accountId') or '') == 'cdc':   # 🔑 the user's own Crypto.com Exchange keys
+        ck_ = _brk_cdc(me_)
+        if not ck_:
+            raise HTTPException(409, 'Add your Crypto.com keys first.')
+        try:
+            ob_ = _bk.cdc_order(b_)
+        except ValueError as e:
+            raise HTTPException(400, str(e))
+        d_ = await _cdc_call(ck_, 'private/create-order', ob_)
+        _brk_cache.pop(me_, None)
+        return {'status': 'ACCEPTED', 'id': d_.get('order_id'), 'filled': None, 'price': None, 'symbol': ob_['instrument_name'], 'action': ob_['side']}
     if str((b_ or {}).get('accountId') or '') == 'alpaca':   # 🔑 the user's own Alpaca keys
         ak_ = _brk_alpaca(me_)
         if not ak_:
@@ -12162,8 +12219,9 @@ def _fw_market_rows(cards, books):
     return list(rows.values())
 
 
-LEAGUE_RESET = 'restart2'   # 2026-10-19: owner — "arena numbers are off, reset all arena paper cards"
-PRIME_RESET = 'paper20e'   # 2026-10-19: owner — "reset all arena paper cards" (was 'paper20d')   # (2026-10-17: owner — "paper cards get the new mechanics: germ buying + per-coin lines; reset them")   # (2026-10-13: owner — "reset and upgrade fuse arena cards, they are losing"; ⚡ Next Level now inherits the agents)   # was 'paper20b'   # (2026-10-05: owner asked for a second restart)   # one-time: every PAPER tier card starts over on $20 (the real card is never touched)
+LEAGUE_RESET = 'restart3-100'   # 2026-10-26: owner — "fix fuse arena paper cards … reset paper money with $100 each" (was 'restart2', 2026-10-19: owner — "arena numbers are off, reset all arena paper cards"
+PAPER_START_USD = 100.0
+PRIME_RESET = 'paper100a'   # 2026-10-26: owner — "reset paper money with $100 each" (was 'paper20e', 2026-10-19: owner — "reset all arena paper cards" (was 'paper20d')   # (2026-10-17: owner — "paper cards get the new mechanics: germ buying + per-coin lines; reset them")   # (2026-10-13: owner — "reset and upgrade fuse arena cards, they are losing"; ⚡ Next Level now inherits the agents)   # was 'paper20b'   # (2026-10-05: owner asked for a second restart)   # one-time: every PAPER tier card starts over on $20 (the real card is never touched)
 
 
 PRIME_UNIQUE = 'unique2'
@@ -13107,7 +13165,7 @@ async def _ticket_ride_fix(now):
 
 
 async def _prime_reset_paper(now):
-    """🔁 Start every paper tier card over at $20, once. Their old runs go to the permanent record + `prime.archive`; the tick deals
+    """🔁 Start every paper tier card over at PAPER_START_USD ($100), once. Their old runs go to the permanent record + `prime.archive`; the tick deals
     fresh cards at the new size right after. Real-money cards keep running exactly as they are."""
     async with _admin_lock:
         d = _json_load(FUSE_HQ_PATH, {}); pr = d.setdefault('prime', {})
@@ -13117,12 +13175,12 @@ async def _prime_reset_paper(now):
         gone = {k: c for k, c in cards.items() if not c.get('real')}
         for k, c in gone.items():
             try:
-                _store.Ledger(CARD_RECORDS_PATH, table='runs').append({'at': now, 'card': k, 'label': c.get('label'), 'startUsd': c.get('startUsd'), 'real': False, 'closed': True, 'why': 'restart on $20'})
+                _store.Ledger(CARD_RECORDS_PATH, table='runs').append({'at': now, 'card': k, 'label': c.get('label'), 'startUsd': c.get('startUsd'), 'real': False, 'closed': True, 'why': f'restart on ${PAPER_START_USD:g}'})
             except Exception as e:
                 print('card records (reset):', e)
-        pr['archive'] = ((pr.get('archive') or []) + [{'at': now, 'why': 'paper restart on $20', 'cards': {k: {x: c.get(x) for x in ('label', 'startUsd', 'putInUsd', 'walletUsd', 'rounds')} for k, c in gone.items()}}])[-20:]
+        pr['archive'] = ((pr.get('archive') or []) + [{'at': now, 'why': f'paper restart on ${PAPER_START_USD:g}', 'cards': {k: {x: c.get(x) for x in ('label', 'startUsd', 'putInUsd', 'walletUsd', 'rounds')} for k, c in gone.items()}}])[-20:]
         pr['cards'] = {k: c for k, c in cards.items() if c.get('real')}
-        pr['cfg'] = _prime.clean_cfg({**(pr.get('cfg') or {}), 'sizeUsd': 20.0})
+        pr['cfg'] = _prime.clean_cfg({**(pr.get('cfg') or {}), 'sizeUsd': PAPER_START_USD})
         if PRIME_RESET == 'paper20c':   # ⚡ Next Level: off the owner's picking habit (−27%), onto the agents' judged list
             tp_ = dict((pr.get('cfg') or {}).get('tierPick') or {})
             tp_['next'] = {'pickStyle': 'agents'}

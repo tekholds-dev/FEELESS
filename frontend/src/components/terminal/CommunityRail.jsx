@@ -154,7 +154,7 @@ export const TrenchesView = ({ pairs = [], newPairs = [], onSelect, selectedPair
       if (p) { setActivePair(p); selectPair(p); window.scrollTo?.({ top: 0, behavior: 'smooth' }); }
     } catch { /* keep current chart */ }
   };
-  if (!onFloor) return <div className="trenches-page trenches-lit" data-testid="trenches-page"><TrenchLanding ecosystemName={ecosystem.name} onEnter={() => setFloor(true)} /><DegenWeather /><AdBanner placement="trenches" /><RadarPanel compact /><LaunchRadar /><TrendingCards pairs={[...pairs, ...newPairs.filter(n => !pairs.some(p => p.pairAddress === n.pairAddress))]} onPick={p => { setActivePair(p); selectPair(p); setFloor(true); }} /></div>;
+  if (!onFloor) return <div className="trenches-page trenches-lit" data-testid="trenches-page"><TrenchLanding ecosystemName={ecosystem.name} onEnter={() => setFloor(true)} /><TrendingCards pairs={pairs} newPairs={newPairs} onPick={p => { setActivePair(p); selectPair(p); setFloor(true); }} /><DegenWeather /><RadarPanel compact /><LaunchRadar /><AdBanner placement="trenches" /></div>;
   return <div className="trenches-page trenches-lit trenches-floor" data-testid="trenches-page">
     <TrenchBar onAbout={() => setFloor(false)} />
     <div className={`trenches-grid ${wide ? 'is-wide' : ''}`}>

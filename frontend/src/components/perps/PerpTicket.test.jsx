@@ -4,13 +4,14 @@ import { createRoot } from 'react-dom/client';
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
 jest.mock('sonner', () => ({ toast: { error: () => {}, success: () => {} } }));
 jest.mock('@solana/web3.js', () => ({ VersionedTransaction: { deserialize: () => ({ message: { staticAccountKeys: [{ toBase58: () => 'ME' }] }, serialize: () => new Uint8Array([1, 2, 3]) }) } }));
-const { PerpTicket } = require('./PerpTicket');
+const { PerpTicket, payWith, levToF, fToLev, MAX_LEV } = require('./PerpTicket');
 const { PerpPositions } = require('./PerpPositions');
 const provider = { signTransaction: async tx => tx };
 const wallet = { chain: 'solana', address: 'ME' };
 
 function mockFetch(posts) {
-  global.fetch = jest.fn((u, o) => { const b = JSON.parse(o.body); posts.push([String(u), b]);
+  global.fetch = jest.fn((u, o) => { if (!o) return Promise.resolve({ ok: true, json: () => Promise.resolve({ amount: String(u).includes('EPjF') ? 500 : 2 }) });
+    const b = JSON.parse(o.body); posts.push([String(u), b]);
     if (String(u).endsWith('/execute')) return Promise.resolve({ ok: true, json: () => Promise.resolve({ txid: 'TXID12345678' }) });
     return Promise.resolve({ ok: true, json: () => Promise.resolve({ transaction: 'AAAA', action: b.act === 'close' ? 'decrease-position' : String(b.act || '').startsWith('tpsl') ? 'create-tpsl' : 'increase-position',
       quote: { side: b.side, positionSizeUsd: String((b.usd || 0) * (b.lev || 0)), entryPriceUsd: '102.6', liquidationPriceUsd: '98.5', openFeeUsd: '0.15' },
@@ -47,4 +48,12 @@ test('📋 positions: live P&L on the true price, close 50 %, move + cancel a TP
   await act(async () => { el.querySelector('.pp-x').click(); }); await act(async () => { await Promise.resolve(); });
   expect(posts[2][1]).toEqual({ address: 'ME', act: 'tpsl-cancel', positionRequestPubkey: 'R1' });
   act(() => root.unmount()); el.remove();
+});
+
+test('💳 pay with: USDC when it covers the collateral, else SOL (0.01 kept for fees), else none · 🎚 the slider reaches Jupiter\'s 250×', () => {
+  expect(payWith(25, { usdc: 30, sol: 0 }, 100).best).toBe('USDC');
+  expect(payWith(25, { usdc: 3, sol: 1 }, 100).best).toBe('SOL');
+  expect(payWith(25, { usdc: 3, sol: 0.2 }, 100).best).toBe(null);   // (0.2 − 0.01) × $100 = $19 < $25
+  expect(MAX_LEV).toBe(250); expect(fToLev(1)).toBe(250); expect(fToLev(0)).toBe(1.1);
+  expect(fToLev(levToF(10))).toBe(10); expect(levToF(25)).toBeGreaterThan(0.5);   // log scale: 25× sits past the middle
 });

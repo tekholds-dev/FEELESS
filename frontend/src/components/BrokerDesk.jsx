@@ -12,9 +12,14 @@ import '../styles/brokerDesk.css';
 // own FREE Alpaca keys ($0 to start, no minimum, commission-free) — checked live, sealed to your wallet (`AlpacaKeys`).
 const $ = v => (v == null ? '—' : `$${Math.abs(v) >= 1000 ? Math.abs(v).toLocaleString('en-US', { maximumFractionDigits: 0 }) : Math.abs(v).toFixed(2)}`);
 
-export function BrokerDesk({ devAddress = '' }) {   // devAddress: the /dev/broker preview only
+// 🔑 the key doors a user can open themselves (owner 2026-10-26: "enter my api once … always jump in and go") — US-legal, free to open
+export const VENUES = {
+  alpaca: { name: 'Alpaca', sub: 'US stocks · ETFs · crypto · $0 to start', signup: 'https://app.alpaca.markets/signup', where: 'Alpaca dashboard → API Keys → Generate', paper: true, keyMin: 16, secMin: 30 },
+  cdc: { name: 'Crypto.com', sub: 'spot crypto vs USD in your Crypto.com Exchange account', signup: 'https://crypto.com/exchange', where: 'Crypto.com Exchange → Settings → API Keys (trading ON, withdrawals OFF)', paper: false, keyMin: 16, secMin: 16 },
+};
+export function BrokerDesk({ devAddress = '', venue = null }) {   // devAddress: the /dev/broker preview only · venue: open on that key door / account
   const { wallet } = useWallet() || {}; const a = wallet?.address || devAddress; const s = a ? readChatSession(a) : '';
-  const [d, setD] = useState(null); const [busy, setBusy] = useState(''); const [t, setT] = useState({ symbol: 'SPY', action: 'BUY', usd: 5, accountId: '' });
+  const [d, setD] = useState(null); const [busy, setBusy] = useState(''); const [t, setT] = useState({ symbol: venue === 'cdc' ? 'BTC' : 'SPY', action: 'BUY', usd: 5, accountId: venue === 'cdc' ? 'cdc' : '' });
   const load = useCallback(() => fetch(apiUrl(`/api/reputation/familia/broker${a && s ? `?address=${a}&session=${encodeURIComponent(s)}` : ''}`)).then(r => (r.ok ? r.json() : null)).then(x => x && setD(x)).catch(() => {}), [a, s]);
   useEffect(() => { load(); const i = setInterval(() => { if (!document.hidden) load(); }, 20000); return () => clearInterval(i); }, [load]);
   const post = async (path, body) => { const r = await fetch(apiUrl(path), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ address: a, session: s, ...body }) });
@@ -27,16 +32,19 @@ export function BrokerDesk({ devAddress = '' }) {   // devAddress: the /dev/brok
     catch (e) { toast.error(e.message); } finally { setBusy(''); } };
   const unlink = async () => { if (!window.confirm('Unlink your broker from FEELESS?')) return; try { await post('/api/reputation/familia/broker/unlink', {}); load(); } catch (e) { toast.error(e.message); } };
   const val = useGlide(d?.value ?? null, 600);
-  if (!a || !s) return <section className="bk" data-testid="broker-desk"><b className="bk-t">🏦 YOUR BROKER</b><p className="bk-dim">Sign in to Familia with your wallet, then add your broker here.</p></section>;
+  const title = venue ? `🔑 ${VENUES[venue]?.name || 'YOUR BROKER'}`.toUpperCase() : '🏦 YOUR BROKER';
+  if (!a || !s) return <section className="bk" data-testid="broker-desk"><b className="bk-t">{title}</b><p className="bk-dim">Sign in to Familia with your wallet (one signature, 7 days), then paste your keys once — they stay sealed to your wallet.</p>
+    {venue ? <AlpacaKeys venue={venue} post={async () => { throw new Error('Sign in to Familia with your wallet first.'); }} onSaved={() => {}} /> : null}</section>;
   if (d && !d.linked) return <section className="bk" data-testid="broker-desk"><b className="bk-t">🏦 YOUR BROKER · STOCKS · ETFS · CRYPTO</b>
     {d.snaptrade ? <button type="button" className="bk-go bk-any" disabled={!!busy} onClick={link} data-tip="Log in to YOUR broker (TradeStation · Webull · Coinbase · Kraken · E*TRADE …) on SnapTrade's secure portal — once; FEELESS never sees your password" data-testid="bk-link">{busy || '🔗 LINK MY BROKER · TRADESTATION · WEBULL · ANY'}</button> : null}
     {d.snaptrade ? <small className="bk-dim">— or paste free Alpaca keys —</small> : null}
-    <AlpacaKeys signup={d.signup} post={post} onSaved={load} /></section>;
+    <AlpacaKeys venue={venue || 'alpaca'} post={post} onSaved={load} /></section>;
   return <section className="bk" data-testid="broker-desk">
     <header className="bk-h"><b className="bk-t">🏦 THE BROKERAGE</b><span className="bk-val"><em>ALL ACCOUNTS</em><b className="m-num">{$(val)}</b>
       <small className={`m-num ${(d?.pnl ?? 0) >= 0 ? 'is-up' : 'is-dn'}`}>{(d?.pnl ?? 0) >= 0 ? '+' : '−'}{$(d?.pnl)} open P&L</small></span>
       {d?.snaptrade ? <button type="button" className="bk-sm" onClick={link} data-tip="Add another broker">+ BROKER</button> : null}<button type="button" className="bk-sm" onClick={unlink} data-tip="Unlink every broker + delete your keys from FEELESS">UNLINK</button></header>
-    {d?.alpacaError ? <p className="bk-err">⚠ {d.alpacaError}</p> : null}
+    {d?.alpacaError ? <p className="bk-err">⚠ {d.alpacaError}</p> : null}{d?.cdcError ? <p className="bk-err">⚠ {d.cdcError}</p> : null}
+    {venue && !(d?.accounts || []).some(x => x.id === venue || (venue === 'alpaca' && x.id !== 'cdc')) ? <AlpacaKeys venue={venue} post={post} onSaved={load} /> : null}
     <div className="bk-ticket">
       <span className="m-seg">{['BUY', 'SELL'].map(x => <button key={x} type="button" className={t.action === x ? 'active' : ''} onClick={() => setT({ ...t, action: x })} data-testid={`bk-${x}`}>{x}</button>)}</span>
       <input value={t.symbol} onChange={e => setT({ ...t, symbol: e.target.value.toUpperCase() })} aria-label="Ticker" placeholder="SPY" data-testid="bk-sym" />
@@ -53,21 +61,24 @@ export function BrokerDesk({ devAddress = '' }) {   // devAddress: the /dev/brok
 }
 
 // 🔑 the fastest $0 start: a free Alpaca account → its API keys → paste here (checked live against YOUR account, then sealed to your wallet)
-function AlpacaKeys({ signup, post, onSaved }) {
+function AlpacaKeys({ venue: v0 = 'alpaca', post, onSaved }) {
+  const [venue, setVenue] = useState(v0); const V = VENUES[venue] || VENUES.alpaca;
+  useEffect(() => { setVenue(v0); }, [v0]);
   const [k, setK] = useState(''); const [sec, setSec] = useState(''); const [paper, setPaper] = useState(true); const [busy, setBusy] = useState(false);
-  const save = async () => { setBusy(true); try { const r = await post('/api/reputation/familia/broker/keys', { key: k.trim(), secret: sec.trim(), paper }); toast.success(`🔑 ${r.account?.broker || 'Alpaca'} linked — cash ${$(r.account?.cash)}`); setK(''); setSec(''); onSaved(); }
+  const save = async () => { setBusy(true); try { const r = await post('/api/reputation/familia/broker/keys', { venue, key: k.trim(), secret: sec.trim(), paper: V.paper && paper }); toast.success(`🔑 ${r.account?.broker || V.name} linked — cash ${$(r.account?.cash)}`); setK(''); setSec(''); onSaved(); }
     catch (e) { toast.error(e.message); } finally { setBusy(false); } };
-  return <div className="bk-keys" data-testid="bk-keys">
+  return <div className={`bk-keys is-${venue}`} data-testid="bk-keys">
+    <span className="m-seg bk-venue" role="radiogroup" aria-label="Which account">{Object.entries(VENUES).map(([id, x]) => <button key={id} type="button" role="radio" aria-checked={venue === id} className={venue === id ? 'active' : ''} onClick={() => setVenue(id)} data-tip={x.sub} data-testid={`bk-v-${id}`}>{x.name}</button>)}</span>
     <ol className="bk-steps">
-      <li style={{ '--i': 0 }}><i>1</i><span><b>FREE ACCOUNT</b><small>Alpaca · $0 to start · no minimum · commission-free</small></span>
-        <a className="bk-sm" href={signup || 'https://app.alpaca.markets/signup'} target="_blank" rel="noreferrer noopener" data-tip="Opens Alpaca's own sign-up in a new tab (PAPER works the same minute; LIVE after its ID check)" data-testid="bk-signup">OPEN ↗</a></li>
-      <li style={{ '--i': 1 }}><i>2</i><span><b>GET YOUR KEYS</b><small>Alpaca dashboard → API Keys → Generate</small></span></li>
-      <li style={{ '--i': 2 }}><i>3</i><span><b>PASTE + SAVE</b><small>checked live, sealed to your wallet</small></span></li>
+      <li style={{ '--i': 0 }}><i>1</i><span><b>YOUR ACCOUNT</b><small>{V.name} · {V.sub}</small></span>
+        <a className="bk-sm" href={V.signup} target="_blank" rel="noreferrer noopener" data-tip={`Opens ${V.name}'s own sign-up in a new tab`} data-testid="bk-signup">OPEN ↗</a></li>
+      <li style={{ '--i': 1 }}><i>2</i><span><b>GET YOUR KEYS</b><small>{V.where}</small></span></li>
+      <li style={{ '--i': 2 }}><i>3</i><span><b>PASTE + SAVE ONCE</b><small>checked live, sealed to your wallet · jump in any time</small></span></li>
     </ol>
-    <span className="m-seg" role="radiogroup" aria-label="Account">{[[true, 'PAPER', 'Practice money — same API, nothing real'], [false, 'LIVE', 'Your real Alpaca account']].map(([v, l, tip]) =>
-      <button key={l} type="button" role="radio" aria-checked={paper === v} className={paper === v ? 'active' : ''} onClick={() => setPaper(v)} data-tip={tip} data-testid={`bk-${l.toLowerCase()}`}>{l}</button>)}</span>
-    <input value={k} onChange={e => setK(e.target.value)} placeholder="API Key ID" aria-label="Alpaca API Key ID" autoComplete="off" spellCheck="false" data-testid="bk-key" />
-    <input value={sec} onChange={e => setSec(e.target.value)} placeholder="Secret Key" aria-label="Alpaca Secret Key" type="password" autoComplete="off" data-testid="bk-secret" />
-    <button type="button" className="bk-go" disabled={busy || k.trim().length < 16 || sec.trim().length < 30} onClick={save} data-tip="FEELESS checks the keys against your Alpaca account, then seals them to your wallet — remove them any time" data-testid="bk-save">{busy ? 'Checking with Alpaca…' : '🔑 SAVE MY KEYS'}</button>
+    {V.paper ? <span className="m-seg" role="radiogroup" aria-label="Account">{[[true, 'PAPER', 'Practice money — same API, nothing real'], [false, 'LIVE', `Your real ${V.name} account`]].map(([v, l, tip]) =>
+      <button key={l} type="button" role="radio" aria-checked={paper === v} className={paper === v ? 'active' : ''} onClick={() => setPaper(v)} data-tip={tip} data-testid={`bk-${l.toLowerCase()}`}>{l}</button>)}</span> : null}
+    <input value={k} onChange={e => setK(e.target.value)} placeholder="API Key" aria-label={`${V.name} API key`} autoComplete="off" spellCheck="false" data-testid="bk-key" />
+    <input value={sec} onChange={e => setSec(e.target.value)} placeholder="Secret" aria-label={`${V.name} secret`} type="password" autoComplete="off" data-testid="bk-secret" />
+    <button type="button" className="bk-go" disabled={busy || k.trim().length < V.keyMin || sec.trim().length < V.secMin} onClick={save} data-tip={`FEELESS checks the keys against your ${V.name} account, then seals them to your wallet — remove them any time`} data-testid="bk-save">{busy ? `Checking with ${V.name}…` : '🔑 SAVE MY KEYS'}</button>
   </div>;
 }

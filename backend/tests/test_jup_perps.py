@@ -31,7 +31,7 @@ def test_open_bodies_follow_jupiters_rules_and_our_guards():
     b, _ = jp.clean_open({'address': me, 'asset': 'BTC', 'side': 'short', 'usd': 10, 'lev': 10, 'input': 'SOL'}, 100.0)
     assert b['collateralMint'] == jp.USDC and b['marketMint'] == jp.MARKETS['BTC'] and b['inputMint'] == jp.SOL and b['collateralTokenDelta'] == '100000000'
     for bad, why in (({'asset': 'DOGE', 'side': 'long', 'usd': 10, 'lev': 5}, 'Pick'), ({'asset': 'SOL', 'side': 'long', 'usd': 5, 'lev': 5}, 'minimum'),
-                     ({'asset': 'SOL', 'side': 'long', 'usd': 10, 'lev': 150}, 'Leverage'), ({'asset': 'SOL', 'side': 'up', 'usd': 10, 'lev': 5}, 'Pick')):
+                     ({'asset': 'SOL', 'side': 'long', 'usd': 10, 'lev': 300}, 'Leverage'), ({'asset': 'SOL', 'side': 'up', 'usd': 10, 'lev': 5}, 'Pick')):
         with pytest.raises(ValueError, match=why):
             jp.clean_open({'address': me, **bad}, 100.0)
     with pytest.raises(ValueError, match='SOL price'):
