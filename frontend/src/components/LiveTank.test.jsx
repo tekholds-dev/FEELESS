@@ -1,4 +1,7 @@
-import { tankDots, laneCounts, capX, TANK_LEVELS } from './LiveTank';
+import React from 'react';
+import { createRoot } from 'react-dom/client';
+import { act } from 'react';
+import { tankDots, laneCounts, capX, TANK_LEVELS, LiveTank } from './LiveTank';
 
 test('🫧 the intake lanes: every read lands on its own water level, across = live MC (log $1K…$10M), colour = what it is doing', () => {
   expect(capX(1e3)).toBe(0); expect(capX(1e7)).toBe(1); expect(capX(1e5)).toBeCloseTo(0.5);
@@ -15,4 +18,18 @@ test('🫧 the intake lanes: every read lands on its own water level, across = l
   expect(dots.find(d => d.id === 'n-N2').tone).toBe('q');
   expect(dots.find(d => d.id === 'trend-T').pair.pairAddress).toBe('T');   // a tap opens its war room
   expect(tankDots({})).toEqual([]);
+});
+
+test('🔎 a tap pops the coin\'s vitals first — CHART opens its war room only from the popup', async () => {
+  const intake = { coins: [{ mint: 'A', sym: 'AAA', mc: 5e4, ch: 5, status: 'READY', germ: 30, pair: 'PA' }] };
+  global.fetch = jest.fn(url => Promise.resolve({ ok: true, json: () => Promise.resolve(String(url).includes('intake') ? intake : {}) }));
+  const seen = []; const on = e => seen.push(e.detail); window.addEventListener('feeless:war-room', on);
+  const el = document.createElement('div'); document.body.appendChild(el); const root = createRoot(el);
+  await act(async () => { root.render(<LiveTank />); }); await act(async () => { await new Promise(r => setTimeout(r, 10)); });
+  await act(async () => { document.querySelector('[data-testid="ltk-dot-d-A"]').click(); });
+  expect(seen).toEqual([]);                                                   // nothing opened yet
+  const pop = document.querySelector('[data-testid="ltk-pop"]'); expect(pop.textContent).toContain('$AAA'); expect(pop.textContent).toContain('READY');
+  await act(async () => { document.querySelector('[data-testid="ltk-chart"]').click(); });
+  expect(seen[0]).toMatchObject({ pairAddress: 'PA' }); expect(document.querySelector('[data-testid="ltk-pop"]')).toBeNull();
+  window.removeEventListener('feeless:war-room', on); act(() => root.unmount());
 });

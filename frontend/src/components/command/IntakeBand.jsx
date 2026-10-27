@@ -4,9 +4,11 @@ import { hubLoad, useAi } from '../../lib/agentHub';
 import { intakeDots, laneCounts, splashFacts, LANES } from '../../lib/intakeBand';
 import { capX, aiOf, scoutChips } from '../../lib/cockpitControls';
 import { devilOf } from '../../lib/agentRead';
+import { LiveTank } from '../LiveTank';
 import '../../styles/intakeBand.css';
 
 const TICKS = [[1e3, '$1K'], [1e4, '$10K'], [1e5, '$100K'], [1e6, '$1M']];
+const LEGEND = [['in', 'in'], ['contending', 'contending'], ['ready', 'ready'], ['picked', 'picked'], ['germ', 'at its germ floor'], ['out', 'outside your MC band']];
 const ACTIONS = [['arm', '⚡ ARM', 'owner priority: the agents take it the moment it is READY and passes every execution check'],
   ['track', '📌 TRACK', 'keep it on your list — judged every pass'], ['review', '🔎 REVIEW', 'send it through the normal agent review'],
   ['ignore', '✕ IGNORE', 'off your list']];
@@ -19,7 +21,7 @@ export function IntakeBand({ o, mint, onPick, call, isOwner, imp }) {
   const band = (o?.policy || {}).band || {};
   const dots = useMemo(() => intakeDots(cands, held, band), [cands, held, band]);
   const n = laneCounts(dots);
-  const [sel, setSel] = useState(null); const [busy, setBusy] = useState(null);
+  const [sel, setSel] = useState(null); const [busy, setBusy] = useState(null); const [view, setView] = useState('agents');   // 🫧 AGENTS = this band · ALL LEVELS = the site-wide five-level tank
   const ai = useAi(o?.ai);
   const host = useRef(null);
   useEffect(() => {
@@ -41,7 +43,10 @@ export function IntakeBand({ o, mint, onPick, call, isOwner, imp }) {
   return <section className="ib" ref={host} data-testid="intake-band">
     <header className="ib-head" data-tip="everything the feeds bring in · across = live MC · up = how far the agents took it · tap a coin"><b>🛰 INTAKE</b><small>everything the feeds bring in · across = live MC · up = how far the agents took it · tap a coin</small>
       {(imp || []).length ? <span className="ib-imp" data-testid="ib-imp" data-tip={`🎭 dropped before the agents read them — a launch wearing a real coin's ticker:\n${imp.slice(0, 8).map(x => `$${x.symbol}: ${x.why}`).join('\n')}`}>🎭 {imp.length} fake{imp.length === 1 ? '' : 's'} dropped</span> : null}
-      <span className="ib-rate">{m.uniqueMintsPerMin != null ? <><b>+{m.uniqueMintsPerMin}</b>/min</> : null}</span></header>
+      <span className="ib-rate">{m.uniqueMintsPerMin != null ? <><b>+{m.uniqueMintsPerMin}</b>/min</> : null}</span>
+      <span className="m-seg ib-view" role="tablist" aria-label="Intake view">{[['agents', 'AGENTS', "The agents' own funnel: in → contending → ready → picked"], ['levels', 'ALL LEVELS', 'Every feed as water levels: GERM · DESK · TOP NEW · TRENDING · NEW — tap a coin for its vitals']].map(([k, l, tip]) =>
+        <button key={k} type="button" role="tab" aria-selected={view === k} className={view === k ? 'active' : ''} onClick={() => { setView(k); setSel(null); }} data-tip={tip} data-testid={`ib-view-${k}`}>{l}</button>)}</span></header>
+    {view === 'levels' ? <LiveTank compact={false} title="ALL LEVELS" /> : <>
     <div className="ib-body">
       <div className="ib-field">
         <i className="ib-zone" style={{ left: `${lo * 100}%`, width: `${Math.max(0, (hi - lo) * 100)}%` }} />
@@ -53,7 +58,8 @@ export function IntakeBand({ o, mint, onPick, call, isOwner, imp }) {
       </div>
       <ol className="ib-funnel" data-testid="ib-funnel">{LANES.slice().reverse().map(([k, l, tip]) => <li key={k} className={`is-${k}`} data-tip={tip}><b>{n[k]}</b><small>{l}</small></li>)}</ol>
     </div>
-    {d ? <Splash d={d} ai={aiOf(ai?.notes, d.mint)?.advice} busy={busy} isOwner={isOwner} act={act} onPick={() => { onPick?.(d.mint); setSel(null); }} /> : null}
+    <p className="ib-legend" aria-label="Legend">{LEGEND.map(([k, l]) => <span key={k} className={`is-${k}`}><i />{l}</span>)}</p>
+    {d ? <Splash d={d} ai={aiOf(ai?.notes, d.mint)?.advice} busy={busy} isOwner={isOwner} act={act} onPick={() => { onPick?.(d.mint); setSel(null); }} /> : null}</>}
   </section>;
 }
 

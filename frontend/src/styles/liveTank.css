@@ -33,11 +33,21 @@
 .ltk-funnel li.is-germ b { color: #c49bff; } .ltk-funnel li.is-desk b { color: #f5c451; } .ltk-funnel li.is-new b { color: #45e486; }
 .ltk-legend { display: flex; flex-wrap: wrap; gap: 4px 12px; margin: 0; } .ltk-legend span { display: inline-flex; align-items: center; gap: 5px; font: 700 8.5px var(--f-mono); color: var(--m-dim, #9aa59d); }
 .ltk-legend span i { position: relative; display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: #68716d; }
+.ltk-pop { position: absolute; z-index: 6; top: 34px; left: clamp(8px, calc(var(--x) * 100% - 130px), calc(100% - 278px)); width: 270px; display: grid; gap: 7px; padding: 10px; border-radius: 12px;
+  border: 1px solid rgba(69, 228, 134, .45); background: rgb(9, 11, 10); box-shadow: 0 16px 36px -10px rgba(0, 0, 0, .85); animation: ltkIn .16s ease-out; }
+.ltk-pop.t-hot { border-color: rgba(245, 196, 81, .6); } .ltk-pop.t-dn { border-color: rgba(255, 143, 163, .5); } .ltk-pop.t-germ { border-color: rgba(162, 89, 255, .6); }
+.ltk-ph { display: flex; align-items: center; gap: 7px; margin: 0; } .ltk-ph img, .ltk-pi { width: 24px; height: 24px; border-radius: 50%; object-fit: cover; display: grid; place-items: center; background: #1a221e; font: 800 9px var(--f-mono); font-style: normal; color: #86efac; }
+.ltk-ph b { font: 700 13px var(--f-tech); color: #fff; } .ltk-ph em { font: 800 8px var(--f-mono); font-style: normal; letter-spacing: .12em; padding: 1px 6px; border-radius: 4px; border: 1px solid currentColor; color: #8fd3ff; }
+.ltk-px { margin-left: auto; min-width: 32px; min-height: 32px; border: 0; border-radius: 8px; background: rgba(255, 255, 255, .05); color: #cfd8d2; cursor: pointer; } .ltk-px:hover { background: rgba(255, 255, 255, .1); } .ltk-px:focus-visible { outline: 2px solid #45e486; }
+.ltk-facts { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 4px; }
+.ltk-facts li { display: grid; padding: 4px 7px; border-radius: 6px; background: rgba(255, 255, 255, .04); } .ltk-facts small { font: 800 7px var(--f-mono); letter-spacing: .1em; color: #7d877f; } .ltk-facts b { font: 800 11px var(--f-mono); color: #e8f2ea; }
+.ltk-acts { display: flex; flex-wrap: wrap; gap: 5px; } .ltk-acts .m-btn { min-height: 32px; padding: 0 10px; font: 800 10px var(--f-mono); letter-spacing: .06em; }
+@keyframes ltkIn { from { opacity: 0; transform: translateY(4px) scale(.98); } }
 @keyframes ltkPop { from { opacity: 0; transform: scale(.2); } }
 @keyframes ltkBreath { 50% { transform: scale(1.35); } }
 @keyframes ltkShimmer { 0%, 35% { transform: translateX(-120%); } 75%, 100% { transform: translateX(320%); } }
-body.fx-lite .ltk-b i, body.fx-lite .ltk-dot, body.fx-lite .ltk-field::after { animation: none; } body.fx-lite .ltk-b { transition: none; }
-@media (prefers-reduced-motion: reduce) { .ltk-b i, .ltk-dot, .ltk-field::after { animation: none; } .ltk-b, .ltk-b i { transition: none; } }
+body.fx-lite .ltk-b i, body.fx-lite .ltk-dot, body.fx-lite .ltk-field::after, body.fx-lite .ltk-pop { animation: none; } body.fx-lite .ltk-b { transition: none; }
+@media (prefers-reduced-motion: reduce) { .ltk-b i, .ltk-dot, .ltk-field::after, .ltk-pop { animation: none; } .ltk-b, .ltk-b i { transition: none; } }
 body.theme-day .ltk { background: linear-gradient(180deg, rgba(13, 122, 65, .05), rgba(236, 246, 240, .75)); border-color: rgba(10, 60, 35, .16); }
-body.theme-day .ltk-field { border-color: rgba(10, 60, 35, .1); } body.theme-day .ltk-head > b, body.theme-day .ltk-funnel b { color: #171c1a; } body.theme-day .ltk-funnel li { background: rgba(10, 60, 35, .05); }
+body.theme-day .ltk-field { border-color: rgba(10, 60, 35, .1); } body.theme-day .ltk-pop { background: #f4faf6; } body.theme-day .ltk-ph b, body.theme-day .ltk-facts b { color: #171c1a; } body.theme-day .ltk-head > b, body.theme-day .ltk-funnel b { color: #171c1a; } body.theme-day .ltk-funnel li { background: rgba(10, 60, 35, .05); }
 @media (max-width: 640px) { .ltk-body { grid-template-columns: minmax(0, 1fr) 64px; gap: 6px; } .ltk-head > small { display: none; } }
