@@ -97,3 +97,4 @@ body.theme-day .av-model { background: #f3f8f5; border-color: #0b3a2026; } body.
 .av-flash { display: inline-block; animation: avFlash .5s ease-out; } @keyframes avFlash { from { opacity: .35; transform: translateY(-3px); } to { opacity: 1; transform: none; } }
 .av-lock { justify-self: start; padding: 4px 10px; border-radius: 999px; border: 1px dashed rgba(212, 175, 55, .45); font: 800 9px 'JetBrains Mono', monospace; letter-spacing: .12em; color: #d4af37; }
 body.fx-lite .av-flash { animation: none; } @media (prefers-reduced-motion: reduce) { .av-flash { animation: none; } } body.theme-day .av-lock { color: #7a5a00; }
+.av-open { cursor: pointer; transition: background .15s, border-color .15s; } .av-open:hover { background: rgba(255, 255, 255, .04); } .av-open:focus-visible { outline: 2px solid var(--pc, #15d16a); outline-offset: 1px; } .av-open:active { transform: scale(.995); }

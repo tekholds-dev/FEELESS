@@ -130,7 +130,7 @@ The owner rejected work that shipped as "dull", "non degen", "emojis sliding aro
 - FeeCat: `feecat_brain.discipline` = 9 lives (loss −1, win +1 in 24h, 0 = nap) + tilt/cold pauses + expectancy sizing.
   It may only ever make her trade LESS. `/api/cats/{id}/profile` returns it live; FeeCat HQ strip shows it.
 - `openWarRoom(pair)` opens any coin's war room in the terminal (one lazy `WarRoomHost`).
-- Uploads: no sign-in needed, so 20/hour per IP; GIFs skip the canvas crop (keeps animation), 6 MB cap; stills 2 MB.
+- Uploads: no sign-in needed, so 20/hour per IP; GIFs skip the canvas crop (keeps animation), 40 MB cap; stills 15 MB (owner 2026-10-26).
 
 ## Money rules (trading)
 - 🔒 P&L NEVER includes fees, anywhere (live trades, Fuse cards, Arena/Prime, FeeCat): cost = money that REACHED THE POOL
@@ -166,8 +166,10 @@ STANDING RULES (never "done"):
   hottest fee pools) with the risk named — SAFE yields are one tap away, never the headline. "Think big, not the same utilities."
 
 P0 — OWNER 2026-10-26 (the "finish it" list; shipped this day → history "2026-10-26") — open, priority order:
-a. 🤖 AUTORANGE: wire Raydium CLMM / Meteora DLMM opens + re-centers (SDK → tx → simulate → wallet signs) behind the engine's OPEN / RECENTER;
-   a server watcher that pushes "move due" to the phone. 📉 PERPS: the owner's first real Jupiter open after the 250× / pay-with / landing-card fix (read the LANDED card + positions) · Coinbase Advanced
+a. 🤖 AUTORANGE: real opens / re-centers / closes SHIPPED 2026-10-26 (all four simulated clean on mainnet) — NEXT: the owner's first real $25 open +
+   re-center read back · Orca Whirlpool as a 3rd venue · DLMM bands wider than 69 bins (extended positions). ⚖ OWNER DECISION: "sign once, the AIs
+   trade" = custody (DECISIONS #2 rejected B) — needs the owner + a lawyer; until then cats propose, the wallet signs.
+   FeeCat page: lag fixed (chat window 40 + shared slow clock) — NEXT: the stage + her tabs as live visuals, measure again with /perf. 📉 PERPS: the owner's first real Jupiter open after the 250× / pay-with / landing-card fix (read the LANDED card + positions) · Coinbase Advanced
    (US perp-style futures, CDP JWT keys) as a 3rd key door · Kalshi still waits on `DFLOW_API_KEY`.
 b. 🗳 REPMARKET ← Polymarket: one-time sign-in / API key per user (Polymarket US is the US-legal door — check its API first), USD in, saved per user.
 c. 🔑 ONE KEY VAULT: users = one Familia spot for every key (Alpaca · Crypto.com · Polymarket · DFlow proof) · owner = HQ › Core "needs a human"

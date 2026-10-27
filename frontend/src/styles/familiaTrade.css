@@ -51,3 +51,32 @@ body.theme-day .ftd-ico { color: #7a5a00; }
 .ftd-desk.is-room { width: min(1240px, 100vw); }
 .ftd-room-ic { animation: none; display: grid; place-items: center; width: 36px; height: 36px; border-radius: 50%; font-size: 18px; background: radial-gradient(circle at 40% 35%, #3a2a0e, #0b0806); box-shadow: 0 0 14px -4px var(--fg); }
 .ftd-room { padding: 2px 4px 30px; } .ftd-room > * { max-width: 100%; }
+/* 🪟 THE 74 % POP-OUT (owner 2026-10-26): every coin opens centered at 74 % of the screen — the coin card on the left, the chart + Quick trade on the right.
+   ⤢ = full screen. Phone = full screen, card above the chart. */
+.ftd.is-pop { justify-content: center; align-items: center; }
+.ftd.is-pop .ftd-veil { background: radial-gradient(90% 80% at 50% 50%, rgba(0, 0, 0, .35), rgba(2, 3, 6, .8)); }
+.ftd-desk.is-pop { width: 74vw; height: min(88vh, 74vw); border: 1px solid rgba(212, 175, 55, .45); border-radius: 18px; box-shadow: 0 30px 80px -20px rgba(0, 0, 0, .9), inset 0 1px 0 rgba(245, 215, 122, .18); animation: ftdPopIn .22s cubic-bezier(.2, .8, .2, 1) both; }
+.ftd-desk.is-pop.is-wide { width: 98vw; height: 96vh; }
+.ftd-desk.is-pop .ftd-vit { display: none; }
+.ftd-pop { display: grid; grid-template-columns: minmax(250px, 300px) minmax(0, 1fr); gap: 10px; align-items: start; min-height: 100%; }
+.ftd-desk.is-pop .ftd-chart { --chart-h: clamp(300px, calc(88vh - 230px), 760px); }
+.ftd-card { position: sticky; top: 0; display: grid; gap: 8px; padding: 12px; border-radius: 14px; border: 1px solid rgba(212, 175, 55, .28); background: linear-gradient(165deg, rgba(212, 175, 55, .1), rgba(0, 0, 0, .45)); box-shadow: inset 0 1px 0 rgba(255, 255, 255, .07); }
+.ftd-cp { display: grid; } .ftd-cp b { font: 900 24px var(--m-mono); color: #fff6dc; text-shadow: 0 0 18px rgba(212, 175, 55, .35); } .ftd-cp b.is-up { color: #45e486; animation: ftdPop .45s ease-out; } .ftd-cp b.is-dn { color: #ff8fa3; animation: ftdPop .45s ease-out; }
+.ftd-cp small { font: 800 11px var(--m-mono); } .ftd-card .is-up { color: #45e486; } .ftd-card .is-dn { color: #ff8fa3; }
+.ftd-moves { display: grid; gap: 4px; } .ftd-moves span { display: grid; grid-template-columns: 30px minmax(0, 1fr) 60px; gap: 6px; align-items: center; animation: ftdUp .3s ease-out both; animation-delay: calc(var(--i, 0) * 50ms); }
+.ftd-moves em { font: 800 9px var(--m-mono); font-style: normal; color: rgba(255, 246, 220, .5); } .ftd-moves b { font: 800 11px var(--m-mono); text-align: right; }
+.ftd-moves u { display: block; height: 6px; border-radius: 6px; background: rgba(255, 255, 255, .06); overflow: hidden; } .ftd-moves s { display: block; height: 100%; transform-origin: left; background: #8a7a50; transition: transform .5s ease-out; }
+.ftd-moves .is-up s { background: linear-gradient(90deg, #0d6b38, #45e486); } .ftd-moves .is-dn s { background: linear-gradient(90deg, #6b1a2a, #ff8fa3); }
+.ftd-kv { display: grid; grid-template-columns: 1fr 1fr; gap: 5px; } .ftd-kv span { display: grid; padding: 6px 8px; border-radius: 9px; background: rgba(0, 0, 0, .35); border: 1px solid rgba(212, 175, 55, .14); }
+.ftd-kv em { font: 700 8px var(--m-mono); font-style: normal; letter-spacing: .12em; color: rgba(255, 246, 220, .5); } .ftd-kv b { font: 800 13px var(--m-mono); color: #fff6dc; }
+.ftd-buys { position: relative; height: 26px; border-radius: 8px; background: rgba(255, 107, 139, .35); overflow: hidden; }
+.ftd-buys i { position: absolute; inset: 0; transform-origin: left; background: linear-gradient(90deg, #0d6b38, #45e486); transition: transform .6s ease-out; }
+.ftd-buys span { position: relative; display: flex; justify-content: space-between; align-items: center; height: 100%; padding: 0 9px; font: 800 10px var(--m-mono); color: #fff; text-shadow: 0 1px 2px #000; } .ftd-buys small { color: #fff; opacity: .85; }
+.ftd-ca { display: flex; justify-content: space-between; align-items: center; gap: 8px; min-height: 34px; padding: 0 10px; border-radius: 9px; border: 1px solid rgba(212, 175, 55, .3); background: rgba(0, 0, 0, .4); color: #fff6dc; cursor: pointer; font: 700 10.5px var(--m-mono); }
+.ftd-ca:hover { border-color: var(--fg2); } .ftd-ca:active { transform: scale(.98); } .ftd-ca:focus-visible { outline: 2px solid var(--fg2); outline-offset: 2px; } .ftd-ca b { color: var(--fg2); }
+.ftd-meta { font: 600 9.5px var(--m-mono); color: rgba(255, 246, 220, .45); }
+@keyframes ftdPopIn { from { opacity: 0; transform: translateY(10px) scale(.97); } to { opacity: 1; transform: none; } }
+body.fx-lite .ftd-desk.is-pop, body.fx-lite .ftd-moves span { animation: none; }
+body.theme-day .ftd-card { background: #fffaf0; border-color: #e3d3a4; } body.theme-day :is(.ftd-cp b, .ftd-kv b, .ftd-ca) { color: #2a2310; text-shadow: none; } body.theme-day :is(.ftd-kv span, .ftd-ca) { background: #fff; }
+@media (max-width: 980px) { .ftd-desk.is-pop { width: 96vw; height: 94vh; } .ftd-pop { grid-template-columns: 1fr; } .ftd-card { position: static; } }
+@media (max-width: 640px) { .ftd-desk.is-pop { width: 100vw; height: 100dvh; border-radius: 0; } .ftd-cp b { font-size: 20px; } }

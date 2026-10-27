@@ -268,10 +268,10 @@ def test_feeless_trade_feeds_the_position(monkeypatch, tmp_path):
 
 
 def test_upload_caps_the_creator_gif_is_not_size_limited():
-    assert rs.upload_cap('image/gif', 'user') == 6_000_000 and rs.upload_cap('image/png', 'user') == 2_000_000
-    assert rs.upload_cap('image/gif', 'admin') == 25_000_000
+    assert rs.upload_cap('image/gif', 'user') == 40_000_000 and rs.upload_cap('image/png', 'user') == 15_000_000
+    assert rs.upload_cap('image/gif', 'admin') == 40_000_000
     assert rs.upload_cap('image/gif', 'owner') == rs.OWNER_GIF_CAP >= 200_000_000
-    assert rs.upload_cap('image/png', 'owner') == 25_000_000   # only GIFs are lifted
+    assert rs.upload_cap('image/png', 'owner') == 40_000_000   # only GIFs are lifted
 
 
 def test_circle_profile_edit_really_saves_name_picture_and_cover():

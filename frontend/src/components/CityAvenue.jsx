@@ -80,11 +80,12 @@ function PumpRadar({ scope = 'pump' }) {
       </svg>
       <ol className="av-list">
         {loading && !coins.length ? <li className="m-dim">Reading the Pump board…</li> : null}
-        {coins.map((p, i) => { const m5 = num(p.priceChange?.m5); return <li key={p.pairAddress} style={{ '--i': i }}>
+        {coins.map((p, i) => { const m5 = num(p.priceChange?.m5); return <li key={p.pairAddress} style={{ '--i': i }} className="av-open" onClick={e => { if (!e.target.closest('button')) trade(p); }}
+          role="button" tabIndex={0} onKeyDown={e => { if (e.key === 'Enter') trade(p); }} data-tip={`Open $${p.baseToken.symbol}: its card + chart + Quick trade in one window`}>
           <em>{i + 1}</em><TokenAvatar pair={p} size={26} />
           <span className="av-sym"><b>${p.baseToken.symbol}</b><small>MC {usd(p.marketCap ?? p.fdv)} · 1h {usd(p.volume?.h1)}</small></span>
           <span className={`av-heat ${m5 != null && m5 < 0 ? 'down' : 'up'}`}><u aria-hidden="true"><s style={{ transform: `scaleX(${Math.max(0.04, heatOf(m5))})` }} /></u><b className="m-num">{pct(m5)}</b></span>
-          <button type="button" className="m-btn m-go" onClick={() => trade(p)} data-tip="Trade it right here — chart + Quick trade slide over the room; your wallet signs" data-testid={`av-trade-${p.baseToken.address}`}>⚡ Trade</button></li>; })}
+          <button type="button" className="m-btn m-go" onClick={() => trade(p)} data-tip="Its card + chart + Quick trade pop out right here; your wallet signs" data-testid={`av-trade-${p.baseToken.address}`}>⚡ Trade</button></li>; })}
         {!loading && !coins.length ? <li className="m-dim">No Pump coins pass the quality gates right now.</li> : null}
       </ol>
     </div>

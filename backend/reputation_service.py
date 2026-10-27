@@ -892,12 +892,13 @@ OWNER_GIF_CAP = 250_000_000   # memory guard only: the creator's GIFs are not si
 
 
 def upload_cap(mime: str, role: str) -> int:
-    """Bytes allowed per upload. Everyone: 2 MB stills / 6 MB GIFs. HQ admins: 25 MB. The creator: 25 MB stills, GIFs up to the memory guard."""
+    """Bytes allowed per upload. Everyone: 15 MB stills / 40 MB GIFs (owner 2026-10-26: "backgrounds shouldn't have an MB cap" — uploads need no sign-in,
+    so a ceiling stays against disk-filling; 20 / hour / IP). HQ admins: 40 MB. The creator: 40 MB stills, GIFs up to the memory guard."""
     if role == 'owner':
-        return OWNER_GIF_CAP if mime == 'image/gif' else 25_000_000
+        return OWNER_GIF_CAP if mime == 'image/gif' else 40_000_000
     if role == 'admin':
-        return 25_000_000
-    return 6_000_000 if mime == 'image/gif' else 2_000_000
+        return 40_000_000
+    return 40_000_000 if mime == 'image/gif' else 15_000_000
 
 
 class UploadPayload(BaseModel):
@@ -909,7 +910,7 @@ _upload_ip: dict = {}
 
 @app.post('/api/reputation/uploads')
 async def upload_image(payload: UploadPayload, request: Request):
-    """Images for profiles, launches and seasons. Everyone: 2 MB (animated GIFs: 6 MB). A signed-in creator/admin
+    """Images for profiles, launches and seasons. Everyone: 15 MB (animated GIFs: 40 MB). A signed-in creator/admin
     (HQ session) may upload big GIFs/art up to 25 MB; the creator wallet's GIFs are not size-limited (250 MB memory guard)."""
     import base64
     import re

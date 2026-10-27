@@ -4,6 +4,7 @@ import { searchTokens } from '../lib/dexscreener';
 import { useMarket } from '../hooks/useMarket';
 import { openWarRoom } from './WarRoomHost';
 import { TokenAvatar } from './terminal/MarketPrimitives';
+import { useLivePrice } from '../lib/livePriceHub';
 import { familiaDocked as docked, dockCount, ROOM_PATH } from '../lib/familiaRoom';
 import '../styles/familiaTrade.css';
 
@@ -35,6 +36,29 @@ export function familiaSwap(swap) {   // {from, to} mints — the dock's swap re
 const ready = p => !!(p && p.priceUsd != null && p.baseToken?.symbol);
 const usd = v => { const n = Number(v); return !Number.isFinite(n) || n <= 0 ? '—' : n >= 1e9 ? `$${(n / 1e9).toFixed(2)}B` : n >= 1e6 ? `$${(n / 1e6).toFixed(2)}M` : n >= 1e3 ? `$${(n / 1e3).toFixed(1)}K` : `$${n.toFixed(0)}`; };
 const pct = v => (v == null || !Number.isFinite(Number(v)) ? '—' : `${Number(v) >= 0 ? '+' : ''}${Number(v).toFixed(1)}%`);
+
+const ageOf = t => { if (!t) return '—'; const m = (Date.now() - Number(t)) / 60000; return m < 60 ? `${Math.round(m)}m` : m < 2880 ? `${Math.round(m / 60)}h` : `${Math.round(m / 1440)}d`; };
+const pxFmt = v => (!(v > 0) ? '—' : v >= 1 ? `$${v.toFixed(4)}` : `$${v.toPrecision(4)}`);
+// 🪪 THE COIN CARD in the pop-out (owner 2026-10-26: "always a pop-out window that shows the card and trade from there"): the live price (price hub,
+// 2s, flashes on each print), its moves 5m · 1h · 6h · 24h as bars, MC · LIQ · 24h VOL · AGE, who's buying (24h buys vs sells), the contract to copy.
+export function CoinCard({ p }) {
+  const live = useLivePrice(p); const px = live?.usd ?? Number(p.priceUsd); const [flash, setFlash] = useState(''); const [prev, setPrev] = useState(px); const [copied, setCopied] = useState(false);
+  useEffect(() => { if (px && prev && px !== prev) { setFlash(px > prev ? 'is-up' : 'is-dn'); setPrev(px); const t = setTimeout(() => setFlash(''), 600); return () => clearTimeout(t); } setPrev(px); return undefined; }, [px]); // eslint-disable-line react-hooks/exhaustive-deps
+  const tx = p.txns?.h24 || {}; const b = Number(tx.buys) || 0; const sl = Number(tx.sells) || 0; const share = b + sl ? b / (b + sl) : null;
+  const moves = [['5M', p.priceChange?.m5], ['1H', p.priceChange?.h1], ['6H', p.priceChange?.h6], ['24H', live?.change24h ?? p.priceChange?.h24]];
+  const top = Math.max(1, ...moves.map(([, v]) => Math.abs(Number(v) || 0)));
+  const ca = p.baseToken?.address || '';
+  const copy = () => { navigator.clipboard?.writeText(ca).then(() => { setCopied(true); setTimeout(() => setCopied(false), 1200); }).catch(() => {}); };
+  return <section className="ftd-card" data-testid="ftd-card">
+    <div className="ftd-cp"><b className={`m-num ${flash}`}>{pxFmt(px)}</b><small className={`m-num ${(Number(moves[3][1]) || 0) >= 0 ? 'is-up' : 'is-dn'}`}>{pct(moves[3][1])} 24h</small></div>
+    <div className="ftd-moves">{moves.map(([k, v], i) => { const n = Number(v); return <span key={k} style={{ '--i': i }} className={Number.isFinite(n) ? (n >= 0 ? 'is-up' : 'is-dn') : ''}><em>{k}</em>
+      <u aria-hidden="true"><s style={{ transform: `scaleX(${Number.isFinite(n) ? Math.max(0.04, Math.abs(n) / top) : 0})` }} /></u><b className="m-num">{pct(v)}</b></span>; })}</div>
+    <div className="ftd-kv">{[['MC', usd(p.marketCap ?? p.fdv)], ['LIQ', usd(p.liquidity?.usd)], ['VOL 24H', usd(p.volume?.h24)], ['AGE', ageOf(p.pairCreatedAt)]].map(([k, v]) => <span key={k}><em>{k}</em><b className="m-num">{v}</b></span>)}</div>
+    {share != null ? <div className="ftd-buys" data-tip={`${b.toLocaleString()} buys · ${sl.toLocaleString()} sells in 24h`}><i style={{ transform: `scaleX(${share})` }} /><span><b>{Math.round(share * 100)}% buys</b><small>{(b + sl).toLocaleString()} txns</small></span></div> : null}
+    <button type="button" className="ftd-ca" onClick={copy} data-tip="Copy the contract address" data-testid="ftd-ca"><span className="m-num">{ca ? `${ca.slice(0, 6)}…${ca.slice(-6)}` : '—'}</span><b>{copied ? '✓ copied' : '⧉ copy CA'}</b></button>
+    <small className="ftd-meta">{[p.dexId, p.labels?.join(' '), 'solana'].filter(Boolean).join(' · ')}</small>
+  </section>;
+}
 
 export function FamiliaTradeDock() {
   const [desk, setDesk] = useState(null); const [err, setErr] = useState(''); const [wide, setWide] = useState(false);
@@ -78,16 +102,16 @@ export function FamiliaTradeDock() {
   }
   const p = desk.pair; const coin = desk.kind === 'coin';
   const m5 = Number(p?.priceChange?.m5);
-  return createPortal(<div className="ftd" data-testid="familia-trade">
+  return createPortal(<div className={`ftd${coin ? ' is-pop' : ''}`} data-testid="familia-trade">
     <button type="button" className="ftd-veil" aria-label="Close the trade desk" onClick={() => setDesk(null)} />
-    <aside className={`ftd-desk${wide ? ' is-wide' : ''}`} role="dialog" aria-label={coin ? `Trade ${p?.baseToken?.symbol || 'coin'} inside Familia` : 'Swap inside Familia'}>
+    <aside className={`ftd-desk${wide ? ' is-wide' : ''}${coin ? ' is-pop' : ''}`} role="dialog" aria-label={coin ? `Trade ${p?.baseToken?.symbol || 'coin'} inside Familia` : 'Swap inside Familia'}>
       <i className="ftd-sky" aria-hidden="true"><b /><b /><b /></i>
       <header className="ftd-head">
         {coin ? <>{ready(p) ? <TokenAvatar pair={p} size={36} /> : <span className="ftd-av" aria-hidden="true" />}
           <span className="ftd-id"><em>🏙 FAMILIA TRADE DESK</em><b>${p?.baseToken?.symbol || '…'}</b><small>{p?.baseToken?.name || 'reading the pool…'}</small></span></>
           : <span className="ftd-id"><em>{desk.swap?.title || '🏙 FAMILIA TRADE DESK'}</em><b>⚖ Swap</b><small>{desk.swap?.sub || 'both coins set — press Get quote; your wallet signs'}</small></span>}
         <span className="ftd-tools">
-          <button type="button" className="m-btn ftd-ico" onClick={() => setWide(!wide)} aria-pressed={wide} data-tip={wide ? 'Narrow the desk' : 'Widen the desk — bigger chart, still in Familia'} data-testid="ftd-wide">{wide ? '⇥' : '⤢'}</button>
+          <button type="button" className="m-btn ftd-ico" onClick={() => setWide(!wide)} aria-pressed={wide} data-tip={wide ? 'Back to the 74% window' : 'Full screen — bigger chart, still in Familia'} data-testid="ftd-wide">{wide ? '⇥' : '⤢'}</button>
           <button type="button" className="m-btn ftd-ico" onClick={() => setDesk(null)} aria-label="Close" data-tip="Back to the room (Esc)" data-testid="ftd-close">✕</button></span>
       </header>
       {coin && ready(p) ? <div className="ftd-vit" data-testid="ftd-vitals">
@@ -98,7 +122,7 @@ export function FamiliaTradeDock() {
         {err ? <p className="m-note" role="alert">{err}</p> : null}
         {coin && !err && !ready(p) ? <div className="ftd-load" aria-busy="true"><i /><i /><i /><span>opening the desk…</span></div> : null}
         <Suspense fallback={<div className="ftd-load" aria-busy="true"><i /><i /><i /><span>loading the chart…</span></div>}>
-          {coin && ready(p) ? <div className="eco-chart ftd-chart"><TrenchChart key={p.pairAddress} pair={p} /></div> : null}
+          {coin && ready(p) ? <div className="ftd-pop"><CoinCard p={p} /><div className="eco-chart ftd-chart"><TrenchChart key={p.pairAddress} pair={p} /></div></div> : null}
           {!coin ? <div className="ftd-swap"><SwapWorkspace key={desk.n} pair={null} feeAsset={(assets.data?.assets || []).find(a => a.id === 'fee')} feeAssets={assets.data?.assets || []} onWallet={() => {}} /></div> : null}
         </Suspense>
       </div>

@@ -11,3 +11,7 @@ body.theme-day .chat-prefs { background: #fff; border-color: var(--day-border); 
 body.fx-lite .chat-prefs { animation: none; }
 @media (prefers-reduced-motion: reduce) { .chat-prefs { animation: none; } }
 @media (max-width: 640px) { .cp-range { grid-template-columns: 1fr auto; } .cp-range span { grid-column: 1 / -1; } }
+/* ↑ older messages load on tap (the room keeps the latest 40 on the page — 2026-10-26 lag fix) */
+.chat-older { display: block; width: 100%; min-height: 34px; margin: 6px 0; border-radius: 10px; border: 1px dashed rgba(21, 209, 106, .35); background: rgba(21, 209, 106, .06); color: #8fe3b4; font: 700 10.5px 'JetBrains Mono', monospace; cursor: pointer; transition: background .15s, border-color .15s; }
+.chat-older:hover { background: rgba(21, 209, 106, .12); border-color: #15d16a; } .chat-older:active { transform: scale(.99); } .chat-older:focus-visible { outline: 2px solid #15d16a; outline-offset: 2px; }
+body.theme-day .chat-older { background: #eefaf3; color: #0a6b3c; }

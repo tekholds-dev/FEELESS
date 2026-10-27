@@ -42,10 +42,10 @@ export async function uploadImage(file, shape) {
   if (!/^image\/(png|jpeg|webp|gif)$/.test(file.type)) throw new Error('PNG, JPG, WEBP or GIF only.');
   // animated GIFs are slimmed to the box they are shown in (≤ 12 fps) so a heavy one can never lag the page
   if (file.type === 'image/gif') file = await slimGif(file, shape?.gif || shape?.out || [1200, 1200]).catch(() => file);
-  // A live HQ session (creator/admin) lifts the size cap to 25 MB and keeps art sharper.
+  // A live HQ session (creator/admin) keeps art sharper (40 MB).
   let admin = null;
   try { const x = JSON.parse(localStorage.getItem(SESSION_KEY) || 'null'); if (x && Date.now() / 1000 - x.ts < 3500) admin = x; } catch { /* none */ }
-  const cap = admin ? 25_000_000 : file.type === 'image/gif' ? 6_000_000 : 2_000_000;   // animated covers/avatars: 6 MB
+  const cap = admin ? 40_000_000 : file.type === 'image/gif' ? 40_000_000 : 15_000_000;   // owner 2026-10-26: big backgrounds welcome (GIFs 40 MB · stills 15 MB)
   const dataUrl = await new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(r.result); r.onerror = rej; r.readAsDataURL(file); });
   let body = dataUrl;
   if (file.type !== 'image/gif') {

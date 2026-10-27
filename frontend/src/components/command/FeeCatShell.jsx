@@ -49,6 +49,6 @@ export function FeeCatShell({ tab, children }) {
           <small>{mine ? (mine.name || 'YOUR CAT').toUpperCase() : 'BUILD YOURS'}</small></a>
       </div>
     </header>
-    <div className="fcx-body">{children}</div>
+    <div className={`fcx-body is-${tab || 'desk'}`}>{children}</div>
   </div>;
 }

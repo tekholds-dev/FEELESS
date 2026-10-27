@@ -7,9 +7,17 @@ import { formatTime, formatUSD } from '../../lib/dexscreener';
 import { apiUrl } from '../../lib/api';
 import { TokenAvatar } from '../terminal/MarketPrimitives';
 
+// ⏱ one shared ticker per SLOW interval (≥ 5s) for every card on the page (FeeCat's wall ran 358 copies of the 30s one — 2026-10-26 lag fix); pauses while hidden
+const clocks = new Map();   // ms → { subs: Set, timer }
 export const useClock = (ms = 1000) => {
   const [now, setNow] = useState(Date.now());
-  useEffect(() => { const timer = setInterval(() => setNow(Date.now()), ms); return () => clearInterval(timer); }, [ms]);
+  useEffect(() => {
+    if (ms < 5000) { const timer = setInterval(() => setNow(Date.now()), ms); return () => clearInterval(timer); }   // second-hand countdowns: their own tick
+    let c = clocks.get(ms);
+    if (!c) { c = { subs: new Set(), timer: null }; clocks.set(ms, c); c.timer = setInterval(() => { if (typeof document !== 'undefined' && document.hidden) return; const t = Date.now(); c.subs.forEach(f => f(t)); }, ms); }
+    c.subs.add(setNow);
+    return () => { c.subs.delete(setNow); if (!c.subs.size) { clearInterval(c.timer); clocks.delete(ms); } };
+  }, [ms]);
   return now;
 };
 
