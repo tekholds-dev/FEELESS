@@ -1,4 +1,4 @@
-"""Uploads: animated GIFs up to 6 MB keep their frames; images capped per IP; profile URLs length-checked."""
+"""Uploads: animated GIFs up to 40 MB keep their frames; images capped per IP; profile URLs length-checked."""
 import asyncio
 import base64
 
@@ -23,7 +23,7 @@ def test_gif_cap_rate_limit_and_safe_url(monkeypatch, tmp_path):
     gif = b'GIF89a' + b'\0' * (3_000_000)
     assert _call('image/gif', gif)['url'].endswith('.gif')          # 3 MB animated cover is fine
     with pytest.raises(rs.HTTPException):
-        _call('image/png', b'\x89PNG' + b'\0' * 2_100_000)            # stills stay at 2 MB
+        _call("image/png", b"\x89PNG" + b"\0" * 15_100_000)           # stills cap at 15 MB (2026-10-26)
     for _ in range(18):
         _call('image/png', b'\x89PNG' + b'\0' * 10)
     with pytest.raises(rs.HTTPException) as e:
