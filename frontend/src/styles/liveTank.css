@@ -1,0 +1,33 @@
+/* 🫧 LIVE INTAKE TANK (ltk-*): a lit glass tank of real pump.fun launches — bubbles across by market cap, colour by curve progress (green → gold),
+   new ones pop in and float, a slow water shimmer. transform / opacity only; still under fx-lite + reduced motion; day theme + 640px. */
+.ltk { display: grid; gap: 8px; padding: 12px; border-radius: 16px; border: 1px solid rgba(21, 209, 106, .3); background: radial-gradient(80% 60% at 50% 0%, rgba(21, 209, 106, .12), transparent 70%), #040706; box-shadow: inset 0 1px 0 rgba(255, 255, 255, .06), 0 0 50px -26px #15d16a; }
+.ltk header { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; } .ltk header b { font: 900 11px 'JetBrains Mono', monospace; letter-spacing: .14em; color: #86efac; }
+.ltk-k { margin-left: auto; font: 800 10.5px 'JetBrains Mono', monospace; color: #dff3e6; } .ltk-k + .ltk-k { margin-left: 0; color: #7f9a88; }
+.ltk-dot { width: 8px; height: 8px; border-radius: 50%; background: #6b7a72; } .ltk-dot.is-on { background: #45e486; box-shadow: 0 0 10px #45e486; animation: ltkBeat 1.4s ease-in-out infinite; }
+.ltk-tank { position: relative; height: 230px; border-radius: 14px; overflow: hidden; isolation: isolate; border: 1px solid rgba(134, 239, 172, .22); background: linear-gradient(180deg, rgba(4, 30, 20, .4), rgba(2, 18, 12, .95)); }
+.ltk.is-compact .ltk-tank { height: 150px; }
+.ltk-water { position: absolute; inset: -20% -10% 0; z-index: -1; background: radial-gradient(60% 30% at 30% 20%, rgba(69, 228, 134, .12), transparent 70%), radial-gradient(50% 25% at 75% 60%, rgba(69, 228, 134, .08), transparent 70%); animation: ltkDrift 12s ease-in-out infinite alternate; }
+.ltk-glass { position: absolute; inset: 0; pointer-events: none; z-index: 2; background: linear-gradient(100deg, rgba(255, 255, 255, .06), transparent 30%, transparent 70%, rgba(255, 255, 255, .04)); }
+.ltk-tick { position: absolute; left: 6px; font: 700 8.5px 'JetBrains Mono', monospace; font-style: normal; color: rgba(134, 239, 172, .45); z-index: 1; }
+.ltk-tick::after { content: ''; position: absolute; left: 34px; top: 50%; width: 3000px; border-top: 1px dashed rgba(134, 239, 172, .1); }
+.ltk-now { position: absolute; right: 8px; top: 6px; font: 800 8.5px 'JetBrains Mono', monospace; font-style: normal; letter-spacing: .1em; color: rgba(134, 239, 172, .6); z-index: 1; }
+.ltk-b { position: absolute; width: calc(var(--r) * 2); height: calc(var(--r) * 2); margin: 0 0 calc(var(--r) * -1) calc(var(--r) * -1); border-radius: 50%; display: grid; place-items: center; text-decoration: none;
+  --h: calc(140 - var(--p) * 95);   /* green (140) → gold (45) as it climbs the curve */
+  background: radial-gradient(circle at 35% 30%, rgba(255, 255, 255, .55), hsl(var(--h) 75% 55%) 45%, hsl(var(--h) 80% 28%));
+  box-shadow: 0 0 calc(4px + var(--p) * 14px) hsl(var(--h) 80% 55%); transition: left 1.2s ease, bottom 1.2s ease; animation: ltkBob 4s ease-in-out infinite; z-index: 1; }
+.ltk-b span { font: 800 7.5px 'JetBrains Mono', monospace; color: #04140b; opacity: 0; transition: opacity .15s; pointer-events: none; }
+.ltk-b:hover, .ltk-b:focus-visible { z-index: 3; outline: none; transform: scale(1.35); } .ltk-b:hover span, .ltk-b:focus-visible span { opacity: 1; }
+.ltk-b.is-new { animation: ltkPop .6s cubic-bezier(.2, 1.4, .4, 1) both, ltkBob 4s ease-in-out .6s infinite; }
+.ltk-b.is-hot::after { content: ''; position: absolute; inset: -4px; border-radius: 50%; border: 1px solid #ffd36b; animation: ltkRing 1.8s ease-out infinite; }
+.ltk-wait { position: absolute; inset: 0; display: grid; place-items: center; margin: 0; font: 700 11px 'JetBrains Mono', monospace; color: #7f9a88; animation: ltkBeat 1.6s ease-in-out infinite; }
+.ltk-grads { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; } .ltk-grads em { font: 800 9px 'JetBrains Mono', monospace; font-style: normal; letter-spacing: .12em; color: #ffd36b; }
+.ltk-grads span { font: 800 10px 'JetBrains Mono', monospace; padding: 3px 8px; border-radius: 999px; color: #2a1d04; background: #ffd36b; animation: ltkPop .4s ease-out both; }
+@keyframes ltkBob { 50% { transform: translateY(-4px); } }
+@keyframes ltkPop { from { transform: scale(0); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+@keyframes ltkRing { from { transform: scale(.9); opacity: .9; } to { transform: scale(1.7); opacity: 0; } }
+@keyframes ltkDrift { to { transform: translate(6%, 4%); } }
+@keyframes ltkBeat { 50% { opacity: .5; } }
+body.fx-lite :is(.ltk-b, .ltk-water, .ltk-b.is-hot::after, .ltk-dot, .ltk-grads span) { animation: none; } body.fx-lite .ltk-b { transition: none; }
+@media (prefers-reduced-motion: reduce) { :is(.ltk-b, .ltk-water, .ltk-b::after, .ltk-dot, .ltk-grads span, .ltk-wait) { animation: none !important; } .ltk-b { transition: none; } }
+body.theme-day .ltk { background: #f1fbf5; } body.theme-day .ltk-tank { background: linear-gradient(180deg, #e9f8ef, #d3efdf); } body.theme-day .ltk header b { color: #0a6b3c; } body.theme-day .ltk-k { color: #10301f; }
+@media (max-width: 640px) { .ltk-tank { height: 170px; } }

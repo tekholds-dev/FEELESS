@@ -112,7 +112,7 @@ export function LaunchFloor({ t, rail: rail0 }) {
       <span className="llp-age m-num">{ago(r.at)}</span>
       <span className="llp-mc m-num">{usdK(r.marketCapUsd)}</span>
       <span className="llp-dev m-num" data-tip="What the creator bought in the launch transaction">{r.devBuySol ? `dev ${r.devBuySol.toFixed(2)}◎` : 'no dev buy'}</span>
-      <u className="llp-curve" data-tip={`${Math.round((r.curveProgress || 0) * 100)}% up the bonding curve`}><s style={{ transform: `scaleX(${Math.max(0.02, Math.min(1, r.curveProgress || 0))})` }} /></u>
+      <u className="llp-curve" data-tip={`${Math.round(r.curveProgress || 0)}% up the bonding curve`}><s style={{ transform: `scaleX(${Math.max(0.02, Math.min(1, (r.curveProgress || 0) / 100))})` }} /></u>
     </li>)}{!rows.length ? <li className="llp-wait">{d ? 'Waiting for the next launch…' : 'Connecting to the pump.fun stream…'}</li> : null}</ol>
   </div>;
 }

@@ -263,3 +263,8 @@ body.theme-day .pt-pay .m-seg, body.theme-day .pp-landing { background: #fff; co
 body.fx-lite .pd-side { animation: none; } @media (prefers-reduced-motion: reduce) { .pd-side { animation: none; } }
 body.theme-day .pd.pv-cdc { background: #f3f9ff; } body.theme-day .pd.pv-kalshi { background: #f1fcf9; } body.theme-day .pd.pv-broker { background: #fffaf0; }
 @media (max-width: 980px) { .pd-side { max-height: none; } }
+/* 🏦 your broker / Crypto.com get a BIG trade station (owner 2026-10-26: "brokerage should be big") */
+.pd.pv-broker .pd-main, .pd.pv-cdc .pd-main { grid-template-columns: minmax(0, 1fr) minmax(440px, 1.05fr); }
+.pd.pv-broker .pd-side, .pd.pv-cdc .pd-side { max-height: none; padding: 16px; }
+.pd-side .bk-t { font-size: 15px; } .pd-side .bk-val b { font-size: 26px; } .pd-side .bk-ticket input, .pd-side .bk-ticket .bk-go { min-height: 44px; font-size: 14px; }
+@media (max-width: 1100px) { .pd.pv-broker .pd-main, .pd.pv-cdc .pd-main { grid-template-columns: 1fr; } }

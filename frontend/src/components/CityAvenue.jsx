@@ -2,6 +2,7 @@ import React, { Suspense, lazy, useEffect, useState } from 'react';
 import { PerpsDash } from './PerpsDash';
 import { BrokerDesk } from './BrokerDesk';
 import { TrenchTowers } from './TrenchTowers';
+import { LiveTank } from './LiveTank';
 import { useMarket } from '../hooks/useMarket';
 import { familiaTrade } from './FamiliaTrade';
 import { TokenAvatar } from './terminal/MarketPrimitives';
@@ -63,6 +64,7 @@ function PumpRadar({ scope = 'pump' }) {
   const coins = (data?.pairs || []).filter(p => p.chainId === 'solana' && p.baseToken?.address).slice(0, 12);
   const v = pumpVitals(coins);
   return <div className="av-radar" data-testid="av-pumpradar">
+    {scope === 'pump' ? <LiveTank compact /> : null}
     <div className="av-vitals">
       <Meter i={0} label="MOVING UP NOW" value={`${v.up}/${v.n}`} fill={v.n ? v.up / v.n : 0} tone={v.up >= v.n / 2 ? 'is-up' : 'is-down'} tip="Coins on the Pump board green over the last 5 minutes" />
       <Meter i={1} label="AVG 5M" value={pct(v.avg5m)} fill={heatOf(v.avg5m)} tone={(v.avg5m ?? 0) >= 0 ? 'is-up' : 'is-down'} tip="The board's average 5-minute move" />
