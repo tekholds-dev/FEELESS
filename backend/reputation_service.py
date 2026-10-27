@@ -10939,6 +10939,103 @@ async def familia_perps_real_execute(request: Request):
 _frun_tok = {}   # 'at' + 'rows': Jupiter Lend Earn's USDC / SOL doors, read at most once a minute
 
 
+_rng_cache: dict = {}   # key → (at, rows): the venues' own pool reads, 2 min
+
+
+async def _rng_get(key, url, params, parse):
+    hit_ = _rng_cache.get(key)
+    if hit_ and time.time() - hit_[0] < 120:
+        return hit_[1]
+    try:
+        r_ = await _fmk_http_get().get(url, params=params, timeout=12)
+        rows_ = parse(r_.json() if r_.status_code == 200 else {})
+    except Exception:
+        rows_ = None
+    if rows_ is None:
+        return hit_[1] if hit_ else []
+    _rng_cache[key] = (time.time(), rows_)
+    if len(_rng_cache) > 400:
+        _rng_cache.clear()
+    return rows_
+
+
+AUTORANGE_PATH = DATA_DIR / 'autorange.json'   # {wallet: [armed band]} — the server watcher pings the phone when a band sits out of range
+
+
+@app.post('/api/reputation/familia-pools/autorange/arm')
+async def familia_autorange_arm(request: Request):
+    """📲 Arm (or with {remove: position} disarm) the AutoRange watcher on a band the wallet really opened: venue · pool · position · the band's
+    edges in the pool's own price · the strategy's wait. Signed session; ≤ 10 bands per wallet. The watcher only ever NOTIFIES — the wallet signs every move."""
+    b_ = await request.json()
+    me_ = _session_or_401(str((b_ or {}).get('address') or ''), str((b_ or {}).get('session') or ''))
+    st_ = _json_load(AUTORANGE_PATH, {}) or {}
+    rows_ = [r_ for r_ in (st_.get(me_) or []) if r_.get('position') != (b_.get('remove') or b_.get('position'))]
+    if not b_.get('remove'):
+        lo_, hi_ = _fuse._f(b_.get('lo')), _fuse._f(b_.get('hi'))
+        if b_.get('venue') not in ('raydium', 'meteora') or not (0 < lo_ < hi_) or not 32 <= len(str(b_.get('pool') or '')) <= 44 or not 32 <= len(str(b_.get('mint') or '')) <= 44:
+            raise HTTPException(400, 'A Raydium / Meteora band with its pool, token and edges.')
+        rows_ = (rows_ + [{'venue': b_['venue'], 'pool': b_['pool'], 'mint': b_['mint'], 'sym': str(b_.get('sym') or '')[:24], 'position': str(b_.get('position') or '')[:64],
+                           'lo': lo_, 'hi': hi_, 'wait': max(1.0, min(240.0, _fuse._f(b_.get('wait')) or 15.0)), 'at': time.time()}])[-10:]
+    if rows_:
+        st_[me_] = rows_
+    else:
+        st_.pop(me_, None)
+    _json_save(AUTORANGE_PATH, st_)
+    return {'ok': True, 'bands': len(rows_)}
+
+
+async def _autorange_watch():
+    """Every minute: each armed band vs its pool's own live price (the venue API, cached 2 min) → a phone ping when a move is due."""
+    import range_pools as _rp
+    while True:
+        await asyncio.sleep(60)
+        try:
+            st_ = _json_load(AUTORANGE_PATH, {}) or {}
+            if not st_:
+                continue
+            px_ = {}
+            for mint_ in {r_['mint'] for rows_ in st_.values() for r_ in rows_}:
+                got_ = await familia_pools_ranges(mint=mint_, quote='', top=0)
+                px_.update({p_['pool']: p_['price'] for p_ in got_.get('pools') or []})
+            now_, changed_ = time.time(), False
+            for w_, rows_ in st_.items():
+                for i_, r_ in enumerate(rows_):
+                    nb_, msg_ = _rp.watch_step(r_, px_.get(r_['pool']), now_)
+                    if nb_ != r_:
+                        rows_[i_] = nb_; changed_ = True
+                    if msg_:
+                        notify(w_, 'autorange', msg_, url='/terminal/launch?mode=pools', meta={'claim': 'autorange', 'source': r_['venue'], 'pool': r_['pool']})
+            if changed_:
+                _json_save(AUTORANGE_PATH, st_)
+        except Exception as e:
+            print('autorange watch:', str(e)[:120])
+
+
+@app.on_event('startup')
+async def _autorange_boot():
+    asyncio.create_task(_autorange_watch())
+
+
+@app.get('/api/reputation/familia-pools/ranges')
+async def familia_pools_ranges(mint: str = Query('', max_length=64), quote: str = Query('', max_length=64), top: int = 0):
+    """🤖 The concentrated pools AutoRange can really open in — Raydium CLMM + Meteora DLMM, read from each venue's own API (fees ÷ TVL over 24h,
+    fee tier, tick spacing / bin step). `mint` = the pools holding that token (deepest first); `top=1` = the busiest fee payers right now."""
+    import range_pools as _rp
+    ray_ = lambda d_: _rp.raydium(((d_ or {}).get('data') or {}).get('data') or [])
+    met_ = lambda d_: _rp.meteora((d_ or {}).get('data') or [])
+    if top:
+        a_, b_ = await asyncio.gather(
+            _rng_get('ray:top', 'https://api-v3.raydium.io/pools/info/list', {'poolType': 'concentrated', 'poolSortField': 'volume24h', 'sortType': 'desc', 'pageSize': 50, 'page': 1}, ray_),
+            _rng_get('met:top', 'https://dlmm.datapi.meteora.ag/pools', {'page_size': 50, 'sort_by': 'volume_24h:desc'}, met_))
+        return {'pools': _rp.busiest(a_ + b_, 10), 'at': round(time.time())}
+    if not 32 <= len(mint) <= 44:
+        raise HTTPException(400, 'A token mint, or top=1.')
+    a_, b_ = await asyncio.gather(
+        _rng_get(f'ray:{mint}', 'https://api-v3.raydium.io/pools/info/mint', {'mint1': mint, 'poolType': 'concentrated', 'poolSortField': 'liquidity', 'sortType': 'desc', 'pageSize': 10, 'page': 1}, ray_),
+        _rng_get(f'met:{mint}', 'https://dlmm.datapi.meteora.ag/pools', {'query': mint, 'page_size': 10}, met_))
+    return {'pools': _rp.for_token(a_ + b_, mint, quote or None)[:8], 'at': round(time.time())}
+
+
 @app.get('/api/reputation/familia-pools/run')
 async def familia_pools_run(address: str = ''):
     """💵 THE $5 RUN: the two Jupiter Lend Earn doors (USDC · SOL, live APY) + the wallet's own deposits in them — what each is worth NOW
@@ -28166,7 +28263,7 @@ def notify(address: str, kind: str, text: str, url: str = '', actor: str = '', o
     try:
         for e in _push_load()['subs'].values():
             if primary_of((e.get('prefs') or {}).get('address') or '') == to:
-                asyncio.get_running_loop().run_in_executor(None, _send_push, e['subscription'], {'dm': '💬 New message', 'follow': '➕ New follower', 'wall': '🧱 New wall post', 'mention': '📣 You were mentioned', 'reward': '🎁 Reward ready', 'invite': '🎉 Invite joined', 'snipers': '🎯 Snipers are out', 'watch': '👁 Watched wallet moved'}.get(kind, 'FEELESS'), text[:120], url or '/terminal', f'n-{kind}')
+                asyncio.get_running_loop().run_in_executor(None, _send_push, e['subscription'], {'dm': '💬 New message', 'follow': '➕ New follower', 'wall': '🧱 New wall post', 'mention': '📣 You were mentioned', 'reward': '🎁 Reward ready', 'invite': '🎉 Invite joined', 'snipers': '🎯 Snipers are out', 'watch': '👁 Watched wallet moved', 'autorange': '🤖 AutoRange'}.get(kind, 'FEELESS'), text[:120], url or '/terminal', f'n-{kind}')
     except Exception:
         pass
 
@@ -30870,6 +30967,21 @@ RPC_ALLOW = {'getAccountInfo', 'getMultipleAccounts', 'getLatestBlockhash', 'get
              'getSignatureStatuses', 'simulateTransaction', 'getBalance', 'getTokenAccountBalance', 'getFeeForMessage', 'getSlot',
              'getBlockHeight', 'isBlockhashValid', 'getEpochInfo',
              'getTokenAccountsByOwner', 'getBlockTime'}   # 🏗 LP positions in place (2026-10-23): the wallet's position NFTs + a pool's activation clock
+# 🤖 AutoRange (2026-10-26): Meteora DLMM lists a wallet's positions with getProgramAccounts — allowed ONLY on these programs and ONLY with a
+# memcmp filter (by owner / pool), never the unfiltered scan that would cost the relay a whole program's accounts.
+RPC_GPA_PROGRAMS = {'LBUZKhRxPF3XUpBCjp4YzTKgLccjZhTSDM9YuVaPwxo', 'CAMMCzo5YL8w4VFF8KVHrK22GGUsp5VTaW7grrKgrWqK'}
+
+
+def _rpc_call_ok(c) -> bool:
+    if not isinstance(c, dict):
+        return False
+    if c.get('method') in RPC_ALLOW:
+        return True
+    if c.get('method') != 'getProgramAccounts':
+        return False
+    p_ = c.get('params') or []
+    opt_ = p_[1] if len(p_) > 1 and isinstance(p_[1], dict) else {}
+    return bool(p_) and p_[0] in RPC_GPA_PROGRAMS and any(isinstance(f_, dict) and 'memcmp' in f_ for f_ in (opt_.get('filters') or []))
 _rpc_hits: dict = {}
 
 
@@ -30893,7 +31005,7 @@ async def rpc_relay(request: Request):
     _rpc_hits[ip] = hits + [now]
     body = await request.json()
     calls = body if isinstance(body, list) else [body]
-    if len(calls) > 10 or any(not isinstance(c, dict) or c.get('method') not in RPC_ALLOW for c in calls):
+    if len(calls) > 10 or any(not _rpc_call_ok(c) for c in calls):
         raise HTTPException(403, 'RPC method not allowed.')
     endpoint = _dedicated or _next_rpc_endpoint()
     async with httpx.AsyncClient(timeout=20) as http:

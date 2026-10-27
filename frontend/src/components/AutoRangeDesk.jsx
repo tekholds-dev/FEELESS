@@ -3,6 +3,9 @@ import { apiUrl } from '../lib/api';
 import { fetchFeelessCandles } from '../lib/candles';
 import { useLivePrice } from '../lib/livePriceHub';
 import { STRATEGIES, decide, replay, projection, closes, marketState, targetWidth, dayFees, feeTier, poolDayRate, bandEdge, REF_W } from '../lib/autoRange';
+import { useWallet } from '../hooks/useWallet';
+import { useSolPrice } from '../lib/solPrice';
+import { getChatSession } from '../lib/chatSession';
 import '../styles/autoRange.css';
 
 // 🤖 AUTORANGE DESK (owner 2026-10-26 mock-up: Pool Hall / Night Vault / Launch › Pools). The ENGINE (lib/autoRange.js) on this pool's REAL data:
@@ -54,14 +57,33 @@ export function bandChart(candles, path, W = 600, H = 220, live = null) {
 
 function Ring({ v }) { return <i className="arx-ring" style={{ '--v': Math.max(0, Math.min(100, v || 0)) }} aria-hidden="true" />; }
 
+// the on-chain pool this desk can really open in: the hub row's own Meteora pool, else the same pair on Raydium CLMM / Meteora DLMM (deepest)
+export function pickVenue(rows, pool) {
+  const list = rows || []; const quote = (pool?.mints || []).find(m => m && m !== pool?.hold);
+  const exact = list.find(r => r.pool === pool?.id || r.pool === pool?.pair); if (exact) return exact;
+  const want = pool?.kind === 'dlmm' ? 'meteora' : /raydium/i.test(pool?.proto || '') ? 'raydium' : null;
+  const same = list.filter(r => !quote || r.mintX === quote || r.mintY === quote);
+  return same.find(r => r.venue === want) || same[0] || null;
+}
+function useVenue(pool) {
+  const [v, setV] = useState({ row: null, state: 'loading' });
+  useEffect(() => { if (!pool?.hold) return undefined; let on = true;
+    fetch(apiUrl(`/api/reputation/familia-pools/ranges?mint=${pool.hold}`)).then(r => (r.ok ? r.json() : null)).then(d => on && setV({ row: pickVenue(d?.pools, pool), state: 'ok' })).catch(() => on && setV({ row: null, state: 'error' }));
+    return () => { on = false; }; }, [pool?.hold, pool?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+  return v;
+}
+
 export function AutoRangeDesk({ pool, amt: amt0 = null }) {
-  const mint = pool?.hold || null; const tape = usePoolTape(mint);
+  const mint = pool?.hold || null; const tape = usePoolTape(mint); const venue = useVenue(pool); const vrow = venue.row;
+  const { wallet, provider, connect, signMessage } = useWallet() || {}; const me = wallet?.chain === 'solana' ? wallet.address : null; const solPx = useSolPrice();
+  const [bands, setBands] = useState(null); const [busy, setBusy] = useState(''); const [err, setErr] = useState(''); const [done, setDone] = useState(null);
   const live = useLivePrice(mint ? { chainId: 'solana', baseToken: { address: mint } } : null); const price = live?.live ? live.usd : (tape.candles.length ? tape.candles[tape.candles.length - 1][4] : null);
   const [strat, setStrat] = useState('balanced'); const [amt, setAmt] = useState(amt0 || 5); const [custom, setCustom] = useState(null);
   const [on, setOn] = useState(true); const [comp, setComp] = useState(true);
   const [armed, setArmed] = useState(() => { try { return JSON.parse(localStorage.getItem(ARM_KEY(pool?.id)) || 'null'); } catch { return null; } });
   useEffect(() => { if (amt0) setAmt(amt0); }, [amt0]);
-  const { rate, src } = poolDayRate(pool);
+  const hub = poolDayRate(pool); const rate = vrow?.rate > 0 ? vrow.rate : hub.rate;   // the venue's own 24h fees ÷ TVL beats the hub's estimate
+  const src = vrow?.rate > 0 ? `${vrow.venue === 'raydium' ? 'Raydium' : 'Meteora'}'s own 24h fees ÷ TVL` : hub.src;
   const cl = useMemo(() => closes(tape.candles), [tape.candles]); const ms = useMemo(() => marketState(cl), [cl]);
   const w = custom || targetWidth(ms.vol, strat);
   const rp = useMemo(() => (tape.candles.length ? replay(tape.candles, { amt, rate, strat }) : null), [tape.candles, amt, rate, strat]);
@@ -73,6 +95,37 @@ export function AutoRangeDesk({ pool, amt: amt0 = null }) {
   const chart = useMemo(() => bandChart(tape.candles, rp?.path, 600, 220, price), [tape.candles, rp, price]);
   const proj = price ? projection(price, ms.vol, w, amt, rate) : null;
   const ch24 = Number(tape.pair?.priceChange?.h24); const inside = band && price ? price >= band.lo && price <= band.hi : null;
+  const loadBands = async () => { if (!vrow || !me) { setBands(null); return; }
+    try { const { positionsOf } = await import('../lib/rangeExec'); setBands(await positionsOf({ owner: me, row: vrow })); } catch { setBands(b => b || []); } };
+  useEffect(() => { loadBands(); }, [vrow?.pool, me]); // eslint-disable-line react-hooks/exhaustive-deps
+  const watch = async (position, plan) => {   // 📲 the server watches this band and pushes "move due" to the phone (non-blocking)
+    try { const session = await getChatSession(me, signMessage); const k = 1 + w / 100;
+      await fetch(apiUrl('/api/reputation/familia-pools/autorange/arm'), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ address: me, session, venue: vrow.venue, pool: vrow.pool,
+        mint, sym: vrow.name, position, lo: plan.loPct != null ? plan.price * (1 - plan.loPct / 100) : plan.price / k, hi: plan.hiPct != null ? plan.price * (1 + plan.hiPct / 100) : plan.price * k, wait: STRATEGIES[strat].wait }) });
+    } catch { /* the band is open either way; the watcher is a bonus */ } };
+  const run = async (label, fn) => { if (!me || !provider) { await connect?.('solana'); return; } setErr(''); setDone(null); setBusy(label);
+    try { const ex = await import('../lib/rangeExec'); const r = await fn(ex); setDone(r); await loadBands(); } catch (e) { setErr(e?.code === 4001 ? 'Declined in the wallet — nothing more was sent.' : String(e?.message || e).slice(0, 220)); } setBusy(''); };
+  const openReal = () => run('Reading the band…', async ex => {
+    const xUsd = vrow.mintX === ex.SOL ? solPx : vrow.mintX === mint ? price : vrow.price * (vrow.mintY === ex.SOL ? solPx : 1);
+    const pre = await ex.zapOpen({ owner: me, row: vrow, usd: amt, w, solPx, xUsd, planOnly: true });
+    const p = pre.plan; const rent = p.cost ? p.cost.positionSol + p.cost.binArraySol : vrow.venue === 'raydium' ? 0.03 : 0.06;
+    const swaps = [vrow.mintX, vrow.mintY].filter(m => m !== ex.SOL).length;
+    const msg = `OPEN ${vrow.name} on ${vrow.venue === 'raydium' ? 'Raydium CLMM' : 'Meteora DLMM'}\n\n` +
+      `$${amt} → ${swaps ? `${swaps} swap${swaps > 1 ? 's' : ''} for the non-SOL side, then ` : ''}a band ${p.loPct != null ? `−${p.loPct.toFixed(1)}% / +${p.hiPct.toFixed(1)}%${p.capped ? ' (capped to one position)' : ''}` : `±${w}%`} around ${p.price.toPrecision(5)}\n` +
+      `Rent locked: ~${rent.toFixed(3)} SOL (≈$${(rent * solPx).toFixed(2)})${p.cost?.binArraySol ? ` — ${p.cost.binArraySol.toFixed(3)} SOL of it is a one-time bin-array cost, NOT refunded` : ' — refunded when you close'}\n` +
+      `Every transaction is simulated first; your wallet signs ${swaps + 1}×.`;
+    if (!window.confirm(msg)) throw new Error('Cancelled — nothing was signed.');
+    const r = await ex.zapOpen({ provider, owner: me, row: vrow, usd: amt, w, solPx, xUsd, onStatus: setBusy });
+    await watch(r.position, r.plan); return { ...r, what: 'OPENED' };
+  });
+  const recenterReal = b => run('Re-centering…', async ex => {
+    if (!window.confirm(`RE-CENTER ${vrow.name}: close the old band (its fees come with it) → open ±${w}% on the live price with what it returns. Your wallet signs each step.`)) throw new Error('Cancelled — nothing was signed.');
+    const r = await ex.recenter({ provider, owner: me, row: vrow, position: b.position, w, onStatus: setBusy }); await watch(r.position, r.plan); return { ...r, what: 'RE-CENTERED' };
+  });
+  const closeReal = b => run('Closing…', async ex => {
+    if (!window.confirm(`CLOSE this ${vrow.name} band: withdraw 100% + its fees back to your wallet, rent refunded.`)) throw new Error('Cancelled — nothing was signed.');
+    const r = await ex.closeBand({ provider, owner: me, row: vrow, position: b.position, onStatus: setBusy }); return { sigs: r.signatures, what: 'CLOSED' };
+  });
   const arm = () => { const a = { band: dec?.band || band, strat, amt, w, at: Date.now() }; try { localStorage.setItem(ARM_KEY(pool.id), JSON.stringify(a)); } catch { /* private mode */ } setArmed(a); };
   const disarm = () => { try { localStorage.removeItem(ARM_KEY(pool.id)); } catch { /* private */ } setArmed(null); };
   const slider = band && price ? Math.max(0, Math.min(1, Math.log(price / band.lo) / Math.log(band.hi / band.lo))) : 0.5;
@@ -156,10 +209,19 @@ export function AutoRangeDesk({ pool, amt: amt0 = null }) {
       <div className="arx-go">
         <header><b>🚀 DEPOSIT & RUN</b><small>{pool.proto} · Solana · your wallet signs each move</small></header>
         <div className="arx-amts" role="radiogroup" aria-label="Amount">{AMTS.map(a => <button key={a} type="button" role="radio" aria-checked={amt === a} className={amt === a ? 'is-on' : ''} onClick={() => setAmt(a)} data-tip={`Plan it with $${a}`}>${a}</button>)}</div>
-        <button type="button" className="m-btn m-go arx-start" onClick={armed ? disarm : arm} disabled={!dec || dec.action === 'WAIT'} data-testid="arx-start"
-          data-tip={armed ? 'Stop watching this band' : 'Arms the engine on this band: it watches every tick and tells you the moment a move pays — each move is a transaction your wallet signs'}>
-          {armed ? '■ STOP AUTORANGE' : dec?.action === 'PAUSE' ? '⏸ TOO WILD — WATCH ONLY' : `⚡ START AUTORANGE & COMPOUND · ${$(amt, 0)}`}</button>
-        <small className="arx-fine">Fees: the pool's own rate ({src}) × your band's edge over a typical ±{REF_W}% LP. Est. move cost {$(dec?.cost, 3)} · {pool.proto} {pool.kind === 'dlmm' ? 'DLMM' : 'CLMM'} positions open in its own app until its SDK lands in FEELESS — the engine plans + watches here. Meme pools are never "safe"; fees are not a promise.</small>
+        {vrow ? <button type="button" className="m-btn m-go arx-start" onClick={openReal} disabled={!!busy || !dec || dec.action === 'WAIT' || dec.action === 'PAUSE' || !(solPx > 0)} data-testid="arx-start"
+          data-tip={`Opens a REAL ±${w}% band on ${vrow.venue === 'raydium' ? 'Raydium CLMM' : 'Meteora DLMM'} (${vrow.name}): swaps for the non-SOL side, then the position — every transaction simulated first, your wallet signs each`}>
+          {busy || (!me ? '🔌 CONNECT WALLET' : dec?.action === 'PAUSE' ? '⏸ TOO WILD — WATCH ONLY' : `⚡ START AUTORANGE · ${$(amt, 0)} · ${vrow.venue === 'raydium' ? 'RAYDIUM' : 'METEORA'}`)}</button>
+          : <button type="button" className="m-btn arx-start" onClick={armed ? disarm : arm} disabled={!dec} data-testid="arx-start" data-tip="No Raydium CLMM / Meteora DLMM pool for this pair — the engine watches it here">{armed ? '■ STOP WATCHING' : venue.state === 'loading' ? 'Finding the pool…' : '👁 WATCH ONLY (no Raydium / Meteora pool)'}</button>}
+        {err ? <p className="arx-err" role="alert">⚠ {err}</p> : null}
+        {done ? <p className="arx-ok" role="status">✅ {done.what} · {(done.sigs || []).length} transaction{(done.sigs || []).length === 1 ? '' : 's'} · {(done.sigs || []).slice(-1).map(sg => <a key={sg} href={`https://solscan.io/tx/${sg}`} target="_blank" rel="noopener noreferrer">{sg.slice(0, 8)}… ↗</a>)}</p> : null}
+        {vrow && me ? <div className="arx-bands" data-testid="arx-bands"><em>YOUR BANDS · {vrow.name}</em>
+          {bands == null ? <small>reading your positions…</small> : !bands.length ? <small>none open yet</small>
+            : bands.map(b => <div key={b.position} className={`arx-band ${b.inRange ? 'is-in' : 'is-out'}`}><i aria-hidden="true" /><span><b>{b.inRange ? 'IN RANGE · EARNING' : 'OUT OF RANGE'}</b>
+              <small className="m-num">{b.xUi != null ? `${b.xUi.toPrecision(4)} ${vrow.symX} + ${b.yUi.toPrecision(4)} ${vrow.symY}${b.feeXUi || b.feeYUi ? ` · fees ${b.feeXUi.toPrecision(3)} / ${b.feeYUi.toPrecision(3)}` : ''}` : `ticks ${b.tickLower} – ${b.tickUpper}`}</small></span>
+              <button type="button" className="m-btn" disabled={!!busy} onClick={() => recenterReal(b)} data-tip={`Close → re-open ±${w}% on the live price (fees come with it)`}>⟲ RE-CENTER</button>
+              <button type="button" className="m-btn" disabled={!!busy} onClick={() => closeReal(b)} data-tip="Withdraw everything + fees, rent refunded">✕ CLOSE</button></div>)}</div> : null}
+        <small className="arx-fine">Fees: {src} × your band's edge over a typical ±{REF_W}% LP. A move costs ~{$(dec?.cost, 3)} + the network. {vrow ? `Opens on ${vrow.venue === 'raydium' ? 'Raydium CLMM' : 'Meteora DLMM'} · ${vrow.name} · TVL ${big(vrow.tvl)} — the position is yours (in your wallet); FEELESS never holds it. The server pings your phone when it has sat out of range for ${STRATEGIES[strat].wait} min.` : 'This pair has no Raydium CLMM / Meteora DLMM pool — watch only.'} Meme pools are never "safe"; fees are not a promise.</small>
       </div>
     </div>
   </section>;
