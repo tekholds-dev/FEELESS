@@ -165,6 +165,10 @@ STANDING RULES (never "done"):
 - 🚀 NO RISK NO REWARD (owner): money surfaces lead with the aggressive play (MOON: tight v3 / DLMM bands on the busiest pools; DEGEN: the
   hottest fee pools) with the risk named — SAFE yields are one tap away, never the headline. "Think big, not the same utilities."
 
+P0 — OWNER 2026-10-26 LAST ASKS (open): ① 📊 HQ cockpit + a user FUSE DASHBOARD show 2 charts by default with a 1 | 2 switch per device
+   (first try reverted: `seats` is defined after `model` in AgentCockpit — move the second-chart memo below it) · ② 💳 a free Circle (or similar)
+   account per user from their purchase, sign once — needs the owner's Circle business onboarding + KYC first; custody rules (DECISIONS #2) apply ·
+   ③ iPhone Duo per-tab features beyond the split layouts (lib/duo.js).
 P0 — OWNER 2026-10-26 (the "finish it" list; shipped this day → history "2026-10-26") — open, priority order:
 a. 🤖 AUTORANGE: real opens / re-centers / closes SHIPPED 2026-10-26 (all four simulated clean on mainnet) — NEXT: the owner's first real $25 open +
    re-center read back · Orca Whirlpool as a 3rd venue · DLMM bands wider than 69 bins (extended positions). ⚖ OWNER DECISION: "sign once, the AIs
