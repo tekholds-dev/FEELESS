@@ -381,16 +381,19 @@ function LaunchPreviewCard({ form }) {
     {form.bannerUrl && <img className="launch-preview-banner" src={form.bannerUrl} alt="" onError={e => { e.currentTarget.style.display = 'none'; }} />}
     <div className="launch-preview-id">
       <div className="launch-preview-img">{form.imageUrl ? <img src={form.imageUrl} alt="" onError={e => { e.currentTarget.style.display = 'none'; }} /> : <span>{(form.symbol || '?').slice(0, 2).toUpperCase()}</span>}</div>
-      <div><b>{form.name || 'Your coin'}</b><small>${(form.symbol || 'TICKER').toUpperCase()}{style ? ` · ${style.name}` : ''}</small></div>
+      <div><b>{form.name || 'Your coin'}</b><small>${(form.symbol || 'TICKER').toUpperCase()}{form.providerId === 'pump' ? ' · pump.fun' : style ? ` · ${style.name}` : ''}</small></div>
     </div>
     {form.description && <p className="launch-preview-desc">{form.description}</p>}
     {links.length > 0 && <div className="launch-preview-links">{links.map(([k, Icon, href]) => <a key={k} href={href} target="_blank" rel="noreferrer" title={href}><Icon size={13} /></a>)}</div>}
-    <div className="launch-preview-stats"><span><small>OPEN MC</small><b>${form.openingMarketCap}k</b></span><span><small>GRADUATES</small><b>{form.graduationTarget} {form.liquidityPair}</b></span><span><small>SWAP FEE</small><b>{form.swapFee}%</b></span></div>
-    <div className="launch-preview-chips">{mechanicChips(form).map(([k, text]) => <span key={k} className={`chip-${k}`}>{text}</span>)}</div>
+    {form.providerId === 'pump'   // pump.fun's own fixed terms — the FEELESS mechanics (blocklist, buyback, locks) do not apply there
+      ? <><div className="launch-preview-stats"><span><small>SUPPLY</small><b>1B</b></span><span><small>GRADUATES</small><b>~85 SOL</b></span><span><small>FEE</small><b>pump.fun's</b></span></div>
+        <div className="launch-preview-chips"><span className="chip-curve">pump.fun bonding curve</span><span className="chip-lp">→ PumpSwap at graduation</span><span>mint + freeze revoked</span>{Number(form.devBuyAmount) > 0 ? <span>first buy {form.devBuyAmount} SOL</span> : null}</div></>
+      : <><div className="launch-preview-stats"><span><small>OPEN MC</small><b>${form.openingMarketCap}k</b></span><span><small>GRADUATES</small><b>{form.graduationTarget} {form.liquidityPair}</b></span><span><small>SWAP FEE</small><b>{form.swapFee}%</b></span></div>
+        <div className="launch-preview-chips">{mechanicChips(form).map(([k, text]) => <span key={k} className={`chip-${k}`}>{text}</span>)}</div></>}
   </div>;
 }
 
-export default function MetaLaunchSetup({ initialValues }) {
+export default function MetaLaunchSetup({ initialValues, bare = false }) {   // bare: embedded under the live launch floor — no page intro, no explainer
   const { wallet, provider, connect, signMessage } = useWallet();
   const [rail, setRail] = useState(null);
   const solPx = useSolPrice();
@@ -570,9 +573,9 @@ export default function MetaLaunchSetup({ initialValues }) {
   };
 
   return <div className="meta-launch-page" data-testid="meta-launch-page">
-    <div className="meta-launch-topline"><a href="/terminal/launch" className="meta-launch-back"><ArrowLeft size={14} />Launchpads</a><span className="eyebrow"><span className="live-dot" /> FEELESS META LAUNCH</span></div>
-    <header className="meta-launch-header"><div><span className="eyebrow">CURVE → GRADUATION → COMMUNITY</span><h1>Launch with a living economy.</h1><p>Build the curve, define where every swap fee goes, protect the opening seconds, then graduate into permanent liquidity. This is a launch plan until an approved provider is connected.</p></div></header>
-      {step === 'setup' && <details className="meta-launch-howto"><summary><Sparkles size={14} />How FEELESS launches work — curve, graduation, and what each box controls</summary>      <div className="meta-launch-mechanics-banner" data-testid="meta-launch-mechanics-banner"><div><span className="eyebrow"><Waves size={13} /> METEORA BONDING CURVE · ENFORCED ON-CHAIN</span><h2>What actually happens when you launch</h2>
+    {bare ? null : <div className="meta-launch-topline"><a href="/terminal/launch" className="meta-launch-back"><ArrowLeft size={14} />Launchpads</a><span className="eyebrow"><span className="live-dot" /> FEELESS META LAUNCH</span></div>}
+    {bare ? null : <header className="meta-launch-header"><div><span className="eyebrow">CURVE → GRADUATION → COMMUNITY</span><h1>Launch with a living economy.</h1><p>Build the curve, define where every swap fee goes, protect the opening seconds, then graduate into permanent liquidity. This is a launch plan until an approved provider is connected.</p></div></header>}
+      {step === 'setup' && !bare && <details className="meta-launch-howto"><summary><Sparkles size={14} />How FEELESS launches work — curve, graduation, and what each box controls</summary>      <div className="meta-launch-mechanics-banner" data-testid="meta-launch-mechanics-banner"><div><span className="eyebrow"><Waves size={13} /> METEORA BONDING CURVE · ENFORCED ON-CHAIN</span><h2>What actually happens when you launch</h2>
         <ol className="launch-explain">
           <li><b>You sign one transaction.</b> It creates the coin (fixed {Number(railActive?.params?.supply ?? 1e9).toLocaleString()} supply, mint authority revoked, metadata locked) and, if you choose, your first buy in the same block. Cost: ~0.02 SOL {usd(0.02, solPx)} rent + your first buy. FEELESS never holds your keys or funds.</li>
           <li><b>Trading starts on a bonding curve.</b> The price opens at a {Number(railActive?.params?.initialMarketCap ?? 30)} SOL {usd(railActive?.params?.initialMarketCap ?? 30, solPx)} valuation — nobody pays that; it's just where the curve starts. Every buy pushes the price up the curve, every sell moves it down.</li>

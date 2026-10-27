@@ -68,10 +68,10 @@ body.theme-day .launch-style-art path { stroke: #9cc9ad; } body.theme-day .launc
 body.theme-day .launch-ready-ring .t { stroke: #0d7a4118; } body.theme-day .launch-ready-ring b { color: #9a6a00; } body.theme-day .launch-ready-ring.is-go b { color: #0d7a41; }
 @media (max-width: 640px) { .launch-style-art { height: 28px; } .launch-ready-ring svg { width: 46px; height: 46px; } }
 /* 🚀 WHERE IT LAUNCHES (lrail-*): the rail is the first choice — it decides which steps exist. Pump = pump.fun's defaults only; rails not set up are faint. */
-.lrail { grid-column: 1 / -1; display: grid; grid-template-columns: auto repeat(3, minmax(0, 1fr)); gap: 8px; align-items: stretch; }
+.lrail { grid-column: 1; display: grid; grid-template-columns: auto repeat(3, minmax(0, 1fr)); gap: 8px; align-items: stretch; }
 .lrail-k { align-self: center; font: 800 9px 'JetBrains Mono', monospace; font-style: normal; letter-spacing: .16em; color: #7f9a88; writing-mode: vertical-rl; transform: rotate(180deg); }
 .lrail-opt { position: relative; display: grid; gap: 3px; justify-items: start; text-align: left; min-height: 74px; padding: 10px 12px; border-radius: 14px; border: 1px solid rgba(21, 209, 106, .2); background: linear-gradient(160deg, rgba(255, 255, 255, .04), rgba(0, 0, 0, .35)); color: #dff3e6; cursor: pointer; transition: border-color .15s, transform .12s, box-shadow .15s; }
-.lrail-opt b { font: 900 14px 'JetBrains Mono', monospace; } .lrail-opt small { font: 500 10.5px Inter, system-ui, sans-serif; color: #93a89b; line-height: 1.35; }
+.lrail-opt b { font: 900 14px "JetBrains Mono", monospace; padding-right: 96px; } .lrail-opt small { font: 500 10.5px Inter, system-ui, sans-serif; color: #93a89b; line-height: 1.35; }
 .lrail-opt i { position: absolute; top: 8px; right: 10px; font: 800 8px 'JetBrains Mono', monospace; font-style: normal; letter-spacing: .12em; padding: 2px 7px; border-radius: 999px; color: #04140b; background: #45e486; }
 .lrail-opt.is-faint { opacity: .5; } .lrail-opt.is-faint i { background: transparent; color: #ffd36b; border: 1px dashed rgba(255, 211, 107, .6); }
 .lrail-opt:hover { border-color: #15d16a; transform: translateY(-1px); } .lrail-opt:active { transform: scale(.98); } .lrail-opt:focus-visible { outline: 2px solid #45e486; outline-offset: 2px; }

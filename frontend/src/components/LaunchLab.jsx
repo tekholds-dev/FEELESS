@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { fetchLaunchRail } from '../lib/launchRail';
+import { apiUrl } from '../lib/api';
 import '../styles/launchLab.css';
 
 // 🧪 LAUNCH LAB (owner, 2026-10-20: "pools and launch need a cool layout with live animated demonstrations of the type of pool / coin being
@@ -83,30 +84,45 @@ function Demo({ kind }) {
 // 🚀 LAUNCH PAD hero (owner, 2026-10-21: "Launch degen styling never got done"): a drawn rocket on its tower at amber dusk, a T-minus countdown that
 // loops, exhaust smoke, and the rocket blasts off every time you pick another launch type (the pad re-keys on the type). Pure CSS / SVG.
 export const tMinus = (ms, every = 12000) => Math.max(0, 10 - Math.floor((ms % every) / 1000));
-// ⚡ THE LAUNCH HERO (owner 2026-10-26: "a cartoon rocket is kiddy — real, film-grain, electric"): near-black with the Launch green, film grain +
-// scanlines, the chosen mechanic's curve as a live electric wire with a spark riding it, the real rail status underneath. transform / opacity only.
-const WIRE = { pump: 'M0 150 C150 145 300 120 420 70 S560 12 600 8', dbc: 'M0 150 C120 148 240 130 360 92 S520 30 600 18', launchlab: 'M0 150 L120 132 L240 110 L360 80 L480 46 L600 14',
-  amm: 'M0 140 C200 140 260 40 600 30', dlmm: 'M0 150 H120 V118 H240 V86 H360 V60 H480 V34 H600', lock: 'M0 120 H600' };
-function LaunchPad({ t, rail }) {
-  const d = WIRE[t.id] || WIRE.pump;
-  return <div className="llp" key={t.id} data-testid="launch-pad">
+// 🟢 THE LIVE LAUNCH FLOOR (owner 2026-10-26: "no thought, not real" → real): every pump.fun launch as it happens (PumpPortal stream via
+// /api/pump/pulse): launches per minute over 15 min as bars, graduations, and the newest coins sliding in with their age, market cap, dev buy and
+// how far up the bonding curve they are. Nothing drawn that the stream does not report.
+const ago = ms => { const s = Math.max(0, (Date.now() - ms) / 1000); return s < 60 ? `${Math.round(s)}s` : s < 3600 ? `${Math.round(s / 60)}m` : `${Math.round(s / 3600)}h`; };
+const usdK = v => (!(v > 0) ? '—' : v >= 1e6 ? `$${(v / 1e6).toFixed(2)}M` : v >= 1e3 ? `$${(v / 1e3).toFixed(1)}K` : `$${Math.round(v)}`);
+export function LaunchFloor({ t, rail: rail0 }) {
+  const [d, setD] = useState(null); const [, tick] = useState(0); const [own, setOwn] = useState(null); const rail = rail0 === undefined ? own : rail0;
+  useEffect(() => { if (rail0 !== undefined) return undefined; let on = true; fetchLaunchRail().then(r => on && setOwn(r)).catch(() => {}); return () => { on = false; }; }, [rail0]);
+  useEffect(() => { let on = true; const load = () => { if (document.hidden) return; fetch(apiUrl('/api/pump/pulse?limit=8')).then(r => (r.ok ? r.json() : null)).then(x => on && x && setD(x)).catch(() => {}); };
+    load(); const a = setInterval(load, 5000); const b2 = setInterval(() => tick(n => n + 1), 1000); return () => { on = false; clearInterval(a); clearInterval(b2); }; }, []);
+  const series = d?.launchesPerMinute || []; const top = Math.max(1, ...series); const rows = (d?.launches || []).slice(0, 6);
+  return <div className="llp" data-testid="launch-pad">
     <i className="llp-grain" aria-hidden="true" /><i className="llp-scan" aria-hidden="true" />
-    <svg className="llp-wire" viewBox="0 0 600 160" preserveAspectRatio="none" aria-hidden="true"><path d={d} className="llp-glow" /><path d={d} className="llp-line" pathLength="100" /></svg>
     <div className="llp-hud">
-      <span className="llp-eyebrow">⚡ LAUNCH · {t.where}</span>
-      <b className="llp-count">{t.name}</b>
+      <span className="llp-eyebrow"><i className={`llp-live ${d?.status === 'live' || rows.length ? 'is-on' : ''}`} />LIVE · pump.fun launches right now</span>
+      <b className="llp-count">{t?.name || 'Launch'}</b>
+      <div className="llp-kpis"><span><em>LAST MINUTE</em><b className="m-num">{d ? d.lastMinute : '—'}</b><small>new coins</small></span>
+        <span><em>15 MIN</em><b className="m-num">{series.reduce((a, x) => a + x, 0) || '—'}</b><small>launched</small></span>
+        <span><em>GRADUATED</em><b className="m-num">{(d?.migrations || []).length}</b><small>to PumpSwap, recent</small></span></div>
+      <div className="llp-bars" aria-label="Launches per minute, last 15 minutes">{series.map((n, i) => <i key={i} style={{ transform: `scaleY(${Math.max(0.04, n / top)})` }} title={`${n} launches`} />)}</div>
       <div className="llp-chips"><span className={rail?.ready ? 'ok' : ''}>{rail?.ready ? '● FEELESS rail ready' : '○ FEELESS rail not set up'}</span>
-        {rail?.tab?.maxDevBuySol ? <span>dev buy ≤ {rail.tab.maxDevBuySol} SOL</span> : null}{rail?.costs?.pumpSlippagePct != null ? <span>slippage {rail.costs.pumpSlippagePct}%</span> : null}<span>you sign every step</span></div>
+        {rail?.tab?.maxDevBuySol ? <span>dev buy ≤ {rail.tab.maxDevBuySol} SOL</span> : null}<span>you sign every step</span></div>
     </div>
+    <ol className="llp-tape" aria-label="Newest pump.fun launches">{rows.map((r, i) => <li key={r.mint} style={{ '--i': i }} className={r.mayhem ? 'is-hot' : ''}>
+      <span className="llp-sym"><b>${r.symbol}</b><small>{r.name}</small></span>
+      <span className="llp-age m-num">{ago(r.at)}</span>
+      <span className="llp-mc m-num">{usdK(r.marketCapUsd)}</span>
+      <span className="llp-dev m-num" data-tip="What the creator bought in the launch transaction">{r.devBuySol ? `dev ${r.devBuySol.toFixed(2)}◎` : 'no dev buy'}</span>
+      <u className="llp-curve" data-tip={`${Math.round((r.curveProgress || 0) * 100)}% up the bonding curve`}><s style={{ transform: `scaleX(${Math.max(0.02, Math.min(1, r.curveProgress || 0))})` }} /></u>
+    </li>)}{!rows.length ? <li className="llp-wait">{d ? 'Waiting for the next launch…' : 'Connecting to the pump.fun stream…'}</li> : null}</ol>
   </div>;
 }
 
-export function LaunchLab({ start = 'pump', hq = false }) {
+export function LaunchLab({ start = 'pump', hq = false, noHero = false }) {
   const [id, setId] = useState(start); const [rail, setRail] = useState(null);
   useEffect(() => { let on = true; fetchLaunchRail().then(r => on && setRail(r)).catch(() => {}); return () => { on = false; }; }, []);
   const t = TYPES.find(x => x.id === id) || TYPES[0];
   return <section className="llb" data-testid="launch-lab">
-    <LaunchPad t={t} rail={rail} />
+    {noHero ? null : <LaunchFloor t={t} rail={rail} />}
     <header className="llb-head"><span className="eyebrow">🧪 LAUNCH LAB{hq ? ' · HQ' : ''}</span><h2>See what you're creating before you sign.</h2></header>
     <div className="llb-types" role="tablist">{TYPES.map(x => <button key={x.id} type="button" role="tab" aria-selected={x.id === id} className={x.id === id ? 'is-on' : ''} onClick={() => setId(x.id)} data-testid={`llb-${x.id}`}><b>{x.icon}</b>{x.name}<small>{x.where}</small></button>)}</div>
     <div className="llb-stage" key={t.id}><div className="llb-demo"><Demo kind={t.demo} /></div>

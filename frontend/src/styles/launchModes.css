@@ -14,3 +14,8 @@ body.fx-lite :is(.lm-glow, .lm-pools) { animation: none; } body.fx-lite .lm-glow
 @media (prefers-reduced-motion: reduce) { :is(.lm-glow, .lm-pools) { animation: none; } }
 body.theme-day .lm-switch { background: #f1faf4; border-color: #b9dcc8; } body.theme-day .lm-switch button { color: #10301f; } body.theme-day .lm-switch button.is-on { color: #04140b; }
 @media (max-width: 640px) { .lm-switch button small { display: none; } .lm-switch button { min-height: 46px; } .lm-switch button b { font-size: 12px; } }
+.launch-more { border: 1px solid rgba(21, 209, 106, .2); border-radius: 14px; background: rgba(0, 0, 0, .3); }
+.launch-more > summary { cursor: pointer; padding: 12px 14px; font: 800 11px 'JetBrains Mono', monospace; letter-spacing: .1em; color: #86efac; list-style: none; min-height: 32px; }
+.launch-more > summary::-webkit-details-marker { display: none; } .launch-more > summary::before { content: '▸ '; } .launch-more[open] > summary::before { content: '▾ '; }
+.launch-more > summary:hover { color: #fff; } .launch-more > summary:focus-visible { outline: 2px solid #45e486; outline-offset: 2px; border-radius: 12px; }
+.launch-more[open] { padding-bottom: 12px; } body.theme-day .launch-more { background: #f6fbf8; } body.theme-day .launch-more > summary { color: #0a6b3c; }

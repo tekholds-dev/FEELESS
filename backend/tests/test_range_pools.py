@@ -38,3 +38,20 @@ def test_watcher_pings_only_after_the_wait_once_per_two_hours_and_resets_in_rang
     b, msg = rp.watch_step(b, 1.25, 1000 + 16 * 60 + rp.ALERT_EVERY + 1); assert msg            # 2 h later, still out: once more
     b, msg = rp.watch_step(b, 1.0, 99999); assert msg is None and 'outSince' not in b and 'alertedAt' not in b
     assert rp.watch_step({'lo': 0, 'hi': 1}, 2, 1)[1] is None and rp.watch_step(band, None, 1)[1] is None
+
+
+def test_support_ideas_reacts_and_comments(monkeypatch):
+    import asyncio
+    import reputation_service as rs
+    monkeypatch.setattr(rs, '_session_or_401', lambda w, s: w)
+    run = lambda **k: asyncio.run(rs.support_act(rs.SupportAct(wallet=k.pop('w', 'W1'), **k)))
+    b = run(idea=True, text='Add a dark-pool for $FEE holders'); iid = b['ideas'][0]['id']
+    b = run(react=iid, v=1); assert b['reacts'][iid] == {'up': 1, 'down': 0, 'mine': 1}
+    b = run(react=iid, v=-1, w='W2'); assert b['reacts'][iid]['down'] == 1 and b['reacts'][iid]['mine'] == -1
+    b = run(react=iid, v=1); assert b['reacts'][iid]['up'] == 0                          # the same vote again clears it
+    b = run(comment=iid, text='yes please'); assert b['comments'][iid][-1]['text'] == 'yes please'
+    for bad in (dict(react='nope', v=1), dict(comment=iid, text='x'), dict(idea=True, text='short')):
+        try:
+            run(**bad); assert False, bad
+        except rs.HTTPException:
+            pass

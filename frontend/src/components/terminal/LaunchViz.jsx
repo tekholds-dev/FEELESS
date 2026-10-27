@@ -49,7 +49,7 @@ export const LaunchStage = memo(function LaunchStage({ form, rail, locked, pump 
   const at = STEP_AT[step] ?? 0.12; const k = Math.min(pts.length - 2, Math.floor(at * (pts.length - 1)));
   const [x0, y0] = pts[k]; const [x1, y1] = pts[k + 1]; const f = at * (pts.length - 1) - k;
   const rx = x0 + (x1 - x0) * f; const ry = y0 + (y1 - y0) * f; const ang = (Math.atan2(y1 - y0, x1 - x0) * 180) / Math.PI;
-  const nodes = [['IDENTITY', 'name · art'], ['CURVE', 'supply · fees'], ['SHIELD', 'anti-snipe · locks'], ['LAUNCH', 'you sign once']];
+  const nodes = pump ? [['IDENTITY', 'name · art'], ['LAUNCH', 'first buy · you sign once']] : [['IDENTITY', 'name · art'], ['CURVE', 'supply · fees'], ['SHIELD', 'anti-snipe · locks'], ['LAUNCH', 'you sign once']];   // pump.fun: 2 steps, like the form
   return <div className="lv-stage" data-testid="launch-stage" aria-label={`Launch curve: opens at ${e.open}, graduates at ${e.grad}`}>
     <span className="lv-stars" aria-hidden="true" /><span className="lv-sweep" aria-hidden="true" />
     <svg viewBox={`0 0 ${W} ${H}`} className="lv-svg" aria-hidden="true">

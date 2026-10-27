@@ -25700,7 +25700,10 @@ async def support_board(wallet: Optional[str] = None):
     bugs_ = _json_load(BUGS_PATH, {'bugs': []}).get('bugs') or []
     rows_ = _sp.board(bugs_, st_.get('plus') or {})
     mine_ = [k_ for k_, v_ in (st_.get('plus') or {}).items() if wallet and wallet in v_]
-    return {'reports': rows_, 'mine': mine_, 'polls': _sp.polls_board(st_.get('polls') or [], wallet), 'ladder': [{'at': a_, 'key': k_, 'label': l_} for a_, k_, l_ in _sp.LADDER],
+    reacts_ = {k_: {'up': sum(1 for x_ in v_.values() if x_ > 0), 'down': sum(1 for x_ in v_.values() if x_ < 0), 'mine': v_.get(wallet or '', 0)} for k_, v_ in (st_.get('reacts') or {}).items()}
+    return {'reacts': reacts_, 'comments': {k_: v_[-30:] for k_, v_ in (st_.get('comments') or {}).items()},
+            'ideas': sorted((st_.get('ideas') or [])[-200:], key=lambda i_: -(sum(1 for x_ in ((st_.get('reacts') or {}).get(i_['id']) or {}).values() if x_ > 0))),
+            'reports': rows_, 'mine': mine_, 'polls': _sp.polls_board(st_.get('polls') or [], wallet), 'ladder': [{'at': a_, 'key': k_, 'label': l_} for a_, k_, l_ in _sp.LADDER],
             'counts': {'open': sum(1 for b_ in bugs_ if b_.get('status', 'open') == 'open'), 'fixing': sum(1 for b_ in bugs_ if b_.get('status') == 'fixing'),
                        'fixed': sum(1 for b_ in bugs_ if b_.get('status') == 'fixed'), 'polls': len(st_.get('polls') or [])}}
 
@@ -25713,6 +25716,11 @@ class SupportAct(BaseModel):
     opt: Optional[int] = None
     q: Optional[str] = None
     options: Optional[list] = None
+    react: Optional[str] = None       # 👍 / 👎 any report · poll · idea (v = 1 | -1; the same again clears it)
+    v: Optional[int] = None
+    comment: Optional[str] = None     # 💬 the card id …
+    text: Optional[str] = None        # … and the words (also a new idea's text)
+    idea: Optional[bool] = None
 
 
 @app.post('/api/reputation/support')
@@ -25722,7 +25730,30 @@ async def support_act(p: SupportAct):
     w_ = _session_or_401(p.wallet, p.session)
     async with _admin_lock:
         st_ = _json_load(SUPPORT_PATH, {'polls': [], 'plus': {}})
-        if p.plus:
+        card_ids_ = lambda: ({b_.get('id') for b_ in _json_load(BUGS_PATH, {'bugs': []}).get('bugs') or []} | {x_.get('id') for x_ in st_.get('polls') or []} | {x_.get('id') for x_ in st_.get('ideas') or []})
+        if p.react:
+            if p.react not in card_ids_() or p.v not in (1, -1):
+                raise HTTPException(400, 'No such card.')
+            r_ = st_.setdefault('reacts', {}).setdefault(p.react, {})
+            if r_.get(w_) == p.v:
+                r_.pop(w_, None)
+            else:
+                r_[w_] = p.v
+        elif p.comment:
+            t_ = ' '.join(str(p.text or '').split())[:280]
+            if p.comment not in card_ids_() or len(t_) < 2:
+                raise HTTPException(400, 'Say something (2–280 characters) on a real card.')
+            st_.setdefault('comments', {}).setdefault(p.comment, []).append({'by': w_, 'text': t_, 'at': time.time()})
+            st_['comments'][p.comment] = st_['comments'][p.comment][-50:]
+        elif p.idea:
+            t_ = ' '.join(str(p.text or '').split())[:280]
+            if len(t_) < 8:
+                raise HTTPException(400, 'An idea needs at least a short sentence.')
+            if sum(1 for i_ in st_.get('ideas') or [] if i_.get('by') == w_ and time.time() - i_.get('at', 0) < 86400) >= 5:
+                raise HTTPException(429, '5 ideas a day — try again tomorrow.')
+            st_.setdefault('ideas', []).append({'id': 'i' + uuid.uuid4().hex[:9], 'text': t_, 'by': w_, 'at': time.time()})
+            st_['ideas'] = st_['ideas'][-300:]
+        elif p.plus:
             ids_ = {b_.get('id') for b_ in _json_load(BUGS_PATH, {'bugs': []}).get('bugs') or []}
             if p.plus not in ids_:
                 raise HTTPException(404, 'No such report.')

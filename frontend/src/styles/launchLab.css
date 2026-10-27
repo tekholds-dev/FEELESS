@@ -51,16 +51,13 @@ body.theme-day .llb-t { fill: #2c4a3a; } body.theme-day .llb-knobs li { color: #
 
 /* ⚡ Launch hero (LaunchLab › LaunchPad, llp-*): near-black + the Launch green, film grain + scanlines, the mechanic's curve as an electric wire
    with a spark running along it. transform / opacity only; still in fx-lite / reduced motion. */
-.llp { position: relative; display: grid; align-items: end; min-height: 190px; padding: 18px 20px; border-radius: 18px; overflow: hidden; isolation: isolate;
+.llp { position: relative; display: grid; grid-template-columns: minmax(0, 1fr) minmax(320px, 1.1fr); gap: 16px; align-items: stretch; min-height: 190px; padding: 18px 20px; border-radius: 18px; overflow: hidden; isolation: isolate;
   border: 1px solid rgba(21, 209, 106, .35); background: radial-gradient(70% 90% at 85% 0%, rgba(21, 209, 106, .16), transparent 60%), radial-gradient(60% 80% at 0% 100%, rgba(0, 160, 90, .12), transparent 60%), #040605;
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, .06), 0 0 60px -28px #15d16a; }
 .llp-grain { position: absolute; inset: -50%; z-index: -1; pointer-events: none; opacity: .14;
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
   animation: llpGrain 7s linear infinite; }
 .llp-scan { position: absolute; inset: 0; z-index: -1; pointer-events: none; background: repeating-linear-gradient(0deg, rgba(255, 255, 255, .025) 0 1px, transparent 1px 3px); }
-.llp-wire { position: absolute; inset: 14px 0 34px; width: 100%; height: calc(100% - 48px); z-index: -1; }
-.llp-glow { fill: none; stroke: rgba(21, 209, 106, .35); stroke-width: 7; filter: blur(4px); vector-effect: non-scaling-stroke; }
-.llp-line { fill: none; stroke: #45e486; stroke-width: 2; vector-effect: non-scaling-stroke; stroke-dasharray: 8 92; animation: llpSpark 2.6s linear infinite; }
 .llp-hud { display: grid; gap: 6px; align-content: end; }
 .llp-eyebrow { font: 800 10px 'JetBrains Mono', monospace; letter-spacing: .2em; color: #86efac; }
 .llp-count { font: 900 clamp(26px, 4vw, 44px)/1 'JetBrains Mono', monospace; letter-spacing: -.01em; color: #f2fff7; text-shadow: 0 0 22px rgba(21, 209, 106, .55); animation: llpTick .35s ease; }
@@ -69,13 +66,12 @@ body.theme-day .llb-t { fill: #2c4a3a; } body.theme-day .llb-knobs li { color: #
 .llp-chips span.ok { color: #04140b; background: #45e486; border-color: #45e486; }
 .llb-types button.is-on { animation: llpPick .4s ease; }
 @keyframes llpGrain { 0% { transform: translate(0, 0); } 25% { transform: translate(-6%, 4%); } 50% { transform: translate(4%, -6%); } 75% { transform: translate(-3%, -2%); } 100% { transform: translate(0, 0); } }
-@keyframes llpSpark { from { stroke-dashoffset: 100; } to { stroke-dashoffset: 0; } }
 @keyframes llpTick { from { transform: translateY(4px); opacity: .4; } }
 @keyframes llpPick { 40% { transform: translateY(-4px) scale(1.03); } }
-body.fx-lite .llp-grain, body.fx-lite .llp-line { animation: none; } body.fx-lite .llp-glow { filter: none; }
+body.fx-lite .llp-grain, body.fx-lite .llp-tape li, body.fx-lite .llp-live { animation: none; }
 @media (prefers-reduced-motion: reduce) { .llp *, .llb-types button.is-on { animation: none !important; } }
 body.theme-day .llp { background: linear-gradient(160deg, #f2fbf5, #e4f5ea); } body.theme-day .llp-count { color: #0b2a19; text-shadow: none; } body.theme-day .llp-chips span { background: #fff; color: #10301f; }
-@media (max-width: 640px) { .llp { min-height: 150px; } }
+@media (max-width: 860px) { .llp { grid-template-columns: 1fr; } }
 
 /* 🚪 click-through doors (DOOR / PLATFORM_DOOR / EX_DOOR in LaunchLab.jsx) */
 .llb-door { margin-top: 10px; justify-self: start; min-height: 36px; display: inline-flex; align-items: center; text-decoration: none; }
@@ -99,3 +95,20 @@ body.theme-day .llb-plink:hover, body.theme-day .llb-exd em { color: #0d7a41; }
 .lrb-keys i { font: 700 10.5px 'JetBrains Mono', monospace; font-style: normal; padding: 4px 9px; border-radius: 999px; color: #ffe9b0; border: 1px solid rgba(255, 211, 107, .35); } .lrb-keys small { font: 500 10px Inter, system-ui, sans-serif; color: #b6a77a; }
 body.fx-lite .lrb-tile { animation: none; } @media (prefers-reduced-motion: reduce) { .lrb-tile { animation: none; } }
 body.theme-day .lrb-tile { background: #fff; } body.theme-day .lrb-top b { color: #10301f; }
+/* 🟢 live floor: KPIs, launches-per-minute bars, the tape of the newest coins (each slides in, its curve fill shows how close it is to graduating) */
+.llp-live { display: inline-block; width: 8px; height: 8px; margin-right: 6px; border-radius: 50%; background: #6b7a72; vertical-align: middle; }
+.llp-live.is-on { background: #45e486; box-shadow: 0 0 10px #45e486; animation: llpBeat 1.4s ease-in-out infinite; }
+.llp-kpis { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
+.llp-kpis span { display: grid; padding: 6px 8px; border-radius: 10px; background: rgba(0, 0, 0, .45); border: 1px solid rgba(21, 209, 106, .18); }
+.llp-kpis em { font: 800 8px 'JetBrains Mono', monospace; font-style: normal; letter-spacing: .14em; color: #7f9a88; } .llp-kpis b { font: 900 20px 'JetBrains Mono', monospace; color: #f2fff7; } .llp-kpis small { font: 600 9px 'JetBrains Mono', monospace; color: #7f9a88; }
+.llp-bars { display: flex; align-items: flex-end; gap: 3px; height: 34px; } .llp-bars i { flex: 1; height: 100%; border-radius: 2px 2px 0 0; background: linear-gradient(180deg, #45e486, #0d6b38); transform-origin: bottom; transition: transform .5s ease-out; }
+.llp-tape { list-style: none; margin: 0; padding: 0; display: grid; gap: 5px; align-content: start; }
+.llp-tape li { display: grid; grid-template-columns: minmax(0, 1.2fr) 38px 64px 74px minmax(60px, 1fr); gap: 8px; align-items: center; padding: 7px 10px; border-radius: 10px; background: rgba(0, 0, 0, .5); border: 1px solid rgba(21, 209, 106, .14); animation: llpIn .35s ease-out both; animation-delay: calc(var(--i, 0) * 40ms); }
+.llp-tape li.is-hot { border-color: rgba(255, 159, 69, .45); } .llp-tape li.llp-wait { display: block; font: 700 11px 'JetBrains Mono', monospace; color: #7f9a88; text-align: center; animation: llpBeat 1.6s ease-in-out infinite; }
+.llp-sym { display: grid; min-width: 0; } .llp-sym b { font: 800 12px 'JetBrains Mono', monospace; color: #f2fff7; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; } .llp-sym small { font: 500 9.5px Inter, system-ui, sans-serif; color: #7f9a88; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.llp-age, .llp-mc, .llp-dev { font: 700 10.5px 'JetBrains Mono', monospace; color: #cfeedd; } .llp-mc { color: #45e486; } .llp-dev { color: #9fb3a6; }
+.llp-curve { display: block; height: 6px; border-radius: 6px; background: rgba(255, 255, 255, .08); overflow: hidden; } .llp-curve s { display: block; height: 100%; background: linear-gradient(90deg, #0d6b38, #45e486, #ffd36b); transform-origin: left; transition: transform .6s ease-out; }
+@keyframes llpIn { from { opacity: 0; transform: translateX(10px); } to { opacity: 1; transform: none; } }
+@keyframes llpBeat { 50% { opacity: .5; } }
+body.theme-day .llp-tape li, body.theme-day .llp-kpis span { background: #fff; } body.theme-day :is(.llp-sym b, .llp-kpis b) { color: #10301f; }
+@media (max-width: 640px) { .llp-tape li { grid-template-columns: minmax(0, 1fr) 34px 60px; } .llp-dev, .llp-curve { display: none; } }
