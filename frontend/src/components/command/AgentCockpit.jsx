@@ -172,12 +172,12 @@ function MoneyStrip({ d, seats, mint, onPick, nav, go, navTabs, ai = null, brain
       <span className="ack-mcell" data-tip={m.today.n ? `real trades closed since midnight: ${m.today.won} of ${m.today.n} won${m.today.partial ? ' (the tape holds only its newest trades)' : ''}` : 'no real trade closed since midnight'}>
         <small>📅 TODAY</small><LiveNum v={m.today.usd} fmt={sgn} cls={tTone} testid="ack-money-today" />
         <span className="ack-mwin" aria-hidden>{m.today.n ? <i style={{ transform: `scaleX(${(m.today.won / m.today.n).toFixed(3)})` }} /> : null}</span></span>
-      <span className="ack-mcell is-split" data-tip="realized in the last 24h — your own trades apart from the agents' (fees apart)" data-testid="ack-money-split">
-        <small>👤 YOU · 🤖 AGENTS</small><b><em className={tone(rr.you.usd)}>{rr.you.usd == null ? '—' : sgn(rr.you.usd)}</em><i>·</i><em className={tone(rr.agents.usd)}>{rr.agents.usd == null ? '—' : sgn(rr.agents.usd)}</em></b></span>
-      <span className="ack-mcell is-dia" data-tip={dia.n ? `on ${dia.n} of your closed trades, holding past the agents' first sell call made ${dia.avg >= 0 ? '+' : ''}${dia.avg.toFixed(1)} pts a trade · best $${dia.best.sym} ${dia.best.gain >= 0 ? '+' : ''}${dia.best.gain.toFixed(0)} pts · worst $${dia.worst.sym} ${dia.worst.gain.toFixed(0)} pts` : 'no closed trade of yours with an agent sell call yet'} data-testid="ack-money-diamond">
-        <small>💎 DIAMOND HANDS</small><b className={dia.n ? tone(dia.avg) : 'm-dim'}>{dia.n ? `${dia.avg >= 0 ? '+' : ''}${dia.avg.toFixed(1)} pts` : '—'}</b></span>
-      <span className="ack-mcell is-league" data-tip={`G4 ${lg.a.n ? `${lg.a.n} · ${lg.a.won}% won · typical ${lg.a.med}%` : 'no trades'} vs OSSY ${lg.b.n ? `${lg.b.n} · ${lg.b.won}% won · typical ${lg.b.med}%` : 'no trades'} (paper seat)`} data-testid="ack-money-league">
-        <small>🔁 G4 vs OSSY</small><b className={lg.lead ? 'm-pos' : 'm-dim'}>{lg.word}</b></span>
+      {rr.you.usd == null && rr.agents.usd == null ? null : <span className="ack-mcell is-split" data-tip="realized in the last 24h — your own trades apart from the agents' (fees apart)" data-testid="ack-money-split">
+        <small>👤 YOU · 🤖 AGENTS</small><b><em className={tone(rr.you.usd)}>{rr.you.usd == null ? '—' : sgn(rr.you.usd)}</em><i>·</i><em className={tone(rr.agents.usd)}>{rr.agents.usd == null ? '—' : sgn(rr.agents.usd)}</em></b></span>}
+      {!dia.n ? null : <span className="ack-mcell is-dia" data-tip={dia.n ? `on ${dia.n} of your closed trades, holding past the agents' first sell call made ${dia.avg >= 0 ? '+' : ''}${dia.avg.toFixed(1)} pts a trade · best $${dia.best.sym} ${dia.best.gain >= 0 ? '+' : ''}${dia.best.gain.toFixed(0)} pts · worst $${dia.worst.sym} ${dia.worst.gain.toFixed(0)} pts` : 'no closed trade of yours with an agent sell call yet'} data-testid="ack-money-diamond">
+        <small>💎 DIAMOND HANDS</small><b className={dia.n ? tone(dia.avg) : 'm-dim'}>{dia.n ? `${dia.avg >= 0 ? '+' : ''}${dia.avg.toFixed(1)} pts` : '—'}</b></span>}
+      {!lg.a.n && !lg.b.n ? null : <span className="ack-mcell is-league" data-tip={`G4 ${lg.a.n ? `${lg.a.n} · ${lg.a.won}% won · typical ${lg.a.med}%` : 'no trades'} vs OSSY ${lg.b.n ? `${lg.b.n} · ${lg.b.won}% won · typical ${lg.b.med}%` : 'no trades'} (paper seat)`} data-testid="ack-money-league">
+        <small>🔁 G4 vs OSSY</small><b className={lg.lead ? 'm-pos' : 'm-dim'}>{lg.word}</b></span>}
       <span className="ack-mcell is-open" data-tip={m.openUsd != null ? `open seats right now: ${sgn(m.openUsd)} (live)` : 'no seat held'}><small>🪑 HOLDING {m.open.length}/{m.seats || '—'}</small>
         <span className="ack-mseats">{m.open.length ? m.open.map(x => <button key={x.seat} type="button" className={`ack-mseat ${x.pct == null ? '' : x.pct >= 0 ? 'is-up' : 'is-dn'} ${x.mint === mint ? 'is-on' : ''}`} onClick={() => { onPick(x.mint); go('chart'); }} data-testid={`ack-money-seat-${x.seat}`}>
           <b>${x.sym || '—'}</b><LiveNum v={x.pct} fmt={v => `${v >= 0 ? '+' : ''}${v.toFixed(1)}%`} cls="" /><ExitChips s={(seats || []).find(z => z.seat === x.seat)} mini />
@@ -185,11 +185,27 @@ function MoneyStrip({ d, seats, mint, onPick, nav, go, navTabs, ai = null, brain
       <span className={`ack-mcell is-night is-${m.night.state}`} data-tip={m.night.tip} data-testid="ack-money-night"><small>{m.late ? '⚠ DESK BEHIND' : 'SHIFT'}</small><b key={m.night.word} className="ack-vpop">{m.night.word}</b></span>
       {brain}{ai}
     </div>
-    <nav className="ack-nav m-seg" role="tablist" aria-label="Agents tab">
-      <button type="button" role="tab" aria-selected={nav === 'chart'} className={nav === 'chart' ? 'active' : ''} onClick={() => go('chart')} data-testid="ack-nav-chart" data-tip="the chart + the decision panel (top of the page)"><TabChip label="📈 Chart" /></button>
-      {navTabs.map(([k, l, n, , meter, tip]) => <button key={k} type="button" role="tab" aria-selected={nav === k} className={nav === k ? 'active' : ''} onClick={() => go(k)} data-testid={`ack-deck-${k}`} data-tip={tip || undefined}><TabChip label={l} n={n} meter={meter} /></button>)}
-    </nav>
+    <NavTabs nav={nav} go={go} navTabs={navTabs} />
   </header>;
+}
+
+// 🧹 THE NAV (owner 2026-10-27: "HQ not clean, less clutter"): Chart + the four panes used most up front; everything else behind ⋯ MORE (a
+// small popover — the panes stay mounted there, so a saved / linked tab still opens). The MORE button wears the open pane's name when it's one of them.
+export const NAV_FRONT = ['seats', 'live', 'tape', 'review'];
+function NavTabs({ nav, go, navTabs }) {
+  const [open, setOpen] = useState(false); const host = useRef(null); const btn = useRef(null); const [at, setAt] = useState(null);   // the menu is pinned to the viewport (the nav row scrolls sideways and would clip it)
+  useEffect(() => { if (!open) return undefined; const r = btn.current?.getBoundingClientRect(); if (r) setAt({ top: Math.round(r.bottom + 6), left: Math.round(Math.max(8, Math.min(r.left, window.innerWidth - 268))) }); const k = e => { if (e.key === 'Escape') setOpen(false); }; const out = e => { if (host.current && !host.current.contains(e.target)) setOpen(false); };
+    window.addEventListener('keydown', k); window.addEventListener('pointerdown', out); return () => { window.removeEventListener('keydown', k); window.removeEventListener('pointerdown', out); }; }, [open]);
+  const front = navTabs.filter(t => NAV_FRONT.includes(t[0])); const rest = navTabs.filter(t => !NAV_FRONT.includes(t[0])); const inRest = rest.find(t => t[0] === nav);
+  const tabBtn = ([k, l, n, , meter, tip]) => <button key={k} type="button" role="tab" aria-selected={nav === k} className={nav === k ? 'active' : ''} onClick={() => { go(k); setOpen(false); }} data-testid={`ack-deck-${k}`} data-tip={tip || undefined}><TabChip label={l} n={n} meter={meter} /></button>;
+  return <nav className="ack-nav m-seg" role="tablist" aria-label="Agents tab" ref={host}>
+    <button type="button" role="tab" aria-selected={nav === 'chart'} className={nav === 'chart' ? 'active' : ''} onClick={() => go('chart')} data-testid="ack-nav-chart" data-tip="the chart + the decision panel (top of the page)"><TabChip label="📈 Chart" /></button>
+    {front.map(tabBtn)}
+    {rest.length ? <span className="ack-more">
+      <button ref={btn} type="button" className={`ack-morebtn ${inRest ? 'active' : ''}`} aria-expanded={open} aria-haspopup="true" onClick={() => setOpen(v => !v)} data-tip={rest.map(t => t[1]).join(' · ')} data-testid="ack-nav-more">
+        {inRest ? <TabChip label={inRest[1]} n={inRest[2]} meter={inRest[4]} /> : <TabChip label="⋯ More" n={rest.filter(t => t[2]).length || null} />}<i aria-hidden="true">▾</i></button>
+      <span className="ack-morepop" role="group" aria-label="More panes" hidden={!open} style={at ? { top: at.top, left: at.left } : undefined} data-testid="ack-morepop">{rest.map(tabBtn)}</span></span> : null}
+  </nav>;
 }
 
 // ── 💵 the mission ribbon ───────────────────────────────────────────────────────────────────────────────────────────────────────
@@ -468,7 +484,7 @@ export function leadAgent(dec) {
   return 'trigger';
 }
 const FRESH_CLS = { LIVE: 'is-live', FRESH: 'is-fresh', PARTIAL: 'is-part', STALE: 'is-stale', PENDING: 'is-pend', UNAVAILABLE: 'is-na' };
-function Tile({ l, v, sub, cls }) { return <span className="ack-ptile" data-tip={sub || undefined}><small>{l}</small><b className={cls || ''}>{v}</b>{sub ? <u>{sub}</u> : null}</span>; }
+function Tile({ l, v, sub, cls, hideEmpty }) { if (hideEmpty && (v == null || v === '—')) return null; return <span className="ack-ptile" data-tip={sub || undefined}><small>{l}</small><b className={cls || ''}>{v}</b>{sub ? <u>{sub}</u> : null}</span>; }
 const badgeOf = w => (/VETO|EXIT|BLOCK/.test(w) ? 'is-bad' : /WARN/.test(w) ? 'is-warn' : /ENTER|READY|PROTECT|PASS|FILLED|SIZE|SCAN|CONFIRMED/.test(w) ? 'is-good' : 'is-hold');
 
 // 🧠 the model's vital intel on THIS coin — its own AI-store subscriber: an AI answer repaints this card only
@@ -507,13 +523,13 @@ function DecisionPanel({ o, dec, pos, cand, mint, seats, readyN, agent, setAgent
       {cand || pos ? <VitalBoard c={cand || { mint, symbol: dec?.symbol }} pos={pos} rules={o?.teach?.rules} call={call} isOwner={isOwner} /> : null}
       {(dec.reasons || []).length ? <details className="ack-whyfold"><summary><b className="ack-sub">WHY · {dec.reasons.length}</b></summary><ul className="ack-why" data-testid="ack-why">{dec.reasons.map((r, i) => <li key={i}>{r}</li>)}</ul></details> : null}
       <div className="ack-ptiles">
-        <Tile l="CHART DATA" v={pos?.quality || pos?.data?.state || dec.chart?.quality || '—'} sub={pos?.data?.conf != null ? `${pos.data.conf}% data conf` : pos?.structure || null} />
-        <Tile l="LAST READ" v={o?.cycle?.at ? ago(o.cycle.at) : '—'} sub={o?.cycle?.every ? `every ${Math.round(o.cycle.every)}s` : null} />
-        <Tile l="DEVIL SAYS" v={dec.kernel ? devilOf(cand || {}).word : pos?.run || '—'} sub={dec.kernel ? 'Devil on this coin' : pos ? `stop ${pos.stop ?? '—'}%` : null}
+        <Tile hideEmpty l="CHART DATA" v={pos?.quality || pos?.data?.state || dec.chart?.quality || '—'} sub={pos?.data?.conf != null ? `${pos.data.conf}% data conf` : pos?.structure || null} />
+        <Tile hideEmpty l="LAST READ" v={o?.cycle?.at ? ago(o.cycle.at) : '—'} sub={o?.cycle?.every ? `every ${Math.round(o.cycle.every)}s` : null} />
+        <Tile hideEmpty l="DEVIL SAYS" v={dec.kernel ? devilOf(cand || {}).word : pos?.run || '—'} sub={dec.kernel ? 'Devil on this coin' : pos ? `stop ${pos.stop ?? '—'}%` : null}
           cls={dec.kernel?.devil?.verdict === 'veto' ? 'm-neg' : dec.kernel?.devil?.verdict === 'warn' ? 'ack-warn' : ''} />
-        <Tile l="SEAT SIZE" v={pos ? money(pos.usd) : cand?.size != null ? `×${cand.size}` : '—'} sub={pos ? `Warden ×${pos.warden ?? '—'}` : cand?.sizeWhy || null} />
-        <Tile l="NEXT STEP" v={pos ? (pos.roundAction || pos.decision || '—') : dec.verdict === 'READY' ? 'TAKE A SEAT' : cand?.trigger === 'ENTER' ? 'CLEAR THE WALL' : 'KEEP READING'} sub={pos?.obeying || null} />
-        <Tile l="NEXT CHECK" v={pos ? secs(pos.nextReview) : secs(o?.cycle?.nextIn)} sub={pos ? "Reaper's review (the live chart acts sooner)" : 'next agent pass'} /></div>
+        <Tile hideEmpty l="SEAT SIZE" v={pos ? money(pos.usd) : cand?.size != null ? `×${cand.size}` : '—'} sub={pos ? `Warden ×${pos.warden ?? '—'}` : cand?.sizeWhy || null} />
+        <Tile hideEmpty l="NEXT STEP" v={pos ? (pos.roundAction || pos.decision || '—') : dec.verdict === 'READY' ? 'TAKE A SEAT' : cand?.trigger === 'ENTER' ? 'CLEAR THE WALL' : 'KEEP READING'} sub={pos?.obeying || null} />
+        <Tile hideEmpty l="NEXT CHECK" v={pos ? secs(pos.nextReview) : secs(o?.cycle?.nextIn)} sub={pos ? "Reaper's review (the live chart acts sooner)" : 'next agent pass'} /></div>
       {agent === 'devil' && cand?.devilConf != null ? <p className="ack-fresh">Devil confidence ×{cand.devilConf} (a weight on the rank, never a block)</p> : null}
       <AiNote o={o} mint={mint} agent={agent} onOpen={() => setTab('ai')} />
     </div>) : null}
@@ -655,7 +671,7 @@ export const LENS_TAB = { live: 'office', review: 'office', limits: 'office', bo
 export function AgentCockpit({ call, isOwner = true, head = null, extra = [], limits = null }) {
   const cc = useHub(); const d = cc?.d; const o = d?.office || null;
   const [pick, setPick] = useRemembered('feeless.ack.pick', null); const [iv, setIv] = useRemembered('feeless.ack.iv', '1m'); const [agent, setAgentS] = useState(null); const [tapeAgent, setTapeAgent] = useState(null);
-  const [tab, setTab] = useRemembered('feeless.ack.tab', 'live'); const [aiOpen, setAiOpen] = useState(false); const [brainOpen, setBrainOpen] = useRemembered('feeless.ack.brain', false); const [side, setSide] = useRemembered('feeless.ack.side', 'decision');   // 🔁 a refresh comes back to the same coin, timeframe and panel tab
+  const [tab, setTab] = useRemembered('feeless.ack.tab', 'live'); const [aiOpen, setAiOpen] = useState(false); const [brainOpen, setBrainOpen] = useRemembered('feeless.ack.brain', false);   // 🔁 a refresh comes back to the same coin, timeframe and panel tab
   // 🧭 the nav: 📈 chart = the top of the page; any other tab opens its pane under the chart and brings it into view (no hunting)
   const [nav, setNav] = useState(() => { try { return localStorage.getItem(NAV_KEY) || 'chart'; } catch { return 'chart'; } });
   const [navPane, setNavPane] = useState(() => { try { const v = localStorage.getItem(DECK_KEY); return v && v !== 'chart' ? v : 'live'; } catch { return 'live'; } });
@@ -742,9 +758,8 @@ export function AgentCockpit({ call, isOwner = true, head = null, extra = [], li
       <div className="ack-left"><CockpitChart duo={d?.duo} m={model} iv={iv} setIv={setIv} pos={pos} cand={cand} markers={markers} onAgent={a => { setAgentS(a); setTab('live'); }} tid={o?.tid} call={call} isOwner={isOwner} />
         <RideBar s={seats.find(x => !x.open && x.mint === mint)} pos={pos} />
         <IntakeBand o={o} mint={mint} onPick={onPick} call={call} isOwner={isOwner} imp={d?.impostors} /></div>
-      <div className="ack-right"><div className="ack-sidetabs m-seg" role="tablist" aria-label="Right column">{[['decision', '🧠 Decision'], ['desk', '⚡ Live desk']].map(([k, l]) => <button key={k} type="button" role="tab" aria-selected={side === k} className={side === k ? 'active' : ''} onClick={() => setSide(k)} data-testid={`ack-side-${k}`}>{l}</button>)}</div>
-      {side === 'desk' ? <div className="ack-sidedesk" data-testid="ack-sidedesk"><DuoSeat duo={d?.duo} call={call} /><DecisionTape rows={o.tape} agent={tapeAgent} setAgent={setTapeAgent} fresh={freshIds} onPick={r => { onPick(r); setSide('decision'); }} /></div> : <DecisionPanel o={o} dec={dec} pos={pos} cand={cand} mint={mint} seats={seats} readyN={readyN} agent={agentNow} setAgent={a => { setAgentS(a); setTapeAgent(a); }} tab={tab} setTab={setTab}
-        pulse={pulse} call={call} isOwner={isOwner} onPick={onPick} mcNow={model?.mc} onAi={() => setAiOpen(true)} />}</div></div>
+      <div className="ack-right">{/* 🧹 Decision only — the G4 × OSSY desk + the decision tape live under the chart (owner 2026-10-27: "less clutter") */}<DecisionPanel o={o} dec={dec} pos={pos} cand={cand} mint={mint} seats={seats} readyN={readyN} agent={agentNow} setAgent={a => { setAgentS(a); setTapeAgent(a); }} tab={tab} setTab={setTab}
+        pulse={pulse} call={call} isOwner={isOwner} onPick={onPick} mcNow={model?.mc} onAi={() => setAiOpen(true)} /></div></div>
     <div ref={deckRef} className="ack-deckwrap"><Deck testid="ack-tapezone" bare on={nav === 'chart' ? navPane : nav} setOn={go} tabs={navTabs} /></div>
     {brainOpen ? createPortal(<BrainDrawer close={() => setBrainOpen(false)}><AiChat call={call} isOwner={isOwner} focus={mint} focusSym={dec?.symbol} variant="drawer" extras={brainExtras} onClose={() => setBrainOpen(false)} /></BrainDrawer>, document.body) : null}
     {aiOpen ? createPortal(<AiProvidersLive o={o} call={call} isOwner={isOwner} close={() => setAiOpen(false)} />, document.body) : null}

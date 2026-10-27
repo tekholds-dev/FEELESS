@@ -66,18 +66,20 @@ function SocStrip({ c, pos, open, onOpen }) {
 
 // 🫀 every vital the agents read on THIS coin — tap one: what it is, the line it is judged against, who reads it, what it does
 function VitalBoardBody({ c, pos, rules, call, isOwner }) {
-  const [open, setOpen] = useState(null);
-  const tiles = vitalTiles(c, pos); const sc = vitalScore(tiles);
+  const [open, setOpen] = useState(null); const [all, setAll] = useState(false);   // 🧹 unread vitals stay folded (owner 2026-10-27: "less clutter") — one tap shows them
+  const tiles = vitalTiles(c, pos); const sc = vitalScore(tiles); const shown = all ? tiles : tiles.filter(t => t.tone !== 'unk');
   const v = mergedVit(c, pos);
   const sel = open === 'soc' ? { key: 'soc', icon: '📣', label: 'SOCIALS', value: v.soc?.grade || 'UNREAD', tone: 'unk', line: v.soc?.line || 'not researched yet',
     who: '🔍 Sherlock · ⚖ Devil', effect: 'a CA mismatch / a different X = Devil warning; never a veto by itself', soc: v.soc || null } : tiles.find(t => t.key === open);
   const rule = sel?.rule ? (rules?.rules || []).find(r => r.key === sel.rule) : null;
   return <section className="vbd" data-testid="vital-board">
     <header><b>🫀 VITALS</b><em className={`vbd-word is-${sc.word.replace(/\W+/g, '-').toLowerCase()}`}>{sc.word}</em>
-      <span className="vbd-tally"><i className="is-good">{sc.good}</i><i className="is-watch">{sc.watch}</i><i className="is-bad">{sc.bad}</i>{sc.unk ? <i className="is-unk">{sc.unk} unread</i> : null}</span>
+      <span className="vbd-tally"><i className="is-good">{sc.good}</i><i className="is-watch">{sc.watch}</i><i className="is-bad">{sc.bad}</i></span>
+      {sc.unk ? <button type="button" className="vbd-unread" aria-pressed={all} onClick={() => setAll(v => !v)} data-tip={all ? 'Fold the vitals nobody has read yet' : 'Show the vitals not read yet on this coin'} data-testid="vital-unread">{all ? 'hide' : '+'} {sc.unk} unread</button> : null}
       <small>tap a vital</small></header>
     <SocStrip c={c} pos={pos} open={open === 'soc'} onOpen={() => setOpen(open === 'soc' ? null : 'soc')} />
-    {VITAL_GROUPS.map(([g, label]) => { const ts = tiles.filter(t => t.group === g); if (!ts.length) return null;
+    {!shown.length ? <p className="vbd-none" data-testid="vital-none">Nothing read on this coin yet — the agents read it on their next pass.</p> : null}
+    {VITAL_GROUPS.map(([g, label]) => { const ts = shown.filter(t => t.group === g); if (!ts.length) return null;
       return <div key={g} className="vbd-group"><small>{label}</small><div className="vbd-tiles">{ts.map((t, i) =>
         <button key={t.key} type="button" className={`vbd-tile is-${t.tone} ${open === t.key ? 'is-open' : ''}${t.germ && t.tone === 'good' ? ' is-germzone' : ''}`} style={{ '--i': i }} aria-expanded={open === t.key}
           onClick={() => setOpen(open === t.key ? null : t.key)} data-testid={`vital-${t.key.replace(/\W+/g, '-')}`}>

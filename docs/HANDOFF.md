@@ -15,7 +15,7 @@ Read this (2 min) → `CLAUDE.md` (lean rules + 🎨 MANDATORY STYLING + 📋 CU
 >    LIVE visual (meters, bars, animation on real numbers), never bare text. `styles/cssCoverage.test.js` fails on an unstyled class.
 
 ## 🔁 NOW (rewrite this section in place every session)
-**Updated 2026-10-27 (night) · Opus 5.5.** Shipped tonight (top rows). Still OPEN: HQ de-clutter (needs the owner's eye on which tab) · the agents'
+**Updated 2026-10-27 (night) · Opus 5.5.** Shipped tonight (top rows). Still OPEN: HQ de-clutter beyond the Agents tab (Agents done 2026-10-27: 5-tab nav + MORE, folded unread vitals, Decision-only right column) · the agents'
 own record is unproven (stage RECOVERY, 0 graded team trades) — infrastructure is ready (RPC relay OK, books reconcile, edge gate TRADE) · strike
 orders + Kalshi need `DFLOW_API_KEY` · Familia polish last (owner's order).
 

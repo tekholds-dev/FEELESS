@@ -35,7 +35,11 @@ test('the cockpit, laid out like the reference: ribbon → 4 seats → MC chart 
   await flush();
   const order = [...q('agent-cockpit').children].map(c => c.getAttribute('data-testid') || c.className);
   expect(order).toEqual(['ack-money', 'ack-topseats', 'ack-main', 'ack-deckwrap']);   // 🪑 the seats across the top   // 💵 one sticky strip, the chart, then ONE pane behind the nav expect(q('ack-ops')).not.toBeNull();   // one deck under the chart (one pane at a time)
-  expect([...q('ack-money').querySelectorAll('.ack-nav > [role=tab]')].map(b => b.getAttribute('data-testid'))).toEqual(['ack-nav-chart', 'ack-deck-seats', 'ack-deck-you', 'ack-deck-live', 'ack-deck-tape', 'ack-deck-review', 'ack-deck-controls', 'ack-deck-stats']);
+  expect([...q('ack-money').querySelectorAll('.ack-nav > [role=tab]')].map(b => b.getAttribute('data-testid'))).toEqual(['ack-nav-chart', 'ack-deck-seats', 'ack-deck-live', 'ack-deck-tape', 'ack-deck-review']);   // 🧹 the four used most up front
+  expect([...q('ack-morepop').querySelectorAll('[role=tab]')].map(b => b.getAttribute('data-testid'))).toEqual(['ack-deck-you', 'ack-deck-controls', 'ack-deck-stats']);   // the rest behind ⋯ MORE
+  expect(q('ack-morepop').hidden).toBe(true); await act(async () => { q('ack-nav-more').click(); }); expect(q('ack-morepop').hidden).toBe(false);
+  await act(async () => { q('ack-deck-stats').click(); }); expect(q('ack-morepop').hidden).toBe(true); expect(q('ack-nav-more').textContent).toContain('Stats');   // MORE wears the open pane's name
+  await act(async () => { q('ack-deck-live').click(); });   // back to the live desk (a hidden pane is frozen)
   // 💵 the ribbon: the card's own numbers
   for (const k of ['putin', 'equity', 'net', 'phase', 'be', 'lives', 'occ', 'cycle', 'last', 'cash', 'keeper', 'exec']) expect(q(`ack-rt-${k}`)).not.toBeNull();
   expect(q('ack-rt-putin').textContent).toContain('$32.50'); expect(q('ack-rt-phase').textContent).toContain('RECOVERY'); expect(q('ack-rt-keeper').textContent).toContain('1 ACTIVE');

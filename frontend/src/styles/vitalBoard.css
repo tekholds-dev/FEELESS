@@ -9,7 +9,10 @@
 .vbd-word.is-clean { color: #45e486; } .vbd-word.is-watch, .vbd-word.is-mixed { color: var(--gold, #f5c451); } .vbd-word.is-red-flags { color: #ff8fa3; }
 .vbd-tally { display: inline-flex; gap: 4px; } .vbd-tally i { font: 800 9px var(--m-mono); font-style: normal; padding: 0 5px; border-radius: 4px; }
 .vbd-tally .is-good { color: #45e486; background: rgba(21, 209, 106, .12); } .vbd-tally .is-watch { color: #f5c451; background: rgba(245, 196, 81, .12); }
-.vbd-tally .is-bad { color: #ff8fa3; background: rgba(255, 143, 163, .12); } .vbd-tally .is-unk { color: var(--m-mute); }
+.vbd-tally .is-bad { color: #ff8fa3; background: rgba(255, 143, 163, .12); }
+.vbd-unread { min-height: 26px; padding: 0 8px; border-radius: 999px; border: 1px dashed rgba(255, 255, 255, .2); background: none; color: var(--m-mute); font: 800 9px var(--m-mono); cursor: pointer; transition: color .12s, border-color .12s; }
+.vbd-unread:hover { color: var(--m-text); border-color: rgba(255, 255, 255, .4); } .vbd-unread:focus-visible { outline: 2px solid #45e486; outline-offset: 1px; } .vbd-unread[aria-pressed="true"] { color: #45e486; border-style: solid; }
+.vbd-none { margin: 0; padding: 8px 10px; border-radius: 8px; background: rgba(255, 255, 255, .03); font: 600 10.5px var(--m-mono); color: var(--m-mute); }
 .vbd-group { display: grid; gap: 3px; } .vbd-group > small { font: 800 8px var(--m-mono); letter-spacing: .14em; color: var(--m-mute); }
 .vbd-tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(92px, 1fr)); gap: 4px; }
 .vbd-tile { --t: var(--m-dim); display: flex; align-items: center; gap: 5px; min-width: 0; padding: 4px 6px; border-radius: 7px; cursor: pointer; text-align: left;

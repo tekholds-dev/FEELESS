@@ -48,3 +48,12 @@ test('a rule card shows its record and its knob, and only the owner can change i
   expect(call).not.toHaveBeenCalled();
   await act(async () => { root.unmount(); });
 });
+
+test('🧹 unread vitals stay folded: a coin nobody read says so in one line, one tap shows every tile', async () => {
+  const el = document.createElement('div'); document.body.appendChild(el); const root = createRoot(el);
+  await act(async () => { root.render(<VitalBoard c={{ mint: 'M1', symbol: 'NEW' }} call={jest.fn()} isOwner />); });
+  expect(el.querySelector('[data-testid="vital-none"]')).not.toBeNull(); expect(el.querySelectorAll('.vbd-tile')).toHaveLength(0);
+  await act(async () => { el.querySelector('[data-testid="vital-unread"]').click(); });
+  expect(el.querySelectorAll('.vbd-tile').length).toBeGreaterThan(5); expect(el.querySelector('[data-testid="vital-none"]')).toBeNull();
+  await act(async () => { root.unmount(); });
+});

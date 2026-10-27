@@ -1,9 +1,6 @@
 /* 🧩 cockpit add-ons: seats on top · right column Decision | Live desk · Brain drawer · rug marker · ride share · today cells. transform / opacity only */
 .ack-topseats { margin: 0 0 var(--ack-gap, 10px); }
 .ack-right { display: grid; gap: 8px; align-content: start; min-width: 0; }
-.ack-sidetabs { display: grid; grid-template-columns: 1fr 1fr; }
-.ack-sidedesk { display: grid; gap: 10px; min-width: 0; max-height: calc(100vh - 170px); overflow: auto; scrollbar-width: thin; scrollbar-color: #15d16a transparent; }
-.ack-sidedesk::-webkit-scrollbar { width: 6px; } .ack-sidedesk::-webkit-scrollbar-thumb { background: #15d16a; border-radius: 3px; }
 
 /* 🧠 Brain drawer */
 .ack-brainbtn { align-self: center; padding: 6px 12px; border-radius: 9px; border: 1px solid rgba(183, 155, 255, .45); background: linear-gradient(120deg, rgba(183, 155, 255, .18), rgba(21, 209, 106, .12));
@@ -36,13 +33,12 @@
 body.fx-lite .ack-drawer { animation: none; }
 @media (prefers-reduced-motion: reduce) { .ack-rugdot, .ack-drawer { animation: none; } .ack-brainbtn, .ack-ridebtn, .ack-drawer header button { transition: none; } }
 body.theme-day .ack-drawer { background: #eef6f1; } body.theme-day .ack-ride, body.theme-day .ack-ridebtn, body.theme-day .ack-brainbtn { color: #181e1b; }
-@media (max-width: 640px) { .ack-drawer { width: 100vw; } .ack-ride { font-size: 9px; } .ack-sidedesk { max-height: none; } }
+@media (max-width: 640px) { .ack-drawer { width: 100vw; } .ack-ride { font-size: 9px; } }
 
 /* 📐 BIGGER CHART + SIDE BOX (owner, 2026-10-18: "chart and side box can be bigger"): the chart takes most of the screen height and the
    right column (Decision | Live desk) is wider and as tall as the chart, so the duo chat reads without scrolling the page */
 .ack-main { grid-template-columns: minmax(0, 1fr) clamp(420px, 33vw, 580px); }
 .ack-plot { --ack-h: clamp(440px, 64vh, 760px); }
-.ack-sidedesk { max-height: calc(100vh - 120px); }
 .ack-right .ack-pbody { max-height: calc(100vh - 170px); }
 @media (max-width: 1180px) { .ack-main { grid-template-columns: minmax(0, 1fr); } .ack-plot { --ack-h: clamp(380px, 56vh, 560px); } }
-@media (max-width: 640px) { .ack-plot { --ack-h: 340px; } .ack-sidedesk, .ack-right .ack-pbody { max-height: none; } }
+@media (max-width: 640px) { .ack-plot { --ack-h: 340px; } .ack-right .ack-pbody { max-height: none; } }
