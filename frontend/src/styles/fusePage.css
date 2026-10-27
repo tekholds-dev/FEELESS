@@ -812,7 +812,7 @@ body.theme-day .ar-dna, body.theme-day .pgb-dna, body.theme-day .pgb-brain b { c
 body.fx-lite .pg-filter { animation: none; } @media (prefers-reduced-motion: reduce) { .pg-filter { animation: none; } }
 body.theme-day .pg-filter { background: #fff; }
 /* 🔤 Fuse font: chunky degen display face for every Fuse heading, card name and the nav — one token */
-:root { --fz-font: 'Bungee', 'Audiowide', var(--m-mono); }
+:root { --fz-font: 'Unbounded', var(--m-mono); }
 .fz-font, .fuse-page .ar-head h2, .fuse-page .fs-head h3, .fuse-page .rn-hero h2, .bf-c-name b, .fuse-page .ar-meta > b, .fdeck-head h3, .bf > header .m-label { font-family: var(--fz-font); letter-spacing: .02em; }
 .fuse-page .ar-head h2 { font-size: 30px; } .bf-c-name b { font-size: 15px; } .fuse-page .ar-meta > b { font-size: 14px; }
 .bf-c-card[role="button"] { cursor: zoom-in; transition: transform .2s var(--m-ease); } .bf-c-card[role="button"]:hover { transform: translateY(-4px) scale(1.02); }

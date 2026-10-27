@@ -15,7 +15,7 @@ const $ = v => (v == null ? '—' : `$${Math.abs(v) >= 1000 ? Math.abs(v).toLoca
 // 🔑 the key doors a user can open themselves (owner 2026-10-26: "enter my api once … always jump in and go") — US-legal, free to open
 export const VENUES = {
   alpaca: { name: 'Alpaca', sub: 'US stocks · ETFs · crypto · $0 to start', signup: 'https://app.alpaca.markets/signup', where: 'Alpaca dashboard → API Keys → Generate', paper: true, keyMin: 16, secMin: 30 },
-  cdc: { name: 'Crypto.com', sub: 'spot crypto vs USD in your Crypto.com Exchange account', signup: 'https://crypto.com/exchange', where: 'Crypto.com Exchange → Settings → API Keys (trading ON, withdrawals OFF)', paper: false, keyMin: 16, secMin: 16 },
+  cdc: { name: 'Crypto.com', sub: 'spot + perps in your own Crypto.com Exchange account', signup: 'https://crypto.com/exchange', where: 'Crypto.com Exchange → Settings → API Keys (trading ON, withdrawals OFF)', paper: false, keyMin: 16, secMin: 16 },
 };
 export function BrokerDesk({ devAddress = '', venue = null }) {   // devAddress: the /dev/broker preview only · venue: open on that key door / account
   const { wallet } = useWallet() || {}; const a = wallet?.address || devAddress; const s = a ? readChatSession(a) : '';
@@ -48,11 +48,11 @@ export function BrokerDesk({ devAddress = '', venue = null }) {   // devAddress:
       {d?.snaptrade ? <button type="button" className="bk-sm" onClick={link} data-tip="Add another broker">+ BROKER</button> : null}<button type="button" className="bk-sm" onClick={unlink} data-tip="Unlink every broker + delete your keys from FEELESS">UNLINK</button></header>
     {d?.alpacaError ? <p className="bk-err">⚠ {d.alpacaError}</p> : null}{d?.cdcError ? <p className="bk-err">⚠ {d.cdcError}</p> : null}
     {venue && !(d?.accounts || []).some(x => x.id === venue || (venue === 'alpaca' && x.id !== 'cdc')) ? <AlpacaKeys venue={venue} post={post} onSaved={load} /> : null}
-    {venue === 'cdc' ? <CdcCaps a={a} s={s} /> : null}
+    {venue === 'cdc' ? <CdcCaps a={a} s={s} onPick={(b, mk, lev) => setT(x => ({ ...x, symbol: b, market: mk, accountId: 'cdc', lev: lev ? Math.min(x.lev, lev) : x.lev }))} /> : null}
     <div className="bk-ticket">
       {(t.accountId || d?.accounts?.[0]?.id) === 'cdc' ? <span className="m-seg bk-mkt" role="radiogroup" aria-label="Market">{[['spot', 'SPOT', 'Buy / sell the coin itself'], ['perp', 'PERPS', 'Long / short with leverage in your Crypto.com account (Crypto.com decides if your account may)']].map(([k, l, tip]) =>
         <button key={k} type="button" role="radio" aria-checked={t.market === k} className={t.market === k ? 'active' : ''} onClick={() => setT({ ...t, market: k })} data-tip={tip} data-testid={`bk-m-${k}`}>{l}</button>)}</span> : null}
-      {t.market === 'perp' && (t.accountId || d?.accounts?.[0]?.id) === 'cdc' ? <span className="m-seg bk-lev" role="radiogroup" aria-label="Leverage">{[2, 5, 10, 25, 50].map(l => <button key={l} type="button" role="radio" aria-checked={t.lev === l} className={t.lev === l ? 'active' : ''} onClick={() => setT({ ...t, lev: l })} data-tip={`${l}×: a ${(100 / l).toFixed(1)}% move against you wipes the margin`}>{l}×</button>)}</span> : null}
+      {t.market === 'perp' && (t.accountId || d?.accounts?.[0]?.id) === 'cdc' ? <span className="m-seg bk-lev" role="radiogroup" aria-label="Leverage">{[2, 5, 10, 25, 50, 100].map(l => <button key={l} type="button" role="radio" aria-checked={t.lev === l} className={t.lev === l ? 'active' : ''} onClick={() => setT({ ...t, lev: l })} data-tip={`${l}×: a ${(100 / l).toFixed(1)}% move against you wipes the margin`}>{l}×</button>)}</span> : null}
       <span className="m-seg">{['BUY', 'SELL'].map(x => <button key={x} type="button" className={t.action === x ? 'active' : ''} onClick={() => setT({ ...t, action: x })} data-testid={`bk-${x}`}>{x}</button>)}</span>
       <input value={t.symbol} onChange={e => setT({ ...t, symbol: e.target.value.toUpperCase() })} aria-label="Ticker" placeholder="SPY" data-testid="bk-sym" />
       <label className="bk-usd">$<input type="number" min="1" value={t.usd} onChange={e => setT({ ...t, usd: Number(e.target.value) })} aria-label="Dollars" data-testid="bk-usd" /></label>
@@ -92,7 +92,7 @@ function AlpacaKeys({ venue: v0 = 'alpaca', post, onSaved }) {
 
 // 🔑 WHAT YOUR CRYPTO.COM KEY DOES IN FEELESS: the exchange's own live list (spot · perpetuals · futures) + whether this wallet's key reads its
 // account — so the trade station shows exactly what is wired before you type a ticker.
-function CdcCaps({ a, s }) {
+function CdcCaps({ a, s, onPick }) {
   const [c, setC] = useState(null);
   useEffect(() => { let on = true; fetch(apiUrl(`/api/reputation/familia/broker/cdc-caps${a && s ? `?address=${a}&session=${encodeURIComponent(s)}` : ''}`)).then(r => (r.ok ? r.json() : null)).then(x => on && setC(x)).catch(() => {}); return () => { on = false; }; }, [a, s]);
   const k = c?.key || {};
@@ -100,5 +100,23 @@ function CdcCaps({ a, s }) {
     ['FUTURES', c ? `${c.futures.n} dated` : '…', 'not wired in FEELESS yet', false], ['YOUR KEY', k.linked ? (k.reads ? `reads · $${Math.round(k.valueUsd || 0).toLocaleString()}` : 'refused') : 'not added', k.linked ? (k.reads ? 'balance read live' : (k.error || '')) : 'paste it below once', !!k.reads]];
   return <div className="bk-caps" data-testid="cdc-caps"><b className="bk-t">🔑 WHAT YOUR CRYPTO.COM KEY CAN DO HERE</b>
     <div className="bk-capg">{tiles.map(([l, v, sub, ok], i) => <span key={l} className={ok ? 'is-ok' : 'is-off'} style={{ '--i': i }}><em>{l}</em><b className="m-num">{v}</b><small>{ok ? '✓ ' : '○ '}{sub}</small></span>)}</div>
-    {c?.perps?.top?.length ? <p className="bk-dim">Perps listed: {c.perps.top.map(x => `${x.symbol.replace('USD-PERP', '')} ${x.lev}×`).join(' · ')}</p> : null}</div>;
+    {c?.devKey && !c?.envPair && !k.linked ? <p className="bk-err" data-testid="cdc-devkey">🔑 Your Crypto.com <b>Developer Platform</b> key is in .env — it reads Cronos chain data but can't trade. For trading add an <b>Exchange</b> key + secret (crypto.com/exchange → Settings → API Keys) below, or as CRYPTO_COM_API_KEY / CRYPTO_COM_API_SECRET in .env (rides your wallet automatically).</p> : null}
+    {c?.perps?.all?.length || c?.spot?.all?.length ? <CdcMarkets c={c} onPick={onPick} /> : null}</div>;
+}
+
+// 📜 EVERY market Crypto.com lists (owner 2026-10-27: "full list of tradeables + trading options per provider"): PERPS (with each one's max
+// leverage) | SPOT, a search box, one tap loads the coin into the ticket above.
+function CdcMarkets({ c, onPick }) {
+  const [m, setM] = useState('perp'); const [q, setQ] = useState('');
+  const rows = m === 'perp' ? (c.perps.all || []).map(x => [x.base, x.lev]) : (c.spot.all || []).map(b => [b, null]);
+  const hit = rows.filter(([b]) => !q || b.includes(q.toUpperCase()));
+  return <div className="bk-mkts" data-testid="cdc-markets">
+    <span className="m-seg" role="radiogroup" aria-label="Market list">{[['perp', `PERPS · ${c.perps.n}`, 'Perpetuals: long / short with leverage'], ['spot', `SPOT · ${c.spot.n}`, 'Buy / sell the coin itself vs USD']].map(([k, l, tip]) =>
+      <button key={k} type="button" role="radio" aria-checked={m === k} className={m === k ? 'active' : ''} onClick={() => setM(k)} data-tip={tip} data-testid={`cdc-ml-${k}`}>{l}</button>)}</span>
+    <input value={q} onChange={e => setQ(e.target.value.replace(/[^A-Za-z0-9]/g, '').slice(0, 12))} placeholder="Search a coin" aria-label="Search Crypto.com markets" data-testid="cdc-mq" />
+    <div className="bk-mlist">{hit.slice(0, 160).map(([b, lev], i) => <button key={b + i} type="button" onClick={() => onPick?.(b, m, lev)} style={{ '--i': Math.min(i, 12) }}
+      data-tip={lev ? `Long / short ${b}-PERP up to ${lev}× — loads it in the ticket` : `Buy / sell ${b} vs USD — loads it in the ticket`}><b>{b}</b>{lev ? <i className="m-num">{lev}×</i> : null}</button>)}
+      {!hit.length ? <small className="bk-dim">No {m === 'perp' ? 'perp' : 'pair'} matches “{q}”.</small> : null}</div>
+    {hit.length > 160 ? <small className="bk-dim">{hit.length - 160} more — search to narrow.</small> : null}
+  </div>;
 }

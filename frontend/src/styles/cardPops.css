@@ -12,7 +12,7 @@
 .cpop-charge i { position: absolute; inset: 0; transform-origin: 0 50%; background: linear-gradient(90deg, rgba(21, 209, 106, .35), rgba(245, 196, 81, .45)); transition: transform .5s ease; }
 .cpop-charge b, .cpop-charge small { position: relative; font: 700 10.5px "JetBrains Mono", monospace; color: #fff; white-space: nowrap; } .cpop-charge small { font-weight: 500; opacity: .85; }
 /* 🎚 tiers: the effect grows with the money. t1 20c+ (the plain number) · t2 $1+ sparks · t3 $5+ gold burst + ring · t4 $20+ jackpot */
-.cpop-num.t1 b { font-size: 14px; } .cpop-num.t2 b { font-size: 17px; } .cpop-num.t3 b { font-size: 21px; } .cpop-num.t4 b { font: 400 26px var(--fz-font, "Bungee"), sans-serif; }
+.cpop-num.t1 b { font-size: 14px; } .cpop-num.t2 b { font-size: 17px; } .cpop-num.t3 b { font-size: 21px; } .cpop-num.t4 b { font: 800 26px var(--fz-font, "Unbounded"), sans-serif; }
 .cpop-num.t3 b, .cpop-num.t4 b { color: var(--gold, #f5c451); text-shadow: 0 0 14px rgba(245, 196, 81, .9), 0 0 30px rgba(245, 196, 81, .45); }
 .cpop-num.t3 small, .cpop-num.t4 small { border-color: rgba(245, 196, 81, .7); color: #fff3cf; }
 .cpop-num.t3 { animation-duration: 3.4s; } .cpop-num.t4 { animation-duration: 4s; }

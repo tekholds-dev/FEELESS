@@ -1,7 +1,7 @@
 import React from 'react';
 import { createRoot } from 'react-dom/client';
 import { act } from 'react';
-import { AvenueRoom, AVENUE_LENSES, HallRoom, pumpVitals, heatOf, blipOf, bankRows } from './CityAvenue';
+import { AvenueRoom, AVENUE_LENSES, HallRoom, pumpVitals, heatOf, bankRows } from './CityAvenue';
 jest.mock('./terminal/PriceChart', () => ({ PriceChart: () => null }));
 jest.mock('./perps/PerpsChart', () => ({ PerpsChart: () => null }));   // the true-candle chart (canvas + Coinbase) — not under test here   // the dash's live chart (canvas) — not under test here
 
@@ -14,15 +14,11 @@ beforeEach(() => {
   global.fetch = jest.fn(url => Promise.resolve({ ok: true, status: 200, headers: { get: () => null }, json: () => Promise.resolve(String(url).includes('/assets') ? ASSETS : PUMP), text: () => Promise.resolve('') }));
 });
 
-test('📡 Pump Radar vitals: how many are up, the average 5m move, the hour volume, the top mover; heat + blips are bounded', () => {
+test('📡 Pump Radar vitals: how many are up, the average 5m move, the hour volume, the top mover; heat is bounded', () => {
   const v = pumpVitals(PUMP.pairs);
   expect(v).toMatchObject({ n: 3, up: 2, vol1h: 3000, top: { sym: 'CCC', m5: 40 } }); expect(v.avg5m).toBeCloseTo(15.33, 1);
   expect(pumpVitals([])).toMatchObject({ n: 0, up: 0, avg5m: null, top: null });
   expect(heatOf(-50)).toBe(0); expect(heatOf(100)).toBe(1); expect(heatOf(10)).toBeCloseTo(0.5);
-  const b0 = blipOf(PUMP.pairs[0], 0, 3); const b2 = blipOf(PUMP.pairs[2], 2, 3);
-  expect(Math.hypot(b0.x - 110, b0.y - 110)).toBeLessThan(Math.hypot(b2.x - 110, b2.y - 110));      // #1 nearest the centre
-  for (const b of [b0, b2]) { expect(b.x).toBeGreaterThan(10); expect(b.x).toBeLessThan(210); }
-  expect(blipOf(PUMP.pairs[1], 1, 3).up).toBe(false);
 });
 
 test('🏦 the $FEE Bank reads /assets: a row per coin with a pool, nothing invented for one without', () => {

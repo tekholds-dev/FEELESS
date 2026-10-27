@@ -15,6 +15,7 @@ import { Tokenomics } from './FeeCommand';
 import { Dialog, DialogContent, DialogTitle, DialogDescription } from '../ui/dialog';
 import { PdfReader } from './PdfReader';
 import { FeelessUniverse } from './FeelessUniverse';
+import { UpdatesLog } from './UpdatesLog';
 import { CHART_INTERVAL_VALUES, normalizeAutoRefresh, normalizeChartInterval, normalizeCompact, normalizeDefaultEcosystem, normalizeFontScale, normalizeReducedMotion } from '../terminal/LocalTools';
 
 const WhitepaperContents = () => {
@@ -111,5 +112,6 @@ export const TerminalConfiguration = ({ settings, setSettings, onWallet }) => {
         <p className="m-dim">Watchlists, alerts, learning progress and preferences live in this browser. Public chat and transaction references are stored server-side. Alerts evaluate while the terminal is open.</p>
         <Link className="m-btn" data-testid="config-alerts-link" to="/terminal/alerts">Manage conditional alerts <ArrowUpRight size={14} /></Link></section>
     </div>
+    <UpdatesLog />
   </div>;
 };

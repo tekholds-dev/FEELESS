@@ -96,7 +96,7 @@ body.fx-lite .fbk-pick { animation: none; }
 .fdk-tabs button:hover, .fdk-tabs button:focus-visible { transform: translateY(-2px); border-color: #ffd76a; outline: none; } .fdk-tabs button:active { transform: scale(.98); }
 .fdk-tabs button.active { background: #d4af37; color: #120e04; border-color: #d4af37; } .fdk-tabs button.active small { color: #3a2f0c; }
 .fdk-tabs i { font-style: normal; font-size: 18px; } .fdk-tabs span { display: grid; min-width: 0; } .fdk-tabs b { font: 800 11px 'JetBrains Mono', monospace; }
-.fdk-tabs small { font: 500 9.5px Inter, system-ui, sans-serif; color: #a89f86; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.fdk-tabs small { font: 500 9.5px Sora, system-ui, sans-serif; color: #a89f86; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .fdk-body { min-height: 220px; animation: fdkIn .25s ease-out both; }
 @keyframes fdkIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; }}
 body.theme-day .fdk { background: linear-gradient(170deg, #fffaf0, #f6efdc); border-color: #b8901f44; } body.theme-day .fdk-tabs button { background: #fffdf6; color: #2a2620; border-color: #b8901f44; }

@@ -2,7 +2,7 @@
 .wp { display: grid; grid-template-columns: minmax(0, 1fr) minmax(260px, 340px); gap: 22px; padding: 26px 26px 22px; border-radius: 18px; margin-bottom: 18px;
   background: radial-gradient(120% 90% at 0% 0%, rgba(21, 209, 106, .1), transparent 55%), linear-gradient(160deg, #0b0e0d, #060707); border: 1px solid rgba(21, 209, 106, .2); }
 .wp-main { min-width: 0; display: flex; flex-direction: column; gap: 12px; }
-.wp-title { position: relative; margin: 0; font: 400 clamp(38px, 5.6vw, 72px)/1 'Instrument Serif', Georgia, serif; letter-spacing: -.02em; color: #f2fff7; display: flex; flex-wrap: wrap; gap: 0 .26em; }
+.wp-title { position: relative; margin: 0; font: 400 clamp(38px, 5.6vw, 72px)/1 'Playfair Display', Georgia, serif; letter-spacing: -.02em; color: #f2fff7; display: flex; flex-wrap: wrap; gap: 0 .26em; }
 .wp-w { display: inline-block; animation: wpRise .7s cubic-bezier(.2, .9, .25, 1.2) both; animation-delay: calc(var(--i) * 110ms); }
 .wp-w.is-pump { color: #45e486; }
 .wp-w.is-pump b { display: inline-block; font-weight: 400; animation: wpHop 2.8s ease-in-out infinite; animation-delay: calc(900ms + var(--j) * 90ms); }
@@ -28,7 +28,7 @@
 .wp-stamp.v-whales, .wp-stamp.v-botted { color: #ff8fa3; } .wp-stamp.v-unclear { color: #a9c7b6; }
 .wp-sym { background: none; border: 0; padding: 0; cursor: pointer; color: #f2fff7; font: 800 18px var(--m-sans, system-ui); transition: color .15s; }
 .wp-sym:hover, .wp-sym:focus-visible { color: #45e486; outline: none; } .wp-sym:active { transform: translateY(1px); }
-.wp-head { margin: 0; font: 400 clamp(20px, 2.4vw, 28px)/1.2 'Instrument Serif', Georgia, serif; color: #f2fff7; }
+.wp-head { margin: 0; font: 400 clamp(20px, 2.4vw, 28px)/1.2 'Playfair Display', Georgia, serif; color: #f2fff7; }
 .wp-tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(92px, 1fr)); gap: 6px; }
 .wp-tiles span:first-child { grid-column: span 2; }   /* the move tile reads "+22% · 6 hours" */
 .wp-tiles span { display: flex; flex-direction: column; gap: 2px; padding: 8px 9px; border-radius: 10px; background: rgba(255, 255, 255, .03); border: 1px solid rgba(255, 255, 255, .06); animation: wpRise .45s ease-out both; animation-delay: calc(var(--i) * 60ms); }

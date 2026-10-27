@@ -2,7 +2,6 @@ import React, { Suspense, lazy, useEffect, useState } from 'react';
 import { PerpsDash } from './PerpsDash';
 import { BrokerDesk } from './BrokerDesk';
 import { TrenchTowers } from './TrenchTowers';
-import { LiveTank } from './LiveTank';
 import { useMarket } from '../hooks/useMarket';
 import { familiaTrade } from './FamiliaTrade';
 import { TokenAvatar } from './terminal/MarketPrimitives';
@@ -40,12 +39,6 @@ export function pumpVitals(pairs) {
   return { n: ps.length, up: m5.filter(v => v > 0).length, avg5m: m5.length ? m5.reduce((s, v) => s + v, 0) / m5.length : null,
     vol1h: ps.reduce((s, p) => s + (num(p.volume?.h1) || 0), 0), top: top ? { sym: top.baseToken.symbol, m5: num(top.priceChange?.m5) } : null };
 }
-// pure: a coin's blip on the scope — the #1 coin sits nearest the centre, hotter = bigger; angles spread evenly with a fixed twist per coin
-export function blipOf(p, i, n) {
-  const a = (i / Math.max(1, n)) * Math.PI * 2 + ((String(p?.baseToken?.address || '').charCodeAt(3) || 0) % 7) * 0.09;
-  const rr = 24 + (i / Math.max(1, n - 1 || 1)) * 70; const h = heatOf(p?.priceChange?.m5);
-  return { x: 110 + Math.cos(a) * rr, y: 110 + Math.sin(a) * rr, r: 3.5 + h * 5, up: (num(p?.priceChange?.m5) ?? 0) >= 0 };
-}
 // pure: the $FEE family of coins from /assets → a row each (price, 24h, cap, liquidity) + its pool for the trade dock
 export function bankRows(data) {
   return (data?.assets || data?.items || []).filter(a => a?.pair).map(a => ({ id: a.id || a.symbol, sym: a.pair.baseToken?.symbol || a.symbol || a.id, price: num(a.pair.priceUsd),
@@ -58,38 +51,31 @@ function Meter({ label, value, fill, tone, tip, i }) {
 }
 const trade = p => familiaTrade(p);   // 🏙 trades open INSIDE Familia (the dock), never another page
 
-// 📡 PUMP RADAR — the Pump board as a drawn scope (blips = coins, #1 nearest the centre, size = heat) + the ranked list with one-tap trade
+// ⚡ PUMP RADAR — simple coin cards (owner 2026-10-27: "simple cards like requested, no radar, window small"): the board's 4 vitals, then one
+// card per hot coin — avatar, $SYM, its live 5-minute move (heat bar fills, the % flashes on each read), MC + the hour's volume. One tap pops
+// its card + chart + Quick trade right here. The same building holds the Runners Track + the Trade Center as rooms (cityPlan `in`).
 function PumpRadar({ scope = 'pump' }) {
   const { data, loading } = useMarket(`/feed?kind=trending&chain=solana&page=1&scope=${scope}`, 15000);
   const coins = (data?.pairs || []).filter(p => p.chainId === 'solana' && p.baseToken?.address).slice(0, 12);
   const v = pumpVitals(coins);
   return <div className="av-radar" data-testid="av-pumpradar">
-    {scope === 'pump' ? <LiveTank compact /> : null}
     <div className="av-vitals">
-      <Meter i={0} label="MOVING UP NOW" value={`${v.up}/${v.n}`} fill={v.n ? v.up / v.n : 0} tone={v.up >= v.n / 2 ? 'is-up' : 'is-down'} tip="Coins on the Pump board green over the last 5 minutes" />
+      <Meter i={0} label="MOVING UP" value={`${v.up}/${v.n}`} fill={v.n ? v.up / v.n : 0} tone={v.up >= v.n / 2 ? 'is-up' : 'is-down'} tip="Coins on the Pump board green over the last 5 minutes" />
       <Meter i={1} label="AVG 5M" value={pct(v.avg5m)} fill={heatOf(v.avg5m)} tone={(v.avg5m ?? 0) >= 0 ? 'is-up' : 'is-down'} tip="The board's average 5-minute move" />
       <Meter i={2} label="1H VOLUME" value={usd(v.vol1h)} fill={Math.log10(1 + v.vol1h) / 8} tip="What traded across these coins in the last hour" />
       <Meter i={3} label="TOP MOVER" value={v.top ? `$${v.top.sym} ${pct(v.top.m5)}` : '—'} fill={heatOf(v.top?.m5)} tone="is-up" tip="The hottest 5-minute move on the board" />
     </div>
-    <div className="av-radar-grid">
-      <svg className="av-scope" viewBox="0 0 220 220" role="img" aria-label="Pump radar scope">
-        {[32, 62, 94].map(r => <circle key={r} cx="110" cy="110" r={r} className="av-ring" />)}
-        <path d="M110 14 V206 M14 110 H206" className="av-cross" />
-        <g className="av-sweep"><path d="M110 110 L110 14 A96 96 0 0 1 193 62 Z" /></g>
-        {coins.map((p, i) => { const b = blipOf(p, i, coins.length); return <g key={p.pairAddress} className={`av-blip ${b.up ? 'up' : 'down'}`} style={{ '--i': i }} role="button" tabIndex={0}
-          onClick={() => trade(p)} onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); trade(p); } }} aria-label={`Trade ${p.baseToken.symbol}`} data-tip={`$${p.baseToken.symbol} · 5m ${pct(num(p.priceChange?.m5))} — tap to trade it here`}>
-          <circle cx={b.x} cy={b.y} r="15" className="av-hit" /><circle cx={b.x} cy={b.y} r={b.r} /><text x={b.x} y={b.y - b.r - 3}>{p.baseToken.symbol.slice(0, 6)}</text></g>; })}
-      </svg>
-      <ol className="av-list">
-        {loading && !coins.length ? <li className="m-dim">Reading the Pump board…</li> : null}
-        {coins.map((p, i) => { const m5 = num(p.priceChange?.m5); return <li key={p.pairAddress} style={{ '--i': i }} className="av-open" onClick={e => { if (!e.target.closest('button')) trade(p); }}
-          role="button" tabIndex={0} onKeyDown={e => { if (e.key === 'Enter') trade(p); }} data-tip={`Open $${p.baseToken.symbol}: its card + chart + Quick trade in one window`}>
-          <em>{i + 1}</em><TokenAvatar pair={p} size={26} />
-          <span className="av-sym"><b>${p.baseToken.symbol}</b><small>MC {usd(p.marketCap ?? p.fdv)} · 1h {usd(p.volume?.h1)}</small></span>
-          <span className={`av-heat ${m5 != null && m5 < 0 ? 'down' : 'up'}`}><u aria-hidden="true"><s style={{ transform: `scaleX(${Math.max(0.04, heatOf(m5))})` }} /></u><b className="m-num">{pct(m5)}</b></span>
-          <button type="button" className="m-btn m-go" onClick={() => trade(p)} data-tip="Its card + chart + Quick trade pop out right here; your wallet signs" data-testid={`av-trade-${p.baseToken.address}`}>⚡ Trade</button></li>; })}
-        {!loading && !coins.length ? <li className="m-dim">No Pump coins pass the quality gates right now.</li> : null}
-      </ol>
+    <div className="av-cards">
+      {loading && !coins.length ? <p className="m-dim">Reading the Pump board…</p> : null}
+      {coins.map((p, i) => { const m5 = num(p.priceChange?.m5); const dn = m5 != null && m5 < 0; const sym = p.baseToken.symbol;
+        return <button key={p.pairAddress} type="button" className={`av-card ${dn ? 'down' : 'up'}`} style={{ '--i': i, '--h': Math.max(0.04, heatOf(m5)) }} onClick={() => trade(p)}
+          data-tip={`Open $${sym}: its card + chart + Quick trade pop out right here; your wallet signs`} data-testid={`av-trade-${p.baseToken.address}`}>
+          <span className="av-card-top"><TokenAvatar pair={p} size={22} /><b>${sym}</b><em>#{i + 1}</em></span>
+          <strong className="m-num" key={m5}>{pct(m5)}</strong>
+          <u aria-hidden="true"><s /></u>
+          <small className="m-num">MC {usd(p.marketCap ?? p.fdv)} · 1h {usd(p.volume?.h1)}</small>
+        </button>; })}
+      {!loading && !coins.length ? <p className="m-dim">No Pump coins pass the quality gates right now.</p> : null}
     </div>
   </div>;
 }

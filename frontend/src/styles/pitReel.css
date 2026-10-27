@@ -74,8 +74,8 @@
 
 /* 🔔 every new bell opens with a round card slamming in — transform/opacity only, gone after 1.8s */
 .bf-intro { position: absolute; inset: 0; z-index: 7; display: grid; place-content: center; justify-items: center; gap: 2px; pointer-events: none; animation: prIntro 1.8s var(--m-ease, ease) forwards; }
-.bf-intro b { font: 400 16px var(--fz-font, var(--m-mono)); letter-spacing: .3em; color: var(--gold, #f5c451); }
-.bf-intro em { font: 400 64px/1 var(--fz-font, var(--m-mono)); font-style: normal; color: #fff; text-shadow: 0 0 24px var(--m-accent), 0 4px 0 #2a0f4a; animation: prSlam 1.8s var(--m-ease, ease) forwards; }
+.bf-intro b { font: 800 16px var(--fz-font, var(--m-mono)); letter-spacing: .3em; color: var(--gold, #f5c451); }
+.bf-intro em { font: 800 64px/1 var(--fz-font, var(--m-mono)); font-style: normal; color: #fff; text-shadow: 0 0 24px var(--m-accent), 0 4px 0 #2a0f4a; animation: prSlam 1.8s var(--m-ease, ease) forwards; }
 .bf-intro-flash { position: absolute; inset: 0; background: radial-gradient(50% 40% at 50% 50%, color-mix(in srgb, var(--m-accent) 45%, transparent), transparent 70%); animation: prFlash 1.8s ease-out forwards; }
 @keyframes prIntro { 0%, 82% { opacity: 1; } 100% { opacity: 0; visibility: hidden; } }
 @keyframes prSlam { 0% { transform: scale(2.6); opacity: 0; } 18% { transform: scale(.92); opacity: 1; } 28% { transform: scale(1.04); } 36%, 80% { transform: scale(1); } 100% { transform: scale(1.3); opacity: 0; } }

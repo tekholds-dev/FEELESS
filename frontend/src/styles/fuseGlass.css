@@ -16,7 +16,7 @@
 .fwg-legs { display: flex; gap: 2px; height: 10px; } .fwg-legs i { min-width: 4px; border-radius: 3px; } .fwg-legs i.is-up { background: linear-gradient(180deg, #45e486, #1f8f52); } .fwg-legs i.is-dn { background: linear-gradient(180deg, #ff8fa3, #a33a52); }
 .fwg-mv { margin: 0; display: flex; justify-content: space-between; gap: 6px; font: 800 10.5px 'JetBrains Mono', monospace; }
 .fwg .is-up { color: #45e486; } .fwg .is-dn { color: #ff8fa3; } .fwg small.is-up, .fwg small.is-dn { color: inherit; } .fwg-ch small.is-up { color: #45e486; } .fwg-ch small.is-dn { color: #ff8fa3; }
-.fwg-go { min-height: 34px; justify-content: center; } .fwg-empty { display: grid; gap: 8px; } .fwg-empty p { margin: 0; font: 500 11px Inter, system-ui, sans-serif; color: #c9bd99; }
+.fwg-go { min-height: 34px; justify-content: center; } .fwg-empty { display: grid; gap: 8px; } .fwg-empty p { margin: 0; font: 500 11px Sora, system-ui, sans-serif; color: #c9bd99; }
 .fwg a:focus-visible { outline: 2px solid #f5c542; outline-offset: 2px; }
 @keyframes fwgIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: none; } }
 @keyframes fwgSheen { 0%, 60% { transform: translateX(-120%); } 100% { transform: translateX(260%); } }

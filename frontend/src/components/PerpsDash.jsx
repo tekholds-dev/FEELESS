@@ -77,6 +77,10 @@ export function PerpsDash({ devAddress = '' }) {
   const [landing, setLanding] = useState(null);   // a just-signed open: shown at once, polled fast until Jupiter lists it (≤ 60s)
   const [jp, reloadJp] = useJson(`/api/reputation/familia/perps-real?address=${encodeURIComponent(addr || '')}`, landing ? 1500 : 5000);
   const [ks] = useJson('/api/reputation/familia/kalshi', 10000);
+  const [caps] = useJson('/api/reputation/familia/broker/cdc-caps', 300000);   // Crypto.com's live market count for the rail
+  // 🧭 the provider rail swipes, most-used first (owner 2026-10-27: "side swipe … top 3 used show first") — taps counted on this device
+  const [use, setUse] = useState(() => { try { return JSON.parse(localStorage.getItem('feeless.perps.use') || '{}') || {}; } catch { return {}; } });
+  const goProv = (k, go) => { setTab(go); setUse(u => { const n = { ...u, [k]: (u[k] || 0) + 1 }; try { localStorage.setItem('feeless.perps.use', JSON.stringify(n)); } catch { /* private */ } return n; }); };
   const by = useMemo(() => Object.fromEntries((board?.markets || []).map(r => [r.coin, r])), [board]);
   const stats = jp?.stats || {}; const pools = jp?.pools || {}; const positions = jp?.positions || [];
   useEffect(() => { if (!landing) return undefined;
@@ -108,14 +112,16 @@ export function PerpsDash({ devAddress = '' }) {
       <span className={`pd-pnl ${total > 0 ? 'is-up' : total < 0 ? 'is-dn' : ''}`} data-tip="Open P&L across your positions on the true price, before fees"><em>OPEN P&L</em>
         <b className="m-num">{positions.length ? `${tot < 0 ? '−' : '+'}$${Math.abs(tot).toFixed(2)}` : '$0.00'}</b><small>{positions.length ? `${positions.length} live` : 'flat'}</small></span>
     </header>
-    <div className="pd-prov" role="radiogroup" aria-label="Provider" data-testid="pd-prov">{[
-      ['jup', 'JUPITER PERPS', 'SOL · ETH · BTC · long / short · up to 250×', 'FROM $10', 'LIVE', true, 'pos', 'Real perps on Jupiter (Solana) — your wallet signs; TP / SL + partial close'],
-      ['cdc', 'CRYPTO.COM', 'spot BTC · ETH · SOL · CRO · your own account', 'FROM $1', 'YOUR KEY', true, 'cdc', 'Your Crypto.com Exchange account: paste its API key once (trading on, withdrawals off) — trade it from here'],
-      ['kalshi', 'KALSHI UP / DOWN', 'BTC · ETH · SOL · DOGE · XRP · S&P · NASDAQ', 'FROM $1', ks?.tradable ? 'LIVE' : 'KEY PENDING', !!ks?.tradable, 'kalshi', 'US-legal (CFTC) up / down contracts tokenized on Solana — needs the DFlow key'],
-      ['broker', '🏦 YOUR BROKER', 'stocks · ETFs · crypto in your own account', 'FROM $1', 'LIVE', true, 'broker', 'Your own broker: paste your FREE Alpaca keys ($0 to start) — or link any broker when SnapTrade is set up']]
-      .map(([k, n, sub, min, st, on, go, tip], i) => <button key={k} type="button" role="radio" aria-checked={prov === k}
-        className={`pd-pv is-${k} ${on ? 'is-live' : 'is-wait'} ${prov === k ? 'is-on' : ''}`} style={{ '--i': i }} onClick={() => setTab(go)} data-tip={tip} data-testid={`pd-pv-${k}`}>
-        <b>{n}</b><small>{sub}</small><span><i className="m-num">{min}</i><em>{st}</em></span></button>)}</div>
+    <div className="pd-prov" role="radiogroup" aria-label="Provider — swipe for more, most used first" data-testid="pd-prov">{[
+      ['jup', 'JUPITER PERPS', 'long / short · up to 250× · your wallet signs', 'FROM $10', 'LIVE', true, 'pos', 'Real perps on Jupiter (Solana) — Jupiter itself lists only SOL · ETH · BTC; your wallet signs; TP / SL + partial close', 3],
+      ['cdc', 'CRYPTO.COM', `perps to ${caps?.perps?.maxLev || 100}× · spot · your own account`, 'FROM $1', 'YOUR KEY', true, 'cdc', 'Your Crypto.com Exchange account: every perp + spot pair it lists, searchable — paste its API key once (trading on, withdrawals off)', (caps?.perps?.n || 0) + (caps?.spot?.n || 0) || null],
+      ['kalshi', 'KALSHI UP / DOWN', 'strike windows · BTC · ETH · SOL · S&P · NASDAQ', 'FROM $1', ks?.tradable ? 'LIVE' : 'KEY PENDING', !!ks?.tradable, 'kalshi', 'US-legal (CFTC) up / down strike contracts tokenized on Solana — needs the DFlow key', (ks?.coins || []).length || null],
+      ['broker', '🏦 YOUR BROKER', 'US stocks · ETFs · crypto in your own account', 'FROM $1', 'LIVE', true, 'broker', 'Your own broker: paste your FREE Alpaca keys ($0 to start) — or link any broker when SnapTrade is set up', '11K+']]
+      .map((r, i) => [...r, i]).sort((x, y) => (use[y[0]] || 0) - (use[x[0]] || 0) || x[9] - y[9])
+      .map(([k, n, sub, min, st, on, go, tip, mk], i) => <button key={k} type="button" role="radio" aria-checked={prov === k}
+        className={`pd-pv is-${k} ${on ? 'is-live' : 'is-wait'} ${prov === k ? 'is-on' : ''}`} style={{ '--i': i }} onClick={() => goProv(k, go)} data-tip={tip} data-testid={`pd-pv-${k}`}>
+        <b>{i < 3 && use[k] ? <u className="pd-rank">#{i + 1}</u> : null}{n}</b><small>{sub}</small>
+        <span><i className="m-num">{min}</i>{mk ? <s className="m-num pd-mk">{typeof mk === 'number' ? mk.toLocaleString() : mk} MKTS</s> : null}<em>{st}</em></span></button>)}</div>
     <div className="pd-strip" data-testid="pd-vits">
       <span className="pd-cell pd-mark" data-tip="True price: the last Coinbase print"><em>MARK <i className="pd-beat" key={live?.at} /></em><Flash v={mark} fmt={px} cls="pd-hero" /><small className="m-num">{live ? `${live.tpm} prints/min · ${age != null ? `${age.toFixed(1)}s` : ''}` : 'connecting…'}</small></span>
       <span className="pd-cell" data-tip="Jupiter's oracle price (what the trade fills at) and how far the true price sits from it"><em>JUP ORACLE</em><b className="m-num">{px(st.price)}</b><small className={`m-num ${(basis ?? 0) >= 0 ? 'is-up' : 'is-dn'}`}>{basis == null ? '' : `basis ${pc(basis, 3)}`}</small></span>
@@ -151,7 +157,7 @@ export function PerpsDash({ devAddress = '' }) {
         <i aria-hidden="true" /><b>{landing.side === 'long' ? '▲' : '▼'} {landing.asset} {landing.lev}× · ${Math.round(landing.size).toLocaleString()}</b>
         <small>LANDED on-chain · waiting for Jupiter to list it</small>
         <a href={`https://solscan.io/tx/${landing.txid}`} target="_blank" rel="noopener noreferrer" data-tip="Open the transaction on Solscan">{String(landing.txid).slice(0, 8)}… ↗</a></div> : null}
-      {below === 'pos' ? <PerpPositions positions={positions} marks={marks} addr={addr} provider={provider} wallet={wallet} connect={connect} reload={reloadJp} onPick={pick} />
+      {below === 'pos' ? <PerpPositions trades={jp?.trades || []} positions={positions} marks={marks} addr={addr} provider={provider} wallet={wallet} connect={connect} reload={reloadJp} onPick={pick} />
           : <PaperPerps row={{ ...brd, coin: asset, mark }} lev={Math.round(t.lev)} devAddress={devAddress} />}
       </div>
       <LiveFlow asset={asset} />

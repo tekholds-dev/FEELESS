@@ -275,6 +275,7 @@ def test_cryptocom_caps_and_perp_order():
             {'inst_type': 'FUTURE', 'symbol': 'BTCUSD-261225', 'tradable': True}, {'inst_type': 'CCY_PAIR', 'symbol': 'X_EUR', 'quote_ccy': 'EUR'}]
     c = bk.cdc_caps(inst)
     assert c['spot']['n'] == 1 and c['perps']['n'] == 2 and c['perps']['maxLev'] == 100 and c['futures']['n'] == 1 and c['perps']['top'][0]['symbol'] == 'BTCUSD-PERP'
+    assert c['spot']['all'] == ['BTC'] and c['perps']['all'] == [{'base': 'BTC', 'lev': 100}, {'base': 'DOGE', 'lev': 50}]   # the full list, big names first
     o = bk.cdc_perp_order({'action': 'buy', 'usd': 10, 'lev': 5}, inst[1], 100000.0)   # $50 of BTC at $100K = 0.0005
     assert o == {'instrument_name': 'BTCUSD-PERP', 'side': 'BUY', 'type': 'MARKET', 'quantity': '0.0005'}
     assert bk.cdc_perp_order({'action': 'sell', 'usd': 10, 'lev': 2}, inst[2], 0.15)['quantity'] == '133'

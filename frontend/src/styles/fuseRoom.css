@@ -9,7 +9,7 @@
 .frm { top: 22%; width: min(330px, 92vw); height: min(440px, 62vh); display: flex; flex-direction: column; border-radius: 16px 0 0 16px; border: 1px solid rgba(190, 160, 255, .3); border-right: 0; overflow: hidden;
   background: linear-gradient(155deg, rgba(58, 36, 104, .72) 0%, rgba(12, 18, 22, .78) 46%, rgba(14, 18, 16, .76) 100%); box-shadow: -18px 22px 50px -24px #000, inset 1px 1px 0 rgba(255, 255, 255, .16), inset 0 -40px 60px -50px rgba(21, 209, 106, .35); animation: frmIn .22s ease both; }
 .frm-head { display: flex; align-items: center; gap: 8px; padding: 8px 10px; border-bottom: 1px solid rgba(255, 255, 255, .09); }
-.frm-head strong { flex: 1; font: 400 13px var(--fz-font, "JetBrains Mono"), monospace; letter-spacing: .12em; color: #efe6ff; }
+.frm-head strong { flex: 1; font: 800 13px var(--fz-font, "JetBrains Mono"), monospace; letter-spacing: .12em; color: #efe6ff; }
 .frm-x { width: 26px; height: 26px; border-radius: 8px; border: 1px solid rgba(255, 255, 255, .16); background: rgba(0, 0, 0, .25); color: #e9dcff; font-size: 15px; cursor: pointer; transition: border-color .15s ease, transform .1s ease; }
 .frm-x:hover { border-color: #15d16a; } .frm-x:active { transform: translateX(2px); }
 .frm-tabs { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; padding: 6px 8px; }

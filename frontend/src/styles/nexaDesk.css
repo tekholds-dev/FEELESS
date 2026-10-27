@@ -2,12 +2,12 @@
 .nxd { --nx: #b48cff; --nx2: #e2d2ff; padding: 14px 16px; margin: 12px 0; display: flex; flex-direction: column; gap: 10px; border: 1px solid rgba(180, 140, 255, .3); }
 .nxd-hero { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
 .nxd-orb { position: relative; width: 44px; height: 44px; display: grid; place-items: center; flex: none; }
-.nxd-orb b { font: 900 18px 'Audiowide', monospace; color: var(--nx2); text-shadow: 0 0 12px var(--nx); }
+.nxd-orb b { font: 900 18px 'Unbounded', monospace; color: var(--nx2); text-shadow: 0 0 12px var(--nx); }
 .nxd-orb i { position: absolute; inset: 0; border-radius: 50%; border: 1.5px solid var(--nx); border-top-color: transparent; animation: nxdSpin 3.2s linear infinite; }
 .nxd-orb i + i { inset: 6px; animation-direction: reverse; animation-duration: 2.1s; opacity: .6; }
 .nxd.is-thinking .nxd-orb i { animation-duration: .9s; } .nxd.is-offline .nxd-orb i { animation: none; border-color: #555; }
 .nxd-who { display: flex; flex-direction: column; gap: 2px; flex: 1 1 260px; min-width: 0; }
-.nxd-who b { font: 900 15px 'Audiowide', 'JetBrains Mono', monospace; letter-spacing: .1em; color: var(--nx2); }
+.nxd-who b { font: 900 15px 'Unbounded', 'JetBrains Mono', monospace; letter-spacing: .1em; color: var(--nx2); }
 .nxd-who small { font: 800 10px 'JetBrains Mono', monospace; letter-spacing: .1em; color: var(--nx); } .nxd.is-offline .nxd-who small { color: #ff8fa3; }
 .nxd-who em { font-style: normal; font-size: 11.5px; color: #a9b7c6; }
 .nxd-acts { display: flex; gap: 6px; flex-wrap: wrap; }

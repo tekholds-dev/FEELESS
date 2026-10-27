@@ -67,3 +67,14 @@ body.fx-lite .fhq-bmem li, body.fx-lite .fhq-tape li { animation: none; }
 @media (prefers-reduced-motion: reduce) { .fhq-bmem li, .fhq-tape li { animation: none; } .fhq-bmem s { transition: none; } }
 body.theme-day .fhq-bsum span, body.theme-day .fhq-tape li { background: #fffaf0; } body.theme-day .fhq-bsum b, body.theme-day .fhq-tape b, body.theme-day .fhq-bmem b { color: #4a3510; }
 @media (max-width: 640px) { .fhq-tape li { grid-template-columns: 60px minmax(0, 1fr) 44px 64px; } .fhq-tape small, .fhq-tape a, .fhq-tape > li > i { display: none; } .fhq-bmem li { grid-template-columns: 80px minmax(0, 1fr) auto; } .fhq-bmem small { display: none; } }
+/* 🖥 Family HQ opens as a BIG window (owner img 2026-10-27: the small one was cut off over the city): the crest, vitals, town + the tool tabs
+   on the left, the open tool beside them — nothing scrolls out of reach */
+@media (min-width: 1000px) {
+  .fwd-place.k-hq .fhq { grid-template-columns: minmax(360px, 460px) minmax(0, 1fr); align-items: start; column-gap: 18px; }
+  .fwd-place.k-hq .fhq > :not(.fhq-pane) { grid-column: 1; }
+  .fwd-place.k-hq .fhq > .fhq-pane { grid-column: 2; grid-row: 1 / span 6; min-width: 0; padding: 12px; border-radius: 14px; border: 1px solid rgba(212, 175, 55, .22); background: rgba(0, 0, 0, .25); }
+  .fwd-place.k-hq .fhq-tools { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .fwd-place.k-hq .fhq-vitals { grid-template-columns: repeat(3, minmax(0, 1fr)); justify-items: center; }
+  .fwd-place.k-hq .fhq-grid { grid-column: 1 / -1; width: 100%; grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  body.theme-day .fwd-place.k-hq .fhq > .fhq-pane { background: #fffaf0; }
+}

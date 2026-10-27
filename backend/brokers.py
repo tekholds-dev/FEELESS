@@ -281,9 +281,12 @@ def cdc_caps(instruments):
     perps = [r for r in rows if r.get('inst_type') == 'PERPETUAL_SWAP']
     top = ('BTC', 'ETH', 'SOL', 'XRP', 'DOGE', 'CRO', 'SUI', 'LINK', 'ADA', 'AVAX')
     lev = lambda r: int(_num(r.get('max_leverage'))) or 0
-    pick = lambda rs, key: sorted(rs, key=lambda r: (top.index(r.get('base_ccy')) if r.get('base_ccy') in top else 99, r.get(key) or ''))[:8]
-    return {'spot': {'n': len(spot), 'top': [r.get('symbol') for r in pick(spot, 'symbol')]},
-            'perps': {'n': len(perps), 'maxLev': max([lev(r) for r in perps] or [0]), 'top': [{'symbol': r.get('symbol'), 'lev': lev(r)} for r in pick(perps, 'symbol')]},
+    rank = lambda rs, key: sorted(rs, key=lambda r: (top.index(r.get('base_ccy')) if r.get('base_ccy') in top else 99, r.get(key) or ''))
+    pick = lambda rs, key: rank(rs, key)[:8]
+    # `all` = the FULL tradeable list (owner 2026-10-27: "full list of tradeables per provider") — base coin + its max leverage, big names first
+    return {'spot': {'n': len(spot), 'top': [r.get('symbol') for r in pick(spot, 'symbol')], 'all': sorted({str(r.get('base_ccy') or '') for r in spot} - {''}, key=lambda b: (top.index(b) if b in top else 99, b))},
+            'perps': {'n': len(perps), 'maxLev': max([lev(r) for r in perps] or [0]), 'top': [{'symbol': r.get('symbol'), 'lev': lev(r)} for r in pick(perps, 'symbol')],
+                      'all': [{'base': r.get('base_ccy'), 'lev': lev(r)} for r in rank(perps, 'symbol') if r.get('base_ccy')]},
             'futures': {'n': sum(1 for r in rows if r.get('inst_type') == 'FUTURE')}}
 
 

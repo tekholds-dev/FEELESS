@@ -20,7 +20,7 @@
   background: rgba(21, 209, 106, .14); color: #45e486; border: 1px solid rgba(69, 228, 134, .4); }
 .fcs-status i { width: 7px; height: 7px; border-radius: 50%; background: currentColor; box-shadow: 0 0 10px currentColor; animation: fcsPulse 1.2s ease-in-out infinite; }
 .fcs-status.nap { background: rgba(245, 196, 81, .14); color: #f5c451; border-color: rgba(245, 196, 81, .4); }
-.fcs-copy h1 { margin: 0; font: 800 34px/1 'Bungee', 'Audiowide', system-ui; letter-spacing: .02em; color: #fff; text-shadow: 0 0 18px #7c4dff, 0 0 40px #7c4dff66; }
+.fcs-copy h1 { margin: 0; font: 800 34px/1 'Unbounded', system-ui; letter-spacing: .02em; color: #fff; text-shadow: 0 0 18px #7c4dff, 0 0 40px #7c4dff66; }
 .fcs-copy h1 em { display: block; margin-top: 6px; font: 600 12px 'JetBrains Mono', monospace; letter-spacing: .14em; text-transform: uppercase; color: var(--v); text-shadow: none; font-style: normal; }
 .fcs-copy p { margin: 0; font-size: 13px; line-height: 1.5; color: #d8ccf3; max-width: 46ch; }
 .fcs-lives { display: flex; align-items: center; gap: 5px; }

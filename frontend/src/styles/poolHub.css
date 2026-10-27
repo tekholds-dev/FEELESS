@@ -39,7 +39,7 @@
 .phb-combo ol { margin: 0; padding: 0; list-style: none; display: grid; gap: 5px; }
 .phb-combo li { display: grid; grid-template-columns: 92px minmax(0, 1fr) 64px 34px; gap: 8px; align-items: center; padding: 6px 8px; border-radius: 10px; background: #ffffff06; }
 .phb-combo li em { font: 800 9.5px 'JetBrains Mono', monospace; letter-spacing: .1em; color: #c9a8ff; font-style: normal; } .phb-combo li span { display: grid; min-width: 0; }
-.phb-combo li b { font: 800 12px 'JetBrains Mono', monospace; color: #eee8ff; } .phb-combo li small { font: 500 10px Inter, system-ui, sans-serif; color: #9a90b2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.phb-combo li b { font: 800 12px 'JetBrains Mono', monospace; color: #eee8ff; } .phb-combo li small { font: 500 10px Sora, system-ui, sans-serif; color: #9a90b2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .phb-combo li strong { font: 800 12px 'JetBrains Mono', monospace; color: #45e486; text-align: right; } .phb-combo li .m-btn { min-height: 32px; min-width: 32px; padding: 0; display: grid; place-items: center; text-decoration: none; }
 body.theme-day .phb-combo { background: #f7f2ff; border-color: #6a3dc244; } body.theme-day .phb-combo li b { color: #24183a; } body.theme-day .phb-combo-big span { color: #3d3450; }
 @media (max-width: 640px) { .phb-combo li { grid-template-columns: minmax(0, 1fr) 56px 32px; } .phb-combo li em { grid-column: 1 / -1; } }

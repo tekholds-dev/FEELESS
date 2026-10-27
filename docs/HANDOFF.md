@@ -15,10 +15,15 @@ Read this (2 min) → `CLAUDE.md` (lean rules + 🎨 MANDATORY STYLING + 📋 CU
 >    LIVE visual (meters, bars, animation on real numbers), never bare text. `styles/cssCoverage.test.js` fails on an unstyled class.
 
 ## 🔁 NOW (rewrite this section in place every session)
-**Updated 2026-10-26 (final) · Opus 5.5.** The owner's build list is shipped; what is left needs a HUMAN (a key, a sign-up, a signature) — table 2.
+**Updated 2026-10-27 · Opus 5.5.** Shipped today (top rows). Still OPEN from the owner's 2026-10-27 list: Night Vault + Pools merged into one
+waves-by-flow pools design · Card Room live (not corny) · raids on the Rep cartels (they need a city) · funner real-MP errands · strike / options
+on perps beyond Kalshi windows. Everything that needs a HUMAN is table 2.
 
 | Live | Where |
 | --- | --- |
+| 🔤 6 site fonts (tokens `--f-display/ui/mono/tech/noir/noir-it`, all loaded — JetBrains Mono had never loaded) · Perps: swipe provider rail, most-used first + market counts, your Jupiter recent trades, Crypto.com's FULL list (every perp w/ max lev + spot, searchable, tap → ticket) | `index.css`, `PerpsDash`, `PerpTrades`, `BrokerDesk.CdcMarkets`, `brokers.cdc_caps` |
+| ⚡ Pump Radar = simple cards in a SMALL window; Runners Track + Trade Center are its rooms (row chips fixed) · Family HQ + its rooms open BIG, two columns · the Fuse / Skyline sections no longer paint over a big room | `CityAvenue.PumpRadar`, `cityPlan`, `familyWorld.css`, `familyHQ.css` |
+| 📜 Settings › Updates (git → NEW / FIX · SITE · BACKEND · MOBILE, private bits dropped) + 📱 Duo screens (closed / open × portrait / landscape, this screen lit) | `/api/reputation/updates`, `updates_log.py`, `UpdatesLog.jsx` |
 | 🚀 Launch: where-it-launches first (pump.fun = 2 steps, its own terms · FEELESS rail = SOL/$FEE pair · LaunchLab faint until its key), live pump.fun launch floor, form on the page, no review button | `MetaLaunchSetup`, `LaunchLab.LaunchFloor`, `LaunchModes` |
 | ✅ HQ › Launch › Ready board (every way to launch: READY / exactly what's missing / one button) | `LaunchRailAdmin.ReadyBoard` |
 | 🤖 AutoRange REAL (Meteora DLMM + Raydium CLMM open · close · re-center, simulated on mainnet, wallet signs) + phone ping when a move is due | `lib/rangeExec.js`, `AutoRangeDesk`, `/familia-pools/autorange/arm` |
@@ -33,6 +38,7 @@ Read this (2 min) → `CLAUDE.md` (lean rules + 🎨 MANDATORY STYLING + 📋 CU
 | `PUBLIC_SITE_URL` (a public https domain) | FEELESS-rail + House launches, X sign-in |
 | Sign the one-time FEELESS launch rules (HQ › Launch › Ready board) | FEELESS-rail coins |
 | `DFLOW_API_KEY` · `SNAPTRADE_*` · a Raydium LaunchLab provider key | Kalshi · any broker · LaunchLab |
+| Crypto.com **Exchange** key + secret (`CRYPTO_COM_API_KEY` / `CRYPTO_COM_API_SECRET` in `.env` ride the owner wallet; the `cdc_` key in .env is a Developer Platform key — reads Cronos, can't trade) | Crypto.com trading |
 | RPC quota (Helius / Alchemy were 429 — `SOLANA_RPC_URL` + `_3` answered) · a 4th `JUPITER_READ_KEY` | every wallet-signed action, prices |
 | Circle account per user · "sign once, AIs trade" | needs counsel (custody, DECISIONS #2) — not built on purpose |
 | First real money checks: a $25 AutoRange band, a Jupiter perps open, a Crypto.com key | proof on mainnet |

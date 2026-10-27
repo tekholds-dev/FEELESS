@@ -7,7 +7,7 @@
   -webkit-mask-image: radial-gradient(80% 80% at 70% 50%, #000, transparent 75%); mask-image: radial-gradient(80% 80% at 70% 50%, #000, transparent 75%); }
 .rph-copy { display: grid; gap: 10px; justify-items: start; min-width: 0; }
 .rph-eyebrow { display: inline-flex; gap: 6px; align-items: center; font: 700 10.5px 'JetBrains Mono', monospace; letter-spacing: .2em; color: #7ff0cf; }
-.rph h1 { margin: 0; font: 800 clamp(28px, 3.8vw, 46px)/1.04 'Space Grotesk', system-ui, sans-serif; letter-spacing: -.02em; color: #f2fbf8; }
+.rph h1 { margin: 0; font: 800 clamp(28px, 3.8vw, 46px)/1.04 'Sora', system-ui, sans-serif; letter-spacing: -.02em; color: #f2fbf8; }
 .rph h1 em { font-style: normal; background: linear-gradient(90deg, #45e486, #7ff0cf); -webkit-background-clip: text; background-clip: text; color: transparent; }
 .rph p { margin: 0; max-width: 560px; color: #9fbcb2; font-size: 14px; line-height: 1.5; }
 .rph-nums { display: grid; grid-template-columns: repeat(4, minmax(0, auto)); gap: 8px; margin-top: 4px; }
@@ -30,7 +30,7 @@
 .rph-nav { position: sticky; top: 8px; z-index: 5; display: flex; gap: 4px; overflow-x: auto; scrollbar-width: none; padding: 5px; margin: 12px 0; border-radius: 14px;
   border: 1px solid rgba(255, 255, 255, .08); background: rgba(5, 10, 12, .9); box-shadow: 0 12px 30px -20px #000; }
 .rph-nav::-webkit-scrollbar { display: none; }
-.rph-nav button { flex: none; display: inline-flex; align-items: center; gap: 6px; padding: 8px 12px; border-radius: 10px; border: 0; background: none; color: #8fb0a6; font: 700 12px 'Space Grotesk', system-ui, sans-serif;
+.rph-nav button { flex: none; display: inline-flex; align-items: center; gap: 6px; padding: 8px 12px; border-radius: 10px; border: 0; background: none; color: #8fb0a6; font: 700 12px 'Sora', system-ui, sans-serif;
   cursor: pointer; transition: background .15s ease, color .15s ease, transform .12s ease; }
 .rph-nav button:hover { color: #e8fff7; background: rgba(127, 240, 207, .08); } .rph-nav button:active { transform: scale(.97); }
 .rph-nav button:focus-visible { outline: 2px solid #7ff0cf; outline-offset: 2px; }

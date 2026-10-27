@@ -9858,8 +9858,9 @@ def _brk_cdc(primary):
     """This wallet's own Crypto.com Exchange keys {key, secret} (unsealed), or None."""
     import brokers as _bk
     rec_ = ((_json_load(BROKERS_PATH, {}) or {}).get(primary) or {}).get('cdc')
-    if not rec_:
-        return None
+    if not rec_:   # 🔑 the owner's own Exchange pair from backend/.env rides the owner's wallet — no pasting
+        k_, s_ = (os.getenv('CRYPTO_COM_API_KEY') or '').strip(), (os.getenv('CRYPTO_COM_API_SECRET') or '').strip()
+        return {'key': k_, 'secret': s_} if k_ and s_ and _is_staff(primary) else None
     try:
         k_ = json.loads(_bk.unseal(rec_['sec'], os.environ))
         return {'key': k_['key'], 'secret': k_['secret']}
@@ -9884,6 +9885,21 @@ async def _cdc_call(ck, method, params=None):
     return (d_ or {}).get('result') or {}
 
 
+def _cdc_dev_key():
+    """The Crypto.com Developer Platform / AI-agent key: CRYPTO_COM_DEVELOPER_API_KEY, or the owner's own .env note ("Crypto.com api" then a cdc_ token on the next line)."""
+    k_ = (os.getenv('CRYPTO_COM_DEVELOPER_API_KEY') or '').strip()
+    if k_:
+        return k_
+    try:
+        ls_ = [l_.strip() for l_ in (Path(__file__).parent / '.env').read_text().splitlines()]
+        for i_, l_ in enumerate(ls_[:-1]):
+            if 'crypto.com' in l_.lower() and ls_[i_ + 1].startswith('cdc_'):
+                return ls_[i_ + 1]
+    except Exception:
+        pass
+    return ''
+
+
 _cdc_inst: dict = {'at': 0.0, 'rows': []}
 
 
@@ -9902,6 +9918,30 @@ async def _cdc_instruments():
     return _cdc_inst['rows']
 
 
+_UPDATES_CACHE = {'at': 0.0, 'rows': []}
+
+
+@app.get('/api/reputation/updates')
+async def site_updates():
+    """📜 Settings › Updates: the last 60 shipped changes from git (NEW requested features + FIXES; SITE · BACKEND · MOBILE), private bits dropped
+    (updates_log.py). Read once per 5 min, off the event loop."""
+    import updates_log as _ul
+    if time.time() - _UPDATES_CACHE['at'] > 300:
+        def _read():
+            import subprocess as _sp
+            try:
+                r_ = _sp.run(['git', 'log', '-n', '160', f'--format={_ul.FORMAT}', '--name-only', '--date=short'], cwd=str(Path(__file__).resolve().parent.parent),
+                             capture_output=True, text=True, timeout=8)
+                return _ul.parse(r_.stdout if r_.returncode == 0 else '')
+            except Exception:
+                return []
+        rows_ = await asyncio.to_thread(_read)
+        if rows_ or not _UPDATES_CACHE['rows']:
+            _UPDATES_CACHE.update(at=time.time(), rows=rows_)
+    rows_ = _UPDATES_CACHE['rows']
+    return {'rows': rows_, 'counts': _ul.counts(rows_)}
+
+
 @app.get('/api/reputation/familia/broker/cdc-caps')
 async def familia_broker_cdc_caps(address: str = Query('', max_length=64), session: str = Query('', max_length=400)):
     """🔑 What a Crypto.com key does in FEELESS: what the exchange lists (live) + whether THIS wallet's key reads its account."""
@@ -9917,7 +9957,9 @@ async def familia_broker_cdc_caps(address: str = Query('', max_length=64), sessi
                 key_ = {'linked': True, 'reads': True, 'valueUsd': v_['value'], 'buyingPower': v_['buyingPower']}
             except HTTPException as e:
                 key_ = {'linked': True, 'reads': False, 'error': e.detail}
-    return {**caps_, 'key': key_, 'wired': {'spot': True, 'perps': True, 'futures': False}}
+    return {**caps_, 'key': key_, 'wired': {'spot': True, 'perps': True, 'futures': False},
+            'devKey': bool(_cdc_dev_key()),   # the Developer Platform / AI-agent key (Cronos data — it cannot trade)
+            'envPair': bool((os.getenv('CRYPTO_COM_API_KEY') or '').strip() and (os.getenv('CRYPTO_COM_API_SECRET') or '').strip())}
 
 
 @app.post('/api/reputation/familia/broker/keys')
@@ -10903,17 +10945,19 @@ async def familia_perps_real(address: str = ''):
                                                               'shortUtilizationPercent', 'longAvailableLiquidity', 'shortAvailableLiquidity')}
         if rows_:
             _fjp_pool.update(at=time.time(), rows=rows_)
-    pos_ = []
+    pos_, trd_ = [], []
     if 32 <= len(address or '') <= 44:
-        c_, b_ = await _jp_call('GET', 'positions', params={'walletAddress': address})
+        (c_, b_), (ct_, bt_) = await asyncio.gather(_jp_call('GET', 'positions', params={'walletAddress': address}),
+                                                     _jp_call('GET', 'trades', params={'walletAddress': address, 'start': 0, 'end': 20}))
         pos_ = _jp.positions(b_) if c_ == 200 else []
+        trd_ = _jp.trades(bt_) if ct_ == 200 else []   # 🧾 the wallet's recent opens / closes / triggers (owner: "jup perps don't show my recent trades")
     if time.time() - _fjp_stats.get('at', 0) > 10:   # 📊 Jupiter's own mark + 24 h range / volume per market (its oracle — what the trade fills at)
         got_ = await asyncio.gather(*[_jp_call('GET', 'market-stats', params={'mint': m_}) for m_ in _jp.MARKETS.values()])
         st_ = {a_: {'price': _jp._f(b_.get('price')), 'ch24': _jp._f(b_.get('priceChange24H')), 'hi24': _jp._f(b_.get('priceHigh24H')),
                     'lo24': _jp._f(b_.get('priceLow24H')), 'vol24': _jp._f(b_.get('volume'))} for a_, (c_, b_) in zip(_jp.MARKETS, got_) if c_ == 200 and isinstance(b_, dict)}
         if st_:
             _fjp_stats.update(at=time.time(), rows=st_)
-    return {'pools': _fjp_pool.get('rows') or {}, 'stats': _fjp_stats.get('rows') or {}, 'positions': pos_, 'min': _jp.MIN_USD, 'max': _jp.MAX_USD, 'maxLev': _jp.MAX_LEV}
+    return {'pools': _fjp_pool.get('rows') or {}, 'stats': _fjp_stats.get('rows') or {}, 'positions': pos_, 'trades': trd_, 'min': _jp.MIN_USD, 'max': _jp.MAX_USD, 'maxLev': _jp.MAX_LEV}
 
 
 _fjp_lead: dict = {}   # asset → (at, leaders) — Jupiter's weekly top traders, 5 min

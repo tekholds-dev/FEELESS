@@ -62,7 +62,8 @@ test('💵 ~80 % of Fee City is REAL MONEY (owner): pools / LSTs / lend / perps 
   expect(p.markets.filter(m => m.island === 'clmm').every(m => m.kind === 'v3')).toBe(true); expect(p.markets.filter(m => m.island === 'vault').every(m => m.kind === 'vault')).toBe(true);
   expect(p.markets.filter(m => m.island === 'flats')).toHaveLength(6); expect(p.markets.filter(m => m.island === 'lend').map(m => m.kind)).toEqual(['lend', 'lend', 'rwa', 'rwa', 'lend', 'lend', 'lend'].slice(0, p.markets.filter(m => m.island === 'lend').length));
   expect(p.markets.filter(m => m.island === 'flats')[0].apy).toBeGreaterThan(0);                  // a paying pool before a 0 % one
-  for (const k of ['trades', 'mymoney', 'feebank']) expect(p.places.find(x => x.key === k).isl).toBe('fee');   // the desk's money street downtown
+  for (const k of ['mymoney', 'feebank']) expect(p.places.find(x => x.key === k).isl).toBe('fee');   // the desk's money street downtown
+  expect(p.places.find(x => x.key === 'trades')).toBeUndefined();   // 🚪 the Trade Center is a room of Pump Radar now (owner 2026-10-27), not a building
   expect(p.places.find(x => x.key === 'sleep').isl).toBe('vault'); expect(p.places.find(x => x.key === 'pools').isl).toBe('row');
   // with no pool hub the city still stands — districts fall back to parks
   const bare = feePlan(V, MK); expect(bare.spare.every(x => x.park)).toBe(true); expect(bare.markets.length).toBe(MK.markets.length);
@@ -93,7 +94,7 @@ test('💡 live numbers drive the city: roof-light pulse from volume, tower heig
 
 test('🛣 FEELESS AVENUE north of downtown (its tools + the perps strip); the Heights gate past it; every tool still a place', () => {
   const p = feePlan(V, MK, POOLS); const ave = p.islands.find(i => i.key === 'ave'); const cap = p.islands.find(i => i.key === 'fee');
-  expect(p.places.filter(x => x.tool).map(x => x.lens).sort()).toEqual(['feebank', 'feecat', 'mymoney', 'perps', 'pumpradar', 'rep', 'sleep', 'trades', 'tt']);
+  expect(p.places.filter(x => x.tool).map(x => x.lens).sort()).toEqual(['feebank', 'feecat', 'mymoney', 'perps', 'pumpradar', 'rep', 'sleep', 'tt']);
   for (const k of ['pumpradar', 'court', 'feecat', 'perps']) expect(p.places.find(x => x.key === k).isl).toBe('ave');
   expect(new Set(PLACES.map(x => x.lens)).size).toBe(PLACES.length);                                  // one lens per place (the Wire keeps 'feed')
   expect(ave.z + ave.d).toBeLessThan(cap.z);                                                         // north of downtown, water between

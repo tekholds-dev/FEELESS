@@ -59,7 +59,7 @@ body.fx-lite .fwd-deskgo { animation: none; } @media (prefers-reduced-motion: re
 @keyframes fwdDeal { from { transform: translateY(-30px) rotate(-12deg); opacity: 0; } }
 .fwd-board { display: grid; gap: 8px; margin-bottom: 10px; } .fwd-board header { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
 .fwd-board header b { font: 800 11px 'JetBrains Mono', monospace; letter-spacing: .12em; color: #ffd76a; } .fwd-board header small { font: 600 10px 'JetBrains Mono', monospace; color: #a89f86; }
-.fwd-board ul { margin: 0; padding: 0; list-style: none; display: grid; gap: 4px; } .fwd-board li { font: 500 12px Inter, system-ui, sans-serif; color: #e8e3d6; animation: fwdWhy .3s ease-out both; animation-delay: calc(var(--i, 0) * 50ms); }
+.fwd-board ul { margin: 0; padding: 0; list-style: none; display: grid; gap: 4px; } .fwd-board li { font: 500 12px Sora, system-ui, sans-serif; color: #e8e3d6; animation: fwdWhy .3s ease-out both; animation-delay: calc(var(--i, 0) * 50ms); }
 .fwd-board li b { font: 800 11px 'JetBrains Mono', monospace; color: #d4af37; } .fwd-board form { display: grid; grid-template-columns: 1fr 1fr auto; gap: 6px; } .fwd-board .m-input { min-height: 34px; min-width: 0; }
 body.theme-day .fwd-board li { color: #2a2620; }
 @media (max-width: 640px) { .fwd-board form { grid-template-columns: 1fr; } }
@@ -72,14 +72,14 @@ body.theme-day .fwd-board li { color: #2a2620; }
 .fwd-money button:hover, .fwd-money button:focus-visible { transform: translateY(-2px); border-color: #ffd76a; outline: none; } .fwd-money button:active { transform: scale(.98); }
 .fwd-money button.active { background: #d4af37; color: #120e04; border-color: #d4af37; } .fwd-money button.active small { color: #3a2f0c; }
 .fwd-money i { font-style: normal; font-size: 18px; } .fwd-money span { display: grid; min-width: 0; }
-.fwd-money b { font: 800 11px 'JetBrains Mono', monospace; letter-spacing: .04em; } .fwd-money small { font: 500 10px Inter, system-ui, sans-serif; color: #a89f86; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.fwd-money b { font: 800 11px 'JetBrains Mono', monospace; letter-spacing: .04em; } .fwd-money small { font: 500 10px Sora, system-ui, sans-serif; color: #a89f86; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 body.theme-day .fwd-money button { background: #fbf7ea; color: #2a2620; border-color: #b8901f44; } body.theme-day .fwd-money small { color: #6b6250; }
 @media (max-width: 640px) { .fwd-money > div { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 @media (prefers-reduced-motion: reduce) { .fwd-money button { animation: none; transition: none; } }
-.fwd-tt { margin: 0; font: 500 11.5px/1.45 Inter, system-ui, sans-serif; color: #cfd8d2; } .fwd-tt b { font: 800 9.5px 'JetBrains Mono', monospace; letter-spacing: .12em; color: #d4af37; margin-right: 4px; }
+.fwd-tt { margin: 0; font: 500 11.5px/1.45 Sora, system-ui, sans-serif; color: #cfd8d2; } .fwd-tt b { font: 800 9.5px 'JetBrains Mono', monospace; letter-spacing: .12em; color: #d4af37; margin-right: 4px; }
 .fwd-why { display: grid; gap: 5px; padding: 9px 11px; border-radius: 12px; border: 1px solid #d4af3744; background: linear-gradient(160deg, #1a1508, #0b0a07); animation: fwdWhy .25s ease-out both; }
 .fwd-why > b { font: 800 12.5px 'JetBrains Mono', monospace; color: #ffd76a; } .fwd-why ul { margin: 0; padding: 0; list-style: none; display: grid; gap: 4px; }
-.fwd-why li { font: 500 11.5px/1.4 Inter, system-ui, sans-serif; color: #e8e3d6; animation: fwdWhy .3s ease-out both; animation-delay: calc(var(--i, 0) * 50ms); }
+.fwd-why li { font: 500 11.5px/1.4 Sora, system-ui, sans-serif; color: #e8e3d6; animation: fwdWhy .3s ease-out both; animation-delay: calc(var(--i, 0) * 50ms); }
 .fwd-why li i { margin-left: 6px; font: 700 9px 'JetBrains Mono', monospace; color: #9a8f6a; font-style: normal; } .fwd-why small { color: #ff8fa3; font: 600 10.5px 'JetBrains Mono', monospace; }
 @keyframes fwdWhy { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
 body.theme-day .fwd-tt { color: #2a2f2b; } body.theme-day .fwd-why { background: #fbf6e6; border-color: #b8901f55; } body.theme-day .fwd-why > b { color: #7a5a00; } body.theme-day .fwd-why li { color: #2a2620; }
@@ -147,8 +147,8 @@ body.fx-lite .fwd-siren, body.fx-lite .fwd-alert { animation: none; } @media (pr
 /* an open directory (226 px) and a room pop-out never overlap: the pop-out leaves the directory's width free (dead clicks 48292d9d · 9a863254) */
 @media (min-width: 641px) { .fwd-mapwrap:has(.fc3-dir.is-open) .fwd-place { width: min(560px, calc(100% - 268px)); } }
 /* the WIDE rooms (Pool Hall, tool buildings) also leave the dock free — they once ran under it and the dock covered their text (owner, 2026-10-23) */
-@media (min-width: 641px) { .fwd-mapwrap .fwd-place:is(.is-tool, .k-pools) { width: min(1240px, calc(100% - 88px)); }
-  .fwd-mapwrap:has(.fc3-dir.is-open) .fwd-place:is(.is-tool, .k-pools) { width: min(1240px, calc(100% - 268px)); } }
+@media (min-width: 641px) { .fwd-mapwrap .fwd-place:is(.is-tool, .k-pools, .k-hq, .k-jobs, .k-gym, .k-cards) { width: min(1240px, calc(100% - 88px)); }
+  .fwd-mapwrap:has(.fc3-dir.is-open) .fwd-place:is(.is-tool, .k-pools, .k-hq, .k-jobs, .k-gym, .k-cards) { width: min(1240px, calc(100% - 268px)); } }
 /* a room is open → the district buttons and the RAID / FUSE actions step aside instead of sitting under it (covered-button audit 2026-10-23) */
 .fwd-mapwrap:has(.fwd-place) :is(.fc3-isl, .mh-acts) { visibility: hidden; pointer-events: none; }
 @media (max-width: 640px) { .fwd-place { width: auto; } .fwd-mapwrap:has(.fwd-place) :is(.fc3-dir, .mh-acts) { display: none; } }
@@ -169,11 +169,11 @@ body.fx-lite .fwd-rooms button { animation: none; }
 @media (prefers-reduced-motion: reduce) { .fwd-rooms button { animation: none; transition: none; } }
 @media (max-width: 640px) { .fwd-rooms { padding: 6px 8px; } .fwd-rooms button { padding: 0 10px; font-size: 10px; } }
 /* 🖥 money + tool rooms open as a BIG window over the whole page (owner, 2026-10-23: "bigger window") — the desk, Pool Hall, Night Vault, Perps */
-@media (min-width: 641px) { .fwd-mapwrap .fwd-place:is(.is-tool, .k-pools) { position: fixed; inset: 64px 16px 16px; width: auto; max-height: none; z-index: 60;
+@media (min-width: 641px) { .fwd-mapwrap .fwd-place:is(.is-tool, .k-pools, .k-hq, .k-jobs, .k-gym, .k-cards) { position: fixed; inset: 64px 16px 16px; width: auto; max-height: none; z-index: 60;
   background: #060807; box-shadow: 0 0 0 100vmax rgba(0, 0, 0, .72), 0 30px 80px -20px #000; animation: none; }
-  body.theme-day .fwd-mapwrap .fwd-place:is(.is-tool, .k-pools) { background: #f7faf8; box-shadow: 0 0 0 100vmax rgba(20, 24, 22, .45); }
+  body.theme-day .fwd-mapwrap .fwd-place:is(.is-tool, .k-pools, .k-hq, .k-jobs, .k-gym, .k-cards) { background: #f7faf8; box-shadow: 0 0 0 100vmax rgba(20, 24, 22, .45); }
   /* the side column (place card + street chat) sits outside the map's stacking context and painted OVER the big room — hidden while one is open */
-  .fwd-mapwrap:has(.fwd-place:is(.is-tool, .k-pools)) > .fwd-col { visibility: hidden; } }
+  .fwd-mapwrap:has(.fwd-place:is(.is-tool, .k-pools, .k-hq, .k-jobs, .k-gym, .k-cards)) > .fwd-col { visibility: hidden; } }
 /* 🏦 a pool building's side panel = SUMMARY + ONE button (the desk pops out big): an APY ring, TVL bar, what $100 earns a day */
 .fwd-psum { gap: 10px; } .fwd-pvit { display: grid; grid-template-columns: auto 1fr; grid-template-rows: auto auto; gap: 8px 12px; align-items: center; }
 .fwd-pring { grid-row: span 2; display: grid; place-items: center; align-content: center; width: 84px; height: 84px; border-radius: 50%;
@@ -186,3 +186,5 @@ body.fx-lite .fwd-rooms button { animation: none; }
 body.fx-lite .fwd-pring { animation: none; } @media (prefers-reduced-motion: reduce) { .fwd-pring { animation: none; } .fwd-pk s { transition: none; } }
 body.theme-day .fwd-pring { background: radial-gradient(closest-side, #fff 78%, transparent 80% 100%), conic-gradient(#0a8a44 var(--a), rgba(0, 0, 0, .08) 0); } body.theme-day .fwd-pk b { color: #1a1a1a; }
 .fwd-msum { gap: 10px; } .fwd-msum .etk { justify-self: stretch; }   /* a money building's side panel: vitals + the ticker + ONE button */
+/* the sections under the map (Family Fuse arena, Best settings, the Power Skyline) painted OVER a big room (owner img 2026-10-27) — hidden while one is open */
+@media (min-width: 641px) { .fwd:has(> .fwd-mapwrap .fwd-place:is(.is-tool, .k-pools, .k-hq, .k-jobs, .k-gym, .k-cards)) > .fwd-mapwrap ~ * { visibility: hidden; } }

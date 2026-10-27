@@ -49,6 +49,8 @@ The owner rejected work that shipped as "dull", "non degen", "emojis sliding aro
   numbers, hover/active/focus, animated popovers, day theme, 360px. A backend-only feature isn't done until its UI is meta.
 - Palette: black/very dark green surfaces, RICH ROYAL GREEN `#15d16a` accent (rgb 21,209,106; bright variant `#45e486`; the old mint `#19f58f` is retired — owner: "not this green"), `#ff8fa3` danger, `var(--gold)` warn.
   Labels/numbers in `JetBrains Mono`, uppercase micro-labels with letter-spacing.
+- Fonts = the 6 tokens in `index.css` (owner 2026-10-27, all loaded in `public/index.html`): `--f-display` Unbounded (heroes) · `--f-ui` Sora (body) ·
+  `--f-mono` JetBrains Mono (numbers, micro-labels) · `--f-tech` Chakra Petch (tickers, venue names, seg buttons) · `--f-noir` Cinzel · `--f-noir-it` Playfair. Never add a family.
 - Every interactive element has hover, active and focus states. Selected = solid neon fill with dark text.
 - Dropdowns, popovers and modals animate in (≤200ms, opacity + small translate/scale) and respect
   `prefers-reduced-motion`.

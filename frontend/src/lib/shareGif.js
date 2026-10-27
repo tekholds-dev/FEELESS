@@ -83,15 +83,15 @@ function drawFuseCard(g, fz, imgs, t) {
   g.save(); g.beginPath(); g.roundRect(0, 0, cw, ch, 16); g.clip();           // sheen sweeping across the face
   const sx = -cw + ((t * 2) % 1) * cw * 3; const sh = g.createLinearGradient(sx, 0, sx + 90, ch); sh.addColorStop(0, 'rgba(255,255,255,0)'); sh.addColorStop(0.5, 'rgba(255,255,255,.13)'); sh.addColorStop(1, 'rgba(255,255,255,0)');
   g.fillStyle = sh; g.fillRect(0, 0, cw, ch); g.restore();
-  g.fillStyle = a1; g.font = '400 17px "Bungee", sans-serif'; g.fillText('FUSE', 14, 28);
-  g.fillStyle = 'rgba(255,255,255,.7)'; g.font = '700 10px "Space Grotesk", sans-serif'; g.fillText(String(fz.name || '').toUpperCase(), 14, 44);
+  g.fillStyle = a1; g.font = '900 17px "Unbounded", sans-serif'; g.fillText('FUSE', 14, 28);
+  g.fillStyle = 'rgba(255,255,255,.7)'; g.font = '700 10px "Sora", sans-serif'; g.fillText(String(fz.name || '').toUpperCase(), 14, 44);
   const coins = (fz.coins || []).slice(0, 6); const n = coins.length || 1; const r = n <= 4 ? 20 : 15; const gap = Math.min(r * 2 + 8, (cw - 28 - r * 2) / Math.max(1, n - 1));
   coins.forEach((c, i) => { const x = 14 + r + i * gap, y = 82; const im = imgs[i];
     g.save(); g.beginPath(); g.arc(x, y, r, 0, T); g.closePath();
-    if (im) { g.clip(); g.drawImage(im, x - r, y - r, r * 2, r * 2); } else { g.fillStyle = 'rgba(255,255,255,.1)'; g.fill(); g.fillStyle = '#fff'; g.font = `700 ${r}px "Space Grotesk", sans-serif`; g.textAlign = 'center'; g.fillText(String(c.symbol || '?').replace(/[^A-Za-z0-9]/g, '').slice(0, 1).toUpperCase(), x, y + r * 0.36); g.textAlign = 'left'; }
+    if (im) { g.clip(); g.drawImage(im, x - r, y - r, r * 2, r * 2); } else { g.fillStyle = 'rgba(255,255,255,.1)'; g.fill(); g.fillStyle = '#fff'; g.font = `700 ${r}px "Sora", sans-serif`; g.textAlign = 'center'; g.fillText(String(c.symbol || '?').replace(/[^A-Za-z0-9]/g, '').slice(0, 1).toUpperCase(), x, y + r * 0.36); g.textAlign = 'left'; }
     g.restore(); g.strokeStyle = c.locked ? '#f5c451' : a1; g.lineWidth = 1.5; g.beginPath(); g.arc(x, y, r, 0, T); g.stroke(); });
   coins.forEach((c, i) => { const y = 134 + i * 26; const up = (c.pct || 0) >= 0;
-    g.fillStyle = '#fff'; g.font = '700 13px "Space Grotesk", sans-serif'; g.fillText(`${c.locked ? '🔒 ' : ''}$${String(c.symbol || '').slice(0, 9)}`, 14, y);
+    g.fillStyle = '#fff'; g.font = '700 13px "Sora", sans-serif'; g.fillText(`${c.locked ? '🔒 ' : ''}$${String(c.symbol || '').slice(0, 9)}`, 14, y);
     g.fillStyle = up ? '#45e486' : '#ff8fa3'; g.font = '700 13px "JetBrains Mono", monospace'; g.textAlign = 'right'; g.fillText(`${up ? '+' : ''}${Number(c.pct || 0).toFixed(1)}%`, cw - 14, y); g.textAlign = 'left';
     const mx = Math.max(5, ...coins.map(k => Math.abs(k.pct || 0))); g.fillStyle = 'rgba(255,255,255,.08)'; g.fillRect(14, y + 6, cw - 28, 3);   /* how big each coin's move is, at a glance */
     g.fillStyle = up ? '#45e486' : '#ff8fa3'; g.fillRect(14, y + 6, (cw - 28) * Math.min(1, Math.abs(c.pct || 0) / mx) * ease(Math.min(1, t * 3 + 0.35)), 3); });
@@ -116,16 +116,16 @@ function hazard(g, card, logo, coin, t, seed) {
   for (let i = 0; i < 900; i++) { const sx = seed[i % 120], sy = seed[(i * 7) % 120]; const drift = (t + sx) % 1; const x = px0 + 190 - drift * (150 + sy * 60) + Math.sin((i + t * 6) * 1.3) * 3;
     const y = band + 6 + ((sy * 997 + i * 13) % (H - band * 2 - 12)); g.globalAlpha = (1 - drift) * (0.35 + sx * 0.6); g.fillStyle = A2; g.fillRect(x, y, 1.6 + sx * 1.6, 1.6 + sx * 1.6); }
   g.globalAlpha = 1;
-  g.save(); g.translate(px0 + 236, H / 2); g.rotate(-Math.PI / 2); g.font = '400 74px "Bungee", sans-serif'; g.textAlign = 'center'; g.fillStyle = '#0a0a0a';
+  g.save(); g.translate(px0 + 236, H / 2); g.rotate(-Math.PI / 2); g.font = '900 74px "Unbounded", sans-serif'; g.textAlign = 'center'; g.fillStyle = '#0a0a0a';
   g.fillText(up ? 'SENT' : 'COOKED', 0, 26); g.restore(); g.textAlign = 'left';
   const X = px0 + 286; if (coin) { g.save(); g.beginPath(); g.arc(X + 24, 66, 24, 0, Math.PI * 2); g.clip(); g.drawImage(coin, X, 42, 48, 48); g.restore(); g.strokeStyle = '#0a0a0a'; g.lineWidth = 3; g.beginPath(); g.arc(X + 24, 66, 25, 0, Math.PI * 2); g.stroke(); }
-  g.fillStyle = '#0a0a0a'; g.font = '800 26px "Space Grotesk", sans-serif'; g.fillText(String(card.title || '').slice(0, 16), X + 58, 76);
+  g.fillStyle = '#0a0a0a'; g.font = '800 26px "Sora", sans-serif'; g.fillText(String(card.title || '').slice(0, 16), X + 58, 76);
   if (T.rank) { g.fillStyle = '#0a0a0a'; g.beginPath(); g.roundRect(W - 168, 48, 130, 32, 16); g.fill(); g.fillStyle = A2; g.font = '800 14px "JetBrains Mono", monospace'; g.fillText(String(T.rank).slice(0, 14), W - 156, 69); }
   const k = ease(Math.min(1, t * 2.2)); const big = card.bigValue != null ? `${card.bigPrefix || ''}${(card.bigValue * k).toFixed(card.bigDigits ?? 2)}${card.bigSuffix || ''}` : card.big;
-  g.fillStyle = '#0a0a0a'; g.font = '400 60px "Bungee", sans-serif'; g.fillText(String(big || ''), X - 4, 160);
+  g.fillStyle = '#0a0a0a'; g.font = '900 60px "Unbounded", sans-serif'; g.fillText(String(big || ''), X - 4, 160);
   const chips = [[T.sym ? `$${T.sym}` : null, '#0a0a0a', A2], [T.side, '#0a0a0a', '#ffffff'], [T.held ? `held ${T.held}` : null, null, '#0a0a0a']].filter(c => c[0]);
-  let cx = X; chips.forEach(([txt, bg, fg]) => { g.font = '800 16px "Space Grotesk", sans-serif'; const w = g.measureText(txt).width + 20; if (bg) { g.fillStyle = bg; g.beginPath(); g.roundRect(cx, 176, w, 30, 8); g.fill(); } g.fillStyle = fg; g.fillText(txt, cx + 10, 197); cx += w + 8; });
-  if (T.pct != null) { g.fillStyle = '#0a0a0a'; g.font = '400 30px "Bungee", sans-serif'; g.textAlign = 'right'; g.fillText(`${T.pct > 0 ? '+' : ''}${Number(T.pct).toFixed(1)}%`, W - 40, 204); g.textAlign = 'left'; }
+  let cx = X; chips.forEach(([txt, bg, fg]) => { g.font = '800 16px "Sora", sans-serif'; const w = g.measureText(txt).width + 20; if (bg) { g.fillStyle = bg; g.beginPath(); g.roundRect(cx, 176, w, 30, 8); g.fill(); } g.fillStyle = fg; g.fillText(txt, cx + 10, 197); cx += w + 8; });
+  if (T.pct != null) { g.fillStyle = '#0a0a0a'; g.font = '900 30px "Unbounded", sans-serif'; g.textAlign = 'right'; g.fillText(`${T.pct > 0 ? '+' : ''}${Number(T.pct).toFixed(1)}%`, W - 40, 204); g.textAlign = 'left'; }
   const xs = (Array.isArray(T.spark) ? T.spark : []).map(Number).filter(Number.isFinite);
   if (xs.length > 1) { const lo = Math.min(...xs), hi = Math.max(...xs); const X0 = X, X1 = W - 44, Y0 = 232, Y1 = 266; const n = Math.max(2, Math.ceil(xs.length * Math.min(1, t * 1.6)));
     g.strokeStyle = 'rgba(10,10,10,.5)'; g.setLineDash([5, 5]); g.lineWidth = 1.5; g.beginPath(); g.moveTo(X0, Y1 - ((xs[0] - lo) / ((hi - lo) || 1)) * (Y1 - Y0)); g.lineTo(X1, Y1 - ((xs[0] - lo) / ((hi - lo) || 1)) * (Y1 - Y0)); g.stroke(); g.setLineDash([]);
@@ -133,11 +133,11 @@ function hazard(g, card, logo, coin, t, seed) {
     g.fillStyle = '#0a0a0a'; g.beginPath(); g.arc(X0, Y1 - ((xs[0] - lo) / ((hi - lo) || 1)) * (Y1 - Y0), 5, 0, Math.PI * 2); g.fill();
     g.font = '800 11px "JetBrains Mono", monospace'; if (T.entry) g.fillText(`entry ${T.entry}`, X0, Y0 - 6); if (T.exit) { g.textAlign = 'right'; g.fillText(`exit ${T.exit}`, X1, Y0 - 6); g.textAlign = 'left'; } }
   g.fillStyle = '#0a0a0a'; g.beginPath(); g.roundRect(X - 6, 284, W - X - 32, 48, 10); g.fill();
-  g.fillStyle = A2; g.font = '400 28px "Bungee", sans-serif'; const bonus = T.bonus != null ? `${T.bonus >= 0 ? '+' : ''}${T.bonus}` : (card.lines || [])[0] || '';
+  g.fillStyle = A2; g.font = '900 28px "Unbounded", sans-serif'; const bonus = T.bonus != null ? `${T.bonus >= 0 ? '+' : ''}${T.bonus}` : (card.lines || [])[0] || '';
   g.fillText(String(bonus).slice(0, 14), X + 8, 318); const bw = g.measureText(String(bonus).slice(0, 14)).width;
-  g.fillStyle = '#ffffff'; g.font = '800 16px "Space Grotesk", sans-serif'; g.fillText(String(T.bonusUnit || (T.bonus != null ? 'season pts' : '')).slice(0, 16), X + 20 + bw, 314);
-  g.fillStyle = '#0a0a0a'; g.font = '700 16px "Space Grotesk", sans-serif'; g.fillText(String(card.footer || 'feeless').slice(0, 34), X, H - 40);
-  g.font = '400 22px "Bungee", sans-serif'; g.textAlign = 'right'; g.fillText('FEELESS', W - 40, H - 38); g.textAlign = 'left';
+  g.fillStyle = '#ffffff'; g.font = '800 16px "Sora", sans-serif'; g.fillText(String(T.bonusUnit || (T.bonus != null ? 'season pts' : '')).slice(0, 16), X + 20 + bw, 314);
+  g.fillStyle = '#0a0a0a'; g.font = '700 16px "Sora", sans-serif'; g.fillText(String(card.footer || 'feeless').slice(0, 34), X, H - 40);
+  g.font = '900 22px "Unbounded", sans-serif'; g.textAlign = 'right'; g.fillText('FEELESS', W - 40, H - 38); g.textAlign = 'left';
   if (logo) { g.globalAlpha = 0.12 + 0.05 * Math.sin(t * Math.PI * 2); g.drawImage(logo, W - 130, 92, 90, 90); g.globalAlpha = 1; }
 }
 
@@ -167,16 +167,16 @@ function frame(g, card, logo, coin, t, seed, s = 1) {
   g.fillStyle = P.panel; g.strokeStyle = P.frame; g.lineWidth = 2; g.beginPath(); g.roundRect(28, 28, W - 56, H - 56, 22); g.fill(); g.stroke();
   if (fz) drawFuseCard(g, fz, card.coinImgs || [], t);
   if (coin && !fz) { g.save(); g.beginPath(); g.arc(84, 92, 34, 0, Math.PI * 2); g.clip(); g.drawImage(coin, 50, 58, 68, 68); g.restore(); }
-  g.fillStyle = P.kicker; g.font = '700 15px "Space Grotesk", sans-serif'; g.fillText(card.kicker || 'FEELESS', (coin && !fz ? 134 : 56) + ox, 78);
-  g.fillStyle = '#ffffff'; g.font = '800 34px "Space Grotesk", sans-serif'; g.fillText(card.title, (coin && !fz ? 134 : 56) + ox, 114);
+  g.fillStyle = P.kicker; g.font = '700 15px "Sora", sans-serif'; g.fillText(card.kicker || 'FEELESS', (coin && !fz ? 134 : 56) + ox, 78);
+  g.fillStyle = '#ffffff'; g.font = '800 34px "Sora", sans-serif'; g.fillText(card.title, (coin && !fz ? 134 : 56) + ox, 114);
   const k = ease(Math.min(1, t * 2.2)); const big = card.bigValue != null ? `${card.bigPrefix || ''}${(card.bigValue * k).toFixed(card.bigDigits ?? 1)}${card.bigSuffix || ''}` : card.big;
-  g.font = '400 76px "Bungee", sans-serif'; g.fillStyle = P.big; g.shadowColor = g.fillStyle; g.shadowBlur = 18 + 10 * Math.sin(t * Math.PI * 4); g.font = fz ? '400 60px "Bungee", sans-serif' : g.font; g.fillText(big, 54 + ox, 228); g.shadowBlur = 0;
+  g.font = '900 76px "Unbounded", sans-serif'; g.fillStyle = P.big; g.shadowColor = g.fillStyle; g.shadowBlur = 18 + 10 * Math.sin(t * Math.PI * 4); g.font = fz ? '900 60px "Unbounded", sans-serif' : g.font; g.fillText(big, 54 + ox, 228); g.shadowBlur = 0;
   if (card.bigSub) { const bw = g.measureText(big).width; g.font = '700 20px "JetBrains Mono", monospace'; g.fillStyle = P.text; g.fillText(card.bigSub, 54 + ox + bw + 12, 226); }
   const vit = fz ? (fz.vitals || []).slice(0, 4) : [];
-  g.font = `500 ${vit.length ? 15 : 17}px "Space Grotesk", sans-serif`; g.fillStyle = P.text; (card.lines || []).slice(0, 3).forEach((l, i) => g.fillText(l, 56 + ox, (vit.length ? 258 : 274) + i * (vit.length ? 21 : 26)));
+  g.font = `500 ${vit.length ? 15 : 17}px "Sora", sans-serif`; g.fillStyle = P.text; (card.lines || []).slice(0, 3).forEach((l, i) => g.fillText(l, 56 + ox, (vit.length ? 258 : 274) + i * (vit.length ? 21 : 26)));
   // 🧮 the card's vitals in four tiles (fuse shares): put in · in the card now · profit pulled · swaps
   vit.forEach((v, i) => { const x = 56 + ox + i * 93, y = 292; g.fillStyle = 'rgba(255,255,255,0.08)'; g.beginPath(); g.roundRect(x, y, 87, 40, 9); g.fill();
-    g.fillStyle = 'rgba(255,255,255,0.55)'; g.font = '600 9px "Space Grotesk", sans-serif'; g.fillText(String(v.label).toUpperCase().slice(0, 14), x + 8, y + 14);
+    g.fillStyle = 'rgba(255,255,255,0.55)'; g.font = '600 9px "Sora", sans-serif'; g.fillText(String(v.label).toUpperCase().slice(0, 14), x + 8, y + 14);
     g.fillStyle = v.tone === 'bad' ? '#ff8fa3' : v.tone === 'ok' ? '#45e486' : '#ffffff'; g.font = '700 15px "JetBrains Mono", monospace'; g.fillText(String(v.value).slice(0, 9), x + 8, y + 32); });
   // Stats panel (case files): up to 6 labelled pills, 2 columns, coloured by verdict (ok = mint, bad = red).
   // 📈 a ride's % path since entry (ride shares): drawn left → right as the loop plays, the entry line, the peak, the agents' would-sells as ✂ ticks
@@ -189,14 +189,14 @@ function frame(g, card, logo, coin, t, seed, s = 1) {
     const n = Math.max(2, Math.ceil(xs.length * Math.min(1, t * 1.6))); g.strokeStyle = P.big; g.lineWidth = 2.5; g.shadowColor = P.big; g.shadowBlur = 8; g.beginPath();
     xs.slice(0, n).forEach((v, i) => (i ? g.lineTo(xv(i), yv(v)) : g.moveTo(xv(i), yv(v)))); g.stroke(); g.shadowBlur = 0;
     const pk = xs.indexOf(Math.max(...xs)); if (pk < n) { g.fillStyle = '#ffffff'; g.beginPath(); g.arc(xv(pk), yv(xs[pk]), 3.5, 0, Math.PI * 2); g.fill(); }
-    g.fillStyle = 'rgba(255,255,255,0.55)'; g.font = '600 10px "Space Grotesk", sans-serif'; g.fillText('THE RIDE · % SINCE ENTRY', X0, Y0 - 3);
+    g.fillStyle = 'rgba(255,255,255,0.55)'; g.font = '600 10px "Sora", sans-serif'; g.fillText('THE RIDE · % SINCE ENTRY', X0, Y0 - 3);
   }
   (card.stats || []).slice(0, 6).forEach((s, i) => {
     const x = 392 + (i % 2) * 150, y = 136 + Math.floor(i / 2) * 50;
     g.fillStyle = 'rgba(255,255,255,0.07)'; g.beginPath(); g.roundRect(x, y, 142, 42, 10); g.fill();
-    g.fillStyle = 'rgba(255,255,255,0.55)'; g.font = '600 10px "Space Grotesk", sans-serif'; g.fillText(String(s.label).toUpperCase(), x + 10, y + 15);
+    g.fillStyle = 'rgba(255,255,255,0.55)'; g.font = '600 10px "Sora", sans-serif'; g.fillText(String(s.label).toUpperCase(), x + 10, y + 15);
     g.fillStyle = s.tone === 'bad' ? '#ff8fa3' : s.tone === 'ok' ? '#15d16a' : s.tone === 'warn' ? '#f5c451' : '#ffffff';
-    g.font = '700 16px "Space Grotesk", sans-serif'; g.fillText(String(s.value).slice(0, 16), x + 10, y + 34);
+    g.font = '700 16px "Sora", sans-serif'; g.fillText(String(s.value).slice(0, 16), x + 10, y + 34);
   });
   // FeeCat effects: a paw-print trail walks across the card.
   if (card.mascot) {
@@ -210,8 +210,8 @@ function frame(g, card, logo, coin, t, seed, s = 1) {
   }
   // Brand mark.
   const by = vit.length ? H - 42 : H - 52;   /* fuse shares: the brand sits on one line under the vitals */
-  g.font = '400 20px "Bungee", sans-serif'; g.fillStyle = P.brand; g.fillText(card.mascot ? 'FEECAT' : 'FEELESS', W - 190, by);
-  g.font = '500 12px "Space Grotesk", sans-serif'; g.fillStyle = P.foot; if (vit.length) g.fillText(card.footer || 'feeless', 56 + ox, by - 2); else g.fillText(card.footer || 'feeless · non-custodial trading', W - 262, H - 34);
+  g.font = '900 20px "Unbounded", sans-serif'; g.fillStyle = P.brand; g.fillText(card.mascot ? 'FEECAT' : 'FEELESS', W - 190, by);
+  g.font = '500 12px "Sora", sans-serif'; g.fillStyle = P.foot; if (vit.length) g.fillText(card.footer || 'feeless', 56 + ox, by - 2); else g.fillText(card.footer || 'feeless · non-custodial trading', W - 262, H - 34);
 }
 
 // 🖼 The STILL share card (the default): the same card at 2× (1440×810 PNG), drawn once — instant, crisp, small. On top of the

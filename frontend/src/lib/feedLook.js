@@ -4,7 +4,7 @@
 export const LOOK_KEY = 'feeless.feedLook';
 export const FEED_BGS = [['void', '⬛ Void'], ['royal', '🌌 Royal aurora'], ['nebula', '🟣 Nebula'], ['sunset', '🌅 Sunset'], ['matrix', '🟩 Matrix'], ['paper', '📄 Paper']];
 export const FEED_FONTS = [['sans', 'Clean', 'system-ui, -apple-system, "Segoe UI", sans-serif'], ['mono', 'Mono', '"JetBrains Mono", ui-monospace, monospace'],
-  ['serif', 'Serif', 'Georgia, "Times New Roman", serif'], ['loud', 'Loud', '"Bungee", "Impact", "Arial Black", sans-serif']];
+  ['serif', 'Serif', 'Georgia, "Times New Roman", serif'], ['loud', 'Loud', '"Unbounded", "Impact", "Arial Black", sans-serif']];
 export const FEED_SIZES = [['s', 'S', 13], ['m', 'M', 15], ['l', 'L', 17], ['xl', 'XL', 19]];
 export const FEED_ACCENTS = [['green', '#15d16a'], ['violet', '#a66bff'], ['ice', '#5ad7ff'], ['gold', '#f5c451'], ['pink', '#ff5fa2']];
 export const FEED_DENSITY = [['comfy', 'Comfy'], ['tight', 'Tight']];

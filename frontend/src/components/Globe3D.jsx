@@ -62,7 +62,7 @@ const labelTex = {};
 function nameTexture(name, color) {
   const key = name + color; if (labelTex[key]) return labelTex[key];
   const c = document.createElement('canvas'); c.width = 512; c.height = 128; const g = c.getContext('2d');
-  g.font = '700 54px Inter, system-ui, sans-serif'; const w = Math.min(500, g.measureText(name).width + 70);
+  g.font = '700 54px Sora, system-ui, sans-serif'; const w = Math.min(500, g.measureText(name).width + 70);
   g.fillStyle = 'rgba(4,10,8,.78)'; g.strokeStyle = color; g.lineWidth = 4;
   const x = (512 - w) / 2; g.beginPath(); g.roundRect(x, 22, w, 84, 42); g.fill(); g.stroke();
   g.fillStyle = color; g.beginPath(); g.arc(x + 38, 64, 12, 0, Math.PI * 2); g.fill();

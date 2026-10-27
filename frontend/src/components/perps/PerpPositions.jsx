@@ -12,7 +12,18 @@ const $ = v => (v == null || !Number.isFinite(v) ? '—' : `${v < 0 ? '−' : '+
 function Pnl({ v, pct }) { const g = useGlide(v == null ? null : Math.round(v * 100) / 100, 400);
   return <span className={`pp-pnl ${(v ?? 0) >= 0 ? 'is-up' : 'is-dn'}`}><b className="m-num" key={Math.round((v || 0) * 20)}>{$(g)}</b><small className="m-num">{pct == null ? '' : `${pct >= 0 ? '+' : ''}${pct.toFixed(1)}% ROE`}</small></span>; }
 
-export function PerpPositions({ positions, marks, addr, provider, wallet, connect, reload, onPick }) {
+// 🧾 RECENT TRADES (Jupiter's own /v1/trades for this wallet): every open, close and TP / SL trigger — side, size, fill, P&L before fees, the fee apart
+const ago = t => { const s = Date.now() / 1000 - (t > 1e12 ? t / 1000 : t); return s < 3600 ? `${Math.max(1, Math.round(s / 60))}m` : s < 86400 ? `${Math.round(s / 3600)}h` : `${Math.round(s / 86400)}d`; };
+export function PerpTrades({ trades }) {
+  if (!trades?.length) return null;
+  return <div className="pp-trades" data-testid="perp-trades"><em>RECENT TRADES · JUPITER</em><ol>{trades.slice(0, 12).map((t, i) => <li key={t.tx + i} className={`is-${t.side} ${(t.pnl ?? 0) > 0 ? 'is-up' : (t.pnl ?? 0) < 0 ? 'is-dn' : ''}`} style={{ '--i': i }}>
+    <b>{t.side === 'long' ? '▲' : '▼'} {t.market}</b><small>{t.action === 'Increase' ? 'OPEN' : 'CLOSE'}{t.type && t.type !== 'Market' ? ` · ${t.type}` : ''}</small>
+    <span className="m-num">{px(t.size)} @ {px(t.price)}</span>
+    <span className="m-num pp-tpnl">{t.action === 'Increase' ? '—' : $(t.pnl)}</span><small className="m-num">fee ${(t.fee ?? 0).toFixed(2)} · {t.at ? ago(t.at) : ''}</small>
+    <a href={`https://solscan.io/tx/${t.tx}`} target="_blank" rel="noopener noreferrer" aria-label="Open on Solscan" data-tip="Open this trade on Solscan">↗</a></li>)}</ol></div>;
+}
+
+export function PerpPositions({ positions, marks, addr, provider, wallet, connect, reload, onPick, trades = [] }) {
   const [busy, setBusy] = useState(''); const [edit, setEdit] = useState(null); const [add, setAdd] = useState(null);
   const run = async (label, body) => {
     if (!wallet?.address || !provider) { await connect?.('solana'); return; }
@@ -20,8 +31,8 @@ export function PerpPositions({ positions, marks, addr, provider, wallet, connec
     try { const b = await post('/api/reputation/familia/perps-real', { address: addr, ...body }); await signRun(provider, addr, b); toast.success(`✅ ${label} — done`); setEdit(null); setAdd(null); reload?.(); }
     catch (e) { toast.error(e.message); } finally { setBusy(''); }
   };
-  if (!positions.length) return <div className="pp-empty" data-testid="pp-empty"><b>FLAT</b><small>no open positions</small></div>;
-  return <ol className="pp" data-testid="perp-positions">{positions.map((p0, i) => { const p = liveRow(p0, marks?.[p0.asset]);
+  if (!positions.length) return <><div className="pp-empty" data-testid="pp-empty"><b>FLAT</b><small>no open positions</small></div><PerpTrades trades={trades} /></>;
+  return <><ol className="pp" data-testid="perp-positions">{positions.map((p0, i) => { const p = liveRow(p0, marks?.[p0.asset]);
     const safe = p.toLiq == null ? 0 : Math.min(1, p.toLiq / 50);
     return <li key={p.pubkey} className={`pp-row ${(p.pnl ?? 0) >= 0 ? 'is-up' : 'is-dn'}`} style={{ '--i': i }} data-testid={`pp-${i}`}>
       <button type="button" className={`pp-mkt is-${p.side}`} onClick={() => onPick?.(p.asset)} data-tip={`Show ${p.asset} on the chart`}><b>{p.side === 'long' ? '▲' : '▼'} {p.asset}</b><small>{p.lev}× · {px(p.size)}</small></button>
@@ -38,7 +49,7 @@ export function PerpPositions({ positions, marks, addr, provider, wallet, connec
           : <button type="button" className="pp-add" onClick={() => setAdd(p.pubkey)} data-tip="Arm a take profit / stop loss on this position" data-testid={`pp-add-${i}`}>+ TP/SL</button>) : null}</span>
       <span className="pp-close m-seg" role="group" aria-label="Close">{[25, 50, 75, 100].map(n => <button key={n} type="button" disabled={!!busy} onClick={() => run(n === 100 ? `${p.asset} closed` : `${n}% of ${p.asset} closed`, { act: 'close', positionPubkey: p.pubkey, pct: n, size: p.size })}
         data-tip={n === 100 ? 'Close it all — USDC back to your wallet' : `Close ${n}% — the rest stays open`} data-testid={`pp-close-${i}-${n}`}>{n === 100 ? 'CLOSE' : `${n}%`}</button>)}</span>
-    </li>; })}</ol>;
+    </li>; })}</ol><PerpTrades trades={trades} /></>;
 }
 
 function AddTpsl({ p, busy, onSave }) {

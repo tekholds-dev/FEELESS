@@ -7,13 +7,13 @@
   background-image: linear-gradient(rgba(255, 255, 255, .025) 1px, transparent 1px), linear-gradient(90deg, rgba(255, 255, 255, .025) 1px, transparent 1px); background-size: 28px 28px;
   -webkit-mask-image: linear-gradient(180deg, #000, transparent 70%); mask-image: linear-gradient(180deg, #000, transparent 70%); }
 .fx.fx-v4 .fx-head { background: rgba(5, 6, 6, .86); border-bottom: 1px solid var(--fx4-line); }
-.fx.fx-v4 .fx-head b { font: 800 18px 'Space Grotesk', system-ui, sans-serif; letter-spacing: -.01em; color: #fff; }
+.fx.fx-v4 .fx-head b { font: 800 18px 'Sora', system-ui, sans-serif; letter-spacing: -.01em; color: #fff; }
 .fx.fx-v4 .fx-head small { font: 600 10.5px 'JetBrains Mono', monospace; letter-spacing: .08em; text-transform: uppercase; color: var(--fx4-mute); }
 .fx.fx-v4 .fx-compose { background: linear-gradient(180deg, rgba(255, 255, 255, .025), transparent); border-bottom: 1px solid var(--fx4-line); }
 .fx.fx-v4 .fx-compose textarea { background: rgba(255, 255, 255, .03); border: 1px solid var(--fx4-line); color: var(--fx4-ink); font: 500 15px system-ui, sans-serif; transition: border-color .15s, box-shadow .15s; }
 .fx.fx-v4 .fx-compose textarea:focus { border-color: var(--fx4-acc); box-shadow: 0 0 0 3px rgba(69, 228, 134, .12); }
 .fx.fx-v4 .fx-tabs { position: sticky; top: 50px; z-index: 2; background: rgba(5, 6, 6, .92); border-bottom: 1px solid var(--fx4-line); }
-.fx.fx-v4 .fx-tabs button { position: relative; font: 700 12.5px 'Space Grotesk', system-ui, sans-serif; letter-spacing: .02em; color: var(--fx4-mute); }
+.fx.fx-v4 .fx-tabs button { position: relative; font: 700 12.5px 'Sora', system-ui, sans-serif; letter-spacing: .02em; color: var(--fx4-mute); }
 .fx.fx-v4 .fx-tabs button::after { content: ''; position: absolute; left: 22%; right: 22%; bottom: 0; height: 3px; border-radius: 3px 3px 0 0; background: var(--fx4-acc); transform: scaleX(0); transition: transform .2s ease; }
 .fx.fx-v4 .fx-tabs button.on { color: #fff; } .fx.fx-v4 .fx-tabs button.on::after { transform: scaleX(1); }
 .fx.fx-v4 .fx-tabs button:hover { color: var(--fx4-ink); }

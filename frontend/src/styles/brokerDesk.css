@@ -47,3 +47,17 @@ body.theme-day .bk-keys.is-cdc .bk-steps li { background: #eef6ff; }
 body.theme-day .bk-caps { background: #eef6ff; } body.theme-day .bk-capg span { background: #fff; } body.theme-day .bk-capg b { color: #0b2540; }
 .bk-keys.is-cdc .bk-venue button.active, .bk-keys.is-cdc .bk-go { background: linear-gradient(120deg, #0b6fc4, #1199fa); color: #fff; border-color: transparent; }
 .bk-keys.is-cdc .bk-sm { border-color: rgba(17, 153, 250, .5); color: #7cc4ff; }
+/* 📜 every Crypto.com market (PERPS with max leverage | SPOT), searchable — one tap loads the ticket */
+.bk-mkts { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 6px; align-items: center; }
+.bk-mkts input { min-height: 32px; padding: 0 10px; border-radius: 8px; border: 1px solid rgba(17, 153, 250, .3); background: rgba(0, 0, 0, .4); color: #fff; font: 700 11px var(--f-mono); }
+.bk-mkts input:focus-visible { outline: 2px solid #1199fa; outline-offset: 1px; }
+.bk-mlist { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 4px; max-height: 148px; overflow-y: auto; scrollbar-width: thin; scrollbar-color: #1199fa transparent; padding-right: 2px; }
+.bk-mlist::-webkit-scrollbar { width: 6px; } .bk-mlist::-webkit-scrollbar-thumb { background: #1199fa; border-radius: 6px; }
+.bk-mlist button { display: inline-flex; align-items: baseline; gap: 5px; min-height: 32px; padding: 0 9px; border-radius: 8px; border: 1px solid rgba(17, 153, 250, .25); background: rgba(0, 0, 0, .35); color: #e8f4ff; cursor: pointer;
+  font: 700 11px var(--f-tech); letter-spacing: .04em; transition: transform .12s, border-color .12s, background .12s; animation: bkIn .3s ease-out both; animation-delay: calc(var(--i, 0) * 30ms); }
+.bk-mlist button i { font: 800 9.5px var(--f-mono); font-style: normal; color: #7cc4ff; }
+.bk-mlist button:hover { border-color: #1199fa; background: rgba(17, 153, 250, .16); transform: translateY(-1px); } .bk-mlist button:active { transform: scale(.96); }
+.bk-mlist button:focus-visible { outline: 2px solid #1199fa; outline-offset: 1px; }
+body.fx-lite .bk-mlist button { animation: none; } @media (prefers-reduced-motion: reduce) { .bk-mlist button { animation: none; transition: none; } }
+body.theme-day .bk-mkts input, body.theme-day .bk-mlist button { background: #fff; color: #0b2540; } body.theme-day .bk-mlist button i { color: #0b6fc4; }
+@media (max-width: 640px) { .bk-mkts { grid-template-columns: 1fr; } .bk-mlist { max-height: 120px; } }

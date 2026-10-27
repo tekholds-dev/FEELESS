@@ -1,7 +1,7 @@
 /* 🧾 Fuse proof (FuseProof.jsx): setups side by side · live proof feed · real duels. Built from m-* tokens. */
 .fpf { display: grid; gap: 12px; margin: 22px 0 6px; }
 .fpf > header { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; justify-content: space-between; }
-.fpf > header h3 { margin: 0; font: 400 16px var(--fz-font, "Bungee"), sans-serif; letter-spacing: .06em; }
+.fpf > header h3 { margin: 0; font: 800 16px var(--fz-font, "Unbounded"), sans-serif; letter-spacing: .06em; }
 .fpf-fine { font-size: 11px; }
 .fpf-setups { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 10px; }
 .fpf-setups > li { display: grid; gap: 6px; align-content: start; padding: 14px; overflow: hidden; animation: fpfIn .3s ease both; animation-delay: calc(var(--i) * 55ms); transition: transform .16s ease, border-color .16s ease; }
@@ -23,7 +23,7 @@
 .fpf-duel { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); gap: 12px; align-items: center; padding: 14px; overflow: hidden; }
 .fpf-side-card { display: grid; gap: 3px; padding: 10px; border-radius: 10px; border: 1px solid rgba(21, 209, 106, .16); background: rgba(0, 0, 0, .3); transition: border-color .2s ease, transform .2s ease; }
 .fpf-side-card.is-lead { border-color: #15d16a; transform: scale(1.02); } .fpf-side-card .m-num { font-size: 24px; font-style: normal; } .fpf-side-card .m-label { font-size: 9px; }
-.fpf-vs { display: grid; justify-items: center; gap: 2px; } .fpf-vs b { font: 400 20px var(--fz-font, "Bungee"), sans-serif; color: var(--gold); animation: fpfPulse 1.8s ease-in-out infinite; } .fpf-vs small { font-size: 10px; opacity: .7; white-space: nowrap; }
+.fpf-vs { display: grid; justify-items: center; gap: 2px; } .fpf-vs b { font: 800 20px var(--fz-font, "Unbounded"), sans-serif; color: var(--gold); animation: fpfPulse 1.8s ease-in-out infinite; } .fpf-vs small { font-size: 10px; opacity: .7; white-space: nowrap; }
 .fpf-log { list-style: none; margin: 0; padding: 0; display: grid; gap: 3px; font-size: 11.5px; } .fpf-log li { display: flex; gap: 10px; flex-wrap: wrap; } .fpf-log span { opacity: .75; }
 /* transform only: an entrance that starts at opacity 0 leaves the content INVISIBLE wherever the animation clock is not running (a background pane) */
 @keyframes fpfIn { from { transform: translateY(8px); } to { transform: none; } }

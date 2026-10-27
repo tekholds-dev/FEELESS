@@ -45,8 +45,8 @@
 .md-go { width: 100%; min-height: 42px; font-size: 13px; }
 .md-swap { border-radius: 14px; overflow: hidden; border: 1px solid color-mix(in srgb, var(--mc) 35%, transparent); animation: mdIn .22s ease-out both; }
 .md-empty { margin: 0; font: 600 11px 'JetBrains Mono', monospace; color: #a99b74; animation: mdBreath 1.6s ease-in-out infinite; }
-.md-note { margin: 0; padding: 7px 10px; border-radius: 10px; font: 500 11px Inter, system-ui, sans-serif; color: #d9cfae; background: rgba(255, 255, 255, .03); border-left: 2px solid var(--mc); }
-.md-risk { font: 500 10.5px Inter, system-ui, sans-serif; color: #9a8f72; }
+.md-note { margin: 0; padding: 7px 10px; border-radius: 10px; font: 500 11px Sora, system-ui, sans-serif; color: #d9cfae; background: rgba(255, 255, 255, .03); border-left: 2px solid var(--mc); }
+.md-risk { font: 500 10.5px Sora, system-ui, sans-serif; color: #9a8f72; }
 .md.is-compact { padding: 12px; gap: 8px; } .md.is-compact .md-curve { height: 74px; } .md.is-compact .md-tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 /* the drawn range */
 .md-range { display: grid; gap: 8px; padding: 12px; border-radius: 14px; border: 1px solid rgba(106, 215, 255, .3); background: linear-gradient(160deg, #08141a, #060a0c); animation: mdIn .22s ease-out both; }

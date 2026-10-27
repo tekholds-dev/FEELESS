@@ -6227,3 +6227,7 @@ P6 — IDEAS: FeeCat + AI agent pair that talk · "build a better coin" track in
   with X (OAuth PKCE) · live intake tank with 5 levels (NEW · GERM · DESK · TRENDING · TOP NEW) · whitepaper orbit → system cards · Settings text
   Small/Medium/Large (zoom) · trench chart fits phones + swipe toolbar · broker trade station big · Lag catcher: scenario / verdict proofs + smart-set
   save off the event loop (the 18–21 s routes were a blocked loop).
+- 2026-10-27 · Opus 5.5 — 6 site fonts as tokens (JetBrains Mono finally loaded) · perps: swipe provider rail (most-used first, market counts), Jupiter
+  recent trades (`jup_perps.trades`), Crypto.com full market list (`cdc_caps.all`, `CdcMarkets`), 100× on the cdc ticket, `.env` Crypto.com keys ride the
+  owner wallet (`_cdc_dev_key`, `_brk_cdc` env pair) · Pump Radar simple cards, small window, Trade Center + Runners as its rooms · Family HQ big
+  two-column window · sections under the map hidden behind big rooms · Settings › Updates log (`updates_log.py`) + Duo screens · viem/ox warning quiet.

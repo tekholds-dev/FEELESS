@@ -27,7 +27,7 @@ export async function generateBannerFile(name, c1, c2) {
   const bg = g.createLinearGradient(0, 0, 1600, 520); bg.addColorStop(0, '#05070a'); bg.addColorStop(0.55, c1 + '55'); bg.addColorStop(1, c2 + '66'); g.fillStyle = bg; g.fillRect(0, 0, 1600, 520);
   for (let i = 0; i < 70; i++) { g.fillStyle = i % 2 ? c1 + '33' : c2 + '33'; g.beginPath(); g.arc(Math.random() * 1600, Math.random() * 520, 4 + Math.random() * 60, 0, Math.PI * 2); g.fill(); }
   g.strokeStyle = c1 + 'aa'; g.lineWidth = 2; for (let i = 0; i < 14; i++) { g.beginPath(); g.moveTo(0, 60 + i * 34); g.bezierCurveTo(500, Math.random() * 520, 1100, Math.random() * 520, 1600, 60 + i * 30); g.stroke(); }
-  g.font = 'italic 900 150px Inter, system-ui, sans-serif'; g.textAlign = 'center'; g.fillStyle = '#ffffff18'; g.fillText(name.toUpperCase(), 800, 320);
+  g.font = 'italic 900 150px Sora, system-ui, sans-serif'; g.textAlign = 'center'; g.fillStyle = '#ffffff18'; g.fillText(name.toUpperCase(), 800, 320);
   const blob = await new Promise(r => c.toBlob(r, 'image/webp', 0.9));
   return new File([blob], 'banner.webp', { type: 'image/webp' });
 }

@@ -64,7 +64,7 @@ export const PLACES = [
   // 🗼 TT — ONE landmark tower on its own island (owner, 2026-10-23): READY coins lit on its floors, the hottest coin on its crown; one pop-out
   { key: 'tt', lens: 'tt', name: 'TRENCH TOWERS', sub: "the desk's intake list · trade it right here", isl: 'money', art: 'tt', color: '#ff8fa3', tool: true, money: true },
   // 🛣 FEELESS AVENUE — the site's best tools as buildings: each pops out its live vitals + quick tools (`tool: true`, `page` = its full page)
-  { key: 'pumpradar', lens: 'pumpradar', name: 'PUMP RADAR', sub: 'hottest Pump coins · one-tap trade', isl: 'ave', art: 'radar', color: '#45e486', tool: true, money: true, page: '/terminal/pump' },
+  { key: 'pumpradar', lens: 'pumpradar', name: 'PUMP RADAR', sub: 'hot Pump coins · runners · the desk\'s trades', isl: 'ave', art: 'radar', color: '#45e486', tool: true, money: true, page: '/terminal/pump' },
   { key: 'runners', lens: 'runners', name: 'RUNNERS TRACK', sub: "FEELESS's live runner calls", in: 'pumpradar', art: 'track', color: '#ff9f45', tool: true, page: '/terminal/fuse?tab=runners' },
   { key: 'watch', lens: 'watch', name: 'THE WATCHTOWER', sub: 'your watchlist · signal alerts', in: 'court', art: 'watch', color: '#6ad7ff', tool: true, page: '/terminal/watchlist' },
   { key: 'court', lens: 'rep', name: 'REP COURTHOUSE', sub: 'case files · check anyone', isl: 'ave', art: 'court', color: '#d4af37', tool: true, page: '/terminal/reputation' },
@@ -73,7 +73,7 @@ export const PLACES = [
   { key: 'news', lens: 'feedx', name: 'THE NEWSSTAND', sub: 'FEEd · every call, live', in: 'wire', art: 'news', color: '#45e4c8', tool: true },
   { key: 'feebank', lens: 'feebank', name: 'THE $FEE BANK', sub: '$FEE · rFEE · FEECAT — buys fee-free', isl: 'fee', art: 'bank', color: '#15d16a', tool: true, money: true, page: '/terminal/fee' },
   { key: 'perps', lens: 'perps', name: 'THE PERPS DESK', sub: 'perps markets live · funding · leverage', isl: 'ave', art: 'perps', color: '#ff5dbb', tool: true, money: true },
-  { key: 'trades', lens: 'trades', name: 'THE TRADE CENTER', sub: 'the desk\'s real-money trades · live P&L', isl: 'fee', art: 'trade', color: '#45e486', tool: true, money: true },
+  { key: 'trades', lens: 'trades', name: 'THE TRADE CENTER', sub: 'the desk\'s real-money trades · live P&L', in: 'pumpradar', art: 'trade', color: '#45e486', tool: true, money: true },   // 🚪 a room of Pump Radar (owner 2026-10-27: one building)
   { key: 'sleep', lens: 'sleep', name: 'THE NIGHT VAULT', sub: 'money while you sleep · live APY', isl: 'vault', art: 'sleep', color: '#9b8cff', tool: true, money: true },
   // 💵 YOUR MONEY (owner 1e): every position FEELESS can prove for your wallet, priced live — the Avenue's last cell
   // 🏦 THE BROKERAGE (DECISIONS #9): your own broker linked to your wallet — stocks · ETFs · crypto, live, trade from $1

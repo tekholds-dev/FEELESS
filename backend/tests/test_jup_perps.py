@@ -134,3 +134,12 @@ def test_the_weeks_top_traders_in_plain_dollars():
                     'topTradersByVolume': [{'owner': 'B', 'totalPnlUsd': '-7990933123', 'totalVolumeUsd': '13829085250466'}]})
     assert round(d['vol']) == 368507275 and d['pnl'] == [{'wallet': 'A', 'pnl': 36036.989827, 'vol': 11134702.966336}] and d['busy'][0]['pnl'] == -7990.933123
     assert jp.leaders(None) == {'vol': None, 'from': None, 'to': None, 'pnl': [], 'busy': []}
+
+
+def test_recent_trades_read_in_plain_dollars():
+    raw = {'dataList': [{'txHash': 'T1', 'positionName': 'BTC-PERP', 'side': 'long', 'action': 'Decrease', 'orderType': 'Trigger', 'price': '79342.40', 'size': '928.99',
+                         'collateralUsdDelta': '4.74', 'pnl': '-3.92', 'pnlPercentage': '-41.2', 'fee': '0.68', 'createdTime': 1793000000}, {'nope': 1}]}
+    t = jp.trades(raw)
+    assert t == [{'tx': 'T1', 'market': 'BTC', 'side': 'long', 'action': 'Decrease', 'type': 'Trigger', 'price': 79342.4, 'size': 928.99, 'collateral': 4.74,
+                  'pnl': -3.92, 'pnlPct': -41.2, 'fee': 0.68, 'at': 1793000000.0}]
+    assert jp.trades(None) == []

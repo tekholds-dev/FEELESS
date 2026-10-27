@@ -2,12 +2,19 @@
 @tailwind components;
 @tailwind utilities;
 
+:root {
+    /* The 6 FEELESS fonts (owner 2026-10-27: "6 clean and unique fonts, none default") — use these tokens, never a new family */
+    --f-display: 'Unbounded', 'Sora', sans-serif;
+    --f-ui: 'Sora', system-ui, sans-serif;
+    --f-mono: 'JetBrains Mono', ui-monospace, monospace;
+    --f-tech: 'Chakra Petch', 'Sora', sans-serif;
+    --f-noir: 'Cinzel', Georgia, serif;
+    --f-noir-it: 'Playfair Display', Georgia, serif;
+}
+
 body {
     margin: 0;
-    font-family:
-        -apple-system, BlinkMacSystemFont, "Segoe UI", "Roboto", "Oxygen",
-        "Ubuntu", "Cantarell", "Fira Sans", "Droid Sans", "Helvetica Neue",
-        sans-serif;
+    font-family: var(--f-ui);
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
 }

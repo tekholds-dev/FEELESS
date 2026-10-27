@@ -115,7 +115,7 @@ let webpackConfig = {
     },
     configure: (webpackConfig) => {
       // Metaplex ships source maps that point at .ts files it doesn't publish: skip them (quiet, faster builds).
-      webpackConfig.ignoreWarnings = [...(webpackConfig.ignoreWarnings || []), /Failed to parse source map/];
+      webpackConfig.ignoreWarnings = [...(webpackConfig.ignoreWarnings || []), /Failed to parse source map/, { module: /node_modules[\\/](ox|viem)[\\/]/, message: /Critical dependency/ }];   // viem / ox load an optional dep by expression — harmless
 
       // Add ignored patterns to reduce watched directories
         webpackConfig.watchOptions = {

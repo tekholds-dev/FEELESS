@@ -184,3 +184,15 @@ def leaders(raw, k=5):
     return {'vol': _usd(d.get('totalVolumeUsd')), 'from': d.get('startTimestamp'), 'to': d.get('endTimestamp'),
             'pnl': [row(r) for r in (d.get('topTradersByPnl') or [])[:k] if r.get('owner')],
             'busy': [row(r) for r in (d.get('topTradersByVolume') or [])[:k] if r.get('owner')]}
+
+
+def trades(raw, n=20):
+    """Jupiter /v1/trades → the wallet's recent perps trades in plain dollars (P&L before fees; fees apart), newest first."""
+    out = []
+    for r in ((raw or {}).get('dataList') or [])[:n]:
+        if not isinstance(r, dict) or not r.get('txHash'):
+            continue
+        out.append({'tx': r['txHash'], 'market': str(r.get('positionName') or '').replace('-PERP', ''), 'side': r.get('side'), 'action': r.get('action'),
+                    'type': r.get('orderType'), 'price': _f(r.get('price')), 'size': _f(r.get('size')), 'collateral': _f(r.get('collateralUsdDelta')),
+                    'pnl': _f(r.get('pnl')), 'pnlPct': _f(r.get('pnlPercentage')), 'fee': _f(r.get('fee')), 'at': _f(r.get('createdTime') or r.get('updatedTime'))})
+    return out

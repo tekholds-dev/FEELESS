@@ -12,7 +12,7 @@
   box-shadow: 0 30px 80px rgba(0, 0, 0, .7), inset 0 1px 0 rgba(255, 255, 255, .06); animation: cepIn .18s ease both; }
 .cep.is-real { border-color: rgba(245, 196, 81, .45); }
 .cep-head { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; padding: 14px 16px; border-bottom: 1px solid rgba(255, 255, 255, .07); }
-.cep-title { display: grid; flex: 1 1 260px; min-width: 0; } .cep-title b { font: 400 18px var(--fz-font, "JetBrains Mono"), monospace; letter-spacing: .08em; color: #45e486; text-shadow: 0 0 14px rgba(21, 209, 106, .45); }
+.cep-title { display: grid; flex: 1 1 260px; min-width: 0; } .cep-title b { font: 800 18px var(--fz-font, "JetBrains Mono"), monospace; letter-spacing: .08em; color: #45e486; text-shadow: 0 0 14px rgba(21, 209, 106, .45); }
 .cep-title small { font: 11px "JetBrains Mono", monospace; color: var(--m-dim, #8fb3a0); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .cep-x { width: 32px; height: 32px; border-radius: 9px; border: 1px solid rgba(255, 255, 255, .14); background: rgba(255, 255, 255, .04); color: #cfe3d8; font-size: 18px; cursor: pointer; transition: border-color .15s ease, transform .15s ease; }
 .cep-x:hover, .cep-x:focus-visible { border-color: #45e486; color: #fff; outline: none; } .cep-x:active { transform: translateY(1px); }

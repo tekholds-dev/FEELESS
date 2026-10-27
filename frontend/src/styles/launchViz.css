@@ -81,7 +81,7 @@
 .lv-coin-face { display: grid; place-items: center; width: 100%; height: 100%; border-radius: 50%; overflow: hidden; background: radial-gradient(circle at 35% 30%, #0f2a1b, #030503 70%); box-shadow: inset 0 0 0 2px rgba(0, 0, 0, .55), inset 0 4px 10px rgba(0, 0, 0, .6); }
 .lv-coin-face img { width: 100%; height: 100%; object-fit: cover; } .lv-coin-face b { font: 800 24px 'JetBrains Mono', monospace; color: #45e486; text-shadow: 0 0 12px rgba(21, 209, 106, .8); }
 .lv-coin-shine { position: absolute; inset: 0; border-radius: 50%; background: linear-gradient(115deg, transparent 35%, rgba(255, 255, 255, .45) 48%, transparent 60%); transform: translateX(-120%); animation: lvShine 4.5s ease-in-out infinite; }
-.lv-coin-id { display: grid; gap: 2px; min-width: 0; } .lv-coin-id b { font: 800 18px 'Cabinet Grotesk', 'Inter', sans-serif; color: #e9fff2; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.lv-coin-id { display: grid; gap: 2px; min-width: 0; } .lv-coin-id b { font: 800 18px 'Cabinet Grotesk', 'Sora', sans-serif; color: #e9fff2; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .lv-coin-id em { font: 800 13px 'JetBrains Mono', monospace; font-style: normal; color: #45e486; letter-spacing: .1em; } .lv-coin-id small { font: 600 10px 'JetBrains Mono', monospace; color: #9a9a9a; }
 
 /* 🟢 no dead forms: every launch box is lit glass — a neon edge on focus, a lit left edge once it holds a value, sections with an inner highlight */

@@ -89,10 +89,10 @@ body.theme-day .llb-plink:hover, body.theme-day .llb-exd em { color: #0d7a41; }
 .lrb-top { display: flex; justify-content: space-between; gap: 8px; align-items: center; } .lrb-top b { font: 800 13px 'JetBrains Mono', monospace; color: #f2fff7; }
 .lrb-top i { font: 800 8.5px 'JetBrains Mono', monospace; font-style: normal; letter-spacing: .12em; padding: 2px 8px; border-radius: 999px; color: #04140b; background: #45e486; }
 .lrb-tile.is-need .lrb-top i { color: #ffd36b; background: transparent; border: 1px dashed rgba(255, 211, 107, .6); }
-.lrb-tile small { font: 500 11px Inter, system-ui, sans-serif; color: #9fb3a6; } .lrb-tile .m-btn { justify-self: start; min-height: 34px; }
+.lrb-tile small { font: 500 11px Sora, system-ui, sans-serif; color: #9fb3a6; } .lrb-tile .m-btn { justify-self: start; min-height: 34px; }
 .lrb-keys { display: grid; gap: 6px; padding: 10px 12px; border-radius: 12px; border: 1px dashed rgba(255, 211, 107, .4); background: rgba(255, 211, 107, .05); }
 .lrb-keys b { font: 800 10px 'JetBrains Mono', monospace; letter-spacing: .12em; color: #ffd36b; } .lrb-keys span { display: flex; flex-wrap: wrap; gap: 6px; }
-.lrb-keys i { font: 700 10.5px 'JetBrains Mono', monospace; font-style: normal; padding: 4px 9px; border-radius: 999px; color: #ffe9b0; border: 1px solid rgba(255, 211, 107, .35); } .lrb-keys small { font: 500 10px Inter, system-ui, sans-serif; color: #b6a77a; }
+.lrb-keys i { font: 700 10.5px 'JetBrains Mono', monospace; font-style: normal; padding: 4px 9px; border-radius: 999px; color: #ffe9b0; border: 1px solid rgba(255, 211, 107, .35); } .lrb-keys small { font: 500 10px Sora, system-ui, sans-serif; color: #b6a77a; }
 body.fx-lite .lrb-tile { animation: none; } @media (prefers-reduced-motion: reduce) { .lrb-tile { animation: none; } }
 body.theme-day .lrb-tile { background: #fff; } body.theme-day .lrb-top b { color: #10301f; }
 /* 🟢 live floor: KPIs, launches-per-minute bars, the tape of the newest coins (each slides in, its curve fill shows how close it is to graduating) */
@@ -105,7 +105,7 @@ body.theme-day .lrb-tile { background: #fff; } body.theme-day .lrb-top b { color
 .llp-tape { list-style: none; margin: 0; padding: 0; display: grid; gap: 5px; align-content: start; }
 .llp-tape li { display: grid; grid-template-columns: minmax(0, 1.2fr) 38px 64px 74px minmax(60px, 1fr); gap: 8px; align-items: center; padding: 7px 10px; border-radius: 10px; background: rgba(0, 0, 0, .5); border: 1px solid rgba(21, 209, 106, .14); animation: llpIn .35s ease-out both; animation-delay: calc(var(--i, 0) * 40ms); }
 .llp-tape li.is-hot { border-color: rgba(255, 159, 69, .45); } .llp-tape li.llp-wait { display: block; font: 700 11px 'JetBrains Mono', monospace; color: #7f9a88; text-align: center; animation: llpBeat 1.6s ease-in-out infinite; }
-.llp-sym { display: grid; min-width: 0; } .llp-sym b { font: 800 12px 'JetBrains Mono', monospace; color: #f2fff7; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; } .llp-sym small { font: 500 9.5px Inter, system-ui, sans-serif; color: #7f9a88; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.llp-sym { display: grid; min-width: 0; } .llp-sym b { font: 800 12px 'JetBrains Mono', monospace; color: #f2fff7; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; } .llp-sym small { font: 500 9.5px Sora, system-ui, sans-serif; color: #7f9a88; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .llp-age, .llp-mc, .llp-dev { font: 700 10.5px 'JetBrains Mono', monospace; color: #cfeedd; } .llp-mc { color: #45e486; } .llp-dev { color: #9fb3a6; }
 .llp-curve { display: block; height: 6px; border-radius: 6px; background: rgba(255, 255, 255, .08); overflow: hidden; } .llp-curve s { display: block; height: 100%; background: linear-gradient(90deg, #0d6b38, #45e486, #ffd36b); transform-origin: left; transition: transform .6s ease-out; }
 @keyframes llpIn { from { opacity: 0; transform: translateX(10px); } to { opacity: 1; transform: none; } }

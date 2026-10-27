@@ -36,7 +36,7 @@
 .tw-vit em { font: 800 8px 'JetBrains Mono', monospace; font-style: normal; letter-spacing: .1em; color: #6f7a74; } .tw-vit b { font: 800 11px 'JetBrains Mono', monospace; color: #dfe9e3; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .tw-vit b.is-dn { color: #ff8fa3; } .tw-vit u { display: block; height: 3px; border-radius: 3px; background: rgba(255, 107, 139, .35); overflow: hidden; }
 .tw-vit s { display: block; height: 100%; background: #45e486; transform-origin: left; transition: transform .5s ease-out; }
-.tw-read { margin: 0; font: 500 10.5px Inter, system-ui, sans-serif; color: #9fb3a6; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.tw-read { margin: 0; font: 500 10.5px Sora, system-ui, sans-serif; color: #9fb3a6; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 .tw-go { width: 100%; min-height: 36px; } .tw-go:focus-visible { outline: 2px solid var(--tc); outline-offset: 2px; }
 @keyframes twIn { from { opacity: 0; transform: translateY(8px) scale(.98); } to { opacity: 1; transform: none; } }
 @keyframes twSweep { to { transform: translateX(260%); } }
