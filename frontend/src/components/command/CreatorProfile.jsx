@@ -45,7 +45,7 @@ export function AddressPill({ address }) {
 }
 
 export function FollowButton({ chain, address }) {
-  const { wallet, connect, signMessage } = useWallet();
+  const { wallet, connect, signMessage } = useWallet() || {};
   const [following, setFollowing] = useState(null); // null = unknown yet
   const [busy, setBusy] = useState(false);
 
@@ -211,7 +211,7 @@ function WatchedCreatorRow({ watch, ownerWallet, onChanged }) {
 const FEED_ICON = { new_token: Rocket, flagged: ShieldAlert };
 
 export function WatchlistDashboard() {
-  const { wallet, connect } = useWallet();
+  const { wallet, connect } = useWallet() || {};
   const [rows, setRows] = useState([]);
   const [feed, setFeed] = useState([]);
   const [loading, setLoading] = useState(false);

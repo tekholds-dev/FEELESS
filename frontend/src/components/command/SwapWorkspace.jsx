@@ -71,7 +71,7 @@ export function units(value, decimals) {
 }
 
 export const SwapWorkspace = ({ pair, feeAsset, feeAssets = [], feeCat, onWallet, fontScale = 'normal' }) => {
-  const { wallet, provider } = useWallet();
+  const { wallet, provider } = useWallet() || {};
   const reviewScale = ['large', 'xlarge'].includes(fontScale) ? fontScale : 'normal';
   useEffect(() => {
     const scale = reviewScale === 'large' ? '1.12' : reviewScale === 'xlarge' ? '1.24' : '1';

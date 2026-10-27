@@ -80,7 +80,7 @@ function SiteLook() {
 }
 
 export const TerminalConfiguration = ({ settings, setSettings, onWallet }) => {
-  const { ecosystem, setEcosystem } = useWorkspace(); const { wallet } = useWallet();
+  const { ecosystem, setEcosystem } = useWorkspace(); const { wallet } = useWallet() || {};
   const { data } = useMarket('/api/trading/status', 0);
   const update = (key, value) => setSettings({ ...settings, [key]: value });
   const compact = normalizeCompact(settings.compact);

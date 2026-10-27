@@ -27,7 +27,7 @@ const ITEMS = [
 
 export const TerminalHeader = ({ onWallet, onProfile, onMenu, query = '' }) => {
   const { ecosystem } = useWorkspace();
-  const { wallet } = useWallet();
+  const { wallet } = useWallet() || {};
   usePresenceBeat(wallet?.address);   // 🟢 your online status heartbeat (memory only on the server; Invisible reads offline)
   const [dayMode, setDayMode] = useState(() => {
     try { return localStorage.getItem('feeless-theme') === 'day'; } catch { return false; }

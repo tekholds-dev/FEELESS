@@ -394,7 +394,7 @@ function LaunchPreviewCard({ form }) {
 }
 
 export default function MetaLaunchSetup({ initialValues, bare = false }) {   // bare: embedded under the live launch floor — no page intro, no explainer
-  const { wallet, provider, connect, signMessage } = useWallet();
+  const { wallet, provider, connect, signMessage } = useWallet() || {};
   const [rail, setRail] = useState(null);
   const solPx = useSolPrice();
   useEffect(() => { fetchLaunchRail().then(setRail).catch(() => setRail({ ready: false })); }, []);

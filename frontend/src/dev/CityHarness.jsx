@@ -1,5 +1,7 @@
 import { FamilyHQ } from '../components/FamilyHQ';
 import React from 'react';
+import { BrowserRouter } from 'react-router-dom';
+import { WalletProvider } from '../hooks/useWallet';
 import { FamilyWorld, FundMeter } from '../components/FamilyWorld';
 import { FamiliaTradeDock } from '../components/FamiliaTrade';
 import '../styles/familyWorld.css';
@@ -66,13 +68,13 @@ const NV = { kamino: true, at: now, rows: [
       loops: [{ id: 'n1', sym: 'JUPSOL', proto: 'Jupiter', lstApy: 7.42, borrow: 5.3, maxLtv: 0.65, app: 'https://app.kamino.finance/multiply', plays: [{ x: 1.5, apy: 8.48, ltv: 0.333, cushion: 0.487 }, { x: 2, apy: 9.54, ltv: 0.5, cushion: 0.231 }] }] }] };
 window.fetch = (u, o) => (String(u).includes('/familia-pools/sleep') ? json(NV) : String(u).includes('/familia-world') ? json(V) : String(u).includes('/familia/street/') ? json(STREET) : String(u).includes('/admin/familia/overwatch') ? json(OW) : real(u, o));
 
-export default function CityHarness() {
-  return <div style={{ height: '100vh', overflowY: 'auto', boxSizing: 'border-box', padding: 12, background: '#070504', color: '#e9d3a0' }}>
+export default function CityHarness() {   // wrapped like the real app (router + wallet) so every room renders as it does in /familia
+  return <BrowserRouter><WalletProvider><div style={{ height: '100vh', overflowY: 'auto', boxSizing: 'border-box', padding: 12, background: '#070504', color: '#e9d3a0' }}>
     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, maxWidth: 640, marginBottom: 12 }} data-testid="fund-preview">
       <aside className="fwd-side m-card t-mine"><b>[FRT] fee-4 · turf</b><FundMeter x={blocks.find(b => b.id === 'fee-4')} me={V.me} act={() => {}} busy={false} upkeep={10} /></aside>
       <aside className="fwd-side m-card t-mine"><b>[FRT] fee-7 · turf</b><FundMeter x={blocks.find(b => b.id === 'fee-7')} me={V.me} act={() => {}} busy={false} upkeep={10} /></aside></div>
     <FamilyWorld addr="dev" sess="dev" onEnter={() => {}} onJoin={() => {}} rooms={{ family: ({ v }) => <FamilyHQ world={v} act={() => {}} busy={false} tools={k => <p className="m-dim">({k} — live on your real family)</p>}
       mine={{ name: 'Sicario Family', tag: 'FRT', seats: 15, members: [1, 2, 3], bountiesOpen: 0, vitals: { usd: 0, respect: 28, wonPct: 0, heat: 0, active: 0, members: 3, trades: 0 }, war: { wins: 0, losses: 0, chest: 500 } }} /> }} />
     <FamiliaTradeDock />
-  </div>;
+  </div></WalletProvider></BrowserRouter>;
 }

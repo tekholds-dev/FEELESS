@@ -39,7 +39,7 @@ export function MemeTerms() {
 
 // Where the signed-in wallet stands in every category FEELESS scores — each with its evidence.
 function MyStanding() {
-  const { wallet, connect } = useWallet();
+  const { wallet, connect } = useWallet() || {};
   const [d, setD] = useState(null);
   const address = wallet?.address;
   useEffect(() => {

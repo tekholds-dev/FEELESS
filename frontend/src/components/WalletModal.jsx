@@ -101,7 +101,7 @@ function useAvailableWallets(active) {
 }
 
 export default function WalletModal({ open, onClose }) {
-  const { wallet, connect, disconnect, switchTo, linkCandidate, linkAccounts } = useWallet();
+  const { wallet, connect, disconnect, switchTo, linkCandidate, linkAccounts } = useWallet() || {};
   const [switching, setSwitching] = useState('');
   const [linked, setLinked] = useState(false);
   const hop = async chain => { setSwitching(chain); setError(''); try { await switchTo(chain); } catch (e) { setError(e.code === 4001 ? 'Switch declined in your wallet.' : e.message || 'Could not switch.'); } finally { setSwitching(''); } };

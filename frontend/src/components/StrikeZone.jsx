@@ -28,10 +28,13 @@ function GunArt({ lo }) {   // the drawn gun — every part you pick changes the
 export function StrikeZone({ addr = '', sess = '', family = null, onDone }) {
   const [d, setD] = useState(null); const [lo, setLo] = useState(null); const [mode, setMode] = useState('bots'); const [diff, setDiff] = useState('normal');
   const [room, setRoom] = useState('fee-city'); const [playing, setPlaying] = useState(false); const [msg, setMsg] = useState(''); const [last, setLast] = useState(null);
-  const tg = tgInitData(); const who = useMemo(() => (addr && sess ? { address: addr, session: sess } : tg ? { tg } : {}), [addr, sess, tg]);
-  const load = useCallback(() => { const q = addr && sess ? `?address=${addr}&session=${encodeURIComponent(sess)}` : tg ? `?tg=${encodeURIComponent(tg)}` : '';
-    return fetch(apiUrl(`/api/reputation/arena${q}`)).then(r => (r.ok ? r.json() : null)).then(x => { if (x) { setD(x); setLo(l => l || x.me.loadout); } }).catch(() => {}); }, [addr, sess, tg]);
+  const tg = tgInitData(); const who0 = useMemo(() => (addr && sess ? { address: addr, session: sess } : tg ? { tg } : {}), [addr, sess, tg]);
+  const [stale, setStale] = useState(false);   // an expired sign-in still plays — as a guest, told to sign in again
+  const load = useCallback(() => { const q = !stale && addr && sess ? `?address=${addr}&session=${encodeURIComponent(sess)}` : !stale && tg ? `?tg=${encodeURIComponent(tg)}` : '';
+    return fetch(apiUrl(`/api/reputation/arena${q}`)).then(r => { if (r.status === 401 && q) { setStale(true); return null; } return r.ok ? r.json() : null; })
+      .then(x => { if (x) { setD(x); setLo(l => l || x.me.loadout); } }).catch(() => {}); }, [addr, sess, tg, stale]);
   useEffect(() => { load(); }, [load]);
+  const who = stale ? {} : who0;
   if (!d || !lo) return <div className="sz sz-wait" data-testid="strike-zone">Loading the Strike Zone…</div>;
   const me = d.me; const un = me.unlocked || { guns: ['rifle'], parts: {} }; const g = gunStats(d, lo); const guest = !!me.guest;
   const pick = (slot, id) => { const next = { ...lo, [slot]: id }; setLo(next); if (guest) return;
@@ -40,7 +43,7 @@ export function StrikeZone({ addr = '', sess = '', family = null, onDone }) {
   return <section className="sz" data-testid="strike-zone">
     <header className="sz-top">
       <span className="sz-lvl" style={{ '--p': xpBar(me) }} data-tip={`${me.into} / ${me.need} XP to level ${me.level + 1}`}><i aria-hidden="true" /><b className="m-num">{me.level}</b><em>LEVEL</em></span>
-      <span className="sz-title"><em>FEE CITY · THIRD-PERSON</em><b>STRIKE ZONE</b><small>{guest ? 'playing as a guest — sign in (wallet or Telegram) to keep XP + your guns' : `${me.xp.toLocaleString('en-US')} XP · ${me.kills} kills · ${me.wins} wins${family ? ' · your kills feed the family bank' : ''}`}</small>
+      <span className="sz-title"><em>FEE CITY · THIRD-PERSON</em><b>STRIKE ZONE</b><small>{guest ? (stale ? 'your sign-in expired — playing as a guest; sign in again (wallet or Telegram) to keep XP + your guns' : 'playing as a guest — sign in (wallet or Telegram) to keep XP + your guns') : `${me.xp.toLocaleString('en-US')} XP · ${me.kills} kills · ${me.wins} wins${family ? ' · your kills feed the family bank' : ''}`}</small>
         <u aria-hidden="true"><s style={{ transform: `scaleX(${xpBar(me)})` }} /></u></span>
       <span className="m-seg sz-mode" role="radiogroup" aria-label="Mode">{[['bots', '🤖 VS BOTS'], ['online', '🌐 ONLINE']].map(([k, l]) => <button key={k} type="button" role="radio" aria-checked={mode === k} className={mode === k ? 'active' : ''} onClick={() => setMode(k)} data-testid={`sz-mode-${k}`}>{l}</button>)}</span>
     </header>

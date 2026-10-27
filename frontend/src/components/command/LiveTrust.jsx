@@ -109,7 +109,7 @@ const VOTE_ITEMS = [
 ];
 
 export function RoadmapVoting() {
-  const { wallet, connect, signMessage } = useWallet();
+  const { wallet, connect, signMessage } = useWallet() || {};
   const [state, setState] = useState({ counts: {}, mine: [] });
   const [busy, setBusy] = useState('');
   const load = useCallback(() => getJson(`/api/reputation/roadmap/votes${wallet?.address ? `?wallet=${encodeURIComponent(wallet.address)}` : ''}`).then(setState).catch(() => {}), [wallet?.address]);

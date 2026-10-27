@@ -166,3 +166,7 @@ body.theme-day :where(select) option { background: #fff; color: #10301f; }
 
 /* 🔠 Settings › text size = the whole terminal's scale (text + spacing), Small · Medium · Large */
 .terminal-app.text-scale-small { zoom: .9; } .terminal-app.text-scale-large { zoom: 1.1; }
+
+/* no page ever scrolls sideways: decorative layers that bleed past the main column (the Familia backdrop's −24px inset) are clipped here.
+   `clip` (not `hidden`) — it is not a scroll container, so sticky panels keep working. */
+.terminal-main { overflow-x: clip; }
