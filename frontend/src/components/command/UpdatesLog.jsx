@@ -11,8 +11,8 @@ const LENSES = [['all', 'ALL'], ['site', 'SITE'], ['backend', 'BACKEND'], ['mobi
 export const DUO_SCREENS = [
   ['closed-port', 'CLOSED · PORTRAIT', 'a phone held upright', ['The coin\'s chart sits right under its name (stats + passport swipe below it)', 'Chart buttons = ONE swipe row of real tap targets', 'Inputs never zoom the page (16 px)', 'Perps provider rail swipes sideways']],
   ['closed-land', 'CLOSED · LANDSCAPE', 'a phone turned sideways', ['The coin\'s chart comes first, full height, beside the ticket / chat', 'The header shrinks to one thin bar', 'Perps vitals strip folds away · ⇄ swaps the sides']],
-  ['open-port', 'OPEN · PORTRAIT', 'unfolded / two-screen, upright', ['Perps: chart on one side, the trade station on the other (⇄ swaps them)', 'Trenches: chart | CHAT or chart | CALLS — you pick the second screen in the Duo bar', 'Familia: a building opens on one screen while the city keeps moving on the other']],
-  ['open-land', 'OPEN · LANDSCAPE', 'unfolded / two-screen, sideways', ['Each column snaps to its own screen segment (the hinge sits between)', 'The Duo bar: ⇄ swap screens · pick CHAT or CALLS beside the chart', 'Familia rooms snap to one segment, the city to the other']],
+  ['open-port', 'OPEN · PORTRAIT', 'unfolded / two-screen, upright', ['Perps: chart on one side, the trade station on the other (⇄ swaps them)', 'Trenches: the chart on one screen, Quick trade + Dip / Rip + the rug shield on the other (or CHAT / CALLS — the Duo bar)', 'Familia: a building opens on one screen while the city keeps moving on the other']],
+  ['open-land', 'OPEN · LANDSCAPE', 'unfolded / two-screen, sideways', ['Each column snaps to its own screen segment (the hinge sits between)', 'The Duo bar: ⇄ swap screens · TRADE, CHAT or CALLS beside the chart', 'Familia rooms snap to one segment, the city to the other']],
 ];
 // pure: which Duo screen this device is now
 export function screenNow(w = typeof window !== 'undefined' ? window : null) {

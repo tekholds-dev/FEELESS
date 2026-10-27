@@ -42,7 +42,8 @@ body.is-phone-land .pd-mkt { min-height: 40px; padding: 4px 8px; } body.is-phone
   .token-focus > .token-metrics :is(strong, b, .mono) { white-space: nowrap; overflow: visible; text-overflow: clip; font-size: 16px; }
   .token-focus > .coin-passport { order: 4; display: flex; flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; white-space: nowrap; }
   .token-focus > .coin-passport > * { flex: none; }
-  .token-focus .chart-fullscreen-wrap { min-height: min(58dvh, 440px); }
+  .terminal-app .token-focus .candle-canvas { height: clamp(250px, 40dvh, 360px) !important; flex: none; }   /* chart + the Quick trade BUY / SELL on one phone screen */
+  .terminal-app .token-focus .chart-area { min-height: 0 !important; height: auto !important; } .terminal-app .token-focus .chart-fullscreen-wrap { flex-basis: auto; }
   .trenches-chart-panel > .section-title { display: none; }   /* "DEX chart · Jupiter OHLCV" cost ~100 px above the coin on a phone */
 }
 /* the same chart-first order on an unfolded Duo + a phone turned sideways (the chart is the first thing under the coin's name) */
@@ -52,7 +53,7 @@ body.is-phone-land .pd-mkt { min-height: 40px; padding: 4px 8px; } body.is-phone
 :is(body.is-duo, body.is-phone-land) .token-focus .trench-chart > :last-child { order: 5; }
 :is(body.is-duo, body.is-phone-land) .token-focus > .token-metrics { order: 3; } :is(body.is-duo, body.is-phone-land) .token-focus > .coin-passport { order: 4; }
 :is(body.is-duo, body.is-phone-land) .trench-chart .chart-toolbar { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; }
-body.is-phone-land .token-focus .chart-fullscreen-wrap { min-height: calc(100dvh - 120px); }
+body.is-phone-land .terminal-app .token-focus .candle-canvas { height: calc(100dvh - 110px) !important; min-height: 220px; }
 body.is-phone-land .token-focus > .focus-header .token-sub { display: none; }
 /* 📱📱 the user's Duo picks (DuoBar): ⇄ swap the screens · the Trenches' second screen = CHAT or CALLS */
 body.is-duo.duo-swap .trenches-grid { grid-template-columns: minmax(280px, 1fr) minmax(0, 1.3fr) !important; grid-template-areas: "chat chart" "tools tools" !important; }
@@ -74,3 +75,12 @@ body.is-duo.duo-2-calls .trenches-grid > .trenches-chat-section { position: stat
 body.is-duo .terminal-sidebar:not(.sidebar-open) { width: 68px !important; padding-left: 10px; padding-right: 10px; }
 body.is-duo .terminal-sidebar:not(.sidebar-open) :is(.sidebar-section-label, .sidebar-link > span, .sidebar-link small, .nav-hot, .sidebar-feecat-subnav, [class*=sidebar-cta], [class*=sidebar-bottom]) { display: none !important; }
 body.is-duo:not(.duo-swap) .trenches-grid, body.is-duo.duo-swap .trenches-grid { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) !important; }
+/* 📱📱 the Duo's VITAL default (owner 2026-10-27: "trench trade must show the chart AND Quick trade — real Duo features"): second screen = TRADE —
+   the coin's name + stats across the top, the chart on one screen, Quick trade · Dip / Rip · the rug shield pinned on the other (⇄ swaps them);
+   the chat + calls move under it. With a hinge the two halves meet at the fold. */
+body.is-duo.duo-2-trade .trenches-grid, body.is-duo-split.duo-2-trade .trenches-grid { grid-template-columns: minmax(0, 1fr) !important; grid-template-areas: "chart" "chat" "tools" !important; }
+body.is-duo.duo-2-trade .trenches-grid > .trenches-chat-section { position: static; height: min(70dvh, 560px); }
+body.is-duo.duo-2-trade .token-focus .chart-with-trade { display: grid !important; grid-template-columns: minmax(0, 1fr) minmax(300px, 1fr); gap: 12px; align-items: start; }
+body.is-duo.duo-2-trade .terminal-app .token-focus .candle-canvas { height: clamp(360px, 64dvh, 640px) !important; flex: none; } body.is-duo.duo-2-trade .terminal-app .token-focus .chart-area { min-height: 0 !important; height: auto !important; }
+body.is-duo.duo-2-trade .token-focus .chart-side-stack { position: sticky; top: 8px; max-height: calc(100dvh - 16px); overflow: auto; scrollbar-width: thin; }
+body.is-duo.duo-2-trade.duo-swap .token-focus .chart-with-trade > .chart-fullscreen-wrap { order: 2; }

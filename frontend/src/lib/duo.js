@@ -3,8 +3,8 @@
 //   is-duo        touch screen 600–1180px wide (or two segments)   → split chart | trade on Perps, chart | chat on the Trenches floor
 //   is-duo-split  the screen reports two horizontal viewport segments (a hinge) → the columns sit on each side of it
 //   is-phone-land a phone turned sideways                           → full-height chart beside the ticket, the header shrinks
-// The user's own Duo picks (DuoBar, stored per device `feeless.duo`): `duo-swap` = the two screens trade places, `duo-2-calls` = the Trenches'
-// second screen shows the live calls instead of the coin chat.
+// The user's own Duo picks (DuoBar, stored per device `feeless.duo`): `duo-swap` = the two screens trade places; the Trenches' second screen =
+// `duo-2-trade` (default: Quick trade + Dip/Rip + Shield beside the chart — owner 2026-10-27: "chart AND quick trade"), `duo-2-chat` or `duo-2-calls`.
 export function duoState(w = typeof window !== 'undefined' ? window : null) {
   if (!w) return { duo: false, split: false, land: false };
   const mm = q => { try { return !!w.matchMedia?.(q).matches; } catch { return false; } };
@@ -15,16 +15,16 @@ export function duoState(w = typeof window !== 'undefined' ? window : null) {
 }
 
 export const DUO_KEY = 'feeless.duo';
-export const DUO_SECOND = [['chat', 'CHAT', "The coin's chat on the second screen"], ['calls', 'CALLS', 'Hot + live calls and the caller board on the second screen']];
+export const DUO_SECOND = [['trade', 'TRADE', 'Quick trade, Dip / Rip and the rug shield on the second screen — buy and sell while the chart fills the first'], ['chat', 'CHAT', "The coin's chat on the second screen"], ['calls', 'CALLS', 'Hot + live calls and the caller board on the second screen']];
 // pure: whatever was stored → valid picks
 export function duoPrefs(raw) {
   let p = raw; if (typeof raw === 'string') { try { p = JSON.parse(raw); } catch { p = null; } }
-  return { swap: !!p?.swap, second: DUO_SECOND.some(([k]) => k === p?.second) ? p.second : 'chat' };
+  return { swap: !!p?.swap, second: DUO_SECOND.some(([k]) => k === p?.second) ? p.second : 'trade' };
 }
 export function readDuoPrefs() { try { return duoPrefs(localStorage.getItem(DUO_KEY)); } catch { return duoPrefs(null); } }
 export function applyDuoPrefs(p = readDuoPrefs()) {
   if (typeof document === 'undefined') return p;
-  const b = document.body.classList; b.toggle('duo-swap', !!p.swap); b.toggle('duo-2-calls', p.second === 'calls');
+  const b = document.body.classList; b.toggle('duo-swap', !!p.swap); DUO_SECOND.forEach(([k]) => b.toggle(`duo-2-${k}`, p.second === k));
   return p;
 }
 export function saveDuoPrefs(p) {
