@@ -14,8 +14,8 @@ Kraken Pro / Coinbase ↗" opens the venue with your setup in hand. LATER: a ven
 **Decided: option A — the user's own wallet signs every trade (non-custodial).** A real cat watches the board with its brain and limits and
 PROPOSES each buy / sell with its evidence; one tap opens the swap with the coins and amount set; the user presses Get quote and signs —
 the same engine, guards and receipts as every FEELESS swap. FEELESS never holds a cat's money or keys (option B = custody, rejected).
-Option C (an on-chain cat program trading inside the user's signed limits) is LATER — it needs the program, an audit and a devnet run.
-**Pricing:** no extra charge to run a cat — each trade it proposes pays the normal FEELESS swap fee when the user signs it (HQ › Core). AI
+Option C (an on-chain cat program trading inside the user's signed limits) is LATER — it needs the program, an audit and a devnet run. *owner- do this, put links in for me to signup and have wallets created per user payment- part of payment go to feeless and other goes into new agent wallet, agent teading or general selections must open different selections after for general than trading*
+**Pricing:** no extra charge to run a cat*onetime $2 comes out of minimal 10 per agent up to 4 cats per user* — each trade it proposes pays the normal FEELESS swap fee when the user signs it (HQ › Core). AI
 brains bill their model calls from the cat's credit as today. A per-decision markup can be switched on later in HQ.
 **Honesty rule:** every proposal shows the cat's own paper record (no cat has a proven edge on unseen coins yet — edge-audit).
 **Built (2026-10-23):** `backend/cat_real.py` + feecat_service (REAL / PAPER / proposal actions; real needs a wallet-signed session; only the
@@ -33,7 +33,7 @@ done with its signature) · each proposal also lands in the wallet's inbox (`/in
 
 ## 4 · Family wallets · top-pot Fuse ($1K+)
 **Decided: no pooled family wallet and no pooled pot held by FEELESS.** Every family member trades from their own wallet (the block reads
-each one's positions); a top-pot Fuse is each player funding their own card from their own wallet. LATER: an on-chain pot program, audited.
+each one's positions); a top-pot Fuse is each player funding their own card from their own wallet. LATER: an on-chain pot program, audited.*owner-if i have to create 2 more circle accounts for cats and families? must be a pot/pool creation wallet? that feeless only transfers money from on raids hits etc and payout engine cant be broken or exploitedd to hit one family no more than 3 times in 12hrs*
 
 ## 5 · Block readers (Meteora DLMM · marginfi · Save · PumpSwap LP)
 **Decided: a reader ships only after its account layout is checked against a real on-chain account** — a wrong "out of range" on real
@@ -54,6 +54,7 @@ transaction and `lend_borrow.verify` refuses it unless the user pays + signs alo
 Longs only (Jupiter has no stable-collateral vault to short with); shorts + 50× stay on the paper desk. Guards: SOL · BTC · JUP vs USDC only,
 $2,000 per open, Jupiter's own minimum loan, every transaction simulated before the wallet sees it. Counsel question: `COUNSEL_BRIEF.md` §6.
 Code: `backend/lend_borrow.py` · GET/POST `/api/reputation/familia/leverage` · `lib/leverage.js` · `components/RealLeverage.jsx` (Perps desk + MOON).
+*owner- im sure theres other ecosystems than jupiter that does what jup does thats legal in usa and less entry!!!*
 
 ## 8 · Real perps on Jupiter (owner, 2026-10-23: "do jupiter as a provider … we tryna long or short — that's what matters")
 **Decided by the owner: real perps through Jupiter Perps, for every user, the 🇺🇸 rule lifted for perps — the owner's call and the owner's legal
@@ -75,3 +76,5 @@ user's own account" item that `CLAUDE.md › LATER` had parked behind a lawyer �
 - US-legal by construction: the user trades their own regulated broker account (stocks, ETFs, crypto, options later) — no geo loophole.
 - Owner setup: a SnapTrade account (free Build tier = 5 connections with trading; Launch $100 / mo + $1–2 per connected user) →
   `SNAPTRADE_CLIENT_ID`, `SNAPTRADE_CONSUMER_KEY` and a long random `BROKER_SECRET_KEY` in `backend/.env`. Doc: `docs/BROKERS.md`.
+
+*brokers is cool for wwebull,snaptrade trype but im looking for better easier oath signup brokers or redirect idk but easy for user wallet to signup and go*

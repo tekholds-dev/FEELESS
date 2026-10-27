@@ -156,3 +156,6 @@ code {
 :where(select) option { background: #0d1410; color: #e4f3ea; }
 body.theme-day :where(select) { background-color: #fff; color: #10301f; border-color: #b9dcc8; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' fill='none' stroke='%2308764e' stroke-width='2' stroke-linecap='round'/%3E%3C/svg%3E"); }
 body.theme-day :where(select) option { background: #fff; color: #10301f; }
+
+/* 🔠 Settings › text size = the whole terminal's scale (text + spacing), Small · Medium · Large */
+.terminal-app.text-scale-small { zoom: .9; } .terminal-app.text-scale-large { zoom: 1.1; }

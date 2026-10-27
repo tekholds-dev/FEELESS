@@ -1,6 +1,5 @@
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { FeelessMark } from '../FeelessLogo';
 import '../../styles/feelessUniverse.css';
 
 // 🌌 THE FEELESS UNIVERSE (owner, 2026-10-20: "roadmap / whitepaper 80% 3D and live animation — how big and different FEELESS is, every feature,
@@ -23,10 +22,10 @@ export const FLAGSHIPS = [
   ['rFEE', 'rfee', 'The reserve token behind the Fee Reserve rooms and badges.'],
 ];
 
-function Planet({ p, i, n, on, onPick }) {
-  const [k, ic, name] = p;
-  return <button type="button" className={`fu-planet${on ? ' is-on' : ''}`} style={{ '--a': `${(360 / n) * i}deg`, '--i': i }} onClick={() => onPick(k)}
-    data-testid={`fu-planet-${k}`} aria-pressed={on}><span className="fu-body"><i>{ic}</i><b>{name}</b></span></button>;
+function Planet({ p, i, on, onPick }) {   // one system as a card: what it is, in one line, and a door to it
+  const [k, ic, name, path, line] = p;
+  return <button type="button" className={`fu-planet${on ? ' is-on' : ''}`} style={{ '--i': i }} onClick={() => onPick(k)} data-testid={`fu-planet-${k}`} aria-pressed={on}>
+    <i>{ic}</i><span><b>{name}</b><small>{line}</small></span><em>{on ? 'HOW IT WORKS ▸' : 'TAP FOR THE WALK-THROUGH'}</em></button>;
 }
 
 export function FeelessUniverse({ mode = 'road' }) {
@@ -35,21 +34,16 @@ export function FeelessUniverse({ mode = 'road' }) {
   useEffect(() => { setStep(0); }, [pick]);
   useEffect(() => { if (!p) return undefined; const t = setInterval(() => setStep(s => (s + 1) % p[5].length), 3200); return () => clearInterval(t); }, [p]);
   return <section className={`fu fu-${mode}`} data-testid="feeless-universe">
-    <div className="fu-stars" aria-hidden="true">{Array.from({ length: 18 }, (_, j) => <i key={j} style={{ '--j': j, '--x': `${(j * 5.7 + 2) % 100}%`, '--y': `${(j * 37) % 100}%` }} />)}</div>
     <header className="fu-head"><span className="eyebrow">{mode === 'paper' ? 'THE WHITEPAPER, LIVE' : 'THE MAP OF FEELESS'}</span>
-      <h2>One terminal. <em>Every edge in orbit.</em></h2>
-      <p>{PLANETS.length} systems run around one core — tap any planet for a walk-through.</p></header>
+      <h2>One terminal. <em>{PLANETS.length} systems.</em></h2>
+      <p>Tap any system for its walk-through — every one is live on the site today.</p></header>
     <div className="fu-stage">
-      <div className="fu-sky">
-        <div className="fu-ring r1" aria-hidden="true" /><div className="fu-ring r2" aria-hidden="true" />
-        <div className="fu-core"><FeelessMark size={56} /><small>FEELESS</small></div>
-        <div className="fu-orbit">{PLANETS.map((x, i) => <Planet key={x[0]} p={x} i={i} n={PLANETS.length} on={pick === x[0]} onPick={k => setPick(pick === k ? null : k)} />)}</div>
-      </div>
+      <div className="fu-grid">{PLANETS.map((x, i) => <Planet key={x[0]} p={x} i={i} on={pick === x[0]} onPick={k => setPick(pick === k ? null : k)} />)}</div>
       <aside className={`fu-guide${p ? ' is-open' : ''}`} data-testid="fu-guide">
         {p ? <><b className="fu-gt">{p[1]} {p[2]}</b><p className="fu-gs">{p[4]}</p>
           <ol>{p[5].map((t, j) => <li key={j} className={j === step ? 'is-now' : j < step ? 'is-done' : ''} onClick={() => setStep(j)}><i>{j + 1}</i><span>{t}</span></li>)}</ol>
           <Link className="m-btn m-go fu-go" to={p[3]}>See it live →</Link></>
-          : <p className="fu-hint">👆 Pick a planet. Each one is a live part of FEELESS with its own how-to.</p>}
+          : <p className="fu-hint">👈 Pick a system — its steps show here, with a door straight to it.</p>}
       </aside>
     </div>
     <div className="fu-flag" data-testid="fu-flagships">

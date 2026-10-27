@@ -20,3 +20,14 @@ body.is-duo .pd-mkt { grid-template-columns: 1fr; min-width: 0; } body.is-duo .p
 body.is-phone-land .pd-strip, body.is-phone-land .pd-brand small, body.is-phone-land .pd-pv small, body.is-phone-land .pd-pv > span { display: none; }
 body.is-phone-land .pd-prov { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 4px; } body.is-phone-land .pd-pv { min-height: 34px; padding: 4px 8px; }
 body.is-phone-land .pd-mkt { min-height: 40px; padding: 4px 8px; } body.is-phone-land .pd-pnl small { display: none; }
+/* 📱 PHONE FIXES (owner 2026-10-26: "trench trade chart not looking good, chart buttons not working / aligned"): grid children may shrink (the chart
+   panel rendered 518 px wide on a 390 px phone and cut its stats off); on phones the timeframes + chart buttons are ONE swipeable row of real tap targets. */
+.trenches-grid > *, .trenches-chart-panel, .token-focus { min-width: 0; max-width: 100%; }
+@media (max-width: 640px) {
+  .chart-toolbar { display: flex; flex-wrap: nowrap; align-items: center; gap: 6px; overflow-x: auto; overscroll-behavior-x: contain; scrollbar-width: none; padding-bottom: 2px; }
+  .chart-toolbar::-webkit-scrollbar, .chart-meta-buttons::-webkit-scrollbar { display: none; }
+  .chart-toolbar > *, .timeframes, .chart-meta-buttons > * { flex: none; }
+  .timeframes { display: flex; flex-wrap: nowrap; gap: 2px; }
+  .timeframes button, .chart-meta-buttons button, .chart-toolbar > button { min-height: 34px; min-width: 34px; touch-action: manipulation; }
+  .chart-meta-buttons { display: flex; flex-wrap: nowrap; gap: 6px; overflow-x: auto; scrollbar-width: none; }
+}

@@ -10334,7 +10334,8 @@ async def familia_intake():
                     'ch': n_.get('d5'), 'ageMin': round(_fuse._f(r_.get('ageH')) * 60) if r_.get('ageH') is not None else None,
                     'status': d_.get('status'), 'read': str(d_.get('why') or '')[:90],
                     'line': [p_['px'] for p_ in (ser_.get(r_['mint']) or [])[-15:] if _fuse._f(p_.get('px')) > 0], 'buy': n_.get('buy'), 'v5': n_.get('v5'), 'tx': n_.get('tx'),
-                    'liqD': n_.get('liqD'), 'rank': d_.get('rank')}
+                    'liqD': n_.get('liqD'), 'rank': d_.get('rank'),
+                    'germ': (lambda c_: c_.get('germDist') if c_.get('germDist') is not None else c_.get('germ5Dist'))(x_.get('chart') or {})}   # 🦠 % above its germ floor (the agents' chart read)
             row_['theory'] = __import__('trench_theory').verdict({'ageMin': row_['ageMin'], 'cap': row_['mc'], 'liq': row_['liq'], 'status': (x_.get('chart') or {}).get('stage') or v_.get('stage')})['line'][:200]
             rows_.append(row_)
         rows_ += _intake_pump(rows_, INTAKE_MAX - len(rows_))   # 🔥 owner, 2026-10-22: "more pump coins on intake"
@@ -12039,7 +12040,7 @@ async def _smart_track(now):
         due = list({b['m'] for b in st.get('buys') or [] if now - _fuse._f(b.get('at')) >= _dg.SETTLE_SEC})
         jp = await _jup_prices(due, judge=True) if due else {}
         st = _dg.settle(st, lambda m: (jp or {}).get(m), now)
-        _json_save(SMART_PATH, st)
+        await asyncio.to_thread(_json_save, SMART_PATH, st)   # ⚙ a big file: write it off the loop (Lag catcher: 1.9s stalls)
         _smart.update(set=_dg.smart_set(st), at=now)
         for p_, m_ in pm.items():
             at_, tr_ = _flow_trades.get(p_, (0, []))
@@ -23706,7 +23707,7 @@ async def _scenario_stage(rd, now):
     picks = sorted(rd.get('creatorPicks') or [])
     if not rnd or not rnd.get('picks') or (rd.get('scenarioStageRound') == rnd.get('id') and rd.get('scenarioStagePicks') == picks):
         return None
-    scen = [x for x in _rn.scenarios(rd.get('rounds') or [], rd.get('paths') or {}, now, _hq.RISK_DIALS) if x['id'] in set(picks)]
+    scen = [x for x in await asyncio.to_thread(_rn.scenarios, rd.get('rounds') or [], rd.get('paths') or {}, now, _hq.RISK_DIALS) if x['id'] in set(picks)]   # ⚙ CPU off the loop (Lag catcher 2026-10-26: 2.8s stalls)
     anchor = await _top_anchor()
     cards = _rn.scenario_cards(scen, rnd['picks'], anchor, top=8, losers_ok=True)
     pgb_ = rd.get('pgBattle') or {}
@@ -24260,8 +24261,8 @@ async def _verdict_build(real=True):
         rows = [r for r in lg.rows(limit=500, card=tpl) if not r.get('real')]
         tiers[tpl] = {'label': t.get('label') or tpl, 'pcts': [_fuse._f(r.get('pct')) for r in rows]}
     board = _hq.arena_board([_hq.arena_value(e, {}, now) for e in d.get('arena') or []])
-    lanes = _rn.lane_proofs(rd.get('rounds') or [], rd.get('paths') or {}, now, _runner_cfg())
-    dials = {w: _rn.dial_proof(rd.get('rounds') or [], rd.get('paths') or {}, now, _hq.RISK_DIALS, window=sec) for w, sec in _rn.PROOF_WINDOWS.items()}
+    cfg_ = _runner_cfg()
+    lanes, dials = await asyncio.to_thread(lambda: (_rn.lane_proofs(rd.get('rounds') or [], rd.get('paths') or {}, now, cfg_), {w: _rn.dial_proof(rd.get('rounds') or [], rd.get('paths') or {}, now, _hq.RISK_DIALS, window=sec) for w, sec in _rn.PROOF_WINDOWS.items()}))   # ⚙ off the loop
     try:
         reals = await _fw_reports('') if real else []
     except Exception:

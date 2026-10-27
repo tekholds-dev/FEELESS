@@ -15,22 +15,27 @@ Read this (2 min) → `CLAUDE.md` (lean rules + 🎨 MANDATORY STYLING + 📋 CU
 >    LIVE visual (meters, bars, animation on real numbers), never bare text. `styles/cssCoverage.test.js` fails on an unstyled class.
 
 ## 🔁 NOW (rewrite this section in place every session)
-**Updated 2026-10-26 (night) · Opus 5.5.** OPEN NEXT: 2 charts in HQ + Fuse dash (CLAUDE.md P0 last asks ①) · Circle accounts (②, owner onboarding first) · Duo per-tab (③). AutoRange is REAL now (open / close / re-center, simulated clean on mainnet) — the owner's first real band is the next step. RPC: most keys 429 tonight; `SOLANA_RPC_URL` + `_3` answered. Open list = `CLAUDE.md › 📋 CURRENT TASKS` (the new "P0 — OWNER 2026-10-26" block leads). Shipped today → history "2026-10-26".
+**Updated 2026-10-26 (final) · Opus 5.5.** The owner's build list is shipped; what is left needs a HUMAN (a key, a sign-up, a signature) — table 2.
 
-| Area | State | Where |
-| --- | --- | --- |
-| 📋 iPhone Safari copy / paste / zoom | FIXED sitewide (polyfill at boot; every `navigator.clipboard.writeText` works over LAN http) | `lib/clipboard.js` |
-| 👛 mobile sign-in every refresh | FIXED (WalletConnect hint no longer wiped on boot; in-app wallets retried) — verify on the owner's phone | `hooks/useWallet.jsx` |
-| 📉 Perps desk | 250× · PAY WITH USDC/SOL · LANDED card · provider rail recolors + swaps the trade station (Jupiter · Crypto.com · Kalshi · broker) | `docs/PERPS.md`, `PerpsDash.jsx` |
-| 🔑 Crypto.com keys | BUILT + unit-tested: spot + PERPS (403 listed) + a what-your-key-does panel; NOT tried against a real key yet | `brokers.cdc_*` |
-| 🤖 AutoRange engine + desk | LIVE on real candles in Pool Hall · money desk · Night Vault · Launch › POOLS; plans + watches (ARM = per browser). NEXT: Raydium CLMM / Meteora DLMM SDK so OPEN / RECENTER build a real tx the wallet signs; server-side watcher + push when a move is due | `lib/autoRange.js`, `AutoRangeDesk.jsx` |
-| 🗼 Trench Towers / 🧬 Fuse glass | live cards with the kernel's price tape · Fuse wallet P&L glass in the family block | `TrenchTowers.jsx`, `FuseWalletGlass.jsx` |
-| 🎨 Settings | Day/Night · chart theme (5) · Lite | `CommandDocuments.SiteLook`, `lib/chartTheme.js` |
-| 📱📱 Duo / foldable / sideways | split layouts on Perps + Trenches floor + discovery | `lib/duo.js`, `styles/duo.css` |
-| 🏟 Arena paper | one-time reset to $100 (PRIME_RESET `paper100a`, LEAGUE_RESET `restart3-100`) — runs on the next tick after a backend restart | `reputation_service.py` |
+| Live | Where |
+| --- | --- |
+| 🚀 Launch: where-it-launches first (pump.fun = 2 steps, its own terms · FEELESS rail = SOL/$FEE pair · LaunchLab faint until its key), live pump.fun launch floor, form on the page, no review button | `MetaLaunchSetup`, `LaunchLab.LaunchFloor`, `LaunchModes` |
+| ✅ HQ › Launch › Ready board (every way to launch: READY / exactly what's missing / one button) | `LaunchRailAdmin.ReadyBoard` |
+| 🤖 AutoRange REAL (Meteora DLMM + Raydium CLMM open · close · re-center, simulated on mainnet, wallet signs) + phone ping when a move is due | `lib/rangeExec.js`, `AutoRangeDesk`, `/familia-pools/autorange/arm` |
+| 🫧 Live intake tank, 5 levels (NEW · GERM · DESK · TRENDING · TOP NEW) on Trenches + Pump Radar · 🗼 Trench Towers live cards · 🧬 Fuse wallet glass | `LiveTank`, `TrenchTowers`, `FuseWalletGlass` |
+| 📉 Perps: 250×, pay with USDC/SOL, landing card, provider-themed station, Crypto.com spot + perps keys | `docs/PERPS.md`, `brokers.cdc_*` |
+| 🛟 Support: Ideas + 👍/👎/💬 · FEEd: X-style rows, ops pings out of the feed, Sign in with X · whitepaper = system cards · Settings: Small/Medium/Large, chart themes, Day/Night, Lite | `SupportHub`, `FeedX`, `FeelessUniverse`, `CommandDocuments` |
+| 📱 Phones: clipboard on iPhone, wallet stays connected, no focus-zoom, Duo/foldable splits, trench chart fits + one swipe row of chart buttons | `lib/clipboard.js`, `lib/duo.js`, `styles/duo.css` |
 
-🔑 Owner keys still gating features: DFlow (Kalshi) · SnapTrade (any broker) · Jupiter key 4 · Helius/Alchemy quota. Replit's "preview branch" is not
-on GitHub — if it lives only on Replit, push it to a branch and a Claude can cherry-pick fixes from it.
+| 🔑 ONLY THE OWNER CAN DO THESE (everything else is built) | |
+| --- | --- |
+| `X_CLIENT_ID` (+ `X_CLIENT_SECRET`) from an X developer app; callback `PUBLIC_SITE_URL/api/reputation/x/oauth/callback` | Sign in with X |
+| `PUBLIC_SITE_URL` (a public https domain) | FEELESS-rail + House launches, X sign-in |
+| Sign the one-time FEELESS launch rules (HQ › Launch › Ready board) | FEELESS-rail coins |
+| `DFLOW_API_KEY` · `SNAPTRADE_*` · a Raydium LaunchLab provider key | Kalshi · any broker · LaunchLab |
+| RPC quota (Helius / Alchemy were 429 — `SOLANA_RPC_URL` + `_3` answered) · a 4th `JUPITER_READ_KEY` | every wallet-signed action, prices |
+| Circle account per user · "sign once, AIs trade" | needs counsel (custody, DECISIONS #2) — not built on purpose |
+| First real money checks: a $25 AutoRange band, a Jupiter perps open, a Crypto.com key | proof on mainnet |
 
 ### Where today's work lives (frontend only; grep the history for "2026-10-23 evening")
 - 🌆 Fee City METRO: `lib/cityPlan.js` (`METRO`, `KEYS`, `feePlan(v, mk, pools)`, `moneyShare` = 81 %) · `lib/cityEngine.js` (merged neon trims,

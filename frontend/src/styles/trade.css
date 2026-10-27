@@ -194,17 +194,17 @@
   --swap-readable-scale: 1.12;
 }
 
-.text-scale-xlarge .swap-desk {
+.text-scale-large .swap-desk {
   --swap-readable-scale: 1.24;
 }
 
 .text-scale-large .swap-desk .command-section-title > span:first-child,
-.text-scale-xlarge .swap-desk .command-section-title > span:first-child {
+.text-scale-large .swap-desk .command-section-title > span:first-child {
   font-size: calc(12px * var(--swap-readable-scale));
 }
 
 .text-scale-large .swap-desk .route-metrics b,
-.text-scale-xlarge .swap-desk .route-metrics b {
+.text-scale-large .swap-desk .route-metrics b {
   font-size: calc(12px * var(--swap-readable-scale));
 }
 
@@ -300,11 +300,11 @@
 }
 
 .text-scale-large .swap-desk .jup-amount,
-.text-scale-xlarge .swap-desk .jup-amount {
+.text-scale-large .swap-desk .jup-amount {
   font-size: calc(30px * var(--swap-readable-scale));
 }
 
 .text-scale-large .swap-desk .jup-out,
-.text-scale-xlarge .swap-desk .jup-out {
+.text-scale-large .swap-desk .jup-out {
   font-size: calc(24px * var(--swap-readable-scale));
 }

@@ -386,9 +386,9 @@ test('updates the trade readout for every text size and restores the choice afte
   const amount = () => container.querySelector('[data-testid="swap-amount"]');
 
   [
+    ['small', 'text-scale-small', null],
     ['normal', 'text-scale-normal', null],
     ['large', 'text-scale-large', '1.12'],
-    ['xlarge', 'text-scale-xlarge', '1.24'],
   ].forEach(([value, terminalClass, expectedScale]) => {
     const select = selectTextSize(container, value);
     expect(select.value).toBe(value);
@@ -414,14 +414,14 @@ test('updates the trade readout for every text size and restores the choice afte
     renderCurrentPage(root);
   });
 
-  selectTextSize(container, 'xlarge');
+  selectTextSize(container, 'large');
   mockPage = 'trade';
   renderCurrentPage(root);
   act(() => root.unmount());
 
   const reloaded = mount();
-  expect(reloaded.container.querySelector('.terminal-app').classList.contains('text-scale-xlarge')).toBe(true);
-  expect(reloaded.container.querySelector('[data-testid="swap-amount"]').closest('.text-scale-xlarge')).not.toBeNull();
+  expect(reloaded.container.querySelector('.terminal-app').classList.contains('text-scale-large')).toBe(true);
+  expect(reloaded.container.querySelector('[data-testid="swap-amount"]').closest('.text-scale-large')).not.toBeNull();
   act(() => reloaded.root.unmount());
 });
 
@@ -484,7 +484,7 @@ test('keeps trade readouts and controls bounded at a narrow preview width for ev
   Object.defineProperty(window, 'innerWidth', { configurable: true, value: 375 });
   const { container, root } = mount();
 
-  ['normal', 'large', 'xlarge'].forEach(value => {
+  ['small', 'normal', 'large'].forEach(value => {
     selectTextSize(container, value);
     mockPage = 'trade';
     renderCurrentPage(root);

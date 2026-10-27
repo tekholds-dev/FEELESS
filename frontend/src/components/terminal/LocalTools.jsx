@@ -5,7 +5,7 @@ import { toast } from 'sonner';
 import { marketRequest, pairKey, formatUSD } from '../../lib/dexscreener';
 import { CONTEXTS } from '../../hooks/useWorkspace';
 
-export const FONT_SCALE_VALUES = ['normal', 'large', 'xlarge'];
+export const FONT_SCALE_VALUES = ['small', 'normal', 'large'];   // Small · Medium · Large (owner 2026-10-26); an old 'xlarge' reads as Large
 export const CHART_INTERVAL_VALUES = ['1m', '5m', '15m', '1h', '4h', '1d'];
 export const DEFAULT_SETTINGS = {
   compact: false,
@@ -17,6 +17,7 @@ export const DEFAULT_SETTINGS = {
 };
 
 export function normalizeFontScale(value) {
+  if (value === 'xlarge') return 'large';
   return FONT_SCALE_VALUES.includes(value) ? value : 'normal';
 }
 
