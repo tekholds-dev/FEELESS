@@ -45,7 +45,7 @@ the agents' own record is unproven (0 graded team trades) · strike orders + Kal
 | `PUBLIC_SITE_URL` (a public https domain) | FEELESS-rail + House launches, X sign-in |
 | Sign the one-time FEELESS launch rules (HQ › Launch › Ready board) | FEELESS-rail coins |
 | `DFLOW_API_KEY` · `SNAPTRADE_*` · a Raydium LaunchLab provider key | Kalshi · any broker · LaunchLab |
-| `TELEGRAM_BOT_TOKEN` · `TELEGRAM_GROUP_ID` · `TELEGRAM_APP_URL` (steps: `docs/TELEGRAM.md`) | the Familia race in Telegram + group posts |
+| `TELEGRAM_BOT_TOKEN` · `TELEGRAM_GROUP_ID` · `TELEGRAM_APP_URL` (steps: `docs/TELEGRAM.md`) | Strike Zone as a Telegram Mini App + group level-up posts |
 | Crypto.com **Exchange** key + secret (`CRYPTO_COM_API_KEY` / `CRYPTO_COM_API_SECRET` in `.env` ride the owner wallet; the `cdc_` key in .env is a Developer Platform key — reads Cronos, can't trade) | Crypto.com trading |
 | RPC quota (Helius / Alchemy were 429 — `SOLANA_RPC_URL` + `_3` answered) · a 4th `JUPITER_READ_KEY` | every wallet-signed action, prices |
 | Circle account per user · "sign once, AIs trade" | needs counsel (custody, DECISIONS #2) — not built on purpose |
