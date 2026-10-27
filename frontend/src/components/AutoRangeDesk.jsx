@@ -250,16 +250,17 @@ function SizedToYou({ s, amt, setAmt, custom, w }) {
     <header><b>💵 SIZED TO YOUR ${amt.toLocaleString('en-US', { maximumFractionDigits: 2 })}</b><small>{custom ? `your width ±${w}% — the engine's best for this amount is ±${s.w}%` : `±${s.w}% nets the most at this amount — ${amt < 50 ? 'small money runs wider (fewer paid moves)' : amt >= 1000 ? 'big money can afford tighter bands' : 'balanced between fees and moves'}`}</small>
       <span className="arx-qa">{[10, 100, 1000].map(a => <button key={a} type="button" className="m-btn" onClick={() => setAmt(a)} data-tip={`See how the band changes at $${a}`}>${a >= 1000 ? '1K' : a}</button>)}</span></header>
     <div className="arx-size-in">
-      <svg viewBox="0 0 300 80" className="arx-curve" role="img" aria-label="Net dollars a day across band widths">
+      <span className="arx-cbox"><svg viewBox="0 0 300 80" className="arx-curve" role="img" aria-label="Net dollars a day across band widths">
         <line x1="0" x2="300" y1={Y(0)} y2={Y(0)} className="arx-zero" />
         <path d={`M0,${Y(pts[0].net)} ${pts.map((p, i) => `L${X(i)},${Y(p.net)}`).join(' ')}`} className="arx-cline" />
         <path d={`M0,${Y(0)} ${pts.map((p, i) => `L${X(i)},${Y(Math.max(0, p.net))}`).join(' ')} L300,${Y(0)} Z`} className="arx-cfill" />
-        {pick ? <g transform={`translate(${X(Math.max(0, at))},${Y(pick.net)})`}><circle r="5" className="arx-cdot" /><text y="-9" textAnchor="middle" className="arx-ctext">±{pick.w}%</text></g> : null}
-        <text x="2" y="78" className="arx-axis">±{pts[0].w}%</text><text x="298" y="78" textAnchor="end" className="arx-axis">±{pts[pts.length - 1].w}%</text>
+        {pick ? <circle cx={X(Math.max(0, at))} cy={Y(pick.net)} r="5" className="arx-cdot" /> : null}
       </svg>
+      <span className="arx-cax" aria-hidden="true"><i>±{pts[0].w}% · tight</i><b>pick ±{pick?.w}% · {$(pick?.net, 3)}/day</b><i>wide · ±{pts[pts.length - 1].w}%</i></span></span>
       <div className="arx-svit">{tiles.map(([k, v, c, tip], i) => <span key={k} style={{ '--i': i }} data-tip={tip}><em>{k}</em><b className={`m-num ${c}`} key={v}>{v}</b></span>)}</div>
     </div>
-    {s.tooSmall ? <p className="arx-warn">⚠ At ${amt} the moves + rent eat the fees in this pool — try a wider strategy or more money.</p> : null}
+    {s.net <= 0 ? <p className="arx-warn">⚠ At ${amt} the re-centers cost more than this pool's fees — try a wider strategy or more money.</p>
+      : s.rentPct > 25 ? <p className="arx-warn">⚠ The position's rent ({$(s.rentUsd, 2)}, refunded when you close) is {Math.round(s.rentPct)}% of ${amt} — keep that much SOL free in the wallet.</p> : null}
   </div>;
 }
 
