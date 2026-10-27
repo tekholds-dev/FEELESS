@@ -69,3 +69,8 @@ body.is-duo.duo-2-calls .trenches-grid > .trenches-chat-section { position: stat
   body.is-duo-split.duo-swap .fwd-mapwrap .fwd-place:is(.is-tool, .k-pools, .k-hq, .k-jobs, .k-gym, .k-cards) { left: 12px; right: calc(100vw - env(viewport-segment-right 0 0, 50vw)); }
   body.is-duo .fwd:has(> .fwd-mapwrap .fwd-place:is(.is-tool, .k-pools, .k-hq, .k-jobs, .k-gym, .k-cards)) > .fwd-mapwrap ~ * { visibility: visible; }
 }
+/* 📱📱 an unfolded Duo gives the two screens to the CHART and the second screen — the desktop sidebar folds to its icon rail (it ate a third of
+   the width and squeezed the chart's toolbar off the edge) and the floor splits 50 / 50 (owner screenshot 2026-10-27: "doesn't split well") */
+body.is-duo .terminal-sidebar:not(.sidebar-open) { width: 68px !important; padding-left: 10px; padding-right: 10px; }
+body.is-duo .terminal-sidebar:not(.sidebar-open) :is(.sidebar-section-label, .sidebar-link > span, .sidebar-link small, .nav-hot, .sidebar-feecat-subnav, [class*=sidebar-cta], [class*=sidebar-bottom]) { display: none !important; }
+body.is-duo:not(.duo-swap) .trenches-grid, body.is-duo.duo-swap .trenches-grid { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) !important; }

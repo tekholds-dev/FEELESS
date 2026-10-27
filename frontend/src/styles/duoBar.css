@@ -2,6 +2,11 @@
    trade places when swapped), ⇄ swap, and the Trenches' second-screen pick. One keyframe set (duob*). */
 .duob { position: fixed; left: 12px; bottom: calc(env(safe-area-inset-bottom, 0px) + 12px); z-index: 70; display: flex; align-items: center; gap: 8px; padding: 6px 8px 6px 10px; border-radius: 999px;
   border: 1px solid rgba(69, 228, 134, .4); background: rgba(4, 12, 8, .92); box-shadow: inset 0 1px 0 rgba(255, 255, 255, .07), 0 10px 30px -12px #000; animation: duobIn .25s ease-out both; }
+.duob-fab { position: fixed; left: 12px; bottom: calc(env(safe-area-inset-bottom, 0px) + 12px); z-index: 70; display: grid; place-items: center; width: 44px; height: 44px; border-radius: 14px;
+  border: 1px solid rgba(69, 228, 134, .45); background: rgba(4, 12, 8, .92); cursor: pointer; transition: transform .12s, background .12s; animation: duobIn .25s ease-out both; }
+.duob-fab:hover { background: rgba(21, 209, 106, .18); } .duob-fab:active { transform: scale(.94); } .duob-fab:focus-visible, .duob-x:focus-visible { outline: 2px solid #45e486; outline-offset: 2px; }
+.duob-fab.is-swap .duob-dev s:first-child { transform: translateX(11px); } .duob-fab.is-swap .duob-dev s + s { transform: translateX(-11px); }
+.duob-x { display: grid; place-items: center; min-width: 34px; min-height: 34px; padding: 0; border: 0; background: none; cursor: pointer; }
 .duob > b { font: 800 9px var(--f-mono); letter-spacing: .18em; color: #45e486; }
 .duob-dev { display: flex; gap: 2px; width: 26px; height: 18px; padding: 2px; border-radius: 4px; border: 1.5px solid #45e486; }
 .duob-dev s { flex: 1; border-radius: 2px; background: rgba(69, 228, 134, .55); transition: transform .25s ease; } .duob-dev s + s { background: rgba(69, 228, 134, .2); }
@@ -11,6 +16,6 @@
 .duob-swap[aria-pressed="true"] { background: #15d16a; color: #04140b; border-color: transparent; }
 .duob-2 button { min-height: 32px; }
 @keyframes duobIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
-body.fx-lite .duob { animation: none; } @media (prefers-reduced-motion: reduce) { .duob { animation: none; } .duob-dev s, .duob-swap { transition: none; } }
-body.theme-day .duob { background: rgba(255, 255, 255, .95); border-color: rgba(11, 138, 69, .35); } body.theme-day .duob > b { color: #0b8a45; } body.theme-day .duob-swap { background: #fff; color: #0c2a1a; }
-@media (max-width: 640px) { .duob { left: 8px; bottom: calc(env(safe-area-inset-bottom, 0px) + 70px); } }
+body.fx-lite .duob, body.fx-lite .duob-fab { animation: none; } @media (prefers-reduced-motion: reduce) { .duob, .duob-fab { animation: none; } .duob-dev s, .duob-swap { transition: none; } }
+body.theme-day .duob-fab { background: #fff; } body.theme-day .duob { background: rgba(255, 255, 255, .95); border-color: rgba(11, 138, 69, .35); } body.theme-day .duob > b { color: #0b8a45; } body.theme-day .duob-swap { background: #fff; color: #0c2a1a; }
+@media (max-width: 640px) { .duob, .duob-fab { left: 8px; bottom: calc(env(safe-area-inset-bottom, 0px) + 70px); } }

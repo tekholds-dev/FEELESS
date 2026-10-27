@@ -9,13 +9,14 @@ import '../styles/duoBar.css';
 const onDuo = () => typeof document !== 'undefined' && (document.body.classList.contains('is-duo') || document.body.classList.contains('is-phone-land'));
 
 export function DuoBar() {
-  const [on, setOn] = useState(onDuo); const [p, setP] = useState(readDuoPrefs); const loc = useLocation();
+  const [on, setOn] = useState(onDuo); const [p, setP] = useState(readDuoPrefs); const loc = useLocation(); const [open, setOpen] = useState(false);   // folded = a small button over the sidebar's empty rail (covers nothing)
   useEffect(() => { const sync = () => { setOn(onDuo()); setP(readDuoPrefs()); }; window.addEventListener('feeless:duo', sync); sync(); return () => window.removeEventListener('feeless:duo', sync); }, []);
   if (!on) return null;
+  if (!open) return <button type="button" className={`duob-fab ${p.swap ? 'is-swap' : ''}`} onClick={() => setOpen(true)} aria-label="Duo screens" data-tip="Duo screens — swap the two sides, pick the second screen" data-testid="duo-fab"><i className="duob-dev" aria-hidden="true"><s /><s /></i></button>;
   const trenches = /^\/terminal\/chat/.test(loc.pathname);
   const set = x => setP(saveDuoPrefs({ ...p, ...x }));
   return <div className={`duob ${p.swap ? 'is-swap' : ''}`} role="group" aria-label="Duo screens" data-testid="duo-bar">
-    <i className="duob-dev" aria-hidden="true"><s /><s /></i><b>DUO</b>
+    <button type="button" className="duob-x" onClick={() => setOpen(false)} aria-label="Fold the Duo bar" data-tip="Fold" data-testid="duo-fold"><i className="duob-dev" aria-hidden="true"><s /><s /></i></button><b>DUO</b>
     <button type="button" className="duob-swap" aria-pressed={p.swap} onClick={() => set({ swap: !p.swap })} data-tip="Swap the two screens — chart ⇄ chat on the Trenches, chart ⇄ ticket on Perps, city ⇄ building in Familia" data-testid="duo-swap">⇄</button>
     {trenches ? <span className="m-seg duob-2" role="radiogroup" aria-label="Second screen">{DUO_SECOND.map(([k, l, tip]) => <button key={k} type="button" role="radio" aria-checked={p.second === k} className={p.second === k ? 'active' : ''}
       onClick={() => set({ second: k })} data-tip={tip} data-testid={`duo-2-${k}`}>{l}</button>)}</span> : null}
