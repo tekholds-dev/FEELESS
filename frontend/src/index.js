@@ -9,9 +9,11 @@ import { installTipLayer } from "@/lib/tipLayer";
 import { installDeadClick } from "@/lib/deadClick";
 import { installClipboard, installNoFocusZoom } from "@/lib/clipboard";
 import { installDuo } from "@/lib/duo";
+import { initTelegram } from "@/lib/telegram";
 import "@/styles/duo.css";
 
 cleanBrowserStorage();
+initTelegram();   // 📲 only acts when Telegram opened FEELESS as a Mini App
 installImageFallback();
 installTipLayer();
 installDeadClick();

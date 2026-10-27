@@ -10608,6 +10608,153 @@ async def familia_world_act(p: WorldAct):
     return {**v, 'result': res_}
 
 
+# 🏁 THE RACEWAY (raceway.py, owner 2026-10-27: "a telegram game where people drive vehicles / race this city"): today's race for everyone (a wallet
+# or a verified Telegram player — practice needs neither), a delivery run for a family member's errand. The server deals every track, checks every
+# time (straight-line floor, split order, its own clock) and pays MP into the family bank — once a day for the race, the errand's own cooldown.
+import raceway as _rw
+import tg_auth as _tga
+
+_race_tokens = {}
+
+
+def _race_day(now):
+    return time.strftime('%Y-%m-%d', time.gmtime(now))
+
+
+def _race_tg(tg):
+    u = _tga.verify(tg, (os.getenv('TELEGRAM_BOT_TOKEN') or '').strip()) if tg else None
+    return u
+
+
+class RaceStart(BaseModel):
+    address: str = Field(default='', max_length=64)
+    session: str = Field(default='', max_length=400)
+    tg: str = Field(default='', max_length=4096)
+    mode: str = Field(default='race', max_length=8)
+    store: str = Field(default='', max_length=16)
+
+
+class RaceFinish(RaceStart):
+    token: str = Field(..., max_length=64)
+    ms: int = Field(..., ge=0, le=3_600_000)
+    splits: List[int] = Field(default_factory=list, max_length=12)
+    vehicle: str = Field(default='car', max_length=8)
+
+
+@app.get('/api/reputation/familia-race')
+async def familia_race(address: str = Query('', max_length=64), session: str = Query('', max_length=400)):
+    """🏁 today's track (everyone races the same one), the day's board, your best + what today already paid."""
+    now = time.time(); day = _race_day(now)
+    st = _json_load(CREWS_PATH, {})
+    race_ = ((st.get('world') or {}).get('race') or {})
+    me_ = _session_or_401(address, session) if address and session else None
+    rows_ = race_.get(day) or {}
+    mine_ = rows_.get(me_) if me_ else None
+    return {'day': day, 'track': _rw.daily_track(day), 'board': _rw.board(rows_), 'me': {'best': (mine_ or {}).get('ms'), 'paid': ((race_.get('paid') or {}).get(day) or {}).get(me_ or '', [])},
+            'mp': {'finish': _rw.RACE_MP, 'par': _rw.RACE_PAR_MP, 'errand': _rw.ERRAND_BONUS}, 'telegram': bool((os.getenv('TELEGRAM_BOT_TOKEN') or '').strip())}
+
+
+@app.post('/api/reputation/familia-race/start')
+async def familia_race_start(p: RaceStart):
+    """→ a one-use token + the track. Errands: a member's delivery from the family's home (the store built, its cooldown over)."""
+    import crews as _cr
+    now = time.time()
+    who_, cid_ = None, None
+    if p.address and p.session:
+        who_ = _session_or_401(p.address, p.session)
+    elif p.tg:
+        u = _race_tg(p.tg)
+        if not u:
+            raise HTTPException(401, 'Telegram sign-in did not verify — reopen the game from the bot.')
+        who_ = f"tg:{u['id']}"
+    if p.mode == 'errand':
+        if not who_ or who_.startswith('tg:'):
+            raise HTTPException(401, 'Sign in with your wallet to run a family errand.')
+        st = _json_load(CREWS_PATH, {}); _cr._norm(st)
+        me = _seat_of(st, who_); c = _cr.crew_of(st, me)
+        if not c:
+            raise HTTPException(404, 'Join a family first.')
+        if p.store not in _fworld.ERRANDS:
+            raise HTTPException(400, 'No such errand.')
+        city = _fcity.city_of(c, now)
+        lvl_ = max([l['lvl'] for l in city['lots'].values() if l['b'] == p.store] or [0])
+        if not lvl_:
+            raise HTTPException(400, 'Build that store first.')
+        last_ = float((((c.get('world') or {}).get('errandAt') or {}).get(me) or {}).get(p.store) or 0)
+        if now - last_ < _fworld.ERRANDS[p.store][2]:
+            raise HTTPException(400, f"{_fworld.ERRANDS[p.store][0]} again in {int((_fworld.ERRANDS[p.store][2] - (now - last_)) // 60) + 1} min.")
+        home_ = ((st.get('world') or {}).get('home') or {}).get(c['id']) or c['id']
+        track_, cid_ = _rw.errand_track(p.store, home_, now), c['id']
+    else:
+        track_ = _rw.daily_track(_race_day(now))
+    if len(_race_tokens) > 4000:
+        for k_ in [k for k, t in _race_tokens.items() if now - t['at'] > 1200]:
+            _race_tokens.pop(k_, None)
+    import secrets as _secrets
+    tok_ = _secrets.token_urlsafe(18)
+    _race_tokens[tok_] = {'who': who_, 'at': now, 'track': track_, 'mode': 'errand' if p.mode == 'errand' else 'race', 'cid': cid_}
+    return {'token': tok_, 'track': track_, 'practice': who_ is None}
+
+
+@app.post('/api/reputation/familia-race/finish')
+async def familia_race_finish(p: RaceFinish):
+    """Check the run, keep your best on the day's board, pay the MP (race: once a day + under par; errand: the errand's MP, ×1.25 under par)."""
+    import crews as _cr
+    now = time.time(); day = _race_day(now)
+    t = _race_tokens.pop(p.token, None)
+    if not t:
+        raise HTTPException(400, 'That run expired — start a new one.')
+    why_ = _rw.check(t['track'], p.ms, p.splits, now - t['at'])
+    if why_:
+        raise HTTPException(400, why_)
+    who_ = t['who']
+    if not who_:
+        return {'ok': True, 'practice': True, 'ms': p.ms, 'par': t['track']['par']}
+    mp_, best_, name_, tag_ = 0, False, '', ''
+    async with _crews_lock:
+        st = _json_load(CREWS_PATH, {}); _cr._norm(st)
+        c = None
+        if not who_.startswith('tg:'):
+            me = _seat_of(st, who_); c = _cr.crew_of(st, me)
+            name_, tag_ = (c or {}).get('name') or '', (c or {}).get('tag') or ''
+        else:
+            u = _race_tg(p.tg); name_ = (u or {}).get('name') or 'Telegram racer'
+        city = None
+        if c:
+            boost_, _rk = _city_ctx(c, me, now)
+            city = _fcity.accrue(_fcity.city_of(c, now), now, boost_)
+        w = st.setdefault('world', _fworld.blank()); race_ = w.setdefault('race', {})
+        for d_ in sorted(k for k in race_ if k not in ('paid', day) and k < day)[:-2]:
+            race_.pop(d_, None)
+        try:
+            if t['mode'] == 'race':
+                best_ = _rw.record(race_.setdefault(day, {}), who_, p.ms, p.vehicle, name_, tag_)
+                if c:
+                    paid_day = race_.setdefault('paid', {}).setdefault(day, {})
+                    for d_ in [k for k in race_['paid'] if k != day]:
+                        race_['paid'].pop(d_, None)
+                    mp_, paid_day[who_] = _rw.race_mp(p.ms, t['track'], paid_day.get(who_))
+            elif c and c['id'] == t['cid']:
+                lv = {}
+                for l in city['lots'].values():
+                    lv[l['b']] = max(lv.get(l['b'], 0), l['lvl'])
+                m = c.setdefault('world', {}); cd = m.setdefault('errandAt', {}).setdefault(me, {})
+                mp0, pts, _n = _fworld.errand(lv, cd, t['track']['store'], now, _fcity.rate(city, boost_, now))
+                mp_ = int(mp0 * (_rw.ERRAND_BONUS if p.ms <= t['track']['par'] else 1))
+                m['errands'] = int(m.get('errands') or 0) + 1
+                pm_ = m.setdefault('pts', {}); pm_[me] = int(pm_.get(me) or 0) + pts
+            if city is not None and mp_:
+                city['bank'] += mp_
+                city['mpEver'] = city.get('mpEver', 0) + mp_
+        except ValueError as e:
+            raise HTTPException(400, str(e))
+        _json_save(CREWS_PATH, st)
+    _crew_cache['data'] = None
+    rows_ = _rw.board(((st.get('world') or {}).get('race') or {}).get(day) or {})
+    return {'ok': True, 'ms': p.ms, 'par': t['track']['par'], 'best': best_, 'mp': mp_, 'board': rows_,
+            'place': next((r['place'] for r in rows_ if r['ms'] == p.ms), None)}
+
+
 # ⚔ FAMILY FUSE (family_fuse.py): two families' Fuse cards in the Fuse Arena stadium — paper or MP, spectator bids, the Arena's six duels.
 import family_fuse as _ffuse
 _ffuse_mark = {'at': 0.0}
