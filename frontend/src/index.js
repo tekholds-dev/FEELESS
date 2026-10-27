@@ -64,6 +64,8 @@ if (process.env.NODE_ENV === 'development' && window.location.pathname === '/dev
   import('./dev/CatHarness').then(m => root.render(<m.default />));
 } else if (process.env.NODE_ENV === 'development' && window.location.pathname === '/dev/perps') {   // 🧪 the Perps money read + paper desk on fixtures (src/dev/PerpsHarness.jsx)
   import('./dev/PerpsHarness').then(m => root.render(<m.default />));
+} else if (process.env.NODE_ENV === 'development' && window.location.pathname === '/dev/towers') {   // 🧪 Trench Towers on the live intake · ?cdc = the Crypto.com key door (src/dev/TowersHarness.jsx)
+  import('./dev/TowersHarness').then(m => root.render(<m.default />));
 } else if (process.env.NODE_ENV === 'development' && window.location.pathname === '/dev/broker') {   // 🧪 the Brokerage (Alpaca keys / linked accounts) on fixtures (src/dev/BrokerHarness.jsx)
   import('./dev/BrokerHarness').then(m => root.render(<m.default />));
 } else if (process.env.NODE_ENV === 'development' && window.location.pathname === '/dev/money') {   // 🧪 the YOUR MONEY room on fixtures (src/dev/MoneyHarness.jsx)

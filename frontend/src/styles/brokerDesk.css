@@ -45,3 +45,5 @@ body.theme-day .bk-keys.is-cdc .bk-steps li { background: #eef6ff; }
 .bk-capg .is-ok small { color: #45e486; } .bk-capg .is-off { opacity: .6; }
 .bk-mkt, .bk-lev { flex: none; } .bk-mkt button, .bk-lev button { min-height: 32px; }
 body.theme-day .bk-caps { background: #eef6ff; } body.theme-day .bk-capg span { background: #fff; } body.theme-day .bk-capg b { color: #0b2540; }
+.bk-keys.is-cdc .bk-venue button.active, .bk-keys.is-cdc .bk-go { background: linear-gradient(120deg, #0b6fc4, #1199fa); color: #fff; border-color: transparent; }
+.bk-keys.is-cdc .bk-sm { border-color: rgba(17, 153, 250, .5); color: #7cc4ff; }
