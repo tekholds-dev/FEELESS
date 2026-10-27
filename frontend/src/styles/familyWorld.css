@@ -31,7 +31,6 @@ body.fx-lite .fwd-deskgo { animation: none; } @media (prefers-reduced-motion: re
 .fwd-rc em { font: 700 11px 'JetBrains Mono', monospace; font-style: normal; color: var(--cart); }
 .fwd-mini { justify-self: start; padding: 2px 6px; border-radius: 4px; background: #f6f1e4; color: #1a1205; font: 700 12px Georgia, serif; }
 .fwd-mini.red { color: #b3122e; }
-.fwd-deck { display: flex; flex-wrap: wrap; gap: 10px; perspective: 800px; }
 .fwd-card { position: relative; width: 92px; height: 132px; border-radius: 10px; background: linear-gradient(160deg, #fffaf0, #eadfc6); color: #141010; display: grid; place-items: center;
   box-shadow: 0 6px 16px rgba(0, 0, 0, .45); transition: transform .2s ease; animation: fwdDeal .45s ease backwards; animation-delay: calc(var(--i) * 60ms); }
 .fwd-card:hover { transform: translateY(-6px) rotateY(-8deg); }

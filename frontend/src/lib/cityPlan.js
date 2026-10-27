@@ -53,7 +53,7 @@ export const PLACES = [
   { key: 'warroom', lens: 'wars', name: 'THE WAR ROOM', sub: 'call-outs · live wars', isl: 'fee', art: 'war', color: '#ff4d5e' },
   { key: 'podium', lens: 'board', name: 'THE PODIUM', sub: 'weekly crowns', isl: 'fee', art: 'podium', color: '#ffd36b' },
   { key: 'wire', lens: 'feed', name: 'THE WIRE', sub: 'every family move, live', isl: 'plaza-l', art: 'board', color: '#45e4c8' },
-  { key: 'pools', lens: 'pools', name: 'THE POOL HALL', sub: 'every top + rising pool', isl: 'row', art: 'hall', color: '#45e4c8', money: true },
+  { key: 'pools', lens: 'pools', name: 'THE POOL HALL', sub: 'every pool + the Night Vault · waves = live flow', isl: 'row', art: 'hall', color: '#45e4c8', money: true },
   { key: 'ranked', lens: 'ranked', name: 'THE LADDER', sub: 'ranked · Street Rat → Kingpin', in: 'podium', art: 'tower', color: '#d4af37' },
   { key: 'raids', lens: 'raids', name: 'THE PRECINCT', sub: 'raids · live + the war log', in: 'warroom', art: 'precinct', color: '#ff5d73' },
   { key: 'rewards', lens: 'shop', name: 'PAWN & GOLD', sub: 'rewards · MP → FEECAT', isl: 'fee', art: 'pawn', color: '#f5c451' },
@@ -74,7 +74,7 @@ export const PLACES = [
   { key: 'feebank', lens: 'feebank', name: 'THE $FEE BANK', sub: '$FEE · rFEE · FEECAT — buys fee-free', isl: 'fee', art: 'bank', color: '#15d16a', tool: true, money: true, page: '/terminal/fee' },
   { key: 'perps', lens: 'perps', name: 'THE PERPS DESK', sub: 'perps markets live · funding · leverage', isl: 'ave', art: 'perps', color: '#ff5dbb', tool: true, money: true },
   { key: 'trades', lens: 'trades', name: 'THE TRADE CENTER', sub: 'the desk\'s real-money trades · live P&L', in: 'pumpradar', art: 'trade', color: '#45e486', tool: true, money: true },   // 🚪 a room of Pump Radar (owner 2026-10-27: one building)
-  { key: 'sleep', lens: 'sleep', name: 'THE NIGHT VAULT', sub: 'money while you sleep · live APY', isl: 'vault', art: 'sleep', color: '#9b8cff', tool: true, money: true },
+  { key: 'sleep', lens: 'sleep', name: 'THE NIGHT VAULT', sub: 'money while you sleep · live APY', in: 'pools', art: 'sleep', color: '#9b8cff', tool: true, money: true },   // 🚪 a room of the Pool Hall (owner 2026-10-27: one pools building)
   // 💵 YOUR MONEY (owner 1e): every position FEELESS can prove for your wallet, priced live — the Avenue's last cell
   // 🏦 THE BROKERAGE (DECISIONS #9): your own broker linked to your wallet — stocks · ETFs · crypto, live, trade from $1
   { key: 'brokers', lens: 'brokers', name: 'THE BROKERAGE', sub: 'your broker linked · stocks · crypto · live', in: 'mymoney', art: 'bank', color: '#ffd36b', tool: true, money: true },
@@ -93,7 +93,7 @@ export const METRO = {
   lend: { name: 'LEND STREET', sub: 'lending + treasuries', at: [1, 1], cols: 4, rows: 2, color: '#f5c451', fill: [['mk', ['lend'], 3], ['pool', ['rwa'], 2], ['pool', ['lend'], 3]] },
   money: { name: 'TT · TRENCH TOWERS', sub: "the desk's intake list · one tower", at: [0, 1], cols: 2, rows: 2, color: '#ff8fa3', fill: [] },
   flats: { name: 'THE FLATS', sub: 'v2 pools · constant product', at: [-1, 1], cols: 3, rows: 2, color: '#ff9f45', fill: [['pool', ['v2'], 6]] },
-  vault: { name: 'VAULT ROW', sub: 'auto-compound vaults · the Night Vault', at: [-1, 0], cols: 3, rows: 2, color: '#3ddc84', fill: [['pool', ['vault'], 5]] },
+  vault: { name: 'VAULT ROW', sub: 'auto-compound vaults', at: [-1, 0], cols: 3, rows: 2, color: '#3ddc84', fill: [['pool', ['vault'], 5]] },
   clmm: { name: 'CLMM HEIGHTS', sub: 'concentrated liquidity · v3 + DLMM', at: [-1, -1], cols: 3, rows: 2, color: '#9b8cff', fill: [['pool', ['v3', 'dlmm'], 6]] },
 };
 export const ISLANDS = METRO;   // the old name
@@ -116,6 +116,7 @@ export const HALLS = {
   bay: { name: 'BONK HALL', sub: 'LetsBONK live · one-tap trade', art: 'radar', color: '#ffd36b', scope: 'bonk' },
   docks: { name: 'DOCKS COURT', sub: 'the cartels caught this week', art: 'court', color: '#3ddc84', scope: null },
 };
+export const KIND_COLOR = { v2: '#ff9f45', v3: '#6ad7ff', dlmm: '#ffd36b', vault: '#3ddc84', lend: '#f5c451', stake: '#45e4c8', perps: '#ff5dbb', rwa: '#e8e3d6' };
 export const POOL_KIND = { v2: 'V2 · AMM', v3: 'V3 · CLMM', dlmm: 'DLMM', vault: 'AUTO-COMPOUND VAULT', lend: 'LENDING', stake: 'LIQUID STAKING', perps: 'PERPS', rwa: 'RWA' };
 
 // pure: compact $ (TVL / volume / caps)

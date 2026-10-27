@@ -1,0 +1,40 @@
+/* 🌊 POOL WAVES (PoolWaves.jsx) — the shared sea of the Pool Hall + the Night Vault: vitals glass, five SVG waves (height = turnover, speed =
+   24h volume, colour = pool kind) sliding left one screen per lap, a light glint + foam drift, and the wave chips (tap = that pool). One keyframe
+   set (pw*), transform / opacity only; paused off-screen (fxPause `.pw-sea`), still under fx-lite + reduced motion. */
+.pw { position: relative; display: grid; gap: 8px; padding: 12px; border-radius: 16px; overflow: hidden; isolation: isolate;
+  border: 1px solid rgba(69, 228, 200, .28); background: linear-gradient(180deg, rgba(6, 26, 30, .9), rgba(3, 10, 12, .95)); box-shadow: inset 0 1px 0 rgba(255, 255, 255, .06), 0 14px 40px -24px #45e4c8; }
+.pw.is-night { border-color: rgba(155, 140, 255, .3); background: linear-gradient(180deg, rgba(14, 10, 40, .92), rgba(5, 4, 16, .96)); box-shadow: inset 0 1px 0 rgba(255, 255, 255, .06), 0 14px 40px -24px #9b8cff; }
+.pw-vitals { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; position: relative; z-index: 2; }
+.pw-vitals > span { display: grid; gap: 2px; min-width: 0; padding: 8px 10px; border-radius: 12px; background: rgba(0, 0, 0, .35); border: 1px solid rgba(255, 255, 255, .06); animation: pwIn .35s ease-out both; animation-delay: calc(var(--i, 0) * 55ms); }
+.pw-vitals em { font: 800 8.5px var(--f-mono); font-style: normal; letter-spacing: .16em; color: #7fd8c6; } .pw.is-night .pw-vitals em { color: #b9aeff; }
+.pw-vitals b { font: 800 18px var(--f-display); color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-shadow: 0 0 14px rgba(69, 228, 200, .35); }
+.pw-vitals .is-hot b { color: #45e486; text-shadow: 0 0 14px rgba(21, 209, 106, .5); font-size: 15px; font-family: var(--f-tech); letter-spacing: .04em; }
+.pw-vitals small { font: 700 9.5px var(--f-mono); color: #9fb8b2; }
+.pw-vitals u { display: block; height: 4px; border-radius: 4px; background: rgba(255, 255, 255, .08); overflow: hidden; }
+.pw-vitals u s { display: block; height: 100%; text-decoration: none; transform-origin: left; background: linear-gradient(90deg, #0d6b5c, #45e4c8); transition: transform .6s ease-out; }
+.pw-sea { position: relative; height: 112px; margin: 0 -12px; overflow: hidden; }
+.pw-sea svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+.pw-wave { animation: pwFlow var(--d, 10s) linear infinite; }
+.pw-wave path { fill: var(--c); fill-opacity: var(--o, .3); stroke: var(--c); stroke-opacity: .75; stroke-width: 1.5; vector-effect: non-scaling-stroke; }
+.pw-glint { position: absolute; top: 0; bottom: 0; left: 0; width: 30%; background: linear-gradient(90deg, transparent, rgba(255, 255, 255, .1), transparent); transform: translateX(-120%); animation: pwGlint 7s ease-in-out infinite; pointer-events: none; }
+.pw-foam { position: absolute; left: 0; right: 0; bottom: 6px; height: 2px; background: repeating-linear-gradient(90deg, rgba(255, 255, 255, .35) 0 6px, transparent 6px 22px); opacity: .5; animation: pwFoam 3s linear infinite; pointer-events: none; }
+.pw-legend { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 6px; position: relative; z-index: 2; }
+.pw-legend button { display: inline-flex; align-items: center; gap: 7px; min-height: 32px; padding: 0 10px; border-radius: 999px; border: 1px solid color-mix(in srgb, var(--c) 45%, transparent); background: rgba(0, 0, 0, .4);
+  color: #eafff8; cursor: pointer; font: inherit; transition: transform .12s, background .12s, border-color .12s; animation: pwIn .35s ease-out both; animation-delay: calc(var(--i, 0) * 50ms + 200ms); }
+.pw-legend button i { width: 9px; height: 9px; border-radius: 50%; background: var(--c); box-shadow: 0 0 10px var(--c); }
+.pw-legend button b { font: 700 11px var(--f-tech); letter-spacing: .04em; } .pw-legend button small { font: 700 9.5px var(--f-mono); color: #a9c7c0; }
+.pw-legend button:hover { transform: translateY(-1px); background: color-mix(in srgb, var(--c) 18%, transparent); border-color: var(--c); } .pw-legend button:active { transform: scale(.96); }
+.pw-legend button:focus-visible { outline: 2px solid var(--c); outline-offset: 2px; }
+@keyframes pwFlow { to { transform: translateX(-1200px); } }
+@keyframes pwGlint { 0%, 30% { transform: translateX(-120%); } 70%, 100% { transform: translateX(420%); } }
+@keyframes pwFoam { to { transform: translateX(-22px); } }
+@keyframes pwIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+.fx-off .pw-wave, .fx-off .pw-glint, .fx-off .pw-foam { animation-play-state: paused; }
+body.fx-lite .pw-wave, body.fx-lite .pw-glint, body.fx-lite .pw-foam, body.fx-lite .pw-vitals > span, body.fx-lite .pw-legend button { animation: none; }
+@media (prefers-reduced-motion: reduce) { .pw-wave, .pw-glint, .pw-foam, .pw-vitals > span, .pw-legend button { animation: none; } .pw-vitals u s { transition: none; } }
+body.theme-day .pw { background: linear-gradient(180deg, #effbf8, #dff3ee); border-color: rgba(13, 107, 92, .25); }
+body.theme-day .pw.is-night { background: linear-gradient(180deg, #f1efff, #e4e0ff); }
+body.theme-day .pw-vitals > span, body.theme-day .pw-legend button { background: rgba(255, 255, 255, .8); color: #0c2a24; }
+body.theme-day .pw-vitals b { color: #0c2a24; text-shadow: none; } body.theme-day .pw-vitals .is-hot b { color: #0b8a45; } body.theme-day .pw-vitals em { color: #0d6b5c; }
+body.theme-day .pw-legend button small, body.theme-day .pw-vitals small { color: #3e5a54; }
+@media (max-width: 640px) { .pw-vitals { grid-template-columns: repeat(2, minmax(0, 1fr)); } .pw-vitals b { font-size: 15px; } .pw-sea { height: 84px; } }

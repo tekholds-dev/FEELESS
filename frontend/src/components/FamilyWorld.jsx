@@ -17,6 +17,8 @@ import { Realtor } from './Realtor';
 import { useAdmin } from '../lib/adminCall';
 import '../styles/familyWorld.css';
 import { FamEmpty } from './FamEmpty';
+import { CartelBoard } from './CartelBoard';
+import { CardRoom } from './CardRoom';
 import { JOB_OF, openDesk } from './MoneyDesk';
 import { useGlide } from '../lib/useGlide';
 import { EarnTicker } from './EarnTicker';
@@ -169,8 +171,8 @@ function BlockPanel({ x, v, act, busy, onEnter, mk, onPlace, pools, onLink }) {
     {tone === 'mine' ? <><p>{x.home ? '🏠 Your home block.' : '🗺 Your turf.'}</p><div className="fwd-acts"><button type="button" className="m-btn m-go" onClick={onEnter} data-testid="blk-enter">Enter the block</button>
       {!x.home ? <button type="button" className="m-btn" disabled={busy} onClick={() => act({ act: 'sell', block: x.id }, 'Turf sold')}>Sell turf</button> : null}</div></> : null}
     {['fam', 'cpu', 'cartel'].includes(tone) && me ? <div className="fwd-acts">
-      <button type="button" className="m-btn m-go" disabled={busy || me.reach?.[x.b] === false || !me.hitters?.length} onClick={() => act({ act: 'raid', vs: x.owner }, 'Raid started — make your move')}
-        data-tip={me.reach?.[x.b] === false ? 'Out of reach — hold a block in this borough or one bridge away' : !me.hitters?.length ? 'Hire a ready hitter on your block first' : 'A raid is a chess game on their block: your move, their move, 2+ rounds'} data-testid="blk-raid">⚔ Raid · {me.hitters?.length || 0} hitters</button></div> : null}
+      <button type="button" className="m-btn m-go" disabled={busy || (tone !== 'cartel' && me.reach?.[x.b] === false) || !me.hitters?.length} onClick={() => act({ act: 'raid', vs: x.owner }, 'Raid started — make your move')}
+        data-tip={tone !== 'cartel' && me.reach?.[x.b] === false ? 'Out of reach — hold a block in this borough or one bridge away' : !me.hitters?.length ? 'Hire a ready hitter on your block first' : 'A raid is a chess game on their block: your move, their move, 2+ rounds'} data-testid="blk-raid">⚔ Raid · {me.hitters?.length || 0} hitters</button></div> : null}
   </aside>;
 }
 
@@ -192,12 +194,6 @@ function Errand({ e, act, busy }) {
   </li>;
 }
 
-export function CrewDeck({ crew }) {
-  if (!crew?.length) return <FamEmpty art="crew" title="NO RECRUITS YET" note="Hire them on your block or win them in 🎖 Challenges." />;
-  return <div className="fwd-deck" data-testid="crew-deck">{crew.map((r, i) => { const c = cardOf(r); return <div key={r.id} className={`fwd-card ${c.red ? 'red' : ''} ${r.hurt ? 'is-hurt' : ''} ${r.special ? 'is-special' : ''}`} style={{ '--i': i }}
-    data-tip={`${c.role} · level ${r.lvl}${r.next ? ` · ${r.xp}/${r.next} XP` : ''}${r.hurt ? ` · hurt, back in ${Math.ceil(r.hurt / 60)} min` : ''}`}>
-    <span className="tl">{c.face}<i>{c.suit}</i></span><b>{c.suit}</b><small>{c.role}</small><span className="br">{c.face}<i>{c.suit}</i></span></div>; })}</div>;
-}
 
 // 🏠 the My family TAB = the same Family HQ as the city's pop-out (owner, 2026-10-22: "the page of my family should be meta with vitals and tools —
 // strip the text"): its own world read (bank, turf, expansions) + the family's tools
@@ -304,7 +300,7 @@ export function FamilyWorld({ addr, sess, onEnter, onJoin, onSignIn, rooms = {} 
       <b>{c.name}</b><small>{c.metric}: {mp(c.have)}/{mp(c.need)}</small><u><s style={{ transform: `scaleX(${Math.min(1, c.have / c.need)})` }} /></u>
       <span className={`fwd-mini ${cc.red ? 'red' : ''}`}>{cc.face}{cc.suit}</span><em>+{mp(c.mp)} MP</em>
       <button type="button" className="m-btn" disabled={!c.ready || busy} onClick={() => act({ act: 'challenge', kind: c.key }, 'Recruit joined')}>{c.done ? '✓ claimed' : 'Claim'}</button></li>; })}</ul> : <p className="m-dim">Join a family to take challenges.</p>,
-    deck: <CrewDeck crew={crew} />,
+    deck: <CardRoom crew={crew} onGo={setLens} />,
     pools: <PoolHub pools={pools} blocks={myBlocks} onLink={link} />,
     family: typeof rooms.family === 'function' ? rooms.family({ v, act, busy, onEnter, fly: id => { const b = (v.blocks || []).find(x => x.id === id); if (!b) return; const c = (v.cities || []).find(x => x.boroughs.includes(b.b)); setLensRaw(null); if (c) setCity(c.key); setSelRaw(b); } }) : rooms.family || null,
     wars: rooms.wars || null, board: rooms.board || null, feed: rooms.feed || null,
@@ -317,11 +313,7 @@ export function FamilyWorld({ addr, sess, onEnter, onJoin, onSignIn, rooms = {} 
         <u><s style={{ transform: `scaleX(${Math.min(1, me.bank / (v.rate?.mp || 1))})` }} /></u>
         <button type="button" className="m-btn m-go" disabled={busy || me.bank < (v.rate?.mp || Infinity)} onClick={() => { if (window.confirm('File a FEECAT redeem with your MP?')) act({ act: 'redeem' }, 'Redeem filed'); }}>File redeem</button>
         {me.redeems?.length ? <ol>{me.redeems.map(x => <li key={x.id}>{mp(x.mp)} MP → {mp(x.feecat)} FEECAT · {x.status}</li>)}</ol> : null}</div></div> : <p className="m-dim">Join a family to spend MP.</p>,
-    cartels: <div className="fwd-carts">{(v.cartels || []).map(c => <div key={c.id} className={`fwd-cart r-${c.role}`} data-testid={`cartel-${c.id}`}>
-      <header><i>{c.icon}</i><b>{c.name}</b><small>[{c.tag}] · level {c.level}</small></header>
-      <span><em>WALLETS</em><b>{mp(c.members)}</b></span><span><em>HITS</em><b>{mp(c.hits)}</b></span><span><em>COINS</em><b>{mp(c.coins)}</b></span><span><em>ACTIVE 7D</em><b>{mp(c.active7d)}</b></span>
-      <u><s style={{ transform: `scaleX(${Math.min(1, c.level / 10)})` }} /></u></div>)}
-      <p className="m-dim">Cartels are the wallets FEELESS's own rep flagged as bundler · sniper · funder, grouped by the coins they hit together. They live in Cartel Docks — raid them for a ×1.5 justice bonus.</p></div>,
+    cartels: <CartelBoard v={v} me={me} act={act} busy={busy} onFly={id => { const b = (v.blocks || []).find(x => x.id === id); if (!b) return; const cc = (v.cities || []).find(x => x.boroughs.includes(b.b)); setLensRaw(null); if (cc) setCity(cc.key); setSelRaw(b); }} />,
   }[lens] || null;
   return <section className="fwd" data-testid="family-world">
     <SeasonHud v={v} onJoin={onJoin} go={to => go(to)} />

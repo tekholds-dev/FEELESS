@@ -9,10 +9,10 @@ import '../../styles/updatesLog.css';
 // each phone shape — closed / open × portrait / landscape — and lights the one this screen is right now.
 const LENSES = [['all', 'ALL'], ['site', 'SITE'], ['backend', 'BACKEND'], ['mobile', 'MOBILE'], ['duo', '📱 DUO SCREENS']];
 export const DUO_SCREENS = [
-  ['closed-port', 'CLOSED · PORTRAIT', 'a phone held upright', ['One column, nothing cut off at 360 px', 'Trench chart fits the screen; its buttons are one swipe row', 'Inputs never zoom the page (16 px)', 'Perps provider rail swipes sideways']],
-  ['closed-land', 'CLOSED · LANDSCAPE', 'a phone turned sideways', ['Full-height chart beside the trade ticket', 'The header shrinks to one thin bar', 'Perps vitals strip folds away — chart first']],
-  ['open-port', 'OPEN · PORTRAIT', 'unfolded / two-screen, upright', ['Perps: chart on one side, the trade station on the other', 'Trenches: chart | chat side by side, chat stays pinned', 'Coin cards in a wider grid']],
-  ['open-land', 'OPEN · LANDSCAPE', 'unfolded / two-screen, sideways', ['Each column snaps to its own screen segment (the hinge sits between)', 'Chart | trade on Perps, chart | chat on the Trenches floor', 'Both charts stay full height']],
+  ['closed-port', 'CLOSED · PORTRAIT', 'a phone held upright', ['The coin\'s chart sits right under its name (stats + passport swipe below it)', 'Chart buttons = ONE swipe row of real tap targets', 'Inputs never zoom the page (16 px)', 'Perps provider rail swipes sideways']],
+  ['closed-land', 'CLOSED · LANDSCAPE', 'a phone turned sideways', ['The coin\'s chart comes first, full height, beside the ticket / chat', 'The header shrinks to one thin bar', 'Perps vitals strip folds away · ⇄ swaps the sides']],
+  ['open-port', 'OPEN · PORTRAIT', 'unfolded / two-screen, upright', ['Perps: chart on one side, the trade station on the other (⇄ swaps them)', 'Trenches: chart | CHAT or chart | CALLS — you pick the second screen in the Duo bar', 'Familia: a building opens on one screen while the city keeps moving on the other']],
+  ['open-land', 'OPEN · LANDSCAPE', 'unfolded / two-screen, sideways', ['Each column snaps to its own screen segment (the hinge sits between)', 'The Duo bar: ⇄ swap screens · pick CHAT or CALLS beside the chart', 'Familia rooms snap to one segment, the city to the other']],
 ];
 // pure: which Duo screen this device is now
 export function screenNow(w = typeof window !== 'undefined' ? window : null) {

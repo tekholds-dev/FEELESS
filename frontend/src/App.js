@@ -27,6 +27,7 @@ import AmbientBackground from './components/AmbientBackground';
 import { useHolderTheme } from './components/HolderTheme';
 import { MobileTabBar } from './components/MobileTabBar';
 import { FeeCatWidget } from './components/FeeCatWidget';
+import { DuoBar } from './components/DuoBar';
 const Landing = lazy(() => import('./pages/Landing'));
 const Terminal = lazy(() => import('./pages/Terminal'));
 const HqLink = lazy(() => import('./components/HqLink'));
@@ -85,7 +86,7 @@ function AppShell() {
             <Route path="/whitepaper" element={<Navigate to="/terminal/whitepaper" replace />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes></Suspense>
-          <HolderThemeMount /><PageViews /><MobileTabBar /><FeeCatWidget />
+          <HolderThemeMount /><PageViews /><MobileTabBar /><DuoBar /><FeeCatWidget />
         </BrowserRouter><Toaster theme="dark" position="bottom-right" /><LegalConsent /></WorkspaceProvider></WalletProvider>
       </div>
     </div>

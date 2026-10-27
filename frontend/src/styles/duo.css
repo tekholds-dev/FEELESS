@@ -23,11 +23,49 @@ body.is-phone-land .pd-mkt { min-height: 40px; padding: 4px 8px; } body.is-phone
 /* 📱 PHONE FIXES (owner 2026-10-26: "trench trade chart not looking good, chart buttons not working / aligned"): grid children may shrink (the chart
    panel rendered 518 px wide on a 390 px phone and cut its stats off); on phones the timeframes + chart buttons are ONE swipeable row of real tap targets. */
 .trenches-grid > *, .trenches-chart-panel, .token-focus { min-width: 0; max-width: 100%; }
+/* 2026-10-27 (owner: "trench trade chart not fixed"): meta.css's `.trench-chart .chart-toolbar { flex-wrap: wrap }` out-ranked the old phone rule,
+   so the buttons still wrapped into 3 rows and the chart sat ~640 px down under the header + stats + passport. Now, on a phone (and on every Duo /
+   sideways layout) the coin's CHART comes right under its name: toolbar = one swipe row, chart, then the stats as a swipe strip, the passport,
+   the tape, the rest. Layout only — no new motion. */
 @media (max-width: 640px) {
-  .chart-toolbar { display: flex; flex-wrap: nowrap; align-items: center; gap: 6px; overflow-x: auto; overscroll-behavior-x: contain; scrollbar-width: none; padding-bottom: 2px; }
-  .chart-toolbar::-webkit-scrollbar, .chart-meta-buttons::-webkit-scrollbar { display: none; }
-  .chart-toolbar > *, .timeframes, .chart-meta-buttons > * { flex: none; }
-  .timeframes { display: flex; flex-wrap: nowrap; gap: 2px; }
+  .trench-chart .chart-toolbar, .chart-toolbar { display: flex; flex-wrap: nowrap; align-items: center; gap: 6px; overflow-x: auto; overscroll-behavior-x: contain; scrollbar-width: none; padding-bottom: 2px; }
+  .chart-toolbar::-webkit-scrollbar, .chart-meta-buttons::-webkit-scrollbar, .token-focus > .token-metrics::-webkit-scrollbar, .token-focus > .coin-passport::-webkit-scrollbar { display: none; }
+  .trench-chart .chart-toolbar > *, .timeframes, .chart-meta-buttons > * { flex: none; }
+  .trench-chart .timeframes { display: flex; flex-wrap: nowrap; gap: 2px; }
   .timeframes button, .chart-meta-buttons button, .chart-toolbar > button { min-height: 34px; min-width: 34px; touch-action: manipulation; }
-  .chart-meta-buttons { display: flex; flex-wrap: nowrap; gap: 6px; overflow-x: auto; scrollbar-width: none; }
+  .trench-chart .chart-meta-buttons { display: flex; flex-wrap: nowrap; gap: 6px; overflow: visible; }
+  .token-focus { display: flex; flex-direction: column; }
+  .token-focus > * { order: 6; } .token-focus > .focus-header { order: 0; }
+  .token-focus .trench-chart > * { order: 2; } .token-focus .trench-chart > .chart-toolbar { order: 1; } .token-focus .trench-chart > :last-child { order: 5; }
+  .token-focus > .token-metrics { order: 3; display: flex; gap: 6px; overflow-x: auto; scroll-snap-type: x proximity; scrollbar-width: none; }
+  .token-focus > .token-metrics > * { flex: 0 0 auto; min-width: 104px; scroll-snap-align: start; }
+  .token-focus > .token-metrics :is(strong, b, .mono) { white-space: nowrap; overflow: visible; text-overflow: clip; font-size: 16px; }
+  .token-focus > .coin-passport { order: 4; display: flex; flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; white-space: nowrap; }
+  .token-focus > .coin-passport > * { flex: none; }
+  .token-focus .chart-fullscreen-wrap { min-height: min(58dvh, 440px); }
+  .trenches-chart-panel > .section-title { display: none; }   /* "DEX chart · Jupiter OHLCV" cost ~100 px above the coin on a phone */
+}
+/* the same chart-first order on an unfolded Duo + a phone turned sideways (the chart is the first thing under the coin's name) */
+:is(body.is-duo, body.is-phone-land) .token-focus { display: flex; flex-direction: column; }
+:is(body.is-duo, body.is-phone-land) .token-focus > * { order: 6; } :is(body.is-duo, body.is-phone-land) .token-focus > .focus-header { order: 0; }
+:is(body.is-duo, body.is-phone-land) .token-focus .trench-chart > * { order: 2; } :is(body.is-duo, body.is-phone-land) .token-focus .trench-chart > .chart-toolbar { order: 1; }
+:is(body.is-duo, body.is-phone-land) .token-focus .trench-chart > :last-child { order: 5; }
+:is(body.is-duo, body.is-phone-land) .token-focus > .token-metrics { order: 3; } :is(body.is-duo, body.is-phone-land) .token-focus > .coin-passport { order: 4; }
+:is(body.is-duo, body.is-phone-land) .trench-chart .chart-toolbar { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; }
+body.is-phone-land .token-focus .chart-fullscreen-wrap { min-height: calc(100dvh - 120px); }
+body.is-phone-land .token-focus > .focus-header .token-sub { display: none; }
+/* 📱📱 the user's Duo picks (DuoBar): ⇄ swap the screens · the Trenches' second screen = CHAT or CALLS */
+body.is-duo.duo-swap .trenches-grid { grid-template-columns: minmax(280px, 1fr) minmax(0, 1.3fr) !important; grid-template-areas: "chat chart" "tools tools" !important; }
+body.is-duo.duo-2-calls .trenches-grid { grid-template-areas: "chart tools" "chat chat" !important; }
+body.is-duo.duo-2-calls.duo-swap .trenches-grid { grid-template-columns: minmax(280px, 1fr) minmax(0, 1.3fr) !important; grid-template-areas: "tools chart" "chat chat" !important; }
+body.is-duo.duo-2-calls .trenches-grid > .trenches-tools { grid-template-columns: 1fr !important; align-content: start; position: sticky; top: 8px; max-height: calc(100dvh - 16px); overflow: auto; scrollbar-width: thin; }
+body.is-duo.duo-2-calls .trenches-grid > .trenches-chat-section { position: static; height: min(70dvh, 560px); }
+:is(body.is-duo, body.is-phone-land).duo-swap .pd-main > .pd-chart { order: 2; } :is(body.is-duo, body.is-phone-land).duo-swap .pd-main > .pd-chart { border-right: 0; border-left: 1px solid var(--ln); }
+/* Familia on a Duo: a big room takes ONE screen and the city stays alive on the other (swap = the other side); with a hinge it snaps to the segment */
+@media (min-width: 641px) {
+  body.is-duo .fwd-mapwrap .fwd-place:is(.is-tool, .k-pools, .k-hq, .k-jobs, .k-gym, .k-cards) { left: 50%; right: 12px; box-shadow: -12px 0 40px -18px #000; }
+  body.is-duo.duo-swap .fwd-mapwrap .fwd-place:is(.is-tool, .k-pools, .k-hq, .k-jobs, .k-gym, .k-cards) { left: 12px; right: 50%; box-shadow: 12px 0 40px -18px #000; }
+  body.is-duo-split .fwd-mapwrap .fwd-place:is(.is-tool, .k-pools, .k-hq, .k-jobs, .k-gym, .k-cards) { left: env(viewport-segment-left 1 0, 50%); }
+  body.is-duo-split.duo-swap .fwd-mapwrap .fwd-place:is(.is-tool, .k-pools, .k-hq, .k-jobs, .k-gym, .k-cards) { left: 12px; right: calc(100vw - env(viewport-segment-right 0 0, 50vw)); }
+  body.is-duo .fwd:has(> .fwd-mapwrap .fwd-place:is(.is-tool, .k-pools, .k-hq, .k-jobs, .k-gym, .k-cards)) > .fwd-mapwrap ~ * { visibility: visible; }
 }

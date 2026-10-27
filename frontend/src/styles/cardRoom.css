@@ -1,0 +1,49 @@
+/* 🃏 the Card Room (CardRoom.jsx): noir felt + a swinging lamp light, the hand fanned and dealt in, drawn faces, XP bars, a READY pulse, a HURT
+   countdown, gold foil on Kings. Builds on .fwd-card (familyWorld.css) — these rules scope to .crd-card. One keyframe set (crd*). */
+.crd { display: grid; gap: 10px; }
+.crd-vitals { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 6px; }
+.crd-vitals > span { display: grid; gap: 2px; padding: 8px 10px; border-radius: 12px; border: 1px solid rgba(212, 175, 55, .22); background: linear-gradient(160deg, rgba(212, 175, 55, .08), rgba(0, 0, 0, .4));
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .05); animation: crdIn .3s ease-out both; animation-delay: calc(var(--i, 0) * 50ms); }
+.crd-vitals em { font: 800 8.5px var(--f-mono); font-style: normal; letter-spacing: .16em; color: #c9b47c; } .crd-vitals b { font: 800 18px var(--f-display); color: #fff3d6; }
+.crd-vitals small { font: 700 9px var(--f-mono); color: #a89f86; } .crd-vitals .is-up b { color: #45e486; } .crd-vitals .is-dn b { color: #ff8fa3; }
+.crd-table { position: relative; overflow: hidden; min-height: 220px; padding: 26px 12px 18px; border-radius: 18px; border: 2px solid #5a4318;
+  background: radial-gradient(120% 90% at 50% 0%, #1d5a36 0%, #0f3420 55%, #071a10 100%); box-shadow: inset 0 0 0 6px #2a1d0b, inset 0 0 40px #000; }
+.crd-lamp { position: absolute; top: -40%; left: 30%; width: 40%; height: 140%; background: radial-gradient(closest-side, rgba(255, 236, 170, .16), transparent); transform-origin: 50% 0; animation: crdLamp 6s ease-in-out infinite alternate; pointer-events: none; }
+.crd-hand { position: relative; display: flex; justify-content: center; align-items: flex-end; min-height: 180px; }
+.crd-card { position: relative; flex: none; width: 104px; height: 150px; margin: 0 calc(-1 * clamp(4px, (var(--n) - 4) * 4px, 26px)); padding: 0; cursor: pointer; font: inherit; color: #1a1408;
+  transform: rotate(var(--a)) translateY(calc(var(--i) * 0px)); transform-origin: 50% 120%; transition: transform .2s ease, box-shadow .2s ease; animation: crdDeal .45s cubic-bezier(.2, .8, .3, 1.2) both; animation-delay: calc(var(--i) * 70ms); }
+.crd-card { display: block; border: 0; border-radius: 10px; background: linear-gradient(160deg, #fffaf0, #eadfc6); box-shadow: 0 10px 22px -8px #000, inset 0 0 0 1px rgba(0, 0, 0, .12), inset 0 0 0 5px #fffaf0, inset 0 0 0 6px rgba(160, 120, 40, .35); }
+.crd-card.red { color: #8e1b22; }
+.crd-card > b { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -55%); font-size: 74px; line-height: 1; opacity: .1; }
+.crd-card > small { position: absolute; left: 0; right: 0; bottom: 18px; text-align: center; font: 700 8.5px var(--f-mono); letter-spacing: .12em; }
+.crd-card .tl, .crd-card .br { position: absolute; display: grid; justify-items: center; font: 700 15px Georgia, serif; line-height: 1; } .crd-card .tl i, .crd-card .br i { font-style: normal; font-size: 12px; }
+.crd-card .tl { top: 7px; left: 8px; } .crd-card .br { bottom: 7px; right: 8px; transform: rotate(180deg); }
+.crd-card:hover { transform: rotate(var(--a)) translateY(-14px); z-index: 3; } .crd-card:active { transform: rotate(var(--a)) translateY(-6px) scale(.98); }
+.crd-card:focus-visible { outline: 2px solid #f5c451; outline-offset: 3px; z-index: 3; }
+.crd-card.is-picked { transform: rotate(0deg) translateY(-26px) scale(1.06); z-index: 4; box-shadow: 0 0 0 2px #f5c451, 0 18px 30px -10px #000, 0 0 26px rgba(245, 196, 81, .45); }
+.crd-art { position: absolute; left: 50%; top: 50%; width: 58px; height: 68px; transform: translate(-50%, -54%); color: #1d1406; } .crd-card.red .crd-art { color: #8e1b22; }
+.crd-art svg { width: 100%; height: 100%; fill: currentColor; } .crd-art text { font: 900 18px var(--f-display); fill: #f5d77a; }
+.crd-art .crd-gun, .crd-art .crd-mask { fill: #3a2c12; } .crd-card.red .crd-art .crd-mask { fill: #2a0a0d; } .crd-art .crd-star { fill: #f5c451; }
+.crd-xp { position: absolute; left: 10px; right: 10px; bottom: 8px; height: 4px; border-radius: 4px; background: rgba(0, 0, 0, .15); overflow: hidden; }
+.crd-xp s { display: block; height: 100%; text-decoration: none; transform-origin: left; background: linear-gradient(90deg, #8a6a1c, #f5c451); transition: transform .6s ease-out; }
+.crd-ready { position: absolute; top: 8px; right: 8px; width: 8px; height: 8px; border-radius: 50%; background: #15d16a; box-shadow: 0 0 8px #15d16a; animation: crdPulse 1.6s ease-in-out infinite; }
+.crd-hurt { position: absolute; left: 50%; bottom: 16px; transform: translateX(-50%); padding: 2px 7px; border-radius: 999px; background: #2a0a0d; color: #ffb3c0; font: 800 9.5px var(--f-mono); font-style: normal; white-space: nowrap; }
+.crd-card.is-hurt { filter: saturate(.55); } .crd-card.is-hurt .crd-art { opacity: .6; }
+.crd-card.is-king::after { content: ''; position: absolute; inset: 0; border-radius: inherit; background: linear-gradient(115deg, transparent 30%, rgba(255, 230, 150, .55) 48%, transparent 66%);
+  transform: translateX(-110%); animation: crdFoil 3.6s ease-in-out infinite; pointer-events: none; }
+.crd-pick { display: grid; gap: 6px; padding: 12px; border-radius: 14px; border: 1px solid rgba(245, 196, 81, .35); background: linear-gradient(160deg, rgba(245, 196, 81, .1), rgba(0, 0, 0, .4)); animation: crdIn .2s ease-out both; }
+.crd-pick > b { font: 700 13px var(--f-tech); letter-spacing: .08em; color: #f5c451; } .crd-pick p { margin: 0; font: 500 12.5px/1.45 var(--f-ui); color: #e9dcc0; }
+.crd-pxp { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 8px; align-items: center; } .crd-pxp em { font: 800 8.5px var(--f-mono); font-style: normal; letter-spacing: .14em; color: #c9b47c; }
+.crd-pxp i { display: block; height: 6px; border-radius: 6px; background: rgba(255, 255, 255, .08); overflow: hidden; } .crd-pxp i s { display: block; height: 100%; text-decoration: none; transform-origin: left; background: linear-gradient(90deg, #8a6a1c, #f5c451); transition: transform .6s ease-out; }
+.crd-pxp small { font: 700 10px var(--f-mono); color: #c9b47c; }
+.crd-acts { display: flex; flex-wrap: wrap; gap: 6px; } .crd-acts .m-btn { min-height: 34px; }
+.crd-hint { margin: 0; font: 600 11px var(--f-mono); color: #a89f86; text-align: center; }
+@keyframes crdDeal { from { opacity: 0; transform: translate(0, -80px) rotate(-30deg) scale(.7); } to { opacity: 1; transform: rotate(var(--a)); } }
+@keyframes crdLamp { from { transform: rotate(-8deg); } to { transform: rotate(8deg); } }
+@keyframes crdPulse { 50% { transform: scale(1.5); opacity: .55; } }
+@keyframes crdFoil { 0%, 40% { transform: translateX(-110%); } 80%, 100% { transform: translateX(110%); } }
+@keyframes crdIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+body.fx-lite :is(.crd-lamp, .crd-card, .crd-ready, .crd-card.is-king::after, .crd-vitals > span, .crd-pick) { animation: none; }
+@media (prefers-reduced-motion: reduce) { :is(.crd-lamp, .crd-card, .crd-ready, .crd-card.is-king::after, .crd-vitals > span, .crd-pick) { animation: none; } .crd-card, .crd-xp s, .crd-pxp i s { transition: none; } }
+body.theme-day .crd-vitals > span { background: #fffaf0; } body.theme-day .crd-vitals b { color: #2a1f0e; } body.theme-day .crd-pick { background: #fffaf0; } body.theme-day .crd-pick p { color: #3a2e18; }
+@media (max-width: 640px) { .crd-vitals { grid-template-columns: repeat(3, minmax(0, 1fr)); } .crd-card { width: 78px; height: 112px; } .crd-art { width: 44px; height: 52px; } .crd-table { min-height: 170px; } .crd-hand { min-height: 140px; } }

@@ -1,0 +1,21 @@
+/* ⚖ the Cartel Warehouse (CartelBoard.jsx): vitals that count up, the ×1.5 justice chip, a role switch, each cartel's power bar against the
+   strongest + RAID / fly. Built on the existing .fwd-cart cards (familyWorld.css); one keyframe set (cw*). */
+.cw { display: grid; gap: 10px; }
+.cw-vitals { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 6px; }
+.cw-vitals > span { display: grid; gap: 2px; padding: 8px 10px; border-radius: 12px; border: 1px solid rgba(61, 220, 132, .22); background: linear-gradient(160deg, rgba(61, 220, 132, .08), rgba(0, 0, 0, .35));
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .05); animation: cwIn .3s ease-out both; animation-delay: calc(var(--i, 0) * 50ms); }
+.cw-vitals em { font: 800 8.5px var(--f-mono); font-style: normal; letter-spacing: .16em; color: #8fd9b0; } .cw-vitals b { font: 800 17px var(--f-display); color: #fff; }
+.cw-justice { border-color: rgba(245, 196, 81, .45) !important; background: linear-gradient(160deg, rgba(245, 196, 81, .16), rgba(0, 0, 0, .35)) !important; }
+.cw-justice b { color: #f5c451; text-shadow: 0 0 14px rgba(245, 196, 81, .5); }
+.cw-roles { justify-self: start; flex-wrap: wrap; } .cw-roles button { min-height: 32px; }
+.cw .fwd-cart { animation: cwIn .35s ease-out both; animation-delay: calc(var(--i, 0) * 45ms); }
+.cw-power { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 8px; margin: 2px 0 0; grid-column: 1 / -1; }
+.cw-power em { font: 800 8.5px var(--f-mono); font-style: normal; letter-spacing: .14em; color: #a9b8ad; } .cw-power b { font: 800 11px var(--f-mono); color: #ffd36b; }
+.cw-power i { display: block; height: 5px; border-radius: 5px; background: rgba(255, 255, 255, .08); overflow: hidden; }
+.cw-power i s { display: block; height: 100%; text-decoration: none; transform-origin: left; background: linear-gradient(90deg, #7a1e2c, #ff5d73); transition: transform .6s ease-out; }
+.cw-acts { display: flex; flex-wrap: wrap; gap: 6px; grid-column: 1 / -1; } .cw-acts .m-btn { min-height: 34px; }
+@keyframes cwIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+body.fx-lite .cw-vitals > span, body.fx-lite .cw .fwd-cart { animation: none; }
+@media (prefers-reduced-motion: reduce) { .cw-vitals > span, .cw .fwd-cart { animation: none; } .cw-power i s { transition: none; } }
+body.theme-day .cw-vitals > span { background: #f3fbf6; } body.theme-day .cw-vitals b { color: #0d1a12; } body.theme-day .cw-justice b { color: #8a6200; text-shadow: none; }
+@media (max-width: 640px) { .cw-vitals { grid-template-columns: repeat(2, minmax(0, 1fr)); } .cw-justice { grid-column: 1 / -1; } }

@@ -312,6 +312,12 @@ def reach(world, cid, target_borough, docks_lvl=0):
     return min([hops(m, target_borough) for m in mine] or [99]) <= lim
 
 
+def can_raid(world, cid, target_borough, kind='family', docks_lvl=0):
+    """Reach for a raid. CARTELS (the rep's bundlers / snipers / funders) are fair game from ANY city — Rug Shield HQ hunts them everywhere
+    (owner 2026-10-27: "can't raid the bad guys from rep": 12 of 18 had no building and the docks sat out of reach). Families + CPU towns need reach."""
+    return kind == 'cartel' or reach(world, cid, target_borough, docks_lvl)
+
+
 # ── raids: a chess game on the target's block ───────────────────────────────────────────────────────────────────────────────────────────────
 def board_of(target):
     """The 5×5 board: each built lot with its share of the output, and the guards placed on the richest lots."""

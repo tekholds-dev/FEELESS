@@ -3,7 +3,8 @@ import { toast } from 'sonner';
 import { sharedJson } from '../lib/sharedJson';
 import { resolveCoin } from '../lib/resolveCoin';
 import { familiaTrade } from './FamiliaTrade';
-import { POOL_KIND, usd, apyTxt } from '../lib/cityPlan';
+import { POOL_KIND, usd, apyTxt, KIND_COLOR } from '../lib/cityPlan';
+import { PoolWaves } from './PoolWaves';
 import '../styles/poolHub.css';
 import { useWallet } from '../hooks/useWallet';
 import { LEND_SIDES, okAmount, lendLine, lendQuote, lendSign } from '../lib/lendEarn';
@@ -18,7 +19,7 @@ import { AutoRangeDesk } from './AutoRangeDesk';
 // Each row does the real-money thing without "running to each site": ⚡ trade / stake through OUR engine (the chart + Quick trade slide over the room, your
 // wallet signs), ＋ deposit on the pool's OWN page (opened exactly, your wallet signs there — FEELESS never holds funds), 🏠 set your
 // family's building to it (display only). Data: /api/reputation/familia-pools (DefiLlama yields + our pair feed, ≤ 10 min old).
-export const KIND_COLOR = { v2: '#ff9f45', v3: '#6ad7ff', dlmm: '#ffd36b', vault: '#3ddc84', lend: '#f5c451', stake: '#45e4c8', perps: '#ff5dbb', rwa: '#e8e3d6' };
+export { KIND_COLOR };
 const LENS = [['all', 'ALL'], ['v2', 'V2'], ['v3', 'V3'], ['dlmm', 'DLMM'], ['vault', 'VAULTS'], ['lend', 'LEND'], ['stake', 'STAKE'], ['perps', 'PERPS'], ['rwa', 'RWA']];
 const SORT = [['tvl', 'TOP'], ['apy', 'YIELD'], ['rise', 'RISING']];
 
@@ -212,10 +213,11 @@ export function PoolHub({ pools, blocks = [], onLink, start = 'all' }) {
   const [lens, setLens] = useState(start); const [sort, setSort] = useState('tvl'); const [q, setQ] = useState(''); const [qq, setQQ] = useState('');
   useEffect(() => { const t = setTimeout(() => setQQ(q), 250); return () => clearTimeout(t); }, [q]);
   const rows = useMemo(() => poolRows(pools?.pools, lens, sort, qq).slice(0, 60), [pools, lens, sort, qq]);
-  const tvl = useMemo(() => (pools?.pools || []).reduce((a, r) => a + (r.tvl || 0), 0), [pools]);
   if (!pools) return <div className="phb phb-load" aria-live="polite"><i /><i /><i /><small>reading every pool…</small></div>;
-  return <div className="phb" data-testid="pool-hub"><CatCombo pools={pools} />
-    <header className="phb-head"><span className="phb-big"><em>TRACKED TVL</em><b className="m-num" key={Math.round(tvl / 1e6)}>{usd(tvl)}</b></span>
+  return <div className="phb" data-testid="pool-hub">
+    <PoolWaves rows={pools.pools} onPick={r => { setLens('all'); setQ(r.sym); }} pickWord="tap to show just this pool below" />
+    <CatCombo pools={pools} />
+    <header className="phb-head">
       <StakeSeg />
       <span className="phb-kinds">{Object.entries(pools.kinds || {}).filter(([, n]) => n).map(([k, n]) => <i key={k} style={{ '--kc': KIND_COLOR[k] }} data-tip={`${n} ${POOL_KIND[k] || k} pools on Solana`}><b>{n}</b>{k.toUpperCase()}</i>)}</span></header>
     <div className="phb-ctl">

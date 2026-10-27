@@ -3,8 +3,6 @@
 .phb { display: grid; gap: 10px; }
 .phb-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; padding: 10px 12px; border-radius: 12px;
   background: linear-gradient(120deg, #45e4c814, transparent 60%); border: 1px solid #45e4c833; }
-.phb-big { display: grid; } .phb-big em { font: 700 9.5px 'JetBrains Mono', monospace; font-style: normal; letter-spacing: .16em; color: #7fd8c8; }
-.phb-big b { font: 800 24px 'JetBrains Mono', monospace; color: #e6fffa; text-shadow: 0 0 18px #45e4c855; animation: phbNum .5s ease-out; }
 .phb-kinds { display: flex; flex-wrap: wrap; gap: 5px; } .phb-kinds i { display: inline-flex; gap: 5px; align-items: baseline; padding: 3px 8px; border-radius: 999px; font: 700 9.5px 'JetBrains Mono', monospace; font-style: normal;
   letter-spacing: .08em; color: var(--kc); border: 1px solid color-mix(in srgb, var(--kc) 45%, transparent); background: color-mix(in srgb, var(--kc) 10%, transparent); }
 .phb-kinds b { font-size: 11px; color: #fff; }
@@ -43,11 +41,10 @@
 .phb-combo li strong { font: 800 12px 'JetBrains Mono', monospace; color: #45e486; text-align: right; } .phb-combo li .m-btn { min-height: 32px; min-width: 32px; padding: 0; display: grid; place-items: center; text-decoration: none; }
 body.theme-day .phb-combo { background: #f7f2ff; border-color: #6a3dc244; } body.theme-day .phb-combo li b { color: #24183a; } body.theme-day .phb-combo-big span { color: #3d3450; }
 @media (max-width: 640px) { .phb-combo li { grid-template-columns: minmax(0, 1fr) 56px 32px; } .phb-combo li em { grid-column: 1 / -1; } }
-body.fx-lite .phb-row, body.fx-lite .phb-big b, body.fx-lite .phb-load i { animation: none; }
-@media (prefers-reduced-motion: reduce) { .phb-row, .phb-big b, .phb-load i { animation: none; } .phb-row { transition: none; } }
+body.fx-lite .phb-row, body.fx-lite .phb-load i { animation: none; }
+@media (prefers-reduced-motion: reduce) { .phb-row, .phb-load i { animation: none; } .phb-row { transition: none; } }
 body.theme-day .phb-row { background: linear-gradient(100deg, color-mix(in srgb, var(--kc) 12%, #ffffff) 0%, #f8fafc 60%); border-color: #0000001a; }
 body.theme-day .phb-id b, body.theme-day .phb-tvl b, body.theme-day .phb-apy b, body.theme-day .phb-kinds b { color: #0f1a24; } body.theme-day .phb-gauge i { background: #f8fafc; }
-body.theme-day .phb-big b { color: #0b4a42; text-shadow: none; }
 /* 🏦 deposit here (PoolHub LendBox, Jupiter Lend rows): a glass drawer under the row — amount, deposit / withdraw, the checked review, sign */
 .phb-lend { grid-column: 1 / -1; display: grid; gap: 8px; padding: 10px 12px; border-radius: 12px; background: linear-gradient(180deg, color-mix(in srgb, var(--kc) 10%, #0b0f0c), #070a08);
   border: 1px solid color-mix(in srgb, var(--kc) 40%, transparent); box-shadow: inset 0 1px 0 rgba(255, 255, 255, .06); animation: phbLend .2s ease-out both; }
@@ -88,7 +85,7 @@ body.theme-day .phb-lend { background: #f4fbf6; } body.theme-day .phb-lend-q p {
 @keyframes phbPop { from { transform: scale(1.08); } to { transform: none; } }
 body.fx-lite .phb-detail, body.fx-lite .phb-earn-big b { animation: none; } @media (prefers-reduced-motion: reduce) { .phb-detail, .phb-earn-big b { animation: none; } }
 body.theme-day .phb-chart, body.theme-day .phb-earn { background: #fff; } body.theme-day .phb-24 b, body.theme-day .phb-earn-big b { color: #0a8a44; text-shadow: none; } body.theme-day .phb-chart footer b { color: #0b3a1f; }
-@media (max-width: 640px) { .phb-row { grid-template-columns: 1fr auto; grid-template-areas: 'id rise' 'tvl apy' 'd24 d24' 'acts acts'; } .phb-detail { grid-template-columns: 1fr; } .phb-big b { font-size: 20px; } }
+@media (max-width: 640px) { .phb-row { grid-template-columns: 1fr auto; grid-template-areas: 'id rise' 'tvl apy' 'd24 d24' 'acts acts'; } .phb-detail { grid-template-columns: 1fr; } }
 /* 💸 the combo, alive (ComboLive): the split as a stacked bar that fills in, and the money ticking up while you look */
 .phb-clive { display: grid; grid-template-columns: 1fr auto; gap: 12px; align-items: center; }
 .phb-cbar { display: flex; height: 10px; border-radius: 6px; overflow: hidden; background: rgba(255, 255, 255, .05); gap: 2px; }

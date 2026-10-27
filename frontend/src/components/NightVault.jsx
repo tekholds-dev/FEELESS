@@ -6,6 +6,7 @@ import { JOB_OF, openDesk } from './MoneyDesk';
 import { FiveRun } from './FiveRun';
 import { AutoRangePicker } from './AutoRangeDesk';
 import { usePools } from './PoolHub';
+import { PoolWaves } from './PoolWaves';
 import '../styles/nightVault.css';
 
 // 💤 THE NIGHT VAULT — money while you sleep (FEELESS AVENUE building; backend sleep_money.py, GET /familia-pools/sleep). Five strategies from
@@ -70,6 +71,7 @@ export function NightVault() {
     <header className="nv-sky"><span className="nv-moon" aria-hidden /><span className="nv-stars" aria-hidden>{Array.from({ length: 14 }, (_, i) => <i key={i} style={{ '--i': i }} />)}</span>
       <span className="nv-z" aria-hidden><i>z</i><i>z</i><i>Z</i></span><span className="nv-stack" aria-hidden>{[0, 1, 2, 3].map(i => <i key={i} style={{ '--i': i }} />)}</span>
       <span className="nv-title" data-tip="APYs are live and move. Simple interest shown (before compounding). Nothing here is advice — every deposit is signed by your wallet, on the protocol's own contracts."><em>FEELESS AVENUE</em><b>THE NIGHT VAULT</b><small>money while you sleep · live APY · your wallet signs</small></span></header>
+    <PoolWaves rows={hub?.pools} tone="night" pickWord="tap to put money to work in it" onPick={r => openDesk({ job: JOB_OF[r.kind] || 'lend', focus: r, title: `${r.sym} · PUT IT TO WORK` })} />
     <FiveRun />
     <div className="nv-calc">
       <div className="nv-amt"><em>PUT IN</em><div className="m-seg" role="radiogroup" aria-label="Amount">{AMTS.map(a => <button key={a} type="button" role="radio" aria-checked={amt === a} className={amt === a ? 'active' : ''} onClick={() => setAmt(a)} data-testid={`nv-amt-${a}`}>${a >= 1000 ? `${a / 1000}K` : a}</button>)}</div>
