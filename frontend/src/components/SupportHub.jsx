@@ -10,7 +10,7 @@ import '../styles/supportHub.css';
 // 🛟 SUPPORT HUB (owner, 2026-10-20: "support with a visual live animated grid of bugs / reports auto-sorted by importance, community polls —
 // enough votes climb the ladder of approval — a support button in vital areas that leads to roadmap + whitepaper, and its own huge section").
 // One page, three lenses: 🐞 Reports (live grid, importance-sorted, +1 "me too") · 🗳 Polls (propose, vote, the ladder) · 📝 Report it.
-export const LENSES = [['reports', '🐞 Reports'], ['polls', '🗳 Polls'], ['send', '📝 Report it']];
+export const LENSES = [['reports', '🐞 Reports'], ['ideas', '💡 Ideas'], ['polls', '🗳 Polls'], ['send', '📝 Report it']];
 const STATUS = { open: ['🟠', 'OPEN'], fixing: ['🔨', 'FIXING'], fixed: ['✅', 'FIXED'], wontfix: ['✕', "WON'T FIX"] };
 const KIND = { bug: '🐞', idea: '💡', security: '🔒' };
 export const heat = i => (i >= 70 ? 'hot' : i >= 40 ? 'warm' : 'cool');
@@ -25,10 +25,24 @@ function Ladder({ ladder, polls }) {
     <b>{r.label}</b><small>{r.at != null ? `${r.at}+ votes` : 'the owner decides'}</small><i>{n(r.key)}</i></li>)}</ol>;
 }
 
+// 👍 👎 💬 on every card (owner 2026-10-26): one vote per wallet (tap again to clear), comments drop down under the card
+function CardActs({ id, d, act, busy }) {
+  const [open, setOpen] = useState(false); const [t, setT] = useState('');
+  const r = d?.reacts?.[id] || { up: 0, down: 0, mine: 0 }; const cs = d?.comments?.[id] || [];
+  return <div className="sup-acts" data-testid={`sup-acts-${id}`}>
+    <button type="button" className={r.mine === 1 ? 'is-on' : ''} disabled={!!busy} onClick={() => act({ react: id, v: 1 }, `r${id}`)} aria-pressed={r.mine === 1} data-tip="Like">👍 {r.up || ''}</button>
+    <button type="button" className={r.mine === -1 ? 'is-on is-dn' : ''} disabled={!!busy} onClick={() => act({ react: id, v: -1 }, `r${id}`)} aria-pressed={r.mine === -1} data-tip="Dislike">👎 {r.down || ''}</button>
+    <button type="button" className={open ? 'is-on' : ''} onClick={() => setOpen(!open)} aria-expanded={open} data-tip="Comments">💬 {cs.length || ''}</button>
+    {open ? <div className="sup-thread"><ul>{cs.map((c, i) => <li key={i}><b>{c.by.slice(0, 4)}…{c.by.slice(-4)}</b><span>{c.text}</span></li>)}{!cs.length ? <li className="sup-none">No comments yet.</li> : null}</ul>
+      <form onSubmit={async e => { e.preventDefault(); if (await act({ comment: id, text: t }, `c${id}`)) setT(''); }}><input className="m-input" value={t} maxLength={280} placeholder="Add a comment…" onChange={e => setT(e.target.value)} aria-label="Comment" />
+        <button type="submit" className="m-btn" disabled={t.trim().length < 2 || !!busy}>Send</button></form></div> : null}
+  </div>;
+}
+
 export function SupportHub() {
   const { wallet } = useWallet() || {}; const me = wallet?.address || ''; const sess = me ? readChatSession(me) : '';
   const [lens, setLens] = useState('reports'); const [d, setD] = useState(null); const [kind, setKind] = useState('all'); const [busy, setBusy] = useState('');
-  const [q, setQ] = useState(''); const [opts, setOpts] = useState(['', '']);
+  const [q, setQ] = useState(''); const [opts, setOpts] = useState(['', '']); const [idea, setIdea] = useState('');
   const load = useCallback(() => fetch(apiUrl(`/api/reputation/support${me ? `?wallet=${me}` : ''}`)).then(r => r.json()).then(setD).catch(() => {}), [me]);
   useEffect(() => { load(); const t = setInterval(() => { if (!document.hidden) load(); }, 20000); return () => clearInterval(t); }, [load]);
   const act = async (body, tag) => {
@@ -55,6 +69,7 @@ export function SupportHub() {
             <div className="sup-imp"><u style={{ transform: `scaleX(${Math.max(0.04, r.importance / 100)})` }} /></div>
             <footer><small>{r.count}× hit · importance {r.importance}</small>
               <button type="button" className={`sup-plus${mine ? ' is-on' : ''}`} disabled={!!busy} aria-pressed={mine} onClick={() => act({ plus: r.id }, r.id)} data-testid="sup-plus">👍 me too {r.plus || ''}</button></footer>
+            <CardActs id={r.id} d={d} act={act} busy={busy} />
           </article>; })}</div>}
     </> : null}
     {lens === 'polls' ? <>
@@ -70,9 +85,19 @@ export function SupportHub() {
         return <article key={p.id} className={`sup-poll k-${p.stage?.key}`} style={{ '--i': Math.min(i, 20) }} data-testid="sup-poll">
           <header><span className="sup-stage">{p.stage?.label}</span><small>{p.votes} vote{p.votes === 1 ? '' : 's'}{p.stage?.next ? ` · ${p.stage.next.need} more → ${p.stage.next.label}` : ''}</small></header>
           <b>{p.q}</b>{p.note ? <p className="sup-note">📌 {p.note}</p> : null}
+          <CardActs id={p.id} d={d} act={act} busy={busy} />
           <ul>{p.options.map((o, j) => <li key={j}><button type="button" className={p.mine === j ? 'is-mine' : ''} disabled={!!busy || ['roadmap', 'building', 'shipped', 'declined'].includes(p.stage?.key)}
             onClick={() => act({ poll: p.id, opt: j }, p.id)} data-testid={`sup-vote-${j}`}><span>{o}</span><i style={{ transform: `scaleX(${p.tally[j] / tot})` }} /><b>{Math.round((100 * p.tally[j]) / tot)}%</b></button></li>)}</ul>
         </article>; })}{!(d?.polls || []).length ? <p className="sup-empty">No polls yet — ask the first question.</p> : null}</div>
+    </> : null}
+    {lens === 'ideas' ? <>
+      <form className="sup-new m-card" onSubmit={async e => { e.preventDefault(); if (await act({ idea: true, text: idea }, 'idea')) { setIdea(''); toast.success('💡 idea posted'); } }}>
+        <b>💡 Pitch an idea</b><textarea className="m-input" rows="2" value={idea} maxLength={280} placeholder="What would make FEELESS better? One or two lines." onChange={e => setIdea(e.target.value)} aria-label="Your idea" />
+        <button type="submit" className="m-btn m-go" disabled={busy === 'idea' || idea.trim().length < 8} data-testid="sup-idea-post">Post idea</button></form>
+      <div className="sup-grid" data-testid="sup-ideas">{(d?.ideas || []).map((x, i) => { const rr = d?.reacts?.[x.id] || {}; return <article key={x.id} className="sup-card sup-idea" style={{ '--i': Math.min(i, 20) }}>
+        <header><i>💡</i><span className="sup-area">{x.by.slice(0, 4)}…{x.by.slice(-4)}</span><span className="sup-st">▲ {(rr.up || 0) - (rr.down || 0)}</span></header>
+        <b className="sup-title">{x.text}</b><CardActs id={x.id} d={d} act={act} busy={busy} /></article>; })}
+        {!(d?.ideas || []).length ? <p className="sup-empty">No ideas yet — pitch the first one.</p> : null}</div>
     </> : null}
     {lens === 'send' ? <div className="sup-send m-card"><p>Bugs, ideas and security reports go straight to the FEELESS team. The same crash on the same page is merged into one card with a count.</p><ReportBug address={me} /></div> : null}
   </section>;

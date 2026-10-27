@@ -50,3 +50,15 @@ body.theme-day .sup-card, body.theme-day .sup-poll, body.theme-day .sup-kpis spa
 body.theme-day .sup-title, body.theme-day .sup-poll > b, body.theme-day .sup-hero h1, body.theme-day .sup-kpis b, body.theme-day .sup-ladder b, body.theme-day .sup-poll li button { color: #181d1b; }
 @media (max-width: 640px) { .sup-hero { grid-template-columns: 1fr; } .sup-ladder { grid-template-columns: repeat(2, 1fr); } .sup-ladder li { transform: none; } }
 .sup-row { display: flex; justify-content: flex-end; margin: 6px 0; }
+/* 👍 👎 💬 on every card + the comment drop-down */
+.sup-acts { display: flex; flex-wrap: wrap; gap: 5px; align-items: center; }
+.sup-acts > button { min-height: 32px; min-width: 44px; padding: 0 9px; border-radius: 9px; border: 1px solid rgba(255, 255, 255, .12); background: rgba(0, 0, 0, .3); color: #dfeee6; font: 700 11px 'JetBrains Mono', monospace; cursor: pointer; transition: border-color .15s, background .15s, transform .12s; }
+.sup-acts > button:hover { border-color: #45e486; } .sup-acts > button:active { transform: scale(.95); } .sup-acts > button:focus-visible { outline: 2px solid #45e486; outline-offset: 1px; }
+.sup-acts > button.is-on { background: rgba(21, 209, 106, .18); border-color: #15d16a; } .sup-acts > button.is-on.is-dn { background: rgba(255, 107, 139, .16); border-color: #ff6b8b; }
+.sup-thread { flex: 1 1 100%; display: grid; gap: 6px; padding: 8px; border-radius: 10px; background: rgba(0, 0, 0, .35); border: 1px solid rgba(255, 255, 255, .08); animation: supDrop .18s ease-out both; }
+.sup-thread ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; max-height: 180px; overflow: auto; scrollbar-width: thin; }
+.sup-thread li { display: grid; gap: 1px; font: 500 11.5px Inter, system-ui, sans-serif; color: #cfe3d7; } .sup-thread li b { font: 700 9.5px 'JetBrains Mono', monospace; color: #86efac; } .sup-thread .sup-none { color: #7f9a88; }
+.sup-thread form { display: flex; gap: 6px; } .sup-thread input { flex: 1; min-width: 0; } .sup-new textarea { resize: vertical; }
+@keyframes supDrop { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: none; } }
+body.fx-lite .sup-thread { animation: none; } @media (prefers-reduced-motion: reduce) { .sup-thread { animation: none; } }
+body.theme-day .sup-acts > button, body.theme-day .sup-thread { background: #fff; color: #10301f; }

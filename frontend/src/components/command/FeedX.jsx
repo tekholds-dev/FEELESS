@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import { useWallet } from '../../hooks/useWallet';
-import { readChatSession } from '../../lib/chatSession';
+import { readChatSession, getChatSession } from '../../lib/chatSession';
 import { Link, useNavigate } from 'react-router-dom';
 import EcosystemChat from '../EcosystemChat';
 import { Explain } from '../Explain';
@@ -273,14 +273,24 @@ function LookPanel({ look, set, onClose }) {
 }
 /** 🔗 your own public handles (never a password / token): one-tap to your profile and to post there as you */
 function MySites({ look, set }) {
-  const [edit, setEdit] = useState(false);
+  const [edit, setEdit] = useState(false); const [xv, setXv] = useState(null); const [busy, setBusy] = useState(false);
+  const { wallet, signMessage } = useWallet() || {}; const me = wallet?.address;
   const h = look.handles || {};
+  useEffect(() => { if (!me) return undefined; let on = true; fetch(apiUrl(`/api/reputation/profile/${me}`)).then(r => (r.ok ? r.json() : null)).then(d => on && setXv(d?.profile?.xVerified || null)).catch(() => {}); return () => { on = false; }; }, [me]);
+  const signX = async () => {   // 𝕏 X's own sign-in (OAuth): you log in on x.com, FEELESS keeps only your verified @handle — no password, no token
+    if (!me) { toast.error('Connect your wallet first.'); return; } setBusy(true);
+    try { const session = await getChatSession(me, signMessage);
+      const r = await fetch(apiUrl('/api/reputation/x/oauth/start'), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ address: me, session, back: window.location.pathname + window.location.search }) });
+      const b = await r.json().catch(() => ({})); if (!r.ok) throw new Error(b.detail || 'X sign-in is not available.'); window.location.href = b.url; }
+    catch (e) { toast.error(e.message); setBusy(false); } };
   return <div className="feed-side fx-acc fx-sites" data-testid="feed-sites"><h4>🔗 Your sites <button type="button" className="m-btn" onClick={() => setEdit(e => !e)} data-testid="feed-sites-edit">{edit ? 'Done' : 'Connect'}</button></h4>
     {edit ? HANDLE_SITES.map(([k, ic]) => <label key={k} className="fx-hrow"><i>{ic}</i><input className="m-input" defaultValue={h[k] || ''} placeholder={k === 'x' ? '@yourhandle' : 'your name there'} maxLength={40}
       onBlur={e => set({ ...look, handles: { ...h, [k]: e.target.value } })} data-testid={`feed-handle-${k}`} /></label>)
       : HANDLE_SITES.some(([k]) => h[k]) ? <ul className="fx-hlist">{HANDLE_SITES.filter(([k]) => h[k]).map(([k, ic]) => <li key={k}><a href={handleUrl(k, h[k])} target="_blank" rel="noopener noreferrer">{ic} @{h[k]}</a></li>)}</ul>
       : <p>Add your X / Reddit / Bluesky / Telegram name — one tap to your profile, and the post box posts there as you.</p>}
-    <p className="fx-dim">Your login stays on each site: FEELESS never asks for your password. Reading your private X / Reddit timeline needs their API apps.</p>
+    {xv ? <p className="fx-xok" data-testid="feed-x-verified">𝕏 <b>@{xv.username}</b> · verified by X</p>
+      : <button type="button" className="m-btn m-go fx-xsign" onClick={signX} disabled={busy} data-testid="feed-x-signin" data-tip="Log in on x.com itself — FEELESS gets only your verified @handle, never your password or a token">{busy ? 'Opening X…' : '𝕏 Sign in with X'}</button>}
+    <p className="fx-dim">You log in on each site itself: FEELESS never sees a password. Reading your private X / Reddit timeline needs their API apps.</p>
   </div>;
 }
 

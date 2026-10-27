@@ -207,3 +207,17 @@ body.theme-day .fx-wire { background: #e6f4ec; } body.theme-day .fx-wire-run but
 body.fx-lite .fx-rcpt::after, body.fx-lite .fx-wire-lbl { animation: none; }
 @media (prefers-reduced-motion: reduce) { .fx-rcpt::after, .fx-rcpt strong, .fx-rcpt em, .fx-wire-lbl { animation: none; } .fx-wire-run { animation: none; flex-wrap: wrap; width: auto; } }
 @media (max-width: 640px) { .fx-rcpt { grid-template-columns: 26px minmax(0, 1fr) auto; } .fx-rcpt-rail, .fx-rcpt em { display: none; } }
+/* 🐦 TIMELINE ROWS LIKE X (owner 2026-10-26): flat full-width rows — no box inside the row (Fuse Lab's .fx-body card style leaked in here), the name ·
+   @handle · time on one line, actions spread under the text, the post's id hidden until you hover. */
+.fx .fx-post > .fx-body { padding: 0; border: 0; background: none; border-radius: 0; }
+.fx .fx-post { grid-template-columns: 44px minmax(0, 1fr); padding: 12px 16px; }
+.fx .fx-post .fx-ava { width: 44px; height: 44px; }
+.fx .fx-post.has-thread::before { left: 37px; top: 62px; }
+.fx .fx-post header { gap: 5px; } .fx .fx-post header b { font-size: 15px; }
+.fx .fx-post header .fx-src { margin-left: auto; } .fx .fx-post .fx-hash { opacity: 0; transition: opacity .15s; } .fx .fx-post:hover .fx-hash { opacity: .6; }
+.fx .fx-post .fx-follow { padding: 1px 8px; font-size: 10px; }
+.fx .fx-post .fx-bar { display: flex; justify-content: space-between; max-width: 460px; }
+.fx .fx-post .fx-bar .fx-right { margin-left: 0; display: contents; }
+.fx .fx-post .fx-act { min-height: 32px; padding: 0 8px; border-radius: 999px; } .fx .fx-post .fx-act:hover { background: rgba(69, 228, 134, .1); }
+.fx-xsign { width: 100%; min-height: 38px; justify-content: center; font-weight: 900; margin: 6px 0; }
+.fx-xok { margin: 6px 0; padding: 8px 10px; border-radius: 10px; background: rgba(69, 228, 134, .08); border: 1px solid rgba(69, 228, 134, .3); font: 700 12px 'JetBrains Mono', monospace; } .fx-xok b { color: #45e486; }

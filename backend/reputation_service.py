@@ -2071,6 +2071,61 @@ async def save_profile(payload: ProfileSave):
     return {'ok': True, 'profile': d['profiles'][owner]}
 
 
+# 𝕏 SIGN IN WITH X (owner 2026-10-26: "a true account link so they're actually signed in to X, not an API"): X's own OAuth 2.0 (PKCE). FEELESS asks
+# only to read who you are (users.read), stores your verified @handle on your profile and keeps NO token. Needs the owner's X app: X_CLIENT_ID
+# (+ X_CLIENT_SECRET for a confidential app) and the callback URL X_REDIRECT_URI (default PUBLIC_SITE_URL/api/reputation/x/oauth/callback).
+_x_states: dict = {}
+
+
+def _x_redirect():
+    return os.getenv('X_REDIRECT_URI') or f"{(os.getenv('PUBLIC_SITE_URL') or '').rstrip('/')}/api/reputation/x/oauth/callback"
+
+
+@app.post('/api/reputation/x/oauth/start')
+async def x_oauth_start(request: Request):
+    import base64 as _b64
+    import hashlib as _hl
+    import secrets as _sec
+    b_ = await request.json()
+    me_ = _session_or_401(str((b_ or {}).get('address') or ''), str((b_ or {}).get('session') or ''))
+    cid_ = (os.getenv('X_CLIENT_ID') or '').strip()
+    if not cid_ or not _x_redirect().startswith('https://'):
+        raise HTTPException(409, 'Sign in with X turns on when the owner adds an X app (X_CLIENT_ID) and a public https site (PUBLIC_SITE_URL).')
+    ver_ = _sec.token_urlsafe(48); st_ = _sec.token_urlsafe(18)
+    ch_ = _b64.urlsafe_b64encode(_hl.sha256(ver_.encode()).digest()).rstrip(b'=').decode()
+    now_ = time.time(); [_x_states.pop(k_) for k_ in [k_ for k_, v_ in _x_states.items() if now_ - v_['at'] > 600]]
+    _x_states[st_] = {'addr': me_, 'ver': ver_, 'at': now_, 'back': str((b_ or {}).get('back') or '/terminal/profile')[:200]}
+    from urllib.parse import urlencode as _ue
+    return {'url': 'https://twitter.com/i/oauth2/authorize?' + _ue({'response_type': 'code', 'client_id': cid_, 'redirect_uri': _x_redirect(), 'scope': 'users.read tweet.read',
+                                                                     'state': st_, 'code_challenge': ch_, 'code_challenge_method': 'S256'})}
+
+
+@app.get('/api/reputation/x/oauth/callback')
+async def x_oauth_callback(code: str = '', state: str = '', error: str = ''):
+    from fastapi.responses import RedirectResponse
+    st_ = _x_states.pop(state, None)
+    site_ = (os.getenv('PUBLIC_SITE_URL') or '').rstrip('/')
+    if not st_ or error or not code:
+        return RedirectResponse(f"{site_}/terminal/profile?x=failed")
+    cid_, sec_ = (os.getenv('X_CLIENT_ID') or '').strip(), (os.getenv('X_CLIENT_SECRET') or '').strip()
+    try:
+        async with httpx.AsyncClient(timeout=15) as h_:
+            tok_ = await h_.post('https://api.twitter.com/2/oauth2/token', data={'grant_type': 'authorization_code', 'code': code, 'redirect_uri': _x_redirect(), 'client_id': cid_, 'code_verifier': st_['ver']},
+                                 auth=(cid_, sec_) if sec_ else None)
+            at_ = (tok_.json() or {}).get('access_token')
+            me_ = (await h_.get('https://api.twitter.com/2/users/me', headers={'Authorization': f'Bearer {at_}'})).json().get('data') if at_ else None
+    except Exception:
+        me_ = None
+    if not me_ or not me_.get('username'):
+        return RedirectResponse(f"{site_}/terminal/profile?x=failed")
+    async with _profile_lock:
+        d_ = _profiles_load(); pr_ = d_.setdefault('profiles', {}).setdefault(st_['addr'], {})
+        pr_['xVerified'] = {'id': str(me_.get('id')), 'username': me_['username'][:40], 'at': time.time()}
+        pr_['twitter'] = '@' + me_['username'][:40]
+        tmp_ = PROFILE_PATH.with_suffix('.tmp'); tmp_.write_text(json.dumps(d_)); tmp_.replace(PROFILE_PATH)
+    return RedirectResponse(f"{site_}{st_['back']}{'&' if '?' in st_['back'] else '?'}x=linked")
+
+
 @app.get('/api/reputation/profile/{address}')
 async def get_profile(address: str):
     p = _profiles_load()['profiles'].get(address)
@@ -7093,7 +7148,8 @@ async def _sf_read(src):
             return _sfeed.from_pump((b_.get('latest') or [])[:40] + (b_.get('top') or [])[:20])
         if src == 'feeless':
             d_ = _chat_load()
-            return [p_ for r_ in ('feed-general', 'feed-alpha', 'feed-memes', 'feed-launches', 'feeless-updates') for p_ in _sfeed.from_feeless((d_['rooms'].get(r_) or [])[-40:], r_)]
+            ops_ = _re.compile(r'(recovered \(\d+ ms\)|degraded for 5\+ min|Fallbacks are serving)')   # old health pings stay out of the social feed
+            return [p_ for r_ in ('feed-general', 'feed-alpha', 'feed-memes', 'feed-launches', 'feeless-updates') for p_ in _sfeed.from_feeless([m_ for m_ in (d_['rooms'].get(r_) or [])[-60:] if not ops_.search(str(m_.get('text') or ''))][-40:], r_)]
         if src == 'x':
             return list((_json_load(FEED_X_PATH, {}) or {}).get('posts') or [])
         if src == 'telegram':
@@ -31396,16 +31452,22 @@ async def _latency_alarm():
                 st = _latency_bad.get(r['name'])
                 if not bad:
                     if st and st.get('posted'):
-                        feeless_post('feeless-updates', f"✅ {r['name']} recovered ({r['ms']} ms).")
+                        _ops_note(f"✅ {r['name']} recovered ({r['ms']} ms).")
                     _latency_bad.pop(r['name'], None)
                     continue
                 st = _latency_bad.setdefault(r['name'], {'since': time.time()})
                 if not st.get('posted') and time.time() - st['since'] >= 300:
                     st['posted'] = True
                     why = r['note'] or 'down' if not r['ok'] else f"{r['ms']} ms"
-                    feeless_post('feeless-updates', f"⚠️ {r['name']} ({r['role']}) degraded for 5+ min: {why}. Fallbacks are serving; we're on it.")
+                    _ops_note(f"⚠️ {r['name']} ({r['role']}) degraded for 5+ min: {why}. Fallbacks are serving.")
         except Exception as exc:
             print('latency alarm error', exc)
+
+
+def _ops_note(text):
+    """🛠 Service health goes to the owners' private inbox (HQ), never the public FEEd (owner 2026-10-26: a social feed full of 'Jupiter price recovered' isn't real)."""
+    for w_ in (_owner_wallets() or [])[:3]:
+        notify(w_, 'ops', text, url='/terminal/hq', push=False, meta={'claim': 'ops', 'source': 'latency'})
 
 
 @app.on_event('startup')
