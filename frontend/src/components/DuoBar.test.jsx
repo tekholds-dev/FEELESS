@@ -1,7 +1,7 @@
 import React from 'react';
 import { createRoot } from 'react-dom/client';
 import { act } from 'react';
-import { MemoryRouter } from 'react-router-dom';
+jest.mock('react-router-dom', () => ({ useLocation: () => ({ pathname: '/terminal/chat' }) }), { virtual: true });
 import { DuoBar } from './DuoBar';
 import { duoPrefs } from '../lib/duo';
 
@@ -10,7 +10,7 @@ const q = id => document.querySelector(`[data-testid="${id}"]`);
 test('📱📱 the Duo bar: hidden off a Duo, folds to a small button, ⇄ swaps the screens, the Trenches pick CHAT | CALLS — saved + on <body>', async () => {
   expect(duoPrefs('{"swap":1,"second":"calls"}')).toEqual({ swap: true, second: 'calls' }); expect(duoPrefs('junk')).toEqual({ swap: false, second: 'trade' });   // TRADE beside the chart is the default
   const el = document.createElement('div'); document.body.appendChild(el); const root = createRoot(el);
-  await act(async () => { root.render(<MemoryRouter initialEntries={['/terminal/chat']}><DuoBar /></MemoryRouter>); });
+  await act(async () => { root.render(<DuoBar />); });
   expect(q('duo-fab')).toBeNull();                                            // not a Duo screen
   document.body.classList.add('is-duo'); await act(async () => { window.dispatchEvent(new Event('feeless:duo')); });
   await act(async () => { q('duo-fab').click(); });
