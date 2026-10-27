@@ -25,8 +25,8 @@ import { useChatCallouts } from '../../lib/useChatCallouts';
 const METRIC_LABEL = { price: 'Price', marketCap: 'Market cap', fdv: 'FDV' };
 
 // aside: something to sit beside the chart (the war room puts the coin chat there); the trade tools then go below
-// the chart in a row instead of a scrolling side column.
-export function TrenchChart({ pair: current, defaultInterval = '1m', onExpand, expanded, className = '', aside = null }) {
+// the chart in a row instead of a scrolling side column. tools / tape = false: the host shows them itself (the Duo floor's dock).
+export function TrenchChart({ pair: current, defaultInterval = '1m', onExpand, expanded, className = '', aside = null, tools: withTools = true, tape = true }) {
   const [interval, setInterval] = useState(defaultInterval);
   const chatCalls = useChatCallouts(current?.pairAddress);   // 📍 the coin room's /callouts as pins on this chart
   const [metric, setMetric] = useState('marketCap');
@@ -62,7 +62,7 @@ export function TrenchChart({ pair: current, defaultInterval = '1m', onExpand, e
     const idx = availableMetrics.indexOf(metric);
     setMetric(availableMetrics[(idx + 1) % availableMetrics.length]);
   };
-  const tools = <div className={aside ? 'chart-tools-row' : 'chart-side-stack custom-scroll'} data-testid="chart-tools"><QuickTrade pair={current} /><DipRipTool pair={current} />{current.chainId === 'solana' && <ShieldBadge mint={current.baseToken?.address} />}</div>;
+  const tools = !withTools ? null : <div className={aside ? 'chart-tools-row' : 'chart-side-stack custom-scroll'} data-testid="chart-tools"><QuickTrade pair={current} /><DipRipTool pair={current} />{current.chainId === 'solana' && <ShieldBadge mint={current.baseToken?.address} />}</div>;
   return <div className={`trench-chart ${className}`} data-testid="trench-chart">
     <div className="chart-toolbar"><button type="button" className="chart-metric-switch" title={`Showing ${METRIC_LABEL[metric]} · click to switch (${availableMetrics.map(id => METRIC_LABEL[id]).join(' → ')})`} data-testid="chart-metric-switch" onClick={cycleMetric} disabled={availableMetrics.length < 2}><ArrowLeftRight size={13} /><span data-testid="chart-metric-active">{METRIC_LABEL[metric]}</span></button><div className="timeframes">{['1m', '5m', '15m', '1h', '4h', '1d'].map(t => <button className={t === interval ? 'active' : ''} data-testid={`chart-interval-${t}`} key={t} onClick={() => setInterval(t)}>{t.toUpperCase()}</button>)}</div><button className={`volume-control ${volume ? 'positive' : ''}`} title="Toggle volume bars" data-testid="chart-volume-toggle" onClick={() => setVolume(v => !v)}><BarChart3 size={13} /><span>Volume</span></button><ChartMetaButtons pair={current} calls={showCalls} setCalls={setShowCalls} fee={showFee} setFee={setShowFee} fullscreenRef={chartWrap} onExpand={onExpand} expanded={expanded} count={{ calls: markers.filter(m => m.color === '#e9bd65').length, fee: markers.filter(m => m.text?.startsWith('Fee')).length }} /><PriceAlertButton pair={current} /><ChartBgPicker /><button type="button" className="chart-mini-btn" onClick={() => openMiniChart(current)} data-testid="chart-mini" aria-label="Mini chart" data-tip="Mini chart: closes this room and keeps the chart floating on every page">📌</button><a title="Open advanced chart" data-testid="chart-advanced-link" href={dexUrl(current)} target="_blank" rel="noreferrer"><ExternalLink size={13} /></a></div>
     {fz?.entry > 0 && <div className={`chart-fuse ${rebuying ? 'is-busy' : ''}`} data-testid="chart-fuse"><b>⚛️ {fz.card || 'Fuse card'}</b><span>entry <em>${tiny(Number(fz.entry), 4)}</em></span>
@@ -72,7 +72,7 @@ export function TrenchChart({ pair: current, defaultInterval = '1m', onExpand, e
       {lf.state === 'gone' && <span className="down" data-testid="chart-fuse-gone">no longer on the card</span>}
       {fz.riding ? <span>❄ riding{fz.trail ? <> · out under <em>${tiny(Number(fz.trail), 4)}</em></> : null}</span> : <>{fz.stop ? <span>🛑 stop <em>${tiny(Number(fz.stop), 4)}</em></span> : null}{fz.lock ? <span>❄ locks <em>${tiny(Number(fz.lock), 4)}</em></span> : null}</>}</div>}
     <div className="chart-with-trade"><div className="chart-fullscreen-wrap" ref={chartWrap}><PnlBadge mcPerPrice={Number(current.marketCap) > 0 && Number(current.priceUsd) > 0 ? Number(current.marketCap) / Number(current.priceUsd) : null} pos={myPos} pair={current} price={Number(current.priceUsd)} flash={tradeFlash} symbol={current.baseToken?.symbol} imageUrl={current.info?.imageUrl} /><ChartBoundary key={`${current.chainId}-${current.pairAddress}-${interval}-${metric}`} pair={current}><PriceChart userEntry={myPos?.tokensHeld > 0 ? (myPos?.fillPrice || myPos?.avgEntry) : null} userTrades={myPos?.trades} pair={current} interval={interval} metric={metric} showVolume={volume} markers={markers} feeLive={showFee} fuse={fz || null} pnl={myPos?.tokensHeld > 0 ? { pos: myPos, tagOnly: true } : false} callouts={chatCalls} /></ChartBoundary></div>{aside ? <div className="chart-aside">{aside}</div> : tools}</div>{aside && tools}
-    <TradeTape pair={current} />
+    {tape ? <TradeTape pair={current} /> : null}
   </div>;
 }
 export { useMyPosition };

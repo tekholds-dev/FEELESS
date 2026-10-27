@@ -183,9 +183,9 @@ e. 🚀 LAUNCH: coin first + a POOLS switch (Range Lab before signing), pair wit
    their real configs — no dropdown walls.
 f. 🏙 FAMILIA: glass live P&L on any building holding a coin / perp · Trench towers = live vitals · errands = real money + MP game (raids by MP or
    family cash) · MP / points from every real-money $ → rank + badge pools · other families' backdrops (big holders upload).
-g. 🖥 HQ: Fuse tab de-cluttered · fee tab = every real-money fee (swap · trench · perps · pools · launch) set by the owner · Fuse family view at
+g. 🖥 HQ: every tab like Agents (fewer tabs up front · hide '—' cells · fold unread; needs a fixture-backed `/dev/hq?deck=` harness) · Fuse tab de-cluttered · fee tab = every real-money fee (swap · trench · perps · pools · launch) set by the owner · Fuse family view at
    the page bottom renders oddly (owner screenshot) · every HQ tab ≤ 1 screen.
-h. 📱 Trenches + Pump radar mobile flow redo (one-thumb), Duo per-tab features beyond the split layouts (lib/duo.js is the hook).
+h. 📱 Trenches + Pump radar mobile flow redo (one-thumb). Duo FLOOR shipped 2026-10-27 (DuoFloor.jsx) — NEXT: Perps desk + Pump radar as Duo split apps the same way.
 i. ✅ the full click-through (P0 #6 below) + a page watcher (overflow / overlap detector in the Lag catcher).
 
 P0 — OWNER 2026-10-23 (late night) · finished today → `docs/FEELESS_HISTORY.md` (grep "2026-10-23 late night")

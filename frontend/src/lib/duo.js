@@ -3,19 +3,24 @@
 //   is-duo        touch screen 600–1180px wide (or two segments)   → split chart | trade on Perps, chart | chat on the Trenches floor
 //   is-duo-split  the screen reports two horizontal viewport segments (a hinge) → the columns sit on each side of it
 //   is-phone-land a phone turned sideways                           → full-height chart beside the ticket, the header shrinks
+//   is-duo-land   an unfolded screen held wide (iPhone Duo open = 890 × 626) → ONE slim top bar, the two halves meet at the crease (~445 px)
+// iPhone Duo (owner 2026-10-27): folded 466 × 678 (a phone) · unfolded 890 × 626 wide / 626 × 890 upright, DPR 3, crease down the middle.
+// Safari reports no viewport segments, so the split is by size, never by hinge APIs. The Trenches floor on any of these = DuoFloor.
 // The user's own Duo picks (DuoBar, stored per device `feeless.duo`): `duo-swap` = the two screens trade places; the Trenches' second screen =
-// `duo-2-trade` (default: Quick trade + Dip/Rip + Shield beside the chart — owner 2026-10-27: "chart AND quick trade"), `duo-2-chat` or `duo-2-calls`.
+// the Duo floor's open dock tab (`second`: trade · chat · calls · coins · tape — TRADE by default: owner 2026-10-27 "chart AND quick trade").
 export function duoState(w = typeof window !== 'undefined' ? window : null) {
-  if (!w) return { duo: false, split: false, land: false };
+  if (!w) return { duo: false, split: false, land: false, wide: false };
   const mm = q => { try { return !!w.matchMedia?.(q).matches; } catch { return false; } };
   const coarse = mm('(pointer: coarse)');
   const split = mm('(horizontal-viewport-segments: 2)') || (w.navigator?.viewportSegments?.length === 2);
   const W = w.innerWidth || 0; const H = w.innerHeight || 0;
-  return { duo: coarse && (split || (W >= 600 && W <= 1180)), split: coarse && split, land: coarse && W > H && H <= 500 };
+  const duo = coarse && (split || (W >= 600 && W <= 1180));
+  return { duo, split: coarse && split, land: coarse && W > H && H <= 500, wide: duo && W > H };
 }
 
 export const DUO_KEY = 'feeless.duo';
-export const DUO_SECOND = [['trade', 'TRADE', 'Quick trade, Dip / Rip and the rug shield on the second screen — buy and sell while the chart fills the first'], ['chat', 'CHAT', "The coin's chat on the second screen"], ['calls', 'CALLS', 'Hot + live calls and the caller board on the second screen']];
+export const DUO_SECOND = [['trade', 'TRADE', 'Quick trade, Dip / Rip and the rug shield beside the chart'], ['chat', 'CHAT', "The coin's chat"], ['calls', 'CALLS', 'Hot + live calls and the caller board'],
+  ['coins', 'COINS', 'The live intake + the coin feed — tap one and it opens on the chart in place'], ['tape', 'TAPE', 'Every live swap on this coin']];   // the Duo floor's dock tabs
 // pure: whatever was stored → valid picks
 export function duoPrefs(raw) {
   let p = raw; if (typeof raw === 'string') { try { p = JSON.parse(raw); } catch { p = null; } }
@@ -38,10 +43,32 @@ export function installDuo() {
   window.__feelessDuo = true;
   let t = null;
   const apply = () => { const s = duoState(); const b = document.body.classList;
-    b.toggle('is-duo', s.duo); b.toggle('is-duo-split', s.split); b.toggle('is-phone-land', s.land);
+    b.toggle('is-duo', s.duo); b.toggle('is-duo-split', s.split); b.toggle('is-phone-land', s.land); b.toggle('is-duo-land', s.wide);
     try { window.dispatchEvent(new Event('feeless:duo')); } catch { /* old browsers */ } };
   const soon = () => { clearTimeout(t); t = setTimeout(apply, 150); };
   apply(); applyDuoPrefs();
   window.addEventListener('resize', soon, { passive: true });
   window.addEventListener('orientationchange', soon, { passive: true });
+}
+
+// 🕘 the coins you opened on the Duo floor, newest first (the rail's quick switch) — pure: list + a pair → the new list (max 6, one per pool)
+export const RECENT_KEY = 'feeless.duo.recent';
+export function pushRecent(list, pair) {
+  if (!pair?.pairAddress) return list || [];
+  const row = { chainId: pair.chainId || 'solana', pairAddress: pair.pairAddress, symbol: pair.baseToken?.symbol || '?', img: pair.info?.imageUrl || null, mint: pair.baseToken?.address || null };
+  return [row, ...(list || []).filter(r => r && r.pairAddress !== row.pairAddress)].slice(0, 6);
+}
+export function readRecent() { try { const v = JSON.parse(localStorage.getItem(RECENT_KEY) || '[]'); return Array.isArray(v) ? v : []; } catch { return []; } }
+export function saveRecent(list) { try { localStorage.setItem(RECENT_KEY, JSON.stringify(list)); } catch { /* private mode */ } return list; }
+// the floor's coin feed for swipe ‹ › and the COINS tab: trending then new, one row per pool, dust pools out
+export function floorFeed(pairs = [], newPairs = []) {
+  const seen = new Set(); const out = [];
+  for (const p of [...pairs, ...newPairs]) { if (!p?.pairAddress || seen.has(p.pairAddress) || !(Number(p.liquidity?.usd) >= 1000 || Number(p.marketCap ?? p.fdv) >= 5000)) continue; seen.add(p.pairAddress); out.push(p); }
+  return out;
+}
+// ‹ › step through the feed from the coin on screen (wraps)
+export function stepFeed(feed, current, dir) {
+  if (!feed?.length) return null;
+  const i = feed.findIndex(p => p.pairAddress === current?.pairAddress);
+  return feed[(i < 0 ? 0 : i + dir + feed.length) % feed.length];
 }

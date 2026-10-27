@@ -65,7 +65,7 @@ const scripted = (...responses) => {
       : String(url).includes('/points/') ? Promise.resolve({ ok: true, json: async () => ({ points: 0 }) })
         // ONLY a trade call takes the next scripted answer. Shared pollers fire on their own clocks (coin edge, live prices): under a
         // loaded machine one of them used to swallow the /execute answer and the swap result never rendered.
-        : String(url).includes('/api/trading/') ? Promise.resolve(queue.shift())
+        : String(url).includes('/api/trading/') ? (r => (r instanceof Error ? Promise.reject(r) : Promise.resolve(r)))(queue.shift())   // an Error = that call fails
           : Promise.resolve({ ok: true, json: async () => ({}) })));
 };
 const SIDE = ['/holdings/', '/rugshield/', '/points/', '/api/reputation/edge'];   // + the shared coin-edge poller (it fires on its own clock)
@@ -96,12 +96,8 @@ test('restores a saved submitted order and checks its status without storing tra
 test('offers a safe status retry when saved-order recovery is temporarily unavailable', async () => {
   const orderId = 'c'.repeat(36);
   localStorage.setItem('feeless.pending-swap-order', JSON.stringify({ order_id: orderId }));
-  global.fetch = jest.fn()
-    .mockRejectedValueOnce(new Error('Temporary provider timeout'))
-    .mockResolvedValueOnce({
-      ok: true,
-      json: async () => ({ order_id: orderId, state: 'confirmed', signature: 'sig-recovered' }),
-    });
+  // scripted: only the trade calls take these answers (a shared poller once swallowed the 'confirmed' answer under gate load, 2026-10-27)
+  global.fetch = scripted(new Error('Temporary provider timeout'), { ok: true, json: async () => ({ order_id: orderId, state: 'confirmed', signature: 'sig-recovered' }) });
 
   const { container, root } = mount();
   await act(async () => {});

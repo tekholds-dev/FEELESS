@@ -24,6 +24,7 @@ jest.mock('../../hooks/useWorkspace', () => ({
 
 jest.mock('../EcosystemChat', () => ({ room }) => <div data-testid="ecosystem-chat" data-room={room} />);
 jest.mock('../command/WorkspaceChrome', () => ({ AlphaTape: () => null }));
+jest.mock('./DuoFloor', () => ({ DuoFloor: () => null, useDuoFloor: () => ({ on: false, wide: false }) }));   // the Duo floor has its own suite (DuoFloor.test)
 jest.mock('./TokenFocus', () => ({ TokenFocus: () => null }));
 jest.mock('./MarketPrimitives', () => ({
   TokenAvatar: ({ pair }) => <span>{pair.baseToken?.symbol}</span>,

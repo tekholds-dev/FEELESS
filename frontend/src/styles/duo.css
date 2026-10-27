@@ -4,13 +4,10 @@ body.is-duo .pd-main { grid-template-columns: minmax(0, 1.25fr) minmax(300px, 1f
 body.is-duo .pd-chart { border-right: 1px solid var(--ln); border-bottom: 0; }
 body.is-duo .pd-main > .pt, body.is-duo .pd-side { max-height: calc(100dvh - 120px); overflow: auto; position: sticky; top: 0; scrollbar-width: thin; }
 body.is-duo .pd-strip { grid-template-columns: repeat(4, minmax(0, 1fr)); }
-/* Trenches floor: chart (with its Quick trade) | the coin's chat, tools below */
-body.is-duo .trenches-grid { grid-template-columns: minmax(0, 1.3fr) minmax(280px, 1fr) !important; grid-template-areas: "chart chat" "tools tools" !important; }
-body.is-duo .trenches-grid > .trenches-chat-section { position: sticky; top: 8px; height: calc(100dvh - 16px); }
 /* Discovery: two dense columns of live cards */
 body.is-duo .trend-grid { grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); }
 /* A hinge: each column sits on its own screen segment */
-body.is-duo-split .pd-main, body.is-duo-split .trenches-grid { grid-template-columns: env(viewport-segment-width 0 0, 1fr) env(viewport-segment-width 1 0, 1fr) !important; column-gap: calc(env(viewport-segment-left 1 0, 0px) - env(viewport-segment-right 0 0, 0px)); }
+body.is-duo-split .pd-main { grid-template-columns: env(viewport-segment-width 0 0, 1fr) env(viewport-segment-width 1 0, 1fr) !important; column-gap: calc(env(viewport-segment-left 1 0, 0px) - env(viewport-segment-right 0 0, 0px)); }
 /* Phone sideways: a full-height chart beside the ticket */
 body.is-phone-land .pd-main { grid-template-columns: minmax(0, 1.4fr) minmax(260px, 1fr); }
 body.is-phone-land .pd-plot { height: calc(100dvh - 70px); min-height: 220px; }
@@ -55,12 +52,6 @@ body.is-phone-land .pd-mkt { min-height: 40px; padding: 4px 8px; } body.is-phone
 :is(body.is-duo, body.is-phone-land) .trench-chart .chart-toolbar { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; }
 body.is-phone-land .terminal-app .token-focus .candle-canvas { height: calc(100dvh - 110px) !important; min-height: 220px; }
 body.is-phone-land .token-focus > .focus-header .token-sub { display: none; }
-/* 📱📱 the user's Duo picks (DuoBar): ⇄ swap the screens · the Trenches' second screen = CHAT or CALLS */
-body.is-duo.duo-swap .trenches-grid { grid-template-columns: minmax(280px, 1fr) minmax(0, 1.3fr) !important; grid-template-areas: "chat chart" "tools tools" !important; }
-body.is-duo.duo-2-calls .trenches-grid { grid-template-areas: "chart tools" "chat chat" !important; }
-body.is-duo.duo-2-calls.duo-swap .trenches-grid { grid-template-columns: minmax(280px, 1fr) minmax(0, 1.3fr) !important; grid-template-areas: "tools chart" "chat chat" !important; }
-body.is-duo.duo-2-calls .trenches-grid > .trenches-tools { grid-template-columns: 1fr !important; align-content: start; position: sticky; top: 8px; max-height: calc(100dvh - 16px); overflow: auto; scrollbar-width: thin; }
-body.is-duo.duo-2-calls .trenches-grid > .trenches-chat-section { position: static; height: min(70dvh, 560px); }
 :is(body.is-duo, body.is-phone-land).duo-swap .pd-main > .pd-chart { order: 2; } :is(body.is-duo, body.is-phone-land).duo-swap .pd-main > .pd-chart { border-right: 0; border-left: 1px solid var(--ln); }
 /* Familia on a Duo: a big room takes ONE screen and the city stays alive on the other (swap = the other side); with a hinge it snaps to the segment */
 @media (min-width: 641px) {
@@ -70,17 +61,16 @@ body.is-duo.duo-2-calls .trenches-grid > .trenches-chat-section { position: stat
   body.is-duo-split.duo-swap .fwd-mapwrap .fwd-place:is(.is-tool, .k-pools, .k-hq, .k-jobs, .k-gym, .k-cards) { left: 12px; right: calc(100vw - env(viewport-segment-right 0 0, 50vw)); }
   body.is-duo .fwd:has(> .fwd-mapwrap .fwd-place:is(.is-tool, .k-pools, .k-hq, .k-jobs, .k-gym, .k-cards)) > .fwd-mapwrap ~ * { visibility: visible; }
 }
-/* 📱📱 an unfolded Duo gives the two screens to the CHART and the second screen — the desktop sidebar folds to its icon rail (it ate a third of
-   the width and squeezed the chart's toolbar off the edge) and the floor splits 50 / 50 (owner screenshot 2026-10-27: "doesn't split well") */
+/* 📱📱 an unfolded Duo: the desktop sidebar folds to its icon rail (it ate a third of the width). The Trenches coin floor itself is DuoFloor
+   (duoFloor.css) — its own full-screen split app. */
 body.is-duo .terminal-sidebar:not(.sidebar-open) { width: 68px !important; padding-left: 10px; padding-right: 10px; }
 body.is-duo .terminal-sidebar:not(.sidebar-open) :is(.sidebar-section-label, .sidebar-link > span, .sidebar-link small, .nav-hot, .sidebar-feecat-subnav, [class*=sidebar-cta], [class*=sidebar-bottom]) { display: none !important; }
-body.is-duo:not(.duo-swap) .trenches-grid, body.is-duo.duo-swap .trenches-grid { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) !important; }
-/* 📱📱 the Duo's VITAL default (owner 2026-10-27: "trench trade must show the chart AND Quick trade — real Duo features"): second screen = TRADE —
-   the coin's name + stats across the top, the chart on one screen, Quick trade · Dip / Rip · the rug shield pinned on the other (⇄ swaps them);
-   the chat + calls move under it. With a hinge the two halves meet at the fold. */
-body.is-duo.duo-2-trade .trenches-grid, body.is-duo-split.duo-2-trade .trenches-grid { grid-template-columns: minmax(0, 1fr) !important; grid-template-areas: "chart" "chat" "tools" !important; }
-body.is-duo.duo-2-trade .trenches-grid > .trenches-chat-section { position: static; height: min(70dvh, 560px); }
-body.is-duo.duo-2-trade .token-focus .chart-with-trade { display: grid !important; grid-template-columns: minmax(0, 1fr) minmax(300px, 1fr); gap: 12px; align-items: start; }
-body.is-duo.duo-2-trade .terminal-app .token-focus .candle-canvas { height: clamp(360px, 64dvh, 640px) !important; flex: none; } body.is-duo.duo-2-trade .terminal-app .token-focus .chart-area { min-height: 0 !important; height: auto !important; }
-body.is-duo.duo-2-trade .token-focus .chart-side-stack { position: sticky; top: 8px; max-height: calc(100dvh - 16px); overflow: auto; scrollbar-width: thin; }
-body.is-duo.duo-2-trade.duo-swap .token-focus .chart-with-trade > .chart-fullscreen-wrap { order: 2; }
+
+/* 📱📱 Duo chrome (owner 2026-10-27, iPhone Duo open: "landscape isn't taking advantage of the new screen size"): four stacked bars (header 64 ·
+   ticker 32 · network 51 · season 24 + the breadcrumb = 200 of 626 px) → held wide, ONE slim header + a thin network row; upright, the season
+   banner + breadcrumb fold away. Layout only. */
+body.is-duo-land :is(.market-ticker, .season-banner, .workspace-topline) { display: none !important; }
+body.is-duo-land .terminal-header { min-height: 48px; padding-top: 3px; padding-bottom: 3px; }
+body.is-duo-land .context-bar { min-height: 34px; padding-top: 2px; padding-bottom: 2px; }
+body.is-duo-land .context-bar :is(.context-indicator, .context-clock) { display: none; }
+body.is-duo:not(.is-duo-land) :is(.season-banner, .workspace-topline) { display: none !important; }

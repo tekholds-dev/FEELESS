@@ -11,6 +11,7 @@ import { useWorkspace } from '../../hooks/useWorkspace';
 import { MarketAvailabilityNotice, TokenAvatar, Change } from './MarketPrimitives';
 import { ReputationBadge } from './ReputationBadge';
 import { TokenFocus } from './TokenFocus';
+import { DuoFloor, useDuoFloor } from './DuoFloor';
 import { useMarket } from '../../hooks/useMarket';
 import { AdBanner } from '../AdBanner';
 import { RadarPanel } from '../command/MetaPanels';
@@ -147,6 +148,7 @@ export const TrenchesView = ({ pairs = [], newPairs = [], onSelect, selectedPair
   useEffect(() => { if (routeSelectedPair) setOnFloor(true); }, [routeSelectedPair]); // a coin link always lands on the trading floor
   useEffect(() => { setOnFloor(Boolean(routeSelectedPair)); }, [routeSelectedPair]);
   const setFloor = v => { setOnFloor(v); window.scrollTo?.({ top: 0 }); };
+  const duo = useDuoFloor();
   const pickCall = async c => {
     try {
       const res = await fetch(`/api/market/pairs/${c.chain}/${c.pairAddress}`);
@@ -156,6 +158,11 @@ export const TrenchesView = ({ pairs = [], newPairs = [], onSelect, selectedPair
     } catch { /* keep current chart */ }
   };
   if (!onFloor) return <div className="trenches-page trenches-lit" data-testid="trenches-page"><TrenchLanding ecosystemName={ecosystem.name} onEnter={() => setFloor(true)} /><LiveTank onTrade={p => { setActivePair(p); selectPair(p); setFloor(true); }} /><TrendingCards pairs={pairs} newPairs={newPairs} onPick={p => { setActivePair(p); selectPair(p); setFloor(true); }} /><DegenWeather /><RadarPanel compact /><LaunchRadar /><AdBanner placement="trenches" /></div>;
+  // 📱📱 an unfolded Duo / tablet / phone on its side: the floor is its own full-screen split app (DuoFloor)
+  if (duo.on && chartPair) return <div className="trenches-page trenches-floor" data-testid="trenches-page"><DuoFloor pair={chartPair} pairs={pairs} newPairs={newPairs} wide={duo.wide}
+    onPick={p => { setActivePair(p); selectPair(p); }} onBack={() => setFloor(false)}
+    chat={<ChatRoom large pairs={pairs} newPairs={newPairs} onSelect={onSelect} selectedPair={chartPair} selectedPerspective={selectedPerspective} onPerspectiveChange={onPerspectiveChange} onConnect={onConnect} />}
+    calls={<><HotCalls onPick={pickCall} /><LiveCalls onPick={pickCall} /><CallerBoard /></>} /></div>;
   return <div className="trenches-page trenches-lit trenches-floor" data-testid="trenches-page">
     <TrenchBar onAbout={() => setFloor(false)} />
     <div className={`trenches-grid ${wide ? 'is-wide' : ''}`}>

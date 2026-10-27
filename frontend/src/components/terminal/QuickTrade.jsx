@@ -62,8 +62,10 @@ function QuickTradeInner({ pair }) {
   useEffect(() => {
     // Only the box trading that coin answers (war room + trenches can both be mounted).
     const onExit = e => { if (e.detail?.mint && e.detail.mint !== pair?.baseToken?.address) return; setSide('sell'); setSellPct(e.detail?.pct || 100); box.current?.scrollIntoView({ behavior: 'smooth', block: 'center' }); };
-    window.addEventListener('feeless:quick-exit', onExit);
-    return () => window.removeEventListener('feeless:quick-exit', onExit);
+    // 📱📱 the Duo floor's BUY / SELL bar: switch this box to that side (you still pick the amount, review + sign)
+    const onSide = e => { if (e.detail?.mint && e.detail.mint !== pair?.baseToken?.address) return; if (['buy', 'sell'].includes(e.detail?.side)) setSide(e.detail.side); box.current?.scrollIntoView?.({ behavior: 'smooth', block: 'start' }); };
+    window.addEventListener('feeless:quick-exit', onExit); window.addEventListener('feeless:qt-side', onSide);
+    return () => { window.removeEventListener('feeless:quick-exit', onExit); window.removeEventListener('feeless:qt-side', onSide); };
   }, [pair?.baseToken?.address]);
   const [counter, setCounter] = useState('SOL');
   const [solUsd, setSolUsd] = useState(null);

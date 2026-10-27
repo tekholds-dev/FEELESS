@@ -15,12 +15,15 @@ Read this (2 min) → `CLAUDE.md` (lean rules + 🎨 MANDATORY STYLING + 📋 CU
 >    LIVE visual (meters, bars, animation on real numbers), never bare text. `styles/cssCoverage.test.js` fails on an unstyled class.
 
 ## 🔁 NOW (rewrite this section in place every session)
-**Updated 2026-10-27 (night) · Opus 5.5.** Shipped tonight (top rows). Still OPEN: HQ de-clutter beyond the Agents tab (Agents done 2026-10-27: 5-tab nav + MORE, folded unread vitals, Decision-only right column) · the agents'
-own record is unproven (stage RECOVERY, 0 graded team trades) — infrastructure is ready (RPC relay OK, books reconcile, edge gate TRADE) · strike
-orders + Kalshi need `DFLOW_API_KEY` · Familia polish last (owner's order).
+**Updated 2026-10-27 (late night) · Opus 5.5.** Shipped tonight (top rows). Still OPEN, easiest → hardest: HQ de-clutter beyond the Agents
+tab (every other HQ tab: fewer tabs up front, hide '—' cells, fold unread — a `/dev/hq?deck=<tab>` harness needs fixture data per admin read first;
+the admin reads 401 without the owner's signature) · Familia city map: district labels overlap the activity feed on a Duo (owner: Familia last) ·
+the agents' own record is unproven (0 graded team trades) · strike orders + Kalshi need `DFLOW_API_KEY`.
 
 | Live | Where |
 | --- | --- |
+| 📱📱 DUO FLOOR (iPhone Duo: folded 466×678 · open 890×626 wide / 626×890 upright, DPR 3, crease mid-screen, Safari has NO viewport segments): the Trenches coin floor on any Duo / tablet / sideways phone = a full-screen split app — wide: rail (← back · recent coins · ⇄ · home) \| chart half \| dock half, split on the crease; upright: coin bar + vitals · chart 58 % · dock · pump-style BUY / SELL bar. Dock = TRADE · CHAT · CALLS · COINS (intake + feed, tap = this chart) · TAPE; ‹ › / swipe = next coin. Every page on a wide Duo: ONE slim top bar (was 4 bars, 200 px). Familia: SWAP tab locked to the edge | `DuoFloor.jsx`, `duoFloor.css`, `lib/duo.js`, `duo.css`, `DuoBar.jsx` |
+| 🫧 Intake: TRADE opens the Trenches floor (never the war room); in HQ › Agents it lands on the agents' chart · 🏆 BEST IN THE TANK (top 5 tradable: germ floor · READY · move · 1h vol · feeds agreeing) | `LiveTank.bestCoins`, `openTrenchTrade` |
 | 🎯 STRIKE ZONE (replaced the Raceway): full-screen third-person shooter on three.js's Octree + Capsule physics + its Soldier model — bots or online rooms, the gunsmith (parts unlock by level), XP on the server's clock, family MP per kill · 📲 Telegram Mini App + level-up posts (`docs/TELEGRAM.md`) | `StrikeZone.jsx`, `StrikeGame.jsx`, `lib/strikeGame.js`, `arena.py`, `tg_auth.py` |
 | 🫧 Intake lanes everywhere (the HQ band's look: water levels + colour dots + legend, a tap pops the coin's vitals first; HQ Agents gets an ALL LEVELS view) — site tank + the pool intake (replaced the waves) · 🔥 Pool Hall HIGH YIELD row + any typed amount · 💵 AutoRange sized to your typed amount (net-by-width curve + 7 vitals) · 🎯 Kalshi strike ladder (+ strike orders on the DFlow key) | `LiveTank`, `PoolWaves`, `autoRange.sizeBand`, `KalshiDesk.StrikeLadder` |
 | 📱 Duo: second screen = TRADE by default (chart one screen, Quick trade + Dip/Rip + Shield the other) · phone: chart + BUY/SELL on one screen | `duo.css`, `lib/duo.js` |

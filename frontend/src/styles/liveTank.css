@@ -4,6 +4,9 @@
 .ltk { --lh: 24px; position: relative; display: grid; gap: 6px; padding: 9px 11px 10px; border-radius: 12px; border: 1px solid var(--m-line, #232926);
   background: linear-gradient(180deg, rgba(21, 209, 106, .06), rgba(8, 10, 9, .65)); box-shadow: inset 0 1px 0 rgba(255, 255, 255, .04); }
 .ltk.is-compact { --lh: 20px; }
+.ltk { container-type: inline-size; }   /* the best strip reads its own width: a Duo half or a side rail swipes it like a phone */
+@container (max-width: 560px) { .ltk-best { grid-template-columns: minmax(0, 1fr); gap: 4px; } .ltk-best ol { display: flex; overflow-x: auto; scroll-snap-type: x mandatory; scrollbar-width: none; padding-bottom: 2px; }
+  .ltk-best ol::-webkit-scrollbar { display: none; } .ltk-best li { flex: 0 0 132px; scroll-snap-align: start; } }
 .ltk-head { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; margin: 0; }
 .ltk-head > b { font: 800 10px var(--f-mono); letter-spacing: .12em; color: var(--m-text, #e8f2ea); } .ltk-head > small { flex: 1 1 180px; font: 600 8.5px var(--f-mono); color: var(--m-mute, #7d877f); }
 .ltk-dot { width: 7px; height: 7px; border-radius: 50%; background: #3a423e; align-self: center; } .ltk-dot.is-on { background: #45e486; box-shadow: 0 0 8px #15d16a; animation: ltkBreath 1.6s ease-in-out infinite; }
@@ -71,6 +74,4 @@ body.fx-lite .ltk-b i, body.fx-lite .ltk-dot, body.fx-lite .ltk-field::after, bo
 body.theme-day .ltk { background: linear-gradient(180deg, rgba(13, 122, 65, .05), rgba(236, 246, 240, .75)); border-color: rgba(10, 60, 35, .16); }
 body.theme-day .ltk-field { border-color: rgba(10, 60, 35, .1); } body.theme-day .ltk-pop { background: #f4faf6; } body.theme-day .ltk-ph b, body.theme-day .ltk-facts b { color: #171c1a; } body.theme-day .ltk-head > b, body.theme-day .ltk-funnel b { color: #171c1a; } body.theme-day .ltk-funnel li { background: rgba(10, 60, 35, .05); }
 body.theme-day .ltk-bc { background: rgba(255, 255, 255, .7); border-color: rgba(10, 60, 35, .14); } body.theme-day .ltk-bc > b { color: #171c1a; } body.theme-day .ltk-bc > em { color: #0d7a41; } body.theme-day .ltk-bh { color: #9a6a00; text-shadow: none; }
-@media (max-width: 640px) { .ltk-body { grid-template-columns: minmax(0, 1fr) 64px; gap: 6px; } .ltk-head > small { display: none; }
-  .ltk-best { grid-template-columns: minmax(0, 1fr); gap: 4px; } .ltk-best ol { display: flex; overflow-x: auto; scroll-snap-type: x mandatory; scrollbar-width: none; padding-bottom: 2px; }
-  .ltk-best ol::-webkit-scrollbar { display: none; } .ltk-best li { flex: 0 0 132px; scroll-snap-align: start; } }
+@media (max-width: 640px) { .ltk-body { grid-template-columns: minmax(0, 1fr) 64px; gap: 6px; } .ltk-head > small { display: none; } }
