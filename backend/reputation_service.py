@@ -9681,13 +9681,16 @@ async def familia_kalshi():
                 mk_ = await get('markets', {'event_ticker': et_, 'limit': 1000}) if et_ else None
                 if ev_ is None or (et_ and mk_ is None):
                     return key_, None
-                return key_, {'up': _ko.atm((mk_ or {}).get('markets')), 'day': None}
+                up_ = _ko.atm((mk_ or {}).get('markets'))
+                return key_, {'up': up_, 'day': None, 'ladder': _ko.ladder((mk_ or {}).get('markets'), (up_ or {}).get('target'))}
             f_, d_ = await asyncio.gather(get('markets', {'series_ticker': m_['m15'], 'status': 'open', 'limit': 50}),
                                           get('markets', {'series_ticker': m_['day'], 'status': 'open', 'limit': 1000}))
             if f_ is None and d_ is None:
                 return key_, None
             m15_ = _ko.fifteen((f_ or {}).get('markets')) if f_ is not None else None
-            return key_, {'up': m15_, 'm15': m15_, 'day': _ko.nearest((d_ or {}).get('markets'), marks_.get(key_) or (m15_ or {}).get('target')) if d_ is not None else None}
+            mark_ = marks_.get(key_) or (m15_ or {}).get('target')
+            return key_, {'up': m15_, 'm15': m15_, 'day': _ko.nearest((d_ or {}).get('markets'), mark_) if d_ is not None else None,
+                          'ladder': _ko.ladder((d_ or {}).get('markets'), mark_) if d_ is not None else []}   # 🎯 the strike ladder
         got_ = await asyncio.gather(*[one(k_, m_) for k_, m_ in _ko.MARKETS.items()])
         rows_ = dict(_kalshi_cache['rows'])
         for k_, row_ in got_:
@@ -10161,7 +10164,7 @@ async def familia_kalshi_proof(address: str = ''):
 
 @app.post('/api/reputation/familia/kalshi/order')
 async def familia_kalshi_order(request: Request):
-    """🎟 Build a Kalshi order the wallet signs: {address, coin, side: up | down, usd} buys this 15-minute window's YES (up) / NO (down);
+    """🎟 Build a Kalshi order the wallet signs: {address, coin, side: up | down, usd[, ticker]} buys this 15-minute window's (or a ladder strike's) YES (up) / NO (down);
     {address, act: 'redeem', mint, amount} cashes settled winners. DFlow builds it; FEELESS checks it is exactly the ticket and safe."""
     kt_ = _kt_need()
     b_ = await request.json()
@@ -10181,7 +10184,14 @@ async def familia_kalshi_order(request: Request):
             raise HTTPException(400, why_)
         if not await _kt_proof(addr_):
             raise HTTPException(403, 'PROOF: verify this wallet with DFlow Proof first (free, one time) — Kalshi is a regulated market.')
-        live_ = ((await familia_kalshi())['coins'].get(coin_) or {}).get('up') or {}
+        row_k_ = (await familia_kalshi())['coins'].get(coin_) or {}
+        live_ = row_k_.get('up') or {}
+        want_ = str(b_.get('ticker') or '')
+        if want_:   # 🎯 a strike from the ladder: only a ticker on the server's OWN current ladder for this coin (UP = YES above it, DOWN = NO)
+            hit_ = next((r_ for r_ in row_k_.get('ladder') or [] if r_.get('ticker') == want_), None)
+            if not hit_:
+                raise HTTPException(409, 'That strike is no longer on the board — pick one from the live ladder.')
+            live_ = {'ticker': hit_['ticker'], 'target': hit_['strike'], 'closes': hit_.get('closes')}
         if not live_.get('ticker'):
             raise HTTPException(409, f'No live {coin_} window right now — the next one opens soon.')
         m_ = await _kt_market(f"market/{live_['ticker']}", f"t:{live_['ticker']}", ttl=60, miss_ttl=30)

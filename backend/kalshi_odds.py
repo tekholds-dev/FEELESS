@@ -74,6 +74,20 @@ def nearest(markets, mark):
     return {'ticker': m.get('ticker'), 'strike': strike(m), 'yes': _px(m.get('yes_ask_dollars')), 'closes': m.get('close_time')}
 
 
+def ladder(markets, mark, n=9):
+    """🎯 THE STRIKE LADDER (owner 2026-10-27: "strike trading on perps"): the soonest day's strikes nearest the live mark → n rows
+    [{ticker, strike, yes, no, pay (YES: $ back per $1), payNo, away (% from the mark), closes}], lowest strike first. US-legal (CFTC)."""
+    mk = _f(mark)
+    rows = [m for m in _live(markets) if strike(m) > 0 and (_px(m.get('yes_ask_dollars')) is not None or _px(m.get('no_ask_dollars')) is not None)]
+    if not rows or mk <= 0:
+        return []
+    soon = min(str(x.get('close_time') or '9') for x in rows)
+    day = sorted([x for x in rows if str(x.get('close_time') or '9') == soon], key=lambda x: abs(strike(x) - mk))[:n]
+    out = [{'ticker': m.get('ticker'), 'strike': strike(m), 'yes': _px(m.get('yes_ask_dollars')), 'no': _px(m.get('no_ask_dollars')),
+            'pay': payout(m.get('yes_ask_dollars')), 'payNo': payout(m.get('no_ask_dollars')), 'away': round((strike(m) / mk - 1) * 100, 2), 'closes': m.get('close_time')} for m in day]
+    return sorted(out, key=lambda r: r['strike'])
+
+
 def atm(markets):
     """An index ladder (one event) → its AT-THE-MONEY strike as the window's UP / DOWN: the YES ask nearest 50 ¢ — UP = YES ('above the
     target at the close'), DOWN = NO. {ticker, target, yes, no, closes, title} or None. A one-sided book (no NO ask) is still shown; the

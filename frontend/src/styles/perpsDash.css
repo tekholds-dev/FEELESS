@@ -285,3 +285,20 @@ body.theme-day .pd.pv-cdc { background: #f3f9ff; } body.theme-day .pd.pv-kalshi 
 body.fx-lite .pp-trades li { animation: none; } @media (prefers-reduced-motion: reduce) { .pp-trades li { animation: none; } }
 body.theme-day .pp-trades li { background: #fff; } body.theme-day .pp-trades li b { color: #2a0f1f; }
 @media (max-width: 640px) { .pp-trades li { grid-template-columns: 1fr auto auto; } .pp-trades li > :is(:nth-child(2), :nth-child(3), :nth-child(5)) { display: none; } }
+/* 🎯 the strike ladder (KalshiDesk.StrikeLadder): strikes round the live price, an odds bar each, $1 payouts as buttons, the live price line */
+.kd-lad { display: grid; gap: 6px; padding: 10px; border-radius: 12px; border: 1px solid var(--ln); background: rgba(0, 0, 0, .3); }
+.kd-lad header { display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px; } .kd-lad header b { font: 700 11px var(--f-tech); letter-spacing: .1em; color: #fff; } .kd-lad header small { font: 600 9.5px var(--f-ui); color: var(--mu); }
+.kd-lad ol { list-style: none; margin: 0; padding: 0; display: grid; gap: 3px; max-height: 300px; overflow-y: auto; scrollbar-width: thin; scrollbar-color: var(--pk) transparent; }
+.kd-lad li { display: grid; grid-template-columns: minmax(78px, .9fr) 56px minmax(90px, 1.4fr) auto auto; align-items: center; gap: 8px; padding: 4px 8px; border-radius: 8px; background: rgba(255, 255, 255, .03); animation: pdIn .3s ease-out both; animation-delay: calc(var(--i, 0) * 35ms); }
+.kd-lad li > b { font: 800 12px var(--f-mono); color: #fff; } .kd-lad li > small { font: 700 9.5px var(--f-mono); } .kd-lad li.is-above > small { color: var(--up); } .kd-lad li.is-below > small { color: var(--dn); }
+.kd-lad-bar { display: grid; grid-template-columns: minmax(0, 1fr) 34px; gap: 6px; align-items: center; } .kd-lad-bar u { display: block; height: 6px; border-radius: 6px; background: rgba(255, 255, 255, .08); overflow: hidden; }
+.kd-lad-bar s { display: block; height: 100%; text-decoration: none; transform-origin: left; background: linear-gradient(90deg, var(--dn), var(--gold, #f5c451), var(--up)); transition: transform .5s ease-out; }
+.kd-lad-bar em { font: 800 10px var(--f-mono); font-style: normal; color: #ffeaf6; text-align: right; }
+.kd-lad-b { min-width: 64px; min-height: 32px; padding: 0 8px; border-radius: 8px; border: 1px solid var(--ln); background: rgba(0, 0, 0, .4); cursor: pointer; font: 800 10.5px var(--f-mono); transition: transform .12s, border-color .12s; }
+.kd-lad-b.is-up { color: var(--up); } .kd-lad-b.is-dn { color: var(--dn); } .kd-lad-b:hover:not(:disabled) { transform: translateY(-1px); border-color: currentColor; } .kd-lad-b:active:not(:disabled) { transform: scale(.95); }
+.kd-lad-b:focus-visible { outline: 2px solid var(--pk2); outline-offset: 1px; } .kd-lad-b:disabled { opacity: .55; cursor: not-allowed; }
+.kd-lad-mark { display: flex !important; align-items: center; gap: 8px; padding: 0 8px !important; background: none !important; font: 800 9px var(--f-mono); letter-spacing: .14em; color: var(--gold, #f5c451); }
+.kd-lad-mark i { flex: 1; height: 1px; background: linear-gradient(90deg, transparent, var(--gold, #f5c451)); order: 2; }
+body.fx-lite .kd-lad li { animation: none; } @media (prefers-reduced-motion: reduce) { .kd-lad li { animation: none; } .kd-lad-bar s { transition: none; } }
+body.theme-day .kd-lad { background: #fff; } body.theme-day .kd-lad li > b, body.theme-day .kd-lad header b { color: #2a0f1f; } body.theme-day .kd-lad-b { background: #fff; }
+@media (max-width: 640px) { .kd-lad li { grid-template-columns: 1fr auto auto; } .kd-lad li > small, .kd-lad-bar { display: none; } }

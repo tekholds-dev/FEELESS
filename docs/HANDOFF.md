@@ -15,12 +15,15 @@ Read this (2 min) → `CLAUDE.md` (lean rules + 🎨 MANDATORY STYLING + 📋 CU
 >    LIVE visual (meters, bars, animation on real numbers), never bare text. `styles/cssCoverage.test.js` fails on an unstyled class.
 
 ## 🔁 NOW (rewrite this section in place every session)
-**Updated 2026-10-27 · Opus 5.5.** Shipped today (top rows). Still OPEN from the owner's 2026-10-27 list: Night Vault + Pools merged into one
-waves-by-flow pools design · Card Room live (not corny) · raids on the Rep cartels (they need a city) · funner real-MP errands · strike / options
-on perps beyond Kalshi windows. Everything that needs a HUMAN is table 2.
+**Updated 2026-10-27 (night) · Opus 5.5.** Shipped tonight (top rows). Still OPEN: HQ de-clutter (needs the owner's eye on which tab) · the agents'
+own record is unproven (stage RECOVERY, 0 graded team trades) — infrastructure is ready (RPC relay OK, books reconcile, edge gate TRADE) · strike
+orders + Kalshi need `DFLOW_API_KEY` · Familia polish last (owner's order).
 
 | Live | Where |
 | --- | --- |
+| 🏁 THE RACEWAY: drive Fee City by day — traffic lights on every crossing (stop-and-go AI, +2 s for running a red), real checkpoint gates, 3 vehicles, server-checked times, MP into the family bank, driven errands · 📲 Telegram Mini App + automated group posts (`docs/TELEGRAM.md`) | `StreetRace.jsx`, `lib/raceEngine.js`, `raceway.py`, `tg_auth.py` |
+| 🫧 Intake lanes everywhere (the HQ band's look: water levels + colour dots + legend) — site tank + the pool intake (replaced the waves) · 💵 AutoRange sized to your typed amount (net-by-width curve + 7 vitals) · 🎯 Kalshi strike ladder (+ strike orders on the DFlow key) | `LiveTank`, `PoolWaves`, `autoRange.sizeBand`, `KalshiDesk.StrikeLadder` |
+| 🃏 live Card Room · ⚖ every Rep cartel raidable from any city · 🌊 Night Vault = a room of the Pool Hall · 📱 trench chart first on phones + Duo (icon rail, 50/50, Duo bar: swap + 2nd screen) | `CardRoom`, `CartelBoard`, `family_world.can_raid`, `duo.css`, `DuoBar` |
 | 🔤 6 site fonts (tokens `--f-display/ui/mono/tech/noir/noir-it`, all loaded — JetBrains Mono had never loaded) · Perps: swipe provider rail, most-used first + market counts, your Jupiter recent trades, Crypto.com's FULL list (every perp w/ max lev + spot, searchable, tap → ticket) | `index.css`, `PerpsDash`, `PerpTrades`, `BrokerDesk.CdcMarkets`, `brokers.cdc_caps` |
 | ⚡ Pump Radar = simple cards in a SMALL window; Runners Track + Trade Center are its rooms (row chips fixed) · Family HQ + its rooms open BIG, two columns · the Fuse / Skyline sections no longer paint over a big room | `CityAvenue.PumpRadar`, `cityPlan`, `familyWorld.css`, `familyHQ.css` |
 | 📜 Settings › Updates (git → NEW / FIX · SITE · BACKEND · MOBILE, private bits dropped) + 📱 Duo screens (closed / open × portrait / landscape, this screen lit) | `/api/reputation/updates`, `updates_log.py`, `UpdatesLog.jsx` |
@@ -38,6 +41,7 @@ on perps beyond Kalshi windows. Everything that needs a HUMAN is table 2.
 | `PUBLIC_SITE_URL` (a public https domain) | FEELESS-rail + House launches, X sign-in |
 | Sign the one-time FEELESS launch rules (HQ › Launch › Ready board) | FEELESS-rail coins |
 | `DFLOW_API_KEY` · `SNAPTRADE_*` · a Raydium LaunchLab provider key | Kalshi · any broker · LaunchLab |
+| `TELEGRAM_BOT_TOKEN` · `TELEGRAM_GROUP_ID` · `TELEGRAM_APP_URL` (steps: `docs/TELEGRAM.md`) | the Familia race in Telegram + group posts |
 | Crypto.com **Exchange** key + secret (`CRYPTO_COM_API_KEY` / `CRYPTO_COM_API_SECRET` in `.env` ride the owner wallet; the `cdc_` key in .env is a Developer Platform key — reads Cronos, can't trade) | Crypto.com trading |
 | RPC quota (Helius / Alchemy were 429 — `SOLANA_RPC_URL` + `_3` answered) · a 4th `JUPITER_READ_KEY` | every wallet-signed action, prices |
 | Circle account per user · "sign once, AIs trade" | needs counsel (custody, DECISIONS #2) — not built on purpose |

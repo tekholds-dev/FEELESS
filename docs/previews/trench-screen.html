@@ -1,0 +1,83 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Trench Screen Preview</title>
+<style>
+:root{--g:#15d16a;--g2:#45e486;--r:#ff8fa3;--gold:#ffd36b;--bg:#020805;--ink:#e9fff2;--mute:#7f9c8c;--line:rgba(21,209,106,.22)}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:13px/1.4 Inter,system-ui,sans-serif;overflow-x:hidden}
+.mono{font-family:'JetBrains Mono',ui-monospace,monospace}
+.tag{position:fixed;top:10px;left:50%;transform:translateX(-50%);z-index:9;padding:4px 12px;border-radius:999px;background:rgba(255,211,107,.15);color:var(--gold);font:700 10px 'JetBrains Mono',monospace;letter-spacing:.12em}
+.app{display:grid;grid-template-columns:230px minmax(0,1fr) 300px;grid-template-rows:auto minmax(0,1fr) 170px;gap:10px;height:100vh;padding:42px 12px 12px}
+.card{background:linear-gradient(180deg,rgba(8,26,16,.92),rgba(3,12,7,.92));border:1px solid var(--line);border-radius:14px;position:relative;overflow:hidden}
+.head{grid-column:1/-1;display:flex;align-items:center;gap:14px;padding:10px 14px}
+.logo{width:42px;height:42px;border-radius:50%;background:radial-gradient(circle at 35% 30%,#7dffb2,var(--g) 50%,#0a5a2e);display:grid;place-items:center;font-weight:900;color:#021a0c;animation:spin 8s linear infinite}
+.head h1{margin:0;font-size:18px}.head small{color:var(--mute)}
+.kpis{display:flex;gap:8px;margin-left:auto}.kpi{padding:6px 10px;border-radius:10px;background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.07)}
+.kpi em{display:block;font:700 8.5px 'JetBrains Mono',monospace;letter-spacing:.12em;color:var(--mute);font-style:normal}.kpi b{font:800 15px 'JetBrains Mono',monospace}
+.up{color:var(--g2)}.dn{color:var(--r)}
+.rail{padding:10px;display:flex;flex-direction:column;gap:6px}.rail h4{margin:0 0 4px;font:800 10px 'JetBrains Mono',monospace;letter-spacing:.14em;color:var(--mute)}
+.coin{display:grid;grid-template-columns:28px 1fr auto;gap:8px;align-items:center;padding:7px;border-radius:10px;background:rgba(255,255,255,.025);border:1px solid transparent;transition:transform .15s,border-color .15s}
+.coin:hover,.coin.on{border-color:var(--g);transform:translateX(3px)}.dot{width:28px;height:28px;border-radius:50%;background:linear-gradient(135deg,#1f6,#095)}
+.coin small{display:block;color:var(--mute);font-size:10px}.coin .bar{grid-column:1/-1;height:3px;border-radius:3px;background:rgba(255,255,255,.06);overflow:hidden}
+.coin .bar i{display:block;height:100%;background:var(--g2);transform-origin:left;animation:bar 2.4s ease-in-out infinite alternate}
+.chart{display:flex;flex-direction:column}
+.sky{position:absolute;inset:0;z-index:0;pointer-events:none}
+.sky .floor{position:absolute;left:-20%;right:-20%;bottom:-30%;height:70%;background-image:linear-gradient(rgba(21,209,106,.18) 1px,transparent 1px),linear-gradient(90deg,rgba(21,209,106,.18) 1px,transparent 1px);background-size:44px 44px;transform:perspective(380px) rotateX(62deg);transform-origin:bottom;animation:roll 3s linear infinite}
+.sky .sun{position:absolute;left:50%;top:18%;width:220px;height:220px;margin-left:-110px;border-radius:50%;background:radial-gradient(circle,rgba(21,209,106,.28),transparent 70%);animation:breathe 5s ease-in-out infinite}
+.sky .tide{position:absolute;left:0;right:0;bottom:0;height:45%;background:linear-gradient(0deg,rgba(21,209,106,.18),transparent);transform-origin:bottom;animation:tide 4s ease-in-out infinite}
+.sky .bolt{position:absolute;top:0;width:2px;height:100%;background:linear-gradient(transparent,rgba(69,228,134,.5),transparent);animation:scan 6s linear infinite}
+.cbar{position:relative;z-index:1;display:flex;gap:6px;padding:10px;align-items:center}.seg button{background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);color:var(--ink);padding:4px 9px;border-radius:8px;font:700 10px 'JetBrains Mono',monospace;cursor:pointer}
+.seg button.on{background:var(--g);color:#021a0c}
+.plot{position:relative;z-index:1;flex:1;display:flex;align-items:flex-end;gap:5px;padding:16px 70px 30px 16px}
+.cnd{flex:1;position:relative;display:flex;justify-content:center}.cnd i{position:absolute;width:2px;background:currentColor;opacity:.7}.cnd b{position:relative;width:100%;border-radius:2px;background:currentColor}
+.cnd.live b{animation:live 1.2s ease-in-out infinite alternate}
+.germ{position:absolute;left:16px;right:70px;border-top:1px dashed #b48cff;color:#b48cff;font:700 9.5px 'JetBrains Mono',monospace;z-index:2}.germ span{position:absolute;right:-64px;top:-8px;background:#1c1033;padding:1px 6px;border-radius:6px}
+.gun{border-top-color:var(--gold);color:var(--gold)}.gun span{background:#2a2108}
+.pin{position:absolute;z-index:3;width:26px;height:26px;border-radius:50%;border:2px solid var(--g2);background:#0d2a18;display:grid;place-items:center;font-size:12px;animation:pop .5s ease-out both}
+.ring{position:absolute;z-index:3;right:80px;top:56px;width:96px;height:96px}.ring svg{transform:rotate(-90deg)}.ring b{position:absolute;inset:0;display:grid;place-items:center;font:800 16px 'JetBrains Mono',monospace;color:var(--g2)}
+.side{display:flex;flex-direction:column;gap:10px}.side .card{padding:12px}
+.side h4{margin:0 0 8px;font:800 10px 'JetBrains Mono',monospace;letter-spacing:.14em;color:var(--mute)}
+.qt input{width:100%;padding:10px;border-radius:10px;background:rgba(255,255,255,.04);border:1px solid var(--line);color:var(--ink);font:800 18px 'JetBrains Mono',monospace}
+.chips{display:flex;gap:6px;margin:8px 0}.chips button{flex:1;padding:6px;border-radius:8px;border:1px solid var(--line);background:none;color:var(--ink);font:700 11px 'JetBrains Mono',monospace;cursor:pointer}.chips button:hover{background:rgba(21,209,106,.15)}
+.go{width:100%;padding:12px;border:0;border-radius:12px;background:linear-gradient(90deg,#0a7a3c,var(--g),var(--g2));color:#021a0c;font:900 14px 'JetBrains Mono',monospace;cursor:pointer;transition:transform .15s}.go:hover{transform:translateY(-2px)}
+.press{display:flex;height:12px;border-radius:6px;overflow:hidden;margin:4px 0 8px}.press i{display:block;height:100%;transition:width .6s}
+.vit{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}.vit span{padding:6px;border-radius:8px;background:rgba(255,255,255,.03)}.vit em{display:block;font:700 8px 'JetBrains Mono',monospace;color:var(--mute);font-style:normal;letter-spacing:.1em}.vit b{font:800 12px 'JetBrains Mono',monospace}
+.tape{grid-column:1/-1;display:grid;grid-template-columns:260px 1fr;gap:10px;padding:10px}
+.pulse{display:flex;align-items:flex-end;gap:3px;height:100%}.pulse i{flex:1;border-radius:2px 2px 0 0;transform-origin:bottom;animation:grow 1.8s ease-in-out infinite alternate}
+.rows{overflow:hidden;position:relative}.rows div{display:grid;grid-template-columns:60px 70px 1fr 90px;gap:8px;padding:4px 6px;border-radius:6px;font:600 11px 'JetBrains Mono',monospace;animation:slide 1s ease-out both}
+.rows div:nth-child(odd){background:rgba(255,255,255,.02)}
+.word{font:900 22px 'JetBrains Mono',monospace;color:var(--g2);letter-spacing:.06em}
+@keyframes spin{to{transform:rotate(360deg)}}@keyframes roll{to{background-position:0 44px}}
+@keyframes breathe{50%{transform:scale(1.15);opacity:.6}}@keyframes tide{50%{transform:scaleY(1.25)}}
+@keyframes scan{from{transform:translateX(0)}to{transform:translateX(1200px)}}@keyframes live{to{transform:scaleY(1.12)}}
+@keyframes pop{from{transform:scale(.3)}}@keyframes bar{from{transform:scaleX(.3)}to{transform:scaleX(1)}}
+@keyframes grow{from{transform:scaleY(.4)}to{transform:scaleY(1)}}@keyframes slide{from{transform:translateX(-10px);opacity:.2}}
+@media (prefers-reduced-motion:reduce){*{animation:none!important}}
+@media (max-width:900px){.app{grid-template-columns:1fr;grid-template-rows:auto;height:auto}.rail,.side{order:2}.tape{grid-template-columns:1fr}.plot{min-height:320px}}
+</style></head><body>
+<div class="tag">PREVIEW · MOCK-UP · MADE-UP NUMBERS</div>
+<div class="app">
+  <div class="card head"><div class="logo">F</div><div><h1>$TRENCH <span class="mono up">+48.2%</span></h1><small>6m old · Pump curve 78% · ✅ safe scan · 🌐 𝕏 ✈</small></div>
+    <div class="kpis"><div class="kpi"><em>MC</em><b class="mono">$84.1K</b></div><div class="kpi"><em>5M VOL</em><b class="mono">$12.4K</b></div><div class="kpi"><em>BUYERS</em><b class="mono up">68%</b></div><div class="kpi"><em>HOLDERS</em><b class="mono">412 ▲</b></div><div class="kpi"><em>READ</em><b class="mono up">🔥 SEND IT</b></div></div></div>
+  <div class="card rail"><h4>⚡ LIVE TRENCH</h4>
+    <div class="coin on"><span class="dot"></span><div><b>$TRENCH</b><small>6m · $84K</small></div><b class="mono up">+48%</b><span class="bar"><i></i></span></div>
+    <div class="coin"><span class="dot" style="background:linear-gradient(135deg,#b48cff,#5a2bd6)"></span><div><b>$NOVA</b><small>14m · $41K</small></div><b class="mono up">+12%</b><span class="bar"><i style="animation-delay:-.6s"></i></span></div>
+    <div class="coin"><span class="dot" style="background:linear-gradient(135deg,#ffd36b,#a5711a)"></span><div><b>$GOLDR</b><small>32m · $160K</small></div><b class="mono dn">−6%</b><span class="bar"><i style="background:var(--r);animation-delay:-1.2s"></i></span></div>
+    <div class="coin"><span class="dot" style="background:linear-gradient(135deg,#ff8fa3,#a3203c)"></span><div><b>$RUGME</b><small>3m · $9K</small></div><b class="mono dn">☠ bait</b><span class="bar"><i style="background:var(--r)"></i></span></div>
+    <div class="coin"><span class="dot"></span><div><b>$GERM</b><small>1h · $220K</small></div><b class="mono up">🦠 floor</b><span class="bar"><i style="animation-delay:-1.8s"></i></span></div></div>
+  <div class="card chart"><div class="sky"><i class="floor"></i><i class="sun"></i><i class="tide"></i><i class="bolt"></i></div>
+    <div class="cbar"><div class="seg"><button>1m</button><button class="on">5m</button><button>15m</button><button>1h</button></div><span class="mono" style="margin-left:auto;color:var(--mute)">⏱ 03:12 to close</span></div>
+    <div class="plot" id="plot"></div>
+    <div class="germ" style="bottom:22%"><span>🦠 GERM −9%</span></div><div class="germ gun" style="bottom:78%"><span>🔫 GUN +4%</span></div>
+    <span class="pin" style="left:38%;bottom:36%">🤖</span><span class="pin" style="left:62%;bottom:58%;border-color:var(--gold)">🐱</span><span class="pin" style="left:72%;bottom:66%;border-color:#b48cff">🐋</span>
+    <div class="ring"><svg viewBox="0 0 40 40" width="96" height="96"><circle cx="20" cy="20" r="16" fill="none" stroke="rgba(255,255,255,.08)" stroke-width="4"/><circle id="arc" cx="20" cy="20" r="16" fill="none" stroke="#45e486" stroke-width="4" stroke-dasharray="100" stroke-dashoffset="40" stroke-linecap="round"/></svg><b id="pnl">+23%</b></div></div>
+  <div class="side"><div class="card qt"><h4>⚡ QUICK TRADE</h4><input value="0.25 SOL" aria-label="amount"><div class="chips"><button>0.1</button><button>0.25</button><button>0.5</button><button>1</button></div><button class="go">BUY $TRENCH · ≈ $29</button><small style="color:var(--mute)">Your wallet signs every swap. Get quote first.</small></div>
+    <div class="card"><h4>🌊 BUYS vs SELLS · 5M</h4><div class="press"><i id="b" style="width:68%;background:var(--g2)"></i><i style="flex:1;background:var(--r)"></i></div>
+      <div class="vit"><span><em>TOP-10</em><b>18%</b></span><span><em>DEV</em><b>2.1%</b></span><span><em>BUNDLED</em><b>0</b></span><span><em>SNIPERS</em><b>3</b></span><span><em>INSIDERS</em><b>4%</b></span><span><em>RUG ODDS</em><b class="dn">22%</b></span></div></div></div>
+  <div class="card tape"><div><div class="word" id="word">🚀 SEND</div><small style="color:var(--mute)">buyers stacking · 41 wallets ▲ · whale $1.2K</small><div class="pulse" style="height:70px;margin-top:8px" id="pulse"></div></div><div class="rows" id="rows"></div></div>
+</div>
+<script>
+const plot=document.getElementById('plot');let px=1;for(let i=0;i<34;i++){const up=Math.random()>.38,h=8+Math.random()*30;px+=up?h*.5:-h*.4;const c=document.createElement('div');c.className='cnd'+(i===33?' live':'');c.style.color=up?'#45e486':'#ff8fa3';c.style.height=Math.max(12,Math.min(92,30+px))+'%';c.innerHTML=`<i style="height:${h+18}%;top:-10%"></i><b style="height:${h}%"></b>`;plot.appendChild(c)}
+const pulse=document.getElementById('pulse');for(let i=0;i<14;i++){const e=document.createElement('i');const g=Math.random()>.3;e.style.background=g?'#45e486':'#ff8fa3';e.style.height=(30+Math.random()*70)+'%';e.style.animationDelay=(-i*.2)+'s';pulse.appendChild(e)}
+const rows=document.getElementById('rows');const W=['7xK…f2','Bq9…aa','DEV','🐋 9pL…','3mN…','SNIPER'];
+setInterval(()=>{const b=Math.random()>.3,d=document.createElement('div');d.innerHTML=`<span class="${b?'up':'dn'}">${b?'BUY':'SELL'}</span><span>$${(Math.random()*400+5).toFixed(0)}</span><span style="color:#7f9c8c">${W[Math.floor(Math.random()*W.length)]}</span><span>${new Date().toLocaleTimeString()}</span>`;rows.prepend(d);while(rows.children.length>7)rows.lastChild.remove();
+const p=(18+Math.random()*12).toFixed(0);document.getElementById('pnl').textContent='+'+p+'%';document.getElementById('arc').setAttribute('stroke-dashoffset',100-p*2);document.getElementById('b').style.width=(55+Math.random()*25)+'%'},1300);
+</script></body></html>

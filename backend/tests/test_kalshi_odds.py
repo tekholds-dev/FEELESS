@@ -71,3 +71,15 @@ def test_the_service_reads_every_market_once_in_parallel_and_keeps_the_last_good
     assert c['SPX']['up']['target'] == 7795 and c['SPX']['kind'] == 'index' and c['SPX']['day'] is None
     assert c['ETH']['up'] == {'yes': 0.4}                                                              # ETH's read failed → its last good read stays
     n = len(asked); asyncio.run(rs.familia_kalshi()); assert len(asked) == n                          # cached 10 s — one shared read
+
+
+def test_the_strike_ladder_lists_the_soonest_days_strikes_round_the_mark_with_payouts():
+    import kalshi_odds as ko
+    mk = lambda s, y, n, close='2026-10-27T21:00:00Z': {'ticker': f'KXBTCD-T{s}', 'floor_strike': s, 'yes_ask_dollars': y, 'no_ask_dollars': n, 'close_time': close, 'status': 'active'}
+    rows = [mk(78000, '0.92', '0.10'), mk(79000, '0.66', '0.36'), mk(80000, '0.41', '0.61'), mk(81000, '0.18', '0.84'), mk(90000, '0.01', '0.99'),
+            mk(80000, '0.50', '0.52', '2026-10-28T21:00:00Z')]                       # tomorrow's strike stays out
+    lad = ko.ladder(rows, 79600, n=4)
+    assert [r['strike'] for r in lad] == [78000, 79000, 80000, 81000]               # the 4 nearest, lowest first
+    r80 = lad[2]
+    assert r80['yes'] == 0.41 and r80['pay'] == round(1 / 0.41, 2) and r80['payNo'] == round(1 / 0.61, 2) and r80['away'] == round((80000 / 79600 - 1) * 100, 2)
+    assert ko.ladder(rows, 0) == [] and ko.ladder([], 79600) == []

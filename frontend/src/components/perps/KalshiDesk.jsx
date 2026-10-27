@@ -59,6 +59,8 @@ export function KalshiDesk({ asset: perp, rows, marks, now, tradable, addr, wall
       {r.day ? <span className="kd-k"><em>{dayWord(r.day.closes)} · ABOVE {px(r.day.strike)}</em><b className="m-num">{Math.round(r.day.yes * 100)}%</b><u aria-hidden="true"><s style={{ transform: `scaleX(${r.day.yes})` }} /></u></span> : null}
       <div className="kd-split" aria-hidden="true"><s className="is-up" style={{ transform: `scaleX(${g / 100})` }} /><s className="is-dn" style={{ transform: `scaleX(${1 - g / 100})` }} /></div>
     </div>
+    {k?.ladder?.length ? <StrikeLadder rows={k.ladder} mark={mark} name={nm} usd={usd} tradable={tradable && proof !== false} busy={busy}
+      onBuy={(row, side) => send(`${side === 'up' ? 'ABOVE' : 'BELOW'} ${px(row.strike)} · $${usd} on ${asset}`, { coin: asset, side, usd, ticker: row.ticker })} /> : null}
     {tradable ? <div className="kd-trade">
       {proof === false ? <button type="button" className="kd-proof" onClick={verify} data-tip="DFlow Proof: a one-time free ID check (Stripe) linked to this wallet — Kalshi is a regulated market. FEELESS never sees your ID." data-testid="kd-proof">🪪 VERIFY WALLET · ONE TIME</button> : <>
         <span className="pt-chips">{STAKES.map(s => <button key={s} type="button" className={usd === s ? 'is-on' : ''} onClick={() => setUsd(s)} data-tip={`Spend $${s}`} data-testid={`kd-u-${s}`}>${s}</button>)}</span>
@@ -70,4 +72,19 @@ export function KalshiDesk({ asset: perp, rows, marks, now, tradable, addr, wall
       <b>{p.side === 'UP' ? '▲' : '▼'} {p.contracts} {p.side}</b><small>{p.title || p.ticker} · {p.status}</small>
       {p.redeemable ? <button type="button" disabled={!!busy} onClick={() => send(`Redeem ${p.contracts} ${p.side}`, { act: 'redeem', mint: p.mint, amount: p.raw })} data-tip="Cash the winning contracts into USDC">REDEEM ${p.contracts.toFixed(2)}</button> : null}</li>)}</ol> : null}
   </div>;
+}
+
+// 🎯 THE STRIKE LADDER (owner 2026-10-27: "strike trading on perps"): the soonest day's strikes round the live price — each one's odds of closing
+// ABOVE it (a bar), what $1 pays on YES / NO, how far it sits from the price; the live price drawn between the rows. US-legal (Kalshi, CFTC).
+// With the DFlow key: tap ABOVE / BELOW to buy that strike (the server only accepts a strike on its own live ladder).
+export function StrikeLadder({ rows, mark, name, usd, tradable, busy, onBuy }) {
+  const at = rows.findIndex(r => r.strike >= (mark || 0));
+  return <div className="kd-lad" data-testid="kd-ladder"><header><b>🎯 STRIKES · {name}</b><small>closes {dayWord(rows[0]?.closes)} · odds it ends ABOVE each strike · $1 pays</small></header>
+    <ol>{rows.map((r, i) => <React.Fragment key={r.ticker}>{i === at ? <li className="kd-lad-mark" aria-hidden="true"><i />LIVE {px(mark)}</li> : null}
+      <li className={`${r.away >= 0 ? 'is-above' : 'is-below'}`} style={{ '--i': i }}>
+        <b className="m-num">{px(r.strike)}</b><small className="m-num">{r.away >= 0 ? '+' : ''}{r.away.toFixed(1)}%</small>
+        <span className="kd-lad-bar" data-tip={`${Math.round((r.yes || 0) * 100)}% odds ${name} closes above ${px(r.strike)}`}><u><s style={{ transform: `scaleX(${r.yes || 0})` }} /></u><em className="m-num">{r.yes != null ? `${Math.round(r.yes * 100)}%` : '—'}</em></span>
+        <button type="button" className="kd-lad-b is-up" disabled={!tradable || !!busy || !r.pay} onClick={() => onBuy(r, 'up')} data-tip={tradable ? `$${usd} on ABOVE ${px(r.strike)} → $${r.pay ? (usd * r.pay).toFixed(2) : '—'} if it ends above` : 'Strike trading turns on with the DFlow key + a one-time wallet check'} data-testid={`kd-lad-up-${i}`}>▲ {r.pay ? `$${r.pay.toFixed(2)}` : '—'}</button>
+        <button type="button" className="kd-lad-b is-dn" disabled={!tradable || !!busy || !r.payNo} onClick={() => onBuy(r, 'down')} data-tip={tradable ? `$${usd} on BELOW ${px(r.strike)} → $${r.payNo ? (usd * r.payNo).toFixed(2) : '—'} if it ends below` : 'Strike trading turns on with the DFlow key + a one-time wallet check'} data-testid={`kd-lad-dn-${i}`}>▼ {r.payNo ? `$${r.payNo.toFixed(2)}` : '—'}</button>
+      </li></React.Fragment>)}{at === -1 ? <li className="kd-lad-mark" aria-hidden="true"><i />LIVE {px(mark)}</li> : null}</ol></div>;
 }
