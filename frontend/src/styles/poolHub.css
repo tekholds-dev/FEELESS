@@ -95,3 +95,19 @@ body.theme-day .phb-chart, body.theme-day .phb-earn { background: #fff; } body.t
 @keyframes phbFill { from { transform: scaleX(0); } to { transform: none; } }
 body.fx-lite .phb-cbar s { animation: none; } @media (prefers-reduced-motion: reduce) { .phb-cbar s { animation: none; } }
 body.theme-day .phb-ctick b { color: #0a8a44; text-shadow: none; }
+/* 🔥 HIGH YIELD: six cards — APY ring + the big %, what your amount makes a day, the risk chips, ONE button */
+.phb-hy { display: grid; gap: 8px; padding: 12px; border-radius: 14px; border: 1px solid rgba(245, 196, 81, .3); background: linear-gradient(160deg, rgba(245, 196, 81, .08), rgba(0, 0, 0, .35)); }
+.phb-hy > header { display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px; } .phb-hy > header b { font: 800 11px var(--f-mono); letter-spacing: .14em; color: #f5c451; } .phb-hy > header small { font: 600 10px var(--f-ui); color: #b9a77a; }
+.phb-hyg { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 8px; }
+.phb-hyc { display: grid; gap: 5px; padding: 10px; border-radius: 12px; border: 1px solid color-mix(in srgb, var(--kc) 35%, transparent); background: rgba(0, 0, 0, .35); box-shadow: inset 0 1px 0 rgba(255, 255, 255, .05);
+  animation: phbHy .35s ease-out both; animation-delay: calc(var(--i, 0) * 50ms); transition: transform .15s, border-color .15s; }
+.phb-hyc:hover { transform: translateY(-2px); border-color: var(--kc); }
+.phb-hyt { display: flex; align-items: center; gap: 8px; min-width: 0; } .phb-hyt > span { display: grid; min-width: 0; } .phb-hyt b { font: 700 12px var(--f-tech); color: #fff; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; } .phb-hyt small { font: 600 9px var(--f-mono); color: #8fa89a; }
+.phb-hyc > strong { font: 800 24px var(--f-display); color: #f5c451; text-shadow: 0 0 14px rgba(245, 196, 81, .4); animation: phbHy .4s ease-out; }
+.phb-hyd { display: grid; gap: 1px; } .phb-hyd em { font: 800 8px var(--f-mono); font-style: normal; letter-spacing: .14em; color: #8fa89a; } .phb-hyd b { font: 800 13px var(--f-mono); color: #45e486; } .phb-hyd small { font: 600 9px var(--f-mono); color: #8fa89a; }
+.phb-hyr { display: flex; flex-wrap: wrap; gap: 3px; } .phb-hyr i { font: 700 8.5px var(--f-mono); font-style: normal; padding: 2px 6px; border-radius: 999px; background: rgba(255, 143, 163, .12); color: #ff8fa3; }
+.phb-hyc .m-btn { min-height: 34px; }
+@keyframes phbHy { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+body.fx-lite .phb-hyc, body.fx-lite .phb-hyc > strong { animation: none; } @media (prefers-reduced-motion: reduce) { .phb-hyc, .phb-hyc > strong { animation: none; } .phb-hyc { transition: none; } }
+body.theme-day .phb-hy { background: #fffaf0; } body.theme-day .phb-hyc { background: #fff; } body.theme-day .phb-hyt b { color: #0c2a24; } body.theme-day .phb-hyc > strong { color: #8a6200; text-shadow: none; }
+@media (max-width: 640px) { .phb-hyg { grid-template-columns: repeat(2, minmax(0, 1fr)); } }

@@ -11,7 +11,7 @@ import { LEND_SIDES, okAmount, lendLine, lendQuote, lendSign } from '../lib/lend
 import { StakeSeg } from './EarnStake';
 import { useStake, cash } from '../lib/earnStake';
 import { FamEmpty } from './FamEmpty';
-import { MoneyDesk, RangePicture, JOB_OF } from './MoneyDesk';
+import { MoneyDesk, RangePicture, JOB_OF, openDesk } from './MoneyDesk';
 import { AutoRangeDesk } from './AutoRangeDesk';
 
 // 🏦 THE POOL HUB (the Pool Hall in Fee City + every pool building in the outer cities): every top and rising Solana pool in ONE pop-out —
@@ -209,6 +209,32 @@ function ComboLive({ c, amt }) {
   </div>;
 }
 
+// 🔥 HIGH YIELD (owner 2026-10-27: "more high-yield options" · NO RISK NO REWARD): the six pools paying the most right now that are deep enough to
+// matter (TVL ≥ $250K, never dead) — APY ring, what YOUR amount makes a day, the risk named on each card, ONE button that pops the money desk.
+export function highYield(rows, n = 6) {
+  return (rows || []).filter(r => Number(r.apy) >= 15 && Number(r.tvl) >= 250000 && !deadPool(r)).sort((a, b) => b.apy - a.apy).slice(0, n).map(r => {
+    const risk = [];
+    if (['v2', 'v3', 'dlmm'].includes(r.kind)) risk.push('impermanent loss');
+    if ((Number(r.reward) || 0) > (Number(r.base) || 0)) risk.push('mostly reward tokens');
+    if (r.tvl < 1e6) risk.push('thin pool');
+    if (r.apy >= 200) risk.push('may not last');
+    return { r, risk: risk.length ? risk : ['contract risk'] };
+  });
+}
+function HighYield({ pools }) {
+  const stake = useStake(); const rows = useMemo(() => highYield(pools?.pools), [pools]);
+  if (!rows.length) return null;
+  return <div className="phb-hy" data-testid="high-yield"><header><b>🔥 HIGH YIELD · RIGHT NOW</b><small>the biggest APYs with real depth — the risk is named on each · your wallet signs</small></header>
+    <div className="phb-hyg">{rows.map(({ r, risk }, i) => { const day = (stake * r.apy) / 100 / 365;
+      return <article key={r.id} className={`phb-hyc k-${r.kind}`} style={{ '--i': i, '--kc': KIND_COLOR[r.kind] || '#45e486' }} data-testid={`hy-${r.id}`}>
+        <span className="phb-hyt"><Gauge v={r.apy} /><span><b>{r.sym}</b><small>{r.proto} · {POOL_KIND[r.kind] || r.kind}</small></span></span>
+        <strong className="m-num" key={r.apy}>{apyTxt(r.apy)}</strong>
+        <span className="phb-hyd"><em>${stake >= 1000 ? `${stake / 1000}K` : stake} MAKES</em><b className="m-num">+{cash(day)}/day</b><small className="m-num">{cash(day * 30)}/mo · TVL {usd(r.tvl)}</small></span>
+        <span className="phb-hyr">{risk.map(x => <i key={x}>⚠ {x}</i>)}</span>
+        <button type="button" className="m-btn m-go" onClick={() => openDesk({ job: JOB_OF[r.kind] || 'lend', focus: r, title: `${r.sym} · PUT IT TO WORK` })} data-tip="The money desk pops out with this pool in focus — your amount, see it compound, your wallet signs" data-testid={`hy-go-${r.id}`}>⚡ PUT IT TO WORK</button>
+      </article>; })}</div></div>;
+}
+
 export function PoolHub({ pools, blocks = [], onLink, start = 'all' }) {
   const [lens, setLens] = useState(start); const [sort, setSort] = useState('tvl'); const [q, setQ] = useState(''); const [qq, setQQ] = useState('');
   useEffect(() => { const t = setTimeout(() => setQQ(q), 250); return () => clearTimeout(t); }, [q]);
@@ -216,6 +242,7 @@ export function PoolHub({ pools, blocks = [], onLink, start = 'all' }) {
   if (!pools) return <div className="phb phb-load" aria-live="polite"><i /><i /><i /><small>reading every pool…</small></div>;
   return <div className="phb" data-testid="pool-hub">
     <PoolWaves rows={pools.pools} onPick={r => { setLens('all'); setQ(r.sym); }} pickWord="tap to show just this pool below" />
+    <HighYield pools={pools} />
     <CatCombo pools={pools} />
     <header className="phb-head">
       <StakeSeg />

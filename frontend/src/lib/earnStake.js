@@ -4,10 +4,11 @@ import { useEffect, useState } from 'react';
 
 export const STAKES = [100, 1000, 10000];
 const KEY = 'feeless.earn.stake';
-let cur = (() => { try { const v = Number(localStorage.getItem(KEY)); return STAKES.includes(v) ? v : 1000; } catch { return 1000; } })();
+export const okStake = v => Number.isFinite(Number(v)) && Number(v) >= 1 && Number(v) <= 1e7;   // any amount $1 … $10M (owner 2026-10-27: "input for pools")
+let cur = (() => { try { const v = Number(localStorage.getItem(KEY)); return okStake(v) ? v : 1000; } catch { return 1000; } })();
 const subs = new Set();
 export function setStake(v) {
-  if (!STAKES.includes(v) || v === cur) return;
+  if (!okStake(v)) return; v = Math.round(Number(v) * 100) / 100; if (v === cur) return;
   cur = v; try { localStorage.setItem(KEY, String(v)); } catch { /* storage blocked */ }
   subs.forEach(f => f(v));
 }

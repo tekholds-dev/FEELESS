@@ -22,3 +22,18 @@ test('one stake for the page: the picker re-quotes every pool row live', async (
   await act(async () => { q('stake-100').click(); });
   await act(async () => { root.unmount(); });
 });
+
+test('💸 any typed amount quotes the page; the high-yield row names the risk and skips dust', async () => {
+  const { highYield } = await import('./PoolHub');
+  const rows = [{ id: 'a', sym: 'A-USDC', kind: 'v3', tvl: 5e5, apy: 240, base: 20, reward: 220 }, { id: 'b', sym: 'B', kind: 'lend', tvl: 4e7, apy: 18, base: 18 },
+    { id: 'c', sym: 'DUST', kind: 'v2', tvl: 1e4, apy: 900 }, { id: 'd', sym: 'LOW', kind: 'stake', tvl: 1e9, apy: 7 }];
+  const hy = highYield(rows);
+  expect(hy.map(x => x.r.id)).toEqual(['a', 'b']);                                     // dust + low APY stay out, biggest first
+  expect(hy[0].risk).toEqual(['impermanent loss', 'mostly reward tokens', 'thin pool', 'may not last']); expect(hy[1].risk).toEqual(['contract risk']);
+  const el = document.createElement('div'); document.body.appendChild(el); const root = createRoot(el);
+  await act(async () => { root.render(<StakeSeg />); });
+  const inp = el.querySelector('[data-testid="stake-in"]');
+  await act(async () => { const set = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set; set.call(inp, '2500'); inp.dispatchEvent(new Event('input', { bubbles: true })); });
+  expect(localStorage.getItem('feeless.earn.stake')).toBe('2500');
+  await act(async () => { root.unmount(); }); act(() => setStake(100));
+});

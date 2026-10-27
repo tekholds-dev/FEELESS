@@ -1,5 +1,8 @@
 /* 💸 EarnStake.jsx — the one stake picker (Pool Hall) + the Pool Hall row's earn chip. m-* tokens; no motion of its own; day + 640 px at the end. */
 .es-seg { display: inline-flex; align-items: center; gap: 6px; } .es-seg > em { font: 800 8px 'JetBrains Mono', monospace; font-style: normal; letter-spacing: .16em; color: var(--m-dim, #9a9a9a); }
+.es-in { display: inline-flex; align-items: center; gap: 2px; min-height: 32px; padding: 0 8px; border-radius: 8px; border: 1px solid rgba(69, 228, 200, .35); background: rgba(0, 0, 0, .35); }
+.es-in span { font: 800 11px var(--f-mono); color: #7fd8c6; } .es-in input { width: 78px; border: 0; background: none; color: #fff; font: 800 13px var(--f-mono); outline: none; } .es-in:focus-within { outline: 2px solid #45e4c8; outline-offset: 1px; }
+body.theme-day .es-in { background: #fff; } body.theme-day .es-in input { color: #0c2a24; }
 .es-seg .m-seg button { min-height: 32px; min-width: 46px; font-family: 'JetBrains Mono', monospace; font-weight: 800; }
 /* the Pool Hall row's earn chip at the stake */
 .phb-24 small.es-yr { font: 700 9px 'JetBrains Mono', monospace; color: #9a9a9a; }
