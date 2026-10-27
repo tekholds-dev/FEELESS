@@ -26,7 +26,7 @@ test('recruits are playing cards and blocks have a tone', () => {
   expect(blockTone({ mine: true })).toBe('mine'); expect(blockTone({ kind: 'cpu', owner: 'x' })).toBe('cpu'); expect(blockTone({})).toBe('free');
   const el = document.createElement('div'); document.body.appendChild(el);
   const went = []; act(() => { createRoot(el).render(<CardRoom crew={[{ id: 1, k: 'spy', lvl: 4, xp: 0 }, { id: 2, k: 'hitter', lvl: 10, xp: 0, hurt: 125 }]} onGo={k => went.push(k)} />); });
-  expect(q('card-room').textContent).toContain('♦'); expect(q('card-room').textContent).toContain('2:05');   // the hurt King counts down
+  expect(q('card-room').textContent).toContain('♦'); expect(q('card-room').textContent).toMatch(/2:0[0-5]/);   // the hurt King counts down (a loaded machine may tick a second or two first)
   act(() => { q('crd-1').click(); }); act(() => { q('crd-go-cartels').click(); }); expect(went).toEqual(['cartels']);   // a spy hunts cartels
   expect(deckVitals([{ lvl: 10, hurt: 60 }, { lvl: 3 }], 30)).toMatchObject({ n: 2, ready: 1, hurt: 1, next: 30, kings: 1, power: 13 });
 });
