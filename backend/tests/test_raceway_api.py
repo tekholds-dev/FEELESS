@@ -40,3 +40,12 @@ def test_a_telegram_player_lands_on_the_day_board(monkeypatch):
     assert any(row['name'] == 'Vito' for row in c.get('/api/reputation/familia-race').json()['board'])
     forged = c.post('/api/reputation/familia-race/start', json={'tg': init.replace('Vito', 'Tony')})
     assert forged.status_code == 401
+
+
+def test_red_light_seconds_add_to_the_time_but_not_to_the_clock_check():
+    rs, c = _client()
+    s = c.post('/api/reputation/familia-race/start', json={}).json(); tr = s['track']; ms = tr['par']
+    rs._race_tokens[s['token']]['at'] -= ms / 1000 + 1
+    splits = [int(ms * (k + 1) / len(tr['cps'])) for k in range(len(tr['cps']))]
+    r = c.post('/api/reputation/familia-race/finish', json={'token': s['token'], 'ms': ms + 6000, 'pen': 6000, 'splits': splits})
+    assert r.status_code == 200 and r.json()['ms'] == ms + 6000                # three reds ran: +6 s on the posted time, still an honest run

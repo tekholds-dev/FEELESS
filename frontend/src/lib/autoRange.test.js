@@ -1,4 +1,4 @@
-import { decide, replay, targetWidth, realizedVol, marketState, inRangeOdds, moveCost, projection, ilRange, closes } from './autoRange';
+import { decide, replay, targetWidth, realizedVol, marketState, inRangeOdds, moveCost, projection, ilRange, closes, sizeBand, movesPerDay } from './autoRange';
 
 const T0 = 1_800_000_000;
 const bars = (fn, n = 120) => Array.from({ length: n }, (_, i) => { const c = fn(i); return [T0 + i * 900, c, c * 1.001, c * 0.999, c, 0]; });
@@ -37,4 +37,15 @@ test('📐 projection: a 50/50 band at 0 move keeps its $ + a day of fees; −20
   const p = projection(1, 0.1, 10, 5, 0.01);
   expect(p.base.value).toBeGreaterThan(5); expect(p.dn.value).toBeLessThan(5 * 0.9 * (1 + ilRange(0.8, 1.1)) + 0.0001 + 5 * 0.9);
   expect(p.pts[0].up).toBe(1); expect(p.pts[5].up).toBeGreaterThan(p.pts[1].up);
+});
+
+test('💵 the band is sized to the money: small money runs wider (moves cost too much), big money runs tighter; vitals add up', () => {
+  const base = { rate: 0.004, vol: 0.35, strat: 'balanced' };
+  const small = sizeBand({ ...base, amt: 5, rentUsd: 9 }); const big = sizeBand({ ...base, amt: 5000, rentUsd: 9 });
+  expect(small.w).toBeGreaterThanOrEqual(big.w);
+  expect(big.net).toBeCloseTo(big.fees - big.cost, 9); expect(big.apr).toBeCloseTo((big.net * 365 / 5000) * 100, 6);
+  expect(small.rentPct).toBeCloseTo(180); expect(small.tooSmall).toBe(true);                     // $9 of rent on $5
+  expect(big.curve).toHaveLength(25); expect(big.ilEdge).toBeLessThan(0); expect(big.inRange).toBeGreaterThan(0);
+  expect(sizeBand({ ...base, amt: 0 })).toBeNull(); expect(sizeBand({ ...base, amt: 100, vol: null })).toBeNull();
+  expect(movesPerDay(5, 0.5)).toBeGreaterThan(movesPerDay(15, 0.5));
 });

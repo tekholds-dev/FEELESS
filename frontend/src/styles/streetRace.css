@@ -7,13 +7,15 @@
 .sr-time { position: absolute; top: 10px; left: 10px; display: grid; gap: 1px; padding: 8px 12px; border-radius: 12px; background: rgba(4, 8, 12, .7); border: 1px solid rgba(255, 255, 255, .1); }
 .sr-time em { font: 800 8.5px var(--f-mono); font-style: normal; letter-spacing: .18em; color: #ff8fa3; } .sr-time b { font: 800 26px var(--f-display); color: #fff; text-shadow: 0 0 16px rgba(255, 93, 115, .45); }
 .sr-time small { font: 700 10px var(--f-mono); color: #9aa8b3; }
+.sr-pen { position: absolute; top: 52px; left: 50%; transform: translateX(-50%); padding: 4px 10px; border-radius: 999px; background: rgba(120, 10, 20, .8); color: #ffd0d6; font: 800 11px var(--f-mono); transition: transform .15s; }
+.sr-pen.is-flash { transform: translateX(-50%) scale(1.25); background: #ff3b3b; color: #fff; }
 .sr-cps { position: absolute; top: 14px; left: 50%; transform: translateX(-50%); display: flex; gap: 6px; padding: 7px 10px; border-radius: 999px; background: rgba(4, 8, 12, .7); }
 .sr-cps i { width: 12px; height: 12px; border-radius: 50%; border: 2px solid #2a6b4a; transition: background .2s, transform .2s; }
 .sr-cps i.is-done { background: #45e486; border-color: #45e486; } .sr-cps i.is-next { border-color: #45e486; transform: scale(1.25); box-shadow: 0 0 10px #45e486; }
 .sr-map { position: absolute; top: 10px; right: 10px; width: 120px; height: 120px; border-radius: 12px; background: rgba(4, 8, 12, .75); border: 1px solid rgba(255, 255, 255, .1); }
 .sr-map line { stroke: #2a3238; stroke-width: 4; } .sr-map circle { fill: #2a6b4a; } .sr-map circle.is-next { fill: #45e486; } .sr-map circle.is-done { fill: #1a3a2a; }
 .sr-map .sr-me { fill: #ff5d73; stroke: #fff; stroke-width: 3; }
-.sr-arrow { position: absolute; top: 64px; left: 50%; margin-left: -18px; width: 36px; height: 36px; display: grid; place-items: center; font-size: 26px; color: #45e486; text-shadow: 0 0 12px #15d16a; transition: transform .1s linear; }
+.sr-arrow { position: absolute; top: 84px; left: 50%; margin-left: -18px; width: 36px; height: 36px; display: grid; place-items: center; font-size: 26px; color: #45e486; text-shadow: 0 0 12px #15d16a; transition: transform .1s linear; }
 .sr-speed { position: absolute; right: 12px; bottom: 120px; display: grid; justify-items: end; gap: 2px; padding: 8px 12px; border-radius: 12px; background: rgba(4, 8, 12, .7); min-width: 110px; overflow: hidden; }
 .sr-speed b { font: 800 30px var(--f-display); color: #fff; line-height: 1; } .sr-speed em { font: 800 8.5px var(--f-mono); font-style: normal; letter-spacing: .18em; color: #9aa8b3; }
 .sr-speed i { position: absolute; left: 0; right: 0; bottom: 0; height: 3px; transform-origin: left; background: linear-gradient(90deg, #15d16a, #f5c451, #ff5d73); transition: transform .1s linear; }

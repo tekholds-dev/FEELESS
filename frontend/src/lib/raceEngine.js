@@ -6,7 +6,7 @@ export const VEHICLES = {
   bike: { name: 'STREET BIKE', max: 52, accel: 19, brake: 24, turn: 2.7, drag: 0.7, len: 2.2, wid: 0.8, h: 1.1, color: '#ff5d73', tip: 'Fastest + nimblest — bounces hard off walls (187 km/h)' },
   truck: { name: 'BOX TRUCK', max: 34, accel: 9, brake: 20, turn: 1.5, drag: 0.45, len: 7, wid: 2.6, h: 3, color: '#f5c451', tip: 'Slow but heavy — barely loses speed on a hit (122 km/h)' },
 };
-const PALETTE = ['#1c2a33', '#24202e', '#1e2b22', '#2a2320', '#202634'];
+const PALETTE = ['#cdbb9e', '#8fa5ba', '#b9705f', '#dcd5c6', '#86968f', '#c7a77c'];   // daytime stone · glass · brick · concrete
 const rnd = seed => { let s = seed >>> 0 || 1; return () => { s = (s * 1664525 + 1013904223) >>> 0; return s / 4294967296; }; };
 const hash = str => { let h = 7; for (const ch of String(str)) h = (h * 31 + ch.charCodeAt(0)) >>> 0; return h; };
 
@@ -41,7 +41,7 @@ export function step(s, inp, dt, veh, boxes = []) {
   const grip = Math.min(1, Math.abs(speed) / 10);
   const yaw = s.yaw + steer * v.turn * dt * grip * Math.sign(speed || 1) * (1 - Math.min(0.45, Math.abs(speed) / v.max * 0.45));
   let x = s.x + Math.sin(yaw) * speed * dt; let z = s.z + Math.cos(yaw) * speed * dt; let hit = false;
-  const lim = grid * cell; x = Math.max(-8, Math.min(lim + 8, x)); z = Math.max(-8, Math.min(lim + 8, z));
+  const lim = grid * cell; x = Math.max(-7.5, Math.min(lim + 7.5, x)); z = Math.max(-7.5, Math.min(lim + 7.5, z));   // the guard rail
   const rad = v.wid / 2 + 0.4;
   for (const b of boxes) {
     const dx = x - b.x; const dz = z - b.z; const hx = b.w / 2 + rad; const hz = b.d / 2 + rad;
@@ -60,12 +60,42 @@ export const kmh = mps => Math.round(Math.abs(mps) * 3.6);
 export const fmtMs = ms => { if (ms == null) return '—'; const t = Math.max(0, Math.round(ms)); const m = Math.floor(t / 60000); const s = ((t % 60000) / 1000).toFixed(2).padStart(5, '0'); return `${m}:${s}`; };
 // pure: the heading (radians, 0 = +z) from the car to a point — the HUD arrow
 export const bearing = (s, p) => Math.atan2(p[0] - s.x, p[1] - s.z) - s.yaw;
-// pure: traffic — a few cars looping the avenues (row / column roads), each at its own pace. t = seconds → [{x, z, yaw}]
-export function traffic(t, n = 8) {
-  const { grid, cell } = RACE; const L = grid * cell;
-  return Array.from({ length: n }, (_, i) => {
-    const lane = 1 + (i % (grid - 1)); const along = ((t * (9 + (i % 4) * 3) + i * 47) % L + L) % L; const back = i % 2;
-    return i % 3 === 0 ? { x: lane * cell + (back ? -2.5 : 2.5), z: back ? L - along : along, yaw: back ? Math.PI : 0 }
-      : { x: back ? L - along : along, z: lane * cell + (back ? 2.5 : -2.5), yaw: back ? -Math.PI / 2 : Math.PI / 2 };
+// 🚦 TRAFFIC LIGHTS (owner 2026-10-27: "true stop and go"): every crossing runs the same 12 s cycle — north-south green 5 s, yellow 1 s, then
+// east-west green 5 s, yellow 1 s. pure: t (s) → {ns, ew} each 'g' | 'y' | 'r'
+export const LIGHT_CYCLE = 12;
+export function lightPhase(t) {
+  const c = ((t % LIGHT_CYCLE) + LIGHT_CYCLE) % LIGHT_CYCLE;
+  return c < 5 ? { ns: 'g', ew: 'r' } : c < 6 ? { ns: 'y', ew: 'r' } : c < 11 ? { ns: 'r', ew: 'g' } : { ns: 'r', ew: 'y' };
+}
+// the axis a car / the player drives on from its heading (0 = +z = north-south)
+export const axisOf = yaw => (Math.abs(Math.sin(yaw)) > Math.abs(Math.cos(yaw)) ? 'ew' : 'ns');
+// pure: the crossing (grid index) a point is inside, else null
+export function crossingAt(x, z) {
+  const { grid, cell, road } = RACE; const i = Math.round(x / cell); const j = Math.round(z / cell);
+  return i >= 0 && j >= 0 && i <= grid && j <= grid && Math.abs(x - i * cell) < road / 2 && Math.abs(z - j * cell) < road / 2 ? { i, j } : null;
+}
+// pure: the AI traffic — n cars on the avenues (some north-south, some east-west), each a lane + a position along it + a speed
+export function trafficInit(n = 10) {
+  const { grid, cell } = RACE;
+  return Array.from({ length: n }, (_, k) => { const ns = k % 2 === 0; const lane = 1 + (k % (grid - 1)); const back = k % 4 >= 2;
+    return { ns, back, lane, s: (k * 53) % (grid * cell), v: 0, cruise: 9 + (k % 3) * 2 }; });
+}
+// pure: one traffic step — cruise, but brake to a stop before a crossing whose light is red / yellow for your axis, go again on green
+export function trafficStep(cars, t, dt) {
+  const { grid, cell, road } = RACE; const L = grid * cell; const ph = lightPhase(t);
+  return cars.map(c => {
+    const light = c.ns ? ph.ns : ph.ew; const dir = c.back ? -1 : 1;
+    const ahead = dir > 0 ? (Math.floor(c.s / cell) + 1) * cell : Math.ceil(c.s / cell - 1) * cell;    // the next crossing centre
+    const toLine = Math.abs(ahead - c.s) - road / 2 - 1.5;
+    const stop = light !== 'g' && toLine > 0 && toLine < 14;
+    const v = stop ? Math.max(0, c.v - 14 * dt * (toLine < 4 ? 2 : 1)) : Math.min(c.cruise, c.v + 4.5 * dt);
+    let s = c.s + dir * v * dt; if (s > L) s -= L; if (s < 0) s += L;
+    return { ...c, s, v, stopped: stop && v < 0.3 };
   });
 }
+// pure: where an AI car is drawn → {x, z, yaw}
+export function trafficPose(c) {
+  const { cell } = RACE; const off = c.back ? -2.6 : 2.6; const lineV = c.lane * cell;
+  return c.ns ? { x: lineV + off, z: c.s, yaw: c.back ? Math.PI : 0 } : { x: c.s, z: lineV - off, yaw: c.back ? -Math.PI / 2 : Math.PI / 2 };
+}
+export const RED_PENALTY_MS = 2000;

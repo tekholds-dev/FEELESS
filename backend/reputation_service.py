@@ -10656,6 +10656,7 @@ class RaceFinish(RaceStart):
     ms: int = Field(..., ge=0, le=3_600_000)
     splits: List[int] = Field(default_factory=list, max_length=12)
     vehicle: str = Field(default='car', max_length=8)
+    pen: int = Field(default=0, ge=0, le=600_000)   # 🚦 red lights run (+2 s each) — inside `ms`, outside the clock check
 
 
 @app.get('/api/reputation/familia-race')
@@ -10721,7 +10722,7 @@ async def familia_race_finish(p: RaceFinish):
     t = _race_tokens.pop(p.token, None)
     if not t:
         raise HTTPException(400, 'That run expired — start a new one.')
-    why_ = _rw.check(t['track'], p.ms, p.splits, now - t['at'])
+    why_ = _rw.check(t['track'], p.ms - min(p.pen, p.ms), p.splits, now - t['at'])   # the driving time; red-light seconds only ever ADD to the posted time
     if why_:
         raise HTTPException(400, why_)
     who_ = t['who']

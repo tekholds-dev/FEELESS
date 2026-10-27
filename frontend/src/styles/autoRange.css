@@ -120,3 +120,23 @@ body.theme-day .arx-pools button { background: #fff; color: #0e2a24; }
 body.fx-lite .arx-band, body.fx-lite .arx-band > i { animation: none; } @media (prefers-reduced-motion: reduce) { .arx-band, .arx-band > i { animation: none; } }
 body.theme-day .arx-band { background: #fff; } body.theme-day .arx-band b { color: #0e2a24; }
 @media (max-width: 640px) { .arx-band { grid-template-columns: 10px minmax(0, 1fr); } .arx-band .m-btn { grid-column: span 1; } }
+/* 💵 SIZED TO YOUR $ (owner 2026-10-27): the net-per-day curve across widths (the pick glows), seven vitals that tick, a typed amount */
+.arx-size { display: grid; gap: 8px; padding: 12px; border-radius: 14px; border: 1px solid rgba(69, 228, 134, .28); background: linear-gradient(160deg, rgba(21, 209, 106, .08), rgba(0, 0, 0, .35)); box-shadow: inset 0 1px 0 rgba(255, 255, 255, .05); }
+.arx-size.is-small { border-color: rgba(255, 143, 163, .4); }
+.arx-size > header { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 10px; } .arx-size > header b { font: 800 11px var(--f-mono); letter-spacing: .12em; color: #86efac; }
+.arx-size > header small { flex: 1 1 220px; font: 600 10px var(--f-ui); color: #9fb5a8; } .arx-qa { display: flex; gap: 4px; } .arx-qa .m-btn { min-height: 32px; padding: 0 9px; }
+.arx-size-in { display: grid; grid-template-columns: minmax(200px, 300px) minmax(0, 1fr); gap: 12px; align-items: center; }
+.arx-curve { width: 100%; height: 90px; } .arx-zero { stroke: rgba(255, 255, 255, .15); stroke-dasharray: 3 4; } .arx-cline { fill: none; stroke: #45e486; stroke-width: 2; vector-effect: non-scaling-stroke; }
+.arx-cfill { fill: rgba(21, 209, 106, .14); } .arx-cdot { fill: #f5c451; stroke: #fff; stroke-width: 1.5; } .arx-ctext { font: 800 9px var(--f-mono); fill: #f5c451; }
+.arx-svit { display: grid; grid-template-columns: repeat(auto-fill, minmax(104px, 1fr)); gap: 6px; }
+.arx-svit span { display: grid; gap: 2px; padding: 7px 9px; border-radius: 10px; background: rgba(0, 0, 0, .35); border: 1px solid rgba(255, 255, 255, .06); animation: arxSizeIn .3s ease-out both; animation-delay: calc(var(--i, 0) * 40ms); }
+.arx-svit em { font: 800 8px var(--f-mono); font-style: normal; letter-spacing: .14em; color: #8fa89a; } .arx-svit b { font: 800 14px var(--f-mono); color: #eafff3; animation: arxSizeIn .35s ease-out; }
+.arx-svit b.is-up { color: #45e486; } .arx-svit b.is-dn { color: #ff8fa3; }
+.arx-warn { margin: 0; font: 600 11px var(--f-ui); color: #ff8fa3; }
+.arx-amtin { display: inline-flex; align-items: center; gap: 2px; min-height: 32px; padding: 0 8px; border-radius: 8px; border: 1px solid rgba(69, 228, 134, .35); background: rgba(0, 0, 0, .35); }
+.arx-amtin span { font: 800 11px var(--f-mono); color: #86efac; } .arx-amtin input { width: 74px; border: 0; background: none; color: #fff; font: 800 13px var(--f-mono); outline: none; }
+.arx-amtin:focus-within { outline: 2px solid #45e486; outline-offset: 1px; }
+@keyframes arxSizeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+body.fx-lite .arx-svit span, body.fx-lite .arx-svit b { animation: none; } @media (prefers-reduced-motion: reduce) { .arx-svit span, .arx-svit b { animation: none; } }
+body.theme-day .arx-size { background: #f1fbf5; } body.theme-day .arx-svit span, body.theme-day .arx-amtin { background: #fff; } body.theme-day .arx-svit b, body.theme-day .arx-amtin input { color: #0d1a12; }
+@media (max-width: 640px) { .arx-size-in { grid-template-columns: 1fr; } }

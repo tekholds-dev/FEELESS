@@ -64,6 +64,28 @@ export function dayFees(amt, rate, w, vol) { return amt * rate * bandEdge(w) * i
 // a move = the network fee + swapping about half the position back into balance (slippage + the pool fee on that swap)
 export const moveCost = (amt, { gas = 0.01, slip = 0.003 } = {}) => gas + (amt / 2) * slip;
 
+// ── size the band to the money (owner 2026-10-27: "pool ranging based on the input amount, more advanced vitals") ──
+// A ±w band is crossed about (σ / w)² times a day (a random walk), and every re-center pays gas (fixed) + slippage on half the position — so
+// $5 can't afford many moves and runs wider, $5,000 can run tight. Each width in the strategy's span: fees/day − moves/day × moveCost(amt).
+export const movesPerDay = (w, vol) => (vol > 0 ? Math.min(24, ((vol * 100) / Math.max(0.5, w)) ** 2) : 0);
+export function sizeCurve({ amt, rate, vol, strat = 'balanced', n = 24 }) {
+  const S = STRATEGIES[strat] || STRATEGIES.balanced; const out = [];
+  for (let i = 0; i <= n; i += 1) {
+    const w = S.min + ((S.max - S.min) * i) / n; const fees = dayFees(amt, rate, w, vol); const moves = movesPerDay(w, vol); const cost = moves * moveCost(amt);
+    out.push({ w: Math.round(w * 10) / 10, fees, moves, cost, net: fees - cost });
+  }
+  return out;
+}
+/** → the width that nets the most for THIS amount + its vitals: net $/day, APR, re-centers a day, days to earn back the opening swap, odds of
+ *  still being in range in 24 h, IL if the price runs to the band's edge, rent locked (refunded on close) as a share of the money. */
+export function sizeBand({ amt, rate, vol, strat = 'balanced', rentUsd = 0 }) {
+  if (!(amt > 0) || !(rate > 0) || vol == null) return null;
+  const curve = sizeCurve({ amt, rate, vol, strat }); const best = curve.reduce((b, p) => (p.net > b.net ? p : b), curve[0]); const k = 1 + best.w / 100;
+  const open = moveCost(amt); const rentPct = (rentUsd / amt) * 100;
+  return { ...best, curve, apr: (best.net * 365 / amt) * 100, breakEvenDays: best.net > 0 ? open / best.net : null, inRange: inRangeOdds(best.w, vol) * 100,
+    ilEdge: ilRange(k, k) * 100, rentUsd, rentPct, tooSmall: best.net <= 0 || rentPct > 25 };
+}
+
 /** One engine step. s = {price, band:{lo,hi}|null, amt, rate (fees per $ per day, full range), candles, strat, outSince (ms|null), now, unclaimed}
  *  → {action, why, width, band (the band it would set), gain (24h fees at that band), cost, conf, state, compound} */
 export function decide(s) {

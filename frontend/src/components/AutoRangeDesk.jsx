@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { apiUrl } from '../lib/api';
 import { fetchFeelessCandles } from '../lib/candles';
 import { useLivePrice } from '../lib/livePriceHub';
-import { STRATEGIES, decide, replay, projection, closes, marketState, targetWidth, dayFees, feeTier, poolDayRate, bandEdge, REF_W } from '../lib/autoRange';
+import { STRATEGIES, decide, replay, projection, closes, marketState, targetWidth, dayFees, feeTier, poolDayRate, bandEdge, REF_W, sizeBand } from '../lib/autoRange';
 import { useWallet } from '../hooks/useWallet';
 import { useSolPrice } from '../lib/solPrice';
 import { getChatSession } from '../lib/chatSession';
@@ -16,7 +16,7 @@ const $ = (v, d = 2) => (v == null || !Number.isFinite(v) ? '—' : `${v < 0 ? '
 const big = v => (!(v > 0) ? '—' : v >= 1e9 ? `$${(v / 1e9).toFixed(2)}B` : v >= 1e6 ? `$${(v / 1e6).toFixed(2)}M` : v >= 1e3 ? `$${(v / 1e3).toFixed(1)}K` : `$${v.toFixed(0)}`);
 const px = v => (!(v > 0) ? '—' : v >= 1 ? `$${v.toFixed(4)}` : `$${v.toPrecision(4)}`);
 const pc = v => (v == null || !Number.isFinite(v) ? '—' : `${v >= 0 ? '+' : ''}${v.toFixed(1)}%`);
-const AMTS = [5, 10, 25, 50, 100];
+const AMTS = [5, 25, 100, 500, 2500];
 const ARM_KEY = id => `feeless.autorange.${id}`;
 
 function usePoolTape(mint) {   // the token's deepest pool → its 15-minute candles (refreshed each minute while open)
@@ -85,7 +85,9 @@ export function AutoRangeDesk({ pool, amt: amt0 = null }) {
   const hub = poolDayRate(pool); const rate = vrow?.rate > 0 ? vrow.rate : hub.rate;   // the venue's own 24h fees ÷ TVL beats the hub's estimate
   const src = vrow?.rate > 0 ? `${vrow.venue === 'raydium' ? 'Raydium' : 'Meteora'}'s own 24h fees ÷ TVL` : hub.src;
   const cl = useMemo(() => closes(tape.candles), [tape.candles]); const ms = useMemo(() => marketState(cl), [cl]);
-  const w = custom || targetWidth(ms.vol, strat);
+  const rentUsd = (vrow?.venue === 'raydium' ? 0.03 : 0.06) * (solPx || 0);   // the position's rent (refunded when you close)
+  const sized = useMemo(() => sizeBand({ amt, rate, vol: ms.vol, strat, rentUsd }), [amt, rate, ms.vol, strat, rentUsd]);
+  const w = custom || sized?.w || targetWidth(ms.vol, strat);   // 💵 the width sized to YOUR amount (custom wins)
   const rp = useMemo(() => (tape.candles.length ? replay(tape.candles, { amt, rate, strat }) : null), [tape.candles, amt, rate, strat]);
   const band = armed?.band || (price ? { lo: price / (1 + w / 100), hi: price * (1 + w / 100) } : null);
   const [outSince, setOutSince] = useState(null);
@@ -177,6 +179,8 @@ export function AutoRangeDesk({ pool, amt: amt0 = null }) {
       </aside>
     </div>
 
+    {sized ? <SizedToYou s={sized} amt={amt} setAmt={setAmt} custom={custom} w={w} /> : null}
+
     <div className="arx-low">
       <div className="arx-replay" data-tip="These exact rules run over this coin's real candles — fees only while a close sat inside, moves paid for, IL booked">
         <header><b>🔁 REPLAY · LAST {rp ? Math.round(rp.hours) : '—'}H</b><small>{STRATEGIES[strat].name} · {$(amt, 0)} in · real candles, not a promise</small></header>
@@ -208,7 +212,8 @@ export function AutoRangeDesk({ pool, amt: amt0 = null }) {
       </div>
       <div className="arx-go">
         <header><b>🚀 DEPOSIT & RUN</b><small>{pool.proto} · Solana · your wallet signs each move</small></header>
-        <div className="arx-amts" role="radiogroup" aria-label="Amount">{AMTS.map(a => <button key={a} type="button" role="radio" aria-checked={amt === a} className={amt === a ? 'is-on' : ''} onClick={() => setAmt(a)} data-tip={`Plan it with $${a}`}>${a}</button>)}</div>
+        <div className="arx-amts" role="radiogroup" aria-label="Amount">{AMTS.map(a => <button key={a} type="button" role="radio" aria-checked={amt === a} className={amt === a ? 'is-on' : ''} onClick={() => setAmt(a)} data-tip={`Plan it with $${a}`}>${a >= 1000 ? `${a / 1000}K` : a}</button>)}
+          <label className="arx-amtin" data-tip="Type any amount — the band re-sizes to it"><span>$</span><input type="number" min="1" step="any" value={amt} onChange={e => setAmt(Math.max(1, Number(e.target.value) || 1))} aria-label="Dollars to put in" data-testid="arx-amt" /></label></div>
         {vrow ? <button type="button" className="m-btn m-go arx-start" onClick={openReal} disabled={!!busy || !dec || dec.action === 'WAIT' || dec.action === 'PAUSE' || !(solPx > 0)} data-testid="arx-start"
           data-tip={`Opens a REAL ±${w}% band on ${vrow.venue === 'raydium' ? 'Raydium CLMM' : 'Meteora DLMM'} (${vrow.name}): swaps for the non-SOL side, then the position — every transaction simulated first, your wallet signs each`}>
           {busy || (!me ? '🔌 CONNECT WALLET' : dec?.action === 'PAUSE' ? '⏸ TOO WILD — WATCH ONLY' : `⚡ START AUTORANGE · ${$(amt, 0)} · ${vrow.venue === 'raydium' ? 'RAYDIUM' : 'METEORA'}`)}</button>
@@ -228,6 +233,36 @@ export function AutoRangeDesk({ pool, amt: amt0 = null }) {
 }
 
 // pure: the pools AutoRange can run on — concentrated (v3 / DLMM), a real token to chart, real 24h volume — busiest fee rate first
+// 💵 SIZED TO YOUR $ — the width that nets the most for this amount (every re-center pays gas + slippage), the net-per-day curve across the
+// strategy's widths with the pick marked, and the vitals that decide it
+function SizedToYou({ s, amt, setAmt, custom, w }) {
+  const pts = s.curve; const lo = Math.min(...pts.map(p => p.net), 0); const hi = Math.max(...pts.map(p => p.net), 1e-9);
+  const X = i => (i / (pts.length - 1)) * 300; const Y = v => 70 - ((v - lo) / (hi - lo || 1)) * 62;
+  const at = pts.findIndex(p => Math.abs(p.w - (custom || s.w)) < 1e-6 || p.w >= (custom || s.w)); const pick = pts[Math.max(0, at)];
+  const tiles = [['NET / DAY', `${s.net >= 0 ? '+' : '−'}${$(Math.abs(s.net), 3)}`, s.net >= 0 ? 'is-up' : 'is-dn', `fees ${$(s.fees, 3)} − ${s.moves.toFixed(1)} moves × their cost`],
+    ['NET APR', `${s.apr >= 0 ? '' : '−'}${Math.abs(s.apr).toFixed(s.apr >= 100 ? 0 : 1)}%`, s.apr >= 0 ? 'is-up' : 'is-dn', 'after the re-centers it will pay for'],
+    ['MOVES / DAY', s.moves.toFixed(1), '', 'how often the price leaves a band this wide'],
+    ['EARNS BACK', s.breakEvenDays == null ? 'never' : s.breakEvenDays < 1 ? `${Math.max(1, Math.round(s.breakEvenDays * 24))}h` : `${s.breakEvenDays.toFixed(1)}d`, s.breakEvenDays != null && s.breakEvenDays < 3 ? 'is-up' : 'is-dn', 'the opening swap, from the net fees'],
+    ['IN RANGE 24H', `${Math.round(s.inRange)}%`, s.inRange >= 60 ? 'is-up' : '', 'odds it is still earning a day from now'],
+    ['IL AT THE EDGE', `${s.ilEdge.toFixed(1)}%`, 'is-dn', 'vs holding, if the price runs to the band edge'],
+    ['RENT LOCKED', $(s.rentUsd, 2), s.rentPct > 25 ? 'is-dn' : '', `${s.rentPct.toFixed(1)}% of your money · refunded when you close`]];
+  return <div className={`arx-size ${s.tooSmall ? 'is-small' : ''}`} data-testid="arx-size">
+    <header><b>💵 SIZED TO YOUR ${amt.toLocaleString('en-US', { maximumFractionDigits: 2 })}</b><small>{custom ? `your width ±${w}% — the engine's best for this amount is ±${s.w}%` : `±${s.w}% nets the most at this amount — ${amt < 50 ? 'small money runs wider (fewer paid moves)' : amt >= 1000 ? 'big money can afford tighter bands' : 'balanced between fees and moves'}`}</small>
+      <span className="arx-qa">{[10, 100, 1000].map(a => <button key={a} type="button" className="m-btn" onClick={() => setAmt(a)} data-tip={`See how the band changes at $${a}`}>${a >= 1000 ? '1K' : a}</button>)}</span></header>
+    <div className="arx-size-in">
+      <svg viewBox="0 0 300 80" className="arx-curve" role="img" aria-label="Net dollars a day across band widths">
+        <line x1="0" x2="300" y1={Y(0)} y2={Y(0)} className="arx-zero" />
+        <path d={`M0,${Y(pts[0].net)} ${pts.map((p, i) => `L${X(i)},${Y(p.net)}`).join(' ')}`} className="arx-cline" />
+        <path d={`M0,${Y(0)} ${pts.map((p, i) => `L${X(i)},${Y(Math.max(0, p.net))}`).join(' ')} L300,${Y(0)} Z`} className="arx-cfill" />
+        {pick ? <g transform={`translate(${X(Math.max(0, at))},${Y(pick.net)})`}><circle r="5" className="arx-cdot" /><text y="-9" textAnchor="middle" className="arx-ctext">±{pick.w}%</text></g> : null}
+        <text x="2" y="78" className="arx-axis">±{pts[0].w}%</text><text x="298" y="78" textAnchor="end" className="arx-axis">±{pts[pts.length - 1].w}%</text>
+      </svg>
+      <div className="arx-svit">{tiles.map(([k, v, c, tip], i) => <span key={k} style={{ '--i': i }} data-tip={tip}><em>{k}</em><b className={`m-num ${c}`} key={v}>{v}</b></span>)}</div>
+    </div>
+    {s.tooSmall ? <p className="arx-warn">⚠ At ${amt} the moves + rent eat the fees in this pool — try a wider strategy or more money.</p> : null}
+  </div>;
+}
+
 export function rangeable(pools, n = 4) {
   return (pools || []).filter(p => ['v3', 'dlmm'].includes(p?.kind) && p.hold && (Number(p.tvl) || 0) >= 50000 && (Number(p.vol) || 0) > 0)
     .map(p => ({ p, rate: poolDayRate(p).rate })).filter(x => x.rate > 0).sort((a, b) => b.rate - a.rate).slice(0, n).map(x => x.p);
