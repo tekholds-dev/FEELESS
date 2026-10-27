@@ -3,6 +3,7 @@ import { act } from 'react';
 import { createRoot } from 'react-dom/client';
 import { VersionedTransaction } from '@solana/web3.js';
 import { SwapWorkspace } from './SwapWorkspace';
+jest.setTimeout(30000);   // the saved-order recovery test polls up to 5 s and ran ~7 s under the 4-worker gate (2026-10-26) — not a hang
 
 jest.mock('./ReceiptsCard', () => ({ ReceiptsCard: () => null }));
 jest.mock('react-router-dom', () => ({ useNavigate: () => jest.fn(), Link: ({ children, ...props }) => <a {...props}>{children}</a> }), { virtual: true });

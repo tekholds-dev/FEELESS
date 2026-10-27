@@ -143,7 +143,7 @@ function LaunchCosts({ call, costs, onSaved, solPx }) {
   </div>;
 }
 
-// ✅ THE READY BOARD (owner 2026-10-26: "launch in cmd ctr is confusing — have coins + pools ready per platform right here, set house"): one tile per way
+// ✅ THE READY BOARD (owner 2026-10-26: "the HQ launch desk is confusing — have coins + pools ready per platform right here, set house"): one tile per way
 // to launch, its state from the real rail / keys, and ONE button that goes where the work is. Keys a human must add are listed, never shown.
 function ReadyBoard({ rail, keys, houses, go }) {
   const has = k => keys?.find(x => x.key === k)?.set;
