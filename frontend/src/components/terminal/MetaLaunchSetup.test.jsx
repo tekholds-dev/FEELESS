@@ -60,7 +60,7 @@ test('shows the token image in setup preview and launch review', () => {
 
   expect(container.querySelector('[data-testid="meta-launch-image-preview"] img').getAttribute('src'))
     .toBe(validForm.imageUrl);
-  act(() => container.querySelector('[data-testid="meta-launch-review"]').click());
+  act(() => container.querySelector('form.meta-launch-grid').dispatchEvent(new Event('submit', { bubbles: true, cancelable: true })));
 
   expect(container.querySelector('.meta-launch-review-identity img').getAttribute('src'))
     .toBe(validForm.imageUrl);
@@ -70,7 +70,7 @@ test('shows the token image in setup preview and launch review', () => {
 test('moves a valid setup to review and keeps deployment unavailable safely', () => {
   const { container } = mount(<MetaLaunchSetup initialValues={validForm} />);
 
-  act(() => container.querySelector('[data-testid="meta-launch-review"]').click());
+  act(() => container.querySelector('form.meta-launch-grid').dispatchEvent(new Event('submit', { bubbles: true, cancelable: true })));
 
   expect(container.querySelector('[data-testid="meta-launch-review-page"]')).toBeTruthy();
   expect(container.querySelector('[data-testid="meta-launch-provider-warning"]')).toBeTruthy();
@@ -119,4 +119,13 @@ test('shows an accessible clipboard failure for the mint receipt', async () => {
   expect(container.querySelector('[role="alert"]').textContent).toBe('Copy failed. Clipboard access is unavailable.');
   expect(container.querySelector('[role="status"]')).toBeNull();
   act(() => root.unmount());
+});
+test('💊 pump.fun = two steps (identity → launch): its own defaults, no curve / fee / protection boxes, one Launch button', () => {
+  const { container } = mount(<MetaLaunchSetup initialValues={{ providerId: 'pump' }} />);
+  expect(container.querySelector('[data-testid="launch-rail-bar"]')).toBeTruthy();
+  expect(container.querySelector('[data-testid="launch-step-1"]')).toBeTruthy();
+  expect(container.querySelector('[data-testid="launch-step-2"]')).toBeNull();          // no Economics step on pump.fun
+  expect(container.querySelector('[data-testid="launch-step-3"]').textContent).toContain('Launch');
+  expect(container.querySelector('[data-testid="meta-launch-review"]')).toBeNull();      // the confusing review button is gone
+  expect(container.querySelector('#launch-style').hidden).toBe(true);
 });

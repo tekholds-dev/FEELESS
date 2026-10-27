@@ -83,30 +83,19 @@ function Demo({ kind }) {
 // 🚀 LAUNCH PAD hero (owner, 2026-10-21: "Launch degen styling never got done"): a drawn rocket on its tower at amber dusk, a T-minus countdown that
 // loops, exhaust smoke, and the rocket blasts off every time you pick another launch type (the pad re-keys on the type). Pure CSS / SVG.
 export const tMinus = (ms, every = 12000) => Math.max(0, 10 - Math.floor((ms % every) / 1000));
+// ⚡ THE LAUNCH HERO (owner 2026-10-26: "a cartoon rocket is kiddy — real, film-grain, electric"): near-black with the Launch green, film grain +
+// scanlines, the chosen mechanic's curve as a live electric wire with a spark riding it, the real rail status underneath. transform / opacity only.
+const WIRE = { pump: 'M0 150 C150 145 300 120 420 70 S560 12 600 8', dbc: 'M0 150 C120 148 240 130 360 92 S520 30 600 18', launchlab: 'M0 150 L120 132 L240 110 L360 80 L480 46 L600 14',
+  amm: 'M0 140 C200 140 260 40 600 30', dlmm: 'M0 150 H120 V118 H240 V86 H360 V60 H480 V34 H600', lock: 'M0 120 H600' };
 function LaunchPad({ t, rail }) {
-  const [n, setN] = useState(10);
-  useEffect(() => { const t0 = Date.now(); const k = setInterval(() => { if (!document.hidden) setN(tMinus(Date.now() - t0)); }, 250); return () => clearInterval(k); }, [t.id]);
+  const d = WIRE[t.id] || WIRE.pump;
   return <div className="llp" key={t.id} data-testid="launch-pad">
-    <div className="llp-sky" aria-hidden="true"><i className="llp-sun" />{Array.from({ length: 12 }, (_, i) => <i key={i} className="llp-star" style={{ '--i': i }} />)}<i className="llp-hills" /></div>
-    <div className="llp-site" aria-hidden="true">
-      <svg className="llp-tower" viewBox="0 0 40 160"><path d="M8 160V10h6v150M26 160V10h6v150" /><path d="M8 20l24 18M32 20L8 38M8 50l24 18M32 50L8 68M8 80l24 18M32 80L8 98M8 110l24 18M32 110L8 128" /></svg>
-      <div className={`llp-rocket ${n === 0 ? 'is-go' : ''}`}>
-        <svg viewBox="0 0 60 150"><defs><linearGradient id="llpBody" x1="0" x2="1"><stop offset="0" stopColor="#c9c2b3" /><stop offset=".45" stopColor="#fffaf0" /><stop offset="1" stopColor="#8d8676" /></linearGradient>
-          <linearGradient id="llpNose" x1="0" x2="1"><stop offset="0" stopColor="#c2410c" /><stop offset=".5" stopColor="#ff9f45" /><stop offset="1" stopColor="#7c2d12" /></linearGradient></defs>
-          <path d="M30 4C18 20 16 40 16 60v60h28V60c0-20-2-40-14-56z" fill="url(#llpBody)" /><path d="M30 4C22 14 19 24 18 34h24C41 24 38 14 30 4z" fill="url(#llpNose)" />
-          <circle cx="30" cy="54" r="7" fill="#15324a" stroke="#ffd36b" strokeWidth="2" /><circle cx="28" cy="52" r="2" fill="#9fd8ff" />
-          <path d="M16 96L4 122l12-4zM44 96l12 26-12-4z" fill="url(#llpNose)" /><rect x="22" y="120" width="16" height="8" rx="2" fill="#5a544a" />
-          <text x="30" y="88" textAnchor="middle" className="llp-mark">{t.icon}</text></svg>
-        <i className="llp-flame" /><i className="llp-flame f2" />
-      </div>
-      <div className="llp-smoke">{Array.from({ length: 9 }, (_, i) => <i key={i} style={{ '--i': i }} />)}</div>
-      <i className="llp-pad" />
-    </div>
+    <i className="llp-grain" aria-hidden="true" /><i className="llp-scan" aria-hidden="true" />
+    <svg className="llp-wire" viewBox="0 0 600 160" preserveAspectRatio="none" aria-hidden="true"><path d={d} className="llp-glow" /><path d={d} className="llp-line" pathLength="100" /></svg>
     <div className="llp-hud">
-      <span className="llp-eyebrow">🚀 LAUNCH PAD · {t.where}</span>
-      <b className="llp-count" key={n}>{n === 0 ? 'LIFTOFF' : `T−${String(n).padStart(2, '0')}`}</b>
-      <strong>{t.name}</strong>
-      <div className="llp-chips"><span className={rail?.ready ? 'ok' : ''}>{rail?.ready ? '🟢 FEELESS rail ready' : '⏳ rail not set up'}</span>
+      <span className="llp-eyebrow">⚡ LAUNCH · {t.where}</span>
+      <b className="llp-count">{t.name}</b>
+      <div className="llp-chips"><span className={rail?.ready ? 'ok' : ''}>{rail?.ready ? '● FEELESS rail ready' : '○ FEELESS rail not set up'}</span>
         {rail?.tab?.maxDevBuySol ? <span>dev buy ≤ {rail.tab.maxDevBuySol} SOL</span> : null}{rail?.costs?.pumpSlippagePct != null ? <span>slippage {rail.costs.pumpSlippagePct}%</span> : null}<span>you sign every step</span></div>
     </div>
   </div>;

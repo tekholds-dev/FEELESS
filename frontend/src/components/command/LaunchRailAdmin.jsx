@@ -121,7 +121,7 @@ function LaunchTabRules({ call, tab, onSaved }) {
     {!t.rails.length && <small className="m-neg">Keep at least one rail on.</small>}</div>;
 }
 
-const LR_TABS = [['launch', '🚀 Launch'], ['earnings', '💰 Earnings'], ['rules', '📜 Rules'], ['costs', '⛽ Costs'], ['setup', '⚙ Setup']];
+const LR_TABS = [['board', '✅ Ready board'], ['launch', '🚀 Launch'], ['earnings', '💰 Earnings'], ['rules', '📜 Rules'], ['costs', '⛽ Costs'], ['setup', '⚙ Setup']];
 const COST_FIELDS = [
   ['pumpSlippagePct', 'Pump.fun first-buy slippage (%)', 'The first buy lands in the same tx as the launch, so nobody can move the price: 1% is plenty. Higher only inflates the wallet preview.'],
   ['pumpPriorityFeeSol', 'Pump.fun priority fee (SOL)', 'Tip for faster inclusion. 0.0001 is enough most of the time; raise it when the network is congested.'],
@@ -143,6 +143,27 @@ function LaunchCosts({ call, costs, onSaved, solPx }) {
   </div>;
 }
 
+// ✅ THE READY BOARD (owner 2026-10-26: "launch in cmd ctr is confusing — have coins + pools ready per platform right here, set house"): one tile per way
+// to launch, its state from the real rail / keys, and ONE button that goes where the work is. Keys a human must add are listed, never shown.
+function ReadyBoard({ rail, keys, houses, go }) {
+  const has = k => keys?.find(x => x.key === k)?.set;
+  const tiles = [
+    ['💊', 'Pump.fun coin', true, 'ready — name, image, first buy; pump.fun sets the rest', 'Launch a coin', () => go('launch', true)],
+    ['🌐', 'FEELESS-rail coin', !!rail?.ready && !!rail?.siteUrl, !rail?.ready ? 'needs: sign the one-time launch rules (~0.01 SOL)' : !rail?.siteUrl ? 'needs: PUBLIC_SITE_URL in backend/.env' : `live · ${Number(rail.params?.initialMarketCap ?? 30)} → ${Number(rail.params?.migrationMarketCap ?? 500)} ${rail.params?.quote === 'USDC' ? 'USDC' : 'SOL'}`, rail?.ready ? 'Launch on FEELESS' : 'Sign the rules', () => go(rail?.ready ? 'launch' : 'rules', !!rail?.ready)],
+    ['🏠', 'House coins', houses > 0, houses > 0 ? `${houses} house config${houses > 1 ? 's' : ''} — FEELESS's own coins, outsiders pay a toll` : 'needs: one house config (Rules › 🏠 House)', houses > 0 ? 'Launch a house coin' : 'Make a house config', () => go(houses > 0 ? 'launch' : 'rules', houses > 0)],
+    ['🧪', 'Raydium LaunchLab', false, 'needs: its provider key — not wired in FEELESS yet', 'See keys', () => go('setup')],
+    ['🌊', 'Pool for a coin you hold', true, 'Meteora DAMM v2 — deposit both sides, lock it forever (Pools tab)', 'Open pools', () => { window.location.href = '/terminal/launch?mode=pools'; }],
+    ['🤖', 'AutoRange bands', true, 'Raydium CLMM + Meteora DLMM — opens, re-centers, closes; your wallet signs', 'Open AutoRange', () => { window.location.href = '/terminal/launch?mode=pools'; }],
+  ];
+  const need = [['SOLANA_RPC_URL', 'Solana RPC (Helius / Alchemy quota)'], ['PUBLIC_SITE_URL', 'Public https domain for coin metadata'], ['JUPITER_API_KEY', 'Jupiter key (prices, swaps)'], ['DFLOW_API_KEY', 'DFlow — Kalshi trading'], ['SNAPTRADE_CLIENT_ID', 'SnapTrade — any broker']].filter(([k]) => keys && !has(k));
+  return <div className="lrb" data-testid="launch-ready-board">
+    <div className="lrb-grid">{tiles.map(([ic, name, ok, sub, cta, fn], i) => <div key={name} className={`lrb-tile ${ok ? 'is-ok' : 'is-need'}`} style={{ '--i': i }}>
+      <span className="lrb-top"><b>{ic} {name}</b><i>{ok ? 'READY' : 'NEEDS'}</i></span><small>{sub}</small>
+      <button type="button" className={`m-btn ${ok ? 'm-go' : ''}`} onClick={fn}>{cta} →</button></div>)}</div>
+    {need.length ? <div className="lrb-keys"><b>🔑 ONLY YOU CAN ADD THESE</b><span>{need.map(([k, l]) => <i key={k} data-tip={`backend/.env → ${k}`}>{l}</i>)}</span><small>backend/.env, then restart the backend — keys are never shown here, only whether they are set.</small></div> : null}
+  </div>;
+}
+
 export function LaunchRailAdmin({ call, isOwner }) {
   const { wallet, provider, connect } = useWallet() || {};
   const [rail, setRail] = useState(null);
@@ -156,7 +177,7 @@ export function LaunchRailAdmin({ call, isOwner }) {
   const [preset, setPreset] = useState('shield');
   const [scope, setScope] = useState('public');
   const [launchOpen, setLaunchOpen] = useState(false);
-  const [view, setView] = useState(() => { try { return localStorage.getItem('feeless:launch-desk') || 'launch'; } catch { return 'launch'; } });
+  const [view, setView] = useState(() => { try { return localStorage.getItem('feeless:launch-desk') || 'board'; } catch { return 'launch'; } });
   const pickView = v => { setView(v); try { localStorage.setItem('feeless:launch-desk', v); } catch { /* private mode */ } };
   const [houseLabel, setHouseLabel] = useState('');
   const [check, setCheck] = useState(null);
@@ -201,6 +222,7 @@ export function LaunchRailAdmin({ call, isOwner }) {
       </div>
     </div>
     <div className="m-seg lr-tabs" role="tablist">{LR_TABS.map(([k2, l2]) => <button key={k2} type="button" role="tab" aria-selected={view === k2} className={view === k2 ? 'active' : ''} onClick={() => pickView(k2)}>{l2}</button>)}</div>
+    {view === 'board' && <ReadyBoard rail={rail} keys={keys} houses={houses} go={(v, open) => { pickView(v); if (open) setLaunchOpen(true); }} />}
     {view === 'launch' && <>
     <div className="cc-block cc-launch-coin"><h4>Step 2 · Launch a coin <small className="chain-tag">rail · config · coin · sign · receipt</small></h4>
       {!launchOpen

@@ -49,50 +49,33 @@ body.theme-day .llb { background: rgba(236, 246, 240, .85); } body.theme-day .ll
 body.theme-day .llb-t { fill: #2c4a3a; } body.theme-day .llb-knobs li { color: #0b5a32; } body.theme-day .llb-ex small, body.theme-day .llb-note { color: #2c4a3a; }
 @media (max-width: 640px) { .llb-stage { grid-template-columns: 1fr; } .llb-types { grid-template-columns: repeat(2, 1fr); } }
 
-/* 🚀 Launch pad hero (LaunchLab › LaunchPad, llp-*): amber dusk, a drawn rocket + tower, T-minus countdown, exhaust smoke, liftoff on 0 and
-   every time the launch type changes. transform / opacity only; still in fx-lite / reduced motion. */
-.llp { position: relative; display: grid; grid-template-columns: minmax(180px, 260px) minmax(0, 1fr); gap: 18px; align-items: end; min-height: 250px; padding: 18px; overflow: hidden; border-radius: 18px; isolation: isolate;
-  border: 1px solid rgba(255, 159, 69, .35); background: linear-gradient(180deg, #1a0f2e 0%, #4a1d2a 42%, #c2410c 78%, #f59e0b 100%); box-shadow: inset 0 1px 0 rgba(255, 255, 255, .12), 0 20px 50px -25px #f59e0b; }
-.llp-sky { position: absolute; inset: 0; z-index: -1; pointer-events: none; }
-.llp-sun { position: absolute; right: 12%; bottom: 18%; width: 120px; height: 120px; border-radius: 50%; background: radial-gradient(circle, #ffe8a3, #ff9f45 55%, transparent 70%); opacity: .9; animation: llpSun 6s ease-in-out infinite; }
-.llp-star { position: absolute; left: calc(var(--i) * 8% + 3%); top: calc(((var(--i) * 29) % 30) * 1% + 4%); width: 2px; height: 2px; border-radius: 50%; background: #fff; animation: llpTw 3s ease-in-out infinite; animation-delay: calc(var(--i) * -.4s); }
-.llp-hills { position: absolute; left: -5%; right: -5%; bottom: 0; height: 34%; background: radial-gradient(120% 100% at 30% 100%, #2a0e14 60%, transparent 61%), radial-gradient(90% 90% at 80% 100%, #3a1218 60%, transparent 61%); }
-.llp-site { position: relative; height: 230px; }
-.llp-tower { position: absolute; left: 6px; bottom: 16px; width: 40px; height: 170px; } .llp-tower path { fill: none; stroke: #2a1a14; stroke-width: 3; }
-.llp-rocket { position: absolute; left: 50px; bottom: 18px; width: 60px; height: 150px; transform-origin: 50% 100%; animation: llpShake .12s linear infinite; }
-.llp-rocket svg { width: 100%; height: 100%; filter: drop-shadow(0 6px 10px #0008); }
-.llp-mark { font-size: 14px; }
-.llp-rocket.is-go { animation: llpLift 2.2s cubic-bezier(.5, 0, .9, .4) forwards; }
-.llp:not(:has(.is-go)) .llp-rocket { animation: llpShake .12s linear infinite, llpBlast 2.4s cubic-bezier(.5, 0, .9, .4) .2s 1 reverse backwards; }
-.llp-flame { position: absolute; left: 50%; top: 100%; width: 16px; height: 34px; margin-left: -8px; border-radius: 50% 50% 50% 50% / 30% 30% 70% 70%; transform-origin: 50% 0;
-  background: radial-gradient(ellipse at 50% 20%, #fff7c8, #ffb347 40%, #ff4d1a 75%, transparent 80%); animation: llpFlame .09s linear infinite alternate; filter: none; }
-.llp-rocket:not(.is-go) .llp-flame { height: 10px; opacity: .7; } .llp-rocket:not(.is-go) .llp-flame.f2 { display: none; }
-.llp-flame.f2 { width: 26px; margin-left: -13px; height: 52px; opacity: .55; animation-duration: .13s; }
-.llp-smoke { position: absolute; left: 30px; bottom: 6px; width: 110px; height: 40px; pointer-events: none; }
-.llp-smoke i { position: absolute; bottom: 0; left: calc(var(--i) * 11%); width: 34px; height: 34px; border-radius: 50%; background: radial-gradient(circle, #f3e6d6cc, #b9a796 60%, transparent 70%);
-  animation: llpSmoke 2.8s ease-out infinite; animation-delay: calc(var(--i) * -.31s); }
-.llp-pad { position: absolute; left: 14px; right: 30px; bottom: 6px; height: 12px; border-radius: 4px; background: linear-gradient(180deg, #4a3a30, #1d1410); box-shadow: 0 -2px 0 #ffb34766; }
-.llp-hud { display: grid; gap: 6px; align-content: end; padding-bottom: 6px; }
-.llp-eyebrow { font: 800 10px 'JetBrains Mono', monospace; letter-spacing: .18em; color: #ffd9a3; }
-.llp-count { font: 900 54px/1 'Bungee', 'Audiowide', system-ui; color: #fff6e0; text-shadow: 0 0 18px #ff9f45, 0 0 40px #c2410c; animation: llpTick .35s ease; letter-spacing: .02em; }
-.llp-hud strong { font: 800 18px 'JetBrains Mono', monospace; color: #fff; }
+/* ⚡ Launch hero (LaunchLab › LaunchPad, llp-*): near-black + the Launch green, film grain + scanlines, the mechanic's curve as an electric wire
+   with a spark running along it. transform / opacity only; still in fx-lite / reduced motion. */
+.llp { position: relative; display: grid; align-items: end; min-height: 190px; padding: 18px 20px; border-radius: 18px; overflow: hidden; isolation: isolate;
+  border: 1px solid rgba(21, 209, 106, .35); background: radial-gradient(70% 90% at 85% 0%, rgba(21, 209, 106, .16), transparent 60%), radial-gradient(60% 80% at 0% 100%, rgba(0, 160, 90, .12), transparent 60%), #040605;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .06), 0 0 60px -28px #15d16a; }
+.llp-grain { position: absolute; inset: -50%; z-index: -1; pointer-events: none; opacity: .14;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  animation: llpGrain 7s linear infinite; }
+.llp-scan { position: absolute; inset: 0; z-index: -1; pointer-events: none; background: repeating-linear-gradient(0deg, rgba(255, 255, 255, .025) 0 1px, transparent 1px 3px); }
+.llp-wire { position: absolute; inset: 14px 0 34px; width: 100%; height: calc(100% - 48px); z-index: -1; }
+.llp-glow { fill: none; stroke: rgba(21, 209, 106, .35); stroke-width: 7; filter: blur(4px); vector-effect: non-scaling-stroke; }
+.llp-line { fill: none; stroke: #45e486; stroke-width: 2; vector-effect: non-scaling-stroke; stroke-dasharray: 8 92; animation: llpSpark 2.6s linear infinite; }
+.llp-hud { display: grid; gap: 6px; align-content: end; }
+.llp-eyebrow { font: 800 10px 'JetBrains Mono', monospace; letter-spacing: .2em; color: #86efac; }
+.llp-count { font: 900 clamp(26px, 4vw, 44px)/1 'JetBrains Mono', monospace; letter-spacing: -.01em; color: #f2fff7; text-shadow: 0 0 22px rgba(21, 209, 106, .55); animation: llpTick .35s ease; }
 .llp-chips { display: flex; flex-wrap: wrap; gap: 6px; }
-.llp-chips span { padding: 4px 9px; border-radius: 999px; font: 700 10px 'JetBrains Mono', monospace; color: #ffe9c7; background: rgba(26, 12, 8, .55); border: 1px solid rgba(255, 179, 71, .35); }
+.llp-chips span { padding: 4px 9px; border-radius: 999px; font: 700 10px 'JetBrains Mono', monospace; color: #cfeedd; background: rgba(0, 0, 0, .55); border: 1px solid rgba(21, 209, 106, .25); }
 .llp-chips span.ok { color: #04140b; background: #45e486; border-color: #45e486; }
 .llb-types button.is-on { animation: llpPick .4s ease; }
-@keyframes llpSun { 50% { transform: scale(1.06); } }
-@keyframes llpTw { 50% { opacity: .2; } }
-@keyframes llpShake { 0% { transform: translateX(0); } 50% { transform: translateX(.6px); } 100% { transform: translateX(-.6px); } }
-@keyframes llpLift { to { transform: translateY(-380px) scale(.8); } }
-@keyframes llpBlast { from { transform: translateY(0); } to { transform: translateY(-380px); } }
-@keyframes llpFlame { from { transform: scaleY(.85) scaleX(1); } to { transform: scaleY(1.15) scaleX(.9); } }
-@keyframes llpSmoke { from { transform: translate(0, 0) scale(.4); opacity: .9; } to { transform: translate(calc((var(--i) - 4) * 9px), -26px) scale(1.6); opacity: 0; } }
-@keyframes llpTick { from { transform: scale(1.25); opacity: .4; } }
+@keyframes llpGrain { 0% { transform: translate(0, 0); } 25% { transform: translate(-6%, 4%); } 50% { transform: translate(4%, -6%); } 75% { transform: translate(-3%, -2%); } 100% { transform: translate(0, 0); } }
+@keyframes llpSpark { from { stroke-dashoffset: 100; } to { stroke-dashoffset: 0; } }
+@keyframes llpTick { from { transform: translateY(4px); opacity: .4; } }
 @keyframes llpPick { 40% { transform: translateY(-4px) scale(1.03); } }
-body.fx-lite .llp-smoke, body.fx-lite .llp-star { display: none; } body.fx-lite .llp-rocket, body.fx-lite .llp-flame, body.fx-lite .llp-sun { animation: none; }
-@media (prefers-reduced-motion: reduce) { .llp *, .llp *::before { animation: none !important; } .llp-smoke { display: none; } }
-body.theme-day .llp { background: linear-gradient(180deg, #ffd9a3 0%, #ffb067 55%, #f08a3a 100%); } body.theme-day .llp-hills { opacity: .5; }
-@media (max-width: 640px) { .llp { grid-template-columns: 1fr; min-height: 0; } .llp-site { height: 190px; } .llp-count { font-size: 40px; } }
+body.fx-lite .llp-grain, body.fx-lite .llp-line { animation: none; } body.fx-lite .llp-glow { filter: none; }
+@media (prefers-reduced-motion: reduce) { .llp *, .llb-types button.is-on { animation: none !important; } }
+body.theme-day .llp { background: linear-gradient(160deg, #f2fbf5, #e4f5ea); } body.theme-day .llp-count { color: #0b2a19; text-shadow: none; } body.theme-day .llp-chips span { background: #fff; color: #10301f; }
+@media (max-width: 640px) { .llp { min-height: 150px; } }
 
 /* 🚪 click-through doors (DOOR / PLATFORM_DOOR / EX_DOOR in LaunchLab.jsx) */
 .llb-door { margin-top: 10px; justify-self: start; min-height: 36px; display: inline-flex; align-items: center; text-decoration: none; }
@@ -103,3 +86,16 @@ body.theme-day .llp { background: linear-gradient(180deg, #ffd9a3 0%, #ffb067 55
 .llb-exd:hover em { opacity: 1; transform: translateX(3px); }
 @media (prefers-reduced-motion: reduce) { .llb-exd > div, .llb-exd em, .llb-plink { transition: none; } }
 body.theme-day .llb-plink:hover, body.theme-day .llb-exd em { color: #0d7a41; }
+/* ✅ HQ › Launch › READY BOARD (lrb-*): one tile per way to launch — READY or exactly what is missing — and one button. */
+.lrb { display: grid; gap: 10px; } .lrb-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 8px; }
+.lrb-tile { display: grid; gap: 6px; align-content: start; padding: 12px; border-radius: 14px; border: 1px solid rgba(21, 209, 106, .22); background: linear-gradient(160deg, rgba(21, 209, 106, .08), rgba(0, 0, 0, .35)); box-shadow: inset 0 1px 0 rgba(255, 255, 255, .05); animation: llpTick .3s ease-out both; animation-delay: calc(var(--i, 0) * 50ms); }
+.lrb-tile.is-need { border-color: rgba(255, 211, 107, .25); background: linear-gradient(160deg, rgba(255, 211, 107, .06), rgba(0, 0, 0, .35)); }
+.lrb-top { display: flex; justify-content: space-between; gap: 8px; align-items: center; } .lrb-top b { font: 800 13px 'JetBrains Mono', monospace; color: #f2fff7; }
+.lrb-top i { font: 800 8.5px 'JetBrains Mono', monospace; font-style: normal; letter-spacing: .12em; padding: 2px 8px; border-radius: 999px; color: #04140b; background: #45e486; }
+.lrb-tile.is-need .lrb-top i { color: #ffd36b; background: transparent; border: 1px dashed rgba(255, 211, 107, .6); }
+.lrb-tile small { font: 500 11px Inter, system-ui, sans-serif; color: #9fb3a6; } .lrb-tile .m-btn { justify-self: start; min-height: 34px; }
+.lrb-keys { display: grid; gap: 6px; padding: 10px 12px; border-radius: 12px; border: 1px dashed rgba(255, 211, 107, .4); background: rgba(255, 211, 107, .05); }
+.lrb-keys b { font: 800 10px 'JetBrains Mono', monospace; letter-spacing: .12em; color: #ffd36b; } .lrb-keys span { display: flex; flex-wrap: wrap; gap: 6px; }
+.lrb-keys i { font: 700 10.5px 'JetBrains Mono', monospace; font-style: normal; padding: 4px 9px; border-radius: 999px; color: #ffe9b0; border: 1px solid rgba(255, 211, 107, .35); } .lrb-keys small { font: 500 10px Inter, system-ui, sans-serif; color: #b6a77a; }
+body.fx-lite .lrb-tile { animation: none; } @media (prefers-reduced-motion: reduce) { .lrb-tile { animation: none; } }
+body.theme-day .lrb-tile { background: #fff; } body.theme-day .lrb-top b { color: #10301f; }
