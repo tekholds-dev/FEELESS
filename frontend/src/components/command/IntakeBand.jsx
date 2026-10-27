@@ -46,7 +46,7 @@ export function IntakeBand({ o, mint, onPick, call, isOwner, imp }) {
       <span className="ib-rate">{m.uniqueMintsPerMin != null ? <><b>+{m.uniqueMintsPerMin}</b>/min</> : null}</span>
       <span className="m-seg ib-view" role="tablist" aria-label="Intake view">{[['agents', 'AGENTS', "The agents' own funnel: in → contending → ready → picked"], ['levels', 'ALL LEVELS', 'Every feed as water levels: GERM · DESK · TOP NEW · TRENDING · NEW — tap a coin for its vitals']].map(([k, l, tip]) =>
         <button key={k} type="button" role="tab" aria-selected={view === k} className={view === k ? 'active' : ''} onClick={() => { setView(k); setSel(null); }} data-tip={tip} data-testid={`ib-view-${k}`}>{l}</button>)}</span></header>
-    {view === 'levels' ? <LiveTank compact={false} title="ALL LEVELS" /> : <>
+    {view === 'levels' ? <LiveTank compact={false} title="ALL LEVELS" onChart={(pair, m) => onPick?.({ mint: m, pair: pair.pairAddress, symbol: pair.baseToken?.symbol })} /> : <>
     <div className="ib-body">
       <div className="ib-field">
         <i className="ib-zone" style={{ left: `${lo * 100}%`, width: `${Math.max(0, (hi - lo) * 100)}%` }} />
