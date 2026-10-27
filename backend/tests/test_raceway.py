@@ -36,3 +36,13 @@ def test_errand_delivery_starts_at_home_and_changes_every_ten_minutes():
     a = rw.errand_track('pizza', 'fam-1', 1000.0)
     assert a['kind'] == 'errand' and len(a['cps']) == 2 and a['store'] == 'pizza'
     assert a == rw.errand_track('pizza', 'fam-1', 1150.0) and a['cps'] != rw.errand_track('pizza', 'fam-1', 1300.0)['cps']
+
+
+def test_group_posts_name_the_record_and_the_podium():
+    rows = {}
+    rw.record(rows, 'W' * 30, 52000, 'car', 'Sicario', 'FRT'); rw.record(rows, 'tg:1', 41230, 'bike', 'Vito', '')
+    first = rw.board(rows)
+    assert 'Vito · 0:41.23 on a STREET BIKE' in rw.record_post(first[0], first[1]) and 'by 10.77s' in rw.record_post(first[0], first[1])
+    recap = rw.recap_post('2026-10-27', rows)
+    assert recap.startswith('🏆 FEE CITY RACE · 2026-10-27') and '🥇 Vito' in recap and '🥈 [FRT] Sicario' in recap and '2 drivers raced' in recap
+    assert rw.recap_post('2026-10-27', {}) is None

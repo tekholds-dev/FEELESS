@@ -85,7 +85,7 @@ export function PlacesMenu({ onGo }) {
 // it LEADS with the money — ⚡ START COMPOUNDING (the best in-place yields, live) and the buildings that grow it — then the family, then the tools.
 // Every place is still one tap away; the crest forge has its own door.
 export const DIR_GROUPS = [['💸 GROW YOUR MONEY', ['sleep', 'pools', 'mymoney', 'brokers', 'trades', 'feebank', 'perps', 'tt', 'pumpradar', 'runners']],
-  ['🌹 THE FAMILY', ['hq', 'warroom', 'raids', 'cartels', 'podium', 'ranked', 'rewards', 'wire', 'jobs', 'gym', 'cards']], ['🛠 TOOLS', ['court', 'watch', 'feecat', 'fuel', 'news']]];
+  ['🌹 THE FAMILY', ['race', 'hq', 'warroom', 'raids', 'cartels', 'podium', 'ranked', 'rewards', 'wire', 'jobs', 'gym', 'cards']], ['🛠 TOOLS', ['court', 'watch', 'feecat', 'fuel', 'news']]];
 // pure: the live line a money place wears in the directory (the Pool Hub's best numbers)
 export function dirLive(key, pools) {
   const rs = (pools?.pools || []).filter(r => Number(r.apy) > 0); const top = k => rs.filter(r => k.includes(r.kind)).reduce((m, r) => Math.max(m, r.apy), 0);

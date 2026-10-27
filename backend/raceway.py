@@ -110,3 +110,31 @@ def record(day_rows, who, ms, vehicle, name, tag):
     day_rows[who] = {'who': who[:4] + '…' + who[-4:] if len(who) > 12 else who, 'ms': int(ms), 'vehicle': vehicle if vehicle in VEHICLES else 'car',
                      'name': str(name or '')[:24], 'tag': str(tag or '')[:6]}
     return True
+
+
+# 📲 the Telegram group's automated posts (the service sends them when TELEGRAM_BOT_TOKEN + TELEGRAM_GROUP_ID are set)
+def _fmt(ms):
+    ms = max(0, int(ms)); return f"{ms // 60000}:{(ms % 60000) / 1000:05.2f}"
+
+
+def _name(r):
+    return f"[{r['tag']}] {r['name']}" if r.get('tag') else (r.get('name') or r.get('who') or 'a racer')
+
+
+VEH_WORD = {'car': 'MUSCLE CAR', 'bike': 'STREET BIKE', 'truck': 'BOX TRUCK'}
+
+
+def record_post(row, prev=None):
+    """A new #1 of the day → the group's post."""
+    beat = f" — beat {_name(prev)} by {(prev['ms'] - row['ms']) / 1000:.2f}s" if prev and prev.get('ms', 0) > row['ms'] else ''
+    return f"🏁 NEW #1 IN FEE CITY\n{_name(row)} · {_fmt(row['ms'])} on a {VEH_WORD.get(row.get('vehicle'), 'MUSCLE CAR')}{beat}\nThink you're faster? Today's track is open."
+
+
+def recap_post(day, rows):
+    """Yesterday's podium → the group's morning post (None when nobody raced)."""
+    top = board(rows or {}, 3)
+    if not top:
+        return None
+    medal = ['🥇', '🥈', '🥉']
+    lines = [f"{medal[i]} {_name(r)} · {_fmt(r['ms'])} · {VEH_WORD.get(r.get('vehicle'), 'MUSCLE CAR')}" for i, r in enumerate(top)]
+    return f"🏆 FEE CITY RACE · {day}\n" + '\n'.join(lines) + f"\n{len(rows)} driver{'s' if len(rows) != 1 else ''} raced. A new track is live — first finish pays {RACE_MP} MP, under par {RACE_PAR_MP} more."

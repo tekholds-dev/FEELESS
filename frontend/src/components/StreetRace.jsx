@@ -17,7 +17,7 @@ function windowTexture(THREE) {   // lit office windows on the night towers (one
   const c = document.createElement('canvas'); c.width = 64; c.height = 128; const g = c.getContext('2d');
   g.fillStyle = '#05070a'; g.fillRect(0, 0, 64, 128);
   for (let y = 4; y < 128; y += 8) for (let x = 4; x < 64; x += 8) { const on = Math.random(); g.fillStyle = on > 0.62 ? '#ffd889' : on > 0.5 ? '#7fd8ff' : '#0b1016'; g.fillRect(x, y, 4, 5); }
-  const t = new THREE.CanvasTexture(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(1, 2); return t;
+  const t = new THREE.CanvasTexture(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(2, 5); return t;
 }
 function signTexture(THREE, text, color) {
   const c = document.createElement('canvas'); c.width = 256; c.height = 96; const g = c.getContext('2d');
@@ -52,6 +52,9 @@ export function StreetRace({ blocks, addr = '', sess = '', mode = 'race', store 
   const who = useMemo(() => (addr && sess ? { address: addr, session: sess } : tgInitData() ? { tg: tgInitData() } : {}), [addr, sess]);
   const load = useCallback(() => fetch(apiUrl(`/api/reputation/familia-race${addr && sess ? `?address=${addr}&session=${encodeURIComponent(sess)}` : ''}`)).then(r => (r.ok ? r.json() : null)).then(x => x && setInfo(x)).catch(() => {}), [addr, sess]);
   useEffect(() => { load(); }, [load]);
+  // before START: today's rings are up and the car waits on the line, nose to the first checkpoint
+  useEffect(() => { const tr = info?.track; const G = g.current; if (!tr?.cps?.length || G.running || G.token) return;
+    const [x, z] = tr.start; const c0 = tr.cps[0]; Object.assign(G, { track: tr, s: { x, z, yaw: Math.atan2(c0[0] - x, c0[1] - z), speed: 0 } }); three.current?.setTrack(tr); three.current?.lightRing(0); }, [info]);
   useEffect(() => { g.current.veh = veh; try { localStorage.setItem('feeless.race.veh', veh); } catch { /* private */ } three.current?.setVehicle?.(veh); }, [veh]);
 
   // 🌃 the night city, the car, the rings — built once; the loop reads `g` every frame
@@ -121,8 +124,8 @@ export function StreetRace({ blocks, addr = '', sess = '', mode = 'race', store 
             if (G.cp >= G.track.cps.length) { G.running = false; G.finish?.(Math.round(now - G.t0)); } }
         }
         car.position.set(G.s.x, 0, G.s.z); car.rotation.y = G.s.yaw; (car.userData.wheels || []).forEach(w => { w.rotation.x += G.s.speed * dt / 0.45; });
-        const back = G.running || G.s.speed ? 11 : 16; const up = G.running || G.s.speed ? 5 : 9;
-        camPos.lerp(v3.set(G.s.x - Math.sin(G.s.yaw) * back, up, G.s.z - Math.cos(G.s.yaw) * back), Math.min(1, dt * 4)); camera.position.copy(camPos);
+        const idle = !G.running && Math.abs(G.s.speed) < 0.5; const back = idle ? 15 : 11; const up = idle ? 7 : 5; const yawC = idle ? G.s.yaw + Math.sin(now / 4000) * 0.9 : G.s.yaw;   // idle: the camera sways round the car
+        camPos.lerp(v3.set(G.s.x - Math.sin(yawC) * back, up, G.s.z - Math.cos(yawC) * back), Math.min(1, dt * (idle ? 1.5 : 4))); camera.position.copy(camPos);
         camera.lookAt(look.set(G.s.x + Math.sin(G.s.yaw) * 7, 1.5, G.s.z + Math.cos(G.s.yaw) * 7));
         rings.forEach((r, i) => { r.children[0].rotation.y += dt * (i === G.cp ? 1.6 : 0.5); });
         traffic(now / 1000, 10).forEach((p, i) => { m4.compose(v3.set(p.x, 0.8, p.z), q.setFromEuler(new THREE.Euler(0, p.yaw, 0)), sc.set(1, 1, 1)); traf.setMatrixAt(i, m4);

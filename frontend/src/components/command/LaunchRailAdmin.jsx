@@ -155,7 +155,7 @@ function ReadyBoard({ rail, keys, houses, go }) {
     ['🌊', 'Pool for a coin you hold', true, 'Meteora DAMM v2 — deposit both sides, lock it forever (Pools tab)', 'Open pools', () => { window.location.href = '/terminal/launch?mode=pools'; }],
     ['🤖', 'AutoRange bands', true, 'Raydium CLMM + Meteora DLMM — opens, re-centers, closes; your wallet signs', 'Open AutoRange', () => { window.location.href = '/terminal/launch?mode=pools'; }],
   ];
-  const need = [['SOLANA_RPC_URL', 'Solana RPC (Helius / Alchemy quota)'], ['PUBLIC_SITE_URL', 'Public https domain for coin metadata'], ['JUPITER_API_KEY', 'Jupiter key (prices, swaps)'], ['DFLOW_API_KEY', 'DFlow — Kalshi trading'], ['SNAPTRADE_CLIENT_ID', 'SnapTrade — any broker']].filter(([k]) => keys && !has(k));
+  const need = [['SOLANA_RPC_URL', 'Solana RPC (Helius / Alchemy quota)'], ['PUBLIC_SITE_URL', 'Public https domain for coin metadata'], ['JUPITER_API_KEY', 'Jupiter key (prices, swaps)'], ['DFLOW_API_KEY', 'DFlow — Kalshi trading'], ['SNAPTRADE_CLIENT_ID', 'SnapTrade — any broker'], ['TELEGRAM_BOT_TOKEN', 'Telegram bot — Familia race game + group posts']].filter(([k]) => keys && !has(k));
   return <div className="lrb" data-testid="launch-ready-board">
     <div className="lrb-grid">{tiles.map(([ic, name, ok, sub, cta, fn], i) => <div key={name} className={`lrb-tile ${ok ? 'is-ok' : 'is-need'}`} style={{ '--i': i }}>
       <span className="lrb-top"><b>{ic} {name}</b><i>{ok ? 'READY' : 'NEEDS'}</i></span><small>{sub}</small>

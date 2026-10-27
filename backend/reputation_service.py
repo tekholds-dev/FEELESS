@@ -10626,6 +10626,23 @@ def _race_tg(tg):
     return u
 
 
+async def _tg_group(text):
+    """📲 a post to the owner's Telegram group (new race records, the daily podium) with a RACE NOW button. Silent when it isn't set up."""
+    tok_, chat_ = (os.getenv('TELEGRAM_BOT_TOKEN') or '').strip(), (os.getenv('TELEGRAM_GROUP_ID') or '').strip()
+    if not (tok_ and chat_ and text):
+        return False
+    app_ = (os.getenv('TELEGRAM_APP_URL') or '').strip()
+    body_ = {'chat_id': chat_, 'text': text, 'disable_web_page_preview': True}
+    if app_.startswith('https://'):
+        body_['reply_markup'] = {'inline_keyboard': [[{'text': '🏁 RACE NOW', 'url': app_}]]}
+    try:
+        async with httpx.AsyncClient(timeout=8) as http:
+            r_ = await http.post(f'https://api.telegram.org/bot{tok_}/sendMessage', json=body_)
+            return r_.status_code == 200
+    except Exception:
+        return False
+
+
 class RaceStart(BaseModel):
     address: str = Field(default='', max_length=64)
     session: str = Field(default='', max_length=400)
@@ -10710,7 +10727,7 @@ async def familia_race_finish(p: RaceFinish):
     who_ = t['who']
     if not who_:
         return {'ok': True, 'practice': True, 'ms': p.ms, 'par': t['track']['par']}
-    mp_, best_, name_, tag_ = 0, False, '', ''
+    mp_, best_, name_, tag_, posts_ = 0, False, '', '', []
     async with _crews_lock:
         st = _json_load(CREWS_PATH, {}); _cr._norm(st)
         c = None
@@ -10724,11 +10741,18 @@ async def familia_race_finish(p: RaceFinish):
             boost_, _rk = _city_ctx(c, me, now)
             city = _fcity.accrue(_fcity.city_of(c, now), now, boost_)
         w = st.setdefault('world', _fworld.blank()); race_ = w.setdefault('race', {})
-        for d_ in sorted(k for k in race_ if k not in ('paid', day) and k < day)[:-2]:
+        for d_ in sorted(k for k in race_ if k not in ('paid', 'recapped', day) and k < day)[:-2]:
             race_.pop(d_, None)
         try:
             if t['mode'] == 'race':
+                prev_top_ = (_rw.board(race_.get(day) or {}, 1) or [None])[0]
                 best_ = _rw.record(race_.setdefault(day, {}), who_, p.ms, p.vehicle, name_, tag_)
+                top_ = (_rw.board(race_[day], 1) or [None])[0]
+                if best_ and top_ and top_['ms'] == int(p.ms) and (not prev_top_ or prev_top_['ms'] > int(p.ms)):
+                    posts_.append(_rw.record_post(top_, prev_top_))
+                last_ = max([k for k in race_ if k not in ('paid', 'recapped') and k < day] or [''])
+                if last_ and race_.get('recapped') != last_:
+                    race_['recapped'] = last_; posts_.append(_rw.recap_post(last_, race_.get(last_) or {}))
                 if c:
                     paid_day = race_.setdefault('paid', {}).setdefault(day, {})
                     for d_ in [k for k in race_['paid'] if k != day]:
@@ -10750,6 +10774,8 @@ async def familia_race_finish(p: RaceFinish):
             raise HTTPException(400, str(e))
         _json_save(CREWS_PATH, st)
     _crew_cache['data'] = None
+    for txt_ in [x for x in posts_ if x]:
+        asyncio.create_task(_tg_group(txt_))   # 📲 the group hears about it (fire and forget)
     rows_ = _rw.board(((st.get('world') or {}).get('race') or {}).get(day) or {})
     return {'ok': True, 'ms': p.ms, 'par': t['track']['par'], 'best': best_, 'mp': mp_, 'board': rows_,
             'place': next((r['place'] for r in rows_ if r['ms'] == p.ms), None)}
@@ -30913,6 +30939,9 @@ SETUP_KEYS = [
     ('LIFI_API_KEY', 'LI.FI', 'Higher rate limits for EVM swaps, bridges and gas', False),
     ('ETHERSCAN_API_KEY', 'Etherscan', 'EVM contract + holder reads', False),
     ('PUMPPORTAL_API_KEY', 'PumpPortal', 'Paid live Pump trade stream (instant new-coin flow)', False),
+    ('TELEGRAM_BOT_TOKEN', 'Telegram bot', 'The Familia game inside Telegram: players race under their Telegram name + the bot posts to your group (docs/TELEGRAM.md)', False),
+    ('TELEGRAM_GROUP_ID', 'Telegram group', 'Where the bot posts new race records + the daily podium (-100… id)', False),
+    ('TELEGRAM_APP_URL', 'Telegram app link', 'https://t.me/<bot>/race — the RACE NOW button on group posts', False),
 ]
 
 
