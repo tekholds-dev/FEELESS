@@ -265,3 +265,21 @@ def test_cryptocom_signing_order_and_view():
         {'instrument_name': 'USD', 'quantity': '40', 'market_value': '40'}, {'instrument_name': 'SOL', 'quantity': '0.5', 'market_value': '80.5'}, {'instrument_name': 'CRO', 'quantity': '0'}]}]})
     assert v['id'] == 'cdc' and v['cash'] == 40 and v['value'] == 120.5 and [r['ticker'] for r in v['positions']] == ['SOL', 'USD']
     assert bk.cdc_keys_ok('a' * 24, 'b' * 32) and not bk.cdc_keys_ok('short', 'b' * 32)
+
+
+def test_cryptocom_caps_and_perp_order():
+    import brokers as bk
+    inst = [{'inst_type': 'CCY_PAIR', 'symbol': 'BTC_USD', 'base_ccy': 'BTC', 'quote_ccy': 'USD', 'tradable': True},
+            {'inst_type': 'PERPETUAL_SWAP', 'symbol': 'BTCUSD-PERP', 'base_ccy': 'BTC', 'quote_ccy': 'USD', 'max_leverage': '100', 'qty_tick_size': '0.0001', 'tradable': True},
+            {'inst_type': 'PERPETUAL_SWAP', 'symbol': 'DOGEUSD-PERP', 'base_ccy': 'DOGE', 'quote_ccy': 'USD', 'max_leverage': '50', 'qty_tick_size': '1', 'tradable': True},
+            {'inst_type': 'FUTURE', 'symbol': 'BTCUSD-261225', 'tradable': True}, {'inst_type': 'CCY_PAIR', 'symbol': 'X_EUR', 'quote_ccy': 'EUR'}]
+    c = bk.cdc_caps(inst)
+    assert c['spot']['n'] == 1 and c['perps']['n'] == 2 and c['perps']['maxLev'] == 100 and c['futures']['n'] == 1 and c['perps']['top'][0]['symbol'] == 'BTCUSD-PERP'
+    o = bk.cdc_perp_order({'action': 'buy', 'usd': 10, 'lev': 5}, inst[1], 100000.0)   # $50 of BTC at $100K = 0.0005
+    assert o == {'instrument_name': 'BTCUSD-PERP', 'side': 'BUY', 'type': 'MARKET', 'quantity': '0.0005'}
+    assert bk.cdc_perp_order({'action': 'sell', 'usd': 10, 'lev': 2}, inst[2], 0.15)['quantity'] == '133'
+    for bad in ({'action': 'buy', 'usd': 10, 'lev': 200}, {'action': 'hold', 'usd': 10, 'lev': 2}, {'action': 'buy', 'usd': 0.5, 'lev': 2}):
+        with pytest.raises(ValueError):
+            bk.cdc_perp_order(bad, inst[1], 100000.0)
+    with pytest.raises(ValueError, match='Too small'):
+        bk.cdc_perp_order({'action': 'buy', 'usd': 1, 'lev': 1}, inst[1], 100000.0)

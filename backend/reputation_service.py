@@ -9827,6 +9827,42 @@ async def _cdc_call(ck, method, params=None):
     return (d_ or {}).get('result') or {}
 
 
+_cdc_inst: dict = {'at': 0.0, 'rows': []}
+
+
+async def _cdc_instruments():
+    """Crypto.com's public instrument list (spot · perpetuals · futures), one read per 10 min for everyone."""
+    import brokers as _bk
+    if time.time() - _cdc_inst['at'] < 600 and _cdc_inst['rows']:
+        return _cdc_inst['rows']
+    try:
+        r_ = await _fmk_http_get().get(f'{_bk.CDC_API}/public/get-instruments', timeout=12)
+        rows_ = ((r_.json() or {}).get('result') or {}).get('data') or []
+        if rows_:
+            _cdc_inst.update(at=time.time(), rows=rows_)
+    except Exception:
+        pass
+    return _cdc_inst['rows']
+
+
+@app.get('/api/reputation/familia/broker/cdc-caps')
+async def familia_broker_cdc_caps(address: str = Query('', max_length=64), session: str = Query('', max_length=400)):
+    """🔑 What a Crypto.com key does in FEELESS: what the exchange lists (live) + whether THIS wallet's key reads its account."""
+    import brokers as _bk
+    caps_ = _bk.cdc_caps(await _cdc_instruments())
+    key_ = {'linked': False}
+    if address and session:
+        me_ = _session_or_401(address, session)
+        ck_ = _brk_cdc(me_)
+        if ck_:
+            try:
+                v_ = _bk.cdc_view(await _cdc_call(ck_, 'private/user-balance'))
+                key_ = {'linked': True, 'reads': True, 'valueUsd': v_['value'], 'buyingPower': v_['buyingPower']}
+            except HTTPException as e:
+                key_ = {'linked': True, 'reads': False, 'error': e.detail}
+    return {**caps_, 'key': key_, 'wired': {'spot': True, 'perps': True, 'futures': False}}
+
+
 @app.post('/api/reputation/familia/broker/keys')
 async def familia_broker_keys(request: Request):
     """🔑 Add (or remove) YOUR OWN Alpaca keys: checked live against your account first, then sealed to your wallet — no SnapTrade, no owner
@@ -9959,7 +9995,16 @@ async def familia_broker_order(request: Request):
         if not ck_:
             raise HTTPException(409, 'Add your Crypto.com keys first.')
         try:
-            ob_ = _bk.cdc_order(b_)
+            if str((b_ or {}).get('market') or '') == 'perp':   # 📉 a perps order in the user's own account (Crypto.com decides eligibility)
+                sym_ = _re.sub(r'[^A-Z0-9]', '', str((b_ or {}).get('symbol') or '').upper().replace('USD-PERP', '').replace('USD', '')) or 'BTC'
+                inst_ = next((r_ for r_ in await _cdc_instruments() if r_.get('symbol') == f'{sym_}USD-PERP'), None)
+                if not inst_:
+                    raise ValueError(f'Crypto.com lists no {sym_} perpetual.')
+                tk_ = await _fmk_http_get().get(f'{_bk.CDC_API}/public/get-tickers', params={'instrument_name': inst_['symbol']}, timeout=10)
+                mark_ = _fuse._f((((tk_.json() or {}).get('result') or {}).get('data') or [{}])[0].get('a'))
+                ob_ = _bk.cdc_perp_order(b_, inst_, mark_)
+            else:
+                ob_ = _bk.cdc_order(b_)
         except ValueError as e:
             raise HTTPException(400, str(e))
         d_ = await _cdc_call(ck_, 'private/create-order', ob_)
@@ -10224,12 +10269,15 @@ async def familia_intake():
     now = time.time()
     if now - _intake_cache['at'] > 30:
         rows_ = []
+        ser_ = (_agents_mem.get() or {}).get('series') or {}   # 📈 the kernel's own tape per coin (one price a pass, ~1 min apart) = the row's real line
         for r_ in _agent_inherit_rows(limit=10):
             x_ = _tk.KERNEL.candidate(r_['mint']) or {}
             n_, v_, d_ = x_.get('nums') or {}, x_.get('vitals') or {}, _tk.KERNEL.dec.get(r_['mint']) or {}
             row_ = {'mint': r_['mint'], 'sym': r_.get('symbol'), 'pair': r_.get('pairAddress'), 'mc': v_.get('mcap'), 'liq': r_.get('liq'),
                     'ch': n_.get('d5'), 'ageMin': round(_fuse._f(r_.get('ageH')) * 60) if r_.get('ageH') is not None else None,
-                    'status': d_.get('status'), 'read': str(d_.get('why') or '')[:90]}
+                    'status': d_.get('status'), 'read': str(d_.get('why') or '')[:90],
+                    'line': [p_['px'] for p_ in (ser_.get(r_['mint']) or [])[-15:] if _fuse._f(p_.get('px')) > 0], 'buy': n_.get('buy'), 'v5': n_.get('v5'), 'tx': n_.get('tx'),
+                    'liqD': n_.get('liqD'), 'rank': d_.get('rank')}
             row_['theory'] = __import__('trench_theory').verdict({'ageMin': row_['ageMin'], 'cap': row_['mc'], 'liq': row_['liq'], 'status': (x_.get('chart') or {}).get('stage') or v_.get('stage')})['line'][:200]
             rows_.append(row_)
         rows_ += _intake_pump(rows_, INTAKE_MAX - len(rows_))   # 🔥 owner, 2026-10-22: "more pump coins on intake"

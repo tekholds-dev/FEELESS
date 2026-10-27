@@ -11,6 +11,7 @@ import { StakeSeg } from './EarnStake';
 import { useStake, cash } from '../lib/earnStake';
 import { FamEmpty } from './FamEmpty';
 import { MoneyDesk, RangePicture, JOB_OF } from './MoneyDesk';
+import { AutoRangeDesk } from './AutoRangeDesk';
 
 // 🏦 THE POOL HUB (the Pool Hall in Fee City + every pool building in the outer cities): every top and rising Solana pool in ONE pop-out —
 // v2 AMMs, v3 / CLMM, DLMM bins, auto-compounding vaults, lending, liquid staking, perps, RWA — with live TVL, APY and its 7-day move.
@@ -82,13 +83,7 @@ export function chartPaths(points, days = 30) {
 // Exact concentrated-liquidity math, start price 1, range [1/k, k]: value of the LP vs simply HOLDING the two coins after the price moves ×m.
 // ilV2 = the classic full-range pool. rangeFactor = how much more liquidity each $ provides in that range (= more fees per $, ONLY while in range).
 export const ilV2 = m => 2 * Math.sqrt(m) / (1 + m) - 1;
-export function ilRange(m, k) {
-  const pa = 1 / k, pb = k, sp = Math.sqrt;
-  const x0 = 1 - 1 / sp(pb), y0 = 1 - sp(pa);   // L = 1 at price 1
-  const v = m <= pa ? (1 / sp(pa) - 1 / sp(pb)) * m : m >= pb ? sp(pb) - sp(pa) : (1 / sp(m) - 1 / sp(pb)) * m + (sp(m) - sp(pa));
-  return v / (x0 * m + y0) - 1;
-}
-export const rangeFactor = k => 1 / (1 - 1 / Math.sqrt(k));
+export { ilRange, rangeFactor } from '../lib/autoRange';   // the CLMM math lives with the AutoRange engine
 
 function PoolDetail({ r }) {
   const [d, setD] = useState(null); const [days, setDays] = useState(30); const [amt, setAmt] = useState(1000);
@@ -114,7 +109,7 @@ function PoolDetail({ r }) {
         {r.il ? <small className="phb-warn">⚠ impermanent-loss risk: a two-token pool can lose value vs holding when prices move apart.</small> : null}</>
         : <p className="phb-nochart">This DEX pool publishes no APY — its 24h volume is {usd(r.vol || 0)} ({Math.round(((r.vol || 0) / Math.max(1, r.tvl || 1)) * 100)}% of its size). Fees go to LPs in the pool's own coins.</p>}
     </div>
-    {['v3', 'dlmm'].includes(r.kind) ? <RangePicture pool={r} amt={amt} /> : null}
+    {['v3', 'dlmm'].includes(r.kind) ? (r.hold ? <AutoRangeDesk pool={r} /> : <RangePicture pool={r} amt={amt} />) : null}
   </div>;
 }
 

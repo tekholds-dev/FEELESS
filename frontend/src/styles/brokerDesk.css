@@ -37,3 +37,11 @@ body.theme-day .bk-keys { background: #fff; } body.theme-day .bk-steps li { back
 .bk-venue { display: grid; grid-template-columns: 1fr 1fr; } .bk-venue button { min-height: 34px; }
 .bk-keys.is-cdc { border-color: rgba(17, 153, 250, .35); } .bk-keys.is-cdc .bk-steps li { background: rgba(17, 153, 250, .06); } .bk-keys.is-cdc .bk-steps i { background: #1199fa; color: #fff; box-shadow: 0 0 12px -2px #1199fa; }
 body.theme-day .bk-keys.is-cdc .bk-steps li { background: #eef6ff; }
+/* 🔑 Crypto.com: what the key does (live list) + SPOT | PERPS + leverage on the ticket */
+.bk-caps { display: grid; gap: 8px; padding: 10px; border-radius: 12px; border: 1px solid rgba(17, 153, 250, .3); background: linear-gradient(160deg, rgba(17, 153, 250, .1), rgba(0, 0, 0, .3)); }
+.bk-capg { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 6px; }
+.bk-capg span { display: grid; gap: 2px; padding: 8px; border-radius: 10px; background: rgba(0, 0, 0, .35); border: 1px solid rgba(255, 255, 255, .06); animation: bkIn .3s ease-out both; animation-delay: calc(var(--i, 0) * 55ms); }
+.bk-capg em { font: 800 8.5px 'JetBrains Mono', monospace; font-style: normal; letter-spacing: .12em; color: #7cc4ff; } .bk-capg b { font: 900 14px 'JetBrains Mono', monospace; color: #fff; } .bk-capg small { font: 600 9.5px 'JetBrains Mono', monospace; color: #8aa3b8; }
+.bk-capg .is-ok small { color: #45e486; } .bk-capg .is-off { opacity: .6; }
+.bk-mkt, .bk-lev { flex: none; } .bk-mkt button, .bk-lev button { min-height: 32px; }
+body.theme-day .bk-caps { background: #eef6ff; } body.theme-day .bk-capg span { background: #fff; } body.theme-day .bk-capg b { color: #0b2540; }

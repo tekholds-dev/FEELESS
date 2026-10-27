@@ -1,0 +1,16 @@
+/* 🚀 LAUNCH › COIN | POOLS (lm-*): the Launch page's official logo green on near-black — one big segmented switch, the active side lit.
+   One keyframe (lmIn), transform / opacity only; fx-lite + reduced motion + day + 640px at the end. */
+.lm { display: grid; gap: 12px; }
+.lm-switch { position: relative; display: grid; grid-template-columns: 1fr 1fr; gap: 6px; padding: 5px; border-radius: 16px; background: #050806; border: 1px solid rgba(21, 209, 106, .3); box-shadow: inset 0 1px 0 rgba(255, 255, 255, .05); overflow: hidden; }
+.lm-switch button { position: relative; z-index: 1; display: grid; gap: 2px; justify-items: start; min-height: 58px; padding: 8px 14px; border-radius: 12px; border: 0; background: transparent; color: #b9cfc0; cursor: pointer; text-align: left; transition: color .15s, background .15s, transform .12s; }
+.lm-switch button b { font: 900 14px 'JetBrains Mono', monospace; letter-spacing: .08em; } .lm-switch button small { font: 600 10.5px 'JetBrains Mono', monospace; opacity: .75; }
+.lm-switch button:hover { background: rgba(21, 209, 106, .08); color: #fff; } .lm-switch button:active { transform: scale(.985); } .lm-switch button:focus-visible { outline: 2px solid #45e486; outline-offset: 1px; }
+.lm-switch button.is-on { color: #04140b; background: linear-gradient(120deg, #15d16a, #45e486); box-shadow: 0 0 26px -8px #15d16a; }
+.lm-glow { position: absolute; inset: 0 auto 0 0; width: 30%; pointer-events: none; background: linear-gradient(90deg, transparent, rgba(69, 228, 134, .12), transparent); animation: lmSweep 4.5s linear infinite; transform: translateX(-100%); }
+.lm-pools { animation: lmIn .22s ease-out both; }
+@keyframes lmIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+@keyframes lmSweep { to { transform: translateX(400%); } }
+body.fx-lite :is(.lm-glow, .lm-pools) { animation: none; } body.fx-lite .lm-glow { opacity: 0; }
+@media (prefers-reduced-motion: reduce) { :is(.lm-glow, .lm-pools) { animation: none; } }
+body.theme-day .lm-switch { background: #f1faf4; border-color: #b9dcc8; } body.theme-day .lm-switch button { color: #10301f; } body.theme-day .lm-switch button.is-on { color: #04140b; }
+@media (max-width: 640px) { .lm-switch button small { display: none; } .lm-switch button { min-height: 46px; } .lm-switch button b { font-size: 12px; } }

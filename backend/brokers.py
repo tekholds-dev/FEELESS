@@ -274,6 +274,39 @@ def cdc_order(raw):
     return body
 
 
+def cdc_caps(instruments):
+    """public/get-instruments → what the exchange lists: spot vs USD, perpetuals (count, max leverage, the biggest names), dated futures."""
+    rows = [r for r in (instruments or []) if isinstance(r, dict) and r.get('tradable', True)]
+    spot = [r for r in rows if r.get('inst_type') == 'CCY_PAIR' and r.get('quote_ccy') in ('USD', 'USDC', 'USDT')]
+    perps = [r for r in rows if r.get('inst_type') == 'PERPETUAL_SWAP']
+    top = ('BTC', 'ETH', 'SOL', 'XRP', 'DOGE', 'CRO', 'SUI', 'LINK', 'ADA', 'AVAX')
+    lev = lambda r: int(_num(r.get('max_leverage'))) or 0
+    pick = lambda rs, key: sorted(rs, key=lambda r: (top.index(r.get('base_ccy')) if r.get('base_ccy') in top else 99, r.get(key) or ''))[:8]
+    return {'spot': {'n': len(spot), 'top': [r.get('symbol') for r in pick(spot, 'symbol')]},
+            'perps': {'n': len(perps), 'maxLev': max([lev(r) for r in perps] or [0]), 'top': [{'symbol': r.get('symbol'), 'lev': lev(r)} for r in pick(perps, 'symbol')]},
+            'futures': {'n': sum(1 for r in rows if r.get('inst_type') == 'FUTURE')}}
+
+
+def cdc_perp_order(raw, inst, mark):
+    """A perps ticket on the user's OWN Crypto.com account → private/create-order params, or ValueError. Size = $ × leverage ÷ the mark,
+    rounded DOWN to the instrument's quantity step; MARKET only. Crypto.com decides whether the account may trade perps (it refuses otherwise)."""
+    r = raw if isinstance(raw, dict) else {}
+    side = str(r.get('action') or '').upper(); usd, lev = _f(r.get('usd')), _f(r.get('lev')) or 1
+    if side not in ('BUY', 'SELL'):
+        raise ValueError('LONG (BUY) or SHORT (SELL).')
+    mx = int(_num((inst or {}).get('max_leverage'))) or 1
+    if not 1 <= lev <= mx:
+        raise ValueError(f'Leverage runs 1× to {mx}× on {(inst or {}).get("symbol")}.')
+    if not (1 <= usd <= MAX_ORDER_USD) or not (mark and mark > 0):
+        raise ValueError(f'From $1 to ${MAX_ORDER_USD:,} of margin, with a live price.')
+    step = _num((inst or {}).get('qty_tick_size')) or 0.0001
+    qty = int((usd * lev / mark) / step) * step
+    if qty <= 0:
+        raise ValueError(f'Too small: the minimum step is {step:g} {(inst or {}).get("base_ccy") or ""}.')
+    dec = max(0, len(f'{step:.10f}'.rstrip('0').split('.')[1]) if '.' in f'{step:.10f}'.rstrip('0') else 0)
+    return {'instrument_name': (inst or {}).get('symbol'), 'side': side, 'type': 'MARKET', 'quantity': f'{qty:.{dec}f}'}
+
+
 def cdc_view(res):
     """private/user-balance's result → one account in the building's shape (id 'cdc')."""
     d = ((res or {}).get('data') or [{}])[0] if isinstance((res or {}).get('data'), list) else {}

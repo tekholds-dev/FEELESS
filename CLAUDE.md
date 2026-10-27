@@ -166,7 +166,8 @@ STANDING RULES (never "done"):
   hottest fee pools) with the risk named — SAFE yields are one tap away, never the headline. "Think big, not the same utilities."
 
 P0 — OWNER 2026-10-26 (the "finish it" list; shipped this day → history "2026-10-26") — open, priority order:
-a. 📉 PERPS: the owner's first real Jupiter open after the 250× / pay-with / landing-card fix (read the LANDED card + positions) · Coinbase Advanced
+a. 🤖 AUTORANGE: wire Raydium CLMM / Meteora DLMM opens + re-centers (SDK → tx → simulate → wallet signs) behind the engine's OPEN / RECENTER;
+   a server watcher that pushes "move due" to the phone. 📉 PERPS: the owner's first real Jupiter open after the 250× / pay-with / landing-card fix (read the LANDED card + positions) · Coinbase Advanced
    (US perp-style futures, CDP JWT keys) as a 3rd key door · Kalshi still waits on `DFLOW_API_KEY`.
 b. 🗳 REPMARKET ← Polymarket: one-time sign-in / API key per user (Polymarket US is the US-legal door — check its API first), USD in, saved per user.
 c. 🔑 ONE KEY VAULT: users = one Familia spot for every key (Alpaca · Crypto.com · Polymarket · DFlow proof) · owner = HQ › Core "needs a human"

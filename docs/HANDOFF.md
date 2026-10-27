@@ -22,8 +22,9 @@ Read this (2 min) → `CLAUDE.md` (lean rules + 🎨 MANDATORY STYLING + 📋 CU
 | 📋 iPhone Safari copy / paste / zoom | FIXED sitewide (polyfill at boot; every `navigator.clipboard.writeText` works over LAN http) | `lib/clipboard.js` |
 | 👛 mobile sign-in every refresh | FIXED (WalletConnect hint no longer wiped on boot; in-app wallets retried) — verify on the owner's phone | `hooks/useWallet.jsx` |
 | 📉 Perps desk | 250× · PAY WITH USDC/SOL · LANDED card · provider rail recolors + swaps the trade station (Jupiter · Crypto.com · Kalshi · broker) | `docs/PERPS.md`, `PerpsDash.jsx` |
-| 🔑 Crypto.com keys | BUILT + unit-tested (signing per their reference); NOT tried against a real key yet | `brokers.cdc_*` |
-| 🎯 Range Lab + AUTO-RANGE | LIVE in Pool Hall / money desk / family block (plan; each real re-center = a wallet signature, not automated on-chain yet) | `MoneyDesk.RangePicture` |
+| 🔑 Crypto.com keys | BUILT + unit-tested: spot + PERPS (403 listed) + a what-your-key-does panel; NOT tried against a real key yet | `brokers.cdc_*` |
+| 🤖 AutoRange engine + desk | LIVE on real candles in Pool Hall · money desk · Night Vault · Launch › POOLS; plans + watches (ARM = per browser). NEXT: Raydium CLMM / Meteora DLMM SDK so OPEN / RECENTER build a real tx the wallet signs; server-side watcher + push when a move is due | `lib/autoRange.js`, `AutoRangeDesk.jsx` |
+| 🗼 Trench Towers / 🧬 Fuse glass | live cards with the kernel's price tape · Fuse wallet P&L glass in the family block | `TrenchTowers.jsx`, `FuseWalletGlass.jsx` |
 | 🎨 Settings | Day/Night · chart theme (5) · Lite | `CommandDocuments.SiteLook`, `lib/chartTheme.js` |
 | 📱📱 Duo / foldable / sideways | split layouts on Perps + Trenches floor + discovery | `lib/duo.js`, `styles/duo.css` |
 | 🏟 Arena paper | one-time reset to $100 (PRIME_RESET `paper100a`, LEAGUE_RESET `restart3-100`) — runs on the next tick after a backend restart | `reputation_service.py` |

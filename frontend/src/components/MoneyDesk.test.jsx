@@ -72,7 +72,7 @@ test('💵 small money, honest: $0.50 a day on $10 needs ~1,825 % APY; only busy
 
 test('🚀 MOON by default where money can move fast: the best desk leads with tight v3 bands; ±5 % concentrates more than ±25 %', async () => {
   const { moonHunters, bandBoost } = require('./MoneyDesk');
-  expect(bandBoost(5)).toBeGreaterThan(bandBoost(10)); expect(bandBoost(10)).toBeGreaterThan(bandBoost(25)); expect(bandBoost(100)).toBeCloseTo(1, 5);
+  expect(bandBoost(5)).toBeGreaterThan(bandBoost(10)); expect(bandBoost(10)).toBeGreaterThan(bandBoost(25)); expect(bandBoost(20)).toBeCloseTo(1, 5);
   const v3 = [{ id: 'a', kind: 'v3', proto: 'Raydium', sym: 'WXRP-USDC', tvl: 5e5, base: 66 }, { id: 'b', kind: 'v3', proto: 'Orca', sym: 'SOL-BONK', tvl: 3e5, base: 29 }, { id: 'c', kind: 'v2', proto: 'PumpSwap', sym: 'X', tvl: 4e5, vol: 9e6 }];
   const m = moonHunters(v3, 10); expect(m.map(x => x.r.id)).toEqual(['a', 'b']); expect(m[0].apy).toBeCloseTo(66 * bandBoost(10), 5);   // v2 can't be tightened
   const el = document.createElement('div'); document.body.appendChild(el); const root = createRoot(el); const q = id => el.querySelector(`[data-testid="${id}"]`);

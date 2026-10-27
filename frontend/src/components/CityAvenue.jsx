@@ -1,6 +1,7 @@
 import React, { Suspense, lazy, useEffect, useState } from 'react';
 import { PerpsDash } from './PerpsDash';
 import { BrokerDesk } from './BrokerDesk';
+import { TrenchTowers } from './TrenchTowers';
 import { useMarket } from '../hooks/useMarket';
 import { familiaTrade } from './FamiliaTrade';
 import { TokenAvatar } from './terminal/MarketPrimitives';
@@ -184,16 +185,12 @@ function useMarketJson(url, every) {
 
 // 🗼 TRENCH TOWERS as a list (the Family Deck): the agents' INTAKE list (READY first) — status, 5m move, the desk's read, the theory line, ⚡ Trade.
 // Empty intake (the kernel just restarted) → the live Pump board, so the tab is never blank.
-export const ageWord = m => (m < 60 ? `${Math.round(m)}m` : m < 2880 ? `${Math.round(m / 60)}h` : `${Math.round(m / 1440)}d`);
+export { ageWord } from './TrenchTowers';
 export function TrenchList() {
   const { data } = useMarketJson('/api/reputation/familia/intake', 30000); const rows = data?.coins || [];
   if (data && !rows.length) return <div className="av-court"><p className="av-lede">The desk's intake list is refilling — here's the live Pump board meanwhile.</p><PumpRadar /></div>;
-  return <ol className="av-list av-tt" data-testid="av-tt">{!data ? <li className="m-dim">Reading the intake list…</li> : null}
-    {rows.map((r, i) => <li key={r.mint} style={{ '--i': i }}><em>{i + 1}</em>
-      <span className="av-sym"><b>${r.sym}</b><small>{[r.status, r.mc ? `MC ${usd(r.mc)}` : null, r.ageMin != null ? `${ageWord(r.ageMin)} old` : null].filter(Boolean).join(' · ')}</small>
-        {r.read || r.theory ? <small className="av-read" data-tip={r.theory || ''}>{r.read || r.theory}</small> : null}</span>
-      <span className={`av-heat ${(r.ch ?? 0) < 0 ? 'down' : 'up'}`}><u aria-hidden="true"><s style={{ transform: `scaleX(${Math.max(0.04, heatOf(r.ch))})` }} /></u><b className="m-num">5m {pct(r.ch)}</b></span>
-      <button type="button" className="m-btn m-go" disabled={!r.pair} onClick={() => trade({ chainId: 'solana', pairAddress: r.pair, baseToken: { address: r.mint, symbol: r.sym } })} data-tip="Trade it right here — chart + Quick trade slide over the room; your wallet signs" data-testid={`av-tt-${i}`}>⚡ Trade</button></li>)}</ol>;
+  if (!data) return <div className="av-load" aria-busy="true"><i /><i /><i /></div>;
+  return <TrenchTowers rows={rows} onTrade={r => trade({ chainId: 'solana', pairAddress: r.pair, baseToken: { address: r.mint, symbol: r.sym } })} />;
 }
 
 const BODY = {

@@ -6208,3 +6208,11 @@ P6 — IDEAS: FeeCat + AI agent pair that talk · "build a better coin" track in
   earns only in range, 🤖 AUTO-RANGE re-center after N min) · 🔭 Trenches discovery first, 24+, FRESH tab, refresh timer · 🏙 city pick eases ≤25% ·
   🏟 Arena paper + league reset once to $100 · 🎨 Settings: chart themes (lib/chartTheme.js) on both charts, Day/Night, Lite · 📱📱 lib/duo.js +
   styles/duo.css (wide touch / hinge / sideways split layouts) · 🦠 intake purple germ bubbles. Replit "preview branch": not on GitHub (only stale Sept branches).
+- 2026-10-26 (late) · Opus 5.5 — 🤖 AUTORANGE ENGINE (lib/autoRange.js, pure + tested): observe (real 15m candles + live price) → decide HOLD /
+  OPEN / RECENTER / SHIFT / WIDEN / TIGHTEN / PAUSE (a move only when 24h of fees beat its cost ×1.5; waits out wicks; pauses at ≥120%/day swings)
+  → compound only past 3× gas · `replay` runs the same rules over the real candles (fees, price + IL, re-centers, time in range — books balance).
+  Fee honesty: a band's edge is vs a typical ±20% LP (`bandEdge`), never vs full range. `AutoRangeDesk` (arx-*) in Pool Hall · money desk ·
+  Night Vault (`AutoRangePicker`) · Launch › POOLS (`LaunchModes`, ?mode=pools). Real CLMM opens still need the Raydium/Orca/Meteora SDK —
+  the engine plans + watches; ARM stores the band per browser. 🗼 Trench Towers = live cards (the kernel's own price tape `line` + live price,
+  buyers, liq Δ, 5m vol, rank ring) · 🧬 FuseWalletGlass in the family block · 🔑 Crypto.com: what-your-key-does panel (live instrument list)
+  + SPOT | PERPS ticket (`brokers.cdc_perp_order`; Crypto.com decides the account's eligibility).

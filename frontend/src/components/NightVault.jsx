@@ -4,6 +4,8 @@ import { useGlide } from '../lib/useGlide';
 import { EarnTicker } from './EarnTicker';
 import { JOB_OF, openDesk } from './MoneyDesk';
 import { FiveRun } from './FiveRun';
+import { AutoRangePicker } from './AutoRangeDesk';
+import { usePools } from './PoolHub';
 import '../styles/nightVault.css';
 
 // 💤 THE NIGHT VAULT — money while you sleep (FEELESS AVENUE building; backend sleep_money.py, GET /familia-pools/sleep). Five strategies from
@@ -63,6 +65,7 @@ export function NightVault() {
   const byId = useMemo(() => Object.fromEntries((d?.rows || []).map(r => [r.id, r])), [d]);
   const st = d?.strategies || [];
   const best = st.reduce((m, s) => (s.apy > (m?.apy || -1) ? s : m), null);
+  const hub = usePools();   // 🤖 the busiest concentrated pools for AutoRange (one shared 4-min read)
   return <section className="nv" data-testid="night-vault">
     <header className="nv-sky"><span className="nv-moon" aria-hidden /><span className="nv-stars" aria-hidden>{Array.from({ length: 14 }, (_, i) => <i key={i} style={{ '--i': i }} />)}</span>
       <span className="nv-z" aria-hidden><i>z</i><i>z</i><i>Z</i></span><span className="nv-stack" aria-hidden>{[0, 1, 2, 3].map(i => <i key={i} style={{ '--i': i }} />)}</span>
@@ -84,6 +87,7 @@ export function NightVault() {
       {open === s.key ? (s.key === 'loop' ? <LoopCard s={s} amt={amt} days={days} />
         : <Picks s={s} rows={(s.rows || []).map(id => byId[id]).filter(Boolean)} amt={amt} />) : null}
     </article>)}</div>
+    <AutoRangePicker pools={hub?.pools} amt={amt} title="🤖 AUTORANGE WHILE YOU SLEEP · THE BUSIEST BANDS" />
     {d && !d.kamino ? <p className="nv-note">Kamino's rates did not answer — loops are hidden until they do (no guessed borrow rates).</p> : null}
   </section>;
 }
