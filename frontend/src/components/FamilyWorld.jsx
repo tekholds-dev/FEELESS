@@ -19,7 +19,7 @@ import '../styles/familyWorld.css';
 import { FamEmpty } from './FamEmpty';
 import { CartelBoard } from './CartelBoard';
 import { CardRoom } from './CardRoom';
-import { StreetRace } from './StreetRace';
+const StrikeZone = lazy(() => import('./StrikeZone').then(m => ({ default: m.StrikeZone })));   // 🎯 the third-person shooter (three.js loads only when it opens)
 import { JOB_OF, openDesk } from './MoneyDesk';
 import { useGlide } from '../lib/useGlide';
 import { EarnTicker } from './EarnTicker';
@@ -177,9 +177,7 @@ function BlockPanel({ x, v, act, busy, onEnter, mk, onPlace, pools, onLink }) {
   </aside>;
 }
 
-// 🚚 the stores whose errand is a DELIVERY — drive it through Fee City (the Raceway) for the errand's MP, ×1.25 under par
-const DRIVE = new Set(['pizza', 'gas', 'laundry', 'pharma', 'mart', 'docks']);
-function Errand({ e, act, busy, onDrive }) {
+function Errand({ e, act, busy }) {
   const [game, setGame] = useState(null); const zone = useRef(null);
   const drag = DRAG.has(e.store);
   const finish = () => { setGame(null); act({ act: 'errand', kind: e.store }, `${e.name} done`); };
@@ -189,8 +187,7 @@ function Errand({ e, act, busy, onDrive }) {
   const ready = !e.ready && e.lvl > 0;
   return <li className={`fwd-job ${ready ? 'is-ready' : ''}`} data-testid={`job-${e.store}`}>
     <header><i>{STORE_ICON[e.store]}</i><b>{e.name}</b><small>{e.lvl ? (e.ready ? `again in ${ago(e.ready)}` : 'ready') : 'build it first'}</small></header>
-    {!game ? <><button type="button" className="m-btn" disabled={!ready || busy} onClick={() => setGame({ taps: 0 })} data-tip={e.how} data-testid={`job-go-${e.store}`}>{drag ? '✋ Drag job' : '👆 Tap job'}</button>
-      {onDrive ? <button type="button" className="m-btn m-go" disabled={!ready || busy} onClick={onDrive} data-tip="Drive the delivery through Fee City — under par pays this errand ×1.25" data-testid={`job-drive-${e.store}`}>🚚 Drive it</button> : null}</>
+    {!game ? <button type="button" className="m-btn" disabled={!ready || busy} onClick={() => setGame({ taps: 0 })} data-tip={e.how} data-testid={`job-go-${e.store}`}>{drag ? '✋ Drag job' : '👆 Tap job'}</button>
       : drag ? <div className="fwd-play">
         <span className="fwd-token" onPointerDown={onDown} onPointerMove={onMove} onPointerUp={onUp} style={game.sx != null ? { transform: `translate(${game.x - game.sx}px, ${game.y - game.sy}px)` } : null} data-testid={`job-token-${e.store}`}>{STORE_ICON[e.store]}</span>
         <span className="fwd-drop" ref={zone}>📍 drop</span><small>{e.how}</small></div>
@@ -265,11 +262,11 @@ function useIntake() {
   return d;
 }
 
-export function FamilyWorld({ addr, sess, onEnter, onJoin, onSignIn, rooms = {} }) {   // ?place=race (the Telegram bot's link) opens that room
+export function FamilyWorld({ addr, sess, onEnter, onJoin, onSignIn, rooms = {} }) {   // ?place=strike (the Telegram bot's link) opens that room
   const [v, setV, reload] = useWorld(addr, sess); const [lens, setLensRaw] = useState(() => { try { return new URLSearchParams(window.location.search).get('place') || null; } catch { return null; } }); const mk0 = useMarkets(); const intake = useIntake(); const mk = intake?.length ? { ...(mk0 || {}), coins: intake } : mk0; const pools = usePools(); const [sel, setSelRaw] = useState(null); const [busy, setBusy] = useState(false);   // lens = the place you walked into (null = the street)
   const [city, setCity] = useState('fee'); const [tour, setTour] = useState(false);
   const setSel = x => setSelRaw(s => (x && s && ((x.id && s.id === x.id) || (x.lm && s.lm === x.lm) || (x.mk && s.mk === x.mk) || (x.place && s.place === x.place)) ? null : x));   // tap the picked plot again = zoom back out
-  const [crew, setCrew] = useState(null); const { call: adminCall } = useAdmin(); const [raceMode, setRaceMode] = useState({ mode: 'race', store: '' });   // 🏁 the daily race, or a driven errand
+  const [crew, setCrew] = useState(null); const { call: adminCall } = useAdmin();
   const setLens = k => { if (!k || k === 'map') { setLensRaw(null); return; } const p = PLACES.find(x => x.lens === k); setLensRaw(k); setCity('fee'); if (p) setSelRaw({ place: p.key }); };
   useEffect(() => { if (!addr || !sess || lens !== 'deck') return; fetch(apiUrl(`/api/reputation/familia-city?address=${addr}&session=${encodeURIComponent(sess)}`)).then(r => (r.ok ? r.json() : null)).then(x => x && setCrew(x.crew || [])).catch(() => {}); }, [lens, addr, sess]);
   const act = async (body, ok) => {
@@ -299,13 +296,13 @@ export function FamilyWorld({ addr, sess, onEnter, onJoin, onSignIn, rooms = {} 
     raids: <div className="fwd-raids">{(v.raids || []).length ? v.raids.slice().reverse().map(r => <RaidStage key={r.id} r={r} act={act} busy={busy} />)
       : <FamEmpty art="raid" title="NO RAIDS ON" note="Tap a rival building in the city — a CPU town if you're brave." />}
       <ol className="fwd-wlog">{(v.log || []).map((l, i) => <li key={i}>{l.what}</li>)}</ol></div>,
-    jobs: me ? <ul className="fwd-jobs">{me.errands.map(e => <Errand key={e.store} e={e} act={act} busy={busy} onDrive={DRIVE.has(e.store) ? () => { setRaceMode({ mode: 'errand', store: e.store }); setLensRaw('race'); } : null} />)}</ul> : <p className="m-dim">Join a family to run errands.</p>,
+    jobs: me ? <ul className="fwd-jobs">{me.errands.map(e => <Errand key={e.store} e={e} act={act} busy={busy} />)}</ul> : <p className="m-dim">Join a family to run errands.</p>,
     rc: me ? <ul className="fwd-rc">{me.challenges.map(c => { const cc = cardOf(c.recruit); return <li key={c.key} className={c.done ? 'is-done' : c.ready ? 'is-ready' : ''} data-testid={`rc-${c.key}`}>
       <b>{c.name}</b><small>{c.metric}: {mp(c.have)}/{mp(c.need)}</small><u><s style={{ transform: `scaleX(${Math.min(1, c.have / c.need)})` }} /></u>
       <span className={`fwd-mini ${cc.red ? 'red' : ''}`}>{cc.face}{cc.suit}</span><em>+{mp(c.mp)} MP</em>
       <button type="button" className="m-btn" disabled={!c.ready || busy} onClick={() => act({ act: 'challenge', kind: c.key }, 'Recruit joined')}>{c.done ? '✓ claimed' : 'Claim'}</button></li>; })}</ul> : <p className="m-dim">Join a family to take challenges.</p>,
     deck: <CardRoom crew={crew} onGo={setLens} />,
-    race: <StreetRace key={`${raceMode.mode}-${raceMode.store}`} blocks={v.blocks} addr={addr} sess={sess} mode={raceMode.mode} store={raceMode.store} onDone={() => reload?.()} />,
+    strike: <Suspense fallback={<p className="m-dim">Loading the Strike Zone…</p>}><StrikeZone addr={addr} sess={sess} family={me ? { id: me.id, tag: me.tag } : null} onDone={() => reload?.()} /></Suspense>,
     pools: <PoolHub pools={pools} blocks={myBlocks} onLink={link} />,
     family: typeof rooms.family === 'function' ? rooms.family({ v, act, busy, onEnter, fly: id => { const b = (v.blocks || []).find(x => x.id === id); if (!b) return; const c = (v.cities || []).find(x => x.boroughs.includes(b.b)); setLensRaw(null); if (c) setCity(c.key); setSelRaw(b); } }) : rooms.family || null,
     wars: rooms.wars || null, board: rooms.board || null, feed: rooms.feed || null,

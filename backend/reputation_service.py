@@ -10618,33 +10618,35 @@ async def familia_world_act(p: WorldAct):
     return {**v, 'result': res_}
 
 
-# 🏁 THE RACEWAY (raceway.py, owner 2026-10-27: "a telegram game where people drive vehicles / race this city"): today's race for everyone (a wallet
-# or a verified Telegram player — practice needs neither), a delivery run for a family member's errand. The server deals every track, checks every
-# time (straight-line floor, split order, its own clock) and pays MP into the family bank — once a day for the race, the errand's own cooldown.
-import raceway as _rw
+# 🎯 STRIKE ZONE (arena.py, owner 2026-10-27: "a third-person shooter instead of the raceway — bots or online, real levelling + gun customisation"):
+# your profile (XP → level → unlocks, the loadout you built), a one-use match token, the result (checked against the server's own clock → XP,
+# and a family member's kills feed the family bank a little), and ONLINE rooms over a WebSocket (positions + shots relayed, ≤ 8 a room).
+# Who you are: a signed-in wallet, else a verified Telegram player (tg_auth), else a guest (plays, saves nothing).
+import arena as _ar
 import tg_auth as _tga
 
-_race_tokens = {}
+ARENA_PATH = CREWS_PATH.parent / 'arena.json'
+_arena_tokens = {}
+_arena_rooms = {}   # room → {cid: {'ws', 'name', 'state'}}
 
 
-def _race_day(now):
+def _arena_day(now):
     return time.strftime('%Y-%m-%d', time.gmtime(now))
 
 
-def _race_tg(tg):
-    u = _tga.verify(tg, (os.getenv('TELEGRAM_BOT_TOKEN') or '').strip()) if tg else None
-    return u
+def _tg_user(tg):
+    return _tga.verify(tg, (os.getenv('TELEGRAM_BOT_TOKEN') or '').strip()) if tg else None
 
 
 async def _tg_group(text):
-    """📲 a post to the owner's Telegram group (new race records, the daily podium) with a RACE NOW button. Silent when it isn't set up."""
+    """📲 a post to the owner's Telegram group (level-ups, the day's top shooter) with a PLAY button. Silent when it isn't set up."""
     tok_, chat_ = (os.getenv('TELEGRAM_BOT_TOKEN') or '').strip(), (os.getenv('TELEGRAM_GROUP_ID') or '').strip()
     if not (tok_ and chat_ and text):
         return False
     app_ = (os.getenv('TELEGRAM_APP_URL') or '').strip()
     body_ = {'chat_id': chat_, 'text': text, 'disable_web_page_preview': True}
     if app_.startswith('https://'):
-        body_['reply_markup'] = {'inline_keyboard': [[{'text': '🏁 RACE NOW', 'url': app_}]]}
+        body_['reply_markup'] = {'inline_keyboard': [[{'text': '🎯 PLAY STRIKE ZONE', 'url': app_}]]}
     try:
         async with httpx.AsyncClient(timeout=8) as http:
             r_ = await http.post(f'https://api.telegram.org/bot{tok_}/sendMessage', json=body_)
@@ -10653,143 +10655,169 @@ async def _tg_group(text):
         return False
 
 
-class RaceStart(BaseModel):
+def _arena_who(address, session, tg):
+    """→ (who, name) — a wallet, a Telegram player, or (None, 'guest')."""
+    if address and session:
+        return _session_or_401(address, session), ''
+    u = _tg_user(tg)
+    if tg and not u:
+        raise HTTPException(401, 'Telegram sign-in did not verify — reopen the game from the bot.')
+    return (f"tg:{u['id']}", u['name']) if u else (None, 'guest')
+
+
+def _arena_profile(players, who):
+    p = players.get(who) or {}
+    lv = _ar.level_of(p.get('xp'))
+    return {'xp': lv['total'], 'level': lv['level'], 'into': lv['into'], 'need': lv['need'], 'loadout': _ar.clean_loadout(p.get('loadout'), lv['level']),
+            'unlocked': _ar.unlocked(lv['level']), 'kills': int(p.get('kills') or 0), 'wins': int(p.get('wins') or 0)}
+
+
+class ArenaWho(BaseModel):
     address: str = Field(default='', max_length=64)
     session: str = Field(default='', max_length=400)
     tg: str = Field(default='', max_length=4096)
-    mode: str = Field(default='race', max_length=8)
-    store: str = Field(default='', max_length=16)
 
 
-class RaceFinish(RaceStart):
+class ArenaLoadout(ArenaWho):
+    loadout: dict = Field(default_factory=dict)
+
+
+class ArenaStart(ArenaWho):
+    mode: str = Field(default='bots', max_length=8)
+
+
+class ArenaResult(ArenaWho):
     token: str = Field(..., max_length=64)
-    ms: int = Field(..., ge=0, le=3_600_000)
-    splits: List[int] = Field(default_factory=list, max_length=12)
-    vehicle: str = Field(default='car', max_length=8)
-    pen: int = Field(default=0, ge=0, le=600_000)   # 🚦 red lights run (+2 s each) — inside `ms`, outside the clock check
+    kills: int = Field(..., ge=0, le=999)
+    deaths: int = Field(..., ge=0, le=999)
+    heads: int = Field(default=0, ge=0, le=999)
+    won: bool = False
 
 
-@app.get('/api/reputation/familia-race')
-async def familia_race(address: str = Query('', max_length=64), session: str = Query('', max_length=400)):
-    """🏁 today's track (everyone races the same one), the day's board, your best + what today already paid."""
-    now = time.time(); day = _race_day(now)
-    st = _json_load(CREWS_PATH, {})
-    race_ = ((st.get('world') or {}).get('race') or {})
-    me_ = _session_or_401(address, session) if address and session else None
-    rows_ = race_.get(day) or {}
-    mine_ = rows_.get(me_) if me_ else None
-    return {'day': day, 'track': _rw.daily_track(day), 'board': _rw.board(rows_), 'me': {'best': (mine_ or {}).get('ms'), 'paid': ((race_.get('paid') or {}).get(day) or {}).get(me_ or '', [])},
-            'mp': {'finish': _rw.RACE_MP, 'par': _rw.RACE_PAR_MP, 'errand': _rw.ERRAND_BONUS}, 'telegram': bool((os.getenv('TELEGRAM_BOT_TOKEN') or '').strip())}
+@app.get('/api/reputation/arena')
+async def arena_home(address: str = Query('', max_length=64), session: str = Query('', max_length=400), tg: str = Query('', max_length=4096)):
+    """🎯 the catalog (guns + attachments + the level curve), your profile, today's leaders, the online rooms."""
+    now = time.time(); who_, _n = _arena_who(address, session, tg)
+    players_ = (_json_load(ARENA_PATH, {}) or {}).get('players') or {}
+    return {'guns': _ar.GUNS, 'parts': {k: [{'id': i, 'name': n, 'level': lv, 'mod': m} for i, n, lv, m in v] for k, v in _ar.PARTS.items()}, 'default': _ar.DEFAULT,
+            'xp': _ar.XP, 'me': _arena_profile(players_, who_) if who_ else {**_arena_profile({}, ''), 'guest': True},
+            'board': _ar.board(players_, _arena_day(now)), 'rooms': [{'room': k, 'n': len(v)} for k, v in _arena_rooms.items() if v][:20]}
 
 
-@app.post('/api/reputation/familia-race/start')
-async def familia_race_start(p: RaceStart):
-    """→ a one-use token + the track. Errands: a member's delivery from the family's home (the store built, its cooldown over)."""
-    import crews as _cr
+@app.post('/api/reputation/arena/loadout')
+async def arena_loadout(p: ArenaLoadout):
+    """Save the gun you built — only parts your level owns stick."""
+    who_, name_ = _arena_who(p.address, p.session, p.tg)
+    if not who_:
+        raise HTTPException(401, 'Sign in (wallet or Telegram) to save a loadout.')
+    async with _crews_lock:
+        doc_ = _json_load(ARENA_PATH, {}) or {}; players_ = doc_.setdefault('players', {}); me_ = players_.setdefault(who_, {})
+        me_['loadout'] = _ar.clean_loadout(p.loadout, _ar.level_of(me_.get('xp'))['level'])
+        if name_:
+            me_['name'] = name_
+        _json_save(ARENA_PATH, doc_)
+    return _arena_profile(players_, who_)
+
+
+@app.post('/api/reputation/arena/start')
+async def arena_start(p: ArenaStart):
+    who_, _n = _arena_who(p.address, p.session, p.tg)
     now = time.time()
-    who_, cid_ = None, None
-    if p.address and p.session:
-        who_ = _session_or_401(p.address, p.session)
-    elif p.tg:
-        u = _race_tg(p.tg)
-        if not u:
-            raise HTTPException(401, 'Telegram sign-in did not verify — reopen the game from the bot.')
-        who_ = f"tg:{u['id']}"
-    if p.mode == 'errand':
-        if not who_ or who_.startswith('tg:'):
-            raise HTTPException(401, 'Sign in with your wallet to run a family errand.')
-        st = _json_load(CREWS_PATH, {}); _cr._norm(st)
-        me = _seat_of(st, who_); c = _cr.crew_of(st, me)
-        if not c:
-            raise HTTPException(404, 'Join a family first.')
-        if p.store not in _fworld.ERRANDS:
-            raise HTTPException(400, 'No such errand.')
-        city = _fcity.city_of(c, now)
-        lvl_ = max([l['lvl'] for l in city['lots'].values() if l['b'] == p.store] or [0])
-        if not lvl_:
-            raise HTTPException(400, 'Build that store first.')
-        last_ = float((((c.get('world') or {}).get('errandAt') or {}).get(me) or {}).get(p.store) or 0)
-        if now - last_ < _fworld.ERRANDS[p.store][2]:
-            raise HTTPException(400, f"{_fworld.ERRANDS[p.store][0]} again in {int((_fworld.ERRANDS[p.store][2] - (now - last_)) // 60) + 1} min.")
-        home_ = ((st.get('world') or {}).get('home') or {}).get(c['id']) or c['id']
-        track_, cid_ = _rw.errand_track(p.store, home_, now), c['id']
-    else:
-        track_ = _rw.daily_track(_race_day(now))
-    if len(_race_tokens) > 4000:
-        for k_ in [k for k, t in _race_tokens.items() if now - t['at'] > 1200]:
-            _race_tokens.pop(k_, None)
+    if len(_arena_tokens) > 4000:
+        for k_ in [k for k, t in _arena_tokens.items() if now - t['at'] > 3600]:
+            _arena_tokens.pop(k_, None)
     import secrets as _secrets
     tok_ = _secrets.token_urlsafe(18)
-    _race_tokens[tok_] = {'who': who_, 'at': now, 'track': track_, 'mode': 'errand' if p.mode == 'errand' else 'race', 'cid': cid_}
-    return {'token': tok_, 'track': track_, 'practice': who_ is None}
+    _arena_tokens[tok_] = {'who': who_, 'at': now, 'mode': 'online' if p.mode == 'online' else 'bots'}
+    return {'token': tok_, 'guest': who_ is None}
 
 
-@app.post('/api/reputation/familia-race/finish')
-async def familia_race_finish(p: RaceFinish):
-    """Check the run, keep your best on the day's board, pay the MP (race: once a day + under par; errand: the errand's MP, ×1.25 under par)."""
+@app.post('/api/reputation/arena/result')
+async def arena_result(p: ArenaResult):
+    """Check the match on the server's clock → XP (+ a level-up post to the group) and, for a family member, kill MP into the family bank."""
     import crews as _cr
-    now = time.time(); day = _race_day(now)
-    t = _race_tokens.pop(p.token, None)
+    now = time.time(); day_ = _arena_day(now)
+    t = _arena_tokens.pop(p.token, None)
     if not t:
-        raise HTTPException(400, 'That run expired — start a new one.')
-    why_ = _rw.check(t['track'], p.ms - min(p.pen, p.ms), p.splits, now - t['at'])   # the driving time; red-light seconds only ever ADD to the posted time
+        raise HTTPException(400, 'That match expired — start a new one.')
+    why_ = _ar.check(p.kills, p.deaths, p.heads, now - t['at'], t['mode'])
     if why_:
         raise HTTPException(400, why_)
-    who_ = t['who']
-    if not who_:
-        return {'ok': True, 'practice': True, 'ms': p.ms, 'par': t['track']['par']}
-    mp_, best_, name_, tag_, posts_ = 0, False, '', '', []
+    xp_ = _ar.match_xp(p.kills, p.heads, p.won)
+    if not t['who']:
+        return {'ok': True, 'guest': True, 'xp': xp_}
+    who_ = t['who']; posts_ = []; mp_ = 0
     async with _crews_lock:
-        st = _json_load(CREWS_PATH, {}); _cr._norm(st)
-        c = None
-        if not who_.startswith('tg:'):
-            me = _seat_of(st, who_); c = _cr.crew_of(st, me)
-            name_, tag_ = (c or {}).get('name') or '', (c or {}).get('tag') or ''
+        doc_ = _json_load(ARENA_PATH, {}) or {}; players_ = doc_.setdefault('players', {}); me_ = players_.setdefault(who_, {})
+        before_ = _ar.level_of(me_.get('xp'))['level']
+        me_['xp'] = int(me_.get('xp') or 0) + xp_; me_['kills'] = int(me_.get('kills') or 0) + p.kills; me_['wins'] = int(me_.get('wins') or 0) + (1 if p.won else 0)
+        d_ = me_.get('day') if (me_.get('day') or {}).get('date') == day_ else {'date': day_, 'xp': 0, 'kills': 0, 'mp': 0}
+        d_['xp'] += xp_; d_['kills'] += p.kills; me_['day'] = d_
+        after_ = _ar.level_of(me_['xp'])['level']
+        if who_.startswith('tg:'):
+            u_ = _tg_user(p.tg)
+            if u_:
+                me_['name'] = u_['name']
         else:
-            u = _race_tg(p.tg); name_ = (u or {}).get('name') or 'Telegram racer'
-        city = None
-        if c:
-            boost_, _rk = _city_ctx(c, me, now)
-            city = _fcity.accrue(_fcity.city_of(c, now), now, boost_)
-        w = st.setdefault('world', _fworld.blank()); race_ = w.setdefault('race', {})
-        for d_ in sorted(k for k in race_ if k not in ('paid', 'recapped', day) and k < day)[:-2]:
-            race_.pop(d_, None)
-        try:
-            if t['mode'] == 'race':
-                prev_top_ = (_rw.board(race_.get(day) or {}, 1) or [None])[0]
-                best_ = _rw.record(race_.setdefault(day, {}), who_, p.ms, p.vehicle, name_, tag_)
-                top_ = (_rw.board(race_[day], 1) or [None])[0]
-                if best_ and top_ and top_['ms'] == int(p.ms) and (not prev_top_ or prev_top_['ms'] > int(p.ms)):
-                    posts_.append(_rw.record_post(top_, prev_top_))
-                last_ = max([k for k in race_ if k not in ('paid', 'recapped') and k < day] or [''])
-                if last_ and race_.get('recapped') != last_:
-                    race_['recapped'] = last_; posts_.append(_rw.recap_post(last_, race_.get(last_) or {}))
-                if c:
-                    paid_day = race_.setdefault('paid', {}).setdefault(day, {})
-                    for d_ in [k for k in race_['paid'] if k != day]:
-                        race_['paid'].pop(d_, None)
-                    mp_, paid_day[who_] = _rw.race_mp(p.ms, t['track'], paid_day.get(who_))
-            elif c and c['id'] == t['cid']:
-                lv = {}
-                for l in city['lots'].values():
-                    lv[l['b']] = max(lv.get(l['b'], 0), l['lvl'])
-                m = c.setdefault('world', {}); cd = m.setdefault('errandAt', {}).setdefault(me, {})
-                mp0, pts, _n = _fworld.errand(lv, cd, t['track']['store'], now, _fcity.rate(city, boost_, now))
-                mp_ = int(mp0 * (_rw.ERRAND_BONUS if p.ms <= t['track']['par'] else 1))
-                m['errands'] = int(m.get('errands') or 0) + 1
-                pm_ = m.setdefault('pts', {}); pm_[me] = int(pm_.get(me) or 0) + pts
-            if city is not None and mp_:
-                city['bank'] += mp_
-                city['mpEver'] = city.get('mpEver', 0) + mp_
-        except ValueError as e:
-            raise HTTPException(400, str(e))
-        _json_save(CREWS_PATH, st)
-    _crew_cache['data'] = None
-    for txt_ in [x for x in posts_ if x]:
-        asyncio.create_task(_tg_group(txt_))   # 📲 the group hears about it (fire and forget)
-    rows_ = _rw.board(((st.get('world') or {}).get('race') or {}).get(day) or {})
-    return {'ok': True, 'ms': p.ms, 'par': t['track']['par'], 'best': best_, 'mp': mp_, 'board': rows_,
-            'place': next((r['place'] for r in rows_ if r['ms'] == p.ms), None)}
+            st = _json_load(CREWS_PATH, {}); _cr._norm(st)
+            c = _cr.crew_of(st, _seat_of(st, who_))
+            if c:
+                me_['name'], me_['tag'] = c.get('name') or me_.get('name'), c.get('tag') or ''
+                mp_ = max(0, min(_ar.KILL_MP * p.kills, _ar.KILL_MP_DAY - int(d_.get('mp') or 0)))
+                if mp_:
+                    city_ = _fcity.accrue(_fcity.city_of(c, now), now)
+                    city_['bank'] += mp_; city_['mpEver'] = city_.get('mpEver', 0) + mp_; d_['mp'] = int(d_.get('mp') or 0) + mp_
+                    _json_save(CREWS_PATH, st)
+        if after_ > before_:
+            posts_.append(_ar.level_post(me_.get('name') or 'A shooter', me_.get('tag') or '', after_, (me_.get('loadout') or {}).get('gun')))
+        _json_save(ARENA_PATH, doc_)
+    for txt_ in posts_:
+        asyncio.create_task(_tg_group(txt_))
+    return {'ok': True, 'xp': xp_, 'mp': mp_, 'levelUp': after_ > before_, 'me': _arena_profile(players_, who_), 'board': _ar.board(players_, day_)}
+
+
+from fastapi import WebSocket, WebSocketDisconnect   # noqa: E402  (the online rooms)
+
+
+@app.websocket('/api/reputation/arena/ws')
+async def arena_ws(ws: WebSocket, room: str = 'fee-city', name: str = 'guest'):
+    """🌐 an online room: every message a player sends ({t: 'state' | 'shot' | 'hit' | 'dead', …}) is relayed to the others with their id; join /
+    leave are announced. ≤ 8 a room. Hits are claimed by the shooter (casual play — the XP still goes through the clock check)."""
+    room = ''.join(ch for ch in str(room)[:24] if ch.isalnum() or ch in '-_') or 'fee-city'
+    peers = _arena_rooms.setdefault(room, {})
+    if len(peers) >= 8:
+        await ws.close(code=4008)
+        return
+    await ws.accept()
+    import secrets as _secrets
+    cid = _secrets.token_hex(4); nm = ''.join(ch for ch in str(name)[:16] if ch.isprintable()) or 'guest'
+    peers[cid] = {'ws': ws, 'name': nm}
+
+    async def cast(msg, skip=None):
+        for k_, v_ in list(peers.items()):
+            if k_ == skip:
+                continue
+            try:
+                await v_['ws'].send_json(msg)
+            except Exception:
+                peers.pop(k_, None)
+    await ws.send_json({'t': 'hello', 'id': cid, 'peers': [{'id': k, 'name': v['name']} for k, v in peers.items() if k != cid]})
+    await cast({'t': 'join', 'id': cid, 'name': nm}, skip=cid)
+    try:
+        while True:
+            msg = await ws.receive_json()
+            if isinstance(msg, dict) and msg.get('t') in ('state', 'shot', 'hit', 'dead', 'chat'):
+                msg['id'] = cid
+                if msg.get('t') == 'chat':
+                    msg['text'] = str(msg.get('text') or '')[:120]
+                await cast(msg, skip=cid)
+    except (WebSocketDisconnect, Exception):
+        pass
+    finally:
+        peers.pop(cid, None)
+        if not peers:
+            _arena_rooms.pop(room, None)
+        await cast({'t': 'leave', 'id': cid})
 
 
 # ⚔ FAMILY FUSE (family_fuse.py): two families' Fuse cards in the Fuse Arena stadium — paper or MP, spectator bids, the Arena's six duels.
@@ -30950,9 +30978,9 @@ SETUP_KEYS = [
     ('LIFI_API_KEY', 'LI.FI', 'Higher rate limits for EVM swaps, bridges and gas', False),
     ('ETHERSCAN_API_KEY', 'Etherscan', 'EVM contract + holder reads', False),
     ('PUMPPORTAL_API_KEY', 'PumpPortal', 'Paid live Pump trade stream (instant new-coin flow)', False),
-    ('TELEGRAM_BOT_TOKEN', 'Telegram bot', 'The Familia game inside Telegram: players race under their Telegram name + the bot posts to your group (docs/TELEGRAM.md)', False),
-    ('TELEGRAM_GROUP_ID', 'Telegram group', 'Where the bot posts new race records + the daily podium (-100… id)', False),
-    ('TELEGRAM_APP_URL', 'Telegram app link', 'https://t.me/<bot>/race — the RACE NOW button on group posts', False),
+    ('TELEGRAM_BOT_TOKEN', 'Telegram bot', 'Strike Zone inside Telegram: players shoot under their Telegram name + the bot posts level-ups to your group (docs/TELEGRAM.md)', False),
+    ('TELEGRAM_GROUP_ID', 'Telegram group', 'Where the bot posts level-ups (-100… id)', False),
+    ('TELEGRAM_APP_URL', 'Telegram app link', 'https://t.me/<bot>/strike — the PLAY button on group posts', False),
 ]
 
 

@@ -116,7 +116,7 @@ test('🌆 Fee City BREATHES: duplicates are rooms inside one building, TT is ON
   expect(p.spare.every(x => x.park)).toBe(true);
   expect(p.inside.find(x => x.key === 'ranked')).toMatchObject({ host: 'podium', rect: p.places.find(x => x.key === 'podium').rect });
   expect(spotOf(p, { place: 'raids' })).toEqual(centerOf(p.places.find(x => x.key === 'warroom').rect));
-  expect(roomsOf('raids').map(x => x.key)).toEqual(['warroom', 'raids', 'cartels']); expect(roomsOf('rc').map(x => x.key)).toEqual(['hq', 'jobs', 'gym', 'cards', 'race']);
+  expect(roomsOf('raids').map(x => x.key)).toEqual(['warroom', 'raids', 'cartels']); expect(roomsOf('rc').map(x => x.key)).toEqual(['hq', 'jobs', 'gym', 'cards', 'strike']);
   expect(roomsOf('tt').map(x => x.key)).toEqual(['tt']);
   const tt = p.places.find(x => x.key === 'tt'); const mkt = p.markets[0];
   expect(tt.rect.w * tt.rect.d).toBeGreaterThan(4 * mkt.rect.w * mkt.rect.d); expect(FOOT.tt).toBeGreaterThan(2 * FOOT.tower - 1); expect(Math.min(tt.rect.w, tt.rect.d)).toBeGreaterThan(FOOT.tt);

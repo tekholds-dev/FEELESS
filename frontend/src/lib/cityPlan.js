@@ -60,7 +60,7 @@ export const PLACES = [
   { key: 'jobs', lens: 'jobs', name: 'JOB BOARD', sub: 'errands · MP every few minutes', in: 'hq', art: 'board', color: '#45e486' },
   { key: 'gym', lens: 'rc', name: 'THE GYM', sub: 'challenges · win recruits', in: 'hq', art: 'gym', color: '#6ad7ff' },
   { key: 'cards', lens: 'deck', name: 'CARD ROOM', sub: 'your crew, dealt live', in: 'hq', art: 'casino', color: '#b388ff' },
-  { key: 'race', lens: 'race', name: 'THE RACEWAY', sub: 'drive Fee City · daily race · deliveries pay MP', in: 'hq', art: 'track', color: '#ff5d73', big: true },   // 🏁 owner 2026-10-27
+  { key: 'strike', lens: 'strike', name: 'STRIKE ZONE', sub: 'third-person shooter · bots or online · level up your guns', in: 'hq', art: 'precinct', color: '#ff5d73', big: true },   // 🎯 owner 2026-10-27 (replaced the Raceway)
   { key: 'cartels', lens: 'cartels', name: 'CARTEL WAREHOUSE', sub: 'bundlers · snipers · funders', in: 'warroom', art: 'warehouse', color: '#3ddc84' },
   // 🗼 TT — ONE landmark tower on its own island (owner, 2026-10-23): READY coins lit on its floors, the hottest coin on its crown; one pop-out
   { key: 'tt', lens: 'tt', name: 'TRENCH TOWERS', sub: "the desk's intake list · trade it right here", isl: 'money', art: 'tt', color: '#ff8fa3', tool: true, money: true },
