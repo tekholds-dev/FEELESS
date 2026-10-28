@@ -283,16 +283,18 @@ test('💬 OSSY × G4 beside the chart: the Decision card\'s button swaps the ri
 });
 
 
-test.skip('📱📱 HQ › Agents on a Duo: a split app — chart half + a docked desk (DECISION · OSSY×G4 · SEATS · INTAKE · LIVE), the rail = live seats', async () => {
+test('📱📱 HQ › Agents on a Duo keeps EVERY control: the money strip + nav on top, chart | docked desk below; a nav pick opens in the DESK tab', async () => {
   sessionStorage.clear(); mockDuo = { on: true, wide: true };
   const call = jest.fn(async () => ({ ok: true }));
   const hub = { d: data, livePx: new Map(), sel: selectors(data), load: jest.fn() };
   const { root, q } = mount();
   await act(async () => { root.render(<AgentHubProvider value={hub}><AgentCockpit call={call} /></AgentHubProvider>); });
   await flush();
-  expect(q('agent-cockpit').className).toContain('ack-duo'); expect(q('ack-duo-pane-decision')).not.toBeNull(); expect(q('ack-panel')).not.toBeNull();
-  expect(q('ack-duo-seat-0')).not.toBeNull();                                        // the rail carries the live seats
-  await act(async () => { q('ack-duo-tab-seats').click(); }); expect(q('ack-duo-pane-seats')).not.toBeNull(); expect(q('ack-panel')).toBeNull();
+  expect(q('agent-cockpit').className).toContain('ack-duo'); expect(q('ack-brain-open')).not.toBeNull();   // the money strip (and its nav) stays
+  expect(q('ack-duo-pane-decision')).not.toBeNull(); expect(q('ack-panel')).not.toBeNull();
+  await act(async () => { q('ack-deck-tape').click(); });
+  expect(q('ack-duo-pane-desk')).not.toBeNull(); expect(q('ack-tapezone')).not.toBeNull();               // the nav's pane lands in DESK
+  await act(async () => { q('ack-duo-tab-seats').click(); }); expect(q('ack-duo-pane-seats')).not.toBeNull();
   await act(async () => { q('ack-duo-swap').click(); }); expect(q('agent-cockpit').className).toContain('is-swap');
   act(() => root.unmount()); mockDuo = { on: false, wide: false }; sessionStorage.clear();
 });

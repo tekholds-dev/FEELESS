@@ -64,3 +64,22 @@ body.theme-day .ack-talk { background: linear-gradient(180deg, #f6f0ff, #fff); }
   .ack-talkgrip { display: block; position: absolute; left: 50%; top: 4px; width: 40px; height: 4px; margin-left: -20px; border-radius: 4px; background: rgba(255, 255, 255, .25); }
   .ack-talk > header { position: relative; padding-top: 14px; } }
 @keyframes ackTalkUp { from { opacity: 0; transform: translateY(40px); } }
+/* 📱📱 HQ › AGENTS ON A DUO v2 (AgentCockpit, `.ack-duo`): the money strip + nav stay on top; the chart and the docked desk split on the crease —
+   held wide each half scrolls on its own (the desk keeps its tabs on top), upright they stack in the page's own scroll. Every control stays. */
+.ack.ack-duo { gap: 8px; }
+.ack-duomain { display: grid; gap: 10px; min-width: 0; }
+.ack-duo.is-wide .ack-duomain { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); height: calc(100dvh - 210px); min-height: 400px; }
+.ack-duo.is-wide.is-swap .ack-duochart { order: 2; }
+.ack-duochart, .ack-duoside { min-width: 0; min-height: 0; display: flex; flex-direction: column; gap: 6px; }
+.ack-duo.is-wide .ack-duochart { overflow-y: auto; scrollbar-width: none; } .ack-duo.is-wide .ack-duochart::-webkit-scrollbar { display: none; }
+.ack-duo.is-up .ack-duochart { --ack-h: 40dvh; }
+.ack-duotabs { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)) auto; position: sticky; top: 0; z-index: 4; }
+.ack-duotabs button { min-height: 38px; padding: 0 4px; font: 800 9.5px var(--f-mono); letter-spacing: .06em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ack-duoswap { min-width: 40px; font-size: 15px !important; }
+.ack-duopane { min-width: 0; display: grid; gap: 8px; align-content: start; animation: ackTalkIn .18s ease-out; }
+.ack-duo.is-wide .ack-duopane { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding-right: 2px; scrollbar-width: thin; scrollbar-color: rgba(69, 228, 134, .5) transparent; }
+.ack-duo.is-wide .ack-duopane::-webkit-scrollbar { width: 6px; } .ack-duo.is-wide .ack-duopane::-webkit-scrollbar-thumb { background: rgba(69, 228, 134, .5); border-radius: 6px; }
+.ack-duoseats { display: grid; gap: 8px; }
+body.fx-lite .ack-duopane { animation: none; } @media (prefers-reduced-motion: reduce) { .ack-duopane { animation: none; } }
+body.theme-day .ack-duotabs { background: rgba(255, 255, 255, .92); }
+@media (max-width: 640px) { .ack-duotabs button { font-size: 8.5px; letter-spacing: .02em; } }

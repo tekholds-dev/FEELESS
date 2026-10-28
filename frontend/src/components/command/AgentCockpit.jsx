@@ -3,7 +3,6 @@ import { addTip } from '../../lib/agentTips';
 import React, { Suspense, lazy, useEffect, useMemo, useRef, useState } from 'react';
 import { DuoSeat } from './DuoSeat';
 import { useDuoFloor } from '../../lib/duo';
-import '../../styles/duoFloor.css';
 import { createPortal } from 'react-dom';
 import { AddMyCoin, SeatStudy, MySeatsRecord, SeatControls } from './MySeat';
 import { QuickTrade } from './QuickTrade';
@@ -678,7 +677,7 @@ export function AgentCockpit({ call, isOwner = true, head = null, extra = [], li
   const duo = useDuoFloor(); const [duoTab, setDuoTab] = useRemembered('feeless.ack.duotab', 'decision'); const [duoSwap, setDuoSwap] = useRemembered('feeless.ack.duoswap', false);
   const duoRo = useRef(null);   // 📱📱 the Duo chart takes exactly its half's height (measured whenever the plot mounts, like the Trenches floor)
   const duoPlot = React.useCallback(el => { duoRo.current?.disconnect(); duoRo.current = null; if (!el || typeof ResizeObserver === 'undefined') return;
-    const fit = () => el.style.setProperty('--ack-h', `${Math.max(180, el.clientHeight - 150)}px`); duoRo.current = new ResizeObserver(fit); duoRo.current.observe(el); fit(); }, []);   // 💬 OSSY × G4 beside the chart instead of the Decision card
+    const fit = () => { if (el.closest('.is-wide')) el.style.setProperty('--ack-h', `${Math.max(200, el.clientHeight - 170)}px`); else el.style.removeProperty('--ack-h'); }; duoRo.current = new ResizeObserver(fit); duoRo.current.observe(el); fit(); }, []);   // 💬 OSSY × G4 beside the chart instead of the Decision card
   const [tab, setTab] = useRemembered('feeless.ack.tab', 'live'); const [aiOpen, setAiOpen] = useState(false); const [brainOpen, setBrainOpen] = useRemembered('feeless.ack.brain', false);   // 🔁 a refresh comes back to the same coin, timeframe and panel tab
   // 🧭 the nav: 📈 chart = the top of the page; any other tab opens its pane under the chart and brings it into view (no hunting)
   const [nav, setNav] = useState(() => { try { return localStorage.getItem(NAV_KEY) || 'chart'; } catch { return 'chart'; } });
@@ -756,33 +755,33 @@ export function AgentCockpit({ call, isOwner = true, head = null, extra = [], li
     ]);
   const symClick = e => { const y = symOf(e.target, e.currentTarget); if (y) { e.stopPropagation(); tapSym(y); } };   // 🪙 any bare $TICKER opens its chart
   const symHover = e => { if (symOf(e.target, e.currentTarget)) e.target.classList.add('ack-symtap'); addTip(e.target); };   // 💬 every button explains itself
-  // 📱📱 HQ › AGENTS ON A DUO (owner 2026-10-28: "every tab its own Duo features"): the cockpit as a split app inside the HQ window — the chart on one
-  // half, a docked desk on the other (DECISION · OSSY × G4 · SEATS · INTAKE · LIVE); held wide, the rail = your live seats (tap = that chart) + 🧠 + ⇄.
-  if (duo.on && false) {   // ⛔ owner 2026-10-28: the Duo cockpit hid the controls — the normal cockpit until it is redone
-    const live = (navTabs.find(t => t[0] === 'live') || [])[3] || null; const held = seats.filter(x => !x.open && x.mint);
-    const DK = [['decision', 'DECISION'], ['talk', 'OSSY×G4'], ['seats', 'SEATS'], ['intake', 'INTAKE'], ['live', 'LIVE']];
+  // 📱📱 HQ › AGENTS ON A DUO (owner 2026-10-28; v1 hid the money strip, the nav and the deck — "I can't do anything" — so v2 keeps EVERY control):
+  // the money strip + its nav stay on top; under it the chart and a docked desk split on the crease (held wide, each half scrolls on its own; upright
+  // they stack). The dock = DECISION · OSSY×G4 · SEATS · INTAKE · DESK (whatever the nav opens — Live desk, Trades, Queue, More … — lands in DESK).
+  if (duo.on) {
+    const paneK = nav === 'chart' ? navPane : nav; const paneL = String((navTabs.find(t => t[0] === paneK) || [])[1] || 'DESK').replace(/^\S+\s/, '').toUpperCase();
+    const DK = [['decision', 'DECISION'], ['talk', 'OSSY×G4'], ['seats', 'SEATS'], ['intake', 'INTAKE'], ['desk', paneL]];
     const dt = DK.some(([k]) => k === duoTab) ? duoTab : 'decision';
-    return <section className={`ack ack-duo dfl is-inline ${duo.wide ? 'is-wide' : 'is-up'} ${duoSwap ? 'is-swap' : ''}`} data-mode="agents" data-testid="agent-cockpit" onClick={symClick} onMouseOver={symHover}>
-      <div className="dfl-fx" aria-hidden="true"><i /><i /></div>
-      {duo.wide ? <nav className="dfl-rail" aria-label="Seats">
-        <button type="button" className={`dfl-rb ${brainOpen ? 'is-on' : ''}`} aria-pressed={brainOpen} onClick={() => setBrainOpen(!brainOpen)} aria-label="The Brain" data-tip="the Brain — talk to G4 / OSSY" data-testid="ack-duo-brain">🧠</button>
-        <span className="dfl-recent" aria-label="Live seats">{held.map((x, i) => <button key={x.seat || x.mint} type="button" style={{ '--i': i }} className={`dfl-rc ack-duoseat ${x.mint === mint ? 'is-on' : ''} ${Number(x.pct) >= 0 ? 'is-up' : 'is-dn'}`}
-          onClick={() => onPick(x.mint)} aria-label={`$${x.symbol}`} data-tip={`$${x.symbol} ${x.pct != null ? `${Number(x.pct) >= 0 ? '+' : ''}${Number(x.pct).toFixed(1)}%` : ''} — chart this seat`} data-testid={`ack-duo-seat-${i}`}><b>{String(x.symbol || '?').slice(0, 3)}</b></button>)}</span>
-        <button type="button" className="dfl-rb" aria-pressed={duoSwap} onClick={() => setDuoSwap(!duoSwap)} aria-label="Swap the halves" data-tip="Swap the halves — chart ⇄ desk" data-testid="ack-duo-swap"><i className="dfl-dev" aria-hidden="true"><s /><s /></i></button>
-      </nav> : null}
-      <section className="dfl-chart"><div className="dfl-plot ack-duoplot" ref={duoPlot}><CockpitChart duo={d?.duo} m={model} iv={iv} setIv={setIv} pos={pos} cand={cand} markers={markers} onAgent={a => { setAgentS(a); setDuoTab('live'); }} tid={o?.tid} call={call} isOwner={isOwner} />
-        <RideBar s={seats.find(x => !x.open && x.mint === mint)} pos={pos} /></div></section>
-      <section className="dfl-side">
-        <div className="m-seg dfl-tabs" role="tablist" aria-label="Agents desk" style={{ '--n': DK.length }}>{DK.map(([k, l]) => <button key={k} type="button" role="tab" aria-selected={dt === k} className={dt === k ? 'active' : ''} onClick={() => setDuoTab(k)} data-testid={`ack-duo-tab-${k}`}>{l}</button>)}</div>
-        <div className="dfl-pane custom-scroll" key={dt} data-testid={`ack-duo-pane-${dt}`}>
-          {dt === 'decision' ? <DecisionPanel o={o} dec={dec} pos={pos} cand={cand} mint={mint} seats={seats} readyN={readyN} agent={agentNow} setAgent={a => { setAgentS(a); setTapeAgent(a); }} tab={tab} setTab={setTab}
-            pulse={pulse} call={call} isOwner={isOwner} onPick={onPick} mcNow={model?.mc} onAi={() => setAiOpen(true)} onTalk={() => setDuoTab('talk')} /> : null}
-          {dt === 'talk' ? <DuoSeat duo={d?.duo} call={call} /> : null}
-          {dt === 'seats' ? <div className="ack-duoseats">{seats.map((x, i) => <div key={x.seat} className="ack-seatwrap"><SeatCard s={x} call={call} on={!x.open && x.mint === mint} onPick={onPick} readyN={readyN} same={x.open ? seats.slice(0, i).find(y => y.open && y.why === x.why)?.seat : undefined} />{isOwner ? <QuickTrade s={x} call={call} tpl={d?.card?.tpl} /> : null}</div>)}</div> : null}
-          {dt === 'intake' ? <IntakeBand o={o} mint={mint} onPick={onPick} call={call} isOwner={isOwner} imp={d?.impostors} /> : null}
-          {dt === 'live' ? live : null}
+    const goDuo = k => { go(k); if (k !== 'chart') setDuoTab('desk'); };
+    return <section className={`ack ack-duo ${duo.wide ? 'is-wide' : 'is-up'} ${duoSwap ? 'is-swap' : ''}`} data-testid="agent-cockpit" onClick={symClick} onMouseOver={symHover}>
+      <MoneyStrip d={d} seats={seats} mint={mint} onPick={onPick} nav={nav} go={goDuo} navTabs={navTabs} ai={<AiChipBtn o={o} onClick={() => setAiOpen(true)} testid="ack-money-ai" />}
+        brain={<button type="button" className={`ack-brainbtn ${brainOpen ? 'is-on' : ''}`} onClick={() => setBrainOpen(!brainOpen)} aria-pressed={brainOpen} data-testid="ack-brain-open" data-tip="the Brain — talk to G4 / OSSY, coach, teach, code lab (slides out on the right)">🧠 BRAIN</button>} />
+      <div className="ack-duomain">
+        <div className="ack-duochart" ref={duoPlot}><CockpitChart duo={d?.duo} m={model} iv={iv} setIv={setIv} pos={pos} cand={cand} markers={markers} onAgent={a => { setAgentS(a); goDuo('live'); }} tid={o?.tid} call={call} isOwner={isOwner} />
+          <RideBar s={seats.find(x => !x.open && x.mint === mint)} pos={pos} /></div>
+        <div className="ack-duoside">
+          <div className="m-seg ack-duotabs" role="tablist" aria-label="Agents desk">{DK.map(([k, l]) => <button key={k} type="button" role="tab" aria-selected={dt === k} className={dt === k ? 'active' : ''} onClick={() => setDuoTab(k)} data-testid={`ack-duo-tab-${k}`}>{l}</button>)}
+            {duo.wide ? <button type="button" className="ack-duoswap" aria-pressed={duoSwap} onClick={() => setDuoSwap(!duoSwap)} aria-label="Swap the halves" data-tip="Swap the halves — chart ⇄ desk" data-testid="ack-duo-swap">⇄</button> : null}</div>
+          <div className="ack-duopane" key={dt} data-testid={`ack-duo-pane-${dt}`}>
+            {dt === 'decision' ? <DecisionPanel o={o} dec={dec} pos={pos} cand={cand} mint={mint} seats={seats} readyN={readyN} agent={agentNow} setAgent={a => { setAgentS(a); setTapeAgent(a); }} tab={tab} setTab={setTab}
+              pulse={pulse} call={call} isOwner={isOwner} onPick={onPick} mcNow={model?.mc} onAi={() => setAiOpen(true)} onTalk={() => setDuoTab('talk')} /> : null}
+            {dt === 'talk' ? <DuoSeat duo={d?.duo} call={call} /> : null}
+            {dt === 'seats' ? <div className="ack-duoseats">{seats.map((x, i) => <div key={x.seat} className="ack-seatwrap"><SeatCard s={x} call={call} on={!x.open && x.mint === mint} onPick={onPick} readyN={readyN} same={x.open ? seats.slice(0, i).find(y => y.open && y.why === x.why)?.seat : undefined} />{isOwner ? <QuickTrade s={x} call={call} tpl={d?.card?.tpl} /> : null}</div>)}</div> : null}
+            {dt === 'intake' ? <IntakeBand o={o} mint={mint} onPick={onPick} call={call} isOwner={isOwner} imp={d?.impostors} /> : null}
+            {dt === 'desk' ? <div ref={deckRef} className="ack-deckwrap"><Deck testid="ack-tapezone" bare on={paneK} setOn={goDuo} tabs={navTabs} /></div> : null}
+          </div>
         </div>
-      </section>
+      </div>
       {brainOpen ? createPortal(<BrainDrawer close={() => setBrainOpen(false)}><AiChat call={call} isOwner={isOwner} focus={mint} focusSym={dec?.symbol} variant="drawer" extras={brainExtras} onClose={() => setBrainOpen(false)} /></BrainDrawer>, document.body) : null}
       {aiOpen ? createPortal(<AiProvidersLive o={o} call={call} isOwner={isOwner} close={() => setAiOpen(false)} />, document.body) : null}
     </section>;
