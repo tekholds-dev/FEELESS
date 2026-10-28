@@ -202,38 +202,58 @@ async def start_trade_confirmations():
 CACHE_KEEP = timedelta(days=2)
 EVENTS_KEEP = timedelta(days=7)
 
+PRUNE_BATCH = 5000   # 🗄 rows per delete batch — a 35 GB cache once took one delete_many (and the Mac) hostage for half an hour
+
+
+async def _prune_batched(coll, field, before):
+    """Delete rows older than `before` in small batches (ids first, then delete by id) so the database never locks up; → rows deleted."""
+    gone = 0
+    while True:
+        ids = [d["_id"] async for d in coll.find({field: {"$lt": before}}, {"_id": 1}).limit(PRUNE_BATCH)]
+        if not ids:
+            return gone
+        gone += (await coll.delete_many({"_id": {"$in": ids}})).deleted_count
+        await asyncio.sleep(0.2)   # breathe between batches
+
+
 async def prune_loop():
+    await asyncio.sleep(30)   # let the server answer first
     while True:
         try:
             now = datetime.now(timezone.utc)
-            a = await db.market_cache.delete_many({"fetched_at": {"$lt": (now - CACHE_KEEP).isoformat()}})
-            b = await db.alpha_events.delete_many({"observed_at": {"$lt": (now - EVENTS_KEEP).isoformat()}})
-            if a.deleted_count or b.deleted_count:
-                logging.getLogger("prune").info("pruned %s cache rows, %s tape events", a.deleted_count, b.deleted_count)
+            a = await _prune_batched(db.market_cache, "fetched_at", (now - CACHE_KEEP).isoformat())
+            b = await _prune_batched(db.alpha_events, "observed_at", (now - EVENTS_KEEP).isoformat())
+            if a or b:
+                logging.getLogger("prune").info("pruned %s cache rows, %s tape events", a, b)
         except Exception as e:  # never let housekeeping take the server down
             logging.getLogger("prune").warning("prune failed: %s", e)
         await asyncio.sleep(3600)
 
 
-@app.on_event("startup")
-async def start_prune():
-    await db.market_cache.create_index("fetched_at")
-    asyncio.create_task(prune_loop())
-
-
-@app.on_event("startup")
-async def ensure_indexes():
+async def _ensure_indexes():
     # Unindexed lookups on these growing collections stalled every market request once they reached ~100k docs.
-    await db.alpha_events.create_index("id")
-    await db.alpha_events.create_index([("chain", 1), ("observed_at", -1)])
-    await db.alpha_events.create_index([("observed_at", -1)])
-    await db.market_observations.create_index("key")
-    await db.market_cache.create_index("key")
-    await db.chat_messages.create_index([("room", 1), ("ts", -1)])
-    # Locked trade fills (entry / P&L): one row per wallet + coin + tx, read by every chart load.
-    await db.wallet_fills.create_index([("wallet", 1), ("mint", 1)])
-    await db.wallet_fills.create_index([("wallet", 1), ("mint", 1), ("tx", 1)], unique=True)
-    await db.swap_orders.create_index("signature")
+    # 🩹 2026-10-28: built in the BACKGROUND — startup used to await them; on a 35 GB cache that took longer than the watcher's patience,
+    # so every restart queued another index build (≈ 40 stacked up) and the Mac froze. The server answers first; indexes follow.
+    try:
+        await db.market_cache.create_index("fetched_at")
+        await db.market_cache.create_index("key")
+        await db.alpha_events.create_index("id")
+        await db.alpha_events.create_index([("chain", 1), ("observed_at", -1)])
+        await db.alpha_events.create_index([("observed_at", -1)])
+        await db.market_observations.create_index("key")
+        await db.chat_messages.create_index([("room", 1), ("ts", -1)])
+        # Locked trade fills (entry / P&L): one row per wallet + coin + tx, read by every chart load.
+        await db.wallet_fills.create_index([("wallet", 1), ("mint", 1)])
+        await db.wallet_fills.create_index([("wallet", 1), ("mint", 1), ("tx", 1)], unique=True)
+        await db.swap_orders.create_index("signature")
+    except Exception as e:
+        logging.getLogger("indexes").warning("index build failed: %s", e)
+
+
+@app.on_event("startup")
+async def start_housekeeping():
+    asyncio.create_task(_ensure_indexes())
+    asyncio.create_task(prune_loop())
 
 
 @app.on_event("shutdown")
