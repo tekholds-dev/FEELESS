@@ -94,3 +94,32 @@ body.is-duo-land .context-bar { min-height: 34px; padding-top: 2px; padding-bott
 body.is-duo-land .context-bar :is(.context-indicator, .context-clock) { display: none; }
 body.is-duo:not(.is-duo-land) :is(.season-banner, .workspace-topline) { display: none !important; }
 body.is-duo-land:has(.fwd-place) .feecat-widget { display: none; }   /* the FeeCat bubble sat on the open room (the perps ticket) */
+/* 📱📱 THE OTHER TABS ON A WIDE DUO (owner 2026-10-28: "finish Duo features in the other tabs") — each split on the crease, both halves live:
+   FEECAT  her stage + chart view on the left · the side panel (calls / lives / trades) pinned on the right, scrolling on its own
+   LAUNCH  the coin form on the left · the live launch floor (HUD + tape) pinned on the right — watch launches while you fill yours in
+   RADAR   your watchlist on the left · signals + copy-trading on the right
+   FUSE    the Fuse stage pinned on the left · how it works + the setups scrolling on the right. Layout only. */
+body.is-duo-land .fcx-body.is-desk { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); grid-template-areas: "stage panel" "view panel"; gap: 10px; align-items: start; }
+body.is-duo-land .fcx-body.is-desk > .fcs { grid-area: stage; } body.is-duo-land .fcx-body.is-desk > .fcv { grid-area: view; min-width: 0; width: auto; }
+body.is-duo-land .fcx-body.is-desk > .fcp { grid-area: panel; position: sticky; top: 8px; width: auto; max-height: calc(100dvh - 110px); overflow-y: auto; overscroll-behavior: contain; scrollbar-width: thin; scrollbar-color: #a259ff transparent; }
+body.is-duo-land .lm.is-coin { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); grid-template-areas: "switch switch" "form floor" "more more"; gap: 10px; align-items: start; }
+body.is-duo-land .lm.is-coin > .lm-switch { grid-area: switch; } body.is-duo-land .lm.is-coin > .meta-launch-page { grid-area: form; min-width: 0; } body.is-duo-land .lm.is-coin > .launch-more { grid-area: more; }
+body.is-duo-land .lm.is-coin > .llp { grid-area: floor; position: sticky; top: 8px; display: grid; grid-template-columns: minmax(0, 1fr); max-height: calc(100dvh - 110px); overflow-y: auto; scrollbar-width: none; }
+body.is-duo-land .lm.is-coin .meta-launch-grid { grid-template-columns: minmax(0, 1fr); }
+body.is-duo-land .radar-page { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 10px; align-items: start; }
+body.is-duo-land .radar-page > * { grid-column: 1; min-width: 0; }
+body.is-duo-land .radar-page > .radar-head { grid-column: 1 / -1; }
+body.is-duo-land .radar-page > :is(.copy-trading, [class*="adv-watch"], [class*="signal"]) { grid-column: 2; }
+body.is-duo-land .fld { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); grid-template-areas: "stage how" "stage setups" "fine fine"; gap: 10px; align-items: start; }
+body.is-duo-land .fld > .fld-stage { grid-area: stage; position: sticky; top: 8px; } body.is-duo-land .fld > .fld-how { grid-area: how; grid-template-columns: minmax(0, 1fr); }
+body.is-duo-land .fld > .fpf { grid-area: setups; min-width: 0; } body.is-duo-land .fld > .fld-fine { grid-area: fine; }
+/* the half-width fixes: FeeCat's own Duo rule kept the stage across both halves — on a wide Duo the stage + view are the left half and the side
+   panel the right, from the top · Launch's platform cards + stepper fit a half (2 across, the stepper one swipe row) · Radar packs both columns */
+body.is-duo-land .fcx .fcx-body.is-desk { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+body.is-duo-land .fcx .fcx-body.is-desk > .fcs { grid-column: 1; grid-row: 1; }
+body.is-duo-land .fcx .fcx-body.is-desk > .fcv { grid-column: 1; grid-row: 2; }
+body.is-duo-land .fcx .fcx-body.is-desk > .fcp { grid-column: 2; grid-row: 1 / span 4; max-height: calc(100dvh - 110px); }
+body.is-duo-land .lm.is-coin .lrail { grid-template-columns: repeat(2, minmax(0, 1fr)); } body.is-duo-land .lm.is-coin .lrail > .lrail-k { grid-column: 1 / -1; writing-mode: horizontal-tb; transform: none; }
+body.is-duo-land .lm.is-coin .launch-stepper { display: flex; overflow-x: auto; scrollbar-width: none; } body.is-duo-land .lm.is-coin .launch-stepper > * { flex: 0 0 auto; }
+body.is-duo-land .radar-page { grid-auto-flow: row dense; }
+body.is-duo-land .fcx .fcx-body.is-desk > .fcs .fcs-tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); }   /* her 4 stat tiles 2 × 2 in a half */
