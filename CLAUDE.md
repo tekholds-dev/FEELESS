@@ -171,8 +171,16 @@ P0 — OWNER 2026-10-28 (the "addicted on every tab" list), easiest → hardest.
 wallet), risk scale 1–4, NSFA 1/5/15 survival watch, OSSY × G4 beside the chart, creator owns every Strike Zone gun, no-spill CSS defaults.
 1. 📱📱 DUO / FOLD per tab — SHIPPED 2026-10-28 (Trenches · Pump radar · HQ Agents · Familia · Perps · FEEd; `DuoFloor mode`, `lib/duo.useDuoFloor`,
    `duo.css`). NEXT: Fuse, Launch, Radar, FeeCat the same way once FEEd is redesigned.
-2. 📰 FEEd redesign: a real live feed (compose bar on top, "N new posts" pill, media + coin cards with live price, animated reactions, threads) —
-   research X / Farcaster / pump.fun feed layouts first; FEELESS twist (rep, receipts, coin chips).
+2. 📰 FEEd redesign — NEXT (spec ready 2026-10-28, nothing built yet). Today: `FeedX.jsx` (375 lines: FeedPanel on the profile's FEEd tab,
+   FeedPopHost pop-out, Timeline / Post / Thread / Composer / FeedPulse / FeedTopCoins) + `feed.css` (223) + `feedPro.css` (68). Owner: "doesn't
+   look like a feed, not lively". Build: ONE center column (max ~600 px) with a sticky header = tabs (For you · Following · Calls · 🔥 Heat ·
+   Graveyard) + the source chips as ONE swipe row; composer on top (avatar · text · CA paste → live coin card preview); a "↑ N new posts" pill
+   that slides in (newSince) instead of jumping the list; post card = avatar · name · rep badge · source · time, text, media / X embed, a
+   live COIN CHIP (price + 5m, tap = Trenches floor via openTrenchTrade), a call RECEIPT bar (2× / 5× / 10× since the post), action row with
+   animated counts (reply · repost · like · share), threads with the connector line; right rail (desktop) = search, trending coins (live),
+   top callers, who to follow; a left mini-nav only ≥ 1250 px. Phone: header collapses on scroll, FAB composer. Duo: timeline | rail at the
+   crease (feedPro.css already locks the pop-out). Delete the old fx-* rules the new layout drops (cssHygiene), one keyframe set (fx*),
+   fx-lite / reduced motion / day theme / 640 px. Tests: FeedX.test.jsx (tabPosts, newSince, kWord, feedPulse stay).
 3. 🎯 Strike Zone real art: CC0 gun models (Quaternius guns, Kenney Blaster Kit) + CC0 camo / PBR textures (ambientCG, Poly Haven) — skins = camos.
 4. 📲 HQ › TELEGRAM CENTER: create + run bot rooms (sniper alerts · trading · member fun · security), Mini App setup in one card, and the FEELESS
    game hub — an idle RPG (Capybara-Go-like loop) + a Boinkers-style slot, built on the REAL FeeCat art, owner controls all of it in one place.

@@ -15,7 +15,7 @@ Read this (2 min) → `CLAUDE.md` (lean rules + 🎨 MANDATORY STYLING + 📋 CU
 >    LIVE visual (meters, bars, animation on real numbers), never bare text. `styles/cssCoverage.test.js` fails on an unstyled class.
 
 ## 🔁 NOW (rewrite this section in place every session)
-**Updated 2026-10-28 · Opus 5.5.** Shipped today (top row). OPEN, easiest → hardest = `CLAUDE.md › P0 — OWNER 2026-10-28`: Duo per tab ·
+**Updated 2026-10-28 (late) · Opus 5.5.** 📱📱 Duo shipped for every main tab (history). NEXT = the FEEd redesign — full spec in `CLAUDE.md › P0 2026-10-28 #2`. Shipped today (top row). OPEN, easiest → hardest = `CLAUDE.md › P0 — OWNER 2026-10-28`: Duo per tab ·
 FEEd redesign · Strike Zone CC0 guns + camos · HQ › Telegram center + the game hub (idle RPG + slot on FeeCat art) · Familia pass + preset
 templates · the fix-agent (before / after previews) · deploy (host + domain + keys). HQ tabs beyond Agents still to de-clutter.
 
