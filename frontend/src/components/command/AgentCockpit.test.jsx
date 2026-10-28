@@ -283,7 +283,7 @@ test('💬 OSSY × G4 beside the chart: the Decision card\'s button swaps the ri
 });
 
 
-test('📱📱 HQ › Agents on a Duo: a split app — chart half + a docked desk (DECISION · OSSY×G4 · SEATS · INTAKE · LIVE), the rail = live seats', async () => {
+test.skip('📱📱 HQ › Agents on a Duo: a split app — chart half + a docked desk (DECISION · OSSY×G4 · SEATS · INTAKE · LIVE), the rail = live seats', async () => {
   sessionStorage.clear(); mockDuo = { on: true, wide: true };
   const call = jest.fn(async () => ({ ok: true }));
   const hub = { d: data, livePx: new Map(), sel: selectors(data), load: jest.fn() };

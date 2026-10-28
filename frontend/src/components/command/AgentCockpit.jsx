@@ -758,7 +758,7 @@ export function AgentCockpit({ call, isOwner = true, head = null, extra = [], li
   const symHover = e => { if (symOf(e.target, e.currentTarget)) e.target.classList.add('ack-symtap'); addTip(e.target); };   // 💬 every button explains itself
   // 📱📱 HQ › AGENTS ON A DUO (owner 2026-10-28: "every tab its own Duo features"): the cockpit as a split app inside the HQ window — the chart on one
   // half, a docked desk on the other (DECISION · OSSY × G4 · SEATS · INTAKE · LIVE); held wide, the rail = your live seats (tap = that chart) + 🧠 + ⇄.
-  if (duo.on) {
+  if (duo.on && false) {   // ⛔ owner 2026-10-28: the Duo cockpit hid the controls — the normal cockpit until it is redone
     const live = (navTabs.find(t => t[0] === 'live') || [])[3] || null; const held = seats.filter(x => !x.open && x.mint);
     const DK = [['decision', 'DECISION'], ['talk', 'OSSY×G4'], ['seats', 'SEATS'], ['intake', 'INTAKE'], ['live', 'LIVE']];
     const dt = DK.some(([k]) => k === duoTab) ? duoTab : 'decision';
