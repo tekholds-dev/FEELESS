@@ -86,7 +86,23 @@ def _write_store(text):
     tmp.replace(STORE_PATH)
 
 
+MAX_PAIRS = 400                    # 🗄 no hoarding (store_caps): the coins charted most recently, never every coin ever seen
+STALE_PAIR_SECONDS = 3 * 24 * 3600 # a coin nobody charted for 3 days leaves the file — its history rebuilds from the providers on the next open
+
+
+def prune_pairs(store: dict, now: float) -> dict:
+    """Pure-ish (mutates + returns): drop pairs whose newest tick is older than STALE_PAIR_SECONDS, then keep the MAX_PAIRS freshest."""
+    last = {k: (v[-1].get('t') if isinstance(v, list) and v and isinstance(v[-1], dict) else 0) or 0 for k, v in store.items()}
+    for k in [k for k, t in last.items() if now - float(t) > STALE_PAIR_SECONDS]:
+        store.pop(k, None); last.pop(k, None)
+    if len(store) > MAX_PAIRS:
+        for k in sorted(last, key=lambda k: last[k])[:len(store) - MAX_PAIRS]:
+            store.pop(k, None)
+    return store
+
+
 def _save(store: dict):
+    prune_pairs(store, time.time())
     _mem.update(path=str(STORE_PATH), store=store)
     if _LAZY_SAVE:
         _mem['dirty'] = True
