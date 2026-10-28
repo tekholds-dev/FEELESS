@@ -21167,6 +21167,7 @@ ENRICH_MOVERS = 2   # … + at most this many brand-new movers a pass
 
 
 import survival_watch as _surv
+_FEATS: dict = {}   # 🧪 mint → its audit tags, refreshed every pass
 _SURV: dict = {}   # ⏱ mint → its 1 / 5 / 15-min checkpoints since we first sensed it (survival_watch; memory only, rebuilt from the next passes)
 
 
@@ -21178,6 +21179,12 @@ def _kernel_pass(table, now):
     _tk.KERNEL.owner = _owr.modes(_owner_book(now), now)
     try:
         _surv.observe(_SURV, table, now)   # ⏱ NSFA: every sensed coin's 1 / 5 / 15-min survival
+        for r_ in table or []:   # 🧪 each coin's audit tags (trench_brain.feats) — the Warden checks them against the proven-edge rules
+            if r_.get('mint'):
+                _FEATS[r_['mint']] = _tb.feats(r_)
+        if len(_FEATS) > 4000:
+            for k_ in list(_FEATS)[:len(_FEATS) - 3000]:
+                _FEATS.pop(k_, None)
     except Exception as e_:
         print(f'[survival] {e_}')
     _taught_stamp(table, now)
@@ -22796,6 +22803,8 @@ def _office_warden(cur, t_, requested, cfg_t, now, move):
         t0 = time.perf_counter()
         ctx_ = _office_ctx(cur, t_, now)
         ctx_['surv'] = _surv.coin(_SURV, t_.get('mint'), now)   # ⏱ its own 1 / 5 / 15-min survival → the risk scale
+        ctx_['feats'] = _FEATS.get(t_.get('mint'))   # 🧪 P1 proven edge: its tags vs the rules that held on unseen coins
+        ctx_['edgeRules'] = (_json_load(EDGE_AUDIT_PATH, {}) or {}).get('rules') or []
         cap_ = _capital_view()
         if cap_.get('on'):   # 💰 size follows the agents' own real record (W23) — this fill's own DOOR once that door has a record, 🧯 the drawdown brake first
             ctx_['capital'] = _cap.for_door(cap_, 'armed' if t_.get('armed') else 'ready')

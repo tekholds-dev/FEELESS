@@ -376,6 +376,21 @@ def risk_scale(c, young_h=6.0):
     return (1 if n == 0 else 2 if n == 1 else 3 if n <= 3 else 4), f
 
 
+# 🧪 PROVEN EDGE (owner 2026-10-28: "better odds, real money is how they learn"): the edge audit's rules that held on coins they were NOT
+# learned from. A coin matching one keeps its seat; a coin matching none is a LEARNING BET (a quarter seat) — the money goes where the odds are.
+EDGE_LEARN_SIZE = 0.25
+
+
+def edge_match(feats, rules):
+    """→ the first proven rule (list of tags) this coin's tags satisfy, or None. feats / rules unknown → None."""
+    fs = set(feats or [])
+    for r in rules or []:
+        tags = r.get('rule') if isinstance(r, dict) else r
+        if tags and all(t in fs for t in tags):
+            return tags
+    return None
+
+
 COST_MAX_PCT = 5.0   # 💸 W22: a seat whose measured round-trip drag (sell-back loss + 2× network fee ÷ size) is over this is not bought
 
 
@@ -467,6 +482,11 @@ def warden(requested, ctx, office=None, floor=WARDEN_MIN_USD):
                 rules.append({'id': 'W24 rug budget', 'mult': round(_clamp(m24, 0.05, 1.0), 3), 'why': f"☠ a seat ≤ {_f(cap_['rugCapPct']):g}% of the ${_f(c['value']):.2f} card: about 1 seat in 8 rugs for the whole seat, in under a minute — no stop gets out"})
         if live_:
             rules.append({'id': 'W23 capital', 'mult': round(_clamp(_f(cap_['mult']), 0.25, 1.0), 3), 'why': f"💰 {cap_.get('state')}: {str(cap_.get('why'))[:170]}"})
+    em_ = None
+    if c.get('edgeRules') and c.get('feats') is not None:   # 🧪 P1: only coins we can tag are judged; a match keeps the seat, no match = a learning bet
+        em_ = edge_match(c['feats'], c['edgeRules'])
+        if not em_:
+            rules.append({'id': 'P1 proven edge', 'mult': EDGE_LEARN_SIZE, 'why': f"matches none of the {len(c['edgeRules'])} rules that held on unseen coins — a learning bet (×{EDGE_LEARN_SIZE:g})"})
     rs_, rflags_ = risk_scale(c, T('youngH'))   # 🎚 after OPEN MODE too: the risk scale always applies — riskier = less cash
     if rs_ > 1:
         rules.append({'id': 'R4 risk scale', 'mult': RISK_SCALE_SIZE[rs_], 'why': f"risk {rs_}/4 — {', '.join(rflags_[:4])}: riskier gets less cash{' + a quick scalp (banks at +' + format(QUICK_SCALP_TP, 'g') + '%)' if rs_ == 4 else ''}; confidence never adds size"})
@@ -491,7 +511,7 @@ def warden(requested, ctx, office=None, floor=WARDEN_MIN_USD):
             rules.append({'id': 'W22 cost', 'mult': 0.0, 'why': f"SIZE TOO SMALL FOR COSTS — a ${allowed:.2f} seat pays ~{drag:.1f}% just to get in and out (> {COST_MAX_PCT:g}%); not a strategy failure"})
             allowed, mult = 0.0, 0.0
     return {'requested': round(req, 4), 'allowed': round(allowed, 4), 'mult': mult, 'eff': round(allowed / req, 3) if req > 0 else 0.0, 'veto': allowed <= 0,
-            'riskScale': rs_, 'riskFlags': rflags_, 'quickScalp': rs_ == 4,
+            'riskScale': rs_, 'riskFlags': rflags_, 'quickScalp': rs_ == 4, 'edgeRule': em_,
             'rules': rules, 'decided': min(rules, key=lambda r: r['mult'])['id'] if rules else 'none — full size',
             'limits': {'steps': list(WARDEN_STEPS), 'floorUsd': floor, **tunes(office, 'warden')}}
 
