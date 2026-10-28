@@ -15,9 +15,11 @@ Read this (2 min) → `CLAUDE.md` (lean rules + 🎨 MANDATORY STYLING + 📋 CU
 >    LIVE visual (meters, bars, animation on real numbers), never bare text. `styles/cssCoverage.test.js` fails on an unstyled class.
 
 ## 🔁 NOW (rewrite this section in place every session)
-**Updated 2026-10-28 (late) · Opus 5.5.** 📱📱 Duo shipped for every main tab (history). NEXT = the FEEd redesign — full spec in `CLAUDE.md › P0 2026-10-28 #2`. Shipped today (top row). OPEN, easiest → hardest = `CLAUDE.md › P0 — OWNER 2026-10-28`: Duo per tab ·
-FEEd redesign · Strike Zone CC0 guns + camos · HQ › Telegram center + the game hub (idle RPG + slot on FeeCat art) · Familia pass + preset
-templates · the fix-agent (before / after previews) · deploy (host + domain + keys). HQ tabs beyond Agents still to de-clutter.
+**Updated 2026-10-28 · Agents Duo refinement.** Canonical backlog: [WORK_QUEUE.md](WORK_QUEUE.md). Device dimensions and mobile acceptance rules: [MOBILE_LAYOUT.md](MOBILE_LAYOUT.md). Older “all built” claims below are historical, not a certification of remaining work.
+
+Agents now fits the usable Safari viewport, preserves all five dock panes and HQ navigation, uses the full landscape chart half, and stacks chart/dock upright. Only Agents layout and its dev harness/tests changed; trading logic and existing unrelated backend edits are untouched. `/dev/hq?touch` is the fixture-only desktop QA route; no sign-in and no trading writes. Physical Safari keyboard/fullscreen verification remains open. Validation/push results are recorded in WORK_QUEUE's delivery section when complete.
+
+Conserve usage · finish the selected work by priority · never dead-style. Stop after this delivery; do not begin the unrelated backlog.
 
 | Live | Where |
 | --- | --- |
@@ -39,7 +41,7 @@ templates · the fix-agent (before / after previews) · deploy (host + domain + 
 | 🛟 Support: Ideas + 👍/👎/💬 · FEEd: X-style rows, ops pings out of the feed, Sign in with X · whitepaper = system cards · Settings: Small/Medium/Large, chart themes, Day/Night, Lite | `SupportHub`, `FeedX`, `FeelessUniverse`, `CommandDocuments` |
 | 📱 Phones: clipboard on iPhone, wallet stays connected, no focus-zoom, Duo/foldable splits, trench chart fits + one swipe row of chart buttons | `lib/clipboard.js`, `lib/duo.js`, `styles/duo.css` |
 
-| 🔑 ONLY THE OWNER CAN DO THESE (everything else is built) | |
+| 🔑 OWNER PREREQUISITES (see WORK_QUEUE for engineering work too) | |
 | --- | --- |
 | `X_CLIENT_ID` (+ `X_CLIENT_SECRET`) from an X developer app; callback `PUBLIC_SITE_URL/api/reputation/x/oauth/callback` | Sign in with X |
 | `PUBLIC_SITE_URL` (a public https domain) | FEELESS-rail + House launches, X sign-in |
@@ -111,3 +113,7 @@ server — attach, never start a second). Push to `main`; the owner's Mac auto-p
 - 🎨 Styling is MANDATORY (`CLAUDE.md › MANDATORY STYLING + ANIMATION`): drawn, alive, unique per page, a twist never a copy, screenshot it.
 - Commit before long tasks (the update script auto-stashes uncommitted work). `git fetch` + rebase before pushing.
 - Edge audit: still no rule positive on unseen coins — say so before any real-money advice.
+
+## Delivery validation — 2026-10-28
+
+Frontend: 345 suites / 1,637 tests passed; final targeted checks: 243 passed. Backend: 2,265 passed / 26 skipped. Production build passed with installed Node 22.17.1 (Node 18 lacks the crypto global required by current dependencies). Browser: 890×626 landscape, 626×890 upright, shortened 890×500 and 678×466; all five dock tabs and HQ toggle exercised; day/lite checked. Fixture chart values are not live account figures. Physical Safari fullscreen/keyboard and complete site-wide mobile QA remain unverified. Push hook will rerun required gates.

@@ -298,3 +298,37 @@ test('📱📱 HQ › Agents on a Duo keeps EVERY control: the money strip + nav
   await act(async () => { q('ack-duo-swap').click(); }); expect(q('agent-cockpit').className).toContain('is-swap');
   act(() => root.unmount()); mockDuo = { on: false, wide: false }; sessionStorage.clear();
 });
+
+test('Duo fits Safari viewport changes, preserves orientation state, and restores HQ on exit', async () => {
+  mockDuo = { on: true, wide: true };
+  const originalViewport = window.visualViewport;
+  const viewport = new EventTarget();
+  Object.assign(viewport, { height: 626, offsetTop: 0, scale: 1 });
+  Object.defineProperty(window, 'visualViewport', { configurable: true, value: viewport });
+  const host = document.createElement('div'); host.className = 'hqp'; document.body.appendChild(host);
+  const root = createRoot(host);
+  const hub = { d: data, livePx: new Map(), sel: selectors(data), load: jest.fn() };
+  const render = () => root.render(<AgentHubProvider value={hub}><AgentCockpit call={async () => ({ ok: true })} /></AgentHubProvider>);
+  const frame = () => act(async () => { await new Promise(resolve => requestAnimationFrame(resolve)); });
+  try {
+    await act(async () => render()); await frame();
+    expect(host.classList.contains('hqp-agents-focus')).toBe(true);
+    expect(host.style.getPropertyValue('--ack-viewport-height')).toBe('626px');
+    viewport.height = 540; viewport.offsetTop = 12;
+    await act(async () => viewport.dispatchEvent(new Event('resize'))); await frame();
+    expect(host.style.getPropertyValue('--ack-viewport-height')).toBe('540px');
+    expect(host.style.getPropertyValue('--ack-viewport-top')).toBe('12px');
+    await act(async () => host.querySelector('[data-testid="ack-duo-tab-seats"]').click());
+    mockDuo = { on: true, wide: false }; await act(async () => render());
+    expect(host.querySelector('.ack-duo.is-up')).not.toBeNull();
+    expect(host.querySelector('[data-testid="ack-duo-pane-seats"]')).not.toBeNull();
+    await act(async () => host.querySelector('[data-testid="ack-duo-hq"]').click());
+    expect(host.classList.contains('hqp-agents-focus')).toBe(false);
+    mockDuo = { on: false, wide: false }; await act(async () => render());
+    expect(host.classList.contains('hqp-agents-duo')).toBe(false);
+    expect(host.style.getPropertyValue('--ack-viewport-height')).toBe('');
+  } finally {
+    act(() => root.unmount()); mockDuo = { on: false, wide: false };
+    Object.defineProperty(window, 'visualViewport', { configurable: true, value: originalViewport });
+  }
+});

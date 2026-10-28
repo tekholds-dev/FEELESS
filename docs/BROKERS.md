@@ -1,5 +1,7 @@
 # 🏦 THE BROKERAGE — your own broker, linked to your Familia wallet (DECISIONS #9)
 
+> Planning status and remaining requests: [WORK_QUEUE.md](WORK_QUEUE.md). This file retains the technical specification/history; do not maintain a second active backlog here.
+
 **What:** users link THEIR broker (Webull · Coinbase · Kraken · Alpaca · E*TRADE · more, via SnapTrade) to their Familia wallet session, see
 cash / buying power / positions live in 🏦 THE BROKERAGE (a room inside YOUR MONEY in Fee City), and BUY / SELL stocks · ETFs · crypto from $1
 in their own account. US-legal by construction (their own regulated broker). Schwab is read-only via SnapTrade; Robinhood does not allow trading.

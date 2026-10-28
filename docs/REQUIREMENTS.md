@@ -1,5 +1,7 @@
 # FEELESS: what it needs and how we keep it clean
 
+> Planning status and remaining requests: [WORK_QUEUE.md](WORK_QUEUE.md). This file retains the technical specification/history; do not maintain a second active backlog here.
+
 ## Priority #1: low usage, clean build, no lag, no bugs
 Every change has to meet all of these before it ships:
 

@@ -1,5 +1,7 @@
 # 📉 FEELESS PERPS — everything about the perps / options desk (one page)
 
+> Planning status and remaining requests: [WORK_QUEUE.md](WORK_QUEUE.md). This file retains the technical specification/history; do not maintain a second active backlog here.
+
 Owner, 2026-10-23: *"perps / options TRADING DASH, quick trades, as low as $1 … all mechanics a real perps desk has … only realtime vitals …
 true chart data ALWAYS … live TP / SL before the trade on the chart … look better than other perps dashes."* Read this before touching
 anything perps. Money rules (CLAUDE.md › Money rules) and `docs/DECISIONS.md` #1 / #8 still apply.

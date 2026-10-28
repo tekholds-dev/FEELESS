@@ -64,22 +64,85 @@ body.theme-day .ack-talk { background: linear-gradient(180deg, #f6f0ff, #fff); }
   .ack-talkgrip { display: block; position: absolute; left: 50%; top: 4px; width: 40px; height: 4px; margin-left: -20px; border-radius: 4px; background: rgba(255, 255, 255, .25); }
   .ack-talk > header { position: relative; padding-top: 14px; } }
 @keyframes ackTalkUp { from { opacity: 0; transform: translateY(40px); } }
-/* 📱📱 HQ › AGENTS ON A DUO v2 (AgentCockpit, `.ack-duo`): the money strip + nav stay on top; the chart and the docked desk split on the crease —
-   held wide each half scrolls on its own (the desk keeps its tabs on top), upright they stack in the page's own scroll. Every control stays. */
-.ack.ack-duo { gap: 8px; }
-.ack-duomain { display: grid; gap: 10px; min-width: 0; }
-.ack-duo.is-wide .ack-duomain { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); height: calc(100dvh - 210px); min-height: 400px; }
+/* Agents Duo: viewport-sized shell, chart-first floor; all HQ navigation remains behind HQ controls.
+   Size the plot with flex, not a guessed toolbar subtraction or an inherited --ack-h overridden on .ack-plot. */
+.hqp.hqp-agents-duo { top: var(--ack-viewport-top, 0px); bottom: auto; height: var(--ack-viewport-height, 100dvh); box-sizing: border-box;
+  padding: env(safe-area-inset-top, 0px) env(safe-area-inset-right, 0px) env(safe-area-inset-bottom, 0px) env(safe-area-inset-left, 0px); overflow: hidden; }
+.hqp-agents-duo .hqp-body { display: flex; min-height: 0; padding: 4px; overflow: hidden; }
+.hqp-agents-duo .hqp-body > .cc-shell { flex: 1; display: flex; flex-direction: column; min-width: 0; min-height: 0; gap: 4px; padding: 0; border: 0; }
+.hqp-agents-duo .cc-shell > .cc-head { flex: none; max-height: 25dvh; overflow: auto; padding: 4px 8px; }
+.hqp-agents-duo .cc-shell > .cc-tab-hero { flex: none; max-height: 60px; overflow: auto; }
+.hqp-agents-duo .cc-shell > .agd { flex: 1; min-height: 0; min-width: 0; display: flex; padding: 0; border: 0; }
+.hqp-agents-focus { grid-template-rows: minmax(0, 1fr); }
+.hqp-agents-focus > .hqp-bar, .hqp-agents-focus .cc-shell > :is(.cc-head, .cc-tab-hero) { display: none; }
+.ack.ack-duo { flex: 1; min-width: 0; min-height: 0; display: flex; flex-direction: column; gap: 4px; }
+.ack-duobar { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex: none; min-height: 34px; padding: 0 6px; }
+.ack-duobar > b { font: 800 10px var(--f-mono); letter-spacing: .12em; color: var(--m-accent); }
+.ack-duobar > b span { color: var(--m-mute); }
+.ack-duobar > button { min-height: 32px; font: 700 10px var(--f-mono); }
+.ack-duo .ack-money { flex: none; position: relative; padding: 4px 6px; gap: 4px; }
+.ack-duo .ack-mrow { display: flex; flex-wrap: nowrap; overflow-x: auto; gap: 12px; scrollbar-width: thin; scroll-snap-type: x proximity; }
+.ack-duo .ack-mrow > * { flex: none; scroll-snap-align: start; }
+.ack-duo .ack-mcell.is-open { order: initial; }
+.ack-duo .ack-mcell > .ack-num, .ack-duo .ack-mcell.is-card > .ack-num { font-size: 17px; }
+.ack-duo .ack-mseats { overflow: visible; }
+.ack-duo .ack-mseat, .ack-duo .ack-brainbtn, .ack-duo .ack-nav > button, .ack-duo .ack-morebtn { min-height: 34px; }
+.ack-duomain { flex: 1; display: grid; gap: 6px; min-width: 0; min-height: 0; }
+.ack-duo.is-wide .ack-duomain { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr); }
+.ack-duo.is-up .ack-duomain { grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 60fr) minmax(0, 40fr); }
 .ack-duo.is-wide.is-swap .ack-duochart { order: 2; }
-.ack-duochart, .ack-duoside { min-width: 0; min-height: 0; display: flex; flex-direction: column; gap: 6px; }
-.ack-duo.is-wide .ack-duochart { overflow-y: auto; scrollbar-width: none; } .ack-duo.is-wide .ack-duochart::-webkit-scrollbar { display: none; }
-.ack-duo.is-up .ack-duochart { --ack-h: 40dvh; }
-.ack-duotabs { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)) auto; position: sticky; top: 0; z-index: 4; }
-.ack-duotabs button { min-height: 38px; padding: 0 4px; font: 800 9.5px var(--f-mono); letter-spacing: .06em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ack-duochart, .ack-duoside { min-width: 0; min-height: 0; display: flex; flex-direction: column; gap: 4px; }
+.ack-duochart { overflow: auto; scrollbar-width: thin; overscroll-behavior: contain; }
+.ack-duochart > .ack-chart { flex: 1; min-height: 0; display: flex; flex-direction: column; padding: 4px; gap: 4px; }
+.ack-duo .ack-chead { flex: none; display: flex; gap: 4px 10px; padding: 2px; }
+.ack-duo .ack-ctools { flex: 1 0 100%; display: flex; flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; }
+.ack-duo .ack-ctools > * { flex: none; }
+.ack-duo .ack-ctools button { min-width: 34px; min-height: 34px; touch-action: manipulation; }
+.ack-duo .ack-plot { flex: 1; min-height: 100px; display: flex; flex-direction: column; height: auto; }
+.ack-duo .ack-plot > .ack-trade { flex: none; height: auto; max-height: 62px; overflow: auto; }
+.ack-duo .ack-plot > .chart-area { flex: 1; min-height: 0 !important; height: auto !important; display: flex; flex-direction: column; }
+.ack-duo .ack-plot .candle-canvas { flex: 1 1 0; height: auto !important; min-height: 0; }
+.ack-duo .chart-source { flex: none; }
+.ack-duo .ack-mrail { flex: none; min-height: 28px; overflow-x: auto; }
+.ack-duo .ack-ride { flex: none; flex-wrap: nowrap; overflow-x: auto; padding: 3px 6px; }
+.ack-duo .ack-ride > * { flex: none; white-space: nowrap; }
+.ack-duotabs { display: flex; flex: none; overflow-x: auto; scrollbar-width: none; position: relative; z-index: 4; }
+.ack-duotabs button { flex: 1 0 auto; min-height: 38px; padding: 0 8px; font: 800 10px var(--f-mono); letter-spacing: .03em; white-space: nowrap; touch-action: manipulation; }
+.ack-duotabs button:focus-visible { outline: 2px solid var(--m-accent); outline-offset: -2px; }
 .ack-duoswap { min-width: 40px; font-size: 15px !important; }
-.ack-duopane { min-width: 0; display: grid; gap: 8px; align-content: start; animation: ackTalkIn .18s ease-out; }
-.ack-duo.is-wide .ack-duopane { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding-right: 2px; scrollbar-width: thin; scrollbar-color: rgba(69, 228, 134, .5) transparent; }
-.ack-duo.is-wide .ack-duopane::-webkit-scrollbar { width: 6px; } .ack-duo.is-wide .ack-duopane::-webkit-scrollbar-thumb { background: rgba(69, 228, 134, .5); border-radius: 6px; }
+.ack-duopane { flex: 1; min-height: 0; min-width: 0; overflow: auto; overscroll-behavior: contain; padding: 2px; display: grid; gap: 8px; align-content: start;
+  scrollbar-width: thin; scrollbar-color: rgba(69, 228, 134, .5) transparent; animation: ackTalkIn .18s ease-out; }
+.ack-duopane > * { min-width: 0; }
 .ack-duoseats { display: grid; gap: 8px; }
-body.fx-lite .ack-duopane { animation: none; } @media (prefers-reduced-motion: reduce) { .ack-duopane { animation: none; } }
+body.fx-lite .ack-duopane { animation: none; }
+@media (prefers-reduced-motion: reduce) { .ack-duopane { animation: none; } }
 body.theme-day .ack-duotabs { background: rgba(255, 255, 255, .92); }
-@media (max-width: 640px) { .ack-duotabs button { font-size: 8.5px; letter-spacing: .02em; } }
+@media (max-width: 640px) { .ack-duotabs button { font-size: 9px; } .ack-duo .ack-chead { gap: 3px 8px; } }
+/* Neutralize legacy global section spacing only inside the fitted Agents shell. */
+.hqp-agents-duo .hqp-body > .cc-shell { padding: 0 !important; }
+.hqp-agents-duo .cc-shell > .agd, .ack.ack-duo { margin: 0; }
+.ack-duo .ack-money { display: grid; margin: 0; }
+.ack-duo .ack-chead { margin: 0; }
+.ack-duo .ack-plot > .ack-trade { max-height: 44px; }
+.ack-duo .ack-tw { display: inline; }
+.ack-duo .ack-ptabs { display: flex; flex-wrap: nowrap; overflow-x: auto; }
+.ack-duo .ack-ptabs > button { flex: 1 0 auto; min-height: 34px; }
+.ack-duo.is-up .ack-duomain { grid-template-rows: minmax(0, 65fr) minmax(0, 35fr); }
+/* Hidden overflow is still programmatically scrollable: focusing a dock tab used to move the entire
+   cockpit under the top edge on rotation. Only the two inner panes should be scroll containers. */
+.hqp-agents-duo .cc-shell > .agd, .hqp-agents-duo .hqp-body { overflow: clip; }
+
+/* Landscape: the money/navigation station belongs over the desk, freeing the full chart half. */
+.ack-duo.is-wide .ack-duomain > .ack-money { grid-column: 2; grid-row: 1; min-width: 0; }
+.ack-duo.is-wide .ack-duochart { grid-column: 1; grid-row: 1 / span 2; }
+.ack-duo.is-wide .ack-duoside { grid-column: 2; grid-row: 2; }
+.ack-duo.is-wide.is-swap .ack-duochart { grid-column: 2; order: initial; }
+.ack-duo.is-wide.is-swap .ack-duomain > .ack-money, .ack-duo.is-wide.is-swap .ack-duoside { grid-column: 1; }
+.ack-duo.is-up .ack-duomain { grid-template-rows: auto minmax(0, 65fr) minmax(0, 35fr); }
+/* Keep the entire P&L/stop/held readout readable in one swipe row, never crop its lower line. */
+.ack-duo .ack-plot > .ack-trade { display: flex; align-items: center; gap: 12px; min-height: 64px; max-height: none; overflow-x: auto; overflow-y: hidden; }
+.ack-duo .ack-trade > * { flex: none; }
+.ack-duo .ack-trade .thd-bar { width: 230px; }
+.ack-duo .ack-trade .thd-kv { flex-wrap: nowrap; }
+body.theme-day .ack-duo .ack-ml { color: #21543a; }
+.ack-duo .ack-plot > .ack-trade, .ack-duotabs { flex-wrap: nowrap; }

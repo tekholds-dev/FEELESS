@@ -1,5 +1,7 @@
 # FEELESS degen playbook — the model and mindset
 
+> Planning status and remaining requests: [WORK_QUEUE.md](WORK_QUEUE.md). This file retains the technical specification/history; do not maintain a second active backlog here.
+
 For the next Claude working on Fuse. Read this before you touch the engine, the real card or any list.
 CLAUDE.md has the rules. This file covers how to think about them.
 

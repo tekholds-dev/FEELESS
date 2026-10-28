@@ -10,6 +10,14 @@ import '../styles/hqPop.css';
 // no signed session. Lets anyone (or Claude) click every Agents-tab control in a real browser and hit-test it — the owner shouldn't have to
 // sign in for a layout bug to be found. Writes answer {ok:true} locally; nothing reaches the server.
 // seat 1 rides a REAL pool so the live chart (toolbar, grab lines, pins) draws over the cockpit exactly as it does for the owner
+// Desktop visual QA can exercise the actual touch layout without changing production device detection.
+if (new URLSearchParams(window.location.search).has('touch')) {
+  const media = window.matchMedia.bind(window);
+  window.matchMedia = query => query === '(pointer: coarse)' ? { matches: true } : media(query);
+}
+const qa = new URLSearchParams(window.location.search);
+if (qa.has('day')) document.body.classList.add('theme-day');
+if (qa.has('lite')) document.body.classList.add('fx-lite');
 const REAL = new URLSearchParams(window.location.search).get('pair') || 'Czfq3xZZDmsdGdUyrNLtRhGc47cXcZtLG4crryfu44zE';
 const DATA = JSON.parse(JSON.stringify({ ...D, office: { ...office, ...D.office } }).replaceAll('"P1"', `"${REAL}"`));
 // 🔁 the OSSY × G4 seat on fixtures: ?duo=sold (the review minute after a close) · hunt (open seat, hunter's clock) · hold (a live seat trade)

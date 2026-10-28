@@ -1,5 +1,7 @@
 # 🧭 DECISIONS — made 2026-10-23 on the owner's go ("you got my ok and do all decisions")
 
+> Planning status and remaining requests: [WORK_QUEUE.md](WORK_QUEUE.md). This file retains the technical specification/history; do not maintain a second active backlog here.
+
 Each decision picks the path that ships now WITHOUT making FEELESS a custodian, a broker or a betting house — those need licences no
 code can grant. A lawyer should still read this page before real volume; anything marked LATER waits for that read or for an audit.
 

@@ -1,5 +1,7 @@
 # FUSE — go live with real money
 
+> Planning status and remaining requests: [WORK_QUEUE.md](WORK_QUEUE.md). This file retains the technical specification/history; do not maintain a second active backlog here.
+
 There are two tracks. **A** puts FEELESS's own tier cards on real money from your **Fuse Circle wallet**; the code is built and
 runs on the local server. **B** makes *users'* cards hands-free on-chain (the FUSE Card contract). No Squads: the Fuse Circle
 account is the one key for both.

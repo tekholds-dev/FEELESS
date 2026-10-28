@@ -1,5 +1,7 @@
 # La Familia v2 — build plan (owner's ask, 2026-10-21, not built yet)
 
+> Planning status and remaining requests: [WORK_QUEUE.md](WORK_QUEUE.md). This file retains the technical specification/history; do not maintain a second active backlog here.
+
 The owner wants a big, addictive city game in the spirit of Godfather PSP and Jailblock. It must make money with **no pay-to-win**. Build it in this order. Each step ships with tests and a browser check.
 
 ## 1. Economy (`backend/family_city.py`)

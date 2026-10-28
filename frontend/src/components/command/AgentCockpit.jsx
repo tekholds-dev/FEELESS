@@ -675,9 +675,48 @@ export function AgentCockpit({ call, isOwner = true, head = null, extra = [], li
   const [pick, setPick] = useRemembered('feeless.ack.pick', null); const [iv, setIv] = useRemembered('feeless.ack.iv', '1m'); const [agent, setAgentS] = useState(null); const [tapeAgent, setTapeAgent] = useState(null);
   const [talk, setTalk] = useRemembered('feeless.ack.talk', false);
   const duo = useDuoFloor(); const [duoTab, setDuoTab] = useRemembered('feeless.ack.duotab', 'decision'); const [duoSwap, setDuoSwap] = useRemembered('feeless.ack.duoswap', false);
-  const duoRo = useRef(null);   // 📱📱 the Duo chart takes exactly its half's height (measured whenever the plot mounts, like the Trenches floor)
-  const duoPlot = React.useCallback(el => { duoRo.current?.disconnect(); duoRo.current = null; if (!el || typeof ResizeObserver === 'undefined') return;
-    const fit = () => { if (el.closest('.is-wide')) el.style.setProperty('--ack-h', `${Math.max(200, el.clientHeight - 170)}px`); else el.style.removeProperty('--ack-h'); }; duoRo.current = new ResizeObserver(fit); duoRo.current.observe(el); fit(); }, []);   // 💬 OSSY × G4 beside the chart instead of the Decision card
+  const duoRoot = useRef(null);
+  const [hqControls, setHqControls] = useState(false);
+  // Safari's visible viewport changes with its toolbar and keyboard, independently of window.resize.
+  // Scope the fit to this Agents mount; restore HQ when switching tabs or folding the phone.
+  useEffect(() => {
+    if (!duo.on) return undefined;
+    const host = duoRoot.current?.closest('.hqp');
+    if (!host) return undefined;
+    host.classList.add('hqp-agents-duo');
+    const viewport = window.visualViewport;
+    let frame;
+    const fit = () => {
+      cancelAnimationFrame(frame);
+      frame = requestAnimationFrame(() => {
+        // Pinch zoom remains native; only fit browser chrome / keyboard changes at normal scale.
+        if (viewport && Math.abs(viewport.scale - 1) > 0.01) return;
+        host.style.setProperty('--ack-viewport-height', `${viewport?.height || window.innerHeight}px`);
+        host.style.setProperty('--ack-viewport-top', `${viewport?.offsetTop || 0}px`);
+      });
+    };
+    fit();
+    window.addEventListener('resize', fit);
+    window.addEventListener('orientationchange', fit);
+    viewport?.addEventListener('resize', fit);
+    viewport?.addEventListener('scroll', fit);
+    return () => {
+      cancelAnimationFrame(frame);
+      window.removeEventListener('resize', fit);
+      window.removeEventListener('orientationchange', fit);
+      viewport?.removeEventListener('resize', fit);
+      viewport?.removeEventListener('scroll', fit);
+      host.classList.remove('hqp-agents-duo');
+      host.style.removeProperty('--ack-viewport-height');
+      host.style.removeProperty('--ack-viewport-top');
+    };
+  }, [duo.on]);
+  useEffect(() => {
+    const host = duoRoot.current?.closest('.hqp');
+    if (!duo.on || !host) return undefined;
+    host.classList.toggle('hqp-agents-focus', !hqControls);
+    return () => host.classList.remove('hqp-agents-focus');
+  }, [duo.on, hqControls]);
   const [tab, setTab] = useRemembered('feeless.ack.tab', 'live'); const [aiOpen, setAiOpen] = useState(false); const [brainOpen, setBrainOpen] = useRemembered('feeless.ack.brain', false);   // 🔁 a refresh comes back to the same coin, timeframe and panel tab
   // 🧭 the nav: 📈 chart = the top of the page; any other tab opens its pane under the chart and brings it into view (no hunting)
   const [nav, setNav] = useState(() => { try { return localStorage.getItem(NAV_KEY) || 'chart'; } catch { return 'chart'; } });
@@ -756,18 +795,21 @@ export function AgentCockpit({ call, isOwner = true, head = null, extra = [], li
   const symClick = e => { const y = symOf(e.target, e.currentTarget); if (y) { e.stopPropagation(); tapSym(y); } };   // 🪙 any bare $TICKER opens its chart
   const symHover = e => { if (symOf(e.target, e.currentTarget)) e.target.classList.add('ack-symtap'); addTip(e.target); };   // 💬 every button explains itself
   // 📱📱 HQ › AGENTS ON A DUO (owner 2026-10-28; v1 hid the money strip, the nav and the deck — "I can't do anything" — so v2 keeps EVERY control):
-  // the money strip + its nav stay on top; under it the chart and a docked desk split on the crease (held wide, each half scrolls on its own; upright
-  // they stack). The dock = DECISION · OSSY×G4 · SEATS · INTAKE · DESK (whatever the nav opens — Live desk, Trades, Queue, More … — lands in DESK).
+  // the chart fills its landscape half; the money strip + navigation sit above the desk half. Upright they stack. The dock = DECISION · OSSY×G4 · SEATS · INTAKE · DESK (whatever the nav opens — Live desk, Trades, Queue, More … — lands in DESK).
   if (duo.on) {
     const paneK = nav === 'chart' ? navPane : nav; const paneL = String((navTabs.find(t => t[0] === paneK) || [])[1] || 'DESK').replace(/^\S+\s/, '').toUpperCase();
     const DK = [['decision', 'DECISION'], ['talk', 'OSSY×G4'], ['seats', 'SEATS'], ['intake', 'INTAKE'], ['desk', paneL]];
     const dt = DK.some(([k]) => k === duoTab) ? duoTab : 'decision';
-    const goDuo = k => { go(k); if (k !== 'chart') setDuoTab('desk'); };
-    return <section className={`ack ack-duo ${duo.wide ? 'is-wide' : 'is-up'} ${duoSwap ? 'is-swap' : ''}`} data-testid="agent-cockpit" onClick={symClick} onMouseOver={symHover}>
+    const goDuo = k => { setNav(k); if (k !== 'chart') { setNavPane(k); setDuoTab('desk'); }
+      try { localStorage.setItem(NAV_KEY, k); if (k !== 'chart') localStorage.setItem(DECK_KEY, k); } catch { /* private window */ } };
+    return <section className={`ack ack-duo ${duo.wide ? 'is-wide' : 'is-up'} ${duoSwap ? 'is-swap' : ''}`} data-testid="agent-cockpit" ref={duoRoot} onClick={symClick} onMouseOver={symHover}>
+      <div className="ack-duobar"><b>COMMAND <span>/ AGENTS</span></b>
+        <button type="button" className="m-btn" onClick={() => setHqControls(v => !v)} aria-expanded={hqControls} data-testid="ack-duo-hq" data-tip="Show all HQ navigation and close controls; tap again to return to the full Agents screen">{hqControls ? '↙ Back to chart' : '☰ HQ controls'}</button></div>
+      <div className="ack-duomain">
       <MoneyStrip d={d} seats={seats} mint={mint} onPick={onPick} nav={nav} go={goDuo} navTabs={navTabs} ai={<AiChipBtn o={o} onClick={() => setAiOpen(true)} testid="ack-money-ai" />}
         brain={<button type="button" className={`ack-brainbtn ${brainOpen ? 'is-on' : ''}`} onClick={() => setBrainOpen(!brainOpen)} aria-pressed={brainOpen} data-testid="ack-brain-open" data-tip="the Brain — talk to G4 / OSSY, coach, teach, code lab (slides out on the right)">🧠 BRAIN</button>} />
-      <div className="ack-duomain">
-        <div className="ack-duochart" ref={duoPlot}><CockpitChart duo={d?.duo} m={model} iv={iv} setIv={setIv} pos={pos} cand={cand} markers={markers} onAgent={a => { setAgentS(a); goDuo('live'); }} tid={o?.tid} call={call} isOwner={isOwner} />
+
+        <div className="ack-duochart"><CockpitChart duo={d?.duo} m={model} iv={iv} setIv={setIv} pos={pos} cand={cand} markers={markers} onAgent={a => { setAgentS(a); goDuo('live'); }} tid={o?.tid} call={call} isOwner={isOwner} />
           <RideBar s={seats.find(x => !x.open && x.mint === mint)} pos={pos} /></div>
         <div className="ack-duoside">
           <div className="m-seg ack-duotabs" role="tablist" aria-label="Agents desk">{DK.map(([k, l]) => <button key={k} type="button" role="tab" aria-selected={dt === k} className={dt === k ? 'active' : ''} onClick={() => setDuoTab(k)} data-testid={`ack-duo-tab-${k}`}>{l}</button>)}

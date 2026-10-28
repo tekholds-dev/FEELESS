@@ -1,5 +1,7 @@
 # 💵 Real-money cats — the full user process (design, NOT built)
 
+> Planning status and remaining requests: [WORK_QUEUE.md](WORK_QUEUE.md). This file retains the technical specification/history; do not maintain a second active backlog here.
+
 Owner ask (2026-10-21): "Build a Cat needs to show the models, the whole shabang — no paper, real money, and creator-wallet access in HQ
 for how much I charge per …". Every step below must exist before any of it ships (one and done). Today every cat is PAPER.
 
