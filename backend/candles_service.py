@@ -102,7 +102,8 @@ def prune_pairs(store: dict, now: float) -> dict:
 
 
 def _save(store: dict):
-    prune_pairs(store, time.time())
+    if len(store) > MAX_PAIRS // 2:   # a small store is never pruned (and never needs it)
+        prune_pairs(store, time.time())
     _mem.update(path=str(STORE_PATH), store=store)
     if _LAZY_SAVE:
         _mem['dirty'] = True
