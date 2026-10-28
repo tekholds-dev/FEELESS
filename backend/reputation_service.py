@@ -32319,6 +32319,7 @@ class PerfIn(BaseModel):
     errors: int = Field(default=0, ge=0, le=1000)
     errRoutes: dict = Field(default_factory=dict)   # 'route · ErrorName' → count (which request failed, never a body)
     fx: dict = Field(default_factory=dict)   # the FX governor's counts: {running, paused, shed, pressure}
+    layout: Optional[dict] = None   # 🧱 the page watcher: {sideways px, spills: [class], covered: [class]} — class names only
 
 
 @app.post('/api/reputation/perf')
@@ -32326,7 +32327,10 @@ async def perf_report(p: PerfIn):
     api = {str(k)[:160]: [float(x) for x in v[:50] if isinstance(x, (int, float))] for k, v in list(p.api.items())[:40] if isinstance(v, list)}
     fx = {k: float(v) for k, v in list(p.fx.items())[:6] if k in ('running', 'paused', 'shed', 'pressure') and isinstance(v, (int, float))}
     er = {str(k)[:110]: int(v) for k, v in list(p.errRoutes.items())[:20] if isinstance(v, (int, float)) and 0 < v < 1000}
-    _perf_samples.append({**p.dict(), 'api': api, 'fx': fx, 'errRoutes': er, 'at': time.time()})
+    lay = p.layout or {}
+    lay = {'sideways': int(min(5000, max(0, _fuse._f(lay.get('sideways'))))), 'spills': [str(x)[:40] for x in (lay.get('spills') or [])[:5]],
+           'covered': [str(x)[:40] for x in (lay.get('covered') or [])[:5]]} if isinstance(lay, dict) and lay else None
+    _perf_samples.append({**p.dict(), 'api': api, 'fx': fx, 'errRoutes': er, 'layout': lay, 'at': time.time()})
     return {'ok': True}
 
 

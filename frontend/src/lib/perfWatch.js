@@ -24,6 +24,33 @@ export function shouldGoLite({ fps, longMs }) {
   return (fps != null && fps < 24) || longMs > 1500;
 }
 
+// 🧱 PAGE WATCHER (owner 2026-10-28: "a catcher so nothing spills or overlaps when you're gone"): once a minute, while the tab is visible and
+// idle, look at what this user actually sees — a page that scrolls sideways, text running out of its box, a button covered by another layer —
+// and name the offending class. It rides the Lag catcher report; the server turns it into a fix line. Read-only, capped, never changes the page.
+export function layoutIssues(doc = document, win = window) {
+  const out = { sideways: 0, spills: [], covered: [] };
+  const W = win.innerWidth || 0; const sw = doc.documentElement?.scrollWidth || 0;
+  if (W && sw > W + 2) out.sideways = sw - W;
+  const name = e => { const c = typeof e.className === 'string' ? e.className.trim().split(/\s+/)[0] : ''; return c || String(e.tagName || '').toLowerCase(); };
+  const add = (list, e) => { const k = name(e); if (k && !list.includes(k) && list.length < 5) list.push(k); };
+  let n = 0;
+  for (const e of doc.querySelectorAll('main *, [role=dialog] *')) {
+    if (++n > 2500 || out.spills.length >= 5) break;
+    if (e.children.length || !e.clientWidth || e.scrollWidth <= e.clientWidth + 2) continue;
+    const cs = win.getComputedStyle(e);
+    if (cs.overflowX !== 'visible' || cs.textOverflow === 'ellipsis' || cs.whiteSpace === 'nowrap') continue;
+    add(out.spills, e);
+  }
+  let b = 0;
+  for (const e of doc.querySelectorAll('main button, main a[href], [role=dialog] button')) {
+    if (++b > 200 || out.covered.length >= 5) break;
+    const r = e.getBoundingClientRect(); if (r.width < 8 || r.height < 8 || r.bottom < 0 || r.top > win.innerHeight || r.right < 0 || r.left > W) continue;
+    const top = doc.elementFromPoint(r.left + r.width / 2, r.top + Math.min(r.height / 2, 12));
+    if (top && top !== e && !e.contains(top) && !top.contains(e) && !top.closest('[role=dialog], .feecat-widget, [data-tip-pop]')) add(out.covered, e);
+  }
+  return out.sideways || out.spills.length || out.covered.length ? out : null;
+}
+
 function sampleFps() {
   if (document.hidden) return;
   let frames = 0; const t0 = performance.now();
@@ -43,7 +70,8 @@ function flush() {
     else if (fps != null) { state.slowStreak = 0; if (fxPressure()) { state.okStreak = (state.okStreak || 0) + 1; if (state.okStreak >= 3) { state.okStreak = 0; setFxPressure(0); } } }
   }
   report.fx = { ...fxStats, pressure: fxPressure() };
-  const has = Object.keys(report.api).length || report.longTasks || fps != null;
+  if (state.layout) { report.layout = state.layout; state.layout = null; }
+  const has = Object.keys(report.api).length || report.longTasks || fps != null || report.layout;
   Object.assign(state, { api: {}, longTasks: 0, longMs: 0, fps: [], errors: 0, errRoutes: {} });
   if (!has) return;
   // keepalive fetch, not sendBeacon: Chrome refuses beacons with a JSON content type, so reports never arrived.
@@ -82,4 +110,6 @@ export function startPerfWatch() {
   setInterval(flush, 60000);
   let hidAt = 0;   // a tab flicking hidden / visible must not post a report each time (≤ one hidden-flush per 10s)
   document.addEventListener('visibilitychange', () => { if (document.hidden && Date.now() - hidAt > 10000) { hidAt = Date.now(); flush(); } });
+  const look = () => { if (document.hidden) return; try { state.layout = layoutIssues(); } catch { /* never break the page */ } };
+  setInterval(() => { if (window.requestIdleCallback) window.requestIdleCallback(look, { timeout: 5000 }); else look(); }, 60000);
 }

@@ -30,10 +30,18 @@ def summarize(samples: list) -> dict:
             pg.setdefault('errRoutes', {})[str(k)[:110]] = pg.get('errRoutes', {}).get(str(k)[:110], 0) + int(n or 0)
         if s.get('fps'):
             pg['fps'].append(float(s['fps']))
+        lay = s.get('layout') or {}
+        if lay:   # 🧱 the page watcher: sideways scroll + which classes spill / sit covered
+            pg['sideways'] = max(pg.get('sideways', 0), int(lay.get('sideways') or 0))
+            for kind in ('spills', 'covered'):
+                for c in lay.get(kind) or []:
+                    pg.setdefault(kind, {})[c] = pg.get(kind, {}).get(c, 0) + 1
     routes = sorted(({'route': r, 'calls': len(ms), 'p50': _pct(ms, .5), 'p95': _pct(ms, .95)} for r, ms in api.items() if ms), key=lambda r: -r['p95'])
     page_rows = sorted(({'page': p, 'reports': v['reports'], 'longTasks': v['longTasks'], 'jankMsPerReport': round(v['longMs'] / v['reports']),
                          'fps': round(sum(v['fps']) / len(v['fps'])) if v['fps'] else None, 'autoLite': v['lite'], 'errors': v['errors'],
-                         'errRoutes': dict(sorted((v.get('errRoutes') or {}).items(), key=lambda kv: -kv[1])[:8])}
+                         'errRoutes': dict(sorted((v.get('errRoutes') or {}).items(), key=lambda kv: -kv[1])[:8]),
+                         'sideways': v.get('sideways', 0), 'spills': sorted(v.get('spills') or {}, key=lambda k: -v['spills'][k])[:5],
+                         'covered': sorted(v.get('covered') or {}, key=lambda k: -v['covered'][k])[:5]}
                         for p, v in pages.items()), key=lambda r: -r['jankMsPerReport'])
     fixes = []
     for r in routes[:8]:
@@ -46,5 +54,12 @@ def summarize(samples: list) -> dict:
             fixes.append({'level': 'bad', 'what': f"{p['page']} runs at {p['fps']} fps", 'fix': 'Heavy animation on this page: turn on site-wide lite effects or trim its backdrop.'})
         elif p['jankMsPerReport'] >= 400:
             fixes.append({'level': 'warn', 'what': f"{p['page']} blocks the main thread {p['jankMsPerReport']}ms/min", 'fix': 'Split the render (memo lists, virtualize long feeds, debounce inputs).'})
+    for p in page_rows:   # 🧱 layout: every page that spills / overlaps / scrolls sideways for a real user, named
+        if p.get('sideways'):
+            fixes.append({'level': 'bad', 'what': f"{p['page']} scrolls sideways by {p['sideways']}px", 'fix': 'A child is wider than the screen: give the grid / flex child min-width: 0 or clip the decorative bleed.'})
+        if p.get('spills'):
+            fixes.append({'level': 'warn', 'what': f"{p['page']} text runs out of its box: .{', .'.join(p['spills'][:3])}", 'fix': 'min-width: 0 on the flex / grid child, or overflow-wrap: anywhere / an ellipsis on that class.'})
+        if p.get('covered'):
+            fixes.append({'level': 'warn', 'what': f"{p['page']} buttons covered by another layer: .{', .'.join(p['covered'][:3])}", 'fix': 'Raise the button (z-index) or move the floating layer off it.'})
     return {'routes': routes[:25], 'pages': page_rows[:25], 'fixes': fixes, 'reports': len(samples),
             'score': max(0, 100 - 12 * sum(f['level'] == 'bad' for f in fixes) - 5 * sum(f['level'] == 'warn' for f in fixes))}

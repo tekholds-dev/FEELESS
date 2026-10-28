@@ -9,7 +9,7 @@ from pathlib import Path
 from pydantic import BaseModel, Field
 from typing import List, Optional, Any
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 
 
 ROOT_DIR = Path(__file__).parent
@@ -191,6 +191,34 @@ async def start_pump_network():
 async def start_trade_confirmations():
     # Confirms submitted swaps on-chain even after the trader closed the page (positions, P&L, notifications).
     asyncio.create_task(trading_service.confirm_loop())
+
+
+# Self-cleaning (2026-10-28): market_cache only ever dropped an old entry when the
+# same request came round again, and alpha_events was never trimmed, so both
+# grew without end (34 GB + 17 GB of data in five weeks, 21 GB on disk). The
+# tape reads the newest 100 events and the cache serves minutes-old data, so
+# anything past these windows is dead weight. Pruned hourly by the timestamp
+# the app maintains (ISO strings, same format, so they compare in order).
+CACHE_KEEP = timedelta(days=2)
+EVENTS_KEEP = timedelta(days=7)
+
+async def prune_loop():
+    while True:
+        try:
+            now = datetime.now(timezone.utc)
+            a = await db.market_cache.delete_many({"fetched_at": {"$lt": (now - CACHE_KEEP).isoformat()}})
+            b = await db.alpha_events.delete_many({"observed_at": {"$lt": (now - EVENTS_KEEP).isoformat()}})
+            if a.deleted_count or b.deleted_count:
+                logging.getLogger("prune").info("pruned %s cache rows, %s tape events", a.deleted_count, b.deleted_count)
+        except Exception as e:  # never let housekeeping take the server down
+            logging.getLogger("prune").warning("prune failed: %s", e)
+        await asyncio.sleep(3600)
+
+
+@app.on_event("startup")
+async def start_prune():
+    await db.market_cache.create_index("fetched_at")
+    asyncio.create_task(prune_loop())
 
 
 @app.on_event("startup")
