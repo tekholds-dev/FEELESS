@@ -46,3 +46,21 @@ def test_fee_speaks_in_her_voice_numbers_untouched():
 def test_old_receipts_lose_the_echo_and_the_old_name():
     assert fs.public_words('🔮 FeeCat AI said exit: under 12 words, numbers. P&L') == '🔮 FeeCat AI said exit. P&L'
     assert fs.public_words('🔮 her AI desk said exit') == '🔮 FeeCat AI said exit'
+
+
+def test_fee_goes_real_from_any_of_the_creators_linked_wallets_and_an_expired_sign_in_says_so(monkeypatch):
+    import asyncio
+    import feecat_service as fs
+    from fastapi.testclient import TestClient
+    c = TestClient(fs.app)
+    store = fs._load(); leader = next((k for k, v in store['cats'].items() if v.get('isLeader')), None)
+    if not leader:
+        return
+    monkeypatch.setattr(fs._real, 'session_wallet', lambda sessions, s: {'ok': 'LINKED', 'x': 'STRANGER'}.get(s))
+    monkeypatch.setattr(fs, 'owner_wallets', lambda: ['OWNER'])
+    async def creator(a):
+        return a == 'LINKED'
+    monkeypatch.setattr(fs, '_is_creator', creator)
+    assert c.post(f'/api/cats/{leader}/action', json={'action': 'paper', 'session': 'expired'}).status_code == 401
+    assert c.post(f'/api/cats/{leader}/action', json={'action': 'paper', 'session': 'x'}).status_code == 403
+    assert c.post(f'/api/cats/{leader}/action', json={'action': 'paper', 'session': 'ok'}).status_code == 200

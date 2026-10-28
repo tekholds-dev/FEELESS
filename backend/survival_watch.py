@@ -29,8 +29,8 @@ def observe(book, rows, now):
             continue
         e = book.get(m)
         if e is None:
-            e = book[m] = {'t0': now, 'p0': p, 'min': p, 'sym': r.get('symbol') or r.get('sym')}
-        e['min'] = min(_f(e.get('min')) or p, p); e['last'], e['lastAt'] = p, now
+            e = book[m] = {'t0': now, 'p0': p, 'min': p, 'max': p, 'sym': r.get('symbol') or r.get('sym')}
+        e['min'] = min(_f(e.get('min')) or p, p); e['max'] = max(_f(e.get('max')) or p, p); e['last'], e['lastAt'] = p, now
         for lab, sec in CHECKS:
             k = f'm{lab}'
             if k not in e and now - e['t0'] >= sec:
@@ -50,7 +50,7 @@ def coin(book, mint, now):
     e = (book or {}).get(mint)
     if not e:
         return None
-    out = {'watchedSec': round(now - e['t0'])}
+    out = {'watchedSec': round(now - e['t0']), 'fromPeak': round((_f(e.get('last')) / _f(e.get('max')) - 1) * 100, 1) if _f(e.get('max')) > 0 and _f(e.get('last')) > 0 else None}
     for lab, _s in CHECKS:
         out[f'm{lab}'], out[f'ok{lab}'] = e.get(f'm{lab}'), e.get(f'ok{lab}')
     return out

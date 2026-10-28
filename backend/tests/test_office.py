@@ -801,14 +801,24 @@ def test_nsfa_survival_watch_checkpoints_1_5_15_and_a_failed_one_raises_the_risk
     assert of.risk_scale({**calm, 'surv': a})[0] == 1 and of.risk_scale({**calm, 'surv': r})[0] == 2   # a failed checkpoint is a risk flag
 
 
-def test_proven_edge_a_coin_matching_a_rule_that_held_on_unseen_coins_keeps_its_seat_others_are_learning_bets():
+def test_proven_edge_is_info_only_it_names_the_rule_a_coin_matches_and_never_shrinks_a_seat():
     import office as of
     rules = [{'rule': ['snipe:0', 'xl:<1'], 'n': 112}, {'rule': ['cap:<30K', 'top10:<15']}]
     assert of.edge_match(['snipe:0', 'xl:<1', 'age:<15m'], rules) == ['snipe:0', 'xl:<1'] and of.edge_match(['snipe:1-4'], rules) is None
     calm = {'ageH': 48, 'd5': 2, 'top10': 12, 'liq': 250000}
     hit = of.warden(1.0, {**calm, 'feats': ['snipe:0', 'xl:<1'], 'edgeRules': rules})
     miss = of.warden(1.0, {**calm, 'feats': ['snipe:5+'], 'edgeRules': rules})
-    unk = of.warden(1.0, {**calm, 'edgeRules': rules})
-    assert hit['edgeRule'] == ['snipe:0', 'xl:<1'] and not any(r['id'] == 'P1 proven edge' for r in hit['rules'])
-    assert miss['edgeRule'] is None and next(r for r in miss['rules'] if r['id'] == 'P1 proven edge')['mult'] == 0.25 and miss['allowed'] <= hit['allowed'] * 0.25 + 1e-9
-    assert not any(r['id'] == 'P1 proven edge' for r in unk['rules'])   # an untagged coin is not judged by P1
+    assert hit['edgeRule'] == ['snipe:0', 'xl:<1'] and miss['edgeRule'] is None and miss['allowed'] == hit['allowed']   # no gating
+
+
+
+def test_w25_washed_a_coin_far_under_its_own_high_is_vetoed_for_everyone():
+    import office as of
+    import survival_watch as sw
+    book = {}
+    for t, px in ((0, 1.0), (60, 2.0), (120, 1.0)):
+        sw.observe(book, [{'mint': 'W', 'px': px}], t)
+    s = sw.coin(book, 'W', 120); assert s['fromPeak'] == -50.0
+    calm = {'ageH': 48, 'd5': 2, 'top10': 12, 'liq': 250000}
+    w = of.warden(1.0, {**calm, 'surv': s}); assert w['veto'] and any(r['id'] == 'W25 washed' for r in w['rules'])
+    ok = of.warden(1.0, {**calm, 'surv': {**s, 'fromPeak': -12.0}}); assert not ok['veto']

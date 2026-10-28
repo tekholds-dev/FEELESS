@@ -1709,6 +1709,16 @@ def owner_wallets():
     return [w.strip() for w in os.environ.get('FEELESS_ADMIN_WALLETS', '').split(',') if w.strip()]
 
 
+async def _is_creator(addr):
+    """👑 the creator through ANY linked wallet (reputation's `_is_staff`) — Fee's real switch is the creator's, whichever of their wallets signed."""
+    try:
+        async with httpx.AsyncClient(timeout=5) as h:
+            r = await h.get(f'http://127.0.0.1:5077/api/reputation/admin/is-admin/{addr}')
+            return bool(r.status_code == 200 and (r.json().get('staff') or r.json().get('owner')))
+    except Exception:
+        return False
+
+
 def fee_owner_real(cat, action, signed, owners=None):
     """💵🐱 FEE GOES REAL — owner only (2026-10-23: "see NEXA trade real money as FeeCat"): Fee belongs to the system, so only a signed-in OWNER
     wallet (FEELESS_ADMIN_WALLETS — never a granted role) may switch her real / paper or answer her proposals. Real = every buy NEXA calls is
@@ -1738,7 +1748,12 @@ async def cat_action(cat_id: str, payload: ActionPayload, request: Request):
     if not cat:
         raise HTTPException(404, 'Cat not found.')
     signed = _real.session_wallet(_real.load_sessions(DATA_DIR / 'chat_sessions.json'), payload.session)
-    if not fee_owner_real(cat, payload.action, signed) and (not payload.ownerId or payload.ownerId != cat.get('ownerId')):   # 🔒 the owner only
+    if cat.get('isLeader') and payload.action in ('real', 'paper', 'proposal', 'look') and not request.headers.get('x-feeless-internal'):
+        if not signed:   # a missing / expired sign-in used to fall through to the internal-key check and read as a mystery 403
+            raise HTTPException(401, 'Sign in with your wallet first (one signature, no transaction) — your sign-in expired.')
+        if not fee_owner_real(cat, payload.action, signed) and not await _is_creator(signed):
+            raise HTTPException(403, "Only the creator's wallets can switch Fee real — this wallet isn't linked to the creator.")
+    elif not fee_owner_real(cat, payload.action, signed) and (not payload.ownerId or payload.ownerId != cat.get('ownerId')):   # 🔒 the owner only
         _internal(request)                                             # … or HQ (reputation's admin run, internal key)
     if payload.action in ('real', 'proposal') and (not signed or signed != payload.address):
         raise HTTPException(401, 'Sign in with your wallet first (one signature, no transaction).')

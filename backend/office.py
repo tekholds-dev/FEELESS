@@ -379,6 +379,7 @@ def risk_scale(c, young_h=6.0):
 # 🧪 PROVEN EDGE (owner 2026-10-28: "better odds, real money is how they learn"): the edge audit's rules that held on coins they were NOT
 # learned from. A coin matching one keeps its seat; a coin matching none is a LEARNING BET (a quarter seat) — the money goes where the odds are.
 EDGE_LEARN_SIZE = 0.25
+WASHED_PCT = -40.0   # 🧼 a coin this far under its own high (since we first saw it) is washed
 
 
 def edge_match(feats, rules):
@@ -482,11 +483,12 @@ def warden(requested, ctx, office=None, floor=WARDEN_MIN_USD):
                 rules.append({'id': 'W24 rug budget', 'mult': round(_clamp(m24, 0.05, 1.0), 3), 'why': f"☠ a seat ≤ {_f(cap_['rugCapPct']):g}% of the ${_f(c['value']):.2f} card: about 1 seat in 8 rugs for the whole seat, in under a minute — no stop gets out"})
         if live_:
             rules.append({'id': 'W23 capital', 'mult': round(_clamp(_f(cap_['mult']), 0.25, 1.0), 3), 'why': f"💰 {cap_.get('state')}: {str(cap_.get('why'))[:170]}"})
+    fp_ = (c.get('surv') or {}).get('fromPeak')
+    if fp_ is not None and _f(fp_) <= WASHED_PCT:   # 🧼 W25 WASHED: already dumped from its high since we first saw it — no one buys the corpse (G4 included)
+        rules.append({'id': 'W25 washed', 'mult': 0.0, 'why': f"{_f(fp_):+.0f}% under its high since the desk first saw it — washed, not a dip"})
     em_ = None
-    if c.get('edgeRules') and c.get('feats') is not None:   # 🧪 P1: only coins we can tag are judged; a match keeps the seat, no match = a learning bet
-        em_ = edge_match(c['feats'], c['edgeRules'])
-        if not em_:
-            rules.append({'id': 'P1 proven edge', 'mult': EDGE_LEARN_SIZE, 'why': f"matches none of the {len(c['edgeRules'])} rules that held on unseen coins — a learning bet (×{EDGE_LEARN_SIZE:g})"})
+    if c.get('edgeRules') and c.get('feats') is not None:   # 🧪 P1 proven edge — INFO ONLY (owner 2026-10-28: "no more gating, let them take risks"): the
+        em_ = edge_match(c['feats'], c['edgeRules'])         # seat says which proven rule it matches; it never shrinks one
     rs_, rflags_ = risk_scale(c, T('youngH'))   # 🎚 after OPEN MODE too: the risk scale always applies — riskier = less cash
     if rs_ > 1:
         rules.append({'id': 'R4 risk scale', 'mult': RISK_SCALE_SIZE[rs_], 'why': f"risk {rs_}/4 — {', '.join(rflags_[:4])}: riskier gets less cash{' + a quick scalp (banks at +' + format(QUICK_SCALP_TP, 'g') + '%)' if rs_ == 4 else ''}; confidence never adds size"})

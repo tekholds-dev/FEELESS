@@ -14574,6 +14574,10 @@ async def _prime_tick_inner(now):
                     t_ = {**t_, 'px': lv_.get('px') or t_['px'], 'nums': {**(t_.get('nums') or {}), 'liq': lv_.get('liq') or (t_.get('nums') or {}).get('liq')}}
                 try:
                     wd_ = _office_warden(cur, t_, _prime.agent_seat_usd(cur, px, cfg_s), cfg_t, now, 'fill')   # 🛡 sizes THIS seat: it can lower or veto, never raise
+                    if t_.get('g4') and wd_['veto']:   # 🧼 owner 2026-10-28 ("G4 buys washed coins, not listening"): the models obey every Warden VETO
+                        _g4_fate({'mint': t_['mint'], 'symbol': t_.get('symbol')}, 'Warden VETO (models obey vetoes): ' + str(wd_.get('decided') or '')[:60], now)
+                        vetoed_ += 1
+                        continue
                     if t_.get('g4'):   # 🔁 OSSY / G4's turn is THEIR call (owner, 2026-10-16: "the agents can't stop them, they use the agents as helpers"): the Warden's word is advice, the seat is the card's full seat; the keeper's own money checks still run
                         if wd_['veto'] or wd_['allowed'] < _prime.agent_seat_usd(cur, px, cfg_s):
                             _g4_fate({'mint': t_['mint'], 'symbol': t_.get('symbol')}, 'Warden advised: ' + str(wd_.get('why') or wd_.get('rules') or 'smaller')[:70] + ' — the model\'s call stands', now)
@@ -30801,7 +30805,11 @@ async def token_search(q: str = Query(..., min_length=1, max_length=64)):
 @app.get('/api/reputation/admin/is-admin/{address}')
 async def is_admin(address: str):
     """Public yes/no so the UI can show admin controls. Every admin action still needs a signed session."""
-    return {'admin': address in _admin_wallets(), 'owner': address in _owner_wallets()}
+    try:
+        staff_ = bool(_is_staff(address))
+    except Exception:
+        staff_ = False
+    return {'admin': address in _admin_wallets(), 'owner': address in _owner_wallets(), 'staff': staff_}   # staff = the creator via ANY linked wallet
 
 
 _fills_cache: dict = {}
