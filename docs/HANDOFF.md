@@ -15,13 +15,13 @@ Read this (2 min) → `CLAUDE.md` (lean rules + 🎨 MANDATORY STYLING + 📋 CU
 >    LIVE visual (meters, bars, animation on real numbers), never bare text. `styles/cssCoverage.test.js` fails on an unstyled class.
 
 ## 🔁 NOW (rewrite this section in place every session)
-**Updated 2026-10-27 (late night) · Opus 5.5.** Shipped tonight (top rows). Still OPEN, easiest → hardest: HQ de-clutter beyond the Agents
-tab (every other HQ tab: fewer tabs up front, hide '—' cells, fold unread — a `/dev/hq?deck=<tab>` harness needs fixture data per admin read first;
-the admin reads 401 without the owner's signature) · Familia city map: district labels overlap the activity feed on a Duo (owner: Familia last) ·
-the agents' own record is unproven (0 graded team trades) · strike orders + Kalshi need `DFLOW_API_KEY`.
+**Updated 2026-10-28 · Opus 5.5.** Shipped today (top row). OPEN, easiest → hardest = `CLAUDE.md › P0 — OWNER 2026-10-28`: Duo per tab ·
+FEEd redesign · Strike Zone CC0 guns + camos · HQ › Telegram center + the game hub (idle RPG + slot on FeeCat art) · Familia pass + preset
+templates · the fix-agent (before / after previews) · deploy (host + domain + keys). HQ tabs beyond Agents still to de-clutter.
 
 | Live | Where |
 | --- | --- |
+| 🩹 SOL trades work from ANY wallet again: the fee wallet's wSOL account was closed (since 2026-09-30, a trade from that wallet closes it) → every SOL trade failed simulation; missing ⇒ the fee is plain SOL to the fee wallet (verified live: quote + simulate OK) · 🎚 agents' risk scale 1–4 (R4; a 4 = ¼ seat + quick scalp +8 %) · ⏱ NSFA 1/5/15-min survival watch (risk flags + intake meters) · 💬 OSSY × G4 beside the chart (phone sheet) · 👑 creator owns every Strike Zone gun | `trading.account_exists`, `fee_tx.fee_owner`, `office.risk_scale`, `survival_watch.py`, `AgentCockpit` |
 | 📱📱 DUO FLOOR (iPhone Duo: folded 466×678 · open 890×626 wide / 626×890 upright, DPR 3, crease mid-screen, Safari has NO viewport segments): the Trenches coin floor on any Duo / tablet / sideways phone = a full-screen split app — wide: rail (← back · recent coins · ⇄ · home) \| chart half \| dock half, split on the crease; upright: coin bar + vitals · chart 58 % · dock · pump-style BUY / SELL bar. Dock = TRADE · CHAT · CALLS · COINS (intake + feed, tap = this chart) · TAPE; ‹ › / swipe = next coin. Every page on a wide Duo: ONE slim top bar (was 4 bars, 200 px). Familia: SWAP tab locked to the edge | `DuoFloor.jsx`, `duoFloor.css`, `lib/duo.js`, `duo.css`, `DuoBar.jsx` |
 | 🫧 Intake: TRADE opens the Trenches floor (never the war room); in HQ › Agents it lands on the agents' chart · 🏆 BEST IN THE TANK (top 5 tradable: germ floor · READY · move · 1h vol · feeds agreeing) | `LiveTank.bestCoins`, `openTrenchTrade` |
 | 🎯 STRIKE ZONE (replaced the Raceway): full-screen third-person shooter on three.js's Octree + Capsule physics + its Soldier model — bots or online rooms, the gunsmith (parts unlock by level), XP on the server's clock, family MP per kill · 📲 Telegram Mini App + level-up posts (`docs/TELEGRAM.md`) | `StrikeZone.jsx`, `StrikeGame.jsx`, `lib/strikeGame.js`, `arena.py`, `tg_auth.py` |

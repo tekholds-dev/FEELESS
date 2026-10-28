@@ -167,6 +167,19 @@ STANDING RULES (never "done"):
 - 🚀 NO RISK NO REWARD (owner): money surfaces lead with the aggressive play (MOON: tight v3 / DLMM bands on the busiest pools; DEGEN: the
   hottest fee pools) with the risk named — SAFE yields are one tap away, never the headline. "Think big, not the same utilities."
 
+P0 — OWNER 2026-10-28 (the "addicted on every tab" list), easiest → hardest. SHIPPED 2026-10-28: SOL fee account self-heal (trades from any
+wallet), risk scale 1–4, NSFA 1/5/15 survival watch, OSSY × G4 beside the chart, creator owns every Strike Zone gun, no-spill CSS defaults.
+1. 📱📱 DUO / FOLD per tab like DuoFloor (the owner LOVES it): Perps desk · Pump radar · Familia · HQ Agents · FEEd — each its own split app.
+2. 📰 FEEd redesign: a real live feed (compose bar on top, "N new posts" pill, media + coin cards with live price, animated reactions, threads) —
+   research X / Farcaster / pump.fun feed layouts first; FEELESS twist (rep, receipts, coin chips).
+3. 🎯 Strike Zone real art: CC0 gun models (Quaternius guns, Kenney Blaster Kit) + CC0 camo / PBR textures (ambientCG, Poly Haven) — skins = camos.
+4. 📲 HQ › TELEGRAM CENTER: create + run bot rooms (sniper alerts · trading · member fun · security), Mini App setup in one card, and the FEELESS
+   game hub — an idle RPG (Capybara-Go-like loop) + a Boinkers-style slot, built on the REAL FeeCat art, owner controls all of it in one place.
+5. 🏙 FAMILIA desktop + mobile pass + PRESET TEMPLATES (one room / vitals / panel / sheet template set, rooms built from it — fewer one-off sheets).
+6. 🛠 FIX-AGENT: Lag catcher + Support errors → a model investigates, fixes on a branch, and shows a BEFORE / AFTER visual preview (screenshots /
+   a live preview window), the owner approves — never just a diff.
+7. 🚀 DEPLOY: a public host + domain + the 🔑 keys (HANDOFF table). Render plugin needs /mcp sign-in.
+
 P0 — OWNER-ONLY (2026-10-26 final): everything the owner asked is built; the open items need a human key / sign-up / signature — `docs/HANDOFF.md` › 🔑 table.
 P0 — OWNER 2026-10-26 (the "finish it" list; shipped this day → history "2026-10-26") — open, priority order:
 a. 🤖 AUTORANGE: real opens / re-centers / closes SHIPPED 2026-10-26 (all four simulated clean on mainnet) — NEXT: the owner's first real $25 open +
