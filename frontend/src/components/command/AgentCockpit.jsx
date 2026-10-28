@@ -497,7 +497,7 @@ export function AiNote({ o, mint, agent, onOpen }) {
     <AiIntel a={n.advice} testid="ack-ai-intel" /></>;
 }
 
-function DecisionPanel({ o, dec, pos, cand, mint, seats, readyN, agent, setAgent, tab, setTab, pulse, call, isOwner, onPick, mcNow, onAi }) {
+function DecisionPanel({ o, dec, pos, cand, mint, seats, readyN, agent, setAgent, tab, setTab, pulse, call, isOwner, onPick, mcNow, onAi, onTalk, talkN }) {
   const tr = useMemo(() => traceOf(o, mint), [o, mint]);
   const names = Object.fromEntries((o?.agents || []).map(a => [a.key, `${a.icon} ${a.name}`]));
   const line = tr?.lines.find(l => l.agent === agent);
@@ -506,6 +506,7 @@ function DecisionPanel({ o, dec, pos, cand, mint, seats, readyN, agent, setAgent
   const verdictWord = line?.word || word;
   return <aside className="ack-panel" data-testid="ack-panel">
     <header><b>🧠 DECISION</b><i className="ack-livechip">● {dec?.symbol ? `$${dec.symbol}` : 'no coin'}</i><CopyCa mint={mint} sym={dec?.symbol} testid="ack-dec-ca" /><GermChip mint={mint} />
+      {onTalk ? <button type="button" className="ack-talkbtn" onClick={onTalk} data-tip="OSSY × G4 — their live conversation beside the chart (a sheet on a phone)" data-testid="ack-talk-open">💬 OSSY × G4{talkN ? <i className="m-num">{talkN}</i> : null}</button> : null}
       <select className="m-input ack-agsel" value={agent} onChange={e => setAgent(e.target.value)} aria-label="Agent" data-testid="ack-agent-sel">
         {CHAIN.map(a => <option key={a} value={a}>{names[a] || a}</option>)}</select></header>
     <div className="m-seg ack-ptabs" role="tablist" aria-label="Decision panel">{PANEL_TABS.map(([k, l]) => <button key={k} type="button" role="tab" aria-selected={tab === k} className={tab === k ? 'active' : ''} onClick={() => setTab(k)} data-testid={`ack-ptab-${k}`}><TabChip label={l} n={k === 'seats' && (seats || []).length ? `${(seats || []).filter(z => !z.open).length}/${seats.length}` : k === 'trace' ? (tr?.lines || []).length || null : null}
@@ -671,6 +672,7 @@ export const LENS_TAB = { live: 'office', review: 'office', limits: 'office', bo
 export function AgentCockpit({ call, isOwner = true, head = null, extra = [], limits = null }) {
   const cc = useHub(); const d = cc?.d; const o = d?.office || null;
   const [pick, setPick] = useRemembered('feeless.ack.pick', null); const [iv, setIv] = useRemembered('feeless.ack.iv', '1m'); const [agent, setAgentS] = useState(null); const [tapeAgent, setTapeAgent] = useState(null);
+  const [talk, setTalk] = useRemembered('feeless.ack.talk', false);   // 💬 OSSY × G4 beside the chart instead of the Decision card
   const [tab, setTab] = useRemembered('feeless.ack.tab', 'live'); const [aiOpen, setAiOpen] = useState(false); const [brainOpen, setBrainOpen] = useRemembered('feeless.ack.brain', false);   // 🔁 a refresh comes back to the same coin, timeframe and panel tab
   // 🧭 the nav: 📈 chart = the top of the page; any other tab opens its pane under the chart and brings it into view (no hunting)
   const [nav, setNav] = useState(() => { try { return localStorage.getItem(NAV_KEY) || 'chart'; } catch { return 'chart'; } });
@@ -758,8 +760,11 @@ export function AgentCockpit({ call, isOwner = true, head = null, extra = [], li
       <div className="ack-left"><CockpitChart duo={d?.duo} m={model} iv={iv} setIv={setIv} pos={pos} cand={cand} markers={markers} onAgent={a => { setAgentS(a); setTab('live'); }} tid={o?.tid} call={call} isOwner={isOwner} />
         <RideBar s={seats.find(x => !x.open && x.mint === mint)} pos={pos} />
         <IntakeBand o={o} mint={mint} onPick={onPick} call={call} isOwner={isOwner} imp={d?.impostors} /></div>
-      <div className="ack-right">{/* 🧹 Decision only — the G4 × OSSY desk + the decision tape live under the chart (owner 2026-10-27: "less clutter") */}<DecisionPanel o={o} dec={dec} pos={pos} cand={cand} mint={mint} seats={seats} readyN={readyN} agent={agentNow} setAgent={a => { setAgentS(a); setTapeAgent(a); }} tab={tab} setTab={setTab}
-        pulse={pulse} call={call} isOwner={isOwner} onPick={onPick} mcNow={model?.mc} onAi={() => setAiOpen(true)} /></div></div>
+      <div className="ack-right">{/* 🧹 Decision only — the G4 × OSSY desk + the decision tape live under the chart (owner 2026-10-27: "less clutter"); 💬 swaps in their conversation (owner 2026-10-28) */}{talk ? <aside className="ack-talk" data-testid="ack-talk" role="dialog" aria-label="OSSY × G4 conversation">
+        <header><i className="ack-talkgrip" aria-hidden="true" /><b>💬 OSSY × G4</b><small>{d?.duo?.phase || 'live'}{d?.duo?.next ? ` · ${d.duo.next} next` : ''}</small>
+          <button type="button" className="ack-talkx" onClick={() => setTalk(false)} data-tip="Back to the Decision card" data-testid="ack-talk-close">🧠 DECISION</button></header>
+        <div className="ack-talkbody"><DuoSeat duo={d?.duo} call={call} /></div></aside> : null}{talk ? null : <DecisionPanel onTalk={() => setTalk(true)} talkN={(d?.duo?.log || []).filter(r => Date.now() / 1000 - (r.at || 0) < 600).length} o={o} dec={dec} pos={pos} cand={cand} mint={mint} seats={seats} readyN={readyN} agent={agentNow} setAgent={a => { setAgentS(a); setTapeAgent(a); }} tab={tab} setTab={setTab}
+        pulse={pulse} call={call} isOwner={isOwner} onPick={onPick} mcNow={model?.mc} onAi={() => setAiOpen(true)} />}</div></div>
     <div ref={deckRef} className="ack-deckwrap"><Deck testid="ack-tapezone" bare on={nav === 'chart' ? navPane : nav} setOn={go} tabs={navTabs} /></div>
     {brainOpen ? createPortal(<BrainDrawer close={() => setBrainOpen(false)}><AiChat call={call} isOwner={isOwner} focus={mint} focusSym={dec?.symbol} variant="drawer" extras={brainExtras} onClose={() => setBrainOpen(false)} /></BrainDrawer>, document.body) : null}
     {aiOpen ? createPortal(<AiProvidersLive o={o} call={call} isOwner={isOwner} close={() => setAiOpen(false)} />, document.body) : null}

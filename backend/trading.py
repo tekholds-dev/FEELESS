@@ -205,6 +205,7 @@ class TradingService:
     def __init__(self, db):
         self.db = db
         self._fills_cache = {}
+        self._acct_seen = {}
         self._sol_hist = {}
         self._scan_locks = {}
         self._http = None
@@ -224,6 +225,19 @@ class TradingService:
     def require_configured(self):
         if not self.configured():
             raise HTTPException(503, 'Trading execution is not configured. Add backend Jupiter and Solana RPC settings.')
+
+    async def account_exists(self, address):
+        """Is this account on-chain? Cached 30 s; an RPC hiccup answers yes (keeps the old path rather than guessing)."""
+        now = time.time(); hit = self._acct_seen.get(address)
+        if hit and now - hit[0] < 30:
+            return hit[1]
+        try:
+            v = (await self.rpc('getAccountInfo', [address, {'encoding': 'base64', 'dataSlice': {'offset': 0, 'length': 0}}]) or {}).get('value')
+            ok = v is not None
+        except Exception:
+            return True
+        self._acct_seen[address] = (now, ok)
+        return ok
 
     async def rpc(self, method, params):
         """Reads fall through a pool (SOLANA_RPC_URL, then SOLANA_RPC_FALLBACKS / ALCHEMY_API_KEY, then public nodes) so one
@@ -322,11 +336,14 @@ class TradingService:
             keys = parts.get('addressLookupTableAddresses') or []
             alts = ((await self.rpc('getMultipleAccounts', [keys, {'encoding': 'base64'}])) or {}).get('value') or [] if keys else []
             fee_mint = in_mint if mode == 'input' else out_mint
-            fee_ixs = fee_instructions(wallet, fee_mint, by_mint[fee_mint], fee_atoms) if fee_atoms else []
+            # 🩹 2026-10-28: the SOL fee account (the fee wallet's wSOL ATA) had been CLOSED since a trade from that wallet — every SOL trade then
+            # failed simulation (transfer + SyncNative into an account that isn't there). Missing → the fee goes as plain SOL to the fee wallet.
+            direct = fee.get('feeOwnerSol') if fee_atoms and fee_mint == WSOL_MINT and fee.get('feeOwnerSol') and not await self.account_exists(by_mint[fee_mint]) else None
+            fee_ixs = fee_instructions(wallet, fee_mint, by_mint[fee_mint], fee_atoms, direct_to=direct) if fee_atoms else []
             tx = build_transaction(wallet, parts, fee_ixs, lookup_tables(keys, alts), latest['value']['blockhash'], after=mode == 'output')
             last_valid, priority = latest['value']['lastValidBlockHeight'], parts.get('prioritizationFeeLamports')
             if fee_atoms:
-                fee = {**fee, 'feeAccount': by_mint[fee_mint]}
+                fee = {**fee, 'feeAccount': direct or by_mint[fee_mint]}
         usd = float(quote.get('swapUsdValue') or 0) or None
         if usd and mode == 'input' and int(query['amount']):
             usd = usd * int(params['amount']) / int(query['amount'])  # value of everything the trader pays, fee included

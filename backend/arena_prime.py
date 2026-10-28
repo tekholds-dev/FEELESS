@@ -3588,6 +3588,8 @@ def agent_seat(card, row, prices, cfg, now, min_usd=0.05, max_usd=None):
         leg['curve'] = True
     if row.get('trench'):   # 🗑 a launch from the agents' lane (≤ 24h, < $1M): the keeper holds it to its TRENCH pool floor, not the general one
         leg['trench'] = True
+    if row.get('riskScale'):   # 🎚 the Warden's risk scale 1–4 rides the seat: a 4 is a quick scalp for the Reaper
+        leg['riskScale'] = int(row['riskScale'])
     c['legs'].append(leg)
     c['cash'] = round(_f(c['cash']) - usd, 6)
     c.setdefault('events', []).append({'at': now, 'kind': 'agent', 'move': 'fill', 'symbol': row.get('symbol'), 'mint': row.get('mint'), 'usd': round(usd, 4),

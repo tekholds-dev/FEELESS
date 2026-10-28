@@ -339,6 +339,43 @@ def courier(ledger, book, now, card=None, office=None):
 NEAR_SIZE = 1.0   # 🪑 W19: a best-available / seat-floor fill takes a FULL equal seat (owner, 2026-10-11: "use all card cash") — was 0.5
 
 
+# 🎚 RISK SCALE 1–4 (owner 2026-10-28: "never risk more because of confidence — 4 is the riskiest and gets the LEAST cash + a quick scalp").
+# Counted from the coin's own measured risk flags; it can only shrink a seat (smallest rule wins) and a 4 banks at QUICK_SCALP_TP.
+RISK_SCALE_SIZE = {1: 1.0, 2: 0.75, 3: 0.5, 4: 0.25}
+QUICK_SCALP_TP = 8.0
+
+
+def risk_scale(c, young_h=6.0):
+    """→ (1..4, [flags]) from measured ctx only: unknown / young age · 5-min swing ≥ 10 % · top-10 ≥ 30 % · concentrated / bundled / insiders ·
+    a risky launch type · a weak chart · an identity doubt · a thin pool. 0 flags = 1 · 1 = 2 · 2–3 = 3 · 4+ = 4."""
+    c = c or {}; f = []
+    age = c.get('ageH')
+    if age is None or _f(age) < young_h:
+        f.append('age unknown' if age is None else f"{_f(age):.1f}h old")
+    if c.get('d5') is not None and abs(_f(c['d5'])) >= 10:
+        f.append(f"{_f(c['d5']):+.0f}% in 5m")
+    if c.get('top10') is not None and _f(c['top10']) >= 30:
+        f.append(f"top-10 {_f(c['top10']):.0f}%")
+    li = c.get('li') or {}
+    if c.get('holderSoft') or li.get('cls') in ('BUNDLED', 'INSIDER-LIKE CLUSTER') or li.get('press') in ('HIGH', 'WATCH'):
+        f.append('bundled / insiders')
+    ln = c.get('launch') or {}
+    if ln.get('measured') and _oe.LAUNCH_RISK.get(ln.get('type')):
+        f.append('risky launch')
+    ch = c.get('chart') or {}
+    if ch and _f((ch.get('risk') or [1.0])[0]) < 1:
+        f.append('weak chart')
+    cc = (c.get('social') or {}).get('cross') or {}
+    if cc.get('conflict') or (cc.get('confidence') is not None and _f(cc['confidence']) < 40):
+        f.append('identity doubt')
+    if c.get('liq') is not None and 0 < _f(c['liq']) < 20000:
+        f.append(f"thin pool ${_f(c['liq']) / 1000:.0f}K")
+    import survival_watch as _sw
+    f += _sw.flags(c.get('surv'))   # ⏱ NSFA: a coin that failed its own 1 / 5 / 15-min survival, or one watched under a minute
+    n = len(f)
+    return (1 if n == 0 else 2 if n == 1 else 3 if n <= 3 else 4), f
+
+
 COST_MAX_PCT = 5.0   # 💸 W22: a seat whose measured round-trip drag (sell-back loss + 2× network fee ÷ size) is over this is not bought
 
 
@@ -430,6 +467,9 @@ def warden(requested, ctx, office=None, floor=WARDEN_MIN_USD):
                 rules.append({'id': 'W24 rug budget', 'mult': round(_clamp(m24, 0.05, 1.0), 3), 'why': f"☠ a seat ≤ {_f(cap_['rugCapPct']):g}% of the ${_f(c['value']):.2f} card: about 1 seat in 8 rugs for the whole seat, in under a minute — no stop gets out"})
         if live_:
             rules.append({'id': 'W23 capital', 'mult': round(_clamp(_f(cap_['mult']), 0.25, 1.0), 3), 'why': f"💰 {cap_.get('state')}: {str(cap_.get('why'))[:170]}"})
+    rs_, rflags_ = risk_scale(c, T('youngH'))   # 🎚 after OPEN MODE too: the risk scale always applies — riskier = less cash
+    if rs_ > 1:
+        rules.append({'id': 'R4 risk scale', 'mult': RISK_SCALE_SIZE[rs_], 'why': f"risk {rs_}/4 — {', '.join(rflags_[:4])}: riskier gets less cash{' + a quick scalp (banks at +' + format(QUICK_SCALP_TP, 'g') + '%)' if rs_ == 4 else ''}; confidence never adds size"})
     raw = min([r['mult'] for r in rules] or [1.0])
     if tier_m < 1:   # 🎯 size by CONFIDENCE: the tier multiplies whatever the other rules allowed (as the smallest rule it was masked: every seat came out ×0.4)
         rules.append({'id': 'W19 confidence tier', 'mult': round(tier_m, 3), 'why': f"{c.get('tier') or 'unconfirmed'}-tier: ×{tier_m:g} on top — {str(c.get('near'))[:140]}"})
@@ -451,6 +491,7 @@ def warden(requested, ctx, office=None, floor=WARDEN_MIN_USD):
             rules.append({'id': 'W22 cost', 'mult': 0.0, 'why': f"SIZE TOO SMALL FOR COSTS — a ${allowed:.2f} seat pays ~{drag:.1f}% just to get in and out (> {COST_MAX_PCT:g}%); not a strategy failure"})
             allowed, mult = 0.0, 0.0
     return {'requested': round(req, 4), 'allowed': round(allowed, 4), 'mult': mult, 'eff': round(allowed / req, 3) if req > 0 else 0.0, 'veto': allowed <= 0,
+            'riskScale': rs_, 'riskFlags': rflags_, 'quickScalp': rs_ == 4,
             'rules': rules, 'decided': min(rules, key=lambda r: r['mult'])['id'] if rules else 'none — full size',
             'limits': {'steps': list(WARDEN_STEPS), 'floorUsd': floor, **tunes(office, 'warden')}}
 
@@ -620,6 +661,9 @@ def reap(legs, table, prices, cfg, pos, now, scalp=None, control=False, weather_
         atr_ = _f(((ch or {}).get('f') or {}).get('atr')) if ch else 0.0
         if not own_ and atr_ > 0:   # 🎯 NO ONE TAKE FITS EVERY COIN (owner, 2026-10-17): the take follows THIS coin's own candle size — a coin moving 3% a candle gets +36% of room
             take = round(min(max(take, TAKE_ATR * atr_), TAKE_MAX), 1)
+        quick_ = int(_f(l.get('riskScale'))) >= 4   # 🎚 risk 4/4 seat: a quick scalp — banks at QUICK_SCALP_TP, never rides the take line or the crowd
+        if quick_ and not own_:
+            take = min(take, QUICK_SCALP_TP)
         if own_:
             p['owner'] = {'sl': _f(l.get('sl')) or None, 'tp': _f(l.get('tp')) or None, 'at': _f(l.get('ownerLvAt'))}   # filed with the position: "did your hand help?"
         p['stopNow'] = stop   # ⚡ the 6-second guard stops an agent seat at THIS line between ticks (`fast_reap`)
@@ -704,8 +748,8 @@ def reap(legs, table, prices, cfg, pos, now, scalp=None, control=False, weather_
             st, rule, ev, act = 'EXIT INVALIDATED', 'R5 stop', f"{pct:+.1f}% ≤ −{stop:g}%" + (f" ({'; '.join((th.get('stopParts') or [])[:2])})" if th else ' (no thesis on file: the ceiling)'), 'pull'
         elif mine and live and dead_ and held >= DEAD_CASH_MIN and now - _f(p.get('deadSince') or now) >= (DEAD_BASE_CASH_MIN if base_ else DEAD_CASH_MIN) * 60 and pct < take:   # 💀 dead 15 min: CASH beats a coin nobody trades — no replacement needed
             st, rule, ev, act = ('TAKE' if pct >= MIN_KEEP else 'EXIT INVALIDATED'), 'R11x dead coin → cash', f"{pct:+.1f}% — {dead_} for {round((now - _f(p.get('deadSince'))) / 60)} min; the seat refills from the live bench", 'pull'
-        elif pct >= take and not runs and not riding_:
-            st, rule, ev = 'TAKE', 'R6 take line', f"{pct:+.1f}% ≥ +{take:g}% ({tsrc} take) — the card's own take rule banks it"
+        elif pct >= take and ((not runs and not riding_) or quick_):
+            st, rule, ev = 'TAKE', 'R6 take line', f"{pct:+.1f}% ≥ +{take:g}% ({'risk 4/4 quick scalp' if quick_ else f'{tsrc} take'}) — the card's own take rule banks it"
         elif mine and rv and rv['verdict'] == 'invalid' and held >= 2:   # the reason it was bought is gone: out, green or red — P&L does not decide this
             st, rule, ev, act = ('TAKE' if pct >= MIN_KEEP else 'EXIT INVALIDATED'), 'R5t thesis invalidated', f"{pct:+.1f}% — entered on {th.get('structure')}; now {rv['why'][0]}", 'pull'
         elif moon_ and live and pct >= MIN_KEEP and g_moon.get('lost'):   # 🌙 the moon bag closes only when the price loses its germ floor

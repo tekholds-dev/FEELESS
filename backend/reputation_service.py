@@ -10665,11 +10665,19 @@ def _arena_who(address, session, tg):
     return (f"tg:{u['id']}", u['name']) if u else (None, 'guest')
 
 
+def _arena_unlock_level(who, level):
+    """👑 the creator / staff wallets own every gun + part from day one (owner 2026-10-28); everyone else unlocks by level."""
+    try:
+        return 999 if who and not str(who).startswith('tg:') and _is_staff(who) else level
+    except Exception:
+        return level
+
+
 def _arena_profile(players, who):
     p = players.get(who) or {}
-    lv = _ar.level_of(p.get('xp'))
-    return {'xp': lv['total'], 'level': lv['level'], 'into': lv['into'], 'need': lv['need'], 'loadout': _ar.clean_loadout(p.get('loadout'), lv['level']),
-            'unlocked': _ar.unlocked(lv['level']), 'kills': int(p.get('kills') or 0), 'wins': int(p.get('wins') or 0)}
+    lv = _ar.level_of(p.get('xp')); ul_ = _arena_unlock_level(who, lv['level'])
+    return {'xp': lv['total'], 'level': lv['level'], 'into': lv['into'], 'need': lv['need'], 'loadout': _ar.clean_loadout(p.get('loadout'), ul_),
+            'unlocked': _ar.unlocked(ul_), 'kills': int(p.get('kills') or 0), 'wins': int(p.get('wins') or 0), 'staff': ul_ != lv['level']}
 
 
 class ArenaWho(BaseModel):
@@ -10712,7 +10720,7 @@ async def arena_loadout(p: ArenaLoadout):
         raise HTTPException(401, 'Sign in (wallet or Telegram) to save a loadout.')
     async with _crews_lock:
         doc_ = _json_load(ARENA_PATH, {}) or {}; players_ = doc_.setdefault('players', {}); me_ = players_.setdefault(who_, {})
-        me_['loadout'] = _ar.clean_loadout(p.loadout, _ar.level_of(me_.get('xp'))['level'])
+        me_['loadout'] = _ar.clean_loadout(p.loadout, _arena_unlock_level(who_, _ar.level_of(me_.get('xp'))['level']))
         if name_:
             me_['name'] = name_
         _json_save(ARENA_PATH, doc_)
@@ -14577,6 +14585,7 @@ async def _prime_tick_inner(now):
                         continue
                     cur = _prime.agent_seat(cur, {'mint': t_['mint'], 'symbol': t_['symbol'], 'pairAddress': t_['pair'], 'price': t_['px'], 'liquidityUsd': (t_.get('nums') or {}).get('liq'), 'trench': t_['trench'], 'curve': bool((t_.get('vitals') or {}).get('curve') and cfg_t.get('agentCurve')),
                                                   'ageH': (t_.get('vitals') or {}).get('ageH'), 'vol1h': (t_.get('vitals') or {}).get('vol1h'), 'buyShare': (t_.get('nums') or {}).get('buy'),
+                                                  'riskScale': wd_.get('riskScale'),
                                                   'tag': '🤖 agents · ⚡ READY (kernel)' if not t_.get('armed') else '🤖 agents · 🪫 VALVE (empty seat)' if t_.get('valve') else '🤖 agents · 🎯 ARMED (seat target)', 'why': t_['nearReady']}, px, cfg_s, now,
                                           max_usd=wd_['allowed'] * (_oe.VALVE_SIZE if t_.get('valve') else _cap.armed_size(_capital_view()) if t_.get('armed') else 1.0))   # 🎯 an armed fill: half — the full size once the ARMED door's own real record proves it
                     used_ += 1; cur['agentDutyAt'] = now; cur['agentFillAt'] = now
@@ -21157,12 +21166,20 @@ ENRICH_TOP = 4      # 🔎 Tier 2: holder / early-wallet scans for the strongest
 ENRICH_MOVERS = 2   # … + at most this many brand-new movers a pass
 
 
+import survival_watch as _surv
+_SURV: dict = {}   # ⏱ mint → its 1 / 5 / 15-min checkpoints since we first sensed it (survival_watch; memory only, rebuilt from the next passes)
+
+
 def _kernel_pass(table, now):
     """⚙ The sensed rows → the kernel (only changed mints re-judged) → the ONE enrichment scheduler. Sherlock's evidence requests are
     queued by what the kernel is doing with each coin: HELD first, then READY, then the coin each hunter lane is watching, then the top
     contenders, then fast new movers — nothing else is asked for here, and no agent fetches for itself. A coin whose scan is pending,
     rate-limited or unavailable stays exactly where its rank puts it."""
     _tk.KERNEL.owner = _owr.modes(_owner_book(now), now)
+    try:
+        _surv.observe(_SURV, table, now)   # ⏱ NSFA: every sensed coin's 1 / 5 / 15-min survival
+    except Exception as e_:
+        print(f'[survival] {e_}')
     _taught_stamp(table, now)
     for r_ in table or []:   # 📊 a reliable token supply (our own holder scan read it from the chain) rides on the row → the MintState's supply
         if r_.get('mint') and not r_.get('supply'):
@@ -22778,6 +22795,7 @@ def _office_warden(cur, t_, requested, cfg_t, now, move):
     try:
         t0 = time.perf_counter()
         ctx_ = _office_ctx(cur, t_, now)
+        ctx_['surv'] = _surv.coin(_SURV, t_.get('mint'), now)   # ⏱ its own 1 / 5 / 15-min survival → the risk scale
         cap_ = _capital_view()
         if cap_.get('on'):   # 💰 size follows the agents' own real record (W23) — this fill's own DOOR once that door has a record, 🧯 the drawdown brake first
             ctx_['capital'] = _cap.for_door(cap_, 'armed' if t_.get('armed') else 'ready')
@@ -23293,7 +23311,7 @@ def _office_pass(st, table, now, rcfg, jp, arch, cour, tid, desk_ms):
         'office': {'chain': list(_of.CHAIN), 'priority': list(_of.PRIORITY), 'coins': perf.get('coins'), 'cases': len(cases), 'cleared': sum(1 for c_ in cases if c_['cleared'])},
         'agents': _of.agent_cards(cards, {'live': live, 'office': of}), 'currentCase': cur_case, 'pipeline': pipe,
         'queue': queue, 'positions': _office_positions(), 'exiting': [{'mint': p_['mint'], 'sym': p_.get('sym'), 'rule': p_.get('askRule'), 'state': (p_.get('exit') or {}).get('state'), 'since': p_.get('leftAt')} for p_ in _office['exiting']],
-        'execution': {**cour, 'metrics': _fw.exec_metrics(_fw_peek().get('ledger'), now, dupes=_FW_DUPES['n'])}, 'ownerHand': _of.owner_hand(arch.get('positions')), 'ownerSeats': _of.owner_seats(arch.get('positions')), 'ownerStudy': _study['v'], 'aiMemory': _aim.size(_aim_mem.get() or {}), 'askRec': ask_rec_, 'agentPredict': _of.pred_record(arch.get('positions')), 'tid': tid, 'learning': {'patterns': _of.patterns(arch, st), 'candidates': cands, 'lineage': [{'agent': x_.get('role'), 'gen': x_.get('gen'), 'why': f"{x_.get('status') or 'replaced'} — {x_.get('why') or ''}" + (f" · next generation: {x_['changed']}" if x_.get('changed') else ''), 'at': x_.get('retiredAt')}
+        'execution': {**cour, 'metrics': _fw.exec_metrics(_fw_peek().get('ledger'), now, dupes=_FW_DUPES['n'])}, 'ownerHand': _of.owner_hand(arch.get('positions')), 'survival': _surv.cohort(_SURV, now), 'ownerSeats': _of.owner_seats(arch.get('positions')), 'ownerStudy': _study['v'], 'aiMemory': _aim.size(_aim_mem.get() or {}), 'askRec': ask_rec_, 'agentPredict': _of.pred_record(arch.get('positions')), 'tid': tid, 'learning': {'patterns': _of.patterns(arch, st), 'candidates': cands, 'lineage': [{'agent': x_.get('role'), 'gen': x_.get('gen'), 'why': f"{x_.get('status') or 'replaced'} — {x_.get('why') or ''}" + (f" · next generation: {x_['changed']}" if x_.get('changed') else ''), 'at': x_.get('retiredAt')}
                                                          for x_ in reversed((_lc_book(now).get('lineage') or [])[-12:])], 'devil': dv_rec[:10], 'needShadow': _of.SHADOW_N, 'needPropose': _of.PROPOSE_N},
         'index': (_office.get('index') or [])[:80], 'rpc': {'lanes': _rpc_quota_state(), 'note': 'keyed lanes = keeper sends / balances first, then holder scans (budgeted); discovery comes from Pump\'s live stream + the launch boards — no RPC first-seen listener runs'},
         'court': _office.get('court'), 'opp': _office.get('opp'), 'coach': _coach_view(now), 'tradeTape': _trade_tape(now),   # 👑 the directives in force · 🎬 every real agent trade as one story
@@ -26916,6 +26934,19 @@ def _engine_cfg(cfg):
             'priorityMaxLamports': max(0, min(PRIORITY_MAX_LAMPORTS, int(cfg.get('priorityMaxLamports') or 0)))}
 
 
+_fee_owner_cache: dict = {}
+
+
+def _fee_owner_sol(acct):
+    """🩹 which admin / owner wallet owns the SOL fee account (its wSOL ATA) — trading pays that wallet plain SOL while the account is closed."""
+    if not acct:
+        return None
+    if acct not in _fee_owner_cache:
+        import fee_tx as _ftx
+        _fee_owner_cache[acct] = _ftx.fee_owner(acct, list(dict.fromkeys(_owner_wallets() + _admin_wallets())))
+    return _fee_owner_cache[acct]
+
+
 def _swap_fee_accounts(cfg, input_mint, output_mint):
     """FEELESS token accounts that can take this swap's fee (their mint must be one side of the trade),
     pay side first, then receive side. Jupiter is tried with each in order."""
@@ -27002,6 +27033,7 @@ async def effective_fee(wallet: str, input_mint: str = '', output_mint: str = ''
            'referralAccount': cfg['referralAccount'] if ultra else None, 'feeAccount': fee_account if bps else None,
            'feeAccounts': _swap_fee_accounts(cfg, input_mint, output_mint) if bps else [],
            'feeAccountsByMint': {m: a for m, a in ((WSOL_MINT, cfg.get('feeAccountSol')), (USDC_MINT, cfg.get('feeAccountUsdc'))) if a and m in (input_mint, output_mint)} if bps else {},
+           'feeOwnerSol': _fee_owner_sol(cfg.get('feeAccountSol')) if bps else None,
            **eng}
     if bps and not fee_account and eng['engine'] == 'swap':
         # The fee is collected in SOL or USDC. A coin-to-coin trade has neither side, so it can't pay: refuse it

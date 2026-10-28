@@ -35,10 +35,24 @@ def ata(owner: Pubkey, mint: Pubkey) -> Pubkey:
     return Pubkey.find_program_address([bytes(owner), bytes(TOKEN_PROGRAM), bytes(mint)], ATA_PROGRAM)[0]
 
 
-def fee_instructions(payer: str, fee_mint: str, fee_account: str, atoms: int):
+def fee_owner(fee_account: str, wallets, mint: str = WSOL):
+    """The wallet whose associated token account (for mint) IS fee_account — so a closed fee account can still be paid. None if no match."""
+    m = Pubkey.from_string(mint)
+    for w in wallets or []:
+        try:
+            if str(ata(Pubkey.from_string(w), m)) == fee_account:
+                return w
+        except Exception:
+            continue
+    return None
+
+
+def fee_instructions(payer: str, fee_mint: str, fee_account: str, atoms: int, direct_to: str = None):
     """SOL: send lamports into the wSOL fee account and sync it. SPL (USDC/USDT): transferChecked from the
     trader's token account into the FEELESS fee account."""
     payer_k, dest = Pubkey.from_string(payer), Pubkey.from_string(fee_account)
+    if fee_mint == WSOL and direct_to:   # 🩹 the fee wallet's wSOL account was closed (a trade FROM that wallet unwraps + closes it): plain SOL to the wallet
+        return [transfer(TransferParams(from_pubkey=payer_k, to_pubkey=Pubkey.from_string(direct_to), lamports=atoms))]
     if fee_mint == WSOL:
         return [transfer(TransferParams(from_pubkey=payer_k, to_pubkey=dest, lamports=atoms)),
                 Instruction(TOKEN_PROGRAM, bytes([17]), [AccountMeta(dest, False, True)])]  # SyncNative

@@ -93,6 +93,8 @@ def engine():
             return {'value': [{'account': {'data': {'parsed': {'info': {'tokenAmount': {'amount': str(state.get('tokens', 10**9))}}}}}}]}
         if method == 'getLatestBlockhash':
             return {'value': {'blockhash': str(Hash.default()), 'lastValidBlockHeight': 500}}
+        if method == 'getAccountInfo':
+            return {'value': None if state.get('closed') else {'lamports': 2039280}}
         return {'value': [{'confirmationStatus': 'confirmed'}]} if method == 'getSignatureStatuses' else 'sig'
 
     svc.metadata, svc.jupiter, svc.fee_rule, svc.rpc = metadata, jupiter, fee_rule, rpc
@@ -237,3 +239,20 @@ def test_rpc_falls_through_rate_limited_nodes_but_never_resends(monkeypatch):
     with pytest.raises(trading.HTTPException):
         asyncio.run(svc.rpc('sendTransaction', ['tx']))
     assert hits == [('https://primary', 'sendTransaction')]
+
+
+def test_a_closed_sol_fee_account_never_breaks_a_trade_the_fee_goes_to_the_fee_wallet_as_sol(engine, monkeypatch):
+    """2026-10-28: the fee wallet's wSOL account had been closed (a trade FROM that wallet unwraps + closes it) and every SOL trade failed
+    simulation. Missing account → the same fee as a plain SOL transfer to the fee wallet; present → the old wSOL path."""
+    import fee_tx
+    client, state, _ = engine
+    owner = str(Keypair.from_seed(bytes([11] * 32)).pubkey()); wsol_ata = str(fee_tx.ata(fee_tx.Pubkey.from_string(owner), fee_tx.Pubkey.from_string(SOL)))
+    assert fee_tx.fee_owner(wsol_ata, [WALLET, owner]) == owner and fee_tx.fee_owner(wsol_ata, [WALLET]) is None
+    state['fee'] = {**state['fee'], 'feeAccount': wsol_ata, 'feeAccountsByMint': {SOL: wsol_ata}, 'feeOwnerSol': owner}
+    state['closed'] = True
+    tx = VersionedTransaction.from_bytes(base64.b64decode(quote(client).json()['quote']['transaction'])); keys = [str(k) for k in tx.message.account_keys]
+    assert owner in keys and wsol_ata not in keys                                               # plain SOL to the fee wallet
+    assert len(tx.message.instructions[0].data) == 12 and int.from_bytes(bytes(tx.message.instructions[0].data)[4:12], 'little') == 1_500_000
+    state['closed'] = False; t0 = time.time(); monkeypatch.setattr(trading.time, 'time', lambda: t0 + 60)   # the 30 s cache has expired
+    tx = VersionedTransaction.from_bytes(base64.b64decode(quote(client).json()['quote']['transaction'])); keys = [str(k) for k in tx.message.account_keys]
+    assert wsol_ata in keys                                                                     # the account is back: the wSOL path again

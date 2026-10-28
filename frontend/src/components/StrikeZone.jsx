@@ -43,7 +43,7 @@ export function StrikeZone({ addr = '', sess = '', family = null, onDone }) {
   return <section className="sz" data-testid="strike-zone">
     <header className="sz-top">
       <span className="sz-lvl" style={{ '--p': xpBar(me) }} data-tip={`${me.into} / ${me.need} XP to level ${me.level + 1}`}><i aria-hidden="true" /><b className="m-num">{me.level}</b><em>LEVEL</em></span>
-      <span className="sz-title"><em>FEE CITY · THIRD-PERSON</em><b>STRIKE ZONE</b><small>{guest ? (stale ? 'your sign-in expired — playing as a guest; sign in again (wallet or Telegram) to keep XP + your guns' : 'playing as a guest — sign in (wallet or Telegram) to keep XP + your guns') : `${me.xp.toLocaleString('en-US')} XP · ${me.kills} kills · ${me.wins} wins${family ? ' · your kills feed the family bank' : ''}`}</small>
+      <span className="sz-title"><em>FEE CITY · THIRD-PERSON</em><b>STRIKE ZONE</b><small>{guest ? (stale ? 'your sign-in expired — playing as a guest; sign in again (wallet or Telegram) to keep XP + your guns' : 'playing as a guest — sign in (wallet or Telegram) to keep XP + your guns') : `${me.staff ? '👑 CREATOR · every gun + part unlocked · ' : ''}${me.xp.toLocaleString('en-US')} XP · ${me.kills} kills · ${me.wins} wins${family ? ' · your kills feed the family bank' : ''}`}</small>
         <u aria-hidden="true"><s style={{ transform: `scaleX(${xpBar(me)})` }} /></u></span>
       <span className="m-seg sz-mode" role="radiogroup" aria-label="Mode">{[['bots', '🤖 VS BOTS'], ['online', '🌐 ONLINE']].map(([k, l]) => <button key={k} type="button" role="radio" aria-checked={mode === k} className={mode === k ? 'active' : ''} onClick={() => setMode(k)} data-testid={`sz-mode-${k}`}>{l}</button>)}</span>
     </header>

@@ -43,3 +43,14 @@ def test_the_online_room_relays_moves_between_players():
             assert a.receive_json() == {'t': 'join', 'id': hello['id'], 'name': 'B'}
             b.send_json({'t': 'state', 'p': [1, 0, 2], 'yaw': 0.5})
             got = a.receive_json(); assert got['t'] == 'state' and got['id'] == hello['id'] and got['p'] == [1, 0, 2]
+
+
+def test_the_creator_wallet_owns_every_gun_and_part_from_level_one(monkeypatch):
+    rs, c = _client()
+    monkeypatch.setattr(rs, '_session_or_401', lambda a, s: a); monkeypatch.setattr(rs, '_is_staff', lambda a: a == 'OWNER')
+    me = c.get('/api/reputation/arena', params={'address': 'OWNER', 'session': 'x'}).json()['me']
+    assert me['staff'] and me['level'] == 1 and set(me['unlocked']['guns']) == set(rs._ar.GUNS)
+    lo = c.post('/api/reputation/arena/loadout', json={'address': 'OWNER', 'session': 'x', 'loadout': {'gun': 'sniper', 'skin': 'gold'}}).json()
+    assert lo['loadout']['gun'] == 'sniper' and lo['loadout']['skin'] == 'gold'
+    other = c.get('/api/reputation/arena', params={'address': 'RANDO', 'session': 'x'}).json()['me']
+    assert not other['staff'] and other['unlocked']['guns'] == ['rifle']

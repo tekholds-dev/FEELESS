@@ -19,6 +19,15 @@ body {
     -moz-osx-font-smoothing: grayscale;
 }
 
+/* 🧱 PRODUCTION DEFAULTS (owner 2026-10-28: "no word spilling — the simple defaults that stop dumb mistakes"). Every rule is :where()
+   (zero specificity), so any component rule still wins; they only catch what nobody styled: a long ticker / wallet / URL wraps inside its box
+   instead of running out of it, a media element never outgrows its column, a form field can shrink inside a flex / grid row. */
+body { overflow-wrap: break-word; }
+:where(img, video) { max-width: 100%; }
+:where(input, select, textarea) { min-width: 0; max-width: 100%; }
+:where(pre, code, kbd, samp) { white-space: pre-wrap; overflow-wrap: anywhere; }
+:where(table) { border-collapse: collapse; }
+
 /* Keep text, commands and values selectable/copyable site-wide, including iOS Safari. */
 html,
 body,

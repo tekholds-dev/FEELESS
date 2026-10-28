@@ -264,3 +264,18 @@ test('🖱 every tap opens its coin: a decision card on a coin off the lists, a 
   expect(q('ack-chart').textContent).not.toContain('$GONE');                              // the hunting seat opened its READY coin
   global.fetch = realFetch; await act(async () => { root.unmount(); });
 });
+
+test('💬 OSSY × G4 beside the chart: the Decision card\'s button swaps the right column to their conversation, 🧠 DECISION swaps back', async () => {
+  sessionStorage.clear();
+  const call = jest.fn(async () => ({ ok: true }));
+  const hub = { d: data, livePx: new Map(), sel: selectors(data), load: jest.fn() };
+  const { root, q } = mount();
+  await act(async () => { root.render(<AgentHubProvider value={hub}><AgentCockpit call={call} /></AgentHubProvider>); });
+  await flush();
+  expect(q('ack-talk')).toBeNull(); expect(q('ack-panel')).not.toBeNull();
+  await act(async () => { q('ack-talk-open').click(); });
+  expect(q('ack-talk')).not.toBeNull(); expect(q('ack-panel')).toBeNull();
+  await act(async () => { q('ack-talk-close').click(); });
+  expect(q('ack-talk')).toBeNull(); expect(q('ack-panel')).not.toBeNull();
+  act(() => root.unmount()); sessionStorage.clear();
+});

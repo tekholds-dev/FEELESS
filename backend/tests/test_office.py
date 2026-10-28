@@ -767,3 +767,35 @@ def test_g4_profit_lock_banks_a_winner_before_it_rides_back_to_red():
     pos, _, _ = run(ossy(), 1.12, None, 3600)
     _, rep, _ = run(ossy(), 1.05, pos, 3660)
     assert rep[0]['rule'] != 'R7L profit lock'               # OSSY's own record got worse with it: G4 only
+
+
+def test_risk_scale_1_to_4_riskier_gets_less_cash_and_a_4_is_a_quick_scalp():
+    """Owner 2026-10-28: never risk more because of confidence — 4 is the riskiest, gets the least cash and a quick scalp."""
+    import office as of
+    calm = {'ageH': 48, 'd5': 2, 'top10': 12, 'liq': 250000}
+    assert of.risk_scale(calm) == (1, [])
+    assert of.risk_scale({**calm, 'd5': 14})[0] == 2
+    assert of.risk_scale({**calm, 'd5': 14, 'top10': 40})[0] == 3
+    wild = {'ageH': 0.5, 'd5': 25, 'top10': 45, 'liq': 9000, 'holderSoft': ['x']}
+    s, flags = of.risk_scale(wild); assert s == 4 and len(flags) >= 4
+    w1, w4 = of.warden(1.0, {**calm, 'open': False}), of.warden(1.0, wild)
+    assert w1['riskScale'] == 1 and not w1['quickScalp'] and not any(r['id'] == 'R4 risk scale' for r in w1['rules'])
+    assert w4['riskScale'] == 4 and w4['quickScalp'] and w4['allowed'] <= 0.25 + 1e-9                       # the least cash
+    assert next(r for r in w4['rules'] if r['id'] == 'R4 risk scale')['mult'] == 0.25
+    assert of.warden(1.0, {**wild, 'tier': 'A', 'near': 'all agree'})['allowed'] <= w4['allowed'] + 1e-9   # confidence never adds size
+
+
+def test_nsfa_survival_watch_checkpoints_1_5_15_and_a_failed_one_raises_the_risk_scale():
+    import office as of
+    import survival_watch as sw
+    book = {}
+    sw.observe(book, [{'mint': 'A', 'px': 1.0}, {'mint': 'R', 'px': 1.0}], 0)
+    sw.observe(book, [{'mint': 'A', 'px': 1.1}, {'mint': 'R', 'px': 0.9}], 61)
+    sw.observe(book, [{'mint': 'A', 'px': 1.3}, {'mint': 'R', 'px': 0.3}], 301)       # R fell 70 % by 5 min
+    a, r = sw.coin(book, 'A', 301), sw.coin(book, 'R', 301)
+    assert a['m1'] == 10.0 and a['ok1'] and a['m5'] == 30.0 and a['ok5'] and a['m15'] is None
+    assert r['ok1'] and r['ok5'] is False and sw.flags(r) == ['failed its 5m survival (-70%)'] and sw.flags(a) == []
+    assert sw.flags(sw.coin(sw.observe({}, [{'mint': 'N', 'px': 1}], 0), 'N', 20)) == ['watched under 1 min']
+    co = sw.cohort(book, 301); assert co['m1'] == {'n': 2, 'pct': 100, 'med': 10.0} and co['m5']['pct'] == 50 and co['m15']['n'] == 0
+    calm = {'ageH': 48, 'd5': 2, 'top10': 12, 'liq': 250000}
+    assert of.risk_scale({**calm, 'surv': a})[0] == 1 and of.risk_scale({**calm, 'surv': r})[0] == 2   # a failed checkpoint is a risk flag
