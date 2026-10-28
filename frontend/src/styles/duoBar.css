@@ -1,15 +1,15 @@
 /* 📱📱 the Duo tab (DuoBar.jsx): ONE handle locked to the left edge, half-way down (never over a chart corner), only in Familia on a wide Duo /
    sideways phone — the drawn two-panel screen (the panels trade places when swapped) + SWAP. One keyframe set (duob*). */
-.duob { position: fixed; left: 0; top: 50%; z-index: 70; display: grid; justify-items: center; gap: 4px; width: 44px; min-height: 64px; padding: 10px 0; transform: translateY(-50%);
+.duob { position: fixed; left: 0; top: 50%; z-index: 70; display: grid; justify-items: center; gap: 4px; width: 30px; min-height: 56px; padding: 8px 0; transform: translateY(-50%);
   border: 1px solid rgba(69, 228, 134, .45); border-left: 0; border-radius: 0 14px 14px 0; background: rgba(4, 12, 8, .94); box-shadow: inset 0 1px 0 rgba(255, 255, 255, .07), 8px 0 24px -12px #000;
   color: #45e486; cursor: pointer; animation: duobIn .25s ease-out both; transition: background .12s ease; }
 .duob:hover { background: rgba(21, 209, 106, .18); } .duob:active { background: rgba(21, 209, 106, .28); } .duob:focus-visible { outline: 2px solid #45e486; outline-offset: 2px; }
 .duob[aria-pressed="true"] { background: #15d16a; color: #04140b; }
-.duob small { font: 800 7.5px var(--f-mono); letter-spacing: .14em; }
-.duob-dev { display: flex; gap: 2px; width: 24px; height: 17px; padding: 2px; border-radius: 4px; border: 1.5px solid currentColor; }
+.duob small { font: 800 6.5px var(--f-mono); letter-spacing: .1em; writing-mode: vertical-rl; transform: rotate(180deg); }
+.duob-dev { display: flex; gap: 2px; width: 20px; height: 14px; padding: 2px; border-radius: 3px; border: 1.5px solid currentColor; }
 .duob-dev s { flex: 1; border-radius: 1px; background: currentColor; opacity: .7; transition: transform .25s ease; } .duob-dev s + s { opacity: .25; }
-.duob.is-swap .duob-dev s:first-child { transform: translateX(10px); } .duob.is-swap .duob-dev s + s { transform: translateX(-10px); }
+.duob.is-swap .duob-dev s:first-child { transform: translateX(8px); } .duob.is-swap .duob-dev s + s { transform: translateX(-8px); }
 @keyframes duobIn { from { opacity: 0; transform: translate(-100%, -50%); } to { opacity: 1; transform: translateY(-50%); } }
 body.fx-lite .duob { animation: none; } @media (prefers-reduced-motion: reduce) { .duob { animation: none; transition: none; } .duob-dev s { transition: none; } }
 body.theme-day .duob { background: rgba(255, 255, 255, .95); border-color: rgba(11, 138, 69, .35); color: #0b8a45; } body.theme-day .duob[aria-pressed="true"] { background: #0b8a45; color: #fff; }
-@media (max-width: 640px) { .duob { width: 40px; min-height: 56px; } }
+@media (max-width: 640px) { .duob { width: 28px; } }

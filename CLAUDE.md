@@ -169,7 +169,8 @@ STANDING RULES (never "done"):
 
 P0 — OWNER 2026-10-28 (the "addicted on every tab" list), easiest → hardest. SHIPPED 2026-10-28: SOL fee account self-heal (trades from any
 wallet), risk scale 1–4, NSFA 1/5/15 survival watch, OSSY × G4 beside the chart, creator owns every Strike Zone gun, no-spill CSS defaults.
-1. 📱📱 DUO / FOLD per tab like DuoFloor (the owner LOVES it): Perps desk · Pump radar · Familia · HQ Agents · FEEd — each its own split app.
+1. 📱📱 DUO / FOLD per tab — SHIPPED 2026-10-28 (Trenches · Pump radar · HQ Agents · Familia · Perps · FEEd; `DuoFloor mode`, `lib/duo.useDuoFloor`,
+   `duo.css`). NEXT: Fuse, Launch, Radar, FeeCat the same way once FEEd is redesigned.
 2. 📰 FEEd redesign: a real live feed (compose bar on top, "N new posts" pill, media + coin cards with live price, animated reactions, threads) —
    research X / Farcaster / pump.fun feed layouts first; FEELESS twist (rep, receipts, coin chips).
 3. 🎯 Strike Zone real art: CC0 gun models (Quaternius guns, Kenney Blaster Kit) + CC0 camo / PBR textures (ambientCG, Poly Haven) — skins = camos.

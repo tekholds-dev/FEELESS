@@ -52,6 +52,8 @@ import { MiniChartHost } from '../components/MiniChart';
 import { MiniCardHost } from '../components/MiniCard';
 import { WalletProfilePage } from '../components/command/WalletProfilePage';
 import { TrustSignals, CaseStudies, LiveProof, RoadmapVoting, NetworkStatus } from '../components/command/LiveTrust';
+import { PumpDuo } from '../components/terminal/PumpDuo';
+import { useDuoFloor } from '../components/terminal/DuoFloor';
 import { RadarView, PumpRadarView, SignalMovers, ParticipationBoard, MetaDetector } from '../components/command/DiscoveryViews';
 import { CommandWhitepaper, MissionRoadmap, UnderstandFeeless, TerminalConfiguration } from '../components/command/CommandDocuments';
 import { ReputationCenter } from '../components/command/ReputationCenter';
@@ -96,6 +98,7 @@ export default function Terminal() {
   const tab = params.get('mode') || (['new', 'pump'].includes(page) ? 'new' : 'trending');
   const kind = ['new', 'pump'].includes(page) || tab === 'new' ? 'new' : 'trending';
   const cadence = page === 'pump' ? 15000 : autoRefresh ? 90000 : 0;
+  const duo = useDuoFloor();
   const pumpScope = ecosystem.isLaunchpad ? `&scope=${encodeURIComponent(ecosystem.id)}` : '';
   const market = useMarket(query ? `/search?q=${encodeURIComponent(query)}` : `/feed?kind=${kind}&chain=${chain}&page=${pagination}${screenParam}${page === 'pump' ? pumpScope : ''}`, cadence);
   const newFeed = useMarket(`/feed?kind=new&chain=${chain}&page=${pagination}${screenParam}${pumpScope}`, cadence);
@@ -209,7 +212,8 @@ export default function Terminal() {
        {!['', 'trade', 'pump'].includes(page) && <div className="command-page-title"><span className="eyebrow">{ecosystem.name.toUpperCase()} / ON-CHAIN INTELLIGENCE</span><h1>{query ? 'Follow the contract.' : page === 'new' ? 'New pools, better entry points.' : page === 'movers' ? 'Read the acceleration.' : 'Find the next rotation.'}</h1><p>{query ? `Provider results for “${query}”` : page === 'new' ? `Provider-indexed pools within ${MARKET_RETENTION_DAYS} days with a 24h drawdown of at least ${NEW_POOL_DEAL_PERCENT}%. Not a buy recommendation.` : 'Real signals, within provider coverage. No invented activity.'}</p></div>}
         {page !== 'pump' && <ContractScanner />}
         {isHome && <MetaDetector pairs={[...pairs, ...(newFeed.data?.pairs || [])]} onSelect={onSelect} />}
-         {(page === 'pump' || page === 'discover') && <PumpHub lens={page === 'discover' || params.get('view') === 'discover' ? 'discover' : 'radar'}
+         {page === 'pump' && duo.on && (pumpTrendingFeed.data?.pairs?.length || newFeed.data?.pairs?.length) ? <PumpDuo newFeed={newFeed} trendingFeed={pumpTrendingFeed} wide={duo.wide} />   /* 📱📱 a Duo: the radar is its own split app */
+           : (page === 'pump' || page === 'discover') && <PumpHub lens={page === 'discover' || params.get('view') === 'discover' ? 'discover' : 'radar'}
            radar={<PumpRadarView newFeed={newFeed} trendingFeed={pumpTrendingFeed} onSelect={onSelect} />} discover={<MetaDetector pairs={[...pairs, ...(newFeed.data?.pairs || [])]} onSelect={onSelect} />} />}
         {page === 'new' && <RadarView pairs={pairs} onSelect={onSelect} kind="new" />}
         {page === 'movers' && <SignalMovers pairs={pairs} onSelect={onSelect} />}

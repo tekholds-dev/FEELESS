@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react';
 // 📱📱 DUO: wide touch screens (an unfolded / two-screen iPhone, a tablet, a phone turned sideways) get split layouts — chart on one side,
 // the trade station on the other — and a hinged two-segment screen snaps each column to its own segment. Classes on <body>:
 //   is-duo        touch screen 600–1180px wide (or two segments)   → split chart | trade on Perps, chart | chat on the Trenches floor
@@ -71,4 +72,12 @@ export function stepFeed(feed, current, dir) {
   if (!feed?.length) return null;
   const i = feed.findIndex(p => p.pairAddress === current?.pairAddress);
   return feed[(i < 0 ? 0 : i + dir + feed.length) % feed.length];
+}
+
+// 📱📱 { on, wide } for the Duo apps (Trenches, Pump, HQ Agents …): on = an unfolded Duo / tablet / sideways phone, wide = held wide (split left | right)
+export function useDuoFloor() {
+  const read = () => { const s = duoState(); return { on: s.duo || s.land, wide: s.wide || s.land }; };
+  const [st, setSt] = useState(read);
+  useEffect(() => { const f = () => setSt(read()); window.addEventListener('feeless:duo', f); window.addEventListener('resize', f); return () => { window.removeEventListener('feeless:duo', f); window.removeEventListener('resize', f); }; }, []);
+  return st;
 }

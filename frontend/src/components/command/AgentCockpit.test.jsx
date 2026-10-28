@@ -11,6 +11,8 @@ globalThis.IS_REACT_ACT_ENVIRONMENT = true;
 const charts = [];
 jest.mock('../terminal/PriceChart', () => ({ PriceChart: props => { charts.push(props); return <div data-testid="price-chart" data-metric={props.metric} />; } }));   // canvas-free
 jest.mock('../CoinDrawer', () => ({ openCoin: jest.fn() }));
+let mockDuo = { on: false, wide: false };   // 📱📱 the Duo switch, flipped per test
+jest.mock('../../lib/duo', () => ({ ...jest.requireActual('../../lib/duo'), useDuoFloor: () => mockDuo }));
 const AGENTS = ['tally', 'sherlock', 'weather', 'trigger', 'devil', 'warden', 'courier', 'reaper', 'archivist', 'judge'].map(k => ({ key: k, name: k[0].toUpperCase() + k.slice(1), icon: '•', job: `${k} job` }));
 const AI = { providers: [{ key: 'local', label: 'LOCAL LM STUDIO', priority: 1, enabled: true, state: 'ONLINE', model: 'qwen2.5-7b-instruct-mlx', host: '127.0.0.1', lastMs: 42, requests: 3, failures: 0 },
   { key: 'groq', label: 'GROQ', priority: 2, enabled: true, state: 'KEY MISSING', why: 'KEY MISSING', model: 'llama-3.1-8b-instant', requests: 0, failures: 0 }],
@@ -278,4 +280,19 @@ test('💬 OSSY × G4 beside the chart: the Decision card\'s button swaps the ri
   await act(async () => { q('ack-talk-close').click(); });
   expect(q('ack-talk')).toBeNull(); expect(q('ack-panel')).not.toBeNull();
   act(() => root.unmount()); sessionStorage.clear();
+});
+
+
+test('📱📱 HQ › Agents on a Duo: a split app — chart half + a docked desk (DECISION · OSSY×G4 · SEATS · INTAKE · LIVE), the rail = live seats', async () => {
+  sessionStorage.clear(); mockDuo = { on: true, wide: true };
+  const call = jest.fn(async () => ({ ok: true }));
+  const hub = { d: data, livePx: new Map(), sel: selectors(data), load: jest.fn() };
+  const { root, q } = mount();
+  await act(async () => { root.render(<AgentHubProvider value={hub}><AgentCockpit call={call} /></AgentHubProvider>); });
+  await flush();
+  expect(q('agent-cockpit').className).toContain('ack-duo'); expect(q('ack-duo-pane-decision')).not.toBeNull(); expect(q('ack-panel')).not.toBeNull();
+  expect(q('ack-duo-seat-0')).not.toBeNull();                                        // the rail carries the live seats
+  await act(async () => { q('ack-duo-tab-seats').click(); }); expect(q('ack-duo-pane-seats')).not.toBeNull(); expect(q('ack-panel')).toBeNull();
+  await act(async () => { q('ack-duo-swap').click(); }); expect(q('agent-cockpit').className).toContain('is-swap');
+  act(() => root.unmount()); mockDuo = { on: false, wide: false }; sessionStorage.clear();
 });

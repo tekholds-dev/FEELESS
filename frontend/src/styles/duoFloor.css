@@ -23,6 +23,11 @@
 .dfl-rb[aria-pressed="true"], .dfl-ib[aria-pressed="true"], .dfl-ib.is-on { background: #15d16a; color: #04140b; border-color: transparent; }
 .dfl-ib:disabled { opacity: .35; cursor: default; }
 .dfl-rb.is-back { color: #45e486; }
+.dfl-apps { display: flex; flex-direction: column; gap: 6px; padding-top: 6px; border-top: 1px solid var(--dfl-line); }   /* the Duo apps: jump tab → tab full screen */
+.dfl-app { font-size: 16px; } .dfl-app.is-on { background: rgba(21, 209, 106, .2); border-color: #45e486; box-shadow: 0 0 10px rgba(69, 228, 134, .35); }
+.dfl-lens { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); } .dfl-lens button { min-height: 34px; font: 800 9.5px var(--f-mono); letter-spacing: .1em; }
+.dfl-age { margin-left: 6px; padding: 0 5px; border-radius: 4px; background: rgba(143, 211, 255, .12); color: #8fd3ff; font: 800 8px var(--f-mono); font-style: normal; vertical-align: middle; }
+.dfl[data-mode="pump"] { background: radial-gradient(120% 80% at 80% 0%, rgba(21, 209, 106, .14), transparent 55%), radial-gradient(90% 60% at 0% 100%, rgba(143, 211, 255, .06), transparent 60%), #040806; }
 .dfl-recent { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 6px 0; border-top: 1px solid var(--dfl-line); border-bottom: 1px solid var(--dfl-line); min-height: 0; overflow: hidden; }
 .dfl-rc { position: relative; width: 38px; height: 38px; padding: 0; border-radius: 50%; border: 2px solid transparent; background: #121a16; cursor: pointer; overflow: hidden; animation: dflIn .3s ease-out both; animation-delay: calc(var(--i, 0) * 50ms);
   transition: transform .12s ease, border-color .12s ease; }
@@ -63,7 +68,7 @@
   background: linear-gradient(180deg, rgba(12, 18, 15, .92), rgba(6, 9, 7, .94)); box-shadow: inset 1px 0 0 rgba(255, 255, 255, .04); }
 .dfl.is-wide.is-swap .dfl-side { border-left: 0; border-right: 1px solid var(--dfl-line); }
 .dfl.is-up .dfl-side { border-left: 0; border-top: 1px solid var(--dfl-line); }
-.dfl-tabs { flex: none; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); margin: 8px 8px 0; }
+.dfl-tabs { flex: none; display: grid; grid-template-columns: repeat(var(--n, 5), minmax(0, 1fr)); margin: 8px 8px 0; }
 .dfl-tabs button { min-height: 38px; padding: 0 4px; font: 800 10px var(--f-mono); letter-spacing: .1em; }
 .dfl-pane { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 8px; display: grid; gap: 8px; align-content: start; animation: dflIn .2s ease-out;
   scrollbar-width: thin; scrollbar-color: rgba(69, 228, 134, .5) transparent; }
@@ -75,6 +80,9 @@
 .dfl-pane .community-chat { height: calc(100dvh - 130px); min-height: 320px; display: flex; flex-direction: column; }
 .dfl.is-up .dfl-pane .community-chat { height: calc(57dvh - 150px); }
 
+/* the intake's 🏆 best strip in a half-screen dock: one swipe row (the container query isn't reliable inside the portal) */
+.dfl-pane .ltk-best { grid-template-columns: minmax(0, 1fr); gap: 4px; } .dfl-pane .ltk-best ol { display: flex; overflow-x: auto; scroll-snap-type: x mandatory; scrollbar-width: none; padding-bottom: 2px; }
+.dfl-pane .ltk-best ol::-webkit-scrollbar { display: none; } .dfl-pane .ltk-best li { flex: 0 0 132px; scroll-snap-align: start; }
 /* COINS: the live intake on top, then the feed — tap = this chart, in place */
 .dfl-feed { list-style: none; margin: 0; padding: 0; display: grid; gap: 5px; }
 .dfl-feed li { animation: dflIn .3s ease-out both; animation-delay: calc(var(--i, 0) * 45ms); }
@@ -89,6 +97,14 @@
 .dfl-coin > u { position: absolute; left: 0; right: 0; bottom: 0; height: 2px; background: rgba(255, 255, 255, .04); }
 .dfl-coin > u s { display: block; height: 100%; transform-origin: left; background: #45e486; transition: transform .5s ease; } .dfl-coin > u s.dn { background: #ff8fa3; }
 
+/* 🤖 HQ › AGENTS as a Duo app (AgentCockpit, data-mode="agents"): inside the HQ window, not over the page — same halves, the rail = live seats */
+.dfl.is-inline { position: relative; inset: auto; z-index: auto; height: calc(100dvh - 70px); min-height: 420px; border-radius: 12px; border: 1px solid var(--dfl-line); }
+.dfl[data-mode="agents"] { background: radial-gradient(120% 80% at 10% 0%, rgba(162, 89, 255, .1), transparent 55%), radial-gradient(90% 60% at 100% 100%, rgba(21, 209, 106, .08), transparent 60%), #050607; }
+.ack.ack-duo { gap: 0; padding: 0; }   /* the cockpit's own grid gaps step aside for the halves */
+.ack-duoplot { display: flex; flex-direction: column; gap: 6px; overflow-y: auto; scrollbar-width: none; } .ack-duoplot::-webkit-scrollbar { display: none; }
+.ack-duoseat b { font: 800 9px var(--f-mono); color: #e8f2ea; } .ack-duoseat.is-up { border-color: rgba(69, 228, 134, .55); } .ack-duoseat.is-dn { border-color: rgba(255, 143, 163, .55); }
+.ack-duoseat.is-on { box-shadow: 0 0 12px rgba(69, 228, 134, .55); border-color: #45e486; }
+.ack-duoseats { display: grid; gap: 8px; }
 /* UPRIGHT: the pump-style action bar pinned to the bottom */
 .dfl-act { grid-area: act; display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); gap: 8px; padding: 8px 10px calc(8px + env(safe-area-inset-bottom, 0px)); border-top: 1px solid var(--dfl-line); background: rgba(3, 7, 5, .95); }
 .dfl-act .m-btn { min-height: 48px; font: 800 13px var(--f-mono); letter-spacing: .08em; }
@@ -107,7 +123,7 @@ body.theme-day .dfl-rail { background: rgba(255, 255, 255, .85); } body.theme-da
 body.theme-day .dfl-bar { background: linear-gradient(180deg, rgba(13, 122, 65, .07), rgba(255, 255, 255, .6)); }
 body.theme-day :is(.dfl-id b, .dfl-cn b, .dfl-kv b) { color: #171c1a; } body.theme-day .dfl-vit > span { background: rgba(10, 60, 35, .05); } body.theme-day .dfl-px > b { color: #0b8a45; text-shadow: none; }
 body.theme-day :is(.dfl-rb, .dfl-ib) { background: rgba(10, 60, 35, .05); color: #171c1a; border-color: rgba(10, 60, 35, .14); } body.theme-day .dfl-coin { background: #fff; border-color: rgba(10, 60, 35, .12); }
-body.theme-day .dfl-act { background: rgba(255, 255, 255, .95); } body.theme-day .dfl .up { color: #0b8a45; } body.theme-day .dfl .dn { color: #c43a55; }
+body.theme-day .dfl-act { background: rgba(255, 255, 255, .95); } body.theme-day .dfl[data-mode="agents"] { background: #f4f1fb; } body.theme-day .ack-duoseat b { color: #171c1a; } body.theme-day .dfl-age { background: rgba(10, 80, 140, .1); color: #0a5a8c; } body.theme-day .dfl .up { color: #0b8a45; } body.theme-day .dfl .dn { color: #c43a55; }
 /* a phone on its side (678 × 466 folded Duo, 844 × 390 iPhone): a thinner rail + bar, the chart takes the height */
 @media (max-height: 500px) { .dfl { --dfl-rail: 48px; } .dfl-bar { gap: 3px; padding: 3px 8px 4px; } .dfl-id small { display: none; } .dfl-row .dfl-ib { min-height: 34px; }
   .dfl-rb { min-width: 36px; min-height: 36px; } .dfl-rc { width: 32px; height: 32px; } .dfl-tabs { margin-top: 6px; } .dfl-tabs button { min-height: 34px; font-size: 9px; letter-spacing: .04em; } }

@@ -53,14 +53,33 @@ body.is-phone-land .pd-mkt { min-height: 40px; padding: 4px 8px; } body.is-phone
 body.is-phone-land .terminal-app .token-focus .candle-canvas { height: calc(100dvh - 110px) !important; min-height: 220px; }
 body.is-phone-land .token-focus > .focus-header .token-sub { display: none; }
 :is(body.is-duo, body.is-phone-land).duo-swap .pd-main > .pd-chart { order: 2; } :is(body.is-duo, body.is-phone-land).duo-swap .pd-main > .pd-chart { border-right: 0; border-left: 1px solid var(--ln); }
-/* Familia on a Duo: a big room takes ONE screen and the city stays alive on the other (swap = the other side); with a hinge it snaps to the segment */
-@media (min-width: 641px) {
-  body.is-duo .fwd-mapwrap .fwd-place:is(.is-tool, .k-pools, .k-hq, .k-jobs, .k-gym, .k-cards) { left: 50%; right: 12px; box-shadow: -12px 0 40px -18px #000; }
-  body.is-duo.duo-swap .fwd-mapwrap .fwd-place:is(.is-tool, .k-pools, .k-hq, .k-jobs, .k-gym, .k-cards) { left: 12px; right: 50%; box-shadow: 12px 0 40px -18px #000; }
-  body.is-duo-split .fwd-mapwrap .fwd-place:is(.is-tool, .k-pools, .k-hq, .k-jobs, .k-gym, .k-cards) { left: env(viewport-segment-left 1 0, 50%); }
-  body.is-duo-split.duo-swap .fwd-mapwrap .fwd-place:is(.is-tool, .k-pools, .k-hq, .k-jobs, .k-gym, .k-cards) { left: 12px; right: calc(100vw - env(viewport-segment-right 0 0, 50vw)); }
-  body.is-duo .fwd:has(> .fwd-mapwrap .fwd-place:is(.is-tool, .k-pools, .k-hq, .k-jobs, .k-gym, .k-cards)) > .fwd-mapwrap ~ * { visibility: visible; }
-}
+/* 🏙📱📱 FAMILIA on a Duo (owner 2026-10-28): held WIDE the city is ONE screen — the live 3D city pinned full height on the left half — and your
+   family (HUD, the city strip, the sections) scrolls on the right half; an open room LOCKS to the right half, full height, over the family side
+   (the city keeps moving beside it). The SWAP tab (DuoBar) trades the halves. Upright: a room is a bottom sheet over the city. Layout only. */
+body.is-duo-land .fwd { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); column-gap: 10px; align-items: start; }
+body.is-duo-land .fwd > * { grid-column: 2; min-width: 0; }
+body.is-duo-land .fwd > .fwd-mapwrap { display: contents; }
+body.is-duo-land .fwd .fc3 { grid-column: 1; grid-row: 1 / span 60; position: sticky; top: 0; height: calc(100dvh - 64px); min-height: 0; }
+body.is-duo-land .fwd .fwd-col { grid-column: 2; }
+body.is-duo-land.duo-swap .fwd .fc3 { grid-column: 2; } body.is-duo-land.duo-swap .fwd > *, body.is-duo-land.duo-swap .fwd .fwd-col { grid-column: 1; }
+body.is-duo-land .fwd .fwd-place { position: fixed !important; top: 0 !important; bottom: 0 !important; left: 50% !important; right: 0 !important; width: auto !important; max-width: none !important;
+  height: auto !important; max-height: none !important; border-radius: 0 !important; z-index: 60; overflow-y: auto; box-shadow: -14px 0 40px -18px #000; }
+body.is-duo-land.duo-swap .fwd .fwd-place { left: 0 !important; right: 50% !important; box-shadow: 14px 0 40px -18px #000; }
+body.is-duo-land .fwd .fwd-place { top: 64px !important; }   /* under the Familia bar (sticky, 63 px), never behind it */
+/* the city's half is ~400 px: the district chips become ONE swipe row at the bottom (they stacked into a column over the raid wire — owner screenshot);
+   the raid wire keeps its top-right corner, two lines at most */
+body.is-duo-land .fwd .fc3-isl { top: auto; bottom: 108px; left: 60px; right: 88px; max-width: none; transform: none; justify-content: flex-start; flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; }
+body.is-duo-land .fwd .mh-wire { width: min(260px, 60%); } body.is-duo-land .fwd .mh-wire li:nth-child(n + 3) { display: none; }
+/* 📉 the PERPS desk on a wide Duo is its own split app: the room spans BOTH halves, the chart on one and the trade station on the other, split on
+   the crease (⇄ SWAP trades them — `.pd-chart` order); every other room keeps one half */
+body.is-duo-land .fwd .fwd-place.k-perps { left: 0 !important; right: 0 !important; }
+body.is-duo-land .fwd-place.k-perps .pd-main { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+body.is-duo-land .fwd-place.k-perps .pd-plot { height: calc(100dvh - 230px); min-height: 240px; }
+body.is-duo-land .fwd-place.k-perps .pd-strip, body.is-duo-land .fwd-place.k-perps :is(.pd-pv small, .pd-pv > span, .pd-brand small) { display: none; }
+body.is-duo-land .fwd-place.k-perps .pd-pv { min-height: 34px; padding: 4px 8px; }
+body.is-duo:not(.is-duo-land) .fwd .fwd-place { position: fixed !important; left: 0 !important; right: 0 !important; bottom: 0 !important; top: auto !important; width: auto !important;
+  max-width: none !important; height: 70dvh !important; max-height: 70dvh !important; border-radius: 18px 18px 0 0 !important; z-index: 60; overflow-y: auto; }
+
 /* 📱📱 an unfolded Duo: the desktop sidebar folds to its icon rail (it ate a third of the width). The Trenches coin floor itself is DuoFloor
    (duoFloor.css) — its own full-screen split app. */
 body.is-duo .terminal-sidebar:not(.sidebar-open) { width: 68px !important; padding-left: 10px; padding-right: 10px; }
@@ -74,3 +93,4 @@ body.is-duo-land .terminal-header { min-height: 48px; padding-top: 3px; padding-
 body.is-duo-land .context-bar { min-height: 34px; padding-top: 2px; padding-bottom: 2px; }
 body.is-duo-land .context-bar :is(.context-indicator, .context-clock) { display: none; }
 body.is-duo:not(.is-duo-land) :is(.season-banner, .workspace-topline) { display: none !important; }
+body.is-duo-land:has(.fwd-place) .feecat-widget { display: none; }   /* the FeeCat bubble sat on the open room (the perps ticket) */

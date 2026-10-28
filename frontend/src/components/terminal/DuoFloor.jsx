@@ -11,7 +11,7 @@ import { TokenAvatar } from './MarketPrimitives';
 import { LivePrice, LiveChange24, LiveMarketCap } from './LiveCells';
 import { useMarket } from '../../hooks/useMarket';
 import { useWorkspace } from '../../hooks/useWorkspace';
-import { duoState, readDuoPrefs, saveDuoPrefs, readRecent, saveRecent, pushRecent, floorFeed, stepFeed } from '../../lib/duo';
+import { useDuoFloor, readDuoPrefs, saveDuoPrefs, readRecent, saveRecent, pushRecent, floorFeed, stepFeed } from '../../lib/duo';
 import '../../styles/duoFloor.css';
 
 // 📱📱 THE DUO FLOOR (owner 2026-10-27, iPhone Duo screenshot: "not a full app like split · the switches don't lock to the side · portrait can't
@@ -22,23 +22,36 @@ import '../../styles/duoFloor.css';
 // The dock is locked to its half: TRADE (Quick trade · Dip / Rip · shield) · CHAT · CALLS · COINS (the live intake + the feed — tap = this
 // chart, in place) · TAPE (live swaps). ‹ › or a swipe on the coin bar steps through the feed. Picks + recents are saved per device.
 export const DOCK = [['trade', 'TRADE'], ['chat', 'CHAT'], ['calls', 'CALLS'], ['coins', 'COINS'], ['tape', 'TAPE']];
-
-export function useDuoFloor() {
-  const read = () => { const s = duoState(); return { on: s.duo || s.land, wide: s.wide || s.land }; };
-  const [st, setSt] = useState(read);
-  useEffect(() => { const f = () => setSt(read()); window.addEventListener('feeless:duo', f); window.addEventListener('resize', f); return () => { window.removeEventListener('feeless:duo', f); window.removeEventListener('resize', f); }; }, []);
-  return st;
+// 📱📱 one Duo app, a mode per tab (owner 2026-10-28: "every tab needs its own Duo features"): the Trenches floor and the PUMP RADAR (LAUNCHES =
+// the live intake + NEW · HOT · RUNNERS, tap = the chart beside it, in place). The rail is the app's nav: home · Trenches · Pump without leaving.
+export const DOCKS = { trench: DOCK, pump: [['launches', 'LAUNCHES'], ['trade', 'TRADE'], ['tape', 'TAPE'], ['chat', 'CHAT']] };
+const TITLE = { trench: 'TRENCHES', pump: 'PUMP RADAR' };
+const readTab = mode => { try { return localStorage.getItem(`feeless.duo.tab.${mode}`); } catch { return null; } };
+const ageOf = p => { const t = Number(p?.pairCreatedAt); if (!(t > 0)) return '—'; const m = Math.max(0, (Date.now() - t) / 60000); return m < 60 ? `${Math.round(m)}m` : m < 1440 ? `${Math.round(m / 60)}h` : `${Math.round(m / 1440)}d`; };
+export const PUMP_LENS = [['hot', 'HOT', 'Biggest 1h move first'], ['new', 'NEW', 'Youngest pool first'], ['runners', 'RUNNERS', 'Most 1h volume first']];
+// pure: the pump launches list for a lens
+export function pumpLens(feed, lens) {
+  const n = v => Number(v) || 0; const rows = [...(feed || [])];
+  if (lens === 'new') return rows.sort((a, b) => n(b.pairCreatedAt) - n(a.pairCreatedAt));
+  if (lens === 'runners') return rows.sort((a, b) => n(b.volume?.h1) - n(a.volume?.h1));
+  return rows.sort((a, b) => n(b.priceChange?.h1 ?? b.priceChange?.m5) - n(a.priceChange?.h1 ?? a.priceChange?.m5));
 }
+
+export { useDuoFloor };
 
 const pct = v => (v == null || !Number.isFinite(Number(v)) ? '—' : `${Number(v) >= 0 ? '+' : ''}${Number(v).toFixed(1)}%`);
 const usd = v => (!(Number(v) > 0) ? '—' : v >= 1e6 ? `$${(v / 1e6).toFixed(2)}M` : v >= 1e3 ? `$${(v / 1e3).toFixed(1)}K` : `$${Math.round(v)}`);
 
-export function DuoFloor({ pair, pairs = [], newPairs = [], wide, onPick, onBack, chat, calls }) {
+export function DuoFloor({ pair, pairs = [], newPairs = [], wide, onPick, onBack, chat, calls, mode = 'trench' }) {
   const { has, toggle } = useWorkspace();
   const live = useMarket(pair ? `/pair/${pair.chainId}/${pair.pairAddress}` : null, 3000);
   const lp = live.data?.pairs?.[0]; const cur = lp ? { ...pair, ...lp } : pair;
-  const [prefs, setPrefs] = useState(readDuoPrefs); const tab = DOCK.some(([k]) => k === prefs.second) ? prefs.second : 'trade';
-  const set = x => setPrefs(saveDuoPrefs({ ...prefs, ...x }));
+  const dock = DOCKS[mode] || DOCK;
+  const [prefs, setPrefs] = useState(readDuoPrefs); const set = x => setPrefs(saveDuoPrefs({ ...prefs, ...x }));
+  const [mtab, setMtab] = useState(() => readTab(mode));   // a mode's own tab (the Trenches keep theirs in the Duo prefs)
+  const tab0 = mode === 'trench' ? prefs.second : mtab; const tab = dock.some(([k]) => k === tab0) ? tab0 : dock[0][0];
+  const setTab = k => { if (mode === 'trench') set({ second: k }); else { setMtab(k); try { localStorage.setItem(`feeless.duo.tab.${mode}`, k); } catch { /* private */ } } };
+  const [lens, setLens] = useState('hot');
   const [recent, setRecent] = useState(readRecent);
   useEffect(() => { if (pair?.pairAddress) setRecent(r => saveRecent(pushRecent(r, pair))); }, [pair?.pairAddress]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { const b = document.body.classList; b.add('duo-floor-on'); return () => b.remove('duo-floor-on'); }, []);
@@ -51,11 +64,11 @@ export function DuoFloor({ pair, pairs = [], newPairs = [], wide, onPick, onBack
     const ro = new ResizeObserver(fit); ro.observe(el); fit(); const t = setTimeout(fit, 600); return () => { ro.disconnect(); clearTimeout(t); }; }, [cur?.pairAddress, wide]);
   const swipe = { onTouchStart: e => { touch.current = e.touches[0]?.clientX ?? null; },
     onTouchEnd: e => { const x0 = touch.current; touch.current = null; const dx = (e.changedTouches[0]?.clientX ?? x0) - x0; if (x0 != null && Math.abs(dx) > 60) step(dx < 0 ? 1 : -1); } };
-  const side = s => { set({ second: 'trade' }); setTimeout(() => window.dispatchEvent(new CustomEvent('feeless:qt-side', { detail: { mint: cur?.baseToken?.address, side: s } })), 30); };
+  const side = s => { setTab('trade'); setTimeout(() => window.dispatchEvent(new CustomEvent('feeless:qt-side', { detail: { mint: cur?.baseToken?.address, side: s } })), 30); };
   const mint = cur?.baseToken?.address; const watched = cur ? has?.(cur) : false;
   if (!cur) return null;
   const sym = cur.baseToken?.symbol || '?'; const m5 = cur.priceChange?.m5;
-  return createPortal(<div className={`dfl ${wide ? 'is-wide' : 'is-up'} ${prefs.swap ? 'is-swap' : ''}`} data-testid="duo-floor" role="application" aria-label={`$${sym} — Duo trading floor`}>
+  return createPortal(<div className={`dfl ${wide ? 'is-wide' : 'is-up'} ${prefs.swap ? 'is-swap' : ''}`} data-testid="duo-floor" data-mode={mode} role="application" aria-label={`$${sym} — Duo ${TITLE[mode] || 'floor'}`}>
     <div className="dfl-fx" aria-hidden="true"><i /><i /></div>
     {wide ? <nav className="dfl-rail" aria-label="Duo floor">
       <button type="button" className="dfl-rb is-back" onClick={onBack} aria-label="Back to the Trenches" data-tip="Back to the Trenches" data-testid="dfl-back">←</button>
@@ -64,12 +77,13 @@ export function DuoFloor({ pair, pairs = [], newPairs = [], wide, onPick, onBack
         {r.img ? <img src={r.img} alt="" loading="lazy" /> : <b>{String(r.symbol).slice(0, 2)}</b>}</button>)}</span>
       <button type="button" className="dfl-rb" aria-pressed={prefs.swap} onClick={() => set({ swap: !prefs.swap })} aria-label="Swap the two halves" data-tip="Swap the halves — chart ⇄ dock" data-testid="dfl-swap"><i className="dfl-dev" aria-hidden="true"><s /><s /></i></button>
       <Link className="dfl-rb" to="/terminal" aria-label="Home" data-tip="FEELESS home" data-testid="dfl-home">⌂</Link>
+      <span className="dfl-apps" aria-label="Duo apps">{[['trench', '/terminal/chat', '⚔', 'The Trenches'], ['pump', '/terminal/pump', '💊', 'Pump radar']].map(([k, to, ic, l]) => <Link key={k} to={to} className={`dfl-rb dfl-app ${mode === k ? 'is-on' : ''}`} aria-label={l} data-tip={`${l} — its own Duo app`} data-testid={`dfl-app-${k}`}>{ic}</Link>)}</span>
     </nav> : null}
     <section className="dfl-chart" data-testid="dfl-chart">
       <header className="dfl-bar" {...swipe} data-testid="dfl-bar"><div className="dfl-row">
         {!wide ? <button type="button" className="dfl-ib" onClick={onBack} aria-label="Back to the Trenches" data-tip="Back to the Trenches" data-testid="dfl-back">←</button> : null}
         <TokenAvatar pair={cur} size={30} />
-        <span className="dfl-id"><b>${sym}</b><small>{cur.dexId || cur.chainId} · swipe for the next coin</small></span>
+        <span className="dfl-id"><b>${sym}</b><small>{mode === 'pump' ? `PUMP · ${ageOf(cur)} old` : cur.dexId || cur.chainId} · swipe for the next coin</small></span>
         <span className="dfl-steps"><button type="button" className="dfl-ib" onClick={() => step(-1)} disabled={feed.length < 2} aria-label="Previous coin" data-tip="Previous coin in the feed (or swipe the bar)" data-testid="dfl-prev">‹</button>
           <button type="button" className="dfl-ib" onClick={() => step(1)} disabled={feed.length < 2} aria-label="Next coin" data-tip="Next coin in the feed (or swipe the bar)" data-testid="dfl-next">›</button>
           <button type="button" className={`dfl-ib ${watched ? 'is-on' : ''}`} onClick={() => toggle?.(cur)} aria-pressed={!!watched} aria-label="Watch this coin" data-tip={watched ? 'On your Radar — tap to drop it' : 'Add it to your Radar'} data-testid="dfl-star">{watched ? '★' : '☆'}</button>
@@ -84,7 +98,7 @@ export function DuoFloor({ pair, pairs = [], newPairs = [], wide, onPick, onBack
       <div className="dfl-plot" ref={plot}><TrenchChart pair={cur} defaultInterval="1m" tools={false} tape={false} /></div>
     </section>
     <section className="dfl-side" data-testid="dfl-side">
-      <div className="m-seg dfl-tabs" role="tablist" aria-label="Dock">{DOCK.map(([k, l]) => <button key={k} type="button" role="tab" aria-selected={tab === k} className={tab === k ? 'active' : ''} onClick={() => set({ second: k })} data-testid={`dfl-tab-${k}`}>{l}</button>)}</div>
+      <div className="m-seg dfl-tabs" role="tablist" aria-label="Dock" style={{ '--n': dock.length }}>{dock.map(([k, l]) => <button key={k} type="button" role="tab" aria-selected={tab === k} className={tab === k ? 'active' : ''} onClick={() => setTab(k)} data-testid={`dfl-tab-${k}`}>{l}</button>)}</div>
       <div className="dfl-pane custom-scroll" key={tab} data-testid={`dfl-pane-${tab}`}>
         {tab === 'trade' ? <><QuickTrade pair={cur} /><DipRipTool pair={cur} />{cur.chainId === 'solana' ? <ShieldBadge mint={mint} /> : null}</> : null}
         {tab === 'chat' ? chat : null}
@@ -94,6 +108,12 @@ export function DuoFloor({ pair, pairs = [], newPairs = [], wide, onPick, onBack
             <TokenAvatar pair={p} size={30} /><span className="dfl-cn"><b>${p.baseToken?.symbol}</b><small>{usd(p.marketCap ?? p.fdv)} MC · {usd(p.liquidity?.usd)} liq</small></span>
             <em className={`m-num ${ch >= 0 ? 'up' : 'dn'}`}>{pct(ch)}</em><u aria-hidden="true"><s style={{ transform: `scaleX(${Math.max(0.04, Math.min(1, Math.abs(ch || 0) / 50))})` }} className={ch >= 0 ? 'up' : 'dn'} /></u></button></li>; })}</ol></> : null}
         {tab === 'tape' ? <TradeTape pair={cur} /> : null}
+        {tab === 'launches' ? <><LiveTank onTrade={p => onPick(p)} title="LIVE LAUNCHES" />
+          <span className="m-seg dfl-lens" role="radiogroup" aria-label="Launches">{PUMP_LENS.map(([k, l, tip]) => <button key={k} type="button" role="radio" aria-checked={lens === k} className={lens === k ? 'active' : ''} onClick={() => setLens(k)} data-tip={tip} data-testid={`dfl-lens-${k}`}>{l}</button>)}</span>
+          <ol className="dfl-feed" aria-label="Launches">{pumpLens(feed, lens).slice(0, 40).map((p, i) => { const ch = Number(p.priceChange?.h1 ?? p.priceChange?.m5); const on = p.pairAddress === cur.pairAddress; const v = Number(p.volume?.h1) || 0;
+            return <li key={p.pairAddress} style={{ '--i': Math.min(i, 12) }}><button type="button" className={`dfl-coin ${on ? 'is-on' : ''}`} onClick={() => onPick(p)} data-tip={`$${p.baseToken?.symbol} — open it on the chart`} data-testid={`dfl-launch-${i}`}>
+              <TokenAvatar pair={p} size={30} /><span className="dfl-cn"><b>${p.baseToken?.symbol}<em className="dfl-age">{ageOf(p)}</em></b><small>{usd(p.marketCap ?? p.fdv)} MC · {usd(v)} vol 1h</small></span>
+              <em className={`m-num ${ch >= 0 ? 'up' : 'dn'}`}>{pct(ch)}</em><u aria-hidden="true"><s style={{ transform: `scaleX(${Math.max(0.04, Math.min(1, lens === 'runners' ? Math.log10(v + 1) / 6 : Math.abs(ch || 0) / 50))})` }} className={ch >= 0 ? 'up' : 'dn'} /></u></button></li>; })}</ol></> : null}
       </div>
     </section>
     {!wide ? <div className="dfl-act" data-testid="dfl-act"><button type="button" className="m-btn m-go dfl-buy" onClick={() => side('buy')} data-tip="Quick trade, BUY side — your wallet signs" data-testid="dfl-buy">BUY ${sym}</button>

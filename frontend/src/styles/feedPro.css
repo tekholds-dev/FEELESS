@@ -56,3 +56,13 @@ body.theme-day .fx.fx-v4 .fx-head b, body.theme-day .fx.fx-v4 .fx-body header b,
 body.fx-lite .fxp-n b, body.fx-lite .fxpop { animation: none; } @media (prefers-reduced-motion: reduce) { .fxp-n b, .fxpop { animation: none; } .fxp-top button { transition: none; } }
 body.theme-day .fxp { background: #f3fbf6; } body.theme-day .fxp-n b { color: #0a8a44; text-shadow: none; } body.theme-day .fxpop { background: #fbfffc; } body.theme-day .fxp-top button { background: #fff; color: #0b3a1f; }
 @media (max-width: 640px) { .fxp { grid-template-columns: auto minmax(0, 1fr); grid-template-areas: 'n line' 'src src' 'top top'; } .fxp-src { justify-content: flex-start; } .fxpop { right: 12px; left: 12px; width: auto; bottom: 12px; } }
+/* 📱📱 FEEd on a Duo (owner 2026-10-28: "every tab its own Duo features"). Held WIDE: the sites become one swipe strip on top, the timeline takes
+   the left half and the side (top coins · your sites) comes back on the right half — split on the crease, each half scrolls on its own; the FEEd
+   pop-out LOCKS to the right half, full height (no floating window over the chart). UPRIGHT: one column, the pop-out is a bottom sheet. */
+body.is-duo-land .fx { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); grid-template-areas: "nav nav" "main side"; gap: 10px; }
+body.is-duo-land .fx > .fx-nav { grid-area: nav; position: static; display: flex; overflow-x: auto; scrollbar-width: none; gap: 6px; }
+body.is-duo-land .fx > .fx-main { grid-area: main; min-height: 0; max-height: calc(100dvh - 150px); overflow-y: auto; overscroll-behavior: contain; scrollbar-width: thin; scrollbar-color: #15d16a transparent; }
+body.is-duo-land .fx > .fx-side { grid-area: side; display: grid; position: static; max-height: calc(100dvh - 150px); overflow-y: auto; overscroll-behavior: contain; scrollbar-width: thin; scrollbar-color: #15d16a transparent; }
+body.is-duo-land .fxpop { top: 0; bottom: 0; right: 0; left: 50%; width: auto; height: auto; border-radius: 0; border-top: 0; border-bottom: 0; border-right: 0; transform: none !important; }
+body.is-duo-land .fxpop > header { cursor: default; }
+body.is-duo:not(.is-duo-land) .fxpop { left: 0; right: 0; bottom: 0; top: auto; width: auto; height: 62dvh; border-radius: 18px 18px 0 0; transform: none !important; }

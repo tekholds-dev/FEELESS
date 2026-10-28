@@ -12,7 +12,7 @@ jest.mock('./MarketPrimitives', () => ({ TokenAvatar: () => <i /> }));
 jest.mock('./LiveCells', () => ({ LivePrice: () => '$1', LiveChange24: () => '+1%', LiveMarketCap: () => '$1M' }));
 jest.mock('../../hooks/useMarket', () => ({ useMarket: () => ({ data: null }) }));
 jest.mock('../../hooks/useWorkspace', () => ({ useWorkspace: () => ({ has: () => false, toggle: jest.fn() }) }));
-import { DuoFloor } from './DuoFloor';
+import { DuoFloor, pumpLens } from './DuoFloor';
 import { pushRecent, floorFeed, stepFeed } from '../../lib/duo';
 
 const P = (a, liq = 5e4) => ({ chainId: 'solana', pairAddress: a, baseToken: { symbol: a.toUpperCase(), address: `m-${a}` }, liquidity: { usd: liq }, priceChange: { m5: 3 } });
@@ -39,4 +39,22 @@ test('📱📱 the Duo floor: full screen, chart without its tools (they live in
   await act(async () => { q('dfl-back').click(); }); expect(onBack).toHaveBeenCalled();
   expect(JSON.parse(localStorage.getItem('feeless.duo.recent'))[0].pairAddress).toBe('a');
   act(() => root.unmount()); expect(document.body.classList.contains('duo-floor-on')).toBe(false); window.removeEventListener('feeless:qt-side', on);
+});
+
+
+test('💊📱📱 the Pump radar Duo app: LAUNCHES first, its lenses sort the feed (HOT = 1h move · NEW = youngest · RUNNERS = 1h volume), the tab sticks per mode', async () => {
+  localStorage.clear(); const onPick = jest.fn();
+  const A = { ...P('a'), pairCreatedAt: 1000, volume: { h1: 50 }, priceChange: { h1: 80 } }, B = { ...P('b'), pairCreatedAt: 3000, volume: { h1: 900 }, priceChange: { h1: 5 } }, C = { ...P('c'), pairCreatedAt: 2000, volume: { h1: 10 }, priceChange: { h1: 20 } };
+  expect(pumpLens([A, B, C], 'hot').map(p => p.pairAddress)).toEqual(['a', 'c', 'b']);
+  expect(pumpLens([A, B, C], 'new').map(p => p.pairAddress)).toEqual(['b', 'c', 'a']);
+  expect(pumpLens([A, B, C], 'runners').map(p => p.pairAddress)).toEqual(['b', 'a', 'c']);
+  const el = document.createElement('div'); document.body.appendChild(el); const root = createRoot(el);
+  await act(async () => { root.render(<DuoFloor mode="pump" pair={A} pairs={[A, B, C]} wide onPick={onPick} onBack={jest.fn()} chat={<div data-testid="chat" />} />); });
+  expect(q('duo-floor').dataset.mode).toBe('pump'); expect(q('dfl-pane-launches')).not.toBeNull(); expect(q('tank')).not.toBeNull();
+  expect(q('dfl-app-pump').className).toContain('is-on');                                   // the rail: the Duo apps
+  await act(async () => { q('dfl-lens-runners').click(); }); await act(async () => { q('dfl-launch-0').click(); });
+  expect(onPick).toHaveBeenCalledWith(expect.objectContaining({ pairAddress: 'b' }));
+  await act(async () => { q('dfl-tab-tape').click(); }); expect(localStorage.getItem('feeless.duo.tab.pump')).toBe('tape');
+  expect(JSON.parse(localStorage.getItem('feeless.duo') || '{}').second).toBeUndefined();     // the Trenches' own tab is untouched
+  act(() => root.unmount());
 });
