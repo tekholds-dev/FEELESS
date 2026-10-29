@@ -63,6 +63,7 @@
 .fd-chip:hover { transform: translateY(-1px); border-color: color-mix(in srgb, var(--fd-acc) 50%, transparent); } .fd-chip:active { transform: scale(.95); }
 .fd-chip.on { background: linear-gradient(135deg, var(--fd-acc), color-mix(in srgb, var(--fd-acc) 55%, #04221a)); color: #04100a; border-color: transparent; font-weight: 800;
   box-shadow: 0 0 16px -4px var(--fd-acc); }
+.fd-chip.is-rooms { border-color: rgba(162, 89, 255, .45); color: #d9c2ff; } .fd-chip.is-rooms.on { background: linear-gradient(135deg, #a259ff, #6a2bd1); color: #fff; box-shadow: 0 0 16px -4px #a259ff; }   /* 💬 the live rooms: a place, not a site filter */
 .fd-chip.is-post { cursor: help; opacity: .62; } .fd-chip.is-post:hover { opacity: 1; }
 .fd-chip.is-post small { font: 700 8.5px var(--f-mono, monospace); letter-spacing: .08em; text-transform: uppercase; color: var(--fd-mute); }
 

@@ -28,8 +28,11 @@ test('📰 FEEd shows the mixed timeline with cross-post links; FEELESS alone = 
   expect(el.querySelectorAll('[data-testid="feed-post"]').length).toBe(2);
   expect(el.querySelector('[data-testid="feed-share-x"]').getAttribute('aria-disabled')).toBe('true');   // empty box → nothing to post
   await act(async () => { el.querySelector('[data-testid="feed-src-feeless"]').click(); });
-  expect(el.querySelector('[data-testid="rooms-chat"]')).not.toBeNull();
+  expect(el.querySelector('[data-testid="rooms-chat"]')).toBeNull();                         // ⚡ FEELESS = its posts on the timeline (E13)
+  expect(el.querySelector('[data-testid="feed-timeline"]')).not.toBeNull();
   expect(JSON.parse(localStorage.getItem('feeless.feedSrc'))).toEqual(['feeless']);
+  await act(async () => { el.querySelector('[data-testid="feed-rooms"]').click(); });
+  expect(el.querySelector('[data-testid="rooms-chat"]')).not.toBeNull();                     // the live rooms: one tap on 💬 ROOMS
   act(() => root.unmount()); global.fetch = real;
 });
 

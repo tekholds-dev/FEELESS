@@ -430,7 +430,9 @@ export function FeedPanel({ onConnect }) {
   const [cat, setCat] = useState(() => { try { return localStorage.getItem('feeless:feed-cat') || 'feed-general'; } catch { return 'feed-general'; } });
   const pickSrc = k => setSrcs(cur => { const n = toggleSrc(cur, k); try { localStorage.setItem(SRC_KEY, JSON.stringify(n)); } catch { /* private window */ } return n; });
   const pickCat = v => { setCat(v); try { localStorage.setItem('feeless:feed-cat', v); } catch { /* private */ } };
-  const rooms = srcs.length === 1 && srcs[0] === 'feeless';
+  // ⚡ E13: the FEELESS chip filters the timeline like any site; the live chat rooms are their own place (the ROOMS chip / mini-nav), remembered
+  const [rooms, setRooms0] = useState(() => { try { return localStorage.getItem('feeless.feedRooms') === '1'; } catch { return false; } });
+  const setRooms = v => { setRooms0(v); try { localStorage.setItem('feeless.feedRooms', v ? '1' : ''); } catch { /* private */ } };
   const qs = useMemo(() => (srcs.includes('all') ? '' : srcs.join(',')), [srcs]);
   const current = FEED_CATS.find(c => c[0] === cat) || FEED_CATS[0];
   const [look, setLook0] = useState(readLook); const [lookOpen, setLookOpen] = useState(false);
@@ -445,7 +447,7 @@ export function FeedPanel({ onConnect }) {
   return <section className={`fd ${lv.cls}${hid ? ' is-folded' : ''}`} style={lv.style} data-testid="profile-feed">
     <nav className="fd-mini" aria-label="FEEd">
       <b className="feed-wordmark">FEEd</b>
-      {[['🏠', 'Home', () => { pickSrc('all'); toTop(); }, 'Every site, mixed'], ['⚡', 'Rooms', () => { if (!rooms) setSrcs(() => { try { localStorage.setItem(SRC_KEY, '["feeless"]'); } catch { /* private */ } return ['feeless']; }); }, 'FEELESS live rooms'],
+      {[['🏠', 'Home', () => { setRooms(false); pickSrc('all'); toTop(); }, 'Every site, mixed'], ['⚡', 'Rooms', () => setRooms(true), 'FEELESS live rooms — post, call, earn'],
         ['🎨', 'Look', () => setLookOpen(o => !o), 'Background, font, size, accent'], ['⤢', 'Pop out', openFeedPop, 'Float FEEd over any page']].map(([ic, l, fn, tip]) => <button key={l} type="button" className="fd-mini-btn" onClick={fn} data-tip={tip}><i>{ic}</i><span>{l}</span></button>)}
       <button type="button" className="m-btn m-go fd-mini-post" onClick={() => setSheet(true)} data-tip="Write a post">✎ Post</button>
     </nav>
@@ -458,8 +460,10 @@ export function FeedPanel({ onConnect }) {
           <button type="button" className={`fd-iconbtn ${lookOpen ? 'on' : ''}`} aria-expanded={lookOpen} onClick={() => setLookOpen(o => !o)} data-testid="feed-look-open" data-tip="Make FEEd yours: background, font, size, accent">🎨</button>
           <button type="button" className="fd-iconbtn" onClick={openFeedPop} data-tip="Pop FEEd out into a floating window that stays over any page" data-testid="feed-popout">⤢</button></div>
         {rooms ? null : <FeedTabs tab={tab} setTab={setTab} follows={marks.follows} saved={marks.saved} />}
-        <div className="fd-chips" role="group" aria-label="FEEd sites">{FEED_SRC.map(([k, ic, label]) => { const on = srcs.includes(k); return <button key={k} type="button" className={`fd-chip is-${k} ${on ? 'on' : ''}`} aria-pressed={on} onClick={() => pickSrc(k)} data-testid={`feed-src-${k}`}
-          data-tip={k === 'all' ? 'Every site mixed' : k === 'feeless' ? 'FEELESS alone = our live rooms (post, call, earn)' : `Mix ${label} in or out`}><i>{ic}</i>{label}</button>; })}
+        <div className="fd-chips" role="group" aria-label="FEEd sites"><button type="button" className={`fd-chip is-rooms ${rooms ? 'on' : ''}`} aria-pressed={rooms} onClick={() => setRooms(!rooms)} data-testid="feed-rooms"
+          data-tip={rooms ? 'Back to the timeline' : 'FEELESS live rooms — post, call, earn season points'}><i>💬</i>ROOMS</button>
+          {FEED_SRC.map(([k, ic, label]) => { const on = !rooms && srcs.includes(k); return <button key={k} type="button" className={`fd-chip is-${k} ${on ? 'on' : ''}`} aria-pressed={on} onClick={() => { setRooms(false); pickSrc(k); }} data-testid={`feed-src-${k}`}
+          data-tip={k === 'all' ? 'Every site mixed' : k === 'feeless' ? 'FEELESS posts on the timeline (the live rooms: 💬 ROOMS)' : `Mix ${label} in or out`}><i>{ic}</i>{label}</button>; })}
           {POST_ONLY.map(([k, ic, label]) => <span key={k} className="fd-chip is-post" tabIndex={0} data-tip={`${label} doesn't let a site read its feed without its own paid API app. Post to it from the composer — it opens ${label}'s own post page on your account.`}><i>{ic}</i>{label}<small>post only</small></span>)}</div>
       </header>
       {lookOpen ? <LookPanel look={look} set={setLook} onClose={() => setLookOpen(false)} /> : null}
