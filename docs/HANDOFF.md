@@ -15,6 +15,15 @@ Read this (2 min) → `CLAUDE.md` (lean rules + 🎨 MANDATORY STYLING + 📋 CU
 >    LIVE visual (meters, bars, animation on real numbers), never bare text. `styles/cssCoverage.test.js` fails on an unstyled class.
 
 ## 🔁 NOW (rewrite this section in place every session)
+> 🔥 **NEXT SESSION — FEECAT PRIORITY, in this order (owner 2026-10-29, all else waits):**
+> 1. **Cat spends on its own** (general cat signs up / pays with crypto from ITS wallet): daily $ limit, site allowlist, a log of every payment,
+>    owner OK on the first pay to a new site, never a card / password. Guards first (memory: new buy doors need guards).
+> 2. **Model picker v2** (`LaunchCat.jsx` + `launch_cat.py`): a $-per-task RANGE slider filter (min–max) + category filters that combine;
+>    show what each model can do: EFFORT levels when the model supports them (e.g. Opus 5.5 low → max, priced per effort), tools, vision,
+>    code. A 💻 coding cat can BUILD and show the result live in its browser window (preview page); add other per-job powers (content cat drafts
+>    + previews a post, agent cat fills forms up to the human step).
+> 3. Q2 trading/NEXA desk new views (bubbles on top of each chart, no wide rows) · 4. Q4 no paper except the Fuse Arena · 5. Q3 wall = calls
+>    design · 6. Q5 live price-gap engine. Details: `docs/WORK_QUEUE.md` top (Q1 ✅ LET IT GO shipped; staff pay no fee site-wide ✅).
 > 📊 **EDGE AUDIT 2026-10-29 03:3x (E01, `scripts/edge-audit.py`, 3% round trip, 4,000 coins):** the agents ENTERED 0 of 3,000 judged calls (all "wait";
 > those coins went −3.1% at 5 min, −5.4% at 60 min) — the "scared to enter" the owner sees. 12 of 1,111 rules stay positive on UNSEEN coins; best:
 > `5m:+5..15% + buyers ≥65%` +19.4% typical (n 63, 57% up) · `age <15m + 1h 0..+50%` +10.7% (n 243, 56% up) · `bundlers 0 + XL wallets <1` +17.7% (n 99).
