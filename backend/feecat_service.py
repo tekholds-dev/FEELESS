@@ -1471,7 +1471,7 @@ class CreatePayload(BaseModel):
 @app.get('/api/cats/models')
 async def cat_models():
     """🚀 Launch a Cat: OpenRouter's whole public model list (price, context, what it's good at), FEELESS's three on top."""
-    return {**(await _or_models()), 'live': _brains_live()}
+    return {**(await _or_models()), 'live': _brains_live(), 'generalLive': _work_live()}
 
 
 AGENT_MAX = 2   # 🤖 a user runs at most 2 agents (owner, 2026-10-22: "users pick if they want 1-2 cat AI agents"); a revoked one frees its slot

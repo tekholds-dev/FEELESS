@@ -89,6 +89,9 @@ Each loop iteration: ① cash check (card books vs wallet, halt, pending) → �
 > **Q2 Trading cat desk = the new views** — the leader FeeCat (creator wallet) desk + every trading cat: charts with decision BUBBLES floating
 >   on top / outside each chart (like the general workbench), no full-width wide windows (owner screenshot: NEXA "WHO TRADES FEECAT" wide rows).
 > **Q3 Fee's wall = the Fee's calls design; take Fee's calls out** (`FeeCallChat.jsx` look on the wall, then delete the separate calls panel + dead CSS).
+> **Q5 (after Q1-Q4) Price-gap engine, LIVE + animated** — before buying: a drawn visual of the engine reading real cross-pool gaps
+>   (`price_gap.py` / `/familia-pools/gaps`); after the user buys it: THEIR engine running on the $ they gave — each gap trade landing, the balance
+>   compounding (count-up, a growth curve), net of swap fees. Real numbers only; it ships with buy guards (memory: new buy doors need guards).
 > **Q4 No paper anywhere except the Fuse Arena** — remove paper toggles / "paper desk" / "starting paper balance" from cats + Create a cat
 >   (N05); confirm the real Fuse card's profit; if the Fuse cards' paper books disagree with chain, reset them so they never break.
 1. **P1 Mobile / Duo / fold pass** (pause the MD list for it): every page sized + working on phone / Duo / fold; the SIDE MENU in portrait is bugged; easy to see —

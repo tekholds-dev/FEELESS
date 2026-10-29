@@ -48,6 +48,6 @@ test('🎨 Build a cat › "Give it a job" (?create=1) lands on the brain pick �
   expect(q(el, 'agent-picker')).not.toBeNull(); expect(document.body.querySelector('#create-cat-title')).toBeNull();
   await act(async () => { q(el, 'agent-general').click(); });
   expect(q(el, 'lct-kind').textContent).toBe('🧭 GENERAL AI CAT · ITS OWN WALLET');
-  expect(q(el, 'lct-step-3').textContent).toContain('go real');
+  expect(q(el, 'lct-step-3').textContent).toContain('its wallet');
   act(() => root.unmount()); window.history.pushState({}, '', '/'); document.body.innerHTML = '';
 });
