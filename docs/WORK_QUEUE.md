@@ -21,6 +21,18 @@ Three bounded H01 fixes: placeholder legs no longer hide Fill seat (pending buys
 
 Conserve usage · finish the selected work by priority · never dead-style.
 
+## Owner requests 2026-10-29 (late) — NEXT, in this order
+1. **A06 Agents PICK from the one intake** (owner: "sort through the new intake to PICK a coin, not block coins on the intake"; "they act scared to enter"):
+   OSSY / G4 + agents read the NSFA 1 / 5 / 15-min survival + enter at the germ floor on a CONFIRMED coin; drop the "ten agents" desk; AI prompts get research
+   to write better winning prompts. Real-money buying ⇒ run `scripts/edge-audit.py` first and keep the buy guards (memory: big-picture-before-features, new-buy-doors-need-guards).
+2. **FC01 FeeCat two-option build** — option 1 TRADING cat (≤ 2 models, trench / perps on FEELESS only, like familiars.family); option 2 GENERAL cat (≤ 2 models working
+   together in a personal wallet-brain chat: research, crawl sites, Polymarket etc. via user sign-ins, a small browser window showing what it does). Each user can hold up to
+   3 cats; the owner's cat (NEXA) shows on the wallet's public FeeCat tab; a pop-out to watch the trading or assistant cat. ⚠ OWNER DECISION before code: option 2 creates a
+   wallet + one-time recovery phrase = CUSTODY (DECISIONS #2 is option A "your wallet signs"; counsel). Fee per top-up shown up front.
+3. **L02 Price-gap boost** (lootcollector.online idea): detect price gaps across pools/venues as an add-on to AutoCompound / pools / Night Vault to speed up daily earnings.
+4. **M02 Every page fits every device** (mobile / fold / desktop) against `MOBILE_LAYOUT.md › Duo floors`; no dead styles, no bulky one-off CSS.
+⚠ OWNER: HQ › Fees shows the swap fee at **1500 bps (15 %)** — confirm intended (the cat funding receipt reads it live).
+
 ## Build next — latest owner priorities
 
 | ID | Status | Specific remaining work / done when |

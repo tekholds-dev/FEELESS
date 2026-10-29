@@ -120,3 +120,16 @@ body.theme-day .dfl-act { background: rgba(255, 255, 255, .95); } body.theme-day
 @media (max-height: 500px) { .dfl { --dfl-rail: 48px; } .dfl-bar { gap: 3px; padding: 3px 8px 4px; } .dfl-id small { display: none; } .dfl-row .dfl-ib { min-height: 34px; }
   .dfl-rb { min-width: 36px; min-height: 36px; } .dfl-rc { width: 32px; height: 32px; } .dfl-tabs { margin-top: 6px; } .dfl-tabs button { min-height: 34px; font-size: 9px; letter-spacing: .04em; } }
 @media (max-width: 640px) { .dfl-vit { grid-template-columns: minmax(0, 1.4fr) repeat(3, minmax(0, 1fr)); } .dfl-tabs button { letter-spacing: .04em; } }
+/* 💵 YOUR position on the floor bar (DuoFloor.YouStrip): only while you hold the coin — lit, one row, a meter that fills with the move */
+.dfl-you { position: relative; display: grid; grid-template-columns: auto repeat(4, minmax(0, 1fr)); align-items: center; gap: 4px; padding: 4px 8px 6px; border-radius: 10px; overflow: hidden;
+  border: 1px solid rgba(69, 228, 134, .45); background: linear-gradient(90deg, rgba(21, 209, 106, .16), rgba(5, 8, 6, .5)); animation: dflYou .45s ease-out; }
+.dfl-you.is-dn { border-color: rgba(255, 143, 163, .45); background: linear-gradient(90deg, rgba(255, 143, 163, .14), rgba(5, 8, 6, .5)); }
+.dfl-you-tag { font: 900 9px var(--f-mono); letter-spacing: .14em; padding: 2px 6px; border-radius: 6px; background: #15d16a; color: #04140b; } .dfl-you.is-dn .dfl-you-tag { background: #ff8fa3; }
+.dfl-you > span { display: grid; min-width: 0; } .dfl-you small { font: 800 7px var(--f-mono); letter-spacing: .12em; color: #7d877f; }
+.dfl-you b.m-num { font: 800 12px var(--f-mono); color: #e8f2ea; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.dfl-you.is-up > span:nth-of-type(-n+2) b { color: #45e486; text-shadow: 0 0 10px rgba(69, 228, 134, .45); } .dfl-you.is-dn > span:nth-of-type(-n+2) b { color: #ff8fa3; }
+.dfl-you > u { position: absolute; left: 0; right: 0; bottom: 0; height: 2px; background: rgba(255, 255, 255, .06); }
+.dfl-you > u s { display: block; height: 100%; transform-origin: left; background: #45e486; transition: transform .5s ease; } .dfl-you.is-dn > u s { background: #ff8fa3; }
+@keyframes dflYou { from { box-shadow: 0 0 0 2px rgba(69, 228, 134, .6); } to { box-shadow: none; } }
+body.fx-lite .dfl-you { animation: none; } @media (prefers-reduced-motion: reduce) { .dfl-you { animation: none; } .dfl-you > u s { transition: none; } }
+body.theme-day .dfl-you { background: #effaf3; } body.theme-day .dfl-you b.m-num { color: #102018; }

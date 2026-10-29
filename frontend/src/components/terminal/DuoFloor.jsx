@@ -8,6 +8,8 @@ import { TradeTape } from './TradeTape';
 import { ShieldBadge } from '../Shield';
 import { LiveTank } from '../LiveTank';
 import { TokenAvatar } from './MarketPrimitives';
+import { useMyPosition } from './ChartPnl';
+import { pnlSummary } from '../../lib/position';
 import { LivePrice, LiveChange24, LiveMarketCap } from './LiveCells';
 import { useMarket } from '../../hooks/useMarket';
 import { useWorkspace } from '../../hooks/useWorkspace';
@@ -38,6 +40,23 @@ export function pumpLens(feed, lens) {
 }
 
 export { useDuoFloor };
+
+// 💵 YOUR position on the floor's bar (owner 2026-10-29: "real money — user trench trading live P&L shows clean"): only when you hold the coin —
+// live P&L %, $, what it is worth now and the entry, at the floor's live price (fees never in P&L, lib/position.pnlSummary). It flashes on each fill.
+function YouStrip({ pair }) {
+  const [pos, flash] = useMyPosition(pair);
+  const px = Number(pair?.priceUsd) || 0;
+  if (!pos || !(Number(pos.tokensHeld) > 0) || !(px > 0)) return null;
+  const s = pnlSummary(pos, px); const up = s.pnl >= 0;
+  return <div className={`dfl-you ${up ? 'is-up' : 'is-dn'}`} key={flash} data-testid="dfl-you" data-tip="Your live position on this coin — fees are never in P&L">
+    <b className="dfl-you-tag">YOU</b>
+    <span><small>P&L</small><b className="m-num">{`${up ? '+' : ''}${s.pct.toFixed(1)}%`}</b></span>
+    <span><small>$</small><b className="m-num">{`${up ? '+' : '−'}$${Math.abs(s.pnl).toFixed(2)}`}</b></span>
+    <span><small>NOW</small><b className="m-num">{usd(s.value)}</b></span>
+    <span><small>IN</small><b className="m-num">{usd(s.bought)}</b></span>
+    <u aria-hidden="true"><s style={{ transform: `scaleX(${Math.min(1, Math.abs(s.pct) / 100)})` }} /></u>
+  </div>;
+}
 
 const pct = v => (v == null || !Number.isFinite(Number(v)) ? '—' : `${Number(v) >= 0 ? '+' : ''}${Number(v).toFixed(1)}%`);
 const usd = v => (!(Number(v) > 0) ? '—' : v >= 1e6 ? `$${(v / 1e6).toFixed(2)}M` : v >= 1e3 ? `$${(v / 1e3).toFixed(1)}K` : `$${Math.round(v)}`);
@@ -94,6 +113,7 @@ export function DuoFloor({ pair, pairs = [], newPairs = [], wide, onPick, onBack
           <span className="dfl-kv" data-tip="Pool liquidity"><small>LIQ</small><b className="m-num">{usd(cur.liquidity?.usd)}</b></span>
           <span className="dfl-kv is-m5" data-tip="Move over the last 5 minutes"><small>5M</small><b className={`m-num ${Number(m5) >= 0 ? 'up' : 'dn'}`}>{pct(m5)}</b><u aria-hidden="true"><s className={Number(m5) >= 0 ? 'up' : 'dn'} style={{ transform: `scaleX(${Math.max(0.05, Math.min(1, Math.abs(Number(m5) || 0) / 30))})` }} /></u></span>
         </div>
+        <YouStrip pair={cur} />
       </header>
       <div className="dfl-plot" ref={plot}><TrenchChart pair={cur} defaultInterval="1m" tools={false} tape={false} /></div>
     </section>
