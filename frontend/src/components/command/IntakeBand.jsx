@@ -57,16 +57,21 @@ export function PickStrip({ edge, picks, isOwner, call, onPick }) {
   if (!edge) return null;
   const [gw, gcls, gtip] = GATE_WORD[edge.gate] || GATE_WORD.wait;
   const top = Math.max(1, ...(edge.rules || []).map(r => Number(r.med) || 0));
-  const flip = async () => {
+  const post = async (cfg, ok) => {
     if (!isOwner || busy) return;
     setBusy(true);
-    try { await call('/admin/agents', { method: 'POST', body: JSON.stringify({ cfg: { edgePick: !edge.on } }) }); await hubLoad(); toast.success(edge.on ? '🧪 Picks off — the agents only take their own READY coins' : '🧪 Picks on — proven rules pick from the intake'); }
+    try { await call('/admin/agents', { method: 'POST', body: JSON.stringify({ cfg }) }); await hubLoad(); toast.success(ok); }
     catch (e) { toast.error(e.message); } finally { setBusy(false); }
   };
+  const flip = () => post({ edgePick: !edge.on }, edge.on ? '🧪 Picks off — the agents only take their own READY coins' : '🧪 Picks on — proven rules pick from the intake');
+  const young = () => post({ pickYoung: !edge.young }, edge.young ? `🐣 Picks wait for your ${edge.minAgeMin}-min line again` : '🐣 Picks from 5 min — a pick that survived its watch may enter young, at half size');
   return <div className={`ib-pick${edge.on ? '' : ' is-off'}`} data-testid="ib-pick">
     <button type="button" className={`ib-pk-sw${edge.on ? ' is-on' : ''}`} role="switch" aria-checked={!!edge.on} disabled={!isOwner || busy} onClick={flip} data-testid="ib-pick-switch"
       data-tip={'🧪 PICKS: a coin matching a proven rule + its own 1 / 5-min survival + on its germ floor is READY on its own. Every wall, the Warden\'s sizing and your stops stay.' + (isOwner ? '' : ' (creator only)')}>
       <i aria-hidden="true" /><b>🧪 PICKS</b><small>{edge.on ? 'ON' : 'OFF'}</small></button>
+    {edge.minAgeMin > 5 ? <button type="button" className={`ib-pk-sw is-young${edge.young ? ' is-on' : ''}`} role="switch" aria-checked={!!edge.young} disabled={!isOwner || busy} onClick={young} data-testid="ib-pick-young"
+      data-tip={`🐣 PICKS FROM 5 MIN (your youngest-coin line is ${edge.minAgeMin} min). The audit, last 800 coins after a 3% round trip: rule-matched coins first seen under 15 min +5.1% typical, 53% up — seen at 15 min+ −8.2%, 24% up. On: a pick that survived its own 5-min watch may enter under your line at HALF size; every other wall stays. Off: your line stands for picks too.`}>
+      <i aria-hidden="true" /><b>🐣 FROM 5 MIN</b><small>{edge.young ? 'ON' : 'OFF'}</small></button> : null}
     <span className={`ib-pk-gate ${gcls}`} data-tip={`🧪 proof gate: ${gtip} · ${edge.held} of ${edge.tested} rules held`}><small>GATE</small><b>{gw}</b><u className="m-num">{edge.held}/{edge.tested}</u></span>
     <ol className="ib-pk-rules" aria-label="Proven rules">{(edge.rules || []).slice(0, 3).map((r, i) => <li key={r.rule} style={{ '--i': i }} data-tip={`${r.rule}\n${Number(r.med) >= 0 ? '+' : ''}${r.med}% typical an hour later · ${r.up}% went up · on ${r.n} coins it was not learned from (after a 3% round trip)`}>
       <small>{r.rule.replace(/ \+ /g, ' · ')}</small><b className="m-num">{Number(r.med) >= 0 ? '+' : ''}{Number(r.med).toFixed(1)}%</b><u aria-hidden="true"><s style={{ transform: `scaleX(${Math.max(0.04, (Number(r.med) || 0) / top)})` }} /></u></li>)}</ol>

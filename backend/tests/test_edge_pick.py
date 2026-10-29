@@ -77,3 +77,20 @@ def test_the_ai_seat_reads_the_research_and_the_pick_comes_first():
     pk = seat.packet([seat.cand_row(pick)], None, proven=seat.research([RULE]))
     assert pk['RESEARCH'][0].startswith('5m:5..15 + buy:65+') and 'RESEARCH' not in seat.packet([], None)
     assert 'RESEARCH' in seat.SYSTEM and '"pick"' in seat.SYSTEM
+
+
+def test_n04_a_pick_must_have_been_young_when_first_seen_and_only_the_owners_switch_lets_it_past_the_youngest_coin_line():
+    old = row('M', age=0.5, d5=1.0, buy=50, pace=0.8, chart=CHART)            # 30 min old, watched ~16.7 min → first seen at ~13 min: young enough
+    assert _judge(old)[0]['status'] == 'READY'
+    older = row('M', age=1.0, d5=1.0, buy=50, pace=0.8, chart=CHART)          # first seen at ~43 min: the losing side of the audit
+    assert _judge(older)[0]['status'] != 'READY'
+    uni.set_band({'agentMinAgeH': 0.25})                                      # the owner's 15-min youngest-coin line
+    kk = tk.Kernel(); kk.run([row('M', d5=1.0, buy=50, pace=0.8, chart=CHART)], 1000.0, _ctx()); d = kk.dec['M']
+    assert d['status'] == 'TRACKING' and 'youngest-coin line' in d['why'] and 'pick' not in d   # switch off: the line stands
+    kk = tk.Kernel(); kk.run([row('M', d5=1.0, buy=50, pace=0.8, chart=CHART)], 1000.0, _ctx(pickYoung=True)); d = kk.dec['M']
+    assert d['status'] == 'READY' and d['pick'] and d['opinions']['warden']['size'] <= 0.5 and 'young pick' in d['opinions']['warden']['why']
+    kk = tk.Kernel(); kk.run([row('M', d5=1.0, buy=50, pace=0.8, liq=500, chart=CHART)], 1000.0, _ctx(pickYoung=True))
+    assert kk.dec['M']['status'] == 'TRACKING'                               # every OTHER wall rule still stands (a pool the keeper cannot exit)
+    kk = tk.Kernel(); kk.run([row('M', d5=1.0, buy=50, pace=0.8, chart=CHART)], 1000.0, _ctx(pickYoung=True, surv={'M': {**SURV, 't0': 800.0}}))
+    assert kk.dec['M']['status'] == 'TRACKING'                               # watched under 5 min: no pass
+    uni.set_band({})

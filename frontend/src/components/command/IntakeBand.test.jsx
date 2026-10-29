@@ -57,6 +57,10 @@ test('🧪 A06 PICKS: a proven-rule coin wears the pick ring and sits in the str
   expect(live.textContent).toContain('$RDY'); await act(async () => { live.click(); }); expect(onPick).toHaveBeenCalledWith(expect.objectContaining({ mint: 'R1' }));
   await act(async () => { el.querySelector('[data-testid="ib-pick-switch"]').click(); });
   expect(JSON.parse(call.mock.calls[0][1].body)).toEqual({ cfg: { edgePick: false } });
+  await act(async () => { root.render(<IntakeBand o={{ ...o, edge: { ...edge, minAgeMin: 15, young: false } }} call={call} isOwner onPick={onPick} />); });
+  expect(el.querySelector('[data-testid="ib-pick-young"]').dataset.tip).toContain('+5.1% typical');
+  await act(async () => { el.querySelector('[data-testid="ib-pick-young"]').click(); });
+  expect(JSON.parse(call.mock.calls[1][1].body)).toEqual({ cfg: { pickYoung: true } });
   await act(async () => { root.render(<IntakeBand o={{ ...o, edge: { ...edge, gate: 'hold', held: 0, rules: [] } }} call={call} isOwner={false} onPick={onPick} />); });
   expect(el.querySelector('[data-testid="ib-pick"]').textContent).toContain('HOLD'); expect(el.querySelector('[data-testid="ib-pick-switch"]').disabled).toBe(true);
   await act(async () => { root.unmount(); });

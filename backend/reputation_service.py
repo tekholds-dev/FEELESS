@@ -21189,7 +21189,8 @@ def _edge_view():
     """🧪 A06 for the Agents tab: is the PICK on, the proof gate's verdict and the proven rules a pick can match (best first)."""
     a_ = _json_load(EDGE_AUDIT_PATH, {}) or {}
     on_ = ((_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('realCfg') or {}).get('edgePick', True)
-    return {'on': bool(on_), 'gate': a_.get('gate') or 'wait', 'held': int(a_.get('held') or 0), 'tested': int(a_.get('tested') or 0),
+    rc_ = (_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('realCfg') or {}
+    return {'on': bool(on_), 'young': bool(rc_.get('pickYoung', False)), 'minAgeMin': round(_uni.min_age() * 60), 'gate': a_.get('gate') or 'wait', 'held': int(a_.get('held') or 0), 'tested': int(a_.get('tested') or 0),
             'rules': [{'rule': ' + '.join(r_.get('rule') or []), 'med': r_.get('med'), 'n': r_.get('n'), 'up': r_.get('up')} for r_ in (a_.get('rules') or [])[:6]]}
 
 
@@ -21206,7 +21207,8 @@ def _kernel_ctx(now):
             'live': rd.get('live') if rd else None, 'weights': _judge_weights(now), 'aiw': _ai_weights(now), 'pens': _coach_pens(now), 'lessons': _tkl.lessons(_lc_book(now)), 'lab': _rlab.trigger_lessons(_lab_state()), 'waits': _rg.effective(_prime.clean_cfg((_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('realCfg') or {}), _regret_book()),
             'watchOnly': {m_ for m_ in _owner.get('only') or () if _tk.KERNEL.owner.get(m_) != 'arm'},   # 👤 review / track only: judged, never READY   # 🧬 only the generations IN CONTROL
             'edgeRules': _edge_rules(), 'feats': _FEATS, 'surv': _SURV, 'now': now,   # 🧪 A06 the PICK (brain.edge_pick)
-            'edgePick': ((_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('realCfg') or {}).get('edgePick', True)}
+            'edgePick': ((_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('realCfg') or {}).get('edgePick', True),
+            'pickYoung': bool(((_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('realCfg') or {}).get('pickYoung', False))}
 
 
 OWNER_REVIEW_PATH = FUSE_HQ_PATH.parent / 'owner_review.json'   # 👤 the owner's review / track / arm list (owner_review.py)
@@ -23888,7 +23890,7 @@ async def admin_agents_set(request: Request):
     ch = {}
     if 'feed' in body:
         ch['agentFeed'] = bool(body.get('feed'))
-    for k in ('agentTakePct', 'agentMode', 'agentStyle', 'agentSeats', 'agentLearn', 'agentLearnPct', 'agentTrust', 'agentDial', 'agentScalp', 'agentControl', 'agentCurve', 'agentPaper', 'agentOpen', 'agentAiLearn', 'chartWait', 'agentCapital', 'agentAiGate', 'agentValve', 'agentDuoGate', 'agentAiExit', 'nightGuard', 'nightShift', 'candleClock', 'edgePick') + _oe.POLICY_KEYS:
+    for k in ('agentTakePct', 'agentMode', 'agentStyle', 'agentSeats', 'agentLearn', 'agentLearnPct', 'agentTrust', 'agentDial', 'agentScalp', 'agentControl', 'agentCurve', 'agentPaper', 'agentOpen', 'agentAiLearn', 'chartWait', 'agentCapital', 'agentAiGate', 'agentValve', 'agentDuoGate', 'agentAiExit', 'nightGuard', 'nightShift', 'candleClock', 'edgePick', 'pickYoung') + _oe.POLICY_KEYS:
         if k in (body.get('cfg') or {}):
             ch[k] = body['cfg'][k]
     if ch:

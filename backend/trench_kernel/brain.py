@@ -47,6 +47,9 @@ def germ_entry_ok(ms, call):
 
 PICK_FROM_PEAK = -40.0   # 🧼 a pick may not be washed: this far under its own high since we first saw it = no pick
 PICK_5M_FLOOR = -20.0    # ⏱ "confirmed": it held its 1- and 5-minute checks AND is not bleeding over its first 5 minutes
+PICK_YOUNG_MIN = 15.0    # 🐣 N04 (2026-10-29, 800 coins after a 3% round trip): rule-matched coins first seen UNDER 15 min: +5.1% typical, 53% up (n 196);
+                         # first seen at 15 min+: −8.2%, 24% up (n 38). The edge is the young coin — a pick must have been this young when the desk first saw it
+PICK_YOUNG_WATCH = 300.0  # 🐣 `pickYoung` (the owner's switch): a pick may pass the youngest-coin line only after surviving this long on the desk's own watch
 
 
 def edge_pick(ms, c, tr, dv):
@@ -68,6 +71,9 @@ def edge_pick(ms, c, tr, dv):
         return None
     s = _sw.coin(c.get('surv'), m, _f(c.get('now')))
     if not s or s.get('ok1') is not True or s.get('ok5') is not True or s.get('ok15') is False or _f(s.get('m5')) < PICK_5M_FLOOR:
+        return None
+    age = ms['identity'].get('ageH')
+    if age is None or _f(age) * 60 - _f(s.get('watchedSec')) / 60 >= PICK_YOUNG_MIN:   # first seen at 15 min+ = the losing side of the audit
         return None
     if s.get('fromPeak') is not None and _f(s['fromPeak']) < PICK_FROM_PEAK:
         return None
@@ -125,6 +131,16 @@ def sherlock(ms, lessons=None):
 def weather(ms, ctx):
     reg = (ctx or {}).get('regime') or 'NORMAL'
     return {'regime': reg, 'factor': WEATHER_F.get(reg, 1.0)}
+
+
+def _u_too_young(row):
+    from . import universe as _u
+    return _u.too_young((row or {}).get('vitals') or {})
+
+
+def _u_min_age():
+    from . import universe as _u
+    return _u.min_age()
 
 
 def _u_germ_max():
@@ -257,6 +273,20 @@ def think(ms, ctx=None):
         parts = list(parts) + [('judge: ' + ' · '.join(w.replace('judge: ', '') for w, _p in hits), pen)]
     rank = round(base * we['factor'] * sh['factor'] * crowd * pen, 1)
     pick = None if held else edge_pick(ms, c, tr, dv)
+    if pick and c.get('pickYoung') and dv['hard']:   # 🐣 the owner's switch: ONLY the youngest-coin line steps aside for a pick that survived its watch
+        yl = _u_too_young(ms.get('row'))
+        hard = [(o, w) for o, sv, w in dv['objections'] if sv == 'HARD_VETO']
+        s_ = _sw.coin(c.get('surv'), ms['identity']['mint'], _f(c.get('now'))) or {}
+        row_ = ms.get('row') or {}
+        at_line = {**row_, 'vitals': {**(row_.get('vitals') or {}), 'ageH': _u_min_age()}}   # EVERY other wall rule, re-run with only the age at your line
+        if yl and hard == [('wall', yl)] and _f(s_.get('watchedSec')) >= PICK_YOUNG_WATCH and _opp.open_ok(at_line) is None:
+            dv = {**dv, 'hard': False, 'objections': [x for x in dv['objections'] if x[0] != 'wall'] + [('young', 'STRONG_WARNING', f"{yl} — a PICK that survived {int(_f(s_.get('watchedSec')) // 60)} min (🐣 your picks-from-5-min switch)")]}
+            wa = warden(ms, dv, sh)
+            wa = {'size': round(max(_crew.SHRINK_FLOOR, min(wa['size'], 0.5)), 2), 'why': (wa['why'] + ', ' if wa['why'] != 'full size' else '') + 'young pick: half seat'}
+        else:
+            pick = None   # the youngest-coin line (or another wall) still stands: no pick
+    if pick and dv['hard']:
+        pick = None   # a wall stands: never shown as a pick
     op = {'tally': t, 'sherlock': sh, 'weather': we, 'trigger': tr, 'devil': dv, 'warden': wa, 'courier': co,
           'reaper': reaper(ms, held), 'archivist': {'sources': ms['identity']['sources']}, 'judge': judge(ms, c.get('weights'))}
     return {'opinions': op, 'rank': rank, 'parts': parts, **({'pick': pick} if pick else {}),

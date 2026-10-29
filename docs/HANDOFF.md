@@ -23,7 +23,7 @@ Read this (2 min) → `CLAUDE.md` (lean rules + 🎨 MANDATORY STYLING + 📋 CU
 > ✅ **A06 APPROVED + LIVE 2026-10-29** (`trench_kernel/brain.edge_pick`, switch `realCfg.edgePick`, HQ › Agents › Intake › 🧪 PICKS): proven rule (gate TRADE
 > only) + own 1/5-min survival + on its germ = READY. Coin tags now read the flat row (`senses.audit_row`). ⚠ Latest 600 coins: matches ≈ +0.1% typical
 > BEFORE costs — watch the first real picks; the switch turns it off in one tap.
-> 👛 **W01 AGENT WALLETS (Crossmint) 2026-10-29** slices 1-3: a wallet per cat + mode switch + trades from it (server caps) + the $2 / rest payment split (WORK_QUEUE W01). 🆕 owner list N01–N12 in WORK_QUEUE.
+> 👛 **W01 AGENT WALLETS (Crossmint) 2026-10-29** slices 1-3: a wallet per cat + mode switch + trades from it (server caps) + the $2 / rest payment split (WORK_QUEUE W01). 🆕 owner list N01–N16 in WORK_QUEUE. N04: agents' edge = coins < 15 min, walled by the owner's 15-min line → 🐣 switch (off).
 > 📐 **L02 PRICE GAPS 2026-10-29** (`price_gap.py`, `/familia-pools/gaps`, Night Vault › 📐 PRICE GAPS): read-only cross-pool gaps net of a 0.3% swap a side; open only on 2 reads.
 **Updated 2026-10-29 · one long owner session, all pushed to main (gate green each push).**
 - 💵 Real card auto-halt fixed + live (gas-sized SOL gap booked as card fees). OWNER: top up ~0.02 SOL gas to the Fuse wallet.

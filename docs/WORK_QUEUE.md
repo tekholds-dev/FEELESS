@@ -83,7 +83,12 @@ Each loop iteration: ① cash check (card books vs wallet, halt, pending) → �
 - **N01 Intake rows on mobile**: ▲ / ▼ buttons to step through the intake's rows + swipe to move down a row (Trench Trade). (owner: "getting bangers with new intake")
 - **N02 Recovery key for a cat made before paying**: when done, give a one-time recovery key; entering it after a new sign-in loads the cat into the wallet profile.
 - **N03 Cat windows**: a trader cat always shows a chart; a general cat shows a browser window AND a chart window of what it is doing now.
-- **N04 Study agents + AI for NSFA ("no strat fits all")**: the new intake is giving good coins (germ + others) — audit the agent / AI code against it and fix what holds them back (run `scripts/edge-audit.py` first; guards stay).
+- **N04 Study agents + AI for NSFA** — 🔎 STUDIED + 1st fix 2026-10-29. Evidence: the real card's last 12h = 15 buys, ALL lost (0.1207 → 0.0773 SOL, −36%): 7 by the
+  AI seat (OSSY / G4 through the agents' seat), 3 your picks, 0 by A06 picks. Fees are not it ($0.001 a swap). The edge audit on the last 800 coins (3% round trip):
+  rule-matched coins first seen UNDER 15 min +5.1% typical / 53% up (n 196); first seen at 15 min+ −8.2% / 24% up (n 38). Your youngest-coin line `agentMinAgeH`
+  = 15 min walls exactly the winning side, so A06 could only pick the losing one. Fix: a pick must have been < 15 min old when first seen (tightening, always on) +
+  the owner's switch 🐣 FROM 5 MIN (`pickYoung`, off): a pick that survived its own 5-min watch may pass ONLY the youngest-coin line (every other wall re-run), half seat.
+  Tests `test_edge_pick.py` (8). NEXT: the AI seat's own losing record (holds 3–25 min; memory: 30 min+ holds win) — a study of its exits.
 - **N05 No paper for users, site-wide**: real money only; any amount entry + a receipt breakdown wherever real money is signed (FeeCat, Families, …).
 - **N06 Cat cloud + log**: a cloud store per trader / general cat; users browse a folder-style log (dropdowns) of what it researched, opened, bid, traded; a general cat can open links and ask the user to sign in (2 user-chosen AI models).
 - **N07 Real money never breaks** — ✅ the history bug FIXED 2026-10-29: Helius is out of quota ("max usage reached") and the profile / Families / positions read
@@ -100,6 +105,10 @@ Each loop iteration: ① cash check (card books vs wallet, halt, pending) → �
   research abc, you research def") and come together on one decision with its evidence. Better than a crawl spider. Same for trader agents.
 - **W01 funding rules** — ✅ 2026-10-29: HQ › Fees › 6 · FeeCat funding sets the one-time fee + the least first funding (`catFeeUsd` / `catMinUsd`); staff / creator wallets
   pay no fee and may start from $1; `GET /api/reputation/cats/fund-rules`; the desk says the rule BEFORE an amount and warns when an amount only covers the fee.
+- **N14 NEXA public**: the creator's NEXA / Fee leader dashboard shows on the creator wallet's PUBLIC profile.
+- **N15 Fee's call chat**: a better calls chat for Fee.
+- **N16 Fee's wallet**: the owner assigns an EXISTING wallet to Fee (not a Crossmint-made one); users' cats get a fresh Crossmint wallet. (Users never sign per trade —
+  W01; only funding is signed, from their own wallet.)
 - Standing: professional code, no lag, nothing buggy or breaking.
 
 ## Build next — latest owner priorities
