@@ -115,7 +115,10 @@ Each loop iteration: ① cash check (card books vs wallet, halt, pending) → �
   `profileFeeCat.css`). Visitors: FEECAT only — Fee's hero + live desk (FeeCatStage + FeeLiveTab, reused; the owner bar renders only for an admin viewer; no chat; the
   word NEXA never shown) + 🐱 Get your own cat. The creator, signed in on their own profile: 🪟 NEXA = the buyer's cat dashboard (FeeCatDesk via `useAdmin().call`) +
   👁 WHAT VISITORS SEE. Checked live on the creator profile as a visitor. Tests `ProfileFeeCat.test.jsx`.
-- **N15 Fee's call chat**: a better calls chat for Fee.
+- **N15 Fee's call chat** — ✅ 2026-10-29: `FeeCallChat.jsx` + `lib/feeCallChat.js` + `feeCallChat.css` replace the HER CALLS chip list on Fee's live desk
+  (FeeLiveTab; the old `feeCalls` + its rules removed): her bubbles in her own words (what · why · tags, the cap she called it at), each BUY threaded to the
+  SELL that closed it (result + hold) or "still holding", a 24h strip (calls · closed · won · net), a scanning line while she hunts (her hero's napping
+  rule), a coin opens its war room. Read-only. Checked live on /terminal/feecat (desktop + 360 day). Tests `feeCallChat.test.js`, `FeeCallChat.test.jsx`.
 - **N16 Fee's wallet** — ✅ 2026-10-29: feecat `agent_assign` (Fee only, the creator's signed wallet; `_LEADER_AGENT`): Crossmint `GET /wallets/{address}` answers →
   provider 'crossmint', she trades from it (agent_trade); anything else → 'watch' (balance from the chain, never traded from, no funding — FEELESS holds no private
   key). Users' cats: a fresh Crossmint wallet only. 👛 Assign field on Fee's wallet card (CatReal `AssignWallet`) + the 👁 watch-only notice. Tests

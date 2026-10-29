@@ -1,4 +1,5 @@
-import { scanFunnel, feeCalls } from './FeeLiveTab';
+import { scanFunnel } from './FeeLiveTab';
+import { callThread } from '../../lib/feeCallChat';
 import { feePins } from '../../lib/feecatCalls';
 import { laneSave, laneWord } from './FeeCatDesk';
 
@@ -9,7 +10,7 @@ test('her scan reads as a funnel with the top reasons', () => {
 
 test('only her BUY / SELL become calls and chart pins, with the paper note trimmed', () => {
   const ev = [{ id: 'a', type: 'BUY', ts: 2000, pairAddress: 'P', marketCapUsd: 50000, detail: 'Bought 0.1 SOL of X — 🤖 agents lane (paper).' }, { id: 'b', type: 'LEARN', ts: 3000, pairAddress: 'P', marketCapUsd: 1 }];
-  expect(feeCalls(ev)).toHaveLength(1); expect(feeCalls(ev)[0].text).toBe('Bought 0.1 SOL of X — 🤖 agents lane');
+  expect(callThread(ev)).toHaveLength(1); expect(callThread(ev)[0]).toMatchObject({ side: 'BUY', coin: 'X', sol: 0.1, why: '🤖 agents lane' });   // the chat (lib/feeCallChat)
   const pins = feePins(ev, 'P'); expect(pins).toHaveLength(1); expect(pins[0]).toMatchObject({ kind: 'feecat', who: 'Fee', cap: 50000, at: 2 });
   expect(feePins(ev, 'OTHER')).toEqual([]);
 });
@@ -36,8 +37,7 @@ test('💬 public FeeCat: scan reasons + calls are chip rows, FeeCat AI\'s desk 
   expect(pins[0]).toMatchObject({ who: 'FeeCat AI', kind: 'talk', icon: '🔮', text: 'graduated, buyers lead' });
   expect(pins[1].text).toBe('said skim');
   expect(talkPins(talk, null)).toEqual([]);
-  const c = feeCalls([{ id: 's', type: 'SELL', ts: 9, pnlSol: 0.0181, detail: 'Sold SQUADS at +18.3% — 🔮 FeeCat AI said exit. P&L +0.0181 SOL on the price move (fees apart, paper, live price).' }])[0];
-  expect(c.row).toMatchObject({ coin: 'SQUADS', move: 18.3, ai: true, sol: null }); expect(tapeRow(null).coin).toBeNull();
+  expect(tapeRow({ type: 'SELL', detail: 'Sold SQUADS at +18.3% — 🔮 FeeCat AI said exit. P&L +0.0181 SOL on the price move (fees apart, paper, live price).' })).toMatchObject({ coin: 'SQUADS', move: 18.3, ai: true, sol: null }); expect(tapeRow(null).coin).toBeNull();
   expect(tapeRow({ type: 'SELL', detail: 'Sold 1 at -0.3% — 🔮 FeeCat AI said exit. P&L -0.0002 SOL on the price move' })).toMatchObject({ coin: '1', sol: null, move: -0.3 });
   expect(tapeRow({ type: 'BUY', detail: 'Bought 0.06 SOL of AAPL at live price — 🔮 FeeCat AI favored it' })).toMatchObject({ coin: 'AAPL', sol: 0.06 });
   const { trailKey } = require('../terminal/ChartCallPins');

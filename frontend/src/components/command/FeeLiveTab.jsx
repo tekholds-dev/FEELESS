@@ -1,6 +1,8 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import '../../styles/feeLive.css';
-import { tapeRow, reasonChip, talkPins } from '../../lib/feeTape';
+import { FeeCallChat } from './FeeCallChat';
+import { useLeaderProfile } from '../../lib/feeLeader';
+import { reasonChip, talkPins } from '../../lib/feeTape';
 
 // 🐱 FEE LIVE (owner, 2026-10-19: "finish her terminal tabs"): what Fee is doing right now, for everyone — her last scan (coins read → passed → held,
 // the rules that stopped the rest), her open paper trades, the coin she holds on a live chart WITH her call bubbles, and her calls in her own words
@@ -17,19 +19,14 @@ export function scanFunnel(scan, held) {
   const rej = Object.values(by).sort((a, b) => b.c - a.c); const max = Math.max(1, ...rej.map(r => r.c));
   return { read: n(s.scanned) || 0, passed: n(s.passed) || 0, held: held || 0, reasons: rej.slice(0, 5).map(r => ({ k: r.k, c: r.c, w: r.c / max, icon: r.icon, label: r.label, full: r.all.join(' · ') })), next: (s.top || []).slice(0, 4) };
 }
-// pure: her calls (BUY / SELL) newest first, in plain words
-export function feeCalls(events) {
-  return (events || []).filter(e => e.type === 'BUY' || e.type === 'SELL').slice(0, 12)
-    .map(e => ({ id: e.id, side: e.type, at: e.ts, pnl: n(e.pnlSol), text: String(e.detail || '').replace(/\s*\(paper[^)]*\)\.?/g, ''), pair: e.pairAddress, row: tapeRow(e) }));
-}
-
 export function FeeLiveTab() {
   const [d, setD] = useState(null); const [ev, setEv] = useState([]); const [pick, setPick] = useState(0);
+  const prof = useLeaderProfile();   // the shared 15s poll her hero reads: napping (out of lives / a tilt pause) is the same word everywhere
   useEffect(() => { let on = true; let t = null;
     const go = async () => { try { const [a, b] = await Promise.all([fetch('/api/cats/leader').then(r => r.json()), fetch('/api/cats/activity?catId=leader').then(r => r.json())]); if (on) { setD(a); setEv(b.events || []); } } catch { /* keep the last */ }
       if (on) t = setTimeout(go, document.hidden ? 60000 : 15000); };
     go(); return () => { on = false; clearTimeout(t); }; }, []);
-  const pos = d?.cat?.positions || []; const f = useMemo(() => scanFunnel(d?.scan, pos.length), [d, pos.length]); const calls = useMemo(() => feeCalls(ev), [ev]);
+  const pos = d?.cat?.positions || []; const f = useMemo(() => scanFunnel(d?.scan, pos.length), [d, pos.length]);
   const coins = useMemo(() => [...pos.map(p => ({ pair: p.pairAddress, mint: p.mint, symbol: p.symbol, pct: n(p.currentChange), entry: n(p.entryPriceUsd), open: true })),
     ...f.next.map(t => ({ pair: t.pairAddress, mint: t.mint, symbol: t.symbol, open: false }))].filter(c => c.pair), [pos, f.next]);
   if (!d) return <p className="paper-muted" data-testid="fee-live-wait">🐱 reading Fee…</p>;
@@ -46,12 +43,6 @@ export function FeeLiveTab() {
       {c ? <div className="fcv-plot"><React.Suspense fallback={<p className="paper-muted">loading chart…</p>}><PriceChart key={c.pair} pair={{ chainId: 'solana', pairAddress: c.pair, baseToken: { address: c.mint, symbol: c.symbol } }} interval="1m" metric="price" showVolume={false} userEntry={c.entry || null} callouts={talk} /></React.Suspense></div> : null}
       <p className="fcv-legend"><span className="is-fee" data-tip="Fee's own BUY / SELL calls, at the candle and cap she made them">🐱 her calls</span>
         <span className="is-ai" data-tip="FeeCat AI's desk words on this coin (YES / NO / HOLD / SELL / SKIM) — tap a bubble for the why">🔮 FeeCat AI <b key={talk.length}>{talk.length}</b></span></p></article>
-    <article className="fcv-card fcv-calls"><h3>🐱 HER CALLS<small>{calls.length ? `newest ${ago(calls[0].at)} ago` : 'quiet so far'}</small></h3>
-      {calls.length ? <ol>{calls.map((x, i) => <li key={x.id} className={`is-${x.side.toLowerCase()} ${i === 0 ? 'is-new' : ''}`} style={{ '--i': i }} data-tip={x.text}><b>{x.side}</b>
-        <span className="fcv-chips">{x.row.coin ? <i className="fcv-coin">${x.row.coin}</i> : null}{x.row.sol != null ? <i>{x.row.sol} SOL</i> : null}
-          {x.row.move != null ? <i className={x.row.move >= 0 ? 'is-up' : 'is-dn'}>{x.row.move > 0 ? '+' : ''}{x.row.move}%</i> : null}
-          {x.pnl != null ? <i className={`fcv-pnl ${x.pnl >= 0 ? 'is-up' : 'is-dn'}`}>{x.pnl >= 0 ? '+' : ''}{x.pnl.toFixed(4)} SOL</i> : null}
-          {x.row.ai ? <i className="fcv-ai">🔮 AI</i> : null}{x.row.tag ? <i className="fcv-tag">{x.row.tag}</i> : null}</span><small>{ago(x.at)}</small></li>)}</ol>
-        : <p className="paper-muted">no calls yet on this paper trail — she waits for a coin that passes</p>}</article>
+    <article className="fcv-card fcv-calls"><FeeCallChat events={ev} positions={pos} hunting={d.cat?.status === 'running' && !(prof?.discipline || {}).pause} /></article>
   </section>;
 }

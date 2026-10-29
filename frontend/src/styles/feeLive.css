@@ -15,11 +15,6 @@
 .fcv-coins button.active { color: #1a1204; background: #ffd36b; border-color: transparent; }
 .fcv-plot :is(.chart-foot-chips, .chart-style-toggle, .chart-source, .chart-stale-note) { display: none !important; }   /* the pin lens sits there; they covered each other */
 .fcv-plot { height: clamp(300px, 46vh, 460px); } .fcv-plot .chart-area, .fcv-plot .candle-canvas { height: 100% !important; }
-.fcv-calls ol { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; max-height: 340px; overflow: auto; scrollbar-width: thin; scrollbar-color: #ffd36b transparent; }
-.fcv-calls ol::-webkit-scrollbar { width: 6px; } .fcv-calls ol::-webkit-scrollbar-thumb { background: #ffd36b; border-radius: 3px; }
-.fcv-calls li { display: grid; grid-template-columns: 38px minmax(0, 1fr) auto; gap: 8px; align-items: start; padding: 6px 8px; border-radius: 9px; background: rgba(255, 255, 255, .025); border-left: 2px solid var(--m-accent); font-size: 10.5px; line-height: 1.4; }
-.fcv-calls li.is-sell { border-left-color: #ff8fa3; } .fcv-calls li b { font: 800 9.5px var(--m-mono); } .fcv-calls li.is-buy b { color: var(--m-accent); } .fcv-calls li.is-sell b { color: #ff8fa3; }
-.fcv-calls li small { font: 600 9px var(--m-mono); color: var(--m-mute); white-space: nowrap; } .fcv-calls li.is-new { animation: fcvIn .3s ease-out; }
 /* 💬 chips, not sentences: scan reasons (icon + short label), her calls (coin · SOL · move · P&L · AI · tag), the source flow, the chart legend */
 .fcv-rc { display: inline-flex; align-items: center; gap: 5px; min-width: 0; } .fcv-rc i { font-style: normal; width: 18px; height: 18px; display: grid; place-items: center; border-radius: 6px; background: rgba(255, 211, 107, .1); }
 .fcv-bars li { cursor: help; } .fcv-bars li:hover span { color: var(--m-text); }
@@ -29,18 +24,12 @@
 .fcv-src .is-ai, .fcv-legend .is-ai { color: #e08cff; border-color: rgba(224, 140, 255, .45); background: rgba(224, 140, 255, .08); }
 .fcv-src .is-fee, .fcv-legend .is-fee { color: #ffd36b; border-color: rgba(255, 211, 107, .45); background: rgba(255, 211, 107, .08); }
 .fcv-legend b { display: inline-block; margin-left: 4px; color: var(--m-text); animation: fcvPop .4s ease-out; }
-.fcv-chips { display: flex; flex-wrap: wrap; gap: 4px; min-width: 0; } .fcv-chips i { font: 700 10px var(--m-mono); font-style: normal; padding: 1px 7px; border-radius: 999px; background: rgba(255, 255, 255, .05); color: var(--m-dim); }
-.fcv-chips .fcv-coin { color: var(--m-text); background: rgba(255, 255, 255, .09); } .fcv-chips .is-up { color: var(--m-accent); } .fcv-chips .is-dn { color: #ff8fa3; }
-.fcv-chips .fcv-pnl.is-up { background: rgba(21, 209, 106, .14); } .fcv-chips .fcv-pnl.is-dn { background: rgba(255, 143, 163, .14); }
-.fcv-chips .fcv-ai { color: #e08cff; background: rgba(224, 140, 255, .12); } .fcv-chips .fcv-tag { color: #ffd36b; background: rgba(255, 211, 107, .12); }
-.fcv-calls li { transition: transform .15s ease, background .15s ease; } .fcv-calls li:hover { transform: translateX(2px); background: rgba(255, 255, 255, .05); }
 @keyframes fcvIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
 @keyframes fcvPop { from { transform: scale(1.18); } to { transform: none; } }
-body.fx-lite .fcv-card, body.fx-lite .fcv-bars li, body.fx-lite .fcv-flow b, body.fx-lite .fcv-calls li.is-new, body.fx-lite .fcv-legend b { animation: none; }
-@media (prefers-reduced-motion: reduce) { .fcv-card, .fcv-bars li, .fcv-flow b, .fcv-calls li.is-new, .fcv-legend b { animation: none; } .fcv-bars u, .fcv-calls li { transition: none; } }
-body.theme-day .fcv-card { background: rgba(255, 255, 255, .75); } body.theme-day .fcv-card h3 { color: #8a6100; } body.theme-day .fcv-flow span, body.theme-day .fcv-calls li { background: rgba(236, 246, 240, .8); }
+body.fx-lite .fcv-card, body.fx-lite .fcv-bars li, body.fx-lite .fcv-flow b, body.fx-lite .fcv-legend b { animation: none; }
+@media (prefers-reduced-motion: reduce) { .fcv-card, .fcv-bars li, .fcv-flow b, .fcv-legend b { animation: none; } .fcv-bars u { transition: none; } }
+body.theme-day .fcv-card { background: rgba(255, 255, 255, .75); } body.theme-day .fcv-card h3 { color: #8a6100; } body.theme-day .fcv-flow span, body.theme-day
 body.theme-day .fcv-coins button.active { background: #a07500; color: #fff; }
-body.theme-day .fcv-src .is-ai, body.theme-day .fcv-legend .is-ai, body.theme-day .fcv-chips .fcv-ai { color: #8a2fb0; } body.theme-day .fcv-src .is-fee, body.theme-day .fcv-legend .is-fee, body.theme-day .fcv-chips .fcv-tag { color: #8a6100; }
-body.theme-day .fcv-chips i { background: rgba(0, 0, 0, .05); } body.theme-day .fcv-chips .fcv-coin { color: #0b1a12; }
+body.theme-day .fcv-src .is-ai, body.theme-day .fcv-legend .is-ai { color: #8a2fb0; } body.theme-day .fcv-src .is-fee, body.theme-day .fcv-legend .is-fee { color: #8a6100; }
 @media (max-width: 900px) { .fcv { grid-template-columns: minmax(0, 1fr); } .fcv-chart { grid-row: auto; } .fcv-calls { grid-column: auto; } }
-@media (max-width: 640px) { .fcv-plot { height: 300px; } .fcv-calls li { grid-template-columns: 34px minmax(0, 1fr); } .fcv-calls li small { grid-column: 2; } }
+@media (max-width: 640px) { .fcv-plot { height: 300px; } }
