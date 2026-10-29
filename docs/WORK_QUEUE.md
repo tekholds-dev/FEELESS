@@ -36,11 +36,11 @@ Each loop iteration: ① cash check (card books vs wallet, halt, pending) → �
 | E07 | VERIFY | (sweep 2026-10-29: no page side-scroll at 360 / 890 — clipped-control review still to do) |
 | E08 | DONE | Agents floor rail seats show each coin's image (useLiveTokenMarkets, one batched read, only while the floor is open; letters as fallback). Tests ✓. |
 | E09 | OPEN | Trade tape on the Trenches floor gets the per-trade stream (a new fill appears without waiting for the 15 s tape read). |
-| E10 | OPEN | Settings › Look: an "ECO ON · this phone stays cool" chip with what eco changes. |
+| E10 | DONE | Settings › Look shows "🔋 ECO ON · this phone stays cool" (eco phones, full effects off) with what eco changes in its tip. |
 | E11 | OPEN | HQ Numbers / Traffic: hide '—' rows when every value is missing (one "no data yet" line instead). |
 | E12 | OPEN | HQ Lag catcher: show the page-watcher's latest layout issues as a short live list. |
 | E13 | OPEN | FEEd: the FEELESS chip shows FEELESS posts on the same timeline (rooms stay one tap away). |
-| E14 | OPEN | CSS budgets: lower `terminal.css`'s KB budget to its new size after the deletions (cssHygiene). |
+| E14 | DONE | terminal.css budget 514 → 511 KB (now 510.7 after the feed rule deletions); cssHygiene ✓. |
 | E15 | OPEN | MOBILE_LAYOUT matrix: record which pages passed the Duo-floor contract (proof = sizes checked). |
 
 ## Owner requests 2026-10-29 (late) — NEXT, in this order
