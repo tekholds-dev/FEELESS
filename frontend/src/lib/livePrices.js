@@ -4,7 +4,8 @@ import { sweepable } from './cacheSweep';
 // Live prices for every card on screen: ONE shared poller (DexScreener pairs, 30 per call, every 3s — live like the trenches —
 // paused while the tab is hidden, never two calls in flight, backs off to 10s for a minute if DexScreener rate-limits (429)).
 // Cards subscribe with the pair addresses they show; unsubscribed pairs stop being fetched.
-const REFRESH_MS = process.env.NODE_ENV === 'test' ? 10000 : 3000;   // tests keep the slow clock (jsdom timers)
+const REFRESH_MS = process.env.NODE_ENV === 'test' ? 10000 : 3000;
+const refreshMs = () => (typeof document !== 'undefined' && document.body.classList.contains('fx-eco') ? REFRESH_MS * 2 : REFRESH_MS);   // 🔋 eco phones poll half as often (read when the poller starts — eco is set by then)   // tests keep the slow clock (jsdom timers)
 const SLOW_MS = 10000;
 let busy = false;
 let slowUntil = 0;
@@ -35,7 +36,7 @@ export function useLivePrices(pairs) {
     if (!list.length) return undefined;
     const fn = () => setTick(t => t + 1);
     list.forEach(p => want.set(p, (want.get(p) || 0) + 1)); listeners.add(fn);
-    if (!timer) timer = setInterval(refresh, REFRESH_MS);
+    if (!timer) timer = setInterval(refresh, refreshMs());
     if (list.some(p => !prices.has(p))) refresh(true);
     return () => { list.forEach(p => { const n = (want.get(p) || 1) - 1; if (n) want.set(p, n); else want.delete(p); }); listeners.delete(fn); if (!listeners.size && timer) { clearInterval(timer); timer = null; } };
   }, [key]);

@@ -5,6 +5,7 @@ import { ECOSYSTEMS } from '../lib/ecosystems';
 import { LAUNCHPADS } from '../lib/launchpads';
 import { useGlobeBubbles } from '../lib/globeBubbles';
 import { apiUrl } from '../lib/api';
+import { isEco } from '../lib/eco';
 import { burstObject, tickBurst, disposeBurst, coinHeat, kindFor, BURST_COLORS } from '../lib/globeBursts';
 
 const hashNum = str => { let h = 2166136261; for (let i = 0; i < str.length; i++) { h ^= str.charCodeAt(i); h = Math.imul(h, 16777619); } return (h >>> 0) / 4294967295; };
@@ -285,10 +286,16 @@ export default function Globe3D({ onSelect, onToken, selectedId, size = 640 }) {
   const earthUrl = useEngravedEarth();
   const stars = useStarfield(40);
   const visible = useRef(true);
+  // 🔋 eco phones (lib/eco): no auto-rotate, 1× pixels, and the WebGL loop runs only while a finger is on the globe (+3s), never idle at 120 Hz
+  const eco = useRef(isEco()); const idleT = useRef(null);
+  const wake = (ms = 3000) => { if (!eco.current) return; const g = globeRef.current; clearTimeout(idleT.current);
+    try { g?.resumeAnimation?.(); } catch { /* noop */ } idleT.current = setTimeout(() => { try { globeRef.current?.pauseAnimation?.(); } catch { /* noop */ } }, ms); };
+  useEffect(() => () => clearTimeout(idleT.current), []);
   const feedPush = useRef(null);
   const fireRef = useRef(null);
   const burstObjs = useRef(new Map());
   const fire = (lat, lng, kind, power, label, color, token) => {
+    wake(2600);   // 🔋 eco: a real price move wakes the globe long enough to draw its burst
     const b = { id: `${Date.now()}-${Math.random()}`, lat, lng, kind, power, born: performance.now(), color: color || BURST_COLORS[kind] || '#14F195' };
     const g = globeRef.current;
     if (visible.current && !document.hidden && g?.scene && g?.getCoords && burstObjs.current.size < 18) {
@@ -346,7 +353,7 @@ export default function Globe3D({ onSelect, onToken, selectedId, size = 640 }) {
 
   // Heartbeat: coins erupt in proportion to their real 24h heat, so hot coins visibly boil.
   useEffect(() => {
-    if (!tokenPoints.length || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return undefined;
+    if (!tokenPoints.length || eco.current || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return undefined;   // eco: no idle eruptions
     const weights = tokenPoints.map(p => 0.05 + coinHeat(p.token) ** 2);
     const total = weights.reduce((a, b) => a + b, 0);
     let n = 0;
@@ -368,6 +375,7 @@ export default function Globe3D({ onSelect, onToken, selectedId, size = 640 }) {
     let raf;
     const loop = () => {
       if (!visible.current) { raf = requestAnimationFrame(loop); return; }
+      if (eco.current && !burstObjs.current.size) { raf = setTimeout(() => requestAnimationFrame(loop), 500); return; }   // 🔋 nothing to animate: idle at 2 Hz, not 120
       const now = performance.now();
       const dead = [];
       burstObjs.current.forEach((obj, id) => { if (!tickBurst(obj, now)) dead.push(id); });
@@ -378,7 +386,7 @@ export default function Globe3D({ onSelect, onToken, selectedId, size = 640 }) {
       raf = requestAnimationFrame(loop);
     };
     raf = requestAnimationFrame(loop);
-    return () => cancelAnimationFrame(raf);
+    return () => { cancelAnimationFrame(raf); clearTimeout(raf); };
   }, []);
 
   // Off-screen = paused: no bursts, no auto-rotate, no WebGL frames burned while you scroll the page.
@@ -387,7 +395,7 @@ export default function Globe3D({ onSelect, onToken, selectedId, size = 640 }) {
     const io = new IntersectionObserver(([e]) => {
       visible.current = e.isIntersecting;
       const g = globeRef.current;
-      try { if (e.isIntersecting) g?.resumeAnimation?.(); else g?.pauseAnimation?.(); } catch { /* noop */ }
+      try { if (e.isIntersecting) { if (eco.current) wake(1200); else g?.resumeAnimation?.(); } else g?.pauseAnimation?.(); } catch { /* noop */ }
     }, { threshold: 0.05 });
     io.observe(el);
     return () => io.disconnect();
@@ -410,10 +418,11 @@ export default function Globe3D({ onSelect, onToken, selectedId, size = 640 }) {
       const g = globeRef.current;
       if (!g || typeof g.controls !== 'function') { timer = setTimeout(setup, 80); return; }
       try {
-        g.controls().autoRotate = !window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+        g.controls().autoRotate = !eco.current && !window.matchMedia('(prefers-reduced-motion: reduce)').matches;
         g.controls().autoRotateSpeed = 0.85;
         g.controls().enableZoom = false;
-        try { g.renderer().setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.5)); } catch { /* noop */ }
+        try { g.renderer().setPixelRatio(eco.current ? 1 : Math.min(window.devicePixelRatio || 1, 1.5)); } catch { /* noop */ }
+        wake(1500);
         g.pointOfView({ altitude: 2.1 }, 0);
         if (typeof g.globeMaterial === 'function') {
           const globeMat = g.globeMaterial();
@@ -432,8 +441,8 @@ export default function Globe3D({ onSelect, onToken, selectedId, size = 640 }) {
     const node = GLOBE_NODES.find(n => n.id === selectedId);
     const globe = globeRef.current;
     if (globe?.controls) {
-      globe.controls().autoRotate = !node && !window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-      if (node) globe.pointOfView({ lat: node.lat, lng: node.lng, altitude: 2.2 }, 900);
+      globe.controls().autoRotate = !node && !eco.current && !window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      if (node) { wake(1800); globe.pointOfView({ lat: node.lat, lng: node.lng, altitude: 2.2 }, 900); }
     }
   }, [selectedId]);
 
@@ -463,7 +472,8 @@ export default function Globe3D({ onSelect, onToken, selectedId, size = 640 }) {
   return (
     <div ref={containerRef} className="globe-canvas-wrap globe-alive" data-testid="ecosystem-globe" style={{ width: '100%', maxWidth: size, aspectRatio: '1' }}
       onMouseEnter={() => { const c = globeRef.current?.controls?.(); if (c) c.autoRotate = false; }}
-      onMouseLeave={() => { const c = globeRef.current?.controls?.(); if (c && !selectedId && !window.matchMedia('(prefers-reduced-motion: reduce)').matches) c.autoRotate = true; }}>
+      onMouseLeave={() => { const c = globeRef.current?.controls?.(); if (c && !selectedId && !eco.current && !window.matchMedia('(prefers-reduced-motion: reduce)').matches) c.autoRotate = true; }}
+      onPointerDown={() => wake(60000)} onPointerUp={() => wake()} onPointerCancel={() => wake()}>
       <div className="globe-bloom-layer globe-bloom-outer" aria-hidden="true" />
       <div className="globe-bloom-layer globe-bloom-inner" aria-hidden="true" />
       <div className="globe-particle-field" aria-hidden="true">{particles.map(p => <span key={p.id} className="globe-particle" style={{ left: p.left, top: p.top, animationDelay: p.delay, animationDuration: p.duration, width: p.size, height: p.size }} />)}</div>

@@ -19,6 +19,8 @@ export function AnimatedNumber({ value, format = v => String(v), duration = 2800
     const start = from.current;
     if (start == null || start === target || reduced()) { from.current = target; setShown(target); return undefined; }
     setDir(target > start ? 'up' : 'down');
+    // 🔋 eco phones: no 2.8s glide (dozens of numbers re-rendering at 12 Hz on every poll heats a phone) — snap + the one-shot up/down flash
+    if (document.body.classList.contains('fx-eco')) { from.current = target; setShown(target); return undefined; }
     const t0 = performance.now();
     let lastPaint = 0;
     cancelAnimationFrame(raf.current);

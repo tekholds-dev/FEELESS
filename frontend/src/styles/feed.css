@@ -299,7 +299,6 @@ body.theme-day .fd-compose textarea::placeholder { color: #8a9a91; } body.theme-
 @media (min-width: 1250px) { .fd { grid-template-columns: 210px minmax(0, 600px) 330px; } .fd-mini { display: grid; } }
 @media (max-width: 1000px) { .fd { grid-template-columns: minmax(0, 600px); } .fd-rail { display: none; } .fd-fab { display: grid; place-items: center; } }
 @media (max-width: 640px) {
-  html:has(.fd), body:has(.fd) { overflow-x: clip; }   /* the phone sheet's overflow-x: hidden made <body> a scroll container — sticky headers never stuck */
   .fd-handle { display: none; } .fd-name { max-width: none; flex: 0 1 auto; min-width: 0; } .fd-follow { padding: 2px 8px; }
   .fd { gap: 0; } .fd-col { border-radius: 0; border-left: 0; border-right: 0; min-height: 100dvh; }
   .fd-top { border-radius: 0; } .fd.is-folded .fd-top { transform: translateY(calc(-100% + 46px)); }

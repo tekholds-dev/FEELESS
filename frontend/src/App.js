@@ -19,6 +19,7 @@ import { captureInvite } from './lib/chatSession';
 captureInvite();
 import { installOverflowTitles, installImageFallback, installChartDisposalGuard } from './components/Hint';
 installOverflowTitles();
+startEco();   // 🔋 phones start in eco (lib/eco.js) before the first frame
 if (process.env.NODE_ENV !== 'test') import('./lib/perfWatch').then(m => m.startPerfWatch()).catch(() => {});
 if (process.env.NODE_ENV !== 'test') import('./lib/fxPause').then(m => m.startFxPause()).catch(() => {});   // ⏸ off-screen cards run no animations
 installImageFallback();
@@ -28,6 +29,7 @@ import { useHolderTheme } from './components/HolderTheme';
 import { MobileTabBar } from './components/MobileTabBar';
 import { FeeCatWidget } from './components/FeeCatWidget';
 import { DuoBar } from './components/DuoBar';
+import { startEco } from './lib/eco';
 const Landing = lazy(() => import('./pages/Landing'));
 const Terminal = lazy(() => import('./pages/Terminal'));
 const HqLink = lazy(() => import('./components/HqLink'));

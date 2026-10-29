@@ -1,0 +1,8 @@
+/* 🔋 PHONE ECO (lib/eco.js): body.fx-eco rides on top of fx-lite on touch phones. Blur over moving layers is the single most expensive thing a
+   phone GPU composites every frame, so it goes entirely; the big ambient / globe glow layers go too. Surfaces keep their colour, numbers and
+   entrances — only the always-on GPU work stops. Settings › Look › "Full effects" removes the class. */
+body.fx-eco *, body.fx-eco *::before, body.fx-eco *::after { -webkit-backdrop-filter: none !important; backdrop-filter: none !important; }
+body.fx-eco .mobile-tabbar { background: rgba(8, 10, 9, .97); }
+body.fx-eco .globe-bloom-layer, body.fx-eco .globe-star, body.fx-eco .globe-particle, body.fx-eco .ambient-orb, body.fx-eco .ambient-background::before,
+body.fx-eco .ambient-background::after { display: none !important; }
+body.theme-day.fx-eco .mobile-tabbar { background: rgba(250, 252, 251, .97); }
