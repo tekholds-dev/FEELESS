@@ -14,7 +14,7 @@ const BUDGETS = [0.02, 0.05, 0.1, 0.25, 0.5];
 const LIFE = 900;   // cat_real.PROPOSAL_SEC
 const short = a => (a ? `${a.slice(0, 4)}…${a.slice(-4)}` : '—');
 const clock = s => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
-const STATUS = { done: ['✓ SIGNED', 'ok'], skip: ['SKIPPED', 'off'], expired: ['EXPIRED', 'off'], replaced: ['REPLACED', 'off'], cancelled: ['CANCELLED', 'off'] };
+const STATUS = { failed: ['FAILED', 'bad'], done: ['✓ SIGNED', 'ok'], skip: ['SKIPPED', 'off'], expired: ['EXPIRED', 'off'], replaced: ['REPLACED', 'off'], cancelled: ['CANCELLED', 'off'] };
 
 // pure: the proposals as the panel shows them — pending first (newest first), each with its seconds left
 export function realView(cat, now = Date.now() / 1000) {
@@ -61,6 +61,13 @@ export function useAgentWallet(id, has, every = 20000) {
     load(); const t = setInterval(() => { if (!document.hidden) load(); }, every); return () => { on = false; clearInterval(t); }; }, [id, has, every]);
   return d;
 }
+// pure: today's spend from its own wallet vs its daily cap (agent_trade.day_cap: 4 × its per-buy budget, at most 2 SOL)
+export function agentDay(cat, now = Date.now() / 1000) {
+  const cap = Math.min(2, 4 * Math.min(0.5, Number(cat?.budgetSol) || 0.05));
+  const spent = (cat?.agentTx || []).filter(t => t.side === 'buy' && t.status !== 'failed' && now - (Number(t.at) || 0) < 86400).reduce((a, t) => a + (Number(t.sol) || 0), 0);
+  const live = (cat?.agentTx || []).find(t => ['sending', 'pending', 'awaiting-approval'].includes(t.status));
+  return { cap: Math.round(cap * 1e4) / 1e4, spent: Math.round(spent * 1e6) / 1e6, live: live || null };
+}
 export function AgentWalletCard({ cat, busy, send, addr }) {
   const w = cat?.agentWallet; const kind = cat?.brainsCfg?.kind; const d = useAgentWallet(cat?.id, !!w); const [copied, setCopied] = useState(false);
   const bal = d?.balance || {}; const mode = w?.mode || 'approve';
@@ -81,7 +88,9 @@ export function AgentWalletCard({ cat, busy, send, addr }) {
         {kind === 'trading' ? null : <div className="m-seg cr-ag-mode" role="radiogroup" aria-label="How it moves">
           {[['approve', '✋ ASK ME', 'Every AI move waits for your OK'], ['auto', '🚀 DO ITS THING', 'AI moves go ahead on their own, inside its limits']].map(([k, l, tip]) =>
             <button key={k} type="button" role="radio" aria-checked={mode === k} className={mode === k ? 'active' : ''} disabled={busy} onClick={() => mode !== k && send('agent_mode', { mode: k })} data-tip={tip} data-testid={`cr-agent-${k}`}>{l}</button>)}</div>}
-        <p className="cr-ag-note">⏳ Trades from this wallet switch on in the next build — today it is made, funded and watched; its moves still come as proposals.</p>
+        {(() => { const dd = agentDay(cat); return <div className="cr-ag-day" data-testid="cr-agent-day" data-tip={`Its own wallet trades go through the same FEELESS engine: one at a time, a buy ≤ its ${Math.min(0.5, Number(cat?.budgetSol) || 0.05)} SOL budget, ≤ ${dd.cap} SOL a day, 0.01 SOL always kept for gas; it sells only what it bought`}>
+          <em>TODAY</em><u aria-hidden="true"><s style={{ transform: `scaleX(${Math.min(1, dd.spent / (dd.cap || 1))})` }} /></u><b className="m-num">{dd.spent} / {dd.cap} SOL</b>
+          {dd.live ? <i className="cr-ag-live">🏇 {dd.live.side.toUpperCase()} ${dd.live.symbol} settling…</i> : null}</div>; })()}
       </div>}
   </div>;
 }
@@ -117,7 +126,8 @@ export function CatReal({ cat, busy = false, onAct, devAddress = '' }) {
   };
   const wrong = v.real && addr && v.wallet !== addr;
   return <section className={`kd-card cr ${v.real ? 'is-real' : ''}`} data-testid="cat-real">
-    <header><b>💵 REAL MODE</b><small>{v.real ? `${short(v.wallet)} signs every trade` : 'it proposes · your wallet signs · FEELESS never holds your SOL'}</small></header>
+    <header><b>💵 REAL MODE</b><small>{cat.agentWallet ? (cat.agentWallet.mode === 'auto' ? 'it trades from its own wallet — no signing per trade' : 'it asks you · its own wallet sends what you approve')
+      : v.real ? `${short(v.wallet)} signs every trade` : 'it proposes · your wallet signs · FEELESS never holds your SOL'}</small></header>
     <AgentWalletCard cat={cat} busy={busy} addr={addr} send={(a, x) => send.current(a, x)} />
     <WalletCard cat={cat} addr={addr} v={v} />
     {!v.real ? <div className="cr-off">
@@ -141,7 +151,12 @@ export function CatReal({ cat, busy = false, onAct, devAddress = '' }) {
           <span className="cr-side">{p.side === 'buy' ? 'BUY' : 'SELL'}</span>
           <span className="cr-what"><b>${p.symbol}</b><small title={p.why}>{p.why || 'its rules passed'}</small><small className="cr-r">{recLine(p.record)}</small></span>
           <b className="cr-size m-num">{p.side === 'buy' ? `${p.sol} SOL` : `${Math.round(p.fraction * 100)}%`}</b>
-          {p.status === 'pending' ? <span className="cr-acts">
+          {p.status === 'pending' && cat.agentWallet ? <span className="cr-acts is-agent">
+            {p.agentTx ? <em className="cr-ag-st">🏇 sending from its wallet…</em>
+              : cat.agentWallet.mode === 'auto' || p.approved ? <em className="cr-ag-st" title={p.agentWhy || ''}>{p.agentWhy ? `⏸ ${p.agentWhy}` : '🏇 its wallet sends it next pass'}</em>
+              : <><button type="button" className="m-btn m-go" disabled={busy} onClick={() => send.current('agent_approve', { proposal: p.id })} data-testid={`cr-approve-${p.id}`} data-tip="Your OK — its own wallet sends it (no transaction for you to sign)">✅ Approve</button>
+                <button type="button" className="m-btn" disabled={busy} onClick={() => send.current('proposal', { proposal: p.id, result: 'skip' })} data-testid={`cr-skip-${p.id}`} data-tip="Let this one pass">Skip</button></>}</span>
+            : p.status === 'pending' ? <span className="cr-acts">
             <span className="cr-clock" data-tip="It expires when this runs out — prices move"><u><s key={p.id} style={{ '--f': Math.min(1, p.left / LIFE), animationDuration: `${p.left}s` }} /></u><em className="m-num">{clock(p.left)}</em></span>
             <button type="button" className="m-btn m-go" disabled={busy || wrong} onClick={() => sign(p)} data-testid={`cr-sign-${p.id}`} data-tip="Opens the swap with the coins and amount set — press Get quote, your wallet signs">✍ Sign it</button>
             <button type="button" className="m-btn" disabled={busy} onClick={() => send.current('proposal', { proposal: p.id, result: 'skip' })} data-testid={`cr-skip-${p.id}`} data-tip="Let this one pass">Skip</button></span>

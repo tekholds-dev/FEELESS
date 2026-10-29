@@ -78,3 +78,21 @@ test('👛 its own wallet: make it (signed), then live SOL / USDC + copy; a gene
   expect(el.querySelector('[data-testid="cr-agent-auto"]')).toBeNull(); expect(el.querySelector('[data-testid="cr-agent"]').textContent).toContain('RIDES');
   await act(async () => { root.unmount(); });
 });
+
+test('🏇 a cat with its own wallet: ASK ME shows ✅ Approve (no ✍ Sign it), auto shows it sending, and the day bar counts its buys', async () => {
+  global.fetch = async () => ({ ok: true, json: async () => ({ balance: { sol: 1, usdc: 0 } }) });
+  const onAct = jest.fn(async () => {});
+  const p = { id: 'q1', side: 'buy', mint: 'M2', symbol: 'NEXT', at: NOW - 30, until: NOW + 870, status: 'pending', sol: 0.05, record: rec };
+  const ask = { id: 'g1', name: 'Gen', mode: 'real', realWallet: DEV, budgetSol: 0.05, brainsCfg: { kind: 'general' }, proposals: [p],
+    agentWallet: { address: 'AGT1111111111111111111111111111111111111111', mode: 'approve' }, agentTx: [{ side: 'buy', sol: 0.05, status: 'success', at: NOW - 100 }] };
+  const el = document.createElement('div'); document.body.appendChild(el); const root = createRoot(el);
+  await act(async () => { root.render(<CatReal cat={ask} onAct={onAct} devAddress={DEV} />); });
+  expect(el.querySelector('[data-testid="cr-sign-q1"]')).toBeNull();
+  await act(async () => { el.querySelector('[data-testid="cr-approve-q1"]').click(); });
+  expect(onAct).toHaveBeenLastCalledWith('agent_approve', { address: DEV, session: 'dev', proposal: 'q1' });
+  expect(el.querySelector('[data-testid="cr-agent-day"]').textContent).toContain('0.05 / 0.2 SOL');
+  await act(async () => { root.render(<CatReal cat={{ ...ask, agentWallet: { ...ask.agentWallet, mode: 'auto' }, proposals: [{ ...p, agentWhy: 'its daily cap is 0.2 SOL' }] }} onAct={onAct} devAddress={DEV} />); });
+  expect(el.querySelector('[data-testid="cr-approve-q1"]')).toBeNull(); expect(el.textContent).toContain('⏸ its daily cap is 0.2 SOL');
+  expect(el.querySelector('header').textContent).toContain('no signing per trade');
+  await act(async () => { root.unmount(); });
+});

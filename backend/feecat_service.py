@@ -10,6 +10,7 @@ File-backed JSON store, zero external dependencies, standalone FastAPI app.
 """
 import env_loader  # noqa: F401  (must run before reading os.environ)
 import agent_wallet as _aw
+import agent_trade as _at
 import asyncio
 import json
 import re
@@ -486,7 +487,8 @@ def _notify_real(cat, p):
         key = (DATA_DIR / 'internal.key').read_text().strip()
         verb = f"BUY ${p['symbol']} with {p['sol']} SOL" if p['side'] == 'buy' else f"SELL {round(p['fraction'] * 100)}% of your ${p['symbol']}"
         httpx.post('http://127.0.0.1:5077/api/reputation/internal/notify', headers={'x-feeless-internal': key}, timeout=2,
-                   json={'address': cat['realWallet'], 'kind': 'cat', 'text': f"🐱 {cat.get('name') or 'Your cat'} wants to {verb} — {p['why'][:80]}. Approve within 15 min; your wallet signs.",
+                   json={'address': cat['realWallet'], 'kind': 'cat', 'text': f"🐱 {cat.get('name') or 'Your cat'} " + (f"is doing it from its own wallet: {verb} — {p['why'][:80]}." if (cat.get('agentWallet') or {}).get('mode') == 'auto'
+                         else f"wants to {verb} — {p['why'][:80]}. " + ('Approve within 15 min — its wallet sends it.' if cat.get('agentWallet') else 'Approve within 15 min; your wallet signs.')),
                          'url': '/terminal/feecat/agents', 'once': f"cat-prop-{p['id']}"})
     except Exception:
         pass
@@ -1272,6 +1274,23 @@ async def _meta_post(store):
     store['lastWallPost'] = time.time()
 
 
+async def _agent_pass(store):
+    """🏇 Agent trades (agent_trade.py): every REAL cat with its own wallet settles what is in flight and sends its next proposal — inside this
+    loop's own load → save, so no other writer races it. A failure is logged and never stops the engine."""
+    key = os.environ.get('CROSSMINT_API_KEY', '').strip()
+    cats = [c for c in store['cats'].values() if (c.get('agentWallet') or {}).get('address') and _real.is_real(c) and not c.get('revoked')]
+    if not key or not cats:
+        return
+    now = time.time()
+    async with httpx.AsyncClient(timeout=25) as http_a:
+        for c in cats:
+            try:
+                for w_ in await _at.run(http_a, key, c, now):
+                    _log_event(store, c, 'TRADE', f"{c.get('name')}: {w_}")
+            except Exception as exc:
+                print('agent pass', c.get('id'), exc)
+
+
 async def _engine_loop():
     while True:
         try:
@@ -1281,6 +1300,7 @@ async def _engine_loop():
             running = [c for c in store['cats'].values() if c['status'] == 'running' and not c['revoked']]
             if running:
                 await run_engine(store, running)
+            await _agent_pass(store)
             if time.time() - store.get('lastWallPost', 0) >= WALL_EVERY:
                 store['lastWallPost'] = time.time()   # claim the slot first; a failed post retries next window
                 await _meta_post(store)
@@ -1774,7 +1794,7 @@ async def cat_action(cat_id: str, payload: ActionPayload, request: Request):
             raise HTTPException(403, "Only the creator's wallets can switch Fee real — this wallet isn't linked to the creator.")
     elif not fee_owner_real(cat, payload.action, signed) and (not payload.ownerId or payload.ownerId != cat.get('ownerId')):   # 🔒 the owner only
         _internal(request)                                             # … or HQ (reputation's admin run, internal key)
-    if payload.action in ('real', 'proposal', 'agent_wallet', 'agent_mode') and (not signed or signed != payload.address):
+    if payload.action in ('real', 'proposal', 'agent_wallet', 'agent_mode', 'agent_approve') and (not signed or signed != payload.address):
         raise HTTPException(401, 'Sign in with your wallet first (one signature, no transaction).')
 
     if payload.action == 'real':   # 💵 option A: the cat proposes, this wallet signs every trade
@@ -1803,6 +1823,12 @@ async def cat_action(cat_id: str, payload: ActionPayload, request: Request):
         except ValueError as e:
             raise HTTPException(400, str(e))
         _log_event(store, cat, 'STARTED', f"{cat['name']}: {'does its thing — AI moves go ahead on its own' if payload.mode == 'auto' else 'asks first — every AI move waits for your OK'}.")
+    elif payload.action == 'agent_approve':   # ✋ ASK ME: the owner's OK on one proposal → its wallet sends it on the engine's next pass
+        p_ = next((x for x in cat.get('proposals') or [] if x.get('id') == payload.proposal), None)
+        if not (cat.get('agentWallet') or {}).get('address') or not p_ or p_.get('status') != 'pending':
+            raise HTTPException(400, 'Nothing waiting to approve.')
+        p_['approved'], p_['approvedBy'] = time.time(), signed
+        _log_event(store, cat, 'TRADE', f"{cat['name']}: you approved {p_['side'].upper()} ${p_.get('symbol')} — its wallet sends it now.")
     elif payload.action == 'proposal':
         if signed != cat.get('realWallet'):
             raise HTTPException(403, "Only the cat's real wallet answers its proposals.")

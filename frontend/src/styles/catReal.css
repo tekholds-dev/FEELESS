@@ -94,3 +94,12 @@ body.fx-lite .cr-vdial, body.fx-lite .cr-agent { animation: none; } @media (pref
 body.theme-day .cr-agent { background: linear-gradient(135deg, #effbf6, #f6f0ff); border-color: rgba(106, 61, 240, .3); } body.theme-day .cr-agent.is-made { border-color: rgba(10, 140, 110, .45); }
 body.theme-day .cr-ag-off b { color: #1c1230; } body.theme-day .cr-ag-off small, body.theme-day .cr-ag-note { color: #5a4f78; } body.theme-day .cr-vault { stroke: #6a3df0; } body.theme-day .cr-agent.is-made .cr-vault { stroke: #0a8f6e; }
 @media (max-width: 640px) { .cr-agent { grid-template-columns: 36px minmax(0, 1fr); } .cr-vault { width: 36px; height: 36px; } .cr-ag-mode { justify-self: stretch; } }
+/* 🏇 its wallet's day: spent vs the daily cap (a filling bar), the trade settling now; an agent proposal's state in the list */
+.cr-ag-day { display: grid; grid-template-columns: auto minmax(60px, 1fr) auto; align-items: center; gap: 8px; }
+.cr-ag-day em { font: 800 8.5px 'JetBrains Mono', monospace; letter-spacing: .14em; font-style: normal; color: #9d8fbf; } .cr-ag-day b { font-size: 12px; color: #fff; }
+.cr-ag-day u { position: relative; height: 6px; border-radius: 6px; background: #ffffff12; overflow: hidden; } .cr-ag-day s { position: absolute; inset: 0; transform-origin: left; background: linear-gradient(90deg, #5ff2c8, #f5c451); transition: transform .5s ease; }
+.cr-ag-live { grid-column: 1 / -1; font: 700 9.5px 'JetBrains Mono', monospace; font-style: normal; color: #5ff2c8; animation: crNode 1.6s ease-in-out infinite; }
+.cr-acts.is-agent { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; } .cr-ag-st { font: 700 9.5px 'JetBrains Mono', monospace; font-style: normal; color: #5ff2c8; max-width: 260px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cr-st.is-bad { color: #ff8fa3; }
+body.fx-lite .cr-ag-live { animation: none; } body.fx-lite .cr-ag-day s { transition: none; } @media (prefers-reduced-motion: reduce) { .cr-ag-live { animation: none; } .cr-ag-day s { transition: none; } }
+body.theme-day .cr-ag-day b { color: #1c1230; } body.theme-day .cr-ag-day u { background: rgba(60, 40, 160, .1); } body.theme-day .cr-ag-st, body.theme-day .cr-ag-live { color: #0a8f6e; }

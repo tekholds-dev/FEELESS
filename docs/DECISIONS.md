@@ -18,8 +18,8 @@ doesn't sign every txn — one trade agent made and funded, that's it, it rides;
 moves or have them do their thing." Provider: Crossmint smart wallets, API-key admin signer (`backend/agent_wallet.py`, `CROSSMINT_API_KEY`);
 FEELESS stores only the address + locator, never a key. Trading cat = `auto` (fixed); general cat = `approve` ↔ `auto` (owner's switch); family =
 `approve` (moves only through the payout engine). This is custody through Crossmint — option A below is the history it replaces for cats that
-have a wallet. Built so far: wallet per cat + live balance + mode switch. NOT yet: trades sent from the wallet, the payment split into it,
-family wallets, per-cat spend caps on the server (all required before any money moves from it).
+have a wallet. Built: wallet per cat + live balance + mode switch + trades sent from it (agent_trade.py, server caps: per-buy budget,
+4× a day ≤ 2 SOL, gas kept, one in flight, sells only what it holds). NOT yet: the payment split into it, family wallets.
 **Decided: option A — the user's own wallet signs every trade (non-custodial).** A real cat watches the board with its brain and limits and
 PROPOSES each buy / sell with its evidence; one tap opens the swap with the coins and amount set; the user presses Get quote and signs —
 the same engine, guards and receipts as every FEELESS swap. FEELESS never holds a cat's money or keys (option B = custody, rejected).

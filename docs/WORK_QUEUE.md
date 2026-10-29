@@ -55,8 +55,13 @@ Each loop iteration: ① cash check (card books vs wallet, halt, pending) → �
 2. **W01 Agent wallets (Crossmint)** — owner 2026-10-29, DECISIONS #2. ✅ slice 1: `backend/agent_wallet.py` (create idempotent smart wallet per cat,
    balances, modes) · feecat actions `agent_wallet` / `agent_mode` (signed owner only) · `GET /api/cats/{id}/agent-wallet` · cat desk 👛 ITS OWN WALLET card (make,
    copy, live SOL/USDC, ASK ME | DO ITS THING for general; trading rides). Tests `test_agent_wallet.py` (3), `CatReal.test.jsx`. Preview `/dev/cats?general[&wallet]`.
-   NEXT (before any money moves from it): build + send swaps from the wallet via Crossmint `/wallets/{a}/transactions` with the real-card buy guards + per-cat spend caps;
-   approve-mode queue for general moves; payment split (FEELESS cut → agent wallet) at purchase; family wallets + the payout engine (≤ 3 hits / family / 12h).
+   ✅ slice 2 (2026-10-29): `backend/agent_trade.py` — a REAL cat's proposal is quoted on the FEELESS engine (`/api/trading/quote`, Jupiter + our fee) FOR its
+   wallet and sent through Crossmint (`/wallets/{a}/transactions`, base58; API-key signer). Runs only in the cat engine's own pass (`feecat_service._agent_pass`).
+   Guards: one in flight · buy ≤ per-buy budget (≤ 0.5) · ≤ 4× budget a day (≤ 2 SOL) · 0.01 SOL gas kept · sells only what it bought AND holds on-chain · the quote must
+   echo the exact coins · record written BEFORE the send, a lost reply re-asked with the same idempotency key (never a 2nd trade). Auto = trading cat / general on DO ITS
+   THING; ASK ME = `agent_approve` (✅ Approve on the desk). Done only on Crossmint `success` + on-chain sig. Tests `test_agent_trade.py` (5). UNPROVEN LIVE: whether
+   Crossmint wraps a Jupiter v0 tx inside its size limit; whether the API-key signer auto-approves (an `awaiting-approval` tx just waits and blocks the next).
+   NEXT: payment split (FEELESS cut → agent wallet) at purchase; family wallets + the payout engine (≤ 3 hits / family / 12h).
    Key check: wallets.create scope unproven until the first real make (Crossmint answers with its own words if missing).
 2. **FC01 FeeCat two-option build** — option 1 TRADING cat (≤ 2 models, trench / perps on FEELESS only, like familiars.family); option 2 GENERAL cat (≤ 2 models working
    together in a personal wallet-brain chat: research, crawl sites, Polymarket etc. via user sign-ins, a small browser window showing what it does). Each user can hold up to
