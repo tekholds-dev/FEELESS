@@ -1,6 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { RefreshCw } from 'lucide-react';
 import { AnimatedNumber } from '../terminal/AnimatedNumber';
+import { shaped } from '../../lib/shape';
+const NUMBERS = shaped({ history: [], market: {}, holders: {}, treasury: {}, flow: {}, scanner: {} });
 
 const usd = v => (v == null ? '—' : v >= 1e9 ? `$${(v / 1e9).toFixed(2)}B` : v >= 1e6 ? `$${(v / 1e6).toFixed(2)}M` : v >= 1e3 ? `$${(v / 1e3).toFixed(1)}K` : `$${Number(v).toFixed(v < 1 ? 6 : 2)}`);
 const pct = v => (v == null ? '—' : `${v >= 0 ? '+' : ''}${Number(v).toFixed(1)}%`);
@@ -23,7 +25,7 @@ export function NumbersPanel({ call }) {
   const [d, setD] = useState(null);
   const [err, setErr] = useState(null);
   const [busy, setBusy] = useState(false);
-  const load = () => { setBusy(true); call('/admin/numbers').then(x => { setD(x); setErr(null); }).catch(e => setErr(e.message)).finally(() => setBusy(false)); };
+  const load = () => { setBusy(true); call('/admin/numbers').then(x => { setD(NUMBERS(x)); setErr(null); }).catch(e => setErr(e.message)).finally(() => setBusy(false)); };
   useEffect(() => { load(); const t = setInterval(load, 30000); return () => clearInterval(t); }, []); // eslint-disable-line react-hooks/exhaustive-deps
   if (err && !d) return <p className="wp-bio">{err}</p>;
   if (!d) return <p className="wp-bio">Pulling the numbers…</p>;

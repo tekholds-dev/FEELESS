@@ -2,6 +2,8 @@ import { FamiliaOverwatch } from './FamiliaOverwatch';
 import React, { useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import '../../styles/familiaAdmin.css';
+import { shaped } from '../../lib/shape';
+const FAMILIA = shaped({ rules: {}, economy: { cities: [], families: 0, members: 0, raids: 0, raidsLive: 0, bankMp: 0, houseMp: 0, topBankMp: 0 }, range: {} });
 
 // 🏙 HQ › Build › Familia — the creator's control center (owner, 2026-10-21: "a huge FEELESS creator-wallet-only control center in Familia so I
 // can sort the real logic out"). The economy right now (families, MP banks, the house, raids, every city's plots), the LIVE rules the engine
@@ -29,10 +31,10 @@ function Field({ k, label, tip, val, range, onChange, live }) {
 export function FamiliaAdmin({ call }) {
   const [d, setD] = useState(null); const [r, setR] = useState({}); const [busy, setBusy] = useState(false);
   const [sim, setSim] = useState({ stake: 5, sender: 100, target: 1000 });
-  const load = () => call('/admin/familia/rules').then(x => { setD(x); setR(x.rules); }).catch(e => toast.error(e.message));
-  useEffect(() => { load(); const t = setInterval(() => { if (!document.hidden) call('/admin/familia/rules').then(setD).catch(() => {}); }, 20000); return () => clearInterval(t); }, []);   // eslint-disable-line react-hooks/exhaustive-deps
+  const load = () => call('/admin/familia/rules').then(x => { const y = FAMILIA(x); setD(y); setR(y.rules); }).catch(e => toast.error(e.message));
+  useEffect(() => { load(); const t = setInterval(() => { if (!document.hidden) call('/admin/familia/rules').then(x => setD(FAMILIA(x))).catch(() => {}); }, 20000); return () => clearInterval(t); }, []);   // eslint-disable-line react-hooks/exhaustive-deps
   const set = (k, v) => setR(x => ({ ...x, [k]: v }));
-  const save = async () => { setBusy(true); try { const x = await call('/admin/familia/rules', { method: 'POST', body: JSON.stringify(r) }); setD(x); setR(x.rules); toast.success('Familia rules saved — live ones apply now'); } catch (e) { toast.error(e.message); } setBusy(false); };
+  const save = async () => { setBusy(true); try { const x = await call('/admin/familia/rules', { method: 'POST', body: JSON.stringify(r) }); const y = FAMILIA(x); setD(y); setR(y.rules); toast.success('Familia rules saved — live ones apply now'); } catch (e) { toast.error(e.message); } setBusy(false); };
   if (!d) return <p className="cc-empty">Reading the city…</p>;
   const e = d.economy; const pay = hitPayout(+sim.stake, +sim.sender, +sim.target, +r.hitRate || 0, +r.hitCapUsd || 0);
   return <section className="fad m-stack" data-testid="familia-admin">

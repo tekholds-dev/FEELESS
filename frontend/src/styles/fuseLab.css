@@ -459,6 +459,15 @@ body.theme-day .dboard-tile { background: var(--m-surface-2); }
 .fdeck-rail.is-v2 button { padding: 8px 11px; } .fdeck-rail.is-v2 button b { font-size: 12.5px; }
 .fdeck-map { gap: 16px; } .fdeck-mapgroup { display: grid; gap: 8px; }
 .fdeck-tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 10px; }
+/* 🗺 concise overview (H01, 2026-10-29: the map repeated the rail as text tiles over ~2 screens): the groups side by side, each a short list —
+   name + live stat, the blurb clamped to one line (full text in the tooltip). One screen on desktop; one column on a phone. */
+.fdeck-mapgrid { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 12px; align-items: start; }
+.fdeck-mapgrid .fdeck-mapgroup { padding: 10px; border-radius: 16px; border: 1px solid var(--m-line); background: linear-gradient(180deg, rgba(255, 255, 255, .03), rgba(0, 0, 0, .2)); }
+.fdeck-mapgrid .fdeck-tiles { grid-template-columns: 1fr; gap: 6px; }
+.fdeck-mapgrid .fdeck-tile { grid-template-columns: minmax(0, 1fr) auto; align-items: baseline; gap: 2px 8px; padding: 9px 30px 9px 11px; min-height: 44px; }
+.fdeck-mapgrid .fdeck-tile b { font-size: 13.5px; } .fdeck-mapgrid .fdeck-tile em { font-size: 13px; justify-self: end; }
+.fdeck-mapgrid .fdeck-tile small { grid-column: 1 / -1; display: -webkit-box; -webkit-line-clamp: 1; -webkit-box-orient: vertical; overflow: hidden; }
+.fdeck-mapgrid .fdeck-tile i { top: 50%; right: 10px; translate: 0 -50%; }
 .fdeck-tile { position: relative; display: grid; gap: 4px; text-align: left; padding: 14px; border-radius: 14px; border: 1px solid var(--m-line); background: var(--m-surface); color: var(--m-text); font: inherit; cursor: pointer;
   animation: mCardIn .3s var(--m-ease) backwards; animation-delay: calc(var(--i, 0) * 50ms); transition: transform .15s, border-color .15s, box-shadow .15s; }
 .fdeck-tile:hover { transform: translateY(-3px); border-color: var(--m-accent); box-shadow: 0 14px 30px -20px var(--m-accent); } .fdeck-tile:active { transform: scale(.98); }

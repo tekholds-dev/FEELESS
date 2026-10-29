@@ -7,6 +7,8 @@ import { shortAddress } from '../../lib/dexscreener';
 import { CopyBtn } from '../CopyBtn';
 import { MoneyFlows } from './MoneyFlows';
 import { useSolUsd, money } from './FeeInputs';
+import { shaped } from '../../lib/shape';
+const TREASURY = shaped({ feeAccounts: [], reserves: [], splits: [], routes: [], adminSol: 0 });
 
 // Treasury: where FEELESS money sits right now, the split plan, and a real split you sign from your own wallet.
 // Nothing moves automatically: that would need a hot key on the server, which FEELESS never holds.
@@ -17,12 +19,12 @@ const floor = (v, d) => Math.floor(v * 10 ** d + 1e-6) / 10 ** d;
 export function TreasuryHub({ call, prefill }) {
   const { wallet, provider, connect } = useWallet() || {};
   const px = useSolUsd();
-  const [d, setD] = useState(null);
+  const [d, setD] = useState(null);   // TREASURY: every list the hub reads exists, even on an empty reply
   const [asset, setAsset] = useState(prefill?.asset || 'SOL');
   const [amount, setAmount] = useState(prefill?.amount || '');
   useEffect(() => { if (prefill) { setAsset(prefill.asset); setAmount(prefill.amount); } }, [prefill]);
   const [busy, setBusy] = useState('');
-  const load = useCallback(() => call('/admin/treasury/money').then(setD).catch(e => toast.error(errorText(e))), [call]);
+  const load = useCallback(() => call('/admin/treasury/money').then(x => setD(TREASURY(x))).catch(e => toast.error(errorText(e))), [call]);
   useEffect(() => { load(); }, [load]);
   if (!d) return <p className="cc-empty">Reading every FEELESS wallet…</p>;
   const fee = k => d.feeAccounts.find(f => f.asset === k) || {};

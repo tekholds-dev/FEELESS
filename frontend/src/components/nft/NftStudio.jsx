@@ -4,6 +4,8 @@ import { toast } from 'sonner';
 import { useWallet } from '../../hooks/useWallet';
 import { apiUrl, errorText } from '../../lib/api';
 import { MetaCard } from '../cards/MetaCard';
+import { shaped } from '../../lib/shape';
+const NFT_HOME = shaped({ collections: [], platforms: [] });
 
 // HQ › NFTs: turn any FEELESS card into an NFT collection on Solana and drop it to wallets.
 //   Metaplex Core — on-chain, your wallet signs (no key)      Crossmint — API minting (CROSSMINT_API_KEY)
@@ -29,7 +31,7 @@ export function NftStudio({ call }) {
   const [cards, setCards] = useState([]);
   const [open, setOpen] = useState(null);      // collection id
   const [make, setMake] = useState(null);      // wizard state
-  const load = useCallback(() => call('/admin/nft').then(setHome).catch(e => toast.error(errorText(e))), [call]);
+  const load = useCallback(() => call('/admin/nft').then(x => setHome(NFT_HOME(x))).catch(e => toast.error(errorText(e))), [call]);
   useEffect(() => { load(); fetch(apiUrl('/api/reputation/cards')).then(r => r.json()).then(d => setCards(d.cards || [])).catch(() => {}); }, [load]);
   const cardOf = key => cards.find(c => c.key === key);
   if (!home) return <p className="cc-empty">Opening the studio…</p>;

@@ -2,6 +2,9 @@ import React, { useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import { ApprovalsCheck } from '../ApprovalsCheck';
 import '../../styles/defence.css';
+import { shaped } from '../../lib/shape';
+const STORES = shaped({ stores: [], stale: 0, over: 0, totalMb: 0, staleMb: 0 });
+const DEFENCE = shaped({ blocks: [], rules: [], incidents: [], honeypots: [], tarpit: 0 });
 
 // HQ › Security › 🧠 DEFENCE THAT LEARNS (backend/defence.py) + 🗄 NO HOARDING (backend/store_caps.py). Decoys a scanner probes block that
 // fingerprint (24h, doubling); a scanner TOOL seen from many IPs becomes a rule; scrapers and replayed HQ signatures are slowed, never blocked.
@@ -13,9 +16,9 @@ export function classBar(byClass) { const tot = Object.values(byClass || {}).red
 
 export function DefencePanel({ call }) {
   const [d, setD] = useState(null); const [st, setSt] = useState(null); const [busy, setBusy] = useState('');
-  useEffect(() => { let on = true; const go = () => { if (document.hidden) return; call('/admin/security/defence').then(x => on && setD(x)).catch(() => {}); call('/admin/security/stores').then(x => on && setSt(x)).catch(() => {}); };
+  useEffect(() => { let on = true; const go = () => { if (document.hidden) return; call('/admin/security/defence').then(x => on && setD(DEFENCE(x))).catch(() => {}); call('/admin/security/stores').then(x => on && setSt(STORES(x))).catch(() => {}); };
     go(); const t = setInterval(go, 30000); return () => { on = false; clearInterval(t); }; }, [call]);
-  const lift = body => { setBusy(body.fp || body.ua); call('/admin/security/defence/lift', { method: 'POST', body: JSON.stringify(body) }).then(x => { setD(x); toast.success('Lifted'); }).catch(e => toast.error(e.message)).finally(() => setBusy('')); };
+  const lift = body => { setBusy(body.fp || body.ua); call('/admin/security/defence/lift', { method: 'POST', body: JSON.stringify(body) }).then(x => { setD(DEFENCE(x)); toast.success('Lifted'); }).catch(e => toast.error(e.message)).finally(() => setBusy('')); };
   const copy = t => { try { navigator.clipboard.writeText(t); toast.success('Report copied — send it to the network\'s abuse contact'); } catch { toast.error('Copy blocked'); } };
   const bar = classBar(st?.byClass);
   return <section className="m-card dfn" data-testid="defence-panel">

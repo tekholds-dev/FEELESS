@@ -3,6 +3,8 @@ import { toast } from 'sonner';
 import { InvestigatePanel, investigate } from '../CaseFile';
 import { shortAddress } from '../../lib/dexscreener';
 import { errorText } from '../../lib/api';
+import { shaped } from '../../lib/shape';
+const INTEL = shaped({ wanted: [], rings: [], moves: [] });
 
 // HQ › Investigate: the reputation department. A living database of ruggers, dumpers, snipers, bundlers and
 // the wallets that fund them, grouped into crews, with each actor's likely next move. FeeCat, the rug shield and
@@ -22,7 +24,7 @@ export function IntelDesk({ call }) {
   const [view, setView] = useState('wanted');
   const [open, setOpen] = useState(null);
   const [busy, setBusy] = useState(false);
-  const load = useCallback(() => call('/admin/intel-desk').then(setD).catch(e => toast.error(errorText(e))), [call]);
+  const load = useCallback(() => call('/admin/intel-desk').then(x => setD(INTEL(x))).catch(e => toast.error(errorText(e))), [call]);
   useEffect(() => { load(); }, [load]);
   const sweep = async () => { setBusy(true); try { await call('/admin/intel-desk/sweep', { method: 'POST' }); await load(); toast.success('Sweep done — database rebuilt.'); } catch (e) { toast.error(errorText(e)); } finally { setBusy(false); } };
   const t = d?.totals || {};

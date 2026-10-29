@@ -4,6 +4,7 @@ import { RpcKey } from '../components/command/FuseWallet';
 import { D } from '../components/command/__fixtures__/cockpit';
 import office from '../components/command/__fixtures__/office.json';
 import { hubLoad } from '../lib/agentHub';
+import { HqDeck } from '../components/command/HqDeck';
 import '../styles/hqPop.css';
 
 // 🧪 DEV ONLY (`/dev/hq`, never in a production build — index.js imports it behind NODE_ENV): HQ › Sicario's on the test fixtures, no wallet,
@@ -45,7 +46,31 @@ const SNAP = new URLSearchParams(window.location.search).has('snap');
 const call = async path => (path === '/admin/agents' ? (SNAP ? (await fetch('/dev-agents.json')).json() : live()) : path === '/admin/rpc' ? RPC : { ok: true });
 window.__hubLoad = hubLoad;
 
+// 🗂 ?deck=<tab> = the WHOLE HQ deck (every group, every tab) with a fake signed session: every /api/reputation/admin/* read answers from
+// fixtures (agents, rpc) or an EMPTY body — the missing-data state each tab must survive (no NaN, no undefined, no '—' walls, no crash).
+// Writes answer {ok:true}; public market reads pass through to the dev proxy. `?deck=fuse&grp=Build` lands on that tab.
+const DECK = qa.get('deck');
+const FAKE = 'HQdev1111111111111111111111111111111111111';
+if (DECK) {
+  try { localStorage.setItem('feeless:cc-session', JSON.stringify({ address: FAKE, ts: Math.floor(Date.now() / 1000), sig: 'dev' })); localStorage.setItem('feeless.hq.tab', JSON.stringify(DECK)); } catch { /* private */ }
+  const real = window.fetch.bind(window);
+  const answer = body => Promise.resolve(new Response(JSON.stringify(body), { status: 200, headers: { 'Content-Type': 'application/json' } }));
+  window.fetch = (u, o = {}) => {
+    const url = String(u?.url || u); const m = url.match(/\/api\/reputation(\/admin\/[^?]*|\/admin)/);
+    if (!m) return real(u, o);
+    const path = m[1];
+    if ((o.method || 'GET') !== 'GET') return answer({ ok: true });
+    if (path.startsWith('/admin/is-admin')) return answer({ owner: true, admin: true });
+    if (path === '/admin/roles') return answer({ yourRole: 'owner', roles: [] });
+    if (path === '/admin/agents') return answer(live());
+    if (path === '/admin/rpc') return answer(RPC);
+    return answer({});
+  };
+}
+
 export default function HqHarness() {
+  if (DECK) return <div className="hqp is-idle" data-testid="hq-pop" role="dialog" aria-label="HQ (dev preview)"><div className="hqp-body">
+    <HqDeck address={FAKE} signMessage={async () => 'dev'} onClose={() => {}} startTab={DECK} /></div></div>;
   return <div className="hqp is-idle" data-testid="hq-pop" role="dialog" aria-label="HQ (dev preview)">
     <header className="hqp-bar"><span className="hqp-mark" aria-hidden="true"><i /><i /><b>HQ</b></span><span className="hqp-mood"><b>🧪 DEV PREVIEW</b><small>fixture data · no sign-in</small></span></header>
     <div className="hqp-body"><div className="cc-shell" data-testid="hq-shell">{window.location.search.includes('rpc') ? <RpcKey call={call} /> : <AgentDesk call={call} isOwner />}</div></div>

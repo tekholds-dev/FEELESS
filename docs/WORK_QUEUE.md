@@ -32,7 +32,7 @@ Conserve usage · finish the selected work by priority · never dead-style.
 | C01 | OPEN | Familia desktop/mobile pass using shared room, vitals, panel and sheet templates. Every building opens a real function with live vitals. |
 | A01 | OPEN | Fix-agent: Lag catcher + Support issue → investigation → branch fix → before/after visual preview → owner review. |
 | D01 | OWNER | Public hosting, domain, HTTPS, production configuration and provider keys. Validate deployed endpoints. |
-| H01 | OPEN | Other HQ tabs: concise dashboard layouts, unread folding, missing-data handling, Fuse/family view repair, fixture-backed deck harness. Keep every control accessible. |
+| H01 | OPEN | DONE 2026-10-29: fixture-backed deck harness (`/dev/hq?deck=<tab>` — whole HQ, fake session, empty admin reads); missing-data handling (16 of 32 tabs crashed HQ on an empty reply → every read goes through `lib/shape.shaped`, `HqDeckMissing.test.jsx` mounts all 32 tabs on `{}`); per-tab `TabGuard` (a crash shows a Retry card, HQ keeps working); Fuse overview concise (1.9 → 1.4 screens). OPEN: unread folding + '—' cells + ≤1 screen per tab need the owner's screenshots / live data to target; "Fuse family view renders oddly" not reproduced on fixtures. |
 
 ## Product and engineering backlog
 

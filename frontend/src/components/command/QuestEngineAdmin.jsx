@@ -6,6 +6,8 @@ import { CHAT_THEMES } from '../ChatFx';
 import { perkText } from '../QuestBoard';
 import { AuraPicker } from '../cards/MetaCard';
 import { QuestBadgeCard } from '../QuestBadgeCard';
+import { shaped } from '../../lib/shape';
+const QUESTS = shaped({ badges: [], daily: [], weekly: [], tiers: [], stats: {}, metrics: {}, season: {} });
 
 // HQ › Badges › Quest engine: every badge editable (name, tier, on/off, tasks + targets), live holder
 // counts, and grant / revoke for any wallet. Saves go through the signed admin session; bad task lists are refused.
@@ -14,7 +16,7 @@ export function QuestEngineAdmin({ call }) {
   const [edit, setEdit] = useState(null);
   const [set, setSet] = useState('feeless');
   const [grant, setGrant] = useState({ address: '', badge: '', action: 'grant' });
-  const load = () => call('/admin/quests').then(setD).catch(e => toast.error(e.message));
+  const load = () => call('/admin/quests').then(x => setD(QUESTS(x))).catch(e => toast.error(e.message));
   useEffect(() => { load(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
   if (!d) return <div className="cc-block"><span className="loader" /> Loading quest engine…</div>;
   const save = async (b, patch) => { try { const r = await call('/admin/quests', { method: 'POST', body: JSON.stringify({ badges: { [b.id]: patch } }) }); setD(x => ({ ...x, badges: r.badges })); setEdit(null); toast.success('Saved'); } catch (e) { toast.error(e.message); } };

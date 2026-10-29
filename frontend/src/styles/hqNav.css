@@ -41,3 +41,11 @@ body.fx-lite .hq-busy > i, body.fx-lite .cc-shell [aria-busy="true"] { animation
 @media (prefers-reduced-motion: reduce) { .hq-busy > i, .cc-shell [aria-busy="true"] { animation: none; } .cc-shell [aria-busy="true"] { opacity: .5; } }
 body.theme-day .hq-busy > span { background: #fff; color: #8a5a00; border-color: rgba(138, 90, 0, .35); }
 body.theme-day .cc-nav2 .cc-tab-group > small { color: #0b6b3f; }
+/* 🧯 TabGuard — a tab that crashed on bad data: gold warning card, the error, one Retry (HqDeck.TabGuard) */
+.cc-tabguard { display: grid; gap: 8px; justify-items: start; margin: 12px 0; border-color: rgba(245, 196, 81, .4); background: linear-gradient(135deg, rgba(245, 196, 81, .08), rgba(0, 0, 0, .3));
+  animation: ccGuardIn .2s ease-out both; }
+.cc-tabguard .m-label { color: var(--gold, #f5c451); } .cc-tabguard p { margin: 0; font-size: 13px; }
+.cc-tabguard code { max-width: 100%; overflow-wrap: anywhere; font: 500 11px var(--m-mono, 'JetBrains Mono', monospace); color: #ffd98a; padding: 6px 8px; border-radius: 8px; background: rgba(0, 0, 0, .35); }
+@keyframes ccGuardIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+body.fx-lite .cc-tabguard { animation: none; } @media (prefers-reduced-motion: reduce) { .cc-tabguard { animation: none; } }
+body.theme-day .cc-tabguard { background: #fff8e6; } body.theme-day .cc-tabguard code { background: #fff; color: #7a4f00; }

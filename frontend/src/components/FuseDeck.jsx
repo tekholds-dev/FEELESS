@@ -1,6 +1,8 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import { apiUrl } from '../lib/api';
+import { shaped } from '../lib/shape';
+const FUSE_HQ = shaped({ book: { pnlUsd: 0, positions: 0, winners: 0, losers: 0 }, outlook: {}, bloodline: [], blockedCuts: [], published: [] });
 
 // How Fuse works, in one strip. Admin = the full pipeline (breed → prove → publish → traders → P&L).
 // Trader = what you're buying, in plain words. Shared by HQ and Trade › Fuse Lab.
@@ -51,7 +53,7 @@ export function FuseDeck({ panels, call }) {
   const [hq, setHq] = useState(null);
   useEffect(() => {
     if (!call) return undefined;
-    const load = () => call('/admin/fuses/hq').then(setHq).catch(() => {});
+    const load = () => call('/admin/fuses/hq').then(x => setHq(FUSE_HQ(x))).catch(() => {});
     load(); const t = setInterval(() => !document.hidden && load(), 60000); window.addEventListener('feeless:fuse-hq', load);
     return () => { clearInterval(t); window.removeEventListener('feeless:fuse-hq', load); };
   }, [call]);
@@ -78,9 +80,9 @@ export function FuseDeck({ panels, call }) {
         {group && group !== panels[i - 1]?.[4] && <span className="fdeck-group">{group}</span>}
         <button type="button" role="tab" aria-selected={!isMap && cur[0] === k} className={!isMap && cur[0] === k ? 'active' : ''} onClick={() => go(k)} data-testid={`fdeck-${k}`} data-tip={blurb}>
         <b>{l}</b></button></React.Fragment>)}</nav>
-      {isMap ? <div className="fdeck-body fdeck-map" key="map" data-testid="fdeck-overview">{call && <DeckAlerts call={call} go={go} has={k => panels.some(p => p[0] === k)} />}{call && <Verdict call={call} />}{[...new Set(panels.map(p => p[4]))].map(g => <section key={g || 'x'} className="fdeck-mapgroup"><span className="fdeck-group">{g}</span>
-          <div className="fdeck-tiles">{panels.filter(p => p[4] === g).map(([k, l, , blurb], i) => <button key={k} type="button" className="fdeck-tile" style={{ '--i': i }} onClick={() => go(k)} data-testid={`fdeck-tile-${k}`}>
-            <b>{l}</b>{TILE_STAT[k]?.(hq) != null && <em className="m-num">{TILE_STAT[k](hq)}</em>}<small>{blurb}</small><i aria-hidden="true">→</i></button>)}</div></section>)}</div>
+      {isMap ? <div className="fdeck-body fdeck-map" key="map" data-testid="fdeck-overview">{call && <DeckAlerts call={call} go={go} has={k => panels.some(p => p[0] === k)} />}{call && <Verdict call={call} />}<div className="fdeck-mapgrid">{[...new Set(panels.map(p => p[4]))].map(g => <section key={g || 'x'} className="fdeck-mapgroup"><span className="fdeck-group">{g}</span>
+          <div className="fdeck-tiles">{panels.filter(p => p[4] === g).map(([k, l, , blurb], i) => <button key={k} type="button" className="fdeck-tile" style={{ '--i': i }} onClick={() => go(k)} data-testid={`fdeck-tile-${k}`} data-tip={blurb}>
+            <b>{l}</b>{TILE_STAT[k]?.(hq) != null && <em className="m-num">{TILE_STAT[k](hq)}</em>}<small>{blurb}</small><i aria-hidden="true">→</i></button>)}</div></section>)}</div></div>
         : <div className="fdeck-body" key={cur[0]}>{cur[3] && <p className="fdeck-intro">{cur[3]}</p>}{cur[2]}</div>}
     </div>
   </section>;

@@ -1,6 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import { errorText } from '../../lib/api';
+import { shaped } from '../../lib/shape';
+const BOOK = shaped({ rows: [], accounts: [], totalFeesUsd: 0, owedUsd: 0 });
 
 // Every account's lifetime FEELESS fees: the book any future FeeBack / payback is paid from.
 const usd = v => `$${Number(v || 0).toLocaleString('en-US', { maximumFractionDigits: Number(v) >= 100 ? 0 : 2 })}`;
@@ -9,7 +11,7 @@ const day = t => (t ? new Date(t * 1000).toLocaleDateString() : '—');
 export function FeeBook({ call }) {
   const [d, setD] = useState(null);
   const [q, setQ] = useState('');
-  useEffect(() => { call('/admin/fee-book').then(setD).catch(e => toast.error(errorText(e))); }, [call]);
+  useEffect(() => { call('/admin/fee-book').then(x => setD(BOOK(x))).catch(e => toast.error(errorText(e))); }, [call]);
   const csv = () => {
     const cols = ['address', 'trades', 'volumeUsd', 'feeUsd', 'feeSol', 'feeUsdc', 'feeBackUsd', 'paidUsd', 'owedUsd', 'first', 'last'];
     const body = [cols.join(','), ...d.rows.map(r => cols.map(c => (c === 'first' || c === 'last' ? new Date(r[c] * 1000).toISOString() : r[c] ?? '')).join(','))].join('\n');

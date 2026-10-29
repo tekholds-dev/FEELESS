@@ -4,6 +4,8 @@ import { errorText } from '../../lib/api';
 import { shortAddress } from '../../lib/dexscreener';
 import { clearVerified } from '../../lib/verifyBatch';
 import { VerifyReport } from '../VerifyReport';
+import { shaped } from '../../lib/shape';
+const VERIFY = shaped({ requests: [], auto: [], manual: [] });
 
 // HQ › Verify: run the checks on any coin, grant the gold check, or revoke one (revoke always wins).
 export function CoinVerifyPanel({ call }) {
@@ -11,7 +13,7 @@ export function CoinVerifyPanel({ call }) {
   const [mint, setMint] = useState('');
   const [run, setRun] = useState(0);
   const [note, setNote] = useState('');
-  const load = useCallback(() => call('/admin/coin-verify').then(setD).catch(e => toast.error(errorText(e))), [call]);
+  const load = useCallback(() => call('/admin/coin-verify').then(x => setD(VERIFY(x))).catch(e => toast.error(errorText(e))), [call]);
   useEffect(() => { load(); }, [load]);
   const valid = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(mint);
   const act = async (m, action) => {

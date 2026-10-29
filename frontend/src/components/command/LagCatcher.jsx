@@ -4,6 +4,8 @@ import { errorText } from '../../lib/api';
 import { liteMode, setLite } from '../../lib/perfWatch';
 import { CodeHealth } from './CodeHealth';
 import '../../styles/lagAdvice.css';
+import { shaped } from '../../lib/shape';
+const PERF = shaped({ reports: 0, fixes: [], pages: [], routes: [] });
 
 const AREA = { machine: '🖥', server: '⏳', storage: '💾', api: '🌐', page: '🎞' };
 export function LagVitals({ v }) {
@@ -23,7 +25,7 @@ export function LagCatcher({ call }) {
   const [hours, setHours] = useState(1);
   const [d, setD] = useState(null);
   const [mine, setMine] = useState(liteMode());
-  const load = useCallback(() => call(`/admin/perf?hours=${hours}`).then(setD).catch(e => toast.error(errorText(e))), [call, hours]);
+  const load = useCallback(() => call(`/admin/perf?hours=${hours}`).then(x => setD(PERF(x))).catch(e => toast.error(errorText(e))), [call, hours]);
   useEffect(() => { load(); const t = setInterval(load, 30000); return () => clearInterval(t); }, [load]);
   const force = async on => { try { const r = await call('/admin/perf/config', { method: 'PUT', body: JSON.stringify({ forceLite: on }) }); setD(x => ({ ...x, forceLite: r.forceLite })); toast.success(on ? 'Lite effects on for everyone.' : 'Full effects restored.'); } catch (e) { toast.error(errorText(e)); } };
   const tone = !d ? '' : d.score >= 85 ? 'ok' : d.score >= 60 ? 'warn' : 'bad';

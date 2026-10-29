@@ -1,6 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import '../../styles/tips.css';
+import { shaped } from '../../lib/shape';
+const GUARD = shaped({ rules: { writesPerMin: 0 }, blocks: [], busiest: [], cooling: [], log: [], suspects: [] });
 
 // HQ › Security › 🛡 Guard: floods get a breather and HQ brute force cools down AUTOMATICALLY — but nobody is
 // blocked by a machine. Suspects wait here with their evidence; a block (or lifting one) is your approval, audited.
@@ -10,14 +12,14 @@ export function GuardPanel({ call }) {
   const [g, setG] = useState(null);
   const [busy, setBusy] = useState('');
   useEffect(() => {
-    let alive = true; const load = () => !document.hidden && call('/admin/security/guard').then(x => alive && setG(x)).catch(() => {});
-    call('/admin/security/guard').then(x => alive && setG(x)).catch(() => {}); const t = setInterval(load, 20000);
+    let alive = true; const load = () => !document.hidden && call('/admin/security/guard').then(x => alive && setG(GUARD(x))).catch(() => {});
+    call('/admin/security/guard').then(x => alive && setG(GUARD(x))).catch(() => {}); const t = setInterval(load, 20000);
     return () => { alive = false; clearInterval(t); };
   }, [call]);
   if (!g) return <div className="fl-row is-ghost" />;
   const act = (ip, action) => { setBusy(ip + action);
     call('/admin/security/guard', { method: 'POST', body: JSON.stringify({ ip, action }) })
-      .then(x => { setG(x); toast.success(`${action === 'block' ? '⛔ Blocked' : action === 'unblock' ? '✓ Unblocked' : '✓ Cleared'} ${ip}`); })
+      .then(x => { setG(GUARD(x)); toast.success(`${action === 'block' ? '⛔ Blocked' : action === 'unblock' ? '✓ Unblocked' : '✓ Cleared'} ${ip}`); })
       .catch(e => toast.error(e.message)).finally(() => setBusy('')); };
   const r = g.rules;
   return <section className="m-card gd" data-testid="guard-panel">

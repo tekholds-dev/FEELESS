@@ -2,6 +2,8 @@ import React, { useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import { investigate } from '../CaseFile';
 import '../../styles/fuseLab.css';
+import { shaped } from '../../lib/shape';
+const SHIELD = shaped({ rows: [], counts: { bot: 0, watch: 0, clean: 0 }, scanned: 0, engines: {} });
 
 // HQ › Safety › 🛡 Bot shield: every known wallet through every bot engine. Flags feed reputation (bot −40 / watch −15),
 // stop daily rewards, and zero Fuse creator cuts. Every flag cites its evidence; Clear / Confirm here always wins.
@@ -11,7 +13,7 @@ const LENS = [['flagged', 'Flagged'], ['bot', 'Bots'], ['watch', 'Watch'], ['all
 
 export function BotShield({ call }) {
   const [lens, setLens] = useState('flagged'); const [d, setD] = useState(null); const [open, setOpen] = useState(null);
-  const load = () => call(`/admin/shield?verdict=${lens}`).then(setD).catch(e => toast.error(e.message));
+  const load = () => call(`/admin/shield?verdict=${lens}`).then(x => setD(SHIELD(x))).catch(e => toast.error(e.message));
   useEffect(() => { setD(null); load(); }, [lens]); // eslint-disable-line react-hooks/exhaustive-deps
   const act = (address, action) => call('/admin/shield', { method: 'POST', body: JSON.stringify({ address, action }) }).then(() => { toast.success(action === 'cleared' ? 'Cleared — rewards + rep restored' : action === 'bot' ? 'Confirmed bot' : 'Back to automatic'); load(); }).catch(e => toast.error(e.message));
   return <section className="m-card m-live bsh" data-testid="bot-shield">

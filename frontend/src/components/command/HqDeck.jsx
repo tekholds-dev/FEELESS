@@ -53,6 +53,13 @@ import { useMoneyPulse, refreshPulse } from '../../lib/moneyPulse';
 import { tiny } from '../../lib/num';
 import { hqWrite, useHqBusy } from '../../lib/hqBusy';
 import { useRemembered } from '../../lib/remember';
+import { shaped } from '../../lib/shape';
+// 🧱 every HQ read through one shape (H01): an empty / partial reply renders an empty panel, never a crashed HQ
+const PULSE = shaped({ hourly: [], busiestRooms: [], topPosters: [], topClicks: [], top: [], messages: 0, activeWallets: 0, profiles: 0, pushSubscribers: 0, muted: 0, fee: {} });
+const TRAFFIC = shaped({ daily: [], hours: [], topPages24h: [], topPages7d: [], topClicks: [], referrers: [], topCoins: [], pairs: [] });
+const ROLES = shaped({ owners: [], roles: [], grants: [], youAreOwner: false });
+const SECURITY = shaped({ score: 0, services: [], checks: [], audit: [], topErrors: [], signals: {}, stats: {} });
+const INVITES = shaped({ top: [], total: 0, owedUsd: 0, pct: 0 });
 const NftStudio = lazy(() => import('../nft/NftStudio').then(m => ({ default: m.NftStudio })));
 
 const SESSION_KEY = 'feeless:cc-session';
@@ -72,6 +79,20 @@ function HqBusyBar() {
   const b = useHqBusy();
   if (!b.n) return null;
   return <div className={`hq-busy ${b.slow ? 'is-slow' : ''}`} role="status" data-testid="hq-busy"><i />{b.slow ? <span>⏳ still working{b.label ? ` — ${b.label}` : ''} · the server answers once the keeper finishes its current pass</span> : null}</div>;
+}
+
+// 🧯 one tab can never take HQ down (H01, 2026-10-29: 16 of 32 tabs crashed the WHOLE HQ on an empty reply). A render error in a tab
+// shows here — the tab name, the error, and a Retry that remounts it — while the nav, the other tabs and the header keep working.
+export class TabGuard extends React.Component {
+  constructor(p) { super(p); this.state = { err: null, n: 0 }; }
+  static getDerivedStateFromError(err) { return { err }; }
+  componentDidCatch(err) { console.warn('HQ tab crashed:', this.props.tab, err?.message); }
+  render() {
+    if (!this.state.err) return <React.Fragment key={this.state.n}>{this.props.children}</React.Fragment>;
+    return <section className="m-card cc-tabguard" role="alert" data-testid="hq-tab-crash"><span className="m-label">🧯 THIS TAB COULDN'T RENDER</span>
+      <p><b>{this.props.tab}</b> got data it didn't expect. The rest of HQ keeps working.</p><code>{String(this.state.err?.message || this.state.err).slice(0, 160)}</code>
+      <button type="button" className="m-btn" onClick={() => this.setState(s => ({ err: null, n: s.n + 1 }))} data-tip="Remount this tab and read its data again">↻ Retry</button></section>;
+  }
 }
 
 export function HqDeck({ address, signMessage, onClose, startTab }) {
@@ -122,7 +143,7 @@ export function HqDeck({ address, signMessage, onClose, startTab }) {
     } catch (e) { toast.error(e.code === 4001 ? 'Signature declined.' : e.message || 'Sign-in failed.'); } finally { setBusy(false); }
   };
 
-  const loadSec = useCallback(() => call('/admin/security').then(setSec).catch(e => toast.error(e.message)), [call]);
+  const loadSec = useCallback(() => call('/admin/security').then(x => setSec(SECURITY(x))).catch(e => toast.error(e.message)), [call]);
   const loadHolders = useCallback(() => { setHolders(null); call(`/admin/holders?asset=${asset}`).then(setHolders).catch(e => { toast.error(e.message); setHolders({ rows: [], error: e.message }); }); }, [call, asset]);
   const loadDrops = useCallback(() => call('/admin/airdrops').then(d => setDrops(d.airdrops || [])).catch(() => {}), [call]);
   const loadBugs = useCallback(() => call('/admin/bugs').then(d => setBugs((d.bugs || []).slice().reverse())).catch(() => {}), [call]);
@@ -162,6 +183,7 @@ export function HqDeck({ address, signMessage, onClose, startTab }) {
       <button type="button" className="cc-close" onClick={onClose} aria-label="Close HQ"><X size={16} /></button></header>
     {TAB_INFO[tab] && <div className="cc-tab-hero" key={tab} data-testid="cc-tab-hero"><div><small>{TAB_GROUPS.find(g => g[1].includes(tab))?.[0]?.toUpperCase()}</small><h3>{TAB_INFO[tab][0]}</h3><p>{TAB_INFO[tab][1]}</p></div>{TAB_INFO[tab][2].length > 0 && <div className="cc-tab-does">{TAB_INFO[tab][2].map(x => <span key={x}>{x}</span>)}</div>}</div>}
 
+    <TabGuard key={tab} tab={TAB_INFO[tab]?.[0] || tab}>
     {tab === 'agents' && <AgentDesk call={call} isOwner={isOwner} />}
     {tab === 'launch' && <LaunchRailAdmin call={call} isOwner={isOwner} />}
     {tab === 'verify' && <CoinVerifyPanel call={call} />}
@@ -231,6 +253,7 @@ export function HqDeck({ address, signMessage, onClose, startTab }) {
     {tab === 'bugs' && <section className="cc-panel">{!bugs.length ? <p className="cc-empty">No reports yet. Anyone can file one from a profile's “Report a bug” button.</p>
       : <div className="cc-bugs">{sortBugs(bugs).map(b => <div key={b.id} className={`cc-bug k-${b.kind} s-${b.status}`}><div><em className={`sev sev-${SEVERITY[b.kind]?.[0] ?? 1}`}>{SEVERITY[b.kind]?.[1] || b.kind}</em><b>{b.text}</b>{b.count > 1 && <span className="cc-bug-count" data-tip={`Same crash on the same page, reported ${b.count}× (last ${new Date((b.lastAt || b.at) * 1000).toLocaleString()})`}>×{b.count}</span>}{b.fixNote && <small className="cc-bug-fix">✓ {b.fixNote}</small>}<small>{b.page || '—'} · {new Date(b.at * 1000).toLocaleString()}{b.address ? ` · ${shortAddress(b.address)}` : ''}</small></div>
         <select value={b.status} onChange={e => call(`/admin/bugs/${b.id}?status=${e.target.value}`, { method: 'POST' }).then(loadBugs).catch(err => toast.error(err.message))}>{['open', 'fixing', 'fixed', 'wontfix'].map(s => <option key={s}>{s}</option>)}</select></div>)}</div>}</section>}
+    </TabGuard>
   </div>;
 }
 
@@ -574,7 +597,7 @@ function InvitesPanel({ call }) {
   const [d, setD] = useState(null);
   const [url, setUrl] = useState('');
   const [pct, setPct] = useState('');
-  const load = useCallback(() => call('/admin/referrals').then(x => { setD(x); setPct(String(x.pct ?? 0)); }).catch(e => toast.error(e.message)), [call]);
+  const load = useCallback(() => call('/admin/referrals').then(x => { const y = INVITES(x); setD(y); setPct(String(y.pct ?? 0)); }).catch(e => toast.error(e.message)), [call]);
   useEffect(() => { load(); fetch('/api/reputation/site').then(r => r.json()).then(x => setUrl(x.publicUrl || '')).catch(() => {}); }, [load]);
   const saveUrl = () => call('/admin/site', { method: 'POST', body: JSON.stringify({ publicUrl: url }) }).then(r => toast.success(`Invite links use ${url}${r.webhook?.ok ? ' · Helius webhook connected' : r.webhook?.reason ? ` · webhook: ${r.webhook.reason}` : ''}`)).catch(e => toast.error(e.message));
   const savePct = () => call('/admin/referrals/config', { method: 'PUT', body: JSON.stringify({ pct: Number(pct) || 0 }) }).then(r => { toast.success(`Every inviter now earns ${r.pct}% of their invitees' FEELESS fees.`); load(); }).catch(e => toast.error(errorText(e)));
@@ -598,7 +621,7 @@ function InvitesPanel({ call }) {
 
 function PulsePanel({ call }) {
   const [d, setD] = useState(null);
-  useEffect(() => { const load = () => call('/admin/pulse').then(setD).catch(() => {}); load(); const t = setInterval(() => { if (!document.hidden) load(); }, 20000); return () => clearInterval(t); }, [call]);
+  useEffect(() => { const load = () => call('/admin/pulse').then(x => setD(PULSE(x))).catch(() => {}); load(); const t = setInterval(() => { if (!document.hidden) load(); }, 20000); return () => clearInterval(t); }, [call]);
   if (!d) return <p className="cc-empty">Taking the pulse…</p>;
   const max = Math.max(1, ...d.hourly);
   return <section className="cc-panel">
@@ -701,7 +724,7 @@ function KolAdmin({ call }) {
 // Marketing view: what people actually look at, from privacy-light page-view counts.
 function TrafficPanel({ call }) {
   const [d, setD] = useState(null);
-  useEffect(() => { call('/admin/traffic').then(setD).catch(e => toast.error(e.message)); }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { call('/admin/traffic').then(x => setD(TRAFFIC(x))).catch(e => toast.error(e.message)); }, []); // eslint-disable-line react-hooks/exhaustive-deps
   if (!d) return <p className="wp-bio">Loading traffic…</p>;
   const maxDay = Math.max(1, ...d.daily.map(x => x.views)); const maxHr = Math.max(1, ...d.hours);
   const list = (rows, k, v) => rows.length ? rows.map(r => <div key={r[k]} className="tr-row"><span>{r[k]}</span><b>{r[v].toLocaleString()}</b></div>) : <p className="wp-bio">No data yet.</p>;
@@ -740,7 +763,7 @@ function SeasonsAdmin({ call }) {
 // HQ access: only the owner wallet can grant or revoke.
 function AccessAdmin({ call, signMessage, address }) {
   const [d, setD] = useState(null); const [f, setF] = useState({ address: '', role: 'moderator' });
-  const load = () => call('/admin/roles').then(setD).catch(e => toast.error(e.message));
+  const load = () => call('/admin/roles').then(x => setD(ROLES(x))).catch(e => toast.error(e.message));
   useEffect(() => { load(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
   // The owner signs each grant (wallet + role + time) — a HQ session alone can't hand out access.
   const grant = async e => { e.preventDefault(); try { const ts = Math.floor(Date.now() / 1000); const sig = await signMessage(`FEELESS grant HQ access\nwallet:${f.address}\nrole:${f.role}\nts:${ts}`);
