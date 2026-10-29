@@ -63,6 +63,7 @@ body.fc3-lock { overflow: hidden; }
   cursor: pointer; text-align: left; transition: background .15s, border-color .15s, transform .15s; }
 .fc3-dir li button svg { flex: none; filter: drop-shadow(0 0 4px color-mix(in srgb, var(--pc) 60%, transparent)); }
 .fc3-dir li button span { display: grid; min-width: 0; } .fc3-dir:not(.is-open) li button span { display: none; }
+.fc3-dir li button { box-sizing: border-box; } .fc3-dir:not(.is-open) li button { justify-content: center; padding: 4px 0; }   /* 100% + 16 px padding spilled 4 px out of the 46 px rail (E06 sweep) */
 .fc3-dir li button b { font: 800 10.5px 'JetBrains Mono', monospace; letter-spacing: .06em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .fc3-dir li button small { font: 600 9.5px 'JetBrains Mono', monospace; color: #b9a983; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .fc3-dir li button:hover { background: color-mix(in srgb, var(--pc) 14%, transparent); border-color: color-mix(in srgb, var(--pc) 40%, transparent); transform: translateX(2px); }
