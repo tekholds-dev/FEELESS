@@ -5,14 +5,16 @@ import { tankDots, laneCounts, capX, TANK_LEVELS, LiveTank, bestCoins } from './
 
 test('🫧 the intake lanes: every read lands on its own water level, across = live MC (log $1K…$10M), colour = what it is doing', () => {
   expect(capX(1e3)).toBe(0); expect(capX(1e7)).toBe(1); expect(capX(1e5)).toBeCloseTo(0.5);
-  const intake = { coins: [{ mint: 'A', sym: 'A', mc: 5e4, ch: 5, status: 'READY', germ: 4, pair: 'PA' }, { mint: 'B', sym: 'B', mc: 5e5, ch: -5, status: 'CONTENDING', germ: 30 }] };
+  const intake = { coins: [{ mint: 'A', sym: 'A', mc: 5e4, ch: 5, status: 'READY', germ: 4, pair: 'PA' }, { mint: 'B', sym: 'B', mc: 5e5, ch: -5, status: 'CONTENDING', germ: 30 },
+    { mint: 'R', sym: 'R', mc: 2e5, ch: 3, status: 'READY', germ: 40 }] };
   const pump = { launches: [{ mint: 'N1', symbol: 'N1', marketCapUsd: 8000, curveProgress: 90 }, { mint: 'N2', symbol: 'N2', marketCapUsd: 4000, curveProgress: 5 }] };
   const trend = { pairs: [{ pairAddress: 'T', baseToken: { address: 'MT', symbol: 'X' }, priceChange: { h1: 40 }, marketCap: 1e6 }] };
   const dots = tankDots({ pump, intake, trend, top: null }); const lane = k => TANK_LEVELS.findIndex(l => l[0] === k);
   const n = laneCounts(dots);
   expect(n[lane('germ')]).toBe(1); expect(n[lane('desk')]).toBe(2); expect(n[lane('new')]).toBe(2); expect(n[lane('trend')]).toBe(1); expect(n[lane('top')]).toBe(0);
-  expect(dots.find(d => d.id === 'g-A').tone).toBe('germ');                // at its germ floor
-  expect(dots.find(d => d.id === 'd-A').tone).toBe('hot');                 // READY glows gold
+  expect(dots.find(d => d.id === 'g-A').tone).toBe('germ');                // at its germ floor — and on NO other row
+  expect(dots.filter(d => d.mint === 'A')).toHaveLength(1);
+  expect(dots.find(d => d.id === 'd-R').tone).toBe('hot');                 // READY glows gold
   expect(dots.find(d => d.id === 'd-B').tone).toBe('dn');
   expect(dots.find(d => d.id === 'n-N1').tone).toBe('hot');                // about to graduate
   expect(dots.find(d => d.id === 'n-N2').tone).toBe('q');
@@ -52,9 +54,14 @@ test('🏆 best in the tank: tradable only, no dumps, germ + READY + two feeds a
   expect(new Set(best.map(b => b.sym)).size).toBe(best.length); expect(bestCoins([])).toEqual([]);
 });
 
-test('shared discovery supplies source lanes without separate feed responses', () => {
-  const dots = tankDots({ intake: { coins: [{ mint: 'RAW', sym: 'RAW', mc: 50000, status: 'UNREVIEWED', sources: ['open', 'pulse'], ageMin: 2 }] } });
-  expect(dots.some(d => TANK_LEVELS[d.lane][0] === 'new')).toBe(true);
-  expect(dots.some(d => TANK_LEVELS[d.lane][0] === 'desk')).toBe(true);
+test('ONE row per coin: a coin tagged by many feeds sits on its most specific level only (owner: "same coins on each row")', () => {
+  const many = ['open', 'pulse', 'runner', 'list:volume', 'list:movers', 'migr', 'list:ptrend'];
+  const C = [{ mint: 'NEW', mc: 5e4, status: 'UNREVIEWED', sources: many, ageMin: 2 }, { mint: 'TOP', mc: 5e4, status: 'UNREVIEWED', sources: many, ageMin: 40 },
+    { mint: 'MIG', mc: 5e4, status: 'UNREVIEWED', sources: ['open', 'migr'], ageMin: 300 }, { mint: 'TRD', mc: 5e4, status: 'UNREVIEWED', sources: ['open', 'runner'], ageMin: 300 },
+    { mint: 'OLD', mc: 5e4, status: 'UNREVIEWED', sources: ['open'], ageMin: 300 }, { mint: 'TRK', mc: 5e4, status: 'TRACKING', sources: many, ageMin: 2 },
+    { mint: 'GRM', mc: 5e4, status: 'CONTENDING', sources: many, ageMin: 2, germ: 2 }].map(c => ({ ...c, sym: c.mint }));
+  const dots = tankDots({ intake: { coins: C } });
+  expect(dots).toHaveLength(C.length);                                     // never a copy on a second row
+  expect(Object.fromEntries(dots.map(d => [d.mint, TANK_LEVELS[d.lane][0]]))).toEqual({ NEW: 'new', TOP: 'top', MIG: 'top', TRD: 'trend', OLD: 'desk', TRK: 'desk', GRM: 'germ' });
   expect(dots.every(d => !d.ready)).toBe(true);
 });

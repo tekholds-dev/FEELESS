@@ -15,10 +15,10 @@ import '../styles/liveTank.css';
 // the war room (owner 2026-10-27). 🏆 BEST IN THE TANK ranks the tradable coins across every level. One read per level, shared; paused hidden.
 export const TANK_LEVELS = [
   ['germ', 'GERM', "The agents' intake coins near their germ floor (−3…+10 %) — the buy zone"],
-  ['desk', 'DESK', "The agents' intake list — READY coins glow gold"],
-  ['top', 'TOP NEW', 'The newest pools with real money in them'],
-  ['trend', 'TRENDING', 'pump.fun trending pools'],
-  ['new', 'NEW', 'Pump launches in the shared discovery snapshot'],
+  ['desk', 'DESK', 'Coins the agents are tracking / contending (READY glows gold), plus older intake waiting for their read'],
+  ['top', 'TOP NEW', 'Under an hour old, or just migrated off its bonding curve'],
+  ['trend', 'TRENDING', 'Older coins on a trending / movers / runner list'],
+  ['new', 'NEW', 'Launched in the last 15 minutes'],
 ];
 export const TANK_LEGEND = [['up', 'rising'], ['dn', 'falling'], ['hot', 'hot · READY · graduating'], ['germ', 'at its germ floor'], ['q', 'quiet']];
 const READS = { intake: ['/api/reputation/familia/intake', 30000] };
@@ -42,6 +42,17 @@ const pc = v => (v == null ? '—' : `${v >= 0 ? '+' : ''}${Number(v).toFixed(1)
 const tone = (move, hot) => (hot ? 'hot' : move == null || Math.abs(move) < 1 ? 'q' : move > 0 ? 'up' : 'dn');
 
 // pure: every read → dots {id, sym, lane (index in TANK_LEVELS), x, tone, tip, href | pair}
+const WORKED = /READY|CONTENDING|TRACKING|ORDER_PENDING|HELD|EXIT_PENDING/i;
+/** pure: the ONE level an intake coin sits on (see tankDots) */
+export function intakeLane(c, atGerm, ready) {
+  const src = c.sources || []; const age = c.ageMin == null ? null : Number(c.ageMin);
+  if (atGerm) return 'germ';
+  if (ready || WORKED.test(c.status || '')) return 'desk';
+  if (age != null && age <= 15) return 'new';
+  if ((age != null && age <= 60) || src.includes('migr')) return 'top';
+  if (src.some(x => /trend|movers|runner/.test(x))) return 'trend';
+  return 'desk';
+}
 export function tankDots({ pump, intake, trend, top } = {}) {
   const lane = k => TANK_LEVELS.findIndex(l => l[0] === k); const out = [];
   for (const l of (pump?.launches || []).slice(0, 40)) {
@@ -55,11 +66,13 @@ export function tankDots({ pump, intake, trend, top } = {}) {
     const at = c.germ != null && c.germ >= -3 && c.germ <= 10;
     const base = { sym: c.sym, mint: c.mint, x: capX(c.mc), pair, href: c.pair ? null : `https://dexscreener.com/solana/${c.mint}`,
       facts: [['MC', usd(c.mc)], ['5M', pc(c.ch)], ['STATUS', c.status || '—'], ['GERM', c.germ != null ? pc(c.germ) : '—']] };
-    out.push({ ...base, id: `d-${c.mint}`, lane: lane('desk'), tone: tone(c.ch, ready), mv: c.ch, ready, germ: at ? c.germ : null, tip: `$${c.sym} · DESK · ${c.status || ''} · ${usd(c.mc)} MC · 5m ${pc(c.ch)}` });
-    const sources = c.sources || [];
-    const sourceLanes = [...new Set([...(sources.includes('pulse') ? ['new'] : []), ...(sources.includes('migr') || c.ageMin <= 60 && c.ageMin != null ? ['top'] : []), ...(sources.some(x => /trend|movers|runner/.test(x)) ? ['trend'] : [])])];
-    sourceLanes.forEach(k => out.push({ ...base, id: `${k}-${c.mint}`, lane: lane(k), tone: tone(c.ch, ready), mv: c.ch, ready, tip: `$${c.sym} · ${sources.join(' · ')}` }));
-    if (at) out.push({ ...base, id: `g-${c.mint}`, lane: lane('germ'), tone: 'germ', mv: c.ch, ready, germ: c.germ, tip: `$${c.sym} · ${pc(c.germ)} vs its germ floor — the agents' buy zone · ${usd(c.mc)} MC` });
+    // ONE ROW PER COIN (owner 2026-10-29: "same coins on each row of intake, it's broken"): the shared snapshot tags most coins with 2–20
+    // sources, and every coin used to be drawn on DESK + again on every row a tag matched — four identical rows. Now each coin sits on its
+    // most specific level only: GERM (at its floor) › DESK (the agents track / contend / ready it) › NEW (≤ 15 min) › TOP NEW (≤ 1 h or
+    // just migrated) › TRENDING (a trending / movers / runner list) › DESK (the rest of the intake, waiting for the agents).
+    const k = intakeLane(c, at, ready);
+    out.push({ ...base, id: `${k === 'desk' ? 'd' : k === 'germ' ? 'g' : k}-${c.mint}`, lane: lane(k), tone: k === 'germ' ? 'germ' : tone(c.ch, ready), mv: c.ch, ready, germ: at ? c.germ : null,
+      tip: k === 'germ' ? `$${c.sym} · ${pc(c.germ)} vs its germ floor — the agents' buy zone · ${usd(c.mc)} MC` : `$${c.sym} · ${TANK_LEVELS[lane(k)][1]} · ${c.status || ''} · ${usd(c.mc)} MC · 5m ${pc(c.ch)}${(c.sources || []).length ? ` · ${(c.sources || []).filter(x => x !== 'open').slice(0, 4).join(' · ')}` : ''}` });
   }
   const pairs = (rows, k, move, word) => (rows?.pairs || []).filter(p => p?.baseToken?.address).slice(0, 30).forEach(p => {
     const m = Number(move(p)); out.push({ id: `${k}-${p.pairAddress}`, sym: p.baseToken.symbol, mint: p.baseToken.address, lane: lane(k), x: capX(p.marketCap ?? p.fdv), tone: tone(m, m >= 20), mv: Number.isFinite(m) ? m : null, vol: Number(p.volume?.h1) || 0, span: k === 'trend' ? '1H' : '24H', pair: { ...p, chainId: p.chainId || 'solana' }, img: p.info?.imageUrl || null,
