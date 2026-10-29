@@ -61,7 +61,11 @@ Each loop iteration: ① cash check (card books vs wallet, halt, pending) → �
    echo the exact coins · record written BEFORE the send, a lost reply re-asked with the same idempotency key (never a 2nd trade). Auto = trading cat / general on DO ITS
    THING; ASK ME = `agent_approve` (✅ Approve on the desk). Done only on Crossmint `success` + on-chain sig. Tests `test_agent_trade.py` (5). UNPROVEN LIVE: whether
    Crossmint wraps a Jupiter v0 tx inside its size limit; whether the API-key signer auto-approves (an `awaiting-approval` tx just waits and blocks the next).
-   NEXT: payment split (FEELESS cut → agent wallet) at purchase; family wallets + the payout engine (≤ 3 hits / family / 12h).
+   ✅ slice 3 payment split (2026-10-29): `backend/cat_fund.py` + `POST /api/reputation/cats/{id}/fund` (receipt + ONE unsigned v0 tx: $2 one-time to the FEELESS fee
+   wallet out of a ≥ $10 first funding, the rest to the cat's wallet; top-ups ≥ $1, no fee) → `/fund/send` (exact-message + owner-signature check, one use, confirms
+   on-chain) → feecat `agent_funded` (internal key). ≤ 4 cats with a wallet per owner. Desk: 💵 FUND IT (any amount, 🧾 Get receipt → 4-row receipt + 90s clock → ✍ Sign &
+   fund → Solscan). Fee wallet = HQ › Fees vault fee wallet, else the SOL fee account's owner. Tests `test_cat_fund.py` (3), `CatReal.test.jsx`.
+   NEXT: family wallets + the payout engine (≤ 3 hits / family / 12h) (FEELESS cut → agent wallet) at purchase; family wallets + the payout engine (≤ 3 hits / family / 12h).
    Key check: wallets.create scope unproven until the first real make (Crossmint answers with its own words if missing).
 2. **FC01 FeeCat two-option build** — option 1 TRADING cat (≤ 2 models, trench / perps on FEELESS only, like familiars.family); option 2 GENERAL cat (≤ 2 models working
    together in a personal wallet-brain chat: research, crawl sites, Polymarket etc. via user sign-ins, a small browser window showing what it does). Each user can hold up to
@@ -74,6 +78,21 @@ Each loop iteration: ① cash check (card books vs wallet, halt, pending) → �
    trades. Tests `test_price_gap.py` (4), `PriceGaps.test.jsx` (2); fixtures `/dev/city?vault`. Needs a backend restart to serve the endpoint.
 4. **M02 Every page fits every device** (mobile / fold / desktop) against `MOBILE_LAYOUT.md › Duo floors`; no dead styles, no bulky one-off CSS.
 ⚠ OWNER: HQ › Fees shows the swap fee at **1500 bps (15 %)** — confirm intended (the cat funding receipt reads it live).
+
+## 🆕 OWNER LIST 2026-10-29 (late) — exact asks, not started unless marked
+- **N01 Intake rows on mobile**: ▲ / ▼ buttons to step through the intake's rows + swipe to move down a row (Trench Trade). (owner: "getting bangers with new intake")
+- **N02 Recovery key for a cat made before paying**: when done, give a one-time recovery key; entering it after a new sign-in loads the cat into the wallet profile.
+- **N03 Cat windows**: a trader cat always shows a chart; a general cat shows a browser window AND a chart window of what it is doing now.
+- **N04 Study agents + AI for NSFA ("no strat fits all")**: the new intake is giving good coins (germ + others) — audit the agent / AI code against it and fix what holds them back (run `scripts/edge-audit.py` first; guards stay).
+- **N05 No paper for users, site-wide**: real money only; any amount entry + a receipt breakdown wherever real money is signed (FeeCat, Families, …).
+- **N06 Cat cloud + log**: a cloud store per trader / general cat; users browse a folder-style log (dropdowns) of what it researched, opened, bid, traded; a general cat can open links and ask the user to sign in (2 user-chosen AI models).
+- **N07 Real money never breaks**: general wallet signed in → Trench Trade shows P&L, sell works, swap history shows. **BUG: the Fuse wallet's profile shows no trade / swap history in Families or Profile.**
+- **N08 Families**: a new family cannot be raided for its first 24h; the owner sets any cost in the family cmd ctr (e.g. 5 MP for a city lot).
+- **N09 FeeCat art misaligned**: the cat image overlaps the FEE CAT badge (owner screenshot 2026-10-29: cat head over the "FEE CAT" chip + "fCat" tag, top right).
+- **N10 FeeCat live desk**: the creator wallet's live desk = the NEXA advanced dashboard; users see a meta view of it (no chat etc.) until they own a cat.
+- **N11 First-visit tutorials**: a pop-out quick tutorial for Family, Fuse, Trench and FeeCat.
+- **N12 Meme terms**: better mechanics for the user's edge.
+- Standing: professional code, no lag, nothing buggy or breaking.
 
 ## Build next — latest owner priorities
 

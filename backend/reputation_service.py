@@ -11017,6 +11017,101 @@ async def familia_pools_sleep():
     return {'strategies': st_, 'rows': [r_ for r_ in pools_ if r_.get('id') in want_], 'kamino': bool(km_), 'at': round(now, 1)}
 
 
+import cat_fund as _cfund
+_cfund_plans: dict = {}   # f"{cat}:{owner}" → the transaction FEELESS built (memory only, PLAN_SEC) — a signed copy must match it byte for byte
+
+
+class CatFundIn(BaseModel):
+    address: str = Field(min_length=32, max_length=44)
+    session: str = Field(min_length=8, max_length=200)
+    usd: float = 0.0
+    signed: str = Field('', max_length=4000)
+
+
+async def _cat_for_fund(cat_id, me):
+    """The cat (from the cat service) + its own wallet, owned by `me`. Raises HTTPException."""
+    if not _re.match(r'^[A-Za-z0-9_-]{1,64}$', cat_id or ''):
+        raise HTTPException(400, 'Not a cat id.')
+    r = await _ai_http().get(f'http://127.0.0.1:5088/api/cats/{cat_id}', timeout=8)
+    if r.status_code != 200:
+        raise HTTPException(404, 'Cat not found.')
+    cat = (r.json() or {}).get('cat') or {}
+    w = cat.get('agentWallet') or {}
+    if not w.get('address'):
+        raise HTTPException(400, 'Give it its own wallet first.')
+    if w.get('owner') != me:
+        raise HTTPException(403, "Only the wallet that made this cat's wallet can fund it.")
+    return cat, w
+
+
+@app.post('/api/reputation/cats/{cat_id}/fund')
+async def cat_fund_build(cat_id: str, p: CatFundIn):
+    """💵 FUND A CAT (cat_fund.py, DECISIONS #2): the receipt + ONE unsigned transaction — the one-time FEELESS fee ($2, first funding only)
+    to the FEELESS fee wallet and the rest to the cat's own wallet. Your wallet signs it; /fund/send sends only that exact transaction."""
+    me = session_address(p.session)
+    if not me or me != p.address:
+        raise HTTPException(401, 'Sign in with your wallet first (one signature, no transaction).')
+    cat, w = await _cat_for_fund(cat_id, me)
+    first = not cat.get('agentFunded')
+    async with httpx.AsyncClient(timeout=10) as http:
+        fee_w = (_fee_cfg().get('vaultFeeWallet') or '') or ((await _fee_wallet_owner(http, _fee_cfg())) or '') if first else ''
+        if first and not fee_w:
+            raise HTTPException(503, 'The FEELESS fee wallet is not set — HQ › Fees › vault fee wallet.')
+        try:
+            pl = _cfund.plan(p.usd, await _sol_usd(), first)
+            bh = ((await _rpc(http, 'getLatestBlockhash', [{'commitment': 'confirmed'}])) or {}).get('value', {}).get('blockhash')
+            tx = _cfund.build(me, w['address'], fee_w or w['address'], pl, bh)
+        except ValueError as e:
+            raise HTTPException(400, str(e))
+    now = time.time()
+    for k_ in [k_ for k_, v_ in _cfund_plans.items() if now - v_['at'] > _cfund.PLAN_SEC]:
+        _cfund_plans.pop(k_, None)
+    _cfund_plans[f'{cat_id}:{me}'] = {'tx': tx, 'plan': pl, 'at': now, 'catWallet': w['address'], 'feeWallet': fee_w}
+    return {'plan': pl, 'transaction': tx, 'catWallet': w['address'], 'feeWallet': fee_w, 'first': first, 'expiresIn': _cfund.PLAN_SEC}
+
+
+@app.post('/api/reputation/cats/{cat_id}/fund/send')
+async def cat_fund_send(cat_id: str, p: CatFundIn):
+    """💵 Send the signed funding: it must be EXACTLY the transaction /fund built for this owner (one use — never a resubmit), then confirm it
+    on-chain and tell the cat service (its `agentFunded` record: the first funding paid the fee)."""
+    me = session_address(p.session)
+    if not me or me != p.address:
+        raise HTTPException(401, 'Sign in with your wallet first (one signature, no transaction).')
+    rec = _cfund_plans.pop(f'{cat_id}:{me}', None)
+    if not rec or time.time() - rec['at'] > _cfund.PLAN_SEC:
+        raise HTTPException(409, 'That receipt expired — build a fresh one (prices move).')
+    try:
+        sig = _cfund.verify(p.signed, rec['tx'], me)
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+    async with httpx.AsyncClient(timeout=15) as http:
+        try:
+            await _rpc(http, 'sendTransaction', [p.signed, {'encoding': 'base64', 'skipPreflight': False, 'maxRetries': 3}])
+        except Exception as e:
+            raise HTTPException(400, f'The network refused it — nothing moved: {str(e)[:160]}')
+        ok = None
+        for _i in range(20):
+            await asyncio.sleep(1.5)
+            try:
+                st_ = (((await _rpc(http, 'getSignatureStatuses', [[sig]])) or {}).get('value') or [None])[0]
+            except Exception:
+                st_ = None
+            if st_ and st_.get('err'):
+                ok = False; break
+            if st_ and st_.get('confirmationStatus') in ('confirmed', 'finalized'):
+                ok = True; break
+    if ok is False:
+        raise HTTPException(400, f'It failed on-chain — nothing moved ({sig[:10]}…).')
+    pl = rec['plan']
+    if True:   # recorded confirmed OR still landing: a verified, sent first funding has paid its fee (never charged twice)
+        try:
+            await _ai_http().post(f'http://127.0.0.1:5088/api/cats/{cat_id}/action', headers={'x-feeless-internal': _internal_key()}, timeout=8,
+                                  json={'action': 'agent_funded', 'sig': sig, 'result': 'confirmed' if ok else 'submitted', 'amount': {'usd': pl['usd'], 'feeUsd': pl['feeUsd'], 'catLamports': pl['catLamports'], 'feeLamports': pl['feeLamports'], 'solUsd': pl['solUsd']}})
+        except Exception as e:
+            print(f'[cat fund] record {cat_id}: {e}')
+    return {'state': 'confirmed' if ok else 'submitted', 'signature': sig, 'plan': pl}
+
+
 import price_gap as _pgap
 _pgap_c = {'at': 0.0, 'v': None, 'book': {}}
 PGAP_SEC = 60.0

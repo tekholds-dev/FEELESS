@@ -68,7 +68,48 @@ export function agentDay(cat, now = Date.now() / 1000) {
   const live = (cat?.agentTx || []).find(t => ['sending', 'pending', 'awaiting-approval'].includes(t.status));
   return { cap: Math.round(cap * 1e4) / 1e4, spent: Math.round(spent * 1e6) / 1e6, live: live || null };
 }
-export function AgentWalletCard({ cat, busy, send, addr }) {
+// 💵 FUND IT (cat_fund.py): any amount → GET A RECEIPT (the server prices it live and builds ONE transaction: the one-time FEELESS fee out of a
+// first funding of $10+, the rest into its wallet) → SIGN & FUND (your wallet signs that exact transaction; the server sends only it, confirms
+// it on-chain). A receipt lives 90s — prices move. No auto-quote: you ask for the receipt.
+const FUND_AMTS = [10, 25, 50, 100];
+const sol4 = l => (Number(l) / 1e9).toFixed(4);
+export function FundCat({ cat, addr, session, sign, onDone }) {
+  const first = !(cat?.agentFunded || []).length;
+  const [usd, setUsd] = useState(first ? 10 : 5); const [rcpt, setRcpt] = useState(null); const [stage, setStage] = useState('pick'); const [err, setErr] = useState(''); const [sig, setSig] = useState(null);
+  const [left, setLeft] = useState(0);
+  useEffect(() => { if (!rcpt) return undefined; const t = setInterval(() => setLeft(l => Math.max(0, l - 1)), 1000); return () => clearInterval(t); }, [rcpt]);
+  const min = first ? 10 : 1;
+  const post = async (path, body) => { const r = await fetch(apiUrl(`/api/reputation/cats/${cat.id}/${path}`), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+    const j = await r.json().catch(() => ({})); if (!r.ok) throw new Error(j.detail || `HTTP ${r.status}`); return j; };
+  const quote = async () => { setErr(''); setStage('quoting');
+    try { const s0 = await session(); const j = await post('fund', { address: addr, session: s0, usd: Number(usd) }); setRcpt({ ...j, session: s0 }); setLeft(Math.round(j.expiresIn || 90)); setStage('ready'); }
+    catch (e) { setErr(e.message); setStage('pick'); } };
+  const go = async () => { if (!rcpt || left <= 0) return; setErr(''); setStage('signing');
+    try { const signed = await sign(rcpt.transaction); setStage('sending'); const j = await post('fund/send', { address: addr, session: rcpt.session, signed }); setSig(j.signature); setStage(j.state === 'confirmed' ? 'done' : 'landing'); setRcpt(null); onDone?.(); }
+    catch (e) { setErr(e.message || 'Your wallet did not sign.'); setStage('ready'); } };
+  const p = rcpt?.plan;
+  return <div className="cr-fund" data-testid="cr-fund">
+    <div className="cr-fund-pick"><em>{first ? 'FUND IT · FIRST' : 'TOP IT UP'}</em>
+      <div className="m-seg" role="radiogroup" aria-label="How much">{FUND_AMTS.filter(a => a >= min).map(a => <button key={a} type="button" role="radio" aria-checked={Number(usd) === a} className={Number(usd) === a ? 'active' : ''} onClick={() => { setUsd(a); setRcpt(null); setStage('pick'); }} data-testid={`cr-fund-${a}`}>${a}</button>)}</div>
+      <label className="cr-fund-in">$<input className="m-input" type="number" min={min} step="any" value={usd} onChange={e => { setUsd(e.target.value); setRcpt(null); setStage('pick'); }} aria-label="Dollars to fund it with" data-testid="cr-fund-usd" /></label></div>
+    {p ? <ol className="cr-rcpt" data-testid="cr-receipt">
+      <li style={{ '--i': 0 }}><small>YOU PAY</small><b className="m-num">${p.usd.toFixed(2)}</b><i>{sol4(p.totalLamports)} SOL</i></li>
+      <li style={{ '--i': 1 }} className={p.feeUsd ? 'is-fee' : 'is-free'} data-tip={p.feeUsd ? 'One time, out of its first funding — never on a top-up' : 'Top-ups carry no FEELESS fee'}><small>FEELESS · ONE-TIME</small><b className="m-num">{p.feeUsd ? `$${p.feeUsd.toFixed(2)}` : '$0'}</b><i>{sol4(p.feeLamports)} SOL</i></li>
+      <li style={{ '--i': 2 }} className="is-cat"><small>INTO ITS WALLET</small><b className="m-num">${p.catUsd.toFixed(2)}</b><i>{sol4(p.catLamports)} SOL</i></li>
+      <li style={{ '--i': 3 }}><small>PRICE · NETWORK</small><b className="m-num">${p.solUsd}</b><i>/SOL · ~0.000005 SOL fee</i></li>
+    </ol> : null}
+    <div className="cr-fund-go">
+      {stage === 'ready' || stage === 'signing' || stage === 'sending' ? <>
+        <button type="button" className="m-btn m-go" disabled={stage !== 'ready' || left <= 0} onClick={go} data-testid="cr-fund-sign" data-tip="Your wallet signs this exact transaction; FEELESS sends only it">{stage === 'signing' ? 'Sign in your wallet…' : stage === 'sending' ? 'Sending…' : '✍ Sign & fund'}</button>
+        <span className={`cr-fund-clock ${left < 20 ? 'is-low' : ''}`} data-tip="A receipt lives 90s — prices move"><u><s style={{ transform: `scaleX(${left / 90})` }} /></u><em className="m-num">{left}s</em></span></>
+        : <button type="button" className="m-btn m-go" disabled={stage === 'quoting' || !addr || Number(usd) < min} onClick={quote} data-testid="cr-fund-quote">{stage === 'quoting' ? 'Pricing…' : '🧾 Get receipt'}</button>}
+      {sig ? <a className="cr-fund-sig" href={`https://solscan.io/tx/${sig}`} target="_blank" rel="noreferrer" data-testid="cr-fund-done">{stage === 'done' ? '✓ funded' : '⏳ landing'} · {sig.slice(0, 8)}… ↗</a> : null}
+    </div>
+    {err ? <p className="kd-err" role="alert">⚠ {err}</p> : null}
+  </div>;
+}
+
+export function AgentWalletCard({ cat, busy, send, addr, session, sign }) {
   const w = cat?.agentWallet; const kind = cat?.brainsCfg?.kind; const d = useAgentWallet(cat?.id, !!w); const [copied, setCopied] = useState(false);
   const bal = d?.balance || {}; const mode = w?.mode || 'approve';
   const copy = () => { try { navigator.clipboard.writeText(w.address); setCopied(true); setTimeout(() => setCopied(false), 1400); } catch { /* blocked */ } };
@@ -88,6 +129,7 @@ export function AgentWalletCard({ cat, busy, send, addr }) {
         {kind === 'trading' ? null : <div className="m-seg cr-ag-mode" role="radiogroup" aria-label="How it moves">
           {[['approve', '✋ ASK ME', 'Every AI move waits for your OK'], ['auto', '🚀 DO ITS THING', 'AI moves go ahead on their own, inside its limits']].map(([k, l, tip]) =>
             <button key={k} type="button" role="radio" aria-checked={mode === k} className={mode === k ? 'active' : ''} disabled={busy} onClick={() => mode !== k && send('agent_mode', { mode: k })} data-tip={tip} data-testid={`cr-agent-${k}`}>{l}</button>)}</div>}
+        {session && sign ? <FundCat cat={cat} addr={addr} session={session} sign={sign} /> : null}
         {(() => { const dd = agentDay(cat); return <div className="cr-ag-day" data-testid="cr-agent-day" data-tip={`Its own wallet trades go through the same FEELESS engine: one at a time, a buy ≤ its ${Math.min(0.5, Number(cat?.budgetSol) || 0.05)} SOL budget, ≤ ${dd.cap} SOL a day, 0.01 SOL always kept for gas; it sells only what it bought`}>
           <em>TODAY</em><u aria-hidden="true"><s style={{ transform: `scaleX(${Math.min(1, dd.spent / (dd.cap || 1))})` }} /></u><b className="m-num">{dd.spent} / {dd.cap} SOL</b>
           {dd.live ? <i className="cr-ag-live">🏇 {dd.live.side.toUpperCase()} ${dd.live.symbol} settling…</i> : null}</div>; })()}
@@ -102,7 +144,13 @@ const Flow = () => <div className="cr-flow" aria-hidden="true"><i className="cr-
     <span key={l} style={{ '--i': i }}><svg viewBox="0 0 24 24">{d}</svg><em>{l}</em></span>)}</div>;
 
 export function CatReal({ cat, busy = false, onAct, devAddress = '' }) {
-  const { wallet, connect, signMessage } = useWallet() || {};
+  const { wallet, connect, signMessage, provider } = useWallet() || {};
+  const signTx = async b64 => {   // 💵 the funding transaction FEELESS built → your wallet signs it (never sends it) → base64 back for /fund/send
+    if (!provider?.signTransaction) throw new Error('Connect a Solana wallet that can sign.');
+    const { VersionedTransaction } = await import('@solana/web3.js');
+    const tx = VersionedTransaction.deserialize(Uint8Array.from(atob(b64), c => c.charCodeAt(0)));
+    const out = await provider.signTransaction(tx); return btoa(String.fromCharCode(...out.serialize()));
+  };
   const addr = devAddress || wallet?.address || '';
   const [budget, setBudget] = useState(0.05); const [err, setErr] = useState(''); const [signing, setSigning] = useState(null);
   const [now, setNow] = useState(() => Date.now() / 1000);
@@ -128,7 +176,8 @@ export function CatReal({ cat, busy = false, onAct, devAddress = '' }) {
   return <section className={`kd-card cr ${v.real ? 'is-real' : ''}`} data-testid="cat-real">
     <header><b>💵 REAL MODE</b><small>{cat.agentWallet ? (cat.agentWallet.mode === 'auto' ? 'it trades from its own wallet — no signing per trade' : 'it asks you · its own wallet sends what you approve')
       : v.real ? `${short(v.wallet)} signs every trade` : 'it proposes · your wallet signs · FEELESS never holds your SOL'}</small></header>
-    <AgentWalletCard cat={cat} busy={busy} addr={addr} send={(a, x) => send.current(a, x)} />
+    <AgentWalletCard cat={cat} busy={busy} addr={addr} send={(a, x) => send.current(a, x)}
+      session={() => (devAddress ? Promise.resolve('dev') : getChatSession(addr, signMessage, { own: true }))} sign={signTx} />
     <WalletCard cat={cat} addr={addr} v={v} />
     {!v.real ? <div className="cr-off">
       <Flow />

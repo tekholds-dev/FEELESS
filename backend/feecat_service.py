@@ -11,6 +11,7 @@ File-backed JSON store, zero external dependencies, standalone FastAPI app.
 import env_loader  # noqa: F401  (must run before reading os.environ)
 import agent_wallet as _aw
 import agent_trade as _at
+_AGENT_MAX = 4   # cats with their own wallet per owner wallet (owner 2026-10-29: "up to 4 cats per user"; cat_fund.MAX_CATS)
 import asyncio
 import json
 import re
@@ -1808,6 +1809,9 @@ async def cat_action(cat_id: str, payload: ActionPayload, request: Request):
         _log_event(store, cat, 'STOPPED', f"{cat['name']} is back on paper — no more proposals.")
     elif payload.action == 'agent_wallet':   # 👛 its own Crossmint wallet (DECISIONS #2, owner 2026-10-29): the same wallet on a repeat
         if not cat.get('agentWallet'):
+            mine_ = sum(1 for c_ in store['cats'].values() if (c_.get('agentWallet') or {}).get('owner') == signed)
+            if mine_ >= _AGENT_MAX:
+                raise HTTPException(400, f'Up to {_AGENT_MAX} cats with their own wallet per owner — you have {mine_}.')
             try:
                 async with httpx.AsyncClient(timeout=20) as http_w:
                     rep_ = await _aw.create(http_w, os.environ.get('CROSSMINT_API_KEY', '').strip(), 'cat', cat_id)
@@ -1815,6 +1819,14 @@ async def cat_action(cat_id: str, payload: ActionPayload, request: Request):
             except ValueError as e:
                 raise HTTPException(400, str(e))
             _log_event(store, cat, 'STARTED', f"{cat['name']} has its own wallet now: {cat['agentWallet']['address'][:6]}… — fund it to put it to work.")
+    elif payload.action == 'agent_funded':   # 💵 reputation's /cats/{id}/fund/send (internal key only — the branch above): a verified, sent funding
+        a_ = payload.amount if isinstance(payload.amount, dict) else {}
+        if not payload.sig or any(str(x.get('sig')) == payload.sig for x in cat.get('agentFunded') or []):
+            raise HTTPException(400, 'No signature, or that funding is on the record already.')
+        cat['agentFunded'] = (list(cat.get('agentFunded') or []) + [{'sig': str(payload.sig)[:100], 'state': payload.result or 'confirmed', 'at': round(time.time()),
+                              **{k: a_.get(k) for k in ('usd', 'feeUsd', 'catLamports', 'feeLamports', 'solUsd')}}])[-50:]
+        _log_event(store, cat, 'STARTED', f"{cat['name']} funded: ${a_.get('usd')} — {round((a_.get('catLamports') or 0) / 1e9, 4)} SOL into its wallet"
+                   + (f" (one-time FEELESS fee ${a_.get('feeUsd'):g})" if a_.get('feeUsd') else '') + '.')
     elif payload.action == 'agent_mode':   # 👛 a GENERAL cat: approve every AI move, or let it do its thing
         if not cat.get('agentWallet'):
             raise HTTPException(400, 'Make its wallet first.')

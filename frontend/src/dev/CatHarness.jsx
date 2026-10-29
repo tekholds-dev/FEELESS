@@ -20,7 +20,8 @@ const PROPS = [{ id: 'a1', side: 'buy', mint: 'M2', pair: 'P2', symbol: 'NEXT', 
 // 👛 its own wallet on fixtures: ?wallet = made + funded (else the make button); /agent-wallet answers locally
 const AGT = 'AGTw4LLet9xQ2vRkZb7mNcY1pHf3sJd8uTeW5gK6oLqA';
 const realFetch = window.fetch.bind(window);
-window.fetch = (u, o) => (String(u).includes('/agent-wallet') ? Promise.resolve(new Response(JSON.stringify({ wallet: { address: AGT, mode: 'approve' }, balance: { sol: 0.4213, usdc: 12.5 } }), { headers: { 'Content-Type': 'application/json' } })) : realFetch(u, o));
+const FUND = { plan: { usd: 25, feeUsd: 2, catUsd: 23, solUsd: 187.42, totalLamports: 133390000, feeLamports: 10671220, catLamports: 122718780 }, transaction: 'dev', expiresIn: 90 };
+window.fetch = (u, o) => (String(u).endsWith('/fund') ? Promise.resolve(new Response(JSON.stringify(FUND), { headers: { 'Content-Type': 'application/json' } })) : String(u).includes('/agent-wallet') ? Promise.resolve(new Response(JSON.stringify({ wallet: { address: AGT, mode: 'approve' }, balance: { sol: 0.4213, usdc: 12.5 } }), { headers: { 'Content-Type': 'application/json' } })) : realFetch(u, o));
 export default function CatHarness() {
   const [mode, setMode] = useState(window.location.search.includes('paper') ? 'paper' : 'real');
   const [aw, setAw] = useState(window.location.search.includes('wallet') ? { address: AGT, mode: 'approve', provider: 'crossmint' } : null);

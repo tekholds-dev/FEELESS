@@ -96,3 +96,25 @@ test('🏇 a cat with its own wallet: ASK ME shows ✅ Approve (no ✍ Sign it),
   expect(el.querySelector('header').textContent).toContain('no signing per trade');
   await act(async () => { root.unmount(); });
 });
+
+test('💵 FUND IT: any amount → a receipt (you pay · FEELESS one-time · into its wallet) → your wallet signs that exact tx → sent', async () => {
+  const { FundCat } = require('./CatReal');
+  const calls = [];
+  global.fetch = async (u, o = {}) => { calls.push([String(u), o.body ? JSON.parse(o.body) : null]);
+    if (String(u).endsWith('/fund')) return { ok: true, json: async () => ({ plan: { usd: 25, feeUsd: 2, catUsd: 23, solUsd: 200, totalLamports: 125e6, feeLamports: 10e6, catLamports: 115e6 }, transaction: 'TXB64', expiresIn: 90 }) };
+    return { ok: true, json: async () => ({ state: 'confirmed', signature: 'SIG12345678' }) }; };
+  const sign = jest.fn(async b => `signed:${b}`); const session = jest.fn(async () => 'sess');
+  const el = document.createElement('div'); document.body.appendChild(el); const root = createRoot(el);
+  await act(async () => { root.render(<FundCat cat={{ id: 'c1' }} addr={DEV} session={session} sign={sign} />); });
+  expect([...el.querySelectorAll('[data-testid^="cr-fund-"][role="radio"]')].map(b => b.textContent)).toEqual(['$10', '$25', '$50', '$100']);   // first funding: $10+
+  await act(async () => { el.querySelector('[data-testid="cr-fund-25"]').click(); });
+  await act(async () => { el.querySelector('[data-testid="cr-fund-quote"]').click(); });
+  expect(calls[0][1]).toEqual({ address: DEV, session: 'sess', usd: 25 });
+  const r = el.querySelector('[data-testid="cr-receipt"]').textContent;
+  expect(r).toContain('$25.00'); expect(r).toContain('$2.00'); expect(r).toContain('$23.00'); expect(r).toContain('0.1150 SOL');
+  await act(async () => { el.querySelector('[data-testid="cr-fund-sign"]').click(); });
+  expect(sign).toHaveBeenCalledWith('TXB64'); expect(calls[1][0]).toContain('/cats/c1/fund/send'); expect(calls[1][1]).toEqual({ address: DEV, session: 'sess', signed: 'signed:TXB64' });
+  expect(el.querySelector('[data-testid="cr-fund-done"]').textContent).toContain('✓ funded');
+  await act(async () => { root.render(<FundCat cat={{ id: 'c1', agentFunded: [{ sig: 'S' }] }} addr={DEV} session={session} sign={sign} />); });
+  await act(async () => { root.unmount(); });
+});

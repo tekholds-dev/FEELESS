@@ -103,3 +103,20 @@ body.theme-day .cr-ag-off b { color: #1c1230; } body.theme-day .cr-ag-off small,
 .cr-st.is-bad { color: #ff8fa3; }
 body.fx-lite .cr-ag-live { animation: none; } body.fx-lite .cr-ag-day s { transition: none; } @media (prefers-reduced-motion: reduce) { .cr-ag-live { animation: none; } .cr-ag-day s { transition: none; } }
 body.theme-day .cr-ag-day b { color: #1c1230; } body.theme-day .cr-ag-day u { background: rgba(60, 40, 160, .1); } body.theme-day .cr-ag-st, body.theme-day .cr-ag-live { color: #0a8f6e; }
+/* 💵 FUND IT (CatReal.FundCat): amount chips + any amount, the receipt as four lit rows (you pay · FEELESS one-time · into its wallet · price),
+   a draining 90s receipt clock, the signed funding's Solscan link */
+.cr-fund { display: grid; gap: 8px; padding-top: 8px; border-top: 1px dashed #ffffff14; }
+.cr-fund-pick { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; } .cr-fund-pick em { font: 800 8.5px 'JetBrains Mono', monospace; letter-spacing: .14em; font-style: normal; color: #9d8fbf; }
+.cr-fund-pick .m-seg > button { min-height: 32px; font: 800 10px 'JetBrains Mono', monospace; } .cr-fund-pick .m-seg > button.active { background: linear-gradient(135deg, #5ff2c8, #15d16a); color: #06130d; }
+.cr-fund-in { display: inline-flex; align-items: center; gap: 4px; font: 800 12px 'JetBrains Mono', monospace; color: #cfc6ff; } .cr-fund-in .m-input { width: 92px; min-height: 32px; }
+.cr-rcpt { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; }
+.cr-rcpt li { display: grid; gap: 1px; padding: 7px 9px; border-radius: 10px; background: #0a0614; border: 1px solid #ffffff10; animation: crIn .3s ease-out calc(var(--i) * 50ms) both; }
+.cr-rcpt small { font: 800 7.5px 'JetBrains Mono', monospace; letter-spacing: .12em; color: #9d8fbf; } .cr-rcpt b { font-size: 14px; color: #fff; } .cr-rcpt i { font: 700 8.5px 'JetBrains Mono', monospace; font-style: normal; color: #8f86b0; }
+.cr-rcpt .is-fee b { color: #f5c451; } .cr-rcpt .is-free b { color: #45e486; } .cr-rcpt .is-cat { border-color: rgba(95, 242, 200, .45); } .cr-rcpt .is-cat b { color: #5ff2c8; text-shadow: 0 0 12px rgba(95, 242, 200, .45); }
+.cr-fund-go { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; } .cr-fund-go .m-btn { min-height: 36px; }
+.cr-fund-clock { display: inline-grid; grid-template-columns: 70px auto; align-items: center; gap: 6px; } .cr-fund-clock u { height: 4px; border-radius: 4px; background: #ffffff12; overflow: hidden; }
+.cr-fund-clock s { display: block; height: 100%; transform-origin: left; background: #5ff2c8; transition: transform 1s linear; } .cr-fund-clock.is-low s { background: #ff8fa3; } .cr-fund-clock em { font: 800 10px 'JetBrains Mono', monospace; font-style: normal; color: #cfc6ff; }
+.cr-fund-sig { font: 800 10px 'JetBrains Mono', monospace; color: #45e486; text-decoration: none; } .cr-fund-sig:hover { text-decoration: underline; } .cr-fund-sig:focus-visible { outline: 2px solid #5ff2c8; outline-offset: 2px; }
+body.fx-lite .cr-rcpt li { animation: none; } body.fx-lite .cr-fund-clock s { transition: none; } @media (prefers-reduced-motion: reduce) { .cr-rcpt li { animation: none; } .cr-fund-clock s { transition: none; } }
+body.theme-day .cr-rcpt li { background: #fff; border-color: rgba(60, 40, 160, .12); } body.theme-day .cr-rcpt b { color: #1c1230; } body.theme-day .cr-rcpt .is-cat b { color: #0a8f6e; text-shadow: none; } body.theme-day .cr-rcpt .is-fee b { color: #a2700a; }
+@media (max-width: 640px) { .cr-rcpt { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
