@@ -14690,6 +14690,9 @@ async def _prime_tick_inner(now):
                 if bad_:   # 🔫 the coin ran to its gun line while the model thought: no buy, it picks again next minute
                     _g4_fate(w_, 'not bought — ' + str(bad_)[:90], now)
                     gt_ = None
+                elif gt_ and _g4_picks_only() and not gt_.get('pick'):   # 🧪 picks only — the HARD stop: a coin that is not a proven pick right now is never bought by the seat
+                    _g4_fate(w_, '🧪 picks only: not a proven-rule pick right now — no buy', now)
+                    gt_ = None
                 if gt_ and gt_.get('pair'):
                     plan_, g4n_ = [{**gt_, 'g4': True, 'g4By': w_.get('by'), 'g4Tp': w_.get('tp'), 'g4Sl': w_.get('sl'), 'nearReady': f"🧠 {w_.get('model') or 'G4'}: {w_.get('why')}"}] + [t_ for t_ in plan_ if t_['mint'] != gt_['mint']], 1
                     _g4_fate(w_, 'sent to the seat check', now)
@@ -18370,6 +18373,8 @@ async def _g4_tick(now, env, cfg):
         cands_ = [c_ for c_ in cands_ if c_ and c_.get('mint') and not _fw.dollar_named(c_.get('symbol')) and c_['mint'] not in _g4_blocked(card_, now) and c_['mint'] not in op_]
         ai_syms_ = _seat.recent_ai_syms(card_.get('events'), now)
         cands_ = [c_ for c_ in cands_ if not any(_trl.family(c_.get('symbol') or '', y_) for y_ in ai_syms_)]   # 🧬 no look-alike of a coin either model traded in 6h
+        if _g4_picks_only():   # 🧪 N04 (owner 2026-10-29 "picks only"): the models are offered ONLY the desk's proven-rule picks (136 real trades: no edge of their own)
+            cands_ = [c_ for c_ in cands_ if c_.get('pick')]
         cands_ = sorted(cands_, key=lambda c_: _seat.germ_rank(_opp.germ_d(c_.get('chart') or {})[0], _uni.germ_max()))[:_seat.CAND_N]   # 🦠 germ-floor coins first (stable: kernel rank inside each tier)
         pxm_ = await _live_px([c_['mint'] for c_ in cands_] + ([held_m] if held_m else []))
         px_of = lambda m_: _fuse._f(pxm_.get(m_)) or _fuse._f((_jup_px_cache.get(m_) or (0, 0))[1])
@@ -18788,6 +18793,12 @@ def _g4_brake(now):
 
 
 G4_SPIKE_GERM = 5.0   # 🚀 a model may take a 5-min spike only this close (%) to its germ floor — the agents' 15% germ line let $mil (+23.9% in 5 min, 12% over its floor) through
+
+
+def _g4_picks_only():
+    """🧪 The owner's rule for the OSSY / G4 seat (`realCfg.aiSeatPicksOnly`, on by default since 2026-10-29): it may BUY only a coin the desk marks as a
+    PICK (brain.edge_pick: a proven rule + its own survival + its germ). Coins it already holds keep running to their exits."""
+    return bool(((_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('realCfg') or {}).get('aiSeatPicksOnly', True))
 
 
 def _g4_bad_entry(c):
@@ -21190,7 +21201,7 @@ def _edge_view():
     a_ = _json_load(EDGE_AUDIT_PATH, {}) or {}
     on_ = ((_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('realCfg') or {}).get('edgePick', True)
     rc_ = (_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('realCfg') or {}
-    return {'on': bool(on_), 'young': bool(rc_.get('pickYoung', False)), 'minAgeMin': round(_uni.min_age() * 60), 'gate': a_.get('gate') or 'wait', 'held': int(a_.get('held') or 0), 'tested': int(a_.get('tested') or 0),
+    return {'on': bool(on_), 'young': bool(rc_.get('pickYoung', False)), 'seatPicksOnly': bool(rc_.get('aiSeatPicksOnly', True)), 'minAgeMin': round(_uni.min_age() * 60), 'gate': a_.get('gate') or 'wait', 'held': int(a_.get('held') or 0), 'tested': int(a_.get('tested') or 0),
             'rules': [{'rule': ' + '.join(r_.get('rule') or []), 'med': r_.get('med'), 'n': r_.get('n'), 'up': r_.get('up')} for r_ in (a_.get('rules') or [])[:6]]}
 
 
@@ -23890,7 +23901,7 @@ async def admin_agents_set(request: Request):
     ch = {}
     if 'feed' in body:
         ch['agentFeed'] = bool(body.get('feed'))
-    for k in ('agentTakePct', 'agentMode', 'agentStyle', 'agentSeats', 'agentLearn', 'agentLearnPct', 'agentTrust', 'agentDial', 'agentScalp', 'agentControl', 'agentCurve', 'agentPaper', 'agentOpen', 'agentAiLearn', 'chartWait', 'agentCapital', 'agentAiGate', 'agentValve', 'agentDuoGate', 'agentAiExit', 'nightGuard', 'nightShift', 'candleClock', 'edgePick', 'pickYoung') + _oe.POLICY_KEYS:
+    for k in ('agentTakePct', 'agentMode', 'agentStyle', 'agentSeats', 'agentLearn', 'agentLearnPct', 'agentTrust', 'agentDial', 'agentScalp', 'agentControl', 'agentCurve', 'agentPaper', 'agentOpen', 'agentAiLearn', 'chartWait', 'agentCapital', 'agentAiGate', 'agentValve', 'agentDuoGate', 'agentAiExit', 'nightGuard', 'nightShift', 'candleClock', 'edgePick', 'pickYoung', 'aiSeatPicksOnly') + _oe.POLICY_KEYS:
         if k in (body.get('cfg') or {}):
             ch[k] = body['cfg'][k]
     if ch:

@@ -93,8 +93,8 @@ Each loop iteration: ① cash check (card books vs wallet, halt, pending) → �
   — BUT the counterfactual (5m candles, the 17 early model sells the history covers) shows the coins kept FALLING after the sell (+30m −2.3% typical, 24% up; +60m −3.1%,
   18% up): the early sells were right; long holds look good only because good trades get held. NOT an exit problem. The losses are the ENTRIES: 54/136 never went
   green; 75 of the buys were coins 1 day+ old (−3.4% = the market's own baseline for old coins), none < 15 min (the owner's line); every chart call / structure / weather
-  bucket at entry is negative. The seat has no edge of its own. OWNER DECISION (asked): pause its real buys (paper until its record is positive) or let it buy only 🧪
-  PICK coins (proven rule + survival + germ; with 🐣 on).
+  bucket at entry is negative. The seat has no edge of its own. ✅ OWNER: "Picks only" → `realCfg.aiSeatPicksOnly` (on): the models are offered only 🧪 picks and
+  the keeper's buy step refuses any non-pick (`_g4_picks_only`); open seats run to their exits; 🤖 SEAT · PICKS ONLY switch on the strip.
 - **N05 No paper for users, site-wide**: real money only; any amount entry + a receipt breakdown wherever real money is signed (FeeCat, Families, …).
 - **N06 Cat cloud + log**: a cloud store per trader / general cat; users browse a folder-style log (dropdowns) of what it researched, opened, bid, traded; a general cat can open links and ask the user to sign in (2 user-chosen AI models).
 - **N07 Real money never breaks** — ✅ the history bug FIXED 2026-10-29: Helius is out of quota ("max usage reached") and the profile / Families / positions read

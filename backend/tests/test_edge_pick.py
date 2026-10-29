@@ -94,3 +94,15 @@ def test_n04_a_pick_must_have_been_young_when_first_seen_and_only_the_owners_swi
     kk = tk.Kernel(); kk.run([row('M', d5=1.0, buy=50, pace=0.8, chart=CHART)], 1000.0, _ctx(pickYoung=True, surv={'M': {**SURV, 't0': 800.0}}))
     assert kk.dec['M']['status'] == 'TRACKING'                               # watched under 5 min: no pass
     uni.set_band({})
+
+
+def test_n04_the_ai_seat_buys_only_desk_picks_offered_and_hard_stopped():
+    import arena_prime as ap
+    assert ap.clean_cfg({})['aiSeatPicksOnly'] is True and ap.clean_cfg({'aiSeatPicksOnly': False})['aiSeatPicksOnly'] is False
+    import pathlib
+    src = (pathlib.Path(__file__).resolve().parents[1] / 'reputation_service.py').read_text()
+    offer = src.index("if _g4_picks_only():   # 🧪 N04")
+    assert "cands_ = [c_ for c_ in cands_ if c_.get('pick')]" in src[offer:offer + 300]              # the models only SEE picks
+    stop = src.index("elif gt_ and _g4_picks_only() and not gt_.get('pick'):")
+    assert src.index("gt_ = _tk.KERNEL.candidate(w_['mint'])") < stop < src.index("if gt_ and gt_.get('pair'):", stop)   # …and a non-pick never reaches the seat
+    assert "'aiSeatPicksOnly'" in src[src.index("@app.post('/api/reputation/admin/agents')"):][:2000]        # the owner's switch

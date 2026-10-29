@@ -515,8 +515,9 @@ def clean_cfg(p):
     # every exit keep managing coins already held. ON by default: real money returns only by the owner's own switch after the graduation proof.
     out['agentPaper'] = bool((p or {}).get('agentPaper', True))
     out['agentOpen'] = bool((p or {}).get('agentOpen', False))   # ⚡ owner's switch: volume + newness only, every empty seat filled
-    out['edgePick'] = bool((p or {}).get('edgePick', True))
-    out['pickYoung'] = bool((p or {}).get('pickYoung', False))   # 🐣 N04: a PICK that survived 5 min may pass the youngest-coin line (half seat) — the owner's switch, off by default   # 🧪 A06 the PICK: a proven edge rule + its own survival + its germ = READY (trench_kernel.brain.edge_pick)
+    out['edgePick'] = bool((p or {}).get('edgePick', True))   # 🧪 A06 the PICK: a proven edge rule + its own survival + its germ = READY (trench_kernel.brain.edge_pick)
+    out['pickYoung'] = bool((p or {}).get('pickYoung', False))   # 🐣 N04: a PICK that survived 5 min may pass the youngest-coin line (half seat) — the owner's switch, off by default
+    out['aiSeatPicksOnly'] = bool((p or {}).get('aiSeatPicksOnly', True))   # 🧪 N04: the OSSY / G4 seat buys ONLY desk picks (owner 2026-10-29)
     out['chartWait'] = bool((p or {}).get('chartWait', True))   # 🎯 a real seat needs the chart's own ENTER NOW (off = the regret ledger / owner let WAIT charts in)
     out['agentValve'] = bool((p or {}).get('agentValve', True))   # 🪫 patience valve (office_edge.valve_fill): an empty seat never sits all morning
     out['agentDuoGate'] = bool((p or {}).get('agentDuoGate', True))   # 🤝 agent coins must be backed by OSSY / G4 first (ai_seat.duo_backs)

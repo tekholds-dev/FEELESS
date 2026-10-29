@@ -64,6 +64,7 @@ export function PickStrip({ edge, picks, isOwner, call, onPick }) {
     catch (e) { toast.error(e.message); } finally { setBusy(false); }
   };
   const flip = () => post({ edgePick: !edge.on }, edge.on ? '🧪 Picks off — the agents only take their own READY coins' : '🧪 Picks on — proven rules pick from the intake');
+  const seat = () => post({ aiSeatPicksOnly: !edge.seatPicksOnly }, edge.seatPicksOnly ? '🤖 OSSY / G4 may buy any clean desk coin again' : '🤖 OSSY / G4 buy only 🧪 picks now');
   const young = () => post({ pickYoung: !edge.young }, edge.young ? `🐣 Picks wait for your ${edge.minAgeMin}-min line again` : '🐣 Picks from 5 min — a pick that survived its watch may enter young, at half size');
   return <div className={`ib-pick${edge.on ? '' : ' is-off'}`} data-testid="ib-pick">
     <button type="button" className={`ib-pk-sw${edge.on ? ' is-on' : ''}`} role="switch" aria-checked={!!edge.on} disabled={!isOwner || busy} onClick={flip} data-testid="ib-pick-switch"
@@ -72,6 +73,9 @@ export function PickStrip({ edge, picks, isOwner, call, onPick }) {
     {edge.minAgeMin > 5 ? <button type="button" className={`ib-pk-sw is-young${edge.young ? ' is-on' : ''}`} role="switch" aria-checked={!!edge.young} disabled={!isOwner || busy} onClick={young} data-testid="ib-pick-young"
       data-tip={`🐣 PICKS FROM 5 MIN (your youngest-coin line is ${edge.minAgeMin} min). The audit, last 800 coins after a 3% round trip: rule-matched coins first seen under 15 min +5.1% typical, 53% up — seen at 15 min+ −8.2%, 24% up. On: a pick that survived its own 5-min watch may enter under your line at HALF size; every other wall stays. Off: your line stands for picks too.`}>
       <i aria-hidden="true" /><b>🐣 FROM 5 MIN</b><small>{edge.young ? 'ON' : 'OFF'}</small></button> : null}
+    {edge.seatPicksOnly != null ? <button type="button" className={`ib-pk-sw is-seat${edge.seatPicksOnly ? ' is-on' : ''}`} role="switch" aria-checked={!!edge.seatPicksOnly} disabled={!isOwner || busy} onClick={seat} data-testid="ib-pick-seat"
+      data-tip="🤖 OSSY / G4 SEAT — PICKS ONLY. The study, 136 closed real trades over 7.7 days: −4.5% typical, 28% won; 75 of its buys were coins a day+ old (the market's own −3.4%), and the coins kept falling after its early sells — its exits were right, its entries had no edge. On: it is offered and may buy ONLY 🧪 picks. Its open trades still run to their exits.">
+      <i aria-hidden="true" /><b>🤖 SEAT · PICKS ONLY</b><small>{edge.seatPicksOnly ? 'ON' : 'OFF'}</small></button> : null}
     <span className={`ib-pk-gate ${gcls}`} data-tip={`🧪 proof gate: ${gtip} · ${edge.held} of ${edge.tested} rules held`}><small>GATE</small><b>{gw}</b><u className="m-num">{edge.held}/{edge.tested}</u></span>
     <ol className="ib-pk-rules" aria-label="Proven rules">{(edge.rules || []).slice(0, 3).map((r, i) => <li key={r.rule} style={{ '--i': i }} data-tip={`${r.rule}\n${Number(r.med) >= 0 ? '+' : ''}${r.med}% typical an hour later · ${r.up}% went up · on ${r.n} coins it was not learned from (after a 3% round trip)`}>
       <small>{r.rule.replace(/ \+ /g, ' · ')}</small><b className="m-num">{Number(r.med) >= 0 ? '+' : ''}{Number(r.med).toFixed(1)}%</b><u aria-hidden="true"><s style={{ transform: `scaleX(${Math.max(0.04, (Number(r.med) || 0) / top)})` }} /></u></li>)}</ol>
