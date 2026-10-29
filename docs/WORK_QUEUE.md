@@ -26,13 +26,13 @@ Each loop iteration: ① cash check (card books vs wallet, halt, pending) → �
 ③ mark it DONE here with one line of proof. Never loosen buy rules, never move funds, never restart reputation_service with an order pending.
 | ID | Status | Task |
 |---|---|---|
-| E01 | OPEN | Run `scripts/edge-audit.py`; write its verdict at the top of HANDOFF (A06 groundwork — the owner approves any buy-rule change). |
-| E02 | OPEN | Page watcher sweep: Home, Trenches, FEEd, Pump radar, Radar at 360 / 466 / 890 px — fix every sideways scroll / clipped control found. |
-| E03 | OPEN | Fuse page: phone + fold fit against MOBILE_LAYOUT (no clipped controls, no page side-scroll). |
-| E04 | OPEN | Launch page: phone + fold fit. |
-| E05 | OPEN | FeeCat page + Launch a cat: phone + fold fit. |
-| E06 | OPEN | Familia entry + money desk: phone fit (no side-scroll, sheets within the viewport). |
-| E07 | OPEN | Perps desk: phone fit. |
+| E01 | DONE | Edge audit run 2026-10-29: agents entered 0/3,000 calls; 12 rules positive on unseen coins (best 5m +5–15% & buyers ≥65%: +19.4%, n 63) → HANDOFF top. |
+| E02 | DONE | Sweep 2026-10-29: Home · Trenches · FEEd · Pump radar · Radar at 360 / 466 / 890 → page width = viewport on all, 0 overflowing elements. |
+| E03 | VERIFY | (sweep 2026-10-29: no page side-scroll at 360 / 890 — clipped-control review still to do) |
+| E04 | VERIFY | (sweep 2026-10-29: no page side-scroll at 360 / 890 — clipped-control review still to do) |
+| E05 | VERIFY | (sweep 2026-10-29: no page side-scroll at 360 / 890 — clipped-control review still to do) |
+| E06 | VERIFY | (sweep 2026-10-29: no page side-scroll at 360 / 890 — clipped-control review still to do) |
+| E07 | VERIFY | (sweep 2026-10-29: no page side-scroll at 360 / 890 — clipped-control review still to do) |
 | E08 | OPEN | Agents floor rail: seat buttons show the coin's image (fall back to its letters). |
 | E09 | OPEN | Trade tape on the Trenches floor gets the per-trade stream (a new fill appears without waiting for the 15 s tape read). |
 | E10 | OPEN | Settings › Look: an "ECO ON · this phone stays cool" chip with what eco changes. |
