@@ -71,7 +71,7 @@ body.theme-day .ack-talk { background: linear-gradient(180deg, #f6f0ff, #fff); }
 .dfl.dfl-agents { z-index: 4500; top: var(--adf-top, 0px); bottom: auto; height: var(--adf-vh, 100dvh); }
 .dfl.dfl-agents { background: radial-gradient(120% 80% at 80% 0%, rgba(162, 89, 255, .1), transparent 55%), radial-gradient(90% 60% at 0% 100%, rgba(21, 209, 106, .08), transparent 60%), #050806; }
 .dfl-agents .dfl-rb.is-on { background: rgba(162, 89, 255, .25); border-color: #a259ff; }
-.ack-duo.dfl-chart, .ack-duo.dfl-side { margin: 0; min-width: 0; }   /* the cockpit's own sections, inside the floor's grid */
+.ack-duo.dfl-chart, .ack-duo.dfl-side { margin: 0; min-width: 0; gap: 0; }   /* the cockpit's own sections inside the floor's grid — the floor spaces with margins; .ack's 8px gap pushed the desk 6px off screen */
 .dfl-agents .dfl-plot.ack-duochart { display: flex; flex-direction: column; gap: 4px; }
 .dfl-agents .dfl-plot > .ack-chart { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 4px; padding: 0; margin: 0; border: 0; background: none; box-shadow: none; }
 .dfl-agents .ack-chead { flex: none; display: flex; flex-wrap: wrap; gap: 4px 10px; margin: 0; padding: 2px; }
@@ -89,6 +89,8 @@ body.theme-day .ack-talk { background: linear-gradient(180deg, #f6f0ff, #fff); }
 .dfl-agents .dfl-side > .ack-money { flex: none; display: grid; gap: 4px; margin: 8px 8px 0; padding: 4px 6px; max-height: 38%; overflow-y: auto; overscroll-behavior: contain; }
 .dfl-agents .ack-mrow { display: flex; flex-wrap: nowrap; overflow-x: auto; gap: 12px; scrollbar-width: thin; scroll-snap-type: x proximity; }
 .dfl-agents .ack-mrow > * { flex: none; scroll-snap-align: start; }
+.dfl-agents .ack-money :is(.ack-mrow, .ack-nav) { -webkit-mask-image: linear-gradient(90deg, #000 86%, transparent); mask-image: linear-gradient(90deg, #000 86%, transparent); padding-right: 18px; }   /* a swipe row reads as one, never as cut */
+.dfl-agents .ack-chead .ack-csym { display: none; }   /* the floor's bar already names the coin — one name, more room for the candles */
 .dfl-agents .ack-mcell > .ack-num, .dfl-agents .ack-mcell.is-card > .ack-num { font-size: 17px; }
 .dfl-agents :is(.ack-mseat, .ack-nav > button, .ack-morebtn) { min-height: 34px; }
 .dfl-agents .ack-ptabs { display: flex; flex-wrap: nowrap; overflow-x: auto; } .dfl-agents .ack-ptabs > button { flex: 1 0 auto; min-height: 34px; }
