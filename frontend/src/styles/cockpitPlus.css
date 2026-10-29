@@ -112,5 +112,5 @@ body.theme-day .dfl.dfl-agents { background: #f4f8f6; } body.theme-day .ack-duo-
    live P&L, so the tall P&L block steps aside, and the money strip is one row */
 /* a SHORT portrait screen (the fold, 466 × 678: its chart half is ~390px): the chart head + candles + rail + ride fill it, so the quick-trade strip steps
    aside as it already does under 520px tall — the seats / trades tabs on the desk half carry the same moves */
-@media (orientation: portrait) and (max-height: 760px) { .dfl-agents .ack-plot > .ack-trade { display: none; } }
+@media (orientation: portrait) and (max-height: 760px), (max-width: 480px) { .dfl-agents .ack-plot > .ack-trade { display: none; } }   /* + any phone under 480px wide: its live P&L rides the row under the chart */
 @media (max-height: 520px) { .dfl-agents .ack-plot > .ack-trade { display: none; } .dfl-agents .dfl-side > .ack-money { max-height: 46%; } .dfl-agents .dfl-bar { padding: 4px 8px; } }
