@@ -11042,6 +11042,8 @@ async def _cat_for_fund(cat_id, me):
         raise HTTPException(400, 'Give it its own wallet first.')
     if w.get('owner') != me:
         raise HTTPException(403, "Only the wallet that made this cat's wallet can fund it.")
+    if w.get('provider', 'crossmint') != 'crossmint':
+        raise HTTPException(400, "That wallet is watch-only (its key isn't held by Crossmint) — fund it straight from your own wallet; FEELESS can't trade from it.")
     return cat, w
 
 

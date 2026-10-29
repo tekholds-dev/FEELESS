@@ -52,6 +52,8 @@ def spent_today(cat, now):
 def wants(cat, p, now):
     """Should this proposal go from the agent wallet now? (mode + freshness only; the guards come after)."""
     w = cat.get('agentWallet') or {}
+    if w.get('provider', 'crossmint') != 'crossmint':   # 👁 a watch-only wallet (assigned, its key not held by Crossmint): never traded from
+        return False
     if not w.get('address') or p.get('status') != 'pending' or now > _f(p.get('until')) or p.get('agentTx'):
         return False
     if now - _f(p.get('agentTry')) < RETRY_SEC:   # a guard stopped it a moment ago (no SOL yet, over the cap…): wait, don't hammer
@@ -172,7 +174,8 @@ async def run(http, cm_key, cat, now):
     """ONE cat's agent pass (the engine calls it): settle what is in flight, then send the next proposal it wants. A guard that stops a
     proposal writes its reason on it (`agentWhy`) and waits RETRY_SEC. → list of event words for the cat's log."""
     words = []
-    if not (cat.get('agentWallet') or {}).get('address') or not _aw.env_of(cm_key):
+    w = cat.get('agentWallet') or {}
+    if not w.get('address') or w.get('provider', 'crossmint') != 'crossmint' or not _aw.env_of(cm_key):
         return words
     before = {t.get('key') or t.get('id'): t.get('status') for t in cat.get('agentTx') or []}
     await poll(http, cm_key, cat, now)

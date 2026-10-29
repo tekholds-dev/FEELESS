@@ -129,3 +129,19 @@ test('💵 the warning before a receipt: an amount that only covers the fee says
   expect(fundWarn(0.5, R, false)).toContain('A top-up starts at $1'); expect(fundWarn(3, R, false)).toBeNull();
   expect(fundWarn(1, { feeUsd: 0, minUsd: 1, topupMinUsd: 1, staff: true }, true)).toBeNull();                        // the creator tests with $1, no fee
 });
+
+test('👛 N16 Fee takes an assigned wallet: the field posts agent_assign; a watch-only wallet says so and offers no funding', async () => {
+  global.fetch = async () => ({ ok: true, json: async () => ({ balance: { sol: 2, usdc: 0 } }) });
+  const onAct = jest.fn(async () => {});
+  const el = document.createElement('div'); document.body.appendChild(el); const root = createRoot(el);
+  await act(async () => { root.render(<CatReal cat={{ id: 'leader', name: 'Fee', isLeader: true }} onAct={onAct} devAddress={DEV} />); });
+  const inp = el.querySelector('[data-testid="cr-assign-in"]');
+  await act(async () => { const set = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set; set.call(inp, 'ANwSewb5AaKv4DarsDQ4NSEQ9APNtTGVxygPzn9u5K8P'); inp.dispatchEvent(new Event('input', { bubbles: true })); });
+  await act(async () => { el.querySelector('[data-testid="cr-assign-go"]').click(); });
+  expect(onAct).toHaveBeenLastCalledWith('agent_assign', { address: DEV, session: 'dev', text: 'ANwSewb5AaKv4DarsDQ4NSEQ9APNtTGVxygPzn9u5K8P' });
+  await act(async () => { root.render(<CatReal cat={{ id: 'leader', name: 'Fee', isLeader: true, agentWallet: { address: 'ANwSewb5AaKv4DarsDQ4NSEQ9APNtTGVxygPzn9u5K8P', provider: 'watch', mode: 'auto', assigned: true } }} onAct={onAct} devAddress={DEV} />); });
+  expect(el.querySelector('[data-testid="cr-agent-watch"]')).not.toBeNull(); expect(el.querySelector('[data-testid="cr-fund"]')).toBeNull();
+  await act(async () => { root.render(<CatReal cat={{ id: 'u1', name: 'Mine' }} onAct={onAct} devAddress={DEV} />); });
+  expect(el.querySelector('[data-testid="cr-assign"]')).toBeNull();                                                        // a user's cat: a fresh wallet only
+  await act(async () => { root.unmount(); });
+});

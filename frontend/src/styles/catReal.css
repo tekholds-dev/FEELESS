@@ -124,3 +124,8 @@ body.theme-day .cr-rcpt li { background: #fff; border-color: rgba(60, 40, 160, .
 .cr-fund-warn { margin: 0; padding: 6px 9px; border-radius: 8px; border-left: 2px solid #f5c451; background: rgba(245, 196, 81, .08); font: 700 10px/1.4 var(--f-ui, sans-serif); color: #f5d27a; animation: crIn .2s ease-out both; }
 body.fx-lite .cr-fund-warn { animation: none; } @media (prefers-reduced-motion: reduce) { .cr-fund-warn { animation: none; } }
 body.theme-day .cr-fund-rule { color: #4d3fa3; } body.theme-day .cr-fund-rule.is-staff, body.theme-day .cr-fund-warn { color: #8a5d00; }
+/* 👛 N16 Fee's assigned wallet: the address field + assign, and the watch-only notice */
+.cr-assign { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 6px; align-items: center; } .cr-assign em { grid-column: 1 / -1; font: 800 8px 'JetBrains Mono', monospace; letter-spacing: .14em; font-style: normal; color: #9d8fbf; }
+.cr-assign .m-input { min-height: 34px; font: 600 11px 'JetBrains Mono', monospace; } .cr-assign .m-btn { min-height: 34px; } .cr-assign .m-btn:focus-visible { outline: 2px solid #5ff2c8; outline-offset: 2px; }
+.cr-ag-watch { margin: 0; padding: 6px 9px; border-radius: 8px; border-left: 2px solid #8fd3ff; background: rgba(143, 211, 255, .08); font: 700 10px/1.4 var(--f-ui, sans-serif); color: #bfe6ff; }
+body.theme-day .cr-ag-watch { color: #1f5fa0; background: rgba(31, 95, 160, .07); } body.theme-day .cr-assign em { color: #5a4f78; }

@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { Suspense, lazy, useCallback, useEffect, useState } from 'react';
 import NumInput from '../NumInput';
 import { createPortal } from 'react-dom';
 import { Activity, AlertTriangle, ArrowLeft, Cat, ChevronRight, Gauge, Play, Plus, Trophy, X } from 'lucide-react';
@@ -16,6 +16,8 @@ import { EngineLine } from './CatBrainSwitch';
 import { CatDesk } from './CatDesk';
 import { CatReal } from './CatReal';
 import { useAdmin } from '../../lib/adminCall';
+const ProfileFeeCat = lazy(() => import('./ProfileFeeCat').then(m => ({ default: m.ProfileFeeCat })));
+const ProfileFeeBanner = lazy(() => import('./ProfileFeeCat').then(m => ({ default: m.ProfileFeeBanner })));
 import { AgentPicker, AGENT_MAX } from './AgentPicker';
 const OWNER_KEY = 'feeless-paper-owner';
 const api = async (path, options = {}) => {
@@ -172,6 +174,7 @@ export default function FeeCatsPlatform() {
   const [kind, setKind] = useState('trading');
   const pickKind = k => { if (k === 'trading' || k === 'general') { setKind(k); setView('launch'); } else setView(k); };   // 📈 / 🧭 → models → your wallet → REAL
   const [cats, setCats] = useState([]);
+  const { isAdmin } = useAdmin();   // 🪟 N14/N16: the creator's own Fee (NEXA) sits first in My agents — not one of the 2 agent slots
   const [selected, setSelected] = useState(null);
   const [error, setError] = useState('');
   const loadCats = useCallback(async () => { try { const result = await api(`/api/cats?ownerId=${encodeURIComponent(ownerId())}`); setCats(result.cats || []); setError(''); } catch (requestError) { setError(requestError.message); } }, []);
@@ -184,7 +187,7 @@ export default function FeeCatsPlatform() {
     ['new', <><Plus size={14} /> New agent</>, 'A Trading AI cat or a General AI cat — models → your wallet → REAL · up to 2 agents'],
     ['activity', <><Activity size={14} /> Live activity</>, 'Every cat\'s buys and sells as they happen'],
     ['leaderboard', <><Trophy size={14} /> Leaderboard</>, 'Every cat ranked by real paper results']];
-  const on = k => (k === 'new' ? ['new', 'create', 'launch'].includes(view) : k === 'cats' ? ['cats', 'cat'].includes(view) : view === k);
+  const on = k => (k === 'new' ? ['new', 'create', 'launch'].includes(view) : k === 'cats' ? ['cats', 'cat', 'nexa'].includes(view) : view === k);
   return <div className="fee-cats-platform fc-v2"><header className="paper-platform-head"><div><span className="eyebrow"><Cat size={14} /> AGENTS · CATS THAT TRADE FOR YOU</span><h1>Give your cat a <em>job.</em></h1><p>AI cats on live Solana — 1–2 models, your name, your look, your limits. Every real trade is a proposal your wallet signs; test it on paper first if you like.</p></div>
     <div className="paper-platform-actions"><PaperBadge /><span className="fc-slots" data-tip={`${live.length} of ${AGENT_MAX} agent slots used`} aria-label={`${live.length} of ${AGENT_MAX} agents`}>{Array.from({ length: AGENT_MAX }, (_, k) => <i key={k} className={k < live.length ? 'is-on' : ''} />)}</span></div></header>
     <nav className="paper-platform-tabs" aria-label="Agents">{TABS.map(([k, label, tip]) => <button key={k} type="button" className={on(k) ? 'active' : ''} onClick={() => { setSelected(null); setView(k); }} data-testid={`fc-tab-${k}`} data-tip={tip}>{label}</button>)}</nav>
@@ -195,6 +198,8 @@ export default function FeeCatsPlatform() {
     {view === 'activity' && <div className="paper-single-column"><ActivityFeed /></div>}
     {view === 'launch' && <LaunchCat key={kind} kind={kind} api={api} ownerId={ownerId} onCreated={created} onCancel={() => setView('cats')} Fields={CatFields} newForm={() => catForm(presetAvatar)} formOk={catOk} avatarOf={i => (CAT_VARIATIONS[i] || CAT_VARIATIONS[0])[0]} Preview={CatPreview} />}
     {view === 'leaderboard' && <div className="paper-single-column"><Leaderboard onOpen={openCat} /></div>}
+    {view === 'cats' && isAdmin ? <Suspense fallback={null}><ProfileFeeBanner mine onOpen={() => { setSelected(null); setView('nexa'); }} /></Suspense> : null}
+    {view === 'nexa' && isAdmin ? <Suspense fallback={<p className="paper-muted">🪟 opening NEXA…</p>}><button type="button" className="btn-outline" onClick={() => setView('cats')} data-testid="nexa-back">← My agents</button><ProfileFeeCat mine /></Suspense> : null}
     {view === 'cats' && <section className="paper-my-cats">{!cats.length ? <><div className="paper-panel-head"><div><span className="eyebrow">YOUR AGENTS · 0/{AGENT_MAX}</span><h2>No cats on the job yet — pick a brain.</h2></div></div><AgentPicker count={0} onPick={pickKind} /></>
       : <><div className="paper-panel-head"><div><span className="eyebrow">YOUR AGENTS · {live.length}/{AGENT_MAX}</span><h2>Tap a cat to see its desk</h2></div><button type="button" className="btn-outline" onClick={() => setView('new')} disabled={live.length >= AGENT_MAX}><Plus size={14} /> New agent</button></div>
         <div className="paper-my-cat-grid">{cats.map(cat => { const real = cat.mode === 'real' && !!cat.realWallet; const pend = (cat.proposals || []).filter(p => p.status === 'pending').length;

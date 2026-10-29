@@ -6,6 +6,10 @@ every trade) to agent wallets held by Crossmint (API-key admin signer). FEELESS 
 Pure helpers (tested, tests/test_agent_wallet.py) + three async calls against Crossmint's Wallets API (2025-06-09):
   create(http, key, kind, ref)  POST /wallets            owner `userId:feeless-<kind>-<ref>` → the same wallet again on a repeat (idempotent)
   balances(http, key, address)  GET  /wallets/{a}/balances?tokens=sol,usdc
+ASSIGNED (N16, owner 2026-10-29: "Fee's wallet: I wanna assign a wallet I already created — users just get a new wallet"): Fee, the leader, may
+take a wallet the owner already has (`lookup` + `assigned`). FEELESS signs only through Crossmint, so: a wallet Crossmint holds for THIS project
+(`GET /wallets/{address}` answers) → provider 'crossmint', she trades from it; any other wallet → provider 'watch' (shown, never traded from —
+FEELESS never holds a private key).
 MODES: a TRADING cat rides ('auto', fixed — funded once, it trades); a GENERAL cat starts on 'approve' (every AI move waits for the
 owner's OK) and the owner may switch it to 'auto' any time; a family wallet is 'approve' (raids / payouts go through the payout engine)."""
 import re
@@ -96,3 +100,24 @@ async def balances(http, key, address):
     if r.status_code != 200:
         raise ValueError(f'Crossmint balance read failed ({r.status_code}): {_err(r)}')
     return balance_view(r.json())
+
+
+async def lookup(http, key, address):
+    """Is `address` a Crossmint wallet of THIS project? → its reply, or None (404 / not ours). Raises ValueError on a key / network failure."""
+    env = env_of(key)
+    if not env or not _ADDR.match(str(address or '')):
+        raise ValueError('No Crossmint key, or not a Solana address.')
+    r = await http.get(f"{API[env]}/wallets/{address}", headers={'X-API-KEY': key}, timeout=15)
+    if r.status_code == 200:
+        return r.json() or {}
+    if r.status_code in (400, 404):
+        return None
+    raise ValueError(f'Crossmint did not answer ({r.status_code}): {_err(r)}')
+
+
+def assigned(address, reply, owner_wallet, now):
+    """An owner-assigned wallet for Fee → the record. Crossmint's own wallet = she trades from it; anything else = watch-only."""
+    if not _ADDR.match(str(address or '')):
+        raise ValueError('Not a Solana address.')
+    return {'kind': 'cat', 'ref': 'leader', 'address': address, 'locator': (reply or {}).get('locator') or (address if reply else None), 'owner': owner_wallet,
+            'mode': 'auto', 'provider': 'crossmint' if reply is not None else 'watch', 'assigned': True, 'at': round(now)}

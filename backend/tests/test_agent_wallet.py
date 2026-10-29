@@ -84,3 +84,37 @@ def test_the_cat_service_makes_one_wallet_for_its_signed_owner_and_the_switch_fo
     c.post('/api/cats/t1/action', json={**base, 'action': 'agent_wallet'})
     assert store['cats']['t1']['agentWallet']['mode'] == 'auto'
     assert c.post('/api/cats/t1/action', json={**base, 'action': 'agent_mode', 'mode': 'approve'}).status_code == 400              # a trading cat rides
+
+
+def test_n16_fee_takes_an_assigned_wallet_crossmint_trades_anything_else_is_watch_only(monkeypatch):
+    import agent_trade as at
+    h = FakeHttp(200, {'address': ADDR, 'locator': 'email:x:solana:smart'})
+    assert asyncio.run(aw.lookup(h, 'sk_production_k', ADDR))['address'] == ADDR and h.calls[0][1].endswith(f'/wallets/{ADDR}')
+    assert asyncio.run(aw.lookup(FakeHttp(404, {'message': 'not found'}), 'sk_production_k', ADDR)) is None
+    with pytest.raises(ValueError):
+        asyncio.run(aw.lookup(FakeHttp(500, {'message': 'down'}), 'sk_production_k', ADDR))
+    cm, watch = aw.assigned(ADDR, {'locator': 'L'}, 'OWNER', 1), aw.assigned(ADDR, None, 'OWNER', 1)
+    assert cm['provider'] == 'crossmint' and cm['assigned'] and watch['provider'] == 'watch' and 'key' not in str(watch).lower()
+    cat = {'agentWallet': watch, 'proposals': [{'id': 'p', 'status': 'pending', 'until': 9e9, 'side': 'buy'}]}
+    assert not at.wants(cat, cat['proposals'][0], 1.0) and asyncio.run(at.run(FakeHttp(), 'sk_production_k', cat, 1.0)) == []   # never traded from
+    fs = pytest.importorskip('feecat_service')
+    from fastapi.testclient import TestClient
+    store = {'cats': {'leader': {'id': 'leader', 'name': 'Fee', 'isLeader': True, 'ownerId': 'system', 'positions': [], 'risk': {}, 'status': 'running', 'revoked': False, 'balanceSol': 1.0},
+                      'u1': {'id': 'u1', 'name': 'Mine', 'ownerId': 'b1', 'positions': [], 'risk': {}, 'status': 'stopped', 'revoked': False, 'balanceSol': 1.0}}, 'events': []}
+    monkeypatch.setattr(fs, '_load', lambda: store); monkeypatch.setattr(fs, '_save', lambda s: None); monkeypatch.setattr(fs, '_log_event', lambda *a, **k: None)
+    sess = {'own': 'OWNERWALLET', 'usr': 'USERWALLET'}
+    monkeypatch.setattr(fs._real, 'load_sessions', lambda p: {'s': {hashlib.sha256(k.encode()).hexdigest(): {'address': v, 'exp': 9e18} for k, v in sess.items()}})
+    monkeypatch.setattr(fs, 'owner_wallets', lambda: ['OWNERWALLET'])
+
+    async def fake_lookup(http, key, a):
+        return {'locator': 'L'} if a == ADDR else None
+    monkeypatch.setattr(fs._aw, 'lookup', fake_lookup)
+    c = TestClient(fs.app)
+    assert c.post('/api/cats/leader/action', json={'action': 'agent_assign', 'address': 'USERWALLET', 'session': 'usr', 'text': ADDR}).status_code == 403   # not the creator
+    assert c.post('/api/cats/leader/action', json={'action': 'agent_assign', 'address': 'OWNERWALLET', 'session': 'own', 'text': ADDR}).status_code == 200
+    assert store['cats']['leader']['agentWallet']['provider'] == 'crossmint' and store['cats']['leader']['agentWallet']['owner'] == 'OWNERWALLET'
+    other = '9mbBeav7E52pxfED9h6AHBymggfvj119DyNGC1qqSkMj'
+    assert c.post('/api/cats/leader/action', json={'action': 'agent_assign', 'address': 'OWNERWALLET', 'session': 'own', 'text': other}).status_code == 200
+    assert store['cats']['leader']['agentWallet']['provider'] == 'watch'
+    r = c.post('/api/cats/u1/action', json={'action': 'agent_assign', 'ownerId': 'b1', 'address': 'USERWALLET', 'session': 'usr', 'text': ADDR})
+    assert r.status_code == 400 and 'Only Fee' in r.json()['detail']                                                                       # a user's cat gets a fresh one

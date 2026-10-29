@@ -116,8 +116,11 @@ Each loop iteration: ① cash check (card books vs wallet, halt, pending) → �
   word NEXA never shown) + 🐱 Get your own cat. The creator, signed in on their own profile: 🪟 NEXA = the buyer's cat dashboard (FeeCatDesk via `useAdmin().call`) +
   👁 WHAT VISITORS SEE. Checked live on the creator profile as a visitor. Tests `ProfileFeeCat.test.jsx`.
 - **N15 Fee's call chat**: a better calls chat for Fee.
-- **N16 Fee's wallet**: the owner assigns an EXISTING wallet to Fee (not a Crossmint-made one); users' cats get a fresh Crossmint wallet. (Users never sign per trade —
-  W01; only funding is signed, from their own wallet.)
+- **N16 Fee's wallet** — ✅ 2026-10-29: feecat `agent_assign` (Fee only, the creator's signed wallet; `_LEADER_AGENT`): Crossmint `GET /wallets/{address}` answers →
+  provider 'crossmint', she trades from it (agent_trade); anything else → 'watch' (balance from the chain, never traded from, no funding — FEELESS holds no private
+  key). Users' cats: a fresh Crossmint wallet only. 👛 Assign field on Fee's wallet card (CatReal `AssignWallet`) + the 👁 watch-only notice. Tests
+  `test_agent_wallet.py`, `CatReal.test.jsx`. + the creator's Fee (🪟 NEXA banner) sits first in FeeCat › Agents › My agents (not an agent slot) and opens the NEXA desk
+  with her owner bar (style · wallet). Not seen live as the creator (needs the owner's wallet).
 - Standing: professional code, no lag, nothing buggy or breaking.
 
 ## Build next — latest owner priorities

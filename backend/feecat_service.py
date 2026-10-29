@@ -1606,10 +1606,15 @@ async def cat_agent_wallet(cat_id: str):
         return {'wallet': None, 'kind': (cat.get('brainsCfg') or {}).get('kind')}
     try:
         async with httpx.AsyncClient(timeout=15) as http_b:
-            bal = await _aw.balances(http_b, os.environ.get('CROSSMINT_API_KEY', '').strip(), w['address'])
-    except ValueError as e:
+            if w.get('provider', 'crossmint') == 'crossmint':
+                bal = await _aw.balances(http_b, os.environ.get('CROSSMINT_API_KEY', '').strip(), w['address'])
+            else:   # 👁 watch-only: its balance from the chain (the trading service's holdings read)
+                h_ = await http_b.get(f"{_at.TRADE}/holdings/{w['address']}", timeout=15)
+                tk_ = {t_.get('mint'): float(t_.get('amount') or 0) for t_ in ((h_.json() or {}).get('tokens') or [])} if h_.status_code == 200 else None
+                bal = {'sol': tk_.get(_at.SOL, 0.0), 'usdc': tk_.get('EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v', 0.0)} if tk_ is not None else {'error': 'no chain read'}
+    except (ValueError, httpx.HTTPError) as e:
         bal = {'error': str(e)}
-    return {'wallet': {k: w.get(k) for k in ('address', 'mode', 'provider', 'at')}, 'balance': bal, 'kind': (cat.get('brainsCfg') or {}).get('kind')}
+    return {'wallet': {k: w.get(k) for k in ('address', 'mode', 'provider', 'at', 'assigned')}, 'balance': bal, 'kind': (cat.get('brainsCfg') or {}).get('kind')}
 
 
 @app.get('/api/cats/{cat_id}/profile')
@@ -1763,7 +1768,10 @@ def fee_owner_real(cat, action, signed, owners=None):
     """💵🐱 FEE GOES REAL — owner only (2026-10-23: "see NEXA trade real money as FeeCat"): Fee belongs to the system, so only a signed-in OWNER
     wallet (FEELESS_ADMIN_WALLETS — never a granted role) may switch her real / paper or answer her proposals. Real = every buy NEXA calls is
     a proposal that wallet signs (≤ its per-buy budget); FEELESS never moves the money. Pure (tests)."""
-    return bool(cat.get('isLeader') and action in ('real', 'paper', 'proposal', 'look') and signed and signed in (owner_wallets() if owners is None else owners))
+    return bool(cat.get('isLeader') and action in ('real', 'paper', 'proposal', 'look') + _LEADER_AGENT and signed and signed in (owner_wallets() if owners is None else owners))
+
+
+_LEADER_AGENT = ('agent_wallet', 'agent_mode', 'agent_assign', 'agent_approve')   # 👛 Fee's own wallet: the creator's signed wallet only (N16)
 
 
 LOOK_KEYS = ('coat', 'pattern', 'gear', 'eyes', 'aura')
@@ -1788,14 +1796,14 @@ async def cat_action(cat_id: str, payload: ActionPayload, request: Request):
     if not cat:
         raise HTTPException(404, 'Cat not found.')
     signed = _real.session_wallet(_real.load_sessions(DATA_DIR / 'chat_sessions.json'), payload.session)
-    if cat.get('isLeader') and payload.action in ('real', 'paper', 'proposal', 'look') and not request.headers.get('x-feeless-internal'):
+    if cat.get('isLeader') and payload.action in ('real', 'paper', 'proposal', 'look') + _LEADER_AGENT and not request.headers.get('x-feeless-internal'):
         if not signed:   # a missing / expired sign-in used to fall through to the internal-key check and read as a mystery 403
             raise HTTPException(401, 'Sign in with your wallet first (one signature, no transaction) — your sign-in expired.')
         if not fee_owner_real(cat, payload.action, signed) and not await _is_creator(signed):
             raise HTTPException(403, "Only the creator's wallets can switch Fee real — this wallet isn't linked to the creator.")
     elif not fee_owner_real(cat, payload.action, signed) and (not payload.ownerId or payload.ownerId != cat.get('ownerId')):   # 🔒 the owner only
         _internal(request)                                             # … or HQ (reputation's admin run, internal key)
-    if payload.action in ('real', 'proposal', 'agent_wallet', 'agent_mode', 'agent_approve') and (not signed or signed != payload.address):
+    if payload.action in ('real', 'proposal', 'agent_wallet', 'agent_mode', 'agent_approve', 'agent_assign') and (not signed or signed != payload.address):
         raise HTTPException(401, 'Sign in with your wallet first (one signature, no transaction).')
 
     if payload.action == 'real':   # 💵 option A: the cat proposes, this wallet signs every trade
@@ -1827,6 +1835,18 @@ async def cat_action(cat_id: str, payload: ActionPayload, request: Request):
                               **{k: a_.get(k) for k in ('usd', 'feeUsd', 'catLamports', 'feeLamports', 'solUsd')}}])[-50:]
         _log_event(store, cat, 'STARTED', f"{cat['name']} funded: ${a_.get('usd')} — {round((a_.get('catLamports') or 0) / 1e9, 4)} SOL into its wallet"
                    + (f" (one-time FEELESS fee ${a_.get('feeUsd'):g})" if a_.get('feeUsd') else '') + '.')
+    elif payload.action == 'agent_assign':   # 👛 N16: Fee takes a wallet the creator already has (a user's cat always gets a fresh one)
+        if not cat.get('isLeader'):
+            raise HTTPException(400, 'Only Fee takes an assigned wallet — your own cats get a fresh wallet of their own.')
+        addr_ = str(payload.text or '').strip()
+        try:
+            async with httpx.AsyncClient(timeout=15) as http_l:
+                rep_ = await _aw.lookup(http_l, os.environ.get('CROSSMINT_API_KEY', '').strip(), addr_)
+            cat['agentWallet'] = _aw.assigned(addr_, rep_, signed, time.time())
+        except ValueError as e:
+            raise HTTPException(400, str(e))
+        _log_event(store, cat, 'STARTED', f"{cat['name']}'s wallet is {addr_[:6]}… — " + ('she trades from it (Crossmint holds its key).' if rep_ is not None
+                   else "WATCH-ONLY: its key is not held by Crossmint, so she shows it but never trades from it."))
     elif payload.action == 'agent_mode':   # 👛 a GENERAL cat: approve every AI move, or let it do its thing
         if not cat.get('agentWallet'):
             raise HTTPException(400, 'Make its wallet first.')

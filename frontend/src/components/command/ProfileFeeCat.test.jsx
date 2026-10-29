@@ -8,6 +8,7 @@ jest.mock('../Panther', () => ({ Panther: () => <i data-testid="panther" /> }));
 jest.mock('./FeeCatStage', () => ({ FeeCatStage: () => <div data-testid="stage">STAGE</div> }));
 jest.mock('./FeeLiveTab', () => ({ FeeLiveTab: () => <div data-testid="live">LIVE DESK</div> }));
 jest.mock('./FeeCatDesk', () => ({ FeeCatDesk: ({ call }) => <div data-testid="nexa-desk">NEXA DESK {typeof call}</div> }));
+jest.mock('./FeeOwnerBar', () => ({ FeeOwnerBar: ({ cat }) => <div data-testid="owner-bar">{cat?.name}</div> }));
 jest.mock('react-router-dom', () => ({ Link: ({ children, to, ...p }) => <a href={to} {...p}>{children}</a> }), { virtual: true });
 const { ProfileFeeCat, ProfileFeeBanner } = require('./ProfileFeeCat');
 
@@ -30,6 +31,7 @@ test('🐆 N14 the creator on their own profile gets the NEXA desk (the buyer da
   mockAdmin.isAdmin = true;
   const { d, r } = await mount(<ProfileFeeCat mine />);
   expect(d.querySelector('[data-testid="nexa-desk"]').textContent).toContain('function');
+  expect(d.querySelector('[data-testid="owner-bar"]').textContent).toBe('Fee');                     // her wallet (assign / fund / real) on the NEXA desk
   await act(async () => { d.querySelector('[data-testid="profile-fee-public"]').click(); });
   await act(async () => { await new Promise(x => setTimeout(x, 0)); });
   expect(d.querySelector('[data-testid="live"]')).not.toBeNull(); expect(d.querySelector('[data-testid="profile-fee-cta"]')).toBeNull();
