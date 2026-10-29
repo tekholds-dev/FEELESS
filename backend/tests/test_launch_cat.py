@@ -77,3 +77,20 @@ def test_parse_word_reads_json_or_a_lone_word():
     assert lc.parse_word('HOLD or SELL', 'live')[0] == ''
     m = lc.ask_messages({'prompt': 'only HH/HL', 'chime': [{'text': 'watch the dev'}]}, '$X', partner='SKIP')
     assert 'only HH/HL' in m[0]['content'] and 'watch the dev' in m[1]['content'] and 'PARTNER' in m[1]['content']
+
+
+def test_routers_with_no_price_are_left_out_and_general_jobs_and_a_task_price_are_listed():
+    """Owner 2026-10-29: "$-2020.000000 a decision" — a router lists −1; and the General wizard gets 3 job categories + a $ a task."""
+    import launch_cat as lc
+    rows = [{'id': 'openrouter/auto', 'name': 'Auto Router', 'pricing': {'prompt': '-1', 'completion': '-1'}},
+            {'id': 'a/agent-x', 'name': 'Agent X', 'context_length': 128000, 'supported_parameters': ['tools'], 'pricing': {'prompt': '0.000001', 'completion': '0.000002'}},
+            {'id': 'b/writer', 'name': 'Writer', 'description': 'Great at creative writing and roleplay', 'context_length': 8000, 'pricing': {'prompt': '0', 'completion': '0'}},
+            {'id': 'c/qwen-coder', 'name': 'Qwen Coder', 'context_length': 32000, 'pricing': {'prompt': '0.0000002', 'completion': '0.0000006'}}]
+    c = lc.catalog(rows)
+    assert [m['id'] for m in c['models']] == ['a/agent-x', 'b/writer', 'c/qwen-coder']            # the router is gone, nothing negative shows
+    by = {m['id']: m for m in c['models']}
+    assert 'agent' in by['a/agent-x']['cats'] and 'content' in by['b/writer']['cats'] and 'code' in by['c/qwen-coder']['cats']
+    assert all(m['perDecision'] >= 0 and m['perTask'] >= 0 for m in c['models'])
+    assert by['a/agent-x']['perTask'] == round((1.0 * lc.TASK_IN + 2.0 * lc.TASK_OUT) * lc.TASK_CALLS / 1e6, 6)
+    gen = [x['key'] for x in c['cats'] if x.get('general')]
+    assert gen == ['agent', 'content', 'code'] and {x['key']: x['n'] for x in c['cats']}['agent'] == 1

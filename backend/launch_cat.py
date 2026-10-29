@@ -4,6 +4,7 @@ Budget is the design: a brain is asked ONCE before a buy, then at most LIVE_ASKS
 ALERT_PCT from the last ask — so the user's credit pays for decisions, never for a chat loop. The one-time prompt is set at launch and locked
 for the cat's life; the owner may chime in (advice the brain reads), never trade for it. Model calls run only when the owner switches
 LAUNCH_CAT_LIVE on (they cost his OpenRouter money); until then the rule engine decides and nothing is charged."""
+import re
 import time
 
 START_CREDIT = 10.0          # $ of model credit a new cat starts with (paper credit until real billing is built)
@@ -17,8 +18,8 @@ MODES = {
     'together': ('🤝 Work together', 'both must agree to buy or sell, else it holds', 2),
     'battle': ('⚔ Battle', 'each brain takes every other buy and runs that trade to its exit — two records, side by side', 1),
 }
-KINDS = {'trading': ('📈 Trading AI cat', '1-2 trading models hunt coins for you; every trade is a proposal your wallet signs'),
-         'general': ('🧭 General AI cat', '1-2 all-round models do what you order in plain words; each order is a proposal your wallet signs')}
+KINDS = {'trading': ('📈 Trading AI cat', '1-2 trading models hunt coins for you from the cat\'s own wallet — you sign once to fund it, then it trades inside the caps'),
+         'general': ('🧭 General AI cat', '1-2 all-round models: answers, research in their own cloud browsers, and coin orders you OK (or switch to auto)')}
 BILLING = {'profit': '💸 profit pays the fees (owed until a winning sale)', 'payg': '💳 pay as you go (pauses at $0 until you top up)'}
 CATS = {
     'degen': ('🔥 Degen', 'cheap + fast enough to fire on every alert'),
@@ -27,7 +28,13 @@ CATS = {
     'reasoning': ('♟ Reasoning', 'top of the intelligence index'),
     'meta': ('👁 Meta', 'reads pictures too — charts as images'),
     'free': ('🆓 Free', 'no token cost'),
+    # 🧭 general-cat jobs (owner 2026-10-29: "3 more categories to choose for general") — shown on the General wizard only
+    'agent': ('🌐 Agent', 'tools + a long memory — drives its browser through multi-step tasks'),
+    'content': ('✍ Content', 'writing, posts, scripts, chat — the creator / social jobs'),
+    'code': ('💻 Code', 'reads and writes code — builds, fixes, explains'),
 }
+GENERAL_CATS = ('agent', 'content', 'code')
+TASK_CALLS, TASK_IN, TASK_OUT = 18, 3200, 260   # 🧭 a general task: plan + ≤ 8 steps in each of 2 windows + the merge (cat_agent.STEP_MAX)
 REC = [   # FEELESS's own three, as they exist on OpenRouter — PUBLIC tags (users never see NEXA / OSSY / G4: owner, 2026-10-23)
     ('openai/gpt-oss-20b', 'FEELESS PICK', 'the chart-reading model behind FeeCat AI — laid back, sharp on charts, very cheap'),
     ('qwen/qwen3.5-4b', 'FEELESS PICK', 'the tiny, quick trench reader on our desk'),
@@ -53,11 +60,19 @@ def slim(m):
            'json': 'response_format' in sp or 'structured_outputs' in sp,
            'vision': 'image' in (arch.get('input_modalities') or []),
            'intel': round(_f(intel), 1) if intel is not None else None,
-           'desc': ' '.join(str(m.get('description') or '').split())[:180], 'created': int(_f(m.get('created')))}
+           'desc': ' '.join(str(m.get('description') or '').split())[:700], 'created': int(_f(m.get('created')))}
     row['free'] = row['inUsd'] == 0 and row['outUsd'] == 0
     row['cats'] = cats_of(row)
     row['perDecision'] = decision_usd(row)
+    row['perTask'] = round((row['inUsd'] * TASK_IN + row['outUsd'] * TASK_OUT) * TASK_CALLS / 1e6, 6)   # worst case, both windows run out their steps
     return row
+
+
+def priced(m):
+    """A router (openrouter/auto, …) lists −1 as its price: the route picks the model per call, so no $ can be shown or capped → left out
+    (owner 2026-10-29 screenshot: "$-2020.000000 a decision")."""
+    pr = m.get('pricing') or {}
+    return all(_f(pr.get(k)) >= 0 for k in ('prompt', 'completion'))
 
 
 def cats_of(r):
@@ -74,6 +89,13 @@ def cats_of(r):
         c.append('reasoning')
     if r['vision']:
         c.append('meta')
+    if r['tools'] and r['ctx'] >= 64000:
+        c.append('agent')
+    blob = f"{r['id']} {r['name']} {r['desc']}".lower()
+    if re.search(r'creative|writ|story|roleplay|role-play|copywrit|content|conversation|chat', blob):
+        c.append('content')
+    if re.search(r'\bcod(e|er|ing)\b|coder|program|software|developer|devstral', blob):
+        c.append('code')
     return c
 
 
@@ -82,14 +104,14 @@ def decision_usd(r):
 
 
 def catalog(rows):
-    rows = [slim(m) for m in rows if m.get('id') and not str(m.get('id')).endswith(':batch')]
+    rows = [slim(m) for m in rows if m.get('id') and not str(m.get('id')).endswith(':batch') and priced(m)]
     by = {r['id']: r for r in rows}
     rec, seen = [], set()
     for i, t, w in REC:   # one tile per desk seat (the newer Qwen first; the older only when the newer isn't listed)
         if i in by and w not in seen:
             seen.add(w); rec.append({**by[i], 'tag': t, 'why': w})
     counts = {k: sum(1 for r in rows if k in r['cats']) for k in CATS}
-    return {'models': rows, 'rec': rec, 'kinds': [{'key': k, 'label': v[0], 'why': v[1]} for k, v in KINDS.items()], 'cats': [{'key': k, 'label': v[0], 'why': v[1], 'n': counts[k]} for k, v in CATS.items()],
+    return {'models': rows, 'rec': rec, 'kinds': [{'key': k, 'label': v[0], 'why': v[1]} for k, v in KINDS.items()], 'cats': [{'key': k, 'label': v[0], 'why': v[1], 'n': counts[k], **({'general': True} if k in GENERAL_CATS else {})} for k, v in CATS.items()],
             'modes': [{'key': k, 'label': v[0], 'why': v[1]} for k, v in MODES.items()],
             'billing': [{'key': k, 'label': v} for k, v in BILLING.items()], 'budget': {'start': START_CREDIT, 'liveAsks': LIVE_ASKS, 'alertPct': ALERT_PCT}}
 

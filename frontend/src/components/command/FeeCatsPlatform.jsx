@@ -48,8 +48,8 @@ const tradeCard = event => ({
   footer: 'FEELESS · trade receipt',
 });
 
-function PaperBadge() {   // 💵 the AI cats are real-first (your wallet signs every trade); paper is the test toggle
-  return <span className="paper-badge" data-tip="FEELESS never holds your SOL or a key — every real trade is a proposal YOUR wallet signs. Paper is a free test."><i /> YOUR WALLET SIGNS · NO KEYS HELD</span>;
+function PaperBadge() {   // 💵 the AI cats are real-first (its own wallet: you sign one funding; linked to yours: you sign each); paper is the test toggle
+  return <span className="paper-badge" data-tip="Its own wallet: your wallet signs ONE funding transfer, then the cat trades inside server caps (≤ 0.5 SOL a buy, a daily cap). Linked to your wallet instead, every move is a proposal your wallet signs. FEELESS never sees your wallet's keys."><i /> SIGN ONCE · CAPS ON EVERY MOVE</span>;
 }
 
 function AvatarPicker({ value, onChange }) {
@@ -188,7 +188,7 @@ export default function FeeCatsPlatform() {
     ['activity', <><Activity size={14} /> Live activity</>, 'Every cat\'s buys and sells as they happen'],
     ['leaderboard', <><Trophy size={14} /> Leaderboard</>, 'Every cat ranked by real paper results']];
   const on = k => (k === 'new' ? ['new', 'create', 'launch'].includes(view) : k === 'cats' ? ['cats', 'cat', 'nexa'].includes(view) : view === k);
-  return <div className="fee-cats-platform fc-v2"><header className="paper-platform-head"><div><span className="eyebrow"><Cat size={14} /> AGENTS · CATS THAT TRADE FOR YOU</span><h1>Give your cat a <em>job.</em></h1><p>AI cats on live Solana — 1–2 models, your name, your look, your limits. Every real trade is a proposal your wallet signs; test it on paper first if you like.</p></div>
+  return <div className="fee-cats-platform fc-v2"><header className="paper-platform-head"><div><span className="eyebrow"><Cat size={14} /> AGENTS · CATS THAT TRADE FOR YOU</span><h1>Give your cat a <em>job.</em></h1><p>AI cats on live Solana — 1–2 models, your name, your look, your limits. Give it its own wallet: you sign ONE funding, then it trades inside the caps — a general cat asks you first on each move until you switch it to auto.</p></div>
     <div className="paper-platform-actions"><PaperBadge /><span className="fc-slots" data-tip={`${live.length} of ${AGENT_MAX} agent slots used`} aria-label={`${live.length} of ${AGENT_MAX} agents`}>{Array.from({ length: AGENT_MAX }, (_, k) => <i key={k} className={k < live.length ? 'is-on' : ''} />)}</span></div></header>
     <nav className="paper-platform-tabs" aria-label="Agents">{TABS.map(([k, label, tip]) => <button key={k} type="button" className={on(k) ? 'active' : ''} onClick={() => { setSelected(null); setView(k); }} data-testid={`fc-tab-${k}`} data-tip={tip}>{label}</button>)}</nav>
     {error && <div className="paper-inline-message" role="alert"><AlertTriangle size={14} />{error}</div>}

@@ -13,7 +13,7 @@ test('🤖 one door, two AI cats (Trading · General) that both walk models → 
   const el = document.createElement('div'); document.body.appendChild(el); const root = createRoot(el); const pick = jest.fn();
   await act(async () => { root.render(<AgentPicker count={1} onPick={pick} />); });
   expect(el.textContent).toContain(`1/${AGENT_MAX} RUNNING`);
-  expect(q(el, 'agent-trading').textContent).toContain('REAL · YOUR WALLET SIGNS'); expect(q(el, 'agent-general').textContent).toContain('plain words');
+  expect(q(el, 'agent-trading').textContent).toContain('REAL · ITS OWN WALLET'); expect(q(el, 'agent-general').textContent).toContain('you OK each move');
   expect(q(el, 'agent-trading').querySelector('.agp-flow').textContent).toBe('🧠 models👛 your wallet💵 REAL');
   expect(q(el, 'agent-general').textContent).toContain('model calls off');   // honest when the owner's model switch is off
   expect(q(el, 'agent-create').textContent).toContain('Test first on paper');
@@ -47,7 +47,7 @@ test('🎨 Build a cat › "Give it a job" (?create=1) lands on the brain pick �
   await act(async () => { root.render(<FeeCatsPlatform />); });
   expect(q(el, 'agent-picker')).not.toBeNull(); expect(document.body.querySelector('#create-cat-title')).toBeNull();
   await act(async () => { q(el, 'agent-general').click(); });
-  expect(q(el, 'lct-kind').textContent).toBe('🧭 GENERAL AI CAT · REAL WITH YOUR WALLET');
+  expect(q(el, 'lct-kind').textContent).toBe('🧭 GENERAL AI CAT · ITS OWN WALLET');
   expect(q(el, 'lct-step-3').textContent).toContain('go real');
   act(() => root.unmount()); window.history.pushState({}, '', '/'); document.body.innerHTML = '';
 });

@@ -1,4 +1,5 @@
 import { CatWorkbench } from './CatWorkbench';
+import { signWord } from './LaunchCat';
 import React, { useMemo, useState } from 'react';
 import { ArrowLeft, Copy } from 'lucide-react';
 import NumInput from '../NumInput';
@@ -115,8 +116,8 @@ export function CatDesk({ cat, busy = false, error = '', onBack, onAct, Activity
             <button type="button" className="m-btn" disabled={busy} onClick={() => onAct('withdraw', { amount: amt || v.bal })} data-testid="kd-withdraw">Withdraw</button></div></section>
         <section className="kd-card kd-revoke"><header><b>🔒 RETIRE IT</b><small>stops it for good · frees a slot</small></header>
           <button type="button" className="m-btn kd-danger" disabled={busy || cat.revoked} onClick={() => window.confirm(`Retire ${cat.name} for good? It never trades again.`) && onAct('revoke')} data-testid="kd-revoke">{cat.revoked ? 'Retired' : 'Retire agent'}</button></section>
-        <p className={`kd-paper${isReal ? ' is-real' : ''}`} data-tip={isReal ? 'Its own ledger stays paper (its record); every real trade is a proposal your wallet signs' : 'Every entry and exit uses the real live price at that moment; balances are simulated and no key lives in the browser'}>
-          {isReal ? '💵 REAL · it proposes · your wallet signs' : '🧪 PAPER · live prices · no real SOL'}</p>
+        <p className={`kd-paper${isReal ? ' is-real' : ''}`} data-tip={isReal ? `Its own ledger stays paper (its record); every real move: ${signWord(cat)}` : 'Every entry and exit uses the real live price at that moment; balances are simulated and no key lives in the browser'}>
+          {isReal ? (cat.agentWallet ? `💵 REAL · its own wallet · ${cat.agentWallet.mode === 'auto' ? 'auto' : 'you OK each move'}` : '💵 REAL · it proposes · your wallet signs') : '🧪 PAPER · live prices · no real SOL'}</p>
       </aside>
     </div>
   </section>;

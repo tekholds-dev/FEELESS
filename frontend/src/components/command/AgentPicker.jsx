@@ -2,15 +2,15 @@ import React, { useEffect, useState } from 'react';
 import '../../styles/agentPicker.css';
 
 // 🤖 NEW AGENT (owner, 2026-10-23: "TWO KINDS OF AI CAT — user's own wallet, real money, NO paper"): ONE door, two AI cats that both end at
-// pick models → link your wallet → REAL (option A: the cat proposes, YOUR wallet signs every trade; FEELESS never holds a key):
+// pick models → its own wallet → REAL (DECISIONS #2: your wallet signs ONE funding, then it trades inside the caps; FEELESS never sees your keys):
 //   📈 TRADING AI cat — 1-2 trading models hunt coins for you · 🧭 GENERAL AI cat — 1-2 all-round models do what you order in plain words.
 // The free rule trader stays as a 🧪 paper TEST toggle under the two (never the headline). A user runs at most AGENT_MAX agents.
 export const AGENT_MAX = 2;
 export const AGENT_KINDS = [
-  { key: 'trading', glyph: 'brain', title: 'Trading AI cat', tag: 'REAL · YOUR WALLET SIGNS', pitch: '1–2 trading models hunt Solana coins for you. Every buy and sell arrives as a proposal — your wallet signs it, inside the budget you set.',
-    meters: [['WHAT IT DOES', 0.9, 'hunts + trades'], ['YOUR CONTROL', 0.85, 'you sign each'], ['TALK TO IT', 0.95, 'its brain panel']] },
-  { key: 'general', glyph: 'orbit', title: 'General AI cat', tag: 'REAL · YOUR WALLET SIGNS', pitch: '1–2 all-round models do what you order in plain words — "buy 0.05 SOL of $JUP", "sell half of my WIF". Every order is guarded, then your wallet signs.',
-    meters: [['WHAT IT DOES', 0.95, 'your orders'], ['YOUR CONTROL', 0.95, 'you sign each'], ['TALK TO IT', 1, 'plain words']] },
+  { key: 'trading', glyph: 'brain', title: 'Trading AI cat', tag: 'REAL · ITS OWN WALLET', pitch: '1–2 trading models hunt Solana coins for you from the cat\'s own wallet — you sign ONE funding, then it trades inside the caps you set.',
+    meters: [['WHAT IT DOES', 0.9, 'hunts + trades'], ['YOUR CONTROL', 0.85, 'caps + stop'], ['TALK TO IT', 0.95, 'its brain panel']] },
+  { key: 'general', glyph: 'orbit', title: 'General AI cat', tag: 'REAL · YOU OK EACH MOVE', pitch: '1–2 all-round models — its two minds answer, research in their own cloud browsers while you watch, and run your coin orders from its own wallet: you OK each move (one tap) until you switch it to auto.',
+    meters: [['WHAT IT DOES', 0.95, 'research + orders'], ['YOUR CONTROL', 0.95, 'you OK each'], ['TALK TO IT', 1, 'both minds or one']] },
 ];
 
 function Glyph({ kind }) {

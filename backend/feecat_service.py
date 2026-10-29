@@ -1304,7 +1304,7 @@ def _work_view(cat_id, owner=False):
     return {'task': {k: t.get(k) for k in ('id', 'text', 'status', 'cap', 'cost', 'answer', 'fast', 'why')}, 'windows': wins}
 
 
-async def _work_run(cat_id, models, names, text, cap):
+async def _work_run(cat_id, models, names, text, cap, brief=''):
     w = _WORK[cat_id]
     env = os.environ
     async with httpx.AsyncClient(timeout=30) as http:
@@ -1320,8 +1320,10 @@ async def _work_run(cat_id, models, names, text, cap):
                     pages.append(_cb.ReaderPage(http))
             w.update(sessions=sessions, pages=pages)
 
-            async def ask(model, messages):
-                return await _or_call(model, messages, max_tokens=700)
+            orders = [{'role': 'system', 'content': f"Your owner's standing orders, sealed at launch — follow them on every step: {brief}"}] if brief else []
+
+            async def ask(model, messages):   # 📜 the sealed brief rides every call (plan · each browsing step · merge)
+                return await _or_call(model, orders + messages, max_tokens=700)
 
             async def wait_human(i):
                 ev = w['events'][i] = asyncio.Event()
@@ -1722,7 +1724,7 @@ async def cat_work(cat_id: str, p: WorkPayload):
             models = [models[int(p.to)]]
         names = [str(m).split('/')[-1][:24] for m in models]
         _WORK[cat_id] = {'task': _ca.new_task(uuid.uuid4().hex[:10], text, models, cap), 'events': {}, 'go': {}, 'sessions': [None, None], 'pages': [None, None], 'at': time.time()}
-        _WORK[cat_id]['runner'] = asyncio.create_task(_work_run(cat_id, models, names, text, cap))
+        _WORK[cat_id]['runner'] = asyncio.create_task(_work_run(cat_id, models, names, text, cap, str(b.get('prompt') or '')[:1200]))
     out = _work_view(cat_id, owner=True)
     return {**out, 'cap': float(cat.get('taskCap') or TASK_CAP_DEFAULT), 'credit': b.get('credit'), 'spent': b.get('spent'), 'chat': (cat.get('chat') or [])[-20:],
             'live': _work_live(), 'providers': _cb.chain(os.environ)}

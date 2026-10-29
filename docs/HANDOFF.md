@@ -26,6 +26,8 @@ Read this (2 min) → `CLAUDE.md` (lean rules + 🎨 MANDATORY STYLING + 📋 CU
 > 👛 **W01 AGENT WALLETS (Crossmint) 2026-10-29** slices 1-3: a wallet per cat + mode switch + trades from it (server caps) + the $2 / rest payment split (WORK_QUEUE W01). 🆕 owner list N01–N16 in WORK_QUEUE. N04: agents' edge = coins < 15 min, walled by the owner's 15-min line → 🐣 switch (off).
 > 📐 **L02 PRICE GAPS 2026-10-29** (`price_gap.py`, `/familia-pools/gaps`, Night Vault › 📐 PRICE GAPS): read-only cross-pool gaps net of a 0.3% swap a side; open only on 2 reads.
 **Updated 2026-10-29 · one long owner session, all pushed to main (gate green each push).**
+- 📱 P1 sweep: `styles/touch.css` (one sheet, coarse ≤ 900px) sizes tiny taps; N01 intake ▲ LEVEL ▼ stepper + swipe (`LiveTank`).
+- 🧭 General wizard: real model prices + ABOUT dropdown, Agent / Content / Code jobs, a general-only "how its minds work" step, monogram mind bubbles, true signing copy (its own wallet: one signed funding; general = you OK each move until auto). Brief now reaches the workbench minds.
 - 💵 Real card auto-halt fixed + live (gas-sized SOL gap booked as card fees). OWNER: top up ~0.02 SOL gas to the Fuse wallet.
 - 📰 FEEd v5 (`FeedX.jsx`, `feed.css`, `feedPro.css`) + its own page `/terminal/feed` (sidebar FEEd; profile bar opens it, reads the real mixed feed).
 - 🖥 HQ: `/dev/hq?deck=<tab>` whole-HQ fixture harness; every panel read through `lib/shape.shaped`; `HqDeck.TabGuard`; 32-tab empty-data sweep test.

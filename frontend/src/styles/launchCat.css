@@ -93,6 +93,49 @@
 .lct-dec li.lct-load { display: block; }   /* the empty line spans the row (it was squeezed into the 54px word column) */
 .lct-dec .w-buy b, .lct-dec .w-hold b { color: #45e486; } .lct-dec .w-sell b, .lct-dec .w-skip b { color: #ff8fa3; } .lct-dec .w-trim b { color: #ffe08a; } .lct-dec .w-rules b { color: #9d8fbf; }
 .lct-chime { display: flex; gap: 6px; } .lct-chime .m-input { flex: 1; } .lct-acts { display: flex; flex-wrap: wrap; gap: 8px; }
+/* 💵 model tiles v2 (owner 2026-10-29): a pick button + an ABOUT dropdown; 2×2 price grid (in / out per 1M · a decision or a task · memory) */
+.lct-tile { padding: 0; cursor: default; gap: 0; }
+.lct-tile-pick { display: grid; gap: 6px; width: 100%; padding: 11px 11px 8px; border: 0; border-radius: 14px; background: none; color: inherit; font: inherit; text-align: left; cursor: pointer; }
+.lct-tile-pick:focus-visible { outline: 2px solid var(--lv); outline-offset: -2px; }
+.lct-mono { display: grid; place-items: center; width: 22px; height: 22px; border-radius: 7px; font: 800 9px var(--f-mono); font-style: normal; color: #12081f; background: linear-gradient(135deg, #efe6ff, var(--lv)); flex: none; }
+.lct-tile.is-on .lct-mono { background: linear-gradient(135deg, #ffe3f3, var(--lp)); }
+.lct-tile .lct-tile-nums { grid-template-columns: 1fr 1fr; gap: 4px; }
+.lct-tile-nums > span { padding: 4px 6px; border-radius: 7px; background: #ffffff07; } .lct-tile-nums > span.is-hot { color: #ffc2e4; background: #ff5dbb12; box-shadow: inset 0 0 0 1px #ff5dbb26; }
+.lct-desc { border-top: 1px solid #ffffff0c; } .lct-desc summary { display: flex; align-items: center; gap: 6px; min-height: 32px; padding: 0 11px; cursor: pointer; list-style: none;
+  font: 800 9px var(--f-mono); letter-spacing: .14em; color: #c9a8ff; border-radius: 0 0 14px 14px; transition: background-color .15s; }
+.lct-desc summary::-webkit-details-marker { display: none; } .lct-desc summary::after { content: '▾'; margin-left: auto; transition: transform .18s; }
+.lct-desc[open] summary::after { transform: rotate(180deg); } .lct-desc summary:hover { background: #b388ff12; } .lct-desc summary:focus-visible { outline: 2px solid var(--lv); outline-offset: -2px; }
+.lct-tile .lct-desc p { display: block; -webkit-line-clamp: unset; overflow: visible; margin: 0; padding: 0 11px 11px; font-size: 11px; line-height: 1.5; color: #c9bce6; animation: lctIn .18s ease-out; }
+.lct-c-agent { color: #5ff2c8; } .lct-c-content { color: #ffb86b; } .lct-c-code { color: #8fd3ff; }
+.lct-cats button.is-job { border-color: #5ff2c855; } .lct-cats button.is-job.is-on { background: #5ff2c8; border-color: #5ff2c8; }
+/* 🫧 the brain socket's nodes: the maker's monogram + an A / B badge */
+.lct-node { font-size: 13px; } .lct-node u { position: absolute; right: -3px; bottom: -3px; display: grid; place-items: center; width: 17px; height: 17px; border-radius: 50%; text-decoration: none;
+  font: 800 8px var(--f-mono); color: #fff; background: #12081f; border: 1px solid #b388ff66; } .lct-node:not(.on) u { display: none; }
+/* 🫧 the two minds: orb (monogram + orbiting spark) over a label card — role · full name · price */
+.lct-duo { height: auto; align-items: flex-start; padding: 6px 0 2px; gap: 110px; }
+.lct-mind { position: relative; z-index: 1; display: grid; justify-items: center; gap: 4px; width: 150px; text-align: center; }
+.lct-mind .lct-orb { width: 70px; height: 70px; } .lct-orb b { font: 800 17px var(--f-tech); letter-spacing: .04em; }
+.lct-orb i { position: absolute; inset: -7px; border-radius: 50%; border: 1px solid #ffffff22; border-top-color: #fff; animation: lctSpin 3.2s linear infinite; }
+.lct-mind.m1 .lct-orb i { animation-direction: reverse; }
+.lct-mind em { margin-top: 6px; font: 800 8.5px var(--f-mono); font-style: normal; letter-spacing: .14em; color: #c9a8ff; } .lct-mind.m1 em { color: #ffc2e4; }
+.lct-mind strong { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: 700 12.5px var(--f-ui); color: #fff; }
+.lct-mind small { padding: 2px 8px; border-radius: 999px; font: 700 10px var(--f-mono); color: #ffe08a; background: #ffe08a14; }
+.lct-mind.is-empty .lct-orb { opacity: .3; box-shadow: none; } .lct-mind.is-empty .lct-orb i { display: none; } .lct-mind.is-empty strong { color: #9d8fbf; font-weight: 600; }
+.lct-duo .lct-beam { top: 41px; margin-top: 0; } .lct-duo .lct-ring { top: 41px; }
+.lct-duo.is-general .lct-beam { opacity: 1; animation: lctBeam 1.6s ease-in-out infinite; }
+.lct-duo.is-general .m0 .lct-orb { animation: lctPulse 2.4s ease-in-out infinite; } .lct-duo.is-general .m1 .lct-orb { animation: lctPulse 2.4s ease-in-out 1.2s infinite; }
+.lct-duo.is-solo .o2 { animation: none; } .lct-duo.is-solo .lct-beam { opacity: 0; }
+/* 🧭 how a general cat's minds work: four lit cards on a flowing rail */
+.lct-flow { position: relative; list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
+.lct-flow::before { content: ''; position: absolute; left: 6%; right: 6%; top: 22px; height: 2px; background: linear-gradient(90deg, var(--lv2), var(--lv), var(--lp)); opacity: .45; }
+.lct-flow li { position: relative; display: grid; gap: 4px; justify-items: start; padding: 10px 11px; border-radius: 13px; border: 1px solid #b388ff26;
+  background: linear-gradient(165deg, #1d1236f0, #0d0819f5); box-shadow: inset 0 1px 0 #ffffff10; animation: lctIn .3s ease-out both; animation-delay: calc(var(--i, 0) * 55ms); }
+.lct-flow li i { display: grid; place-items: center; min-width: 26px; height: 26px; padding: 0 5px; border-radius: 8px; font-style: normal; font-size: 13px; background: #b388ff24; box-shadow: 0 0 14px -4px var(--lv); }
+.lct-flow li:nth-child(3) i { background: #ffe08a24; } .lct-flow li:nth-child(4) i { background: #ff5dbb26; }
+.lct-flow b { font: 800 11px var(--f-tech); letter-spacing: .06em; color: #fff; text-transform: uppercase; } .lct-flow small { font-size: 11px; line-height: 1.4; color: #c9bce6; }
+body.theme-day .lct-flow li, body.theme-day .lct-tile-nums > span { background: #fff; border-color: #7c4dff26; } body.theme-day .lct-flow b, body.theme-day .lct-mind strong { color: #2a1650; }
+body.theme-day .lct-flow small, body.theme-day .lct-desc p { color: #5a4a7a; } body.theme-day .lct-mind small { color: #7a5a00; background: #fff4d6; } body.theme-day .lct-node u { background: #fff; color: #2a1650; }
+@media (max-width: 640px) { .lct-flow { grid-template-columns: 1fr 1fr; } .lct-flow::before { display: none; } .lct-duo { gap: 24px; } .lct-mind { width: 128px; } .lct-duo .lct-beam { width: 40px; margin-left: -20px; } }
 @keyframes lctIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
 @keyframes lctPulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.12); } }
 @keyframes lctFlow { to { stroke-dashoffset: -24; } }
@@ -135,7 +178,7 @@ body.theme-day .lct-tile strong, body.theme-day .lct-meter b, body.theme-day .lc
 body.theme-day .lct-head p, body.theme-day .lct-note, body.theme-day .lct-tile p, body.theme-day .lct-cats button, body.theme-day .lct-seal em, body.theme-day .lct-brief label { color: #5a4a7a; }
 body.theme-day .lct-seal { background: #fff9ec; } body.theme-day .lct-seal b { color: #7a5a00; } body.theme-day .lct-modes button.is-on, body.theme-day .lct-steps button.is-on { color: #fff; }
 @media (max-width: 640px) { .lct { padding: 12px; } .lct-head { grid-template-columns: 1fr; justify-items: center; text-align: center; } .lct-socket { width: 220px; }
-  .lct-steps { grid-template-columns: repeat(2, 1fr); } .lct-meter, .lct-vitals { grid-template-columns: 1fr 1fr; } .lct-duo { gap: 60px; } }
+  .lct-steps { grid-template-columns: repeat(2, 1fr); } .lct-meter, .lct-vitals { grid-template-columns: 1fr 1fr; } .lct-duo { gap: 24px; } }
 
 /* 🐱 Launch a Cat asks the same identity + look + risk as Create a Cat (CatFields / CatPreview from FeeCatsPlatform) */
 .lct-ident { display: grid; grid-template-columns: minmax(0, 1fr) 260px; gap: 14px; align-items: start; }
