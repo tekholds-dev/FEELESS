@@ -85,7 +85,10 @@ Each loop iteration: ① cash check (card books vs wallet, halt, pending) → �
    overlap, the tab row never scrolled away) 2026-10-29. ✅ the SIDE MENU on phones: it opened UNDER its own shade (a desktop `z-index:3` rule applied at every
    width beat the drawer's 80 vs the shade's 70) — invisible and every tap closed it; now desktop-only (terminal.css). ✅ chart markers a size down on touch
    screens ≤ 900px: pins 22 → 16 (agent / talk 13), the SEAT tag + level tags (stop / take / germ) smaller (chartCallPins / chartLive / chartLevels.css).
-   NEXT in P1: the phone Agents floor's chart is ~120px tall (the Live P&L block + ride rows take its half); then a page-by-page sweep on phone / Duo / fold.
+   ✅ phone Agents chart 120 → 245px. ✅ page-by-page sweep 2026-10-29 at 375 / 466 / 890 (terminal, chat, fuse, launch, feecat, familia, feed, pump, radar,
+   profile): no sideways scroll anywhere; tiny taps sized up in ONE sheet `styles/touch.css` (pointer: coarse ≤ 900px — hit areas grow, the look doesn't):
+   Home 28 → 3 under 28px (left: the flip-card's 3D buttons + the allocation bar's proportional segments), Fuse 9 → 0, Launch 18 → 0.
+   NEXT in P1: N01 intake rows ▲/▼ + swipe; the owner to confirm Safari top-right.
 2. **P2 General cat = a beast** — ✅ slice 1 2026-10-29: `backend/cat_browser.py` (hosted browser CHAIN Steel → Browserless → Browserbase → reader; live view only when
    it holds no key; Playwright `LivePage` over CDP + a text `ReaderPage`; `needs_human` walls) · `backend/cat_agent.py` (plan → fast answer from memory, or split
    in two halves → each model browses its own window ≤ 8 steps, one action a step → merge; a sign-in / CAPTCHA / any attempt to type a password, card or seed

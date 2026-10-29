@@ -12,6 +12,7 @@ import { useWallet } from '../../hooks/useWallet';
 import { usePresenceBeat } from '../../lib/presence';
 import { FeedPopHost } from '../command/FeedX';
 import { formatUSD, shortAddress } from '../../lib/dexscreener';
+import '../../styles/touch.css';
 import { Change, DataStatus } from './MarketPrimitives';
 import { SearchBox } from './SearchBox';
 import { NotificationBell } from '../Social';

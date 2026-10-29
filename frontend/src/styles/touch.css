@@ -1,0 +1,18 @@
+/* 👆 TOUCH TARGETS (P1 mobile sweep 2026-10-29: the same few shared controls on every page were under the 32px hit area — the search's
+   submit 20×20, the season banner 24px, "Globe view" 12px, the Fuse tabs 27px, the footer links 12–18px). Only on touch screens ≤ 900px; the
+   hit area grows (min sizes / padding), the look stays. Imported by TerminalShell (the shared chrome). */
+@media (pointer: coarse) and (max-width: 900px) {
+  [data-testid="terminal-search-submit"] { min-width: 34px; min-height: 34px; }
+  .season-banner { min-height: 32px; display: flex; align-items: center; }
+  [data-testid="workspace-globe-link"] { display: inline-flex; align-items: center; min-height: 32px; padding: 0 4px; }
+  .fp-tabs > button { min-height: 34px; }
+  .llb-plink, [data-testid^="launchpad-visit-"], [data-testid="launchpad-guide-whitepaper-link"] { display: inline-flex; align-items: center; min-height: 32px; }
+  [data-testid^="launchpad-globe-"] { display: inline-grid; place-items: center; min-width: 32px; min-height: 32px; }
+  [data-testid^="hub-"][role="tab"], [data-testid^="hub-"]:is(button, a), [data-testid^="frg-t-"] { min-height: 32px; }
+  [data-testid^="live-card-flip-"], [data-testid^="live-card-pin-"] { min-width: 32px; min-height: 32px; }
+  .terminal-footer a, .legal-consent a { display: inline-flex; align-items: center; min-height: 32px; }
+  /* market rows: the DexScreener / watch icons grow their hit area, not their look */
+  .row-actions > a, .row-actions > button { display: inline-grid; place-items: center; min-width: 32px; min-height: 32px; margin: -9px -8px; }
+  [data-testid="market-refresh"] { min-width: 32px; min-height: 32px; }
+  [data-testid="markets-view-all"], [data-testid="context-launchpads-link"], a[href="/terminal/leaderboard?lens=crews"] { display: inline-flex; align-items: center; min-height: 32px; }
+}
