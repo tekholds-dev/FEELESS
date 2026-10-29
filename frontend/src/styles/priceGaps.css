@@ -1,0 +1,44 @@
+/* 📐 PriceGaps.jsx (`gp-*`, the Night Vault add-on): each token is a drawn rail — its pools as lamps at their price (cheap end mint, rich end
+   gold), a bridge whose lit part is the gap left after a swap's cost each side, a light sweep along an OPEN gap. Night violet from the vault;
+   one keyframe set `gp*`, transform / opacity only; still under fx-lite + reduced motion; day theme + 640px below. */
+.gp { --gp-lo: #5ff2c8; --gp-hi: #f5c451; --gp-a: #9b8cff; position: relative; display: grid; gap: 8px; padding: 12px; border-radius: 14px; color: #ece8ff;
+  background: linear-gradient(180deg, rgba(43, 34, 102, .55), rgba(7, 5, 26, .9)); border: 1px solid rgba(155, 140, 255, .35); box-shadow: inset 0 1px 0 rgba(255, 255, 255, .07), 0 10px 26px rgba(0, 0, 0, .4); }
+.gp-head { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.gp-title { display: grid; margin-right: auto; } .gp-title em { font: 800 7.5px var(--f-mono, monospace); font-style: normal; letter-spacing: .14em; color: var(--gp-a); }
+.gp-title b { font: 800 15px var(--f-display, var(--f-ui, sans-serif)); letter-spacing: .02em; }
+.gp-k { display: grid; justify-items: center; min-width: 58px; padding: 3px 8px; border-radius: 8px; background: rgba(255, 255, 255, .05); }
+.gp-k small { font: 800 6.5px var(--f-mono, monospace); letter-spacing: .12em; color: #a59ccc; } .gp-k b { font: 800 13px var(--f-mono, monospace); color: #fff; }
+.gp-k:first-of-type b { color: var(--gp-lo); text-shadow: 0 0 10px rgba(95, 242, 200, .5); }
+.gp-rails { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
+.gp-row { position: relative; display: grid; grid-template-columns: minmax(64px, 88px) minmax(0, 1fr) 82px 112px; align-items: center; gap: 10px; min-height: 40px; padding: 4px 8px;
+  border-radius: 9px; background: rgba(255, 255, 255, .03); border: 1px solid transparent; overflow: hidden; animation: gpIn .3s ease-out both; animation-delay: calc(var(--i, 0) * 50ms);
+  transition: transform .15s ease, border-color .15s ease; }
+.gp-row:hover { transform: translateX(2px); border-color: rgba(155, 140, 255, .35); }
+.gp-row.is-open { border-color: rgba(95, 242, 200, .45); background: linear-gradient(90deg, rgba(95, 242, 200, .1), rgba(255, 255, 255, .02) 70%); }
+.gp-row.is-open::after { content: ''; position: absolute; inset: 0; background: linear-gradient(90deg, transparent, rgba(95, 242, 200, .14), transparent); transform: translateX(-100%);
+  animation: gpSweep 2.8s ease-in-out infinite; pointer-events: none; }
+.gp-sym { display: grid; min-width: 0; } .gp-sym b { font: 800 12px var(--f-tech, sans-serif); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.gp-sym small { font: 700 7.5px var(--f-mono, monospace); color: #a59ccc; }
+.gp-rail { position: relative; height: 18px; margin: 0 6px; }
+.gp-bridge { position: absolute; left: 0; right: 0; top: 50%; height: 4px; margin-top: -2px; border-radius: 4px; background: rgba(255, 255, 255, .08); overflow: hidden; }
+.gp-bridge s { display: block; height: 100%; transform-origin: right; background: linear-gradient(90deg, var(--gp-lo), var(--gp-hi)); opacity: .35; transition: transform .6s ease; }
+.gp-row.is-open .gp-bridge s { opacity: 1; box-shadow: 0 0 8px rgba(95, 242, 200, .6); }
+.gp-rail em { position: absolute; top: 50%; width: 10px; height: 10px; margin: -5px 0 0 -5px; border-radius: 50%; background: #6f6896; box-shadow: 0 0 0 2px rgba(7, 5, 26, .9); transition: left .6s ease; }
+.gp-rail em.is-lo { background: var(--gp-lo); box-shadow: 0 0 0 2px rgba(7, 5, 26, .9), 0 0 10px rgba(95, 242, 200, .8); }
+.gp-rail em.is-hi { background: var(--gp-hi); box-shadow: 0 0 0 2px rgba(7, 5, 26, .9), 0 0 10px rgba(245, 196, 81, .8); }
+.gp-row.is-open .gp-rail em.is-lo { animation: gpLamp 1.6s ease-in-out infinite; }
+.gp-nums { display: grid; justify-items: end; } .gp-nums .gp-gap { font: 800 13px var(--f-mono, monospace); color: #fff; }
+.gp-nums small { font: 700 8px var(--f-mono, monospace); color: #a59ccc; } .gp-nums small b { font-size: 9px; } .gp-nums .is-up { color: var(--gp-lo); } .gp-nums .is-dn { color: #ff8fa3; }
+.gp-side { display: grid; justify-items: end; min-width: 0; } .gp-side small { font: 700 8px var(--f-tech, monospace); color: #cfc6ff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+.gp-side u { text-decoration: none; font: 800 8px var(--f-mono, monospace); letter-spacing: .06em; color: #8f88b5; } .gp-side u.is-open { color: var(--gp-lo); }
+.gp-wait, .gp-use { margin: 0; font: 600 10px/1.45 var(--f-ui, sans-serif); color: #b8b0dd; } .gp-use b.is-lo { color: var(--gp-lo); } .gp-use b.is-hi { color: var(--gp-hi); }
+@keyframes gpIn { from { opacity: 0; transform: translateY(5px); } }
+@keyframes gpSweep { to { transform: translateX(100%); } }
+@keyframes gpLamp { 50% { transform: scale(1.35); } }
+body.fx-lite .gp-row, body.fx-lite .gp-row.is-open::after, body.fx-lite .gp-rail em { animation: none; } body.fx-lite .gp-row.is-open::after { opacity: 0; }
+@media (prefers-reduced-motion: reduce) { .gp-row, .gp-row.is-open::after, .gp-rail em { animation: none; } .gp-row.is-open::after { opacity: 0; } .gp-row, .gp-bridge s, .gp-rail em { transition: none; } }
+body.theme-day .gp { background: linear-gradient(180deg, #f4f1ff, #fbfaff); color: #1d1838; border-color: rgba(90, 70, 200, .25); --gp-lo: #0a8f6e; --gp-hi: #a2700a; }
+body.theme-day .gp-k, body.theme-day .gp-row { background: rgba(60, 40, 160, .05); } body.theme-day .gp-k b, body.theme-day .gp-nums .gp-gap { color: #1d1838; } body.theme-day .gp-k:first-of-type b { text-shadow: none; }
+body.theme-day .gp-side small { color: #4d3fa3; } body.theme-day .gp-wait, body.theme-day .gp-use, body.theme-day .gp-sym small, body.theme-day .gp-nums small, body.theme-day .gp-k small { color: #5d5683; }
+body.theme-day .gp-rail em { box-shadow: 0 0 0 2px #fff; } body.theme-day .gp-bridge { background: rgba(60, 40, 160, .1); }
+@media (max-width: 640px) { .gp-row { grid-template-columns: minmax(56px, 72px) minmax(0, 1fr) 66px; gap: 6px; } .gp-side { grid-column: 1 / -1; justify-items: start; grid-auto-flow: column; gap: 8px; justify-content: start; } .gp-k { min-width: 50px; } }

@@ -4,6 +4,7 @@ import { BrowserRouter } from 'react-router-dom';
 import { WalletProvider } from '../hooks/useWallet';
 import { FamilyWorld, FundMeter } from '../components/FamilyWorld';
 import { FamiliaTradeDock } from '../components/FamiliaTrade';
+import { NightVault } from '../components/NightVault';
 import '../styles/familyWorld.css';
 import WORLD from './world.fixture.json';
 import '../styles/familyNoir.css';
@@ -66,9 +67,19 @@ const NV = { kamino: true, at: now, rows: [
     { key: 'vault', name: '🌀 AUTO-COMPOUND', sub: 'vaults that rebalance + compound a DEX position', risk: { contract: 2, depeg: 1, il: 2, liq: 0, note: 'IL is yours.' }, rows: ['n5'], apy: 31.4, top: 'SOL-USDC' },
     { key: 'loop', name: '🔁 LOOP IT · MULTIPLY', sub: 'stake → borrow SOL at 5.3% on Kamino → stake again', risk: { contract: 2, depeg: 2, il: 0, liq: 3, note: 'Liquidation past the cushion.' }, rows: [], apy: 9.54, top: 'JUPSOL ×2',
       loops: [{ id: 'n1', sym: 'JUPSOL', proto: 'Jupiter', lstApy: 7.42, borrow: 5.3, maxLtv: 0.65, app: 'https://app.kamino.finance/multiply', plays: [{ x: 1.5, apy: 8.48, ltv: 0.333, cushion: 0.487 }, { x: 2, apy: 9.54, ltv: 0.5, cushion: 0.231 }] }] }] };
-window.fetch = (u, o) => (String(u).includes('/familia-pools/sleep') ? json(NV) : String(u).includes('/familia-world') ? json(V) : String(u).includes('/familia/street/') ? json(STREET) : String(u).includes('/admin/familia/overwatch') ? json(OW) : real(u, o));
+// 📐 the Night Vault's PRICE GAPS on fixtures (live: /familia-pools/gaps) — one open gap, one confirming, two inside their costs
+const GP = (dex, at, px, vs = 'USDC') => ({ dex, pair: `P${dex}${at}`, px, liq: 4e5, vs, at });
+const GAPS = { tokens: 12, open: 1, cost: 0.3, at: now, gaps: [
+  { mint: 'g1', sym: 'JLP', n: 5, lo: GP('raydium', 0, 4.512, 'USDT'), hi: GP('orca', 0.671, 4.5423), gapPct: 0.671, netPct: 0.071, open: true, openSec: 184, pools: [GP('raydium', 0, 4.512, 'USDT'), GP('meteora', 0.21, 4.5215), GP('orca', 0.33, 4.527, 'SOL'), GP('orca', 0.671, 4.5423)] },
+  { mint: 'g2', sym: 'BONK', n: 4, lo: GP('raydium', 0, 1.9e-5, 'SOL'), hi: GP('meteora', 0.64, 1.912e-5), gapPct: 0.64, netPct: 0.04, open: false, openSec: 0, pools: [GP('raydium', 0, 1.9e-5, 'SOL'), GP('orca', 0.2, 1.904e-5), GP('meteora', 0.64, 1.912e-5)] },
+  { mint: 'g3', sym: 'SOL', n: 22, lo: GP('raydium', 0, 182.1, 'USDT'), hi: GP('pumpswap', 0.45, 182.92), gapPct: 0.45, netPct: -0.15, open: false, openSec: 0, pools: [GP('raydium', 0, 182.1, 'USDT'), GP('orca', 0.08, 182.25), GP('meteora', 0.12, 182.32), GP('pumpswap', 0.45, 182.92)] },
+  { mint: 'g4', sym: 'JitoSOL', n: 6, lo: GP('meteora', 0, 224.9, 'SOL'), hi: GP('orca', 0.247, 225.46, 'SOL'), gapPct: 0.247, netPct: -0.353, open: false, openSec: 0, pools: [GP('meteora', 0, 224.9, 'SOL'), GP('orca', 0.247, 225.46, 'SOL')] }] };
+window.fetch = (u, o) => (String(u).includes('/familia-pools/gaps') ? json(GAPS) : String(u).includes('/familia-pools/sleep') ? json(NV) : String(u).includes('/familia-world') ? json(V) : String(u).includes('/familia/street/') ? json(STREET) : String(u).includes('/admin/familia/overwatch') ? json(OW) : real(u, o));
 
+const VAULT_ONLY = new URLSearchParams(window.location.search).has('vault');   // ?vault = the Night Vault alone (+ ?day)
+if (new URLSearchParams(window.location.search).has('day')) document.body.classList.add('theme-day');
 export default function CityHarness() {   // wrapped like the real app (router + wallet) so every room renders as it does in /familia
+  if (VAULT_ONLY) return <BrowserRouter><WalletProvider><div style={{ height: '100vh', overflowY: 'auto', padding: 12, boxSizing: 'border-box', background: '#07051a' }}><NightVault /></div></WalletProvider></BrowserRouter>;
   return <BrowserRouter><WalletProvider><div style={{ height: '100vh', overflowY: 'auto', boxSizing: 'border-box', padding: 12, background: '#070504', color: '#e9d3a0' }}>
     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, maxWidth: 640, marginBottom: 12 }} data-testid="fund-preview">
       <aside className="fwd-side m-card t-mine"><b>[FRT] fee-4 · turf</b><FundMeter x={blocks.find(b => b.id === 'fee-4')} me={V.me} act={() => {}} busy={false} upkeep={10} /></aside>

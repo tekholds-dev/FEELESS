@@ -11017,6 +11017,37 @@ async def familia_pools_sleep():
     return {'strategies': st_, 'rows': [r_ for r_ in pools_ if r_.get('id') in want_], 'kamino': bool(km_), 'at': round(now, 1)}
 
 
+import price_gap as _pgap
+_pgap_c = {'at': 0.0, 'v': None, 'book': {}}
+PGAP_SEC = 60.0
+
+
+@app.get('/api/reputation/familia-pools/gaps')
+async def familia_pools_gaps():
+    """📐 PRICE GAPS (price_gap.py, READ-ONLY): the tokens the Pool Hub's pools hold, priced across every real pool they trade in — the
+    cheap pool, the rich one, the gap after a swap's cost each side, how long it has stayed open. one DexScreener /token-pairs read per token a minute (≤ 12, in parallel)."""
+    now = time.time(); c = _pgap_c
+    if c['v'] is not None and now - c['at'] < PGAP_SEC:
+        return c['v']
+    pools_ = sorted(((await familia_pools()) or {}).get('pools') or [], key=lambda r_: -_fuse._f(r_.get('tvl')))
+    mints_ = list(dict.fromkeys(m_ for r_ in pools_ for m_ in (r_.get('mints') or []) if isinstance(m_, str) and 32 <= len(m_) <= 44))[:_pgap.TOKENS]
+
+    async def one_(m_):
+        try:
+            r_ = await _ai_http().get(f'https://api.dexscreener.com/token-pairs/v1/solana/{m_}', timeout=10)
+            j_ = r_.json() if r_.status_code == 200 else []
+            return j_ if isinstance(j_, list) else []
+        except Exception as e_:
+            print(f'[gaps] {m_[:6]}: {e_}')
+            return []
+    pairs_ = [p_ for ps_ in await asyncio.gather(*(one_(m_) for m_ in mints_)) for p_ in ps_]
+    if not pairs_ and c['v'] is not None:   # a failed read keeps the last good board
+        return c['v']
+    rows_ = _pgap.persist(c['book'], _pgap.gaps(pairs_, mints_), now)
+    c.update(at=now, v={'gaps': rows_, 'tokens': len(mints_), 'open': sum(1 for g_ in rows_ if g_.get('open')), 'cost': _pgap.COST_PCT, 'at': round(now, 1)})
+    return c['v']
+
+
 _fpl_charts = {}   # pool id → (at, points) — 30 min, ≤ 300 pools kept
 
 

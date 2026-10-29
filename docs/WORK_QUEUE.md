@@ -56,7 +56,11 @@ Each loop iteration: ① cash check (card books vs wallet, halt, pending) → �
    together in a personal wallet-brain chat: research, crawl sites, Polymarket etc. via user sign-ins, a small browser window showing what it does). Each user can hold up to
    3 cats; the owner's cat (NEXA) shows on the wallet's public FeeCat tab; a pop-out to watch the trading or assistant cat. ⚠ OWNER DECISION before code: option 2 creates a
    wallet + one-time recovery phrase = CUSTODY (DECISIONS #2 is option A "your wallet signs"; counsel). Fee per top-up shown up front.
-3. **L02 Price-gap boost** (lootcollector.online idea): detect price gaps across pools/venues as an add-on to AutoCompound / pools / Night Vault to speed up daily earnings.
+3. **L02 Price-gap boost** — ✅ BUILT 2026-10-29 (read-only). `backend/price_gap.py` + `GET /familia-pools/gaps` (1 min cache): the 12 deepest tokens the Pool Hub's pools
+   hold, one DexScreener /token-pairs read each in parallel; pools ≥ $50K / ≥ $10K a day / trades this hour / vs SOL·USDC·USDT only; gap = rich ÷ cheap − 1, net = − 0.3 %
+   a side; OPEN only on two reads in a row. Night Vault › 📐 PRICE GAPS (`PriceGaps.jsx`, `priceGaps.css`): a drawn rail per token (pool lamps, cheap mint / rich gold,
+   net bridge, sweep + ticking clock on an open gap). Live check: 12 tokens / 213 pools → only JLP clears costs (+0.07 % net); SOL / USDC / JitoSOL inside costs. Never
+   trades. Tests `test_price_gap.py` (4), `PriceGaps.test.jsx` (2); fixtures `/dev/city?vault`. Needs a backend restart to serve the endpoint.
 4. **M02 Every page fits every device** (mobile / fold / desktop) against `MOBILE_LAYOUT.md › Duo floors`; no dead styles, no bulky one-off CSS.
 ⚠ OWNER: HQ › Fees shows the swap fee at **1500 bps (15 %)** — confirm intended (the cat funding receipt reads it live).
 

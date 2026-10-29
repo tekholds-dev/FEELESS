@@ -7,6 +7,7 @@ import { FiveRun } from './FiveRun';
 import { AutoRangePicker } from './AutoRangeDesk';
 import { usePools } from './PoolHub';
 import { PoolWaves } from './PoolWaves';
+import { PriceGaps } from './PriceGaps';
 import '../styles/nightVault.css';
 
 // 💤 THE NIGHT VAULT — money while you sleep (FEELESS AVENUE building; backend sleep_money.py, GET /familia-pools/sleep). Five strategies from
@@ -90,6 +91,7 @@ export function NightVault() {
         : <Picks s={s} rows={(s.rows || []).map(id => byId[id]).filter(Boolean)} amt={amt} />) : null}
     </article>)}</div>
     <AutoRangePicker pools={hub?.pools} amt={amt} title="🤖 AUTORANGE WHILE YOU SLEEP · THE BUSIEST BANDS" />
+    <PriceGaps />
     {d && !d.kamino ? <p className="nv-note">Kamino's rates did not answer — loops are hidden until they do (no guessed borrow rates).</p> : null}
   </section>;
 }
