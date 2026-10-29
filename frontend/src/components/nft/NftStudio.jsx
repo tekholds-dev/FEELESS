@@ -5,7 +5,7 @@ import { useWallet } from '../../hooks/useWallet';
 import { apiUrl, errorText } from '../../lib/api';
 import { MetaCard } from '../cards/MetaCard';
 import { shaped } from '../../lib/shape';
-const NFT_HOME = shaped({ collections: [], platforms: [] });
+const NFT_HOME = shaped({ collections: [], platforms: {} });
 
 // HQ › NFTs: turn any FEELESS card into an NFT collection on Solana and drop it to wallets.
 //   Metaplex Core — on-chain, your wallet signs (no key)      Crossmint — API minting (CROSSMINT_API_KEY)

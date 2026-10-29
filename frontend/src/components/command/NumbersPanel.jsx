@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { RefreshCw } from 'lucide-react';
 import { AnimatedNumber } from '../terminal/AnimatedNumber';
 import { shaped } from '../../lib/shape';
-const NUMBERS = shaped({ history: [], market: {}, holders: {}, treasury: {}, flow: {}, scanner: {} });
+const NUMBERS = shaped({ history: [] });   // market stays null when $FEE isn't indexed (the note below reads it)
 
 const usd = v => (v == null ? '—' : v >= 1e9 ? `$${(v / 1e9).toFixed(2)}B` : v >= 1e6 ? `$${(v / 1e6).toFixed(2)}M` : v >= 1e3 ? `$${(v / 1e3).toFixed(1)}K` : `$${Number(v).toFixed(v < 1 ? 6 : 2)}`);
 const pct = v => (v == null ? '—' : `${v >= 0 ? '+' : ''}${Number(v).toFixed(1)}%`);
