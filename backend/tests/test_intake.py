@@ -200,3 +200,22 @@ def test_jupiter_at_its_rate_limit_never_starves_the_desk_dexscreener_fills_the_
     asyncio.run(rs._intake_pass([], 1010.0))
     assert len(asked) == 1                                                                      # cached 45 s — no re-ask every pass
     assert set(deepest_pairs([pair('A', 1, 'a'), {**pair('A', 2, 'b'), 'chainId': 'base'}], ['A'])) == {'A'}   # other chains never count
+
+
+def test_shared_discovery_precedes_ranking_and_keeps_unapproved_coins():
+    rows = [{'mint': 'OLD', 'ageH': 99, 'safe': False}, {'mint': 'NEW', 'rank': -1}, {'mint': 'OLD', 'symbol': 'OLD'}]
+    result = it.shared_rows(rows, {'NEW': ['pulse']}, {'OLD': ['calls']})
+    assert [r['mint'] for r in result] == ['OLD', 'NEW']
+    assert result[0]['safe'] is False and result[0]['ageH'] == 99
+    assert result[1]['sources'] == ['open', 'pulse']
+    assert 'sources' not in rows[0]
+
+
+def test_visible_intake_uses_shared_discovery_not_ranked_picks(monkeypatch):
+    import reputation_service as rs
+    monkeypatch.setattr(rs, '_shared_intake', {'at': 1000, 'rows': [{'mint': 'RAW', 'symbol': 'RAW', 'safe': False, 'mcap': 50000, 'sources': ['open', 'pulse']}]})
+    monkeypatch.setattr(rs, '_intake_cache', {'at': 0, 'rows': []})
+    monkeypatch.setattr(rs, '_agent_inherit_rows', lambda **kwargs: (_ for _ in ()).throw(AssertionError('must not filter through ranked picks')))
+    result = asyncio.run(rs.familia_intake())
+    assert [r['mint'] for r in result['coins']] == ['RAW']
+    assert result['coins'][0]['sources'] == ['open', 'pulse']

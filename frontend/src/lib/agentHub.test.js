@@ -99,3 +99,25 @@ test('📡 a stream that goes silent (sleep / wake, dropped network) is closed a
   await act(async () => { root.unmount(); }); hubReset(); jest.useRealTimers();
   global.fetch = realFetch; global.TextDecoder = realTD; localStorage.removeItem('feeless:cc-session');
 });
+
+test('a failed stream read clears its watchdog before reconnecting', async () => {
+  const React = require('react'); const { createRoot } = require('react-dom/client'); const { act } = require('react');
+  jest.useFakeTimers(); hubReset();
+  const originalFetch = global.fetch, originalTD = global.TextDecoder;
+  global.TextDecoder = require('util').TextDecoder;
+  localStorage.setItem('feeless:cc-session', JSON.stringify({ address: 'A', ts: 1, sig: 'S' }));
+  const intervals = jest.spyOn(global, 'setInterval'), clears = jest.spyOn(global, 'clearInterval');
+  global.fetch = jest.fn(async () => ({ ok: true, body: { getReader: () => ({ read: async () => { throw new Error('connection lost'); } }) } }));
+  const call = jest.fn(async () => snap()); const Reader = () => { useHubHook(call); return null; };
+  const root = createRoot(document.createElement('div'));
+  try {
+    await act(async () => root.render(React.createElement(Reader)));
+    const watchdog = intervals.mock.calls.findIndex(args => args[1] === 5000);
+    expect(watchdog).toBeGreaterThanOrEqual(0);
+    expect(clears).toHaveBeenCalledWith(intervals.mock.results[watchdog].value);
+  } finally {
+    await act(async () => root.unmount()); hubReset();
+    intervals.mockRestore(); clears.mockRestore(); jest.useRealTimers();
+    global.fetch = originalFetch; global.TextDecoder = originalTD; localStorage.removeItem('feeless:cc-session');
+  }
+});

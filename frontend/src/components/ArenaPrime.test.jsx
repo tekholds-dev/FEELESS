@@ -1,6 +1,6 @@
 import React, { act } from 'react';
 import { createRoot } from 'react-dom/client';
-import { ArenaPrime, arenaRow, primeRow, allTime } from './ArenaPrime';
+import { ArenaPrime, arenaRow, primeRow, allTime, occupiedSeats } from './ArenaPrime';
 import { CardEarnings } from './CardEarnings';
 
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
@@ -235,4 +235,9 @@ test('top 3 window: the busiest safe coins not on the card (no watch rows, none 
   await act(async () => { items[0].click(); });
   expect(onSwap.mock.calls[0][0].symbol).toBe('ON'); expect(onSwap.mock.calls[0][1].mint).toBe('A');
   expect(el.querySelector('[data-testid="top-three-menu"]')).toBeNull();
+});
+
+ test('empty placeholders do not consume seats; queued buys reserve their seat', () => {
+  expect(occupiedSeats([{ usd: 1 }, { placeholder: true }, { placeholder: true }, { buying: true, usd: 0 }])).toBe(2);
+  expect(occupiedSeats()).toBe(0);
 });

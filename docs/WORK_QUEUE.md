@@ -11,6 +11,12 @@ Status: **OPEN** = work requested; **VERIFY** = implemented claims need evidence
 - OWNER: verify on the physical Duo in Safari, with browser chrome shown/hidden, fullscreen/home-screen mode, rotation and keyboard. Desktop viewport checks cannot certify physical Safari behavior.
 - Device rules and exact supplied sizes: [MOBILE_LAYOUT.md](MOBILE_LAYOUT.md).
 
+## Focused HQ fixes — 2026-10-28
+
+Three bounded H01 fixes: placeholder legs no longer hide Fill seat (pending buys still reserve capacity); RoadMeter handles partial snapshots and clamps progress; failed Agents stream reads always release the watchdog timer. Includes the earlier paused-buy status correction. Broader H01 and A01 remain OPEN. Validation: all three focused HQ regressions passed; shared-intake backend 12 passed; LiveTank 4 passed after fixing the header. Broad run: backend 2,265 passed/26 skipped; frontend 1,640 passed/1 failed (the intake header, corrected and rechecked). Production build pending. No browser/real-device verification this session. No trades or wallet settings changed. Shared-intake follow-up: source-order deduped discovery snapshot now feeds the visible tank and then the agents; verdicts are attached after discovery. Existing agent eligibility, bounded review scheduling and execution checks remain. Removed three redundant browser feed polls. Backend restart/deployment remains required to expose the new snapshot; do not claim it is live until checked.
+
+Conserve usage · finish the selected work by priority · never dead-style.
+
 ## Build next — latest owner priorities
 
 | ID | Status | Specific remaining work / done when |

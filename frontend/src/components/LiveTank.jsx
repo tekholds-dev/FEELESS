@@ -18,10 +18,10 @@ export const TANK_LEVELS = [
   ['desk', 'DESK', "The agents' intake list — READY coins glow gold"],
   ['top', 'TOP NEW', 'The newest pools with real money in them'],
   ['trend', 'TRENDING', 'pump.fun trending pools'],
-  ['new', 'NEW', 'Every pump.fun launch as it happens'],
+  ['new', 'NEW', 'Pump launches in the shared discovery snapshot'],
 ];
 export const TANK_LEGEND = [['up', 'rising'], ['dn', 'falling'], ['hot', 'hot · READY · graduating'], ['germ', 'at its germ floor'], ['q', 'quiet']];
-const READS = { pump: ['/api/pump/pulse?limit=40', 4000], intake: ['/api/reputation/familia/intake', 30000], trend: ['/api/market/feed?kind=trending&chain=solana&page=1&scope=pump', 15000], top: ['/api/market/feed?kind=new&chain=solana&page=1', 20000] };
+const READS = { intake: ['/api/reputation/familia/intake', 30000] };
 const TICKS = [[1e3, '$1K'], [1e4, '$10K'], [1e5, '$100K'], [1e6, '$1M'], [1e7, '$10M']];
 const reads = new Map();   // url → { d, subs:Set, timer }
 function useRead(url, every) {
@@ -56,6 +56,9 @@ export function tankDots({ pump, intake, trend, top } = {}) {
     const base = { sym: c.sym, mint: c.mint, x: capX(c.mc), pair, href: c.pair ? null : `https://dexscreener.com/solana/${c.mint}`,
       facts: [['MC', usd(c.mc)], ['5M', pc(c.ch)], ['STATUS', c.status || '—'], ['GERM', c.germ != null ? pc(c.germ) : '—']] };
     out.push({ ...base, id: `d-${c.mint}`, lane: lane('desk'), tone: tone(c.ch, ready), mv: c.ch, ready, germ: at ? c.germ : null, tip: `$${c.sym} · DESK · ${c.status || ''} · ${usd(c.mc)} MC · 5m ${pc(c.ch)}` });
+    const sources = c.sources || [];
+    const sourceLanes = [...new Set([...(sources.includes('pulse') ? ['new'] : []), ...(sources.includes('migr') || c.ageMin <= 60 && c.ageMin != null ? ['top'] : []), ...(sources.some(x => /trend|movers|runner/.test(x)) ? ['trend'] : [])])];
+    sourceLanes.forEach(k => out.push({ ...base, id: `${k}-${c.mint}`, lane: lane(k), tone: tone(c.ch, ready), mv: c.ch, ready, tip: `$${c.sym} · ${sources.join(' · ')}` }));
     if (at) out.push({ ...base, id: `g-${c.mint}`, lane: lane('germ'), tone: 'germ', mv: c.ch, ready, germ: c.germ, tip: `$${c.sym} · ${pc(c.germ)} vs its germ floor — the agents' buy zone · ${usd(c.mc)} MC` });
   }
   const pairs = (rows, k, move, word) => (rows?.pairs || []).filter(p => p?.baseToken?.address).slice(0, 30).forEach(p => {
@@ -97,8 +100,8 @@ export function openTrenchTrade(pair) {
 
 // 🔎 tap a dot → its vitals pop up first (owner 2026-10-27: "needs the click / tap popup box before loading the chart"), then CHART / TRADE
 export function LiveTank({ compact = true, title = 'LIVE INTAKE', onChart, onTrade }) {
-  const pump = useRead(...READS.pump); const intake = useRead(...READS.intake); const trend = useRead(...READS.trend); const top = useRead(...READS.top);
-  const dots = tankDots({ pump, intake, trend, top }); const n = laneCounts(dots); const seen = useRef(new Set());
+  const intake = useRead(...READS.intake);
+  const dots = tankDots({ intake }); const n = laneCounts(dots); const seen = useRef(new Set());
   const fresh = new Set(dots.filter(d => !seen.current.has(d.id)).map(d => d.id)); dots.forEach(d => seen.current.add(d.id));
   const [sel, setSel] = useState(null); const host = useRef(null);
   useEffect(() => { if (!sel) return undefined; const k = e => { if (e.key === 'Escape') setSel(null); }; const out = e => { if (host.current && !host.current.contains(e.target)) setSel(null); };
@@ -112,14 +115,14 @@ export function LiveTank({ compact = true, title = 'LIVE INTAKE', onChart, onTra
   const chart = d => go(d, onChart || onTrade); const trade = d => go(d, onTrade || onChart);
   return <section ref={host} className={`ltk ${compact ? 'is-compact' : ''}`} style={{ '--n': TANK_LEVELS.length }} data-testid="live-tank">
     <header className="ltk-head"><i className={`ltk-dot ${dots.length ? 'is-on' : ''}`} /><b>🫧 {title}</b><small>five water levels · across = live MC · tap a coin</small>
-      <span className="ltk-rate m-num" data-tip="pump.fun launches in the last minute · the last 15 minutes">{pump ? <><b>+{pump.lastMinute ?? 0}</b>/min · {(pump.launchesPerMinute || []).reduce((a, x) => a + x, 0)} in 15m</> : 'connecting…'}</span></header>
+      <span className="ltk-rate m-num" data-tip="Unique coins in the shared discovery snapshot before agent screening">{intake ? <><b>{intake.coins?.length || 0}</b> discovered</> : 'connecting…'}</span></header>
     <div className="ltk-body">
       <div className="ltk-field">
         {TANK_LEVELS.map(([k, l, tip], i) => <i key={k} className={`ltk-lane is-${k}`} style={{ '--l': i }} data-tip={tip}><small>{l}</small></i>)}
         {TICKS.map(([v, l]) => <em key={l} className="ltk-tick" style={{ left: `${capX(v) * 100}%` }}>{l}</em>)}
         {dots.map(d => <button key={d.id} type="button" className={`ltk-b t-${d.tone} ${fresh.has(d.id) ? 'is-new' : ''}`} style={{ left: `${d.x * 100}%`, '--l': d.lane }} onClick={() => setSel(s => (s === d.id ? null : d.id))}
           aria-label={d.tip} data-tip={d.tip} data-testid={`ltk-dot-${d.id}`}><i /></button>)}
-        {!dots.length ? <p className="ltk-wait">{pump || intake ? 'The feeds are quiet — the next coin lands here' : 'Connecting to the feeds…'}</p> : null}
+        {!dots.length ? <p className="ltk-wait">{intake ? 'The feeds are quiet — the next coin lands here' : 'Connecting to the feeds…'}</p> : null}
       </div>
       <ol className="ltk-funnel">{TANK_LEVELS.map(([k, l, tip], i) => <li key={k} className={`is-${k}`} data-tip={tip}><b className="m-num">{n[i]}</b><small>{l}</small></li>)}</ol>
     </div>

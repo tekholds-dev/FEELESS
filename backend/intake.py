@@ -171,3 +171,15 @@ def deepest_pairs(pairs, want=None):
         if m not in out or _f((p.get('liquidity') or {}).get('usd')) > _f((out[m].get('liquidity') or {}).get('usd')):
             out[m] = p
     return out
+
+
+def shared_rows(rows, fresh=None, outlets=None, registry=None):
+    """Source-order discovery snapshot, before agent eligibility/ranking. Never a buy list."""
+    by = {}
+    for row in rows or ():
+        mint = row.get('mint')
+        if not mint:
+            continue
+        sources = list(dict.fromkeys(['open'] + list((fresh or {}).get(mint) or []) + list((outlets or {}).get(mint) or []) + list(((registry or {}).get(mint) or {}).get('src') or {})))
+        by[mint] = {**by.get(mint, {}), **row, 'sources': sources}
+    return list(by.values())

@@ -15,11 +15,15 @@ Read this (2 min) → `CLAUDE.md` (lean rules + 🎨 MANDATORY STYLING + 📋 CU
 >    LIVE visual (meters, bars, animation on real numbers), never bare text. `styles/cssCoverage.test.js` fails on an unstyled class.
 
 ## 🔁 NOW (rewrite this section in place every session)
-**Updated 2026-10-28 · Agents Duo refinement.** Canonical backlog: [WORK_QUEUE.md](WORK_QUEUE.md). Device dimensions and mobile acceptance rules: [MOBILE_LAYOUT.md](MOBILE_LAYOUT.md). Older “all built” claims below are historical, not a certification of remaining work.
+**Updated 2026-10-28 · Focused HQ fixes + shared discovery intake.** See WORK_QUEUE's focused delivery for checks and outstanding deployment.
 
-Agents now fits the usable Safari viewport, preserves all five dock panes and HQ navigation, uses the full landscape chart half, and stacks chart/dock upright. Only Agents layout and its dev harness/tests changed; trading logic and existing unrelated backend edits are untouched. `/dev/hq?touch` is the fixture-only desktop QA route; no sign-in and no trading writes. Physical Safari keyboard/fullscreen verification remains open. Validation/push results are recorded in WORK_QUEUE's delivery section when complete.
+Completed code: placeholder-aware Fill seat count; partial RoadMeter snapshots; stream watchdog cleanup; paused-buy feedback. Shared intake now exposes the same pre-screening discovery rows the agents receive, instead of reverse-building intake from approved/ranked picks. LiveTank uses one endpoint, preserves source lanes, and labels unreviewed coins. Agent rules and execution checks remain unchanged.
 
-Conserve usage · finish the selected work by priority · never dead-style. Stop after this delivery; do not begin the unrelated backlog.
+Validation: three focused HQ regressions pass; intake backend 12 pass; tank UI 4 pass after header repair. Broad gate previously passed 2,265 backend tests/26 skipped and 1,640 frontend tests, with its one intake header failure subsequently fixed. Production build/deployment status in WORK_QUEUE. No browser verification. Existing unrelated backend edits were preserved and must not be bundled accidentally.
+
+Outstanding: validate final build/push, deploy backend only with no pending order, verify shared intake in live HQ. Never claim trades were tested. Preserve wallet/book reconciliation pauses; no trades or wallet setting changes were made.
+
+Conserve usage · finish the selected work by priority · never dead-style.
 
 | Live | Where |
 | --- | --- |

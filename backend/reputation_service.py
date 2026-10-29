@@ -10346,6 +10346,7 @@ async def familia_paper_perps_act(p: PaperPerpAct):
 
 
 _intake_cache: dict = {'at': 0.0, 'rows': []}
+_shared_intake: dict = {'at': 0.0, 'rows': []}
 
 
 INTAKE_MAX = 20
@@ -10373,24 +10374,26 @@ def _intake_pump(have, room):
 
 @app.get('/api/reputation/familia/intake')
 async def familia_intake():
-    """🗼 TT — TRENCH TOWERS: the agents' INTAKE LIST (the coins the desk already cycled and ranked: READY first, then CONTENDING) as the
-    coin towers in Fee City, each with the trench theory's pre-read. One shared read every 30 s for every viewer (never per building)."""
+    """The same discovery snapshot agents receive, with their verdicts attached afterwards."""
     now = time.time()
     if now - _intake_cache['at'] > 30:
         rows_ = []
-        ser_ = (_agents_mem.get() or {}).get('series') or {}   # 📈 the kernel's own tape per coin (one price a pass, ~1 min apart) = the row's real line
-        for r_ in _agent_inherit_rows(limit=10):
-            x_ = _tk.KERNEL.candidate(r_['mint']) or {}
-            n_, v_, d_ = x_.get('nums') or {}, x_.get('vitals') or {}, _tk.KERNEL.dec.get(r_['mint']) or {}
-            row_ = {'mint': r_['mint'], 'sym': r_.get('symbol'), 'pair': r_.get('pairAddress'), 'mc': v_.get('mcap'), 'liq': r_.get('liq'),
-                    'ch': n_.get('d5'), 'ageMin': round(_fuse._f(r_.get('ageH')) * 60) if r_.get('ageH') is not None else None,
-                    'status': d_.get('status'), 'read': str(d_.get('why') or '')[:90],
-                    'line': [p_['px'] for p_ in (ser_.get(r_['mint']) or [])[-15:] if _fuse._f(p_.get('px')) > 0], 'buy': n_.get('buy'), 'v5': n_.get('v5'), 'tx': n_.get('tx'),
-                    'liqD': n_.get('liqD'), 'rank': d_.get('rank'),
-                    'germ': (lambda c_: c_.get('germDist') if c_.get('germDist') is not None else c_.get('germ5Dist'))(x_.get('chart') or {})}   # 🦠 % above its germ floor (the agents' chart read)
-            row_['theory'] = __import__('trench_theory').verdict({'ageMin': row_['ageMin'], 'cap': row_['mc'], 'liq': row_['liq'], 'status': (x_.get('chart') or {}).get('stage') or v_.get('stage')})['line'][:200]
+        ser_ = (_agents_mem.get() or {}).get('series') or {}
+        for r_ in _shared_intake['rows']:
+            mint = r_['mint']
+            x_ = _tk.KERNEL.candidate(mint) or {}
+            n_, d_ = x_.get('nums') or {}, _tk.KERNEL.dec.get(mint) or {}
+            chart = x_.get('chart') or {}
+            row_ = {'mint': mint, 'sym': r_.get('symbol'), 'pair': r_.get('pairAddress') or r_.get('pair'),
+                    'mc': r_.get('mcap') or r_.get('cap'), 'liq': r_.get('liq'), 'ch': r_.get('chg5m'),
+                    'ageMin': round(_fuse._f(r_['ageH']) * 60) if r_.get('ageH') is not None else None,
+                    'status': d_.get('status') or 'UNREVIEWED', 'read': str(d_.get('why') or 'Awaiting agent review')[:90],
+                    'sources': r_.get('sources') or ['open'],
+                    'line': [p_['px'] for p_ in (ser_.get(mint) or [])[-15:] if _fuse._f(p_.get('px')) > 0],
+                    'buy': n_.get('buy'), 'v5': r_.get('vol5m'), 'tx': n_.get('tx'), 'liqD': n_.get('liqD'), 'rank': d_.get('rank'),
+                    'germ': chart.get('germDist') if chart.get('germDist') is not None else chart.get('germ5Dist')}
+            row_['theory'] = __import__('trench_theory').verdict({'ageMin': row_['ageMin'], 'cap': row_['mc'], 'liq': row_['liq'], 'status': r_.get('stage')})['line'][:200]
             rows_.append(row_)
-        rows_ += _intake_pump(rows_, INTAKE_MAX - len(rows_))   # 🔥 owner, 2026-10-22: "more pump coins on intake"
         _intake_cache.update(at=now, rows=rows_)
     return {'coins': _intake_cache['rows'], 'at': round(_intake_cache['at'])}
 
@@ -21978,7 +21981,9 @@ async def _agents_tick(now):
             extra_, fresh_, outl_ = await _intake_pass(ob_, now, list(own_))
         except Exception as e:
             print('intake:', e); extra_, fresh_, outl_, own_, board_m = [], {}, {}, {}, set()
-        ob_ = ob_ + extra_
+        ob_ = _in.shared_rows(ob_ + extra_, fresh_, outl_, _intake_reg())
+        _shared_intake.update(at=now, rows=ob_)   # discovery first; agent screening below never trims the shared intake
+        _intake_cache['at'] = 0.0
         held_l = {l.get('mint') for l in _prime_cards().get(_office.get('tid') or '', {}).get('legs') or [] if l.get('mint')}
         cap_ = max(_uni.lane_cap(ob_), _agents.get('laneStep') or _uni.LANE_CAPS[0]); _agents['laneCap'] = cap_   # 🪜 the smallest cap that can fill the seats ($200K first) — or wider, when last pass's ranking came up short
         _owner['only'] = {m_ for m_ in own_ if m_ not in held_l and not (m_ in board_m or m_ in fresh_ or m_ in outl_)} | {x.get('mint') for x in ob_ if x.get('mint') in own_ and x.get('mint') not in held_l and not _uni.in_lane(x, cap_)}
@@ -23401,6 +23406,7 @@ def _agents_real():
     sg = sorted(_fuse._f(p.get('pct')) for p in (_json_load(REAL_LEARN_PATH, {}).get('pieces') or []) if 'tag:🤝' in (p.get('k') or []))
     out['suggested'] = {'n': len(sg), 'med': None if not sg else round(sg[len(sg) // 2], 2), 'won': None if not sg else round(sum(1 for x in sg if x > 0) / len(sg) * 100)}   # 🤝 coins the owner took from their alert
     out['last'] = last_[-16:]; out['suggested']['last'] = last_sg[-16:]; out['w'] = sum(1 for x in last_ if x > 0)
+    out['styles'] = _rl.style_record(_json_load(REAL_LEARN_PATH, {}).get('pieces') or [])   # ⚡ AUTO / SCALP / RIDE, each its own real record
     return out
 
 

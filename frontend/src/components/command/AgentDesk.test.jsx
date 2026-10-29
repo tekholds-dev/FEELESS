@@ -2,7 +2,7 @@ import React from 'react';
 import { createRoot } from 'react-dom/client';
 import { act } from 'react';
 import { GenPods } from './LifeLens';
-import { AgentDesk, rowState, rowWhy, pipsOf, rankFill, boardRows, boardCounts, passLeft, liCells } from './AgentDesk';
+import { AgentDesk, RoadMeter, rowState, rowWhy, pipsOf, rankFill, boardRows, boardCounts, passLeft, liCells } from './AgentDesk';
 import { devilOf, VERD } from '../../lib/agentRead';
 import office from './__fixtures__/office.json';
 jest.mock('../terminal/PriceChart', () => ({ PriceChart: () => <div data-testid="price-chart" /> }));   // the live chart needs a canvas
@@ -149,4 +149,16 @@ test('🕵 launch intel cells: every field with its tone and evidence', () => {
   expect(c['early supply']).toMatchObject({ v: '22% held · worsening', t: 'bad' }); expect(c['early supply'].tip).toContain('3 exit');
   expect(c['FOMO phase']).toMatchObject({ v: 'ACCELERATING', t: 'good' }); expect(c['exit pressure']).toMatchObject({ v: 'WATCH', t: 'warn' });
   expect(c['dev / cluster'].t).toBe('bad'); expect(c.confidence.v).toBe('80%');
+});
+
+test('road meter renders incomplete snapshots without crashing or inventing progress', async () => {
+  const el = document.createElement('div'); const root = createRoot(el);
+  try {
+    await act(async () => root.render(<RoadMeter road={{}} />));
+    expect(el.textContent).not.toMatch(/undefined|NaN/);
+    expect(el.querySelector('.agd-road-bar i').style.transform).toBe('scaleX(0)');
+    await act(async () => root.render(<RoadMeter road={{ paper: { x: null }, real: { open: true }, pct: 130 }} />));
+    expect(el.textContent).not.toMatch(/undefined|NaN/);
+    expect(el.querySelector('.agd-road-bar i').style.transform).toBe('scaleX(1)');
+  } finally { await act(async () => root.unmount()); }
 });

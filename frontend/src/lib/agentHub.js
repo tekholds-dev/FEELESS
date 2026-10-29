@@ -164,12 +164,13 @@ async function runStream() {
   const s = session();
   if (!s || typeof fetch !== 'function' || typeof TextDecoder === 'undefined' || S.abort) return;
   const ac = new AbortController(); S.abort = ac;
+  let dog = null;
   try {
     const res = await fetch(apiUrl(`/api/reputation/admin/agents/stream?since=${S.seq || 0}`), { signal: ac.signal, headers: { 'x-admin-address': s.address, 'x-admin-ts': String(s.ts), 'x-admin-sig': s.sig, Accept: 'text/event-stream' } });
     if (!res.ok || !res.body || !res.body.getReader) throw new Error(`stream ${res.status}`);
     const rd = res.body.getReader(); const dec = new TextDecoder(); let buf = '';
     let heard = Date.now();
-    const dog = setInterval(() => { if (Date.now() - heard > STREAM_IDLE_MS) { clearInterval(dog); try { ac.abort(); } catch (e) { /* closed */ } } }, 5000);
+    dog = setInterval(() => { if (Date.now() - heard > STREAM_IDLE_MS) { clearInterval(dog); try { ac.abort(); } catch (e) { /* closed */ } } }, 5000);
     ac.signal.addEventListener('abort', () => clearInterval(dog));
     for (;;) {
       const { done, value } = await rd.read(); if (done) break;
@@ -184,6 +185,7 @@ async function runStream() {
     }
     clearInterval(dog);
   } catch (e) { /* no stream (offline, a buffering proxy, signed out): the snapshot poll carries on */ }
+  finally { if (dog) clearInterval(dog); }
   if (S.abort === ac) S.abort = null;
   if (S.live) { S.live = false; emit(); }
   if (S.refs > 0) setTimeout(() => { if (S.refs > 0 && !S.abort) runStream(); }, 4000);

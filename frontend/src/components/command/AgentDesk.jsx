@@ -26,12 +26,14 @@ const ago = t => { const s = Math.max(0, Math.round(Date.now() / 1000 - t)); ret
 // test on the owner's Fuse card (≥ 10 closed pieces, typical result > 0) → 15 min → 60 min.
 export function RoadMeter({ road }) {
   if (!road) return null;
-  const p = road.paper, r = road.real;
-  const steps = [['📜', `Paper desk 10× · ${p.x.toFixed(2)}× of ${p.need}× · ${p.n}/${p.needN} GO calls`, p.done, !p.done],
-    ['💵', r.open ? `Real money on your Fuse card · ${r.n}/${r.needN} closed${r.med != null ? ` · ${r.med >= 0 ? '+' : ''}${r.med}% typical` : ''}` : 'Real money on your Fuse card — opens after the 10×', r.done, p.done && !r.done],
+  const p = road.paper || {}, r = road.real || {};
+  const progress = Number.isFinite(road.pct) ? Math.max(0, Math.min(100, road.pct)) : 0;
+  const paperX = Number.isFinite(p.x) ? p.x.toFixed(2) : '—';
+  const steps = [['📜', `Paper desk 10× · ${paperX}× of ${p.need ?? '—'}× · ${p.n ?? '—'}/${p.needN ?? '—'} GO calls`, p.done, !p.done],
+    ['💵', r.open ? `Real money on your Fuse card · ${r.n ?? '—'}/${r.needN ?? '—'} closed${r.med != null ? ` · ${r.med >= 0 ? '+' : ''}${r.med}% typical` : ''}` : 'Real money on your Fuse card — opens after the 10×', r.done, p.done && !r.done],
     ['⏱', '15-minute stage', false, false], ['🕐', '1-hour stage', false, false]];
-  return <div className="agd-road" data-testid="agd-road"><div className="agd-road-top"><b>🛣 ROAD TO REAL MONEY</b><em>{road.pct}%</em></div>
-    <div className="agd-road-bar"><i style={{ transform: `scaleX(${Math.max(0.02, road.pct / 100)})` }} /></div>
+  return <div className="agd-road" data-testid="agd-road"><div className="agd-road-top"><b>🛣 ROAD TO REAL MONEY</b><em>{Number.isFinite(road.pct) ? `${progress}%` : '—'}</em></div>
+    <div className="agd-road-bar"><i style={{ transform: `scaleX(${progress / 100})` }} /></div>
     <ol>{steps.map(([ic, t, done, now]) => <li key={t} className={done ? 'is-done' : now ? 'is-now' : ''}><span>{done ? '✓' : ic}</span>{t}</li>)}</ol>
     <small className="agd-sugg" data-testid="agd-sugg">🤝 Their suggestions you took: {r.suggested?.n ? `${r.suggested.n} closed · ${r.suggested.med >= 0 ? '+' : ''}${r.suggested.med}% typical · ${r.suggested.won}% won` : 'none closed yet — picks from their alert are scored apart'}</small></div>;
 }

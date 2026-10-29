@@ -51,3 +51,10 @@ test('🏆 best in the tank: tradable only, no dumps, germ + READY + two feeds a
   expect(best[0]).toMatchObject({ rank: 1, why: 'READY', bar: 1 }); expect(best[1].why).toBe('AT GERM'); expect(best[2].why).toBe('VOLUME');
   expect(new Set(best.map(b => b.sym)).size).toBe(best.length); expect(bestCoins([])).toEqual([]);
 });
+
+test('shared discovery supplies source lanes without separate feed responses', () => {
+  const dots = tankDots({ intake: { coins: [{ mint: 'RAW', sym: 'RAW', mc: 50000, status: 'UNREVIEWED', sources: ['open', 'pulse'], ageMin: 2 }] } });
+  expect(dots.some(d => TANK_LEVELS[d.lane][0] === 'new')).toBe(true);
+  expect(dots.some(d => TANK_LEVELS[d.lane][0] === 'desk')).toBe(true);
+  expect(dots.every(d => !d.ready)).toBe(true);
+});
