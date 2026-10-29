@@ -65,3 +65,26 @@ test('ONE row per coin: a coin tagged by many feeds sits on its most specific le
   expect(Object.fromEntries(dots.map(d => [d.mint, TANK_LEVELS[d.lane][0]]))).toEqual({ NEW: 'new', TOP: 'top', MIG: 'top', TRD: 'trend', OLD: 'desk', TRK: 'desk', GRM: 'germ' });
   expect(dots.every(d => !d.ready)).toBe(true);
 });
+
+test('🎯 N01: ▲ / ▼ step the levels one at a time (its coins as chips), a swipe on the tank moves a row, the name goes back to all', async () => {
+  const intake = { coins: [{ mint: 'G', sym: 'GG', mc: 8e4, ch: 2, status: 'CONTENDING', germ: 3, pair: 'PG' }, { mint: 'R', sym: 'RR', mc: 2e5, ch: 6, status: 'READY', germ: 40, pair: 'PR' },
+    { mint: 'S', sym: 'SS', mc: 9e5, ch: 1, status: 'CONTENDING', germ: 50, pair: 'PS' }] };
+  global.fetch = jest.fn(() => Promise.resolve({ ok: true, json: () => Promise.resolve(intake) }));
+  const el = document.createElement('div'); document.body.appendChild(el); const root = createRoot(el);
+  await act(async () => { root.render(<LiveTank />); }); await act(async () => { await new Promise(r => setTimeout(r, 10)); });
+  const $ = id => document.querySelector(`[data-testid="${id}"]`);
+  expect($('ltk-row-name').textContent).toContain('ALL LEVELS'); expect($('live-tank').className).not.toContain('is-row');
+  await act(async () => { $('ltk-down').click(); });
+  expect($('ltk-row-name').textContent).toContain('GERM'); expect($('ltk-up').disabled).toBe(true); expect($('ltk-chip-g-G')).not.toBeNull();
+  expect($('ltk-dot-g-G').className).toContain('is-row'); expect($('ltk-dot-d-R').className).not.toContain('is-row');
+  await act(async () => { $('ltk-down').click(); });
+  expect($('ltk-row-name').textContent).toContain('DESK'); expect([...document.querySelectorAll('[data-testid^="ltk-chip-"]')].map(b => b.dataset.testid)).toEqual(['ltk-chip-d-S', 'ltk-chip-d-R']);   // biggest MC first
+  await act(async () => { $('ltk-chip-d-R').click(); }); expect($('ltk-pop').textContent).toContain('$RR');
+  const touch = (type, y) => { const e = new Event(type, { bubbles: true }); const t = [{ clientX: 100, clientY: y }]; Object.defineProperty(e, type === 'touchend' ? 'changedTouches' : 'touches', { value: t }); return e; };
+  await act(async () => { $('ltk-field').dispatchEvent(touch('touchstart', 200)); $('ltk-field').dispatchEvent(touch('touchend', 120)); });   // swipe up → a row down
+  expect($('ltk-row-name').textContent).toContain('TOP NEW');
+  await act(async () => { $('ltk-field').dispatchEvent(touch('touchstart', 100)); $('ltk-field').dispatchEvent(touch('touchend', 180)); });   // swipe down → a row up
+  expect($('ltk-row-name').textContent).toContain('DESK');
+  await act(async () => { $('ltk-row-name').click(); }); expect($('ltk-row-name').textContent).toContain('ALL LEVELS');
+  act(() => root.unmount()); el.remove();
+});

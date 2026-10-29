@@ -88,7 +88,7 @@ Each loop iteration: ① cash check (card books vs wallet, halt, pending) → �
    ✅ phone Agents chart 120 → 245px. ✅ page-by-page sweep 2026-10-29 at 375 / 466 / 890 (terminal, chat, fuse, launch, feecat, familia, feed, pump, radar,
    profile): no sideways scroll anywhere; tiny taps sized up in ONE sheet `styles/touch.css` (pointer: coarse ≤ 900px — hit areas grow, the look doesn't):
    Home 28 → 3 under 28px (left: the flip-card's 3D buttons + the allocation bar's proportional segments), Fuse 9 → 0, Launch 18 → 0.
-   NEXT in P1: N01 intake rows ▲/▼ + swipe; the owner to confirm Safari top-right.
+   ✅ N01 intake ▲/▼ + swipe. NEXT in P1: the owner to confirm Safari top-right.
 2. **P2 General cat = a beast** — ✅ slice 1 2026-10-29: `backend/cat_browser.py` (hosted browser CHAIN Steel → Browserless → Browserbase → reader; live view only when
    it holds no key; Playwright `LivePage` over CDP + a text `ReaderPage`; `needs_human` walls) · `backend/cat_agent.py` (plan → fast answer from memory, or split
    in two halves → each model browses its own window ≤ 8 steps, one action a step → merge; a sign-in / CAPTCHA / any attempt to type a password, card or seed
@@ -118,7 +118,7 @@ Each loop iteration: ① cash check (card books vs wallet, halt, pending) → �
    Everything finished = pushed to main (owner's localhost 51367 runs main via auto-pull).
 
 ## 🆕 OWNER LIST 2026-10-29 (late) — exact asks, not started unless marked
-- **N01 Intake rows on mobile**: ▲ / ▼ buttons to step through the intake's rows + swipe to move down a row (Trench Trade). (owner: "getting bangers with new intake")
+- ✅ 2026-10-29 **N01** — `LiveTank` ▲ LEVEL ▼ stepper: one level in focus (rest dims), its coins as MC-sorted chips → vitals pop; swipe up/down on the tank steps a row (test + live check). Was: **N01 Intake rows on mobile**: ▲ / ▼ buttons to step through the intake's rows + swipe to move down a row (Trench Trade). (owner: "getting bangers with new intake")
 - **N02 Recovery key for a cat made before paying**: when done, give a one-time recovery key; entering it after a new sign-in loads the cat into the wallet profile.
 - **N03 Cat windows**: a trader cat always shows a chart; a general cat shows a browser window AND a chart window of what it is doing now.
 - **N04 Study agents + AI for NSFA** — 🔎 STUDIED + 1st fix 2026-10-29. Evidence: the real card's last 12h = 15 buys, ALL lost (0.1207 → 0.0773 SOL, −36%): 7 by the

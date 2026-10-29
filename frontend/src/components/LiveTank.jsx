@@ -118,6 +118,15 @@ export function LiveTank({ compact = true, title = 'LIVE INTAKE', onChart, onTra
   const dots = tankDots({ intake }); const n = laneCounts(dots); const seen = useRef(new Set());
   const fresh = new Set(dots.filter(d => !seen.current.has(d.id)).map(d => d.id)); dots.forEach(d => seen.current.add(d.id));
   const [sel, setSel] = useState(null); const host = useRef(null);
+  // 🎯 ONE LEVEL IN FOCUS (owner N01: "▲ / ▼ to step through the intake's rows + swipe to move down a row"): ▲ / ▼ step the five levels, the
+  // focused level's dots light up (the rest dim) and its coins line up as chips under the tank; while a level is in focus a swipe UP on the
+  // tank goes a row down, a swipe DOWN a row up (the page keeps scrolling sideways-free; tap the level name to see all levels again).
+  const [row, setRow] = useState(null); const sw = useRef(null);
+  const step = dir => setRow(r => (r == null ? (dir > 0 ? 0 : TANK_LEVELS.length - 1) : Math.max(0, Math.min(TANK_LEVELS.length - 1, r + dir))));
+  const swipe = { onTouchStart: e => { const t = e.touches?.[0]; sw.current = t ? [t.clientX, t.clientY] : null; },
+    onTouchEnd: e => { const s0 = sw.current; sw.current = null; const t = e.changedTouches?.[0]; if (!s0 || !t || row == null) return;
+      const dx = t.clientX - s0[0], dy = t.clientY - s0[1]; if (Math.abs(dy) > 28 && Math.abs(dy) > Math.abs(dx) * 1.3) step(dy < 0 ? 1 : -1); } };
+  const rowDots = row == null ? [] : dots.filter(d => d.lane === row).sort((a, b) => b.x - a.x).slice(0, 14);
   useEffect(() => { if (!sel) return undefined; const k = e => { if (e.key === 'Escape') setSel(null); }; const out = e => { if (host.current && !host.current.contains(e.target)) setSel(null); };
     window.addEventListener('keydown', k); window.addEventListener('pointerdown', out); return () => { window.removeEventListener('keydown', k); window.removeEventListener('pointerdown', out); }; }, [sel]);
   const d0 = sel ? dots.find(x => x.id === sel) : null;
@@ -127,19 +136,30 @@ export function LiveTank({ compact = true, title = 'LIVE INTAKE', onChart, onTra
   const go = (d, fn) => { setSel(null); if (!d.pair) { if (d.href) window.open(d.href, '_blank', 'noopener'); return; }
     if (fn) fn(d.pair, d.mint); else if (familiaDocked()) window.dispatchEvent(new CustomEvent('feeless:familia-trade', { detail: { kind: 'coin', pair: d.pair } })); else openTrenchTrade(d.pair); };
   const chart = d => go(d, onChart || onTrade); const trade = d => go(d, onTrade || onChart);
-  return <section ref={host} className={`ltk ${compact ? 'is-compact' : ''}`} style={{ '--n': TANK_LEVELS.length }} data-testid="live-tank">
+  return <section ref={host} className={`ltk ${compact ? 'is-compact' : ''}${row != null ? ' is-row' : ''}`} style={{ '--n': TANK_LEVELS.length }} data-testid="live-tank">
     <header className="ltk-head"><i className={`ltk-dot ${dots.length ? 'is-on' : ''}`} /><b>🫧 {title}</b><small>five water levels · across = live MC · tap a coin</small>
       <span className="ltk-rate m-num" data-tip="Unique coins in the shared discovery snapshot before agent screening">{intake ? <><b>{intake.coins?.length || 0}</b> discovered</> : 'connecting…'}</span></header>
     <div className="ltk-body">
-      <div className="ltk-field">
-        {TANK_LEVELS.map(([k, l, tip], i) => <i key={k} className={`ltk-lane is-${k}`} style={{ '--l': i }} data-tip={tip}><small>{l}</small></i>)}
+      <div className="ltk-field" {...swipe} data-testid="ltk-field">
+        {TANK_LEVELS.map(([k, l, tip], i) => <i key={k} className={`ltk-lane is-${k}${row === i ? ' is-row' : ''}`} style={{ '--l': i }} data-tip={tip}><small>{l}</small></i>)}
         {/* the plot sits right of the lane-label gutter, so no dot ever covers GERM / DESK / TOP NEW / TRENDING / NEW */}
         <div className="ltk-plot">{TICKS.map(([v, l]) => <em key={l} className="ltk-tick" style={{ left: `${capX(v) * 100}%` }}>{l}</em>)}
-        {dots.map(d => { const st = marks?.get(d.mint); return <button key={d.id} type="button" className={`ltk-b t-${d.tone} ${fresh.has(d.id) ? 'is-new' : ''}${st ? ` is-agent s-${st}` : ''}${selected && d.mint === selected ? ' is-on' : ''}`} style={{ left: `${d.x * 100}%`, '--l': d.lane }} onClick={() => setSel(s => (s === d.id ? null : d.id))}
+        {dots.map(d => { const st = marks?.get(d.mint); return <button key={d.id} type="button" className={`ltk-b t-${d.tone} ${fresh.has(d.id) ? 'is-new' : ''}${st ? ` is-agent s-${st}` : ''}${selected && d.mint === selected ? ' is-on' : ''}${row === d.lane ? ' is-row' : ''}`} style={{ left: `${d.x * 100}%`, '--l': d.lane }} onClick={() => setSel(s => (s === d.id ? null : d.id))}
           aria-label={d.tip} data-tip={st ? `${d.tip} · agents: ${st.toUpperCase()}` : d.tip} data-testid={`ltk-dot-${d.id}`}><i /></button>; })}</div>
         {!dots.length ? <p className="ltk-wait">{intake ? 'The feeds are quiet — the next coin lands here' : 'Connecting to the feeds…'}</p> : null}
       </div>
-      <ol className="ltk-funnel">{TANK_LEVELS.map(([k, l, tip], i) => <li key={k} className={`is-${k}`} data-tip={tip}><b className="m-num">{n[i]}</b><small>{l}</small></li>)}</ol>
+      <ol className="ltk-funnel">{TANK_LEVELS.map(([k, l, tip], i) => <li key={k} className={`is-${k}${row === i ? ' is-row' : ''}`} data-tip={tip}><b className="m-num">{n[i]}</b><small>{l}</small></li>)}</ol>
+    </div>
+    <div className={`ltk-rows${row != null ? ` is-${TANK_LEVELS[row][0]}` : ''}`} data-testid="ltk-rows">
+      <button type="button" className="ltk-rs" onClick={() => step(-1)} disabled={row === 0} aria-label="Up a level" data-tip="Up a level (or swipe down on the tank)" data-testid="ltk-up">▲</button>
+      <button type="button" className="ltk-rn" onClick={() => setRow(r => (r == null ? 0 : null))} aria-pressed={row != null} data-testid="ltk-row-name"
+        data-tip={row == null ? 'Step through the levels one at a time — its coins line up below' : 'Back to every level'}>
+        {row == null ? <><b>ALL LEVELS</b><small>▼ to step · swipe the tank</small></> : <><b>{TANK_LEVELS[row][1]}</b><small className="m-num">{n[row]} coin{n[row] === 1 ? '' : 's'} · {row + 1}/{TANK_LEVELS.length}</small></>}</button>
+      <button type="button" className="ltk-rs" onClick={() => step(1)} disabled={row === TANK_LEVELS.length - 1} aria-label="Down a level" data-tip="Down a level (or swipe up on the tank)" data-testid="ltk-down">▼</button>
+      {row != null ? <ol className="ltk-rc" key={row} aria-label={`${TANK_LEVELS[row][1]} coins`}>{rowDots.length ? rowDots.map((d, i) => <li key={d.id} style={{ '--i': i }}>
+        <button type="button" className={`ltk-chip t-${d.tone}${sel === d.id ? ' is-on' : ''}`} onClick={() => setSel(x => (x === d.id ? null : d.id))} data-tip={d.tip} data-testid={`ltk-chip-${d.id}`}>
+          <i aria-hidden="true" /><b>${d.sym}</b><small className="m-num">{(d.facts || [])[0]?.[1] || '—'}</small></button></li>)
+        : <li className="ltk-rc0">nothing on this level right now</li>}</ol> : null}
     </div>
     {d0 ? <div className={`ltk-pop t-${d0.tone}`} style={{ '--x': d0.x }} role="dialog" aria-label={`$${d0.sym} vitals`} data-testid="ltk-pop">
       <p className="ltk-ph">{d0.img ? <img src={d0.img} alt="" /> : <i className="ltk-pi">{String(d0.sym || '?').slice(0, 2)}</i>}<b>${d0.sym}</b><em>{TANK_LEVELS[d0.lane][1]}</em>
