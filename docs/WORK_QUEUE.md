@@ -38,7 +38,7 @@ Each loop iteration: ① cash check (card books vs wallet, halt, pending) → �
 | E09 | DONE | Per-trade ticks carry tx + wallet; the chart hands each fill to the tape (`feeless:live-fill`) → on the tape at once, deduped by tx (test ✓; live 108 fills / 45 s). |
 | E10 | DONE | Settings › Look shows "🔋 ECO ON · this phone stays cool" (eco phones, full effects off) with what eco changes in its tip. |
 | E11 | DONE | HQ › Numbers: empty tiles fold into ONE "No data yet: …" line (harness: 8 '—' tiles → 1 line); Traffic lists already say "No data yet". |
-| E12 | OPEN | HQ Lag catcher: show the page-watcher's latest layout issues as a short live list. |
+| E12 | DONE | HQ › Lag catcher › Layout watch: every page real visitors saw spill / overlap / scroll sideways, with the culprit classes (perf.summarize data, test ✓). |
 | E13 | OPEN | FEEd: the FEELESS chip shows FEELESS posts on the same timeline (rooms stay one tap away). |
 | E14 | DONE | terminal.css budget 514 → 511 KB (now 510.7 after the feed rule deletions); cssHygiene ✓. |
 | E15 | DONE | MOBILE_LAYOUT › Pages checked: a size-by-size matrix of what passed (Agents floor, Trenches floor, the E02 sweep pages) + what stays open. |

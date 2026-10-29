@@ -43,6 +43,11 @@ export function LagCatcher({ call }) {
       <div className="cc-block"><h4>Fix list</h4>{!d?.fixes?.length ? <p className="cc-empty">Nothing lagging. 🟢</p> : d.fixes.map((f, i) => <div key={i} className={`lag-fix t-${f.level}`}><b>{f.what}</b><span>{f.fix}</span></div>)}</div>
       <div className="cc-block"><h4>Slowest API routes</h4>{!d?.routes?.length ? <p className="cc-empty">No samples yet.</p> : d.routes.slice(0, 10).map(r => <div key={r.route} className="lag-row"><code>{r.route}</code><small>{r.calls}×</small><b className={r.p95 >= 2500 ? 'bad' : r.p95 >= 1200 ? 'warn' : ''}>{r.p50} / {r.p95}ms</b></div>)}</div>
       <div className="cc-block"><h4>Pages</h4>{!d?.pages?.length ? <p className="cc-empty">No samples yet.</p> : d.pages.slice(0, 10).map(p => <div key={p.page} className="lag-row"><code>{p.page}</code><small>{p.fps != null ? `${p.fps} fps` : '—'}</small><b className={p.jankMsPerReport >= 400 ? 'warn' : ''}>{p.jankMsPerReport}ms jank</b></div>)}</div>
+      {/* 🧱 E12: the page watcher's findings from real visitors — a page that scrolls sideways, an element spilling out, a control under another layer */}
+      <div className="cc-block" data-testid="lag-layout"><h4>Layout watch</h4>{(() => { const bad = (d?.pages || []).filter(p => p.sideways || p.spills?.length || p.covered?.length);
+        return !bad.length ? <p className="cc-empty">{d?.pages?.length ? 'No page spills, overlaps or scrolls sideways. 🟢' : 'No samples yet.'}</p>
+          : bad.slice(0, 8).map(p => <div key={p.page} className={`lag-fix t-${p.sideways ? 'bad' : 'warn'}`} data-testid="lag-layout-row"><b>{p.page}</b>
+            <span>{[p.sideways ? `scrolls sideways ${p.sideways}px` : null, p.spills?.length ? `spills: ${p.spills.join(', ')}` : null, p.covered?.length ? `covered: ${p.covered.join(', ')}` : null].filter(Boolean).join(' · ')}</span></div>); })()}</div>
     </div>
     <CodeHealth call={call} />
   </section>;
