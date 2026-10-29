@@ -15,13 +15,9 @@ Read this (2 min) → `CLAUDE.md` (lean rules + 🎨 MANDATORY STYLING + 📋 CU
 >    LIVE visual (meters, bars, animation on real numbers), never bare text. `styles/cssCoverage.test.js` fails on an unstyled class.
 
 ## 🔁 NOW (rewrite this section in place every session)
-**Updated 2026-10-28 · Focused HQ fixes + shared discovery intake.** See WORK_QUEUE's focused delivery for checks and outstanding deployment.
+**Updated 2026-10-29 · Real card stopped buying (auto-halt) — fixed + live.** The Fuse wallet's gas reserve (fees + coin-account rent outside the books) ran dry: wallet 0.0311 SOL vs books 0.0345 → every 60 s balance read halted `degen` ("confirmed wallet SOL is below card books"); ▶ Resume bought once, the next read halted again. `fuse_wallet.fit_gas_shortage`: a gap ≤ 0.01 SOL the cards can cover is booked as fees the cards paid (`cardFeesSol`, P&L unchanged), never while an order is pending; bigger gaps still halt. Resume button shows "auto-paused" + the reason. Live 01:31: gasfit 0.003375 SOL → unhalt by itself. Also committed the agentStyle WIP (auto/scalp/ride) that 7b110495 already depended on (warden crashed without `real_learn.style_record`).
 
-Completed code: placeholder-aware Fill seat count; partial RoadMeter snapshots; stream watchdog cleanup; paused-buy feedback. Shared intake now exposes the same pre-screening discovery rows the agents receive, instead of reverse-building intake from approved/ranked picks. LiveTank uses one endpoint, preserves source lanes, and labels unreviewed coins. Agent rules and execution checks remain unchanged.
-
-Validation: three focused HQ regressions pass; intake backend 12 pass; tank UI 4 pass after header repair. Broad gate previously passed 2,265 backend tests/26 skipped and 1,640 frontend tests, with its one intake header failure subsequently fixed. Production build/deployment status in WORK_QUEUE. No browser verification. Existing unrelated backend edits were preserved and must not be bundled accidentally.
-
-Outstanding: validate final build/push, deploy backend only with no pending order, verify shared intake in live HQ. Never claim trades were tested. Preserve wallet/book reconciliation pauses; no trades or wallet setting changes were made.
+Gate: backend 2,268 passed/26 skipped · frontend 1,641 passed · build OK · pushed main b91cc98a · reputation :5077 restarted from Claude's watcher. Not browser-verified (the auto-paused label only shows while halted). OWNER: top up ~0.02 SOL of gas to the Fuse wallet — until then each trade's fees/rent come out of card cash (booked as fees).
 
 Conserve usage · finish the selected work by priority · never dead-style.
 

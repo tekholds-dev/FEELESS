@@ -1,6 +1,6 @@
 # FEELESS — one work queue
 
-Updated 2026-10-28. This is the canonical task list. Read HANDOFF for the latest result, this file for priorities, and MOBILE_LAYOUT for device rules. Conserve usage; finish the selected scope by priority; never dead-style. Do not work through this entire backlog unless asked.
+Updated 2026-10-29. This is the canonical task list. Read HANDOFF for the latest result, this file for priorities, and MOBILE_LAYOUT for device rules. Conserve usage; finish the selected scope by priority; never dead-style. Do not work through this entire backlog unless asked.
 
 Status: **OPEN** = work requested; **VERIFY** = implemented claims need evidence or older docs conflict; **OWNER** = key, account, signature, decision or real-device check; **LATER** = unapproved idea / audit-dependent work. No item here authorizes a trade or a payment.
 
@@ -10,6 +10,10 @@ Status: **OPEN** = work requested; **VERIFY** = implemented claims need evidence
 - Desktop and ordinary folded portrait retain their normal cockpit. Shared Trench Trade and trading logic are unchanged.
 - OWNER: verify on the physical Duo in Safari, with browser chrome shown/hidden, fullscreen/home-screen mode, rotation and keyboard. Desktop viewport checks cannot certify physical Safari behavior.
 - Device rules and exact supplied sizes: [MOBILE_LAYOUT.md](MOBILE_LAYOUT.md).
+
+## Real card auto-halt — 2026-10-29
+
+DONE + live: a gas-sized SOL gap (reserve ran dry) no longer halts the real card; booked as card fees (P&L unchanged). OWNER: top up ~0.02 SOL gas to the Fuse wallet.
 
 ## Focused HQ fixes — 2026-10-28
 
