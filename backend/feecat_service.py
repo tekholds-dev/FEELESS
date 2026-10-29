@@ -9,6 +9,7 @@ Only the money is simulated — never the prices.
 File-backed JSON store, zero external dependencies, standalone FastAPI app.
 """
 import env_loader  # noqa: F401  (must run before reading os.environ)
+import agent_wallet as _aw
 import asyncio
 import json
 import re
@@ -1573,6 +1574,23 @@ def _internal(request):
         raise HTTPException(403, 'Internal only.')
 
 
+@app.get('/api/cats/{cat_id}/agent-wallet')
+async def cat_agent_wallet(cat_id: str):
+    """👛 The cat's own Crossmint wallet: address, mode and its live SOL / USDC (a public address — no key, nothing private)."""
+    cat = _load()['cats'].get(cat_id)
+    if not cat:
+        raise HTTPException(404, 'Cat not found.')
+    w = cat.get('agentWallet')
+    if not w:
+        return {'wallet': None, 'kind': (cat.get('brainsCfg') or {}).get('kind')}
+    try:
+        async with httpx.AsyncClient(timeout=15) as http_b:
+            bal = await _aw.balances(http_b, os.environ.get('CROSSMINT_API_KEY', '').strip(), w['address'])
+    except ValueError as e:
+        bal = {'error': str(e)}
+    return {'wallet': {k: w.get(k) for k in ('address', 'mode', 'provider', 'at')}, 'balance': bal, 'kind': (cat.get('brainsCfg') or {}).get('kind')}
+
+
 @app.get('/api/cats/{cat_id}/profile')
 async def cat_profile(cat_id: str):
     store = _load()
@@ -1703,6 +1721,7 @@ class ActionPayload(BaseModel):
     blocklist: Optional[str] = None
     text: Optional[str] = None
     look: Optional[dict] = None        # 🎨 Fee's look (the creator's wallet only)
+    mode: Optional[str] = None         # 👛 agent_mode: approve | auto (a GENERAL cat's switch)
 
 
 def owner_wallets():
@@ -1755,7 +1774,7 @@ async def cat_action(cat_id: str, payload: ActionPayload, request: Request):
             raise HTTPException(403, "Only the creator's wallets can switch Fee real — this wallet isn't linked to the creator.")
     elif not fee_owner_real(cat, payload.action, signed) and (not payload.ownerId or payload.ownerId != cat.get('ownerId')):   # 🔒 the owner only
         _internal(request)                                             # … or HQ (reputation's admin run, internal key)
-    if payload.action in ('real', 'proposal') and (not signed or signed != payload.address):
+    if payload.action in ('real', 'proposal', 'agent_wallet', 'agent_mode') and (not signed or signed != payload.address):
         raise HTTPException(401, 'Sign in with your wallet first (one signature, no transaction).')
 
     if payload.action == 'real':   # 💵 option A: the cat proposes, this wallet signs every trade
@@ -1767,6 +1786,23 @@ async def cat_action(cat_id: str, payload: ActionPayload, request: Request):
     elif payload.action == 'paper':
         _real.go_paper(cat)
         _log_event(store, cat, 'STOPPED', f"{cat['name']} is back on paper — no more proposals.")
+    elif payload.action == 'agent_wallet':   # 👛 its own Crossmint wallet (DECISIONS #2, owner 2026-10-29): the same wallet on a repeat
+        if not cat.get('agentWallet'):
+            try:
+                async with httpx.AsyncClient(timeout=20) as http_w:
+                    rep_ = await _aw.create(http_w, os.environ.get('CROSSMINT_API_KEY', '').strip(), 'cat', cat_id)
+                cat['agentWallet'] = _aw.record('cat', cat_id, rep_, signed, time.time(), (cat.get('brainsCfg') or {}).get('kind'))
+            except ValueError as e:
+                raise HTTPException(400, str(e))
+            _log_event(store, cat, 'STARTED', f"{cat['name']} has its own wallet now: {cat['agentWallet']['address'][:6]}… — fund it to put it to work.")
+    elif payload.action == 'agent_mode':   # 👛 a GENERAL cat: approve every AI move, or let it do its thing
+        if not cat.get('agentWallet'):
+            raise HTTPException(400, 'Make its wallet first.')
+        try:
+            cat['agentWallet'] = _aw.set_mode(cat['agentWallet'], payload.mode, (cat.get('brainsCfg') or {}).get('kind'))
+        except ValueError as e:
+            raise HTTPException(400, str(e))
+        _log_event(store, cat, 'STARTED', f"{cat['name']}: {'does its thing — AI moves go ahead on its own' if payload.mode == 'auto' else 'asks first — every AI move waits for your OK'}.")
     elif payload.action == 'proposal':
         if signed != cat.get('realWallet'):
             raise HTTPException(403, "Only the cat's real wallet answers its proposals.")

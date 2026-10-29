@@ -17,10 +17,16 @@ const PROPS = [{ id: 'a1', side: 'buy', mint: 'M2', pair: 'P2', symbol: 'NEXT', 
   { id: 'a2', side: 'sell', mint: 'M1', pair: 'P1', symbol: 'GERM', why: 'first take +30 %', at: now - 200, until: now + 700, status: 'pending', fraction: 0.5, record: REC },
   { id: 'a3', side: 'buy', mint: 'M1', pair: 'P1', symbol: 'GERM', why: 'germ floor held twice', at: now - 1300, until: now - 400, status: 'done', sig: '5xSig', sol: 0.05, record: REC },
   { id: 'a4', side: 'buy', mint: 'M3', pair: 'P3', symbol: 'RUGME', why: 'volume spike', at: now - 2000, until: now - 1100, status: 'expired', sol: 0.05, record: REC }];
+// 👛 its own wallet on fixtures: ?wallet = made + funded (else the make button); /agent-wallet answers locally
+const AGT = 'AGTw4LLet9xQ2vRkZb7mNcY1pHf3sJd8uTeW5gK6oLqA';
+const realFetch = window.fetch.bind(window);
+window.fetch = (u, o) => (String(u).includes('/agent-wallet') ? Promise.resolve(new Response(JSON.stringify({ wallet: { address: AGT, mode: 'approve' }, balance: { sol: 0.4213, usdc: 12.5 } }), { headers: { 'Content-Type': 'application/json' } })) : realFetch(u, o));
 export default function CatHarness() {
   const [mode, setMode] = useState(window.location.search.includes('paper') ? 'paper' : 'real');
-  const cat = mode === 'real' ? { ...BASE, mode: 'real', realWallet: DEV, budgetSol: 0.05, proposals: PROPS, realHeld: { M1: { symbol: 'GERM' } } } : BASE;
-  const act = async a => { if (a === 'real') setMode('real'); if (a === 'paper') setMode('paper'); };
+  const [aw, setAw] = useState(window.location.search.includes('wallet') ? { address: AGT, mode: 'approve', provider: 'crossmint' } : null);
+  const cat0 = mode === 'real' ? { ...BASE, mode: 'real', realWallet: DEV, budgetSol: 0.05, proposals: PROPS, realHeld: { M1: { symbol: 'GERM' } } } : BASE;
+  const cat = { ...cat0, ...(aw ? { agentWallet: aw } : {}) };
+  const act = async (a, x = {}) => { if (a === 'real') setMode('real'); if (a === 'paper') setMode('paper'); if (a === 'agent_wallet') setAw({ address: AGT, mode: 'approve', provider: 'crossmint' }); if (a === 'agent_mode') setAw(w => ({ ...w, mode: x.mode })); };
   // 🧭 ?general = a General AI cat: its brain panel with YOUR ORDERS (one proposed, one filled on paper, one stopped by a guard)
   const gen = window.location.search.includes('general');
   const g = gen ? { ...cat, brainsCfg: { kind: 'general', brains: ['openai/gpt-oss-20b'], brainMode: 'turns', credit: 9.2, asks: 3, spent: 0.8, owed: 0, billing: 'profit', prompt: 'small buys only', decisions: [], chime: [] },

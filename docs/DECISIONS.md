@@ -13,6 +13,13 @@ a live position with the real mark price, real funding accruing, liquidation at 
 Kraken Pro / Coinbase ↗" opens the venue with your setup in hand. LATER: a venue's official partner API (OAuth on the user's own account).
 
 ## 2 · Real-money cats (custody + pricing — docs/REAL_CATS.md)
+**⚠ CHANGED 2026-10-29 (owner): AGENT WALLETS on Crossmint.** "purchased family and purchased cats can have a wallet assigned and the user
+doesn't sign every txn — one trade agent made and funded, that's it, it rides; general can be switched anytime for the user to approve general AI
+moves or have them do their thing." Provider: Crossmint smart wallets, API-key admin signer (`backend/agent_wallet.py`, `CROSSMINT_API_KEY`);
+FEELESS stores only the address + locator, never a key. Trading cat = `auto` (fixed); general cat = `approve` ↔ `auto` (owner's switch); family =
+`approve` (moves only through the payout engine). This is custody through Crossmint — option A below is the history it replaces for cats that
+have a wallet. Built so far: wallet per cat + live balance + mode switch. NOT yet: trades sent from the wallet, the payment split into it,
+family wallets, per-cat spend caps on the server (all required before any money moves from it).
 **Decided: option A — the user's own wallet signs every trade (non-custodial).** A real cat watches the board with its brain and limits and
 PROPOSES each buy / sell with its evidence; one tap opens the swap with the coins and amount set; the user presses Get quote and signs —
 the same engine, guards and receipts as every FEELESS swap. FEELESS never holds a cat's money or keys (option B = custody, rejected).

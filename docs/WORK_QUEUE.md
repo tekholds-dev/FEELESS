@@ -52,6 +52,12 @@ Each loop iteration: ① cash check (card books vs wallet, halt, pending) → �
    picks) + a double mint ring on a pick. Tests: `test_edge_pick.py` (6), `IntakeBand.test.jsx`. ⚠ latest 600 coins: rule-matching ones ≈ +0.1 % typical in the hour BEFORE
    the 3 % round trip — the edge is thin; the hourly audit drops rules that stop holding (gate HOLD = no picks). NOT done: the ten-agent reducer itself is still the
    live brain (retiring it = a rewrite); the AI's own prompt research = the audit rules, not web research.
+2. **W01 Agent wallets (Crossmint)** — owner 2026-10-29, DECISIONS #2. ✅ slice 1: `backend/agent_wallet.py` (create idempotent smart wallet per cat,
+   balances, modes) · feecat actions `agent_wallet` / `agent_mode` (signed owner only) · `GET /api/cats/{id}/agent-wallet` · cat desk 👛 ITS OWN WALLET card (make,
+   copy, live SOL/USDC, ASK ME | DO ITS THING for general; trading rides). Tests `test_agent_wallet.py` (3), `CatReal.test.jsx`. Preview `/dev/cats?general[&wallet]`.
+   NEXT (before any money moves from it): build + send swaps from the wallet via Crossmint `/wallets/{a}/transactions` with the real-card buy guards + per-cat spend caps;
+   approve-mode queue for general moves; payment split (FEELESS cut → agent wallet) at purchase; family wallets + the payout engine (≤ 3 hits / family / 12h).
+   Key check: wallets.create scope unproven until the first real make (Crossmint answers with its own words if missing).
 2. **FC01 FeeCat two-option build** — option 1 TRADING cat (≤ 2 models, trench / perps on FEELESS only, like familiars.family); option 2 GENERAL cat (≤ 2 models working
    together in a personal wallet-brain chat: research, crawl sites, Polymarket etc. via user sign-ins, a small browser window showing what it does). Each user can hold up to
    3 cats; the owner's cat (NEXA) shows on the wallet's public FeeCat tab; a pop-out to watch the trading or assistant cat. ⚠ OWNER DECISION before code: option 2 creates a

@@ -51,6 +51,41 @@ function WalletCard({ cat, addr, v }) {
   </div>;
 }
 
+// 👛 ITS OWN WALLET (owner 2026-10-29, DECISIONS #2 → agent wallets): one Crossmint smart wallet per cat, made once. Fund it and a TRADING cat
+// rides (no signing per trade); a GENERAL cat has a switch — ASK ME (every AI move waits for your OK) or DO ITS THING. Crossmint holds the
+// key; FEELESS keeps only the address. Live SOL / USDC from GET /api/cats/{id}/agent-wallet (20s).
+export function useAgentWallet(id, has, every = 20000) {
+  const [d, setD] = useState(null);
+  useEffect(() => { if (!id || !has) { setD(null); return undefined; } let on = true;
+    const load = () => fetch(apiUrl(`/api/cats/${id}/agent-wallet`)).then(r => (r.ok ? r.json() : null)).then(x => { if (on && x) setD(x); }).catch(() => {});
+    load(); const t = setInterval(() => { if (!document.hidden) load(); }, every); return () => { on = false; clearInterval(t); }; }, [id, has, every]);
+  return d;
+}
+export function AgentWalletCard({ cat, busy, send, addr }) {
+  const w = cat?.agentWallet; const kind = cat?.brainsCfg?.kind; const d = useAgentWallet(cat?.id, !!w); const [copied, setCopied] = useState(false);
+  const bal = d?.balance || {}; const mode = w?.mode || 'approve';
+  const copy = () => { try { navigator.clipboard.writeText(w.address); setCopied(true); setTimeout(() => setCopied(false), 1400); } catch { /* blocked */ } };
+  return <div className={`cr-agent ${w ? 'is-made' : ''} m-${mode}`} data-testid="cr-agent">
+    <svg className="cr-vault" viewBox="0 0 48 48" aria-hidden="true"><rect x="5" y="9" width="38" height="30" rx="6" /><circle cx="24" cy="24" r="8" /><path className="cr-vdial" d="M24 16 V20 M24 28 V32 M16 24 H20 M28 24 H32" /><path d="M11 39 V43 M37 39 V43" /></svg>
+    {!w ? <div className="cr-ag-off"><b>👛 ITS OWN WALLET</b><small>Fund it once — {kind === 'trading' ? 'it rides: trades without asking you to sign' : 'it works from it; you choose ask-first or let it go'}. Crossmint holds the key, FEELESS keeps only the address.</small>
+      <button type="button" className="m-btn m-go cr-ag-go" disabled={busy || !addr || cat?.revoked} onClick={() => send('agent_wallet')} data-testid="cr-agent-make"
+        data-tip={addr ? 'One signature (no transaction) proves you own this cat — then Crossmint makes its wallet' : 'Connect your wallet first'}>👛 Give it its own wallet</button></div>
+      : <div className="cr-ag-on">
+        <div className="cr-wid"><span><em>{kind === 'trading' ? '🏇 RIDES · ITS WALLET' : 'ITS WALLET'}</em><b className="m-num">{short(w.address)}</b></span>
+          <button type="button" className={`m-btn cr-copy ${copied ? 'is-ok' : ''}`} onClick={copy} data-testid="cr-agent-copy" data-tip="Copy its address — send SOL / USDC here to fund it">{copied ? '✓ copied' : '⧉ Copy'}</button></div>
+        <div className="cr-strip is-vitals">
+          <span style={{ '--i': 0 }} data-tip="Live SOL in its wallet (Crossmint, every 20s)"><em>SOL</em><b className="m-num" key={bal.sol}>{bal.sol == null ? '…' : bal.sol.toFixed(4)}</b></span>
+          <span style={{ '--i': 1 }} data-tip="Live USDC in its wallet"><em>USDC</em><b className="m-num" key={bal.usdc}>{bal.usdc == null ? '…' : bal.usdc.toFixed(2)}</b></span>
+          <span style={{ '--i': 2 }} className={bal.sol > 0 || bal.usdc > 0 ? 'is-up' : ''} data-tip="Funded = it has money to work with"><em>STATE</em><b className="m-num">{bal.error ? 'NO READ' : bal.sol > 0 || bal.usdc > 0 ? 'FUNDED' : 'EMPTY'}</b></span>
+        </div>
+        {kind === 'trading' ? null : <div className="m-seg cr-ag-mode" role="radiogroup" aria-label="How it moves">
+          {[['approve', '✋ ASK ME', 'Every AI move waits for your OK'], ['auto', '🚀 DO ITS THING', 'AI moves go ahead on their own, inside its limits']].map(([k, l, tip]) =>
+            <button key={k} type="button" role="radio" aria-checked={mode === k} className={mode === k ? 'active' : ''} disabled={busy} onClick={() => mode !== k && send('agent_mode', { mode: k })} data-tip={tip} data-testid={`cr-agent-${k}`}>{l}</button>)}</div>}
+        <p className="cr-ag-note">⏳ Trades from this wallet switch on in the next build — today it is made, funded and watched; its moves still come as proposals.</p>
+      </div>}
+  </div>;
+}
+
 // the drawn flow: the cat reads → proposes → your wallet signs (a beam charges along it)
 const Flow = () => <div className="cr-flow" aria-hidden="true"><i className="cr-beam" />
   {[['READS', <><circle cx="12" cy="12" r="4" /><path d="M2 12 C6 5 18 5 22 12 C18 19 6 19 2 12 Z" /></>], ['PROPOSES', <><rect x="4" y="3" width="16" height="18" rx="3" /><path d="M8 9 H16 M8 13 H14 M8 17 H12" /></>],
@@ -83,6 +118,7 @@ export function CatReal({ cat, busy = false, onAct, devAddress = '' }) {
   const wrong = v.real && addr && v.wallet !== addr;
   return <section className={`kd-card cr ${v.real ? 'is-real' : ''}`} data-testid="cat-real">
     <header><b>💵 REAL MODE</b><small>{v.real ? `${short(v.wallet)} signs every trade` : 'it proposes · your wallet signs · FEELESS never holds your SOL'}</small></header>
+    <AgentWalletCard cat={cat} busy={busy} addr={addr} send={(a, x) => send.current(a, x)} />
     <WalletCard cat={cat} addr={addr} v={v} />
     {!v.real ? <div className="cr-off">
       <Flow />

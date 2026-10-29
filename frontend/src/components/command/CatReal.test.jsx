@@ -59,3 +59,22 @@ test('real: sign opens the swap with the coins + amount set; a confirmed trade m
   expect(onAct).toHaveBeenLastCalledWith('proposal', { address: DEV, session: 'dev', proposal: 's1', result: 'skip' });
   act(() => root.unmount());
 });
+
+test('👛 its own wallet: make it (signed), then live SOL / USDC + copy; a general cat switches ASK ME / DO ITS THING, a trading cat just rides', async () => {
+  global.fetch = async () => ({ ok: true, json: async () => ({ wallet: { address: 'AGT1111111111111111111111111111111111111111', mode: 'approve' }, balance: { sol: 0.25, usdc: 3.5 } }) });
+  const onAct = jest.fn(async () => {});
+  const el = document.createElement('div'); document.body.appendChild(el); const root = createRoot(el);
+  await act(async () => { root.render(<CatReal cat={{ id: 'g1', name: 'Gen', brainsCfg: { kind: 'general' } }} onAct={onAct} devAddress={DEV} />); });
+  await act(async () => { el.querySelector('[data-testid="cr-agent-make"]').click(); });
+  expect(onAct).toHaveBeenCalledWith('agent_wallet', { address: DEV, session: 'dev' });
+  const made = { id: 'g1', name: 'Gen', brainsCfg: { kind: 'general' }, agentWallet: { address: 'AGT1111111111111111111111111111111111111111', mode: 'approve' } };
+  await act(async () => { root.render(<CatReal cat={made} onAct={onAct} devAddress={DEV} />); });
+  await act(async () => { await new Promise(r => setTimeout(r, 0)); });
+  const card = el.querySelector('[data-testid="cr-agent"]');
+  expect(card.textContent).toContain('0.2500'); expect(card.textContent).toContain('3.50'); expect(card.textContent).toContain('FUNDED');
+  await act(async () => { el.querySelector('[data-testid="cr-agent-auto"]').click(); });
+  expect(onAct).toHaveBeenLastCalledWith('agent_mode', { address: DEV, session: 'dev', mode: 'auto' });
+  await act(async () => { root.render(<CatReal cat={{ ...made, brainsCfg: { kind: 'trading' }, agentWallet: { ...made.agentWallet, mode: 'auto' } }} onAct={onAct} devAddress={DEV} />); });
+  expect(el.querySelector('[data-testid="cr-agent-auto"]')).toBeNull(); expect(el.querySelector('[data-testid="cr-agent"]').textContent).toContain('RIDES');
+  await act(async () => { root.unmount(); });
+});

@@ -76,3 +76,21 @@ body.theme-day .cr-budget .m-seg > button.active { background: linear-gradient(1
 .cr-strip.is-vitals { grid-template-columns: repeat(3, minmax(0, 1fr)); } .cr-strip .is-up b { color: #45e486; } .cr-strip .is-dn b { color: #ff8fa3; }
 body.fx-lite .cr-wdot.is-on { animation: none; } @media (prefers-reduced-motion: reduce) { .cr-wdot.is-on { animation: none; } }
 body.theme-day .cr-wallet { background: #f6f0ff; border-color: rgba(106, 61, 240, .25); } body.theme-day .cr-wid b { color: #1c1230; }
+/* 👛 ITS OWN WALLET (CatReal.AgentWalletCard): a drawn vault whose dial turns while it is waiting to be made / funded, the address + copy, live
+   SOL / USDC, and the general cat's ASK ME | DO ITS THING switch. Mint edge once made (Crossmint holds the key; FEELESS keeps the address). */
+.cr-agent { position: relative; display: grid; grid-template-columns: 46px minmax(0, 1fr); gap: 10px; align-items: start; padding: 10px; border-radius: 14px; overflow: hidden;
+  border: 1px dashed rgba(180, 140, 255, .4); background: linear-gradient(135deg, rgba(95, 242, 200, .06), rgba(10, 6, 20, .65)); box-shadow: inset 0 1px 0 rgba(255, 255, 255, .05); animation: crIn .3s ease-out both; }
+.cr-agent.is-made { border: 1px solid rgba(95, 242, 200, .45); } .cr-agent.is-made.m-auto { box-shadow: inset 0 1px 0 rgba(255, 255, 255, .05), 0 0 18px -6px rgba(95, 242, 200, .55); }
+.cr-vault { width: 46px; height: 46px; fill: none; stroke: #b49cff; stroke-width: 2; stroke-linecap: round; } .cr-agent.is-made .cr-vault { stroke: #5ff2c8; }
+.cr-vdial { transform-origin: 24px 24px; animation: crDial 6s linear infinite; } .cr-agent.is-made.m-approve .cr-vdial { animation-duration: 14s; }
+.cr-ag-off, .cr-ag-on { display: grid; gap: 7px; min-width: 0; } .cr-ag-off b { font: 800 11px 'JetBrains Mono', monospace; letter-spacing: .1em; color: #fff; }
+.cr-ag-off small, .cr-ag-note { font: 600 10px/1.4 var(--f-ui, sans-serif); color: #b9aedc; margin: 0; } .cr-ag-note { font-size: 9.5px; color: #9d8fbf; }
+.m-btn.cr-ag-go { justify-self: start; min-height: 36px; }
+.cr-ag-mode { justify-self: start; } .cr-ag-mode > button { min-height: 34px; font: 800 10px 'JetBrains Mono', monospace; letter-spacing: .06em; }
+.cr-ag-mode > button.active { background: linear-gradient(135deg, #5ff2c8, #15d16a); color: #06130d; }
+.cr-ag-mode > button:focus-visible, .m-btn.cr-ag-go:focus-visible { outline: 2px solid #5ff2c8; outline-offset: 2px; }
+@keyframes crDial { to { transform: rotate(360deg); } }
+body.fx-lite .cr-vdial, body.fx-lite .cr-agent { animation: none; } @media (prefers-reduced-motion: reduce) { .cr-vdial, .cr-agent { animation: none; } }
+body.theme-day .cr-agent { background: linear-gradient(135deg, #effbf6, #f6f0ff); border-color: rgba(106, 61, 240, .3); } body.theme-day .cr-agent.is-made { border-color: rgba(10, 140, 110, .45); }
+body.theme-day .cr-ag-off b { color: #1c1230; } body.theme-day .cr-ag-off small, body.theme-day .cr-ag-note { color: #5a4f78; } body.theme-day .cr-vault { stroke: #6a3df0; } body.theme-day .cr-agent.is-made .cr-vault { stroke: #0a8f6e; }
+@media (max-width: 640px) { .cr-agent { grid-template-columns: 36px minmax(0, 1fr); } .cr-vault { width: 36px; height: 36px; } .cr-ag-mode { justify-self: stretch; } }
