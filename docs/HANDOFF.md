@@ -22,6 +22,15 @@ Read this (2 min) → `CLAUDE.md` (lean rules + 🎨 MANDATORY STYLING + 📋 CU
 >    show what each model can do: EFFORT levels when the model supports them (e.g. Opus 5.5 low → max, priced per effort), tools, vision,
 >    code. A 💻 coding cat can BUILD and show the result live in its browser window (preview page); add other per-job powers (content cat drafts
 >    + previews a post, agent cat fills forms up to the human step).
+> 2b. **Auto prompt generator** — pick a persona from a dropdown per kind (trader: 🔥 DEGEN trencher, sniper, swing… · general: 🔎 detective,
+>    content creator, coder, researcher…) → ONE generated brief for both (or all) its models, editable before it's sealed.
+> 2c. **Models per cat in HQ › Core**: owner sets the max; tier idea: $100+ $FEE holders get 3 models in one trader or general cat (`_is_staff` all).
+> 2d. **Per-job tool kits** (each job gets only the tools it needs): content cat = cloud storage for drafts / media; coder = build + live preview;
+>    detective = search + case notes; trader = chart + wallet. The user controls every tool switch + spend.
+> 2e. **HARD GUARDS for general cats**: it may NEVER create another FeeCat / sign in to FEELESS with its own wallet (blocks cat-spawning cats —
+>    feecat.* domains + our API refused from its browser and its wallet); never scams / rugs / impersonation / mass spam — refuse those jobs
+>    (owner joked "rug ppl": the answer is a guard, not a tool); every refusal logged and shown to the owner.
+> 2f. After ALL of this is built: a FULL SITE AUDIT on every device — no lag, no power burn, every orientation (phone / Duo / fold / Safari).
 > 3. Q2 trading/NEXA desk new views (bubbles on top of each chart, no wide rows) · 4. Q4 no paper except the Fuse Arena · 5. Q3 wall = calls
 >    design · 6. Q5 live price-gap engine. Details: `docs/WORK_QUEUE.md` top (Q1 ✅ LET IT GO shipped; staff pay no fee site-wide ✅).
 > 📊 **EDGE AUDIT 2026-10-29 03:3x (E01, `scripts/edge-audit.py`, 3% round trip, 4,000 coins):** the agents ENTERED 0 of 3,000 judged calls (all "wait";
