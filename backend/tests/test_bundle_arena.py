@@ -56,7 +56,7 @@ def test_bundle_leg_pays_flat_and_cmd_ctr_pays_nothing(rs, monkeypatch):
     monkeypatch.setattr(rs, '_is_staff', lambda a: a == 'Staff1')
     staff = asyncio.run(rs.effective_fee('Staff1', rs.WSOL_MINT, MEME, 3, 0.1))
     assert staff['bps'] == 0 and 'site-wide' in staff['notes'][0]   # staff pay nothing anywhere (owner 2026-10-29)
-    assert asyncio.run(rs.effective_fee('Staff1', rs.WSOL_MINT, MEME, 0, 0.1))['bps'] == 100   # single swaps still pay
+    assert asyncio.run(rs.effective_fee('Staff1', rs.WSOL_MINT, MEME, 0, 0.1))['bps'] == 0   # owner 2026-10-29: staff pay no FEELESS fee anywhere
 
 
 def pick(m, **kw):
