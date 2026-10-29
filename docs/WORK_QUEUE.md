@@ -21,6 +21,27 @@ Three bounded H01 fixes: placeholder legs no longer hide Fill seat (pending buys
 
 Conserve usage · finish the selected work by priority · never dead-style.
 
+## 🌙 OVERNIGHT LIST 2026-10-29 — the 15 easiest (self-contained: no keys, no trades, no signatures, no real-money rule changes)
+Each loop iteration: ① cash check (card books vs wallet, halt, pending) → ② the next OPEN item → finish it styled + tested + pushed (gate green) →
+③ mark it DONE here with one line of proof. Never loosen buy rules, never move funds, never restart reputation_service with an order pending.
+| ID | Status | Task |
+|---|---|---|
+| E01 | OPEN | Run `scripts/edge-audit.py`; write its verdict at the top of HANDOFF (A06 groundwork — the owner approves any buy-rule change). |
+| E02 | OPEN | Page watcher sweep: Home, Trenches, FEEd, Pump radar, Radar at 360 / 466 / 890 px — fix every sideways scroll / clipped control found. |
+| E03 | OPEN | Fuse page: phone + fold fit against MOBILE_LAYOUT (no clipped controls, no page side-scroll). |
+| E04 | OPEN | Launch page: phone + fold fit. |
+| E05 | OPEN | FeeCat page + Launch a cat: phone + fold fit. |
+| E06 | OPEN | Familia entry + money desk: phone fit (no side-scroll, sheets within the viewport). |
+| E07 | OPEN | Perps desk: phone fit. |
+| E08 | OPEN | Agents floor rail: seat buttons show the coin's image (fall back to its letters). |
+| E09 | OPEN | Trade tape on the Trenches floor gets the per-trade stream (a new fill appears without waiting for the 15 s tape read). |
+| E10 | OPEN | Settings › Look: an "ECO ON · this phone stays cool" chip with what eco changes. |
+| E11 | OPEN | HQ Numbers / Traffic: hide '—' rows when every value is missing (one "no data yet" line instead). |
+| E12 | OPEN | HQ Lag catcher: show the page-watcher's latest layout issues as a short live list. |
+| E13 | OPEN | FEEd: the FEELESS chip shows FEELESS posts on the same timeline (rooms stay one tap away). |
+| E14 | OPEN | CSS budgets: lower `terminal.css`'s KB budget to its new size after the deletions (cssHygiene). |
+| E15 | OPEN | MOBILE_LAYOUT matrix: record which pages passed the Duo-floor contract (proof = sizes checked). |
+
 ## Owner requests 2026-10-29 (late) — NEXT, in this order
 1. **A06 Agents PICK from the one intake** (owner: "sort through the new intake to PICK a coin, not block coins on the intake"; "they act scared to enter"):
    OSSY / G4 + agents read the NSFA 1 / 5 / 15-min survival + enter at the germ floor on a CONFIRMED coin; drop the "ten agents" desk; AI prompts get research
