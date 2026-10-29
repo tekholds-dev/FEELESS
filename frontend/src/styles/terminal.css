@@ -928,7 +928,7 @@ body.theme-day .pump-radar-migration>small,body.theme-day .pump-radar-migration-
   .pump-radar-hero{align-items:flex-start;flex-direction:column;padding:21px 15px;gap:18px}
   .pump-radar-hero h2{font-size:23px}
   .pump-radar-live-orbit{width:92px;height:92px;align-self:flex-end;margin-top:-12px}
-  .pump-radar-toolbar{align-items:flex-start;flex-direction:column}
+  .pump-radar-toolbar,.pump-hub .pump-radar-toolbar{align-items:stretch;flex-direction:column;flex-wrap:nowrap}.pump-radar-toolbar>*{min-width:0;max-width:100%}.pump-radar-stages{overflow-x:auto}
   .pump-radar-sync{width:100%;justify-content:space-between}
   .pump-radar-summary{grid-template-columns:repeat(2,minmax(0,1fr))}
   .pump-radar-summary>span:nth-child(2){border-right:0}

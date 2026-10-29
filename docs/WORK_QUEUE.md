@@ -28,12 +28,12 @@ Each loop iteration: ① cash check (card books vs wallet, halt, pending) → �
 |---|---|---|
 | E00 | DONE | Creator-only 🪟 NEXA tab in HQ › Agents (desktop deck, lazy) + its own NEXA dock tab on the Duo floor = FeeCatDesk (Fee's book, record, creator wallet bar, NEXA's desk). Harness 890×626 ✓, tests ✓. |
 | E01 | DONE | Edge audit run 2026-10-29: agents entered 0/3,000 calls; 12 rules positive on unseen coins (best 5m +5–15% & buyers ≥65%: +19.4%, n 63) → HANDOFF top. |
-| E02 | DONE | Sweep 2026-10-29: Home · Trenches · FEEd · Pump radar · Radar at 360 / 466 / 890 → page width = viewport on all, 0 overflowing elements. |
-| E03 | VERIFY | (sweep 2026-10-29: no page side-scroll at 360 / 890 — clipped-control review still to do) |
-| E04 | VERIFY | (sweep 2026-10-29: no page side-scroll at 360 / 890 — clipped-control review still to do) |
-| E05 | VERIFY | (sweep 2026-10-29: no page side-scroll at 360 / 890 — clipped-control review still to do) |
-| E06 | VERIFY | (sweep 2026-10-29: no page side-scroll at 360 / 890 — clipped-control review still to do) |
-| E07 | VERIFY | (sweep 2026-10-29: no page side-scroll at 360 / 890 — clipped-control review still to do) |
+| E02 | VERIFY | ⚠ The first sweep (2026-10-29 03:3x) ran on the /dev/hq harness — client-side URL changes never rendered the real pages, so its "clean" was invalid. Re-run with each page really loaded (iframe per page × 360 / 466 / 890) in progress. |
+| E03 | VERIFY | (first sweep invalid — see E02; re-run in progress) |
+| E04 | VERIFY | (first sweep invalid — see E02; re-run in progress) |
+| E05 | VERIFY | (first sweep invalid — see E02; re-run in progress) |
+| E06 | VERIFY | (first sweep invalid — see E02; re-run in progress) |
+| E07 | VERIFY | (first sweep invalid — see E02; re-run in progress) |
 | E08 | DONE | Agents floor rail seats show each coin's image (useLiveTokenMarkets, one batched read, only while the floor is open; letters as fallback). Tests ✓. |
 | E09 | DONE | Per-trade ticks carry tx + wallet; the chart hands each fill to the tape (`feeless:live-fill`) → on the tape at once, deduped by tx (test ✓; live 108 fills / 45 s). |
 | E10 | DONE | Settings › Look shows "🔋 ECO ON · this phone stays cool" (eco phones, full effects off) with what eco changes in its tip. |

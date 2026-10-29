@@ -1,4 +1,5 @@
 import React, { Suspense, lazy, useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { apiUrl } from '../lib/api';
 import { openCoin } from './CoinDrawer';
 import '../styles/fuseRoom.css';
@@ -34,10 +35,11 @@ export function FuseRoom() {
     const load = first => (first || !document.hidden) && Promise.all([get('/api/reputation/fuses/proof'), get('/api/reputation/fuses/trench/open'), get('/api/reputation/fuses/forecast')]).then(([proof, open, fc]) => alive && setD({ proof, open, fc }));
     load(true); const t = setInterval(() => load(false), 45000); return () => { alive = false; clearInterval(t); }; }, [live]);
   const coin = (mint, pair, sym) => mint && openCoin({ mint, pairAddress: pair, symbol: sym });
-  if (!st.open) return <button type="button" className="frm-tab" onClick={() => setSt(s => ({ ...s, open: true }))} data-testid="fuse-room-tab" aria-label="Open the Fuse room" data-tip="The Fuse room: big moves · lounge chat · radar">
-    <i className="frm-logo" aria-hidden><b>⚛</b></i><span>FUSE ROOM</span></button>;
+  // 📌 portaled to <body>: an ancestor's transform made `position: fixed` pin to the page box, not the screen — the tab sat 26 px off a phone's edge
+  if (!st.open) return createPortal(<button type="button" className="frm-tab" onClick={() => setSt(s => ({ ...s, open: true }))} data-testid="fuse-room-tab" aria-label="Open the Fuse room" data-tip="The Fuse room: big moves · lounge chat · radar">
+    <i className="frm-logo" aria-hidden><b>⚛</b></i><span>FUSE ROOM</span></button>, document.body);
   const big = bigMoves(d?.proof?.feed, d?.open?.feed);
-  return <aside className="frm" data-testid="fuse-room" aria-label="Fuse room">
+  return createPortal(<aside className="frm" data-testid="fuse-room" aria-label="Fuse room">
     <header className="frm-head"><i className="frm-logo" aria-hidden><b>⚛</b></i><strong>FUSE ROOM</strong>
       <button type="button" className="frm-x" onClick={() => setSt(s => ({ ...s, open: false }))} data-testid="fuse-room-hide" aria-label="Hide the Fuse room" data-tip="Hide to the side">›</button></header>
     <nav className="frm-tabs" role="tablist">{FUSE_ROOMS.map(([k, ic, name, tip]) => <button key={k} type="button" role="tab" aria-selected={st.room === k} className={st.room === k ? 'active' : ''} onClick={() => setSt(s => ({ ...s, room: k }))} data-tip={tip} data-testid={`fuse-room-${k}`}>{ic} {name}</button>)}</nav>
@@ -55,5 +57,5 @@ export function FuseRoom() {
           <i>{r.safe === true ? '✅' : r.safe === false ? '⚠' : '❔'}</i><b>${r.symbol}</b><em className={Number(r.chg5m) >= 0 ? 'm-pos' : 'm-neg'}>{sg(r.chg5m)} 5m</em><span>#{r.rank} · ${Math.round((r.vol1h || 0) / 1000)}K/h</span></button></li>)}</ul>
         <small className="frm-note">A read of the live feed · never a promise</small></div>)}
     </div>
-  </aside>;
+  </aside>, document.body);
 }

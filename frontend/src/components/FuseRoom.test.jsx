@@ -24,13 +24,13 @@ test('fuse room: a slim tab on the side opens a glass panel with three rooms, re
   expect(FUSE_ROOMS.map(r => r[0])).toEqual(['big', 'chat', 'radar']);
   const el = document.createElement('div'); document.body.appendChild(el); const root = createRoot(el);
   await act(async () => { root.render(<FuseRoom />); });
-  const q = id => el.querySelector(`[data-testid="${id}"]`);
+  const q = id => document.querySelector(`[data-testid="${id}"]`);   // the room + its tab are portaled to <body>
   expect(q('fuse-room')).toBeNull(); expect(q('fuse-room-tab').textContent).toContain('FUSE ROOM'); expect(global.fetch).not.toHaveBeenCalled();   // closed = no polling
   await act(async () => { q('fuse-room-tab').click(); }); await tick(30);
   expect(q('fuse-room-big-list').textContent).toContain('$WIN'); expect(q('fuse-room-big-list').textContent).toContain('+31%');
   await act(async () => { q('fuse-room-big-list').querySelector('button').click(); }); expect(openCoin).toHaveBeenCalledWith({ mint: 'W', pairAddress: 'PW', symbol: 'WIN' });
   await act(async () => { q('fuse-room-radar').click(); }); await tick(30);
-  expect(el.textContent).toContain('$ENT'); expect(el.textContent).toContain('Pullback'); expect(el.textContent).toContain('$FRONT'); expect(el.textContent).toContain('✅');
+  expect(document.body.textContent).toContain('$ENT'); expect(document.body.textContent).toContain('Pullback'); expect(document.body.textContent).toContain('$FRONT'); expect(document.body.textContent).toContain('✅');
   await act(async () => { q('fuse-room-chat').click(); }); await tick(30);
   expect(q('stub-chat').textContent).toBe('fuse-lab');
   expect(JSON.parse(window.localStorage.getItem('feeless.fuseRoom'))).toEqual({ open: true, room: 'chat' });
