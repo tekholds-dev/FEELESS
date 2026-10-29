@@ -80,6 +80,17 @@ Each loop iteration: ① cash check (card books vs wallet, halt, pending) → �
 ⚠ OWNER: HQ › Fees shows the swap fee at **1500 bps (15 %)** — confirm intended (the cat funding receipt reads it live).
 
 ## 🔥 OWNER PRIORITY 2026-10-29 (night) — this order, then back to the MD list
+
+> 🆕 **OWNER 2026-10-29 late (do these FIRST, in order):**
+> **Q1 "Let them go" (general + trading real configs)** — a per-cat switch: the general cat works ANY request on its own (no 8-step cap per window,
+>   keeps going task after task) until a human is truly needed (card payment, KYC, CAPTCHA, a sign-in) — it may sign up / fund with crypto inside its
+>   caps. Today: `cat_agent.STEP_MAX = 8`, one task per Enter, pauses on `needs_human`; agent wallet `approve|auto` (`agent_wallet.set_mode`).
+>   Build: `go` mode on the workbench (queue + long step budget + the $ cap still binds) + the agent wallet on auto; never types a password/card.
+> **Q2 Trading cat desk = the new views** — the leader FeeCat (creator wallet) desk + every trading cat: charts with decision BUBBLES floating
+>   on top / outside each chart (like the general workbench), no full-width wide windows (owner screenshot: NEXA "WHO TRADES FEECAT" wide rows).
+> **Q3 Fee's wall = the Fee's calls design; take Fee's calls out** (`FeeCallChat.jsx` look on the wall, then delete the separate calls panel + dead CSS).
+> **Q4 No paper anywhere except the Fuse Arena** — remove paper toggles / "paper desk" / "starting paper balance" from cats + Create a cat
+>   (N05); confirm the real Fuse card's profit; if the Fuse cards' paper books disagree with chain, reset them so they never break.
 1. **P1 Mobile / Duo / fold pass** (pause the MD list for it): every page sized + working on phone / Duo / fold; the SIDE MENU in portrait is bugged; easy to see —
    chart markers SMALLER so nobody strains, still the Trench Trade look. ✅ part: HQ › Agents Duo floor top right (money strip wraps, six tabs fit, fold: no chart
    overlap, the tab row never scrolled away) 2026-10-29. ✅ the SIDE MENU on phones: it opened UNDER its own shade (a desktop `z-index:3` rule applied at every
