@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useWallet } from '../../hooks/useWallet';
 import { getChatSession } from '../../lib/chatSession';
 import { familiaSwap, FamiliaTradeDock } from '../FamiliaTrade';
+import { apiUrl } from '../../lib/api';
 import '../../styles/catReal.css';
 
 // 💵 REAL MODE (docs/DECISIONS.md #2 — option A, the owner's go 2026-10-23): your cat keeps hunting on its paper ledger and every buy it makes
@@ -23,6 +24,32 @@ export function realView(cat, now = Date.now() / 1000) {
     pending: list.filter(p => p.status === 'pending').length, held: Object.entries(cat?.realHeld || {}).map(([mint, h]) => ({ mint, ...h })) };
 }
 const recLine = r => (r && r.trades ? `its paper record: ${r.trades} trades · ${r.wonPct ?? '—'}% won · ${r.pnlSol >= 0 ? '+' : '−'}${Math.abs(r.pnlSol).toFixed(3)} SOL` : 'no closed paper trades yet — no record to lean on');
+
+// 👛 THE WALLET CARD (owner 2026-10-29: "the real money button doesn't open my FeeCat wallet — show balance, vitals, copy so I can load it"):
+// the wallet this cat trades through (its linked wallet, else the one connected) — address + ⧉ copy (load it from anywhere), its live SOL
+// balance, and the cat's vitals. Option A: FEELESS holds no key — loading the cat = sending SOL to this wallet (your own).
+export function useSolBalance(addr, every = 20000) {
+  const [sol, setSol] = useState(null);
+  useEffect(() => { if (!addr) { setSol(null); return undefined; } let on = true;
+    const load = () => fetch(apiUrl(`/api/reputation/balance/${addr}/${SOL}`)).then(r => (r.ok ? r.json() : null)).then(d => { if (on && d && d.amount != null) setSol(Number(d.amount)); }).catch(() => {});
+    load(); const t = setInterval(() => { if (!document.hidden) load(); }, every); return () => { on = false; clearInterval(t); }; }, [addr, every]);
+  return sol;
+}
+function WalletCard({ cat, addr, v }) {
+  const w = v.wallet || addr; const sol = useSolBalance(w); const [copied, setCopied] = useState(false);
+  const copy = () => { try { navigator.clipboard.writeText(w); setCopied(true); setTimeout(() => setCopied(false), 1400); } catch { /* blocked */ } };
+  const trades = (cat?.wins || 0) + (cat?.losses || 0); const pnl = Number(cat?.realizedPnlSol) || 0;
+  if (!w) return null;
+  return <div className="cr-wallet" data-testid="cr-wallet">
+    <div className="cr-wid"><i className={`cr-wdot ${v.real ? 'is-on' : ''}`} aria-hidden="true" /><span><em>{v.real ? 'TRADES THROUGH' : 'YOUR WALLET'}</em><b className="m-num">{short(w)}</b></span>
+      <button type="button" className={`m-btn cr-copy ${copied ? 'is-ok' : ''}`} onClick={copy} data-testid="cr-copy" data-tip="Copy the address — send SOL here to load your cat (it is your own wallet; FEELESS never holds a key)">{copied ? '✓ copied' : '⧉ Copy'}</button></div>
+    <div className="cr-strip is-vitals">
+      <span style={{ '--i': 0 }} data-tip="Live SOL in this wallet (re-read every 20s)"><em>BALANCE</em><b className="m-num" key={sol}>{sol == null ? '…' : `${sol.toFixed(sol >= 10 ? 2 : 4)} SOL`}</b></span>
+      <span style={{ '--i': 1 }} data-tip="Its paper record: trades closed and the share won"><em>RECORD</em><b className="m-num">{trades ? `${trades} · ${cat?.winRate ?? '—'}%` : '—'}</b></span>
+      <span style={{ '--i': 2 }} className={pnl > 0 ? 'is-up' : pnl < 0 ? 'is-dn' : ''} data-tip="Its realized P&L (fees excluded)"><em>P&L</em><b className="m-num">{`${pnl >= 0 ? '+' : '−'}${Math.abs(pnl).toFixed(3)} SOL`}</b></span>
+    </div>
+  </div>;
+}
 
 // the drawn flow: the cat reads → proposes → your wallet signs (a beam charges along it)
 const Flow = () => <div className="cr-flow" aria-hidden="true"><i className="cr-beam" />
@@ -56,6 +83,7 @@ export function CatReal({ cat, busy = false, onAct, devAddress = '' }) {
   const wrong = v.real && addr && v.wallet !== addr;
   return <section className={`kd-card cr ${v.real ? 'is-real' : ''}`} data-testid="cat-real">
     <header><b>💵 REAL MODE</b><small>{v.real ? `${short(v.wallet)} signs every trade` : 'it proposes · your wallet signs · FEELESS never holds your SOL'}</small></header>
+    <WalletCard cat={cat} addr={addr} v={v} />
     {!v.real ? <div className="cr-off">
       <Flow />
       <div className="cr-budget"><em>MOST A BUY</em><div className="m-seg" role="group" aria-label="The most it may propose for one buy">

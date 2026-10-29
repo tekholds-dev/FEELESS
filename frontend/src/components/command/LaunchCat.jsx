@@ -4,6 +4,7 @@ import NumInput from '../NumInput';
 import { LookAvatar } from './CatLook';
 import { CAT_VARIATIONS } from './catCoats';
 import { useMyCat } from '../../lib/myCat';
+import { FundReceipt } from './FundReceipt';
 import '../../styles/launchCat.css';
 
 // 🚀 LAUNCH A CAT (owner, 2026-10-20): pick up to two AI brains from OpenRouter's whole public list, choose how they work together, write
@@ -128,6 +129,7 @@ export function LaunchCat({ api, ownerId, onCreated, onCancel, Fields, Preview, 
         <span><small>${d?.budget?.start ?? 10} CREDIT COVERS</small><b>{plan.trades == null ? '∞ (free models)' : `≈ ${plan.trades.toLocaleString()} trades`}</b></span>
         <i className="lct-tank"><em style={{ transform: `scaleX(${plan.trades == null ? 1 : Math.min(1, plan.trades / 500)})` }} /></i></div> : null}
       <p className="lct-note">{d?.live ? '🟢 Model calls are ON.' : '⏸ Model calls are OFF until FEELESS switches them on — until then the FEELESS rule engine trades your cat and nothing is charged.'} The ${d?.budget?.start ?? 10} starting credit is paper credit: real billing isn't built yet.</p>
+      <FundReceipt />
       <p className="lct-next" data-testid="lct-next-real"><i>🚀 launch</i><u /><i>👛 link your wallet</i><u /><i>🎚 set its budget</i><u /><i className="is-real">💵 REAL — you sign every trade</i></p>
       <button type="button" className="m-btn m-go lct-go" disabled={saving || !ready.slice(0, 3).every(Boolean)} onClick={launch} data-testid="lct-launch">{saving ? 'Launching…' : `🚀 Launch ${name || 'the cat'} → go real`}</button>
     </div> : null}

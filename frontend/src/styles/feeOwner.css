@@ -12,7 +12,8 @@
 .fob-pill.is-real .fob-dot { background: #45e486; box-shadow: 0 0 10px #45e486; }
 .fob-ping { position: absolute; top: -3px; right: -3px; width: 10px; height: 10px; border-radius: 50%; background: #ff8fa3; animation: fobBeat 1.2s ease-in-out infinite; }
 /* the pop-outs: a backdrop + a glass panel that scales in */
-.fob-back { position: fixed; inset: 0; z-index: 2000; display: grid; place-items: center; padding: 16px; background: rgba(6, 3, 14, .72); animation: fobFade .18s ease-out; }
+.fob-back { position: fixed; inset: 0; z-index: 5300;   /* above the HQ pop-out (4000) + Agents floor (4500): at 2000 it opened BEHIND HQ — 'the button doesn't work' */
+   display: grid; place-items: center; padding: 16px; background: rgba(6, 3, 14, .72); animation: fobFade .18s ease-out; }
 .fob-pop { width: min(860px, 100%); max-height: calc(100vh - 32px); overflow: auto; scrollbar-width: thin; scrollbar-color: #b48cff transparent; display: grid; gap: 12px; padding: 16px; border-radius: 16px;
   background: radial-gradient(80% 60% at 0% 0%, rgba(124, 77, 255, .18), transparent 70%), #0b0817; box-shadow: 0 0 0 1px rgba(180, 140, 255, .4) inset, 0 30px 80px rgba(0, 0, 0, .6); animation: fobIn .2s ease-out; }
 .fob-pop::-webkit-scrollbar { width: 6px; } .fob-pop::-webkit-scrollbar-thumb { background: #b48cff; border-radius: 3px; }

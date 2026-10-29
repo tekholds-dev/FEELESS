@@ -67,3 +67,12 @@ body.theme-day .cr-rec, body.theme-day .cr-what .cr-r { color: #7a5a00; } body.t
 body.theme-day .cr-budget .m-seg > button.active { background: linear-gradient(135deg, #9c6bff, #6a3df0); color: #fff; box-shadow: 0 4px 14px -6px #6a3df0; }
 @media (max-width: 640px) { .cr-strip { grid-template-columns: repeat(3, minmax(0, 1fr)); } .cr-paper { grid-column: 1 / -1; justify-self: stretch; }
   .cr-p { grid-template-columns: auto minmax(0, 1fr) auto; } .cr-acts { grid-column: 1 / -1; grid-template-columns: minmax(60px, 1fr) auto auto; } .cr-st { grid-column: 1 / -1; } }
+/* 👛 the wallet card: address + copy, live balance, the cat's vitals (CatReal.WalletCard) */
+.cr-wallet { display: grid; gap: 8px; padding: 10px; border-radius: 14px; border: 1px solid rgba(180, 140, 255, .28); background: linear-gradient(135deg, rgba(156, 107, 255, .1), rgba(10, 6, 20, .6)); box-shadow: inset 0 1px 0 rgba(255, 255, 255, .05); }
+.cr-wid { display: flex; align-items: center; gap: 10px; } .cr-wid > span { display: grid; flex: 1; min-width: 0; }
+.cr-wid em { font: 800 8.5px 'JetBrains Mono', monospace; letter-spacing: .14em; font-style: normal; color: #9d8fbf; } .cr-wid b { font-size: 15px; color: #fff; }
+.cr-wdot { width: 9px; height: 9px; border-radius: 50%; background: #6b5f86; } .cr-wdot.is-on { background: #45e486; box-shadow: 0 0 10px #45e486; animation: crNode 1.8s ease-in-out infinite; }
+.m-btn.cr-copy { min-height: 34px; } .m-btn.cr-copy.is-ok { border-color: #45e486; color: #45e486; }
+.cr-strip.is-vitals { grid-template-columns: repeat(3, minmax(0, 1fr)); } .cr-strip .is-up b { color: #45e486; } .cr-strip .is-dn b { color: #ff8fa3; }
+body.fx-lite .cr-wdot.is-on { animation: none; } @media (prefers-reduced-motion: reduce) { .cr-wdot.is-on { animation: none; } }
+body.theme-day .cr-wallet { background: #f6f0ff; border-color: rgba(106, 61, 240, .25); } body.theme-day .cr-wid b { color: #1c1230; }

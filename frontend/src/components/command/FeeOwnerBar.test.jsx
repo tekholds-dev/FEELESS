@@ -15,7 +15,8 @@ test('👑 the creator bar: hidden from users, 🎨 STYLE FEE dresses her (one s
   await act(async () => { root.render(<FeeOwnerBar cat={cat} />); });
   expect(el.querySelector('[data-testid="fee-owner-bar"]')).toBeNull();                        // a user never sees it
   const posted = [];
-  global.fetch = jest.fn((u, o) => { posted.push([u, JSON.parse(o.body)]); return Promise.resolve({ ok: true, json: () => Promise.resolve({ cat: { ...cat, look: JSON.parse(o.body).look } }) }); });
+  global.fetch = jest.fn((u, o) => { if (!o?.body) return Promise.resolve({ ok: true, json: () => Promise.resolve({ amount: 1.25, decimals: 9 }) });   // the wallet card's live SOL balance
+    posted.push([u, JSON.parse(o.body)]); return Promise.resolve({ ok: true, json: () => Promise.resolve({ cat: { ...cat, look: JSON.parse(o.body).look } }) }); });
   await act(async () => { root.render(<FeeOwnerBar cat={cat} devOwner devAddress="OWNERW" />); });
   expect(el.querySelector('[data-testid="fob-wallet"]').textContent).toContain('PAPER · go real');
   await act(async () => { el.querySelector('[data-testid="fob-style"]').click(); });
@@ -29,5 +30,8 @@ test('👑 the creator bar: hidden from users, 🎨 STYLE FEE dresses her (one s
   await act(async () => { document.querySelector('.fob-x').click(); });
   await act(async () => { el.querySelector('[data-testid="fob-wallet"]').click(); });
   expect(document.querySelector('[data-testid="fob-pop-wallet"] [data-testid="cat-real"]')).not.toBeNull();
+  await act(async () => { await new Promise(r => setTimeout(r, 0)); });
+  const wc = document.querySelector('[data-testid="fob-pop-wallet"] [data-testid="cr-wallet"]');   // 👛 her wallet: address + copy + live balance + vitals
+  expect(wc).not.toBeNull(); expect(wc.textContent).toContain('1.2500 SOL'); expect(wc.querySelector('[data-testid="cr-copy"]')).not.toBeNull();
   act(() => root.unmount()); document.body.innerHTML = ''; delete global.fetch;
 });

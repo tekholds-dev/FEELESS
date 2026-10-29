@@ -87,3 +87,16 @@ body.theme-day .cct-name { color: #24163f; } body.theme-day .cct-meters b { colo
 .paper-modal-backdrop:has(.cct-body) { z-index: 3500; }
 .cct-stage .feeless-cat-art, .cct-stage .feeless-cat-art svg { width: 118px !important; height: 128px !important; }
 .cct-confirm-head .feeless-cat-art, .cct-confirm-head .feeless-cat-art svg { width: 56px !important; height: 60px !important; }
+/* 💵 the funding receipt at the end of Create a cat (FeeCatsPlatform.FundReceipt): budget picker → live fee → what your wallet should hold */
+.cct-fund { display: grid; gap: 8px; margin: 10px 0; padding: 12px; border-radius: 14px; border: 1px solid rgba(180, 140, 255, .3); background: linear-gradient(135deg, rgba(156, 107, 255, .1), rgba(10, 6, 20, .55)); animation: cctFundIn .25s ease-out both; }
+.cct-fund .m-seg { flex-wrap: wrap; }
+.cct-fund-rows { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
+.cct-fund-rows > span { display: grid; gap: 1px; padding: 7px 9px; border-radius: 10px; background: rgba(0, 0, 0, .3); border: 1px solid rgba(255, 255, 255, .06); }
+.cct-fund-rows small { font: 800 8px var(--f-mono, monospace); letter-spacing: .12em; color: #9d8fbf; } .cct-fund-rows b { font-size: 13.5px; color: #fff; }
+.cct-fund-rows .is-need { border-color: rgba(69, 228, 134, .45); } .cct-fund-rows .is-need b { color: #45e486; text-shadow: 0 0 10px rgba(69, 228, 134, .4); }
+.cct-fund-note { margin: 0; font-size: 12px; line-height: 1.45; color: #cbbfe6; }
+@keyframes cctFundIn { from { opacity: 0; transform: translateY(6px); } }
+body.fx-lite .cct-fund { animation: none; } @media (prefers-reduced-motion: reduce) { .cct-fund { animation: none; } }
+body.theme-day .cct-fund { background: #f6f0ff; } body.theme-day .cct-fund-rows > span { background: #fff; } body.theme-day .cct-fund-rows b { color: #1c1230; } body.theme-day .cct-fund-note { color: #4a3a6a; }
+@media (max-width: 640px) { .cct-fund-rows { grid-template-columns: 1fr; } }
+.paper-modal-backdrop.cfv { z-index: 5300; }   /* the Create a cat wizard opens above HQ (4000) when started from HQ › FeeCat */
