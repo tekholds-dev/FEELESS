@@ -283,23 +283,28 @@ test('💬 OSSY × G4 beside the chart: the Decision card\'s button swaps the ri
 });
 
 
-test('📱📱 HQ › Agents on a Duo keeps EVERY control: the money strip + nav on top, chart | docked desk below; a nav pick opens in the DESK tab', async () => {
+test('📱📱 HQ › Agents on a Duo = the Trenches floor shell, portaled to <body>: rail | chart | desk, EVERY control kept; a nav pick opens in DESK', async () => {
   sessionStorage.clear(); mockDuo = { on: true, wide: true };
   const call = jest.fn(async () => ({ ok: true }));
   const hub = { d: data, livePx: new Map(), sel: selectors(data), load: jest.fn() };
-  const { root, q } = mount();
+  const { root, q, el } = mount();
   await act(async () => { root.render(<AgentHubProvider value={hub}><AgentCockpit call={call} /></AgentHubProvider>); });
   await flush();
-  expect(q('agent-cockpit').className).toContain('ack-duo'); expect(q('ack-brain-open')).not.toBeNull();   // the money strip (and its nav) stays
+  const floor = q('agent-duo-floor');
+  expect(floor.parentElement).toBe(document.body); expect(el.contains(floor)).toBe(false);                 // never squeezed inside the HQ pop-out
+  expect(floor.className).toContain('dfl'); expect(floor.className).toContain('is-wide'); expect(floor.querySelector('.dfl-rail')).not.toBeNull();
+  expect(document.body.classList.contains('duo-floor-on')).toBe(true);
+  expect(q('agent-cockpit').className).toContain('ack-duo'); expect(q('ack-brain-open')).not.toBeNull(); expect(q('ack-money')).not.toBeNull();   // money strip + nav stay
   expect(q('ack-duo-pane-decision')).not.toBeNull(); expect(q('ack-panel')).not.toBeNull();
   await act(async () => { q('ack-deck-tape').click(); });
   expect(q('ack-duo-pane-desk')).not.toBeNull(); expect(q('ack-tapezone')).not.toBeNull();               // the nav's pane lands in DESK
   await act(async () => { q('ack-duo-tab-seats').click(); }); expect(q('ack-duo-pane-seats')).not.toBeNull();
-  await act(async () => { q('ack-duo-swap').click(); }); expect(q('agent-cockpit').className).toContain('is-swap');
-  act(() => root.unmount()); mockDuo = { on: false, wide: false }; sessionStorage.clear();
+  await act(async () => { q('ack-duo-swap').click(); }); expect(q('agent-duo-floor').className).toContain('is-swap');
+  act(() => root.unmount()); expect(document.body.classList.contains('duo-floor-on')).toBe(false);
+  mockDuo = { on: false, wide: false }; sessionStorage.clear();
 });
 
-test('Duo fits Safari viewport changes, preserves orientation state, and restores HQ on exit', async () => {
+test('the Agents floor follows Safari\'s visible viewport, keeps its tab across a turn, steps aside for HQ and comes back', async () => {
   mockDuo = { on: true, wide: true };
   const originalViewport = window.visualViewport;
   const viewport = new EventTarget();
@@ -310,23 +315,22 @@ test('Duo fits Safari viewport changes, preserves orientation state, and restore
   const hub = { d: data, livePx: new Map(), sel: selectors(data), load: jest.fn() };
   const render = () => root.render(<AgentHubProvider value={hub}><AgentCockpit call={async () => ({ ok: true })} /></AgentHubProvider>);
   const frame = () => act(async () => { await new Promise(resolve => requestAnimationFrame(resolve)); });
+  const q = id => document.querySelector(`[data-testid="${id}"]`);
   try {
     await act(async () => render()); await frame();
-    expect(host.classList.contains('hqp-agents-focus')).toBe(true);
-    expect(host.style.getPropertyValue('--ack-viewport-height')).toBe('626px');
+    expect(q('agent-duo-floor').style.getPropertyValue('--adf-vh')).toBe('626px');
     viewport.height = 540; viewport.offsetTop = 12;
     await act(async () => viewport.dispatchEvent(new Event('resize'))); await frame();
-    expect(host.style.getPropertyValue('--ack-viewport-height')).toBe('540px');
-    expect(host.style.getPropertyValue('--ack-viewport-top')).toBe('12px');
-    await act(async () => host.querySelector('[data-testid="ack-duo-tab-seats"]').click());
-    mockDuo = { on: true, wide: false }; await act(async () => render());
-    expect(host.querySelector('.ack-duo.is-up')).not.toBeNull();
-    expect(host.querySelector('[data-testid="ack-duo-pane-seats"]')).not.toBeNull();
-    await act(async () => host.querySelector('[data-testid="ack-duo-hq"]').click());
-    expect(host.classList.contains('hqp-agents-focus')).toBe(false);
+    expect(q('agent-duo-floor').style.getPropertyValue('--adf-vh')).toBe('540px'); expect(q('agent-duo-floor').style.getPropertyValue('--adf-top')).toBe('12px');
+    expect(host.className).toBe('hqp');                                                                    // the HQ pop-out is never retouched
+    await act(async () => q('ack-duo-tab-seats').click());
+    mockDuo = { on: true, wide: false }; await act(async () => render());                                  // turned upright
+    expect(q('agent-duo-floor').className).toContain('is-up'); expect(q('ack-duo-pane-seats')).not.toBeNull();
+    await act(async () => q('ack-duo-hq').click());                                                       // ☰ HQ: the floor steps aside
+    expect(q('agent-duo-floor')).toBeNull(); expect(q('ack-duo-open')).not.toBeNull(); expect(document.body.classList.contains('duo-floor-on')).toBe(false);
+    await act(async () => q('ack-duo-open').click()); expect(q('agent-duo-floor')).not.toBeNull();       // ⤢ back
     mockDuo = { on: false, wide: false }; await act(async () => render());
-    expect(host.classList.contains('hqp-agents-duo')).toBe(false);
-    expect(host.style.getPropertyValue('--ack-viewport-height')).toBe('');
+    expect(q('agent-duo-floor')).toBeNull(); expect(document.body.classList.contains('duo-floor-on')).toBe(false);
   } finally {
     act(() => root.unmount()); mockDuo = { on: false, wide: false };
     Object.defineProperty(window, 'visualViewport', { configurable: true, value: originalViewport });

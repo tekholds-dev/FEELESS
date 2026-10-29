@@ -81,3 +81,12 @@ export function useDuoFloor() {
   useEffect(() => { const f = () => setSt(read()); window.addEventListener('feeless:duo', f); window.addEventListener('resize', f); return () => { window.removeEventListener('feeless:duo', f); window.removeEventListener('resize', f); }; }, []);
   return st;
 }
+
+// 📱 a touch phone held upright (< 600 px wide — the folded Duo at 466 × 678 is one): apps that run as a floor on the Duo (HQ › Agents) run as the
+// UPRIGHT floor here too — chart first, desk under it, one screen — instead of a 3-screen scroll of the desktop layout.
+export const phoneUp = (w = typeof window !== 'undefined' ? window : null) => { if (!w) return false; try { return !!w.matchMedia?.('(pointer: coarse)').matches && (w.innerWidth || 0) < 600; } catch { return false; } };
+export function usePhoneUp() {
+  const [on, setOn] = useState(() => phoneUp());
+  useEffect(() => { const f = () => setOn(phoneUp()); window.addEventListener('resize', f); window.addEventListener('orientationchange', f); return () => { window.removeEventListener('resize', f); window.removeEventListener('orientationchange', f); }; }, []);
+  return on;
+}
