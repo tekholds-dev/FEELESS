@@ -3,7 +3,7 @@ import React, { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Link, NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { loadFamilia } from '../../lib/familiaLoad';   // 🌹 warm the Familia chunk on hover
-import { Atom, Home, CandlestickChart, Rocket, Star, MessageCircle, Trophy, Bell, FileText, Settings, Menu, Wallet, Globe2, ArrowUpRight, X, Cat, Activity, Sun, Moon, UserRound, ShieldCheck, Flame, Crown } from 'lucide-react';
+import { Atom, Home, CandlestickChart, Rocket, Star, MessageCircle, Trophy, Bell, FileText, Settings, Menu, Wallet, Globe2, ArrowUpRight, X, Cat, Activity, Sun, Moon, UserRound, ShieldCheck, Flame, Crown, Rss } from 'lucide-react';
 import { useWorkspace } from '../../hooks/useWorkspace';
 import { apiUrl } from '../../lib/api';
 import { FeelessMark, FeelessWordmark } from '../FeelessLogo';
@@ -20,7 +20,7 @@ import { FlashValue } from './FlashValue';
 
 const ITEMS = [
   ['', 'Home', Home], ['reputation', 'Reputation', ShieldCheck], ['trade', 'Trade', CandlestickChart], ['fuse', 'Fuse 🧬', Atom], ['pump', 'Pump radar', Flame], ['launch', 'Launch 🚀', Rocket],
-  ['watchlist', 'Radar', Star], ['chat', 'The Trenches', MessageCircle],
+  ['watchlist', 'Radar', Star], ['chat', 'The Trenches', MessageCircle], ['feed', 'FEEd', Rss],
   ['fee', '$FEE & Fee-Back', Activity], ['feecat', 'FeeCat', Cat], ['leaderboard', 'MOB & Rewards', Trophy], ['familia', 'La Familia 🌹', Crown],
   ['whitepaper', 'Docs & roadmap', FileText], ['settings', 'Settings', Settings],
 ];

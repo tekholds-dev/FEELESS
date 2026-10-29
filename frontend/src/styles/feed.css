@@ -311,3 +311,7 @@ body.theme-day .fd-compose textarea::placeholder { color: #8a9a91; } body.theme-
   .fd-compose-foot { flex-wrap: wrap; } .fd-hash { display: none; }
   .fd-rcpt { grid-template-columns: minmax(0, 1fr) auto auto; } .fd-rcpt-sym { grid-column: 1 / -1; } .fd-newpill { top: 64px; }
 }
+/* 📰 /terminal/feed — FEEd as its own page (the profile FEEd bar and the sidebar open it) */
+.fd-page { width: 100%; padding: 14px 0 32px; display: grid; }
+.fd-page-wait { padding: 60px 0; text-align: center; color: #84988e; font: 700 11px var(--f-mono, monospace); letter-spacing: .1em; }
+@media (max-width: 640px) { .fd-page { padding: 0 0 90px; } }

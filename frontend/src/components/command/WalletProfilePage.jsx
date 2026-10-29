@@ -207,7 +207,7 @@ export function WalletProfilePage({ address }) {
       {fuseOpen && <FusePopup onClose={() => setFuseOpen(false)} />}
       <CrewChip address={address} /><TraderCard address={address} /><TrackRecord address={address} /><MyBattles address={address} /><div className="xp-badges"><BadgeArtifacts address={address} featured={p.featuredBadges} /></div><MintedTimeline address={address} /><FuseScore address={address} /><FuseHeldCards address={address} /><PrimeShowcase /><FuseReceipts address={address} />
     </header>
-    <div className="wp-quickrow">{mine && <AlphaRoomsCard />}<FeedBar onOpen={() => { setFlipped(true); setActTab('feed'); }} /></div>
+    <div className="wp-quickrow">{mine && <AlphaRoomsCard />}<FeedBar onOpen={() => navigate('/terminal/feed')} /></div>
     <ProfileMusic songs={p.songs || []} edit={edit} onChange={v => set('songs', v)} />
     {!flipped && <PortfolioCard address={address} />}
     {!flipped && <TradeCards address={address} />}
