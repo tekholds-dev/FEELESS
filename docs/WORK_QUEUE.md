@@ -34,7 +34,7 @@ Each loop iteration: ① cash check (card books vs wallet, halt, pending) → �
 | E05 | VERIFY | (sweep 2026-10-29: no page side-scroll at 360 / 890 — clipped-control review still to do) |
 | E06 | VERIFY | (sweep 2026-10-29: no page side-scroll at 360 / 890 — clipped-control review still to do) |
 | E07 | VERIFY | (sweep 2026-10-29: no page side-scroll at 360 / 890 — clipped-control review still to do) |
-| E08 | OPEN | Agents floor rail: seat buttons show the coin's image (fall back to its letters). |
+| E08 | DONE | Agents floor rail seats show each coin's image (useLiveTokenMarkets, one batched read, only while the floor is open; letters as fallback). Tests ✓. |
 | E09 | OPEN | Trade tape on the Trenches floor gets the per-trade stream (a new fill appears without waiting for the 15 s tape read). |
 | E10 | OPEN | Settings › Look: an "ECO ON · this phone stays cool" chip with what eco changes. |
 | E11 | OPEN | HQ Numbers / Traffic: hide '—' rows when every value is missing (one "no data yet" line instead). |

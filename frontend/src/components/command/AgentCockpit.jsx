@@ -26,6 +26,7 @@ import { AiPane, AiIntel, AiCell } from './AiDecisions';
 import { CockpitControls } from './CockpitControls';
 import { IntakeBand } from './IntakeBand';
 import { FeeCatDesk } from './FeeCatDesk';
+import { useLiveTokenMarkets } from '../../lib/liveTokens';
 import { TeachBox } from './TeachBox';
 import { VitalBoard } from './VitalBoard';
 import { TradeTape, CoachBox } from './CoachTape';
@@ -757,6 +758,9 @@ export function AgentCockpit({ call, isOwner = true, head = null, extra = [], li
     ['learned', '🎓 Learned', <BrainLearned call={call} />]],
   // eslint-disable-next-line react-hooks/exhaustive-deps
   [o?.coach, o?.teach, o?.ai, o?.ownerStudy, o?.aiMemory, heldKey, d?.card?.tpl, mint, sym, call, isOwner]);
+  // 🖼 the floor rail's seat buttons wear each coin's own image (one batched, shared read — only while the floor is open)
+  const railMints = useMemo(() => (floorOn ? seats.filter(x => !x.open && x.mint).map(x => x.mint) : []), [floorOn, seats]);
+  const railLive = useLiveTokenMarkets('solana', railMints);
   if (!o || o.cold) return <section className="ack" data-testid="agent-cockpit">{head}<MissionRibbon tiles={missionTiles(d, [])} cold /><p className="ack-warm" data-testid="ack-warm"><i aria-hidden />warming up — the cockpit opens with the agents' first pass (≈ 1 min after a restart)</p></section>;   /* 🧹 no old desk while cold (owner, 2026-10-15: "not the current layout") */
   const held = seats.filter(s => !s.open).length;
   const navTabs = deckMeters(o, [
@@ -804,7 +808,7 @@ export function AgentCockpit({ call, isOwner = true, head = null, extra = [], li
       {duo.wide ? <nav className="dfl-rail" aria-label="Agents floor">
         {hqBtn}
         <span className="dfl-recent" aria-label="Seats">{held.slice(0, 5).map((x, i) => <button key={x.seat} type="button" style={{ '--i': i }} className={`dfl-rc ${x.mint === mint ? 'is-on' : ''}`} onClick={() => onPick(x.mint)}
-          aria-label={`Seat ${x.seat} $${x.symbol}`} data-tip={`Seat ${x.seat} · $${x.symbol} — put it on the chart`} data-testid={`adf-seat-${i}`}><b>{String(x.symbol || '?').slice(0, 3)}</b></button>)}</span>
+          aria-label={`Seat ${x.seat} $${x.symbol}`} data-tip={`Seat ${x.seat} · $${x.symbol} — put it on the chart`} data-testid={`adf-seat-${i}`}>{railLive.get(x.mint)?.info?.imageUrl ? <img src={railLive.get(x.mint).info.imageUrl} alt="" loading="lazy" /> : <b>{String(x.symbol || '?').slice(0, 3)}</b>}</button>)}</span>
         {swapBtn}{brainBtn}
       </nav> : null}
       <section className="dfl-chart ack ack-duo" data-testid="agent-cockpit" onClick={symClick} onMouseOver={symHover}>
