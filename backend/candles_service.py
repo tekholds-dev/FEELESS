@@ -997,13 +997,14 @@ def parse_rpc_swap(tx, base, price_usd, sol_usd, pool=None):
                 lamports = abs(post[k] - pre[k] + (meta.get('fee') or 0 if k == 0 else 0))
         wsol = abs(bal(post_t, WSOL, who) - bal(pre_t, WSOL, who))
         usd = ((lamports / 1e9 if lamports > 100_000 else 0) + wsol) * sol_usd  # < 0.0001 SOL = fees, not a leg
-    if not usd or (price_usd and not (0.5 < (usd / amt) / price_usd < 1.5)):
+    priced = bool(usd) and not (price_usd and not (0.5 < (usd / amt) / price_usd < 1.5))   # 🕯 the fill price is the swap's own (a chart tick may use it)
+    if not priced:
         usd = amt * price_usd  # routed through accounts we can't see: value it at the live price
     if usd < 0.01:
         return None  # dust transfer / bot spam, not a swap
     sig = ((tx.get('transaction') or {}).get('signatures') or [None])[0]
     return {'ts': time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime(tx.get('blockTime') or time.time())), 'kind': 'buy' if delta > 0 else 'sell',
-            'usd': round(usd, 2), 'price': usd / amt if amt else price_usd, 'wallet': who, 'tx': sig}
+            'usd': round(usd, 2), 'price': usd / amt if amt else price_usd, 'wallet': who, 'tx': sig, 'priced': priced, 'at': tx.get('blockTime')}
 
 
 _tape_rows: dict = {}   # signature -> parsed row (None = not a swap): a transaction is read ONCE, later refreshes fetch only new ones
@@ -1196,12 +1197,86 @@ async def _broadcast(key, msg):
         st['clients'].discard(ws)
 
 
+# 🕯 PER-TRADE TICKS (owner 2026-10-29: "not updating true realtime"): the log subscription only says THAT a swap landed — the chart then got
+# one Jupiter read (an aggregate, refreshed every few seconds). Now each swap's own transaction is read (getTransaction, `confirmed`, batched,
+# newest first, at most SWAP_TX_BATCH per SWAP_TX_GAP per pool) and its fill price (`parse_rpc_swap`, priced by its own SOL / USDC leg) is pushed.
+# ONE feed per candle: while swap prices flow, the Jupiter read stays quiet; it only speaks after SWAP_QUIET s without a priced swap.
+SWAP_TX_BATCH = 4
+SWAP_TX_GAP = 0.25
+SWAP_QUIET = 20.0
+SWAP_PENDING_MAX = 40
+
+
+def swap_sig(msg):
+    """A logsSubscribe notification → its transaction signature, or None (a failed tx, the subscription ack, anything else). Pure."""
+    try:
+        v = ((msg or {}).get('params') or {}).get('result', {}).get('value') or {}
+    except AttributeError:
+        return None
+    return v.get('signature') if v.get('signature') and not v.get('err') else None
+
+
+def swap_ticks(rows, last_px):
+    """Parsed swaps (oldest first) → the chart ticks they make: only prices from the swap's own leg, never a 20× jump from the last price. Pure."""
+    out, ref = [], last_px
+    for r in rows or []:
+        px = (r or {}).get('price')
+        if not r or not r.get('priced') or not px or px <= 0 or (ref and not (ref / 20 < px < ref * 20)):
+            continue
+        out.append({'p': px, 't': r.get('at') or time.time(), 'k': r.get('kind'), 'u': r.get('usd')}); ref = px
+    return out
+
+
+def _rpc_http(ws_url):
+    """The HTTP twin of the price-stream websocket (same provider, same key)."""
+    return ws_url.replace('wss://', 'https://', 1).replace('ws://', 'http://', 1) if ws_url else ''
+
+
+async def _swap_worker(key, chain, pair, mint, http_url):
+    """Drains the pool's pending swap signatures: newest first, a few per tick, each read once; pushes their fill prices in time order."""
+    st = _streams.get(key)
+    if not st or not http_url:
+        return
+    async with httpx.AsyncClient(timeout=6) as http:
+        while key in _streams:
+            await asyncio.sleep(SWAP_TX_GAP)
+            st = _streams.get(key)
+            if not st or not st['sigs']:
+                continue
+            take = st['sigs'][-SWAP_TX_BATCH:]; st['sigs'] = []   # newest swaps; older ones a busy coin outran are skipped (the chart wants the latest)
+            try:
+                batch = [{'jsonrpc': '2.0', 'id': i, 'method': 'getTransaction', 'params': [x, {'encoding': 'jsonParsed', 'maxSupportedTransactionVersion': 0, 'commitment': 'confirmed'}]}
+                         for i, x in enumerate(take)]
+                r = await http.post(http_url, json=batch)
+                res = r.json() if r.status_code == 200 else []
+                got = {take[t['id']]: t.get('result') for t in res if isinstance(t, dict) and isinstance(t.get('id'), int) and t['id'] < len(take)}
+            except Exception:
+                continue
+            late = [x for x in take if not got.get(x) and x not in st['retry']]   # `processed` logs reach us before `confirmed` — one retry
+            st['retry'] = set(late); st['sigs'] = late + st['sigs']
+            sol = await _stream_price(WSOL) or 0
+            rows = sorted((parse_rpc_swap(tx, mint, st.get('jup') or st['price'] or 0, sol, pair) for tx in got.values() if tx), key=lambda x: (x or {}).get('at') or 0)
+            for tk in swap_ticks(rows, st['price']):
+                st['price'] = tk['p']; st['swapAt'] = time.time()
+                await _broadcast(key, _json.dumps(tk))
+                if time.time() - st.get('saved', 0) > 15:
+                    st['saved'] = time.time()
+                    try:
+                        store = _load(); _record_tick(store, chain, pair, tk['p'], None); _save(store)
+                    except Exception:
+                        pass
+
+
 async def _push_price(key, chain, pair, mint, fresh=False):
     st = _streams.get(key)
     if not st or time.time() - st['last'] < STREAM_MIN_GAP:
         return
+    if time.time() - st.get('swapAt', 0) < SWAP_QUIET:   # swap fills are flowing: one feed per candle — the aggregate stays quiet
+        return
     st['last'] = time.time()
     px = await _stream_price(mint, SWAP_PRICE_AGE if fresh else 5.0)   # ⚡ a real swap just landed: re-read the price (≤ 1s old), not the 5s cache
+    if px:
+        st['jup'] = px   # the aggregate, kept as the parser's sanity reference even while swap fills drive the chart
     # Sanity gate: a tick 20x away from the last accepted price is a bad read (wrong token, quote-side
     # price), never a real move inside one second. Dropping it keeps charts and stored bars clean.
     prev = st['price']
@@ -1226,6 +1301,7 @@ async def _upstream(key, chain, pair):
         return  # unknown base token: clients keep their polling path rather than risk a wrong price
     url = os.environ.get('PRICE_STREAM_WS_URL', '').strip()
     await _push_price(key, chain, pair, mint)
+    worker = asyncio.create_task(_swap_worker(key, chain, pair, mint, _rpc_http(url))) if url else None
     backoff = 1
     while key in _streams:
         try:
@@ -1237,8 +1313,12 @@ async def _upstream(key, chain, pair):
                 while key in _streams:
                     swap_ = False
                     try:
-                        await asyncio.wait_for(ws.recv(), timeout=1)
+                        raw_ = await asyncio.wait_for(ws.recv(), timeout=1)
                         swap_ = True   # an on-chain log for this coin = a trade landed
+                        sig_ = swap_sig(_json.loads(raw_)) if isinstance(raw_, (str, bytes)) else None
+                        st_ = _streams.get(key)
+                        if sig_ and st_ is not None:
+                            st_['sigs'] = (st_['sigs'] + [sig_])[-SWAP_PENDING_MAX:]
                     except asyncio.TimeoutError:
                         pass   # no swap event this second: refresh anyway (≤1s freshness guaranteed)
                     await _push_price(key, chain, pair, mint, fresh=swap_)
@@ -1247,6 +1327,8 @@ async def _upstream(key, chain, pair):
             until = time.time() + min(30, backoff); backoff *= 2
             while key in _streams and time.time() < until:
                 await _push_price(key, chain, pair, mint); await asyncio.sleep(1)
+    if worker:
+        worker.cancel()
 
 
 @app.get('/api/candles/price/{chain}/{pair}')
@@ -1282,7 +1364,7 @@ async def price_stream(ws: WebSocket, chain: str, pair: str):
     key = f'{chain}:{pair}'
     st = _streams.get(key)
     if not st:
-        st = _streams[key] = {'clients': set(), 'task': None, 'last': 0.0, 'price': None}
+        st = _streams[key] = {'clients': set(), 'task': None, 'last': 0.0, 'price': None, 'sigs': [], 'retry': set(), 'swapAt': 0.0, 'jup': None}
         st['task'] = asyncio.create_task(_upstream(key, chain, pair))
     st['clients'].add(ws)
     if st['price']:
