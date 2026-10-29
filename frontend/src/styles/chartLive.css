@@ -31,3 +31,6 @@ body.theme-day .clv2-tag span { color: #47524d; } body.theme-day .clv2-buy { bac
 /* 📍 leader from the forming candle to the P&L tag (the tag sits GAP px off the candle) */
 .clv2-lead { position: absolute; left: 0; top: 0; width: 1px; height: 0; border-top: 1px dotted rgba(69, 228, 134, .55); transform-origin: left; pointer-events: none; z-index: 3; }
 body.theme-day .clv2-lead { border-top-color: rgba(12, 138, 69, .6); }
+/* 📱 phones · folds · Duo: the seat tag a size down — the price, not a pill, owns the chart */
+@media (max-width: 900px) and (pointer: coarse) { .clv2-tag { margin-top: -7px; padding: 0 4px; gap: 3px; } .clv2-tag b { font-size: 8.5px; } .clv2-tag span { font-size: 7.5px; } .clv2-tag small { font-size: 6px; }
+  .clv2-buy { margin-top: -6px; margin-left: -6px; font-size: 8px; } }

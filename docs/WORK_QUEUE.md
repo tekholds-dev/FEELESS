@@ -82,7 +82,10 @@ Each loop iteration: ① cash check (card books vs wallet, halt, pending) → �
 ## 🔥 OWNER PRIORITY 2026-10-29 (night) — this order, then back to the MD list
 1. **P1 Mobile / Duo / fold pass** (pause the MD list for it): every page sized + working on phone / Duo / fold; the SIDE MENU in portrait is bugged; easy to see —
    chart markers SMALLER so nobody strains, still the Trench Trade look. ✅ part: HQ › Agents Duo floor top right (money strip wraps, six tabs fit, fold: no chart
-   overlap, the tab row never scrolled away) 2026-10-29.
+   overlap, the tab row never scrolled away) 2026-10-29. ✅ the SIDE MENU on phones: it opened UNDER its own shade (a desktop `z-index:3` rule applied at every
+   width beat the drawer's 80 vs the shade's 70) — invisible and every tap closed it; now desktop-only (terminal.css). ✅ chart markers a size down on touch
+   screens ≤ 900px: pins 22 → 16 (agent / talk 13), the SEAT tag + level tags (stop / take / germ) smaller (chartCallPins / chartLive / chartLevels.css).
+   NEXT in P1: the phone Agents floor's chart is ~120px tall (the Live P&L block + ride rows take its half); then a page-by-page sweep on phone / Duo / fold.
 2. **P2 General cat = a beast** (owner: "before I get a general AI"): TWO browser windows (one per model) the user watches; Enter in chat → a fast answer from memory or the
    models work in their browsers; a small bubble top-right of each window with the current action / thought; a centred "human needed" request over the window
    (sign-ups etc.) that pauses them; one chat under the two windows; usage / $-till-top-up bars (chat usage separate from the general prompt's); generative prompt

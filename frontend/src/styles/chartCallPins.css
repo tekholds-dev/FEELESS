@@ -110,3 +110,9 @@ body.theme-day .ccp-tl { opacity: .7; }
 .ccp-trail.t-fee .ccp-tl, .ccp-trail.t-fee .ccp-td, .ccp-trail.t-fee .ccp-beat { stroke: #ffd36b; }
 .ccp-pin.is-hot.is-feecat::before { border-color: #ffd36b; }
 body.theme-day .ccp-pin.is-feecat { border-color: #a07500; background: #fff6dc; }
+/* 📱 phones · folds · Duo (owner 2026-10-29: "on chart markers smaller so users don't strain their eyes and still get the beautiful view"): every pin a size down */
+@media (max-width: 900px) and (pointer: coarse) {
+  .ccp-pin { width: 16px; height: 16px; margin: -8px 0 0 -8px; border-width: 1.5px; }
+  .ccp-pin:is(.is-agent, .is-talk) { width: 13px; height: 13px; margin: -6.5px 0 0 -6.5px; } .ccp-pin.is-wallet { width: 14px; height: 14px; margin: -7px 0 0 -7px; }
+  .ccp-pin .ccp-ico, .ccp-pin.is-wallet .ccp-ico { font-size: 8px; } .ccp-pin:hover, .ccp-pin.is-open { box-shadow: 0 0 0 2px rgba(69, 228, 134, .35); }
+}

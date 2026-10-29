@@ -55,3 +55,5 @@ body.fx-lite .clx-row.is-germ .clx-tag::before, body.fx-lite .clx-row.is-germ .c
 @keyframes clxGerm { 0%, 100% { opacity: .25; transform: scaleY(.6); } 50% { opacity: .9; transform: scaleY(1.2); } }
 body.fx-lite .clx-row.is-germ::before { animation: none; }
 @media (prefers-reduced-motion: reduce) { .clx-row.is-germ::before { animation: none; } .clx-row.has-tip .clx-tag { transition: none; } }
+/* 📱 phones · folds · Duo: level tags a size down (stop / take / germ) */
+@media (max-width: 900px) and (pointer: coarse) { .clx-tag { height: 12px; top: -6px; padding: 0 4px; gap: 3px; } .clx-tag b, .clx-tag em { font-size: 7.5px; } .clx-tag small { font-size: 7px; } }
