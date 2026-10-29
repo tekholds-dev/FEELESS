@@ -15,6 +15,7 @@ Read this (2 min) → `CLAUDE.md` (lean rules + 🎨 MANDATORY STYLING + 📋 CU
 >    LIVE visual (meters, bars, animation on real numbers), never bare text. `styles/cssCoverage.test.js` fails on an unstyled class.
 
 ## 🔁 NOW (rewrite this section in place every session)
+> ✅ 2026-10-29 late: Astra's FeeCat guards shipped (`cat_policy.py`: no cat spawns cats / signs in to FEELESS, scam jobs refused, private nets blocked; per-job tools; HQ catMaxModels; budget lock). NO payment sender exists yet. FIRST: check the last push went green (`git status` = up to date), restart services, then build a cat end-to-end in the browser.
 > 🔥 **NEXT SESSION — FEECAT PRIORITY, in this order (owner 2026-10-29, all else waits):**
 > 1. **Cat spends on its own** (general cat signs up / pays with crypto from ITS wallet): daily $ limit, site allowlist, a log of every payment,
 >    owner OK on the first pay to a new site, never a card / password. Guards first (memory: new buy doors need guards).
