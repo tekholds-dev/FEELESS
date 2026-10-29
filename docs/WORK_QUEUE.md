@@ -79,6 +79,25 @@ Each loop iteration: ① cash check (card books vs wallet, halt, pending) → �
 4. **M02 Every page fits every device** (mobile / fold / desktop) against `MOBILE_LAYOUT.md › Duo floors`; no dead styles, no bulky one-off CSS.
 ⚠ OWNER: HQ › Fees shows the swap fee at **1500 bps (15 %)** — confirm intended (the cat funding receipt reads it live).
 
+## 🔥 OWNER PRIORITY 2026-10-29 (night) — this order, then back to the MD list
+1. **P1 Mobile / Duo / fold pass** (pause the MD list for it): every page sized + working on phone / Duo / fold; the SIDE MENU in portrait is bugged; easy to see —
+   chart markers SMALLER so nobody strains, still the Trench Trade look. ✅ part: HQ › Agents Duo floor top right (money strip wraps, six tabs fit, fold: no chart
+   overlap, the tab row never scrolled away) 2026-10-29.
+2. **P2 General cat = a beast** (owner: "before I get a general AI"): TWO browser windows (one per model) the user watches; Enter in chat → a fast answer from memory or the
+   models work in their browsers; a small bubble top-right of each window with the current action / thought; a centred "human needed" request over the window
+   (sign-ups etc.) that pauses them; one chat under the two windows; usage / $-till-top-up bars (chat usage separate from the general prompt's); generative prompt
+   picks when building the cat / choosing models; set max tokens / $ per task anytime, cost shown before + during work (Opus medium / max if possible); a small
+   free private database outside FEELESS the cat can CRUD; a strong fallback window; different chat colours per user; an action / activity effect that never
+   overflows; the log (folder-style dropdowns). Real-money actions wait for the user's signal unless their general settings auto-sign (like Claude's auto-allow):
+   trading = sign once; general = settings. Agents may open accounts (Gmail / GitHub) for their own projects — human-needed steps stop for the user.
+3. **P3 FeeCat pages clean for everyone** (users + visitors): charts FIRST, the models (as consciences) under them, a tighter elite layout (no wide windows wasting
+   space — sitewide on desktop), Fee's wall smaller + styled better (users only can reply), the other tabs given vitals; Fee's calls design → the wall's spot on
+   the right, remove her calls on the left; FeeCat on the profile = a POP-OUT.
+4. **P4 Pools one-stop**: AutoRange + price gapping = one stop for all pools; the Night Vault moves into the Pools tab for Family AND Launch (price gaps must be
+   visible in Launch › Pools); a robust, profitable engine everyone gets when buying pools or gapping.
+5. **P5 Up to par sitewide**: Lag catcher list cleared; day theme fixes sitewide; reusable LIT css presets / templates; a cooler font list (~10 total); no dead code.
+   Everything finished = pushed to main (owner's localhost 51367 runs main via auto-pull).
+
 ## 🆕 OWNER LIST 2026-10-29 (late) — exact asks, not started unless marked
 - **N01 Intake rows on mobile**: ▲ / ▼ buttons to step through the intake's rows + swipe to move down a row (Trench Trade). (owner: "getting bangers with new intake")
 - **N02 Recovery key for a cat made before paying**: when done, give a one-time recovery key; entering it after a new sign-in loads the cat into the wallet profile.

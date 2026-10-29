@@ -696,9 +696,13 @@ export function AgentCockpit({ call, isOwner = true, head = null, extra = [], li
   }, [floorOn]);
   // the chart takes exactly the height its half has left (its head + tools measured, never a guess) — re-measured on fold / turn / resize, like the Trenches floor
   useEffect(() => { const el = duoPlot.current; if (!floorOn || !el || typeof ResizeObserver === 'undefined') return undefined;
-    const fit = () => { const used = [...el.querySelectorAll('.ack-chead, .ack-trade, .ack-ride, .ack-mrail')].reduce((a, x) => a + (x.offsetHeight || 0), 0);
-      el.style.setProperty('--dfl-h', `${Math.max(150, el.clientHeight - used - 16)}px`); };
-    const ro = new ResizeObserver(fit); ro.observe(el); fit(); const t = setTimeout(fit, 600); return () => { ro.disconnect(); clearTimeout(t); }; }, [floorOn, duo.wide]);
+    const parts = () => [...el.querySelectorAll('.ack-chead, .ack-trade, .ack-ride, .ack-mrail')];
+    const fit = () => { const ps = parts().filter(x => x.offsetHeight); const used = ps.reduce((a, x) => a + x.offsetHeight, 0);
+      el.style.setProperty('--dfl-h', `${Math.max(120, el.clientHeight - used - 8 * ps.length - 8)}px`); };   // + the 4px gaps on both sides of each part
+    const ro = new ResizeObserver(fit); ro.observe(el);
+    const watch = () => parts().forEach(x => ro.observe(x));   // 🧰 the trade strip / rail mount AFTER the first measure (it read 183px while 239 were drawn): watch them too
+    const mo = typeof MutationObserver !== 'undefined' ? new MutationObserver(() => { watch(); fit(); }) : null; mo?.observe(el, { childList: true, subtree: true });
+    watch(); fit(); const t = setTimeout(fit, 600); return () => { ro.disconnect(); mo?.disconnect(); clearTimeout(t); }; }, [floorOn, duo.wide]);
   const [tab, setTab] = useRemembered('feeless.ack.tab', 'live'); const [aiOpen, setAiOpen] = useState(false); const [brainOpen, setBrainOpen] = useRemembered('feeless.ack.brain', false);   // 🔁 a refresh comes back to the same coin, timeframe and panel tab
   // 🧭 the nav: 📈 chart = the top of the page; any other tab opens its pane under the chart and brings it into view (no hunting)
   const [nav, setNav] = useState(() => { try { return localStorage.getItem(NAV_KEY) || 'chart'; } catch { return 'chart'; } });

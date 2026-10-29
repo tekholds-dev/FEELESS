@@ -81,9 +81,9 @@ export function FeeOwnerBar({ cat: cat0, devOwner = false, devAddress = '' }) {
     <span className="fob-crown" aria-hidden="true">👑</span><small className="fob-h">CREATOR</small>
     <button type="button" className="fob-pill is-style" onClick={() => setOpen('style')} data-testid="fob-style" data-tip="Dress Fee — coat, pattern, gear, eyes, aura, her name. Every viewer sees it">🎨 STYLE FEE</button>
     <button type="button" className={`fob-pill is-wallet ${v.real ? 'is-real' : ''}`} onClick={() => setOpen('wallet')} data-testid="fob-wallet"
-      data-tip="Fee's REAL switch: link your wallet, set the most a buy may be, go real — she proposes FeeCat AI's calls, your wallet signs each">
+      data-tip="Fee's wallet: assign one you already have or give her a fresh one, fund it once — she trades from it on her own (you never sign each trade)">
       <i className="fob-dot" aria-hidden="true" />👛 FEE'S WALLET <b>{walletWord(cat)}</b>{v.pending ? <u className="fob-ping" aria-hidden="true" /> : null}</button>
     {open === 'style' ? <Pop k="style" title="🎨 STYLE FEE — every viewer sees her" onClose={() => setOpen(null)}><Studio cat={cat} onSaved={setCat} devAddress={devAddress} /></Pop> : null}
-    {open === 'wallet' ? <Pop k="wallet" title="👛 FEE'S WALLET — she proposes, your wallet signs" onClose={() => setOpen(null)}><CatReal cat={cat} onAct={act} devAddress={devAddress} /></Pop> : null}
+    {open === 'wallet' ? <Pop k="wallet" title="👛 FEE'S WALLET — fund it once, she trades from it" onClose={() => setOpen(null)}><CatReal cat={cat} onAct={act} devAddress={devAddress} /></Pop> : null}
   </div>;
 }

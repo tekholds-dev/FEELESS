@@ -201,7 +201,7 @@ export function CatReal({ cat, busy = false, onAct, devAddress = '' }) {
   const wrong = v.real && addr && v.wallet !== addr;
   return <section className={`kd-card cr ${v.real ? 'is-real' : ''}`} data-testid="cat-real">
     <header><b>💵 REAL MODE</b><small>{cat.agentWallet ? (cat.agentWallet.mode === 'auto' ? 'it trades from its own wallet — no signing per trade' : 'it asks you · its own wallet sends what you approve')
-      : v.real ? `${short(v.wallet)} signs every trade` : 'it proposes · your wallet signs · FEELESS never holds your SOL'}</small></header>
+      : 'give it its own wallet below — you sign once to fund it, then it trades on its own'}</small></header>
     <AgentWalletCard cat={cat} busy={busy} addr={addr} send={(a, x) => send.current(a, x)}
       session={() => (devAddress ? Promise.resolve('dev') : getChatSession(addr, signMessage, { own: true }))} sign={signTx} />
     <WalletCard cat={cat} addr={addr} v={v} />

@@ -86,10 +86,17 @@ body.theme-day .ack-talk { background: linear-gradient(180deg, #f6f0ff, #fff); }
 .dfl-agents .ack-ride { flex: none; display: flex; flex-wrap: nowrap; overflow-x: auto; padding: 3px 6px; } .dfl-agents .ack-ride > * { flex: none; white-space: nowrap; }
 .dfl-agents .ack-mrail { flex: none; min-height: 28px; overflow-x: auto; }
 /* the desk half: money strip (one swipe row) → locked tabs → its own scroll */
-.dfl-agents .dfl-side > .ack-money { flex: none; display: grid; gap: 4px; margin: 8px 8px 0; padding: 4px 6px; max-height: 38%; overflow-y: auto; overscroll-behavior: contain; }
-.dfl-agents .ack-mrow { display: flex; flex-wrap: nowrap; overflow-x: auto; gap: 12px; scrollbar-width: thin; scroll-snap-type: x proximity; }
-.dfl-agents .ack-mrow > * { flex: none; scroll-snap-align: start; }
-.dfl-agents .ack-money :is(.ack-mrow, .ack-nav) { -webkit-mask-image: linear-gradient(90deg, #000 86%, transparent); mask-image: linear-gradient(90deg, #000 86%, transparent); padding-right: 18px; }   /* a swipe row reads as one, never as cut */
+.dfl-agents .dfl-side > .ack-money { flex: none; display: grid; gap: 4px; margin: 8px 8px 0; padding: 4px 6px; max-height: 60%; overflow-y: auto; overscroll-behavior: contain; }   /* the strip wraps now: room for it AND its tab row, never the tabs scrolled out of sight
+/* owner 2026-10-29 ("agt cmd ctr on Duo — top right not done"): the money strip and the tabs used to be swipe rows faded at the edge — the AI chip, QUEUE and
+   ⋯ MORE sat off-screen. Now EVERYTHING fits the half: the strip wraps (a second line beats a hidden chip), the six tabs share the row (icon over word) */
+.dfl-agents .ack-mrow { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; overflow: visible; }
+.dfl-agents .ack-mrow > * { flex: none; min-width: 0; } .dfl-agents .ack-mrow .ack-aichip { margin-left: auto; }
+.dfl-agents .ack-money .ack-nav { display: flex; flex-wrap: nowrap; gap: 2px; overflow: visible; padding-right: 0; -webkit-mask-image: none; mask-image: none; }
+.dfl-agents .ack-money .ack-nav > :is(button, .ack-more) { flex: 1 1 0; min-width: 0; padding-left: 2px; padding-right: 2px; }
+.dfl-agents .ack-money .ack-nav .ack-morebtn { width: 100%; justify-content: center; }
+.dfl-agents .ack-money .ack-nav .ack-tchip { flex-direction: column; justify-content: center; gap: 1px; width: 100%; padding-bottom: 2px; }
+.dfl-agents .ack-money .ack-nav .ack-tic { font-size: 15px; } .dfl-agents .ack-money .ack-nav .ack-tw { display: block; max-width: 100%; font-size: 8.5px; letter-spacing: .04em; }   /* the word stays under its icon: the narrow-screen rule hid every word but the active one
+.dfl-agents .ack-money .ack-nav .ack-tbadge { position: absolute; top: -2px; right: 2px; }
 .dfl-agents .ack-chead .ack-csym { display: none; }   /* the floor's bar already names the coin — one name, more room for the candles */
 .dfl-agents .ack-mcell > .ack-num, .dfl-agents .ack-mcell.is-card > .ack-num { font-size: 17px; }
 .dfl-agents :is(.ack-mseat, .ack-nav > button, .ack-morebtn) { min-height: 34px; }
@@ -103,4 +110,7 @@ body.theme-day .dfl.dfl-agents { background: #f4f8f6; } body.theme-day .ack-duo-
 @media (max-width: 640px) { .dfl-agents .dfl-tabs button { font-size: 8.5px; } .dfl-agents .ack-chead { gap: 3px 8px; } }
 /* short landscape (a phone / folded Duo on its side, ≤ 520 px tall): the candles get the height — the ride bar under the chart already carries the seat's
    live P&L, so the tall P&L block steps aside, and the money strip is one row */
-@media (max-height: 520px) { .dfl-agents .ack-plot > .ack-trade { display: none; } .dfl-agents .dfl-side > .ack-money { max-height: 30%; } .dfl-agents .dfl-bar { padding: 4px 8px; } }
+/* a SHORT portrait screen (the fold, 466 × 678: its chart half is ~390px): the chart head + candles + rail + ride fill it, so the quick-trade strip steps
+   aside as it already does under 520px tall — the seats / trades tabs on the desk half carry the same moves */
+@media (orientation: portrait) and (max-height: 760px) { .dfl-agents .ack-plot > .ack-trade { display: none; } }
+@media (max-height: 520px) { .dfl-agents .ack-plot > .ack-trade { display: none; } .dfl-agents .dfl-side > .ack-money { max-height: 46%; } .dfl-agents .dfl-bar { padding: 4px 8px; } }

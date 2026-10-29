@@ -31,7 +31,7 @@ test('🐆 N14 the creator on their own profile gets the NEXA desk (the buyer da
   mockAdmin.isAdmin = true;
   const { d, r } = await mount(<ProfileFeeCat mine />);
   expect(d.querySelector('[data-testid="nexa-desk"]').textContent).toContain('function');
-  expect(d.querySelector('[data-testid="owner-bar"]').textContent).toBe('Fee');                     // her wallet (assign / fund / real) on the NEXA desk
+  expect(d.querySelector('[data-testid="owner-bar"]')).toBeNull();                                  // the NEXA desk draws its OWN creator bar — never a second one
   await act(async () => { d.querySelector('[data-testid="profile-fee-public"]').click(); });
   await act(async () => { await new Promise(x => setTimeout(x, 0)); });
   expect(d.querySelector('[data-testid="live"]')).not.toBeNull(); expect(d.querySelector('[data-testid="profile-fee-cta"]')).toBeNull();

@@ -16,9 +16,6 @@ const FeeCatStage = lazy(() => import('./FeeCatStage').then(m => ({ default: m.F
 const FeeLiveTab = lazy(() => import('./FeeLiveTab').then(m => ({ default: m.FeeLiveTab })));
 const FeeCatDesk = lazy(() => import('./FeeCatDesk').then(m => ({ default: m.FeeCatDesk })));
 
-const FeeOwnerBar = lazy(() => import('./FeeOwnerBar').then(m => ({ default: m.FeeOwnerBar })));
-const OwnerBar = () => { const d = useLeaderProfile(); return d?.cat ? <FeeOwnerBar cat={d.cat} /> : null; };   // 🎨 style · 👛 Fee's wallet (assign / fund / real) right on the NEXA desk
-
 const sol = v => `${(Number(v) || 0) >= 0 ? '+' : '−'}${Math.abs(Number(v) || 0).toFixed(3)} SOL`;
 
 export function ProfileFeeBanner({ onOpen, mine }) {
@@ -49,6 +46,6 @@ export function ProfileFeeCat({ mine }) {
     <div className="m-seg pfc-seg" role="radiogroup" aria-label="Which view">
       {[['desk', '🪟 NEXA DESK', 'Your cat — the dashboard a buyer gets'], ['public', '👁 WHAT VISITORS SEE', 'Exactly what anyone opening your profile sees: FeeCat, read-only']].map(([k, l, tip]) =>
         <button key={k} type="button" role="radio" aria-checked={view === k} className={view === k ? 'active' : ''} onClick={() => setView(k)} data-tip={tip} data-testid={`profile-fee-${k}`}>{l}</button>)}</div>
-    {view === 'desk' ? <Suspense fallback={<p className="paper-muted">🪟 opening NEXA…</p>}><OwnerBar /><FeeCatDesk call={call} /></Suspense> : <PublicFee cta={false} />}
+    {view === 'desk' ? <Suspense fallback={<p className="paper-muted">🪟 opening NEXA…</p>}><FeeCatDesk call={call} /></Suspense> : <PublicFee cta={false} />}
   </section>;
 }
