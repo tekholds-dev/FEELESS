@@ -51,6 +51,15 @@ Rules (each one is a bug we already had):
 8. **Proof before done**: screenshot 890×626, 626×890, 678×466, 466×678 and 390×844 in the Browser pane (`/dev/hq?touch` for Agents) and check: crease at 50 %, no page
    side-scroll, the chart filling its half, the pane scrolling alone, no control clipped. Physical Safari (toolbars, keyboard, home-screen) stays OWNER verification.
 
+### Pages checked against the contract (browser pane, emulated sizes — not physical Safari)
+
+| Page / surface | 360 | 390×844 | 466×678 | 626×890 | 678×466 | 890×626 | Notes |
+|---|---|---|---|---|---|---|---|
+| HQ › Agents (floor) | — | ✓ one screen | ✓ (phone floor) | ✓ | ✓ chart 248 px | ✓ crease 56·389·445 | 2026-10-29 |
+| Trenches floor (DuoFloor) | ✓ no side-scroll | — | ✓ | — | — | ✓ | shell owner since 2026-10-27 |
+| Home · FEEd · Pump radar · Radar | ✓ | — | ✓ | — | — | ✓ | sweep E02: width = viewport, 0 overflowing elements |
+| Fuse · Launch · FeeCat · Launch a cat · Familia · Perps · Settings | ✓ | — | — | — | — | ✓ | no side-scroll; clipped-control review still open (E03–E07) |
+
 ## This delivery
 
 Agents only: fitted HQ shell, safe-area padding, visualViewport listeners with cleanup, chart-height allocation, rotation, scroll containment and HQ-controls toggle. Landscape chart gets the entire left half; the money/navigation strip lives above the right desk. Portrait prioritizes the chart above the dock. Other tabs must adopt/verify this contract in M01; they were not all modified here. Physical Safari fullscreen/keyboard verification is still OWNER work.

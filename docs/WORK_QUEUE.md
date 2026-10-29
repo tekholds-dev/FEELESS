@@ -41,7 +41,7 @@ Each loop iteration: ① cash check (card books vs wallet, halt, pending) → �
 | E12 | OPEN | HQ Lag catcher: show the page-watcher's latest layout issues as a short live list. |
 | E13 | OPEN | FEEd: the FEELESS chip shows FEELESS posts on the same timeline (rooms stay one tap away). |
 | E14 | DONE | terminal.css budget 514 → 511 KB (now 510.7 after the feed rule deletions); cssHygiene ✓. |
-| E15 | OPEN | MOBILE_LAYOUT matrix: record which pages passed the Duo-floor contract (proof = sizes checked). |
+| E15 | DONE | MOBILE_LAYOUT › Pages checked: a size-by-size matrix of what passed (Agents floor, Trenches floor, the E02 sweep pages) + what stays open. |
 
 ## Owner requests 2026-10-29 (late) — NEXT, in this order
 1. **A06 Agents PICK from the one intake** (owner: "sort through the new intake to PICK a coin, not block coins on the intake"; "they act scared to enter"):
