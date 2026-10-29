@@ -37,7 +37,7 @@ Each loop iteration: ① cash check (card books vs wallet, halt, pending) → �
 | E08 | DONE | Agents floor rail seats show each coin's image (useLiveTokenMarkets, one batched read, only while the floor is open; letters as fallback). Tests ✓. |
 | E09 | OPEN | Trade tape on the Trenches floor gets the per-trade stream (a new fill appears without waiting for the 15 s tape read). |
 | E10 | DONE | Settings › Look shows "🔋 ECO ON · this phone stays cool" (eco phones, full effects off) with what eco changes in its tip. |
-| E11 | OPEN | HQ Numbers / Traffic: hide '—' rows when every value is missing (one "no data yet" line instead). |
+| E11 | DONE | HQ › Numbers: empty tiles fold into ONE "No data yet: …" line (harness: 8 '—' tiles → 1 line); Traffic lists already say "No data yet". |
 | E12 | OPEN | HQ Lag catcher: show the page-watcher's latest layout issues as a short live list. |
 | E13 | OPEN | FEEd: the FEELESS chip shows FEELESS posts on the same timeline (rooms stay one tap away). |
 | E14 | DONE | terminal.css budget 514 → 511 KB (now 510.7 after the feed rule deletions); cssHygiene ✓. |
