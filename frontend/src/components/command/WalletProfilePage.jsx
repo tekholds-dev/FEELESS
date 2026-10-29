@@ -36,6 +36,8 @@ import { ReceiptsCard } from './ReceiptsCard';
 import { ReportBug } from '../ReportBug';
 // HQ is its own lazy chunk: downloaded ONLY after the server confirms this wallet is the creator / an admin-granted wallet.
 const HqDeck = lazy(() => import('./HqDeck').then(m => ({ default: m.HqDeck })));
+const ProfileFeeCat = lazy(() => import('./ProfileFeeCat').then(m => ({ default: m.ProfileFeeCat })));
+const ProfileFeeBanner = lazy(() => import('./ProfileFeeCat').then(m => ({ default: m.ProfileFeeBanner })));
 import { InviteCard } from '../InviteCard';
 import { AdBanner } from '../AdBanner';
 import { ProfileMusic } from './ProfileMusic';
@@ -140,6 +142,9 @@ export function WalletProfilePage({ address }) {
   useEffect(() => { if (autoEdit && mine && data) { setAutoEdit(false); startEdit(); } }, [autoEdit, mine, data]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { if (flipped && !actTab) setActTab(mine ? 'swap' : 'holdings'); if (actTab === 'swap' && !mine) setActTab('holdings'); }, [flipped, mine, actTab]);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [ownerProfile, setOwnerProfile] = useState(false);   // 🐆 N14: this profile is the creator's wallet → its FeeCat tab (visitors: FeeCat · the creator: NEXA)
+  useEffect(() => { let on = true; setOwnerProfile(false); if (!/^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(address)) return undefined;
+    fetch(apiUrl(`/api/reputation/admin/whoami?address=${address}`)).then(r => (r.ok ? r.json() : null)).then(d => { if (on) setOwnerProfile(!!d?.isOwner); }).catch(() => {}); return () => { on = false; }; }, [address]);
   const [badgeLimit, setBadgeLimit] = useState(3);
   useEffect(() => { fetch(apiUrl('/api/reputation/badges/limits')).then(r => r.ok ? r.json() : null).then(d => d && setBadgeLimit(d.profile)).catch(() => {}); }, []);
   const perks = usePerks(address);
@@ -209,13 +214,15 @@ export function WalletProfilePage({ address }) {
     </header>
     <div className="wp-quickrow">{mine && <AlphaRoomsCard />}<FeedBar onOpen={() => navigate('/terminal/feed')} /></div>
     <ProfileMusic songs={p.songs || []} edit={edit} onChange={v => set('songs', v)} />
+    {!flipped && ownerProfile && <Suspense fallback={null}><ProfileFeeBanner mine={mine} onOpen={() => { setFlipped(true); setActTab('feecat'); }} /></Suspense>}
     {!flipped && <PortfolioCard address={address} />}
     {!flipped && <TradeCards address={address} />}
-    {flipped && <nav className="wp-act-tabs" data-testid="activity-tabs">{[mine && ['swap', 'Swap'], mine && poolPerk && ['builder', '🏗 Pool builder'], ['holdings', 'Holdings'], ['history', 'Swap history'], ['feed', 'FEEd'], ['crew', '🛡 Crew'], ['posts', 'Posts'], ['rewards', 'Rewards'], mine && ['invites', '🎟 Invites'], ['vault', 'Vault']].filter(Boolean).map(([k, l]) => <button key={k} type="button" className={actTab === k ? 'active' : ''} onClick={() => setActTab(k)}>{l}</button>)}</nav>}
+    {flipped && <nav className="wp-act-tabs" data-testid="activity-tabs">{[mine && ['swap', 'Swap'], mine && poolPerk && ['builder', '🏗 Pool builder'], ['holdings', 'Holdings'], ['history', 'Swap history'], ['feed', 'FEEd'], ownerProfile && ['feecat', mine ? '🪟 NEXA' : '🐱 FeeCat'], ['crew', '🛡 Crew'], ['posts', 'Posts'], ['rewards', 'Rewards'], mine && ['invites', '🎟 Invites'], ['vault', 'Vault']].filter(Boolean).map(([k, l]) => <button key={k} type="button" className={actTab === k ? 'active' : ''} onClick={() => setActTab(k)}>{l}</button>)}</nav>}
     {flipped && actTab === 'swap' && mine && <section className="profile-swap-layout" data-testid="profile-swap"><SwapTopCoins onSelect={setSwapPair} /><div className="wp-card profile-swap"><ProfileSwapBox pair={swapPair} /><small className="wp-bio">Signed in your own wallet — FEELESS never holds funds. Buying $FEE is fee-free; selling it to SOL, USDC or USDT is also free. Other routes show the platform fee before signing.</small></div><div className="profile-swap-receipts"><ReceiptsCard address={address} /></div></section>}
     {flipped && actTab === 'holdings' && <PortfolioCard address={address} onSwap={mine ? pr => { setSwapPair(pr); setActTab('swap'); } : undefined} />}
     {flipped && actTab === 'history' && <><AfterSell address={address} /><WalletSwaps address={address} title="Swap history" /><PnlTracker address={address} /></>}
     {flipped && actTab === 'feed' && <FeedPanel onConnect={() => connect?.('solana')} />}
+    {flipped && actTab === 'feecat' && ownerProfile && <Suspense fallback={<div className="m-card"><span className="loader" /> Opening FeeCat…</div>}><ProfileFeeCat mine={mine} /></Suspense>}
     {flipped && actTab === 'crew' && <CrewProfile address={address} />}
     {flipped && actTab === 'posts' && <ReceiptsCard address={address} />}
     {flipped && actTab === 'invites' && mine && <InviteCard address={address} />}

@@ -1,0 +1,28 @@
+/* 🐆 ProfileFeeCat.jsx (`pfc-*`): the creator profile's FeeCat — a live banner on the front (the panther head breathing, Fee's realized + win
+   rate) and the tab (FeeCat read-only for visitors; the creator's NEXA desk with a 👁 visitors switch). Violet night from FeeCat; one keyframe
+   set `pfc*`, transform / opacity only; still under fx-lite + reduced motion; day theme + 640px below. */
+.pfc-banner { position: relative; display: grid; grid-template-columns: 52px minmax(0, 1fr) auto auto auto; align-items: center; gap: 12px; width: 100%; min-height: 64px; margin: 10px 0;
+  padding: 8px 14px 8px 8px; border-radius: 16px; border: 1px solid rgba(180, 140, 255, .4); color: #efe8ff; text-align: left; cursor: pointer; overflow: hidden; isolation: isolate;
+  background: radial-gradient(120% 160% at 0% 0%, rgba(156, 107, 255, .28), transparent 55%), linear-gradient(135deg, #140b2a, #07040d); box-shadow: inset 0 1px 0 rgba(255, 255, 255, .07), 0 10px 26px rgba(0, 0, 0, .35);
+  transition: transform .15s ease, border-color .15s ease; animation: pfcIn .3s ease-out both; }
+.pfc-banner::after { content: ''; position: absolute; inset: 0; z-index: -1; background: linear-gradient(100deg, transparent 30%, rgba(207, 198, 255, .1) 50%, transparent 70%); transform: translateX(-100%); animation: pfcSweep 5s ease-in-out infinite; }
+.pfc-banner:hover { transform: translateY(-1px); border-color: #cfc6ff; } .pfc-banner:active { transform: translateY(1px); } .pfc-banner:focus-visible { outline: 2px solid #cfc6ff; outline-offset: 2px; }
+.pfc-cat { display: grid; place-items: center; width: 52px; height: 52px; border-radius: 50%; background: radial-gradient(circle, rgba(156, 107, 255, .35), transparent 70%); animation: pfcBreath 4s ease-in-out infinite; }
+.pfc-cat svg { width: 44px; height: 44px; }
+.pfc-who { display: grid; min-width: 0; } .pfc-who em, .pfc-num em, .pfc-head em { font: 800 8px var(--f-mono, monospace); font-style: normal; letter-spacing: .14em; color: #b49cff; }
+.pfc-who b { font: 800 16px var(--f-display, var(--f-ui, sans-serif)); } .pfc-who small { font: 600 10px var(--f-ui, sans-serif); color: #a99ccf; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pfc-num { display: grid; justify-items: end; } .pfc-num b { font: 800 14px var(--f-mono, monospace); color: #fff; } .pfc-num.is-up b { color: #45e486; text-shadow: 0 0 12px rgba(69, 228, 134, .45); } .pfc-num.is-dn b { color: #ff8fa3; }
+.pfc-go { font: 800 9px var(--f-mono, monospace); letter-spacing: .12em; color: #cfc6ff; }
+.pfc { display: grid; gap: 10px; } .pfc-head { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; padding: 10px 12px; border-radius: 14px; border: 1px solid rgba(180, 140, 255, .3);
+  background: linear-gradient(135deg, rgba(156, 107, 255, .14), rgba(7, 4, 13, .8)); color: #efe8ff; }
+.pfc-head > span { display: grid; flex: 1 1 260px; min-width: 0; } .pfc-head b { font: 800 15px var(--f-display, var(--f-ui, sans-serif)); } .pfc-head small { font: 600 10.5px var(--f-ui, sans-serif); color: #b9aedc; }
+.m-btn.pfc-cta { min-height: 38px; } .pfc-seg { justify-self: start; } .pfc-seg > button { min-height: 36px; font: 800 10px var(--f-tech, var(--f-mono, monospace)); letter-spacing: .08em; }
+@keyframes pfcIn { from { opacity: 0; transform: translateY(6px); } }
+@keyframes pfcSweep { 60%, 100% { transform: translateX(100%); } }
+@keyframes pfcBreath { 50% { transform: scale(1.06); } }
+body.fx-lite .pfc-banner, body.fx-lite .pfc-banner::after, body.fx-lite .pfc-cat { animation: none; } body.fx-lite .pfc-banner::after { opacity: 0; }
+@media (prefers-reduced-motion: reduce) { .pfc-banner, .pfc-banner::after, .pfc-cat { animation: none; } .pfc-banner::after { opacity: 0; } .pfc-banner { transition: none; } }
+body.theme-day .pfc-banner, body.theme-day .pfc-head { background: linear-gradient(135deg, #f3edff, #fbf9ff); color: #1c1230; border-color: rgba(106, 61, 240, .25); }
+body.theme-day .pfc-who small, body.theme-day .pfc-head small { color: #5a4f78; } body.theme-day .pfc-num b { color: #1c1230; } body.theme-day .pfc-num.is-up b { color: #0a8a44; text-shadow: none; }
+body.theme-day .pfc-who em, body.theme-day .pfc-num em, body.theme-day .pfc-head em, body.theme-day .pfc-go { color: #6a3df0; }
+@media (max-width: 640px) { .pfc-banner { grid-template-columns: 44px minmax(0, 1fr) auto; gap: 8px; } .pfc-banner .pfc-num:nth-of-type(4), .pfc-go { display: none; } .pfc-cat { width: 44px; height: 44px; } }

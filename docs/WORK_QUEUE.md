@@ -111,7 +111,10 @@ Each loop iteration: ① cash check (card books vs wallet, halt, pending) → �
   research abc, you research def") and come together on one decision with its evidence. Better than a crawl spider. Same for trader agents.
 - **W01 funding rules** — ✅ 2026-10-29: HQ › Fees › 6 · FeeCat funding sets the one-time fee + the least first funding (`catFeeUsd` / `catMinUsd`); staff / creator wallets
   pay no fee and may start from $1; `GET /api/reputation/cats/fund-rules`; the desk says the rule BEFORE an amount and warns when an amount only covers the fee.
-- **N14 NEXA public**: the creator's NEXA / Fee leader dashboard shows on the creator wallet's PUBLIC profile.
+- **N14 NEXA public** — ✅ 2026-10-29: the creator wallet's public profile (`whoami.isOwner`) has a 🐱 FeeCat tab + a live Fee banner on its front (`ProfileFeeCat.jsx`,
+  `profileFeeCat.css`). Visitors: FEECAT only — Fee's hero + live desk (FeeCatStage + FeeLiveTab, reused; the owner bar renders only for an admin viewer; no chat; the
+  word NEXA never shown) + 🐱 Get your own cat. The creator, signed in on their own profile: 🪟 NEXA = the buyer's cat dashboard (FeeCatDesk via `useAdmin().call`) +
+  👁 WHAT VISITORS SEE. Checked live on the creator profile as a visitor. Tests `ProfileFeeCat.test.jsx`.
 - **N15 Fee's call chat**: a better calls chat for Fee.
 - **N16 Fee's wallet**: the owner assigns an EXISTING wallet to Fee (not a Crossmint-made one); users' cats get a fresh Crossmint wallet. (Users never sign per trade —
   W01; only funding is signed, from their own wallet.)
