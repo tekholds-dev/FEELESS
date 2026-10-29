@@ -25,6 +25,7 @@ import { AiProviders, AiChipBtn } from './AiProviders';
 import { AiPane, AiIntel, AiCell } from './AiDecisions';
 import { CockpitControls } from './CockpitControls';
 import { IntakeBand } from './IntakeBand';
+import { FeeCatDesk } from './FeeCatDesk';
 import { TeachBox } from './TeachBox';
 import { VitalBoard } from './VitalBoard';
 import { TradeTape, CoachBox } from './CoachTape';
@@ -770,6 +771,9 @@ export function AgentCockpit({ call, isOwner = true, head = null, extra = [], li
       ['review', '📋 Queue', (o.ownerReview || []).length || null, <ReviewQueue o={o} call={call} isOwner={isOwner} onPick={m => { onPick(m); if (m && !((o.kernel || {}).candidates || []).some(c => c.mint === m) && !(o.positions || []).some(p => p.mint === m) && !(o.ownerReview || []).some(r => r.mint === m)) openCoin({ mint: m }); }} sel={mint} />],
       ['controls', '🎛 Limits', null, <><CockpitControls o={o} call={call} isOwner={isOwner} onAi={() => setAiOpen(true)} />{limits}</>, null, 'EVERY control in one place: universe, exits, seats, buy gate, model + your creator limits (TP / SL / trail / hold / size / switching)'],
       ['stats', '📊 Stats', null, <>{head}<MissionRibbon tiles={tiles} live={!!cc?.live} /><LivePulse o={o} onAi={() => setTab('ai')} /></>, null, 'mission numbers, the desk pulse, stage + dial'],
+      // 🪟 the creator's own cat (owner 2026-10-29: "signed in to the creator wallet I want to see NEXA — the FeeCat dashboard a user sees when they buy a cat"):
+      // Fee's book + NEXA's desk + the creator wallet bar, the same dashboard as HQ › FeeCat — mounted only while open (lazy)
+      ...(isOwner ? [['nexa', '🪟 NEXA', null, <FeeCatDesk call={call} />, null, "NEXA + Fee: the creator's cat — her book, record, wallet, NEXA's reads", true]] : []),
       ...extra,
     ]);
   const symClick = e => { const y = symOf(e.target, e.currentTarget); if (y) { e.stopPropagation(); tapSym(y); } };   // 🪙 any bare $TICKER opens its chart
@@ -783,7 +787,7 @@ export function AgentCockpit({ call, isOwner = true, head = null, extra = [], li
   // nav opens lands in DESK). ☰ HQ steps the floor aside for the other HQ tabs; ⤢ brings it back. Contract: docs/MOBILE_LAYOUT.md › Duo floors.
   if (duo.on) {
     const paneK = nav === 'chart' ? navPane : nav; const paneL = String((navTabs.find(t => t[0] === paneK) || [])[1] || 'DESK').replace(/^\S+\s/, '').toUpperCase();
-    const DK = [['decision', 'DECISION'], ['talk', 'OSSY×G4'], ['seats', 'SEATS'], ['intake', 'INTAKE'], ['desk', paneL]];
+    const DK = [['decision', 'DECISION'], ['talk', 'OSSY×G4'], ['seats', 'SEATS'], ['intake', 'INTAKE'], ...(isOwner ? [['nexa', 'NEXA']] : []), ['desk', paneL === 'NEXA' ? 'DESK' : paneL]];
     const dt = DK.some(([k]) => k === duoTab) ? duoTab : 'decision';
     const goDuo = k => { setNav(k); if (k !== 'chart') { setNavPane(k); setDuoTab('desk'); }
       try { localStorage.setItem(NAV_KEY, k); if (k !== 'chart') localStorage.setItem(DECK_KEY, k); } catch { /* private window */ } };
@@ -821,6 +825,7 @@ export function AgentCockpit({ call, isOwner = true, head = null, extra = [], li
           {dt === 'talk' ? <DuoSeat duo={d?.duo} call={call} /> : null}
           {dt === 'seats' ? <div className="ack-duoseats">{seats.map((x, i) => <div key={x.seat} className="ack-seatwrap"><SeatCard s={x} call={call} on={!x.open && x.mint === mint} onPick={onPick} readyN={readyN} same={x.open ? seats.slice(0, i).find(y => y.open && y.why === x.why)?.seat : undefined} />{isOwner ? <QuickTrade s={x} call={call} tpl={d?.card?.tpl} /> : null}</div>)}</div> : null}
           {dt === 'intake' ? <IntakeBand o={o} mint={mint} onPick={onPick} call={call} isOwner={isOwner} imp={d?.impostors} /> : null}
+          {dt === 'nexa' && isOwner ? <FeeCatDesk call={call} /> : null}
           {dt === 'desk' ? <div ref={deckRef} className="ack-deckwrap"><Deck testid="ack-tapezone" bare on={paneK} setOn={goDuo} tabs={navTabs} /></div> : null}
         </div>
       </section>
