@@ -26,6 +26,7 @@ Each loop iteration: ① cash check (card books vs wallet, halt, pending) → �
 ③ mark it DONE here with one line of proof. Never loosen buy rules, never move funds, never restart reputation_service with an order pending.
 | ID | Status | Task |
 |---|---|---|
+| E00 | OPEN | ⭐ OWNER FIRST (2026-10-29 03:40): signed in as the creator, HQ › Agents (desktop AND the Duo floor) shows NEXA as a FeeCat dashboard — the same cat dashboard a user gets after buying a cat (record, wallet card, proposals, brains). Leads: NexaDesk.jsx (mounted in FeeCatDesk), FeeCatsPlatform CatDetail, CatReal WalletCard, feecat_service /api/cats/leader. Add it as a dock tab on the Agents floor + a panel on desktop. |
 | E01 | DONE | Edge audit run 2026-10-29: agents entered 0/3,000 calls; 12 rules positive on unseen coins (best 5m +5–15% & buyers ≥65%: +19.4%, n 63) → HANDOFF top. |
 | E02 | DONE | Sweep 2026-10-29: Home · Trenches · FEEd · Pump radar · Radar at 360 / 466 / 890 → page width = viewport on all, 0 overflowing elements. |
 | E03 | VERIFY | (sweep 2026-10-29: no page side-scroll at 360 / 890 — clipped-control review still to do) |
