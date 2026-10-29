@@ -141,7 +141,7 @@ export function AgentWalletCard({ cat, busy, send, addr, session, sign }) {
     {!w ? <div className="cr-ag-off"><b>👛 ITS OWN WALLET</b><small>Fund it once — {kind === 'trading' ? 'it rides: trades without asking you to sign' : 'it works from it; you choose ask-first or let it go'}. Crossmint holds the key, FEELESS keeps only the address.</small>
       <button type="button" className="m-btn m-go cr-ag-go" disabled={busy || !addr || cat?.revoked} onClick={() => send('agent_wallet')} data-testid="cr-agent-make"
         data-tip={addr ? 'One signature (no transaction) proves you own this cat — then Crossmint makes its wallet' : 'Connect your wallet first'}>👛 Give it its own wallet</button>
-      {cat?.isLeader ? <AssignWallet cat={cat} busy={busy} send={send} /> : null}</div>
+      {cat?.isLeader || cat?.id === 'leader' ? <AssignWallet cat={cat} busy={busy} send={send} /> : null}</div>
       : <div className="cr-ag-on">
         {w.provider === 'watch' ? <p className="cr-ag-watch" role="status" data-testid="cr-agent-watch">👁 WATCH-ONLY — Crossmint doesn't hold this wallet's key, so she shows it but never trades from it. Assign a Crossmint wallet of your project to let her trade.</p> : null}
         <div className="cr-wid"><span><em>{w.provider === 'watch' ? '👁 WATCHED WALLET' : kind === 'trading' ? '🏇 RIDES · ITS WALLET' : w.assigned ? '👛 YOUR WALLET · SHE TRADES FROM IT' : 'ITS WALLET'}</em><b className="m-num">{short(w.address)}</b></span>
@@ -155,7 +155,7 @@ export function AgentWalletCard({ cat, busy, send, addr, session, sign }) {
           {[['approve', '✋ ASK ME', 'Every AI move waits for your OK'], ['auto', '🚀 DO ITS THING', 'AI moves go ahead on their own, inside its limits']].map(([k, l, tip]) =>
             <button key={k} type="button" role="radio" aria-checked={mode === k} className={mode === k ? 'active' : ''} disabled={busy} onClick={() => mode !== k && send('agent_mode', { mode: k })} data-tip={tip} data-testid={`cr-agent-${k}`}>{l}</button>)}</div>}
         {session && sign && w.provider !== 'watch' ? <FundCat cat={cat} addr={addr} session={session} sign={sign} /> : null}
-        {cat?.isLeader ? <AssignWallet cat={cat} busy={busy} send={send} /> : null}
+        {cat?.isLeader || cat?.id === 'leader' ? <AssignWallet cat={cat} busy={busy} send={send} /> : null}
         {(() => { const dd = agentDay(cat); return <div className="cr-ag-day" data-testid="cr-agent-day" data-tip={`Its own wallet trades go through the same FEELESS engine: one at a time, a buy ≤ its ${Math.min(0.5, Number(cat?.budgetSol) || 0.05)} SOL budget, ≤ ${dd.cap} SOL a day, 0.01 SOL always kept for gas; it sells only what it bought`}>
           <em>TODAY</em><u aria-hidden="true"><s style={{ transform: `scaleX(${Math.min(1, dd.spent / (dd.cap || 1))})` }} /></u><b className="m-num">{dd.spent} / {dd.cap} SOL</b>
           {dd.live ? <i className="cr-ag-live">🏇 {dd.live.side.toUpperCase()} ${dd.live.symbol} settling…</i> : null}</div>; })()}
