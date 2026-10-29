@@ -51,7 +51,17 @@ export function useTradeStream(pair) {
       setTimeout(load, 5000);
     };
     window.addEventListener('feeless:trade-confirmed', onTrade);
-    return () => { alive = false; clearInterval(t); window.removeEventListener('feeless:trade-confirmed', onTrade); };
+    // ⚡ PER-TRADE: the chart's live stream hands each swap fill over the moment it lands (tx + wallet + size) — on the tape now, not at the next read
+    const onFill = e => {
+      const d = e.detail || {};
+      if (d.pool !== pair.pairAddress || !d.tx || seen.current.has(d.tx)) return;
+      seen.current.add(d.tx);
+      const row = { tx: d.tx, kind: d.kind === 'sell' ? 'sell' : 'buy', usd: Number(d.usd) || 0, price: Number(d.price) || 0, wallet: d.wallet || '', ts: d.ts || new Date().toISOString(), live: true };
+      setTrades(list => [row, ...list.filter(x => x.tx !== row.tx)].slice(0, 40));
+      if (baseline.current) setFresh(f => (row.kind === 'buy' ? { ...f, buys: f.buys + 1, buyUsd: f.buyUsd + row.usd } : { ...f, sells: f.sells + 1, sellUsd: f.sellUsd + row.usd }));
+    };
+    window.addEventListener('feeless:live-fill', onFill);
+    return () => { alive = false; clearInterval(t); window.removeEventListener('feeless:trade-confirmed', onTrade); window.removeEventListener('feeless:live-fill', onFill); };
   }, [pair?.chainId, pair?.pairAddress]); // eslint-disable-line react-hooks/exhaustive-deps
   return { trades, fresh };
 }

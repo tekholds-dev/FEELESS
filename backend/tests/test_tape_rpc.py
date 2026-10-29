@@ -42,9 +42,9 @@ def test_per_trade_ticks_use_only_the_swaps_own_fill_price_in_time_order():
     assert buy['priced'] is True and abs(buy['price'] - 0.15) < 1e-4 and buy['at'] == 1_700_000_000
     odd = cs.parse_rpc_swap(tx(0, 1000, 2_000_000_000, 1_000_005_000), COIN, 0.5, 150.0)   # its SOL leg disagrees 3× with the live price
     assert odd['priced'] is False                                                          # valued at the live price — never a chart tick
-    rows = [{'priced': True, 'price': 0.15, 'at': 1, 'kind': 'buy', 'usd': 150}, odd, None, {'priced': True, 'price': 9.0, 'at': 2},
-            {'priced': True, 'price': 0.16, 'at': 3, 'kind': 'sell', 'usd': 20}]
-    assert cs.swap_ticks(rows, 0.14) == [{'p': 0.15, 't': 1, 'k': 'buy', 'u': 150}, {'p': 0.16, 't': 3, 'k': 'sell', 'u': 20}]
+    rows = [{'priced': True, 'price': 0.15, 'at': 1, 'kind': 'buy', 'usd': 150, 'tx': 'A', 'wallet': 'W1'}, odd, None, {'priced': True, 'price': 9.0, 'at': 2},
+            {'priced': True, 'price': 0.16, 'at': 3, 'kind': 'sell', 'usd': 20, 'tx': 'B', 'wallet': 'W2'}]
+    assert cs.swap_ticks(rows, 0.14) == [{'p': 0.15, 't': 1, 'k': 'buy', 'u': 150, 'x': 'A', 'w': 'W1'}, {'p': 0.16, 't': 3, 'k': 'sell', 'u': 20, 'x': 'B', 'w': 'W2'}]
     assert cs.swap_ticks([], 1.0) == []
 
 

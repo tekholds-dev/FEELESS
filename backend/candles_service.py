@@ -1223,7 +1223,7 @@ def swap_ticks(rows, last_px):
         px = (r or {}).get('price')
         if not r or not r.get('priced') or not px or px <= 0 or (ref and not (ref / 20 < px < ref * 20)):
             continue
-        out.append({'p': px, 't': r.get('at') or time.time(), 'k': r.get('kind'), 'u': r.get('usd')}); ref = px
+        out.append({'p': px, 't': r.get('at') or time.time(), 'k': r.get('kind'), 'u': r.get('usd'), 'x': r.get('tx'), 'w': r.get('wallet')}); ref = px   # x / w: the tape adds the fill at once
     return out
 
 

@@ -390,7 +390,9 @@ export const PriceChart = ({ pair, interval, showVolume, metric = 'price', marke
       try {
         ws = new WebSocket(`${window.location.protocol === 'https:' ? 'wss' : 'ws'}://${window.location.host}/api/candles/stream/solana/${pair.pairAddress}${pair.baseToken?.address ? `?mint=${pair.baseToken.address}` : ''}`);
         ws.onopen = () => { streaming = true; };
-        ws.onmessage = e => { try { const m = JSON.parse(e.data); apply(Number(m.p), { source: m.k ? 'live trades' : 'live stream' }); } catch { /* ignore */ } };   // `k` = a real swap's own fill (per-trade tick)
+        ws.onmessage = e => { try { const m = JSON.parse(e.data); apply(Number(m.p), { source: m.k ? 'live trades' : 'live stream' });
+          if (m.k && m.x) window.dispatchEvent(new CustomEvent('feeless:live-fill', { detail: { pool: pair.pairAddress, tx: m.x, kind: m.k, usd: Number(m.u) || 0, price: Number(m.p) || 0, wallet: m.w || '', ts: new Date((Number(m.t) || Date.now() / 1000) * 1000).toISOString() } }));   // 🧾 the tape adds this fill at once
+        } catch { /* ignore */ } };   // `k` = a real swap's own fill (per-trade tick)
         ws.onclose = () => { streaming = false; };
       } catch { ws = null; }
     }

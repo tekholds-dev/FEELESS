@@ -35,7 +35,7 @@ Each loop iteration: ① cash check (card books vs wallet, halt, pending) → �
 | E06 | VERIFY | (sweep 2026-10-29: no page side-scroll at 360 / 890 — clipped-control review still to do) |
 | E07 | VERIFY | (sweep 2026-10-29: no page side-scroll at 360 / 890 — clipped-control review still to do) |
 | E08 | DONE | Agents floor rail seats show each coin's image (useLiveTokenMarkets, one batched read, only while the floor is open; letters as fallback). Tests ✓. |
-| E09 | OPEN | Trade tape on the Trenches floor gets the per-trade stream (a new fill appears without waiting for the 15 s tape read). |
+| E09 | DONE | Per-trade ticks carry tx + wallet; the chart hands each fill to the tape (`feeless:live-fill`) → on the tape at once, deduped by tx (test ✓; live 108 fills / 45 s). |
 | E10 | DONE | Settings › Look shows "🔋 ECO ON · this phone stays cool" (eco phones, full effects off) with what eco changes in its tip. |
 | E11 | DONE | HQ › Numbers: empty tiles fold into ONE "No data yet: …" line (harness: 8 '—' tiles → 1 line); Traffic lists already say "No data yet". |
 | E12 | OPEN | HQ Lag catcher: show the page-watcher's latest layout issues as a short live list. |
