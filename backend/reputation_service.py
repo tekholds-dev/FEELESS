@@ -18340,7 +18340,7 @@ async def _g4_tick(now, env, cfg):
         except Exception as e:
             print('seat pnl:', str(e)[:80]); pnl_ = pnl2_ = None
         order_ = _seat.owner_order(learn_.get('ownerSays')) if held_ else None   # 🫡 the Godfather's SELL / TRIM on this trade is final
-        pk_ = _seat.packet(rows_, held_, _seat.record_words(rec_), _seat.partner_of(st_['log'], first_), (pick_ or {}).get('symbol'), says_, learn_, pnl=pnl_)
+        pk_ = _seat.packet(rows_, held_, _seat.record_words(rec_), _seat.partner_of(st_['log'], first_), (pick_ or {}).get('symbol'), says_, learn_, pnl=pnl_, proven=_seat.research(_edge_rules()))
         if held_ and leg_:   # 🐋 what the snipers / bundles / dev / top holders / whales / top traders did since YOUR buy — see it, then move
             tr_h = _flow_trades.get(leg_.get('pairAddress'))
             if tr_h and now - tr_h[0] < 60:
@@ -21035,6 +21035,20 @@ def _kernel_view(now):
     return v
 
 
+def _edge_rules():
+    """The rules a 🧪 PICK may match: only while the proof gate reads TRADE (enough coins judged AND a rule held on unseen coins)."""
+    a_ = _json_load(EDGE_AUDIT_PATH, {}) or {}
+    return list(a_.get('rules') or []) if a_.get('gate') == 'trade' else []
+
+
+def _edge_view():
+    """🧪 A06 for the Agents tab: is the PICK on, the proof gate's verdict and the proven rules a pick can match (best first)."""
+    a_ = _json_load(EDGE_AUDIT_PATH, {}) or {}
+    on_ = ((_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('realCfg') or {}).get('edgePick', True)
+    return {'on': bool(on_), 'gate': a_.get('gate') or 'wait', 'held': int(a_.get('held') or 0), 'tested': int(a_.get('tested') or 0),
+            'rules': [{'rule': ' + '.join(r_.get('rule') or []), 'med': r_.get('med'), 'n': r_.get('n'), 'up': r_.get('up')} for r_ in (a_.get('rules') or [])[:6]]}
+
+
 def _kernel_ctx(now):
     """The small context the ten agents read: held positions (entry · peak · Reaper's stop) · the weather · execution health · the Judge's weights."""
     pos = _office.get('pos') or {}
@@ -21046,7 +21060,9 @@ def _kernel_ctx(now):
     pending = {l.get('mint') for l in legs_ if l.get('mint') and not l.get('placeholder') and _fuse._f(l.get('units')) <= 0}   # a seat the keeper is still buying
     return {'held': held, 'pending': pending, 'regime': (_agents.get('weather') or {}).get('regime'), 'courier': (_office.get('courier') or {}).get('health'),
             'live': rd.get('live') if rd else None, 'weights': _judge_weights(now), 'aiw': _ai_weights(now), 'pens': _coach_pens(now), 'lessons': _tkl.lessons(_lc_book(now)), 'lab': _rlab.trigger_lessons(_lab_state()), 'waits': _rg.effective(_prime.clean_cfg((_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('realCfg') or {}), _regret_book()),
-            'watchOnly': {m_ for m_ in _owner.get('only') or () if _tk.KERNEL.owner.get(m_) != 'arm'}}   # 👤 review / track only: judged, never READY   # 🧬 only the generations IN CONTROL
+            'watchOnly': {m_ for m_ in _owner.get('only') or () if _tk.KERNEL.owner.get(m_) != 'arm'},   # 👤 review / track only: judged, never READY   # 🧬 only the generations IN CONTROL
+            'edgeRules': _edge_rules(), 'feats': _FEATS, 'surv': _SURV, 'now': now,   # 🧪 A06 the PICK (brain.edge_pick)
+            'edgePick': ((_json_load(FUSE_HQ_PATH, {}).get('prime') or {}).get('realCfg') or {}).get('edgePick', True)}
 
 
 OWNER_REVIEW_PATH = FUSE_HQ_PATH.parent / 'owner_review.json'   # 👤 the owner's review / track / arm list (owner_review.py)
@@ -21195,7 +21211,7 @@ def _kernel_pass(table, now):
         _surv.observe(_SURV, table, now)   # ⏱ NSFA: every sensed coin's 1 / 5 / 15-min survival
         for r_ in table or []:   # 🧪 each coin's audit tags (trench_brain.feats) — the Warden checks them against the proven-edge rules
             if r_.get('mint'):
-                _FEATS[r_['mint']] = _tb.feats(r_)
+                _FEATS[r_['mint']] = _tb.feats(_sn.audit_row(r_))   # the flat shape the audit learned on (the nested row tagged almost nothing)
         if len(_FEATS) > 4000:
             for k_ in list(_FEATS)[:len(_FEATS) - 3000]:
                 _FEATS.pop(k_, None)
@@ -23336,7 +23352,7 @@ def _office_pass(st, table, now, rcfg, jp, arch, cour, tid, desk_ms):
         'office': {'chain': list(_of.CHAIN), 'priority': list(_of.PRIORITY), 'coins': perf.get('coins'), 'cases': len(cases), 'cleared': sum(1 for c_ in cases if c_['cleared'])},
         'agents': _of.agent_cards(cards, {'live': live, 'office': of}), 'currentCase': cur_case, 'pipeline': pipe,
         'queue': queue, 'positions': _office_positions(), 'exiting': [{'mint': p_['mint'], 'sym': p_.get('sym'), 'rule': p_.get('askRule'), 'state': (p_.get('exit') or {}).get('state'), 'since': p_.get('leftAt')} for p_ in _office['exiting']],
-        'execution': {**cour, 'metrics': _fw.exec_metrics(_fw_peek().get('ledger'), now, dupes=_FW_DUPES['n'])}, 'ownerHand': _of.owner_hand(arch.get('positions')), 'survival': _surv.cohort(_SURV, now), 'ownerSeats': _of.owner_seats(arch.get('positions')), 'ownerStudy': _study['v'], 'aiMemory': _aim.size(_aim_mem.get() or {}), 'askRec': ask_rec_, 'agentPredict': _of.pred_record(arch.get('positions')), 'tid': tid, 'learning': {'patterns': _of.patterns(arch, st), 'candidates': cands, 'lineage': [{'agent': x_.get('role'), 'gen': x_.get('gen'), 'why': f"{x_.get('status') or 'replaced'} — {x_.get('why') or ''}" + (f" · next generation: {x_['changed']}" if x_.get('changed') else ''), 'at': x_.get('retiredAt')}
+        'execution': {**cour, 'metrics': _fw.exec_metrics(_fw_peek().get('ledger'), now, dupes=_FW_DUPES['n'])}, 'ownerHand': _of.owner_hand(arch.get('positions')), 'survival': _surv.cohort(_SURV, now), 'edge': _edge_view(), 'ownerSeats': _of.owner_seats(arch.get('positions')), 'ownerStudy': _study['v'], 'aiMemory': _aim.size(_aim_mem.get() or {}), 'askRec': ask_rec_, 'agentPredict': _of.pred_record(arch.get('positions')), 'tid': tid, 'learning': {'patterns': _of.patterns(arch, st), 'candidates': cands, 'lineage': [{'agent': x_.get('role'), 'gen': x_.get('gen'), 'why': f"{x_.get('status') or 'replaced'} — {x_.get('why') or ''}" + (f" · next generation: {x_['changed']}" if x_.get('changed') else ''), 'at': x_.get('retiredAt')}
                                                          for x_ in reversed((_lc_book(now).get('lineage') or [])[-12:])], 'devil': dv_rec[:10], 'needShadow': _of.SHADOW_N, 'needPropose': _of.PROPOSE_N},
         'index': (_office.get('index') or [])[:80], 'rpc': {'lanes': _rpc_quota_state(), 'note': 'keyed lanes = keeper sends / balances first, then holder scans (budgeted); discovery comes from Pump\'s live stream + the launch boards — no RPC first-seen listener runs'},
         'court': _office.get('court'), 'opp': _office.get('opp'), 'coach': _coach_view(now), 'tradeTape': _trade_tape(now),   # 👑 the directives in force · 🎬 every real agent trade as one story
@@ -23728,7 +23744,7 @@ async def admin_agents_set(request: Request):
     ch = {}
     if 'feed' in body:
         ch['agentFeed'] = bool(body.get('feed'))
-    for k in ('agentTakePct', 'agentMode', 'agentStyle', 'agentSeats', 'agentLearn', 'agentLearnPct', 'agentTrust', 'agentDial', 'agentScalp', 'agentControl', 'agentCurve', 'agentPaper', 'agentOpen', 'agentAiLearn', 'chartWait', 'agentCapital', 'agentAiGate', 'agentValve', 'agentDuoGate', 'agentAiExit', 'nightGuard', 'nightShift', 'candleClock') + _oe.POLICY_KEYS:
+    for k in ('agentTakePct', 'agentMode', 'agentStyle', 'agentSeats', 'agentLearn', 'agentLearnPct', 'agentTrust', 'agentDial', 'agentScalp', 'agentControl', 'agentCurve', 'agentPaper', 'agentOpen', 'agentAiLearn', 'chartWait', 'agentCapital', 'agentAiGate', 'agentValve', 'agentDuoGate', 'agentAiExit', 'nightGuard', 'nightShift', 'candleClock', 'edgePick') + _oe.POLICY_KEYS:
         if k in (body.get('cfg') or {}):
             ch[k] = body['cfg'][k]
     if ch:

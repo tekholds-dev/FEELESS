@@ -44,9 +44,14 @@ Each loop iteration: ① cash check (card books vs wallet, halt, pending) → �
 | E15 | DONE | MOBILE_LAYOUT › Pages checked: a size-by-size matrix of what passed (Agents floor, Trenches floor, the E02 sweep pages) + what stays open. |
 
 ## Owner requests 2026-10-29 (late) — NEXT, in this order
-1. **A06 Agents PICK from the one intake** (owner: "sort through the new intake to PICK a coin, not block coins on the intake"; "they act scared to enter"):
-   OSSY / G4 + agents read the NSFA 1 / 5 / 15-min survival + enter at the germ floor on a CONFIRMED coin; drop the "ten agents" desk; AI prompts get research
-   to write better winning prompts. Real-money buying ⇒ run `scripts/edge-audit.py` first and keep the buy guards (memory: big-picture-before-features, new-buy-doors-need-guards).
+1. **A06 Agents PICK from the one intake** — ✅ BUILT 2026-10-29 (owner approved). `trench_kernel/brain.edge_pick`: a coin matching a rule that held on unseen coins
+   (edge audit, only while the proof gate reads TRADE) + survived its OWN 1 / 5-min NSFA watch (not bleeding, 15m not failed, not washed −40% off its high) + on its germ
+   floor (or chart ENTER NOW inside the germ line) is READY on its own; sellers on the tape / gun line / already ran / the hard wall / courier / review-only / Warden sizing
+   all still stop or size it. Fixed the coin tags (`senses.audit_row`: the nested kernel row tagged almost nothing — the Warden's edge info never matched). OSSY / G4 get
+   RESEARCH (the proven rules) + `pick` on each candidate; the agents' pick = a PICK first. Agents tab › Intake: 🧪 PICKS strip (switch `edgePick`, gate, rule meters, live
+   picks) + a double mint ring on a pick. Tests: `test_edge_pick.py` (6), `IntakeBand.test.jsx`. ⚠ latest 600 coins: rule-matching ones ≈ +0.1 % typical in the hour BEFORE
+   the 3 % round trip — the edge is thin; the hourly audit drops rules that stop holding (gate HOLD = no picks). NOT done: the ten-agent reducer itself is still the
+   live brain (retiring it = a rewrite); the AI's own prompt research = the audit rules, not web research.
 2. **FC01 FeeCat two-option build** — option 1 TRADING cat (≤ 2 models, trench / perps on FEELESS only, like familiars.family); option 2 GENERAL cat (≤ 2 models working
    together in a personal wallet-brain chat: research, crawl sites, Polymarket etc. via user sign-ins, a small browser window showing what it does). Each user can hold up to
    3 cats; the owner's cat (NEXA) shows on the wallet's public FeeCat tab; a pop-out to watch the trading or assistant cat. ⚠ OWNER DECISION before code: option 2 creates a

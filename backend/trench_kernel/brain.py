@@ -10,6 +10,7 @@ Hunter lanes: four always hunting — HUNTING (searching) · ARMED (a READY cand
 """
 import opportunity as _opp
 import rule_lab as _lab
+import survival_watch as _sw
 import trench_crew as _crew
 
 from . import lifecycle as _lc
@@ -42,6 +43,50 @@ def germ_entry_ok(ms, call):
     if ch.get('distHigh') is not None and _f(ch['distHigh']) < _opp.GERM_ROOM:   # the floor is the ceiling too: no room above
         return None
     return f"{_f(d):.0f}% above it"
+
+
+PICK_FROM_PEAK = -40.0   # 🧼 a pick may not be washed: this far under its own high since we first saw it = no pick
+PICK_5M_FLOOR = -20.0    # ⏱ "confirmed": it held its 1- and 5-minute checks AND is not bleeding over its first 5 minutes
+
+
+def edge_pick(ms, c, tr, dv):
+    """🧪 A06 THE PICK (owner 2026-10-29: "sort through the intake to PICK a coin, not block coins"; "they act scared to enter"). A coin on
+    the one intake is READY on its own — its rank no longer has to clear READY_MIN — when ALL hold:
+      · its audit tags match a rule that made money on coins it was NOT learned from (edge_audit; none held = the proof gate holds = no picks)
+      · it is CONFIRMED by its own NSFA watch: survived its 1- and 5-minute checks, not bleeding over 5 min, its 15-minute check not failed,
+        not washed off its high
+      · the entry is the germ: on its germ floor (inside your germ line, the chart only waits) or the chart says ENTER NOW inside the line
+      · the tape is not sellers, it is not pressed on its gun line, it has not already run (+150% on the hour)
+    The hard wall, the courier, the owner's review-only list and the Warden's sizing stay exactly as they are (reduce + office.warden).
+    → {rule, med, n, entry, why} or None."""
+    if c.get('edgePick') is False:
+        return None
+    m = ms['identity']['mint']
+    fs = set((c.get('feats') or {}).get(m) or ())
+    hit = next((r for r in c.get('edgeRules') or [] if r.get('rule') and set(r['rule']) <= fs), None)
+    if not hit or '1h:200+' in fs:
+        return None
+    s = _sw.coin(c.get('surv'), m, _f(c.get('now')))
+    if not s or s.get('ok1') is not True or s.get('ok5') is not True or s.get('ok15') is False or _f(s.get('m5')) < PICK_5M_FLOOR:
+        return None
+    if s.get('fromPeak') is not None and _f(s['fromPeak']) < PICK_FROM_PEAK:
+        return None
+    row = ms.get('row') or {}
+    if tr.get('flow') == 'SELLERS' or _opp.gun_chase(row) or _opp.spike_chase(row) or _opp.gun_wall(row):
+        return None
+    if any(o == 'ran' for o, _s, _w in dv['objections']):
+        return None
+    call = tr.get('chart')
+    gd, mx = _opp.germ_d(row.get('chart'))[0], _u_germ_max()
+    on = germ_entry_ok(ms, call)
+    entry = (f"on its germ floor ({on})" if on else
+             'the chart says ENTER NOW' if call == CHART_GO and (gd is None or not mx or gd <= mx) else None)
+    if not entry:
+        return None
+    rule = ' + '.join(hit['rule'])
+    surv = f"survived 1m {_f(s.get('m1')):+.0f}% · 5m {_f(s.get('m5')):+.0f}%" + (f" · 15m {_f(s.get('m15')):+.0f}%" if s.get('ok15') else '')
+    return {'rule': rule, 'med': hit.get('med'), 'n': hit.get('n'), 'entry': entry,
+            'why': f"🧪 PICK {rule} ({_f(hit.get('med')):+.1f}% typical on {int(_f(hit.get('n')))} unseen coins) · {surv} · {entry}"}
 
 
 def chart_call(ms):
@@ -211,15 +256,16 @@ def think(ms, ctx=None):
     if hits:
         parts = list(parts) + [('judge: ' + ' · '.join(w.replace('judge: ', '') for w, _p in hits), pen)]
     rank = round(base * we['factor'] * sh['factor'] * crowd * pen, 1)
+    pick = None if held else edge_pick(ms, c, tr, dv)
     op = {'tally': t, 'sherlock': sh, 'weather': we, 'trigger': tr, 'devil': dv, 'warden': wa, 'courier': co,
           'reaper': reaper(ms, held), 'archivist': {'sources': ms['identity']['sources']}, 'judge': judge(ms, c.get('weights'))}
-    return {'opinions': op, 'rank': rank, 'parts': parts,
-            **reduce(op, rank, held, ms['identity']['mint'] in (c.get('pending') or ()), ms['identity']['mint'] in (c.get('watchOnly') or ()))}
+    return {'opinions': op, 'rank': rank, 'parts': parts, **({'pick': pick} if pick else {}),
+            **reduce(op, rank, held, ms['identity']['mint'] in (c.get('pending') or ()), ms['identity']['mint'] in (c.get('watchOnly') or ()), pick)}
 
 
-def reduce(op, rank, held, pending=False, watch=False):
-    """ONE decision: HELD / EXIT_PENDING for a position; else READY (ENTER, no hard veto, execution ok, rank ≥ READY_MIN) · CONTENDING
-    (passes the wall) · TRACKING (data pending / outside the universe / blocked by the wall — never 'rejected')."""
+def reduce(op, rank, held, pending=False, watch=False, pick=None):
+    """ONE decision: HELD / EXIT_PENDING for a position; else READY (ENTER, no hard veto, execution ok, rank ≥ READY_MIN — or a 🧪 PICK:
+    `edge_pick`) · CONTENDING (passes the wall) · TRACKING (data pending / outside the universe / blocked by the wall — never 'rejected')."""
     if held:
         a = (op['reaper'] or {}).get('action')
         return {'status': 'EXIT_PENDING' if a in ('EXIT', 'TAKE') else 'HELD', 'why': (op['reaper'] or {}).get('why')}
@@ -229,10 +275,11 @@ def reduce(op, rank, held, pending=False, watch=False):
     if dv['hard']:
         w = next((why for _o, s, why in dv['objections'] if s == 'HARD_VETO'), 'hard wall')
         return {'status': 'TRACKING', 'why': w}
-    if op['trigger']['state'] == 'ENTER' and op['courier']['ok'] and rank >= READY_MIN:
+    own = op['trigger']['state'] == 'ENTER' and rank >= READY_MIN
+    if op['courier']['ok'] and (own or pick):
         if watch:   # 👤 on the desk only because the owner asked for a review: judged and shown, never a fill — ARM is the owner's own step
             return {'status': 'CONTENDING', 'why': f"would be READY (rank {rank:g}) — owner review only; ARM lets the agents take it", 'wouldBeReady': True}
-        return {'status': 'READY', 'why': f"{op['trigger']['narrative']} — {op['trigger']['why']}"}
+        return {'status': 'READY', 'why': f"{op['trigger']['narrative']} — {op['trigger']['why']}" if own else pick['why']}
     return {'status': 'CONTENDING', 'why': f"{op['trigger']['narrative']} — rank {rank:g}"}
 
 

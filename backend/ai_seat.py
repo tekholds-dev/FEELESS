@@ -42,7 +42,7 @@ Every minute you get a fresh snapshot. Decide ONE action for YOUR seat:
 - HOLD: keep the coin you hold
 - SELL: sell the coin you hold now
 - WAIT: seat empty, nothing worth buying
-AGENTS_PICK = the coin the agents would take right now (empty = they would wait). Rules you cannot break: never invent a coin; numbers come only from the packet; a coin you hold can still be sold under you if its pool is
+AGENTS_PICK = the coin the agents would take right now (empty = they would wait). RESEARCH = rules that made money on coins they were NOT learned from (typical move an hour later, after costs); a candidate with "pick" matches one AND survived its own 1 / 5 min AND sits on its germ — the best-proven buy on the list, still yours to judge. Rules you cannot break: never invent a coin; numbers come only from the packet; a coin you hold can still be sold under you if its pool is
 pulled or it falls 45%. PRESSURE = times the agents wanted your coin out — weigh it, you decide. PARTNERSAYS = your partner's advice on the coin you hold: answer it in your why when you disagree. LEARN = REAL results — yours, your partner's,
 the owner's and the agents': copy what won, skip what lost, and say in your why what you learned. OWNERSTUDY + HOLDLESSONS = how the owner
 trades and where holding longer paid him — use them. When your record beats your partner's, BRAG about it
@@ -121,9 +121,17 @@ def cand_row(c, qwen=None):
            'buyers': _r(n.get('buy'), 0), 'pool': _r(n.get('liq') or v.get('liq'), 0), 'top10': _r(v.get('top10'), 0),
            'germ': _r(ch.get('germDist')), 'germ5': _r(ch.get('germ5Dist')), 'offHigh': _r(ch.get('distHigh')), 'struct': ch.get('state'),
            'higherLows': ch.get('hl'), 'lowerLows': ch.get('ll'), 'fvg': _r(ch.get('fvgDist')), 'fvg5': _r(ch.get('fvg5Dist'))}   # 🦠 1m germ + 5m germ + 🪜 1m / 5m FVG support + structure on EVERY coin they read
+    if c.get('pick'):   # 🧪 A06: this coin matches a rule that made money on coins it was not learned from (+ survived its own 1 / 5 min, on its germ)
+        out['pick'] = str(c['pick'])[:60]
     if qwen:
         out['qwen'] = str(qwen)[:120]
     return {k: x for k, x in out.items() if x not in (None, '')}
+
+
+def research(rules, n=4):
+    """🧪 The research every BUY reads (owner 2026-10-29: "AI prompts get research"): the edge audit's rules that held on coins they were NOT
+    learned from — tags, typical move an hour later after costs, coins. [] = no proven rule (then nothing is a pick)."""
+    return [f"{' + '.join(r.get('rule') or [])}: {_f(r.get('med')):+.1f}% typical, {int(_f(r.get('up')))}% up, n {int(_f(r.get('n')))}" for r in (rules or [])[:n] if r.get('rule')]
 
 
 def held_row(leg, px, now, pressure=None, qwen=None):
@@ -142,7 +150,7 @@ def held_row(leg, px, now, pressure=None, qwen=None):
 HELD_LEARN = ('confidence', 'holdLessons', 'ownerHints', 'ownerHoldWins')   # what a model managing its trade still reads
 
 
-def packet(cands, held, record=None, partner=None, pick=None, says=None, learn=None, pnl=None):
+def packet(cands, held, record=None, partner=None, pick=None, says=None, learn=None, pnl=None, proven=None):
     """The ONE thing the deciding model reads each minute (+ its partner's last call + the agents' own pick)."""
     lr = dict(learn or {})
     out = {}
@@ -160,6 +168,8 @@ def packet(cands, held, record=None, partner=None, pick=None, says=None, learn=N
     else:
         out['candidates'] = [{k: v for k, v in c.items() if k != 'mint'} for c in cands[:CAND_N]] or 'none right now'
         out['agentsPick'] = pick or ''
+        if proven:
+            out['RESEARCH'] = proven   # 🧪 the proven rules: a candidate with "pick" matches one of them
     out['yourRecord'] = record or 'no closed trades yet'
     if partner:
         out['partner'] = partner
@@ -501,8 +511,9 @@ def pnl_words(me, mine, partner=None, theirs=None, live=None):
 
 
 def agents_pick(cands):
-    """The coin the ten agents would take right now: the kernel's first READY coin Trigger says ENTER on (None = they would wait)."""
-    return next((c for c in cands or [] if c.get('status') == 'READY' and str(c.get('trigger') or '').upper() in ('ENTER', 'GO')), None)
+    """The coin the agents would take right now: a 🧪 PICK first, else the kernel's first READY coin Trigger says ENTER on (None = they would wait)."""
+    return (next((c for c in cands or [] if c.get('status') == 'READY' and c.get('pick')), None)   # 🧪 a PICK first: a proven rule + its own survival + its germ
+            or next((c for c in cands or [] if c.get('status') == 'READY' and str(c.get('trigger') or '').upper() in ('ENTER', 'GO')), None))
 
 
 def backup(cands, holding):

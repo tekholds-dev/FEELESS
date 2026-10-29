@@ -34,10 +34,15 @@ const DUO = { mode: 'real', next: 'G4', at: DUO_AT, busy: false, rooms: DUO_ROOM
   live: { by: 'G4', at: DUO_AT - 30, cands: [{ symbol: 'LUKE', status: 'READY', move5m: 4.2, buyers: 61, germ: 6 }, { symbol: 'SSB', status: 'CONTENDING', move5m: -1.1, buyers: 54, germ: 11 }] },
   ...(DUO_MODE === 'sold' ? { phase: 'SOLD' } : DUO_MODE === 'hunt' ? { phase: 'HUNTING', hunt: { by: 'G4', since: DUO_AT - 132, turnSec: 600 } }
     : { phase: 'HOLDING', holder: 'G4', holding: { symbol: 'LUKE', mint: 'L', inUsd: 0.31, nowUsd: 0.336, pct: 8.4, pnlUsd: 0.026, peak: 11.2, heldMin: 17, tp: 40, sl: 15 } }) };
+// 🧪 A06 the PICK strip on fixtures: the proof gate reads TRADE and the first READY coin is a pick
+const EDGE = { on: true, gate: 'trade', held: 19, tested: 1107, rules: [{ rule: 'top10:35+ + xl:<1', med: 44.6, n: 70, up: 61 }, { rule: 'bund:0 + xl:<1', med: 27.1, n: 105, up: 60 },
+  { rule: '5m:5..15 + buy:65+', med: 21.5, n: 62, up: 58 }] };
+const PICK = { rule: '5m:5..15 + buy:65+', med: 21.5, n: 62, entry: 'on its germ floor (5% above it)', why: '🧪 PICK 5m:5..15 + buy:65+ (+21.5% typical on 62 unseen coins) · survived 1m +2% · 5m +6% · on its germ floor (5% above it)' };
+const picked = k => { let done = false; return { ...k, candidates: ((k || {}).candidates || []).map(c => (!done && c.status === 'READY' && (done = true) ? { ...c, pick: PICK } : c)) }; };
 let tick = 0;   // every snapshot is a NEW object with moved numbers, like the live desk (window.__hubLoad() forces one)
 const live = () => { tick += 1; const j = v => (typeof v === 'number' ? v * (1 + 0.01 * Math.sin(tick)) : v);
   return { ...DATA, duo: DUO, card: { ...DATA.card, seats: (DATA.card.seats || []).map(s => ({ ...s, pct: j(s.pct) })) },
-    office: { ...DATA.office, positions: (DATA.office.positions || []).map(p => ({ ...p, pct: j(p.pct), last: j(p.last) })), tape: [...(DATA.office.tape || [])] } }; };
+    office: { ...DATA.office, edge: EDGE, kernel: picked(DATA.office.kernel), positions: (DATA.office.positions || []).map(p => ({ ...p, pct: j(p.pct), last: j(p.last) })), tape: [...(DATA.office.tape || [])] } }; };
 // 🔌 ?rpc = HQ › Core › Lag catcher's RPC lanes on fixtures (one live, one out of quota, four empty)
 const RPC = { needsKey: false, slots: [1, 2, 3, 4, 5, 6].map(n => ({ slot: n, set: n <= 2 })),
   lanes: [{ lane: 1, slot: 1, provider: 'helius-rpc.com', spent: true, backInMin: 420 }, { lane: 2, slot: 2, provider: 'quiknode.pro', spent: false, backInMin: 0 }] };

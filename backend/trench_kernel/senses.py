@@ -106,7 +106,14 @@ def evidence(row, n, chart=None, mind=None, busted=None):
     return out
 
 
-VITAL_KEYS = ('mcap', 'ageH', 'liq', 'vol1h', 'buyShare', 'top10', 'bundledN', 'snipersN', 'insiders', 'dev', 'holders', 'safe', 'curve', 'curvePct', 'txns1h', 'holderSoft')
+VITAL_KEYS = ('mcap', 'ageH', 'liq', 'vol1h', 'buyShare', 'top10', 'bundledN', 'snipersN', 'insiders', 'dev', 'holders', 'safe', 'curve', 'curvePct', 'txns1h', 'holderSoft',
+              'chg5m', 'chg1h', 'vol5m', 'holdD')   # the last four: the edge audit's own tags (trench_brain.feats) read off the sensed row
+
+
+def audit_row(t):
+    """A sensed row → the flat shape `trench_brain.feats` tags (the edge audit learned its rules on that shape: a nested row tags nothing)."""
+    v = dict((t or {}).get('vitals') or {})
+    return {**v, 'site': (t or {}).get('site'), 'x': (t or {}).get('x'), 'tv': {'call': [None, v.get('read')]} if v.get('read') else None}
 
 
 def sense(state, rows, now, candles=None, flows=None, charts_out=None, cmeta=None, busted=None, weather_fn=None):

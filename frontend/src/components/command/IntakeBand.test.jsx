@@ -40,3 +40,24 @@ test('ONE intake: the ALL LEVELS tank only (no agents-only view), the agents\' c
   expect(JSON.parse(call.mock.calls[0][1].body)).toEqual({ owner: { mint: 'C1', action: 'arm' } });
   await act(async () => { root.unmount(); });
 });
+
+test('🧪 A06 PICKS: a proven-rule coin wears the pick ring and sits in the strip; the gate + rules show as meters; the switch posts edgePick', async () => {
+  const call = jest.fn(async () => ({}));
+  const pick = { rule: '5m:5..15 + buy:65+', med: 21.5, n: 62, entry: 'on its germ floor (5% above it)', why: '🧪 PICK 5m:5..15 + buy:65+ …' };
+  const cands = [{ ...C[0], pick }, ...C.slice(1)];
+  const edge = { on: true, gate: 'trade', held: 19, tested: 1107, rules: [{ rule: 'top10:35+ + xl:<1', med: 44.6, n: 70, up: 61 }, { rule: '5m:5..15 + buy:65+', med: 21.5, n: 62, up: 58 }] };
+  const o = { kernel: { candidates: cands, metrics: {} }, positions: [], policy: { band: { min: 12000, max: 300000 } }, edge };
+  const onPick = jest.fn();
+  const el = document.createElement('div'); document.body.appendChild(el); const root = createRoot(el);
+  await act(async () => { root.render(<IntakeBand o={o} call={call} isOwner onPick={onPick} />); });
+  expect(el.querySelector('[data-testid="mark-R1"]').textContent).toBe('edge');
+  const strip = el.querySelector('[data-testid="ib-pick"]');
+  expect(strip.textContent).toContain('TRADE'); expect(strip.textContent).toContain('19/1107'); expect(strip.textContent).toContain('+44.6%');
+  const live = el.querySelector('[data-testid="ib-pick-live"] button');
+  expect(live.textContent).toContain('$RDY'); await act(async () => { live.click(); }); expect(onPick).toHaveBeenCalledWith(expect.objectContaining({ mint: 'R1' }));
+  await act(async () => { el.querySelector('[data-testid="ib-pick-switch"]').click(); });
+  expect(JSON.parse(call.mock.calls[0][1].body)).toEqual({ cfg: { edgePick: false } });
+  await act(async () => { root.render(<IntakeBand o={{ ...o, edge: { ...edge, gate: 'hold', held: 0, rules: [] } }} call={call} isOwner={false} onPick={onPick} />); });
+  expect(el.querySelector('[data-testid="ib-pick"]').textContent).toContain('HOLD'); expect(el.querySelector('[data-testid="ib-pick-switch"]').disabled).toBe(true);
+  await act(async () => { root.unmount(); });
+});

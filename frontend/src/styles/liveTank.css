@@ -69,10 +69,11 @@
 .ltk-plot { position: absolute; top: 0; bottom: 0; left: var(--gut, 66px); right: 8px; }
 .ltk.is-compact .ltk-plot { --gut: 56px; }
 .ltk-lane small { z-index: 1; }
-/* 🤖 the agents' coins ON the one intake: contending = ice ring · ready = green breathing ring · picked = gold ring */
+/* 🤖 the agents' coins ON the one intake: contending = ice ring · ready = green breathing ring · 🧪 pick = double mint ring · picked = gold ring */
 .ltk-b.is-agent::after { content: ''; position: absolute; inset: -2px; border-radius: 50%; border: 1.5px solid #8fd3ff; pointer-events: none; }
 .ltk-b.is-agent.s-ready::after { border-color: #45e486; box-shadow: 0 0 8px rgba(69, 228, 134, .7); animation: ltkRing 2s ease-out infinite; }
 .ltk-b.is-agent.s-picked::after { border-color: #f5c451; box-shadow: 0 0 8px rgba(245, 196, 81, .7); }
+.ltk-b.is-agent.s-edge::after { border: 2px double #5ff2c8; box-shadow: 0 0 10px rgba(95, 242, 200, .8); animation: ltkRing 1.4s ease-out infinite; }   /* 🧪 a PICK: ready on a proven rule */
 .ltk-b.is-on i { outline: 2px solid #fff; outline-offset: 1px; }
 @keyframes ltkRing { 0% { transform: scale(.9); opacity: 1; } 100% { transform: scale(1.9); opacity: 0; } }
 @keyframes ltkIn { from { opacity: 0; transform: translateY(4px) scale(.98); } }

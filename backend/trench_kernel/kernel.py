@@ -145,7 +145,7 @@ class Kernel:
         x, op = ms['row'], d['opinions']
         return {**x, 'pair': x.get('pair') or x.get('pairAddress'), 'px': ms['market'].get('price') or x.get('px'), 'status': d['status'], 'rank': d['rank'], 'kwhy': d['why'],
                 'size': op['warden']['size'], 'sizeWhy': op['warden']['why'], 'narrative': op['trigger']['narrative'], 'trigger': op['trigger']['state'], 'chartCall': op['trigger'].get('chart'),
-                'chartWait': op['trigger'].get('chartWait'), 'open': True}
+                'chartWait': op['trigger'].get('chartWait'), 'open': True, **({'pick': d['pick']['rule']} if d.get('pick') else {})}
 
     def case(self, m):
         """ONE kernel case file (any status) — the sensed row + the ten opinions + the reducer's steps as checks. None = not judged."""
@@ -158,6 +158,8 @@ class Kernel:
                   ['timing', op['trigger']['state'] == 'ENTER', f"{op['trigger']['narrative']} → {op['trigger']['state']}: {str(op['trigger']['why'])[:90]}"],
                   ['execution', bool(op['courier']['ok']), str(op['courier']['why'])[:90]],
                   ['rank', d['rank'] >= _b.READY_MIN, f"rank {d['rank']:g} (READY from {_b.READY_MIN:g})"]]
+        if d.get('pick'):   # 🧪 A06: a PICK is READY without the timing / rank steps — the case says which proven rule and which checks carried it
+            checks.append(['pick', True, str(d['pick']['why'])[:160]])
         return {'mint': m, 'symbol': ms['identity']['symbol'], 'pair': ms['identity']['pair'], 'px': ms['market'].get('price'), 'rank': d['rank'], 'lean': d['rank'],
                 'cleared': d['status'] == 'READY', 'status': d['status'], 'go': d['status'] == 'READY', 'checks': checks, 'unknown': op['sherlock']['unknown'], 'row': ms['row'],
                 'op': op, 'kwhy': d['why'], 'parts': d.get('parts')}
@@ -196,7 +198,7 @@ class Kernel:
                         'size': op['warden']['size'], 'sizeWhy': op['warden']['why'], 'courier': op['courier']['ok'], 'reaper': op['reaper'],
                         'unknown': op['sherlock']['unknown'],   # relative ages are not sent: the page computes every age from `times` / `decidedAt` (the stream never sent them either)
                         'times': _s.times(ms), 'decidedAt': round(self.decAt.get(m, now), 2),   # absolute, per section: what the delta stream sends (the page computes each age itself)
-                        'sources': ms['identity']['sources'][:6], **({'vit': vit(ms.get('row') or {}) if i < VIT_FULL else lite_vit(vit(ms.get('row') or {}))} if d['status'] != 'TRACKING' and i < VIT_TOP else {})})   # the vital board: seats + the top of the queue (TRACKING rows draw none)
+                        'sources': ms['identity']['sources'][:6], **({'pick': d['pick']} if d.get('pick') else {}), **({'vit': vit(ms.get('row') or {}) if i < VIT_FULL else lite_vit(vit(ms.get('row') or {}))} if d['status'] != 'TRACKING' and i < VIT_TOP else {})})   # the vital board: seats + the top of the queue (TRACKING rows draw none)
         held = [m for m, d in self.dec.items() if d['status'] in ('HELD', 'EXIT_PENDING') and m in self.store.mints]   # the lanes from the CURRENT decisions (a price event may be newer than the pass)
         self.lanes = _b.lanes({m: d for m, d in self.dec.items() if m in self.store.mints}, held)
         return {'lanes': [{**l, 'symbol': (self.store.mints.get(l.get('mint')) or {}).get('identity', {}).get('symbol') if l.get('mint') else None} for l in self.lanes],
