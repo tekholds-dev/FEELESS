@@ -60,3 +60,20 @@ body.theme-day .cwb-head b, body.theme-day .cwb-model, body.theme-day .cwb-meter
 body.theme-day .cwb-bubble { background: rgba(255, 255, 255, .96); color: #1c1230; } body.theme-day .cwb-human { background: #fffaf0; } body.theme-day .cwb-human small { color: #3a3058; }
 @media (max-width: 640px) { .cwb-wins { grid-template-columns: minmax(0, 1fr); } .cwb-view { height: 240px; } .cwb-ask { grid-template-columns: minmax(0, 1fr) auto; } .cwb-cap { grid-column: 1 / -1; justify-self: stretch; }
   .cwb-meters { width: 100%; } .cwb-meters > span { flex: 1 1 0; min-width: 0; } }
+/* 🏇 LET IT GO switch + the queue */
+.cwb-go { display: inline-flex; align-items: center; gap: 7px; min-height: 34px; padding: 0 12px; border-radius: 999px; border: 1px solid rgba(255, 255, 255, .12); background: rgba(255, 255, 255, .04);
+  color: #e9dcff; font: 800 10px var(--f-mono); letter-spacing: .1em; cursor: pointer; transition: transform .15s ease, border-color .15s ease, background-color .15s ease; }
+.cwb-go i { width: 8px; height: 8px; border-radius: 50%; background: #6b6380; } .cwb-go b { color: #9d8fbf; }
+.cwb-go:hover { transform: translateY(-1px); border-color: #45e486; } .cwb-go:active { transform: scale(.97); } .cwb-go:focus-visible { outline: 2px solid #45e486; outline-offset: 2px; }
+.cwb-go.is-on { background: #45e486; border-color: #45e486; color: #04130a; } .cwb-go.is-on b { color: #04130a; } .cwb-go.is-on i { background: #04130a; animation: cwbGoPulse 1.2s ease-in-out infinite; }
+@keyframes cwbGoPulse { 50% { transform: scale(1.5); opacity: .5; } }
+.cwb-queue { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
+.cwb-queue li { display: grid; grid-template-columns: 22px minmax(0, 1fr) 32px; align-items: center; gap: 6px; padding: 2px 4px 2px 8px; border-radius: 9px; border: 1px dashed rgba(69, 228, 134, .35);
+  background: rgba(69, 228, 134, .05); animation: cwbQIn .25s ease-out both; animation-delay: calc(var(--i, 0) * 50ms); }
+@keyframes cwbQIn { from { opacity: 0; transform: translateY(4px); } }
+.cwb-queue b { font-size: 10px; color: #45e486; } .cwb-queue span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; color: #e9dcff; }
+.cwb-queue button { min-width: 32px; min-height: 32px; border: 0; border-radius: 8px; background: none; color: #9d8fbf; cursor: pointer; } .cwb-queue button:hover { background: rgba(255, 143, 163, .15); color: #ff8fa3; }
+.cwb-queue button:focus-visible { outline: 2px solid #45e486; }
+body.fx-lite .cwb-go.is-on i, body.fx-lite .cwb-queue li { animation: none; }
+@media (prefers-reduced-motion: reduce) { .cwb-go.is-on i, .cwb-queue li { animation: none; } .cwb-go { transition: none; } }
+body.theme-day .cwb-go { background: #fff; color: #2a1650; border-color: rgba(60, 30, 120, .2); } body.theme-day .cwb-queue span { color: #2a1650; }

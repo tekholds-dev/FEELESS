@@ -162,3 +162,26 @@ def test_the_workbench_is_the_owners_only_refuses_while_model_calls_are_off_and_
     assert b['credit'] == 0.988 and [m['by'] for m in store['cats']['g1']['chat']] == ['you', 'cats'] and store['cats']['g1']['chat'][1]['cost'] == 0.012
     fs._work_settle(store); assert b['credit'] == 0.988                                              # settled once
     fs._WORK.pop('g1', None)
+
+
+def test_let_it_go_queues_asks_runs_the_next_on_its_own_and_gives_a_long_step_budget(monkeypatch):
+    """Owner Q1: "let them go" — asks queue while it works; each finished task starts the next; a stopped one pauses the queue."""
+    fs = pytest.importorskip('feecat_service')
+    from fastapi.testclient import TestClient
+    assert ca.new_task('x', 'q', ['m/a'], 1, ca.GO_STEPS)['stepsMax'] == ca.GO_STEPS > ca.STEP_MAX
+    store = {'cats': {'g1': {'id': 'g1', 'name': 'Gen', 'ownerId': 'b1', 'positions': [], 'risk': {}, 'status': 'stopped', 'revoked': False, 'balanceSol': 0,
+                             'brainsCfg': {'kind': 'general', 'brains': ['m/a', 'm/b'], 'credit': 1.0, 'billing': 'payg'}}}, 'events': []}
+    monkeypatch.setattr(fs, '_load', lambda: store); monkeypatch.setattr(fs, '_save', lambda s: None); monkeypatch.setattr(fs, '_work_live', lambda: True)
+    started = []
+    monkeypatch.setattr(fs, '_work_start', lambda cid, cat, text, to=None: started.append(text))
+    c = TestClient(fs.app)
+    fs._WORK['g1'] = {'task': ca.new_task('t', 'first', ['m/a'], 0.05), 'done': False, 'at': 1.0}
+    assert c.post('/api/cats/g1/work', json={'op': 'ask', 'ownerId': 'b1', 'text': 'next'}).status_code == 409     # off: busy refuses
+    assert c.post('/api/cats/g1/work', json={'op': 'go', 'ownerId': 'b1', 'on': True}).json()['go'] is True
+    r = c.post('/api/cats/g1/work', json={'op': 'ask', 'ownerId': 'b1', 'text': 'next'}).json()
+    assert [q['text'] for q in r['queue']] == ['next'] and started == []
+    fs._WORK['g1']['task'].update(status='done', answer='A', cost=0.01); fs._WORK['g1']['done'] = True
+    fs._work_settle(store)
+    assert started == ['next'] and store['cats']['g1']['workQueue'] == []
+    c.post('/api/cats/g1/work', json={'op': 'go', 'ownerId': 'b1', 'on': False}); assert store['cats']['g1']['workQueue'] == []
+    fs._WORK.pop('g1', None)

@@ -1282,6 +1282,7 @@ async def _meta_post(store):
 # in `_work_settle` (the cat's credit pays, the owner's per-task $ cap bounds it). Live / snapshot views go only to the cat's owner.
 _WORK: dict = {}
 TASK_CAP_DEFAULT, TASK_CAP_MAX = 0.05, 2.0
+WORK_QUEUE_MAX = 10   # 🏇 let it go: asks waiting their turn
 CHAT_KEEP = 60
 
 
@@ -1301,7 +1302,21 @@ def _work_view(cat_id, owner=False):
         s_ = (w.get('sessions') or [None, None])[x['i']] or {}
         wins.append({**{k: x.get(k) for k in ('i', 'model', 'goal', 'status', 'bubble', 'url', 'title', 'human', 'answer', 'cost')}, 'steps': x['steps'][-10:],
                      'provider': s_.get('provider'), 'note': s_.get('note'), **({'live': s_.get('live'), 'shot': bool((w.get('pages') or [None, None])[x['i']] and not s_.get('live'))} if owner else {})})
-    return {'task': {k: t.get(k) for k in ('id', 'text', 'status', 'cap', 'cost', 'answer', 'fast', 'why')}, 'windows': wins}
+    return {'task': {k: t.get(k) for k in ('id', 'text', 'status', 'cap', 'cost', 'answer', 'fast', 'why', 'stepsMax')}, 'windows': wins}
+
+
+def _work_start(cat_id, cat, text, to=None):
+    """Start one task in the cat's windows. 🏇 Let it go (cat.workGo): a long step budget (cat_agent.GO_STEPS) — it stops only when done, at
+    its $ cap, or when a person is needed (a sign-in / CAPTCHA / payment: it never types a password or a card)."""
+    b = cat.get('brainsCfg') or {}
+    cap = min(float(cat.get('taskCap') or TASK_CAP_DEFAULT), max(0.005, float(b.get('credit') or 0) or TASK_CAP_DEFAULT))
+    models = list(b['brains'])[:2]
+    if to not in (None, 'both') and str(to).isdigit() and int(to) < len(models):   # talk to ONE of its minds: that model takes the whole task
+        models = [models[int(to)]]
+    names = [str(m).split('/')[-1][:24] for m in models]
+    steps = _ca.GO_STEPS if cat.get('workGo') else _ca.STEP_MAX
+    _WORK[cat_id] = {'task': _ca.new_task(uuid.uuid4().hex[:10], text, models, cap, steps), 'events': {}, 'go': {}, 'sessions': [None, None], 'pages': [None, None], 'at': time.time()}
+    _WORK[cat_id]['runner'] = asyncio.create_task(_work_run(cat_id, models, names, text, cap, str(b.get('prompt') or '')[:1200]))
 
 
 async def _work_run(cat_id, models, names, text, cap, brief=''):
@@ -1351,6 +1366,10 @@ def _work_settle(store):
             cat['chat'] = (list(cat.get('chat') or []) + [{'by': 'you', 'text': t.get('text'), 'at': w.get('at')},
                            {'by': 'cats', 'text': t.get('answer') or f"({t.get('status')}: {t.get('why') or 'no answer'})", 'at': time.time(), 'cost': t.get('cost'), 'fast': t.get('fast')}])[-CHAT_KEEP:]
         w['settled'] = True
+        # 🏇 let it go: the next queued ask starts on its own (a stopped task pauses the queue — you stopped it for a reason)
+        if cat and cat.get('workGo') and cat.get('workQueue') and t.get('status') != 'stopped' and _work_live() and _lc.can_ask(cat.get('brainsCfg') or {}):
+            nxt = cat['workQueue'].pop(0)
+            _work_start(cid, cat, nxt.get('text'), nxt.get('to'))
 
 
 async def _agent_pass(store):
@@ -1681,6 +1700,7 @@ class WorkPayload(BaseModel):
     i: Optional[int] = None
     cap: Any = None
     to: Any = None                     # 🧠 'both' (default) or 0 / 1 — one model works the whole task in its own window
+    on: Optional[bool] = None          # 🏇 op 'go': let it go on / off
 
 
 @app.post('/api/cats/{cat_id}/work')
@@ -1698,7 +1718,16 @@ async def cat_work(cat_id: str, p: WorkPayload):
         v = max(0.005, min(TASK_CAP_MAX, float(p.cap or TASK_CAP_DEFAULT)))
         cat['taskCap'] = round(v, 4); _save(store)
         return {'cap': cat['taskCap']}
-    if p.op in ('continue', 'stop_window') and w:
+    if p.op == 'go':
+        cat['workGo'] = bool(p.on)
+        if not cat['workGo']:
+            cat['workQueue'] = []
+        _save(store)
+    elif p.op == 'unqueue':
+        q_ = list(cat.get('workQueue') or [])
+        if p.i is not None and 0 <= int(p.i) < len(q_):
+            q_.pop(int(p.i)); cat['workQueue'] = q_; _save(store)
+    elif p.op in ('continue', 'stop_window') and w:
         ev = (w.get('events') or {}).get(int(p.i or 0))
         if ev:
             w['go'][int(p.i or 0)] = p.op == 'continue'; ev.set()
@@ -1709,8 +1738,9 @@ async def cat_work(cat_id: str, p: WorkPayload):
     elif p.op == 'ask':
         if b.get('kind') != 'general' or not b.get('brains'):
             raise HTTPException(400, 'Only a General AI cat with its models works in browsers.')
-        if w and not w.get('done'):
-            raise HTTPException(409, 'It is still working on your last ask — stop it or wait.')
+        busy = bool(w and not w.get('done'))
+        if busy and not cat.get('workGo'):
+            raise HTTPException(409, 'It is still working on your last ask — stop it, wait, or LET IT GO to queue asks.')
         if not _work_live():
             raise HTTPException(400, 'Model calls are off on this server (GENERAL_CAT_LIVE) — nothing was sent or charged.')
         if not _lc.can_ask(b):
@@ -1718,16 +1748,17 @@ async def cat_work(cat_id: str, p: WorkPayload):
         text = str(p.text or '').strip()
         if not text:
             raise HTTPException(400, 'Type what you want it to do.')
-        cap = min(float(cat.get('taskCap') or TASK_CAP_DEFAULT), max(0.005, float(b.get('credit') or 0) or TASK_CAP_DEFAULT))
-        models = list(b['brains'])[:2]
-        if p.to not in (None, 'both') and str(p.to).isdigit() and int(p.to) < len(models):   # talk to ONE of its minds: that model takes the whole task
-            models = [models[int(p.to)]]
-        names = [str(m).split('/')[-1][:24] for m in models]
-        _WORK[cat_id] = {'task': _ca.new_task(uuid.uuid4().hex[:10], text, models, cap), 'events': {}, 'go': {}, 'sessions': [None, None], 'pages': [None, None], 'at': time.time()}
-        _WORK[cat_id]['runner'] = asyncio.create_task(_work_run(cat_id, models, names, text, cap, str(b.get('prompt') or '')[:1200]))
+        if busy:   # 🏇 let it go: it takes the next ask the moment this one ends
+            q_ = list(cat.get('workQueue') or [])
+            if len(q_) >= WORK_QUEUE_MAX:
+                raise HTTPException(400, f'Its queue is full ({WORK_QUEUE_MAX}) — let it work through some first.')
+            cat['workQueue'] = q_ + [{'text': text[:2000], 'to': p.to, 'at': time.time()}]; _save(store)
+        else:
+            _work_start(cat_id, cat, text, p.to)
     out = _work_view(cat_id, owner=True)
     return {**out, 'cap': float(cat.get('taskCap') or TASK_CAP_DEFAULT), 'credit': b.get('credit'), 'spent': b.get('spent'), 'chat': (cat.get('chat') or [])[-20:],
-            'live': _work_live(), 'providers': _cb.chain(os.environ)}
+            'live': _work_live(), 'providers': _cb.chain(os.environ), 'go': bool(cat.get('workGo')),
+            'queue': [{'text': q.get('text'), 'to': q.get('to')} for q in (cat.get('workQueue') or [])]}
 
 
 @app.get('/api/cats/{cat_id}/work/shot/{i}')

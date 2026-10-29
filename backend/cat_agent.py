@@ -15,6 +15,7 @@ import json
 import re
 
 STEP_MAX = 8
+GO_STEPS = 30     # 🏇 "let it go" (owner Q1): a task may run this many steps a window — it stops only when done, at its $ cap, or for a human
 READ_MAX = 3500
 BLOCKED = re.compile(r'(?i)pass(word|code)|seed|mnemonic|recovery phrase|private key|cvv|card number')
 
@@ -50,8 +51,8 @@ def blocked_value(label, value):
     return bool(BLOCKED.search(str(label or '')) or re.search(r'\b(?:\d[ -]?){13,19}\b', str(value or '')))
 
 
-def new_task(tid, text, models, cap):
-    return {'id': tid, 'text': str(text)[:2000], 'status': 'planning', 'cap': float(cap), 'cost': 0.0, 'answer': None, 'fast': False,
+def new_task(tid, text, models, cap, steps=STEP_MAX):
+    return {'id': tid, 'text': str(text)[:2000], 'status': 'planning', 'cap': float(cap), 'cost': 0.0, 'answer': None, 'fast': False, 'stepsMax': int(steps),
             'windows': [{'i': i, 'model': m, 'goal': None, 'status': 'idle', 'bubble': 'waiting for the plan', 'url': None, 'title': None,
                          'steps': [], 'human': None, 'answer': None, 'cost': 0.0} for i, m in enumerate(models[:2])]}
 
@@ -81,8 +82,9 @@ async def _window(task, w, ask, page, wait_human, name):
     """One model working its half in its own browser. → its answer (or what it has when stopped)."""
     w['status'] = 'working'
     seen = ''
-    for _n in range(STEP_MAX):
-        msgs = [{'role': 'system', 'content': ACT_SYS.format(name=name, goal=w['goal'], steps=STEP_MAX)},
+    n_max = int(task.get('stepsMax') or STEP_MAX)
+    for _n in range(n_max):
+        msgs = [{'role': 'system', 'content': ACT_SYS.format(name=name, goal=w['goal'], steps=n_max)},
                 {'role': 'user', 'content': f"URL: {page.url or '(blank)'}\nTITLE: {page.title or ''}\nPAGE:\n{seen[:READ_MAX]}"}]
         a = parse_json(await _ask(task, w, ask, w['model'], msgs))
         act = str(a.get('action') or '').lower()
