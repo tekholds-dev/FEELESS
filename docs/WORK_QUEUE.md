@@ -86,7 +86,15 @@ Each loop iteration: ① cash check (card books vs wallet, halt, pending) → �
    width beat the drawer's 80 vs the shade's 70) — invisible and every tap closed it; now desktop-only (terminal.css). ✅ chart markers a size down on touch
    screens ≤ 900px: pins 22 → 16 (agent / talk 13), the SEAT tag + level tags (stop / take / germ) smaller (chartCallPins / chartLive / chartLevels.css).
    NEXT in P1: the phone Agents floor's chart is ~120px tall (the Live P&L block + ride rows take its half); then a page-by-page sweep on phone / Duo / fold.
-2. **P2 General cat = a beast** (owner: "before I get a general AI"): TWO browser windows (one per model) the user watches; Enter in chat → a fast answer from memory or the
+2. **P2 General cat = a beast** — ✅ slice 1 2026-10-29: `backend/cat_browser.py` (hosted browser CHAIN Steel → Browserless → Browserbase → reader; live view only when
+   it holds no key; Playwright `LivePage` over CDP + a text `ReaderPage`; `needs_human` walls) · `backend/cat_agent.py` (plan → fast answer from memory, or split
+   in two halves → each model browses its own window ≤ 8 steps, one action a step → merge; a sign-in / CAPTCHA / any attempt to type a password, card or seed
+   pauses the window for the human; a $ cap per task) · feecat `POST /api/cats/{id}/work` (owner only: ask · state · continue / stop · cap) + `/work/shot/{i}`
+   (snapshots), cost charged in the engine pass (`_work_settle`). UI `CatWorkbench.jsx` on a general cat's desk: two windows (live view / snapshot / step log),
+   a bubble top-right per window, the centred ✋ card, one chat, credit + this-task $ bars, the cap picker. Steel + Browserless verified live (a real session
+   opened, a page read, a snapshot taken). Tests `test_cat_agent.py` (8), `CatWorkbench.test.jsx`. NOT yet: `LAUNCH_CAT_LIVE` is off (no model calls — owner's
+   switch), the private KB store, the folder log, per-model colours, generative prompt picks, Gmail / GitHub accounts, real-money moves from a general cat.
+   ORIGINAL ASK (owner: "before I get a general AI"): TWO browser windows (one per model) the user watches; Enter in chat → a fast answer from memory or the
    models work in their browsers; a small bubble top-right of each window with the current action / thought; a centred "human needed" request over the window
    (sign-ups etc.) that pauses them; one chat under the two windows; usage / $-till-top-up bars (chat usage separate from the general prompt's); generative prompt
    picks when building the cat / choosing models; set max tokens / $ per task anytime, cost shown before + during work (Opus medium / max if possible); a small

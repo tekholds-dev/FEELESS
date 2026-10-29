@@ -1,3 +1,4 @@
+import { CatWorkbench } from './CatWorkbench';
 import React, { useMemo, useState } from 'react';
 import { ArrowLeft, Copy } from 'lucide-react';
 import NumInput from '../NumInput';
@@ -79,6 +80,7 @@ export function CatDesk({ cat, busy = false, error = '', onBack, onAct, Activity
       <Tile k={4} label="TODAY'S LOSS" value={`${v.lossToday.toFixed(3)} / ${v.cap || '—'} SOL`} fill={v.capUsed} tone={v.capUsed >= 1 ? 'dn' : v.capUsed > 0.6 ? 'warn' : ''}
         sub={v.capUsed >= 1 ? 'cap hit — no new buys today' : 'its daily loss cap'} tip="Losses closed today against the cap you set — at the cap it stops buying until tomorrow" />
     </div>
+    {cat.brainsCfg?.kind === 'general' ? <CatWorkbench cat={cat} /> : null}
     <div className="kd-grid">
       <div className="kd-main">
         {Real}

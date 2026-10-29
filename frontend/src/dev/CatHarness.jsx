@@ -21,7 +21,14 @@ const PROPS = [{ id: 'a1', side: 'buy', mint: 'M2', pair: 'P2', symbol: 'NEXT', 
 const AGT = 'AGTw4LLet9xQ2vRkZb7mNcY1pHf3sJd8uTeW5gK6oLqA';
 const realFetch = window.fetch.bind(window);
 const FUND = { plan: { usd: 25, feeUsd: 2, catUsd: 23, solUsd: 187.42, totalLamports: 133390000, feeLamports: 10671220, catLamports: 122718780 }, transaction: 'dev', expiresIn: 90 };
-window.fetch = (u, o) => (String(u).endsWith('/fund') ? Promise.resolve(new Response(JSON.stringify(FUND), { headers: { 'Content-Type': 'application/json' } })) : String(u).includes('/agent-wallet') ? Promise.resolve(new Response(JSON.stringify({ wallet: { address: AGT, mode: 'approve' }, balance: { sol: 0.4213, usdc: 12.5 } }), { headers: { 'Content-Type': 'application/json' } })) : realFetch(u, o));
+// 🧠🧠 the general cat's workbench mid-task: window 1 browsing (a step log + its bubble), window 2 stopped at a sign-in (✋ needs you)
+const WORK = { live: true, providers: ['steel', 'browserless', 'reader'], cap: 0.05, credit: 9.2, chat: [{ by: 'you', text: 'what is 2+2' }, { by: 'cats', text: '4', cost: 0.0004, fast: true }],
+  task: { id: 'w1', text: 'best YES on Kalshi for US capital this week', status: 'working', cap: 0.05, cost: 0.0132 },
+  windows: [{ i: 0, model: 'qwen/qwen3-32b', goal: 'Kalshi YES prices', status: 'working', provider: 'steel', url: 'https://kalshi.com/markets/kxcap', title: 'Kalshi', bubble: 'reading the YES ladder — $0.31 best bid so far', cost: 0.008,
+    steps: [{ action: 'search', thought: 'find the Kalshi market', detail: 'Kalshi US capital' }, { action: 'open', thought: 'open the market page', detail: 'kalshi.com/markets/kxcap' }, { action: 'click', thought: 'expand the order book', detail: 'Order book' }] },
+  { i: 1, model: 'anthropic/claude-opus-4.1', goal: 'news on US capital this week', status: 'human', provider: 'browserless', url: 'https://news.site/login', bubble: '✋ needs you: a sign-in', cost: 0.0052,
+    human: { why: 'a sign-in / sign-up — you type your own details in the window (FEELESS never sees them)' }, steps: [{ action: 'open', thought: 'open the paywalled story', detail: 'news.site' }] }] };
+window.fetch = (u, o) => (String(u).endsWith('/work') ? Promise.resolve(new Response(JSON.stringify(WORK), { headers: { 'Content-Type': 'application/json' } })) : String(u).endsWith('/fund') ? Promise.resolve(new Response(JSON.stringify(FUND), { headers: { 'Content-Type': 'application/json' } })) : String(u).includes('/agent-wallet') ? Promise.resolve(new Response(JSON.stringify({ wallet: { address: AGT, mode: 'approve' }, balance: { sol: 0.4213, usdc: 12.5 } }), { headers: { 'Content-Type': 'application/json' } })) : realFetch(u, o));
 export default function CatHarness() {
   const [mode, setMode] = useState(window.location.search.includes('paper') ? 'paper' : 'real');
   const [aw, setAw] = useState(window.location.search.includes('wallet') ? { address: AGT, mode: 'approve', provider: 'crossmint' } : null);

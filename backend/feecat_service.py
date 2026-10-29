@@ -11,6 +11,8 @@ File-backed JSON store, zero external dependencies, standalone FastAPI app.
 import env_loader  # noqa: F401  (must run before reading os.environ)
 import agent_wallet as _aw
 import agent_trade as _at
+import cat_agent as _ca
+import cat_browser as _cb
 _AGENT_MAX = 4   # cats with their own wallet per owner wallet (owner 2026-10-29: "up to 4 cats per user"; cat_fund.MAX_CATS)
 import asyncio
 import json
@@ -25,7 +27,7 @@ from typing import Any, Optional
 import httpx
 import http_ctx
 http_ctx.install()   # ⚡ every httpx client in this process shares ONE TLS context (a new client re-read the CA bundle)
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import FastAPI, HTTPException, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
@@ -768,13 +770,13 @@ def _brains_live():
     return os.environ.get('LAUNCH_CAT_LIVE', '').lower() in ('1', 'true', 'on') and bool(os.environ.get('OPENROUTER_API_KEY'))
 
 
-async def _or_call(model, messages):
+async def _or_call(model, messages, max_tokens=None):
     """One decision from OpenRouter; returns (text, $ it cost). The cost is OpenRouter's own report, else the price list estimate."""
     est = next((m['perDecision'] for m in ((_MODELS['rows'] or {}).get('models') or []) if m['id'] == model), 0.0)
     try:
         async with httpx.AsyncClient(timeout=40) as h:
             r = await h.post('https://openrouter.ai/api/v1/chat/completions', headers={'Authorization': f"Bearer {os.environ.get('OPENROUTER_API_KEY')}"},
-                             json={'model': model, 'messages': messages, 'max_tokens': _lc.OUT_TOK, 'temperature': 0.2, 'usage': {'include': True}})
+                             json={'model': model, 'messages': messages, 'max_tokens': max_tokens or _lc.OUT_TOK, 'temperature': 0.2, 'usage': {'include': True}})
         d = r.json() if r.status_code == 200 else {}
         text = ((d.get('choices') or [{}])[0].get('message') or {}).get('content') or ''
         return text, float((d.get('usage') or {}).get('cost') or est)
@@ -1275,6 +1277,74 @@ async def _meta_post(store):
     store['lastWallPost'] = time.time()
 
 
+# 🧠🧠 THE GENERAL CAT AT WORK (cat_agent.py + cat_browser.py, P2). One task per cat at a time, in memory; its windows are hosted browsers
+# (Steel → Browserbase → the reader). The ENGINE LOOP is the only writer of the cat store: a finished task's cost + its chat lines are applied
+# in `_work_settle` (the cat's credit pays, the owner's per-task $ cap bounds it). Live / snapshot views go only to the cat's owner.
+_WORK: dict = {}
+TASK_CAP_DEFAULT, TASK_CAP_MAX = 0.05, 2.0
+CHAT_KEEP = 60
+
+
+def _work_view(cat_id, owner=False):
+    w = _WORK.get(cat_id) or {}
+    t = w.get('task')
+    if not t:
+        return {'task': None}
+    wins = []
+    for x in t['windows']:
+        s_ = (w.get('sessions') or [None, None])[x['i']] or {}
+        wins.append({**{k: x.get(k) for k in ('i', 'model', 'goal', 'status', 'bubble', 'url', 'title', 'human', 'answer', 'cost')}, 'steps': x['steps'][-10:],
+                     'provider': s_.get('provider'), 'note': s_.get('note'), **({'live': s_.get('live'), 'shot': bool((w.get('pages') or [None, None])[x['i']] and not s_.get('live'))} if owner else {})})
+    return {'task': {k: t.get(k) for k in ('id', 'text', 'status', 'cap', 'cost', 'answer', 'fast', 'why')}, 'windows': wins}
+
+
+async def _work_run(cat_id, models, names, text, cap):
+    w = _WORK[cat_id]
+    env = os.environ
+    async with httpx.AsyncClient(timeout=30) as http:
+        sessions, pages = [], []
+        try:
+            for i, _m in enumerate(models):
+                s_, _tried = await _cb.open_session(http, env)
+                sessions.append(s_)
+                try:
+                    pages.append(await _cb.LivePage(s_['connect']).start() if s_.get('connect') else _cb.ReaderPage(http))
+                except Exception as e:   # the live browser did not connect → the reader keeps the model working
+                    sessions[-1] = {**s_, 'provider': 'reader', 'live': None, 'note': f"{s_['provider']} did not connect ({str(e)[:60]})"}
+                    pages.append(_cb.ReaderPage(http))
+            w.update(sessions=sessions, pages=pages)
+
+            async def ask(model, messages):
+                return await _or_call(model, messages, max_tokens=700)
+
+            async def wait_human(i):
+                ev = w['events'][i] = asyncio.Event()
+                await ev.wait()
+                return bool(w['go'].pop(i, False))
+            await _ca.run(w['task'], ask, pages, wait_human, names)
+        finally:
+            for pg in pages:
+                await pg.close()
+            for s_ in sessions:
+                await _cb.close_session(http, env, s_)
+            w['pages'] = [None, None]
+            w['done'] = True
+
+
+def _work_settle(store):
+    """The engine's pass: a finished task's $ is charged to the cat's credit and its question + answer join the cat's chat (one writer)."""
+    for cid, w in list(_WORK.items()):
+        if not w.get('done') or w.get('settled'):
+            continue
+        cat = store['cats'].get(cid)
+        t = w.get('task') or {}
+        if cat and cat.get('brainsCfg'):
+            _lc.charge(cat['brainsCfg'], t.get('cost') or 0)
+            cat['chat'] = (list(cat.get('chat') or []) + [{'by': 'you', 'text': t.get('text'), 'at': w.get('at')},
+                           {'by': 'cats', 'text': t.get('answer') or f"({t.get('status')}: {t.get('why') or 'no answer'})", 'at': time.time(), 'cost': t.get('cost'), 'fast': t.get('fast')}])[-CHAT_KEEP:]
+        w['settled'] = True
+
+
 async def _agent_pass(store):
     """🏇 Agent trades (agent_trade.py): every REAL cat with its own wallet settles what is in flight and sends its next proposal — inside this
     loop's own load → save, so no other writer races it. A failure is logged and never stops the engine."""
@@ -1302,6 +1372,7 @@ async def _engine_loop():
             if running:
                 await run_engine(store, running)
             await _agent_pass(store)
+            _work_settle(store)
             if time.time() - store.get('lastWallPost', 0) >= WALL_EVERY:
                 store['lastWallPost'] = time.time()   # claim the slot first; a failed post retries next window
                 await _meta_post(store)
@@ -1593,6 +1664,72 @@ def _internal(request):
         key = ''
     if not key or not hmac.compare_digest(request.headers.get('x-feeless-internal', ''), key):
         raise HTTPException(403, 'Internal only.')
+
+
+class WorkPayload(BaseModel):
+    op: str
+    ownerId: Optional[str] = None
+    text: Optional[str] = None
+    i: Optional[int] = None
+    cap: Any = None
+
+
+@app.post('/api/cats/{cat_id}/work')
+async def cat_work(cat_id: str, p: WorkPayload):
+    """🧠🧠 A general cat's workbench (the cat's OWNER only): ask · state · continue / stop (a human-needed window) · stop · cap ($ per task)."""
+    store = _load()
+    cat = store['cats'].get(cat_id)
+    if not cat:
+        raise HTTPException(404, 'Cat not found.')
+    if not p.ownerId or p.ownerId != cat.get('ownerId'):
+        raise HTTPException(403, "Only this cat's owner can work with it.")
+    b = cat.get('brainsCfg') or {}
+    w = _WORK.get(cat_id)
+    if p.op == 'cap':
+        v = max(0.005, min(TASK_CAP_MAX, float(p.cap or TASK_CAP_DEFAULT)))
+        cat['taskCap'] = round(v, 4); _save(store)
+        return {'cap': cat['taskCap']}
+    if p.op in ('continue', 'stop_window') and w:
+        ev = (w.get('events') or {}).get(int(p.i or 0))
+        if ev:
+            w['go'][int(p.i or 0)] = p.op == 'continue'; ev.set()
+    elif p.op == 'stop' and w and w.get('task'):
+        w['task']['stop'] = True
+        for i, ev in list((w.get('events') or {}).items()):
+            w['go'][i] = False; ev.set()
+    elif p.op == 'ask':
+        if b.get('kind') != 'general' or not b.get('brains'):
+            raise HTTPException(400, 'Only a General AI cat with its models works in browsers.')
+        if w and not w.get('done'):
+            raise HTTPException(409, 'It is still working on your last ask — stop it or wait.')
+        if not _brains_live():
+            raise HTTPException(400, 'Model calls are off on this server (LAUNCH_CAT_LIVE) — nothing was sent or charged.')
+        if not _lc.can_ask(b):
+            raise HTTPException(400, 'Out of model credit — top up to ask again.')
+        text = str(p.text or '').strip()
+        if not text:
+            raise HTTPException(400, 'Type what you want it to do.')
+        cap = min(float(cat.get('taskCap') or TASK_CAP_DEFAULT), max(0.005, float(b.get('credit') or 0) or TASK_CAP_DEFAULT))
+        models = list(b['brains'])[:2]
+        names = [str(m).split('/')[-1][:24] for m in models]
+        _WORK[cat_id] = {'task': _ca.new_task(uuid.uuid4().hex[:10], text, models, cap), 'events': {}, 'go': {}, 'sessions': [None, None], 'pages': [None, None], 'at': time.time()}
+        _WORK[cat_id]['runner'] = asyncio.create_task(_work_run(cat_id, models, names, text, cap))
+    out = _work_view(cat_id, owner=True)
+    return {**out, 'cap': float(cat.get('taskCap') or TASK_CAP_DEFAULT), 'credit': b.get('credit'), 'spent': b.get('spent'), 'chat': (cat.get('chat') or [])[-20:],
+            'live': _brains_live(), 'providers': _cb.chain(os.environ)}
+
+
+@app.get('/api/cats/{cat_id}/work/shot/{i}')
+async def cat_work_shot(cat_id: str, i: int, ownerId: str = ''):
+    """📸 A window's snapshot (JPEG) when its provider gives no live view — the cat's owner only."""
+    cat = _load()['cats'].get(cat_id)
+    if not cat or not ownerId or ownerId != cat.get('ownerId'):
+        raise HTTPException(403, "Only this cat's owner sees its windows.")
+    pg = ((_WORK.get(cat_id) or {}).get('pages') or [None, None])[i] if 0 <= i < 2 else None
+    jpg = await pg.shot() if pg else None
+    if not jpg:
+        raise HTTPException(404, 'No snapshot right now.')
+    return Response(content=jpg, media_type='image/jpeg', headers={'Cache-Control': 'no-store'})
 
 
 @app.get('/api/cats/{cat_id}/agent-wallet')
