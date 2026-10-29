@@ -43,7 +43,11 @@
 .fcx-mine.active { border-style: solid; border-color: var(--fpink); }
 .fcx-mine small { font: 800 9px 'JetBrains Mono', monospace; letter-spacing: .12em; color: #ffc2e4; max-width: 90px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .fcx-plus { display: grid; place-items: center; width: 34px; height: 34px; border-radius: 10px; border: 1px solid #ff5dbb66; color: var(--fpink); font: 800 18px 'JetBrains Mono', monospace; }
-.fcx-mine .clk { width: 36px; height: 36px; }
+.fcx-mine .clk { flex: none; width: 36px; height: 36px; }
+/* N09 (owner screenshot 2026-10-29): the art had no box of its own, so its svg (width 100%) fell back to the browser's 300×150 default and the
+   cat + its "fCat" tag spilled over the chip. The art fills the 36px box; the tag stays off here (the chip already says the name). */
+.fcx-mine .clk > .feeless-cat-art { width: 100%; height: 100%; } .fcx-mine .clk .feeless-cat-art > svg { width: 100% !important; height: 100% !important; }
+.fcx-mine .clk-tag { display: none; } .fcx-mine .clk-aura { inset: -2px; }
 .fcx-body { display: grid; grid-template-columns: minmax(0, 1fr); gap: 14px; min-width: 0; }
 .fcx { grid-template-columns: minmax(0, 1fr); } .fcx-body > * { min-width: 0; }
 

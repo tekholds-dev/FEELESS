@@ -71,14 +71,25 @@ export function agentDay(cat, now = Date.now() / 1000) {
 // 💵 FUND IT (cat_fund.py): any amount → GET A RECEIPT (the server prices it live and builds ONE transaction: the one-time FEELESS fee out of a
 // first funding of $10+, the rest into its wallet) → SIGN & FUND (your wallet signs that exact transaction; the server sends only it, confirms
 // it on-chain). A receipt lives 90s — prices move. No auto-quote: you ask for the receipt.
-const FUND_AMTS = [10, 25, 50, 100];
+const FUND_AMTS = [1, 5, 10, 25, 50, 100];
+// pure: the warning BEFORE a receipt (owner 2026-10-29: "if it isn't enough to start, let them know it only covers the fee")
+export function fundWarn(usd, rules, first) {
+  const u = Number(usd) || 0; const r = rules || {}; const fee = first ? Number(r.feeUsd) || 0 : 0; const min = first ? Number(r.minUsd) || 10 : Number(r.topupMinUsd) || 1;
+  if (u <= 0) return null;
+  if (first && fee > 0 && u <= fee) return `$${u} only covers the $${fee} one-time fee — its wallet would get nothing to trade. A first funding starts at $${min}.`;
+  if (u < min) return `${first ? 'A first funding' : 'A top-up'} starts at $${min}${first && fee ? ` ($${fee} to FEELESS once, the rest into its wallet)` : ''}.`;
+  return null;
+}
 const sol4 = l => (Number(l) / 1e9).toFixed(4);
 export function FundCat({ cat, addr, session, sign, onDone }) {
   const first = !(cat?.agentFunded || []).length;
+  const [rules, setRules] = useState(null);
+  useEffect(() => { let on = true; fetch(apiUrl(`/api/reputation/cats/fund-rules?address=${encodeURIComponent(addr || '')}`)).then(r => (r.ok ? r.json() : null)).then(j => { if (on && j) setRules(j); }).catch(() => {}); return () => { on = false; }; }, [addr]);
   const [usd, setUsd] = useState(first ? 10 : 5); const [rcpt, setRcpt] = useState(null); const [stage, setStage] = useState('pick'); const [err, setErr] = useState(''); const [sig, setSig] = useState(null);
   const [left, setLeft] = useState(0);
   useEffect(() => { if (!rcpt) return undefined; const t = setInterval(() => setLeft(l => Math.max(0, l - 1)), 1000); return () => clearInterval(t); }, [rcpt]);
-  const min = first ? 10 : 1;
+  const min = first ? Number(rules?.minUsd) || 10 : Number(rules?.topupMinUsd) || 1; const fee = first ? Number(rules?.feeUsd ?? 2) : 0;
+  const warn = fundWarn(usd, rules || { feeUsd: 2, minUsd: 10, topupMinUsd: 1 }, first);
   const post = async (path, body) => { const r = await fetch(apiUrl(`/api/reputation/cats/${cat.id}/${path}`), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
     const j = await r.json().catch(() => ({})); if (!r.ok) throw new Error(j.detail || `HTTP ${r.status}`); return j; };
   const quote = async () => { setErr(''); setStage('quoting');
@@ -89,9 +100,12 @@ export function FundCat({ cat, addr, session, sign, onDone }) {
     catch (e) { setErr(e.message || 'Your wallet did not sign.'); setStage('ready'); } };
   const p = rcpt?.plan;
   return <div className="cr-fund" data-testid="cr-fund">
+    <p className={`cr-fund-rule ${rules?.staff ? 'is-staff' : ''}`} data-testid="cr-fund-rule">{rules?.staff ? `👑 creator wallet — no FEELESS fee, from $${min}` : first
+      ? `Starts at $${min}: $${fee} to FEELESS once, $${Math.max(0, min - fee)}+ into its wallet. Top-ups after that: no fee.` : `Top-up from $${min} — no fee, all of it into its wallet.`}</p>
     <div className="cr-fund-pick"><em>{first ? 'FUND IT · FIRST' : 'TOP IT UP'}</em>
       <div className="m-seg" role="radiogroup" aria-label="How much">{FUND_AMTS.filter(a => a >= min).map(a => <button key={a} type="button" role="radio" aria-checked={Number(usd) === a} className={Number(usd) === a ? 'active' : ''} onClick={() => { setUsd(a); setRcpt(null); setStage('pick'); }} data-testid={`cr-fund-${a}`}>${a}</button>)}</div>
       <label className="cr-fund-in">$<input className="m-input" type="number" min={min} step="any" value={usd} onChange={e => { setUsd(e.target.value); setRcpt(null); setStage('pick'); }} aria-label="Dollars to fund it with" data-testid="cr-fund-usd" /></label></div>
+    {warn ? <p className="cr-fund-warn" role="status" data-testid="cr-fund-warn">⚠ {warn}</p> : null}
     {p ? <ol className="cr-rcpt" data-testid="cr-receipt">
       <li style={{ '--i': 0 }}><small>YOU PAY</small><b className="m-num">${p.usd.toFixed(2)}</b><i>{sol4(p.totalLamports)} SOL</i></li>
       <li style={{ '--i': 1 }} className={p.feeUsd ? 'is-fee' : 'is-free'} data-tip={p.feeUsd ? 'One time, out of its first funding — never on a top-up' : 'Top-ups carry no FEELESS fee'}><small>FEELESS · ONE-TIME</small><b className="m-num">{p.feeUsd ? `$${p.feeUsd.toFixed(2)}` : '$0'}</b><i>{sol4(p.feeLamports)} SOL</i></li>

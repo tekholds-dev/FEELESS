@@ -109,12 +109,23 @@ test('💵 FUND IT: any amount → a receipt (you pay · FEELESS one-time · int
   expect([...el.querySelectorAll('[data-testid^="cr-fund-"][role="radio"]')].map(b => b.textContent)).toEqual(['$10', '$25', '$50', '$100']);   // first funding: $10+
   await act(async () => { el.querySelector('[data-testid="cr-fund-25"]').click(); });
   await act(async () => { el.querySelector('[data-testid="cr-fund-quote"]').click(); });
-  expect(calls[0][1]).toEqual({ address: DEV, session: 'sess', usd: 25 });
+  const posts = () => calls.filter(c => c[1]);
+  expect(calls[0][0]).toContain('/cats/fund-rules?address=');                                                      // the rules come first
+  expect(posts()[0][1]).toEqual({ address: DEV, session: 'sess', usd: 25 });
   const r = el.querySelector('[data-testid="cr-receipt"]').textContent;
   expect(r).toContain('$25.00'); expect(r).toContain('$2.00'); expect(r).toContain('$23.00'); expect(r).toContain('0.1150 SOL');
   await act(async () => { el.querySelector('[data-testid="cr-fund-sign"]').click(); });
-  expect(sign).toHaveBeenCalledWith('TXB64'); expect(calls[1][0]).toContain('/cats/c1/fund/send'); expect(calls[1][1]).toEqual({ address: DEV, session: 'sess', signed: 'signed:TXB64' });
+  expect(sign).toHaveBeenCalledWith('TXB64'); expect(posts()[1][0]).toContain('/cats/c1/fund/send'); expect(posts()[1][1]).toEqual({ address: DEV, session: 'sess', signed: 'signed:TXB64' });
   expect(el.querySelector('[data-testid="cr-fund-done"]').textContent).toContain('✓ funded');
   await act(async () => { root.render(<FundCat cat={{ id: 'c1', agentFunded: [{ sig: 'S' }] }} addr={DEV} session={session} sign={sign} />); });
   await act(async () => { root.unmount(); });
+});
+
+test('💵 the warning before a receipt: an amount that only covers the fee says so; staff pay no fee', () => {
+  const { fundWarn } = require('./CatReal');
+  const R = { feeUsd: 2, minUsd: 10, topupMinUsd: 1 };
+  expect(fundWarn(2, R, true)).toContain('only covers the $2 one-time fee'); expect(fundWarn(1, R, true)).toContain('only covers');
+  expect(fundWarn(6, R, true)).toContain('starts at $10'); expect(fundWarn(10, R, true)).toBeNull();
+  expect(fundWarn(0.5, R, false)).toContain('A top-up starts at $1'); expect(fundWarn(3, R, false)).toBeNull();
+  expect(fundWarn(1, { feeUsd: 0, minUsd: 1, topupMinUsd: 1, staff: true }, true)).toBeNull();                        // the creator tests with $1, no fee
 });

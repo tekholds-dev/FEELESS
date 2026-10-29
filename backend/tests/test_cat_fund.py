@@ -29,6 +29,19 @@ def test_the_first_funding_pays_2_dollars_once_and_a_top_up_is_all_for_the_cat()
             cf.plan(*bad)
 
 
+def test_hq_sets_the_fee_and_minimum_an_amount_that_only_covers_the_fee_is_refused_and_staff_pay_nothing():
+    p = cf.plan(20, 200, True, fee_usd=5, min_usd=15)
+    assert p['feeUsd'] == 5 and p['catUsd'] == 15
+    with pytest.raises(ValueError, match='only covers the \\$5 one-time fee'):
+        cf.plan(5, 200, True, fee_usd=5, min_usd=15)
+    with pytest.raises(ValueError, match='starts at|is \\$15'):
+        cf.plan(12, 200, True, fee_usd=5, min_usd=15)
+    staff = cf.plan(1, 200, True, fee_usd=0, min_usd=1)                                         # the creator: $1, no fee
+    assert staff['feeLamports'] == 0 and staff['catLamports'] == staff['totalLamports'] == 5_000_000
+    with pytest.raises(ValueError):
+        cf.plan(5.5, 200, True, fee_usd=5, min_usd=1)                                         # min never under fee + $1
+
+
 def test_one_transaction_two_transfers_and_only_the_exact_one_signed_by_the_owner_passes():
     o, cat, fee, other = Keypair(), Keypair(), Keypair(), Keypair()
     p = cf.plan(10, 200, True)

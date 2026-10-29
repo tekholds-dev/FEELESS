@@ -86,12 +86,20 @@ Each loop iteration: ① cash check (card books vs wallet, halt, pending) → �
 - **N04 Study agents + AI for NSFA ("no strat fits all")**: the new intake is giving good coins (germ + others) — audit the agent / AI code against it and fix what holds them back (run `scripts/edge-audit.py` first; guards stay).
 - **N05 No paper for users, site-wide**: real money only; any amount entry + a receipt breakdown wherever real money is signed (FeeCat, Families, …).
 - **N06 Cat cloud + log**: a cloud store per trader / general cat; users browse a folder-style log (dropdowns) of what it researched, opened, bid, traded; a general cat can open links and ask the user to sign in (2 user-chosen AI models).
-- **N07 Real money never breaks**: general wallet signed in → Trench Trade shows P&L, sell works, swap history shows. **BUG: the Fuse wallet's profile shows no trade / swap history in Families or Profile.**
+- **N07 Real money never breaks** — ✅ the history bug FIXED 2026-10-29: Helius is out of quota ("max usage reached") and the profile / Families / positions read
+  Helius only → every wallet's history read EMPTY. `backend/wallet_swaps.py` + `_rpc_wallet_swaps`: falls back to Solana RPC (signatures → jsonParsed txs → the wallet's
+  own balance changes); live check on the Fuse wallet: 15 swaps of its last 25 txs. SOL price now `_sol_usd_live` (a 0 price dropped every SOL swap). Tests
+  `test_wallet_swaps.py`. P&L (receipts) was never Helius-bound. Still to walk: Trench Trade sell + history signed in as the general wallet (needs the owner's wallet).
 - **N08 Families**: a new family cannot be raided for its first 24h; the owner sets any cost in the family cmd ctr (e.g. 5 MP for a city lot).
-- **N09 FeeCat art misaligned**: the cat image overlaps the FEE CAT badge (owner screenshot 2026-10-29: cat head over the "FEE CAT" chip + "fCat" tag, top right).
+- **N09 FeeCat art misaligned** — ✅ FIXED 2026-10-29: the FeeCat header's `fcx-mine` chip gave its art no box, so the svg (width 100%) fell back to 300×150 and spilled + its tag; now pinned to 36px, tag hidden there (`feecatShell.css`).
 - **N10 FeeCat live desk**: the creator wallet's live desk = the NEXA advanced dashboard; users see a meta view of it (no chat etc.) until they own a cat.
 - **N11 First-visit tutorials**: a pop-out quick tutorial for Family, Fuse, Trench and FeeCat.
 - **N12 Meme terms**: better mechanics for the user's edge.
+- **N13 Two AIs, one brain** (general + trader cats): the two chosen models split a question, each researches its half in its OWN real browser (saved tabs, never
+  passwords; "Opus 5.5 will know what to do — just needs a browser it can really work in"), talk it through ("AI1: Kalshi has a good YES at $3 on US capital this week — I'll
+  research abc, you research def") and come together on one decision with its evidence. Better than a crawl spider. Same for trader agents.
+- **W01 funding rules** — ✅ 2026-10-29: HQ › Fees › 6 · FeeCat funding sets the one-time fee + the least first funding (`catFeeUsd` / `catMinUsd`); staff / creator wallets
+  pay no fee and may start from $1; `GET /api/reputation/cats/fund-rules`; the desk says the rule BEFORE an amount and warns when an amount only covers the fee.
 - Standing: professional code, no lag, nothing buggy or breaking.
 
 ## Build next — latest owner priorities

@@ -24,15 +24,18 @@ PLAN_SEC = 90.0         # a built transaction is good for this long (its blockha
 LAMPORTS = 1_000_000_000
 
 
-def plan(usd, sol_usd, first):
-    """$ amount + live SOL price + is this the cat's first funding → {usd, feeUsd, solUsd, totalLamports, feeLamports, catLamports}."""
+def plan(usd, sol_usd, first, fee_usd=FEE_USD, min_usd=MIN_USD):
+    """$ amount + live SOL price + is this the cat's first funding (+ HQ's fee / minimum; a creator wallet: fee 0, min $1) →
+    {usd, feeUsd, solUsd, totalLamports, feeLamports, catLamports, catUsd}."""
     usd, px = float(usd or 0), float(sol_usd or 0)
     if px <= 0:
         raise ValueError('No live SOL price right now — try again in a minute.')
-    lo = MIN_USD if first else TOPUP_MIN_USD
+    fee_usd = max(0.0, float(fee_usd or 0)) if first else 0.0
+    lo = max(float(min_usd or 0), fee_usd + 1) if first else TOPUP_MIN_USD
+    if usd < lo and first and usd <= fee_usd + 1e-9:
+        raise ValueError(f'${usd:g} only covers the ${fee_usd:g} one-time fee — a first funding starts at ${lo:g} so its wallet gets money to trade.')
     if not lo <= usd <= MAX_USD:
         raise ValueError(f'A {"first funding" if first else "top-up"} is ${lo:g} to ${MAX_USD:,.0f}.')
-    fee_usd = FEE_USD if first else 0.0
     total = int(usd / px * LAMPORTS)
     fee = int(fee_usd / px * LAMPORTS + 0.999999)   # FEELESS's cut rounds up to the lamport, the cat's share is the rest
     return {'usd': round(usd, 2), 'feeUsd': fee_usd, 'solUsd': round(px, 4), 'totalLamports': total, 'feeLamports': fee, 'catLamports': total - fee,

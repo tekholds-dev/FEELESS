@@ -11018,6 +11018,7 @@ async def familia_pools_sleep():
 
 
 import cat_fund as _cfund
+import wallet_swaps as _wswaps
 _cfund_plans: dict = {}   # f"{cat}:{owner}" → the transaction FEELESS built (memory only, PLAN_SEC) — a signed copy must match it byte for byte
 
 
@@ -11044,6 +11045,22 @@ async def _cat_for_fund(cat_id, me):
     return cat, w
 
 
+def _cat_fund_rules(me=None):
+    """💵 What funding a cat costs, from HQ › Fees (owner 2026-10-29: "I wanna set how much per cat in cmd"): the one-time fee + the least a
+    first funding may be. A staff / creator wallet pays NO fee and may start from $1 ("I'm the owner — it shouldn't charge me the fee")."""
+    c_ = _fee_cfg()
+    fee_, min_ = max(0.0, _fuse._f(c_.get('catFeeUsd', _cfund.FEE_USD))), max(1.0, _fuse._f(c_.get('catMinUsd', _cfund.MIN_USD)))
+    staff_ = bool(me) and _is_staff(me)
+    return {'feeUsd': 0.0 if staff_ else fee_, 'minUsd': _cfund.TOPUP_MIN_USD if staff_ else max(min_, fee_ + 1), 'topupMinUsd': _cfund.TOPUP_MIN_USD,
+            'maxUsd': _cfund.MAX_USD, 'staff': staff_, 'maxCats': _cfund.MAX_CATS}
+
+
+@app.get('/api/reputation/cats/fund-rules')
+async def cat_fund_rules(address: str = Query('', max_length=64)):
+    """💵 The funding rules a cat's desk shows BEFORE you type an amount (fee, minimum, top-up minimum; a creator wallet: no fee)."""
+    return _cat_fund_rules(address if _re.match(r'^[1-9A-HJ-NP-Za-km-z]{32,44}$', address or '') else None)
+
+
 @app.post('/api/reputation/cats/{cat_id}/fund')
 async def cat_fund_build(cat_id: str, p: CatFundIn):
     """💵 FUND A CAT (cat_fund.py, DECISIONS #2): the receipt + ONE unsigned transaction — the one-time FEELESS fee ($2, first funding only)
@@ -11053,12 +11070,13 @@ async def cat_fund_build(cat_id: str, p: CatFundIn):
         raise HTTPException(401, 'Sign in with your wallet first (one signature, no transaction).')
     cat, w = await _cat_for_fund(cat_id, me)
     first = not cat.get('agentFunded')
+    rules_ = _cat_fund_rules(me)
     async with httpx.AsyncClient(timeout=10) as http:
-        fee_w = (_fee_cfg().get('vaultFeeWallet') or '') or ((await _fee_wallet_owner(http, _fee_cfg())) or '') if first else ''
-        if first and not fee_w:
+        fee_w = ((_fee_cfg().get('vaultFeeWallet') or '') or ((await _fee_wallet_owner(http, _fee_cfg())) or '')) if first and rules_['feeUsd'] > 0 else ''
+        if first and rules_['feeUsd'] > 0 and not fee_w:
             raise HTTPException(503, 'The FEELESS fee wallet is not set — HQ › Fees › vault fee wallet.')
         try:
-            pl = _cfund.plan(p.usd, await _sol_usd(), first)
+            pl = _cfund.plan(p.usd, await _sol_usd(), first, fee_usd=rules_['feeUsd'], min_usd=rules_['minUsd'])
             bh = ((await _rpc(http, 'getLatestBlockhash', [{'commitment': 'confirmed'}])) or {}).get('value', {}).get('blockhash')
             tx = _cfund.build(me, w['address'], fee_w or w['address'], pl, bh)
         except ValueError as e:
@@ -27081,7 +27099,7 @@ FEE_DEFAULTS = {'platformFeeBps': 0, 'referralAccount': '', 'tierDiscountPct': {
                 # 0.5–2.55%). ultraFallback: Ultra is only used when the Swap API fails AND this is switched on.
                 'engine': 'swap', 'ultraFallback': False, 'feeAccountSol': '', 'feeAccountUsdc': '', 'priorityMaxLamports': 200000,
                 # FUSE Vault: management + performance fees are paid in SOL to this wallet.
-                'vaultFeeWallet': ''}
+                'vaultFeeWallet': '', 'catFeeUsd': 2.0, 'catMinUsd': 10.0}
 JUP_MIN_BPS, JUP_MAX_BPS = 50, 255   # Jupiter Ultra referral-fee limits
 SWAP_MAX_BPS = 2000                  # FEELESS cap on the Swap API fee (20%)
 PRIORITY_MAX_LAMPORTS = 5_000_000    # never let a setting spend more than 0.005 SOL on priority
@@ -27249,6 +27267,8 @@ class FeeCfg(BaseModel):
     lifiIntegrator: str = ''
     lifiFeeBps: int = Field(0, ge=0, le=LIFI_MAX_BPS)
     vaultFeeWallet: str = ''
+    catFeeUsd: float = Field(2.0, ge=0, le=100)     # 💵 FeeCat: FEELESS's one-time cut out of a cat's first funding (cat_fund.py)
+    catMinUsd: float = Field(10.0, ge=1, le=1000)   # 💵 FeeCat: the least a cat's first funding may be
 
     # Settings saved by older builds can come back as null or out of range: clean them instead of
     # rejecting the whole save.
@@ -28019,7 +28039,7 @@ async def admin_fees_set(request: Request, payload: FeeCfg):
                      'lifiIntegrator': integrator, 'lifiFeeBps': payload.lifiFeeBps if integrator else 0,
                      'engine': payload.engine, 'ultraFallback': payload.ultraFallback, 'feeAccountSol': payload.feeAccountSol,
                      'feeAccountUsdc': payload.feeAccountUsdc, 'priorityMaxLamports': payload.priorityMaxLamports,
-                     'vaultFeeWallet': payload.vaultFeeWallet, **{k: v for k, v in (d.get('fees') or {}).items() if k in ('bundle', 'rounds', 'prepay', 'crews', 'house')}}
+                     'vaultFeeWallet': payload.vaultFeeWallet, 'catFeeUsd': payload.catFeeUsd, 'catMinUsd': max(payload.catMinUsd, payload.catFeeUsd + 1), **{k: v for k, v in (d.get('fees') or {}).items() if k in ('bundle', 'rounds', 'prepay', 'crews', 'house')}}
         tier_txt = ' / '.join(f"{float(tiers.get(k, 0)):g}%" for k in ('0', '1', '2', '3'))
         _audit(d, admin, 'fees', f"{'Swap API' if payload.engine == 'swap' else 'Ultra'} · fee {payload.platformFeeBps / 100:.2f}% · Ultra fallback {'on' if payload.ultraFallback else 'off'} · "
                                  f"holder discounts {tier_txt} · promo {promo['discountPct']:.0f}% · speed tip ≤ {payload.priorityMaxLamports / 1e9:.4f} SOL")
@@ -30150,13 +30170,16 @@ async def _maker_swaps(http, address):
     """[{ts, side, usd, price, token, tx}] for the wallet's recent swaps. SOL legs are priced at the
     live SOL rate; stablecoin legs count 1:1. [] when Helius is not configured."""
     key_ = _helius_key()
-    if not key_:
-        return []
-    try:
-        txs = (await http.get(f'https://api.helius.xyz/v0/addresses/{address}/transactions', params={'api-key': key_, 'type': 'SWAP', 'limit': 100})).json()
-        sol_usd = float(((await http.get(f'https://lite-api.jup.ag/price/v3?ids={WSOL}')).json().get(WSOL) or {}).get('usdPrice') or 0)
-    except Exception:
-        return []
+    sol_usd = await _sol_usd_live()   # Jupiter → DexScreener SOL/USDC → the last good price (a 0 here dropped every SOL-priced swap)
+    txs = None
+    if key_:
+        try:
+            r_ = await http.get(f'https://api.helius.xyz/v0/addresses/{address}/transactions', params={'api-key': key_, 'type': 'SWAP', 'limit': 100})
+            txs = r_.json() if r_.status_code == 200 else None
+        except Exception:
+            txs = None
+    if not isinstance(txs, list):   # 🔁 N07: Helius out of quota / down / not set → the wallet's own Solana RPC history (wallet_swaps.py), never an empty page
+        return await _rpc_wallet_swaps(http, address, sol_usd)
     out = []
     for tx in txs if isinstance(txs, list) else []:
         delta, quote_usd = {}, 0.0
@@ -30182,6 +30205,28 @@ async def _maker_swaps(http, address):
         out.append({'ts': tx.get('timestamp') or 0, 'side': 'buy' if amt > 0 else 'sell', 'usd': round(usd, 2),
                     'price': usd / abs(amt), 'token': mint, 'tx': tx.get('signature')})
     return out
+
+
+RPC_SWAP_SIGS, RPC_SWAP_PAR = 40, 6
+
+
+async def _rpc_wallet_swaps(http, address, sol_usd):
+    """The wallet's last RPC_SWAP_SIGS transactions from Solana RPC (the pooled lanes: Alchemy / Helius RPC / public) → its swaps, read from
+    its own balance changes (wallet_swaps.parse). RPC_SWAP_PAR reads at a time; a read that fails is skipped, never guessed."""
+    try:
+        sigs = await _rpc(http, 'getSignaturesForAddress', [address, {'limit': RPC_SWAP_SIGS, 'commitment': 'confirmed'}]) or []
+    except Exception:
+        return []
+    sem = asyncio.Semaphore(RPC_SWAP_PAR)
+
+    async def one(sig):
+        async with sem:
+            try:
+                return await _rpc(http, 'getTransaction', [sig, {'encoding': 'jsonParsed', 'maxSupportedTransactionVersion': 0, 'commitment': 'confirmed'}])
+            except Exception:
+                return None
+    txs = await asyncio.gather(*(one(x_['signature']) for x_ in sigs if x_.get('signature') and x_.get('err') is None))
+    return [r_ for r_ in (_wswaps.parse(t_, address, sol_usd) for t_ in txs if t_) if r_]
 
 
 # ---- KOL tracker: real trades of wallets FEELESS admins mark as KOLs, and why the pattern matters --
@@ -30691,7 +30736,8 @@ async def wallet_trades(address: str, limit: int = 40):
 async def wallet_trades_ep(address: str):
     if not (_re.match(r'^[1-9A-HJ-NP-Za-km-z]{32,44}$', address) or _re.match(r'^0x[0-9a-fA-F]{40}$', address)):
         raise HTTPException(400, 'Bad address.')
-    return {'address': address, 'trades': await wallet_trades(address), 'source': 'Helius'}
+    rows_ = await wallet_trades(address)
+    return {'address': address, 'trades': rows_, 'source': 'Solana RPC' if rows_ and rows_[0].get('source') == 'rpc' else 'Helius'}
 
 
 @app.get('/api/reputation/copy/check/{address}')

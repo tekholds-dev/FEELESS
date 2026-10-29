@@ -120,3 +120,7 @@ body.theme-day .cr-ag-day b { color: #1c1230; } body.theme-day .cr-ag-day u { ba
 body.fx-lite .cr-rcpt li { animation: none; } body.fx-lite .cr-fund-clock s { transition: none; } @media (prefers-reduced-motion: reduce) { .cr-rcpt li { animation: none; } .cr-fund-clock s { transition: none; } }
 body.theme-day .cr-rcpt li { background: #fff; border-color: rgba(60, 40, 160, .12); } body.theme-day .cr-rcpt b { color: #1c1230; } body.theme-day .cr-rcpt .is-cat b { color: #0a8f6e; text-shadow: none; } body.theme-day .cr-rcpt .is-fee b { color: #a2700a; }
 @media (max-width: 640px) { .cr-rcpt { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.cr-fund-rule { margin: 0; font: 700 10px var(--f-ui, sans-serif); color: #cfc6ff; } .cr-fund-rule.is-staff { color: #f5c451; }
+.cr-fund-warn { margin: 0; padding: 6px 9px; border-radius: 8px; border-left: 2px solid #f5c451; background: rgba(245, 196, 81, .08); font: 700 10px/1.4 var(--f-ui, sans-serif); color: #f5d27a; animation: crIn .2s ease-out both; }
+body.fx-lite .cr-fund-warn { animation: none; } @media (prefers-reduced-motion: reduce) { .cr-fund-warn { animation: none; } }
+body.theme-day .cr-fund-rule { color: #4d3fa3; } body.theme-day .cr-fund-rule.is-staff, body.theme-day .cr-fund-warn { color: #8a5d00; }
