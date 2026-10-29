@@ -57,8 +57,8 @@ Rules (each one is a bug we already had):
 |---|---|---|---|---|---|---|---|
 | HQ › Agents (floor) | — | ✓ one screen | ✓ (phone floor) | ✓ | ✓ chart 248 px | ✓ crease 56·389·445 | 2026-10-29 |
 | Trenches floor (DuoFloor) | ✓ no side-scroll | — | ✓ | — | — | ✓ | shell owner since 2026-10-27 |
-| Home · FEEd · Pump radar · Radar | ? | — | ? | — | — | ? | ⚠ first E02 sweep invalid (harness page); re-run pending |
-| Fuse · Launch · FeeCat · Launch a cat · Familia · Perps · Settings | ? | — | — | — | — | ? | ⚠ re-run pending (E03–E07) |
+| Home · Trenches · FEEd · Pump radar · Radar | ✓ | — | ✓ | — | — | ✓ | real-page sweep 2026-10-29: no side-scroll; Pump toolbar fixed |
+| Fuse · Launch · FeeCat · Launch a cat · Familia · Perps | ✓ | — | ✓ | — | — | ✓ | no side-scroll; Fuse tab fixed; open: Launch step overlap, FeeCat lives overlay, Familia swipe rows (E04–E06) |
 
 ## This delivery
 
