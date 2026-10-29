@@ -25,7 +25,7 @@ Conserve usage · finish the selected work by priority · never dead-style.
 
 | ID | Status | Specific remaining work / done when |
 |---|---|---|
-| M01 | VERIFY | Mobile pass on every tab, modal and pop-out. Use MOBILE_LAYOUT matrix; no clipped controls, page overflow, stale orientation or lost state. Agents is this delivery; other pages are not certified by it. |
+| M01 | VERIFY | 2026-10-29: phone eco (no overheating), site-wide sticky fix, Agents floor on Duo/fold/phone (MOBILE_LAYOUT › Duo floors). Still to sweep against the contract: Fuse, Launch, Radar, FeeCat, Familia, Perps pages + modals. OWNER: physical Safari. |
 | F01 | VERIFY | FEEd v5 shipped 2026-10-29 (`FeedX.jsx`, `feed.css`, `feedPro.css`): 600px column, sticky glass header (For you/Following/Calls/Heat/Graveyard + 🔖, sliding underline), swipe source chips, composer with live CA coin card, ↑N new pill, post cards with live coin chip (→ Trenches floor) + call receipt, threads on a connector line, rail (search · pulse · trending · callers · who to follow · sites), mini-nav ≥1250, phone ✎ sheet + folding header, Duo split. Browser-checked desktop/360/Duo-wide/day/pop-out. Remaining: owner look on real phone/Duo; coin chips/receipts only seen via the composer (no coin posts in the live feed today). |
 | G01 | OPEN | Strike Zone: real CC0 gun models and camo/PBR assets; replace placeholders, preserve gameplay. |
 | T01 | OPEN | HQ Telegram center: bot rooms, alerts/trading/community/security, Mini App setup; FeeCat-art idle RPG and slot game hub. |

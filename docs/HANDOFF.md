@@ -15,13 +15,18 @@ Read this (2 min) → `CLAUDE.md` (lean rules + 🎨 MANDATORY STYLING + 📋 CU
 >    LIVE visual (meters, bars, animation on real numbers), never bare text. `styles/cssCoverage.test.js` fails on an unstyled class.
 
 ## 🔁 NOW (rewrite this section in place every session)
-**Updated 2026-10-29 · Real card stopped buying (auto-halt) — fixed + live.** The Fuse wallet's gas reserve (fees + coin-account rent outside the books) ran dry: wallet 0.0311 SOL vs books 0.0345 → every 60 s balance read halted `degen` ("confirmed wallet SOL is below card books"); ▶ Resume bought once, the next read halted again. `fuse_wallet.fit_gas_shortage`: a gap ≤ 0.01 SOL the cards can cover is booked as fees the cards paid (`cardFeesSol`, P&L unchanged), never while an order is pending; bigger gaps still halt. Resume button shows "auto-paused" + the reason. Live 01:31: gasfit 0.003375 SOL → unhalt by itself. Also committed the agentStyle WIP (auto/scalp/ride) that 7b110495 already depended on (warden crashed without `real_learn.style_record`).
-
-**Also 2026-10-29 · H01 HQ** — `/dev/hq?deck=<tab>` opens the WHOLE HQ on fixtures (src/dev/HqHarness.jsx; admin reads answer `{}`, writes `{ok:true}`). 16 of 32 tabs crashed all of HQ on an empty reply; every panel read now goes through `lib/shape.shaped(DEFAULTS)`, and `HqDeck.TabGuard` contains any future crash to its tab. New panel read ⇒ add it to `HqDeckMissing.test.jsx`'s 32-tab sweep (it fails on crash / NaN / undefined text).
-
-**Also 2026-10-29 · F01 FEEd v5** (`components/command/FeedX.jsx`, `styles/feed.css` `fd-*`, `styles/feedPro.css` looks/pulse/pop-out/Duo): one 600px column, sticky glass header (tabs + swipe chips), composer with a live CA coin card, live coin chips → `openTrenchTrade`, call receipts, threads, rail with search/pulse/trending/callers/who-to-follow, ✎ sheet (portal) on phones. Phone fix: `html/body:has(.fd) { overflow-x: clip }` — the site's mobile `overflow-x: hidden` makes <body> a scroll container, so NO sticky header sticks on phones site-wide (worth fixing globally later). Dead `.feed-side/.feed-top/.feed-callers/.feed-flares` rules removed from terminal.css.
-
-Gate: backend 2,268 passed/26 skipped · frontend 1,641 passed · build OK · pushed main b91cc98a · reputation :5077 restarted from Claude's watcher. Not browser-verified (the auto-paused label only shows while halted). OWNER: top up ~0.02 SOL of gas to the Fuse wallet — until then each trade's fees/rent come out of card cash (booked as fees).
+**Updated 2026-10-29 · one long owner session, all pushed to main (gate green each push).**
+- 💵 Real card auto-halt fixed + live (gas-sized SOL gap booked as card fees). OWNER: top up ~0.02 SOL gas to the Fuse wallet.
+- 📰 FEEd v5 (`FeedX.jsx`, `feed.css`, `feedPro.css`) + its own page `/terminal/feed` (sidebar FEEd; profile bar opens it, reads the real mixed feed).
+- 🖥 HQ: `/dev/hq?deck=<tab>` whole-HQ fixture harness; every panel read through `lib/shape.shaped`; `HqDeck.TabGuard`; 32-tab empty-data sweep test.
+- 🔋 Phone eco (`lib/eco.js`, `styles/eco.css`): touch phones / Duo → no blur, globe draws only while touched, 1× canvas, 6s price poll, numbers snap.
+  Animations STAY (owner: keep the cool effects). Settings › Look › "Full effects on this phone". Phones: html/body overflow-x clip → sticky works.
+- 🛰 ONE intake: HQ › Agents shows only the shared ALL LEVELS tank (the rows the agents screen); agents' coins ringed; owner orders in the popup;
+  one row per coin (`intakeLane`), lane labels in a gutter.
+- 📱📱 Agents on Duo / fold / phone = the Trenches floor shell portaled (`.dfl.dfl-agents`). THE CONTRACT: `docs/MOBILE_LAYOUT.md › Duo floors` — read it before any phone work.
+- 🕯 Candle clock (`lib/tween.rollBar`): new candles open on time at the previous close.
+Not done / not verified: physical Safari/Duo check (OWNER); true per-trade chart ticks need swap-price parsing server-side (today ≤ 1 Jupiter read/s per swap);
+H01 unread folding / '—' cells need owner screenshots; FEELESS rooms in FEEd still the chat component.
 
 Conserve usage · finish the selected work by priority · never dead-style.
 
