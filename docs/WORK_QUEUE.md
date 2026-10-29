@@ -88,7 +88,13 @@ Each loop iteration: ① cash check (card books vs wallet, halt, pending) → �
   rule-matched coins first seen UNDER 15 min +5.1% typical / 53% up (n 196); first seen at 15 min+ −8.2% / 24% up (n 38). Your youngest-coin line `agentMinAgeH`
   = 15 min walls exactly the winning side, so A06 could only pick the losing one. Fix: a pick must have been < 15 min old when first seen (tightening, always on) +
   the owner's switch 🐣 FROM 5 MIN (`pickYoung`, off): a pick that survived its own 5-min watch may pass ONLY the youngest-coin line (every other wall re-run), half seat.
-  Tests `test_edge_pick.py` (8). NEXT: the AI seat's own losing record (holds 3–25 min; memory: 30 min+ holds win) — a study of its exits.
+  Tests `test_edge_pick.py` (8).
+  🔎 AI SEAT STUDY 2026-10-29 (`agent_archive.json`, 136 closed OSSY / G4 real trades, 7.7 days): typical −4.5%, 28% won. Held < 30 min −5…−13%, 30 min+ −0.2 / +2.5%
+  — BUT the counterfactual (5m candles, the 17 early model sells the history covers) shows the coins kept FALLING after the sell (+30m −2.3% typical, 24% up; +60m −3.1%,
+  18% up): the early sells were right; long holds look good only because good trades get held. NOT an exit problem. The losses are the ENTRIES: 54/136 never went
+  green; 75 of the buys were coins 1 day+ old (−3.4% = the market's own baseline for old coins), none < 15 min (the owner's line); every chart call / structure / weather
+  bucket at entry is negative. The seat has no edge of its own. OWNER DECISION (asked): pause its real buys (paper until its record is positive) or let it buy only 🧪
+  PICK coins (proven rule + survival + germ; with 🐣 on).
 - **N05 No paper for users, site-wide**: real money only; any amount entry + a receipt breakdown wherever real money is signed (FeeCat, Families, …).
 - **N06 Cat cloud + log**: a cloud store per trader / general cat; users browse a folder-style log (dropdowns) of what it researched, opened, bid, traded; a general cat can open links and ask the user to sign in (2 user-chosen AI models).
 - **N07 Real money never breaks** — ✅ the history bug FIXED 2026-10-29: Helius is out of quota ("max usage reached") and the profile / Families / positions read
