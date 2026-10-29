@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Panther } from '../Panther';
+import { readChatSession } from '../../lib/chatSession';
 import NumInput from '../NumInput';
 import { LookAvatar } from './CatLook';
 import { CAT_VARIATIONS } from './catCoats';
@@ -39,9 +40,9 @@ export const shortName = m => String(m?.name || m?.id || '').replace(/^[^:]+:\s*
 export const signWord = cat => (cat?.agentWallet ? (cat.agentWallet.mode === 'auto' ? 'its own wallet sends it — no signing' : 'you OK it with one tap — its own wallet sends it') : 'a proposal your wallet signs');
 const fmtCtx = n => n >= 1e6 ? `${(n / 1e6).toFixed(1)}M` : n >= 1e3 ? `${Math.round(n / 1e3)}K` : String(n || '—');
 
-export function filterModels(models, { q = '', cat = '', sort = 'smart' } = {}) {
+export function filterModels(models, { q = '', cat = '', sort = 'smart', min = 0, max = Infinity, kind = 'trading' } = {}) {
   const t = q.trim().toLowerCase();
-  const rows = (models || []).filter(m => (!cat || m.cats.includes(cat)) && (!t || `${m.name} ${m.id} ${m.desc}`.toLowerCase().includes(t)));
+  const rows = (models || []).filter(m => (!(Array.isArray(cat) ? cat.length : cat) || (Array.isArray(cat) ? cat : [cat]).every(c => m.cats.includes(c))) && (Number(kind === 'general' ? m.perTask : m.perDecision) >= min && Number(kind === 'general' ? m.perTask : m.perDecision) <= max) && (!t || `${m.name} ${m.id} ${m.desc}`.toLowerCase().includes(t)));
   const key = { smart: m => -(m.intel ?? -1), cheap: m => m.perDecision, ctx: m => -m.ctx, new: m => -m.created }[sort] || (() => 0);
   return [...rows].sort((a, b) => key(a) - key(b));
 }
@@ -50,7 +51,7 @@ export function planOf(picked, mode, budget, kind = 'trading') {   // mirrors la
   if (!picked.length) return null;
   if (kind === 'general') { const task = picked.reduce((s, m) => s + (m.perTask || 0), 0) / picked.length;   // a task runs both windows; perTask counts both
     return { perTask: task, perDecision: task, tasks: task > 0 ? Math.floor((budget?.start ?? 10) / task) : null }; }
-  const calls = picked.length > 1 && (mode === 'discuss' || mode === 'together') ? 2 : 1;
+  const calls = picked.length > 1 && (mode === 'discuss' || mode === 'together') ? picked.length : 1;
   const avg = picked.reduce((s, m) => s + (m.perDecision || 0), 0) / picked.length;
   const one = calls > 1 ? avg * calls : avg;
   const trade = one * (1 + (budget?.liveAsks ?? 3));
@@ -66,8 +67,8 @@ function ModelTile({ m, on, onPick, i, kind }) {
       <span className="lct-tile-top"><i className="lct-mono" aria-hidden="true">{mono(m)}</i>{m.tag ? <b className="lct-tag">⭐ {m.tag}</b> : <small>{m.provider}</small>}{m.intel != null ? <em title="intelligence index">♟ {m.intel}</em> : null}</span>
       <strong>{shortName(m)}</strong>
       <span className="lct-tile-nums"><span><small>IN · 1M</small>{fmtM(m.inUsd)}</span><span><small>OUT · 1M</small>{fmtM(m.outUsd)}</span>
-        <span className="is-hot"><small>{gen ? 'A TASK ≤' : 'A DECISION'}</small>{fmtUsd(gen ? m.perTask : m.perDecision)}</span><span><small>MEMORY</small>{fmtCtx(m.ctx)}</span></span>
-      <span className="lct-chips">{m.cats.slice(0, 4).map(c => <i key={c} className={CHIP[c]}>{c}</i>)}</span></button>
+        <span className="is-hot"><small>{gen ? 'TASK EST.' : 'A DECISION'}</small>{fmtUsd(gen ? m.perTask : m.perDecision)}</span><span><small>MEMORY</small>{fmtCtx(m.ctx)}</span></span>
+      <span className="lct-chips">{[m.tools && 'tools', m.vision && 'vision', m.cats.includes('code') && 'code', m.reasoning && 'reasoning'].filter(Boolean).map(c => <i key={c}>{c}</i>)}{m.cats.slice(0, 4).map(c => <i key={c} className={CHIP[c]}>{c}</i>)}</span></button>
     {desc ? <details className="lct-desc"><summary data-tip="What this model is and what it is good at">ABOUT</summary><p>{desc}</p></details> : null}
   </div>;
 }
@@ -76,10 +77,10 @@ function ModelTile({ m, on, onPick, i, kind }) {
 // pulses toward the cat; two brains = two wires; none = an empty socket waiting.
 export function BrainSocket({ picked, mood }) {
   const mine = useMyCat(); const coat = CAT_VARIATIONS[mine?.coat ?? 0] || CAT_VARIATIONS[0];
-  const slots = [picked[0] || null, picked[1] || null];
+  const slots = picked.length > 2 ? picked : [picked[0] || null, picked[1] || null];
   return <div className={`lct-socket n-${picked.length}`} aria-hidden="true">
     <svg className="lct-wires" viewBox="0 0 220 120" preserveAspectRatio="none">{slots.map((m, i) => <path key={i} className={`w w${i}${m ? ' on' : ''}`} d={i ? 'M188 30 C 160 30, 150 58, 118 60' : 'M32 30 C 60 30, 70 58, 102 60'} />)}</svg>
-    {slots.map((m, i) => <span key={i} className={`lct-node n${i}${m ? ' on' : ''}`}>{m ? mono(m) : '+'}<u>{i ? 'B' : 'A'}</u></span>)}
+    {slots.map((m, i) => <span key={i} style={i > 1 ? { top: 95 + (i - 2) * 20, left: 10, fontSize: 10, width: 28, height: 28 } : undefined} className={`lct-node n${i}${m ? ' on' : ''}`}>{m ? mono(m) : '+'}<u>{String.fromCharCode(65 + i)}</u></span>)}
     <span className="lct-cat"><LookAvatar cat={[coat[0], coat[1], coat[2], mine?.pattern || coat[3]]} look={mine?.look} size={92} gesture={mood} /></span>
   </div>;
 }
@@ -89,13 +90,13 @@ export function BrainSocket({ picked, mood }) {
 function Mind({ m, i, kind }) {
   const gen = kind === 'general';
   return <span className={`lct-mind m${i}${m ? '' : ' is-empty'}`}><span className={i ? "lct-orb o2" : "lct-orb o1"}><b>{m ? mono(m) : '+'}</b><i aria-hidden="true" /></span>
-    <em>{gen ? `MIND ${i ? 'B' : 'A'}${i ? '' : ' · LEADS'}` : `BRAIN ${i ? 'B' : 'A'}`}</em><strong title={m ? shortName(m) : ''}>{m ? shortName(m) : i ? 'no second pick' : 'pick one'}</strong>
-    {m ? <small className="m-num">{gen ? `≤ ${fmtUsd(m.perTask)} a task` : `${fmtUsd(m.perDecision)} a decision`}</small> : null}</span>;
+    <em>{gen ? `MIND ${String.fromCharCode(65 + i)}${i ? '' : ' · LEADS'}` : `BRAIN ${String.fromCharCode(65 + i)}`}</em><strong title={m ? shortName(m) : ''}>{m ? shortName(m) : i ? 'no second pick' : 'pick one'}</strong>
+    {m ? <small className="m-num">{gen ? `≈ ${fmtUsd(m.perTask)} a task` : `${fmtUsd(m.perDecision)} a decision`}</small> : null}</span>;
 }
 function Duo({ mode, picked, kind }) {
   const [a, b] = picked;
-  return <div className={`lct-duo ${kind === 'general' ? 'is-general' : DUO[mode] || ''}${b ? '' : ' is-solo'}`} aria-hidden="true">
-    <Mind m={a} i={0} kind={kind} /><i className="lct-beam" /><Mind m={b} i={1} kind={kind} /><i className="lct-ring" />
+  return <div style={{ gap: picked.length > 2 ? 16 : undefined, height: picked.length > 2 ? 'auto' : undefined, flexWrap: 'wrap' }} className={`lct-duo ${kind === 'general' ? 'is-general' : DUO[mode] || ''}${b ? '' : ' is-solo'}`} aria-hidden="true">
+    {(picked.length > 2 ? picked : [a, b]).map((m, i) => <Mind key={m?.id || i} m={m} i={i} kind={kind} />)}<i className="lct-beam" /><i className="lct-ring" />
   </div>;
 }
 
@@ -109,11 +110,13 @@ export function LaunchCat({ api, ownerId, onCreated, onCancel, Fields, Preview, 
   const gen = kind === 'general'; const steps = gen ? GEN_STEPS : STEPS;
   const [picked, setPicked] = useState([]); const [mode, setMode] = useState('turns'); const [billing, setBilling] = useState(gen ? 'payg' : 'profit');
   const [form, setForm] = useState(() => newForm()); const update = (k, v) => setForm(f => ({ ...f, [k]: v })); const name = form.name;
+  const [efforts, setEfforts] = useState({});
+  const [range, setRange] = useState([0, 2]); const [persona, setPersona] = useState('');
   const [prompt, setPrompt] = useState(''); const [saving, setSaving] = useState(false);
-  useEffect(() => { let on = true; api('/api/cats/models').then(x => on && setD(x)).catch(e => on && setErr(e.message)); return () => { on = false; }; }, [api]);
-  const rows = useMemo(() => filterModels(d?.models, { q, cat, sort }), [d, q, cat, sort]);
-  useEffect(() => setN(PAGE), [q, cat, sort]);
-  const pick = m => setPicked(p => p.some(x => x.id === m.id) ? p.filter(x => x.id !== m.id) : [...p, m].slice(-2));
+  useEffect(() => { let on = true; api(`/api/cats/models?session=${encodeURIComponent(readChatSession() || '')}`).then(x => on && setD(x)).catch(e => on && setErr(e.message)); return () => { on = false; }; }, [api]);
+  const rows = useMemo(() => filterModels(d?.models, { q, cat, sort, min: range[0], max: range[1], kind }), [d, q, cat, sort, range, kind]);
+  useEffect(() => setN(PAGE), [q, cat, sort, range]);
+  const pick = m => setPicked(p => p.some(x => x.id === m.id) ? p.filter(x => x.id !== m.id) : [...p, m].slice(-(d?.maxModels || 2)));
   const plan = planOf(picked, mode, d?.budget, kind);
   // 🧭 the General wizard leads with its own jobs (agent · content · code); the trading wizard never shows them
   const cats = useMemo(() => { const c = (d?.cats || []).filter(x => gen || !x.general); return gen ? [...c.filter(x => x.general), ...c.filter(x => !x.general)] : c; }, [d, gen]);
@@ -124,7 +127,7 @@ export function LaunchCat({ api, ownerId, onCreated, onCancel, Fields, Preview, 
     try {
       const handle = form.handle || form.name.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').slice(0, 20) || 'cat';
       const r = await api('/api/cats', { method: 'POST', body: JSON.stringify({ strategy: 'momentum', ...form, ownerId: ownerId(), name: form.name.trim(), handle, avatar: avatarOf(form.avatar),
-        brains: picked.map(m => m.id), brainMode: gen ? 'turns' : mode, billing, prompt, brainKind: kind }) });
+        brains: picked.map(m => m.id), brainMode: gen ? 'turns' : mode, billing, prompt, efforts: Object.fromEntries(picked.filter(m => efforts[m.id]).map(m => [m.id, efforts[m.id]])), brainKind: kind, session: readChatSession() || '', job: gen ? (persona || 'agent') : 'trading' }) });
       const started = await api(`/api/cats/${r.cat.id}/action`, { method: 'POST', body: JSON.stringify({ action: 'start' }) }).catch(() => r);   // same as Create a Cat: it starts trading at once
       onCreated?.(started.cat || r.cat);
     } catch (e) { setErr(e.message); } finally { setSaving(false); }
@@ -132,7 +135,7 @@ export function LaunchCat({ api, ownerId, onCreated, onCancel, Fields, Preview, 
   return <section className={`lct is-${kind}`} data-testid="launch-cat">
     <header className="lct-head"><BrainSocket picked={picked} mood={saving ? 'pounce' : picked.length === 2 ? 'celebrate' : picked.length ? 'purr' : 'think'} />
       <div><span className="eyebrow" data-testid="lct-kind">{K.eyebrow} · ITS OWN WALLET</span><h2>Give your cat <em>{picked.length === 2 ? (gen ? 'two minds' : 'two brains') : (gen ? 'a mind' : 'a brain')}</em>.</h2>
-        <p>{K.pitch}</p></div></header>
+        <p>{K.pitch.replace(/1–2/g, `1–${d?.maxModels || 2}`)}</p><small>{picked.length} / {d?.maxModels || 2} models</small></div></header>
     <nav className="lct-steps" style={{ '--p': step / (steps.length - 1) }}><i className="lct-prog" aria-hidden="true"><u /></i>{steps.map((s, i) => <button key={s} type="button" className={`${i === step ? 'is-on' : ''}${i < step ? ' is-done' : ''}`} onClick={() => i <= step || ready.slice(0, i).every(Boolean) ? setStep(i) : null} data-testid={`lct-step-${i}`}><b>{i + 1}</b>{s}</button>)}</nav>
     {err ? <p className="lct-err" role="alert">⚠ {err}</p> : null}
     {step === 0 ? <div className="lct-pane">
@@ -140,11 +143,13 @@ export function LaunchCat({ api, ownerId, onCreated, onCancel, Fields, Preview, 
         {d.rec?.length ? <><h4 className="lct-h">⭐ FEELESS PICKS — the brains FEELESS already runs</h4><div className="lct-rec">{d.rec.map((m, i) => <ModelTile key={m.id} m={m} i={i} kind={kind} on={picked.some(x => x.id === m.id)} onPick={pick} />)}</div></> : null}
         <div className="lct-bar"><input className="m-input" placeholder={`Search ${d.models.length} models…`} value={q} onChange={e => setQ(e.target.value)} data-testid="lct-q" />
           <div className="m-seg">{SORTS.map(([k, l]) => <button key={k} type="button" className={sort === k ? 'is-on' : ''} onClick={() => setSort(k)}>{l}</button>)}</div></div>
-        <div className="lct-cats"><button type="button" className={!cat ? 'is-on' : ''} onClick={() => setCat('')}>✨ All <small>{d.models.length}</small></button>{cats.map(c => <button key={c.key} type="button" className={`${cat === c.key ? 'is-on' : ''}${c.general ? ' is-job' : ''}`} onClick={() => setCat(c.key === cat ? '' : c.key)} data-tip={c.why} data-testid={`lct-cat-${c.key}`}>{c.label} <small>{c.n}</small></button>)}</div>
+        <div className="lct-bar"><label>Minimum $ / {gen ? 'task' : 'decision'} · {fmtUsd(range[0])}<input aria-label="Minimum model cost" type="range" min="0" max="2" step="0.0001" value={range[0]} onChange={e => setRange([Math.min(Number(e.target.value), range[1]), range[1]])} /></label><label>Maximum $ / {gen ? 'task' : 'decision'} · {fmtUsd(range[1])}<input aria-label="Maximum model cost" type="range" min="0" max="2" step="0.0001" value={range[1]} onChange={e => setRange([range[0], Math.max(range[0], Number(e.target.value))])} /></label></div>
+        <div className="lct-cats"><button type="button" className={!cat.length ? 'is-on' : ''} onClick={() => setCat('')}>✨ All <small>{d.models.length}</small></button>{cats.map(c => <button key={c.key} type="button" className={`${(Array.isArray(cat) ? cat.includes(c.key) : cat === c.key) ? 'is-on' : ''}${c.general ? ' is-job' : ''}`} onClick={() => setCat(prev => { const a = Array.isArray(prev) ? prev : prev ? [prev] : []; return a.includes(c.key) ? a.filter(x => x !== c.key) : [...a, c.key]; })} data-tip={c.why} data-testid={`lct-cat-${c.key}`}>{c.label} <small>{c.n}</small></button>)}</div>
         <div className="lct-grid">{rows.slice(0, n).map((m, i) => <ModelTile key={m.id} m={m} i={i} kind={kind} on={picked.some(x => x.id === m.id)} onPick={pick} />)}</div>
         {rows.length > n ? <button type="button" className="m-btn lct-more" onClick={() => setN(x => x + PAGE)}>Show {Math.min(PAGE, rows.length - n)} more of {rows.length}</button> : null}
         {!rows.length ? <p className="lct-load">No model matches that.</p> : null}</>}
     </div> : null}
+    {step === 0 && picked.some(m => m.efforts?.length) ? <div className="lct-bar">{picked.filter(m => m.efforts?.length).map(m => <label key={m.id}>{shortName(m)} · effort<select className="m-input" aria-label={`${shortName(m)} effort`} value={efforts[m.id] || ''} onChange={e => setEfforts(v => ({ ...v, [m.id]: e.target.value }))}><option value="">Provider default</option>{m.efforts.map(e => <option key={e}>{e}</option>)}</select><small>Output incl. reasoning: {fmtM(m.outUsd)} / 1M tokens. Actual cost depends on tokens used.</small></label>)}</div> : null}
     {step === 1 ? <div className="lct-pane lct-mode"><Duo mode={mode} picked={picked} kind={kind} />
       {gen ? <><ol className="lct-flow" data-testid="lct-flow">{GENERAL_FLOW.map(([ic, t, w], i) => <li key={t} style={{ '--i': i }}><i aria-hidden="true">{ic}</i><b>{t}</b><small>{w}</small></li>)}</ol>
         <p className="lct-note">{picked.length < 2 ? 'One mind: it takes every task in its own window. Pick a second in step 1 and they split the work.' : 'In its chat you talk to 🧠🧠 both minds or to 🧠 one of them — one mind takes the whole task in its own window.'}</p></>
@@ -155,13 +160,14 @@ export function LaunchCat({ api, ownerId, onCreated, onCancel, Fields, Preview, 
       {Fields ? <div className="cct-split lct-ident">{<Fields form={form} update={update} />}{Preview ? <aside className="cct-preview m-live" data-testid="lct-preview"><Preview form={form} /></aside> : null}</div> : <>
         <label>Cat name<input className="m-input" maxLength={24} value={form.name} onChange={e => update('name', e.target.value)} placeholder="Midnight Prowler" data-testid="lct-name" /></label>
         <label>Starting paper balance · SOL<NumInput className="m-input" value={form.startingBalanceSol} onChange={e => update('startingBalanceSol', e.target.value)} /></label></>}
+      <label>Character<select className="m-input" aria-label="Cat character" value={persona} onChange={e => { setPersona(e.target.value); setPrompt((d?.personas?.[kind] || []).find(p => p.key === e.target.value)?.brief || ''); }}><option value="">Custom brief</option>{(d?.personas?.[kind] || []).map(p => <option key={p.key} value={p.key}>{p.label}</option>)}</select></label>
       <label className="lct-seal"><span><b>{K.brief}</b><em>{gen ? 'sealed for life — its minds read it on every step of every task; it can never be changed' : 'sealed for life — both brains read it before every call; it can never be changed'}</em></span>
         <textarea className="m-input" rows={6} maxLength={1200} value={prompt} onChange={e => setPrompt(e.target.value)} placeholder={K.hint} data-testid="lct-prompt" />
         <i className="lct-len" aria-hidden="true"><u style={{ transform: `scaleX(${Math.max(0.01, prompt.length / 1200)})` }} /></i><small>{prompt.length} / 1200</small></label>
     </div> : null}
     {step === 3 ? <div className="lct-pane lct-pay">
       <div className="lct-modes">{bills.map(b => <button key={b.key} type="button" className={billing === b.key ? 'is-on' : ''} onClick={() => setBilling(b.key)} data-testid={`lct-bill-${b.key}`}><b>{b.label}</b></button>)}</div>
-      {plan && gen ? <div className="lct-meter"><span><small>A TASK (worst case)</small><b>{fmtUsd(plan.perTask)}</b></span><span><small>ITS CAP · YOU SET IT</small><b>$0.02 – $1</b></span>
+      {plan && gen ? <div className="lct-meter"><span><small>A TASK (estimate)</small><b>{fmtUsd(plan.perTask)}</b></span><span><small>ITS CAP · YOU SET IT</small><b>$0.02 – $1</b></span>
         <span><small>${d?.budget?.start ?? 10} CREDIT COVERS</small><b>{plan.tasks == null ? '∞ (free models)' : `≈ ${plan.tasks.toLocaleString()} tasks`}</b></span>
         <i className="lct-tank"><em style={{ transform: `scaleX(${plan.tasks == null ? 1 : Math.min(1, plan.tasks / 500)})` }} /></i></div>
       : plan ? <div className="lct-meter"><span><small>A DECISION</small><b>{fmtUsd(plan.perDecision)}</b></span><span><small>A TRADE (worst case)</small><b>{fmtUsd(plan.perTrade)}</b></span>
@@ -172,7 +178,7 @@ export function LaunchCat({ api, ownerId, onCreated, onCancel, Fields, Preview, 
       <p className="lct-next" data-testid="lct-next-real">{K.next.map((x, i) => <React.Fragment key={x}>{i ? <u /> : null}<i className={i === K.next.length - 1 ? 'is-real' : ''}>{x}</i></React.Fragment>)}</p>
       <button type="button" className="m-btn m-go lct-go" disabled={saving || !ready.slice(0, 3).every(Boolean)} onClick={launch} data-testid="lct-launch">{saving ? 'Launching…' : `🚀 Launch ${name || 'the cat'} → go real`}</button>
     </div> : null}
-    <footer className="lct-foot"><span>{picked.length ? picked.map(m => m.tag || m.name.replace(/^[^:]+:\s*/, '')).join(' + ') : 'no brain picked'}{plan ? (gen ? ` · ≤ ${fmtUsd(plan.perTask)} a task` : ` · ${fmtUsd(plan.perDecision)} a decision`) : ''}</span>
+    <footer className="lct-foot"><span>{picked.length ? picked.map(m => m.tag || m.name.replace(/^[^:]+:\s*/, '')).join(' + ') : 'no brain picked'}{plan ? (gen ? ` · ≈ ${fmtUsd(plan.perTask)} a task` : ` · ${fmtUsd(plan.perDecision)} a decision`) : ''}</span>
       <span>{onCancel ? <button type="button" className="m-btn" onClick={onCancel}>Cancel</button> : null}{step < 3 ? <button type="button" className="m-btn m-go" disabled={!ready[step]} onClick={() => setStep(s => s + 1)} data-testid="lct-next">Next ›</button> : null}</span></footer>
   </section>;
 }

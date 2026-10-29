@@ -11057,6 +11057,19 @@ def _cat_fund_rules(me=None):
             'maxUsd': _cfund.MAX_USD, 'staff': staff_, 'maxCats': _cfund.MAX_CATS}
 
 
+class CatModelLimitIn(BaseModel):
+    session: str = ''
+
+
+@app.post('/api/reputation/cats/model-limit')
+async def cat_model_limit(p: CatModelLimitIn):
+    me = session_address(p.session)
+    maximum = max(1, min(8, int(_fee_cfg().get('catMaxModels', 3))))
+    staff = bool(me and _is_staff(me))
+    usd = (await _perk_tier(me))[1] if me and not staff else 0
+    return {'maxModels': 8 if staff else min(maximum, 3 if usd >= 100 else 2), 'staff': staff}
+
+
 @app.get('/api/reputation/cats/fund-rules')
 async def cat_fund_rules(address: str = Query('', max_length=64)):
     """💵 The funding rules a cat's desk shows BEFORE you type an amount (fee, minimum, top-up minimum; a creator wallet: no fee)."""
@@ -27053,6 +27066,9 @@ class LinkIn(BaseModel):
 
 @app.post('/api/reputation/identity/link')
 async def identity_link(payload: LinkIn):
+    cats = _json_load(DATA_DIR / 'feecats.json', {}).get('cats', {})
+    if any((c.get('agentWallet') or {}).get('address') == payload.solana for c in cats.values()):
+        raise HTTPException(403, 'FeeCat wallets cannot sign in to FEELESS.')
     if not _re.match(r'^[1-9A-HJ-NP-Za-km-z]{32,44}$', payload.solana) or not _re.match(r'^0x[0-9a-fA-F]{40}$', payload.evm):
         raise HTTPException(400, 'Need one Solana and one 0x address.')
     if abs(time.time() - payload.ts) > 300:
@@ -27121,7 +27137,7 @@ FEE_DEFAULTS = {'platformFeeBps': 0, 'referralAccount': '', 'tierDiscountPct': {
                 # 0.5–2.55%). ultraFallback: Ultra is only used when the Swap API fails AND this is switched on.
                 'engine': 'swap', 'ultraFallback': False, 'feeAccountSol': '', 'feeAccountUsdc': '', 'priorityMaxLamports': 200000,
                 # FUSE Vault: management + performance fees are paid in SOL to this wallet.
-                'vaultFeeWallet': '', 'catFeeUsd': 2.0, 'catMinUsd': 10.0}
+                'vaultFeeWallet': '', 'catFeeUsd': 2.0, 'catMinUsd': 10.0, 'catMaxModels': 3}
 JUP_MIN_BPS, JUP_MAX_BPS = 50, 255   # Jupiter Ultra referral-fee limits
 SWAP_MAX_BPS = 2000                  # FEELESS cap on the Swap API fee (20%)
 PRIORITY_MAX_LAMPORTS = 5_000_000    # never let a setting spend more than 0.005 SOL on priority
@@ -27292,6 +27308,7 @@ class FeeCfg(BaseModel):
     lifiFeeBps: int = Field(0, ge=0, le=LIFI_MAX_BPS)
     vaultFeeWallet: str = ''
     catFeeUsd: float = Field(2.0, ge=0, le=100)     # 💵 FeeCat: FEELESS's one-time cut out of a cat's first funding (cat_fund.py)
+    catMaxModels: int = Field(3, ge=1, le=8)
     catMinUsd: float = Field(10.0, ge=1, le=1000)   # 💵 FeeCat: the least a cat's first funding may be
 
     # Settings saved by older builds can come back as null or out of range: clean them instead of
@@ -28063,7 +28080,7 @@ async def admin_fees_set(request: Request, payload: FeeCfg):
                      'lifiIntegrator': integrator, 'lifiFeeBps': payload.lifiFeeBps if integrator else 0,
                      'engine': payload.engine, 'ultraFallback': payload.ultraFallback, 'feeAccountSol': payload.feeAccountSol,
                      'feeAccountUsdc': payload.feeAccountUsdc, 'priorityMaxLamports': payload.priorityMaxLamports,
-                     'vaultFeeWallet': payload.vaultFeeWallet, 'catFeeUsd': payload.catFeeUsd, 'catMinUsd': max(payload.catMinUsd, payload.catFeeUsd + 1), **{k: v for k, v in (d.get('fees') or {}).items() if k in ('bundle', 'rounds', 'prepay', 'crews', 'house')}}
+                     'vaultFeeWallet': payload.vaultFeeWallet, 'catMaxModels': payload.catMaxModels, 'catFeeUsd': payload.catFeeUsd, 'catMinUsd': max(payload.catMinUsd, payload.catFeeUsd + 1), **{k: v for k, v in (d.get('fees') or {}).items() if k in ('bundle', 'rounds', 'prepay', 'crews', 'house')}}
         tier_txt = ' / '.join(f"{float(tiers.get(k, 0)):g}%" for k in ('0', '1', '2', '3'))
         _audit(d, admin, 'fees', f"{'Swap API' if payload.engine == 'swap' else 'Ultra'} · fee {payload.platformFeeBps / 100:.2f}% · Ultra fallback {'on' if payload.ultraFallback else 'off'} · "
                                  f"holder discounts {tier_txt} · promo {promo['discountPct']:.0f}% · speed tip ≤ {payload.priorityMaxLamports / 1e9:.4f} SOL")
@@ -28098,6 +28115,9 @@ class SessionIn(BaseModel):
 
 @app.post('/api/reputation/chat/session')
 async def chat_session(payload: SessionIn):
+    cats = _json_load(DATA_DIR / 'feecats.json', {}).get('cats', {})
+    if any((c.get('agentWallet') or {}).get('address') == payload.address for c in cats.values()):
+        raise HTTPException(403, 'FeeCat wallets cannot sign in to FEELESS.')
     if abs(time.time() - payload.ts) > 300:
         raise HTTPException(401, 'Signature expired — try again.')
     if not _verify_wallet(payload.address, f'FEELESS chat session\naddress:{payload.address}\nts:{payload.ts}', payload.signature):

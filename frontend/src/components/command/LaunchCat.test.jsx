@@ -119,3 +119,10 @@ test('🧭 the General wizard: real prices on every model + an ABOUT dropdown, i
   expect(mono({ provider: 'nvidia' })).toBe('NV');
   act(() => root.unmount());
 });
+
+
+test('combined category and price range filters retain only matching models', () => {
+  const models = [M('a', { cats: ['code', 'thinking'], perTask: .02 }), M('b', { cats: ['code'], perTask: .01 }), M('c', { cats: ['code','thinking'], perTask: .5 })];
+  expect(filterModels(models, { cat: ['code','thinking'], min: .01, max: .1, kind: 'general' }).map(m => m.id)).toEqual(['a']);
+  expect(planOf([M('a'), M('b'), M('c')], 'together', CAT.budget).calls).toBe(3);
+});

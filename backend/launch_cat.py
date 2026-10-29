@@ -44,6 +44,20 @@ REC = [   # FEELESS's own three, as they exist on OpenRouter — PUBLIC tags (us
 PROMPT_MAX, NAME_MAX, CHIME_MAX, CHIMES = 1200, 24, 280, 12
 
 
+PERSONAS = {
+    'trading': [
+        {'key': 'degen', 'label': '🔥 DEGEN trencher', 'brief': 'Hunt early Solana momentum using verified liquidity, holder and volume evidence. Size within my caps, take profit in stages, and never bypass rug checks or chase unsupported calls.'},
+        {'key': 'sniper', 'label': '🎯 Sniper', 'brief': 'Watch fresh launches, verify liquidity and sellability, and enter only when my risk checks pass. Keep entries small and explain every entry and exit.'},
+        {'key': 'swing', 'label': '🌊 Swing trader', 'brief': 'Find sustained trends with confirmed volume and higher lows. Use patient entries, defined invalidation and staged exits inside my limits.'}],
+    'general': [
+        {'key': 'detective', 'label': '🔎 Detective', 'brief': 'Investigate my question using public sources. Keep sourced case notes, distinguish facts from inference, and never impersonate people or obtain private data.'},
+        {'key': 'content', 'label': '✍ Content creator', 'brief': 'Research my audience and draft original posts and media plans in my voice. Save drafts for review. Never impersonate anyone, mass-spam or publish without my approval.'},
+        {'key': 'code', 'label': '💻 Coder', 'brief': 'Build useful web pages from my requirements and show the result in the preview. Explain what works and what still needs integration. Never claim tests or deployment that did not happen.'},
+        {'key': 'researcher', 'label': '📚 Researcher', 'brief': 'Research my question, compare primary sources and keep concise notes with links. Clearly label uncertainty and never invent evidence.'},
+        {'key': 'agent', 'label': '🌐 Assistant', 'brief': 'Complete my permitted tasks in clear steps. Pause for credentials, human checks and approvals. Use only the tools and spending limits I enabled.'}]
+}
+
+
 from fnum import plain as _f   # noqa: E402
 
 
@@ -61,6 +75,11 @@ def slim(m):
            'vision': 'image' in (arch.get('input_modalities') or []),
            'intel': round(_f(intel), 1) if intel is not None else None,
            'desc': ' '.join(str(m.get('description') or '').split())[:700], 'created': int(_f(m.get('created')))}
+    reason = m.get('reasoning') if isinstance(m.get('reasoning'), dict) else {}
+    row['efforts'] = (reason.get('supported_efforts') or ['none', 'minimal', 'low', 'medium', 'high', 'xhigh', 'max']) if 'supported_efforts' in reason else []
+    if reason.get('mandatory'):
+        row['efforts'] = [e for e in row['efforts'] if e != 'none']
+    row['defaultEffort'] = reason.get('default_effort')
     row['free'] = row['inUsd'] == 0 and row['outUsd'] == 0
     row['cats'] = cats_of(row)
     row['perDecision'] = decision_usd(row)
@@ -111,24 +130,26 @@ def catalog(rows):
         if i in by and w not in seen:
             seen.add(w); rec.append({**by[i], 'tag': t, 'why': w})
     counts = {k: sum(1 for r in rows if k in r['cats']) for k in CATS}
-    return {'models': rows, 'rec': rec, 'kinds': [{'key': k, 'label': v[0], 'why': v[1]} for k, v in KINDS.items()], 'cats': [{'key': k, 'label': v[0], 'why': v[1], 'n': counts[k], **({'general': True} if k in GENERAL_CATS else {})} for k, v in CATS.items()],
+    return {'models': rows, 'rec': rec, 'personas': PERSONAS, 'kinds': [{'key': k, 'label': v[0], 'why': v[1]} for k, v in KINDS.items()], 'cats': [{'key': k, 'label': v[0], 'why': v[1], 'n': counts[k], **({'general': True} if k in GENERAL_CATS else {})} for k, v in CATS.items()],
             'modes': [{'key': k, 'label': v[0], 'why': v[1]} for k, v in MODES.items()],
             'billing': [{'key': k, 'label': v} for k, v in BILLING.items()], 'budget': {'start': START_CREDIT, 'liveAsks': LIVE_ASKS, 'alertPct': ALERT_PCT}}
 
 
 def plan(models, mode):
     """$ a trade costs in decisions and how many trades the starting credit covers (worst case: every live ask fires)."""
-    calls = MODES.get(mode, MODES['turns'])[2] if len(models) > 1 else 1
+    calls = len(models) if mode in ('discuss', 'together') else 1
     per = [m.get('perDecision', 0) for m in models] or [0]
     one = sum(per) / len(per) * calls if calls > 1 else sum(per) / len(per)
     trade = round(one * (1 + LIVE_ASKS), 6)
     return {'perDecision': round(one, 6), 'perTrade': trade, 'trades': (int(START_CREDIT / trade) if trade > 0 else None), 'calls': calls}
 
 
-def clean(body, prev=None, ids=None):
+def clean(body, prev=None, ids=None, max_models=2):
     """The brain part of a cat. The prompt is set ONCE: a cat that has one keeps it whatever the body says."""
     prev = prev or {}
-    raw = [str(x)[:80] for x in (body.get('brains') or prev.get('brains') or [])][:2]
+    raw = [str(x)[:80] for x in (body.get('brains') or prev.get('brains') or [])]
+    if len(set(raw)) > max_models:
+        raise ValueError(f'This account allows at most {max_models} models per cat.')
     brains = [x for x in raw if not ids or x in ids]
     if not brains:
         raise ValueError('pick at least one model')
@@ -145,6 +166,7 @@ def clean(body, prev=None, ids=None):
     if kind not in KINDS:
         raise ValueError('unknown kind')
     return {'brains': brains, 'brainMode': mode if len(brains) > 1 else 'turns', 'billing': billing, 'prompt': prompt, 'kind': kind,
+            'efforts': {m: e for m, e in (body.get('efforts') or prev.get('efforts') or {}).items() if m in brains},
             'promptLocked': bool(prompt), 'credit': prev.get('credit', START_CREDIT), 'owed': prev.get('owed', 0.0),
             'spent': prev.get('spent', 0.0), 'asks': prev.get('asks', 0), 'chime': prev.get('chime', []), 'decisions': prev.get('decisions', [])}
 
@@ -173,8 +195,8 @@ def who_asks(b, n):
     if len(br) < 2:
         return br[:1]
     if b.get('brainMode') in ('discuss', 'together'):
-        return br[:2]
-    return [br[n % 2]]
+        return br
+    return [br[n % len(br)]]
 
 
 def merge(b, answers, kind):

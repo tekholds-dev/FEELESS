@@ -11,6 +11,7 @@ FEELESS stores no passwords: a user signs in inside the live window themselves; 
 import html
 import re
 import uuid
+from cat_policy import public_url, check_url
 
 STEEL = 'https://api.steel.dev/v1'
 BB = 'https://api.browserbase.com/v1'
@@ -161,7 +162,15 @@ class ReaderPage:
     async def goto(self, url):
         if not str(url).startswith(('http://', 'https://')):
             return '(not a web address)'
-        r = await self.http.get(url, headers=UA, timeout=20, follow_redirects=True)
+        from urllib.parse import urljoin
+        for _ in range(6):
+            await public_url(url)
+            r = await self.http.get(url, headers=UA, timeout=20, follow_redirects=False)
+            if r.status_code not in (301, 302, 303, 307, 308):
+                break
+            url = urljoin(url, r.headers.get('location', ''))
+        else:
+            raise ValueError('Too many redirects.')
         self.url, self._html = str(r.url), r.text
         self.title, body = page_text(r.text)
         return body
@@ -206,11 +215,24 @@ class LivePage:
         from playwright.async_api import async_playwright
         self._pw = await async_playwright().start()
         self._b = await self._pw.chromium.connect_over_cdp(self.connect, timeout=30000)
-        ctx = self._b.contexts[0] if self._b.contexts else await self._b.new_context()
+        ctx = self._b.contexts[0] if self._b.contexts else await self._b.new_context(service_workers='block')
+        async def guard(route):
+            try:
+                await public_url(route.request.url)
+            except (ValueError, OSError):
+                await route.abort('blockedbyclient')
+            else:
+                await route.continue_()
+        await ctx.route('**/*', guard)
+        # Wallet extensions and persistent worker contexts are not shared with cats.
+        await ctx.clear_permissions()
+        if hasattr(ctx, 'route_web_socket'):
+            await ctx.route_web_socket('**/*', lambda ws: ws.close())
         self._p = ctx.pages[0] if ctx.pages else await ctx.new_page()
         return self
 
     async def _sync(self):
+        check_url(self._p.url) if self._p.url != 'about:blank' else None
         self.url = self._p.url
         try:
             self.title = (await self._p.title())[:140]
@@ -219,6 +241,7 @@ class LivePage:
         return await self.read()
 
     async def goto(self, url):
+        await public_url(url)
         await self._p.goto(str(url), wait_until='domcontentloaded', timeout=30000)
         return await self._sync()
 

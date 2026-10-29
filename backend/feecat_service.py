@@ -33,6 +33,7 @@ from pydantic import BaseModel
 
 import feecat_brain
 import launch_cat as _lc
+import cat_policy as _cp
 import cat_real as _real   # 💵 real-money cats = option A: the user's wallet signs every trade (docs/DECISIONS.md #2)
 import cat_orders as _co   # 🧭 a General AI cat's plain-words orders → one guarded proposal
 import cat_model as _cm
@@ -770,13 +771,13 @@ def _brains_live():
     return os.environ.get('LAUNCH_CAT_LIVE', '').lower() in ('1', 'true', 'on') and bool(os.environ.get('OPENROUTER_API_KEY'))
 
 
-async def _or_call(model, messages, max_tokens=None):
+async def _or_call(model, messages, max_tokens=None, effort=None):
     """One decision from OpenRouter; returns (text, $ it cost). The cost is OpenRouter's own report, else the price list estimate."""
     est = next((m['perDecision'] for m in ((_MODELS['rows'] or {}).get('models') or []) if m['id'] == model), 0.0)
     try:
         async with httpx.AsyncClient(timeout=40) as h:
             r = await h.post('https://openrouter.ai/api/v1/chat/completions', headers={'Authorization': f"Bearer {os.environ.get('OPENROUTER_API_KEY')}"},
-                             json={'model': model, 'messages': messages, 'max_tokens': max_tokens or _lc.OUT_TOK, 'temperature': 0.2, 'usage': {'include': True}})
+                             json={'model': model, 'messages': messages, 'max_tokens': max_tokens or _lc.OUT_TOK, 'temperature': 0.2, **({'reasoning': {'effort': effort}} if effort else {}), 'usage': {'include': True}})
         d = r.json() if r.status_code == 200 else {}
         text = ((d.get('choices') or [{}])[0].get('message') or {}).get('content') or ''
         return text, float((d.get('usage') or {}).get('cost') or est)
@@ -801,7 +802,7 @@ async def _brain_decide(store, cat, kind, sym, case, owner=None):
     models = [owner] if owner else _lc.who_asks(b, b.get('asks') or 0)
     answers, partner, why, cost = [], None, '', 0.0
     for m in models:
-        text, usd = await _or_call(m, _lc.ask_messages(b, case, partner))
+        text, usd = await _or_call(m, _lc.ask_messages(b, case, partner), **({'effort': b['efforts'][m]} if (b.get('efforts') or {}).get(m) else {}))
         w, why = _lc.parse_word(text, kind)
         _lc.charge(b, usd); cost += usd
         answers.append((m, w))
@@ -1310,16 +1311,17 @@ def _work_start(cat_id, cat, text, to=None):
     its $ cap, or when a person is needed (a sign-in / CAPTCHA / payment: it never types a password or a card)."""
     b = cat.get('brainsCfg') or {}
     cap = min(float(cat.get('taskCap') or TASK_CAP_DEFAULT), max(0.005, float(b.get('credit') or 0) or TASK_CAP_DEFAULT))
-    models = list(b['brains'])[:2]
+    models = list(b['brains'])[:8]
     if to not in (None, 'both') and str(to).isdigit() and int(to) < len(models):   # talk to ONE of its minds: that model takes the whole task
         models = [models[int(to)]]
     names = [str(m).split('/')[-1][:24] for m in models]
     steps = _ca.GO_STEPS if cat.get('workGo') else _ca.STEP_MAX
-    _WORK[cat_id] = {'task': _ca.new_task(uuid.uuid4().hex[:10], text, models, cap, steps), 'events': {}, 'go': {}, 'sessions': [None, None], 'pages': [None, None], 'at': time.time()}
-    _WORK[cat_id]['runner'] = asyncio.create_task(_work_run(cat_id, models, names, text, cap, str(b.get('prompt') or '')[:1200]))
+    _WORK[cat_id] = {'task': _ca.new_task(uuid.uuid4().hex[:10], text, models, cap, steps), 'events': {}, 'go': {}, 'sessions': [None] * len(models), 'pages': [None] * len(models), 'at': time.time()}
+    _WORK[cat_id]['task']['tools'] = _cp.toolkit(cat.get('job', 'agent'), cat.get('tools'))
+    _WORK[cat_id]['runner'] = asyncio.create_task(_work_run(cat_id, models, names, text, cap, str(b.get('prompt') or '')[:1200], b.get('efforts') or {}))
 
 
-async def _work_run(cat_id, models, names, text, cap, brief=''):
+async def _work_run(cat_id, models, names, text, cap, brief='', efforts=None):
     w = _WORK[cat_id]
     env = os.environ
     async with httpx.AsyncClient(timeout=30) as http:
@@ -1338,7 +1340,15 @@ async def _work_run(cat_id, models, names, text, cap, brief=''):
             orders = [{'role': 'system', 'content': f"Your owner's standing orders, sealed at launch — follow them on every step: {brief}"}] if brief else []
 
             async def ask(model, messages):   # 📜 the sealed brief rides every call (plan · each browsing step · merge)
-                return await _or_call(model, orders + messages, max_tokens=700)
+                return await _or_call(model, orders + messages, max_tokens=4096, **({'effort': efforts[model]} if (efforts or {}).get(model) else {}))
+
+            def cost_bound(model, messages):
+                row = next((m for m in ((_MODELS.get('rows') or {}).get('models') or []) if m['id'] == model), None)
+                if row is None:
+                    return float('inf')
+                tokens = len(json.dumps(orders + messages, ensure_ascii=False).encode('utf-8')) + 256
+                return (tokens * row['inUsd'] + 4096 * row['outUsd']) / 1e6
+            ask.cost_bound = cost_bound
 
             async def wait_human(i):
                 ev = w['events'][i] = asyncio.Event()
@@ -1350,7 +1360,7 @@ async def _work_run(cat_id, models, names, text, cap, brief=''):
                 await pg.close()
             for s_ in sessions:
                 await _cb.close_session(http, env, s_)
-            w['pages'] = [None, None]
+            w['pages'] = [None] * len(models)
             w['done'] = True
 
 
@@ -1362,6 +1372,8 @@ def _work_settle(store):
         cat = store['cats'].get(cid)
         t = w.get('task') or {}
         if cat and cat.get('brainsCfg'):
+            cat['artifacts'] = (list(cat.get('artifacts') or []) + t.get('artifacts', []))[-30:]
+            cat['refusals'] = (list(cat.get('refusals') or []) + [{'at': time.time(), 'why': x} for x in t.get('refusals', [])])[-100:]
             _lc.charge(cat['brainsCfg'], t.get('cost') or 0)
             cat['chat'] = (list(cat.get('chat') or []) + [{'by': 'you', 'text': t.get('text'), 'at': w.get('at')},
                            {'by': 'cats', 'text': t.get('answer') or f"({t.get('status')}: {t.get('why') or 'no answer'})", 'at': time.time(), 'cost': t.get('cost'), 'fast': t.get('fast')}])[-CHAT_KEEP:]
@@ -1484,13 +1496,28 @@ class CreatePayload(BaseModel):
     brainKind: Optional[str] = None    # 📈 trading · 🧭 general (set once at launch)
     billing: Optional[str] = None
     prompt: Optional[str] = None
+    efforts: Optional[dict] = None
     look: Optional[dict] = None
+    session: Optional[str] = None
+    job: str = "agent"
+    tools: Optional[dict] = None
 
 
 @app.get('/api/cats/models')
-async def cat_models():
+async def cat_models(session: str = ""):
     """🚀 Launch a Cat: OpenRouter's whole public model list (price, context, what it's good at), FEELESS's three on top."""
-    return {**(await _or_models()), 'live': _brains_live(), 'generalLive': _work_live()}
+    return {**(await _or_models()), 'live': _brains_live(), 'generalLive': _work_live(), 'maxModels': await _model_limit(session)}
+
+
+async def _model_limit(session=''):
+    try:
+        async with httpx.AsyncClient(timeout=5) as h:
+            r = await h.post('http://127.0.0.1:5077/api/reputation/cats/model-limit', json={'session': session})
+        if r.status_code == 200:
+            return max(1, min(8, int(r.json()['maxModels'])))
+    except Exception:
+        pass
+    return 2
 
 
 AGENT_MAX = 2   # 🤖 a user runs at most 2 agents (owner, 2026-10-22: "users pick if they want 1-2 cat AI agents"); a revoked one frees its slot
@@ -1523,9 +1550,15 @@ async def create_cat(payload: CreatePayload):
         cat_ = await _or_models()
         ids_ = {m['id'] for m in cat_.get('models') or []}
         try:
-            cat['brainsCfg'] = _lc.clean(payload.model_dump(), None, ids_ or None)
+            cat['brainsCfg'] = _lc.clean(payload.model_dump(), None, ids_ or None, max_models=await _model_limit(payload.session or ''))
+            cat['job'] = payload.job if payload.brainKind == 'general' else 'trading'
+            cat['tools'] = _cp.toolkit(cat['job'], payload.tools)
         except ValueError as e:
             raise HTTPException(400, str(e))
+        for model, effort in cat['brainsCfg'].get('efforts', {}).items():
+            row = next((m for m in cat_.get('models', []) if m['id'] == model), {})
+            if effort not in row.get('efforts', []):
+                raise HTTPException(400, 'That model does not expose the selected effort level.')
         cat['brainLabel'] = ' + '.join(x.split('/')[-1] for x in cat['brainsCfg']['brains'])
         cat['brainProfile'] = {'provider': 'OpenRouter', 'status': 'live' if _brains_live() else 'calls off', 'available': _brains_live(), 'estimatedTokenCostUsd': 0}
     store['cats'][cat_id] = cat
@@ -1700,6 +1733,8 @@ class WorkPayload(BaseModel):
     i: Optional[int] = None
     cap: Any = None
     to: Any = None                     # 🧠 'both' (default) or 0 / 1 — one model works the whole task in its own window
+    job: Optional[str] = None
+    tools: Optional[dict] = None
     on: Optional[bool] = None          # 🏇 op 'go': let it go on / off
 
 
@@ -1714,6 +1749,15 @@ async def cat_work(cat_id: str, p: WorkPayload):
         raise HTTPException(403, "Only this cat's owner can work with it.")
     b = cat.get('brainsCfg') or {}
     w = _WORK.get(cat_id)
+    if p.op == 'tools':
+        if w and not w.get('done'):
+            raise HTTPException(409, 'Stop the current task before changing its tools.')
+        try:
+            cat['tools'] = _cp.toolkit(p.job or cat.get('job', 'agent'), p.tools)
+            cat['job'] = p.job or cat.get('job', 'agent')
+        except ValueError as exc:
+            raise HTTPException(400, str(exc))
+        _save(store)
     if p.op == 'cap':
         v = max(0.005, min(TASK_CAP_MAX, float(p.cap or TASK_CAP_DEFAULT)))
         cat['taskCap'] = round(v, 4); _save(store)
@@ -1741,6 +1785,11 @@ async def cat_work(cat_id: str, p: WorkPayload):
         busy = bool(w and not w.get('done'))
         if busy and not cat.get('workGo'):
             raise HTTPException(409, 'It is still working on your last ask — stop it, wait, or LET IT GO to queue asks.')
+        why = _cp.refusal(p.text)
+        if why:
+            cat['refusals'] = (list(cat.get('refusals') or []) + [{'at': time.time(), 'why': why}])[-100:]
+            _save(store)
+            raise HTTPException(400, why)
         if not _work_live():
             raise HTTPException(400, 'Model calls are off on this server (GENERAL_CAT_LIVE) — nothing was sent or charged.')
         if not _lc.can_ask(b):
@@ -1758,6 +1807,9 @@ async def cat_work(cat_id: str, p: WorkPayload):
     out = _work_view(cat_id, owner=True)
     return {**out, 'cap': float(cat.get('taskCap') or TASK_CAP_DEFAULT), 'credit': b.get('credit'), 'spent': b.get('spent'), 'chat': (cat.get('chat') or [])[-20:],
             'live': _work_live(), 'providers': _cb.chain(os.environ), 'go': bool(cat.get('workGo')),
+            'job': cat.get('job', 'agent'), 'tools': _cp.toolkit(cat.get('job', 'agent'), cat.get('tools')), 'toolkits': _cp.TOOLS,
+            'refusals': (cat.get('refusals') or [])[-20:] + [{'why': x} for x in ((w or {}).get('task') or {}).get('refusals', [])],
+            'artifacts': (cat.get('artifacts') or [])[-10:] + ([] if (w or {}).get('settled') else ((w or {}).get('task') or {}).get('artifacts', [])),
             'queue': [{'text': q.get('text'), 'to': q.get('to')} for q in (cat.get('workQueue') or [])]}
 
 
@@ -1767,7 +1819,8 @@ async def cat_work_shot(cat_id: str, i: int, ownerId: str = ''):
     cat = _load()['cats'].get(cat_id)
     if not cat or not ownerId or ownerId != cat.get('ownerId'):
         raise HTTPException(403, "Only this cat's owner sees its windows.")
-    pg = ((_WORK.get(cat_id) or {}).get('pages') or [None, None])[i] if 0 <= i < 2 else None
+    pages = (_WORK.get(cat_id) or {}).get('pages') or []
+    pg = pages[i] if 0 <= i < len(pages) else None
     jpg = await pg.shot() if pg else None
     if not jpg:
         raise HTTPException(404, 'No snapshot right now.')
@@ -1834,7 +1887,7 @@ async def get_cat(cat_id: str):
         raise HTTPException(404, 'Cat not found.')
     if _real.is_real(cat) and _real.expire(cat, time.time()):
         _save(store)
-    return _pub({'cat': cat})
+    return _pub({'cat': {k: v for k, v in cat.items() if k not in ('artifacts', 'refusals')}})
 
 
 async def _order_pair(http, coin):

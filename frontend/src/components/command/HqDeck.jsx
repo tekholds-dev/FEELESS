@@ -450,7 +450,7 @@ function FeesPanel({ call }) {
   const save = async (override) => {
     const cur = override && override.platformFeeBps !== undefined ? override : cfg;
     const body = { ...cur, platformFeeBps: Math.min(Number(cur.platformFeeBps) || 0, limits.maxBps), priorityMaxLamports: Number(cur.priorityMaxLamports) || 0, ultraFallback: Boolean(cur.ultraFallback), engine: cur.engine || 'swap',
-      feeAccountSol: (cur.feeAccountSol || '').trim(), feeAccountUsdc: (cur.feeAccountUsdc || '').trim(), lifiFeeBps: Number(cur.lifiFeeBps) || 0, lifiIntegrator: cur.lifiIntegrator || '', vaultFeeWallet: (cur.vaultFeeWallet || '').trim(), catFeeUsd: Number(cur.catFeeUsd ?? 2), catMinUsd: Number(cur.catMinUsd ?? 10), zeroFeeMints: [],
+      feeAccountSol: (cur.feeAccountSol || '').trim(), feeAccountUsdc: (cur.feeAccountUsdc || '').trim(), lifiFeeBps: Number(cur.lifiFeeBps) || 0, lifiIntegrator: cur.lifiIntegrator || '', vaultFeeWallet: (cur.vaultFeeWallet || '').trim(), catMaxModels: Number(cur.catMaxModels ?? 3), catFeeUsd: Number(cur.catFeeUsd ?? 2), catMinUsd: Number(cur.catMinUsd ?? 10), zeroFeeMints: [],
       promo: { ...(cur.promo || {}), until: promoDays > 0 ? Date.now() / 1000 + promoDays * 86400 : cur.promo?.until || 0 } };
     try { const d = await call('/admin/fees', { method: 'POST', body: JSON.stringify(body) }); setCfg(d.fees); setSavedCfg(d.fees); toast.success('Fee settings saved — applied to the next quote.'); } catch (e) { toast.error(e.message); }
   };
@@ -517,7 +517,7 @@ function FeesPanel({ call }) {
         <label>Vault fee wallet<input placeholder="SOL wallet that receives vault management + performance fees" value={cfg.vaultFeeWallet || ''} onChange={e => set('vaultFeeWallet', e.target.value.trim())} data-testid="vault-fee-wallet" /></label>
         <VaultWalletStatus value={cfg.vaultFeeWallet} saved={savedCfg?.vaultFeeWallet} /></div>
       <div className="cc-block fee-cat" data-testid="fee-cat"><h4>6 · FeeCat funding</h4>
-        <label>One-time fee per cat ($)<input type="number" min="0" max="100" step="0.5" value={cfg.catFeeUsd ?? 2} onChange={e => set('catFeeUsd', e.target.value)} data-testid="cat-fee-usd"
+        <label>Maximum models per cat<input type="number" min="1" max="8" value={cfg.catMaxModels ?? 3} onChange={e => set('catMaxModels', e.target.value)} data-tip="$100+ FEE holders: up to 3; other users: up to 2, bounded by this maximum. Staff: all 8 slots." /></label><label>One-time fee per cat ($)<input type="number" min="0" max="100" step="0.5" value={cfg.catFeeUsd ?? 2} onChange={e => set('catFeeUsd', e.target.value)} data-testid="cat-fee-usd"
           data-tip="Taken once from a cat's first funding, to the vault fee wallet above. Staff / creator wallets never pay it." /></label>
         <label>Least first funding ($)<input type="number" min="1" max="1000" step="1" value={cfg.catMinUsd ?? 10} onChange={e => set('catMinUsd', e.target.value)} data-testid="cat-min-usd"
           data-tip="The least a first funding may be — always more than the fee, so the cat's wallet gets money to trade" /></label>

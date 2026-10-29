@@ -13,6 +13,7 @@ signal (the wallet / their auto-sign settings) — nothing here can spend from a
 import asyncio
 import json
 import re
+from cat_policy import RULES, refusal
 
 STEP_MAX = 8
 GO_STEPS = 30     # 🏇 "let it go" (owner Q1): a task may run this many steps a window — it stops only when done, at its $ cap, or for a human
@@ -23,9 +24,10 @@ PLAN_SYS = ('You lead two AI models working for a FEELESS user. If you can answe
             'Otherwise split it into two halves the two models research in their own browsers at the same time. Answer ONLY JSON: '
             '{"fast": "<answer or empty>", "a": "<your half>", "b": "<the other model\'s half>"}')
 ACT_SYS = ('You are {name}, an AI model working in your OWN web browser for a FEELESS user, who watches you. Your half of the task: {goal}\n'
-           'Each turn pick ONE action. Answer ONLY JSON: {{"thought": "<= 12 words: what you are doing and why", "action": "open|search|click|type|human|answer", '
+           'Each turn pick ONE action. Answer ONLY JSON: {{"thought": "<= 12 words: what you are doing and why", "action": "open|search|click|type|human|draft|build|note|answer", '
            '"url": "", "q": "", "text": "<visible text of the link / button to click>", "label": "<field label or placeholder>", "value": "", "say": "<your answer, when action is answer>"}}\n'
            'Rules: never type a password, card number or seed phrase — use "human" for any sign-in / sign-up / CAPTCHA. Never claim what the page does not show. '
+           'Use draft to save writing, note for case notes, build to save a complete HTML page for the live sandbox preview. Put artifact content in say. '
            'Finish with "answer" (with the sources you used) within {steps} steps.')
 MERGE_SYS = 'Combine the two research halves into ONE clear answer for the user, keep the sources, say what is still uncertain. Plain text, short.'
 
@@ -52,9 +54,9 @@ def blocked_value(label, value):
 
 
 def new_task(tid, text, models, cap, steps=STEP_MAX):
-    return {'id': tid, 'text': str(text)[:2000], 'status': 'planning', 'cap': float(cap), 'cost': 0.0, 'answer': None, 'fast': False, 'stepsMax': int(steps),
+    return {'id': tid, 'text': str(text)[:2000], 'status': 'planning', 'cap': float(cap), 'cost': 0.0, 'answer': None, 'fast': False, 'stepsMax': int(steps), 'tools': {'browse': True, 'forms': True},
             'windows': [{'i': i, 'model': m, 'goal': None, 'status': 'idle', 'bubble': 'waiting for the plan', 'url': None, 'title': None,
-                         'steps': [], 'human': None, 'answer': None, 'cost': 0.0} for i, m in enumerate(models[:2])]}
+                         'steps': [], 'human': None, 'answer': None, 'cost': 0.0} for i, m in enumerate(models[:8])]}
 
 
 class Stopped(Exception):
@@ -62,15 +64,21 @@ class Stopped(Exception):
 
 
 async def _ask(task, w, ask, model, messages):
-    if task.get('stop'):
-        raise Stopped()
-    if task['cost'] >= task['cap']:
-        raise Stopped(f"budget reached (${task['cost']:.4f} of ${task['cap']:.4f})")
-    text, usd = await ask(model, messages)
-    task['cost'] = round(task['cost'] + float(usd or 0), 6)
-    if w is not None:
-        w['cost'] = round(w['cost'] + float(usd or 0), 6)
-    return text
+    # One in-flight model call per task: concurrent windows cannot both spend the same remaining budget.
+    lock = task.setdefault('_ask_lock', asyncio.Lock())
+    async with lock:
+        if task.get('stop'):
+            raise Stopped()
+        if task['cost'] >= task['cap']:
+            raise Stopped(f"budget reached (${task['cost']:.4f} of ${task['cap']:.4f})")
+        bound = getattr(ask, 'cost_bound', lambda *_: 0)(model, messages)
+        if task['cost'] + bound > task['cap']:
+            raise Stopped('budget reached: the next call could exceed your remaining cap')
+        text, usd = await ask(model, messages)
+        task['cost'] = round(task['cost'] + float(usd or 0), 6)
+        if w is not None:
+            w['cost'] = round(w['cost'] + float(usd or 0), 6)
+        return text
 
 
 def _step(w, thought, action, detail=''):
@@ -84,7 +92,7 @@ async def _window(task, w, ask, page, wait_human, name):
     seen = ''
     n_max = int(task.get('stepsMax') or STEP_MAX)
     for _n in range(n_max):
-        msgs = [{'role': 'system', 'content': ACT_SYS.format(name=name, goal=w['goal'], steps=n_max)},
+        msgs = [{'role': 'system', 'content': RULES + '\nEnabled tools: ' + str(task.get('tools', {})) + '\n' + ACT_SYS.format(name=name, goal=w['goal'], steps=n_max)},
                 {'role': 'user', 'content': f"URL: {page.url or '(blank)'}\nTITLE: {page.title or ''}\nPAGE:\n{seen[:READ_MAX]}"}]
         a = parse_json(await _ask(task, w, ask, w['model'], msgs))
         act = str(a.get('action') or '').lower()
@@ -93,6 +101,19 @@ async def _window(task, w, ask, page, wait_human, name):
             w['answer'] = str(a.get('say') or thought or 'no answer')[:4000]
             _step(w, thought or 'done', 'answer')
             break
+        need = {'open': 'browse', 'search': 'browse', 'click': 'forms', 'type': 'forms', 'draft': 'storage', 'build': 'build', 'note': 'notes'}.get(act)
+        if need and not task.get('tools', {}).get(need, False):
+            why = f'Refused: {need} tool is disabled for this job.'
+            task.setdefault('refusals', []).append(why)
+            _step(w, why, 'refused')
+            seen = why
+            continue
+        if act in ('draft', 'build', 'note'):
+            content = str(a.get('say') or '')[:50000]
+            task.setdefault('artifacts', []).append({'kind': act, 'title': str(a.get('text') or act)[:80], 'content': content, 'model': w['model']})
+            _step(w, thought, act, 'Saved for owner review')
+            seen = 'Artifact saved for owner review.'
+            continue
         if act == 'type' and blocked_value(a.get('label'), a.get('value')):
             act, a['why'] = 'human', 'it wanted to type a secret — that is yours to type'
         if act == 'human':
@@ -111,6 +132,8 @@ async def _window(task, w, ask, page, wait_human, name):
                     seen = f'(unknown action {act})'
             except Exception as e:
                 seen = f'(that did not work: {str(e)[:120]})'
+                if isinstance(e, ValueError):
+                    task.setdefault('refusals', []).append(str(e)[:160])
             w['url'], w['title'] = page.url, page.title
             from cat_browser import needs_human
             why = needs_human(page.url, seen)
@@ -135,16 +158,20 @@ async def run(task, ask, pages, wait_human, names=('Model A', 'Model B')):
     """The whole task. `ask(model, messages)` → (text, $) · `pages[i]` = window i's page driver · `wait_human(i)` → True continue / False stop."""
     ws = task['windows']
     try:
+        why = refusal(task['text'])
+        if why:
+            task.setdefault('refusals', []).append(why)
+            raise Stopped(why)
         lead = ws[0]['model']
-        p = parse_json(await _ask(task, ws[0], ask, lead, [{'role': 'system', 'content': PLAN_SYS}, {'role': 'user', 'content': task['text']}]))
+        p = parse_json(await _ask(task, ws[0], ask, lead, [{'role': 'system', 'content': RULES + '\n' + PLAN_SYS}, {'role': 'user', 'content': task['text']}]))
         if str(p.get('fast') or '').strip():
             task.update(answer=str(p['fast']).strip()[:4000], fast=True, status='done')
             for w in ws:
                 w.update(status='done', bubble='answered from memory — no browsing needed')
             return task
         halves = [str(p.get('a') or task['text']), str(p.get('b') or task['text'])]
-        for w, g in zip(ws, halves):
-            w['goal'] = g
+        for i, w in enumerate(ws):
+            w['goal'] = halves[i] if i < len(halves) else f'Independently verify the evidence and fill gaps: {task["text"]}'
         task['status'] = 'working'
         got = await asyncio.gather(*(_window(task, w, ask, pages[w['i']], wait_human, names[w['i']]) for w in ws), return_exceptions=True)
         if any(isinstance(g, Stopped) for g in got) and not any(isinstance(g, str) for g in got):

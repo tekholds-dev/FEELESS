@@ -30,7 +30,9 @@ def test_plan_counts_calls_per_mode():
 
 
 def test_prompt_is_locked_once_set_and_brains_capped_at_two():
-    b = lc.clean({'brains': ['a', 'b', 'c'], 'prompt': 'buy germ floors', 'brainMode': 'battle'})
+    with pytest.raises(ValueError, match='at most 2'):
+        lc.clean({'brains': ['a', 'b', 'c']})
+    b = lc.clean({'brains': ['a', 'b'], 'prompt': 'buy germ floors', 'brainMode': 'battle'})
     assert b['brains'] == ['a', 'b'] and b['promptLocked']
     b2 = lc.clean({'prompt': 'yolo everything'}, b)
     assert b2['prompt'] == 'buy germ floors' and b2['brainMode'] == 'battle'
