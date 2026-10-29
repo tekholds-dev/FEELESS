@@ -14,7 +14,7 @@ export const liteMode = () => { try { return localStorage.getItem(LITE_KEY) || '
 export const isAutoLite = m => String(m || '').startsWith('auto');
 export function setLite(mode) {
   try { if (mode) localStorage.setItem(LITE_KEY, mode); else localStorage.removeItem(LITE_KEY); } catch { /* private mode */ }
-  document.body.classList.toggle('fx-lite', !!mode || document.body.classList.contains('fx-eco'));   // 🔋 eco phones stay lite
+  document.body.classList.toggle('fx-lite', !!mode);
 }
 
 // Pure: should this minute's numbers switch the device to lite effects?

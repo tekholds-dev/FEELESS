@@ -130,7 +130,7 @@ test('⚡ an agent pulses ONLY when a new real tape event of its own arrives —
   const d2 = { ...data, office: { ...data.office, tape: [...data.office.tape, { id: 9, at: 1100, agent: 'warden', action: 'SIZE $0.20', why: 'tier B', mint: 'MINTZYN', symbol: 'ZYN' }] } };
   await act(async () => { root.render(<AgentHubProvider value={{ ...hub, d: d2, sel: selectors(d2) }}><AgentCockpit call={call} /></AgentHubProvider>); });
   expect(q('ack-agent-warden').querySelector('.is-pulse')).not.toBeNull(); expect(q('ack-agent-devil').querySelector('.is-pulse')).toBeNull();
-  expect(fetchSpy.mock.calls.filter(([u]) => !String(u).includes('/api/reputation/edge') && !String(u).includes('/api/reputation/chart-wallets/'))).toHaveLength(0); global.fetch = realFetch;   // only the shared coin-edge poller (🦠 germ chips) + the chart's 🐋 wallet bubbles (one read per coin / 15s) may ask
+  expect(fetchSpy.mock.calls.filter(([u]) => !String(u).includes('/api/reputation/edge') && !String(u).includes('/api/reputation/chart-wallets/') && !String(u).includes('/api/reputation/familia/intake'))).toHaveLength(0); global.fetch = realFetch;   // only the shared coin-edge poller (🦠 germ chips), the chart's 🐋 wallet bubbles (one read per coin / 15s) and the ONE shared intake (useRead, 30s, every viewer) may ask
   await act(async () => { root.unmount(); });
   localStorage.setItem('feeless.agentDeck', 'live');   // ⚡ the feed open: the new tape line is marked new
   const b = mount();

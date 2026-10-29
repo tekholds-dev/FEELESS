@@ -10,11 +10,11 @@ test('phones and the Duo are eco devices; desktops, laptops and big touch screen
   expect(isPhoneLike({ coarse: true, ua: 'Mozilla/5.0 (Windows NT 10.0) Chrome/120', w: 1920, h: 1080 })).toBe(false);                     // touch laptop
 });
 
-test('eco puts lite + eco on the body; Full effects takes both off and is remembered', () => {
+test('eco marks the body (animations stay — lite is the user\'s own switch); Full effects takes it off and is remembered', () => {
   window.matchMedia = q => ({ matches: q === '(pointer: coarse)', addEventListener() {}, removeEventListener() {} });
   Object.defineProperty(window.screen, 'width', { value: 390, configurable: true }); Object.defineProperty(window.screen, 'height', { value: 844, configurable: true });
   localStorage.removeItem(FULL_KEY); document.body.className = '';
-  expect(startEco()).toBe(true); expect(document.body.classList.contains('fx-eco')).toBe(true); expect(document.body.classList.contains('fx-lite')).toBe(true);
+  expect(startEco()).toBe(true); expect(document.body.classList.contains('fx-eco')).toBe(true); expect(document.body.classList.contains('fx-lite')).toBe(false);
   setFullFx(true); expect(document.body.className).toBe(''); expect(startEco()).toBe(false);
   setFullFx(false); expect(document.body.classList.contains('fx-eco')).toBe(true);
 });

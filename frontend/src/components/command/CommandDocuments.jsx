@@ -78,7 +78,7 @@ function SiteLook() {
         <i aria-hidden="true">{[0.7, 0.4, 0.9, 0.55, 0.8].map((h, j) => <s key={j} style={{ background: j % 2 ? c.down : c.up, transform: `scaleY(${h})` }} />)}</i><b>{t.name}</b></button>; })}</span>
     <small className="m-dim">Now: <b style={{ color: up }}>▲ up</b> · <b style={{ color: down }}>▼ down</b></small>
     <label className="m-toggle"><input type="checkbox" checked={lite} onChange={e => { setLiteOn(e.target.checked); setLite(e.target.checked ? 'on' : ''); }} data-testid="settings-lite" />Lite effects · saves battery</label>
-    {ecoDevice() ? <label className="m-toggle" data-tip="Phones start in eco so they stay cool: no blur, the globe draws only while you touch it, prices poll every 6s. Full effects = the desktop look (warmer phone, more battery)."><input type="checkbox" checked={full} onChange={e => { setFull(e.target.checked); setFullFx(e.target.checked); }} data-testid="settings-fullfx" />Full effects on this phone · runs warmer</label> : null}
+    {ecoDevice() ? <label className="m-toggle" data-tip="Phones start in eco so they stay cool: every animation stays, but no blur, the globe draws only while you touch it, prices poll every 6s. Full effects = the desktop rendering (warmer phone, more battery)."><input type="checkbox" checked={full} onChange={e => { setFull(e.target.checked); setFullFx(e.target.checked); }} data-testid="settings-fullfx" />Full effects on this phone · runs warmer</label> : null}
   </div>;
 }
 

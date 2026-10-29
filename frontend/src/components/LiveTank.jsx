@@ -99,7 +99,8 @@ export function openTrenchTrade(pair) {
 }
 
 // 🔎 tap a dot → its vitals pop up first (owner 2026-10-27: "needs the click / tap popup box before loading the chart"), then CHART / TRADE
-export function LiveTank({ compact = true, title = 'LIVE INTAKE', onChart, onTrade }) {
+// `marks` (mint → contending | ready | picked) rings the coins the agents are working · `extra(dot)` adds the host's own orders to the popup
+export function LiveTank({ compact = true, title = 'LIVE INTAKE', onChart, onTrade, marks, selected, extra }) {
   const intake = useRead(...READS.intake);
   const dots = tankDots({ intake }); const n = laneCounts(dots); const seen = useRef(new Set());
   const fresh = new Set(dots.filter(d => !seen.current.has(d.id)).map(d => d.id)); dots.forEach(d => seen.current.add(d.id));
@@ -119,9 +120,10 @@ export function LiveTank({ compact = true, title = 'LIVE INTAKE', onChart, onTra
     <div className="ltk-body">
       <div className="ltk-field">
         {TANK_LEVELS.map(([k, l, tip], i) => <i key={k} className={`ltk-lane is-${k}`} style={{ '--l': i }} data-tip={tip}><small>{l}</small></i>)}
-        {TICKS.map(([v, l]) => <em key={l} className="ltk-tick" style={{ left: `${capX(v) * 100}%` }}>{l}</em>)}
-        {dots.map(d => <button key={d.id} type="button" className={`ltk-b t-${d.tone} ${fresh.has(d.id) ? 'is-new' : ''}`} style={{ left: `${d.x * 100}%`, '--l': d.lane }} onClick={() => setSel(s => (s === d.id ? null : d.id))}
-          aria-label={d.tip} data-tip={d.tip} data-testid={`ltk-dot-${d.id}`}><i /></button>)}
+        {/* the plot sits right of the lane-label gutter, so no dot ever covers GERM / DESK / TOP NEW / TRENDING / NEW */}
+        <div className="ltk-plot">{TICKS.map(([v, l]) => <em key={l} className="ltk-tick" style={{ left: `${capX(v) * 100}%` }}>{l}</em>)}
+        {dots.map(d => { const st = marks?.get(d.mint); return <button key={d.id} type="button" className={`ltk-b t-${d.tone} ${fresh.has(d.id) ? 'is-new' : ''}${st ? ` is-agent s-${st}` : ''}${selected && d.mint === selected ? ' is-on' : ''}`} style={{ left: `${d.x * 100}%`, '--l': d.lane }} onClick={() => setSel(s => (s === d.id ? null : d.id))}
+          aria-label={d.tip} data-tip={st ? `${d.tip} · agents: ${st.toUpperCase()}` : d.tip} data-testid={`ltk-dot-${d.id}`}><i /></button>; })}</div>
         {!dots.length ? <p className="ltk-wait">{intake ? 'The feeds are quiet — the next coin lands here' : 'Connecting to the feeds…'}</p> : null}
       </div>
       <ol className="ltk-funnel">{TANK_LEVELS.map(([k, l, tip], i) => <li key={k} className={`is-${k}`} data-tip={tip}><b className="m-num">{n[i]}</b><small>{l}</small></li>)}</ol>
@@ -133,6 +135,7 @@ export function LiveTank({ compact = true, title = 'LIVE INTAKE', onChart, onTra
       <div className="ltk-acts"><button type="button" className="m-btn" onClick={() => chart(d0)} data-tip={onChart ? "Show it on the agents' chart" : 'Open it on the Trenches floor — chart + Quick trade'} data-testid="ltk-chart">📈 CHART</button>
         <button type="button" className="m-btn m-go" onClick={() => trade(d0)} data-tip={d0.pair ? 'Trench trade: its chart + Quick trade; your wallet signs' : 'Still on the bonding curve — opens on pump.fun'} data-testid="ltk-trade">⚡ {d0.pair ? 'TRADE' : 'PUMP.FUN'}</button>
         {d0.mint ? <button type="button" className="m-btn" onClick={() => { try { navigator.clipboard.writeText(d0.mint); } catch { /* blocked */ } }} data-tip="Copy the coin's address" data-testid="ltk-copy">⧉ CA</button> : null}</div>
+      {extra && d0.mint ? extra(d0) : null}
     </div> : null}
     {best.length ? <div className="ltk-best" data-testid="ltk-best"><b className="ltk-bh" data-tip="Tradable coins ranked across every level: at the germ floor, READY, the move, 1h volume, and how many feeds agree">🏆 BEST IN THE TANK</b>
       <ol>{best.map(c => <li key={c.id} style={{ '--i': c.rank }}><button type="button" className={`ltk-bc t-${c.tone} ${sel === c.id ? 'is-on' : ''}`} onClick={() => setSel(s => (s === c.id ? null : c.id))}
