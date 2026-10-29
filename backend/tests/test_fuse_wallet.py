@@ -1466,3 +1466,18 @@ def test_your_pick_spends_your_own_held_cash_but_the_engine_never_does():
     mine = card([{**leg('MINE', 'pm', 1, 1.0), 'picked': True}])
     o = [x for x in fw.orders('degen', mine, book, {'pm': 1.0}, 100.0, CFG, 10) if x['side'] == 'buy']
     assert len(o) == 1 and o[0]['picked'] and o[0]['usd'] > 0.5
+
+
+def test_a_gas_sized_sol_gap_is_paid_by_the_cards_as_fees_instead_of_halting_new_buys():
+    import fuse_wallet as fw
+    books = {'degen': {'sol': 0.034452787, 'bankSol': 0.0}}                       # 2026-10-29: the reserve ran dry, wallet 0.0311 vs books 0.0345
+    short = fw.reconcile_sol(0.031077717, books)
+    out, paid = fw.fit_gas_shortage(books, short)
+    assert round(paid['degen'], 9) == 0.00337507 and round(out['degen']['cardFeesSol'], 9) == 0.00337507   # booked as fees the card paid (P&L adds it back)
+    assert not fw.reconcile_sol(0.031077717, out)                                  # books fit the wallet → no halt
+    two = {'a': {'sol': 0.03}, 'b': {'sol': 0.01}}
+    out2, paid2 = fw.fit_gas_shortage(two, fw.reconcile_sol(0.036, two))
+    assert round(paid2['a'], 6) == 0.003 and round(paid2['b'], 6) == 0.001         # split by each card's SOL
+    assert fw.fit_gas_shortage(books, {'booked': 0.5, 'held': 0.3}) == (books, {})  # a real SOL gap is never "just gas": stays a halt
+    assert fw.fit_gas_shortage({'a': {'sol': 0.002}}, {'booked': 0.002, 'held': 0.0})[1] == {}   # the cards can't cover it: halt
+    assert fw.fit_gas_shortage(books, None) == (books, {})

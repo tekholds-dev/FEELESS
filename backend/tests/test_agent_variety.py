@@ -135,7 +135,7 @@ def test_judge_rules_on_real_seats_double_and_studies_misses():
 
 def test_the_universe_is_applied_before_intake_picks():
     src = open('backend/reputation_service.py').read() if __import__('os').path.exists('backend/reputation_service.py') else open('reputation_service.py').read()
-    i = src.index('ob_ = ob_ + extra_'); j = src.index('taken_ = _oe.intake(', i)
+    i = src.index('ob_ = _in.shared_rows(ob_ + extra_'); j = src.index('taken_ = _oe.intake(', i)
     assert '_uni.in_lane(x, cap_)' in src[i:j] and '_uni.lane_cap(ob_)' in src[i:j]   # filtering after intake let $200K+ coins use the slots and starved the desk
 
 

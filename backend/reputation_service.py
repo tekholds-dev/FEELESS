@@ -16173,6 +16173,13 @@ async def _fw_tick(now):
                                 _fw_record(d, {'id': f"ghost:{gh['card']}:{gh['mint'][:6]}:{time.time():.0f}", 'card': gh['card'], 'side': 'fix', 'mint': gh['mint'], 'symbol': gh['symbol'], 'at': time.time(), 'status': 'done',
                                                'why': f"👻 ${gh['symbol']} was booked as a leftover but the wallet holds none — already sold; off the book ($0 cost, P&L unchanged)"})
                             missing = _fw.reconcile(bal.get('tokens'), d['books'])
+                        if sol_short and not any(b.get('pending') or b.get('defund') for b in d['books'].values()):   # ⛽ a gas-sized SOL gap: the cards paid the fees, no halt
+                            d['books'], gas_ = _fw.fit_gas_shortage(d['books'], sol_short)
+                            for tid, sol_ in gas_.items():
+                                _fw_record(d, {'id': f'gasfit:{tid}:{time.time():.0f}', 'card': tid, 'side': 'fix', 'sol': sol_, 'at': time.time(), 'status': 'done',
+                                               'why': f"⛽ the gas reserve ran dry — the card paid {sol_:.6f} SOL of network fees / rent (booked as fees, P&L unchanged); top up the reserve to stop this"})
+                            if gas_:
+                                sol_short = _fw.reconcile_sol(bal.get('sol'), d['books'])
                         if missing or sol_short:   # confirmed wallet balances beat our books; stop every affected card before another order
                             bad = {x['mint'] for x in missing}
                             for tid, b in d['books'].items():
@@ -16740,7 +16747,7 @@ def _fw_public(tid, equity_usd=None, sol_px=None, prices=None):
         if len(dead) >= 8:
             break
     fail = dead[0] if dead else None
-    keeper = {'armed': bool(cfg.get('armed')), 'paused': bool(cfg.get('paused') or b.get('halt')), 'halt': bool(b.get('halt')), 'selling': bool(b.get('defund')),
+    keeper = {'armed': bool(cfg.get('armed')), 'paused': bool(cfg.get('paused') or b.get('halt')), 'halt': bool(b.get('halt')), 'haltWhy': (b.get('haltWhy') or None) if b.get('halt') else None, 'selling': bool(b.get('defund')),
               'minLiqUsd': cfg.get('minLiqUsd'), 'arenaMinLiqUsd': cfg.get('arenaMinLiqUsd'), 'pickMinLiqUsd': cfg.get('pickMinLiqUsd'), 'pickSellBackPct': cfg.get('pickSellBackPct'), 'minOrderUsd': cfg.get('minOrderUsd'), 'maxSwapUsd': cfg.get('maxSwapUsd'), 'slippageBps': cfg.get('slippageBps'),
               'maxImpactPct': cfg.get('maxImpactPct'), 'dailyUsd': cfg.get('dailyUsd'), 'pending': pend.get('symbol') and f"{pend.get('side')} ${pend.get('symbol')}",
               'lastFail': fail and {'symbol': fail.get('symbol'), 'side': fail.get('side'), 'mint': fail.get('mint'), 'pair': fail.get('pair'), 'err': (fail.get('err') or '')[:90], 'at': fail.get('at')},

@@ -1160,6 +1160,29 @@ def fit_small_shortage(books, missing, max_pct=FIT_MAX_PCT):
     return out, fits
 
 
+GAS_FIT_SOL = 0.01   # ⛽ ≈ a few dozen network fees + a couple of coin-account rents — a bigger SOL gap is never "just gas"
+
+
+def fit_gas_shortage(books, short, max_sol=GAS_FIT_SOL):
+    """⛽ The wallet is the truth (SOL edition). The reserve outside the books pays network fees and fronts coin-account rent; once it
+    runs dry those costs come out of SOL the books still count, so the wallet reads a LITTLE under the books and every balance read
+    halted new buys (2026-10-29: 0.0034 SOL short → the card stopped buying, ▶ Resume bought once, the next read halted it again).
+    A gap ≤ `max_sol` that the cards' SOL can cover is booked as fees the cards paid (`cardFeesSol`: P&L adds it back), split by each
+    card's SOL. Bigger gaps, or a gap the cards can't cover, stay a halt. Callers skip this while any order is in flight. → (books, {card: sol})"""
+    gap = _f((short or {}).get('booked')) - _f((short or {}).get('held'))
+    pool = {t: _f(b.get('sol')) for t, b in (books or {}).items() if _f(b.get('sol')) > 0}
+    total = sum(pool.values())
+    if gap <= 0 or gap > max_sol or total <= gap:
+        return books, {}
+    out, paid = dict(books), {}
+    for t, s in pool.items():
+        take = round(gap * s / total, 9)
+        b = out[t]
+        out[t] = {**b, 'sol': round(_f(b.get('sol')) - take, 9), 'cardFeesSol': round(_f(b.get('cardFeesSol')) + take, 9)}
+        paid[t] = take
+    return out, paid
+
+
 def drop_phantoms(books, missing):
     """👻 A 'recovered' leftover ($0 cost, booked by the strays / repair path) that the CONFIRMED wallet holds NONE of was never
     there: its coins had already been sold (2026-10-09: the repair path read the wallet a few seconds before the keeper's $UP sale
