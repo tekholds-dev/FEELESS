@@ -822,3 +822,23 @@ def test_w25_washed_a_coin_far_under_its_own_high_is_vetoed_for_everyone():
     calm = {'ageH': 48, 'd5': 2, 'top10': 12, 'liq': 250000}
     w = of.warden(1.0, {**calm, 'surv': s}); assert w['veto'] and any(r['id'] == 'W25 washed' for r in w['rules'])
     ok = of.warden(1.0, {**calm, 'surv': {**s, 'fromPeak': -12.0}}); assert not ok['veto']
+
+
+def test_agent_style_scalp_banks_fast_and_ride_lets_the_trail_bank_it_instead_of_the_take_line():
+    import office as of
+    import real_learn as rl
+    assert of.agent_style({'agentStyle': 'scalp'}) == 'scalp' and of.agent_style({'agentStyle': 'yolo'}) == 'auto' and of.agent_style(None) == 'auto'
+    pieces = [{'pct': 14, 'k': ['tag:🤖', 'style:scalp']}, {'pct': -5, 'k': ['tag:🤖', 'style:scalp']}, {'pct': 60, 'k': ['tag:🤖', 'style:ride']},
+              {'pct': -3, 'k': ['tag:🤖']}, {'pct': 9, 'k': ['tag:🤝', 'style:ride']}]
+    r = rl.style_record(pieces)
+    assert r['scalp'] == {'n': 2, 'won': 50, 'med': 14.0, 'sum': 9.0, 'last': [14.0, -5.0]} and r['ride']['n'] == 1 and r['auto']['n'] == 1   # owner picks (🤝) are not agent records
+    assert 'style:ride' in rl.keys({'style': 'ride'})
+
+
+def test_reaper_style_scalp_takes_at_12_and_ride_holds_past_the_take_line_for_the_trail(monkeypatch):
+    monkeypatch.setattr(of, 'SNAP_N', 1)
+    base = {'agentTakePct': 10, 'agentScalp': False}
+    one = lambda cfg, px: of.reap([leg('A')], [trow('A')], {'PA': px}, cfg, None, 3600)[1][0]
+    assert one({**base, 'agentStyle': 'scalp'}, 1.13)['state'] == 'TAKE'                 # +13% ≥ the 12% scalp line: banked
+    assert one({**base, 'agentStyle': 'scalp'}, 1.08)['state'] != 'TAKE'                 # under it: not yet
+    assert one({**base, 'agentStyle': 'ride'}, 1.13)['state'] != 'TAKE'                  # ride: the line never sells it — the trail does

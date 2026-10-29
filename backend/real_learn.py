@@ -44,6 +44,8 @@ def keys(row):
         out.append('tag:' + t)
     if r.get('picked') is not None:
         out.append('by:' + ('you' if r.get('picked') else 'engine'))
+    if r.get('style'):
+        out.append('style:' + str(r['style']))
     return out
 
 
@@ -55,6 +57,8 @@ def note(state, leg, px_exit, now, why=''):
         return st
     b = dict((leg or {}).get('bought') or {})
     b['picked'] = bool((leg or {}).get('picked'))
+    if (leg or {}).get('style'):
+        b['style'] = leg['style']
     start = _f((leg or {}).get('at'))   # the buy TIME (`firstEntry` is the first entry PRICE — it read as 30M minutes held)
     piece = {'at': now, 'mint': (leg or {}).get('mint'), 'symbol': (leg or {}).get('symbol'), 'pct': round((px / entry - 1) * 100, 2),
              'holdMin': round(max(0.0, now - start) / 60, 1) if 0 < start <= now else None,   # no buy stamp = unknown, never "since 1970"
@@ -110,3 +114,14 @@ def lessons(tbl, top=4):
     rows = [(k, v) for k, v in (tbl or {}).items() if v['n'] >= MIN_N]
     rows.sort(key=lambda kv: -kv[1]['medPct'])
     return {'best': [{'bucket': k, **v} for k, v in rows[:top]], 'worst': [{'bucket': k, **v} for k, v in rows[::-1][:top]]}
+
+
+def style_record(pieces):
+    """⚡ the agents' REAL record split by the style each seat was bought under → {auto|scalp|ride: {n, won %, med %, sum %, last}}. Pure."""
+    out = {}
+    for st in ('auto', 'scalp', 'ride'):
+        ps = [_f(p.get('pct')) for p in pieces or [] if 'tag:🤖' in (p.get('k') or []) and (f'style:{st}' in (p.get('k') or []) or (st == 'auto' and not any(str(k).startswith('style:') for k in p.get('k') or [])))]
+        s = sorted(ps)
+        out[st] = {'n': len(ps), 'won': round(sum(1 for x in ps if x > 0) / len(ps) * 100) if ps else None,
+                   'med': round(s[len(s) // 2], 2) if s else None, 'sum': round(sum(ps), 1), 'last': ps[-12:]}
+    return out

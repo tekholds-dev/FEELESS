@@ -528,7 +528,8 @@ def clean_cfg(p):
     out['agentTrust'] = bool((p or {}).get('agentTrust', False))   # 🤝 a 2nd agent seat once the suggestions the owner took are proven (≥ 10 closed, typical > 0)
     out.update(_oe.clean_policy(p))   # 🎛 the creator's limits on the agents (take · stop · trail · max hold · size · seat target · switching · entry · authority)
     out['agentTakePct'] = int(_f((p or {}).get('agentTakePct'))) if int(_f((p or {}).get('agentTakePct'))) in (5, 10, 20, 30, 50) else 10   # 🤖 agent seats hold until this profit
-    out['agentMode'] = (p or {}).get('agentMode') if (p or {}).get('agentMode') in ('auto', 'pull', 'swap') else 'auto'   # … then pull to cash / swap / let the agents choose
+    out['agentMode'] = (p or {}).get('agentMode') if (p or {}).get('agentMode') in ('auto', 'pull', 'swap') else 'auto'
+    out['agentStyle'] = (p or {}).get('agentStyle') if (p or {}).get('agentStyle') in ('auto', 'scalp', 'ride') else 'auto'   # ⚡ scalp fast · ride the volume   # … then pull to cash / swap / let the agents choose
     out['agentSeats'] = int(_f((p or {}).get('agentSeats'))) if int(_f((p or {}).get('agentSeats'))) in (1, 2, 3, 4) else 2   # most agent coins on the card at once   # 🤖 the agent desk's GO calls feed the rush (only once its 5-min stage is conquered)
     out['volCycle'] = bool((p or {}).get('volCycle', False))   # 🌊 a flat coin (±10% after its hold) is swapped for the busiest clean volume coin
     out['volEvery'] = int(_f((p or {}).get('volEvery'))) if int(_f((p or {}).get('volEvery'))) in VOL_EVERY else 10
@@ -3590,6 +3591,7 @@ def agent_seat(card, row, prices, cfg, now, min_usd=0.05, max_usd=None):
         leg['trench'] = True
     if row.get('riskScale'):   # 🎚 the Warden's risk scale 1–4 rides the seat: a 4 is a quick scalp for the Reaper
         leg['riskScale'] = int(row['riskScale'])
+    leg['style'] = (cfg or {}).get('agentStyle') if (cfg or {}).get('agentStyle') in ('scalp', 'ride') else 'auto'   # ⚡ the style it was bought under → its own record
     c['legs'].append(leg)
     c['cash'] = round(_f(c['cash']) - usd, 6)
     c.setdefault('events', []).append({'at': now, 'kind': 'agent', 'move': 'fill', 'symbol': row.get('symbol'), 'mint': row.get('mint'), 'usd': round(usd, 4),

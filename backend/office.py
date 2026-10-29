@@ -342,6 +342,15 @@ NEAR_SIZE = 1.0   # 🪑 W19: a best-available / seat-floor fill takes a FULL eq
 # 🎚 RISK SCALE 1–4 (owner 2026-10-28: "never risk more because of confidence — 4 is the riskiest and gets the LEAST cash + a quick scalp").
 # Counted from the coin's own measured risk flags; it can only shrink a seat (smallest rule wins) and a 4 banks at QUICK_SCALP_TP.
 RISK_SCALE_SIZE = {1: 1.0, 2: 0.75, 3: 0.5, 4: 0.25}
+# ⚡ AGENT STYLE (owner switch `agentStyle`): AUTO = the rules as they are · SCALP = every seat banks at SCALP_TP, never rides · RIDE = past the
+# take line a seat is never sold BY the line — the trail banks it (hold while the volume leads). Stops, rugs and vetoes act the same in every style.
+STYLES = ('auto', 'scalp', 'ride')
+SCALP_TP = 12.0
+
+
+def agent_style(cfg):
+    s = str((cfg or {}).get('agentStyle') or 'auto').lower()
+    return s if s in STYLES else 'auto'
 QUICK_SCALP_TP = 8.0
 
 
@@ -684,8 +693,12 @@ def reap(legs, table, prices, cfg, pos, now, scalp=None, control=False, weather_
         if not own_ and atr_ > 0:   # 🎯 NO ONE TAKE FITS EVERY COIN (owner, 2026-10-17): the take follows THIS coin's own candle size — a coin moving 3% a candle gets +36% of room
             take = round(min(max(take, TAKE_ATR * atr_), TAKE_MAX), 1)
         quick_ = int(_f(l.get('riskScale'))) >= 4   # 🎚 risk 4/4 seat: a quick scalp — banks at QUICK_SCALP_TP, never rides the take line or the crowd
+        style_ = agent_style(cfg)   # ⚡ owner 2026-10-28 "scalp + ride the volume": SCALP banks fast · RIDE never banks at the line, the trail does
+        ride_ = style_ == 'ride' and not quick_
         if quick_ and not own_:
             take = min(take, QUICK_SCALP_TP)
+        elif style_ == 'scalp' and not own_:
+            take, quick_ = min(take, SCALP_TP), True
         if own_:
             p['owner'] = {'sl': _f(l.get('sl')) or None, 'tp': _f(l.get('tp')) or None, 'at': _f(l.get('ownerLvAt'))}   # filed with the position: "did your hand help?"
         p['stopNow'] = stop   # ⚡ the 6-second guard stops an agent seat at THIS line between ticks (`fast_reap`)
@@ -770,7 +783,7 @@ def reap(legs, table, prices, cfg, pos, now, scalp=None, control=False, weather_
             st, rule, ev, act = 'EXIT INVALIDATED', 'R5 stop', f"{pct:+.1f}% ≤ −{stop:g}%" + (f" ({'; '.join((th.get('stopParts') or [])[:2])})" if th else ' (no thesis on file: the ceiling)'), 'pull'
         elif mine and live and dead_ and held >= DEAD_CASH_MIN and now - _f(p.get('deadSince') or now) >= (DEAD_BASE_CASH_MIN if base_ else DEAD_CASH_MIN) * 60 and pct < take:   # 💀 dead 15 min: CASH beats a coin nobody trades — no replacement needed
             st, rule, ev, act = ('TAKE' if pct >= MIN_KEEP else 'EXIT INVALIDATED'), 'R11x dead coin → cash', f"{pct:+.1f}% — {dead_} for {round((now - _f(p.get('deadSince'))) / 60)} min; the seat refills from the live bench", 'pull'
-        elif pct >= take and ((not runs and not riding_) or quick_):
+        elif pct >= take and ((not runs and not riding_ and not ride_) or quick_):
             st, rule, ev = 'TAKE', 'R6 take line', f"{pct:+.1f}% ≥ +{take:g}% ({'risk 4/4 quick scalp' if quick_ else f'{tsrc} take'}) — the card's own take rule banks it"
         elif mine and rv and rv['verdict'] == 'invalid' and held >= 2:   # the reason it was bought is gone: out, green or red — P&L does not decide this
             st, rule, ev, act = ('TAKE' if pct >= MIN_KEEP else 'EXIT INVALIDATED'), 'R5t thesis invalidated', f"{pct:+.1f}% — entered on {th.get('structure')}; now {rv['why'][0]}", 'pull'
@@ -798,7 +811,7 @@ def reap(legs, table, prices, cfg, pos, now, scalp=None, control=False, weather_
             st, rule, ev, act = 'EXIT INVALIDATED', 'R9 time', f"{held:.0f} min held, {pct:+.1f}%, {broke} — no read left to wait on", 'pull'
         elif riding_:
             st, rule, ev = 'PROTECT', 'R10r riding the volume', f"{pct:+.1f}% · a real crowd is buying ({(fv_ or {}).get('why') or 'buyers lead the tape'}) — held past the take line; banks only {RIDE_GIVE:g}% off its peak {p['peak']:+.1f}% or when sellers take over"
-        elif runs and pct >= take:   # AGENTS CHOOSE: past the base line the coin runs only while their read stays clean — the trail above banks it
+        elif (runs or ride_) and pct >= take:   # AGENTS CHOOSE (or RIDE style): past the base line the coin runs only while their read stays clean — the trail above banks it
             st, rule, ev = 'PROTECT', 'R6 take line', f"{pct:+.1f}% ≥ +{take:g}% (base take, AGENTS CHOOSE): they read it every pass — it runs while clean, the trail banks it under {max(MIN_KEEP, trail_line):+.1f}%" if trail_on and p['peak'] >= arm else f"{pct:+.1f}% ≥ +{take:g}% (base take, AGENTS CHOOSE): they read it every pass — it runs while clean"
         elif tp == 'dump':
             st, rule, ev = 'PROTECT', 'R4 whale dump', f'the tape reads a dump at {pct:+.1f}% — buyers still hold it'
