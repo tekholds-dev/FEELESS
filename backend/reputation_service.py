@@ -27194,6 +27194,8 @@ async def effective_fee(wallet: str, input_mint: str = '', output_mint: str = ''
     none = lambda note: {'bps': 0, 'ultraBps': 0, 'baseBps': base, 'notes': [note] if note else [], 'referralAccount': None, 'feeAccount': None, **eng}
     if not base:
         return none('No FEELESS fee on this trade.')
+    if wallet and _is_staff(wallet):   # 👑 owner 2026-10-29: "creator wallet or admins don't pay fees site wide" — every trade, any engine
+        return none('Creator / admin wallet: no FEELESS fee, site-wide.')
     mints = await _ecosystem_mints()
     # The ONLY fee-free trades: buying a FEELESS coin. There is no other exemption.
     # FEELESS coins ($FEE, FEECAT, rFEE) are free to BUY with SOL, USDC or USDT. Selling them, buying them with

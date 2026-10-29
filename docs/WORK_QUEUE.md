@@ -82,7 +82,7 @@ Each loop iteration: ① cash check (card books vs wallet, halt, pending) → �
 ## 🔥 OWNER PRIORITY 2026-10-29 (night) — this order, then back to the MD list
 
 > 🆕 **OWNER 2026-10-29 late (do these FIRST, in order):**
-> **Q1 "Let them go" (general + trading real configs)** — a per-cat switch: the general cat works ANY request on its own (no 8-step cap per window,
+> ✅ Q1 slice 1 2026-10-29: workbench 🏇 LET IT GO (30 steps a window, asks queue + run back to back, stops only when done / $ cap / a person needed; trading cats already ride on auto). ✅ staff / creator wallets pay NO FEELESS swap fee site-wide (`effective_fee`). Left: crypto sign-up + funding from its wallet needs guards first. > **Q1 "Let them go" (general + trading real configs)** — a per-cat switch: the general cat works ANY request on its own (no 8-step cap per window,
 >   keeps going task after task) until a human is truly needed (card payment, KYC, CAPTCHA, a sign-in) — it may sign up / fund with crypto inside its
 >   caps. Today: `cat_agent.STEP_MAX = 8`, one task per Enter, pauses on `needs_human`; agent wallet `approve|auto` (`agent_wallet.set_mode`).
 >   Build: `go` mode on the workbench (queue + long step budget + the $ cap still binds) + the agent wallet on auto; never types a password/card.

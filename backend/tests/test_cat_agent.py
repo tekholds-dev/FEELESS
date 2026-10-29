@@ -185,3 +185,11 @@ def test_let_it_go_queues_asks_runs_the_next_on_its_own_and_gives_a_long_step_bu
     assert started == ['next'] and store['cats']['g1']['workQueue'] == []
     c.post('/api/cats/g1/work', json={'op': 'go', 'ownerId': 'b1', 'on': False}); assert store['cats']['g1']['workQueue'] == []
     fs._WORK.pop('g1', None)
+
+
+def test_a_creator_or_admin_wallet_pays_no_feeless_fee_on_any_trade(monkeypatch):
+    rs = pytest.importorskip('reputation_service')
+    monkeypatch.setattr(rs, '_fee_cfg', lambda: {**rs.FEE_DEFAULTS, 'platformFeeBps': 150})
+    monkeypatch.setattr(rs, '_is_staff', lambda w: w == 'STAFF')
+    f = asyncio.run(rs.effective_fee('STAFF', 'So11111111111111111111111111111111111111112', 'MINTX', amount=1))
+    assert f['bps'] == 0 and 'site-wide' in ' '.join(f['notes'])
