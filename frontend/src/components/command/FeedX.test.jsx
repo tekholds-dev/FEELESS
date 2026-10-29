@@ -81,3 +81,17 @@ test('the pulse counts the last hour in 12 five-minute buckets, by site, and the
   expect(p.n).toBe(3); expect(p.buckets).toHaveLength(12); expect(p.buckets[11]).toBe(1); expect(p.buckets[10]).toBe(1);
   expect(p.bySrc).toEqual([['x', 2], ['pump', 1]]); expect(p.top).toEqual([{ sym: 'wif', mint: 'M1', n: 2 }]); expect(p.calls).toBe(2);
 });
+
+test('FEEd v5: a pasted CA is found, For you lifts calls / stars / follows, Calls lists coin posts, search and who-to-follow', () => {
+  const { caOf, tabPosts, matchQ, whoToFollow, authorKey } = require('./FeedX');
+  expect(caOf('aping 7GCihgDB8fe6KNjn2MYtkzZcRjQy3t9GHdC8uHYmW2hr now')).toBe('7GCihgDB8fe6KNjn2MYtkzZcRjQy3t9GHdC8uHYmW2hr');
+  expect(caOf('gm trenches 0OIl')).toBeNull(); expect(caOf('')).toBeNull();
+  const now = 100000;
+  const p = [{ id: 'a', src: 'x', handle: 'bob', at: now - 100, text: 'gm' }, { id: 'b', src: 'pump', handle: 'amy', at: now - 1000, text: 'send $WIF', coin: { symbol: 'WIF', mint: 'M' } },
+    { id: 'c', src: 'telegram', handle: 'cat', at: now - 5000, text: 'old' }];
+  expect(tabPosts(p, 'foryou', {}, new Set(), new Set(), now).map(x => x.id)).toEqual(['b', 'a', 'c']);                  // a call gets +30 min
+  expect(tabPosts(p, 'foryou', { c: { comments: 2 } }, new Set(), new Set(), now)[0].id).toBe('c');                       // 2 replies = +2h
+  expect(tabPosts(p, 'calls', {}, new Set(), new Set(), now).map(x => x.id)).toEqual(['b']);
+  expect(p.filter(x => matchQ(x, '$wif')).map(x => x.id)).toEqual(['b']); expect(p.filter(x => matchQ(x, '')).length).toBe(3);
+  expect(whoToFollow(p, new Set([authorKey(p[0])])).map(r => r.p.id)).toEqual(['b', 'c']);                                // callers first, followed people never
+});

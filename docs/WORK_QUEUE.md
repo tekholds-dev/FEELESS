@@ -26,7 +26,7 @@ Conserve usage · finish the selected work by priority · never dead-style.
 | ID | Status | Specific remaining work / done when |
 |---|---|---|
 | M01 | VERIFY | Mobile pass on every tab, modal and pop-out. Use MOBILE_LAYOUT matrix; no clipped controls, page overflow, stale orientation or lost state. Agents is this delivery; other pages are not certified by it. |
-| F01 | OPEN | FEEd redesign: one ~600px timeline; For you/Following/Calls/Heat/Graveyard tabs; swipe source chips; composer with CA preview; new-post pill; threaded replies; live coin/call receipt cards; desktop discovery rail; phone composer; Duo split. Keep FeedX helpers/tests. |
+| F01 | VERIFY | FEEd v5 shipped 2026-10-29 (`FeedX.jsx`, `feed.css`, `feedPro.css`): 600px column, sticky glass header (For you/Following/Calls/Heat/Graveyard + 🔖, sliding underline), swipe source chips, composer with live CA coin card, ↑N new pill, post cards with live coin chip (→ Trenches floor) + call receipt, threads on a connector line, rail (search · pulse · trending · callers · who to follow · sites), mini-nav ≥1250, phone ✎ sheet + folding header, Duo split. Browser-checked desktop/360/Duo-wide/day/pop-out. Remaining: owner look on real phone/Duo; coin chips/receipts only seen via the composer (no coin posts in the live feed today). |
 | G01 | OPEN | Strike Zone: real CC0 gun models and camo/PBR assets; replace placeholders, preserve gameplay. |
 | T01 | OPEN | HQ Telegram center: bot rooms, alerts/trading/community/security, Mini App setup; FeeCat-art idle RPG and slot game hub. |
 | C01 | OPEN | Familia desktop/mobile pass using shared room, vitals, panel and sheet templates. Every building opens a real function with live vitals. |

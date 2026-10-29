@@ -1,68 +1,73 @@
-/* 🧵 FEEd v4 (owner, 2026-10-21: "dev/null type styling, a real build, not a board"): near-black stage, one accent per source, mono metadata,
-   dense rows with a hover rail, glass composer, sticky tabs with a sliding underline, compact media. Scoped to .fx.fx-v4; transform / opacity only. */
-.fx.fx-v4 { --fx4-bg: #050606; --fx4-line: rgba(255, 255, 255, .07); --fx4-ink: #e8ece9; --fx4-mute: #7f8884; --fx4-acc: #45e486; }
-.fx.fx-v4 .fx-main { background: radial-gradient(120% 40% at 50% 0%, rgba(69, 228, 134, .07), transparent 60%), linear-gradient(180deg, #070908, var(--fx4-bg));
-  border: 1px solid var(--fx4-line); box-shadow: 0 30px 80px -40px #000, inset 0 1px 0 rgba(255, 255, 255, .05); }
-.fx.fx-v4 .fx-main::before { content: ''; position: absolute; inset: 0; z-index: -1; border-radius: inherit; pointer-events: none; opacity: .5;
-  background-image: linear-gradient(rgba(255, 255, 255, .025) 1px, transparent 1px), linear-gradient(90deg, rgba(255, 255, 255, .025) 1px, transparent 1px); background-size: 28px 28px;
-  -webkit-mask-image: linear-gradient(180deg, #000, transparent 70%); mask-image: linear-gradient(180deg, #000, transparent 70%); }
-.fx.fx-v4 .fx-head { background: rgba(5, 6, 6, .86); border-bottom: 1px solid var(--fx4-line); }
-.fx.fx-v4 .fx-head b { font: 800 18px 'Sora', system-ui, sans-serif; letter-spacing: -.01em; color: #fff; }
-.fx.fx-v4 .fx-head small { font: 600 10.5px 'JetBrains Mono', monospace; letter-spacing: .08em; text-transform: uppercase; color: var(--fx4-mute); }
-.fx.fx-v4 .fx-compose { background: linear-gradient(180deg, rgba(255, 255, 255, .025), transparent); border-bottom: 1px solid var(--fx4-line); }
-.fx.fx-v4 .fx-compose textarea { background: rgba(255, 255, 255, .03); border: 1px solid var(--fx4-line); color: var(--fx4-ink); font: 500 15px system-ui, sans-serif; transition: border-color .15s, box-shadow .15s; }
-.fx.fx-v4 .fx-compose textarea:focus { border-color: var(--fx4-acc); box-shadow: 0 0 0 3px rgba(69, 228, 134, .12); }
-.fx.fx-v4 .fx-tabs { position: sticky; top: 50px; z-index: 2; background: rgba(5, 6, 6, .92); border-bottom: 1px solid var(--fx4-line); }
-.fx.fx-v4 .fx-tabs button { position: relative; font: 700 12.5px 'Sora', system-ui, sans-serif; letter-spacing: .02em; color: var(--fx4-mute); }
-.fx.fx-v4 .fx-tabs button::after { content: ''; position: absolute; left: 22%; right: 22%; bottom: 0; height: 3px; border-radius: 3px 3px 0 0; background: var(--fx4-acc); transform: scaleX(0); transition: transform .2s ease; }
-.fx.fx-v4 .fx-tabs button.on { color: #fff; } .fx.fx-v4 .fx-tabs button.on::after { transform: scaleX(1); }
-.fx.fx-v4 .fx-tabs button:hover { color: var(--fx4-ink); }
-.fx.fx-v4 .fx-post { position: relative; border-bottom: 1px solid var(--fx4-line); padding: 13px 18px; }
-.fx.fx-v4 .fx-post::before { content: ''; position: absolute; left: 0; top: 10px; bottom: 10px; width: 2px; border-radius: 2px; background: var(--fx4-src, var(--fx4-acc)); transform: scaleY(0); transition: transform .18s ease; }
-.fx.fx-v4 .fx-post:hover { background: rgba(255, 255, 255, .025); } .fx.fx-v4 .fx-post:hover::before { transform: scaleY(1); }
-.fx.fx-v4 .fx-post.is-pump { --fx4-src: #86efac; } .fx.fx-v4 .fx-post.is-x { --fx4-src: #e8ece9; } .fx.fx-v4 .fx-post.is-telegram { --fx4-src: #5fd4ff; }
-.fx.fx-v4 .fx-post.is-bluesky { --fx4-src: #6aa8ff; } .fx.fx-v4 .fx-post.is-feeless { --fx4-src: #45e486; }
-.fx.fx-v4 .fx-body header b { font: 700 14.5px system-ui, sans-serif; color: #fff; }
-.fx.fx-v4 .fx-body header small, .fx.fx-v4 .fx-hash { font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--fx4-mute); }
-.fx.fx-v4 .fx-body > p { font: 450 14.5px/1.5 system-ui, sans-serif; color: var(--fx4-ink); margin: 4px 0 8px; }
-.fx.fx-v4 .fx-img { display: block; max-width: min(100%, 460px); max-height: 300px; border-radius: 14px; border: 1px solid var(--fx4-line); object-fit: cover; background: #0b0d0c; }
-.fx.fx-v4 .fx-src { font: 700 9.5px 'JetBrains Mono', monospace; letter-spacing: .06em; padding: 2px 7px; border-radius: 999px; background: rgba(255, 255, 255, .05); color: var(--fx4-src, var(--fx4-acc)); }
-.fx.fx-v4 .fx-act { color: var(--fx4-mute); border-radius: 999px; transition: color .15s, background .15s; }
-.fx.fx-v4 .fx-act:hover { color: var(--fx4-ink); background: rgba(255, 255, 255, .05); }
-.fx.fx-v4 .fx-nav button, .fx.fx-v4 .fx-nav a { transition: transform .12s ease, background .15s ease; }
-.fx.fx-v4 .fx-nav button:hover, .fx.fx-v4 .fx-nav a:hover { transform: translateX(2px); }
-@media (prefers-reduced-motion: reduce) { .fx.fx-v4 .fx-post::before, .fx.fx-v4 .fx-tabs button::after { transition: none; } }
-body.theme-day .fx.fx-v4 { --fx4-bg: #f6f8f7; --fx4-line: rgba(0, 0, 0, .08); --fx4-ink: #171d1a; --fx4-mute: #5d6b63; --fx4-acc: #0d7a40; }
-body.theme-day .fx.fx-v4 .fx-main { background: #fbfdfc; } body.theme-day .fx.fx-v4 .fx-head, body.theme-day .fx.fx-v4 .fx-tabs { background: rgba(251, 253, 252, .94); }
-body.theme-day .fx.fx-v4 .fx-head b, body.theme-day .fx.fx-v4 .fx-body header b, body.theme-day .fx.fx-v4 .fx-tabs button.on { color: #0d100f; }
-@media (max-width: 640px) { .fx.fx-v4 .fx-post { padding: 12px; } .fx.fx-v4 .fx-img { max-height: 240px; } .fx.fx-v4 .fx-tabs { top: 44px; } }
-/* 📈 THE PULSE (FeedX FeedPulse `fxp-*`) + ⤢ the popped-out FEEd (FeedPopHost `fxpop-*`) */
-.fxp { display: grid; grid-template-columns: auto minmax(120px, 1fr) auto; grid-template-areas: 'n line src' 'top top top'; gap: 6px 12px; align-items: center; padding: 10px 12px; border-radius: 14px;
-  background: linear-gradient(180deg, rgba(21, 209, 106, .07), rgba(0, 0, 0, .25)); border: 1px solid rgba(69, 228, 134, .2); box-shadow: inset 0 1px 0 rgba(170, 255, 210, .08); }
-.fxp-n { grid-area: n; display: grid; } .fxp-n b { font: 900 24px 'JetBrains Mono', monospace; color: #45e486; text-shadow: 0 0 14px rgba(21, 209, 106, .4); animation: fxpPop .4s ease; } .fxp-n em { font: 700 8px 'JetBrains Mono', monospace; letter-spacing: .14em; font-style: normal; color: #8fb0a5; }
+/* 📰 FEEd v5 extras: 🎨 the looks (lib/feedLook `fx-bg-*` / `fx-d-*` + the LookPanel) · 📈 THE PULSE (`fxp-*`) · ⤢ the popped-out FEEd (`fxpop-*`) ·
+   📱📱 the Duo split. Built on the m-* tokens; transform / opacity only; one keyframe set (fxp*). */
+
+/* 🎨 looks — the column's background, density and accent (feed.css reads --fx-accent / --fx-font / --fx-size) */
+.fd.fx-bg-void .fd-col { background: #040505; }
+.fd.fx-bg-royal .fd-col { background: radial-gradient(120% 50% at 10% 0%, rgba(21, 209, 106, .2), transparent 60%), radial-gradient(90% 60% at 100% 100%, rgba(11, 122, 82, .25), transparent 60%), #050807; }
+.fd.fx-bg-nebula .fd-col { background: radial-gradient(120% 60% at 0% 0%, rgba(166, 107, 255, .22), transparent 60%), radial-gradient(90% 60% at 100% 100%, rgba(90, 215, 255, .14), transparent 60%), #07060b; }
+.fd.fx-bg-sunset .fd-col { background: linear-gradient(180deg, rgba(255, 95, 120, .16), transparent 40%), linear-gradient(0deg, rgba(245, 196, 81, .1), transparent 40%), #0b0707; }
+.fd.fx-bg-matrix .fd-col { background: repeating-linear-gradient(90deg, rgba(21, 209, 106, .045) 0 1px, transparent 1px 22px), #030504; }
+.fd.fx-bg-paper { --fd-ink: #1c2220; --fd-mute: #6a6f66; --fd-line: rgba(0, 0, 0, .09); --fd-glass: rgba(246, 243, 234, .94); }
+.fd.fx-bg-paper .fd-col { background: #f6f3ea; } .fd.fx-bg-paper .fd-name, .fd.fx-bg-paper .fd-head-t b, .fd.fx-bg-paper .fd-tabs button.on { color: #111; }
+.fd.fx-d-tight .fd-post { padding-top: 9px; padding-bottom: 6px; gap: 9px; } .fd.fx-d-tight .fd-body { gap: 4px; }
+.fd.fx-d-comfy .fd-body { gap: 8px; }
+.fd-look { position: relative; z-index: 3; display: grid; gap: 9px; margin: 10px 14px 0; padding: 12px 14px; border-radius: 16px; border: 1px solid color-mix(in srgb, var(--fd-acc) 35%, transparent);
+  background: rgba(6, 9, 8, .97); box-shadow: 0 18px 40px -20px #000; animation: fxpIn .18s ease-out both; }
+.fd-look header { display: flex; justify-content: space-between; align-items: center; } .fd-look header b { font: 800 14px var(--f-ui, sans-serif); }
+.fd-lrow { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; } .fd-lrow > small { width: 76px; font: 700 9px var(--f-mono, monospace); letter-spacing: .1em; text-transform: uppercase; color: var(--fd-mute); }
+.fd-lrow .m-seg { flex-wrap: wrap; } .fd-lrow .m-seg button { font-size: 12px; }
+.fd-dot { display: inline-block; width: 14px; height: 14px; border-radius: 50%; vertical-align: middle; box-shadow: 0 0 0 2px rgba(0, 0, 0, .5); }
+
+/* 📈 THE PULSE: posts + calls per hour, the hour's line, who is talking (a split bar), the coins called most */
+.fxp { grid-template-columns: auto auto minmax(80px, 1fr); grid-template-areas: 'n c line' 'src src src' 'top top top'; align-items: center; gap: 8px 12px;
+  background: linear-gradient(180deg, rgba(21, 209, 106, .08), rgba(0, 0, 0, .3)); border-color: rgba(69, 228, 134, .22); }
+.fxp-n { grid-area: n; display: grid; } .fxp-n.is-calls { grid-area: c; }
+.fxp-n b { font: 900 24px var(--f-mono, 'JetBrains Mono', monospace); color: #45e486; text-shadow: 0 0 14px rgba(21, 209, 106, .4); animation: fxpPop .4s ease; }
+.fxp-n.is-calls b { color: var(--gold, #f5c451); text-shadow: 0 0 14px rgba(245, 196, 81, .35); }
+.fxp-n em { font: 700 8px var(--f-mono, monospace); font-style: normal; letter-spacing: .12em; color: #8fb0a5; }
 .fxp-line { grid-area: line; width: 100%; height: 40px; } .fxp-line .ln { fill: none; stroke: #45e486; stroke-width: 1.6; vector-effect: non-scaling-stroke; } .fxp-line .area { fill: rgba(69, 228, 134, .12); stroke: none; }
-.fxp-src { grid-area: src; display: flex; flex-wrap: wrap; gap: 4px; justify-content: flex-end; } .fxp-src i { font: 700 10px 'JetBrains Mono', monospace; font-style: normal; padding: 2px 7px; border-radius: 999px; background: rgba(255, 255, 255, .05); }
+.fxp-src { grid-area: src; display: flex; gap: 2px; min-height: 22px; border-radius: 8px; overflow: hidden; }
+.fxp-src i { flex: 1 1 0; display: grid; place-items: center; min-width: 46px; font: 700 10px var(--f-mono, monospace); font-style: normal; color: #04100a; background: #45e486; white-space: nowrap; animation: fxpGrow .5s ease-out both; transform-origin: left; }
+.fxp-src i.is-telegram { background: #5fd4ff; } .fxp-src i.is-bluesky { background: #6aa8ff; } .fxp-src i.is-x { background: #e8ece9; } .fxp-src i.is-pump { background: #86efac; }
 .fxp-top { grid-area: top; display: flex; flex-wrap: wrap; gap: 5px; } .fxp-top small { font-size: 11px; color: #8fb0a5; }
-.fxp-top button { display: inline-flex; align-items: center; gap: 5px; min-height: 30px; padding: 3px 10px; border-radius: 999px; border: 1px solid rgba(69, 228, 134, .3); background: rgba(0, 0, 0, .3); color: #e8fff1; font: 800 11px 'JetBrains Mono', monospace; cursor: pointer; transition: transform .12s ease, border-color .15s ease; }
+.fxp-top button { display: inline-flex; align-items: center; gap: 5px; min-height: 32px; padding: 3px 10px; border-radius: 999px; border: 1px solid rgba(69, 228, 134, .3); background: rgba(0, 0, 0, .3);
+  color: #e8fff1; font: 700 12px var(--f-tech, sans-serif); cursor: pointer; transition: transform .15s ease, border-color .15s ease; }
 .fxp-top button:hover { transform: translateY(-1px); border-color: #45e486; } .fxp-top button:active { transform: scale(.96); } .fxp-top button:focus-visible { outline: 2px solid #45e486; outline-offset: 2px; }
 .fxp-top button b { font-size: 10px; padding: 0 5px; border-radius: 6px; background: #45e486; color: #090c0b; }
-.fxpop { position: fixed; right: 18px; bottom: 18px; z-index: 900; width: min(440px, calc(100vw - 24px)); height: min(72vh, 680px); display: grid; grid-template-rows: auto auto minmax(0, 1fr); gap: 8px; padding: 10px;
-  border-radius: 16px; background: rgba(7, 8, 8, .98); border: 1px solid rgba(69, 228, 134, .35); box-shadow: 0 24px 60px -20px #000, 0 0 0 1px rgba(0, 0, 0, .6); animation: fxpIn .2s ease-out both; }
-.fxpop > header { display: flex; align-items: center; gap: 8px; cursor: grab; touch-action: none; user-select: none; } .fxpop > header:active { cursor: grabbing; } .fxpop > header small { font-size: 10px; color: #8fb0a5; } .fxpop > header .m-btn { margin-left: auto; min-width: 32px; min-height: 32px; }
-.fxpop-body { overflow-y: auto; scrollbar-width: thin; scrollbar-color: #15d16a transparent; } .fxpop-body::-webkit-scrollbar { width: 6px; } .fxpop-body::-webkit-scrollbar-thumb { background: #15d16a; border-radius: 6px; }
-.fxpop .fxp { grid-template-columns: auto minmax(0, 1fr); grid-template-areas: 'n line' 'src src' 'top top'; } .fxpop .fxp-src { justify-content: flex-start; }
+
+/* ⤢ popped out: a floating window over any page (tabs + timeline) */
+.fxpop { position: fixed; right: 18px; bottom: 18px; z-index: 900; width: min(460px, calc(100vw - 24px)); height: min(76vh, 720px); display: grid; grid-template-rows: auto auto minmax(0, 1fr); gap: 0;
+  border-radius: 18px; overflow: hidden; background: rgba(6, 8, 7, .98); border: 1px solid rgba(69, 228, 134, .35); box-shadow: 0 24px 60px -20px #000, 0 0 0 1px rgba(0, 0, 0, .6);
+  --fd-acc: #15d16a; --fd-hot: #45e486; --fd-ink: #e9f5ee; --fd-mute: #84988e; --fd-line: rgba(255, 255, 255, .07); --fd-dn: #ff8fa3; color: var(--fd-ink); animation: fxpIn .2s ease-out both; }
+.fxpop > header { display: flex; align-items: center; gap: 8px; padding: 10px 12px; cursor: grab; touch-action: none; user-select: none; }
+.fxpop > header:active { cursor: grabbing; } .fxpop > header .feed-wordmark { font-size: 20px; }
+.fxpop > header small { display: inline-flex; align-items: center; gap: 6px; margin-right: auto; font: 700 9.5px var(--f-mono, monospace); letter-spacing: .1em; text-transform: uppercase; color: #8fb0a5; }
+.fxpop .fd-tabs button { font-size: 11.5px; min-height: 40px; }
+.fxpop-body { overflow-y: auto; overscroll-behavior: contain; scrollbar-width: thin; scrollbar-color: #15d16a transparent; } .fxpop-body::-webkit-scrollbar { width: 6px; } .fxpop-body::-webkit-scrollbar-thumb { background: #15d16a; border-radius: 6px; }
+.fxpop .fd-newpill { top: 8px; }
+
 @keyframes fxpPop { from { transform: scale(1.12); } to { transform: none; } }
 @keyframes fxpIn { from { opacity: 0; transform: translateY(10px) scale(.98); } to { opacity: 1; } }
-body.fx-lite .fxp-n b, body.fx-lite .fxpop { animation: none; } @media (prefers-reduced-motion: reduce) { .fxp-n b, .fxpop { animation: none; } .fxp-top button { transition: none; } }
-body.theme-day .fxp { background: #f3fbf6; } body.theme-day .fxp-n b { color: #0a8a44; text-shadow: none; } body.theme-day .fxpop { background: #fbfffc; } body.theme-day .fxp-top button { background: #fff; color: #0b3a1f; }
-@media (max-width: 640px) { .fxp { grid-template-columns: auto minmax(0, 1fr); grid-template-areas: 'n line' 'src src' 'top top'; } .fxp-src { justify-content: flex-start; } .fxpop { right: 12px; left: 12px; width: auto; bottom: 12px; } }
-/* 📱📱 FEEd on a Duo (owner 2026-10-28: "every tab its own Duo features"). Held WIDE: the sites become one swipe strip on top, the timeline takes
-   the left half and the side (top coins · your sites) comes back on the right half — split on the crease, each half scrolls on its own; the FEEd
-   pop-out LOCKS to the right half, full height (no floating window over the chart). UPRIGHT: one column, the pop-out is a bottom sheet. */
-body.is-duo-land .fx { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); grid-template-areas: "nav nav" "main side"; gap: 10px; }
-body.is-duo-land .fx > .fx-nav { grid-area: nav; position: static; display: flex; overflow-x: auto; scrollbar-width: none; gap: 6px; }
-body.is-duo-land .fx > .fx-main { grid-area: main; min-height: 0; max-height: calc(100dvh - 150px); overflow-y: auto; overscroll-behavior: contain; scrollbar-width: thin; scrollbar-color: #15d16a transparent; }
-body.is-duo-land .fx > .fx-side { grid-area: side; display: grid; position: static; max-height: calc(100dvh - 150px); overflow-y: auto; overscroll-behavior: contain; scrollbar-width: thin; scrollbar-color: #15d16a transparent; }
+@keyframes fxpGrow { from { transform: scaleX(0); } }
+body.fx-lite .fxp-n b, body.fx-lite .fxpop, body.fx-lite .fxp-src i { animation: none; }
+@media (prefers-reduced-motion: reduce) { .fxp-n b, .fxpop, .fxp-src i, .fd-look { animation: none; } .fxp-top button { transition: none; } }
+body.theme-day .fxp { background: #f3fbf6; } body.theme-day .fxp-n b { color: #0a8a44; text-shadow: none; } body.theme-day .fxp-n.is-calls b { color: #a2700a; }
+body.theme-day .fxpop { background: #fbfffc; --fd-ink: #14201a; --fd-mute: #5d6b63; --fd-line: rgba(0, 0, 0, .08); --fd-hot: #0d8a45; }
+body.theme-day .fxp-top button { background: #fff; color: #0b3a1f; } body.theme-day .fd-look { background: #fbfdfc; }
+@media (max-width: 640px) { .fxpop { right: 8px; left: 8px; bottom: 8px; width: auto; height: 78dvh; } .fd-lrow > small { width: 100%; } }
+
+/* 📱📱 FEEd on a Duo (owner 2026-10-28: "every tab its own Duo features"). Held WIDE: timeline | rail split on the crease, each half scrolls on its own
+   (the mini-nav steps aside); the pop-out LOCKS to the right half, full height. UPRIGHT: one column + the ✎ composer; the pop-out is a bottom sheet. */
+body.is-duo-land .fd { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 10px; }
+body.is-duo-land .fd > .fd-mini { display: none; }
+body.is-duo-land .fd > .fd-col { max-height: calc(100dvh - 120px); overflow-y: auto; overscroll-behavior: contain; scrollbar-width: thin; scrollbar-color: #15d16a transparent; }
+body.is-duo-land .fd > .fd-rail { display: grid; position: static; max-height: calc(100dvh - 120px); }
+body.is-duo-land .fd-fab { display: none; }
 body.is-duo-land .fxpop { top: 0; bottom: 0; right: 0; left: 50%; width: auto; height: auto; border-radius: 0; border-top: 0; border-bottom: 0; border-right: 0; transform: none !important; }
 body.is-duo-land .fxpop > header { cursor: default; }
 body.is-duo:not(.is-duo-land) .fxpop { left: 0; right: 0; bottom: 0; top: auto; width: auto; height: 62dvh; border-radius: 18px 18px 0 0; transform: none !important; }
+body.is-duo-land .fd-tl, .fxpop .fd-tl { display: none; } body.is-duo-land .fd-ts, .fxpop .fd-ts { display: inline; }
+body.is-duo-land .fd-tabs button, .fxpop .fd-tabs button { font-size: 11px; letter-spacing: 0; padding: 0 2px; }
+body.theme-day .fd:not(.fx-bg-paper) .fd-col { background: radial-gradient(120% 30% at 50% 0%, rgba(21, 209, 106, .08), transparent 60%), #fbfdfc; }
+body.theme-day .fd .fd-compose textarea { background: none; box-shadow: none; }
+body.theme-day .fd .fd-src, body.theme-day .fxpop .fd-src { background: rgba(0, 0, 0, .05); color: #24533d; } body.theme-day .fd-src.is-telegram { color: #0b6a8f; } body.theme-day .fd-src.is-bluesky { color: #1f5fc4; }
