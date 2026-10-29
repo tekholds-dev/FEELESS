@@ -32,3 +32,17 @@ export function liveBar(last, value, t, bucket) {
   for (let gt = last.time + bucket; gt < t; gt += bucket) fill.push({ time: gt, open: last.close, high: last.close, low: last.close, close: last.close });
   return { fill, bar: { time: t, open: last.close, high: Math.max(last.close, value), low: Math.min(last.close, value), close: value } };
 }
+
+// 🕯 THE CANDLE CLOCK (owner 2026-10-29: "chart still has issues with new candles, not updating true realtime"): a new candle used to appear only
+// when the first trade of the new minute landed — a quiet second at the boundary left the old candle on screen past its time. At each bucket
+// boundary the new candle opens ON TIME at the previous close (exactly the flat bar `liveBar` would fill in later — every bucket exists, every
+// candle opens at the previous close), and the next real tick shapes it. Pure: null when there is nothing to roll (same bucket, or a stale history
+// the first real tick must open instead).
+export function rollBar(last, t, bucket) {
+  if (!last || !(t > last.time)) return null;
+  const close = last.close ?? last.value;
+  if (!(close > 0) || Math.round((t - last.time) / bucket) > STALE_BUCKETS) return null;
+  if (last.close == null) return { fill: [], bar: { time: t, value: close } };   // a line series: the point carries on
+  return liveBar(last, close, t, bucket);
+}
+export const msToNextBucket = (bucket, now = Date.now()) => Math.max(20, Math.ceil(now / 1000 / bucket) * bucket * 1000 - now + 20);

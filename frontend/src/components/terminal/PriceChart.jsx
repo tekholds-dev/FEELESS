@@ -13,7 +13,7 @@ import { ChartCallPins } from './ChartCallPins';
 import { useChartWallets, walletPins } from '../../lib/chartWallets';
 import { feeLevels, ownLevels, toolLevels, germLevels, candleBand } from '../../lib/chartLevels';
 import { useGerm } from '../../lib/germ';
-import { mergeLiveBar, liveBar } from '../../lib/tween';
+import { mergeLiveBar, liveBar, rollBar, msToNextBucket } from '../../lib/tween';
 import { scaleKeep } from '../../lib/chartLevels';
 import { tickGuard } from '../../lib/tickGuard';
 import { mcapOf } from '../../lib/mcap';
@@ -394,9 +394,22 @@ export const PriceChart = ({ pair, interval, showVolume, metric = 'price', marke
         ws.onclose = () => { streaming = false; };
       } catch { ws = null; }
     }
+    // 🕯 the candle clock: the new candle opens ON TIME at each boundary (at the previous close), never waiting for the first trade of the minute
+    let rollT = null;
+    const roll = () => {
+      if (!alive) return;
+      try {
+        const ref = seriesRef.current; const t = Math.floor(Date.now() / 1000 / bucket) * bucket;
+        const r = !document.hidden && ref ? rollBar(lastBarRef.current, t, bucket) : null;
+        if (r) { r.fill.forEach(f => { try { ref.series.update(f); } catch { /* chart gone */ } }); ref.series.update(r.bar);
+          lastBarRef.current = r.bar; if (r.bar.close != null) liveBarRef.current = { ...r.bar, iv: interval, pool: pairLive.current?.pairAddress }; bumpChart(container.current); }
+      } catch { /* keep the last real candle */ }
+      rollT = setTimeout(roll, msToNextBucket(bucket));
+    };
+    rollT = setTimeout(roll, msToNextBucket(bucket));
     tick();
     const timer = setInterval(() => { if (!streaming) tick(); }, 1200);   // backup poll ONLY while the stream is down: one price feed per candle, never two
-    return () => { alive = false; clearInterval(timer); try { ws?.close(); } catch { /* ignore */ } };
+    return () => { alive = false; clearInterval(timer); clearTimeout(rollT); try { ws?.close(); } catch { /* ignore */ } };
   }, [charting, interval, pair?.baseToken?.address, pair?.chainId, pair?.pairAddress]);
   const [livePx, setLivePx] = useState(null);
   useEffect(() => { if (!feePos) return undefined; const t = setInterval(() => { const b = lastBarRef.current; if (b) setLivePx(b.close ?? b.value); }, 1200); return () => clearInterval(t); }, [feePos]);

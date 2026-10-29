@@ -32,3 +32,15 @@ test('🕯 the forming candle is never eased: the chart draws each real tick at 
   expect(src).not.toMatch(/tweenClose|requestAnimationFrame\(draw\)/);
   expect(src).toMatch(/ref\.series\.update\(bar\); shownRef\.current = value;/);
 });
+
+test('🕯 the candle clock opens the next candle ON TIME at the previous close; nothing to roll in the same bucket or over a stale history', () => {
+  const { rollBar, msToNextBucket } = require('./tween');
+  const last = { time: 1000 * 60, open: 1, high: 1.3, low: 0.9, close: 1.2 };
+  expect(rollBar(last, 1001 * 60, 60).bar).toEqual({ time: 1001 * 60, open: 1.2, high: 1.2, low: 1.2, close: 1.2 });   // flat at the last close, then real ticks shape it
+  expect(rollBar(last, 1000 * 60, 60)).toBeNull();                                  // same bucket: the forming candle stays
+  expect(rollBar(last, 1002 * 60, 60).fill).toHaveLength(1);                        // one missed boundary is filled (every bucket exists)
+  expect(rollBar(last, 1010 * 60, 60)).toBeNull();                                  // a stale history: the first REAL tick opens it
+  expect(rollBar({ time: 60, value: 2 }, 120, 60).bar).toEqual({ time: 120, value: 2 });   // line series
+  expect(rollBar(null, 120, 60)).toBeNull();
+  expect(msToNextBucket(60, 59_990)).toBe(30); expect(msToNextBucket(60, 60_000)).toBe(20); expect(msToNextBucket(60, 60_500)).toBe(59_520);
+});
