@@ -16316,6 +16316,13 @@ async def _fw_tick(now):
                                 _fw_record(d, {'id': f"fit:{ft['card']}:{ft['mint'][:6]}:{time.time():.0f}", 'card': ft['card'], 'side': 'fix', 'mint': ft['mint'], 'symbol': ft['symbol'], 'at': time.time(), 'status': 'done',
                                                'why': f"📏 book matched to the wallet: ${ft['symbol']} {ft['pct']:.2f}% fewer coins than booked (rounding / transfer tax) — the wallet is the truth"})
                             missing = _fw.reconcile(bal.get('tokens'), d['books'])
+                        if missing:   # 👻 a shortage that is EXACTLY a confirmed sale the book missed: the wallet is the truth, no halt
+                            d['books'], missed_ = _fw.fit_missed_sells(d['books'], missing, d.get('ledger') or _fw_full_ledger(), time.time())
+                            for ms_ in missed_:
+                                _fw_record(d, {'id': f"missed:{ms_['card']}:{ms_['mint'][:6]}:{time.time():.0f}", 'card': ms_['card'], 'side': 'fix', 'mint': ms_['mint'], 'symbol': ms_['symbol'], 'at': time.time(), 'status': 'done',
+                                               'why': f"📏 book matched to the wallet: a confirmed sale of {ms_['sold'] / 10 ** (ms_['decimals'] or 0):g} ${ms_['symbol']} ({str(ms_['sig'] or '')[:8]}…) was never taken off the book — its SOL was already in the card; no halt"})
+                            if missed_:
+                                missing = _fw.reconcile(bal.get('tokens'), d['books'])
                         if missing:   # 👻 a $0-cost leftover the wallet holds none of was already sold — off the book, no halt
                             d['books'], ghosts = _fw.drop_phantoms(d['books'], missing)
                             for gh in ghosts:

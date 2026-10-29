@@ -26,6 +26,10 @@ test('🧠🧠 two windows with their provider + bubble; a sign-in pauses one wi
   const inp = el.querySelector('[data-testid="cwb-input"]');
   await act(async () => { const set = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set; set.call(inp, 'find best bids'); inp.dispatchEvent(new Event('input', { bubbles: true })); });
   await act(async () => { el.querySelector('[data-testid="cwb-send"]').click(); });
-  expect(calls.at(-1)).toMatchObject({ op: 'ask', text: 'find best bids' });
+  expect(calls.at(-1)).toMatchObject({ op: 'ask', text: 'find best bids', to: 'both' });
+  await act(async () => { el.querySelector('[data-testid="cwb-to-1"]').click(); });
+  await act(async () => { const set = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set; set.call(inp, 'only you'); inp.dispatchEvent(new Event('input', { bubbles: true })); });
+  await act(async () => { el.querySelector('[data-testid="cwb-send"]').click(); });
+  expect(calls.at(-1)).toMatchObject({ op: 'ask', text: 'only you', to: '1' });                       // one mind takes the whole task
   await act(async () => { root.unmount(); });
 });

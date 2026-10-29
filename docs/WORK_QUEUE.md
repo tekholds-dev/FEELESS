@@ -94,6 +94,11 @@ Each loop iteration: ① cash check (card books vs wallet, halt, pending) → �
    a bubble top-right per window, the centred ✋ card, one chat, credit + this-task $ bars, the cap picker. Steel + Browserless verified live (a real session
    opened, a page read, a snapshot taken). Tests `test_cat_agent.py` (8), `CatWorkbench.test.jsx`. NOT yet: `LAUNCH_CAT_LIVE` is off (no model calls — owner's
    switch), the private KB store, the folder log, per-model colours, generative prompt picks, Gmail / GitHub accounts, real-money moves from a general cat.
+   + talk to BOTH minds or ONE (it takes the whole task in its own window) · its own switch `GENERAL_CAT_LIVE` (trading cats stay on LAUNCH_CAT_LIVE) — ON 2026-10-29.
+   🐛 FIXED 2026-10-29 "my Fuse card auto-pausing": the card was HALTED ("wallet token balance below card books"): a retried trim sold 180.97 HI on-chain but its
+   chain read had no negative delta, so the coins stayed booked (book 411.14 vs wallet 230.16 = exactly that trim). A confirmed sell now always leaves the book
+   (`apply_fill`: the read or the order's exact-in amount); a shortage that EXACTLY matches a confirmed sale heals to the wallet with a ledger line, no halt
+   (`fit_missed_sells`). + Safari: the Agents floor's money panel lost its % cap (Safari clipped the tabs).
    ORIGINAL ASK (owner: "before I get a general AI"): TWO browser windows (one per model) the user watches; Enter in chat → a fast answer from memory or the
    models work in their browsers; a small bubble top-right of each window with the current action / thought; a centred "human needed" request over the window
    (sign-ups etc.) that pauses them; one chat under the two windows; usage / $-till-top-up bars (chat usage separate from the general prompt's); generative prompt

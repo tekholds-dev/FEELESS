@@ -86,7 +86,7 @@ body.theme-day .ack-talk { background: linear-gradient(180deg, #f6f0ff, #fff); }
 .dfl-agents .ack-ride { flex: none; display: flex; flex-wrap: nowrap; overflow-x: auto; padding: 3px 6px; } .dfl-agents .ack-ride > * { flex: none; white-space: nowrap; }
 .dfl-agents .ack-mrail { flex: none; min-height: 28px; overflow-x: auto; }
 /* the desk half: money strip (one swipe row) → locked tabs → its own scroll */
-.dfl-agents .dfl-side > .ack-money { flex: none; display: grid; gap: 4px; margin: 8px 8px 0; padding: 4px 6px; max-height: 60%; overflow-y: auto; overscroll-behavior: contain; }   /* the strip wraps now: room for it AND its tab row, never the tabs scrolled out of sight
+.dfl-agents .dfl-side > .ack-money { flex: none; display: grid; gap: 4px; margin: 8px 8px 0; padding: 4px 6px; }   /* its natural height (the strip wraps, the tabs share a row): a % cap + inner scroll clipped the tabs in Safari (owner screenshot 2026-10-29)   /* the strip wraps now: room for it AND its tab row, never the tabs scrolled out of sight
 /* owner 2026-10-29 ("agt cmd ctr on Duo — top right not done"): the money strip and the tabs used to be swipe rows faded at the edge — the AI chip, QUEUE and
    ⋯ MORE sat off-screen. Now EVERYTHING fits the half: the strip wraps (a second line beats a hidden chip), the six tabs share the row (icon over word) */
 .dfl-agents .ack-mrow { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; overflow: visible; }
@@ -113,4 +113,4 @@ body.theme-day .dfl.dfl-agents { background: #f4f8f6; } body.theme-day .ack-duo-
 /* a SHORT portrait screen (the fold, 466 × 678: its chart half is ~390px): the chart head + candles + rail + ride fill it, so the quick-trade strip steps
    aside as it already does under 520px tall — the seats / trades tabs on the desk half carry the same moves */
 @media (orientation: portrait) and (max-height: 760px), (max-width: 480px) { .dfl-agents .ack-plot > .ack-trade { display: none; } }   /* + any phone under 480px wide: its live P&L rides the row under the chart */
-@media (max-height: 520px) { .dfl-agents .ack-plot > .ack-trade { display: none; } .dfl-agents .dfl-side > .ack-money { max-height: 46%; } .dfl-agents .dfl-bar { padding: 4px 8px; } }
+@media (max-height: 520px) { .dfl-agents .ack-plot > .ack-trade { display: none; } .dfl-agents .dfl-side > .ack-money { max-height: 46%; overflow-y: auto; overscroll-behavior: contain; } .dfl-agents .dfl-bar { padding: 4px 8px; } }

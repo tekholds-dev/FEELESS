@@ -149,7 +149,7 @@ def test_the_workbench_is_the_owners_only_refuses_while_model_calls_are_off_and_
     c = TestClient(fs.app)
     assert c.post('/api/cats/g1/work', json={'op': 'state', 'ownerId': 'b2'}).status_code == 403
     assert c.post('/api/cats/g1/work', json={'op': 'state', 'ownerId': 'b1'}).json()['task'] is None
-    monkeypatch.setattr(fs, '_brains_live', lambda: False)
+    monkeypatch.setattr(fs, '_work_live', lambda: False)
     r = c.post('/api/cats/g1/work', json={'op': 'ask', 'ownerId': 'b1', 'text': 'research Kalshi'})
     assert r.status_code == 400 and 'Model calls are off' in r.json()['detail']                     # nothing sent, nothing charged
     assert c.post('/api/cats/t1/work', json={'op': 'ask', 'ownerId': 'b1', 'text': 'x'}).status_code == 400   # a trading cat does not browse

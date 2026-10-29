@@ -1481,3 +1481,23 @@ def test_a_gas_sized_sol_gap_is_paid_by_the_cards_as_fees_instead_of_halting_new
     assert fw.fit_gas_shortage(books, {'booked': 0.5, 'held': 0.3}) == (books, {})  # a real SOL gap is never "just gas": stays a halt
     assert fw.fit_gas_shortage({'a': {'sol': 0.002}}, {'booked': 0.002, 'held': 0.0})[1] == {}   # the cards can't cover it: halt
     assert fw.fit_gas_shortage(books, None) == (books, {})
+
+
+def test_a_confirmed_sell_always_leaves_the_book_and_a_missed_sale_heals_without_a_halt():
+    # 2026-10-29: a retried trim's chain read came back without the negative delta → 180.97 HI stayed booked → "token balance below card books" halt
+    book = fw.new_book(100, 100.0, 0)
+    order = {'side': 'buy', 'mint': 'M', 'pair': 'pm', 'symbol': 'M'}
+    b, _r = fw.apply_fill(book, order, {'atoms': 20_000_000, 'decimals': 6, 'sol': -0.2, 'feeSol': 0.0}, 100.0)
+    for odd in (0, 5_000_000):   # a zero / wrong-sign read: the order's exact-in amount still comes off
+        b2, _s = fw.apply_fill(b, {**order, 'side': 'sell', 'atoms': 5_000_000}, {'atoms': odd, 'decimals': 6, 'sol': 0.05, 'feeSol': 0.0}, 100.0)
+        assert b2['legs']['M']['atoms'] == 15_000_000
+    books = {'degen': {'legs': {'H': {'atoms': 411_135_358, 'decimals': 6, 'symbol': 'HI', 'costUsd': 0.381198}}}}
+    missing = [{'mint': 'H', 'booked': 411_135_358, 'held': 230_160_832}]
+    ledger = [{'mint': 'H', 'side': 'sell', 'status': 'filled', 'atoms': 180_974_526, 'at': 990.0, 'sig': 'SIG241u'}]
+    out, fits = fw.fit_missed_sells(books, missing, ledger, 1000.0)
+    assert out['degen']['legs']['H']['atoms'] == 230_160_832 and fits[0]['sold'] == 180_974_526 and fits[0]['sig'] == 'SIG241u'
+    assert abs(out['degen']['legs']['H']['costUsd'] - 0.381198 * 230_160_832 / 411_135_358) < 1e-6
+    assert fw.fit_missed_sells(books, missing, [{**ledger[0], 'atoms': 99}], 1000.0)[1] == []                       # not a matching sale: it still halts
+    assert fw.fit_missed_sells(books, missing, [{**ledger[0], 'status': 'failed'}], 1000.0)[1] == []                # a FAILED sale proves nothing
+    assert fw.fit_missed_sells(books, missing, ledger, 1000.0 + fw.MISSED_SELL_SEC + 1)[1] == []                    # too old
+    assert books['degen']['legs']['H']['atoms'] == 411_135_358                                                     # the input is never mutated

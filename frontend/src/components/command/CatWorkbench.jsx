@@ -53,13 +53,14 @@ function Window({ w, catId, tick, onGo, busy }) {
 
 export function CatWorkbench({ cat }) {
   const [d, setD] = useState(null); const [err, setErr] = useState(''); const [text, setText] = useState(''); const [busy, setBusy] = useState(false); const [tick, setTick] = useState(0);
+  const [to, setTo] = useState('both');   // 🧠 talk to both minds, or ONE of them (it works the whole task in its own window)
   const load = useCallback(() => work(cat.id, { op: 'state' }).then(x => { setD(x); setErr(''); }).catch(e => setErr(e.message)), [cat.id]);
   const status = d?.task?.status;
   const live = LIVE_STATES.includes(status) || status === 'human' || (d?.windows || []).some(w => w.status === 'human' || w.status === 'working');
   useEffect(() => { load(); }, [load]);
   useEffect(() => { const t = setInterval(() => { if (!document.hidden) { load(); setTick(x => x + 1); } }, live ? 1500 : 8000); return () => clearInterval(t); }, [load, live]);
   const act = async (op, extra = {}) => { setBusy(true); setErr(''); try { setD(await work(cat.id, { op, ...extra })); } catch (e) { setErr(e.message); } finally { setBusy(false); } };
-  const send = e => { e?.preventDefault?.(); const t = text.trim(); if (!t || busy) return; setText(''); act('ask', { text: t }); };
+  const send = e => { e?.preventDefault?.(); const t = text.trim(); if (!t || busy) return; setText(''); act('ask', { text: t, to }); };
   const wins = d?.windows?.length ? d.windows : (cat.brainsCfg?.brains || ['', '']).slice(0, 2).map((m, i) => ({ i, model: m, status: 'idle' }));
   const credit = Number(d?.credit ?? cat.brainsCfg?.credit ?? 0); const cap = Number(d?.cap ?? 0.05); const spent = Number(d?.task?.cost || 0);
   return <section className="cwb kd-card" data-testid="cat-workbench">
@@ -71,6 +72,9 @@ export function CatWorkbench({ cat }) {
     <div className="cwb-wins">{wins.map(w => <Window key={w.i} w={w} catId={cat.id} tick={tick} busy={busy} onGo={(op, i) => act(op, { i })} />)}</div>
     {d?.task?.answer || status === 'stopped' || status === 'error' ? <p className={`cwb-answer s-${status}`} data-testid="cwb-answer">{d.task.fast ? '⚡ from memory · ' : ''}{d.task.answer || d.task.why}</p> : null}
     <ol className="cwb-chat" aria-label="Chat with its models">{(d?.chat || []).slice(-8).map((m, i) => <li key={i} className={m.by === 'you' ? 'is-you' : 'is-cats'}><b>{m.by === 'you' ? 'You' : '🧠🧠'}</b><span>{m.text}</span>{m.cost != null ? <small className="m-num">{usd(m.cost)}</small> : null}</li>)}</ol>
+    <div className="m-seg cwb-to" role="radiogroup" aria-label="Who you are talking to">{[['both', '🧠🧠 BOTH'], ...wins.map(w => [String(w.i), `🧠 ${String(w.model || `mind ${w.i + 1}`).split('/').pop()}`])].map(([k, l]) =>
+      <button key={k} type="button" role="radio" aria-checked={to === k} className={to === k ? 'active' : ''} disabled={live} onClick={() => setTo(k)} data-testid={`cwb-to-${k}`}
+        data-tip={k === 'both' ? 'Both minds: they split the task, each in its own window, then merge' : 'Only this mind: it takes the whole task in its own window'}>{l}</button>)}</div>
     <form className="cwb-ask" onSubmit={send}>
       <input className="m-input" value={text} onChange={e => setText(e.target.value)} placeholder={live ? 'working… stop it to ask again' : 'Ask both — e.g. "find the best YES on Kalshi for US capital this week"'} disabled={live} aria-label="Ask the cat" data-testid="cwb-input" />
       {live ? <button type="button" className="m-btn" onClick={() => act('stop')} disabled={busy} data-testid="cwb-stop">■ Stop</button>

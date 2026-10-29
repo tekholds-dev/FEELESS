@@ -1285,6 +1285,12 @@ TASK_CAP_DEFAULT, TASK_CAP_MAX = 0.05, 2.0
 CHAT_KEEP = 60
 
 
+def _work_live():
+    """General cats' model calls: their OWN switch (GENERAL_CAT_LIVE) so the owner can test a general cat without turning on every trading
+    cat's brain calls (LAUNCH_CAT_LIVE turns both on). Needs the OpenRouter key either way."""
+    return bool(os.environ.get('OPENROUTER_API_KEY')) and (os.environ.get('GENERAL_CAT_LIVE', '').lower() in ('1', 'true', 'on') or _brains_live())
+
+
 def _work_view(cat_id, owner=False):
     w = _WORK.get(cat_id) or {}
     t = w.get('task')
@@ -1672,6 +1678,7 @@ class WorkPayload(BaseModel):
     text: Optional[str] = None
     i: Optional[int] = None
     cap: Any = None
+    to: Any = None                     # 🧠 'both' (default) or 0 / 1 — one model works the whole task in its own window
 
 
 @app.post('/api/cats/{cat_id}/work')
@@ -1702,8 +1709,8 @@ async def cat_work(cat_id: str, p: WorkPayload):
             raise HTTPException(400, 'Only a General AI cat with its models works in browsers.')
         if w and not w.get('done'):
             raise HTTPException(409, 'It is still working on your last ask — stop it or wait.')
-        if not _brains_live():
-            raise HTTPException(400, 'Model calls are off on this server (LAUNCH_CAT_LIVE) — nothing was sent or charged.')
+        if not _work_live():
+            raise HTTPException(400, 'Model calls are off on this server (GENERAL_CAT_LIVE) — nothing was sent or charged.')
         if not _lc.can_ask(b):
             raise HTTPException(400, 'Out of model credit — top up to ask again.')
         text = str(p.text or '').strip()
@@ -1711,12 +1718,14 @@ async def cat_work(cat_id: str, p: WorkPayload):
             raise HTTPException(400, 'Type what you want it to do.')
         cap = min(float(cat.get('taskCap') or TASK_CAP_DEFAULT), max(0.005, float(b.get('credit') or 0) or TASK_CAP_DEFAULT))
         models = list(b['brains'])[:2]
+        if p.to not in (None, 'both') and str(p.to).isdigit() and int(p.to) < len(models):   # talk to ONE of its minds: that model takes the whole task
+            models = [models[int(p.to)]]
         names = [str(m).split('/')[-1][:24] for m in models]
         _WORK[cat_id] = {'task': _ca.new_task(uuid.uuid4().hex[:10], text, models, cap), 'events': {}, 'go': {}, 'sessions': [None, None], 'pages': [None, None], 'at': time.time()}
         _WORK[cat_id]['runner'] = asyncio.create_task(_work_run(cat_id, models, names, text, cap))
     out = _work_view(cat_id, owner=True)
     return {**out, 'cap': float(cat.get('taskCap') or TASK_CAP_DEFAULT), 'credit': b.get('credit'), 'spent': b.get('spent'), 'chat': (cat.get('chat') or [])[-20:],
-            'live': _brains_live(), 'providers': _cb.chain(os.environ)}
+            'live': _work_live(), 'providers': _cb.chain(os.environ)}
 
 
 @app.get('/api/cats/{cat_id}/work/shot/{i}')

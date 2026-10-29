@@ -593,8 +593,11 @@ def apply_fill(book, order, fill, sol_px):
         l['atoms'] = int(l['atoms']) + fill['atoms']
         l['costUsd'] = round(_f(l.get('costUsd')) + usd, 6)
         l['entryPx'] = (old * _f(l.get('entryPx')) + usd) / (old + units) if old + units > 0 else 0.0
-    elif order['side'] == 'sell' and fill['atoms'] < 0:
-        left = max(0, int(l['atoms']) + fill['atoms'])
+    elif order['side'] == 'sell' and (fill['atoms'] < 0 or int(order.get('atoms') or 0) > 0):
+        # a confirmed SELL always takes its coins off the book: the chain read's own count, else the order's exact-in amount (2026-10-29: a
+        # retried trim's read came back without the negative delta → the coins stayed booked, the wallet had 44% fewer → the card halted)
+        sold = abs(int(fill['atoms'])) or int(order.get('atoms') or 0)
+        left = max(0, int(l['atoms']) - sold)
         l['costUsd'] = round(_f(l.get('costUsd')) * (left / int(l['atoms'])) if int(l['atoms']) else 0.0, 6)
         l['atoms'] = left
         # 💤 when this coin was last SOLD (any cut, trim or exit): the idle sweep never buys back a coin sold minutes ago
@@ -1892,6 +1895,38 @@ def funded_from_ledger(book, ledger, card):
     since = _f(book.get('since')) - 1
     rows = [r for r in ledger or [] if r.get('card') == card and _f(r.get('at')) >= since and r.get('status') == 'done']
     return round(sum(_f(r.get('usd')) for r in rows if r.get('side') == 'topup') - sum(_f(r.get('usd')) for r in rows if r.get('side') == 'withdraw'), 4)
+
+
+MISSED_SELL_SEC = 2 * 86400.0
+
+
+def fit_missed_sells(books, missing, ledger, now):
+    """👻 A shortage that is EXACTLY a confirmed sale the book never took off (±0.1%): the sale really happened on-chain (its SOL is
+    already in the card), so the book follows the wallet — coins down to what is held, cost cut in the same proportion — and no halt.
+    Any other shortage still halts. → (books, fits [{card, mint, symbol, sold, held, sig}])."""
+    out = {k: {**v, 'legs': {m: dict(l) for m, l in (v.get('legs') or {}).items()}} for k, v in (books or {}).items()}
+    fits = []
+    for x in missing or []:
+        gap = int(x['booked']) - int(x['held'])
+        if gap <= 0:
+            continue
+        sale = next((r for r in reversed(ledger or []) if r.get('mint') == x['mint'] and r.get('side') == 'sell' and r.get('status') == 'filled'
+                     and now - _f(r.get('at')) < MISSED_SELL_SEC and abs(int(_f(r.get('atoms'))) - gap) <= max(1, gap * 0.001)), None)
+        if not sale:
+            continue
+        for tid, b in out.items():
+            l = (b.get('legs') or {}).get(x['mint'])
+            if not l or int(l.get('atoms') or 0) <= 0:
+                continue
+            keep = max(0, int(l['atoms']) - gap)
+            l['costUsd'] = round(_f(l.get('costUsd')) * (keep / int(l['atoms'])), 6)
+            l['atoms'] = keep
+            if not keep:
+                b['legs'].pop(x['mint'], None)
+            fits.append({'card': tid, 'mint': x['mint'], 'symbol': l.get('symbol') or sale.get('symbol'), 'sold': gap, 'held': keep, 'sig': sale.get('sig'),
+                         'decimals': l.get('decimals') or 0})
+            break
+    return out, fits
 
 
 def halt_cleared(book, sol_short, missing_mints):

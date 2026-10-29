@@ -45,6 +45,8 @@
 .cwb-chat li.is-you { background: rgba(95, 242, 200, .08); } .cwb-chat b { font: 800 9.5px 'JetBrains Mono', monospace; color: #b49cff; } .cwb-chat li.is-you b { color: #5ff2c8; }
 .cwb-chat span { font: 500 11.5px/1.45 var(--f-ui, sans-serif); color: #e1d9fa; overflow-wrap: anywhere; } .cwb-chat small { font: 700 8.5px 'JetBrains Mono', monospace; color: #8f86b0; }
 .cwb-ask { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: 6px; align-items: center; } .cwb-ask .m-input { min-height: 40px; } .cwb-ask .m-btn { min-height: 40px; }
+.cwb-to { justify-self: start; } .cwb-to > button { min-height: 34px; max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: 800 9.5px 'JetBrains Mono', monospace; }
+.cwb-to > button.active { background: linear-gradient(135deg, #b49cff, #7c5cff); color: #0b0618; }
 .cwb-cap > button { min-height: 34px; font: 800 9.5px 'JetBrains Mono', monospace; } .cwb-cap > button.active { background: linear-gradient(135deg, #5ff2c8, #15d16a); color: #06130d; }
 .cwb-note { margin: 0; font: 600 10px var(--f-ui, sans-serif); color: #f5d27a; }
 @keyframes cwbIn { from { opacity: 0; transform: translateY(5px); } }
