@@ -214,7 +214,7 @@ export function WalletProfilePage({ address }) {
     </header>
     <div className="wp-quickrow">{mine && <AlphaRoomsCard />}<FeedBar onOpen={() => navigate('/terminal/feed')} /></div>
     <ProfileMusic songs={p.songs || []} edit={edit} onChange={v => set('songs', v)} />
-    {!flipped && ownerProfile && <Suspense fallback={null}><ProfileFeeBanner mine={mine} onOpen={() => { setFlipped(true); setActTab('feecat'); }} /></Suspense>}
+    {!flipped && ownerProfile && <Suspense fallback={null}><ProfileFeeBanner mine={mine} onOpen={() => { if (mine) { navigate('/terminal/feecat'); return; } setFlipped(true); setActTab('feecat'); }} /></Suspense>}
     {!flipped && <PortfolioCard address={address} />}
     {!flipped && <TradeCards address={address} />}
     {flipped && <nav className="wp-act-tabs" data-testid="activity-tabs">{[mine && ['swap', 'Swap'], mine && poolPerk && ['builder', '🏗 Pool builder'], ['holdings', 'Holdings'], ['history', 'Swap history'], ['feed', 'FEEd'], ownerProfile && ['feecat', mine ? '🪟 NEXA' : '🐱 FeeCat'], ['crew', '🛡 Crew'], ['posts', 'Posts'], ['rewards', 'Rewards'], mine && ['invites', '🎟 Invites'], ['vault', 'Vault']].filter(Boolean).map(([k, l]) => <button key={k} type="button" className={actTab === k ? 'active' : ''} onClick={() => setActTab(k)}>{l}</button>)}</nav>}

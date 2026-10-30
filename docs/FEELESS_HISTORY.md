@@ -6368,3 +6368,5 @@ Conserve usage · finish the selected work by priority · never dead-style.
 ## Delivery validation — 2026-10-28
 
 Frontend: 345 suites / 1,637 tests passed; final targeted checks: 243 passed. Backend: 2,265 passed / 26 skipped. Production build passed with installed Node 22.17.1 (Node 18 lacks the crypto global required by current dependencies). Browser: 890×626 landscape, 626×890 upright, shortened 890×500 and 678×466; all five dock tabs and HQ toggle exercised; day/lite checked. Fixture chart values are not live account figures. Physical Safari fullscreen/keyboard and complete site-wide mobile QA remain unverified. Push hook will rerun required gates.
+
+2026-10-30 · One Fee + lag: every Fee door opens the leaderboard desk with all tools (NEXA, book, owner bar), dead Fee buttons hidden; PriceChart updates candles in place (was rebuilt every 15 s poll, sitewide); desk video drops 41% → 8%; `docs/CLAUDE_ACCOUNT_PROMPT.md` added.

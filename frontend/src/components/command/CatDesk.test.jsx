@@ -36,3 +36,15 @@ test('🤖 the desk renders an agent HOLDING coins (the old page crashed on a de
   expect(q('kd-state').textContent).toContain('STOPPED'); act(() => q('kd-start').click()); expect(onAct).toHaveBeenLastCalledWith('start');
   window.removeEventListener('feeless:war-room', room); act(() => root.unmount());
 });
+
+test('🐱 Fee on her desk: the creator gets her tools, never a button the server only answers 403 to; a visitor just views', async () => {
+  globalThis.fetch = jest.fn(async () => ({ ok: true, json: async () => ({ cat: { id: 'leader', positions: [] }, events: [] }) }));
+  const el = document.createElement('div'); document.body.appendChild(el); const root = createRoot(el);
+  const q = id => el.querySelector(`[data-testid="${id}"]`); const fee = { ...CAT, id: 'leader', name: 'Fee', isLeader: true };
+  await act(async () => { root.render(<CatDesk cat={fee} canEdit onBack={() => {}} onAct={() => {}} Tools={<p data-testid="tools">tools</p>} />); });
+  expect(q('tools')).not.toBeNull(); expect(q('fee-live')).not.toBeNull(); expect(el.textContent).toContain('YOUR CAT');
+  ['kd-stop', 'kd-run', 'kd-save', 'kd-withdraw', 'kd-revoke'].forEach(id => expect(q(id)).toBeNull());
+  await act(async () => { root.render(<CatDesk cat={fee} canEdit={false} onBack={() => {}} onAct={() => {}} />); });
+  expect(el.textContent).toContain('VIEWING'); expect(el.textContent).not.toContain('YOUR CAT');
+  act(() => root.unmount());
+});

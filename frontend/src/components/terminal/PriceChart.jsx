@@ -39,6 +39,13 @@ const LIVE_INTERVAL_SECONDS = { '1m': 60, '5m': 300, '15m': 900, '1h': 3600, '4h
 
 const ageLabel = t => { const s = (Date.now() - t) / 1000; return s < 3600 ? `${Math.max(1, Math.round(s / 60))}m` : s < 86400 ? `${Math.round(s / 3600)}h` : s < 86400 * 60 ? `${Math.round(s / 86400)}d` : `${Math.round(s / 86400 / 30)}mo`; };
 
+// what forces a real rebuild: another coin / timeframe / scale, the series type (line ↔ candles), or a price decade (axis precision). Pure (tests).
+export function chartShape(candles, trail, { pair, interval, ratio }) {
+  const px = Math.abs(Number(candles.length ? candles[candles.length - 1][4] : trail[trail.length - 1]?.value) || 1);
+  return [pair, interval, ratio, candles.length ? (candles.length < 3 ? 'few' : 'candles') : 'trail', Math.floor(Math.log10(px))].join('|');
+}
+const volumeRows = (candles, dayMode) => candles.map(([time, open, , , close, value]) => ({ time, value, color: close >= open ? (dayMode ? '#08764e55' : '#00e7a042') : (dayMode ? '#b4234655' : '#f5688050') }));
+
 export const PriceChart = ({ pair, interval, showVolume, metric = 'price', markers = [], feeLive: feeLiveProp, userEntry = null, userTrades = null, fuse: fuse0 = null, pnl, plain = false, callouts = null, wallets = true, fee = true }) => {
   // ✋ a level dragged on this chart and CONFIRMED by the card sits where it was dropped until the card's next read
   const [grabbed, setGrabbed] = useState(null);
@@ -159,6 +166,12 @@ export const PriceChart = ({ pair, interval, showVolume, metric = 'price', marke
   const baseCandles = useMemo(() => candleRows.length ? scrubCandles(candleRows) : usingFeelessCandles ? scrubCandles(allFeeless) : [], [candleRows, usingFeelessCandles, allFeeless]);
   const displayCandles = useMemo(() => ratio === 1 ? baseCandles : baseCandles.map(([t, o, h, l, c, v]) => [t, o * ratio, h * ratio, l * ratio, c * ratio, v]), [baseCandles, ratio]);
   const hasChart = displayCandles.length > 0 || trail.length >= 2;
+  // ⚡ a history refresh never rebuilds the chart (owner 2026-10-30, measured: every 15 s poll tore each chart down and built it again, ~200 ms a time on
+  // every chart on the site). The chart is rebuilt only when its SHAPE changes; new candles go in place (the setData effect below).
+  const shape = chartShape(displayCandles, trail, { pair: pair?.pairAddress, interval, ratio });
+  const candlesNow = useRef(displayCandles); candlesNow.current = displayCandles;
+  const drawnRef = useRef(null);
+  const volumeRef = useRef(null);
   // The socket/polling lifecycle is intentionally keyed to the full pair object and its stable identifiers.
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
@@ -172,6 +185,7 @@ export const PriceChart = ({ pair, interval, showVolume, metric = 'price', marke
   useEffect(() => {
     if (!container.current || !hasChart) return;
     container.current.replaceChildren();
+    drawnRef.current = [displayCandles, trail];
     const chart = createChart(container.current, {
       autoSize: true,
       layout: {
@@ -218,13 +232,8 @@ export const PriceChart = ({ pair, interval, showVolume, metric = 'price', marke
       if (showVolume) {
         const volume = chart.addSeries(HistogramSeries, { priceFormat: { type: 'volume' }, priceScaleId: '', lastValueVisible: false, priceLineVisible: false });
         volume.priceScale().applyOptions({ scaleMargins: { top: .84, bottom: 0 } });
-        volume.setData(displayCandles.map(([time, open, , , close, value]) => ({
-          time,
-          value,
-          color: close >= open
-            ? (dayMode ? '#08764e55' : '#00e7a042')
-            : (dayMode ? '#b4234655' : '#f5688050'),
-        })));
+        volume.setData(volumeRows(displayCandles, dayMode));
+        volumeRef.current = volume;
       }
     } else {
       const line = chart.addSeries(LineSeries, {
@@ -252,15 +261,16 @@ export const PriceChart = ({ pair, interval, showVolume, metric = 'price', marke
       if (!range) return;
       rangeRef.current = range; bumpChart(container.current);   // ⚡ overlays redraw on a scroll / zoom
       const st = olderState.current;
-      if (range.from > 8 || st.loading || st.exhausted || !displayCandles.length || !pair?.pairAddress) return;
+      const rows = candlesNow.current;   // the chart outlives a refresh: read today's candles, not the ones it was built with
+      if (range.from > 8 || st.loading || st.exhausted || !rows.length || !pair?.pairAddress) return;
       st.loading = true;
-      const firstTime = displayCandles[0][0];
+      const firstTime = rows[0][0];
       fetchFeelessCandles(pair.chainId, pair.pairAddress, interval, firstTime, pair.baseToken?.address).then(res => {
         const older = (res?.candles || []).filter(c => c[0] < firstTime);
         if (!older.length) { st.exhausted = true; return; }
         // Older history must join the chart continuously; a jump means a different price source
         // (e.g. a stale pool) — never splice that in.
-        const join = older[older.length - 1][4], first = displayCandles[0][4];
+        const join = older[older.length - 1][4], first = rows[0][4];
         if (!(join > 0 && first > 0 && join / first < 2.5 && first / join < 2.5)) { st.exhausted = true; return; }
         const r = rangeRef.current;
         if (r) rangeRef.current = { from: r.from + older.length, to: r.to + older.length };
@@ -272,8 +282,29 @@ export const PriceChart = ({ pair, interval, showVolume, metric = 'price', marke
     const ro = typeof ResizeObserver === 'function' && box_ ? new ResizeObserver(() => bumpChart(box_)) : null;   // ⚡ … and on a resize
     ro?.observe(box_);
     bumpChart(box_);   // new data drawn
-    return () => { ro?.disconnect(); ts.unsubscribeVisibleLogicalRangeChange(onRange); seriesRef.current = null; chartRef.current = null; markersRef.current = null; chart.remove(); };
-  }, [displayCandles, trail, hasChart, dayMode, showVolume, chartStyle, bgOn, chartTheme]); // eslint-disable-line react-hooks/exhaustive-deps
+    return () => { ro?.disconnect(); ts.unsubscribeVisibleLogicalRangeChange(onRange); seriesRef.current = null; chartRef.current = null; markersRef.current = null; volumeRef.current = null; chart.remove(); };
+  }, [shape, hasChart, dayMode, showVolume, chartStyle, bgOn, chartTheme]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // new history on the chart that is already up: same series, same view, the live forming candle kept
+  useEffect(() => {
+    const ref = seriesRef.current; const chart = chartRef.current; const was = drawnRef.current;
+    if (!ref || !chart || (was && was[0] === displayCandles && was[1] === trail)) return;
+    drawnRef.current = [displayCandles, trail];
+    try {
+      if (ref.kind === 'candle') {
+        const bars = displayCandles.map(([time, open, high, low, close]) => ({ time, open, high, low, close }));
+        ref.series.setData(mergeLiveBar(bars, liveBarRef.current, interval, pair?.pairAddress));
+        lastBarRef.current = bars[bars.length - 1] || null;
+        volumeRef.current?.setData(volumeRows(displayCandles, dayMode));
+      } else {
+        const line = sparseRef.current ? displayCandles.map(([time, , , , close]) => ({ time, value: close })) : trail;
+        ref.series.setData(line);
+        lastBarRef.current = line.length ? { ...line[line.length - 1] } : null;
+      }
+      if (rangeRef.current) chart.timeScale().setVisibleLogicalRange(rangeRef.current);
+    } catch { return; }   // torn down between render and effect
+    bumpChart(container.current);
+  }, [displayCandles, trail]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Meta overlays (Trenches calls, Fee's trades) snapped to the candle they happened in.
   useEffect(() => {

@@ -33,12 +33,13 @@ function SceneVideo({ bg, onFail }) {
     const still = document.body.classList.contains('fx-lite') || window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
     const pause = () => { try { v.pause(); } catch { /* no media engine (tests) */ } };
     if (still) { pause(); return undefined; }
+    document.body.classList.add('has-desk-video');   // 🧊 the page's own ambient layers run unseen behind the clip: rest them while it shows
     let seen = true; const sync = () => { if (seen && !document.hidden) { try { Promise.resolve(v.play?.()).catch(() => {}); } catch { /* autoplay blocked */ } } else pause(); };
     const io = typeof IntersectionObserver !== 'undefined' ? new IntersectionObserver(([e]) => { seen = e.isIntersecting; sync(); }) : null;
     // 🧊 no scroll lag (owner 2026-10-30): the clip holds its frame while you scroll and plays again 250ms after you stop
     let idle = 0; const onScroll = () => { if (!idle) pause(); clearTimeout(idle); idle = setTimeout(() => { idle = 0; sync(); }, 250); };
     io?.observe(v); document.addEventListener('visibilitychange', sync); document.addEventListener('scroll', onScroll, { capture: true, passive: true }); sync();
-    return () => { io?.disconnect(); clearTimeout(idle); document.removeEventListener('visibilitychange', sync); document.removeEventListener('scroll', onScroll, { capture: true }); };
+    return () => { document.body.classList.remove('has-desk-video'); io?.disconnect(); clearTimeout(idle); document.removeEventListener('visibilitychange', sync); document.removeEventListener('scroll', onScroll, { capture: true }); };
   }, [bg]);
   return <video ref={ref} className="ckb-video" src={`/backdrops/${bg}.mp4`} muted loop playsInline preload="metadata" onError={onFail} aria-hidden="true" data-testid="desk-video" />;
 }
@@ -46,7 +47,7 @@ export function DeskBackdrop({ bg }) {
   const [fail, setFail] = useState(false);
   useEffect(() => setFail(false), [bg]);
   if (!VIDEO[bg] || fail) return <i className="ckb ckb-night" aria-hidden="true" />;
-  return <div className="ckb is-video" aria-hidden="true"><SceneVideo bg={bg} onFail={() => setFail(true)} /><i className="ckb-scrim" /></div>;
+  return <div className="ckb is-video" aria-hidden="true"><div className="ckb-stick"><SceneVideo bg={bg} onFail={() => setFail(true)} /><i className="ckb-scrim" /></div></div>;
 }
 
 export function SkinPicker({ skin, set }) {

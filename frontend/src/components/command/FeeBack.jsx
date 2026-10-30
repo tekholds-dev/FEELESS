@@ -1,11 +1,12 @@
 import { FeeCatStage } from './FeeCatStage';
 import { FeeCatLore } from './FeeCatLore';
-import { FeeCatShell } from './FeeCatShell';
+import { FeeCatShell, goTo } from './FeeCatShell';
+import { useAdmin } from '../../lib/adminCall';
 import { FeeCatBrainPage } from './FeeCatBrainPage';
 import { CatBuilder } from './CatBuilder';
 import { FeeLiveTab } from './FeeLiveTab';
 import NumInput from '../NumInput';
-import React, { useEffect, useState } from 'react';
+import React, { Suspense, lazy, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { ArrowUpRight, Coins, Cat, Wallet, Activity } from 'lucide-react';
 import { useWallet } from '../../hooks/useWallet';
@@ -50,18 +51,19 @@ export const FeelessCats = () => <FeeCatShell tab="build"><CatBuilder /></FeeCat
 
 // 🐱 /terminal/feecat = Fee, the leader, in the FeeCat shell: LIVE DESK (stage + her scan · chart · calls + her book) · HER BRAIN · LORE.
 // `?view=brain|lore` picks the view (the shell's nav links there); the old `feeless:feecat-view` event still switches it.
+const FeeDesk = lazy(() => import('./FeeCatsPlatform').then(m => ({ default: m.FeeDesk })));
 export const FC_VIEWS = ['desk', 'brain', 'lore'];
 const viewOf = () => { const v = typeof window === 'undefined' ? null : new URLSearchParams(window.location.search).get('view'); return FC_VIEWS.includes(v) ? v : 'desk'; };
 export const FeeCatCenter = ({ asset, community, onSelect, children }) => {
-  const [view, setView] = useState(viewOf);
+  const [view, setView] = useState(viewOf); const { isAdmin } = useAdmin();   // 🐱 the creator's LIVE DESK is her cat's full desk — the same page the leaderboard opens
   useEffect(() => {
     const go = e => { if (FC_VIEWS.includes(e.detail)) setView(e.detail); }; const pop = () => setView(viewOf());
     window.addEventListener('feeless:feecat-view', go); window.addEventListener('popstate', pop);
     return () => { window.removeEventListener('feeless:feecat-view', go); window.removeEventListener('popstate', pop); };
   }, []);
   return <FeeCatShell tab={view}>
-    {view !== 'lore' ? <FeeCatStage /> : null}
-    {view === 'desk' ? <><FeeLiveTab />{children}</> : null}
+    {view === 'brain' || (view === 'desk' && !isAdmin) ? <FeeCatStage /> : null}
+    {view === 'desk' ? (isAdmin ? <Suspense fallback={null}><FeeDesk onBack={() => goTo('/terminal/feecat/agents')} /></Suspense> : <><FeeLiveTab />{children}</>) : null}
     {view === 'brain' ? <FeeCatBrainPage /> : null}
     {view === 'lore' ? <FeeCatLore asset={asset} community={community} onSelect={onSelect}>{t => (t === 'calc' ? <FeeBackCalculator feeCat={asset} /> : <FeeBackFlow />)}</FeeCatLore> : null}
   </FeeCatShell>;

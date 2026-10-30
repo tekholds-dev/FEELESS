@@ -37,7 +37,9 @@ agent desk `CatDesk.jsx` (one 1110 px column; `ModelSwitch` with keep / 🧠 sor
 per-mind ☁ clouds `brainsCfg.minds`, `handoff` action) · funding `CatReal.jsx` (`FundCat` reads `feeless.fundIntent.<id>`; recovery box after the
 first payment) · Fee's models `FeeModels.jsx` (your model LEADS, NEXA helps). Lag fixes: `feeWall.css` contain + content-visibility.
 
-**Lag leads for ①:** `reputation_service` idles at ~24 % CPU (profile it first: `py-spy top --pid $(lsof -ti tcp:5077 -sTCP:LISTEN)` if installed,
+**One Fee (2026-10-30):** every door (LIVE DESK for the creator, My agents banner, profile banner, leaderboard) opens `FeeCatsPlatform › CatDetail` → `CatDesk` + `Tools` (NEXA desk, visitors view, her book). Her engine / limits / retire stay server-only, so `CatDesk runs` hides them on Fee. **Account prompt:** `docs/CLAUDE_ACCOUNT_PROMPT.md`.
+
+**Lag leads for ①:** **Measure only with the pane shown and Mac load low** (hidden pane = 1 fps; dev server rebuild + Spotlight hit load 94). Video backdrop drops fixed 41% → 8%, chart rebuild-on-poll fixed. Next: `lib/chartFrame.js` overlay jobs force layout (~3 s per 27 s). `reputation_service` idles at ~24 % CPU (profile it first: `py-spy top --pid $(lsof -ti tcp:5077 -sTCP:LISTEN)` if installed,
 else time its pollers); Live desk was fixed (full layout 339 → 13 ms) — re-measure Her Brain / Lore / Arena / trade pages the same way
 (long-task observer + rAF frame timing). Mac: Spotlight `mds_stores` up to 86 % → owner must add the project folder in System Settings ›
 Spotlight › Privacy; ~6 GB swap (Chrome + LM Studio + Claude). `frontend/.env.development` turns the dev ESLint pass off (local only).

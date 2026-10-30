@@ -23,7 +23,7 @@ export function ProfileFeeBanner({ onOpen, mine }) {
   const real = Number(c.realizedPnlSol) || 0; const open = (c.positions || []).length;
   const nap = (d?.discipline || {}).pause || c.status === 'paused';   // the same rule as her hero (FeeCatStage): out of lives / a tilt pause = napping
   const win = st.winRate != null ? st.winRate : c.winRate;
-  return <button type="button" className="pfc-banner" onClick={onOpen} data-testid="profile-fee-banner" data-tip={mine ? 'Your cat — the NEXA desk (visitors see FeeCat)' : "FeeCat — Fee's live trades and decisions"}>
+  return <button type="button" className="pfc-banner" onClick={onOpen} data-testid="profile-fee-banner" data-tip={mine ? 'Your cat — her full desk, every tool (visitors see FeeCat)' : "FeeCat — Fee's live trades and decisions"}>
     <span className="pfc-cat" aria-hidden="true"><Panther size={44} crop="head" label="Fee" /></span>
     <span className="pfc-who"><em>{mine ? '🪟 NEXA · YOUR CAT' : '🐱 FEECAT · LIVE'}</em><b>{c.name || 'Fee'}</b><small>{nap ? 'napping' : 'hunting live'} · {open} open</small></span>
     <span className={`pfc-num ${real > 0 ? 'is-up' : real < 0 ? 'is-dn' : ''}`}><em>REALIZED</em><b className="m-num">{d ? sol(real) : '…'}</b></span>

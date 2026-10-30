@@ -1,4 +1,5 @@
 import { CatWorkbench } from './CatWorkbench';
+import { FeeLiveTab } from './FeeLiveTab';
 import { AgentLive, HeadCloud, asModel, catMinds, catCoins } from './AgentLive';
 import { MindVitals, TradeChat, AgentLog, catLogItems, useCatEvents, useDeskSkin, DeskBackdrop, SkinPicker } from './CatCockpit';
 import { signWord, ModelPop } from './LaunchCat';
@@ -85,7 +86,7 @@ function ModelSwitch({ cat, busy, onAct }) {
 function RuleWindows({ cat }) {
   const coins = useMemo(() => catCoins(cat), [cat]); const ev = useCatEvents(cat.id);
   const feed = ev.filter(e => ['BUY', 'SELL'].includes(e.type)).slice(0, 3).reverse().map(e => `🐱 ${e.detail}`.slice(0, 120));
-  return <><AgentLive title={`LIVE · ${cat.name}'s view`} coins={coins} feed={feed.length ? feed : [cat.status === 'running' ? '🔎 hunting — it buys only what passes every rule' : '⏸ stopped']} />
+  return <>{cat.isLeader ? <FeeLiveTab /> : <AgentLive title={`LIVE · ${cat.name}'s view`} coins={coins} feed={feed.length ? feed : [cat.status === 'running' ? '🔎 hunting — it buys only what passes every rule' : '⏸ stopped']} />}
     <AgentLog items={catLogItems(cat, ev)} /></>;
 }
 // (owner 2026-10-30) two live windows on top, then the cockpit: [brain A vitals | skinny bubble chat (+ the head cloud) | brain B vitals], then 📁 its log.
@@ -106,8 +107,9 @@ function LiveMinds({ cat, onAct, busy, canEdit = true }) {
   </>;
 }
 
-export function CatDesk({ cat, busy = false, error = '', onBack, onAct, Activity = null, Brains = null, Engine = null, Real = null, canEdit = true }) {   // canEdit: its owner (visitors from the leaderboard see the view, never the controls)
+export function CatDesk({ cat, busy = false, error = '', onBack, onAct, Activity = null, Brains = null, Engine = null, Real = null, Tools = null, canEdit = true }) {   // canEdit: its owner (visitors from the leaderboard see the view, never the controls)
   const isReal = cat.mode === 'real' && !!cat.realWallet;
+  const runs = canEdit && !cat.isLeader;   // 🔒 Fee's engine, limits and retire stay server-only (feecat_service fee_owner_real) — her creator runs her from the NEXA desk under this one, so no button here that can only 403
   const v = useMemo(() => deskVitals(cat), [cat]); const cv = useMemo(() => curveOf(cat?.pnlHistory), [cat?.pnlHistory]);
   const r = cat.risk || {};
   const [lim, setLim] = useState(() => ({ maxPositionSol: r.maxPositionSol, maxDailyLossSol: r.maxDailyLossSol, allowlist: (r.allowlist || []).join(', '), blocklist: (r.blocklist || []).join(', ') }));
@@ -133,11 +135,11 @@ export function CatDesk({ cat, busy = false, error = '', onBack, onAct, Activity
         {Engine}
       </div>
       <div className="kd-acts m-seg" role="group" aria-label="Run the agent">
-        {canEdit ? <>{cat.status === 'running' ? <button type="button" className="kd-stop" disabled={busy} onClick={() => onAct('stop')} data-testid="kd-stop" data-tip="Stops new trades now (open paper trades stay)">⏹ Stop</button>
+        {runs ? <>{cat.status === 'running' ? <button type="button" className="kd-stop" disabled={busy} onClick={() => onAct('stop')} data-testid="kd-stop" data-tip="Stops new trades now (open paper trades stay)">⏹ Stop</button>
           : <button type="button" className="kd-go" disabled={busy || cat.revoked} onClick={() => onAct('start')} data-testid="kd-start" data-tip="Starts it scanning the live board again">▶ Start</button>}
-</> : <span className="kd-visitor" data-tip="You're viewing someone's agent — only its owner runs it">👀 VIEWING</span>}
+</> : canEdit ? <span className="kd-visitor" data-tip="Your cat — her engine runs from the NEXA desk below">👑 YOUR CAT</span> : <span className="kd-visitor" data-tip="You're viewing someone's agent — only its owner runs it">👀 VIEWING</span>}
         {canEdit ? <SkinPicker skin={skin} set={setSkin} /> : null}
-        {canEdit ? <button type="button" disabled={busy || cat.revoked} onClick={() => onAct('run')} data-testid="kd-run" data-tip="Run one scan-and-decide cycle right now">⟳ One cycle</button> : null}
+        {runs ? <button type="button" disabled={busy || cat.revoked} onClick={() => onAct('run')} data-testid="kd-run" data-tip="Run one scan-and-decide cycle right now">⟳ One cycle</button> : null}
       </div>
     </header>
     {error ? <p className="kd-err" role="alert">⚠ {error}</p> : null}
@@ -151,7 +153,7 @@ export function CatDesk({ cat, busy = false, error = '', onBack, onAct, Activity
         sub={v.capUsed >= 1 ? 'cap hit — no new buys today' : 'its daily loss cap'} tip="Losses closed today against the cap you set — at the cap it stops buying until tomorrow" />
     </div>
     {cat.brainsCfg ? <LiveMinds cat={cat} onAct={onAct} busy={busy} canEdit={canEdit} /> : <RuleWindows cat={cat} />}
-    <div className={`kd-grid${canEdit ? "" : " is-solo"}`}>
+    <div className={`kd-grid${runs ? "" : " is-solo"}`}>
       <div className="kd-main">
         {Real}
         <section className="kd-card kd-curve" data-testid="kd-curve"><header><b>📈 P/L CURVE</b><small>{(cat.pnlHistory || []).length} cycles · realized + open</small></header>
@@ -170,7 +172,7 @@ export function CatDesk({ cat, busy = false, error = '', onBack, onAct, Activity
           {lessons.length ? <ol className="kd-lessons">{lessons.map((x, i) => <li key={i}>{x.note}</li>)}</ol> : null}</section> : null}
         {Activity}
       </div>
-      {canEdit ? <aside className="kd-side">
+      {runs ? <aside className="kd-side">
         <section className="kd-card kd-limits"><header><b>🎚 ITS LIMITS</b><small>it can only ever trade less than these</small></header>
           <form onSubmit={e => { e.preventDefault(); onAct('controls', lim); }}>
             {[['maxPositionSol', 'MAX A TRADE', 0.01, 2, 0.01], ['maxDailyLossSol', 'DAILY LOSS CAP', 0.01, 5, 0.01]].map(([k, l, lo, hi, st]) => <label key={k} className="kd-lim">
@@ -191,5 +193,6 @@ export function CatDesk({ cat, busy = false, error = '', onBack, onAct, Activity
           {isReal ? (cat.agentWallet ? `💵 REAL · its own wallet · ${cat.agentWallet.mode === 'auto' ? 'auto' : 'you OK each move'}` : '💵 REAL · it proposes · your wallet signs') : '🧪 PAPER · live prices · no real SOL'}</p>
       </aside> : null}
     </div>
+    {Tools}
   </section>;
 }

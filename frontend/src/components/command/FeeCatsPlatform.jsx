@@ -16,22 +16,11 @@ import { CatDesk } from './CatDesk';
 import { CatReal } from './CatReal';
 import { useAdmin } from '../../lib/adminCall';
 const ProfileFeeCat = lazy(() => import('./ProfileFeeCat').then(m => ({ default: m.ProfileFeeCat })));
-const FeeLiveTab = lazy(() => import('./FeeLiveTab').then(m => ({ default: m.FeeLiveTab })));
+const FeeCatProfile = lazy(() => import('./FeeCatProfile').then(m => ({ default: m.FeeCatProfile })));
 const ProfileFeeBanner = lazy(() => import('./ProfileFeeCat').then(m => ({ default: m.ProfileFeeBanner })));
 import { AgentPicker, AGENT_MAX } from './AgentPicker';
 import { AgentLeaderboard, LiveActivity } from './AgentBoards';
-import { useDeskSkin, DeskBackdrop, SkinPicker } from './CatCockpit';
-import { useWallet } from '../../hooks/useWallet';
-import { getChatSession } from '../../lib/chatSession';
-import { useLeaderProfile } from '../../lib/feeLeader';
-// 🪟 Fee's (NEXA) dash in My agents wears the same desk as every agent (owner 2026-10-30): her two live windows first, a calm backdrop + card colour
-function NexaSkin({ children }) {
-  const lead = useLeaderProfile(); const { wallet, signMessage } = useWallet() || {};
-  const save = async sk => { const address = wallet?.address; if (!address) return;   // her desk look is saved on Fee — every visitor of her dash sees it
-    try { await api('/api/cats/leader/action', { method: 'POST', body: JSON.stringify({ action: 'skin', look: { bg: sk.bg, acc: sk.acc }, address, session: await getChatSession(address, signMessage, { own: true }) }) }); } catch { /* declined */ } };
-  const [skin, setSkin] = useDeskSkin(lead?.cat?.skin, save);
-  return <div className={`kd has-skin ck-nexa${skin.bg !== 'night' ? ' is-glass' : ''}`} style={{ '--kd-acc': skin.acc }} data-testid="nexa-skin"><DeskBackdrop bg={skin.bg} /><span className="ck-nexa-bar"><SkinPicker skin={skin} set={setSkin} /></span>{children}</div>;
-}
+import { FeeOwnerBar } from './FeeOwnerBar';
 const OWNER_KEY = 'feeless-paper-owner';
 const api = async (path, options = {}) => {
   // 🔒 every cat action carries this browser's owner id (the service refuses anyone else's cat)
@@ -158,8 +147,19 @@ function CatDetail({ cat: initialCat, onBack, onChanged, onDeleted }) {
   }, [initialCat.id]); // eslint-disable-line react-hooks/exhaustive-deps
   const act = async (action, extra = {}) => { setError(''); setBusy(true); try { const result = await api(`/api/cats/${cat.id}/action`, { method: 'POST', body: JSON.stringify({ action, ...extra }) }); if (result.deleted) { onDeleted?.(result.deleted); return; } setCat(result.cat); onChanged?.(result.cat); } catch (requestError) { setError(requestError.message); } setBusy(false); };
   const mine = cat.isLeader ? isAdmin : !!cat.mine;   // 👀 opened from the leaderboard: the owner gets the controls, everyone else the view (the server answers `mine`; the owner id never leaves it)
-  return <CatDesk canEdit={mine} cat={cat} busy={busy} error={error} onBack={onBack} onAct={act} Engine={<EngineLine />} Real={!mine ? null : <CatReal cat={cat} busy={busy} onAct={act} />}
-    Brains={cat.brainsCfg && mine ? <BrainPanel noTalk cat={cat} api={api} onChanged={brainChanged} /> : null} Activity={null} />;
+  // 🐱 ONE FEE (owner 2026-10-30: "my cat looks different than from the leaderboard — I should look into my cat and have all tools"): every door opens
+  // this desk — the creator's bar, her book, and for the creator the NEXA desk + the visitors' view under it
+  const Tools = !cat.isLeader ? null : <Suspense fallback={null}><div className="ck-nexa" data-testid="fee-tools">{mine ? <ProfileFeeCat mine /> : null}<FeeCatProfile /></div></Suspense>;
+  return <CatDesk canEdit={mine} cat={cat} busy={busy} error={error} onBack={onBack} onAct={act} Engine={<><EngineLine />{cat.isLeader ? <FeeOwnerBar cat={cat} /> : null}</>} Real={!mine ? null : <CatReal cat={cat} busy={busy} onAct={act} />}
+    Brains={cat.brainsCfg && mine ? <BrainPanel noTalk cat={cat} api={api} onChanged={brainChanged} /> : null} Activity={null} Tools={Tools} />;
+}
+
+// 🐱 Fee's desk on its own (the creator's LIVE DESK door): the same CatDetail the leaderboard opens
+export function FeeDesk({ onBack }) {
+  const [cat, setCat] = useState(null); const [err, setErr] = useState('');
+  useEffect(() => { let on = true; api('/api/cats/leader').then(r => on && setCat(r.cat)).catch(e => on && setErr(e.message)); return () => { on = false; }; }, []);
+  if (!cat) return <p className="paper-muted" data-testid="fee-desk-wait">{err ? `⚠ ${err}` : '🐱 opening her desk…'}</p>;
+  return <CatDetail cat={cat} onBack={onBack} />;
 }
 
 // 🤖 AGENTS (FeeCat redo, 2026-10-23): your trading cats — MY AGENTS · NEW AGENT · LIVE ACTIVITY · LEADERBOARD. Fee's own desk, brain and lore
@@ -197,7 +197,7 @@ export default function FeeCatsPlatform() {
     ['new', <><Plus size={14} /> New agent</>, 'A Trading AI cat or a General AI cat — models → your wallet → REAL · up to 2 agents'],
     ['activity', <><Activity size={14} /> Live activity</>, 'Every cat\'s buys and sells as they happen'],
     ['leaderboard', <><Trophy size={14} /> Leaderboard</>, 'Every cat ranked by real paper results']];
-  const on = k => (k === 'new' ? ['new', 'create', 'launch'].includes(view) : k === 'cats' ? ['cats', 'cat', 'nexa'].includes(view) : view === k);
+  const on = k => (k === 'new' ? ['new', 'create', 'launch'].includes(view) : k === 'cats' ? ['cats', 'cat'].includes(view) : view === k);
   return <div className="fee-cats-platform fc-v2"><header className="paper-platform-head"><div><span className="eyebrow"><Cat size={14} /> AGENTS · CATS THAT TRADE FOR YOU</span><h1>Give your cat a <em>job.</em></h1><p>Your own AI agents — pick 1–2 models, a name, a look and limits. Each gets its own wallet: fund it once, and it works from there. A trader trades on FEELESS inside your limits; a general agent researches, builds and acts for you, and checks with you before spending until you switch it to auto.</p></div>
     <div className="paper-platform-actions"><PaperBadge /><span className="fc-slots" data-tip={`${live.length} of ${AGENT_MAX} agent slots used`} aria-label={`${live.length} of ${AGENT_MAX} agents`}>{Array.from({ length: AGENT_MAX }, (_, k) => <i key={k} className={k < live.length ? 'is-on' : ''} />)}</span></div></header>
     <nav className="paper-platform-tabs" aria-label="Agents">{TABS.map(([k, label, tip]) => <button key={k} type="button" className={on(k) ? 'active' : ''} onClick={() => { setSelected(null); setView(k); }} data-testid={`fc-tab-${k}`} data-tip={tip}>{label}</button>)}</nav>
@@ -208,8 +208,7 @@ export default function FeeCatsPlatform() {
     {view === 'activity' && <LiveActivity api={api} onOpen={openById} tradeCard={tradeCard} />}
     {view === 'launch' && <LaunchCat key={kind} kind={kind} api={api} ownerId={ownerId} onCreated={created} onCancel={() => setView('cats')} Fields={CatFields} newForm={() => catForm(presetAvatar)} formOk={catOk} avatarOf={i => (CAT_VARIATIONS[i] || CAT_VARIATIONS[0])[0]} Preview={CatPreview} />}
     {view === 'leaderboard' && <AgentLeaderboard api={api} onOpen={openById} />}
-    {view === 'cats' && isAdmin ? <Suspense fallback={null}><ProfileFeeBanner mine onOpen={() => { setSelected(null); setView('nexa'); }} /></Suspense> : null}
-    {view === 'nexa' && isAdmin ? <Suspense fallback={<p className="paper-muted">🪟 opening NEXA…</p>}><button type="button" className="btn-outline" onClick={() => setView('cats')} data-testid="nexa-back">← My agents</button><NexaSkin><FeeLiveTab /><ProfileFeeCat mine /></NexaSkin></Suspense> : null}
+    {view === 'cats' && isAdmin ? <Suspense fallback={null}><ProfileFeeBanner mine onOpen={() => openById({ id: 'leader' })} /></Suspense> : null}
     {view === 'cats' && <section className="paper-my-cats">{!cats.length ? <><div className="paper-panel-head"><div><span className="eyebrow">YOUR AGENTS · 0/{AGENT_MAX}</span><h2>No cats on the job yet — pick a brain.</h2></div></div><AgentPicker count={0} onPick={pickKind} /></>
       : <><div className="paper-panel-head"><div><span className="eyebrow">YOUR AGENTS · {live.length}/{AGENT_MAX}</span><h2>Tap a cat to see its desk</h2></div><button type="button" className="btn-outline" onClick={() => setView('new')} disabled={live.length >= AGENT_MAX}><Plus size={14} /> New agent</button></div>
         <div className="paper-my-cat-grid">{cats.map(cat => { const real = cat.mode === 'real' && !!cat.realWallet; const pend = (cat.proposals || []).filter(p => p.status === 'pending').length;
