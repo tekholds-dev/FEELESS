@@ -80,7 +80,7 @@ def _load() -> dict:
 
 # 🔒 The engine loads every cat, works for minutes, then saves its whole copy: anything an owner did meanwhile was wiped (owner 2026-10-30: a new agent wallet vanished
 # seconds after it was made). What an owner's action sets is kept here and laid over every save, so an old copy can never lose a wallet, a funding or a limit.
-OWNER_KEYS = ('agentWallet', 'agentFunded', 'creditPaid', 'recovery', 'recoverySet', 'recoveryConfirmedAt', 'limits', 'taskCap', 'ownerId')
+OWNER_KEYS = ('agentWallet', 'agentFunded', 'creditPaid', 'recovery', 'recoverySet', 'recoveryConfirmedAt', 'limits', 'taskCap', 'ownerId', 'mode', 'realWallet', 'budgetSol', 'paperByOwner')
 _KEPT: dict = {}
 
 
@@ -1410,6 +1410,15 @@ def clean_limits(raw):
     return {'mindUsd': [round(num(v, TASK_CAP_MAX), 4) for v in list(r.get('mindUsd') or [])[:2]], 'steps': int(num(r.get('steps'), _ca.GO_STEPS)), 'dayUsd': round(num(r.get('dayUsd'), 100), 4)}
 
 
+def ensure_real(cat):
+    """👛 A general agent with its own wallet trades from that wallet: its orders are real, sized by its MAX A TRADE. It buys only what you order (a general cat never hunts). Owner's ⏸ Paper stands."""
+    w = cat.get('agentWallet') or {}
+    if not w.get('address') or not w.get('owner') or cat.get('isLeader') or cat.get('paperByOwner') or _real.is_real(cat) or (cat.get('brainsCfg') or {}).get('kind') != 'general':
+        return False
+    _real.go_real(cat, w['owner'], max(_real.MIN_BUDGET, min(0.5, _num((cat.get('risk') or {}).get('maxPositionSol')) or 0.05)), time.time())
+    return True
+
+
 def day_left(cat):
     """$ left today under its daily limit (None = no daily limit)."""
     day = float((cat.get('limits') or {}).get('dayUsd') or 0)
@@ -1531,7 +1540,8 @@ async def _agent_pass(store):
     loop's own load → save, so no other writer races it. A failure is logged and never stops the engine."""
     key = os.environ.get('CROSSMINT_API_KEY', '').strip()
     cats = [c for c in store['cats'].values() if (c.get('agentWallet') or {}).get('address') and _real.is_real(c) and not c.get('revoked')]
-    if not key or not cats:
+    cats = [c for c in cats if key or (c.get('agentWallet') or {}).get('provider') == 'circle']   # a Circle wallet needs no Crossmint key
+    if not cats:
         return
     now = time.time()
     async with httpx.AsyncClient(timeout=25) as http_a:
@@ -1994,6 +2004,12 @@ async def cat_work(cat_id: str, p: WorkPayload):
         text = str(p.text or '').strip()
         if not text:
             raise HTTPException(400, 'Type what you want it to do.')
+        if _co.parse_order(text):   # 💵 "buy 0.05 SOL of $BONK" in the chat is an ORDER on its wallet, not research: guards, then your OK (or auto)
+            async with httpx.AsyncClient(timeout=15) as http_o:
+                row_ = await _run_order(store, cat, text, http_o)
+            cat['chat'] = (list(cat.get('chat') or []) + [{'by': 'you', 'text': text[:400], 'at': time.time()}, {'by': 'cats', 'text': row_['why'], 'at': time.time()}])[-40:]
+            keep_owned(cat); _save(store)
+            return {**_work_view(cat_id, owner=True), 'cap': float(cat.get('taskCap') or TASK_CAP_DEFAULT), 'credit': b.get('credit'), 'spent': b.get('spent'), 'chat': cat['chat'][-20:], 'live': _work_live(), 'order': row_}
         if busy:   # 🏇 let it go: it takes the next ask the moment this one ends
             q_ = list(cat.get('workQueue') or [])
             if len(q_) >= WORK_QUEUE_MAX:
@@ -2110,6 +2126,7 @@ async def _run_order(store, cat, text, http):
     signs · paper = a paper fill. → the order-log row (also on cat['orders'])."""
     now = time.time()
     b = cat.get('brainsCfg') or {}
+    ensure_real(cat)
     order = _co.parse_order(text)
     if not order and _brains_live() and _lc.can_ask(b) and b.get('brains'):
         reply, usd = await _or_call(b['brains'][0], [{'role': 'system', 'content': _co.ORDER_SYS}, {'role': 'user', 'content': str(text)[:300]}])
@@ -2118,6 +2135,12 @@ async def _run_order(store, cat, text, http):
     if not order:
         return _co.note(cat, text, None, 'unclear', '🤔 not a buy or a sell of one coin — try "buy 0.05 SOL of $BONK" or "sell half of $WIF"', now)
     if order['side'] == 'sell':
+        c_ = str(order['coin']).lstrip('$').lower()
+        real_ = next(((m, v) for m, v in (cat.get('realHeld') or {}).items() if m.lower() == c_ or str(v.get('symbol') or '').lower() == c_), None) if _real.is_real(cat) else None
+        if real_:   # a coin its own wallet really holds
+            p_ = _real.propose(cat, 'sell', real_[0], real_[1].get('pair'), real_[1].get('symbol'), f"your order: {text}", now, fraction=order['fraction'])
+            _notify_real(cat, p_)
+            return _co.note(cat, text, order, 'proposed', f"✍ sell {round(order['fraction'] * 100)}% — waiting for your OK", now, real_[1].get('symbol'), p_['id'])
         pos = _co.held_of(cat.get('positions'), order['coin'])
         if not pos:
             return _co.note(cat, text, order, 'refused', f"🫥 it holds no ${order['coin']}", now, order['coin'])
@@ -2298,12 +2321,12 @@ async def cat_action(cat_id: str, payload: ActionPayload, request: Request):
 
     if payload.action == 'real':   # 💵 option A: the cat proposes, this wallet signs every trade
         try:
-            _real.go_real(cat, signed, payload.budgetSol, time.time())
+            _real.go_real(cat, signed, payload.budgetSol, time.time()); cat.pop('paperByOwner', None)
         except ValueError as e:
             raise HTTPException(400, str(e))
         _log_event(store, cat, 'STARTED', f"{cat['name']} is REAL now: it proposes every trade to your wallet (≤ {cat['budgetSol']} SOL a buy); you sign each one.")
     elif payload.action == 'paper':
-        _real.go_paper(cat)
+        _real.go_paper(cat); cat['paperByOwner'] = True
         _log_event(store, cat, 'STOPPED', f"{cat['name']} is back on paper — no more proposals.")
     elif payload.action == 'agent_wallet':   # 👛 its own Crossmint wallet (DECISIONS #2, owner 2026-10-29): the same wallet on a repeat
         if not cat.get('agentWallet'):
@@ -2325,6 +2348,7 @@ async def cat_action(cat_id: str, payload: ActionPayload, request: Request):
                         cat['agentWallet'] = _aw.record('cat', cat_id, rep_, signed, time.time(), (cat.get('brainsCfg') or {}).get('kind'))
             except ValueError as e:
                 raise HTTPException(400, str(e))
+            ensure_real(cat)
             _log_event(store, cat, 'STARTED', f"{cat['name']} has its own wallet now: {cat['agentWallet']['address'][:6]}… — fund it to put it to work.")
     elif payload.action == 'agent_withdrew':   # ↩ reputation's /cats/{id}/withdraw (internal key only): the money went back to the owner's wallet
         a_ = payload.amount if isinstance(payload.amount, dict) else {}
@@ -2343,6 +2367,7 @@ async def cat_action(cat_id: str, payload: ActionPayload, request: Request):
             return {'cat': {**_no_keys(cat), 'mine': not cat.get('isLeader')}}
         cat['agentFunded'] = (list(cat.get('agentFunded') or []) + [{'sig': str(payload.sig)[:100], 'state': payload.result or 'confirmed', 'at': round(time.time()),
                               **{k: a_.get(k) for k in ('usd', 'feeUsd', 'catLamports', 'feeLamports', 'solUsd')}}])[-50:]
+        ensure_real(cat)   # funded: its orders now use its wallet
         got_ = f"{(a_.get('catLamports') or 0) / 1e6:.2f} USDC" if a_.get('token') == 'USDC' else f"{round((a_.get('catLamports') or 0) / 1e9, 4)} SOL"
         _log_event(store, cat, 'STARTED', f"{cat['name']} funded: ${a_.get('usd')} — {got_} into its wallet"
                    + (f" (one-time FEELESS fee ${a_.get('feeUsd'):g})" if a_.get('feeUsd') else '') + '.')
@@ -2456,6 +2481,8 @@ async def cat_action(cat_id: str, payload: ActionPayload, request: Request):
             cat['risk']['allowlist'] = [s.strip() for s in payload.allowlist.split(',') if s.strip()]
         if payload.blocklist is not None:
             cat['risk']['blocklist'] = [s.strip() for s in payload.blocklist.split(',') if s.strip()]
+        if _real.is_real(cat) and payload.maxPositionSol is not None and cat.get('agentWallet'):   # its wallet's per-buy budget follows MAX A TRADE
+            cat['budgetSol'] = round(max(_real.MIN_BUDGET, min(_real.MAX_BUDGET, float(payload.maxPositionSol))), 4)
         if payload.limits is not None:   # 🎚 a general agent: $ a task · $ a mind · steps · $ a day (enforced in _work_start + cat_agent._ask)
             cat['limits'] = clean_limits(payload.limits)
             if _num(payload.limits.get('taskUsd')):

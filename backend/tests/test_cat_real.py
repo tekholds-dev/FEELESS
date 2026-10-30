@@ -77,6 +77,6 @@ def test_the_service_guards_every_action_and_real_needs_a_signed_wallet(monkeypa
     r = c.post('/api/cats/u1/action', json={'action': 'proposal', 'ownerId': 'browser-1', 'address': 'WALLET', 'session': tok, 'proposal': p['id'], 'result': 'done', 'sig': 'S1'})
     assert r.status_code == 200 and cat['realHeld']['M1'] and p['sig'] == 'S1'
     src = open(fs.__file__).read()
-    assert src.count('_real.propose(') == 4                                                                        # the buy + every exit + a General cat's order (sell / buy)
+    assert src.count('_real.propose(') == 5                                                                        # the buy + every exit + a General cat's order (sell / buy)
     order = src[src.index('async def _run_order'):src.index('class ActionPayload')]                               # 🧭 the order's buy proposal sits behind every guard
     assert order.index('_co.buy_guards(') < order.index('await _safety(') < order.index("_real.propose(cat, 'buy'")

@@ -162,3 +162,20 @@ def test_a_rate_limited_price_falls_back_and_a_miss_is_never_cached(monkeypatch)
     live['v'] = 0.0; rs._sol_px['v'] = (rs.time.time() - 300, 195.5)
     assert asyncio.run(rs._sol_usd()) == 195.5                           # recent good price kept through a blip
     rs._sol_px.clear()
+
+
+def test_a_general_agent_with_a_wallet_trades_from_it_and_owner_paper_stands():
+    gen = {'id': 'g', 'brainsCfg': {'kind': 'general'}, 'risk': {'maxPositionSol': 0.5}, 'agentWallet': {'address': 'A', 'owner': 'ME'}}
+    assert fs.ensure_real(gen) is True and gen['mode'] == 'real' and gen['realWallet'] == 'ME' and gen['budgetSol'] == 0.5
+    assert fs.ensure_real({**gen, 'mode': None, 'realWallet': None, 'paperByOwner': True}) is False                          # your ⏸ Paper stands
+    assert fs.ensure_real({'id': 't', 'brainsCfg': {'kind': 'trading'}, 'agentWallet': {'address': 'A', 'owner': 'ME'}}) is False
+    assert fs.ensure_real({'id': 'n', 'brainsCfg': {'kind': 'general'}}) is False                                            # no wallet, stays paper
+
+
+def test_an_order_buys_for_real_and_sells_what_its_wallet_really_holds(monkeypatch):
+    import asyncio
+    gen = {'id': 'g', 'name': 'G', 'brainsCfg': {'kind': 'general'}, 'risk': {'maxPositionSol': 0.5}, 'positions': [], 'agentWallet': {'address': 'A', 'owner': 'ME', 'mode': 'approve'},
+           'realHeld': {'MINTX': {'symbol': 'BONK', 'pair': 'P1'}}, 'proposals': []}
+    monkeypatch.setattr(fs, '_notify_real', lambda *_a: None)
+    row = asyncio.run(fs._run_order({'cats': {'g': gen}}, gen, 'sell all $BONK', None))
+    assert row['state'] == 'proposed' and gen['proposals'][0]['mint'] == 'MINTX' and gen['proposals'][0]['side'] == 'sell'
