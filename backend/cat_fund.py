@@ -32,26 +32,30 @@ GAS_LAMPORTS = 3_000_000   # a USDC funding also drops this SOL in its wallet: w
 FEE_RESERVE = 10_000       # lamports left behind for the network fee on an all-out SOL withdrawal
 
 
-def plan(usd, sol_usd, first, fee_usd=FEE_USD, min_usd=MIN_USD, token='SOL', credit=False):
+def plan(usd, sol_usd, first, fee_usd=FEE_USD, min_usd=MIN_USD, token='SOL', credit=False, credit_usd=0.0, free_credit=False):
     """$ amount + live SOL price + is this the cat's first funding (+ HQ's fee / minimum; a creator wallet: fee 0, min $1) →
-    {usd, feeUsd, solUsd, totalLamports, feeLamports, catLamports, catUsd, token, purpose}. The three amounts are the token's smallest unit (USDC: 1e-6).
-    `credit`: model credit, the whole payment goes to FEELESS and nothing to its wallet."""
+    {usd, payUsd, feeUsd, creditUsd, solUsd, totalLamports, feeLamports, catLamports, catUsd, token, gasLamports}. The three amounts are the token's smallest unit (USDC: 1e-6).
+    ONE amount, split (owner 2026-10-30): `credit_usd` of it is model credit, paid to FEELESS in the same transaction; the rest goes to its wallet. `credit` = all of it.
+    `free_credit`: a creator wallet's credit costs nothing, so only its wallet share is paid."""
     usd, px = float(usd or 0), 1.0 if token == 'USDC' else float(sol_usd or 0)
-    first = first and not credit
+    credit_usd = usd if credit else min(usd, max(0.0, float(credit_usd or 0)))
+    wallet_usd = round(usd - credit_usd, 2)
+    first = first and wallet_usd > 0
     if px <= 0:
         raise ValueError('No live SOL price right now — try again in a minute.')
     fee_usd = max(0.0, float(fee_usd or 0)) if first else 0.0
     lo = max(float(min_usd or 0), fee_usd + 1) if first else TOPUP_MIN_USD
-    if usd < lo and first and usd <= fee_usd + 1e-9:
-        raise ValueError(f'${usd:g} only covers the ${fee_usd:g} one-time fee — a first funding starts at ${lo:g} so its wallet gets money to trade.')
-    if not lo <= usd <= MAX_USD:
+    if wallet_usd > 0 and wallet_usd < lo and first and wallet_usd <= fee_usd + 1e-9:
+        raise ValueError(f'${wallet_usd:g} only covers the ${fee_usd:g} one-time fee — a first funding starts at ${lo:g} so its wallet gets money to trade.')
+    if not lo <= (wallet_usd if wallet_usd > 0 else usd) <= MAX_USD:
         raise ValueError(f'A {"first funding" if first else "top-up"} is ${lo:g} to ${MAX_USD:,.0f}.')
+    paid_credit = 0.0 if free_credit else credit_usd
+    pay_usd = wallet_usd + paid_credit
     scale = USDC_UNITS if token == 'USDC' else LAMPORTS
-    total = int(usd / px * scale)
-    fee = total if credit else int(fee_usd / px * scale + 0.999999)   # FEELESS's cut rounds up to the lamport, the cat's share is the rest
-    return {'usd': round(usd, 2), 'feeUsd': round(usd, 2) if credit else fee_usd, 'solUsd': round(px, 4), 'totalLamports': total, 'feeLamports': fee, 'catLamports': total - fee,
-            'catUsd': 0.0 if credit else round(usd - fee_usd, 2), 'token': token, 'purpose': 'credit' if credit else 'wallet',
-            'gasLamports': GAS_LAMPORTS if token == 'USDC' and not credit else 0}
+    total = int(pay_usd / px * scale)
+    fee = min(total, int((fee_usd + paid_credit) / px * scale + 0.999999))   # FEELESS's cut rounds up to the lamport, the cat's share is the rest
+    return {'usd': round(usd, 2), 'payUsd': round(pay_usd, 2), 'feeUsd': fee_usd, 'creditUsd': round(credit_usd, 2), 'solUsd': round(px, 4), 'totalLamports': total, 'feeLamports': fee, 'catLamports': total - fee,
+            'catUsd': round(wallet_usd - fee_usd, 2), 'token': token, 'gasLamports': GAS_LAMPORTS if token == 'USDC' and wallet_usd > 0 else 0}
 
 
 def ata(owner, mint=USDC_MINT):

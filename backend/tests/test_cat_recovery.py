@@ -38,7 +38,7 @@ def test_free_credit_only_for_paper_cats_or_a_creator():
 
 def test_credit_goes_all_to_feeless_and_never_counts_as_the_first_funding():
     p = cf.plan(5, 200, first=True, credit=True)
-    assert p['purpose'] == 'credit' and p['catLamports'] == 0 and p['feeLamports'] == p['totalLamports'] and p['feeUsd'] == 5 and p['catUsd'] == 0
+    assert p['creditUsd'] == 5 and p['catLamports'] == 0 and p['feeLamports'] == p['totalLamports'] and p['feeUsd'] == 0 and p['catUsd'] == 0
     with pytest.raises(ValueError):
         cf.plan(0.5, 200, first=True, credit=True)
 
@@ -179,3 +179,18 @@ def test_an_order_buys_for_real_and_sells_what_its_wallet_really_holds(monkeypat
     monkeypatch.setattr(fs, '_notify_real', lambda *_a: None)
     row = asyncio.run(fs._run_order({'cats': {'g': gen}}, gen, 'sell all $BONK', None))
     assert row['state'] == 'proposed' and gen['proposals'][0]['mint'] == 'MINTX' and gen['proposals'][0]['side'] == 'sell'
+
+
+def test_one_amount_splits_between_its_wallet_and_model_credit_in_one_payment():
+    p = cf.plan(20, 100, first=True, fee_usd=2, credit_usd=5)                      # $20: $5 credit, $15 for the wallet, $2 one-time fee out of that
+    assert p['payUsd'] == 20 and p['creditUsd'] == 5 and p['catUsd'] == 13 and p['feeUsd'] == 2
+    assert p['feeLamports'] == 70_000_000 and p['catLamports'] == 130_000_000 and p['totalLamports'] == 200_000_000
+    me, cat, fee = Keypair().pubkey(), Keypair().pubkey(), Keypair().pubkey()
+    tx = VersionedTransaction.from_bytes(base64.b64decode(cf.build(str(me), str(cat), str(fee), p, HASH)))
+    assert len(tx.message.instructions) == 2                                       # one signature pays both
+    free = cf.plan(10, 100, first=False, credit_usd=4, free_credit=True)            # a creator's credit is not paid for
+    assert free['payUsd'] == 6 and free['creditUsd'] == 4 and free['feeLamports'] == 0 and free['catLamports'] == 60_000_000
+    only = cf.plan(5, 100, first=True, fee_usd=2, credit_usd=5, free_credit=True)   # credit only: nothing to sign, no first-funding fee
+    assert only['totalLamports'] == 0 and only['feeUsd'] == 0
+    with pytest.raises(ValueError):
+        cf.plan(12, 100, first=True, fee_usd=2, min_usd=10, credit_usd=5)           # the wallet share still meets the first-funding minimum

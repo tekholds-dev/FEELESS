@@ -11028,7 +11028,7 @@ class CatFundIn(BaseModel):
     usd: float = 0.0
     signed: str = Field('', max_length=4000)
     token: str = 'SOL'         # 💵 SOL | USDC
-    purpose: str = 'wallet'    # wallet = into its own wallet · credit = its model credit (all to FEELESS)
+    creditUsd: float = 0.0     # 🧠 how much of `usd` becomes model credit; the rest goes into its wallet (one transaction)
 
 
 async def _cat_for_fund(cat_id, me):
@@ -11085,21 +11085,25 @@ async def cat_fund_build(cat_id: str, p: CatFundIn):
     me = session_address(p.session)
     if not me or me != p.address:
         raise HTTPException(401, 'Sign in with your wallet first (one signature, no transaction).')
-    if p.token not in ('SOL', 'USDC') or p.purpose not in ('wallet', 'credit'):
-        raise HTTPException(400, 'Pay in SOL or USDC, into its wallet or its model credit.')
+    if p.token not in ('SOL', 'USDC') or p.creditUsd < 0 or p.creditUsd > p.usd:
+        raise HTTPException(400, 'Pay in SOL or USDC, and split no more than the amount.')
     cat, w = await _cat_for_fund(cat_id, me)
-    credit = p.purpose == 'credit'
-    if credit and not cat.get('brainsCfg'):
+    if p.creditUsd and not cat.get('brainsCfg'):
         raise HTTPException(400, 'This agent runs no paid models.')
-    first = not cat.get('agentFunded') and not credit
+    first = not cat.get('agentFunded') and p.usd > p.creditUsd
     rules_ = _cat_fund_rules(me)
-    need_fee = credit or (first and rules_['feeUsd'] > 0)
+    free_credit = bool(rules_.get('staff'))
+    need_fee = (p.creditUsd > 0 and not free_credit) or (first and rules_['feeUsd'] > 0)
     async with httpx.AsyncClient(timeout=10) as http:
         fee_w = ((_fee_cfg().get('vaultFeeWallet') or '') or ((await _fee_wallet_owner(http, _fee_cfg())) or '')) if need_fee else ''
         if need_fee and not fee_w:
             raise HTTPException(503, 'The FEELESS fee wallet is not set — HQ › Fees › vault fee wallet.')
         try:
-            pl = _cfund.plan(p.usd, await _sol_usd(), first, fee_usd=rules_['feeUsd'], min_usd=rules_['minUsd'], token=p.token, credit=credit)
+            pl = _cfund.plan(p.usd, await _sol_usd(), first, fee_usd=rules_['feeUsd'], min_usd=rules_['minUsd'], token=p.token, credit_usd=p.creditUsd, free_credit=free_credit)
+            if not pl['totalLamports']:   # a creator's credit alone: nothing to pay or sign
+                await _ai_http().post(f'http://127.0.0.1:5088/api/cats/{cat_id}/action', headers={'x-feeless-internal': _internal_key()}, timeout=8,
+                                      json={'action': 'agent_funded', 'sig': f'creator-{uuid.uuid4().hex[:16]}', 'result': 'confirmed', 'amount': {'token': pl['token'], 'usd': pl['usd'], 'creditUsd': pl['creditUsd'], 'feeUsd': 0, 'catLamports': 0, 'feeLamports': 0, 'solUsd': pl['solUsd']}})
+                return {'plan': pl, 'granted': True}
             bh = ((await _rpc(http, 'getLatestBlockhash', [{'commitment': 'confirmed'}])) or {}).get('value', {}).get('blockhash')
             tx = _cfund.build(me, w['address'], fee_w or w['address'], pl, bh)
         except ValueError as e:
@@ -11210,7 +11214,7 @@ async def cat_fund_send(cat_id: str, p: CatFundIn):
     if True:   # recorded confirmed OR still landing: a verified, sent first funding has paid its fee (never charged twice)
         try:
             await _ai_http().post(f'http://127.0.0.1:5088/api/cats/{cat_id}/action', headers={'x-feeless-internal': _internal_key()}, timeout=8,
-                                  json={'action': 'agent_funded', 'sig': sig, 'result': 'confirmed' if ok else 'submitted', 'amount': {'token': pl.get('token'), 'purpose': pl.get('purpose'), 'usd': pl['usd'], 'feeUsd': pl['feeUsd'], 'catLamports': pl['catLamports'], 'feeLamports': pl['feeLamports'], 'solUsd': pl['solUsd']}})
+                                  json={'action': 'agent_funded', 'sig': sig, 'result': 'confirmed' if ok else 'submitted', 'amount': {'token': pl.get('token'), 'creditUsd': pl.get('creditUsd'), 'usd': pl['usd'], 'feeUsd': pl['feeUsd'], 'catLamports': pl['catLamports'], 'feeLamports': pl['feeLamports'], 'solUsd': pl['solUsd']}})
         except Exception as e:
             print(f'[cat fund] record {cat_id}: {e}')
     return {'state': 'confirmed' if ok else 'submitted', 'signature': sig, 'plan': pl}

@@ -2357,16 +2357,17 @@ async def cat_action(cat_id: str, payload: ActionPayload, request: Request):
         a_ = payload.amount if isinstance(payload.amount, dict) else {}
         if not payload.sig or any(str(x.get('sig')) == payload.sig for x in (cat.get('agentFunded') or []) + (cat.get('creditPaid') or [])):
             raise HTTPException(400, 'No signature, or that funding is on the record already.')
-        if a_.get('purpose') == 'credit':   # 🧠 paid model credit: never counts as its first funding
-            usd_ = max(0.0, _num(a_.get('usd')) or 0.0)
-            cat['creditPaid'] = (list(cat.get('creditPaid') or []) + [{'sig': str(payload.sig)[:100], 'usd': usd_, 'token': a_.get('token'), 'at': round(time.time())}])[-50:]
+        cr_ = max(0.0, _num(a_.get('creditUsd')) or 0.0)
+        if cr_:   # 🧠 the model-credit share of this payment
+            cat['creditPaid'] = (list(cat.get('creditPaid') or []) + [{'sig': str(payload.sig)[:100], 'usd': cr_, 'token': a_.get('token'), 'at': round(time.time())}])[-50:]
             if cat.get('brainsCfg'):
-                cat['brainsCfg']['credit'] = round((cat['brainsCfg'].get('credit') or 0) + usd_, 6); cat.pop('brainPaused', None)
-            _log_event(store, cat, 'STARTED', f"{cat['name']}: ${usd_:g} of model credit added.")
+                cat['brainsCfg']['credit'] = round((cat['brainsCfg'].get('credit') or 0) + cr_, 6); cat.pop('brainPaused', None)
+            _log_event(store, cat, 'STARTED', f"{cat['name']}: ${cr_:g} of model credit added.")
+        if not a_.get('catLamports'):   # all of it was credit: no wallet funding on the record
             keep_owned(cat); _save(store)
             return {'cat': {**_no_keys(cat), 'mine': not cat.get('isLeader')}}
         cat['agentFunded'] = (list(cat.get('agentFunded') or []) + [{'sig': str(payload.sig)[:100], 'state': payload.result or 'confirmed', 'at': round(time.time()),
-                              **{k: a_.get(k) for k in ('usd', 'feeUsd', 'catLamports', 'feeLamports', 'solUsd')}}])[-50:]
+                              **{k: a_.get(k) for k in ('usd', 'feeUsd', 'catLamports', 'feeLamports', 'solUsd', 'token')}}])[-50:]
         ensure_real(cat)   # funded: its orders now use its wallet
         got_ = f"{(a_.get('catLamports') or 0) / 1e6:.2f} USDC" if a_.get('token') == 'USDC' else f"{round((a_.get('catLamports') or 0) / 1e9, 4)} SOL"
         _log_event(store, cat, 'STARTED', f"{cat['name']} funded: ${a_.get('usd')} — {got_} into its wallet"
