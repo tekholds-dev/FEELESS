@@ -1637,6 +1637,8 @@ def _work_settle(store):
             cat['refusals'] = (list(cat.get('refusals') or []) + [{'at': time.time(), 'why': x} for x in t.get('refusals', [])])[-100:]
             if not _ck.key_for(cat, 'openrouter', data_dir=DATA_DIR):   # its owner's own key pays OpenRouter directly — no FEELESS credit
                 _lc.charge(cat['brainsCfg'], max(0.0, (t.get('cost') or 0) - (t.get('walletPaid') or 0)))   # what its wallet paid never comes off its FEELESS credit
+            if t.get('status') == 'done':   # 🤖 the flat fee for anything that is not a trade
+                cat['feesDue'] = (list(cat.get('feesDue') or []) + [{'key': f"task-{t.get('id')}"}])[-20:]
             for lg_ in t.get('logins') or []:   # 🔐 every sign-up's password → sealed in its vault, then gone from memory
                 try:
                     _cv.put_login(cat, lg_.get('site'), lg_.get('user'), lg_.get('pw'), data_dir=DATA_DIR)
@@ -1679,8 +1681,28 @@ async def _agent_pass(store):
             try:
                 for w_ in await _at.run(http_a, key, c, now):
                     _log_event(store, c, 'TRADE', f"{c.get('name')}: {w_}")
+                await _agent_fees(http_a, c, now)
             except Exception as exc:
                 print('agent pass', c.get('id'), exc)
+
+
+async def _agent_fees(http, cat, now):
+    """🤖 HQ › Fees flat fees: one per trade that landed, one per finished task. A wallet that can't pay yet is asked again later; the key means never twice."""
+    w_ = cat.get('agentWallet') or {}
+    if w_.get('circleAcct') != 'agent' or now - float(cat.get('feeTry') or 0) < 120:
+        return
+    due = [('trade', t.get('key') or t.get('id'), t) for t in cat.get('agentTx') or [] if t.get('status') == 'success' and not t.get('feeDone')]
+    due += [('other', x['key'], x) for x in cat.get('feesDue') or []]
+    for kind, key, row in due[:3]:
+        r = await http.post('http://127.0.0.1:5077/api/reputation/internal/agent-fee', headers=_internal_headers(), timeout=30,
+                            json={'catId': cat['id'], 'walletId': w_.get('circleId'), 'address': w_.get('address'), 'owner': w_.get('owner'), 'kind': kind, 'key': f'fee-{key}'})
+        if r.status_code != 200:
+            cat['feeTry'] = now
+            return
+        if kind == 'trade':
+            row['feeDone'] = True
+        else:
+            cat['feesDue'] = [x for x in cat['feesDue'] if x['key'] != key]
 
 
 async def _engine_loop():

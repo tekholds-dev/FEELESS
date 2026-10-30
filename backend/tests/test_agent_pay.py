@@ -77,3 +77,27 @@ def test_a_call_pays_once_and_a_failed_answer_falls_through(monkeypatch):
     monkeypatch.setattr(fs.httpx, 'AsyncClient', http(R(500)))
     assert asyncio.run(fs._wallet_call(cat, 'a/x', [], 300, 0.05)) == ('', 0.0)
     assert asyncio.run(fs._wallet_call(cat, 'a/x', [], 300, 0.001)) == ('', 0.0)   # over the ceiling: nothing signed
+
+
+def test_a_flat_fee_goes_only_to_the_fee_wallet_once_and_staff_pay_nothing(monkeypatch):
+    import reputation_service as rs
+    from starlette.requests import Request
+    me, fee_w, owner = str(Keypair().pubkey()), str(Keypair().pubkey()), str(Keypair().pubkey())
+    seen = {}; book = {}
+    async def circle(_m, path, body=None, agent=False):
+        if path == '/wallet':
+            return {'wallet': {'address': me}}
+        seen['tx'] = body['rawTransaction']; assert agent is True
+        return {'signedTransaction': 'x', 'signature': 'S1'}
+    async def rpc(_h, method, _p):
+        return {'getTokenAccountBalance': {'value': {'amount': '5000000'}}, 'getLatestBlockhash': {'value': {'blockhash': HASH}}}.get(method, 'sig')
+    monkeypatch.setattr(rs, '_internal_ok', lambda _r: True); monkeypatch.setattr(rs, '_circle', circle); monkeypatch.setattr(rs, '_rpc', rpc)
+    monkeypatch.setattr(rs, '_fee_cfg', lambda: {'vaultFeeWallet': fee_w, 'agentTradeFeeUsd': 0.05, 'agentOtherFeeUsd': 0.10}); monkeypatch.setattr(rs, '_is_staff', lambda a: a == 'STAFF')
+    monkeypatch.setattr(rs, '_json_load', lambda _p, d=None: book); monkeypatch.setattr(rs, '_json_save', lambda _p, v: book.update(v))
+    req = Request({'type': 'http', 'headers': []}); body = {'key': 'k1', 'walletId': 'w', 'address': me, 'owner': owner, 'kind': 'other'}
+    assert asyncio.run(rs.internal_agent_fee(req, body))['usd'] == 0.10
+    m = VersionedTransaction.from_bytes(base64.b64decode(seen['tx'])).message
+    assert str(cf.ata(fee_w)) in [str(k) for k in m.account_keys] and int.from_bytes(bytes(m.instructions[-1].data)[1:9], 'little') == 100_000
+    seen.clear()
+    assert asyncio.run(rs.internal_agent_fee(req, body))['again'] is True and not seen            # one key, one charge
+    assert asyncio.run(rs.internal_agent_fee(req, {**body, 'key': 'k2', 'owner': 'STAFF'})) == {'skipped': True}

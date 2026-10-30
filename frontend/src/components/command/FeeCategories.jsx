@@ -21,25 +21,28 @@ function useFees(call) {
 }
 
 export function AgentFees({ call }) {
-  const [d, load] = useFees(call); const [cut, setCut] = useState('');
-  useEffect(() => { if (d?.fees) setCut(String(d.fees.catFeeUsd ?? 2)); }, [d]);
+  const [d, load] = useFees(call); const [cut, setCut] = useState(''); const [tradeFee, setTradeFee] = useState(''); const [otherFee, setOtherFee] = useState('');
+  useEffect(() => { if (d?.fees) { setCut(String(d.fees.catFeeUsd ?? 2)); setTradeFee(String(d.fees.agentTradeFeeUsd ?? 0.05)); setOtherFee(String(d.fees.agentOtherFeeUsd ?? 0.1)); } }, [d]);
   if (!d) return <p className="cc-empty">Loading agent fees…</p>;
   const f = d.fees || {}; const n = Number(cut);
   const save = async () => {
-    try { await call('/admin/fees', { method: 'POST', body: JSON.stringify({ ...f, catFeeUsd: Math.max(0, Math.min(100, n || 0)) }) }); toast.success(`Agent cut saved — ${usd(n)} from each first funding`); load(); }
+    try { await call('/admin/fees', { method: 'POST', body: JSON.stringify({ ...f, catFeeUsd: Math.max(0, Math.min(100, n || 0)), agentTradeFeeUsd: Math.max(0, Math.min(10, Number(tradeFee) || 0)), agentOtherFeeUsd: Math.max(0, Math.min(10, Number(otherFee) || 0)) }) }); toast.success('Agent fees saved'); load(); }
     catch (e) { toast.error(e.message); }
   };
   return <section className="m-card m-live fct-panel" data-testid="fee-cat-agents">
     <header className="m-row"><span className="m-label">🤖 AGENTS · WHAT A CAT PAYS</span><small className="m-dim">fee rules apply to its own wallet</small></header>
     <div className="fct-meters">
       <span className="fct-meter"><em>ONE-TIME CUT</em><b className="m-num">{usd(f.catFeeUsd ?? 2)}</b><i><u style={{ transform: `scaleX(${Math.min(1, (Number(f.catFeeUsd ?? 2)) / 10)})` }} /></i><small>out of a first funding (≥ $10)</small></span>
-      <span className="fct-meter"><em>ITS SWAPS</em><b className="m-num">{pct(f.platformFeeBps)}</b><i><u style={{ transform: `scaleX(${Math.min(1, (Number(f.platformFeeBps) || 0) / 2000)})` }} /></i><small>the trading fee, per buy / sell</small></span>
+      <span className="fct-meter"><em>EACH TRADE</em><b className="m-num">${Number(f.agentTradeFeeUsd ?? 0.05).toFixed(2)}</b><i><u style={{ transform: `scaleX(${Math.min(1, Number(f.agentTradeFeeUsd ?? 0.05))})` }} /></i><small>flat, per swap or trench trade</small></span>
+      <span className="fct-meter"><em>EVERYTHING ELSE</em><b className="m-num">${Number(f.agentOtherFeeUsd ?? 0.1).toFixed(2)}</b><i><u style={{ transform: `scaleX(${Math.min(1, Number(f.agentOtherFeeUsd ?? 0.1))})` }} /></i><small>flat, per finished task</small></span>
       <span className="fct-meter is-free"><em>STAFF-OWNED</em><b className="m-num">0%</b><i><u style={{ transform: 'scaleX(1)' }} /></i><small>agents your wallets own trade free</small></span>
       <span className="fct-meter"><em>TOP-UPS</em><b className="m-num">$0</b><i><u style={{ transform: 'scaleX(0.02)' }} /></i><small>no cut after the first funding</small></span>
     </div>
     <label className="fct-edit"><span>One-time cut · $</span><NumInput className="m-input" type="number" min="0" max="100" step="0.5" value={cut} onChange={e => setCut(e.target.value)} aria-label="Agent one-time cut in dollars" data-testid="fct-cat-cut" />
-      <button type="button" className="m-btn m-go" onClick={save} disabled={!Number.isFinite(n) || n === Number(f.catFeeUsd ?? 2)} data-testid="fct-cat-save" data-tip="Applies to the next agent's first funding">Save</button></label>
-    <p className="m-note">Model calls are separate: a cat runs on its FEELESS model credit, or on its owner's own OpenRouter key from its 🔐 API drawer (they pay OpenRouter; no FEELESS credit). The swap fee itself is set in 💱 Trading.</p>
+      <span>Each trade · $</span><NumInput className="m-input" type="number" min="0" max="10" step="0.01" value={tradeFee} onChange={e => setTradeFee(e.target.value)} aria-label="Agent fee per trade in dollars" data-testid="fct-agent-trade" />
+      <span>Everything else · $</span><NumInput className="m-input" type="number" min="0" max="10" step="0.01" value={otherFee} onChange={e => setOtherFee(e.target.value)} aria-label="Agent fee per task in dollars" data-testid="fct-agent-other" />
+      <button type="button" className="m-btn m-go" onClick={save} disabled={!Number.isFinite(n) || (n === Number(f.catFeeUsd ?? 2) && Number(tradeFee) === Number(f.agentTradeFeeUsd ?? 0.05) && Number(otherFee) === Number(f.agentOtherFeeUsd ?? 0.1))} data-testid="fct-cat-save" data-tip="Applies to the next charge">Save</button></label>
+    <p className="m-note">Model calls are separate: a cat runs on its FEELESS model credit, or on its owner's own OpenRouter key from its 🔐 API drawer (they pay OpenRouter; no FEELESS credit). Agent wallets pay these flat fees instead of the % swap fee set in 💱 Trading.</p>
   </section>;
 }
 

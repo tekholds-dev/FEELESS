@@ -27255,7 +27255,7 @@ FEE_DEFAULTS = {'platformFeeBps': 0, 'referralAccount': '', 'tierDiscountPct': {
                 # 0.5–2.55%). ultraFallback: Ultra is only used when the Swap API fails AND this is switched on.
                 'engine': 'swap', 'ultraFallback': False, 'feeAccountSol': '', 'feeAccountUsdc': '', 'priorityMaxLamports': 200000,
                 # FUSE Vault: management + performance fees are paid in SOL to this wallet.
-                'vaultFeeWallet': '', 'catFeeUsd': 2.0, 'catMinUsd': 10.0, 'catMaxModels': 3}
+                'vaultFeeWallet': '', 'catFeeUsd': 2.0, 'catMinUsd': 10.0, 'catMaxModels': 3, 'agentTradeFeeUsd': 0.05, 'agentOtherFeeUsd': 0.10}
 JUP_MIN_BPS, JUP_MAX_BPS = 50, 255   # Jupiter Ultra referral-fee limits
 SWAP_MAX_BPS = 2000                  # FEELESS cap on the Swap API fee (20%)
 PRIORITY_MAX_LAMPORTS = 5_000_000    # never let a setting spend more than 0.005 SOL on priority
@@ -27411,7 +27411,57 @@ async def fee_quote(wallet: str = '', inputMint: str = '', outputMint: str = '')
 async def internal_fees(request: Request, wallet: str = '', inputMint: str = '', outputMint: str = '', bundle: int = Query(0, ge=0, le=12), amount: float = Query(0, ge=0), card: int = Query(0, ge=0, le=1), cardId: str = Query('', max_length=16)):
     if not hmac.compare_digest(request.headers.get('x-feeless-internal', ''), _internal_key()):
         raise HTTPException(403, 'Internal only.')
-    return await effective_fee(wallet, inputMint, outputMint, bundle, amount, card, cardId)
+    out = await effective_fee(wallet, inputMint, outputMint, bundle, amount, card, cardId)
+    return {**out, 'bps': 0, 'notes': ['Agent wallet: a flat fee per trade instead of a % fee.']} if wallet in _agent_wallets() else out
+
+
+def _agent_wallets():
+    return {(c.get('agentWallet') or {}).get('address') for c in (_json_load(DATA_DIR / 'feecats.json', {}).get('cats') or {}).values() if (c.get('agentWallet') or {}).get('circleAcct') == 'agent'}
+
+
+AGENT_FEES_SENT = DATA_DIR / 'agent_fees_sent.json'
+
+
+@app.post('/api/reputation/internal/agent-fee')
+async def internal_agent_fee(request: Request, body: dict):
+    """🤖 One flat agent fee from HQ › Fees, from its own wallet to the FEELESS fee wallet and nowhere else. One key = one charge, ever. Staff-owned agents pay nothing."""
+    if not _internal_ok(request):
+        raise HTTPException(403, 'Internal only.')
+    key_, wid_, addr_, owner_ = str(body.get('key') or ''), str(body.get('walletId') or ''), str(body.get('address') or ''), str(body.get('owner') or '')
+    if not (key_ and wid_ and addr_) or body.get('kind') not in ('trade', 'other'):
+        raise HTTPException(400, 'key, wallet and kind are required.')
+    book_ = _json_load(AGENT_FEES_SENT, {})
+    if book_.get(key_):
+        return {'signature': book_[key_], 'again': True}
+    cfg = _fee_cfg(); usd_ = max(0.0, _fuse._f(cfg.get('agentTradeFeeUsd' if body['kind'] == 'trade' else 'agentOtherFeeUsd')))
+    if usd_ <= 0 or (owner_ and _is_staff(owner_)):
+        return {'skipped': True}
+    w_ = (await _circle('POST', '/wallet', {'id': wid_}, agent=True)).get('wallet')
+    if not w_ or w_.get('address') != addr_:
+        raise HTTPException(403, "That is not this agent's wallet.")
+    async with httpx.AsyncClient(timeout=15) as http:
+        fee_w = (cfg.get('vaultFeeWallet') or '') or ((await _fee_wallet_owner(http, cfg)) or '')
+        if not fee_w:
+            raise HTTPException(503, 'The FEELESS fee wallet is not set.')
+        try:
+            usdc = int((((await _rpc(http, 'getTokenAccountBalance', [str(_cfund.ata(addr_)), {'commitment': 'confirmed'}])) or {}).get('value') or {}).get('amount') or 0)
+        except Exception:
+            usdc = 0
+        units = int(usd_ * _cfund.USDC_UNITS); token = 'USDC'
+        if usdc < units + int(_apay.RESERVE_USD * _cfund.USDC_UNITS):
+            px = await _sol_usd(); token = 'SOL'; units = int(usd_ / px * _cfund.LAMPORTS) if px > 0 else 0
+            sol = int(((await _rpc(http, 'getBalance', [addr_, {'commitment': 'confirmed'}])) or {}).get('value') or 0)
+            if not units or sol < units + 2_000_000:
+                raise HTTPException(409, 'Not enough in its wallet for the fee yet.')
+        bh = ((await _rpc(http, 'getLatestBlockhash', [{'commitment': 'confirmed'}])) or {}).get('value', {}).get('blockhash')
+        tx = _cfund.build_out(addr_, fee_w, token, units, bh)
+        signed_ = await _circle('POST', '/sign', {'walletId': wid_, 'rawTransaction': tx, 'memo': f"FEELESS agent fee {str(body.get('catId') or '')[:16]}"}, agent=True)
+        sig_ = str(signed_.get('signature') or signed_.get('txHash') or '')
+        if not signed_.get('signedTransaction') or not sig_:
+            raise HTTPException(502, 'Circle did not sign it.')
+        _json_save(AGENT_FEES_SENT, {**book_, key_: sig_})   # written BEFORE the send: never a second charge
+        await _rpc(http, 'sendTransaction', [signed_['signedTransaction'], {'encoding': 'base64', 'skipPreflight': False, 'maxRetries': 3}])
+    return {'signature': sig_, 'usd': usd_, 'token': token}
 
 
 @app.get('/api/reputation/fees/pricing')
@@ -27442,6 +27492,8 @@ class FeeCfg(BaseModel):
     vaultFeeWallet: str = ''
     catFeeUsd: float = Field(2.0, ge=0, le=100)     # 💵 FeeCat: FEELESS's one-time cut out of a cat's first funding (cat_fund.py)
     catMaxModels: int = Field(3, ge=1, le=8)
+    agentTradeFeeUsd: float = Field(0.05, ge=0, le=10)   # 🤖 flat fee per swap / trench trade from an agent's wallet (replaces the % fee on it)
+    agentOtherFeeUsd: float = Field(0.10, ge=0, le=10)   # 🤖 flat fee per finished task, anything that is not a trade
     catMinUsd: float = Field(10.0, ge=1, le=1000)   # 💵 FeeCat: the least a cat's first funding may be
 
     # Settings saved by older builds can come back as null or out of range: clean them instead of
@@ -28213,7 +28265,7 @@ async def admin_fees_set(request: Request, payload: FeeCfg):
                      'lifiIntegrator': integrator, 'lifiFeeBps': payload.lifiFeeBps if integrator else 0,
                      'engine': payload.engine, 'ultraFallback': payload.ultraFallback, 'feeAccountSol': payload.feeAccountSol,
                      'feeAccountUsdc': payload.feeAccountUsdc, 'priorityMaxLamports': payload.priorityMaxLamports,
-                     'vaultFeeWallet': payload.vaultFeeWallet, 'catMaxModels': payload.catMaxModels, 'catFeeUsd': payload.catFeeUsd, 'catMinUsd': max(payload.catMinUsd, payload.catFeeUsd + 1), **{k: v for k, v in (d.get('fees') or {}).items() if k in ('bundle', 'rounds', 'prepay', 'crews', 'house')}}
+                     'vaultFeeWallet': payload.vaultFeeWallet, 'catMaxModels': payload.catMaxModels, 'catFeeUsd': payload.catFeeUsd, 'agentTradeFeeUsd': payload.agentTradeFeeUsd, 'agentOtherFeeUsd': payload.agentOtherFeeUsd, 'catMinUsd': max(payload.catMinUsd, payload.catFeeUsd + 1), **{k: v for k, v in (d.get('fees') or {}).items() if k in ('bundle', 'rounds', 'prepay', 'crews', 'house')}}
         tier_txt = ' / '.join(f"{float(tiers.get(k, 0)):g}%" for k in ('0', '1', '2', '3'))
         _audit(d, admin, 'fees', f"{'Swap API' if payload.engine == 'swap' else 'Ultra'} · fee {payload.platformFeeBps / 100:.2f}% · Ultra fallback {'on' if payload.ultraFallback else 'off'} · "
                                  f"holder discounts {tier_txt} · promo {promo['discountPct']:.0f}% · speed tip ≤ {payload.priorityMaxLamports / 1e9:.4f} SOL")
