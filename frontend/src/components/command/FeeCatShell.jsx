@@ -4,6 +4,7 @@ import { useLeaderProfile, feeHeadline } from '../../lib/feeLeader';
 import { useMyCat } from '../../lib/myCat';
 import { CAT_VARIATIONS } from './catCoats';
 import { LookAvatar } from './CatLook';
+import { AgentCritter } from './Critters';
 import '../../styles/feecatShell.css';
 
 // 🐱 THE FEECAT APP SHELL (owner, 2026-10-23: "all terminal FeeCat pages / tabs clean cut, unneeded out — a full redo, not half"): every FeeCat
@@ -16,7 +17,7 @@ export const FC_NAV = [
   ['brain', '/terminal/feecat?view=brain', '🧠', 'HER BRAIN', 'rules · lessons · nine lives'],
   ['lore', '/terminal/feecat?view=lore', '📜', 'LORE', 'the legend · Fee-Back'],
   ['agents', '/terminal/feecat/agents', '🤖', 'AGENTS', 'create a cat that trades'],
-  ['build', '/terminal/feecat/cats', '🎨', 'BUILD A CAT', 'coat · gear · eyes · aura'],
+  ['build', '/terminal/feecat/cats', '🎨', 'BUILD AN AGENT', 'cat · queen ant · fly · ants'],
 ];
 // in-app navigation without a router dependency (react-router's history listens to popstate)
 export function goTo(path) {
@@ -45,7 +46,7 @@ export function FeeCatShell({ tab, children }) {
           {Array.from({ length: h.maxLives }, (_, i) => <i key={i} className={i < h.lives ? 'on' : ''} style={{ '--i': i }} />)}</span>
         <a className={`fcx-mine ${tab === 'build' ? 'active' : ''}`} href="/terminal/feecat/cats" onClick={e => { e.preventDefault(); goTo('/terminal/feecat/cats'); }}
           data-tip={mine ? `${mine.name || 'Your cat'} — tap to rebuild it` : 'You have no cat yet — build one'} data-testid="fcx-mine">
-          {coat ? <LookAvatar cat={[coat[0], coat[1], coat[2], mine.pattern]} look={mine.look} size={34} /> : <span className="fcx-plus" aria-hidden="true">+</span>}
+          {coat && mine.agent?.species && mine.agent.species !== 'cat' ? <AgentCritter agent={mine.agent} size={30} /> : coat ? <LookAvatar cat={[coat[0], coat[1], coat[2], mine.pattern]} look={mine.look} size={34} /> : <span className="fcx-plus" aria-hidden="true">+</span>}
           <small>{mine ? (mine.name || 'YOUR CAT').toUpperCase() : 'BUILD YOURS'}</small></a>
       </div>
     </header>

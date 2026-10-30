@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import '../../styles/feeLive.css';
 import { FeeCallChat } from './FeeCallChat';
+import { GhostChart } from './AgentDemo';
 import { useLeaderProfile } from '../../lib/feeLeader';
 import { reasonChip, talkPins } from '../../lib/feeTape';
 
@@ -40,7 +41,7 @@ export function FeeLiveTab() {
         <span>🤖 10 agents</span><i aria-hidden="true">→</i><span className="is-ai">🔮 FeeCat AI</span><i aria-hidden="true">→</i><span className="is-fee">🐱 Fee</span></p></article>
     <article className="fcv-card fcv-chart"><h3>📈 {c ? `$${c.symbol}` : 'NO COIN YET'}<small>{c ? (c.open ? `holding${c.pct != null ? ` ${c.pct >= 0 ? '+' : ''}${c.pct.toFixed(1)}%` : ''}` : 'next up') : 'she charts her trades, then her next picks'}</small></h3>
       {coins.length > 1 ? <div className="fcv-coins">{coins.map((x, i) => <button key={x.pair} type="button" className={i === pick ? 'active' : ''} onClick={() => setPick(i)}>{x.open ? '📂' : '⏭'} ${x.symbol}</button>)}</div> : null}
-      {c ? <div className="fcv-plot"><React.Suspense fallback={<p className="paper-muted">loading chart…</p>}><PriceChart key={c.pair} pair={{ chainId: 'solana', pairAddress: c.pair, baseToken: { address: c.mint, symbol: c.symbol } }} interval="1m" metric="price" showVolume={false} userEntry={c.entry || null} callouts={talk} /></React.Suspense></div> : null}
+      {c ? <div className="fcv-plot"><React.Suspense fallback={<p className="paper-muted">loading chart…</p>}><PriceChart key={c.pair} pair={{ chainId: 'solana', pairAddress: c.pair, baseToken: { address: c.mint, symbol: c.symbol } }} interval="1m" metric="price" showVolume={false} userEntry={c.entry || null} callouts={talk} /></React.Suspense></div> : <GhostChart />}
       <p className="fcv-legend"><span className="is-fee" data-tip="Fee's own BUY / SELL calls, at the candle and cap she made them">🐱 her calls</span>
         <span className="is-ai" data-tip="FeeCat AI's desk words on this coin (YES / NO / HOLD / SELL / SKIM) — tap a bubble for the why">🔮 FeeCat AI <b key={talk.length}>{talk.length}</b></span></p></article>
     <article className="fcv-card fcv-calls"><FeeCallChat events={ev} positions={pos} hunting={d.cat?.status === 'running' && !(prof?.discipline || {}).pause} /></article>

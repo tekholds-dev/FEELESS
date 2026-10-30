@@ -6,6 +6,8 @@ import { LookAvatar } from './CatLook';
 import { CAT_VARIATIONS } from './catCoats';
 import { useMyCat } from '../../lib/myCat';
 import { FundReceipt } from './FundReceipt';
+import { AgentDemo } from './AgentDemo';
+import { AgentCritter } from './Critters';
 import '../../styles/launchCat.css';
 
 // 🚀 LAUNCH A CAT (owner, 2026-10-20): pick up to two AI brains from OpenRouter's whole public list, choose how they work together, write
@@ -28,6 +30,37 @@ export const GENERAL_FLOW = [
   ['✋', 'You step in', 'a sign-in or CAPTCHA pauses that window for you — it never types a password'],
   ['🔗', 'One answer', 'mind A merges both halves with sources — it stops at your $ cap per task'],
 ];
+// 📈 a trading cat trades on FEELESS rails ONLY (owner 2026-10-29) — mirrors cat_keys.VENUES / VENUES_LIVE (change both)
+export const VENUES = [['trench', '🫧 Trench', 'Solana coins on the FEELESS swap — its wallet sends, inside your caps', true],
+  ['perps', '📉 Perps', 'the FEELESS perps desk — it proposes, the agent sender for perps is the next build', false]];
+// 🔐 the API drawer (cat_keys.PROVIDERS mirror): your own keys for the cat's tools, sealed on the server, only the last 4 ever come back
+export const API_PROVIDERS = [['openrouter', 'OpenRouter', 'its models run on YOUR key — you pay OpenRouter, no FEELESS credit used', true, 'sk-or-v1-…'],
+  ['birdeye', 'Birdeye', 'holder + price reads for its scans', false, 'api key'], ['helius', 'Helius', 'its own Solana RPC — faster wallet + tape reads', false, 'api key'],
+  ['x', 'X (Twitter)', "a bearer token — reads the coin's X chatter", false, 'bearer token'], ['telegram', 'Telegram channel', 'a public @channel it reads for calls', false, '@channel'],
+  ['webhook', 'Signal webhook', 'your own signal URL (https) it reads before a buy', false, 'https://…']];
+export function ApiDrawer({ rows, draft, onDraft, onSave, onDrop, busy }) {
+  const [open, setOpen] = useState(!!draft);
+  const saved = API_PROVIDERS.filter(([k]) => (rows || []).some(r => r.provider === k && r.saved)).length + Object.values(draft || {}).filter(Boolean).length;
+  return <details className="akd" open={open} onToggle={e => setOpen(e.currentTarget.open)} data-testid="api-drawer">
+    <summary data-tip="Add your own API keys for this cat's tools — sealed on the server, never shown again (last 4 only)"><i aria-hidden="true">🔐</i><b>API DRAWER</b>
+      <small>{saved ? `${saved} key${saved > 1 ? 's' : ''} in` : 'your keys · optional'}</small><span className="akd-pips" aria-hidden="true">{API_PROVIDERS.map(([k]) => <u key={k} className={(rows || []).some(r => r.provider === k && r.saved) || draft?.[k] ? 'on' : ''} />)}</span></summary>
+    <ul className="akd-list">{API_PROVIDERS.map(([k, label, use, wired, ph], i) => { const row = (rows || []).find(r => r.provider === k);
+      return <li key={k} style={{ '--i': i }} className={row?.saved ? 'is-saved' : ''}>
+        <span className="akd-name"><b>{label}</b><em className={wired ? 'is-live' : ''}>{wired ? 'LIVE' : 'STORED'}</em><small>{use}</small></span>
+        {row?.saved ? <span className="akd-have"><code>••••{row.last4}</code><button type="button" className="m-btn" disabled={busy} onClick={() => onDrop?.(k)} data-tip={`Remove the ${label} key`} data-testid={`akd-drop-${k}`}>Remove</button></span>
+          : <input className="m-input" type="password" autoComplete="off" spellCheck={false} placeholder={ph} value={draft?.[k] || ''} aria-label={`${label} key`} data-testid={`akd-${k}`}
+            onChange={e => onDraft?.(k, e.target.value)} onKeyDown={e => { if (e.key === 'Enter' && onSave && draft?.[k]) { e.preventDefault(); onSave(k, draft[k]); } }} />}
+        {!row?.saved && onSave ? <button type="button" className="m-btn m-go" disabled={busy || !draft?.[k]} onClick={() => onSave(k, draft[k])} data-testid={`akd-save-${k}`} data-tip="Seal it on the server">Seal</button> : null}
+      </li>; })}</ul>
+    <p className="akd-note">🔒 Sealed at rest, never sent back. A key never opens another exchange — the cat trades on FEELESS rails only.</p>
+  </details>;
+}
+export function VenuePick({ value, onChange }) {
+  return <div className="akv" role="group" aria-label="Where it trades" data-testid="venue-pick"><span className="akv-h"><b>WHERE IT TRADES</b><small>FEELESS rails only</small></span>
+    {VENUES.map(([k, l, why, live]) => { const on = value.includes(k);
+      return <button key={k} type="button" className={`${on ? 'is-on' : ''}${live ? '' : ' is-next'}`} aria-pressed={on} data-tip={why} data-testid={`venue-${k}`}
+        onClick={() => onChange(on ? (value.length > 1 ? value.filter(x => x !== k) : value) : [...value, k])}><b>{l}</b><small>{live ? 'LIVE' : 'PROPOSES'}</small></button>; })}</div>;
+}
 const PAGE = 60;
 const CHIP = { degen: 'lct-c-degen', trading: 'lct-c-trading', thinking: 'lct-c-thinking', reasoning: 'lct-c-reasoning', meta: 'lct-c-meta', free: 'lct-c-free', agent: 'lct-c-agent', content: 'lct-c-content', code: 'lct-c-code' };
 const DUO = { turns: 'is-turns', discuss: 'is-discuss', together: 'is-together', battle: 'is-battle' };
@@ -81,7 +114,7 @@ export function BrainSocket({ picked, mood }) {
   return <div className={`lct-socket n-${picked.length}`} aria-hidden="true">
     <svg className="lct-wires" viewBox="0 0 220 120" preserveAspectRatio="none">{slots.map((m, i) => <path key={i} className={`w w${i}${m ? ' on' : ''}`} d={i ? 'M188 30 C 160 30, 150 58, 118 60' : 'M32 30 C 60 30, 70 58, 102 60'} />)}</svg>
     {slots.map((m, i) => <span key={i} style={i > 1 ? { top: 95 + (i - 2) * 20, left: 10, fontSize: 10, width: 28, height: 28 } : undefined} className={`lct-node n${i}${m ? ' on' : ''}`}>{m ? mono(m) : '+'}<u>{String.fromCharCode(65 + i)}</u></span>)}
-    <span className="lct-cat"><LookAvatar cat={[coat[0], coat[1], coat[2], mine?.pattern || coat[3]]} look={mine?.look} size={92} gesture={mood} /></span>
+    <span className="lct-cat">{mine?.agent?.species && mine.agent.species !== 'cat' ? <AgentCritter agent={mine.agent} size={78} gesture={mood === 'pounce' || mood === 'celebrate' ? 'march' : null} /> : <LookAvatar cat={[coat[0], coat[1], coat[2], mine?.pattern || coat[3]]} look={mine?.look} size={92} gesture={mood} />}</span>
   </div>;
 }
 
@@ -113,6 +146,7 @@ export function LaunchCat({ api, ownerId, onCreated, onCancel, Fields, Preview, 
   const [efforts, setEfforts] = useState({});
   const [range, setRange] = useState([0, 2]); const [persona, setPersona] = useState('');
   const [prompt, setPrompt] = useState(''); const [saving, setSaving] = useState(false);
+  const [venues, setVenues] = useState(['trench']); const [keys, setKeys] = useState({});
   useEffect(() => { let on = true; api(`/api/cats/models?session=${encodeURIComponent(readChatSession() || '')}`).then(x => on && setD(x)).catch(e => on && setErr(e.message)); return () => { on = false; }; }, [api]);
   const rows = useMemo(() => filterModels(d?.models, { q, cat, sort, min: range[0], max: range[1], kind }), [d, q, cat, sort, range, kind]);
   useEffect(() => setN(PAGE), [q, cat, sort, range]);
@@ -127,7 +161,8 @@ export function LaunchCat({ api, ownerId, onCreated, onCancel, Fields, Preview, 
     try {
       const handle = form.handle || form.name.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').slice(0, 20) || 'cat';
       const r = await api('/api/cats', { method: 'POST', body: JSON.stringify({ strategy: 'momentum', ...form, ownerId: ownerId(), name: form.name.trim(), handle, avatar: avatarOf(form.avatar),
-        brains: picked.map(m => m.id), brainMode: gen ? 'turns' : mode, billing, prompt, efforts: Object.fromEntries(picked.filter(m => efforts[m.id]).map(m => [m.id, efforts[m.id]])), brainKind: kind, session: readChatSession() || '', job: gen ? (persona || 'agent') : 'trading' }) });
+        brains: picked.map(m => m.id), brainMode: gen ? 'turns' : mode, billing, prompt, efforts: Object.fromEntries(picked.filter(m => efforts[m.id]).map(m => [m.id, efforts[m.id]])), brainKind: kind, session: readChatSession() || '', job: gen ? (persona || 'agent') : 'trading', ...(gen ? {} : { venues }) }) });
+      for (const [provider, secret] of Object.entries(keys).filter(([, v]) => v)) await api(`/api/cats/${r.cat.id}/action`, { method: 'POST', body: JSON.stringify({ action: 'api_key', provider, secret }) }).catch(e => setErr(`Key not saved: ${e.message}`));
       const started = await api(`/api/cats/${r.cat.id}/action`, { method: 'POST', body: JSON.stringify({ action: 'start' }) }).catch(() => r);   // same as Create a Cat: it starts trading at once
       onCreated?.(started.cat || r.cat);
     } catch (e) { setErr(e.message); } finally { setSaving(false); }
@@ -150,11 +185,11 @@ export function LaunchCat({ api, ownerId, onCreated, onCancel, Fields, Preview, 
         {!rows.length ? <p className="lct-load">No model matches that.</p> : null}</>}
     </div> : null}
     {step === 0 && picked.some(m => m.efforts?.length) ? <div className="lct-bar">{picked.filter(m => m.efforts?.length).map(m => <label key={m.id}>{shortName(m)} · effort<select className="m-input" aria-label={`${shortName(m)} effort`} value={efforts[m.id] || ''} onChange={e => setEfforts(v => ({ ...v, [m.id]: e.target.value }))}><option value="">Provider default</option>{m.efforts.map(e => <option key={e}>{e}</option>)}</select><small>Output incl. reasoning: {fmtM(m.outUsd)} / 1M tokens. Actual cost depends on tokens used.</small></label>)}</div> : null}
-    {step === 1 ? <div className="lct-pane lct-mode"><Duo mode={mode} picked={picked} kind={kind} />
+    {step === 1 ? <div className="lct-pane lct-mode"><Duo mode={mode} picked={picked} kind={kind} /><AgentDemo kind={kind} models={picked} />
       {gen ? <><ol className="lct-flow" data-testid="lct-flow">{GENERAL_FLOW.map(([ic, t, w], i) => <li key={t} style={{ '--i': i }}><i aria-hidden="true">{ic}</i><b>{t}</b><small>{w}</small></li>)}</ol>
         <p className="lct-note">{picked.length < 2 ? 'One mind: it takes every task in its own window. Pick a second in step 1 and they split the work.' : 'In its chat you talk to 🧠🧠 both minds or to 🧠 one of them — one mind takes the whole task in its own window.'}</p></>
-      : picked.length < 2 ? <p className="lct-note">One brain: it makes every call. Pick a second in step 1 to choose how they work together.</p> :
-        <div className="lct-modes">{(d?.modes || []).map(m => <button key={m.key} type="button" className={mode === m.key ? 'is-on' : ''} onClick={() => setMode(m.key)} data-testid={`lct-mode-${m.key}`}><b>{m.label}</b><small>{m.why}</small></button>)}</div>}
+      : <><VenuePick value={venues} onChange={setVenues} />{picked.length < 2 ? <p className="lct-note">One brain: it makes every call. Pick a second in step 1 to choose how they work together.</p> :
+        <div className="lct-modes">{(d?.modes || []).map(m => <button key={m.key} type="button" className={mode === m.key ? 'is-on' : ''} onClick={() => setMode(m.key)} data-testid={`lct-mode-${m.key}`}><b>{m.label}</b><small>{m.why}</small></button>)}</div>}</>}
     </div> : null}
     {step === 2 ? <div className="lct-pane lct-brief">
       {Fields ? <div className="cct-split lct-ident">{<Fields form={form} update={update} />}{Preview ? <aside className="cct-preview m-live" data-testid="lct-preview"><Preview form={form} /></aside> : null}</div> : <>
@@ -174,6 +209,7 @@ export function LaunchCat({ api, ownerId, onCreated, onCancel, Fields, Preview, 
         <span><small>${d?.budget?.start ?? 10} CREDIT COVERS</small><b>{plan.trades == null ? '∞ (free models)' : `≈ ${plan.trades.toLocaleString()} trades`}</b></span>
         <i className="lct-tank"><em style={{ transform: `scaleX(${plan.trades == null ? 1 : Math.min(1, plan.trades / 500)})` }} /></i></div> : null}
       <p className="lct-note">{(gen ? d?.generalLive : d?.live) ? '🟢 Model calls are ON.' : gen ? '⏸ Model calls are OFF until FEELESS switches them on — until then asking sends and charges nothing.' : '⏸ Model calls are OFF until FEELESS switches them on — until then the FEELESS rule engine trades your cat and nothing is charged.'} The ${d?.budget?.start ?? 10} starting credit is paper credit: real billing isn't built yet.</p>
+      {gen ? null : <ApiDrawer draft={keys} onDraft={(k, v) => setKeys(x => ({ ...x, [k]: v.trim() }))} />}
       <FundReceipt />
       <p className="lct-next" data-testid="lct-next-real">{K.next.map((x, i) => <React.Fragment key={x}>{i ? <u /> : null}<i className={i === K.next.length - 1 ? 'is-real' : ''}>{x}</i></React.Fragment>)}</p>
       <button type="button" className="m-btn m-go lct-go" disabled={saving || !ready.slice(0, 3).every(Boolean)} onClick={launch} data-testid="lct-launch">{saving ? 'Launching…' : `🚀 Launch ${name || 'the cat'} → go real`}</button>
@@ -204,7 +240,7 @@ export function OrderBox({ cat, act }) {
 
 // 🧠 a launched cat's brains: credit tank, decisions, the brief, battle records, chime in, pull / top up — re-read every 10s
 export function BrainPanel({ cat, api, onChanged }) {
-  const b = cat.brainsCfg; const [text, setText] = useState(''); const [err, setErr] = useState('');
+  const b = cat.brainsCfg; const [text, setText] = useState(''); const [err, setErr] = useState(''); const [keys, setKeys] = useState({}); const [busy, setBusy] = useState(false);
   useEffect(() => { const t = setInterval(() => { if (!document.hidden) api(`/api/cats/${cat.id}`).then(r => r?.cat && onChanged?.(r.cat)).catch(() => {}); }, 10000); return () => clearInterval(t); }, [api, cat.id, onChanged]);
   if (!b) return null;
   const act = async (action, extra = {}) => { setErr(''); try { const r = await api(`/api/cats/${cat.id}/action`, { method: 'POST', body: JSON.stringify({ action, ...extra }) }); onChanged?.(r.cat); return true; } catch (e) { setErr(e.message); return false; } };
@@ -221,7 +257,10 @@ export function BrainPanel({ cat, api, onChanged }) {
     {b.prompt ? <details className="lct-fold"><summary>📜 Its one-time brief (locked)</summary><p>{b.prompt}</p></details> : null}
     <ul className="lct-dec">{(b.decisions || []).slice(-8).reverse().map((x, i) => <li key={`${x.at}-${i}`} style={{ '--i': i }} className={WORD[x.word] || ''}><b>{x.word}</b><span>${x.sym} · {x.by}</span><small>{x.why}</small></li>)}
       {!(b.decisions || []).length ? <li className="lct-load">No decision yet — the first comes before its first buy.</li> : null}</ul>
-    {b.kind === 'general' ? <OrderBox cat={cat} act={act} /> : null}
+    {b.kind === 'general' ? <OrderBox cat={cat} act={act} /> : <><VenuePick value={cat.venues || ['trench']} onChange={v => act('venues', { venues: v })} />
+      <ApiDrawer rows={cat.apiDrawer} draft={keys} onDraft={(k, v) => setKeys(x => ({ ...x, [k]: v.trim() }))} busy={busy}
+        onSave={async (k, v) => { setBusy(true); if (await act('api_key', { provider: k, secret: v })) setKeys(x => ({ ...x, [k]: '' })); setBusy(false); }}
+        onDrop={async k => { setBusy(true); await act('api_key', { provider: k }); setBusy(false); }} /></>}
     <form className="lct-chime" onSubmit={async e => { e.preventDefault(); if (text.trim() && await act('chime', { text })) setText(''); }}>
       <input className="m-input" maxLength={280} value={text} onChange={e => setText(e.target.value)} placeholder="Chime in — advice it reads, never an order" data-testid="brain-chime" /><button type="submit" className="m-btn">💬 Send</button></form>
     {(b.chime || []).length ? <p className="lct-note">Last said: “{b.chime[b.chime.length - 1].text}”</p> : null}

@@ -37,6 +37,7 @@ import cat_policy as _cp
 import cat_real as _real   # 💵 real-money cats = option A: the user's wallet signs every trade (docs/DECISIONS.md #2)
 import cat_orders as _co   # 🧭 a General AI cat's plain-words orders → one guarded proposal
 import cat_model as _cm
+import cat_keys as _ck   # 🔐 a cat's API drawer (sealed keys, never sent to a page)
 
 DATA_DIR = Path(__file__).parent / 'data'
 DATA_DIR.mkdir(exist_ok=True)
@@ -91,9 +92,21 @@ def public_words(text):
     return text.replace('her AI desk', 'FeeCat AI')
 
 
+def _no_keys(obj):
+    """🔐 every cat on its way out: the sealed API keys stay on the server — the page gets the drawer (provider · last 4 · wired)."""
+    if isinstance(obj, list):
+        return [_no_keys(x) for x in obj]
+    if isinstance(obj, dict):
+        out = {k: _no_keys(v) for k, v in obj.items() if k != 'apiKeys'}
+        if 'apiKeys' in obj or ('brainsCfg' in obj and 'ownerId' in obj):
+            out['apiDrawer'] = _ck.public(obj)
+        return out
+    return obj
+
+
 def _pub(obj):
     """🔒 A public response with every internal model name scrubbed (old events / reasons written before the scrub included)."""
-    return json.loads(public_words(json.dumps(obj, ensure_ascii=False)))
+    return json.loads(public_words(json.dumps(_no_keys(obj), ensure_ascii=False)))
 
 
 def _log_event(store, cat, kind, detail, pnl=None, pair=None, price=None, market_cap=None, entry_market_cap=None):
@@ -771,12 +784,13 @@ def _brains_live():
     return os.environ.get('LAUNCH_CAT_LIVE', '').lower() in ('1', 'true', 'on') and bool(os.environ.get('OPENROUTER_API_KEY'))
 
 
-async def _or_call(model, messages, max_tokens=None, effort=None):
-    """One decision from OpenRouter; returns (text, $ it cost). The cost is OpenRouter's own report, else the price list estimate."""
+async def _or_call(model, messages, max_tokens=None, effort=None, key=None):
+    """One decision from OpenRouter; returns (text, $ it cost). The cost is OpenRouter's own report, else the price list estimate.
+    `key` = the cat owner's own OpenRouter key from its API drawer (they pay OpenRouter; FEELESS's key is not used)."""
     est = next((m['perDecision'] for m in ((_MODELS['rows'] or {}).get('models') or []) if m['id'] == model), 0.0)
     try:
         async with httpx.AsyncClient(timeout=40) as h:
-            r = await h.post('https://openrouter.ai/api/v1/chat/completions', headers={'Authorization': f"Bearer {os.environ.get('OPENROUTER_API_KEY')}"},
+            r = await h.post('https://openrouter.ai/api/v1/chat/completions', headers={'Authorization': f"Bearer {key or os.environ.get('OPENROUTER_API_KEY')}"},
                              json={'model': model, 'messages': messages, 'max_tokens': max_tokens or _lc.OUT_TOK, 'temperature': 0.2, **({'reasoning': {'effort': effort}} if effort else {}), 'usage': {'include': True}})
         d = r.json() if r.status_code == 200 else {}
         text = ((d.get('choices') or [{}])[0].get('message') or {}).get('content') or ''
@@ -791,20 +805,23 @@ async def _brain_decide(store, cat, kind, sym, case, owner=None):
     if not b:
         return None
     now = time.time()
-    if not _lc.can_ask(b):
+    own_key = _ck.key_for(cat, 'openrouter', data_dir=DATA_DIR)   # 🔐 its owner's own OpenRouter key: their bill, no FEELESS credit, no owner switch
+    if not own_key and not _lc.can_ask(b):
         if b.get('billing') == 'payg' and cat.get('status') == 'running':
             cat['status'] = 'stopped'; cat['brainPaused'] = 'out of model credit — top up to start again'
             _log_event(store, cat, 'STOPPED', f"{cat['name']} paused: its model credit is used up (pay as you go). Top up to start it again.")
         return None
-    if not _brains_live():
+    if not own_key and not _brains_live():
         _lc.note(b, kind, sym, 'RULES', 'rule engine', 'model calls are off (owner switch) — the rule engine decided', 0, now)
         return None
     models = [owner] if owner else _lc.who_asks(b, b.get('asks') or 0)
     answers, partner, why, cost = [], None, '', 0.0
     for m in models:
-        text, usd = await _or_call(m, _lc.ask_messages(b, case, partner), **({'effort': b['efforts'][m]} if (b.get('efforts') or {}).get(m) else {}))
+        text, usd = await _or_call(m, _lc.ask_messages(b, case, partner), key=own_key, **({'effort': b['efforts'][m]} if (b.get('efforts') or {}).get(m) else {}))
         w, why = _lc.parse_word(text, kind)
-        _lc.charge(b, usd); cost += usd
+        if not own_key:
+            _lc.charge(b, usd)
+        cost += usd
         answers.append((m, w))
         partner = f"{w or 'no answer'}: {why}"
     word = _lc.merge(b, answers, kind)
@@ -1501,6 +1518,7 @@ class CreatePayload(BaseModel):
     session: Optional[str] = None
     job: str = "agent"
     tools: Optional[dict] = None
+    venues: Optional[list] = None     # 📈 trading cat: FEELESS rails only (cat_keys.VENUES)
 
 
 @app.get('/api/cats/models')
@@ -1553,6 +1571,8 @@ async def create_cat(payload: CreatePayload):
             cat['brainsCfg'] = _lc.clean(payload.model_dump(), None, ids_ or None, max_models=await _model_limit(payload.session or ''))
             cat['job'] = payload.job if payload.brainKind == 'general' else 'trading'
             cat['tools'] = _cp.toolkit(cat['job'], payload.tools)
+            if payload.brainKind != 'general':
+                cat['venues'] = _ck.venues(payload.venues)   # 📈 FEELESS rails only (trench · perps)
         except ValueError as e:
             raise HTTPException(400, str(e))
         for model, effort in cat['brainsCfg'].get('efforts', {}).items():
@@ -1564,7 +1584,7 @@ async def create_cat(payload: CreatePayload):
     store['cats'][cat_id] = cat
     _save(store)
     recovery_key = '-'.join(uuid.uuid4().hex[:4] for _ in range(4))
-    return {'cat': cat, 'recoveryKey': recovery_key}
+    return {'cat': _no_keys(cat), 'recoveryKey': recovery_key}
 
 
 @app.get('/api/cats')
@@ -1572,7 +1592,7 @@ async def list_cats(ownerId: str):
     store = _load()
     cats = [c for c in store['cats'].values() if c['ownerId'] == ownerId]
     cats.sort(key=lambda c: -c['createdAt'])
-    return {'cats': cats}
+    return {'cats': _no_keys(cats)}
 
 
 @app.get('/api/cats/brain')
@@ -1980,6 +2000,9 @@ class ActionPayload(BaseModel):
     text: Optional[str] = None
     look: Optional[dict] = None        # 🎨 Fee's look (the creator's wallet only)
     mode: Optional[str] = None         # 👛 agent_mode: approve | auto (a GENERAL cat's switch)
+    provider: Optional[str] = None     # 🔐 api_key: which drawer slot …
+    secret: Optional[str] = None       # … and the key (empty = remove it); sealed at once, never echoed
+    venues: Optional[list] = None      # 📈 venues: the FEELESS rails a trading cat may use
 
 
 def owner_wallets():
@@ -2102,6 +2125,16 @@ async def cat_action(cat_id: str, payload: ActionPayload, request: Request):
             raise HTTPException(400, str(e))
     elif payload.action == 'confirm_recovery':
         pass
+    elif payload.action == 'api_key':   # 🔐 the API drawer: seal one key (or remove it) — the response carries the last 4 only
+        try:
+            _ck.put(cat, payload.provider, payload.secret, data_dir=DATA_DIR) if payload.secret else _ck.drop(cat, payload.provider)
+        except (ValueError, RuntimeError) as e:
+            raise HTTPException(400, str(e))
+    elif payload.action == 'venues':   # 📈 where a trading cat trades — FEELESS rails only
+        try:
+            cat['venues'] = _ck.venues(payload.venues)
+        except ValueError as e:
+            raise HTTPException(400, str(e))
     elif payload.action == 'chime':   # 🚀 the owner's advice — the brain reads it, it never trades on it
         if not cat.get('brainsCfg'):
             raise HTTPException(400, 'This Cat has no AI brain.')
@@ -2172,4 +2205,4 @@ async def cat_action(cat_id: str, payload: ActionPayload, request: Request):
         raise HTTPException(400, f'Unknown action: {payload.action}')
 
     _save(store)
-    return {'cat': cat}
+    return {'cat': _no_keys(cat)}

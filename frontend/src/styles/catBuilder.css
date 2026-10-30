@@ -61,3 +61,23 @@ body.theme-day .cbx-tiles button.on, body.theme-day .cbx-dots button.on { backgr
 @media (max-width: 900px) { .cbx { grid-template-columns: minmax(0, 1fr); } .cbx-studio { position: relative; top: 0; min-height: 400px; } .cbx-floor { top: 290px; } }
 @media (max-width: 640px) { .cbx-studio { min-height: 360px; padding: 12px 8px; } .cbx-cat .clk.is-large { width: 210px; height: 210px; } .cbx-floor { top: 240px; width: 200px; margin-left: -100px; }
   .cbx-row2, .cbx-names { grid-template-columns: 1fr; } .cbx-go { justify-content: stretch; } .cbx-go .m-btn { flex: 1 1 100%; } .cbx-tiles { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+/* 🐜 BUILD AN AGENT — 00 BODY (panther · queen ant · worker fly · worker ants) + the bug bench (type tiles drawn, wings, flutter) */
+.cbx-cat.is-bug { margin-top: 8px; }
+.cbx-species { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
+.cbx-species button { --i: 0; position: relative; display: grid; justify-items: center; align-content: start; gap: 3px; min-height: 104px; padding: 8px 6px; border-radius: 14px; overflow: hidden;
+  border: 1px solid #9dffcf22; background: radial-gradient(90% 80% at 50% 0%, #2a1650, #0a0614 70%); color: #e8dcff; cursor: pointer; text-align: center;
+  transition: transform .15s, border-color .15s, box-shadow .15s; animation: crtTileIn .4s both; animation-delay: calc(var(--i) * 55ms); }
+.cbx-species button::before { content: ''; position: absolute; inset: 0; pointer-events: none; opacity: 0; transition: opacity .2s;
+  background: linear-gradient(135deg, transparent 30%, #9dffcf22 50%, transparent 70%); }
+.cbx-species button:hover { transform: translateY(-2px); border-color: #9dffcf66; } .cbx-species button:hover::before { opacity: 1; } .cbx-species button:active { transform: scale(.96); }
+.cbx-species button:focus-visible { outline: 2px solid #9dffcf; outline-offset: 2px; }
+.cbx-species button.on { border-color: #9dffcf; box-shadow: 0 0 0 1px #9dffcf, 0 0 22px -6px #9dffcf; background: radial-gradient(90% 80% at 50% 0%, #1d4a3c, #0a0614 75%); }
+.cbx-species b { font: 800 11px var(--f-tech, sans-serif); letter-spacing: .05em; } .cbx-species small { color: #a99bc8; font-size: 9.5px; line-height: 1.2; }
+.cbx-sp-art { display: grid; place-items: center; height: 54px; } .cbx-sp-art .crt-stage { pointer-events: none; }
+.cbx-bug { display: grid; place-items: center; width: 52px; height: 58px; } .cbx-bug .crt-svg { filter: drop-shadow(0 4px 4px #0008); }
+.cbx-flutter { width: 100%; } .cbx-flutter button { flex: 1; min-height: 36px; }
+@keyframes crtTileIn { from { opacity: 0; transform: translateY(8px); } }
+@media (prefers-reduced-motion: reduce) { .cbx-species button { animation: none; transition: none; } }
+body.theme-day .cbx-species button { background: #fff; color: #2a1650; border-color: #7c4dff26; } body.theme-day .cbx-species button.on { background: #eafff4; border-color: #0c8a45; box-shadow: none; }
+body.theme-day .cbx-species small { color: #4a3a6a; }
+@media (max-width: 640px) { .cbx-species { grid-template-columns: repeat(2, minmax(0, 1fr)); } .cbx-species button { min-height: 96px; } }

@@ -1,0 +1,60 @@
+/* 🐜 Critters.jsx — the queen ant, worker fly and worker-ant pair an agent can wear (Build an agent). Every part pivots at its joint
+   (each moving group sits in a translated parent, so transform-origin 0 0 = the joint). Tripod gait, antennation, grooming, wing beats.
+   transform / opacity only (crt* keyframes). */
+.crt-stage { --fl: 1; --sz: 220px; position: relative; display: inline-grid; place-items: center; width: var(--sz); height: calc(var(--sz) * 1.2); }
+.crt-svg { width: 100%; height: 100%; overflow: visible; filter: drop-shadow(0 10px 14px #0009); }
+.crt-svg g[class^='crt-'], .crt-svg g[class*=' crt-'] { transform-box: view-box; transform-origin: 0 0; }
+.crt-shadow { fill: #000; opacity: .28; transform-box: fill-box; transform-origin: center; }
+.crt-body { transform-box: fill-box !important; transform-origin: center !important; animation: crtBreathe 3.2s ease-in-out infinite; }
+/* idle life: legs settle, antennae twitch, the gaster breathes */
+.crt-leg.is-a { animation: crtLegA 2.6s ease-in-out infinite alternate; } .crt-leg.is-b { animation: crtLegB 2.6s ease-in-out infinite alternate; }
+.crt-ant.is-l { animation: crtAntL 3.4s ease-in-out infinite; } .crt-ant.is-r { animation: crtAntR 3.4s ease-in-out infinite .4s; }
+.crt-gaster { animation: crtGaster 3.2s ease-in-out infinite; }
+.crt-mand { animation: crtMand 2.2s ease-in-out infinite; }
+.is-queen .crt-wing.is-l { animation: crtFanL calc(2.8s * var(--fl)) ease-in-out infinite; } .is-queen .crt-wing.is-r { animation: crtFanR calc(2.8s * var(--fl)) ease-in-out infinite; }
+.crt-fly-svg .crt-wing.is-l { animation: crtIdleBuzzL calc(5s * var(--fl)) linear infinite; } .crt-fly-svg .crt-wing.is-r { animation: crtIdleBuzzR calc(5s * var(--fl)) linear infinite; }
+/* 🐜🐜 the pair: two workers marching, the lead one a step ahead */
+.crt-stage.is-ants { grid-template-columns: 1fr 1fr; } .crt-stage.is-ants .crt-svg { width: 118%; }
+.crt-stage.is-ants .crt-w1 { transform: translate(12%, -6%) rotate(-6deg); } .crt-stage.is-ants .crt-w2 { transform: translate(-12%, 10%) rotate(5deg); }
+.crt-stage.is-ants .crt-leg.is-a { animation: crtWalkA .42s ease-in-out infinite alternate; } .crt-stage.is-ants .crt-leg.is-b { animation: crtWalkB .42s ease-in-out infinite alternate; }
+.crt-stage.is-ants .crt-w2 .crt-leg { animation-delay: -.21s; }
+.crt-stage.is-ants::after { content: ''; position: absolute; left: 50%; top: 4%; bottom: -8%; width: 4px; transform: translateX(-50%); opacity: .35; pointer-events: none;
+  background: repeating-linear-gradient(180deg, #f5c542 0 3px, transparent 3px 14px); animation: crtTrail 1.2s linear infinite; }
+/* gestures (Make it move) */
+.do-march .crt-leg.is-a, .do-walk .crt-leg.is-a { animation: crtWalkA .3s ease-in-out infinite alternate; }
+.do-march .crt-leg.is-b, .do-walk .crt-leg.is-b { animation: crtWalkB .3s ease-in-out infinite alternate; }
+.do-march .crt-body, .do-walk .crt-body { animation: crtSway .6s ease-in-out infinite; }
+.do-antennate .crt-ant.is-l { animation: crtTapL .22s ease-in-out infinite alternate; } .do-antennate .crt-ant.is-r { animation: crtTapR .22s ease-in-out infinite alternate .11s; }
+.do-flutter .crt-wing.is-l, .do-buzz .crt-wing.is-l { animation: crtBeatL calc(.07s * var(--fl)) linear infinite alternate; }
+.do-flutter .crt-wing.is-r, .do-buzz .crt-wing.is-r { animation: crtBeatR calc(.07s * var(--fl)) linear infinite alternate; }
+.do-buzz .crt-body, .do-flutter .crt-body { animation: crtJit .09s linear infinite; }
+.do-groom .crt-leg.is-front.is-l { animation: crtRubL .16s ease-in-out infinite alternate; } .do-groom .crt-leg.is-front.is-r { animation: crtRubR .16s ease-in-out infinite alternate; }
+.do-groom .crt-headg { transform-box: fill-box !important; transform-origin: 50% 100% !important; animation: crtNod .5s ease-in-out infinite alternate; }
+.do-hover .crt-body { animation: crtHover 1.1s ease-in-out infinite; } .do-hover .crt-shadow { animation: crtShadow 1.1s ease-in-out infinite; }
+.do-hover .crt-wing.is-l { animation: crtBeatL calc(.06s * var(--fl)) linear infinite alternate; } .do-hover .crt-wing.is-r { animation: crtBeatR calc(.06s * var(--fl)) linear infinite alternate; }
+.do-alarm .crt-gaster { animation: crtAlarm .18s ease-in-out infinite alternate; } .do-alarm .crt-mand { animation: crtMand .2s ease-in-out infinite; }
+.do-crown .crt-crown { animation: crtCrown .8s cubic-bezier(.2, 1.6, .4, 1) infinite alternate; }
+.crt-coin { animation: crtCoin 1s ease-in-out infinite alternate; }
+@keyframes crtBreathe { 50% { transform: scale(1.012); } }
+@keyframes crtLegA { from { transform: rotate(-2deg); } to { transform: rotate(3deg); } } @keyframes crtLegB { from { transform: rotate(3deg); } to { transform: rotate(-2deg); } }
+@keyframes crtWalkA { from { transform: rotate(-14deg); } to { transform: rotate(14deg); } } @keyframes crtWalkB { from { transform: rotate(14deg); } to { transform: rotate(-14deg); } }
+@keyframes crtAntL { 0%, 70%, 100% { transform: rotate(0); } 78% { transform: rotate(-12deg); } 86% { transform: rotate(6deg); } }
+@keyframes crtAntR { 0%, 60%, 100% { transform: rotate(0); } 68% { transform: rotate(12deg); } 76% { transform: rotate(-6deg); } }
+@keyframes crtTapL { from { transform: rotate(-4deg); } to { transform: rotate(18deg); } } @keyframes crtTapR { from { transform: rotate(4deg); } to { transform: rotate(-18deg); } }
+@keyframes crtGaster { 50% { transform: scale(1.035, 1.02); } } @keyframes crtMand { 50% { transform: scaleX(.8); } }
+@keyframes crtFanL { 0%, 100% { transform: rotate(0); } 50% { transform: rotate(-8deg); } } @keyframes crtFanR { 0%, 100% { transform: rotate(0); } 50% { transform: rotate(8deg); } }
+@keyframes crtIdleBuzzL { 0%, 88%, 100% { transform: rotate(0); } 90%, 94%, 98% { transform: rotate(-30deg); } 92%, 96% { transform: rotate(10deg); } }
+@keyframes crtIdleBuzzR { 0%, 88%, 100% { transform: rotate(0); } 90%, 94%, 98% { transform: rotate(30deg); } 92%, 96% { transform: rotate(-10deg); } }
+@keyframes crtBeatL { from { transform: rotate(-38deg) scaleY(.82); } to { transform: rotate(14deg); } } @keyframes crtBeatR { from { transform: rotate(38deg) scaleY(.82); } to { transform: rotate(-14deg); } }
+@keyframes crtJit { 50% { transform: translate(.6px, -.6px); } }
+@keyframes crtRubL { from { transform: rotate(-10deg); } to { transform: rotate(22deg); } } @keyframes crtRubR { from { transform: rotate(10deg); } to { transform: rotate(-22deg); } }
+@keyframes crtNod { to { transform: rotate(3deg); } }
+@keyframes crtHover { 50% { transform: translateY(-12px) scale(1.03); } } @keyframes crtShadow { 50% { transform: scale(.72); opacity: .14; } }
+@keyframes crtSway { 50% { transform: rotate(2.5deg); } } @keyframes crtAlarm { to { transform: scale(1.06, 1.14) translateY(3px); } }
+@keyframes crtCrown { to { transform: scale(1.35) translateY(-2px); } } @keyframes crtCoin { to { transform: translateY(-2px) rotate(8deg); } }
+@keyframes crtTrail { to { transform: translate(-50%, 14px); } }
+body.fx-lite .crt-stage *, body.fx-lite .crt-stage::after { animation-duration: 0s !important; animation: none !important; }
+body.fx-lite .crt-svg { filter: none; }
+@media (prefers-reduced-motion: reduce) { .crt-stage *, .crt-stage::after { animation: none !important; } }
+body.theme-day .crt-svg { filter: drop-shadow(0 8px 10px #2a165033); }
+@media (max-width: 640px) { .crt-stage { --sz: 170px; } }

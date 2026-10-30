@@ -50,7 +50,7 @@ test('🐱 the FeeCat shell: one nav for all five FeeCat pages (Create an agent 
   const { el, root, q } = mount(<FeeCatShell tab="brain"><p>body</p></FeeCatShell>);
   await act(async () => { await new Promise(r => setTimeout(r, 0)); });
   expect(FC_NAV.map(n => n[0])).toEqual(['desk', 'brain', 'lore', 'agents', 'build']);
-  expect(q('fcx-brain').getAttribute('aria-current')).toBe('page'); expect(q('fcx-agents').textContent).toContain('create a cat that trades'); expect(q('fcx-build').textContent).toContain('BUILD A CAT');
+  expect(q('fcx-brain').getAttribute('aria-current')).toBe('page'); expect(q('fcx-agents').textContent).toContain('create a cat that trades'); expect(q('fcx-build').textContent).toContain('BUILD AN AGENT');
   expect(q('fcx-mine').textContent).toContain('SPECTER'); expect(q('fcx-mine').querySelector('.g-crown')).not.toBeNull();
   expect(el.querySelectorAll('.fcx-lives i.on')).toHaveLength(7); expect(el.textContent).toContain('+4.0%');
   act(() => q('fcx-lore').click()); expect(window.location.pathname + window.location.search).toBe('/terminal/feecat?view=lore');
