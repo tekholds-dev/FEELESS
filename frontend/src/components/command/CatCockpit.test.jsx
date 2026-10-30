@@ -35,16 +35,18 @@ test('🛸 vitals + chat render, the chime goes out, a broken skin falls back', 
   localStorage.setItem('feeless.deskSkin', '{"bg":"lava","acc":"#000"}'); expect(readSkin()).toEqual({ bg: 'globe', acc: '#b388ff' });
 });
 
-test('🔐 the first funding stays locked until "I saved my recovery phrase" is ticked — and it shows ITS wallet', async () => {
+test('🔐 the one-time safe-keeping box shows right AFTER the first funding lands (owner 2026-10-30) — funding itself is never blocked', async () => {
   const { FundCat } = require('./CatReal');
-  localStorage.removeItem('feeless.recoverySaved.c9');
+  localStorage.removeItem('feeless.recoverySaved.c9'); localStorage.setItem('feeless.fundIntent.c9', '25');
   global.fetch = jest.fn(() => Promise.resolve({ ok: true, json: () => Promise.resolve({ feeUsd: 2, minUsd: 10, topupMinUsd: 1 }) }));
-  const onConfirm = jest.fn();
-  const el = await mount(<FundCat cat={{ id: 'c9', name: 'Scout', agentWallet: { address: 'AgEnTwa11et1111111111111111111111111111111' } }} addr="OwnerWa11et" session={() => Promise.resolve('s')} sign={jest.fn()} onConfirm={onConfirm} />);
-  expect(el.querySelector('[data-testid="cr-safe-addr"]').textContent).toContain('AgEnTwa11et');
-  expect(el.querySelector('[data-testid="cr-fund-quote"]').disabled).toBe(true);
-  await act(async () => { el.querySelector('[data-testid="cr-safe-check"]').click(); });
-  expect(onConfirm).toHaveBeenCalled(); expect(el.querySelector('[data-testid="cr-fund-quote"]').disabled).toBe(false);
+  const onConfirm = jest.fn(); const wallet = { address: 'AgEnTwa11et1111111111111111111111111111111' };
+  const el = await mount(<FundCat cat={{ id: 'c9', name: 'Scout', agentWallet: wallet }} addr="OwnerWa11et" session={() => Promise.resolve('s')} sign={jest.fn()} onConfirm={onConfirm} />);
+  expect(el.querySelector('[data-testid="cr-safe"]')).toBeNull(); expect(el.querySelector('[data-testid="cr-fund-quote"]').disabled).toBe(false);
+  expect(el.querySelector('[data-testid="cr-fund-in"], .cr-fund-in input').value).toBe('25');                   // the $ typed at launch
+  const paid = await mount(<FundCat cat={{ id: 'c9', name: 'Scout', agentWallet: wallet, agentFunded: [{ usd: 25 }] }} addr="OwnerWa11et" session={() => Promise.resolve('s')} sign={jest.fn()} onConfirm={onConfirm} />);
+  expect(paid.querySelector('[data-testid="cr-safe-addr"]').textContent).toContain('AgEnTwa11et');
+  await act(async () => { paid.querySelector('[data-testid="cr-safe-check"]').click(); });
+  expect(onConfirm).toHaveBeenCalled(); localStorage.removeItem('feeless.fundIntent.c9');
 });
 
 test('👀 a visitor sees the agent — never its controls', async () => {

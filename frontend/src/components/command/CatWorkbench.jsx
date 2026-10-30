@@ -100,14 +100,21 @@ function PublicMinds({ cat }) {
 }
 
 // 🔐 saved logins (sites it signed up on): passwords stay sealed — a reveal is fetched on demand, shown blurred, clear only on hover / focus, gone in 15 s
+// 🙈 stream-safe (owner 2026-10-30: "if a user livestreams their dash and opens the security drawer"): every username + password stays blurred —
+// hover does nothing; a click shows ONE, and it blurs itself again in 15 s
+function Blurred({ text, label, pw = false }) {
+  const [open, setOpen] = useState(false);
+  useEffect(() => { if (!open) return undefined; const t = setTimeout(() => setOpen(false), 15000); return () => clearTimeout(t); }, [open]);
+  return <button type="button" className={`cwb-pw${pw ? ' is-pw' : ''}${open ? ' is-open' : ''}`} onClick={() => setOpen(o => !o)} aria-label={open ? `Hide the ${label}` : `Show the ${label} (blurred for screen sharing)`} data-tip={open ? 'Tap to hide — hides itself in 15 s' : `Blurred so a stream or screenshot can't read it — tap to show the ${label}`}>{text}</button>;
+}
 function SavedLogins({ cat, rows }) {
   const [shown, setShown] = useState({});
   const reveal = async r => { const k = `${r.site}|${r.user}`; try { const j = await work(cat.id, { op: 'reveal', text: r.site, job: r.user }); setShown(x => ({ ...x, [k]: j.password }));
     setTimeout(() => setShown(x => { const n = { ...x }; delete n[k]; return n; }), 15000); } catch { /* not yours / gone */ } };
   if (!rows?.length) return null;
   return <details className="cwb-vault" data-testid="cwb-vault"><summary data-tip="Logins it made for you — passwords are sealed on the server; reveal one at a time">🔐 SAVED LOGINS <b className="m-num">{rows.length}</b></summary>
-    <ul>{rows.map(r => { const k = `${r.site}|${r.user}`; return <li key={k}><b>{r.site}</b><span>{r.user}</span>
-      {shown[k] ? <code className="cwb-pw" tabIndex={0} data-tip="Hover or focus to read — hides itself in 15 s">{shown[k]}</code> : <button type="button" className="m-btn" onClick={() => reveal(r)} data-testid={`cwb-reveal-${r.site}`}>Reveal</button>}</li>; })}</ul></details>;
+    <ul>{rows.map(r => { const k = `${r.site}|${r.user}`; return <li key={k}><b>{r.site}</b><Blurred text={r.user} label="username" />
+      {shown[k] ? <Blurred text={shown[k]} label="password" pw /> : <button type="button" className="m-btn" onClick={() => reveal(r)} data-testid={`cwb-reveal-${r.site}`}>Reveal</button>}</li>; })}</ul></details>;
 }
 // 🖼 its media drawer: what it saved for a campaign, a slide strip, cleaned after 7 days on its own
 function MediaDrawer({ items }) {

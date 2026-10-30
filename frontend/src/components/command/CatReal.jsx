@@ -106,8 +106,9 @@ export function FundCat({ cat, addr, session, sign, onDone, onConfirm }) {
   const setSaved = v => { setSavedState(v); try { localStorage.setItem(SAVED_KEY(cat?.id), v ? '1' : '0'); } catch { /* private window */ } if (v) onConfirm?.(); };
   const [rules, setRules] = useState(null);
   useEffect(() => { let on = true; fetch(apiUrl(`/api/reputation/cats/fund-rules?address=${encodeURIComponent(addr || '')}`)).then(r => (r.ok ? r.json() : null)).then(j => { if (on && j) setRules(j); }).catch(() => {}); return () => { on = false; }; }, [addr]);
-  const [usd, setUsd] = useState(first ? 10 : 5); const [rcpt, setRcpt] = useState(null); const [stage, setStage] = useState('pick'); const [err, setErr] = useState(''); const [sig, setSig] = useState(null);
-  const [left, setLeft] = useState(0);
+  const [usd, setUsd] = useState(() => { try { const v = Number(localStorage.getItem(`feeless.fundIntent.${cat?.id}`)); if (v > 0) return v; } catch { /* private window */ } return first ? 10 : 5; });   // the $ you typed at launch
+  const [rcpt, setRcpt] = useState(null); const [stage, setStage] = useState('pick'); const [err, setErr] = useState(''); const [sig, setSig] = useState(null);
+  const [left, setLeft] = useState(0); const [paidFirst, setPaidFirst] = useState(false);   // 🔐 the one-time safe-keeping box shows right after the first funding
   useEffect(() => { if (!rcpt) return undefined; const t = setInterval(() => setLeft(l => Math.max(0, l - 1)), 1000); return () => clearInterval(t); }, [rcpt]);
   const min = first ? Number(rules?.minUsd) || 10 : Number(rules?.topupMinUsd) || 1; const fee = first ? Number(rules?.feeUsd ?? 2) : 0;
   const warn = fundWarn(usd, rules || { feeUsd: 2, minUsd: 10, topupMinUsd: 1 }, first);
@@ -117,11 +118,12 @@ export function FundCat({ cat, addr, session, sign, onDone, onConfirm }) {
     try { const s0 = await session(); const j = await post('fund', { address: addr, session: s0, usd: Number(usd) }); setRcpt({ ...j, session: s0 }); setLeft(Math.round(j.expiresIn || 90)); setStage('ready'); }
     catch (e) { setErr(e.message); setStage('pick'); } };
   const go = async () => { if (!rcpt || left <= 0) return; setErr(''); setStage('signing');
-    try { const signed = await sign(rcpt.transaction); setStage('sending'); const j = await post('fund/send', { address: addr, session: rcpt.session, signed }); setSig(j.signature); setStage(j.state === 'confirmed' ? 'done' : 'landing'); setRcpt(null); onDone?.(); }
+    try { const signed = await sign(rcpt.transaction); setStage('sending'); const j = await post('fund/send', { address: addr, session: rcpt.session, signed }); setSig(j.signature); if (first) setPaidFirst(true); setStage(j.state === 'confirmed' ? 'done' : 'landing'); setRcpt(null); onDone?.(); }
     catch (e) { setErr(e.message || 'Your wallet did not sign.'); setStage('ready'); } };
   const p = rcpt?.plan;
   return <div className="cr-fund" data-testid="cr-fund">
-    {first ? <SafeKeeping cat={cat} addr={addr} saved={saved} onSaved={setSaved} /> : null}
+    {!saved && (paidFirst || (cat?.agentFunded || []).length === 1) ? <SafeKeeping cat={cat} addr={addr} saved={saved} onSaved={setSaved} /> : null}
+    {first && !paidFirst ? <p className="cr-fund-rule">🔐 Once it's paid, you'll save your recovery once — the box shows right after.</p> : null}
     <p className={`cr-fund-rule ${rules?.staff ? 'is-staff' : ''}`} data-testid="cr-fund-rule">{rules?.staff ? `👑 creator wallet — no FEELESS fee, from $${min}` : first
       ? `Starts at $${min}: $${fee} to FEELESS once, $${Math.max(0, min - fee)}+ into its wallet. Top-ups after that: no fee.` : `Top-up from $${min} — no fee, all of it into its wallet.`}</p>
     <div className="cr-fund-pick"><em>{first ? 'FUND IT · FIRST' : 'TOP IT UP'}</em>
@@ -138,7 +140,7 @@ export function FundCat({ cat, addr, session, sign, onDone, onConfirm }) {
       {stage === 'ready' || stage === 'signing' || stage === 'sending' ? <>
         <button type="button" className="m-btn m-go" disabled={stage !== 'ready' || left <= 0} onClick={go} data-testid="cr-fund-sign" data-tip="Your wallet signs this exact transaction; FEELESS sends only it">{stage === 'signing' ? 'Sign in your wallet…' : stage === 'sending' ? 'Sending…' : '✍ Sign & fund'}</button>
         <span className={`cr-fund-clock ${left < 20 ? 'is-low' : ''}`} data-tip="A receipt lives 90s — prices move"><u><s style={{ transform: `scaleX(${left / 90})` }} /></u><em className="m-num">{left}s</em></span></>
-        : <button type="button" className="m-btn m-go" disabled={stage === 'quoting' || !addr || Number(usd) < min || (first && !saved)} onClick={quote} data-testid="cr-fund-quote">{stage === 'quoting' ? 'Pricing…' : '🧾 Get receipt'}</button>}
+        : <button type="button" className="m-btn m-go" disabled={stage === 'quoting' || !addr || Number(usd) < min} onClick={quote} data-testid="cr-fund-quote">{stage === 'quoting' ? 'Pricing…' : '🧾 Get receipt'}</button>}
       {sig ? <a className="cr-fund-sig" href={`https://solscan.io/tx/${sig}`} target="_blank" rel="noreferrer" data-testid="cr-fund-done">{stage === 'done' ? '✓ funded' : '⏳ landing'} · {sig.slice(0, 8)}… ↗</a> : null}
     </div>
     {err ? <p className="kd-err" role="alert">⚠ {err}</p> : null}

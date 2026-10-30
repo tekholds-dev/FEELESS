@@ -284,3 +284,6 @@ body.theme-day .lct-gcap > span { color: #5a4a7a; }
 .lct-pop-head b { color: #ffe08a; font: 800 11px var(--f-mono); letter-spacing: .14em; } .lct-pop-head small { flex: 1; color: #a99bc8; font-size: 11.5px; }
 body.theme-day .lct-pop { background: #2a165099; }
 @media (max-width: 640px) { .lct-pop { padding: 8px; } .lct-pop-head small { display: none; } }
+.lct-fund { flex-wrap: wrap; } .lct-fund-note { flex-basis: 100%; color: #9d8fbf; font-size: 11px; }   /* the $ for its wallet, typed at launch */
+body.theme-day .lct-fund-note { color: #5a4a7a; }
+.lct-house { border-left: 3px solid #f5c542; padding-left: 10px; }   /* the hardcoded house rules, read-only */

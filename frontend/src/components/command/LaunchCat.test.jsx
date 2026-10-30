@@ -113,7 +113,8 @@ test('🧭 the General wizard: real prices on every model + an ABOUT dropdown, i
   click('[data-testid="lct-next"]'); act(() => { const i = $('[data-testid="lct-name"]'); Object.getOwnPropertyDescriptor(Object.getPrototypeOf(i), 'value').set.call(i, 'Scout'); i.dispatchEvent(new Event('input', { bubbles: true })); });
   expect($('[data-testid="lct-gsetup"]').textContent).not.toMatch(/paper|daily loss|max position|sealed for life/i);   // FC10: no trader fields
   click('[data-testid="lct-job-researcher"]'); const brief = $('[data-testid="lct-prompt"]').value;
-  expect(brief).toContain('cite every source'); expect(brief).toContain('HOW YOU TWO WORK'); expect(brief).toContain('RULES');   // generator: job + both minds + rules
+  expect(brief).toContain('cite every source'); expect(brief).toContain('HOW YOU TWO WORK'); expect(brief).not.toContain('RULES');   // generator: job + both minds; the house rules are server-side
+  expect($('[data-testid="lct-house"]').textContent).toContain('never create another agent');
   click('[data-testid="lct-cap-0.25"]');
   click('[data-testid="lct-next"]');
   expect($('[data-testid="lct-bill-profit"]')).toBeNull(); expect($('[data-testid="lct-next-real"]').textContent).toContain('it checks with you');

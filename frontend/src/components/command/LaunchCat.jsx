@@ -34,12 +34,13 @@ export const COLLAB = {
     together: 'HOW YOU TWO WORK — you both judge every coin on your own; money only moves when you BOTH say BUY, and a SELL from either of you exits.',
     battle: 'HOW YOU TWO WORK — each of you trades every other coin on your own record; the better record earns trust. Never copy the other.' },
 };
+// 🔒 the house rules are HARDCODED on the server (cat_agent ACT_SYS + cat_policy refusals + URL guards) — shown here, never editable
 export const HOUSE = { general: 'RULES — never invent facts; stop for sign-ins, CAPTCHAs, payments and ID checks; never create another agent or launch a coin on FEELESS; stay inside the $ cap per task.',
   trading: 'RULES — trade only on FEELESS; size inside the caps; never chase a candle that already ran; respect every rug / bundler / dev flag; explain each call in one sentence.' };
 export function briefFor(persona, kind, mode, solo = false) {
   const k = kind === 'general' ? 'general' : 'trading';
   const how = solo ? '' : (COLLAB[k][mode] || COLLAB[k][k === 'general' ? 'plan' : 'discuss']);
-  return [persona?.brief || '', how, HOUSE[k]].filter(Boolean).join('\n\n').slice(0, 1200);
+  return [persona?.brief || '', how].filter(Boolean).join('\n\n').slice(0, 1200);   // HOUSE rules ride server-side on every call — never in the editable brief
 }
 // 🎯 a general agent's job, grouped so the choice is quick (the 26 presets)
 export const JOB_GROUPS = [['research', '🔎 Research', ['detective', 'researcher', 'news', 'competitor', 'sports', 'kalshi']], ['content', '✍ Content', ['content', 'thread', 'video', 'brand', 'community', 'seo', 'email']],
@@ -241,7 +242,7 @@ export function LaunchCat({ api, ownerId, onCreated, onCancel, Fields, Preview, 
   const [form, setForm] = useState(() => newForm()); const update = (k, v) => setForm(f => ({ ...f, [k]: v })); const name = form.name;
   const [efforts, setEfforts] = useState({});
   const [jobTab, setJobTab] = useState('research'); const [taskCap, setTaskCap] = useState(0.05);
-  const [persona, setPersona] = useState('');
+  const [persona, setPersona] = useState(''); const [fundUsd, setFundUsd] = useState('10');   // 💵 what goes into its wallet (owner: "enter the amount at launch")
   const [prompt, setPrompt] = useState(''); const [saving, setSaving] = useState(false);
   const [venues, setVenues] = useState(['trench']); const [keys, setKeys] = useState({});
   useEffect(() => { let on = true; api(`/api/cats/models?session=${encodeURIComponent(readChatSession() || '')}`).then(x => on && setD(x)).catch(e => on && setErr(e.message)); return () => { on = false; }; }, [api]);
@@ -255,6 +256,7 @@ export function LaunchCat({ api, ownerId, onCreated, onCancel, Fields, Preview, 
       const handle = form.handle || form.name.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').slice(0, 20) || 'cat';
       const r = await api('/api/cats', { method: 'POST', body: JSON.stringify({ strategy: 'momentum', ...form, ownerId: ownerId(), name: form.name.trim(), handle, avatar: avatarOf(form.avatar),
         brains: picked.map(m => m.id), brainMode: gen ? 'turns' : mode, billing, prompt, efforts: Object.fromEntries(picked.filter(m => efforts[m.id]).map(m => [m.id, efforts[m.id]])), brainKind: kind, session: readChatSession() || '', job: gen ? (((d?.personas?.general || []).find(x => x.key === persona) || {}).job || 'agent') : 'trading', ...(gen ? { workMode, taskCap } : { venues }) }) });
+      try { if (Number(fundUsd) > 0) localStorage.setItem(`feeless.fundIntent.${r.cat.id}`, String(Number(fundUsd))); } catch { /* private window */ }   // its funding step opens on this $
       for (const [provider, secret] of Object.entries(keys).filter(([, v]) => v)) await api(`/api/cats/${r.cat.id}/action`, { method: 'POST', body: JSON.stringify({ action: 'api_key', provider, secret }) }).catch(e => setErr(`Key not saved: ${e.message}`));
       const started = await api(`/api/cats/${r.cat.id}/action`, { method: 'POST', body: JSON.stringify({ action: 'start' }) }).catch(() => r);   // same as Create a Cat: it starts trading at once
       onCreated?.(started.cat || r.cat);
@@ -296,6 +298,7 @@ export function LaunchCat({ api, ownerId, onCreated, onCancel, Fields, Preview, 
       <label className="lct-seal lct-gbrief"><span><b>📜 ITS BRIEF · BOTH MINDS</b><em>you can change it once an hour after launch — or let its minds propose a better one</em></span>
         <textarea className="m-input" rows={7} maxLength={1200} value={prompt} onChange={e => setPrompt(e.target.value)} placeholder="Pick a job above — its brief is written for both minds — or write your own." data-testid="lct-prompt" />
         <i className="lct-len" aria-hidden="true"><u style={{ transform: `scaleX(${Math.max(0.01, prompt.length / 1200)})` }} /></i><small>{prompt.length} / 1200</small></label>
+      <p className="lct-note lct-house" data-testid="lct-house" data-tip="Built into FEELESS on every step — no brief can remove these">🔒 ALWAYS ON · {HOUSE.general.replace(/^RULES — /, '')} It makes its own email + sign-ups first and stops only for your own accounts, CAPTCHAs, codes, payments and ID.</p>
     </div> : null}
     {step === 2 && !gen ? <div className="lct-pane lct-brief">
       {Fields ? <div className="cct-split lct-ident">{<Fields form={form} update={update} />}{Preview ? <aside className="cct-preview m-live" data-testid="lct-preview"><Preview form={form} /></aside> : null}</div> : <>
@@ -317,6 +320,10 @@ export function LaunchCat({ api, ownerId, onCreated, onCancel, Fields, Preview, 
       <p className="lct-note">{(gen ? d?.generalLive : d?.live) ? '🟢 Model calls are ON.' : gen ? '⏸ Model calls are OFF until FEELESS switches them on — until then asking sends and charges nothing.' : '⏸ Model calls are OFF until FEELESS switches them on — until then the FEELESS rule engine trades your cat and nothing is charged.'} Its ${d?.budget?.start ?? 10} model credit is covered by FEELESS — its minds stop when it's spent; your funds only ever go to its own wallet.</p>
       {gen ? null : <ApiDrawer draft={keys} onDraft={(k, v) => setKeys(x => ({ ...x, [k]: v.trim() }))} />}
       <FundReceipt />
+      <div className="lct-bar lct-cost lct-fund" data-tip="What goes into its own wallet — paid in SOL from your wallet; you sign once right after launch">
+        <label>FUND ITS WALLET WITH<span className="lct-usd"><i>$</i><NumInput className="m-input" type="number" inputMode="decimal" min="1" step="1" value={fundUsd} onChange={e => setFundUsd(e.target.value)} aria-label="Dollars to put in its wallet" data-testid="lct-fund-usd" /></span></label>
+        <div className="m-seg" role="radiogroup" aria-label="Quick amounts">{[10, 25, 50, 100].map(a => <button key={a} type="button" role="radio" aria-checked={Number(fundUsd) === a} className={Number(fundUsd) === a ? 'active' : ''} onClick={() => setFundUsd(String(a))}>${a}</button>)}</div>
+        <small className="lct-fund-note">paid in SOL · one signature right after launch · USDC funding is on the way</small></div>
       <p className="lct-next" data-testid="lct-next-real">{K.next.map((x, i) => <React.Fragment key={x}>{i ? <u /> : null}<i className={i === K.next.length - 1 ? 'is-real' : ''}>{x}</i></React.Fragment>)}</p>
       <button type="button" className="m-btn m-go lct-go" disabled={saving || !ready.slice(0, 3).every(Boolean)} onClick={launch} data-testid="lct-launch">{saving ? 'Launching…' : `🚀 Launch ${name || 'the cat'} → go real`}</button>
     </div> : null}

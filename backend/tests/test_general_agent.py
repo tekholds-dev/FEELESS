@@ -382,3 +382,9 @@ def test_a_new_model_sorts_the_old_cloud_and_a_bad_answer_never_loses_memory(tmp
     b = fs._load()['cats']['c1']['brainsCfg']
     assert seen['model'] == 'm/new' and '1: stale: SOL at $20' in seen['notes']
     assert [c['text'] for c in b['cloud']] == ['JUP pool 3.4M', 'threads under 6 posts land best'] and b['spent'] > 0
+
+
+def test_house_rules_are_hardcoded_in_every_step_not_the_editable_brief():
+    s = ca.ACT_SYS
+    assert 'Never create another agent; never launch a coin or pool ON FEELESS' in s
+    assert 'its own email at a free provider' in s and 'ONLY for the user\'s OWN accounts' in s
