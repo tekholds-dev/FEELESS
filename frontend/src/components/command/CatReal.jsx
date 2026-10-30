@@ -177,10 +177,10 @@ export function FundCat({ cat, addr, session, sign, onDone, onConfirm, onFreeCre
     </ol> : null}
     <div className="cr-fund-go">
       {stage === 'ready' || stage === 'signing' || stage === 'sending' ? <>
-        <button type="button" className="m-btn m-go" disabled={stage !== 'ready' || left <= 0} onClick={go} data-testid="cr-fund-sign" data-tip="Your wallet signs this exact transaction; FEELESS sends only it">{stage === 'signing' ? 'Sign in your wallet…' : stage === 'sending' ? 'Sending…' : '✍ Sign & fund'}</button>
+        <button type="button" className="m-btn m-go" disabled={stage !== 'ready' || left <= 0} onClick={go} data-testid="cr-fund-sign" data-tip="Your wallet signs this exact transaction; FEELESS sends only it">{stage === 'signing' ? 'Sign in your wallet…' : stage === 'sending' ? 'Sending…' : `✍ Sign and pay $${p?.usd ?? usd}`}</button>
         <span className={`cr-fund-clock ${left < 20 ? 'is-low' : ''}`} data-tip="A receipt lives 90s — prices move"><u><s style={{ transform: `scaleX(${left / 90})` }} /></u><em className="m-num">{left}s</em></span></>
         : credit && rules?.staff ? <button type="button" className="m-btn m-go" onClick={() => onFreeCredit?.()} data-testid="cr-fund-free" data-tip="Your creator wallet refills it without a payment">＋ Add $10 credit · creator</button>
-        : <button type="button" className="m-btn m-go" disabled={stage === 'quoting' || !addr || Number(usd) < min} onClick={quote} data-testid="cr-fund-quote">{stage === 'quoting' ? 'Pricing…' : '🧾 Get receipt'}</button>}
+        : <button type="button" className="m-btn m-go" disabled={stage === 'quoting' || !addr || Number(usd) < min} onClick={quote} data-testid="cr-fund-quote">{stage === 'quoting' ? 'Pricing…' : `💵 Fund $${Number(usd) || 0} in ${token}: see receipt`}</button>}
       {sig ? <a className="cr-fund-sig" href={`https://solscan.io/tx/${sig}`} target="_blank" rel="noreferrer" data-testid="cr-fund-done">{stage === 'done' ? '✓ funded' : '⏳ landing'} · {sig.slice(0, 8)}… ↗</a> : null}
     </div>
     {err ? <p className="kd-err" role="alert">⚠ {err}</p> : null}
@@ -196,7 +196,7 @@ function AssignWallet({ cat, busy, send }) {
       data-tip="FEELESS signs only through Crossmint: a wallet Crossmint holds for this project → Fee trades from it. Any other wallet → shown watch-only (FEELESS never holds a private key)">👛 Assign</button></div>;
 }
 
-export function AgentWalletCard({ cat, busy, send, addr, session, sign }) {
+export function AgentWalletCard({ cat, busy, send, addr, session, sign, err }) {
   const w = cat?.agentWallet; const kind = cat?.brainsCfg?.kind; const d = useAgentWallet(cat?.id, !!w); const [copied, setCopied] = useState(false);
   const bal = d?.balance || {}; const mode = w?.mode || 'approve';
   const copy = () => { try { navigator.clipboard.writeText(w.address); setCopied(true); setTimeout(() => setCopied(false), 1400); } catch { /* blocked */ } };
@@ -204,8 +204,10 @@ export function AgentWalletCard({ cat, busy, send, addr, session, sign }) {
     <svg className="cr-vault" viewBox="0 0 48 48" aria-hidden="true"><rect x="5" y="9" width="38" height="30" rx="6" /><circle cx="24" cy="24" r="8" /><path className="cr-vdial" d="M24 16 V20 M24 28 V32 M16 24 H20 M28 24 H32" /><path d="M11 39 V43 M37 39 V43" /></svg>
     {!w ? <div className="cr-ag-off"><b>👛 ITS OWN WALLET</b><small>Fund it once — {kind === 'trading' ? 'it rides: trades without asking you to sign' : 'it works from it; you choose ask-first or let it go'}. Crossmint holds the key, FEELESS keeps only the address.</small>
       {cat?.isLeader || cat?.id === 'leader' ? null : <FundPick cat={cat} />}
-      <button type="button" className="m-btn m-go cr-ag-go" disabled={busy || !addr || cat?.revoked} onClick={() => send('agent_wallet')} data-testid="cr-agent-make"
-        data-tip={addr ? 'One signature (no transaction) proves you own this cat — then Crossmint makes its wallet' : 'Connect your wallet first'}>👛 Make its wallet, then fund it</button>
+      <div className="cr-ag-steps"><button type="button" className="m-btn m-go cr-ag-go" disabled={busy || !addr || cat?.revoked} onClick={() => send('agent_wallet')} data-testid="cr-agent-make"
+        data-tip={addr ? 'One signature (no transaction) proves you own this cat — then Crossmint makes its wallet' : 'Connect your wallet first'}>{busy ? 'Making its wallet…' : '① 👛 Make its wallet'}</button>
+        {cat?.isLeader || cat?.id === 'leader' ? null : <button type="button" className="m-btn" disabled data-testid="cr-agent-fund-next" data-tip="Make its wallet first, then this opens your receipt to sign">② 💵 Fund and sign</button>}</div>
+      {!addr ? <p className="kd-err" role="status">⚠ Connect your wallet first.</p> : null}{err ? <p className="kd-err" role="alert" data-testid="cr-agent-err">⚠ {err}</p> : null}
       {cat?.isLeader || cat?.id === 'leader' ? <AssignWallet cat={cat} busy={busy} send={send} /> : null}</div>
       : <div className="cr-ag-on">
         {w.provider === 'circle' ? <p className="cr-ag-watch is-circle" role="status" data-testid="cr-agent-circle">🟦 YOUR CIRCLE WALLET — Circle signs each trade she makes, inside her caps (one at a time, per-buy + daily limits).</p> : null}
@@ -270,7 +272,7 @@ export function CatReal({ cat, busy = false, onAct, devAddress = '' }) {
       : 'give it its own wallet below — you sign once to fund it, then it trades on its own'}</small></header>
     <RecoveryPin cat={cat} />
     <AgentWalletCard cat={cat} busy={busy} addr={addr} send={(a, x) => send.current(a, x)}
-      session={() => (devAddress ? Promise.resolve('dev') : getChatSession(addr, signMessage, { own: true }))} sign={signTx} />
+      session={() => (devAddress ? Promise.resolve('dev') : getChatSession(addr, signMessage, { own: true }))} sign={signTx} err={!cat?.agentWallet ? err : ''} />
     {cat?.brainsCfg?.kind === 'general' && !v.real ? null : <WalletCard cat={cat} addr={addr} v={v} />}
     {cat?.brainsCfg?.kind === 'general' && !v.real ? null : !v.real ? <div className="cr-off">
       <Flow />

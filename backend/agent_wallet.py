@@ -85,9 +85,11 @@ async def create(http, key, kind, ref):
     if not env:
         raise ValueError('CROSSMINT_API_KEY is not set in backend/.env.')
     owner = owner_of(kind, ref)
-    r = await http.post(f"{API[env]}/wallets", headers={'X-API-KEY': key, 'Content-Type': 'application/json', 'x-idempotency-key': owner},
+    r = await http.post(f"{API[env]}/wallets", headers={'X-API-KEY': key, 'Content-Type': 'application/json'},
                         json={'chainType': 'solana', 'type': 'smart', 'owner': owner, 'config': {'adminSigner': {'type': 'api-key'}}}, timeout=20)
     if r.status_code not in (200, 201):
+        if 'not enabled for this project' in str(_err(r)):   # 🔑 a setting on the FEELESS Crossmint account: no code or retry fixes it
+            raise ValueError('Agent wallets are not switched on for FEELESS at Crossmint yet. Nothing was charged. Your agent is safe and can be funded once this is on.')
         raise ValueError(f'Crossmint refused the wallet ({r.status_code}): {_err(r)}')
     return r.json()
 

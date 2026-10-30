@@ -160,3 +160,4 @@ body.theme-day .cr-safe { background: #fffaf0; } body.theme-day .cr-safe-why, bo
 body.fx-lite .fc-recover form { animation: none; } @media (prefers-reduced-motion: reduce) { .fc-recover form { animation: none; } }
 body.theme-day .cr-pre small, body.theme-day .fc-recover summary { color: #2a1650; } body.theme-day .cr-pin-on { color: #0a7a44; }
 @media (max-width: 640px) { .fc-recover form { grid-template-columns: 1fr; } }
+.cr-ag-steps { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 4px; } .cr-ag-steps .m-btn { min-height: 40px; } .cr-ag-steps .m-btn:disabled { opacity: .55; cursor: not-allowed; }

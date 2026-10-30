@@ -49,7 +49,7 @@ def test_create_posts_one_idempotent_smart_wallet_and_balances_read_sol_usdc():
     h = FakeHttp()
     rep = asyncio.run(aw.create(h, 'sk_production_k', 'cat', 'c1'))
     m, url, hdr, body = h.calls[0]
-    assert m == 'POST' and url == aw.API['production'] + '/wallets' and hdr['X-API-KEY'] == 'sk_production_k' and hdr['x-idempotency-key'] == 'userId:feeless-cat-c1'
+    assert m == 'POST' and url == aw.API['production'] + '/wallets' and hdr['X-API-KEY'] == 'sk_production_k'
     assert body == {'chainType': 'solana', 'type': 'smart', 'owner': 'userId:feeless-cat-c1', 'config': {'adminSigner': {'type': 'api-key'}}} and rep['address'] == ADDR
     with pytest.raises(ValueError, match='scope'):
         asyncio.run(aw.create(FakeHttp(403, {'message': 'missing scope wallets.create'}), 'sk_staging_k', 'cat', 'c1'))
@@ -118,3 +118,23 @@ def test_n16_fee_takes_an_assigned_wallet_crossmint_trades_anything_else_is_watc
     assert store['cats']['leader']['agentWallet']['provider'] == 'watch'
     r = c.post('/api/cats/u1/action', json={'action': 'agent_assign', 'ownerId': 'b1', 'address': 'USERWALLET', 'session': 'usr', 'text': ADDR})
     assert r.status_code == 400 and 'Only Fee' in r.json()['detail']                                                                       # a user's cat gets a fresh one
+
+
+def test_wallet_create_sends_no_idempotency_header_and_says_plainly_when_crossmint_has_it_off():
+    import asyncio
+
+    class R:
+        def __init__(self, code, body): self.status_code, self._b = code, body
+        def json(self): return self._b
+        text = ''
+
+    class H:
+        def __init__(self, r): self.r, self.hdr = r, None
+        async def post(self, _url, headers=None, json=None, timeout=None):
+            self.hdr = headers
+            return self.r
+    ok = H(R(201, {'address': 'A'}))
+    assert asyncio.run(aw.create(ok, 'sk_production_k', 'cat', 'c1'))['address'] == 'A' and 'x-idempotency-key' not in ok.hdr   # Crossmint refuses it beside `owner`
+    off = H(R(400, {'message': 'Smart wallets with api-key signers are not enabled for this project.'}))
+    with pytest.raises(ValueError, match='Nothing was charged'):
+        asyncio.run(aw.create(off, 'sk_production_k', 'cat', 'c1'))
