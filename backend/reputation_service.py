@@ -11044,7 +11044,7 @@ async def _cat_for_fund(cat_id, me):
         raise HTTPException(400, 'Give it its own wallet first.')
     if w.get('owner') != me:
         raise HTTPException(403, "Only the wallet that made this cat's wallet can fund it.")
-    if w.get('provider', 'crossmint') != 'crossmint':
+    if w.get('provider', 'crossmint') not in ('crossmint', 'circle'):
         raise HTTPException(400, "That wallet is watch-only (its key isn't held by Crossmint) — fund it straight from your own wallet; FEELESS can't trade from it.")
     return cat, w
 
@@ -11109,6 +11109,69 @@ async def cat_fund_build(cat_id: str, p: CatFundIn):
         _cfund_plans.pop(k_, None)
     _cfund_plans[f'{cat_id}:{me}'] = {'tx': tx, 'plan': pl, 'at': now, 'catWallet': w['address'], 'feeWallet': fee_w}
     return {'plan': pl, 'transaction': tx, 'catWallet': w['address'], 'feeWallet': fee_w, 'first': first, 'expiresIn': _cfund.PLAN_SEC}
+
+
+class CatWithdrawIn(BaseModel):
+    address: str = Field(min_length=32, max_length=44)
+    session: str = Field(min_length=8, max_length=200)
+    token: str = 'SOL'
+    amount: float = 0.0        # 0 = all of it
+    # 🔒 no destination field, on purpose: it only ever pays the wallet that owns this agent
+
+
+_cat_out_busy: set = set()
+
+
+@app.post('/api/reputation/cats/{cat_id}/withdraw')
+async def cat_withdraw(cat_id: str, p: CatWithdrawIn):
+    """↩ REAL WITHDRAW: SOL or USDC from the agent's own wallet back to its owner's wallet, and nowhere else. Your wallet's session proves it is you; Circle signs; a send the network refuses moves nothing."""
+    me = session_address(p.session)
+    if not me or me != p.address:
+        raise HTTPException(401, 'Sign in with your wallet first (one signature, no transaction).')
+    if p.token not in ('SOL', 'USDC') or p.amount < 0:
+        raise HTTPException(400, 'Withdraw SOL or USDC.')
+    cat, w = await _cat_for_fund(cat_id, me)
+    if w.get('provider') != 'circle' or w.get('circleAcct') != 'agent' or not w.get('circleId'):
+        raise HTTPException(400, 'Withdrawals work on its Circle wallet.')
+    if cat_id in _cat_out_busy:
+        raise HTTPException(409, 'A withdrawal is already on its way.')
+    _cat_out_busy.add(cat_id)
+    try:
+        async with httpx.AsyncClient(timeout=15) as http:
+            if p.token == 'SOL':
+                have = int(((await _rpc(http, 'getBalance', [w['address'], {'commitment': 'confirmed'}])) or {}).get('value') or 0) - _cfund.FEE_RESERVE; scale = _cfund.LAMPORTS
+            else:
+                try:
+                    have = int((((await _rpc(http, 'getTokenAccountBalance', [str(_cfund.ata(w['address'])), {'commitment': 'confirmed'}])) or {}).get('value') or {}).get('amount') or 0)
+                except Exception:
+                    have = 0
+                scale = _cfund.USDC_UNITS
+            units = have if not p.amount else int(p.amount * scale)
+            if units <= 0 or units > have:
+                raise HTTPException(400, f'It has {max(0, have) / scale:.6g} {p.token} available.')
+            bh = ((await _rpc(http, 'getLatestBlockhash', [{'commitment': 'confirmed'}])) or {}).get('value', {}).get('blockhash')
+            try:
+                tx = _cfund.build_out(w['address'], w['owner'], p.token, units, bh)
+            except ValueError as e:
+                raise HTTPException(400, str(e))
+            signed_ = await _circle('POST', '/sign', {'walletId': w['circleId'], 'rawTransaction': tx, 'memo': f'FEELESS withdraw {cat_id[:20]}'}, agent=True)
+            sig_ = str(signed_.get('signature') or signed_.get('txHash') or '')
+            if not signed_.get('signedTransaction') or not sig_:
+                raise HTTPException(502, 'Circle did not sign it. Nothing moved.')
+            try:
+                await _rpc(http, 'sendTransaction', [signed_['signedTransaction'], {'encoding': 'base64', 'skipPreflight': False, 'maxRetries': 3}])
+            except HTTPException:
+                raise
+            except Exception as e:
+                raise HTTPException(400, f'The network refused it, nothing moved: {str(e)[:160]}')
+    finally:
+        _cat_out_busy.discard(cat_id)
+    try:
+        await _ai_http().post(f'http://127.0.0.1:5088/api/cats/{cat_id}/action', headers={'x-feeless-internal': _internal_key()}, timeout=8,
+                              json={'action': 'agent_withdrew', 'sig': sig_, 'amount': {'amount': units / scale, 'token': p.token}})
+    except Exception as e:
+        print(f'[cat withdraw] record {cat_id}: {e}')
+    return {'signature': sig_, 'amount': units / scale, 'token': p.token, 'to': w['owner']}
 
 
 @app.post('/api/reputation/cats/{cat_id}/fund/send')
@@ -32115,30 +32178,31 @@ CIRCLE_DIR = Path(__file__).resolve().parents[1] / 'circle'
 _circle_boot = {'at': 0.0}
 
 
-async def _circle_start() -> bool:
-    """Start the Circle sidecar if it's installed and keyed. At most one attempt per 20s; never raises."""
-    if time.time() - _circle_boot['at'] < 20 or not (CIRCLE_DIR / 'node_modules').exists() or not os.environ.get('CIRCLE_API_KEY'):
+async def _circle_start(agent=False) -> bool:
+    """Start a Circle sidecar if it's installed and keyed (agent: the family + agent wallets account, port 5112). At most one attempt per 20s; never raises."""
+    boot_ = 'agentAt' if agent else 'at'
+    if time.time() - _circle_boot.get(boot_, 0) < 20 or not (CIRCLE_DIR / 'node_modules').exists() or not os.environ.get('CIRCLE_AGENT_API_KEY' if agent else 'CIRCLE_API_KEY'):
         return False
-    _circle_boot['at'] = time.time()
+    _circle_boot[boot_] = time.time()
     try:
         import subprocess
-        subprocess.Popen(['node', 'server.mjs'], cwd=str(CIRCLE_DIR), stdout=open('/tmp/feeless-circle.log', 'ab'), stderr=subprocess.STDOUT,
-                         stdin=subprocess.DEVNULL, start_new_session=True)
+        subprocess.Popen(['node', 'server.mjs'], cwd=str(CIRCLE_DIR), stdout=open('/tmp/feeless-circle-agent.log' if agent else '/tmp/feeless-circle.log', 'ab'), stderr=subprocess.STDOUT,
+                         stdin=subprocess.DEVNULL, start_new_session=True, env={**os.environ, 'CIRCLE_TENANT': 'agent'} if agent else None)
     except Exception:
         return False
     await asyncio.sleep(1.5)
     return True
 
 
-async def _circle(method, path, body=None):
+async def _circle(method, path, body=None, agent=False):
     r = None
     for attempt in range(3):   # sidecar down → start it (owner is signed in: every caller is owner-gated) and retry
         try:
             async with httpx.AsyncClient(timeout=30) as http:
-                r = await http.request(method, f'http://127.0.0.1:5111{path}', json=body)
+                r = await http.request(method, f"http://127.0.0.1:{5112 if agent else 5111}{path}", json=body)
             break
         except httpx.ConnectError:
-            if attempt == 2 or not (await _circle_start() or attempt == 1):
+            if attempt == 2 or not (await _circle_start(agent) or attempt == 1):
                 raise HTTPException(503, 'Circle wallet service is not running and could not be started (check CIRCLE_API_KEY and circle/node_modules).')
             await asyncio.sleep(1.5)
         except httpx.HTTPError:
@@ -34221,6 +34285,18 @@ async def internal_circle_wallet(request: Request, address: str = ''):
     return {'id': w_.get('id'), 'address': w_.get('address')}
 
 
+@app.post('/api/reputation/internal/agent-circle-wallet')
+async def internal_agent_circle_wallet(request: Request, body: dict):
+    """🟦 One Solana wallet for one agent, on the family + agent Circle account. The same cat always gets the same request key, so a double click can't make two."""
+    if not _internal_ok(request):
+        raise HTTPException(403, 'Internal only.')
+    cid_ = str(body.get('catId') or '')
+    if not _re.match(r'^[A-Za-z0-9_-]{1,64}$', cid_):
+        raise HTTPException(400, 'Not a cat id.')
+    import uuid as _uuid
+    return await _circle('POST', '/wallets', {'blockchain': 'SOL', 'name': f'agent {cid_[:30]}', 'key': str(_uuid.uuid5(_uuid.NAMESPACE_URL, f'feeless-cat-{cid_}'))}, agent=True)
+
+
 @app.post('/api/reputation/internal/agent-circle-send')
 async def internal_agent_circle_send(request: Request, body: dict):
     if not _internal_ok(request):
@@ -34231,10 +34307,11 @@ async def internal_agent_circle_send(request: Request, body: dict):
     book_ = _json_load(AGENT_CIRCLE_SENT, {})
     if book_.get(key_):   # asked again with the same key → the same trade, never a second one
         return {'signature': book_[key_], 'again': True}
-    w_ = next((w for w in (await _circle_wallets_live()) or [] if w.get('id') == wid_), None)
+    acct_ = body.get('acct') == 'agent'   # 🟦 an agent's own wallet lives on the separate account; Fee's assigned wallet on the FEELESS one
+    w_ = (await _circle('POST', '/wallet', {'id': wid_}, agent=True)).get('wallet') if acct_ else next((w for w in (await _circle_wallets_live()) or [] if w.get('id') == wid_), None)
     if not w_ or w_.get('address') != addr_:
         raise HTTPException(403, 'That Circle wallet is not this cat\'s assigned wallet.')
-    signed_ = await _circle('POST', '/sign', {'walletId': wid_, 'rawTransaction': tx_, 'memo': f"FEELESS agent {str(body.get('catId') or '')[:20]}"})
+    signed_ = await _circle('POST', '/sign', {'walletId': wid_, 'rawTransaction': tx_, 'memo': f"FEELESS agent {str(body.get('catId') or '')[:20]}"}, agent=acct_)
     sig_ = str(signed_.get('signature') or signed_.get('txHash') or '')
     if not signed_.get('signedTransaction') or not sig_:
         raise HTTPException(502, 'Circle did not sign it.')

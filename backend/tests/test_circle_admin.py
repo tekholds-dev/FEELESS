@@ -76,7 +76,7 @@ def test_circle_autostarts_when_down(monkeypatch):
     import httpx
     started, calls = [], []
 
-    async def start():
+    async def start(agent=False):
         started.append(1); return True
 
     class Client:

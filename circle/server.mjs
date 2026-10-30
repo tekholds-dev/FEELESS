@@ -9,27 +9,30 @@ import dotenv from 'dotenv';
 import { initiateDeveloperControlledWalletsClient } from '@circle-fin/developer-controlled-wallets';
 
 const ENV = fileURLToPath(new URL('../backend/.env', import.meta.url));
-const STATE = fileURLToPath(new URL('../backend/data/circle_state.json', import.meta.url));
+// CIRCLE_TENANT=agent: the separate Circle account for family + agent wallets (port 5112, its own key, secret and state). Never the FEELESS creator account.
+const AGENT = process.env.CIRCLE_TENANT === 'agent';
+const KEY = AGENT ? 'CIRCLE_AGENT_API_KEY' : 'CIRCLE_API_KEY'; const SECRET = AGENT ? 'CIRCLE_AGENT_ENTITY_SECRET' : 'ENTITY_SECRET'; const PORT = AGENT ? 5112 : 5111;
+const STATE = fileURLToPath(new URL(`../backend/data/${AGENT ? 'circle_agent_state' : 'circle_state'}.json`, import.meta.url));
 const CHAINS = new Set(['SOL-DEVNET', 'ETH-SEPOLIA', 'BASE-SEPOLIA', 'MATIC-AMOY', 'ARB-SEPOLIA', 'SOL', 'ETH', 'BASE', 'MATIC', 'ARB']);
 const read = () => { try { return JSON.parse(fs.readFileSync(STATE, 'utf8')); } catch { return {}; } };
 const write = s => fs.writeFileSync(STATE, JSON.stringify(s));
 
 function client() {
   dotenv.config({ path: ENV, override: true });
-  if (!process.env.CIRCLE_API_KEY) return { error: 'CIRCLE_API_KEY missing' };
-  if (!process.env.ENTITY_SECRET) return { error: 'ENTITY_SECRET not registered yet — run: cd circle && npm install && node setup.mjs' };
-  return { sdk: initiateDeveloperControlledWalletsClient({ apiKey: process.env.CIRCLE_API_KEY, entitySecret: process.env.ENTITY_SECRET }) };
+  if (!process.env[KEY]) return { error: `${KEY} missing` };
+  if (!process.env[SECRET]) return { error: `${SECRET} not registered yet — run: cd circle && npm install && node setup.mjs` };
+  return { sdk: initiateDeveloperControlledWalletsClient({ apiKey: process.env[KEY], entitySecret: process.env[SECRET] }) };
 }
 
 async function walletSet(sdk) {
   const s = read();
   if (s.walletSetId) return s.walletSetId;
-  const r = await sdk.createWalletSet({ name: 'FEELESS creator wallets', idempotencyKey: crypto.randomUUID() });
+  const r = await sdk.createWalletSet({ name: AGENT ? 'FEELESS agent wallets' : 'FEELESS creator wallets', idempotencyKey: crypto.randomUUID() });
   s.walletSetId = r.data?.walletSet?.id; write(s); return s.walletSetId;
 }
 
 const routes = {
-  'GET /status': async () => { const c = client(); return { configured: !c.error, reason: c.error || null, testnet: (process.env.CIRCLE_API_KEY || '').startsWith('TEST_') }; },
+  'GET /status': async () => { const c = client(); return { configured: !c.error, reason: c.error || null, testnet: (process.env[KEY] || '').startsWith('TEST_') }; },
   'GET /wallets': async () => {
     const { sdk, error } = client(); if (error) return { wallets: [], reason: error };
     const setId = read().walletSetId; if (!setId) return { wallets: [] };
@@ -46,9 +49,15 @@ const routes = {
     const chain = String(body.blockchain || '');
     if (!CHAINS.has(chain)) throw new Error('Unsupported blockchain.');
     const name = String(body.name || 'Creator wallet').slice(0, 40);
-    const r = await sdk.createWallets({ walletSetId: await walletSet(sdk), accountType: 'EOA', blockchains: [chain], count: 1, metadata: [{ name }], idempotencyKey: crypto.randomUUID() });
+    const r = await sdk.createWallets({ walletSetId: await walletSet(sdk), accountType: 'EOA', blockchains: [chain], count: 1, metadata: [{ name }], idempotencyKey: String(body.key || crypto.randomUUID()) });
     const w = r.data?.wallets?.[0] || {};
     return { wallet: { id: w.id, address: w.address, blockchain: w.blockchain, name } };
+  },
+  'POST /wallet': async body => {
+    const { sdk, error } = client(); if (error) throw new Error(error);
+    const r = await sdk.getWallet({ id: String(body.id || '') });
+    const w = r.data?.wallet || {};
+    return { wallet: { id: w.id, address: w.address, blockchain: w.blockchain, state: w.state } };
   },
   'POST /wallets/rename': async body => {
     const { sdk, error } = client(); if (error) throw new Error(error);
@@ -84,4 +93,4 @@ http.createServer(async (req, res) => {
   let raw = ''; for await (const chunk of req) raw += chunk;
   try { res.end(JSON.stringify(await fn(raw ? JSON.parse(raw) : {}))); }
   catch (e) { res.statusCode = 400; res.end(JSON.stringify({ detail: String(e?.response?.data?.message || e.message || 'Circle request failed').slice(0, 200) })); }
-}).listen(5111, '127.0.0.1', () => console.log('circle sidecar on 127.0.0.1:5111'));
+}).listen(PORT, '127.0.0.1', () => console.log(`circle sidecar on 127.0.0.1:${PORT}`));

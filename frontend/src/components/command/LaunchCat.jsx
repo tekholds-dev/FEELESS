@@ -41,7 +41,7 @@ export const COLLAB = {
 export const HOUSE = { general: 'RULES — never invent facts; stop for human-needed sign-ins, CAPTCHAs, payments and ID checks; never create another agent or launch a coin on FEELESS; stay inside the $ cap per task.',
   trading: 'RULES — trade only on FEELESS; size inside the caps; never chase a candle that already ran; respect every rug / bundler / dev flag; explain each call in one sentence.' };
 // 🔐 what protects the agent, said plainly BEFORE any money moves (owner 2026-10-30: "assure account secure and a recovery pin will show next"). Only true things.
-const SAFE = gen => [['👛', 'Its own wallet', 'Separate from yours. Its keys stay with Crossmint, never in a browser.'], ['⚠', 'Withdrawals: not built yet', 'Fund only what you can leave in it until real withdrawals ship.'],
+const SAFE = gen => [['👛', 'Its own wallet', 'Separate from yours. Circle holds its keys, never a browser. FEELESS signs only inside your limits.'], ['↩', 'Money comes back to you', 'Withdrawals go only to the wallet that owns this agent. No other address is possible.'],
   ['🗝', 'Passwords sealed', 'Encrypted. Its minds never see them and its log never shows them.'], ['🛑', 'Your limits hold', gen ? 'A $ cap per task, and it asks before each move until you choose auto.' : 'Caps on every buy and every day, enforced by the server.']];
 export function SafetyCard({ gen }) {
   return <section className="lct-safe" data-testid="lct-safe"><span className="m-label">🔐 HOW YOUR AGENT STAYS SAFE</span>
@@ -412,7 +412,7 @@ export function BrainPanel({ cat, api, onChanged, noTalk = false }) {   // noTal
     {noTalk ? null : <form className="lct-chime" onSubmit={async e => { e.preventDefault(); if (text.trim() && await act('chime', { text })) setText(''); }}>
       <input className="m-input" maxLength={280} value={text} onChange={e => setText(e.target.value)} placeholder="Chime in — advice it reads, never an order" data-testid="brain-chime" /><button type="submit" className="m-btn">💬 Send</button></form>}
     {(b.chime || []).length ? <p className="lct-note">Last said: “{b.chime[b.chime.length - 1].text}”</p> : null}
-    <div className="lct-acts"><button type="button" className="m-btn" onClick={() => window.confirm('Sell every coin and pull all funds? The cat stays locked until you top up.') && act('pull')} data-testid="brain-pull">⏏ Pull all funds</button>
+    <div className="lct-acts">{cat.agentWallet ? null : <button type="button" className="m-btn" onClick={() => window.confirm('Sell every coin and pull all funds? The cat stays locked until you top up.') && act('pull')} data-testid="brain-pull">⏏ Pull all funds</button>}
       {cat.agentWallet || cat.brainsCfg?.kind === 'general' ? <small className="lct-note">Add model credit from its wallet panel, in SOL or USDC.</small> : <button type="button" className="m-btn m-go" onClick={() => act('topup')} data-testid="brain-topup">＋ Top up (paper)</button>}</div>
     {cat.needsTopup ? <p className="lct-note">🔒 Funds pulled — top up to start this cat again.</p> : null}{cat.brainPaused ? <p className="lct-note">⏸ {cat.brainPaused}</p> : null}
     {err ? <p className="lct-err">⚠ {err}</p> : null}

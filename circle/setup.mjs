@@ -11,13 +11,15 @@ import { registerEntitySecretCiphertext } from '@circle-fin/developer-controlled
 
 const ENV = fileURLToPath(new URL('../backend/.env', import.meta.url));
 dotenv.config({ path: ENV });
-const apiKey = process.env.CIRCLE_API_KEY;
+const AGENT = process.env.CIRCLE_TENANT === 'agent';   // CIRCLE_TENANT=agent node setup.mjs: the family + agent wallets account
+const KEY = AGENT ? 'CIRCLE_AGENT_API_KEY' : 'CIRCLE_API_KEY'; const SECRET = AGENT ? 'CIRCLE_AGENT_ENTITY_SECRET' : 'ENTITY_SECRET';
+const apiKey = process.env[KEY];
 if (!apiKey) { console.error('Add CIRCLE_API_KEY=... (from console.circle.com → API & Client Keys) to backend/.env first.'); process.exit(1); }
-if (process.env.ENTITY_SECRET) { console.error('ENTITY_SECRET is already set in backend/.env — nothing to do.'); process.exit(1); }
+if (process.env[SECRET]) { console.error(`${SECRET} is already set in backend/.env — nothing to do.`); process.exit(1); }
 
 const entitySecret = crypto.randomBytes(32).toString('hex');
-const recoveryDir = path.join(os.homedir(), '.circle');
+const recoveryDir = path.join(os.homedir(), AGENT ? '.circle-agent' : '.circle');
 fs.mkdirSync(recoveryDir, { recursive: true, mode: 0o700 });
 await registerEntitySecretCiphertext({ apiKey, entitySecret, recoveryFileDownloadPath: recoveryDir });
-fs.appendFileSync(ENV, `\nENTITY_SECRET=${entitySecret}\n`, { mode: 0o600 });
+fs.appendFileSync(ENV, `\n${SECRET}=${entitySecret}\n`, { mode: 0o600 });
 console.log(`✓ Entity secret registered with Circle and saved to backend/.env.\n✓ Recovery file saved in ${recoveryDir} — back it up now.\nNext: restart the backend (bash scripts/start-backend.sh) and open Command Center → Circle wallets.`);

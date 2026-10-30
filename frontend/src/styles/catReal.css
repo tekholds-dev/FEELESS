@@ -161,3 +161,5 @@ body.fx-lite .fc-recover form { animation: none; } @media (prefers-reduced-motio
 body.theme-day .cr-pre small, body.theme-day .fc-recover summary { color: #2a1650; } body.theme-day .cr-pin-on { color: #0a7a44; }
 @media (max-width: 640px) { .fc-recover form { grid-template-columns: 1fr; } }
 .cr-ag-steps { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 4px; } .cr-ag-steps .m-btn { min-height: 40px; } .cr-ag-steps .m-btn:disabled { opacity: .55; cursor: not-allowed; }
+.cr-out { display: grid; gap: 8px; margin-top: 10px; padding-top: 10px; border-top: 1px solid #ffffff14; } .cr-out em { font: 800 9px var(--f-mono, monospace); letter-spacing: .12em; font-style: normal; color: #9dffcf; }
+body.theme-day .cr-out em { color: #0a7a44; }

@@ -28,6 +28,8 @@ USDC_UNITS = 1_000_000
 TOKEN_PROGRAM = 'TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA'
 ATA_PROGRAM = 'ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL'
 SYSTEM_PROGRAM = '11111111111111111111111111111111'
+GAS_LAMPORTS = 3_000_000   # a USDC funding also drops this SOL in its wallet: with no SOL it could neither move nor withdraw its USDC
+FEE_RESERVE = 10_000       # lamports left behind for the network fee on an all-out SOL withdrawal
 
 
 def plan(usd, sol_usd, first, fee_usd=FEE_USD, min_usd=MIN_USD, token='SOL', credit=False):
@@ -48,7 +50,8 @@ def plan(usd, sol_usd, first, fee_usd=FEE_USD, min_usd=MIN_USD, token='SOL', cre
     total = int(usd / px * scale)
     fee = total if credit else int(fee_usd / px * scale + 0.999999)   # FEELESS's cut rounds up to the lamport, the cat's share is the rest
     return {'usd': round(usd, 2), 'feeUsd': round(usd, 2) if credit else fee_usd, 'solUsd': round(px, 4), 'totalLamports': total, 'feeLamports': fee, 'catLamports': total - fee,
-            'catUsd': 0.0 if credit else round(usd - fee_usd, 2), 'token': token, 'purpose': 'credit' if credit else 'wallet'}
+            'catUsd': 0.0 if credit else round(usd - fee_usd, 2), 'token': token, 'purpose': 'credit' if credit else 'wallet',
+            'gasLamports': GAS_LAMPORTS if token == 'USDC' and not credit else 0}
 
 
 def ata(owner, mint=USDC_MINT):
@@ -81,10 +84,24 @@ def build(owner, cat_wallet, fee_wallet, p, blockhash):
     legs = ([(fee, p['feeLamports'])] if fee else []) + ([(cat, p['catLamports'])] if p['catLamports'] else [])
     if p.get('token') == 'USDC':
         ixs = [i for to, n in legs for i in (_open_usdc(payer, to), _send_usdc(payer, to, n))]
+        if p.get('gasLamports'):
+            ixs.append(transfer(TransferParams(from_pubkey=payer, to_pubkey=cat, lamports=p['gasLamports'])))
     else:
         ixs = [transfer(TransferParams(from_pubkey=payer, to_pubkey=to, lamports=n)) for to, n in legs]
     msg = MessageV0.try_compile(payer, ixs, [], bh)
     return base64.b64encode(bytes(VersionedTransaction.populate(msg, [Signature.default()]))).decode()
+
+
+def build_out(agent_wallet, owner, token, units, blockhash):
+    """↩ An unsigned withdrawal: `units` of SOL / USDC from its wallet to `owner`, the agent's own wallet paying. → base64."""
+    try:
+        payer, to, bh = Pubkey.from_string(agent_wallet), Pubkey.from_string(owner), Hash.from_string(blockhash)
+    except Exception:
+        raise ValueError('A wallet address is not valid.')
+    if payer == to or int(units) <= 0:
+        raise ValueError('Nothing to withdraw.')
+    ixs = [_open_usdc(payer, to), _send_usdc(payer, to, units)] if token == 'USDC' else [transfer(TransferParams(from_pubkey=payer, to_pubkey=to, lamports=int(units)))]
+    return base64.b64encode(bytes(VersionedTransaction.populate(MessageV0.try_compile(payer, ixs, [], bh), [Signature.default()]))).decode()
 
 
 def verify(signed_b64, built_b64, owner):

@@ -52,7 +52,7 @@ def test_circle_send_endpoint_signs_only_the_assigned_wallet_and_never_twice(mon
     async def wallets():
         return [{'id': 'w-1', 'address': 'ADDR1'}]
 
-    async def circle(method, path, body=None):
+    async def circle(method, path, body=None, agent=False):
         calls['sign'] += 1
         return {'signedTransaction': 'SIGNED', 'signature': 'SIGC1'}
 

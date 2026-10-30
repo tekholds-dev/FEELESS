@@ -37,7 +37,7 @@ agent desk `CatDesk.jsx` (one 1110 px column; `ModelSwitch` with keep / 🧠 sor
 per-mind ☁ clouds `brainsCfg.minds`, `handoff` action) · funding `CatReal.jsx` (`FundCat` reads `feeless.fundIntent.<id>`; recovery box after the
 first payment) · Fee's models `FeeModels.jsx` (your model LEADS, NEXA helps). Lag fixes: `feeWall.css` contain + content-visibility.
 
-**BLOCKER W03:** no agent wallet can be made until Crossmint enables api-key signers (owner is asking support). Test the first real SOL / USDC funding small once it is on.
+**Agent wallets (2026-10-30):** separate Circle account, sidecar 5112 (`CIRCLE_TENANT=agent`), never the FEELESS account on 5111. `agentWallet.circleAcct = agent`. Withdraw pays only `agentWallet.owner`. No real funding or withdrawal has run yet: test small first. DECISIONS #2 counsel note on per-user Circle still stands: owner's call.
 
 **One Fee (2026-10-30):** every door (LIVE DESK for the creator, My agents banner, profile banner, leaderboard) opens `FeeCatsPlatform › CatDetail` → `CatDesk` + `Tools` (NEXA desk, visitors view, her book). Her engine / limits / retire stay server-only, so `CatDesk runs` hides them on Fee. **Account prompt:** `docs/CLAUDE_ACCOUNT_PROMPT.md`. Saved to `~/.claude/CLAUDE.md`.
 

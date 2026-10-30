@@ -201,9 +201,9 @@ export function CatDesk({ cat, busy = false, error = '', onBack, onAct, Activity
             <label className="kd-list"><em>ONLY THESE COINS</em><input className="m-input" value={lim.allowlist} onChange={e => setLim(x => ({ ...x, allowlist: e.target.value }))} placeholder="any coin when empty" /></label>
             <label className="kd-list"><em>NEVER THESE</em><input className="m-input" value={lim.blocklist} onChange={e => setLim(x => ({ ...x, blocklist: e.target.value }))} placeholder="none blocked" /></label>
             <button type="submit" className="m-btn m-go" disabled={busy} data-testid="kd-save">Save limits</button></form></section>
-        <section className="kd-card kd-wd"><header><b>⏏ WITHDRAW</b><small>paper ledger only</small></header>
+        {cat.agentWallet ? null : <section className="kd-card kd-wd"><header><b>⏏ WITHDRAW</b><small>paper ledger only</small></header>
           <div><NumInput className="m-input" type="number" min="0.0001" step="0.0001" value={amt} onChange={e => setAmt(e.target.value)} placeholder={v.bal.toFixed(4)} aria-label="Amount to withdraw" />
-            <button type="button" className="m-btn" disabled={busy} onClick={() => onAct('withdraw', { amount: amt || v.bal })} data-testid="kd-withdraw">Withdraw</button></div></section>
+            <button type="button" className="m-btn" disabled={busy} onClick={() => onAct('withdraw', { amount: amt || v.bal })} data-testid="kd-withdraw">Withdraw</button></div></section>}
         <section className="kd-card kd-revoke"><header><b>🔒 RETIRE IT</b><small>stops it for good · frees a slot</small></header>
           <button type="button" className="m-btn kd-danger" disabled={busy || cat.revoked} onClick={() => window.confirm(`Retire ${cat.name} for good? It never trades again.`) && onAct('revoke')} data-testid="kd-revoke">{cat.revoked ? 'Retired' : 'Retire agent'}</button>
           {cat.revoked ? <DeleteForGood cat={cat} busy={busy} onAct={onAct} /> : <small className="kd-keep">♾ yours forever until you retire + delete it</small>}</section>

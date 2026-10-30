@@ -127,7 +127,7 @@ async def _circle_post(http, cat, rec):
     """🟦 Circle signs (only the wallet assigned to this cat), our RPC sends; the reputation service keeps key → signature, so a lost
     reply asked again with the SAME key never sends a second trade."""
     w = cat.get('agentWallet') or {}
-    r = await http.post(f'{REP}/internal/agent-circle-send', headers=_internal_headers(), json={'catId': cat.get('id'), 'walletId': w.get('circleId'), 'address': w.get('address'),
+    r = await http.post(f'{REP}/internal/agent-circle-send', headers=_internal_headers(), json={'catId': cat.get('id'), 'acct': w.get('circleAcct'), 'walletId': w.get('circleId'), 'address': w.get('address'),
                         'tx': rec['tx'], 'key': rec['key']}, timeout=40)
     if r.status_code != 200:
         if 400 <= r.status_code < 500:

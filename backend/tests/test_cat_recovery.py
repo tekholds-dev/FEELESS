@@ -80,3 +80,44 @@ def test_one_mind_stops_at_its_own_limit_while_the_task_budget_remains():
     with pytest.raises(ca.Stopped):
         asyncio.run(ca._ask(task, task['windows'][0], ask, 'a', []))
     assert asyncio.run(ca._ask(task, task['windows'][1], ask, 'b', [])) == 'ok'   # the other mind keeps working
+
+
+def test_a_usdc_funding_carries_gas_and_a_withdrawal_can_only_reach_the_owner():
+    me, cat, fee = Keypair().pubkey(), Keypair().pubkey(), Keypair().pubkey()
+    p = cf.plan(10, 0, first=True, fee_usd=2, token='USDC')
+    assert p['gasLamports'] == cf.GAS_LAMPORTS and cf.plan(10, 200, first=True)['gasLamports'] == 0 and cf.plan(3, 0, first=False, token='USDC', credit=True)['gasLamports'] == 0
+    tx = VersionedTransaction.from_bytes(base64.b64decode(cf.build(str(me), str(cat), str(fee), p, HASH)))
+    assert sum(1 for i in tx.message.instructions if str(tx.message.account_keys[i.program_id_index]) == cf.SYSTEM_PROGRAM) == 1
+    out = VersionedTransaction.from_bytes(base64.b64decode(cf.build_out(str(cat), str(me), 'USDC', 5_000_000, HASH)))
+    keys = [str(k) for k in out.message.account_keys]
+    assert keys[0] == str(cat) and str(cf.ata(me)) in keys and str(fee) not in keys
+    with pytest.raises(ValueError):
+        cf.build_out(str(cat), str(cat), 'SOL', 1, HASH)
+
+
+def test_withdraw_pays_only_the_owner_never_a_client_address_and_refuses_too_much(monkeypatch):
+    import asyncio
+    import reputation_service as rs
+    from fastapi import HTTPException
+    agent, owner = str(Keypair().pubkey()), str(Keypair().pubkey())
+    assert not ({'to', 'destination', 'dest'} & set(rs.CatWithdrawIn.model_fields))
+    signed = {}
+    async def cat_for(_c, _me):
+        return {}, {'address': agent, 'owner': owner, 'provider': 'circle', 'circleAcct': 'agent', 'circleId': 'w1'}
+    async def rpc(_h, method, _params):
+        return {'getBalance': {'value': 1_000_000_000}, 'getLatestBlockhash': {'value': {'blockhash': HASH}}}.get(method, 'sig')
+    async def circle(_m, path, body=None, agent=False):
+        signed.update(path=path, tx=body['rawTransaction'], agent=agent)
+        return {'signedTransaction': 'x', 'signature': 'S1'}
+    class Post:
+        async def post(self, *_a, **_k):
+            return None
+    monkeypatch.setattr(rs, 'session_address', lambda _s: owner); monkeypatch.setattr(rs, '_cat_for_fund', cat_for)
+    monkeypatch.setattr(rs, '_rpc', rpc); monkeypatch.setattr(rs, '_circle', circle); monkeypatch.setattr(rs, '_ai_http', Post)
+    p = rs.CatWithdrawIn(address=owner, session='session-x', token='SOL', amount=0.5)
+    assert asyncio.run(rs.cat_withdraw('c1', p))['to'] == owner
+    keys = [str(k) for k in VersionedTransaction.from_bytes(base64.b64decode(signed['tx'])).message.account_keys]
+    assert signed['agent'] is True and keys[:2] == [agent, owner]
+    with pytest.raises(HTTPException):
+        asyncio.run(rs.cat_withdraw('c1', rs.CatWithdrawIn(address=owner, session='session-x', token='SOL', amount=5)))
+    assert 'c1' not in rs._cat_out_busy   # a refusal never leaves it locked

@@ -6372,3 +6372,5 @@ Frontend: 345 suites / 1,637 tests passed; final targeted checks: 243 passed. Ba
 2026-10-30 · One Fee + lag: every Fee door opens the leaderboard desk with all tools (NEXA, book, owner bar), dead Fee buttons hidden; PriceChart updates candles in place (was rebuilt every 15 s poll, sitewide); desk video drops 41% → 8%; `docs/CLAUDE_ACCOUNT_PROMPT.md` added.
 
 2026-10-30 · Agent go-live: robust two-mind briefs + `split_jobs` fix; SOL/USDC funding and paid model credit; real recovery PIN; per-task/per-mind/steps/day limits, a number box on every slider; thoughts drawer reads LEARN events; FeeCat tabs 57-60 fps.
+
+2026-10-30 · Agent wallets on a separate Circle account (sidecar 5112), real owner-only SOL/USDC withdrawals, USDC funding carries 0.003 SOL gas.

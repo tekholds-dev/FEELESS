@@ -60,6 +60,7 @@ def test_create_posts_one_idempotent_smart_wallet_and_balances_read_sol_usdc():
 
 
 def test_the_cat_service_makes_one_wallet_for_its_signed_owner_and_the_switch_follows_the_cat_kind(monkeypatch):
+    monkeypatch.setenv('CIRCLE_AGENT_API_KEY', '')   # this test is the Crossmint path
     fs = pytest.importorskip('feecat_service')
     from fastapi.testclient import TestClient
     store = {'cats': {'g1': {'id': 'g1', 'name': 'Gen', 'ownerId': 'b1', 'positions': [], 'risk': {}, 'status': 'stopped', 'revoked': False, 'balanceSol': 1.0, 'brainsCfg': {'kind': 'general'}},

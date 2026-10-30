@@ -2287,12 +2287,23 @@ async def cat_action(cat_id: str, payload: ActionPayload, request: Request):
             if mine_ >= _AGENT_MAX:
                 raise HTTPException(400, f'Up to {_AGENT_MAX} cats with their own wallet per owner — you have {mine_}.')
             try:
-                async with httpx.AsyncClient(timeout=20) as http_w:
-                    rep_ = await _aw.create(http_w, os.environ.get('CROSSMINT_API_KEY', '').strip(), 'cat', cat_id)
-                cat['agentWallet'] = _aw.record('cat', cat_id, rep_, signed, time.time(), (cat.get('brainsCfg') or {}).get('kind'))
+                async with httpx.AsyncClient(timeout=40) as http_w:
+                    if os.environ.get('CIRCLE_AGENT_API_KEY', '').strip():   # 🟦 the separate Circle account for family + agent wallets (never the FEELESS creator account)
+                        rc_ = await http_w.post('http://127.0.0.1:5077/api/reputation/internal/agent-circle-wallet', headers=_internal_headers(), json={'catId': cat_id})
+                        if rc_.status_code != 200:
+                            raise ValueError(f"Circle did not make the wallet: {str((rc_.json() if rc_.content else {}).get('detail') or rc_.status_code)[:140]}")
+                        w_ = rc_.json().get('wallet') or {}
+                        cat['agentWallet'] = {**_aw.record('cat', cat_id, {'address': w_.get('address'), 'locator': f"circle:{w_.get('id')}"}, signed, time.time(), (cat.get('brainsCfg') or {}).get('kind')),
+                                              'provider': 'circle', 'circleAcct': 'agent', 'circleId': w_.get('id')}
+                    else:
+                        rep_ = await _aw.create(http_w, os.environ.get('CROSSMINT_API_KEY', '').strip(), 'cat', cat_id)
+                        cat['agentWallet'] = _aw.record('cat', cat_id, rep_, signed, time.time(), (cat.get('brainsCfg') or {}).get('kind'))
             except ValueError as e:
                 raise HTTPException(400, str(e))
             _log_event(store, cat, 'STARTED', f"{cat['name']} has its own wallet now: {cat['agentWallet']['address'][:6]}… — fund it to put it to work.")
+    elif payload.action == 'agent_withdrew':   # ↩ reputation's /cats/{id}/withdraw (internal key only): the money went back to the owner's wallet
+        a_ = payload.amount if isinstance(payload.amount, dict) else {}
+        _log_event(store, cat, 'WITHDRAW', f"{a_.get('amount')} {a_.get('token')} sent back to its owner's wallet ({str(payload.sig)[:10]}…).")
     elif payload.action == 'agent_funded':   # 💵 reputation's /cats/{id}/fund/send (internal key only — the branch above): a verified, sent funding
         a_ = payload.amount if isinstance(payload.amount, dict) else {}
         if not payload.sig or any(str(x.get('sig')) == payload.sig for x in (cat.get('agentFunded') or []) + (cat.get('creditPaid') or [])):
