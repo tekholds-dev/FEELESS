@@ -121,15 +121,18 @@ body.theme-day .akv-h b, body.theme-day .akd-have code { color: #0c6a44; } body.
 .agl-mind b { margin-top: 8px; color: #fff; font: 700 12px var(--f-ui, sans-serif); max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .agl-mind small { color: #c9bce6; font: 700 9px var(--f-mono, monospace); letter-spacing: .1em; text-transform: uppercase; }
 .agl-mind.is-empty { opacity: .5; }
-.agl-plot { position: relative; height: 176px; overflow: hidden; } .agl-plot > * { height: 100%; }   /* owner 2026-10-30: smaller windows */
-.agl-ghost { position: relative; display: grid; height: 176px; background: repeating-linear-gradient(0deg, transparent 0 29px, #ffffff08 29px 30px); }
+.agl { --agl-h: 250px; }   /* owner 2026-10-30: compact windows — but the whole chart fits (price axis, last candle, time axis), never clipped */
+.agl-plot { position: relative; height: var(--agl-h); overflow: hidden; }
+.agl-plot .chart-foot-chips { right: 64px; flex-wrap: wrap; justify-content: flex-start; row-gap: 4px; }   /* chips wrap inside a compact window, never cut off */
+.agl-plot > .chart-area { min-height: 0 !important; height: var(--agl-h) !important; overflow: hidden; } .agl-plot .candle-canvas { height: calc(var(--agl-h) - 24px) !important; flex: none; }
+.agl-ghost { position: relative; display: grid; height: var(--agl-h); background: repeating-linear-gradient(0deg, transparent 0 29px, #ffffff08 29px 30px); }
 .agl-ghost span { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); padding: 4px 10px; border-radius: 999px; background: #07040ee0; border: 1px solid #9dffcf44;
   color: #9dffcf; font: 800 9.5px var(--f-mono, monospace); letter-spacing: .12em; white-space: nowrap; }
 .agl.agd .agd-wins { padding-bottom: 0; }
 .agl .agd-feed { position: relative; left: auto; bottom: auto; width: 100%; transform: none; }   /* the windows keep their own space — its calls sit under them */
 .agl-load { display: grid; place-items: center; height: 100%; color: #9d8fbf; font: 700 10px var(--f-mono, monospace); letter-spacing: .12em; text-transform: uppercase; }
 body.theme-day .agl-mind b { color: #2a1650; } body.theme-day .agl-mind small { color: #4a3a6a; }
-@media (max-width: 640px) { .agl-plot, .agl-ghost { height: 150px; } }
+@media (max-width: 640px) { .agl { --agl-h: 214px; } .agl-plot :is(.chart-foot-chips, .chart-style-toggle, .ccp-lens) { display: none; } }   /* phone windows: the candles, not chips on top of them */
 
 /* ☁ the head cloud between the two minds — fills and glows once both agree; a beam from each bubble feeds it */
 .agl-minds.has-cloud { align-items: center; gap: clamp(14px, 4vw, 48px); }
