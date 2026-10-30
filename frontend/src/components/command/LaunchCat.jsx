@@ -19,10 +19,10 @@ const GEN_STEPS = ['🧠 Its minds', '🧭 How they work', '🐱 Identity + stan
 // 📈 TRADING hunts coins on its own · 🧭 GENERAL does what you order (owner, 2026-10-23) — both end on the wallet switch (link → budget → REAL)
 export const KIND = { trading: { eyebrow: '📈 TRADING AI CAT', cat: 'trading', brief: '📜 THE BRIEF', hint: 'e.g. Only buy coins sitting on their germ floor with higher lows. Bank half at +30%. Never chase a green candle.',
   pitch: 'Pick 1–2 trading models. They decide once before a buy and up to 3 times while a coin is live — only on a ±10% move.',
-  next: ['🚀 launch', '👛 its own wallet', '✍ you sign ONE funding', '🤖 it trades inside the caps'] },
+  next: ['🚀 launch', '👛 its own wallet', '💵 fund it once', '🤖 it trades inside your limits'] },
   general: { eyebrow: '🧭 GENERAL AI CAT', cat: '', brief: '📜 STANDING ORDERS', hint: 'e.g. You are my content scout: every morning find 3 trending crypto topics with sources and draft posts in my voice — never post or sign up without asking me. Coin orders: never more than 0.1 SOL a coin.',
   pitch: 'Pick 1–2 all-round models — its two minds. Ask in plain words: it answers from memory, or each mind researches half in its own cloud browser while you watch, then they merge. Coin orders go from its own wallet — you OK each one until you switch it to auto.',
-  next: ['🚀 launch', '👛 its own wallet', '✍ you sign ONE funding', '✅ you OK each move · or 🤖 auto'] } };
+  next: ['🚀 launch', '👛 its own wallet', '💵 fund it once', '✅ it checks with you · or 🤖 auto'] } };
 // 📈 a trading cat's two brains: our pick is DISCUSS — A reads, B sees A and makes the call (two looks before money moves, one short extra call)
 export const BEST_MODE = 'discuss';
 // 🧭 a GENERAL cat's two ways (owner 2026-10-30: "only 2 options" — cat_agent.MODES, change both): plan together → split → ONE answer, or each mind its own job
@@ -192,7 +192,7 @@ export function LaunchCat({ api, ownerId, onCreated, onCancel, Fields, Preview, 
     try {
       const handle = form.handle || form.name.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').slice(0, 20) || 'cat';
       const r = await api('/api/cats', { method: 'POST', body: JSON.stringify({ strategy: 'momentum', ...form, ownerId: ownerId(), name: form.name.trim(), handle, avatar: avatarOf(form.avatar),
-        brains: picked.map(m => m.id), brainMode: gen ? 'turns' : mode, billing, prompt, efforts: Object.fromEntries(picked.filter(m => efforts[m.id]).map(m => [m.id, efforts[m.id]])), brainKind: kind, session: readChatSession() || '', job: gen ? (persona || 'agent') : 'trading', ...(gen ? { workMode } : { venues }) }) });
+        brains: picked.map(m => m.id), brainMode: gen ? 'turns' : mode, billing, prompt, efforts: Object.fromEntries(picked.filter(m => efforts[m.id]).map(m => [m.id, efforts[m.id]])), brainKind: kind, session: readChatSession() || '', job: gen ? (((d?.personas?.general || []).find(x => x.key === persona) || {}).job || 'agent') : 'trading', ...(gen ? { workMode } : { venues }) }) });
       for (const [provider, secret] of Object.entries(keys).filter(([, v]) => v)) await api(`/api/cats/${r.cat.id}/action`, { method: 'POST', body: JSON.stringify({ action: 'api_key', provider, secret }) }).catch(e => setErr(`Key not saved: ${e.message}`));
       const started = await api(`/api/cats/${r.cat.id}/action`, { method: 'POST', body: JSON.stringify({ action: 'start' }) }).catch(() => r);   // same as Create a Cat: it starts trading at once
       onCreated?.(started.cat || r.cat);
@@ -280,6 +280,28 @@ export function OrderBox({ cat, act }) {
   </div>;
 }
 
+// 📜 a GENERAL agent's one brief for both minds (owner 2026-10-30): you rewrite it once an hour (or pick one of the presets), and its minds can propose
+// a better one for both of them — at most once an hour — that only goes live when you approve it. A trader's brief stays sealed from purchase.
+export function BriefCard({ cat, act, api }) {
+  const b = cat.brainsCfg || {}; const [t, setT] = useState(''); const [presets, setPresets] = useState([]); const [busy, setBusy] = useState(false);
+  useEffect(() => { let on = true; api('/api/cats/models').then(d => on && setPresets(d?.personas?.general || [])).catch(() => {}); return () => { on = false; }; }, [api]);
+  const now = Date.now() / 1000; const editIn = Math.max(0, 3600 - (now - Number(b.briefAt || 0))); const askIn = Math.max(0, 3600 - (now - Number(b.briefAskAt || 0)));
+  const run = async (action, extra = {}) => { setBusy(true); const ok = await act(action, extra); setBusy(false); return ok; };
+  const pr = b.briefProposal;
+  return <section className="lct-briefcard" data-testid="brief-card">
+    <header><b>📜 ITS BRIEF · BOTH MINDS</b><small>{editIn ? `you can change it in ${Math.ceil(editIn / 60)} min` : 'you can change it now'}</small></header>
+    <p className="lct-briefnow">{b.prompt || 'No brief yet — write one or pick a preset.'}</p>
+    {pr ? <div className="lct-proposal" data-testid="brief-proposal"><em>🧠🧠 THEIR PROPOSAL</em><p>{pr.text}</p>{pr.why ? <small>why: {pr.why}</small> : null}
+      <span><button type="button" className="m-btn m-go" disabled={busy} onClick={() => run('brief_approve')} data-testid="brief-approve">✓ Use it</button>
+        <button type="button" className="m-btn" disabled={busy} onClick={() => run('brief_dismiss')}>Keep mine</button></span></div> : null}
+    <select className="m-input" value="" onChange={e => { const p = presets.find(x => x.key === e.target.value); if (p) setT(p.brief); }} aria-label="Fill from a preset" data-testid="brief-preset">
+      <option value="">✨ Fill from a preset ({presets.length})…</option>{presets.map(p => <option key={p.key} value={p.key}>{p.label}</option>)}</select>
+    <textarea className="m-input" rows={3} maxLength={1200} value={t} onChange={e => setT(e.target.value)} placeholder="Write a new brief for both minds" data-testid="brief-text" />
+    <span className="lct-briefacts"><button type="button" className="m-btn m-go" disabled={busy || editIn > 0 || t.trim().length < 20} onClick={async () => { if (await run('brief', { text: t })) setT(''); }} data-testid="brief-save">Save brief</button>
+      <button type="button" className="m-btn" disabled={busy || askIn > 0 || !!pr} onClick={() => run('brief_propose')} data-testid="brief-ask" data-tip="One short model call — they propose ONE better brief for both of them; nothing changes until you approve">{askIn ? `🧠 ask again in ${Math.ceil(askIn / 60)} min` : '🧠 Let them propose a better one'}</button></span>
+  </section>;
+}
+
 // 🧠 a launched cat's brains: credit tank, decisions, the brief, battle records, chime in, pull / top up — re-read every 10s
 export function BrainPanel({ cat, api, onChanged, noTalk = false }) {   // noTalk: the desk's cockpit carries its calls + your chime-ins
   const b = cat.brainsCfg; const [text, setText] = useState(''); const [err, setErr] = useState(''); const [keys, setKeys] = useState({}); const [busy, setBusy] = useState(false);
@@ -299,7 +321,7 @@ export function BrainPanel({ cat, api, onChanged, noTalk = false }) {   // noTal
     {b.prompt ? <details className="lct-fold"><summary>📜 Its one-time brief (locked)</summary><p>{b.prompt}</p></details> : null}
     {noTalk ? null : <ul className="lct-dec">{(b.decisions || []).slice(-8).reverse().map((x, i) => <li key={`${x.at}-${i}`} style={{ '--i': i }} className={WORD[x.word] || ''}><b>{x.word}</b><span>${x.sym} · {x.by}</span><small>{x.why}</small></li>)}
       {!(b.decisions || []).length ? <li className="lct-load">No decision yet — the first comes before its first buy.</li> : null}</ul>}
-    {b.kind === 'general' ? <OrderBox cat={cat} act={act} /> : <><VenuePick value={cat.venues || ['trench']} onChange={v => act('venues', { venues: v })} />
+    {b.kind === 'general' ? <><BriefCard cat={cat} act={act} api={api} /><OrderBox cat={cat} act={act} /></> : <><VenuePick value={cat.venues || ['trench']} onChange={v => act('venues', { venues: v })} />
       <ApiDrawer rows={cat.apiDrawer} draft={keys} onDraft={(k, v) => setKeys(x => ({ ...x, [k]: v.trim() }))} busy={busy}
         onSave={async (k, v) => { setBusy(true); if (await act('api_key', { provider: k, secret: v })) setKeys(x => ({ ...x, [k]: '' })); setBusy(false); }}
         onDrop={async k => { setBusy(true); await act('api_key', { provider: k }); setBusy(false); }} /></>}

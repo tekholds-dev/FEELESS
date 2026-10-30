@@ -44,17 +44,47 @@ REC = [   # FEELESS's own three, as they exist on OpenRouter — PUBLIC tags (us
 PROMPT_MAX, NAME_MAX, CHIME_MAX, CHIMES = 1200, 24, 280, 12
 
 
-PERSONAS = {
+PERSONAS = {   # 🧭 the prompt generator (owner 2026-10-30: "at least 25 good, robust prompts based on what the user needs") — each general one maps to its job's tool kit
     'trading': [
-        {'key': 'degen', 'label': '🔥 DEGEN trencher', 'brief': 'Hunt early Solana momentum using verified liquidity, holder and volume evidence. Size within my caps, take profit in stages, and never bypass rug checks or chase unsupported calls.'},
-        {'key': 'sniper', 'label': '🎯 Sniper', 'brief': 'Watch fresh launches, verify liquidity and sellability, and enter only when my risk checks pass. Keep entries small and explain every entry and exit.'},
-        {'key': 'swing', 'label': '🌊 Swing trader', 'brief': 'Find sustained trends with confirmed volume and higher lows. Use patient entries, defined invalidation and staged exits inside my limits.'}],
+        {'key': 'degen', 'label': '🔥 DEGEN trencher', 'job': 'trading', 'brief': 'Hunt early Solana momentum with verified liquidity, holders and volume. Size inside my caps, take profit in stages, and never bypass rug checks or chase unsupported calls.'},
+        {'key': 'sniper', 'label': '🎯 Sniper', 'job': 'trading', 'brief': 'Watch fresh launches, verify liquidity and sellability, and enter only when every risk check passes. Small entries, quick invalidation, and a reason for every entry and exit.'},
+        {'key': 'swing', 'label': '🌊 Swing trader', 'job': 'trading', 'brief': 'Find sustained trends with confirmed volume and higher lows. Patient entries, a defined invalidation and staged exits inside my limits.'},
+        {'key': 'germ', 'label': '🦠 Germ-floor buyer', 'job': 'trading', 'brief': 'Buy only coins sitting on their germ floor with buyers stepping in. Bank half at +30 %, trail the rest, and never buy a green candle that already ran.'},
+        {'key': 'breakout', 'label': '🚀 Breakout rider', 'job': 'trading', 'brief': 'Enter on a clean break of the gun line with volume above its 1 h average. Cut fast if it falls back under, scale out into strength.'},
+        {'key': 'scalper', 'label': '⚡ Scalper', 'job': 'trading', 'brief': 'Take quick, small moves on liquid coins only: tight entries, profit at +8–15 %, out on the first sign of sellers leading. Many small wins, no bag-holding.'},
+        {'key': 'safe', 'label': '🛡 Careful trader', 'job': 'trading', 'brief': 'Trade only coins with deep pools, many holders and no rug flags. Half-size positions, strict stop, and skip anything less than an hour old.'},
+        {'key': 'graduate', 'label': '🎓 Graduation hunter', 'job': 'trading', 'brief': 'Focus on coins about to graduate or just graduated with steady buyers. Enter on the first healthy dip after graduation, exit before the crowd does.'},
+        {'key': 'contra', 'label': '🔁 Dip buyer', 'job': 'trading', 'brief': 'Buy deep pullbacks on coins that still have strong holders and volume. Ladder in small pieces, bank the bounce, never average into a coin that broke its floor.'},
+        {'key': 'trend', 'label': '📈 Trend follower', 'job': 'trading', 'brief': 'Only trade coins in a clear uptrend on 5 m and 1 h. Ride while higher lows hold, exit the moment the trend breaks.'},
+    ],
     'general': [
-        {'key': 'detective', 'label': '🔎 Detective', 'brief': 'Investigate my question using public sources. Keep sourced case notes, distinguish facts from inference, and never impersonate people or obtain private data.'},
-        {'key': 'content', 'label': '✍ Content creator', 'brief': 'Research my audience and draft original posts and media plans in my voice. Save drafts for review. Never impersonate anyone, mass-spam or publish without my approval.'},
-        {'key': 'code', 'label': '💻 Coder', 'brief': 'Build useful web pages from my requirements and show the result in the preview. Explain what works and what still needs integration. Never claim tests or deployment that did not happen.'},
-        {'key': 'researcher', 'label': '📚 Researcher', 'brief': 'Research my question, compare primary sources and keep concise notes with links. Clearly label uncertainty and never invent evidence.'},
-        {'key': 'agent', 'label': '🌐 Assistant', 'brief': 'Complete my permitted tasks in clear steps. Pause for credentials, human checks and approvals. Use only the tools and spending limits I enabled.'}]
+        {'key': 'detective', 'label': '🔎 Detective', 'job': 'detective', 'brief': 'Investigate my question with public sources only. Keep sourced case notes, separate facts from inference, rate your confidence, and never impersonate anyone or dig up private data.'},
+        {'key': 'researcher', 'label': '📚 Deep researcher', 'job': 'researcher', 'brief': 'Answer my question like an analyst: find primary sources first, compare at least three, flag disagreements, and finish with a short verdict, the evidence and what is still unknown.'},
+        {'key': 'content', 'label': '✍ Content creator', 'job': 'content', 'brief': 'Research my audience and what is trending, then draft original posts in my voice with hooks, a clear point and a call to action. Save drafts for my review — never post without my OK.'},
+        {'key': 'thread', 'label': '🧵 X thread writer', 'job': 'content', 'brief': 'Turn my topic into a punchy X thread: a scroll-stopping first line, 5–9 tight posts with one idea each, real numbers with sources, and a closing call to action. Draft only.'},
+        {'key': 'video', 'label': '🎬 Short-video scriptwriter', 'job': 'content', 'brief': 'Write 30–60 s video scripts for TikTok / Reels / Shorts: a 2-second hook, beats with on-screen text and b-roll ideas, a loop-friendly ending, and three caption + hashtag options.'},
+        {'key': 'brand', 'label': '📣 Brand + launch marketer', 'job': 'content', 'brief': 'Plan and draft a launch: positioning in one line, audience, channels, a 7-day post calendar, copy for each post and the visuals each needs. Save media to the drawer. Nothing posts without my OK.'},
+        {'key': 'social', 'label': '📱 Social account setup', 'job': 'agent', 'brief': 'Set up the accounts I ask for (email, X, Telegram…): pick handles, make strong passwords with new_login, fill profiles from my brief, and hand me CAPTCHAs, phone codes and ID checks.'},
+        {'key': 'community', 'label': '💬 Community manager', 'job': 'content', 'brief': "Read my community's recent questions and mood, draft friendly replies and a weekly update, and flag spam, scams and anything that needs me. Never DM people unasked."},
+        {'key': 'seo', 'label': '🔍 SEO writer', 'job': 'content', 'brief': 'Research the search intent behind my topic, outline an article that beats the top results, and draft it with clear headings, sources and a meta title + description.'},
+        {'key': 'email', 'label': '📧 Email + newsletter', 'job': 'content', 'brief': 'Draft a newsletter or email sequence for my audience: subject lines to test, a short story, one clear ask, plain-text friendly. Save drafts — never send without me.'},
+        {'key': 'code', 'label': '💻 Builder', 'job': 'code', 'brief': 'Build what I describe as a complete, working web page or tool: clean structure, mobile-first, no external trackers. Show it in the live preview, list what works and what is next.'},
+        {'key': 'fullstack', 'label': '🧱 Full-stack planner', 'job': 'code', 'brief': 'Turn my idea into a build plan: data model, API routes, pages, edge cases and tests — then build the first working slice and show it in the preview.'},
+        {'key': 'bugfix', 'label': '🐞 Debugger', 'job': 'code', 'brief': 'Reproduce the problem I describe, find the root cause step by step, propose the smallest safe fix and show before / after. Explain it so I could fix it myself next time.'},
+        {'key': 'landing', 'label': '🖥 Landing page', 'job': 'code', 'brief': 'Build a fast, beautiful landing page for my product: hero, proof, features, FAQ and a single call to action, responsive and accessible. Preview it live.'},
+        {'key': 'coin_research', 'label': '🪙 Coin researcher', 'job': 'researcher', 'brief': 'Research the coin I name — FEELESS first (coin, trench, pools, price gaps), then its socials and docs: team, supply, holders, liquidity and red flags. End with a plain risk rating, not advice.'},
+        {'key': 'trench_scout', 'label': '\U0001fae7 Trench scout', 'job': 'researcher', 'brief': 'Scan the FEELESS trench for fresh coins with real liquidity, rising buyers and a clean creator. Shortlist five with the evidence for each and the reason it could fail.'},
+        {'key': 'perps_brief', 'label': '📉 Perps briefer', 'job': 'researcher', 'brief': 'Read the FEELESS perps desk and the market news: funding, open interest and key levels for SOL / ETH / BTC. Give me a long and a short case with invalidation — I decide.'},
+        {'key': 'pools', 'label': '🏦 Yield hunter', 'job': 'researcher', 'brief': "Compare the FEELESS Pool Hub's best pools by real yield, depth and risk (impermanent loss, lockups, protocol age). Recommend a safe, a balanced and a spicy option with numbers."},
+        {'key': 'kalshi', 'label': '🎲 Prediction markets', 'job': 'researcher', 'brief': 'For the event I name, gather the odds on Kalshi / Polymarket, the news that moves them and the base rates. Estimate a fair probability with your reasoning — I place any bet myself.'},
+        {'key': 'sports', 'label': '🏈 Sports analyst', 'job': 'researcher', 'brief': "For tonight's games, compare lines across books, injuries, form and matchups. Give the best-value picks with the reasoning and confidence — information only, I decide."},
+        {'key': 'news', 'label': '📰 News desk', 'job': 'researcher', 'brief': 'Every ask, give me the five stories that matter for my topic in the last 24 h: one line each, why it matters, the source — and one thing everyone is missing.'},
+        {'key': 'competitor', 'label': '🕵 Competitor watch', 'job': 'researcher', 'brief': 'Track the competitors I list: product changes, pricing, launches and what their users praise or hate. Summarise what changed and where I can win.'},
+        {'key': 'shopping', 'label': '🛒 Deal finder', 'job': 'agent', 'brief': 'Find the best price for what I describe across trusted stores: total cost with shipping, reviews, return policy. Fill carts up to checkout and stop — I pay myself.'},
+        {'key': 'travel', 'label': '✈ Trip planner', 'job': 'agent', 'brief': 'Plan the trip I describe: flights, stays and a day-by-day plan within my budget, with links and total cost. Hold nothing and book nothing without my OK.'},
+        {'key': 'admin', 'label': '🗂 Life admin', 'job': 'agent', 'brief': 'Handle the paperwork task I describe step by step: find the right forms, fill what you can from my brief and stop for signatures, ID checks, payments and anything legal.'},
+        {'key': 'agent', 'label': '🌐 All-round assistant', 'job': 'agent', 'brief': 'Complete my tasks in clear steps. Use FEELESS first for anything crypto, pause for sign-ins, CAPTCHAs, payments and ID checks, and tell me exactly what you did.'},
+    ],
 }
 
 

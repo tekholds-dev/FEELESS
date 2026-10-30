@@ -254,3 +254,11 @@ body.theme-day .lct-way.is-on { background: #f0fff7; } body.theme-day .lct-foot 
 @media (max-width: 640px) { .lct-foot { margin: 0 -12px -12px; padding: 10px 12px; } .lct-ways { grid-template-columns: 1fr; } }
 /* the header socket's picked minds are the live soap bubbles — the old solid lilac / pink ball never paints under them */
 .lct-node.on.has-bub, .lct-node.n1.on.has-bub { background: none !important; box-shadow: none !important; animation: none !important; }
+/* 📜 a general agent's brief card — current brief, their proposal (approve / keep mine), presets, hourly edit */
+.lct-briefcard { display: grid; gap: 8px; padding: 12px; border-radius: 16px; border: 1px solid color-mix(in srgb, var(--kd-acc, #b388ff) 34%, #ffffff14); background: #0b0716cc; }
+.lct-briefcard header { display: flex; justify-content: space-between; gap: 8px; align-items: baseline; } .lct-briefcard header b { color: #fff; font: 800 10.5px var(--f-mono); letter-spacing: .12em; }
+.lct-briefcard header small { color: #a99bc8; font-size: 10.5px; } .lct-briefnow { margin: 0; color: #ece4ff; font: 500 12.5px/1.5 var(--f-ui); }
+.lct-proposal { display: grid; gap: 6px; padding: 10px; border-radius: 12px; border: 1px dashed #9dffcf88; background: #9dffcf0d; animation: lctPop .3s both; }
+.lct-proposal em { color: #9dffcf; font: 800 9.5px var(--f-mono); letter-spacing: .12em; font-style: normal; } .lct-proposal p { margin: 0; color: #fff; font: 500 12.5px/1.5 var(--f-ui); }
+.lct-proposal small { color: #a99bc8; } .lct-proposal span, .lct-briefacts { display: flex; flex-wrap: wrap; gap: 6px; } .lct-briefcard .m-btn { min-height: 36px; }
+body.theme-day .lct-briefcard { background: #fff; } body.theme-day .lct-briefnow, body.theme-day .lct-proposal p { color: #2a1650; }

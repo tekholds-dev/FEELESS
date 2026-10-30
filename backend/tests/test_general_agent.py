@@ -183,3 +183,72 @@ def test_an_agents_desk_look_is_saved_on_the_agent_by_its_owner(monkeypatch):
         act(action='skin', ownerId='o', look={'bg': 'lava', 'acc': '#000000'})
     with pytest.raises(HTTPException):
         act(action='skin', ownerId='someone-else', look={'bg': 'globe', 'acc': '#b388ff'})
+
+
+def test_general_brief_hourly_edits_and_proposals_need_approval_trader_stays_sealed(monkeypatch):
+    import time
+    import feecat_service as svc
+    from fastapi import HTTPException
+    from types import SimpleNamespace
+    gen = {'id': 'g1', 'ownerId': 'o', 'name': 'Scout', 'status': 'running', 'positions': [], 'chat': [{'text': 'best bet tonight?'}],
+           'brainsCfg': {'brains': ['a/x'], 'kind': 'general', 'prompt': 'old brief', 'credit': 5, 'spent': 0, 'billing': 'payg'}}
+    tr = {'id': 't1', 'ownerId': 'o', 'name': 'Degen', 'status': 'running', 'positions': [], 'brainsCfg': {'brains': ['a/x'], 'kind': 'trading', 'prompt': 'sealed'}}
+    store = {'cats': {'g1': gen, 't1': tr}, 'events': []}
+    monkeypatch.setattr(svc, '_load', lambda: store)
+    monkeypatch.setattr(svc, '_save', lambda s: None)
+
+    async def fake_or(model, messages, **k):
+        return json.dumps({'brief': 'Research FEELESS first, cite sources, and ask before spending anything.', 'why': 'clearer for both'}), 0.001
+    monkeypatch.setattr(svc, '_or_call', fake_or)
+    act = lambda cid, **k: asyncio.run(svc.cat_action(cid, svc.ActionPayload(ownerId='o', **k), SimpleNamespace(headers={})))
+    with pytest.raises(HTTPException):
+        act('t1', action='brief', text='a brand new trading brief for it')
+    act('g1', action='brief', text='Find the three best sports bets with sources every evening.')
+    assert gen['brainsCfg']['prompt'].startswith('Find the three')
+    with pytest.raises(HTTPException) as e:
+        act('g1', action='brief', text='another brief within the same hour please')
+    assert 'once an hour' in e.value.detail
+    act('g1', action='brief_propose')
+    assert gen['brainsCfg']['briefProposal']['text'].startswith('Research FEELESS first') and gen['brainsCfg']['prompt'].startswith('Find the three')   # not live yet
+    with pytest.raises(HTTPException):
+        act('g1', action='brief_propose')                                              # once an hour
+    act('g1', action='brief_approve')
+    assert gen['brainsCfg']['prompt'].startswith('Research FEELESS first') and gen['brainsCfg']['briefProposal'] is None
+
+
+def test_user_login_popout_types_their_credentials_blind():
+    typed = {}
+
+    class LoginPage(Page):
+        async def type(self, label, value):
+            typed[label] = value
+            return 'typed'
+    script = [{'action': 'ask_login', 'url': 'https://x.com/login'}, {'action': 'type', 'label': 'username', 'value': '{{username}}'},
+              {'action': 'type', 'label': 'password', 'value': '{{password}}'}, {'action': 'answer', 'say': 'logged in'}]
+    seen = []
+
+    async def ask(model, messages):
+        seen.append(messages[-1]['content'])
+        return json.dumps(script.pop(0)), 0
+    task = ca.new_task('t4', 'post my draft on X', ['m/a'], 1.0, mode='jobs')
+
+    async def wait_human(i):   # the owner types their login in the window's private form
+        w = task['windows'][i]
+        assert w['human']['kind'] == 'login' and w['human']['site'] == 'x.com'
+        w['pw'] = {'site': 'x.com', 'user': 'me@mail.com', 'pw': 'S3cret!pass'}
+        return True
+    out = asyncio.run(ca.run(task, ask, [LoginPage()], wait_human, ('A',)))
+    assert typed == {'username': 'me@mail.com', 'password': 'S3cret!pass'} and not any('S3cret' in m or 'me@mail.com' in m for m in seen)
+    assert 'pw' not in out['windows'][0]
+
+
+def test_the_owner_id_never_leaves_the_server_and_only_mine_is_answered(monkeypatch):
+    import feecat_service as svc
+    cat = {'id': 'z1', 'ownerId': 'browser-secret-123', 'name': 'Scout', 'status': 'running', 'positions': [], 'createdAt': 1, 'brainsCfg': {'brains': ['a/x'], 'kind': 'general'}}
+    store = {'cats': {'z1': cat}, 'events': []}
+    monkeypatch.setattr(svc, '_load', lambda: store)
+    pub = asyncio.run(svc.get_cat('z1'))
+    assert 'browser-secret-123' not in json.dumps(pub) and pub['cat']['mine'] is False
+    assert asyncio.run(svc.get_cat('z1', ownerId='browser-secret-123'))['cat']['mine'] is True
+    assert asyncio.run(svc.get_cat('z1', ownerId='guess'))['cat']['mine'] is False
+    assert 'browser-secret-123' not in json.dumps(asyncio.run(svc.list_cats(ownerId='browser-secret-123')))

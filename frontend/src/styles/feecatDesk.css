@@ -70,16 +70,6 @@ body.theme-day .fch-bars li b, body.theme-day .fch-skip span, body.theme-day .fc
 body.theme-day .fch-group, body.theme-day .fch-dialchips span { background: rgba(236, 246, 240, .8); }
 
 /* 🐱 FEE, LIVE — two charts, her read, live tape, what she learned from OSSY · G4 */
-.fcl-chart :is(.chart-foot-chips, .chart-style-toggle, .chart-source, .chart-stale-note) { display: none !important; }   /* the pin lens sits there (HQ twin charts) */
-.fcl-two { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
-.fcl-pane { display: grid; gap: 6px; padding: 8px; border-radius: 12px; border: 1px solid rgba(69, 228, 134, .18); background: rgba(4, 12, 8, .6); min-width: 0; }
-.fcl-pane.is-open { border-color: rgba(69, 228, 134, .45); }
-.fcl-pane header { display: flex; justify-content: space-between; align-items: center; gap: 8px; } .fcl-pane header .m-input { max-width: 60%; font-size: 11px; padding: 3px 6px; }
-.fcl-pane header b { font: 700 10px var(--m-mono, monospace); letter-spacing: .1em; }
-.fcl-chart { height: clamp(340px, 50vh, 520px); min-width: 0; } .fcl-chart .chart-area, .fcl-chart .candle-canvas { height: 100% !important; }   /* owner 2026-10-23: "the charts are small" */
-.fcl-read { display: flex; flex-wrap: wrap; gap: 5px; margin: 0; } .fcl-read span { padding: 2px 8px; border-radius: 999px; background: rgba(21, 209, 106, .12); font-size: 10px; }
-.fcl-why, .fcl-tags { display: block; font-size: 10px; color: var(--m-mute, #8fb3a0); font-style: normal; }
-.fcl-pane.is-empty p, .fcl-wait { font-size: 11px; color: var(--m-mute, #8fb3a0); }
 .fcl-tape ol { list-style: none; margin: 0; padding: 0; display: grid; gap: 3px; max-height: 280px; overflow-y: auto; scrollbar-width: thin; }
 .fcl-tape li { display: grid; grid-template-columns: 52px minmax(0, 1fr) 34px; gap: 8px; font-size: 11px; padding: 4px 6px; border-radius: 8px; }
 .fcl-tape li b { font: 700 9px var(--m-mono, monospace); } .fcl-tape li small { text-align: right; color: var(--m-mute, #8fb3a0); }
@@ -103,9 +93,6 @@ body.theme-day .fcl-chips i { background: #fff; color: #10301f; } body.theme-day
 .fcl-les li { display: grid; gap: 2px; font-size: 11px; } .fcl-les b { font-size: 10px; color: #9fe3ff; }
 @keyframes fclNew { from { transform: translateX(-6px); background: rgba(21, 209, 106, .18); } to { transform: none; background: transparent; } }
 @media (prefers-reduced-motion: reduce) { .fcl-tape li.is-new { animation: none; } }
-body.theme-day .fcl-pane { background: #eef6f1; }
-@media (max-width: 1100px) { .fcl-two { grid-template-columns: 1fr; } }
-@media (max-width: 640px) { .fcl-chart { height: 300px; } }
 /* 🤖 her agents lane: the agents' value per band key, her override on top (✋ = hers) */
 .fch-lane { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 8px; }
 .fch-lane label { display: grid; gap: 4px; padding: 7px 8px; border-radius: 10px; border: 1px solid var(--m-line); background: rgba(255, 255, 255, .02); transition: border-color .15s; }
@@ -115,3 +102,6 @@ body.theme-day .fcl-pane { background: #eef6f1; }
 .fch-lanebar { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0 0; }
 body.theme-day .fch-lane label { background: rgba(236, 246, 240, .7); } body.theme-day .fch-lane label.is-mine { border-color: #a07500; } body.theme-day .fch-lane label.is-mine em { color: #8a6100; }
 @media (max-width: 640px) { .fch-lane { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+/* 🪟 NEXA desk tabs — one pane at a time, the new glass look */
+.fch-tabs { flex-wrap: wrap; position: sticky; top: 0; z-index: 3; } .fch-tabs button { min-height: 36px; font: 800 10.5px var(--f-tech, sans-serif); letter-spacing: .08em; }
+.fch-brain { display: grid; gap: 10px; }

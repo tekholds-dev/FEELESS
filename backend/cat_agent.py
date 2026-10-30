@@ -24,12 +24,13 @@ PLAN_SYS = ('You lead two AI models working for a FEELESS user. If you can answe
             'Otherwise split it into two halves the two models research in their own browsers at the same time. Answer ONLY JSON: '
             '{"fast": "<answer or empty>", "a": "<your half>", "b": "<the other model\'s half>"}')
 ACT_SYS = ('You are {name}, an AI model working in your OWN web browser for a FEELESS user, who watches you. Your half of the task: {goal}\n'
-           'Each turn pick ONE action. Answer ONLY JSON: {{"thought": "<= 12 words: what you are doing and why", "action": "feeless|open|search|click|type|new_login|media|human|draft|build|note|answer", '
+           'Each turn pick ONE action. Answer ONLY JSON: {{"thought": "<= 12 words: what you are doing and why", "action": "feeless|open|search|click|type|new_login|ask_login|media|human|draft|build|note|answer", '
            '"tool": "<feeless tool>", "url": "", "q": "", "text": "<visible text of the link / button to click>", "label": "<field label or placeholder>", "value": "", "say": "<your answer, when action is answer>"}}\n'
            'FEELESS FIRST: for anything about coins, trading, perps, pools or prices use action "feeless" (tool: coin|trench|perps|pools|gaps, q: the coin / ticker) '
            'BEFORE any outside website — FEELESS is where this user trades. Never create another agent; never launch a coin or pool ON FEELESS.\n'
            'SIGN-UPS: action "new_login" (url = the site, label = the username / email you will use) makes a strong password that is sealed for the user; '
-           'then type it with action "type" and value "{{password}}" — you never see or invent a password. A CAPTCHA / phone / email code → "human". '
+           'then type it with action "type" and value "{{password}}" — you never see or invent a password. A site that needs the USER\'s own account → '
+           '"ask_login" (url = the site): they type it privately, then you type "{{username}}" and "{{password}}". A CAPTCHA / phone / email code / legal ID → "human". '
            'MEDIA: action "media" (url = an https image / video link, text = its title) saves it in the user\'s media drawer for campaigns.\n'
            'Rules: never type a password, card number or seed phrase — use "human" for any sign-in / sign-up / CAPTCHA. Never claim what the page does not show. '
            'Use draft to save writing, build to save a complete HTML page for the live sandbox preview, note to keep a fact in YOUR scratch pad (thrown away '
@@ -158,10 +159,13 @@ async def _window(task, w, ask, page, wait_human, name, feeless=None):
             _step(w, thought, 'media', str(a.get('text') or a.get('url') or '')[:80])
             seen = 'Saved to the media drawer.'
             continue
-        placeholder = act == 'type' and '{{password}}' in str(a.get('value') or '') and w.get('pw')
+        placeholder = act == 'type' and any(x in str(a.get('value') or '') for x in ('{{password}}', '{{username}}')) and w.get('pw')
         if act == 'type' and not placeholder and blocked_value(a.get('label'), a.get('value')):
             act, a['why'] = 'human', 'it wanted to type a secret — that is yours to type'
-        if act == 'human':
+        if act == 'ask_login':   # 🔑 the USER's own login: a private form in their window — sealed for them, the model only ever types the placeholders
+            from cat_vault import site_of
+            w['human'] = {'why': f"log in to {site_of(a.get('url') or page.url)}", 'url': page.url, 'kind': 'login', 'site': site_of(a.get('url') or page.url)}
+        elif act == 'human':
             w['human'] = {'why': str(a.get('why') or thought or 'a person is needed here')[:160], 'url': page.url}
         else:
             try:
@@ -172,7 +176,7 @@ async def _window(task, w, ask, page, wait_human, name, feeless=None):
                 elif act == 'click':
                     seen = await page.click(str(a.get('text') or ''))
                 elif act == 'type':
-                    val = str(a.get('value') or '').replace('{{password}}', w['pw']['pw']) if placeholder else str(a.get('value') or '')
+                    val = str(a.get('value') or '').replace('{{password}}', w['pw']['pw']).replace('{{username}}', w['pw']['user']) if placeholder else str(a.get('value') or '')
                     seen = await page.type(str(a.get('label') or ''), val)
                 else:
                     seen = f'(unknown action {act})'

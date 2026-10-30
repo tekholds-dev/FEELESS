@@ -30,7 +30,7 @@ test('pick two brains, choose battle, write the brief, launch', async () => {
   click('[data-testid="lct-next"]');
   expect(el.textContent).toContain('Model calls are OFF');
   await act(async () => { el.querySelector('[data-testid="lct-launch"]').click(); });
-  expect(el.querySelector('[data-testid="lct-next-real"]').textContent).toContain('✍ you sign ONE funding');   // the launch says what comes next: its own wallet → one signed funding → it trades inside the caps
+  expect(el.querySelector('[data-testid="lct-next-real"]').textContent).toContain('💵 fund it once');   // the launch says what comes next: its own wallet → one signed funding → it trades inside the caps
   expect(posted[0]).toMatchObject({ brains: ['openai/gpt-oss-20b', 'x/big'], brainMode: 'battle', prompt: 'germ floors only', name: 'Duo', maxPositionSol: '0.5', maxDailyLossSol: '0.5', dailyBuyLimitSol: '2', brainKind: 'trading' });
   expect(posted[1]).toEqual({ action: 'start' });                          // starts trading at once, like Create a Cat
   expect(onCreated).toHaveBeenCalled();
@@ -111,7 +111,7 @@ test('🧭 the General wizard: real prices on every model + an ABOUT dropdown, i
   expect($('.lct-foot').textContent).toContain('≈ $0.0072 a task');
   click('[data-testid="lct-next"]'); act(() => { const i = $('[data-testid="lct-name"]'); Object.getOwnPropertyDescriptor(Object.getPrototypeOf(i), 'value').set.call(i, 'Scout'); i.dispatchEvent(new Event('input', { bubbles: true })); });
   click('[data-testid="lct-next"]');
-  expect($('[data-testid="lct-bill-profit"]')).toBeNull(); expect($('[data-testid="lct-next-real"]').textContent).toContain('you OK each move');
+  expect($('[data-testid="lct-bill-profit"]')).toBeNull(); expect($('[data-testid="lct-next-real"]').textContent).toContain('it checks with you');
   expect(el.textContent).not.toMatch(/you sign every trade|your wallet signs every/i);
   await act(async () => { $('[data-testid="lct-launch"]').click(); });
   expect(posted[0]).toMatchObject({ brainKind: 'general', billing: 'payg', brainMode: 'turns' });

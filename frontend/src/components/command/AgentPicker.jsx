@@ -7,7 +7,7 @@ import '../../styles/agentPicker.css';
 // The free rule trader stays as a 🧪 paper TEST toggle under the two (never the headline). A user runs at most AGENT_MAX agents.
 export const AGENT_MAX = 2;
 export const AGENT_KINDS = [
-  { key: 'trading', glyph: 'brain', title: 'Trading AI cat', tag: 'REAL · ITS OWN WALLET', pitch: '1–2 trading models hunt Solana coins for you from the cat\'s own wallet — you sign ONE funding, then it trades inside the caps you set.',
+  { key: 'trading', glyph: 'brain', title: 'Trading AI cat', tag: 'REAL · ITS OWN WALLET', pitch: '1–2 trading models hunt Solana coins for you from the cat\'s own wallet — you fund it once, then it trades inside the caps you set.',
     meters: [['WHAT IT DOES', 0.9, 'hunts + trades'], ['YOUR CONTROL', 0.85, 'caps + stop'], ['TALK TO IT', 0.95, 'its brain panel']] },
   { key: 'general', glyph: 'orbit', title: 'General AI cat', tag: 'REAL · YOU OK EACH MOVE', pitch: '1–2 all-round models — its two minds answer, research in their own cloud browsers while you watch, and run your coin orders from its own wallet: you OK each move (one tap) until you switch it to auto.',
     meters: [['WHAT IT DOES', 0.95, 'research + orders'], ['YOUR CONTROL', 0.95, 'you OK each'], ['TALK TO IT', 1, 'both minds or one']] },

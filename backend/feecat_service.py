@@ -99,7 +99,7 @@ def _no_keys(obj):
     if isinstance(obj, list):
         return [_no_keys(x) for x in obj]
     if isinstance(obj, dict):
-        out = {k: _no_keys(v) for k, v in obj.items() if k not in ('apiKeys', 'logins')}
+        out = {k: _no_keys(v) for k, v in obj.items() if k not in ('apiKeys', 'logins', 'ownerId')}   # 🔒 ownerId is the owner's control key — it never leaves the server
         if 'apiKeys' in obj or ('brainsCfg' in obj and 'ownerId' in obj):
             out['apiDrawer'] = _ck.public(obj)
         if obj.get('logins'):   # 🔐 sealed passwords never leave the server — site · username · when only
@@ -126,6 +126,7 @@ def _log_event(store, cat, kind, detail, pnl=None, pair=None, price=None, market
 
 
 DESK_SCENES = ('globe', 'creek', 'forest', 'night')   # 🎨 CatCockpit.SCENES (change both)
+BRIEF_EVERY = 3600   # 📜 a general agent's brief: you edit it, or its minds propose one, at most once an hour
 MODEL_LOCK_SEC = 24 * 3600   # 🔁 a cat's models can be switched 24 h after it was made
 FEE_PER_SIDE = 0.01   # the default paper fee per side — HQ › Core › house fees sets the live one (RULES['feePerSidePct'])
 
@@ -1611,15 +1612,15 @@ async def create_cat(payload: CreatePayload):
         cat['brainProfile'] = {'provider': 'OpenRouter', 'status': 'live' if _brains_live() else 'calls off', 'available': _brains_live(), 'estimatedTokenCostUsd': 0}
     store['cats'][cat_id] = cat
     _save(store)
-    return {'cat': _no_keys(cat)}   # (a random "recovery key" used to ride here — it unlocked nothing; the wallet's safe-keeping is SafeKeeping on the desk)
+    return {'cat': {**_no_keys(cat), 'mine': True}}   # (a random "recovery key" used to ride here — it unlocked nothing; the wallet's safe-keeping is SafeKeeping on the desk)
 
 
 @app.get('/api/cats')
 async def list_cats(ownerId: str):
     store = _load()
-    cats = [c for c in store['cats'].values() if c['ownerId'] == ownerId]
+    cats = [c for c in store['cats'].values() if ownerId and c['ownerId'] == ownerId]
     cats.sort(key=lambda c: -c['createdAt'])
-    return {'cats': _no_keys(cats)}
+    return {'cats': [{**x, 'mine': True} for x in _no_keys(cats)]}
 
 
 @app.get('/api/cats/brain')
@@ -1790,6 +1791,8 @@ class WorkPayload(BaseModel):
     job: Optional[str] = None
     tools: Optional[dict] = None
     on: Optional[bool] = None          # 🏇 op 'go': let it go on / off
+    user: Optional[str] = None         # 🔑 op 'login': the owner's own username …
+    secret: Optional[str] = None       # … and password — sealed at once, typed only as placeholders, never echoed or logged
 
 
 @app.post('/api/cats/{cat_id}/work')
@@ -1816,6 +1819,23 @@ async def cat_work(cat_id: str, p: WorkPayload):
         v = max(0.005, min(TASK_CAP_MAX, float(p.cap or TASK_CAP_DEFAULT)))
         cat['taskCap'] = round(v, 4); _save(store)
         return {'cap': cat['taskCap']}
+    if p.op == 'login':   # 🔑 the owner's own login for the site its window asked about: sealed in its vault, handed to the live window, the window continues
+        t_ = (w or {}).get('task') or {}; wins_ = t_.get('windows') or []
+        i_ = int(p.i or 0)
+        if not (0 <= i_ < len(wins_)) or (wins_[i_].get('human') or {}).get('kind') != 'login':
+            raise HTTPException(400, 'That window is not asking for a login.')
+        site_ = wins_[i_]['human'].get('site') or ''
+        if not (p.user or '').strip() or not (p.secret or ''):
+            raise HTTPException(400, 'Type the username and the password.')
+        try:
+            _cv.put_login(cat, site_, p.user.strip(), p.secret, data_dir=DATA_DIR); _save(store)
+        except (ValueError, RuntimeError) as e:
+            raise HTTPException(400, str(e)[:120])
+        wins_[i_]['pw'] = {'site': site_, 'user': p.user.strip()[:120], 'pw': p.secret}
+        ev_ = (w or {}).get('events', {}).get(i_)
+        if ev_:
+            w['go'][i_] = True; ev_.set()
+        return {'ok': True, 'site': site_}
     if p.op == 'reveal':   # 🔐 the owner's own reveal of one saved password (never in a list, never logged)
         try:
             return {'password': _cv.reveal(cat, p.text or '', p.job or '', data_dir=DATA_DIR)}
@@ -1952,14 +1972,18 @@ async def cat_profile(cat_id: str):
 
 
 @app.get('/api/cats/{cat_id}')
-async def get_cat(cat_id: str):
+async def get_cat(cat_id: str, ownerId: str = ''):
+    """One cat, public view. `ownerId` (this browser's own id) only answers `mine` yes / no — the owner id itself is never returned."""
+    import hmac as _hm
     store = _load()
     cat = store['cats'].get(cat_id)
     if not cat:
         raise HTTPException(404, 'Cat not found.')
     if _real.is_real(cat) and _real.expire(cat, time.time()):
         _save(store)
-    return _pub({'cat': {k: v for k, v in cat.items() if k not in ('artifacts', 'refusals')}})
+    out = _pub({'cat': {k: v for k, v in cat.items() if k not in ('artifacts', 'refusals')}})
+    out['cat']['mine'] = bool(ownerId) and _hm.compare_digest(str(ownerId), str(cat.get('ownerId') or ''))
+    return out
 
 
 async def _order_pair(http, coin):
@@ -2263,6 +2287,42 @@ async def cat_action(cat_id: str, payload: ActionPayload, request: Request):
         if bg_ not in DESK_SCENES or not re.fullmatch(r'#[0-9a-fA-F]{6}', acc_):
             raise HTTPException(400, 'Pick a backdrop and a card colour.')
         cat['skin'] = {'bg': bg_, 'acc': acc_.lower()}
+    elif payload.action in ('brief', 'brief_propose', 'brief_approve', 'brief_dismiss'):   # 📜 a GENERAL agent's one brief for both minds (owner 2026-10-30)
+        b_ = cat.get('brainsCfg') or {}
+        if b_.get('kind') != 'general':
+            raise HTTPException(400, "A trader's brief is sealed when you buy it — only a general agent's brief can change.")
+        now_ = time.time()
+        if payload.action == 'brief':   # you rewrite it — once an hour
+            left_ = BRIEF_EVERY - (now_ - float(b_.get('briefAt') or 0))
+            if left_ > 0:
+                raise HTTPException(400, f'You can change its brief once an hour — {max(1, round(left_ / 60))} min to go.')
+            txt_ = ' '.join(str(payload.text or '').split())[:_lc.PROMPT_MAX]
+            if len(txt_) < 20:
+                raise HTTPException(400, 'Write a brief of at least a sentence.')
+            b_.update(prompt=txt_, briefAt=now_, briefProposal=None)
+        elif payload.action == 'brief_propose':   # its minds propose ONE better brief for both of them — at most once an hour, live only when you approve
+            if now_ - float(b_.get('briefAskAt') or 0) < BRIEF_EVERY:
+                raise HTTPException(400, 'Its minds can propose a new brief once an hour.')
+            recent_ = ' | '.join(str(m.get('text') or '')[:160] for m in (cat.get('chat') or [])[-8:])
+            msgs_ = [{'role': 'system', 'content': 'You and the other mind share ONE standing brief from your owner. Propose a better single brief that makes BOTH of you more useful '
+                      'for what the owner actually asks, keeping every safety line. Answer ONLY JSON {"brief": "<= 1100 chars", "why": "one sentence"}.'},
+                     {'role': 'user', 'content': f"Current brief: {b_.get('prompt') or '(none)'}\nRecent asks + answers: {recent_ or '(none yet)'}"}]
+            text_, usd_ = await _or_call(b_['brains'][0], msgs_, max_tokens=700, **({'key': k_} if (k_ := _ck.key_for(cat, 'openrouter', data_dir=DATA_DIR)) else {}))
+            got_ = _ca.parse_json(text_)
+            if not k_:
+                _lc.charge(b_, usd_)
+            b_['briefAskAt'] = now_
+            if not str(got_.get('brief') or '').strip():
+                raise HTTPException(502, 'Its minds did not propose a brief this time.')
+            b_['briefProposal'] = {'text': ' '.join(str(got_['brief']).split())[:_lc.PROMPT_MAX], 'why': str(got_.get('why') or '')[:200], 'at': now_}
+        elif payload.action == 'brief_approve':
+            pr_ = b_.get('briefProposal')
+            if not pr_:
+                raise HTTPException(400, 'Nothing to approve.')
+            b_.update(prompt=pr_['text'], briefAt=now_, briefProposal=None)
+        else:
+            b_['briefProposal'] = None
+        cat['brainsCfg'] = b_
     elif payload.action == 'work_mode':   # 🧭 how a general cat's two minds work: plan together → split → merge, or each its own job
         if payload.workMode not in _ca.MODES:
             raise HTTPException(400, 'Pick plan or jobs.')
@@ -2305,4 +2365,4 @@ async def cat_action(cat_id: str, payload: ActionPayload, request: Request):
         raise HTTPException(400, f'Unknown action: {payload.action}')
 
     _save(store)
-    return {'cat': _no_keys(cat)}
+    return {'cat': {**_no_keys(cat), 'mine': not cat.get('isLeader')}}   # the action passed the owner check (Fee's: the creator's signature)

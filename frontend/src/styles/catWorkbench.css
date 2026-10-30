@@ -132,3 +132,5 @@ body.theme-day .cwb-cloud span { background: #fff; color: #2a1650; }
 .cwb-media-strip img, .cwb-media-strip video { width: 150px; height: 96px; object-fit: cover; border-radius: 10px; border: 1px solid #ffffff1a; } .cwb-media-strip small { color: #d8ccf5; font-size: 10.5px; }
 @media (prefers-reduced-motion: reduce) { .cwb-pw { transition: none; } }
 @media (max-width: 640px) { .cwb-vault li { grid-template-columns: 1fr auto; } .cwb-vault li span { grid-column: 1; } }
+/* 🔑 the private login form a window shows when the agent needs YOUR account — typed here, sealed, autofilled; the models never see it */
+.cwb-login { display: grid; gap: 6px; } .cwb-login .m-input { min-height: 36px; } .cwb-login span { display: flex; gap: 6px; justify-content: center; }

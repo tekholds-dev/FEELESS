@@ -36,6 +36,7 @@ const OWNER_KEY = 'feeless-paper-owner';
 const api = async (path, options = {}) => {
   // 🔒 every cat action carries this browser's owner id (the service refuses anyone else's cat)
   if (/\/action$/.test(path) && options.body) options = { ...options, body: JSON.stringify({ ...JSON.parse(options.body), ownerId: ownerId() }) };
+  if (!options.method && /^\/api\/cats\/[\w-]+$/.test(path)) path = `${path}?ownerId=${encodeURIComponent(ownerId())}`;   // one cat → the server answers `mine` (never sends the owner id)
   const response = await fetch(path, { headers: { 'Content-Type': 'application/json', ...(options.headers || {}) }, ...options });
   const body = await response.json().catch(() => ({}));
   if (!response.ok) throw new Error(body.detail || body.error || 'Paper agent request failed.');
@@ -62,7 +63,7 @@ const tradeCard = event => ({
 });
 
 function PaperBadge() {   // 💵 the AI cats are real-first (its own wallet: you sign one funding; linked to yours: you sign each); paper is the test toggle
-  return <span className="paper-badge" data-tip="Its own wallet: your wallet signs ONE funding transfer, then the cat trades inside server caps (≤ 0.5 SOL a buy, a daily cap). Linked to your wallet instead, every move is a proposal your wallet signs. FEELESS never sees your wallet's keys."><i /> SIGN ONCE · CAPS ON EVERY MOVE</span>;
+  return <span className="paper-badge" data-tip="Each agent gets its own wallet. You fund it once from yours; after that it trades from its own wallet inside the limits you set — nothing to sign per trade. FEELESS never sees your wallet's keys."><i /> ITS OWN WALLET · YOUR LIMITS</span>;
 }
 
 function AvatarPicker({ value, onChange }) {
@@ -169,11 +170,11 @@ function CatDetail({ cat: initialCat, onBack, onChanged, onDeleted }) {
   const { isAdmin } = useAdmin();   // 💵 Fee's real switch shows to the owner only (the server re-checks the signed owner wallet)
   useEffect(() => {
     const refresh = async () => { if (document.hidden) return; try { const result = await api(`/api/cats/${initialCat.id}`); if (result.cat) { setCat(result.cat); onChanged?.(result.cat); } } catch {} };
-    const interval = setInterval(refresh, 8000);
+    refresh(); const interval = setInterval(refresh, 8000);   // at once: opened from the leaderboard, the row has no `mine` yet
     return () => clearInterval(interval);
   }, [initialCat.id]); // eslint-disable-line react-hooks/exhaustive-deps
   const act = async (action, extra = {}) => { setError(''); setBusy(true); try { const result = await api(`/api/cats/${cat.id}/action`, { method: 'POST', body: JSON.stringify({ action, ...extra }) }); if (result.deleted) { onDeleted?.(result.deleted); return; } setCat(result.cat); onChanged?.(result.cat); } catch (requestError) { setError(requestError.message); } setBusy(false); };
-  const mine = cat.isLeader ? isAdmin : cat.ownerId === ownerId();   // 👀 opened from the leaderboard: the owner gets the controls, everyone else the view
+  const mine = cat.isLeader ? isAdmin : !!cat.mine;   // 👀 opened from the leaderboard: the owner gets the controls, everyone else the view (the server answers `mine`; the owner id never leaves it)
   return <CatDesk canEdit={mine} cat={cat} busy={busy} error={error} onBack={onBack} onAct={act} Engine={<EngineLine />} Real={!mine ? null : <CatReal cat={cat} busy={busy} onAct={act} />}
     Brains={cat.brainsCfg && mine ? <BrainPanel noTalk cat={cat} api={api} onChanged={brainChanged} /> : null} Activity={null} />;
 }
@@ -213,7 +214,7 @@ export default function FeeCatsPlatform() {
     ['activity', <><Activity size={14} /> Live activity</>, 'Every cat\'s buys and sells as they happen'],
     ['leaderboard', <><Trophy size={14} /> Leaderboard</>, 'Every cat ranked by real paper results']];
   const on = k => (k === 'new' ? ['new', 'create', 'launch'].includes(view) : k === 'cats' ? ['cats', 'cat', 'nexa'].includes(view) : view === k);
-  return <div className="fee-cats-platform fc-v2"><header className="paper-platform-head"><div><span className="eyebrow"><Cat size={14} /> AGENTS · CATS THAT TRADE FOR YOU</span><h1>Give your cat a <em>job.</em></h1><p>AI cats on live Solana — 1–2 models, your name, your look, your limits. Give it its own wallet: you sign ONE funding, then it trades inside the caps — a general cat asks you first on each move until you switch it to auto.</p></div>
+  return <div className="fee-cats-platform fc-v2"><header className="paper-platform-head"><div><span className="eyebrow"><Cat size={14} /> AGENTS · CATS THAT TRADE FOR YOU</span><h1>Give your cat a <em>job.</em></h1><p>Your own AI agents — pick 1–2 models, a name, a look and limits. Each gets its own wallet: fund it once, and it works from there. A trader trades on FEELESS inside your limits; a general agent researches, builds and acts for you, and checks with you before spending until you switch it to auto.</p></div>
     <div className="paper-platform-actions"><PaperBadge /><span className="fc-slots" data-tip={`${live.length} of ${AGENT_MAX} agent slots used`} aria-label={`${live.length} of ${AGENT_MAX} agents`}>{Array.from({ length: AGENT_MAX }, (_, k) => <i key={k} className={k < live.length ? 'is-on' : ''} />)}</span></div></header>
     <nav className="paper-platform-tabs" aria-label="Agents">{TABS.map(([k, label, tip]) => <button key={k} type="button" className={on(k) ? 'active' : ''} onClick={() => { setSelected(null); setView(k); }} data-testid={`fc-tab-${k}`} data-tip={tip}>{label}</button>)}</nav>
     {error && <div className="paper-inline-message" role="alert"><AlertTriangle size={14} />{error}</div>}

@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { FeeOwnerBar } from './FeeOwnerBar';
 import { realView } from './CatReal';
 import { toast } from 'sonner';
-import { FeeCharts, FeeTape, DuoLearn, readWords } from './FeeCatLive';
+import { FeeTape, DuoLearn, readWords } from './FeeCatLive';
 import NumInput from '../NumInput';
 import { FeeBrain } from './FeeBrain';
 import { NexaDesk } from './NexaDesk';
@@ -88,7 +88,14 @@ export function feeFunnel(scan) {
     brain: (s.brainRejects || []).slice(-4).reverse(), safety: (s.safetyRejects || []).slice(-4).reverse() };
 }
 
+// 🪟 the creator's NEXA desk as TABS (owner 2026-10-30: "clean this up to the new look, less clutter / scrolling — I need more behind the scenes, but tidy"):
+// her header always, then ONE pane at a time — what she's doing · NEXA's own desk + rig · her agents lane · her brain + rules · her wallet + style
+export const FCH_TABS = [['overview', '🛰 OVERVIEW', 'Why she trades or not, the duo read, open trades, her charts and tape'], ['nexa', '🪟 NEXA', "NEXA's desk: her calls, talk to her, her rig"],
+  ['lane', '🎚 LANE', 'The agents lane she follows + what the duo learned'], ['brain', '🧠 BRAIN', 'Her style, rules and what she learned — edit and save'], ['wallet', '👛 WALLET + STYLE', "Her wallet (Circle / Crossmint) and her look"]];
+const FCH_KEY = 'feeless.fch.tab';
 export function FeeCatDesk({ call }) {
+  const [tab, setTab] = useState(() => { try { const k = localStorage.getItem(FCH_KEY); return FCH_TABS.some(t => t[0] === k) ? k : 'overview'; } catch { return 'overview'; } });
+  const pickTab = k => { setTab(k); try { localStorage.setItem(FCH_KEY, k); } catch { /* private window */ } };
   const [d, setD] = useState(null); const [err, setErr] = useState('');
   const [draft, setDraft] = useState({}); const [size, setSize] = useState(''); const [busy, setBusy] = useState(false);
   const load = useCallback((first) => call('/admin/feecat').then(x => { setD(x); setErr(''); if (first) { setDraft(x.rules || {}); setSize(x.leader?.risk?.maxPositionSol ?? ''); } })
@@ -115,10 +122,13 @@ export function FeeCatDesk({ call }) {
       <span className="fch-acts"><button type="button" className="m-btn" disabled={busy} onClick={() => save({ status: running ? 'paused' : 'running' })} data-testid="fch-toggle">{running ? '⏸ Pause' : '▶ Resume'}</button>
         <button type="button" className="m-btn m-go" disabled={busy || !running} onClick={() => save({ action: 'run' })} data-testid="fch-run">⚡ Run a cycle</button></span>
     </header>
-    <FeeOwnerBar cat={c} />
-    <NexaDesk call={call} />
+    <nav className="m-seg fch-tabs" role="tablist" aria-label="Fee's desk">{FCH_TABS.map(([k, l, tip]) => <button key={k} type="button" role="tab" aria-selected={tab === k}
+      className={tab === k ? 'active' : ''} onClick={() => pickTab(k)} data-tip={tip} data-testid={`fch-tab-${k}`}>{l}</button>)}</nav>
+    {tab === 'wallet' ? <FeeOwnerBar cat={c} /> : null}
+    {tab === 'nexa' ? <NexaDesk call={call} /> : null}
+    {tab === 'lane' ? <div className="fch-grid"><AgentLane d={d} busy={busy} onSave={lane => save({ agentLane: lane })} /><DuoLearn learn={d.duoLearn} /></div> : null}
 
-    <div className="fch-grid">
+    {tab === 'overview' ? <div className="fch-grid">
       <article className="fch-card" data-testid="fch-funnel"><h4>🔎 WHY SHE {f.passed ? 'TRADES' : "ISN'T TRADING"}<small>{d.scan?.at ? `scan ${agoS(d.scan.at)}s ago` : 'no scan yet'}</small></h4>
         <p className="fch-flow"><span><b>{f.scanned}</b><small>coins read</small></span><i aria-hidden>→</i><span className={f.passed ? 'is-good' : 'is-bad'}><b>{f.passed}</b><small>passed her rules</small></span><i aria-hidden>→</i><span><b>{pos.length}</b><small>holding</small></span></p>
         {f.reasons.length ? <ul className="fch-bars">{f.reasons.map((r, i) => <li key={r.k} style={{ '--i': i }}><span>{r.k}</span><i><u style={{ transform: `scaleX(${Math.max(0.04, r.w)})` }} /></i><b>{r.c}</b></li>)}</ul> : <p className="fch-nil">nothing stopped — every coin read passed</p>}
@@ -140,13 +150,10 @@ export function FeeCatDesk({ call }) {
           : <p className="fch-nil">flat — waiting for a coin that passes</p>}
       </article>
 
-      <AgentLane d={d} busy={busy} onSave={lane => save({ agentLane: lane })} />
-      <DuoLearn learn={d.duoLearn} />
-      <FeeCharts d={d} />
       <FeeTape events={d.events} />
-    </div>
+    </div> : null}
 
-    <details className="fch-fold"><summary>🧠 Her brain — style, rules, what she learned</summary>
+    {tab === 'brain' ? <div className="fch-fold fch-brain" data-testid="fch-brain">
       <FeeBrain />
       <FastDial d={d} busy={busy} onApply={vals => { setDraft(cur => ({ ...cur, ...vals })); save({ rules: { ...draft, ...vals }, strategyPreset: 'fast' }); }} />
       <div className="fch-groups">{RULE_GROUPS.map(([g, keys]) => { const ks = keys.filter(k => (d.bounds || {})[k]); if (!ks.length) return null;
@@ -156,6 +163,6 @@ export function FeeCatDesk({ call }) {
           {Object.keys(d.bounds || {}).filter(k => !RULE_GROUPS.some(([, ks]) => ks.includes(k))).map(k => { const [lo, hi] = d.bounds[k]; return <label key={k} data-tip={FEE_LABELS[k]?.[1] || ''}><span>{FEE_LABELS[k]?.[0] || k}<em>{lo}–{hi}</em></span>
             <NumInput value={draft[k] ?? ''} onChange={e => setDraft(x => ({ ...x, [k]: Number(e.target.value) }))} /></label>; })}</fieldset></div>
       <button type="button" className="m-btn m-go" disabled={busy} onClick={() => save({ strategyPreset: 'fast' })} data-testid="fch-save">Save my tuning</button>
-    </details>
+    </div> : null}
   </section>;
 }

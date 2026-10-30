@@ -32,7 +32,7 @@ function useOnScreen(ref) {
   return on;
 }
 
-function Window({ w, catId, tick, onGo, busy }) {
+function Window({ w, catId, tick, onGo, onLogin, busy }) {
   const ref = useRef(null); const seen = useOnScreen(ref);
   const [p, pcls] = PROV[w?.provider] || ['…', ''];
   const human = w?.status === 'human' && w?.human;
@@ -50,7 +50,14 @@ function Window({ w, catId, tick, onGo, busy }) {
           : <ol className="cwb-steps" data-testid="cwb-steps">{(w?.steps || []).length ? w.steps.map((s, i) => <li key={i} style={{ '--i': i }}><b>{s.action}</b><span>{s.thought}</span>{s.detail ? <small>{s.detail}</small> : null}</li>)
             : <li className="cwb-idle"><span>{w?.status === 'done' ? (w?.answer ? 'done — its answer is in the chat' : 'done') : 'ready — ask below'}</span></li>}</ol>}
       {w?.bubble && w?.status !== 'idle' ? <p className="cwb-bubble" key={w.bubble} data-testid="cwb-bubble"><i aria-hidden="true" />{w.bubble}</p> : null}
-      {human ? <div className="cwb-human" role="alertdialog" aria-label="A person is needed" data-testid="cwb-human"><b>✋ needs you</b><small>{w.human.why}</small>
+      {human && w.human.kind === 'login' ? <form className="cwb-human cwb-login" role="dialog" aria-label={`Log in to ${w.human.site}`} data-testid="cwb-login" autoComplete="off"
+        onSubmit={e => { e.preventDefault(); const f = new FormData(e.currentTarget); onLogin?.(w.i, String(f.get('u') || ''), String(f.get('p') || '')); e.currentTarget.reset(); }}>
+        <b>🔑 log in to {w.human.site}</b><small>Type it here — it's sealed for you and typed into its window. The AI models never see it.</small>
+        <input className="m-input" name="u" autoComplete="off" placeholder="username or email" aria-label="Username" data-testid="cwb-login-user" />
+        <input className="m-input" name="p" type="password" autoComplete="new-password" placeholder="password" aria-label="Password" data-testid="cwb-login-pass" />
+        <span><button type="submit" className="m-btn m-go" disabled={busy} data-testid="cwb-login-go">Log it in</button>
+          <button type="button" className="m-btn" disabled={busy} onClick={() => onGo('stop_window', w.i)}>Stop</button></span></form>
+      : human ? <div className="cwb-human" role="alertdialog" aria-label="A person is needed" data-testid="cwb-human"><b>✋ needs you</b><small>{w.human.why}</small>
         <span><button type="button" className="m-btn m-go" disabled={busy} onClick={() => onGo('continue', w.i)} data-testid="cwb-continue">I did it — continue</button>
           <button type="button" className="m-btn" disabled={busy} onClick={() => onGo('stop_window', w.i)} data-testid="cwb-stopwin">Stop</button></span></div> : null}
     </div>
@@ -141,7 +148,7 @@ function WorkbenchLive({ cat }) {
     <details className="cwb-tools"><summary>Job + tool switches</summary><label>Job<select className="m-input" aria-label="Cat job" value={d?.job || 'agent'} disabled={live || busy} onChange={e => act('tools', { job: e.target.value })}>{Object.keys(d?.toolkits || { agent: [] }).map(j => <option key={j}>{j}</option>)}</select></label><div className="m-seg">{Object.entries(d?.tools || {}).map(([k, on]) => <button key={k} type="button" aria-pressed={on} disabled={live || busy} className={on ? 'active' : ''} data-tip={`Allow this cat to use ${k}`} onClick={() => act('tools', { tools: { ...d.tools, [k]: !on } })}>{k} · {on ? 'ON' : 'OFF'}</button>)}</div></details>
     {(d?.artifacts || []).map((a, i) => <details className="cwb-artifact" key={i}><summary>{a.title} · {a.kind}</summary>{a.kind === 'build' ? <iframe title={a.title} sandbox="allow-scripts" referrerPolicy="no-referrer" srcDoc={'<meta http-equiv="Content-Security-Policy" content="default-src \'none\'; script-src \'unsafe-inline\'; style-src \'unsafe-inline\'; img-src data:; connect-src \'none\'; form-action \'none\'; base-uri \'none\'">' + a.content} /> : <pre>{a.content}</pre>}</details>)}
     {(d?.refusals || []).length ? <details className="cwb-refusals"><summary>Refusals · {d.refusals.length}</summary>{d.refusals.map((r, i) => <p key={i}>{r.why}</p>)}</details> : null}
-    <div className="cwb-wins">{wins.map(w => <Window key={w.i} w={w} catId={cat.id} tick={tick} busy={busy} onGo={(op, i) => act(op, { i })} />)}</div>
+    <div className="cwb-wins">{wins.map(w => <Window key={w.i} w={w} catId={cat.id} tick={tick} busy={busy} onGo={(op, i) => act(op, { i })} onLogin={(i, user, secret) => act('login', { i, user, secret })} />)}</div>
     <div className="ck-cockpit" data-testid="cwb-cockpit">
       <GenVitals cat={cat} w={wins[0]} i={0} live={live} />
       <div className="ck-center cwb-center">

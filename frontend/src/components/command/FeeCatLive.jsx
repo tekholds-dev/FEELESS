@@ -1,13 +1,11 @@
 // 🐱 FEE, LIVE (owner, 2026-10-18: "see how she thinks, double charts in her HQ, live realtime activity, learnings explicitly from G4 and OSSY"):
 // two charts side by side (her open trades first, then the coins she would take next), each with HOW she read it (the setup, germ, higher /
 // lower lows, the models' word), her moves as a live tape, and what she took from OSSY / G4. Drawn from the /admin/feecat payload only.
-import React, { useMemo, useState } from 'react';
-import { useLivePrices } from '../../lib/livePrices';
+import React from 'react';
 import { chartCalls } from './AgentCockpit';
 import { avatarOf } from '../../lib/aiAvatars';
 import { tapeRow } from '../../lib/feeTape';
 
-const PriceChart = React.lazy(() => import('../terminal/PriceChart').then(m => ({ default: m.PriceChart })));
 const n = v => (v == null || v === '' || Number.isNaN(Number(v)) ? null : Number(v));
 const agoS = t => { const s = Math.max(0, Math.round(Date.now() / 1000 - (n(t) > 1e12 ? n(t) / 1000 : n(t) || 0))); return s < 60 ? `${s}s` : s < 3600 ? `${Math.round(s / 60)}m` : `${Math.round(s / 3600)}h`; };
 export const SETUP_WORD = { hhhl: '📈 HH/HL pullback', germ: '🦠 on its germ floor', fvg: '🪜 on its FVG support', breakout: '🚀 held breakout' };
@@ -38,32 +36,7 @@ export function readWords(t) {
   return out;
 }
 
-function Pane({ list, idx, setIdx, pins }) {
-  const t = list[idx];
-  const live = useLivePrices(t?.pair ? [t.pair] : []);
-  const calls = useMemo(() => deskPins(pins?.[t?.mint], t?.mint), [pins, t?.mint]);
-  if (!t) return <div className="fcl-pane is-empty"><p>no coin to chart yet — she charts her open trades first, then her next picks</p></div>;
-  const lp = live.get(t.pair);   /* 📍 pins sit at a market cap — the chart needs the live cap or they land off the scale (they never showed) */
-  const pair = { chainId: 'solana', pairAddress: t.pair, baseToken: { address: t.mint, symbol: t.symbol }, priceUsd: lp?.price || undefined, marketCap: lp?.mc || undefined };
-  return <div className={`fcl-pane is-${t.kind}`} data-testid="fcl-pane">
-    <header><select className="m-input" value={idx} onChange={e => setIdx(Number(e.target.value))} aria-label="Coin on this chart">
-      {list.map((x, i) => <option key={x.pair} value={i}>{x.kind === 'open' ? '📂' : '⏭'} ${x.symbol}{x.pct != null ? ` ${x.pct >= 0 ? '+' : ''}${x.pct.toFixed(1)}%` : ''}</option>)}</select>
-      <b className={t.kind === 'open' ? (t.pct >= 0 ? 'm-pos' : 'm-neg') : ''}>{t.kind === 'open' ? `HOLDING${t.pct != null ? ` ${t.pct >= 0 ? '+' : ''}${t.pct.toFixed(1)}%` : ''}` : 'NEXT UP'}</b></header>
-    <div className="fcl-chart"><React.Suspense fallback={<p className="fcl-wait">loading chart…</p>}>
-      <PriceChart key={t.pair} pair={pair} interval="1m" metric="marketCap" showVolume={false} userEntry={t.entry || null} wallets={false} callouts={calls} />
-    </React.Suspense></div>
-    <p className="fcl-read" data-testid="fcl-read">{readWords(t).map(w => <span key={w}>{w}</span>)}{!readWords(t).length ? <span>no chart read yet — her own lanes decided</span> : null}</p>
-    {t.why ? <small className="fcl-why" data-tip={String(t.why)}>{/FeeCat AI|NEXA/i.test(t.why) ? '🔮 FeeCat AI call · ' : ''}{String(t.why).split(/[;·]/)[0].replace(/🔮 FeeCat AI|🪟 ?NEXA/g, '').trim().slice(0, 60)}</small> : null}
-  </div>;
-}
-
-export function FeeCharts({ d }) {
-  const list = useMemo(() => chartTargets(d?.cat?.positions, d?.scan?.top), [d]);
-  const [a, setA] = useState(0); const [b, setB] = useState(1);
-  return <article className="fch-card fch-wide fcl" data-testid="fcl-charts"><h4>📈 HOW SHE SEES IT<small>{list.length} coins · 🐱 her calls · 🤖 the agents · 🔁 OSSY / G4 on each chart</small></h4>
-    <div className="fcl-two"><Pane list={list} idx={Math.min(a, Math.max(0, list.length - 1))} setIdx={setA} pins={d?.pins} /><Pane list={list} idx={Math.min(b, list.length - 1)} setIdx={setB} pins={d?.pins} /></div>
-  </article>;
-}
+// (the two-chart 'HOW SHE SEES IT' panel is gone — her desk's two live windows (AgentLive) are her charts now, owner 2026-10-30)
 
 // ⚡ One event → a row of chips (lib/feeTape.js — the public FeeCat page reads the same rows)
 export { tapeRow };
