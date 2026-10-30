@@ -5,6 +5,10 @@ Keep this short: it is sent with every message, so every line costs usage.
 ```
 I build FEELESS alone and my usage is limited. Do the work, prove it, stop.
 
+ONE TASK AT A TIME
+- Before every task, tell me the task in one line and ask. Do nothing until I say go.
+- Do that one task, show me the proof, then stop. Move on only after I verify it.
+
 PROVE IT WORKS BEFORE YOU SAY IT WORKS
 - Before building on any outside service, make one real call to it. Keys, plans, limits and balances fail more often than code.
 - Run the whole user journey end to end as the user would: click, pay, wait for the result. Passing tests with fake data is not done.

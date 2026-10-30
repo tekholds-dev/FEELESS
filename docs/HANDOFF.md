@@ -15,42 +15,37 @@ Read this (2 min) → `CLAUDE.md` (lean rules + 🎨 MANDATORY STYLING) → `doc
 >    LIVE visual (meters, bars, animation on real numbers), never bare text. `styles/cssCoverage.test.js` fails on an unstyled class.
 
 ## 🔁 NOW (rewrite this section in place every session) — 2026-10-30, end of session
-> **State:** FeeCat is DONE and the owner is buying his first REAL general agent. Last push `38dd3547` (gate green), FeeCat service restarted.
-> **Next session, in this order (owner):** ① LAG + code cleanup for good ② Mac storage / CPU burn ③ OSSY prompt cost (~300 tokens a call — trim)
-> ④ SEC01 security hardening (after his agent is bought) ⑤ every other open row in `docs/WORK_QUEUE.md`. One task at a time, verified on screen.
+> **WORK RULE (owner):** ask the owner before EVERY task, do one task, show the proof, and move on only after he verifies it. Never chain tasks.
+> **State:** last push `295b40f1`, gate green. Open list: `docs/WORK_QUEUE.md`. Happy Assistant is the owner's real general agent: wallet `2CkR…czQ7` (Circle), about 0.0265 SOL, real mode on.
 
-**Presets the next Claude needs (no hunting):**
+**Verify in this order, one at a time, with the owner:**
+| # | Task | Status |
+| --- | --- | --- |
+| 1 | Ask Happy Assistant "what is 2 + 2?" in chat. Label 💳 = wallet paid, 🛟 = backup answered (then read `/tmp/feeless-feecat.log`, `[agent pay]`) | Built. Never paid live |
+| 2 | Add about $3 SOL (split 100% wallet), send `buy 0.01 SOL of $JUP`, approve it | Built. Never run live |
+| 3 | Send `sell all $JUP` | Built. Never run live |
+| 4 | Withdraw to the owner's wallet | Built. Never run live |
+| 5 | First non-staff agent: confirm flat fees land in the fee wallet; open HQ › Fees › Agents on screen | Fakes only, UI not viewed |
+| 6 | Venice fallback (W06): needs the $5 top-up flow | Not built. Login tested live |
+| 7 | Model share of the split arrives as USDC (today the agent swaps its own SOL) | Not built |
+| 8 | Agents-tab fps recheck with the pane in view | Measured once at 41 fps |
+| 9 | Then the rest of the queue: LAG01 chart overlays · MAC01 Spotlight · OSSY01 · SEC01 | Open |
+
+**How agent money works:** funding = one amount, split by `creditUsd`, one signed tx (`cat_fund.plan`, `FundCat`). Creator credit is free and is only a FEELESS number. Model calls go: agent wallet USDC to SingIt per call (`agent_pay.py`, `_wallet_call`, `_thinking_money` swaps about 0.012 SOL when USDC is under $0.30) → OpenRouter (balance $0, its crypto API is gone: 410) → Groq free backup. Each agent stops at $0.10. Flat fees: `agentTradeFeeUsd`, `agentOtherFeeUsd`, `/internal/agent-fee`; staff pay $0.
+**Accounts:** FEELESS Circle = sidecar 5111, never for users. Family + agent Circle = sidecar 5112 (`CIRCLE_TENANT=agent`), auto-started by reputation; never mix them. Crossmint is unused (api-key signers off). The engine's old store copy can't wipe owner data (`keep_owned`, `OWNER_KEYS`).
+
+**Owner to-dos:** back up `~/.circle-agent/` and find the FEELESS Circle recovery file (`~/.circle` is empty) · rotate `CIRCLE_AGENT_API_KEY` only if he chooses (it was printed in a session log) · per-user Circle wallets still wait on counsel (DECISIONS #2) · Spotlight Privacy for the project folder.
+
+**Presets:**
 | What | Value |
 | --- | --- |
-| Push | `git push origin main` — the pre-push hook runs `scripts/gate.sh` ONCE (never run it by hand first). Gate is path-aware: docs → nothing, backend → pytest `-n 4 --dist loadfile`, frontend → pytest + jest (4 workers) + build. `GATE_ALL=1` forces all. A lone 60 s jest timeout = Mac load → re-push. |
-| Restart FeeCat | `kill $(lsof -ti tcp:5088 -sTCP:LISTEN)` — the keep-alive watcher relaunches it in ~10 s (check `curl :5088/api/cats/leader` = 200). Same pattern for 5001 / 5077 / 5099. |
-| Never | edit files while a gate runs (it tests the working tree) · `--no-verify` · kill the owner's processes · overlap two gates · change system settings |
-| Agent models (general, $2–3) | Mind A **openai/gpt-6.1-terra** (~$0.08/task, lead) + Mind B **anthropic/claude-haiku-5.5** (~$0.008) · cap $0.25/task. Smarter: gpt-6.1-sol + claude-sonnet-5.5 (~$0.32, cap $1). |
-| Live switches | `GENERAL_CAT_LIVE=1`, `OPENROUTER_API_KEY`, `CROSSMINT_API_KEY`, `CIRCLE_API_KEY`, `STEEL_API_KEY` set in `backend/.env`; `LOCAL_LLM_MODEL=qwen/qwen3.5-9b` (LM Studio = NEXA/OSSY). |
-| Browser checks | open the built-in pane only to look, then CLOSE it — a live FeeCat tab burns CPU in the Claude app. |
+| Push | `git push origin main`: the pre-push hook runs `scripts/gate.sh` once, path-aware. Never `--no-verify`, never edit during a gate |
+| Restart | `kill $(lsof -ti tcp:<port> -sTCP:LISTEN)`, keep-alive relaunches in about 10 to 25 s (5001 · 5077 · 5088 · 5099). Check no pending book first |
+| Never | move real funds yourself · run a paid call without the owner · kill the owner's processes · overlap gates · print `.env` lines (mask by NAME only) |
+| Browser | open the pane only to look, then close it. A hidden pane reads 1 fps: never trust that number |
+| Test harness | `/dev/cats?general&wallet` |
 
-**FeeCat map (where each piece lives):** wizard `command/LaunchCat.jsx` (`ModelBrowser` + `ModelPop` = the one model list everywhere · `briefFor`
-generator · `COLLAB` per mode · `HOUSE` shown read-only — the real rules are server-side in `backend/cat_agent.py ACT_SYS` + `cat_policy.py`) ·
-agent desk `CatDesk.jsx` (one 1110 px column; `ModelSwitch` with keep / 🧠 sort / fresh memory → `feecat_service._sort_cloud`) · live windows
-`AgentLive.jsx` (4:3, ≤ 504 px, `coinVitals` strip) · demo `AgentDemo.jsx` (`DEMO_MODE`) · cockpit + 🗄 file-cabinet log `CatCockpit.jsx`
-(`AgentLog`, `safeLine` masks secrets, `SceneVideo` pauses on scroll) · general workbench `CatWorkbench.jsx` (stream-safe `Blurred` logins,
-per-mind ☁ clouds `brainsCfg.minds`, `handoff` action) · funding `CatReal.jsx` (`FundCat` reads `feeless.fundIntent.<id>`; recovery box after the
-first payment) · Fee's models `FeeModels.jsx` (your model LEADS, NEXA helps). Lag fixes: `feeWall.css` contain + content-visibility.
-
-**Agents pay for thinking from their own wallet (W06):** built, first paid call unproven. Venice fallback not built.
-
-**BLOCKER W05:** OpenRouter has $0, so no agent can think until the owner adds credit. FeeCat scan done on all pages: nav, fonts, hit areas, real desk tiles, chat box, log text fixed; re-check Agents-tab fps with the pane in view.
-
-**Agent wallets (2026-10-30):** Funding is ONE amount split by `creditUsd` (`FundCat` slider, `cat_fund.plan`): one transaction pays its wallet and model credit; a creator's credit is free. A general agent with a wallet goes real on funding (`ensure_real`): orders, typed in the order box or chat ("buy 0.05 SOL of $X"), become proposals sent from its wallet. It trades SOL pairs only: USDC is not spent by orders, and web tasks never spend the wallet. separate Circle account, sidecar 5112 (`CIRCLE_TENANT=agent`), never the FEELESS account on 5111. `agentWallet.circleAcct = agent`. Withdraw pays only `agentWallet.owner`. No real funding or withdrawal has run yet: test small first. DECISIONS #2 counsel note on per-user Circle still stands: owner's call.
-
-**One Fee (2026-10-30):** every door (LIVE DESK for the creator, My agents banner, profile banner, leaderboard) opens `FeeCatsPlatform › CatDetail` → `CatDesk` + `Tools` (NEXA desk, visitors view, her book). Her engine / limits / retire stay server-only, so `CatDesk runs` hides them on Fee. **Account prompt:** `docs/CLAUDE_ACCOUNT_PROMPT.md`. Saved to `~/.claude/CLAUDE.md`.
-
-**Agent money + limits (2026-10-30):** `cat_fund.py` pays SOL or USDC, into its wallet or model credit (`purpose`); free credit only for paper cats or creators (`free_credit_ok`). `FundPick` chooses before the wallet exists. `SpendLimits` (`cat.limits` + `taskCap`, enforced in `_work_start` + `cat_agent._ask`). `split_jobs`: one job = one owner + one supporter, never twice.
-
-**Lag leads for ①:** **Measure only with the pane shown and Mac load low** (hidden pane = 1 fps; dev server rebuild + Spotlight hit load 94). Video backdrop drops fixed 41% → 8%, chart rebuild-on-poll fixed. Next: `lib/chartFrame.js` overlay jobs force layout (~3 s per 27 s). `reputation_service` idles at ~24 % CPU (profile it first: `py-spy top --pid $(lsof -ti tcp:5077 -sTCP:LISTEN)` if installed,
-else time its pollers); Live desk was fixed (full layout 339 → 13 ms) — re-measure Her Brain / Lore / Arena / trade pages the same way
-(long-task observer + rAF frame timing). Mac: Spotlight `mds_stores` up to 86 % → owner must add the project folder in System Settings ›
-Spotlight › Privacy; ~6 GB swap (Chrome + LM Studio + Claude). `frontend/.env.development` turns the dev ESLint pass off (local only).
+**FeeCat map:** wizard `command/LaunchCat.jsx` · desk `CatDesk.jsx` · funding, PIN, withdraw `CatReal.jsx` · workbench chat `CatWorkbench.jsx` · log `CatCockpit.jsx` · Fee's tools `FeeCatDesk.jsx`, `ProfileFeeCat.jsx` · one Fee door `FeeCatsPlatform.jsx › FeeDesk`.
 
 ## 1 · What this is
 FEELESS = a Solana degen trading terminal. One owner, one REAL money card run by ten agents, plus a big site (trade, Fuse, Arena,
