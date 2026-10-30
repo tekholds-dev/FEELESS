@@ -17,8 +17,15 @@ import { CatDesk } from './CatDesk';
 import { CatReal } from './CatReal';
 import { useAdmin } from '../../lib/adminCall';
 const ProfileFeeCat = lazy(() => import('./ProfileFeeCat').then(m => ({ default: m.ProfileFeeCat })));
+const FeeLiveTab = lazy(() => import('./FeeLiveTab').then(m => ({ default: m.FeeLiveTab })));
 const ProfileFeeBanner = lazy(() => import('./ProfileFeeCat').then(m => ({ default: m.ProfileFeeBanner })));
 import { AgentPicker, AGENT_MAX } from './AgentPicker';
+import { useDeskSkin, DeskBackdrop, SkinPicker } from './CatCockpit';
+// 🪟 Fee's (NEXA) dash in My agents wears the same desk as every agent (owner 2026-10-30): her two live windows first, a calm backdrop + card colour
+function NexaSkin({ children }) {
+  const [skin, setSkin] = useDeskSkin();
+  return <div className="kd has-skin ck-nexa" style={{ '--kd-acc': skin.acc }} data-testid="nexa-skin"><DeskBackdrop bg={skin.bg} /><span className="ck-nexa-bar"><SkinPicker skin={skin} set={setSkin} /></span>{children}</div>;
+}
 const OWNER_KEY = 'feeless-paper-owner';
 const api = async (path, options = {}) => {
   // 🔒 every cat action carries this browser's owner id (the service refuses anyone else's cat)
@@ -161,7 +168,7 @@ function CatDetail({ cat: initialCat, onBack, onChanged, onDeleted }) {
   }, [initialCat.id]); // eslint-disable-line react-hooks/exhaustive-deps
   const act = async (action, extra = {}) => { setError(''); setBusy(true); try { const result = await api(`/api/cats/${cat.id}/action`, { method: 'POST', body: JSON.stringify({ action, ...extra }) }); if (result.deleted) { onDeleted?.(result.deleted); return; } setCat(result.cat); onChanged?.(result.cat); } catch (requestError) { setError(requestError.message); } setBusy(false); };
   return <CatDesk cat={cat} busy={busy} error={error} onBack={onBack} onAct={act} Engine={<EngineLine />} Real={cat.isLeader && !isAdmin ? null : <CatReal cat={cat} busy={busy} onAct={act} />}
-    Brains={cat.brainsCfg ? <BrainPanel cat={cat} api={api} onChanged={brainChanged} /> : null} Activity={<ActivityFeed catId={cat.id} />} />;
+    Brains={cat.brainsCfg ? <BrainPanel noTalk cat={cat} api={api} onChanged={brainChanged} /> : null} Activity={cat.brainsCfg ? null : <ActivityFeed catId={cat.id} />} />;
 }
 
 // 🤖 AGENTS (FeeCat redo, 2026-10-23): your trading cats — MY AGENTS · NEW AGENT · LIVE ACTIVITY · LEADERBOARD. Fee's own desk, brain and lore
@@ -199,7 +206,7 @@ export default function FeeCatsPlatform() {
     {view === 'launch' && <LaunchCat key={kind} kind={kind} api={api} ownerId={ownerId} onCreated={created} onCancel={() => setView('cats')} Fields={CatFields} newForm={() => catForm(presetAvatar)} formOk={catOk} avatarOf={i => (CAT_VARIATIONS[i] || CAT_VARIATIONS[0])[0]} Preview={CatPreview} />}
     {view === 'leaderboard' && <div className="paper-single-column"><Leaderboard onOpen={openCat} /></div>}
     {view === 'cats' && isAdmin ? <Suspense fallback={null}><ProfileFeeBanner mine onOpen={() => { setSelected(null); setView('nexa'); }} /></Suspense> : null}
-    {view === 'nexa' && isAdmin ? <Suspense fallback={<p className="paper-muted">🪟 opening NEXA…</p>}><button type="button" className="btn-outline" onClick={() => setView('cats')} data-testid="nexa-back">← My agents</button><ProfileFeeCat mine /></Suspense> : null}
+    {view === 'nexa' && isAdmin ? <Suspense fallback={<p className="paper-muted">🪟 opening NEXA…</p>}><button type="button" className="btn-outline" onClick={() => setView('cats')} data-testid="nexa-back">← My agents</button><NexaSkin><FeeLiveTab /><ProfileFeeCat mine /></NexaSkin></Suspense> : null}
     {view === 'cats' && <section className="paper-my-cats">{!cats.length ? <><div className="paper-panel-head"><div><span className="eyebrow">YOUR AGENTS · 0/{AGENT_MAX}</span><h2>No cats on the job yet — pick a brain.</h2></div></div><AgentPicker count={0} onPick={pickKind} /></>
       : <><div className="paper-panel-head"><div><span className="eyebrow">YOUR AGENTS · {live.length}/{AGENT_MAX}</span><h2>Tap a cat to see its desk</h2></div><button type="button" className="btn-outline" onClick={() => setView('new')} disabled={live.length >= AGENT_MAX}><Plus size={14} /> New agent</button></div>
         <div className="paper-my-cat-grid">{cats.map(cat => { const real = cat.mode === 'real' && !!cat.realWallet; const pend = (cat.proposals || []).filter(p => p.status === 'pending').length;

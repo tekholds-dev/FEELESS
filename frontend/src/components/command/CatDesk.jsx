@@ -1,5 +1,6 @@
 import { CatWorkbench } from './CatWorkbench';
-import { AgentLive, MindsRow, asModel, catMinds, catCoins } from './AgentLive';
+import { AgentLive, HeadCloud, asModel, catMinds, catCoins } from './AgentLive';
+import { MindVitals, TradeChat, AgentLog, catLogItems, useCatEvents, useDeskSkin, DeskBackdrop, SkinPicker } from './CatCockpit';
 import { signWord } from './LaunchCat';
 import React, { useEffect, useMemo, useState } from 'react';
 import { ArrowLeft, Copy } from 'lucide-react';
@@ -68,12 +69,22 @@ function ModelSwitch({ cat, busy, onAct }) {
 
 // 🛸 its live view (owner 2026-10-30): the demo's layout on its real data — a trading cat: two live bubbles + two real coin charts + its decisions;
 // a general cat: the same bubbles over its two cloud browsers (CatWorkbench)
-function LiveMinds({ cat }) {
+// (owner 2026-10-30) two live windows on top, then the cockpit: [brain A vitals | skinny bubble chat (+ the head cloud) | brain B vitals], then 📁 its log.
+// A general cat's cockpit lives inside CatWorkbench (its windows are its cloud browsers).
+function LiveMinds({ cat, onAct, busy }) {
   const x = useMemo(() => catMinds(cat), [cat]); const coins = useMemo(() => catCoins(cat), [cat]);
-  const gen = cat.brainsCfg?.kind === 'general'; const on = cat.status === 'running';
-  const minds = x.brains.map((id, i) => ({ model: asModel(id), kind: gen ? 'general' : 'trading', thoughts: x.thoughts[i], live: on, label: asModel(id).name, sub: `${gen ? 'MIND' : 'BRAIN'} ${'AB'[i]}${on ? ' · thinking' : ' · resting'}` }));
-  if (gen) return <><MindsRow minds={minds} cloud={x.cloud} /><CatWorkbench cat={cat} /></>;
-  return <AgentLive title={`LIVE · ${cat.name}'s two brains`} minds={minds} cloud={x.cloud} coins={coins} feed={x.feed.length ? x.feed : [on ? '🔎 hunting — it buys only what passes every rule' : '⏸ stopped — start it to hunt']} />;
+  const gen = cat.brainsCfg?.kind === 'general'; const on = cat.status === 'running'; const ev = useCatEvents(gen ? null : cat.id);
+  const log = useMemo(() => catLogItems(cat, ev), [cat, ev]);
+  if (gen) return <CatWorkbench cat={cat} />;
+  return <>
+    <AgentLive title={`LIVE · ${cat.name}'s two brains`} coins={coins} feed={x.feed.length ? x.feed : [on ? '🔎 hunting — it buys only what passes every rule' : '⏸ stopped — start it to hunt']} />
+    <div className="ck-cockpit" data-testid="kd-cockpit">
+      <MindVitals cat={cat} model={x.brains[0]} i={0} live={on} />
+      <div className="ck-center"><HeadCloud items={x.cloud} /><TradeChat cat={cat} busy={busy} onSend={async t => { await onAct('chime', { text: t }); return true; }} /></div>
+      <MindVitals cat={cat} model={x.brains[1]} i={1} live={on} />
+    </div>
+    <AgentLog items={log} />
+  </>;
 }
 
 export function CatDesk({ cat, busy = false, error = '', onBack, onAct, Activity = null, Brains = null, Engine = null, Real = null }) {
@@ -86,7 +97,8 @@ export function CatDesk({ cat, busy = false, error = '', onBack, onAct, Activity
   const xpNext = 100 * (cat.level || 1); const xpFill = Math.min(1, (Number(cat.xp) || 0) / xpNext);
   const state = cat.revoked ? ['REVOKED', 'off'] : cat.status === 'running' ? [v.open ? `HOLDING ${v.open}` : 'HUNTING', 'on'] : ['STOPPED', 'off'];
   const copy = async () => { try { await navigator.clipboard.writeText(cat.wallet); setCopied(true); setTimeout(() => setCopied(false), 1500); } catch { /* blocked */ } };
-  return <section className="kd" data-testid="cat-desk">
+  const [skin, setSkin] = useDeskSkin();
+  return <section className="kd has-skin" style={{ '--kd-acc': skin.acc }} data-testid="cat-desk"><DeskBackdrop bg={skin.bg} />
     <button type="button" className="kd-back" onClick={onBack} data-testid="kd-back" data-tip="Back to your agents"><ArrowLeft size={14} /> My agents</button>
     <header className="kd-hero">
       <div className="kd-stage" aria-hidden="true"><i className="kd-spot" /><i className="kd-floor" /><LookAvatar cat={catByName(cat.avatar)} look={cat.look} full size={170} large gesture={v.mood} /></div>
@@ -101,6 +113,7 @@ export function CatDesk({ cat, busy = false, error = '', onBack, onAct, Activity
       <div className="kd-acts m-seg" role="group" aria-label="Run the agent">
         {cat.status === 'running' ? <button type="button" className="kd-stop" disabled={busy} onClick={() => onAct('stop')} data-testid="kd-stop" data-tip="Stops new trades now (open paper trades stay)">⏹ Stop</button>
           : <button type="button" className="kd-go" disabled={busy || cat.revoked} onClick={() => onAct('start')} data-testid="kd-start" data-tip="Starts it scanning the live board again">▶ Start</button>}
+        <SkinPicker skin={skin} set={setSkin} />
         <button type="button" disabled={busy || cat.revoked} onClick={() => onAct('run')} data-testid="kd-run" data-tip="Run one scan-and-decide cycle right now">⟳ One cycle</button>
       </div>
     </header>
@@ -114,7 +127,7 @@ export function CatDesk({ cat, busy = false, error = '', onBack, onAct, Activity
       <Tile k={4} label="TODAY'S LOSS" value={`${v.lossToday.toFixed(3)} / ${v.cap || '—'} SOL`} fill={v.capUsed} tone={v.capUsed >= 1 ? 'dn' : v.capUsed > 0.6 ? 'warn' : ''}
         sub={v.capUsed >= 1 ? 'cap hit — no new buys today' : 'its daily loss cap'} tip="Losses closed today against the cap you set — at the cap it stops buying until tomorrow" />
     </div>
-    {cat.brainsCfg ? <LiveMinds cat={cat} /> : null}
+    {cat.brainsCfg ? <LiveMinds cat={cat} onAct={onAct} busy={busy} /> : null}
     <div className="kd-grid">
       <div className="kd-main">
         {Real}

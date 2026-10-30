@@ -1,5 +1,6 @@
 import React, { Suspense, lazy, useCallback, useEffect, useRef, useState } from 'react';
 import { apiUrl } from '../../lib/api';
+import { MindVitals, AgentLog } from './CatCockpit';
 import '../../styles/catWorkbench.css';
 
 // 🧠🧠 THE GENERAL CAT'S WORKBENCH (owner 2026-10-29, P2 — backend cat_agent.py + cat_browser.py). Two browser windows, one per model, running in
@@ -57,6 +58,25 @@ function Window({ w, catId, tick, onGo, busy }) {
   </article>;
 }
 
+// 🧠 a general mind's vitals beside the chat: what its window is doing right now (owner 2026-10-30: "model vitals on each side")
+function GenVitals({ cat, w, i, live }) {
+  return <MindVitals cat={cat} model={w?.model} i={i} kind="general" live={live && w?.status === 'working'} extra={<>
+    <span className="ck-v-row"><em>STATUS</em><b>{String(w?.status || 'idle').toUpperCase()}</b></span>
+    <span className="ck-v-row"><em>STEPS</em><b className="m-num" key={(w?.steps || []).length}>{(w?.steps || []).length}</b></span>
+    <span className="ck-v-row"><em>SCRATCH</em><b className="m-num">{w?.scratch ?? w?.scratchN ?? 0}</b></span>
+    <span className="ck-v-row"><em>SPENT</em><b className="m-num">{usd(w?.cost || 0)}</b></span>
+    <p className="ck-v-last">{w?.coin ? <b className="is-up">on ${w.coin.symbol}</b> : null}{w?.bubble || 'waiting for your ask'}{w?.goal ? <small>its job: {w.goal}</small> : null}</p></>} />;
+}
+// pure: the general cat's log — your asks + answers (tasks), each window's steps (thoughts), its files, the cloud, every refusal (guards)
+export function genLog(d) {
+  const now = Date.now() / 1000;
+  return [...(d?.chat || []).map(m => ({ f: 'tasks', at: m.at, text: `${m.by === 'you' ? 'You' : '🧠🧠'}: ${m.text}`, tone: m.by === 'you' ? 'acc' : 'up' })),
+    ...(d?.windows || []).flatMap(w => (w.steps || []).map((s, k) => ({ f: 'thoughts', at: now - ((w.steps.length - k) * 5), text: `${String(w.model || '').split('/').pop()} · ${s.action}: ${s.thought}${s.detail ? ` (${s.detail})` : ''}`, tone: s.action === 'refused' ? 'warn' : 'mute' }))),
+    ...(d?.artifacts || []).map(a => ({ f: 'files', at: now, text: `${a.kind}: ${a.title}`, tone: 'acc' })),
+    ...(d?.cloud || []).map(c => ({ f: 'cloud', at: c.at, text: c.text || `${c.word} $${c.sym}`, tone: 'acc' })),
+    ...(d?.refusals || []).map(r => ({ f: 'guards', at: r.at || now, text: r.why, tone: 'warn' }))].filter(x => x.text).sort((p, q) => (q.at || 0) - (p.at || 0));
+}
+
 export function CatWorkbench({ cat }) {
   const [d, setD] = useState(null); const [err, setErr] = useState(''); const [text, setText] = useState(''); const [busy, setBusy] = useState(false); const [tick, setTick] = useState(0);
   const [to, setTo] = useState('both'); const [jobs, setJobs] = useState(['', '']);   // 🧠 talk to both minds, or ONE of them (it works the whole task in its own window)
@@ -91,6 +111,9 @@ export function CatWorkbench({ cat }) {
     {(d?.artifacts || []).map((a, i) => <details className="cwb-artifact" key={i}><summary>{a.title} · {a.kind}</summary>{a.kind === 'build' ? <iframe title={a.title} sandbox="allow-scripts" referrerPolicy="no-referrer" srcDoc={'<meta http-equiv="Content-Security-Policy" content="default-src \'none\'; script-src \'unsafe-inline\'; style-src \'unsafe-inline\'; img-src data:; connect-src \'none\'; form-action \'none\'; base-uri \'none\'">' + a.content} /> : <pre>{a.content}</pre>}</details>)}
     {(d?.refusals || []).length ? <details className="cwb-refusals"><summary>Refusals · {d.refusals.length}</summary>{d.refusals.map((r, i) => <p key={i}>{r.why}</p>)}</details> : null}
     <div className="cwb-wins">{wins.map(w => <Window key={w.i} w={w} catId={cat.id} tick={tick} busy={busy} onGo={(op, i) => act(op, { i })} />)}</div>
+    <div className="ck-cockpit" data-testid="cwb-cockpit">
+      <GenVitals cat={cat} w={wins[0]} i={0} live={live} />
+      <div className="ck-center cwb-center">
     {d?.task?.answer || status === 'stopped' || status === 'error' ? <p className={`cwb-answer s-${status}`} data-testid="cwb-answer">{d.task.fast ? '⚡ from memory · ' : ''}{d.task.answer || d.task.why}</p> : null}
     <ol className="cwb-chat" aria-label="Chat with its models">{(d?.chat || []).slice(-8).map((m, i) => <li key={i} className={m.by === 'you' ? 'is-you' : 'is-cats'}><b>{m.by === 'you' ? 'You' : '🧠🧠'}</b><span>{m.text}</span>{m.cost != null ? <small className="m-num">{usd(m.cost)}</small> : null}</li>)}</ol>
     {queue.length ? <ol className="cwb-queue" aria-label="Queued asks" data-testid="cwb-queue">{queue.map((q, i) => <li key={i} style={{ '--i': i }}><b className="m-num">{i + 1}</b><span>{q.text}</span>
@@ -107,6 +130,10 @@ export function CatWorkbench({ cat }) {
         : <button type="submit" className="m-btn m-go" disabled={busy || (way === 'jobs' && wins.length > 1 ? !(jobs[0].trim() && jobs[1].trim()) : !text.trim())} data-testid="cwb-send">Send ↵</button>}
       <div className="m-seg cwb-cap" role="radiogroup" aria-label="The most one task may spend">{CAPS.map(c => <button key={c} type="button" role="radio" aria-checked={Math.abs(cap - c) < 1e-9} className={Math.abs(cap - c) < 1e-9 ? 'active' : ''} onClick={() => act('cap', { cap: c })} data-tip={`A task stops at $${c}`} data-testid={`cwb-cap-${c}`}>${c}</button>)}</div>
     </form>
+      </div>
+      <GenVitals cat={cat} w={wins[1]} i={1} live={live} />
+    </div>
+    <AgentLog items={genLog(d)} />
     {d && !d.live ? <p className="cwb-note" data-testid="cwb-off">Model calls are switched off on this server — asking sends and charges nothing until the owner turns them on.</p> : null}
     {err ? <p className="kd-err" role="alert">⚠ {err}</p> : null}
   </section>;

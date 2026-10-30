@@ -1,0 +1,80 @@
+/* 🛸 CatCockpit.jsx — an agent's desk under its two live windows: [vitals A | skinny bubble chat | vitals B] → 📁 the foldered log; desk skins
+   (drawn calm scenes + a card colour, --kd-acc). transform / opacity only (ck* keyframes); scenes stop under fx-lite + reduced motion. */
+.ck-cockpit { display: grid; grid-template-columns: minmax(170px, 230px) minmax(0, 620px) minmax(170px, 230px); justify-content: center; gap: 14px; align-items: start; }
+/* 🧠 one mind's vitals */
+.ck-vitals { --c: var(--kd-acc, #b388ff); position: sticky; top: 8px; display: grid; gap: 8px; padding: 14px 12px; border-radius: 18px; border: 1px solid color-mix(in srgb, var(--c) 30%, transparent);
+  background: linear-gradient(170deg, color-mix(in srgb, var(--c) 14%, #0e0820), #0b0716f2); box-shadow: inset 0 1px 0 #ffffff12, 0 18px 40px -30px var(--c); animation: ckIn .4s both; }
+.ck-vitals.m1 { --c: #ff8fd8; animation-delay: .08s; } .ck-vitals.is-empty { opacity: .55; }
+.ck-v-head { display: flex; align-items: center; gap: 10px; min-width: 0; } .ck-v-head > span:last-child { display: grid; min-width: 0; }
+.ck-v-head em { color: var(--c); font: 800 9px var(--f-mono); letter-spacing: .14em; font-style: normal; } .ck-v-head b { color: #fff; font: 700 12.5px var(--f-ui); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ck-v-row { display: flex; justify-content: space-between; align-items: baseline; padding: 5px 8px; border-radius: 9px; background: #ffffff06; }
+.ck-v-row em { color: #a99bc8; font: 800 9px var(--f-mono); letter-spacing: .12em; font-style: normal; } .ck-v-row b { color: #fff; font: 800 13px var(--f-mono); animation: ckPop .35s both; }
+.ck-spark { display: flex; gap: 3px; height: 18px; align-items: end; } .ck-spark i { flex: 1; height: 100%; border-radius: 3px; background: #ffffff1a; transform-origin: bottom; animation: ckBar .4s both; animation-delay: calc(var(--j) * 30ms); }
+.ck-spark .is-up { background: #45e486; } .ck-spark .is-dn { background: #ff5d7a; } .ck-spark .is-warn { background: #f5c542; } .ck-spark .is-mute { transform: scaleY(.45); }
+.ck-v-last { margin: 0; display: grid; gap: 2px; color: #c9bce6; font: 600 11px var(--f-ui); } .ck-v-last small { color: #8f84ad; font-size: 10.5px; line-height: 1.35; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+.ck-v-last b.is-up, .ck-msg em.is-up { color: #45e486; } .ck-v-last b.is-dn, .ck-msg em.is-dn { color: #ff8fa3; } .ck-v-last b.is-warn, .ck-msg em.is-warn { color: #f5c542; } .ck-v-last b.is-mute, .ck-msg em.is-mute { color: #a99bc8; }
+/* 💬 the skinny chat */
+.ck-chat { display: grid; gap: 8px; min-width: 0; padding: 12px; border-radius: 20px; border: 1px solid #ffffff14; background: #08051099; box-shadow: inset 0 1px 0 #ffffff10; }
+.ck-msgs { list-style: none; margin: 0; padding: 0 2px; display: grid; gap: 8px; max-height: 440px; overflow-y: auto; scrollbar-width: thin; scrollbar-color: var(--kd-acc, #b388ff) transparent; }
+.ck-msg { --i: 0; max-width: 82%; padding: 8px 12px; border-radius: 16px 16px 16px 5px; background: linear-gradient(160deg, color-mix(in srgb, var(--kd-acc, #b388ff) 22%, #1a1030), #120a22);
+  border: 1px solid color-mix(in srgb, var(--kd-acc, #b388ff) 30%, transparent); animation: ckIn .3s both; animation-delay: calc(var(--i) * 30ms); }
+.ck-msg.is-b { justify-self: end; border-radius: 16px 16px 5px 16px; background: linear-gradient(160deg, #3a1a4a, #1d1030); border-color: #ff8fd844; }
+.ck-msg.is-you { justify-self: end; border-radius: 16px 16px 5px 16px; background: linear-gradient(160deg, #0f4a35, #0a2a20); border-color: #45e48655; }
+.ck-msg-h { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px; } .ck-msg-h b { color: #fff; font: 800 11px var(--f-ui); } .ck-msg-h em { font: 800 10px var(--f-mono); font-style: normal; }
+.ck-msg-h small { margin-left: auto; color: #8f84ad; font: 600 9.5px var(--f-mono); } .ck-msg p { margin: 3px 0 0; color: #ece4ff; font: 500 12.5px/1.45 var(--f-ui); overflow-wrap: anywhere; }
+.ck-say { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 6px; } .ck-say .m-input, .ck-say .m-btn { min-height: 40px; }
+.ck-empty { color: #a99bc8; font-size: 12px; padding: 10px; text-align: center; list-style: none; }
+/* 📁 the log */
+.ck-log { display: grid; gap: 8px; max-width: 1110px; width: 100%; margin-inline: auto; padding: 12px; border-radius: 18px; border: 1px solid #ffffff12; background: #0a0614cc; }
+.ck-log header { display: flex; align-items: baseline; gap: 8px; } .ck-log header b { color: #fff; font: 800 11px var(--f-mono); letter-spacing: .14em; } .ck-log header small { color: #8f84ad; font-size: 10.5px; }
+.ck-folders { display: flex; flex-wrap: wrap; gap: 6px; } .ck-folders button { display: inline-flex; align-items: center; gap: 6px; min-height: 34px; padding: 4px 11px; border-radius: 11px; cursor: pointer;
+  border: 1px solid #ffffff14; background: #ffffff06; color: #d8ccf5; font: 700 11px var(--f-tech, sans-serif); letter-spacing: .04em; transition: transform .15s, background .15s; }
+.ck-folders button:hover { transform: translateY(-1px); background: #ffffff10; } .ck-folders button:active { transform: scale(.97); } .ck-folders button:focus-visible { outline: 2px solid var(--kd-acc, #b388ff); outline-offset: 2px; }
+.ck-folders button.is-on { background: var(--kd-acc, #b388ff); color: #0b0716; border-color: transparent; } .ck-folders i { font-style: normal; } .ck-folders b { font: 800 10px var(--f-mono); opacity: .8; }
+.ck-rows { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; max-height: 300px; overflow-y: auto; scrollbar-width: thin; scrollbar-color: var(--kd-acc, #b388ff) transparent; }
+.ck-rows li { --i: 0; display: grid; grid-template-columns: 22px minmax(0, 1fr) auto; gap: 8px; align-items: baseline; padding: 6px 10px; border-radius: 10px; background: #ffffff05; border-left: 3px solid #ffffff1a;
+  animation: ckIn .25s both; animation-delay: calc(var(--i) * 25ms); }
+.ck-rows li.is-up { border-left-color: #45e486; } .ck-rows li.is-dn { border-left-color: #ff5d7a; } .ck-rows li.is-warn { border-left-color: #f5c542; } .ck-rows li.is-acc { border-left-color: var(--kd-acc, #b388ff); }
+.ck-rows i { font-style: normal; } .ck-rows span { color: #e3d9fb; font: 500 12px/1.4 var(--f-ui); overflow-wrap: anywhere; } .ck-rows small { color: #8f84ad; font: 600 9.5px var(--f-mono); }
+/* 🎨 desk skin picker */
+.ck-skin { position: relative; } .ck-skin summary { display: inline-flex; align-items: center; gap: 6px; min-height: 34px; padding: 4px 12px; border-radius: 11px; cursor: pointer; list-style: none;
+  border: 1px solid #ffffff1a; background: #ffffff08; color: #fff; font: 800 10.5px var(--f-mono); letter-spacing: .1em; } .ck-skin summary::-webkit-details-marker { display: none; }
+.ck-skin summary:hover { background: #ffffff12; } .ck-skin summary:focus-visible { outline: 2px solid var(--kd-acc, #b388ff); outline-offset: 2px; } .ck-skin summary i { width: 10px; height: 10px; border-radius: 50%; }
+.ck-skin-pop { position: absolute; right: 0; top: calc(100% + 6px); z-index: 20; display: grid; gap: 8px; padding: 10px; border-radius: 14px; background: #0e0820f5; border: 1px solid #ffffff1a;
+  box-shadow: 0 20px 40px -20px #000; animation: ckPop .18s both; }
+.ck-skin-row { display: flex; gap: 6px; } .ck-skin-row button { display: grid; justify-items: center; gap: 2px; min-width: 58px; min-height: 52px; padding: 6px; border-radius: 11px; border: 1px solid #ffffff14; background: #ffffff06; color: #d8ccf5; cursor: pointer; }
+.ck-skin-row button.is-on { border-color: var(--kd-acc, #b388ff); background: #ffffff12; } .ck-skin-row b { font-size: 18px; } .ck-skin-row small { font: 700 9px var(--f-mono); }
+.ck-skin-row.is-dots button { min-width: 32px; min-height: 32px; place-items: center; } .ck-skin-row.is-dots i { width: 16px; height: 16px; border-radius: 50%; background: var(--d); box-shadow: 0 0 10px var(--d); }
+/* 🌊🌲🏔✨ drawn calm backdrops — one absolute layer behind the desk */
+.kd.has-skin { position: relative; isolation: isolate; }
+.ckb { position: absolute; inset: 0; z-index: -1; overflow: hidden; border-radius: inherit; pointer-events: none; }
+.ckb-night { background: radial-gradient(80% 50% at 50% 0%, color-mix(in srgb, var(--kd-acc, #b388ff) 16%, transparent), transparent 70%); }
+.ckb-ocean { background: linear-gradient(180deg, #0b2440 0%, #123e63 45%, #0c2a45 100%); }
+.ckb-sun { position: absolute; left: 50%; top: 8%; width: 220px; height: 220px; margin-left: -110px; border-radius: 50%; background: radial-gradient(circle, #ffd9a080, #ffd9a000 70%); }
+.ckb-wave { position: absolute; left: -10%; width: 120%; height: 160px; border-radius: 45%; opacity: .55; animation: ckWave 14s ease-in-out infinite alternate; }
+.ckb-wave.w1 { bottom: 60px; background: #1d5a86; } .ckb-wave.w2 { bottom: 20px; background: #164b72; animation-duration: 18s; } .ckb-wave.w3 { bottom: -40px; background: #0f3a5b; animation-duration: 22s; }
+.ckb-forest { background: linear-gradient(180deg, #10241c, #0b1a14 60%, #07110d); }
+.ckb-mist { position: absolute; inset: 20% -10% auto; height: 200px; background: radial-gradient(60% 50% at 50% 50%, #d6ffe91a, transparent 70%); animation: ckDrift 30s linear infinite alternate; }
+.ckb-trees { position: absolute; left: 0; right: 0; bottom: 0; height: 240px; opacity: .8;
+  background: repeating-linear-gradient(90deg, transparent 0 22px, #0d2a1e 22px 40px), linear-gradient(transparent 30%, #0a1f16); -webkit-mask: linear-gradient(transparent, #000 40%); mask: linear-gradient(transparent, #000 40%); }
+.ckb-trees.t2 { height: 160px; opacity: .9; background: repeating-linear-gradient(90deg, transparent 0 34px, #081a12 34px 60px); }
+.ckb-fly { position: absolute; inset: 30% 10% 30%; background: radial-gradient(2px 2px at 20% 30%, #e6ff9d, transparent), radial-gradient(2px 2px at 70% 60%, #e6ff9d, transparent), radial-gradient(2px 2px at 45% 80%, #e6ff9d, transparent); animation: ckDrift 9s ease-in-out infinite alternate; }
+.ckb-peaks { background: linear-gradient(180deg, #1b2448, #2a2f5a 50%, #141833); }
+.ckb-peak { position: absolute; bottom: 0; width: 70%; height: 300px; background: linear-gradient(170deg, #c9d4ff33, #283060 30%, #161b38); clip-path: polygon(0 100%, 45% 10%, 100% 100%); }
+.ckb-peak.p1 { left: -10%; } .ckb-peak.p2 { right: -15%; height: 230px; opacity: .85; }
+.ckb-cloud { position: absolute; width: 260px; height: 60px; border-radius: 50%; background: #ffffff10; animation: ckDrift 40s linear infinite alternate; } .ckb-cloud.c1 { top: 12%; left: 10%; } .ckb-cloud.c2 { top: 22%; right: 8%; animation-duration: 55s; }
+.ckb-aurora { background: linear-gradient(180deg, #070a1c, #0b1430 70%, #060914); }
+.ckb-band { position: absolute; left: -20%; width: 140%; height: 180px; border-radius: 50%; opacity: .35; animation: ckWave 20s ease-in-out infinite alternate; }
+.ckb-band.b1 { top: 6%; background: radial-gradient(50% 50% at 50% 50%, #45e486, transparent 70%); } .ckb-band.b2 { top: 18%; background: radial-gradient(50% 50% at 50% 50%, #7fd3ff, transparent 70%); animation-duration: 26s; }
+.ckb-stars { position: absolute; inset: 0; background-image: radial-gradient(1px 1px at 10% 20%, #fff, transparent), radial-gradient(1px 1px at 40% 10%, #fff, transparent), radial-gradient(1px 1px at 80% 30%, #fff, transparent), radial-gradient(1px 1px at 60% 50%, #fff, transparent); opacity: .5; }
+@keyframes ckIn { from { opacity: 0; transform: translateY(6px); } } @keyframes ckPop { from { opacity: .4; transform: scale(.9); } } @keyframes ckBar { from { transform: scaleY(0); } }
+@keyframes ckWave { to { transform: translateX(6%) translateY(-8px); } } @keyframes ckDrift { to { transform: translateX(8%); } }
+body.fx-lite .ckb *, body.fx-lite .ck-msg, body.fx-lite .ck-rows li, body.fx-lite .ck-vitals { animation: none; }
+@media (prefers-reduced-motion: reduce) { .ckb *, .ck-msg, .ck-rows li, .ck-vitals, .ck-spark i, .ck-v-row b { animation: none !important; } }
+body.theme-day .ck-chat, body.theme-day .ck-log { background: #ffffffe6; border-color: #7c4dff26; } body.theme-day .ck-msg p, body.theme-day .ck-rows span { color: #2a1650; }
+body.theme-day .ck-msg-h b, body.theme-day .ck-v-head b, body.theme-day .ck-v-row b { color: #2a1650; } body.theme-day .ck-vitals { background: #fff; }
+@media (max-width: 1100px) { .ck-cockpit { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); } .ck-cockpit > .ck-chat, .ck-cockpit > .cwb { grid-column: 1 / -1; grid-row: 1; } .ck-vitals { position: static; } }
+@media (max-width: 640px) { .ck-cockpit { grid-template-columns: 1fr 1fr; gap: 8px; } .ck-vitals { padding: 10px; } .ck-msg { max-width: 92%; } .ck-skin-pop { right: auto; left: 0; } }
+.ck-center { display: grid; gap: 10px; min-width: 0; justify-items: center; } .ck-center > .ck-chat { width: 100%; }
+/* 🪟 Fee's dash in My agents: the same desk skin around her live windows + NEXA's desk */
+.ck-nexa { display: grid; gap: 14px; padding: 14px; border-radius: 22px; } .ck-nexa-bar { display: flex; justify-content: flex-end; }

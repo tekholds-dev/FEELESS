@@ -111,3 +111,4 @@ body.theme-day .cwb-tools summary, body.theme-day .cwb-artifact summary, body.th
 body.theme-day .cwb-chat li { background: #fff; } body.theme-day .cwb-chat li.is-you { background: #ece2ff; } body.theme-day .cwb-chat li.is-you span { color: #2a1650; }
 body.theme-day .cwb-cloud span { background: #fff; color: #2a1650; }
 @media (max-width: 640px) { .cwb-jobs { grid-template-columns: 1fr; } .cwb-chat li { max-width: 94%; } }
+.cwb-center { justify-items: stretch; } .cwb-center .cwb-chat { max-height: 420px; }

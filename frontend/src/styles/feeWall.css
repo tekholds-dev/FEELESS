@@ -38,3 +38,7 @@ body.theme-day .fcx-body .fcp { background: linear-gradient(170deg, #f6f0ff, #ff
 .fcp-wall .chat-message .chat-token-wrap { margin-top: 8px; border-radius: 12px; overflow: hidden; }
 .fcp-wall .chat-message .call-perf { margin-top: 6px; border-radius: 10px; }
 @media (max-width: 640px) { .fcp-wall .chat-message:has(.chat-token-wrap) > .chat-avatar { display: none; } .fcp-wall .chat-message > div { padding: 8px 10px 6px; } }
+
+/* ↔ skinny wall (owner 2026-10-30: "no wide-ass chats"): her panel keeps its violet width, the conversation is one centred column */
+.fcx-body .fcp > * { width: 100%; max-width: 720px; margin-inline: auto; }
+.fcx-body .fcp .fcp-wall .chat-message > div { max-width: 88%; }
