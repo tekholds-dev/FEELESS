@@ -9,7 +9,7 @@
 .cwb-meters em { font: 800 7.5px 'JetBrains Mono', monospace; letter-spacing: .14em; font-style: normal; color: #9d8fbf; } .cwb-meters b { font: 800 12px 'JetBrains Mono', monospace; color: #fff; }
 .cwb-meters u { position: absolute; left: 0; right: 0; bottom: 0; height: 2px; background: #ffffff10; } .cwb-meters s { display: block; height: 100%; transform-origin: left; background: linear-gradient(90deg, #5ff2c8, #b49cff); transition: transform .5s ease; }
 .cwb-meters s.is-hot { background: linear-gradient(90deg, #f5c451, #ff8fa3); }
-.cwb-wins { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.cwb-wins { display: grid; grid-template-columns: repeat(2, minmax(0, 420px)); justify-content: center; gap: 10px; }   /* evenly smaller: 4:3, ≤ 420 px */
 .cwb-win { display: grid; grid-template-rows: auto minmax(0, 1fr) auto; min-width: 0; border-radius: 12px; overflow: hidden; border: 1px solid rgba(180, 140, 255, .28); background: #07040d;
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, .05), 0 10px 26px -14px #000; animation: cwbIn .3s ease-out both; }
 .cwb-win.s-working { border-color: rgba(95, 242, 200, .5); } .cwb-win.s-human { border-color: #f5c451; box-shadow: 0 0 0 1px rgba(245, 196, 81, .35), 0 10px 26px -14px #000; }
@@ -19,7 +19,7 @@
 .cwb-prov { font: 800 7.5px 'JetBrains Mono', monospace; font-style: normal; letter-spacing: .12em; padding: 1px 6px; border-radius: 4px; background: #ffffff10; color: #cfc6ff; }
 .cwb-prov.is-steel { background: rgba(95, 242, 200, .14); color: #5ff2c8; } .cwb-prov.is-bb { background: rgba(255, 196, 81, .14); color: #f5c451; } .cwb-prov.is-bl { background: rgba(255, 143, 163, .14); color: #ff9fb2; } .cwb-prov.is-reader { background: rgba(143, 211, 255, .12); color: #8fd3ff; }
 .cwb-url { flex: 1; min-width: 0; padding: 2px 8px; border-radius: 6px; background: #07040d; font: 600 9.5px 'JetBrains Mono', monospace; color: #a99ccf; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.cwb-view { position: relative; height: clamp(220px, 34vh, 380px); background: radial-gradient(120% 90% at 50% 0%, rgba(156, 107, 255, .12), transparent 60%), #07040d; overflow: hidden; }
+.cwb-view { position: relative; aspect-ratio: 4 / 3; background: radial-gradient(120% 90% at 50% 0%, rgba(156, 107, 255, .12), transparent 60%), #07040d; overflow: hidden; }
 .cwb-live, .cwb-shot { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; object-fit: contain; background: #fff; }
 .cwb-steps { list-style: none; margin: 0; padding: 48px 12px 10px; display: grid; align-content: start; gap: 5px; height: 100%; box-sizing: border-box; overflow-y: auto; scrollbar-width: thin; scrollbar-color: #b49cff transparent; }
 .cwb-steps li { display: grid; grid-template-columns: 54px minmax(0, 1fr); gap: 2px 8px; padding: 5px 8px; border-radius: 7px; background: #ffffff06; animation: cwbIn .25s ease-out both; animation-delay: calc(min(var(--i, 0), 8) * 40ms); }
@@ -58,7 +58,7 @@ body.theme-day .cwb-win { background: #fbf9ff; border-color: rgba(106, 61, 240, 
 body.theme-day .cwb-view { background: #f7f3ff; } body.theme-day .cwb-steps li, body.theme-day .cwb-chat li { background: #fff; } body.theme-day .cwb-steps span, body.theme-day .cwb-chat span, body.theme-day .cwb-answer { color: #2a1f45; }
 body.theme-day .cwb-head b, body.theme-day .cwb-model, body.theme-day .cwb-meters b { color: #1c1230; } body.theme-day .cwb-meters > span { background: #fff; border-color: rgba(60, 40, 160, .12); }
 body.theme-day .cwb-bubble { background: rgba(255, 255, 255, .96); color: #1c1230; } body.theme-day .cwb-human { background: #fffaf0; } body.theme-day .cwb-human small { color: #3a3058; }
-@media (max-width: 640px) { .cwb-wins { grid-template-columns: minmax(0, 1fr); } .cwb-view { height: 240px; } .cwb-ask { grid-template-columns: minmax(0, 1fr) auto; } .cwb-cap { grid-column: 1 / -1; justify-self: stretch; }
+@media (max-width: 640px) { .cwb-wins { grid-template-columns: minmax(0, 420px); } .cwb-ask { grid-template-columns: minmax(0, 1fr) auto; } .cwb-cap { grid-column: 1 / -1; justify-self: stretch; }
   .cwb-meters { width: 100%; } .cwb-meters > span { flex: 1 1 0; min-width: 0; } }
 /* 🏇 LET IT GO switch + the queue */
 .cwb-go { display: inline-flex; align-items: center; gap: 7px; min-height: 34px; padding: 0 12px; border-radius: 999px; border: 1px solid rgba(255, 255, 255, .12); background: rgba(255, 255, 255, .04);
