@@ -32929,7 +32929,14 @@ async def _sol_usd() -> float:
         async with httpx.AsyncClient(timeout=4) as http:
             v = float(((await http.get(f'https://lite-api.jup.ag/price/v3?ids={WSOL}')).json().get(WSOL) or {}).get('usdPrice') or 0)
     except Exception:
-        v = hit[1] if hit else 0.0
+        v = 0.0
+    if v <= 0:   # 🛟 this free endpoint rate-limits (429): the full chain (Jupiter key → DexScreener → last good), and a miss is never remembered as the price
+        try:
+            v = float(await _sol_usd_live() or 0)
+        except Exception:
+            v = 0.0
+    if v <= 0:
+        return hit[1] if hit and time.time() - hit[0] < 600 else 0.0
     _sol_px['v'] = (time.time(), v)
     return v
 

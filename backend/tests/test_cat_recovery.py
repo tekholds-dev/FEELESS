@@ -138,3 +138,27 @@ def test_an_old_engine_copy_can_never_wipe_a_wallet_a_funding_or_bought_credit()
     fs._save(fs._load())                                 # no second add
     assert fs._load()['cats']['c1']['brainsCfg']['credit'] == 15.0
     fs._KEPT.clear()
+
+
+def test_a_rate_limited_price_falls_back_and_a_miss_is_never_cached(monkeypatch):
+    import asyncio
+    import reputation_service as rs
+
+    class Limited:
+        def __init__(self, **_k): pass
+        async def __aenter__(self): return self
+        async def __aexit__(self, *_a): return False
+        async def get(self, _u):
+            class R:
+                def json(self): return {'code': 429}
+            return R()
+    live = {'v': 0.0}
+    async def full():
+        return live['v']
+    monkeypatch.setattr(rs.httpx, 'AsyncClient', Limited); monkeypatch.setattr(rs, '_sol_usd_live', full); rs._sol_px.clear()
+    assert asyncio.run(rs._sol_usd()) == 0.0 and 'v' not in rs._sol_px   # no price: 0, and the next call tries again
+    live['v'] = 195.5
+    assert asyncio.run(rs._sol_usd()) == 195.5
+    live['v'] = 0.0; rs._sol_px['v'] = (rs.time.time() - 300, 195.5)
+    assert asyncio.run(rs._sol_usd()) == 195.5                           # recent good price kept through a blip
+    rs._sol_px.clear()
