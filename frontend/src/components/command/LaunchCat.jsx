@@ -41,7 +41,7 @@ export const COLLAB = {
 export const HOUSE = { general: 'RULES — never invent facts; stop for human-needed sign-ins, CAPTCHAs, payments and ID checks; never create another agent or launch a coin on FEELESS; stay inside the $ cap per task.',
   trading: 'RULES — trade only on FEELESS; size inside the caps; never chase a candle that already ran; respect every rug / bundler / dev flag; explain each call in one sentence.' };
 // 🔐 what protects the agent, said plainly BEFORE any money moves (owner 2026-10-30: "assure account secure and a recovery pin will show next"). Only true things.
-const SAFE = gen => [['👛', 'Its own wallet', 'Separate from yours. Its keys stay with Crossmint, never in a browser.'], ['↩', 'Money comes back to you', 'Withdrawals go only to your linked wallet.'],
+const SAFE = gen => [['👛', 'Its own wallet', 'Separate from yours. Its keys stay with Crossmint, never in a browser.'], ['⚠', 'Withdrawals: not built yet', 'Fund only what you can leave in it until real withdrawals ship.'],
   ['🗝', 'Passwords sealed', 'Encrypted. Its minds never see them and its log never shows them.'], ['🛑', 'Your limits hold', gen ? 'A $ cap per task, and it asks before each move until you choose auto.' : 'Caps on every buy and every day, enforced by the server.']];
 export function SafetyCard({ gen }) {
   return <section className="lct-safe" data-testid="lct-safe"><span className="m-label">🔐 HOW YOUR AGENT STAYS SAFE</span>

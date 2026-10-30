@@ -1,6 +1,6 @@
 """🔑 RECOVERY PIN (owner 2026-10-30: "assure account secure and a recovery pin will show next"). An agent answers to the browser that launched it
 (`ownerId` in localStorage): clear that browser and the agent is out of reach. The PIN is the way back: 12 random characters shown ONCE, only a
-scrypt hash kept on the agent. It re-binds the agent to a new browser; it never moves money (withdrawals still go only to the linked wallet, signed).
+scrypt hash kept on the agent. It re-binds the agent to a new browser; it never moves money.
 Five wrong tries lock that agent's PIN for an hour. Pure, tested (tests/test_cat_recovery.py)."""
 import hashlib
 import hmac

@@ -94,7 +94,7 @@ export function SafeKeeping({ cat, addr, saved, onSaved }) {
     <span className="cr-safe-addr"><code data-testid="cr-safe-addr">{w || '—'}</code>
       <button type="button" className="m-btn" onClick={copy} disabled={!w} data-tip="Copy its address">{copied ? '✓ copied' : 'Copy'}</button>
       {w ? <a className="m-btn" href={`https://solscan.io/account/${w}`} target="_blank" rel="noopener noreferrer" data-tip="See it on Solscan">Solscan ↗</a> : null}</span>
-    <p className="cr-safe-why">It is tied to <b>your wallet {addr ? `${addr.slice(0, 4)}…${addr.slice(-4)}` : ''}</b>: money only ever comes back to it, and only when you sign. There is no separate code for this agent wallet — <b>your wallet's recovery phrase is the only way back in</b>.</p>
+    <p className="cr-safe-why">It is tied to <b>your wallet {addr ? `${addr.slice(0, 4)}…${addr.slice(-4)}` : ''}</b>. Real withdrawals back to it are not built yet, so fund only what you can leave in it. Your recovery PIN brings the agent back; <b>your wallet's recovery phrase protects your own wallet</b>.</p>
     <p className="cr-safe-warn" role="note">⚠ Save your wallet's recovery phrase OFFLINE now (Phantom › Settings › Security › Show recovery phrase — write it on paper). Lose it AND this device and nobody — not FEELESS, not Crossmint — can get your funds back. Never type it into any site or chat.</p>
     <label className="cr-safe-ok"><input type="checkbox" checked={saved} onChange={e => onSaved(e.target.checked)} data-testid="cr-safe-check" />
       <i aria-hidden="true" /><span>I confirm I saved my recovery phrase safely, offline</span></label>
