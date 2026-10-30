@@ -17,6 +17,9 @@ BAD_JOB = re.compile(r'(?i)\b(?:rug\s+(?:pull|people|ppl|them|investors)|scam\s+
 
 
 def refusal(text):
+    import cat_tools
+    if cat_tools.NEVER.search(str(text)):   # 🚫 owner 2026-10-30: agents never create a coin, a pool or another agent
+        return 'Refused: a FeeCat agent never creates a coin, a pool or another agent.'
     return 'Refused: scams, rugs, impersonation, spam and FeeCat self-creation/sign-in are blocked.' if BAD_JOB.search(str(text)) else None
 
 

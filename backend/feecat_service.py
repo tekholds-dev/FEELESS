@@ -37,6 +37,7 @@ import cat_policy as _cp
 import cat_real as _real   # 💵 real-money cats = option A: the user's wallet signs every trade (docs/DECISIONS.md #2)
 import cat_orders as _co   # 🧭 a General AI cat's plain-words orders → one guarded proposal
 import cat_model as _cm
+import cat_tools as _ct   # 🧰 FEELESS-first read-only tools for general agents
 import cat_keys as _ck   # 🔐 a cat's API drawer (sealed keys, never sent to a page)
 
 DATA_DIR = Path(__file__).parent / 'data'
@@ -121,6 +122,7 @@ def _log_event(store, cat, kind, detail, pnl=None, pair=None, price=None, market
     store['events'] = store['events'][:200]
 
 
+MODEL_LOCK_SEC = 24 * 3600   # 🔁 a cat's models can be switched 24 h after it was made
 FEE_PER_SIDE = 0.01   # the default paper fee per side — HQ › Core › house fees sets the live one (RULES['feePerSidePct'])
 
 
@@ -1320,9 +1322,9 @@ def _work_view(cat_id, owner=False):
     wins = []
     for x in t['windows']:
         s_ = (w.get('sessions') or [None, None])[x['i']] or {}
-        wins.append({**{k: x.get(k) for k in ('i', 'model', 'goal', 'status', 'bubble', 'url', 'title', 'human', 'answer', 'cost')}, 'steps': x['steps'][-10:],
+        wins.append({**{k: x.get(k) for k in ('i', 'model', 'goal', 'status', 'bubble', 'url', 'title', 'human', 'answer', 'cost', 'coin', 'scratchN')}, 'scratch': len(x.get('scratch') or []), 'steps': x['steps'][-10:],
                      'provider': s_.get('provider'), 'note': s_.get('note'), **({'live': s_.get('live'), 'shot': bool((w.get('pages') or [None, None])[x['i']] and not s_.get('live'))} if owner else {})})
-    return {'task': {k: t.get(k) for k in ('id', 'text', 'status', 'cap', 'cost', 'answer', 'fast', 'why', 'stepsMax')}, 'windows': wins}
+    return {'task': {k: t.get(k) for k in ('id', 'text', 'mode', 'status', 'cap', 'cost', 'answer', 'fast', 'why', 'stepsMax', 'keep')}, 'windows': wins}
 
 
 def _work_start(cat_id, cat, text, to=None):
@@ -1335,12 +1337,13 @@ def _work_start(cat_id, cat, text, to=None):
         models = [models[int(to)]]
     names = [str(m).split('/')[-1][:24] for m in models]
     steps = _ca.GO_STEPS if cat.get('workGo') else _ca.STEP_MAX
-    _WORK[cat_id] = {'task': _ca.new_task(uuid.uuid4().hex[:10], text, models, cap, steps), 'events': {}, 'go': {}, 'sessions': [None] * len(models), 'pages': [None] * len(models), 'at': time.time()}
+    _WORK[cat_id] = {'task': _ca.new_task(uuid.uuid4().hex[:10], text, models, cap, steps, cat.get('workMode') or 'plan'), 'events': {}, 'go': {}, 'sessions': [None] * len(models), 'pages': [None] * len(models), 'at': time.time()}
     _WORK[cat_id]['task']['tools'] = _cp.toolkit(cat.get('job', 'agent'), cat.get('tools'))
-    _WORK[cat_id]['runner'] = asyncio.create_task(_work_run(cat_id, models, names, text, cap, str(b.get('prompt') or '')[:1200], b.get('efforts') or {}))
+    _WORK[cat_id]['runner'] = asyncio.create_task(_work_run(cat_id, models, names, text, cap, str(b.get('prompt') or '')[:1200], b.get('efforts') or {},
+                                                            _ck.key_for(cat, 'openrouter', data_dir=DATA_DIR)))
 
 
-async def _work_run(cat_id, models, names, text, cap, brief='', efforts=None):
+async def _work_run(cat_id, models, names, text, cap, brief='', efforts=None, own_key=None):
     w = _WORK[cat_id]
     env = os.environ
     async with httpx.AsyncClient(timeout=30) as http:
@@ -1359,7 +1362,7 @@ async def _work_run(cat_id, models, names, text, cap, brief='', efforts=None):
             orders = [{'role': 'system', 'content': f"Your owner's standing orders, sealed at launch — follow them on every step: {brief}"}] if brief else []
 
             async def ask(model, messages):   # 📜 the sealed brief rides every call (plan · each browsing step · merge)
-                return await _or_call(model, orders + messages, max_tokens=4096, **({'effort': efforts[model]} if (efforts or {}).get(model) else {}))
+                return await _or_call(model, orders + messages, max_tokens=4096, **({'key': own_key} if own_key else {}), **({'effort': efforts[model]} if (efforts or {}).get(model) else {}))
 
             def cost_bound(model, messages):
                 row = next((m for m in ((_MODELS.get('rows') or {}).get('models') or []) if m['id'] == model), None)
@@ -1373,7 +1376,9 @@ async def _work_run(cat_id, models, names, text, cap, brief='', efforts=None):
                 ev = w['events'][i] = asyncio.Event()
                 await ev.wait()
                 return bool(w['go'].pop(i, False))
-            await _ca.run(w['task'], ask, pages, wait_human, names)
+            async def feeless(tool, q=''):   # 🧰 FEELESS first: our own read-only tools, server-side (the browser is walled off from us)
+                return await _ct.run_tool(http, tool, q)
+            await _ca.run(w['task'], ask, pages, wait_human, names, feeless)
         finally:
             for pg in pages:
                 await pg.close()
@@ -1393,7 +1398,10 @@ def _work_settle(store):
         if cat and cat.get('brainsCfg'):
             cat['artifacts'] = (list(cat.get('artifacts') or []) + t.get('artifacts', []))[-30:]
             cat['refusals'] = (list(cat.get('refusals') or []) + [{'at': time.time(), 'why': x} for x in t.get('refusals', [])])[-100:]
-            _lc.charge(cat['brainsCfg'], t.get('cost') or 0)
+            if not _ck.key_for(cat, 'openrouter', data_dir=DATA_DIR):   # its owner's own key pays OpenRouter directly — no FEELESS credit
+                _lc.charge(cat['brainsCfg'], t.get('cost') or 0)
+            for k_ in t.get('keep') or []:   # ☁ the best of both scratch pads → its main cloud (the rest was thrown away)
+                cat['brainsCfg']['cloud'] = ((cat['brainsCfg'].get('cloud') or []) + [{'at': time.time(), 'word': 'KEEP', 'sym': '', 'text': str(k_)[:240], 'by': ['both']}])[-_lc.CLOUD_MAX:]
             cat['chat'] = (list(cat.get('chat') or []) + [{'by': 'you', 'text': t.get('text'), 'at': w.get('at')},
                            {'by': 'cats', 'text': t.get('answer') or f"({t.get('status')}: {t.get('why') or 'no answer'})", 'at': time.time(), 'cost': t.get('cost'), 'fast': t.get('fast')}])[-CHAT_KEEP:]
         w['settled'] = True
@@ -1521,6 +1529,7 @@ class CreatePayload(BaseModel):
     job: str = "agent"
     tools: Optional[dict] = None
     venues: Optional[list] = None     # 📈 trading cat: FEELESS rails only (cat_keys.VENUES)
+    workMode: Optional[str] = None    # 🧭 general cat: plan (plan → split → merge) · jobs (each mind its own job)
 
 
 @app.get('/api/cats/models')
@@ -1575,6 +1584,8 @@ async def create_cat(payload: CreatePayload):
             cat['tools'] = _cp.toolkit(cat['job'], payload.tools)
             if payload.brainKind != 'general':
                 cat['venues'] = _ck.venues(payload.venues)   # 📈 FEELESS rails only (trench · perps)
+            else:
+                cat['workMode'] = payload.workMode if payload.workMode in _ca.MODES else 'plan'
         except ValueError as e:
             raise HTTPException(400, str(e))
         for model, effort in cat['brainsCfg'].get('efforts', {}).items():
@@ -1784,6 +1795,11 @@ async def cat_work(cat_id: str, p: WorkPayload):
         v = max(0.005, min(TASK_CAP_MAX, float(p.cap or TASK_CAP_DEFAULT)))
         cat['taskCap'] = round(v, 4); _save(store)
         return {'cap': cat['taskCap']}
+    if p.op == 'mode':   # 🧭 plan together → one answer · each mind its own job
+        if p.job not in _ca.MODES:
+            raise HTTPException(400, 'Pick plan or jobs.')
+        cat['workMode'] = p.job; _save(store)
+        return {'workMode': cat['workMode']}
     if p.op == 'go':
         cat['workGo'] = bool(p.on)
         if not cat['workGo']:
@@ -1828,7 +1844,8 @@ async def cat_work(cat_id: str, p: WorkPayload):
             _work_start(cat_id, cat, text, p.to)
     out = _work_view(cat_id, owner=True)
     return {**out, 'cap': float(cat.get('taskCap') or TASK_CAP_DEFAULT), 'credit': b.get('credit'), 'spent': b.get('spent'), 'chat': (cat.get('chat') or [])[-20:],
-            'live': _work_live(), 'providers': _cb.chain(os.environ), 'go': bool(cat.get('workGo')),
+            'live': _work_live(), 'providers': _cb.chain(os.environ), 'go': bool(cat.get('workGo')), 'workMode': cat.get('workMode') or 'plan',
+            'cloud': (b.get('cloud') or [])[-8:], 'createdAt': cat.get('createdAt'),
             'job': cat.get('job', 'agent'), 'tools': _cp.toolkit(cat.get('job', 'agent'), cat.get('tools')), 'toolkits': _cp.TOOLS,
             'refusals': (cat.get('refusals') or [])[-20:] + [{'why': x} for x in ((w or {}).get('task') or {}).get('refusals', [])],
             'artifacts': (cat.get('artifacts') or [])[-10:] + ([] if (w or {}).get('settled') else ((w or {}).get('task') or {}).get('artifacts', [])),
@@ -2005,6 +2022,8 @@ class ActionPayload(BaseModel):
     provider: Optional[str] = None     # 🔐 api_key: which drawer slot …
     secret: Optional[str] = None       # … and the key (empty = remove it); sealed at once, never echoed
     venues: Optional[list] = None      # 📈 venues: the FEELESS rails a trading cat may use
+    brains: Optional[list] = None      # 🔁 models: switch its models (24 h after it was made)
+    workMode: Optional[str] = None     # 🧭 work_mode: plan · jobs
 
 
 def owner_wallets():
@@ -2199,6 +2218,40 @@ async def cat_action(cat_id: str, payload: ActionPayload, request: Request):
         amount = min(float(payload.amount or 0), cat['balanceSol'])
         cat['balanceSol'] = round(cat['balanceSol'] - amount, 6)
         _log_event(store, cat, 'WITHDRAW', f'Paper withdrawal of {amount:.4f} SOL recorded.')
+    elif payload.action == 'work_mode':   # 🧭 how a general cat's two minds work: plan together → split → merge, or each its own job
+        if payload.workMode not in _ca.MODES:
+            raise HTTPException(400, 'Pick plan or jobs.')
+        cat['workMode'] = payload.workMode
+    elif payload.action == 'models':   # 🔁 owner 2026-10-30: you keep your agent forever; its models can be switched 24 h after you got it
+        left = MODEL_LOCK_SEC - (time.time() - float(cat.get('createdAt') or 0))
+        if left > 0:
+            raise HTTPException(400, f'Its models can change 24 h after you got it — {left / 3600:.1f} h to go.')
+        if not cat.get('brainsCfg'):
+            raise HTTPException(400, 'This cat has no AI models.')
+        cat_ = await _or_models()
+        try:   # the sealed brief, credit, memory and cloud carry over — only the models change
+            cat['brainsCfg'] = _lc.clean({'brains': payload.brains}, cat['brainsCfg'], {m['id'] for m in cat_.get('models') or []} or None, max_models=await _model_limit(payload.session or ''))
+        except ValueError as e:
+            raise HTTPException(400, str(e))
+        _log_event(store, cat, 'LEARN', f"🔁 new models: {' + '.join(m.split('/')[-1] for m in cat['brainsCfg']['brains'])}")
+    elif payload.action == 'delete':   # 🗑 forever means until YOU delete it: retired first, typed name, and never while its own wallet still holds money
+        if not cat.get('revoked'):
+            raise HTTPException(400, 'Retire it first, then delete it for good.')
+        if str(payload.text or '').strip().lower() != str(cat.get('name') or '').strip().lower():
+            raise HTTPException(400, "Type the agent's name to delete it for good.")
+        w_ = (cat.get('agentWallet') or {}).get('address')
+        if w_:
+            try:
+                async with httpx.AsyncClient(timeout=15) as h_:
+                    bal_ = await _aw.balances(h_, os.environ.get('CROSSMINT_API_KEY', ''), w_)
+            except ValueError as e:
+                raise HTTPException(409, f"Couldn't read its wallet ({e}) — nothing deleted.")
+            if float(bal_.get('sol') or 0) > 0.001 or float(bal_.get('usdc') or 0) > 0.01:
+                raise HTTPException(409, f"Its wallet still holds {bal_.get('sol')} SOL / {bal_.get('usdc')} USDC — withdraw it first.")
+        store['cats'].pop(cat_id, None)
+        _WORK.pop(cat_id, None)
+        _save(store)
+        return {'cat': None, 'deleted': cat_id}
     elif payload.action == 'revoke':
         cat['revoked'] = True
         cat['status'] = 'stopped'

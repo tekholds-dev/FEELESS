@@ -24,12 +24,28 @@ PLAN_SYS = ('You lead two AI models working for a FEELESS user. If you can answe
             'Otherwise split it into two halves the two models research in their own browsers at the same time. Answer ONLY JSON: '
             '{"fast": "<answer or empty>", "a": "<your half>", "b": "<the other model\'s half>"}')
 ACT_SYS = ('You are {name}, an AI model working in your OWN web browser for a FEELESS user, who watches you. Your half of the task: {goal}\n'
-           'Each turn pick ONE action. Answer ONLY JSON: {{"thought": "<= 12 words: what you are doing and why", "action": "open|search|click|type|human|draft|build|note|answer", '
-           '"url": "", "q": "", "text": "<visible text of the link / button to click>", "label": "<field label or placeholder>", "value": "", "say": "<your answer, when action is answer>"}}\n'
+           'Each turn pick ONE action. Answer ONLY JSON: {{"thought": "<= 12 words: what you are doing and why", "action": "feeless|open|search|click|type|human|draft|build|note|answer", '
+           '"tool": "<feeless tool>", "url": "", "q": "", "text": "<visible text of the link / button to click>", "label": "<field label or placeholder>", "value": "", "say": "<your answer, when action is answer>"}}\n'
+           'FEELESS FIRST: for anything about coins, trading, perps, pools or prices use action "feeless" (tool: coin|trench|perps|pools|gaps, q: the coin / ticker) '
+           'BEFORE any outside website — FEELESS is where this user trades. Never create a coin, a pool or another agent.\n'
            'Rules: never type a password, card number or seed phrase — use "human" for any sign-in / sign-up / CAPTCHA. Never claim what the page does not show. '
-           'Use draft to save writing, note for case notes, build to save a complete HTML page for the live sandbox preview. Put artifact content in say. '
+           'Use draft to save writing, build to save a complete HTML page for the live sandbox preview, note to keep a fact in YOUR scratch pad (thrown away '
+           'after the task unless it is the best). Put artifact / note content in say. '
            'Finish with "answer" (with the sources you used) within {steps} steps.')
-MERGE_SYS = 'Combine the two research halves into ONE clear answer for the user, keep the sources, say what is still uncertain. Plain text, short.'
+MERGE_SYS = ('Combine the two halves (and their scratch notes) into ONE clear answer for the user, keep the sources, say what is still uncertain. '
+             'Then pick the few facts worth keeping for next time — only what BOTH halves support or what is clearly vital. Answer ONLY JSON: '
+             '{"answer": "<plain text, short>", "keep": ["<fact + source>", "..."]}')
+JOBS_SYS = 'Each model had its OWN job. Present both results for the user, each under its job, plain text — no merging, nothing invented.'
+MODES = ('plan', 'jobs')   # 🧠🤝 plan together → split → merge · 🎯 each mind its own job (owner 2026-10-30: "only 2 options")
+KEEP_MAX = 6
+
+
+def split_jobs(text, n=2):
+    """'A: write the video script  B: make the posts' → one job per mind; no labels = every mind gets the whole ask."""
+    t = str(text or '')
+    parts = re.split(r'(?im)(?:^|\s)(?:mind\s*)?([AB])\s*[:\-—]\s*', t)
+    jobs = {k.upper(): v.strip() for k, v in zip(parts[1::2], parts[2::2]) if v.strip()}
+    return [jobs.get('AB'[i]) or t.strip() for i in range(n)]
 
 
 def parse_json(text):
@@ -53,10 +69,10 @@ def blocked_value(label, value):
     return bool(BLOCKED.search(str(label or '')) or re.search(r'\b(?:\d[ -]?){13,19}\b', str(value or '')))
 
 
-def new_task(tid, text, models, cap, steps=STEP_MAX):
-    return {'id': tid, 'text': str(text)[:2000], 'status': 'planning', 'cap': float(cap), 'cost': 0.0, 'answer': None, 'fast': False, 'stepsMax': int(steps), 'tools': {'browse': True, 'forms': True},
+def new_task(tid, text, models, cap, steps=STEP_MAX, mode='plan'):
+    return {'id': tid, 'text': str(text)[:2000], 'mode': mode if mode in MODES else 'plan', 'status': 'planning', 'cap': float(cap), 'cost': 0.0, 'answer': None, 'fast': False, 'stepsMax': int(steps), 'tools': {'browse': True, 'forms': True},
             'windows': [{'i': i, 'model': m, 'goal': None, 'status': 'idle', 'bubble': 'waiting for the plan', 'url': None, 'title': None,
-                         'steps': [], 'human': None, 'answer': None, 'cost': 0.0} for i, m in enumerate(models[:8])]}
+                         'steps': [], 'human': None, 'answer': None, 'cost': 0.0, 'scratch': [], 'coin': None} for i, m in enumerate(models[:8])]}
 
 
 class Stopped(Exception):
@@ -86,7 +102,7 @@ def _step(w, thought, action, detail=''):
     w['steps'] = (w['steps'] + [{'action': action, 'thought': str(thought or '')[:120], 'detail': str(detail or '')[:160]}])[-40:]
 
 
-async def _window(task, w, ask, page, wait_human, name):
+async def _window(task, w, ask, page, wait_human, name, feeless=None):
     """One model working its half in its own browser. → its answer (or what it has when stopped)."""
     w['status'] = 'working'
     seen = ''
@@ -101,14 +117,26 @@ async def _window(task, w, ask, page, wait_human, name):
             w['answer'] = str(a.get('say') or thought or 'no answer')[:4000]
             _step(w, thought or 'done', 'answer')
             break
-        need = {'open': 'browse', 'search': 'browse', 'click': 'forms', 'type': 'forms', 'draft': 'storage', 'build': 'build', 'note': 'notes'}.get(act)
+        need = {'open': 'browse', 'search': 'browse', 'click': 'forms', 'type': 'forms', 'draft': 'storage', 'build': 'build'}.get(act)   # note = its own scratch pad, always on
         if need and not task.get('tools', {}).get(need, False):
             why = f'Refused: {need} tool is disabled for this job.'
             task.setdefault('refusals', []).append(why)
             _step(w, why, 'refused')
             seen = why
             continue
-        if act in ('draft', 'build', 'note'):
+        if act == 'feeless':   # 🧰 our own tools first — read-only, always on
+            seen, coin = await feeless(a.get('tool'), a.get('q') or '') if feeless else ('FEELESS tools are not connected right now.', None)
+            if coin:
+                w['coin'] = coin
+            w['url'], w['title'] = f"feeless:{str(a.get('tool') or '')[:12]}", 'FEELESS'
+            _step(w, thought, 'feeless', f"{a.get('tool') or ''} {a.get('q') or ''}".strip())
+            continue
+        if act == 'note':   # 🗒 its own throwaway scratch pad — the merge keeps only the best for the main cloud
+            w['scratch'] = (w['scratch'] + [str(a.get('say') or thought)[:400]])[-12:]
+            _step(w, thought, 'note', 'kept in its scratch pad')
+            seen = 'Noted in your scratch pad.'
+            continue
+        if act in ('draft', 'build'):
             content = str(a.get('say') or '')[:50000]
             task.setdefault('artifacts', []).append({'kind': act, 'title': str(a.get('text') or act)[:80], 'content': content, 'model': w['model']})
             _step(w, thought, act, 'Saved for owner review')
@@ -154,7 +182,7 @@ async def _window(task, w, ask, page, wait_human, name):
     return w['answer']
 
 
-async def run(task, ask, pages, wait_human, names=('Model A', 'Model B')):
+async def run(task, ask, pages, wait_human, names=('Model A', 'Model B'), feeless=None):
     """The whole task. `ask(model, messages)` → (text, $) · `pages[i]` = window i's page driver · `wait_human(i)` → True continue / False stop."""
     ws = task['windows']
     try:
@@ -163,6 +191,17 @@ async def run(task, ask, pages, wait_human, names=('Model A', 'Model B')):
             task.setdefault('refusals', []).append(why)
             raise Stopped(why)
         lead = ws[0]['model']
+        if task.get('mode') == 'jobs':   # 🎯 each mind its own job: no plan call, no merge — both results, each under its job
+            for w, job in zip(ws, split_jobs(task['text'], len(ws))):
+                w['goal'] = job
+            task['status'] = 'working'
+            got = await asyncio.gather(*(_window(task, w, ask, pages[w['i']], wait_human, names[w['i']], feeless) for w in ws), return_exceptions=True)
+            if any(isinstance(g, Stopped) for g in got) and not any(isinstance(g, str) for g in got):
+                raise next(g for g in got if isinstance(g, Stopped))
+            task['answer'] = '\n\n'.join(f"{names[w['i']]} · {w['goal'][:80]}\n{w['answer'] or '(nothing)'}" for w in ws)[:8000]
+            task['keep'] = [f"{names[w['i']]}: {str(w['answer'] or '')[:200]}" for w in ws if w.get('answer')][:KEEP_MAX]
+            task['status'] = 'done'
+            return _clean(task)
         p = parse_json(await _ask(task, ws[0], ask, lead, [{'role': 'system', 'content': RULES + '\n' + PLAN_SYS}, {'role': 'user', 'content': task['text']}]))
         if str(p.get('fast') or '').strip():
             task.update(answer=str(p['fast']).strip()[:4000], fast=True, status='done')
@@ -173,13 +212,16 @@ async def run(task, ask, pages, wait_human, names=('Model A', 'Model B')):
         for i, w in enumerate(ws):
             w['goal'] = halves[i] if i < len(halves) else f'Independently verify the evidence and fill gaps: {task["text"]}'
         task['status'] = 'working'
-        got = await asyncio.gather(*(_window(task, w, ask, pages[w['i']], wait_human, names[w['i']]) for w in ws), return_exceptions=True)
+        got = await asyncio.gather(*(_window(task, w, ask, pages[w['i']], wait_human, names[w['i']], feeless) for w in ws), return_exceptions=True)
         if any(isinstance(g, Stopped) for g in got) and not any(isinstance(g, str) for g in got):
             raise next(g for g in got if isinstance(g, Stopped))
-        parts = [f"{names[w['i']]} ({w['goal']}):\n{w['answer'] or '(nothing)'}" for w in ws]
+        parts = [f"{names[w['i']]} ({w['goal']}):\n{w['answer'] or '(nothing)'}" + (f"\nscratch: {' | '.join(w['scratch'])}" if w.get('scratch') else '') for w in ws]
         task['status'] = 'merging'
         if len(ws) > 1:
-            task['answer'] = (await _ask(task, None, ask, lead, [{'role': 'system', 'content': MERGE_SYS}, {'role': 'user', 'content': '\n\n'.join(parts)}])).strip()[:6000]
+            raw = (await _ask(task, None, ask, lead, [{'role': 'system', 'content': MERGE_SYS}, {'role': 'user', 'content': '\n\n'.join(parts)}])).strip()
+            m = parse_json(raw)
+            task['answer'] = str(m.get('answer') or raw).strip()[:6000]
+            task['keep'] = [str(x)[:240] for x in (m.get('keep') or []) if str(x).strip()][:KEEP_MAX]
         else:
             task['answer'] = ws[0]['answer']
         task['status'] = 'done'
@@ -191,4 +233,11 @@ async def run(task, ask, pages, wait_human, names=('Model A', 'Model B')):
     for w in ws:
         if w['status'] not in ('done',):
             w['status'] = 'done' if task['status'] == 'done' else task['status']
+    return _clean(task)
+
+
+def _clean(task):
+    """🧹 the scratch pads are throwaway: what mattered is in task['keep'] (→ the agent's main cloud); the rest is dropped, its count kept."""
+    for w in task['windows']:
+        w['scratchN'] = len(w.get('scratch') or []); w['scratch'] = []
     return task

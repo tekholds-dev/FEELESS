@@ -1,7 +1,7 @@
 import { CatWorkbench } from './CatWorkbench';
 import { AgentLive, MindsRow, asModel, catMinds, catCoins } from './AgentLive';
 import { signWord } from './LaunchCat';
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { ArrowLeft, Copy } from 'lucide-react';
 import NumInput from '../NumInput';
 import { LookAvatar } from './CatLook';
@@ -42,6 +42,28 @@ export function curveOf(points) {
 function Tile({ k, label, value, sub, fill, tone, tip, children }) {
   return <div className={`kd-tile ${tone || ''}`} style={{ '--i': k }} data-tip={tip}><em>{label}</em><b className="m-num" key={String(value)}>{value}</b>
     {fill != null ? <u aria-hidden="true"><s style={{ transform: `scaleX(${Math.max(0.02, Math.min(1, fill))})` }} /></u> : null}{sub ? <small>{sub}</small> : null}{children}</div>;
+}
+
+// 🗑 delete for good (owner 2026-10-30: "user keeps the agent forever + an option to perma delete"): retired first, its name typed; the server also
+// refuses while its own wallet still holds money
+function DeleteForGood({ cat, busy, onAct }) {
+  const [t, setT] = useState('');
+  return <form className="kd-del" onSubmit={e => { e.preventDefault(); if (t.trim().toLowerCase() === String(cat.name).toLowerCase()) onAct('delete', { text: t.trim() }); }}>
+    <input className="m-input" value={t} onChange={e => setT(e.target.value)} placeholder={`type ${cat.name} to delete it`} aria-label="Type the agent's name to delete it" data-testid="kd-del-name" />
+    <button type="submit" className="m-btn kd-danger" disabled={busy || t.trim().toLowerCase() !== String(cat.name).toLowerCase()} data-testid="kd-delete" data-tip="Gone for good — withdraw its wallet first">🗑 Delete for good</button></form>;
+}
+// 🔁 its models can be switched 24 h after you got it (the sealed brief, credit, memory and cloud carry over)
+export const MODEL_LOCK_H = 24;
+export function lockLeft(createdAt, now = Date.now() / 1000) { return Math.max(0, MODEL_LOCK_H * 3600 - (now - Number(createdAt || 0))); }
+function ModelSwitch({ cat, busy, onAct }) {
+  const left = lockLeft(cat.createdAt); const [list, setList] = useState(null); const [pick, setPick] = useState(() => [...(cat.brainsCfg.brains || [])]);
+  useEffect(() => { if (left > 0 || list) return; fetch('/api/cats/models').then(r => (r.ok ? r.json() : null)).then(d => setList((d?.models || []).filter(m => m.tools).sort((a, b) => (b.intel ?? -1) - (a.intel ?? -1)).slice(0, 40))).catch(() => setList([])); }, [left, list]);
+  return <section className="kd-card kd-models" data-testid="kd-models"><header><b>🔁 ITS MODELS</b><small>{left > 0 ? `switchable in ${(left / 3600).toFixed(1)} h` : 'switch any time — its brief, memory + cloud stay'}</small></header>
+    {left > 0 ? <i className="kd-lock" aria-hidden="true"><u style={{ transform: `scaleX(${1 - left / (MODEL_LOCK_H * 3600)})` }} /></i>
+      : <div className="kd-mpick">{[0, 1].map(i => <select key={i} className="m-input" value={pick[i] || ''} aria-label={`Model ${'AB'[i]}`} onChange={e => setPick(p => { const n = [...p]; n[i] = e.target.value; return n.filter(Boolean); })} data-testid={`kd-model-${i}`}>
+        {i ? <option value="">no second model</option> : null}{(list || []).map(m => <option key={m.id} value={m.id}>{m.name} · ♟ {m.intel ?? '—'}</option>)}</select>)}
+        <button type="button" className="m-btn m-go" disabled={busy || !pick.length || pick.join() === (cat.brainsCfg.brains || []).join()} onClick={() => onAct('models', { brains: pick })} data-testid="kd-model-save">Switch</button></div>}
+  </section>;
 }
 
 // 🛸 its live view (owner 2026-10-30): the demo's layout on its real data — a trading cat: two live bubbles + two real coin charts + its decisions;
@@ -126,7 +148,9 @@ export function CatDesk({ cat, busy = false, error = '', onBack, onAct, Activity
           <div><NumInput className="m-input" type="number" min="0.0001" step="0.0001" value={amt} onChange={e => setAmt(e.target.value)} placeholder={v.bal.toFixed(4)} aria-label="Amount to withdraw" />
             <button type="button" className="m-btn" disabled={busy} onClick={() => onAct('withdraw', { amount: amt || v.bal })} data-testid="kd-withdraw">Withdraw</button></div></section>
         <section className="kd-card kd-revoke"><header><b>🔒 RETIRE IT</b><small>stops it for good · frees a slot</small></header>
-          <button type="button" className="m-btn kd-danger" disabled={busy || cat.revoked} onClick={() => window.confirm(`Retire ${cat.name} for good? It never trades again.`) && onAct('revoke')} data-testid="kd-revoke">{cat.revoked ? 'Retired' : 'Retire agent'}</button></section>
+          <button type="button" className="m-btn kd-danger" disabled={busy || cat.revoked} onClick={() => window.confirm(`Retire ${cat.name} for good? It never trades again.`) && onAct('revoke')} data-testid="kd-revoke">{cat.revoked ? 'Retired' : 'Retire agent'}</button>
+          {cat.revoked ? <DeleteForGood cat={cat} busy={busy} onAct={onAct} /> : <small className="kd-keep">♾ yours forever until you retire + delete it</small>}</section>
+        {cat.brainsCfg ? <ModelSwitch cat={cat} busy={busy} onAct={onAct} /> : null}
         <p className={`kd-paper${isReal ? ' is-real' : ''}`} data-tip={isReal ? `Its own ledger stays paper (its record); every real move: ${signWord(cat)}` : 'Every entry and exit uses the real live price at that moment; balances are simulated and no key lives in the browser'}>
           {isReal ? (cat.agentWallet ? `💵 REAL · its own wallet · ${cat.agentWallet.mode === 'auto' ? 'auto' : 'you OK each move'}` : '💵 REAL · it proposes · your wallet signs') : '🧪 PAPER · live prices · no real SOL'}</p>
       </aside>

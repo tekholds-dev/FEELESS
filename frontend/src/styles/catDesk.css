@@ -103,3 +103,10 @@ body.theme-day .kd-acts button { color: #2a1650; } body.theme-day .kd-back, body
 @media (max-width: 640px) { .kd-hero { grid-template-columns: minmax(0, 1fr); justify-items: center; text-align: center; padding: 12px; } .kd-stage { height: 160px; } .kd-stage .clk.is-large { width: 150px; height: 150px; }
   .kd-id { justify-items: center; } .kd-id h1 { justify-content: center; font-size: 24px; } .kd-state, .kd-wallet { justify-self: center; } .kd-acts { justify-self: center; }
   .kd-tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); } .kd-pos button { grid-template-columns: auto minmax(0, 1fr); } .kd-move { grid-column: 1 / -1; } }
+
+/* ♾ keep forever · 🗑 delete for good · 🔁 its models (24 h lock) */
+.kd-keep { display: block; margin-top: 6px; color: var(--m-mute, #9d8fbf); font-size: 10.5px; }
+.kd-del { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 6px; margin-top: 8px; } .kd-del .m-input, .kd-del .m-btn { min-height: 36px; }
+.kd-models { display: grid; gap: 8px; } .kd-mpick { display: grid; grid-template-columns: 1fr 1fr auto; gap: 6px; } .kd-mpick .m-input, .kd-mpick .m-btn { min-height: 36px; }
+.kd-lock { display: block; height: 5px; border-radius: 4px; background: #ffffff12; overflow: hidden; } .kd-lock u { display: block; height: 100%; transform-origin: left; background: linear-gradient(90deg, #7c4dff, #9dffcf); }
+@media (max-width: 640px) { .kd-mpick, .kd-del { grid-template-columns: 1fr; } }

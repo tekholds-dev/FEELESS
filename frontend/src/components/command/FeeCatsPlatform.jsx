@@ -149,7 +149,7 @@ function ActivityFeed({ catId }) {
 }
 
 // 🤖 one agent's desk = CatDesk.jsx (violet meta, 2026-10-23); this keeps its live read + the paper actions
-function CatDetail({ cat: initialCat, onBack, onChanged }) {
+function CatDetail({ cat: initialCat, onBack, onChanged, onDeleted }) {
   const [cat, setCat] = useState(initialCat);
   const [error, setError] = useState(''); const [busy, setBusy] = useState(false);
   const brainChanged = useCallback(next => { setCat(next); onChanged?.(next); }, [onChanged]);
@@ -159,7 +159,7 @@ function CatDetail({ cat: initialCat, onBack, onChanged }) {
     const interval = setInterval(refresh, 8000);
     return () => clearInterval(interval);
   }, [initialCat.id]); // eslint-disable-line react-hooks/exhaustive-deps
-  const act = async (action, extra = {}) => { setError(''); setBusy(true); try { const result = await api(`/api/cats/${cat.id}/action`, { method: 'POST', body: JSON.stringify({ action, ...extra }) }); setCat(result.cat); onChanged?.(result.cat); } catch (requestError) { setError(requestError.message); } setBusy(false); };
+  const act = async (action, extra = {}) => { setError(''); setBusy(true); try { const result = await api(`/api/cats/${cat.id}/action`, { method: 'POST', body: JSON.stringify({ action, ...extra }) }); if (result.deleted) { onDeleted?.(result.deleted); return; } setCat(result.cat); onChanged?.(result.cat); } catch (requestError) { setError(requestError.message); } setBusy(false); };
   return <CatDesk cat={cat} busy={busy} error={error} onBack={onBack} onAct={act} Engine={<EngineLine />} Real={cat.isLeader && !isAdmin ? null : <CatReal cat={cat} busy={busy} onAct={act} />}
     Brains={cat.brainsCfg ? <BrainPanel cat={cat} api={api} onChanged={brainChanged} /> : null} Activity={<ActivityFeed catId={cat.id} />} />;
 }
@@ -194,7 +194,7 @@ export default function FeeCatsPlatform() {
     {error && <div className="paper-inline-message" role="alert"><AlertTriangle size={14} />{error}</div>}
     {view === 'new' && <AgentPicker count={live.length} onPick={pickKind} />}
     {view === 'create' && <CreateCat onCreated={created} onCancel={() => setView('cats')} presetAvatar={presetAvatar} />}
-    {view === 'cat' && selected && <CatDetail cat={selected} onBack={() => setView('cats')} onChanged={cat => { setSelected(cat); setCats(current => current.map(item => item.id === cat.id ? cat : item)); }} />}
+    {view === 'cat' && selected && <CatDetail onDeleted={id => { setCats(c => c.filter(x => x.id !== id)); setSelected(null); setView('cats'); }} cat={selected} onBack={() => setView('cats')} onChanged={cat => { setSelected(cat); setCats(current => current.map(item => item.id === cat.id ? cat : item)); }} />}
     {view === 'activity' && <div className="paper-single-column"><ActivityFeed /></div>}
     {view === 'launch' && <LaunchCat key={kind} kind={kind} api={api} ownerId={ownerId} onCreated={created} onCancel={() => setView('cats')} Fields={CatFields} newForm={() => catForm(presetAvatar)} formOk={catOk} avatarOf={i => (CAT_VARIATIONS[i] || CAT_VARIATIONS[0])[0]} Preview={CatPreview} />}
     {view === 'leaderboard' && <div className="paper-single-column"><Leaderboard onOpen={openCat} /></div>}

@@ -10,6 +10,25 @@ const read = addr => { try { const s = JSON.parse(localStorage.getItem(SESSION_K
 
 // Admin calls from anywhere on the site, sharing the HQ's signed session (1h).
 // isAdmin only shows/hides controls — the server re-verifies the signature on every admin request.
+// ✍ ONE HQ signature prompt at a time (owner 2026-10-30: "not signed in, the FeeCat tab would spam the sign-in popup"): Fee's desks poll every
+// 6–10 s and each poll used to open its own wallet prompt. Now concurrent calls share one prompt, and after a decline (or no wallet answer) the
+// POLLS stay quiet for 5 min — a button you press (a POST) may still ask.
+const QUIET_MS = 5 * 60 * 1000;
+let signing = null; let declinedAt = 0;
+export async function hqSign(address, signMessage, poll = true, now = Date.now) {
+  if (poll && declinedAt && now() - declinedAt < QUIET_MS) throw new Error('Sign in to HQ to load this (tap any HQ button).');
+  if (!signing) {
+    signing = (async () => {
+      const ts = Math.floor(now() / 1000);
+      try {
+        const sig = await signMessage(`FEELESS HQ\naddress:${address}\nts:${ts}`);
+        const s = { address, ts, sig }; try { localStorage.setItem(SESSION_KEY, JSON.stringify(s)); } catch { /* private window */ }
+        declinedAt = 0; return s;
+      } catch (e) { declinedAt = now(); throw e; } finally { signing = null; }
+    })();
+  }
+  return signing;
+}
 export function useAdmin() {
   const { wallet, signMessage } = useWallet() || {};
   const address = wallet?.address;
@@ -20,11 +39,7 @@ export function useAdmin() {
   }, [address]);
   const call = useCallback(async (path, opts = {}) => {
     let s = read(address);
-    if (!s) {
-      const ts = Math.floor(Date.now() / 1000);
-      const sig = await signMessage(`FEELESS HQ\naddress:${address}\nts:${ts}`);
-      s = { address, ts, sig }; localStorage.setItem(SESSION_KEY, JSON.stringify(s));
-    }
+    if (!s) s = await hqSign(address, signMessage, !opts.method || opts.method === 'GET');
     const res = await fetch(apiUrl(`/api/reputation${path}`), { ...opts, headers: { 'Content-Type': 'application/json', 'x-admin-address': address, 'x-admin-ts': String(s.ts), 'x-admin-sig': s.sig } });
     const body = await res.json().catch(() => ({}));
     if (res.status === 401) localStorage.removeItem(SESSION_KEY);

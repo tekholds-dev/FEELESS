@@ -68,3 +68,8 @@ test('☁ the head cloud shows what both minds agreed on', async () => {
   expect(el.textContent).toContain('SELL $B · both agree'); expect(el.querySelector('.agl-cloud.is-on')).not.toBeNull();
   const empty = await mount(<HeadCloud />); expect(empty.textContent).toContain('waiting for both to agree');
 });
+
+test('🔁 its models unlock 24 h after you got it', () => {
+  const { lockLeft } = require('./CatDesk');
+  expect(lockLeft(1000, 1000 + 3600)).toBe(23 * 3600); expect(lockLeft(1000, 1000 + 25 * 3600)).toBe(0);
+});

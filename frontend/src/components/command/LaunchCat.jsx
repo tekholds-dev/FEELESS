@@ -23,6 +23,15 @@ export const KIND = { trading: { eyebrow: '📈 TRADING AI CAT', cat: 'trading',
   general: { eyebrow: '🧭 GENERAL AI CAT', cat: '', brief: '📜 STANDING ORDERS', hint: 'e.g. You are my content scout: every morning find 3 trending crypto topics with sources and draft posts in my voice — never post or sign up without asking me. Coin orders: never more than 0.1 SOL a coin.',
   pitch: 'Pick 1–2 all-round models — its two minds. Ask in plain words: it answers from memory, or each mind researches half in its own cloud browser while you watch, then they merge. Coin orders go from its own wallet — you OK each one until you switch it to auto.',
   next: ['🚀 launch', '👛 its own wallet', '✍ you sign ONE funding', '✅ you OK each move · or 🤖 auto'] } };
+// 📈 a trading cat's two brains: our pick is DISCUSS — A reads, B sees A and makes the call (two looks before money moves, one short extra call)
+export const BEST_MODE = 'discuss';
+// 🧭 a GENERAL cat's two ways (owner 2026-10-30: "only 2 options" — cat_agent.MODES, change both): plan together → split → ONE answer, or each mind its own job
+export const WORK_WAYS = [
+  ['plan', '🧠🤝', 'Plan together → one answer', 'They plan it in a sentence each (tiny cost), split it, research in their own windows, then merge into one answer — e.g. "the best bet tonight".', [
+    ['💬', 'Quick plan', 'a sentence each, minimal tokens'], ['🧠🧠', 'Split + run', 'each researches its half, FEELESS first'], ['☁', 'Keep the best', 'their scratch → the main cloud'], ['🔗', 'One answer', 'with sources']]],
+  ['jobs', '🎯🎯', 'Each its own job', 'Give each mind its own job and both run at once — e.g. A writes the video script, B makes the social posts.', [
+    ['✍', 'You give two jobs', 'A: … B: …'], ['⚡', 'Both run at once', 'own window, own tools'], ['📦', 'Two results', 'each under its job, the best kept']]],
+];
 // 🧭 how a General cat's two minds work (cat_agent.py — change both): shown as step 2 instead of the trading modes
 export const GENERAL_FLOW = [
   ['⚡', 'You ask', 'mind A answers from memory when it can — one call, no browsing'],
@@ -160,7 +169,7 @@ export function LaunchCat({ api, ownerId, onCreated, onCancel, Fields, Preview, 
   const [d, setD] = useState(null); const [err, setErr] = useState('');
   const [step, setStep] = useState(0); const [q, setQ] = useState(''); const [cat, setCat] = useState(K.cat); const [sort, setSort] = useState('smart'); const [n, setN] = useState(PAGE);
   const gen = kind === 'general'; const steps = gen ? GEN_STEPS : STEPS;
-  const [picked, setPicked] = useState([]); const [mode, setMode] = useState('turns'); const [billing, setBilling] = useState(gen ? 'payg' : 'profit');
+  const [picked, setPicked] = useState([]); const [mode, setMode] = useState(gen ? 'turns' : BEST_MODE); const [workMode, setWorkMode] = useState('plan'); const [billing, setBilling] = useState(gen ? 'payg' : 'profit');
   const [form, setForm] = useState(() => newForm()); const update = (k, v) => setForm(f => ({ ...f, [k]: v })); const name = form.name;
   const [efforts, setEfforts] = useState({});
   const [job, setJob] = useState(''); const jobCfg = (JOBS.find(j => j[0] === job) || JOBS[0])[2];
@@ -183,7 +192,7 @@ export function LaunchCat({ api, ownerId, onCreated, onCancel, Fields, Preview, 
     try {
       const handle = form.handle || form.name.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').slice(0, 20) || 'cat';
       const r = await api('/api/cats', { method: 'POST', body: JSON.stringify({ strategy: 'momentum', ...form, ownerId: ownerId(), name: form.name.trim(), handle, avatar: avatarOf(form.avatar),
-        brains: picked.map(m => m.id), brainMode: gen ? 'turns' : mode, billing, prompt, efforts: Object.fromEntries(picked.filter(m => efforts[m.id]).map(m => [m.id, efforts[m.id]])), brainKind: kind, session: readChatSession() || '', job: gen ? (persona || 'agent') : 'trading', ...(gen ? {} : { venues }) }) });
+        brains: picked.map(m => m.id), brainMode: gen ? 'turns' : mode, billing, prompt, efforts: Object.fromEntries(picked.filter(m => efforts[m.id]).map(m => [m.id, efforts[m.id]])), brainKind: kind, session: readChatSession() || '', job: gen ? (persona || 'agent') : 'trading', ...(gen ? { workMode } : { venues }) }) });
       for (const [provider, secret] of Object.entries(keys).filter(([, v]) => v)) await api(`/api/cats/${r.cat.id}/action`, { method: 'POST', body: JSON.stringify({ action: 'api_key', provider, secret }) }).catch(e => setErr(`Key not saved: ${e.message}`));
       const started = await api(`/api/cats/${r.cat.id}/action`, { method: 'POST', body: JSON.stringify({ action: 'start' }) }).catch(() => r);   // same as Create a Cat: it starts trading at once
       onCreated?.(started.cat || r.cat);
@@ -215,10 +224,14 @@ export function LaunchCat({ api, ownerId, onCreated, onCancel, Fields, Preview, 
     </div> : null}
     {step === 0 && picked.some(m => m.efforts?.length) ? <div className="lct-bar">{picked.filter(m => m.efforts?.length).map(m => <label key={m.id}>{shortName(m)} · effort<select className="m-input" aria-label={`${shortName(m)} effort`} value={efforts[m.id] || ''} onChange={e => setEfforts(v => ({ ...v, [m.id]: e.target.value }))}><option value="">Provider default</option>{m.efforts.map(e => <option key={e}>{e}</option>)}</select><small>Output incl. reasoning: {fmtM(m.outUsd)} / 1M tokens. Actual cost depends on tokens used.</small></label>)}</div> : null}
     {step === 1 ? <div className="lct-pane lct-mode"><Duo mode={mode} picked={picked} kind={kind} /><AgentDemo kind={kind} models={picked} />
-      {gen ? <><ol className="lct-flow" data-testid="lct-flow">{GENERAL_FLOW.map(([ic, t, w], i) => <li key={t} style={{ '--i': i }}><i aria-hidden="true">{ic}</i><b>{t}</b><small>{w}</small></li>)}</ol>
-        <p className="lct-note">{picked.length < 2 ? 'One mind: it takes every task in its own window. Pick a second in step 1 and they split the work.' : 'In its chat you talk to 🧠🧠 both minds or to 🧠 one of them — one mind takes the whole task in its own window.'}</p></>
+      {gen ? <><div className="lct-ways" role="radiogroup" aria-label="How its two minds work">{WORK_WAYS.map(([k, ic, t, why, flow], i) => <button key={k} type="button" role="radio" aria-checked={workMode === k}
+          className={`lct-way${workMode === k ? ' is-on' : ''}`} style={{ '--i': i }} onClick={() => setWorkMode(k)} data-testid={`lct-work-${k}`} data-tip={why}>
+          <span className="lct-way-h"><i aria-hidden="true">{ic}</i><b>{t}</b>{k === 'plan' ? <em>⭐ BEST FOR ONE BIG QUESTION</em> : <em>TWO JOBS AT ONCE</em>}</span><small>{why}</small>
+          <ol className="lct-flow" data-testid={k === 'plan' ? 'lct-flow' : undefined}>{flow.map(([fi, ft, fw], j) => <li key={ft} style={{ '--i': j }}><i aria-hidden="true">{fi}</i><b>{ft}</b><small>{fw}</small></li>)}</ol></button>)}</div>
+        <p className="lct-note">{picked.length < 2 ? 'One mind: it takes every task in its own window. Pick a second in step 1 and they split the work.' : workMode === 'jobs' ? 'In its chat you write a job for each mind — A: … B: … — and both run at once.' : 'Ask one thing — they plan it in a sentence each, split it, research in their own windows, then hand you ONE answer.'}</p></>
       : <><VenuePick value={venues} onChange={setVenues} />{picked.length < 2 ? <p className="lct-note">One brain: it makes every call. Pick a second in step 1 to choose how they work together.</p> :
-        <div className="lct-modes">{(d?.modes || []).map(m => <button key={m.key} type="button" className={mode === m.key ? 'is-on' : ''} onClick={() => setMode(m.key)} data-testid={`lct-mode-${m.key}`}><b>{m.label}</b><small>{m.why}</small></button>)}</div>}</>}
+        <div className="lct-modes">{(d?.modes || []).map(m => <button key={m.key} type="button" className={`${mode === m.key ? 'is-on' : ''}${m.key === BEST_MODE ? ' is-best' : ''}`} onClick={() => setMode(m.key)} data-testid={`lct-mode-${m.key}`}
+          data-tip={m.key === BEST_MODE ? 'Our pick: two looks per decision for the price of a short second call — B checks A before money moves' : m.why}>{m.key === BEST_MODE ? <em className="lct-best">⭐ BEST</em> : null}<b>{m.label}</b><small>{m.why}</small></button>)}</div>}</>}
     </div> : null}
     {step === 2 ? <div className="lct-pane lct-brief">
       {Fields ? <div className="cct-split lct-ident">{<Fields form={form} update={update} />}{Preview ? <aside className="cct-preview m-live" data-testid="lct-preview"><Preview form={form} /></aside> : null}</div> : <>

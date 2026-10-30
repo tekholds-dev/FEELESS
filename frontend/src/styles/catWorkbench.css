@@ -90,3 +90,24 @@ body.theme-day .cwb-go { background: #fff; color: #2a1650; border-color: rgba(60
 body.theme-day .cwb-tools, body.theme-day .cwb-artifact, body.theme-day .cwb-refusals { background: #f4efff; color: #251035; }
 body.theme-day .cwb-tools summary, body.theme-day .cwb-artifact summary, body.theme-day .cwb-refusals summary { color: #67309a; }
 @media(max-width:640px) { .cwb-artifact iframe { height: 300px; } }
+
+/* 🧭 its two ways + ☁ main cloud + 🎯 two job boxes + 📈 our live chart in a window + chat as bubbles (owner 2026-10-30: "no wide chat window — pure beauty") */
+.cwb-way { flex-wrap: wrap; } .cwb-way button { min-height: 36px; font: 800 10.5px var(--f-tech, sans-serif); letter-spacing: .08em; }
+.cwb-cloud { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding: 8px 10px; border-radius: 12px; border: 1px solid #9dffcf33; background: linear-gradient(90deg, #9dffcf12, transparent 80%); }
+.cwb-cloud b { color: #9dffcf; font: 800 9.5px var(--f-mono, monospace); letter-spacing: .14em; }
+.cwb-cloud span { --i: 0; max-width: 100%; padding: 3px 9px; border-radius: 999px; background: #07040ecc; border: 1px solid #9dffcf2a; color: #e9fff4; font: 600 11px var(--f-ui, sans-serif);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; animation: cwbIn .35s both; animation-delay: calc(var(--i) * 60ms); }
+.cwb-jobs { grid-column: 1 / -1; display: grid; grid-template-columns: 1fr 1fr; gap: 8px; } .cwb-jobs label { display: grid; gap: 4px; }
+.cwb-jobs em { font: 800 9px var(--f-mono, monospace); letter-spacing: .12em; font-style: normal; color: #c9a8ff; } .cwb-jobs label:last-child em { color: #ffc2e4; }
+.cwb-chart { position: relative; min-height: 220px; height: 100%; } .cwb-chart > :first-child { height: 100%; }
+.cwb-chart-load { display: grid; place-items: center; min-height: 220px; color: #9d8fbf; font: 700 10px var(--f-mono, monospace); letter-spacing: .12em; }
+.cwb-chart-tag { position: absolute; left: 8px; top: 8px; padding: 2px 8px; border-radius: 999px; background: #04110de6; border: 1px solid #45e48655; color: #45e486; font: 800 9px var(--f-mono, monospace); letter-spacing: .1em; font-style: normal; }
+.cwb-chat { max-width: 760px; margin-inline: auto; width: 100%; gap: 6px; }
+.cwb-chat li { grid-template-columns: auto minmax(0, 1fr); width: fit-content; max-width: 86%; border-radius: 14px 14px 14px 4px; background: linear-gradient(160deg, #241640, #150c28); border: 1px solid #b388ff26; }
+.cwb-chat li.is-you { justify-self: end; border-radius: 14px 14px 4px 14px; background: linear-gradient(160deg, #6a3fd6, #3d2390); border-color: #c9a8ff55; } .cwb-chat li.is-you span { color: #fff; }
+.cwb-chat li small { grid-column: 2; }
+@keyframes cwbIn { from { opacity: 0; transform: translateY(4px); } }
+@media (prefers-reduced-motion: reduce) { .cwb-cloud span { animation: none; } }
+body.theme-day .cwb-chat li { background: #fff; } body.theme-day .cwb-chat li.is-you { background: #ece2ff; } body.theme-day .cwb-chat li.is-you span { color: #2a1650; }
+body.theme-day .cwb-cloud span { background: #fff; color: #2a1650; }
+@media (max-width: 640px) { .cwb-jobs { grid-template-columns: 1fr; } .cwb-chat li { max-width: 94%; } }

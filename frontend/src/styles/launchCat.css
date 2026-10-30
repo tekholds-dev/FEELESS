@@ -235,3 +235,20 @@ body.theme-day .lct-cost label { color: #5a3a9a; } body.theme-day .lct-cost-n { 
 .lct-job select:focus-visible { outline: 2px solid #9dffcf; outline-offset: 2px; } .lct-job small { color: #c9bce6; font: 700 10px var(--f-mono); }
 body.theme-day .lct-job { background: #f2fff8; } body.theme-day .lct-job span { color: #0c6a44; } body.theme-day .lct-job small { color: #4a3a6a; }
 @media (max-width: 640px) { .lct-job { grid-template-columns: 1fr; } }
+
+/* 🧭 the general cat's TWO ways (plan together · each its own job) + ⭐ BEST on the trader's pick + Next always in reach */
+.lct-ways { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 10px; }
+.lct-way { --i: 0; display: grid; gap: 8px; padding: 14px; border-radius: 18px; text-align: left; cursor: pointer; color: #e8dcff; border: 1px solid #b388ff2e;
+  background: radial-gradient(90% 80% at 0% 0%, #2a1650, #120a22 75%); box-shadow: inset 0 1px 0 #ffffff12; transition: transform .15s, border-color .15s, box-shadow .2s;
+  animation: lctPop .35s both; animation-delay: calc(var(--i) * 70ms); }
+.lct-way:hover { transform: translateY(-2px); border-color: #9dffcf66; } .lct-way:active { transform: scale(.98); } .lct-way:focus-visible { outline: 2px solid #9dffcf; outline-offset: 2px; }
+.lct-way.is-on { border-color: #9dffcf; box-shadow: 0 0 0 1px #9dffcf, 0 0 28px -10px #9dffcf; background: radial-gradient(90% 80% at 0% 0%, #1d4a3c, #0c0716 78%); }
+.lct-way-h { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; } .lct-way-h i { font-style: normal; font-size: 20px; }
+.lct-way-h b { color: #fff; font: 800 15px var(--f-display, sans-serif); } .lct-way-h em { margin-left: auto; padding: 2px 8px; border-radius: 999px; font: 800 8.5px var(--f-mono); letter-spacing: .12em; font-style: normal; color: #04110d; background: #9dffcf; }
+.lct-way > small { color: #c9bce6; font-size: 12px; line-height: 1.45; } .lct-way .lct-flow { margin: 0; }
+.lct-modes button.is-best { position: relative; border-color: #9dffcf66; } .lct-best { position: absolute; top: -8px; right: 10px; padding: 1px 7px; border-radius: 999px; background: #9dffcf; color: #04110d; font: 800 8.5px var(--f-mono); letter-spacing: .1em; font-style: normal; }
+.lct-foot { position: sticky; bottom: 0; z-index: 6; margin: 0 -16px -16px; padding: 10px 16px; background: linear-gradient(180deg, #0f0920f0, #0a0614); border-top: 1px solid #b388ff26; }
+body.theme-day .lct-way { background: #fff; color: #2a1650; } body.theme-day .lct-way-h b { color: #2a1650; } body.theme-day .lct-way > small { color: #4a3a6a; }
+body.theme-day .lct-way.is-on { background: #f0fff7; } body.theme-day .lct-foot { background: #fffffff2; }
+@media (prefers-reduced-motion: reduce) { .lct-way { animation: none; transition: none; } }
+@media (max-width: 640px) { .lct-foot { margin: 0 -12px -12px; padding: 10px 12px; } .lct-ways { grid-template-columns: 1fr; } }
