@@ -15,14 +15,18 @@ Read this (2 min) → `CLAUDE.md` (lean rules + 🎨 MANDATORY STYLING + 📋 CU
 >    LIVE visual (meters, bars, animation on real numbers), never bare text. `styles/cssCoverage.test.js` fails on an unstyled class.
 
 ## 🔁 NOW (rewrite this section in place every session)
-> ✅ 2026-10-30: Astra's guards + this session pushed (gate green = `git status` up to date; if not, read `$TMPDIR/feeless-gate/jest.txt`). SHIPPED: 🐜 **BUILD AN AGENT**
-> (`Critters.jsx` + `critters.css`: drawn queen ant · worker fly · 2 worker ants, real species colours, wing colour + flutter, real gestures — tripod gait,
-> antennation, fly grooming, wing beats; saved in `myCat.agent`, worn by the FeeCat bar + the wizard socket) · 🛸 **live DEMO in step 2 "How they work"** (`AgentDemo.jsx`:
-> trader = 2 drawn chart windows, general = 2 drawn cloud browsers, activity feed over both; alien-tech glass `agentDemo.css`) · 📈 trading cats trade on **FEELESS rails only**
-> (`cat_keys.VENUES`: trench LIVE, perps = PROPOSES until an agent perps sender exists) · 🔐 **API DRAWER** (`cat_keys.py`, action `api_key`: sealed at rest, last 4 only ever
-> leave the server via `_no_keys`; YOUR OpenRouter key pays your cat's model calls — no FEELESS credit, not held by the owner switch; Birdeye / Helius / X / Telegram /
-> webhook are STORED only, not read by the brain yet) · 👻 Fee's empty chart shows a drawn PREVIEW (`GhostChart`). Tests: `test_cat_keys.py` (4), `AgentDemo.test.jsx` (5).
-> ⚠ backend restart needed for `api_key` / `venues` (feecat_service). Not done: owner's real-wallet run of a whole agent build; NEW asks queued in WORK_QUEUE (C01 chats, C02 alliances, C03 Circle wallet).
+> ✅ 2026-10-30 (pm): FeeCat agent flow pass 2 — mind BUBBLES are soap bubbles (thin-film rim, glints, Siri-style orange→pink→violet→blue light orbiting inside,
+> blurred thoughts drifting; `LaunchCat.Bubble`, also the wizard socket) · model cost filter = typed $ MIN / MAX · general DEMO browsers play REAL recordings
+> (`scripts/record-agent-demo.py`: headless CoinMarketCap + Jupiter; DexScreener / pump.fun / Solscan / Birdeye / Coinbase sit behind Cloudflare → skipped, never bypassed)
+> · `AgentLive.jsx` = the demo layout on REAL data: a trading cat's desk (2 bubbles = its brains' own latest calls, 2 real charts = held then just-sold, its decisions
+> as the feed), a general cat's desk (bubbles over its `CatWorkbench` browsers), Fee's live desk (Fee + FeeCat AI bubbles, her 2 coins, her calls as the feed) ·
+> her separate calls panel is GONE (`FeeCallChat` deleted); her wall (`.fcp-wall`, `feeWall.css`) is styled as call bubbles, your posts on the right (`is-mine`).
+> Earlier today: Build an agent (queen ant / fly / 2 ants), FEELESS-only venues, sealed API drawer (BYOK OpenRouter LIVE).
+> 💵 REAL-MONEY READY (owner test): Crossmint = production key ✓ · funding ($10 first incl. $2 one-time, ✍ one signature) ✓ · agent trades on the FEELESS engine
+> from its wallet with caps ✓ (tests: agent_wallet / agent_trade / cat_fund / cat_keys). ⚠ `LAUNCH_CAT_LIVE` is OFF → a trading cat's brains fall back to the rule
+> engine unless its owner seals their own OpenRouter key in its API drawer (or the owner sets LAUNCH_CAT_LIVE=1). UNPROVEN until the first real run: Crossmint
+> fitting a Jupiter v0 tx + its API-key signer auto-approving. ⚠ HQ › Fees showed 1500 bps — confirm before a real swap. Dev server on :51367 was stuck idle
+> (owner's process, not killed); previews ran on :51368 (`.claude/launch.json › feeless-frontend-alt`).
 > 🔥 **NEXT SESSION — FEECAT PRIORITY, in this order (owner 2026-10-29, all else waits):**
 > 1. **Cat spends on its own** (general cat signs up / pays with crypto from ITS wallet): daily $ limit, site allowlist, a log of every payment,
 >    owner OK on the first pay to a new site, never a card / password. Guards first (memory: new buy doors need guards).
