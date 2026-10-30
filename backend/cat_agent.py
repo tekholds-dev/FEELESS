@@ -39,6 +39,8 @@ ACT_SYS = ('You are {name}, an AI model working in your OWN web browser for a FE
            'Use draft to save writing, build to save a complete HTML page for the live sandbox preview, note to keep a fact in YOUR scratch pad (thrown away '
            'after the task unless it is the best), handoff to pass a result to your partner mind (say = what they need — e.g. your research for their post). '
            'Put artifact / note / handoff content in say. '
+           'STUCK: never repeat a failed action more than twice: try another route, or report it. Needing the human never ends your work: ask with "human", saying exactly what you need, and carry on with whatever does not depend on it. '
+           'Near the $ cap, stop and deliver what is done. '
            'Finish with "answer" (with the sources you used) within {steps} steps.')
 MERGE_SYS = ('Combine the two halves (and their scratch notes) into ONE clear answer for the user, keep the sources, say what is still uncertain. '
              'Then pick the few facts worth keeping for next time — only what BOTH halves support or what is clearly vital. Answer ONLY JSON: '
@@ -50,11 +52,20 @@ MIND_KEEP, MIND_CLOUD_MAX = 3, 20   # ☁ each mind keeps its last 3 notes per t
 
 
 def split_jobs(text, n=2):
-    """'A: write the video script  B: make the posts' → one job per mind; no labels = every mind gets the whole ask."""
+    """'A: write the video script  B: make the posts' → one job per mind. One job only (or no labels): the first mind owns it and the other SUPPORTS —
+    the same job never runs twice on the owner's credit (owner 2026-10-30: "if separate jobs only one knows to work and other may get info")."""
     t = str(text or '')
     parts = re.split(r'(?im)(?:^|\s)(?:mind\s*)?([AB])\s*[:\-—]\s*', t)
     jobs = {k.upper(): v.strip() for k, v in zip(parts[1::2], parts[2::2]) if v.strip()}
-    return [jobs.get('AB'[i]) or t.strip() for i in range(n)]
+    whole = t.strip()
+    if n < 2:
+        return [whole]
+    a, b = jobs.get('A'), jobs.get('B')
+    if a and b:
+        return [a, b]
+    lead = a or b or whole
+    helper = f'SUPPORT ROLE, your partner owns this job: "{lead[:300]}". Do NOT do it too. Check their facts, look up what they will need and pass it with handoff, then answer with what you checked.'
+    return [lead, helper] if not b else [helper, lead]
 
 
 def parse_json(text):
@@ -78,8 +89,8 @@ def blocked_value(label, value):
     return bool(BLOCKED.search(str(label or '')) or re.search(r'\b(?:\d[ -]?){13,19}\b', str(value or '')))
 
 
-def new_task(tid, text, models, cap, steps=STEP_MAX, mode='plan'):
-    return {'id': tid, 'text': str(text)[:2000], 'mode': mode if mode in MODES else 'plan', 'status': 'planning', 'cap': float(cap), 'cost': 0.0, 'answer': None, 'fast': False, 'stepsMax': int(steps), 'tools': {'browse': True, 'forms': True},
+def new_task(tid, text, models, cap, steps=STEP_MAX, mode='plan', mind_caps=None):
+    return {'mindCaps': list(mind_caps or []), 'id': tid, 'text': str(text)[:2000], 'mode': mode if mode in MODES else 'plan', 'status': 'planning', 'cap': float(cap), 'cost': 0.0, 'answer': None, 'fast': False, 'stepsMax': int(steps), 'tools': {'browse': True, 'forms': True},
             'windows': [{'i': i, 'model': m, 'goal': None, 'status': 'idle', 'bubble': 'waiting for the plan', 'url': None, 'title': None,
                          'steps': [], 'human': None, 'answer': None, 'cost': 0.0, 'scratch': [], 'coin': None} for i, m in enumerate(models[:8])]}
 
@@ -96,6 +107,10 @@ async def _ask(task, w, ask, model, messages):
             raise Stopped()
         if task['cost'] >= task['cap']:
             raise Stopped(f"budget reached (${task['cost']:.4f} of ${task['cap']:.4f})")
+        caps = task.get('mindCaps') or []
+        mine = float(caps[w['i']] or 0) if w is not None and w['i'] < len(caps) else 0.0
+        if mine and w['cost'] >= mine:
+            raise Stopped(f"this mind reached its ${mine:g} limit for one task")
         bound = getattr(ask, 'cost_bound', lambda *_: 0)(model, messages)
         if task['cost'] + bound > task['cap']:
             raise Stopped('budget reached: the next call could exceed your remaining cap')

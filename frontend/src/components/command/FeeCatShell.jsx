@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { FeeCatMark } from '../FeeCatMark';
 import { useLeaderProfile, feeHeadline } from '../../lib/feeLeader';
 import { useMyCat } from '../../lib/myCat';
@@ -28,6 +28,7 @@ const pct = v => `${v >= 0 ? '+' : ''}${Math.abs(v) >= 100 ? Math.round(v) : Num
 
 export function FeeCatShell({ tab, children }) {
   const h = feeHeadline(useLeaderProfile()); const mine = useMyCat();
+  useEffect(() => { document.body.classList.add('fcx-on'); return () => document.body.classList.remove('fcx-on'); }, []);   // 🧊 feecatShell.css: one still sky, no stacked backdrops
   const coat = mine ? (CAT_VARIATIONS[mine.coat] || CAT_VARIATIONS[0]) : null;
   return <div className={`fcx ${h.nap ? 'is-nap' : ''}`} data-testid="feecat-shell">
     <div className="fcx-sky" aria-hidden="true"><i className="fcx-aur a1" /><i className="fcx-aur a2" />{Array.from({ length: 18 }, (_, i) => <i key={i} className="fcx-star" style={{ '--i': i }} />)}</div>

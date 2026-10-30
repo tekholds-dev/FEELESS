@@ -45,6 +45,26 @@ export function curveOf(points) {
   return { line, area: `${line} L100 ${zero.toFixed(2)} L0 ${zero.toFixed(2)} Z`, zero, last: xs[xs.length - 1], up: xs[xs.length - 1] >= 0 };
 }
 
+// 🎚 every limit = a slider AND a number box you can type in (owner 2026-10-30), both on the same value; `fmt` is the live read under it
+export function LimitRow({ k, label, lo, hi, st, unit, value, set, note }) {
+  return <div className="kd-lim" data-tip={note || undefined}><span><em>{label}</em><label className="kd-lim-box"><i>{unit === '$' ? '$' : ''}</i><NumInput type="number" className="m-input" min={lo} max={hi} step={st} value={value ?? ''} onChange={e => set(e.target.value)} aria-label={`${label} amount`} data-testid={`kd-${k}-box`} /><i>{unit === '$' ? '' : unit}</i></label></span>
+    <input type="range" min={lo} max={hi} step={st} value={Number(value) || lo} onChange={e => set(e.target.value)} data-testid={`kd-${k}`} aria-label={label} />
+    {note ? <small>{note}</small> : null}</div>;
+}
+// 🧠 what a general agent may SPEND (owner 2026-10-30: "where's the per task, per AI limits"): all enforced on the server; 0 = no extra limit
+function SpendLimits({ cat, busy, onAct }) {
+  const l = cat.limits || {}; const minds = (cat.brainsCfg?.brains || []).map(m => String(m).split('/').pop());
+  const [v, setV] = useState(() => ({ taskUsd: cat.taskCap ?? 0.05, mind0: l.mindUsd?.[0] ?? 0, mind1: l.mindUsd?.[1] ?? 0, steps: l.steps ?? 0, dayUsd: l.dayUsd ?? 0 }));
+  const set = k => x => setV(o => ({ ...o, [k]: x }));
+  return <section className="kd-card kd-limits" data-testid="kd-spend"><header><b>🧠 WHAT IT MAY SPEND</b><small>model credit · 0 = no extra limit</small></header>
+    <form onSubmit={e => { e.preventDefault(); onAct('controls', { limits: { taskUsd: v.taskUsd, mindUsd: [v.mind0, v.mind1], steps: v.steps, dayUsd: v.dayUsd } }); }}>
+      <LimitRow k="taskUsd" label="MOST A TASK" lo={0.005} hi={2} st={0.005} unit="$" value={v.taskUsd} set={set('taskUsd')} note="Both minds together, on one task" />
+      {minds.length > 1 ? minds.slice(0, 2).map((m, i) => <LimitRow key={m} k={`mind${i}`} label={`${'AB'[i]} · ${m.toUpperCase()}`} lo={0} hi={2} st={0.005} unit="$" value={v[`mind${i}`]} set={set(`mind${i}`)} note="This mind alone, on one task" />) : null}
+      <LimitRow k="steps" label="STEPS A TASK" lo={0} hi={60} st={1} unit="steps" value={v.steps} set={set('steps')} note="Actions each mind may take" />
+      <LimitRow k="dayUsd" label="MOST A DAY" lo={0} hi={100} st={0.5} unit="$" value={v.dayUsd} set={set('dayUsd')} note="All tasks today; it waits for tomorrow at the limit" />
+      <button type="submit" className="m-btn m-go" disabled={busy} data-testid="kd-spend-save">Save spend limits</button></form></section>;
+}
+
 function Tile({ k, label, value, sub, fill, tone, tip, children }) {
   return <div className={`kd-tile ${tone || ''}`} style={{ '--i': k }} data-tip={tip}><em>{label}</em><b className="m-num" key={String(value)}>{value}</b>
     {fill != null ? <u aria-hidden="true"><s style={{ transform: `scaleX(${Math.max(0.02, Math.min(1, fill))})` }} /></u> : null}{sub ? <small>{sub}</small> : null}{children}</div>;
@@ -173,12 +193,11 @@ export function CatDesk({ cat, busy = false, error = '', onBack, onAct, Activity
         {Activity}
       </div>
       {runs ? <aside className="kd-side">
-        <section className="kd-card kd-limits"><header><b>🎚 ITS LIMITS</b><small>it can only ever trade less than these</small></header>
+        {cat.brainsCfg?.kind === 'general' ? <SpendLimits cat={cat} busy={busy} onAct={onAct} /> : null}
+        <section className="kd-card kd-limits"><header><b>🎚 {cat.brainsCfg?.kind === 'general' ? 'IF IT TRADES' : 'ITS LIMITS'}</b><small>it can only ever trade less than these</small></header>
           <form onSubmit={e => { e.preventDefault(); onAct('controls', lim); }}>
-            {[['maxPositionSol', 'MAX A TRADE', 0.01, 2, 0.01], ['maxDailyLossSol', 'DAILY LOSS CAP', 0.01, 5, 0.01]].map(([k, l, lo, hi, st]) => <label key={k} className="kd-lim">
-              <span><em>{l}</em><b className="m-num">{Number(lim[k] || 0).toFixed(2)} SOL</b></span>
-              <input type="range" min={lo} max={hi} step={st} value={lim[k] || lo} onChange={e => setLim(x => ({ ...x, [k]: e.target.value }))} data-testid={`kd-${k}`} aria-label={l} />
-              <u aria-hidden="true"><s style={{ transform: `scaleX(${Math.min(1, (Number(lim[k]) || 0) / Math.max(0.01, v.bal || v.start))})` }} /></u><small>{Math.round(((Number(lim[k]) || 0) / Math.max(0.01, v.bal || v.start)) * 100)}% of its balance</small></label>)}
+            {[['maxPositionSol', 'MAX A TRADE', 0.01, 2, 0.01], ['maxDailyLossSol', 'DAILY LOSS CAP', 0.01, 5, 0.01]].map(([k, l, lo, hi, st]) => <LimitRow key={k} k={k} label={l} lo={lo} hi={hi} st={st} unit="SOL" value={lim[k]} set={x => setLim(o => ({ ...o, [k]: x }))}
+              note={`${Math.round(((Number(lim[k]) || 0) / Math.max(0.01, v.bal || v.start)) * 100)}% of its balance`} />)}
             <label className="kd-list"><em>ONLY THESE COINS</em><input className="m-input" value={lim.allowlist} onChange={e => setLim(x => ({ ...x, allowlist: e.target.value }))} placeholder="any coin when empty" /></label>
             <label className="kd-list"><em>NEVER THESE</em><input className="m-input" value={lim.blocklist} onChange={e => setLim(x => ({ ...x, blocklist: e.target.value }))} placeholder="none blocked" /></label>
             <button type="submit" className="m-btn m-go" disabled={busy} data-testid="kd-save">Save limits</button></form></section>

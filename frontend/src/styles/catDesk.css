@@ -116,3 +116,10 @@ body.theme-day .kd-acts button { color: #2a1650; } body.theme-day .kd-back, body
 .kd-models { display: grid; gap: 8px; }
 .kd-lock { display: block; height: 5px; border-radius: 4px; background: #ffffff12; overflow: hidden; } .kd-lock u { display: block; height: 100%; transform-origin: left; background: linear-gradient(90deg, #7c4dff, #9dffcf); }
 @media (max-width: 640px) { .kd-del { grid-template-columns: 1fr; } }
+
+/* 🎚 every limit: a typed box beside its slider */
+.kd-lim-box { display: inline-flex; align-items: center; gap: 4px; color: #c9bce6; font: 700 11px var(--f-mono, monospace); } .kd-lim-box i { font-style: normal; }
+.kd-lim-box .m-input { width: 84px; min-height: 32px; padding: 4px 8px; text-align: right; font: 800 13px var(--f-mono, monospace); }
+.kd-lim-box .m-input:focus-visible { outline: 2px solid var(--kd-acc, #b388ff); outline-offset: 1px; }
+body.theme-day .kd-lim-box { color: #2a1650; }
+@media (max-width: 640px) { .kd-lim-box .m-input { width: 76px; } }

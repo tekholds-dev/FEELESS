@@ -91,3 +91,8 @@ body.theme-day .fcx-star { display: none; }
    screen but the Duo's landscape split (duo.css): her header → her two live charts full width → her scan → her wall, its own scroll. */
 .fcx-body.is-desk > .fcp .fcp-wall .chat-messages { max-height: min(70vh, 720px); }
 .fcx-body.is-desk > .fcp::-webkit-scrollbar { width: 6px; } .fcx-body.is-desk > .fcp::-webkit-scrollbar-thumb { background: var(--fv); border-radius: 6px; }
+/* 🧊 FeeCat tabs lag (owner 2026-10-30, measured at 841×903 @2x, Mac idle): the site's ambient layers + the page backdrop + this sky stacked = ~40 fps with no slow code at all,
+   every background off = 58 fps. One sky here, held still; the page stays alive through its live numbers, the cat and the charts. */
+body.fcx-on :is(.ambient-background, .ambient-flakes, .ambient-scanline, .mouse-glow, .pgb) { display: none; }
+body.fcx-on :is(.fcx-aur, .fcx-star) { animation: none; }
+

@@ -154,6 +154,19 @@ function CatDetail({ cat: initialCat, onBack, onChanged, onDeleted }) {
     Brains={cat.brainsCfg && mine ? <BrainPanel noTalk cat={cat} api={api} onChanged={brainChanged} /> : null} Activity={null} Tools={Tools} />;
 }
 
+// 🔑 a new browser takes its agent back with the recovery PIN (it never moves money)
+function RecoverAgent({ onBack }) {
+  const [handle, setHandle] = useState(''); const [pin, setPin] = useState(''); const [err, setErr] = useState(''); const [busy, setBusy] = useState(false);
+  const go = async e => { e.preventDefault(); setErr(''); setBusy(true);
+    try { const r = await api('/api/cats/recover', { method: 'POST', body: JSON.stringify({ handle: handle.trim(), pin: pin.trim(), ownerId: ownerId() }) }); setHandle(''); setPin(''); onBack(r.cat); }
+    catch (x) { setErr(x.message); } setBusy(false); };
+  return <details className="fc-recover" data-testid="fc-recover"><summary data-tip="Lost this browser? Bring your agent here with its recovery PIN">🔑 Recover an agent</summary>
+    <form onSubmit={go}><input className="m-input" value={handle} onChange={e => setHandle(e.target.value)} placeholder="its @handle" aria-label="Its handle" data-testid="fc-recover-handle" />
+      <input className="m-input" value={pin} onChange={e => setPin(e.target.value)} placeholder="XXXX-XXXX-XXXX" aria-label="Recovery PIN" autoComplete="off" data-testid="fc-recover-pin" />
+      <button type="submit" className="m-btn m-go" disabled={busy || !handle.trim() || !pin.trim()} data-testid="fc-recover-go">{busy ? 'Checking…' : 'Recover'}</button></form>
+    {err ? <p className="kd-err" role="alert">⚠ {err}</p> : null}</details>;
+}
+
 // 🐱 Fee's desk on its own (the creator's LIVE DESK door): the same CatDetail the leaderboard opens
 export function FeeDesk({ onBack }) {
   const [cat, setCat] = useState(null); const [err, setErr] = useState('');
@@ -209,6 +222,7 @@ export default function FeeCatsPlatform() {
     {view === 'launch' && <LaunchCat key={kind} kind={kind} api={api} ownerId={ownerId} onCreated={created} onCancel={() => setView('cats')} Fields={CatFields} newForm={() => catForm(presetAvatar)} formOk={catOk} avatarOf={i => (CAT_VARIATIONS[i] || CAT_VARIATIONS[0])[0]} Preview={CatPreview} />}
     {view === 'leaderboard' && <AgentLeaderboard api={api} onOpen={openById} />}
     {view === 'cats' && isAdmin ? <Suspense fallback={null}><ProfileFeeBanner mine onOpen={() => openById({ id: 'leader' })} /></Suspense> : null}
+    {view === 'cats' ? <RecoverAgent onBack={cat => { loadCats(); openCat(cat); }} /> : null}
     {view === 'cats' && <section className="paper-my-cats">{!cats.length ? <><div className="paper-panel-head"><div><span className="eyebrow">YOUR AGENTS · 0/{AGENT_MAX}</span><h2>No cats on the job yet — pick a brain.</h2></div></div><AgentPicker count={0} onPick={pickKind} /></>
       : <><div className="paper-panel-head"><div><span className="eyebrow">YOUR AGENTS · {live.length}/{AGENT_MAX}</span><h2>Tap a cat to see its desk</h2></div><button type="button" className="btn-outline" onClick={() => setView('new')} disabled={live.length >= AGENT_MAX}><Plus size={14} /> New agent</button></div>
         <div className="paper-my-cat-grid">{cats.map(cat => { const real = cat.mode === 'real' && !!cat.realWallet; const pend = (cat.proposals || []).filter(p => p.status === 'pending').length;

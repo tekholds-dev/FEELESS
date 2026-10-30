@@ -149,3 +149,14 @@ body.theme-day .cr-ag-watch { color: #1f5fa0; background: rgba(31, 95, 160, .07)
 body.theme-day .cr-safe { background: #fffaf0; } body.theme-day .cr-safe-why, body.theme-day .cr-safe-ok span { color: #2a1650; } body.theme-day .cr-safe-addr code { background: #fff; color: #7a5a00; }
 @media (max-width: 640px) { .cr-safe-addr { grid-template-columns: 1fr 1fr; } .cr-safe-addr code { grid-column: 1 / -1; } }
 .cr-ag-watch.is-circle { border-color: #4da3ff66; background: #4da3ff14; color: #d6e9ff; }
+
+/* 💵 funding choices first + the recovery PIN */
+.cr-fund-what { width: 100%; } .cr-fund-what button { flex: 1; min-height: 34px; }
+.cr-pre { display: grid; gap: 8px; margin: 8px 0; } .cr-pre small { color: #c9bce6; font: 600 10.5px var(--f-ui, sans-serif); } .cr-pre em { font: 800 9px var(--f-mono, monospace); letter-spacing: .14em; font-style: normal; color: #b388ff; }
+.cr-pin code { font-size: 15px; letter-spacing: .12em; user-select: all; } .cr-pin-on { display: flex; align-items: center; gap: 8px; margin: 0; color: #9dffcf; font: 700 11px var(--f-mono, monospace); } .cr-pin-on i { font-style: normal; } .cr-pin-on .m-btn { margin-left: auto; min-height: 32px; }
+.fc-recover { margin: 8px 0; } .fc-recover summary { display: inline-flex; min-height: 34px; align-items: center; padding: 4px 12px; border-radius: 10px; border: 1px solid #b388ff33; color: #e9dcff; font: 700 11px var(--f-mono, monospace); cursor: pointer; } .fc-recover summary:hover { border-color: #b388ff; } .fc-recover summary:focus-visible { outline: 2px solid #b388ff; outline-offset: 2px; }
+.fc-recover form { display: grid; grid-template-columns: 1fr 1fr auto; gap: 8px; margin-top: 8px; animation: crPre .18s ease-out; }
+@keyframes crPre { from { opacity: 0; transform: translateY(4px); } }
+body.fx-lite .fc-recover form { animation: none; } @media (prefers-reduced-motion: reduce) { .fc-recover form { animation: none; } }
+body.theme-day .cr-pre small, body.theme-day .fc-recover summary { color: #2a1650; } body.theme-day .cr-pin-on { color: #0a7a44; }
+@media (max-width: 640px) { .fc-recover form { grid-template-columns: 1fr; } }

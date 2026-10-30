@@ -34,6 +34,7 @@ from pydantic import BaseModel
 import feecat_brain
 import launch_cat as _lc
 import cat_policy as _cp
+import cat_recovery as _recovery
 import cat_real as _real   # 💵 real-money cats = option A: the user's wallet signs every trade (docs/DECISIONS.md #2)
 import cat_orders as _co   # 🧭 a General AI cat's plain-words orders → one guarded proposal
 import cat_model as _cm
@@ -99,7 +100,7 @@ def _no_keys(obj):
     if isinstance(obj, list):
         return [_no_keys(x) for x in obj]
     if isinstance(obj, dict):
-        out = {k: _no_keys(v) for k, v in obj.items() if k not in ('apiKeys', 'logins', 'ownerId')}   # 🔒 ownerId is the owner's control key — it never leaves the server
+        out = {k: _no_keys(v) for k, v in obj.items() if k not in ('apiKeys', 'logins', 'ownerId', 'recovery')}   # 🔒 ownerId is the owner's control key — it never leaves the server
         if 'brains' in obj:   # ☁ each mind's own cloud is its owner's private notes — only the owner's /work view carries it
             out.pop('minds', None)
         if 'apiKeys' in obj or ('brainsCfg' in obj and 'ownerId' in obj):
@@ -1378,17 +1379,38 @@ def _work_view(cat_id, owner=False):
     return {'task': {k: t.get(k) for k in ('id', 'text', 'mode', 'status', 'cap', 'cost', 'answer', 'fast', 'why', 'stepsMax', 'keep')}, 'windows': wins}
 
 
+def clean_limits(raw):
+    """🎚 A general agent's spend limits, clamped; 0 = no extra limit. mindUsd: $ each mind may spend on one task · steps: actions each mind may take · dayUsd: $ a day."""
+    r = raw if isinstance(raw, dict) else {}
+    num = lambda v, hi: max(0.0, min(float(hi), float(_num(v) or 0)))
+    return {'mindUsd': [round(num(v, TASK_CAP_MAX), 4) for v in list(r.get('mindUsd') or [])[:2]], 'steps': int(num(r.get('steps'), _ca.GO_STEPS)), 'dayUsd': round(num(r.get('dayUsd'), 100), 4)}
+
+
+def day_left(cat):
+    """$ left today under its daily limit (None = no daily limit)."""
+    day = float((cat.get('limits') or {}).get('dayUsd') or 0)
+    if not day:
+        return None
+    return max(0.0, day - float(((cat.get('brainsCfg') or {}).get('daySpend') or {}).get(time.strftime('%Y-%m-%d', time.gmtime()), 0)))
+
+
 def _work_start(cat_id, cat, text, to=None):
     """Start one task in the cat's windows. 🏇 Let it go (cat.workGo): a long step budget (cat_agent.GO_STEPS) — it stops only when done, at
     its $ cap, or when a person is needed (a sign-in / CAPTCHA / payment: it never types a password or a card)."""
     b = cat.get('brainsCfg') or {}
     cap = min(float(cat.get('taskCap') or TASK_CAP_DEFAULT), max(0.005, float(b.get('credit') or 0) or TASK_CAP_DEFAULT))
+    left_ = day_left(cat)
+    if left_ is not None:
+        if left_ <= 0:
+            raise HTTPException(409, "It reached today's $ limit. Raise it in its limits, or it carries on tomorrow.")
+        cap = min(cap, left_)
+    lim_ = cat.get('limits') or {}
     models = list(b['brains'])[:8]
     if to not in (None, 'both') and str(to).isdigit() and int(to) < len(models):   # talk to ONE of its minds: that model takes the whole task
         models = [models[int(to)]]
     names = [str(m).split('/')[-1][:24] for m in models]
-    steps = _ca.GO_STEPS if cat.get('workGo') else _ca.STEP_MAX
-    _WORK[cat_id] = {'task': _ca.new_task(uuid.uuid4().hex[:10], text, models, cap, steps, cat.get('workMode') or 'plan'), 'events': {}, 'go': {}, 'sessions': [None] * len(models), 'pages': [None] * len(models), 'at': time.time()}
+    steps = int(lim_.get('steps') or 0) or (_ca.GO_STEPS if cat.get('workGo') else _ca.STEP_MAX)
+    _WORK[cat_id] = {'task': _ca.new_task(uuid.uuid4().hex[:10], text, models, cap, steps, cat.get('workMode') or 'plan', lim_.get('mindUsd') if len(models) > 1 else None), 'events': {}, 'go': {}, 'sessions': [None] * len(models), 'pages': [None] * len(models), 'at': time.time()}
     _WORK[cat_id]['task']['tools'] = _cp.toolkit(cat.get('job', 'agent'), cat.get('tools'))
     _WORK[cat_id]['task']['clouds'] = {i: [x.get('text', '') for x in (b.get('minds') or {}).get(m, [])][-8:] for i, m in enumerate(models)}   # ☁ each mind reads its own cloud
     _WORK[cat_id]['runner'] = asyncio.create_task(_work_run(cat_id, models, names, text, cap, str(b.get('prompt') or '')[:1200], b.get('efforts') or {},
@@ -1475,8 +1497,9 @@ def _work_settle(store):
         w['settled'] = True
         # 🏇 let it go: the next queued ask starts on its own (a stopped task pauses the queue — you stopped it for a reason)
         if cat and cat.get('workGo') and cat.get('workQueue') and t.get('status') != 'stopped' and _work_live() and _lc.can_ask(cat.get('brainsCfg') or {}):
-            nxt = cat['workQueue'].pop(0)
-            _work_start(cid, cat, nxt.get('text'), nxt.get('to'))
+            if day_left(cat) is None or day_left(cat) > 0:   # at its daily $ limit the queue waits
+                nxt = cat['workQueue'].pop(0)
+                _work_start(cid, cat, nxt.get('text'), nxt.get('to'))
 
 
 async def _agent_pass(store):
@@ -2134,6 +2157,7 @@ class ActionPayload(BaseModel):
     blocklist: Optional[str] = None
     text: Optional[str] = None
     look: Optional[dict] = None        # 🎨 Fee's look (the creator's wallet only)
+    limits: Optional[dict] = None      # 🎚 controls: a general agent's spend limits (clean_limits)
     mode: Optional[str] = None         # 👛 agent_mode: approve | auto (a GENERAL cat's switch)
     provider: Optional[str] = None     # 🔐 api_key: which drawer slot …
     secret: Optional[str] = None       # … and the key (empty = remove it); sealed at once, never echoed
@@ -2155,6 +2179,11 @@ async def _is_creator(addr):
             return bool(r.status_code == 200 and (r.json().get('staff') or r.json().get('owner')))
     except Exception:
         return False
+
+
+def free_credit_ok(cat, creator=False):
+    """💳 Live model credit costs real money: a real agent buys it (/cats/{id}/fund, purpose credit); only a paper rule cat or a creator wallet refills free."""
+    return bool(creator or not (cat.get('agentWallet') or (cat.get('brainsCfg') or {}).get('kind') == 'general'))
 
 
 def fee_owner_real(cat, action, signed, owners=None):
@@ -2180,6 +2209,50 @@ def clean_fee_look(look):
         if v:
             out[k] = public_words(v)
     return out
+
+
+class RecoverPayload(BaseModel):
+    handle: str
+    pin: str
+    ownerId: str
+
+
+@app.post('/api/cats/{cat_id}/recovery-pin')
+async def cat_recovery_pin(cat_id: str, payload: ActionPayload):
+    """🔑 Its recovery PIN: made once, shown once, only the hash kept. A lost PIN can only be replaced by the owner's browser (`text` = 'replace')."""
+    store = _load()
+    cat = store['cats'].get(cat_id)
+    if not cat or cat.get('isLeader'):
+        raise HTTPException(404, 'Cat not found.')
+    if not payload.ownerId or payload.ownerId != cat.get('ownerId'):
+        raise HTTPException(403, 'Only its owner can make its recovery PIN.')
+    if cat.get('recovery') and payload.text != 'replace':
+        raise HTTPException(409, 'Its recovery PIN was already shown once.')
+    pin = _recovery.new_pin()
+    cat['recovery'], cat['recoverySet'] = _recovery.seal(pin), True
+    _save(store)
+    return {'pin': pin}
+
+
+@app.post('/api/cats/recover')
+async def cat_recover(payload: RecoverPayload):
+    """🔑 A new browser takes its agent back with the PIN. The PIN is single-use and never moves money; the owner makes a fresh one after."""
+    if not payload.ownerId.strip() or len(payload.ownerId) > 100:
+        raise HTTPException(400, 'No browser id.')
+    store = _load()
+    handle = payload.handle.strip().lstrip('@').lower()
+    cat = next((c for c in store['cats'].values() if not c.get('isLeader') and handle and str(c.get('handle') or '').lower() == handle and c.get('recovery')), None)
+    if not cat:
+        raise HTTPException(403, 'That handle and PIN do not match.')
+    result = _recovery.check(cat['recovery'], payload.pin, time.time())
+    if result != 'ok':
+        _save(store)
+        raise HTTPException(429 if result == 'locked' else 403, 'Too many tries: this PIN is locked for an hour.' if result == 'locked' else 'That handle and PIN do not match.')
+    cat['ownerId'] = payload.ownerId
+    cat.pop('recovery'); cat['recoverySet'] = False
+    _log_event(store, cat, 'STARTED', f"{cat['name']} was recovered on a new browser with its PIN.")
+    _save(store)
+    return {'cat': {**_no_keys(cat), 'mine': True}}
 
 
 @app.post('/api/cats/{cat_id}/action')
@@ -2222,11 +2295,20 @@ async def cat_action(cat_id: str, payload: ActionPayload, request: Request):
             _log_event(store, cat, 'STARTED', f"{cat['name']} has its own wallet now: {cat['agentWallet']['address'][:6]}… — fund it to put it to work.")
     elif payload.action == 'agent_funded':   # 💵 reputation's /cats/{id}/fund/send (internal key only — the branch above): a verified, sent funding
         a_ = payload.amount if isinstance(payload.amount, dict) else {}
-        if not payload.sig or any(str(x.get('sig')) == payload.sig for x in cat.get('agentFunded') or []):
+        if not payload.sig or any(str(x.get('sig')) == payload.sig for x in (cat.get('agentFunded') or []) + (cat.get('creditPaid') or [])):
             raise HTTPException(400, 'No signature, or that funding is on the record already.')
+        if a_.get('purpose') == 'credit':   # 🧠 paid model credit: never counts as its first funding
+            usd_ = max(0.0, _num(a_.get('usd')) or 0.0)
+            cat['creditPaid'] = (list(cat.get('creditPaid') or []) + [{'sig': str(payload.sig)[:100], 'usd': usd_, 'token': a_.get('token'), 'at': round(time.time())}])[-50:]
+            if cat.get('brainsCfg'):
+                cat['brainsCfg']['credit'] = round((cat['brainsCfg'].get('credit') or 0) + usd_, 6); cat.pop('brainPaused', None)
+            _log_event(store, cat, 'STARTED', f"{cat['name']}: ${usd_:g} of model credit added.")
+            _save(store)
+            return {'cat': {**_no_keys(cat), 'mine': not cat.get('isLeader')}}
         cat['agentFunded'] = (list(cat.get('agentFunded') or []) + [{'sig': str(payload.sig)[:100], 'state': payload.result or 'confirmed', 'at': round(time.time()),
                               **{k: a_.get(k) for k in ('usd', 'feeUsd', 'catLamports', 'feeLamports', 'solUsd')}}])[-50:]
-        _log_event(store, cat, 'STARTED', f"{cat['name']} funded: ${a_.get('usd')} — {round((a_.get('catLamports') or 0) / 1e9, 4)} SOL into its wallet"
+        got_ = f"{(a_.get('catLamports') or 0) / 1e6:.2f} USDC" if a_.get('token') == 'USDC' else f"{round((a_.get('catLamports') or 0) / 1e9, 4)} SOL"
+        _log_event(store, cat, 'STARTED', f"{cat['name']} funded: ${a_.get('usd')} — {got_} into its wallet"
                    + (f" (one-time FEELESS fee ${a_.get('feeUsd'):g})" if a_.get('feeUsd') else '') + '.')
     elif payload.action == 'agent_assign':   # 👛 N16: Fee takes a wallet the creator already has (a user's cat always gets a fresh one)
         if not cat.get('isLeader'):
@@ -2310,9 +2392,9 @@ async def cat_action(cat_id: str, payload: ActionPayload, request: Request):
         _log_event(store, cat, 'WITHDRAW', f'Owner pulled all funds ({amount:.4f} SOL, paper). The Cat is locked until a top-up.')
     elif payload.action == 'topup':   # paper top-up: the starting balance back, and (pay as you go) the model credit back
         cat['balanceSol'] = round(cat['balanceSol'] + float(cat.get('startingBalanceSol') or 10), 6); cat['needsTopup'] = False
-        if cat.get('brainsCfg'):
+        if cat.get('brainsCfg') and free_credit_ok(cat, bool(signed and await _is_creator(signed))):
             cat['brainsCfg']['credit'] = round((cat['brainsCfg'].get('credit') or 0) + _lc.START_CREDIT, 6); cat.pop('brainPaused', None)
-        _log_event(store, cat, 'STARTED', f'{cat["name"]} topped up (paper).')
+        _log_event(store, cat, 'STARTED', f'{cat["name"]} topped up.')
     elif payload.action == 'start':
         if cat.get('needsTopup'):
             raise HTTPException(400, 'Funds were pulled — top up before starting this Cat again.')
@@ -2338,6 +2420,10 @@ async def cat_action(cat_id: str, payload: ActionPayload, request: Request):
             cat['risk']['allowlist'] = [s.strip() for s in payload.allowlist.split(',') if s.strip()]
         if payload.blocklist is not None:
             cat['risk']['blocklist'] = [s.strip() for s in payload.blocklist.split(',') if s.strip()]
+        if payload.limits is not None:   # 🎚 a general agent: $ a task · $ a mind · steps · $ a day (enforced in _work_start + cat_agent._ask)
+            cat['limits'] = clean_limits(payload.limits)
+            if _num(payload.limits.get('taskUsd')):
+                cat['taskCap'] = round(max(0.005, min(TASK_CAP_MAX, float(_num(payload.limits.get('taskUsd'))))), 4)
     elif payload.action == 'withdraw':
         amount = min(float(payload.amount or 0), cat['balanceSol'])
         cat['balanceSol'] = round(cat['balanceSol'] - amount, 6)

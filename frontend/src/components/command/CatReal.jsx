@@ -100,8 +100,42 @@ export function SafeKeeping({ cat, addr, saved, onSaved }) {
       <i aria-hidden="true" /><span>I confirm I saved my recovery phrase safely, offline</span></label>
   </div>;
 }
-export function FundCat({ cat, addr, session, sign, onDone, onConfirm }) {
-  const first = !(cat?.agentFunded || []).length;
+// 💵 how much + SOL or USDC, BEFORE its wallet exists (owner 2026-10-30: no amount box on the go-real page): the choice carries into the receipt after the wallet is made
+export function FundPick({ cat }) {
+  const read = (k, d) => { try { return localStorage.getItem(`feeless.${k}.${cat?.id}`) || d; } catch { return d; } };
+  const keep = (k, x) => { try { localStorage.setItem(`feeless.${k}.${cat?.id}`, x); } catch { /* private window */ } };
+  const [usd, setUsd] = useState(() => read('fundIntent', '10')); const [token, setToken] = useState(() => read('fundToken', 'SOL'));
+  return <div className="cr-fund-pick cr-pre" data-testid="cr-pre"><em>FUND IT WITH</em>
+    <label className="cr-fund-in">$<input className="m-input" type="number" min="1" step="any" value={usd} onChange={e => { setUsd(e.target.value); keep('fundIntent', e.target.value); }} aria-label="Dollars to fund it with" data-testid="cr-pre-usd" /></label>
+    <div className="m-seg" role="radiogroup" aria-label="Quick amounts">{[10, 25, 50, 100].map(a => <button key={a} type="button" role="radio" aria-checked={Number(usd) === a} className={Number(usd) === a ? 'active' : ''} onClick={() => { setUsd(String(a)); keep('fundIntent', String(a)); }} data-tip={`Fund it with $${a}`}>${a}</button>)}</div>
+    <div className="m-seg" role="radiogroup" aria-label="Pay with">{['SOL', 'USDC'].map(t => <button key={t} type="button" role="radio" aria-checked={token === t} className={token === t ? 'active' : ''} onClick={() => { setToken(t); keep('fundToken', t); }} data-tip={`Pay with ${t}`} data-testid={`cr-pre-${t}`}>{t}</button>)}</div>
+    <small>Nothing is charged yet. You see a receipt and sign it next.</small></div>;
+}
+
+// 🔑 RECOVERY PIN (cat_recovery.py): the way back if this browser is lost. Made here, shown once, only its hash is kept; it never moves money. An older server (404) shows nothing.
+export function RecoveryPin({ cat }) {
+  const [pin, setPin] = useState(''); const [saved, setSaved] = useState(false); const [err, setErr] = useState(''); const [gone, setGone] = useState(false); const [copied, setCopied] = useState(false);
+  const make = async replace => { setErr('');
+    try { const r = await fetch(apiUrl(`/api/cats/${cat.id}/recovery-pin`), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'recovery', ownerId: localStorage.getItem('feeless-paper-owner') || '', text: replace ? 'replace' : '' }) });
+      if (r.status === 404) { setGone(true); return; } const j = await r.json().catch(() => ({})); if (!r.ok) throw new Error(j.detail || `HTTP ${r.status}`); setPin(j.pin); setSaved(false); }
+    catch (e) { setErr(e.message); } };
+  const copy = async () => { try { await navigator.clipboard.writeText(pin); setCopied(true); setTimeout(() => setCopied(false), 1500); } catch { /* blocked */ } };
+  if (gone || cat?.isLeader || cat?.id === 'leader') return null;
+  if (pin) return <div className={`cr-safe cr-pin${saved ? ' is-saved' : ''}`} data-testid="cr-pin"><span className="cr-safe-h"><i aria-hidden="true">🔑</i><b>YOUR RECOVERY PIN</b><small>shown once</small></span>
+    <span className="cr-safe-addr"><code data-testid="cr-pin-code">{pin}</code><button type="button" className="m-btn" onClick={copy} data-tip="Copy the PIN">{copied ? '✓ copied' : 'Copy'}</button></span>
+    <p className="cr-safe-why">Keep it with <b>@{cat.handle}</b>. On a new browser, My agents › Recover an agent takes this agent back. It can't move money, and FEELESS can't show it again.</p>
+    <label className="cr-safe-ok"><input type="checkbox" checked={saved} onChange={e => setSaved(e.target.checked)} data-testid="cr-pin-saved" /><i aria-hidden="true" /><span>I saved my recovery PIN offline</span></label>
+    {saved ? <button type="button" className="m-btn" onClick={() => setPin('')} data-testid="cr-pin-done">Done, hide it</button> : null}</div>;
+  if (cat?.recoverySet) return <p className="cr-pin-on" data-testid="cr-pin-on"><i aria-hidden="true">🔑</i>Recovery PIN set<button type="button" className="m-btn" onClick={() => window.confirm('Make a new PIN? The old one stops working.') && make(true)} data-tip="Lost it? Make a new one; the old PIN stops working" data-testid="cr-pin-new">New PIN</button></p>;
+  return <div className="cr-safe" data-testid="cr-pin-make"><span className="cr-safe-h"><i aria-hidden="true">🔑</i><b>SAVE YOUR RECOVERY PIN FIRST</b><small>one step, before funding</small></span>
+    <p className="cr-safe-why">This agent lives in this browser. The PIN brings it back if you clear it or change device.</p>
+    <button type="button" className="m-btn m-go" onClick={() => make(false)} data-testid="cr-pin-show" data-tip="Shows it once; only a hash is kept">🔑 Show my recovery PIN</button>{err ? <p className="kd-err" role="alert">⚠ {err}</p> : null}</div>;
+}
+
+export function FundCat({ cat, addr, session, sign, onDone, onConfirm, onFreeCredit }) {
+  const [purpose, setPurpose] = useState('wallet'); const credit = purpose === 'credit';
+  const [token, setToken] = useState(() => { try { return localStorage.getItem(`feeless.fundToken.${cat?.id}`) === 'USDC' ? 'USDC' : 'SOL'; } catch { return 'SOL'; } });
+  const first = !(cat?.agentFunded || []).length && !credit;
   const [saved, setSavedState] = useState(() => readSaved(cat?.id));
   const setSaved = v => { setSavedState(v); try { localStorage.setItem(SAVED_KEY(cat?.id), v ? '1' : '0'); } catch { /* private window */ } if (v) onConfirm?.(); };
   const [rules, setRules] = useState(null);
@@ -115,31 +149,37 @@ export function FundCat({ cat, addr, session, sign, onDone, onConfirm }) {
   const post = async (path, body) => { const r = await fetch(apiUrl(`/api/reputation/cats/${cat.id}/${path}`), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
     const j = await r.json().catch(() => ({})); if (!r.ok) throw new Error(j.detail || `HTTP ${r.status}`); return j; };
   const quote = async () => { setErr(''); setStage('quoting');
-    try { const s0 = await session(); const j = await post('fund', { address: addr, session: s0, usd: Number(usd) }); setRcpt({ ...j, session: s0 }); setLeft(Math.round(j.expiresIn || 90)); setStage('ready'); }
+    try { const s0 = await session(); const j = await post('fund', { address: addr, session: s0, usd: Number(usd), token, purpose });
+      if ((j.plan?.token || 'SOL') !== token || (j.plan?.purpose || 'wallet') !== purpose) throw new Error('FEELESS is updating: nothing was charged. Try again in a minute.');   // 🔒 only ever sign what is on screen
+      setRcpt({ ...j, session: s0 }); setLeft(Math.round(j.expiresIn || 90)); setStage('ready'); }
     catch (e) { setErr(e.message); setStage('pick'); } };
   const go = async () => { if (!rcpt || left <= 0) return; setErr(''); setStage('signing');
     try { const signed = await sign(rcpt.transaction); setStage('sending'); const j = await post('fund/send', { address: addr, session: rcpt.session, signed }); setSig(j.signature); if (first) setPaidFirst(true); setStage(j.state === 'confirmed' ? 'done' : 'landing'); setRcpt(null); onDone?.(); }
     catch (e) { setErr(e.message || 'Your wallet did not sign.'); setStage('ready'); } };
-  const p = rcpt?.plan;
+  const p = rcpt?.plan; const usdc = p?.token === 'USDC'; const amt = l => (usdc ? `${(Number(l) / 1e6).toFixed(2)} USDC` : `${sol4(l)} SOL`);
+  const reset = () => { setRcpt(null); setStage('pick'); };
   return <div className="cr-fund" data-testid="cr-fund">
+    {cat?.brainsCfg ? <div className="m-seg cr-fund-what" role="radiogroup" aria-label="What to add">{[['wallet', '👛 ITS WALLET', 'Money it can work with'], ['credit', '🧠 MODEL CREDIT', `Pays for its minds. Now ${Number(cat.brainsCfg.credit ?? 0).toFixed(2)} USD`]].map(([k, l, tip]) => <button key={k} type="button" role="radio" aria-checked={purpose === k} className={purpose === k ? 'active' : ''} onClick={() => { setPurpose(k); reset(); }} data-tip={tip} data-testid={`cr-for-${k}`}>{l}</button>)}</div> : null}
+    <div className="m-seg cr-fund-what" role="radiogroup" aria-label="Pay with">{['SOL', 'USDC'].map(t => <button key={t} type="button" role="radio" aria-checked={token === t} className={token === t ? 'active' : ''} onClick={() => { setToken(t); reset(); }} data-tip={t === 'USDC' ? 'Pay in USDC; keep a little SOL for the network fee' : 'Pay in SOL at the live price'} data-testid={`cr-pay-${t}`}>{t}</button>)}</div>
     {!saved && (paidFirst || (cat?.agentFunded || []).length === 1) ? <SafeKeeping cat={cat} addr={addr} saved={saved} onSaved={setSaved} /> : null}
     {first && !paidFirst ? <p className="cr-fund-rule">🔐 Once it's paid, you'll save your recovery once — the box shows right after.</p> : null}
     <p className={`cr-fund-rule ${rules?.staff ? 'is-staff' : ''}`} data-testid="cr-fund-rule">{rules?.staff ? `👑 creator wallet — no FEELESS fee, from $${min}` : first
-      ? `Starts at $${min}: $${fee} to FEELESS once, $${Math.max(0, min - fee)}+ into its wallet. Top-ups after that: no fee.` : `Top-up from $${min} — no fee, all of it into its wallet.`}</p>
-    <div className="cr-fund-pick"><em>{first ? 'FUND IT · FIRST' : 'TOP IT UP'}</em>
+      ? `Starts at $${min}: $${fee} to FEELESS once, $${Math.max(0, min - fee)}+ into its wallet. Top-ups after that: no fee.` : credit ? `From $${min}. All of it becomes model credit for its minds.` : `Top-up from $${min} — no fee, all of it into its wallet.`}</p>
+    <div className="cr-fund-pick"><em>{credit ? 'ADD MODEL CREDIT' : first ? 'FUND IT · FIRST' : 'TOP IT UP'}</em>
       <div className="m-seg" role="radiogroup" aria-label="How much">{FUND_AMTS.filter(a => a >= min).map(a => <button key={a} type="button" role="radio" aria-checked={Number(usd) === a} className={Number(usd) === a ? 'active' : ''} onClick={() => { setUsd(a); setRcpt(null); setStage('pick'); }} data-testid={`cr-fund-${a}`}>${a}</button>)}</div>
       <label className="cr-fund-in">$<input className="m-input" type="number" min={min} step="any" value={usd} onChange={e => { setUsd(e.target.value); setRcpt(null); setStage('pick'); }} aria-label="Dollars to fund it with" data-testid="cr-fund-usd" /></label></div>
     {warn ? <p className="cr-fund-warn" role="status" data-testid="cr-fund-warn">⚠ {warn}</p> : null}
     {p ? <ol className="cr-rcpt" data-testid="cr-receipt">
-      <li style={{ '--i': 0 }}><small>YOU PAY</small><b className="m-num">${p.usd.toFixed(2)}</b><i>{sol4(p.totalLamports)} SOL</i></li>
-      <li style={{ '--i': 1 }} className={p.feeUsd ? 'is-fee' : 'is-free'} data-tip={p.feeUsd ? 'One time, out of its first funding — never on a top-up' : 'Top-ups carry no FEELESS fee'}><small>FEELESS · ONE-TIME</small><b className="m-num">{p.feeUsd ? `$${p.feeUsd.toFixed(2)}` : '$0'}</b><i>{sol4(p.feeLamports)} SOL</i></li>
-      <li style={{ '--i': 2 }} className="is-cat"><small>INTO ITS WALLET</small><b className="m-num">${p.catUsd.toFixed(2)}</b><i>{sol4(p.catLamports)} SOL</i></li>
-      <li style={{ '--i': 3 }}><small>PRICE · NETWORK</small><b className="m-num">${p.solUsd}</b><i>/SOL · ~0.000005 SOL fee</i></li>
+      <li style={{ '--i': 0 }}><small>YOU PAY</small><b className="m-num">${p.usd.toFixed(2)}</b><i>{amt(p.totalLamports)}</i></li>
+      <li style={{ '--i': 1 }} className={p.feeUsd ? 'is-fee' : 'is-free'} data-tip={p.feeUsd ? 'One time, out of its first funding — never on a top-up' : 'Top-ups carry no FEELESS fee'}><small>{credit ? 'MODEL CREDIT' : 'FEELESS · ONE-TIME'}</small><b className="m-num">{p.feeUsd ? `$${p.feeUsd.toFixed(2)}` : '$0'}</b><i>{amt(p.feeLamports)}</i></li>
+      <li style={{ '--i': 2 }} className="is-cat"><small>INTO ITS WALLET</small><b className="m-num">${p.catUsd.toFixed(2)}</b><i>{amt(p.catLamports)}</i></li>
+      <li style={{ '--i': 3 }}><small>{usdc ? 'NETWORK' : 'PRICE · NETWORK'}</small><b className="m-num">{usdc ? 'SOL' : `$${p.solUsd}`}</b><i>{usdc ? 'tiny fee, plus a token account the first time' : '/SOL · ~0.000005 SOL fee'}</i></li>
     </ol> : null}
     <div className="cr-fund-go">
       {stage === 'ready' || stage === 'signing' || stage === 'sending' ? <>
         <button type="button" className="m-btn m-go" disabled={stage !== 'ready' || left <= 0} onClick={go} data-testid="cr-fund-sign" data-tip="Your wallet signs this exact transaction; FEELESS sends only it">{stage === 'signing' ? 'Sign in your wallet…' : stage === 'sending' ? 'Sending…' : '✍ Sign & fund'}</button>
         <span className={`cr-fund-clock ${left < 20 ? 'is-low' : ''}`} data-tip="A receipt lives 90s — prices move"><u><s style={{ transform: `scaleX(${left / 90})` }} /></u><em className="m-num">{left}s</em></span></>
+        : credit && rules?.staff ? <button type="button" className="m-btn m-go" onClick={() => onFreeCredit?.()} data-testid="cr-fund-free" data-tip="Your creator wallet refills it without a payment">＋ Add $10 credit · creator</button>
         : <button type="button" className="m-btn m-go" disabled={stage === 'quoting' || !addr || Number(usd) < min} onClick={quote} data-testid="cr-fund-quote">{stage === 'quoting' ? 'Pricing…' : '🧾 Get receipt'}</button>}
       {sig ? <a className="cr-fund-sig" href={`https://solscan.io/tx/${sig}`} target="_blank" rel="noreferrer" data-testid="cr-fund-done">{stage === 'done' ? '✓ funded' : '⏳ landing'} · {sig.slice(0, 8)}… ↗</a> : null}
     </div>
@@ -163,8 +203,9 @@ export function AgentWalletCard({ cat, busy, send, addr, session, sign }) {
   return <div className={`cr-agent ${w ? 'is-made' : ''} m-${mode}`} data-testid="cr-agent">
     <svg className="cr-vault" viewBox="0 0 48 48" aria-hidden="true"><rect x="5" y="9" width="38" height="30" rx="6" /><circle cx="24" cy="24" r="8" /><path className="cr-vdial" d="M24 16 V20 M24 28 V32 M16 24 H20 M28 24 H32" /><path d="M11 39 V43 M37 39 V43" /></svg>
     {!w ? <div className="cr-ag-off"><b>👛 ITS OWN WALLET</b><small>Fund it once — {kind === 'trading' ? 'it rides: trades without asking you to sign' : 'it works from it; you choose ask-first or let it go'}. Crossmint holds the key, FEELESS keeps only the address.</small>
+      {cat?.isLeader || cat?.id === 'leader' ? null : <FundPick cat={cat} />}
       <button type="button" className="m-btn m-go cr-ag-go" disabled={busy || !addr || cat?.revoked} onClick={() => send('agent_wallet')} data-testid="cr-agent-make"
-        data-tip={addr ? 'One signature (no transaction) proves you own this cat — then Crossmint makes its wallet' : 'Connect your wallet first'}>👛 Give it its own wallet</button>
+        data-tip={addr ? 'One signature (no transaction) proves you own this cat — then Crossmint makes its wallet' : 'Connect your wallet first'}>👛 Make its wallet, then fund it</button>
       {cat?.isLeader || cat?.id === 'leader' ? <AssignWallet cat={cat} busy={busy} send={send} /> : null}</div>
       : <div className="cr-ag-on">
         {w.provider === 'circle' ? <p className="cr-ag-watch is-circle" role="status" data-testid="cr-agent-circle">🟦 YOUR CIRCLE WALLET — Circle signs each trade she makes, inside her caps (one at a time, per-buy + daily limits).</p> : null}
@@ -179,7 +220,7 @@ export function AgentWalletCard({ cat, busy, send, addr, session, sign }) {
         {kind === 'trading' ? null : <div className="m-seg cr-ag-mode" role="radiogroup" aria-label="How it moves">
           {[['approve', '✋ ASK ME', 'Every AI move waits for your OK'], ['auto', '🚀 DO ITS THING', 'AI moves go ahead on their own, inside its limits']].map(([k, l, tip]) =>
             <button key={k} type="button" role="radio" aria-checked={mode === k} className={mode === k ? 'active' : ''} disabled={busy} onClick={() => mode !== k && send('agent_mode', { mode: k })} data-tip={tip} data-testid={`cr-agent-${k}`}>{l}</button>)}</div>}
-        {session && sign && w.provider !== 'watch' ? <FundCat cat={cat} addr={addr} session={session} sign={sign} onConfirm={() => send?.('confirm_recovery')} /> : null}
+        {session && sign && w.provider !== 'watch' ? <FundCat cat={cat} addr={addr} session={session} sign={sign} onConfirm={() => send?.('confirm_recovery')} onFreeCredit={() => send?.('topup')} /> : null}
         {cat?.isLeader || cat?.id === 'leader' ? <AssignWallet cat={cat} busy={busy} send={send} /> : null}
         {(() => { const dd = agentDay(cat); return <div className="cr-ag-day" data-testid="cr-agent-day" data-tip={`Its own wallet trades go through the same FEELESS engine: one at a time, a buy ≤ its ${Math.min(0.5, Number(cat?.budgetSol) || 0.05)} SOL budget, ≤ ${dd.cap} SOL a day, 0.01 SOL always kept for gas; it sells only what it bought`}>
           <em>TODAY</em><u aria-hidden="true"><s style={{ transform: `scaleX(${Math.min(1, dd.spent / (dd.cap || 1))})` }} /></u><b className="m-num">{dd.spent} / {dd.cap} SOL</b>
@@ -227,10 +268,11 @@ export function CatReal({ cat, busy = false, onAct, devAddress = '' }) {
   return <section className={`kd-card cr ${v.real ? 'is-real' : ''}`} data-testid="cat-real">
     <header><b>💵 REAL MODE</b><small>{cat.agentWallet ? (cat.agentWallet.mode === 'auto' ? 'it trades from its own wallet — no signing per trade' : 'it asks you · its own wallet sends what you approve')
       : 'give it its own wallet below — you sign once to fund it, then it trades on its own'}</small></header>
+    <RecoveryPin cat={cat} />
     <AgentWalletCard cat={cat} busy={busy} addr={addr} send={(a, x) => send.current(a, x)}
       session={() => (devAddress ? Promise.resolve('dev') : getChatSession(addr, signMessage, { own: true }))} sign={signTx} />
-    <WalletCard cat={cat} addr={addr} v={v} />
-    {!v.real ? <div className="cr-off">
+    {cat?.brainsCfg?.kind === 'general' && !v.real ? null : <WalletCard cat={cat} addr={addr} v={v} />}
+    {cat?.brainsCfg?.kind === 'general' && !v.real ? null : !v.real ? <div className="cr-off">
       <Flow />
       <div className="cr-budget"><em>MOST A BUY</em><div className="m-seg" role="group" aria-label="The most it may propose for one buy">
         {BUDGETS.map(b => <button key={b} type="button" aria-pressed={budget === b} className={budget === b ? 'active' : ''} onClick={() => setBudget(b)} data-tip={`It never proposes a buy above ${b} SOL`} data-testid={`cr-b-${b}`}>{b} SOL</button>)}</div></div>

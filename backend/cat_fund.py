@@ -9,6 +9,7 @@ FEELESS swap. A top-up later is all for the cat (no fee). Amounts are SOL at the
 import base64
 
 from solders.hash import Hash
+from solders.instruction import AccountMeta, Instruction
 from solders.message import MessageV0, to_bytes_versioned
 from solders.pubkey import Pubkey
 from solders.signature import Signature
@@ -22,12 +23,19 @@ MAX_USD = 5000.0
 MAX_CATS = 4            # cats with their own wallet, per owner wallet
 PLAN_SEC = 90.0         # a built transaction is good for this long (its blockhash lives ~60-90s)
 LAMPORTS = 1_000_000_000
+USDC_MINT = 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v'
+USDC_UNITS = 1_000_000
+TOKEN_PROGRAM = 'TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA'
+ATA_PROGRAM = 'ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL'
+SYSTEM_PROGRAM = '11111111111111111111111111111111'
 
 
-def plan(usd, sol_usd, first, fee_usd=FEE_USD, min_usd=MIN_USD):
+def plan(usd, sol_usd, first, fee_usd=FEE_USD, min_usd=MIN_USD, token='SOL', credit=False):
     """$ amount + live SOL price + is this the cat's first funding (+ HQ's fee / minimum; a creator wallet: fee 0, min $1) →
-    {usd, feeUsd, solUsd, totalLamports, feeLamports, catLamports, catUsd}."""
-    usd, px = float(usd or 0), float(sol_usd or 0)
+    {usd, feeUsd, solUsd, totalLamports, feeLamports, catLamports, catUsd, token, purpose}. The three amounts are the token's smallest unit (USDC: 1e-6).
+    `credit`: model credit, the whole payment goes to FEELESS and nothing to its wallet."""
+    usd, px = float(usd or 0), 1.0 if token == 'USDC' else float(sol_usd or 0)
+    first = first and not credit
     if px <= 0:
         raise ValueError('No live SOL price right now — try again in a minute.')
     fee_usd = max(0.0, float(fee_usd or 0)) if first else 0.0
@@ -36,10 +44,29 @@ def plan(usd, sol_usd, first, fee_usd=FEE_USD, min_usd=MIN_USD):
         raise ValueError(f'${usd:g} only covers the ${fee_usd:g} one-time fee — a first funding starts at ${lo:g} so its wallet gets money to trade.')
     if not lo <= usd <= MAX_USD:
         raise ValueError(f'A {"first funding" if first else "top-up"} is ${lo:g} to ${MAX_USD:,.0f}.')
-    total = int(usd / px * LAMPORTS)
-    fee = int(fee_usd / px * LAMPORTS + 0.999999)   # FEELESS's cut rounds up to the lamport, the cat's share is the rest
-    return {'usd': round(usd, 2), 'feeUsd': fee_usd, 'solUsd': round(px, 4), 'totalLamports': total, 'feeLamports': fee, 'catLamports': total - fee,
-            'catUsd': round(usd - fee_usd, 2)}
+    scale = USDC_UNITS if token == 'USDC' else LAMPORTS
+    total = int(usd / px * scale)
+    fee = total if credit else int(fee_usd / px * scale + 0.999999)   # FEELESS's cut rounds up to the lamport, the cat's share is the rest
+    return {'usd': round(usd, 2), 'feeUsd': round(usd, 2) if credit else fee_usd, 'solUsd': round(px, 4), 'totalLamports': total, 'feeLamports': fee, 'catLamports': total - fee,
+            'catUsd': 0.0 if credit else round(usd - fee_usd, 2), 'token': token, 'purpose': 'credit' if credit else 'wallet'}
+
+
+def ata(owner, mint=USDC_MINT):
+    """The associated token account of `owner` (str or Pubkey)."""
+    o = Pubkey.from_string(owner) if isinstance(owner, str) else owner
+    return Pubkey.find_program_address([bytes(o), bytes(Pubkey.from_string(TOKEN_PROGRAM)), bytes(Pubkey.from_string(mint))], Pubkey.from_string(ATA_PROGRAM))[0]
+
+
+def _open_usdc(payer, owner):
+    """Create `owner`'s USDC account if it has none (idempotent: costs nothing when it exists)."""
+    mint = Pubkey.from_string(USDC_MINT)
+    return Instruction(Pubkey.from_string(ATA_PROGRAM), bytes([1]), [AccountMeta(payer, True, True), AccountMeta(ata(owner), False, True), AccountMeta(owner, False, False),
+                       AccountMeta(mint, False, False), AccountMeta(Pubkey.from_string(SYSTEM_PROGRAM), False, False), AccountMeta(Pubkey.from_string(TOKEN_PROGRAM), False, False)])
+
+
+def _send_usdc(payer, to, units):
+    return Instruction(Pubkey.from_string(TOKEN_PROGRAM), bytes([12]) + int(units).to_bytes(8, 'little') + bytes([6]),   # TransferChecked, 6 decimals
+                       [AccountMeta(ata(payer), False, True), AccountMeta(Pubkey.from_string(USDC_MINT), False, False), AccountMeta(ata(to), False, True), AccountMeta(payer, True, False)])
 
 
 def build(owner, cat_wallet, fee_wallet, p, blockhash):
@@ -51,8 +78,11 @@ def build(owner, cat_wallet, fee_wallet, p, blockhash):
         raise ValueError('A wallet address is not valid.')
     if payer == cat or (fee and fee in (payer, cat)):
         raise ValueError('The cat wallet, the fee wallet and yours must all differ.')
-    ixs = ([transfer(TransferParams(from_pubkey=payer, to_pubkey=fee, lamports=p['feeLamports']))] if fee else []) + \
-        [transfer(TransferParams(from_pubkey=payer, to_pubkey=cat, lamports=p['catLamports']))]
+    legs = ([(fee, p['feeLamports'])] if fee else []) + ([(cat, p['catLamports'])] if p['catLamports'] else [])
+    if p.get('token') == 'USDC':
+        ixs = [i for to, n in legs for i in (_open_usdc(payer, to), _send_usdc(payer, to, n))]
+    else:
+        ixs = [transfer(TransferParams(from_pubkey=payer, to_pubkey=to, lamports=n)) for to, n in legs]
     msg = MessageV0.try_compile(payer, ixs, [], bh)
     return base64.b64encode(bytes(VersionedTransaction.populate(msg, [Signature.default()]))).decode()
 

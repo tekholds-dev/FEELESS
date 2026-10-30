@@ -20,26 +20,37 @@ const GEN_STEPS = ['🧠 Its minds', '🧭 How they work', '🎯 Its job + brief
 // 📈 TRADING hunts coins on its own · 🧭 GENERAL does what you order (owner, 2026-10-23) — both end on the wallet switch (link → budget → REAL)
 export const KIND = { trading: { eyebrow: '📈 TRADING AI CAT', cat: 'trading', brief: '📜 THE BRIEF', hint: 'e.g. Only buy coins sitting on their germ floor with higher lows. Bank half at +30%. Never chase a green candle.',
   pitch: 'Pick 1–2 trading models. They decide once before a buy and up to 3 times while a coin is live — only on a ±10% move.',
-  next: ['🚀 launch', '👛 its own wallet', '💵 fund it once', '🤖 it trades inside your limits'] },
+  next: ['🚀 launch', '🔑 save its recovery PIN', '👛 its own wallet', '💵 fund it once', '🤖 it trades inside your limits'] },
   general: { eyebrow: '🧭 GENERAL AI CAT', cat: '', brief: '📜 STANDING ORDERS', hint: 'e.g. You are my content scout: every morning find 3 trending crypto topics with sources and draft posts in my voice — never post or sign up without asking me. Coin orders: never more than 0.1 SOL a coin.',
   pitch: 'Pick 1–2 all-round models — its two minds. Ask in plain words: it answers from memory, or each mind researches half in its own cloud browser while you watch, then they merge. Coin orders go from its own wallet — you OK each one until you switch it to auto.',
-  next: ['🚀 launch', '👛 its own wallet', '💵 fund it once', '✅ it checks with you · or 🤖 auto'] } };
+  next: ['🚀 launch', '🔑 save its recovery PIN', '👛 its own wallet', '💵 fund it once', '✅ it checks with you · or 🤖 auto'] } };
 // 🧾 THE PROMPT GENERATOR (owner 2026-10-30: "robust prompts for both kinds — specific, so both models work properly together"): the job's brief +
 // HOW THE TWO WORK for the mode you picked + the house rules → one brief both models read on every step. Edit it freely before launch.
+const STUCK = 'WHEN STUCK — after 2 failed tries take another route or report it. A human-needed step (my own sign-ins, CAPTCHAs, codes, payments, ID) never stops the rest: ask me exactly what you need and keep going on everything else.';
+const NO_GUESS = ' Missing or stale data means SKIP, never a guess.';
+export const SOLO = { general: `${STUCK}\n\nFINISH WITH — DONE (with links), NEEDS ME, STILL UNCERTAIN.`, trading: NO_GUESS.trim() };
 export const COLLAB = {
-  general: { plan: 'HOW YOU TWO WORK — Mind A leads: restate the goal in one line, split it into two halves and take one; Mind B takes the other half and double-checks A\'s key claims. Use FEELESS first for anything crypto. Keep every source. Save only vital facts to the shared cloud. Merge into ONE clear answer with links and what is still uncertain.',
-    jobs: 'HOW YOU TWO WORK — each of you owns a separate job the user gives (A: … B: …). Work in parallel in your own window; when one result helps the other (A\'s research feeds B\'s posts), hand it off through a note. Deliver each result under its job, ready to use.' },
-  trading: { turns: 'HOW YOU TWO WORK — you take turns: one of you makes each call alone, on the evidence given (germ floor, buyers %, liquidity, holders, rug flags).',
-    discuss: 'HOW YOU TWO WORK — Brain A reads the coin first and answers BUY or SKIP with one reason; Brain B sees A\'s call, challenges it and makes the final call. Disagree whenever the evidence says so.',
-    together: 'HOW YOU TWO WORK — you both judge every coin on your own; money only moves when you BOTH say BUY, and a SELL from either of you exits.',
-    battle: 'HOW YOU TWO WORK — each of you trades every other coin on your own record; the better record earns trust. Never copy the other.' },
+  general: { plan: `HOW YOU TWO WORK — ONE GOAL. Mind A leads: restate the goal in one line, split it into two halves with no overlap and take one. Mind B takes the other half and checks A's key claims. If your half depends on theirs, do what you can, then get the rest through a handoff note. If one of you is blocked or done early, the other takes over what is left, so nothing stops and nothing is done twice. Keep every source. Save only vital facts to the shared cloud.\n\n${STUCK}\n\nFINISH WITH — one clear answer: DONE (with links), NEEDS ME, STILL UNCERTAIN.`,
+    jobs: `HOW YOU TWO WORK — TWO JOBS. I give them as A: … B: …, and each of you owns your own job in your own window. Only one job given? Mind A owns it and Mind B supports: checks facts, finds what A needs and never does the same work twice. When one result helps the other (A's research feeds B's posts), hand it off with a note. Waiting on your partner? Do everything else first and say what you are waiting for. If one of you is blocked, the other still finishes.\n\n${STUCK}\n\nFINISH WITH — each result under its job, ready to use, then NEEDS ME.` },
+  trading: { turns: 'HOW YOU TWO WORK — you take turns: one of you makes each call alone, on the evidence given (germ floor, buyers %, liquidity, holders, rug flags).' + NO_GUESS,
+    discuss: 'HOW YOU TWO WORK — Brain A reads the coin first and answers BUY or SKIP with one reason; Brain B sees A\'s call, challenges it and makes the final call. Disagree whenever the evidence says so.' + NO_GUESS,
+    together: 'HOW YOU TWO WORK — you both judge every coin on your own; money only moves when you BOTH say BUY, and a SELL from either of you exits.' + NO_GUESS,
+    battle: 'HOW YOU TWO WORK — each of you trades every other coin on your own record; the better record earns trust. Never copy the other.' + NO_GUESS },
 };
 // 🔒 the house rules are HARDCODED on the server (cat_agent ACT_SYS + cat_policy refusals + URL guards) — shown here, never editable
-export const HOUSE = { general: 'RULES — never invent facts; stop for sign-ins, CAPTCHAs, payments and ID checks; never create another agent or launch a coin on FEELESS; stay inside the $ cap per task.',
+export const HOUSE = { general: 'RULES — never invent facts; stop for human-needed sign-ins, CAPTCHAs, payments and ID checks; never create another agent or launch a coin on FEELESS; stay inside the $ cap per task.',
   trading: 'RULES — trade only on FEELESS; size inside the caps; never chase a candle that already ran; respect every rug / bundler / dev flag; explain each call in one sentence.' };
+// 🔐 what protects the agent, said plainly BEFORE any money moves (owner 2026-10-30: "assure account secure and a recovery pin will show next"). Only true things.
+const SAFE = gen => [['👛', 'Its own wallet', 'Separate from yours. Its keys stay with Crossmint, never in a browser.'], ['↩', 'Money comes back to you', 'Withdrawals go only to your linked wallet.'],
+  ['🗝', 'Passwords sealed', 'Encrypted. Its minds never see them and its log never shows them.'], ['🛑', 'Your limits hold', gen ? 'A $ cap per task, and it asks before each move until you choose auto.' : 'Caps on every buy and every day, enforced by the server.']];
+export function SafetyCard({ gen }) {
+  return <section className="lct-safe" data-testid="lct-safe"><span className="m-label">🔐 HOW YOUR AGENT STAYS SAFE</span>
+    <div className="lct-safe-grid">{SAFE(gen).map(([ic, t, why], i) => <span key={t} style={{ '--i': i }}><i aria-hidden="true">{ic}</i><b>{t}</b><small>{why}</small></span>)}</div>
+    <p className="lct-safe-next" data-testid="lct-safe-next"><i aria-hidden="true">🔑</i><span><b>Next: your recovery PIN.</b> It shows once, right after launch. It gets this agent back if you lose this browser. Your wallet's own recovery phrase stays yours: FEELESS never asks for it.</span></p></section>;
+}
 export function briefFor(persona, kind, mode, solo = false) {
   const k = kind === 'general' ? 'general' : 'trading';
-  const how = solo ? '' : (COLLAB[k][mode] || COLLAB[k][k === 'general' ? 'plan' : 'discuss']);
+  const how = solo ? SOLO[k] : (COLLAB[k][mode] || COLLAB[k][k === 'general' ? 'plan' : 'discuss']);
   return [persona?.brief || '', how].filter(Boolean).join('\n\n').slice(0, 1200);   // HOUSE rules ride server-side on every call — never in the editable brief
 }
 // 🎯 a general agent's job, grouped so the choice is quick (the 26 presets)
@@ -242,7 +253,7 @@ export function LaunchCat({ api, ownerId, onCreated, onCancel, Fields, Preview, 
   const [form, setForm] = useState(() => newForm()); const update = (k, v) => setForm(f => ({ ...f, [k]: v })); const name = form.name;
   const [efforts, setEfforts] = useState({});
   const [jobTab, setJobTab] = useState('research'); const [taskCap, setTaskCap] = useState(0.05);
-  const [persona, setPersona] = useState(''); const [fundUsd, setFundUsd] = useState('10');   // 💵 what goes into its wallet (owner: "enter the amount at launch")
+  const [persona, setPersona] = useState(''); const [fundUsd, setFundUsd] = useState('10'); const [fundToken, setFundToken] = useState('SOL');   // 💵 what goes into its wallet (owner: "enter the amount at launch")
   const [prompt, setPrompt] = useState(''); const [saving, setSaving] = useState(false);
   const [venues, setVenues] = useState(['trench']); const [keys, setKeys] = useState({});
   useEffect(() => { let on = true; api(`/api/cats/models?session=${encodeURIComponent(readChatSession() || '')}`).then(x => on && setD(x)).catch(e => on && setErr(e.message)); return () => { on = false; }; }, [api]);
@@ -256,7 +267,7 @@ export function LaunchCat({ api, ownerId, onCreated, onCancel, Fields, Preview, 
       const handle = form.handle || form.name.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').slice(0, 20) || 'cat';
       const r = await api('/api/cats', { method: 'POST', body: JSON.stringify({ strategy: 'momentum', ...form, ownerId: ownerId(), name: form.name.trim(), handle, avatar: avatarOf(form.avatar),
         brains: picked.map(m => m.id), brainMode: gen ? 'turns' : mode, billing, prompt, efforts: Object.fromEntries(picked.filter(m => efforts[m.id]).map(m => [m.id, efforts[m.id]])), brainKind: kind, session: readChatSession() || '', job: gen ? (((d?.personas?.general || []).find(x => x.key === persona) || {}).job || 'agent') : 'trading', ...(gen ? { workMode, taskCap } : { venues }) }) });
-      try { if (Number(fundUsd) > 0) localStorage.setItem(`feeless.fundIntent.${r.cat.id}`, String(Number(fundUsd))); } catch { /* private window */ }   // its funding step opens on this $
+      try { if (Number(fundUsd) > 0) localStorage.setItem(`feeless.fundIntent.${r.cat.id}`, String(Number(fundUsd))); localStorage.setItem(`feeless.fundToken.${r.cat.id}`, fundToken); } catch { /* private window */ }   // its funding step opens on this $
       for (const [provider, secret] of Object.entries(keys).filter(([, v]) => v)) await api(`/api/cats/${r.cat.id}/action`, { method: 'POST', body: JSON.stringify({ action: 'api_key', provider, secret }) }).catch(e => setErr(`Key not saved: ${e.message}`));
       const started = await api(`/api/cats/${r.cat.id}/action`, { method: 'POST', body: JSON.stringify({ action: 'start' }) }).catch(() => r);   // same as Create a Cat: it starts trading at once
       onCreated?.(started.cat || r.cat);
@@ -317,13 +328,15 @@ export function LaunchCat({ api, ownerId, onCreated, onCancel, Fields, Preview, 
       : plan ? <div className="lct-meter"><span><small>A DECISION</small><b>{fmtUsd(plan.perDecision)}</b></span><span><small>A TRADE (worst case)</small><b>{fmtUsd(plan.perTrade)}</b></span>
         <span><small>${d?.budget?.start ?? 10} CREDIT COVERS</small><b>{plan.trades == null ? '∞ (free models)' : `≈ ${plan.trades.toLocaleString()} trades`}</b></span>
         <i className="lct-tank"><em style={{ transform: `scaleX(${plan.trades == null ? 1 : Math.min(1, plan.trades / 500)})` }} /></i></div> : null}
-      <p className="lct-note">{(gen ? d?.generalLive : d?.live) ? '🟢 Model calls are ON.' : gen ? '⏸ Model calls are OFF until FEELESS switches them on — until then asking sends and charges nothing.' : '⏸ Model calls are OFF until FEELESS switches them on — until then the FEELESS rule engine trades your cat and nothing is charged.'} Its ${d?.budget?.start ?? 10} model credit is covered by FEELESS — its minds stop when it's spent; your funds only ever go to its own wallet.</p>
+      <p className="lct-note">{(gen ? d?.generalLive : d?.live) ? '🟢 Model calls are ON.' : gen ? '⏸ Model calls are OFF until FEELESS switches them on — until then asking sends and charges nothing.' : '⏸ Model calls are OFF until FEELESS switches them on — until then the FEELESS rule engine trades your cat and nothing is charged.'} Its ${d?.budget?.start ?? 10} model credit is covered by FEELESS — at $0 its minds pause until you add more from its wallet panel, in SOL or USDC. Your funding never pays for model calls: it goes to its own wallet.</p>
       {gen ? null : <ApiDrawer draft={keys} onDraft={(k, v) => setKeys(x => ({ ...x, [k]: v.trim() }))} />}
-      <FundReceipt />
-      <div className="lct-bar lct-cost lct-fund" data-tip="What goes into its own wallet — paid in SOL from your wallet; you sign once right after launch">
+      <SafetyCard gen={gen} />
+      <FundReceipt general={gen} />
+      <div className="lct-bar lct-cost lct-fund" data-tip="What goes into its own wallet, paid from your wallet; you sign once after launch">
         <label>FUND ITS WALLET WITH<span className="lct-usd"><i>$</i><NumInput className="m-input" type="number" inputMode="decimal" min="1" step="1" value={fundUsd} onChange={e => setFundUsd(e.target.value)} aria-label="Dollars to put in its wallet" data-testid="lct-fund-usd" /></span></label>
         <div className="m-seg" role="radiogroup" aria-label="Quick amounts">{[10, 25, 50, 100].map(a => <button key={a} type="button" role="radio" aria-checked={Number(fundUsd) === a} className={Number(fundUsd) === a ? 'active' : ''} onClick={() => setFundUsd(String(a))}>${a}</button>)}</div>
-        <small className="lct-fund-note">paid in SOL · one signature right after launch · USDC funding is on the way</small></div>
+        <div className="m-seg" role="radiogroup" aria-label="Pay with">{['SOL', 'USDC'].map(t => <button key={t} type="button" role="radio" aria-checked={fundToken === t} className={fundToken === t ? 'active' : ''} onClick={() => setFundToken(t)} data-tip={`Pay with ${t} from your wallet`} data-testid={`lct-pay-${t}`}>{t}</button>)}</div>
+        <small className="lct-fund-note">{fundToken === 'USDC' ? 'paid in USDC · keep a little SOL in your wallet for the network fee' : 'paid in SOL at the live price'} · nothing is charged until you sign the receipt after launch</small></div>
       <p className="lct-next" data-testid="lct-next-real">{K.next.map((x, i) => <React.Fragment key={x}>{i ? <u /> : null}<i className={i === K.next.length - 1 ? 'is-real' : ''}>{x}</i></React.Fragment>)}</p>
       <button type="button" className="m-btn m-go lct-go" disabled={saving || !ready.slice(0, 3).every(Boolean)} onClick={launch} data-testid="lct-launch">{saving ? 'Launching…' : `🚀 Launch ${name || 'the cat'} → go real`}</button>
     </div> : null}
@@ -400,7 +413,7 @@ export function BrainPanel({ cat, api, onChanged, noTalk = false }) {   // noTal
       <input className="m-input" maxLength={280} value={text} onChange={e => setText(e.target.value)} placeholder="Chime in — advice it reads, never an order" data-testid="brain-chime" /><button type="submit" className="m-btn">💬 Send</button></form>}
     {(b.chime || []).length ? <p className="lct-note">Last said: “{b.chime[b.chime.length - 1].text}”</p> : null}
     <div className="lct-acts"><button type="button" className="m-btn" onClick={() => window.confirm('Sell every coin and pull all funds? The cat stays locked until you top up.') && act('pull')} data-testid="brain-pull">⏏ Pull all funds</button>
-      <button type="button" className="m-btn m-go" onClick={() => act('topup')} data-testid="brain-topup">＋ Top up (paper)</button></div>
+      {cat.agentWallet || cat.brainsCfg?.kind === 'general' ? <small className="lct-note">Add model credit from its wallet panel, in SOL or USDC.</small> : <button type="button" className="m-btn m-go" onClick={() => act('topup')} data-testid="brain-topup">＋ Top up (paper)</button>}</div>
     {cat.needsTopup ? <p className="lct-note">🔒 Funds pulled — top up to start this cat again.</p> : null}{cat.brainPaused ? <p className="lct-note">⏸ {cat.brainPaused}</p> : null}
     {err ? <p className="lct-err">⚠ {err}</p> : null}
   </section>;

@@ -37,7 +37,9 @@ agent desk `CatDesk.jsx` (one 1110 px column; `ModelSwitch` with keep / 🧠 sor
 per-mind ☁ clouds `brainsCfg.minds`, `handoff` action) · funding `CatReal.jsx` (`FundCat` reads `feeless.fundIntent.<id>`; recovery box after the
 first payment) · Fee's models `FeeModels.jsx` (your model LEADS, NEXA helps). Lag fixes: `feeWall.css` contain + content-visibility.
 
-**One Fee (2026-10-30):** every door (LIVE DESK for the creator, My agents banner, profile banner, leaderboard) opens `FeeCatsPlatform › CatDetail` → `CatDesk` + `Tools` (NEXA desk, visitors view, her book). Her engine / limits / retire stay server-only, so `CatDesk runs` hides them on Fee. **Account prompt:** `docs/CLAUDE_ACCOUNT_PROMPT.md`.
+**One Fee (2026-10-30):** every door (LIVE DESK for the creator, My agents banner, profile banner, leaderboard) opens `FeeCatsPlatform › CatDetail` → `CatDesk` + `Tools` (NEXA desk, visitors view, her book). Her engine / limits / retire stay server-only, so `CatDesk runs` hides them on Fee. **Account prompt:** `docs/CLAUDE_ACCOUNT_PROMPT.md`. Saved to `~/.claude/CLAUDE.md`.
+
+**Agent money + limits (2026-10-30):** `cat_fund.py` pays SOL or USDC, into its wallet or model credit (`purpose`); free credit only for paper cats or creators (`free_credit_ok`). `FundPick` chooses before the wallet exists. `SpendLimits` (`cat.limits` + `taskCap`, enforced in `_work_start` + `cat_agent._ask`). `split_jobs`: one job = one owner + one supporter, never twice.
 
 **Lag leads for ①:** **Measure only with the pane shown and Mac load low** (hidden pane = 1 fps; dev server rebuild + Spotlight hit load 94). Video backdrop drops fixed 41% → 8%, chart rebuild-on-poll fixed. Next: `lib/chartFrame.js` overlay jobs force layout (~3 s per 27 s). `reputation_service` idles at ~24 % CPU (profile it first: `py-spy top --pid $(lsof -ti tcp:5077 -sTCP:LISTEN)` if installed,
 else time its pollers); Live desk was fixed (full layout 339 → 13 ms) — re-measure Her Brain / Lore / Arena / trade pages the same way

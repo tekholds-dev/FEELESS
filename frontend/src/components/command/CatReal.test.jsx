@@ -111,7 +111,7 @@ test('💵 FUND IT: any amount → a receipt (you pay · FEELESS one-time · int
   await act(async () => { el.querySelector('[data-testid="cr-fund-quote"]').click(); });
   const posts = () => calls.filter(c => c[1]);
   expect(calls[0][0]).toContain('/cats/fund-rules?address=');                                                      // the rules come first
-  expect(posts()[0][1]).toEqual({ address: DEV, session: 'sess', usd: 25 });
+  expect(posts()[0][1]).toEqual({ address: DEV, session: 'sess', usd: 25, token: 'SOL', purpose: 'wallet' });
   const r = el.querySelector('[data-testid="cr-receipt"]').textContent;
   expect(r).toContain('$25.00'); expect(r).toContain('$2.00'); expect(r).toContain('$23.00'); expect(r).toContain('0.1150 SOL');
   await act(async () => { el.querySelector('[data-testid="cr-fund-sign"]').click(); });

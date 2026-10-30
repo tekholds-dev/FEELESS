@@ -83,7 +83,7 @@ PERSONAS = {   # 🧭 the prompt generator (owner 2026-10-30: "at least 25 good,
         {'key': 'shopping', 'label': '🛒 Deal finder', 'job': 'agent', 'brief': 'Find the best price for what I describe across trusted stores: total cost with shipping, reviews, return policy. Fill carts up to checkout and stop — I pay myself.'},
         {'key': 'travel', 'label': '✈ Trip planner', 'job': 'agent', 'brief': 'Plan the trip I describe: flights, stays and a day-by-day plan within my budget, with links and total cost. Hold nothing and book nothing without my OK.'},
         {'key': 'admin', 'label': '🗂 Life admin', 'job': 'agent', 'brief': 'Handle the paperwork task I describe step by step: find the right forms, fill what you can from my brief and stop for signatures, ID checks, payments and anything legal.'},
-        {'key': 'agent', 'label': '🌐 All-round assistant', 'job': 'agent', 'brief': 'Complete my tasks in clear steps. Use FEELESS first for anything crypto, pause for sign-ins, CAPTCHAs, payments and ID checks, and tell me exactly what you did.'},
+        {'key': 'agent', 'label': '🌐 All-round assistant', 'job': 'agent', 'brief': 'Complete my tasks in clear steps. Use FEELESS first for anything crypto, pause for human-needed sign-ins, CAPTCHAs, payments and ID checks, and tell me exactly what you did, what is left and what needs me.'},
     ],
 }
 
@@ -248,6 +248,8 @@ def can_ask(b):
 def charge(b, usd):
     usd = max(0.0, _f(usd))
     b['spent'] = round((b.get('spent') or 0) + usd, 6)
+    day = time.strftime('%Y-%m-%d', time.gmtime())
+    b['daySpend'] = {day: round((b.get('daySpend') or {}).get(day, 0) + usd, 6)}   # only today's: the daily $ limit
     b['asks'] = (b.get('asks') or 0) + 1
     take = min(usd, max(0.0, b.get('credit') or 0))
     b['credit'] = round((b.get('credit') or 0) - take, 6)

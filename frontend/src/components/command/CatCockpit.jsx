@@ -113,6 +113,7 @@ export function catLogItems(cat, events = []) {
   return [
     ...events.filter(e => ['BUY', 'SELL'].includes(e.type)).map(e => ({ f: 'trades', at: (e.ts || 0) / 1000, text: e.detail, tone: e.type === 'BUY' ? 'up' : (Number(e.pnlSol) < 0 ? 'dn' : 'up') })),
     ...events.filter(e => ['STOPPED', 'BLOCKED', 'REFUSED'].includes(e.type)).map(e => ({ f: 'guards', at: (e.ts || 0) / 1000, text: e.detail, tone: 'warn' })),
+    ...events.filter(e => e.type === 'LEARN').map(e => ({ f: 'thoughts', at: (e.ts || 0) / 1000, text: e.detail, tone: 'mute' })),   // a rule cat like Fee has no model decisions: what she learned IS her thinking
     ...(b.decisions || []).map(x => ({ f: 'thoughts', at: x.at, text: `${x.by}: ${x.word} $${x.sym}${x.why ? ` — ${x.why}` : ''}`, tone: WORD_TONE[x.word] || 'mute' })),
     ...(b.cloud || []).map(c => ({ f: 'cloud', at: c.at, text: c.text || `both agree: ${c.word} $${c.sym}${c.why ? ` — ${c.why}` : ''}`, tone: 'acc' })),
     ...(cat?.orders || []).map(o => ({ f: 'tasks', at: (o.at || 0) > 1e12 ? o.at / 1000 : o.at, text: `${o.text} → ${o.why || o.state}`, tone: o.state === 'refused' ? 'warn' : 'mute' })),

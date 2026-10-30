@@ -287,3 +287,13 @@ body.theme-day .lct-pop { background: #2a165099; }
 .lct-fund { flex-wrap: wrap; } .lct-fund-note { flex-basis: 100%; color: #9d8fbf; font-size: 11px; }   /* the $ for its wallet, typed at launch */
 body.theme-day .lct-fund-note { color: #5a4a7a; }
 .lct-house { border-left: 3px solid #f5c542; padding-left: 10px; }   /* the hardcoded house rules, read-only */
+
+/* 🔐 how your agent stays safe, before any money */
+.lct-safe { display: grid; gap: 10px; padding: 14px; border-radius: 16px; border: 1px solid #45e48644; background: linear-gradient(160deg, #45e48610, #0a071699); box-shadow: inset 0 1px 0 #ffffff18; }
+.lct-safe-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; } .lct-safe-grid > span { --i: 0; display: grid; gap: 3px; align-content: start; padding: 10px; border-radius: 12px; background: #ffffff08; animation: lctSafe .3s ease-out both; animation-delay: calc(var(--i) * 50ms); }
+.lct-safe-grid i { font-style: normal; font-size: 16px; } .lct-safe-grid b { color: #fff; font: 700 12px var(--f-ui, sans-serif); } .lct-safe-grid small { color: #c9bce6; font: 500 11px/1.4 var(--f-ui, sans-serif); }
+.lct-safe-next { display: flex; gap: 8px; align-items: flex-start; margin: 0; padding: 10px 12px; border-radius: 12px; border-left: 3px solid #45e486; background: #45e48612; color: #e8dcff; font: 500 12px/1.5 var(--f-ui, sans-serif); } .lct-safe-next i { font-style: normal; } .lct-safe-next b { color: #9dffcf; }
+@keyframes lctSafe { from { opacity: 0; transform: translateY(5px); } }
+body.fx-lite .lct-safe-grid > span { animation: none; } @media (prefers-reduced-motion: reduce) { .lct-safe-grid > span { animation: none; } }
+body.theme-day .lct-safe { background: #f2fbf5; } body.theme-day .lct-safe-grid > span { background: #fff; } body.theme-day .lct-safe-grid b, body.theme-day .lct-safe-next { color: #2a1650; } body.theme-day .lct-safe-grid small { color: #5a4a7a; } body.theme-day .lct-safe-next b { color: #0a7a44; }
+@media (max-width: 640px) { .lct-safe-grid { grid-template-columns: 1fr 1fr; } }

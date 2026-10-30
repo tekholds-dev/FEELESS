@@ -30,7 +30,13 @@ def test_reading_about_coins_pools_agents_is_fine(text):
 
 def test_each_mind_gets_its_own_job():
     assert ca.split_jobs('A: write the video script  B: make 5 social posts') == ['write the video script', 'make 5 social posts']
-    assert ca.split_jobs('best sports bet tonight?') == ['best sports bet tonight?'] * 2
+    one = ca.split_jobs('best sports bet tonight?')   # no labels: one mind owns it, the other supports, the job never runs twice
+    assert one[0] == 'best sports bet tonight?' and one[1].startswith('SUPPORT ROLE') and 'Do NOT do it too' in one[1]
+    a = ca.split_jobs('A: write the thread')
+    assert a[0] == 'write the thread' and a[1].startswith('SUPPORT ROLE')
+    b = ca.split_jobs('B: find sources')
+    assert b[1] == 'find sources' and b[0].startswith('SUPPORT ROLE')
+    assert ca.split_jobs('solo job', 1) == ['solo job']
 
 
 class Page:
