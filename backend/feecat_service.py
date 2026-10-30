@@ -865,7 +865,24 @@ async def _sort_cloud(cat_id, model):
 _OR_LAST: dict = {}   # why the last model call came back empty, in plain words
 
 
-async def _or_call(model, messages, max_tokens=None, effort=None, key=None):
+async def _groq_backup(messages, max_tokens=None):
+    """🛟 FEELESS covers an agent when OpenRouter can't (owner 2026-10-30): Groq's free tier answers instead. Costs the agent nothing. → text ('' = no backup either)."""
+    key = os.environ.get('GROQ_API_KEY', '').strip()
+    if not key:
+        return ''
+    try:
+        async with httpx.AsyncClient(timeout=40) as h:
+            r = await h.post('https://api.groq.com/openai/v1/chat/completions', headers={'Authorization': f'Bearer {key}'},
+                             json={'model': os.environ.get('GROQ_MODEL', '').strip() or BACKUP_MODEL, 'messages': messages, 'max_tokens': min(int(max_tokens or 2000), 4000), 'temperature': 0.2})
+        if r.status_code == 200:
+            return ((r.json().get('choices') or [{}])[0].get('message') or {}).get('content') or ''
+        _OR_LAST['err'] = 'OpenRouter is out of credit and the free backup is busy. Nothing was charged. Try again in a minute.' if r.status_code == 429 else f'OpenRouter is out of credit and the backup refused the call ({r.status_code}). Nothing was charged.'
+    except Exception:
+        _OR_LAST['err'] = 'OpenRouter is out of credit and the backup did not answer. Nothing was charged.'
+    return ''
+
+
+async def _or_call(model, messages, max_tokens=None, effort=None, key=None, backup=False):
     """One decision from OpenRouter; returns (text, $ it cost). The cost is OpenRouter's own report, else the price list estimate.
     `key` = the cat owner's own OpenRouter key from its API drawer (they pay OpenRouter; FEELESS's key is not used)."""
     est = next((m['perDecision'] for m in ((_MODELS['rows'] or {}).get('models') or []) if m['id'] == model), 0.0)
@@ -881,6 +898,10 @@ async def _or_call(model, messages, max_tokens=None, effort=None, key=None):
                         await h2.post('http://127.0.0.1:5077/api/reputation/internal/openrouter-check', headers=_internal_headers())
                 except Exception:
                     pass
+                if backup and not key:   # never on the owner's own key: that bill is theirs to fix
+                    text_ = await _groq_backup(messages, max_tokens)
+                    _OR_LAST['backup'] = bool(text_)
+                    return text_, 0.0
             return '', 0.0
         d = r.json()
         text = ((d.get('choices') or [{}])[0].get('message') or {}).get('content') or ''
@@ -1392,6 +1413,7 @@ async def _meta_post(store):
 # in `_work_settle` (the cat's credit pays, the owner's per-task $ cap bounds it). Live / snapshot views go only to the cat's owner.
 _WORK: dict = {}
 TASK_CAP_DEFAULT, TASK_CAP_MAX = 0.05, 2.0
+BACKUP_MODEL = 'openai/gpt-oss-120b'   # Groq's free tier: tested with the agent's JSON step format
 WORK_QUEUE_MAX = 10   # 🏇 let it go: asks waiting their turn
 CHAT_KEEP = 60
 
@@ -1412,7 +1434,7 @@ def _work_view(cat_id, owner=False):
         s_ = (w.get('sessions') or [None, None])[x['i']] or {}
         wins.append({**{k: x.get(k) for k in ('i', 'model', 'goal', 'status', 'bubble', 'url', 'title', 'human', 'answer', 'cost', 'coin', 'scratchN')}, 'scratch': len(x.get('scratch') or []), 'steps': x['steps'][-10:],
                      'provider': s_.get('provider'), 'note': s_.get('note'), **({'live': s_.get('live'), 'shot': bool((w.get('pages') or [None, None])[x['i']] and not s_.get('live'))} if owner else {})})
-    return {'task': {k: t.get(k) for k in ('id', 'text', 'mode', 'status', 'cap', 'cost', 'answer', 'fast', 'why', 'stepsMax', 'keep')}, 'windows': wins}
+    return {'task': {k: t.get(k) for k in ('id', 'text', 'mode', 'status', 'cap', 'cost', 'answer', 'fast', 'why', 'stepsMax', 'keep', 'backup')}, 'windows': wins}
 
 
 def clean_limits(raw):
@@ -1464,6 +1486,7 @@ def _work_start(cat_id, cat, text, to=None):
 
 async def _work_run(cat_id, models, names, text, cap, brief='', efforts=None, own_key=None):
     w = _WORK[cat_id]
+    await _or_models()   # the price list: after a restart every model read as 'unknown cost' and the budget check stopped the task
     env = os.environ
     async with httpx.AsyncClient(timeout=30) as http:
         sessions, pages = [], []
@@ -1480,19 +1503,30 @@ async def _work_run(cat_id, models, names, text, cap, brief='', efforts=None, ow
 
             orders = [{'role': 'system', 'content': f"Your owner's standing orders, sealed at launch — follow them on every step: {brief}"}] if brief else []
 
+            def reply_room(model, messages):
+                """🎚 The longest reply that still fits what is left of its $ cap (owner's low cap: a short question must still run), up to 4096 tokens."""
+                row = next((m for m in ((_MODELS.get('rows') or {}).get('models') or []) if m['id'] == model), None)
+                if row is None or not row.get('outUsd'):
+                    return 4096
+                t_ = w['task']; sent = len(json.dumps(orders + messages, ensure_ascii=False).encode('utf-8')) / 3 + 256
+                return max(0, min(4096, int((t_['cap'] - t_['cost'] - sent * row['inUsd'] / 1e6) / row['outUsd'] * 1e6)))
+
             async def ask(model, messages):   # 📜 the sealed brief rides every call (plan · each browsing step · merge)
-                _OR_LAST.pop('err', None)
-                text_, usd_ = await _or_call(model, orders + messages, max_tokens=4096, **({'key': own_key} if own_key else {}), **({'effort': efforts[model]} if (efforts or {}).get(model) else {}))
+                _OR_LAST.pop('err', None); _OR_LAST.pop('backup', None)
+                text_, usd_ = await _or_call(model, orders + messages, max_tokens=reply_room(model, messages), backup=True, **({'key': own_key} if own_key else {}), **({'effort': efforts[model]} if (efforts or {}).get(model) else {}))
                 if not str(text_ or '').strip():
                     raise _ca.Stopped(_OR_LAST.get('err') or 'The model returned nothing. Try again.')
+                if _OR_LAST.get('backup'):
+                    w['task']['backup'] = True
                 return text_, usd_
 
             def cost_bound(model, messages):
                 row = next((m for m in ((_MODELS.get('rows') or {}).get('models') or []) if m['id'] == model), None)
                 if row is None:
                     return float('inf')
-                tokens = len(json.dumps(orders + messages, ensure_ascii=False).encode('utf-8')) + 256
-                return (tokens * row['inUsd'] + 4096 * row['outUsd']) / 1e6
+                tokens = len(json.dumps(orders + messages, ensure_ascii=False).encode('utf-8')) / 3 + 256
+                room = reply_room(model, messages)
+                return float('inf') if room < 256 else (tokens * row['inUsd'] + room * row['outUsd']) / 1e6
             ask.cost_bound = cost_bound
 
             async def wait_human(i):
@@ -1542,7 +1576,7 @@ def _work_settle(store):
             for k_ in t.get('keep') or []:   # ☁ the best of both scratch pads → its main cloud (the rest was thrown away)
                 cat['brainsCfg']['cloud'] = ((cat['brainsCfg'].get('cloud') or []) + [{'at': time.time(), 'word': 'KEEP', 'sym': '', 'text': str(k_)[:240], 'by': ['both']}])[-_lc.CLOUD_MAX:]
             cat['chat'] = (list(cat.get('chat') or []) + [{'by': 'you', 'text': t.get('text'), 'at': w.get('at')},
-                           {'by': 'cats', 'text': t.get('answer') or f"({t.get('status')}: {t.get('why') or 'no answer'})", 'at': time.time(), 'cost': t.get('cost'), 'fast': t.get('fast')}])[-CHAT_KEEP:]
+                           {'by': 'cats', 'text': (f"🛟 Backup model, free (OpenRouter has no credit): " if t.get('backup') else '') + (t.get('answer') or f"({t.get('status')}: {t.get('why') or 'no answer'})"), 'at': time.time(), 'cost': t.get('cost'), 'fast': t.get('fast')}])[-CHAT_KEEP:]
         w['settled'] = True
         # 🏇 let it go: the next queued ask starts on its own (a stopped task pauses the queue — you stopped it for a reason)
         if cat and cat.get('workGo') and cat.get('workQueue') and t.get('status') != 'stopped' and _work_live() and _lc.can_ask(cat.get('brainsCfg') or {}):

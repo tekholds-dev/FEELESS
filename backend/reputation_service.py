@@ -11112,7 +11112,7 @@ async def cat_fund_rules(address: str = Query('', max_length=64)):
     """💵 The funding rules a cat's desk shows BEFORE you type an amount (fee, minimum, top-up minimum; a creator wallet: no fee)."""
     rules_ = _cat_fund_rules(address if _re.match(r'^[1-9A-HJ-NP-Za-km-z]{32,44}$', address or '') else None)
     left_ = await _openrouter_left()
-    rules_['creditOpen'] = _cfund.credit_open(left_)
+    rules_['creditOpen'] = _cfund.credit_open(left_) or bool(os.environ.get('GROQ_API_KEY', '').strip())   # the free backup keeps every agent working
     if rules_['staff']:
         rules_['modelsLeftUsd'] = left_   # the balance itself is for the creator only
     return rules_
@@ -11133,7 +11133,7 @@ async def cat_fund_build(cat_id: str, p: CatFundIn):
     first = not cat.get('agentFunded') and p.usd > p.creditUsd
     rules_ = _cat_fund_rules(me)
     free_credit = bool(rules_.get('staff'))
-    if p.creditUsd > 0 and not free_credit and not _cfund.credit_open(await _openrouter_left(), p.creditUsd):
+    if p.creditUsd > 0 and not free_credit and not _cfund.credit_open(await _openrouter_left(), p.creditUsd) and not os.environ.get('GROQ_API_KEY', '').strip():
         raise HTTPException(503, 'Model credit is paused right now. Nothing was charged. Put the full amount in its wallet, or try later.')
     need_fee = (p.creditUsd > 0 and not free_credit) or (first and rules_['feeUsd'] > 0)
     async with httpx.AsyncClient(timeout=10) as http:

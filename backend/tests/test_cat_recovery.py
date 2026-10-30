@@ -261,6 +261,7 @@ def test_a_user_cannot_buy_credit_while_openrouter_is_empty_but_can_still_fund_t
         return 100.0
     async def rpc(_h, _m, _p):
         return {'value': {'blockhash': HASH}}
+    monkeypatch.setenv('GROQ_API_KEY', '')
     monkeypatch.setattr(rs, 'session_address', lambda _s: me); monkeypatch.setattr(rs, '_cat_for_fund', cat_for); monkeypatch.setattr(rs, '_openrouter_left', low)
     monkeypatch.setattr(rs, '_sol_usd', px); monkeypatch.setattr(rs, '_rpc', rpc); monkeypatch.setattr(rs, '_cat_fund_rules', lambda _m: {'feeUsd': 0.0, 'minUsd': 1.0, 'staff': False})
     with pytest.raises(HTTPException) as e:
@@ -276,3 +277,28 @@ def test_each_agent_stops_ten_cents_before_its_own_credit_and_never_touches_anot
     lc.charge(a, 0.02)
     assert not lc.can_ask(a) and b['credit'] == 5.0 and lc.can_ask(b)    # one agent running dry changes nothing for the other
     assert fs.TASK_CAP_DEFAULT and round(1.0 - lc.CREDIT_RESERVE, 2) == 0.9
+
+
+def test_when_openrouter_is_out_of_credit_feeless_covers_the_agent_free(monkeypatch):
+    import asyncio
+
+    class R:
+        def __init__(self, code, body): self.status_code, self._b = code, body
+        def json(self): return self._b
+
+    class Http:
+        def __init__(self, **_k): pass
+        async def __aenter__(self): return self
+        async def __aexit__(self, *_a): return False
+        async def post(self, url, **_k):
+            if 'openrouter' in url:
+                return R(402, {})
+            if 'groq' in url:
+                return R(200, {'choices': [{'message': {'content': 'backup says 4'}}]})
+            return R(200, {})
+    monkeypatch.setenv('GROQ_API_KEY', 'g'); monkeypatch.setattr(fs.httpx, 'AsyncClient', Http); fs._OR_LAST.clear()
+    assert asyncio.run(fs._or_call('a/x', [], backup=True)) == ('backup says 4', 0.0) and fs._OR_LAST['backup'] is True
+    assert asyncio.run(fs._or_call('a/x', [])) == ('', 0.0)                                # trading decisions never silently swap models
+    assert asyncio.run(fs._or_call('a/x', [], backup=True, key='own')) == ('', 0.0)        # an owner's own key stays their own
+    monkeypatch.setenv('GROQ_API_KEY', ''); fs._OR_LAST.clear()
+    assert asyncio.run(fs._or_call('a/x', [], backup=True)) == ('', 0.0) and 'OpenRouter' in fs._OR_LAST['err']
