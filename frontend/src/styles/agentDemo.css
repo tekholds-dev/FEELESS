@@ -23,7 +23,7 @@
 .agd-bar > i { width: 7px; height: 7px; border-radius: 50%; background: #ffffff22; flex: none; } .agd-bar > i:first-child { background: #ff8fa3aa; }
 .agd-bar b { color: #fff; font: 800 10px var(--f-tech, 'Chakra Petch', sans-serif); letter-spacing: .12em; margin-left: 4px; }
 .agd-bar small { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #c9bce6; font: 600 10px var(--f-mono, monospace); }
-.agd-live { margin-left: auto; color: var(--al); font: 800 9px var(--f-mono, monospace); letter-spacing: .1em; font-style: normal; animation: agdBlink 1.6s steps(2) infinite; }
+.agd-live { margin-left: auto; color: var(--al); font: 800 9px var(--f-mono, monospace); letter-spacing: .1em; font-style: normal; animation: agdBlink 1.6s ease-in-out infinite; }
 /* 📈 the drawn chart */
 .agd-chart { display: block; width: 100%; height: 100%; min-height: 136px; }
 .agd-grid { stroke: #ffffff0d; stroke-width: .5; } .agd-floor { stroke: #9dffcf; stroke-width: .8; stroke-dasharray: 3 3; opacity: .75; }
@@ -39,7 +39,7 @@
 .agd-url { display: flex; align-items: center; gap: 6px; min-width: 0; padding: 4px 8px; border-radius: 8px; background: #ffffff0c; border: 1px solid #ffffff12;
   font: 600 10px var(--f-mono, monospace); color: #e8dcff; }
 .agd-url i { font-style: normal; font-size: 9px; } .agd-url b { font-weight: 600; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
-.agd-caret { width: 1px; height: 11px; background: var(--al); animation: agdBlink 1s steps(2) infinite; }
+.agd-caret { width: 1px; height: 11px; background: var(--al); animation: agdBlink 1s ease-in-out infinite; }
 .agd-page { display: grid; gap: 5px; align-content: start; opacity: .25; transform: translateY(4px); transition: opacity .3s, transform .3s; }
 .agd-page.is-on { opacity: 1; transform: none; }
 .agd-sk { display: block; height: 6px; border-radius: 4px; background: linear-gradient(90deg, #ffffff10, #ffffff1c, #ffffff10); }
@@ -63,7 +63,7 @@
 @keyframes agdDrift { to { transform: translate3d(22px, 38px, 0); } }
 @keyframes agdScan { 0% { transform: translateY(-100%); } 100% { transform: translateY(260%); } }
 @keyframes agdIn { from { opacity: 0; transform: translateY(10px) scale(.97); } to { opacity: 1; transform: none; } }
-@keyframes agdBlink { 50% { opacity: .2; } }
+@keyframes agdBlink { 50% { opacity: .35; } }
 @keyframes agdPop { from { opacity: 0; transform: scale(.4); } }
 @keyframes agdFeed { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
 body.fx-lite .agd-hex, body.fx-lite .agd-scan { animation: none; display: none; }
