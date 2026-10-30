@@ -305,7 +305,7 @@ def provider(env, key, cfg=None):
     lab, kvar, mvar, bvar, base0, model0, tout, conc = PROVIDERS[key]
     base = str(env.get(bvar) or '').strip().rstrip('/') if bvar else ''
     base = base or base0 or ''
-    model = str(env.get(mvar) or '').strip() or model0
+    model = (str(rig(key, 'model', '') or '').strip() if key in ('lan', 'local', 'win') else '') or str(env.get(mvar) or '').strip() or model0   # 🧠 the rig's typed model id wins
     on = bool(((cfg or {}).get('enabled') or {}).get(key, True))
     why = None
     if key in LM:

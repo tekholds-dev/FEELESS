@@ -148,3 +148,4 @@ body.theme-day .cr-ag-watch { color: #1f5fa0; background: rgba(31, 95, 160, .07)
 @media (prefers-reduced-motion: reduce) { .cr-safe-ok, .cr-safe-ok i { transition: none; } }
 body.theme-day .cr-safe { background: #fffaf0; } body.theme-day .cr-safe-why, body.theme-day .cr-safe-ok span { color: #2a1650; } body.theme-day .cr-safe-addr code { background: #fff; color: #7a5a00; }
 @media (max-width: 640px) { .cr-safe-addr { grid-template-columns: 1fr 1fr; } .cr-safe-addr code { grid-column: 1 / -1; } }
+.cr-ag-watch.is-circle { border-color: #4da3ff66; background: #4da3ff14; color: #d6e9ff; }

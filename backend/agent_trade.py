@@ -26,6 +26,8 @@ DAY_X, DAY_MAX_SOL, DAY = 4, 2.0, 86400.0
 SLIP_BPS = 300
 LIVE = ('sending', 'pending', 'awaiting-approval')
 KEEP = 40
+REP = 'http://127.0.0.1:5077/api/reputation'
+SIGNERS = ('crossmint', 'circle')   # 🟦 owner 2026-10-30: Fee (NEXA) trades from her CIRCLE wallet too — Circle signs, our RPC sends, the same guards run
 RETRY_SEC = 60.0
 
 
@@ -52,7 +54,7 @@ def spent_today(cat, now):
 def wants(cat, p, now):
     """Should this proposal go from the agent wallet now? (mode + freshness only; the guards come after)."""
     w = cat.get('agentWallet') or {}
-    if w.get('provider', 'crossmint') != 'crossmint':   # 👁 a watch-only wallet (assigned, its key not held by Crossmint): never traded from
+    if w.get('provider', 'crossmint') not in SIGNERS:   # 👁 a watch-only wallet (assigned, its key not held by Crossmint): never traded from
         return False
     if not w.get('address') or p.get('status') != 'pending' or now > _f(p.get('until')) or p.get('agentTx'):
         return False
@@ -93,9 +95,9 @@ def b58_tx(b64):
 
 async def send(http, cm_key, cat, p, now):
     """Quote for the cat's wallet → Crossmint signs + sends. → the tx record (also on cat['agentTx'] and p['agentTx']). Raises ValueError."""
-    addr = (cat.get('agentWallet') or {}).get('address')
+    w = cat.get('agentWallet') or {}; addr = w.get('address'); circle = w.get('provider') == 'circle'
     env = _aw.env_of(cm_key)
-    if not addr or not env:
+    if not addr or not (env or circle):
         raise ValueError('no agent wallet or no CROSSMINT_API_KEY')
     h = await http.get(f'{TRADE}/holdings/{addr}', timeout=15)
     if h.status_code != 200:
@@ -110,11 +112,46 @@ async def send(http, cm_key, cat, p, now):
         raise ValueError('the quote did not match the coins asked for — nothing sent')
     rec = {'pid': p['id'], 'side': p['side'], 'mint': p.get('mint'), 'symbol': p.get('symbol'), 'sol': _f(p.get('sol')) if p['side'] == 'buy' else 0.0,
            'amount': amount, 'orderId': qj.get('order_id'), 'status': 'sending', 'at': round(now), 'key': f"feeless-{cat.get('id')}-{p['id']}",
-           'tx': b58_tx(qj['quote']['transaction'])}   # kept until Crossmint answers: a lost reply is re-asked with the SAME idempotency key (never a 2nd trade)
+           'tx': qj['quote']['transaction'] if circle else b58_tx(qj['quote']['transaction'])}   # kept until the signer answers: a lost reply is re-asked with the SAME idempotency key (never a 2nd trade)
     cat['agentTx'] = ([rec] + list(cat.get('agentTx') or []))[:KEEP]   # written BEFORE the send: a trade that may have gone out is never forgotten
     p['agentTx'] = rec['key']
-    await _post(http, cm_key, env, addr, rec)
+    if circle:
+        rec['via'] = 'circle'
+        await _circle_post(http, cat, rec)
+    else:
+        await _post(http, cm_key, env, addr, rec)
     return rec
+
+
+async def _circle_post(http, cat, rec):
+    """🟦 Circle signs (only the wallet assigned to this cat), our RPC sends; the reputation service keeps key → signature, so a lost
+    reply asked again with the SAME key never sends a second trade."""
+    w = cat.get('agentWallet') or {}
+    r = await http.post(f'{REP}/internal/agent-circle-send', headers=_internal_headers(), json={'catId': cat.get('id'), 'walletId': w.get('circleId'), 'address': w.get('address'),
+                        'tx': rec['tx'], 'key': rec['key']}, timeout=40)
+    if r.status_code != 200:
+        if 400 <= r.status_code < 500:
+            rec.update(status='failed', error=f"Circle refused it ({r.status_code}): {str((r.json() or {}).get('detail') if r.content else '')[:120]}"); rec.pop('tx', None)
+            raise ValueError(rec['error'])
+        raise ValueError(f'Circle did not answer ({r.status_code}) — asked again next pass, never sent twice')
+    rec.update(status='pending', sig=(r.json() or {}).get('signature')); rec.pop('tx', None)
+
+
+def _internal_headers():
+    from pathlib import Path
+    try:
+        return {'x-feeless-internal': (Path(__file__).parent / 'data' / 'internal.key').read_text().strip()}
+    except OSError:
+        return {}
+
+
+async def _circle_status(http, sig):
+    """→ 'success' | 'failed' | None (not landed yet), from our own RPC proxy."""
+    r = await http.post(f'{REP}/rpc', json={'jsonrpc': '2.0', 'id': 1, 'method': 'getSignatureStatuses', 'params': [[sig], {'searchTransactionHistory': True}]}, timeout=15)
+    v = (((r.json() or {}).get('result') or {}).get('value') or [None])[0] if r.status_code == 200 else None
+    if not v:
+        return None
+    return 'failed' if v.get('err') else ('success' if v.get('confirmationStatus') in ('confirmed', 'finalized') else None)
 
 
 async def _post(http, cm_key, env, addr, rec):
@@ -158,6 +195,17 @@ def settle(cat, rec, reply, now):
 async def poll(http, cm_key, cat, now):
     """Re-read every live tx of this cat from Crossmint. → how many changed."""
     addr = (cat.get('agentWallet') or {}).get('address'); env = _aw.env_of(cm_key); n = 0
+    if (cat.get('agentWallet') or {}).get('provider') == 'circle':   # 🟦 Circle: re-ask a lost send (same key), then read each signature on-chain
+        for rec in [t for t in cat.get('agentTx') or [] if t.get('status') == 'sending' and t.get('tx')]:
+            try:
+                await _circle_post(http, cat, rec); n += 1
+            except ValueError:
+                n += rec.get('status') == 'failed'
+        for rec in [t for t in cat.get('agentTx') or [] if t.get('status') in LIVE and t.get('sig')]:
+            st = await _circle_status(http, rec['sig'])
+            if st and settle(cat, rec, {'status': st, 'onChain': {'txId': rec['sig']}, 'error': 'failed on chain' if st == 'failed' else None}, now):
+                n += 1
+        return n
     for rec in [t for t in cat.get('agentTx') or [] if t.get('status') == 'sending' and t.get('tx')]:   # its reply was lost: ask again, same key
         try:
             await _post(http, cm_key, env, addr, rec); n += 1
@@ -175,7 +223,7 @@ async def run(http, cm_key, cat, now):
     proposal writes its reason on it (`agentWhy`) and waits RETRY_SEC. → list of event words for the cat's log."""
     words = []
     w = cat.get('agentWallet') or {}
-    if not w.get('address') or w.get('provider', 'crossmint') != 'crossmint' or not _aw.env_of(cm_key):
+    if not w.get('address') or w.get('provider', 'crossmint') not in SIGNERS or (w.get('provider', 'crossmint') == 'crossmint' and not _aw.env_of(cm_key)):
         return words
     before = {t.get('key') or t.get('id'): t.get('status') for t in cat.get('agentTx') or []}
     await poll(http, cm_key, cat, now)

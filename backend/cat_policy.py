@@ -16,10 +16,14 @@ RULES = ('Never create another FeeCat, authenticate to FEELESS, sign wallet mess
 BAD_JOB = re.compile(r'(?i)\b(?:rug\s+(?:pull|people|ppl|them|investors)|scam\s+(?:people|ppl|them|users)|impersonate|phish(?:ing)?|mass\s+spam|spam\s+(?:everyone|users|people)|create\s+(?:another|a|new)\s+fee\s*cat|(?:sign|log)\s*in\s+(?:to\s+)?feeless)\b')
 
 
+# FEELESS paths an agent's browser may never open: launching, making agents / cats, sign-in, funding, trading, every write API
+FEELESS_NO = re.compile(r'(?i)(?:^|/)(?:launch|login|signin|sign-in|connect|fund)(?:/|$|\?)|/feecat/(?:agents|cats)|/api/(?:cats|trading|reputation/(?:launch|cats|chat/session|admin|fund|swap))(?:/|$)')
+
+
 def refusal(text):
     import cat_tools
     if cat_tools.NEVER.search(str(text)):   # 🚫 owner 2026-10-30: agents never create a coin, a pool or another agent
-        return 'Refused: a FeeCat agent never creates a coin, a pool or another agent.'
+        return 'Refused: an agent never creates another agent, and never launches a coin or pool ON FEELESS.'
     return 'Refused: scams, rugs, impersonation, spam and FeeCat self-creation/sign-in are blocked.' if BAD_JOB.search(str(text)) else None
 
 
@@ -37,10 +41,11 @@ def check_url(url):
     own = {urlsplit(os.getenv(k, '')).hostname for k in ('PUBLIC_SITE_URL', 'FRONTEND_URL')}
     if u.scheme not in ('http', 'https') or not host or u.username or u.password:
         raise ValueError('Only public web addresses without credentials are allowed.')
-    if (host in own or any(p in ('feecat', 'feeless') or p.startswith('feecat-') for p in host.split('.'))
-            or host in ('localhost', 'localhost.localdomain') or host.endswith(('.local', '.localhost', '.internal'))
-            or re.search(r'(?i)/api/(cats|reputation)(?:/|$)', u.path)):
-        raise ValueError('FeeCat cannot access FEELESS, create cats, or sign in with its wallet.')
+    if host in ('localhost', 'localhost.localdomain') or host.endswith(('.local', '.localhost', '.internal')):
+        raise ValueError('Private and local networks are blocked.')
+    feeless = host in own or any(p in ('feecat', 'feeless') or p.startswith('feecat-') for p in host.split('.'))
+    if feeless and FEELESS_NO.search(u.path or '/'):   # 👀 owner 2026-10-30: agents MAY browse FEELESS — never launch a coin, make an agent, sign in or trade from it
+        raise ValueError('On FEELESS an agent may browse and read — never launch a coin, create an agent, sign in or trade from its browser.')
     try:
         addr = ipaddress.ip_address(host)
     except ValueError:

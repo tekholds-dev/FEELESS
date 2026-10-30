@@ -107,6 +107,9 @@ export function ModelRig({ call, only = null, bare = false, cards = true }) {   
       const inst = lm?.loaded?.[0] || {}; const diff = Object.keys(r.diff || {}); const reloading = (d.reloading || []).includes(r.key) || busy === `reload.${r.key}`;
       return <section key={r.key} className={`mrg-card k-${r.key} ${diff.length ? 'is-diff' : ''}`} style={{ '--i': i }} data-testid={`rig-${r.key}`}>
         <header><span className="mrg-sweep" aria-hidden />{AV[r.key] ? <img src={AV[r.key]} alt="" /> : <i className="mrg-av">🪟</i>}<b>{r.name}</b>{lm?.name ? <small className="mrg-model">{String(lm.name).split('/').pop()}</small> : null}
+        <form className="mrg-mid" onSubmit={e => { e.preventDefault(); save(r.key, 'model', String(new FormData(e.currentTarget).get('model') || '').trim()); }} data-tip="Type any model id LM Studio has (e.g. qwen/qwen3.5-9b) — empty = the .env default. No code change needed">
+          <em className="mrg-lbl">🧠 MODEL ID</em><input className="m-input" name="model" defaultValue={r.rigModel || ''} key={r.rigModel || ''} placeholder={r.model || 'model id · e.g. qwen/qwen3.5-9b'} aria-label={`${r.name} model id`} data-testid={`rig-${r.key}-model`} />
+          <button type="submit" className="m-btn" disabled={!!busy} data-testid={`rig-${r.key}-model-save`}>Use</button></form>
           <span className={`mrg-st s-${String(lv.state || 'untested').toLowerCase().replace(/\s+/g, '-')}`}>{lv.state || 'UNTESTED'}{lv.lastMs ? ` · ${(lv.lastMs / 1000).toFixed(1)}s` : ''}</span></header>
         {r.load ? <>
           <LoadedNow lm={lm} />

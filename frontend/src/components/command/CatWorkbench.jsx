@@ -89,6 +89,24 @@ function PublicMinds({ cat }) {
   </section>;
 }
 
+// 🔐 saved logins (sites it signed up on): passwords stay sealed — a reveal is fetched on demand, shown blurred, clear only on hover / focus, gone in 15 s
+function SavedLogins({ cat, rows }) {
+  const [shown, setShown] = useState({});
+  const reveal = async r => { const k = `${r.site}|${r.user}`; try { const j = await work(cat.id, { op: 'reveal', text: r.site, job: r.user }); setShown(x => ({ ...x, [k]: j.password }));
+    setTimeout(() => setShown(x => { const n = { ...x }; delete n[k]; return n; }), 15000); } catch { /* not yours / gone */ } };
+  if (!rows?.length) return null;
+  return <details className="cwb-vault" data-testid="cwb-vault"><summary data-tip="Logins it made for you — passwords are sealed on the server; reveal one at a time">🔐 SAVED LOGINS <b className="m-num">{rows.length}</b></summary>
+    <ul>{rows.map(r => { const k = `${r.site}|${r.user}`; return <li key={k}><b>{r.site}</b><span>{r.user}</span>
+      {shown[k] ? <code className="cwb-pw" tabIndex={0} data-tip="Hover or focus to read — hides itself in 15 s">{shown[k]}</code> : <button type="button" className="m-btn" onClick={() => reveal(r)} data-testid={`cwb-reveal-${r.site}`}>Reveal</button>}</li>; })}</ul></details>;
+}
+// 🖼 its media drawer: what it saved for a campaign, a slide strip, cleaned after 7 days on its own
+function MediaDrawer({ items }) {
+  if (!items?.length) return null;
+  return <section className="cwb-media" data-testid="cwb-media"><b>🖼 MEDIA <small>{items.length} · cleaned after 7 days</small></b>
+    <div className="cwb-media-strip">{items.map(m => <a key={m.url} href={m.url} target="_blank" rel="noopener noreferrer" data-tip={m.title || m.url}>
+      {m.kind === 'video' ? <video src={m.url} muted loop playsInline preload="metadata" /> : <img src={m.url} alt={m.title || ''} loading="lazy" />}<small>{m.title || 'untitled'}</small></a>)}</div></section>;
+}
+
 function WorkbenchLive({ cat }) {
   const [d, setD] = useState(null); const [err, setErr] = useState(''); const [text, setText] = useState(''); const [busy, setBusy] = useState(false); const [tick, setTick] = useState(0);
   const [to, setTo] = useState('both'); const [jobs, setJobs] = useState(['', '']);   // 🧠 talk to both minds, or ONE of them (it works the whole task in its own window)
@@ -119,6 +137,7 @@ function WorkbenchLive({ cat }) {
       className={way === k ? 'active' : ''} disabled={live || busy} onClick={() => setWay(k)} data-tip={tip} data-testid={`cwb-way-${k}`}>{l}</button>)}</div>
     {(d?.cloud || []).length ? <div className="cwb-cloud" data-testid="cwb-cloud" data-tip="Its main cloud: the best of both minds' scratch pads, kept for next time"><b>☁ MAIN CLOUD</b>
       {d.cloud.slice(-3).reverse().map((c, i) => <span key={i} style={{ '--i': i }}>{c.text || `${c.word} $${c.sym}`}</span>)}</div> : null}
+    <SavedLogins cat={cat} rows={d?.logins} /><MediaDrawer items={d?.media} />
     <details className="cwb-tools"><summary>Job + tool switches</summary><label>Job<select className="m-input" aria-label="Cat job" value={d?.job || 'agent'} disabled={live || busy} onChange={e => act('tools', { job: e.target.value })}>{Object.keys(d?.toolkits || { agent: [] }).map(j => <option key={j}>{j}</option>)}</select></label><div className="m-seg">{Object.entries(d?.tools || {}).map(([k, on]) => <button key={k} type="button" aria-pressed={on} disabled={live || busy} className={on ? 'active' : ''} data-tip={`Allow this cat to use ${k}`} onClick={() => act('tools', { tools: { ...d.tools, [k]: !on } })}>{k} · {on ? 'ON' : 'OFF'}</button>)}</div></details>
     {(d?.artifacts || []).map((a, i) => <details className="cwb-artifact" key={i}><summary>{a.title} · {a.kind}</summary>{a.kind === 'build' ? <iframe title={a.title} sandbox="allow-scripts" referrerPolicy="no-referrer" srcDoc={'<meta http-equiv="Content-Security-Policy" content="default-src \'none\'; script-src \'unsafe-inline\'; style-src \'unsafe-inline\'; img-src data:; connect-src \'none\'; form-action \'none\'; base-uri \'none\'">' + a.content} /> : <pre>{a.content}</pre>}</details>)}
     {(d?.refusals || []).length ? <details className="cwb-refusals"><summary>Refusals · {d.refusals.length}</summary>{d.refusals.map((r, i) => <p key={i}>{r.why}</p>)}</details> : null}

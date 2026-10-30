@@ -14,8 +14,10 @@ TOOLS = {
     'pools': 'the Pool Hub: the best Solana pools by yield + depth',
     'gaps': 'price gaps between pools for the same token, net of swap costs',
 }
-NEVER = re.compile(r'(?i)\b(?:create|launch|deploy|mint|make|start)\s+(?:a\s+|an\s+|my\s+|our\s+|new\s+|another\s+)*'
-                   r'(?:coin|token|meme\s*coin|memecoin|pool|liquidity\s+pool|lp|agent|ai\s+agent|bot|fee\s*cat)\b')
+# 🚫 never: another agent / FeeCat anywhere, or a coin / pool ON FEELESS (owner 2026-10-30: "on pump or any other platform they can do as they please —
+# rep still scores that agent's wallet; just don't allow it on FEELESS"). Scams / rugs / phishing stay refused everywhere (cat_policy.BAD_JOB).
+NEVER = re.compile(r'(?i)\b(?:create|launch|deploy|mint|make|start|spawn)\s+(?:a\s+|an\s+|my\s+|our\s+|new\s+|another\s+)*(?:agent|ai\s+agent|fee\s*cat|cat\s+agent)s?\b'
+                   r'|\b(?:create|launch|deploy|mint|make|start)\b[^.\n]{0,40}\b(?:coin|token|memecoin|pool|liquidity\s+pool|lp)\b[^.\n]{0,30}\b(?:on|in|via|with)\s+(?:feeless|feecat)\b')
 PERPS = [('SOL', 250), ('ETH', 250), ('BTC', 250)]
 MAIN = 'http://127.0.0.1:5001'
 REP = 'http://127.0.0.1:5077'

@@ -18,12 +18,12 @@ def test_feeless_tools_read_our_data_and_hand_back_the_coin_for_the_chart():
     assert 'SOL-PERP up to 250x' in ct.perps_text()
 
 
-@pytest.mark.parametrize('text', ['create a coin for me', 'launch a new memecoin', 'deploy a liquidity pool', 'make another agent', 'mint a token'])
-def test_agents_never_create_coins_pools_or_agents(text):
+@pytest.mark.parametrize('text', ['launch a new memecoin on FEELESS', 'create a liquidity pool on feeless', 'make another agent', 'spawn a new AI agent', 'create a FeeCat'])
+def test_agents_never_create_agents_or_launch_on_feeless(text):
     assert cp.refusal(text)
 
 
-@pytest.mark.parametrize('text', ['research the newest coins on the trench', 'is this pool worth it?', 'compare two agents'])
+@pytest.mark.parametrize('text', ['research the newest coins on the trench', 'is this pool worth it?', 'compare two agents', 'launch a memecoin on pump.fun for my brand'])
 def test_reading_about_coins_pools_agents_is_fine(text):
     assert cp.refusal(text) is None
 
@@ -113,3 +113,56 @@ def test_models_switch_after_24h_and_delete_is_guarded(monkeypatch):
     with pytest.raises(HTTPException):
         act(action='delete', text='wrong name')
     assert act(action='delete', text='scout')['deleted'] == 'g1' and 'g1' not in store['cats']
+
+
+@pytest.mark.parametrize('url,ok', [('https://feeless.app/', True), ('https://feeless.app/terminal/trenches', True), ('https://feeless.app/terminal/launch', False),
+                                    ('https://feeless.app/terminal/feecat/agents', False), ('https://feeless.app/api/cats', False), ('https://feeless.app/login', False),
+                                    ('http://localhost:51367/', False)])
+def test_agents_browse_feeless_but_never_launch_create_or_sign_in(url, ok):
+    if ok:
+        assert cp.check_url(url)
+    else:
+        with pytest.raises(ValueError):
+            cp.check_url(url)
+
+
+def test_owner_types_a_model_id_in_the_rig_and_the_router_uses_it(monkeypatch):
+    import ai_rig as rg
+    import ai_router as ar
+    r = rg.clean({'local': {'model': 'qwen/qwen3.5-9b'}, 'lan': {'model': 'bad id with spaces'}})
+    assert r['local']['model'] == 'qwen/qwen3.5-9b' and not r['lan'].get('model')
+    monkeypatch.setattr(ar, 'RIG', r)
+    assert ar.provider({'LOCAL_LLM_MODEL': 'old-model', 'LOCAL_LLM_ENABLED': '1'}, 'local')['model'] == 'qwen/qwen3.5-9b'
+    v = rg.view(r, {'local': 'qwen/qwen3.5-9b'})
+    assert next(x for x in v['rows'] if x['key'] == 'local')['rigModel'] == 'qwen/qwen3.5-9b'
+
+
+def test_sign_up_password_is_sealed_never_seen_by_the_model_and_typed_only_as_the_placeholder(monkeypatch):
+    import feecat_service as svc
+    import cat_vault as cv
+    monkeypatch.setenv('BROKER_SECRET_KEY', 'test-secret')
+    typed = {}
+
+    class SignupPage(Page):
+        async def type(self, label, value):
+            typed[label] = value
+            return 'typed'
+    seen_by_model = []
+    script = [{'action': 'new_login', 'url': 'https://proton.me/signup', 'label': 'scout@proton.me'}, {'action': 'type', 'label': 'password', 'value': '{{password}}'},
+              {'action': 'media', 'url': 'https://cdn.example.com/ad.mp4', 'text': 'launch ad'}, {'action': 'answer', 'say': 'signed up'}]
+
+    async def ask(model, messages):
+        seen_by_model.append(messages[-1]['content'])
+        return json.dumps(script.pop(0)), 0
+    task = ca.new_task('t3', 'make a proton email', ['m/a'], 1.0)
+    task['mode'] = 'jobs'
+    out = asyncio.run(ca.run(task, ask, [SignupPage()], None, ('A',)))
+    pw = out['logins'][0]['pw']
+    assert typed['password'] == pw and len(pw) == 20 and not any(pw in m for m in seen_by_model)   # typed for real, never shown to the model
+    assert 'pw' not in out['windows'][0]
+    cat = {'id': 'g', 'ownerId': 'o', 'brainsCfg': {'brains': ['m/a']}}
+    cv.put_login(cat, 'proton.me', 'scout@proton.me', pw)
+    assert pw not in json.dumps(svc._no_keys(cat)) and svc._no_keys(cat)['logins'] == [{'site': 'proton.me', 'user': 'scout@proton.me', 'at': cat['logins'][0]['at']}]
+    assert cv.reveal(cat, 'https://proton.me/x', 'scout@proton.me') == pw
+    cv.add_media(cat, 'https://cdn.example.com/ad.mp4', 'launch ad', now=1)
+    assert cat['media'][0]['kind'] == 'video' and cv.clean_media(cat, now=1 + cv.MEDIA_TTL + 1) == []

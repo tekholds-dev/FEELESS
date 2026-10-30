@@ -34190,3 +34190,47 @@ async def wallet_dust_evm(address: str, add: str = Query('')):
     return {'chain': 'evm', 'address': address, 'rows': rows, 'chains': _dust.by_chain(rows), 'swapMinUsd': _dust.SWAP_MIN_USD, 'cronos': cro_meta,
             'summary': {'coins': len(rows), 'chains': len({r['chain'] for r in rows}), 'usd': round(sum(r['usd'] or 0 for r in rows), 2),
                         'swapUsd': round(sum(r['usd'] or 0 for r in rows if r['best'] == 'swap'), 2), 'dust': sum(1 for r in rows if r['best'] == 'dust')}}
+
+
+# 🟦 FEE (NEXA) TRADES FROM HER CIRCLE WALLET (owner 2026-10-30: "feecat (nexa) should be able to use the wallet, not just read only").
+# feecat_service's agent pass (agent_trade.py) runs every guard first (one in flight, per-buy + daily caps, the quote must echo the exact coins);
+# here Circle signs ONLY a wallet of the creator's own Circle project that is assigned to that cat, our RPC sends it, and key → signature is
+# written BEFORE the broadcast so a lost reply asked again with the same key never sends a second trade. Internal key only.
+AGENT_CIRCLE_SENT = DATA_DIR / 'agent_circle_sent.json'
+
+
+def _internal_ok(request):
+    return bool(_internal_key()) and hmac.compare_digest(request.headers.get('x-feeless-internal', ''), _internal_key())
+
+
+@app.get('/api/reputation/internal/circle-wallet')
+async def internal_circle_wallet(request: Request, address: str = ''):
+    if not _internal_ok(request):
+        raise HTTPException(403, 'Internal only.')
+    w_ = next((w for w in (await _circle_wallets_live()) or [] if w.get('address') == address), None)
+    if not w_:
+        raise HTTPException(404, 'Not a Circle wallet of this project.')
+    return {'id': w_.get('id'), 'address': w_.get('address')}
+
+
+@app.post('/api/reputation/internal/agent-circle-send')
+async def internal_agent_circle_send(request: Request, body: dict):
+    if not _internal_ok(request):
+        raise HTTPException(403, 'Internal only.')
+    key_, tx_, wid_, addr_ = str(body.get('key') or ''), str(body.get('tx') or ''), str(body.get('walletId') or ''), str(body.get('address') or '')
+    if not (key_ and tx_ and wid_ and addr_):
+        raise HTTPException(400, 'key, tx, walletId and address are required.')
+    book_ = _json_load(AGENT_CIRCLE_SENT, {})
+    if book_.get(key_):   # asked again with the same key → the same trade, never a second one
+        return {'signature': book_[key_], 'again': True}
+    w_ = next((w for w in (await _circle_wallets_live()) or [] if w.get('id') == wid_), None)
+    if not w_ or w_.get('address') != addr_:
+        raise HTTPException(403, 'That Circle wallet is not this cat\'s assigned wallet.')
+    signed_ = await _circle('POST', '/sign', {'walletId': wid_, 'rawTransaction': tx_, 'memo': f"FEELESS agent {str(body.get('catId') or '')[:20]}"})
+    sig_ = str(signed_.get('signature') or signed_.get('txHash') or '')
+    if not signed_.get('signedTransaction') or not sig_:
+        raise HTTPException(502, 'Circle did not sign it.')
+    _json_save(AGENT_CIRCLE_SENT, {**book_, key_: sig_})   # written BEFORE the send
+    async with httpx.AsyncClient(timeout=20) as http_:
+        await _krpc(http_, 'sendTransaction', [signed_['signedTransaction'], {'encoding': 'base64', 'maxRetries': 3, 'preflightCommitment': 'confirmed'}])
+    return {'signature': sig_}

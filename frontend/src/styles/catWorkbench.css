@@ -119,3 +119,16 @@ body.theme-day .cwb-cloud span { background: #fff; color: #2a1650; }
 .cwb-center .cwb-chat li:not(.is-you) { border-color: color-mix(in srgb, var(--kd-acc, #b388ff) 40%, transparent); }
 .cwb-center .cwb-ask { grid-template-columns: minmax(0, 1fr) auto; } .cwb-center .cwb-cap { grid-column: 1 / -1; justify-content: center; }
 .cwb-center .cwb-to { justify-content: center; flex-wrap: wrap; }
+/* 🔐 saved logins (blurred until you look) + 🖼 media slide drawer */
+.cwb-vault { border-radius: 14px; border: 1px solid #f5c54244; background: #0b0716cc; } .cwb-vault summary { padding: 8px 12px; cursor: pointer; color: #ffe08a; font: 800 10.5px var(--f-mono); letter-spacing: .12em; list-style: none; }
+.cwb-vault summary::-webkit-details-marker { display: none; } .cwb-vault ul { list-style: none; margin: 0; padding: 0 10px 10px; display: grid; gap: 6px; }
+.cwb-vault li { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto; gap: 8px; align-items: center; padding: 6px 10px; border-radius: 10px; background: #ffffff06; }
+.cwb-vault li b { color: #fff; font: 700 12px var(--f-ui); } .cwb-vault li span { color: #c9bce6; font: 600 11px var(--f-mono); overflow: hidden; text-overflow: ellipsis; }
+.cwb-pw { padding: 4px 8px; border-radius: 8px; background: #000a; color: #ffe08a; font: 700 12px var(--f-mono); filter: blur(5px); transition: filter .15s; user-select: all; }
+.cwb-pw:hover, .cwb-pw:focus { filter: none; outline: 1px solid #ffe08a66; }
+.cwb-media { display: grid; gap: 6px; } .cwb-media > b { color: #fff; font: 800 10.5px var(--f-mono); letter-spacing: .12em; } .cwb-media small { color: #a99bc8; font-weight: 600; letter-spacing: 0; }
+.cwb-media-strip { display: flex; gap: 8px; overflow-x: auto; scroll-snap-type: x mandatory; scrollbar-width: thin; scrollbar-color: var(--kd-acc, #b388ff) transparent; padding-bottom: 4px; }
+.cwb-media-strip a { flex: none; width: 150px; display: grid; gap: 4px; scroll-snap-align: start; text-decoration: none; transition: transform .15s; } .cwb-media-strip a:hover { transform: translateY(-2px); }
+.cwb-media-strip img, .cwb-media-strip video { width: 150px; height: 96px; object-fit: cover; border-radius: 10px; border: 1px solid #ffffff1a; } .cwb-media-strip small { color: #d8ccf5; font-size: 10.5px; }
+@media (prefers-reduced-motion: reduce) { .cwb-pw { transition: none; } }
+@media (max-width: 640px) { .cwb-vault li { grid-template-columns: 1fr auto; } .cwb-vault li span { grid-column: 1; } }

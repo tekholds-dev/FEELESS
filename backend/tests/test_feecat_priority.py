@@ -6,7 +6,7 @@ import cat_agent as agent
 import launch_cat as launch
 
 
-@pytest.mark.parametrize('url', ['http://localhost:51367/', 'http://127.0.0.1/', 'https://feecat.com/', 'https://x.feecat.app/', 'https://feeless.app/', 'https://example.org/api/cats', 'file:///etc/passwd', 'https://user:pass@example.org', 'http://[::1]/', 'http://169.254.169.254/'])
+@pytest.mark.parametrize('url', ['http://localhost:51367/', 'http://127.0.0.1/', 'https://feecat.com/login', 'https://x.feecat.app/terminal/launch', 'https://feeless.app/api/cats', 'https://feeless.app/terminal/feecat/agents', 'file:///etc/passwd', 'https://user:pass@example.org', 'http://[::1]/', 'http://169.254.169.254/'])
 def test_cat_network_boundary(url):
     with pytest.raises(ValueError):
         policy.check_url(url)

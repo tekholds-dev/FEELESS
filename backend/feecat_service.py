@@ -38,6 +38,7 @@ import cat_real as _real   # 💵 real-money cats = option A: the user's wallet 
 import cat_orders as _co   # 🧭 a General AI cat's plain-words orders → one guarded proposal
 import cat_model as _cm
 import cat_tools as _ct   # 🧰 FEELESS-first read-only tools for general agents
+import cat_vault as _cv   # 🔐 a general agent's saved logins + 🖼 media drawer
 import cat_keys as _ck   # 🔐 a cat's API drawer (sealed keys, never sent to a page)
 
 DATA_DIR = Path(__file__).parent / 'data'
@@ -98,9 +99,11 @@ def _no_keys(obj):
     if isinstance(obj, list):
         return [_no_keys(x) for x in obj]
     if isinstance(obj, dict):
-        out = {k: _no_keys(v) for k, v in obj.items() if k != 'apiKeys'}
+        out = {k: _no_keys(v) for k, v in obj.items() if k not in ('apiKeys', 'logins')}
         if 'apiKeys' in obj or ('brainsCfg' in obj and 'ownerId' in obj):
             out['apiDrawer'] = _ck.public(obj)
+        if obj.get('logins'):   # 🔐 sealed passwords never leave the server — site · username · when only
+            out['logins'] = _cv.public_logins(obj)
         return out
     return obj
 
@@ -1400,6 +1403,17 @@ def _work_settle(store):
             cat['refusals'] = (list(cat.get('refusals') or []) + [{'at': time.time(), 'why': x} for x in t.get('refusals', [])])[-100:]
             if not _ck.key_for(cat, 'openrouter', data_dir=DATA_DIR):   # its owner's own key pays OpenRouter directly — no FEELESS credit
                 _lc.charge(cat['brainsCfg'], t.get('cost') or 0)
+            for lg_ in t.get('logins') or []:   # 🔐 every sign-up's password → sealed in its vault, then gone from memory
+                try:
+                    _cv.put_login(cat, lg_.get('site'), lg_.get('user'), lg_.get('pw'), data_dir=DATA_DIR)
+                except (ValueError, RuntimeError):
+                    pass
+            t['logins'] = []
+            for md_ in t.get('media') or []:
+                try:
+                    _cv.add_media(cat, md_.get('url'), md_.get('title'))
+                except ValueError:
+                    pass
             for k_ in t.get('keep') or []:   # ☁ the best of both scratch pads → its main cloud (the rest was thrown away)
                 cat['brainsCfg']['cloud'] = ((cat['brainsCfg'].get('cloud') or []) + [{'at': time.time(), 'word': 'KEEP', 'sym': '', 'text': str(k_)[:240], 'by': ['both']}])[-_lc.CLOUD_MAX:]
             cat['chat'] = (list(cat.get('chat') or []) + [{'by': 'you', 'text': t.get('text'), 'at': w.get('at')},
@@ -1748,6 +1762,13 @@ async def internal_rules_set(request: Request):
     return {'ok': True, 'rules': {k: RULES[k] for k in TUNABLE}, 'status': leader['status']}
 
 
+def _internal_headers():
+    try:
+        return {'x-feeless-internal': (DATA_DIR / 'internal.key').read_text().strip()}
+    except OSError:
+        return {}
+
+
 def _internal(request):
     import hmac
     try:
@@ -1794,6 +1815,17 @@ async def cat_work(cat_id: str, p: WorkPayload):
         v = max(0.005, min(TASK_CAP_MAX, float(p.cap or TASK_CAP_DEFAULT)))
         cat['taskCap'] = round(v, 4); _save(store)
         return {'cap': cat['taskCap']}
+    if p.op == 'reveal':   # 🔐 the owner's own reveal of one saved password (never in a list, never logged)
+        try:
+            return {'password': _cv.reveal(cat, p.text or '', p.job or '', data_dir=DATA_DIR)}
+        except Exception as e:
+            raise HTTPException(400, str(e)[:120])
+    if p.op == 'unlogin':
+        _cv.drop_login(cat, p.text or '', p.job or ''); _save(store)
+        return {'logins': _cv.public_logins(cat)}
+    if p.op == 'unmedia':
+        cat['media'] = [m for m in cat.get('media') or [] if m.get('url') != p.text]; _save(store)
+        return {'media': cat['media']}
     if p.op == 'mode':   # 🧭 plan together → one answer · each mind its own job
         if p.job not in _ca.MODES:
             raise HTTPException(400, 'Pick plan or jobs.')
@@ -1845,6 +1877,7 @@ async def cat_work(cat_id: str, p: WorkPayload):
     return {**out, 'cap': float(cat.get('taskCap') or TASK_CAP_DEFAULT), 'credit': b.get('credit'), 'spent': b.get('spent'), 'chat': (cat.get('chat') or [])[-20:],
             'live': _work_live(), 'providers': _cb.chain(os.environ), 'go': bool(cat.get('workGo')), 'workMode': cat.get('workMode') or 'plan',
             'cloud': (b.get('cloud') or [])[-8:], 'createdAt': cat.get('createdAt'),
+            'logins': _cv.public_logins(cat), 'media': _cv.clean_media(cat),
             'job': cat.get('job', 'agent'), 'tools': _cp.toolkit(cat.get('job', 'agent'), cat.get('tools')), 'toolkits': _cp.TOOLS,
             'refusals': (cat.get('refusals') or [])[-20:] + [{'why': x} for x in ((w or {}).get('task') or {}).get('refusals', [])],
             'artifacts': (cat.get('artifacts') or [])[-10:] + ([] if (w or {}).get('settled') else ((w or {}).get('task') or {}).get('artifacts', [])),
@@ -2117,10 +2150,17 @@ async def cat_action(cat_id: str, payload: ActionPayload, request: Request):
             async with httpx.AsyncClient(timeout=15) as http_l:
                 rep_ = await _aw.lookup(http_l, os.environ.get('CROSSMINT_API_KEY', '').strip(), addr_)
             cat['agentWallet'] = _aw.assigned(addr_, rep_, signed, time.time())
-        except ValueError as e:
+            if rep_ is None:   # 🟦 not Crossmint's — one of the creator's own CIRCLE wallets? then Circle signs and she trades from it
+                async with httpx.AsyncClient(timeout=15) as http_c:
+                    rc_ = await http_c.get('http://127.0.0.1:5077/api/reputation/internal/circle-wallet', params={'address': addr_}, headers=_internal_headers())
+                if rc_.status_code == 200 and (rc_.json() or {}).get('id'):
+                    cat['agentWallet'].update(provider='circle', circleId=rc_.json()['id'])
+        except (ValueError, httpx.HTTPError) as e:
             raise HTTPException(400, str(e))
-        _log_event(store, cat, 'STARTED', f"{cat['name']}'s wallet is {addr_[:6]}… — " + ('she trades from it (Crossmint holds its key).' if rep_ is not None
-                   else "WATCH-ONLY: its key is not held by Crossmint, so she shows it but never trades from it."))
+        prov_ = cat['agentWallet'].get('provider')
+        _log_event(store, cat, 'STARTED', f"{cat['name']}'s wallet is {addr_[:6]}… — " + ('she trades from it (Crossmint holds its key).' if prov_ == 'crossmint'
+                   else 'she trades from it (your Circle wallet — Circle signs, inside her caps).' if prov_ == 'circle'
+                   else "WATCH-ONLY: neither Crossmint nor your Circle project holds its key, so she shows it but never trades from it."))
     elif payload.action == 'agent_mode':   # 👛 a GENERAL cat: approve every AI move, or let it do its thing
         if not cat.get('agentWallet'):
             raise HTTPException(400, 'Make its wallet first.')

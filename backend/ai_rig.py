@@ -167,6 +167,11 @@ def clean(body, prev=None):
         for f, v in row.items():
             if f == 'load' and k in LM_KEYS and isinstance(v, dict):
                 out[k]['load'] = clean_load(v, out[k]['load']); continue
+            if f == 'model':   # 🧠 owner 2026-10-30: type any model id in the rig (e.g. qwen/qwen3.5-9b) — '' = back to the .env default
+                m_ = str(v or '').strip()
+                if m_ == '' or _re.fullmatch(r'[A-Za-z0-9._/@:+-]{1,96}', m_):
+                    out[k]['model'] = m_
+                continue
             if f == 'infer' and isinstance(v, dict):
                 out[k]['infer'] = clean_infer(v, out[k].get('infer'))
                 if not out[k]['infer']:
@@ -199,7 +204,7 @@ def view(rig, models=None, lms=None):
     r = clean({}, rig)
     rows = []
     for k in KEYS:
-        row = {'key': k, 'name': NAMES[k], **r[k], 'cmd': load_cmd(k, r[k], (models or {}).get(k))}
+        row = {'key': k, 'name': NAMES[k], **r[k], 'rigModel': r[k].get('model') or '', 'model': (models or {}).get(k) or r[k].get('model') or '', 'cmd': load_cmd(k, r[k], (models or {}).get(k))}
         if k in LM_KEYS:
             lm = (lms or {}).get(k)
             row['lms'] = lm
