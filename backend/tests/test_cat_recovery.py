@@ -121,3 +121,20 @@ def test_withdraw_pays_only_the_owner_never_a_client_address_and_refuses_too_muc
     with pytest.raises(HTTPException):
         asyncio.run(rs.cat_withdraw('c1', rs.CatWithdrawIn(address=owner, session='session-x', token='SOL', amount=5)))
     assert 'c1' not in rs._cat_out_busy   # a refusal never leaves it locked
+
+
+def test_an_old_engine_copy_can_never_wipe_a_wallet_a_funding_or_bought_credit():
+    fs._KEPT.clear()
+    fresh = {'cats': {'c1': {'id': 'c1', 'ownerId': 'b1', 'balanceSol': 1, 'brainsCfg': {'credit': 10.0}}}}
+    fs._save(fresh)
+    stale = fs._load()                                   # the engine starts its long cycle on this copy
+    now = fs._load(); c = now['cats']['c1']              # an owner acts meanwhile
+    c['agentWallet'] = {'address': 'A'}; c['agentFunded'] = [{'sig': 's1'}]; c['creditPaid'] = [{'sig': 'p1', 'usd': 5.0}]; c['brainsCfg']['credit'] = 15.0
+    fs.keep_owned(c); fs._save(now)
+    stale['cats']['c1']['balanceSol'] = 2                # the engine's own work
+    fs._save(stale)
+    got = fs._load()['cats']['c1']
+    assert got['agentWallet'] == {'address': 'A'} and got['agentFunded'] == [{'sig': 's1'}] and got['balanceSol'] == 2 and got['brainsCfg']['credit'] == 15.0
+    fs._save(fs._load())                                 # no second add
+    assert fs._load()['cats']['c1']['brainsCfg']['credit'] == 15.0
+    fs._KEPT.clear()

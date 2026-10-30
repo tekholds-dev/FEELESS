@@ -78,7 +78,31 @@ def _load() -> dict:
     return _empty_store()
 
 
+# 🔒 The engine loads every cat, works for minutes, then saves its whole copy: anything an owner did meanwhile was wiped (owner 2026-10-30: a new agent wallet vanished
+# seconds after it was made). What an owner's action sets is kept here and laid over every save, so an old copy can never lose a wallet, a funding or a limit.
+OWNER_KEYS = ('agentWallet', 'agentFunded', 'creditPaid', 'recovery', 'recoverySet', 'recoveryConfirmedAt', 'limits', 'taskCap', 'ownerId')
+_KEPT: dict = {}
+
+
+def keep_owned(cat):
+    """Remember the owner's fields of `cat` as they stand now (after an owner's action)."""
+    _KEPT[cat['id']] = json.loads(json.dumps({k: cat[k] for k in OWNER_KEYS if k in cat}))
+
+
 def _save(store: dict):
+    for cid, kept in _KEPT.items():
+        c = (store.get('cats') or {}).get(cid)
+        if not c:
+            continue
+        have = {x.get('sig') for x in c.get('creditPaid') or []}
+        for x in kept.get('creditPaid') or []:   # bought credit an old copy has not seen: added, never lost
+            if x.get('sig') not in have and c.get('brainsCfg'):
+                c['brainsCfg']['credit'] = round((c['brainsCfg'].get('credit') or 0) + float(x.get('usd') or 0), 6); c.pop('brainPaused', None)
+        for k in OWNER_KEYS:
+            if k in kept:
+                c[k] = json.loads(json.dumps(kept[k]))
+            else:
+                c.pop(k, None)
     STORE_PATH.write_text(json.dumps(store, indent=2))
 
 
@@ -2230,7 +2254,7 @@ async def cat_recovery_pin(cat_id: str, payload: ActionPayload):
         raise HTTPException(409, 'Its recovery PIN was already shown once.')
     pin = _recovery.new_pin()
     cat['recovery'], cat['recoverySet'] = _recovery.seal(pin), True
-    _save(store)
+    keep_owned(cat); _save(store)
     return {'pin': pin}
 
 
@@ -2251,7 +2275,7 @@ async def cat_recover(payload: RecoverPayload):
     cat['ownerId'] = payload.ownerId
     cat.pop('recovery'); cat['recoverySet'] = False
     _log_event(store, cat, 'STARTED', f"{cat['name']} was recovered on a new browser with its PIN.")
-    _save(store)
+    keep_owned(cat); _save(store)
     return {'cat': {**_no_keys(cat), 'mine': True}}
 
 
@@ -2293,6 +2317,7 @@ async def cat_action(cat_id: str, payload: ActionPayload, request: Request):
                         if rc_.status_code != 200:
                             raise ValueError(f"Circle did not make the wallet: {str((rc_.json() if rc_.content else {}).get('detail') or rc_.status_code)[:140]}")
                         w_ = rc_.json().get('wallet') or {}
+                        store = _load(); cat = store['cats'][cat_id]   # the call took seconds: work on the store as it is now
                         cat['agentWallet'] = {**_aw.record('cat', cat_id, {'address': w_.get('address'), 'locator': f"circle:{w_.get('id')}"}, signed, time.time(), (cat.get('brainsCfg') or {}).get('kind')),
                                               'provider': 'circle', 'circleAcct': 'agent', 'circleId': w_.get('id')}
                     else:
@@ -2314,7 +2339,7 @@ async def cat_action(cat_id: str, payload: ActionPayload, request: Request):
             if cat.get('brainsCfg'):
                 cat['brainsCfg']['credit'] = round((cat['brainsCfg'].get('credit') or 0) + usd_, 6); cat.pop('brainPaused', None)
             _log_event(store, cat, 'STARTED', f"{cat['name']}: ${usd_:g} of model credit added.")
-            _save(store)
+            keep_owned(cat); _save(store)
             return {'cat': {**_no_keys(cat), 'mine': not cat.get('isLeader')}}
         cat['agentFunded'] = (list(cat.get('agentFunded') or []) + [{'sig': str(payload.sig)[:100], 'state': payload.result or 'confirmed', 'at': round(time.time()),
                               **{k: a_.get(k) for k in ('usd', 'feeUsd', 'catLamports', 'feeLamports', 'solUsd')}}])[-50:]
@@ -2530,5 +2555,5 @@ async def cat_action(cat_id: str, payload: ActionPayload, request: Request):
     else:
         raise HTTPException(400, f'Unknown action: {payload.action}')
 
-    _save(store)
+    keep_owned(cat); _save(store)
     return {'cat': {**_no_keys(cat), 'mine': not cat.get('isLeader')}}   # the action passed the owner check (Fee's: the creator's signature)
