@@ -82,3 +82,23 @@ body.theme-day .kd.is-glass :is(.kd-hero, .kd-tile, .kd-card, .ck-vitals, .ck-ch
 .ck-nexa .fch-card { padding: 14px 16px; gap: 10px; }
 .ck-nexa :is(.fch-card, .nxd-card) p { line-height: 1.5; }
 @media (max-width: 640px) { .ck-nexa { padding: 8px; } .ck-nexa :is(.fch-card, .nxd-card) { padding: 12px; } }
+
+/* 🗄 the log as a FILE CABINET: drawers on the left (the open one pulls out, lit edge + handle), its files on the right */
+.ck-cabinet { display: grid; grid-template-columns: 190px minmax(0, 1fr); gap: 12px; align-items: start; }
+.ck-log .ck-folders { flex-direction: column; flex-wrap: nowrap; gap: 5px; padding: 7px; border-radius: 14px; border: 1px solid #ffffff14;
+  background: linear-gradient(180deg, #1b1430, #0d0918); box-shadow: inset 0 1px 0 #ffffff14, inset 0 -10px 20px -12px #000; }
+.ck-log .ck-folders button { position: relative; justify-content: flex-start; width: 100%; min-height: 40px; padding: 6px 10px; border-radius: 9px; border: 1px solid #ffffff12;
+  background: linear-gradient(180deg, #2a2142, #17112a); color: #d8ccf6; box-shadow: inset 0 1px 0 #ffffff1a, 0 3px 6px -4px #000; transition: transform .18s ease-out, box-shadow .18s, border-color .18s; animation: ckIn .3s ease-out both; animation-delay: calc(var(--i) * 45ms); }
+.ck-log .ck-folders button span { flex: 1; text-align: left; font: 700 11px var(--f-tech, var(--f-ui)); letter-spacing: .06em; }
+.ck-log .ck-folders button:hover:not(:disabled) { transform: translateX(4px); border-color: color-mix(in srgb, var(--kd-acc, #b388ff) 50%, transparent); }
+.ck-log .ck-folders button.is-on { transform: translateX(9px); background: linear-gradient(180deg, #33285a, #1d1536); color: #fff; border-color: var(--kd-acc, #b388ff); box-shadow: inset 3px 0 0 var(--kd-acc, #b388ff), 0 8px 18px -10px var(--kd-acc, #b388ff); }
+.ck-log .ck-folders button:disabled { opacity: .4; cursor: default; }
+.ck-handle { position: absolute; left: 50%; bottom: 4px; width: 26px; height: 3px; margin-left: -13px; border-radius: 3px; background: #ffffff33; box-shadow: 0 1px 0 #000; }
+.ck-log .ck-folders button.is-on .ck-handle { background: var(--kd-acc, #b388ff); }
+.ck-cabinet .ck-rows { max-height: 330px; }
+body.theme-day .ck-log .ck-folders { background: #f3eefc; } body.theme-day .ck-log .ck-folders button { background: #fff; color: #2a1650; }
+body.theme-day .ck-log .ck-folders button.is-on { background: #efe6ff; color: #2a1650; }
+body.fx-lite .ck-log .ck-folders button { animation: none; }
+@media (prefers-reduced-motion: reduce) { .ck-log .ck-folders button { animation: none !important; transition: none !important; } }
+@media (max-width: 640px) { .ck-cabinet { grid-template-columns: 1fr; } .ck-log .ck-folders { flex-direction: row; overflow-x: auto; } .ck-log .ck-folders button { width: auto; flex: none; }
+  .ck-log .ck-folders button.is-on { transform: translateY(-3px); } .ck-log .ck-folders button:hover:not(:disabled) { transform: translateY(-2px); } }

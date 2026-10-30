@@ -70,3 +70,15 @@ test('📸 one activity card per agent (5 more in its dropdown) and a real P/L s
   expect(g.map(x => x.e.id)).toEqual(['a1', 'b1']); expect(g[0].more.map(x => x.id)).toEqual(['a2', 'a3', 'a4', 'a5', 'a6']);
   expect(curvePath([1])).toBeNull(); const c = curvePath([0, 1, 2]); expect(c.up).toBe(true); expect(c.line.startsWith('M0.0')).toBe(true);
 });
+
+test('🔐 the cabinet never shows a password, key or seed phrase; 🧾 each window carries its owner vitals', () => {
+  const { safeLine } = require('./CatCockpit'); const { coinVitals } = require('./AgentLive');
+  expect(safeLine('signed up on x.com password: hunter2!! done')).not.toContain('hunter2');
+  expect(safeLine(`key ${'3'.repeat(40)}${'A'.repeat(30)} pasted`)).toContain('•••• hidden');
+  expect(safeLine('abandon ability able about above absent absorb abstract absurd abuse access accident')).toBe('•••• hidden');
+  expect(safeLine('Bought 0.06 SOL of GERM at live price')).toBe('Bought 0.06 SOL of GERM at live price');
+  const prose = 'FeeCat AI said exit: $WALT has the best next coin with the highest buyers and pool size and more'; expect(safeLine(prose)).toBe(prose);   // plain words stay
+  expect(safeLine('my recovery phrase: abandon ability able about above absent absorb abstract absurd abuse access accident')).not.toContain('abandon');
+  expect(coinVitals({ open: true, sol: 0.06, pct: 12.5, at: Date.now() / 1000 - 600 }).map(x => x[0])).toEqual(['SIZE', 'P&L', 'HELD']);
+  expect(coinVitals({ open: false, pct: -2.2, pnl: -0.0013, after: 8, at: Date.now() / 1000 - 120 }).map(x => [x[0], x[2] || ''])).toEqual([['EXIT', 'dn'], ['P&L', 'dn'], ['AFTER', ''], ['SOLD', '']]);
+});

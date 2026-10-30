@@ -121,11 +121,17 @@ body.theme-day .akv-h b, body.theme-day .akd-have code { color: #0c6a44; } body.
 .agl-mind b { margin-top: 8px; color: #fff; font: 700 12px var(--f-ui, sans-serif); max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .agl-mind small { color: #c9bce6; font: 700 9px var(--f-mono, monospace); letter-spacing: .1em; text-transform: uppercase; }
 .agl-mind.is-empty { opacity: .5; }
-/* 🪟 owner 2026-10-30: the two windows are EVENLY smaller — same 4:3 shape at any size (never wide + short), ≤ 420 px each, centred; the whole chart fits */
-.agd-wins { grid-template-columns: repeat(2, minmax(0, 420px)); justify-content: center; }
-.agl-plot { position: relative; aspect-ratio: 4 / 3; overflow: hidden; }
+/* 🪟 owner 2026-10-30: the two windows are EVENLY smaller — same 4:3 shape at any size (never wide + short), ≤ 504 px each, centred; the whole chart fits */
+.agd-wins { grid-template-columns: repeat(2, minmax(0, 504px)); justify-content: center; }
+.agl-plot { position: relative; aspect-ratio: 4 / 3; overflow: hidden; contain: layout paint style; }   /* each chart redraws inside its own island */
 .agl-plot .chart-foot-chips { right: 64px; flex-wrap: wrap; justify-content: flex-start; row-gap: 4px; }   /* chips wrap inside a compact window, never cut off */
 .agl-plot > .chart-area { min-height: 0 !important; height: 100% !important; overflow: hidden; } .agl-plot .candle-canvas { height: calc(100% - 24px) !important; flex: none; }
+.agl-vit { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); margin: 0; border-top: 1px solid #ffffff10; background: linear-gradient(180deg, #ffffff06, transparent); }
+.agl-vit > div { display: grid; gap: 1px; padding: 6px 9px; min-width: 0; } .agl-vit > div + div { border-left: 1px solid #ffffff0d; }
+.agl-vit dt { color: #9d8fbf; font: 700 8.5px var(--f-mono, monospace); letter-spacing: .14em; }
+.agl-vit dd { margin: 0; color: #fff; font: 700 12px var(--f-mono, monospace); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; animation: agdIn .35s ease-out both; }
+.agl-vit dd.is-up { color: #45e486; text-shadow: 0 0 10px #45e48655; } .agl-vit dd.is-dn { color: #ff8fa3; }
+body.theme-day .agl-vit dt { color: #6a5a8a; }
 .agl-ghost { position: relative; display: grid; aspect-ratio: 4 / 3; background: repeating-linear-gradient(0deg, transparent 0 29px, #ffffff08 29px 30px); }
 .agl-ghost span { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); padding: 4px 10px; border-radius: 999px; background: #07040ee0; border: 1px solid #9dffcf44;
   color: #9dffcf; font: 800 9.5px var(--f-mono, monospace); letter-spacing: .12em; white-space: nowrap; }
@@ -133,7 +139,7 @@ body.theme-day .akv-h b, body.theme-day .akd-have code { color: #0c6a44; } body.
 .agl .agd-feed { position: relative; left: auto; bottom: auto; width: 100%; transform: none; }   /* the windows keep their own space — its calls sit under them */
 .agl-load { display: grid; place-items: center; height: 100%; color: #9d8fbf; font: 700 10px var(--f-mono, monospace); letter-spacing: .12em; text-transform: uppercase; }
 body.theme-day .agl-mind b { color: #2a1650; } body.theme-day .agl-mind small { color: #4a3a6a; }
-@media (max-width: 640px) { .agd-wins { grid-template-columns: minmax(0, 420px); } .agl-plot :is(.chart-foot-chips, .chart-style-toggle, .ccp-lens) { display: none; } }   /* phone windows: the candles, not chips on top of them */
+@media (max-width: 640px) { .agd-wins { grid-template-columns: minmax(0, 504px); } .agl-plot :is(.chart-foot-chips, .chart-style-toggle, .ccp-lens) { display: none; } }   /* phone windows: the candles, not chips on top of them */
 
 /* ☁ the head cloud between the two minds — fills and glows once both agree; a beam from each bubble feeds it */
 .agl-minds.has-cloud { align-items: center; gap: clamp(14px, 4vw, 48px); }

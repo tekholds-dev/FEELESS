@@ -117,17 +117,24 @@ export function catLogItems(cat, events = []) {
     ...(cat?.orders || []).map(o => ({ f: 'tasks', at: (o.at || 0) > 1e12 ? o.at / 1000 : o.at, text: `${o.text} → ${o.why || o.state}`, tone: o.state === 'refused' ? 'warn' : 'mute' })),
   ].filter(x => x.text).sort((p, q) => (q.at || 0) - (p.at || 0));
 }
+// 🔐 never in a log or a drawer (owner 2026-10-30): passwords, keys, seed phrases — a last net under the server's own sealing (the vault never sends them)
+const SECRET = [/\b(pass(word)?|pw|secret|api[_ -]?key|token|seed|mnemonic|private[_ -]?key)\b\s*[:=]\s*\S+/gi, /\b[1-9A-HJ-NP-Za-km-z]{64,90}\b/g, /\b(?:seed|mnemonic|recovery|secret)\s*(?:phrase|words)?\s*[:=-]?\s*(?:[a-z]{3,8}\s+){11,23}[a-z]{3,8}\b/gi, /^\s*(?:[a-z]{3,8}\s+){11}[a-z]{3,8}(?:\s+(?:[a-z]{3,8}\s+){11}[a-z]{3,8})?\s*$/g];
+export const safeLine = t => SECRET.reduce((x, re) => x.replace(re, '•••• hidden'), String(t || ''));
+// 🗄 ITS LOG = a file cabinet (owner 2026-10-30): one drawer per kind — trades · thoughts · tasks · files · ☁ cloud · guards; the open drawer pulls out and
+// its files list beside it. Only general files ever land here: no vitals, passwords or logins (those stay sealed in the vault).
 export function AgentLog({ items = [], title = 'ITS LOG' }) {
   const [f, setF] = useState('all');
   const counts = useMemo(() => items.reduce((m, x) => ({ ...m, [x.f]: (m[x.f] || 0) + 1 }), {}), [items]);
   const rows = (f === 'all' ? items : items.filter(x => x.f === f)).slice(0, 40);
   return <section className="ck-log" data-testid="agent-log">
-    <header><b>📁 {title}</b><small>live · newest first</small></header>
-    <nav className="ck-folders" role="tablist" aria-label="Log folders">{[['all', ['🗂', 'All']], ...Object.entries(FOLDERS).filter(([k]) => counts[k])].map(([k, [ic, l]]) =>
-      <button key={k} type="button" role="tab" aria-selected={f === k} className={f === k ? 'is-on' : ''} onClick={() => setF(k)} data-testid={`log-${k}`}>
-        <i aria-hidden="true">{ic}</i>{l}<b className="m-num">{k === 'all' ? items.length : counts[k]}</b></button>)}</nav>
-    <ol className="ck-rows">{rows.length ? rows.map((x, i) => <li key={`${x.f}-${x.at}-${i}`} className={`is-${x.tone || 'mute'}`} style={{ '--i': Math.min(i, 10) }}>
-      <i aria-hidden="true">{FOLDERS[x.f]?.[0]}</i><span>{x.text}</span><small>{x.at ? ago(x.at) : ''}</small></li>) : <li className="ck-empty">Nothing here yet.</li>}</ol>
+    <header><b>🗄 {title}</b><small>a drawer per kind · newest first · no passwords or keys, ever</small></header>
+    <div className="ck-cabinet">
+      <nav className="ck-folders" role="tablist" aria-label="Log drawers">{[['all', ['🗂', 'All files']], ...Object.entries(FOLDERS)].map(([k, [ic, l]], i) => { const n = k === 'all' ? items.length : counts[k] || 0;
+        return <button key={k} type="button" role="tab" aria-selected={f === k} className={f === k ? 'is-on' : ''} disabled={!n} style={{ '--i': i }} onClick={() => setF(k)} data-testid={`log-${k}`} data-tip={n ? `Open the ${l} drawer` : `The ${l} drawer is empty`}>
+          <i aria-hidden="true">{ic}</i><span>{l}</span><b className="m-num">{n}</b><u className="ck-handle" aria-hidden="true" /></button>; })}</nav>
+      <ol className="ck-rows" role="tabpanel">{rows.length ? rows.map((x, i) => <li key={`${x.f}-${x.at}-${i}`} className={`is-${x.tone || 'mute'}`} style={{ '--i': Math.min(i, 10) }}>
+        <i aria-hidden="true">{FOLDERS[x.f]?.[0]}</i><span>{safeLine(x.text)}</span><small>{x.at ? ago(x.at) : ''}</small></li>) : <li className="ck-empty">Nothing here yet.</li>}</ol>
+    </div>
   </section>;
 }
 

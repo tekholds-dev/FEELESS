@@ -144,7 +144,7 @@ export function CatDesk({ cat, busy = false, error = '', onBack, onAct, Activity
         sub={v.capUsed >= 1 ? 'cap hit — no new buys today' : 'its daily loss cap'} tip="Losses closed today against the cap you set — at the cap it stops buying until tomorrow" />
     </div>
     {cat.brainsCfg ? <LiveMinds cat={cat} onAct={onAct} busy={busy} canEdit={canEdit} /> : <RuleWindows cat={cat} />}
-    <div className="kd-grid">
+    <div className={`kd-grid${canEdit ? "" : " is-solo"}`}>
       <div className="kd-main">
         {Real}
         <section className="kd-card kd-curve" data-testid="kd-curve"><header><b>📈 P/L CURVE</b><small>{(cat.pnlHistory || []).length} cycles · realized + open</small></header>

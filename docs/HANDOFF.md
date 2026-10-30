@@ -15,6 +15,9 @@ Read this (2 min) → `CLAUDE.md` (lean rules + 🎨 MANDATORY STYLING + 📋 CU
 >    LIVE visual (meters, bars, animation on real numbers), never bare text. `styles/cssCoverage.test.js` fails on an unstyled class.
 
 ## 🔁 NOW (rewrite this section in place every session)
+> ✅ 2026-10-30 (late night): agent windows 4:3, ≤ 504 px each, centred, whole chart inside + owner vitals strip (size/P&L/held · exit/P&L/after/sold); desk = one
+> 1110 px column (visitors: no empty side column; owner side sticky); its log = 🗄 file cabinet (drawers + safeLine masks passwords/keys/seed phrases);
+> lag: wall `contain` + off-screen messages `content-visibility` (full layout 339 → 13 ms); desk video follows the page (.fcx overflow clip). NEXT: SEC01.
 > ✅ 2026-10-30 (night): FC10 + owner's FeeCat list. General wizard step 3 = 🎯 ITS JOB + BRIEF (job tabs Research/Content/Build/Crypto/Errands →
 > 26 preset cards → name + its built body + $ cap per task (`taskCap` at create) + brief editable hourly) — no trader/paper fields, no coat grid. Prompt
 > generator `briefFor(persona, kind, mode, solo)` in LaunchCat = job brief + HOW YOU TWO WORK per mode (`COLLAB`) + house RULES (`HOUSE`), both kinds.

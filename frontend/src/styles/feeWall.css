@@ -42,6 +42,9 @@ body.theme-day .fcx-body .fcp { background: linear-gradient(170deg, #f6f0ff, #ff
 /* ↔ skinny wall (owner 2026-10-30: "no wide-ass chats"): her panel keeps its violet width, the conversation is one centred column */
 .fcx-body .fcp > * { width: 100%; max-width: 720px; margin-inline: auto; }
 .fcx-body .fcp .fcp-wall .chat-message > div { max-width: 88%; }
+/* ⚡ no lag (owner 2026-10-30): her wall is ~4,000 nodes of call cards — off-screen messages skip layout + paint, and the wall is its own layout
+   island, so the live charts' redraws above never re-lay out the whole wall (a full page layout cost 339 ms) */
+.fcx-body .fcp { contain: layout style; } .fcx-body .fcp .fcp-wall .chat-message { content-visibility: auto; contain-intrinsic-size: auto 240px; }
 
 /* 💜 her wall = one purple glass chat between two live sides (owner 2026-10-30: purple by default, no style picker, live vitals beside, no text walls) */
 .fcx-body .fcp > .fw-row { max-width: 1240px; }
