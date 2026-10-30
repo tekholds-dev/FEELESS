@@ -37,6 +37,8 @@ agent desk `CatDesk.jsx` (one 1110 px column; `ModelSwitch` with keep / 🧠 sor
 per-mind ☁ clouds `brainsCfg.minds`, `handoff` action) · funding `CatReal.jsx` (`FundCat` reads `feeless.fundIntent.<id>`; recovery box after the
 first payment) · Fee's models `FeeModels.jsx` (your model LEADS, NEXA helps). Lag fixes: `feeWall.css` contain + content-visibility.
 
+**BLOCKER W03:** no agent wallet can be made until Crossmint enables api-key signers (owner is asking support). Test the first real SOL / USDC funding small once it is on.
+
 **One Fee (2026-10-30):** every door (LIVE DESK for the creator, My agents banner, profile banner, leaderboard) opens `FeeCatsPlatform › CatDetail` → `CatDesk` + `Tools` (NEXA desk, visitors view, her book). Her engine / limits / retire stay server-only, so `CatDesk runs` hides them on Fee. **Account prompt:** `docs/CLAUDE_ACCOUNT_PROMPT.md`. Saved to `~/.claude/CLAUDE.md`.
 
 **Agent money + limits (2026-10-30):** `cat_fund.py` pays SOL or USDC, into its wallet or model credit (`purpose`); free credit only for paper cats or creators (`free_credit_ok`). `FundPick` chooses before the wallet exists. `SpendLimits` (`cat.limits` + `taskCap`, enforced in `_work_start` + `cat_agent._ask`). `split_jobs`: one job = one owner + one supporter, never twice.
