@@ -307,3 +307,57 @@ def test_each_minds_cloud_never_leaves_in_a_public_cat_view():
     import feecat_service as fs
     out = fs._no_keys({'id': 'c1', 'ownerId': 'o', 'brainsCfg': {'brains': ['m/a'], 'cloud': [], 'minds': {'m/a': [{'text': 'private research'}]}}})
     assert 'minds' not in out['brainsCfg'] and 'ownerId' not in out
+
+
+def test_a_general_agent_end_to_end_from_the_wizard_to_its_answer_and_clouds(tmp_path, monkeypatch):
+    """🚀 the owner's first real general agent, network faked: the wizard's exact create → a two-job ask → both minds work, hand off,
+    note → one answer in its chat, each mind's best notes in ITS cloud, $ charged inside its cap, nothing private on the public view."""
+    import time as _t
+    from fastapi.testclient import TestClient
+    import launch_cat as lc
+    import feecat_service as fs
+    rows = [{'id': f'm/{x}', 'name': x, 'context_length': 131072, 'pricing': {'prompt': '0.0000001', 'completion': '0.0000002'}} for x in ('a', 'b')]
+    monkeypatch.setattr(fs, 'STORE_PATH', tmp_path / 'feecats.json')
+    monkeypatch.setattr(fs, '_MODELS', {'at': 9e18, 'rows': lc.catalog(rows)})
+    monkeypatch.setenv('OPENROUTER_API_KEY', 'test'); monkeypatch.setenv('GENERAL_CAT_LIVE', '1')
+    script = {'m/a': [{'action': 'note', 'say': 'Solana: 400ms blocks'}, {'action': 'handoff', 'say': 'Solana: 400ms blocks (solana.com)'}, {'action': 'answer', 'say': 'Solana researched'}],
+              'm/b': [{'action': 'answer', 'say': 'thread drafted from A'}]}
+    briefs = []
+
+    async def or_call(model, messages, **k):
+        briefs.append(messages[0]['content'])
+        return json.dumps(script[model].pop(0)), 0.001
+    monkeypatch.setattr(fs, '_or_call', or_call)
+
+    async def open_session(http, env):
+        return {'provider': 'reader'}, []
+    monkeypatch.setattr(fs._cb, 'open_session', open_session)
+    monkeypatch.setattr(fs._cb, 'ReaderPage', lambda http: Page())
+
+    async def close_session(*a):
+        return None
+    monkeypatch.setattr(fs._cb, 'close_session', close_session)
+    with TestClient(fs.app) as c:
+        brief = 'Answer my question like an analyst, cite sources.\n\nHOW YOU TWO WORK — each of you owns a separate job.\n\nRULES — never invent facts.'
+        r = c.post('/api/cats', json={'ownerId': 'w', 'name': 'Scout', 'handle': 'scout', 'brains': ['m/a', 'm/b'], 'brainKind': 'general', 'brainMode': 'turns',
+                                      'billing': 'payg', 'prompt': brief, 'job': 'researcher', 'workMode': 'jobs', 'taskCap': 0.25})
+        assert r.status_code == 200, r.text
+        cid = r.json()['cat']['id']
+        cat = fs._load()['cats'][cid]
+        assert cat['taskCap'] == 0.25 and cat['workMode'] == 'jobs' and cat['brainsCfg']['kind'] == 'general' and cat['job'] == 'researcher'
+        assert c.post(f'/api/cats/{cid}/work', json={'op': 'ask', 'ownerId': 'intruder', 'text': 'hi'}).status_code == 403   # only its owner
+        r = c.post(f'/api/cats/{cid}/work', json={'op': 'ask', 'ownerId': 'w', 'text': 'A: research Solana B: write a thread on it'})
+        assert r.status_code == 200, r.text
+        for _ in range(100):
+            if fs._WORK[cid].get('done'):
+                break
+            _t.sleep(0.05)
+        assert fs._WORK[cid].get('done')
+        store = fs._load(); fs._work_settle(store); fs._save(store)
+        cat = fs._load()['cats'][cid]
+        assert all('Answer my question like an analyst' in b for b in briefs)                       # the brief rides every call
+        assert 'thread drafted from A' in cat['chat'][-1]['text'] and 'Solana researched' in cat['chat'][-1]['text']
+        assert [x['text'] for x in cat['brainsCfg']['minds']['m/a']] == ['Solana: 400ms blocks'] and 'm/b' not in cat['brainsCfg']['minds']
+        assert 0 < cat['brainsCfg']['spent'] <= 0.25
+        pub = c.get(f'/api/cats/{cid}').json()
+        assert 'minds' not in json.dumps(pub.get('cat', pub).get('brainsCfg', {})) and 'ownerId' not in json.dumps(pub)

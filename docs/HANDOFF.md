@@ -21,7 +21,8 @@ Read this (2 min) → `CLAUDE.md` (lean rules + 🎨 MANDATORY STYLING + 📋 CU
 > Demo windows follow the mode (`DEMO_MODE`: one coin for discuss/together, two for turns/battle; halves vs two jobs + handoff). Live windows 176 px
 > (150 on phones), LIVE tag flush right, no fake "PREVIEW" chart. Backdrop video pauses while scrolling (60 fps measured). Each mind has its own ☁ cloud
 > (`brainsCfg.minds[model]`, best 3 notes/task, 20 max, read next task; wiped on a fresh model switch) + `handoff` action between minds
-> (`cat_agent`). Click-through 466 / 678 / 890: no overflow on any FeeCat tab. Not FeeCat: site chat re-POSTs old calls → 156× 409 on /api/reputation/calls.
+> (`cat_agent`). Click-through 466 / 678 / 890: no overflow on any FeeCat tab. ✅ READY: end-to-end test (wizard create → two-job ask →
+> answer + clouds + cap + privacy) passes; live: GENERAL_CAT_LIVE on, OpenRouter + Circle + Crossmint + Steel set. Not FeeCat: site chat re-POSTs old calls → 156× 409 on /api/reputation/calls.
 > ✅ 2026-10-30 (late): FEECAT AGENTS READY FOR A REAL GENERAL AGENT. Agent desk = 2 live windows → `CatCockpit.jsx` [mind A vitals | skinny bubble chat (+ head
 > cloud) | mind B vitals] → 📁 foldered live log (trades · thoughts · tasks · files · cloud · guards); general cats get the cockpit inside `CatWorkbench` (two
 > ways: plan → one answer · two jobs, `cat_agent.MODES`; `cat_tools.py` FEELESS-first read-only tools; scratch pads → main cloud). Desk skins: drawn

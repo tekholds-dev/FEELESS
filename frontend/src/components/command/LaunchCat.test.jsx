@@ -97,7 +97,7 @@ test('🧭 the General wizard: real prices on every model + an ABOUT dropdown, i
   const { signWord, mono } = require('./LaunchCat');
   const G = { ...CAT, models: [M('a/agent', { perTask: 0.0123, inUsd: 0.5, outUsd: 1.5, cats: ['agent'], desc: 'Drives tools over long tasks.' }), M('b/writer', { perTask: 0.002, cats: ['content'] })],
     rec: [], cats: [{ key: 'meta', label: '👁 Meta', why: '', n: 0 }, { key: 'agent', label: '🌐 Agent', why: '', n: 1, general: true }, { key: 'content', label: '✍ Content', why: '', n: 1, general: true }, { key: 'code', label: '💻 Code', why: '', n: 0, general: true }],
-    personas: { general: [{ key: 'researcher', label: '🔎 Researcher', job: 'research', brief: 'Research any topic deeply and cite every source you use.' }] } };
+    personas: { general: [{ key: 'researcher', label: '🔎 Researcher', job: 'researcher', brief: 'Research any topic deeply and cite every source you use.' }] } };
   const posted = []; const api = jest.fn((u, o) => { if (o) { posted.push(JSON.parse(o.body)); return Promise.resolve({ cat: { id: 'g1' } }); } return Promise.resolve(G); });
   const el = document.createElement('div'); const root = createRoot(el);
   await act(async () => { root.render(<LaunchCat api={api} ownerId={() => 'o'} kind="general" />); });
@@ -119,7 +119,7 @@ test('🧭 the General wizard: real prices on every model + an ABOUT dropdown, i
   expect($('[data-testid="lct-bill-profit"]')).toBeNull(); expect($('[data-testid="lct-next-real"]').textContent).toContain('it checks with you');
   expect(el.textContent).not.toMatch(/you sign every trade|your wallet signs every/i);
   await act(async () => { $('[data-testid="lct-launch"]').click(); });
-  expect(posted[0]).toMatchObject({ brainKind: 'general', billing: 'payg', brainMode: 'turns', taskCap: 0.25, job: 'research' });
+  expect(posted[0]).toMatchObject({ brainKind: 'general', billing: 'payg', brainMode: 'turns', taskCap: 0.25, job: 'researcher' });
   expect(signWord({ agentWallet: { mode: 'auto' } })).toContain('no signing'); expect(signWord({ agentWallet: { mode: 'approve' } })).toContain('one tap'); expect(signWord({})).toContain('your wallet signs');
   expect(mono({ provider: 'nvidia' })).toBe('NV');
   act(() => root.unmount());
