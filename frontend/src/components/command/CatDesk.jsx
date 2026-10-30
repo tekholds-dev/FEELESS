@@ -50,8 +50,8 @@ function LiveMinds({ cat }) {
   const x = useMemo(() => catMinds(cat), [cat]); const coins = useMemo(() => catCoins(cat), [cat]);
   const gen = cat.brainsCfg?.kind === 'general'; const on = cat.status === 'running';
   const minds = x.brains.map((id, i) => ({ model: asModel(id), kind: gen ? 'general' : 'trading', thoughts: x.thoughts[i], live: on, label: asModel(id).name, sub: `${gen ? 'MIND' : 'BRAIN'} ${'AB'[i]}${on ? ' · thinking' : ' · resting'}` }));
-  if (gen) return <><MindsRow minds={minds} /><CatWorkbench cat={cat} /></>;
-  return <AgentLive title={`LIVE · ${cat.name}'s two brains`} minds={minds} coins={coins} feed={x.feed.length ? x.feed : [on ? '🔎 hunting — it buys only what passes every rule' : '⏸ stopped — start it to hunt']} />;
+  if (gen) return <><MindsRow minds={minds} cloud={x.cloud} /><CatWorkbench cat={cat} /></>;
+  return <AgentLive title={`LIVE · ${cat.name}'s two brains`} minds={minds} cloud={x.cloud} coins={coins} feed={x.feed.length ? x.feed : [on ? '🔎 hunting — it buys only what passes every rule' : '⏸ stopped — start it to hunt']} />;
 }
 
 export function CatDesk({ cat, busy = false, error = '', onBack, onAct, Activity = null, Brains = null, Engine = null, Real = null }) {

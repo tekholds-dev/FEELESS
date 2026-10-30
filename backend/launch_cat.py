@@ -168,7 +168,7 @@ def clean(body, prev=None, ids=None, max_models=2):
     return {'brains': brains, 'brainMode': mode if len(brains) > 1 else 'turns', 'billing': billing, 'prompt': prompt, 'kind': kind,
             'efforts': {m: e for m, e in (body.get('efforts') or prev.get('efforts') or {}).items() if m in brains},
             'promptLocked': bool(prompt), 'credit': prev.get('credit', START_CREDIT), 'owed': prev.get('owed', 0.0),
-            'spent': prev.get('spent', 0.0), 'asks': prev.get('asks', 0), 'chime': prev.get('chime', []), 'decisions': prev.get('decisions', [])}
+            'spent': prev.get('spent', 0.0), 'asks': prev.get('asks', 0), 'chime': prev.get('chime', []), 'decisions': prev.get('decisions', []), 'cloud': prev.get('cloud', [])}
 
 
 def chime(b, text, now=None):
@@ -239,6 +239,36 @@ def note(b, kind, sym, word, by, why, usd, now=None):
                                                      'why': ' '.join(str(why or '').split())[:240], 'usd': round(usd, 6)}])[-40:]
     return b
 
+
+
+CLOUD_WINDOW = 1800   # two brains agreeing on the same coin within 30 min
+CLOUD_MAX = 30
+
+
+def cloud_check(b, sym, word, by, why, now=None, together=None):
+    """☁ THE HEAD CLOUD (owner 2026-10-30: "a general cloud where the agents push the best data — they both agree it's vital, then it goes to
+    head cloud storage"). A call reaches the cloud only when BOTH brains said the same word on the same coin — in one ask (`together` = the
+    other brain's words this call) or within 30 min of each other. Returns the stored item, or None. Call it BEFORE note() files this call."""
+    now = now or time.time()
+    if not sym or not word or word == 'RULES':
+        return None
+    other = None
+    if together:
+        if all(w == word for _, w in together) and len({m for m, _ in together}) > 1:
+            other = {'by': ' + '.join(m.split('/')[-1] for m, _ in together), 'why': ''}
+    else:
+        other = next((x for x in reversed(b.get('decisions') or []) if x.get('sym') == sym and x.get('by') != by and now - (x.get('at') or 0) <= CLOUD_WINDOW), None)
+        if other and other.get('word') != word:
+            other = None
+    if not other:
+        return None
+    last = (b.get('cloud') or [])[-1:]
+    if last and last[0].get('sym') == sym and last[0].get('word') == word and now - last[0].get('at', 0) < CLOUD_WINDOW:
+        return None   # already in the cloud
+    item = {'at': now, 'sym': sym, 'word': word, 'by': [by, other['by']] if not together else [m.split('/')[-1] for m, _ in together],
+            'why': ' '.join(f"{why or ''} {other.get('why') or ''}".split())[:280]}
+    b['cloud'] = ((b.get('cloud') or []) + [item])[-CLOUD_MAX:]
+    return item
 
 SYS = ('You are the brain of a paper trading cat on Solana launch coins. Answer with ONLY JSON {"word": W, "why": "one short sentence"}. '
        'Buy decisions: W is BUY or SKIP. Live decisions: W is HOLD, SELL or TRIM (sell half). Never invent numbers; use the case. '

@@ -125,6 +125,24 @@ body.theme-day .akv-h b, body.theme-day .akd-have code { color: #0c6a44; } body.
 .agl-ghost { position: relative; display: grid; min-height: 220px; } .agl-ghost .agd-chart { opacity: .45; }
 .agl-ghost span { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); padding: 4px 10px; border-radius: 999px; background: #07040ee0; border: 1px solid #9dffcf44;
   color: #9dffcf; font: 800 9.5px var(--f-mono, monospace); letter-spacing: .12em; white-space: nowrap; }
-.agl .agd-wins { padding-bottom: 72px; }
+.agl .agd-wins { padding-bottom: 0; }
+.agl .agd-feed { position: relative; left: auto; bottom: auto; width: 100%; transform: none; }   /* the windows keep their own space — its calls sit under them */
+.agl-load { display: grid; place-items: center; min-height: 220px; color: #9d8fbf; font: 700 10px var(--f-mono, monospace); letter-spacing: .12em; text-transform: uppercase; }
 body.theme-day .agl-mind b { color: #2a1650; } body.theme-day .agl-mind small { color: #4a3a6a; }
 @media (max-width: 640px) { .agl-plot, .agl-ghost { min-height: 180px; } }
+
+/* ☁ the head cloud between the two minds — fills and glows once both agree; a beam from each bubble feeds it */
+.agl-minds.has-cloud { align-items: center; gap: clamp(14px, 4vw, 48px); }
+.agl-cloud { position: relative; display: grid; justify-items: center; gap: 1px; width: 150px; padding-top: 4px; text-align: center; }
+.agl-cloud::before, .agl-cloud::after { content: ''; position: absolute; top: 30px; width: 46px; height: 2px; background: linear-gradient(90deg, transparent, #9dffcf88); opacity: .4; }
+.agl-cloud::before { right: 100%; } .agl-cloud::after { left: 100%; transform: scaleX(-1); }
+.agl-cloud.is-on::before, .agl-cloud.is-on::after { opacity: 1; animation: aglFeed 1.6s ease-in-out infinite; }
+.agl-cloud svg { width: 96px; height: 56px; overflow: visible; } .agl-cloud path { fill: #ffffff08; stroke: #9dffcf66; stroke-width: 1.4; }
+.agl-cloud.is-on path { fill: #9dffcf1f; stroke: #9dffcf; filter: drop-shadow(0 0 8px #9dffcf88); }
+.agl-cloud b { position: absolute; top: 20px; color: #fff; font: 800 18px var(--f-mono, monospace); animation: agdPop .35s both; }
+.agl-cloud em { color: #9dffcf; font: 800 9px var(--f-mono, monospace); letter-spacing: .14em; font-style: normal; }
+.agl-cloud small { color: #c9bce6; font-size: 10px; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+@keyframes aglFeed { 50% { opacity: .35; } }
+@media (prefers-reduced-motion: reduce) { .agl-cloud::before, .agl-cloud::after { animation: none; } }
+body.theme-day .agl-cloud small { color: #4a3a6a; } body.theme-day .agl-cloud b { color: #0c6a44; }
+@media (max-width: 640px) { .agl-cloud { width: 110px; } .agl-cloud::before, .agl-cloud::after { display: none; } }

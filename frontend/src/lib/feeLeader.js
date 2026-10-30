@@ -33,3 +33,19 @@ export function feeHeadline(p) {
   return { start, bal, real, roi: s.roiPct ?? 0, trades: s.trades || 0, wr: c.winRate ?? null, open: (c.positions || []).length, lives: d.lives ?? 9, maxLives: d.maxLives || 9,
     nap: !!(d.pause || c.status === 'paused'), size: d.sizeMult ?? null, why: d.why || '', best: s.best ?? null, worst: s.worst ?? null };
 }
+
+// 🎨 Fee's look for EVERY Fee mark on the site (owner 2026-10-30: "I should be able to style Fee and it shows when users view"): one read of her
+// public profile per 5 min for the whole page (no 15s poll on pages that only show her mark); 🎨 STYLE FEE fires `feeless:fee-look` to update at once
+let lookCache = null; let lookAt = 0; let lookP = null; const lookSubs = new Set();
+function readLook() {
+  if (lookP || Date.now() - lookAt < 300000) return;
+  try { lookP = sharedJson('/api/cats/leader/profile', { maxAge: 299000 }); } catch { lookAt = Date.now(); return; }
+  lookP = Promise.resolve(lookP).then(d => { const l = d?.cat?.look; if (l) { lookCache = l; lookSubs.forEach(f => f(l)); } })
+    .catch(() => {}).finally(() => { lookP = null; lookAt = Date.now(); });
+}
+if (typeof window !== 'undefined') window.addEventListener('feeless:fee-look', e => { if (e.detail) { lookCache = e.detail; lookAt = Date.now(); lookSubs.forEach(f => f(e.detail)); } });
+export function useFeeLook(on = true) {
+  const [l, setL] = useState(lookCache);
+  useEffect(() => { if (!on) return undefined; lookSubs.add(setL); if (lookCache) setL(lookCache); readLook(); return () => { lookSubs.delete(setL); }; }, [on]);
+  return on ? l : null;
+}

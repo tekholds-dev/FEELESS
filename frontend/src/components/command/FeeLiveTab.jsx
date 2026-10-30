@@ -27,19 +27,22 @@ export function FeeLiveTab() {
       if (on) t = setTimeout(go, document.hidden ? 60000 : 15000); };
     go(); return () => { on = false; clearTimeout(t); }; }, []);
   const pos = d?.cat?.positions || []; const f = useMemo(() => scanFunnel(d?.scan, pos.length), [d, pos.length]);
-  const coins = useMemo(() => [...pos.map(p => ({ pair: p.pairAddress, mint: p.mint, symbol: p.symbol, pct: n(p.currentChange), entry: n(p.entryPriceUsd), open: true })),
-    ...f.next.map(t => ({ pair: t.pairAddress, mint: t.mint, symbol: t.symbol, open: false }))].filter(c => c.pair), [pos, f.next]);
+  // 📈 her two windows ALWAYS chart live coins (owner 2026-10-30: "I don't want that preview — 2 live charts regardless if she's trading"):
+  // what she holds → her next picks → the coins she last traded
+  const coins = useMemo(() => { const seen = new Set(); const out = [];
+    const add = c => { if (c.pair && !seen.has(c.pair) && out.length < 2) { seen.add(c.pair); out.push(c); } };
+    pos.forEach(p => add({ pair: p.pairAddress, mint: p.mint, symbol: p.symbol, pct: n(p.currentChange), entry: n(p.entryPriceUsd), open: true }));
+    f.next.forEach(t => add({ pair: t.pairAddress, mint: t.mint, symbol: t.symbol, open: false, note: 'next up' }));
+    ev.filter(e => (e.type === 'BUY' || e.type === 'SELL') && e.pairAddress).forEach(e => add({ pair: e.pairAddress, symbol: e.symbol || (String(e.detail || '').match(/\bof\s+([A-Z0-9_$]{2,})/i) || String(e.detail || '').match(/^Sold\s+([A-Z0-9_$]{2,})/i) || [])[1] || 'COIN', open: false, note: `last ${e.type === 'BUY' ? 'bought' : 'sold'}` }));
+    return out; }, [pos, f.next, ev]);
   if (!d) return <p className="paper-muted" data-testid="fee-live-wait">🐱 reading Fee…</p>;
   const c = coins[0];
   // 🛸 the demo's layout on her real desk (owner 2026-10-30): Fee + FeeCat AI as live bubbles (their own latest words), her two coins charted,
   // her calls riding over both windows (the separate calls panel is gone — her wall carries the conversation)
   const hunting = d.cat?.status === 'running' && !(prof?.discipline || {}).pause;
-  const aiWords = (d.talk || []).slice(-4).map(t => `${String(t.word || '').toUpperCase()} ${t.sym ? `$${t.sym}` : ''}`.trim()).filter(Boolean);
-  const minds = [{ model: { id: 'fee', name: 'Fee', provider: 'FEE' }, thoughts: f.reasons.map(r => r.label).slice(0, 4), live: hunting, label: 'Fee', sub: hunting ? 'hunting · her rules' : 'napping' },
-    { model: { id: 'ai', name: 'FeeCat AI', provider: 'AI' }, thoughts: aiWords, live: hunting, label: 'FeeCat AI', sub: 'reads every coin' }];
   const feed = callThread(ev, pos).slice(0, 3).reverse().map(m => `🐱 ${m.side}${m.coin && m.coin !== 'null' ? ` $${m.coin}` : ''}${m.why ? ` — ${String(m.why).slice(0, 64)}` : ''}`);
   return <section className="fcv" data-testid="fee-live">
-    <AgentLive testId="fee-live-minds" title={`LIVE · Fee's desk · ${c ? (c.open ? `holding $${c.symbol}` : `next up $${c.symbol}`) : 'hunting'}`} minds={minds} coins={coins} feed={feed} callouts={pair => [...talkPins(d.talk, pair)]} />
+    <AgentLive testId="fee-live-minds" title={`FEECAT'S VIEW · ${hunting ? 'hunting' : 'napping'}${c?.open ? ` · holding $${c.symbol}` : ''}`} coins={coins} feed={feed} callouts={pair => [...talkPins(d.talk, pair)]} />
     <article className="fcv-card fcv-funnel"><h3>🔎 HER LAST SCAN<small>{d.scan?.at ? `${ago(d.scan.at)} ago` : 'no scan yet'}</small></h3>
       <p className="fcv-flow"><span><b key={f.read}>{f.read}</b><small>coins read</small></span><i>→</i><span className={f.passed ? 'is-good' : ''}><b key={f.passed}>{f.passed}</b><small>passed</small></span><i>→</i><span><b key={f.held}>{f.held}</b><small>holding</small></span></p>
       {f.reasons.length ? <ul className="fcv-bars">{f.reasons.map((r, i) => <li key={r.k} style={{ '--i': i }} data-tip={r.full}><span className="fcv-rc"><i aria-hidden="true">{r.icon}</i>{r.label}</span><i><u style={{ transform: `scaleX(${Math.max(0.05, r.w)})` }} /></i><b>{r.c}</b></li>)}</ul> : <p className="paper-muted">nothing stopped a coin this scan</p>}

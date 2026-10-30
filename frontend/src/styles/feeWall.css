@@ -22,3 +22,19 @@ body.fx-lite .fcp-wall .chat-message { animation: none; }
 body.theme-day .fcp-wall .chat-message > div { background: #fff; border-color: #7c4dff26; } body.theme-day .fcp-wall .chat-message p { color: #2a1650; }
 body.theme-day .fcp-wall .chat-message .message-meta > button b { color: #2a1650; } body.theme-day .fcp-wall .chat-message.is-mine > div { background: #ece2ff; }
 @media (max-width: 640px) { .fcp-wall .chat-message > div { max-width: 86%; } .fcp-wall .chat-message > .chat-avatar { width: 28px; height: 28px; } }
+
+/* 💜 the wall's own violet-night panel (owner 2026-10-30: "where's the purple styling for that wall?") — glass, a violet edge glow, a still aurora (no moving layer this big — owner's Mac was swapping) */
+.fcx-body .fcp { position: relative; isolation: isolate; padding: 14px; border-radius: 20px; overflow: hidden; border: 1px solid #b388ff38;
+  background: radial-gradient(90% 60% at 100% 0%, #6a3fd633, transparent 60%), radial-gradient(80% 70% at 0% 100%, #ff5dbb1f, transparent 60%), linear-gradient(170deg, #1d1035, #0d0718 70%);
+  box-shadow: inset 0 1px 0 #ffffff14, 0 0 0 1px #7c4dff14, 0 24px 60px -40px #7c4dff; }
+.fcx-body .fcp::before { content: ''; position: absolute; inset: 0; z-index: -1; pointer-events: none; opacity: .35;
+  background: conic-gradient(from 0deg at 50% 50%, transparent, #b388ff22, transparent 30%, #ff5dbb18, transparent 60%); }
+.fcx-body .fcp .fcp-wall .ecosystem-chat { background: linear-gradient(180deg, #160c2acc, #0b0614cc); border-color: #b388ff2a; }
+body.theme-day .fcx-body .fcp { background: linear-gradient(170deg, #f6f0ff, #fff); border-color: #7c4dff2e; } body.theme-day .fcx-body .fcp .fcp-wall .ecosystem-chat { background: #fff; }
+
+/* 🃏 her 10 newest posts as clean cards on every screen: a post carrying a coin card takes the full row (no squeezed card), the card itself
+   sits flush in the bubble, and phones drop the avatar column so nothing is pinched at 360 px */
+.fcp-wall .chat-message > div:has(.chat-token-wrap, .fuse-chat-card) { flex: 1 1 auto; max-width: 100%; }
+.fcp-wall .chat-message .chat-token-wrap { margin-top: 8px; border-radius: 12px; overflow: hidden; }
+.fcp-wall .chat-message .call-perf { margin-top: 6px; border-radius: 10px; }
+@media (max-width: 640px) { .fcp-wall .chat-message:has(.chat-token-wrap) > .chat-avatar { display: none; } .fcp-wall .chat-message > div { padding: 8px 10px 6px; } }

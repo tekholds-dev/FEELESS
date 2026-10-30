@@ -227,3 +227,11 @@ body.theme-day .lct-seal { background: #fff9ec; } body.theme-day .lct-seal b { c
 @media (prefers-reduced-motion: reduce) { .lct-th { opacity: .6; transform: translate(-50%, calc(var(--j) * 70% - 120%)); } }
 body.theme-day .lct-cost label { color: #5a3a9a; } body.theme-day .lct-cost-n { background: #fff8e0; color: #7a5a00; }
 @media (max-width: 640px) { .lct-cost-to { display: none; } .lct-cost-n { flex: 1 1 100%; grid-auto-flow: column; gap: 6px; align-items: baseline; } }
+
+/* 🧭 WHAT'S ITS JOB? — the general wizard's job picker over the model list */
+.lct-job { display: grid; grid-template-columns: auto minmax(0, 320px) auto; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 14px;
+  border: 1px solid #9dffcf33; background: linear-gradient(90deg, #9dffcf12, transparent 70%); }
+.lct-job span { color: #9dffcf; font: 800 10px var(--f-mono); letter-spacing: .14em; } .lct-job select { min-height: 40px; font: 700 12.5px var(--f-ui); }
+.lct-job select:focus-visible { outline: 2px solid #9dffcf; outline-offset: 2px; } .lct-job small { color: #c9bce6; font: 700 10px var(--f-mono); }
+body.theme-day .lct-job { background: #f2fff8; } body.theme-day .lct-job span { color: #0c6a44; } body.theme-day .lct-job small { color: #4a3a6a; }
+@media (max-width: 640px) { .lct-job { grid-template-columns: 1fr; } }

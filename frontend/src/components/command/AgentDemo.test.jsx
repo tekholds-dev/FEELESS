@@ -60,3 +60,11 @@ test('🛸 live view: each brain thinks its own latest calls; held coins chart f
   expect(el.querySelectorAll('.agd-win')).toHaveLength(2); expect(el.textContent).toContain('PREVIEW'); expect(el.querySelectorAll('.lct-orb')).toHaveLength(2);
   expect(el.querySelector('.lct-orb.is-idle')).not.toBeNull();   // the empty second mind is still
 });
+
+test('☁ the head cloud shows what both minds agreed on', async () => {
+  const { HeadCloud, catMinds } = require('./AgentLive');
+  expect(catMinds({ brainsCfg: { brains: ['a/x'], cloud: [{ sym: 'A', word: 'BUY' }, { sym: 'B', word: 'SELL' }] } }).cloud.map(c => c.sym)).toEqual(['B', 'A']);
+  const el = await mount(<HeadCloud items={[{ sym: 'B', word: 'SELL' }]} />);
+  expect(el.textContent).toContain('SELL $B · both agree'); expect(el.querySelector('.agl-cloud.is-on')).not.toBeNull();
+  const empty = await mount(<HeadCloud />); expect(empty.textContent).toContain('waiting for both to agree');
+});

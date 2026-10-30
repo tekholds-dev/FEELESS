@@ -73,9 +73,15 @@ export const shortName = m => String(m?.name || m?.id || '').replace(/^[^:]+:\s*
 export const signWord = cat => (cat?.agentWallet ? (cat.agentWallet.mode === 'auto' ? 'its own wallet sends it — no signing' : 'you OK it with one tap — its own wallet sends it') : 'a proposal your wallet signs');
 const fmtCtx = n => n >= 1e6 ? `${(n / 1e6).toFixed(1)}M` : n >= 1e3 ? `${Math.round(n / 1e3)}K` : String(n || '—');
 
-export function filterModels(models, { q = '', cat = '', sort = 'smart', min = 0, max = Infinity, kind = 'trading' } = {}) {
+// 🧭 a GENERAL agent's job → the models best at it (owner 2026-10-30: "a dropdown in the model picker for the type of task"): its category, what the
+// model must support (tools to drive a browser, vision to read a chart / page image), and how to rank them
+export const JOBS = [['', 'Any job', null], ['research', '🔎 Research + browse the web', { cat: 'agent', need: ['tools'], sort: 'smart' }],
+  ['trade', '📈 Read charts + trade on FEELESS', { need: ['tools', 'vision'], sort: 'smart' }], ['content', '✍ Write posts + content', { cat: 'content', sort: 'smart' }],
+  ['code', '💻 Code + build', { cat: 'code', need: ['tools'], sort: 'smart' }], ['vision', '👁 Read screenshots + images', { need: ['vision'], sort: 'smart' }],
+  ['memory', '📚 Long documents', { sort: 'ctx' }], ['cheap', '💸 Cheap everyday tasks', { sort: 'cheap' }]];
+export function filterModels(models, { q = '', cat = '', sort = 'smart', min = 0, max = Infinity, kind = 'trading', need = [] } = {}) {
   const t = q.trim().toLowerCase();
-  const rows = (models || []).filter(m => (!(Array.isArray(cat) ? cat.length : cat) || (Array.isArray(cat) ? cat : [cat]).every(c => m.cats.includes(c))) && (Number(kind === 'general' ? m.perTask : m.perDecision) >= min && Number(kind === 'general' ? m.perTask : m.perDecision) <= max) && (!t || `${m.name} ${m.id} ${m.desc}`.toLowerCase().includes(t)));
+  const rows = (models || []).filter(m => (!(Array.isArray(cat) ? cat.length : cat) || (Array.isArray(cat) ? cat : [cat]).every(c => m.cats.includes(c))) && (Number(kind === 'general' ? m.perTask : m.perDecision) >= min && Number(kind === 'general' ? m.perTask : m.perDecision) <= max) && (!t || `${m.name} ${m.id} ${m.desc}`.toLowerCase().includes(t)) && need.every(k => m[k]));
   const key = { smart: m => -(m.intel ?? -1), cheap: m => m.perDecision, ctx: m => -m.ctx, new: m => -m.created }[sort] || (() => 0);
   return [...rows].sort((a, b) => key(a) - key(b));
 }
@@ -157,13 +163,14 @@ export function LaunchCat({ api, ownerId, onCreated, onCancel, Fields, Preview, 
   const [picked, setPicked] = useState([]); const [mode, setMode] = useState('turns'); const [billing, setBilling] = useState(gen ? 'payg' : 'profit');
   const [form, setForm] = useState(() => newForm()); const update = (k, v) => setForm(f => ({ ...f, [k]: v })); const name = form.name;
   const [efforts, setEfforts] = useState({});
+  const [job, setJob] = useState(''); const jobCfg = (JOBS.find(j => j[0] === job) || JOBS[0])[2];
   const [cost, setCost] = useState(['', '']); const [persona, setPersona] = useState('');   // 💵 typed $ min / max (owner 2026-10-30: inputs, not sliders)
   const range = useMemo(() => { const lo = Number(cost[0]) || 0; const hi = cost[1] === '' ? Infinity : Math.max(lo, Number(cost[1]) || 0); return [lo, hi]; }, [cost]);
   const setCostAt = (i, v) => setCost(c => (i ? [c[0], v] : [v, c[1]]));
   const [prompt, setPrompt] = useState(''); const [saving, setSaving] = useState(false);
   const [venues, setVenues] = useState(['trench']); const [keys, setKeys] = useState({});
   useEffect(() => { let on = true; api(`/api/cats/models?session=${encodeURIComponent(readChatSession() || '')}`).then(x => on && setD(x)).catch(e => on && setErr(e.message)); return () => { on = false; }; }, [api]);
-  const rows = useMemo(() => filterModels(d?.models, { q, cat, sort, min: range[0], max: range[1], kind }), [d, q, cat, sort, range, kind]);
+  const rows = useMemo(() => filterModels(d?.models, { q, cat: jobCfg?.cat ? [jobCfg.cat] : cat, sort: jobCfg?.sort || sort, min: range[0], max: range[1], kind, need: jobCfg?.need || [] }), [d, q, cat, sort, range, kind, jobCfg]);
   useEffect(() => setN(PAGE), [q, cat, sort, range]);
   const pick = m => setPicked(p => p.some(x => x.id === m.id) ? p.filter(x => x.id !== m.id) : [...p, m].slice(-(d?.maxModels || 2)));
   const plan = planOf(picked, mode, d?.budget, kind);
@@ -191,6 +198,9 @@ export function LaunchCat({ api, ownerId, onCreated, onCancel, Fields, Preview, 
     {step === 0 ? <div className="lct-pane">
       {!d ? <p className="lct-load">Reading OpenRouter's model list…</p> : <>
         {d.rec?.length ? <><h4 className="lct-h">⭐ FEELESS PICKS — the brains FEELESS already runs</h4><div className="lct-rec">{d.rec.map((m, i) => <ModelTile key={m.id} m={m} i={i} kind={kind} on={picked.some(x => x.id === m.id)} onPick={pick} />)}</div></> : null}
+        {gen ? <label className="lct-job" data-tip="Pick the job — the list shows the models best at it (category, tools / vision it needs, ranked)"><span>WHAT'S ITS JOB?</span>
+          <select className="m-input" value={job} onChange={e => setJob(e.target.value)} data-testid="lct-job" aria-label="What is its job">{JOBS.map(([k, l]) => <option key={k} value={k}>{l}</option>)}</select>
+          <small>{jobCfg ? `${rows.length} models fit · ${[jobCfg.cat, ...(jobCfg.need || [])].filter(Boolean).join(' + ') || (jobCfg.sort === 'cheap' ? 'cheapest first' : 'biggest memory first')}` : 'every model'}</small></label> : null}
         <div className="lct-bar"><input className="m-input" placeholder={`Search ${d.models.length} models…`} value={q} onChange={e => setQ(e.target.value)} data-testid="lct-q" />
           <div className="m-seg">{SORTS.map(([k, l]) => <button key={k} type="button" className={sort === k ? 'is-on' : ''} onClick={() => setSort(k)}>{l}</button>)}</div></div>
         <div className="lct-bar lct-cost" data-tip="Only models whose cost sits between these two $ amounts — leave Max empty for no cap">

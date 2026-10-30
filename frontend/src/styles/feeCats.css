@@ -1,0 +1,20 @@
+/* 💲 FeeCategories.jsx — HQ › Core › Fees by product: one seg bar, a meter row per product, a small editor. Built from m-* tokens; transform / opacity only. */
+.fct { display: grid; gap: 12px; }
+.fct-seg { position: sticky; top: 0; z-index: 2; flex-wrap: wrap; }
+.fct-seg button { min-height: 36px; animation: fctIn .3s both; animation-delay: calc(var(--i, 0) * 50ms); }
+.fct-panel { display: grid; gap: 12px; }
+.fct-meters { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 8px; }
+.fct-meter { display: grid; gap: 3px; padding: 10px 12px; border-radius: 12px; border: 1px solid var(--m-line); background: var(--m-panel, #ffffff06); }
+.fct-meter em { font: 800 9.5px var(--f-mono); letter-spacing: .12em; font-style: normal; color: var(--m-mute); }
+.fct-meter b { font-size: 20px; color: var(--m-text); text-shadow: 0 0 14px color-mix(in srgb, var(--m-accent) 40%, transparent); }
+.fct-meter i { display: block; height: 4px; border-radius: 3px; background: #ffffff12; overflow: hidden; }
+.fct-meter i u { display: block; height: 100%; transform-origin: left; background: linear-gradient(90deg, var(--m-accent-deep, #0c8a45), var(--m-accent)); transition: transform .5s cubic-bezier(.2, .9, .3, 1); }
+.fct-meter small { color: var(--m-mute); font-size: 10.5px; }
+.fct-meter.is-free b { color: var(--m-accent); } .fct-meter.is-gold i u { background: linear-gradient(90deg, #a07500, var(--gold, #f5c542)); }
+.fct-edit { display: flex; flex-wrap: wrap; align-items: end; gap: 8px; } .fct-edit label, .fct-edit > span { display: grid; gap: 4px; font: 800 9.5px var(--f-mono); letter-spacing: .1em; text-transform: uppercase; color: var(--m-mute); }
+.fct-edit .m-input { min-height: 38px; width: 140px; font: 700 13px var(--f-mono); } .fct-edit .m-btn { min-height: 38px; }
+@keyframes fctIn { from { opacity: 0; transform: translateY(4px); } }
+body.fx-lite .fct-seg button { animation: none; }
+@media (prefers-reduced-motion: reduce) { .fct-seg button { animation: none; } .fct-meter i u { transition: none; } }
+body.theme-day .fct-meter { background: #fff; } body.theme-day .fct-meter b { text-shadow: none; }
+@media (max-width: 640px) { .fct-meters { grid-template-columns: 1fr 1fr; } .fct-edit .m-input { width: 100%; } .fct-edit label { flex: 1 1 120px; } }

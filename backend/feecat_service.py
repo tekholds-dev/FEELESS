@@ -826,6 +826,8 @@ async def _brain_decide(store, cat, kind, sym, case, owner=None):
         partner = f"{w or 'no answer'}: {why}"
     word = _lc.merge(b, answers, kind)
     by = ' + '.join(m.split('/')[-1] for m in models)
+    if _lc.cloud_check(b, sym, word, by, why, now, together=answers if len(answers) > 1 else None):   # ☁ both brains agree → the head cloud
+        _log_event(store, cat, 'LEARN', f"☁ head cloud: both brains say {word} ${sym}")
     _lc.note(b, kind, sym, word, by, why, cost, now)
     _log_event(store, cat, 'LEARN', f"🧠 {by}: {word} ${sym} — {why or 'no reason given'}")
     return word, models[-1], why
@@ -1882,7 +1884,7 @@ async def cat_profile(cat_id: str):
     pnls = [e.get('pnlSol') for e in trades if e.get('pnlSol') is not None]
     return _pub({
         'cat': {k: cat.get(k) for k in ('id', 'name', 'title', 'avatar', 'strategyLabel', 'level', 'xp', 'balanceSol', 'startingBalanceSol', 'realizedPnlSol',
-                                        'volumeSol', 'wins', 'losses', 'winRate', 'positions', 'pnlHistory', 'status', 'lastTick')},
+                                        'volumeSol', 'wins', 'losses', 'winRate', 'positions', 'pnlHistory', 'status', 'lastTick', 'look')},   # 🎨 her look rides along: every viewer sees the creator's style
         'stats': {'trades': closed, 'best': max(pnls) if pnls else None, 'worst': min(pnls) if pnls else None,
                   'roiPct': round((cat.get('balanceSol', 0) + sum(p.get('costSol', 0) for p in cat.get('positions', [])) - cat.get('startingBalanceSol', 0)) / max(cat.get('startingBalanceSol', 1), 1e-9) * 100, 2)},
         # Live discipline: 9 lives, size mode and why — computed now, the same rule the trading loop enforces.

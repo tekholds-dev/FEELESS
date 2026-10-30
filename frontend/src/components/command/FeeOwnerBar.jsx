@@ -49,7 +49,7 @@ function Studio({ cat, onSaved, devAddress }) {
   const save = async () => {
     setBusy(true); setMsg(null);
     try { const session = devAddress ? 'dev' : await getChatSession(addr, signMessage, { own: true });
-      onSaved(await post('look', { address: addr, session, look: l })); setMsg({ ok: true, text: `✓ ${l.name} wears it now — every viewer sees it` }); }
+      onSaved(await post('look', { address: addr, session, look: l })); window.dispatchEvent(new CustomEvent('feeless:fee-look', { detail: l })); setMsg({ ok: true, text: `✓ ${l.name} wears it now — every viewer sees it` }); }
     catch (e) { setMsg({ ok: false, text: e.message || 'Not saved' }); } finally { setBusy(false); }
   };
   return <div className="fob-studio">

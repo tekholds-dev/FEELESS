@@ -126,3 +126,12 @@ test('combined category and price range filters retain only matching models', ()
   expect(filterModels(models, { cat: ['code','thinking'], min: .01, max: .1, kind: 'general' }).map(m => m.id)).toEqual(['a']);
   expect(planOf([M('a'), M('b'), M('c')], 'together', CAT.budget).calls).toBe(3);
 });
+
+test('🧭 a job picks the models fit for it: category, the tools / vision it needs, ranked', () => {
+  const { JOBS } = require('./LaunchCat');
+  const ms = [M('a/agent', { cats: ['agent'], tools: true, intel: 50 }), M('b/eye', { cats: ['agent'], tools: true, vision: true, intel: 40 }), M('c/plain', { cats: ['content'], intel: 70 })];
+  const job = k => JOBS.find(j => j[0] === k)[2];
+  expect(filterModels(ms, { cat: [job('research').cat], need: job('research').need }).map(m => m.id)).toEqual(['a/agent', 'b/eye']);
+  expect(filterModels(ms, { need: job('trade').need }).map(m => m.id)).toEqual(['b/eye']);       // reading charts needs vision + tools
+  expect(filterModels(ms, { cat: ['content'] }).map(m => m.id)).toEqual(['c/plain']);
+});

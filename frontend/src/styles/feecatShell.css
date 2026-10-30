@@ -87,16 +87,7 @@ body.theme-day .fcx-star { display: none; }
 @media (max-width: 640px) { .fcx { padding: 8px; border-radius: 16px; gap: 10px; } .fcx-bar { gap: 8px; padding: 6px; } .fcx-brand small, .fcx-nav a small, .fcx-lives { display: none; }
   .fcx-brand span:last-child b { font-size: 12px; letter-spacing: .16em; } .fcx-live { gap: 5px; min-width: 0; } .fcx-chip { padding: 0 8px; }
   .fcx-nav a { padding: 4px 10px; min-height: 40px; } .fcx-mine small { display: none; } .fcx-mine { padding: 3px; } }
-/* 🐱 THE DESK, ONE SCREEN (owner 2026-10-26: "less scroll heavy"): wide screens + the Duo split — the stage across the top, her live trades + chart
-   on the left, her wall a sticky column on the right that scrolls on its own. Phones keep the stack. */
-@media (min-width: 1200px) {
-  .fcx-body.is-desk { grid-template-columns: minmax(0, 1.3fr) minmax(380px, 1fr); align-items: start; }
-  .fcx-body.is-desk > .fcs { grid-column: 1 / -1; }
-  .fcx-body.is-desk > .fcv { grid-column: 1; }
-  .fcx-body.is-desk > .fcp { grid-column: 2; grid-row: 2 / span 4; position: sticky; top: 8px; max-height: calc(100vh - 16px); overflow: auto; margin-bottom: 0; scrollbar-width: thin; scrollbar-color: var(--fv) transparent; }
-  .fcx-body.is-desk > .fcp .fcp-wall .chat-messages { max-height: calc(100vh - 330px); }
-}
-body.is-duo .fcx-body.is-desk { grid-template-columns: minmax(0, 1.2fr) minmax(300px, 1fr); align-items: start; }
-body.is-duo .fcx-body.is-desk > .fcs { grid-column: 1 / -1; } body.is-duo .fcx-body.is-desk > .fcv { grid-column: 1; }
-body.is-duo .fcx-body.is-desk > .fcp { grid-column: 2; grid-row: 2 / span 4; position: sticky; top: 4px; max-height: calc(100dvh - 8px); overflow: auto; margin-bottom: 0; }
+/* 🐱 THE DESK (owner 2026-10-30: "the windows need their own space — move her wall down under the trading windows"): ONE column on every
+   screen but the Duo's landscape split (duo.css): her header → her two live charts full width → her scan → her wall, its own scroll. */
+.fcx-body.is-desk > .fcp .fcp-wall .chat-messages { max-height: min(70vh, 720px); }
 .fcx-body.is-desk > .fcp::-webkit-scrollbar { width: 6px; } .fcx-body.is-desk > .fcp::-webkit-scrollbar-thumb { background: var(--fv); border-radius: 6px; }

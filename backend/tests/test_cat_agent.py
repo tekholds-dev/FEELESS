@@ -193,3 +193,19 @@ def test_a_creator_or_admin_wallet_pays_no_feeless_fee_on_any_trade(monkeypatch)
     monkeypatch.setattr(rs, '_is_staff', lambda w: w == 'STAFF')
     f = asyncio.run(rs.effective_fee('STAFF', 'So11111111111111111111111111111111111111112', 'MINTX', amount=1))
     assert f['bps'] == 0 and 'site-wide' in ' '.join(f['notes'])
+
+
+def test_an_agent_wallet_owned_by_staff_pays_no_fee_but_a_users_agent_still_does(monkeypatch):
+    rs = pytest.importorskip('reputation_service')
+    monkeypatch.setattr(rs, '_fee_cfg', lambda: {**rs.FEE_DEFAULTS, 'platformFeeBps': 1500})
+    monkeypatch.setattr(rs, '_is_staff', lambda w: w == 'STAFF')
+    async def mints():
+        return {}
+    monkeypatch.setattr(rs, '_ecosystem_mints', mints)
+    cats = {'cats': {'a': {'agentWallet': {'address': 'AGENT1', 'owner': 'STAFF'}}, 'b': {'agentWallet': {'address': 'AGENT2', 'owner': 'USER'}},
+                     'c': {'revoked': True, 'agentWallet': {'address': 'AGENT3', 'owner': 'STAFF'}}}}
+    (rs.DATA_DIR / 'feecats.json').write_text(json.dumps(cats))
+    sol = 'So11111111111111111111111111111111111111112'
+    assert asyncio.run(rs.effective_fee('AGENT1', sol, 'MINTX', amount=1))['bps'] == 0
+    assert asyncio.run(rs.effective_fee('AGENT2', sol, 'MINTX', amount=1))['bps'] > 0      # a user's agent pays like its owner would
+    assert asyncio.run(rs.effective_fee('AGENT3', sol, 'MINTX', amount=1))['bps'] > 0      # a retired agent is no longer exempt

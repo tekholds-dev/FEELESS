@@ -22906,7 +22906,7 @@ async def _research_tick(cases, rows_by, now):
     _social['busy'] = True
     n = 0
     try:
-        _office['load']['orphansKilled'] = int(_office['load'].get('orphansKilled') or 0) + _sr.reap_orphans()   # a browser left by a restart mid-fetch never keeps running
+        _office['load']['orphansKilled'] = int(_office['load'].get('orphansKilled') or 0) + await asyncio.to_thread(_sr.reap_orphans)   # (off the event loop: its ps call stalled every request up to 5s — Lag catcher 2026-10-30) a browser left by a restart mid-fetch never keeps running
         cache = _social_cache()
         done_ = []
         picks_ = _sr.pick(cases, cache, now)
@@ -27198,6 +27198,19 @@ async def _leg_usd(input_mint, amount):
     return amount * px
 
 
+def _agent_owner(wallet: str) -> str:
+    """👛 the wallet that OWNS an agent wallet (FeeCat's own Crossmint wallet per cat): `agentWallet.owner` is the signed-in wallet that made it
+    (feecat_service checks the signature before it records it). '' when this isn't a live agent wallet."""
+    if not wallet:
+        return ''
+    cats = (_json_load(DATA_DIR / 'feecats.json', {}) or {}).get('cats') or {}
+    for c in cats.values():
+        w = c.get('agentWallet') or {}
+        if w.get('address') == wallet and not c.get('revoked'):
+            return str(w.get('owner') or '')
+    return ''
+
+
 async def effective_fee(wallet: str, input_mint: str = '', output_mint: str = '', bundle: int = 0, amount: float = 0, card: int = 0, card_id: str = ''):
     """The fee for one trade plus how each engine collects it.
     bps: Swap API fee (paid to feeAccount). ultraBps / referralAccount: the Ultra fallback's fee.
@@ -27212,6 +27225,8 @@ async def effective_fee(wallet: str, input_mint: str = '', output_mint: str = ''
         return none('No FEELESS fee on this trade.')
     if wallet and _is_staff(wallet):   # 👑 owner 2026-10-29: "creator wallet or admins don't pay fees site wide" — every trade, any engine
         return none('Creator / admin wallet: no FEELESS fee, site-wide.')
+    if wallet and _is_staff(_agent_owner(wallet)):   # 👑 owner 2026-10-30: "no fee for staff" — an agent wallet a staff wallet owns trades fee-free too
+        return none("Staff-owned agent wallet: no FEELESS fee.")
     mints = await _ecosystem_mints()
     # The ONLY fee-free trades: buying a FEELESS coin. There is no other exemption.
     # FEELESS coins ($FEE, FEECAT, rFEE) are free to BUY with SOL, USDC or USDT. Selling them, buying them with

@@ -56,3 +56,24 @@ def test_service_never_sends_sealed_keys_and_byok_skips_credit(monkeypatch):
     r = asyncio.run(svc._brain_decide({'events': []}, cat, 'buy', 'GERM', {}))
     assert r is not None and seen['key'] == OR_KEY
     assert cat['brainsCfg']['credit'] == 0.0                 # no FEELESS credit charged
+
+
+def test_fees_public_profile_carries_her_look(monkeypatch):
+    import feecat_service as svc
+    store = {'cats': {'leader': {'id': 'leader', 'name': 'Fee', 'isLeader': True, 'look': {'coat': 'black', 'gear': 'crown', 'aura': 'toxic'},
+                                 'positions': [], 'pnlHistory': [], 'exits': [], 'status': 'running'}}, 'events': []}
+    monkeypatch.setattr(svc, '_load', lambda: store)
+    out = asyncio.run(svc.cat_profile('leader'))
+    assert out['cat']['look']['gear'] == 'crown'   # every viewer's Fee mark wears the creator's style
+
+
+def test_head_cloud_takes_only_what_both_brains_agree_on():
+    import launch_cat as lc
+    b = {'decisions': [{'at': 100, 'sym': 'GERM', 'word': 'BUY', 'by': 'ossy', 'why': 'germ floor'}, {'at': 100, 'sym': 'RUG', 'word': 'BUY', 'by': 'ossy'}]}
+    assert lc.cloud_check(b, 'GERM', 'BUY', 'g4', 'buyers 71%', now=200)['by'] == ['g4', 'ossy']        # the other brain said the same, 100s ago
+    assert lc.cloud_check(b, 'GERM', 'BUY', 'g4', 'again', now=300) is None                             # already in the cloud
+    assert lc.cloud_check(b, 'RUG', 'SKIP', 'g4', 'bundlers', now=200) is None                           # they disagree → nothing stored
+    assert lc.cloud_check(b, 'RUG', 'BUY', 'g4', 'late', now=100 + lc.CLOUD_WINDOW + 1) is None          # too far apart
+    assert lc.cloud_check(b, 'NEON', 'SELL', 'a + b', 'x', now=400, together=[('x/a', 'SELL'), ('y/b', 'SELL')])['by'] == ['a', 'b']
+    assert lc.cloud_check(b, 'NEON', 'HOLD', 'a + b', 'x', now=400, together=[('x/a', 'HOLD'), ('y/b', 'SELL')]) is None
+    assert [c['sym'] for c in b['cloud']] == ['GERM', 'NEON']
