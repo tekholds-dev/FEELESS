@@ -15,6 +15,8 @@ Read this (2 min) → `CLAUDE.md` (lean rules + 🎨 MANDATORY STYLING + 📋 CU
 >    LIVE visual (meters, bars, animation on real numbers), never bare text. `styles/cssCoverage.test.js` fails on an unstyled class.
 
 ## 🔁 NOW (rewrite this section in place every session)
+> ⚡ 2026-10-30: gate.sh runs only what changed (docs → nothing · backend → pytest only · frontend → all) with pytest -n 4 --dist loadfile (xdist);
+> GATE_ALL=1 forces all. Push = the pre-push hook's ONE gate run — don't run gate.sh by hand first. frontend/.env.development: DISABLE_ESLINT_PLUGIN.
 > ✅ 2026-10-30 (late night): agent windows 4:3, ≤ 504 px each, centred, whole chart inside + owner vitals strip (size/P&L/held · exit/P&L/after/sold); desk = one
 > 1110 px column (visitors: no empty side column; owner side sticky); its log = 🗄 file cabinet (drawers + safeLine masks passwords/keys/seed phrases);
 > lag: wall `contain` + off-screen messages `content-visibility` (full layout 339 → 13 ms); desk video follows the page (.fcx overflow clip). NEXT: SEC01.
