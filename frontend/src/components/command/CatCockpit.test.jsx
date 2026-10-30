@@ -54,3 +54,11 @@ test('👀 a visitor sees the agent — never its controls', async () => {
   expect(el.querySelector('[data-testid="kd-stop"]')).toBeNull(); expect(el.querySelector('.kd-side')).toBeNull();
   expect(el.textContent).toContain('VIEWING'); expect(el.querySelector('[data-testid="cwb-public"]')).not.toBeNull(); expect(el.textContent).toContain('SOL holds 150');
 });
+
+test('🏆 the board ranks by the chosen view and the activity card knows its coin + light', () => {
+  const { metric, metricWord, eventCard } = require('./AgentBoards');
+  const r = { realizedPnlSol: -0.02, volumeSol: 3, winRate: 55 };
+  expect(metric(r, 'pnl')).toBe(-0.02); expect(metricWord(r, 'win_rate')).toBe('55%'); expect(metricWord(r, 'pnl')).toBe('−0.0200 SOL');
+  expect(eventCard({ type: 'BUY', detail: 'Bought 0.05 SOL of GERM at live price', marketCapUsd: 50000 })).toMatchObject({ sym: 'GERM', light: 'go', entry: 50000 });
+  expect(eventCard({ type: 'SELL', detail: 'Sold GERM at -12%', pnlSol: -0.01 })).toMatchObject({ sym: 'GERM', light: 'stop' });
+});

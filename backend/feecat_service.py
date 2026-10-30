@@ -1470,6 +1470,9 @@ def _score(cat):
         'strategyLabel': cat['strategyLabel'], 'realizedPnlSol': cat['realizedPnlSol'],
         'volumeSol': cat.get('volumeSol', 0), 'winRate': cat.get('winRate'), 'isLeader': bool(cat.get('isLeader')),
         'openPositions': len(cat.get('positions', [])), 'trades': cat.get('wins', 0) + cat.get('losses', 0),
+        # 🏆 the board + live activity draw each agent as it looks (owner 2026-10-30): its look, its desk colour, live or not, what kind — nothing private
+        'look': cat.get('look'), 'skin': cat.get('skin'), 'status': cat.get('status'), 'kind': (cat.get('brainsCfg') or {}).get('kind') or 'rules',
+        'brains': [str(m).split('/')[-1] for m in ((cat.get('brainsCfg') or {}).get('brains') or [])][:2],
     }
 
 

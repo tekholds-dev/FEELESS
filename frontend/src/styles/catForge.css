@@ -6,12 +6,10 @@
 .fc-v2 .paper-platform-head h1 em { color: #b388ff; text-shadow: 0 0 22px #b388ff66; }
 .fc-v2 .paper-platform-tabs button:hover, .fc-v2 .paper-platform-tabs button.active { border-color: #b388ff55; }
 .fc-v2 .paper-panel, .fc-v2 .paper-my-cats { background: linear-gradient(170deg, #120c22, #0a0713); border-color: #2a1d47; box-shadow: inset 0 1px 0 #ffffff0d; }
-.fc-v2 .paper-panel-head, .fc-v2 .paper-leaderboard-tabs, .fc-v2 .paper-disclosure, .fc-v2 .paper-event { border-color: #22183a; }
-.fc-v2 .paper-rank-row:hover { background: #b388ff0f; } .fc-v2 .paper-rank-avatar, .fc-v2 .paper-my-cat-art { background: #24163f; }
+.fc-v2 .paper-panel-head { border-color: #22183a; } .fc-v2 .paper-my-cat-art { background: #24163f; }
 .fc-v2 .paper-my-cat-card { background: #130d22; border-color: #2a1d47; color: #ece4ff; transition: transform .15s ease, border-color .15s ease; }
 .fc-v2 .paper-my-cat-card:hover { border-color: #b388ff; background: #1a1230; transform: translateY(-2px); } .fc-v2 .paper-my-cat-card:active { transform: scale(.98); }
 .fc-v2 .paper-my-cat-card:focus-visible { outline: 2px solid #b388ff; outline-offset: 2px; }
-.fc-v2 .paper-event-icon { border-color: #3d2a66; } .fc-v2 .paper-event b { color: #ece4ff; } .fc-v2 .paper-event b small { color: #b9a3ec; }
 .fc-v2 .paper-empty svg { color: #9d7bea; }
 
 /* the modal: a drawn violet night behind a glass card */
@@ -55,8 +53,7 @@ body.fx-lite .cfv.paper-modal-backdrop::before, body.fx-lite .cfv.paper-modal-ba
 @media (prefers-reduced-motion: reduce) { .cfv.paper-modal-backdrop::before, .cfv.paper-modal-backdrop::after, .cfv .paper-wizard-card, .cfv .paper-wizard-cat-strip span, .cf-step.is-on u s { animation: none; }
   .fc-v2 .paper-my-cat-card, .cfv .icon-btn, .cfv .btn-outline, .cfv .btn-primary, .cf-step u s { transition: none; } }
 body.theme-day .fc-v2, body.theme-day .cfv { --m-surface: #ffffff; --m-surface-2: #f7f3fe; --m-line: #e2d8f6; --m-accent-ink: #ffffff; }
-body.theme-day .fc-v2 .paper-panel, body.theme-day .fc-v2 .paper-my-cats, body.theme-day .fc-v2 .paper-my-cat-card { background: #fff; border-color: #e2d8f6; color: #24163f; }
-body.theme-day .fc-v2 .paper-event b { color: #24163f; } body.theme-day .fc-v2 .paper-platform-head h1 em { color: #6a3fd0; text-shadow: none; }
+body.theme-day .fc-v2 .paper-panel, body.theme-day .fc-v2 .paper-my-cats, body.theme-day .fc-v2 .paper-my-cat-card { background: #fff; border-color: #e2d8f6; color: #24163f; } body.theme-day .fc-v2 .paper-platform-head h1 em { color: #6a3fd0; text-shadow: none; }
 body.theme-day .cfv.paper-modal-backdrop { background: radial-gradient(70% 60% at 50% 20%, #e9defccc, #f5f0fdf2 70%); } body.theme-day .cfv.paper-modal-backdrop::before { opacity: .15; }
 body.theme-day .cfv .paper-wizard-card { background: linear-gradient(170deg, #fffdff, #f7f3fe); border-color: #d5c6f2; box-shadow: 0 30px 80px -40px #7c4dff66; }
 body.theme-day .cfv .paper-wizard-visual { background: radial-gradient(60% 120% at 50% 0%, #d9c8ff, #efe8ff 70%); } body.theme-day .cfv .paper-wizard-body h2, body.theme-day .cfv .cct-head h2 { color: #1d1233; }

@@ -1,9 +1,8 @@
 import React, { Suspense, lazy, useCallback, useEffect, useState } from 'react';
 import NumInput from '../NumInput';
 import { createPortal } from 'react-dom';
-import { Activity, AlertTriangle, ArrowLeft, Cat, ChevronRight, Gauge, Play, Plus, Trophy, X } from 'lucide-react';
+import { Activity, AlertTriangle, ArrowLeft, Cat, ChevronRight, Play, Plus, Trophy, X } from 'lucide-react';
 import { CAT_VARIATIONS, CatAvatar, catByName } from './catCoats';
-import { ShareGifButton } from '../ShareGif';
 import '../../styles/feecatPage.css';
 import '../../styles/catForge.css';
 
@@ -20,6 +19,7 @@ const ProfileFeeCat = lazy(() => import('./ProfileFeeCat').then(m => ({ default:
 const FeeLiveTab = lazy(() => import('./FeeLiveTab').then(m => ({ default: m.FeeLiveTab })));
 const ProfileFeeBanner = lazy(() => import('./ProfileFeeCat').then(m => ({ default: m.ProfileFeeBanner })));
 import { AgentPicker, AGENT_MAX } from './AgentPicker';
+import { AgentLeaderboard, LiveActivity } from './AgentBoards';
 import { useDeskSkin, DeskBackdrop, SkinPicker } from './CatCockpit';
 import { useWallet } from '../../hooks/useWallet';
 import { getChatSession } from '../../lib/chatSession';
@@ -50,7 +50,6 @@ const ownerId = () => {
   } catch { return 'preview-browser-owner'; }
 };
 const money = value => `${Number(value || 0) >= 0 ? '+' : ''}${Number(value || 0).toFixed(4)} SOL`;
-const time = value => value ? new Date(value).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '—';
 const usd = value => Number(value) > 0 ? `$${Number(value).toLocaleString(undefined, { maximumFractionDigits: 0 })}` : 'MC unavailable';
 const eventSymbol = event => event.symbol || event.detail?.match(/\bof\s+([A-Z0-9_]{2,})\b/i)?.[1] || 'TRADE';
 const tradeCard = event => ({
@@ -146,22 +145,6 @@ function CreateCatWizard({ form, update, step, setStep, onCancel, submit, error,
   </section></div>, document.body);
 }
 
- function Leaderboard({ onOpen }) {
-  const [view, setView] = useState('pnl');
-  const [data, setData] = useState({ rows: [] });
-  const [error, setError] = useState('');
-  const load = useCallback(async () => { try { setData(await api(`/api/cats/leaderboard?view=${view}`)); setError(''); } catch (requestError) { setError(requestError.message); } }, [view]);
-  useEffect(() => { load(); const interval = setInterval(load, 10000); return () => clearInterval(interval); }, [load]);
-  return <section className="paper-panel paper-leaderboard"><div className="paper-panel-head"><div><span className="eyebrow"><Trophy size={13} /> GLOBAL CAT LEADERBOARD</span><h2>Real paper results only.</h2></div><Gauge size={18} /></div><div className="paper-leaderboard-tabs">{[['pnl', 'Realized P/L'], ['volume', 'Volume'], ['win_rate', 'Win rate']].map(([id, label]) => <button type="button" className={view === id ? 'active' : ''} onClick={() => setView(id)} key={id}>{label}</button>)}</div>{error && <p className="paper-muted">{error}</p>}{!data.rows?.length && !error && <div className="paper-empty"><Cat size={20} />Create a Cat to enter the paper leaderboard.</div>}<div className="paper-rank-list">{data.rows?.map((cat, index) => <button type="button" className={`paper-rank-row ${cat.isLeader ? 'is-leader' : ''}`} key={cat.id} onClick={async () => { try { const r = await api(`/api/cats/${cat.id}`); onOpen?.(r.cat); } catch {} }}><span className="paper-rank-number">{String(index + 1).padStart(2, '0')}</span><span className="paper-rank-avatar"><CatAvatar cat={CAT_VARIATIONS[index % CAT_VARIATIONS.length]} /></span><span className="paper-rank-name"><b>{cat.name}</b><small>{cat.isLeader ? 'THE LEADER · ' : ''}LVL {cat.level} · {cat.strategyLabel} · {cat.trades ?? 0} trades</small></span><strong className={view === 'win_rate' ? '' : cat.realizedPnlSol >= 0 ? 'positive' : 'negative'}>{view === 'pnl' ? money(cat.realizedPnlSol) : view === 'volume' ? `${cat.volumeSol.toFixed(4)} SOL` : `${cat.winRate ?? '—'}%`}</strong></button>)}</div><small className="paper-disclosure">Leaderboard uses server-recorded paper activity in this running environment. It is not on-chain performance.</small></section>;
-}
-
-function ActivityFeed({ catId }) {
-  const [data, setData] = useState({ events: [] });
-  const load = useCallback(async () => { try { setData(await api(`/api/cats/activity${catId ? `?catId=${encodeURIComponent(catId)}` : ''}`)); } catch {} }, [catId]);
-  useEffect(() => { load(); const interval = setInterval(load, 7000); return () => clearInterval(interval); }, [load]);
-  return <section className="paper-panel paper-activity"><div className="paper-panel-head"><div><span className="eyebrow"><Activity size={13} /> LIVE CAT ACTIVITY</span><h2>{catId ? 'This Cat’s audit trail.' : 'Watch the paper engine.'}</h2></div><span className="paper-live-dot"><i /> LIVE</span></div>{!data.events?.length && <div className="paper-empty"><Activity size={20} />No activity yet. Start a Cat to begin scanning.</div>}<div className="paper-event-list">{data.events?.map((event, k) => <article className={`paper-event event-${event.type.toLowerCase()}`} key={event.id} style={{ '--i': Math.min(k, 12) }}><span className="paper-event-icon">{event.type === 'BUY' ? '↗' : event.type === 'SELL' ? '↘' : event.type === 'STOPPED' ? '!' : '·'}</span><div><b>{event.catName} <small>{event.type}</small></b><p>{event.detail}</p><time>{time(event.ts)} · PAPER{event.decisionSource ? ` · ${event.decisionSource === 'selected_brain' ? `${event.brainLabel || 'Selected brain'} decision` : 'FEELESS rule engine · live prices'}` : ''}</time>{['BUY', 'SELL'].includes(event.type) && <small className="paper-event-mc">{event.type === 'BUY' ? `Entry MC: ${usd(event.marketCapUsd)}` : `Entry: ${usd(event.entryMarketCapUsd)} · Exit: ${usd(event.marketCapUsd)}`}</small>}</div>{event.pnlSol != null && <strong className={event.pnlSol >= 0 ? 'positive' : 'negative'}>{money(event.pnlSol)}</strong>}{['BUY', 'SELL'].includes(event.type) && <ShareGifButton className="btn-outline paper-event-share" label="🎞 Share" card={tradeCard(event)} />}</article>)}</div></section>;
-}
-
 // 🤖 one agent's desk = CatDesk.jsx (violet meta, 2026-10-23); this keeps its live read + the paper actions
 function CatDetail({ cat: initialCat, onBack, onChanged, onDeleted }) {
   const [cat, setCat] = useState(initialCat);
@@ -195,6 +178,7 @@ export default function FeeCatsPlatform() {
   const loadCats = useCallback(async () => { try { const result = await api(`/api/cats?ownerId=${encodeURIComponent(ownerId())}`); setCats(result.cats || []); setError(''); } catch (requestError) { setError(requestError.message); } }, []);
   useEffect(() => { loadCats(); }, [loadCats]);
   const openCat = cat => { setSelected(cat); setView('cat'); };
+  const openById = async r => { try { const x = await api(`/api/cats/${r.id}`); if (x.cat) openCat(x.cat); } catch (e) { setError(e.message); } };   // a board row / activity card → that agent's full desk
   const openReal = cat => { openCat(cat); setTimeout(() => document.querySelector('[data-testid="cat-real"]')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 250); };   // 💵 straight to its wallet switch
   // 🗑 delete from the list (owner 2026-10-30: "I can't delete the test cat"): its name typed → retire (if still live) → delete; the server refuses while its wallet holds money
   const removeCat = async cat => {
@@ -221,9 +205,9 @@ export default function FeeCatsPlatform() {
     {view === 'new' && <AgentPicker count={live.length} onPick={pickKind} />}
     {view === 'create' && <CreateCat onCreated={created} onCancel={() => setView('cats')} presetAvatar={presetAvatar} />}
     {view === 'cat' && selected && <CatDetail onDeleted={id => { setCats(c => c.filter(x => x.id !== id)); setSelected(null); setView('cats'); }} cat={selected} onBack={() => setView('cats')} onChanged={cat => { setSelected(cat); setCats(current => current.map(item => item.id === cat.id ? cat : item)); }} />}
-    {view === 'activity' && <div className="paper-single-column"><ActivityFeed /></div>}
+    {view === 'activity' && <LiveActivity api={api} onOpen={openById} tradeCard={tradeCard} />}
     {view === 'launch' && <LaunchCat key={kind} kind={kind} api={api} ownerId={ownerId} onCreated={created} onCancel={() => setView('cats')} Fields={CatFields} newForm={() => catForm(presetAvatar)} formOk={catOk} avatarOf={i => (CAT_VARIATIONS[i] || CAT_VARIATIONS[0])[0]} Preview={CatPreview} />}
-    {view === 'leaderboard' && <div className="paper-single-column"><Leaderboard onOpen={openCat} /></div>}
+    {view === 'leaderboard' && <AgentLeaderboard api={api} onOpen={openById} />}
     {view === 'cats' && isAdmin ? <Suspense fallback={null}><ProfileFeeBanner mine onOpen={() => { setSelected(null); setView('nexa'); }} /></Suspense> : null}
     {view === 'nexa' && isAdmin ? <Suspense fallback={<p className="paper-muted">🪟 opening NEXA…</p>}><button type="button" className="btn-outline" onClick={() => setView('cats')} data-testid="nexa-back">← My agents</button><NexaSkin><FeeLiveTab /><ProfileFeeCat mine /></NexaSkin></Suspense> : null}
     {view === 'cats' && <section className="paper-my-cats">{!cats.length ? <><div className="paper-panel-head"><div><span className="eyebrow">YOUR AGENTS · 0/{AGENT_MAX}</span><h2>No cats on the job yet — pick a brain.</h2></div></div><AgentPicker count={0} onPick={pickKind} /></>
