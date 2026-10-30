@@ -45,32 +45,13 @@
 .ck-skin-row { display: flex; gap: 6px; } .ck-skin-row button { display: grid; justify-items: center; gap: 2px; min-width: 58px; min-height: 52px; padding: 6px; border-radius: 11px; border: 1px solid #ffffff14; background: #ffffff06; color: #d8ccf5; cursor: pointer; }
 .ck-skin-row button.is-on { border-color: var(--kd-acc, #b388ff); background: #ffffff12; } .ck-skin-row b { font-size: 18px; } .ck-skin-row small { font: 700 9px var(--f-mono); }
 .ck-skin-row.is-dots button { min-width: 32px; min-height: 32px; place-items: center; } .ck-skin-row.is-dots i { width: 16px; height: 16px; border-radius: 50%; background: var(--d); box-shadow: 0 0 10px var(--d); }
-/* 🌊🌲🏔✨ drawn calm backdrops — one absolute layer behind the desk */
+/* 🎥 the desk backdrop — one absolute layer behind the desk (Night = a soft glow in the card colour) */
 .kd.has-skin { position: relative; isolation: isolate; }
 .ckb { position: absolute; inset: 0; z-index: -1; overflow: hidden; border-radius: inherit; pointer-events: none; }
 .ckb-night { background: radial-gradient(80% 50% at 50% 0%, color-mix(in srgb, var(--kd-acc, #b388ff) 16%, transparent), transparent 70%); }
-.ckb-ocean { background: linear-gradient(180deg, #0b2440 0%, #123e63 45%, #0c2a45 100%); }
-.ckb-sun { position: absolute; left: 50%; top: 8%; width: 220px; height: 220px; margin-left: -110px; border-radius: 50%; background: radial-gradient(circle, #ffd9a080, #ffd9a000 70%); }
-.ckb-wave { position: absolute; left: -10%; width: 120%; height: 160px; border-radius: 45%; opacity: .55; animation: ckWave 14s ease-in-out infinite alternate; }
-.ckb-wave.w1 { bottom: 60px; background: #1d5a86; } .ckb-wave.w2 { bottom: 20px; background: #164b72; animation-duration: 18s; } .ckb-wave.w3 { bottom: -40px; background: #0f3a5b; animation-duration: 22s; }
-.ckb-forest { background: linear-gradient(180deg, #10241c, #0b1a14 60%, #07110d); }
-.ckb-mist { position: absolute; inset: 20% -10% auto; height: 200px; background: radial-gradient(60% 50% at 50% 50%, #d6ffe91a, transparent 70%); animation: ckDrift 30s linear infinite alternate; }
-.ckb-trees { position: absolute; left: 0; right: 0; bottom: 0; height: 240px; opacity: .8;
-  background: repeating-linear-gradient(90deg, transparent 0 22px, #0d2a1e 22px 40px), linear-gradient(transparent 30%, #0a1f16); -webkit-mask: linear-gradient(transparent, #000 40%); mask: linear-gradient(transparent, #000 40%); }
-.ckb-trees.t2 { height: 160px; opacity: .9; background: repeating-linear-gradient(90deg, transparent 0 34px, #081a12 34px 60px); }
-.ckb-fly { position: absolute; inset: 30% 10% 30%; background: radial-gradient(2px 2px at 20% 30%, #e6ff9d, transparent), radial-gradient(2px 2px at 70% 60%, #e6ff9d, transparent), radial-gradient(2px 2px at 45% 80%, #e6ff9d, transparent); animation: ckDrift 9s ease-in-out infinite alternate; }
-.ckb-peaks { background: linear-gradient(180deg, #1b2448, #2a2f5a 50%, #141833); }
-.ckb-peak { position: absolute; bottom: 0; width: 70%; height: 300px; background: linear-gradient(170deg, #c9d4ff33, #283060 30%, #161b38); clip-path: polygon(0 100%, 45% 10%, 100% 100%); }
-.ckb-peak.p1 { left: -10%; } .ckb-peak.p2 { right: -15%; height: 230px; opacity: .85; }
-.ckb-cloud { position: absolute; width: 260px; height: 60px; border-radius: 50%; background: #ffffff10; animation: ckDrift 40s linear infinite alternate; } .ckb-cloud.c1 { top: 12%; left: 10%; } .ckb-cloud.c2 { top: 22%; right: 8%; animation-duration: 55s; }
-.ckb-aurora { background: linear-gradient(180deg, #070a1c, #0b1430 70%, #060914); }
-.ckb-band { position: absolute; left: -20%; width: 140%; height: 180px; border-radius: 50%; opacity: .35; animation: ckWave 20s ease-in-out infinite alternate; }
-.ckb-band.b1 { top: 6%; background: radial-gradient(50% 50% at 50% 50%, #45e486, transparent 70%); } .ckb-band.b2 { top: 18%; background: radial-gradient(50% 50% at 50% 50%, #7fd3ff, transparent 70%); animation-duration: 26s; }
-.ckb-stars { position: absolute; inset: 0; background-image: radial-gradient(1px 1px at 10% 20%, #fff, transparent), radial-gradient(1px 1px at 40% 10%, #fff, transparent), radial-gradient(1px 1px at 80% 30%, #fff, transparent), radial-gradient(1px 1px at 60% 50%, #fff, transparent); opacity: .5; }
 @keyframes ckIn { from { opacity: 0; transform: translateY(6px); } } @keyframes ckPop { from { opacity: .4; transform: scale(.9); } } @keyframes ckBar { from { transform: scaleY(0); } }
-@keyframes ckWave { to { transform: translateX(6%) translateY(-8px); } } @keyframes ckDrift { to { transform: translateX(8%); } }
-body.fx-lite .ckb *, body.fx-lite .ck-msg, body.fx-lite .ck-rows li, body.fx-lite .ck-vitals { animation: none; }
-@media (prefers-reduced-motion: reduce) { .ckb *, .ck-msg, .ck-rows li, .ck-vitals, .ck-spark i, .ck-v-row b { animation: none !important; } }
+body.fx-lite .ck-msg, body.fx-lite .ck-rows li, body.fx-lite .ck-vitals { animation: none; }
+@media (prefers-reduced-motion: reduce) { .ck-msg, .ck-rows li, .ck-vitals, .ck-spark i, .ck-v-row b { animation: none !important; } }
 body.theme-day .ck-chat, body.theme-day .ck-log { background: #ffffffe6; border-color: #7c4dff26; } body.theme-day .ck-msg p, body.theme-day .ck-rows span { color: #2a1650; }
 body.theme-day .ck-msg-h b, body.theme-day .ck-v-head b, body.theme-day .ck-v-row b { color: #2a1650; } body.theme-day .ck-vitals { background: #fff; }
 @media (max-width: 1100px) { .ck-cockpit { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); } .ck-cockpit > .ck-chat, .ck-cockpit > .cwb { grid-column: 1 / -1; grid-row: 1; } .ck-vitals { position: static; } }
@@ -88,3 +69,5 @@ body.theme-day .ck-msg-h b, body.theme-day .ck-v-head b, body.theme-day .ck-v-ro
 .kd.is-glass :is(p, small, span, li, b, em, h1, h2, h3) { text-shadow: 0 1px 2px #000c; }
 body.fx-lite .ckb-video { display: none; }
 body.theme-day .kd.is-glass :is(.kd-hero, .kd-tile, .kd-card, .ck-vitals, .ck-chat, .ck-log, .agd, .cwb) { background: #ffffffd9 !important; } body.theme-day .kd.is-glass :is(p, small, span, li, b, em, h1, h2, h3) { text-shadow: none; }
+.kd-visitor { display: inline-flex; align-items: center; min-height: 34px; padding: 4px 12px; border-radius: 11px; border: 1px solid #ffffff1a; color: #e9dcff; font: 800 10.5px var(--f-mono); letter-spacing: .12em; }
+.cwb-public .ck-cockpit { grid-template-columns: repeat(2, minmax(0, 320px)); }

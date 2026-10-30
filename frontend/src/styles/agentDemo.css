@@ -146,3 +146,10 @@ body.theme-day .agl-mind b { color: #2a1650; } body.theme-day .agl-mind small { 
 @media (prefers-reduced-motion: reduce) { .agl-cloud::before, .agl-cloud::after { animation: none; } }
 body.theme-day .agl-cloud small { color: #4a3a6a; } body.theme-day .agl-cloud b { color: #0c6a44; }
 @media (max-width: 640px) { .agl-cloud { width: 110px; } .agl-cloud::before, .agl-cloud::after { display: none; } }
+/* 🚦 window lights (owner 2026-10-30): red · yellow · green like a real window, the one that matches its state lit — green working, yellow needs you, red idle */
+.agd-bar > i:nth-child(1), .cwb-dots b:nth-child(1) { background: #ff5f57 !important; } .agd-bar > i:nth-child(2), .cwb-dots b:nth-child(2) { background: #febc2e !important; }
+.agd-bar > i:nth-child(3), .cwb-dots b:nth-child(3) { background: #28c840 !important; }
+.agd-bar > i, .cwb-dots b { opacity: .32; transition: opacity .25s, box-shadow .25s; }
+.agd-bar.is-go > i:nth-child(3), .cwb-dots.is-go b:nth-child(3) { opacity: 1; box-shadow: 0 0 8px #28c840; }
+.cwb-dots.is-wait b:nth-child(2) { opacity: 1; box-shadow: 0 0 8px #febc2e; } .agd-bar.is-stop > i:nth-child(1), .cwb-dots.is-stop b:nth-child(1) { opacity: 1; box-shadow: 0 0 8px #ff5f57; }
+.agd-live { flex: none; white-space: nowrap; writing-mode: horizontal-tb; }

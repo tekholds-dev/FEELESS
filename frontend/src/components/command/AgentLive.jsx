@@ -48,7 +48,7 @@ export function AgentLive({ title = 'LIVE', minds = [], coins = [], feed = [], c
     {minds.length ? <MindsRow minds={minds} cloud={cloud} /> : null}
     <div className="agd-wins">{[0, 1].map(i => { const c = coins[i];
       return <div key={i} className={`agd-win w${i}`} style={{ '--i': i }}>
-        <span className="agd-bar"><i /><i /><i /><b>{c ? `$${c.symbol}` : `WINDOW ${'AB'[i]}`}</b><small>{c ? (c.open ? `holding ${pctWord(c.pct)}` : c.note || 'reading next') : 'waiting for a coin'}</small>
+        <span className={`agd-bar ${c ? 'is-go' : 'is-stop'}`}><i /><i /><i /><b>{c ? `$${c.symbol}` : `WINDOW ${'AB'[i]}`}</b><small>{c ? (c.open ? `holding ${pctWord(c.pct)}` : c.note || 'reading next') : 'waiting for a coin'}</small>
           <em className="agd-live">{c ? '● LIVE' : '◌ IDLE'}</em></span>
         {c ? <div className="agl-plot"><Suspense fallback={<span className="agl-load">loading ${c.symbol}'s live chart…</span>}>
           <PriceChart key={c.pair} pair={{ chainId: 'solana', pairAddress: c.pair, baseToken: { address: c.mint, symbol: c.symbol } }} interval="1m" metric="price" showVolume={false} userEntry={c.entry || null} callouts={callouts ? callouts(c.pair) : undefined} />

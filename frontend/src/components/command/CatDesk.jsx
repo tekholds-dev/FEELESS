@@ -71,23 +71,23 @@ function ModelSwitch({ cat, busy, onAct }) {
 // a general cat: the same bubbles over its two cloud browsers (CatWorkbench)
 // (owner 2026-10-30) two live windows on top, then the cockpit: [brain A vitals | skinny bubble chat (+ the head cloud) | brain B vitals], then 📁 its log.
 // A general cat's cockpit lives inside CatWorkbench (its windows are its cloud browsers).
-function LiveMinds({ cat, onAct, busy }) {
+function LiveMinds({ cat, onAct, busy, canEdit = true }) {
   const x = useMemo(() => catMinds(cat), [cat]); const coins = useMemo(() => catCoins(cat), [cat]);
   const gen = cat.brainsCfg?.kind === 'general'; const on = cat.status === 'running'; const ev = useCatEvents(gen ? null : cat.id);
   const log = useMemo(() => catLogItems(cat, ev), [cat, ev]);
-  if (gen) return <CatWorkbench cat={cat} />;
+  if (gen) return <CatWorkbench cat={cat} readOnly={!canEdit} />;
   return <>
     <AgentLive title={`LIVE · ${cat.name}'s two brains`} coins={coins} feed={x.feed.length ? x.feed : [on ? '🔎 hunting — it buys only what passes every rule' : '⏸ stopped — start it to hunt']} />
     <div className="ck-cockpit" data-testid="kd-cockpit">
       <MindVitals cat={cat} model={x.brains[0]} i={0} live={on} />
-      <div className="ck-center"><HeadCloud items={x.cloud} /><TradeChat cat={cat} busy={busy} onSend={async t => { await onAct('chime', { text: t }); return true; }} /></div>
+      <div className="ck-center"><HeadCloud items={x.cloud} /><TradeChat cat={cat} busy={busy} onSend={canEdit ? async t => { await onAct('chime', { text: t }); return true; } : null} /></div>
       <MindVitals cat={cat} model={x.brains[1]} i={1} live={on} />
     </div>
     <AgentLog items={log} />
   </>;
 }
 
-export function CatDesk({ cat, busy = false, error = '', onBack, onAct, Activity = null, Brains = null, Engine = null, Real = null }) {
+export function CatDesk({ cat, busy = false, error = '', onBack, onAct, Activity = null, Brains = null, Engine = null, Real = null, canEdit = true }) {   // canEdit: its owner (visitors from the leaderboard see the view, never the controls)
   const isReal = cat.mode === 'real' && !!cat.realWallet;
   const v = useMemo(() => deskVitals(cat), [cat]); const cv = useMemo(() => curveOf(cat?.pnlHistory), [cat?.pnlHistory]);
   const r = cat.risk || {};
@@ -111,10 +111,11 @@ export function CatDesk({ cat, busy = false, error = '', onBack, onAct, Activity
         {Engine}
       </div>
       <div className="kd-acts m-seg" role="group" aria-label="Run the agent">
-        {cat.status === 'running' ? <button type="button" className="kd-stop" disabled={busy} onClick={() => onAct('stop')} data-testid="kd-stop" data-tip="Stops new trades now (open paper trades stay)">⏹ Stop</button>
+        {canEdit ? <>{cat.status === 'running' ? <button type="button" className="kd-stop" disabled={busy} onClick={() => onAct('stop')} data-testid="kd-stop" data-tip="Stops new trades now (open paper trades stay)">⏹ Stop</button>
           : <button type="button" className="kd-go" disabled={busy || cat.revoked} onClick={() => onAct('start')} data-testid="kd-start" data-tip="Starts it scanning the live board again">▶ Start</button>}
+</> : <span className="kd-visitor" data-tip="You're viewing someone's agent — only its owner runs it">👀 VIEWING</span>}
         <SkinPicker skin={skin} set={setSkin} />
-        <button type="button" disabled={busy || cat.revoked} onClick={() => onAct('run')} data-testid="kd-run" data-tip="Run one scan-and-decide cycle right now">⟳ One cycle</button>
+        {canEdit ? <button type="button" disabled={busy || cat.revoked} onClick={() => onAct('run')} data-testid="kd-run" data-tip="Run one scan-and-decide cycle right now">⟳ One cycle</button> : null}
       </div>
     </header>
     {error ? <p className="kd-err" role="alert">⚠ {error}</p> : null}
@@ -127,7 +128,7 @@ export function CatDesk({ cat, busy = false, error = '', onBack, onAct, Activity
       <Tile k={4} label="TODAY'S LOSS" value={`${v.lossToday.toFixed(3)} / ${v.cap || '—'} SOL`} fill={v.capUsed} tone={v.capUsed >= 1 ? 'dn' : v.capUsed > 0.6 ? 'warn' : ''}
         sub={v.capUsed >= 1 ? 'cap hit — no new buys today' : 'its daily loss cap'} tip="Losses closed today against the cap you set — at the cap it stops buying until tomorrow" />
     </div>
-    {cat.brainsCfg ? <LiveMinds cat={cat} onAct={onAct} busy={busy} /> : null}
+    {cat.brainsCfg ? <LiveMinds cat={cat} onAct={onAct} busy={busy} canEdit={canEdit} /> : null}
     <div className="kd-grid">
       <div className="kd-main">
         {Real}
@@ -147,7 +148,7 @@ export function CatDesk({ cat, busy = false, error = '', onBack, onAct, Activity
           {lessons.length ? <ol className="kd-lessons">{lessons.map((x, i) => <li key={i}>{x.note}</li>)}</ol> : null}</section> : null}
         {Activity}
       </div>
-      <aside className="kd-side">
+      {canEdit ? <aside className="kd-side">
         <section className="kd-card kd-limits"><header><b>🎚 ITS LIMITS</b><small>it can only ever trade less than these</small></header>
           <form onSubmit={e => { e.preventDefault(); onAct('controls', lim); }}>
             {[['maxPositionSol', 'MAX A TRADE', 0.01, 2, 0.01], ['maxDailyLossSol', 'DAILY LOSS CAP', 0.01, 5, 0.01]].map(([k, l, lo, hi, st]) => <label key={k} className="kd-lim">
@@ -166,7 +167,7 @@ export function CatDesk({ cat, busy = false, error = '', onBack, onAct, Activity
         {cat.brainsCfg ? <ModelSwitch cat={cat} busy={busy} onAct={onAct} /> : null}
         <p className={`kd-paper${isReal ? ' is-real' : ''}`} data-tip={isReal ? `Its own ledger stays paper (its record); every real move: ${signWord(cat)}` : 'Every entry and exit uses the real live price at that moment; balances are simulated and no key lives in the browser'}>
           {isReal ? (cat.agentWallet ? `💵 REAL · its own wallet · ${cat.agentWallet.mode === 'auto' ? 'auto' : 'you OK each move'}` : '💵 REAL · it proposes · your wallet signs') : '🧪 PAPER · live prices · no real SOL'}</p>
-      </aside>
+      </aside> : null}
     </div>
   </section>;
 }

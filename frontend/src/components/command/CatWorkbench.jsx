@@ -37,7 +37,7 @@ function Window({ w, catId, tick, onGo, busy }) {
   const [p, pcls] = PROV[w?.provider] || ['…', ''];
   const human = w?.status === 'human' && w?.human;
   return <article ref={ref} className={`cwb-win s-${w?.status || 'idle'}`} data-testid={`cwb-win-${w?.i ?? 0}`}>
-    <header className="cwb-bar"><i className="cwb-dots" aria-hidden="true"><b /><b /><b /></i>
+    <header className="cwb-bar"><i className={`cwb-dots ${w?.status === 'working' ? 'is-go' : w?.status === 'human' ? 'is-wait' : 'is-stop'}`} aria-hidden="true" data-tip="red = idle · yellow = needs you · green = working"><b /><b /><b /></i>
       <span className="cwb-model" data-tip={w?.goal ? `Its half: ${w.goal}` : 'Waiting for the plan'}>{w?.model ? String(w.model).split('/').pop() : 'model'}</span>
       <em className={`cwb-prov ${pcls}`} data-tip={w?.note || (w?.provider === 'reader' ? 'No live browser right now — it reads pages as text so it keeps working' : 'A browser in the cloud — nothing runs on your device')}>{p}</em>
       <span className="cwb-url" title={w?.url || ''}>{w?.url || 'about:blank'}</span></header>
@@ -77,7 +77,19 @@ export function genLog(d) {
     ...(d?.refusals || []).map(r => ({ f: 'guards', at: r.at || now, text: r.why, tone: 'warn' }))].filter(x => x.text).sort((p, q) => (q.at || 0) - (p.at || 0));
 }
 
-export function CatWorkbench({ cat }) {
+// 👀 a visitor (from the leaderboard) sees its minds + what both agreed on — its live windows and chat stay private to its owner
+export function CatWorkbench({ cat, readOnly = false }) {
+  return readOnly ? <PublicMinds cat={cat} /> : <WorkbenchLive cat={cat} />;
+}
+function PublicMinds({ cat }) {
+  const b = cat.brainsCfg || {}; const brains = b.brains || [];
+  return <section className="cwb kd-card cwb-public" data-testid="cwb-public">
+    <div className="ck-cockpit">{[0, 1].map(i => <MindVitals key={i} cat={cat} model={brains[i]} i={i} kind="general" live={cat.status === 'running'} extra={<p className="ck-v-last">{brains[i] ? 'works in its own cloud browser — private to its owner' : 'no second mind'}</p>} />)}</div>
+    <AgentLog title="WHAT BOTH MINDS AGREED ON" items={(b.cloud || []).map(c => ({ f: 'cloud', at: c.at, text: c.text || `${c.word} $${c.sym}`, tone: 'acc' }))} />
+  </section>;
+}
+
+function WorkbenchLive({ cat }) {
   const [d, setD] = useState(null); const [err, setErr] = useState(''); const [text, setText] = useState(''); const [busy, setBusy] = useState(false); const [tick, setTick] = useState(0);
   const [to, setTo] = useState('both'); const [jobs, setJobs] = useState(['', '']);   // 🧠 talk to both minds, or ONE of them (it works the whole task in its own window)
   const load = useCallback(() => work(cat.id, { op: 'state' }).then(x => { setD(x); setErr(''); }).catch(e => setErr(e.message)), [cat.id]);

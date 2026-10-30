@@ -252,3 +252,5 @@ body.theme-day .lct-way { background: #fff; color: #2a1650; } body.theme-day .lc
 body.theme-day .lct-way.is-on { background: #f0fff7; } body.theme-day .lct-foot { background: #fffffff2; }
 @media (prefers-reduced-motion: reduce) { .lct-way { animation: none; transition: none; } }
 @media (max-width: 640px) { .lct-foot { margin: 0 -12px -12px; padding: 10px 12px; } .lct-ways { grid-template-columns: 1fr; } }
+/* the header socket's picked minds are the live soap bubbles — the old solid lilac / pink ball never paints under them */
+.lct-node.on.has-bub, .lct-node.n1.on.has-bub { background: none !important; box-shadow: none !important; animation: none !important; }

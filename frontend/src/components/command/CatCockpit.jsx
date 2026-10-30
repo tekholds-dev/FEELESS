@@ -6,13 +6,13 @@ import '../../styles/catCockpit.css';
 // 🛸 THE AGENT COCKPIT (owner, 2026-10-30: "skinny chat — not wide — with model vitals on each side, under that a realtime degen categorised log
 // with folders… bg options that are clean + calming, pick the card colour instead of purple"). Under the two live windows:
 //   [ MIND A vitals ] [ the chat: bubbles, A left · B right · you ] [ MIND B vitals ]  →  📁 the log, one folder per kind of thing it did.
-// Desk skins are DRAWN scenes (ocean · forest · mountains · aurora): zero MB, no video to download, they stop under fx-lite / reduced motion.
-export const SCENES = [['night', '🌌', 'Night'], ['ocean', '🌊', 'Ocean'], ['forest', '🌲', 'Forest'], ['peaks', '🏔', 'Mountains'], ['aurora', '✨', 'Aurora']];
+// Desk skins = the owner's real nature clips (Earth · creek · forest) or plain Night; they stop under fx-lite / reduced motion.
+export const SCENES = [['globe', '🌍', 'Earth'], ['creek', '💧', 'Creek'], ['forest', '🌲', 'Forest'], ['night', '🌌', 'Night']];
 export const ACCENTS = ['#b388ff', '#9dffcf', '#45e486', '#7fd3ff', '#f5c542', '#ff5dbb'];
 const SKIN_KEY = 'feeless.deskSkin';
 export function readSkin() {
-  try { const s = JSON.parse(localStorage.getItem(SKIN_KEY) || 'null'); return { bg: SCENES.some(x => x[0] === s?.bg) ? s.bg : 'ocean', acc: ACCENTS.includes(s?.acc) ? s.acc : ACCENTS[0] }; }
-  catch { return { bg: 'ocean', acc: ACCENTS[0] }; }
+  try { const s = JSON.parse(localStorage.getItem(SKIN_KEY) || 'null'); return { bg: SCENES.some(x => x[0] === s?.bg) ? s.bg : 'globe', acc: ACCENTS.includes(s?.acc) ? s.acc : ACCENTS[0] }; }
+  catch { return { bg: 'globe', acc: ACCENTS[0] }; }
 }
 export function useDeskSkin() {
   const [skin, setSkin] = useState(readSkin);
@@ -20,10 +20,10 @@ export function useDeskSkin() {
   return [skin, set];
 }
 
-// 🎥 a REAL calm clip per scene (owner 2026-10-30: "full real free video backdrop"): Mixkit free license, /backdrops/<scene>.mp4 (720p loops, 3–7 MB).
-// It plays muted + looped only while the desk is on screen and the tab is visible; fx-lite / reduced motion / a missing file → the drawn scene.
-// Cards over it turn to dark GLASS (no backdrop blur over a moving layer — a scrim + near-opaque glass keeps every colour readable).
-export const VIDEO = { ocean: 'Sun reflections and gentle waves', forest: 'Sun beams through the forest trees', peaks: 'Fog on the heights of the snowy mountains', aurora: 'Northern Lights, blue and green' };
+// 🎥 the owner's own 4K nature clips (2026-10-30), encoded to 1080p HD loops (~30 s, silent, fast-start): /backdrops/<scene>.mp4. Full-screen behind
+// the desk, played only while it is on screen and the tab is visible; fx-lite / reduced motion → paused on its first frame; a missing file → Night.
+// Cards over it are dark GLASS (no backdrop blur over a moving layer — a scrim + near-opaque glass keeps every colour readable).
+export const VIDEO = { globe: 'Earth at night', creek: 'Autumn creek', forest: 'Forest canopy' };
 function SceneVideo({ bg, onFail }) {
   const ref = React.useRef(null);
   useEffect(() => { const v = ref.current; if (!v) return undefined;
@@ -40,14 +40,8 @@ function SceneVideo({ bg, onFail }) {
 export function DeskBackdrop({ bg }) {
   const [fail, setFail] = useState(false);
   useEffect(() => setFail(false), [bg]);
-  if (bg === 'night') return <i className="ckb ckb-night" aria-hidden="true" />;
-  if (VIDEO[bg] && !fail) return <div className={`ckb ckb-${bg} is-video`} aria-hidden="true"><SceneVideo bg={bg} onFail={() => setFail(true)} /><i className="ckb-scrim" /></div>;
-  return <div className={`ckb ckb-${bg}`} aria-hidden="true">
-    {bg === 'ocean' ? <><i className="ckb-sun" /><i className="ckb-wave w1" /><i className="ckb-wave w2" /><i className="ckb-wave w3" /></> : null}
-    {bg === 'forest' ? <><i className="ckb-mist" /><i className="ckb-trees t1" /><i className="ckb-trees t2" /><i className="ckb-fly" /></> : null}
-    {bg === 'peaks' ? <><i className="ckb-cloud c1" /><i className="ckb-cloud c2" /><i className="ckb-peak p1" /><i className="ckb-peak p2" /></> : null}
-    {bg === 'aurora' ? <><i className="ckb-band b1" /><i className="ckb-band b2" /><i className="ckb-stars" /></> : null}
-  </div>;
+  if (!VIDEO[bg] || fail) return <i className="ckb ckb-night" aria-hidden="true" />;
+  return <div className="ckb is-video" aria-hidden="true"><SceneVideo bg={bg} onFail={() => setFail(true)} /><i className="ckb-scrim" /></div>;
 }
 
 export function SkinPicker({ skin, set }) {
@@ -100,9 +94,9 @@ export function TradeChat({ cat, onSend, busy }) {
     <ol className="ck-msgs" aria-live="polite">{rows.length ? rows.map((r, i) => <li key={`${r.at}-${i}`} className={`ck-msg is-${r.side}`} style={{ '--i': Math.min(i, 8) }}>
       <span className="ck-msg-h"><b>{r.who}</b>{r.word ? <em className={`is-${WORD_TONE[r.word] || 'mute'}`}>{r.word}{r.sym ? ` $${r.sym}` : ''}</em> : null}<small>{r.at ? `${ago(r.at)}` : ''}</small></span>
       {r.text ? <p>{r.text}</p> : null}</li>) : <li className="ck-empty">Its first call lands here — both brains talk in bubbles, you chime in below.</li>}</ol>
-    <form className="ck-say" onSubmit={async e => { e.preventDefault(); if (t.trim() && await onSend?.(t.trim())) setT(''); }}>
+    {onSend ? <form className="ck-say" onSubmit={async e => { e.preventDefault(); if (t.trim() && await onSend?.(t.trim())) setT(''); }}>
       <input className="m-input" maxLength={280} value={t} onChange={e => setT(e.target.value)} placeholder="Chime in — advice both brains read, never an order" data-testid="ck-chime" />
-      <button type="submit" className="m-btn m-go" disabled={busy || !t.trim()}>Send</button></form>
+      <button type="submit" className="m-btn m-go" disabled={busy || !t.trim()}>Send</button></form> : null}
   </div>;
 }
 

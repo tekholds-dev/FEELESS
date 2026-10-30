@@ -167,8 +167,9 @@ function CatDetail({ cat: initialCat, onBack, onChanged, onDeleted }) {
     return () => clearInterval(interval);
   }, [initialCat.id]); // eslint-disable-line react-hooks/exhaustive-deps
   const act = async (action, extra = {}) => { setError(''); setBusy(true); try { const result = await api(`/api/cats/${cat.id}/action`, { method: 'POST', body: JSON.stringify({ action, ...extra }) }); if (result.deleted) { onDeleted?.(result.deleted); return; } setCat(result.cat); onChanged?.(result.cat); } catch (requestError) { setError(requestError.message); } setBusy(false); };
-  return <CatDesk cat={cat} busy={busy} error={error} onBack={onBack} onAct={act} Engine={<EngineLine />} Real={cat.isLeader && !isAdmin ? null : <CatReal cat={cat} busy={busy} onAct={act} />}
-    Brains={cat.brainsCfg ? <BrainPanel noTalk cat={cat} api={api} onChanged={brainChanged} /> : null} Activity={cat.brainsCfg ? null : <ActivityFeed catId={cat.id} />} />;
+  const mine = cat.isLeader ? isAdmin : cat.ownerId === ownerId();   // 👀 opened from the leaderboard: the owner gets the controls, everyone else the view
+  return <CatDesk canEdit={mine} cat={cat} busy={busy} error={error} onBack={onBack} onAct={act} Engine={<EngineLine />} Real={!mine ? null : <CatReal cat={cat} busy={busy} onAct={act} />}
+    Brains={cat.brainsCfg && mine ? <BrainPanel noTalk cat={cat} api={api} onChanged={brainChanged} /> : null} Activity={cat.brainsCfg ? null : <ActivityFeed catId={cat.id} />} />;
 }
 
 // 🤖 AGENTS (FeeCat redo, 2026-10-23): your trading cats — MY AGENTS · NEW AGENT · LIVE ACTIVITY · LEADERBOARD. Fee's own desk, brain and lore

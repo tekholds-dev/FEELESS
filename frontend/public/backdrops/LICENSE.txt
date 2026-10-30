@@ -1,5 +1,4 @@
-Mixkit Stock Video Free License (https://mixkit.co/license/) — free for commercial and non-commercial projects.
-ocean.mp4  = 25163 Sun reflections and gentle waves in the beach
-forest.mp4 = 25158 Sun beams through the forest trees
-peaks.mp4  = 4396 Fog on the heights of the snowy mountains
-aurora.mp4 = 4038 Northern Lights of blue and green colors in the night sky
+Owner-supplied 4K nature clips (2026-10-30), encoded to 1080p:
+globe.mp4  = Earth at night (slowed 2x to 32 s)
+creek.mp4  = autumn creek
+forest.mp4 = forest canopy

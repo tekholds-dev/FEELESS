@@ -98,7 +98,7 @@ export function AgentDemo({ kind = 'trading', models = [] }) {
     <i className="agd-hex" aria-hidden="true" /><i className="agd-scan" aria-hidden="true" />
     <span className="agd-tag">◈ DEMO · {gen ? 'what its two minds do' : 'how its two brains trade'} · not real</span>
     <div className="agd-wins">{[0, 1].map(i => <div key={i} className={`agd-win w${i}`} style={{ '--i': i }}>
-      <span className="agd-bar"><i /><i /><i /><b>{gen ? `MIND ${'AB'[i]}` : `BRAIN ${'AB'[i]}`}</b><small>{name(i)}</small><em className="agd-live">● LIVE</em></span>
+      <span className="agd-bar is-go"><i /><i /><i /><b>{gen ? `MIND ${'AB'[i]}` : `BRAIN ${'AB'[i]}`}</b><small>{name(i)}</small><em className="agd-live">● LIVE</em></span>
       {gen ? <DemoBrowser frames={rec?.['ab'[i]]} t={t + i * 2} who={'AB'[i]} credit={i ? rec?.credit : null} /> : <DemoChart seed={i ? 7 : 3} t={t + i * 9} who={'AB'[i]} sym={i ? 'NEON' : 'GERM'} />}
     </div>)}</div>
     <ol className="agd-feed" aria-live="off">{lines.map(l => <li key={l.id}>{l.text}</li>)}</ol>
