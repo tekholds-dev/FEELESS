@@ -32,7 +32,7 @@ test('🛸 vitals + chat render, the chime goes out, a broken skin falls back', 
   await act(async () => { const i = el.querySelector('[data-testid="ck-chime"]'); Object.getOwnPropertyDescriptor(Object.getPrototypeOf(i), 'value').set.call(i, 'hold longer'); i.dispatchEvent(new Event('input', { bubbles: true })); });
   await act(async () => { el.querySelector('.ck-say').dispatchEvent(new Event('submit', { bubbles: true, cancelable: true })); });
   expect(send).toHaveBeenCalledWith('hold longer');
-  localStorage.setItem('feeless.deskSkin', '{"bg":"lava","acc":"#000"}'); expect(readSkin()).toEqual({ bg: 'night', acc: '#b388ff' });
+  localStorage.setItem('feeless.deskSkin', '{"bg":"lava","acc":"#000"}'); expect(readSkin()).toEqual({ bg: 'ocean', acc: '#b388ff' });
 });
 
 test('🔐 the first funding stays locked until "I saved my recovery phrase" is ticked — and it shows ITS wallet', async () => {

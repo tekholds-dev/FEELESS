@@ -112,3 +112,10 @@ body.theme-day .cwb-chat li { background: #fff; } body.theme-day .cwb-chat li.is
 body.theme-day .cwb-cloud span { background: #fff; color: #2a1650; }
 @media (max-width: 640px) { .cwb-jobs { grid-template-columns: 1fr; } .cwb-chat li { max-width: 94%; } }
 .cwb-center { justify-items: stretch; } .cwb-center .cwb-chat { max-height: 420px; }
+/* 💬 the middle column IS the chat: one glass panel — the answer, the bubbles, who you talk to, the ask box — never loose pieces */
+.cwb-center { align-content: start; gap: 8px; padding: 12px; min-height: 360px; border-radius: 20px; border: 1px solid color-mix(in srgb, var(--kd-acc, #b388ff) 34%, #ffffff1a);
+  background: linear-gradient(170deg, #120c22d9, #08061299); box-shadow: inset 0 1px 0 #ffffff1f, 0 18px 40px -28px #000; }
+.cwb-center .cwb-chat { flex: 1; min-height: 160px; align-content: end; padding: 4px; }
+.cwb-center .cwb-chat li:not(.is-you) { border-color: color-mix(in srgb, var(--kd-acc, #b388ff) 40%, transparent); }
+.cwb-center .cwb-ask { grid-template-columns: minmax(0, 1fr) auto; } .cwb-center .cwb-cap { grid-column: 1 / -1; justify-content: center; }
+.cwb-center .cwb-to { justify-content: center; flex-wrap: wrap; }

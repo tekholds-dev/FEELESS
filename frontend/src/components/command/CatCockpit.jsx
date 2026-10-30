@@ -11,8 +11,8 @@ export const SCENES = [['night', '🌌', 'Night'], ['ocean', '🌊', 'Ocean'], [
 export const ACCENTS = ['#b388ff', '#9dffcf', '#45e486', '#7fd3ff', '#f5c542', '#ff5dbb'];
 const SKIN_KEY = 'feeless.deskSkin';
 export function readSkin() {
-  try { const s = JSON.parse(localStorage.getItem(SKIN_KEY) || 'null'); return { bg: SCENES.some(x => x[0] === s?.bg) ? s.bg : 'night', acc: ACCENTS.includes(s?.acc) ? s.acc : ACCENTS[0] }; }
-  catch { return { bg: 'night', acc: ACCENTS[0] }; }
+  try { const s = JSON.parse(localStorage.getItem(SKIN_KEY) || 'null'); return { bg: SCENES.some(x => x[0] === s?.bg) ? s.bg : 'ocean', acc: ACCENTS.includes(s?.acc) ? s.acc : ACCENTS[0] }; }
+  catch { return { bg: 'ocean', acc: ACCENTS[0] }; }
 }
 export function useDeskSkin() {
   const [skin, setSkin] = useState(readSkin);
