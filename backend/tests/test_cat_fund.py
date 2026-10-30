@@ -47,7 +47,7 @@ def test_one_transaction_two_transfers_and_only_the_exact_one_signed_by_the_owne
     p = cf.plan(10, 200, True)
     b = cf.build(str(o.pubkey()), str(cat.pubkey()), str(fee.pubkey()), p, BH)
     msg = VersionedTransaction.from_bytes(base64.b64decode(b)).message
-    assert len(msg.instructions) == 2 and str(msg.account_keys[0]) == str(o.pubkey())
+    assert len(cf._moves(msg)) == 2 and str(msg.account_keys[0]) == str(o.pubkey())
     assert cf.verify(_sign(b, o), b, str(o.pubkey()))
     with pytest.raises(ValueError, match='owner'):
         cf.verify(_sign(b, other), b, str(o.pubkey()))                                         # someone else's signature
@@ -55,7 +55,7 @@ def test_one_transaction_two_transfers_and_only_the_exact_one_signed_by_the_owne
     with pytest.raises(ValueError, match='not the one FEELESS built'):
         cf.verify(_sign(tampered, o), b, str(o.pubkey()))
     top = cf.build(str(o.pubkey()), str(cat.pubkey()), str(cat.pubkey()), cf.plan(5, 200, False), BH)
-    assert len(VersionedTransaction.from_bytes(base64.b64decode(top)).message.instructions) == 1   # a top-up: one transfer, no fee
+    assert len(cf._moves(VersionedTransaction.from_bytes(base64.b64decode(top)).message)) == 1   # a top-up: one transfer, no fee
     with pytest.raises(ValueError):
         cf.build(str(o.pubkey()), str(o.pubkey()), str(fee.pubkey()), p, BH)                    # paying yourself
 

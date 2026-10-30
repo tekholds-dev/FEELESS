@@ -175,7 +175,7 @@ export function FundCat({ cat, addr, session, sign, onDone, onConfirm }) {
     catch (e) { setErr(e.message); setStage('pick'); } };
   const go = async () => { if (!rcpt || left <= 0) return; setErr(''); setStage('signing');
     try { const signed = await sign(rcpt.transaction); setStage('sending'); const j = await post('fund/send', { address: addr, session: rcpt.session, signed }); setSig(j.signature); if (first) setPaidFirst(true); setStage(j.state === 'confirmed' ? 'done' : 'landing'); setRcpt(null); onDone?.(); }
-    catch (e) { setErr(e.message || 'Your wallet did not sign.'); setStage('ready'); } };
+    catch (e) { setErr(e.message || 'Your wallet did not sign.'); setRcpt(null); setStage('pick'); } };   // a receipt is one-use: back to a fresh one, never a dead button
   const p = rcpt?.plan; const usdc = p?.token === 'USDC'; const amt = l => (usdc ? `${(Number(l) / 1e6).toFixed(2)} USDC` : `${sol4(l)} SOL`);
   const reset = () => { setRcpt(null); setStage('pick'); setDoneNote(''); };
   return <div className="cr-fund" data-testid="cr-fund">

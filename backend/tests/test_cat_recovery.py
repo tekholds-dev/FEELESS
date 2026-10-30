@@ -187,10 +187,35 @@ def test_one_amount_splits_between_its_wallet_and_model_credit_in_one_payment():
     assert p['feeLamports'] == 70_000_000 and p['catLamports'] == 130_000_000 and p['totalLamports'] == 200_000_000
     me, cat, fee = Keypair().pubkey(), Keypair().pubkey(), Keypair().pubkey()
     tx = VersionedTransaction.from_bytes(base64.b64decode(cf.build(str(me), str(cat), str(fee), p, HASH)))
-    assert len(tx.message.instructions) == 2                                       # one signature pays both
+    assert len(cf._moves(tx.message)) == 2                                         # one signature pays both
     free = cf.plan(10, 100, first=False, credit_usd=4, free_credit=True)            # a creator's credit is not paid for
     assert free['payUsd'] == 6 and free['creditUsd'] == 4 and free['feeLamports'] == 0 and free['catLamports'] == 60_000_000
     only = cf.plan(5, 100, first=True, fee_usd=2, credit_usd=5, free_credit=True)   # credit only: nothing to sign, no first-funding fee
     assert only['totalLamports'] == 0 and only['feeUsd'] == 0
     with pytest.raises(ValueError):
         cf.plan(12, 100, first=True, fee_usd=2, min_usd=10, credit_usd=5)           # the wallet share still meets the first-funding minimum
+
+
+def _sign(kp, msg):
+    return base64.b64encode(bytes(VersionedTransaction(msg, [kp]))).decode()
+
+
+def test_a_wallet_may_add_fee_settings_but_can_never_change_or_add_a_money_move():
+    from solders.compute_budget import set_compute_unit_limit, set_compute_unit_price
+    from solders.hash import Hash
+    from solders.message import MessageV0
+    from solders.system_program import TransferParams, transfer
+    kp, cat, fee, thief = Keypair(), Keypair().pubkey(), Keypair().pubkey(), Keypair().pubkey()
+    me = kp.pubkey(); p = cf.plan(10, 100, first=True, fee_usd=2, min_usd=5)
+    built = cf.build(str(me), str(cat), str(fee), p, HASH); bh = Hash.from_string(HASH)
+    legs = [transfer(TransferParams(from_pubkey=me, to_pubkey=fee, lamports=p['feeLamports'])), transfer(TransferParams(from_pubkey=me, to_pubkey=cat, lamports=p['catLamports']))]
+    cu = [set_compute_unit_limit(99_000), set_compute_unit_price(7)]
+    assert cf.verify(_sign(kp, MessageV0.try_compile(me, cu + legs, [], bh)), built, str(me))   # Phantom's own fee settings pass
+    bad_amount = [legs[0], transfer(TransferParams(from_pubkey=me, to_pubkey=cat, lamports=p['catLamports'] + 1))]
+    bad_dest = [legs[0], transfer(TransferParams(from_pubkey=me, to_pubkey=thief, lamports=p['catLamports']))]
+    extra = legs + [transfer(TransferParams(from_pubkey=me, to_pubkey=thief, lamports=1))]
+    for ixs in (bad_amount, bad_dest, extra):
+        with pytest.raises(ValueError, match='not the one FEELESS built'):
+            cf.verify(_sign(kp, MessageV0.try_compile(me, cu + ixs, [], bh)), built, str(me))
+    other = Hash.from_string('4vJ9JU1bJJE96FWSJKvHsmmFADCg4gpZQff4P3bkLKi')
+    assert cf.verify(_sign(kp, MessageV0.try_compile(me, cu + legs, [], other)), built, str(me))   # a refreshed blockhash moves no money

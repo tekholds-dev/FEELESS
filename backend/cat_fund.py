@@ -8,6 +8,7 @@ only sends a signed copy whose message is byte-for-byte the one it built, signed
 FEELESS swap. A top-up later is all for the cat (no fee). Amounts are SOL at the live price, rounded DOWN to the lamport for the cat."""
 import base64
 
+from solders.compute_budget import set_compute_unit_limit, set_compute_unit_price
 from solders.hash import Hash
 from solders.instruction import AccountMeta, Instruction
 from solders.message import MessageV0, to_bytes_versioned
@@ -29,6 +30,9 @@ TOKEN_PROGRAM = 'TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA'
 ATA_PROGRAM = 'ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL'
 SYSTEM_PROGRAM = '11111111111111111111111111111111'
 GAS_LAMPORTS = 3_000_000   # a USDC funding also drops this SOL in its wallet: with no SOL it could neither move nor withdraw its USDC
+COMPUTE_PROGRAM = 'ComputeBudget111111111111111111111111111111'
+LIGHTHOUSE_PROGRAM = 'L2TExMFKdjpN9kozasaurPirfHy9P8sbXoAN1qA3S95'
+WALLET_EXTRAS = (COMPUTE_PROGRAM, LIGHTHOUSE_PROGRAM)   # what wallets like Phantom add on signing: fee settings and safety checks, neither can move money
 FEE_RESERVE = 10_000       # lamports left behind for the network fee on an all-out SOL withdrawal
 
 
@@ -92,6 +96,7 @@ def build(owner, cat_wallet, fee_wallet, p, blockhash):
             ixs.append(transfer(TransferParams(from_pubkey=payer, to_pubkey=cat, lamports=p['gasLamports'])))
     else:
         ixs = [transfer(TransferParams(from_pubkey=payer, to_pubkey=to, lamports=n)) for to, n in legs]
+    ixs = [set_compute_unit_limit(200_000 if p.get('token') == 'USDC' else 20_000), set_compute_unit_price(50_000)] + ixs   # fee settings in place: wallets then leave them alone
     msg = MessageV0.try_compile(payer, ixs, [], bh)
     return base64.b64encode(bytes(VersionedTransaction.populate(msg, [Signature.default()]))).decode()
 
@@ -108,6 +113,13 @@ def build_out(agent_wallet, owner, token, units, blockhash):
     return base64.b64encode(bytes(VersionedTransaction.populate(MessageV0.try_compile(payer, ixs, [], bh), [Signature.default()]))).decode()
 
 
+def _moves(msg):
+    """What a message really does: every instruction but the wallet's harmless extras, as (program, accounts, data)."""
+    keys = list(msg.account_keys)
+    rows = [(str(keys[i.program_id_index]), tuple(str(keys[a]) for a in bytes(i.accounts)), bytes(i.data)) for i in msg.instructions]
+    return [x for x in rows if x[0] not in WALLET_EXTRAS]
+
+
 def verify(signed_b64, built_b64, owner):
     """The signed copy must carry EXACTLY the message we built, signed by `owner`. → its signature string. Raises ValueError."""
     try:
@@ -115,8 +127,11 @@ def verify(signed_b64, built_b64, owner):
         built = VersionedTransaction.from_bytes(base64.b64decode(built_b64, validate=True))
     except Exception:
         raise ValueError('That is not a transaction.')
-    if to_bytes_versioned(signed.message) != to_bytes_versioned(built.message):
-        raise ValueError('The signed transaction is not the one FEELESS built — nothing was sent.')
+    a, b = signed.message, built.message
+    if to_bytes_versioned(a) != to_bytes_versioned(b):   # a wallet may add fee settings or safety checks, or refresh the blockhash; every money move must stay exactly as built, same payer
+        if getattr(a, 'address_table_lookups', None) or _moves(a) != _moves(b) or a.account_keys[0] != b.account_keys[0]:
+            print(f"[cat fund] refused a signed copy: lookups {bool(getattr(a, 'address_table_lookups', None))} · payer same {a.account_keys[0] == b.account_keys[0]} · programs {sorted({str(a.account_keys[i.program_id_index])[:8] for i in a.instructions})}")
+            raise ValueError('The signed transaction is not the one FEELESS built — nothing was sent.')
     if str(signed.message.account_keys[0]) != owner or not all(signed.verify_with_results()):
         raise ValueError("It is not signed by the cat's owner wallet — nothing was sent.")
     return str(signed.signatures[0])
