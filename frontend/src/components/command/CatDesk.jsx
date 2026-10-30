@@ -1,7 +1,7 @@
 import { CatWorkbench } from './CatWorkbench';
 import { AgentLive, HeadCloud, asModel, catMinds, catCoins } from './AgentLive';
 import { MindVitals, TradeChat, AgentLog, catLogItems, useCatEvents, useDeskSkin, DeskBackdrop, SkinPicker } from './CatCockpit';
-import { signWord } from './LaunchCat';
+import { signWord, ModelPop } from './LaunchCat';
 import React, { useEffect, useMemo, useState } from 'react';
 import { useWallet } from '../../hooks/useWallet';
 import { getChatSession } from '../../lib/chatSession';
@@ -12,6 +12,7 @@ import { FeeCatMark } from '../FeeCatMark';
 import { catByName } from './catCoats';
 import { openWarRoom } from '../WarRoomHost';
 import '../../styles/catDesk.css';
+import '../../styles/feecatDesk.css';   // the model slots (fmd-slot) shared with Fee's models
 
 // 🤖 ONE AGENT'S DESK (owner, 2026-10-23: "redo the agent detail page … in the same violet meta" — it was the old green paper page: a form
 // sidebar, a thin sparkline, a disclosure paragraph). Now: the cat on its own violet stage (it purrs while it hunts, pounces while it holds,
@@ -60,14 +61,20 @@ function DeleteForGood({ cat, busy, onAct }) {
 export const MODEL_LOCK_H = 24;
 export function lockLeft(createdAt, now = Date.now() / 1000) { return Math.max(0, MODEL_LOCK_H * 3600 - (now - Number(createdAt || 0))); }
 function ModelSwitch({ cat, busy, onAct }) {
-  const left = lockLeft(cat.createdAt); const [list, setList] = useState(null); const [memory, setMemory] = useState('keep'); const [pick, setPick] = useState(() => [...(cat.brainsCfg.brains || [])]);
-  useEffect(() => { if (left > 0 || list) return; fetch('/api/cats/models').then(r => (r.ok ? r.json() : null)).then(d => setList((d?.models || []).filter(m => m.tools).sort((a, b) => (b.intel ?? -1) - (a.intel ?? -1)).slice(0, 40))).catch(() => setList([])); }, [left, list]);
-  return <section className="kd-card kd-models" data-testid="kd-models"><header><b>🔁 ITS MODELS</b><small>{left > 0 ? `switchable in ${(left / 3600).toFixed(1)} h` : 'switch any time — its brief, memory + cloud stay'}</small></header>
+  const left = lockLeft(cat.createdAt); const [d, setD] = useState(null); const [memory, setMemory] = useState('keep'); const [pick, setPick] = useState(() => [...(cat.brainsCfg.brains || [])]); const [open, setOpen] = useState(-1);
+  const kind = cat.brainsCfg.kind === 'general' ? 'general' : 'trading'; const mind = kind === 'general' ? 'MIND' : 'BRAIN';
+  useEffect(() => { if (left > 0 || d) return; fetch('/api/cats/models').then(r => (r.ok ? r.json() : null)).then(setD).catch(() => setD({ models: [] })); }, [left, d]);
+  const row = id => (d?.models || []).find(m => m.id === id);
+  return <section className="kd-card kd-models" data-testid="kd-models"><header><b>🔁 ITS MODELS</b><small>{left > 0 ? `switchable in ${(left / 3600).toFixed(1)} h` : 'switch any time — its brief stays; you choose what happens to its memory'}</small></header>
     {left > 0 ? <i className="kd-lock" aria-hidden="true"><u style={{ transform: `scaleX(${1 - left / (MODEL_LOCK_H * 3600)})` }} /></i>
-      : <div className="kd-mpick">{[0, 1].map(i => <select key={i} className="m-input" value={pick[i] || ''} aria-label={`Model ${'AB'[i]}`} onChange={e => setPick(p => { const n = [...p]; n[i] = e.target.value; return n.filter(Boolean); })} data-testid={`kd-model-${i}`}>
-        {i ? <option value="">no second model</option> : null}{(list || []).map(m => <option key={m.id} value={m.id}>{m.name} · ♟ {m.intel ?? '—'}</option>)}</select>)}
-        <button type="button" className="m-btn m-go" disabled={busy || !pick.length || pick.join() === (cat.brainsCfg.brains || []).join()} onClick={() => onAct('models', { brains: pick, memory })} data-testid="kd-model-save">Switch</button>
-        <div className="m-seg kd-mem" role="radiogroup" aria-label="Its memory with the new models">{[['keep', '☁ keep its memory'], ['fresh', '🧹 start fresh']].map(([k, l]) => <button key={k} type="button" role="radio" aria-checked={memory === k} className={memory === k ? 'is-on' : ''} onClick={() => setMemory(k)} data-testid={`kd-mem-${k}`}>{l}</button>)}</div></div>}
+      : <><div className="fmd-pick">{[0, 1].map(i => { const m = row(pick[i]);
+        return <div key={i} className={`fmd-slot${pick[i] ? ' is-on' : ''}`}><em>{mind} {'AB'[i]}{i ? ' · optional' : ' · leads'}</em>
+          <span className="fmd-slot-m"><b>{pick[i] ? (m?.name || pick[i].split('/').pop()) : 'none'}</b><small>{m ? `♟ ${m.intel ?? '—'} · ${kind === 'general' ? (m.perTask ? `$${m.perTask.toFixed(4)} a task` : 'free') : (m.perDecision ? `$${m.perDecision.toFixed(4)} a decision` : 'free')}` : i ? 'add a second model' : ''}</small></span>
+          <span className="fmd-slot-acts"><button type="button" className="m-btn" disabled={!d} onClick={() => setOpen(i)} data-testid={`kd-model-open-${i}`}>{pick[i] ? 'Change' : 'Pick from the list'}</button>
+            {i && pick[i] ? <button type="button" className="m-btn" onClick={() => setPick(p => [p[0]])}>Drop</button> : null}</span></div>; })}</div>
+        <div className="m-seg kd-mem" role="radiogroup" aria-label="Its memory with the new models">{[['keep', '☁ keep its memory'], ['sort', '🧠 new model sorts it'], ['fresh', '🧹 start fresh']].map(([k, l]) => <button key={k} type="button" role="radio" aria-checked={memory === k} className={memory === k ? 'is-on' : ''} onClick={() => setMemory(k)} data-testid={`kd-mem-${k}`}>{l}</button>)}</div>
+        <button type="button" className="m-btn m-go" disabled={busy || !pick[0] || pick.filter(Boolean).join() === (cat.brainsCfg.brains || []).join()} onClick={() => onAct('models', { brains: pick.filter(Boolean), memory })} data-testid="kd-model-save">Switch</button></>}
+    {open >= 0 ? <ModelPop d={d} kind={kind} title={`🔁 ${mind} ${'AB'[open]} · ${cat.name}`} picked={pick.filter(Boolean).map(id => ({ id }))} onPick={id => setPick(p => { const n = [p[0] || '', p[1] || '']; n[open] = id; if (n[1 - open] === id) n[1 - open] = ''; return n[0] ? n : [id]; })} onClose={() => setOpen(-1)} /> : null}
   </section>;
 }
 

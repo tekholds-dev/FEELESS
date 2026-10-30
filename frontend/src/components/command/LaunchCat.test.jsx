@@ -23,7 +23,7 @@ test('pick two brains, choose battle, write the brief, launch', async () => {
   const click = sel => act(() => el.querySelector(sel).click());
   expect(el.querySelector('.lct-grid [data-testid="lct-m-x/big"]')).toBeNull();          // 📈 a Trading cat opens on the trading models…
   click('.lct-cats button');                                                                // …✨ All shows the whole list
-  click('.lct-rec [data-testid="lct-m-openai/gpt-oss-20b"]'); click('.lct-grid [data-testid="lct-m-x/big"]');
+  click('.lct-grid [data-testid="lct-m-openai/gpt-oss-20b"]'); click('.lct-grid [data-testid="lct-m-x/big"]');
   click('[data-testid="lct-next"]'); click('[data-testid="lct-mode-battle"]'); click('[data-testid="lct-next"]');
   const set = (sel, v) => act(() => { const i = el.querySelector(sel); const proto = Object.getPrototypeOf(i); Object.getOwnPropertyDescriptor(proto, 'value').set.call(i, v); i.dispatchEvent(new Event('input', { bubbles: true })); });
   set('[data-testid="lct-name"]', 'Duo'); set('[data-testid="lct-prompt"]', 'germ floors only');
@@ -55,7 +55,7 @@ test('Launch a Cat asks the SAME identity + look + risk fields as Create a Cat w
   const Fields = ({ form, update }) => <input data-testid="shared-handle" value={form.handle} onChange={e => update('handle', e.target.value)} />;
   const el = document.createElement('div'); const root = createRoot(el);
   await act(async () => { root.render(<LaunchCat api={api} ownerId={() => 'o'} Fields={Fields} newForm={() => ({ name: 'x', handle: 'h1' })} formOk={f => f.handle.length > 2} />); });
-  act(() => el.querySelector('.lct-rec [data-testid="lct-m-openai/gpt-oss-20b"]').click());
+  act(() => el.querySelector('.lct-cats button').click()); act(() => el.querySelector('.lct-grid .lct-tile-pick').click());   // no pre-picked models: open All, pick one
   act(() => el.querySelector('[data-testid="lct-next"]').click()); act(() => el.querySelector('[data-testid="lct-next"]').click());
   expect(el.querySelector('[data-testid="shared-handle"]')).not.toBeNull();
   expect(el.querySelector('[data-testid="lct-name"]')).toBeNull();
@@ -139,4 +139,25 @@ test('🧭 a job picks the models fit for it: category, the tools / vision it ne
   expect(filterModels(ms, { cat: [job('research').cat], need: job('research').need }).map(m => m.id)).toEqual(['a/agent', 'b/eye']);
   expect(filterModels(ms, { need: job('trade').need }).map(m => m.id)).toEqual(['b/eye']);       // reading charts needs vision + tools
   expect(filterModels(ms, { cat: ['content'] }).map(m => m.id)).toEqual(['c/plain']);
+});
+
+test('🧠 step 1 starts with two EMPTY boxes (no pre-picked models) and a Next up top that wakes when one is picked', async () => {
+  const el = document.createElement('div'); const root = createRoot(el);
+  await act(async () => { root.render(<LaunchCat api={jest.fn(() => Promise.resolve(CAT))} ownerId={() => 'o'} />); });
+  expect(el.querySelector('[data-testid="lct-slot-0"]')).not.toBeNull(); expect(el.querySelector('[data-testid="lct-slot-1"]')).not.toBeNull();
+  expect(el.textContent).not.toContain('FEELESS PICKS'); expect(el.querySelector('[data-testid="lct-next-top"]').disabled).toBe(true);
+  act(() => el.querySelector('.lct-cats button').click()); act(() => el.querySelector('.lct-grid .lct-tile-pick').click());
+  expect(el.querySelector('[data-testid="lct-slot-0"]')).toBeNull(); expect(el.querySelector('.lct-slots .lct-tile')).not.toBeNull();
+  expect(el.querySelector('[data-testid="lct-next-top"]').disabled).toBe(false);
+  act(() => root.unmount());
+});
+
+test('🪟 the model pop-out shows the FULL smart list and hands back the picked model', async () => {
+  const { ModelPop } = require('./LaunchCat'); const got = []; const closed = jest.fn();
+  const el = document.createElement('div'); document.body.appendChild(el); const root = createRoot(el);
+  await act(async () => { root.render(<ModelPop d={CAT} title="👑 MODEL A · HER LEAD" onPick={id => got.push(id)} onClose={closed} />); });
+  const pop = document.querySelector('[data-testid="model-pop"]'); expect(pop).not.toBeNull(); expect(pop.querySelector('[data-testid="lct-q"]')).not.toBeNull();
+  act(() => pop.querySelector('.lct-cats button').click()); act(() => pop.querySelector('[data-testid="lct-m-x/big"]').click());
+  expect(got).toEqual(['x/big']); expect(closed).toHaveBeenCalled();
+  act(() => root.unmount()); el.remove();
 });

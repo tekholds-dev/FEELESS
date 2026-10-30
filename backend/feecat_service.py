@@ -793,6 +793,50 @@ def _brains_live():
     return os.environ.get('LAUNCH_CAT_LIVE', '').lower() in ('1', 'true', 'on') and bool(os.environ.get('OPENROUTER_API_KEY'))
 
 
+SORT_SYS = ('You are the new lead model of a FEELESS agent. Below is its old memory, one numbered note per line. Keep only notes that will still help '
+            'you decide well (facts, lessons, patterns that held up); drop stale, duplicate or wrong ones. Answer ONLY JSON: {"keep": [<note numbers>]}')
+SORT_MAX = 60
+
+
+def _kept(text, n):
+    """The note numbers the model kept, in range and unique — anything unreadable keeps everything (a sort never loses memory by mistake)."""
+    m = re.search(r'\{.*\}', str(text or ''), re.S)
+    try:
+        keep = json.loads(m.group(0)).get('keep') if m else None
+    except ValueError:
+        keep = None
+    if not isinstance(keep, list):
+        return list(range(n))
+    return sorted({int(i) for i in keep if str(i).lstrip('-').isdigit() and 0 <= int(i) < n})
+
+
+async def _sort_cloud(cat_id, model):
+    """🧠 owner 2026-10-30: on a model swap the new lead sorts the old cloud — keeps what helps, deletes the rest. One call, charged like any other."""
+    await asyncio.sleep(1)   # after the switch itself is saved
+    cat = _load()['cats'].get(cat_id)
+    items = ((cat or {}).get('brainsCfg') or {}).get('cloud') or []
+    if not items:
+        return
+    items = items[-SORT_MAX:]
+    note = lambda c: c.get('text') or f"{c.get('word', '')} ${c.get('sym', '')} {c.get('why', '')}"
+    lines = '\n'.join(f'{i}: {note(c)}'[:240] for i, c in enumerate(items))
+    try:
+        own = _ck.key_for(cat, 'openrouter', data_dir=DATA_DIR)
+        text, cost = await _or_call(model, [{'role': 'system', 'content': SORT_SYS}, {'role': 'user', 'content': lines}], max_tokens=400, **({'key': own} if own else {}))
+    except Exception as e:   # the model is down: its memory stays exactly as it was
+        print(f'cloud sort failed for {cat_id}: {e}')
+        return
+    keep = _kept(text, len(items))
+    store = _load(); cat = store['cats'].get(cat_id)
+    if not cat or not cat.get('brainsCfg'):
+        return
+    cat['brainsCfg']['cloud'] = [items[i] for i in keep]
+    if not own:
+        _lc.charge(cat['brainsCfg'], cost or 0)
+    _log_event(store, cat, 'LEARN', f"🧠 {model.split('/')[-1]} sorted its memory: kept {len(keep)} of {len(items)} notes")
+    _save(store)
+
+
 async def _or_call(model, messages, max_tokens=None, effort=None, key=None):
     """One decision from OpenRouter; returns (text, $ it cost). The cost is OpenRouter's own report, else the price list estimate.
     `key` = the cat owner's own OpenRouter key from its API drawer (they pay OpenRouter; FEELESS's key is not used)."""
@@ -2361,6 +2405,8 @@ async def cat_action(cat_id: str, payload: ActionPayload, request: Request):
             raise HTTPException(400, str(e))
         if payload.memory == 'fresh':   # 🧹 a clean slate for the new models: its old memory is deleted, never mixed in
             cat['brainsCfg'].update(cloud=[], decisions=[], minds={})
+        elif payload.memory == 'sort':   # 🧠 the NEW lead model reads its old cloud and keeps only what still helps (the rest is deleted)
+            asyncio.create_task(_sort_cloud(cat_id, cat['brainsCfg']['brains'][0]))
         _log_event(store, cat, 'LEARN', f"🔁 new models: {' + '.join(m.split('/')[-1] for m in cat['brainsCfg']['brains'])}")
     elif payload.action == 'delete':   # 🗑 forever means until YOU delete it: retired first, typed name, and never while its own wallet still holds money
         if not cat.get('revoked'):

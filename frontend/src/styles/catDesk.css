@@ -114,6 +114,6 @@ body.theme-day .kd-acts button { color: #2a1650; } body.theme-day .kd-back, body
 /* ♾ keep forever · 🗑 delete for good · 🔁 its models (24 h lock) */
 .kd-keep { display: block; margin-top: 6px; color: var(--m-mute, #9d8fbf); font-size: 10.5px; }
 .kd-del { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 6px; margin-top: 8px; } .kd-del .m-input, .kd-del .m-btn { min-height: 36px; }
-.kd-models { display: grid; gap: 8px; } .kd-mpick { display: grid; grid-template-columns: 1fr 1fr auto; gap: 6px; } .kd-mpick .m-input, .kd-mpick .m-btn { min-height: 36px; }
+.kd-models { display: grid; gap: 8px; }
 .kd-lock { display: block; height: 5px; border-radius: 4px; background: #ffffff12; overflow: hidden; } .kd-lock u { display: block; height: 100%; transform-origin: left; background: linear-gradient(90deg, #7c4dff, #9dffcf); }
-@media (max-width: 640px) { .kd-mpick, .kd-del { grid-template-columns: 1fr; } }
+@media (max-width: 640px) { .kd-del { grid-template-columns: 1fr; } }

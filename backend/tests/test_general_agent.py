@@ -361,3 +361,24 @@ def test_a_general_agent_end_to_end_from_the_wizard_to_its_answer_and_clouds(tmp
         assert 0 < cat['brainsCfg']['spent'] <= 0.25
         pub = c.get(f'/api/cats/{cid}').json()
         assert 'minds' not in json.dumps(pub.get('cat', pub).get('brainsCfg', {})) and 'ownerId' not in json.dumps(pub)
+
+
+def test_a_new_model_sorts_the_old_cloud_and_a_bad_answer_never_loses_memory(tmp_path, monkeypatch):
+    import feecat_service as fs
+    assert fs._kept('{"keep": [0, 2, 2, 9, -1]}', 3) == [0, 2] and fs._kept('no json', 3) == [0, 1, 2]
+    monkeypatch.setattr(fs, 'STORE_PATH', tmp_path / 'feecats.json')
+    store = {'events': [], 'cats': {'c1': {'id': 'c1', 'name': 'Scout', 'brainsCfg': {'brains': ['m/new'], 'credit': 1.0, 'spent': 0.0,
+             'cloud': [{'text': 'JUP pool 3.4M'}, {'text': 'stale: SOL at $20'}, {'text': 'threads under 6 posts land best'}]}}}}
+    fs._save(store)
+    seen = {}
+
+    async def or_call(model, messages, **k):
+        seen['model'] = model; seen['notes'] = messages[1]['content']
+        return '{"keep": [0, 2]}', 0.002
+    monkeypatch.setattr(fs, '_or_call', or_call)
+    real_sleep = asyncio.sleep
+    monkeypatch.setattr(fs.asyncio, 'sleep', lambda s: real_sleep(0))
+    asyncio.run(fs._sort_cloud('c1', 'm/new'))
+    b = fs._load()['cats']['c1']['brainsCfg']
+    assert seen['model'] == 'm/new' and '1: stale: SOL at $20' in seen['notes']
+    assert [c['text'] for c in b['cloud']] == ['JUP pool 3.4M', 'threads under 6 posts land best'] and b['spent'] > 0

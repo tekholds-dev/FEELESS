@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { Panther } from '../Panther';
 import { readChatSession } from '../../lib/chatSession';
 import NumInput from '../NumInput';
@@ -190,27 +191,62 @@ function Duo({ mode, picked, kind }) {
 const plainForm = () => ({ name: '', handle: '', avatar: 0, startingBalanceSol: '10', maxPositionSol: '0.5', dailyBuyLimitSol: '2', maxDailyLossSol: '0.5' });
 const plainOk = f => f.name.trim().length > 1;
 
+// 🧭 THE MODEL BROWSER — one smart list for every place a model is picked (the wizard's step 1 · Fee's model pop-out · a cat's model switch):
+// its job (general), search, sort, a $ range, categories that combine, and the tiles — tap to pick, tap again to drop
+export function ModelBrowser({ d, kind = 'trading', picked = [], onPick }) {
+  const gen = kind === 'general';
+  const [q, setQ] = useState(''); const [cat, setCat] = useState((KIND[kind] || KIND.trading).cat || ''); const [sort, setSort] = useState('smart'); const [n, setN] = useState(PAGE); const [job, setJob] = useState('');
+  const [cost, setCost] = useState(['', '']); const jobCfg = gen ? (JOBS.find(j => j[0] === job) || JOBS[0])[2] : null;
+  const range = useMemo(() => { const lo = Number(cost[0]) || 0; const hi = cost[1] === '' ? Infinity : Math.max(lo, Number(cost[1]) || 0); return [lo, hi]; }, [cost]);
+  const setCostAt = (i, v) => setCost(c => (i ? [c[0], v] : [v, c[1]]));
+  const rows = useMemo(() => filterModels(d?.models, { q, cat: jobCfg?.cat ? [jobCfg.cat] : cat, sort: jobCfg?.sort || sort, min: range[0], max: range[1], kind, need: jobCfg?.need || [] }), [d, q, cat, sort, range, kind, jobCfg]);
+  useEffect(() => setN(PAGE), [q, cat, sort, range]);
+  const cats = useMemo(() => { const c = (d?.cats || []).filter(x => gen || !x.general); return gen ? [...c.filter(x => x.general), ...c.filter(x => !x.general)] : c; }, [d, gen]);
+  const pick = onPick;
+  if (!d) return <p className="lct-load">Reading OpenRouter's model list…</p>;
+  return <>
+          {gen ? <label className="lct-job" data-tip="Pick the job — the list shows the models best at it (category, tools / vision it needs, ranked)"><span>WHAT'S ITS JOB?</span>
+          <select className="m-input" value={job} onChange={e => setJob(e.target.value)} data-testid="lct-job" aria-label="What is its job">{JOBS.map(([k, l]) => <option key={k} value={k}>{l}</option>)}</select>
+          <small>{jobCfg ? `${rows.length} models fit · ${[jobCfg.cat, ...(jobCfg.need || [])].filter(Boolean).join(' + ') || (jobCfg.sort === 'cheap' ? 'cheapest first' : 'biggest memory first')}` : 'every model'}</small></label> : null}
+        <div className="lct-bar"><input className="m-input" placeholder={`Search ${d.models.length} models…`} value={q} onChange={e => setQ(e.target.value)} data-testid="lct-q" />
+          <div className="m-seg">{SORTS.map(([k, l]) => <button key={k} type="button" className={sort === k ? 'is-on' : ''} onClick={() => setSort(k)}>{l}</button>)}</div></div>
+        <div className="lct-bar lct-cost" data-tip="Only models whose cost sits between these two $ amounts — leave Max empty for no cap">
+          <label>Min $ / {gen ? 'task' : 'decision'}<span className="lct-usd"><i>$</i><NumInput className="m-input" type="number" inputMode="decimal" min="0" step="0.0001" placeholder="0" value={cost[0]} onChange={e => setCostAt(0, e.target.value)} aria-label="Minimum model cost" data-testid="lct-min" /></span></label>
+          <i className="lct-cost-to" aria-hidden="true">→</i>
+          <label>Max $ / {gen ? 'task' : 'decision'}<span className="lct-usd"><i>$</i><NumInput className="m-input" type="number" inputMode="decimal" min="0" step="0.0001" placeholder="no cap" value={cost[1]} onChange={e => setCostAt(1, e.target.value)} aria-label="Maximum model cost" data-testid="lct-max" /></span></label>
+          <span className="lct-cost-n m-num" key={rows.length}>{rows.length}<small>match</small></span></div>
+        <div className="lct-cats"><button type="button" className={!cat.length ? 'is-on' : ''} onClick={() => setCat('')}>✨ All <small>{d.models.length}</small></button>{cats.map(c => <button key={c.key} type="button" className={`${(Array.isArray(cat) ? cat.includes(c.key) : cat === c.key) ? 'is-on' : ''}${c.general ? ' is-job' : ''}`} onClick={() => setCat(prev => { const a = Array.isArray(prev) ? prev : prev ? [prev] : []; return a.includes(c.key) ? a.filter(x => x !== c.key) : [...a, c.key]; })} data-tip={c.why} data-testid={`lct-cat-${c.key}`}>{c.label} <small>{c.n}</small></button>)}</div>
+        <div className="lct-grid">{rows.slice(0, n).map((m, i) => <ModelTile key={m.id} m={m} i={i} kind={kind} on={picked.some(x => x.id === m.id)} onPick={pick} />)}</div>
+        {rows.length > n ? <button type="button" className="m-btn lct-more" onClick={() => setN(x => x + PAGE)}>Show {Math.min(PAGE, rows.length - n)} more of {rows.length}</button> : null}
+        {!rows.length ? <p className="lct-load">No model matches that.</p> : null}</>;
+}
+
+// 🪟 the model list as a POP-OUT (owner 2026-10-30: "a popout of the full list, not a dropdown") — Fee's models and every agent's model switch
+export function ModelPop({ d, title, kind = 'trading', picked = [], onPick, onClose }) {
+  useEffect(() => { const k = e => e.key === 'Escape' && onClose(); window.addEventListener('keydown', k); return () => window.removeEventListener('keydown', k); }, [onClose]);
+  return createPortal(<div className="lct-pop" role="dialog" aria-modal="true" aria-label={title} onClick={e => e.target === e.currentTarget && onClose()} data-testid="model-pop">
+    <section className={`lct is-${kind} lct-pop-card m-pop`}>
+      <header className="lct-pop-head"><b>{title}</b><small>pick a smart, cheap one — sort by Cheapest or set a max $</small>
+        <button type="button" className="m-btn" onClick={onClose} data-testid="model-pop-close" aria-label="Close the model list">✕</button></header>
+      <ModelBrowser d={d} kind={kind} picked={picked} onPick={m => { onPick(m.id); onClose(); }} />
+    </section></div>, document.body);
+}
+
 export function LaunchCat({ api, ownerId, onCreated, onCancel, Fields, Preview, newForm = plainForm, formOk = plainOk, avatarOf = () => 'Fee', kind = 'trading' }) {
   const K = KIND[kind] || KIND.trading;
   const [d, setD] = useState(null); const [err, setErr] = useState('');
-  const [step, setStep] = useState(0); const [q, setQ] = useState(''); const [cat, setCat] = useState(K.cat); const [sort, setSort] = useState('smart'); const [n, setN] = useState(PAGE);
+  const [step, setStep] = useState(0);
   const gen = kind === 'general'; const steps = gen ? GEN_STEPS : STEPS;
   const [picked, setPicked] = useState([]); const [mode, setMode] = useState(gen ? 'turns' : BEST_MODE); const [workMode, setWorkMode] = useState('plan'); const [billing, setBilling] = useState(gen ? 'payg' : 'profit');
   const [form, setForm] = useState(() => newForm()); const update = (k, v) => setForm(f => ({ ...f, [k]: v })); const name = form.name;
   const [efforts, setEfforts] = useState({});
-  const [job, setJob] = useState(''); const [jobTab, setJobTab] = useState('research'); const [taskCap, setTaskCap] = useState(0.05); const jobCfg = (JOBS.find(j => j[0] === job) || JOBS[0])[2];
-  const [cost, setCost] = useState(['', '']); const [persona, setPersona] = useState('');   // 💵 typed $ min / max (owner 2026-10-30: inputs, not sliders)
-  const range = useMemo(() => { const lo = Number(cost[0]) || 0; const hi = cost[1] === '' ? Infinity : Math.max(lo, Number(cost[1]) || 0); return [lo, hi]; }, [cost]);
-  const setCostAt = (i, v) => setCost(c => (i ? [c[0], v] : [v, c[1]]));
+  const [jobTab, setJobTab] = useState('research'); const [taskCap, setTaskCap] = useState(0.05);
+  const [persona, setPersona] = useState('');
   const [prompt, setPrompt] = useState(''); const [saving, setSaving] = useState(false);
   const [venues, setVenues] = useState(['trench']); const [keys, setKeys] = useState({});
   useEffect(() => { let on = true; api(`/api/cats/models?session=${encodeURIComponent(readChatSession() || '')}`).then(x => on && setD(x)).catch(e => on && setErr(e.message)); return () => { on = false; }; }, [api]);
-  const rows = useMemo(() => filterModels(d?.models, { q, cat: jobCfg?.cat ? [jobCfg.cat] : cat, sort: jobCfg?.sort || sort, min: range[0], max: range[1], kind, need: jobCfg?.need || [] }), [d, q, cat, sort, range, kind, jobCfg]);
-  useEffect(() => setN(PAGE), [q, cat, sort, range]);
   const pick = m => setPicked(p => p.some(x => x.id === m.id) ? p.filter(x => x.id !== m.id) : [...p, m].slice(-(d?.maxModels || 2)));
   const plan = planOf(picked, mode, d?.budget, kind);
-  // 🧭 the General wizard leads with its own jobs (agent · content · code); the trading wizard never shows them
-  const cats = useMemo(() => { const c = (d?.cats || []).filter(x => gen || !x.general); return gen ? [...c.filter(x => x.general), ...c.filter(x => !x.general)] : c; }, [d, gen]);
   const bills = (d?.billing || []).filter(b => !gen || b.key === 'payg');   // a general cat earns nothing to pay from — it runs on credit
   const ready = [picked.length > 0, true, gen ? form.name.trim().length > 1 && prompt.trim().length >= 20 : formOk(form), true];
   const launch = async () => {
@@ -231,22 +267,10 @@ export function LaunchCat({ api, ownerId, onCreated, onCancel, Fields, Preview, 
     <nav className="lct-steps" style={{ '--p': step / (steps.length - 1) }}><i className="lct-prog" aria-hidden="true"><u /></i>{steps.map((s, i) => <button key={s} type="button" className={`${i === step ? 'is-on' : ''}${i < step ? ' is-done' : ''}`} onClick={() => i <= step || ready.slice(0, i).every(Boolean) ? setStep(i) : null} data-testid={`lct-step-${i}`}><b>{i + 1}</b>{s}</button>)}</nav>
     {err ? <p className="lct-err" role="alert">⚠ {err}</p> : null}
     {step === 0 ? <div className="lct-pane">
-      {!d ? <p className="lct-load">Reading OpenRouter's model list…</p> : <>
-        {d.rec?.length ? <><h4 className="lct-h">⭐ FEELESS PICKS — the brains FEELESS already runs</h4><div className="lct-rec">{d.rec.map((m, i) => <ModelTile key={m.id} m={m} i={i} kind={kind} on={picked.some(x => x.id === m.id)} onPick={pick} />)}</div></> : null}
-        {gen ? <label className="lct-job" data-tip="Pick the job — the list shows the models best at it (category, tools / vision it needs, ranked)"><span>WHAT'S ITS JOB?</span>
-          <select className="m-input" value={job} onChange={e => setJob(e.target.value)} data-testid="lct-job" aria-label="What is its job">{JOBS.map(([k, l]) => <option key={k} value={k}>{l}</option>)}</select>
-          <small>{jobCfg ? `${rows.length} models fit · ${[jobCfg.cat, ...(jobCfg.need || [])].filter(Boolean).join(' + ') || (jobCfg.sort === 'cheap' ? 'cheapest first' : 'biggest memory first')}` : 'every model'}</small></label> : null}
-        <div className="lct-bar"><input className="m-input" placeholder={`Search ${d.models.length} models…`} value={q} onChange={e => setQ(e.target.value)} data-testid="lct-q" />
-          <div className="m-seg">{SORTS.map(([k, l]) => <button key={k} type="button" className={sort === k ? 'is-on' : ''} onClick={() => setSort(k)}>{l}</button>)}</div></div>
-        <div className="lct-bar lct-cost" data-tip="Only models whose cost sits between these two $ amounts — leave Max empty for no cap">
-          <label>Min $ / {gen ? 'task' : 'decision'}<span className="lct-usd"><i>$</i><NumInput className="m-input" type="number" inputMode="decimal" min="0" step="0.0001" placeholder="0" value={cost[0]} onChange={e => setCostAt(0, e.target.value)} aria-label="Minimum model cost" data-testid="lct-min" /></span></label>
-          <i className="lct-cost-to" aria-hidden="true">→</i>
-          <label>Max $ / {gen ? 'task' : 'decision'}<span className="lct-usd"><i>$</i><NumInput className="m-input" type="number" inputMode="decimal" min="0" step="0.0001" placeholder="no cap" value={cost[1]} onChange={e => setCostAt(1, e.target.value)} aria-label="Maximum model cost" data-testid="lct-max" /></span></label>
-          <span className="lct-cost-n m-num" key={rows.length}>{rows.length}<small>match</small></span></div>
-        <div className="lct-cats"><button type="button" className={!cat.length ? 'is-on' : ''} onClick={() => setCat('')}>✨ All <small>{d.models.length}</small></button>{cats.map(c => <button key={c.key} type="button" className={`${(Array.isArray(cat) ? cat.includes(c.key) : cat === c.key) ? 'is-on' : ''}${c.general ? ' is-job' : ''}`} onClick={() => setCat(prev => { const a = Array.isArray(prev) ? prev : prev ? [prev] : []; return a.includes(c.key) ? a.filter(x => x !== c.key) : [...a, c.key]; })} data-tip={c.why} data-testid={`lct-cat-${c.key}`}>{c.label} <small>{c.n}</small></button>)}</div>
-        <div className="lct-grid">{rows.slice(0, n).map((m, i) => <ModelTile key={m.id} m={m} i={i} kind={kind} on={picked.some(x => x.id === m.id)} onPick={pick} />)}</div>
-        {rows.length > n ? <button type="button" className="m-btn lct-more" onClick={() => setN(x => x + PAGE)}>Show {Math.min(PAGE, rows.length - n)} more of {rows.length}</button> : null}
-        {!rows.length ? <p className="lct-load">No model matches that.</p> : null}</>}
+      <div className="lct-slots" data-testid="lct-slots">{[0, 1].map(k => picked[k] ? <ModelTile key={picked[k].id} m={picked[k]} i={k} kind={kind} on onPick={pick} />
+        : <div key={k} className="lct-slot" data-testid={`lct-slot-${k}`}><b>{gen ? 'MIND' : 'BRAIN'} {'AB'[k]}</b><small>{k ? 'optional · a second model to work with it' : 'pick a model from the list below'}</small></div>)}
+        <button type="button" className="m-btn m-go lct-next-top" disabled={!ready[0]} onClick={() => setStep(1)} data-testid="lct-next-top" data-tip="Next: how its models work together">Next ›</button></div>
+      <ModelBrowser d={d} kind={kind} picked={picked} onPick={pick} />
     </div> : null}
     {step === 0 && picked.some(m => m.efforts?.length) ? <div className="lct-bar">{picked.filter(m => m.efforts?.length).map(m => <label key={m.id}>{shortName(m)} · effort<select className="m-input" aria-label={`${shortName(m)} effort`} value={efforts[m.id] || ''} onChange={e => setEfforts(v => ({ ...v, [m.id]: e.target.value }))}><option value="">Provider default</option>{m.efforts.map(e => <option key={e}>{e}</option>)}</select><small>Output incl. reasoning: {fmtM(m.outUsd)} / 1M tokens. Actual cost depends on tokens used.</small></label>)}</div> : null}
     {step === 1 ? <div className="lct-pane lct-mode"><Duo mode={mode} picked={picked} kind={kind} /><AgentDemo kind={kind} models={picked} mode={gen ? workMode : mode} />
