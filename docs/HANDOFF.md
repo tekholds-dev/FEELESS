@@ -15,7 +15,14 @@ Read this (2 min) → `CLAUDE.md` (lean rules + 🎨 MANDATORY STYLING + 📋 CU
 >    LIVE visual (meters, bars, animation on real numbers), never bare text. `styles/cssCoverage.test.js` fails on an unstyled class.
 
 ## 🔁 NOW (rewrite this section in place every session)
-> ✅ 2026-10-29 late: Astra's FeeCat guards shipped (`cat_policy.py`: no cat spawns cats / signs in to FEELESS, scam jobs refused, private nets blocked; per-job tools; HQ catMaxModels; budget lock). NO payment sender exists yet. FIRST: check the last push went green (`git status` = up to date), restart services, then build a cat end-to-end in the browser.
+> ✅ 2026-10-30: Astra's guards + this session pushed (gate green = `git status` up to date; if not, read `$TMPDIR/feeless-gate/jest.txt`). SHIPPED: 🐜 **BUILD AN AGENT**
+> (`Critters.jsx` + `critters.css`: drawn queen ant · worker fly · 2 worker ants, real species colours, wing colour + flutter, real gestures — tripod gait,
+> antennation, fly grooming, wing beats; saved in `myCat.agent`, worn by the FeeCat bar + the wizard socket) · 🛸 **live DEMO in step 2 "How they work"** (`AgentDemo.jsx`:
+> trader = 2 drawn chart windows, general = 2 drawn cloud browsers, activity feed over both; alien-tech glass `agentDemo.css`) · 📈 trading cats trade on **FEELESS rails only**
+> (`cat_keys.VENUES`: trench LIVE, perps = PROPOSES until an agent perps sender exists) · 🔐 **API DRAWER** (`cat_keys.py`, action `api_key`: sealed at rest, last 4 only ever
+> leave the server via `_no_keys`; YOUR OpenRouter key pays your cat's model calls — no FEELESS credit, not held by the owner switch; Birdeye / Helius / X / Telegram /
+> webhook are STORED only, not read by the brain yet) · 👻 Fee's empty chart shows a drawn PREVIEW (`GhostChart`). Tests: `test_cat_keys.py` (4), `AgentDemo.test.jsx` (5).
+> ⚠ backend restart needed for `api_key` / `venues` (feecat_service). Not done: owner's real-wallet run of a whole agent build; NEW asks queued in WORK_QUEUE (C01 chats, C02 alliances, C03 Circle wallet).
 > 🔥 **NEXT SESSION — FEECAT PRIORITY, in this order (owner 2026-10-29, all else waits):**
 > 1. **Cat spends on its own** (general cat signs up / pays with crypto from ITS wallet): daily $ limit, site allowlist, a log of every payment,
 >    owner OK on the first pay to a new site, never a card / password. Guards first (memory: new buy doors need guards).

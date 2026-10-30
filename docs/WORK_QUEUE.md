@@ -43,6 +43,16 @@ Each loop iteration: ① cash check (card books vs wallet, halt, pending) → �
 | E14 | DONE | terminal.css budget 514 → 511 KB (now 510.7 after the feed rule deletions); cssHygiene ✓. |
 | E15 | DONE | MOBILE_LAYOUT › Pages checked: a size-by-size matrix of what passed (Agents floor, Trenches floor, the E02 sweep pages) + what stays open. |
 
+## Owner requests 2026-10-30 — queued (FeeCat tabs came first and shipped; see HANDOFF 🔁 NOW)
+| ID | Status | Task |
+|---|---|---|
+| FC02 | DONE | Build an agent (queen ant / worker fly / 2 worker ants), demo in How they work, FEELESS-only venues, sealed API drawer, Fee ghost chart. |
+| FC03 | OPEN | Wire the stored drawer keys into the brain (Birdeye holders, Helius RPC, X chatter, Telegram calls, signal webhook) — each read guarded + faked in tests. |
+| FC04 | OPEN | Agent perps sender (venue `perps` today = PROPOSES only) — needs guards like `agent_trade` (one in flight, caps, exact-echo quote). |
+| C01 | OPEN | ALL site chats look like FeeCat's "her calls" bubbles: real bubbles, proper name / time / alignment (own messages right), one shared bubble component. |
+| C02 | OPEN | Alliances: create from a reply, ≤ 10 members; after X days (owner to set X) an alliance can found a FEELESS Union; all alliance + union info lives in Support. |
+| C03 | OWNER | "Circle wallet to FEE": confirm = a Circle developer wallet for Fee (the leader cat, creator-owned, like the Crossmint agent wallet) — needs a Circle API key; per-USER Circle accounts stay blocked on counsel (DECISIONS #2). |
+
 ## Owner requests 2026-10-29 (late) — NEXT, in this order
 1. **A06 Agents PICK from the one intake** — ✅ BUILT 2026-10-29 (owner approved). `trench_kernel/brain.edge_pick`: a coin matching a rule that held on unseen coins
    (edge audit, only while the proof gate reads TRADE) + survived its OWN 1 / 5-min NSFA watch (not bleeding, 15m not failed, not washed −40% off its high) + on its germ

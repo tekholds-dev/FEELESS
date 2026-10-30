@@ -817,7 +817,7 @@ async def _brain_decide(store, cat, kind, sym, case, owner=None):
     models = [owner] if owner else _lc.who_asks(b, b.get('asks') or 0)
     answers, partner, why, cost = [], None, '', 0.0
     for m in models:
-        text, usd = await _or_call(m, _lc.ask_messages(b, case, partner), key=own_key, **({'effort': b['efforts'][m]} if (b.get('efforts') or {}).get(m) else {}))
+        text, usd = await _or_call(m, _lc.ask_messages(b, case, partner), **({'key': own_key} if own_key else {}), **({'effort': b['efforts'][m]} if (b.get('efforts') or {}).get(m) else {}))
         w, why = _lc.parse_word(text, kind)
         if not own_key:
             _lc.charge(b, usd)
