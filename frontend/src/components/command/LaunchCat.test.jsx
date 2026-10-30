@@ -103,12 +103,12 @@ test('🧭 the General wizard: real prices on every model + an ABOUT dropdown, i
   const $ = s => el.querySelector(s); const click = s => act(() => $(s).click());
   expect([...el.querySelectorAll('.lct-cats button')].map(b => b.textContent.split(' ')[1])).toEqual(['All', 'Agent', 'Content', 'Code', 'Meta']);   // jobs lead
   const tile = $('[data-testid="lct-m-a/agent"]').closest('.lct-tile');
-  expect(tile.textContent).toContain('IN · 1M'); expect(tile.textContent).toContain('$0.50'); expect(tile.textContent).toContain('$1.50'); expect(tile.textContent).toContain('A TASK ≤$0.0123');
+  expect(tile.textContent).toContain('IN · 1M'); expect(tile.textContent).toContain('$0.50'); expect(tile.textContent).toContain('$1.50'); expect(tile.textContent).toContain('TASK EST.$0.0123');
   expect(tile.querySelector('details.lct-desc').textContent).toContain('Drives tools over long tasks.');
   click('[data-testid="lct-m-a/agent"]'); click('[data-testid="lct-m-b/writer"]'); click('[data-testid="lct-next"]');
   expect($('[data-testid="lct-flow"]').children).toHaveLength(4); expect($('[data-testid="lct-mode-battle"]')).toBeNull();
   expect([...el.querySelectorAll('.lct-mind strong')].map(s => s.textContent)).toEqual(['a/agent', 'b/writer']); expect($('.lct-mind em').textContent).toContain('LEADS');
-  expect($('.lct-foot').textContent).toContain('≤ $0.0072 a task');
+  expect($('.lct-foot').textContent).toContain('≈ $0.0072 a task');
   click('[data-testid="lct-next"]'); act(() => { const i = $('[data-testid="lct-name"]'); Object.getOwnPropertyDescriptor(Object.getPrototypeOf(i), 'value').set.call(i, 'Scout'); i.dispatchEvent(new Event('input', { bubbles: true })); });
   click('[data-testid="lct-next"]');
   expect($('[data-testid="lct-bill-profit"]')).toBeNull(); expect($('[data-testid="lct-next-real"]').textContent).toContain('you OK each move');
