@@ -301,3 +301,9 @@ def test_minds_hand_off_on_separate_jobs_and_each_keeps_its_own_cloud():
     assert 'YOUR CLOUD' not in seen['m/a'][0]                                                 # A has no cloud yet — never B's
     assert any(s['action'] == 'handoff' for s in a['steps'])
     assert a['best'] == ['Solana: 400ms blocks'] and a['scratch'] == [] and b['best'] == []   # its best notes → its own cloud at settle
+
+
+def test_each_minds_cloud_never_leaves_in_a_public_cat_view():
+    import feecat_service as fs
+    out = fs._no_keys({'id': 'c1', 'ownerId': 'o', 'brainsCfg': {'brains': ['m/a'], 'cloud': [], 'minds': {'m/a': [{'text': 'private research'}]}}})
+    assert 'minds' not in out['brainsCfg'] and 'ownerId' not in out

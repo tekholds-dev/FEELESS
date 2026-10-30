@@ -100,6 +100,8 @@ def _no_keys(obj):
         return [_no_keys(x) for x in obj]
     if isinstance(obj, dict):
         out = {k: _no_keys(v) for k, v in obj.items() if k not in ('apiKeys', 'logins', 'ownerId')}   # 🔒 ownerId is the owner's control key — it never leaves the server
+        if 'brains' in obj:   # ☁ each mind's own cloud is its owner's private notes — only the owner's /work view carries it
+            out.pop('minds', None)
         if 'apiKeys' in obj or ('brainsCfg' in obj and 'ownerId' in obj):
             out['apiDrawer'] = _ck.public(obj)
         if obj.get('logins'):   # 🔐 sealed passwords never leave the server — site · username · when only
