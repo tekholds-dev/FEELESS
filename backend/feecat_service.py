@@ -1596,8 +1596,7 @@ async def create_cat(payload: CreatePayload):
         cat['brainProfile'] = {'provider': 'OpenRouter', 'status': 'live' if _brains_live() else 'calls off', 'available': _brains_live(), 'estimatedTokenCostUsd': 0}
     store['cats'][cat_id] = cat
     _save(store)
-    recovery_key = '-'.join(uuid.uuid4().hex[:4] for _ in range(4))
-    return {'cat': _no_keys(cat), 'recoveryKey': recovery_key}
+    return {'cat': _no_keys(cat)}   # (a random "recovery key" used to ride here — it unlocked nothing; the wallet's safe-keeping is SafeKeeping on the desk)
 
 
 @app.get('/api/cats')
@@ -2011,7 +2010,6 @@ class ActionPayload(BaseModel):
     result: Optional[str] = None
     sig: Optional[str] = None
     amount: Any = None
-    recoveryKey: Optional[str] = None
     maxPositionSol: Any = None
     maxDailyLossSol: Any = None
     allowlist: Optional[str] = None
@@ -2144,8 +2142,8 @@ async def cat_action(cat_id: str, payload: ActionPayload, request: Request):
             _real.resolve(cat, payload.proposal, payload.result, time.time(), payload.sig)
         except ValueError as e:
             raise HTTPException(400, str(e))
-    elif payload.action == 'confirm_recovery':
-        pass
+    elif payload.action == 'confirm_recovery':   # 🔐 the owner ticked "I saved my recovery phrase" before the first funding (kept as a timestamp)
+        cat['recoveryConfirmedAt'] = time.time()
     elif payload.action == 'api_key':   # 🔐 the API drawer: seal one key (or remove it) — the response carries the last 4 only
         try:
             _ck.put(cat, payload.provider, payload.secret, data_dir=DATA_DIR) if payload.secret else _ck.drop(cat, payload.provider)

@@ -99,7 +99,7 @@ test('🏇 a cat with its own wallet: ASK ME shows ✅ Approve (no ✍ Sign it),
 
 test('💵 FUND IT: any amount → a receipt (you pay · FEELESS one-time · into its wallet) → your wallet signs that exact tx → sent', async () => {
   const { FundCat } = require('./CatReal');
-  const calls = [];
+  const calls = []; localStorage.setItem('feeless.recoverySaved.' + 'c1', '1');   // 🔐 the owner already confirmed the recovery phrase
   global.fetch = async (u, o = {}) => { calls.push([String(u), o.body ? JSON.parse(o.body) : null]);
     if (String(u).endsWith('/fund')) return { ok: true, json: async () => ({ plan: { usd: 25, feeUsd: 2, catUsd: 23, solUsd: 200, totalLamports: 125e6, feeLamports: 10e6, catLamports: 115e6 }, transaction: 'TXB64', expiresIn: 90 }) };
     return { ok: true, json: async () => ({ state: 'confirmed', signature: 'SIG12345678' }) }; };

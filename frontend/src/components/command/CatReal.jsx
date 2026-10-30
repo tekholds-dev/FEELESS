@@ -81,8 +81,29 @@ export function fundWarn(usd, rules, first) {
   return null;
 }
 const sol4 = l => (Number(l) / 1e9).toFixed(4);
-export function FundCat({ cat, addr, session, sign, onDone }) {
+const SAVED_KEY = id => `feeless.recoverySaved.${id}`;
+export const readSaved = id => { try { return localStorage.getItem(SAVED_KEY(id)) === '1'; } catch { return false; } };
+// 🔐 SAFE-KEEPING before the first funding (owner 2026-10-30: "show the WALLET and strongly advise saving the recovery code + a check box").
+// The truth, said plainly: its wallet's keys sit with Crossmint and FEELESS's server runs it inside your caps — there is NO separate code for it;
+// what gets you back in is YOUR wallet, so the phrase to save is your own wallet's. The first funding stays locked until you tick the box.
+export function SafeKeeping({ cat, addr, saved, onSaved }) {
+  const w = cat?.agentWallet?.address; const [copied, setCopied] = useState(false);
+  const copy = async () => { try { await navigator.clipboard.writeText(w); setCopied(true); setTimeout(() => setCopied(false), 1500); } catch { /* blocked */ } };
+  return <div className={`cr-safe${saved ? ' is-saved' : ''}`} data-testid="cr-safe">
+    <span className="cr-safe-h"><i aria-hidden="true">🔐</i><b>ITS WALLET</b><small>made for {cat?.name || 'your agent'} · Solana</small></span>
+    <span className="cr-safe-addr"><code data-testid="cr-safe-addr">{w || '—'}</code>
+      <button type="button" className="m-btn" onClick={copy} disabled={!w} data-tip="Copy its address">{copied ? '✓ copied' : 'Copy'}</button>
+      {w ? <a className="m-btn" href={`https://solscan.io/account/${w}`} target="_blank" rel="noopener noreferrer" data-tip="See it on Solscan">Solscan ↗</a> : null}</span>
+    <p className="cr-safe-why">It is tied to <b>your wallet {addr ? `${addr.slice(0, 4)}…${addr.slice(-4)}` : ''}</b>: money only ever comes back to it, and only when you sign. There is no separate code for this agent wallet — <b>your wallet's recovery phrase is the only way back in</b>.</p>
+    <p className="cr-safe-warn" role="note">⚠ Save your wallet's recovery phrase OFFLINE now (Phantom › Settings › Security › Show recovery phrase — write it on paper). Lose it AND this device and nobody — not FEELESS, not Crossmint — can get your funds back. Never type it into any site or chat.</p>
+    <label className="cr-safe-ok"><input type="checkbox" checked={saved} onChange={e => onSaved(e.target.checked)} data-testid="cr-safe-check" />
+      <i aria-hidden="true" /><span>I confirm I saved my recovery phrase safely, offline</span></label>
+  </div>;
+}
+export function FundCat({ cat, addr, session, sign, onDone, onConfirm }) {
   const first = !(cat?.agentFunded || []).length;
+  const [saved, setSavedState] = useState(() => readSaved(cat?.id));
+  const setSaved = v => { setSavedState(v); try { localStorage.setItem(SAVED_KEY(cat?.id), v ? '1' : '0'); } catch { /* private window */ } if (v) onConfirm?.(); };
   const [rules, setRules] = useState(null);
   useEffect(() => { let on = true; fetch(apiUrl(`/api/reputation/cats/fund-rules?address=${encodeURIComponent(addr || '')}`)).then(r => (r.ok ? r.json() : null)).then(j => { if (on && j) setRules(j); }).catch(() => {}); return () => { on = false; }; }, [addr]);
   const [usd, setUsd] = useState(first ? 10 : 5); const [rcpt, setRcpt] = useState(null); const [stage, setStage] = useState('pick'); const [err, setErr] = useState(''); const [sig, setSig] = useState(null);
@@ -100,6 +121,7 @@ export function FundCat({ cat, addr, session, sign, onDone }) {
     catch (e) { setErr(e.message || 'Your wallet did not sign.'); setStage('ready'); } };
   const p = rcpt?.plan;
   return <div className="cr-fund" data-testid="cr-fund">
+    {first ? <SafeKeeping cat={cat} addr={addr} saved={saved} onSaved={setSaved} /> : null}
     <p className={`cr-fund-rule ${rules?.staff ? 'is-staff' : ''}`} data-testid="cr-fund-rule">{rules?.staff ? `👑 creator wallet — no FEELESS fee, from $${min}` : first
       ? `Starts at $${min}: $${fee} to FEELESS once, $${Math.max(0, min - fee)}+ into its wallet. Top-ups after that: no fee.` : `Top-up from $${min} — no fee, all of it into its wallet.`}</p>
     <div className="cr-fund-pick"><em>{first ? 'FUND IT · FIRST' : 'TOP IT UP'}</em>
@@ -116,7 +138,7 @@ export function FundCat({ cat, addr, session, sign, onDone }) {
       {stage === 'ready' || stage === 'signing' || stage === 'sending' ? <>
         <button type="button" className="m-btn m-go" disabled={stage !== 'ready' || left <= 0} onClick={go} data-testid="cr-fund-sign" data-tip="Your wallet signs this exact transaction; FEELESS sends only it">{stage === 'signing' ? 'Sign in your wallet…' : stage === 'sending' ? 'Sending…' : '✍ Sign & fund'}</button>
         <span className={`cr-fund-clock ${left < 20 ? 'is-low' : ''}`} data-tip="A receipt lives 90s — prices move"><u><s style={{ transform: `scaleX(${left / 90})` }} /></u><em className="m-num">{left}s</em></span></>
-        : <button type="button" className="m-btn m-go" disabled={stage === 'quoting' || !addr || Number(usd) < min} onClick={quote} data-testid="cr-fund-quote">{stage === 'quoting' ? 'Pricing…' : '🧾 Get receipt'}</button>}
+        : <button type="button" className="m-btn m-go" disabled={stage === 'quoting' || !addr || Number(usd) < min || (first && !saved)} onClick={quote} data-testid="cr-fund-quote">{stage === 'quoting' ? 'Pricing…' : '🧾 Get receipt'}</button>}
       {sig ? <a className="cr-fund-sig" href={`https://solscan.io/tx/${sig}`} target="_blank" rel="noreferrer" data-testid="cr-fund-done">{stage === 'done' ? '✓ funded' : '⏳ landing'} · {sig.slice(0, 8)}… ↗</a> : null}
     </div>
     {err ? <p className="kd-err" role="alert">⚠ {err}</p> : null}
@@ -154,7 +176,7 @@ export function AgentWalletCard({ cat, busy, send, addr, session, sign }) {
         {kind === 'trading' ? null : <div className="m-seg cr-ag-mode" role="radiogroup" aria-label="How it moves">
           {[['approve', '✋ ASK ME', 'Every AI move waits for your OK'], ['auto', '🚀 DO ITS THING', 'AI moves go ahead on their own, inside its limits']].map(([k, l, tip]) =>
             <button key={k} type="button" role="radio" aria-checked={mode === k} className={mode === k ? 'active' : ''} disabled={busy} onClick={() => mode !== k && send('agent_mode', { mode: k })} data-tip={tip} data-testid={`cr-agent-${k}`}>{l}</button>)}</div>}
-        {session && sign && w.provider !== 'watch' ? <FundCat cat={cat} addr={addr} session={session} sign={sign} /> : null}
+        {session && sign && w.provider !== 'watch' ? <FundCat cat={cat} addr={addr} session={session} sign={sign} onConfirm={() => send?.('confirm_recovery')} /> : null}
         {cat?.isLeader || cat?.id === 'leader' ? <AssignWallet cat={cat} busy={busy} send={send} /> : null}
         {(() => { const dd = agentDay(cat); return <div className="cr-ag-day" data-testid="cr-agent-day" data-tip={`Its own wallet trades go through the same FEELESS engine: one at a time, a buy ≤ its ${Math.min(0.5, Number(cat?.budgetSol) || 0.05)} SOL budget, ≤ ${dd.cap} SOL a day, 0.01 SOL always kept for gas; it sells only what it bought`}>
           <em>TODAY</em><u aria-hidden="true"><s style={{ transform: `scaleX(${Math.min(1, dd.spent / (dd.cap || 1))})` }} /></u><b className="m-num">{dd.spent} / {dd.cap} SOL</b>

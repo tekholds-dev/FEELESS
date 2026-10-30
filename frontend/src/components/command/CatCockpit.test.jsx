@@ -34,3 +34,15 @@ test('🛸 vitals + chat render, the chime goes out, a broken skin falls back', 
   expect(send).toHaveBeenCalledWith('hold longer');
   localStorage.setItem('feeless.deskSkin', '{"bg":"lava","acc":"#000"}'); expect(readSkin()).toEqual({ bg: 'night', acc: '#b388ff' });
 });
+
+test('🔐 the first funding stays locked until "I saved my recovery phrase" is ticked — and it shows ITS wallet', async () => {
+  const { FundCat } = require('./CatReal');
+  localStorage.removeItem('feeless.recoverySaved.c9');
+  global.fetch = jest.fn(() => Promise.resolve({ ok: true, json: () => Promise.resolve({ feeUsd: 2, minUsd: 10, topupMinUsd: 1 }) }));
+  const onConfirm = jest.fn();
+  const el = await mount(<FundCat cat={{ id: 'c9', name: 'Scout', agentWallet: { address: 'AgEnTwa11et1111111111111111111111111111111' } }} addr="OwnerWa11et" session={() => Promise.resolve('s')} sign={jest.fn()} onConfirm={onConfirm} />);
+  expect(el.querySelector('[data-testid="cr-safe-addr"]').textContent).toContain('AgEnTwa11et');
+  expect(el.querySelector('[data-testid="cr-fund-quote"]').disabled).toBe(true);
+  await act(async () => { el.querySelector('[data-testid="cr-safe-check"]').click(); });
+  expect(onConfirm).toHaveBeenCalled(); expect(el.querySelector('[data-testid="cr-fund-quote"]').disabled).toBe(false);
+});

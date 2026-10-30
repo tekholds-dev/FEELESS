@@ -20,8 +20,27 @@ export function useDeskSkin() {
   return [skin, set];
 }
 
+// 🎥 a REAL calm clip per scene (owner 2026-10-30: "full real free video backdrop"): Mixkit free license, /backdrops/<scene>.mp4 (720p loops, 3–7 MB).
+// It plays muted + looped only while the desk is on screen and the tab is visible; fx-lite / reduced motion / a missing file → the drawn scene.
+// Cards over it turn to dark GLASS (no backdrop blur over a moving layer — a scrim + near-opaque glass keeps every colour readable).
+export const VIDEO = { ocean: 'Sun reflections and gentle waves', forest: 'Sun beams through the forest trees', peaks: 'Fog on the heights of the snowy mountains', aurora: 'Northern Lights, blue and green' };
+function SceneVideo({ bg, onFail }) {
+  const ref = React.useRef(null);
+  useEffect(() => { const v = ref.current; if (!v) return undefined;
+    const still = document.body.classList.contains('fx-lite') || window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+    if (still) { v.pause(); return undefined; }
+    let seen = true; const sync = () => { if (seen && !document.hidden) v.play?.().catch(() => {}); else v.pause(); };
+    const io = typeof IntersectionObserver !== 'undefined' ? new IntersectionObserver(([e]) => { seen = e.isIntersecting; sync(); }) : null;
+    io?.observe(v); document.addEventListener('visibilitychange', sync); sync();
+    return () => { io?.disconnect(); document.removeEventListener('visibilitychange', sync); };
+  }, [bg]);
+  return <video ref={ref} className="ckb-video" src={`/backdrops/${bg}.mp4`} muted loop playsInline preload="metadata" onError={onFail} aria-hidden="true" data-testid="desk-video" />;
+}
 export function DeskBackdrop({ bg }) {
+  const [fail, setFail] = useState(false);
+  useEffect(() => setFail(false), [bg]);
   if (bg === 'night') return <i className="ckb ckb-night" aria-hidden="true" />;
+  if (VIDEO[bg] && !fail) return <div className={`ckb ckb-${bg} is-video`} aria-hidden="true"><SceneVideo bg={bg} onFail={() => setFail(true)} /><i className="ckb-scrim" /></div>;
   return <div className={`ckb ckb-${bg}`} aria-hidden="true">
     {bg === 'ocean' ? <><i className="ckb-sun" /><i className="ckb-wave w1" /><i className="ckb-wave w2" /><i className="ckb-wave w3" /></> : null}
     {bg === 'forest' ? <><i className="ckb-mist" /><i className="ckb-trees t1" /><i className="ckb-trees t2" /><i className="ckb-fly" /></> : null}

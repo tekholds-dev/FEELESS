@@ -98,7 +98,7 @@ export function CatDesk({ cat, busy = false, error = '', onBack, onAct, Activity
   const state = cat.revoked ? ['REVOKED', 'off'] : cat.status === 'running' ? [v.open ? `HOLDING ${v.open}` : 'HUNTING', 'on'] : ['STOPPED', 'off'];
   const copy = async () => { try { await navigator.clipboard.writeText(cat.wallet); setCopied(true); setTimeout(() => setCopied(false), 1500); } catch { /* blocked */ } };
   const [skin, setSkin] = useDeskSkin();
-  return <section className="kd has-skin" style={{ '--kd-acc': skin.acc }} data-testid="cat-desk"><DeskBackdrop bg={skin.bg} />
+  return <section className={`kd has-skin${skin.bg !== 'night' ? ' is-glass' : ''}`} style={{ '--kd-acc': skin.acc }} data-testid="cat-desk"><DeskBackdrop bg={skin.bg} />
     <button type="button" className="kd-back" onClick={onBack} data-testid="kd-back" data-tip="Back to your agents"><ArrowLeft size={14} /> My agents</button>
     <header className="kd-hero">
       <div className="kd-stage" aria-hidden="true"><i className="kd-spot" /><i className="kd-floor" /><LookAvatar cat={catByName(cat.avatar)} look={cat.look} full size={170} large gesture={v.mood} /></div>

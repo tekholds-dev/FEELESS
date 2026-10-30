@@ -24,7 +24,7 @@ import { useDeskSkin, DeskBackdrop, SkinPicker } from './CatCockpit';
 // 🪟 Fee's (NEXA) dash in My agents wears the same desk as every agent (owner 2026-10-30): her two live windows first, a calm backdrop + card colour
 function NexaSkin({ children }) {
   const [skin, setSkin] = useDeskSkin();
-  return <div className="kd has-skin ck-nexa" style={{ '--kd-acc': skin.acc }} data-testid="nexa-skin"><DeskBackdrop bg={skin.bg} /><span className="ck-nexa-bar"><SkinPicker skin={skin} set={setSkin} /></span>{children}</div>;
+  return <div className={`kd has-skin ck-nexa${skin.bg !== 'night' ? ' is-glass' : ''}`} style={{ '--kd-acc': skin.acc }} data-testid="nexa-skin"><DeskBackdrop bg={skin.bg} /><span className="ck-nexa-bar"><SkinPicker skin={skin} set={setSkin} /></span>{children}</div>;
 }
 const OWNER_KEY = 'feeless-paper-owner';
 const api = async (path, options = {}) => {

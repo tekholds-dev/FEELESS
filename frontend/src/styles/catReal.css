@@ -129,3 +129,22 @@ body.theme-day .cr-fund-rule { color: #4d3fa3; } body.theme-day .cr-fund-rule.is
 .cr-assign .m-input { min-height: 34px; font: 600 11px 'JetBrains Mono', monospace; } .cr-assign .m-btn { min-height: 34px; } .cr-assign .m-btn:focus-visible { outline: 2px solid #5ff2c8; outline-offset: 2px; }
 .cr-ag-watch { margin: 0; padding: 6px 9px; border-radius: 8px; border-left: 2px solid #8fd3ff; background: rgba(143, 211, 255, .08); font: 700 10px/1.4 var(--f-ui, sans-serif); color: #bfe6ff; }
 body.theme-day .cr-ag-watch { color: #1f5fa0; background: rgba(31, 95, 160, .07); } body.theme-day .cr-assign em { color: #5a4f78; }
+
+/* 🔐 safe-keeping before the first funding: its wallet, the plain truth about recovery, a designed confirm box (first funding stays locked till ticked) */
+.cr-safe { display: grid; gap: 8px; padding: 12px; border-radius: 16px; border: 1px solid #f5c54266; background: linear-gradient(160deg, #2a1f08cc, #120c03e6); box-shadow: 0 0 24px -14px #f5c542; }
+.cr-safe.is-saved { border-color: #45e48666; box-shadow: 0 0 24px -14px #45e486; background: linear-gradient(160deg, #0c2a1ccc, #06120ce6); }
+.cr-safe-h { display: flex; align-items: baseline; gap: 8px; } .cr-safe-h i { font-style: normal; } .cr-safe-h b { color: #fff; font: 800 11px var(--f-mono, monospace); letter-spacing: .14em; } .cr-safe-h small { color: #c9bce6; font-size: 10.5px; }
+.cr-safe-addr { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: 6px; align-items: center; }
+.cr-safe-addr code { padding: 8px 10px; border-radius: 10px; background: #000a; color: #ffe08a; font: 700 12px var(--f-mono, monospace); overflow-wrap: anywhere; }
+.cr-safe-addr .m-btn { min-height: 34px; text-decoration: none; }
+.cr-safe-why { margin: 0; color: #e8dcff; font: 500 12px/1.5 var(--f-ui, sans-serif); } .cr-safe-why b { color: #fff; }
+.cr-safe-warn { margin: 0; padding: 8px 10px; border-radius: 10px; border-left: 3px solid #ff8fa3; background: #ff5d7a14; color: #ffd1da; font: 600 12px/1.5 var(--f-ui, sans-serif); }
+.cr-safe-ok { position: relative; display: flex; align-items: center; gap: 10px; min-height: 44px; padding: 8px 12px; border-radius: 12px; cursor: pointer; border: 1px dashed #f5c54288; background: #ffffff08; transition: background .15s, border-color .15s; }
+.cr-safe-ok:hover { background: #ffffff10; } .cr-safe-ok input { position: absolute; opacity: 0; width: 1px; height: 1px; }
+.cr-safe-ok i { flex: none; width: 22px; height: 22px; border-radius: 7px; border: 2px solid #f5c542; display: grid; place-items: center; transition: background .15s, transform .15s; }
+.cr-safe-ok input:checked + i { background: #45e486; border-color: #45e486; transform: scale(1.05); } .cr-safe-ok input:checked + i::after { content: '✓'; color: #04110d; font: 900 13px var(--f-ui, sans-serif); }
+.cr-safe-ok input:focus-visible + i { outline: 2px solid #ffe08a; outline-offset: 2px; } .cr-safe-ok span { color: #fff; font: 700 12.5px var(--f-ui, sans-serif); }
+.cr-safe.is-saved .cr-safe-ok { border-style: solid; border-color: #45e48688; }
+@media (prefers-reduced-motion: reduce) { .cr-safe-ok, .cr-safe-ok i { transition: none; } }
+body.theme-day .cr-safe { background: #fffaf0; } body.theme-day .cr-safe-why, body.theme-day .cr-safe-ok span { color: #2a1650; } body.theme-day .cr-safe-addr code { background: #fff; color: #7a5a00; }
+@media (max-width: 640px) { .cr-safe-addr { grid-template-columns: 1fr 1fr; } .cr-safe-addr code { grid-column: 1 / -1; } }
