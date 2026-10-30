@@ -28,8 +28,9 @@ function SceneVideo({ bg, onFail }) {
   const ref = React.useRef(null);
   useEffect(() => { const v = ref.current; if (!v) return undefined;
     const still = document.body.classList.contains('fx-lite') || window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
-    if (still) { v.pause(); return undefined; }
-    let seen = true; const sync = () => { if (seen && !document.hidden) v.play?.().catch(() => {}); else v.pause(); };
+    const pause = () => { try { v.pause(); } catch { /* no media engine (tests) */ } };
+    if (still) { pause(); return undefined; }
+    let seen = true; const sync = () => { if (seen && !document.hidden) { try { Promise.resolve(v.play?.()).catch(() => {}); } catch { /* autoplay blocked */ } } else pause(); };
     const io = typeof IntersectionObserver !== 'undefined' ? new IntersectionObserver(([e]) => { seen = e.isIntersecting; sync(); }) : null;
     io?.observe(v); document.addEventListener('visibilitychange', sync); sync();
     return () => { io?.disconnect(); document.removeEventListener('visibilitychange', sync); };
