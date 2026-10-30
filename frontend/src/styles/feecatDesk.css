@@ -105,3 +105,25 @@ body.theme-day .fch-lane label { background: rgba(236, 246, 240, .7); } body.the
 /* 🪟 NEXA desk tabs — one pane at a time, the new glass look */
 .fch-tabs { flex-wrap: wrap; position: sticky; top: 0; z-index: 3; } .fch-tabs button { min-height: 36px; font: 800 10.5px var(--f-tech, sans-serif); letter-spacing: .08em; }
 .fch-brain { display: grid; gap: 10px; }
+/* 🧠 the Brain tab's rule inputs — real inputs in the new look (they rendered as bare browser boxes): glass fields, the card colour on focus, the limit beside */
+.fch-brain .fch-group { border-radius: 14px; border: 1px solid color-mix(in srgb, var(--kd-acc, #b388ff) 26%, #ffffff12); background: #0b0716b8; padding: 10px 12px; }
+.fch-brain .fch-group legend { color: var(--kd-acc, #b388ff); }
+.fch-brain .fch-group label { gap: 5px; color: #d8ccf5; }
+.fch-brain .fch-group input, .fch .fch-card input:not([type='range']):not([type='checkbox']) { width: 100%; min-height: 34px; padding: 6px 10px; border-radius: 10px; border: 1px solid #ffffff1c; background: #05040ad9; color: #fff;
+  font: 700 12.5px var(--f-mono, monospace); transition: border-color .15s, box-shadow .15s; }
+.fch-brain .fch-group input:hover, .fch .fch-card input:hover { border-color: #ffffff33; }
+.fch-brain .fch-group input:focus, .fch .fch-card input:focus { outline: none; border-color: var(--kd-acc, #b388ff); box-shadow: 0 0 0 3px color-mix(in srgb, var(--kd-acc, #b388ff) 25%, transparent); }
+body.theme-day .fch-brain .fch-group input, body.theme-day .fch .fch-card input { background: #fff; color: #2a1650; border-color: #7c4dff33; }
+/* 🧠 Fee's own models — picker, prompt, keep / fresh memory, her ☁ memory drawer */
+.fmd { display: grid; gap: 10px; padding: 14px; border-radius: 16px; border: 1px solid color-mix(in srgb, var(--kd-acc, #b388ff) 34%, #ffffff14); background: linear-gradient(165deg, #1a1030e6, #0b0716e6); }
+.fmd header { display: flex; justify-content: space-between; gap: 8px; align-items: baseline; } .fmd header b { color: var(--kd-acc, #b388ff); font: 800 11px var(--f-mono); letter-spacing: .14em; } .fmd header small { color: #a99bc8; font-size: 11px; }
+.fmd-pick { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; } .fmd label { display: grid; gap: 4px; } .fmd label em { color: #a99bc8; font: 800 9px var(--f-mono); letter-spacing: .12em; font-style: normal; }
+.fmd .m-input { min-height: 38px; } .fmd textarea.m-input { min-height: 72px; resize: vertical; font: 500 12.5px/1.5 var(--f-ui); }
+.fmd-mem { flex-wrap: wrap; } .fmd-mem button { min-height: 34px; } .fmd-acts { display: flex; flex-wrap: wrap; gap: 6px; } .fmd-acts .m-btn { min-height: 38px; }
+.fmd-msg { margin: 0; font-size: 12px; } .fmd-msg.is-ok { color: #45e486; } .fmd-msg.is-bad { color: #ff8fa3; }
+.fmd-cloud summary { cursor: pointer; list-style: none; color: #9dffcf; font: 800 10px var(--f-mono); letter-spacing: .12em; } .fmd-cloud summary::-webkit-details-marker { display: none; }
+.fmd-cloud ul { list-style: none; margin: 8px 0 0; padding: 0; display: grid; gap: 4px; } .fmd-cloud li { padding: 6px 10px; border-radius: 9px; background: #ffffff06; border-left: 3px solid #9dffcf66; color: #e3d9fb; font-size: 12px; }
+.fmd-cloud li.is-empty { border-left-color: #ffffff1a; color: #8f84ad; }
+.kd-mem { grid-column: 1 / -1; flex-wrap: wrap; } .kd-mem button { min-height: 32px; }
+body.theme-day .fmd { background: #fff; } body.theme-day .fmd-cloud li { color: #2a1650; }
+@media (max-width: 640px) { .fmd-pick { grid-template-columns: 1fr; } }

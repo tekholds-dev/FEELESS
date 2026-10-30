@@ -252,3 +252,33 @@ def test_the_owner_id_never_leaves_the_server_and_only_mine_is_answered(monkeypa
     assert asyncio.run(svc.get_cat('z1', ownerId='browser-secret-123'))['cat']['mine'] is True
     assert asyncio.run(svc.get_cat('z1', ownerId='guess'))['cat']['mine'] is False
     assert 'browser-secret-123' not in json.dumps(asyncio.run(svc.list_cats(ownerId='browser-secret-123')))
+
+
+def test_fee_takes_an_openrouter_model_and_a_new_model_can_start_fresh(monkeypatch):
+    import feecat_service as svc
+    from types import SimpleNamespace
+    fee = {'id': 'leader', 'ownerId': 'feeless-system', 'isLeader': True, 'name': 'Fee', 'status': 'running', 'positions': [], 'createdAt': 0}
+    store = {'cats': {'leader': fee}, 'events': []}
+    monkeypatch.setattr(svc, '_load', lambda: store)
+    monkeypatch.setattr(svc, '_save', lambda s: None)
+
+    async def models():
+        return {'models': [{'id': 'a/x'}, {'id': 'b/y'}]}
+
+    async def limit(session=''):
+        return 2
+
+    async def creator(addr):
+        return True
+    monkeypatch.setattr(svc, '_or_models', models)
+    monkeypatch.setattr(svc, '_model_limit', limit)
+    monkeypatch.setattr(svc, '_is_creator', creator)
+    monkeypatch.setattr(svc._real, 'session_wallet', lambda sessions, s: 'CREATOR' if s == 'ok' else None)
+    req = SimpleNamespace(headers={})
+    act = lambda **k: asyncio.run(svc.cat_action('leader', svc.ActionPayload(address='CREATOR', session='ok', **k), req))
+    act(action='models', brains=['a/x'], text='Trade the trenches like a desk; never chase.')
+    assert fee['brainsCfg']['brains'] == ['a/x'] and fee['brainsCfg']['prompt'].startswith('Trade the trenches')
+    fee['brainsCfg']['cloud'] = [{'text': 'old memory'}]
+    act(action='models', brains=['b/y'], memory='keep'); assert fee['brainsCfg']['cloud'] == [{'text': 'old memory'}]
+    act(action='models', brains=['a/x'], memory='fresh'); assert fee['brainsCfg']['cloud'] == [] and fee['brainsCfg']['decisions'] == []
+    act(action='brief', text='A brand new desk brief for Fee, any time she likes.'); assert fee['brainsCfg']['prompt'].startswith('A brand new')

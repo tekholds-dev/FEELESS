@@ -1473,6 +1473,9 @@ def _score(cat):
         # 🏆 the board + live activity draw each agent as it looks (owner 2026-10-30): its look, its desk colour, live or not, what kind — nothing private
         'look': cat.get('look'), 'skin': cat.get('skin'), 'status': cat.get('status'), 'kind': (cat.get('brainsCfg') or {}).get('kind') or 'rules',
         'brains': [str(m).split('/')[-1] for m in ((cat.get('brainsCfg') or {}).get('brains') or [])][:2],
+        # 📸 its recent snapshot for the board cards: the last 24 points of its P/L curve + the coin it is on / just left
+        'curve': [round(float(x.get('value') or 0), 6) for x in (cat.get('pnlHistory') or [])[-24:]],
+        'coin': ((cat.get('positions') or [{}])[0].get('symbol') if cat.get('positions') else ((cat.get('exits') or [{}])[-1].get('symbol') if cat.get('exits') else None)),
     }
 
 
@@ -2083,6 +2086,7 @@ class ActionPayload(BaseModel):
     venues: Optional[list] = None      # 📈 venues: the FEELESS rails a trading cat may use
     brains: Optional[list] = None      # 🔁 models: switch its models (24 h after it was made)
     workMode: Optional[str] = None     # 🧭 work_mode: plan · jobs
+    memory: Optional[str] = None       # 🔁 models: 'keep' its memory (cloud + decisions) or start 'fresh' with the new models
 
 
 def owner_wallets():
@@ -2106,7 +2110,7 @@ def fee_owner_real(cat, action, signed, owners=None):
     return bool(cat.get('isLeader') and action in ('real', 'paper', 'proposal', 'look') + _LEADER_AGENT and signed and signed in (owner_wallets() if owners is None else owners))
 
 
-_LEADER_AGENT = ('agent_wallet', 'agent_mode', 'agent_assign', 'agent_approve', 'skin')   # 👛 Fee's own wallet: the creator's signed wallet only (N16)
+_LEADER_AGENT = ('agent_wallet', 'agent_mode', 'agent_assign', 'agent_approve', 'skin', 'models', 'brief', 'brief_propose', 'brief_approve', 'brief_dismiss')   # 👛 Fee's own wallet: the creator's signed wallet only (N16)
 
 
 LOOK_KEYS = ('coat', 'pattern', 'gear', 'eyes', 'aura')
@@ -2292,12 +2296,14 @@ async def cat_action(cat_id: str, payload: ActionPayload, request: Request):
         cat['skin'] = {'bg': bg_, 'acc': acc_.lower()}
     elif payload.action in ('brief', 'brief_propose', 'brief_approve', 'brief_dismiss'):   # 📜 a GENERAL agent's one brief for both minds (owner 2026-10-30)
         b_ = cat.get('brainsCfg') or {}
-        if b_.get('kind') != 'general':
+        if b_.get('kind') != 'general' and not cat.get('isLeader'):
             raise HTTPException(400, "A trader's brief is sealed when you buy it — only a general agent's brief can change.")
+        if not b_.get('brains'):
+            raise HTTPException(400, 'Give it a model first — its brief rides on its models.')
         now_ = time.time()
-        if payload.action == 'brief':   # you rewrite it — once an hour
+        if payload.action == 'brief':   # you rewrite it — once an hour (Fee's: the creator, any time)
             left_ = BRIEF_EVERY - (now_ - float(b_.get('briefAt') or 0))
-            if left_ > 0:
+            if left_ > 0 and not cat.get('isLeader'):
                 raise HTTPException(400, f'You can change its brief once an hour — {max(1, round(left_ / 60))} min to go.')
             txt_ = ' '.join(str(payload.text or '').split())[:_lc.PROMPT_MAX]
             if len(txt_) < 20:
@@ -2330,17 +2336,21 @@ async def cat_action(cat_id: str, payload: ActionPayload, request: Request):
         if payload.workMode not in _ca.MODES:
             raise HTTPException(400, 'Pick plan or jobs.')
         cat['workMode'] = payload.workMode
-    elif payload.action == 'models':   # 🔁 owner 2026-10-30: you keep your agent forever; its models can be switched 24 h after you got it
+    elif payload.action == 'models':   # 🔁 owner 2026-10-30: you keep your agent forever; its models can be switched 24 h after you got it (Fee: any time, the creator)
         left = MODEL_LOCK_SEC - (time.time() - float(cat.get('createdAt') or 0))
-        if left > 0:
+        if left > 0 and not cat.get('isLeader'):
             raise HTTPException(400, f'Its models can change 24 h after you got it — {left / 3600:.1f} h to go.')
-        if not cat.get('brainsCfg'):
+        if not cat.get('brainsCfg') and not cat.get('isLeader'):
             raise HTTPException(400, 'This cat has no AI models.')
         cat_ = await _or_models()
-        try:   # the sealed brief, credit, memory and cloud carry over — only the models change
-            cat['brainsCfg'] = _lc.clean({'brains': payload.brains}, cat['brainsCfg'], {m['id'] for m in cat_.get('models') or []} or None, max_models=await _model_limit(payload.session or ''))
+        try:   # the brief and credit carry over; its memory (cloud + decisions) too, unless you start fresh
+            prev_ = cat.get('brainsCfg') or {'kind': 'trading', 'billing': 'payg'}
+            cat['brainsCfg'] = _lc.clean({'brains': payload.brains, 'brainKind': prev_.get('kind') or 'trading', 'billing': prev_.get('billing') or 'payg', 'prompt': payload.text or ''},
+                                         prev_ if cat.get('brainsCfg') else None, {m['id'] for m in cat_.get('models') or []} or None, max_models=await _model_limit(payload.session or ''))
         except ValueError as e:
             raise HTTPException(400, str(e))
+        if payload.memory == 'fresh':   # 🧹 a clean slate for the new models: its old memory is deleted, never mixed in
+            cat['brainsCfg'].update(cloud=[], decisions=[])
         _log_event(store, cat, 'LEARN', f"🔁 new models: {' + '.join(m.split('/')[-1] for m in cat['brainsCfg']['brains'])}")
     elif payload.action == 'delete':   # 🗑 forever means until YOU delete it: retired first, typed name, and never while its own wallet still holds money
         if not cat.get('revoked'):

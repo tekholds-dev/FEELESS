@@ -8,6 +8,7 @@ import { getChatSession } from '../../lib/chatSession';
 import { ArrowLeft, Copy } from 'lucide-react';
 import NumInput from '../NumInput';
 import { LookAvatar } from './CatLook';
+import { FeeCatMark } from '../FeeCatMark';
 import { catByName } from './catCoats';
 import { openWarRoom } from '../WarRoomHost';
 import '../../styles/catDesk.css';
@@ -59,13 +60,14 @@ function DeleteForGood({ cat, busy, onAct }) {
 export const MODEL_LOCK_H = 24;
 export function lockLeft(createdAt, now = Date.now() / 1000) { return Math.max(0, MODEL_LOCK_H * 3600 - (now - Number(createdAt || 0))); }
 function ModelSwitch({ cat, busy, onAct }) {
-  const left = lockLeft(cat.createdAt); const [list, setList] = useState(null); const [pick, setPick] = useState(() => [...(cat.brainsCfg.brains || [])]);
+  const left = lockLeft(cat.createdAt); const [list, setList] = useState(null); const [memory, setMemory] = useState('keep'); const [pick, setPick] = useState(() => [...(cat.brainsCfg.brains || [])]);
   useEffect(() => { if (left > 0 || list) return; fetch('/api/cats/models').then(r => (r.ok ? r.json() : null)).then(d => setList((d?.models || []).filter(m => m.tools).sort((a, b) => (b.intel ?? -1) - (a.intel ?? -1)).slice(0, 40))).catch(() => setList([])); }, [left, list]);
   return <section className="kd-card kd-models" data-testid="kd-models"><header><b>🔁 ITS MODELS</b><small>{left > 0 ? `switchable in ${(left / 3600).toFixed(1)} h` : 'switch any time — its brief, memory + cloud stay'}</small></header>
     {left > 0 ? <i className="kd-lock" aria-hidden="true"><u style={{ transform: `scaleX(${1 - left / (MODEL_LOCK_H * 3600)})` }} /></i>
       : <div className="kd-mpick">{[0, 1].map(i => <select key={i} className="m-input" value={pick[i] || ''} aria-label={`Model ${'AB'[i]}`} onChange={e => setPick(p => { const n = [...p]; n[i] = e.target.value; return n.filter(Boolean); })} data-testid={`kd-model-${i}`}>
         {i ? <option value="">no second model</option> : null}{(list || []).map(m => <option key={m.id} value={m.id}>{m.name} · ♟ {m.intel ?? '—'}</option>)}</select>)}
-        <button type="button" className="m-btn m-go" disabled={busy || !pick.length || pick.join() === (cat.brainsCfg.brains || []).join()} onClick={() => onAct('models', { brains: pick })} data-testid="kd-model-save">Switch</button></div>}
+        <button type="button" className="m-btn m-go" disabled={busy || !pick.length || pick.join() === (cat.brainsCfg.brains || []).join()} onClick={() => onAct('models', { brains: pick, memory })} data-testid="kd-model-save">Switch</button>
+        <div className="m-seg kd-mem" role="radiogroup" aria-label="Its memory with the new models">{[['keep', '☁ keep its memory'], ['fresh', '🧹 start fresh']].map(([k, l]) => <button key={k} type="button" role="radio" aria-checked={memory === k} className={memory === k ? 'is-on' : ''} onClick={() => setMemory(k)} data-testid={`kd-mem-${k}`}>{l}</button>)}</div></div>}
   </section>;
 }
 
@@ -114,7 +116,7 @@ export function CatDesk({ cat, busy = false, error = '', onBack, onAct, Activity
   return <section className={`kd has-skin${skin.bg !== 'night' ? ' is-glass' : ''}`} style={{ '--kd-acc': skin.acc }} data-testid="cat-desk"><DeskBackdrop bg={skin.bg} />
     <button type="button" className="kd-back" onClick={onBack} data-testid="kd-back" data-tip="Back to your agents"><ArrowLeft size={14} /> My agents</button>
     <header className="kd-hero">
-      <div className="kd-stage" aria-hidden="true"><i className="kd-spot" /><i className="kd-floor" /><LookAvatar cat={catByName(cat.avatar)} look={cat.look} full size={170} large gesture={v.mood} /></div>
+      <div className="kd-stage" aria-hidden="true"><i className="kd-spot" /><i className="kd-floor" />{cat.isLeader ? <FeeCatMark full size={170} gesture={v.mood} /> : <LookAvatar cat={catByName(cat.avatar)} look={cat.look} full size={170} large gesture={v.mood} />}</div>
       <div className="kd-id">
         <span className={`kd-state is-${state[1]}`} data-testid="kd-state"><i />{state[0]}</span>
         <h1>{cat.name}<small>@{cat.handle}</small></h1>

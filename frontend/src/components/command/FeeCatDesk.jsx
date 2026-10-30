@@ -3,6 +3,7 @@ import { FeeOwnerBar } from './FeeOwnerBar';
 import { realView } from './CatReal';
 import { toast } from 'sonner';
 import { FeeTape, DuoLearn, readWords } from './FeeCatLive';
+import { FeeModels } from './FeeModels';
 import NumInput from '../NumInput';
 import { FeeBrain } from './FeeBrain';
 import { NexaDesk } from './NexaDesk';
@@ -154,6 +155,7 @@ export function FeeCatDesk({ call }) {
     </div> : null}
 
     {tab === 'brain' ? <div className="fch-fold fch-brain" data-testid="fch-brain">
+      <FeeModels />
       <FeeBrain />
       <FastDial d={d} busy={busy} onApply={vals => { setDraft(cur => ({ ...cur, ...vals })); save({ rules: { ...draft, ...vals }, strategyPreset: 'fast' }); }} />
       <div className="fch-groups">{RULE_GROUPS.map(([g, keys]) => { const ks = keys.filter(k => (d.bounds || {})[k]); if (!ks.length) return null;

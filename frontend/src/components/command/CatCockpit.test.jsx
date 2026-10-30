@@ -62,3 +62,11 @@ test('🏆 the board ranks by the chosen view and the activity card knows its co
   expect(eventCard({ type: 'BUY', detail: 'Bought 0.05 SOL of GERM at live price', marketCapUsd: 50000 })).toMatchObject({ sym: 'GERM', light: 'go', entry: 50000 });
   expect(eventCard({ type: 'SELL', detail: 'Sold GERM at -12%', pnlSol: -0.01 })).toMatchObject({ sym: 'GERM', light: 'stop' });
 });
+
+test('📸 one activity card per agent (5 more in its dropdown) and a real P/L snapshot path', () => {
+  const { groupByAgent, curvePath } = require('./AgentBoards');
+  const ev = [1, 2, 3, 4, 5, 6, 7].map(i => ({ id: `a${i}`, catId: 'A' })).concat([{ id: 'b1', catId: 'B' }]);
+  const g = groupByAgent(ev);
+  expect(g.map(x => x.e.id)).toEqual(['a1', 'b1']); expect(g[0].more.map(x => x.id)).toEqual(['a2', 'a3', 'a4', 'a5', 'a6']);
+  expect(curvePath([1])).toBeNull(); const c = curvePath([0, 1, 2]); expect(c.up).toBe(true); expect(c.line.startsWith('M0.0')).toBe(true);
+});
