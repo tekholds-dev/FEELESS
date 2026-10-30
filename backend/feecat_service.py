@@ -125,6 +125,7 @@ def _log_event(store, cat, kind, detail, pnl=None, pair=None, price=None, market
     store['events'] = store['events'][:200]
 
 
+DESK_SCENES = ('globe', 'creek', 'forest', 'night')   # 🎨 CatCockpit.SCENES (change both)
 MODEL_LOCK_SEC = 24 * 3600   # 🔁 a cat's models can be switched 24 h after it was made
 FEE_PER_SIDE = 0.01   # the default paper fee per side — HQ › Core › house fees sets the live one (RULES['feePerSidePct'])
 
@@ -1933,7 +1934,7 @@ async def cat_profile(cat_id: str):
     pnls = [e.get('pnlSol') for e in trades if e.get('pnlSol') is not None]
     return _pub({
         'cat': {k: cat.get(k) for k in ('id', 'name', 'title', 'avatar', 'strategyLabel', 'level', 'xp', 'balanceSol', 'startingBalanceSol', 'realizedPnlSol',
-                                        'volumeSol', 'wins', 'losses', 'winRate', 'positions', 'pnlHistory', 'status', 'lastTick', 'look')},   # 🎨 her look rides along: every viewer sees the creator's style
+                                        'volumeSol', 'wins', 'losses', 'winRate', 'positions', 'pnlHistory', 'status', 'lastTick', 'look', 'skin')},   # 🎨 her look rides along: every viewer sees the creator's style
         'stats': {'trades': closed, 'best': max(pnls) if pnls else None, 'worst': min(pnls) if pnls else None,
                   'roiPct': round((cat.get('balanceSol', 0) + sum(p.get('costSol', 0) for p in cat.get('positions', [])) - cat.get('startingBalanceSol', 0)) / max(cat.get('startingBalanceSol', 1), 1e-9) * 100, 2)},
         # Live discipline: 9 lives, size mode and why — computed now, the same rule the trading loop enforces.
@@ -2078,7 +2079,7 @@ def fee_owner_real(cat, action, signed, owners=None):
     return bool(cat.get('isLeader') and action in ('real', 'paper', 'proposal', 'look') + _LEADER_AGENT and signed and signed in (owner_wallets() if owners is None else owners))
 
 
-_LEADER_AGENT = ('agent_wallet', 'agent_mode', 'agent_assign', 'agent_approve')   # 👛 Fee's own wallet: the creator's signed wallet only (N16)
+_LEADER_AGENT = ('agent_wallet', 'agent_mode', 'agent_assign', 'agent_approve', 'skin')   # 👛 Fee's own wallet: the creator's signed wallet only (N16)
 
 
 LOOK_KEYS = ('coat', 'pattern', 'gear', 'eyes', 'aura')
@@ -2256,6 +2257,12 @@ async def cat_action(cat_id: str, payload: ActionPayload, request: Request):
         amount = min(float(payload.amount or 0), cat['balanceSol'])
         cat['balanceSol'] = round(cat['balanceSol'] - amount, 6)
         _log_event(store, cat, 'WITHDRAW', f'Paper withdrawal of {amount:.4f} SOL recorded.')
+    elif payload.action == 'skin':   # 🎨 its desk look (backdrop clip + card colour), set by its owner — everyone who opens this agent sees the same desk
+        sk_ = payload.look or {}
+        bg_, acc_ = str(sk_.get('bg') or ''), str(sk_.get('acc') or '')
+        if bg_ not in DESK_SCENES or not re.fullmatch(r'#[0-9a-fA-F]{6}', acc_):
+            raise HTTPException(400, 'Pick a backdrop and a card colour.')
+        cat['skin'] = {'bg': bg_, 'acc': acc_.lower()}
     elif payload.action == 'work_mode':   # 🧭 how a general cat's two minds work: plan together → split → merge, or each its own job
         if payload.workMode not in _ca.MODES:
             raise HTTPException(400, 'Pick plan or jobs.')

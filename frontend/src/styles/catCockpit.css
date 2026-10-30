@@ -54,14 +54,14 @@ body.fx-lite .ck-msg, body.fx-lite .ck-rows li, body.fx-lite .ck-vitals { animat
 @media (prefers-reduced-motion: reduce) { .ck-msg, .ck-rows li, .ck-vitals, .ck-spark i, .ck-v-row b { animation: none !important; } }
 body.theme-day .ck-chat, body.theme-day .ck-log { background: #ffffffe6; border-color: #7c4dff26; } body.theme-day .ck-msg p, body.theme-day .ck-rows span { color: #2a1650; }
 body.theme-day .ck-msg-h b, body.theme-day .ck-v-head b, body.theme-day .ck-v-row b { color: #2a1650; } body.theme-day .ck-vitals { background: #fff; }
-@media (max-width: 1100px) { .ck-cockpit { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); } .ck-cockpit > .ck-chat, .ck-cockpit > .cwb { grid-column: 1 / -1; grid-row: 1; } .ck-vitals { position: static; } }
-@media (max-width: 640px) { .ck-cockpit { grid-template-columns: 1fr 1fr; gap: 8px; } .ck-vitals { padding: 10px; } .ck-msg { max-width: 92%; } .ck-skin-pop { right: auto; left: 0; } }
+@media (max-width: 1100px) { .ck-cockpit { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); } .ck-cockpit > .ck-center, .ck-cockpit > .ck-chat { grid-column: 1 / -1; grid-row: 1; } .ck-vitals { position: static; } }
+@media (max-width: 640px) { .ck-cockpit { grid-template-columns: 1fr 1fr; gap: 8px; } .ck-vitals { padding: 10px; } .ck-v-last small { display: none; } .ck-v-head b { font-size: 11.5px; } .ck-msg { max-width: 92%; } .ck-skin-pop { position: fixed; left: 12px; right: 12px; top: auto; margin-top: 6px; } .ck-skin-row { flex-wrap: wrap; } }
 .ck-center { display: grid; gap: 10px; min-width: 0; justify-items: center; } .ck-center > .ck-chat { width: 100%; }
 /* 🪟 Fee's dash in My agents: the same desk skin around her live windows + NEXA's desk */
 .ck-nexa { display: grid; gap: 14px; padding: 14px; border-radius: 22px; } .ck-nexa-bar { display: flex; justify-content: flex-end; }
 /* 🎥 real video backdrops + GLASS cards over them: a scrim dims any clip, cards turn to dark glass with a lit edge (no backdrop blur over video) */
-.ckb.is-video { background: #05040a; } .ckb-video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; opacity: .9; }
-.ckb-scrim { position: absolute; inset: 0; background: linear-gradient(180deg, #05040ab3, #05040a80 30%, #05040acc 80%), radial-gradient(120% 80% at 50% 0%, transparent, #05040a99); }
+.ckb.is-video { background: #05040a; } .ckb-video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.ckb-scrim { position: absolute; inset: 0; background: linear-gradient(180deg, #05040a73, #05040a26 35%, #05040a59 85%); }   /* light: the clip stays HD-bright, the glass cards keep text readable */
 .kd.is-glass :is(.kd-hero, .kd-tile, .kd-card, .ck-vitals, .ck-chat, .ck-log, .agd, .cwb, .lct-brains, .paper-panel, .cr-real, .fcv-card, .fcp) {
   background: linear-gradient(160deg, #120c22c7, #08061299) !important; border-color: color-mix(in srgb, var(--kd-acc, #b388ff) 34%, #ffffff22) !important;
   box-shadow: inset 0 1px 0 #ffffff26, inset 0 0 0 1px #ffffff0a, 0 18px 40px -26px #000 !important; }
@@ -71,3 +71,12 @@ body.fx-lite .ckb-video { display: none; }
 body.theme-day .kd.is-glass :is(.kd-hero, .kd-tile, .kd-card, .ck-vitals, .ck-chat, .ck-log, .agd, .cwb) { background: #ffffffd9 !important; } body.theme-day .kd.is-glass :is(p, small, span, li, b, em, h1, h2, h3) { text-shadow: none; }
 .kd-visitor { display: inline-flex; align-items: center; min-height: 34px; padding: 4px 12px; border-radius: 11px; border: 1px solid #ffffff1a; color: #e9dcff; font: 800 10.5px var(--f-mono); letter-spacing: .12em; }
 .cwb-public .ck-cockpit { grid-template-columns: repeat(2, minmax(0, 320px)); }
+/* 🪟 Fee's NEXA dash in the new look (owner 2026-10-30: "this all cleaned up — the new look on every agent profile"): every panel under her windows is
+   the same glass card as the agent desk — rounded, lit edge in the card colour, headings in the card colour, no flat black boxes */
+.ck-nexa :is(.fch-card, .nxd-card, .nxd-vit, .nxd-rig, .nxd-chatbox, .fcd-card, .fcp, .fcv-card) {
+  border-radius: 18px !important; border: 1px solid color-mix(in srgb, var(--kd-acc, #b388ff) 30%, #ffffff14) !important;
+  background: linear-gradient(165deg, color-mix(in srgb, var(--kd-acc, #b388ff) 9%, #110b20e0), #08061299) !important; box-shadow: inset 0 1px 0 #ffffff1c, 0 16px 36px -28px #000 !important; }
+.ck-nexa :is(.fch-card h4, .nxd-card h4, .nxd-card > header b) { color: var(--kd-acc, #b388ff); }
+.ck-nexa .fch-card { padding: 14px 16px; gap: 10px; }
+.ck-nexa :is(.fch-card, .nxd-card) p { line-height: 1.5; }
+@media (max-width: 640px) { .ck-nexa { padding: 8px; } .ck-nexa :is(.fch-card, .nxd-card) { padding: 12px; } }

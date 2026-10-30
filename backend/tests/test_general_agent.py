@@ -166,3 +166,20 @@ def test_sign_up_password_is_sealed_never_seen_by_the_model_and_typed_only_as_th
     assert cv.reveal(cat, 'https://proton.me/x', 'scout@proton.me') == pw
     cv.add_media(cat, 'https://cdn.example.com/ad.mp4', 'launch ad', now=1)
     assert cat['media'][0]['kind'] == 'video' and cv.clean_media(cat, now=1 + cv.MEDIA_TTL + 1) == []
+
+
+def test_an_agents_desk_look_is_saved_on_the_agent_by_its_owner(monkeypatch):
+    import feecat_service as svc
+    from fastapi import HTTPException
+    from types import SimpleNamespace
+    cat = {'id': 'k1', 'ownerId': 'o', 'name': 'Scout', 'status': 'running', 'positions': [], 'createdAt': 0}
+    store = {'cats': {'k1': cat}, 'events': []}
+    monkeypatch.setattr(svc, '_load', lambda: store)
+    monkeypatch.setattr(svc, '_save', lambda s: None)
+    act = lambda **k: asyncio.run(svc.cat_action('k1', svc.ActionPayload(**k), SimpleNamespace(headers={})))
+    act(action='skin', ownerId='o', look={'bg': 'creek', 'acc': '#7FD3FF'})
+    assert cat['skin'] == {'bg': 'creek', 'acc': '#7fd3ff'}
+    with pytest.raises(HTTPException):
+        act(action='skin', ownerId='o', look={'bg': 'lava', 'acc': '#000000'})
+    with pytest.raises(HTTPException):
+        act(action='skin', ownerId='someone-else', look={'bg': 'globe', 'acc': '#b388ff'})

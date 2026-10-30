@@ -73,3 +73,8 @@ body.theme-day .cf-step u { background: #e2d8f6; } body.theme-day .cf-step em { 
 @keyframes cwBreath { 50% { opacity: .35; } }
 body.fx-lite .cw-go.is-real i { animation: none; } @media (prefers-reduced-motion: reduce) { .cw-go.is-real i { animation: none; } .cw-go { transition: none; } }
 body.theme-day .cw-go { background: #f5f0fd; color: #3d2a66; } body.theme-day .cw-go.is-real { background: #eafbf1; color: #0d5a31; }
+/* 🗑 delete an agent from its card (type its name to confirm) */
+.cw-card { position: relative; } .cw-del { position: absolute; top: 8px; right: 8px; z-index: 2; display: grid; place-items: center; width: 32px; height: 32px; border-radius: 10px; cursor: pointer;
+  border: 1px solid #ff8fa344; background: #1a0a12cc; color: #ff8fa3; font-size: 14px; opacity: .55; transition: opacity .15s, transform .15s; }
+.cw-card:hover .cw-del, .cw-del:focus-visible { opacity: 1; } .cw-del:hover { transform: scale(1.06); } .cw-del:active { transform: scale(.95); } .cw-del:focus-visible { outline: 2px solid #ff8fa3; outline-offset: 2px; }
+@media (hover: none) { .cw-del { opacity: .9; } }

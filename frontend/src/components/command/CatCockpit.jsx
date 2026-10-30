@@ -14,9 +14,12 @@ export function readSkin() {
   try { const s = JSON.parse(localStorage.getItem(SKIN_KEY) || 'null'); return { bg: SCENES.some(x => x[0] === s?.bg) ? s.bg : 'globe', acc: ACCENTS.includes(s?.acc) ? s.acc : ACCENTS[0] }; }
   catch { return { bg: 'globe', acc: ACCENTS[0] }; }
 }
-export function useDeskSkin() {
-  const [skin, setSkin] = useState(readSkin);
-  const set = patch => setSkin(s => { const n = { ...s, ...patch }; try { localStorage.setItem(SKIN_KEY, JSON.stringify(n)); } catch { /* private window */ } return n; });
+// 🎨 an agent's desk look lives ON the agent (owner 2026-10-30: "each dash customised — users see it without the controls"): `saved` = cat.skin from the
+// server; `onSave` (its owner only) stores a change there. No saved look yet → this browser's last pick, else Earth.
+export function useDeskSkin(saved, onSave) {
+  const [skin, setSkin] = useState(() => (saved?.bg ? { ...readSkin(), ...saved } : readSkin()));
+  useEffect(() => { if (saved?.bg) setSkin(x => (x.bg === saved.bg && x.acc === saved.acc ? x : { ...x, ...saved })); }, [saved?.bg, saved?.acc]);   // eslint-disable-line react-hooks/exhaustive-deps
+  const set = patch => setSkin(s => { const n = { ...s, ...patch }; try { localStorage.setItem(SKIN_KEY, JSON.stringify(n)); } catch { /* private window */ } onSave?.(n); return n; });
   return [skin, set];
 }
 

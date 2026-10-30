@@ -21,9 +21,15 @@ const FeeLiveTab = lazy(() => import('./FeeLiveTab').then(m => ({ default: m.Fee
 const ProfileFeeBanner = lazy(() => import('./ProfileFeeCat').then(m => ({ default: m.ProfileFeeBanner })));
 import { AgentPicker, AGENT_MAX } from './AgentPicker';
 import { useDeskSkin, DeskBackdrop, SkinPicker } from './CatCockpit';
+import { useWallet } from '../../hooks/useWallet';
+import { getChatSession } from '../../lib/chatSession';
+import { useLeaderProfile } from '../../lib/feeLeader';
 // 🪟 Fee's (NEXA) dash in My agents wears the same desk as every agent (owner 2026-10-30): her two live windows first, a calm backdrop + card colour
 function NexaSkin({ children }) {
-  const [skin, setSkin] = useDeskSkin();
+  const lead = useLeaderProfile(); const { wallet, signMessage } = useWallet() || {};
+  const save = async sk => { const address = wallet?.address; if (!address) return;   // her desk look is saved on Fee — every visitor of her dash sees it
+    try { await api('/api/cats/leader/action', { method: 'POST', body: JSON.stringify({ action: 'skin', look: { bg: sk.bg, acc: sk.acc }, address, session: await getChatSession(address, signMessage, { own: true }) }) }); } catch { /* declined */ } };
+  const [skin, setSkin] = useDeskSkin(lead?.cat?.skin, save);
   return <div className={`kd has-skin ck-nexa${skin.bg !== 'night' ? ' is-glass' : ''}`} style={{ '--kd-acc': skin.acc }} data-testid="nexa-skin"><DeskBackdrop bg={skin.bg} /><span className="ck-nexa-bar"><SkinPicker skin={skin} set={setSkin} /></span>{children}</div>;
 }
 const OWNER_KEY = 'feeless-paper-owner';
@@ -169,7 +175,7 @@ function CatDetail({ cat: initialCat, onBack, onChanged, onDeleted }) {
   const act = async (action, extra = {}) => { setError(''); setBusy(true); try { const result = await api(`/api/cats/${cat.id}/action`, { method: 'POST', body: JSON.stringify({ action, ...extra }) }); if (result.deleted) { onDeleted?.(result.deleted); return; } setCat(result.cat); onChanged?.(result.cat); } catch (requestError) { setError(requestError.message); } setBusy(false); };
   const mine = cat.isLeader ? isAdmin : cat.ownerId === ownerId();   // 👀 opened from the leaderboard: the owner gets the controls, everyone else the view
   return <CatDesk canEdit={mine} cat={cat} busy={busy} error={error} onBack={onBack} onAct={act} Engine={<EngineLine />} Real={!mine ? null : <CatReal cat={cat} busy={busy} onAct={act} />}
-    Brains={cat.brainsCfg && mine ? <BrainPanel noTalk cat={cat} api={api} onChanged={brainChanged} /> : null} Activity={cat.brainsCfg ? null : <ActivityFeed catId={cat.id} />} />;
+    Brains={cat.brainsCfg && mine ? <BrainPanel noTalk cat={cat} api={api} onChanged={brainChanged} /> : null} Activity={null} />;
 }
 
 // 🤖 AGENTS (FeeCat redo, 2026-10-23): your trading cats — MY AGENTS · NEW AGENT · LIVE ACTIVITY · LEADERBOARD. Fee's own desk, brain and lore
@@ -189,6 +195,17 @@ export default function FeeCatsPlatform() {
   useEffect(() => { loadCats(); }, [loadCats]);
   const openCat = cat => { setSelected(cat); setView('cat'); };
   const openReal = cat => { openCat(cat); setTimeout(() => document.querySelector('[data-testid="cat-real"]')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 250); };   // 💵 straight to its wallet switch
+  // 🗑 delete from the list (owner 2026-10-30: "I can't delete the test cat"): its name typed → retire (if still live) → delete; the server refuses while its wallet holds money
+  const removeCat = async cat => {
+    const t = typeof window !== 'undefined' ? window.prompt(`Delete ${cat.name} for good? Type its name to confirm:`) : null;
+    if (!t || t.trim().toLowerCase() !== String(cat.name).toLowerCase()) return;
+    setError('');
+    try {
+      if (!cat.revoked) await api(`/api/cats/${cat.id}/action`, { method: 'POST', body: JSON.stringify({ action: 'revoke' }) });
+      await api(`/api/cats/${cat.id}/action`, { method: 'POST', body: JSON.stringify({ action: 'delete', text: t.trim() }) });
+      setCats(c => c.filter(x => x.id !== cat.id));
+    } catch (e) { setError(e.message); loadCats(); }
+  };
   const created = cat => { setCats(current => [cat, ...current]); openReal(cat); };   // 💵 a new cat lands on its wallet switch (link → budget → REAL)
   const live = cats.filter(c => !c.revoked);   // 🤖 agents that count toward the 2-agent limit
   const TABS = [['cats', <><Cat size={14} /> My agents <span>{live.length}/{AGENT_MAX}</span></>, 'Your trading cats with their live P&L'],
@@ -214,6 +231,7 @@ export default function FeeCatsPlatform() {
           return <div key={cat.id} className={`cw-card ${real ? 'is-real' : ''}`} data-testid={`cw-${cat.id}`}><button type="button" className="paper-my-cat-card" onClick={() => openCat(cat)}><span className="paper-my-cat-art"><LookAvatar cat={catByName(cat.avatar)} look={cat.look} /></span><span><b>{cat.name}</b><small>{cat.status.toUpperCase()} · LVL {cat.level}</small></span><strong className={cat.realizedPnlSol >= 0 ? 'positive' : 'negative'}>{money(cat.realizedPnlSol)}</strong><ChevronRight size={15} /></button>
             <button type="button" className={`cw-go ${real ? 'is-real' : ''}`} onClick={() => openReal(cat)} data-testid={`cw-go-${cat.id}`}
               data-tip={real ? `REAL on ${cat.realWallet.slice(0, 4)}…${cat.realWallet.slice(-4)} — open its live proposals` : 'Switch this cat to REAL: pick a per-buy budget, it proposes, your wallet signs every trade'}>
-              <i aria-hidden="true" />{real ? `💵 REAL · ${pend ? `${pend} to sign` : 'live'}` : '🧪 PAPER · GO REAL'}</button></div>; })}</div></>}</section>}
+              <i aria-hidden="true" />{real ? `💵 REAL · ${pend ? `${pend} to sign` : 'live'}` : '🧪 PAPER · GO REAL'}</button>
+            <button type="button" className="cw-del" onClick={() => removeCat(cat)} data-testid={`cw-del-${cat.id}`} data-tip="Delete it for good — type its name to confirm (never while its own wallet still holds money)" aria-label={`Delete ${cat.name}`}>🗑</button></div>; })}</div></>}</section>}
   </div>;
 }

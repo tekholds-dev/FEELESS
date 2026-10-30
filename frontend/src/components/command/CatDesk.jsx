@@ -3,6 +3,8 @@ import { AgentLive, HeadCloud, asModel, catMinds, catCoins } from './AgentLive';
 import { MindVitals, TradeChat, AgentLog, catLogItems, useCatEvents, useDeskSkin, DeskBackdrop, SkinPicker } from './CatCockpit';
 import { signWord } from './LaunchCat';
 import React, { useEffect, useMemo, useState } from 'react';
+import { useWallet } from '../../hooks/useWallet';
+import { getChatSession } from '../../lib/chatSession';
 import { ArrowLeft, Copy } from 'lucide-react';
 import NumInput from '../NumInput';
 import { LookAvatar } from './CatLook';
@@ -69,6 +71,14 @@ function ModelSwitch({ cat, busy, onAct }) {
 
 // 🛸 its live view (owner 2026-10-30): the demo's layout on its real data — a trading cat: two live bubbles + two real coin charts + its decisions;
 // a general cat: the same bubbles over its two cloud browsers (CatWorkbench)
+// 🐱 a rule-engine cat (Fee herself, a paper rule trader) has no model minds — it still gets its two live windows: what it holds, then what it just sold,
+// its own BUY / SELL calls riding over them, and its log (owner 2026-10-30: "clicking FeeCat from the leaderboard still doesn't show the 2 screens")
+function RuleWindows({ cat }) {
+  const coins = useMemo(() => catCoins(cat), [cat]); const ev = useCatEvents(cat.id);
+  const feed = ev.filter(e => ['BUY', 'SELL'].includes(e.type)).slice(0, 3).reverse().map(e => `🐱 ${e.detail}`.slice(0, 120));
+  return <><AgentLive title={`LIVE · ${cat.name}'s view`} coins={coins} feed={feed.length ? feed : [cat.status === 'running' ? '🔎 hunting — it buys only what passes every rule' : '⏸ stopped']} />
+    <AgentLog items={catLogItems(cat, ev)} /></>;
+}
 // (owner 2026-10-30) two live windows on top, then the cockpit: [brain A vitals | skinny bubble chat (+ the head cloud) | brain B vitals], then 📁 its log.
 // A general cat's cockpit lives inside CatWorkbench (its windows are its cloud browsers).
 function LiveMinds({ cat, onAct, busy, canEdit = true }) {
@@ -97,7 +107,10 @@ export function CatDesk({ cat, busy = false, error = '', onBack, onAct, Activity
   const xpNext = 100 * (cat.level || 1); const xpFill = Math.min(1, (Number(cat.xp) || 0) / xpNext);
   const state = cat.revoked ? ['REVOKED', 'off'] : cat.status === 'running' ? [v.open ? `HOLDING ${v.open}` : 'HUNTING', 'on'] : ['STOPPED', 'off'];
   const copy = async () => { try { await navigator.clipboard.writeText(cat.wallet); setCopied(true); setTimeout(() => setCopied(false), 1500); } catch { /* blocked */ } };
-  const [skin, setSkin] = useDeskSkin();
+  const { wallet, signMessage } = useWallet() || {};
+  const saveSkin = async sk => { if (!canEdit) return; const look = { bg: sk.bg, acc: sk.acc };   // Fee's look is the creator's signed change; any other agent's, its owner's
+    try { if (cat.isLeader) { const address = wallet?.address; if (!address) return; onAct('skin', { look, address, session: await getChatSession(address, signMessage, { own: true }) }); } else onAct('skin', { look }); } catch { /* declined */ } };
+  const [skin, setSkin] = useDeskSkin(cat.skin, saveSkin);
   return <section className={`kd has-skin${skin.bg !== 'night' ? ' is-glass' : ''}`} style={{ '--kd-acc': skin.acc }} data-testid="cat-desk"><DeskBackdrop bg={skin.bg} />
     <button type="button" className="kd-back" onClick={onBack} data-testid="kd-back" data-tip="Back to your agents"><ArrowLeft size={14} /> My agents</button>
     <header className="kd-hero">
@@ -114,7 +127,7 @@ export function CatDesk({ cat, busy = false, error = '', onBack, onAct, Activity
         {canEdit ? <>{cat.status === 'running' ? <button type="button" className="kd-stop" disabled={busy} onClick={() => onAct('stop')} data-testid="kd-stop" data-tip="Stops new trades now (open paper trades stay)">⏹ Stop</button>
           : <button type="button" className="kd-go" disabled={busy || cat.revoked} onClick={() => onAct('start')} data-testid="kd-start" data-tip="Starts it scanning the live board again">▶ Start</button>}
 </> : <span className="kd-visitor" data-tip="You're viewing someone's agent — only its owner runs it">👀 VIEWING</span>}
-        <SkinPicker skin={skin} set={setSkin} />
+        {canEdit ? <SkinPicker skin={skin} set={setSkin} /> : null}
         {canEdit ? <button type="button" disabled={busy || cat.revoked} onClick={() => onAct('run')} data-testid="kd-run" data-tip="Run one scan-and-decide cycle right now">⟳ One cycle</button> : null}
       </div>
     </header>
@@ -128,7 +141,7 @@ export function CatDesk({ cat, busy = false, error = '', onBack, onAct, Activity
       <Tile k={4} label="TODAY'S LOSS" value={`${v.lossToday.toFixed(3)} / ${v.cap || '—'} SOL`} fill={v.capUsed} tone={v.capUsed >= 1 ? 'dn' : v.capUsed > 0.6 ? 'warn' : ''}
         sub={v.capUsed >= 1 ? 'cap hit — no new buys today' : 'its daily loss cap'} tip="Losses closed today against the cap you set — at the cap it stops buying until tomorrow" />
     </div>
-    {cat.brainsCfg ? <LiveMinds cat={cat} onAct={onAct} busy={busy} canEdit={canEdit} /> : null}
+    {cat.brainsCfg ? <LiveMinds cat={cat} onAct={onAct} busy={busy} canEdit={canEdit} /> : <RuleWindows cat={cat} />}
     <div className="kd-grid">
       <div className="kd-main">
         {Real}

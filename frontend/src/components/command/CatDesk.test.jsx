@@ -3,6 +3,7 @@ import { createRoot } from 'react-dom/client';
 import { CatDesk, deskVitals, curveOf } from './CatDesk';
 
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
+jest.mock('../terminal/PriceChart', () => ({ PriceChart: () => null }));   // lightweight-charts is ESM jest can't parse (the desk's live windows load it lazily)
 const today = new Date().toISOString().slice(0, 10);
 const CAT = { id: 'c1', name: 'Specter', handle: 'specter', avatar: 'Solaris Spots', look: { gear: 'crown', aura: 'gold', eyes: 'laser' }, status: 'running', level: 2, xp: 60, wallet: 'W'.repeat(44),
   balanceSol: 9.6, startingBalanceSol: 10, realizedPnlSol: -0.12, totalPnlSol: -0.08, wins: 3, losses: 5, winRate: 38, strategyLabel: 'Breakouts',

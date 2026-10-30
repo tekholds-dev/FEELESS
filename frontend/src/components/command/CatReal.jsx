@@ -149,7 +149,7 @@ export function FundCat({ cat, addr, session, sign, onDone, onConfirm }) {
 function AssignWallet({ cat, busy, send }) {
   const [a, setA] = useState(''); const ok = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(a.trim());
   return <div className="cr-assign" data-testid="cr-assign"><em>{cat?.agentWallet ? 'SWAP IN ANOTHER WALLET' : 'OR ASSIGN ONE YOU ALREADY HAVE'}</em>
-    <input className="m-input" value={a} onChange={e => setA(e.target.value)} placeholder="Solana address — a Crossmint wallet of your project trades; any other is watch-only" aria-label="Wallet address for Fee" data-testid="cr-assign-in" />
+    <input className="m-input" value={a} onChange={e => setA(e.target.value)} placeholder="Solana address — your Circle wallet or a Crossmint wallet of your project trades; any other is watch-only" aria-label="Wallet address for Fee" data-testid="cr-assign-in" />
     <button type="button" className="m-btn" disabled={busy || !ok} onClick={() => send('agent_assign', { text: a.trim() })} data-testid="cr-assign-go"
       data-tip="FEELESS signs only through Crossmint: a wallet Crossmint holds for this project → Fee trades from it. Any other wallet → shown watch-only (FEELESS never holds a private key)">👛 Assign</button></div>;
 }
@@ -166,7 +166,7 @@ export function AgentWalletCard({ cat, busy, send, addr, session, sign }) {
       {cat?.isLeader || cat?.id === 'leader' ? <AssignWallet cat={cat} busy={busy} send={send} /> : null}</div>
       : <div className="cr-ag-on">
         {w.provider === 'circle' ? <p className="cr-ag-watch is-circle" role="status" data-testid="cr-agent-circle">🟦 YOUR CIRCLE WALLET — Circle signs each trade she makes, inside her caps (one at a time, per-buy + daily limits).</p> : null}
-        {w.provider === 'watch' ? <p className="cr-ag-watch" role="status" data-testid="cr-agent-watch">👁 WATCH-ONLY — Crossmint doesn't hold this wallet's key, so she shows it but never trades from it. Assign a Crossmint wallet of your project to let her trade.</p> : null}
+        {w.provider === 'watch' ? <p className="cr-ag-watch" role="status" data-testid="cr-agent-watch">👁 WATCH-ONLY — this wallet isn't one FEELESS can sign for, so she shows it but never trades from it. Assign one of your Circle wallets (or a Crossmint wallet of your project) to let her trade.</p> : null}
         <div className="cr-wid"><span><em>{w.provider === 'watch' ? '👁 WATCHED WALLET' : kind === 'trading' ? '🏇 RIDES · ITS WALLET' : w.assigned ? '👛 YOUR WALLET · SHE TRADES FROM IT' : 'ITS WALLET'}</em><b className="m-num">{short(w.address)}</b></span>
           <button type="button" className={`m-btn cr-copy ${copied ? 'is-ok' : ''}`} onClick={copy} data-testid="cr-agent-copy" data-tip="Copy its address — send SOL / USDC here to fund it">{copied ? '✓ copied' : '⧉ Copy'}</button></div>
         <div className="cr-strip is-vitals">
