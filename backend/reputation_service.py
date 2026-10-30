@@ -11059,6 +11059,7 @@ def _cat_fund_rules(me=None):
             'maxUsd': _cfund.MAX_USD, 'staff': staff_, 'maxCats': _cfund.MAX_CATS}
 
 
+import agent_pay as _apay
 _or_float: dict = {'at': 0.0, 'left': None}
 
 
@@ -34336,6 +34337,27 @@ async def internal_circle_wallet(request: Request, address: str = ''):
     if not w_:
         raise HTTPException(404, 'Not a Circle wallet of this project.')
     return {'id': w_.get('id'), 'address': w_.get('address')}
+
+
+@app.post('/api/reputation/internal/agent-x402-pay')
+async def internal_agent_x402_pay(request: Request, body: dict):
+    """💳 Sign one model-call payment for an agent's own wallet (agent_pay.py checks asset, size and fee payer). Signs only: the provider settles it."""
+    if not _internal_ok(request):
+        raise HTTPException(403, 'Internal only.')
+    wid_, addr_, entry_ = str(body.get('walletId') or ''), str(body.get('address') or ''), body.get('entry') or {}
+    w_ = (await _circle('POST', '/wallet', {'id': wid_}, agent=True)).get('wallet')
+    if not w_ or w_.get('address') != addr_:
+        raise HTTPException(403, "That is not this agent's wallet.")
+    async with httpx.AsyncClient(timeout=15) as http:
+        bh = ((await _rpc(http, 'getLatestBlockhash', [{'commitment': 'confirmed'}])) or {}).get('value', {}).get('blockhash')
+    try:
+        tx = _apay.build_payment(addr_, entry_, bh)
+    except (ValueError, KeyError) as e:
+        raise HTTPException(400, str(e)[:160])
+    signed_ = await _circle('POST', '/sign', {'walletId': wid_, 'rawTransaction': tx, 'memo': f"FEELESS model call {str(body.get('catId') or '')[:20]}"}, agent=True)
+    if not signed_.get('signedTransaction'):
+        raise HTTPException(502, 'Circle did not sign it.')
+    return {'signedTransaction': signed_['signedTransaction']}
 
 
 @app.post('/api/reputation/internal/agent-circle-wallet')

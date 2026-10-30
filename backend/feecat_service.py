@@ -35,6 +35,7 @@ import feecat_brain
 import launch_cat as _lc
 import cat_policy as _cp
 import cat_recovery as _recovery
+import agent_pay as _ap
 import cat_real as _real   # 💵 real-money cats = option A: the user's wallet signs every trade (docs/DECISIONS.md #2)
 import cat_orders as _co   # 🧭 a General AI cat's plain-words orders → one guarded proposal
 import cat_model as _cm
@@ -865,6 +866,73 @@ async def _sort_cloud(cat_id, model):
 _OR_LAST: dict = {}   # why the last model call came back empty, in plain words
 
 
+async def _agent_usdc(http, addr):
+    """(usdc, sol) live in an agent's wallet."""
+    h_ = await http.get(f'{_at.TRADE}/holdings/{addr}', timeout=15)
+    if h_.status_code != 200:
+        return 0.0, 0.0
+    tk_ = {t_.get('mint'): float(t_.get('amount') or 0) for t_ in ((h_.json() or {}).get('tokens') or [])}
+    return tk_.get(_cf_usdc, 0.0), tk_.get(_at.SOL, 0.0)
+
+
+_cf_usdc = 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v'
+_THINK_AT: dict = {}
+THINK_MIN_USDC, THINK_SWAP_SOL, THINK_KEEP_SOL = 0.30, 0.012, 0.006   # under $0.30 of USDC it swaps about $1 of its own SOL, always keeping gas
+
+
+async def _thinking_money(cat):
+    """💳 USDC ready for this agent's model calls: its wallet's own, topped up from its own SOL when low. No manual swap for the owner. → usdc available."""
+    w_ = cat.get('agentWallet') or {}; addr = w_.get('address'); now = time.time()
+    async with httpx.AsyncClient(timeout=25) as http:
+        usdc, sol = await _agent_usdc(http, addr)
+        amount = min(THINK_SWAP_SOL, sol - THINK_KEEP_SOL)
+        if usdc >= THINK_MIN_USDC or amount < 0.002 or now - _THINK_AT.get(cat['id'], 0) < 180:
+            return usdc
+        _THINK_AT[cat['id']] = now
+        try:
+            q_ = await http.post(f'{_at.TRADE}/quote', json={'input_mint': _at.SOL, 'output_mint': _cf_usdc, 'amount': f'{amount:.6f}', 'wallet': addr, 'slippage_bps': _at.SLIP_BPS}, timeout=20)
+            qj = q_.json() if q_.status_code == 200 else {}
+            if qj.get('input_mint') != _at.SOL or qj.get('output_mint') != _cf_usdc or not (qj.get('quote') or {}).get('transaction'):
+                return usdc
+            await _at._circle_post(http, cat, {'key': f"feeless-{cat['id']}-think-{round(now)}", 'tx': qj['quote']['transaction']})
+        except (ValueError, httpx.HTTPError) as e:
+            print(f"[agent think swap] {cat['id']}: {str(e)[:120]}")
+            return usdc
+        for _ in range(8):
+            await asyncio.sleep(3)
+            now_usdc, _sol = await _agent_usdc(http, addr)
+            if now_usdc > usdc:
+                return now_usdc
+    return usdc
+
+
+async def _wallet_call(cat, model, messages, max_tokens, ceiling):
+    """💳 One model call paid from this agent's own USDC (agent_pay.py). → (text, $ paid); ('', 0.0) = nothing paid, the next route takes it."""
+    w_ = cat.get('agentWallet') or {}
+    try:
+        async with httpx.AsyncClient(timeout=70) as h:
+            body = {'model': _ap.provider_model(model), 'messages': messages, 'max_tokens': int(max_tokens or 1000)}
+            r = await h.post(_ap.PROVIDER, json=body)
+            if r.status_code == 400:
+                body['model'] = _ap.FALLBACK_MODEL
+                r = await h.post(_ap.PROVIDER, json=body)
+            if r.status_code != 402:
+                return '', 0.0
+            doc, entry = _ap.pick_quote(r.headers.get('payment-required'), ceiling)
+            s_ = await h.post('http://127.0.0.1:5077/api/reputation/internal/agent-x402-pay', headers=_internal_headers(), json={'catId': cat['id'], 'walletId': w_.get('circleId'), 'address': w_.get('address'), 'entry': entry})
+            if s_.status_code != 200:
+                return '', 0.0
+            head = _ap.payment_header(doc, entry, s_.json()['signedTransaction'])
+            r2 = await h.post(_ap.PROVIDER, json=body, headers={'PAYMENT-SIGNATURE': head, 'X-PAYMENT': head})
+            if r2.status_code != 200:
+                print(f"[agent pay] {cat['id']}: provider {r2.status_code} {r2.text[:120]}")
+                return '', 0.0
+            return ((r2.json().get('choices') or [{}])[0].get('message') or {}).get('content') or '', int(entry['amount']) / _ap.USDC_SCALE
+    except (ValueError, KeyError, httpx.HTTPError) as e:
+        print(f"[agent pay] {cat['id']}: {str(e)[:120]}")
+        return '', 0.0
+
+
 async def _groq_backup(messages, max_tokens=None):
     """🛟 FEELESS covers an agent when OpenRouter can't (owner 2026-10-30): Groq's free tier answers instead. Costs the agent nothing. → text ('' = no backup either)."""
     key = os.environ.get('GROQ_API_KEY', '').strip()
@@ -1434,7 +1502,7 @@ def _work_view(cat_id, owner=False):
         s_ = (w.get('sessions') or [None, None])[x['i']] or {}
         wins.append({**{k: x.get(k) for k in ('i', 'model', 'goal', 'status', 'bubble', 'url', 'title', 'human', 'answer', 'cost', 'coin', 'scratchN')}, 'scratch': len(x.get('scratch') or []), 'steps': x['steps'][-10:],
                      'provider': s_.get('provider'), 'note': s_.get('note'), **({'live': s_.get('live'), 'shot': bool((w.get('pages') or [None, None])[x['i']] and not s_.get('live'))} if owner else {})})
-    return {'task': {k: t.get(k) for k in ('id', 'text', 'mode', 'status', 'cap', 'cost', 'answer', 'fast', 'why', 'stepsMax', 'keep', 'backup')}, 'windows': wins}
+    return {'task': {k: t.get(k) for k in ('id', 'text', 'mode', 'status', 'cap', 'cost', 'answer', 'fast', 'why', 'stepsMax', 'keep', 'backup', 'walletPaid')}, 'windows': wins}
 
 
 def clean_limits(raw):
@@ -1487,6 +1555,12 @@ def _work_start(cat_id, cat, text, to=None):
 async def _work_run(cat_id, models, names, text, cap, brief='', efforts=None, own_key=None):
     w = _WORK[cat_id]
     await _or_models()   # the price list: after a restart every model read as 'unknown cost' and the budget check stopped the task
+    cat_now = _load()['cats'].get(cat_id) or {}; paid_ = {'usdc': 0.0, 'on': False}
+    if (cat_now.get('agentWallet') or {}).get('circleAcct') == 'agent' and not own_key:   # 💳 it pays for its own thinking from its own wallet
+        try:
+            paid_.update(usdc=await _thinking_money(cat_now), on=True)
+        except (httpx.HTTPError, ValueError) as e:
+            print(f'[agent think] {cat_id}: {str(e)[:120]}')
     env = os.environ
     async with httpx.AsyncClient(timeout=30) as http:
         sessions, pages = [], []
@@ -1513,6 +1587,12 @@ async def _work_run(cat_id, models, names, text, cap, brief='', efforts=None, ow
 
             async def ask(model, messages):   # 📜 the sealed brief rides every call (plan · each browsing step · merge)
                 _OR_LAST.pop('err', None); _OR_LAST.pop('backup', None)
+                room_ = paid_['usdc'] - _ap.RESERVE_USD
+                if paid_['on'] and room_ > 0:
+                    t_ = w['task']; text_, usd_ = await _wallet_call(cat_now, model, orders + messages, reply_room(model, messages), min(room_, t_['cap'] - t_['cost']))
+                    if str(text_ or '').strip():
+                        paid_['usdc'] -= usd_; t_['walletPaid'] = round((t_.get('walletPaid') or 0) + usd_, 6)
+                        return text_, usd_
                 text_, usd_ = await _or_call(model, orders + messages, max_tokens=reply_room(model, messages), backup=True, **({'key': own_key} if own_key else {}), **({'effort': efforts[model]} if (efforts or {}).get(model) else {}))
                 if not str(text_ or '').strip():
                     raise _ca.Stopped(_OR_LAST.get('err') or 'The model returned nothing. Try again.')
@@ -1556,7 +1636,7 @@ def _work_settle(store):
             cat['artifacts'] = (list(cat.get('artifacts') or []) + t.get('artifacts', []))[-30:]
             cat['refusals'] = (list(cat.get('refusals') or []) + [{'at': time.time(), 'why': x} for x in t.get('refusals', [])])[-100:]
             if not _ck.key_for(cat, 'openrouter', data_dir=DATA_DIR):   # its owner's own key pays OpenRouter directly — no FEELESS credit
-                _lc.charge(cat['brainsCfg'], t.get('cost') or 0)
+                _lc.charge(cat['brainsCfg'], max(0.0, (t.get('cost') or 0) - (t.get('walletPaid') or 0)))   # what its wallet paid never comes off its FEELESS credit
             for lg_ in t.get('logins') or []:   # 🔐 every sign-up's password → sealed in its vault, then gone from memory
                 try:
                     _cv.put_login(cat, lg_.get('site'), lg_.get('user'), lg_.get('pw'), data_dir=DATA_DIR)
@@ -1576,7 +1656,7 @@ def _work_settle(store):
             for k_ in t.get('keep') or []:   # ☁ the best of both scratch pads → its main cloud (the rest was thrown away)
                 cat['brainsCfg']['cloud'] = ((cat['brainsCfg'].get('cloud') or []) + [{'at': time.time(), 'word': 'KEEP', 'sym': '', 'text': str(k_)[:240], 'by': ['both']}])[-_lc.CLOUD_MAX:]
             cat['chat'] = (list(cat.get('chat') or []) + [{'by': 'you', 'text': t.get('text'), 'at': w.get('at')},
-                           {'by': 'cats', 'text': (f"🛟 Backup model, free (OpenRouter has no credit): " if t.get('backup') else '') + (t.get('answer') or f"({t.get('status')}: {t.get('why') or 'no answer'})"), 'at': time.time(), 'cost': t.get('cost'), 'fast': t.get('fast')}])[-CHAT_KEEP:]
+                           {'by': 'cats', 'text': (f"💳 Paid ${t.get('walletPaid'):.4f} from its wallet: " if t.get('walletPaid') else '') + ("🛟 Backup model, free (OpenRouter has no credit): " if t.get('backup') else '') + (t.get('answer') or f"({t.get('status')}: {t.get('why') or 'no answer'})"), 'at': time.time(), 'cost': t.get('cost'), 'fast': t.get('fast')}])[-CHAT_KEEP:]
         w['settled'] = True
         # 🏇 let it go: the next queued ask starts on its own (a stopped task pauses the queue — you stopped it for a reason)
         if cat and cat.get('workGo') and cat.get('workQueue') and t.get('status') != 'stopped' and _work_live() and _lc.can_ask(cat.get('brainsCfg') or {}):

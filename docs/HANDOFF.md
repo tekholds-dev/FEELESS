@@ -37,6 +37,8 @@ agent desk `CatDesk.jsx` (one 1110 px column; `ModelSwitch` with keep / 🧠 sor
 per-mind ☁ clouds `brainsCfg.minds`, `handoff` action) · funding `CatReal.jsx` (`FundCat` reads `feeless.fundIntent.<id>`; recovery box after the
 first payment) · Fee's models `FeeModels.jsx` (your model LEADS, NEXA helps). Lag fixes: `feeWall.css` contain + content-visibility.
 
+**Agents pay for thinking from their own wallet (W06):** built, first paid call unproven. Venice fallback not built.
+
 **BLOCKER W05:** OpenRouter has $0, so no agent can think until the owner adds credit. FeeCat scan done on all pages: nav, fonts, hit areas, real desk tiles, chat box, log text fixed; re-check Agents-tab fps with the pane in view.
 
 **Agent wallets (2026-10-30):** Funding is ONE amount split by `creditUsd` (`FundCat` slider, `cat_fund.plan`): one transaction pays its wallet and model credit; a creator's credit is free. A general agent with a wallet goes real on funding (`ensure_real`): orders, typed in the order box or chat ("buy 0.05 SOL of $X"), become proposals sent from its wallet. It trades SOL pairs only: USDC is not spent by orders, and web tasks never spend the wallet. separate Circle account, sidecar 5112 (`CIRCLE_TENANT=agent`), never the FEELESS account on 5111. `agentWallet.circleAcct = agent`. Withdraw pays only `agentWallet.owner`. No real funding or withdrawal has run yet: test small first. DECISIONS #2 counsel note on per-user Circle still stands: owner's call.
