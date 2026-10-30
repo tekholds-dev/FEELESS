@@ -21,6 +21,7 @@ MIN_USD = 10.0          # the least a first funding may be
 FEE_USD = 2.0           # FEELESS's one-time cut, out of the first funding
 TOPUP_MIN_USD = 1.0     # a later top-up
 MAX_USD = 5000.0
+MODEL_FLOOR_USD = 5.0   # below this OpenRouter balance, model credit is not sold
 MAX_CATS = 4            # cats with their own wallet, per owner wallet
 PLAN_SEC = 90.0         # a built transaction is good for this long (its blockhash lives ~60-90s)
 LAMPORTS = 1_000_000_000
@@ -60,6 +61,11 @@ def plan(usd, sol_usd, first, fee_usd=FEE_USD, min_usd=MIN_USD, token='SOL', cre
     fee = min(total, int((fee_usd + paid_credit) / px * scale + 0.999999))   # FEELESS's cut rounds up to the lamport, the cat's share is the rest
     return {'usd': round(usd, 2), 'payUsd': round(pay_usd, 2), 'feeUsd': fee_usd, 'creditUsd': round(credit_usd, 2), 'solUsd': round(px, 4), 'totalLamports': total, 'feeLamports': fee, 'catLamports': total - fee,
             'catUsd': round(wallet_usd - fee_usd, 2), 'token': token, 'gasLamports': GAS_LAMPORTS if token == 'USDC' and wallet_usd > 0 else 0}
+
+
+def credit_open(left_usd, credit_usd=0.0, floor=MODEL_FLOOR_USD):
+    """🛟 May FEELESS sell model credit right now? Only while its OpenRouter balance can cover it; an unknown balance means no. Pure."""
+    return left_usd is not None and float(left_usd) >= max(float(floor), float(credit_usd or 0))
 
 
 def ata(owner, mint=USDC_MINT):

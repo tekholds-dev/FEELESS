@@ -239,3 +239,40 @@ def test_a_plain_words_reply_is_still_the_answer_and_an_empty_provider_stops_wit
     w2['windows'][0]['goal'] = 'x'
     with pytest.raises(ca.Stopped, match='out of credit'):
         asyncio.run(ca._window(w2, w2['windows'][0], out, Page(), None, 'a'))
+
+
+def test_model_credit_is_sold_only_while_openrouter_can_cover_it():
+    assert cf.credit_open(20) is True and cf.credit_open(20, 15) is True
+    assert cf.credit_open(4.99) is False and cf.credit_open(-0.2) is False
+    assert cf.credit_open(6, 10) is False                                  # never sell more than it can run
+    assert cf.credit_open(None) is False                                   # unknown balance: no sale
+
+
+def test_a_user_cannot_buy_credit_while_openrouter_is_empty_but_can_still_fund_the_wallet(monkeypatch):
+    import asyncio
+    import reputation_service as rs
+    from fastapi import HTTPException
+    me, cat_w, fee = str(Keypair().pubkey()), str(Keypair().pubkey()), str(Keypair().pubkey())
+    async def cat_for(_c, _me):
+        return {'brainsCfg': {'kind': 'general'}, 'agentFunded': [{'sig': 'x'}]}, {'address': cat_w, 'owner': me, 'provider': 'circle'}
+    async def low(fresh=False):
+        return 0.0
+    async def px():
+        return 100.0
+    async def rpc(_h, _m, _p):
+        return {'value': {'blockhash': HASH}}
+    monkeypatch.setattr(rs, 'session_address', lambda _s: me); monkeypatch.setattr(rs, '_cat_for_fund', cat_for); monkeypatch.setattr(rs, '_openrouter_left', low)
+    monkeypatch.setattr(rs, '_sol_usd', px); monkeypatch.setattr(rs, '_rpc', rpc); monkeypatch.setattr(rs, '_cat_fund_rules', lambda _m: {'feeUsd': 0.0, 'minUsd': 1.0, 'staff': False})
+    with pytest.raises(HTTPException) as e:
+        asyncio.run(rs.cat_fund_build('c1', rs.CatFundIn(address=me, session='session-x', usd=10, creditUsd=5)))
+    assert e.value.status_code == 503
+    assert asyncio.run(rs.cat_fund_build('c1', rs.CatFundIn(address=me, session='session-x', usd=10)))['plan']['creditUsd'] == 0   # wallet funding still works
+
+
+def test_each_agent_stops_ten_cents_before_its_own_credit_and_never_touches_another():
+    import launch_cat as lc
+    a, b = {'credit': 0.11, 'billing': 'payg'}, {'credit': 5.0, 'billing': 'payg'}
+    assert lc.can_ask(a) and not lc.can_ask({'credit': 0.10, 'billing': 'payg'})
+    lc.charge(a, 0.02)
+    assert not lc.can_ask(a) and b['credit'] == 5.0 and lc.can_ask(b)    # one agent running dry changes nothing for the other
+    assert fs.TASK_CAP_DEFAULT and round(1.0 - lc.CREDIT_RESERVE, 2) == 0.9

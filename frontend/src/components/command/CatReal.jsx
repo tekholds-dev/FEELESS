@@ -158,7 +158,7 @@ export function FundCat({ cat, addr, session, sign, onDone, onConfirm }) {
   useEffect(() => { let on = true; fetch(apiUrl(`/api/reputation/cats/fund-rules?address=${encodeURIComponent(addr || '')}`)).then(r => (r.ok ? r.json() : null)).then(j => { if (on && j) setRules(j); }).catch(() => {}); return () => { on = false; }; }, [addr]);
   const [usd, setUsd] = useState(() => { try { const v = Number(localStorage.getItem(`feeless.fundIntent.${cat?.id}`)); if (v > 0) return v; } catch { /* private window */ } return fresh ? 10 : 5; });   // the $ you typed at launch
   const [creditUsd, setCreditUsd] = useState('0');   // 🧠 ONE amount, split (owner 2026-10-30): this much to its model credit, the rest into its wallet, one signature
-  const total = Number(usd) || 0; const cr = Math.min(total, Math.max(0, Number(creditUsd) || 0)); const toWallet = Math.round((total - cr) * 100) / 100; const first = fresh && toWallet > 0;
+  const total = Number(usd) || 0; const creditShut = rules?.creditOpen === false; const cr = creditShut && !rules?.staff ? 0 : Math.min(total, Math.max(0, Number(creditUsd) || 0)); const toWallet = Math.round((total - cr) * 100) / 100; const first = fresh && toWallet > 0;
   const [doneNote, setDoneNote] = useState(''); const [rcpt, setRcpt] = useState(null); const [stage, setStage] = useState('pick'); const [err, setErr] = useState(''); const [sig, setSig] = useState(null);
   const [left, setLeft] = useState(0); const [paidFirst, setPaidFirst] = useState(false);   // 🔐 the one-time safe-keeping box shows right after the first funding
   useEffect(() => { if (!rcpt) return undefined; const t = setInterval(() => setLeft(l => Math.max(0, l - 1)), 1000); return () => clearInterval(t); }, [rcpt]);
@@ -186,7 +186,8 @@ export function FundCat({ cat, addr, session, sign, onDone, onConfirm }) {
     <div className="cr-fund-pick"><em>{fresh ? 'HOW MUCH IN TOTAL' : 'ADD HOW MUCH'}</em>
       <div className="m-seg" role="radiogroup" aria-label="How much">{FUND_AMTS.filter(a => a >= min).map(a => <button key={a} type="button" role="radio" aria-checked={Number(usd) === a} className={Number(usd) === a ? 'active' : ''} onClick={() => { setUsd(a); setRcpt(null); setStage('pick'); }} data-testid={`cr-fund-${a}`}>${a}</button>)}</div>
       <label className="cr-fund-in">$<input className="m-input" type="number" min={min} step="any" value={usd} onChange={e => { setUsd(e.target.value); setRcpt(null); setStage('pick'); }} aria-label="Dollars to fund it with" data-testid="cr-fund-usd" /></label></div>
-    {hasMinds ? <div className="cr-split" data-testid="cr-split">
+    {hasMinds && creditShut ? <p className="cr-fund-warn" role="status" data-testid="cr-credit-shut">{rules?.staff ? <>🧠 OpenRouter has ${Number(rules.modelsLeftUsd ?? 0).toFixed(2)} left, so agents can't think and users can't buy credit. <a href="https://openrouter.ai/settings/credits" target="_blank" rel="noreferrer">Add credit ↗</a></> : '🧠 Model credit is paused right now. Everything you add goes into its wallet.'}</p> : null}
+    {hasMinds && (!creditShut || rules?.staff) ? <div className="cr-split" data-testid="cr-split">
       <span className="cr-split-h"><em>SPLIT IT</em><small>drag, or type the model credit</small></span>
       <input type="range" min="0" max={total || 1} step="0.5" value={cr} onChange={e => { setCreditUsd(e.target.value); reset(); }} aria-label="How much goes to model credit" data-testid="cr-split-range" data-tip="Left: more in its wallet. Right: more model credit" />
       <div className="cr-split-rows">

@@ -241,8 +241,11 @@ def merge(b, answers, kind):
     return words[-1]   # discuss: B saw A and makes the call; turns / battle: the one brain
 
 
+CREDIT_RESERVE = 0.10   # 🔒 every agent stops 10 cents before its own credit ends: all agents share one OpenRouter account, so none may run past what it paid for
+
+
 def can_ask(b):
-    return (b.get('credit') or 0) > 0 or (b.get('billing') == 'profit' and (b.get('owed') or 0) < OWED_MAX)
+    return (b.get('credit') or 0) > CREDIT_RESERVE or (b.get('billing') == 'profit' and (b.get('owed') or 0) < OWED_MAX)
 
 
 def charge(b, usd):

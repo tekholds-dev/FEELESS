@@ -11059,6 +11059,41 @@ def _cat_fund_rules(me=None):
             'maxUsd': _cfund.MAX_USD, 'staff': staff_, 'maxCats': _cfund.MAX_CATS}
 
 
+_or_float: dict = {'at': 0.0, 'left': None}
+
+
+async def _openrouter_left(fresh=False):
+    """🛟 The real $ left on FEELESS's OpenRouter account (it pays every agent's model calls): read once a minute, a last good read kept 10 min, None = unknown. Low → the owner hears it, once a day."""
+    now = time.time()
+    if not fresh and _or_float['at'] and now - _or_float['at'] < 60:
+        return _or_float['left']
+    key_ = os.environ.get('OPENROUTER_API_KEY', '').strip()
+    left = None
+    if key_:
+        try:
+            async with httpx.AsyncClient(timeout=6) as http:
+                r = await http.get('https://openrouter.ai/api/v1/credits', headers={'Authorization': f'Bearer {key_}'})
+            if r.status_code == 200:
+                d_ = r.json().get('data') or {}
+                left = round(float(d_.get('total_credits') or 0) - float(d_.get('total_usage') or 0), 4)
+        except Exception:
+            left = None
+    if left is None and _or_float['at'] and now - _or_float['at'] < 600:
+        return _or_float['left']
+    _or_float.update(at=now, left=left)
+    if left is not None and left < _cfund.MODEL_FLOOR_USD:
+        for w_ in _owner_wallets():
+            notify(w_, 'alert', f"🧠 OpenRouter has ${left:.2f} left. Agents can't think and model credit sales are paused until you add credit at openrouter.ai/settings/credits.", '/terminal/feecat/agents', once=f"or-float:{time.strftime('%Y-%m-%d', time.gmtime())}")
+    return left
+
+
+@app.post('/api/reputation/internal/openrouter-check')
+async def internal_openrouter_check(request: Request):
+    if not _internal_ok(request):
+        raise HTTPException(403, 'Internal only.')
+    return {'left': await _openrouter_left(fresh=True)}
+
+
 class CatModelLimitIn(BaseModel):
     session: str = ''
 
@@ -11075,7 +11110,12 @@ async def cat_model_limit(p: CatModelLimitIn):
 @app.get('/api/reputation/cats/fund-rules')
 async def cat_fund_rules(address: str = Query('', max_length=64)):
     """💵 The funding rules a cat's desk shows BEFORE you type an amount (fee, minimum, top-up minimum; a creator wallet: no fee)."""
-    return _cat_fund_rules(address if _re.match(r'^[1-9A-HJ-NP-Za-km-z]{32,44}$', address or '') else None)
+    rules_ = _cat_fund_rules(address if _re.match(r'^[1-9A-HJ-NP-Za-km-z]{32,44}$', address or '') else None)
+    left_ = await _openrouter_left()
+    rules_['creditOpen'] = _cfund.credit_open(left_)
+    if rules_['staff']:
+        rules_['modelsLeftUsd'] = left_   # the balance itself is for the creator only
+    return rules_
 
 
 @app.post('/api/reputation/cats/{cat_id}/fund')
@@ -11093,6 +11133,8 @@ async def cat_fund_build(cat_id: str, p: CatFundIn):
     first = not cat.get('agentFunded') and p.usd > p.creditUsd
     rules_ = _cat_fund_rules(me)
     free_credit = bool(rules_.get('staff'))
+    if p.creditUsd > 0 and not free_credit and not _cfund.credit_open(await _openrouter_left(), p.creditUsd):
+        raise HTTPException(503, 'Model credit is paused right now. Nothing was charged. Put the full amount in its wallet, or try later.')
     need_fee = (p.creditUsd > 0 and not free_credit) or (first and rules_['feeUsd'] > 0)
     async with httpx.AsyncClient(timeout=10) as http:
         fee_w = ((_fee_cfg().get('vaultFeeWallet') or '') or ((await _fee_wallet_owner(http, _fee_cfg())) or '')) if need_fee else ''

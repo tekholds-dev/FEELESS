@@ -875,6 +875,12 @@ async def _or_call(model, messages, max_tokens=None, effort=None, key=None):
                              json={'model': model, 'messages': messages, 'max_tokens': max_tokens or _lc.OUT_TOK, 'temperature': 0.2, **({'reasoning': {'effort': effort}} if effort else {}), 'usage': {'include': True}})
         if r.status_code != 200:   # a refused call costs nothing and says why (it used to read as 'no answer' and bill the estimate)
             _OR_LAST['err'] = 'The AI provider account is out of credit. Add credit at OpenRouter, then ask again. Nothing was charged.' if r.status_code == 402 else f'The AI provider refused the call ({r.status_code}). Nothing was charged.'
+            if r.status_code == 402:   # the owner hears it (once a day) and credit sales pause
+                try:
+                    async with httpx.AsyncClient(timeout=8) as h2:
+                        await h2.post('http://127.0.0.1:5077/api/reputation/internal/openrouter-check', headers=_internal_headers())
+                except Exception:
+                    pass
             return '', 0.0
         d = r.json()
         text = ((d.get('choices') or [{}])[0].get('message') or {}).get('content') or ''
@@ -1437,7 +1443,7 @@ def _work_start(cat_id, cat, text, to=None):
     """Start one task in the cat's windows. 🏇 Let it go (cat.workGo): a long step budget (cat_agent.GO_STEPS) — it stops only when done, at
     its $ cap, or when a person is needed (a sign-in / CAPTCHA / payment: it never types a password or a card)."""
     b = cat.get('brainsCfg') or {}
-    cap = min(float(cat.get('taskCap') or TASK_CAP_DEFAULT), max(0.005, float(b.get('credit') or 0) or TASK_CAP_DEFAULT))
+    cap = min(float(cat.get('taskCap') or TASK_CAP_DEFAULT), max(0.005, float(b.get('credit') or 0) - _lc.CREDIT_RESERVE))   # its own credit only, always leaving the reserve
     left_ = day_left(cat)
     if left_ is not None:
         if left_ <= 0:
@@ -2010,7 +2016,7 @@ async def cat_work(cat_id: str, p: WorkPayload):
         if not _work_live():
             raise HTTPException(400, 'Model calls are off on this server (GENERAL_CAT_LIVE) — nothing was sent or charged.')
         if not _lc.can_ask(b):
-            raise HTTPException(400, 'Out of model credit — top up to ask again.')
+            raise HTTPException(400, 'It stopped 10 cents before its model credit ran out. Top up to ask again.')
         text = str(p.text or '').strip()
         if not text:
             raise HTTPException(400, 'Type what you want it to do.')
