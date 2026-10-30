@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import EcosystemChat from '../EcosystemChat';
+import '../../styles/feeWall.css';
 import { toast } from 'sonner';
 import { PnlCard } from './MetaPanels';
 import { ShareGifButton } from '../ShareGif';

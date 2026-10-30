@@ -72,7 +72,7 @@ test('🧠 the brain socket: YOUR built cat sits in it, each picked brain is a l
   expect(el.querySelectorAll('.lct-node.on')).toHaveLength(0); expect(el.querySelectorAll('.lct-wires .w.on')).toHaveLength(0);
   expect(el.querySelector('.g-halo')).not.toBeNull();                                     // your cat, wearing what you built
   await a(async () => { root.render(<BrainSocket picked={[{ id: 'a', name: 'OpenAI: GPT-5', tag: 'G4' }, { id: 'b', name: 'Qwen3 4B' }]} />); });
-  expect([...el.querySelectorAll('.lct-node.on')].map(n => n.textContent)).toEqual(['OPA', 'QWB']);   // the maker's monogram + its A / B badge (never a name cut to 4 letters)
+  expect([...el.querySelectorAll('.lct-node.on')].map(n => n.querySelector('.lct-orb b').textContent + n.querySelector(':scope > u').textContent)).toEqual(['OPA', 'QWB']);   // the maker's monogram + its A / B badge (never a name cut to 4 letters)
   expect(el.querySelectorAll('.lct-wires .w.on')).toHaveLength(2);
   a(() => root.unmount()); localStorage.removeItem('feeless.myCat');
 });

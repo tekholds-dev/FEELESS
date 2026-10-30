@@ -1,4 +1,5 @@
 import { CatWorkbench } from './CatWorkbench';
+import { AgentLive, MindsRow, asModel, catMinds, catCoins } from './AgentLive';
 import { signWord } from './LaunchCat';
 import React, { useMemo, useState } from 'react';
 import { ArrowLeft, Copy } from 'lucide-react';
@@ -43,6 +44,16 @@ function Tile({ k, label, value, sub, fill, tone, tip, children }) {
     {fill != null ? <u aria-hidden="true"><s style={{ transform: `scaleX(${Math.max(0.02, Math.min(1, fill))})` }} /></u> : null}{sub ? <small>{sub}</small> : null}{children}</div>;
 }
 
+// 🛸 its live view (owner 2026-10-30): the demo's layout on its real data — a trading cat: two live bubbles + two real coin charts + its decisions;
+// a general cat: the same bubbles over its two cloud browsers (CatWorkbench)
+function LiveMinds({ cat }) {
+  const x = useMemo(() => catMinds(cat), [cat]); const coins = useMemo(() => catCoins(cat), [cat]);
+  const gen = cat.brainsCfg?.kind === 'general'; const on = cat.status === 'running';
+  const minds = x.brains.map((id, i) => ({ model: asModel(id), kind: gen ? 'general' : 'trading', thoughts: x.thoughts[i], live: on, label: asModel(id).name, sub: `${gen ? 'MIND' : 'BRAIN'} ${'AB'[i]}${on ? ' · thinking' : ' · resting'}` }));
+  if (gen) return <><MindsRow minds={minds} /><CatWorkbench cat={cat} /></>;
+  return <AgentLive title={`LIVE · ${cat.name}'s two brains`} minds={minds} coins={coins} feed={x.feed.length ? x.feed : [on ? '🔎 hunting — it buys only what passes every rule' : '⏸ stopped — start it to hunt']} />;
+}
+
 export function CatDesk({ cat, busy = false, error = '', onBack, onAct, Activity = null, Brains = null, Engine = null, Real = null }) {
   const isReal = cat.mode === 'real' && !!cat.realWallet;
   const v = useMemo(() => deskVitals(cat), [cat]); const cv = useMemo(() => curveOf(cat?.pnlHistory), [cat?.pnlHistory]);
@@ -81,7 +92,7 @@ export function CatDesk({ cat, busy = false, error = '', onBack, onAct, Activity
       <Tile k={4} label="TODAY'S LOSS" value={`${v.lossToday.toFixed(3)} / ${v.cap || '—'} SOL`} fill={v.capUsed} tone={v.capUsed >= 1 ? 'dn' : v.capUsed > 0.6 ? 'warn' : ''}
         sub={v.capUsed >= 1 ? 'cap hit — no new buys today' : 'its daily loss cap'} tip="Losses closed today against the cap you set — at the cap it stops buying until tomorrow" />
     </div>
-    {cat.brainsCfg?.kind === 'general' ? <CatWorkbench cat={cat} /> : null}
+    {cat.brainsCfg ? <LiveMinds cat={cat} /> : null}
     <div className="kd-grid">
       <div className="kd-main">
         {Real}

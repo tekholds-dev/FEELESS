@@ -50,34 +50,47 @@ export function DemoChart({ seed = 1, t = 0, who = 'A', sym = 'GERM', calls = tr
   </svg>;
 }
 
-const SITES = [
-  { url: 'news.search/?q=trending+solana', title: '3 topics found', rows: ['ETF flows · 12 sources', 'Memecoin season · 8 sources', 'Firedancer · 5 sources'] },
-  { url: 'polymarket.com/markets/crypto', title: 'odds read', rows: ['SOL > $300 · 41%', 'ETH ETF staking · 63%', 'BTC ATH in Dec · 58%'] },
-];
-function DemoBrowser({ site, t, who }) {
-  const phase = t % 16; const typed = site.url.slice(0, Math.min(site.url.length, phase * 6));
-  const loaded = phase > 4; const found = phase > 8; const row = Math.min(2, Math.max(0, phase - 9));
-  return <div className="agd-browser">
-    <span className="agd-url"><i aria-hidden="true">🔒</i><b>{typed}</b><u className="agd-caret" aria-hidden="true" /></span>
-    <div className={`agd-page${loaded ? ' is-on' : ''}`}>
-      <i className="agd-sk w80" /><i className="agd-sk w60" /><i className="agd-sk w90" />
-      {site.rows.map((r, i) => <span key={r} className={`agd-hit${found && i <= row ? ' is-on' : ''}${found && i === row ? ' is-cur' : ''}`} style={{ '--i': i }}>{r}</span>)}
-      <i className="agd-sk w70" />
+// 🎥 the two minds' browsers play REAL recordings (owner 2026-10-30): scripts/record-agent-demo.py drives a headless Chromium on Wikipedia and saves
+// each step (frame · URL · caption · where it clicked) to /agent-demo/frames.json — fetched once, shared by every demo on the page
+let recP = null;
+export function loadRecording() {
+  if (!recP) recP = (typeof fetch === 'function' ? fetch('/agent-demo/frames.json').then(r => (r.ok ? r.json() : null)) : Promise.resolve(null)).catch(() => null);
+  return recP;
+}
+function useRecording(want) {
+  const [rec, setRec] = useState(null);
+  useEffect(() => { if (!want) return undefined; let on = true; loadRecording().then(r => on && setRec(r)); return () => { on = false; }; }, [want]);
+  return rec;
+}
+export const FRAME_TICKS = 4;   // a frame stays ~2.6s (the general demo ticks every 650ms)
+function DemoBrowser({ frames, t, who, credit }) {
+  if (!frames?.length) return <div className="agd-browser"><span className="agd-url"><i aria-hidden="true">🔒</i><b>loading the recording…</b></span>
+    <div className="agd-page"><i className="agd-sk w80" /><i className="agd-sk w60" /><i className="agd-sk w90" /></div></div>;
+  const k = Math.floor(t / FRAME_TICKS) % frames.length; const sub = t % FRAME_TICKS; const f = frames[k];
+  const typed = f.url.slice(0, sub ? f.url.length : Math.ceil(f.url.length / 3));
+  return <div className="agd-browser is-rec">
+    <span className="agd-url"><i aria-hidden="true">🔒</i><b>{typed}</b><u className="agd-caret" aria-hidden="true" /><em className="agd-rec">● REC</em></span>
+    <div className="agd-screen">
+      {frames.map((x, i) => <img key={x.src} src={x.src} alt="" className={i === k ? 'is-on' : ''} loading="lazy" draggable="false" />)}
+      <span className="agd-track" style={{ transform: `translate(${f.cursor[0]}%, ${f.cursor[1]}%)` }} aria-hidden="true">
+        <span className={`agd-click${sub === 1 ? ' is-on' : ''}`} key={k} /><svg viewBox="0 0 12 16"><path d="M0 0 L0 13 L3.5 10 L6 15.5 L8 14.6 L5.6 9.4 L10 9.4 Z" /></svg></span>
+      <span className="agd-done is-on" key={`c${k}`}>MIND {who} · {f.caption}</span>
+      <span className="agd-step" aria-hidden="true">{frames.map((x, i) => <i key={x.src} className={i <= k ? 'on' : ''} />)}</span>
     </div>
-    <span className="agd-cursor" style={{ transform: `translate(${found ? 40 + row * 6 : 150}px, ${found ? 62 + row * 21 : 6}px)` }} aria-hidden="true"><svg viewBox="0 0 12 16"><path d="M0 0 L0 13 L3.5 10 L6 15.5 L8 14.6 L5.6 9.4 L10 9.4 Z" /></svg></span>
-    <span className={`agd-done${found && row === 2 ? ' is-on' : ''}`}>MIND {who} · {site.title}</span>
+    {credit ? <small className="agd-credit">{credit}</small> : null}
   </div>;
 }
 
 export const DEMO_FEED = {
   trading: ['🧠 A · scanning 412 fresh coins', '🧠 B · $GERM on its germ floor · buyers 71%', '🤝 A + B agree · BUY 0.05 SOL', '👛 sent from ITS wallet · inside your caps',
     '🛡 guard · skipped $RUGZ — 6 bundlers', '📈 $GERM +18% · TRIM half', '💵 banked · fees on the receipt, never in P&L'],
-  general: ['⚡ you asked: 3 trending topics + drafts', '🧠 A · opens a news search', '🧠 B · reads the Polymarket odds', '✋ a sign-in? that window pauses for you',
-    '🔗 A merges both halves · 13 sources', '📝 3 drafts in your voice — nothing posted', '✅ done · $0.012 of your $0.10 cap'],
+  general: ['⚡ you asked: what is Solana + how do prediction markets work?', '🧠 A · searches Wikipedia for Solana', '🧠 B · opens Prediction market', '✋ a sign-in? that window pauses for you',
+    '🔗 A merges both halves · every source kept', '📝 one answer with links — nothing posted', '✅ done · $0.012 of your $0.10 cap'],
 };
 
 export function AgentDemo({ kind = 'trading', models = [] }) {
   const gen = kind === 'general'; const [ref, t] = useClock(gen ? 650 : 900);
+  const rec = useRecording(gen);
   const feed = DEMO_FEED[gen ? 'general' : 'trading']; const k = Math.floor(t / 2);
   const lines = [0, 1, 2].map(j => ({ id: k - j, text: feed[((k - j) % feed.length + feed.length) % feed.length] })).filter(x => x.id >= 0).reverse();
   const name = i => models[i]?.name?.replace(/^[^:]+:\s*/, '') || (i ? 'second pick' : 'your pick');
@@ -86,15 +99,8 @@ export function AgentDemo({ kind = 'trading', models = [] }) {
     <span className="agd-tag">◈ DEMO · {gen ? 'what its two minds do' : 'how its two brains trade'} · not real</span>
     <div className="agd-wins">{[0, 1].map(i => <div key={i} className={`agd-win w${i}`} style={{ '--i': i }}>
       <span className="agd-bar"><i /><i /><i /><b>{gen ? `MIND ${'AB'[i]}` : `BRAIN ${'AB'[i]}`}</b><small>{name(i)}</small><em className="agd-live">● LIVE</em></span>
-      {gen ? <DemoBrowser site={SITES[i]} t={t + i * 5} who={'AB'[i]} /> : <DemoChart seed={i ? 7 : 3} t={t + i * 9} who={'AB'[i]} sym={i ? 'NEON' : 'GERM'} />}
+      {gen ? <DemoBrowser frames={rec?.['ab'[i]]} t={t + i * 2} who={'AB'[i]} credit={i ? rec?.credit : null} /> : <DemoChart seed={i ? 7 : 3} t={t + i * 9} who={'AB'[i]} sym={i ? 'NEON' : 'GERM'} />}
     </div>)}</div>
     <ol className="agd-feed" aria-live="off">{lines.map(l => <li key={l.id}>{l.text}</li>)}</ol>
   </div>;
-}
-
-// 📈 Fee's empty chart (owner, 2026-10-29: "show users what they would get here"): the drawn ghost of her desk while she holds nothing
-export function GhostChart() {
-  const [ref, t] = useClock(1100);
-  return <div className="agd-ghost" ref={ref} data-testid="fee-ghost-chart"><DemoChart seed={5} t={t} who="FEE" sym="NEXT" />
-    <span className="agd-tag">◈ PREVIEW · her next coin lands here with her calls on the candles</span></div>;
 }

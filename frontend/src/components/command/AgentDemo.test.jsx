@@ -1,6 +1,6 @@
 import React, { act } from 'react';
 import { createRoot } from 'react-dom/client';
-import { AgentDemo, GhostChart, walk, DEMO_FEED } from './AgentDemo';
+import { AgentDemo, walk, DEMO_FEED } from './AgentDemo';
 import { AgentCritter, cleanAgent, MOVES } from './Critters';
 import { LaunchCat, ApiDrawer, VenuePick } from './LaunchCat';
 
@@ -19,7 +19,6 @@ test('🛸 trader demo = two drawn chart windows; general = two browsers; both s
   expect(t.textContent).toContain('DEMO'); expect(t.textContent).toContain('Ossy'); expect(t.querySelector('.agd-feed li').textContent).toBe(DEMO_FEED.trading[0]);
   const g = await mount(<AgentDemo kind="general" />);
   expect(g.querySelectorAll('.agd-browser')).toHaveLength(2); expect(g.querySelector('.agd-chart')).toBeNull();
-  const ghost = await mount(<GhostChart />); expect(ghost.textContent).toContain('PREVIEW');
 });
 
 test('🧭 the demo sits in How they work (step 2), not on the model list', async () => {
@@ -49,4 +48,15 @@ test('🐜 the bodies: queen (wings + crown), fly (compound eyes), two worker an
   const f = await mount(<AgentCritter agent={{ species: 'fly' }} />); expect(f.querySelectorAll('.crt-wing')).toHaveLength(2);
   const a = await mount(<AgentCritter agent={{ species: 'ants' }} gesture="carry" />); expect(a.querySelectorAll('svg')).toHaveLength(2); expect(a.querySelector('.crt-coin')).not.toBeNull();
   expect(MOVES.fly).toContain('groom');
+});
+
+test('🛸 live view: each brain thinks its own latest calls; held coins chart first, then what it just sold', async () => {
+  const { catMinds, catCoins, AgentLive, asModel } = require('./AgentLive');
+  const cat = { brainsCfg: { brains: ['a/ossy', 'b/g4'], decisions: [{ word: 'BUY', sym: 'GERM', by: 'ossy', why: 'germ floor' }, { word: 'SKIP', sym: 'RUG', by: 'g4' }] },
+    positions: [{ pairAddress: 'P1', symbol: 'GERM', currentChange: 12 }], exits: [{ pairAddress: 'P0', symbol: 'OLD' }, { pairAddress: 'P1', symbol: 'GERM' }] };
+  const x = catMinds(cat); expect(x.thoughts).toEqual([['BUY $GERM'], ['SKIP $RUG']]); expect(x.feed[0]).toContain('BUY $GERM');
+  expect(catCoins(cat).map(c => [c.symbol, c.open])).toEqual([['GERM', true], ['OLD', false]]);
+  const el = await mount(<AgentLive minds={[{ model: asModel('a/ossy'), thoughts: ['BUY $GERM'], live: true, label: 'ossy' }]} coins={[]} feed={['🔎 hunting']} />);
+  expect(el.querySelectorAll('.agd-win')).toHaveLength(2); expect(el.textContent).toContain('PREVIEW'); expect(el.querySelectorAll('.lct-orb')).toHaveLength(2);
+  expect(el.querySelector('.lct-orb.is-idle')).not.toBeNull();   // the empty second mind is still
 });

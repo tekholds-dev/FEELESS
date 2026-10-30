@@ -1,0 +1,79 @@
+{
+ "credit": "Recorded live \u00b7 CoinMarketCap \u00b7 Jupiter",
+ "a": [
+  {
+   "src": "/agent-demo/a1.jpg",
+   "url": "coinmarketcap.com/",
+   "caption": "opens CoinMarketCap",
+   "cursor": [
+    50,
+    30
+   ]
+  },
+  {
+   "src": "/agent-demo/a2.jpg",
+   "url": "coinmarketcap.com/currencies/solana/",
+   "caption": "opens $SOL",
+   "cursor": [
+    22,
+    22
+   ]
+  },
+  {
+   "src": "/agent-demo/a3.jpg",
+   "url": "coinmarketcap.com/currencies/solana/",
+   "caption": "reads cap + volume",
+   "cursor": [
+    24,
+    45
+   ]
+  },
+  {
+   "src": "/agent-demo/a4.jpg",
+   "url": "coinmarketcap.com/currencies/jupiter-ag/",
+   "caption": "compares $JUP",
+   "cursor": [
+    22,
+    22
+   ]
+  }
+ ],
+ "b": [
+  {
+   "src": "/agent-demo/b1.jpg",
+   "url": "jup.ag/",
+   "caption": "opens Jupiter",
+   "cursor": [
+    62,
+    64
+   ]
+  },
+  {
+   "src": "/agent-demo/b2.jpg",
+   "url": "jup.ag/",
+   "caption": "searches $JUP",
+   "cursor": [
+    44.2,
+    4.1
+   ]
+  },
+  {
+   "src": "/agent-demo/b3.jpg",
+   "url": "jup.ag/perps/long/SOL-SOL",
+   "caption": "reads SOL perps",
+   "cursor": [
+    45,
+    45
+   ]
+  },
+  {
+   "src": "/agent-demo/b4.jpg",
+   "url": "jup.ag/perps/long/SOL-SOL",
+   "caption": "checks funding + size",
+   "cursor": [
+    55,
+    55
+   ]
+  }
+ ]
+}

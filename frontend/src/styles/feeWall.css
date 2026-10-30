@@ -1,0 +1,24 @@
+/* 💬 FEE'S WALL in her calls design (owner 2026-10-30: "the one chat which shows her wall designed just like her calls, then take her calls off").
+   Scoped to `.fcp-wall` (FeeCatProfile) over the shared EcosystemChat: every post a glass bubble beside its avatar, name + time on top, your own
+   posts on the RIGHT in violet, Fee's in her pink-violet; reactions / actions stay quiet until you hover. transform / opacity only (fw* keyframes). */
+.fcp-wall .chat-message { display: flex; align-items: flex-end; gap: 9px; margin: 0 0 10px; padding: 0; border: 0; background: none; box-shadow: none; animation: fwIn .32s cubic-bezier(.2, .9, .3, 1.15) both; }
+.fcp-wall .chat-message > .chat-avatar { flex: none; width: 34px; height: 34px; border-radius: 50%; overflow: hidden; box-shadow: 0 0 0 2px #b388ff44, 0 6px 14px -8px #000; }
+.fcp-wall .chat-message > div { position: relative; min-width: 0; max-width: min(78%, 560px); padding: 9px 12px 7px; border-radius: 16px 16px 16px 5px;
+  background: linear-gradient(160deg, #241640f0, #150c28f0); border: 1px solid #b388ff2e; box-shadow: inset 0 1px 0 #ffffff14, 0 10px 22px -16px #000; }
+.fcp-wall .chat-message .message-meta { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px; margin: 0 0 3px; }
+.fcp-wall .chat-message .message-meta > button b { color: #fff; font: 800 12.5px var(--f-ui, sans-serif); }
+.fcp-wall .chat-message .message-meta time { margin-left: auto; color: #9d8fbf; font: 600 10px var(--f-mono, monospace); }
+.fcp-wall .chat-message p { margin: 0; color: #ece4ff; font: 500 13px/1.45 var(--f-ui, sans-serif); overflow-wrap: anywhere; }
+.fcp-wall .chat-message .message-reactions, .fcp-wall .chat-message .message-actions { opacity: .35; transition: opacity .15s; }
+.fcp-wall .chat-message:hover .message-reactions, .fcp-wall .chat-message:hover .message-actions, .fcp-wall .chat-message:focus-within .message-actions { opacity: 1; }
+.fcp-wall .chat-message.is-mine { flex-direction: row-reverse; }
+.fcp-wall .chat-message.is-mine > div { border-radius: 16px 16px 5px 16px; background: linear-gradient(160deg, #6a3fd6f2, #3d2390f2); border-color: #c9a8ff55; }
+.fcp-wall .chat-message.is-mine .message-meta { flex-direction: row-reverse; } .fcp-wall .chat-message.is-mine .message-meta time { margin: 0 auto 0 0; color: #e4d6ff; }
+.fcp-wall .chat-message.is-feecat > div { background: linear-gradient(160deg, #3a1a4af2, #1d1030f2); border-color: #ff8fd855; box-shadow: inset 0 1px 0 #ffffff1c, 0 0 22px -12px #ff8fd8; }
+.fcp-wall .chat-message.chat-reply > div { border-left: 3px solid #b388ff88; }
+@keyframes fwIn { from { opacity: 0; transform: translateY(8px) scale(.98); } }
+body.fx-lite .fcp-wall .chat-message { animation: none; }
+@media (prefers-reduced-motion: reduce) { .fcp-wall .chat-message { animation: none; } .fcp-wall .chat-message .message-actions { transition: none; } }
+body.theme-day .fcp-wall .chat-message > div { background: #fff; border-color: #7c4dff26; } body.theme-day .fcp-wall .chat-message p { color: #2a1650; }
+body.theme-day .fcp-wall .chat-message .message-meta > button b { color: #2a1650; } body.theme-day .fcp-wall .chat-message.is-mine > div { background: #ece2ff; }
+@media (max-width: 640px) { .fcp-wall .chat-message > div { max-width: 86%; } .fcp-wall .chat-message > .chat-avatar { width: 28px; height: 28px; } }

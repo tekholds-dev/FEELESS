@@ -108,21 +108,34 @@ function ModelTile({ m, on, onPick, i, kind }) {
 
 // 🧠 THE BRAIN SOCKET (FeeCat redo, 2026-10-23): YOUR built cat with the picked brains drawn as lit orbs, each wired into its head — the wire
 // pulses toward the cat; two brains = two wires; none = an empty socket waiting.
-export function BrainSocket({ picked, mood }) {
+export function BrainSocket({ picked, mood, kind = 'trading' }) {
   const mine = useMyCat(); const coat = CAT_VARIATIONS[mine?.coat ?? 0] || CAT_VARIATIONS[0];
   const slots = picked.length > 2 ? picked : [picked[0] || null, picked[1] || null];
   return <div className={`lct-socket n-${picked.length}`} aria-hidden="true">
     <svg className="lct-wires" viewBox="0 0 220 120" preserveAspectRatio="none">{slots.map((m, i) => <path key={i} className={`w w${i}${m ? ' on' : ''}`} d={i ? 'M188 30 C 160 30, 150 58, 118 60' : 'M32 30 C 60 30, 70 58, 102 60'} />)}</svg>
-    {slots.map((m, i) => <span key={i} style={i > 1 ? { top: 95 + (i - 2) * 20, left: 10, fontSize: 10, width: 28, height: 28 } : undefined} className={`lct-node n${i}${m ? ' on' : ''}`}>{m ? mono(m) : '+'}<u>{String.fromCharCode(65 + i)}</u></span>)}
+    {slots.map((m, i) => <span key={i} style={i > 1 ? { top: 95 + (i - 2) * 20, left: 10, fontSize: 10, width: 28, height: 28 } : undefined} className={`lct-node n${i}${m ? ' on has-bub' : ''}`}>{m ? <Bubble m={m} i={i} kind={kind} size={i > 1 ? 28 : 56} /> : '+'}<u>{String.fromCharCode(65 + i)}</u></span>)}
     <span className="lct-cat">{mine?.agent?.species && mine.agent.species !== 'cat' ? <AgentCritter agent={mine.agent} size={78} gesture={mood === 'pounce' || mood === 'celebrate' ? 'march' : null} /> : <LookAvatar cat={[coat[0], coat[1], coat[2], mine?.pattern || coat[3]]} look={mine?.look} size={92} gesture={mood} />}</span>
   </div>;
 }
 
+// 🫧 a REAL soap bubble per mind (owner 2026-10-30: "a realistic bubble with blurred thoughts in them, not dead pink + purple"): a clear centre, a
+// thin-film rainbow rim (interference colours: magenta → gold → cyan, strongest at the edge — the Fresnel rim), a window-shaped glint top-left + a
+// small one bottom-right, a slow film swirl and a soft wobble; its thoughts drift inside, out of focus. LIVE like the new Siri: flowing
+// orange → pink → violet → blue light swirls inside and a glow breathes around it while the mind is picked (still when empty)
+export const THOUGHTS = { trading: [['germ floor?', 'buyers 71%', 'hold?', '+18%'], ['rug check', 'bundlers 0', 'trim?', 'volume ↑']],
+  general: [['sources…', 'why?', 'summary', 'draft'], ['odds', 'compare', 'sign-in?', 'merge']] };
 // 🫧 the two minds (owner 2026-10-29: "better design for the 2 bubbles"): a lit orb with the maker's monogram, its role, its full name and its price —
 // never a name cut to four letters
+// 🫧 one mind as a live soap bubble (the wizard's socket, its minds step, the agent's live desk) — `thoughts` overrides the kind's idle words
+export function Bubble({ m, i = 0, kind = 'trading', thoughts, size, live = true }) {
+  const th = (thoughts?.length ? thoughts : THOUGHTS[kind === 'general' ? 'general' : 'trading'][i % 2]).slice(0, 4);
+  return <span className={`lct-orb ${i % 2 ? 'o2' : 'o1'}${m && live ? '' : ' is-idle'}`} style={size ? { width: size, height: size } : undefined}>
+    <span className="lct-think" aria-hidden="true">{th.map((w, j) => <span key={`${w}${j}`} className="lct-th" style={{ '--j': j }}>{w}</span>)}</span>
+    <i className="lct-siri" aria-hidden="true"><u /><u /><u /></i><i className="lct-film" aria-hidden="true" /><i className="lct-shine" aria-hidden="true" /><b>{m ? mono(m) : '+'}</b></span>;
+}
 function Mind({ m, i, kind }) {
   const gen = kind === 'general';
-  return <span className={`lct-mind m${i}${m ? '' : ' is-empty'}`}><span className={i ? "lct-orb o2" : "lct-orb o1"}><b>{m ? mono(m) : '+'}</b><i aria-hidden="true" /></span>
+  return <span className={`lct-mind m${i}${m ? '' : ' is-empty'}`}><Bubble m={m} i={i} kind={kind} />
     <em>{gen ? `MIND ${String.fromCharCode(65 + i)}${i ? '' : ' · LEADS'}` : `BRAIN ${String.fromCharCode(65 + i)}`}</em><strong title={m ? shortName(m) : ''}>{m ? shortName(m) : i ? 'no second pick' : 'pick one'}</strong>
     {m ? <small className="m-num">{gen ? `≈ ${fmtUsd(m.perTask)} a task` : `${fmtUsd(m.perDecision)} a decision`}</small> : null}</span>;
 }
@@ -144,7 +157,9 @@ export function LaunchCat({ api, ownerId, onCreated, onCancel, Fields, Preview, 
   const [picked, setPicked] = useState([]); const [mode, setMode] = useState('turns'); const [billing, setBilling] = useState(gen ? 'payg' : 'profit');
   const [form, setForm] = useState(() => newForm()); const update = (k, v) => setForm(f => ({ ...f, [k]: v })); const name = form.name;
   const [efforts, setEfforts] = useState({});
-  const [range, setRange] = useState([0, 2]); const [persona, setPersona] = useState('');
+  const [cost, setCost] = useState(['', '']); const [persona, setPersona] = useState('');   // 💵 typed $ min / max (owner 2026-10-30: inputs, not sliders)
+  const range = useMemo(() => { const lo = Number(cost[0]) || 0; const hi = cost[1] === '' ? Infinity : Math.max(lo, Number(cost[1]) || 0); return [lo, hi]; }, [cost]);
+  const setCostAt = (i, v) => setCost(c => (i ? [c[0], v] : [v, c[1]]));
   const [prompt, setPrompt] = useState(''); const [saving, setSaving] = useState(false);
   const [venues, setVenues] = useState(['trench']); const [keys, setKeys] = useState({});
   useEffect(() => { let on = true; api(`/api/cats/models?session=${encodeURIComponent(readChatSession() || '')}`).then(x => on && setD(x)).catch(e => on && setErr(e.message)); return () => { on = false; }; }, [api]);
@@ -168,7 +183,7 @@ export function LaunchCat({ api, ownerId, onCreated, onCancel, Fields, Preview, 
     } catch (e) { setErr(e.message); } finally { setSaving(false); }
   };
   return <section className={`lct is-${kind}`} data-testid="launch-cat">
-    <header className="lct-head"><BrainSocket picked={picked} mood={saving ? 'pounce' : picked.length === 2 ? 'celebrate' : picked.length ? 'purr' : 'think'} />
+    <header className="lct-head"><BrainSocket kind={kind} picked={picked} mood={saving ? 'pounce' : picked.length === 2 ? 'celebrate' : picked.length ? 'purr' : 'think'} />
       <div><span className="eyebrow" data-testid="lct-kind">{K.eyebrow} · ITS OWN WALLET</span><h2>Give your cat <em>{picked.length === 2 ? (gen ? 'two minds' : 'two brains') : (gen ? 'a mind' : 'a brain')}</em>.</h2>
         <p>{K.pitch.replace(/1–2/g, `1–${d?.maxModels || 2}`)}</p><small>{picked.length} / {d?.maxModels || 2} models</small></div></header>
     <nav className="lct-steps" style={{ '--p': step / (steps.length - 1) }}><i className="lct-prog" aria-hidden="true"><u /></i>{steps.map((s, i) => <button key={s} type="button" className={`${i === step ? 'is-on' : ''}${i < step ? ' is-done' : ''}`} onClick={() => i <= step || ready.slice(0, i).every(Boolean) ? setStep(i) : null} data-testid={`lct-step-${i}`}><b>{i + 1}</b>{s}</button>)}</nav>
@@ -178,7 +193,11 @@ export function LaunchCat({ api, ownerId, onCreated, onCancel, Fields, Preview, 
         {d.rec?.length ? <><h4 className="lct-h">⭐ FEELESS PICKS — the brains FEELESS already runs</h4><div className="lct-rec">{d.rec.map((m, i) => <ModelTile key={m.id} m={m} i={i} kind={kind} on={picked.some(x => x.id === m.id)} onPick={pick} />)}</div></> : null}
         <div className="lct-bar"><input className="m-input" placeholder={`Search ${d.models.length} models…`} value={q} onChange={e => setQ(e.target.value)} data-testid="lct-q" />
           <div className="m-seg">{SORTS.map(([k, l]) => <button key={k} type="button" className={sort === k ? 'is-on' : ''} onClick={() => setSort(k)}>{l}</button>)}</div></div>
-        <div className="lct-bar"><label>Minimum $ / {gen ? 'task' : 'decision'} · {fmtUsd(range[0])}<input aria-label="Minimum model cost" type="range" min="0" max="2" step="0.0001" value={range[0]} onChange={e => setRange([Math.min(Number(e.target.value), range[1]), range[1]])} /></label><label>Maximum $ / {gen ? 'task' : 'decision'} · {fmtUsd(range[1])}<input aria-label="Maximum model cost" type="range" min="0" max="2" step="0.0001" value={range[1]} onChange={e => setRange([range[0], Math.max(range[0], Number(e.target.value))])} /></label></div>
+        <div className="lct-bar lct-cost" data-tip="Only models whose cost sits between these two $ amounts — leave Max empty for no cap">
+          <label>Min $ / {gen ? 'task' : 'decision'}<span className="lct-usd"><i>$</i><NumInput className="m-input" type="number" inputMode="decimal" min="0" step="0.0001" placeholder="0" value={cost[0]} onChange={e => setCostAt(0, e.target.value)} aria-label="Minimum model cost" data-testid="lct-min" /></span></label>
+          <i className="lct-cost-to" aria-hidden="true">→</i>
+          <label>Max $ / {gen ? 'task' : 'decision'}<span className="lct-usd"><i>$</i><NumInput className="m-input" type="number" inputMode="decimal" min="0" step="0.0001" placeholder="no cap" value={cost[1]} onChange={e => setCostAt(1, e.target.value)} aria-label="Maximum model cost" data-testid="lct-max" /></span></label>
+          <span className="lct-cost-n m-num" key={rows.length}>{rows.length}<small>match</small></span></div>
         <div className="lct-cats"><button type="button" className={!cat.length ? 'is-on' : ''} onClick={() => setCat('')}>✨ All <small>{d.models.length}</small></button>{cats.map(c => <button key={c.key} type="button" className={`${(Array.isArray(cat) ? cat.includes(c.key) : cat === c.key) ? 'is-on' : ''}${c.general ? ' is-job' : ''}`} onClick={() => setCat(prev => { const a = Array.isArray(prev) ? prev : prev ? [prev] : []; return a.includes(c.key) ? a.filter(x => x !== c.key) : [...a, c.key]; })} data-tip={c.why} data-testid={`lct-cat-${c.key}`}>{c.label} <small>{c.n}</small></button>)}</div>
         <div className="lct-grid">{rows.slice(0, n).map((m, i) => <ModelTile key={m.id} m={m} i={i} kind={kind} on={picked.some(x => x.id === m.id)} onPick={pick} />)}</div>
         {rows.length > n ? <button type="button" className="m-btn lct-more" onClick={() => setN(x => x + PAGE)}>Show {Math.min(PAGE, rows.length - n)} more of {rows.length}</button> : null}
