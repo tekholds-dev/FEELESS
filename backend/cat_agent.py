@@ -34,7 +34,8 @@ ACT_SYS = ('You are {name}, an AI model working in your OWN web browser for a FE
            'MEDIA: action "media" (url = an https image / video link, text = its title) saves it in the user\'s media drawer for campaigns.\n'
            'Rules: never type a password, card number or seed phrase — use "human" for any sign-in / sign-up / CAPTCHA. Never claim what the page does not show. '
            'Use draft to save writing, build to save a complete HTML page for the live sandbox preview, note to keep a fact in YOUR scratch pad (thrown away '
-           'after the task unless it is the best). Put artifact / note content in say. '
+           'after the task unless it is the best), handoff to pass a result to your partner mind (say = what they need — e.g. your research for their post). '
+           'Put artifact / note / handoff content in say. '
            'Finish with "answer" (with the sources you used) within {steps} steps.')
 MERGE_SYS = ('Combine the two halves (and their scratch notes) into ONE clear answer for the user, keep the sources, say what is still uncertain. '
              'Then pick the few facts worth keeping for next time — only what BOTH halves support or what is clearly vital. Answer ONLY JSON: '
@@ -42,6 +43,7 @@ MERGE_SYS = ('Combine the two halves (and their scratch notes) into ONE clear an
 JOBS_SYS = 'Each model had its OWN job. Present both results for the user, each under its job, plain text — no merging, nothing invented.'
 MODES = ('plan', 'jobs')   # 🧠🤝 plan together → split → merge · 🎯 each mind its own job (owner 2026-10-30: "only 2 options")
 KEEP_MAX = 6
+MIND_KEEP, MIND_CLOUD_MAX = 3, 20   # ☁ each mind keeps its last 3 notes per task in its own cloud (20 max)
 
 
 def split_jobs(text, n=2):
@@ -112,7 +114,10 @@ async def _window(task, w, ask, page, wait_human, name, feeless=None):
     seen = ''
     n_max = int(task.get('stepsMax') or STEP_MAX)
     for _n in range(n_max):
-        msgs = [{'role': 'system', 'content': RULES + '\nEnabled tools: ' + str(task.get('tools', {})) + '\n' + ACT_SYS.format(name=name, goal=w['goal'], steps=n_max)},
+        mine = (task.get('clouds') or {}).get(w['i']) or []   # ☁ its own cloud from earlier tasks
+        got = [h['text'] for h in task.get('handoffs') or [] if h['from'] != w['i']][-4:]   # 📦 what its partner handed over
+        extra = (f"\nYOUR CLOUD (your notes from earlier tasks): {' | '.join(mine)[:600]}" if mine else '') + (f"\nFROM YOUR PARTNER: {' | '.join(got)[:900]}" if got else '')
+        msgs = [{'role': 'system', 'content': RULES + '\nEnabled tools: ' + str(task.get('tools', {})) + '\n' + ACT_SYS.format(name=name, goal=w['goal'], steps=n_max) + extra},
                 {'role': 'user', 'content': f"URL: {page.url or '(blank)'}\nTITLE: {page.title or ''}\nPAGE:\n{seen[:READ_MAX]}"}]
         a = parse_json(await _ask(task, w, ask, w['model'], msgs))
         act = str(a.get('action') or '').lower()
@@ -134,6 +139,11 @@ async def _window(task, w, ask, page, wait_human, name, feeless=None):
                 w['coin'] = coin
             w['url'], w['title'] = f"feeless:{str(a.get('tool') or '')[:12]}", 'FEELESS'
             _step(w, thought, 'feeless', f"{a.get('tool') or ''} {a.get('q') or ''}".strip())
+            continue
+        if act == 'handoff':   # 📦 pass a result to the other mind — even on separate jobs they work together
+            task['handoffs'] = (task.get('handoffs') or []) + [{'from': w['i'], 'text': str(a.get('say') or thought)[:600]}]
+            _step(w, thought, 'handoff', 'handed to its partner')
+            seen = 'Handed to your partner.'
             continue
         if act == 'note':   # 🗒 its own throwaway scratch pad — the merge keeps only the best for the main cloud
             w['scratch'] = (w['scratch'] + [str(a.get('say') or thought)[:400]])[-12:]
@@ -262,6 +272,6 @@ def _clean(task):
     """🧹 the scratch pads are throwaway: what mattered is in task['keep'] (→ the agent's main cloud); the rest is dropped, its count kept.
     A window's live password leaves the window here (task['logins'] carries it to the sealed vault at settle, then is cleared)."""
     for w in task['windows']:
-        w['scratchN'] = len(w.get('scratch') or []); w['scratch'] = []
+        w['scratchN'] = len(w.get('scratch') or []); w['best'] = (w.get('scratch') or [])[-MIND_KEEP:]; w['scratch'] = []   # ☁ its best notes → its own cloud
         w.pop('pw', None)
     return task

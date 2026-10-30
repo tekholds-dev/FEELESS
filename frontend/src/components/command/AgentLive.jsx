@@ -1,6 +1,5 @@
 import React, { Suspense, lazy } from 'react';
 import { Bubble } from './LaunchCat';
-import { DemoChart } from './AgentDemo';
 import '../../styles/agentDemo.css';
 
 // 🛸 AGENT LIVE (owner, 2026-10-30: "this same ui/layout from the demo in live — when a cat is bought, when I enter My agent, and Fee's live
@@ -52,7 +51,7 @@ export function AgentLive({ title = 'LIVE', minds = [], coins = [], feed = [], c
           <em className="agd-live">{c ? '● LIVE' : '◌ IDLE'}</em></span>
         {c ? <div className="agl-plot"><Suspense fallback={<span className="agl-load">loading ${c.symbol}'s live chart…</span>}>
           <PriceChart key={c.pair} pair={{ chainId: 'solana', pairAddress: c.pair, baseToken: { address: c.mint, symbol: c.symbol } }} interval="1m" metric="price" showVolume={false} userEntry={c.entry || null} callouts={callouts ? callouts(c.pair) : undefined} />
-        </Suspense></div> : <div className="agl-ghost"><DemoChart seed={i ? 7 : 3} t={0} who="…" sym="NEXT" calls={false} /><span>PREVIEW · its next coin charts here</span></div>}
+        </Suspense></div> : <div className="agl-ghost"><span>◌ watching the trenches — its next coin opens here, live</span></div>}
       </div>; })}</div>
     {feed.length ? <ol className="agd-feed" aria-live="polite">{feed.slice(-3).map((l, i) => <li key={`${i}-${l}`}>{l}</li>)}</ol> : null}
   </section>;

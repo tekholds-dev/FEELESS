@@ -1344,6 +1344,7 @@ def _work_start(cat_id, cat, text, to=None):
     steps = _ca.GO_STEPS if cat.get('workGo') else _ca.STEP_MAX
     _WORK[cat_id] = {'task': _ca.new_task(uuid.uuid4().hex[:10], text, models, cap, steps, cat.get('workMode') or 'plan'), 'events': {}, 'go': {}, 'sessions': [None] * len(models), 'pages': [None] * len(models), 'at': time.time()}
     _WORK[cat_id]['task']['tools'] = _cp.toolkit(cat.get('job', 'agent'), cat.get('tools'))
+    _WORK[cat_id]['task']['clouds'] = {i: [x.get('text', '') for x in (b.get('minds') or {}).get(m, [])][-8:] for i, m in enumerate(models)}   # ☁ each mind reads its own cloud
     _WORK[cat_id]['runner'] = asyncio.create_task(_work_run(cat_id, models, names, text, cap, str(b.get('prompt') or '')[:1200], b.get('efforts') or {},
                                                             _ck.key_for(cat, 'openrouter', data_dir=DATA_DIR)))
 
@@ -1416,6 +1417,11 @@ def _work_settle(store):
                     _cv.add_media(cat, md_.get('url'), md_.get('title'))
                 except ValueError:
                     pass
+            for w_ in t.get('windows') or []:   # ☁ each mind's best notes → its OWN cloud
+                if w_.get('best'):
+                    mc_ = cat['brainsCfg'].setdefault('minds', {})
+                    mc_[w_['model']] = ((mc_.get(w_['model']) or []) + [{'at': time.time(), 'text': str(x)[:240]} for x in w_['best']])[-_ca.MIND_CLOUD_MAX:]
+                    w_['best'] = []
             for k_ in t.get('keep') or []:   # ☁ the best of both scratch pads → its main cloud (the rest was thrown away)
                 cat['brainsCfg']['cloud'] = ((cat['brainsCfg'].get('cloud') or []) + [{'at': time.time(), 'word': 'KEEP', 'sym': '', 'text': str(k_)[:240], 'by': ['both']}])[-_lc.CLOUD_MAX:]
             cat['chat'] = (list(cat.get('chat') or []) + [{'by': 'you', 'text': t.get('text'), 'at': w.get('at')},
@@ -1552,6 +1558,7 @@ class CreatePayload(BaseModel):
     tools: Optional[dict] = None
     venues: Optional[list] = None     # 📈 trading cat: FEELESS rails only (cat_keys.VENUES)
     workMode: Optional[str] = None    # 🧭 general cat: plan (plan → split → merge) · jobs (each mind its own job)
+    taskCap: Optional[float] = None   # 💵 general cat: most it may spend on one task (clamped to TASK_CAP_MAX)
 
 
 @app.get('/api/cats/models')
@@ -1608,6 +1615,7 @@ async def create_cat(payload: CreatePayload):
                 cat['venues'] = _ck.venues(payload.venues)   # 📈 FEELESS rails only (trench · perps)
             else:
                 cat['workMode'] = payload.workMode if payload.workMode in _ca.MODES else 'plan'
+                if payload.taskCap: cat['taskCap'] = max(0.005, min(TASK_CAP_MAX, float(payload.taskCap)))
         except ValueError as e:
             raise HTTPException(400, str(e))
         for model, effort in cat['brainsCfg'].get('efforts', {}).items():
@@ -1903,7 +1911,7 @@ async def cat_work(cat_id: str, p: WorkPayload):
     out = _work_view(cat_id, owner=True)
     return {**out, 'cap': float(cat.get('taskCap') or TASK_CAP_DEFAULT), 'credit': b.get('credit'), 'spent': b.get('spent'), 'chat': (cat.get('chat') or [])[-20:],
             'live': _work_live(), 'providers': _cb.chain(os.environ), 'go': bool(cat.get('workGo')), 'workMode': cat.get('workMode') or 'plan',
-            'cloud': (b.get('cloud') or [])[-8:], 'createdAt': cat.get('createdAt'),
+            'cloud': (b.get('cloud') or [])[-8:], 'minds': {m: v[-8:] for m, v in (b.get('minds') or {}).items()}, 'handoffs': len((w.get('task') or {}).get('handoffs') or []) if w else 0, 'createdAt': cat.get('createdAt'),
             'logins': _cv.public_logins(cat), 'media': _cv.clean_media(cat),
             'job': cat.get('job', 'agent'), 'tools': _cp.toolkit(cat.get('job', 'agent'), cat.get('tools')), 'toolkits': _cp.TOOLS,
             'refusals': (cat.get('refusals') or [])[-20:] + [{'why': x} for x in ((w or {}).get('task') or {}).get('refusals', [])],
@@ -2350,7 +2358,7 @@ async def cat_action(cat_id: str, payload: ActionPayload, request: Request):
         except ValueError as e:
             raise HTTPException(400, str(e))
         if payload.memory == 'fresh':   # 🧹 a clean slate for the new models: its old memory is deleted, never mixed in
-            cat['brainsCfg'].update(cloud=[], decisions=[])
+            cat['brainsCfg'].update(cloud=[], decisions=[], minds={})
         _log_event(store, cat, 'LEARN', f"🔁 new models: {' + '.join(m.split('/')[-1] for m in cat['brainsCfg']['brains'])}")
     elif payload.action == 'delete':   # 🗑 forever means until YOU delete it: retired first, typed name, and never while its own wallet still holds money
         if not cat.get('revoked'):

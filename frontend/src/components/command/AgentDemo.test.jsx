@@ -21,6 +21,15 @@ test('🛸 trader demo = two drawn chart windows; general = two browsers; both s
   expect(g.querySelectorAll('.agd-browser')).toHaveLength(2); expect(g.querySelector('.agd-chart')).toBeNull();
 });
 
+test('🧭 the two demo windows follow the mode: one coin when they discuss, two when they battle; halves vs separate jobs with a handoff', async () => {
+  const syms = el => [...el.querySelectorAll('.agd-sym')].map(x => x.textContent);
+  expect(syms(await mount(<AgentDemo kind="trading" mode="discuss" />))).toEqual(['$GERM', '$GERM']);
+  expect(syms(await mount(<AgentDemo kind="trading" mode="battle" />))).toEqual(['$GERM', '$NEON']);
+  const j = await mount(<AgentDemo kind="general" mode="jobs" />);
+  expect(j.textContent).toContain('job 2'); expect(j.textContent).not.toContain('half 1');
+  expect((await mount(<AgentDemo kind="general" mode="plan" />)).textContent).toContain('half 1');
+});
+
 test('🧭 the demo sits in How they work (step 2), not on the model list', async () => {
   const CAT = { models: [{ id: 'a/b', name: 'a/b', provider: 'a', ctx: 1, perDecision: 0.001, perTask: 0.01, cats: ['trading'], intel: 1, created: 1 }], cats: [], modes: [], billing: [{ key: 'profit', label: 'p' }], budget: { start: 10, liveAsks: 3 } };
   const el = await mount(<LaunchCat api={() => Promise.resolve(CAT)} ownerId={() => 'o'} />);
@@ -57,7 +66,7 @@ test('🛸 live view: each brain thinks its own latest calls; held coins chart f
   const x = catMinds(cat); expect(x.thoughts).toEqual([['BUY $GERM'], ['SKIP $RUG']]); expect(x.feed[0]).toContain('BUY $GERM');
   expect(catCoins(cat).map(c => [c.symbol, c.open])).toEqual([['GERM', true], ['OLD', false]]);
   const el = await mount(<AgentLive minds={[{ model: asModel('a/ossy'), thoughts: ['BUY $GERM'], live: true, label: 'ossy' }]} coins={[]} feed={['🔎 hunting']} />);
-  expect(el.querySelectorAll('.agd-win')).toHaveLength(2); expect(el.textContent).toContain('PREVIEW'); expect(el.querySelectorAll('.lct-orb')).toHaveLength(2);
+  expect(el.querySelectorAll('.agd-win')).toHaveLength(2); expect(el.textContent).not.toContain('PREVIEW'); expect(el.querySelector('.agl-ghost .agd-chart')).toBeNull();   // no fake chart filler expect(el.querySelectorAll('.lct-orb')).toHaveLength(2);
   expect(el.querySelector('.lct-orb.is-idle')).not.toBeNull();   // the empty second mind is still
 });
 

@@ -35,8 +35,10 @@ function SceneVideo({ bg, onFail }) {
     if (still) { pause(); return undefined; }
     let seen = true; const sync = () => { if (seen && !document.hidden) { try { Promise.resolve(v.play?.()).catch(() => {}); } catch { /* autoplay blocked */ } } else pause(); };
     const io = typeof IntersectionObserver !== 'undefined' ? new IntersectionObserver(([e]) => { seen = e.isIntersecting; sync(); }) : null;
-    io?.observe(v); document.addEventListener('visibilitychange', sync); sync();
-    return () => { io?.disconnect(); document.removeEventListener('visibilitychange', sync); };
+    // 🧊 no scroll lag (owner 2026-10-30): the clip holds its frame while you scroll and plays again 250ms after you stop
+    let idle = 0; const onScroll = () => { if (!idle) pause(); clearTimeout(idle); idle = setTimeout(() => { idle = 0; sync(); }, 250); };
+    io?.observe(v); document.addEventListener('visibilitychange', sync); document.addEventListener('scroll', onScroll, { capture: true, passive: true }); sync();
+    return () => { io?.disconnect(); clearTimeout(idle); document.removeEventListener('visibilitychange', sync); document.removeEventListener('scroll', onScroll, { capture: true }); };
   }, [bg]);
   return <video ref={ref} className="ckb-video" src={`/backdrops/${bg}.mp4`} muted loop playsInline preload="metadata" onError={onFail} aria-hidden="true" data-testid="desk-video" />;
 }

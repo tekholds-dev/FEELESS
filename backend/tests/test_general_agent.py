@@ -282,3 +282,22 @@ def test_fee_takes_an_openrouter_model_and_a_new_model_can_start_fresh(monkeypat
     act(action='models', brains=['b/y'], memory='keep'); assert fee['brainsCfg']['cloud'] == [{'text': 'old memory'}]
     act(action='models', brains=['a/x'], memory='fresh'); assert fee['brainsCfg']['cloud'] == [] and fee['brainsCfg']['decisions'] == []
     act(action='brief', text='A brand new desk brief for Fee, any time she likes.'); assert fee['brainsCfg']['prompt'].startswith('A brand new')
+
+
+def test_minds_hand_off_on_separate_jobs_and_each_keeps_its_own_cloud():
+    script = {'m/a': [{'action': 'note', 'say': 'Solana: 400ms blocks'}, {'action': 'handoff', 'say': 'research: Solana does 400ms blocks (solana.com)'}, {'action': 'answer', 'say': 'researched'}],
+              'm/b': [{'action': 'answer', 'say': 'thread written'}]}
+    seen = {}
+
+    async def ask(model, messages):
+        seen.setdefault(model, []).append(messages[0]['content'])
+        return json.dumps(script[model].pop(0)), 0.001
+    task = ca.new_task('t5', 'A: research Solana B: write a thread', ['m/a', 'm/b'], 1.0, mode='jobs')
+    task['clouds'] = {1: ['my threads land best under 6 posts']}
+    out = asyncio.run(ca.run(task, ask, [Page(), Page()], None, ('A', 'B')))
+    a, b = out['windows']
+    assert 'FROM YOUR PARTNER: research: Solana does 400ms blocks' in seen['m/b'][0]          # 📦 B gets A's handoff
+    assert 'YOUR CLOUD' in seen['m/b'][0] and 'under 6 posts' in seen['m/b'][0]              # ☁ B reads its own cloud
+    assert 'YOUR CLOUD' not in seen['m/a'][0]                                                 # A has no cloud yet — never B's
+    assert any(s['action'] == 'handoff' for s in a['steps'])
+    assert a['best'] == ['Solana: 400ms blocks'] and a['scratch'] == [] and b['best'] == []   # its best notes → its own cloud at settle

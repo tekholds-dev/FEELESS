@@ -88,18 +88,30 @@ export const DEMO_FEED = {
     '🔗 A merges both halves · every source kept', '📝 one answer with links — nothing posted', '✅ done · $0.012 of your $0.10 cap'],
 };
 
-export function AgentDemo({ kind = 'trading', models = [] }) {
+// 🧭 the two windows follow the mode you picked (owner 2026-10-30): one coin when they discuss / judge together, two coins when they take turns or
+// battle; one question split in halves (plan) or two separate jobs with a handoff (jobs)
+export const DEMO_MODE = {
+  discuss: { same: true, sub: ['reads it first', 'challenges · final call'], line: '🧠 B · challenges A\'s read — agrees · BUY 0.05 SOL' },
+  together: { same: true, sub: ['its own read', 'its own read'], line: '🤝 A + B both said BUY · 0.05 SOL' },
+  turns: { sub: ['its turn', 'next turn'], line: '🧠 A\'s turn · BUY 0.05 SOL — B takes the next coin' },
+  battle: { sub: ['its own record', 'its own record'], line: '⚔ A buys $GERM · B buys $NEON · each on its own record' },
+  plan: { sub: ['half 1 of your ask', 'half 2 · checks A'] },
+  jobs: { sub: ['job 1 · research', 'job 2 · uses A\'s handoff'], feed: ['⚡ two jobs: research Solana · write a thread on it', '🧠 A · researches Solana', '🧠 B · drafts the thread',
+    '📦 A hands its notes + sources to B', '📝 B\'s thread cites A\'s sources', '👀 you review both before anything posts', '✅ both delivered · $0.014 of your $0.10 cap'] },
+};
+export function AgentDemo({ kind = 'trading', models = [], mode }) {
   const gen = kind === 'general'; const [ref, t] = useClock(gen ? 650 : 900);
   const rec = useRecording(gen);
-  const feed = DEMO_FEED[gen ? 'general' : 'trading']; const k = Math.floor(t / 2);
+  const how = DEMO_MODE[mode] || DEMO_MODE[gen ? 'plan' : 'discuss'];
+  const feed = how.feed || (how.line ? DEMO_FEED.trading.map((l, j) => (j === 2 ? how.line : l)) : DEMO_FEED[gen ? 'general' : 'trading']); const k = Math.floor(t / 2);
   const lines = [0, 1, 2].map(j => ({ id: k - j, text: feed[((k - j) % feed.length + feed.length) % feed.length] })).filter(x => x.id >= 0).reverse();
   const name = i => models[i]?.name?.replace(/^[^:]+:\s*/, '') || (i ? 'second pick' : 'your pick');
   return <div className={`agd is-${gen ? 'general' : 'trading'}`} ref={ref} data-testid="agent-demo">
     <i className="agd-hex" aria-hidden="true" /><i className="agd-scan" aria-hidden="true" />
     <span className="agd-tag">◈ DEMO · {gen ? 'what its two minds do' : 'how its two brains trade'} · not real</span>
     <div className="agd-wins">{[0, 1].map(i => <div key={i} className={`agd-win w${i}`} style={{ '--i': i }}>
-      <span className="agd-bar is-go"><i /><i /><i /><b>{gen ? `MIND ${'AB'[i]}` : `BRAIN ${'AB'[i]}`}</b><small>{name(i)}</small><em className="agd-live">● LIVE</em></span>
-      {gen ? <DemoBrowser frames={rec?.['ab'[i]]} t={t + i * 2} who={'AB'[i]} credit={i ? rec?.credit : null} /> : <DemoChart seed={i ? 7 : 3} t={t + i * 9} who={'AB'[i]} sym={i ? 'NEON' : 'GERM'} />}
+      <span className="agd-bar is-go"><i /><i /><i /><b>{gen ? `MIND ${'AB'[i]}` : `BRAIN ${'AB'[i]}`}</b><small>{name(i)} · {how.sub[i]}</small><em className="agd-live">● LIVE</em></span>
+      {gen ? <DemoBrowser frames={rec?.['ab'[i]]} t={t + i * 2} who={'AB'[i]} credit={i ? rec?.credit : null} /> : <DemoChart seed={i && !how.same ? 7 : 3} t={t + (how.same ? 0 : i * 9)} who={'AB'[i]} sym={i && !how.same ? 'NEON' : 'GERM'} />}
     </div>)}</div>
     <ol className="agd-feed" aria-live="off">{lines.map(l => <li key={l.id}>{l.text}</li>)}</ol>
   </div>;

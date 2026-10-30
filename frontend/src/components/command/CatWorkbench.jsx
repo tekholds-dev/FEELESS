@@ -66,19 +66,22 @@ function Window({ w, catId, tick, onGo, onLogin, busy }) {
 }
 
 // 🧠 a general mind's vitals beside the chat: what its window is doing right now (owner 2026-10-30: "model vitals on each side")
-function GenVitals({ cat, w, i, live }) {
+function GenVitals({ cat, w, i, live, cloud = [] }) {
   return <MindVitals cat={cat} model={w?.model} i={i} kind="general" live={live && w?.status === 'working'} extra={<>
     <span className="ck-v-row"><em>STATUS</em><b>{String(w?.status || 'idle').toUpperCase()}</b></span>
     <span className="ck-v-row"><em>STEPS</em><b className="m-num" key={(w?.steps || []).length}>{(w?.steps || []).length}</b></span>
     <span className="ck-v-row"><em>SCRATCH</em><b className="m-num">{w?.scratch ?? w?.scratchN ?? 0}</b></span>
+    <span className="ck-v-row" data-tip="Its own cloud: the best notes this mind kept from its tasks — it reads them before the next one"><em>☁ ITS CLOUD</em><b className="m-num">{cloud.length}</b></span>
     <span className="ck-v-row"><em>SPENT</em><b className="m-num">{usd(w?.cost || 0)}</b></span>
+    {cloud.length ? <p className="ck-v-last"><small>☁ {cloud[cloud.length - 1].text}</small></p> : null}
     <p className="ck-v-last">{w?.coin ? <b className="is-up">on ${w.coin.symbol}</b> : null}{w?.bubble || 'waiting for your ask'}{w?.goal ? <small>its job: {w.goal}</small> : null}</p></>} />;
 }
 // pure: the general cat's log — your asks + answers (tasks), each window's steps (thoughts), its files, the cloud, every refusal (guards)
 export function genLog(d) {
   const now = Date.now() / 1000;
   return [...(d?.chat || []).map(m => ({ f: 'tasks', at: m.at, text: `${m.by === 'you' ? 'You' : '🧠🧠'}: ${m.text}`, tone: m.by === 'you' ? 'acc' : 'up' })),
-    ...(d?.windows || []).flatMap(w => (w.steps || []).map((s, k) => ({ f: 'thoughts', at: now - ((w.steps.length - k) * 5), text: `${String(w.model || '').split('/').pop()} · ${s.action}: ${s.thought}${s.detail ? ` (${s.detail})` : ''}`, tone: s.action === 'refused' ? 'warn' : 'mute' }))),
+    ...(d?.windows || []).flatMap(w => (w.steps || []).map((s, k) => ({ f: 'thoughts', at: now - ((w.steps.length - k) * 5), text: `${String(w.model || '').split('/').pop()} · ${s.action}: ${s.thought}${s.detail ? ` (${s.detail})` : ''}`, tone: s.action === 'refused' ? 'warn' : s.action === 'handoff' ? 'up' : 'mute' }))),
+    ...Object.entries(d?.minds || {}).flatMap(([m, xs]) => xs.map(c => ({ f: 'cloud', at: c.at, text: `☁ ${m.split('/').pop()} · ${c.text}`, tone: 'mute' }))),
     ...(d?.artifacts || []).map(a => ({ f: 'files', at: now, text: `${a.kind}: ${a.title}`, tone: 'acc' })),
     ...(d?.cloud || []).map(c => ({ f: 'cloud', at: c.at, text: c.text || `${c.word} $${c.sym}`, tone: 'acc' })),
     ...(d?.refusals || []).map(r => ({ f: 'guards', at: r.at || now, text: r.why, tone: 'warn' }))].filter(x => x.text).sort((p, q) => (q.at || 0) - (p.at || 0));
@@ -150,7 +153,7 @@ function WorkbenchLive({ cat }) {
     {(d?.refusals || []).length ? <details className="cwb-refusals"><summary>Refusals · {d.refusals.length}</summary>{d.refusals.map((r, i) => <p key={i}>{r.why}</p>)}</details> : null}
     <div className="cwb-wins">{wins.map(w => <Window key={w.i} w={w} catId={cat.id} tick={tick} busy={busy} onGo={(op, i) => act(op, { i })} onLogin={(i, user, secret) => act('login', { i, user, secret })} />)}</div>
     <div className="ck-cockpit" data-testid="cwb-cockpit">
-      <GenVitals cat={cat} w={wins[0]} i={0} live={live} />
+      <GenVitals cat={cat} w={wins[0]} i={0} live={live} cloud={d?.minds?.[wins[0]?.model] || []} />
       <div className="ck-center cwb-center">
     {d?.task?.answer || status === 'stopped' || status === 'error' ? <p className={`cwb-answer s-${status}`} data-testid="cwb-answer">{d.task.fast ? '⚡ from memory · ' : ''}{d.task.answer || d.task.why}</p> : null}
     <ol className="cwb-chat" aria-label="Chat with its models">{(d?.chat || []).slice(-8).map((m, i) => <li key={i} className={m.by === 'you' ? 'is-you' : 'is-cats'}><b>{m.by === 'you' ? 'You' : '🧠🧠'}</b><span>{m.text}</span>{m.cost != null ? <small className="m-num">{usd(m.cost)}</small> : null}</li>)}</ol>
@@ -169,7 +172,7 @@ function WorkbenchLive({ cat }) {
       <div className="m-seg cwb-cap" role="radiogroup" aria-label="The most one task may spend">{CAPS.map(c => <button key={c} type="button" role="radio" aria-checked={Math.abs(cap - c) < 1e-9} className={Math.abs(cap - c) < 1e-9 ? 'active' : ''} onClick={() => act('cap', { cap: c })} data-tip={`A task stops at $${c}`} data-testid={`cwb-cap-${c}`}>${c}</button>)}</div>
     </form>
       </div>
-      <GenVitals cat={cat} w={wins[1]} i={1} live={live} />
+      <GenVitals cat={cat} w={wins[1]} i={1} live={live} cloud={d?.minds?.[wins[1]?.model] || []} />
     </div>
     <AgentLog items={genLog(d)} />
     {d && !d.live ? <p className="cwb-note" data-testid="cwb-off">Model calls are switched off on this server — asking sends and charges nothing until the owner turns them on.</p> : null}

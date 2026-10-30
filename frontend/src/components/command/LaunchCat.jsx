@@ -15,7 +15,7 @@ import '../../styles/launchCat.css';
 // only on a ±10% move — so credit pays for decisions, never a chat loop. You can chime in (advice); you never trade for it. Paper cats.
 export const SORTS = [['smart', '♟ Smartest'], ['cheap', '💸 Cheapest'], ['ctx', '📚 Biggest memory'], ['new', '🆕 Newest']];
 export const STEPS = ['🧠 Brains', '🤝 How they work', '🐱 Identity + risk + brief', '🚀 Launch → 💵 go real'];
-const GEN_STEPS = ['🧠 Its minds', '🧭 How they work', '🐱 Identity + standing orders', '🚀 Launch → 👛 its wallet'];
+const GEN_STEPS = ['🧠 Its minds', '🧭 How they work', '🎯 Its job + brief', '🚀 Launch → 👛 its wallet'];
 // 📈 TRADING hunts coins on its own · 🧭 GENERAL does what you order (owner, 2026-10-23) — both end on the wallet switch (link → budget → REAL)
 export const KIND = { trading: { eyebrow: '📈 TRADING AI CAT', cat: 'trading', brief: '📜 THE BRIEF', hint: 'e.g. Only buy coins sitting on their germ floor with higher lows. Bank half at +30%. Never chase a green candle.',
   pitch: 'Pick 1–2 trading models. They decide once before a buy and up to 3 times while a coin is live — only on a ±10% move.',
@@ -23,6 +23,27 @@ export const KIND = { trading: { eyebrow: '📈 TRADING AI CAT', cat: 'trading',
   general: { eyebrow: '🧭 GENERAL AI CAT', cat: '', brief: '📜 STANDING ORDERS', hint: 'e.g. You are my content scout: every morning find 3 trending crypto topics with sources and draft posts in my voice — never post or sign up without asking me. Coin orders: never more than 0.1 SOL a coin.',
   pitch: 'Pick 1–2 all-round models — its two minds. Ask in plain words: it answers from memory, or each mind researches half in its own cloud browser while you watch, then they merge. Coin orders go from its own wallet — you OK each one until you switch it to auto.',
   next: ['🚀 launch', '👛 its own wallet', '💵 fund it once', '✅ it checks with you · or 🤖 auto'] } };
+// 🧾 THE PROMPT GENERATOR (owner 2026-10-30: "robust prompts for both kinds — specific, so both models work properly together"): the job's brief +
+// HOW THE TWO WORK for the mode you picked + the house rules → one brief both models read on every step. Edit it freely before launch.
+export const COLLAB = {
+  general: { plan: 'HOW YOU TWO WORK — Mind A leads: restate the goal in one line, split it into two halves and take one; Mind B takes the other half and double-checks A\'s key claims. Use FEELESS first for anything crypto. Keep every source. Save only vital facts to the shared cloud. Merge into ONE clear answer with links and what is still uncertain.',
+    jobs: 'HOW YOU TWO WORK — each of you owns a separate job the user gives (A: … B: …). Work in parallel in your own window; when one result helps the other (A\'s research feeds B\'s posts), hand it off through a note. Deliver each result under its job, ready to use.' },
+  trading: { turns: 'HOW YOU TWO WORK — you take turns: one of you makes each call alone, on the evidence given (germ floor, buyers %, liquidity, holders, rug flags).',
+    discuss: 'HOW YOU TWO WORK — Brain A reads the coin first and answers BUY or SKIP with one reason; Brain B sees A\'s call, challenges it and makes the final call. Disagree whenever the evidence says so.',
+    together: 'HOW YOU TWO WORK — you both judge every coin on your own; money only moves when you BOTH say BUY, and a SELL from either of you exits.',
+    battle: 'HOW YOU TWO WORK — each of you trades every other coin on your own record; the better record earns trust. Never copy the other.' },
+};
+export const HOUSE = { general: 'RULES — never invent facts; stop for sign-ins, CAPTCHAs, payments and ID checks; never create another agent or launch a coin on FEELESS; stay inside the $ cap per task.',
+  trading: 'RULES — trade only on FEELESS; size inside the caps; never chase a candle that already ran; respect every rug / bundler / dev flag; explain each call in one sentence.' };
+export function briefFor(persona, kind, mode, solo = false) {
+  const k = kind === 'general' ? 'general' : 'trading';
+  const how = solo ? '' : (COLLAB[k][mode] || COLLAB[k][k === 'general' ? 'plan' : 'discuss']);
+  return [persona?.brief || '', how, HOUSE[k]].filter(Boolean).join('\n\n').slice(0, 1200);
+}
+// 🎯 a general agent's job, grouped so the choice is quick (the 26 presets)
+export const JOB_GROUPS = [['research', '🔎 Research', ['detective', 'researcher', 'news', 'competitor', 'sports', 'kalshi']], ['content', '✍ Content', ['content', 'thread', 'video', 'brand', 'community', 'seo', 'email']],
+  ['build', '💻 Build', ['code', 'fullstack', 'bugfix', 'landing']], ['crypto', '🪙 Crypto', ['coin_research', 'trench_scout', 'perps_brief', 'pools']], ['errands', '🌐 Errands', ['social', 'shopping', 'travel', 'admin', 'agent']]];
+
 // 📈 a trading cat's two brains: our pick is DISCUSS — A reads, B sees A and makes the call (two looks before money moves, one short extra call)
 export const BEST_MODE = 'discuss';
 // 🧭 a GENERAL cat's two ways (owner 2026-10-30: "only 2 options" — cat_agent.MODES, change both): plan together → split → ONE answer, or each mind its own job
@@ -123,6 +144,11 @@ function ModelTile({ m, on, onPick, i, kind }) {
 
 // 🧠 THE BRAIN SOCKET (FeeCat redo, 2026-10-23): YOUR built cat with the picked brains drawn as lit orbs, each wired into its head — the wire
 // pulses toward the cat; two brains = two wires; none = an empty socket waiting.
+// its body in the general setup: the agent you built (cat / queen ant / fly / ants)
+function BodyPreview() {
+  const mine = useMyCat(); const coat = CAT_VARIATIONS[mine?.coat ?? 0] || CAT_VARIATIONS[0];
+  return mine?.agent?.species && mine.agent.species !== 'cat' ? <AgentCritter agent={mine.agent} size={86} /> : <LookAvatar cat={[coat[0], coat[1], coat[2], mine?.pattern || coat[3]]} look={mine?.look} size={86} />;
+}
 export function BrainSocket({ picked, mood, kind = 'trading' }) {
   const mine = useMyCat(); const coat = CAT_VARIATIONS[mine?.coat ?? 0] || CAT_VARIATIONS[0];
   const slots = picked.length > 2 ? picked : [picked[0] || null, picked[1] || null];
@@ -172,7 +198,7 @@ export function LaunchCat({ api, ownerId, onCreated, onCancel, Fields, Preview, 
   const [picked, setPicked] = useState([]); const [mode, setMode] = useState(gen ? 'turns' : BEST_MODE); const [workMode, setWorkMode] = useState('plan'); const [billing, setBilling] = useState(gen ? 'payg' : 'profit');
   const [form, setForm] = useState(() => newForm()); const update = (k, v) => setForm(f => ({ ...f, [k]: v })); const name = form.name;
   const [efforts, setEfforts] = useState({});
-  const [job, setJob] = useState(''); const jobCfg = (JOBS.find(j => j[0] === job) || JOBS[0])[2];
+  const [job, setJob] = useState(''); const [jobTab, setJobTab] = useState('research'); const [taskCap, setTaskCap] = useState(0.05); const jobCfg = (JOBS.find(j => j[0] === job) || JOBS[0])[2];
   const [cost, setCost] = useState(['', '']); const [persona, setPersona] = useState('');   // 💵 typed $ min / max (owner 2026-10-30: inputs, not sliders)
   const range = useMemo(() => { const lo = Number(cost[0]) || 0; const hi = cost[1] === '' ? Infinity : Math.max(lo, Number(cost[1]) || 0); return [lo, hi]; }, [cost]);
   const setCostAt = (i, v) => setCost(c => (i ? [c[0], v] : [v, c[1]]));
@@ -186,13 +212,13 @@ export function LaunchCat({ api, ownerId, onCreated, onCancel, Fields, Preview, 
   // 🧭 the General wizard leads with its own jobs (agent · content · code); the trading wizard never shows them
   const cats = useMemo(() => { const c = (d?.cats || []).filter(x => gen || !x.general); return gen ? [...c.filter(x => x.general), ...c.filter(x => !x.general)] : c; }, [d, gen]);
   const bills = (d?.billing || []).filter(b => !gen || b.key === 'payg');   // a general cat earns nothing to pay from — it runs on credit
-  const ready = [picked.length > 0, true, formOk(form), true];
+  const ready = [picked.length > 0, true, gen ? form.name.trim().length > 1 && prompt.trim().length >= 20 : formOk(form), true];
   const launch = async () => {
     setSaving(true); setErr('');
     try {
       const handle = form.handle || form.name.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').slice(0, 20) || 'cat';
       const r = await api('/api/cats', { method: 'POST', body: JSON.stringify({ strategy: 'momentum', ...form, ownerId: ownerId(), name: form.name.trim(), handle, avatar: avatarOf(form.avatar),
-        brains: picked.map(m => m.id), brainMode: gen ? 'turns' : mode, billing, prompt, efforts: Object.fromEntries(picked.filter(m => efforts[m.id]).map(m => [m.id, efforts[m.id]])), brainKind: kind, session: readChatSession() || '', job: gen ? (((d?.personas?.general || []).find(x => x.key === persona) || {}).job || 'agent') : 'trading', ...(gen ? { workMode } : { venues }) }) });
+        brains: picked.map(m => m.id), brainMode: gen ? 'turns' : mode, billing, prompt, efforts: Object.fromEntries(picked.filter(m => efforts[m.id]).map(m => [m.id, efforts[m.id]])), brainKind: kind, session: readChatSession() || '', job: gen ? (((d?.personas?.general || []).find(x => x.key === persona) || {}).job || 'agent') : 'trading', ...(gen ? { workMode, taskCap } : { venues }) }) });
       for (const [provider, secret] of Object.entries(keys).filter(([, v]) => v)) await api(`/api/cats/${r.cat.id}/action`, { method: 'POST', body: JSON.stringify({ action: 'api_key', provider, secret }) }).catch(e => setErr(`Key not saved: ${e.message}`));
       const started = await api(`/api/cats/${r.cat.id}/action`, { method: 'POST', body: JSON.stringify({ action: 'start' }) }).catch(() => r);   // same as Create a Cat: it starts trading at once
       onCreated?.(started.cat || r.cat);
@@ -223,7 +249,7 @@ export function LaunchCat({ api, ownerId, onCreated, onCancel, Fields, Preview, 
         {!rows.length ? <p className="lct-load">No model matches that.</p> : null}</>}
     </div> : null}
     {step === 0 && picked.some(m => m.efforts?.length) ? <div className="lct-bar">{picked.filter(m => m.efforts?.length).map(m => <label key={m.id}>{shortName(m)} · effort<select className="m-input" aria-label={`${shortName(m)} effort`} value={efforts[m.id] || ''} onChange={e => setEfforts(v => ({ ...v, [m.id]: e.target.value }))}><option value="">Provider default</option>{m.efforts.map(e => <option key={e}>{e}</option>)}</select><small>Output incl. reasoning: {fmtM(m.outUsd)} / 1M tokens. Actual cost depends on tokens used.</small></label>)}</div> : null}
-    {step === 1 ? <div className="lct-pane lct-mode"><Duo mode={mode} picked={picked} kind={kind} /><AgentDemo kind={kind} models={picked} />
+    {step === 1 ? <div className="lct-pane lct-mode"><Duo mode={mode} picked={picked} kind={kind} /><AgentDemo kind={kind} models={picked} mode={gen ? workMode : mode} />
       {gen ? <><div className="lct-ways" role="radiogroup" aria-label="How its two minds work">{WORK_WAYS.map(([k, ic, t, why, flow], i) => <button key={k} type="button" role="radio" aria-checked={workMode === k}
           className={`lct-way${workMode === k ? ' is-on' : ''}`} style={{ '--i': i }} onClick={() => setWorkMode(k)} data-testid={`lct-work-${k}`} data-tip={why}>
           <span className="lct-way-h"><i aria-hidden="true">{ic}</i><b>{t}</b>{k === 'plan' ? <em>⭐ BEST FOR ONE BIG QUESTION</em> : <em>TWO JOBS AT ONCE</em>}</span><small>{why}</small>
@@ -233,12 +259,26 @@ export function LaunchCat({ api, ownerId, onCreated, onCancel, Fields, Preview, 
         <div className="lct-modes">{(d?.modes || []).map(m => <button key={m.key} type="button" className={`${mode === m.key ? 'is-on' : ''}${m.key === BEST_MODE ? ' is-best' : ''}`} onClick={() => setMode(m.key)} data-testid={`lct-mode-${m.key}`}
           data-tip={m.key === BEST_MODE ? 'Our pick: two looks per decision for the price of a short second call — B checks A before money moves' : m.why}>{m.key === BEST_MODE ? <em className="lct-best">⭐ BEST</em> : null}<b>{m.label}</b><small>{m.why}</small></button>)}</div>}</>}
     </div> : null}
-    {step === 2 ? <div className="lct-pane lct-brief">
+    {step === 2 && gen ? <div className="lct-pane lct-brief" data-testid="lct-gsetup">
+      <section className="lct-pane"><h4 className="lct-h">🎯 WHAT IS IT FOR?</h4>
+        <nav className="m-seg" role="tablist" aria-label="Kind of job">{JOB_GROUPS.map(([k, l]) => <button key={k} type="button" role="tab" aria-selected={jobTab === k} className={jobTab === k ? 'active' : ''} onClick={() => setJobTab(k)} data-testid={`lct-jobtab-${k}`}>{l}</button>)}</nav>
+        <div className="lct-modes lct-jobs">{(d?.personas?.general || []).filter(p => (JOB_GROUPS.find(g => g[0] === jobTab)?.[2] || []).includes(p.key)).map((p, i) => <button key={p.key} type="button" className={persona === p.key ? 'is-on' : ''} style={{ '--i': i }}
+          onClick={() => { setPersona(p.key); setPrompt(briefFor(p, 'general', workMode, picked.length < 2)); }} data-testid={`lct-job-${p.key}`}><b>{p.label}</b><small>{p.brief}</small></button>)}</div></section>
+      <div className="lct-gid">
+        <label className="cct-field"><span>Name</span><input className="m-input" maxLength={24} value={form.name} onChange={e => update('name', e.target.value)} placeholder="e.g. Scout" data-testid="lct-name" /></label>
+        <span className="lct-gbody" data-tip="Its body is the agent you built in 🎨 Build an agent"><BodyPreview /><small>its body · change it in 🎨 Build an agent</small></span>
+        <div className="lct-gcap"><span>MOST IT MAY SPEND ON ONE TASK</span><div className="m-seg" role="radiogroup" aria-label="Spend cap per task">{[0.02, 0.05, 0.25, 1].map(c => <button key={c} type="button" role="radio" aria-checked={taskCap === c} className={taskCap === c ? 'active' : ''} onClick={() => setTaskCap(c)} data-testid={`lct-cap-${c}`}>${c}</button>)}</div></div>
+      </div>
+      <label className="lct-seal lct-gbrief"><span><b>📜 ITS BRIEF · BOTH MINDS</b><em>you can change it once an hour after launch — or let its minds propose a better one</em></span>
+        <textarea className="m-input" rows={7} maxLength={1200} value={prompt} onChange={e => setPrompt(e.target.value)} placeholder="Pick a job above — its brief is written for both minds — or write your own." data-testid="lct-prompt" />
+        <i className="lct-len" aria-hidden="true"><u style={{ transform: `scaleX(${Math.max(0.01, prompt.length / 1200)})` }} /></i><small>{prompt.length} / 1200</small></label>
+    </div> : null}
+    {step === 2 && !gen ? <div className="lct-pane lct-brief">
       {Fields ? <div className="cct-split lct-ident">{<Fields form={form} update={update} />}{Preview ? <aside className="cct-preview m-live" data-testid="lct-preview"><Preview form={form} /></aside> : null}</div> : <>
         <label>Cat name<input className="m-input" maxLength={24} value={form.name} onChange={e => update('name', e.target.value)} placeholder="Midnight Prowler" data-testid="lct-name" /></label>
         <label>Starting paper balance · SOL<NumInput className="m-input" value={form.startingBalanceSol} onChange={e => update('startingBalanceSol', e.target.value)} /></label></>}
-      <label>Character<select className="m-input" aria-label="Cat character" value={persona} onChange={e => { setPersona(e.target.value); setPrompt((d?.personas?.[kind] || []).find(p => p.key === e.target.value)?.brief || ''); }}><option value="">Custom brief</option>{(d?.personas?.[kind] || []).map(p => <option key={p.key} value={p.key}>{p.label}</option>)}</select></label>
-      <label className="lct-seal"><span><b>{K.brief}</b><em>{gen ? 'sealed for life — its minds read it on every step of every task; it can never be changed' : 'sealed for life — both brains read it before every call; it can never be changed'}</em></span>
+      <label>Character<select className="m-input" aria-label="Cat character" value={persona} onChange={e => { setPersona(e.target.value); const p = (d?.personas?.[kind] || []).find(x => x.key === e.target.value); setPrompt(p ? briefFor(p, 'trading', mode, picked.length < 2) : ''); }}><option value="">Custom brief</option>{(d?.personas?.[kind] || []).map(p => <option key={p.key} value={p.key}>{p.label}</option>)}</select></label>
+      <label className="lct-seal"><span><b>{K.brief}</b><em>sealed at launch — both brains read it before every call; it can't be changed after</em></span>
         <textarea className="m-input" rows={6} maxLength={1200} value={prompt} onChange={e => setPrompt(e.target.value)} placeholder={K.hint} data-testid="lct-prompt" />
         <i className="lct-len" aria-hidden="true"><u style={{ transform: `scaleX(${Math.max(0.01, prompt.length / 1200)})` }} /></i><small>{prompt.length} / 1200</small></label>
     </div> : null}

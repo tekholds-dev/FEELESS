@@ -21,9 +21,9 @@
 .agd-bar { display: flex; align-items: center; gap: 6px; min-width: 0; padding: 6px 9px; background: linear-gradient(90deg, #b388ff1c, transparent); border-bottom: 1px solid #ffffff10; }
 .agd-win.w1 .agd-bar { background: linear-gradient(90deg, #ff5dbb1c, transparent); }
 .agd-bar > i { width: 7px; height: 7px; border-radius: 50%; background: #ffffff22; flex: none; } .agd-bar > i:first-child { background: #ff8fa3aa; }
-.agd-bar b { color: #fff; font: 800 10px var(--f-tech, 'Chakra Petch', sans-serif); letter-spacing: .12em; margin-left: 4px; }
-.agd-bar small { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #c9bce6; font: 600 10px var(--f-mono, monospace); }
-.agd-live { margin-left: auto; color: var(--al); font: 800 9px var(--f-mono, monospace); letter-spacing: .1em; font-style: normal; animation: agdBlink 1.6s ease-in-out infinite; }
+.agd-bar b { flex: none; white-space: nowrap; color: #fff; font: 800 10px var(--f-tech, 'Chakra Petch', sans-serif); letter-spacing: .12em; margin-left: 4px; }
+.agd-bar small { flex: 1 1 0; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #c9bce6; font: 600 10px var(--f-mono, monospace); }
+.agd-live { flex: none; margin-left: auto; padding-right: 2px; white-space: nowrap; color: var(--al); font: 800 9px var(--f-mono, monospace); letter-spacing: .1em; font-style: normal; animation: agdBlink 1.6s ease-in-out infinite; }
 /* 📈 the drawn chart */
 .agd-chart { display: block; width: 100%; height: 100%; min-height: 136px; }
 .agd-grid { stroke: #ffffff0d; stroke-width: .5; } .agd-floor { stroke: #9dffcf; stroke-width: .8; stroke-dasharray: 3 3; opacity: .75; }
@@ -66,7 +66,7 @@
 .agd-feed li { padding: 5px 11px; border-radius: 10px; background: #07040ee8; border: 1px solid #9dffcf33; color: #e9fff4; font: 600 11px var(--f-ui, sans-serif);
   box-shadow: 0 8px 20px -10px #000, 0 0 16px -8px #9dffcf; animation: agdFeed .4s cubic-bezier(.2, .9, .3, 1.2) both; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .agd-feed li:not(:last-child) { opacity: .55; transform: scale(.97); animation: none; }
-.agd.is-trading .agd-wins { padding-bottom: 66px; } .agd.is-general .agd-wins { padding-bottom: 66px; }
+.agd.is-trading .agd-wins, .agd.is-general .agd-wins { padding-bottom: 96px; }
 @keyframes agdDrift { to { transform: translate3d(22px, 38px, 0); } }
 @keyframes agdScan { 0% { transform: translateY(-100%); } 100% { transform: translateY(260%); } }
 @keyframes agdIn { from { opacity: 0; transform: translateY(10px) scale(.97); } to { opacity: 1; transform: none; } }
@@ -79,7 +79,7 @@ body.theme-day .agd { background: radial-gradient(80% 90% at 0% 100%, #ece2ff 0%
 body.theme-day .agd-win { background: #120a22; } body.theme-day .agd-tag { background: #fff; color: #0c6a44; border-color: #0c8a4555; text-shadow: none; }
 body.theme-day .agd-feed li { background: #fff; color: #2a1650; border-color: #7c4dff33; }
 @media (max-width: 640px) { .agd { padding: 10px; } .agd-wins { grid-template-columns: 1fr; } .agd-win { min-height: 140px; } .agd-feed { width: 92%; }
-  .agd.is-trading .agd-wins, .agd.is-general .agd-wins { padding-bottom: 70px; } }
+  .agd.is-trading .agd-wins, .agd.is-general .agd-wins { padding-bottom: 100px; } }
 
 /* 📈 WHERE IT TRADES (FEELESS rails only) + 🔐 the API drawer — LaunchCat step 2 / 4 and a trading cat's brain panel */
 .akv { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 10px; border-radius: 14px; border: 1px solid #9dffcf2a; background: linear-gradient(90deg, #9dffcf0d, transparent 70%); }
@@ -121,15 +121,15 @@ body.theme-day .akv-h b, body.theme-day .akd-have code { color: #0c6a44; } body.
 .agl-mind b { margin-top: 8px; color: #fff; font: 700 12px var(--f-ui, sans-serif); max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .agl-mind small { color: #c9bce6; font: 700 9px var(--f-mono, monospace); letter-spacing: .1em; text-transform: uppercase; }
 .agl-mind.is-empty { opacity: .5; }
-.agl-plot { position: relative; min-height: 220px; } .agl-plot > * { height: 100%; }
-.agl-ghost { position: relative; display: grid; min-height: 220px; } .agl-ghost .agd-chart { opacity: .45; }
+.agl-plot { position: relative; height: 176px; overflow: hidden; } .agl-plot > * { height: 100%; }   /* owner 2026-10-30: smaller windows */
+.agl-ghost { position: relative; display: grid; height: 176px; background: repeating-linear-gradient(0deg, transparent 0 29px, #ffffff08 29px 30px); }
 .agl-ghost span { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); padding: 4px 10px; border-radius: 999px; background: #07040ee0; border: 1px solid #9dffcf44;
   color: #9dffcf; font: 800 9.5px var(--f-mono, monospace); letter-spacing: .12em; white-space: nowrap; }
-.agl .agd-wins { padding-bottom: 0; }
+.agl.agd .agd-wins { padding-bottom: 0; }
 .agl .agd-feed { position: relative; left: auto; bottom: auto; width: 100%; transform: none; }   /* the windows keep their own space — its calls sit under them */
-.agl-load { display: grid; place-items: center; min-height: 220px; color: #9d8fbf; font: 700 10px var(--f-mono, monospace); letter-spacing: .12em; text-transform: uppercase; }
+.agl-load { display: grid; place-items: center; height: 100%; color: #9d8fbf; font: 700 10px var(--f-mono, monospace); letter-spacing: .12em; text-transform: uppercase; }
 body.theme-day .agl-mind b { color: #2a1650; } body.theme-day .agl-mind small { color: #4a3a6a; }
-@media (max-width: 640px) { .agl-plot, .agl-ghost { min-height: 180px; } }
+@media (max-width: 640px) { .agl-plot, .agl-ghost { height: 150px; } }
 
 /* ☁ the head cloud between the two minds — fills and glows once both agree; a beam from each bubble feeds it */
 .agl-minds.has-cloud { align-items: center; gap: clamp(14px, 4vw, 48px); }

@@ -96,7 +96,8 @@ test('🧭 a General cat takes orders in plain words: examples fill the box, eac
 test('🧭 the General wizard: real prices on every model + an ABOUT dropdown, its 3 job categories first, how the minds work (no trading modes), true signing words', async () => {
   const { signWord, mono } = require('./LaunchCat');
   const G = { ...CAT, models: [M('a/agent', { perTask: 0.0123, inUsd: 0.5, outUsd: 1.5, cats: ['agent'], desc: 'Drives tools over long tasks.' }), M('b/writer', { perTask: 0.002, cats: ['content'] })],
-    rec: [], cats: [{ key: 'meta', label: '👁 Meta', why: '', n: 0 }, { key: 'agent', label: '🌐 Agent', why: '', n: 1, general: true }, { key: 'content', label: '✍ Content', why: '', n: 1, general: true }, { key: 'code', label: '💻 Code', why: '', n: 0, general: true }] };
+    rec: [], cats: [{ key: 'meta', label: '👁 Meta', why: '', n: 0 }, { key: 'agent', label: '🌐 Agent', why: '', n: 1, general: true }, { key: 'content', label: '✍ Content', why: '', n: 1, general: true }, { key: 'code', label: '💻 Code', why: '', n: 0, general: true }],
+    personas: { general: [{ key: 'researcher', label: '🔎 Researcher', job: 'research', brief: 'Research any topic deeply and cite every source you use.' }] } };
   const posted = []; const api = jest.fn((u, o) => { if (o) { posted.push(JSON.parse(o.body)); return Promise.resolve({ cat: { id: 'g1' } }); } return Promise.resolve(G); });
   const el = document.createElement('div'); const root = createRoot(el);
   await act(async () => { root.render(<LaunchCat api={api} ownerId={() => 'o'} kind="general" />); });
@@ -110,11 +111,15 @@ test('🧭 the General wizard: real prices on every model + an ABOUT dropdown, i
   expect([...el.querySelectorAll('.lct-mind strong')].map(s => s.textContent)).toEqual(['a/agent', 'b/writer']); expect($('.lct-mind em').textContent).toContain('LEADS');
   expect($('.lct-foot').textContent).toContain('≈ $0.0072 a task');
   click('[data-testid="lct-next"]'); act(() => { const i = $('[data-testid="lct-name"]'); Object.getOwnPropertyDescriptor(Object.getPrototypeOf(i), 'value').set.call(i, 'Scout'); i.dispatchEvent(new Event('input', { bubbles: true })); });
+  expect($('[data-testid="lct-gsetup"]').textContent).not.toMatch(/paper|daily loss|max position|sealed for life/i);   // FC10: no trader fields
+  click('[data-testid="lct-job-researcher"]'); const brief = $('[data-testid="lct-prompt"]').value;
+  expect(brief).toContain('cite every source'); expect(brief).toContain('HOW YOU TWO WORK'); expect(brief).toContain('RULES');   // generator: job + both minds + rules
+  click('[data-testid="lct-cap-0.25"]');
   click('[data-testid="lct-next"]');
   expect($('[data-testid="lct-bill-profit"]')).toBeNull(); expect($('[data-testid="lct-next-real"]').textContent).toContain('it checks with you');
   expect(el.textContent).not.toMatch(/you sign every trade|your wallet signs every/i);
   await act(async () => { $('[data-testid="lct-launch"]').click(); });
-  expect(posted[0]).toMatchObject({ brainKind: 'general', billing: 'payg', brainMode: 'turns' });
+  expect(posted[0]).toMatchObject({ brainKind: 'general', billing: 'payg', brainMode: 'turns', taskCap: 0.25, job: 'research' });
   expect(signWord({ agentWallet: { mode: 'auto' } })).toContain('no signing'); expect(signWord({ agentWallet: { mode: 'approve' } })).toContain('one tap'); expect(signWord({})).toContain('your wallet signs');
   expect(mono({ provider: 'nvidia' })).toBe('NV');
   act(() => root.unmount());
