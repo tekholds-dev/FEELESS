@@ -95,4 +95,14 @@ body.theme-day .fcx-star { display: none; }
    every background off = 58 fps. One sky here, held still; the page stays alive through its live numbers, the cat and the charts. */
 body.fcx-on :is(.ambient-background, .ambient-flakes, .ambient-scanline, .mouse-glow, .pgb) { display: none; }
 body.fcx-on :is(.fcx-aur, .fcx-star) { animation: none; }
+/* 🧭 the nav always gets the whole row (scan 2026-10-30: beside the brand + live chips it got 124 px of the 960 it needs, hiding AGENTS + BUILD at laptop width with the sidebar open) */
+.fcx { font-family: var(--f-ui, 'Sora', sans-serif); }
+.fcx-bar { display: flex; flex-wrap: wrap; } .fcx-live { margin-left: auto; min-width: 0; }
+.fcx-nav { order: 3; flex: 1 0 100%; container-type: inline-size; }
+@container (max-width: 900px) { .fcx-nav a { flex: 1 1 0; min-width: 0; justify-content: center; padding: 5px 8px; } .fcx-nav a small { display: none; } }
+@container (max-width: 640px) { .fcx-nav a { gap: 4px; padding: 5px 6px; } .fcx-nav a b { letter-spacing: .06em; } }
+@container (max-width: 520px) { .fcx-nav a { flex: 1 0 auto; } }
+/* every control a real hit area */
+.fcx :is(.soc-x, .soc-tg, .soc-site, .share-gif) { position: relative; } .fcx :is(.soc-x, .soc-tg, .soc-site, .share-gif)::after { content: ''; position: absolute; inset: -7px; }
+.fcx :is(.chart-tools-btn, .chart-fee-toggle, .chart-style-toggle) { min-height: 32px; } .fcx details > summary { min-height: 32px; display: flex; align-items: center; }
 

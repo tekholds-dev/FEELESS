@@ -22,7 +22,7 @@
 .kd-state { justify-self: start; display: inline-flex; align-items: center; gap: 6px; min-height: 26px; padding: 0 10px; border-radius: 999px; border: 1px solid #b388ff44; background: #0a0614;
   font: 800 9.5px 'JetBrains Mono', monospace; letter-spacing: .14em; color: #e9dcff; }
 .kd-state i { width: 7px; height: 7px; border-radius: 50%; background: #6d5a96; } .kd-state.is-on i { background: #45e486; box-shadow: 0 0 8px #45e486; animation: kdBlink 1.6s ease-in-out infinite; }
-.kd-id h1 { margin: 0; display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; font: 900 30px/1.05 'Outfit', system-ui, sans-serif; color: #fff; text-shadow: 0 0 22px #b388ff66; }
+.kd-id h1 { margin: 0; display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; font: 900 30px/1.05 var(--f-display, 'Unbounded'), system-ui, sans-serif; color: #fff; text-shadow: 0 0 22px #b388ff66; }
 .kd-id h1 small { font: 700 12px 'JetBrains Mono', monospace; color: #c9a8ff; }
 .kd-line { margin: 0; font: 600 11px 'JetBrains Mono', monospace; color: #c9bce6; }
 .kd-xp { display: grid; grid-template-columns: auto minmax(60px, 220px) auto; gap: 8px; align-items: center; }
@@ -123,3 +123,4 @@ body.theme-day .kd-acts button { color: #2a1650; } body.theme-day .kd-back, body
 .kd-lim-box .m-input:focus-visible { outline: 2px solid var(--kd-acc, #b388ff); outline-offset: 1px; }
 body.theme-day .kd-lim-box { color: #2a1650; }
 @media (max-width: 640px) { .kd-lim-box .m-input { width: 76px; } }
+.kd { font-family: var(--f-ui, 'Sora', sans-serif); }

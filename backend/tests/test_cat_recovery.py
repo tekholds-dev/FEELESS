@@ -219,3 +219,23 @@ def test_a_wallet_may_add_fee_settings_but_can_never_change_or_add_a_money_move(
             cf.verify(_sign(kp, MessageV0.try_compile(me, cu + ixs, [], bh)), built, str(me))
     other = Hash.from_string('4vJ9JU1bJJE96FWSJKvHsmmFADCg4gpZQff4P3bkLKi')
     assert cf.verify(_sign(kp, MessageV0.try_compile(me, cu + legs, [], other)), built, str(me))   # a refreshed blockhash moves no money
+
+
+def test_a_plain_words_reply_is_still_the_answer_and_an_empty_provider_stops_with_the_reason():
+    import asyncio
+    import cat_agent as ca
+
+    class Page:
+        url = ''; title = ''
+    task = ca.new_task('t', 'x', ['a'], 1.0)
+    w = task['windows'][0]; w['goal'] = 'x'
+    async def plain(_m, _msgs):
+        return '4', 0.001
+    asyncio.run(ca._window(task, w, plain, Page(), None, 'a'))
+    assert w['answer'] == '4'
+    async def out(_m, _msgs):
+        raise ca.Stopped('out of credit')
+    w2 = ca.new_task('t2', 'x', ['a'], 1.0)
+    w2['windows'][0]['goal'] = 'x'
+    with pytest.raises(ca.Stopped, match='out of credit'):
+        asyncio.run(ca._window(w2, w2['windows'][0], out, Page(), None, 'a'))

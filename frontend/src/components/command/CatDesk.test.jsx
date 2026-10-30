@@ -48,3 +48,15 @@ test('🐱 Fee on her desk: the creator gets her tools, never a button the serve
   expect(el.textContent).toContain('VIEWING'); expect(el.textContent).not.toContain('YOUR CAT');
   act(() => root.unmount());
 });
+
+test('💵 a general agent with a wallet shows its real wallet, credit and coins, never the paper tiles', async () => {
+  globalThis.fetch = jest.fn(async () => ({ ok: true, json: async () => ({ balance: { sol: 0.0266, usdc: 0 } }) }));
+  const gen = { ...CAT, brainsCfg: { kind: 'general', brains: ['a/x'], brainMode: 'turns', credit: 12.5, spent: 0.5 }, agentWallet: { address: 'R'.repeat(44), mode: 'approve' }, realHeld: { M1: { symbol: 'JUP', pair: 'P1' } }, agentTx: [{ status: 'success' }, { status: 'failed' }] };
+  const el = document.createElement('div'); document.body.appendChild(el); const root = createRoot(el);
+  await act(async () => { root.render(<CatDesk cat={gen} canEdit onBack={() => {}} onAct={() => {}} />); });
+  await act(async () => { await new Promise(r => setTimeout(r, 0)); });
+  const q = id => el.querySelector(`[data-testid="${id}"]`);
+  expect(q('kd-real-tiles').textContent).toContain('0.0266 SOL'); expect(q('kd-real-tiles').textContent).toContain('$12.50');
+  expect(q('kd-real-holds').textContent).toContain('$JUP'); expect(q('kd-wallet').textContent).toContain('ITS WALLET'); expect(q('kd-curve')).toBeNull(); expect(el.textContent).not.toContain('PAPER WALLET');
+  act(() => root.unmount());
+});

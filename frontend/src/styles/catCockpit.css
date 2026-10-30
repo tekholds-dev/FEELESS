@@ -35,7 +35,7 @@
 .ck-rows li { --i: 0; display: grid; grid-template-columns: 22px minmax(0, 1fr) auto; gap: 8px; align-items: baseline; padding: 6px 10px; border-radius: 10px; background: #ffffff05; border-left: 3px solid #ffffff1a;
   animation: ckIn .25s both; animation-delay: calc(var(--i) * 25ms); }
 .ck-rows li.is-up { border-left-color: #45e486; } .ck-rows li.is-dn { border-left-color: #ff5d7a; } .ck-rows li.is-warn { border-left-color: #f5c542; } .ck-rows li.is-acc { border-left-color: var(--kd-acc, #b388ff); }
-.ck-rows i { font-style: normal; } .ck-rows span { color: #e3d9fb; font: 500 12px/1.4 var(--f-ui); overflow-wrap: anywhere; } .ck-rows small { color: #8f84ad; font: 600 9.5px var(--f-mono); }
+.ck-rows li.ck-empty { display: block; } .ck-rows i { font-style: normal; } .ck-rows span { color: #e3d9fb; font: 500 12px/1.4 var(--f-ui); overflow-wrap: anywhere; } .ck-rows small { color: #8f84ad; font: 600 9.5px var(--f-mono); }
 /* 🎨 desk skin picker */
 .ck-skin { position: relative; } .ck-skin summary { display: inline-flex; align-items: center; gap: 6px; min-height: 34px; padding: 4px 12px; border-radius: 11px; cursor: pointer; list-style: none;
   border: 1px solid #ffffff1a; background: #ffffff08; color: #fff; font: 800 10.5px var(--f-mono); letter-spacing: .1em; } .ck-skin summary::-webkit-details-marker { display: none; }

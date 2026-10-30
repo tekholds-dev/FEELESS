@@ -1,4 +1,5 @@
 import { CatWorkbench } from './CatWorkbench';
+import { useAgentWallet } from './CatReal';
 import { FeeLiveTab } from './FeeLiveTab';
 import { AgentLive, HeadCloud, asModel, catMinds, catCoins } from './AgentLive';
 import { MindVitals, TradeChat, AgentLog, catLogItems, useCatEvents, useDeskSkin, DeskBackdrop, SkinPicker } from './CatCockpit';
@@ -137,7 +138,10 @@ export function CatDesk({ cat, busy = false, error = '', onBack, onAct, Activity
   const learn = cat.learn?.params || {}; const lessons = (cat.learn?.log || []).slice(-3).reverse();
   const xpNext = 100 * (cat.level || 1); const xpFill = Math.min(1, (Number(cat.xp) || 0) / xpNext);
   const state = cat.revoked ? ['REVOKED', 'off'] : cat.status === 'running' ? [v.open ? `HOLDING ${v.open}` : 'HUNTING', 'on'] : ['STOPPED', 'off'];
-  const copy = async () => { try { await navigator.clipboard.writeText(cat.wallet); setCopied(true); setTimeout(() => setCopied(false), 1500); } catch { /* blocked */ } };
+  const aw = cat.agentWallet; const gen = cat.brainsCfg?.kind === 'general'; const bal = useAgentWallet(cat.id, !!aw)?.balance || {};   // 💵 a real agent's desk shows its real wallet, never paper numbers
+  const today = new Date().toISOString().slice(0, 10); const credit = Number(cat.brainsCfg?.credit ?? 0); const spentAll = Number(cat.brainsCfg?.spent || 0); const spentDay = Number(cat.brainsCfg?.daySpend?.[today] || 0); const dayCap = Number(cat.limits?.dayUsd || 0);
+  const realCoins = Object.entries(cat.realHeld || {}); const realTrades = (cat.agentTx || []).filter(t => t.status === 'success').length;
+  const copy = async () => { try { await navigator.clipboard.writeText(aw?.address || cat.wallet); setCopied(true); setTimeout(() => setCopied(false), 1500); } catch { /* blocked */ } };
   const { wallet, signMessage } = useWallet() || {};
   const saveSkin = async sk => { if (!canEdit) return; const look = { bg: sk.bg, acc: sk.acc };   // Fee's look is the creator's signed change; any other agent's, its owner's
     try { if (cat.isLeader) { const address = wallet?.address; if (!address) return; onAct('skin', { look, address, session: await getChatSession(address, signMessage, { own: true }) }); } else onAct('skin', { look }); } catch { /* declined */ } };
@@ -151,7 +155,7 @@ export function CatDesk({ cat, busy = false, error = '', onBack, onAct, Activity
         <h1>{cat.name}<small>@{cat.handle}</small></h1>
         <p className="kd-line">{cat.brainsCfg ? `🧠 ${cat.brainsCfg.brains.map(x => x.split('/').pop()).join(' + ')} · ${cat.brainsCfg.brainMode}` : `⚙ ${cat.strategyLabel || 'Rule trader'} · the Leader's engine`}</p>
         <div className="kd-xp" data-tip={`Level ${cat.level || 1} · ${cat.xp || 0} / ${xpNext} XP — closed trades earn XP`}><b>LVL {cat.level || 1}</b><u><s style={{ transform: `scaleX(${Math.max(0.02, xpFill)})` }} /></u><small>{cat.xp || 0} XP</small></div>
-        <button type="button" className="kd-wallet" onClick={copy} data-tip="Its paper wallet id — no keys, no real SOL" data-testid="kd-wallet"><span>PAPER WALLET</span><b>{short(cat.wallet)}</b><Copy size={12} />{copied ? <em>copied</em> : null}</button>
+        <button type="button" className="kd-wallet" onClick={copy} data-tip={aw ? 'Its real wallet address' : 'Its paper wallet id — no keys, no real SOL'} data-testid="kd-wallet"><span>{aw ? 'ITS WALLET' : 'PAPER WALLET'}</span><b>{short(aw?.address || cat.wallet)}</b><Copy size={12} />{copied ? <em>copied</em> : null}</button>
         {Engine}
       </div>
       <div className="kd-acts m-seg" role="group" aria-label="Run the agent">
@@ -163,7 +167,13 @@ export function CatDesk({ cat, busy = false, error = '', onBack, onAct, Activity
       </div>
     </header>
     {error ? <p className="kd-err" role="alert">⚠ {error}</p> : null}
-    <div className="kd-tiles">
+    {gen ? <div className="kd-tiles" data-testid="kd-real-tiles">
+      <Tile k={0} label="IN ITS WALLET" value={`${bal.sol == null ? '…' : Number(bal.sol).toFixed(4)} SOL`} sub={`${bal.usdc == null ? '…' : Number(bal.usdc).toFixed(2)} USDC`} tip={aw ? 'Live from the chain, every 20 seconds' : 'Make its wallet to fund it'} />
+      <Tile k={1} label="MODEL CREDIT" value={`$${credit.toFixed(2)}`} fill={credit / Math.max(0.01, credit + spentAll)} sub={`$${spentAll.toFixed(2)} used`} tip="Pays for its thinking; add more in its funding panel" />
+      <Tile k={2} label="SPENT TODAY" value={`$${spentDay.toFixed(2)}${dayCap ? ` / $${dayCap}` : ''}`} fill={dayCap ? spentDay / dayCap : null} tone={dayCap && spentDay >= dayCap ? 'dn' : ''} sub={dayCap ? 'its daily limit' : 'no daily limit set'} tip="Model credit spent today" />
+      <Tile k={3} label="REAL TRADES" value={String(realTrades)} sub="sent from its wallet" tip="Trades that landed on-chain from its own wallet" />
+      <Tile k={4} label="COINS HELD" value={String(realCoins.length)} sub="in its wallet" tip="Coins it really bought and still holds" />
+    </div> : <div className="kd-tiles">
       <Tile k={0} label="BALANCE" value={`${v.bal.toFixed(3)} SOL`} fill={v.bal / (v.start * 1.5)} sub={`started ${v.start} SOL`} tip="Its paper balance against what it started with" />
       <Tile k={1} label="REALIZED" value={`${sol(v.real)} SOL`} tone={v.real > 0 ? 'up' : v.real < 0 ? 'dn' : ''} sub="price moves · fees apart" tip="Closed trades only — P&L never includes fees" />
       <div className="kd-tile kd-ring" style={{ '--i': 2 }} data-tip={`${cat.wins || 0} won · ${cat.losses || 0} lost`}><svg viewBox="0 0 56 56" aria-hidden="true"><circle className="t" cx="28" cy="28" r="24" />
@@ -171,21 +181,23 @@ export function CatDesk({ cat, busy = false, error = '', onBack, onAct, Activity
       <Tile k={3} label="SLOTS" value={`${v.open}/${v.slots}`} tip="Open paper positions out of the most it may hold"><span className="kd-slots">{Array.from({ length: v.slots }, (_, i) => <i key={i} className={i < v.open ? 'on' : ''} />)}</span></Tile>
       <Tile k={4} label="TODAY'S LOSS" value={`${v.lossToday.toFixed(3)} / ${v.cap || '—'} SOL`} fill={v.capUsed} tone={v.capUsed >= 1 ? 'dn' : v.capUsed > 0.6 ? 'warn' : ''}
         sub={v.capUsed >= 1 ? 'cap hit — no new buys today' : 'its daily loss cap'} tip="Losses closed today against the cap you set — at the cap it stops buying until tomorrow" />
-    </div>
+    </div>}
     {cat.brainsCfg ? <LiveMinds cat={cat} onAct={onAct} busy={busy} canEdit={canEdit} /> : <RuleWindows cat={cat} />}
     <div className={`kd-grid${runs ? "" : " is-solo"}`}>
       <div className="kd-main">
         {Real}
-        <section className="kd-card kd-curve" data-testid="kd-curve"><header><b>📈 P/L CURVE</b><small>{(cat.pnlHistory || []).length} cycles · realized + open</small></header>
+        {gen ? null :         <section className="kd-card kd-curve" data-testid="kd-curve"><header><b>📈 P/L CURVE</b><small>{(cat.pnlHistory || []).length} cycles · realized + open</small></header>
           <svg viewBox="0 0 100 40" preserveAspectRatio="none" className={cv.up ? 'up' : 'dn'} aria-label="Profit and loss over its cycles"><defs><linearGradient id="kdArea" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stopColor="currentColor" stopOpacity=".35" /><stop offset="1" stopColor="currentColor" stopOpacity="0" /></linearGradient></defs>
             <line x1="0" x2="100" y1={cv.zero} y2={cv.zero} className="z" /><path d={cv.area} fill="url(#kdArea)" /><path d={cv.line} className="l" /></svg>
-          <footer><span>START</span><b className={`m-num ${v.total >= 0 ? 'm-pos' : 'm-neg'}`}>{sol(v.total)} SOL</b><span>NOW</span></footer></section>
-        <section className="kd-card"><header><b>🎯 WHAT IT HOLDS</b><small>{v.open ? 'tap a coin for its war room' : 'nothing open'}</small></header>
+          <footer><span>START</span><b className={`m-num ${v.total >= 0 ? 'm-pos' : 'm-neg'}`}>{sol(v.total)} SOL</b><span>NOW</span></footer></section>}
+        {gen ? <section className="kd-card" data-testid="kd-real-holds"><header><b>🎯 WHAT IT HOLDS</b><small>{realCoins.length ? 'tap a coin for its war room' : 'nothing yet'}</small></header>
+          {realCoins.length ? <ul className="kd-pos">{realCoins.map(([mint, c], i) => <li key={mint} style={{ '--i': i }}><button type="button" onClick={() => c.pair && openWarRoom({ chainId: 'solana', pairAddress: c.pair, baseToken: { address: mint, symbol: c.symbol } })} data-tip="Open its war room"><b>${c.symbol}</b><small>in its wallet</small></button></li>)}</ul>
+            : <p className="kd-empty">Nothing held. It buys only what you order.</p>}</section> : <section className="kd-card"><header><b>🎯 WHAT IT HOLDS</b><small>{v.open ? 'tap a coin for its war room' : 'nothing open'}</small></header>
           {v.open ? <ul className="kd-pos">{cat.positions.map((p, i) => { const ch = Number(p.currentChange) || 0; const held = p.openedAt ? Math.max(1, Math.round((Date.now() / 1000 - p.openedAt) / 60)) : null;
             return <li key={p.pairAddress || p.mint || i} style={{ '--i': i }}><button type="button" onClick={() => p.pairAddress && openWarRoom({ chainId: 'solana', pairAddress: p.pairAddress, baseToken: { address: p.mint, symbol: p.symbol } })}
               data-testid={`kd-pos-${i}`} data-tip={p.reason || 'Open its war room'}><b>${p.symbol}</b><small>{held ? `${held}m held · ` : ''}{Number(p.costSol || p.notionalSol || 0).toFixed(3)} SOL in</small>
               <span className={`kd-move ${ch >= 0 ? 'up' : 'dn'}`}><i><u style={{ transform: `scaleX(${Math.min(1, Math.abs(ch) / 50)})` }} /></i><em className="m-num">{ch >= 0 ? '+' : ''}{ch.toFixed(1)}%</em></span></button></li>; })}</ul>
-            : <p className="kd-empty">{cat.status === 'running' ? 'Hunting — it buys only what passes every rule.' : 'Stopped — start it to hunt again.'}</p>}</section>
+            : <p className="kd-empty">{cat.status === 'running' ? 'Hunting — it buys only what passes every rule.' : 'Stopped — start it to hunt again.'}</p>}</section>}
         {Brains}
         {Object.keys(learn).length || lessons.length ? <section className="kd-card"><header><b>📚 WHAT IT LEARNED</b><small>from its own exits</small></header>
           <div className="kd-learn">{Object.entries(learn).map(([k, x]) => <span key={k}><em>{k === 'runnerTrail' ? 'RUNNER TRAIL' : k === 'takeProfit1' ? 'FIRST TAKE' : k.toUpperCase()}</em><b className="m-num">{x}%</b></span>)}</div>

@@ -137,11 +137,12 @@ async def _window(task, w, ask, page, wait_human, name, feeless=None):
         extra = (f"\nYOUR CLOUD (your notes from earlier tasks): {' | '.join(mine)[:600]}" if mine else '') + (f"\nFROM YOUR PARTNER: {' | '.join(got)[:900]}" if got else '')
         msgs = [{'role': 'system', 'content': RULES + '\nEnabled tools: ' + str(task.get('tools', {})) + '\n' + ACT_SYS.format(name=name, goal=w['goal'], steps=n_max) + extra},
                 {'role': 'user', 'content': f"URL: {page.url or '(blank)'}\nTITLE: {page.title or ''}\nPAGE:\n{seen[:READ_MAX]}"}]
-        a = parse_json(await _ask(task, w, ask, w['model'], msgs))
+        raw = await _ask(task, w, ask, w['model'], msgs)
+        a = parse_json(raw)
         act = str(a.get('action') or '').lower()
         thought = str(a.get('thought') or '').strip()
         if act == 'answer' or not act:
-            w['answer'] = str(a.get('say') or thought or 'no answer')[:4000]
+            w['answer'] = str(a.get('say') or thought or str(raw or '').strip() or 'no answer')[:4000]   # a model that just answers in plain words still answers
             _step(w, thought or 'done', 'answer')
             break
         need = {'open': 'browse', 'search': 'browse', 'click': 'forms', 'type': 'forms', 'draft': 'storage', 'build': 'build'}.get(act)   # note = its own scratch pad, always on

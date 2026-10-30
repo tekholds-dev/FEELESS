@@ -862,6 +862,9 @@ async def _sort_cloud(cat_id, model):
     _save(store)
 
 
+_OR_LAST: dict = {}   # why the last model call came back empty, in plain words
+
+
 async def _or_call(model, messages, max_tokens=None, effort=None, key=None):
     """One decision from OpenRouter; returns (text, $ it cost). The cost is OpenRouter's own report, else the price list estimate.
     `key` = the cat owner's own OpenRouter key from its API drawer (they pay OpenRouter; FEELESS's key is not used)."""
@@ -870,7 +873,10 @@ async def _or_call(model, messages, max_tokens=None, effort=None, key=None):
         async with httpx.AsyncClient(timeout=40) as h:
             r = await h.post('https://openrouter.ai/api/v1/chat/completions', headers={'Authorization': f"Bearer {key or os.environ.get('OPENROUTER_API_KEY')}"},
                              json={'model': model, 'messages': messages, 'max_tokens': max_tokens or _lc.OUT_TOK, 'temperature': 0.2, **({'reasoning': {'effort': effort}} if effort else {}), 'usage': {'include': True}})
-        d = r.json() if r.status_code == 200 else {}
+        if r.status_code != 200:   # a refused call costs nothing and says why (it used to read as 'no answer' and bill the estimate)
+            _OR_LAST['err'] = 'The AI provider account is out of credit. Add credit at OpenRouter, then ask again. Nothing was charged.' if r.status_code == 402 else f'The AI provider refused the call ({r.status_code}). Nothing was charged.'
+            return '', 0.0
+        d = r.json()
         text = ((d.get('choices') or [{}])[0].get('message') or {}).get('content') or ''
         return text, float((d.get('usage') or {}).get('cost') or est)
     except Exception:
@@ -1469,7 +1475,11 @@ async def _work_run(cat_id, models, names, text, cap, brief='', efforts=None, ow
             orders = [{'role': 'system', 'content': f"Your owner's standing orders, sealed at launch — follow them on every step: {brief}"}] if brief else []
 
             async def ask(model, messages):   # 📜 the sealed brief rides every call (plan · each browsing step · merge)
-                return await _or_call(model, orders + messages, max_tokens=4096, **({'key': own_key} if own_key else {}), **({'effort': efforts[model]} if (efforts or {}).get(model) else {}))
+                _OR_LAST.pop('err', None)
+                text_, usd_ = await _or_call(model, orders + messages, max_tokens=4096, **({'key': own_key} if own_key else {}), **({'effort': efforts[model]} if (efforts or {}).get(model) else {}))
+                if not str(text_ or '').strip():
+                    raise _ca.Stopped(_OR_LAST.get('err') or 'The model returned nothing. Try again.')
+                return text_, usd_
 
             def cost_bound(model, messages):
                 row = next((m for m in ((_MODELS.get('rows') or {}).get('models') or []) if m['id'] == model), None)
