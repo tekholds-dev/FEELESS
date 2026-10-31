@@ -414,6 +414,6 @@ def test_an_agents_own_wallet_can_never_make_an_agent_or_launch_a_coin_on_feeles
     assert r.status_code == 403 and 'never creates another agent' in r.json()['detail']
     assert fs.agent_wallets(store) == {'AGENTWALLET1111'}
     rs = pytest.importorskip('reputation_service')
-    monkeypatch.setattr(rs, '_agent_wallets', lambda: {'AGENTWALLET1111'})
+    monkeypatch.setattr(rs, '_any_agent_wallets', lambda: {'AGENTWALLET1111'})
     r = TestClient(rs.app).post('/api/reputation/feeless-launch', json={'wallet': 'AGENTWALLET1111', 'mint': 'MINT', 'signature': None})
     assert r.status_code == 403 and 'never launches a coin on FEELESS' in r.json()['detail']

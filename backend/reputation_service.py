@@ -1319,7 +1319,7 @@ class FeelessLaunchPayload(BaseModel):
     profile: Optional[dict] = None  # {description, bannerUrl, website, twitter, telegram} from the launch form
 
 
-def _agent_wallets():
+def _any_agent_wallets():
     """🚫 Every AI agent's OWN wallet (feecats.json, parsed once per version). An agent may launch coins on any other site, but these
     wallets can never launch a coin or make an agent ON FEELESS (owner 2026-10-31: "hardcode that the general agents can't")."""
     store = _json_load(DATA_DIR / 'feecats.json', {})
@@ -1329,7 +1329,7 @@ def _agent_wallets():
 @app.post('/api/reputation/feeless-launch')
 async def register_feeless_launch(payload: FeelessLaunchPayload):
     """Tag a token as launched on FEELESS — only after the chain confirms this wallet created it."""
-    if payload.wallet in _agent_wallets():
+    if payload.wallet in _any_agent_wallets():
         raise HTTPException(403, 'An AI agent never launches a coin on FEELESS — on any other site it may.')
     creator = None
     if payload.signature and _re.match(r'^[1-9A-HJ-NP-Za-km-z]{64,90}$', payload.signature):

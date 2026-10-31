@@ -173,7 +173,7 @@ def test_let_it_go_queues_asks_runs_the_next_on_its_own_and_gives_a_long_step_bu
                              'brainsCfg': {'kind': 'general', 'brains': ['m/a', 'm/b'], 'credit': 1.0, 'billing': 'payg'}}}, 'events': []}
     monkeypatch.setattr(fs, '_load', lambda: store); monkeypatch.setattr(fs, '_save', lambda s: None); monkeypatch.setattr(fs, '_work_live', lambda: True)
     started = []
-    monkeypatch.setattr(fs, '_work_start', lambda cid, cat, text, to=None: started.append(text))
+    monkeypatch.setattr(fs, '_work_start', lambda cid, cat, text, to=None, files=None: started.append(text))
     c = TestClient(fs.app)
     fs._WORK['g1'] = {'task': ca.new_task('t', 'first', ['m/a'], 0.05), 'done': False, 'at': 1.0}
     assert c.post('/api/cats/g1/work', json={'op': 'ask', 'ownerId': 'b1', 'text': 'next'}).status_code == 409     # off: busy refuses

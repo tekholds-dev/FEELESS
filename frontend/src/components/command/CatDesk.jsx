@@ -10,6 +10,7 @@ import { getChatSession } from '../../lib/chatSession';
 import { ArrowLeft, Copy } from 'lucide-react';
 import NumInput from '../NumInput';
 import { LookAvatar } from './CatLook';
+import { downloadSvgPng } from '../../lib/svgPng';
 import { FeeCatMark } from '../FeeCatMark';
 import { catByName } from './catCoats';
 import { openWarRoom } from '../WarRoomHost';
@@ -149,6 +150,8 @@ export function CatDesk({ cat, busy = false, error = '', onBack, onAct, Activity
   return <section className={`kd has-skin${skin.bg !== 'night' ? ' is-glass' : ''}`} style={{ '--kd-acc': skin.acc }} data-testid="cat-desk"><DeskBackdrop bg={skin.bg} />
     <button type="button" className="kd-back" onClick={onBack} data-testid="kd-back" data-tip="Back to your agents"><ArrowLeft size={14} /> My agents</button>
     <header className="kd-hero">
+      <button type="button" className="kd-dl" onClick={e => downloadSvgPng(e.currentTarget.parentElement.querySelector('.kd-stage svg'), cat.name).catch(() => {})}
+        aria-label={`Download ${cat.name}'s picture`} data-tip={`Download ${cat.name}'s picture (PNG, 1024 px) — e.g. for its coin or socials`} data-testid="kd-dl"><i aria-hidden="true" /></button>
       <div className="kd-stage" aria-hidden="true"><i className="kd-spot" /><i className="kd-floor" />{cat.isLeader ? <FeeCatMark full size={170} gesture={v.mood} /> : <LookAvatar cat={catByName(cat.avatar)} look={cat.look} full size={170} large gesture={v.mood} />}</div>
       <div className="kd-id">
         <span className={`kd-state is-${state[1]}`} data-testid="kd-state"><i />{state[0]}</span>

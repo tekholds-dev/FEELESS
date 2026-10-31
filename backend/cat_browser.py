@@ -194,6 +194,9 @@ class ReaderPage:
     async def type(self, label, value):
         return '(the reader cannot type into forms — this needs a live browser window)'
 
+    async def upload(self, label, f):
+        return '(the reader cannot upload files — this needs a live browser window)'
+
     async def read(self):
         return page_text(self._html)[1] if self._html else ''
 
@@ -257,6 +260,24 @@ class LivePage:
         f = self._p.get_by_label(str(label)).or_(self._p.get_by_placeholder(str(label))).first
         await f.fill(str(value), timeout=8000)
         return await self._sync()
+
+    async def upload(self, label, f):
+        """☁ One of the owner's attached files (agent_files) onto the file field by its label / button text — bytes sent over CDP, never a path."""
+        from pathlib import Path
+        data = Path(f['path']).read_bytes()
+        payload = {'name': f['name'], 'mimeType': f['mime'], 'buffer': data}
+        field = self._p.locator('input[type=file]')
+        if label:
+            near = self._p.get_by_label(str(label)).or_(self._p.locator(f'input[type=file][name*="{re.sub(r"[^A-Za-z0-9_-]", "", str(label))[:30]}" i]'))
+            if await near.count():
+                field = near
+        if not await field.count():
+            async with self._p.expect_file_chooser(timeout=8000) as fc:
+                await self._p.get_by_text(str(label or 'upload'), exact=False).first.click(timeout=8000)
+            await (await fc.value).set_files(payload)
+        else:
+            await field.first.set_input_files(payload, timeout=8000)
+        return f"(uploaded {f['name']}) " + await self._sync()
 
     async def read(self):
         try:

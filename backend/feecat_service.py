@@ -40,6 +40,7 @@ import cat_real as _real   # 💵 real-money cats = option A: the user's wallet 
 import cat_orders as _co   # 🧭 a General AI cat's plain-words orders → one guarded proposal
 import cat_model as _cm
 import cat_tools as _ct   # 🧰 FEELESS-first read-only tools for general agents
+import agent_files as _af   # ☁ each agent's own storage (owner uploads, 1 GB, 7-day clean)
 import cat_vault as _cv   # 🔐 a general agent's saved logins + 🖼 media drawer
 import cat_keys as _ck   # 🔐 a cat's API drawer (sealed keys, never sent to a page)
 
@@ -81,7 +82,7 @@ def _load() -> dict:
 
 # 🔒 The engine loads every cat, works for minutes, then saves its whole copy: anything an owner did meanwhile was wiped (owner 2026-10-30: a new agent wallet vanished
 # seconds after it was made). What an owner's action sets is kept here and laid over every save, so an old copy can never lose a wallet, a funding or a limit.
-OWNER_KEYS = ('agentWallet', 'agentFunded', 'creditPaid', 'recovery', 'recoverySet', 'recoveryConfirmedAt', 'limits', 'taskCap', 'ownerId', 'mode', 'realWallet', 'budgetSol', 'paperByOwner')
+OWNER_KEYS = ('agentWallet', 'agentFunded', 'creditPaid', 'recovery', 'recoverySet', 'recoveryConfirmedAt', 'limits', 'taskCap', 'ownerId', 'mode', 'realWallet', 'budgetSol', 'paperByOwner', 'files')
 _KEPT: dict = {}
 
 
@@ -1529,7 +1530,7 @@ def day_left(cat):
     return max(0.0, day - float(((cat.get('brainsCfg') or {}).get('daySpend') or {}).get(time.strftime('%Y-%m-%d', time.gmtime()), 0)))
 
 
-def _work_start(cat_id, cat, text, to=None):
+def _work_start(cat_id, cat, text, to=None, files=None):
     """Start one task in the cat's windows. 🏇 Let it go (cat.workGo): a long step budget (cat_agent.GO_STEPS) — it stops only when done, at
     its $ cap, or when a person is needed (a sign-in / CAPTCHA / payment: it never types a password or a card)."""
     b = cat.get('brainsCfg') or {}
@@ -1547,6 +1548,7 @@ def _work_start(cat_id, cat, text, to=None):
     steps = int(lim_.get('steps') or 0) or (_ca.GO_STEPS if cat.get('workGo') else _ca.STEP_MAX)
     _WORK[cat_id] = {'task': _ca.new_task(uuid.uuid4().hex[:10], text, models, cap, steps, cat.get('workMode') or 'plan', lim_.get('mindUsd') if len(models) > 1 else None), 'events': {}, 'go': {}, 'sessions': [None] * len(models), 'pages': [None] * len(models), 'at': time.time()}
     _WORK[cat_id]['task']['tools'] = _cp.toolkit(cat.get('job', 'agent'), cat.get('tools'))
+    _WORK[cat_id]['task']['files'] = [{'name': f['name'], 'mime': f['mime'], 'path': str(_af.path_of(DATA_DIR, cat, f['id']))} for f in _af.touch(cat, files)]   # ☁ its `upload` action reads these
     _WORK[cat_id]['task']['clouds'] = {i: [x.get('text', '') for x in (b.get('minds') or {}).get(m, [])][-8:] for i, m in enumerate(models)}   # ☁ each mind reads its own cloud
     _WORK[cat_id]['runner'] = asyncio.create_task(_work_run(cat_id, models, names, text, cap, str(b.get('prompt') or '')[:1200], b.get('efforts') or {},
                                                             _ck.key_for(cat, 'openrouter', data_dir=DATA_DIR)))
@@ -1664,7 +1666,7 @@ def _work_settle(store):
         if cat and cat.get('workGo') and cat.get('workQueue') and t.get('status') != 'stopped' and _work_live() and _lc.can_ask(cat.get('brainsCfg') or {}):
             if day_left(cat) is None or day_left(cat) > 0:   # at its daily $ limit the queue waits
                 nxt = cat['workQueue'].pop(0)
-                _work_start(cid, cat, nxt.get('text'), nxt.get('to'))
+                _work_start(cid, cat, nxt.get('text'), nxt.get('to'), nxt.get('files'))
 
 
 async def _agent_pass(store):
@@ -1750,7 +1752,8 @@ app.add_middleware(CORSMiddleware, allow_origins=[o.strip() for o in (os.environ
 async def _start_engine():
     try:
         store_ = _load()
-        if heal_general_credit(store_):   # 🧭 no free credit on a general agent, ever: the old $10 start grant comes off once
+        healed_ = heal_general_credit(store_)   # 🧭 no free credit on a general agent, ever: the old $10 start grant comes off once
+        if healed_ or _af.clean(DATA_DIR, store_):   # ☁ and every agent's files unused for 7 days go
             _save(store_)
     except Exception as e:
         print(f'[feecat] general credit heal skipped: {e}')
@@ -2098,6 +2101,7 @@ class WorkPayload(BaseModel):
     on: Optional[bool] = None          # 🏇 op 'go': let it go on / off
     user: Optional[str] = None         # 🔑 op 'login': the owner's own username …
     secret: Optional[str] = None       # … and password — sealed at once, typed only as placeholders, never echoed or logged
+    files: Optional[list] = None       # ☁ op 'ask': ids of files from its storage the owner attached (+)
 
 
 @app.post('/api/cats/{cat_id}/work')
@@ -2192,6 +2196,8 @@ async def cat_work(cat_id: str, p: WorkPayload):
         text = str(p.text or '').strip()
         if not text:
             raise HTTPException(400, 'Type what you want it to do.')
+        files_ = [f['id'] for f in _af.touch(cat, p.files)]   # ☁ attached files: the task text names them, its browser can upload them
+        text_ = text + _af.task_note([_af.find(cat, i) for i in files_])
         if _co.parse_order(text):   # 💵 "buy 0.05 SOL of $BONK" in the chat is an ORDER on its wallet, not research: guards, then your OK (or auto)
             async with httpx.AsyncClient(timeout=15) as http_o:
                 row_ = await _run_order(store, cat, text, http_o)
@@ -2202,9 +2208,10 @@ async def cat_work(cat_id: str, p: WorkPayload):
             q_ = list(cat.get('workQueue') or [])
             if len(q_) >= WORK_QUEUE_MAX:
                 raise HTTPException(400, f'Its queue is full ({WORK_QUEUE_MAX}) — let it work through some first.')
-            cat['workQueue'] = q_ + [{'text': text[:2000], 'to': p.to, 'at': time.time()}]; _save(store)
+            cat['workQueue'] = q_ + [{'text': text_[:2600], 'to': p.to, 'at': time.time(), 'files': files_}]; keep_owned(cat); _save(store)
         else:
-            _work_start(cat_id, cat, text, p.to)
+            _work_start(cat_id, cat, text_, p.to, files_)
+            keep_owned(cat); _save(store)
     out = _work_view(cat_id, owner=True)
     return {**out, 'cap': float(cat.get('taskCap') or TASK_CAP_DEFAULT), 'credit': b.get('credit'), 'spent': b.get('spent'), 'chat': (cat.get('chat') or [])[-20:],
             'live': _work_live(), 'providers': _cb.chain(os.environ), 'go': bool(cat.get('workGo')), 'workMode': cat.get('workMode') or 'plan',
@@ -2228,6 +2235,66 @@ async def cat_work_shot(cat_id: str, i: int, ownerId: str = ''):
     if not jpg:
         raise HTTPException(404, 'No snapshot right now.')
     return Response(content=jpg, media_type='image/jpeg', headers={'Cache-Control': 'no-store'})
+
+
+class FilePayload(BaseModel):
+    ownerId: Optional[str] = None
+    dataUrl: Optional[str] = None
+    name: Optional[str] = None
+
+
+def _owned(store, cat_id, owner_id):
+    cat = (store.get('cats') or {}).get(cat_id)
+    if not cat:
+        raise HTTPException(404, 'Agent not found.')
+    if not owner_id or owner_id != cat.get('ownerId'):
+        raise HTTPException(403, "Only this agent's owner can use its storage.")
+    return cat
+
+
+@app.get('/api/cats/{cat_id}/files')
+async def cat_files(cat_id: str, ownerId: str = ''):
+    """☁ Its storage: files, links, used / quota (owner only). Files unused for 7 days are cleaned first."""
+    store = _load()
+    cat = _owned(store, cat_id, ownerId)
+    if _af.clean(DATA_DIR, {'cats': {cat_id: cat}}):
+        keep_owned(cat); _save(store)
+    return _af.public(cat)
+
+
+@app.post('/api/cats/{cat_id}/files')
+async def cat_file_add(cat_id: str, p: FilePayload):
+    """☁ The owner drops an image in its chat (+): stored in the agent's own storage (images / GIFs, 1 GB, 7-day clean)."""
+    store = _load()
+    cat = _owned(store, cat_id, p.ownerId)
+    _af.clean(DATA_DIR, {'cats': {cat_id: cat}})
+    try:
+        row = _af.save(DATA_DIR, cat, p.dataUrl, p.name)
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+    keep_owned(cat); _save(store)
+    return {'file': next(f for f in _af.public(cat)['files'] if f['id'] == row['id']), **{k: v for k, v in _af.public(cat).items() if k != 'files'}}
+
+
+@app.post('/api/cats/{cat_id}/files/{file_id}/delete')
+async def cat_file_delete(cat_id: str, file_id: str, p: FilePayload):
+    store = _load()
+    cat = _owned(store, cat_id, p.ownerId)
+    if not _af.delete(DATA_DIR, cat, file_id):
+        raise HTTPException(404, 'No such file.')
+    keep_owned(cat); _save(store)
+    return _af.public(cat)
+
+
+@app.get('/api/cats/{cat_id}/files/{name}')
+async def cat_file_get(cat_id: str, name: str):
+    """One stored file by its unguessable id (how the chat chip and the page show it)."""
+    cat = (_load().get('cats') or {}).get(cat_id) or {}
+    fid = str(name).split('.')[0]
+    path_ = _af.path_of(DATA_DIR, cat, fid) if cat else None
+    if not path_ or not path_.exists():
+        raise HTTPException(404, 'No such file.')
+    return Response(content=path_.read_bytes(), media_type=_af.find(cat, fid)['mime'], headers={'Cache-Control': 'private, max-age=3600', 'X-Content-Type-Options': 'nosniff'})
 
 
 @app.get('/api/cats/{cat_id}/agent-wallet')

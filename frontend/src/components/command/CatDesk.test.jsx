@@ -24,6 +24,7 @@ test('🤖 the desk renders an agent HOLDING coins (the old page crashed on a de
   const el = document.createElement('div'); document.body.appendChild(el); const root = createRoot(el); const onAct = jest.fn(); const room = jest.fn();
   window.addEventListener('feeless:war-room', room);
   await act(async () => { root.render(<CatDesk cat={CAT} onBack={() => {}} onAct={onAct} Activity={<p data-testid="feed">feed</p>} />); });
+  expect(el.querySelector('[data-testid="kd-dl"]').getAttribute('aria-label')).toContain(CAT.name);   // ⬇ its picture as a PNG
   const q = id => el.querySelector(`[data-testid="${id}"]`);
   expect(q('kd-state').textContent).toContain('HOLDING 2'); expect(el.textContent).toContain('$MOON'); expect(el.textContent).toContain('+12.5%'); expect(el.textContent).toContain('-20.0%');
   expect(el.textContent).toContain('0.400 / 0.5 SOL'); expect(q('feed')).not.toBeNull();
@@ -59,4 +60,14 @@ test('💵 a general agent with a wallet shows its real wallet, credit and coins
   expect(q('kd-real-tiles').textContent).toContain('0.0266 SOL'); expect(q('kd-real-tiles').textContent).toContain('$12.50');
   expect(q('kd-real-holds').textContent).toContain('$JUP'); expect(q('kd-wallet').textContent).toContain('ITS WALLET'); expect(q('kd-curve')).toBeNull(); expect(el.textContent).not.toContain('PAPER WALLET');
   act(() => root.unmount());
+});
+
+test('⬇ the desk has a download button on its picture; the file name is the agent\'s', () => {
+  const { fileName, inlineSvg } = require('../../lib/svgPng');
+  expect(fileName('Night Claw')).toBe('night-claw-feeless.png'); expect(fileName('')).toBe('agent-feeless.png');
+  const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg'); svg.setAttribute('viewBox', '0 0 10 20'); svg.setAttribute('class', 'x');
+  const c = document.createElementNS('http://www.w3.org/2000/svg', 'circle'); c.style.fill = 'rgb(179, 136, 255)'; svg.appendChild(c); document.body.appendChild(svg);
+  const out = inlineSvg(svg, 512);
+  expect(out).toContain('width="512"'); expect(out).toContain('height="1024"'); expect(out).toContain('fill: rgb(179, 136, 255)'); expect(out).not.toContain('class="x"');
+  svg.remove();
 });

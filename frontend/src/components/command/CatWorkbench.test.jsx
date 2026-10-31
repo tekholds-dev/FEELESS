@@ -33,3 +33,28 @@ test('🧠🧠 two windows with their provider + bubble; a sign-in pauses one wi
   expect(calls.at(-1)).toMatchObject({ op: 'ask', text: 'only you', to: '1' });                       // one mind takes the whole task
   await act(async () => { root.unmount(); });
 });
+
+test('☁ the + puts an image in its storage, shows a chip + the storage meter, and the next ask carries it; non-images are refused here', async () => {
+  const calls = []; const idle = { ...STATE, task: { ...STATE.task, status: 'done', answer: 'ok' }, windows: STATE.windows.map(w => ({ ...w, status: 'idle', human: null })) };
+  const FILE = { id: 'a'.repeat(32), name: 'logo.png', mime: 'image/png', size: 2048, url: `/api/cats/g1/files/${'a'.repeat(32)}.png` };
+  global.fetch = async (u, o) => { const b = JSON.parse(o.body); calls.push([String(u), b]);
+    return { ok: true, json: async () => (String(u).endsWith('/files') ? { file: FILE, used: 2048, quota: 1024 ** 3, ttlDays: 7 } : idle) }; };
+  localStorage.setItem('feeless-paper-owner', 'browser-1');
+  const el = document.createElement('div'); document.body.appendChild(el); const root = createRoot(el);
+  await act(async () => { root.render(<CatWorkbench cat={{ id: 'g1', brainsCfg: { kind: 'general', brains: ['qwen/qwen3-32b'], credit: 2.5 } }} />); });
+  const plus = el.querySelector('[data-testid="cwb-plus"]'); expect(plus.getAttribute('data-tip')).toContain('own storage');
+  const input = el.querySelector('[data-testid="cwb-file-input"]');
+  const put = async files => { Object.defineProperty(input, 'files', { configurable: true, value: files }); await act(async () => { input.dispatchEvent(new Event('change', { bubbles: true })); await new Promise(r => setTimeout(r, 30)); }); };
+  await put([new File(['<html>'], 'x.html', { type: 'text/html' })]);
+  expect(el.textContent).toContain('Images only'); expect(calls.some(([u]) => u.endsWith('/files'))).toBe(false);
+  await put([new File([new Uint8Array([137, 80, 78, 71])], 'logo.png', { type: 'image/png' })]);
+  const up = calls.find(([u]) => u.endsWith('/api/cats/g1/files'));
+  expect(up[1]).toMatchObject({ ownerId: 'browser-1', name: 'logo.png' }); expect(up[1].dataUrl).toMatch(/^data:image\/png;base64,/);
+  expect(el.querySelector('[data-testid="cwb-files"]').textContent).toContain('logo.png'); expect(el.querySelector('[data-testid="cwb-store"]').textContent).toContain('2 KB / 1.0 GB');
+  const inp = el.querySelector('[data-testid="cwb-input"]');
+  await act(async () => { const set = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set; set.call(inp, 'launch my coin on pump.fun with this logo'); inp.dispatchEvent(new Event('input', { bubbles: true })); });
+  await act(async () => { el.querySelector('[data-testid="cwb-send"]').click(); });
+  expect(calls.at(-1)[1]).toMatchObject({ op: 'ask', text: 'launch my coin on pump.fun with this logo', files: [FILE.id] });
+  expect(el.querySelector('[data-testid="cwb-files"]')).toBeNull();                       // sent: the chips clear
+  act(() => root.unmount()); el.remove();
+});

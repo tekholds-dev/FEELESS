@@ -16,7 +16,7 @@ Read this (2 min) → `CLAUDE.md` (lean rules + 🎨 MANDATORY STYLING) → `doc
 
 ## 🔁 NOW (rewrite this section in place every session) — 2026-10-30, end of session
 > **WORK RULE (owner):** ask the owner before EVERY task, do one task, show the proof, and move on only after he verifies it. Never chain tasks.
-> **State (2026-10-31, CLAWBACK):** FC07 step 1 pushed (paper test staff-only, tab copy); owner tests on :51367, then step 2 (per-tab polish). Gate green. Open list: `docs/WORK_QUEUE.md`. Happy Assistant is the owner's real general agent: wallet `2CkR…czQ7` (Circle), about 0.0265 SOL, real mode on.
+> **State (2026-10-31, CLAWBACK):** pushed FC07.1 (paper test staff-only) · Emergent packages removed · general agents = real credit only (free $10 healed on 5088 start) · agents' own wallets can never launch a coin / make an agent on FEELESS · ☁ agent storage + chat ＋ upload + ⬇ agent picture. NEXT: B1 per-tab polish, B3 FC03 drawer keys. Gate green (test_ai_play timing flake under load).
 
 **Verify in this order, one at a time, with the owner:**
 | # | Task | Status |
