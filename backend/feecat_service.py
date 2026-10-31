@@ -626,6 +626,7 @@ def _fresh_qualifies(p, now):
     return vh1 / max(liq, 1) * min(buys / max(sells, 1), 3), f"fresh launch {age_min:.0f}m old: X + site, {buys:.0f}/{sells:.0f} buys/sells, 1h vol {vh1 / max(liq, 1):.1f}× liquidity"
 
 
+AI_LANE_POOL, AI_LANE_VOL, AI_LANE_EVERY_S = 25_000, 50_000, 600   # 🧠 the AI lane: a near miss with a real pool + volume, one brain ask per 10 min
 LEARN_SIZE = 0.25        # 🎓 learning-lane trades are a quarter of a normal size (paper)
 LEARN_MIN_LIQ = 15_000
 
@@ -1157,7 +1158,7 @@ async def run_engine(store, cats):
         prices = await _pair_prices(http, held) if held else {}
         candidates, fuse_view, crowd_feed, duo = await asyncio.gather(_market_candidates(http), _fuse_discover(http), _crowd_feed(http), _duo_read(http))
     duo_avoid, duo_exit = set(duo.get('avoid') or []), set(duo.get('exit') or [])   # 🐱🤝 only what BOTH AI models agreed on
-    ranked, rejections = [], {}
+    ranked, rejections, near_ = [], {}, []
     for p in candidates:
         score, reason = (None, None)
         if score is None and p.get('_src') == 'agents':   # 🐱🤖 the agents' coins: the agents' band (+ her overrides), not her old lanes
@@ -1166,6 +1167,8 @@ async def run_engine(store, cats):
                 p['_agentsLane'] = True
         if score is None and p.get('_src') != 'agents':
             score, reason = _qualifies(p, now)
+            if score is None and _num((p.get('liquidity') or {}).get('usd')) >= AI_LANE_POOL and _num((p.get('volume') or {}).get('h24')) >= AI_LANE_VOL and _num(p.get('priceNative')) > 0:
+                near_.append((reason, p))   # 🧠 a near miss her AI brains may still judge (paper, quarter size)
         if score is None and p.get('_src') != 'agents':
             fscore, freason = _fresh_qualifies(p, now)
             if fscore is not None:
@@ -1193,6 +1196,8 @@ async def run_engine(store, cats):
                      'top': [{'symbol': (p.get('baseToken') or {}).get('symbol'), 'reason': r, 'url': p.get('url'), 'pairAddress': p.get('pairAddress'),
                              'mint': (p.get('baseToken') or {}).get('address'), 'setups': p.get('_setups') or [], 'read': p.get('_read'), 'duo': p.get('_duo')} for _, r, p in ranked[:5]]}
     ranked.sort(key=lambda x: -x[0])
+    near_.sort(key=lambda rp: -_num((rp[1].get('volume') or {}).get('h24')))
+    ai_lane = [(1.0, f"🧠 AI lane — near miss ({r}); her brains judge it, quarter-size paper", {**p, '_learn': True, '_brainLane': True}) for r, p in near_[:3]]
     for cat in cats:
         for e in cat.get('exits', []):
             live = prices.get(e['pairAddress'])
@@ -1298,7 +1303,10 @@ async def run_engine(store, cats):
         block = {x.upper() for x in cat['risk'].get('blocklist') or []}
         allow = {x.upper() for x in cat['risk'].get('allowlist') or []}
         safety_checks = 0
-        for score, reason, p in ranked:
+        lane_ = ranked
+        if not ranked and cat.get('brainsCfg') and now - float(cat.get('_laneAt') or 0) >= AI_LANE_EVERY_S:   # 🧠 nothing cleared her nine gates: her AI brains judge the best near miss (owner 2026-10-31: "fix so Fee's AIs can trade paper")
+            lane_ = ai_lane; cat['_laneAt'] = now
+        for score, reason, p in lane_:
             if len(cat['positions']) >= R['maxPositions']:
                 break
             sym = ((p.get('baseToken') or {}).get('symbol') or '?')

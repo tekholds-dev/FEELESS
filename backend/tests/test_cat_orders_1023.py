@@ -115,6 +115,6 @@ def test_a_general_cat_never_hunts_on_its_own():
     import inspect
     import feecat_service as fs
     src = inspect.getsource(fs.run_engine)
-    assert "get('kind') == 'general'" in src and src.index("get('kind') == 'general'") < src.index('for score, reason, p in ranked')
+    assert "get('kind') == 'general'" in src and src.index("get('kind') == 'general'") < src.index('for score, reason, p in lane_')   # a general cat leaves before the buy loop (and its AI lane)
     assert lc.clean({'brains': ['a/b'], 'brainKind': 'general'})['kind'] == 'general' and lc.clean({'brains': ['a/b']})['kind'] == 'trading'
     assert lc.clean({'brains': ['a/b'], 'brainKind': 'trading'}, prev={'kind': 'general'})['kind'] == 'general'   # set once

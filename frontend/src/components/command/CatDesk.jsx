@@ -159,7 +159,8 @@ export function CatDesk({ cat, busy = false, error = '', onBack, onAct, Activity
   const saveSkin = async sk => { if (!canEdit) return; const look = { bg: sk.bg, acc: sk.acc };   // Fee's look is the creator's signed change; any other agent's, its owner's
     try { if (cat.isLeader) { const address = wallet?.address; if (!address) return; onAct('skin', { look, address, session: await getChatSession(address, signMessage, { own: true }) }); } else onAct('skin', { look }); } catch { /* declined */ } };
   const [skin, setSkin] = useDeskSkin(cat.skin, saveSkin);
-  const tabbed = gen && canEdit; const visitor = gen && !canEdit; const [tab, setTab] = useState('desk');   // 👀 a visitor: slim hero + the two windows, one screen ·   // 🖥 a general agent's owner: Desk (one screen) · Wallet · Limits — never one long scroll
+  // 🖥 EVERY owner desk is tabbed (owner 2026-10-31: "Fee's desk is all scroll, not organized like Happy's")
+  const tabbed = canEdit; const visitor = gen && !canEdit; const [tab, setTab] = useState('desk');   // 👀 a visitor: slim hero + the two windows, one screen ·   // 🖥 a general agent's owner: Desk (one screen) · Wallet · Limits — never one long scroll
   const on = k => !tabbed || tab === k;
   const theater = useRef(null); useTheater(theater, visitor);
   return <section ref={theater} className={`kd has-skin${tabbed || visitor ? ' is-tabbed' : ''}${visitor ? ' is-theater' : ''}${skin.bg !== 'night' ? ' is-glass' : ''}`} style={{ '--kd-acc': skin.acc }} data-testid="cat-desk"><DeskBackdrop bg={skin.bg} />
@@ -184,7 +185,7 @@ export function CatDesk({ cat, busy = false, error = '', onBack, onAct, Activity
         {runs ? <button type="button" disabled={busy || cat.revoked} onClick={() => onAct('run')} data-testid="kd-run" data-tip="Run one scan-and-decide cycle right now">⟳ One cycle</button> : null}
       </div>
     </header>
-    {tabbed ? <nav className="m-seg kd-tabs" role="tablist" aria-label="Its desk">{[['desk', '🖥 DESK', 'Its two windows, what it is doing now, the chat'], ['wallet', '👛 WALLET', 'Its wallet, funding, what it holds'], ['limits', '🎚 LIMITS', 'What it may spend and trade, retire it']].map(([k, l, tip]) =>
+    {tabbed ? <nav className="m-seg kd-tabs" role="tablist" aria-label="Its desk">{[['desk', '🖥 DESK', 'Its two windows, what it is doing now, the chat'], ['wallet', '👛 WALLET', 'Its wallet, funding, what it holds'], ['limits', '🎚 LIMITS', 'What it may spend and trade, retire it']].filter(([k]) => k !== 'limits' || runs || gen).map(([k, l, tip]) =>
       <button key={k} type="button" role="tab" aria-selected={tab === k} className={tab === k ? 'active' : ''} onClick={() => setTab(k)} data-tip={tip} data-testid={`kd-tab-${k}`}>{l}</button>)}</nav> : null}
     {error ? <p className="kd-err" role="alert">⚠ {error}</p> : null}
     {gen && !visitor && on('wallet') ? <div className="kd-tiles" data-testid="kd-real-tiles">
@@ -193,7 +194,7 @@ export function CatDesk({ cat, busy = false, error = '', onBack, onAct, Activity
       <Tile k={2} label="SPENT TODAY" value={`$${spentDay.toFixed(2)}${dayCap ? ` / $${dayCap}` : ''}`} fill={dayCap ? spentDay / dayCap : null} tone={dayCap && spentDay >= dayCap ? 'dn' : ''} sub={dayCap ? 'its daily limit' : 'no daily limit set'} tip="Model credit spent today" />
       <Tile k={3} label="REAL TRADES" value={String(realTrades)} sub="sent from its wallet" tip="Trades that landed on-chain from its own wallet" />
       <Tile k={4} label="COINS HELD" value={String(realCoins.length)} sub="in its wallet" tip="Coins it really bought and still holds" />
-    </div> : gen ? null : <div className="kd-tiles">
+    </div> : gen || !on('wallet') ? null : <div className="kd-tiles">
       <Tile k={0} label="BALANCE" value={`${v.bal.toFixed(3)} SOL`} fill={v.bal / (v.start * 1.5)} sub={`started ${v.start} SOL`} tip="Its paper balance against what it started with" />
       <Tile k={1} label="REALIZED" value={`${sol(v.real)} SOL`} tone={v.real > 0 ? 'up' : v.real < 0 ? 'dn' : ''} sub="price moves · fees apart" tip="Closed trades only — P&L never includes fees" />
       <div className="kd-tile kd-ring" style={{ '--i': 2 }} data-tip={`${cat.wins || 0} won · ${cat.losses || 0} lost`}><svg viewBox="0 0 56 56" aria-hidden="true"><circle className="t" cx="28" cy="28" r="24" />
