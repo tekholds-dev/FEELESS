@@ -35,3 +35,14 @@ test('👑 the creator bar: hidden from users, 🎨 STYLE FEE dresses her (one s
   expect(wc).not.toBeNull(); expect(wc.textContent).toContain('1.2500 SOL'); expect(wc.querySelector('[data-testid="cr-copy"]')).not.toBeNull();
   act(() => root.unmount()); document.body.innerHTML = ''; delete global.fetch;
 });
+
+test('👛 a slim desk poll never wipes the wallet a save just showed (owner 2026-10-31: "I see the wallet I assigned, then it disappears")', async () => {
+  const el = document.createElement('div'); document.body.appendChild(el); const root = createRoot(el);
+  const full = { id: 'leader', name: 'Fee', isLeader: true, agentWallet: { address: 'Tv9XwALLET1111111111111111111111111', mode: 'auto' } };
+  await act(async () => { root.render(<FeeOwnerBar cat={full} devOwner devAddress="OWNERW" />); });
+  await act(async () => { root.render(<FeeOwnerBar cat={{ balanceSol: 24.5, positions: [] }} devOwner devAddress="OWNERW" />); });   // the 6 s poll: no wallet fields
+  global.fetch = jest.fn(() => Promise.resolve({ ok: true, json: () => Promise.resolve({ amount: 0, decimals: 9 }) }));
+  await act(async () => { el.querySelector('[data-testid="fob-wallet"]').click(); });
+  expect(document.querySelector('[data-testid="cr-agent-make"]')).toBeNull();   // still made — no "Make its wallet" again
+  act(() => root.unmount()); document.body.innerHTML = ''; delete global.fetch;
+});

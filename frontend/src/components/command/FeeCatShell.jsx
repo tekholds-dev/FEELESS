@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { FeeCatMark } from '../FeeCatMark';
 import { useLeaderProfile, feeHeadline } from '../../lib/feeLeader';
 import { useMyCat } from '../../lib/myCat';
@@ -23,11 +23,16 @@ export function goTo(path) {
   if (typeof window === 'undefined') return;
   window.history.pushState({}, '', path); window.dispatchEvent(new PopStateEvent('popstate'));
 }
+const FOCUS_KEY = 'feeless.fcx.focus';
 const pct = v => `${v >= 0 ? '+' : ''}${Math.abs(v) >= 100 ? Math.round(v) : Number(v).toFixed(1)}%`;
 
 export function FeeCatShell({ tab, children }) {
   const h = feeHeadline(useLeaderProfile()); const mine = useMyCat();
   useEffect(() => { document.body.classList.add('fcx-on'); return () => document.body.classList.remove('fcx-on'); }, []);   // 🧊 feecatShell.css: one still sky, no stacked backdrops
+  // ⤒ FOCUS (owner 2026-10-31: "a way to remove / add the top FEELESS bars and the FeeCat banner together — more space, less scroll"): one tap hides the
+  // site header stack and slims this bar to one row; remembered in this browser; the same button brings it all back
+  const [focus, setFocus] = useState(() => { try { return localStorage.getItem(FOCUS_KEY) === '1'; } catch { return false; } });
+  useEffect(() => { document.body.classList.toggle('fcx-focus', focus); try { localStorage.setItem(FOCUS_KEY, focus ? '1' : '0'); } catch { /* private window */ } return () => document.body.classList.remove('fcx-focus'); }, [focus]);
   const coat = mine ? (CAT_VARIATIONS[mine.coat] || CAT_VARIATIONS[0]) : null;
   return <div className={`fcx ${h.nap ? 'is-nap' : ''}`} data-testid="feecat-shell">
     <div className="fcx-sky" aria-hidden="true"><i className="fcx-aur a1" /><i className="fcx-aur a2" />{Array.from({ length: 18 }, (_, i) => <i key={i} className="fcx-star" style={{ '--i': i }} />)}</div>
@@ -48,6 +53,9 @@ export function FeeCatShell({ tab, children }) {
           data-tip={mine ? `${mine.name || 'Your cat'} — tap to rebuild it` : 'You have no cat yet — build one'} data-testid="fcx-mine">
           {coat && mine.agent?.species && mine.agent.species !== 'cat' ? <AgentCritter agent={mine.agent} size={30} /> : coat ? <LookAvatar cat={[coat[0], coat[1], coat[2], mine.pattern]} look={mine.look} size={34} /> : <span className="fcx-plus" aria-hidden="true">+</span>}
           <small>{mine ? (mine.name || 'YOUR CAT').toUpperCase() : 'BUILD YOURS'}</small></a>
+        <button type="button" className={`fcx-focus-btn${focus ? ' is-on' : ''}`} aria-pressed={focus} onClick={() => setFocus(f => !f)} data-testid="fcx-focus"
+          data-tip={focus ? 'Bring back the FEELESS bars and the full FeeCat banner' : 'Focus: hide the FEELESS bars and slim this banner — more room for the agents'} aria-label={focus ? 'Show the top bars' : 'Hide the top bars'}>
+          <svg viewBox="0 0 20 20" aria-hidden="true">{focus ? <path d="M5 8l5 5 5-5M5 4h10" /> : <path d="M5 12l5-5 5 5M5 16h10" />}</svg></button>
       </div>
     </header>
     <div className={`fcx-body is-${tab || 'desk'}`}>{children}</div>

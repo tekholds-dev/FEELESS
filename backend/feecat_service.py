@@ -89,7 +89,7 @@ def _load() -> dict:
 
 # 🔒 The engine loads every cat, works for minutes, then saves its whole copy: anything an owner did meanwhile was wiped (owner 2026-10-30: a new agent wallet vanished
 # seconds after it was made). What an owner's action sets is kept here and laid over every save, so an old copy can never lose a wallet, a funding or a limit.
-OWNER_KEYS = ('secrets', 'hive', 'incognito', 'incognitoPaid', 'agentWallet', 'agentFunded', 'creditPaid', 'recovery', 'recoverySet', 'recoveryConfirmedAt', 'limits', 'taskCap', 'ownerId', 'mode', 'realWallet', 'budgetSol', 'paperByOwner', 'files', 'ownerWallet', 'logins', 'cloudLink', 'vaultLog', 'earn', 'clarify', 'ownerStaff', 'pass', 'treasury', 'siteSessions')
+OWNER_KEYS = ('secrets', 'hive', 'colonyShare', 'incognito', 'incognitoPaid', 'agentWallet', 'agentFunded', 'creditPaid', 'recovery', 'recoverySet', 'recoveryConfirmedAt', 'limits', 'taskCap', 'ownerId', 'mode', 'realWallet', 'budgetSol', 'paperByOwner', 'files', 'ownerWallet', 'logins', 'cloudLink', 'vaultLog', 'earn', 'clarify', 'ownerStaff', 'pass', 'treasury', 'siteSessions')
 _KEPT: dict = {}
 
 
@@ -588,6 +588,7 @@ def _close(store, cat, pos, price_native, why, fraction=1.0, market_cap=None):
                                             'peak': round(pos.get('peakChange', 0), 2), 'heldMin': round((time.time() - pos.get('openedAt', time.time())) / 60, 1)})   # 🎭 Prompt Studio reads hold + peak
         cat['exits'] = cat['exits'][-60:]
         ep_ = _num(pos.get('entryPriceNative')); _colony_trade(cat, 'sell', pos, price_native * _num(pos.get('entryPriceUsd')) / ep_ if ep_ > 0 else 0)
+        _colony_share(cat, pos, pnl + pos.get('realizedPartialSol', 0))
         # File the whole trade (partial profits included) under its setup so the next entry learns from it.
         total_pnl = round(pnl + pos.get('realizedPartialSol', 0), 6)
         ret = total_pnl / max(pos.get('costBasisSol') or pos['costSol'], 1e-9) * 100
@@ -1107,6 +1108,43 @@ def _colony_trade(cat, side, pos, px_usd):
             cells = _hive_cells(); cells.append({**c_, 'epoch': _hv.epoch_of(c_['at'])}); _hive_save(cells)
     except Exception as e:   # noqa: BLE001 — grading is a bonus, the trade already happened
         print(f'[colony] trade cell skipped: {e}')
+
+
+SHARES_PATH = DATA_DIR / 'colony_shares.json'   # 🤝 what sharing agents owe the colony wallet (accrued here; sending is not built)
+
+
+def _shares():
+    try:
+        return list((json.loads(SHARES_PATH.read_text()) or {}).get('shares') or [])
+    except (OSError, ValueError):
+        return []
+
+
+def _colony_share(cat, pos, pnl_sol):
+    """🤝 a sharing agent's WINNING exit owes pct % of its profit to the colony. Only an agent trading from its OWN wallet (paper winnings are
+    not money); never blocks the sale."""
+    try:
+        sh_ = cat.get('colonyShare') or {}
+        if not sh_.get('on') or not (cat.get('agentWallet') or {}).get('address'):
+            return
+        owed = _colony.share_cut(pnl_sol, sh_.get('pct'))
+        if owed <= 0:
+            return
+        rows = _shares()[-5000:] + [{'cat': cat['id'], 'owner': owner_wallet(cat), 'sol': owed, 'pct': sh_.get('pct'), 'sym': pos.get('symbol'), 'at': time.time(), 'sent': False}]
+        SHARES_PATH.write_text(json.dumps({'shares': rows}))
+    except Exception as e:   # noqa: BLE001
+        print(f'[colony] share skipped: {e}')
+
+
+def _colony_cfg():
+    """The owner's colony record (reputation writes data/colony.json): the pool and the airdrop cadence — public parts only."""
+    try:
+        d = json.loads((DATA_DIR / 'colony.json').read_text()) or {}
+    except (OSError, ValueError):
+        d = {}
+    pol = _colony.clean_policy(d.get('policy'))
+    _, next_ = _colony.period_of(time.time(), pol['cadence'])
+    return {'pool': d.get('pool') or None, 'cadence': pol['cadence'], 'nextAirdrop': next_, 'potOpen': bool((d.get('wallet') or {}).get('address'))}
 
 
 async def _hive_round(now=None):
@@ -2107,6 +2145,21 @@ def _fresh_session_wallet(session, now=None):
     return str(rec.get('address') or '')
 
 
+def share_message(cat_id, pct, ts):
+    """🤝 What the owner signs to let its agent send pct % of each winning trade's profit to the colony wallet (opportunity 2)."""
+    return f"FEELESS colony share\nagent:{cat_id}\npct:{int(pct or 0)}\nts:{int(ts or 0)}"
+
+
+def share_ok(cat_id, pct, ts, sig, wallet, now=None):
+    if not (sig and wallet and ts) or abs((now or time.time()) - int(ts)) > 120:
+        return False
+    try:
+        import hq_auth
+        return bool(hq_auth.verify_wallet(wallet, share_message(cat_id, pct, ts), sig))
+    except Exception:
+        return False
+
+
 def reveal_message(cat_id, site, ts):
     return f"FEELESS reveal\nagent:{cat_id}\nsite:{_cv.site_of(site)}\nts:{int(ts or 0)}"
 
@@ -2455,7 +2508,7 @@ COLONY_PAGE = 9   # agents per page on the Colony (owner 2026-10-31: "about 8-10
 
 
 @app.get('/api/cats/colony')
-async def cat_colony(page: int = 0):
+async def cat_colony(page: int = 0, ids: str = ''):
     """🐝 Public: the Colony page — every working agent with its two windows (visitor-safe), its honey this epoch and its newest graded call.
     Colonized agents first, then by honey. Nothing an owner typed, no wallet, no link."""
     store = _load(); cells = _hive_cells(); now = time.time(); ep = _hv.epoch_of(now)
@@ -2466,6 +2519,9 @@ async def cat_colony(page: int = 0):
             newest[c['cat']] = c
     cats = [c for c in store['cats'].values() if c.get('brainsCfg') and not c.get('revoked')]
     cats.sort(key=lambda c: (not _hive_on(c), -int((rows.get(c['id']) or {}).get('honey') or 0), -float((_WORK.get(c['id']) or {}).get('at') or 0)))
+    want = [x for x in str(ids or '').split(',') if x][:10]   # 🐱 My agents: the same cells, just yours (public fields only — ids are already on your cards)
+    if want:
+        cats = [c for c in cats if c['id'] in want]
     page = max(0, int(page)); part = cats[page * COLONY_PAGE:(page + 1) * COLONY_PAGE]
     out = []
     for c in part:
@@ -2475,9 +2531,10 @@ async def cat_colony(page: int = 0):
                     'honey': int(r_.get('honey') or 0), 'cells': int(r_.get('cells') or 0), 'right': int(r_.get('right') or 0), 'graded': int(r_.get('graded') or 0),
                     'status': lv['status'], 'windows': lv['windows'][:2], 'level': c.get('level'), 'wins': c.get('wins') or 0, 'losses': c.get('losses') or 0,
                     'pnlSol': round(float(c.get('totalPnlSol') or 0), 4), 'open': len(c.get('positions') or []),
-                    'last': _hv.public(last) if last else None})
+                    'last': _hv.public(last) if last else None,
+                    'carrying': (lambda x: {'text': str(x.get('text') or f"{x.get('word', '')} ${x.get('sym', '')}")[:90], 'at': x.get('at')} if x else None)((b_.get('cloud') or [None])[-1])})   # 🗄 what it stored last (already public on its card)
     return _pub({'agents': out, 'page': page, 'more': (page + 1) * COLONY_PAGE < len(cats), 'total': len(cats), 'colonized': sum(1 for c in cats if _hive_on(c)),
-                 'epoch': ep, 'left': _hv.epoch_left(now)})
+                 'epoch': ep, 'left': _hv.epoch_left(now), **_colony_cfg()})
 
 
 @app.get('/api/cats/supply')
@@ -2497,7 +2554,9 @@ async def cat_colony_internal(request: Request):
     on_ = [c for c in store['cats'].values() if _hive_on(c)]
     return {'epoch': ep, 'left': _hv.epoch_left(now), 'board': _hv.board(cells, ep, names), 'colonized': len(on_),
             'owners': {c['id']: owner_wallet(c) for c in on_ if owner_wallet(c) and not c.get('ownerStaff') and not c.get('isLeader')},
-            'trades': sum(1 for c in cells if c.get('kind') and _hv.epoch_of(c.get('at') or 0) == ep), 'browsers': _cb.chain(os.environ)}
+            'trades': sum(1 for c in cells if c.get('kind') and _hv.epoch_of(c.get('at') or 0) == ep), 'browsers': _cb.chain(os.environ),
+            'sharers': sorted({owner_wallet(c) for c in store['cats'].values() if (c.get('colonyShare') or {}).get('on') and owner_wallet(c)}),
+            'shares': [x for x in _shares() if not x.get('sent')][-2000:]}
 
 
 @app.post('/api/cats/internal/supply')
@@ -2717,6 +2776,18 @@ async def cat_work(cat_id: str, p: WorkPayload):
         cat['incognito'] = bool(p.on)
         keep_owned(cat); _save(store)
         return {'incognito': cat['incognito'], 'paid': cat.get('incognitoPaid'), 'credit': b.get('credit')}
+    if p.op == 'share':   # 🤝 opportunity 2: its owner SIGNS to let it send pct % of each winning trade's profit to the colony wallet → the colony airdrops back
+        if p.on:
+            pct_ = _colony.share_pct(p.cap)
+            if not pct_:
+                raise HTTPException(400, f'Pick a share: {", ".join(f"{x}%" for x in _colony.SHARE_PCTS)}.')
+            if not share_ok(cat_id, pct_, p.ts, p.sig, owner_wallet(cat) or _session_wallet(p.session or '')):
+                raise HTTPException(401, 'Sign the share with your wallet (one signature, no transaction).')
+            cat['colonyShare'] = {'on': True, 'pct': pct_, 'at': time.time(), 'by': owner_wallet(cat) or _session_wallet(p.session or '')}
+        else:
+            cat['colonyShare'] = {**(cat.get('colonyShare') or {}), 'on': False, 'offAt': time.time()}   # turning it off needs no signature
+        keep_owned(cat); _save(store)
+        return {'colonyShare': cat['colonyShare']}
     if p.op == 'hive':   # 🐝 COLONIZE on / off and its pace (least usage: one coin every N minutes)
         if p.on and not (cat.get('hive') or {}).get('on') and not (cat.get('ownerStaff') or cat.get('isLeader') or await _session_staff(p.session or '')):
             usd_ = await _feecat_usd(owner_wallet(cat))   # 🐝 the stake gate: its owner holds ≥ $25 of FEECAT (read live)
@@ -3018,6 +3089,13 @@ SHOT_TTL_S = 4.0      # one real screenshot per window per 4 s, however many vis
 _SHOTS: dict = {}
 
 
+def _pub_cursor(c):
+    try:
+        return {'x': round(min(1, max(0, float(c['x']))), 3), 'y': round(min(1, max(0, float(c['y']))), 3), 'act': str(c.get('act') or 'move')[:10], 'at': c.get('at')} if c else None
+    except (KeyError, TypeError, ValueError):
+        return None
+
+
 def public_live(w, cat=None):
     """👀 What a VISITOR may see of an agent's windows (owner 2026-10-31: "like Crawl, but no steps"): model, status, the site's host and whether a
     live SCREEN is showing — never a step list, the full URL, the owner's ask or what it typed, never a link that can drive the browser.
@@ -3031,7 +3109,8 @@ def public_live(w, cat=None):
         live_ = x.get('status') == 'working' and str(x.get('url') or '').startswith('http')
         last_ = not live_ and (str((cat or {}).get('id') or ''), x.get('i')) in _SHOTS   # 🖼 a finished window keeps its last page
         out.append({'i': x.get('i'), 'model': str(x.get('model') or '').split('/')[-1][:40], 'status': x.get('status') or 'idle', 'host': '' if hide else host,
-                    'frozen': frozen, 'screen': bool((live_ or last_) and not hide and not frozen), 'last': bool(last_ and not hide and not frozen)})
+                    'frozen': frozen, 'screen': bool((live_ or last_) and not hide and not frozen), 'last': bool(last_ and not hide and not frozen),
+                    'cursor': None if hide or frozen else _pub_cursor(x.get('cursor'))})   # 🖱 where its mouse is (a position only — never what it typed)
     if not out and cat and not hide:   # no task in memory: still its last frames, if any
         out = [{'i': k[1], 'model': '', 'status': 'idle', 'host': '', 'frozen': False, 'screen': True, 'last': True} for k in sorted(_SHOTS) if k[0] == cat.get('id')][:2]
     return {'status': t.get('status') or 'idle', 'windows': out, 'incognito': hide}

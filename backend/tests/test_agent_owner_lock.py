@@ -117,10 +117,12 @@ def test_the_public_live_view_shows_hosts_and_a_screen_flag_never_steps_or_the_p
          'shot': True, 'live': 'https://steel/x', 'pw': {'pw': 'hunter2'}, 'steps': [{'action': 'type', 'thought': 'typing the password', 'detail': 'hunter2'}]},
          {'i': 1, 'model': 'a/b', 'status': 'human', 'url': 'https://x.com/login', 'steps': []}]}}
     out = fs.public_live(w)
-    assert out == {'status': 'working', 'incognito': False, 'windows': [{'i': 0, 'model': 'gpt-x', 'status': 'working', 'host': 'mail.google.com', 'frozen': False, 'screen': True, 'last': False},
-                                                                         {'i': 1, 'model': 'b', 'status': 'human', 'host': 'x.com', 'frozen': True, 'screen': False, 'last': False}]}   # handed to its owner = frozen, no screen
-    assert fs.public_live(w, {'incognito': True})['windows'][0] == {'i': 0, 'model': 'gpt-x', 'status': 'working', 'host': '', 'frozen': False, 'screen': False, 'last': False}   # 🕶 nothing shown
+    assert out == {'status': 'working', 'incognito': False, 'windows': [{'i': 0, 'model': 'gpt-x', 'status': 'working', 'host': 'mail.google.com', 'frozen': False, 'screen': True, 'last': False, 'cursor': None},
+                                                                         {'i': 1, 'model': 'b', 'status': 'human', 'host': 'x.com', 'frozen': True, 'screen': False, 'last': False, 'cursor': None}]}   # handed to its owner = frozen, no screen
+    assert fs.public_live(w, {'incognito': True})['windows'][0] == {'i': 0, 'model': 'gpt-x', 'status': 'working', 'host': '', 'frozen': False, 'screen': False, 'last': False, 'cursor': None}   # 🕶 nothing shown
     assert fs.public_live(None) == {'status': 'idle', 'windows': [], 'incognito': False}
+    w['task']['windows'][0]['cursor'] = {'x': 0.42, 'y': 1.7, 'act': 'click', 'at': 5, 'typed': 'hunter2'}   # 🖱 a visitor sees where its mouse is, nothing else
+    assert fs.public_live(w)['windows'][0]['cursor'] == {'x': 0.42, 'y': 1, 'act': 'click', 'at': 5} and fs.public_live(w, {'incognito': True})['windows'][0]['cursor'] is None
 
 
 def test_live_now_lists_working_agents_with_visitor_safe_windows(monkeypatch):

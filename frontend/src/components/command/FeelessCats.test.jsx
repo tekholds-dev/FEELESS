@@ -54,7 +54,10 @@ test('🐱 the FeeCat shell: one nav for all five FeeCat pages (Create an agent 
   expect(q('fcx-mine').textContent).toContain('SPECTER'); expect(q('fcx-mine').querySelector('.g-crown')).not.toBeNull();
   expect(el.querySelectorAll('.fcx-lives i.on')).toHaveLength(7); expect(el.textContent).toContain('+4.0%');
   act(() => q('fcx-lore').click()); expect(window.location.pathname + window.location.search).toBe('/terminal/feecat?view=lore');
-  act(() => root.unmount());
+  act(() => q('fcx-focus').click()); expect(document.body.classList.contains('fcx-focus')).toBe(true); expect(localStorage.getItem('feeless.fcx.focus')).toBe('1');   // ⤒ hide the top bars
+  act(() => q('fcx-focus').click()); expect(document.body.classList.contains('fcx-focus')).toBe(false);
+  act(() => q('fcx-focus').click()); act(() => root.unmount()); expect(document.body.classList.contains('fcx-focus')).toBe(false);   // leaving FeeCat brings the site bars back
+  localStorage.removeItem('feeless.fcx.focus');
 });
 
 test('🧠 her brain: the entry gate shows what her auto-strength tightened; the exit ladder is ordered stop → entry → takes', () => {

@@ -73,7 +73,7 @@ function Studio({ cat, onSaved, devAddress }) {
 export function FeeOwnerBar({ cat: cat0, devOwner = false, devAddress = '' }) {
   const { isAdmin } = useAdmin();
   const [cat, setCat] = useState(cat0); const [open, setOpen] = useState(null);
-  useEffect(() => { if (cat0) setCat(cat0); }, [cat0]);   // the shared 15 s poll; a save shows at once (setCat) until it catches up
+  useEffect(() => { if (cat0) setCat(cur => (cur ? { ...cur, ...cat0 } : cat0)); }, [cat0]);   // the shared poll MERGES: a slim poll never wipes what a save just showed (the assigned wallet vanished)
   if (!(isAdmin || devOwner) || !cat) return null;
   const v = realView(cat);
   const act = async (action, extra = {}) => setCat(await post(action, extra));

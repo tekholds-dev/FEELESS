@@ -19,7 +19,6 @@ const ProfileFeeCat = lazy(() => import('./ProfileFeeCat').then(m => ({ default:
 const FeeCatProfile = lazy(() => import('./FeeCatProfile').then(m => ({ default: m.FeeCatProfile })));
 const ProfileFeeBanner = lazy(() => import('./ProfileFeeCat').then(m => ({ default: m.ProfileFeeBanner })));
 import { AgentPicker, AGENT_MAX } from './AgentPicker';
-import { AgentScreen } from './CatWorkbench';
 import { ColonyGrid } from './HiveBoard';
 import { FeeOwnerBar } from './FeeOwnerBar';
 const api = async (path, options = {}) => {
@@ -32,7 +31,6 @@ const api = async (path, options = {}) => {
   return body;
 };
 const ownerId = agentBrowserId;
-const money = value => `${Number(value || 0) >= 0 ? '+' : ''}${Number(value || 0).toFixed(4)} SOL`;
 
 function PaperBadge() {   // 💵 the AI cats are real-first (its own wallet: you sign one funding; linked to yours: you sign each); paper is the test toggle
   return <span className="paper-badge" data-tip="Each agent gets its own wallet. You fund it once from yours; after that it trades from its own wallet inside the limits you set — nothing to sign per trade. FEELESS never sees your wallet's keys."><i /> ITS OWN WALLET · YOUR LIMITS</span>;
@@ -224,11 +222,11 @@ export default function FeeCatsPlatform() {
     {view === 'cats' ? <RecoverAgent onBack={cat => { loadCats(); openCat(cat); }} /> : null}
     {view === 'cats' && <section className="paper-my-cats">{!cats.length ? <><div className="paper-panel-head"><div><span className="eyebrow">YOUR AGENTS · 0/{agentMax}</span><h2>No cats on the job yet — pick a brain.</h2></div></div><AgentPicker count={0} onPick={pickKind} staff={isStaff} max={agentMax} /></>
       : <><div className="paper-panel-head"><div><span className="eyebrow">YOUR AGENTS · {live.length}/{agentMax}</span><h2>Tap a cat to see its desk</h2></div><button type="button" className="btn-outline" onClick={() => setView('new')} disabled={live.length >= agentMax}><Plus size={14} /> New agent</button></div>
-        <div className="paper-my-cat-grid">{cats.map(cat => { const real = cat.mode === 'real' && !!cat.realWallet; const pend = (cat.proposals || []).filter(p => p.status === 'pending').length;
-          return <div key={cat.id} className={`cw-card ${real ? 'is-real' : ''}`} data-testid={`cw-${cat.id}`}><button type="button" className="paper-my-cat-card" onClick={() => openCat(cat)}><span className="paper-my-cat-art"><LookAvatar cat={catByName(cat.avatar)} look={cat.look} /></span><span><b>{cat.name}</b><small>{cat.status.toUpperCase()} · LVL {cat.level}</small></span><strong className={cat.realizedPnlSol >= 0 ? 'positive' : 'negative'}>{money(cat.realizedPnlSol)}</strong><AgentScreen cat={cat} /><ChevronRight size={15} /></button>
-            <button type="button" className={`cw-go ${real ? 'is-real' : ''}`} onClick={() => openReal(cat)} data-testid={`cw-go-${cat.id}`}
+        <ColonyGrid api={api} ids={cats.map(c => c.id).join(',')} onOpen={a => { const cat = cats.find(x => x.id === a.id); if (cat) openCat(cat); }} face={a => <LookAvatar cat={catByName(a.avatar)} look={a.look} size={48} />}
+          extra={a => { const cat = cats.find(x => x.id === a.id); if (!cat) return null; const real = cat.mode === 'real' && !!cat.realWallet; const pend = (cat.proposals || []).filter(p => p.status === 'pending').length;   // 🐱 your agents = the same Colony cells (Crawl-size windows) + your own buttons
+            return <span className="cl-acts" data-testid={`cw-${cat.id}`}><button type="button" className={`cw-go ${real ? 'is-real' : ''}`} onClick={() => openReal(cat)} data-testid={`cw-go-${cat.id}`}
               data-tip={real ? `REAL on ${cat.realWallet.slice(0, 4)}…${cat.realWallet.slice(-4)} — open its live proposals` : 'Switch this cat to REAL: pick a per-buy budget, it proposes, your wallet signs every trade'}>
               <i aria-hidden="true" />{real ? `💵 REAL · ${pend ? `${pend} to sign` : 'live'}` : 'NOT FUNDED · GO REAL'}</button>
-            <button type="button" className="cw-del" onClick={() => removeCat(cat)} data-testid={`cw-del-${cat.id}`} data-tip="Delete it for good — type its name to confirm (never while its own wallet still holds money)" aria-label={`Delete ${cat.name}`}>🗑</button></div>; })}</div></>}</section>}
+            <button type="button" className="cw-del" onClick={() => removeCat(cat)} data-testid={`cw-del-${cat.id}`} data-tip="Delete it for good — type its name to confirm (never while its own wallet still holds money)" aria-label={`Delete ${cat.name}`}>🗑</button></span>; }} /></>}</section>}
   </div>;
 }

@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { apiUrl } from '../../lib/api';
+import { AiCursor, readCursor } from './CatWorkbench';
 import '../../styles/hive.css';
 
 // 🐝 THE HIVE (owner 2026-10-31: "a FEELESS twist on Crawl — they browse forever until turned off and compound"): proof of insight. Agents with the
@@ -11,9 +12,9 @@ const hm = s => `${Math.floor(s / 3600)}h ${String(Math.floor((s % 3600) / 60)).
 
 export function HiveBoard({ api }) {
   const [d, setD] = useState(null); const [err, setErr] = useState(''); const seenIds = useRef(null); const [fresh, setFresh] = useState(new Set());
-  useEffect(() => { let on = true; const go = () => { if (document.hidden) return; api('/api/cats/hive').then(x => { if (!on || !x || !Array.isArray(x.cells)) return;
+  useEffect(() => { let on = true; const go = first => { if (document.hidden && first !== true) return; api('/api/cats/hive').then(x => { if (!on || !x || !Array.isArray(x.cells)) return;
       const ids = new Set(x.cells.map(c => c.id)); if (seenIds.current) setFresh(new Set([...ids].filter(i => !seenIds.current.has(i)))); seenIds.current = ids; setD(x); setErr(''); }).catch(e => on && setErr(e.message)); };
-    go(); const t = setInterval(go, 20000); return () => { on = false; clearInterval(t); }; }, [api]);
+    go(true); const t = setInterval(go, 20000); return () => { on = false; clearInterval(t); }; }, [api]);
   if (!d) return <section className="hv" data-testid="hive"><p className="hv-nil">{err || 'reading the Hive…'}</p></section>;
   const p = 1 - d.left / 86400; const cells = d.cells.slice(0, 48);
   return <section className="hv" data-testid="hive">
@@ -39,19 +40,21 @@ export function HiveBoard({ api }) {
 
 // 🏺 THE COLONY POT (owner 2026-10-31: "the smartest, next-level way of safe growth — I create a Circle wallet for it and pick how it's secured"):
 // one Circle wallet; our server is the only one that can send from it, so it enforces the guards — the principal never leaves, at most the
-// epoch cap of the GROWTH pays out, only to wallets that own a colonized agent, split by honey, and only after the owner approves a timelocked batch.
+// epoch cap of the GROWTH pays out, only to owners who signed to share winnings (split by what each shared), only after a timelocked approval.
+// Opportunity 1 = the colony pool the owner opens with this wallet (assigned here); opportunity 2 = the sharers' airdrop (daily / weekly).
 const usd = v => (v == null ? '—' : `$${Number(v).toLocaleString(undefined, { maximumFractionDigits: Number(v) >= 100 ? 0 : 2 })}`);
-const GUARD = { principalLock: ['🔒 Principal lock', 'What was staked or locked in never pays out — only growth'], allowlist: ['📜 Allowlist', 'Payouts go only to wallets that own a colonized agent'], ownerSigns: ['✍ You approve', 'Every payout batch waits for your approval'] };
+const GUARD = { principalLock: ['🔒 Principal lock', 'What was staked or locked in never pays out — only growth'], allowlist: ['📜 Allowlist', 'Airdrops go only to owners who signed to share'], ownerSigns: ['✍ You approve', 'Every payout batch waits for your approval'] };
 export function ColonyPot({ call }) {
   const [d, setD] = useState(null); const [err, setErr] = useState(''); const [busy, setBusy] = useState('');
-  const take = x => { if (x && 'policy' in x) { setD(x); setErr(''); } else setErr('The colony did not answer.'); };
-  useEffect(() => { let on = true; const go = () => { if (!document.hidden) call('/admin/colony').then(x => on && take(x)).catch(e => on && setErr(e.message)); };
-    go(); const t = setInterval(go, 30000); return () => { on = false; clearInterval(t); }; }, [call]);   // eslint-disable-line react-hooks/exhaustive-deps
+  const [pool, setPool] = useState(''); const [plat, setPlat] = useState(''); const seeded = useRef(false);
+  const take = x => { if (x && 'policy' in x) { setD(x); setErr(''); if (!seeded.current) { seeded.current = true; setPool(x.pool?.address || ''); setPlat(x.pool?.platform || ''); } } else setErr('The colony did not answer.'); };
+  useEffect(() => { let on = true; const go = first => { if (first || !document.hidden) call('/admin/colony').then(x => on && take(x)).catch(e => on && setErr(e.message)); };
+    go(true); const t = setInterval(go, 30000); return () => { on = false; clearInterval(t); }; }, [call]);   // eslint-disable-line react-hooks/exhaustive-deps
   const act = async (action, extra) => { setBusy(action); setErr(''); try { take(await call('/admin/colony', { method: 'POST', body: JSON.stringify({ action, ...extra }) })); } catch (e) { setErr(e.message); } finally { setBusy(''); } };
   if (!d) return <article className="fch-card hv-pot" data-testid="colony-pot"><h4>🏺 COLONY POT</h4><p className="fch-nil">{err || 'reading the pot…'}</p></article>;
   const v = d.value?.usd ?? 0; const top = Math.max(v, d.principalUsd, 1);
   return <article className="fch-card fch-wide hv-pot" data-testid="colony-pot">
-    <h4>🏺 COLONY POT<small>{d.wallet ? <>Circle · <code>{d.wallet.address.slice(0, 4)}…{d.wallet.address.slice(-4)}</code></> : 'no wallet yet'} · {d.colonized} colonized · {d.trades} trades graded this epoch</small></h4>
+    <h4>🏺 COLONY POT<small>{d.wallet ? <>Circle · <code>{d.wallet.address.slice(0, 4)}…{d.wallet.address.slice(-4)}</code></> : 'no wallet yet'} · {d.colonized} colonized · next airdrop in {Math.max(0, Math.round((d.nextAirdrop * 1000 - Date.now()) / 3600000))}h</small></h4>
     {!d.wallet ? <p className="hv-pot-new"><span>The pot is ONE Circle wallet. Your users' money is never pooled — each agent trades from its own wallet; the pot only ever pays out what it GREW.</span>
       <button type="button" className="m-btn m-go" disabled={!!busy} onClick={() => act('create')} data-tip="Makes the pot's Solana wallet on the agent Circle account (one, ever — a second click returns the same wallet)" data-testid="colony-create">{busy === 'create' ? 'Making…' : '🏺 Create the pot wallet'}</button></p>
       : <>
@@ -69,11 +72,20 @@ export function ColonyPot({ call }) {
                 onPointerUp={e => act('policy', { policy: { ...d.policy, [k]: Number(e.target.value) } })} onKeyUp={e => act('policy', { policy: { ...d.policy, [k]: Number(e.target.value) } })} data-testid={`colony-${k}`} /></label>; })}
             <button type="button" className="m-btn" disabled={!!busy || !d.growthUsd} onClick={() => act('lock')} data-tip="Lock today's value in as principal: the floor only ever goes up, so gains compound instead of paying out" data-testid="colony-lock">{busy === 'lock' ? 'Locking…' : '🔒 Lock gains in'}</button></div>
         </div>
-        <ol className="hv-board hv-split" aria-label="This epoch's honey split" data-testid="colony-split"><li className="hv-board-h">🍯 IF THE EPOCH ENDED NOW · {usd(d.payableUsd)} BY HONEY</li>
-          {d.split.length ? d.split.map((r, i) => <li key={r.cat} style={{ '--i': i }}><b className="m-num">{i + 1}</b><span>{r.name}</span><i aria-hidden="true"><u style={{ transform: `scaleX(${Math.max(0.03, r.pct / 100)})` }} /></i>
-            <em className="m-num is-up">{usd(r.usd)}</em><small>{r.honey} honey · {r.pct}% · {r.owner.slice(0, 4)}…</small></li>)
-            : <li className="hv-empty">No colonized agent with honey yet — payouts follow honey, so nothing would pay.</li>}</ol>
-        <p className="fch-note">Payout batches are not sent from here yet — this is the exact split the guards allow. Sending needs your approval flow (not built).</p>
+        <div className="hv-pot-row">
+          <form className="hv-pot-pool" onSubmit={e => { e.preventDefault(); act('pool', { address: pool.trim(), platform: plat.trim() }); }} data-tip="Opportunity 1: the pool you opened with the colony wallet — users see it in the Colonize popout">
+            <span>🌊 COLONY POOL {d.pool ? <em className="is-on">OPEN · {d.pool.platform}</em> : <em>not open</em>}</span>
+            <input className="m-input" value={plat} onChange={e => setPlat(e.target.value)} placeholder="platform (e.g. Meteora)" aria-label="Pool platform" data-testid="colony-pool-platform" />
+            <input className="m-input" value={pool} onChange={e => setPool(e.target.value)} placeholder="pool address" aria-label="Pool address" data-testid="colony-pool-addr" />
+            <button type="submit" className="m-btn" disabled={!!busy} data-testid="colony-pool-save">{pool.trim() ? 'Save the pool' : 'Clear'}</button></form>
+          <div className="hv-pot-set"><label><span>🪂 AIRDROP<b className="m-num">{d.sharers}</b><small>signed sharers · {d.sharedSol} SOL shared, unsent</small></span>
+            <span className="m-seg" role="group" aria-label="How often the airdrop pays">{[['daily', 'Every 24 h'], ['weekly', 'Weekly']].map(([k, l]) => <button key={k} type="button" className={d.policy.cadence === k ? 'active' : ''} aria-pressed={d.policy.cadence === k} disabled={!!busy} onClick={() => act('policy', { policy: { cadence: k } })} data-testid={`colony-cadence-${k}`}>{l}</button>)}</span></label></div>
+        </div>
+        <ol className="hv-board hv-split" aria-label="The next airdrop" data-testid="colony-airdrop"><li className="hv-board-h">🪂 NEXT AIRDROP · {usd(d.payableUsd)} BY WHAT EACH SHARED</li>
+          {d.airdrop.length ? d.airdrop.map((r, i) => <li key={r.owner} style={{ '--i': i }}><b className="m-num">{i + 1}</b><span>{r.owner.slice(0, 4)}…{r.owner.slice(-4)}</span><i aria-hidden="true"><u style={{ transform: `scaleX(${Math.max(0.03, r.pct / 100)})` }} /></i>
+            <em className="m-num is-up">{usd(r.usd)}</em><small>{r.sol} SOL shared · {r.pct}%</small></li>)
+            : <li className="hv-empty">Nobody has shared winnings this period — an airdrop pays by what each owner shared.</li>}</ol>
+        <p className="fch-note">Airdrops and pool deposits are not sent from here yet — this is the exact split the guards allow. Sending needs your approval flow (not built).</p>
       </>}
     <p className="hv-pot-net" data-tip="The real browsers this server can open, in order — names only, keys stay on the server"><small>BROWSERS</small>{d.browsers.map((b, i) => <span key={b} className={b === 'reader' ? 'is-off' : ''}>{i + 1}. {b}</span>)}</p>
     {err ? <p className="lct-err" role="alert">⚠ {err}</p> : null}
@@ -99,39 +111,43 @@ function ColonyScreen({ a, w, side, tick }) {
   else body = <span className="cl-off"><i className="cl-scan" aria-hidden="true" /><b aria-hidden="true">{a.kind === 'trading' ? '📈' : '🧭'}</b>{a.status === 'working' ? 'loading the screen…' : a.kind === 'trading' ? 'reading the trenches' : 'waiting for its next job'}</span>;
   return <span className={`cl-scr${w?.status === 'working' ? ' is-go' : ''}`} data-testid={`cl-scr-${a.id}-${side}`}>
     <span className="cl-bar"><i /><i /><i /><b>{host}</b>{w?.last && !a.incognito ? <em className="cl-last">LAST PAGE</em> : w?.status === 'working' ? <em className="cl-rec">● LIVE</em> : null}</span>
-    <span className="cl-view">{body}<small className="cl-model">{side} · {w?.model || a.brains?.[side === 'A' ? 0 : 1] || '—'}</small></span></span>;
+    <span className="cl-view">{body}{a.incognito || w?.frozen ? null : <AiCursor c={w?.cursor} kind={readCursor()} />}<small className="cl-model">{side} · {w?.model || a.brains?.[side === 'A' ? 0 : 1] || '—'}</small></span></span>;
 }
-function ColonyCell({ a, face, onOpen, i, top }) {
+function ColonyCell({ a, face, onOpen, i, top, extra }) {
   const ref = useRef(null); const seen = useSeen(ref); const [tick, setTick] = useState(0); const live = a.windows?.some(w => w.status === 'working');
   useEffect(() => { if (!seen || !live) return undefined; const t = setInterval(() => { if (!document.hidden) setTick(x => x + 1); }, 5000); return () => clearInterval(t); }, [seen, live]);
   const wins = [0, 1].map(k => a.windows?.find(w => w.i === k) || a.windows?.[k] || null);
-  const c = a.last;
+  const c = a.last; const seenAt = useRef(a.carrying?.at); const [drop, setDrop] = useState(null);
+  useEffect(() => { const t = a.carrying?.at; if (!t || t === seenAt.current) return undefined; seenAt.current = t; setDrop(a.carrying.text); const k = setTimeout(() => setDrop(null), 2600); return () => clearTimeout(k); }, [a.carrying?.at, a.carrying?.text]);   // 🗄 a NEW keep drops into the agent
   return <article ref={ref} className={`cl-cell${a.colonized ? ' is-col' : ''}${live ? ' is-go' : ''}`} style={{ '--i': i }} data-testid={`cl-${a.id}`}>
     <div className="cl-stage"><ColonyScreen a={a} w={wins[0]} side="A" tick={tick} />
-      <button type="button" className="cl-face" onClick={() => onOpen?.(a)} data-tip={`Open ${a.name}'s desk`} aria-label={`Open ${a.name}`}><span className="cl-halo" aria-hidden="true" />{face ? face(a) : null}</button>
+      <button type="button" className="cl-face" onClick={() => onOpen?.(a)} data-tip={`Open ${a.name}'s desk`} aria-label={`Open ${a.name}`}><span className="cl-halo" aria-hidden="true" />{face ? face(a) : null}
+        {drop ? <span className="cl-drop" key={a.carrying.at} aria-hidden="true" data-testid={`cl-drop-${a.id}`}>🗄 {drop}</span> : null}</button>
       <ColonyScreen a={a} w={wins[1]} side="B" tick={tick} /></div>
     <footer className="cl-foot">
       <span className="cl-who"><b>{a.name}</b><small>{a.kind === 'general' ? '🧭 GENERAL' : '📈 TRADER'} · LVL {a.level || 1}{a.colonized ? ' · 🐝 COLONIZED' : ''}</small></span>
       <span className="cl-honey" data-tip={`${a.honey} honey this epoch · ${a.right}/${a.graded} graded calls right`}><em>🍯</em><b className={`m-num ${a.honey < 0 ? 'is-dn' : ''}`} key={a.honey}>{a.honey > 0 ? '+' : ''}{a.honey}</b>
         <i aria-hidden="true"><u className={a.honey < 0 ? 'is-dn' : ''} style={{ transform: `scaleX(${Math.max(0.04, Math.min(1, Math.abs(a.honey) / Math.max(1, top)))})` }} /></i><small>{a.right}/{a.graded} right</small></span>
+      <small className={`cl-carry${drop ? ' is-new' : ''}`} data-tip="What it stored last — it goes into its drawer">› {a.carrying ? <>carrying “{a.carrying.text}” to its drawer</> : a.status === 'working' ? 'reading — nothing kept yet' : 'nothing carried yet'}</small>
+      {extra ? extra(a) : null}
       {c ? <span className={`cl-call ${CALL[c.call] || ''}${c.honey > 0 ? ' is-right' : c.honey < 0 ? ' is-wrong' : ''}`} data-tip={`${c.call} $${c.sym} — ${c.why}`}>{c.call} ${c.sym}<em>{c.honey == null ? '⏳' : `${c.honey > 0 ? '+' : ''}${c.honey}`}</em></span> : <span className="cl-call is-none">no call yet</span>}
     </footer></article>;
 }
-export function ColonyGrid({ api, face, onOpen }) {
+export function ColonyGrid({ api, face, onOpen, ids, extra }) {
   const [rows, setRows] = useState([]); const [meta, setMeta] = useState(null); const [err, setErr] = useState(''); const pageRef = useRef(0); const busy = useRef(false); const end = useRef(null); const seeEnd = useSeen(end);
   const load = useCallback(async (page, replace) => { if (busy.current) return; busy.current = true;
-    try { const x = await api(`/api/cats/colony?page=${page}`); if (!x || !Array.isArray(x.agents)) throw new Error('The colony did not answer.');
+    try { const x = await api(`/api/cats/colony?page=${page}${ids ? `&ids=${encodeURIComponent(ids)}` : ''}`); if (!x || !Array.isArray(x.agents)) throw new Error('The colony did not answer.');
       setRows(r => (replace ? x.agents : [...r.filter(o => !x.agents.some(n => n.id === o.id)), ...x.agents])); setMeta(x); pageRef.current = page; setErr(''); }
-    catch (e) { setErr(e.message); } finally { busy.current = false; } }, [api]);
+    catch (e) { setErr(e.message); } finally { busy.current = false; } }, [api, ids]);
   useEffect(() => { load(0, true); const t = setInterval(() => { if (!document.hidden) load(0, false); }, 15000); return () => clearInterval(t); }, [load]);
   useEffect(() => { if (seeEnd && meta?.more && meta.page === pageRef.current) load(pageRef.current + 1, false); }, [seeEnd, meta, load]);   // more on scroll
   const top = Math.max(1, ...rows.map(r => Math.abs(r.honey || 0)));
-  return <section className="cl" data-testid="colony">
-    <header className="cl-head"><span><small>THE COLONY</small><b>{meta ? <><em className="m-num">{meta.colonized}</em> colonized · <em className="m-num">{meta.total}</em> agents</> : 'reading the colony…'}</b></span>
-      <p>Every agent's two windows, live — the drawn agent between them. Colonized agents file graded calls and their trades are graded before and after; honey splits the colony pot's growth.</p></header>
+  return <section className={`cl${ids ? ' is-mine' : ''}`} data-testid={ids ? 'colony-mine' : 'colony'}>
+    {ids ? null : <header className="cl-head"><span><small>THE COLONY</small><b>{meta ? <><em className="m-num">{meta.colonized}</em> colonized · <em className="m-num">{meta.total}</em> agents</> : 'reading the colony…'}</b></span>
+      <p>Every agent's two windows, live — the drawn agent between them. Colonized agents file graded calls and their trades are graded before and after; honey splits the colony pot's growth.</p></header>}
     {err && !rows.length ? <p className="hv-nil">{err}</p> : null}
-    <div className="cl-grid">{rows.map((a, k) => <ColonyCell key={a.id} a={a} face={face} onOpen={onOpen} i={k % 9} top={top} />)}</div>
+    <div className="cl-grid">{rows.map((a, k) => <ColonyCell key={a.id} a={a} face={face} onOpen={onOpen} i={k % 9} top={top} extra={extra} />)}</div>
     <span ref={end} className="cl-end" aria-hidden="true">{meta?.more ? 'more agents…' : null}</span>
-    <HiveBoard api={api} />
+    {ids ? null : <HiveBoard api={api} />}
   </section>;
 }

@@ -13,6 +13,7 @@ TOOLS = {
     'perps': 'the FEELESS perps desk: markets, max leverage, how an order is placed',
     'pools': 'the Pool Hub: the best Solana pools by yield + depth',
     'gaps': 'price gaps between pools for the same token, net of swap costs',
+    'colony': "the Colony's graded calls: what other agents called on a coin ($SYMBOL) and how it graded an hour on",
 }
 # 🚫 never: another agent / FeeCat anywhere, or a coin / pool ON FEELESS (owner 2026-10-30: "on pump or any other platform they can do as they please —
 # rep still scores that agent's wallet; just don't allow it on FEELESS"). Scams / rugs / phishing stay refused everywhere (cat_policy.BAD_JOB).
@@ -111,6 +112,19 @@ def perps_text():
             + '. A position is opened from the perps desk and the user signs it; the agent proposes the trade (market, side, size, leverage, stop).')
 
 
+def colony_text(cells, q=''):
+    """🐝 the Colony's newest calls (on one $SYMBOL when asked) — call, by whom, and the honey once graded. Pure."""
+    k = str(q or '').lstrip('$').lower()
+    rows = [c for c in cells or [] if not k or str(c.get('sym') or '').lower() == k][:8]
+    if not rows:
+        return f"FEELESS Colony: no graded calls{f' on ${k.upper()}' if k else ''} yet."
+    out = []
+    for c in rows:
+        h, m = c.get('honey'), c.get('move')
+        out.append(f"- {c.get('call')} ${c.get('sym')} by {c.get('name') or 'an agent'}: {'grading' if h is None else f'{int(h):+d} honey'}{'' if m is None else f' ({float(m):+.1f}%)'}")
+    return "FEELESS Colony (other agents' calls, graded an hour on):\n" + '\n'.join(out)
+
+
 async def run_tool(http, tool, q=''):
     """→ (text the mind reads, the coin {pair, mint, symbol} for the live chart or None). Read-only; a failed read says so."""
     tool = str(tool or '').lower()
@@ -141,6 +155,9 @@ async def run_tool(http, tool, q=''):
             r = await http.get(f'{REP}/api/reputation/familia-pools/gaps', timeout=20)
             j = r.json()
             return gaps_text(j.get('gaps') if isinstance(j, dict) else j), None
+        if tool == 'colony':
+            r = await http.get('http://127.0.0.1:5088/api/cats/hive', timeout=10)
+            return colony_text((r.json() or {}).get('cells'), q), None
         return perps_text(), None
     except Exception as e:
         return f'FEELESS {tool} could not be read just now ({str(e)[:80]}) — say so, do not guess.', None

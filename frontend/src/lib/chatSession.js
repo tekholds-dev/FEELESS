@@ -33,6 +33,7 @@ export const agentAuth = () => ({ ownerId: agentBrowserId(), session: (nowWallet
 export const agentSignedIn = () => !!agentAuth().session;
 // 🔐 a password reveal is its own fresh signature (the server checks it against the owner wallet, 2 minutes)
 export const revealMessage = (catId, site, ts) => `FEELESS reveal\nagent:${catId}\nsite:${site}\nts:${ts}`;
+export const shareMessage = (catId, pct, ts) => `FEELESS colony share\nagent:${catId}\npct:${pct}\nts:${ts}`;   // 🤝 the colony share consent (feecat_service.share_message)
 export const agentAuthQuery = () => { const a = agentAuth(); return `ownerId=${encodeURIComponent(a.ownerId)}&session=${encodeURIComponent(a.session)}`; };
 const checked = sweepable('chatSession', new Map(), { max: 20 });
 // One signature, reused everywhere (chat, DMs, follows, rewards, shop) for 7 days and across linked networks.

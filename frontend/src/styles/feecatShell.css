@@ -106,3 +106,14 @@ body.fcx-on :is(.fcx-aur, .fcx-star) { animation: none; }
 .fcx :is(.soc-x, .soc-tg, .soc-site, .share-gif) { position: relative; } .fcx :is(.soc-x, .soc-tg, .soc-site, .share-gif)::after { content: ''; position: absolute; inset: -7px; }
 .fcx :is(.chart-tools-btn, .chart-fee-toggle, .chart-style-toggle) { min-height: 32px; } .fcx details > summary { min-height: 32px; display: flex; align-items: center; }
 
+
+/* ⤒ FOCUS: the site's header stack hides and this bar slims to one row (body.fcx-focus, remembered per browser) */
+.fcx-focus-btn { display: grid; place-items: center; width: 36px; min-height: 36px; border-radius: 11px; border: 1px solid #b388ff44; background: #ffffff08; color: #e6dcff; cursor: pointer; transition: background .15s, transform .12s; }
+.fcx-focus-btn svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.fcx-focus-btn:hover { background: #b388ff22; } .fcx-focus-btn:active { transform: scale(.94); } .fcx-focus-btn:focus-visible { outline: 2px solid var(--fv); outline-offset: 2px; }
+.fcx-focus-btn.is-on { background: linear-gradient(135deg, var(--fv), var(--fv2)); color: #12081f; border-color: transparent; }
+body.fcx-focus .terminal-header, body.fcx-focus .market-ticker, body.fcx-focus .context-bar, body.fcx-focus .season-banner, body.fcx-focus .workspace-topline, body.fcx-focus .paper-platform-head { display: none; }
+body.fcx-focus .fcx-bar { padding: 4px 8px; gap: 8px; } body.fcx-focus .fcx-brand small, body.fcx-focus .fcx-nav a small { display: none; }
+body.fcx-focus .fcx-nav a { min-height: 36px; padding: 3px 10px; } body.fcx-focus .fcx-mine { min-height: 36px; }
+body.theme-day .fcx-focus-btn { color: #3d2a66; background: #f5f0fd; }
+@media (prefers-reduced-motion: reduce) { .fcx-focus-btn { transition: none; } }

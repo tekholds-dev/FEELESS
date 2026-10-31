@@ -19586,7 +19586,9 @@ async def _colony_view():
     return {'wallet': {k: w.get(k) for k in ('address', 'at')} if w else None, 'value': val, 'principalUsd': round(principal, 2),
             'growthUsd': _col.growth((val or {}).get('usd'), principal) if val else 0.0, 'payableUsd': pay, 'policy': policy,
             'bounds': _col.POLICY_BOUNDS, 'guards': list(_col.FIXED_GUARDS), 'stakeMinUsd': _col.STAKE_MIN_USD,
-            'split': _col.split(live.get('board'), live.get('owners'), pay), 'board': (live.get('board') or [])[:10],
+            'airdrop': _col.airdrop(live.get('shares'), set(live.get('sharers') or []), pay, _col.period_of(time.time(), policy['cadence'])[1] - _col.CADENCES[policy['cadence']]),
+            'nextAirdrop': _col.period_of(time.time(), policy['cadence'])[1], 'sharers': len(live.get('sharers') or []),
+            'sharedSol': round(sum(float(x.get('sol') or 0) for x in live.get('shares') or []), 6), 'pool': d.get('pool'), 'board': (live.get('board') or [])[:10],
             'colonized': live.get('colonized', 0), 'trades': live.get('trades', 0), 'epoch': live.get('epoch'), 'left': live.get('left'),
             'browsers': live.get('browsers') or [], 'log': (d.get('log') or [])[-8:]}
 
@@ -19623,7 +19625,12 @@ async def admin_colony_set(request: Request):
             raise HTTPException(503, "Couldn't read the pot's balance — nothing changed.")
         d['principalUsd'] = _col.raise_floor(d.get('principalUsd'), val['usd'])
     elif act == 'policy':
-        d['policy'] = _col.clean_policy(body.get('policy'))
+        d['policy'] = _col.clean_policy({**(d.get('policy') or {}), **(body.get('policy') or {})})
+    elif act == 'pool':   # 🌊 opportunity 1: the pool the owner opened with the colony wallet (its address on the platform) — or none
+        pa_ = str(body.get('address') or '').strip(); pf_ = str(body.get('platform') or '').strip()[:24]
+        if pa_ and not _re.match(r'^[1-9A-HJ-NP-Za-km-z]{32,44}$', pa_):
+            raise HTTPException(400, 'Not a pool address.')
+        d['pool'] = {'address': pa_, 'platform': pf_ or 'pool', 'at': now} if pa_ else None
     else:
         raise HTTPException(400, 'Unknown colony action.')
     d['log'] = (d.get('log') or [])[-40:] + [{'at': now, 'what': act, 'by': str(me_)[:8], 'principalUsd': d.get('principalUsd'), 'policy': d.get('policy')}]
@@ -28559,7 +28566,9 @@ async def admin_feecat_get(request: Request):
             'pins': _feecat_pins((prof.get('cat') or {}).get('positions') or [], sc_.get('top') or []),   # 🤖🔁 the agents' + OSSY / G4's word on HER coins (HQ only)
             'scan': {k: sc_.get(k) for k in ('at', 'scanned', 'passed', 'rejections', 'top', 'brainRejects', 'safetyRejects')},
             'duo': {k: _feecat_ai.get(k) for k in ('read', 'avoid', 'exit', 'split', 'why', 'models')},   # 🤝 her one duo AI read per 10 min
-            'cat': {k: (prof.get('cat') or {}).get(k) for k in ('balanceSol', 'startingBalanceSol', 'realizedPnlSol', 'winRate', 'wins', 'losses', 'status', 'lastTick', 'positions', 'pnlHistory', 'level', 'xp')},
+            'cat': {**{k: (prof.get('cat') or {}).get(k) for k in ('balanceSol', 'startingBalanceSol', 'realizedPnlSol', 'winRate', 'wins', 'losses', 'status', 'lastTick', 'positions', 'pnlHistory', 'level', 'xp')},
+                    # 👛 her wallet panel reads these: the slim record above had none, so the wallet you'd just assigned vanished on the next 6 s poll (owner 2026-10-31)
+                    **{k: ((st_fc.get('cats') or {}).get('leader') or {}).get(k) for k in ('id', 'name', 'isLeader', 'agentWallet', 'mode', 'realWallet', 'budgetSol', 'proposals', 'agentFunded', 'revoked')}},
             'fastTrench': _feecat_fast_trench()}
 
 

@@ -7,7 +7,7 @@ import { ApiDrawer, Bubble } from './LaunchCat';
 import '../../styles/agentDemo.css';
 import '../../styles/catWorkbench.css';
 import '../../styles/hive.css';
-import { agentAuth, agentAuthQuery, revealMessage, getChatSession } from '../../lib/chatSession';
+import { agentAuth, agentAuthQuery, revealMessage, shareMessage, getChatSession } from '../../lib/chatSession';
 import { svgPngBlob } from '../../lib/svgPng';
 import { useWallet } from '../../hooks/useWallet';
 import { useSolPrice } from '../../lib/solPrice';
@@ -51,13 +51,20 @@ const FILES_ICON = <svg viewBox="0 0 20 20" aria-hidden="true"><rect x="3" y="3"
 // own AND its trades are graded (entry, then an hour on; exit, then an hour on) — honey decides its share of the colony pot's growth. Off any time.
 const PACES = [[120, '2 min'], [300, '5 min'], [900, '15 min'], [3600, '1 h']];
 const COLONY_STEPS = [['🔎', 'It reads the trenches on its own', 'One coin at a time, one small model call each, inside its $ limits — until you turn it off.'],
-  ['📈', 'Every move is graded, before and after', 'Its calls, its entries and its exits are each judged an hour on against what the coin really did.'],
-  ['🍯', 'Right calls earn honey', 'Honey ranks the epoch (one UTC day). Wrong calls lose it.'],
-  ['🏺', 'Honey splits the colony pot', 'Only the pot\'s GROWTH pays out — the locked principal never leaves, at most a capped slice per epoch, and the owner approves every batch after a timelock.'],
-  ['👛', 'Your money is never pooled', 'This agent keeps trading from its own wallet. Nothing moves to the pot from you.']];
+  ['📈', 'Every move is graded, before and after', 'Its calls, entries and exits are each judged an hour on against what the coin really did.'],
+  ['🍯', 'Honey is its proof', 'Graded calls earn or lose honey — it ranks your agent on the Colony. Nobody is paid for being right.'],
+  ['👛', 'Your money is never pooled', 'It keeps trading from its own wallet. Only what YOU choose below ever goes to the colony.']];
+const SHARE_PCTS = [5, 10, 20, 30];
+const when = s => { const m = Math.max(0, Math.round((s * 1000 - Date.now()) / 60000)); return m >= 1440 ? `${Math.round(m / 1440)}d` : m >= 60 ? `${Math.round(m / 60)}h` : `${m}m`; };
 export function HiveSwitch({ cat }) {
+  const { signMessage } = useWallet() || {}; const [share, setShare] = useState(cat?.colonyShare || { on: false, pct: 10 }); const [meta, setMeta] = useState(null);
   const [h, setH] = useState(cat?.hive || { on: false, every: 300 }); const [busy, setBusy] = useState(false); const [err, setErr] = useState(''); const [pop, setPop] = useState(false); const [pace, setPace] = useState(cat?.hive?.every || 300);
   const set = async (on, every) => { setBusy(true); setErr(''); try { const r = await work(cat.id, { op: 'hive', on, cap: every }); setH(r.hive); setPop(false); } catch (e) { setErr(e.message); } finally { setBusy(false); } };
+  useEffect(() => { if (pop) fetch(apiUrl(`/api/cats/colony?ids=${cat.id}`)).then(r => (r.ok ? r.json() : null)).then(x => x && setMeta(x)).catch(() => {}); }, [pop, cat?.id]);   // the pool + the airdrop clock
+  const sign = async on => { setBusy(true); setErr(''); try { let x;
+      if (on) { const ts = Math.floor(Date.now() / 1000); const sig = await signMessage(shareMessage(cat.id, share.pct, ts)); x = await work(cat.id, { op: 'share', on: true, cap: share.pct, ts, sig }); }
+      else x = await work(cat.id, { op: 'share', on: false });
+      setShare(x.colonyShare); } catch (e) { setErr(e.message || 'Not signed'); } finally { setBusy(false); } };
   useEffect(() => { if (!pop) return undefined; const k = e => e.key === 'Escape' && setPop(false); window.addEventListener('keydown', k); return () => window.removeEventListener('keydown', k); }, [pop]);
   const every = PACES.find(p => p[0] === h.every)?.[1] || `${Math.round(h.every / 60)} min`;
   return <span className="hv-sw" data-testid="hive-sw">
@@ -69,7 +76,16 @@ export function HiveSwitch({ cat }) {
         <header><span className="hv-pop-orb" aria-hidden="true"><i /><i /><i /></span><div><small>THE COLONY</small><h3 id="hv-pop-h">Colonize {cat?.name || 'this agent'}</h3></div>
           <button type="button" className="hv-pop-x" onClick={() => setPop(false)} aria-label="Close" data-tip="Close (Esc)">✕</button></header>
         <ol className="hv-pop-steps">{COLONY_STEPS.map(([ic, h3, p], k) => <li key={h3} style={{ '--i': k }}><b aria-hidden="true">{ic}</b><span><strong>{h3}</strong><small>{p}</small></span></li>)}</ol>
-        <p className="hv-pop-stake" data-tip="Read live from your wallet when you confirm — the agent's own wallet is never touched"><b>🐱 STAKE</b><span>Hold at least <em>$25 of FEECAT</em> in the wallet that owns this agent. It's checked when you confirm. On-chain staking (locked, earning) isn't live yet — holding is the stake for now.</span></p>
+        <p className="hv-pop-stake" data-tip="Read live from your wallet when you confirm — the agent's own wallet is never touched"><b>🐱 TO JOIN</b><span>Hold at least <em>$25 of FEECAT</em> in the wallet that owns this agent — checked when you confirm.</span></p>
+        <div className="hv-opps"><small>TWO WAYS TO EARN FROM THE COLONY</small>
+          <article className="hv-opp" data-testid="colony-opp-stake"><b className="hv-opp-n">1</b><span><strong>🌊 Stake FEECAT or SOL in the colony pool</strong>
+            <small>The pool lives on its own platform and pays on its own epochs.</small>
+            <em className={meta?.pool ? 'is-on' : ''}>{meta?.pool ? `OPEN on ${meta.pool.platform} · ${meta.pool.address.slice(0, 4)}…${meta.pool.address.slice(-4)} — staking from here isn't wired yet` : 'NOT OPEN YET — FEELESS opens it with the colony wallet'}</em></span></article>
+          <article className={`hv-opp${share.on ? ' is-on' : ''}`} data-testid="colony-opp-share"><b className="hv-opp-n">2</b><span><strong>🤝 Share its winnings, get airdrops</strong>
+            <small>Sign once: each WINNING trade sends the % you pick of its profit to the colony wallet. The colony airdrops back every {meta?.cadence === 'weekly' ? 'week' : 'day'}{meta?.nextAirdrop ? ` (next in ${when(meta.nextAirdrop)})` : ''}, by how much you shared. Losses send nothing. Shares are recorded now; airdrops start when payouts go live.</small>
+            {share.on ? <span className="hv-opp-row"><em className="is-on">SHARING {share.pct}% · signed</em><button type="button" className="m-btn" disabled={busy} onClick={() => sign(false)} data-testid="colony-share-off">Stop sharing</button></span>
+              : <span className="hv-opp-row"><span className="m-seg" role="group" aria-label="Share of each winning trade">{SHARE_PCTS.map(v => <button key={v} type="button" className={share.pct === v ? 'active' : ''} aria-pressed={share.pct === v} onClick={() => setShare(x => ({ ...x, pct: v }))} data-testid={`colony-share-${v}`}>{v}%</button>)}</span>
+                <button type="button" className="m-btn m-go" disabled={busy || !signMessage} onClick={() => sign(true)} data-testid="colony-share-sign" data-tip={signMessage ? 'One wallet signature, no transaction' : 'Connect your wallet first'}>✍ Sign to share</button></span>}</span></article></div>
         <label className="hv-pop-pace"><span>FILES A CALL</span><span className="m-seg" role="group" aria-label="How often it files a call">{PACES.map(([v, l]) => <button key={v} type="button" className={pace === v ? 'active' : ''} aria-pressed={pace === v} onClick={() => setPace(v)} data-testid={`colonize-pace-${v}`}>{l}</button>)}</span></label>
         {err ? <p className="lct-err" role="alert" data-testid="colonize-err">⚠ {err}</p> : null}
         <footer><button type="button" className="m-btn" onClick={() => setPop(false)}>Not now</button><button type="button" className="m-btn m-go" disabled={busy} onClick={() => set(true, pace)} data-testid="colonize-go">{busy ? 'Checking your FEECAT…' : '🐝 Colonize'}</button></footer>
@@ -122,9 +138,11 @@ function WinVitals({ w }) {
 export const CURSORS = [['arrow', '➤ Arrow'], ['paw', '🐾 Paw'], ['dot', '◉ Neon dot'], ['cross', '✛ Crosshair']];
 const CURSOR_KEY = 'feeless:ai-cursor';
 export const readCursor = () => { try { return localStorage.getItem(CURSOR_KEY) || 'arrow'; } catch { return 'arrow'; } };
-function AiCursor({ c, kind }) {
-  if (!c || c.x == null) return null;
-  return <span className={`cwb-cursor c-${kind}`} style={{ transform: `translate(${c.x * 100}cqw, ${c.y * 100}cqh)` }} data-testid="cwb-cursor" aria-hidden="true">
+// 🖱 ALWAYS on (owner 2026-10-31): before its first move the cursor rests mid-screen, dimmed; then it glides to every real move
+const REST = { x: 0.5, y: 0.55, act: 'move' };
+export function AiCursor({ c, kind }) {
+  const rest = !c || c.x == null; if (rest) c = REST;
+  return <span className={`cwb-cursor c-${kind}${rest ? ' is-rest' : ''}`} style={{ transform: `translate(${c.x * 100}cqw, ${c.y * 100}cqh)` }} data-testid="cwb-cursor" aria-hidden="true">
     <i /><u key={c.at} className={`at-${c.act || 'click'}`} /></span>;
 }
 
@@ -164,10 +182,11 @@ function Window({ w, catId, tick, onGo, onLogin, busy, cursor = 'arrow' }) {
         <PriceChart key={w.coin.pair} pair={{ chainId: 'solana', pairAddress: w.coin.pair, baseToken: { address: w.coin.mint, symbol: w.coin.symbol } }} interval="1m" metric="price" showVolume={false} /></Suspense>
         <em className="cwb-chart-tag">FEELESS · ${w.coin.symbol}</em></div>
         : w?.live && seen ? <><iframe className={`cwb-live${w.hand ? ' is-hand' : ''}`} src={w.live} tabIndex={w.hand ? 0 : -1} title={`${w.model} browser`} sandbox="allow-scripts allow-same-origin allow-forms allow-popups" allow="clipboard-read; clipboard-write" data-testid="cwb-live" />
-          {w.hand ? null : <AiCursor c={w.cursor} kind={cursor} />}</>
+</>
         : w?.shot && seen ? <img className="cwb-shot" src={apiUrl(`/api/cats/${catId}/work/shot/${w.i}?${agentAuthQuery()}&t=${tick}`)} alt={`${w.model} window`} data-testid="cwb-shot" />
           : <div className="cwb-off" data-testid="cwb-now"><b>{notAsked ? 'not asked' : working ? `MIND ${'AB'[i] || i + 1} · ${w?.url ? String(w.url).replace(/^https?:\/\//, '').split('/')[0] : 'reading'}` : w?.status === 'done' ? (w?.answer ? 'done — its answer is in the chat' : 'done') : 'ready — ask below'}</b>
             <small>{w?.provider === 'reader' ? (w?.note ? `no live browser · ${w.note}` : 'no live browser right now — add a Kernel / Steel / Anchor key for real windows') : working ? 'opening its browser…' : ''}</small></div>}
+      {notAsked || w?.hand ? null : <AiCursor c={w?.cursor} kind={cursor} />}
       {drop ? <span className="cwb-drop" key={drop.k} style={{ '--x': `${drop.x * 100}cqw`, '--y': `${drop.y * 100}cqh` }} data-testid="cwb-drop" aria-hidden="true"><i>{drop.icon}</i>{drop.label}</span> : null}
       {w?.hand && w?.live ? <button type="button" className="m-btn cwb-big" onClick={() => setBig(true)} data-tip="It needs you: open its window big to click / sign in yourself" data-testid="cwb-big">⤢ Big</button> : null}
       {big && w?.hand && w?.live ? <AgentDesktop cat={{ id: catId }} live={{ live: w.live, site: w?.human?.site, title: `MIND ${'AB'[i] || i + 1} needs you${w?.human?.why ? ` — ${w.human.why}` : ''}` }} onClose={() => setBig(false)} /> : null}
@@ -379,25 +398,6 @@ export function StoredPop({ item }) {
   return shown ? <div className="cwb-stored" role="status" data-testid="cwb-stored"><span className="cwb-stored-box" aria-hidden="true"><u /></span>
     <span className="cwb-stored-file"><em>🗄 FILED IN ITS CLOUD</em><b>{shown.text}</b></span></div> : null;
 }
-// 🪟 MY AGENTS shows each agent's own window, not a flat card (owner 2026-10-31): its minds as bubbles (racing while they work), the site it is
-// on and its step — a general agent's public /live (polled only while on screen), a trader's coin and last call
-export function AgentScreen({ cat }) {
-  const ref = useRef(null); const seen = useOnScreen(ref); const [d, setD] = useState(null);
-  const gen = cat.brainsCfg?.kind === 'general';
-  useEffect(() => { if (!seen || !gen) return undefined; let on = true; const go = () => { if (document.hidden) return; fetch(apiUrl(`/api/cats/${cat.id}/live`)).then(r => (r.ok ? r.json() : null)).then(x => on && x && setD(x)).catch(() => {}); };
-    go(); const t = setInterval(go, 6000); return () => { on = false; clearInterval(t); }; }, [cat.id, gen, seen]);
-  const brains = (cat.brainsCfg?.brains || []).slice(0, 2);
-  const wins = d?.windows?.length ? d.windows : brains.map((m, i) => ({ i, model: m, status: 'idle' }));
-  const dec = (cat.brainsCfg?.decisions || []).at(-1); const pos = (cat.positions || [])[0];
-  const busy = gen ? wins.find(w => w.status === 'working') : (dec && Date.now() / 1000 - (dec.at || 0) < 90 ? dec : null);
-  const where = gen ? (busy?.host || wins.find(w => w.host)?.host || 'idle') : pos ? `$${pos.symbol}` : 'hunting';
-  const line = gen ? (busy ? `${String(busy.action || 'working').toUpperCase()} · step ${busy.steps || 0}` : 'waiting for your ask')
-    : dec ? `${dec.word} $${dec.sym} — ${String(dec.why || '').slice(0, 60)}` : pos ? `holding ${Number(pos.currentChange) >= 0 ? '+' : ''}${Number(pos.currentChange || 0).toFixed(1)}%` : 'reading the trenches';
-  return <span ref={ref} className={`cw-screen agd-browser${busy ? ' is-go' : ''}`} data-testid={`cw-screen-${cat.id}`}>
-    <span className="agd-url"><i aria-hidden="true">🔒</i><b>{where}</b>{busy ? <em className="agd-rec">● LIVE</em> : null}</span>
-    <span className="cw-view">{brains.length ? brains.map((m, i) => <Bubble key={m} m={asModel(m)} i={i} kind={gen ? 'general' : 'trading'} size={46} live hot={!!busy && (!gen || wins[i]?.status === 'working')} />) : <b className="cw-rule">rules</b>}
-      <small className="cw-line">{line}</small></span></span>;
-}
 function PublicMinds({ cat }) {
   const ref = useRef(null); useFit(ref, 24); const seen = useOnScreen(ref);
   const [d, setD] = useState(null); const [tick, setTick] = useState(0);
@@ -417,6 +417,7 @@ function PublicMinds({ cat }) {
           <div className="agd-screen cwb-view cwb-pubscreen">{w.screen && !w.frozen ? <img className="cwb-shot" src={apiUrl(`/api/cats/${cat.id}/screen/${i}${w.last ? '' : `?t=${tick}`}`)} alt={`${w.model || 'its'} window, ${w.last ? 'its last page' : 'live'}`} data-testid={`cwb-pubshot-${i}`} />
             : <><span className="cwb-pub-host" key={w.host}>{w.frozen ? '🔒 paused' : d?.incognito ? '🕶 incognito' : w.host || (go ? 'thinking…' : 'idle')}</span>
               <small className="cwb-pub-note">{w.frozen ? 'its owner is signing in — this window is hidden until they finish' : d?.incognito ? 'its owner keeps these screens private' : go ? 'reading…' : "waiting for its owner's ask"}</small></>}
+            {w.frozen || d?.incognito ? null : <AiCursor c={w.cursor} kind={readCursor()} />}
             {go && !w.frozen ? <p className={`agd-done is-on cwb-say at-${i % 2 ? 'right' : 'left'}`}>MIND {'AB'[i]} · on {w.host || '…'}</p> : null}</div></div>
       </article>; })}</div>
     <MindRail w={wins[1] || { i: 1, status: 'idle' }} side="right" d={d} /></div>

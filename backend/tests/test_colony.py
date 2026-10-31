@@ -10,15 +10,28 @@ def test_the_pot_only_pays_growth_under_the_epoch_cap_and_the_floor_only_rises()
     assert col.payable(1200, 1000, {'epochCapPct': 20}) == 40                     # 20 % of the growth leaves this epoch
     assert col.payable(1200, 1000, {'epochCapPct': 99}) == 100                     # the cap is clamped to 50 %
     assert col.raise_floor(1000, 1200) == 1200 and col.raise_floor(1200, 900) == 1200   # lock gains in; it never goes down
-    assert col.clean_policy({'timelockH': 1}) == {'epochCapPct': 20, 'timelockH': 6}
+    assert col.clean_policy({'timelockH': 1}) == {'epochCapPct': 20, 'timelockH': 6, 'cadence': 'daily'}
     assert set(col.FIXED_GUARDS) == {'principalLock', 'allowlist', 'ownerSigns'}
 
 
-def test_payouts_follow_honey_and_skip_agents_without_an_owner_wallet():
-    board = [{'cat': 'a', 'name': 'A', 'honey': 6}, {'cat': 'b', 'name': 'B', 'honey': 2}, {'cat': 'c', 'name': 'C', 'honey': 4}, {'cat': 'd', 'honey': -3}]
-    out = col.split(board, {'a': 'WA', 'b': 'WB', 'd': 'WD'}, 80)   # c has no owner wallet (staff / Fee): left out
-    assert [(r['cat'], r['usd'], r['pct']) for r in out] == [('a', 60.0, 75.0), ('b', 20.0, 25.0)]
-    assert col.split(board, {}, 80) == [] and col.stake_ok(24.99) is False and col.stake_ok(25) and col.stake_ok(0, staff=True)
+def test_airdrops_follow_what_each_owner_shared_never_who_was_right():
+    sh = [{'owner': 'A', 'sol': 0.1, 'at': 100}, {'owner': 'B', 'sol': 0.3, 'at': 150}, {'owner': 'C', 'sol': 1.0, 'at': 150}, {'owner': 'A', 'sol': 9, 'at': 10}]
+    out = col.airdrop(sh, {'A', 'B'}, 40, since=50)   # C never signed; A's old share is from the last period
+    assert [(r['owner'], r['usd'], r['pct']) for r in out] == [('B', 30.0, 75.0), ('A', 10.0, 25.0)]
+    assert col.share_cut(0.5, 10) == 0.05 and col.share_cut(-2, 10) == 0 and col.share_cut(1, 7) == 0   # only the offered %s, nothing on a loss
+    assert col.period_of(86400 * 3 + 5, 'daily') == (3, 86400 * 4) and col.clean_policy({'cadence': 'weekly'})['cadence'] == 'weekly'
+    assert col.stake_ok(24.99) is False and col.stake_ok(25) and col.stake_ok(0, staff=True)
+
+
+def test_a_signed_sharing_agent_owes_the_colony_on_wins_only_from_its_own_wallet(monkeypatch, tmp_path):
+    import feecat_service as fs
+    monkeypatch.setattr(fs, 'SHARES_PATH', tmp_path / 's.json')
+    cat = {'id': 'k1', 'ownerWallet': 'W1', 'colonyShare': {'on': True, 'pct': 20}, 'agentWallet': {'address': 'AW'}}
+    fs._colony_share(cat, {'symbol': 'HUSS'}, 0.5); fs._colony_share(cat, {'symbol': 'RUG'}, -0.2)
+    fs._colony_share({**cat, 'agentWallet': None}, {'symbol': 'X'}, 1.0)   # paper winnings are not money
+    assert [(x['owner'], x['sol'], x['sent']) for x in fs._shares()] == [('W1', 0.1, False)]
+    assert fs.share_ok('k1', 20, 1, 'sig', 'W1', now=500) is False   # a stale signature never counts
+    src = open(fs.__file__).read(); i = src.index("if p.op == 'share':"); assert 'share_ok(cat_id, pct_, p.ts, p.sig' in src[i:i + 900]
 
 
 def test_an_entry_is_a_buy_cell_and_an_exit_an_avoid_cell_graded_like_any_other():
@@ -65,6 +78,7 @@ def test_the_colony_page_lists_agents_colonized_first_nine_a_page_never_a_secret
     j = c.get('/api/cats/colony').json()
     assert len(j['agents']) == 9 and j['more'] is True and j['agents'][0]['id'] == 'c7' and j['agents'][0]['colonized'] and j['agents'][0]['brains'][0] == 'gpt-x'
     assert len(c.get('/api/cats/colony?page=1').json()['agents']) == 3
+    assert [a['id'] for a in c.get('/api/cats/colony?ids=c3,c9').json()['agents']] == ['c3', 'c9']   # My agents: only those
     t = c.get('/api/cats/colony').text; assert 'hunter2' not in t and 'OWNER_W' not in t
 
 
@@ -79,3 +93,16 @@ def test_a_visitor_sees_its_colony_vitals_beside_the_windows(monkeypatch, tmp_pa
     monkeypatch.setattr(fs, '_load', lambda: store)
     j = TestClient(fs.app).get('/api/cats/k1/live').json()
     assert j['colonized'] is True and j['honey'] == 2 and (j['right'], j['graded']) == (1, 1) and j['lastCall'] == {'call': 'AVOID', 'sym': 'RUG', 'honey': None, 'kind': 'exit'}
+
+
+def test_agents_can_read_the_colony_as_a_feeless_tool():
+    import asyncio
+    import cat_tools as ct
+    assert 'colony' in ct.TOOLS
+    assert ct.colony_text([{'call': 'BUY', 'sym': 'HUSS', 'name': 'Happy', 'honey': 2, 'move': 25.0}, {'call': 'AVOID', 'sym': 'X'}], '$huss') == \
+        "FEELESS Colony (other agents' calls, graded an hour on):\n- BUY $HUSS by Happy: +2 honey (+25.0%)"
+    class R:
+        def json(self): return {'cells': [{'call': 'WATCH', 'sym': 'KIM', 'name': 'Happy', 'honey': None}]}
+    class H:
+        async def get(self, u, **k): assert u.endswith('/api/cats/hive'); return R()
+    text, coin = asyncio.run(ct.run_tool(H(), 'colony', 'KIM')); assert 'WATCH $KIM by Happy: grading' in text and coin is None

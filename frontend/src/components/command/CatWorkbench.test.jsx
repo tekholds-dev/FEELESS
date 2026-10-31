@@ -303,16 +303,6 @@ test('🖱 the browser stays in view (the FEELESS chart is a tab), the mind not 
   expect(el.querySelector('[data-testid="cwb-cursor"]').className).toContain('c-paw'); expect(localStorage.getItem('feeless:ai-cursor')).toBe('paw');
 });
 
-test('🪟 My agents: a tile is the agent\'s own window — its minds as bubbles (racing while one works), the site and its step', async () => {
-  global.fetch = async () => ({ ok: true, json: async () => ({ windows: [{ i: 0, model: 'm/a', status: 'working', host: 'kalshi.com', action: 'click', steps: 7 }, { i: 1, model: 'm/b', status: 'idle' }] }) });
-  const { AgentScreen } = require('./CatWorkbench');
-  const el = document.createElement('div'); document.body.appendChild(el);
-  await act(async () => { createRoot(el).render(<AgentScreen cat={{ id: 'g1', brainsCfg: { kind: 'general', brains: ['m/a', 'm/b'] } }} />); });
-  const s = el.querySelector('[data-testid="cw-screen-g1"]');
-  expect(s.textContent).toContain('kalshi.com'); expect(s.textContent).toContain('CLICK · step 7');
-  const orbs = s.querySelectorAll('.lct-orb'); expect(orbs).toHaveLength(2); expect(orbs[0].className).toContain('is-hot'); expect(orbs[1].className).not.toContain('is-hot');
-});
-
 test('📥 a kept note drops from where its cursor was — only a NEW keep, never the ones already there', async () => {
   const { useDrop } = require('./CatWorkbench'); let seen = [];
   const P = ({ w }) => { const d = useDrop(w); seen.push(d); return null; };

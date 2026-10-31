@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { MemoryRouter } from 'react-router-dom';
 import { CatDesk } from '../components/command/CatDesk';
-import { AgentScreen } from '../components/command/CatWorkbench';
 import { HiveBoard } from '../components/command/HiveBoard';
 import '../styles/catForge.css';
 import { AgentDemo } from '../components/command/AgentDemo';
@@ -59,12 +58,6 @@ export default function CatHarness() {
     const cells = ['HUSS', 'RUG', 'PIKMIN', 'PAWS', 'ANSEM', 'SAPLING', 'DOPE', 'NEW', 'GTA'].map((sym, i) => ({ id: `c${i}`, name: i % 2 ? 'Fee' : 'Happy', sym, call: ['BUY', 'AVOID', 'WATCH'][i % 3], why: 'volume 3x, chart up', honey: i > 6 ? null : [2, 1, 1, -1, 0, 2, -2][i], move: [25, -8, 4, -12, 6, 30, 40][i] }));
     return <div style={{ minHeight: '100vh', padding: 16, background: '#07040d' }}><HiveBoard api={async () => ({ epoch: 20755, left: 5 * 3600 + 1240, filed: 9, graded: 7, cells,
       board: [{ cat: 'h1', name: 'Happy', honey: 6, cells: 5, graded: 4, right: 4 }, { cat: 'f1', name: 'Fee', honey: -2, cells: 4, graded: 3, right: 1 }] })} /></div>;
-  }
-  if (window.location.search.includes('tiles')) {   // ?tiles — My agents' tiles (AgentScreen) for a general + a trading agent
-    const two = [{ ...cat, id: 'g1', name: 'Happy', brainsCfg: { kind: 'general', brains: ['openai/gpt-6.1-terra', 'anthropic/claude-haiku-5.5'] } },
-      { ...cat, id: 't1', name: 'Fee', status: 'running', brainsCfg: { kind: 'trading', brains: ['nvidia/nemotron-a:free', 'nvidia/nemotron-b:free'], decisions: [{ by: 'nemotron-a', word: 'BUY', sym: 'HUSS', why: 'volume still building', at: Date.now() / 1000 - 20 }] } }];
-    return <div style={{ minHeight: '100vh', padding: 16, background: '#07040d' }}><div className="fee-cats-platform fc-v2"><section className="paper-my-cats"><div className="paper-my-cat-grid">
-      {two.map(c => <div key={c.id} className="cw-card"><button type="button" className="paper-my-cat-card"><span className="paper-my-cat-art" /><span><b>{c.name}</b><small>RUNNING · LVL 1</small></span><strong className="positive">+0.0 SOL</strong><AgentScreen cat={c} /></button></div>)}</div></section></div></div>;
   }
   return <MemoryRouter><WalletProvider><div style={{ minHeight: '100vh', padding: 16, background: '#07040d', boxSizing: 'border-box' }}><div style={{ maxWidth: 1180, margin: '0 auto' }}>
     <CatDesk cat={g} canEdit={!window.location.search.includes('visitor')} onBack={() => {}} onAct={act} Real={<CatReal cat={g} onAct={act} devAddress={DEV} />}

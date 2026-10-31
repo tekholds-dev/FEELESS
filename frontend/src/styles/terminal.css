@@ -1031,7 +1031,7 @@ body.theme-day .score-gauge text{fill:var(--day-ink)!important}
 body.theme-day .meta-launch-toggle{color:var(--day-ink)!important}
 body.theme-day .launch-eligibility.clear{background:#e9f7f0!important;border-color:var(--day-green)!important;color:var(--day-green-dark)!important}
 body.theme-day .launch-eligibility.blocked{background:#fdeeef!important;border-color:var(--day-danger)!important;color:var(--day-danger)!important}
-body.theme-day .paper-badge,body.theme-day .paper-panel,body.theme-day .paper-my-cat-card,body.theme-day .paper-create-card {background:var(--day-surface,#f7faf7)!important;border-color:var(--day-border)!important;color:var(--day-ink)!important}
+body.theme-day .paper-badge,body.theme-day .paper-panel,body.theme-day .paper-create-card {background:var(--day-surface,#f7faf7)!important;border-color:var(--day-border)!important;color:var(--day-ink)!important}
 body.theme-day .paper-empty,
 body.theme-day .paper-muted{color:var(--day-muted)!important}
 

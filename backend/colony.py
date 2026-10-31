@@ -1,27 +1,29 @@
-"""🐝 THE COLONY (owner 2026-10-31: "the colony pot should be the smartest, next-level, unforeseen way of safe growth — I create/add a Circle
-wallet for it and assign it, then pick the ways it is made most secure for users to stake with").
+"""🐝 THE COLONY (owner 2026-10-31). An owner COLONIZES an agent while holding ≥ STAKE_MIN_USD of FEECAT: it files cells (proof of insight) and its
+trades are graded (entry = a BUY cell, exit = an AVOID cell, judged an hour on). HONEY is its proof — it ranks the Colony; nobody is paid for being right.
 
-The Hive becomes the Colony. An owner COLONIZES an agent by staking FEECAT (for now: holding ≥ STAKE_MIN_USD of it in the owner's wallet, read
-live — on-chain staking through a provider is not built yet). A colonized agent files cells (proof of insight) AND its trades are graded: every
-entry is a BUY cell at its fill price, every exit an AVOID cell at its exit price, judged an hour on like any other cell. Honey ranks the epoch.
+Two OPPORTUNITIES in the Colonize popout (owner: "we earn nothing but FEECAT staking"):
+  1 · STAKE — FEECAT or SOL into the colony pool the owner opens with the colony wallet on a pool platform; that pool pays on its own epochs.
+      (Assigning the pool is built; depositing through it is not.)
+  2 · SHARE WINNINGS — the owner signs once to let its agent send `pct` % of each WINNING trade's profit to the colony wallet; the colony
+      airdrops back to the sharers every day / week (the owner picks), in proportion to what each shared. (Accrual is built; sending is not.)
 
-THE POT is ONE Circle wallet the owner creates and assigns. Users' money is never pooled: each agent trades from its own wallet. The pot only
-pays out its GROWTH, under guards our server enforces (it is the only one that can send from a Circle developer wallet):
-  · PRINCIPAL LOCK — what was staked / locked in is never paid out; the owner can only RAISE the floor (lock gains in = compounding).
-  · EPOCH CAP — at most `epochCapPct` % of the growth leaves in one epoch; the rest keeps compounding.
-  · ALLOWLIST — a payout goes only to a wallet that owns a colonized agent with honey this epoch.
-  · OWNER SIGNS + TIMELOCK — a batch is proposed, waits `timelockH` hours (anyone can see it), then the owner approves it.
-Pure functions; the service holds the record. Nothing here sends money.
+THE POT is ONE Circle wallet. Users' money is never pooled for trading — each agent trades from its own wallet. The pot only pays out its
+GROWTH, under guards our server enforces: PRINCIPAL LOCK (only ever raised) · EPOCH CAP · ALLOWLIST (only wallets that signed) · OWNER
+APPROVES + TIMELOCK. Pure functions; the services hold the records. Nothing here sends money.
 """
 
 STAKE_MIN_USD = 25.0
-POLICY_DEFAULT = {'epochCapPct': 20, 'timelockH': 24}
+POLICY_DEFAULT = {'epochCapPct': 20, 'timelockH': 24, 'cadence': 'daily'}
 POLICY_BOUNDS = {'epochCapPct': (5, 50), 'timelockH': (6, 72)}
+CADENCES = {'daily': 86400, 'weekly': 7 * 86400}   # 🪂 how often the airdrop pays (the owner picks)
+SHARE_PCTS = (5, 10, 20, 30)                         # 🤝 opportunity 2: the share of each winning trade's profit an owner lets its agent send
 FIXED_GUARDS = ('principalLock', 'allowlist', 'ownerSigns')   # always on — the owner can't turn these off
 
 
 def clean_policy(p):
     out = dict(POLICY_DEFAULT)
+    if (p or {}).get('cadence') in CADENCES:
+        out['cadence'] = p['cadence']
     for k, (lo, hi) in POLICY_BOUNDS.items():
         try:
             out[k] = int(max(lo, min(hi, float((p or {}).get(k, out[k])))))
@@ -48,17 +50,36 @@ def payable(value, principal, policy):
     return round(growth(value, principal) * clean_policy(policy)['epochCapPct'] / 100, 2)
 
 
-def split(board, owners, amount):
-    """Payouts follow honey: each agent with positive honey AND an owner wallet gets honey / all positive honey of `amount`.
-    → [{cat, name, owner, honey, pct, usd}] (best first). Agents without an owner wallet are left out (the allowlist)."""
-    rows = [r for r in board or [] if int(r.get('honey') or 0) > 0 and (owners or {}).get(r.get('cat'))]
-    total = sum(int(r['honey']) for r in rows)
-    out = []
-    for r in rows:
-        pct = r['honey'] / total if total else 0
-        out.append({'cat': r['cat'], 'name': r.get('name'), 'owner': owners[r['cat']], 'honey': int(r['honey']),
-                    'pct': round(pct * 100, 1), 'usd': round(float(amount or 0) * pct, 2)})
-    return sorted(out, key=lambda x: -x['honey'])
+def share_pct(v):
+    try:
+        v = int(v)
+    except (TypeError, ValueError):
+        return 0
+    return v if v in SHARE_PCTS else 0
+
+
+def share_cut(pnl_sol, pct):
+    """🤝 What a sharing agent owes the colony from ONE closed trade: pct % of the profit — nothing on a loss."""
+    return round(max(0.0, float(pnl_sol or 0)) * share_pct(pct) / 100, 6)
+
+
+def period_of(t, cadence):
+    """The airdrop period a moment falls in (UTC days / weeks), and when it ends."""
+    n = CADENCES.get(cadence, CADENCES['daily'])
+    k = int(float(t) // n)
+    return k, (k + 1) * n
+
+
+def airdrop(shares, owners_ok, amount, since):
+    """🪂 Opportunity 2: the next airdrop. Every owner whose agent shared since `since` gets `amount` × their share of what was shared —
+    proportional to what they put in, never to who was 'right'. Only wallets that signed (owners_ok) are paid. → [{owner, sol, pct, usd}]"""
+    tot = {}
+    for x in shares or []:
+        if float(x.get('at') or 0) >= since and x.get('owner') in (owners_ok or set()):
+            tot[x['owner']] = tot.get(x['owner'], 0.0) + float(x.get('sol') or 0)
+    s = sum(tot.values())
+    return sorted(({'owner': o, 'sol': round(v, 6), 'pct': round(100 * v / s, 1) if s else 0, 'usd': round(float(amount or 0) * v / s, 2) if s else 0}
+                   for o, v in tot.items()), key=lambda r: -r['sol'])
 
 
 def trade_cell(cat, side, pos, px_usd, now):

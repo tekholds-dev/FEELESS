@@ -452,3 +452,5 @@ body.theme-day .cwb-talk { background: linear-gradient(170deg, #fdfbff, #f4efff)
 body.theme-day .cwb-talk-h > b, body.theme-day .cwb-empty b { color: #2a1650; } body.theme-day .cwb-talk-h { border-color: #7c4dff1a; } body.theme-day .cwb-msg time, body.theme-day .cwb-hint { color: #6f6390; } body.theme-day .cwb-back { background: #fbf8ff; border-color: #7c4dff33; } body.theme-day .cwb-flip-btn { color: #3b2470; background: #7c4dff12; }
 body.theme-day .cwb-fields .m-input { color: #2a1650; } body.theme-day .cwb-sugg button { color: #3b2470; }
 @media (max-width: 640px) { .cwb-flip-in { height: auto; } .cwb-deck .cwb-talk { height: clamp(420px, 70dvh, 600px); } .cwb-status { font-size: 0; gap: 0; padding: 6px; } .cwb-flip-btn span, .cwb-hint { display: none; } .cwb-talk-h { gap: 6px; } .cwb-back .ck-cabinet { grid-template-columns: 1fr; } .cwb-talk-h > b { font-size: 12.5px; } }
+
+.cwb-cursor.is-rest { opacity: .55; }   /* 🖱 resting before its first move — always on screen */

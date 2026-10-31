@@ -61,8 +61,9 @@ if (DECK) {
   const real = window.fetch.bind(window);
   const answer = body => Promise.resolve(new Response(JSON.stringify(body), { status: 200, headers: { 'Content-Type': 'application/json' } }));
   const COLONY = { wallet: { address: '7xKXtg2CW87d97TXJSDpbD5jBkheTqA83TZRuJosgAsU', at: 1793480000 }, value: { sol: 6.2, usdc: 410, feecatUsd: 380, usd: 1985.4 }, principalUsd: 1500, growthUsd: 485.4, payableUsd: 97.08,
-    policy: { epochCapPct: 20, timelockH: 24 }, bounds: { epochCapPct: [5, 50], timelockH: [6, 72] }, guards: ['principalLock', 'allowlist', 'ownerSigns'], stakeMinUsd: 25, colonized: 7, trades: 31, epoch: 20757, left: 3400,
-    split: [{ cat: 'a', name: 'Scout Kit', owner: '9WzDXwBbmkg8ZTbNMqUxvQRAyrZzDsGYdLVL9zYtAWWM', honey: 14, pct: 58.3, usd: 56.6 }, { cat: 'b', name: 'Night Paw', owner: 'HN7cABqLq46Es1jh92dQQisAq662SmxELLLsHHe4YWrH', honey: 10, pct: 41.7, usd: 40.48 }],
+    policy: { epochCapPct: 20, timelockH: 24, cadence: 'daily' }, bounds: { epochCapPct: [5, 50], timelockH: [6, 72] }, guards: ['principalLock', 'allowlist', 'ownerSigns'], stakeMinUsd: 25, colonized: 7, trades: 31, epoch: 20757, left: 3400,
+    airdrop: [{ owner: '9WzDXwBbmkg8ZTbNMqUxvQRAyrZzDsGYdLVL9zYtAWWM', sol: 0.42, pct: 58.3, usd: 56.6 }, { owner: 'HN7cABqLq46Es1jh92dQQisAq662SmxELLLsHHe4YWrH', sol: 0.3, pct: 41.7, usd: 40.48 }],
+    nextAirdrop: Date.now() / 1000 + 5 * 3600, sharers: 2, sharedSol: 0.72, pool: null,
     board: [], browsers: ['kernel', 'steel', 'browserless', 'reader'], log: [] };
   window.fetch = (u, o = {}) => {
     const url = String(u?.url || u); const m = url.match(/\/api\/reputation(\/admin\/[^?]*|\/admin)/);
