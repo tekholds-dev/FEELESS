@@ -13,7 +13,6 @@ import { LookAvatar, LookPicker, DEFAULT_LOOK } from './CatLook';
 import { readMyCat } from '../../lib/myCat';
 import { readChatSession, agentAuth, agentAuthQuery, agentBrowserId, getChatSession, agentSignedIn } from '../../lib/chatSession';
 import { useWallet } from '../../hooks/useWallet';
-import { EngineLine } from './CatBrainSwitch';
 import { CatDesk } from './CatDesk';
 import { CatReal } from './CatReal';
 import { useAdmin } from '../../lib/adminCall';
@@ -145,8 +144,8 @@ function CatDetail({ cat: initialCat, onBack, onChanged, onDeleted }) {
   // 🐱 ONE FEE (owner 2026-10-30: "my cat looks different than from the leaderboard — I should look into my cat and have all tools"): every door opens
   // this desk — the creator's bar, her book, and for the creator the NEXA desk + the visitors' view under it
   const Tools = !cat.isLeader ? null : <Suspense fallback={null}><div className="ck-nexa" data-testid="fee-tools">{mine ? <ProfileFeeCat mine /> : null}<FeeCatProfile /></div></Suspense>;
-  if (!mine && !cat.isLeader && !agentSignedIn()) return <><SignInGate onIn={() => api(`/api/cats/${cat.id}`).then(r => r.cat && setCat(r.cat)).catch(() => {})} /><CatDesk canEdit={false} cat={cat} busy={busy} error={error} onBack={onBack} onAct={act} Engine={<EngineLine />} Real={null} Brains={null} Activity={null} Tools={null} /></>;
-  return <CatDesk canEdit={mine} cat={cat} busy={busy} error={error} onBack={onBack} onAct={act} Engine={<><EngineLine />{cat.isLeader ? <FeeOwnerBar cat={cat} /> : null}</>} Real={!mine ? null : <CatReal cat={cat} busy={busy} onAct={act} />}
+  if (!mine && !cat.isLeader && !agentSignedIn()) return <><SignInGate onIn={() => api(`/api/cats/${cat.id}`).then(r => r.cat && setCat(r.cat)).catch(() => {})} /><CatDesk canEdit={false} cat={cat} busy={busy} error={error} onBack={onBack} onAct={act} Engine={null} Real={null} Brains={null} Activity={null} Tools={null} /></>;
+  return <CatDesk canEdit={mine} cat={cat} busy={busy} error={error} onBack={onBack} onAct={act} Engine={cat.isLeader ? <FeeOwnerBar cat={cat} /> : null} Real={!mine ? null : <CatReal cat={cat} busy={busy} onAct={act} />}
     Brains={cat.brainsCfg && mine ? <BrainPanel noTalk cat={cat} api={api} onChanged={brainChanged} /> : null} Activity={null} Tools={Tools} />;
 }
 

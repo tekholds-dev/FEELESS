@@ -113,7 +113,3 @@ export function CatBrainSwitch({ d, busy, act }) {
   </article>;
 }
 
-// A user's cat: the FEELESS rule engine (NEXA trades only FeeCat herself, from the owner's HQ).
-export function EngineLine() {
-  return <div className="cb-wrap cb-engine"><span className="eyebrow">DECISION ENGINE</span><b>FEELESS rule engine</b><small>Live DexScreener prices · transparent entry / exit rules</small></div>;
-}

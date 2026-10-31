@@ -4,6 +4,7 @@ import { AutoRangePicker } from './AutoRangeDesk';
 import { usePools, PoolHub } from './PoolHub';
 import { NightVault } from './NightVault';
 import { PriceGaps } from './PriceGaps';
+import { FirstTips } from './FirstTips';
 import '../styles/launchModes.css';
 
 // 🚀 LAUNCH › COIN | POOLS (owner 2026-10-26: "Launch should start on coin but a switch btn for pools with amazing realtime $ ranging before
@@ -25,6 +26,9 @@ export function LaunchModes({ children }) {
     {mode === 'pools' ? <div className="lm-pools">
       <nav className="m-seg lm-tabs" role="tablist" aria-label="Pools">{POOL_TABS.map(([k, l, tip]) => <button key={k} type="button" role="tab" aria-selected={tab === k} className={tab === k ? 'active' : ''}
         onClick={() => setTab(k)} data-tip={tip} data-testid={`lm-tab-${k}`}>{l}</button>)}</nav>
+      <FirstTips id="launch-pools" tips={[['[data-testid="lm-tab-range"]', 'AutoRange', 'See the band, the replay and the next move before you sign anything.'],
+        ['[data-testid="lm-tab-pools"]', 'All pools', 'Every Solana pool — filter SAFE to RISKY, sort by yield.'], ['[data-testid="lm-tab-vault"]', 'Night Vault', 'Stake, stables, auto-compound and loops: what $ earns while you sleep.'],
+        ['[data-testid="lm-tab-gaps"]', 'Price gaps', 'The same coin priced differently across pools — only the ones that beat their costs count.']]} />
       <div className="lm-panel" key={tab}>
         {tab === 'range' ? <AutoRangePicker pools={hub?.pools} title="🤖 RANGE BEFORE YOU SIGN · THE BUSIEST BANDS" />
           : tab === 'pools' ? (hub ? <PoolHub pools={hub} compact /> : <p className="m-dim">Reading every pool…</p>)

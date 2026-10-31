@@ -84,3 +84,21 @@ test('🔐 the cabinet never shows a password, key or seed phrase; 🧾 each win
   expect(coinVitals({ open: true, sol: 0.06, pct: 12.5, at: Date.now() / 1000 - 600 }).map(x => x[0])).toEqual(['SIZE', 'P&L', 'HELD']);
   expect(coinVitals({ open: false, pct: -2.2, pnl: -0.0013, after: 8, at: Date.now() / 1000 - 120 }).map(x => [x[0], x[2] || ''])).toEqual([['EXIT', 'dn'], ['P&L', 'dn'], ['AFTER', ''], ['SOLD', '']]);
 });
+
+test('🙈 log drawers hide one by one and one button brings them all back; repeats fold into ×N', async () => {
+  const React = require('react'); const { act } = React; const { createRoot } = require('react-dom/client');
+  const { AgentLog } = require('./CatCockpit'); const { genLog } = require('./CatWorkbench');
+  globalThis.IS_REACT_ACT_ENVIRONMENT = true; localStorage.removeItem('feeless:log-hidden');
+  const stop = { by: 'cats', text: '🧠🧠: (stopped: budget reached: the next call could exceed your remaining cap)', at: 5 };
+  const items = genLog({ chat: [{ by: 'you', text: 'hi', at: 1 }, stop, { ...stop, at: 6 }, { ...stop, at: 7 }], refusals: [{ why: 'no', at: 2 }] });
+  expect(items.find(x => /budget/.test(x.text)).n).toBe(3);
+  const el = document.createElement('div'); document.body.appendChild(el); const root = createRoot(el);
+  await act(async () => { root.render(<AgentLog items={items} />); });
+  await act(async () => { el.querySelector('[data-testid="log-hide-guards"]').click(); });
+  expect(el.querySelector('[data-testid="log-guards"]')).toBeNull(); expect(JSON.parse(localStorage.getItem('feeless:log-hidden'))).toEqual(['guards']);
+  expect(el.querySelector('[data-testid="log-hide-all"]')).toBeNull();   // "All files" never hides
+  await act(async () => { el.querySelector('[data-testid="log-unhide"]').click(); });
+  expect(el.querySelector('[data-testid="log-guards"]')).not.toBeNull(); expect(el.querySelector('[data-testid="log-unhide"]')).toBeNull();
+  expect(el.textContent).toContain('×3');
+  await act(async () => root.unmount()); el.remove();
+});

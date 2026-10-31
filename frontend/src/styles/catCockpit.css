@@ -108,3 +108,12 @@ body.fx-lite .ck-log .ck-folders button { animation: none; }
 @media (prefers-reduced-motion: reduce) { .ck-log .ck-folders button { animation: none !important; transition: none !important; } }
 @media (max-width: 640px) { .ck-cabinet { grid-template-columns: 1fr; } .ck-log .ck-folders { flex-direction: row; overflow-x: auto; } .ck-log .ck-folders button { width: auto; flex: none; }
   .ck-log .ck-folders button.is-on { transform: translateY(-3px); } .ck-log .ck-folders button:hover:not(:disabled) { transform: translateY(-2px); } }
+/* 🙈 hide a log drawer (✕ on hover / focus) · the unhide pill shows while any is hidden · ×N on a folded repeat */
+.ck-fold { position: relative; display: block; } .ck-log .ck-folders .ck-hide, .ck-folders .ck-hide { position: absolute; top: 50%; right: 6px; z-index: 2; width: 24px; min-height: 24px; height: 24px; padding: 0; margin-top: -12px;
+  display: grid; place-items: center; border-radius: 7px; border: 1px solid #ffffff1a; background: #0b0716; color: #c9bce6; font-size: 11px; opacity: 0; animation: none; transform: none; transition: opacity .15s, color .15s; }
+.ck-fold:hover .ck-hide, .ck-fold:focus-within .ck-hide { opacity: 1; } .ck-log .ck-folders .ck-hide:hover { color: #ff8fa3; transform: none; } .ck-log .ck-folders .ck-hide:focus-visible { opacity: 1; outline: 2px solid var(--kd-acc, #b388ff); }
+.ck-log .ck-folders .ck-unhide, .ck-folders .ck-unhide { justify-content: center; min-height: 32px; border-style: dashed; background: transparent; color: var(--kd-acc, #b388ff); font: 800 10px var(--f-mono); letter-spacing: .08em; animation: none; }
+.ck-x, .cwb-x { font-style: normal; font: 800 10px var(--f-mono); color: var(--kd-acc, #b388ff); opacity: .85; }
+.cwb-topup { margin: 0; } .cwb-topup .m-btn { justify-self: start; min-height: 32px; }
+@media (hover: none) { .ck-folders .ck-hide { opacity: .7; } }
+@media (prefers-reduced-motion: reduce) { .ck-folders .ck-hide { transition: none; } }

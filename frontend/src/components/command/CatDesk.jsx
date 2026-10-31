@@ -22,7 +22,7 @@ import '../../styles/feecatDesk.css';   // the model slots (fmd-slot) shared wit
 // sleeps when stopped), live vitals as meters (balance vs start, realized, a win ring, slots, TODAY'S LOSS against its daily cap), the P/L curve
 // drawn big, each open position as a lit row with a diverging move bar (tap = its war room), what it learned, its brains, and its limits as
 // meters you drag. The desk itself never signs or moves SOL; `Real` (CatReal.jsx) turns its buys into proposals YOUR wallet signs.
-// `Activity`, `BrainPanel`, `EngineLine`, `Real` come from the agents page.
+// `Activity`, `BrainPanel`, `Real` come from the agents page.
 const sol = v => `${(Number(v) || 0) >= 0 ? '+' : '−'}${Math.abs(Number(v) || 0).toFixed(4)}`;
 const short = v => (v ? `${v.slice(0, 5)}…${v.slice(-4)}` : '—');
 const RC = 2 * Math.PI * 24;

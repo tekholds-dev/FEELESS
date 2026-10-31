@@ -1,7 +1,7 @@
 import React from 'react';
 import { createRoot } from 'react-dom/client';
 import { act } from 'react';
-import { CatBrainSwitch, EngineLine, deskCounts, feeBook, duel, linesChip } from './CatBrainSwitch';
+import { CatBrainSwitch, deskCounts, feeBook, duel, linesChip } from './CatBrainSwitch';
 
 const now = Date.now() / 1000;
 const DESK = [{ pair: 'PA', symbol: 'AAA', word: 'YES', why: 'buyers lead', line: '$AAA · MC 120K', ms: 9000, at: now - 60 },
@@ -29,8 +29,6 @@ test('🐱 NEXA trades FeeCat: owner switch, her round countdown, her last words
   expect(act_).toHaveBeenLastCalledWith({ trade: false });
   await act(async () => { root.render(<CatBrainSwitch d={{ trade: true, provider: { on: false }, desk: [] }} act={act_} />); });
   expect(el.textContent).toContain('NEXA is not connected — FeeCat holds');
-  await act(async () => { root.render(<EngineLine />); });
-  expect(el.textContent).toContain('FEELESS rule engine');
   act(() => root.unmount());
 });
 

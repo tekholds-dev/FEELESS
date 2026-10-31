@@ -10,7 +10,7 @@
 .kd-back:hover { background: #b388ff1c; transform: translateX(-2px); } .kd-back:active { transform: scale(.97); } .kd-back:focus-visible { outline: 2px solid #b388ff; outline-offset: 2px; }
 .kd-hero { position: relative; display: grid; grid-template-columns: 200px minmax(0, 1fr) auto; gap: 16px; align-items: center; padding: 14px 16px; border-radius: 20px; overflow: hidden;
   background: radial-gradient(80% 120% at 0% 50%, #2e1a55 0%, #150c28 55%, #0a0614 100%); border: 1px solid #b388ff33; box-shadow: inset 0 1px 0 #ffffff14, 0 26px 50px -34px #7c4dff; animation: kdIn .3s ease-out both; }
-.kd-stage { position: relative; display: grid; place-items: end center; height: 190px; }
+.kd-stage { position: relative; display: grid; place-items: end center; height: 190px; overflow: hidden; border-radius: 22px; isolation: isolate; }   /* the spotlight + aura stay inside the stage */
 .kd-spot { position: absolute; left: 50%; top: -24px; width: 220px; height: 240px; margin-left: -110px; background: conic-gradient(from 160deg at 50% 0%, transparent 0deg, #ffffff12 14deg, #ffffff22 20deg, #ffffff12 26deg, transparent 40deg);
   animation: kdSway 6s ease-in-out infinite alternate; pointer-events: none; }
 .kd-floor { position: absolute; left: 50%; bottom: 6px; width: 160px; height: 30px; margin-left: -80px; border-radius: 50%; background: radial-gradient(closest-side, #b388ff55, transparent);
