@@ -35,5 +35,9 @@ export const STUDIO = {
       ladder: [rung('plain', 'PLAIN PROMPT', 42, 45, -1.2, null, { active: true }), rung('elite', 'ELITE', 0, null, null, null), rung('degen', 'DEGEN TRENCH', 0, null, null, null), rung('progressive', 'PROGRESSIVE', 0, null, null, null), rung('tuned', 'AUTO-TUNED', 0, null, null, null)],
       fixes: [{ key: 'yes', title: 'its YES calls lose', evidence: '42 YES calls graded: 45 % right, typical -1.2 %', rule: 'YES only when graduated, cap under $30K, buyers over 55 % and the pool over $10K.' }],
       sets: SETS('NEXA').map(s => ({ ...s, text: s.text.slice(0, 300) })) },
+    { key: 'fee', name: 'FEE', state: 'ONLINE', model: 'nemotron-3.5-super-vl:free + nemotron-3-ultra', ctx: null, approve: true, auto: null, fresh: true, layers: layers(320, 120),
+      active: { set: 'tuned', text: 'AUTO-TUNED for FEE (older record)…', at: now() - 9000, by: 'owner', edited: false, since: { n: 3, wonPct: 33, avgPct: -1.2 }, seen: null },
+      record: { n: 60, wonPct: 38, avgPct: -3.1, medHeld: 14, calls: 40, answerPct: 90 }, fixes: [{ key: 'bleed', title: 'lets losers run', evidence: 'average loss −18 % vs average win +6 %', rule: 'Cut a loser at the line.' }],
+      ladder: [rung('plain', 'PLAIN PROMPT', 57, 38, -3.2, null), rung('tuned', 'AUTO-TUNED', 3, 33, -1.2, null, { active: true })], sets: SETS('FEE') },
   ],
 };

@@ -19501,7 +19501,24 @@ async def _studio_view():
                                  'n': _pstu.RECENT_N, 'won': _pstu.RED_WON},
                         'ladder': _pstu.ladder(trades_, raw_.get('history'), k_, now_, a_),
                         'lms': _studio_lms_note.get(k_)})   # 📌 the LM Studio preset that mirrors it (OSSY, this Mac)
-    return {'models': models_, 'dials': list(_pstu.DIAL_KEYS), 'at': time.time()}
+    fee_ = await _studio_fee()
+    return {'models': models_ + ([fee_] if fee_ else []), 'dials': list(_pstu.DIAL_KEYS), 'at': time.time()}
+
+
+async def _studio_fee(body=None):
+    """🐱 FEE's own brains in Prompt Studio (feecat_service.studio_view): read, or apply / revert with body. None = the Fee service is down."""
+    try:
+        u_, h_ = 'http://127.0.0.1:5088/api/cats/internal/studio', {'x-feeless-internal': _internal_key()}
+        r_ = await (_ai_http().post(u_, headers=h_, json=body, timeout=8) if body is not None else _ai_http().get(u_, headers=h_, timeout=6))
+        if body is not None and r_.status_code != 200:
+            raise HTTPException(r_.status_code, (r_.json() or {}).get('detail') or 'Fee service rejected the change.')
+        return r_.json() if r_.status_code == 200 else None
+    except HTTPException:
+        raise
+    except Exception:   # down / a closed loop: the studio still shows G4 + OSSY
+        if body is not None:
+            raise HTTPException(503, 'Fee service did not answer.')
+        return None
 
 
 @app.on_event('startup')
@@ -19529,6 +19546,9 @@ async def admin_ai_prompts_set(request: Request):
     body = await request.json()
     body = body if isinstance(body, dict) else {}
     k_ = body.get('key')
+    if k_ == 'fee':   # 🐱 her versions live with her (feecat_service) — the owner approves each, no auto switch
+        await _studio_fee({**{x_: body[x_] for x_ in ('set', 'text', 'revert') if x_ in body}, 'by': str(me_)[:44]})
+        return {**(await _studio_view()), 'applied': None if body.get('revert') else k_}
     if k_ not in _pstu.KEYS:
         raise HTTPException(400, 'unknown model')
     raw_ = dict(_json_load(PROMPT_STUDIO_PATH, {}) or {})

@@ -69,6 +69,7 @@ if (DECK) {
     if (path === '/admin/roles') return answer({ yourRole: 'owner', roles: [] });
     if (path === '/admin/agents') return answer(live());
     if (path === '/admin/rpc') return answer(RPC);
+    if (SNAP && (path === '/admin/feecat' || path === '/admin/ai/prompts')) return real(`/dev-${path === '/admin/feecat' ? 'feecat' : 'prompts'}.json`);   // 📸 ?snap: Fee's live desk + studio (gitignored copies)
     return answer({});
   };
 }

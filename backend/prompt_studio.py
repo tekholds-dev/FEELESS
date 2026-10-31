@@ -9,12 +9,13 @@ One active overlay per model; revert = none. `since` grades the overlay on the t
 """
 
 KEYS = ('lan', 'local')
-NAMES = {'lan': 'G4', 'local': 'OSSY'}
+NAMES = {'lan': 'G4', 'local': 'OSSY', 'fee': 'FEE'}   # fee = FeeCat's own brains (feecat_service.studio_view), owner applies each
 SETS = ('elite', 'degen', 'progressive', 'tuned')
 LABEL = {'elite': 'ELITE', 'degen': 'DEGEN TRENCH', 'progressive': 'PROGRESSIVE', 'tuned': 'AUTO-TUNED'}
-MAX_CHARS = {'lan': 900, 'local': 900}
+MAX_CHARS = {'lan': 900, 'local': 900, 'fee': 900}
 DIAL_KEYS = ('speed', 'patience', 'risk', 'discipline')
 GIVE_PEAK, GIVE_KEEP = 10.0, 2.0    # peaked ≥ +10 % and closed ≤ +2 % = a winner ridden back
+RUNNER_AFTER = 40.0                  # a coin that ran +40 % after the sale = a runner sold (Fee's After the sell gauge uses the same line)
 QUICK_MIN = 15.0                     # the card's law: holds under 15 min lose
 MIN_N = 5                            # fewer closed trades = too few to judge a habit
 
@@ -43,13 +44,14 @@ def stats(trades=None, calls=None, bench=None, grades=None):
     loss_held = [_f(t.get('heldMin')) for t in tr if _f(t['pct']) <= 0 and _f(t.get('heldMin')) is not None]
     quick = [t for t in tr if _f(t.get('heldMin')) is not None and _f(t['heldMin']) < QUICK_MIN]
     gave = [t for t in tr if (_f(t.get('peak')) or 0) >= GIVE_PEAK and _f(t['pct']) <= GIVE_KEEP]
+    left = [t for t in tr if (_f(t.get('after')) or 0) >= RUNNER_AFTER]   # 🐱 Fee's exits know how far the coin ran AFTER she sold
     cl = [c for c in calls or [] if isinstance(c, dict)]
     ok = [c for c in cl if c.get('action') and c.get('action') != 'NO ANSWER']
     fv = (grades or {}).get('favor') or {}
     return {'n': len(tr), 'wonPct': round(100 * len(wins) / len(tr)) if tr else None, 'avgPct': round(sum(pct) / len(pct), 1) if pct else None,
             'avgWin': round(sum(wins) / len(wins), 1) if wins else None, 'avgLoss': round(sum(losses) / len(losses), 1) if losses else None,
             'medHeld': _med(held), 'winHeld': _med(win_held), 'lossHeld': _med(loss_held), 'quickN': len(quick), 'quickWonPct': round(100 * sum(1 for t in quick if _f(t['pct']) > 0) / len(quick)) if quick else None,
-            'gaveN': len(gave), 'calls': len(cl), 'answerPct': round(100 * len(ok) / len(cl)) if cl else None,
+            'gaveN': len(gave), 'leftN': len(left), 'calls': len(cl), 'answerPct': round(100 * len(ok) / len(cl)) if cl else None,
             'medMs': _med([_f(c.get('ms')) for c in ok if _f(c.get('ms'))]),
             'favorN': (bench or {}).get('n') or 0, 'favorMed': (bench or {}).get('median'), 'favorUp': (bench or {}).get('upPct'),
             'yesN': fv.get('n') or 0, 'yesRight': fv.get('rightPct'), 'yesTypical': fv.get('typical')}
@@ -82,6 +84,12 @@ def diagnose(st):
     if s.get('yesN', 0) >= 10 and s.get('yesRight') is not None and s['yesRight'] < 50:
         out.append(_fix('yes', 'its YES calls lose', f"{s['yesN']} YES calls graded: {s['yesRight']} % right, typical {s.get('yesTypical') if s.get('yesTypical') is not None else '—'} %",
                         'YES only when graduated, cap under $30K, buyers over 55 % and the pool over $10K. Everything else is NO.', {'risk': -15, 'discipline': 10}))
+    if n >= MIN_N and s.get('leftN', 0) >= max(3, 0.25 * n):
+        out.append(_fix('runners', 'sells runners', f"{s['leftN']} of {n} coins ran +{RUNNER_AFTER:g} % or more after the sale",
+                        'Never sell the whole bag into strength: while it makes higher highs with buyers leading, trim a third and trail the rest.', {'patience': 15}))
+    if n >= MIN_N and (s.get('avgPct') or 0) < 0 and not any(f['key'] in ('bleed', 'cold') for f in out):
+        out.append(_fix('red', 'loses on average', f"{s['wonPct']} % won, average {s['avgPct']:+.1f} % a trade over {n} trades",
+                        'Fewer, cleaner trades: buy only when trend, buyers and pool depth agree. A trade that is not green in 15 min with buyers leading is cut at your line.', {'risk': -10, 'discipline': 10}))
     if s.get('medMs') is not None and s['medMs'] > 45000:
         out.append(_fix('slow', 'answers slowly', f"median answer {s['medMs'] / 1000:.0f} s",
                         'Decide in one pass: read NOW and the theory line, then answer. No essays, no second thoughts.', {'speed': 15}))

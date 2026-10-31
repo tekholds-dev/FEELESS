@@ -61,3 +61,17 @@ test('📌 the prompt copied for LM Studio = exactly what FEELESS sends (seat pr
   const m = { layers: [{ k: 'job', text: 'SEAT' }, { k: 'identity', text: 'chat only' }, { k: 'brain', text: 'reads' }, { k: 'studio', text: '🎭 MINDSET: quick in' }] };
   expect(lmsPrompt(m)).toBe('SEAT\n\n🎭 MINDSET: quick in'); expect(lmsPrompt({})).toBe('');
 });
+
+test('🐱 Fee in HQ: her studio only, no auto switch — a stronger AUTO-TUNED waits for the owner\'s Apply', async () => {
+  const posts = [];
+  const call = jest.fn(async (path, o) => { if (o?.method === 'POST') posts.push(JSON.parse(o.body)); return STUDIO; });
+  const el = document.createElement('div'); document.body.appendChild(el); const root = createRoot(el);
+  await act(async () => { root.render(<PromptStudio call={call} only={['fee']} />); });
+  const q = id => el.querySelector(`[data-testid="${id}"]`);
+  expect(el.querySelectorAll('.pst-models button')).toHaveLength(1); expect(q('pst-model-fee')).not.toBeNull();
+  expect(q('pst-auto-switch')).toBeNull(); expect(q('pst-lms')).toBeNull();
+  expect(q('pst-approve').className).toContain('is-wait'); expect(q('pst-approve').textContent).toContain('stronger AUTO-TUNED');
+  expect(q('pst-rec').textContent).toContain('her last 60 closed trades');
+  await act(async () => { q('pst-approve-go').click(); }); expect(posts).toEqual([{ key: 'fee', set: 'tuned' }]);
+  act(() => root.unmount());
+});

@@ -197,3 +197,36 @@ def test_the_applied_mindsets_ride_the_first_call_after_a_restart(monkeypatch):
     rs._air.STUDIO.clear()
     asyncio.run(rs._studio_boot())
     assert rs._air.STUDIO.get('lan') == 'ELITE MINDSET — G4 test' and rs._air.STUDIO_SET.get('lan') == 'elite'
+
+
+def test_fee_gets_her_record_four_mindsets_and_only_the_owner_applies_one():
+    """🐱 owner 2026-10-31: HQ › Fee › Prompts — her closed exits → record + habits + four mindsets; AUTO-TUNED rewrites itself, the owner applies."""
+    import feecat_service as fs
+    import launch_cat as lc
+    cat = {'status': 'running', 'brainsCfg': {'brains': ['x/lead', 'y/help'], 'prompt': 'Trench law.'},
+           'exits': [{'changeAtExit': 1.0, 'peak': 18, 'heldMin': 40, 'exitAt': 10_000 + i * 100} for i in range(4)]
+           + [{'changeAtExit': -14, 'peak': 2, 'heldMin': 9, 'exitAt': 20_000 + i * 100} for i in range(6)]}
+    v = fs.studio_view(cat, now=30_000)
+    assert v['key'] == 'fee' and v['approve'] and v['auto'] is None and v['active'] is None and v['model'] == 'lead + help'
+    assert v['record']['n'] == 10 and v['record']['wonPct'] == 40 and 'giveback' in [f['key'] for f in v['fixes']]
+    assert [s['set'] for s in v['sets']] == list(ps.SETS) and all(len(s['text']) <= 900 for s in v['sets'])
+    assert v['sets'][0]['text'].startswith('ELITE MINDSET — FEE')
+    v = fs.studio_set(cat, {'set': 'tuned'}, 'owner', now=30_000)
+    assert v['active']['set'] == 'tuned' and not v['active']['edited'] and not v['fresh']
+    sysm = lc.ask_messages(cat['brainsCfg'], 'buy $X?', None, cat['studio']['text'])[0]['content']
+    assert 'YOUR MINDSET (Prompt Studio, owner-approved): AUTO-TUNED for FEE' in sysm and 'Trench law.' in sysm   # rides every brain call
+    cat['exits'] += [{'changeAtExit': 30, 'peak': 35, 'heldMin': 45, 'exitAt': 40_000 + i * 100} for i in range(8)]
+    assert fs.studio_view(cat, now=50_000)['fresh']   # her record moved → a stronger version waits; it is NOT applied by itself
+    assert cat['studio']['set'] == 'tuned' and fs.studio_view(cat, now=50_000)['active']['text'] == v['active']['text']
+    v = fs.studio_set(cat, {'revert': True}, 'owner', now=60_000)
+    assert v['active'] is None and [h['set'] for h in cat['studio']['history']] == ['tuned', None]
+    assert 'MINDSET' not in lc.ask_messages(cat['brainsCfg'], 'buy $X?', None, (cat.get('studio') or {}).get('text'))[0]['content']
+
+
+def test_a_losing_record_never_reads_healthy_and_sold_runners_are_named():
+    """Fee's old exits carry no hold / peak — her −6 % average once read 'no losing habit yet' (found live 2026-10-31)."""
+    tr = [{'pct': -8, 'after': 60 if i < 4 else 0, 'at': i} for i in range(10)]
+    keys = [f['key'] for f in ps.diagnose(ps.stats(tr))]
+    assert keys == ['bleed', 'runners'] or ('runners' in keys and ('red' in keys or 'cold' in keys or 'bleed' in keys))
+    mixed = [{'pct': 5, 'at': i} for i in range(4)] + [{'pct': -6, 'at': 10 + i} for i in range(6)]
+    assert [f['key'] for f in ps.diagnose(ps.stats(mixed))] == ['red']

@@ -6,6 +6,7 @@ import { FeeTape, DuoLearn, readWords } from './FeeCatLive';
 import { FeeModels } from './FeeModels';
 import NumInput from '../NumInput';
 import { FeeBrain } from './FeeBrain';
+import { PromptStudio } from './PromptStudio';
 import '../../styles/feecatDesk.css';
 
 // 🐱 FEE IN HQ (owner, 2026-10-16: "FeeCat's engine and HQ panel aren't remade, and the cat isn't trading"): one live board from ONE request
@@ -91,8 +92,9 @@ export function feeFunnel(scan) {
 // 🐱 the creator's Fee desk as TABS (owner 2026-10-30: "clean this up to the new look, less clutter / scrolling — I need more behind the scenes, but tidy"):
 // her header always, then ONE pane at a time — what she's doing · her agents lane · her brain + rules · her wallet + style
 export const FCH_TABS = [['overview', '🛰 OVERVIEW', 'Why she trades or not, the duo read, open trades, her charts and tape'],
-  ['lane', '🎚 LANE', 'The agents lane she follows + what the duo learned'], ['brain', '🧠 BRAIN', 'Her style, rules and what she learned — edit and save'], ['wallet', '👛 WALLET + STYLE', "Her wallet (Circle / Crossmint) and her look"]];
+  ['lane', '🎚 LANE', 'The agents lane she follows + what the duo learned'], ['brain', '🧠 BRAIN', 'Her style, rules and what she learned — edit and save'], ['prompts', '🎭 PROMPTS', 'Her record, the habits it shows and four mindsets written from it — you approve each'], ['wallet', '👛 WALLET + STYLE', "Her wallet (Circle / Crossmint) and her look"]];
 const FCH_KEY = 'feeless.fch.tab';
+const FEE_ONLY = ['fee'];
 export function FeeCatDesk({ call }) {
   const [tab, setTab] = useState(() => { try { const k = localStorage.getItem(FCH_KEY); return FCH_TABS.some(t => t[0] === k) ? k : 'overview'; } catch { return 'overview'; } });
   const pickTab = k => { setTab(k); try { localStorage.setItem(FCH_KEY, k); } catch { /* private window */ } };
@@ -118,6 +120,7 @@ export function FeeCatDesk({ call }) {
       <span className="fch-kpi"><small>EQUITY</small><b data-testid="fch-equity">{sol(equity)}</b><i className={roi >= 0 ? 'm-pos' : 'm-neg'}>{roi >= 0 ? '+' : ''}{roi.toFixed(1)}% vs {start} SOL</i></span>
       <span className="fch-kpi"><small>REALIZED</small><b className={(n(c.realizedPnlSol) || 0) >= 0 ? 'm-pos' : 'm-neg'}>{sol(c.realizedPnlSol)}</b><i>{trades} trades</i></span>
       <span className="fch-kpi fch-ring" style={{ '--k': (wr ?? 0) / 100 }}><small>WON</small><b>{wr == null ? '—' : `${Math.round(wr)}%`}</b></span>
+      <span className="fch-kpi fch-ring" style={{ '--k': (n(disc.lives) ?? 9) / (n(disc.maxLives) || 9) }} data-tip="Her 9 lives: a loss takes one, a win in 24h gives one back, 0 = she naps"><small>LIVES</small><b data-testid="fch-lives">{disc.lives ?? '—'}</b></span>
       <span className="fch-kpi"><small>OPEN</small><b>{pos.length}</b><i>{disc.why && disc.why !== 'normal size' ? disc.why : 'discipline normal'}</i></span>
       <span className="fch-acts"><button type="button" className="m-btn" disabled={busy} onClick={() => save({ status: running ? 'paused' : 'running' })} data-testid="fch-toggle">{running ? '⏸ Pause' : '▶ Resume'}</button>
         <button type="button" className="m-btn m-go" disabled={busy || !running} onClick={() => save({ action: 'run' })} data-testid="fch-run">⚡ Run a cycle</button></span>
@@ -125,6 +128,7 @@ export function FeeCatDesk({ call }) {
     <nav className="m-seg fch-tabs" role="tablist" aria-label="Fee's desk">{FCH_TABS.map(([k, l, tip]) => <button key={k} type="button" role="tab" aria-selected={tab === k}
       className={tab === k ? 'active' : ''} onClick={() => pickTab(k)} data-tip={tip} data-testid={`fch-tab-${k}`}>{l}</button>)}</nav>
     {tab === 'wallet' ? <FeeOwnerBar cat={c} /> : null}
+    {tab === 'prompts' ? <PromptStudio call={call} only={FEE_ONLY} /> : null}
     {tab === 'lane' ? <div className="fch-grid"><AgentLane d={d} busy={busy} onSave={lane => save({ agentLane: lane })} /><DuoLearn learn={d.duoLearn} /></div> : null}
 
     {tab === 'overview' ? <div className="fch-grid">

@@ -113,3 +113,5 @@ circle/node_modules/
 lan_bundle/
 ai_pfp_picks/
 frontend/public/dev-agents.json
+frontend/public/dev-feecat.json
+frontend/public/dev-prompts.json

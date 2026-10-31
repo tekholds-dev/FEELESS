@@ -49,7 +49,7 @@ function SetCard({ s, m, i, active, busy, onApply, onRevert, dials }) {
       : <p className={`pst-text${open ? ' is-open' : ''}`} data-testid={`pst-text-${s.set}`}>{s.text}</p>}
     <p className="pst-why">{s.why}</p>
     {active ? <p className={`pst-proof ${active.seen?.ok ? 'is-live' : 'is-wait'}`} data-testid="pst-proof"
-      data-tip="FEELESS sends this mindset inside the system prompt of EVERY call it makes to this model (LM Studio / llamafile) — a model reload never loses it; LM Studio's own preset box is only for its own chat window">
+      data-tip={m.key === 'fee' ? "FEELESS sends this mindset inside the system prompt of every buy / sell call her brains make" : "FEELESS sends this mindset inside the system prompt of EVERY call it makes to this model (LM Studio / llamafile) — a model reload never loses it; LM Studio's own preset box is only for its own chat window"}>
       {active.seen?.ok ? <><b>✓ IN USE</b><span>last call {ago(active.seen.at)} ago carried it</span></> : active.seen ? <><b>⚠ SENT</b><span>its last call {ago(active.seen.at)} ago failed — the next one carries it again</span></>
         : <><b>⏳ APPLIED</b><span>rides {m.name}'s next call</span></>}</p> : null}
     {active ? <LmsMirror m={m} /> : null}
@@ -74,7 +74,7 @@ export function lmsPrompt(m) {
   return (m?.layers || []).filter(l => l.k === 'job' || l.k === 'studio').map(l => l.text).filter(Boolean).join('\n\n');
 }
 function LmsMirror({ m }) {
-  if (m.key === 'win') return null;
+  if (m.key === 'win' || m.key === 'fee') return null;
   const copy = () => { try { navigator.clipboard.writeText(lmsPrompt(m)); toast.success(`${m.name}'s live prompt copied — paste it into its LM Studio preset`); } catch { toast.error('Copy blocked by the browser'); } };
   return <p className="pst-lms" data-testid="pst-lms">
     <b>📌 IN LM STUDIO</b>
@@ -107,6 +107,19 @@ function AutoTune({ m, busy, onToggle }) {
   </section>;
 }
 
+// 🐱 FEE: no auto switch (owner 2026-10-31: "you approve each") — AUTO-TUNED rewrites itself from her record; a stronger version waits for Apply
+function Approve({ m, busy, onApply }) {
+  const r = m.record || {}; const tuned = (m.sets || []).find(s => s.set === 'tuned');
+  return <section className={`pst-auto ${m.fresh ? 'is-wait' : 'is-ok'}`} data-testid="pst-approve">
+    <span className="pst-auto-art" aria-hidden="true"><svg viewBox="0 0 40 40"><circle cx="20" cy="20" r="15" fill="none" stroke="currentColor" strokeOpacity=".25" strokeWidth="3" />
+      <circle className="pst-auto-arc" cx="20" cy="20" r="15" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeDasharray={`${Math.round(0.94 * (r.wonPct ?? 0))} 100`} transform="rotate(-90 20 20)" pathLength="94" />
+      <path d="M14 21 l4 4 l8 -10" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" /></svg></span>
+    <span className="pst-auto-mid"><b>🧑‍⚖️ YOU APPROVE · {m.name}</b>
+      <small key={String(m.fresh)}>{m.fresh ? '🆕 her record moved — a stronger AUTO-TUNED version is written and waits for your Apply' : `AUTO-TUNED rewrites itself from her record (${m.fixes?.length || 0} habit${m.fixes?.length === 1 ? '' : 's'} found) · nothing goes on until you press Apply`}</small></span>
+    {m.fresh && tuned ? <button type="button" className="m-btn m-go" disabled={busy} onClick={() => onApply('tuned')} data-tip="Put the rewritten AUTO-TUNED version on her brains from their next call — Revert any time" data-testid="pst-approve-go">Apply new version</button> : <span />}
+  </section>;
+}
+
 const MEDAL = ['#f5c451', '#cfd8e3', '#d08a4e'];
 function Ladder({ m }) {
   const rows = m.ladder || []; const top = Math.max(5, ...rows.map(r => Math.abs(r.avgPct || 0)));
@@ -123,24 +136,25 @@ function Ladder({ m }) {
   </section>;
 }
 
-export function PromptStudio({ call }) {
-  const [d, setD] = useState(null); const [key, setKey] = useState('lan'); const [busy, setBusy] = useState(false); const [err, setErr] = useState(''); const [peek, setPeek] = useState(null);
+export function PromptStudio({ call, only }) {
+  const [d, setD] = useState(null); const [key, setKey] = useState(only?.[0] || 'lan'); const [busy, setBusy] = useState(false); const [err, setErr] = useState(''); const [peek, setPeek] = useState(null);
   const load = useCallback(async () => { try { setD(await call('/admin/ai/prompts')); setErr(''); } catch (e) { setErr(String(e?.message || e)); } }, [call]);
   useEffect(() => { load(); const t = setInterval(() => { if (!document.hidden) load(); }, 30000); return () => clearInterval(t); }, [load]);
-  const m = useMemo(() => (d?.models || []).find(x => x.key === key) || (d?.models || [])[0], [d, key]);
+  const models = useMemo(() => (d?.models || []).filter(x => !only || only.includes(x.key)), [d, only]);
+  const m = useMemo(() => models.find(x => x.key === key) || models[0], [models, key]);
   const post = async (body, word) => {
     setBusy(true);
     try { const r = await call('/admin/ai/prompts', { method: 'POST', body: JSON.stringify(body) }); setD(r); toast.success(word); } catch (e) { toast.error(String(e?.message || e)); } finally { setBusy(false); }
   };
-  if (!d) return <div className="pst m-card is-load" data-testid="pst">{err ? <p className="m-note">🎭 {err}</p> : <p className="pst-wait"><i /><i /><i /> reading every model's prompt + record…</p>}</div>;
+  if (!d || !m) return <div className="pst m-card is-load" data-testid="pst">{err || d ? <p className="m-note">🎭 {err || 'that brain did not answer — is its service up?'}</p> : <p className="pst-wait"><i /><i /><i /> reading every model's prompt + record…</p>}</div>;
   const w = windowOf(m); const r = m.record || {};
   const won = r.wonPct;
   return <div className="pst m-card m-live" data-testid="pst">
     <header className="pst-head"><span><b className="m-label">🎭 PROMPT STUDIO</b><small>what each model reads · how it trades · the mindset you give it</small></span>
-      <div className="m-seg pst-models" role="tablist" aria-label="Model">{d.models.map(x => <button key={x.key} type="button" role="tab" aria-selected={x.key === m.key} className={x.key === m.key ? 'active' : ''}
+      <div className="m-seg pst-models" role="tablist" aria-label="Model">{models.map(x => <button key={x.key} type="button" role="tab" aria-selected={x.key === m.key} className={x.key === m.key ? 'active' : ''}
         onClick={() => { setKey(x.key); setPeek(null); }} data-testid={`pst-model-${x.key}`} data-tip={`${x.name} · ${x.model || 'model'} · ${x.state || 'state unknown'}`}>
         {avatarOf(x.name) ? <img src={avatarOf(x.name)} alt="" /> : null}<b>{x.name}</b><i className={`pst-dot ${x.state === 'ONLINE' ? 'is-on' : ''}`} />{x.active ? <small className={x.active.seen?.ok ? 'is-live' : ''}>{x.active.seen?.ok ? '✓ ' : ''}{x.active.set.toUpperCase()}</small> : null}</button>)}</div></header>
-    <AutoTune m={m} busy={busy} onToggle={on => post({ key: m.key, auto: on }, on ? `🤖 auto-tune ON for ${m.name} — it acts when the record turns red` : `auto-tune OFF for ${m.name}`)} />
+    {m.approve ? <Approve m={m} busy={busy} onApply={set => post({ key: m.key, set }, `🎭 the new AUTO-TUNED version is on ${m.name}'s brains — from their next call`)} /> : <AutoTune m={m} busy={busy} onToggle={on => post({ key: m.key, auto: on }, on ? `🤖 auto-tune ON for ${m.name} — it acts when the record turns red` : `auto-tune OFF for ${m.name}`)} />}
     <div className="pst-body">
       <section className="pst-ctx" data-testid="pst-ctx">
         <p className="pst-h"><b>LIVE CONTEXT</b><small>{m.model || '—'}</small></p>
@@ -154,7 +168,7 @@ export function PromptStudio({ call }) {
           {peek === l.k && l.text ? <pre className="pst-pre">{l.text}</pre> : null}</li>)}</ol>
       </section>
       <section className="pst-rec" data-testid="pst-rec">
-        <p className="pst-h"><b>THE RECORD</b><small>real closed seat trades · ledger</small></p>
+        <p className="pst-h"><b>THE RECORD</b><small>{m.key === 'fee' ? `her last ${r.n || 0} closed trades · price move at exit` : 'real closed seat trades · ledger'}</small></p>
         <div className="pst-vit">
           <span className="pst-ring is-won" style={{ '--p': won ?? 0 }} data-tip="Share of its real trades that closed green"><b key={won}>{won == null ? '—' : `${won}%`}</b><small>won</small></span>
           <span className="pst-kv"><em>TRADES</em><b key={r.n}>{r.n || 0}</b></span>

@@ -582,7 +582,8 @@ def _close(store, cat, pos, price_native, why, fraction=1.0, market_cap=None):
             rec['pnlSol'] = round(rec['pnlSol'] + pnl + pos.get('realizedPartialSol', 0), 6)
     if fraction >= 1:
         cat.setdefault('exits', []).append({'pairAddress': pos['pairAddress'], 'symbol': pos['symbol'], 'exitPx': price_native, 'exitAt': time.time(),
-                                            'why': why, 'pnlSol': pnl, 'changeAtExit': round((price_native / pos['entryPriceNative'] - 1) * 100, 2), 'peakAfter': 0.0, 'lowAfter': 0.0})
+                                            'why': why, 'pnlSol': pnl, 'changeAtExit': round((price_native / pos['entryPriceNative'] - 1) * 100, 2), 'peakAfter': 0.0, 'lowAfter': 0.0,
+                                            'peak': round(pos.get('peakChange', 0), 2), 'heldMin': round((time.time() - pos.get('openedAt', time.time())) / 60, 1)})   # 🎭 Prompt Studio reads hold + peak
         cat['exits'] = cat['exits'][-60:]
         # File the whole trade (partial profits included) under its setup so the next entry learns from it.
         total_pnl = round(pnl + pos.get('realizedPartialSol', 0), 6)
@@ -986,7 +987,7 @@ async def _brain_decide(store, cat, kind, sym, case, owner=None):
     models = [owner] if owner else _lc.who_asks(b, b.get('asks') or 0)
     answers, partner, why, cost = [], None, '', 0.0
     for m in models:
-        text, usd = await _or_call(m, _lc.ask_messages(b, case, partner), **({'key': own_key} if own_key else {}), **({'effort': b['efforts'][m]} if (b.get('efforts') or {}).get(m) else {}))
+        text, usd = await _or_call(m, _lc.ask_messages(b, case, partner, (cat.get('studio') or {}).get('text')), **({'key': own_key} if own_key else {}), **({'effort': b['efforts'][m]} if (b.get('efforts') or {}).get(m) else {}))
         w, why = _lc.parse_word(text, kind)
         if not own_key:
             _lc.charge(b, usd)
@@ -2146,6 +2147,76 @@ def _apply_overrides(store):
         if k in TUNABLE:  # clamp: settings saved under an older engine may sit outside today's safe range
             lo, hi = TUNABLE[k]
             RULES[k] = type(RULES[k])(max(lo, min(hi, float(v))))
+
+
+# 🎭 FEE IN PROMPT STUDIO (owner 2026-10-31: HQ › Fee › Prompts, "prompts that strengthen themselves — I approve each"): her closed exits → the
+# same record, diagnosis and four mindsets G4 / OSSY get (prompt_studio.py). AUTO-TUNED is rewritten from her latest record on every read; only
+# the owner's Apply puts a version on (no auto switch for Fee). The applied text rides every brain call as YOUR MINDSET (launch_cat.ask_messages).
+def _studio_trades(cat):
+    """Her closed exits → [{pct, peak, heldMin, at = when the trade OPENED}] (older exits carry no hold / peak: those stay None)."""
+    out = []
+    for e in cat.get('exits', []):
+        if e.get('changeAtExit') is None or not e.get('exitAt'):
+            continue
+        out.append({'pct': e['changeAtExit'], 'peak': e.get('peak'), 'heldMin': e.get('heldMin'), 'after': e.get('peakAfter'), 'usd': None, 'at': e['exitAt'] - 60 * (e.get('heldMin') or 0)})
+    return sorted(out, key=lambda t: t['at'])
+
+
+def studio_view(cat, now=None):
+    import prompt_studio as _ps
+    now = now or time.time()
+    b, st = cat.get('brainsCfg') or {}, cat.get('studio') or {}
+    tr = _studio_trades(cat)
+    calls = [{'action': d.get('word') or 'NO ANSWER'} for d in (b.get('decisions') or []) if isinstance(d, dict) and d.get('word') != 'RULES']
+    s = _ps.stats(tr, calls)
+    fx = _ps.diagnose(s)
+    a = {k: st[k] for k in ('set', 'text', 'at', 'by', 'edited') if k in st} if st.get('text') else None
+    lad = _ps.ladder(tr, st.get('history'), 'fee', now, a)
+    sets = _ps.sets('fee', s, fx, _ps.best_rung(lad))
+    tuned = next((x['text'] for x in sets if x['set'] == 'tuned'), '')
+    lay = lambda k, label, text, note=None: {'k': k, 'label': label, 'chars': len(text or ''), 'tok': (len(text or '') + 3) // 4, 'text': (text or '')[:4000], **({'note': note} if note else {})}
+    return {'key': 'fee', 'name': 'FEE', 'state': 'ONLINE' if cat.get('status') == 'running' else 'PAUSED', 'model': ' + '.join(str(m).split('/')[-1] for m in b.get('brains') or []) or 'rule engine',
+            'ctx': None, 'record': s, 'fixes': fx, 'sets': sets, 'ladder': lad, 'auto': None, 'approve': True,
+            'layers': [lay('job', 'Brain prompt', _lc.SYS), lay('identity', "Owner's brief", b.get('prompt') or '', None if b.get('prompt') else 'none'),
+                       lay('studio', 'Applied mindset', a['text'] if a else '', None if a else 'none applied')],
+            'active': {**a, 'since': _ps.since(tr, a['at']), 'seen': None} if a else None,
+            'fresh': bool(a and a.get('set') == 'tuned' and not a.get('edited') and tuned and tuned != a['text'])}   # 🆕 a stronger AUTO-TUNED is waiting for your Apply
+
+
+def studio_set(cat, body, by, now=None):
+    """{set, text?} applies a version (text = the owner's edit) · {revert: true} back to her plain brief. Every change goes on the ladder's history."""
+    import prompt_studio as _ps
+    now = now or time.time()
+    st = dict(cat.get('studio') or {})
+    if body.get('revert'):
+        st = {'history': _ps.hist_add(st.get('history'), 'fee', None, now, by)}
+    else:
+        set_ = body.get('set')
+        if set_ not in _ps.SETS:
+            raise HTTPException(400, 'unknown prompt set')
+        gen = next((x['text'] for x in studio_view(cat, now)['sets'] if x['set'] == set_), '')
+        txt = ' '.join(str(body.get('text') or '').split())[:_ps.MAX_CHARS['fee']] or gen
+        if not txt:
+            raise HTTPException(400, 'empty prompt')
+        st = {'set': set_, 'text': txt, 'at': now, 'by': str(by or '')[:44], 'edited': txt != gen, 'history': _ps.hist_add(st.get('history'), 'fee', set_, now, by)}
+    cat['studio'] = st
+    return studio_view(cat, now)
+
+
+@app.get('/api/cats/internal/studio')
+async def internal_studio_get(request: Request):
+    _internal(request)
+    return studio_view(_load()['cats'][LEADER_ID])
+
+
+@app.post('/api/cats/internal/studio')
+async def internal_studio_set(request: Request):
+    _internal(request)
+    body = await request.json()
+    store = _load()
+    out = studio_set(store['cats'][LEADER_ID], body if isinstance(body, dict) else {}, (body or {}).get('by'))
+    _save(store)
+    return out
 
 
 @app.get('/api/cats/internal/rules')
