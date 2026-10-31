@@ -125,6 +125,80 @@ async def read_context(http, env, sid):
     return {'cookies': list(j.get('cookies') or []), 'localStorage': dict(j.get('localStorage') or {})}
 
 
+# 🧼 SIGN-IN HYGIENE (owner 2026-10-31: "cookies cleaned + encrypted so only agents use them, no hacker can inject anything — why does Proton
+# have 80 cookies? keep only the latest"): what a sign-in leaves is cut to the SITE'S OWN first-party cookies, the newest copy of each, nothing
+# expired, no analytics / ad trackers, no stale older login (a site's AUTH-<id> pairs: only the newest id stays), every field checked (no
+# newline / semicolon smuggling, sane sizes, only the keys a browser takes). Run on every save AND every load; sealed per agent (Fernet = tamper-proof).
+SITE_FAMILY = {'x.com': ('x.com', 'twitter.com'), 'twitter.com': ('x.com', 'twitter.com'), 'google.com': ('google.com', 'accounts.google.com'),
+               'proton.me': ('proton.me', 'protonmail.com'), 'telegram.org': ('telegram.org', 't.me')}
+TRACKER = re.compile(r'^(_ga|_gid|_gat|_gcl|__utm|_fbp|_fbc|fr$|_hj|ajs_|_uet|_clck|_clsk|_clid|mp_|amplitude|_tt_|_ttp|_pin_|_rdt|_scid|_sctr|__hs|hubspot|_mkto|intercom-|optimizely|_dc_gtm|IDE$|test_cookie$|personalization_id$|guest_id_ads$|guest_id_marketing$)', re.I)
+COOKIE_KEYS = ('name', 'value', 'domain', 'path', 'expires', 'httpOnly', 'secure', 'sameSite', 'priority', 'sourceScheme', 'sourcePort')
+BAD = re.compile(r'[\r\n;\x00]')
+COOKIES_MAX, LS_KEYS_MAX, LS_VALUE_MAX, LS_ORIGIN_MAX = 60, 200, 32_000, 256_000
+
+
+def site_base(site):
+    h = re.sub(r'^https?://', '', str(site or '').lower()).split('/')[0].split(':')[0].strip('.')
+    parts = h.split('.')
+    return '.'.join(parts[-3:]) if len(parts) >= 3 and parts[-2] in ('co', 'com', 'org', 'net') and len(parts[-1]) == 2 else '.'.join(parts[-2:])
+
+
+def _ours(host, bases):
+    h = str(host or '').lower().lstrip('.')
+    h = re.sub(r'^https?://', '', h).split('/')[0].split(':')[0]
+    return any(h == b or h.endswith('.' + b) for b in bases)
+
+
+def clean_context(ctx, site, now=None):
+    """One saved sign-in → (clean context, {'kept', 'dropped'}). Only the site (and its own sibling domains) survives."""
+    now = now or __import__('time').time()
+    base = site_base(site)
+    bases = SITE_FAMILY.get(base, (base,))
+    jar = {}
+    raw = list((ctx or {}).get('cookies') or [])
+    for k in raw:
+        if not isinstance(k, dict):
+            continue
+        name, value, dom, path = str(k.get('name') or ''), str(k.get('value') or ''), str(k.get('domain') or ''), str(k.get('path') or '/')
+        exp = k.get('expires')
+        exp = float(exp) if isinstance(exp, (int, float)) else -1.0
+        if (not name or len(name) > 256 or len(value) > 4096 or BAD.search(name) or BAD.search(value) or BAD.search(path) or not path.startswith('/')
+                or not re.fullmatch(r'\.?[a-z0-9.-]{1,253}', dom.lower()) or not _ours(dom, bases) or TRACKER.match(name) or (0 < exp < now)):
+            continue
+        c = {key: k[key] for key in COOKIE_KEYS if key in k}
+        c['expires'] = exp
+        if c.get('sameSite') not in ('Strict', 'Lax', 'None'):
+            c.pop('sameSite', None)
+        key = (name, dom.lower().lstrip('.'), path)
+        if key not in jar or exp > jar[key]['expires'] or exp < 0 <= jar[key]['expires']:
+            jar[key] = c
+    ids = {}   # a site's per-login pairs (AUTH-<id>, REFRESH-<id>): per SUB-DOMAIN only the newest login stays (account.proton.me and
+    for c in jar.values():   # mail.proton.me each hold their own, both current — found on the owner's real Proton save 2026-10-31)
+        m = re.fullmatch(r'([A-Za-z]+)-([a-z0-9]{20,})', c['name'])
+        if m:
+            d_ = str(c.get('domain') or '').lower().lstrip('.'); w_ = c['expires'] if c['expires'] > 0 else now + 1e9
+            if w_ > ids.get(d_, ('', -1.0))[1]:
+                ids[d_] = (m.group(2), w_)
+    stale = lambda c: (re.fullmatch(r'[A-Za-z]+-[a-z0-9]{20,}', c['name']) and str(c.get('domain') or '').lower().lstrip('.') in ids
+                       and not c['name'].endswith('-' + ids[str(c.get('domain') or '').lower().lstrip('.')][0]))
+    cookies = [c for c in jar.values() if not stale(c)]
+    cookies.sort(key=lambda c: (not c.get('httpOnly'), -(c['expires'] if c['expires'] > 0 else now + 1e9)))
+    cookies = cookies[:COOKIES_MAX]
+    store = {}
+    for origin, kv in ((ctx or {}).get('localStorage') or {}).items():
+        if not _ours(origin, bases) or not isinstance(kv, dict):
+            continue
+        out, size = {}, 0
+        for key_, val in list(kv.items())[:LS_KEYS_MAX]:
+            v = str(val)
+            if len(v) > LS_VALUE_MAX or size + len(v) > LS_ORIGIN_MAX or TRACKER.match(str(key_)):
+                continue
+            out[str(key_)[:256]] = v; size += len(v)
+        if out:
+            store[origin] = out
+    return {'cookies': cookies, 'localStorage': store}, {'kept': len(cookies), 'dropped': len(raw) - len(cookies)}
+
+
 def merge_contexts(ctxs):
     """Several saved sign-ins → one session context (later ones win on the same cookie / origin); None when empty or too big."""
     jar, store = {}, {}

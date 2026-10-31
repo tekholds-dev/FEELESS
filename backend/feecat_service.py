@@ -87,7 +87,7 @@ def _load() -> dict:
 
 # 🔒 The engine loads every cat, works for minutes, then saves its whole copy: anything an owner did meanwhile was wiped (owner 2026-10-30: a new agent wallet vanished
 # seconds after it was made). What an owner's action sets is kept here and laid over every save, so an old copy can never lose a wallet, a funding or a limit.
-OWNER_KEYS = ('secrets', 'agentWallet', 'agentFunded', 'creditPaid', 'recovery', 'recoverySet', 'recoveryConfirmedAt', 'limits', 'taskCap', 'ownerId', 'mode', 'realWallet', 'budgetSol', 'paperByOwner', 'files', 'ownerWallet', 'logins', 'cloudLink', 'vaultLog', 'earn', 'clarify', 'ownerStaff', 'pass', 'treasury', 'siteSessions')
+OWNER_KEYS = ('secrets', 'workNow', 'agentWallet', 'agentFunded', 'creditPaid', 'recovery', 'recoverySet', 'recoveryConfirmedAt', 'limits', 'taskCap', 'ownerId', 'mode', 'realWallet', 'budgetSol', 'paperByOwner', 'files', 'ownerWallet', 'logins', 'cloudLink', 'vaultLog', 'earn', 'clarify', 'ownerStaff', 'pass', 'treasury', 'siteSessions')
 _KEPT: dict = {}
 
 
@@ -131,7 +131,7 @@ def _no_keys(obj):
     if isinstance(obj, list):
         return [_no_keys(x) for x in obj]
     if isinstance(obj, dict):
-        out = {k: _no_keys(v) for k, v in obj.items() if k not in ('apiKeys', 'logins', 'secrets', 'ownerId', 'ownerWallet', 'recovery', 'siteSessions')}
+        out = {k: _no_keys(v) for k, v in obj.items() if k not in ('apiKeys', 'logins', 'secrets', 'workNow', 'ownerId', 'ownerWallet', 'recovery', 'siteSessions')}
         if obj.get('siteSessions'):   # 🔓 sealed sign-ins never leave the server — site · when · how many cookies only
             out['signedIn'] = [{'site': k, 'at': v.get('at'), 'n': v.get('n', 0)} for k, v in obj['siteSessions'].items()]   # 🔒 ownerId is the owner's control key — it never leaves the server
         if 'brains' in obj:   # ☁ each mind's own cloud is its owner's private notes — only the owner's /work view carries it
@@ -1536,6 +1536,7 @@ def _work_start(cat_id, cat, text, to=None, files=None):
     """Start one task in the cat's windows. 🏇 Let it go (cat.workGo): a long step budget (cat_agent.GO_STEPS) — it stops only when done, at
     its $ cap, or when a person is needed (a sign-in / CAPTCHA / payment: it never types a password or a card)."""
     b = cat.get('brainsCfg') or {}
+    cat['workNow'] = {'text': str(text)[:2600], 'to': to, 'at': time.time()}   # 🛟 a restart mid-task files this to resume — an ask is never lost
     cap = min(float(cat.get('taskCap') or TASK_CAP_DEFAULT), max(0.005, float(b.get('credit') or 0) - _lc.CREDIT_RESERVE))   # its own credit only, always leaving the reserve
     left_ = day_left(cat)
     if left_ is not None:
@@ -1692,6 +1693,8 @@ def _work_settle(store):
             continue
         cat = store['cats'].get(cid)
         t = w.get('task') or {}
+        if cat:
+            cat.pop('workNow', None)
         if cat and cat.get('brainsCfg'):
             cat['artifacts'] = (list(cat.get('artifacts') or []) + t.get('artifacts', []))[-30:]
             cat['refusals'] = (list(cat.get('refusals') or []) + [{'at': time.time(), 'why': x} for x in t.get('refusals', [])])[-100:]
@@ -1854,7 +1857,9 @@ async def _start_engine():
     try:
         store_ = _load()
         healed_ = heal_general_credit(store_)   # 🧭 no free credit on a general agent, ever: the old $10 start grant comes off once
-        healed_ += [c_['id'] for c_ in list(store_['cats'].values()) if _ck.reseal_cat(c_, data_dir=DATA_DIR) or c_.pop('cloud', None)]   # (+ the FEELESS-funded cloud is gone: owner 2026-10-30)   # 🔐 every older seal → its agent's own key
+        healed_ += [c_['id'] for c_ in list(store_['cats'].values()) if _ck.reseal_cat(c_, data_dir=DATA_DIR) or c_.pop('cloud', None)]
+        healed_ += [c_['id'] for c_ in list(store_['cats'].values()) if heal_site_sessions(c_)]   # 🧼 stored sign-ins re-cut at every start
+        healed_ += [c_['id'] for c_ in list(store_['cats'].values()) if file_interrupted(c_)]   # 🛟 a task a restart cut off → filed to resume   # (+ the FEELESS-funded cloud is gone: owner 2026-10-30)   # 🔐 every older seal → its agent's own key
         try:
             healed_ += ['fee wallet'] if await _heal_fee_wallet(store_) else []
         except (httpx.HTTPError, ValueError) as e:
@@ -2388,12 +2393,41 @@ _SIGNIN = {}   # cat_id → the owner's open sign-in window {sid, site, page}
 def _site_ctx(cat):
     """Every sign-in the owner saved for this agent → one Steel session context (None when there are none)."""
     out = []
-    for v in (cat.get('siteSessions') or {}).values():
+    for site_, v in (cat.get('siteSessions') or {}).items():
         try:
-            out.append(json.loads(_ck.unseal(v['ctx'], cat.get('id'), data_dir=DATA_DIR)))
+            out.append(_cb.clean_context(json.loads(_ck.unseal(v['ctx'], cat.get('id'), data_dir=DATA_DIR)), site_)[0])   # 🧼 cleaned on every load too
         except Exception:
             continue
     return _cb.merge_contexts(out)
+
+
+def file_interrupted(cat, now=None):
+    """🛟 The task that was running when the service stopped → its parked list (▶ resume / ✕ drop), so the owner's ask is never silently lost."""
+    n_ = cat.pop('workNow', None)
+    if not n_ or not n_.get('text'):
+        return False
+    cat['workParked'] = (list(cat.get('workParked') or []) + [{'at': now or time.time(), 'text': n_['text'], 'why': 'the agent service restarted while it worked — press ▶ to run it again'}])[-WORK_QUEUE_MAX:]
+    cat['chat'] = (list(cat.get('chat') or []) + [{'by': 'cats', 'text': '⏸ The agent service restarted while I worked on this — it is filed under ⏸; press ▶ to run it again.', 'at': now or time.time()}])[-40:]
+    return True
+
+
+def heal_site_sessions(cat):
+    """🧼 Every stored sign-in re-cut to its site's own, newest, unexpired cookies and re-sealed. → True when one changed."""
+    changed = False
+    for site_, v in list((cat.get('siteSessions') or {}).items()):
+        try:
+            raw_ = json.loads(_ck.unseal(v['ctx'], cat.get('id'), data_dir=DATA_DIR))
+        except Exception:
+            cat['siteSessions'].pop(site_, None); changed = True   # unreadable / tampered → gone (sign in again)
+            continue
+        ctx_, st_ = _cb.clean_context(raw_, site_)
+        if st_['dropped'] or v.get('n') != st_['kept']:
+            if not ctx_['cookies'] and not ctx_['localStorage']:
+                cat['siteSessions'].pop(site_, None)
+            else:
+                cat['siteSessions'][site_] = {**v, 'ctx': _ck.seal(json.dumps(ctx_), cat['id']), 'n': st_['kept'], 'dropped': (v.get('dropped') or 0) + st_['dropped'], 'cleanAt': time.time()}
+            changed = True
+    return changed
 
 
 async def _seal_downloads(cat_id, session_id, page, site=''):
@@ -2512,9 +2546,10 @@ async def cat_work(cat_id: str, p: WorkPayload):
                 ctx_ = await _cb.read_context(http, os.environ, si_['sid'])
             except Exception as e:
                 raise HTTPException(502, f'Could not read the sign-in ({str(e)[:60]}).')
+        ctx_, st_ = _cb.clean_context(ctx_, si_['site'])   # 🧼 only the site's own, newest, unexpired cookies — no trackers, no other sites
         if not _cb.merge_contexts([ctx_]):
             raise HTTPException(400, 'Nothing to keep yet — finish signing in, then save.')
-        cat.setdefault('siteSessions', {})[si_['site']] = {'ctx': _ck.seal(json.dumps(ctx_), cat_id), 'at': time.time(), 'n': len(ctx_['cookies'])}
+        cat.setdefault('siteSessions', {})[si_['site']] = {'ctx': _ck.seal(json.dumps(ctx_), cat_id), 'at': time.time(), 'n': st_['kept'], 'dropped': st_['dropped']}
         vault_log(cat, 'signed in', si_['site']); keep_owned(cat); _save(store)
         sealed_ = await _seal_downloads(cat_id, si_['sid'], si_.get('page'), si_['site'])   # 🔏 a recovery file you downloaded there → its sealed drawer
         await _signin_close(cat_id); cat = _load()['cats'].get(cat_id) or cat
@@ -2633,7 +2668,7 @@ async def cat_work(cat_id: str, p: WorkPayload):
     return {**out, 'cap': float(cat.get('taskCap') or TASK_CAP_DEFAULT), 'credit': b.get('credit'), 'spent': b.get('spent'), 'chat': (cat.get('chat') or [])[-20:],
             'live': _work_live(), 'providers': _cb.chain(os.environ), 'go': bool(cat.get('workGo')), 'workMode': cat.get('workMode') or 'plan',
             'cloud': (b.get('cloud') or [])[-8:], 'minds': {m: v[-8:] for m, v in (b.get('minds') or {}).items()}, 'handoffs': len((w.get('task') or {}).get('handoffs') or []) if w else 0, 'createdAt': cat.get('createdAt'),
-            'logins': _cv.public_logins(cat), 'secrets': _cv.public_secrets(cat), 'signedIn': [{'site': k, 'at': v.get('at'), 'n': v.get('n', 0)} for k, v in (cat.get('siteSessions') or {}).items()], 'vaultLog': (cat.get('vaultLog') or [])[-12:], 'lastMoney': last_money(store.get('events') or [], cat_id), 'media': _cv.clean_media(cat), 'storage': _af.public(cat),   # ☁ its cloud: pool, quota, files
+            'logins': _cv.public_logins(cat), 'secrets': _cv.public_secrets(cat), 'signedIn': [{'site': k, 'at': v.get('at'), 'n': v.get('n', 0), 'dropped': v.get('dropped', 0)} for k, v in (cat.get('siteSessions') or {}).items()], 'vaultLog': (cat.get('vaultLog') or [])[-12:], 'lastMoney': last_money(store.get('events') or [], cat_id), 'media': _cv.clean_media(cat), 'storage': _af.public(cat),   # ☁ its cloud: pool, quota, files
             'job': cat.get('job', 'agent'), 'tools': _cp.toolkit(cat.get('job', 'agent'), cat.get('tools')), 'toolkits': _cp.TOOLS,
             'refusals': (cat.get('refusals') or [])[-20:] + [{'why': x} for x in ((w or {}).get('task') or {}).get('refusals', [])],
             'artifacts': (cat.get('artifacts') or [])[-10:] + ([] if (w or {}).get('settled') else ((w or {}).get('task') or {}).get('artifacts', [])),

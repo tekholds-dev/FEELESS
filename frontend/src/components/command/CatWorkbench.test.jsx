@@ -274,3 +274,16 @@ test('🔄 the chat flips into its file cabinet and back; earlier runs fold; a w
   await act(async () => { q('cwb-empty').querySelector('.cwb-sugg button').click(); }); expect(q('cwb-input').value).toContain('pump.fun');
   act(() => root2.unmount());
 });
+
+test('🛟 the agent service not answering (a restart → 504) says so in words, and the desk never keeps a stale "Working"', async () => {
+  document.body.innerHTML = ''; let up = true;
+  global.fetch = async () => (up ? { ok: true, status: 200, json: async () => STATE } : { ok: false, status: 504, json: async () => { throw new Error('html'); } });
+  jest.useFakeTimers();
+  const el = document.createElement('div'); document.body.appendChild(el); const root = createRoot(el);
+  await act(async () => { root.render(<CatWorkbench cat={{ id: 'g1', name: 'Happy', brainsCfg: { kind: 'general', brains: ['qwen/qwen3-32b', 'x/opus'], credit: 9.2 } }} />); });
+  const q = id => document.querySelector(`[data-testid="${id}"]`);
+  expect(q('cwb-typing')).not.toBeNull();
+  up = false; await act(async () => { jest.advanceTimersByTime(1600); }); await act(async () => { await Promise.resolve(); }); jest.useRealTimers();
+  expect(document.body.textContent).toContain('not answering right now'); expect(document.body.textContent).not.toContain('HTTP 504'); expect(q('cwb-typing')).toBeNull();
+  act(() => root.unmount());
+});

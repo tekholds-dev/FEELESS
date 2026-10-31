@@ -636,3 +636,13 @@ def test_a_window_handed_to_you_is_let_go_then_taken_back(tmp_path, monkeypatch)
                 break
             _t.sleep(0.05)
         assert fs._WORK[cid]['task']['status'] == 'parked' and seen == ['start', 'start', 'release', 'start']   # both windows open · B let go for you · taken back
+
+
+def test_a_task_cut_off_by_a_restart_is_filed_to_resume_never_lost():
+    """🛟 owner 2026-10-31: an ask sent while the service restarted vanished ("nothing happened, I don't see my request")."""
+    import feecat_service as fs
+    cat = {'id': 'c', 'workNow': {'text': 'B: browse pump.fun and find the best trending coin', 'to': 'both', 'at': 1}}
+    assert fs.file_interrupted(cat, now=5) and 'workNow' not in cat
+    assert cat['workParked'][0]['text'].startswith('B: browse pump.fun') and 'restarted' in cat['workParked'][0]['why'] and 'restarted' in cat['chat'][-1]['text']
+    assert not fs.file_interrupted(cat)
+    assert 'workNow' not in fs._no_keys({'workNow': {'text': 'secret ask'}, 'name': 'x'})

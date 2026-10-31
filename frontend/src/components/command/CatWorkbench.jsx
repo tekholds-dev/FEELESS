@@ -24,9 +24,13 @@ const PriceChart = lazy(() => import('../terminal/PriceChart').then(m => ({ defa
 // 🧭 its two ways (cat_agent.MODES): plan together → one answer · each mind its own job
 const WAYS = [['plan', '🧠🤝 ONE ANSWER', 'They plan it in a sentence each, split it, research in their own windows, merge into one answer'], ['jobs', '🎯🎯 TWO JOBS', 'Give each mind its own job — both run at once, two results']];
 
+// 🛟 the agent service not answering (a restart, a 502 / 503 / 504 from the proxy) says so in plain words — never a bare "HTTP 504"
+const DOWN = 'The agent service is not answering right now (it may be restarting) — nothing was sent. Try again in a few seconds.';
 async function work(id, body) {
-  const r = await fetch(apiUrl(`/api/cats/${id}/work`), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...agentAuth(), ...body }) });
+  let r;
+  try { r = await fetch(apiUrl(`/api/cats/${id}/work`), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...agentAuth(), ...body }) }); } catch { throw Object.assign(new Error(DOWN), { down: true }); }
   const j = await r.json().catch(() => ({}));
+  if (r.status >= 502 && r.status <= 504) throw Object.assign(new Error(DOWN), { down: true });
   if (!r.ok) throw new Error(j.detail || `HTTP ${r.status}`);
   return j;
 }
@@ -448,7 +452,7 @@ export function SignedSites({ cat, rows = [], onSaved, nested = false }) {
     try { const j = await work(cat.id, { op, text }); if (op === 'signin_open') { setLive({ ...j, at: Date.now() }); setBig(!nested); } else { setLive(null); onSaved?.(j.signedIn || [], j.secrets); } } catch (e) { setErr(e.message); } finally { setBusy(''); } };
   return <section className="cwb-signed" data-testid="cwb-signed"><b className="cwb-signed-h">🔓 SIGNED-IN SITES <em className="m-num">{rows.length}</em></b>
     <small>Blocked by a bot check, or your agent's own email? Sign in once here — its windows open signed in.</small>
-    {rows.length ? <ul>{rows.map(r => <li key={r.site}><span><b>{r.site}</b><small>{ago(r.at)} ago · {r.n} cookies · sealed</small></span>
+    {rows.length ? <ul>{rows.map(r => <li key={r.site}><span><b>{r.site}</b><small data-tip="Only this site's own, newest, unexpired cookies are kept — trackers, other sites and stale logins are cut on every save and every load, then sealed with this agent's key">{ago(r.at)} ago · {r.n} cookies{r.dropped ? ` · ${r.dropped} cleaned out` : ''} · sealed</small></span>
       <button type="button" className="m-btn" disabled={!!busy} onClick={() => run('signin_drop', r.site)} data-tip={`Sign its windows out of ${r.site}`} data-testid={`cwb-signed-drop-${r.site}`}>Sign out</button></li>)}</ul> : null}
     {live ? <div className="cwb-signed-live"><span><em>LIVE · sign in to {live.site} yourself</em><button type="button" className="m-btn" onClick={() => setBig(true)} data-tip="Open the sign-in window big" data-testid="cwb-signed-big">⤢ Big</button>
       <button type="button" className="m-btn m-go" disabled={!!busy} onClick={() => run('signin_save')} data-testid="cwb-signed-save">{busy === 'signin_save' ? 'Saving…' : '✓ Signed in — save'}</button></span>
@@ -527,9 +531,10 @@ function WorkbenchLive({ cat }) {
     try { for (const f of list) { const j = await addFile(cat.id, f); setFiles(x => [...x, j.file].slice(-4)); setStore({ used: j.used, quota: j.quota }); } } catch (er) { setErr(er.message); } finally { setUpping(false); } };
   const [signIn, setSignIn] = useState(null);   // 🔑 a window's sign-in card → the credentials drawer, this site filled in
   const [to, setTo] = useState('both'); const [jobs, setJobs] = useState(['', '']);   // 🧠 talk to both minds, or ONE of them (it works the whole task in its own window)
-  const load = useCallback(() => work(cat.id, { op: 'state' }).then(x => { setD(x); setErr(''); }).catch(e => setErr(e.message)), [cat.id]);
+  const [down, setDown] = useState(false);
+  const load = useCallback(() => work(cat.id, { op: 'state' }).then(x => { setD(x); setErr(''); setDown(false); }).catch(e => { setErr(e.message); setDown(!!e.down); }), [cat.id]);
   const status = d?.task?.status;
-  const live = LIVE_STATES.includes(status) || status === 'human' || (d?.windows || []).some(w => w.status === 'human' || w.status === 'working');
+  const live = !down && (LIVE_STATES.includes(status) || status === 'human' || (d?.windows || []).some(w => w.status === 'human' || w.status === 'working'));   // the service down = never a stale "Working"
   useEffect(() => { load(); }, [load]);
   useEffect(() => { const t = setInterval(() => { if (!document.hidden) { load(); setTick(x => x + 1); } }, live ? 1500 : 8000); return () => clearInterval(t); }, [load, live]);
   const act = async (op, extra = {}) => { setBusy(true); setErr(''); try { const r = await work(cat.id, { op, ...extra }); setD(x => ({ ...x, ...r })); } catch (e) { setErr(e.message); } finally { setBusy(false); } };
