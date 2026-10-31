@@ -6415,3 +6415,5 @@ else time its pollers); Live desk was fixed (full layout 339 → 13 ms) — re-m
 Spotlight › Privacy; ~6 GB swap (Chrome + LM Studio + Claude). `frontend/.env.development` turns the dev ESLint pass off (local only).
 
 
+
+- 2026-10-31 FC07.1: FeeCat agents tabs — paper test door STAFF ONLY (`useAdmin().isStaff`, feecat `create_cat` 403 on a brainless cat without a staff session, `_session_staff` fails closed), tab tips/leaderboard note/card chip lose 'paper' (NOT FUNDED · GO REAL); test_agent_wallet no longer hits a live :5077.

@@ -1833,6 +1833,19 @@ async def _model_limit(session=''):
     return 2
 
 
+async def _session_staff(session=''):
+    """🧪 The paper rule trader is a STAFF test door (owner 2026-10-30, D1): users only ever launch real Trading / General agents.
+    Staff = reputation's `_is_staff` on the signed chat session (any linked wallet); no session or reputation down ⇒ not staff."""
+    if not session:
+        return False
+    try:
+        async with httpx.AsyncClient(timeout=5) as h:
+            r = await h.post('http://127.0.0.1:5077/api/reputation/cats/model-limit', json={'session': session})
+        return bool(r.status_code == 200 and r.json().get('staff'))
+    except Exception:
+        return False
+
+
 AGENT_MAX = 2   # 🤖 a user runs at most 2 agents (owner, 2026-10-22: "users pick if they want 1-2 cat AI agents"); a revoked one frees its slot
 
 
@@ -1841,6 +1854,8 @@ async def create_cat(payload: CreatePayload):
     store = _load()
     if sum(1 for c in store['cats'].values() if c.get('ownerId') == payload.ownerId and not c.get('revoked')) >= AGENT_MAX:
         raise HTTPException(400, f'You run {AGENT_MAX} agents — retire one to start another.')
+    if not payload.brains and not await _session_staff(payload.session or ''):
+        raise HTTPException(403, 'The paper test is staff only — launch a Trading or General agent.')
     cat_id = uuid.uuid4().hex
     now = time.time()
     cat = {

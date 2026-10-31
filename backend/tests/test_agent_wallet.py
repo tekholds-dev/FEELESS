@@ -110,6 +110,13 @@ def test_n16_fee_takes_an_assigned_wallet_crossmint_trades_anything_else_is_watc
     async def fake_lookup(http, key, a):
         return {'locator': 'L'} if a == ADDR else None
     monkeypatch.setattr(fs._aw, 'lookup', fake_lookup)
+
+    class NoCircle:   # reputation's circle-wallet lookup, faked (the test never reaches a live :5077): not one of the creator's Circle wallets
+        def __init__(self, *a, **k): pass
+        async def __aenter__(self): return self
+        async def __aexit__(self, *a): return False
+        async def get(self, *a, **k): return type('R', (), {'status_code': 404, 'json': lambda self: {}})()
+    monkeypatch.setattr(fs.httpx, 'AsyncClient', NoCircle)
     c = TestClient(fs.app)
     assert c.post('/api/cats/leader/action', json={'action': 'agent_assign', 'address': 'USERWALLET', 'session': 'usr', 'text': ADDR}).status_code == 403   # not the creator
     assert c.post('/api/cats/leader/action', json={'action': 'agent_assign', 'address': 'OWNERWALLET', 'session': 'own', 'text': ADDR}).status_code == 200

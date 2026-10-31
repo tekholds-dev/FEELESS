@@ -11,6 +11,7 @@ import { FundReceipt } from './FundReceipt';
 import { LaunchCat, BrainPanel } from './LaunchCat';
 import { LookAvatar, LookPicker, DEFAULT_LOOK } from './CatLook';
 import { readMyCat } from '../../lib/myCat';
+import { readChatSession } from '../../lib/chatSession';
 import { EngineLine } from './CatBrainSwitch';
 import { CatDesk } from './CatDesk';
 import { CatReal } from './CatReal';
@@ -28,7 +29,7 @@ const api = async (path, options = {}) => {
   if (!options.method && /^\/api\/cats\/[\w-]+$/.test(path)) path = `${path}?ownerId=${encodeURIComponent(ownerId())}`;   // one cat → the server answers `mine` (never sends the owner id)
   const response = await fetch(path, { headers: { 'Content-Type': 'application/json', ...(options.headers || {}) }, ...options });
   const body = await response.json().catch(() => ({}));
-  if (!response.ok) throw new Error(body.detail || body.error || 'Paper agent request failed.');
+  if (!response.ok) throw new Error(body.detail || body.error || 'Agent request failed.');
   return body;
 };
 const ownerId = () => {
@@ -104,7 +105,7 @@ function CreateCat({ onCreated, onCancel, preset, presetAvatar = 0 }) {
   const submit = async event => {
     event.preventDefault(); setError(''); setSaving(true);
     try {
-      const result = await api('/api/cats', { method: 'POST', body: JSON.stringify({ ...form, ownerId: ownerId(), avatar: selectedAvatar[0] }) });
+      const result = await api('/api/cats', { method: 'POST', body: JSON.stringify({ ...form, ownerId: ownerId(), avatar: selectedAvatar[0], session: readChatSession() || '' }) });   // 🧪 staff-only paper test: the server checks this session
       const started = await api(`/api/cats/${result.cat.id}/action`, { method: 'POST', body: JSON.stringify({ action: 'start' }) });
       onCreated(started.cat);
     } catch (requestError) { setError(requestError.message); } finally { setSaving(false); }
@@ -183,9 +184,9 @@ export default function FeeCatsPlatform() {
   const presetAvatar = Number.isInteger(pa) && pa >= 0 && launchParams.get('avatar') !== null ? pa : (mine ? mine.coat : 0);
   const [view, setView] = useState(launchParams.get('create') === '1' ? 'new' : 'cats');   // 🎨 Build a cat › "Give it a job" lands on the brain pick (it used to skip to the paper wizard)
   const [kind, setKind] = useState('trading');
-  const pickKind = k => { if (k === 'trading' || k === 'general') { setKind(k); setView('launch'); } else setView(k); };   // 📈 / 🧭 → models → your wallet → REAL
+  const { isAdmin, isStaff } = useAdmin();   // 🧪 the paper test door is staff-only (owner 2026-10-30, D1) · 🪟 N14/N16: the creator's own Fee (NEXA) sits first in My agents — not one of the 2 agent slots
+  const pickKind = k => { if (k === 'trading' || k === 'general') { setKind(k); setView('launch'); } else if (k !== 'create' || isStaff) setView(k); };   // 📈 / 🧭 → models → your wallet → REAL
   const [cats, setCats] = useState([]);
-  const { isAdmin } = useAdmin();   // 🪟 N14/N16: the creator's own Fee (NEXA) sits first in My agents — not one of the 2 agent slots
   const [selected, setSelected] = useState(null);
   const [error, setError] = useState('');
   const loadCats = useCallback(async () => { try { const result = await api(`/api/cats?ownerId=${encodeURIComponent(ownerId())}`); setCats(result.cats || []); setError(''); } catch (requestError) { setError(requestError.message); } }, []);
@@ -206,30 +207,30 @@ export default function FeeCatsPlatform() {
   };
   const created = cat => { setCats(current => [cat, ...current]); openReal(cat); };   // 💵 a new cat lands on its wallet switch (link → budget → REAL)
   const live = cats.filter(c => !c.revoked);   // 🤖 agents that count toward the 2-agent limit
-  const TABS = [['cats', <><Cat size={14} /> My agents <span>{live.length}/{AGENT_MAX}</span></>, 'Your trading cats with their live P&L'],
+  const TABS = [['cats', <><Cat size={14} /> My agents <span>{live.length}/{AGENT_MAX}</span></>, 'Your agents — trading and general — with their live P&L and jobs'],
     ['new', <><Plus size={14} /> New agent</>, 'A Trading AI cat or a General AI cat — models → your wallet → REAL · up to 2 agents'],
     ['activity', <><Activity size={14} /> Live activity</>, 'Every cat\'s buys and sells as they happen'],
-    ['leaderboard', <><Trophy size={14} /> Leaderboard</>, 'Every cat ranked by real paper results']];
+    ['leaderboard', <><Trophy size={14} /> Leaderboard</>, 'Every agent ranked by its recorded trades on FEELESS, fees kept apart']];
   const on = k => (k === 'new' ? ['new', 'create', 'launch'].includes(view) : k === 'cats' ? ['cats', 'cat'].includes(view) : view === k);
   return <div className="fee-cats-platform fc-v2"><header className="paper-platform-head"><div><span className="eyebrow"><Cat size={14} /> AGENTS · CATS THAT TRADE FOR YOU</span><h1>Give your cat a <em>job.</em></h1><p>Your own AI agents — pick 1–2 models, a name, a look and limits. Each gets its own wallet: fund it once, and it works from there. A trader trades on FEELESS inside your limits; a general agent researches, builds and acts for you, and checks with you before spending until you switch it to auto.</p></div>
     <div className="paper-platform-actions"><PaperBadge /><span className="fc-slots" data-tip={`${live.length} of ${AGENT_MAX} agent slots used`} aria-label={`${live.length} of ${AGENT_MAX} agents`}>{Array.from({ length: AGENT_MAX }, (_, k) => <i key={k} className={k < live.length ? 'is-on' : ''} />)}</span></div></header>
     <nav className="paper-platform-tabs" aria-label="Agents">{TABS.map(([k, label, tip]) => <button key={k} type="button" className={on(k) ? 'active' : ''} onClick={() => { setSelected(null); setView(k); }} data-testid={`fc-tab-${k}`} data-tip={tip}>{label}</button>)}</nav>
     {error && <div className="paper-inline-message" role="alert"><AlertTriangle size={14} />{error}</div>}
-    {view === 'new' && <AgentPicker count={live.length} onPick={pickKind} />}
-    {view === 'create' && <CreateCat onCreated={created} onCancel={() => setView('cats')} presetAvatar={presetAvatar} />}
+    {view === 'new' && <AgentPicker count={live.length} onPick={pickKind} staff={isStaff} />}
+    {view === 'create' && isStaff && <CreateCat onCreated={created} onCancel={() => setView('cats')} presetAvatar={presetAvatar} />}
     {view === 'cat' && selected && <CatDetail onDeleted={id => { setCats(c => c.filter(x => x.id !== id)); setSelected(null); setView('cats'); }} cat={selected} onBack={() => setView('cats')} onChanged={cat => { setSelected(cat); setCats(current => current.map(item => item.id === cat.id ? cat : item)); }} />}
     {view === 'activity' && <LiveActivity api={api} onOpen={openById} tradeCard={tradeCard} />}
     {view === 'launch' && <LaunchCat key={kind} kind={kind} api={api} ownerId={ownerId} onCreated={created} onCancel={() => setView('cats')} Fields={CatFields} newForm={() => catForm(presetAvatar)} formOk={catOk} avatarOf={i => (CAT_VARIATIONS[i] || CAT_VARIATIONS[0])[0]} Preview={CatPreview} />}
     {view === 'leaderboard' && <AgentLeaderboard api={api} onOpen={openById} />}
     {view === 'cats' && isAdmin ? <Suspense fallback={null}><ProfileFeeBanner mine onOpen={() => openById({ id: 'leader' })} /></Suspense> : null}
     {view === 'cats' ? <RecoverAgent onBack={cat => { loadCats(); openCat(cat); }} /> : null}
-    {view === 'cats' && <section className="paper-my-cats">{!cats.length ? <><div className="paper-panel-head"><div><span className="eyebrow">YOUR AGENTS · 0/{AGENT_MAX}</span><h2>No cats on the job yet — pick a brain.</h2></div></div><AgentPicker count={0} onPick={pickKind} /></>
+    {view === 'cats' && <section className="paper-my-cats">{!cats.length ? <><div className="paper-panel-head"><div><span className="eyebrow">YOUR AGENTS · 0/{AGENT_MAX}</span><h2>No cats on the job yet — pick a brain.</h2></div></div><AgentPicker count={0} onPick={pickKind} staff={isStaff} /></>
       : <><div className="paper-panel-head"><div><span className="eyebrow">YOUR AGENTS · {live.length}/{AGENT_MAX}</span><h2>Tap a cat to see its desk</h2></div><button type="button" className="btn-outline" onClick={() => setView('new')} disabled={live.length >= AGENT_MAX}><Plus size={14} /> New agent</button></div>
         <div className="paper-my-cat-grid">{cats.map(cat => { const real = cat.mode === 'real' && !!cat.realWallet; const pend = (cat.proposals || []).filter(p => p.status === 'pending').length;
           return <div key={cat.id} className={`cw-card ${real ? 'is-real' : ''}`} data-testid={`cw-${cat.id}`}><button type="button" className="paper-my-cat-card" onClick={() => openCat(cat)}><span className="paper-my-cat-art"><LookAvatar cat={catByName(cat.avatar)} look={cat.look} /></span><span><b>{cat.name}</b><small>{cat.status.toUpperCase()} · LVL {cat.level}</small></span><strong className={cat.realizedPnlSol >= 0 ? 'positive' : 'negative'}>{money(cat.realizedPnlSol)}</strong><ChevronRight size={15} /></button>
             <button type="button" className={`cw-go ${real ? 'is-real' : ''}`} onClick={() => openReal(cat)} data-testid={`cw-go-${cat.id}`}
               data-tip={real ? `REAL on ${cat.realWallet.slice(0, 4)}…${cat.realWallet.slice(-4)} — open its live proposals` : 'Switch this cat to REAL: pick a per-buy budget, it proposes, your wallet signs every trade'}>
-              <i aria-hidden="true" />{real ? `💵 REAL · ${pend ? `${pend} to sign` : 'live'}` : '🧪 PAPER · GO REAL'}</button>
+              <i aria-hidden="true" />{real ? `💵 REAL · ${pend ? `${pend} to sign` : 'live'}` : 'NOT FUNDED · GO REAL'}</button>
             <button type="button" className="cw-del" onClick={() => removeCat(cat)} data-testid={`cw-del-${cat.id}`} data-tip="Delete it for good — type its name to confirm (never while its own wallet still holds money)" aria-label={`Delete ${cat.name}`}>🗑</button></div>; })}</div></>}</section>}
   </div>;
 }

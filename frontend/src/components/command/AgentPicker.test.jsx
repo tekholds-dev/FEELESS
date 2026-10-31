@@ -7,11 +7,16 @@ import FeeCatsPlatform from './FeeCatsPlatform';
 jest.mock('react-router-dom', () => ({ Link: ({ to, children, ...p }) => require('react').createElement('a', { href: to, ...p }, children) }), { virtual: true });   // v7 does not resolve under jest here (FeeCatLore.test does the same)
 
 beforeEach(() => { global.fetch = jest.fn(url => Promise.resolve({ ok: true, json: () => Promise.resolve(String(url).includes('/models') ? { live: false, models: [] } : { cats: [], events: [] }) })); });
+let mockStaff = false;   // 🧪 the paper test door is staff-only (D1)
+jest.mock('../../lib/adminCall', () => ({ useAdmin: () => ({ isAdmin: false, isStaff: mockStaff, call: jest.fn() }) }));
+afterEach(() => { mockStaff = false; });
 const q = (el, id) => el.querySelector(`[data-testid="${id}"]`);
 
-test('🤖 one door, two AI cats (Trading · General) that both walk models → your wallet → REAL; the rule trader is a paper test link; 2 agents max', async () => {
+test('🤖 one door, two AI cats (Trading · General) that both walk models → your wallet → REAL; the rule trader is a STAFF-only paper test link; 2 agents max', async () => {
   const el = document.createElement('div'); document.body.appendChild(el); const root = createRoot(el); const pick = jest.fn();
   await act(async () => { root.render(<AgentPicker count={1} onPick={pick} />); });
+  expect(q(el, 'agent-create')).toBeNull();                                             // a user never sees the paper door
+  await act(async () => { root.render(<AgentPicker count={1} onPick={pick} staff />); });
   expect(el.textContent).toContain(`1/${AGENT_MAX} RUNNING`);
   expect(q(el, 'agent-trading').textContent).toContain('REAL · ITS OWN WALLET'); expect(q(el, 'agent-general').textContent).toContain('you OK each move');
   expect(q(el, 'agent-trading').querySelector('.agp-flow').textContent).toBe('🧠 models👛 your wallet💵 REAL');
@@ -19,13 +24,14 @@ test('🤖 one door, two AI cats (Trading · General) that both walk models → 
   expect(q(el, 'agent-create').textContent).toContain('Test first on paper');
   act(() => q(el, 'agent-general').click()); expect(pick).toHaveBeenCalledWith('general');
   act(() => q(el, 'agent-create').click()); expect(pick).toHaveBeenLastCalledWith('create');
-  await act(async () => { root.render(<AgentPicker count={AGENT_MAX} onPick={pick} />); });
+  await act(async () => { root.render(<AgentPicker count={AGENT_MAX} onPick={pick} staff />); });
   expect(q(el, 'agent-create').disabled).toBe(true); expect(q(el, 'agent-full')).not.toBeNull();
   act(() => root.unmount());
 });
 
-test('🤖 the agents page: no agents → the brain picker right there; the rule trader opens its wizard wearing YOUR built cat; Fee\'s desk is not repeated here', async () => {
+test('🤖 the agents page: no agents → the brain picker right there; staff: the rule trader opens its wizard wearing YOUR built cat; Fee\'s desk is not repeated here', async () => {
   const el = document.createElement('div'); document.body.appendChild(el); const root = createRoot(el);
+  mockStaff = true;
   localStorage.setItem('feeless.myCat', JSON.stringify({ coat: 3, pattern: 'spots', look: { gear: 'crown', aura: 'gold', eyes: 'laser', tag: '' }, name: 'Specter' }));
   await act(async () => { root.render(<FeeCatsPlatform />); });
   expect(q(el, 'fc-tab-cats').textContent).toContain(`0/${AGENT_MAX}`);
@@ -50,4 +56,14 @@ test('🎨 Build a cat › "Give it a job" (?create=1) lands on the brain pick �
   expect(q(el, 'lct-kind').textContent).toBe('🧭 GENERAL AI CAT · ITS OWN WALLET');
   expect(q(el, 'lct-step-3').textContent).toContain('its wallet');
   act(() => root.unmount()); window.history.pushState({}, '', '/'); document.body.innerHTML = '';
+});
+
+test('🧪 a user (not staff) never sees the paper test door, and the wizard never opens for them', async () => {
+  const el = document.createElement('div'); document.body.appendChild(el); const root = createRoot(el);
+  await act(async () => { root.render(<FeeCatsPlatform />); });
+  await act(async () => { q(el, 'fc-tab-new').click(); });
+  expect(q(el, 'agent-picker')).not.toBeNull(); expect(q(el, 'agent-create')).toBeNull();
+  expect(document.body.querySelector('#create-cat-title')).toBeNull();
+  expect(el.textContent).not.toMatch(/PAPER · GO REAL|paper results|paper unless/i);
+  act(() => root.unmount()); document.body.innerHTML = '';
 });

@@ -123,11 +123,40 @@ def test_a_user_runs_at_most_two_agents_and_a_retired_one_frees_its_slot(monkeyp
     from fastapi.testclient import TestClient
     store = {'cats': {'a': {'id': 'a', 'ownerId': 'u', 'revoked': False}, 'b': {'id': 'b', 'ownerId': 'u', 'revoked': False}}, 'events': []}
     monkeypatch.setattr(fs, '_load', lambda: store); monkeypatch.setattr(fs, '_save', lambda s: None)
+    async def staff(session=''): return True   # the brainless paper test is staff-only (D1)
+    monkeypatch.setattr(fs, '_session_staff', staff)
     c = TestClient(fs.app)
     r = c.post('/api/cats', json={'ownerId': 'u', 'name': 'Third', 'handle': 'third'})
     assert r.status_code == 400 and 'retire one' in r.json()['detail']
     store['cats']['b']['revoked'] = True
     assert c.post('/api/cats', json={'ownerId': 'u', 'name': 'Third', 'handle': 'third'}).status_code == 200
+
+
+def test_the_paper_test_agent_is_staff_only(monkeypatch):
+    fs = pytest.importorskip('feecat_service')
+    from fastapi.testclient import TestClient
+    store = {'cats': {}, 'events': []}
+    monkeypatch.setattr(fs, '_load', lambda: store); monkeypatch.setattr(fs, '_save', lambda s: None)
+    seen = []
+    async def staff(session=''): seen.append(session); return session == 'staff-session'
+    monkeypatch.setattr(fs, '_session_staff', staff)
+    c = TestClient(fs.app)
+    r = c.post('/api/cats', json={'ownerId': 'u', 'name': 'Paper', 'handle': 'paper'})
+    assert r.status_code == 403 and 'staff only' in r.json()['detail'] and not store['cats']
+    assert c.post('/api/cats', json={'ownerId': 'u', 'name': 'Paper', 'handle': 'paper', 'session': 'user-session'}).status_code == 403
+    assert c.post('/api/cats', json={'ownerId': 'u', 'name': 'Paper', 'handle': 'paper', 'session': 'staff-session'}).status_code == 200
+    assert seen == ['', 'user-session', 'staff-session'] and len(store['cats']) == 1
+
+
+def test_session_staff_fails_closed(monkeypatch):
+    fs = pytest.importorskip('feecat_service')
+    assert asyncio.run(fs._session_staff('')) is False
+    class Boom:
+        def __init__(self, *a, **k): pass
+        async def __aenter__(self): raise RuntimeError('reputation down')
+        async def __aexit__(self, *a): return False
+    monkeypatch.setattr(fs.httpx, 'AsyncClient', Boom)
+    assert asyncio.run(fs._session_staff('any')) is False
 
 
 def test_nexa_reads_the_trench_laws_and_the_curve_stage():

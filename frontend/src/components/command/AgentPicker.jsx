@@ -4,7 +4,7 @@ import '../../styles/agentPicker.css';
 // 🤖 NEW AGENT (owner, 2026-10-23: "TWO KINDS OF AI CAT — user's own wallet, real money, NO paper"): ONE door, two AI cats that both end at
 // pick models → its own wallet → REAL (DECISIONS #2: your wallet signs ONE funding, then it trades inside the caps; FEELESS never sees your keys):
 //   📈 TRADING AI cat — 1-2 trading models hunt coins for you · 🧭 GENERAL AI cat — 1-2 all-round models do what you order in plain words.
-// The free rule trader stays as a 🧪 paper TEST toggle under the two (never the headline). A user runs at most AGENT_MAX agents.
+// The free rule trader stays as a 🧪 paper TEST toggle under the two — STAFF ONLY (owner 2026-10-30, D1; the server refuses a brainless cat to anyone else). A user runs at most AGENT_MAX agents.
 export const AGENT_MAX = 2;
 export const AGENT_KINDS = [
   { key: 'trading', glyph: 'brain', title: 'Trading AI cat', tag: 'REAL · ITS OWN WALLET', pitch: '1–2 trading models hunt Solana coins for you from the cat\'s own wallet — you fund it once, then it trades inside the caps you set.',
@@ -29,7 +29,7 @@ function Glyph({ kind }) {
     {l.map(([a, b], i) => <line key={i} x1={n[a][0]} y1={n[a][1]} x2={n[b][0]} y2={n[b][1]} />)}{n.map(([x, y], i) => <circle key={i} className="nd" cx={x} cy={y} r={i === 2 ? 7 : 4.5} style={{ '--i': i }} />)}</svg>;
 }
 
-export function AgentPicker({ count = 0, onPick }) {
+export function AgentPicker({ count = 0, onPick, staff = false }) {
   const [live, setLive] = useState(null);
   useEffect(() => { let on = true; fetch('/api/cats/models').then(r => (r.ok ? r.json() : null)).then(d => { if (on && d) setLive(!!d.live); }).catch(() => {}); return () => { on = false; }; }, []);
   const full = count >= AGENT_MAX;
@@ -45,7 +45,7 @@ export function AgentPicker({ count = 0, onPick }) {
       {live === false ? <span className="agp-off">model calls off — rules until they're on</span> : null}
       <span className="agp-flow" aria-hidden="true"><i>🧠 models</i><u /><i>👛 your wallet</i><u /><i className="is-real">💵 REAL</i></span>
       <span className="agp-go">Start a {k.title.toLowerCase()} →</span></button>)}</div>
-    <button type="button" className="agp-test" disabled={full} onClick={() => onPick('create')} data-testid="agent-create"
-      data-tip="The free rule trader on paper — the Leader's engine on live prices with your name, look and limits. A test, no wallet">🧪 Test first on paper — free rule trader →</button>
+    {staff ? <button type="button" className="agp-test" disabled={full} onClick={() => onPick('create')} data-testid="agent-create"
+      data-tip="The free rule trader on paper — the Leader's engine on live prices with your name, look and limits. Staff-only test, no wallet">🧪 Test first on paper — free rule trader · STAFF →</button> : null}
   </section>;
 }

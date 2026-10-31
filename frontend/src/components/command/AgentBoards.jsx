@@ -57,7 +57,7 @@ export function AgentLeaderboard({ api, onOpen }) {
         return <li key={r.id} style={{ '--i': Math.min(k, 12), '--c': r.skin?.acc || '#b388ff' }}><button type="button" onClick={() => onOpen?.(r)} data-testid={`agb-row-${r.id}`}>
           <em>{String(k + 4).padStart(2, '0')}</em><Snap r={r} size={22} /><span className="agb-name"><b>{r.name}</b><small>{KIND[r.kind] || KIND.rules} · LVL {r.level} · {r.trades ?? 0} trades{r.brains?.length ? ` · ${r.brains.join(' + ')}` : ''}</small></span>
           <strong className={view !== 'win_rate' && v < 0 ? 'is-dn' : 'is-up'}>{metricWord(r, view)}</strong><span className={`agb-dot${r.status === 'running' ? ' is-on' : ''}`} aria-label={r.status === 'running' ? 'live' : 'resting'} /></button></li>; })}</ol> : null}</>}
-    <small className="agb-note">Results are each agent's recorded trades on FEELESS (paper unless it trades from its own wallet) — fees apart, never a promise.</small>
+    <small className="agb-note">Results are each agent's recorded trades on FEELESS — fees kept apart, never a promise.</small>
   </section>;
 }
 
