@@ -5,6 +5,7 @@ import { callThread } from '../../lib/feeCallChat';
 import { useLeaderProfile } from '../../lib/feeLeader';
 import { reasonChip, talkPins } from '../../lib/feeTape';
 import { FirstTips } from '../FirstTips';
+import { useAdmin } from '../../lib/adminCall';
 
 // 🐱 FEE LIVE (owner, 2026-10-19: "finish her terminal tabs"): what Fee is doing right now, for everyone — her last scan (coins read → passed → held,
 // the rules that stopped the rest), her open paper trades, the coin she holds on a live chart WITH her call bubbles, and her calls in her own words
@@ -20,7 +21,8 @@ export function scanFunnel(scan, held) {
   const rej = Object.values(by).sort((a, b) => b.c - a.c); const max = Math.max(1, ...rej.map(r => r.c));
   return { read: n(s.scanned) || 0, passed: n(s.passed) || 0, held: held || 0, reasons: rej.slice(0, 5).map(r => ({ k: r.k, c: r.c, w: r.c / max, icon: r.icon, label: r.label, full: r.all.join(' · ') })), next: (s.top || []).slice(0, 4) };
 }
-export function FeeLiveTab({ part }) {   // part: 'view' (her two charts) · 'scan' (her funnel) · both when unset
+export function FeeLiveTab({ part }) {
+  const { isAdmin } = useAdmin();   // 👀 a visitor watches her charts, never drives them   // part: 'view' (her two charts) · 'scan' (her funnel) · both when unset
   const [d, setD] = useState(null); const [ev, setEv] = useState([]); 
   const prof = useLeaderProfile();   // the shared 15s poll her hero reads: napping (out of lives / a tilt pause) is the same word everywhere
   useEffect(() => { let on = true; let t = null;
@@ -43,7 +45,7 @@ export function FeeLiveTab({ part }) {   // part: 'view' (her two charts) · 'sc
   const hunting = d.cat?.status === 'running' && !(prof?.discipline || {}).pause;
   const feed = callThread(ev, pos).slice(0, 3).reverse().map(m => `🐱 ${m.side}${m.coin && m.coin !== 'null' ? ` $${m.coin}` : ''}${m.why ? ` — ${String(m.why).slice(0, 64)}` : ''}`);
   return <section className="fcv" data-testid="fee-live">
-    {part === 'scan' ? null : <AgentLive testId="fee-live-minds" title={`FEECAT'S VIEW · ${hunting ? 'hunting' : 'napping'}${c?.open ? ` · holding $${c.symbol}` : ''}`} coins={coins} feed={feed} callouts={pair => [...talkPins(d.talk, pair)]} />}
+    {part === 'scan' ? null : <AgentLive locked={!isAdmin} testId="fee-live-minds" title={`FEECAT'S VIEW · ${hunting ? 'hunting' : 'napping'}${c?.open ? ` · holding $${c.symbol}` : ''}`} coins={coins} feed={feed} callouts={pair => [...talkPins(d.talk, pair)]} />}
     {part === 'view' ? null : <article className="fcv-card fcv-funnel"><h3>🔎 HER LAST SCAN<small>{d.scan?.at ? `${ago(d.scan.at)} ago` : 'no scan yet'}</small></h3>
       <p className="fcv-flow"><span><b key={f.read}>{f.read}</b><small>coins read</small></span><i>→</i><span className={f.passed ? 'is-good' : ''}><b key={f.passed}>{f.passed}</b><small>passed</small></span><i>→</i><span><b key={f.held}>{f.held}</b><small>holding</small></span></p>
       {f.reasons.length ? <ul className="fcv-bars">{f.reasons.map((r, i) => <li key={r.k} style={{ '--i': i }} data-tip={r.full}><span className="fcv-rc"><i aria-hidden="true">{r.icon}</i>{r.label}</span><i><u style={{ transform: `scaleX(${Math.max(0.05, r.w)})` }} /></i><b>{r.c}</b></li>)}</ul> : <p className="paper-muted">nothing stopped a coin this scan</p>}

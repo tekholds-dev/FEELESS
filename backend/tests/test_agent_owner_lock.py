@@ -110,14 +110,17 @@ def test_responses_carry_armor_and_owner_doors_are_rate_limited(monkeypatch):
     assert not fs.rate_ok(('ip', 'g'), now=101, store=box) and fs.rate_ok(('ip', 'g'), now=100 + fs.RATE_WIN + 1, store=box)
 
 
-def test_the_public_live_view_shows_hosts_and_step_kinds_never_the_page():
+def test_the_public_live_view_shows_hosts_and_a_screen_flag_never_steps_or_the_page():
+    """👀 owner 2026-10-31: visitors see live screens like Crawl — never a step list, the page, a link or what it typed."""
     fs = pytest.importorskip('feecat_service')
     w = {'task': {'status': 'working', 'text': 'my secret ask', 'windows': [{'i': 0, 'model': 'openai/gpt-x', 'status': 'working', 'url': 'https://mail.google.com/inbox/secret?u=me',
-         'shot': True, 'live': 'https://steel/x', 'pw': {'pw': 'hunter2'}, 'steps': [{'action': 'type', 'thought': 'typing the password', 'detail': 'hunter2'}]}]}}
+         'shot': True, 'live': 'https://steel/x', 'pw': {'pw': 'hunter2'}, 'steps': [{'action': 'type', 'thought': 'typing the password', 'detail': 'hunter2'}]},
+         {'i': 1, 'model': 'a/b', 'status': 'human', 'url': 'https://x.com/login', 'steps': []}]}}
     out = fs.public_live(w)
-    assert out == {'status': 'working', 'windows': [{'i': 0, 'model': 'gpt-x', 'status': 'working', 'host': 'mail.google.com', 'action': 'type', 'steps': 1, 'provider': None,
-                                                     'trail': [{'action': 'type', 'host': '', 'at': None}]}]}
-    assert fs.public_live(None) == {'status': 'idle', 'windows': []}
+    assert out == {'status': 'working', 'incognito': False, 'windows': [{'i': 0, 'model': 'gpt-x', 'status': 'working', 'host': 'mail.google.com', 'frozen': False, 'screen': True},
+                                                                         {'i': 1, 'model': 'b', 'status': 'human', 'host': 'x.com', 'frozen': True, 'screen': False}]}   # handed to its owner = frozen, no screen
+    assert fs.public_live(w, {'incognito': True})['windows'][0] == {'i': 0, 'model': 'gpt-x', 'status': 'working', 'host': '', 'frozen': False, 'screen': False}   # 🕶 nothing shown
+    assert fs.public_live(None) == {'status': 'idle', 'windows': [], 'incognito': False}
 
 
 def test_live_now_lists_working_agents_with_visitor_safe_windows(monkeypatch):
@@ -155,8 +158,20 @@ def test_a_visitor_sees_that_it_has_a_wallet_and_its_last_moves_never_what_it_re
     pub = fs.public_cat(cat)
     assert pub['hasWallet'] is True and 'AgEnTwa11et' not in str(pub) and 'nope' not in str(pub)   # S2: the address stays its owner's
     w = {'task': {'status': 'working', 'windows': [{'i': 0, 'model': 'm/a', 'status': 'working', 'url': 'https://x.com/home',
-          'steps': [{'action': 'search', 'detail': 'my secret query', 'at': 1}, {'action': 'open', 'detail': 'https://www.coindesk.com/policy?x=1', 'at': 2},
-                    {'action': 'type', 'detail': 'hunter2', 'at': 3}]}]}}
-    trail = fs.public_live(w)['windows'][0]['trail']
-    assert [t['action'] for t in trail] == ['type', 'open', 'search'] and trail[1]['host'] == 'www.coindesk.com'
-    assert 'secret query' not in str(trail) and 'hunter2' not in str(trail)
+          'steps': [{'action': 'search', 'detail': 'my secret query', 'at': 1}, {'action': 'type', 'detail': 'hunter2', 'at': 3}]}]}}
+    out = str(fs.public_live(w))
+    assert 'secret query' not in out and 'hunter2' not in out and 'trail' not in out and 'steps' not in out
+
+
+def test_a_visitor_screen_is_a_cached_jpeg_never_a_link_and_incognito_costs_5_once(monkeypatch):
+    """🖼 one real capture per window per 4 s for every viewer; 🕶 incognito hides it ($5 once from its model credit)."""
+    fs, store, c = _client(monkeypatch, {'g': _general('WALLET_ME')})
+    shots = []
+    class Pg:
+        live = True
+        async def shot(self): shots.append(1); return b'JPG'
+    monkeypatch.setitem(fs._WORK, 'g', {'pages': [Pg()], 'task': {'status': 'working', 'windows': [{'i': 0, 'status': 'working', 'url': 'https://x.com'}]}})
+    assert c.get('/api/cats/g/screen/0').content == b'JPG' and c.get('/api/cats/g/screen/0').content == b'JPG' and len(shots) == 1   # cached: 1 capture
+    assert c.get('/api/cats/g/screen/5').status_code == 404
+    store['cats']['g']['incognito'] = True
+    assert c.get('/api/cats/g/screen/0').status_code == 404 and c.get('/api/cats/g/live').json()['incognito'] is True

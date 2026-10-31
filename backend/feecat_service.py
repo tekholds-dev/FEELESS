@@ -88,7 +88,7 @@ def _load() -> dict:
 
 # 🔒 The engine loads every cat, works for minutes, then saves its whole copy: anything an owner did meanwhile was wiped (owner 2026-10-30: a new agent wallet vanished
 # seconds after it was made). What an owner's action sets is kept here and laid over every save, so an old copy can never lose a wallet, a funding or a limit.
-OWNER_KEYS = ('secrets', 'hive', 'agentWallet', 'agentFunded', 'creditPaid', 'recovery', 'recoverySet', 'recoveryConfirmedAt', 'limits', 'taskCap', 'ownerId', 'mode', 'realWallet', 'budgetSol', 'paperByOwner', 'files', 'ownerWallet', 'logins', 'cloudLink', 'vaultLog', 'earn', 'clarify', 'ownerStaff', 'pass', 'treasury', 'siteSessions')
+OWNER_KEYS = ('secrets', 'hive', 'incognito', 'incognitoPaid', 'agentWallet', 'agentFunded', 'creditPaid', 'recovery', 'recoverySet', 'recoveryConfirmedAt', 'limits', 'taskCap', 'ownerId', 'mode', 'realWallet', 'budgetSol', 'paperByOwner', 'files', 'ownerWallet', 'logins', 'cloudLink', 'vaultLog', 'earn', 'clarify', 'ownerStaff', 'pass', 'treasury', 'siteSessions')
 _KEPT: dict = {}
 
 
@@ -2617,6 +2617,17 @@ async def cat_work(cat_id: str, p: WorkPayload):
         except ValueError as exc:
             raise HTTPException(400, str(exc))
         _save(store)
+    if p.op == 'incognito':   # 🕶 hide its screens from visitors — $5 once per agent from its own model credit (staff free), then on / off any time
+        if p.on and not cat.get('incognitoPaid') and not (cat.get('ownerStaff') or await _session_staff(p.session or '')):
+            if float(b.get('credit') or 0) - _lc.CREDIT_RESERVE < INCOGNITO_USD:
+                raise HTTPException(402, f'Incognito is ${INCOGNITO_USD:g} once, from its model credit — add credit in its wallet panel first.')
+            b['credit'] = round(float(b.get('credit') or 0) - INCOGNITO_USD, 6)
+            cat['incognitoPaid'] = {'at': time.time(), 'usd': INCOGNITO_USD}
+        elif p.on and not cat.get('incognitoPaid'):
+            cat['incognitoPaid'] = {'at': time.time(), 'usd': 0.0, 'staff': True}
+        cat['incognito'] = bool(p.on)
+        keep_owned(cat); _save(store)
+        return {'incognito': cat['incognito'], 'paid': cat.get('incognitoPaid'), 'credit': b.get('credit')}
     if p.op == 'hive':   # 🐝 the Hive on / off and its pace (least usage: one coin every N minutes)
         cat['hive'] = {'on': bool(p.on), 'every': _hv.every_s(p.cap if p.cap is not None else (cat.get('hive') or {}).get('every', 300))}
         keep_owned(cat); _save(store)
@@ -2909,19 +2920,46 @@ async def cat_cloud_disconnect(cat_id: str, p: CloudPayload):
     return {'ok': True}
 
 
-def public_live(w):
-    """👀 What a VISITOR may see of an agent's windows right now (the crawl idea, our way): model, status, the site's HOST, the kind of step and
-    how many — never the page, the full URL, a screenshot, the owner's ask or what it typed. Pure."""
+INCOGNITO_USD = 5.0   # 🕶 owner 2026-10-31: an agent's screens hidden from visitors, $5 once per agent (from its model credit; staff free)
+SHOT_TTL_S = 4.0      # one real screenshot per window per 4 s, however many visitors watch
+_SHOTS: dict = {}
+
+
+def public_live(w, cat=None):
+    """👀 What a VISITOR may see of an agent's windows (owner 2026-10-31: "like Crawl, but no steps"): model, status, the site's host and whether a
+    live SCREEN is showing — never a step list, the full URL, the owner's ask or what it typed, never a link that can drive the browser.
+    A window handed to its owner (a sign-in / a check) is FROZEN for everyone else; an incognito agent shows no screens at all. Pure."""
     t = (w or {}).get('task') or {}
+    hide = bool((cat or {}).get('incognito'))
     out = []
     for x in t.get('windows') or []:
         host = str(x.get('url') or '').split('://')[-1].split('/')[0].split('?')[0][:60]
-        steps = x.get('steps') or []
-        out.append({'i': x.get('i'), 'model': str(x.get('model') or '').split('/')[-1][:40], 'status': x.get('status') or 'idle', 'host': host,
-                    'action': str((steps[-1] or {}).get('action') or '')[:20] if steps else '', 'steps': len(steps), 'provider': x.get('provider'),
-                    'trail': [{'action': str(st.get('action') or '')[:20], 'host': str(st.get('detail') or '').split('://')[-1].split('/')[0].split('?')[0][:40] if st.get('action') == 'open' else '',
-                               'at': st.get('at')} for st in steps[-5:]][::-1]})   # 👀 its last 5 moves: the kind + the site, never what it typed or read
-    return {'status': t.get('status') or 'idle', 'windows': out}
+        frozen = x.get('status') == 'human'
+        live_ = x.get('status') == 'working' and str(x.get('url') or '').startswith('http')
+        out.append({'i': x.get('i'), 'model': str(x.get('model') or '').split('/')[-1][:40], 'status': x.get('status') or 'idle', 'host': '' if hide else host,
+                    'frozen': frozen, 'screen': bool(live_ and not hide and not frozen)})
+    return {'status': t.get('status') or 'idle', 'windows': out, 'incognito': hide}
+
+
+@app.get('/api/cats/{cat_id}/screen/{i}')
+async def cat_screen(cat_id: str, i: int):
+    """🖼 A visitor's live screen: a real JPEG of the agent's window, at most one capture per window per 4 s (cached for every viewer) — never the live
+    link (a link could be turned back into control). Nothing while it is incognito, handed to its owner, or idle."""
+    cat = _load()['cats'].get(cat_id)
+    w = _WORK.get(cat_id) or {}
+    wins = (w.get('task') or {}).get('windows') or []
+    x = wins[i] if 0 <= i < len(wins) else None
+    if not cat or not x or cat.get('incognito') or x.get('status') != 'working':
+        raise HTTPException(404, 'No screen right now.')
+    key = (cat_id, i); now = time.time(); got = _SHOTS.get(key)
+    if not got or now - got[0] > SHOT_TTL_S:
+        pages = w.get('pages') or []
+        pg = pages[i] if i < len(pages) else None
+        jpg = await pg.shot() if pg and getattr(pg, 'live', False) else None
+        if not jpg:
+            raise HTTPException(404, 'No screen right now.')
+        got = _SHOTS[key] = (now, jpg)
+    return Response(content=got[1], media_type='image/jpeg', headers={'Cache-Control': 'no-store'})
 
 
 @app.get('/api/cats/{cat_id}/live')
@@ -2930,7 +2968,7 @@ async def cat_live(cat_id: str):
     if not cat:
         raise HTTPException(404, 'Agent not found.')
     cloud = (cat.get('brainsCfg') or {}).get('cloud') or []   # 🗄 what it stored last (already public on its card) → the visitor's drawer pops
-    return {**public_live(_WORK.get(cat_id)), 'stored': len(cloud), 'lastStored': (lambda c: {'text': str(c.get('text') or f"{c.get('word', '')} ${c.get('sym', '')}")[:140], 'at': c.get('at')} if c else None)(cloud[-1] if cloud else None),
+    return {**public_live(_WORK.get(cat_id), cat), 'stored': len(cloud), 'lastStored': (lambda c: {'text': str(c.get('text') or f"{c.get('word', '')} ${c.get('sym', '')}")[:140], 'at': c.get('at')} if c else None)(cloud[-1] if cloud else None),
             'level': cat.get('level'), 'wins': cat.get('wins'), 'losses': cat.get('losses'), 'pnlSol': cat.get('totalPnlSol')}
 
 

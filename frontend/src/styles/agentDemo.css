@@ -174,3 +174,6 @@ body.theme-day .agl-cloud small { color: #4a3a6a; } body.theme-day .agl-cloud b 
 @media (max-width: 1279px) { .agd-stage { grid-template-columns: minmax(0, 1fr); } .agd-stage > .agd-wins { grid-column: 1; } .agd-print { display: none; } }
 body.theme-day .agd-print { color: #5a4f78; } body.theme-day .agd-print li.is-now { color: #1c1230; }
 body.fx-lite .agd-print li { animation: none; } @media (prefers-reduced-motion: reduce) { .agd-print li { animation: none; } }
+
+/* 👀 a visitor watches an agent's charts — they are the agent's, never zoomed or panned by a viewer (owner 2026-10-31) */
+.agl.is-locked .agd-screen, .agl.is-locked .agd-win canvas { pointer-events: none; }

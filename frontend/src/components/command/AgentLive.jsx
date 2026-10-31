@@ -52,8 +52,8 @@ export function MindsRow({ minds = [], cloud }) {
   return <div className={`agl-minds${cloud ? ' has-cloud' : ''}`} data-testid="minds-row">{mind(0)}{cloud ? <HeadCloud items={cloud} /> : null}{mind(1)}</div>;
 }
 
-export function AgentLive({ title = 'LIVE', minds = [], coins = [], feed = [], callouts, testId = 'agent-live', cloud }) {
-  return <section className="agd agl is-trading" data-testid={testId}>
+export function AgentLive({ title = 'LIVE', minds = [], coins = [], feed = [], callouts, testId = 'agent-live', cloud, locked = false }) {   // locked: a visitor watches, never drives (no zoom / pan on its charts)
+  return <section className={`agd agl is-trading${locked ? ' is-locked' : ''}`} data-testid={testId}>
     <i className="agd-hex" aria-hidden="true" /><i className="agd-scan" aria-hidden="true" />
     <span className="agd-tag">◈ {title}</span>
     {minds.length ? <MindsRow minds={minds} cloud={cloud} /> : null}

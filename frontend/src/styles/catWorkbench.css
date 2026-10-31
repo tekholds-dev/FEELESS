@@ -19,11 +19,6 @@
 
 .cwb-view { position: relative; container-type: size; aspect-ratio: 4 / 3; background: radial-gradient(120% 90% at 50% 0%, rgba(156, 107, 255, .12), transparent 60%), #07040d; overflow: hidden; }
 .cwb-live, .cwb-shot { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; object-fit: cover; object-position: center top; background: #07040d; }   /* the page fills the whole window — HD, no white bands */
-.cwb-steps { list-style: none; margin: 0; padding: 48px 12px 10px; display: grid; align-content: start; gap: 5px; height: 100%; box-sizing: border-box; overflow-y: auto; scrollbar-width: thin; scrollbar-color: #b49cff transparent; }
-.cwb-steps li { display: grid; grid-template-columns: 54px minmax(0, 1fr); gap: 2px 8px; padding: 5px 8px; border-radius: 7px; background: #ffffff06; animation: cwbIn .25s ease-out both; animation-delay: calc(min(var(--i, 0), 8) * 40ms); }
-.cwb-steps b { font: 900 8.5px 'JetBrains Mono', monospace; letter-spacing: .08em; text-transform: uppercase; color: #5ff2c8; } .cwb-steps span { font: 600 10.5px var(--f-ui, sans-serif); color: #d8d0f5; overflow-wrap: anywhere; }
-.cwb-steps small { grid-column: 2; font: 600 9px 'JetBrains Mono', monospace; color: #8f86b0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.cwb-steps .cwb-idle { display: block; text-align: center; padding: 28px 8px; background: none; } .cwb-steps .cwb-idle span { color: #8f86b0; }
 
 /* ✋ docked under the page as a strip (owner 2026-10-31: "I can't click — the popup is in the way" of Cloudflare's box) */
 .cwb-human { position: absolute; left: 8px; right: 8px; bottom: 8px; z-index: 3; display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 4px 10px; padding: 8px 10px; border-radius: 12px; text-align: left;
@@ -71,10 +66,10 @@ body.theme-day .cwb-drop { background: #fff; color: #2a1650; border-color: #7c4d
 @keyframes cwbTap { 0% { opacity: .9; transform: scale(.3); } 100% { opacity: 0; transform: scale(1.4); } }
 body.fx-lite .cwb-cursor u { animation: none; } body.fx-lite .cwb-cursor { transition: none; }
 body.theme-day .cwb-off b { color: #5b2dbf; }
-body.fx-lite .cwb-win, body.fx-lite .cwb-steps li, body.fx-lite .cwb-human { animation: none; } body.fx-lite .cwb-meters s { transition: none; }
-@media (prefers-reduced-motion: reduce) { .cwb-win, .cwb-steps li, .cwb-human, .cwb-cursor u { animation: none; } .cwb-cursor { transition: none; } .cwb-meters s { transition: none; } }
+body.fx-lite .cwb-win, body.fx-lite .cwb-human { animation: none; } body.fx-lite .cwb-meters s { transition: none; }
+@media (prefers-reduced-motion: reduce) { .cwb-win, .cwb-human, .cwb-cursor u { animation: none; } .cwb-cursor { transition: none; } .cwb-meters s { transition: none; } }
 body.theme-day .cwb-win { background: #fbf9ff; border-color: rgba(106, 61, 240, .25); }
-body.theme-day .cwb-view { background: #f7f3ff; } body.theme-day .cwb-steps li { background: #fff; } body.theme-day .cwb-steps span, body.theme-day .cwb-answer { color: #2a1f45; }
+body.theme-day .cwb-view { background: #f7f3ff; } body.theme-day .cwb-answer { color: #2a1f45; }
 body.theme-day .cwb-head b, body.theme-day .cwb-meters b { color: #1c1230; } body.theme-day .cwb-meters > span { background: #fff; border-color: rgba(60, 40, 160, .12); }
  body.theme-day .cwb-human { background: #fffaf0; } body.theme-day .cwb-human small { color: #3a3058; }
 @media (max-width: 640px) { .cwb-ask { grid-template-columns: auto minmax(0, 1fr) auto; } .cwb-cap { grid-column: 1 / -1; justify-self: stretch; }
@@ -260,12 +255,10 @@ body.fx-lite .cwb-earn-list li, body.fx-lite .cwb-earn-sw.is-on i { animation: n
 .cwb-pubscreen { display: grid; place-content: center; justify-items: center; gap: 10px; text-align: center; padding: 24px; background: radial-gradient(90% 70% at 50% 30%, #b388ff1f, transparent 70%), #07040d; }
 .cwb-pub-host { font: 800 clamp(18px, 2.4vw, 30px) var(--f-mono); color: #fff; letter-spacing: .02em; text-shadow: 0 0 22px #b388ff66; animation: cwbIn .3s ease both; overflow-wrap: anywhere; }
 .agd-win.w1 .cwb-pub-host { text-shadow: 0 0 22px #ff5dbb66; }
-.cwb-pub-step { font: 700 12px var(--f-mono); color: #c9bce6; letter-spacing: .1em; } .cwb-pub-step b { color: #45e486; }
-.cwb-pub-bar { width: min(280px, 70%); height: 4px; border-radius: 4px; background: #ffffff14; overflow: hidden; } .cwb-pub-bar s { display: block; height: 100%; background: linear-gradient(90deg, #b388ff, #45e486); transform-origin: left; transition: transform .4s ease; }
 .cwb-pub-note { color: #8f83ad; font: 600 10.5px var(--f-ui); }
 .cwb-agreed { margin: 0; padding: 7px 12px; border-radius: 10px; border: 1px solid #ffffff12; background: #05030a; color: #d8ccf5; font: 600 12px var(--f-ui); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 body.theme-day .cwb-pubscreen { background: #f7f3ff; } body.theme-day .cwb-pub-host { color: #1c1230; } body.theme-day .cwb-agreed { background: #fff; color: #3a3058; }
-body.fx-lite .cwb-pub-host { animation: none; } @media (prefers-reduced-motion: reduce) { .cwb-pub-host { animation: none; } .cwb-pub-bar s { transition: none; } }
+body.fx-lite .cwb-pub-host { animation: none; } @media (prefers-reduced-motion: reduce) { .cwb-pub-host { animation: none; } }
 /* 🎫 the Agent Pass drawer: a ticket-gold header, its fee / cost / royalty as three cells, one mint button */
 .cwb-pass { display: grid; gap: 8px; padding: 12px; border-radius: 14px; border: 1px dashed #f5c54266; background: linear-gradient(160deg, #1a1405, #07040d); }
 .cwb-pass.is-minted { border-style: solid; border-color: #f5c542aa; box-shadow: 0 0 22px -8px #f5c542; }
@@ -331,14 +324,6 @@ body.fx-lite .cwb-signed li { animation: none; } @media (prefers-reduced-motion:
 body.theme-day .cwb-signed { background: #f2fff7; border-color: #0a6b3c33; } body.theme-day .cwb-signed li b { color: #0a3a20; } body.theme-day .cwb-signed > small, body.theme-day .cwb-signed li small { color: #2f5a42; }
 
 /* 👀 under each visitor window: its live activity — the kind of move + the site, newest first (owner 2026-10-31) */
-.cwb-trail { list-style: none; margin: 0; padding: 6px 8px 8px; display: grid; gap: 3px; border-top: 1px solid #ffffff10; }
-.cwb-trail li { display: grid; grid-template-columns: 62px minmax(0, 1fr) auto; gap: 8px; align-items: baseline; padding: 3px 6px; border-radius: 6px; background: #ffffff05; animation: cwbIn .25s ease both; animation-delay: calc(var(--i, 0) * 50ms); }
-.cwb-trail b { color: #45e486; font: 800 9.5px var(--f-mono); letter-spacing: .08em; } .cwb-trail span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #e8defc; font: 600 11px var(--f-mono); }
-.cwb-trail small { color: #8f83ad; font: 600 9.5px var(--f-mono); }
-.cwb-trail .cwb-trail-h { display: block; padding: 0 2px; background: none; color: #c9a8ff; font: 800 9px var(--f-mono); letter-spacing: .14em; animation: none; }
-.cwb-trail .cwb-trail-none { display: block; color: #8f83ad; font: 600 10.5px var(--f-ui); }
-body.fx-lite .cwb-trail li { animation: none; } @media (prefers-reduced-motion: reduce) { .cwb-trail li { animation: none; } }
-body.theme-day .cwb-trail li { background: #6a3df00a; } body.theme-day .cwb-trail span { color: #2a1650; }
 
 /* 🔒 an agent window is the models' alone (owner 2026-10-31): view-only until it asks a person (sign-in / bot check) — then `is-hand` lets you click */
 .cwb-live:not(.is-hand) { pointer-events: none; }
@@ -438,6 +423,7 @@ body.theme-day .cwb-talk .ck-say { background: #fff; border-color: #7c4dff33; }
 .cwb-status { display: inline-flex; align-items: center; gap: 6px; padding: 3px 9px; border-radius: 99px; background: #ffffff0a; color: #a99fc8; font: 700 10px var(--f-mono); letter-spacing: .08em; text-transform: uppercase; }
 .cwb-status i { width: 7px; height: 7px; border-radius: 50%; background: #7d7398; } .cwb-status.is-live { color: #9ff5c3; background: #15d16a1a; } .cwb-status.is-live i { background: #45e486; animation: cwbBeat 1.4s ease-in-out infinite; }
 .cwb-flip-btn { display: inline-flex; align-items: center; gap: 6px; min-height: 32px; padding: 0 10px; border-radius: 10px; border: 1px solid #b388ff44; background: #b388ff14; color: #e6dbff; font: 700 11.5px var(--f-ui); cursor: pointer; transition: background .15s, border-color .15s, transform .12s; }
+.cwb-incog.is-on { background: #f5c54222; border-color: #f5c54288; color: #ffe7a3; }
 .cwb-flip-btn svg { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 1.6; } .cwb-flip-btn b { font-size: 10px; color: #c9a8ff; }
 .cwb-flip-btn:hover { background: #b388ff2a; border-color: #b388ff99; } .cwb-flip-btn:active { transform: scale(.95); } .cwb-flip-btn:focus-visible { outline: 2px solid #b388ff; outline-offset: 2px; }
 .cwb-earlier { display: grid; justify-items: center; } .cwb-earlier button { min-height: 28px; padding: 0 12px; border: 1px solid #ffffff14; border-radius: 99px; background: #ffffff08; color: #a99fc8; font: 600 11px var(--f-ui); cursor: pointer; }

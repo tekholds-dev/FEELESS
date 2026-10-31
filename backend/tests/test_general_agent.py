@@ -615,7 +615,7 @@ def test_a_window_handed_to_you_is_let_go_then_taken_back(tmp_path, monkeypatch)
     seen = []
     class Live(Page):
         live = True
-        def __init__(self, connect): pass
+        def __init__(self, connect, cookies=None): pass
         async def start(self): seen.append('start'); return self
         async def release(self): seen.append('release')
         async def goto(self, u):
