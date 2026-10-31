@@ -102,10 +102,13 @@ body.theme-day .kd.is-glass :is(.kd-hero, .kd-tile, .kd-card, .ck-vitals, .ck-ch
 .ck-handle { position: absolute; left: 50%; bottom: 4px; width: 26px; height: 3px; margin-left: -13px; border-radius: 3px; background: #ffffff33; box-shadow: 0 1px 0 #000; }
 .ck-log .ck-folders button.is-on .ck-handle { background: var(--kd-acc, #b388ff); }
 .ck-cabinet .ck-rows { max-height: 330px; }
+/* 🗄 a real drawer: the open one slides out of the cabinet with a shadow under its lip, then settles (ckPull) */
+.ck-cabinet .ck-pull { position: relative; transform-origin: left center; animation: ckPull .34s cubic-bezier(.2, .9, .25, 1.15) both; box-shadow: inset 0 1px 0 #ffffff14, 0 14px 26px -16px #000; border-radius: 12px; }
+@keyframes ckPull { 0% { opacity: 0; transform: translateX(-26px) scaleX(.94); } 70% { opacity: 1; transform: translateX(3px) scaleX(1.005); } 100% { transform: none; } }
 body.theme-day .ck-log .ck-folders { background: #f3eefc; } body.theme-day .ck-log .ck-folders button { background: #fff; color: #2a1650; }
 body.theme-day .ck-log .ck-folders button.is-on { background: #efe6ff; color: #2a1650; }
-body.fx-lite .ck-log .ck-folders button { animation: none; }
-@media (prefers-reduced-motion: reduce) { .ck-log .ck-folders button { animation: none !important; transition: none !important; } }
+body.fx-lite .ck-log .ck-folders button, body.fx-lite .ck-cabinet .ck-pull { animation: none; }
+@media (prefers-reduced-motion: reduce) { .ck-cabinet .ck-pull { animation: none; } .ck-log .ck-folders button { animation: none !important; transition: none !important; } }
 @media (max-width: 640px) { .ck-cabinet { grid-template-columns: 1fr; } .ck-log .ck-folders { flex-direction: row; overflow-x: auto; } .ck-log .ck-folders button { width: auto; flex: none; }
   .ck-log .ck-folders button.is-on { transform: translateY(-3px); } .ck-log .ck-folders button:hover:not(:disabled) { transform: translateY(-2px); } }
 /* 🙈 hide a log drawer (✕ on hover / focus) · the unhide pill shows while any is hidden · ×N on a folded repeat */

@@ -216,3 +216,22 @@ def test_an_agent_wallet_owned_by_staff_pays_no_fee_but_a_users_agent_still_does
     assert asyncio.run(rs.effective_fee('AGENT1', sol, 'MINTX', amount=1))['bps'] == 0
     assert asyncio.run(rs.effective_fee('AGENT2', sol, 'MINTX', amount=1))['bps'] > 0      # a user's agent pays like its owner would
     assert asyncio.run(rs.effective_fee('AGENT3', sol, 'MINTX', amount=1))['bps'] > 0      # a retired agent is no longer exempt
+
+
+def test_a_traders_browser_reads_coins_and_narrative_only_never_types_or_leaves_the_research_list():
+    from cat_policy import research_ok
+    assert research_ok('https://x.com/search?q=btc') and research_ok('https://www.coindesk.com/policy') and research_ok('https://dexscreener.com/solana')
+    assert not research_ok('https://mail.proton.me') and not research_ok('https://evil.example') and not research_ok('http://localhost:5001')
+    assert research_ok('https://x.com/login', login=True) and not research_ok('https://coindesk.com/login', login=True)   # its only sign-in is the user's own X
+    ask = scripted({'m/a': [{'fast': '', 'a': 'BTC narrative', 'b': ''},
+                            {'thought': 'sign up', 'action': 'new_login', 'url': 'https://mail.proton.me'},
+                            {'thought': 'off list', 'action': 'open', 'url': 'https://evil.example'},
+                            {'thought': 'type', 'action': 'type', 'label': 'q', 'value': 'x'},
+                            {'thought': 'policy news', 'action': 'open', 'url': 'https://www.coindesk.com/policy'},
+                            {'thought': 'done', 'action': 'answer', 'say': 'policy tailwind'}, {'merged': 1}]})
+    pa = Page()
+    t = ca.new_task('t9', 'what moves BTC today', ['m/a'], 1.0); t.update(research=True, tools={'browse': True, 'forms': True})
+    asyncio.run(ca.run(t, ask, [pa], None))
+    assert pa.done == [('goto', 'https://www.coindesk.com/policy')]   # the sign-up, the off-list site and the typing never reached the page
+    acts = [s['action'] for s in t['windows'][0]['steps']]
+    assert acts[:3] == ['refused', 'blocked', 'refused'] and 'new_login' not in acts and t['windows'][0]['answer'] == 'policy tailwind'

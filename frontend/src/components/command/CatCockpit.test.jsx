@@ -57,6 +57,20 @@ test('👀 a visitor sees the agent — never its controls', async () => {
   expect(el.textContent).toContain('VIEWING'); expect(el.querySelector('[data-testid="cwb-public"]')).not.toBeNull(); expect(el.textContent).toContain('SOL holds 150');
 });
 
+test('🗄 a visitor watches it file things: the drawer pops for a NEW stored item (not the one already there), then shuts; rails show both minds', async () => {
+  jest.useFakeTimers();
+  const { StoredPop, MindRail } = require('./CatWorkbench');
+  const el = document.createElement('div'); const root = createRoot(el);
+  await act(async () => { root.render(<StoredPop item={{ text: 'old note', at: 1 }} />); });
+  expect(el.querySelector('[data-testid="cwb-stored"]')).toBeNull();
+  await act(async () => { root.render(<StoredPop item={{ text: 'SOL holds 150', at: 2 }} />); });
+  expect(el.querySelector('[data-testid="cwb-stored"]').textContent).toContain('SOL holds 150');
+  await act(async () => { jest.advanceTimersByTime(3700); });
+  expect(el.querySelector('[data-testid="cwb-stored"]')).toBeNull(); act(() => root.unmount()); jest.useRealTimers();
+  const r = await mount(<MindRail side="right" w={{ i: 1, model: 'haiku', status: 'working', host: 'x.com', action: 'read', steps: 6 }} d={{ wins: 2, losses: 1, pnlSol: 0.5 }} />);
+  expect(r.textContent).toContain('MIND B'); expect(r.textContent).toContain('2 / 1'); expect(r.textContent).toContain('+0.500 SOL'); expect(r.querySelector('.cwb-rail.is-go')).not.toBeNull();
+});
+
 test('🏆 the board ranks by the chosen view and the activity card knows its coin + light', () => {
   const { metric, metricWord, eventCard } = require('./AgentBoards');
   const r = { realizedPnlSol: -0.02, volumeSol: 3, winRate: 55 };

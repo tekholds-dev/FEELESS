@@ -58,21 +58,20 @@ export function AgentLeaderboard({ api, onOpen }) {
   const [view, setView] = useState('pnl'); const [rows, setRows] = useState(null); const [err, setErr] = useState('');
   const load = useCallback(() => api(`/api/cats/leaderboard?view=${view}`).then(d => { setRows(d.rows || []); setErr(''); }).catch(e => setErr(e.message)), [api, view]);
   useEvery(load, 10000, [load]);
-  const top = (rows || []).slice(0, 3); const rest = (rows || []).slice(3);
   return <section className="agb" data-testid="agent-board">
     <LiveNow api={api} onOpen={onOpen} />
     <header className="agb-head"><span><b>🏆 AGENT LEADERBOARD</b><small>every agent on FEELESS · live · tap one to see its desk</small></span>
       <nav className="m-seg" role="tablist" aria-label="Rank by">{VIEWS.map(([k, l]) => <button key={k} type="button" role="tab" aria-selected={view === k} className={view === k ? 'is-on' : ''} onClick={() => setView(k)} data-testid={`agb-view-${k}`}>{l}</button>)}</nav></header>
     {err ? <p className="agb-err">{err}</p> : null}
     {!rows ? <p className="agb-wait">reading the board…</p> : !rows.length ? <p className="agb-wait">No agents yet — the first one tops the board.</p> : <>
-      <div className="agb-podium">{[1, 0, 2].map(i => top[i] ? <button key={top[i].id} type="button" className={`agb-pod p${i + 1}`} style={{ '--c': top[i].skin?.acc || '#b388ff', '--i': i }} onClick={() => onOpen?.(top[i])} data-testid={`agb-pod-${i + 1}`}>
-        <em>#{i + 1}</em><Snap r={top[i]} size={i ? 40 : 52} tall /><b>{top[i].name}</b><small>{KIND[top[i].kind] || KIND.rules}{top[i].isLeader ? ' · THE LEADER' : ''}</small>
-        <strong className={view !== 'win_rate' && metric(top[i], view) < 0 ? 'is-dn' : 'is-up'}>{metricWord(top[i], view)}</strong>
-        <span className={`agb-live${top[i].status === 'running' ? ' is-on' : ''}`}>{top[i].status === 'running' ? '● LIVE' : '◌ resting'}</span></button> : <span key={i} className={`agb-pod p${i + 1} is-empty`} />)}</div>
-      {rest.length ? <ol className="agb-rows">{rest.map((r, k) => { const v = metric(r, view);
-        return <li key={r.id} style={{ '--i': Math.min(k, 12), '--c': r.skin?.acc || '#b388ff' }}><button type="button" onClick={() => onOpen?.(r)} data-testid={`agb-row-${r.id}`}>
-          <em>{String(k + 4).padStart(2, '0')}</em><Snap r={r} size={22} /><span className="agb-name"><b>{r.name}</b><small>{KIND[r.kind] || KIND.rules} · LVL {r.level} · {r.trades ?? 0} trades{r.brains?.length ? ` · ${r.brains.join(' + ')}` : ''}</small></span>
-          <strong className={view !== 'win_rate' && v < 0 ? 'is-dn' : 'is-up'}>{metricWord(r, view)}</strong><span className={`agb-dot${r.status === 'running' ? ' is-on' : ''}`} aria-label={r.status === 'running' ? 'live' : 'resting'} /></button></li>; })}</ol> : null}</>}
+      <div className="agb-wins agb-ranks">{rows.map((r, k) => { const v = metric(r, view); const on = r.status === 'running';
+        return <article key={r.id} className={`agb-win is-${view !== 'win_rate' && v < 0 ? 'stop' : on ? 'go' : 'idle'}${k < 3 ? ` is-top t${k + 1}` : ''}`} style={{ '--i': Math.min(k, 12), '--c': r.skin?.acc || '#b388ff' }} data-testid={k < 3 ? `agb-pod-${k + 1}` : 'agb-rank'}>
+          <button type="button" className="agb-win-open" onClick={() => onOpen?.(r)} aria-label={`Open ${r.name}`} data-testid={`agb-row-${r.id}`} />
+          <span className="agb-win-bar"><i /><i /><i /><em className="agb-rank">#{k + 1}</em><b>{r.name}</b><small>{on ? '● LIVE' : '◌ resting'}</small></span>
+          <Snap r={r} size={k < 3 ? 34 : 26} tall={k < 3} />
+          <span className="agb-mc"><em>{KIND[r.kind] || KIND.rules}{r.isLeader ? ' · LEADER' : ''}</em><em>LVL</em><b>{r.level ?? 1}</b><em>TRADES</em><b>{r.trades ?? 0}</b></span>
+          <footer><strong className={view !== 'win_rate' && v < 0 ? 'is-dn' : 'is-up'}>{metricWord(r, view)}</strong><span className="agb-who"><small>{r.brains?.length ? r.brains.join(' + ') : '@' + (r.handle || 'agent')}</small></span></footer>
+        </article>; })}</div></>}
     <small className="agb-note">Results are each agent's recorded trades on FEELESS — fees kept apart, never a promise.</small>
   </section>;
 }

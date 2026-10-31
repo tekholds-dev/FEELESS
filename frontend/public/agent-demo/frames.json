@@ -156,80 +156,132 @@
  "t": [
   {
    "src": "/agent-demo/t1.jpg",
-   "url": "coinmarketcap.com/currencies/bonk1/",
-   "caption": "reads $BONK",
+   "url": "http://localhost:51367/dev/perps",
+   "caption": "opens BTC on the FEELESS chart",
    "cursor": [
-    62,
-    42
+    77.2,
+    6.8
    ]
   },
   {
    "src": "/agent-demo/t2.jpg",
-   "url": "coinmarketcap.com/currencies/bonk1/",
-   "caption": "buyers vs sellers",
+   "url": "http://localhost:51367/dev/perps",
+   "caption": "1H \u00b7 the trend BTC is in",
    "cursor": [
-    58,
-    46
+    69.2,
+    33.1
    ]
   },
   {
    "src": "/agent-demo/t3.jpg",
-   "url": "coinmarketcap.com/currencies/bonk1/",
-   "caption": "its floor held",
+   "url": "http://localhost:51367/dev/perps",
+   "caption": "RSI \u00b7 is BTC stretched?",
    "cursor": [
-    54,
-    50
+    55.7,
+    33.1
    ]
   },
   {
    "src": "/agent-demo/t4.jpg",
-   "url": "coinmarketcap.com/currencies/bonk1/",
-   "caption": "the next candle",
+   "url": "http://localhost:51367/dev/perps",
+   "caption": "15M vs VWAP \u00b7 the entry zone",
+   "cursor": [
+    48.1,
+    33.1
+   ]
+  },
+  {
+   "src": "/agent-demo/t5.jpg",
+   "url": "http://localhost:51367/dev/perps",
+   "caption": "takes B's read: policy tailwind",
    "cursor": [
     50,
-    54
-   ]
-  }
- ],
- "tSym": "BONK",
- "u": [
-  {
-   "src": "/agent-demo/u1.jpg",
-   "url": "coinmarketcap.com/currencies/dogwifhat/",
-   "caption": "reads $WIF",
-   "cursor": [
-    62,
-    42
-   ]
-  },
-  {
-   "src": "/agent-demo/u2.jpg",
-   "url": "coinmarketcap.com/currencies/dogwifhat/",
-   "caption": "buyers vs sellers",
-   "cursor": [
-    58,
-    46
-   ]
-  },
-  {
-   "src": "/agent-demo/u3.jpg",
-   "url": "coinmarketcap.com/currencies/dogwifhat/",
-   "caption": "its floor held",
-   "cursor": [
-    54,
     50
    ]
   },
   {
-   "src": "/agent-demo/u4.jpg",
-   "url": "coinmarketcap.com/currencies/dogwifhat/",
-   "caption": "the next candle",
+   "src": "/agent-demo/t6.jpg",
+   "url": "http://localhost:51367/dev/perps",
+   "caption": "FEELESS perps \u00b7 BTC long",
    "cursor": [
-    50,
-    54
+    79.1,
+    34.6
+   ]
+  },
+  {
+   "src": "/agent-demo/t7.jpg",
+   "url": "http://localhost:51367/dev/perps",
+   "caption": "10\u00d7 \u00b7 $25 inside your caps",
+   "cursor": [
+    80.6,
+    68.3
+   ]
+  },
+  {
+   "src": "/agent-demo/t8.jpg",
+   "url": "http://localhost:51367/dev/perps",
+   "caption": "TP +5% \u00b7 SL \u22122% \u00b7 ready for you",
+   "cursor": [
+    89.6,
+    93.8
    ]
   }
  ],
- "uSym": "WIF",
- "chartCredit": "Recorded live \u00b7 CoinMarketCap \u00b7 real Solana coins"
+ "u": [
+  {
+   "src": "/agent-demo/u1.jpg",
+   "url": "www.coindesk.com/policy",
+   "caption": "BTC policy \u00b7 Washington + the SEC",
+   "cursor": [
+    40,
+    38
+   ]
+  },
+  {
+   "src": "/agent-demo/u2.jpg",
+   "url": "www.coindesk.com/policy",
+   "caption": "reads past the headline",
+   "cursor": [
+    55,
+    55
+   ]
+  },
+  {
+   "src": "/agent-demo/u3.jpg",
+   "url": "decrypt.co/news",
+   "caption": "the BTC narrative today",
+   "cursor": [
+    50,
+    46
+   ]
+  },
+  {
+   "src": "/agent-demo/u4.jpg",
+   "url": "decrypt.co/news",
+   "caption": "reads past the headline",
+   "cursor": [
+    55,
+    55
+   ]
+  },
+  {
+   "src": "/agent-demo/u5.jpg",
+   "url": "www.coindesk.com/markets",
+   "caption": "ETF flows + the Fed \u00b7 what moves BTC",
+   "cursor": [
+    60,
+    54
+   ]
+  },
+  {
+   "src": "/agent-demo/u6.jpg",
+   "url": "www.coindesk.com/markets",
+   "caption": "hands A the read: policy + flows",
+   "cursor": [
+    55,
+    55
+   ]
+  }
+ ],
+ "chartCredit": "Recorded live \u00b7 FEELESS chart + perps \u00b7 the BTC narrative"
 }

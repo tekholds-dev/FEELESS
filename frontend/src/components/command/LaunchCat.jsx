@@ -81,8 +81,8 @@ export const API_PROVIDERS = [['openrouter', 'OpenRouter', 'its models run on YO
   ['birdeye', 'Birdeye', 'holder + price reads for its scans', false, 'api key'], ['helius', 'Helius', 'its own Solana RPC — faster wallet + tape reads', false, 'api key'],
   ['x', 'X (Twitter)', "a bearer token — reads the coin's X chatter", false, 'bearer token'], ['telegram', 'Telegram channel', 'a public @channel it reads for calls', false, '@channel'],
   ['webhook', 'Signal webhook', 'your own signal URL (https) it reads before a buy', false, 'https://…']];
-export function ApiDrawer({ rows, draft, onDraft, onSave, onDrop, busy }) {
-  const [open, setOpen] = useState(!!draft);
+export function ApiDrawer({ rows, draft, onDraft, onSave, onDrop, busy, start }) {
+  const [open, setOpen] = useState(start ?? !!draft);
   const saved = API_PROVIDERS.filter(([k]) => (rows || []).some(r => r.provider === k && r.saved)).length + Object.values(draft || {}).filter(Boolean).length;
   return <details className="akd" open={open} onToggle={e => setOpen(e.currentTarget.open)} data-testid="api-drawer">
     <summary data-tip="Add your own API keys for this cat's tools — sealed on the server, never shown again (last 4 only)"><i aria-hidden="true">🔐</i><b>API DRAWER</b>
@@ -106,6 +106,8 @@ export function VenuePick({ value, onChange }) {
 }
 const PAGE = 60;
 const CHIP = { degen: 'lct-c-degen', trading: 'lct-c-trading', thinking: 'lct-c-thinking', reasoning: 'lct-c-reasoning', meta: 'lct-c-meta', free: 'lct-c-free', agent: 'lct-c-agent', content: 'lct-c-content', code: 'lct-c-code' };
+// ⛽ how much each way burns (planOf: discuss + together = 2 calls a decision, the rest 1)
+const USE = { turns: ['is-lo', 'LOW USE · 1 call a decision'], battle: ['is-lo', 'LOW USE · 1 call each, its own trades'], discuss: ['is-hi', 'HIGH USE · 2 calls a decision'], together: ['is-hi', 'HIGH USE · 2 calls a decision'] };
 const DUO = { turns: 'is-turns', discuss: 'is-discuss', together: 'is-together', battle: 'is-battle' };
 const WORD = { BUY: 'w-buy', SKIP: 'w-skip', HOLD: 'w-hold', SELL: 'w-sell', TRIM: 'w-trim', RULES: 'w-rules' };
 export const fmtUsd = v => v == null ? '—' : v === 0 ? 'free' : v < 0.001 ? `$${v.toFixed(6)}` : v < 1 ? `$${v.toFixed(4)}` : `$${v.toFixed(2)}`;
@@ -115,6 +117,10 @@ export const shortName = m => String(m?.name || m?.id || '').replace(/^[^:]+:\s*
 // 💵 what a real move takes, said truthfully: its own wallet (approve = one tap, auto = nothing) or, linked to yours, your wallet signs
 export const signWord = cat => (cat?.agentWallet ? (cat.agentWallet.mode === 'auto' ? 'its own wallet sends it — no signing' : 'you OK it with one tap — its own wallet sends it') : 'a proposal your wallet signs');
 const fmtCtx = n => n >= 1e6 ? `${(n / 1e6).toFixed(1)}M` : n >= 1e3 ? `${Math.round(n / 1e3)}K` : String(n || '—');
+// 🗓 how long ago a model came out (owner 2026-10-31): 2d · 3w · 6mo · 1y
+export const ageOf = sec => { const d = (Date.now() / 1000 - Number(sec || 0)) / 86400; if (!sec || sec < 1.5e9 || d < 0) return ''; return d < 14 ? `${Math.max(1, Math.round(d))}d` : d < 60 ? `${Math.round(d / 7)}w` : d < 365 ? `${Math.round(d / 30)}mo` : `${(d / 365).toFixed(d < 730 ? 1 : 0)}y`; };
+// 💵 one mind's true cost (mirrors launch_cat: a step = 3,200 in + 260 out; a general task = 9 steps per window; a trade = 1 decision + 3 live checks)
+export const costOf = (m, gen) => { const step = gen ? (m.perTask || 0) / 18 : (m.perDecision || 0); return { step, task: gen ? step * 9 : step * 4 }; };
 
 // 🧭 a GENERAL agent's job → the models best at it (owner 2026-10-30: "a dropdown in the model picker for the type of task"): its category, what the
 // model must support (tools to drive a browser, vision to read a chart / page image), and how to rank them
@@ -146,12 +152,25 @@ function ModelTile({ m, on, onPick, i, kind }) {
   const gen = kind === 'general'; const desc = m.why ? `${m.why}${m.desc ? ` — ${m.desc}` : ''}` : m.desc;
   return <div className={`lct-tile${on ? ' is-on' : ''}${m.tag ? ' is-rec' : ''}`} style={{ '--i': Math.min(i, 20) }}>
     <button type="button" className="lct-tile-pick" onClick={() => onPick(m)} data-testid={`lct-m-${m.id}`} aria-pressed={on} data-tip={on ? 'Picked — tap to drop it' : `Pick ${shortName(m)} as a ${gen ? 'mind' : 'brain'}`}>
-      <span className="lct-tile-top"><i className="lct-mono" aria-hidden="true">{mono(m)}</i>{m.tag ? <b className="lct-tag">⭐ {m.tag}</b> : <small>{m.provider}</small>}{m.intel != null ? <em title="intelligence index">♟ {m.intel}</em> : null}</span>
+      <span className="lct-tile-top"><i className="lct-mono" aria-hidden="true">{mono(m)}</i>{m.tag ? <b className="lct-tag">⭐ {m.tag}</b> : <small>{m.provider}</small>}{m.intel != null ? <em title="intelligence index">♟ {m.intel}</em> : null}{ageOf(m.created) ? <em className="lct-age" data-tip="How long ago this model came out">{ageOf(m.created)}</em> : null}</span>
       <strong>{shortName(m)}</strong>
       <span className="lct-tile-nums"><span><small>IN · 1M</small>{fmtM(m.inUsd)}</span><span><small>OUT · 1M</small>{fmtM(m.outUsd)}</span>
         <span className="is-hot"><small>{gen ? 'TASK EST.' : 'A DECISION'}</small>{fmtUsd(gen ? m.perTask : m.perDecision)}</span><span><small>MEMORY</small>{fmtCtx(m.ctx)}</span></span>
       <span className="lct-chips">{[m.tools && 'tools', m.vision && 'vision', m.cats.includes('code') && 'code', m.reasoning && 'reasoning'].filter(Boolean).map(c => <i key={c}>{c}</i>)}{m.cats.slice(0, 4).map(c => <i key={c} className={CHIP[c]}>{c}</i>)}</span></button>
     {desc ? <details className="lct-desc"><summary data-tip="What this model is and what it is good at">ABOUT</summary><p>{desc}</p></details> : null}
+  </div>;
+}
+
+// 🫧 STEP 1's two minds (owner 2026-10-31): a glass bubble each — A left, B right — with its true $: in / out per 1M, a step, a task
+function MindGlass({ m, k, gen, onPick }) {
+  const c = m ? costOf(m, gen) : null;
+  return <div className={`lct-glass g${k}${m ? ' is-on' : ''}`} data-testid={`lct-slot-${k}`}>
+    <Bubble m={m} i={k} kind={gen ? 'general' : 'trading'} size={64} live={!!m} />
+    <span className="lct-glass-h"><b>{gen ? 'MIND' : 'BRAIN'} {'AB'[k]}</b>{m ? <strong title={shortName(m)}>{shortName(m)}</strong> : <small>{k ? 'optional · a 2nd model' : 'pick one below'}</small>}
+      {m && ageOf(m.created) ? <em className="lct-age">{ageOf(m.created)} old</em> : null}</span>
+    {m ? <dl className="lct-glass-n"><div><dt>IN · 1M</dt><dd className="m-num">{fmtM(m.inUsd)}</dd></div><div><dt>OUT · 1M</dt><dd className="m-num">{fmtM(m.outUsd)}</dd></div>
+      <div><dt>{gen ? 'A STEP' : 'A DECISION'}</dt><dd className="m-num">{fmtUsd(c.step)}</dd></div><div className="is-hot"><dt>{gen ? 'ITS TASK' : 'A TRADE'}</dt><dd className="m-num">{fmtUsd(c.task)}</dd></div></dl> : null}
+    {m ? <button type="button" className="lct-glass-x" onClick={() => onPick(m)} aria-label={`Drop ${shortName(m)}`} data-tip="Drop this model">✕</button> : null}
   </div>;
 }
 
@@ -280,21 +299,23 @@ export function LaunchCat({ api, ownerId, onCreated, onCancel, Fields, Preview, 
     <nav className="lct-steps" style={{ '--p': step / (steps.length - 1) }}><i className="lct-prog" aria-hidden="true"><u /></i>{steps.map((s, i) => <button key={s} type="button" className={`${i === step ? 'is-on' : ''}${i < step ? ' is-done' : ''}`} onClick={() => i <= step || ready.slice(0, i).every(Boolean) ? setStep(i) : null} data-testid={`lct-step-${i}`}><b>{i + 1}</b>{s}</button>)}</nav>
     {err ? <p className="lct-err" role="alert">⚠ {err}</p> : null}
     {step === 0 ? <div className="lct-pane">
-      <div className="lct-slots" data-testid="lct-slots">{[0, 1].map(k => picked[k] ? <ModelTile key={picked[k].id} m={picked[k]} i={k} kind={kind} on onPick={pick} />
-        : <div key={k} className="lct-slot" data-testid={`lct-slot-${k}`}><b>{gen ? 'MIND' : 'BRAIN'} {'AB'[k]}</b><small>{k ? 'optional · a second model to work with it' : 'pick a model from the list below'}</small></div>)}
-        <button type="button" className="m-btn m-go lct-next-top" disabled={!ready[0]} onClick={() => setStep(1)} data-testid="lct-next-top" data-tip="Next: how its models work together">Next ›</button></div>
+      <div className="lct-slots" data-testid="lct-slots"><MindGlass m={picked[0]} k={0} gen={gen} onPick={pick} />
+        <div className="lct-total" data-tip={gen ? 'Both minds, one full task (plan → both windows → merge), worst case' : 'Both brains on one trade, worst case'}><small>FULL {gen ? 'TASK' : 'TRADE'}</small>
+          <b className="m-num" data-testid="lct-total">{picked.length ? fmtUsd(picked.slice(0, 2).reduce((t, m) => t + costOf(m, gen).task, 0)) : '—'}</b>
+          <button type="button" className="m-btn m-go lct-next-top" disabled={!ready[0]} onClick={() => setStep(1)} data-testid="lct-next-top" data-tip="Next: how its models work together">Next ›</button></div>
+        <MindGlass m={picked[1]} k={1} gen={gen} onPick={pick} /></div>
       <ModelBrowser d={d} kind={kind} picked={picked} onPick={pick} />
     </div> : null}
     {step === 0 && picked.some(m => m.efforts?.length) ? <div className="lct-bar">{picked.filter(m => m.efforts?.length).map(m => <label key={m.id}>{shortName(m)} · effort<select className="m-input" aria-label={`${shortName(m)} effort`} value={efforts[m.id] || ''} onChange={e => setEfforts(v => ({ ...v, [m.id]: e.target.value }))}><option value="">Provider default</option>{m.efforts.map(e => <option key={e}>{e}</option>)}</select><small>Output incl. reasoning: {fmtM(m.outUsd)} / 1M tokens. Actual cost depends on tokens used.</small></label>)}</div> : null}
     {step === 1 ? <div className="lct-pane lct-mode"><Duo mode={mode} picked={picked} kind={kind} /><AgentDemo kind={kind} models={picked} mode={gen ? workMode : mode} />
       {gen ? <><div className="lct-ways" role="radiogroup" aria-label="How its two minds work">{WORK_WAYS.map(([k, ic, t, why, flow], i) => <button key={k} type="button" role="radio" aria-checked={workMode === k}
           className={`lct-way${workMode === k ? ' is-on' : ''}`} style={{ '--i': i }} onClick={() => setWorkMode(k)} data-testid={`lct-work-${k}`} data-tip={why}>
-          <span className="lct-way-h"><i aria-hidden="true">{ic}</i><b>{t}</b>{k === 'plan' ? <em>⭐ BEST FOR ONE BIG QUESTION</em> : <em>TWO JOBS AT ONCE</em>}</span><small>{why}</small>
+          <span className="lct-way-h"><i aria-hidden="true">{ic}</i><b>{t}</b>{k === 'plan' ? <em>⭐ BEST FOR ONE BIG QUESTION</em> : <em>TWO JOBS AT ONCE</em>}</span><span className="lct-use is-hi">HIGH USE · both windows{k === 'plan' ? ' + a merge' : ''}</span><small>{why}</small>
           <ol className="lct-flow" data-testid={k === 'plan' ? 'lct-flow' : undefined}>{flow.map(([fi, ft, fw], j) => <li key={ft} style={{ '--i': j }}><i aria-hidden="true">{fi}</i><b>{ft}</b><small>{fw}</small></li>)}</ol></button>)}</div>
         <p className="lct-note">{picked.length < 2 ? 'One mind: it takes every task in its own window. Pick a second in step 1 and they split the work.' : workMode === 'jobs' ? 'In its chat you write a job for each mind — A: … B: … — and both run at once.' : 'Ask one thing — they plan it in a sentence each, split it, research in their own windows, then hand you ONE answer.'}</p></>
       : <><VenuePick value={venues} onChange={setVenues} />{picked.length < 2 ? <p className="lct-note">One brain: it makes every call. Pick a second in step 1 to choose how they work together.</p> :
         <div className="lct-modes">{(d?.modes || []).map(m => <button key={m.key} type="button" className={`${mode === m.key ? 'is-on' : ''}${m.key === BEST_MODE ? ' is-best' : ''}`} onClick={() => setMode(m.key)} data-testid={`lct-mode-${m.key}`}
-          data-tip={m.key === BEST_MODE ? 'Our pick: two looks per decision for the price of a short second call — B checks A before money moves' : m.why}>{m.key === BEST_MODE ? <em className="lct-best">⭐ BEST</em> : null}<b>{m.label}</b><small>{m.why}</small></button>)}</div>}</>}
+          data-tip={m.key === BEST_MODE ? 'Our pick: two looks per decision for the price of a short second call — B checks A before money moves' : m.why}>{m.key === BEST_MODE ? <em className="lct-best">⭐ BEST</em> : null}<b>{m.label}</b><small>{m.why}</small><span className={`lct-use ${USE[m.key]?.[0] || 'is-lo'}`}>{USE[m.key]?.[1] || 'LOW USE'}</span></button>)}</div>}</>}
     </div> : null}
     {step === 2 && gen ? <div className="lct-pane lct-brief" data-testid="lct-gsetup">
       <section className="lct-pane"><h4 className="lct-h">🎯 WHAT IS IT FOR?</h4>

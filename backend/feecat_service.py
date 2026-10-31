@@ -1553,7 +1553,10 @@ def _work_start(cat_id, cat, text, to=None, files=None):
     names = [str(m).split('/')[-1][:24] for m in models]
     steps = int(lim_.get('steps') or 0) or (_ca.GO_STEPS if cat.get('workGo') else _ca.STEP_MAX)
     _WORK[cat_id] = {'task': _ca.new_task(uuid.uuid4().hex[:10], text, models, cap, steps, cat.get('workMode') or 'plan', lim_.get('mindUsd') if len(models) > 1 else None), 'events': {}, 'go': {}, 'sessions': [None] * len(models), 'pages': [None] * len(models), 'at': time.time()}
-    _WORK[cat_id]['task']['tools'] = _cp.toolkit(cat.get('job', 'agent'), cat.get('tools'))
+    if (b.get('kind') or 'trading') == 'trading':   # 📰 a trader's windows: read + click on the research list only (cat_policy.RESEARCH_*)
+        _WORK[cat_id]['task'].update(research=True, tools={'browse': True, 'forms': True})
+    else:
+        _WORK[cat_id]['task']['tools'] = _cp.toolkit(cat.get('job', 'agent'), cat.get('tools'))
     _WORK[cat_id]['task']['files'] = [{'name': f['name'], 'mime': f['mime'], 'path': str(_af.local_copy(DATA_DIR, cat, f['id']))} for f in _af.touch(cat, files)]   # ☁ its `upload` action reads these
     _WORK[cat_id]['task']['clouds'] = {i: [x.get('text', '') for x in (b.get('minds') or {}).get(m, [])][-8:] for i, m in enumerate(models)}   # ☁ each mind reads its own cloud
     _WORK[cat_id]['runner'] = asyncio.create_task(_work_run(cat_id, models, names, text, cap, str(b.get('prompt') or '')[:1200], b.get('efforts') or {},
@@ -2376,8 +2379,9 @@ async def cat_work(cat_id: str, p: WorkPayload):
         for i, ev in list((w.get('events') or {}).items()):
             w['go'][i] = False; ev.set()
     elif p.op == 'ask':
-        if b.get('kind') != 'general' or not b.get('brains'):
-            raise HTTPException(400, 'Only a General AI cat with its models works in browsers.')
+        research_ = b.get('kind') == 'trading' and bool(b.get('brains')) and (cat.get('tools') or {}).get('research', True)   # 📰 a trader researches coins + narrative only
+        if (b.get('kind') != 'general' and not research_) or not b.get('brains'):
+            raise HTTPException(400, 'Only a General AI cat — or a trader researching coins + narrative — works in browsers.')
         busy = bool(w and not w.get('done'))
         if busy and not cat.get('workGo'):
             raise HTTPException(409, 'It is still working on your last ask — stop it, wait, or LET IT GO to queue asks.')
@@ -2543,7 +2547,9 @@ async def cat_live(cat_id: str):
     cat = _load()['cats'].get(cat_id)
     if not cat:
         raise HTTPException(404, 'Agent not found.')
-    return public_live(_WORK.get(cat_id))
+    cloud = (cat.get('brainsCfg') or {}).get('cloud') or []   # 🗄 what it stored last (already public on its card) → the visitor's drawer pops
+    return {**public_live(_WORK.get(cat_id)), 'stored': len(cloud), 'lastStored': (lambda c: {'text': str(c.get('text') or f"{c.get('word', '')} ${c.get('sym', '')}")[:140], 'at': c.get('at')} if c else None)(cloud[-1] if cloud else None),
+            'level': cat.get('level'), 'wins': cat.get('wins'), 'losses': cat.get('losses'), 'pnlSol': cat.get('totalPnlSol')}
 
 
 @app.get('/api/cats/{cat_id}/treasury')

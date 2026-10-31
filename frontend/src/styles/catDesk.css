@@ -142,3 +142,7 @@ body.theme-day .kd-dl { background: #ffffffe6; border-color: #7c4dff44; } body.t
 .kd.is-tabbed .kd-hero h1 { font-size: clamp(20px, 2.4vw, 28px); } .kd.is-tabbed .kd-xp { max-width: 260px; }
 @media (max-width: 640px) { .kd-tabs { width: 100%; } .kd-tabs button { flex: 1; padding-inline: 6px; } .kd.is-tabbed .kd-stage { height: 92px; } .kd.is-tabbed .kd-stage .clk.is-large { width: 88px; height: 88px; } }
 body.theme-day .kd-tabs { background: #fff; }
+
+/* 👀 a visitor's desk = a theater: fixed over the page's main area (useTheater sets --th-t / --th-l), nothing scrolls */
+.kd.is-theater { position: fixed; top: var(--th-t, 0); left: var(--th-l, 0); right: 0; bottom: 0; z-index: 40; overflow: hidden; align-content: start; grid-auto-rows: max-content; padding: 10px 16px 12px; border-radius: 0; }
+@media (max-width: 900px) { .kd.is-theater { position: relative; top: auto; left: auto; overflow: visible; padding: 0; } }

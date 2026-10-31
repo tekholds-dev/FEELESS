@@ -142,13 +142,14 @@ test('🧭 a job picks the models fit for it: category, the tools / vision it ne
   expect(filterModels(ms, { cat: ['content'] }).map(m => m.id)).toEqual(['c/plain']);
 });
 
-test('🧠 step 1 starts with two EMPTY boxes (no pre-picked models) and a Next up top that wakes when one is picked', async () => {
+test('🧠 step 1 starts with two EMPTY glass minds (no pre-picked models) and a Next up top that wakes when one is picked', async () => {
   const el = document.createElement('div'); const root = createRoot(el);
   await act(async () => { root.render(<LaunchCat api={jest.fn(() => Promise.resolve(CAT))} ownerId={() => 'o'} />); });
   expect(el.querySelector('[data-testid="lct-slot-0"]')).not.toBeNull(); expect(el.querySelector('[data-testid="lct-slot-1"]')).not.toBeNull();
   expect(el.textContent).not.toContain('FEELESS PICKS'); expect(el.querySelector('[data-testid="lct-next-top"]').disabled).toBe(true);
   act(() => el.querySelector('.lct-cats button').click()); act(() => el.querySelector('.lct-grid .lct-tile-pick').click());
-  expect(el.querySelector('[data-testid="lct-slot-0"]')).toBeNull(); expect(el.querySelector('.lct-slots .lct-tile')).not.toBeNull();
+  expect(el.querySelector('[data-testid="lct-slot-0"]').classList.contains('is-on')).toBe(true); expect(el.querySelector('.lct-glass-n .is-hot dd').textContent).toMatch(/\$/);
+  expect(el.querySelector('[data-testid="lct-total"]').textContent).toMatch(/\$/);
   expect(el.querySelector('[data-testid="lct-next-top"]').disabled).toBe(false);
   act(() => root.unmount());
 });

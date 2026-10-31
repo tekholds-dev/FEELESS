@@ -4,7 +4,7 @@ import { FeeLiveTab } from './FeeLiveTab';
 import { AgentLive, HeadCloud, asModel, catMinds, catCoins } from './AgentLive';
 import { MindVitals, TradeChat, AgentLog, catLogItems, useCatEvents, useDeskSkin, DeskBackdrop, SkinPicker } from './CatCockpit';
 import { signWord, ModelPop } from './LaunchCat';
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useWallet } from '../../hooks/useWallet';
 import { getChatSession } from '../../lib/chatSession';
 import { ArrowLeft, Copy } from 'lucide-react';
@@ -129,6 +129,14 @@ function LiveMinds({ cat, onAct, busy, canEdit = true }) {
   </>;
 }
 
+// 👀 a visitor's desk is a theater (owner 2026-10-31: "no scroll bar at all"): fixed over the page's main area, the page can't scroll under it
+function useTheater(ref, on) {
+  useLayoutEffect(() => { if (!on) return undefined; const root = document.documentElement; const was = root.style.overflow;
+    const place = () => { const el = ref.current; const main = el?.closest('.terminal-main') || document.querySelector('.terminal-main'); if (!el) return;
+      const r = main ? main.getBoundingClientRect() : { left: 0, top: 0 }; el.style.setProperty('--th-l', `${Math.max(0, Math.round(r.left))}px`); el.style.setProperty('--th-t', `${Math.max(0, Math.round(r.top + window.scrollY))}px`); };
+    window.scrollTo(0, 0); root.style.overflow = 'hidden'; place(); window.addEventListener('resize', place);
+    return () => { root.style.overflow = was; window.removeEventListener('resize', place); }; }, [ref, on]);
+}
 export function CatDesk({ cat, busy = false, error = '', onBack, onAct, Activity = null, Brains = null, Engine = null, Real = null, Tools = null, canEdit = true }) {   // canEdit: its owner (visitors from the leaderboard see the view, never the controls)
   const isReal = cat.mode === 'real' && !!cat.realWallet;
   const runs = canEdit && !cat.isLeader;   // 🔒 Fee's engine, limits and retire stay server-only (feecat_service fee_owner_real) — her creator runs her from the NEXA desk under this one, so no button here that can only 403
@@ -149,7 +157,8 @@ export function CatDesk({ cat, busy = false, error = '', onBack, onAct, Activity
   const [skin, setSkin] = useDeskSkin(cat.skin, saveSkin);
   const tabbed = gen && canEdit; const visitor = gen && !canEdit; const [tab, setTab] = useState('desk');   // 👀 a visitor: slim hero + the two windows, one screen ·   // 🖥 a general agent's owner: Desk (one screen) · Wallet · Limits — never one long scroll
   const on = k => !tabbed || tab === k;
-  return <section className={`kd has-skin${tabbed || visitor ? ' is-tabbed' : ''}${skin.bg !== 'night' ? ' is-glass' : ''}`} style={{ '--kd-acc': skin.acc }} data-testid="cat-desk"><DeskBackdrop bg={skin.bg} />
+  const theater = useRef(null); useTheater(theater, visitor);
+  return <section ref={theater} className={`kd has-skin${tabbed || visitor ? ' is-tabbed' : ''}${visitor ? ' is-theater' : ''}${skin.bg !== 'night' ? ' is-glass' : ''}`} style={{ '--kd-acc': skin.acc }} data-testid="cat-desk"><DeskBackdrop bg={skin.bg} />
     <button type="button" className="kd-back" onClick={onBack} data-testid="kd-back" data-tip="Back to your agents"><ArrowLeft size={14} /> My agents</button>
     <header className="kd-hero">
       <button type="button" className="kd-dl" onClick={e => downloadSvgPng(e.currentTarget.parentElement.querySelector('.kd-stage svg'), cat.name).catch(() => {})}

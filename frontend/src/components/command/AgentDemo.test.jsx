@@ -89,3 +89,8 @@ test('🖨 side prints: A gets its own lines + shared ones, B its own + shared',
   expect(printsFor(feed, 'A')).toEqual(['🧠 A · scanning', '🛡 guard · skipped $RUGZ', "🧠 A's turn · BUY"]);
   expect(printsFor(feed, 'B')).toEqual(['🧠 B · floor held', '🛡 guard · skipped $RUGZ']);
 });
+
+test('📈 the trader demo: A on the FEELESS chart → perps, B on the BTC narrative feeding A; every mode fills its meeting line', () => {
+  const { BTC_FEED } = require('./AgentDemo');
+  expect(BTC_FEED[0]).toMatch(/FEELESS chart/); expect(BTC_FEED[2]).toMatch(/B → A/); expect(BTC_FEED.filter(l => l === null)).toHaveLength(1);
+});

@@ -88,6 +88,12 @@ export const DEMO_FEED = {
     '🔗 A merges both halves · every source kept', '📝 one answer with links — nothing posted', '✅ done · $0.012 of your $0.10 cap'],
 };
 
+// 📈 the recorded trader demo (owner 2026-10-31: "only FEELESS charts — one researches BTC then FEELESS perps, the other the politics + narrative
+// around BTC to feed the first"): A = the FEELESS chart → perps, B = the news desk; the mode picks the line where they meet
+export const BTC_FEED = ['🧠 A · BTC on the FEELESS chart · 1H trend + RSI', '📰 B · reads BTC policy + ETF flows', '📦 B → A: "policy tailwind · flows in"', null,
+  '📉 A · FEELESS perps · BTC long $25 · 10× · TP +5% SL −2%', '🛡 inside your caps · you OK it with one tap', '💵 fees on the receipt, never in P&L'];
+const BTC_LINE = { discuss: '🧠 B · checks A\'s long against the news — agrees', together: '🤝 A (chart) + B (news) both say LONG BTC',
+  turns: '🧠 A\'s turn on BTC — B reads the next headline', battle: '⚔ A trades the chart · B trades the headline · two records' };
 // 🧭 the two windows follow the mode you picked (owner 2026-10-30): one coin when they discuss / judge together, two coins when they take turns or
 // battle; one question split in halves (plan) or two separate jobs with a handoff (jobs)
 export const DEMO_MODE = {
@@ -110,7 +116,8 @@ export function AgentDemo({ kind = 'trading', models = [], mode }) {
   const gen = kind === 'general'; const [ref, t] = useClock(gen ? 650 : 900);
   const rec = useRecording();
   const how = DEMO_MODE[mode] || DEMO_MODE[gen ? 'plan' : 'discuss']; const jobs = gen && mode === 'jobs';   // two jobs ⇒ two different recorded sites
-  const feed = how.feed || (how.line ? DEMO_FEED.trading.map((l, j) => (j === 2 ? how.line : l)) : DEMO_FEED[gen ? 'general' : 'trading']); const k = Math.floor(t / 2);
+  const btc = !gen && rec?.t?.length && rec?.u?.length;   // the recorded trader pair: A on FEELESS, B on the narrative
+  const feed = btc ? BTC_FEED.map(l => l || BTC_LINE[mode] || BTC_LINE.discuss) : how.feed || (how.line ? DEMO_FEED.trading.map((l, j) => (j === 2 ? how.line : l)) : DEMO_FEED[gen ? 'general' : 'trading']); const k = Math.floor(t / 2);
   const lines = [0, 1, 2].map(j => ({ id: k - j, text: feed[((k - j) % feed.length + feed.length) % feed.length] })).filter(x => x.id >= 0).reverse();
   const name = i => models[i]?.name?.replace(/^[^:]+:\s*/, '') || (i ? 'second pick' : 'your pick');
   return <div className={`agd is-${gen ? 'general' : 'trading'}`} ref={ref} data-testid="agent-demo">
@@ -118,9 +125,9 @@ export function AgentDemo({ kind = 'trading', models = [], mode }) {
     <span className="agd-tag">◈ DEMO · {gen ? 'what its two minds do' : 'how its two brains trade'} · not real</span>
     <div className="agd-stage"><Prints feed={feed} who="A" k={k} />
     <div className="agd-wins">{[0, 1].map(i => <div key={i} className={`agd-win w${i}`} style={{ '--i': i }}>
-      <span className="agd-bar is-go"><i /><i /><i /><b>{gen ? `MIND ${'AB'[i]}` : `BRAIN ${'AB'[i]}`}</b><small>{name(i)} · {how.sub[i]}</small><em className="agd-live">● LIVE</em></span>
+      <span className="agd-bar is-go"><i /><i /><i /><b>{gen ? `MIND ${'AB'[i]}` : `BRAIN ${'AB'[i]}`}</b><small>{name(i)} · {btc ? ['BTC · FEELESS chart → perps', 'the BTC narrative → A'][i] : how.sub[i]}</small><em className="agd-live">● LIVE</em></span>
       {gen ? <DemoBrowser frames={rec?.[(jobs ? 'cd' : 'ab')[i]] || rec?.['ab'[i]]} t={t + i * 2} who={'AB'[i]} credit={i ? (jobs ? rec?.jobsCredit : rec?.credit) : null} />
-        : rec?.t?.length ? <DemoBrowser label="BRAIN" frames={rec[(i && !how.same && rec.u?.length) ? 'u' : 't']} t={t + (how.same ? 0 : i * 2)} who={'AB'[i]} credit={i ? rec.chartCredit : null} />
+        : rec?.t?.length ? <DemoBrowser label="BRAIN" frames={rec[btc ? 'tu'[i] : 't']} t={t + i * 2} who={'AB'[i]} credit={i ? rec.chartCredit : null} />
           : <DemoChart seed={i && !how.same ? 7 : 3} t={t + (how.same ? 0 : i * 9)} who={'AB'[i]} sym={i && !how.same ? 'NEON' : 'GERM'} />}
     </div>)}</div><Prints feed={feed} who="B" k={k} /></div>
     <ol className="agd-feed" aria-live="off">{lines.map(l => <li key={l.id}>{l.text}</li>)}</ol>

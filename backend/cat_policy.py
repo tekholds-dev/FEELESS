@@ -7,7 +7,7 @@ from urllib.parse import urlsplit
 TOOLS = {
     'agent': ('browse', 'forms'), 'content': ('browse', 'storage'),
     'code': ('browse', 'build', 'storage'), 'detective': ('browse', 'notes'),
-    'researcher': ('browse', 'notes'), 'trading': ('chart', 'wallet'),
+    'researcher': ('browse', 'notes'), 'trading': ('chart', 'wallet', 'research'),
 }
 RULES = ('Never create another FeeCat, authenticate to FEELESS, sign wallet messages, or bypass tool permissions. '
          'Refuse scams, rug pulls, impersonation, phishing, and mass unsolicited spam. '
@@ -25,6 +25,26 @@ def refusal(text):
     if cat_tools.NEVER.search(str(text)):   # 🚫 owner 2026-10-30: agents never create a coin, a pool or another agent
         return 'Refused: an agent never creates another agent, and never launches a coin or pool ON FEELESS.'
     return 'Refused: scams, rugs, impersonation, spam and FeeCat self-creation/sign-in are blocked.' if BAD_JOB.search(str(text)) else None
+
+
+# 📰 A TRADER'S BROWSER (owner 2026-10-31: "trader agents get browser access, but only to research coins + narrative — X if the user signs in"):
+# it reads coin data, crypto news and X, nothing else — no forms, no sign-ups, no uploads; its only sign-in is the user's own X login, typed by them.
+RESEARCH_HOSTS = ('x.com', 'twitter.com', 'coindesk.com', 'decrypt.co', 'theblock.co', 'cointelegraph.com', 'blockworks.co', 'dlnews.com',
+                  'coinmarketcap.com', 'coingecko.com', 'dexscreener.com', 'birdeye.so', 'solscan.io', 'explorer.solana.com', 'rugcheck.xyz',
+                  'pump.fun', 'jup.ag', 'defillama.com', 'polymarket.com', 'kalshi.com', 'reddit.com', 'duckduckgo.com', 'feeless.app')
+RESEARCH_ACTIONS = frozenset({'answer', 'feeless', 'handoff', 'note', 'open', 'search', 'click', 'human', 'ask_login'})
+LOGIN_HOSTS = ('x.com', 'twitter.com')
+
+
+def research_ok(url, login=False):
+    """True when a trader's window may be on `url` (FEELESS itself always; a sign-in only on X)."""
+    try:
+        host = check_url(url)
+    except ValueError:
+        return False
+    own = {urlsplit(os.getenv(k, '')).hostname for k in ('PUBLIC_SITE_URL', 'FRONTEND_URL')} - {None}
+    ok = LOGIN_HOSTS if login else RESEARCH_HOSTS
+    return host in own or any(host == h or host.endswith('.' + h) for h in ok)
 
 
 def toolkit(job, switches=None):

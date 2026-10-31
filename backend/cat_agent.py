@@ -13,7 +13,7 @@ signal (the wallet / their auto-sign settings) — nothing here can spend from a
 import asyncio
 import json
 import re
-from cat_policy import RULES, refusal
+from cat_policy import RESEARCH_ACTIONS, RULES, refusal, research_ok
 
 STEP_MAX = 8
 GO_STEPS = 30     # 🏇 "let it go" (owner Q1): a task may run this many steps a window — it stops only when done, at its $ cap, or for a human
@@ -142,6 +142,14 @@ async def _window(task, w, ask, page, wait_human, name, feeless=None):
         a = parse_json(raw)
         act = str(a.get('action') or '').lower()
         thought = str(a.get('thought') or '').strip()
+        if task.get('research') and act not in RESEARCH_ACTIONS:   # 📰 a trader's window only reads coins + narrative
+            _step(w, f'research only: no "{act}"', 'refused')
+            seen = f'(research only: "{act}" is not allowed — read coin data, crypto news or X, then answer)'
+            continue
+        if task.get('research') and act in ('open', 'ask_login') and not research_ok(a.get('url') or '', act == 'ask_login'):
+            _step(w, thought or 'stays on research sites', 'blocked', str(a.get('url') or '')[:120])
+            seen = '(research only: that site is not on the research list — use FEELESS, coin data sites, crypto news or X)'
+            continue
         if act == 'answer' or not act:
             w['answer'] = str(a.get('say') or thought or str(raw or '').strip() or 'no answer')[:4000]   # a model that just answers in plain words still answers
             _step(w, thought or 'done', 'answer')
@@ -205,6 +213,8 @@ async def _window(task, w, ask, page, wait_human, name, feeless=None):
                     seen = await page.search(str(a.get('q') or w['goal']))
                 elif act == 'click':
                     seen = await page.click(str(a.get('text') or ''))
+                    if task.get('research') and page.url and not research_ok(page.url):   # a link off the research list → straight back
+                        seen = '(research only: that link left the research sites — you are back)\n' + await page.goto(w['url'] if str(w.get('url') or '').startswith('http') else 'https://html.duckduckgo.com/html/?q=bitcoin')
                 elif act == 'upload':   # ☁ a file the owner attached (its storage) onto this page's file field
                     f_ = next((f for f in task.get('files') or [] if f['name'] == str(a.get('value') or '')), None) or ((task.get('files') or [None])[0] if len(task.get('files') or []) == 1 else None)
                     seen = await page.upload(str(a.get('label') or ''), f_) if f_ else '(no attached file by that name — the user attached: ' + (', '.join(f['name'] for f in task.get('files') or []) or 'none') + ')'

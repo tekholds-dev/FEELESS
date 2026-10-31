@@ -1,6 +1,7 @@
 import React, { Suspense, lazy, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { apiUrl } from '../../lib/api';
 import { AgentLog } from './CatCockpit';
+import { ApiDrawer } from './LaunchCat';
 import '../../styles/agentDemo.css';
 import '../../styles/catWorkbench.css';
 import { agentAuth, agentAuthQuery, revealMessage, getChatSession } from '../../lib/chatSession';
@@ -75,7 +76,7 @@ export function NowLine({ cat, wins, live }) {
   const w = wins.find(x => x.status === 'human') || wins.find(x => x.status === 'working') || wins.find(x => x.url);
   const host = String(w?.url || '').replace(/^https?:\/\//, '').split('/')[0];
   const what = !live || !w ? 'idle — waiting for your ask' : w.status === 'human' ? `waiting on you at ${host}` : `${host ? `on ${host}: ` : ''}${String(w.bubble || w.steps?.at(-1)?.thought || 'thinking').replace(/^✋ needs you: /, '')}`;
-  return <p className={`cwb-now${live ? ' is-live' : ''}`} data-testid="cwb-now" aria-live="polite"><b>{cat.handle || 'agent'}</b><i aria-hidden="true">›</i><span key={what}>{what}</span><u aria-hidden="true" /></p>;
+  return <p className={`cwb-now${live ? ' is-live' : ''}`} data-testid="cwb-now" aria-live="polite"><b>{cat.handle || 'agent'}</b><i aria-hidden="true">›</i><span key={what}>{what}</span></p>;
 }
 // ⚡ EARN MODE (owner 2026-10-30): when nobody is asking, it plans what its money could earn on FEELESS — open price gaps that beat their
 // costs, then compounding (Night Vault), then the busiest bands — for YOUR risk. It never signs: each play opens its Launch › Pools tab.
@@ -105,6 +106,15 @@ export function EarnCard({ cat }) {
 // they split — the Pass holder · its model credit · a capped buyback of its own coin (fees only, shown here). Claiming + paying out from its
 // wallet is the next step, tested live by the owner first.
 const SPLIT_PRESETS = [['Balanced', { holder: 50, credit: 30, buyback: 20 }], ['Holder first', { holder: 70, credit: 20, buyback: 10 }], ['Self-funding', { holder: 30, credit: 60, buyback: 10 }], ['Momentum', { holder: 40, credit: 20, buyback: 40 }]];
+// 🔑 the API drawer as a cabinet slot (owner 2026-10-31): its own keys, sealed on the server — only the last 4 ever come back
+function ApiSlot({ cat }) {
+  const [rows, setRows] = useState(cat?.apiDrawer || []); const [draft, setDraft] = useState({}); const [busy, setBusy] = useState(false); const [err, setErr] = useState('');
+  const send = async (provider, secret) => { setBusy(true); setErr('');
+    try { const r = await fetch(apiUrl(`/api/cats/${cat.id}/action`), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...agentAuth(), action: 'api_key', provider, secret }) });
+      const j = await r.json().catch(() => ({})); if (!r.ok) throw new Error(j.detail || `HTTP ${r.status}`); setRows(j.cat?.apiDrawer || []); setDraft(x => ({ ...x, [provider]: '' })); } catch (e) { setErr(e.message); } finally { setBusy(false); } };
+  return <div data-testid="cwb-api"><ApiDrawer start rows={rows} draft={draft} busy={busy} onDraft={(k, v) => setDraft(x => ({ ...x, [k]: v.trim() }))} onSave={send} onDrop={k => send(k, '')} />
+    {err ? <p className="kd-err" role="alert">⚠ {err}</p> : null}</div>;
+}
 export function TreasuryDrawer({ cat }) {
   const px = useSolPrice(); const [t, setT] = useState(null); const [err, setErr] = useState(''); const [busy, setBusy] = useState(false); const [mint, setMint] = useState('');
   const load = useCallback(() => fetch(apiUrl(`/api/cats/${cat.id}/treasury?${agentAuthQuery()}`)).then(r => r.json().then(j => (r.ok ? (setT(j), setMint(j.mint || '')) : setErr(j.detail || `HTTP ${r.status}`)))).catch(e => setErr(e.message)), [cat.id]);
@@ -201,23 +211,43 @@ function useFit(ref, below = 76) {
       if (window.innerWidth <= 900) { r.style.removeProperty('--cwb-h'); return; }
       const top = st.getBoundingClientRect().top + window.scrollY; let h = Math.round(Math.max(240, Math.min(720, window.innerHeight - top - below)));
       r.style.setProperty('--cwb-h', `${h}px`);
-      const over = (r.closest('.kd') || r).getBoundingClientRect().bottom + window.scrollY - window.innerHeight + 24;   // then trim what the chrome around it adds
+      const over = (r.closest('.kd.is-theater') ? r : r.closest('.kd') || r).getBoundingClientRect().bottom + window.scrollY - window.innerHeight + 24;   // then trim what the chrome around it adds
       if (over > 0) { h = Math.max(240, h - Math.ceil(over)); r.style.setProperty('--cwb-h', `${h}px`); } };
     fit(); window.addEventListener('resize', fit); return () => window.removeEventListener('resize', fit);
   }, [ref, below]);
 }
 // 👀 A VISITOR's view of someone's agent (no scroll): its two windows as they work — the site's host, the kind of step and how far — never the page
+// 👀 one mind's side rail for a visitor (owner 2026-10-31: "more vitals on the sides, like Live Activity"): status, where, steps as a ring
+export function MindRail({ w, side, d }) {
+  const go = w?.status === 'working'; const pct = Math.min(1, (w?.steps || 0) / 30);
+  return <aside className={`cwb-rail at-${side}${go ? ' is-go' : ''}`} data-testid={`cwb-rail-${side}`}>
+    <b className="cwb-rail-h">MIND {'AB'[w?.i ?? (side === 'left' ? 0 : 1)]}</b><small title={w?.model}>{w?.model || '—'}</small>
+    <span className="cwb-ring" style={{ '--p': pct }} data-tip="Steps this task (stops at 30)"><svg viewBox="0 0 40 40" aria-hidden="true"><circle cx="20" cy="20" r="16" /><circle cx="20" cy="20" r="16" className="on" style={{ strokeDashoffset: 100.5 * (1 - pct) }} /></svg><b className="m-num" key={w?.steps}>{w?.steps || 0}</b></span>
+    <dl className="cwb-rail-kv"><div><dt>STATUS</dt><dd className={go ? 'is-up' : ''}>{go ? 'LIVE' : String(w?.status || 'idle').toUpperCase()}</dd></div><div><dt>ON</dt><dd>{w?.host || '—'}</dd></div>
+      <div><dt>DOING</dt><dd>{w?.action ? w.action.toUpperCase() : '—'}</dd></div>
+      {side === 'left' ? <div><dt>LEVEL</dt><dd className="m-num">{d?.level ?? '—'}</dd></div> : <div><dt>W / L</dt><dd className="m-num">{d ? `${d.wins || 0} / ${d.losses || 0}` : '—'}</dd></div>}
+      {side === 'left' ? <div><dt>STORED</dt><dd className="m-num" key={d?.stored}>{d?.stored ?? 0}</dd></div> : <div><dt>P/L</dt><dd className={`m-num ${Number(d?.pnlSol) < 0 ? 'is-dn' : 'is-up'}`}>{d?.pnlSol != null ? `${Number(d.pnlSol) >= 0 ? '+' : ''}${Number(d.pnlSol).toFixed(3)} SOL` : '—'}</dd></div>}</dl>
+  </aside>;
+}
+// 🗄 when it stores something a drawer slides out of its cabinet, the new file glows, then the drawer shuts (visitors watch it file things away)
+export function StoredPop({ item }) {
+  const [shown, setShown] = useState(null); const first = useRef(true);
+  useEffect(() => { if (!item) return undefined; if (first.current) { first.current = false; return undefined; } setShown(item); const t = setTimeout(() => setShown(null), 3600); return () => clearTimeout(t); }, [item?.text, item?.at]); // eslint-disable-line react-hooks/exhaustive-deps
+  return shown ? <div className="cwb-stored" role="status" data-testid="cwb-stored"><span className="cwb-stored-box" aria-hidden="true"><u /></span>
+    <span className="cwb-stored-file"><em>🗄 FILED IN ITS CLOUD</em><b>{shown.text}</b></span></div> : null;
+}
 function PublicMinds({ cat }) {
-  const ref = useRef(null); useFit(ref, 40); const seen = useOnScreen(ref);
+  const ref = useRef(null); useFit(ref, 24); const seen = useOnScreen(ref);
   const [d, setD] = useState(null);
   useEffect(() => { if (!seen) return undefined; let on = true; const go = () => { if (document.hidden) return; Promise.resolve().then(() => fetch(apiUrl(`/api/cats/${cat.id}/live`))).then(r => (r?.ok ? r.json() : null)).then(x => on && x && setD(x)).catch(() => {}); };
     go(); const t = setInterval(go, 4000); return () => { on = false; clearInterval(t); }; }, [cat.id, seen]);
   const brains = cat.brainsCfg?.brains || [];
   const wins = d?.windows?.length ? d.windows : brains.slice(0, 2).map((m, i) => ({ i, model: String(m).split('/').pop(), status: 'idle', host: '', steps: 0 }));
   const live = d?.status === 'working' || wins.some(w => w.status === 'working');
-  const agreed = (cat.brainsCfg?.cloud || []).at(-1);
+  const agreed = d?.lastStored || (cat.brainsCfg?.cloud || []).at(-1);
   return <section ref={ref} className="cwb kd-card cwb-dash cwb-public" data-testid="cwb-public">
     <NowLine cat={cat} wins={wins.map(w => ({ ...w, url: w.host ? `https://${w.host}` : '', bubble: w.action ? `${w.action} · step ${w.steps}` : '' }))} live={live} />
+    <div className="cwb-theater"><MindRail w={wins[0]} side="left" d={d} />
     <div className="cwb-stage agd-wins">{wins.map(w => { const go = w.status === 'working'; const i = w.i ?? 0;
       return <article key={i} className={`agd-win cwb-win w${i % 2} s-${w.status}`} data-testid={`cwb-pub-${i}`}>
         <span className={`agd-bar${go ? ' is-go' : ''}`}><i /><i /><i /><b>MIND {'AB'[i] || i + 1}</b><small>{w.model || 'model'}</small><em className={`agd-live${go ? '' : ' is-off'}`}>● {go ? 'LIVE' : String(w.status).toUpperCase()}</em></span>
@@ -228,7 +258,9 @@ function PublicMinds({ cat }) {
             <small className="cwb-pub-note">🔒 the page itself is private to its owner</small>
             {go ? <p className={`agd-done is-on cwb-say at-${i % 2 ? 'right' : 'left'}`}>MIND {'AB'[i]} · {w.action || 'working'} on {w.host || '…'}</p> : null}</div></div>
       </article>; })}</div>
+    <MindRail w={wins[1] || { i: 1, status: 'idle' }} side="right" d={d} /></div>
     {agreed ? <p className="cwb-agreed" data-tip="What both minds agreed on last — kept in its cloud">☁ {agreed.text || `${agreed.word} $${agreed.sym}`}</p> : null}
+    <StoredPop item={d?.lastStored} />
   </section>;
 }
 
@@ -397,6 +429,7 @@ function WorkbenchLive({ cat }) {
     <LastMoney m={d?.lastMoney} />
     <AgentLog title="ITS FILE CABINET" items={log} open={signIn ? { key: 'creds', at: signIn.at } : null} cabinet={[
       ['creds', '🔐', 'Credentials', (d?.logins || []).length, <Credentials cat={cat} rows={d?.logins} log={d?.vaultLog || []} ask={signIn} onSaved={logins => setD(x => ({ ...x, logins }))} />],
+      ['api', '🔑', 'API keys', (cat?.apiDrawer || []).filter(r => r.saved).length, <ApiSlot cat={cat} />],
       ['storage', '☁', 'Storage', (d?.storage?.files || []).length, <CloudDrawer cat={cat} attachments={d?.storage} />],
       ['earn', '⚡', 'Earn', (d?.lastMoney ? 1 : 0), <EarnCard cat={cat} />],
       ['treasury', '🏦', 'Treasury', 0, <TreasuryDrawer cat={cat} />],
