@@ -2061,6 +2061,21 @@ async def _session_staff(session=''):
 
 
 AGENT_MAX = 2   # 🤖 a user runs at most 2 agents (owner, 2026-10-22: "users pick if they want 1-2 cat AI agents"); a revoked one frees its slot
+SUPPLY_MAX = 1000   # 🎟 owner 2026-10-31: at most 1,000 agents bought across ALL users; the owner opens slots from FeeCat › Command center
+SUPPLY_FILE = 'agent_supply.json'
+
+
+def supply_state(store):
+    """🎟 Slots: `open` (what the owner opened, ≤ SUPPLY_MAX) · `taken` (users' live agents — staff agents never count) · `left`."""
+    try:
+        opened = int((json.loads((DATA_DIR / SUPPLY_FILE).read_text()) or {}).get('open', SUPPLY_MAX))
+    except (OSError, ValueError, TypeError):
+        opened = SUPPLY_MAX
+    opened = max(0, min(SUPPLY_MAX, opened))
+    taken = sum(1 for c in (store.get('cats') or {}).values() if c.get('brainsCfg') and not c.get('revoked') and not c.get('ownerStaff') and not c.get('isLeader'))
+    return {'open': opened, 'taken': taken, 'left': max(0, opened - taken), 'max': SUPPLY_MAX}
+
+
 STAFF_AGENT_MAX = 5   # 👑 the creator wallet + the admins granted in HQ (`_is_staff`, any linked wallet) run up to 5 (owner 2026-10-31)
 
 
@@ -2077,6 +2092,8 @@ async def create_cat(payload: CreatePayload):
     staff_ = await _session_staff(payload.session or ''); max_ = agent_max(staff_)
     if sum(1 for c in store['cats'].values() if (owner_wallet(c) == signed_ or c.get('ownerId') == payload.ownerId) and not c.get('revoked')) >= max_:
         raise HTTPException(400, f'You run {max_} agents — retire one to start another.')
+    if not staff_ and payload.brains and supply_state(store)['left'] <= 0:   # 🎟 every open slot is taken — the owner opens more in the command center
+        raise HTTPException(409, 'Every agent slot is taken right now — new slots open soon. Check back on the FeeCats page.')
     if _session_wallet(payload.session or '') in agent_wallets(store):   # 🚫 an agent's own wallet never makes another agent on FEELESS
         raise HTTPException(403, 'An AI agent never creates another agent on FEELESS.')
     if not payload.brains and not await _session_staff(payload.session or ''):
@@ -2295,6 +2312,27 @@ def studio_set(cat, body, by, now=None):
         st = {'set': set_, 'text': txt, 'at': now, 'by': str(by or '')[:44], 'edited': txt != gen, 'history': _ps.hist_add(st.get('history'), 'fee', set_, now, by)}
     cat['studio'] = st
     return studio_view(cat, now)
+
+
+@app.get('/api/cats/supply')
+async def cat_supply():
+    """🎟 Public: slots open · taken · left (the launch page shows it; nothing about who)."""
+    return supply_state(_load())
+
+
+@app.post('/api/cats/internal/supply')
+async def internal_supply_set(request: Request):
+    """🎟 The owner opens slots (from the command center, proxied with the internal key): 0 … SUPPLY_MAX, never below what is taken."""
+    _internal(request)
+    body = await request.json()
+    store = _load(); now_ = supply_state(store)
+    try:
+        want = int((body or {}).get('open'))
+    except (TypeError, ValueError):
+        raise HTTPException(400, 'open must be a whole number')
+    want = max(now_['taken'], min(SUPPLY_MAX, want))
+    (DATA_DIR / SUPPLY_FILE).write_text(json.dumps({'open': want, 'at': time.time(), 'by': str((body or {}).get('by') or '')[:44]}))
+    return supply_state(store)
 
 
 @app.get('/api/cats/internal/studio')

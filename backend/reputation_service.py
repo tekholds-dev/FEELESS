@@ -19532,6 +19532,31 @@ async def _studio_boot():
         print('prompt studio:', str(e)[:80])
 
 
+@app.get('/api/reputation/admin/agent-slots')
+async def admin_agent_slots(request: Request):
+    """🎟 Owner: agent slots open / taken / left (≤ 1,000 across all users)."""
+    _require_owner(request)
+    try:
+        r_ = await _ai_http().get('http://127.0.0.1:5088/api/cats/supply', timeout=6)
+        return r_.json()
+    except Exception:
+        raise HTTPException(503, 'Fee service did not answer.')
+
+
+@app.post('/api/reputation/admin/agent-slots')
+async def admin_agent_slots_set(request: Request):
+    """🎟 Owner: open more agent slots for new buyers (never past 1,000, never below what is taken)."""
+    me_ = _require_owner(request)
+    body = await request.json()
+    try:
+        r_ = await _ai_http().post('http://127.0.0.1:5088/api/cats/internal/supply', headers={'x-feeless-internal': _internal_key()}, json={'open': (body or {}).get('open'), 'by': str(me_)[:44]}, timeout=8)
+    except Exception:
+        raise HTTPException(503, 'Fee service did not answer.')
+    if r_.status_code != 200:
+        raise HTTPException(r_.status_code, (r_.json() or {}).get('detail') or 'Fee service rejected the change.')
+    return r_.json()
+
+
 @app.get('/api/reputation/admin/ai/prompts')
 async def admin_ai_prompts(request: Request):
     """🎭 Owner: every model's live context (the layers it reads + its window), record, diagnosis and four prompt sets."""

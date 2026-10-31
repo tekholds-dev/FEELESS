@@ -95,6 +95,23 @@ export const FCH_TABS = [['overview', '🛰 OVERVIEW', 'Why she trades or not, t
   ['lane', '🎚 LANE', 'The agents lane she follows + what the duo learned'], ['brain', '🧠 BRAIN', 'Her style, rules and what she learned — edit and save'], ['prompts', '🎭 PROMPTS', 'Her record, the habits it shows and four mindsets written from it — you approve each'], ['wallet', '👛 WALLET + STYLE', "Her wallet (Circle / Crossmint) and her look"]];
 const FCH_KEY = 'feeless.fch.tab';
 const FEE_ONLY = ['fee'];
+// 🎟 AGENT SLOTS (owner 2026-10-31): at most 1,000 agents bought across every user — you open slots for new buyers here (staff agents never count)
+export function AgentSlots({ call }) {
+  const [s, setS] = useState(null); const [err, setErr] = useState(''); const [busy, setBusy] = useState(false);
+  const take = x => { if (Number.isFinite(x?.open) && Number.isFinite(x?.taken) && Number.isFinite(x?.max)) setS(x); else setErr('The agent service did not answer with slots.'); };
+  useEffect(() => { call('/admin/agent-slots').then(take).catch(e => setErr(e.message)); }, [call]);   // eslint-disable-line react-hooks/exhaustive-deps
+  const open = async n => { setBusy(true); setErr(''); try { take(await call('/admin/agent-slots', { method: 'POST', body: JSON.stringify({ open: n }) })); } catch (e) { setErr(e.message); } finally { setBusy(false); } };
+  if (!s) return <article className="fch-card" data-testid="fch-slots"><h4>🎟 AGENT SLOTS</h4><p className="fch-nil">{err || 'reading…'}</p></article>;
+  return <article className="fch-card fch-slots" data-testid="fch-slots"><h4>🎟 AGENT SLOTS<small>{s.taken} of {s.open} open taken · max {s.max.toLocaleString()}</small></h4>
+    <p className="fch-flow"><span><b className="m-num" key={s.taken}>{s.taken}</b><small>bought</small></span><i aria-hidden>/</i><span className={s.left ? 'is-good' : 'is-bad'}><b className="m-num">{s.left}</b><small>left for new buyers</small></span><i aria-hidden>/</i><span><b className="m-num">{s.open}</b><small>open</small></span></p>
+    <ul className="fch-bars"><li><span>open of {s.max.toLocaleString()}</span><i><u style={{ transform: `scaleX(${Math.max(0.02, s.open / s.max)})` }} /></i><b>{Math.round((100 * s.open) / s.max)}%</b></li>
+      <li><span>taken of open</span><i><u style={{ transform: `scaleX(${Math.max(0.02, s.open ? s.taken / s.open : 1)})` }} /></i><b>{s.open ? Math.round((100 * s.taken) / s.open) : 100}%</b></li></ul>
+    <div className="m-seg" role="group" aria-label="Open more agent slots">{[50, 100, 250].map(n => <button key={n} type="button" disabled={busy || s.open >= s.max} onClick={() => open(s.open + n)} data-tip={`Open ${n} more slots for new buyers`} data-testid={`fch-slots-${n}`}>+{n}</button>)}
+      <button type="button" disabled={busy || s.open >= s.max} onClick={() => open(s.max)} data-tip="Open every slot up to the 1,000 cap" data-testid="fch-slots-all">All {s.max.toLocaleString()}</button>
+      <button type="button" disabled={busy || s.open <= s.taken} onClick={() => open(s.taken)} data-tip="Close sales: no new agents until you open more (nobody loses an agent)" data-testid="fch-slots-close">Pause sales</button></div>
+    {err ? <p className="lct-err" role="alert">⚠ {err}</p> : null}</article>;
+}
+
 export function FeeCatDesk({ call }) {
   const [tab, setTab] = useState(() => { try { const k = localStorage.getItem(FCH_KEY); return FCH_TABS.some(t => t[0] === k) ? k : 'overview'; } catch { return 'overview'; } });
   const pickTab = k => { setTab(k); try { localStorage.setItem(FCH_KEY, k); } catch { /* private window */ } };
@@ -132,6 +149,7 @@ export function FeeCatDesk({ call }) {
     {tab === 'lane' ? <div className="fch-grid"><AgentLane d={d} busy={busy} onSave={lane => save({ agentLane: lane })} /><DuoLearn learn={d.duoLearn} /></div> : null}
 
     {tab === 'overview' ? <div className="fch-grid">
+      <AgentSlots call={call} />
       <article className="fch-card" data-testid="fch-funnel"><h4>🔎 WHY SHE {f.passed ? 'TRADES' : "ISN'T TRADING"}<small>{d.scan?.at ? `scan ${agoS(d.scan.at)}s ago` : 'no scan yet'}</small></h4>
         <p className="fch-flow"><span><b>{f.scanned}</b><small>coins read</small></span><i aria-hidden>→</i><span className={f.passed ? 'is-good' : 'is-bad'}><b>{f.passed}</b><small>passed her rules</small></span><i aria-hidden>→</i><span><b>{pos.length}</b><small>holding</small></span></p>
         {f.reasons.length ? <ul className="fch-bars">{f.reasons.map((r, i) => <li key={r.k} style={{ '--i': i }}><span>{r.k}</span><i><u style={{ transform: `scaleX(${Math.max(0.04, r.w)})` }} /></i><b>{r.c}</b></li>)}</ul> : <p className="fch-nil">nothing stopped — every coin read passed</p>}

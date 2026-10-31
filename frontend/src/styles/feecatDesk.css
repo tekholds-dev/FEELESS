@@ -22,6 +22,7 @@
 .fch-flow { margin: 0; display: flex; align-items: center; gap: 8px; } .fch-flow span { display: grid; } .fch-flow b { font: 900 22px/1 var(--m-mono); } .fch-flow small { font: 600 8.5px var(--m-mono); color: var(--m-mute); }
 .fch-flow i { font-style: normal; color: var(--m-mute); } .fch-flow .is-good b { color: #45e486; } .fch-flow .is-bad b { color: #ff8fa3; }
 .fch-bars { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
+.fch-slots .fch-bars u { background: linear-gradient(90deg, #15d16a, #45e486); }   /* 🎟 slots are capacity, not a blocker: green */
 .fch-bars li { display: grid; grid-template-columns: minmax(90px, 140px) minmax(0, 1fr) 28px; gap: 6px; align-items: center; font: 700 9.5px var(--m-mono); animation: fchIn .3s ease-out both; animation-delay: calc(var(--i, 0) * 50ms); }
 .fch-bars li i { height: 6px; border-radius: 999px; background: rgba(255, 255, 255, .05); overflow: hidden; } .fch-bars li u { display: block; height: 100%; background: linear-gradient(90deg, #c43a55, #ff8fa3); transform-origin: left; transition: transform .5s ease; }
 .fch-bars li b { text-align: right; color: #ff8fa3; }

@@ -69,6 +69,7 @@ if (DECK) {
     if (path === '/admin/roles') return answer({ yourRole: 'owner', roles: [] });
     if (path === '/admin/agents') return answer(live());
     if (path === '/admin/rpc') return answer(RPC);
+    if (path === '/admin/agent-slots') return answer({ open: 250, taken: 173, left: 77, max: 1000 });   // 🎟 the slots card on a fixture
     if (SNAP && (path === '/admin/feecat' || path === '/admin/ai/prompts')) return real(`/dev-${path === '/admin/feecat' ? 'feecat' : 'prompts'}.json`);   // 📸 ?snap: Fee's live desk + studio (gitignored copies)
     return answer({});
   };

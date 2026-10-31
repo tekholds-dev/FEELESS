@@ -277,6 +277,8 @@ export function LaunchCat({ api, ownerId, onCreated, onCancel, Fields, Preview, 
   const [persona, setPersona] = useState(''); const [fundUsd, setFundUsd] = useState('10'); const [fundToken, setFundToken] = useState('SOL');   // 💵 what goes into its wallet (owner: "enter the amount at launch")
   const [prompt, setPrompt] = useState(''); const [saving, setSaving] = useState(false);
   const [venues, setVenues] = useState(['trench']); const [keys, setKeys] = useState({});
+  const [slots, setSlots] = useState(null);   // 🎟 agent slots left across every buyer (the owner opens more)
+  useEffect(() => { let on = true; api('/api/cats/supply').then(x => on && Number.isFinite(x?.left) && setSlots(x)).catch(() => {}); return () => { on = false; }; }, [api]);
   useEffect(() => { let on = true; api(`/api/cats/models?session=${encodeURIComponent(readChatSession() || '')}`).then(x => on && setD(x)).catch(e => on && setErr(e.message)); return () => { on = false; }; }, [api]);
   const pick = m => setPicked(p => p.some(x => x.id === m.id) ? p.filter(x => x.id !== m.id) : [...p, m].slice(-(d?.maxModels || 2)));
   const plan = planOf(picked, mode, d?.budget, kind);
@@ -361,7 +363,8 @@ export function LaunchCat({ api, ownerId, onCreated, onCancel, Fields, Preview, 
         <div className="m-seg" role="radiogroup" aria-label="Pay with">{['SOL', 'USDC'].map(t => <button key={t} type="button" role="radio" aria-checked={fundToken === t} className={fundToken === t ? 'active' : ''} onClick={() => setFundToken(t)} data-tip={`Pay with ${t} from your wallet`} data-testid={`lct-pay-${t}`}>{t}</button>)}</div>
         <small className="lct-fund-note">{fundToken === 'USDC' ? 'paid in USDC · keep a little SOL in your wallet for the network fee' : 'paid in SOL at the live price'} · nothing is charged until you sign the receipt after launch</small></div>
       <p className="lct-next" data-testid="lct-next-real">{K.next.map((x, i) => <React.Fragment key={x}>{i ? <u /> : null}<i className={i === K.next.length - 1 ? 'is-real' : ''}>{x}</i></React.Fragment>)}</p>
-      <button type="button" className="m-btn m-go lct-go" disabled={saving || !ready.slice(0, 3).every(Boolean)} onClick={launch} data-testid="lct-launch">{saving ? 'Launching…' : `🚀 Launch ${name || 'the cat'} → go real`}</button>
+      {slots ? <span className={`m-chip ${slots.left ? 'ok' : 'warn'} lct-slots`} data-tip="Agents are limited across every buyer — new slots open over time" data-testid="lct-slots">🎟 {slots.left ? `${slots.left.toLocaleString()} of ${slots.open.toLocaleString()} slots left` : 'every slot is taken — new slots open soon'}</span> : null}
+      <button type="button" className="m-btn m-go lct-go" disabled={saving || !ready.slice(0, 3).every(Boolean) || (slots && !slots.left)} onClick={launch} data-testid="lct-launch">{saving ? 'Launching…' : `🚀 Launch ${name || 'the cat'} → go real`}</button>
     </div> : null}
     <footer className="lct-foot"><span>{picked.length ? picked.map(m => m.tag || m.name.replace(/^[^:]+:\s*/, '')).join(' + ') : 'no brain picked'}{plan ? (gen ? ` · ≈ ${fmtUsd(plan.perTask)} a task` : ` · ${fmtUsd(plan.perDecision)} a decision`) : ''}</span>
       <span>{onCancel ? <button type="button" className="m-btn" onClick={onCancel}>Cancel</button> : null}{step < 3 ? <button type="button" className="m-btn m-go" disabled={!ready[step]} onClick={() => setStep(s => s + 1)} data-testid="lct-next">Next ›</button> : null}</span></footer>

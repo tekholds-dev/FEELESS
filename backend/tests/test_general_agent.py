@@ -650,3 +650,26 @@ def test_a_task_cut_off_by_a_restart_is_filed_to_resume_never_lost():
     assert not fs.file_interrupted(done) and 'workNow' not in done and 'workParked' not in done   # it already answered: nothing to resume
     assert 'workNow' not in fs.OWNER_KEYS   # engine state: an owner's remembered copy must never bring a finished ask back
     assert 'workNow' not in fs._no_keys({'workNow': {'text': 'secret ask'}, 'name': 'x'})
+
+
+def test_agent_slots_cap_every_user_and_the_owner_opens_more(monkeypatch, tmp_path):
+    """🎟 owner 2026-10-31: at most 1,000 agents bought across all users; the owner opens slots from the command center (staff never count)."""
+    from fastapi.testclient import TestClient
+    import launch_cat as lc
+    import feecat_service as fs
+    rows = [{'id': f'm/{x}', 'name': x, 'context_length': 131072, 'pricing': {'prompt': '0.0000001', 'completion': '0.0000002'}} for x in ('a', 'b')]
+    monkeypatch.setattr(fs, 'STORE_PATH', tmp_path / 'feecats.json'); monkeypatch.setattr(fs, 'DATA_DIR', tmp_path)
+    monkeypatch.setattr(fs, '_MODELS', {'at': 9e18, 'rows': lc.catalog(rows)})
+    mk = lambda c, who: c.post('/api/cats', json={'ownerId': who, 'session': who, 'name': f'A{who}', 'handle': f'a{who}', 'brains': ['m/a'], 'brainKind': 'general',
+                                                 'brainMode': 'turns', 'billing': 'payg', 'prompt': 'help', 'job': 'researcher', 'taskCap': 0.05})
+    with TestClient(fs.app) as c:
+        assert c.get('/api/cats/supply').json() == {'open': 1000, 'taken': 0, 'left': 1000, 'max': 1000}
+        assert mk(c, 'w').status_code == 200
+        (tmp_path / 'internal.key').write_text('k'); h_ = {'x-feeless-internal': 'k'}
+        assert c.post('/api/cats/internal/supply', json={'open': 0}).status_code in (401, 403)   # no key, no change
+        r = c.post('/api/cats/internal/supply', json={'open': 0}, headers=h_)
+        assert r.json()['open'] == 1   # never below what is already taken
+        assert mk(c, 'v').status_code == 409 and 'slot' in mk(c, 'v').json()['detail']
+        assert c.post('/api/cats/internal/supply', json={'open': 5000}, headers=h_).json()['open'] == 1000   # never past 1,000
+        assert mk(c, 'v').status_code == 200 and c.get('/api/cats/supply').json()['taken'] == 2
+        assert c.post('/api/cats/internal/supply', json={'open': 'x'}, headers=h_).status_code == 400
