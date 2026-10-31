@@ -82,3 +82,10 @@ test('🔁 its models unlock 24 h after you got it', () => {
   const { lockLeft } = require('./CatDesk');
   expect(lockLeft(1000, 1000 + 3600)).toBe(23 * 3600); expect(lockLeft(1000, 1000 + 25 * 3600)).toBe(0);
 });
+
+test('🖨 side prints: A gets its own lines + shared ones, B its own + shared', () => {
+  const { printsFor } = require('./AgentDemo');
+  const feed = ['🧠 A · scanning', '🧠 B · floor held', '🛡 guard · skipped $RUGZ', "🧠 A's turn · BUY"];
+  expect(printsFor(feed, 'A')).toEqual(['🧠 A · scanning', '🛡 guard · skipped $RUGZ', "🧠 A's turn · BUY"]);
+  expect(printsFor(feed, 'B')).toEqual(['🧠 B · floor held', '🛡 guard · skipped $RUGZ']);
+});

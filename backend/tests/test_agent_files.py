@@ -76,7 +76,9 @@ def test_endpoints_are_owner_only_and_the_upload_reaches_its_browser(monkeypatch
         seen.update(text=text, files=files)
     monkeypatch.setattr(fs, '_work_start', start)
     r = c.post('/api/cats/g/work', json={'ownerId': 'me', "session": 'me', 'op': 'ask', 'text': 'launch a coin on pump.fun with my logo', 'files': [f['id'], 'bogus']})
-    assert r.status_code == 200, r.text
+    assert r.status_code == 200 and r.json()['clarify'] and not seen, r.text          # ❓ first: its missing details (ticker, first buy)
+    r = c.post('/api/cats/g/work', json={'ownerId': 'me', "session": 'me', 'op': 'ask', 'text': '$LOGO, 0 SOL first buy'})
+    assert r.status_code == 200, r.text                                                  # the answers start it — with the logo still attached
     assert seen['files'] == [f['id']] and 'logo.png (image/png' in seen['text']
     assert c.post(f"/api/cats/g/files/{f['id']}/delete", json={'ownerId': 'me', "session": 'me'}).json()['files'] == []
     assert c.get(f['url']).status_code == 404

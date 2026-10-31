@@ -47,7 +47,7 @@ def test_the_chain_falls_steel_then_browserbase_then_the_reader_and_a_live_url_w
     bl = asyncio.run(cb._browserless(None, {'BROWSERLESS_API_KEY': 'bl-TOKEN'}))
     assert bl['provider'] == 'browserless' and bl['live'] is None and 'bl-TOKEN' in bl['connect']       # its token rides the CDP address (server-only)
     s, tried = asyncio.run(cb.open_session(Http(steel=R(201, {'id': 'S1', 'debugUrl': 'https://api.steel.dev/v1/sessions/S1/player/tok', 'websocketUrl': 'wss://connect.steel.dev?sessionId=S1&token=t'})), ENV))
-    assert s['provider'] == 'steel' and s['live'].endswith('/player/tok') and tried == []
+    assert s['provider'] == 'steel' and s['live'].endswith('/player/tok?showControls=false&theme=dark&interactive=true') and tried == []
     s, tried = asyncio.run(cb.open_session(Http(bb=R(201, {'id': 'B1', 'connectUrl': 'wss://bb'})), ENV))
     assert s['provider'] == 'browserbase' and s['live'].startswith('https://www.browserbase.com') and tried == [('steel', 'Steel 503')]
     s, tried = asyncio.run(cb.open_session(Http(), ENV))

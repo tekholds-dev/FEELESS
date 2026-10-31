@@ -1,6 +1,7 @@
 import React, { Suspense, lazy, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { apiUrl } from '../../lib/api';
-import { MindVitals, AgentLog } from './CatCockpit';
+import { AgentLog } from './CatCockpit';
+import '../../styles/agentDemo.css';
 import '../../styles/catWorkbench.css';
 import { agentAuth, agentAuthQuery, revealMessage } from '../../lib/chatSession';
 import { useWallet } from '../../hooks/useWallet';
@@ -38,12 +39,16 @@ function Window({ w, catId, tick, onGo, onLogin, busy }) {
   const ref = useRef(null); const seen = useOnScreen(ref);
   const [p, pcls] = PROV[w?.provider] || ['…', ''];
   const human = w?.status === 'human' && w?.human;
-  return <article ref={ref} className={`cwb-win s-${w?.status || 'idle'}`} data-testid={`cwb-win-${w?.i ?? 0}`}>
-    <header className="cwb-bar"><i className={`cwb-dots ${w?.status === 'working' ? 'is-go' : w?.status === 'human' ? 'is-wait' : 'is-stop'}`} aria-hidden="true" data-tip="red = idle · yellow = needs you · green = working"><b /><b /><b /></i>
-      <span className="cwb-model" data-tip={w?.goal ? `Its half: ${w.goal}` : 'Waiting for the plan'}>{w?.model ? String(w.model).split('/').pop() : 'model'}</span>
+  const i = w?.i ?? 0; const working = w?.status === 'working';
+  // 🪟 the live window wears the demo's chrome (owner 2026-10-30: "the window design is perfected — users should see exactly that, bigger")
+  return <article ref={ref} className={`agd-win cwb-win w${i % 2} s-${w?.status || 'idle'}`} data-testid={`cwb-win-${i}`}>
+    <span className={`agd-bar${working ? ' is-go' : ''}`} data-tip="red = idle · yellow = needs you · green = working"><i /><i /><i /><b>MIND {'AB'[i] || i + 1}</b>
+      <small data-tip={w?.goal ? `Its half: ${w.goal}` : 'Waiting for the plan'}>{w?.model ? String(w.model).split('/').pop() : 'model'}{w?.goal ? ` · ${w.goal}` : ''}</small>
       <em className={`cwb-prov ${pcls}`} data-tip={w?.note || (w?.provider === 'reader' ? 'No live browser right now — it reads pages as text so it keeps working' : 'A browser in the cloud — nothing runs on your device')}>{p}</em>
-      <span className="cwb-url" title={w?.url || ''}>{w?.url || 'about:blank'}</span></header>
-    <div className="cwb-view">
+      <em className={`agd-live${working ? '' : ' is-off'}`}>● {working ? 'LIVE' : String(w?.status || 'idle').toUpperCase()}</em></span>
+    <div className="agd-browser is-rec cwb-browser">
+    <span className="agd-url" title={w?.url || ''}><i aria-hidden="true">🔒</i><b>{w?.url ? String(w.url).replace(/^https?:\/\//, '') : 'about:blank'}</b>{working ? <u className="agd-caret" aria-hidden="true" /> : null}{working ? <em className="agd-rec">● REC</em> : <small className="m-num">{usd(w?.cost || 0)}</small>}</span>
+    <div className="agd-screen cwb-view">
       {w?.coin?.pair && seen ? <div className="cwb-chart" data-testid="cwb-chart"><Suspense fallback={<span className="cwb-chart-load">loading ${w.coin.symbol} on FEELESS…</span>}>
         <PriceChart key={w.coin.pair} pair={{ chainId: 'solana', pairAddress: w.coin.pair, baseToken: { address: w.coin.mint, symbol: w.coin.symbol } }} interval="1m" metric="price" showVolume={false} /></Suspense>
         <em className="cwb-chart-tag">FEELESS · ${w.coin.symbol}</em></div>
@@ -51,7 +56,7 @@ function Window({ w, catId, tick, onGo, onLogin, busy }) {
         : w?.shot && seen ? <img className="cwb-shot" src={apiUrl(`/api/cats/${catId}/work/shot/${w.i}?${agentAuthQuery()}&t=${tick}`)} alt={`${w.model} window`} data-testid="cwb-shot" />
           : <ol className="cwb-steps" data-testid="cwb-steps">{(w?.steps || []).length ? w.steps.map((s, i) => <li key={i} style={{ '--i': i }}><b>{s.action}</b><span>{s.thought}</span>{s.detail ? <small>{s.detail}</small> : null}</li>)
             : <li className="cwb-idle"><span>{w?.status === 'done' ? (w?.answer ? 'done — its answer is in the chat' : 'done') : 'ready — ask below'}</span></li>}</ol>}
-      {w?.bubble && w?.status !== 'idle' ? <p className="cwb-bubble" key={w.bubble} data-testid="cwb-bubble"><i aria-hidden="true" />{w.bubble}</p> : null}
+      {w?.bubble && w?.status !== 'idle' ? <p className={`agd-done is-on cwb-say at-${i % 2 ? 'right' : 'left'}`} key={w.bubble} data-testid="cwb-bubble">MIND {'AB'[i] || i + 1} · {w.bubble}</p> : null}
       {human && w.human.kind === 'login' ? <div className="cwb-human cwb-signin" role="alertdialog" aria-label={`Sign in to ${w.human.site}`} data-testid="cwb-login">
         <b>🔑 {w.human.site} needs a sign-in</b><small>It goes in the credentials drawer, sealed — the AI models never see it.</small>
         <span><button type="button" className="m-btn m-go" disabled={busy} onClick={() => onLogin?.(w.human.site)} data-tip="Opens the credentials drawer with this site filled in" data-testid="cwb-login-go">Click to sign in</button>
@@ -59,8 +64,7 @@ function Window({ w, catId, tick, onGo, onLogin, busy }) {
       : human ? <div className="cwb-human" role="alertdialog" aria-label="A person is needed" data-testid="cwb-human"><b>✋ needs you</b><small>{w.human.why}</small>
         <span><button type="button" className="m-btn m-go" disabled={busy} onClick={() => onGo('continue', w.i)} data-testid="cwb-continue">I did it — continue</button>
           <button type="button" className="m-btn" disabled={busy} onClick={() => onGo('stop_window', w.i)} data-testid="cwb-stopwin">Stop</button></span></div> : null}
-    </div>
-    <footer className="cwb-foot"><span className={`cwb-st s-${w?.status || 'idle'}`}><i aria-hidden="true" />{(w?.status || 'idle').toUpperCase()}</span><small className="m-num">{usd(w?.cost || 0)}</small></footer>
+    </div></div>
   </article>;
 }
 
@@ -113,9 +117,7 @@ const DESK_TIPS = [['[data-testid="cwb-now"]', 'What it is doing', 'Live: the si
   ['[data-testid="cwb-plus"]', 'Attach', 'Drop images or clips — they ride with your next ask (kept 24 h; ☁ Keep saves one to your own cloud).'],
   ['[data-testid="cwb-gear"]', 'Chat settings', 'How its minds work, who you talk to, the $ a task may spend, its job + tools.'],
   ['[data-testid="cwb-go"]', 'Let it go', 'ON: long tasks and queued asks run back to back until a person is needed.'],
-  ['[data-testid="cwb-earn-sw"]', 'Earn Mode', 'When idle it plans what its money could earn on FEELESS — you sign each play.'],
-  ['[data-testid="cwb-vault"] summary', 'Credentials', 'Logins its windows may use: sealed, the AI never sees them; 👁 needs your wallet signature.'],
-  ['[data-testid="cwb-logbtn"]', 'Its log', 'Every ask, step, file and guard — newest first, in a side sheet.']];
+  ['[data-testid="agent-log"] .ck-folders', 'Its file cabinet', 'Credentials, storage, earn plays and every log line — a drawer each; hide the ones you never use.']];
 // pure: the general cat's log — your asks + answers (tasks), each window's steps (thoughts), its files, the cloud, every refusal (guards)
 export function genLog(d) {
   const now = Date.now() / 1000;
@@ -131,11 +133,41 @@ export function genLog(d) {
 export function CatWorkbench({ cat, readOnly = false }) {
   return readOnly ? <PublicMinds cat={cat} /> : <WorkbenchLive cat={cat} />;
 }
+// 🖥 fits a dash to the screen under whatever sits above it (a visitor's view never scrolls — owner 2026-10-30)
+function useFit(ref, below = 76) {
+  useLayoutEffect(() => {
+    const fit = () => { const r = ref.current; const st = r?.querySelector('.cwb-stage'); if (!st) return;
+      if (window.innerWidth <= 900) { r.style.removeProperty('--cwb-h'); return; }
+      const top = st.getBoundingClientRect().top + window.scrollY; let h = Math.round(Math.max(240, Math.min(720, window.innerHeight - top - below)));
+      r.style.setProperty('--cwb-h', `${h}px`);
+      const over = (r.closest('.kd') || r).getBoundingClientRect().bottom + window.scrollY - window.innerHeight + 24;   // then trim what the chrome around it adds
+      if (over > 0) { h = Math.max(240, h - Math.ceil(over)); r.style.setProperty('--cwb-h', `${h}px`); } };
+    fit(); window.addEventListener('resize', fit); return () => window.removeEventListener('resize', fit);
+  }, [ref, below]);
+}
+// 👀 A VISITOR's view of someone's agent (no scroll): its two windows as they work — the site's host, the kind of step and how far — never the page
 function PublicMinds({ cat }) {
-  const b = cat.brainsCfg || {}; const brains = b.brains || [];
-  return <section className="cwb kd-card cwb-public" data-testid="cwb-public">
-    <div className="ck-cockpit">{[0, 1].map(i => <MindVitals key={i} cat={cat} model={brains[i]} i={i} kind="general" live={cat.status === 'running'} extra={<p className="ck-v-last">{brains[i] ? 'works in its own cloud browser — private to its owner' : 'no second mind'}</p>} />)}</div>
-    <AgentLog title="WHAT BOTH MINDS AGREED ON" items={(b.cloud || []).map(c => ({ f: 'cloud', at: c.at, text: c.text || `${c.word} $${c.sym}`, tone: 'acc' }))} />
+  const ref = useRef(null); useFit(ref, 40); const seen = useOnScreen(ref);
+  const [d, setD] = useState(null);
+  useEffect(() => { if (!seen) return undefined; let on = true; const go = () => { if (document.hidden) return; Promise.resolve().then(() => fetch(apiUrl(`/api/cats/${cat.id}/live`))).then(r => (r?.ok ? r.json() : null)).then(x => on && x && setD(x)).catch(() => {}); };
+    go(); const t = setInterval(go, 4000); return () => { on = false; clearInterval(t); }; }, [cat.id, seen]);
+  const brains = cat.brainsCfg?.brains || [];
+  const wins = d?.windows?.length ? d.windows : brains.slice(0, 2).map((m, i) => ({ i, model: String(m).split('/').pop(), status: 'idle', host: '', steps: 0 }));
+  const live = d?.status === 'working' || wins.some(w => w.status === 'working');
+  const agreed = (cat.brainsCfg?.cloud || []).at(-1);
+  return <section ref={ref} className="cwb kd-card cwb-dash cwb-public" data-testid="cwb-public">
+    <NowLine cat={cat} wins={wins.map(w => ({ ...w, url: w.host ? `https://${w.host}` : '', bubble: w.action ? `${w.action} · step ${w.steps}` : '' }))} live={live} />
+    <div className="cwb-stage agd-wins">{wins.map(w => { const go = w.status === 'working'; const i = w.i ?? 0;
+      return <article key={i} className={`agd-win cwb-win w${i % 2} s-${w.status}`} data-testid={`cwb-pub-${i}`}>
+        <span className={`agd-bar${go ? ' is-go' : ''}`}><i /><i /><i /><b>MIND {'AB'[i] || i + 1}</b><small>{w.model || 'model'}</small><em className={`agd-live${go ? '' : ' is-off'}`}>● {go ? 'LIVE' : String(w.status).toUpperCase()}</em></span>
+        <div className="agd-browser is-rec cwb-browser"><span className="agd-url"><i aria-hidden="true">🔒</i><b>{w.host || 'about:blank'}</b>{go ? <em className="agd-rec">● LIVE</em> : null}</span>
+          <div className="agd-screen cwb-view cwb-pubscreen"><span className="cwb-pub-host" key={w.host}>{w.host || (go ? 'thinking…' : 'idle')}</span>
+            <span className="cwb-pub-step">{w.action ? <>{w.action.toUpperCase()} · step <b className="m-num" key={w.steps}>{w.steps}</b></> : 'waiting for its owner\'s ask'}</span>
+            <u className="cwb-pub-bar" aria-hidden="true"><s style={{ transform: `scaleX(${Math.min(1, (w.steps || 0) / 30)})` }} /></u>
+            <small className="cwb-pub-note">🔒 the page itself is private to its owner</small>
+            {go ? <p className={`agd-done is-on cwb-say at-${i % 2 ? 'right' : 'left'}`}>MIND {'AB'[i]} · {w.action || 'working'} on {w.host || '…'}</p> : null}</div></div>
+      </article>; })}</div>
+    {agreed ? <p className="cwb-agreed" data-tip="What both minds agreed on last — kept in its cloud">☁ {agreed.text || `${agreed.word} $${agreed.sym}`}</p> : null}
   </section>;
 }
 
@@ -160,7 +192,7 @@ function Credentials({ cat, rows, ask, onSaved, log = [] }) {
   const save = async e => { e.preventDefault(); const f = new FormData(e.currentTarget); const form = e.currentTarget; setErr(''); setBusy(true);
     try { const j = await work(cat.id, { op: 'save_login', text: host, user: String(f.get('u') || ''), secret: String(f.get('p') || '') }); form.reset(); setSite(''); onSaved?.(j.logins); } catch (er) { setErr(er.message); } finally { setBusy(false); } };
   const drop = async r => { try { onSaved?.((await work(cat.id, { op: 'unlogin', text: r.site, job: r.user })).logins); } catch (er) { setErr(er.message); } };
-  return <details ref={box} className="cwb-vault" data-testid="cwb-vault"><summary data-tip="Logins its windows may use — sealed on the server, the AI models never see them">🔐 CREDENTIALS <b className="m-num">{rows?.length || 0}</b></summary>
+  return <details ref={box} className="cwb-vault" open data-testid="cwb-vault"><summary data-tip="Logins its windows may use — sealed on the server, the AI models never see them">🔐 CREDENTIALS <b className="m-num">{rows?.length || 0}</b></summary>
     {rows?.length ? <ul>{rows.map(r => <CredRow key={`${r.site}|${r.user}`} cat={cat} r={r} onDrop={drop} />)}</ul> : null}
     <form className="cwb-login cwb-cred-add" onSubmit={save} autoComplete="off" data-testid="cwb-cred-add">
       <input className="m-input" name="s" value={site} onChange={e => setSite(e.target.value)} placeholder="site (e.g. dropbox.com)" aria-label="Site" required data-testid="cwb-cred-site" />
@@ -184,7 +216,7 @@ export function CloudDrawer({ cat, attachments }) {
   const run = async (k, fn) => { setBusy(k); setErr(''); try { await fn(); } catch (e) { setErr(e.message); } finally { setBusy(''); } };
   const connect = p => run(p, async () => { window.location.assign((await post('cloud/connect', { provider: p })).url); });
   const link = c?.link; const used = Number(c?.used || 0); const total = Number(c?.total || 0); const files = attachments?.files || [];
-  return <details className="cwb-vault cwb-cloudd" open={!link} data-testid="cwb-cloud-drawer"><summary data-tip="Its storage lives in YOUR cloud — FEELESS keeps none">☁ CLOUD {link ? <em className="m-chip ok">{link.label}</em> : <em className="m-chip warn">not connected</em>}</summary>
+  return <details className="cwb-vault cwb-cloudd" open data-testid="cwb-cloud-drawer"><summary data-tip="Its storage lives in YOUR cloud — FEELESS keeps none">☁ CLOUD {link ? <em className="m-chip ok">{link.label}</em> : <em className="m-chip warn">not connected</em>}</summary>
     {!link ? <div className="cwb-cloud-pick" data-testid="cwb-cloud-pick"><p className="m-note"><b>Connect your own cloud</b>Its files go to a FEELESS folder in your account. You sign in on Google / Dropbox — FEELESS never sees that password.</p>
       {(c?.providers || []).map(p => <button key={p.key} type="button" className={`m-btn${p.ready ? ' m-go' : ''}`} disabled={!p.ready || !!busy} onClick={() => connect(p.key)}
         data-tip={p.ready ? `Sign in to ${p.label} (${p.free}) — opens their page` : `${p.label} isn't set up on FEELESS yet`} data-testid={`cwb-cloud-${p.key}`}>{busy === p.key ? 'Opening…' : `Connect ${p.label}`} <small>{p.ready ? p.free : 'soon'}</small></button>)}</div> : <>
@@ -250,31 +282,22 @@ function WorkbenchLive({ cat }) {
   const setWay = async k => { setBusy(true); try { await work(cat.id, { op: 'mode', job: k }); await load(); } catch (er) { setErr(er.message); } finally { setBusy(false); } };
   const wins = d?.windows?.length ? d.windows : (cat.brainsCfg?.brains || ['', '']).slice(0, 8).map((m, i) => ({ i, model: m, status: 'idle' }));
   const credit = Number(d?.credit ?? cat.brainsCfg?.credit ?? 0); const cap = Number(d?.cap ?? 0.05); const spent = Number(d?.task?.cost || 0);
-  const [gear, setGear] = useState(false); const [logOpen, setLogOpen] = useState(false); const log = useMemo(() => genLog(d), [d]);
-  useEffect(() => { if (!gear && !logOpen) return undefined; const k = e => { if (e.key === 'Escape') { setGear(false); setLogOpen(false); } }; window.addEventListener('keydown', k); return () => window.removeEventListener('keydown', k); }, [gear, logOpen]);
+  const [gear, setGear] = useState(false); const log = useMemo(() => genLog(d), [d]);
+  useEffect(() => { if (!gear) return undefined; const k = e => { if (e.key === 'Escape') setGear(false); }; window.addEventListener('keydown', k); return () => window.removeEventListener('keydown', k); }, [gear]);
   const dash = useRef(null);
-  useLayoutEffect(() => {   // 🖥 one screen: the windows take what is left under the page's own top (app bar, hero, tabs) — never a page scroll on a laptop
-    const fit = () => { const r = dash.current; const st = r?.querySelector('.cwb-stage'); if (!st) return;
-      if (window.innerWidth <= 900) { r.style.removeProperty('--cwb-h'); return; }
-      const top = st.getBoundingClientRect().top + window.scrollY; r.style.setProperty('--cwb-h', `${Math.round(Math.max(240, Math.min(640, window.innerHeight - top - 84)))}px`); };
-    fit(); window.addEventListener('resize', fit); return () => window.removeEventListener('resize', fit);
-  }, []);
   return <section ref={dash} className="cwb kd-card cwb-dash" data-testid="cat-workbench">
     <header className="cwb-head"><span><b>🧠🧠 ITS MINDS</b><small>{(d?.providers || []).filter(x => x !== 'reader').length ? `browsers in the cloud · ${d.providers.join(' → ')}` : 'reading pages as text (no hosted browser key yet)'}</small></span>
       <button type="button" className={`cwb-go${go ? ' is-on' : ''}`} aria-pressed={go} disabled={busy} onClick={() => act('go', { on: !go })} data-testid="cwb-go"
         data-tip={go ? 'ON: up to 30 steps a window, asks queue and run back to back — it stops only when done, at the $ cap, or for a sign-in / CAPTCHA / card payment' : 'Let it go: it works long tasks on its own and takes queued asks one after another until a person is needed'}>
         <i aria-hidden="true" />🏇 LET IT GO <b>{go ? 'ON' : 'OFF'}</b></button>
-      <button type="button" className="m-btn cwb-logbtn" onClick={() => setLogOpen(true)} aria-haspopup="dialog" data-tip="Its log: your asks, every step, files, cloud notes and guards — newest first" data-testid="cwb-logbtn">📜 LOG <b className="m-num">{log.length}</b></button>
       <span className="cwb-meters">
         <span data-tip="Model credit left: every answer and browsing step is paid from it. Add more in its wallet panel"><em>CREDIT</em><b className="m-num">{usd(credit)}</b><u aria-hidden="true"><s style={{ transform: `scaleX(${Math.min(1, credit / 10)})` }} /></u></span>
         <span data-tip="This task's spend against its cap — it stops at the cap with what it has"><em>THIS TASK</em><b className="m-num">{usd(spent)} / {usd(cap)}</b><u aria-hidden="true"><s className={spent >= cap * 0.8 ? 'is-hot' : ''} style={{ transform: `scaleX(${Math.min(1, spent / (cap || 1))})` }} /></u></span>
       </span></header>
     <NowLine cat={cat} wins={wins} live={live} />
-    <div className="cwb-stage">
-    <div className="cwb-wins">{wins.map(w => <Window key={w.i} w={w} catId={cat.id} tick={tick} busy={busy} onGo={(op, i) => act(op, { i })} onLogin={site => setSignIn({ site, at: Date.now() })} />)}</div>
-    <aside className="cwb-rail" aria-label="Its latest">
-    <LastMoney m={d?.lastMoney} />
-    <div className="cwb-talk" data-testid="cwb-cockpit">
+    <div className="cwb-stage agd-wins">{wins.map(w => <Window key={w.i} w={w} catId={cat.id} tick={tick} busy={busy} onGo={(op, i) => act(op, { i })} onLogin={site => setSignIn({ site, at: Date.now() })} />)}</div>
+    <div className="cwb-under">
+        <div className="cwb-talk" data-testid="cwb-cockpit">
     {d?.task?.answer || status === 'stopped' || status === 'error' ? <p className={`cwb-answer s-${status}`} data-testid="cwb-answer">{d.task.fast ? '⚡ from memory · ' : ''}{d.task.answer || d.task.why}</p> : null}
     <ol className="cwb-chat" aria-label="Chat with its models">{(d?.chat || []).slice(-12).filter(m => !(m.by !== 'you' && BUDGET_STOP.test(m.text))).reduce(squash, []).slice(-8).map((m, i) => <li key={i} className={m.by === 'you' ? 'is-you' : 'is-cats'}><b>{m.by === 'you' ? 'You' : '🧠🧠'}</b><span>{m.text}{m.n > 1 ? <em className="cwb-x"> ×{m.n}</em> : null}</span>{m.cost != null ? <small className="m-num">{usd(m.cost)}</small> : null}</li>)}</ol>
     {BUDGET_STOP.test((d?.chat || []).filter(m => m.by !== 'you').at(-1)?.text || '') ? <p className="m-note warn cwb-topup" role="status" data-testid="cwb-topup"><b>💸 Out of budget for that ask</b>
@@ -309,18 +332,19 @@ function WorkbenchLive({ cat }) {
         : <button type="submit" className="m-btn m-go" disabled={busy || (way === 'jobs' && wins.length > 1 ? !(jobs[0].trim() || jobs[1].trim()) : !text.trim())} data-testid="cwb-send">Send ↵</button>}
     </form>
     </div>
-    <div className="cwb-drawers">
-    <EarnCard cat={cat} />
-    {(d?.cloud || []).length ? <div className="cwb-cloud" data-testid="cwb-cloud" data-tip="Its main cloud: the best of both minds' scratch pads, kept for next time"><b>☁ MAIN CLOUD</b>
-      {d.cloud.slice(-3).reverse().map((c, i) => <span key={i} style={{ '--i': i }}>{c.text || `${c.word} $${c.sym}`}</span>)}</div> : null}
-    <Credentials cat={cat} rows={d?.logins} log={d?.vaultLog || []} ask={signIn} onSaved={logins => setD(x => ({ ...x, logins }))} />
-    <CloudDrawer cat={cat} attachments={d?.storage} /><MediaDrawer items={d?.media} />
-    {(d?.artifacts || []).map((a, i) => <details className="cwb-artifact" key={i}><summary>{a.title} · {a.kind}</summary>{a.kind === 'build' ? <iframe title={a.title} sandbox="allow-scripts" referrerPolicy="no-referrer" srcDoc={'<meta http-equiv="Content-Security-Policy" content="default-src \'none\'; script-src \'unsafe-inline\'; style-src \'unsafe-inline\'; img-src data:; connect-src \'none\'; form-action \'none\'; base-uri \'none\'">' + a.content} /> : <pre>{a.content}</pre>}</details>)}
-    {(d?.refusals || []).length ? <details className="cwb-refusals"><summary>Refusals · {d.refusals.length}</summary>{d.refusals.map((r, i) => <p key={i}>{r.why}</p>)}</details> : null}
-    </div></aside></div>
+    <aside className="cwb-tools-rail" aria-label="Quick tools">
+    <LastMoney m={d?.lastMoney} />
+    <AgentLog title="ITS FILE CABINET" items={log} open={signIn ? { key: 'creds', at: signIn.at } : null} cabinet={[
+      ['creds', '🔐', 'Credentials', (d?.logins || []).length, <Credentials cat={cat} rows={d?.logins} log={d?.vaultLog || []} ask={signIn} onSaved={logins => setD(x => ({ ...x, logins }))} />],
+      ['storage', '☁', 'Storage', (d?.storage?.files || []).length, <CloudDrawer cat={cat} attachments={d?.storage} />],
+      ['earn', '⚡', 'Earn', (d?.lastMoney ? 1 : 0), <EarnCard cat={cat} />],
+      ['notes', '🧠', 'Main cloud', (d?.cloud || []).length, <div className="cwb-cloud" data-testid="cwb-cloud">{(d?.cloud || []).slice(-6).reverse().map((c, i) => <span key={i} style={{ '--i': i }}>{c.text || `${c.word} $${c.sym}`}</span>)}</div>],
+      ...((d?.media || []).length ? [['media', '🖼', 'Media', d.media.length, <MediaDrawer items={d.media} />]] : []),
+      ...((d?.artifacts || []).length ? [['builds', '🛠', 'Builds', d.artifacts.length, <div className="cwb-builds">
+      {(d?.artifacts || []).map((a, i) => <details className="cwb-artifact" key={i}><summary>{a.title} · {a.kind}</summary>{a.kind === 'build' ? <iframe title={a.title} sandbox="allow-scripts" referrerPolicy="no-referrer" srcDoc={'<meta http-equiv="Content-Security-Policy" content="default-src \'none\'; script-src \'unsafe-inline\'; style-src \'unsafe-inline\'; img-src data:; connect-src \'none\'; form-action \'none\'; base-uri \'none\'">' + a.content} /> : <pre>{a.content}</pre>}</details>)}
+      </div>]] : [])]} />
+    </aside></div>
     <FirstTips id="agent-desk" tips={DESK_TIPS} />
-    {logOpen ? <div className="cwb-logpane" role="dialog" aria-label="Its log" data-testid="cwb-logpane"><button type="button" className="cwb-logshade" aria-label="Close the log" onClick={() => setLogOpen(false)} />
-      <div className="cwb-logbody"><button type="button" className="m-btn cwb-logx" onClick={() => setLogOpen(false)} aria-label="Close the log" data-testid="cwb-logx">✕</button><AgentLog items={log} /></div></div> : null}
     {d && !d.live ? <p className="cwb-note" data-testid="cwb-off">Model calls are switched off on this server — asking sends and charges nothing until the owner turns them on.</p> : null}
     {err ? <p className="kd-err" role="alert">⚠ {err}</p> : null}
   </section>;

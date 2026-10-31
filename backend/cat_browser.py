@@ -29,6 +29,16 @@ def chain(env):
     return [p for p, ok in (('steel', k['STEEL_API_KEY']), ('browserless', k['BROWSERLESS_API_KEY']), ('browserbase', k['BROWSERBASE_API_KEY'] and k['BROWSERBASE_PROJECT_ID'])) if ok] + ['reader']
 
 
+VIEWPORT = {'width': 1440, 'height': 900}   # 🖥 HD: the page fills the window on the desk (owner 2026-10-30: "cover the whole plot, HD")
+
+
+def steel_view(url):
+    """Steel's live view, page only: no control bar, dark, clickable (a sign-in). None stays None."""
+    if not url:
+        return url
+    return url + ('&' if '?' in url else '?') + 'showControls=false&theme=dark&interactive=true'
+
+
 def safe_live(url, env):
     """A live URL may reach the owner's page only if it holds none of our secrets."""
     u = str(url or '')
@@ -43,7 +53,7 @@ def _reader(note=None):
 
 async def _steel(http, env, ctx=None):
     k = keys(env)['STEEL_API_KEY']
-    body = {'timeout': TIMEOUT_MS, 'solveCaptcha': False, 'blockAds': True, **({'sessionContext': ctx} if ctx else {})}
+    body = {'timeout': TIMEOUT_MS, 'solveCaptcha': False, 'blockAds': True, 'dimensions': VIEWPORT, **({'sessionContext': ctx} if ctx else {})}
     r = await http.post(f'{STEEL}/sessions', headers={'steel-api-key': k, 'Content-Type': 'application/json'}, json=body, timeout=20)
     if r.status_code not in (200, 201):
         raise ValueError(f'Steel {r.status_code}')
@@ -51,7 +61,7 @@ async def _steel(http, env, ctx=None):
     sid = j.get('id')
     if not sid:
         raise ValueError('Steel gave no session id')
-    return {'provider': 'steel', 'id': sid, 'live': safe_live(j.get('debugUrl') or j.get('sessionViewerUrl'), env),
+    return {'provider': 'steel', 'id': sid, 'live': steel_view(safe_live(j.get('debugUrl') or j.get('sessionViewerUrl'), env)),
             'connect': j.get('websocketUrl') or f'wss://connect.steel.dev?apiKey={k}&sessionId={sid}'}
 
 

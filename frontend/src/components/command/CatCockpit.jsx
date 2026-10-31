@@ -107,7 +107,7 @@ export function TradeChat({ cat, onSend, busy }) {
 }
 
 // 📁 the log: one folder per kind of thing it did, newest first, live (the desk re-reads every few seconds)
-export const FOLDERS = { trades: ['💸', 'Trades'], thoughts: ['🧠', 'Thoughts'], tasks: ['🧭', 'Tasks'], files: ['📄', 'Files'], cloud: ['☁', 'Cloud'], guards: ['🛡', 'Guards'] };
+export const FOLDERS = { trades: ['💸', 'Trades'], thoughts: ['🧠', 'Thoughts'], tasks: ['🧭', 'Tasks'], files: ['📄', 'Files'], cloud: ['📝', 'Notes'], guards: ['🛡', 'Guards'] };
 export function catLogItems(cat, events = []) {
   const b = cat?.brainsCfg || {};
   return [
@@ -126,22 +126,28 @@ export const safeLine = t => SECRET.reduce((x, re) => x.replace(re, '•••�
 // its files list beside it. Only general files ever land here: no vitals, passwords or logins (those stay sealed in the vault).
 // 🙈 drawers you hide stay hidden on this device; "All files" never hides, and the unhide button shows while any drawer is hidden
 const HIDE_KEY = 'feeless:log-hidden';
-const readHidden = () => { try { const v = JSON.parse(localStorage.getItem(HIDE_KEY) || '[]'); return Array.isArray(v) ? v.filter(k => k in FOLDERS) : []; } catch { return []; } };
-export function AgentLog({ items = [], title = 'ITS LOG' }) {
+const readHidden = () => { try { const v = JSON.parse(localStorage.getItem(HIDE_KEY) || '[]'); return Array.isArray(v) ? v.filter(k => typeof k === 'string') : []; } catch { return []; } };
+// 🗄 THE FILE CABINET (owner 2026-10-30: "this drawer holds credentials and all other stuff — a true organized file cabinet"): the log's
+// drawers + any `cabinet` drawers [key, icon, label, count, panel] (credentials, storage, earn…). The order is fixed; only the owner hides.
+export function AgentLog({ items = [], title = 'ITS LOG', cabinet = [], open = null }) {
   const [f, setF] = useState('all'); const [hidden, setHidden] = useState(readHidden);
+  useEffect(() => { if (open?.key) setF(open.key); }, [open]);
+  const extra = Object.fromEntries(cabinet.map(([k, ic, l, n, node]) => [k, { ic, l, n, node }]));
+  const names = { ...Object.fromEntries(Object.entries(FOLDERS).map(([k, v]) => [k, v[1]])), ...Object.fromEntries(cabinet.map(c => [c[0], c[2]])) };
   const keep = next => { setHidden(next); try { localStorage.setItem(HIDE_KEY, JSON.stringify(next)); } catch { /* private window: this visit only */ } };
   const hide = k => { keep([...new Set([...hidden, k])]); if (f === k) setF('all'); };
   const counts = useMemo(() => items.reduce((m, x) => ({ ...m, [x.f]: (m[x.f] || 0) + 1 }), {}), [items]);
-  const rows = (f === 'all' ? items : items.filter(x => x.f === f)).slice(0, 40);
+  const rows = (f === 'all' ? items : items.filter(x => x.f === f)).slice(0, 40); const panel = extra[f]?.node;
+  const drawers = [['all', ['🗂', 'All files']], ...cabinet.map(([k, ic, l]) => [k, [ic, l]]), ...Object.entries(FOLDERS)].filter(([k]) => k === 'all' || !hidden.includes(k));
   return <section className="ck-log" data-testid="agent-log">
     <header><b>🗄 {title}</b><small>a drawer per kind · newest first · no passwords or keys, ever</small></header>
     <div className="ck-cabinet">
-      <nav className="ck-folders" role="tablist" aria-label="Log drawers">{[['all', ['🗂', 'All files']], ...Object.entries(FOLDERS).filter(([k]) => !hidden.includes(k))].map(([k, [ic, l]], i) => { const n = k === 'all' ? items.length : counts[k] || 0;
-        return <span key={k} className="ck-fold">{k === 'all' ? null : <button type="button" className="ck-hide" onClick={() => hide(k)} aria-label={`Hide the ${l} drawer`} data-tip={`Hide the ${l} drawer (bring it back any time)`} data-testid={`log-hide-${k}`}>✕</button>}<button type="button" role="tab" aria-selected={f === k} className={f === k ? 'is-on' : ''} disabled={!n} style={{ '--i': i }} onClick={() => setF(k)} data-testid={`log-${k}`} data-tip={n ? `Open the ${l} drawer` : `The ${l} drawer is empty`}>
+      <nav className="ck-folders" role="tablist" aria-label="Log drawers">{drawers.map(([k, [ic, l]], i) => { const n = k === 'all' ? items.length : extra[k] ? extra[k].n : counts[k] || 0;
+        return <span key={k} className="ck-fold">{k === 'all' ? null : <button type="button" className="ck-hide" onClick={() => hide(k)} aria-label={`Hide the ${l} drawer`} data-tip={`Hide the ${l} drawer (bring it back any time)`} data-testid={`log-hide-${k}`}>✕</button>}<button type="button" role="tab" aria-selected={f === k} className={f === k ? 'is-on' : ''} disabled={!n && !extra[k]} style={{ '--i': i }} onClick={() => setF(k)} data-testid={`log-${k}`} data-tip={n || extra[k] ? `Open the ${l} drawer` : `The ${l} drawer is empty`}>
           <i aria-hidden="true">{ic}</i><span>{l}</span><b className="m-num">{n}</b><u className="ck-handle" aria-hidden="true" /></button></span>; })}
-        {hidden.length ? <button type="button" className="ck-unhide" onClick={() => keep([])} data-tip={`Show ${hidden.map(k => FOLDERS[k][1]).join(', ')} again`} data-testid="log-unhide">👁 {hidden.length} hidden · show</button> : null}</nav>
-      <ol className="ck-rows" role="tabpanel">{rows.length ? rows.map((x, i) => <li key={`${x.f}-${x.at}-${i}`} className={`is-${x.tone || 'mute'}`} style={{ '--i': Math.min(i, 10) }}>
-        <i aria-hidden="true">{FOLDERS[x.f]?.[0]}</i><span>{safeLine(x.text)}{x.n > 1 ? <em className="ck-x"> ×{x.n}</em> : null}</span><small>{x.at ? ago(x.at) : ''}</small></li>) : <li className="ck-empty">Nothing here yet.</li>}</ol>
+        {hidden.length ? <button type="button" className="ck-unhide" onClick={() => keep([])} data-tip={`Show ${hidden.map(k => names[k] || k).join(', ')} again`} data-testid="log-unhide">👁 {hidden.length} hidden · show</button> : null}</nav>
+      {panel ? <div className="ck-panel" role="tabpanel" data-testid={`cab-${f}`}>{panel}</div> : <ol className="ck-rows" role="tabpanel">{rows.length ? rows.map((x, i) => <li key={`${x.f}-${x.at}-${i}`} className={`is-${x.tone || 'mute'}`} style={{ '--i': Math.min(i, 10) }}>
+        <i aria-hidden="true">{FOLDERS[x.f]?.[0]}</i><span>{safeLine(x.text)}{x.n > 1 ? <em className="ck-x"> ×{x.n}</em> : null}</span><small>{x.at ? ago(x.at) : ''}</small></li>) : <li className="ck-empty">Nothing here yet.</li>}</ol>}
     </div>
   </section>;
 }

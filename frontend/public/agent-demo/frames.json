@@ -53,8 +53,8 @@
    "url": "jup.ag/",
    "caption": "searches $JUP",
    "cursor": [
-    44.2,
-    4.1
+    31.7,
+    3.1
    ]
   },
   {
@@ -75,5 +75,161 @@
     55
    ]
   }
- ]
+ ],
+ "c": [
+  {
+   "src": "/agent-demo/c1.jpg",
+   "url": "coinmarketcap.com/new/",
+   "caption": "job 1 \u00b7 opens the newest coins",
+   "cursor": [
+    30,
+    30
+   ]
+  },
+  {
+   "src": "/agent-demo/c2.jpg",
+   "url": "coinmarketcap.com/new/",
+   "caption": "reads their first-day volume",
+   "cursor": [
+    45,
+    45
+   ]
+  },
+  {
+   "src": "/agent-demo/c3.jpg",
+   "url": "coinmarketcap.com/trending-cryptocurrencies/",
+   "caption": "cross-checks what is trending",
+   "cursor": [
+    35,
+    30
+   ]
+  },
+  {
+   "src": "/agent-demo/c4.jpg",
+   "url": "coinmarketcap.com/trending-cryptocurrencies/",
+   "caption": "hands 3 coins to B",
+   "cursor": [
+    40,
+    55
+   ]
+  }
+ ],
+ "d": [
+  {
+   "src": "/agent-demo/d1.jpg",
+   "url": "explorer.solana.com/address/JUPyiwrYJFskUPiHa7hkeR8VUtAeFoSYbKedZNsDvCN",
+   "caption": "job 2 \u00b7 opens $JUP on-chain",
+   "cursor": [
+    30,
+    25
+   ]
+  },
+  {
+   "src": "/agent-demo/d2.jpg",
+   "url": "explorer.solana.com/address/JUPyiwrYJFskUPiHa7hkeR8VUtAeFoSYbKedZNsDvCN",
+   "caption": "reads supply + authorities",
+   "cursor": [
+    45,
+    45
+   ]
+  },
+  {
+   "src": "/agent-demo/d3.jpg",
+   "url": "explorer.solana.com/address/DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263",
+   "caption": "checks $BONK next",
+   "cursor": [
+    30,
+    25
+   ]
+  },
+  {
+   "src": "/agent-demo/d4.jpg",
+   "url": "explorer.solana.com/address/DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263",
+   "caption": "writes the on-chain report",
+   "cursor": [
+    45,
+    50
+   ]
+  }
+ ],
+ "jobsCredit": "Recorded live \u00b7 CoinMarketCap \u00b7 Solana Explorer",
+ "t": [
+  {
+   "src": "/agent-demo/t1.jpg",
+   "url": "coinmarketcap.com/currencies/bonk1/",
+   "caption": "reads $BONK",
+   "cursor": [
+    62,
+    42
+   ]
+  },
+  {
+   "src": "/agent-demo/t2.jpg",
+   "url": "coinmarketcap.com/currencies/bonk1/",
+   "caption": "buyers vs sellers",
+   "cursor": [
+    58,
+    46
+   ]
+  },
+  {
+   "src": "/agent-demo/t3.jpg",
+   "url": "coinmarketcap.com/currencies/bonk1/",
+   "caption": "its floor held",
+   "cursor": [
+    54,
+    50
+   ]
+  },
+  {
+   "src": "/agent-demo/t4.jpg",
+   "url": "coinmarketcap.com/currencies/bonk1/",
+   "caption": "the next candle",
+   "cursor": [
+    50,
+    54
+   ]
+  }
+ ],
+ "tSym": "BONK",
+ "u": [
+  {
+   "src": "/agent-demo/u1.jpg",
+   "url": "coinmarketcap.com/currencies/dogwifhat/",
+   "caption": "reads $WIF",
+   "cursor": [
+    62,
+    42
+   ]
+  },
+  {
+   "src": "/agent-demo/u2.jpg",
+   "url": "coinmarketcap.com/currencies/dogwifhat/",
+   "caption": "buyers vs sellers",
+   "cursor": [
+    58,
+    46
+   ]
+  },
+  {
+   "src": "/agent-demo/u3.jpg",
+   "url": "coinmarketcap.com/currencies/dogwifhat/",
+   "caption": "its floor held",
+   "cursor": [
+    54,
+    50
+   ]
+  },
+  {
+   "src": "/agent-demo/u4.jpg",
+   "url": "coinmarketcap.com/currencies/dogwifhat/",
+   "caption": "the next candle",
+   "cursor": [
+    50,
+    54
+   ]
+  }
+ ],
+ "uSym": "WIF",
+ "chartCredit": "Recorded live \u00b7 CoinMarketCap \u00b7 real Solana coins"
 }

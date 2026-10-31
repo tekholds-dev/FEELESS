@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { MemoryRouter } from 'react-router-dom';
 import { CatDesk } from '../components/command/CatDesk';
+import { AgentDemo } from '../components/command/AgentDemo';
 import { CatReal } from '../components/command/CatReal';
 import { BrainPanel } from '../components/command/LaunchCat';
 import { WalletProvider } from '../hooks/useWallet';
@@ -31,8 +32,10 @@ const WORK = { lastMoney: { sol: 0.0421, at: now - 900, what: 'sell' }, vaultLog
     human: { kind: 'login', site: 'news.site', why: 'log in to news.site' }, steps: [{ action: 'open', thought: 'open the paywalled story', detail: 'news.site' }] }] };
 const CLOUD = { providers: [{ key: 'gdrive', label: 'Google Drive', free: '15 GB free', ready: true }, { key: 'dropbox', label: 'Dropbox', free: '2 GB free', ready: false }], link: { provider: 'gdrive', label: 'Google Drive' }, used: 6.2 * 1024 ** 3, total: 15 * 1024 ** 3,
   recent: ['coin-logo.png', 'banner.gif', 'launch.png'].map((n, i) => ({ id: `r${i}`, name: n, size: 2e6, link: '#', thumb: PX })) };
-window.fetch = (u, o) => (String(u).includes('/cloud?') ? Promise.resolve(new Response(JSON.stringify(CLOUD), { headers: { 'Content-Type': 'application/json' } })) : String(u).endsWith('/work') ? Promise.resolve(new Response(JSON.stringify(WORK), { headers: { 'Content-Type': 'application/json' } })) : String(u).endsWith('/fund') ? Promise.resolve(new Response(JSON.stringify(FUND), { headers: { 'Content-Type': 'application/json' } })) : String(u).includes('/agent-wallet') ? Promise.resolve(new Response(JSON.stringify({ wallet: { address: AGT, mode: 'approve' }, balance: { sol: 0.4213, usdc: 12.5 } }), { headers: { 'Content-Type': 'application/json' } })) : realFetch(u, o));
+window.fetch = (u, o) => (String(u).endsWith('/live') ? Promise.resolve(new Response(JSON.stringify({ status: 'working', windows: [{ i: 0, model: 'qwen3-32b', status: 'working', host: 'kalshi.com', action: 'click', steps: 7 }, { i: 1, model: 'claude-opus-4.1', status: 'working', host: 'news.site', action: 'open', steps: 3 }] }), { headers: { 'Content-Type': 'application/json' } })) : String(u).includes('/cloud?') ? Promise.resolve(new Response(JSON.stringify(CLOUD), { headers: { 'Content-Type': 'application/json' } })) : String(u).endsWith('/work') ? Promise.resolve(new Response(JSON.stringify(WORK), { headers: { 'Content-Type': 'application/json' } })) : String(u).endsWith('/fund') ? Promise.resolve(new Response(JSON.stringify(FUND), { headers: { 'Content-Type': 'application/json' } })) : String(u).includes('/agent-wallet') ? Promise.resolve(new Response(JSON.stringify({ wallet: { address: AGT, mode: 'approve' }, balance: { sol: 0.4213, usdc: 12.5 } }), { headers: { 'Content-Type': 'application/json' } })) : realFetch(u, o));
 export default function CatHarness() {
+  const demo = new URLSearchParams(window.location.search).get('demo');   // ?demo=plan|jobs|discuss|battle — the launch wizard's demo alone
+  if (demo) return <div style={{ minHeight: '100vh', padding: 16, background: '#07040d' }}><AgentDemo kind={['plan', 'jobs'].includes(demo) ? 'general' : 'trading'} mode={demo} models={[{ name: 'GPT-6 Astra' }, { name: 'Claude Opus 5.5' }]} /></div>;
   const [mode, setMode] = useState(window.location.search.includes('paper') ? 'paper' : 'real');
   const [aw, setAw] = useState(window.location.search.includes('wallet') ? { address: AGT, mode: 'approve', provider: 'crossmint' } : null);
   const cat0 = mode === 'real' ? { ...BASE, mode: 'real', realWallet: DEV, budgetSol: 0.05, proposals: PROPS, realHeld: { M1: { symbol: 'GERM' } } } : BASE;
@@ -45,6 +48,6 @@ export default function CatHarness() {
       { at: now - 400, text: 'sell half of $GERM', order: { side: 'sell', coin: 'GERM', fraction: 0.5 }, state: 'filled', why: '📄 paper: sold 50% at the live price' },
       { at: now - 60, text: 'buy 0.05 SOL of $JUP', order: { side: 'buy', coin: 'JUP', sol: 0.05 }, state: 'proposed', why: '✍ buy 0.05 SOL — guards passed, waiting for your wallet\'s signature' }] } : cat;
   return <MemoryRouter><WalletProvider><div style={{ minHeight: '100vh', padding: 16, background: '#07040d', boxSizing: 'border-box' }}><div style={{ maxWidth: 1180, margin: '0 auto' }}>
-    <CatDesk cat={g} onBack={() => {}} onAct={act} Real={<CatReal cat={g} onAct={act} devAddress={DEV} />}
+    <CatDesk cat={g} canEdit={!window.location.search.includes('visitor')} onBack={() => {}} onAct={act} Real={<CatReal cat={g} onAct={act} devAddress={DEV} />}
       Brains={gen ? <BrainPanel cat={g} api={async () => ({ cat: g })} onChanged={() => {}} /> : null} /></div></div></WalletProvider></MemoryRouter>;
 }

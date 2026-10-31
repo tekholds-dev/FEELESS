@@ -87,7 +87,7 @@ def test_a_visitor_sees_the_card_never_the_vitals(monkeypatch):
 def test_every_owner_door_refuses_a_signed_out_caller(monkeypatch):
     """🔒 The sweep: every agent route that changes or shows owner-only things answers 401/403 with no session — a new door can't slip by."""
     fs, store, c = _client(monkeypatch, {'g': _general('WALLET_ME')})
-    public_ok = {'/api/cats/{cat_id}', '/api/cats/{cat_id}/profile', '/api/cats/{cat_id}/files/{name}'}
+    public_ok = {'/api/cats/{cat_id}', '/api/cats/{cat_id}/profile', '/api/cats/{cat_id}/files/{name}', '/api/cats/{cat_id}/live'}
     seen = 0
     for r in fs.app.routes:
         path = getattr(r, 'path', '')
@@ -108,3 +108,20 @@ def test_responses_carry_armor_and_owner_doors_are_rate_limited(monkeypatch):
     box = {}
     assert all(fs.rate_ok(('ip', 'g'), now=100, store=box) for _ in range(fs.RATE_MAX))
     assert not fs.rate_ok(('ip', 'g'), now=101, store=box) and fs.rate_ok(('ip', 'g'), now=100 + fs.RATE_WIN + 1, store=box)
+
+
+def test_the_public_live_view_shows_hosts_and_step_kinds_never_the_page():
+    fs = pytest.importorskip('feecat_service')
+    w = {'task': {'status': 'working', 'text': 'my secret ask', 'windows': [{'i': 0, 'model': 'openai/gpt-x', 'status': 'working', 'url': 'https://mail.google.com/inbox/secret?u=me',
+         'shot': True, 'live': 'https://steel/x', 'pw': {'pw': 'hunter2'}, 'steps': [{'action': 'type', 'thought': 'typing the password', 'detail': 'hunter2'}]}]}}
+    out = fs.public_live(w)
+    assert out == {'status': 'working', 'windows': [{'i': 0, 'model': 'gpt-x', 'status': 'working', 'host': 'mail.google.com', 'action': 'type', 'steps': 1, 'provider': None}]}
+    assert fs.public_live(None) == {'status': 'idle', 'windows': []}
+
+
+def test_live_now_lists_working_agents_with_visitor_safe_windows(monkeypatch):
+    fs, store, c = _client(monkeypatch, {'g': {**_general('WALLET_ME'), 'chat': [{'by': 'you', 'text': 'secret ask'}]}})
+    monkeypatch.setitem(fs._WORK, 'g', {'at': 5, 'task': {'status': 'working', 'text': 'secret ask', 'windows': [{'i': 0, 'model': 'a/x', 'status': 'working', 'url': 'https://x.com/home?t=1', 'steps': [{'action': 'open', 'thought': 'secret'}]}]}})
+    j = c.get('/api/cats/live-now').json()
+    assert j['agents'][0]['id'] == 'g' and j['agents'][0]['windows'][0]['host'] == 'x.com'
+    assert 'secret' not in c.get('/api/cats/live-now').text and 'WALLET_ME' not in c.get('/api/cats/live-now').text

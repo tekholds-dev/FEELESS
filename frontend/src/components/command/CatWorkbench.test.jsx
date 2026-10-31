@@ -72,10 +72,10 @@ test('🔑 a window sign-in is a small card → the credentials drawer opens wit
   await act(async () => { root.render(<CatWorkbench cat={{ id: 'g1', brainsCfg: { kind: 'general', brains: ['m/a'], credit: 1 } }} />); });
   const card = el.querySelector('[data-testid="cwb-login"]');
   expect(card.textContent).toContain('dropbox.com needs a sign-in'); expect(card.querySelector('input')).toBeNull();   // no form inside the window
-  const vault = el.querySelector('[data-testid="cwb-vault"]');
-  expect(vault.textContent).toContain('x.com'); expect(vault.textContent).not.toContain('me@mail.com');                 // site name only
-  expect(el.querySelector('[data-testid="cwb-signup"]')).toBeNull();
+  expect(el.querySelector('[data-testid="cwb-vault"]')).toBeNull();                                                      // in its cabinet drawer, closed
   await act(async () => { card.querySelector('[data-testid="cwb-login-go"]').click(); });
+  const vault = el.querySelector('[data-testid="cwb-vault"]');                                                            // the card opened the 🔐 drawer
+  expect(vault.textContent).toContain('x.com'); expect(vault.textContent).not.toContain('me@mail.com');                 // site name only
   expect(vault.open).toBe(true); expect(el.querySelector('[data-testid="cwb-cred-site"]').value).toBe('dropbox.com');
   expect(el.querySelector('[data-testid="cwb-signup"]').getAttribute('href')).toBe('https://dropbox.com');
   el.querySelector('[data-testid="cwb-login-user"]').value = 'me@drop.com'; el.querySelector('[data-testid="cwb-login-pass"]').value = 'Dr0p!pw';

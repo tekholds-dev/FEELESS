@@ -57,13 +57,13 @@ export function loadRecording() {
   if (!recP) recP = (typeof fetch === 'function' ? fetch('/agent-demo/frames.json').then(r => (r.ok ? r.json() : null)) : Promise.resolve(null)).catch(() => null);
   return recP;
 }
-function useRecording(want) {
+function useRecording(want = true) {
   const [rec, setRec] = useState(null);
   useEffect(() => { if (!want) return undefined; let on = true; loadRecording().then(r => on && setRec(r)); return () => { on = false; }; }, [want]);
   return rec;
 }
 export const FRAME_TICKS = 4;   // a frame stays ~2.6s (the general demo ticks every 650ms)
-function DemoBrowser({ frames, t, who, credit }) {
+function DemoBrowser({ frames, t, who, credit, label = 'MIND' }) {
   if (!frames?.length) return <div className="agd-browser"><span className="agd-url"><i aria-hidden="true">🔒</i><b>loading the recording…</b></span>
     <div className="agd-page"><i className="agd-sk w80" /><i className="agd-sk w60" /><i className="agd-sk w90" /></div></div>;
   const k = Math.floor(t / FRAME_TICKS) % frames.length; const sub = t % FRAME_TICKS; const f = frames[k];
@@ -74,7 +74,7 @@ function DemoBrowser({ frames, t, who, credit }) {
       {frames.map((x, i) => <img key={x.src} src={x.src} alt="" className={i === k ? 'is-on' : ''} loading="lazy" draggable="false" />)}
       <span className="agd-track" style={{ transform: `translate(${f.cursor[0]}%, ${f.cursor[1]}%)` }} aria-hidden="true">
         <span className={`agd-click${sub === 1 ? ' is-on' : ''}`} key={k} /><svg viewBox="0 0 12 16"><path d="M0 0 L0 13 L3.5 10 L6 15.5 L8 14.6 L5.6 9.4 L10 9.4 Z" /></svg></span>
-      <span className="agd-done is-on" key={`c${k}`}>MIND {who} · {f.caption}</span>
+      <span className={`agd-done is-on at-${who === 'B' ? 'right' : 'left'}`} key={`c${k}`}>{label} {who} · {f.caption}</span>
       <span className="agd-step" aria-hidden="true">{frames.map((x, i) => <i key={x.src} className={i <= k ? 'on' : ''} />)}</span>
     </div>
     {credit ? <small className="agd-credit">{credit}</small> : null}
@@ -99,20 +99,30 @@ export const DEMO_MODE = {
   jobs: { sub: ['job 1 · research', 'job 2 · uses A\'s handoff'], feed: ['⚡ two jobs: research Solana · write a thread on it', '🧠 A · researches Solana', '🧠 B · drafts the thread',
     '📦 A hands its notes + sources to B', '📝 B\'s thread cites A\'s sources', '👀 you review both before anything posts', '✅ both delivered · $0.014 of your $0.10 cap'] },
 };
+// 🖨 the free space beside the windows prints what each mind does, line by line (owner 2026-10-30) — A's lines left, B's right, shared ones both sides
+export const printsFor = (feed, who) => feed.filter(l => !/(^|\s)[AB](\s·|'s|\s\+)/.test(l) || new RegExp(`(^|\\s)${who}(\\s·|'s|\\s\\+)`).test(l));
+function Prints({ feed, who, k }) {
+  const mine = printsFor(feed, who); const n = mine.length || 1;
+  const rows = [5, 4, 3, 2, 1, 0].map(j => ({ id: k - j, text: mine[((k - j) % n + n) % n] })).filter(x => x.id >= 0 && x.text);
+  return <ol className={`agd-print p-${who}`} aria-hidden="true">{rows.map((r, i) => <li key={r.id} className={i === rows.length - 1 ? 'is-now' : ''}><time>{String(Math.floor(r.id * 1.3 / 60)).padStart(2, '0')}:{String(Math.round(r.id * 1.3) % 60).padStart(2, '0')}</time>{r.text}</li>)}</ol>;
+}
 export function AgentDemo({ kind = 'trading', models = [], mode }) {
   const gen = kind === 'general'; const [ref, t] = useClock(gen ? 650 : 900);
-  const rec = useRecording(gen);
-  const how = DEMO_MODE[mode] || DEMO_MODE[gen ? 'plan' : 'discuss'];
+  const rec = useRecording();
+  const how = DEMO_MODE[mode] || DEMO_MODE[gen ? 'plan' : 'discuss']; const jobs = gen && mode === 'jobs';   // two jobs ⇒ two different recorded sites
   const feed = how.feed || (how.line ? DEMO_FEED.trading.map((l, j) => (j === 2 ? how.line : l)) : DEMO_FEED[gen ? 'general' : 'trading']); const k = Math.floor(t / 2);
   const lines = [0, 1, 2].map(j => ({ id: k - j, text: feed[((k - j) % feed.length + feed.length) % feed.length] })).filter(x => x.id >= 0).reverse();
   const name = i => models[i]?.name?.replace(/^[^:]+:\s*/, '') || (i ? 'second pick' : 'your pick');
   return <div className={`agd is-${gen ? 'general' : 'trading'}`} ref={ref} data-testid="agent-demo">
     <i className="agd-hex" aria-hidden="true" /><i className="agd-scan" aria-hidden="true" />
     <span className="agd-tag">◈ DEMO · {gen ? 'what its two minds do' : 'how its two brains trade'} · not real</span>
+    <div className="agd-stage"><Prints feed={feed} who="A" k={k} />
     <div className="agd-wins">{[0, 1].map(i => <div key={i} className={`agd-win w${i}`} style={{ '--i': i }}>
       <span className="agd-bar is-go"><i /><i /><i /><b>{gen ? `MIND ${'AB'[i]}` : `BRAIN ${'AB'[i]}`}</b><small>{name(i)} · {how.sub[i]}</small><em className="agd-live">● LIVE</em></span>
-      {gen ? <DemoBrowser frames={rec?.['ab'[i]]} t={t + i * 2} who={'AB'[i]} credit={i ? rec?.credit : null} /> : <DemoChart seed={i && !how.same ? 7 : 3} t={t + (how.same ? 0 : i * 9)} who={'AB'[i]} sym={i && !how.same ? 'NEON' : 'GERM'} />}
-    </div>)}</div>
+      {gen ? <DemoBrowser frames={rec?.[(jobs ? 'cd' : 'ab')[i]] || rec?.['ab'[i]]} t={t + i * 2} who={'AB'[i]} credit={i ? (jobs ? rec?.jobsCredit : rec?.credit) : null} />
+        : rec?.t?.length ? <DemoBrowser label="BRAIN" frames={rec[(i && !how.same && rec.u?.length) ? 'u' : 't']} t={t + (how.same ? 0 : i * 2)} who={'AB'[i]} credit={i ? rec.chartCredit : null} />
+          : <DemoChart seed={i && !how.same ? 7 : 3} t={t + (how.same ? 0 : i * 9)} who={'AB'[i]} sym={i && !how.same ? 'NEON' : 'GERM'} />}
+    </div>)}</div><Prints feed={feed} who="B" k={k} /></div>
     <ol className="agd-feed" aria-live="off">{lines.map(l => <li key={l.id}>{l.text}</li>)}</ol>
   </div>;
 }

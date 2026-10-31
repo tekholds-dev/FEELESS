@@ -39,12 +39,28 @@ export function Snap({ r, size = 30, tall = false }) {
     {r?.coin ? <b className="agb-snap-coin">${r.coin}</b> : null}<span className="agb-snap-face"><Face r={r} size={size} /></span></span>;
 }
 
+// 🕷→🐱 LIVE NOW (owner 2026-10-30: "live activity and leaderboard show live views of current activity like crawl"): every agent working right
+// now as its two little windows — the site's host, the kind of step and how far (never the page). One read every 5 s, paused hidden.
+export function LiveNow({ api, onOpen }) {
+  const [d, setD] = useState(null);
+  useEvery(() => { api('/api/cats/live-now').then(x => setD(x.agents || [])).catch(() => {}); }, 5000, [api]);
+  if (!d) return null;
+  return <section className="agb-now" data-testid="live-now"><header><i className="agb-now-dot" aria-hidden="true" /><b>LIVE NOW</b><small>{d.length ? `${d.length} agent${d.length > 1 ? 's' : ''} working · tap to watch` : 'nobody is working this second — the next one shows here live'}</small></header>
+    {d.length ? <div className="agb-now-grid">{d.map((a, k) => <button key={a.id} type="button" className="agb-now-card" style={{ '--i': k }} onClick={() => onOpen?.({ id: a.id })} data-tip={`Watch ${a.name} work`} data-testid={`live-now-${a.id}`}>
+      <span className="agb-now-who"><LookAvatar cat={catByName(a.avatar)} look={a.look} size={26} /><b>{a.name}</b><em>@{a.handle}</em></span>
+      <span className="agb-now-wins">{(a.windows.length ? a.windows : [{ i: 0, status: a.status }]).map(w => <span key={w.i} className={`agb-now-win w${w.i % 2}${w.status === 'working' ? ' is-go' : ''}`}>
+        <span className="agb-now-bar"><i /><i /><i /><b>{'AB'[w.i] || w.i + 1}</b><small>{w.model || ''}</small></span>
+        <span className="agb-now-url">🔒 {w.host || 'thinking…'}</span>
+        <span className="agb-now-step"><b className="m-num" key={w.steps}>{w.action ? w.action.toUpperCase() : '…'}</b>{w.steps ? ` · step ${w.steps}` : ''}<u aria-hidden="true"><s style={{ transform: `scaleX(${Math.min(1, (w.steps || 0) / 30)})` }} /></u></span></span>)}</span>
+    </button>)}</div> : null}</section>;
+}
 export function AgentLeaderboard({ api, onOpen }) {
   const [view, setView] = useState('pnl'); const [rows, setRows] = useState(null); const [err, setErr] = useState('');
   const load = useCallback(() => api(`/api/cats/leaderboard?view=${view}`).then(d => { setRows(d.rows || []); setErr(''); }).catch(e => setErr(e.message)), [api, view]);
   useEvery(load, 10000, [load]);
   const top = (rows || []).slice(0, 3); const rest = (rows || []).slice(3);
   return <section className="agb" data-testid="agent-board">
+    <LiveNow api={api} onOpen={onOpen} />
     <header className="agb-head"><span><b>🏆 AGENT LEADERBOARD</b><small>every agent on FEELESS · live · tap one to see its desk</small></span>
       <nav className="m-seg" role="tablist" aria-label="Rank by">{VIEWS.map(([k, l]) => <button key={k} type="button" role="tab" aria-selected={view === k} className={view === k ? 'is-on' : ''} onClick={() => setView(k)} data-testid={`agb-view-${k}`}>{l}</button>)}</nav></header>
     {err ? <p className="agb-err">{err}</p> : null}
@@ -80,6 +96,7 @@ export function LiveActivity({ api, onOpen, tradeCard }) {
   useEvery(() => { api('/api/cats/leaderboard?view=pnl').then(d => setFaces(Object.fromEntries((d.rows || []).map(r => [r.id, r])))).catch(() => {}); }, 30000, [api]);
   const rows = useMemo(() => groupByAgent((ev || []).filter(e => only === 'all' || ['BUY', 'SELL'].includes(e.type))).slice(0, 16), [ev, only]);
   return <section className="agb agb-act" data-testid="agent-activity">
+    <LiveNow api={api} onOpen={onOpen} />
     <header className="agb-head"><span><b>🛰 LIVE ACTIVITY</b><small>every agent's moves as they happen · tap a card to open that agent</small></span>
       <nav className="m-seg" role="tablist" aria-label="Show">{[['trades', 'Trades'], ['all', 'Everything']].map(([k, l]) => <button key={k} type="button" role="tab" aria-selected={only === k} className={only === k ? 'is-on' : ''} onClick={() => setOnly(k)}>{l}</button>)}</nav></header>
     {!ev ? <p className="agb-wait">tuning in…</p> : !rows.length ? <p className="agb-wait">Quiet right now — the next move shows here live.</p> :

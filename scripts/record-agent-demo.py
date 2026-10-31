@@ -13,7 +13,7 @@ from pathlib import Path
 from playwright.sync_api import sync_playwright
 
 OUT = Path(__file__).resolve().parent.parent / 'frontend' / 'public' / 'agent-demo'
-W, H = 960, 600
+W, H = 1440, 900   # HD (owner 2026-10-30: "the video covers the whole window, HD")
 
 
 def center(page, sel):
@@ -26,7 +26,7 @@ def center(page, sel):
 
 def shot(page, run, frames, caption, cursor=None):
     name = f'{run}{len(frames) + 1}.jpg'
-    page.screenshot(path=str(OUT / name), type='jpeg', quality=62, timeout=60000, animations='disabled')
+    page.screenshot(path=str(OUT / name), type='jpeg', quality=72, timeout=60000, animations='disabled')
     frames.append({'src': f'/agent-demo/{name}', 'url': page.url.replace('https://', ''), 'caption': caption, 'cursor': cursor or [50, 50]})
 
 
@@ -61,6 +61,58 @@ def run_b(page):   # 🧠 B · the Jupiter desk: spot, a token search, perps
     return f
 
 
+class Blocked(Exception):
+    pass
+
+
+def go(page, url, wait=5000):
+    """Open a page; a bot check (Cloudflare etc.) is skipped, never bypassed."""
+    page.goto(url, timeout=45000, wait_until='domcontentloaded'); page.wait_for_timeout(wait)
+    body = (page.content() or '')[:200000].lower()
+    if 'verify you are human' in body or 'performing security verification' in body or 'just a moment' in page.title().lower():
+        raise Blocked(url)
+    for txt in ('Reject Additional Cookies', 'Reject all', 'Necessary only'):   # a cookie banner: the privacy-first choice, never "accept"
+        try:
+            page.get_by_role('button', name=txt).first.click(timeout=1200); page.wait_for_timeout(600); break
+        except Exception:
+            pass
+
+
+def run_c(page):   # 🎯 TWO JOBS · job 1: find new + trending coins on CoinMarketCap
+    f = []
+    go(page, 'https://coinmarketcap.com/new/')
+    shot(page, 'c', f, 'job 1 · opens the newest coins', [30, 30])
+    page.mouse.wheel(0, 500); page.wait_for_timeout(1500)
+    shot(page, 'c', f, 'reads their first-day volume', [45, 45])
+    go(page, 'https://coinmarketcap.com/trending-cryptocurrencies/')
+    shot(page, 'c', f, 'cross-checks what is trending', [35, 30])
+    page.mouse.wheel(0, 500); page.wait_for_timeout(1500)
+    shot(page, 'c', f, 'hands 3 coins to B', [40, 55])
+    return f
+
+
+def run_d(page):   # 🎯 TWO JOBS · job 2: the on-chain check on those coins (the official Solana Explorer)
+    f = []
+    go(page, 'https://explorer.solana.com/address/JUPyiwrYJFskUPiHa7hkeR8VUtAeFoSYbKedZNsDvCN', 8000)
+    shot(page, 'd', f, 'job 2 · opens $JUP on-chain', [30, 25])
+    page.mouse.wheel(0, 500); page.wait_for_timeout(1500)
+    shot(page, 'd', f, 'reads supply + authorities', [45, 45])
+    go(page, 'https://explorer.solana.com/address/DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263', 8000)
+    shot(page, 'd', f, 'checks $BONK next', [30, 25])
+    page.mouse.wheel(0, 500); page.wait_for_timeout(1500)
+    shot(page, 'd', f, 'writes the on-chain report', [45, 50])
+    return f
+
+
+def run_chart(page, run, slug, sym):   # 📈 the trading demo: a REAL coin's real chart, recorded over a few minutes
+    f = []
+    go(page, f'https://coinmarketcap.com/currencies/{slug}/', 6000)
+    for k, cap in enumerate([f'reads ${sym}', 'buyers vs sellers', 'its floor held', 'the next candle']):
+        shot(page, run, f, cap, [62 - k * 4, 42 + k * 4])
+        page.wait_for_timeout(15000)
+    return f
+
+
 def main():
     OUT.mkdir(parents=True, exist_ok=True)
     with sync_playwright() as p:
@@ -69,9 +121,23 @@ def main():
         b = p.chromium.launch(**({'executable_path': exe} if exe else {}))
         ctx = b.new_context(viewport={'width': W, 'height': H}, device_scale_factor=1, color_scheme='dark')
         data = {'credit': 'Recorded live · CoinMarketCap · Jupiter', 'a': run_a(ctx.new_page()), 'b': run_b(ctx.new_page())}
+        for key, fn, credit in (('c', run_c, None), ('d', run_d, None)):
+            try:
+                data[key] = fn(ctx.new_page())
+            except Blocked as e:
+                print('skipped (bot check):', e)
+        if data.get('c') and data.get('d'):
+            data['jobsCredit'] = 'Recorded live · CoinMarketCap · Solana Explorer'
+        for run, slug, sym in (('t', 'bonk1', 'BONK'), ('u', 'dogwifhat', 'WIF')):
+            try:
+                data[run] = run_chart(ctx.new_page(), run, slug, sym); data[f'{run}Sym'] = sym
+            except Blocked as e:
+                print('skipped (bot check):', e)
+        if data.get('t'):
+            data['chartCredit'] = 'Recorded live · CoinMarketCap · real Solana coins'
         b.close()
     (OUT / 'frames.json').write_text(json.dumps(data, indent=1))
-    print(len(data['a']), len(data['b']), 'frames')
+    print({k: len(v) for k, v in data.items() if isinstance(v, list)}, 'frames')
 
 
 if __name__ == '__main__':

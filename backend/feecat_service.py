@@ -42,6 +42,7 @@ import cat_orders as _co   # 🧭 a General AI cat's plain-words orders → one 
 import cat_model as _cm
 import cat_tools as _ct   # 🧰 FEELESS-first read-only tools for general agents
 import agent_files as _af   # ☁ each agent's own storage (owner uploads, 1 GB, 7-day clean)
+import clarify as _cq   # ❓ first asks: 2–3 questions for a coin / money ask
 import earn_mode as _em   # ⚡ Earn Mode's planner (never signs)
 import agent_cloud as _acl   # ☁ its owner's own Drive / Dropbox (FEELESS funds no storage)
 import cat_vault as _cv   # 🔐 a general agent's saved logins + 🖼 media drawer
@@ -85,7 +86,7 @@ def _load() -> dict:
 
 # 🔒 The engine loads every cat, works for minutes, then saves its whole copy: anything an owner did meanwhile was wiped (owner 2026-10-30: a new agent wallet vanished
 # seconds after it was made). What an owner's action sets is kept here and laid over every save, so an old copy can never lose a wallet, a funding or a limit.
-OWNER_KEYS = ('agentWallet', 'agentFunded', 'creditPaid', 'recovery', 'recoverySet', 'recoveryConfirmedAt', 'limits', 'taskCap', 'ownerId', 'mode', 'realWallet', 'budgetSol', 'paperByOwner', 'files', 'ownerWallet', 'logins', 'cloudLink', 'vaultLog', 'earn')
+OWNER_KEYS = ('agentWallet', 'agentFunded', 'creditPaid', 'recovery', 'recoverySet', 'recoveryConfirmedAt', 'limits', 'taskCap', 'ownerId', 'mode', 'realWallet', 'budgetSol', 'paperByOwner', 'files', 'ownerWallet', 'logins', 'cloudLink', 'vaultLog', 'earn', 'clarify')
 _KEPT: dict = {}
 
 
@@ -2128,6 +2129,23 @@ async def leaderboard(view: str = 'pnl'):
     return _pub({'rows': rows[:50]})
 
 
+@app.get('/api/cats/live-now')
+async def cats_live_now():
+    """🕷→🐱 Every agent working RIGHT NOW (public, like a crawler board): its card + each window's model, status, host and kind of step —
+    the same visitor-safe projection as /live, never a page, ask or secret. Newest work first, 12 at most."""
+    store = _load(); out = []
+    for cid, w in sorted(_WORK.items(), key=lambda kv: -float((kv[1] or {}).get('at') or 0)):
+        cat = store['cats'].get(cid)
+        if not cat or cat.get('revoked') or (w or {}).get('done'):
+            continue
+        lv = public_live(w)
+        out.append({'id': cid, 'name': cat.get('name'), 'handle': cat.get('handle'), 'avatar': cat.get('avatar'), 'look': cat.get('look'), 'skin': cat.get('skin'),
+                    'kind': (cat.get('brainsCfg') or {}).get('kind') or 'rules', 'status': lv['status'], 'windows': lv['windows'][:2]})
+        if len(out) >= 12:
+            break
+    return _pub({'agents': out})
+
+
 @app.get('/api/cats/activity')
 async def activity(catId: Optional[str] = None):
     store = _load()
@@ -2349,6 +2367,17 @@ async def cat_work(cat_id: str, p: WorkPayload):
         if not text:
             raise HTTPException(400, 'Type what you want it to do.')
         files_ = [f['id'] for f in _af.touch(cat, p.files)]   # ☁ attached files: the task text names them, its browser can upload them
+        if not busy and not _co.parse_order(text):   # ❓ a coin / make-money ask: 2–3 questions first (no model call), the next message answers
+            kept_ = list((cat.get('clarify') or {}).get('files') or [])   # files attached to the first ask ride with the answers
+            step_, got_ = _cq.take(cat, text, bool(files_))
+            if step_ == 'ask':
+                cat['clarify']['files'] = files_
+                cat['chat'] = (list(cat.get('chat') or []) + [{'by': 'you', 'text': text[:400], 'at': time.time()},
+                               {'by': 'cats', 'text': 'Before I start — ' + ' · '.join(f'{n + 1}) {q}' for n, q in enumerate(got_)), 'at': time.time(), 'ask': got_}])[-40:]
+                keep_owned(cat); _save(store)
+                return {**_work_view(cat_id, owner=True), 'chat': cat['chat'][-20:], 'clarify': got_}
+            text = got_
+            files_ = [i for i in dict.fromkeys(kept_ + files_) if _af.find(cat, i)]
         text_ = text + _af.task_note([_af.find(cat, i) for i in files_])
         if _co.parse_order(text):   # 💵 "buy 0.05 SOL of $BONK" in the chat is an ORDER on its wallet, not research: guards, then your OK (or auto)
             async with httpx.AsyncClient(timeout=15) as http_o:
@@ -2467,6 +2496,27 @@ async def cat_cloud_disconnect(cat_id: str, p: CloudPayload):
     if cat.pop('cloudLink', None):
         vault_log(cat, 'cloud disconnected', ''); keep_owned(cat); _save(store)
     return {'ok': True}
+
+
+def public_live(w):
+    """👀 What a VISITOR may see of an agent's windows right now (the crawl idea, our way): model, status, the site's HOST, the kind of step and
+    how many — never the page, the full URL, a screenshot, the owner's ask or what it typed. Pure."""
+    t = (w or {}).get('task') or {}
+    out = []
+    for x in t.get('windows') or []:
+        host = str(x.get('url') or '').split('://')[-1].split('/')[0].split('?')[0][:60]
+        steps = x.get('steps') or []
+        out.append({'i': x.get('i'), 'model': str(x.get('model') or '').split('/')[-1][:40], 'status': x.get('status') or 'idle', 'host': host,
+                    'action': str((steps[-1] or {}).get('action') or '')[:20] if steps else '', 'steps': len(steps), 'provider': x.get('provider')})
+    return {'status': t.get('status') or 'idle', 'windows': out}
+
+
+@app.get('/api/cats/{cat_id}/live')
+async def cat_live(cat_id: str):
+    cat = _load()['cats'].get(cat_id)
+    if not cat:
+        raise HTTPException(404, 'Agent not found.')
+    return public_live(_WORK.get(cat_id))
 
 
 @app.get('/api/cats/{cat_id}/earn')

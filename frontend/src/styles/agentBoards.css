@@ -70,3 +70,22 @@ body.theme-day .agb-pod, body.theme-day .agb-win { background: #fff; } body.them
 .agb-more li b { color: #fff; font: 800 10.5px var(--f-tech, sans-serif); } .agb-more li span, .agb-more li small { color: #8f84ad; font: 600 9.5px var(--f-mono); } .agb-more li em { font: 800 10px var(--f-mono); font-style: normal; }
 body.theme-day .agb-snap { background: #f6f0ff; } body.theme-day .agb-more li b { color: #2a1650; }
 @media (prefers-reduced-motion: reduce) { .agb-snap circle { animation: none; } }
+/* 🕷→🐱 LIVE NOW: every working agent as two little windows (host · kind of step · progress), the crawler-board idea in FEELESS colours */
+.agb-now { display: grid; gap: 8px; padding: 10px 12px; border-radius: 16px; border: 1px solid #45e48633; background: linear-gradient(160deg, #07140d, #07040d); }
+.agb-now > header { display: flex; align-items: center; gap: 8px; } .agb-now > header b { font: 800 11px var(--f-mono); letter-spacing: .14em; color: #b8f5d0; } .agb-now > header small { color: #8f83ad; font: 600 11px var(--f-ui); }
+.agb-now-dot { width: 8px; height: 8px; border-radius: 50%; background: #45e486; box-shadow: 0 0 10px #45e486; animation: agbNowPulse 1.6s ease-in-out infinite; }
+.agb-now-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 8px; }
+.agb-now-card { display: grid; gap: 6px; padding: 8px; border-radius: 12px; border: 1px solid #ffffff14; background: #0a0614; color: inherit; text-align: left; cursor: pointer; transition: transform .15s, border-color .15s; animation: agbNowIn .25s ease both; animation-delay: calc(var(--i, 0) * 50ms); }
+.agb-now-card:hover { transform: translateY(-2px); border-color: #45e48688; } .agb-now-card:active { transform: scale(.99); } .agb-now-card:focus-visible { outline: 2px solid #45e486; outline-offset: 2px; }
+.agb-now-who { display: flex; align-items: center; gap: 6px; min-width: 0; } .agb-now-who b { color: #fff; font: 700 12px var(--f-ui); } .agb-now-who em { color: #8f83ad; font: 600 10px var(--f-mono); font-style: normal; }
+.agb-now-wins { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+.agb-now-win { display: grid; gap: 4px; padding: 6px; border-radius: 9px; border: 1px solid #b388ff33; background: #05030a; min-width: 0; } .agb-now-win.w1 { border-color: #ff5dbb33; } .agb-now-win.is-go { box-shadow: inset 0 0 0 1px #45e48655; }
+.agb-now-bar { display: flex; align-items: center; gap: 3px; min-width: 0; } .agb-now-bar i { width: 5px; height: 5px; border-radius: 50%; background: #ffffff33; } .agb-now-win.is-go .agb-now-bar i:nth-child(3) { background: #28c840; box-shadow: 0 0 6px #28c840; }
+.agb-now-bar b { margin-left: 3px; color: #fff; font: 800 9px var(--f-mono); } .agb-now-bar small { color: #a99bc8; font: 600 9px var(--f-mono); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.agb-now-url { color: #e9e2ff; font: 700 11px var(--f-mono); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.agb-now-step { display: grid; gap: 3px; color: #a99bc8; font: 600 9.5px var(--f-mono); } .agb-now-step b { color: #45e486; }
+.agb-now-step u { height: 3px; border-radius: 3px; background: #ffffff14; overflow: hidden; } .agb-now-step s { display: block; height: 100%; background: linear-gradient(90deg, #b388ff, #45e486); transform-origin: left; transition: transform .4s ease; }
+@keyframes agbNowPulse { 50% { opacity: .35; } } @keyframes agbNowIn { from { opacity: 0; transform: translateY(6px); } }
+body.theme-day .agb-now { background: linear-gradient(160deg, #effff5, #fff); } body.theme-day .agb-now-card, body.theme-day .agb-now-win { background: #fff; } body.theme-day .agb-now-who b, body.theme-day .agb-now-url { color: #1c1230; }
+body.fx-lite .agb-now-dot, body.fx-lite .agb-now-card { animation: none; } @media (prefers-reduced-motion: reduce) { .agb-now-dot, .agb-now-card { animation: none; } .agb-now-step s, .agb-now-card { transition: none; } }
+@media (max-width: 640px) { .agb-now-grid { grid-template-columns: 1fr; } }
