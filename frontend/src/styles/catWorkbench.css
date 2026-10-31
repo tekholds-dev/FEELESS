@@ -79,16 +79,16 @@ body.fx-lite .cwb-go.is-on i, body.fx-lite .cwb-queue li { animation: none; }
 body.theme-day .cwb-go { background: #fff; color: #2a1650; border-color: rgba(60, 30, 120, .2); } body.theme-day .cwb-queue span { color: #2a1650; }
 
 .cwb-tools, .cwb-artifact, .cwb-refusals { min-width: 0; padding: 12px; border: 1px solid #b388ff44; border-radius: 12px; background: #151021; }
-.cwb-tools summary, .cwb-artifact summary, .cwb-refusals summary { cursor: pointer; min-height: 32px; color: #d4b9ff; }
-.cwb-tools summary:hover, .cwb-artifact summary:hover, .cwb-refusals summary:hover { color: #fff; }
-.cwb-tools summary:focus-visible, .cwb-artifact summary:focus-visible, .cwb-refusals summary:focus-visible { outline: 2px solid #b388ff; }
-.cwb-tools summary:active, .cwb-artifact summary:active, .cwb-refusals summary:active { opacity: .7; }
+.cwb-artifact summary, .cwb-refusals summary { cursor: pointer; min-height: 32px; color: #d4b9ff; }
+.cwb-artifact summary:hover, .cwb-refusals summary:hover { color: #fff; }
+.cwb-artifact summary:focus-visible, .cwb-refusals summary:focus-visible { outline: 2px solid #b388ff; }
+.cwb-artifact summary:active, .cwb-refusals summary:active { opacity: .7; }
 .cwb-tools .m-seg { display: flex; flex-wrap: wrap; margin-top: 10px; }
 .cwb-artifact iframe { width: 100%; height: 420px; border: 0; background: white; border-radius: 8px; }
 .cwb-artifact pre { white-space: pre-wrap; overflow-wrap: anywhere; max-height: 420px; overflow-y: auto; }
 .cwb-refusals p { color: #ff8fa3; }
 body.theme-day .cwb-tools, body.theme-day .cwb-artifact, body.theme-day .cwb-refusals { background: #f4efff; color: #251035; }
-body.theme-day .cwb-tools summary, body.theme-day .cwb-artifact summary, body.theme-day .cwb-refusals summary { color: #67309a; }
+body.theme-day body.theme-day .cwb-artifact summary, body.theme-day .cwb-refusals summary { color: #67309a; }
 @media(max-width:640px) { .cwb-artifact iframe { height: 300px; } }
 
 /* 🧭 its two ways + ☁ main cloud + 🎯 two job boxes + 📈 our live chart in a window + chat as bubbles (owner 2026-10-30: "no wide chat window — pure beauty") */
@@ -111,14 +111,10 @@ body.theme-day .cwb-tools summary, body.theme-day .cwb-artifact summary, body.th
 body.theme-day .cwb-chat li { background: #fff; } body.theme-day .cwb-chat li.is-you { background: #ece2ff; } body.theme-day .cwb-chat li.is-you span { color: #2a1650; }
 body.theme-day .cwb-cloud span { background: #fff; color: #2a1650; }
 @media (max-width: 640px) { .cwb-jobs { grid-template-columns: 1fr; } .cwb-chat li { max-width: 94%; } }
-.cwb-center { justify-items: stretch; } .cwb-center .cwb-chat { max-height: 420px; }
-/* 💬 the middle column IS the chat: one glass panel — the answer, the bubbles, who you talk to, the ask box — never loose pieces */
-.cwb-center { align-content: start; gap: 8px; padding: 12px; min-height: 360px; border-radius: 20px; border: 1px solid color-mix(in srgb, var(--kd-acc, #b388ff) 34%, #ffffff1a);
+/* 💬 the talk panel IS the chat: one glass panel — the answer, the bubbles, the composer — never loose pieces */
+.cwb-talk { align-content: start; padding: 12px; border-radius: 20px; border: 1px solid color-mix(in srgb, var(--kd-acc, #b388ff) 34%, #ffffff1a);
   background: linear-gradient(170deg, #120c22d9, #08061299); box-shadow: inset 0 1px 0 #ffffff1f, 0 18px 40px -28px #000; }
-.cwb-center .cwb-chat { flex: 1; min-height: 160px; align-content: end; padding: 4px; }
-.cwb-center .cwb-chat li:not(.is-you) { border-color: color-mix(in srgb, var(--kd-acc, #b388ff) 40%, transparent); }
-.cwb-center .cwb-ask { grid-template-columns: auto minmax(0, 1fr) auto; } .cwb-center .cwb-cap { grid-column: 1 / -1; justify-content: center; }
-.cwb-center .cwb-to { justify-content: center; flex-wrap: wrap; }
+.cwb-talk .cwb-chat { align-content: end; padding: 4px; } .cwb-talk .cwb-chat li:not(.is-you) { border-color: color-mix(in srgb, var(--kd-acc, #b388ff) 40%, transparent); }
 /* 🔐 saved logins (blurred until you look) + 🖼 media slide drawer */
 .cwb-vault { border-radius: 14px; border: 1px solid #f5c54244; background: #0b0716cc; } .cwb-vault summary { padding: 8px 12px; cursor: pointer; color: #ffe08a; font: 800 10.5px var(--f-mono); letter-spacing: .12em; list-style: none; }
 .cwb-vault summary::-webkit-details-marker { display: none; } .cwb-vault ul { list-style: none; margin: 0; padding: 0 10px 10px; display: grid; gap: 6px; }
@@ -178,3 +174,55 @@ body.fx-lite .cwb-file, body.fx-lite .cwb-plus.is-busy i { animation: none; }
 body.theme-day .cwb-plus { background: radial-gradient(circle at 30% 25%, #efe6ff, #fff 70%); border-color: rgba(106, 61, 240, .35); } body.theme-day .cwb-plus i, body.theme-day .cwb-plus i::after { background: #4b2bb8; }
 body.theme-day .cwb-file { background: #fff; border-color: rgba(106, 61, 240, .25); } body.theme-day .cwb-file b { color: #1c1230; } body.theme-day .cwb-file small, body.theme-day .cwb-store em, body.theme-day .cwb-store small { color: #5a4f78; }
 @media (max-width: 640px) { .cwb-file { max-width: 100%; } .cwb-store { margin-left: 0; width: 100%; } .cwb-store u { flex: 1; } }
+
+/* 🖥 THE ONE-SCREEN DASH (owner 2026-10-30: "no scroll, just 2 windows, the latest cloud + money"). Patterns from the agent consoles people
+   know: a terminal "now" status line (crawler-style), the stage = 2 windows + a slim right rail, a composer like the big chat apps
+   (rounded box · + attach · ⚙ settings popover above it · send), and the log as a right-hand sheet. */
+.cwb-dash { --cwb-h: clamp(260px, calc(100dvh - 330px), 620px); min-width: 0; }
+.cwb-dash .cwb-head small { display: none; } .cwb-dash .cwb-head { display: flex; flex-wrap: nowrap; } .cwb-dash .cwb-meters { flex-wrap: nowrap; }
+.cwb-stage { display: grid; grid-template-columns: minmax(0, 1fr) minmax(300px, 360px); gap: 10px; align-items: stretch; }
+.cwb-dash .cwb-wins { grid-template-columns: repeat(2, minmax(0, 1fr)); justify-content: stretch; }
+.cwb-dash .cwb-view { aspect-ratio: auto; height: var(--cwb-h); }
+.cwb-rail { display: grid; grid-template-rows: auto minmax(0, 1fr) auto; gap: 8px; min-height: 0; height: calc(var(--cwb-h) + 52px); }
+.cwb-drawers { display: grid; gap: 6px; align-content: start; max-height: 40%; min-height: 132px; overflow-y: auto; scrollbar-width: thin; scrollbar-color: #b388ff transparent; padding-right: 2px; }
+.cwb-drawers::-webkit-scrollbar { width: 6px; } .cwb-drawers::-webkit-scrollbar-thumb { background: #b388ff88; border-radius: 6px; }
+.cwb-rail .cwb-talk { display: flex; flex-direction: column; min-height: 0; padding: 8px; } .cwb-rail .cwb-talk .cwb-chat { flex: 1; min-height: 0; max-height: none; overflow-y: auto; }
+.cwb-rail .cwb-ask { grid-template-columns: auto auto minmax(0, 1fr) auto; } .cwb-rail .cwb-jobs { grid-column: 1 / -1; }
+.cwb-rail .cwb-pop { bottom: 58px; max-height: min(70dvh, 440px); overflow-y: auto; scrollbar-width: thin; scrollbar-color: #b388ff transparent; }
+.cwb-now { display: flex; align-items: center; gap: 8px; margin: 0; padding: 7px 12px; min-width: 0; border-radius: 10px; border: 1px solid #ffffff12; background: #05030a;
+  font: 600 12px var(--f-mono); color: #d8ccf5; box-shadow: inset 0 1px 0 #ffffff0d; }
+.cwb-now b { color: #ff7ab8; font-weight: 700; } .cwb-now i { color: #6f6390; font-style: normal; } .cwb-now span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; animation: cwbIn .25s ease both; }
+.cwb-now u { width: 8px; height: 14px; background: #ff7ab8; opacity: .8; animation: cwbPulse 1s steps(2) infinite; } .cwb-now:not(.is-live) u { background: #6f6390; }
+.cwb-money { position: relative; display: grid; gap: 2px; padding: 10px 12px; border-radius: 12px; border: 1px solid #ffffff14; background: linear-gradient(160deg, #0f1a14, #07040d); overflow: hidden; animation: cwbPop .3s ease both; }
+.cwb-money::after { content: ''; position: absolute; inset: 0; background: linear-gradient(100deg, transparent 30%, #ffffff14 50%, transparent 70%); transform: translateX(-100%); animation: cwbSweep 4s ease-in-out infinite; pointer-events: none; }
+.cwb-money em { font: 800 9.5px var(--f-mono); letter-spacing: .12em; color: #8f83ad; font-style: normal; } .cwb-money b { font: 800 22px var(--f-mono); color: #fff; } .cwb-money small { font: 600 10.5px var(--f-mono); color: #a99bc8; }
+.cwb-money.is-up { border-color: #15d16a66; box-shadow: 0 0 18px #15d16a22; } .cwb-money.is-up b { color: #45e486; text-shadow: 0 0 14px #15d16a66; }
+.cwb-money.is-dn b { color: #ff8fa3; } .cwb-money.is-none b { color: #6f6390; }
+@keyframes cwbSweep { 0%, 60% { transform: translateX(-100%); } 100% { transform: translateX(100%); } }
+.cwb-talk { position: relative; display: grid; gap: 8px; }
+.cwb-dash .cwb-ask { grid-template-columns: auto auto minmax(0, 1fr) auto; padding: 6px; border-radius: 18px; border: 1px solid #b388ff44; background: #0d0818; box-shadow: inset 0 1px 0 #ffffff12, 0 8px 28px #0006; }
+.cwb-dash .cwb-ask:focus-within { border-color: #b388ffaa; box-shadow: inset 0 1px 0 #ffffff12, 0 0 0 3px #b388ff22; }
+.cwb-dash .cwb-ask .m-input { border: 0; background: transparent; box-shadow: none; }
+.cwb-gear { position: relative; width: 40px; height: 40px; border-radius: 12px; border: 1px solid #ffffff1a; background: #ffffff08; cursor: pointer; transition: transform .15s, background .15s, border-color .15s; }
+.cwb-gear i, .cwb-gear i::before { position: absolute; inset: 0; margin: auto; content: ''; }
+.cwb-gear i { width: 16px; height: 16px; border-radius: 50%; border: 3px dotted #d8ccf5; transition: transform .3s; } .cwb-gear i::before { width: 6px; height: 6px; border-radius: 50%; background: #d8ccf5; }
+.cwb-gear:hover { background: #b388ff22; border-color: #b388ff66; } .cwb-gear:hover i { transform: rotate(45deg); } .cwb-gear:active { transform: scale(.95); }
+.cwb-gear:focus-visible { outline: 2px solid #b388ff; outline-offset: 2px; } .cwb-gear.is-on { background: #b388ff; border-color: #b388ff; } .cwb-gear.is-on i { border-color: #12081f; transform: rotate(90deg); } .cwb-gear.is-on i::before { background: #12081f; }
+.cwb-pop { position: absolute; left: 0; bottom: calc(100% - 52px); z-index: 6; display: grid; gap: 6px; width: min(420px, 100%); padding: 12px; border-radius: 16px; border: 1px solid #b388ff55;
+  background: #120a20f5; box-shadow: 0 18px 44px #000a, inset 0 1px 0 #ffffff14; opacity: 0; visibility: hidden; transform: translateY(8px) scale(.98); transform-origin: bottom left; transition: opacity .16s, transform .16s, visibility 0s .16s; }
+.cwb-pop.is-open { opacity: 1; visibility: visible; transform: none; transition: opacity .16s, transform .16s; }
+.cwb-pop > em { font: 800 9.5px var(--f-mono); letter-spacing: .12em; color: #8f83ad; font-style: normal; margin-top: 4px; } .cwb-pop .m-seg { flex-wrap: wrap; }
+.cwb-pop .cwb-tools { padding: 0; border: 0; background: none; display: grid; gap: 6px; } .cwb-pop .cwb-tools .m-seg { margin-top: 0; }
+.cwb-logbtn { min-height: 32px; display: inline-flex; gap: 6px; align-items: center; }
+.cwb-logpane { position: fixed; inset: 0; z-index: 60; display: flex; justify-content: flex-end; }
+.cwb-logshade { position: absolute; inset: 0; border: 0; background: #0009; cursor: pointer; animation: cwbFade .18s ease both; }
+.cwb-logbody { position: relative; width: min(560px, 100%); height: 100%; overflow-y: auto; padding: 16px; background: #0b0716; border-left: 1px solid #b388ff44; box-shadow: -20px 0 50px #000a; animation: cwbSheet .2s ease both; }
+.cwb-logx { position: sticky; top: 0; float: right; z-index: 2; min-width: 32px; min-height: 32px; }
+@keyframes cwbSheet { from { transform: translateX(40px); opacity: 0; } } @keyframes cwbFade { from { opacity: 0; } }
+@media (max-width: 900px) { .cwb-stage { grid-template-columns: 1fr; } .cwb-rail { height: auto; grid-template-rows: none; } .cwb-rail .cwb-talk .cwb-chat { max-height: 220px; } .cwb-drawers { max-height: none; } }
+@media (max-width: 900px) { .cwb-dash .cwb-head { flex-wrap: wrap; } .cwb-dash .cwb-meters { flex-wrap: wrap; } }
+@media (max-width: 640px) { .cwb-dash .cwb-wins { grid-template-columns: 1fr; } .cwb-dash { --cwb-h: 46dvh; } .cwb-pop { width: 100%; } }
+body.theme-day .cwb-now { background: #fff; color: #3a3058; border-color: #6a3df022; } body.theme-day .cwb-money { background: linear-gradient(160deg, #effff5, #fff); } body.theme-day .cwb-money b { color: #1c1230; }
+body.theme-day .cwb-dash .cwb-ask, body.theme-day .cwb-pop, body.theme-day .cwb-logbody { background: #fff; color: #2a1f45; }
+body.fx-lite .cwb-now span, body.fx-lite .cwb-now u, body.fx-lite .cwb-money, body.fx-lite .cwb-money::after, body.fx-lite .cwb-logshade, body.fx-lite .cwb-logbody { animation: none; }
+@media (prefers-reduced-motion: reduce) { .cwb-now span, .cwb-now u, .cwb-money, .cwb-money::after, .cwb-logshade, .cwb-logbody { animation: none; } .cwb-pop, .cwb-gear, .cwb-gear i { transition: none; } }

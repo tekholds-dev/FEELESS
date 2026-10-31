@@ -1941,6 +1941,12 @@ def reveal_ok(cat_id, site, ts, sig, wallet, now=None):
         return False
 
 
+def last_money(events, cat_id):
+    """💵 The last money it made or lost (a closed trade's P&L, fees apart) — the desk shows it until a newer one lands. Pure."""
+    e = next((x for x in events if x.get('catId') == cat_id and x.get('pnlSol') is not None), None)   # events are newest first
+    return {'sol': round(float(e['pnlSol']), 6), 'at': round(float(e.get('ts') or 0) / 1000), 'what': str(e.get('type') or 'trade').lower()} if e else None
+
+
 def vault_log(cat, what, site):
     """🔐 The vault's audit trail the owner sees: saved / used / revealed / forgot, which site, when — never a value."""
     cat['vaultLog'] = (list(cat.get('vaultLog') or []) + [{'what': what, 'site': _cv.site_of(site or ''), 'at': round(time.time())}])[-40:]
@@ -2361,7 +2367,7 @@ async def cat_work(cat_id: str, p: WorkPayload):
     return {**out, 'cap': float(cat.get('taskCap') or TASK_CAP_DEFAULT), 'credit': b.get('credit'), 'spent': b.get('spent'), 'chat': (cat.get('chat') or [])[-20:],
             'live': _work_live(), 'providers': _cb.chain(os.environ), 'go': bool(cat.get('workGo')), 'workMode': cat.get('workMode') or 'plan',
             'cloud': (b.get('cloud') or [])[-8:], 'minds': {m: v[-8:] for m, v in (b.get('minds') or {}).items()}, 'handoffs': len((w.get('task') or {}).get('handoffs') or []) if w else 0, 'createdAt': cat.get('createdAt'),
-            'logins': _cv.public_logins(cat), 'vaultLog': (cat.get('vaultLog') or [])[-12:], 'media': _cv.clean_media(cat), 'storage': _af.public(cat),   # ☁ its cloud: pool, quota, files
+            'logins': _cv.public_logins(cat), 'vaultLog': (cat.get('vaultLog') or [])[-12:], 'lastMoney': last_money(store.get('events') or [], cat_id), 'media': _cv.clean_media(cat), 'storage': _af.public(cat),   # ☁ its cloud: pool, quota, files
             'job': cat.get('job', 'agent'), 'tools': _cp.toolkit(cat.get('job', 'agent'), cat.get('tools')), 'toolkits': _cp.TOOLS,
             'refusals': (cat.get('refusals') or [])[-20:] + [{'why': x} for x in ((w or {}).get('task') or {}).get('refusals', [])],
             'artifacts': (cat.get('artifacts') or [])[-10:] + ([] if (w or {}).get('settled') else ((w or {}).get('task') or {}).get('artifacts', [])),

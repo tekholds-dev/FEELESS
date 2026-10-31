@@ -1,9 +1,10 @@
-import React, { Suspense, lazy, useCallback, useEffect, useRef, useState } from 'react';
+import React, { Suspense, lazy, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { apiUrl } from '../../lib/api';
 import { MindVitals, AgentLog } from './CatCockpit';
 import '../../styles/catWorkbench.css';
 import { agentAuth, agentAuthQuery, revealMessage } from '../../lib/chatSession';
 import { useWallet } from '../../hooks/useWallet';
+import { useSolPrice } from '../../lib/solPrice';
 
 // 🧠🧠 THE GENERAL CAT'S WORKBENCH (owner 2026-10-29, P2 — backend cat_agent.py + cat_browser.py). Two browser windows, one per model, running in
 // the cloud (Steel → Browserbase → the reader: never on this device). Each window: its model, its provider, the page it is on, a bubble top-right
@@ -63,15 +64,21 @@ function Window({ w, catId, tick, onGo, onLogin, busy }) {
 }
 
 // 🧠 a general mind's vitals beside the chat: what its window is doing right now (owner 2026-10-30: "model vitals on each side")
-function GenVitals({ cat, w, i, live, cloud = [] }) {
-  return <MindVitals cat={cat} model={w?.model} i={i} kind="general" live={live && w?.status === 'working'} extra={<>
-    <span className="ck-v-row"><em>STATUS</em><b>{String(w?.status || 'idle').toUpperCase()}</b></span>
-    <span className="ck-v-row"><em>STEPS</em><b className="m-num" key={(w?.steps || []).length}>{(w?.steps || []).length}</b></span>
-    <span className="ck-v-row"><em>SCRATCH</em><b className="m-num">{w?.scratch ?? w?.scratchN ?? 0}</b></span>
-    <span className="ck-v-row" data-tip="Its own cloud: the best notes this mind kept from its tasks — it reads them before the next one"><em>☁ ITS CLOUD</em><b className="m-num">{cloud.length}</b></span>
-    <span className="ck-v-row"><em>SPENT</em><b className="m-num">{usd(w?.cost || 0)}</b></span>
-    {cloud.length ? <p className="ck-v-last"><small>☁ {cloud[cloud.length - 1].text}</small></p> : null}
-    <p className="ck-v-last">{w?.coin ? <b className="is-up">on ${w.coin.symbol}</b> : null}{w?.bubble || 'waiting for your ask'}{w?.goal ? <small>its job: {w.goal}</small> : null}</p></>} />;
+// 🕷→🐱 WHAT IT'S DOING NOW (the crawl idea, our way): one terminal line — its handle › the site its busiest window is on: what it's doing
+export function NowLine({ cat, wins, live }) {
+  const w = wins.find(x => x.status === 'human') || wins.find(x => x.status === 'working') || wins.find(x => x.url);
+  const host = String(w?.url || '').replace(/^https?:\/\//, '').split('/')[0];
+  const what = !live || !w ? 'idle — waiting for your ask' : w.status === 'human' ? `waiting on you at ${host}` : `${host ? `on ${host}: ` : ''}${String(w.bubble || w.steps?.at(-1)?.thought || 'thinking').replace(/^✋ needs you: /, '')}`;
+  return <p className={`cwb-now${live ? ' is-live' : ''}`} data-testid="cwb-now" aria-live="polite"><b>{cat.handle || 'agent'}</b><i aria-hidden="true">›</i><span key={what}>{what}</span><u aria-hidden="true" /></p>;
+}
+// 💵 the last money it made — stays until a newer one lands
+function LastMoney({ m }) {
+  const px = useSolPrice();
+  if (m && m.usd == null && m.sol != null && px) m = { ...m, usd: Number(m.sol) * px };
+  if (!m) return <div className="cwb-money is-none" data-testid="cwb-money" data-tip="The last money it made shows here until a newer one lands"><em>LAST MONEY MADE</em><b className="m-num">—</b><small>nothing yet</small></div>;
+  const up = Number(m.usd ?? m.sol) >= 0;
+  return <div className={`cwb-money ${up ? 'is-up' : 'is-dn'}`} key={m.at} data-testid="cwb-money" data-tip={`${m.what || 'trade'} · ${new Date((m.at || 0) * 1000).toLocaleString()}`}><em>LAST MONEY MADE</em>
+    <b className="m-num">{m.usd == null ? '…' : `${up ? '+' : '−'}$${Math.abs(Number(m.usd)).toFixed(2)}`}</b><small>{m.sol != null ? `${up ? '+' : ''}${Number(m.sol).toFixed(4)} SOL · ` : ''}{m.what || 'trade'}</small></div>;
 }
 // pure: the general cat's log — your asks + answers (tasks), each window's steps (thoughts), its files, the cloud, every refusal (guards)
 export function genLog(d) {
@@ -207,39 +214,54 @@ function WorkbenchLive({ cat }) {
   const setWay = async k => { setBusy(true); try { await work(cat.id, { op: 'mode', job: k }); await load(); } catch (er) { setErr(er.message); } finally { setBusy(false); } };
   const wins = d?.windows?.length ? d.windows : (cat.brainsCfg?.brains || ['', '']).slice(0, 8).map((m, i) => ({ i, model: m, status: 'idle' }));
   const credit = Number(d?.credit ?? cat.brainsCfg?.credit ?? 0); const cap = Number(d?.cap ?? 0.05); const spent = Number(d?.task?.cost || 0);
-  return <section className="cwb kd-card" data-testid="cat-workbench">
+  const [gear, setGear] = useState(false); const [logOpen, setLogOpen] = useState(false); const log = useMemo(() => genLog(d), [d]);
+  useEffect(() => { if (!gear && !logOpen) return undefined; const k = e => { if (e.key === 'Escape') { setGear(false); setLogOpen(false); } }; window.addEventListener('keydown', k); return () => window.removeEventListener('keydown', k); }, [gear, logOpen]);
+  const dash = useRef(null);
+  useLayoutEffect(() => {   // 🖥 one screen: the windows take what is left under the page's own top (app bar, hero, tabs) — never a page scroll on a laptop
+    const fit = () => { const r = dash.current; const st = r?.querySelector('.cwb-stage'); if (!st) return;
+      if (window.innerWidth <= 900) { r.style.removeProperty('--cwb-h'); return; }
+      const top = st.getBoundingClientRect().top + window.scrollY; r.style.setProperty('--cwb-h', `${Math.round(Math.max(240, Math.min(640, window.innerHeight - top - 84)))}px`); };
+    fit(); window.addEventListener('resize', fit); return () => window.removeEventListener('resize', fit);
+  }, []);
+  return <section ref={dash} className="cwb kd-card cwb-dash" data-testid="cat-workbench">
     <header className="cwb-head"><span><b>🧠🧠 ITS MINDS</b><small>{(d?.providers || []).filter(x => x !== 'reader').length ? `browsers in the cloud · ${d.providers.join(' → ')}` : 'reading pages as text (no hosted browser key yet)'}</small></span>
       <button type="button" className={`cwb-go${go ? ' is-on' : ''}`} aria-pressed={go} disabled={busy} onClick={() => act('go', { on: !go })} data-testid="cwb-go"
         data-tip={go ? 'ON: up to 30 steps a window, asks queue and run back to back — it stops only when done, at the $ cap, or for a sign-in / CAPTCHA / card payment' : 'Let it go: it works long tasks on its own and takes queued asks one after another until a person is needed'}>
         <i aria-hidden="true" />🏇 LET IT GO <b>{go ? 'ON' : 'OFF'}</b></button>
+      <button type="button" className="m-btn cwb-logbtn" onClick={() => setLogOpen(true)} aria-haspopup="dialog" data-tip="Its log: your asks, every step, files, cloud notes and guards — newest first" data-testid="cwb-logbtn">📜 LOG <b className="m-num">{log.length}</b></button>
       <span className="cwb-meters">
         <span data-tip="Model credit left: every answer and browsing step is paid from it. Add more in its wallet panel"><em>CREDIT</em><b className="m-num">{usd(credit)}</b><u aria-hidden="true"><s style={{ transform: `scaleX(${Math.min(1, credit / 10)})` }} /></u></span>
         <span data-tip="This task's spend against its cap — it stops at the cap with what it has"><em>THIS TASK</em><b className="m-num">{usd(spent)} / {usd(cap)}</b><u aria-hidden="true"><s className={spent >= cap * 0.8 ? 'is-hot' : ''} style={{ transform: `scaleX(${Math.min(1, spent / (cap || 1))})` }} /></u></span>
       </span></header>
-    <div className="m-seg cwb-way" role="radiogroup" aria-label="How its minds work">{WAYS.map(([k, l, tip]) => <button key={k} type="button" role="radio" aria-checked={way === k}
-      className={way === k ? 'active' : ''} disabled={live || busy} onClick={() => setWay(k)} data-tip={tip} data-testid={`cwb-way-${k}`}>{l}</button>)}</div>
-    {(d?.cloud || []).length ? <div className="cwb-cloud" data-testid="cwb-cloud" data-tip="Its main cloud: the best of both minds' scratch pads, kept for next time"><b>☁ MAIN CLOUD</b>
-      {d.cloud.slice(-3).reverse().map((c, i) => <span key={i} style={{ '--i': i }}>{c.text || `${c.word} $${c.sym}`}</span>)}</div> : null}
-    <Credentials cat={cat} rows={d?.logins} log={d?.vaultLog || []} ask={signIn} onSaved={logins => setD(x => ({ ...x, logins }))} />
-    <CloudDrawer cat={cat} attachments={d?.storage} /><MediaDrawer items={d?.media} />
-    <details className="cwb-tools"><summary>Job + tool switches</summary><label>Job<select className="m-input" aria-label="Cat job" value={d?.job || 'agent'} disabled={live || busy} onChange={e => act('tools', { job: e.target.value })}>{Object.keys(d?.toolkits || { agent: [] }).map(j => <option key={j}>{j}</option>)}</select></label><div className="m-seg">{Object.entries(d?.tools || {}).map(([k, on]) => <button key={k} type="button" aria-pressed={on} disabled={live || busy} className={on ? 'active' : ''} data-tip={`Allow this cat to use ${k}`} onClick={() => act('tools', { tools: { ...d.tools, [k]: !on } })}>{k} · {on ? 'ON' : 'OFF'}</button>)}</div></details>
-    {(d?.artifacts || []).map((a, i) => <details className="cwb-artifact" key={i}><summary>{a.title} · {a.kind}</summary>{a.kind === 'build' ? <iframe title={a.title} sandbox="allow-scripts" referrerPolicy="no-referrer" srcDoc={'<meta http-equiv="Content-Security-Policy" content="default-src \'none\'; script-src \'unsafe-inline\'; style-src \'unsafe-inline\'; img-src data:; connect-src \'none\'; form-action \'none\'; base-uri \'none\'">' + a.content} /> : <pre>{a.content}</pre>}</details>)}
-    {(d?.refusals || []).length ? <details className="cwb-refusals"><summary>Refusals · {d.refusals.length}</summary>{d.refusals.map((r, i) => <p key={i}>{r.why}</p>)}</details> : null}
+    <NowLine cat={cat} wins={wins} live={live} />
+    <div className="cwb-stage">
     <div className="cwb-wins">{wins.map(w => <Window key={w.i} w={w} catId={cat.id} tick={tick} busy={busy} onGo={(op, i) => act(op, { i })} onLogin={site => setSignIn({ site, at: Date.now() })} />)}</div>
-    <div className="ck-cockpit" data-testid="cwb-cockpit">
-      <GenVitals cat={cat} w={wins[0]} i={0} live={live} cloud={d?.minds?.[wins[0]?.model] || []} />
-      <div className="ck-center cwb-center">
+    <aside className="cwb-rail" aria-label="Its latest">
+    <LastMoney m={d?.lastMoney} />
+    <div className="cwb-talk" data-testid="cwb-cockpit">
     {d?.task?.answer || status === 'stopped' || status === 'error' ? <p className={`cwb-answer s-${status}`} data-testid="cwb-answer">{d.task.fast ? '⚡ from memory · ' : ''}{d.task.answer || d.task.why}</p> : null}
     <ol className="cwb-chat" aria-label="Chat with its models">{(d?.chat || []).slice(-8).map((m, i) => <li key={i} className={m.by === 'you' ? 'is-you' : 'is-cats'}><b>{m.by === 'you' ? 'You' : '🧠🧠'}</b><span>{m.text}</span>{m.cost != null ? <small className="m-num">{usd(m.cost)}</small> : null}</li>)}</ol>
     {queue.length ? <ol className="cwb-queue" aria-label="Queued asks" data-testid="cwb-queue">{queue.map((q, i) => <li key={i} style={{ '--i': i }}><b className="m-num">{i + 1}</b><span>{q.text}</span>
       <button type="button" onClick={() => act('unqueue', { i })} aria-label="Drop this ask" data-tip="Drop it from the queue" data-testid={`cwb-unq-${i}`}>✕</button></li>)}</ol> : null}
+    <AttachChips files={files} store={store} onDrop={id => setFiles(x => x.filter(f => f.id !== id))} />
+    <div className={`cwb-pop${gear ? ' is-open' : ''}`} id="cwb-settings" role="dialog" aria-label="Chat settings" data-testid="cwb-settings" aria-hidden={!gear}>
+      <em>HOW ITS MINDS WORK</em>
+    <div className="m-seg cwb-way" role="radiogroup" aria-label="How its minds work">{WAYS.map(([k, l, tip]) => <button key={k} type="button" role="radio" aria-checked={way === k}
+      className={way === k ? 'active' : ''} disabled={live || busy} onClick={() => setWay(k)} data-tip={tip} data-testid={`cwb-way-${k}`}>{l}</button>)}</div>
+      <em>WHO YOU TALK TO</em>
     {way !== 'jobs' ? <div className="m-seg cwb-to" role="radiogroup" aria-label="Who you are talking to">{[['both', '🧠 ALL MINDS'], ...wins.map(w => [String(w.i), `🧠 ${String(w.model || `mind ${w.i + 1}`).split('/').pop()}`])].map(([k, l]) =>
       <button key={k} type="button" role="radio" aria-checked={to === k} className={to === k ? 'active' : ''} disabled={live} onClick={() => setTo(k)} data-testid={`cwb-to-${k}`}
         data-tip={k === 'both' ? 'Both minds: they split the task, each in its own window, then merge' : 'Only this mind: it takes the whole task in its own window'}>{l}</button>)}</div> : null}
-    <AttachChips files={files} store={store} onDrop={id => setFiles(x => x.filter(f => f.id !== id))} />
+      <em>MOST A TASK MAY SPEND</em>
+    <div className="m-seg cwb-cap" role="radiogroup" aria-label="The most one task may spend">{CAPS.map(c => <button key={c} type="button" role="radio" aria-checked={Math.abs(cap - c) < 1e-9} className={Math.abs(cap - c) < 1e-9 ? 'active' : ''} onClick={() => act('cap', { cap: c })} data-tip={`A task stops at $${c}`} data-testid={`cwb-cap-${c}`}>${c}</button>)}</div>
+      <em>JOB + TOOLS</em>
+    <div className="cwb-tools"><label>Job<select className="m-input" aria-label="Cat job" value={d?.job || 'agent'} disabled={live || busy} onChange={e => act('tools', { job: e.target.value })}>{Object.keys(d?.toolkits || { agent: [] }).map(j => <option key={j}>{j}</option>)}</select></label><div className="m-seg">{Object.entries(d?.tools || {}).map(([k, on]) => <button key={k} type="button" aria-pressed={on} disabled={live || busy} className={on ? 'active' : ''} data-tip={`Allow this cat to use ${k}`} onClick={() => act('tools', { tools: { ...d.tools, [k]: !on } })}>{k} · {on ? 'ON' : 'OFF'}</button>)}</div></div>
+    </div>
     <form className="cwb-ask" onSubmit={send}>
       <button type="button" className={`cwb-plus${upping ? ' is-busy' : ''}`} onClick={() => pick.current?.click()} disabled={upping || files.length >= 4} aria-label="Attach images for it"
         data-tip="Attach images or GIFs (up to 4) — they go in its own storage and ride with your next ask; it can upload them to a site, e.g. a coin image" data-testid="cwb-plus"><i aria-hidden="true" /></button>
+      <button type="button" className={`cwb-gear${gear ? ' is-on' : ''}`} aria-expanded={gear} aria-controls="cwb-settings" onClick={() => setGear(g => !g)} aria-label="Chat settings"
+        data-tip="Settings: how its minds work, who you talk to, the $ cap, its job + tools" data-testid="cwb-gear"><i aria-hidden="true" /></button>
       <input ref={pick} type="file" accept="image/png,image/jpeg,image/webp,image/gif,video/mp4,video/webm" multiple hidden onChange={attach} data-testid="cwb-file-input" />
       {way === 'jobs' && wins.length > 1 && !live ? <span className="cwb-jobs">{[0, 1].map(i => <label key={i}><em>MIND {'AB'[i]} · {String(wins[i]?.model || '').split('/').pop()}</em>
         <input className="m-input" value={jobs[i]} onChange={e => setJobs(j => (i ? [j[0], e.target.value] : [e.target.value, j[1]]))} placeholder={i ? 'e.g. make 5 posts for X from it' : 'e.g. write a 30 s video script on SOL'} data-testid={`cwb-job-${i}`} aria-label={`Mind ${'AB'[i]} job`} /></label>)}</span> : null}
@@ -247,12 +269,18 @@ function WorkbenchLive({ cat }) {
       {live && go && text.trim() ? <button type="submit" className="m-btn m-go" disabled={busy} data-testid="cwb-queue-add">＋ Queue ↵</button>
         : live ? <button type="button" className="m-btn" onClick={() => act('stop')} disabled={busy} data-testid="cwb-stop">■ Stop</button>
         : <button type="submit" className="m-btn m-go" disabled={busy || (way === 'jobs' && wins.length > 1 ? !(jobs[0].trim() || jobs[1].trim()) : !text.trim())} data-testid="cwb-send">Send ↵</button>}
-      <div className="m-seg cwb-cap" role="radiogroup" aria-label="The most one task may spend">{CAPS.map(c => <button key={c} type="button" role="radio" aria-checked={Math.abs(cap - c) < 1e-9} className={Math.abs(cap - c) < 1e-9 ? 'active' : ''} onClick={() => act('cap', { cap: c })} data-tip={`A task stops at $${c}`} data-testid={`cwb-cap-${c}`}>${c}</button>)}</div>
     </form>
-      </div>
-      <GenVitals cat={cat} w={wins[1]} i={1} live={live} cloud={d?.minds?.[wins[1]?.model] || []} />
     </div>
-    <AgentLog items={genLog(d)} />
+    <div className="cwb-drawers">
+    {(d?.cloud || []).length ? <div className="cwb-cloud" data-testid="cwb-cloud" data-tip="Its main cloud: the best of both minds' scratch pads, kept for next time"><b>☁ MAIN CLOUD</b>
+      {d.cloud.slice(-3).reverse().map((c, i) => <span key={i} style={{ '--i': i }}>{c.text || `${c.word} $${c.sym}`}</span>)}</div> : null}
+    <Credentials cat={cat} rows={d?.logins} log={d?.vaultLog || []} ask={signIn} onSaved={logins => setD(x => ({ ...x, logins }))} />
+    <CloudDrawer cat={cat} attachments={d?.storage} /><MediaDrawer items={d?.media} />
+    {(d?.artifacts || []).map((a, i) => <details className="cwb-artifact" key={i}><summary>{a.title} · {a.kind}</summary>{a.kind === 'build' ? <iframe title={a.title} sandbox="allow-scripts" referrerPolicy="no-referrer" srcDoc={'<meta http-equiv="Content-Security-Policy" content="default-src \'none\'; script-src \'unsafe-inline\'; style-src \'unsafe-inline\'; img-src data:; connect-src \'none\'; form-action \'none\'; base-uri \'none\'">' + a.content} /> : <pre>{a.content}</pre>}</details>)}
+    {(d?.refusals || []).length ? <details className="cwb-refusals"><summary>Refusals · {d.refusals.length}</summary>{d.refusals.map((r, i) => <p key={i}>{r.why}</p>)}</details> : null}
+    </div></aside></div>
+    {logOpen ? <div className="cwb-logpane" role="dialog" aria-label="Its log" data-testid="cwb-logpane"><button type="button" className="cwb-logshade" aria-label="Close the log" onClick={() => setLogOpen(false)} />
+      <div className="cwb-logbody"><button type="button" className="m-btn cwb-logx" onClick={() => setLogOpen(false)} aria-label="Close the log" data-testid="cwb-logx">✕</button><AgentLog items={log} /></div></div> : null}
     {d && !d.live ? <p className="cwb-note" data-testid="cwb-off">Model calls are switched off on this server — asking sends and charges nothing until the owner turns them on.</p> : null}
     {err ? <p className="kd-err" role="alert">⚠ {err}</p> : null}
   </section>;

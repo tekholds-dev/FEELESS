@@ -57,6 +57,8 @@ test('💵 a general agent with a wallet shows its real wallet, credit and coins
   await act(async () => { root.render(<CatDesk cat={gen} canEdit onBack={() => {}} onAct={() => {}} />); });
   await act(async () => { await new Promise(r => setTimeout(r, 0)); });
   const q = id => el.querySelector(`[data-testid="${id}"]`);
+  expect(q('kd-real-tiles')).toBeNull(); expect(q('kd-tab-desk').getAttribute('aria-selected')).toBe('true');   // 🖥 the Desk tab is one screen: windows + chat
+  await act(async () => { q('kd-tab-wallet').click(); });
   expect(q('kd-real-tiles').textContent).toContain('0.0266 SOL'); expect(q('kd-real-tiles').textContent).toContain('$12.50');
   expect(q('kd-real-holds').textContent).toContain('$JUP'); expect(q('kd-wallet').textContent).toContain('ITS WALLET'); expect(q('kd-curve')).toBeNull(); expect(el.textContent).not.toContain('PAPER WALLET');
   act(() => root.unmount());

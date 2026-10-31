@@ -136,3 +136,9 @@ body.theme-day .kd-lim-box { color: #2a1650; }
 body.fx-lite .kd-dl:hover i { animation: none; } @media (prefers-reduced-motion: reduce) { .kd-dl:hover i { animation: none; } .kd-dl { transition: none; } }
 body.theme-day .kd-dl { background: #ffffffe6; border-color: #7c4dff44; } body.theme-day .kd-dl i, body.theme-day .kd-dl i::before { background: #4b2bb8; border-color: #4b2bb8; } body.theme-day .kd-dl i::before { background: transparent; } body.theme-day .kd-dl::after { border-color: #4b2bb8; }
 @media (max-width: 640px) { .kd-dl { left: 8px; top: 8px; } }
+/* 🖥 a general agent's owner desk: tabs (Desk · Wallet · Limits) + a slim hero so the Desk tab fits one screen — the mascot stays in view */
+.kd-tabs { display: flex; width: fit-content; margin: 0 auto; } .kd-tabs button { min-height: 34px; padding-inline: 16px; font-family: var(--f-tech, inherit); letter-spacing: .08em; }
+.kd.is-tabbed .kd-hero { padding-block: 6px; gap: 14px; min-height: 0; } .kd.is-tabbed .kd-stage { height: 108px; } .kd.is-tabbed .kd-stage .clk.is-large { width: 104px; height: 104px; } .kd.is-tabbed .kd-spot { transform: scale(.6); } .kd.is-tabbed .kd-line { display: none; }
+.kd.is-tabbed .kd-hero h1 { font-size: clamp(20px, 2.4vw, 28px); } .kd.is-tabbed .kd-xp { max-width: 260px; }
+@media (max-width: 640px) { .kd-tabs { width: 100%; } .kd-tabs button { flex: 1; padding-inline: 6px; } .kd.is-tabbed .kd-stage { height: 92px; } .kd.is-tabbed .kd-stage .clk.is-large { width: 88px; height: 88px; } }
+body.theme-day .kd-tabs { background: #fff; }
