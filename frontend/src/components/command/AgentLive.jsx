@@ -23,7 +23,7 @@ const pctWord = v => (v == null || !Number.isFinite(Number(v)) ? '' : `${v >= 0 
 // pure: a trading cat's two minds — each one's own latest decisions become its thoughts; the feed is every decision, newest last
 export function catMinds(cat) {
   const b = cat?.brainsCfg || {}; const brains = (b.brains || []).slice(0, 2); const dec = (b.decisions || []).slice(-24);
-  const mine = id => dec.filter(x => String(x.by || '').includes(String(id).split('/').pop())).slice(-4).map(x => `${x.word} $${x.sym}`);
+  const mine = id => dec.filter(x => String(x.by || '').includes(String(id).split('/').pop().split(':')[0])).slice(-4).map(x => `${x.word} $${x.sym}`);
   return { brains, thoughts: brains.map(mine), cloud: (b.cloud || []).slice(-5).reverse(), feed: dec.slice(-3).map(x => `🧠 ${x.by} · ${x.word} $${x.sym}${x.why ? ` — ${String(x.why).slice(0, 70)}` : ''}`) };
 }
 // pure: the coins its two windows chart — held first, then the coins it just closed (it still reads them)
@@ -43,7 +43,7 @@ export function HeadCloud({ items = [] }) {
   return <span className={`agl-cloud${items.length ? ' is-on' : ''}`} data-testid="head-cloud" data-tip="The head cloud: a call lands here only when BOTH minds said the same thing on the same coin">
     <svg viewBox="0 0 120 70" aria-hidden="true"><path d="M30 60 C12 60 8 40 24 36 C22 18 46 12 54 26 C62 8 92 12 90 32 C108 30 112 58 92 60 Z" /></svg>
     <b className="m-num" key={items.length}>{items.length}</b><em>HEAD CLOUD</em>
-    <small>{top ? `${top.word} $${top.sym} · both agree` : 'waiting for both to agree'}</small></span>;
+    <small>{top ? (top.text ? String(top.text).slice(0, 48) : `${top.word} $${top.sym} · both agree`) : 'waiting for both to agree'}</small></span>;
 }
 export function MindsRow({ minds = [], cloud }) {
   const mind = i => { const m = minds[i];

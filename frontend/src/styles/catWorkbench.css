@@ -188,7 +188,7 @@ body.theme-day .cwb-file { background: #fff; border-color: rgba(106, 61, 240, .2
 */
 .agd-url small.m-num { margin-left: auto; font-size: 10px; color: #a99bc8; }
 .agd-live.is-off { opacity: .55; }
-.cwb-under { display: grid; grid-template-columns: minmax(0, 860px); justify-content: center; gap: 12px; }   /* the chat in the middle; the cabinet slides in from the right (owner 2026-10-31) */
+.cwb-under { display: grid; grid-template-columns: minmax(0, 1fr); gap: 12px; }   /* one desk: vitals · chat · vitals, flipping to the cabinet (owner 2026-10-31) */
 .cwb-tools-rail .ck-log { padding: 10px; max-width: none; } .cwb-tools-rail .ck-cabinet { grid-template-columns: 150px minmax(0, 1fr); gap: 10px; }
 .cwb-tools-rail .ck-cabinet .ck-rows, .ck-panel { max-height: 460px; overflow-y: auto; scrollbar-width: thin; scrollbar-color: var(--kd-acc, #b388ff) transparent; }
 .ck-panel { display: grid; gap: 8px; align-content: start; min-width: 0; animation: cwbIn .2s ease both; } .ck-panel::-webkit-scrollbar { width: 6px; } .ck-panel::-webkit-scrollbar-thumb { background: #b388ff88; border-radius: 6px; }
@@ -413,8 +413,16 @@ body.theme-day .dsk-win { background: #fff; border-color: #00000018; } body.them
 .cwb-back { transform: rotateY(180deg); display: grid; grid-auto-rows: max-content; align-content: start; gap: 10px; padding: 12px; overflow-y: auto; border-radius: 20px; scrollbar-width: thin; scrollbar-color: #b388ff55 transparent;
   border: 1px solid #b388ff44; background: linear-gradient(170deg, #120c22f2, #080612f2); box-shadow: inset 0 1px 0 #ffffff1f, 0 18px 40px -28px #000; }
 .cwb-back .ck-log { padding: 0; border: 0; background: none; box-shadow: none; } .cwb-back .ck-cabinet { grid-template-columns: 150px minmax(0, 1fr); }
-.cwb-talk.cwb-face { display: flex; flex-direction: column; overflow: hidden; min-width: 0; } .cwb-talk.cwb-face > * { flex: none; } .cwb-talk.cwb-face > .cwb-chat { flex: 1 1 auto; max-height: none; }
-.cwb-talk.cwb-face .cwb-queue { max-height: 96px; overflow-y: auto; }
+.cwb-deck { align-items: stretch; height: 100%; } .cwb-deck > .ck-vitals { align-self: start; }
+.cwb-deck .cwb-mid { grid-template-rows: auto minmax(0, 1fr); justify-items: stretch; min-height: 0; } .cwb-deck .agl-cloud { justify-self: center; }
+.cwb-deck .cwb-talk { display: flex; flex-direction: column; overflow: hidden; min-width: 0; min-height: 0; } .cwb-deck .cwb-talk > * { flex: none; } .cwb-deck .cwb-talk > :is(.cwb-chat, .ck-chat) { flex: 1 1 auto; min-height: 0; max-height: none; }
+.cwb-deck .cwb-queue { max-height: 96px; overflow-y: auto; }
+/* a trader's chat inside the same card: no box in a box, its calls scroll, the chime box sits where the composer sits */
+.cwb-talk .ck-chat, .kd.is-glass .cwb-talk .ck-chat { display: flex; flex-direction: column; padding: 0; border: 0; background: none !important; box-shadow: none !important; }
+.cwb-talk .ck-msgs { flex: 1 1 auto; min-height: 0; max-height: none; align-content: end; }
+.cwb-talk .ck-say { padding: 8px; border-radius: 16px; border: 1px solid #b388ff33; background: #0b0614cc; }
+@media (max-width: 1100px) { .cwb-flip-in { height: auto; } .cwb-deck { height: auto; } .cwb-deck .cwb-mid { grid-template-rows: auto auto; } .cwb-deck .cwb-talk { height: clamp(440px, 62dvh, 600px); } .cwb-back { max-height: 82dvh; } }
+body.theme-day .cwb-talk .ck-say { background: #fff; border-color: #7c4dff33; }
 .cwb-talk-h { display: flex; align-items: center; gap: 10px; min-height: 36px; padding: 0 2px 8px; border-bottom: 1px solid #ffffff10; }
 .cwb-talk-h > b { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #f2ecff; font: 700 13.5px var(--f-ui); }
 .cwb-status { display: inline-flex; align-items: center; gap: 6px; padding: 3px 9px; border-radius: 99px; background: #ffffff0a; color: #a99fc8; font: 700 10px var(--f-mono); letter-spacing: .08em; text-transform: uppercase; }
@@ -452,4 +460,4 @@ body.fx-lite .cwb-flip-in { transition: none; } body.fx-lite .cwb-dots i, body.f
 body.theme-day .cwb-talk { background: linear-gradient(170deg, #fdfbff, #f4efff); border-color: #7c4dff33; box-shadow: 0 18px 40px -30px #7c4dff55; }
 body.theme-day .cwb-talk-h > b, body.theme-day .cwb-empty b { color: #2a1650; } body.theme-day .cwb-talk-h { border-color: #7c4dff1a; } body.theme-day .cwb-msg time, body.theme-day .cwb-hint { color: #6f6390; } body.theme-day .cwb-back { background: #fbf8ff; border-color: #7c4dff33; } body.theme-day .cwb-flip-btn { color: #3b2470; background: #7c4dff12; }
 body.theme-day .cwb-fields .m-input { color: #2a1650; } body.theme-day .cwb-field { background: #fff; border-color: #7c4dff22; } body.theme-day .cwb-chip { color: #3b2470; } body.theme-day .cwb-sugg button { color: #3b2470; }
-@media (max-width: 640px) { .cwb-flip-in { height: clamp(420px, 70dvh, 600px); } .cwb-status { font-size: 0; gap: 0; padding: 6px; } .cwb-flip-btn span, .cwb-hint { display: none; } .cwb-talk-h { gap: 6px; } .cwb-compose .cwb-jobs { grid-template-columns: 1fr; } .cwb-back .ck-cabinet { grid-template-columns: 1fr; } .cwb-talk-h > b { font-size: 12.5px; } }
+@media (max-width: 640px) { .cwb-flip-in { height: auto; } .cwb-deck .cwb-talk { height: clamp(420px, 70dvh, 600px); } .cwb-status { font-size: 0; gap: 0; padding: 6px; } .cwb-flip-btn span, .cwb-hint { display: none; } .cwb-talk-h { gap: 6px; } .cwb-compose .cwb-jobs { grid-template-columns: 1fr; } .cwb-back .ck-cabinet { grid-template-columns: 1fr; } .cwb-talk-h > b { font-size: 12.5px; } }

@@ -73,3 +73,19 @@ test('⬇ the desk has a download button on its picture; the file name is the ag
   expect(out).toContain('width="512"'); expect(out).toContain('height="1024"'); expect(out).toContain('fill: rgb(179, 136, 255)'); expect(out).not.toContain('class="x"');
   svg.remove();
 });
+
+test('🃏 one owner desk: a two-brain trader gets the same desk as a general agent — brain vitals · head cloud + chat · vitals — and Files flips it to its cabinet', async () => {
+  global.fetch = async () => ({ ok: true, json: async () => ({}) });
+  const t0 = Date.now() / 1000;
+  const cat = { ...CAT, brainsCfg: { kind: 'trading', brains: ['nvidia/nemotron-a:free', 'nvidia/nemotron-b:free'], credit: 1, decisions: [{ by: 'nemotron-a', word: 'BUY', sym: 'HUSS', why: 'volume', at: t0 }], chime: [], cloud: [] } };
+  const el = document.createElement('div'); document.body.appendChild(el); const root = createRoot(el); const onAct = jest.fn();
+  await act(async () => { root.render(<CatDesk cat={cat} canEdit onBack={() => {}} onAct={onAct} />); });
+  const q = id => el.querySelector(`[data-testid="${id}"]`);
+  expect(q('desk-flip')).not.toBeNull(); expect(q('ck-vitals-0').textContent).toContain('BUY');   // its ":free" model still counts its calls
+  expect(q('cwb-cockpit').textContent).toContain('Chat with Specter'); expect(q('ck-chat')).not.toBeNull();
+  await act(async () => { q('cwb-flip').click(); });
+  expect(el.querySelector('.cwb-flip').className).toContain('is-back'); expect(q('cwb-sheet').textContent).toContain('API keys');
+  await act(async () => { window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' })); });
+  expect(el.querySelector('.cwb-flip').className).not.toContain('is-back');
+  act(() => root.unmount());
+});

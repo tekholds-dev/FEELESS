@@ -64,7 +64,7 @@ const WORD_TONE = { BUY: 'up', SELL: 'dn', TRIM: 'warn', HOLD: 'mute', SKIP: 'mu
 
 // pure: one mind's live vitals from its own decisions (trading) — calls, buys, how often both agreed, $ spent, its last 12 words
 export function mindStats(cat, model) {
-  const b = cat?.brainsCfg || {}; const short = String(model || '').split('/').pop();
+  const b = cat?.brainsCfg || {}; const short = String(model || '').split('/').pop().split(':')[0];   // "nemotron…:free" still matches its calls
   const mine = (b.decisions || []).filter(x => String(x.by || '').includes(short));
   const agreed = (b.cloud || []).filter(c => (c.by || []).some(x => String(x).includes(short) || x === 'both')).length;
   return { calls: mine.length, buys: mine.filter(x => x.word === 'BUY').length, agreed, usd: mine.reduce((s, x) => s + (Number(x.usd) || 0), 0),
@@ -89,7 +89,7 @@ export function MindVitals({ cat, model, i = 0, kind = 'trading', live, extra })
 
 // pure: a trading cat's conversation — each brain's calls as its own bubble (A left · B right), your chime-ins on the right
 export function tradeChat(cat) {
-  const b = cat?.brainsCfg || {}; const brains = (b.brains || []).map(x => String(x).split('/').pop());
+  const b = cat?.brainsCfg || {}; const brains = (b.brains || []).map(x => String(x).split('/').pop().split(':')[0]);
   const calls = (b.decisions || []).slice(-24).map(x => ({ at: x.at, side: brains.findIndex(n => String(x.by || '').includes(n)) === 1 ? 'b' : 'a', who: x.by, word: x.word, sym: x.sym, text: x.why }));
   const you = (b.chime || []).slice(-8).map(x => ({ at: x.at, side: 'you', who: 'You', text: x.text }));
   return [...calls, ...you].sort((p, q) => (p.at || 0) - (q.at || 0)).slice(-24);

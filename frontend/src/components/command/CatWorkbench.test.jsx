@@ -264,7 +264,7 @@ test('🔄 the chat flips into its file cabinet and back; earlier runs fold; a w
   expect(q('cwb-cockpit').textContent).toContain('new ask'); expect(q('cwb-cockpit').textContent).not.toContain('old answer');
   await act(async () => { q('cwb-earlier').click(); }); expect(q('cwb-cockpit').textContent).toContain('old answer');
   expect(q('cwb-typing').textContent).toContain('reading the YES ladder');   // the working window's own words
-  await act(async () => { q('cwb-flip').click(); }); expect(el.querySelector('.cwb-flip').className).toContain('is-back'); expect(q('cwb-sheet').hasAttribute('inert')).toBe(false); expect(q('cwb-cockpit').hasAttribute('inert')).toBe(true);
+  await act(async () => { q('cwb-flip').click(); }); expect(el.querySelector('.cwb-flip').className).toContain('is-back'); expect(q('cwb-sheet').hasAttribute('inert')).toBe(false); expect(el.querySelector('.cwb-deck').hasAttribute('inert')).toBe(true);   // the whole desk face (vitals · chat · vitals) turns over
   await act(async () => { q('cwb-flip-back').click(); }); expect(el.querySelector('.cwb-flip').className).not.toContain('is-back');
   act(() => root.unmount());
   global.fetch = async () => ({ ok: true, json: async () => ({ ...STATE, chat: [], task: null, windows: [] }) });

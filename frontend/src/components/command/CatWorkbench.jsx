@@ -1,7 +1,8 @@
 import React, { Suspense, lazy, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { apiUrl } from '../../lib/api';
-import { AgentLog, SafeGate, safeOk } from './CatCockpit';
+import { AgentLog, MindVitals, SafeGate, safeOk } from './CatCockpit';
+import { HeadCloud } from './AgentLive';
 import { ApiDrawer } from './LaunchCat';
 import '../../styles/agentDemo.css';
 import '../../styles/catWorkbench.css';
@@ -40,6 +41,40 @@ function useOnScreen(ref) {
   useEffect(() => { const el = ref.current; if (!el || typeof IntersectionObserver === 'undefined') return undefined;
     const io = new IntersectionObserver(([e]) => setOn(e.isIntersecting), { threshold: 0.05 }); io.observe(el); return () => io.disconnect(); }, [ref]);
   return on;
+}
+
+// 🃏 ONE OWNER DESK for every agent (owner 2026-10-31: "both trader and general desks should be the same, slightly different for what's needed"):
+// [mind A vitals | head cloud + the chat card | mind B vitals] — the Files button flips the WHOLE desk over to its file cabinet, Esc / Chat flips back
+const FILES_ICON = <svg viewBox="0 0 20 20" aria-hidden="true"><rect x="3" y="3" width="14" height="5" rx="1.5" /><rect x="3" y="10" width="14" height="7" rx="1.5" /><path d="M8 5.5h4M8 13.5h4" /></svg>;
+export function DeskFlip({ flip, setFlip, name, live, count, left, right, cloud, back, children }) {
+  useEffect(() => { if (!flip) return undefined; const k = e => { if (e.key === 'Escape') setFlip(false); }; window.addEventListener('keydown', k); return () => window.removeEventListener('keydown', k); }, [flip, setFlip]);
+  return <div className={`cwb-under cwb-flip${flip ? ' is-back' : ''}`} data-testid="desk-flip"><div className="cwb-flip-in">
+    <div className="cwb-face ck-cockpit cwb-deck" inert={flip}>
+      {left}
+      <div className="ck-center cwb-mid">{cloud}
+        <div className="cwb-talk" data-testid="cwb-cockpit">
+          <header className="cwb-talk-h"><span className={`cwb-status${live ? ' is-live' : ''}`}><i aria-hidden="true" />{live ? 'Working' : 'Ready'}</span>
+            <b>Chat with {name || 'its minds'}</b>
+            <button type="button" className="cwb-flip-btn" onClick={() => setFlip(true)} aria-label="Flip to its file cabinet" data-tip="Flip to its file cabinet — every file, logins, sealed recovery files, API keys" data-testid="cwb-flip">
+              {FILES_ICON}<span>Files</span><b className="m-num">{count}</b></button></header>
+          {children}</div></div>
+      {right}
+    </div>
+    <aside className="cwb-face cwb-back cwb-tools-rail" aria-label="Its file cabinet" inert={!flip} data-testid="cwb-sheet">
+      <header className="cwb-talk-h"><b>Its file cabinet</b>
+        <button type="button" className="cwb-flip-btn" onClick={() => setFlip(false)} aria-label="Flip back to the chat" data-tip="Back to the chat (Esc)" data-testid="cwb-flip-back">
+          <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M4 5h12v8H9l-4 3v-3H4z" /></svg><span>Chat</span></button></header>
+      {back}</aside>
+  </div></div>;
+}
+// a general mind's vitals: what its window is doing right now
+const host = u => String(u || '').replace(/^https?:\/\//, '').split(/[/?#]/)[0];
+function WinVitals({ w }) {
+  return <><span className="ck-v-row"><em>STATUS</em><b className="m-num">{String(w?.status || 'idle').toUpperCase()}</b></span>
+    <span className="ck-v-row"><em>STEPS</em><b className="m-num" key={(w?.steps || []).length}>{(w?.steps || []).length}</b></span>
+    <span className="ck-v-row"><em>SPENT</em><b className="m-num">{usd(w?.cost || 0)}</b></span>
+    <span className="ck-v-row"><em>ON</em><b className="m-num">{host(w?.url) || '—'}</b></span>
+    <p className="ck-v-last">{w?.bubble || (w?.goal ? 'waiting' : 'no job yet')}</p></>;
 }
 
 // 🖱 the AI's own cursor over its live window (owner 2026-10-31: "make sure the cursor actually shows and is controlled by the AI") — it glides to
@@ -583,12 +618,21 @@ function WorkbenchLive({ cat }) {
       </span></header>
     <NowLine cat={cat} wins={wins} live={live} />
     <div className="cwb-stage agd-wins">{wins.map(w => <Window key={w.i} w={w} catId={cat.id} tick={tick} busy={busy} cursor={aiCur} onGo={(op, i) => act(op, { i })} onLogin={site => setSignIn({ site, at: Date.now() })} />)}</div>
-    <div className={`cwb-under cwb-flip${flip ? ' is-back' : ''}`}><div className="cwb-flip-in">
-        <div className="cwb-talk cwb-face" data-testid="cwb-cockpit" inert={flip}>
-    <header className="cwb-talk-h"><span className={`cwb-status${live ? ' is-live' : ''}`}><i aria-hidden="true" />{live ? 'Working' : 'Ready'}</span>
-      <b>Chat with {cat.name || 'its minds'}</b>
-      <button type="button" className="cwb-flip-btn" onClick={() => setFlip(true)} aria-label="Flip to its file cabinet" data-tip="Flip to its file cabinet — every file, logins, sealed recovery files, storage, earnings" data-testid="cwb-flip">
-        <svg viewBox="0 0 20 20" aria-hidden="true"><rect x="3" y="3" width="14" height="5" rx="1.5" /><rect x="3" y="10" width="14" height="7" rx="1.5" /><path d="M8 5.5h4M8 13.5h4" /></svg><span>Files</span><b className="m-num">{log.length}</b></button></header>
+    <DeskFlip flip={flip} setFlip={setFlip} name={cat.name} live={live} count={log.length} cloud={<HeadCloud items={(d?.cloud || []).slice(-5).reverse()} />}
+      left={<MindVitals cat={cat} model={wins[0]?.model} i={0} kind="general" live={wins[0]?.status === 'working'} extra={<WinVitals w={wins[0]} />} />}
+      right={<MindVitals cat={cat} model={wins[1]?.model} i={1} kind="general" live={wins[1]?.status === 'working'} extra={<WinVitals w={wins[1]} />} />}
+      back={<><LastMoney m={d?.lastMoney} />
+    <AgentLog title="FILES" items={log} open={signIn ? { key: 'creds', at: signIn.at } : null} cabinet={[
+      ...keyDrawers(cat, d, setD, signIn),
+      ['storage', '☁', 'Storage', (d?.storage?.files || []).length, <CloudDrawer cat={cat} attachments={d?.storage} />],
+      ['earn', '⚡', 'Earn', (d?.lastMoney ? 1 : 0), <EarnCard cat={cat} />],
+      ['treasury', '🏦', 'Treasury', 0, <TreasuryDrawer cat={cat} />],
+      ['pass', '🎫', 'Agent Pass', cat?.pass?.asset ? 1 : 0, <PassDrawer cat={cat} />],
+      ['notes', '🧠', 'Main cloud', (d?.cloud || []).length, <div className="cwb-cloud" data-testid="cwb-cloud">{(d?.cloud || []).slice(-6).reverse().map((c, i) => <span key={i} style={{ '--i': i }}>{c.text || `${c.word} $${c.sym}`}</span>)}</div>],
+      ...((d?.media || []).length ? [['media', '🖼', 'Media', d.media.length, <MediaDrawer items={d.media} />]] : []),
+      ...((d?.artifacts || []).length ? [['builds', '🛠', 'Builds', d.artifacts.length, <div className="cwb-builds">
+      {(d?.artifacts || []).map((a, i) => <details className="cwb-artifact" key={i}><summary>{a.title} · {a.kind}</summary>{a.kind === 'build' ? <iframe title={a.title} sandbox="allow-scripts" referrerPolicy="no-referrer" srcDoc={'<meta http-equiv="Content-Security-Policy" content="default-src \'none\'; script-src \'unsafe-inline\'; style-src \'unsafe-inline\'; img-src data:; connect-src \'none\'; form-action \'none\'; base-uri \'none\'">' + a.content} /> : <pre>{a.content}</pre>}</details>)}
+      </div>]] : [])]} /></>}>
     {d?.task?.answer || status === 'stopped' || status === 'error' || status === 'parked' ? <p className={`cwb-answer s-${status}`} data-testid="cwb-answer">{d.task.fast ? '⚡ from memory · ' : ''}{d.task.answer || d.task.why}</p> : null}
     <ol className="cwb-chat" aria-label="Chat with its models" aria-live="polite">
       {cut > 0 ? <li className="cwb-earlier"><button type="button" onClick={() => setOld(o => !o)} aria-expanded={old} data-testid="cwb-earlier">{old ? 'Hide earlier' : `Earlier · ${cut} message${cut === 1 ? '' : 's'}`}</button></li> : null}
@@ -641,24 +685,7 @@ function WorkbenchLive({ cat }) {
         : <button type="submit" className="m-btn m-go cwb-send" disabled={busy || (way === 'jobs' && wins.length > 1 ? !(jobs[0].trim() || jobs[1].trim()) : !text.trim())} data-testid="cwb-send">Send <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M2 8h11M9 4l4 4-4 4" /></svg></button>}
       </div>
     </form>
-    </div>
-    <aside className="cwb-face cwb-back cwb-tools-rail" aria-label="Its file cabinet" inert={!flip} data-testid="cwb-sheet">
-    <header className="cwb-talk-h"><b>Its file cabinet</b>
-      <button type="button" className="cwb-flip-btn" onClick={() => setFlip(false)} aria-label="Flip back to the chat" data-tip="Back to the chat (Esc)" data-testid="cwb-flip-back">
-        <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M4 5h12v8H9l-4 3v-3H4z" /></svg><span>Chat</span></button></header>
-    <LastMoney m={d?.lastMoney} />
-    <AgentLog title="FILES" items={log} open={signIn ? { key: 'creds', at: signIn.at } : null} cabinet={[
-      ...keyDrawers(cat, d, setD, signIn),
-      ['storage', '☁', 'Storage', (d?.storage?.files || []).length, <CloudDrawer cat={cat} attachments={d?.storage} />],
-      ['earn', '⚡', 'Earn', (d?.lastMoney ? 1 : 0), <EarnCard cat={cat} />],
-      ['treasury', '🏦', 'Treasury', 0, <TreasuryDrawer cat={cat} />],
-      ['pass', '🎫', 'Agent Pass', cat?.pass?.asset ? 1 : 0, <PassDrawer cat={cat} />],
-      ['notes', '🧠', 'Main cloud', (d?.cloud || []).length, <div className="cwb-cloud" data-testid="cwb-cloud">{(d?.cloud || []).slice(-6).reverse().map((c, i) => <span key={i} style={{ '--i': i }}>{c.text || `${c.word} $${c.sym}`}</span>)}</div>],
-      ...((d?.media || []).length ? [['media', '🖼', 'Media', d.media.length, <MediaDrawer items={d.media} />]] : []),
-      ...((d?.artifacts || []).length ? [['builds', '🛠', 'Builds', d.artifacts.length, <div className="cwb-builds">
-      {(d?.artifacts || []).map((a, i) => <details className="cwb-artifact" key={i}><summary>{a.title} · {a.kind}</summary>{a.kind === 'build' ? <iframe title={a.title} sandbox="allow-scripts" referrerPolicy="no-referrer" srcDoc={'<meta http-equiv="Content-Security-Policy" content="default-src \'none\'; script-src \'unsafe-inline\'; style-src \'unsafe-inline\'; img-src data:; connect-src \'none\'; form-action \'none\'; base-uri \'none\'">' + a.content} /> : <pre>{a.content}</pre>}</details>)}
-      </div>]] : [])]} />
-    </aside></div></div>
+    </DeskFlip>
     {desk ? <AgentDesktop cat={cat} onClose={() => setDesk(false)} /> : null}
     <FirstTips id="agent-desk" tips={DESK_TIPS} />
     {d && !d.live ? <p className="cwb-note" data-testid="cwb-off">Model calls are switched off on this server — asking sends and charges nothing until the owner turns them on.</p> : null}
