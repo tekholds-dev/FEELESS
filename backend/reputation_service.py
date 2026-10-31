@@ -11133,7 +11133,7 @@ async def cat_fund_build(cat_id: str, p: CatFundIn):
         raise HTTPException(400, 'This agent runs no paid models.')
     first = not cat.get('agentFunded') and p.usd > p.creditUsd
     rules_ = _cat_fund_rules(me)
-    free_credit = bool(rules_.get('staff'))
+    free_credit = bool(rules_.get('staff')) and (cat.get('brainsCfg') or {}).get('kind') != 'general'   # 🧭 a general agent's credit is always real money (owner 2026-10-31)
     if p.creditUsd > 0 and not free_credit and not _cfund.credit_open(await _openrouter_left(), p.creditUsd) and not os.environ.get('GROQ_API_KEY', '').strip():
         raise HTTPException(503, 'Model credit is paused right now. Nothing was charged. Put the full amount in its wallet, or try later.')
     need_fee = (p.creditUsd > 0 and not free_credit) or (first and rules_['feeUsd'] > 0)

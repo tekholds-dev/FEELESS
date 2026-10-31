@@ -1748,6 +1748,12 @@ app.add_middleware(CORSMiddleware, allow_origins=[o.strip() for o in (os.environ
 
 @app.on_event('startup')
 async def _start_engine():
+    try:
+        store_ = _load()
+        if heal_general_credit(store_):   # 🧭 no free credit on a general agent, ever: the old $10 start grant comes off once
+            _save(store_)
+    except Exception as e:
+        print(f'[feecat] general credit heal skipped: {e}')
     asyncio.create_task(_engine_loop())
     asyncio.create_task(_tune_loop())
 
@@ -2396,8 +2402,32 @@ async def _is_creator(addr):
 
 
 def free_credit_ok(cat, creator=False):
-    """💳 Live model credit costs real money: a real agent buys it (/cats/{id}/fund, purpose credit); only a paper rule cat or a creator wallet refills free."""
-    return bool(creator or not (cat.get('agentWallet') or (cat.get('brainsCfg') or {}).get('kind') == 'general'))
+    """💳 Live model credit costs real money: a real agent buys it (/cats/{id}/fund, purpose credit); only a paper rule cat or a creator wallet refills free.
+    🧭 A GENERAL agent never gets free credit — not even staff (owner 2026-10-31: "staff use paper only for trading bots, never general agents")."""
+    if (cat.get('brainsCfg') or {}).get('kind') == 'general':
+        return False
+    return bool(creator or not cat.get('agentWallet'))
+
+
+def real_credit(cat):
+    """🧭 A general agent's credit = only the money that really bought it (creditPaid, never a `creator-` grant) less what it spent; never more than it shows."""
+    b = cat.get('brainsCfg') or {}
+    paid = sum(_num(x.get('usd')) or 0.0 for x in cat.get('creditPaid') or [] if not str(x.get('sig') or '').startswith('creator-'))
+    return round(max(0.0, min(_num(b.get('credit')) or 0.0, paid - (_num(b.get('spent')) or 0.0))), 6)
+
+
+def heal_general_credit(store):
+    """One pass at startup: every general agent's credit drops any free grant (the old $10 start, a creator top-up). Returns the ids it changed."""
+    changed = []
+    for c in (store.get('cats') or {}).values():
+        b = c.get('brainsCfg') or {}
+        if b.get('kind') != 'general':
+            continue
+        real = real_credit(c)
+        if real != round(_num(b.get('credit')) or 0.0, 6):
+            b['credit'] = real
+            changed.append(c.get('id'))
+    return changed
 
 
 def fee_owner_real(cat, action, signed, owners=None):

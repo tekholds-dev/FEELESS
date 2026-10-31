@@ -33,7 +33,23 @@ def test_free_credit_only_for_paper_cats_or_a_creator():
     assert fs.free_credit_ok({'brainsCfg': {'kind': 'trading'}}) is True
     assert fs.free_credit_ok({'brainsCfg': {'kind': 'general'}}) is False
     assert fs.free_credit_ok({'brainsCfg': {'kind': 'trading'}, 'agentWallet': {'address': 'x'}}) is False
-    assert fs.free_credit_ok({'brainsCfg': {'kind': 'general'}}, creator=True) is True
+    assert fs.free_credit_ok({'brainsCfg': {'kind': 'general'}}, creator=True) is False   # 🧭 never free on a general agent, staff included (owner 2026-10-31)
+    assert fs.free_credit_ok({'brainsCfg': {'kind': 'trading'}, 'agentWallet': {'address': 'x'}}, creator=True) is True
+
+
+def test_a_general_agent_starts_at_zero_and_shows_only_real_credit():
+    import launch_cat as lc
+    assert lc.clean({'brains': ['m/a'], 'brainKind': 'general'})['credit'] == 0.0
+    assert lc.clean({'brains': ['m/a'], 'brainKind': 'trading'})['credit'] == lc.START_CREDIT
+    # the owner's case: $10 free start + $2.50 really paid = $12.50 shown → $2.50
+    g = {'id': 'g', 'brainsCfg': {'kind': 'general', 'credit': 12.5, 'spent': 0.0}, 'creditPaid': [{'sig': 'REALSIG', 'usd': 2.5}]}
+    gift = {'id': 'h', 'brainsCfg': {'kind': 'general', 'credit': 15.0, 'spent': 0.5}, 'creditPaid': [{'sig': 'creator-abc', 'usd': 5.0}, {'sig': 'R', 'usd': 3.0}]}
+    t = {'id': 't', 'brainsCfg': {'kind': 'trading', 'credit': 10.0}}
+    store = {'cats': {'g': g, 'h': gift, 't': t}}
+    assert sorted(fs.heal_general_credit(store)) == ['g', 'h']
+    assert g['brainsCfg']['credit'] == 2.5 and gift['brainsCfg']['credit'] == 2.5 and t['brainsCfg']['credit'] == 10.0
+    assert fs.heal_general_credit(store) == []                                           # idempotent
+    assert fs.real_credit({'brainsCfg': {'kind': 'general', 'credit': 1.0}, 'creditPaid': [{'sig': 'R', 'usd': 4.0}]}) == 1.0   # never raises what it shows
 
 
 def test_credit_goes_all_to_feeless_and_never_counts_as_the_first_funding():

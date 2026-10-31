@@ -352,6 +352,8 @@ def test_a_general_agent_end_to_end_from_the_wizard_to_its_answer_and_clouds(tmp
         cat = fs._load()['cats'][cid]
         assert cat['taskCap'] == 0.25 and cat['workMode'] == 'jobs' and cat['brainsCfg']['kind'] == 'general' and cat['job'] == 'researcher'
         assert c.post(f'/api/cats/{cid}/work', json={'op': 'ask', 'ownerId': 'intruder', 'text': 'hi'}).status_code == 403   # only its owner
+        assert cat['brainsCfg']['credit'] == 0.0                                             # 🧭 a general agent starts at $0 — only real money buys credit
+        st_ = fs._load(); st_['cats'][cid]['brainsCfg']['credit'] = 10.0; st_['cats'][cid]['creditPaid'] = [{'sig': 'REALSIG', 'usd': 10.0}]; fs._save(st_)   # (as if its owner paid $10 of credit)
         r = c.post(f'/api/cats/{cid}/work', json={'op': 'ask', 'ownerId': 'w', 'text': 'A: research Solana B: write a thread on it'})
         assert r.status_code == 200, r.text
         for _ in range(100):

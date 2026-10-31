@@ -197,7 +197,8 @@ def clean(body, prev=None, ids=None, max_models=2):
         raise ValueError('unknown kind')
     return {'brains': brains, 'brainMode': mode if len(brains) > 1 else 'turns', 'billing': billing, 'prompt': prompt, 'kind': kind,
             'efforts': {m: e for m, e in (body.get('efforts') or prev.get('efforts') or {}).items() if m in brains},
-            'promptLocked': bool(prompt), 'credit': prev.get('credit', START_CREDIT), 'owed': prev.get('owed', 0.0),
+            'promptLocked': bool(prompt), 'credit': prev.get('credit', 0.0 if kind == 'general' else START_CREDIT),   # 🧭 a general agent starts at $0: only real money buys its credit (owner 2026-10-31)
+            'owed': prev.get('owed', 0.0),
             'spent': prev.get('spent', 0.0), 'asks': prev.get('asks', 0), 'chime': prev.get('chime', []), 'decisions': prev.get('decisions', []), 'cloud': prev.get('cloud', []),
             'minds': {m: v for m, v in (prev.get('minds') or {}).items() if m in brains}}   # ☁ each mind's own cloud (its best notes), kept per model
 
