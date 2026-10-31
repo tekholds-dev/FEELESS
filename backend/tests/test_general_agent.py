@@ -590,3 +590,49 @@ def test_the_service_files_an_unanswered_window_and_the_desk_can_drop_it(tmp_pat
         assert st['parked'] and st['parked'][0]['text'] == 'B: read my X feed' and 'sign-in' in st['parked'][0]['why']
         c.post(f'/api/cats/{cid}/work', json={'op': 'unpark', 'i': 0, 'ownerId': 'w', 'session': 'w'})
         assert fs._load()['cats'][cid].get('workParked') == []
+
+
+def test_a_window_handed_to_you_is_let_go_then_taken_back(tmp_path, monkeypatch):
+    """🙋 owner 2026-10-31: Cloudflare's "I'm human" box reloaded forever — every request was routed through the agent. While a person has the window,
+    the agent lets go (release: nothing routed or attached), then takes it back (start) on the page they left."""
+    import time as _t
+    from fastapi.testclient import TestClient
+    import launch_cat as lc
+    import feecat_service as fs
+    rows = [{'id': f'm/{x}', 'name': x, 'context_length': 131072, 'pricing': {'prompt': '0.0000001', 'completion': '0.0000002'}} for x in ('a', 'b')]
+    monkeypatch.setattr(fs, 'STORE_PATH', tmp_path / 'feecats.json')
+    monkeypatch.setattr(fs, '_MODELS', {'at': 9e18, 'rows': lc.catalog(rows)})
+    monkeypatch.setattr(fs, 'HUMAN_WAIT_S', 0.05)
+    monkeypatch.setenv('OPENROUTER_API_KEY', 'test'); monkeypatch.setenv('GENERAL_CAT_LIVE', '1')
+
+    async def or_call(model, messages, **k):
+        return json.dumps({'action': 'open', 'url': 'https://x.com/i/flow/login'}), 0.001
+    monkeypatch.setattr(fs, '_or_call', or_call)
+
+    async def open_session(http, env, ctx=None):
+        return {'provider': 'steel', 'connect': 'wss://steel/x', 'live': 'https://view'}, []
+    monkeypatch.setattr(fs._cb, 'open_session', open_session)
+    seen = []
+    class Live(Page):
+        live = True
+        def __init__(self, connect): pass
+        async def start(self): seen.append('start'); return self
+        async def release(self): seen.append('release')
+        async def goto(self, u):
+            self.url = u; return 'Sign in to X'
+    monkeypatch.setattr(fs._cb, 'LivePage', Live)
+
+    async def close_session(*a):
+        return None
+    monkeypatch.setattr(fs._cb, 'close_session', close_session)
+    with TestClient(fs.app) as c:
+        r = c.post('/api/cats', json={'ownerId': 'w', 'session': 'w', 'name': 'Scout', 'handle': 'scout', 'brains': ['m/a', 'm/b'], 'brainKind': 'general', 'brainMode': 'turns',
+                                      'billing': 'payg', 'prompt': 'help', 'job': 'researcher', 'workMode': 'jobs', 'taskCap': 0.25})
+        cid = r.json()['cat']['id']
+        st_ = fs._load(); st_['cats'][cid]['brainsCfg']['credit'] = 10.0; st_['cats'][cid]['creditPaid'] = [{'sig': 'REALSIG', 'usd': 10.0}]; fs._save(st_)
+        assert c.post(f'/api/cats/{cid}/work', json={'op': 'ask', 'ownerId': 'w', 'session': 'w', 'text': 'B: read my X feed'}).status_code == 200
+        for _ in range(100):
+            if fs._WORK[cid].get('done'):
+                break
+            _t.sleep(0.05)
+        assert fs._WORK[cid]['task']['status'] == 'parked' and seen == ['start', 'start', 'release', 'start']   # both windows open · B let go for you · taken back

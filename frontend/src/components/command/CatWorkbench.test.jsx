@@ -169,3 +169,24 @@ test('⏸ a task nobody answered for 5 min is filed: ▶ resume drops it and ask
   expect(calls.at(-1)).toMatchObject({ op: 'unpark', i: 0 });
   await act(async () => { root.unmount(); });
 });
+
+test('⤢ signing in opens the live window BIG (save from inside it; ✕ / Esc shrink it back); a window handed to you has ⤢ Big', async () => {
+  const { SignedSites } = require('./CatWorkbench');
+  const calls = [];
+  global.fetch = async (u, o) => { const b = JSON.parse(o.body); calls.push(b); return { ok: true, json: async () => (b.op === 'signin_open' ? { live: 'https://view/hand', site: 'x.com' } : b.op === 'signin_save' ? { signedIn: [{ site: 'x.com', at: 1, n: 9 }] } : { ...STATE, windows: [{ ...STATE.windows[0], status: 'human', hand: true, live: 'https://view/w0', human: { why: 'a bot check' } }] }) }; };
+  const saved = [];
+  const el = document.createElement('div'); document.body.appendChild(el); const root = createRoot(el);
+  await act(async () => { root.render(<SignedSites cat={{ id: 'g1' }} onSaved={r => saved.push(r)} />); });
+  const q = id => document.querySelector(`[data-testid="${id}"]`);
+  await act(async () => { el.querySelector('.cwb-signed-add .m-seg button').click(); });
+  await act(async () => { q('cwb-signed-open').click(); });
+  expect(q('cwb-pop-frame').getAttribute('src')).toBe('https://view/hand'); expect(q('cwb-pop').parentElement).toBe(document.body);
+  await act(async () => { window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' })); }); expect(q('cwb-pop')).toBeNull(); expect(q('cwb-signed-frame')).not.toBeNull();
+  await act(async () => { q('cwb-signed-big').click(); }); await act(async () => { q('cwb-pop-save').click(); });
+  expect(calls.at(-1)).toMatchObject({ op: 'signin_save' }); expect(saved[0][0].site).toBe('x.com'); expect(q('cwb-pop')).toBeNull();
+  act(() => root.unmount());
+  const el2 = document.createElement('div'); document.body.appendChild(el2); const root2 = createRoot(el2);
+  await act(async () => { root2.render(<CatWorkbench cat={{ id: 'g1', brainsCfg: { kind: 'general', brains: ['qwen/qwen3-32b', 'x/opus'], credit: 9.2 } }} />); });
+  await act(async () => { q('cwb-big').click(); }); expect(q('cwb-pop-frame').getAttribute('src')).toBe('https://view/w0'); expect(q('cwb-pop').textContent).toContain('a bot check');
+  act(() => root2.unmount());
+});

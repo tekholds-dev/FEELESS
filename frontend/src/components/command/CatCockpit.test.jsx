@@ -125,5 +125,5 @@ test('🔓 signed-in sites sit inside Credentials: saved rows show site + cookie
   act(() => [...el.querySelectorAll('.cwb-signed-add .m-seg button')].find(b => b.textContent.includes('X')).click());
   await act(async () => { el.querySelector('.cwb-signed-add').dispatchEvent(new Event('submit', { bubbles: true, cancelable: true })); });
   expect(JSON.parse(global.fetch.mock.calls[0][1].body)).toMatchObject({ op: 'signin_open', text: 'x.com' });
-  expect(el.querySelector('[data-testid="cwb-signed-frame"]').getAttribute('src')).toBe('https://steel/live'); global.fetch = f;
+  expect(document.querySelector('[data-testid="cwb-pop-frame"]').getAttribute('src')).toBe('https://steel/live'); global.fetch = f;
 });

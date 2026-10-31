@@ -1,4 +1,5 @@
 import React, { Suspense, lazy, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { apiUrl } from '../../lib/api';
 import { AgentLog } from './CatCockpit';
 import { ApiDrawer } from './LaunchCat';
@@ -40,7 +41,7 @@ function useOnScreen(ref) {
 function Window({ w, catId, tick, onGo, onLogin, busy }) {
   const ref = useRef(null); const seen = useOnScreen(ref);
   const [p, pcls] = PROV[w?.provider] || ['…', ''];
-  const human = w?.status === 'human' && w?.human;
+  const human = w?.status === 'human' && w?.human; const [big, setBig] = useState(false);
   const i = w?.i ?? 0; const working = w?.status === 'working';
   // 🪟 the live window wears the demo's chrome (owner 2026-10-30: "the window design is perfected — users should see exactly that, bigger")
   return <article ref={ref} className={`agd-win cwb-win w${i % 2} s-${w?.status || 'idle'}`} data-testid={`cwb-win-${i}`}>
@@ -58,6 +59,8 @@ function Window({ w, catId, tick, onGo, onLogin, busy }) {
         : w?.shot && seen ? <img className="cwb-shot" src={apiUrl(`/api/cats/${catId}/work/shot/${w.i}?${agentAuthQuery()}&t=${tick}`)} alt={`${w.model} window`} data-testid="cwb-shot" />
           : <ol className="cwb-steps" data-testid="cwb-steps">{w?.provider === 'reader' && w?.note ? <li className="cwb-idle" data-testid="cwb-noview"><span>no live browser · {w.note}</span></li> : null}{(w?.steps || []).length ? w.steps.map((s, i) => <li key={i} style={{ '--i': i }}><b>{s.action}</b><span>{s.thought}</span>{s.detail ? <small>{s.detail}</small> : null}</li>)
             : <li className="cwb-idle"><span>{w?.status === 'done' ? (w?.answer ? 'done — its answer is in the chat' : 'done') : 'ready — ask below'}</span></li>}</ol>}
+      {w?.hand && w?.live ? <button type="button" className="m-btn cwb-big" onClick={() => setBig(true)} data-tip="It needs you: open its window big to click / sign in yourself" data-testid="cwb-big">⤢ Big</button> : null}
+      {big && w?.hand && w?.live ? <LivePop src={w.live} title={`MIND ${'AB'[i] || i + 1} needs you${w?.human?.why ? ` — ${w.human.why}` : ''}`} onClose={() => setBig(false)} /> : null}
       {w?.bubble && w?.status !== 'idle' ? <p className={`agd-done is-on cwb-say at-${i % 2 ? 'right' : 'left'}`} key={w.bubble} data-testid="cwb-bubble">MIND {'AB'[i] || i + 1} · {w.bubble}</p> : null}
       {human && w.human.kind === 'login' ? <div className="cwb-human cwb-signin" role="alertdialog" aria-label={`Sign in to ${w.human.site}`} data-testid="cwb-login">
         <b>🔑 {w.human.site} needs a sign-in</b><small>It goes in the credentials drawer, sealed — the AI models never see it.</small>
@@ -299,19 +302,34 @@ function Credentials({ cat, rows, ask, onSaved, log = [] }) {
       {err ? <small className="kd-err" role="alert">⚠ {err}</small> : null}</form>
     {log.length ? <ol className="cwb-vlog" data-testid="cwb-vault-log" aria-label="Who used the vault">{log.slice().reverse().slice(0, 6).map((x, i) => <li key={`${x.at}-${i}`} style={{ '--i': i }}><span>{VAULT_WORD[x.what] || x.what}</span><b>{x.site || ''}</b><time className="m-num">{ago(x.at)}</time></li>)}</ol> : null}</details>;
 }
+// ⤢ A LIVE WINDOW YOU USE, BIG (owner 2026-10-31: "the browser window is too small to sign in — make it pop out"): one overlay for the
+// sign-in window and any agent window handed to you. Esc / ✕ closes it; ↗ opens the same live view in its own tab.
+export function LivePop({ src, title, onClose, children }) {
+  useEffect(() => { const k = e => { if (e.key === 'Escape') onClose(); }; window.addEventListener('keydown', k); return () => window.removeEventListener('keydown', k); }, [onClose]);
+  return createPortal(<div className="cwb-livepop" role="dialog" aria-modal="true" aria-label={title} data-testid="cwb-pop" onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
+    <div className="cwb-livepop-box m-pop"><header><em>● LIVE · {title}</em><span>{children}
+      <a className="m-btn" href={src} target="_blank" rel="noopener noreferrer" data-tip="Open this live window in its own browser tab">↗ Tab</a>
+      <button type="button" className="m-btn" onClick={onClose} aria-label="Close the big window" data-testid="cwb-pop-close">✕</button></span></header>
+      <iframe title={title} src={src} referrerPolicy="no-referrer" sandbox="allow-scripts allow-same-origin allow-forms allow-popups" allow="clipboard-read; clipboard-write" data-testid="cwb-pop-frame" /></div>
+  </div>, document.body);   // on the page itself: a moving / clipped window above never traps it
+}
+
 // 🔓 SIGNED-IN SITES (owner 2026-10-31): a site that blocks bots, or your agent's own email — open it here, sign in yourself in the live window,
 // Save: its windows start signed in from then on (cookies sealed on the server, never sent to a page). A site that re-checks asks you again.
 const SIGNIN_PICKS = [['x.com', '𝕏 X'], ['proton.me', '📧 Proton Mail'], ['dexscreener.com', '📈 DexScreener'], ['solscan.io', '🔎 Solscan']];
 export function SignedSites({ cat, rows = [], onSaved }) {
-  const [site, setSite] = useState(''); const [live, setLive] = useState(null); const [busy, setBusy] = useState(''); const [err, setErr] = useState('');
+  const [site, setSite] = useState(''); const [live, setLive] = useState(null); const [busy, setBusy] = useState(''); const [err, setErr] = useState(''); const [big, setBig] = useState(true);
   const run = async (op, text) => { setBusy(op); setErr('');
-    try { const j = await work(cat.id, { op, text }); if (op === 'signin_open') setLive(j); else { setLive(null); onSaved?.(j.signedIn || []); } } catch (e) { setErr(e.message); } finally { setBusy(''); } };
+    try { const j = await work(cat.id, { op, text }); if (op === 'signin_open') { setLive(j); setBig(true); } else { setLive(null); onSaved?.(j.signedIn || []); } } catch (e) { setErr(e.message); } finally { setBusy(''); } };
   return <section className="cwb-signed" data-testid="cwb-signed"><b className="cwb-signed-h">🔓 SIGNED-IN SITES <em className="m-num">{rows.length}</em></b>
     <small>Blocked by a bot check, or your agent's own email? Sign in once here — its windows open signed in.</small>
     {rows.length ? <ul>{rows.map(r => <li key={r.site}><span><b>{r.site}</b><small>{ago(r.at)} ago · {r.n} cookies · sealed</small></span>
       <button type="button" className="m-btn" disabled={!!busy} onClick={() => run('signin_drop', r.site)} data-tip={`Sign its windows out of ${r.site}`} data-testid={`cwb-signed-drop-${r.site}`}>Sign out</button></li>)}</ul> : null}
-    {live ? <div className="cwb-signed-live"><span><em>LIVE · sign in to {live.site} yourself</em><button type="button" className="m-btn m-go" disabled={!!busy} onClick={() => run('signin_save')} data-testid="cwb-signed-save">{busy === 'signin_save' ? 'Saving…' : '✓ Signed in — save'}</button></span>
-      <iframe title={`Sign in to ${live.site}`} src={live.live} referrerPolicy="no-referrer" sandbox="allow-scripts allow-same-origin allow-forms allow-popups" data-testid="cwb-signed-frame" /></div>
+    {live ? <div className="cwb-signed-live"><span><em>LIVE · sign in to {live.site} yourself</em><button type="button" className="m-btn" onClick={() => setBig(true)} data-tip="Open the sign-in window big" data-testid="cwb-signed-big">⤢ Big</button>
+      <button type="button" className="m-btn m-go" disabled={!!busy} onClick={() => run('signin_save')} data-testid="cwb-signed-save">{busy === 'signin_save' ? 'Saving…' : '✓ Signed in — save'}</button></span>
+      {big ? <LivePop src={live.live} title={`sign in to ${live.site || "the site"} yourself`} onClose={() => setBig(false)}>
+        <button type="button" className="m-btn m-go" disabled={!!busy} onClick={() => run('signin_save')} data-tip="Keep this sign-in for its windows" data-testid="cwb-pop-save">{busy === 'signin_save' ? 'Saving…' : '✓ Signed in — save'}</button></LivePop>
+        : <iframe title={`Sign in to ${live.site}`} src={live.live} referrerPolicy="no-referrer" sandbox="allow-scripts allow-same-origin allow-forms allow-popups" data-testid="cwb-signed-frame" />}</div>
       : <form className="cwb-signed-add" onSubmit={e => { e.preventDefault(); if (site.trim()) run('signin_open', site.trim()); }}>
         <span className="m-seg">{SIGNIN_PICKS.map(([h, l]) => <button key={h} type="button" className={site === h ? 'active' : ''} onClick={() => setSite(h)} data-tip={`Sign its windows in to ${h}`}>{l}</button>)}</span>
         <input className="m-input" value={site} onChange={e => setSite(e.target.value)} placeholder="any site, e.g. x.com" aria-label="Site to sign in to" data-testid="cwb-signed-site" />

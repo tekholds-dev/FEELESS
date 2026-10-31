@@ -1615,7 +1615,10 @@ async def _work_run(cat_id, models, names, text, cap, brief='', efforts=None, ow
                         w['task'].setdefault('vaultUsed', []).append(h_.get('site'))
                         return True
                 ev = w['events'][i] = asyncio.Event()
+                pg_ = pages[i] if i < len(pages) and getattr(pages[i], 'live', False) else None
                 try:
+                    if pg_:
+                        await pg_.release()   # 🙋 hands off: you are alone in the window (a routed browser loops Cloudflare's box)
                     await asyncio.wait_for(ev.wait(), HUMAN_WAIT_S)
                 except asyncio.TimeoutError:   # ⏸ nobody answered: file it to come back to, let this window (and the queue) move on
                     w['events'].pop(i, None)
@@ -1623,6 +1626,12 @@ async def _work_run(cat_id, models, names, text, cap, brief='', efforts=None, ow
                     win_['parked'] = f"{_ca.PARKED}: no answer in {HUMAN_WAIT_S // 60} min — filed to come back to ({why_})"
                     w['task'].setdefault('parked', []).append({'why': why_, 'url': h_.get('url') or win_.get('url'), 'mind': i})
                     return False
+                finally:
+                    if pg_:
+                        try:
+                            await pg_.start()   # the agent takes the window back where you left it
+                        except Exception as e:
+                            print(f'[agent window] {cat_id}: could not take the window back ({str(e)[:80]})')
                 return bool(w['go'].pop(i, False))
             async def feeless(tool, q=''):   # 🧰 FEELESS first: our own read-only tools, server-side (the browser is walled off from us)
                 return await _ct.run_tool(http, tool, q)
@@ -2439,6 +2448,7 @@ async def cat_work(cat_id: str, p: WorkPayload):
         page_ = None
         try:
             page_ = await _cb.LivePage(s_['connect']).start(); await page_.goto(url_)
+            await page_.release()   # 🙋 the owner signs in ALONE: nothing routed or attached, so a "verify you are human" box can pass
         except Exception:
             pass   # the window still opens; the owner types the address
         _SIGNIN[cat_id] = {'sid': s_['id'], 'site': site_, 'page': page_, 'at': time.time()}

@@ -340,3 +340,10 @@ class LivePage:
                 await (x.close() if x is self._b else x.stop())
             except Exception:
                 pass
+
+    async def release(self):
+        """🙋 Let go while a PERSON uses the window (a sign-in, a "verify you are human" box): no request routing, no automation attached.
+        With every request routed through us, Cloudflare's check reloads forever (owner 2026-10-31). The person still clicks it themselves;
+        start() takes the window back after, on the page they left it."""
+        await self.close()
+        self._b = self._pw = self._p = None
