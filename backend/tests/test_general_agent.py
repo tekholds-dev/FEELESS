@@ -18,12 +18,14 @@ def test_feeless_tools_read_our_data_and_hand_back_the_coin_for_the_chart():
     assert 'SOL-PERP up to 250x' in ct.perps_text()
 
 
-@pytest.mark.parametrize('text', ['launch a new memecoin on FEELESS', 'create a liquidity pool on feeless', 'make another agent', 'spawn a new AI agent', 'create a FeeCat'])
+@pytest.mark.parametrize('text', ['launch a new memecoin on FEELESS', 'create a liquidity pool on feeless', 'make another agent', 'spawn a new AI agent', 'create a FeeCat',
+                                  'create an AI agent on FEELESS', 'make a fee cat on virtuals.io', 'deploy a token on feecat'])
 def test_agents_never_create_agents_or_launch_on_feeless(text):
     assert cp.refusal(text)
 
 
-@pytest.mark.parametrize('text', ['research the newest coins on the trench', 'is this pool worth it?', 'compare two agents', 'launch a memecoin on pump.fun for my brand'])
+@pytest.mark.parametrize('text', ['research the newest coins on the trench', 'is this pool worth it?', 'compare two agents', 'launch a memecoin on pump.fun for my brand',
+                                  'create an AI agent on virtuals.io for my brand', 'launch a coin on pump.fun with the image I uploaded'])
 def test_reading_about_coins_pools_agents_is_fine(text):
     assert cp.refusal(text) is None
 
@@ -394,5 +396,24 @@ def test_a_new_model_sorts_the_old_cloud_and_a_bad_answer_never_loses_memory(tmp
 
 def test_house_rules_are_hardcoded_in_every_step_not_the_editable_brief():
     s = ca.ACT_SYS
-    assert 'Never create another agent; never launch a coin or pool ON FEELESS' in s
+    assert 'Never launch a coin or pool or create an agent ON FEELESS' in s
     assert 'its own email at a free provider' in s and 'ONLY for the user\'s OWN accounts' in s
+
+
+def test_an_agents_own_wallet_can_never_make_an_agent_or_launch_a_coin_on_feeless(monkeypatch):
+    """🚫 hard lock (owner 2026-10-31): whatever the prompt says, the agent's own wallet is refused by FEELESS's create-agent and launch endpoints."""
+    fs = pytest.importorskip("feecat_service")
+    from fastapi.testclient import TestClient
+    store = {'cats': {'g': {'id': 'g', 'ownerId': 'o', 'revoked': False, 'agentWallet': {'address': 'AGENTWALLET1111'}}}, 'events': []}
+    monkeypatch.setattr(fs, '_load', lambda: store); monkeypatch.setattr(fs, '_save', lambda s: None)
+    monkeypatch.setattr(fs, '_session_wallet', lambda s: {'agent-sess': 'AGENTWALLET1111', 'user-sess': 'USERWALLET'}.get(s, ''))
+    async def staff(session=''): return False
+    monkeypatch.setattr(fs, '_session_staff', staff)
+    c = TestClient(fs.app)
+    r = c.post('/api/cats', json={'ownerId': 'x', 'name': 'Spawn', 'handle': 'spawn', 'session': 'agent-sess', 'brains': ['m/a'], 'brainKind': 'general'})
+    assert r.status_code == 403 and 'never creates another agent' in r.json()['detail']
+    assert fs.agent_wallets(store) == {'AGENTWALLET1111'}
+    rs = pytest.importorskip('reputation_service')
+    monkeypatch.setattr(rs, '_agent_wallets', lambda: {'AGENTWALLET1111'})
+    r = TestClient(rs.app).post('/api/reputation/feeless-launch', json={'wallet': 'AGENTWALLET1111', 'mint': 'MINT', 'signature': None})
+    assert r.status_code == 403 and 'never launches a coin on FEELESS' in r.json()['detail']

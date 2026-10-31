@@ -16,7 +16,12 @@ TOOLS = {
 }
 # 🚫 never: another agent / FeeCat anywhere, or a coin / pool ON FEELESS (owner 2026-10-30: "on pump or any other platform they can do as they please —
 # rep still scores that agent's wallet; just don't allow it on FEELESS"). Scams / rugs / phishing stay refused everywhere (cat_policy.BAD_JOB).
-NEVER = re.compile(r'(?i)\b(?:create|launch|deploy|mint|make|start|spawn)\s+(?:a\s+|an\s+|my\s+|our\s+|new\s+|another\s+)*(?:agent|ai\s+agent|fee\s*cat|cat\s+agent)s?\b'
+# 2026-10-31 (owner): "agents can't create a coin or another agent on FEELESS — on any other site they can do as requested". A FeeCat is always
+# ours (refused everywhere); an agent with no site named is refused (it could mean FEELESS); "… on virtuals.io" is fine. Hard locks: cat_policy.check_url
+# (FEELESS launch / agent pages never open in its browser) + feecat `create_cat` / reputation `feeless-launch` refuse every agent's own wallet.
+NEVER = re.compile(r'(?i)\b(?:create|launch|deploy|mint|make|start|spawn)\s+(?:a\s+|an\s+|my\s+|our\s+|new\s+|another\s+)*fee\s*cats?\b'
+                   r'|\b(?:create|launch|deploy|mint|make|start|spawn)\s+(?:a\s+|an\s+|my\s+|our\s+|new\s+|another\s+)*(?:agent|ai\s+agent|cat\s+agent)s?\b'
+                   r'(?![^.\n]{0,30}\b(?:on|at|via|with|in|using)\s+(?!feeless|feecat)[a-z0-9])'
                    r'|\b(?:create|launch|deploy|mint|make|start)\b[^.\n]{0,40}\b(?:coin|token|memecoin|pool|liquidity\s+pool|lp)\b[^.\n]{0,30}\b(?:on|in|via|with)\s+(?:feeless|feecat)\b')
 PERPS = [('SOL', 250), ('ETH', 250), ('BTC', 250)]
 MAIN = 'http://127.0.0.1:5001'

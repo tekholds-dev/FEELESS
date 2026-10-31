@@ -1839,6 +1839,19 @@ async def _model_limit(session=''):
     return 2
 
 
+def agent_wallets(store):
+    """🚫 every AI agent's own wallet address (owner 2026-10-31: agents never launch a coin or make an agent ON FEELESS)."""
+    return {str((c.get('agentWallet') or {}).get('address')) for c in (store.get('cats') or {}).values() if (c.get('agentWallet') or {}).get('address')}
+
+
+def _session_wallet(session):
+    """The wallet behind a signed chat session (the same check every cat action uses), or ''."""
+    try:
+        return str(_real.session_wallet(_real.load_sessions(DATA_DIR / 'chat_sessions.json'), session) or '') if session else ''
+    except Exception:
+        return ''
+
+
 async def _session_staff(session=''):
     """🧪 The paper rule trader is a STAFF test door (owner 2026-10-30, D1): users only ever launch real Trading / General agents.
     Staff = reputation's `_is_staff` on the signed chat session (any linked wallet); no session or reputation down ⇒ not staff."""
@@ -1860,6 +1873,8 @@ async def create_cat(payload: CreatePayload):
     store = _load()
     if sum(1 for c in store['cats'].values() if c.get('ownerId') == payload.ownerId and not c.get('revoked')) >= AGENT_MAX:
         raise HTTPException(400, f'You run {AGENT_MAX} agents — retire one to start another.')
+    if _session_wallet(payload.session or '') in agent_wallets(store):   # 🚫 an agent's own wallet never makes another agent on FEELESS
+        raise HTTPException(403, 'An AI agent never creates another agent on FEELESS.')
     if not payload.brains and not await _session_staff(payload.session or ''):
         raise HTTPException(403, 'The paper test is staff only — launch a Trading or General agent.')
     cat_id = uuid.uuid4().hex
