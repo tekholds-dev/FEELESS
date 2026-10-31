@@ -155,3 +155,38 @@ def test_fees_circle_wallet_stops_being_watch_only_and_only_fee_pays_from_the_cr
     with pytest.raises(rs.HTTPException) as e:
         asyncio.run(rs.internal_agent_x402_pay(req, {'catId': 'someone', 'creator': True, 'walletId': 'cw1', 'address': ME, 'entry': {}}))
     assert e.value.status_code == 403
+
+
+def test_the_hive_files_a_cell_per_agent_at_its_pace_grades_it_an_hour_on_and_feeds_fees_brain(monkeypatch, tmp_path):
+    """🐝 owner 2026-10-31: agents browse on their own until turned off, at the least usage, graded on what really happened (proof of insight)."""
+    import asyncio, hive as hv, feecat_service as fs
+    monkeypatch.setattr(fs, 'HIVE_PATH', tmp_path / 'hive.json')
+    store = {'cats': {'h1': {'id': 'h1', 'name': 'Happy', 'hive': {'on': True, 'every': 120}, 'brainsCfg': {'kind': 'general', 'brains': ['m/a'], 'credit': 1.0}},
+                      'off': {'id': 'off', 'name': 'Off', 'brainsCfg': {'brains': ['m/a']}}}, 'events': []}
+    monkeypatch.setattr(fs, '_load', lambda: store); monkeypatch.setattr(fs, '_save', lambda s_: None)
+    class R:
+        def __init__(self, j): self._j = j
+        def json(self): return self._j
+    class H:
+        async def __aenter__(self): return self
+        async def __aexit__(self, *a): return False
+        async def get(self, u, **k): return R({'pairs': [{'pairAddress': 'P1', 'priceUsd': '0.01', 'baseToken': {'address': 'M1', 'symbol': 'HUSS'}}]})
+    monkeypatch.setattr(fs.httpx, 'AsyncClient', lambda **k: H())
+    async def tool(http, t, q=''): return 'FEELESS · $HUSS price 0.01 · 5m chart up', None
+    monkeypatch.setattr(fs._ct, 'run_tool', tool)
+    asked = []
+    async def think(cat, model, msgs, own=None, effort=None, max_tokens=None): asked.append(cat['id']); return '{"call": "BUY", "why": "volume 3x, chart up"}', 0.002, 'singit'
+    monkeypatch.setattr(fs, '_think', think)
+    async def prices(http, pairs): return {'P1': 0.0125}
+    monkeypatch.setattr(fs, '_pair_prices', prices)
+    t0 = 1_800_000_000.0
+    assert asyncio.run(fs._hive_round(t0)) == (1, 0) and asked == ['h1']   # only the agent with the Hive on, one model call
+    assert asyncio.run(fs._hive_round(t0 + 60)) == (0, 0)                    # its pace: not again before 2 min
+    cell = fs._hive_cells()[0]; assert cell['call'] == 'BUY' and cell['sym'] == 'HUSS' and cell.get('honey') is None
+    assert store['cats']['h1']['brainsCfg']['daySpend']   # its wallet's spend counts toward its daily $ limit
+    filed, graded = asyncio.run(fs._hive_round(t0 + 3700))
+    assert graded == 1 and fs._hive_cells()[0]['honey'] == 2 and fs._hive_cells()[0]['move'] == 25.0   # +25 % an hour on → BUY earns 2 honey
+    assert hv.board(fs._hive_cells(), hv.epoch_of(t0))[0]['honey'] == 2
+    assert 'BUY by Happy (+2 honey' in hv.brief(hv.for_coin(fs._hive_cells(), 'HUSS', t0 + 3700)) and hv.for_coin(fs._hive_cells(), '$huss', t0 + 3700)
+    store['cats']['h1']['limits'] = {'dayUsd': 0.001}
+    asyncio.run(fs._hive_round(t0 + 4000)); assert 'limit' in store['cats']['h1']['hiveRun']['why']   # never past its daily $ limit

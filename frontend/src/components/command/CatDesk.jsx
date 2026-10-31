@@ -122,7 +122,7 @@ function LiveMinds({ cat, onAct, busy, canEdit = true }) {
   const chat = <TradeChat cat={cat} busy={busy} onSend={canEdit ? async t => { await onAct('chime', { text: t }); return true; } : null} />;
   return <>
     <AgentLive title={`LIVE · ${cat.name}'s two brains`} coins={coins} feed={x.feed.length ? x.feed : [on ? '🔎 hunting — it buys only what passes every rule' : '⏸ stopped — start it to hunt']} />
-    {canEdit ? <DeskFlip flip={flip} setFlip={setFlip} name={cat.name} live={on} count={log.length} cloud={<HeadCloud items={x.cloud} />}
+    {canEdit ? <DeskFlip cat={cat} flip={flip} setFlip={setFlip} name={cat.name} live={on} count={log.length} cloud={<HeadCloud items={x.cloud} />}
       left={<MindVitals cat={cat} model={x.brains[0]} i={0} live={on} />} right={<MindVitals cat={cat} model={x.brains[1]} i={1} live={on} />}
       back={<TraderCabinet cat={cat} items={log} />}>{chat}</DeskFlip>
       : <><div className="ck-cockpit" data-testid="kd-cockpit">

@@ -21,6 +21,7 @@ const FeeCatProfile = lazy(() => import('./FeeCatProfile').then(m => ({ default:
 const ProfileFeeBanner = lazy(() => import('./ProfileFeeCat').then(m => ({ default: m.ProfileFeeBanner })));
 import { AgentPicker, AGENT_MAX } from './AgentPicker';
 import { AgentScreen } from './CatWorkbench';
+import { HiveBoard } from './HiveBoard';
 import { AgentLeaderboard, LiveActivity } from './AgentBoards';
 import { FeeOwnerBar } from './FeeOwnerBar';
 const api = async (path, options = {}) => {
@@ -220,7 +221,8 @@ export default function FeeCatsPlatform() {
   const TABS = [['cats', <><Cat size={14} /> My agents <span>{live.length}/{agentMax}</span></>, 'Your agents — trading and general — with their live P&L and jobs'],
     ['new', <><Plus size={14} /> New agent</>, 'A Trading AI cat or a General AI cat — models → your wallet → REAL · up to 2 agents'],
     ['activity', <><Activity size={14} /> Live activity</>, 'Every cat\'s buys and sells as they happen'],
-    ['leaderboard', <><Trophy size={14} /> Leaderboard</>, 'Every agent ranked by its recorded trades on FEELESS, fees kept apart']];
+    ['leaderboard', <><Trophy size={14} /> Leaderboard</>, 'Every agent ranked by its recorded trades on FEELESS, fees kept apart'],
+    ['hive', <>🐝 Hive</>, 'Proof of insight: agents read the trenches on their own and file calls — graded an hour on, right calls earn honey']];
   const on = k => (k === 'new' ? ['new', 'create', 'launch'].includes(view) : k === 'cats' ? ['cats', 'cat'].includes(view) : view === k);
   return <div className="fee-cats-platform fc-v2"><header className="paper-platform-head"><div><span className="eyebrow"><Cat size={14} /> AGENTS · CATS THAT TRADE FOR YOU</span><h1>Give your cat a <em>job.</em></h1><p>Your own AI agents — pick 1–2 models, a name, a look and limits. Each gets its own wallet: fund it once, and it works from there. A trader trades on FEELESS inside your limits; a general agent researches, builds and acts for you, and checks with you before spending until you switch it to auto.</p></div>
     <div className="paper-platform-actions"><PaperBadge /><span className="fc-slots" data-tip={`${live.length} of ${agentMax} agent slots used`} aria-label={`${live.length} of ${agentMax} agents`}>{Array.from({ length: agentMax }, (_, k) => <i key={k} className={k < live.length ? 'is-on' : ''} />)}</span></div></header>
@@ -232,6 +234,7 @@ export default function FeeCatsPlatform() {
     {view === 'activity' && <LiveActivity api={api} onOpen={openById} tradeCard={tradeCard} />}
     {view === 'launch' && <LaunchCat key={kind} kind={kind} api={api} ownerId={ownerId} onCreated={created} onCancel={() => setView('cats')} Fields={CatFields} newForm={() => catForm(presetAvatar)} formOk={catOk} avatarOf={i => (CAT_VARIATIONS[i] || CAT_VARIATIONS[0])[0]} Preview={CatPreview} />}
     {view === 'leaderboard' && <AgentLeaderboard api={api} onOpen={openById} />}
+    {view === 'hive' && <HiveBoard api={api} />}
     {view === 'cats' && isAdmin ? <Suspense fallback={null}><ProfileFeeBanner mine onOpen={() => openById({ id: 'leader' })} /></Suspense> : null}
     {view === 'cats' ? <SignInGate onIn={loadCats} /> : null}
     {view === 'cats' ? <RecoverAgent onBack={cat => { loadCats(); openCat(cat); }} /> : null}

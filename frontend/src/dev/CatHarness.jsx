@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { MemoryRouter } from 'react-router-dom';
 import { CatDesk } from '../components/command/CatDesk';
 import { AgentScreen } from '../components/command/CatWorkbench';
+import { HiveBoard } from '../components/command/HiveBoard';
 import '../styles/catForge.css';
 import { AgentDemo } from '../components/command/AgentDemo';
 import { CatReal } from '../components/command/CatReal';
@@ -54,6 +55,11 @@ export default function CatHarness() {
     orders: [{ at: now - 900, text: 'buy 1 SOL of $RUG', order: { side: 'buy', coin: 'RUG', sol: 1 }, state: 'refused', why: '💧 pool $3,000 — under the $5,000 floor (you could not get out)' },
       { at: now - 400, text: 'sell half of $GERM', order: { side: 'sell', coin: 'GERM', fraction: 0.5 }, state: 'filled', why: '📄 paper: sold 50% at the live price' },
       { at: now - 60, text: 'buy 0.05 SOL of $JUP', order: { side: 'buy', coin: 'JUP', sol: 0.05 }, state: 'proposed', why: '✍ buy 0.05 SOL — guards passed, waiting for your wallet\'s signature' }] } : cat;
+  if (window.location.search.includes('hive')) {   // ?hive — the Hive board on a fixture (graded + pending cells, a board)
+    const cells = ['HUSS', 'RUG', 'PIKMIN', 'PAWS', 'ANSEM', 'SAPLING', 'DOPE', 'NEW', 'GTA'].map((sym, i) => ({ id: `c${i}`, name: i % 2 ? 'Fee' : 'Happy', sym, call: ['BUY', 'AVOID', 'WATCH'][i % 3], why: 'volume 3x, chart up', honey: i > 6 ? null : [2, 1, 1, -1, 0, 2, -2][i], move: [25, -8, 4, -12, 6, 30, 40][i] }));
+    return <div style={{ minHeight: '100vh', padding: 16, background: '#07040d' }}><HiveBoard api={async () => ({ epoch: 20755, left: 5 * 3600 + 1240, filed: 9, graded: 7, cells,
+      board: [{ cat: 'h1', name: 'Happy', honey: 6, cells: 5, graded: 4, right: 4 }, { cat: 'f1', name: 'Fee', honey: -2, cells: 4, graded: 3, right: 1 }] })} /></div>;
+  }
   if (window.location.search.includes('tiles')) {   // ?tiles — My agents' tiles (AgentScreen) for a general + a trading agent
     const two = [{ ...cat, id: 'g1', name: 'Happy', brainsCfg: { kind: 'general', brains: ['openai/gpt-6.1-terra', 'anthropic/claude-haiku-5.5'] } },
       { ...cat, id: 't1', name: 'Fee', status: 'running', brainsCfg: { kind: 'trading', brains: ['nvidia/nemotron-a:free', 'nvidia/nemotron-b:free'], decisions: [{ by: 'nemotron-a', word: 'BUY', sym: 'HUSS', why: 'volume still building', at: Date.now() / 1000 - 20 }] } }];

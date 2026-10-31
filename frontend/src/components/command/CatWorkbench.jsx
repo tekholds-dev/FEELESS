@@ -6,6 +6,7 @@ import { HeadCloud, asModel } from './AgentLive';
 import { ApiDrawer, Bubble } from './LaunchCat';
 import '../../styles/agentDemo.css';
 import '../../styles/catWorkbench.css';
+import '../../styles/hive.css';
 import { agentAuth, agentAuthQuery, revealMessage, getChatSession } from '../../lib/chatSession';
 import { svgPngBlob } from '../../lib/svgPng';
 import { useWallet } from '../../hooks/useWallet';
@@ -46,7 +47,18 @@ function useOnScreen(ref) {
 // 🃏 ONE OWNER DESK for every agent (owner 2026-10-31: "both trader and general desks should be the same, slightly different for what's needed"):
 // [mind A vitals | head cloud + the chat card | mind B vitals] — the Files button flips the WHOLE desk over to its file cabinet, Esc / Chat flips back
 const FILES_ICON = <svg viewBox="0 0 20 20" aria-hidden="true"><rect x="3" y="3" width="14" height="5" rx="1.5" /><rect x="3" y="10" width="14" height="7" rx="1.5" /><path d="M8 5.5h4M8 13.5h4" /></svg>;
-export function DeskFlip({ flip, setFlip, name, live, count, left, right, cloud, back, children }) {
+// 🐝 the Hive switch (owner 2026-10-31: "browse forever until turned off, at the least usage"): on = it files a coin call every N minutes on its own
+const PACES = [[120, '2 min'], [300, '5 min'], [900, '15 min'], [3600, '1 h']];
+export function HiveSwitch({ cat }) {
+  const [h, setH] = useState(cat?.hive || { on: false, every: 300 }); const [busy, setBusy] = useState(false); const [err, setErr] = useState('');
+  const set = async (on, every) => { setBusy(true); setErr(''); try { const r = await work(cat.id, { op: 'hive', on, cap: every }); setH(r.hive); } catch (e) { setErr(e.message); } finally { setBusy(false); } };
+  return <span className="hv-sw" data-testid="hive-sw">
+    <button type="button" className={h.on ? 'is-on' : ''} aria-pressed={!!h.on} disabled={busy} onClick={() => set(!h.on, h.every)} data-testid="hive-toggle"
+      data-tip={err || (h.on ? `🐝 Hive ON: it reads the trenches on its own and files a call every ${PACES.find(p => p[0] === h.every)?.[1] || `${Math.round(h.every / 60)} min`} — one small model call each, inside its $ limits. Off any time.` : '🐝 Hive: let it read the trenches on its own and file graded calls until you turn it off')}><i aria-hidden="true">🐝</i> HIVE {h.on ? 'ON' : 'OFF'}</button>
+    <select value={h.every} disabled={busy} onChange={e => set(!!h.on, Number(e.target.value))} aria-label="How often it files a Hive call" data-testid="hive-pace">{PACES.map(([v, l]) => <option key={v} value={v}>every {l}</option>)}</select></span>;
+}
+
+export function DeskFlip({ flip, setFlip, name, live, count, left, right, cloud, back, children, cat }) {
   useEffect(() => { if (!flip) return undefined; const k = e => { if (e.key === 'Escape') setFlip(false); }; window.addEventListener('keydown', k); return () => window.removeEventListener('keydown', k); }, [flip, setFlip]);
   return <div className={`cwb-under cwb-flip${flip ? ' is-back' : ''}`} data-testid="desk-flip"><div className="cwb-flip-in">
     <div className="cwb-face ck-cockpit cwb-deck" inert={flip}>
@@ -55,6 +67,7 @@ export function DeskFlip({ flip, setFlip, name, live, count, left, right, cloud,
         <div className="cwb-talk" data-testid="cwb-cockpit">
           <header className="cwb-talk-h"><span className={`cwb-status${live ? ' is-live' : ''}`}><i aria-hidden="true" />{live ? 'Working' : 'Ready'}</span>
             <b>Chat with {name || 'its minds'}</b>
+            {cat ? <HiveSwitch cat={cat} /> : null}
             <button type="button" className="cwb-flip-btn" onClick={() => setFlip(true)} aria-label="Flip to its file cabinet" data-tip="Flip to its file cabinet — every file, logins, sealed recovery files, API keys" data-testid="cwb-flip">
               {FILES_ICON}<span>Files</span><b className="m-num">{count}</b></button></header>
           {children}</div></div>
@@ -636,7 +649,7 @@ function WorkbenchLive({ cat }) {
       </span></header>
     <NowLine cat={cat} wins={wins} live={live} />
     <div className="cwb-stage agd-wins">{wins.map(w => <Window key={w.i} w={w} catId={cat.id} tick={tick} busy={busy} cursor={aiCur} onGo={(op, i) => act(op, { i })} onLogin={site => setSignIn({ site, at: Date.now() })} />)}</div>
-    <DeskFlip flip={flip} setFlip={setFlip} name={cat.name} live={live} count={log.length} cloud={<HeadCloud items={(d?.cloud || []).slice(-5).reverse()} />}
+    <DeskFlip cat={cat} flip={flip} setFlip={setFlip} name={cat.name} live={live} count={log.length} cloud={<HeadCloud items={(d?.cloud || []).slice(-5).reverse()} />}
       left={<MindVitals cat={cat} model={wins[0]?.model} i={0} kind="general" live={!!wins[0]?.model} hot={wins[0]?.status === 'working'} extra={<WinVitals w={wins[0]} />} />}
       right={<MindVitals cat={cat} model={wins[1]?.model} i={1} kind="general" live={!!wins[1]?.model} hot={wins[1]?.status === 'working'} extra={<WinVitals w={wins[1]} />} />}
       back={<><LastMoney m={d?.lastMoney} />

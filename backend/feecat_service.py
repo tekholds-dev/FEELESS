@@ -40,6 +40,7 @@ import agent_pay as _ap
 import cat_real as _real   # 💵 real-money cats = option A: the user's wallet signs every trade (docs/DECISIONS.md #2)
 import cat_orders as _co   # 🧭 a General AI cat's plain-words orders → one guarded proposal
 import cat_tools as _ct   # 🧰 FEELESS-first read-only tools for general agents
+import hive as _hv   # 🐝 the Hive: proof of insight (cells graded an hour on)
 import agent_files as _af   # ☁ each agent's own storage (owner uploads, 1 GB, 7-day clean)
 import clarify as _cq   # ❓ first asks: 2–3 questions for a coin / money ask
 import agent_treasury as _tr   # 🏦 its coin's creator fees, read on-chain + split
@@ -87,7 +88,7 @@ def _load() -> dict:
 
 # 🔒 The engine loads every cat, works for minutes, then saves its whole copy: anything an owner did meanwhile was wiped (owner 2026-10-30: a new agent wallet vanished
 # seconds after it was made). What an owner's action sets is kept here and laid over every save, so an old copy can never lose a wallet, a funding or a limit.
-OWNER_KEYS = ('secrets', 'agentWallet', 'agentFunded', 'creditPaid', 'recovery', 'recoverySet', 'recoveryConfirmedAt', 'limits', 'taskCap', 'ownerId', 'mode', 'realWallet', 'budgetSol', 'paperByOwner', 'files', 'ownerWallet', 'logins', 'cloudLink', 'vaultLog', 'earn', 'clarify', 'ownerStaff', 'pass', 'treasury', 'siteSessions')
+OWNER_KEYS = ('secrets', 'hive', 'agentWallet', 'agentFunded', 'creditPaid', 'recovery', 'recoverySet', 'recoveryConfirmedAt', 'limits', 'taskCap', 'ownerId', 'mode', 'realWallet', 'budgetSol', 'paperByOwner', 'files', 'ownerWallet', 'logins', 'cloudLink', 'vaultLog', 'earn', 'clarify', 'ownerStaff', 'pass', 'treasury', 'siteSessions')
 _KEPT: dict = {}
 
 
@@ -1054,7 +1055,8 @@ async def _brain_decide(store, cat, kind, sym, case, owner=None):
     models = [owner] if owner else _lc.who_asks(b, b.get('asks') or 0)
     answers, partner, why, cost = [], None, '', 0.0
     for m in models:
-        text, usd, via = await _think(cat, m, _lc.ask_messages(b, case, partner, (cat.get('studio') or {}).get('text')), own_key, (b.get('efforts') or {}).get(m))
+        mind_ = '\n'.join(x for x in ((cat.get('studio') or {}).get('text'), _hv.brief(_hv.for_coin(_hive_cells(), sym, now))) if x) or None   # 🐝 what the Hive graded on this coin
+        text, usd, via = await _think(cat, m, _lc.ask_messages(b, case, partner, mind_), own_key, (b.get('efforts') or {}).get(m))
         w, why = _lc.parse_word(text, kind)
         if via and via not in ('singit', 'openrouter'):   # a stand-in answered: say which model, never pass it off as hers
             why = f"{why} ({via})".strip()
@@ -1070,6 +1072,81 @@ async def _brain_decide(store, cat, kind, sym, case, owner=None):
     _lc.note(b, kind, sym, word, by, why, cost, now)
     _log_event(store, cat, 'LEARN', f"🧠 {by}: {word} ${sym} — {why or 'no reason given'}")
     return word, models[-1], why
+
+
+# 🐝 THE HIVE LOOP (hive.py): every agent with the Hive on files one cell per its pace — FEELESS data, one small model call, inside its $ limits —
+# and every cell is graded an hour on. Its own file (hive.json), so a cell never rides the cats' big store.
+HIVE_PATH = DATA_DIR / 'hive.json'
+
+
+def _hive_cells():
+    try:
+        return list((json.loads(HIVE_PATH.read_text()) or {}).get('cells') or [])
+    except (OSError, ValueError):
+        return []
+
+
+def _hive_save(cells):
+    HIVE_PATH.write_text(json.dumps({'cells': cells[-_hv.CELLS_MAX:]}))
+
+
+def _hive_on(cat):
+    return bool((cat.get('hive') or {}).get('on')) and bool(cat.get('brainsCfg')) and not cat.get('revoked') and not cat.get('needsTopup')
+
+
+async def _hive_round(now=None):
+    """One pass: due agents file a cell each, then every hour-old cell is graded. → (cells filed, cells graded)."""
+    now = now or time.time(); store = _load(); cells = _hive_cells(); filed = graded = 0
+    due_ = [c for c in store['cats'].values() if _hive_on(c) and now - float((c.get('hiveRun') or {}).get('last') or 0) >= _hv.every_s((c.get('hive') or {}).get('every'))]
+    async with httpx.AsyncClient(timeout=20) as http:
+        if due_:
+            try:
+                pairs = ((await http.get(f'{_ct.MAIN}/api/market/feed', params={'chain': 'solana'}, timeout=20)).json() or {}).get('pairs') or []
+            except (httpx.HTTPError, ValueError):
+                pairs = []
+            for cat in due_:
+                run_ = cat.setdefault('hiveRun', {}); run_['last'] = now
+                left_ = day_left(cat)
+                if left_ is not None and left_ <= 0:
+                    run_['why'] = "today's $ limit reached — it carries on tomorrow"; continue
+                c_ = _hv.pick(pairs, cells, cat['id'], now)
+                if not c_:
+                    run_['why'] = 'nothing new on the board'; continue
+                text_, _coin = await _ct.run_tool(http, 'coin', c_['mint'] or c_['sym'])
+                b_ = cat['brainsCfg']; own_ = _ck.key_for(cat, 'openrouter', data_dir=DATA_DIR)
+                try:
+                    reply_, usd_, via_ = await _think(cat, (b_.get('brains') or [''])[0], [{'role': 'system', 'content': _hv.HIVE_SYS.format(name=cat.get('name') or 'agent')},
+                                                                                     {'role': 'user', 'content': str(text_)[:3000]}], own_, None, 160)
+                except Exception as e:
+                    reply_, usd_, via_ = '', 0.0, None; run_['why'] = f'no model answered ({str(e)[:60]})'
+                if not str(reply_ or '').strip():
+                    run_['why'] = run_.get('why') or 'no model answered — it tries again next round'; continue
+                if not own_ and via_ == 'openrouter':
+                    _lc.charge(b_, usd_)
+                elif usd_:   # its wallet paid: still counts toward its daily $ limit
+                    day_ = time.strftime('%Y-%m-%d', time.gmtime()); b_['daySpend'] = {day_: round((b_.get('daySpend') or {}).get(day_, 0) + float(usd_), 6)}
+                cells.append({'id': uuid.uuid4().hex[:12], 'cat': cat['id'], 'name': str(cat.get('name') or 'agent')[:40], **c_, **_hv.parse_cell(reply_),
+                              'at': now, 'usd': round(float(usd_ or 0), 6), 'via': via_, 'epoch': _hv.epoch_of(now)})
+                run_.update(n=int(run_.get('n') or 0) + 1, why=None); filed += 1
+        todo_ = _hv.due(cells, now)
+        if todo_:
+            prices_ = await _pair_prices(http, sorted({c['pair'] for c in todo_}))
+            for c in todo_:
+                graded += 1 if _hv.grade(c, prices_.get(c['pair']), now) is not None else 0
+    if filed or graded:
+        _hive_save(cells)
+    if due_:
+        _save(store)
+    return filed, graded
+
+
+async def _hive_loop():
+    while True:
+        try:
+            await _hive_round()
+        except Exception as e:
+            print(f'[hive] {str(e)[:120]}')
+        await asyncio.sleep(30)
 
 
 async def run_engine(store, cats):
@@ -1857,6 +1934,12 @@ app.add_middleware(CORSMiddleware, allow_origins=[o.strip() for o in (os.environ
 
 
 @app.on_event('startup')
+async def _start_hive():
+    if os.environ.get('FEELESS_HIVE', '1') != '0':
+        asyncio.create_task(_hive_loop())
+
+
+@app.on_event('startup')
 async def _start_engine():
     try:
         store_ = _load()
@@ -2314,6 +2397,14 @@ def studio_set(cat, body, by, now=None):
     return studio_view(cat, now)
 
 
+@app.get('/api/cats/hive')
+async def cat_hive():
+    """🐝 Public: this epoch's board, its newest cells, and when the epoch turns."""
+    now = time.time(); cells = _hive_cells(); ep = _hv.epoch_of(now)
+    return {'epoch': ep, 'left': _hv.epoch_left(now), 'board': _hv.board(cells, ep)[:20], 'cells': [_hv.public(c) for c in cells[-60:]][::-1],
+            'graded': sum(1 for c in cells if c.get('honey') is not None and _hv.epoch_of(c.get('at') or 0) == ep), 'filed': sum(1 for c in cells if _hv.epoch_of(c.get('at') or 0) == ep)}
+
+
 @app.get('/api/cats/supply')
 async def cat_supply():
     """🎟 Public: slots open · taken · left (the launch page shows it; nothing about who)."""
@@ -2526,6 +2617,10 @@ async def cat_work(cat_id: str, p: WorkPayload):
         except ValueError as exc:
             raise HTTPException(400, str(exc))
         _save(store)
+    if p.op == 'hive':   # 🐝 the Hive on / off and its pace (least usage: one coin every N minutes)
+        cat['hive'] = {'on': bool(p.on), 'every': _hv.every_s(p.cap if p.cap is not None else (cat.get('hive') or {}).get('every', 300))}
+        keep_owned(cat); _save(store)
+        return {'hive': cat['hive'], 'hiveRun': cat.get('hiveRun') or {}}
     if p.op == 'cap':
         v = max(0.005, min(TASK_CAP_MAX, float(p.cap or TASK_CAP_DEFAULT)))
         cat['taskCap'] = round(v, 4); keep_owned(cat); _save(store)   # kept: the next save laid the old remembered cap back over it (owner 2026-10-31: "$0.25 doesn't change")
