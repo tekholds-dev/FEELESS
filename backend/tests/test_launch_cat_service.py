@@ -47,7 +47,7 @@ def test_calls_off_means_rule_engine_and_no_charge_on_means_charged_and_paused_a
     assert asyncio.run(fs._brain_decide(store, cat, 'buy', 'AAA', 'case')) is None
     assert cat['brainsCfg']['decisions'][-1]['word'] == 'RULES' and cat['brainsCfg']['spent'] == 0
     monkeypatch.setenv('LAUNCH_CAT_LIVE', '1'); monkeypatch.setenv('OPENROUTER_API_KEY', 'test')
-    async def call(model, messages):
+    async def call(model, messages, **_k):
         assert 'OWNER SAYS' in messages[1]['content']
         return '{"word": "BUY", "why": "germ floor held"}', 6.0
     monkeypatch.setattr(fs, '_or_call', call)

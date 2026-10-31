@@ -898,15 +898,22 @@ async def _thinking_money(cat):
 
 
 async def _wallet_call(cat, model, messages, max_tokens, ceiling):
-    """💳 One model call paid from this agent's own USDC (agent_pay.py). → (text, $ paid); ('', 0.0) = nothing paid, the next route takes it."""
+    """💳 One model call paid from this agent's own USDC (agent_pay.py). → (text, $ paid); ('', 0.0) = nothing paid, the next route takes it.
+    A model the provider does not list (400) or cannot answer right now (503 "no billable answer", never charged) → its default model once
+    (found live 2026-10-31: every Claude Haiku 5.5 call fell through to the free backup)."""
+    for m_ in dict.fromkeys([_ap.provider_model(model), _ap.FALLBACK_MODEL]):
+        text, usd = await _wallet_once(cat, m_, messages, max_tokens, ceiling)
+        if text or usd:
+            return text, usd
+    return '', 0.0
+
+
+async def _wallet_once(cat, model_id, messages, max_tokens, ceiling):
     w_ = cat.get('agentWallet') or {}
     try:
         async with httpx.AsyncClient(timeout=70) as h:
-            body = {'model': _ap.provider_model(model), 'messages': messages, 'max_tokens': int(max_tokens or 1000)}
+            body = {'model': model_id, 'messages': messages, 'max_tokens': int(max_tokens or 1000)}
             r = await h.post(_ap.PROVIDER, json=body)
-            if r.status_code == 400:
-                body['model'] = _ap.FALLBACK_MODEL
-                r = await h.post(_ap.PROVIDER, json=body)
             if r.status_code != 402:
                 return '', 0.0
             doc, entry = _ap.pick_quote(r.headers.get('payment-required'), ceiling)
@@ -922,6 +929,43 @@ async def _wallet_call(cat, model, messages, max_tokens, ceiling):
     except (ValueError, KeyError, httpx.HTTPError) as e:
         print(f"[agent pay] {cat['id']}: {str(e)[:120]}")
         return '', 0.0
+
+
+async def _singit_free(messages, max_tokens=None):
+    """🆓 The no-minimum caller's free tier (no wallet, no key): 20 calls a day, ≤ 400 tokens. → text ('' = used up / refused)."""
+    try:
+        async with httpx.AsyncClient(timeout=40) as h:
+            r = await h.post(_ap.PROVIDER, json={'model': _ap.FREE_URL_MODEL, 'messages': _ap.free_messages(messages), 'max_tokens': min(int(max_tokens or 400), _ap.FREE_MAX_TOKENS)})
+        return ((r.json().get('choices') or [{}])[0].get('message') or {}).get('content') or '' if r.status_code == 200 else ''
+    except (httpx.HTTPError, ValueError):
+        return ''
+
+
+async def _think(cat, model, messages, own_key=None, effort=None, max_tokens=None):
+    """🧠 ONE route for a trading cat's brain call (owner 2026-10-31: "my agents and Fee default to the no-minimum caller, OpenRouter is my
+    fallback; users default to OpenRouter, my caller is theirs"). → (text, $, via). Fee / staff: SingIt from its own wallet → OpenRouter →
+    SingIt free → Groq free. A user's cat: its own key / OpenRouter → its wallet on SingIt → the free routes. Never charges FEELESS's
+    OpenRouter while the owner switch is off."""
+    mine = bool(cat.get('isLeader') or cat.get('ownerStaff'))
+    wallet = (cat.get('agentWallet') or {}).get('circleAcct') == 'agent' and not own_key
+    async def paid():
+        return await _wallet_call(cat, model, messages, max_tokens or _lc.OUT_TOK, _ap.MAX_CALL_USD) if wallet else ('', 0.0)
+    async def router():
+        if not own_key and not _brains_live():
+            return '', 0.0
+        return await _or_call(model, messages, max_tokens=max_tokens, effort=effort, key=own_key)
+    for name, step in ((('singit', paid), ('openrouter', router)) if mine else (('openrouter', router), ('singit', paid))):
+        text, usd = await step()
+        if str(text or '').strip():
+            return text, usd, name
+    if own_key:
+        return '', 0.0, ''
+    for name, step in ((f"SingIt free · {_ap.FREE_URL_MODEL.split('/')[-1]} stood in", lambda: _singit_free(messages, max_tokens)),
+                       (f"Groq free · {(os.environ.get('GROQ_MODEL', '').strip() or BACKUP_MODEL).split('/')[-1]} stood in", lambda: _groq_backup(messages, max_tokens))):   # the model that REALLY answered
+        text = await step()
+        if str(text or '').strip():
+            return text, 0.0, name
+    return '', 0.0, ''
 
 
 async def _groq_backup(messages, max_tokens=None):
@@ -981,15 +1025,17 @@ async def _brain_decide(store, cat, kind, sym, case, owner=None):
             cat['status'] = 'stopped'; cat['brainPaused'] = 'out of model credit — top up to start again'
             _log_event(store, cat, 'STOPPED', f"{cat['name']} paused: its model credit is used up (pay as you go). Top up to start it again.")
         return None
-    if not own_key and not _brains_live():
+    if not own_key and not _brains_live() and not (cat.get('isLeader') or cat.get('ownerStaff')):   # Fee + staff cats think on the no-minimum caller
         _lc.note(b, kind, sym, 'RULES', 'rule engine', 'model calls are off (owner switch) — the rule engine decided', 0, now)
         return None
     models = [owner] if owner else _lc.who_asks(b, b.get('asks') or 0)
     answers, partner, why, cost = [], None, '', 0.0
     for m in models:
-        text, usd = await _or_call(m, _lc.ask_messages(b, case, partner, (cat.get('studio') or {}).get('text')), **({'key': own_key} if own_key else {}), **({'effort': b['efforts'][m]} if (b.get('efforts') or {}).get(m) else {}))
+        text, usd, via = await _think(cat, m, _lc.ask_messages(b, case, partner, (cat.get('studio') or {}).get('text')), own_key, (b.get('efforts') or {}).get(m))
         w, why = _lc.parse_word(text, kind)
-        if not own_key:
+        if via and via not in ('singit', 'openrouter'):   # a stand-in answered: say which model, never pass it off as hers
+            why = f"{why} ({via})".strip()
+        if not own_key and via == 'openrouter':   # what its wallet / the free routes paid never comes off its FEELESS credit
             _lc.charge(b, usd)
         cost += usd
         answers.append((m, w))

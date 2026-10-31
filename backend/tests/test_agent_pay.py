@@ -47,7 +47,11 @@ def test_the_payment_moves_exactly_the_quote_to_the_quote_and_the_provider_pays_
 
 
 def test_model_names_map_to_the_provider():
-    assert ap.provider_model('anthropic/claude-haiku-5.5') == 'claude-haiku-5.5' and ap.provider_model('openai/gpt-6.1-terra') == 'gpt-6-luna'
+    assert ap.provider_model('anthropic/claude-haiku-5.5') == 'claude-haiku-4.5' and ap.provider_model('openai/gpt-6.1-terra') == 'gpt-6-luna'
+    assert ap.provider_model('nvidia/nemotron-3-ultra-550b-a55b:free') == 'nvidia-nemotron-3-ultra-550b-a55b' and ap.provider_model('nvidia/nemotron-3.5-super-vl:free') == 'nemotron-3.5-super-vl'
+    long = [{'role': 'system', 'content': 'S' * 3000}, {'role': 'user', 'content': 'U' * 3000 + 'END'}]
+    fit = ap.free_messages(long)
+    assert sum(len(m['content']) for m in fit) <= ap.FREE_MAX_CHARS and fit[1]['content'].endswith('END') and fit[0]['content'].startswith('S')
 
 
 def test_a_call_pays_once_and_a_failed_answer_falls_through(monkeypatch):
@@ -101,3 +105,25 @@ def test_a_flat_fee_goes_only_to_the_fee_wallet_once_and_staff_pay_nothing(monke
     seen.clear()
     assert asyncio.run(rs.internal_agent_fee(req, body))['again'] is True and not seen            # one key, one charge
     assert asyncio.run(rs.internal_agent_fee(req, {**body, 'key': 'k2', 'owner': 'STAFF'})) == {'skipped': True}
+
+
+def test_a_model_the_provider_cannot_answer_tries_its_default_once_and_routes_differ_for_fee_and_users(monkeypatch):
+    """Found live 2026-10-31: SingIt answered 503 'no billable answer' for Claude Haiku 5.5 → every call fell to the free backup."""
+    tried = []
+    async def once(cat, mid, *_a):
+        tried.append(mid)
+        return ('ok', 0.002) if mid == ap.FALLBACK_MODEL else ('', 0.0)
+    monkeypatch.setattr(fs, '_wallet_once', once)
+    assert asyncio.run(fs._wallet_call({}, 'anthropic/claude-haiku-5.5', [], 100, 0.05)) == ('ok', 0.002) and tried == ['claude-haiku-4.5', ap.FALLBACK_MODEL]
+    order = []
+    async def wallet(*_a, **_k): order.append('singit'); return '', 0.0
+    async def orc(*_a, **_k): order.append('openrouter'); return '', 0.0
+    async def free(*_a, **_k): order.append('free'); return 'BUY'
+    monkeypatch.setattr(fs, '_wallet_call', wallet); monkeypatch.setattr(fs, '_or_call', orc); monkeypatch.setattr(fs, '_singit_free', free)
+    monkeypatch.setattr(fs, '_brains_live', lambda: True)
+    agent = {'circleAcct': 'agent'}
+    assert asyncio.run(fs._think({'isLeader': True, 'agentWallet': agent}, 'm', [])) [:2] == ('BUY', 0.0) and order == ['singit', 'openrouter', 'free']
+    order.clear(); asyncio.run(fs._think({'agentWallet': agent}, 'm', [])); assert order == ['openrouter', 'singit', 'free']   # a user: OpenRouter first
+    order.clear(); monkeypatch.setattr(fs, '_brains_live', lambda: False)
+    asyncio.run(fs._think({'isLeader': True}, 'm', [])); assert order == ['free']   # switch off + no wallet: never FEELESS's OpenRouter
+    order.clear(); assert asyncio.run(fs._think({}, 'm', [], own_key='k'))[2] == '' and order == ['openrouter']   # an owner's own key: their bill, no FEELESS free route

@@ -22,14 +22,31 @@ MEMO_PROGRAM = 'MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr'
 MAX_CALL_USD = 0.25
 RESERVE_USD = 0.10    # the same 10 cents every agent stops short of
 USDC_SCALE = 1_000_000
-MODEL_MAP = {'gpt-6.1-terra': 'gpt-6-luna', 'gpt-6.1-sol': 'gpt-6-luna'}   # the picks this provider does not list by that name
-FALLBACK_MODEL = 'claude-haiku-5.5'
+# the picks this provider lists under another name (its /v1/models, checked live 2026-10-31: no claude-haiku-5.5 → the nearest Haiku)
+MODEL_MAP = {'gpt-6.1-terra': 'gpt-6-luna', 'gpt-6.1-sol': 'gpt-6-luna', 'claude-haiku-5.5': 'claude-haiku-4.5',
+             'nemotron-3-ultra-550b-a55b': 'nvidia-nemotron-3-ultra-550b-a55b'}
+FALLBACK_MODEL = 'deepseek-v4.1-flash'   # the provider's own default — first paid call answered with it 2026-10-31 ($0.002)
+FREE_URL_MODEL = 'free/deepseek-v4.1-flash'   # its free tier: no wallet, 20 calls a day, ≤ 400 tokens, ≤ 4,000 chars
+FREE_MAX_TOKENS, FREE_MAX_CHARS = 400, 4000
 
 
 def provider_model(model):
-    """'anthropic/claude-haiku-5.5' → this provider's id."""
-    m = str(model or '').split('/')[-1]
+    """'anthropic/claude-haiku-5.5' → this provider's id (an OpenRouter ':free' tag dropped)."""
+    m = str(model or '').split('/')[-1].split(':')[0]
     return MODEL_MAP.get(m, m)
+
+
+def free_messages(messages):
+    """Fit a call into the free tier's 4,000 chars: the system prompt keeps its head, the last message its tail."""
+    ms = [dict(m) for m in messages or []]
+    while sum(len(str(m.get('content') or '')) for m in ms) > FREE_MAX_CHARS and ms:
+        big = max(ms, key=lambda m: len(str(m.get('content') or '')))
+        c = str(big.get('content') or '')
+        over = sum(len(str(m.get('content') or '')) for m in ms) - FREE_MAX_CHARS
+        big['content'] = c[:max(0, len(c) - over - 1)] if big.get('role') == 'system' else c[over + 1:]
+        if not big['content']:
+            ms.remove(big)
+    return ms
 
 
 def pick_quote(header, ceiling_usd):
