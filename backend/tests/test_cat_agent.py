@@ -266,3 +266,20 @@ def test_the_ai_cursor_follows_its_click_into_the_window_view():
     t = ca.new_task('t12', 'A: open the first result', ['m/a', 'm/b'], 1.0)
     asyncio.run(ca.run(t, scripted({'m/a': [{'thought': 'first', 'action': 'click', 'text': 'Result'}, {'thought': 'done', 'action': 'answer', 'say': 'ok'}]}), [pa, Page()], None))
     assert t['windows'][0]['cursor'] == {'x': 0.2, 'y': 0.4, 'act': 'click', 'at': 1} and t['windows'][1].get('cursor') is None
+
+
+def test_browse_for_n_minutes_keeps_it_browsing_and_a_failed_click_on_a_bot_check_goes_to_the_person(monkeypatch):
+    """⏱ owner 2026-10-31: "browse pump.fun for 1-2 minutes" was answered from the first page in 27 s; then its clicks timed out on Cloudflare, retried blind."""
+    assert ca.browse_secs('browse pump.fun for 1-2 minutes until a coin stands out') == 60 and ca.browse_secs('look for 30 seconds') == 30 and ca.browse_secs('find the best coin') == 0
+    monkeypatch.setattr(ca.time, 'time', lambda: 1000.0)   # the clock stands still: the minute never passes
+    class Walled(Page):
+        async def click(self, t): raise TimeoutError('Timeout 8000ms exceeded')
+        async def read(self): return 'pump.fun Performing security verification'
+    pa = Walled(); asked = []
+    async def human(i): asked.append(t['windows'][i]['human']['why']); return False
+    t = ca.new_task('t13', 'A: browse pump.fun for 1 minute and report the coin that stands out', ['m/a', 'm/b'], 1.0); t.update(research=True, tools={'browse': True, 'forms': True})
+    ask = scripted({'m/a': [{'thought': 'easy', 'action': 'answer', 'say': 'HUSS'}, {'thought': 'into it', 'action': 'click', 'text': 'ANSEM $0.05 $52.9M'}]})
+    asyncio.run(ca.run(t, ask, [pa, Page()], human))
+    assert t['status'] == 'stopped'   # you did not pass it (the stub says no) → it stops there, never retries blind
+    acts = [s_['action'] for s_ in t['windows'][0]['steps']]
+    assert acts[:3] == ['open', 'browse', 'click'] and 'bot check' in asked[0]   # too early to answer → it browsed on; the walled click went to the person

@@ -131,6 +131,19 @@ def same_page(at, url):
     return bool(a.hostname) and (a.hostname or '').removeprefix('www.') == (b.hostname or '').removeprefix('www.') and a.path.rstrip('/') == b.path.rstrip('/')
 
 
+BROWSE_FOR = re.compile(r'(?i)\b(?:for|about|around|spend)\s+(?:about\s+)?(\d{1,2})(?:\s*(?:-|to)\s*\d{1,2})?\s*(min(?:ute)?s?|m|sec(?:ond)?s?|s)\b')
+
+
+def browse_secs(goal):
+    """⏱ "browse pump.fun for 1-2 minutes" → 60 (the lower bound, ≤ 10 min) — the window keeps browsing that long before it may answer (owner 2026-10-31:
+    it answered from the first page in 27 s and never clicked)."""
+    m = BROWSE_FOR.search(str(goal or ''))
+    if not m:
+        return 0
+    n = int(m.group(1)) * (1 if m.group(2).lower().startswith('s') else 60)
+    return max(0, min(600, n))
+
+
 def named_site(goal):
     """The site the ask names ("Browse pump.fun …") → its address, or None."""
     m = SITE_RE.search(str(goal or ''))
@@ -177,6 +190,9 @@ async def _window(task, w, ask, page, wait_human, name, feeless=None):
             _step(w, f'opening {site.split("://")[-1]}', 'open', site)
         except Exception as e:
             seen = f'(could not open {site}: {str(e)[:120]})'
+    min_s = browse_secs(w['goal']); t_start = time.time()
+    if min_s:   # enough steps to fill the time it was asked to browse (~6 s a step), never past the long budget
+        n_max = max(n_max, min(GO_STEPS, min_s // 6 + 3))
     for _n in range(n_max):
         mine = (task.get('clouds') or {}).get(w['i']) or []   # ☁ its own cloud from earlier tasks
         got = [h['text'] for h in task.get('handoffs') or [] if h['from'] != w['i']][-4:]   # 📦 what its partner handed over
@@ -186,7 +202,9 @@ async def _window(task, w, ask, page, wait_human, name, feeless=None):
         # the job + JSON format lead: a short-context model (the free backup keeps the first 4,000 chars) once lost both and answered in prose
         msgs = [{'role': 'system', 'content': ACT_SYS.format(name=name, goal=w['goal'], steps=n_max) + extra + '\n' + RULES + '\nEnabled tools: ' + str(task.get('tools', {}))},
                 {'role': 'user', 'content': f"URL: {page.url or '(blank)'}\nTITLE: {page.title or ''}\n"
-                 + ('This page is OPEN in your window — read it first; answer from it when it holds what the task needs (another load can hit a bot check).\n' if str(page.url or '').startswith('http') else '')
+                 + ((f'The user asked you to BROWSE for {min_s // 60 or min_s} {"min" if min_s >= 60 else "s"} — {max(0, int(min_s - (time.time() - t_start)))} s left: click into the coins / posts you are weighing (click their name), compare them, then answer.\n'
+                     if min_s and time.time() - t_start < min_s else
+                     'This page is OPEN in your window — read it first; answer from it when it holds what the task needs (another load can hit a bot check).\n') if str(page.url or '').startswith('http') else '')
                  + f"PAGE:\n{seen[:READ_MAX]}"}]
         raw = await _ask(task, w, ask, w['model'], msgs)
         a = parse_json(raw)
@@ -203,6 +221,11 @@ async def _window(task, w, ask, page, wait_human, name, feeless=None):
         if task.get('research') and act in ('open', 'ask_login') and not research_ok(a.get('url') or '', act == 'ask_login'):
             _step(w, thought or 'stays on research sites', 'blocked', str(a.get('url') or '')[:120])
             seen = '(research only: that site is not on the research list — use FEELESS, coin data sites, crypto news or X)'
+            continue
+        if act in ('answer', '') and min_s and time.time() - t_start < min_s and _n < n_max - 1:   # ⏱ asked to browse longer: not yet
+            left_ = int(min_s - (time.time() - t_start))
+            _step(w, f'keeps browsing — {left_} s left of the time you asked', 'browse')
+            seen = f'(not yet — the user asked you to browse for {min_s} s, {left_} s left. Click into one of the coins you are weighing by its name, read it, compare.)\n' + str(w.get('_page') or seen)[:READ_MAX]
             continue
         if act == 'answer' or not act:
             w['answer'] = str(a.get('say') or thought or str(raw or '').strip() or 'no answer')[:4000]   # a model that just answers in plain words still answers
@@ -289,6 +312,10 @@ async def _window(task, w, ask, page, wait_human, name, feeless=None):
                     seen = f'(unknown action {act})'
             except Exception as e:
                 seen = f'(that did not work: {str(e)[:120]})'
+                try:   # what the window shows NOW — a click that timed out on a bot check is handed to the person, never retried blind
+                    seen += '\nTHE PAGE NOW:\n' + str(await page.read())[:READ_MAX // 2]
+                except Exception:
+                    pass
                 if isinstance(e, ValueError):
                     task.setdefault('refusals', []).append(str(e)[:160])
             w['url'], w['title'] = page.url, page.title

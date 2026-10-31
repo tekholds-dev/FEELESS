@@ -433,7 +433,10 @@ class LivePage:
             pass
 
     async def click(self, text):
-        loc = self._p.get_by_text(str(text), exact=False).first
+        t = str(text).strip(); loc = self._p.get_by_text(t, exact=False).first
+        name = t.split(' $')[0].split('  ')[0].strip()   # a whole row ("ANSEM $0.05291 $52.9M 13.8%") is many elements → its name
+        if name and name != t and not await loc.count():
+            loc = self._p.get_by_text(name, exact=True).first if await self._p.get_by_text(name, exact=True).count() else self._p.get_by_text(name, exact=False).first
         await self.point(loc, 'click')
         await loc.click(timeout=8000)
         await self._p.wait_for_load_state('domcontentloaded', timeout=15000)
