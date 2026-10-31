@@ -37,7 +37,7 @@ def put_login(cat, site, username, password, env=None, data_dir=None, now=None):
     if not site or not password:
         raise ValueError('A login needs a site and a password.')
     rows = [r for r in (cat.get('logins') or []) if not (r['site'] == site and r['user'] == str(username or ''))]
-    rows.append({'site': site, 'user': str(username or '')[:120], 'sealed': cat_keys._fernet(env, data_dir).encrypt(str(password).encode()).decode(), 'at': now or time.time()})
+    rows.append({'site': site, 'user': str(username or '')[:120], 'sealed': cat_keys.seal(password, cat.get('id'), env), 'at': now or time.time()})
     cat['logins'] = rows[-LOGIN_MAX:]
     return public_logins(cat)
 
@@ -46,13 +46,13 @@ def reveal(cat, site, username, env=None, data_dir=None):
     row = next((r for r in cat.get('logins') or [] if r['site'] == site_of(site) and r['user'] == str(username or '')), None)
     if not row:
         raise ValueError('No saved login for that site.')
-    return cat_keys._fernet(env, data_dir).decrypt(row['sealed'].encode()).decode()
+    return cat_keys.unseal(row['sealed'], cat.get('id'), env, data_dir)
 
 
 def saved_for(cat, site, env=None, data_dir=None):
     """🔐 The newest saved login for a site → (username, password), or None. Server-side only: it goes straight into the window's fill."""
     row = next((r for r in reversed(cat.get('logins') or []) if r['site'] == site_of(site)), None)
-    return (row['user'], cat_keys._fernet(env, data_dir).decrypt(row['sealed'].encode()).decode()) if row else None
+    return (row['user'], cat_keys.unseal(row['sealed'], cat.get('id'), env, data_dir)) if row else None
 
 
 def drop_login(cat, site, username):

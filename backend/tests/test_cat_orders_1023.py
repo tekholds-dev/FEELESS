@@ -12,6 +12,7 @@ def _signed_owner(monkeypatch):
     """A test session token IS its wallet here; the wallet owner lock itself is proven in test_agent_owner_lock.py."""
     import feecat_service as svc
     monkeypatch.setattr(svc, '_session_wallet', lambda s: str(s or ''))
+    monkeypatch.setattr(svc, '_fresh_session_wallet', lambda s, now=None: str(s or ''))
 
 ROW = {'id': 'openai/gpt-oss-20b', 'name': 'gpt-oss-20b', 'context_length': 131072, 'pricing': {'prompt': '0.00000002', 'completion': '0.00000009'}}
 MINT = 'DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263'

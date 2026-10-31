@@ -82,3 +82,29 @@ def test_a_visitor_sees_the_card_never_the_vitals(monkeypatch):
         d = c.get(f'/api/cats/g?session={sess}').json()['cat']
         assert d['wins'] == 3 and d['look'] == {'tag': 'HAPPY'} and d['brainsCfg']['cloud'][0]['text'].startswith('agreed') and d['mine'] is False
     assert 'my secret plan' in c.get('/api/cats/g?session=tok-me').text   # the owner sees all of it
+
+
+def test_every_owner_door_refuses_a_signed_out_caller(monkeypatch):
+    """🔒 The sweep: every agent route that changes or shows owner-only things answers 401/403 with no session — a new door can't slip by."""
+    fs, store, c = _client(monkeypatch, {'g': _general('WALLET_ME')})
+    public_ok = {'/api/cats/{cat_id}', '/api/cats/{cat_id}/profile', '/api/cats/{cat_id}/files/{name}'}
+    seen = 0
+    for r in fs.app.routes:
+        path = getattr(r, 'path', '')
+        if not path.startswith('/api/cats/{cat_id}') or path in public_ok:
+            continue
+        url = path.replace('{cat_id}', 'g').replace('{i}', '0').replace('{file_id}', 'a' * 32).replace('{name}', 'x')
+        for m in getattr(r, 'methods', []) - {'HEAD', 'OPTIONS'}:
+            code = c.request(m, url, json={'ownerId': 'browser-1', 'op': 'state', 'action': 'stop'}).status_code
+            assert code in (401, 403, 404, 405, 422), (m, path, code)
+            seen += 1
+    assert seen >= 10
+
+
+def test_responses_carry_armor_and_owner_doors_are_rate_limited(monkeypatch):
+    fs, store, c = _client(monkeypatch, {'g': _general('WALLET_ME')})
+    h = c.get('/api/cats/g').headers
+    assert h['x-frame-options'] == 'DENY' and h['x-content-type-options'] == 'nosniff' and "frame-ancestors 'none'" in h['content-security-policy']
+    box = {}
+    assert all(fs.rate_ok(('ip', 'g'), now=100, store=box) for _ in range(fs.RATE_MAX))
+    assert not fs.rate_ok(('ip', 'g'), now=101, store=box) and fs.rate_ok(('ip', 'g'), now=100 + fs.RATE_WIN + 1, store=box)

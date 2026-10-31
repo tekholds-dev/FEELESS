@@ -10,6 +10,7 @@ A cat may only ever TRADE on FEELESS rails (VENUES) — a key never opens anothe
 import base64
 import hashlib
 import os
+from pathlib import Path
 import re
 import time
 
@@ -41,6 +42,56 @@ def _fernet(env=None, data_dir=None):
     return Fernet(base64.urlsafe_b64encode(hashlib.sha256(f'cat-keys:{k}'.encode()).digest()))
 
 
+# 🔐 THE AGENT VAULT (owner 2026-10-30: "no one can expose another user's agent data"). Every agent's secrets (logins, API keys, its cloud pass)
+# are sealed with ITS OWN key, derived from a master that lives OUTSIDE the repo and the data folder (~/.feeless-vault/master.key, 0600 —
+# or BROKER_SECRET_KEY): a copied data folder or database decrypts nothing, and one agent's key opens no other agent. 'v2:' marks the new
+# seal; an older seal (one key for all, kept beside the data) is still read and re-sealed at startup (`reseal_cat`).
+def _master(env=None):
+    env = os.environ if env is None else env
+    k = str(env.get('BROKER_SECRET_KEY') or '').strip()
+    if k:
+        return k
+    p = Path(env.get('FEELESS_VAULT_KEY_FILE') or os.environ.get('FEELESS_VAULT_KEY_FILE') or (Path.home() / '.feeless-vault' / 'master.key'))
+    try:
+        return p.read_text().strip()
+    except OSError:
+        import secrets
+        p.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
+        fd = os.open(str(p), os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+        with os.fdopen(fd, 'w') as fh:
+            fh.write(secrets.token_urlsafe(48))
+        return p.read_text().strip()
+
+
+def _agent_fernet(cat_id, env=None):
+    from cryptography.fernet import Fernet
+    return Fernet(base64.urlsafe_b64encode(hashlib.sha256(f'agent-vault:{cat_id or "-"}:{_master(env)}'.encode()).digest()))
+
+
+def seal(text, cat_id, env=None):
+    return 'v2:' + _agent_fernet(cat_id, env).encrypt(str(text).encode()).decode()
+
+
+def unseal(token, cat_id, env=None, data_dir=None):
+    t = str(token or '')
+    if t.startswith('v2:'):
+        return _agent_fernet(cat_id, env).decrypt(t[3:].encode()).decode()
+    return _fernet(env, data_dir).decrypt(t.encode()).decode()   # an older seal, until reseal_cat runs
+
+
+def reseal_cat(cat, env=None, data_dir=None):
+    """Startup heal: every older seal on this agent → its own v2 key. → how many changed."""
+    n, cid = 0, cat.get('id')
+    for rows in ((cat.get('apiKeys') or {}).values(), cat.get('logins') or [], [cat['cloudLink']] if cat.get('cloudLink') else []):
+        for r in rows:
+            if isinstance(r, dict) and r.get('sealed') and not str(r['sealed']).startswith('v2:'):
+                try:
+                    r['sealed'] = seal(unseal(r['sealed'], cid, env, data_dir), cid, env); n += 1
+                except Exception:
+                    pass
+    return n
+
+
 def venues(raw):
     """The rails a trading cat may use — FEELESS only; unknown names are refused, empty = the trench."""
     v = [str(x).lower() for x in (raw or ['trench'])]
@@ -58,7 +109,7 @@ def put(cat, provider, secret, env=None, data_dir=None, now=None):
     if not re.match(PROVIDERS[provider][3], s):
         raise ValueError(f"That doesn't look like a {PROVIDERS[provider][0]} key.")
     drawer = cat.setdefault('apiKeys', {})
-    drawer[provider] = {'sealed': _fernet(env, data_dir).encrypt(s.encode()).decode(), 'last4': s[-4:], 'at': now or time.time()}
+    drawer[provider] = {'sealed': seal(s, cat.get('id'), env), 'last4': s[-4:], 'at': now or time.time()}
     return public(cat)
 
 
@@ -73,7 +124,7 @@ def key_for(cat, provider, env=None, data_dir=None):
     if not row:
         return None
     try:
-        return _fernet(env, data_dir).decrypt(row['sealed'].encode()).decode()
+        return unseal(row['sealed'], cat.get('id'), env, data_dir)
     except Exception:
         return None
 

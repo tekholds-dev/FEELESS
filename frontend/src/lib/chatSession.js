@@ -3,8 +3,10 @@ import { sweepable } from './cacheSweep';
 
 // Sign once, chat for 7 days. The token lives only in this browser for this wallet.
 const key = address => `feeless:chat-session:${address}`;
-export function readChatSession(address, ownOnly = false) {   // ownOnly: this wallet's own session (a real cat must be signed by the wallet it trades for)
-  const ok = s => s && s.expiresAt * 1000 > Date.now() + 60000;
+const SESSION_DAYS = 7; const FRESH_MS = 86400000;   // 🔒 agent controls need a sign-in from the last 24 h (the server checks the same)
+const isFresh = s => s && (s.expiresAt - SESSION_DAYS * 86400) * 1000 > Date.now() - FRESH_MS + 60000;
+export function readChatSession(address, ownOnly = false, fresh = false) {   // ownOnly: this wallet's own session (a real cat must be signed by the wallet it trades for) · fresh: signed in the last 24 h
+  const ok = s => s && s.expiresAt * 1000 > Date.now() + 60000 && (!fresh || isFresh(s));
   try {
     const own = JSON.parse(localStorage.getItem(key(address)) || 'null');
     if (ok(own)) return own.token;
@@ -27,12 +29,15 @@ export function agentBrowserId() {
   try { let v = localStorage.getItem('feeless-paper-owner'); if (!v) { v = `browser-${crypto.randomUUID()}`; localStorage.setItem('feeless-paper-owner', v); } return v; } catch { return ''; }
 }
 const nowWallet = () => { try { return localStorage.getItem('feeless:wallet-now') || ''; } catch { return ''; } };   // set by useWallet while a wallet is connected
-export const agentAuth = () => ({ ownerId: agentBrowserId(), session: (nowWallet() && readChatSession(nowWallet(), true)) || readChatSession() || '' });
+export const agentAuth = () => ({ ownerId: agentBrowserId(), session: (nowWallet() && readChatSession(nowWallet(), true, true)) || readChatSession(undefined, false, true) || '' });
+export const agentSignedIn = () => !!agentAuth().session;
+// 🔐 a password reveal is its own fresh signature (the server checks it against the owner wallet, 2 minutes)
+export const revealMessage = (catId, site, ts) => `FEELESS reveal\nagent:${catId}\nsite:${site}\nts:${ts}`;
 export const agentAuthQuery = () => { const a = agentAuth(); return `ownerId=${encodeURIComponent(a.ownerId)}&session=${encodeURIComponent(a.session)}`; };
 const checked = sweepable('chatSession', new Map(), { max: 20 });
 // One signature, reused everywhere (chat, DMs, follows, rewards, shop) for 7 days and across linked networks.
-export async function getChatSession(address, signMessage, { own = false } = {}) {
-  const cached = readChatSession(address, own);
+export async function getChatSession(address, signMessage, { own = false, fresh = false } = {}) {
+  const cached = readChatSession(address, own, fresh);
   if (cached) {
     if (!checked.has(cached)) checked.set(cached, fetch(apiUrl(`/api/reputation/chat/session/check?address=${address}&session=${encodeURIComponent(cached)}`)).then(r => r.json()).then(d => d.valid).catch(() => true));
     if (await checked.get(cached)) return cached;

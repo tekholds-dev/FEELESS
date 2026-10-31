@@ -2,7 +2,8 @@ import React, { Suspense, lazy, useCallback, useEffect, useRef, useState } from 
 import { apiUrl } from '../../lib/api';
 import { MindVitals, AgentLog } from './CatCockpit';
 import '../../styles/catWorkbench.css';
-import { agentAuth, agentAuthQuery } from '../../lib/chatSession';
+import { agentAuth, agentAuthQuery, revealMessage } from '../../lib/chatSession';
+import { useWallet } from '../../hooks/useWallet';
 
 // 🧠🧠 THE GENERAL CAT'S WORKBENCH (owner 2026-10-29, P2 — backend cat_agent.py + cat_browser.py). Two browser windows, one per model, running in
 // the cloud (Steel → Browserbase → the reader: never on this device). Each window: its model, its provider, the page it is on, a bubble top-right
@@ -99,15 +100,17 @@ function PublicMinds({ cat }) {
 // (a window's 🔑 card opens it with the site filled in), sealed on the server; its windows get it there and type it blind ({{username}} / {{password}}).
 // No account yet? Sign up opens the site in a new tab — come back and save it here.
 function CredRow({ cat, r, onDrop }) {
-  const [pw, setPw] = useState(null);
+  const [pw, setPw] = useState(null); const [why, setWhy] = useState(''); const { signMessage } = useWallet() || {};
   useEffect(() => { if (pw == null) return undefined; const t = setTimeout(() => setPw(null), 15000); return () => clearTimeout(t); }, [pw]);
-  const show = async () => { if (pw != null) { setPw(null); return; } try { setPw((await work(cat.id, { op: 'reveal', text: r.site, job: r.user })).password); } catch { /* not yours / gone */ } };
+  const show = async () => { if (pw != null) { setPw(null); return; } setWhy('');   // 🔐 every reveal = its own wallet signature (a stolen session alone shows nothing)
+    try { const ts = Math.floor(Date.now() / 1000); const sig = await signMessage(revealMessage(cat.id, r.site, ts)); setPw((await work(cat.id, { op: 'reveal', text: r.site, job: r.user, ts, sig })).password); } catch (e) { setWhy(e.message || 'Not shown'); } };
   return <li data-testid={`cwb-cred-${r.site}`}><b>{r.site}</b>
     {pw != null ? <span className="cwb-cred-open"><span className="cwb-pw is-open">{r.user}</span><span className="cwb-pw is-pw is-open">{pw}</span></span> : null}
-    <span className="cwb-cred-acts"><button type="button" className="m-btn" onClick={show} aria-pressed={pw != null} data-tip={pw != null ? 'Hide it now (it hides itself in 15 s)' : 'Unhide this login for 15 s — hidden by default so a stream never shows it'} data-testid={`cwb-reveal-${r.site}`}>{pw != null ? '🙈 Hide' : '👁 Show'}</button>
-      <button type="button" className="m-btn cwb-cred-x" onClick={() => onDrop(r)} aria-label={`Forget the ${r.site} login`} data-tip="Forget this login">✕</button></span></li>;
+    <span className="cwb-cred-acts"><button type="button" className="m-btn" onClick={show} aria-pressed={pw != null} data-tip={pw != null ? 'Hide it now (it hides itself in 15 s)' : 'Sign once with your wallet to unhide this login for 15 s — hidden by default so a stream never shows it'} data-testid={`cwb-reveal-${r.site}`}>{pw != null ? '🙈 Hide' : '👁 Show'}</button>
+      <button type="button" className="m-btn cwb-cred-x" onClick={() => onDrop(r)} aria-label={`Forget the ${r.site} login`} data-tip="Forget this login">✕</button></span>{why ? <small className="kd-err" role="alert">⚠ {why}</small> : null}</li>;
 }
-function Credentials({ cat, rows, ask, onSaved }) {
+const VAULT_WORD = { saved: '🔐 saved', used: '🤖 signed in with', revealed: '👁 revealed', forgot: '✕ forgot', 'cloud connected': '☁ connected', 'cloud disconnected': '☁ disconnected' };
+function Credentials({ cat, rows, ask, onSaved, log = [] }) {
   const box = useRef(null); const [site, setSite] = useState(''); const [err, setErr] = useState(''); const [busy, setBusy] = useState(false);
   useEffect(() => { if (!ask?.site) return; setSite(ask.site); if (box.current) { box.current.open = true; box.current.scrollIntoView({ behavior: 'smooth', block: 'center' }); setTimeout(() => box.current?.querySelector('input[name="u"]')?.focus({ preventScroll: true }), 400); } }, [ask]);
   const host = site.trim().toLowerCase().replace(/^https?:\/\//, '').split('/')[0];
@@ -122,31 +125,34 @@ function Credentials({ cat, rows, ask, onSaved }) {
       <input className="m-input" name="p" type="password" autoComplete="new-password" placeholder="password" aria-label="Password" required data-testid="cwb-login-pass" />
       <span><button type="submit" className="m-btn m-go" disabled={busy || !host} data-testid="cwb-cred-save">{busy ? 'Sealing…' : 'Save sealed'}</button>
         {host ? <a className="m-btn cwb-signup" href={`https://${host}`} target="_blank" rel="noopener noreferrer" data-tip={`No account on ${host}? Sign up in a new tab, then come back and save it here`} data-testid="cwb-signup">No account? Sign up ↗</a> : null}</span>
-      {err ? <small className="kd-err" role="alert">⚠ {err}</small> : null}</form></details>;
+      {err ? <small className="kd-err" role="alert">⚠ {err}</small> : null}</form>
+    {log.length ? <ol className="cwb-vlog" data-testid="cwb-vault-log" aria-label="Who used the vault">{log.slice().reverse().slice(0, 6).map((x, i) => <li key={`${x.at}-${i}`} style={{ '--i': i }}><span>{VAULT_WORD[x.what] || x.what}</span><b>{x.site || ''}</b><time className="m-num">{ago(x.at)}</time></li>)}</ol> : null}</details>;
 }
-// ☁ ITS CLOUD (owner 2026-10-30): it starts with the first real deposit — 1 GB in the first free pool FEELESS holds keys for (R2 → B2 →
-// Filebase), else the FEELESS server — and says which. A live bar of what's left, its 5 newest files as previews, every file below; and for
-// more room, three free services you sign up to yourself (a new tab) whose login then goes in the credentials drawer.
-const BIGGER = [['drive.google.com', 'Google Drive', '15 GB free'], ['mega.io', 'MEGA', '20 GB free'], ['dropbox.com', 'Dropbox', '2 GB free']];
-export function CloudDrawer({ cat, storage, onChange, onSignUp }) {
-  const [err, setErr] = useState('');
-  const c = storage?.cloud; const files = [...(storage?.files || [])].sort((a, b) => (b.at || 0) - (a.at || 0));
-  const used = Number(storage?.used || 0); const quota = Number(storage?.quota || c?.quota || 1024 ** 3);
-  const fresh = c && Date.now() / 1000 - (c.startedAt || 0) < 86400;
-  const drop = async f => { setErr(''); try { const r = await fetch(apiUrl(`/api/cats/${cat.id}/files/${f.id}/delete`), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(agentAuth()) });
-    const j = await r.json().catch(() => ({})); if (!r.ok) throw new Error(j.detail || `HTTP ${r.status}`); onChange?.(j); } catch (er) { setErr(er.message); } };
-  const thumb = f => (f.mime?.startsWith('video/') ? <video src={f.url} muted loop playsInline preload="metadata" /> : <img src={f.url} alt={f.name} loading="lazy" />);
-  return <details className="cwb-vault cwb-cloudd" open={!!fresh} data-testid="cwb-cloud-drawer"><summary data-tip="Its own storage: what you attach and what it saves">☁ CLOUD {c ? <b className="m-num">{files.length}</b> : null}{fresh ? <em className="m-chip ok cwb-new">NEW</em> : null}</summary>
-    {!c ? <p className="m-note" data-testid="cwb-cloud-off"><b>Not started</b>Its cloud starts with its first real deposit: 1 GB, cleaned of files unused for 7 days.</p> : <>
-      {fresh ? <p className="m-note cwb-cloud-new" data-testid="cwb-cloud-new"><b>☁ New cloud started</b>1 GB on {c.label} — attach with + in the chat, or ask it to save something.</p> : null}
-      <div className="cwb-meters cwb-cloud-bar" data-tip={`${fileMb(used)} used of ${fileMb(quota)} on ${c.label} — files unused for ${storage?.ttlDays || 7} days are cleaned`}><span><em>{c.label.toUpperCase()}</em>
-        <b className="m-num" data-testid="cwb-cloud-left">{fileMb(Math.max(0, quota - used))} left</b><u aria-hidden="true"><s className={used > quota * 0.8 ? 'is-hot' : ''} style={{ transform: `scaleX(${Math.min(1, used / quota)})` }} /></u></span></div>
-      {files.length ? <div className="cwb-media-strip" data-testid="cwb-cloud-latest">{files.slice(0, 5).map(f => <a key={f.id} href={f.url} target="_blank" rel="noopener noreferrer" data-tip={`${f.name} · ${fileMb(f.size)}`}>{thumb(f)}<small>{f.name}</small></a>)}</div>
-        : <p className="cwb-cloud-empty">Empty — attach an image or clip with + in the chat.</p>}
-      {files.length ? <ul className="cwb-cloud-files" data-testid="cwb-cloud-files">{files.map((f, i) => <li key={f.id} style={{ '--i': i }}><span className="cwb-cloud-ico" aria-hidden="true">{f.mime?.startsWith('video/') ? '🎞' : '🖼'}</span>
-        <b>{f.name}</b><span className="m-num">{fileMb(f.size)}</span><button type="button" className="m-btn cwb-cred-x" onClick={() => drop(f)} aria-label={`Delete ${f.name}`} data-tip="Delete it from its cloud">✕</button></li>)}</ul> : null}</>}
-    <div className="cwb-bigger" data-testid="cwb-bigger"><em>NEED MORE ROOM?</em>{BIGGER.map(([site, name, free]) => <a key={site} className="m-btn" href={`https://${site}`} target="_blank" rel="noopener noreferrer" onClick={() => onSignUp?.(site)}
-      data-tip={`Sign up to ${name} (${free}) in a new tab — its login then goes in the credentials drawer, and its windows sign in there when you ask them to store something`} data-testid={`cwb-bigger-${site}`}>{name} <small>{free}</small> ↗</a>)}</div>
+const ago = t => { const s = Math.max(0, Date.now() / 1000 - (t || 0)); return s < 3600 ? `${Math.round(s / 60)}m` : s < 86400 ? `${Math.round(s / 3600)}h` : `${Math.round(s / 86400)}d`; };
+// ☁ ITS CLOUD = ITS OWNER'S (owner 2026-10-30: "FEELESS will not fund any storage"): connect your own Google Drive or Dropbox with their own
+// sign-in — FEELESS keeps a sealed pass, never the password. The bar is YOUR space left there; its 5 newest files in your FEELESS folder;
+// chat attachments (+) wait 24 h on FEELESS for its browser, ☁ keeps one in your cloud.
+export function CloudDrawer({ cat, attachments }) {
+  const [c, setC] = useState(null); const [err, setErr] = useState(''); const [busy, setBusy] = useState('');
+  const load = useCallback(() => fetch(apiUrl(`/api/cats/${cat.id}/cloud?${agentAuthQuery()}`)).then(r => r.json().then(j => (r.ok ? setC(j) : setErr(j.detail || `HTTP ${r.status}`)))).catch(e => setErr(e.message)), [cat.id]);
+  useEffect(() => { load(); }, [load]);
+  const post = async (path, body = {}) => { const r = await fetch(apiUrl(`/api/cats/${cat.id}/${path}`), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...agentAuth(), ...body }) });
+    const j = await r.json().catch(() => ({})); if (!r.ok) throw new Error(j.detail || `HTTP ${r.status}`); return j; };
+  const run = async (k, fn) => { setBusy(k); setErr(''); try { await fn(); } catch (e) { setErr(e.message); } finally { setBusy(''); } };
+  const connect = p => run(p, async () => { window.location.assign((await post('cloud/connect', { provider: p })).url); });
+  const link = c?.link; const used = Number(c?.used || 0); const total = Number(c?.total || 0); const files = attachments?.files || [];
+  return <details className="cwb-vault cwb-cloudd" open={!link} data-testid="cwb-cloud-drawer"><summary data-tip="Its storage lives in YOUR cloud — FEELESS keeps none">☁ CLOUD {link ? <em className="m-chip ok">{link.label}</em> : <em className="m-chip warn">not connected</em>}</summary>
+    {!link ? <div className="cwb-cloud-pick" data-testid="cwb-cloud-pick"><p className="m-note"><b>Connect your own cloud</b>Its files go to a FEELESS folder in your account. You sign in on Google / Dropbox — FEELESS never sees that password.</p>
+      {(c?.providers || []).map(p => <button key={p.key} type="button" className={`m-btn${p.ready ? ' m-go' : ''}`} disabled={!p.ready || !!busy} onClick={() => connect(p.key)}
+        data-tip={p.ready ? `Sign in to ${p.label} (${p.free}) — opens their page` : `${p.label} isn't set up on FEELESS yet`} data-testid={`cwb-cloud-${p.key}`}>{busy === p.key ? 'Opening…' : `Connect ${p.label}`} <small>{p.ready ? p.free : 'soon'}</small></button>)}</div> : <>
+      <div className="cwb-meters cwb-cloud-bar" data-tip={total ? `${fileMb(used)} used of ${fileMb(total)} in your ${link.label}` : 'Your space'}><span><em>{link.label.toUpperCase()}</em>
+        <b className="m-num" data-testid="cwb-cloud-left">{total ? `${fileMb(Math.max(0, total - used))} left` : '—'}</b><u aria-hidden="true"><s className={total && used > total * 0.8 ? 'is-hot' : ''} style={{ transform: `scaleX(${total ? Math.min(1, used / total) : 0})` }} /></u></span></div>
+      {(c?.recent || []).length ? <div className="cwb-media-strip" data-testid="cwb-cloud-latest">{c.recent.map(f => <a key={f.id} href={f.link} target="_blank" rel="noopener noreferrer" data-tip={`${f.name} · ${fileMb(f.size)} — opens in your ${link.label}`}>
+        {f.thumb ? <img src={f.thumb} alt={f.name} loading="lazy" referrerPolicy="no-referrer" /> : <span className="cwb-cloud-ico" aria-hidden="true">📄</span>}<small>{f.name}</small></a>)}</div>
+        : <p className="cwb-cloud-empty">Nothing kept yet — ☁ a chat attachment below, or ask it to save something.</p>}
+      <button type="button" className="m-btn cwb-cred-x" disabled={!!busy} onClick={() => run('off', async () => { await post('cloud/disconnect'); await load(); })} data-tip="Disconnect — FEELESS forgets the sealed pass">Disconnect</button></>}
+    {files.length ? <ul className="cwb-cloud-files" data-testid="cwb-cloud-files" aria-label="Chat attachments (24 h)">{files.map((f, i) => <li key={f.id} style={{ '--i': i }}><span className="cwb-cloud-ico" aria-hidden="true">{f.mime?.startsWith('video/') ? '🎞' : '🖼'}</span>
+      <b>{f.name}</b><span className="m-num">{fileMb(f.size)}</span>{link ? <button type="button" className="m-btn" disabled={!!busy} onClick={() => run(f.id, async () => { await post(`files/${f.id}/keep`); await load(); })} data-tip={`Keep it in your ${link.label} (attachments leave FEELESS after 24 h)`} data-testid={`cwb-keep-${f.id}`}>{busy === f.id ? '…' : '☁ Keep'}</button> : <span className="m-chip">24 h</span>}</li>)}</ul> : null}
     {err ? <small className="kd-err" role="alert">⚠ {err}</small> : null}</details>;
 }
 
@@ -176,7 +182,7 @@ function AttachChips({ files, store, onDrop }) {
   return <div className="cwb-files" data-testid="cwb-files">{files.map((f, i) => <span key={f.id} className="cwb-file" style={{ '--i': i }} data-tip={`${f.name} · ${fileMb(f.size)} — goes with your next ask`}>
     <img src={apiUrl(f.url)} alt="" /><b>{f.name}</b><small className="m-num">{fileMb(f.size)}</small>
     <button type="button" onClick={() => onDrop(f.id)} aria-label={`Take ${f.name} off this ask`} data-tip="Take it off this ask (it stays in its storage until cleaned)" data-testid={`cwb-file-x-${f.id}`}>✕</button></span>)}
-    {store ? <span className="cwb-store" data-tip={`Its storage: ${fileMb(store.used)} of ${fileMb(store.quota)} — files unused for ${store.ttlDays || 7} days are cleaned`} data-testid="cwb-store">
+    {store ? <span className="cwb-store" data-tip={`Attachments: ${fileMb(store.used)} of ${fileMb(store.quota)} — they leave FEELESS 24 h after last use (☁ Keep one in your own cloud)`} data-testid="cwb-store">
       <em>☁ STORAGE</em><u aria-hidden="true"><s style={{ transform: `scaleX(${pct})` }} /></u><small className="m-num">{fileMb(store.used)} / {fileMb(store.quota)}</small></span> : null}</div>;
 }
 
@@ -184,7 +190,7 @@ function WorkbenchLive({ cat }) {
   const [d, setD] = useState(null); const [err, setErr] = useState(''); const [text, setText] = useState(''); const [busy, setBusy] = useState(false); const [tick, setTick] = useState(0);
   const [files, setFiles] = useState([]); const [store, setStore] = useState(null); const [upping, setUpping] = useState(false); const pick = useRef(null);   // ☁ attached to the next ask
   const attach = async e => { const list = Array.from(e.target.files || []).slice(0, 4); e.target.value = ''; if (!list.length) return; setUpping(true); setErr('');
-    try { for (const f of list) { const j = await addFile(cat.id, f); setFiles(x => [...x, j.file].slice(-4)); setStore({ used: j.used, quota: j.quota, ttlDays: j.ttlDays }); } } catch (er) { setErr(er.message); } finally { setUpping(false); } };
+    try { for (const f of list) { const j = await addFile(cat.id, f); setFiles(x => [...x, j.file].slice(-4)); setStore({ used: j.used, quota: j.quota }); } } catch (er) { setErr(er.message); } finally { setUpping(false); } };
   const [signIn, setSignIn] = useState(null);   // 🔑 a window's sign-in card → the credentials drawer, this site filled in
   const [to, setTo] = useState('both'); const [jobs, setJobs] = useState(['', '']);   // 🧠 talk to both minds, or ONE of them (it works the whole task in its own window)
   const load = useCallback(() => work(cat.id, { op: 'state' }).then(x => { setD(x); setErr(''); }).catch(e => setErr(e.message)), [cat.id]);
@@ -214,8 +220,8 @@ function WorkbenchLive({ cat }) {
       className={way === k ? 'active' : ''} disabled={live || busy} onClick={() => setWay(k)} data-tip={tip} data-testid={`cwb-way-${k}`}>{l}</button>)}</div>
     {(d?.cloud || []).length ? <div className="cwb-cloud" data-testid="cwb-cloud" data-tip="Its main cloud: the best of both minds' scratch pads, kept for next time"><b>☁ MAIN CLOUD</b>
       {d.cloud.slice(-3).reverse().map((c, i) => <span key={i} style={{ '--i': i }}>{c.text || `${c.word} $${c.sym}`}</span>)}</div> : null}
-    <Credentials cat={cat} rows={d?.logins} ask={signIn} onSaved={logins => setD(x => ({ ...x, logins }))} />
-    <CloudDrawer cat={cat} storage={d?.storage} onChange={st => setD(x => ({ ...x, storage: { ...x?.storage, ...st } }))} onSignUp={site => setSignIn({ site, at: Date.now() })} /><MediaDrawer items={d?.media} />
+    <Credentials cat={cat} rows={d?.logins} log={d?.vaultLog || []} ask={signIn} onSaved={logins => setD(x => ({ ...x, logins }))} />
+    <CloudDrawer cat={cat} attachments={d?.storage} /><MediaDrawer items={d?.media} />
     <details className="cwb-tools"><summary>Job + tool switches</summary><label>Job<select className="m-input" aria-label="Cat job" value={d?.job || 'agent'} disabled={live || busy} onChange={e => act('tools', { job: e.target.value })}>{Object.keys(d?.toolkits || { agent: [] }).map(j => <option key={j}>{j}</option>)}</select></label><div className="m-seg">{Object.entries(d?.tools || {}).map(([k, on]) => <button key={k} type="button" aria-pressed={on} disabled={live || busy} className={on ? 'active' : ''} data-tip={`Allow this cat to use ${k}`} onClick={() => act('tools', { tools: { ...d.tools, [k]: !on } })}>{k} · {on ? 'ON' : 'OFF'}</button>)}</div></details>
     {(d?.artifacts || []).map((a, i) => <details className="cwb-artifact" key={i}><summary>{a.title} · {a.kind}</summary>{a.kind === 'build' ? <iframe title={a.title} sandbox="allow-scripts" referrerPolicy="no-referrer" srcDoc={'<meta http-equiv="Content-Security-Policy" content="default-src \'none\'; script-src \'unsafe-inline\'; style-src \'unsafe-inline\'; img-src data:; connect-src \'none\'; form-action \'none\'; base-uri \'none\'">' + a.content} /> : <pre>{a.content}</pre>}</details>)}
     {(d?.refusals || []).length ? <details className="cwb-refusals"><summary>Refusals · {d.refusals.length}</summary>{d.refusals.map((r, i) => <p key={i}>{r.why}</p>)}</details> : null}

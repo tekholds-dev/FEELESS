@@ -25,8 +25,10 @@ def test_bad_shapes_and_no_server_secret_are_refused():
         ck.put({}, 'openrouter', 'hello', env=ENV)
     with pytest.raises(ValueError):
         ck.put({}, 'binance', 'x' * 40, env=ENV)
-    with pytest.raises(RuntimeError):
-        ck.put({}, 'openrouter', OR_KEY, env={})
+    cat = {'id': 'k1'}
+    ck.put(cat, 'openrouter', OR_KEY, env={})                    # no BROKER_SECRET_KEY: its own master outside the data folder (test sandbox file)
+    assert cat['apiKeys']['openrouter']['sealed'].startswith('v2:') and OR_KEY not in str(cat)
+    assert ck.key_for(cat, 'openrouter', env={}) == OR_KEY
 
 
 def test_trading_cat_venues_are_feeless_rails_only():

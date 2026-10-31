@@ -13,6 +13,7 @@ def _signed_owner(monkeypatch):
     """A test session token IS its wallet here; the wallet owner lock itself is proven in test_agent_owner_lock.py."""
     import feecat_service as svc
     monkeypatch.setattr(svc, '_session_wallet', lambda s: str(s or ''))
+    monkeypatch.setattr(svc, '_fresh_session_wallet', lambda s, now=None: str(s or ''))
 
 PNG = b'\x89PNG\r\n\x1a\n' + b'\x00' * 64
 URL = 'data:image/png;base64,' + base64.b64encode(PNG).decode()
@@ -37,7 +38,7 @@ def test_quota_files_cap_and_the_seven_day_clean(tmp_path, monkeypatch):
     cat = {'id': 'c1', 'cloud': {'pool': 'feeless'}}
     monkeypatch.setattr(af, 'QUOTA', len(PNG) * 2)
     a = af.save(tmp_path, cat, URL, now=1000); af.save(tmp_path, cat, URL, now=1000)
-    with pytest.raises(ValueError, match='cloud is full'):
+    with pytest.raises(ValueError, match='100 MB of attachments'):
         af.save(tmp_path, cat, URL)
     af.touch(cat, [a['id']], now=1000 + af.TTL)                                     # used again: 7 more days
     assert af.clean(tmp_path, {'cats': {'c1': cat}}, now=1000 + af.TTL + 5) == 1      # the other one was never used again

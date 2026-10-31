@@ -15,6 +15,7 @@ import cat_agent as _ca
 import cat_browser as _cb
 _AGENT_MAX = 4   # cats with their own wallet per owner wallet (owner 2026-10-29: "up to 4 cats per user"; cat_fund.MAX_CATS)
 import asyncio
+import hashlib
 import json
 import re
 import os
@@ -41,6 +42,7 @@ import cat_orders as _co   # 🧭 a General AI cat's plain-words orders → one 
 import cat_model as _cm
 import cat_tools as _ct   # 🧰 FEELESS-first read-only tools for general agents
 import agent_files as _af   # ☁ each agent's own storage (owner uploads, 1 GB, 7-day clean)
+import agent_cloud as _acl   # ☁ its owner's own Drive / Dropbox (FEELESS funds no storage)
 import cat_vault as _cv   # 🔐 a general agent's saved logins + 🖼 media drawer
 import cat_keys as _ck   # 🔐 a cat's API drawer (sealed keys, never sent to a page)
 
@@ -82,7 +84,7 @@ def _load() -> dict:
 
 # 🔒 The engine loads every cat, works for minutes, then saves its whole copy: anything an owner did meanwhile was wiped (owner 2026-10-30: a new agent wallet vanished
 # seconds after it was made). What an owner's action sets is kept here and laid over every save, so an old copy can never lose a wallet, a funding or a limit.
-OWNER_KEYS = ('agentWallet', 'agentFunded', 'creditPaid', 'recovery', 'recoverySet', 'recoveryConfirmedAt', 'limits', 'taskCap', 'ownerId', 'mode', 'realWallet', 'budgetSol', 'paperByOwner', 'files', 'ownerWallet', 'logins', 'cloud')
+OWNER_KEYS = ('agentWallet', 'agentFunded', 'creditPaid', 'recovery', 'recoverySet', 'recoveryConfirmedAt', 'limits', 'taskCap', 'ownerId', 'mode', 'realWallet', 'budgetSol', 'paperByOwner', 'files', 'ownerWallet', 'logins', 'cloudLink', 'vaultLog')
 _KEPT: dict = {}
 
 
@@ -1620,6 +1622,7 @@ async def _work_run(cat_id, models, names, text, cap, brief='', efforts=None, ow
                         got_ = None
                     if got_:
                         win_['pw'] = {'site': h_.get('site'), 'user': got_[0][:120], 'pw': got_[1]}
+                        w['task'].setdefault('vaultUsed', []).append(h_.get('site'))
                         return True
                 ev = w['events'][i] = asyncio.Event()
                 await ev.wait()
@@ -1657,6 +1660,10 @@ def _work_settle(store):
                 except (ValueError, RuntimeError):
                     pass
             t['logins'] = []
+            for site_u in t.get('vaultUsed') or []:   # 🔐 the audit line: its windows signed in with a saved login
+                vault_log(cat, 'used', site_u)
+            if t.get('vaultUsed'):
+                keep_owned(cat)
             for md_ in t.get('media') or []:
                 try:
                     _cv.add_media(cat, md_.get('url'), md_.get('title'))
@@ -1754,6 +1761,42 @@ def _score(cat):
 
 app = FastAPI(title='FEELESS Cats')
 from starlette.middleware.gzip import GZipMiddleware as _GZip
+_RATE: dict = {}   # (ip, agent) → recent owner-call times
+RATE_MAX, RATE_WIN = 90, 60   # 🔒 owner doors: 90 calls a minute per IP per agent (a poll is 40/min at most), then 429
+
+
+def rate_ok(key, now=None, store=None):
+    """Sliding window for owner doors. Pure (tests pass their own store)."""
+    store = _RATE if store is None else store
+    now = now or time.time()
+    q = [t for t in store.get(key, []) if now - t < RATE_WIN]
+    ok = len(q) < RATE_MAX
+    if ok:
+        q.append(now)
+    store[key] = q
+    if len(store) > 5000:
+        store.clear()
+    return ok
+
+
+@app.middleware('http')
+async def _armor(request, call_next):
+    """🔒 Every response: no sniffing, no framing, no referrer, never cached when it is an owner's. Owner doors are rate-limited per IP."""
+    path = request.url.path
+    parts = path.split('/')
+    owner_door = len(parts) > 4 and parts[1:3] == ['api', 'cats'] and parts[4] in ('work', 'action', 'files', 'cloud', 'recovery-pin') and not request.headers.get('x-feeless-internal')
+    if owner_door and not rate_ok((request.client.host if request.client else '-', parts[3])):
+        return Response('{"detail":"Too many requests — slow down."}', status_code=429, media_type='application/json')
+    resp = await call_next(request)
+    resp.headers.setdefault('X-Content-Type-Options', 'nosniff')
+    resp.headers.setdefault('X-Frame-Options', 'DENY')
+    resp.headers.setdefault('Referrer-Policy', 'no-referrer')
+    resp.headers.setdefault('Content-Security-Policy', "default-src 'none'; img-src 'self' data:; media-src 'self'; frame-ancestors 'none'")
+    if owner_door:
+        resp.headers['Cache-Control'] = 'no-store'
+    return resp
+
+
 app.add_middleware(_GZip, minimum_size=1024)   # ⚡ every list over 1KB goes compressed (a 287KB trench list was sent raw)
 app.add_middleware(CORSMiddleware, allow_origins=[o.strip() for o in (os.environ.get('ALLOWED_ORIGINS') or '*').split(',') if o.strip()], allow_methods=['*'], allow_headers=['*'])
 
@@ -1763,7 +1806,7 @@ async def _start_engine():
     try:
         store_ = _load()
         healed_ = heal_general_credit(store_)   # 🧭 no free credit on a general agent, ever: the old $10 start grant comes off once
-        healed_ += [c_['id'] for c_ in list(store_['cats'].values()) if (c_.get('agentFunded') or c_.get('creditPaid')) and _af.start_cloud(c_, list(store_['cats'].values()))]   # ☁ already funded ⇒ its cloud
+        healed_ += [c_['id'] for c_ in list(store_['cats'].values()) if _ck.reseal_cat(c_, data_dir=DATA_DIR) or c_.pop('cloud', None)]   # (+ the FEELESS-funded cloud is gone: owner 2026-10-30)   # 🔐 every older seal → its agent's own key
         if healed_ or _af.clean(DATA_DIR, store_):   # ☁ and every agent's files unused for 7 days go
             _save(store_)
     except Exception as e:
@@ -1867,6 +1910,42 @@ def _session_wallet(session):
         return ''
 
 
+SESSION_TTL_S = 7 * 86400   # reputation_service.SESSION_TTL — a session's issue time = exp − this
+OWNER_FRESH_S = 86400       # 🔒 controlling an agent needs a signature from the last 24 h (a 7-day chat session alone is not enough)
+
+
+def _fresh_session_wallet(session, now=None):
+    """The wallet behind a session signed in the last 24 h, or ''."""
+    try:
+        rec = ((_real.load_sessions(DATA_DIR / 'chat_sessions.json') or {}).get('s') or {}).get(hashlib.sha256(str(session).encode()).hexdigest()) if session else None
+    except Exception:
+        rec = None
+    now = now or time.time()
+    if not rec or now > float(rec.get('exp') or 0) or now - (float(rec.get('exp') or 0) - SESSION_TTL_S) > OWNER_FRESH_S:
+        return ''
+    return str(rec.get('address') or '')
+
+
+def reveal_message(cat_id, site, ts):
+    return f"FEELESS reveal\nagent:{cat_id}\nsite:{_cv.site_of(site)}\nts:{int(ts or 0)}"
+
+
+def reveal_ok(cat_id, site, ts, sig, wallet, now=None):
+    """A reveal signed by the owner wallet in the last 2 minutes."""
+    if not (sig and wallet and ts) or abs((now or time.time()) - int(ts)) > 120:
+        return False
+    try:
+        import hq_auth
+        return bool(hq_auth.verify_wallet(wallet, reveal_message(cat_id, site, ts), sig))
+    except Exception:
+        return False
+
+
+def vault_log(cat, what, site):
+    """🔐 The vault's audit trail the owner sees: saved / used / revealed / forgot, which site, when — never a value."""
+    cat['vaultLog'] = (list(cat.get('vaultLog') or []) + [{'what': what, 'site': _cv.site_of(site or ''), 'at': round(time.time())}])[-40:]
+
+
 def owner_wallet(cat):
     """🔒 The wallet that owns an agent: set on create / first signed visit (its agent wallet's signer for older ones), or ''."""
     return str(cat.get('ownerWallet') or (cat.get('agentWallet') or {}).get('owner') or '')
@@ -1886,10 +1965,10 @@ def owner_check(cat, signed, owner_id=''):
 
 def _owner_gate(store, cat, session, owner_id='', what='work with it'):
     """Every owner door: 401 signed out, 403 not yours; a legacy agent is claimed by the signed wallet on the spot."""
-    signed = _session_wallet(session or '')
+    signed = _fresh_session_wallet(session or '')
     verdict = owner_check(cat, signed, owner_id)
     if verdict == 'signin':
-        raise HTTPException(401, 'Sign in with your wallet first (one signature, no transaction).')
+        raise HTTPException(401, 'Sign in with your wallet (one signature, no transaction) — agent controls need a sign-in from the last 24 h.')
     if verdict == 'no':
         raise HTTPException(403, f"Only this agent's owner can {what}.")
     if verdict == 'claim':
@@ -1973,7 +2052,7 @@ async def create_cat(payload: CreatePayload):
 async def list_cats(ownerId: str = '', session: str = ''):
     """My agents = the signed-in wallet's (plus this browser's older unclaimed ones, so they can be claimed). Signed out ⇒ none."""
     store = _load()
-    signed = _session_wallet(session)
+    signed = _fresh_session_wallet(session)
     cats = [c for c in store['cats'].values() if signed and owner_check(c, signed, ownerId) in ('ok', 'claim')]
     cats.sort(key=lambda c: -c['createdAt'])
     return {'cats': [{**x, 'mine': True} for x in _no_keys(cats)]}
@@ -2150,6 +2229,8 @@ class WorkPayload(BaseModel):
     on: Optional[bool] = None          # 🏇 op 'go': let it go on / off
     user: Optional[str] = None         # 🔑 op 'login': the owner's own username …
     secret: Optional[str] = None       # … and password — sealed at once, typed only as placeholders, never echoed or logged
+    sig: Optional[str] = None          # 🔐 op 'reveal': the owner wallet's fresh signature of reveal_message(…)
+    ts: Optional[int] = None
     files: Optional[list] = None       # ☁ op 'ask': ids of files from its storage the owner attached (+)
 
 
@@ -2199,18 +2280,23 @@ async def cat_work(cat_id: str, p: WorkPayload):
         except (ValueError, RuntimeError) as e:
             raise HTTPException(400, str(e)[:120])
         site_ = _cv.site_of(p.text or '')
+        vault_log(cat, 'saved', site_); keep_owned(cat); _save(store)
         for win_ in ((w or {}).get('task') or {}).get('windows') or []:
             if (win_.get('human') or {}).get('kind') == 'login' and win_['human'].get('site') == site_ and (w or {}).get('events', {}).get(win_['i']):
                 win_['pw'] = {'site': site_, 'user': (p.user or '').strip()[:120], 'pw': p.secret}
                 w['go'][win_['i']] = True; w['events'][win_['i']].set()
         return {'ok': True, 'site': site_, 'logins': _cv.public_logins(cat)}
-    if p.op == 'reveal':   # 🔐 the owner's own reveal of one saved password (never in a list, never logged)
+    if p.op == 'reveal':   # 🔐 the owner's own reveal of one saved password: a FRESH wallet signature each time (a stolen session alone shows nothing)
+        if not reveal_ok(cat_id, p.text or '', p.ts, p.sig, owner_wallet(cat) or _session_wallet(p.session or '')):
+            raise HTTPException(401, 'Sign the reveal with your wallet (one signature, no transaction).')
         try:
-            return {'password': _cv.reveal(cat, p.text or '', p.job or '', data_dir=DATA_DIR)}
+            pw_ = _cv.reveal(cat, p.text or '', p.job or '', data_dir=DATA_DIR)
+            vault_log(cat, 'revealed', p.text); keep_owned(cat); _save(store)
+            return {'password': pw_}
         except Exception as e:
             raise HTTPException(400, str(e)[:120])
     if p.op == 'unlogin':
-        _cv.drop_login(cat, p.text or '', p.job or ''); keep_owned(cat); _save(store)
+        _cv.drop_login(cat, p.text or '', p.job or ''); vault_log(cat, 'forgot', p.text); keep_owned(cat); _save(store)
         return {'logins': _cv.public_logins(cat)}
     if p.op == 'unmedia':
         cat['media'] = [m for m in cat.get('media') or [] if m.get('url') != p.text]; _save(store)
@@ -2275,7 +2361,7 @@ async def cat_work(cat_id: str, p: WorkPayload):
     return {**out, 'cap': float(cat.get('taskCap') or TASK_CAP_DEFAULT), 'credit': b.get('credit'), 'spent': b.get('spent'), 'chat': (cat.get('chat') or [])[-20:],
             'live': _work_live(), 'providers': _cb.chain(os.environ), 'go': bool(cat.get('workGo')), 'workMode': cat.get('workMode') or 'plan',
             'cloud': (b.get('cloud') or [])[-8:], 'minds': {m: v[-8:] for m, v in (b.get('minds') or {}).items()}, 'handoffs': len((w.get('task') or {}).get('handoffs') or []) if w else 0, 'createdAt': cat.get('createdAt'),
-            'logins': _cv.public_logins(cat), 'media': _cv.clean_media(cat), 'storage': _af.public(cat),   # ☁ its cloud: pool, quota, files
+            'logins': _cv.public_logins(cat), 'vaultLog': (cat.get('vaultLog') or [])[-12:], 'media': _cv.clean_media(cat), 'storage': _af.public(cat),   # ☁ its cloud: pool, quota, files
             'job': cat.get('job', 'agent'), 'tools': _cp.toolkit(cat.get('job', 'agent'), cat.get('tools')), 'toolkits': _cp.TOOLS,
             'refusals': (cat.get('refusals') or [])[-20:] + [{'why': x} for x in ((w or {}).get('task') or {}).get('refusals', [])],
             'artifacts': (cat.get('artifacts') or [])[-10:] + ([] if (w or {}).get('settled') else ((w or {}).get('task') or {}).get('artifacts', [])),
@@ -2311,6 +2397,105 @@ def _owned(store, cat_id, owner_id, session=''):
         raise HTTPException(404, 'Agent not found.')
     _owner_gate(store, cat, session, owner_id, 'use its storage')
     return cat
+
+
+# ☁ ITS CLOUD = ITS OWNER'S (agent_cloud.py): connect Google Drive / Dropbox with their own sign-in, FEELESS keeps the sealed refresh pass only
+class CloudPayload(BaseModel):
+    ownerId: Optional[str] = None
+    session: Optional[str] = None
+    provider: Optional[str] = None
+
+
+def _cloud_redirect():
+    return (os.environ.get('FEELESS_PUBLIC_URL') or 'http://localhost:51367').rstrip('/') + '/api/cats/cloud/callback'
+
+
+async def _cloud_token(http, cat):
+    link = cat.get('cloudLink') or {}
+    if not link.get('sealed'):
+        raise HTTPException(400, 'Connect its cloud first.')
+    try:
+        return link['provider'], await _acl.access(http, link['provider'], _ck.unseal(link['sealed'], cat['id'], data_dir=DATA_DIR))
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+
+
+@app.get('/api/cats/cloud/callback')
+async def cat_cloud_callback(code: str = '', state: str = '', error: str = ''):
+    """The provider sends its sign-in back here: the code → a refresh pass sealed with the agent's own key → back to the agents page."""
+    got = _acl.take_state(state)
+    ok = False
+    if got and code and not error:
+        cid, prov = got
+        store = _load(); cat = store['cats'].get(cid)
+        if cat:
+            try:
+                async with httpx.AsyncClient() as http:
+                    refresh = await _acl.exchange(http, prov, code, _cloud_redirect())
+                cat['cloudLink'] = {'provider': prov, 'label': _acl.PROVIDERS[prov]['label'], 'sealed': _ck.seal(refresh, cid), 'at': round(time.time())}
+                vault_log(cat, 'cloud connected', _acl.PROVIDERS[prov]['label']); keep_owned(cat); _save(store); ok = True
+            except Exception as e:
+                print(f'[feecat] cloud connect failed: {str(e)[:120]}')
+    return Response(status_code=303, headers={'Location': f"/terminal/feecat/agents?cloud={'ok' if ok else 'failed'}"})
+
+
+@app.post('/api/cats/{cat_id}/cloud/connect')
+async def cat_cloud_connect(cat_id: str, p: CloudPayload):
+    store = _load(); cat = store['cats'].get(cat_id)
+    if not cat:
+        raise HTTPException(404, 'Agent not found.')
+    _owner_gate(store, cat, p.session, p.ownerId, 'connect its cloud')
+    try:
+        return {'url': _acl.start(cat_id, p.provider or '', _cloud_redirect())}
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+
+
+@app.post('/api/cats/{cat_id}/cloud/disconnect')
+async def cat_cloud_disconnect(cat_id: str, p: CloudPayload):
+    store = _load(); cat = store['cats'].get(cat_id)
+    if not cat:
+        raise HTTPException(404, 'Agent not found.')
+    _owner_gate(store, cat, p.session, p.ownerId, 'change its cloud')
+    if cat.pop('cloudLink', None):
+        vault_log(cat, 'cloud disconnected', ''); keep_owned(cat); _save(store)
+    return {'ok': True}
+
+
+@app.get('/api/cats/{cat_id}/cloud')
+async def cat_cloud(cat_id: str, ownerId: str = '', session: str = ''):
+    """☁ The cloud drawer: which clouds FEELESS can connect, the one connected, its space and its 5 newest files (owner only)."""
+    store = _load(); cat = store['cats'].get(cat_id)
+    if not cat:
+        raise HTTPException(404, 'Agent not found.')
+    _owner_gate(store, cat, session, ownerId, 'see its cloud')
+    ready = _acl.configured()
+    out = {'providers': [{'key': k, 'label': v['label'], 'free': v['free'], 'ready': k in ready} for k, v in _acl.PROVIDERS.items()],
+           'link': {k: v for k, v in (cat.get('cloudLink') or {}).items() if k in ('provider', 'label', 'at')} or None}
+    if out['link']:
+        try:
+            async with httpx.AsyncClient() as http:
+                prov, tok = await _cloud_token(http, cat)
+                out.update(await _acl.overview(http, prov, tok, cat))
+        except Exception as e:
+            out['error'] = str(getattr(e, 'detail', e))[:120]
+    return out
+
+
+@app.post('/api/cats/{cat_id}/files/{file_id}/keep')
+async def cat_file_keep(cat_id: str, file_id: str, p: FilePayload):
+    """☁ An attachment → its owner's own cloud (FEELESS keeps nothing past 24 h)."""
+    store = _load()
+    cat = _owned(store, cat_id, p.ownerId, p.session)
+    f = _af.find(cat, file_id); raw = _af.read(DATA_DIR, cat, file_id)
+    if not f or not raw:
+        raise HTTPException(404, 'No such file.')
+    async with httpx.AsyncClient() as http:
+        prov, tok = await _cloud_token(http, cat)
+        try:
+            return {'kept': await _acl.upload(http, prov, tok, cat, f['name'], raw, f['mime'])}
+        except Exception:
+            raise HTTPException(502, 'Its cloud did not take the file — try again.')
 
 
 @app.get('/api/cats/{cat_id}/files')
@@ -2359,11 +2544,12 @@ async def cat_file_get(cat_id: str, name: str):
 
 
 @app.get('/api/cats/{cat_id}/agent-wallet')
-async def cat_agent_wallet(cat_id: str):
-    """👛 The cat's own Crossmint wallet: address, mode and its live SOL / USDC (a public address — no key, nothing private)."""
-    cat = _load()['cats'].get(cat_id)
+async def cat_agent_wallet(cat_id: str, ownerId: str = '', session: str = ''):
+    """👛 The cat's own wallet: address, mode and its live SOL / USDC — its owner's only (a visitor never learns what an agent holds)."""
+    store = _load(); cat = store['cats'].get(cat_id)
     if not cat:
         raise HTTPException(404, 'Cat not found.')
+    _owner_gate(store, cat, session, ownerId, 'see its wallet')
     w = cat.get('agentWallet')
     if not w:
         return {'wallet': None, 'kind': (cat.get('brainsCfg') or {}).get('kind')}
@@ -2419,7 +2605,7 @@ async def get_cat(cat_id: str, ownerId: str = '', session: str = ''):
         raise HTTPException(404, 'Cat not found.')
     if _real.is_real(cat) and _real.expire(cat, time.time()):
         _save(store)
-    mine = owner_check(cat, _session_wallet(session), ownerId) in ('ok', 'claim')
+    mine = owner_check(cat, _fresh_session_wallet(session), ownerId) in ('ok', 'claim')
     out = _pub({'cat': {k: v for k, v in cat.items() if k not in ('artifacts', 'refusals')} if mine or cat.get('isLeader') else public_cat(cat)})
     out['cat']['mine'] = mine
     return out
@@ -2718,8 +2904,6 @@ async def cat_action(cat_id: str, payload: ActionPayload, request: Request):
         a_ = payload.amount if isinstance(payload.amount, dict) else {}
         if not payload.sig or any(str(x.get('sig')) == payload.sig for x in (cat.get('agentFunded') or []) + (cat.get('creditPaid') or [])):
             raise HTTPException(400, 'No signature, or that funding is on the record already.')
-        if _af.start_cloud(cat, list(store['cats'].values())):   # ☁ its first real deposit starts its cloud (1 GB, the first free pool with room)
-            _log_event(store, cat, 'STARTED', f"{cat['name']}: its cloud started — 1 GB on {cat['cloud']['label']}.")
         cr_ = max(0.0, _num(a_.get('creditUsd')) or 0.0)
         if cr_:   # 🧠 the model-credit share of this payment
             cat['creditPaid'] = (list(cat.get('creditPaid') or []) + [{'sig': str(payload.sig)[:100], 'usd': cr_, 'token': a_.get('token'), 'at': round(time.time())}])[-50:]

@@ -38,3 +38,26 @@ def test_the_drawer_saves_sealed_and_hands_a_waiting_window_its_login(monkeypatc
     assert ev.is_set() and win['pw'] == {'site': 'dropbox.com', 'user': 'me@mail.com', 'pw': 'Sup3r!secret'}
     assert fs._WORK['g']['go'][0] is True
     assert 'Sup3r!secret' not in c.get('/api/cats/g?session=tok').text      # never echoed, even to its owner's desk
+
+
+def test_each_agent_has_its_own_key_and_a_copied_data_folder_opens_nothing(monkeypatch, tmp_path):
+    monkeypatch.delenv('BROKER_SECRET_KEY', raising=False)   # another test may leave one in the process env
+    ck = pytest.importorskip('cat_keys')
+    from cryptography.fernet import InvalidToken
+    a = ck.seal('hunter2', 'agent-a')
+    assert a.startswith('v2:') and ck.unseal(a, 'agent-a') == 'hunter2'
+    with pytest.raises(InvalidToken):
+        ck.unseal(a, 'agent-b')                                         # one agent's seal never opens with another's key
+    monkeypatch.setenv('FEELESS_VAULT_KEY_FILE', str(tmp_path / 'other-machine.key'))
+    with pytest.raises(InvalidToken):
+        ck.unseal(a, 'agent-a')                                         # the data alone, without the master outside it: nothing
+
+
+def test_older_seals_are_resealed_per_agent_at_startup(monkeypatch, tmp_path):
+    monkeypatch.delenv('BROKER_SECRET_KEY', raising=False)   # another test may leave one in the process env
+    ck = pytest.importorskip('cat_keys')
+    (tmp_path / 'internal.key').write_text('old-shared-key')
+    old = ck._fernet({}, tmp_path).encrypt(b'pw-old').decode()
+    cat = {'id': 'z9', 'logins': [{'site': 'x.com', 'user': 'me', 'sealed': old}]}
+    assert ck.reseal_cat(cat, data_dir=tmp_path) == 1 and cat['logins'][0]['sealed'].startswith('v2:')
+    assert ck.unseal(cat['logins'][0]['sealed'], 'z9') == 'pw-old' and ck.reseal_cat(cat, data_dir=tmp_path) == 0

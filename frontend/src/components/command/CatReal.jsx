@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useWallet } from '../../hooks/useWallet';
-import { getChatSession, agentAuth } from '../../lib/chatSession';
+import { getChatSession, agentAuth, agentAuthQuery } from '../../lib/chatSession';
 import { familiaSwap, FamiliaTradeDock } from '../FamiliaTrade';
 import { apiUrl } from '../../lib/api';
 import '../../styles/catReal.css';
@@ -57,7 +57,7 @@ function WalletCard({ cat, addr, v }) {
 export function useAgentWallet(id, has, every = 20000) {
   const [d, setD] = useState(null);
   useEffect(() => { if (!id || !has) { setD(null); return undefined; } let on = true;
-    const load = () => fetch(apiUrl(`/api/cats/${id}/agent-wallet`)).then(r => (r.ok ? r.json() : null)).then(x => { if (on && x) setD(x); }).catch(() => {});
+    const load = () => fetch(apiUrl(`/api/cats/${id}/agent-wallet?${agentAuthQuery()}`)).then(r => (r.ok ? r.json() : null)).then(x => { if (on && x) setD(x); }).catch(() => {});
     load(); const t = setInterval(() => { if (!document.hidden) load(); }, every); return () => { on = false; clearInterval(t); }; }, [id, has, every]);
   return d;
 }

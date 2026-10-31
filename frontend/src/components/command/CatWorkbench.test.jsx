@@ -2,6 +2,8 @@ import React, { act } from 'react';
 import { createRoot } from 'react-dom/client';
 import { CatWorkbench } from './CatWorkbench';
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
+const signed = [];
+jest.mock('../../hooks/useWallet', () => ({ useWallet: () => ({ signMessage: async m => { signed.push(m); return 'SIG'; } }) }));
 
 const STATE = { live: true, providers: ['steel', 'reader'], cap: 0.05, credit: 9.2, chat: [{ by: 'you', text: 'hi' }, { by: 'cats', text: 'hello', cost: 0.0004 }],
   task: { id: 't', text: 'research', status: 'working', cap: 0.05, cost: 0.013 },
@@ -82,24 +84,31 @@ test('🔑 a window sign-in is a small card → the credentials drawer opens wit
   expect(el.querySelector('[data-testid="cwb-login-pass"]').value).toBe('');                                            // the form forgets it
   await act(async () => { el.querySelector('[data-testid="cwb-reveal-x.com"]').click(); });
   expect(el.querySelector('[data-testid="cwb-cred-x.com"]').textContent).toContain('Sup3r!pw');
+  expect(signed.at(-1)).toMatch(/^FEELESS reveal\nagent:g1\nsite:x\.com\nts:\d+$/); expect(calls.find(c => c.op === 'reveal')).toMatchObject({ sig: 'SIG', text: 'x.com' });   // 🔐 its own wallet signature
   await act(async () => { el.querySelector('[data-testid="cwb-reveal-x.com"]').click(); });
   expect(el.querySelector('[data-testid="cwb-cred-x.com"]').textContent).not.toContain('Sup3r!pw');
   await act(async () => root.unmount()); el.remove();
 });
 
-test('☁ the cloud drawer: off until a deposit; then NEW, the space left, the 5 newest, every file, and 3 bigger sign-ups that fill the credentials drawer', async () => {
+test('☁ the cloud drawer: connect YOUR Drive / Dropbox (FEELESS funds none); then your space left, its 5 newest, and ☁ Keep for a 24 h attachment', async () => {
   const { CloudDrawer } = await import('./CatWorkbench');
+  const posts = []; let linked = false; const assign = jest.fn();
+  delete window.location; window.location = { assign };
+  global.fetch = async (u, o) => { if (o?.method === 'POST') { posts.push([String(u), JSON.parse(o.body)]); if (String(u).endsWith('/cloud/connect')) return { ok: true, json: async () => ({ url: 'https://accounts.google.com/x' }) }; return { ok: true, json: async () => ({ kept: { id: 'k' } }) }; }
+    return { ok: true, json: async () => ({ providers: [{ key: 'gdrive', label: 'Google Drive', free: '15 GB free', ready: true }, { key: 'dropbox', label: 'Dropbox', free: '2 GB free', ready: false }],
+      link: linked ? { provider: 'gdrive', label: 'Google Drive' } : null, used: 5 * 1024 ** 3, total: 15 * 1024 ** 3, recent: linked ? [{ id: 'r1', name: 'coin.png', size: 72, link: 'https://drive/x' }] : [] }) }; };
   const el = document.createElement('div'); document.body.appendChild(el); const root = createRoot(el);
-  await act(async () => { root.render(<CloudDrawer cat={{ id: 'g1' }} storage={{ files: [], used: 0, quota: 1024 ** 3, cloud: null }} />); });
-  expect(el.querySelector('[data-testid="cwb-cloud-off"]').textContent).toContain('first real deposit');
-  const files = Array.from({ length: 6 }, (_, i) => ({ id: `f${i}`, name: `pic${i}.png`, mime: i === 5 ? 'video/mp4' : 'image/png', size: 2 * 1024 ** 2, at: i, url: `/x/f${i}.png` }));
-  const asked = [];
-  await act(async () => { root.render(<CloudDrawer cat={{ id: 'g1' }} storage={{ files, used: 12 * 1024 ** 2, quota: 1024 ** 3, cloud: { pool: 'feeless', label: 'FEELESS server', quota: 1024 ** 3, startedAt: Date.now() / 1000 - 60 } }} onSignUp={s => asked.push(s)} />); });
-  expect(el.querySelector('[data-testid="cwb-cloud-new"]').textContent).toContain('FEELESS server');
-  expect(el.querySelector('[data-testid="cwb-cloud-left"]').textContent).toBe('1012.0 MB left');
-  expect(el.querySelectorAll('[data-testid="cwb-cloud-latest"] a').length).toBe(5); expect(el.querySelector('[data-testid="cwb-cloud-latest"] video')).not.toBeNull();   // newest first: the clip
-  expect(el.querySelectorAll('[data-testid="cwb-cloud-files"] li').length).toBe(6);
-  await act(async () => { el.querySelector('[data-testid="cwb-bigger-mega.io"]').click(); });
-  expect(asked).toEqual(['mega.io']);
+  const att = { files: [{ id: 'a'.repeat(32), name: 'logo.png', mime: 'image/png', size: 1024 }] };
+  await act(async () => { root.render(<CloudDrawer cat={{ id: 'g1' }} attachments={att} />); });
+  expect(el.querySelector('[data-testid="cwb-cloud-pick"]').textContent).toContain('never sees that password');
+  expect(el.querySelector('[data-testid="cwb-cloud-dropbox"]').disabled).toBe(true);
+  await act(async () => { el.querySelector('[data-testid="cwb-cloud-gdrive"]').click(); });
+  expect(posts[0][1]).toMatchObject({ provider: 'gdrive' }); expect(assign).toHaveBeenCalledWith('https://accounts.google.com/x');
+  linked = true;
+  await act(async () => { root.render(<CloudDrawer key="2" cat={{ id: 'g1' }} attachments={att} />); });
+  expect(el.querySelector('[data-testid="cwb-cloud-left"]').textContent).toBe('10.0 GB left');
+  expect(el.querySelectorAll('[data-testid="cwb-cloud-latest"] a').length).toBe(1);
+  await act(async () => { el.querySelector(`[data-testid="cwb-keep-${'a'.repeat(32)}"]`).click(); });
+  expect(posts.at(-1)[0]).toContain(`/files/${'a'.repeat(32)}/keep`);
   await act(async () => root.unmount()); el.remove();
 });

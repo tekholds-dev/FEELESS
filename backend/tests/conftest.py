@@ -82,6 +82,13 @@ def _isolate_real_data(monkeypatch, tmp_path):
 
 
 @pytest.fixture(autouse=True)
+def _no_real_vault_key(monkeypatch, tmp_path):
+    """🔐 Tests never read or make the real ~/.feeless-vault master key."""
+    monkeypatch.setenv('FEELESS_VAULT_KEY_FILE', str(tmp_path / 'vault' / 'master.key'))
+    yield
+
+
+@pytest.fixture(autouse=True)
 def _no_chain_balance_reads(monkeypatch):
     """Tests never read real wallets from chain: the card ⇄ wallet balance cap sees 'RPC unavailable' (cards uncapped)."""
     rs = _sys.modules.get('reputation_service')

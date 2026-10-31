@@ -13,6 +13,7 @@ def _signed_owner(monkeypatch):
     """A test session token IS its wallet here; the wallet owner lock itself is proven in test_agent_owner_lock.py."""
     import feecat_service as svc
     monkeypatch.setattr(svc, '_session_wallet', lambda s: str(s or ''))
+    monkeypatch.setattr(svc, '_fresh_session_wallet', lambda s, now=None: str(s or ''))
 
 
 class R:

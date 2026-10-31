@@ -145,16 +145,17 @@ body.theme-day .cwb-vault { background: #fffaf0; border-color: #e0b84a66; } body
 
 /* ☁ its cloud drawer: NEW chip, the space-left bar (cwb-meters), the 5 newest as a media strip, every file as a row, 3 bigger-storage sign-ups */
 .cwb-cloudd { border-color: #7fd3ff44; } .cwb-cloudd summary { color: #a8e4ff; display: flex; align-items: center; gap: 8px; } .cwb-cloudd > *:not(summary) { margin: 0 10px 10px; }
-.cwb-new { animation: cwbPulse 1.6s ease-in-out infinite; } .cwb-cloud-new { border-color: #7fd3ff66; }
 .cwb-cloud-bar > span { display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 4px 8px; } .cwb-cloud-bar u { grid-column: 1 / -1; }
 .cwb-cloud-empty { color: #a99bc8; font: 600 11px var(--f-ui); }
 .cwb-cloud-files { list-style: none; padding: 0; display: grid; gap: 4px; max-height: 220px; overflow-y: auto; scrollbar-width: thin; scrollbar-color: #7fd3ff transparent; }
 .cwb-cloud-files li { display: grid; grid-template-columns: auto minmax(0, 1fr) auto auto; gap: 8px; align-items: center; padding: 4px 8px; border-radius: 10px; background: #ffffff06; animation: cwbIn .2s ease both; animation-delay: calc(var(--i, 0) * 45ms); }
 .cwb-cloud-files b { color: #fff; font: 700 12px var(--f-ui); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; } .cwb-cloud-files .m-num { color: #a8e4ff; font-size: 11px; }
-.cwb-bigger { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; } .cwb-bigger em { color: #a99bc8; font: 800 9.5px var(--f-mono); letter-spacing: .12em; font-style: normal; flex-basis: 100%; }
-.cwb-bigger a { min-height: 32px; display: inline-flex; align-items: center; gap: 5px; text-decoration: none; } .cwb-bigger small { color: #a8e4ff; font: 600 10px var(--f-mono); }
 body.theme-day .cwb-cloudd summary { color: #1f6f99; } body.theme-day .cwb-cloud-files li { background: #fff; } body.theme-day .cwb-cloud-files b { color: #2a1f45; }
-body.fx-lite .cwb-new, body.fx-lite .cwb-cloud-files li { animation: none; } @media (prefers-reduced-motion: reduce) { .cwb-new, .cwb-cloud-files li { animation: none; } }
+.cwb-cloud-pick { display: flex; flex-wrap: wrap; gap: 6px; } .cwb-cloud-pick .m-note { flex-basis: 100%; } .cwb-cloud-pick .m-btn { min-height: 34px; display: inline-flex; gap: 6px; align-items: center; } .cwb-cloud-pick small { opacity: .75; font: 600 10px var(--f-mono); }
+.cwb-vlog { list-style: none; margin: 0 10px 10px; padding: 8px 0 0; border-top: 1px solid #ffffff10; display: grid; gap: 3px; }
+.cwb-vlog li { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 8px; color: #c9bce6; font: 600 10.5px var(--f-mono); animation: cwbIn .2s ease both; animation-delay: calc(var(--i, 0) * 45ms); } .cwb-vlog b { color: #fff; overflow: hidden; text-overflow: ellipsis; } .cwb-vlog time { color: #8f83ad; }
+body.theme-day .cwb-vlog li { color: #5a4f78; } body.theme-day .cwb-vlog b { color: #2a1f45; }
+body.fx-lite .cwb-cloud-files li, body.fx-lite .cwb-vlog li { animation: none; } @media (prefers-reduced-motion: reduce) { .cwb-cloud-files li, .cwb-vlog li { animation: none; } }
 
 /* ☁ + attach (owner 2026-10-31): a drawn plus in a violet ring, its chips (thumb · name · size · ✕) and the storage meter */
 .cwb-plus { position: relative; width: 40px; height: 40px; border-radius: 12px; border: 1px solid rgba(179, 136, 255, .45); background: radial-gradient(circle at 30% 25%, rgba(179, 136, 255, .28), rgba(20, 10, 40, .9) 70%); box-shadow: inset 0 1px 0 rgba(255, 255, 255, .12); cursor: pointer; transition: transform .16s ease, box-shadow .16s ease; }

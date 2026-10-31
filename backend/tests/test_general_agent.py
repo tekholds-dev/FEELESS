@@ -10,6 +10,7 @@ def _signed_owner(monkeypatch):
     """A test session token IS its wallet here; the wallet owner lock itself is proven in test_agent_owner_lock.py."""
     import feecat_service as svc
     monkeypatch.setattr(svc, '_session_wallet', lambda s: str(s or ''))
+    monkeypatch.setattr(svc, '_fresh_session_wallet', lambda s, now=None: str(s or ''))
 
 PAIR = {'pairAddress': 'P1', 'baseToken': {'symbol': 'JUP', 'address': 'M1'}, 'priceUsd': '0.42', 'marketCap': 1.2e9, 'liquidity': {'usd': 3.4e6},
         'volume': {'h24': 8.1e6}, 'priceChange': {'h24': -2.5}, 'dexId': 'raydium'}

@@ -11,7 +11,7 @@ import { FundReceipt } from './FundReceipt';
 import { LaunchCat, BrainPanel } from './LaunchCat';
 import { LookAvatar, LookPicker, DEFAULT_LOOK } from './CatLook';
 import { readMyCat } from '../../lib/myCat';
-import { readChatSession, agentAuth, agentAuthQuery, agentBrowserId, getChatSession } from '../../lib/chatSession';
+import { readChatSession, agentAuth, agentAuthQuery, agentBrowserId, getChatSession, agentSignedIn } from '../../lib/chatSession';
 import { useWallet } from '../../hooks/useWallet';
 import { EngineLine } from './CatBrainSwitch';
 import { CatDesk } from './CatDesk';
@@ -145,6 +145,7 @@ function CatDetail({ cat: initialCat, onBack, onChanged, onDeleted }) {
   // 🐱 ONE FEE (owner 2026-10-30: "my cat looks different than from the leaderboard — I should look into my cat and have all tools"): every door opens
   // this desk — the creator's bar, her book, and for the creator the NEXA desk + the visitors' view under it
   const Tools = !cat.isLeader ? null : <Suspense fallback={null}><div className="ck-nexa" data-testid="fee-tools">{mine ? <ProfileFeeCat mine /> : null}<FeeCatProfile /></div></Suspense>;
+  if (!mine && !cat.isLeader && !agentSignedIn()) return <><SignInGate onIn={() => api(`/api/cats/${cat.id}`).then(r => r.cat && setCat(r.cat)).catch(() => {})} /><CatDesk canEdit={false} cat={cat} busy={busy} error={error} onBack={onBack} onAct={act} Engine={<EngineLine />} Real={null} Brains={null} Activity={null} Tools={null} /></>;
   return <CatDesk canEdit={mine} cat={cat} busy={busy} error={error} onBack={onBack} onAct={act} Engine={<><EngineLine />{cat.isLeader ? <FeeOwnerBar cat={cat} /> : null}</>} Real={!mine ? null : <CatReal cat={cat} busy={busy} onAct={act} />}
     Brains={cat.brainsCfg && mine ? <BrainPanel noTalk cat={cat} api={api} onChanged={brainChanged} /> : null} Activity={null} Tools={Tools} />;
 }
@@ -153,11 +154,11 @@ function CatDetail({ cat: initialCat, onBack, onChanged, onDeleted }) {
 function SignInGate({ onIn }) {
   const { wallet, connect, signMessage } = useWallet() || {};
   const [err, setErr] = useState(''); const [busy, setBusy] = useState(false);
-  if (readChatSession()) return null;
+  if (agentSignedIn()) return null;
   const go = async () => { setErr(''); setBusy(true);
-    try { if (!wallet?.address) await connect?.(); else { await getChatSession(wallet.address, signMessage); onIn?.(); } } catch (x) { setErr(x.message); } setBusy(false); };
-  return <div className="m-note warn" data-testid="fc-signin" role="status"><b>🔒 Signed out</b>
-    <span>Your agents only answer their owner's signed-in wallet. Sign in to see and control them.</span>
+    try { if (!wallet?.address) await connect?.(); else { await getChatSession(wallet.address, signMessage, { own: true, fresh: true }); onIn?.(); } } catch (x) { setErr(x.message); } setBusy(false); };
+  return <div className="m-note warn" data-testid="fc-signin" role="status"><b>🔒 Sign in to control your agents</b>
+    <span>Your agents only answer their owner's wallet, signed in within the last 24 h. Sign in to see and control them.</span>
     <button type="button" className="m-btn m-go" onClick={go} disabled={busy} data-tip="One signature, no transaction — proves this wallet owns its agents" data-testid="fc-signin-go">{busy ? 'Waiting for the wallet…' : wallet?.address ? 'Sign in' : 'Connect wallet'}</button>
     {err ? <span className="kd-err" role="alert">⚠ {err}</span> : null}</div>;
 }
