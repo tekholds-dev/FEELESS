@@ -187,6 +187,7 @@ function LastMoney({ m }) {
 export const squash = (out, x) => { const last = out[out.length - 1]; const key = r => `${r.f || r.by}|${String(r.text).replace(/\$[\d.]+/g, '$')}`;
   if (last && key(last) === key(x)) { last.n = (last.n || 1) + 1; return out; } out.push({ ...x }); return out; };
 const BUDGET_STOP = /budget reached/i;
+const SUGGEST = ["Find today's top coin on pump.fun and tell me why", 'Read X for $SOL news in the last hour', 'Check a coin on RugCheck + Solscan and report'];
 // 💬 one chat message, the way a work chat shows it (owner 2026-10-31: "not corporate looking"): avatar · who · tags · time · cost, then the text.
 // The server's prefixes ("🛟 Backup model…:", "💳 Paid $…:") become small tags instead of walls of words in front of the answer.
 const MSG_TAGS = [[/^🛟 Backup model, free \(OpenRouter has no credit\):\s*/, 'free backup'], [/^💳 Paid \$([\d.]+) from its wallet:\s*/, 'paid from its wallet'], [/^⚡ from memory · /, 'from memory']];
@@ -195,8 +196,19 @@ export function chatParts(text) {
   for (let n = 0; n < 3; n += 1) { const hit = MSG_TAGS.find(([re]) => re.test(t)); if (!hit) break; tags.push(hit[1]); t = t.replace(hit[0], ''); }
   return { text: t, tags };
 }
-function ChatMsg({ m, name }) {
-  const you = m.by === 'you'; const { text, tags } = useMemo(() => chatParts(m.text), [m.text]);
+// ✍ the newest answer writes itself in once (≈0.7 s), like a live reply — never under reduced motion / fx-lite, never on old messages
+function useTypeIn(text, on) {
+  const [n, setN] = useState(on ? 0 : text.length); const born = useRef(Date.now());
+  useEffect(() => {
+    const calm = document.body.classList.contains('fx-lite') || window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches;
+    if (!on || calm || Date.now() - born.current > 1500) { setN(text.length); return undefined; }
+    let raf = 0; const t0 = performance.now(); const step = t => { const k = Math.min(1, (t - t0) / 700); setN(Math.ceil(k * text.length)); if (k < 1) raf = requestAnimationFrame(step); };
+    raf = requestAnimationFrame(step); return () => cancelAnimationFrame(raf); }, [text, on]);
+  return text.slice(0, n);
+}
+function ChatMsg({ m, name, fresh = false }) {
+  const you = m.by === 'you'; const parts = useMemo(() => chatParts(m.text), [m.text]); const tags = parts.tags;
+  const text = useTypeIn(parts.text, fresh && !!m.at && Date.now() / 1000 - m.at < 20);
   return <li className={`cwb-msg ${you ? 'is-you' : 'is-cats'}`}><i className="cwb-av" aria-hidden="true">{you ? 'YOU' : '🧠'}</i>
     <div><header><b>{you ? 'You' : (name || 'Its minds')}</b>{tags.map(t => <em key={t} className="cwb-tag">{t}</em>)}{m.at ? <time>{ago(m.at)} ago</time> : null}{m.cost != null && !you ? <small className="m-num">{usd(m.cost)}</small> : null}</header>
       <p>{text}{m.n > 1 ? <em className="cwb-x"> ×{m.n}</em> : null}</p></div></li>;
@@ -529,16 +541,18 @@ function WorkbenchLive({ cat }) {
   const setWay = async k => { setBusy(true); try { await work(cat.id, { op: 'mode', job: k }); await load(); } catch (er) { setErr(er.message); } finally { setBusy(false); } };
   const wins = d?.windows?.length ? d.windows : (cat.brainsCfg?.brains || ['', '']).slice(0, 8).map((m, i) => ({ i, model: m, status: 'idle' }));
   const credit = Number(d?.credit ?? cat.brainsCfg?.credit ?? 0); const cap = Number(d?.cap ?? 0.05); const spent = Number(d?.task?.cost || 0);
-  const [gear, setGear] = useState(false); const log = useMemo(() => genLog(d), [d]); const [sheet, setSheet] = useState(false); const [desk, setDesk] = useState(false);
-  useEffect(() => { if (!gear && !sheet) return undefined; const k = e => { if (e.key === 'Escape') { setGear(false); setSheet(false); } }; window.addEventListener('keydown', k); return () => window.removeEventListener('keydown', k); }, [gear, sheet]);
-  useEffect(() => { if (signIn) setSheet(true); }, [signIn]);   // a window asked for a login → the cabinet slides in on Credentials
+  const [gear, setGear] = useState(false); const log = useMemo(() => genLog(d), [d]); const [flip, setFlip] = useState(false); const [desk, setDesk] = useState(false); const [old, setOld] = useState(false);
+  useEffect(() => { if (!gear && !flip) return undefined; const k = e => { if (e.key === 'Escape') { setGear(false); setFlip(false); } }; window.addEventListener('keydown', k); return () => window.removeEventListener('keydown', k); }, [gear, flip]);
+  useEffect(() => { if (signIn) setFlip(true); }, [signIn]);   // a window asked for a login → the chat flips to the cabinet, on Credentials
+  const msgs = useMemo(() => (d?.chat || []).slice(-24).filter(m => !(m.by !== 'you' && BUDGET_STOP.test(m.text))).reduce(squash, []), [d?.chat]);
+  const lastYou = msgs.map(m => m.by).lastIndexOf('you'); const cut = lastYou > 0 ? lastYou : Math.max(0, msgs.length - 4);   // 🗂 this run up front; earlier runs fold away
+  const doing = wins.find(w => w.status === 'working')?.bubble || (live ? 'working on it' : '');
   const dash = useRef(null);
   return <section ref={dash} className="cwb kd-card cwb-dash" data-testid="cat-workbench">
     <header className="cwb-head"><span><b>🧠🧠 ITS MINDS</b><small>{(d?.providers || []).filter(x => x !== 'reader').length ? `browsers in the cloud · ${d.providers.join(' → ')}` : 'reading pages as text (no hosted browser key yet)'}</small></span>
       <button type="button" className={`cwb-go${go ? ' is-on' : ''}`} aria-pressed={go} disabled={busy} onClick={() => act('go', { on: !go })} data-testid="cwb-go"
         data-tip={go ? 'ON: up to 30 steps a window, asks queue and run back to back — it stops only when done, at the $ cap, or for a sign-in / CAPTCHA / card payment' : 'Let it go: it works long tasks on its own and takes queued asks one after another until a person is needed'}>
         <i aria-hidden="true" />🏇 LET IT GO <b>{go ? 'ON' : 'OFF'}</b></button>
-      <button type="button" className="m-btn cwb-hbtn" onClick={() => setSheet(true)} aria-expanded={sheet} aria-controls="cwb-sheet" data-tip="Its file cabinet — every file, logins, sealed recovery files, storage, earnings" data-testid="cwb-sheet-open">🗄 Cabinet</button>
       <button type="button" className="m-btn cwb-hbtn" onClick={() => setDesk(true)} data-tip="Your private desktop: work in its Vault, sign in to sites, keep recovery files — only you see it" data-testid="cwb-desk-open">🖥 Desktop</button>
       <span className="cwb-meters">
         <span data-tip="Model credit left: every answer and browsing step is paid from it. Add more in its wallet panel"><em>CREDIT</em><b className="m-num">{usd(credit)}</b><u aria-hidden="true"><s style={{ transform: `scaleX(${Math.min(1, credit / 10)})` }} /></u></span>
@@ -546,10 +560,21 @@ function WorkbenchLive({ cat }) {
       </span></header>
     <NowLine cat={cat} wins={wins} live={live} />
     <div className="cwb-stage agd-wins">{wins.map(w => <Window key={w.i} w={w} catId={cat.id} tick={tick} busy={busy} onGo={(op, i) => act(op, { i })} onLogin={site => setSignIn({ site, at: Date.now() })} />)}</div>
-    <div className="cwb-under">
-        <div className="cwb-talk" data-testid="cwb-cockpit">
+    <div className={`cwb-under cwb-flip${flip ? ' is-back' : ''}`}><div className="cwb-flip-in">
+        <div className="cwb-talk cwb-face" data-testid="cwb-cockpit" inert={flip}>
+    <header className="cwb-talk-h"><span className={`cwb-status${live ? ' is-live' : ''}`}><i aria-hidden="true" />{live ? 'Working' : 'Ready'}</span>
+      <b>Chat with {cat.name || 'its minds'}</b>
+      <button type="button" className="cwb-flip-btn" onClick={() => setFlip(true)} aria-label="Flip to its file cabinet" data-tip="Flip to its file cabinet — every file, logins, sealed recovery files, storage, earnings" data-testid="cwb-flip">
+        <svg viewBox="0 0 20 20" aria-hidden="true"><rect x="3" y="3" width="14" height="5" rx="1.5" /><rect x="3" y="10" width="14" height="7" rx="1.5" /><path d="M8 5.5h4M8 13.5h4" /></svg><span>Files</span><b className="m-num">{log.length}</b></button></header>
     {d?.task?.answer || status === 'stopped' || status === 'error' || status === 'parked' ? <p className={`cwb-answer s-${status}`} data-testid="cwb-answer">{d.task.fast ? '⚡ from memory · ' : ''}{d.task.answer || d.task.why}</p> : null}
-    <ol className="cwb-chat" aria-label="Chat with its models">{(d?.chat || []).slice(-12).filter(m => !(m.by !== 'you' && BUDGET_STOP.test(m.text))).reduce(squash, []).slice(-8).map((m, i) => <ChatMsg key={i} m={m} name={cat.name} />)}</ol>
+    <ol className="cwb-chat" aria-label="Chat with its models" aria-live="polite">
+      {cut > 0 ? <li className="cwb-earlier"><button type="button" onClick={() => setOld(o => !o)} aria-expanded={old} data-testid="cwb-earlier">{old ? 'Hide earlier' : `Earlier · ${cut} message${cut === 1 ? '' : 's'}`}</button></li> : null}
+      {(old ? msgs : msgs.slice(cut)).map((m, i, a) => <ChatMsg key={`${m.at || i}-${String(m.text).slice(0, 24)}`} m={m} name={cat.name} fresh={i === a.length - 1 && m.by !== 'you'} />)}
+      {live ? <li className="cwb-msg is-cats is-typing" data-testid="cwb-typing"><i className="cwb-av" aria-hidden="true">🧠</i><div><header><b>{cat.name || 'Its minds'}</b><em className="cwb-tag">working</em></header>
+        <p><span className="cwb-dots" aria-hidden="true"><i /><i /><i /></span>{doing}</p></div></li> : null}
+      {!msgs.length && !live ? <li className="cwb-empty" data-testid="cwb-empty"><b>What should it do?</b><span>Ask in plain words. It works in its own cloud browsers and reports back here.</span>
+        <span className="cwb-sugg">{SUGGEST.map(t => <button key={t} type="button" onClick={() => setText(t)}>{t}</button>)}</span></li> : null}
+    </ol>
     {BUDGET_STOP.test((d?.chat || []).filter(m => m.by !== 'you').at(-1)?.text || '') ? <p className="m-note warn cwb-topup" role="status" data-testid="cwb-topup"><b>💸 Out of budget for that ask</b>
       <span>Its next step could pass the $ cap you set. Raise the cap, or add model credit in Wallet.</span><button type="button" className="m-btn m-go" onClick={() => setGear(true)} data-testid="cwb-topup-cap">Raise the cap</button></p> : null}
     {queue.length ? <ol className="cwb-queue" aria-label="Queued asks" data-testid="cwb-queue">{queue.map((q, i) => <li key={i} style={{ '--i': i }}><b className="m-num">{i + 1}</b><span>{q.text}</span>
@@ -572,23 +597,29 @@ function WorkbenchLive({ cat }) {
       <em>JOB + TOOLS</em>
     <div className="cwb-tools"><label>Job<select className="m-input" aria-label="Cat job" value={d?.job || 'agent'} disabled={live || busy} onChange={e => act('tools', { job: e.target.value })}>{Object.keys(d?.toolkits || { agent: [] }).map(j => <option key={j}>{j}</option>)}</select></label><div className="m-seg">{Object.entries(d?.tools || {}).map(([k, on]) => <button key={k} type="button" aria-pressed={on} disabled={live || busy} className={on ? 'active' : ''} data-tip={`Allow this cat to use ${k}`} onClick={() => act('tools', { tools: { ...d.tools, [k]: !on } })}>{k} · {on ? 'ON' : 'OFF'}</button>)}</div></div>
     </div>
-    <form className="cwb-ask" onSubmit={send}>
+    <form className="cwb-ask cwb-compose" onSubmit={send}>
+      <div className="cwb-fields">
+      {way === 'jobs' && wins.length > 1 && !live ? <span className="cwb-jobs">{[0, 1].map(i => <label key={i} className="cwb-field"><em className={`cwb-chip m${i}`}>{'AB'[i]} · {String(wins[i]?.model || '').split('/').pop()}</em>
+        <input className="m-input" value={jobs[i]} onChange={e => setJobs(j => (i ? [j[0], e.target.value] : [e.target.value, j[1]]))} placeholder={i ? `Mind B's job — e.g. make 5 posts for X from it` : `Mind A's job — e.g. write a 30 s video script on SOL`} data-testid={`cwb-job-${i}`} aria-label={`Mind ${'AB'[i]} job`} /></label>)}</span> : null}
+      <input hidden={way === 'jobs' && wins.length > 1 && !live} className="m-input" value={text} onChange={e => setText(e.target.value)} placeholder={live ? (go ? 'Working… type the next ask — it queues' : 'Working… press Stop to ask again') : `Message ${cat.name || 'your agent'}…`} disabled={live && !go} aria-label="Ask the cat" data-testid="cwb-input" />
+      </div>
+      <div className="cwb-bar">
       <button type="button" className={`cwb-plus${upping ? ' is-busy' : ''}`} onClick={() => pick.current?.click()} disabled={upping || files.length >= 4} aria-label="Attach images for it"
         data-tip="Attach images or GIFs (up to 4) — they go in its own storage and ride with your next ask; it can upload them to a site, e.g. a coin image" data-testid="cwb-plus"><i aria-hidden="true" /></button>
       <button type="button" className={`cwb-gear${gear ? ' is-on' : ''}`} aria-expanded={gear} aria-controls="cwb-settings" onClick={() => setGear(g => !g)} aria-label="Chat settings"
         data-tip="Settings: how its minds work, who you talk to, the $ cap, its job + tools" data-testid="cwb-gear"><i aria-hidden="true" /></button>
       <input ref={pick} type="file" accept="image/png,image/jpeg,image/webp,image/gif,video/mp4,video/webm" multiple hidden onChange={attach} data-testid="cwb-file-input" />
-      {way === 'jobs' && wins.length > 1 && !live ? <span className="cwb-jobs">{[0, 1].map(i => <label key={i}><em>MIND {'AB'[i]} · {String(wins[i]?.model || '').split('/').pop()}</em>
-        <input className="m-input" value={jobs[i]} onChange={e => setJobs(j => (i ? [j[0], e.target.value] : [e.target.value, j[1]]))} placeholder={i ? 'e.g. make 5 posts for X from it' : 'e.g. write a 30 s video script on SOL'} data-testid={`cwb-job-${i}`} aria-label={`Mind ${'AB'[i]} job`} /></label>)}</span> : null}
-      <input hidden={way === 'jobs' && wins.length > 1 && !live} className="m-input" value={text} onChange={e => setText(e.target.value)} placeholder={live ? (go ? 'working… type the next ask — it queues' : 'working… stop it to ask again') : 'Ask both — e.g. "find the best YES on Kalshi for US capital this week"'} disabled={live && !go} aria-label="Ask the cat" data-testid="cwb-input" />
+      <small className="cwb-hint">{way === 'jobs' && wins.length > 1 && !live ? 'one job each · Enter ↵ sends both' : to === 'both' ? 'both minds · Enter ↵ to send' : `only ${String(wins[Number(to)]?.model || '').split('/').pop()} · Enter ↵`}</small>
       {live && go && text.trim() ? <button type="submit" className="m-btn m-go" disabled={busy} data-testid="cwb-queue-add">＋ Queue ↵</button>
         : live ? <button type="button" className="m-btn" onClick={() => act('stop')} disabled={busy} data-testid="cwb-stop">■ Stop</button>
-        : <button type="submit" className="m-btn m-go" disabled={busy || (way === 'jobs' && wins.length > 1 ? !(jobs[0].trim() || jobs[1].trim()) : !text.trim())} data-testid="cwb-send">Send ↵</button>}
+        : <button type="submit" className="m-btn m-go cwb-send" disabled={busy || (way === 'jobs' && wins.length > 1 ? !(jobs[0].trim() || jobs[1].trim()) : !text.trim())} data-testid="cwb-send">Send <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M2 8h11M9 4l4 4-4 4" /></svg></button>}
+      </div>
     </form>
     </div>
-    {createPortal(<><div className={`cwb-veil${sheet ? ' is-open' : ''}`} onClick={() => setSheet(false)} aria-hidden="true" />
-    <aside id="cwb-sheet" className={`cwb-sheet cwb-tools-rail${sheet ? ' is-open' : ''}`} aria-label="Its file cabinet" inert={!sheet} data-testid="cwb-sheet">
-    <header className="cwb-sheet-h"><b>🗄 ITS FILE CABINET</b><button type="button" className="m-btn" onClick={() => setSheet(false)} aria-label="Close the cabinet" data-tip="Close (Esc)" data-testid="cwb-sheet-close">✕</button></header>
+    <aside className="cwb-face cwb-back cwb-tools-rail" aria-label="Its file cabinet" inert={!flip} data-testid="cwb-sheet">
+    <header className="cwb-talk-h"><b>Its file cabinet</b>
+      <button type="button" className="cwb-flip-btn" onClick={() => setFlip(false)} aria-label="Flip back to the chat" data-tip="Back to the chat (Esc)" data-testid="cwb-flip-back">
+        <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M4 5h12v8H9l-4 3v-3H4z" /></svg><span>Chat</span></button></header>
     <LastMoney m={d?.lastMoney} />
     <AgentLog title="FILES" items={log} open={signIn ? { key: 'creds', at: signIn.at } : null} cabinet={[
       ...keyDrawers(cat, d, setD, signIn),
@@ -601,7 +632,7 @@ function WorkbenchLive({ cat }) {
       ...((d?.artifacts || []).length ? [['builds', '🛠', 'Builds', d.artifacts.length, <div className="cwb-builds">
       {(d?.artifacts || []).map((a, i) => <details className="cwb-artifact" key={i}><summary>{a.title} · {a.kind}</summary>{a.kind === 'build' ? <iframe title={a.title} sandbox="allow-scripts" referrerPolicy="no-referrer" srcDoc={'<meta http-equiv="Content-Security-Policy" content="default-src \'none\'; script-src \'unsafe-inline\'; style-src \'unsafe-inline\'; img-src data:; connect-src \'none\'; form-action \'none\'; base-uri \'none\'">' + a.content} /> : <pre>{a.content}</pre>}</details>)}
       </div>]] : [])]} />
-    </aside></>, document.body)}</div>
+    </aside></div></div>
     {desk ? <AgentDesktop cat={cat} onClose={() => setDesk(false)} /> : null}
     <FirstTips id="agent-desk" tips={DESK_TIPS} />
     {d && !d.live ? <p className="cwb-note" data-testid="cwb-off">Model calls are switched off on this server — asking sends and charges nothing until the owner turns them on.</p> : null}

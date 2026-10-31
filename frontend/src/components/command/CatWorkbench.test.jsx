@@ -253,3 +253,24 @@ test('🖥 the private desktop: the live window minimizes to the taskbar, the Va
   await act(async () => { q('dsk-reopen').click(); }); expect(closed).toContain('again');
   act(() => root2.unmount());
 });
+
+test('🔄 the chat flips into its file cabinet and back; earlier runs fold; a working agent shows the typing line; an empty chat offers starters', async () => {
+  document.body.innerHTML = ''; sessionStorage.setItem('feeless:safe-place', '1');
+  const chat = [{ by: 'you', text: 'old ask', at: 1 }, { by: 'cats', text: 'old answer', at: 2 }, { by: 'you', text: 'new ask', at: 3 }];
+  global.fetch = async (u, o) => ({ ok: true, json: async () => ({ ...STATE, chat }) });
+  const el = document.createElement('div'); document.body.appendChild(el); const root = createRoot(el);
+  await act(async () => { root.render(<CatWorkbench cat={{ id: 'g1', name: 'Happy', brainsCfg: { kind: 'general', brains: ['qwen/qwen3-32b', 'x/opus'], credit: 9.2 } }} />); });
+  const q = id => document.querySelector(`[data-testid="${id}"]`);
+  expect(q('cwb-cockpit').textContent).toContain('new ask'); expect(q('cwb-cockpit').textContent).not.toContain('old answer');
+  await act(async () => { q('cwb-earlier').click(); }); expect(q('cwb-cockpit').textContent).toContain('old answer');
+  expect(q('cwb-typing').textContent).toContain('reading the YES ladder');   // the working window's own words
+  await act(async () => { q('cwb-flip').click(); }); expect(el.querySelector('.cwb-flip').className).toContain('is-back'); expect(q('cwb-sheet').hasAttribute('inert')).toBe(false); expect(q('cwb-cockpit').hasAttribute('inert')).toBe(true);
+  await act(async () => { q('cwb-flip-back').click(); }); expect(el.querySelector('.cwb-flip').className).not.toContain('is-back');
+  act(() => root.unmount());
+  global.fetch = async () => ({ ok: true, json: async () => ({ ...STATE, chat: [], task: null, windows: [] }) });
+  const el2 = document.createElement('div'); document.body.appendChild(el2); const root2 = createRoot(el2);
+  await act(async () => { root2.render(<CatWorkbench cat={{ id: 'g1', name: 'Happy', brainsCfg: { kind: 'general', brains: ['m/a'], credit: 1 } }} />); });
+  expect(q('cwb-empty').textContent).toContain('What should it do?');
+  await act(async () => { q('cwb-empty').querySelector('.cwb-sugg button').click(); }); expect(q('cwb-input').value).toContain('pump.fun');
+  act(() => root2.unmount());
+});
