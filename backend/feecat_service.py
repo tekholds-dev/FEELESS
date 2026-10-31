@@ -42,6 +42,7 @@ import cat_orders as _co   # 🧭 a General AI cat's plain-words orders → one 
 import cat_model as _cm
 import cat_tools as _ct   # 🧰 FEELESS-first read-only tools for general agents
 import agent_files as _af   # ☁ each agent's own storage (owner uploads, 1 GB, 7-day clean)
+import earn_mode as _em   # ⚡ Earn Mode's planner (never signs)
 import agent_cloud as _acl   # ☁ its owner's own Drive / Dropbox (FEELESS funds no storage)
 import cat_vault as _cv   # 🔐 a general agent's saved logins + 🖼 media drawer
 import cat_keys as _ck   # 🔐 a cat's API drawer (sealed keys, never sent to a page)
@@ -84,7 +85,7 @@ def _load() -> dict:
 
 # 🔒 The engine loads every cat, works for minutes, then saves its whole copy: anything an owner did meanwhile was wiped (owner 2026-10-30: a new agent wallet vanished
 # seconds after it was made). What an owner's action sets is kept here and laid over every save, so an old copy can never lose a wallet, a funding or a limit.
-OWNER_KEYS = ('agentWallet', 'agentFunded', 'creditPaid', 'recovery', 'recoverySet', 'recoveryConfirmedAt', 'limits', 'taskCap', 'ownerId', 'mode', 'realWallet', 'budgetSol', 'paperByOwner', 'files', 'ownerWallet', 'logins', 'cloudLink', 'vaultLog')
+OWNER_KEYS = ('agentWallet', 'agentFunded', 'creditPaid', 'recovery', 'recoverySet', 'recoveryConfirmedAt', 'limits', 'taskCap', 'ownerId', 'mode', 'realWallet', 'budgetSol', 'paperByOwner', 'files', 'ownerWallet', 'logins', 'cloudLink', 'vaultLog', 'earn')
 _KEPT: dict = {}
 
 
@@ -1784,7 +1785,7 @@ async def _armor(request, call_next):
     """🔒 Every response: no sniffing, no framing, no referrer, never cached when it is an owner's. Owner doors are rate-limited per IP."""
     path = request.url.path
     parts = path.split('/')
-    owner_door = len(parts) > 4 and parts[1:3] == ['api', 'cats'] and parts[4] in ('work', 'action', 'files', 'cloud', 'recovery-pin') and not request.headers.get('x-feeless-internal')
+    owner_door = len(parts) > 4 and parts[1:3] == ['api', 'cats'] and parts[4] in ('work', 'action', 'files', 'cloud', 'recovery-pin', 'earn', 'agent-wallet') and not request.headers.get('x-feeless-internal')
     if owner_door and not rate_ok((request.client.host if request.client else '-', parts[3])):
         return Response('{"detail":"Too many requests — slow down."}', status_code=429, media_type='application/json')
     resp = await call_next(request)
@@ -2468,6 +2469,26 @@ async def cat_cloud_disconnect(cat_id: str, p: CloudPayload):
     return {'ok': True}
 
 
+@app.get('/api/cats/{cat_id}/earn')
+async def cat_earn(cat_id: str, ownerId: str = '', session: str = ''):
+    """⚡ Earn Mode's plan right now: the live gap / vault / pool feeds ranked for its risk and $ (owner only; it never signs)."""
+    store = _load(); cat = store['cats'].get(cat_id)
+    if not cat:
+        raise HTTPException(404, 'Agent not found.')
+    _owner_gate(store, cat, session, ownerId, 'see its earn plan')
+    e = _em.clean(cat.get('earn'))
+    async def get(path):
+        try:
+            async with httpx.AsyncClient(timeout=8) as h:
+                r = await h.get(f'http://127.0.0.1:5077/api/reputation/familia-pools{path}')
+            return r.json() if r.status_code == 200 else {}
+        except Exception:
+            return {}
+    gaps, vault, pools = await asyncio.gather(get('/gaps'), get('/sleep'), get(''))
+    return {'earn': e, 'plays': _em.plays(gaps, vault, pools, e['risk'], e['budgetUsd']), 'gapsOpen': len([g for g in gaps.get('gaps') or [] if g.get('open')]),
+            'feeds': {'gaps': bool(gaps), 'vault': bool(vault), 'pools': bool(pools)}}
+
+
 @app.get('/api/cats/{cat_id}/cloud')
 async def cat_cloud(cat_id: str, ownerId: str = '', session: str = ''):
     """☁ The cloud drawer: which clouds FEELESS can connect, the one connected, its space and its 5 newest files (owner only)."""
@@ -2729,6 +2750,7 @@ class ActionPayload(BaseModel):
     text: Optional[str] = None
     look: Optional[dict] = None        # 🎨 Fee's look (the creator's wallet only)
     limits: Optional[dict] = None      # 🎚 controls: a general agent's spend limits (clean_limits)
+    earn: Optional[dict] = None        # ⚡ Earn Mode: {on, risk, budgetUsd}
     mode: Optional[str] = None         # 👛 agent_mode: approve | auto (a GENERAL cat's switch)
     provider: Optional[str] = None     # 🔐 api_key: which drawer slot …
     secret: Optional[str] = None       # … and the key (empty = remove it); sealed at once, never echoed
@@ -2944,6 +2966,9 @@ async def cat_action(cat_id: str, payload: ActionPayload, request: Request):
         _log_event(store, cat, 'STARTED', f"{cat['name']}'s wallet is {addr_[:6]}… — " + ('she trades from it (Crossmint holds its key).' if prov_ == 'crossmint'
                    else 'she trades from it (your Circle wallet — Circle signs, inside her caps).' if prov_ == 'circle'
                    else "WATCH-ONLY: neither Crossmint nor your Circle project holds its key, so she shows it but never trades from it."))
+    elif payload.action == 'earn':   # ⚡ Earn Mode on / off + its risk and the $ it plans for (it never signs — Launch › Pools does)
+        cat['earn'] = _em.clean(payload.earn)
+        _log_event(store, cat, 'STARTED' if cat['earn']['on'] else 'STOPPED', f"{cat['name']}: Earn Mode {'on' if cat['earn']['on'] else 'off'} · {cat['earn']['risk']}.")
     elif payload.action == 'agent_mode':   # 👛 a GENERAL cat: approve every AI move, or let it do its thing
         if not cat.get('agentWallet'):
             raise HTTPException(400, 'Make its wallet first.')

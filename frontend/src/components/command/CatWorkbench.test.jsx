@@ -112,3 +112,18 @@ test('☁ the cloud drawer: connect YOUR Drive / Dropbox (FEELESS funds none); t
   expect(posts.at(-1)[0]).toContain(`/files/${'a'.repeat(32)}/keep`);
   await act(async () => root.unmount()); el.remove();
 });
+
+test('⚡ Earn Mode: the switch, risk and $ save through the owner action; plays show $/day and open their Launch › Pools tab', async () => {
+  const { EarnCard } = await import('./CatWorkbench');
+  const posts = []; let earn = { on: false, risk: 'safe', budgetUsd: 25 };
+  global.fetch = async (u, o) => { if (o?.method === 'POST') { const b = JSON.parse(o.body); posts.push(b); earn = { ...earn, ...b.earn }; return { ok: true, json: async () => ({}) }; }
+    return { ok: true, json: async () => ({ earn, gapsOpen: 1, plays: [{ kind: 'vault', title: 'STAKE · JITOSOL', sub: 'staking', tier: 'safe', apy: 7, dayUsd: 0.0048, tab: 'vault', why: 'compounds' }] }) }; };
+  const el = document.createElement('div'); document.body.appendChild(el); const root = createRoot(el);
+  await act(async () => { root.render(<EarnCard cat={{ id: 'g1' }} />); });
+  expect(el.textContent).toContain('STAKE · JITOSOL'); expect(el.querySelector('[data-testid="cwb-earn-go-0"]').getAttribute('href')).toBe('/terminal/launch?mode=pools&tab=vault');
+  await act(async () => { el.querySelector('[data-testid="cwb-earn-sw"]').click(); });
+  expect(posts[0]).toMatchObject({ action: 'earn', earn: { on: true, risk: 'safe' } }); expect(el.querySelector('[data-testid="cwb-earn-sw"]').getAttribute('aria-checked')).toBe('true');
+  await act(async () => { el.querySelector('[data-testid="cwb-earn-risky"]').click(); });
+  expect(posts[1].earn).toMatchObject({ on: true, risk: 'risky' });
+  await act(async () => root.unmount()); el.remove();
+});

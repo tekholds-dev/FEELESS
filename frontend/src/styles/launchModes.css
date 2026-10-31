@@ -8,12 +8,19 @@
 .lm-switch button.is-on { color: #04140b; background: linear-gradient(120deg, #15d16a, #45e486); box-shadow: 0 0 26px -8px #15d16a; }
 .lm-glow { position: absolute; inset: 0 auto 0 0; width: 30%; pointer-events: none; background: linear-gradient(90deg, transparent, rgba(69, 228, 134, .12), transparent); animation: lmSweep 4.5s linear infinite; transform: translateX(-100%); }
 .lm-pools { animation: lmIn .22s ease-out both; }
+.lm-pools { display: grid; gap: 10px; }
+.lm-tabs { display: flex; width: fit-content; max-width: 100%; overflow-x: auto; scrollbar-width: none; } .lm-tabs::-webkit-scrollbar { display: none; }
+.lm-tabs button { min-height: 36px; padding-inline: 14px; white-space: nowrap; font: 800 11px 'JetBrains Mono', monospace; letter-spacing: .08em; }
+.lm-panel { animation: lmIn .2s ease-out both; min-width: 0; }
+.lm-panel .phb.is-compact .phb-list { max-height: max(300px, calc(100dvh - 540px)); overflow-y: auto; scrollbar-width: thin; scrollbar-color: #15d16a transparent; padding-right: 4px; }
+.lm-panel .phb.is-compact .phb-list::-webkit-scrollbar { width: 6px; } .lm-panel .phb.is-compact .phb-list::-webkit-scrollbar-thumb { background: #15d16a88; border-radius: 6px; }
+.phb-tier button { min-height: 32px; }
 @keyframes lmIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
 @keyframes lmSweep { to { transform: translateX(400%); } }
-body.fx-lite :is(.lm-glow, .lm-pools) { animation: none; } body.fx-lite .lm-glow { opacity: 0; }
-@media (prefers-reduced-motion: reduce) { :is(.lm-glow, .lm-pools) { animation: none; } }
+body.fx-lite :is(.lm-glow, .lm-pools, .lm-panel) { animation: none; } body.fx-lite .lm-glow { opacity: 0; }
+@media (prefers-reduced-motion: reduce) { :is(.lm-glow, .lm-pools, .lm-panel) { animation: none; } }
 body.theme-day .lm-switch { background: #f1faf4; border-color: #b9dcc8; } body.theme-day .lm-switch button { color: #10301f; } body.theme-day .lm-switch button.is-on { color: #04140b; }
-@media (max-width: 640px) { .lm-switch button small { display: none; } .lm-switch button { min-height: 46px; } .lm-switch button b { font-size: 12px; } }
+@media (max-width: 640px) { .lm-tabs { width: 100%; } .lm-tabs button { padding-inline: 10px; font-size: 10px; } .lm-switch button small { display: none; } .lm-switch button { min-height: 46px; } .lm-switch button b { font-size: 12px; } }
 .launch-more { border: 1px solid rgba(21, 209, 106, .2); border-radius: 14px; background: rgba(0, 0, 0, .3); }
 .launch-more > summary { cursor: pointer; padding: 12px 14px; font: 800 11px 'JetBrains Mono', monospace; letter-spacing: .1em; color: #86efac; list-style: none; min-height: 32px; }
 .launch-more > summary::-webkit-details-marker { display: none; } .launch-more > summary::before { content: '▸ '; } .launch-more[open] > summary::before { content: '▾ '; }

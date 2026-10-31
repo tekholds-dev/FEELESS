@@ -127,6 +127,18 @@ def worth(r):
     return (_f(r.get('tvl')) ** 0.5) * (1 + min(earn, 300) / 10)
 
 
+def tier(r):
+    """🛡 safe · mid · risky — one rule for every pool screen and the agents' Earn Mode (owner 2026-10-30: "risky and safe pool options").
+    safe = stables, lending, staking, tokenized stocks, or a $5M+ pool with no impermanent loss · risky = perps, a sub-$1M pool, or a
+    100%+ APY (that yield is paying you for risk) · mid = the rest. Pure."""
+    tvl, apy = _f(r.get('tvl')), _f(r.get('apy'))
+    if r.get('kind') == 'perps' or tvl < 1_000_000 or apy >= 100:
+        return 'risky'
+    if r.get('stable') or r.get('kind') in ('lend', 'stake', 'rwa') or (tvl >= 5_000_000 and not r.get('il')):
+        return 'safe'
+    return 'mid'
+
+
 def hub(llama_rows, pairs, now):
     """→ {'pools': [...top by TVL per kind + the risers...], 'cities': {harbor, heights, bay, docks}, 'kinds': {kind: n}, 'at'}."""
     rows = from_llama(llama_rows) + from_pairs(pairs)
@@ -137,7 +149,7 @@ def hub(llama_rows, pairs, now):
         top = by[k][:18]; rise = sorted([r for r in by[k] if r['tvl'] >= 250_000], key=lambda r: -rising(r))[:6]
         for r in top + rise:
             if r['id'] not in ids:
-                ids.add(r['id']); keep.append({**r, 'rise': round(rising(r), 2)})
+                ids.add(r['id']); keep.append({**r, 'rise': round(rising(r), 2), 'tier': tier(r)})
     keep = keep[:ROWS_MAX]
     pick = lambda pred, n: sorted([r for r in keep if pred(r)], key=lambda r: -worth(r))[:n]
     cities = {   # 🌉 each outer city's real-money district (owner, 5th list 1c)

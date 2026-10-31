@@ -1,4 +1,4 @@
-import { CatWorkbench } from './CatWorkbench';
+import { CatWorkbench, EarnCard } from './CatWorkbench';
 import { useAgentWallet } from './CatReal';
 import { FeeLiveTab } from './FeeLiveTab';
 import { AgentLive, HeadCloud, asModel, catMinds, catCoins } from './AgentLive';
@@ -205,6 +205,7 @@ export function CatDesk({ cat, busy = false, error = '', onBack, onAct, Activity
               data-testid={`kd-pos-${i}`} data-tip={p.reason || 'Open its war room'}><b>${p.symbol}</b><small>{held ? `${held}m held · ` : ''}{Number(p.costSol || p.notionalSol || 0).toFixed(3)} SOL in</small>
               <span className={`kd-move ${ch >= 0 ? 'up' : 'dn'}`}><i><u style={{ transform: `scaleX(${Math.min(1, Math.abs(ch) / 50)})` }} /></i><em className="m-num">{ch >= 0 ? '+' : ''}{ch.toFixed(1)}%</em></span></button></li>; })}</ul>
             : <p className="kd-empty">{cat.status === 'running' ? 'Hunting — it buys only what passes every rule.' : 'Stopped — start it to hunt again.'}</p>}</section>}
+        {canEdit && !gen && !cat.isLeader ? <EarnCard cat={cat} /> : null}
         {Brains}
         {Object.keys(learn).length || lessons.length ? <section className="kd-card"><header><b>📚 WHAT IT LEARNED</b><small>from its own exits</small></header>
           <div className="kd-learn">{Object.entries(learn).map(([k, x]) => <span key={k}><em>{k === 'runnerTrail' ? 'RUNNER TRAIL' : k === 'takeProfit1' ? 'FIRST TAKE' : k.toUpperCase()}</em><b className="m-num">{x}%</b></span>)}</div>

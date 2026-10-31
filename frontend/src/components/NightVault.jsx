@@ -59,7 +59,7 @@ function Picks({ s, rows, amt }) {
   </div>;
 }
 
-export function NightVault() {
+export function NightVault({ bare = false }) {   // bare: inside Launch › Pools, whose own tabs carry AutoRange + price gaps
   const [d, setD] = useState(null); const [err, setErr] = useState(false); const [amt, setAmt] = useState(5); const [nap, setNap] = useState('month'); const [open, setOpen] = useState('lst');
   useEffect(() => { let on = true; const go = () => sharedJson('/api/reputation/familia-pools/sleep', { maxAge: 240000 }).then(x => { if (on && x) { setD(x); setErr(false); } }).catch(() => on && setErr(true));
     go(); const t = setInterval(() => { if (!document.hidden) go(); }, 300000); return () => { on = false; clearInterval(t); }; }, []);
@@ -72,7 +72,7 @@ export function NightVault() {
     <header className="nv-sky"><span className="nv-moon" aria-hidden /><span className="nv-stars" aria-hidden>{Array.from({ length: 14 }, (_, i) => <i key={i} style={{ '--i': i }} />)}</span>
       <span className="nv-z" aria-hidden><i>z</i><i>z</i><i>Z</i></span><span className="nv-stack" aria-hidden>{[0, 1, 2, 3].map(i => <i key={i} style={{ '--i': i }} />)}</span>
       <span className="nv-title" data-tip="APYs are live and move. Simple interest shown (before compounding). Nothing here is advice — every deposit is signed by your wallet, on the protocol's own contracts."><em>FEELESS AVENUE</em><b>THE NIGHT VAULT</b><small>money while you sleep · live APY · your wallet signs</small></span></header>
-    <PoolWaves rows={hub?.pools} tone="night" pickWord="tap to put money to work in it" onPick={r => openDesk({ job: JOB_OF[r.kind] || 'lend', focus: r, title: `${r.sym} · PUT IT TO WORK` })} />
+    {bare ? null : <PoolWaves rows={hub?.pools} tone="night" pickWord="tap to put money to work in it" onPick={r => openDesk({ job: JOB_OF[r.kind] || 'lend', focus: r, title: `${r.sym} · PUT IT TO WORK` })} />}
     <FiveRun />
     <div className="nv-calc">
       <div className="nv-amt"><em>PUT IN</em><div className="m-seg" role="radiogroup" aria-label="Amount">{AMTS.map(a => <button key={a} type="button" role="radio" aria-checked={amt === a} className={amt === a ? 'active' : ''} onClick={() => setAmt(a)} data-testid={`nv-amt-${a}`}>${a >= 1000 ? `${a / 1000}K` : a}</button>)}</div>
@@ -90,8 +90,8 @@ export function NightVault() {
       {open === s.key ? (s.key === 'loop' ? <LoopCard s={s} amt={amt} days={days} />
         : <Picks s={s} rows={(s.rows || []).map(id => byId[id]).filter(Boolean)} amt={amt} />) : null}
     </article>)}</div>
-    <AutoRangePicker pools={hub?.pools} amt={amt} title="🤖 AUTORANGE WHILE YOU SLEEP · THE BUSIEST BANDS" />
-    <PriceGaps />
+    {bare ? null : <><AutoRangePicker pools={hub?.pools} amt={amt} title="🤖 AUTORANGE WHILE YOU SLEEP · THE BUSIEST BANDS" />
+    <PriceGaps /></>}
     {d && !d.kamino ? <p className="nv-note">Kamino's rates did not answer — loops are hidden until they do (no guessed borrow rates).</p> : null}
   </section>;
 }

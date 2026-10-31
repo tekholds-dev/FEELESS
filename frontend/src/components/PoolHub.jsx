@@ -34,9 +34,9 @@ export function usePools() {
 // on a stale $90.7M TVL at 0.0 % APY.
 export const deadPool = r => ['v2', 'v3', 'dlmm'].includes(r?.kind) && !(Number(r?.apy) > 0.05);
 // pure: the rows a lens + sort + search show
-export function poolRows(pools, lens = 'all', sort = 'tvl', q = '') {
+export function poolRows(pools, lens = 'all', sort = 'tvl', q = '', tier = 'all') {
   const s = String(q || '').trim().toLowerCase();
-  const rows = (pools || []).filter(r => (lens === 'all' || r.kind === lens) && (!s || `${r.sym} ${r.proto}`.toLowerCase().includes(s)) && (s || !deadPool(r)));
+  const rows = (pools || []).filter(r => (lens === 'all' || r.kind === lens) && (tier === 'all' || r.tier === tier) && (!s || `${r.sym} ${r.proto}`.toLowerCase().includes(s)) && (s || !deadPool(r)));
   const key = { tvl: r => r.tvl || 0, apy: r => (r.apy == null ? -1 : r.apy), rise: r => r.rise || 0 }[sort] || (r => r.tvl || 0);
   return rows.slice().sort((a, b) => key(b) - key(a));
 }
@@ -235,19 +235,23 @@ function HighYield({ pools }) {
       </article>; })}</div></div>;
 }
 
-export function PoolHub({ pools, blocks = [], onLink, start = 'all' }) {
+const TIERS = [['all', 'ALL RISK'], ['safe', '🛡 SAFE'], ['mid', '⚖ MID'], ['risky', '🔥 RISKY']];   // the server's one rule (fee_pools.tier)
+export function PoolHub({ pools, blocks = [], onLink, start = 'all', compact = false }) {   // compact: Launch › Pools — no waves / picks, the list scrolls in its own box
+  const [tier, setTier] = useState('all');
   const [lens, setLens] = useState(start); const [sort, setSort] = useState('tvl'); const [q, setQ] = useState(''); const [qq, setQQ] = useState('');
   useEffect(() => { const t = setTimeout(() => setQQ(q), 250); return () => clearTimeout(t); }, [q]);
-  const rows = useMemo(() => poolRows(pools?.pools, lens, sort, qq).slice(0, 60), [pools, lens, sort, qq]);
+  const rows = useMemo(() => poolRows(pools?.pools, lens, sort, qq, tier).slice(0, 60), [pools, lens, sort, qq, tier]);
   if (!pools) return <div className="phb phb-load" aria-live="polite"><i /><i /><i /><small>reading every pool…</small></div>;
-  return <div className="phb" data-testid="pool-hub">
-    <PoolWaves rows={pools.pools} onPick={r => { setLens('all'); setQ(r.sym); }} pickWord="tap to show just this pool below" />
+  return <div className={`phb${compact ? ' is-compact' : ''}`} data-testid="pool-hub">
+    {compact ? null : <><PoolWaves rows={pools.pools} onPick={r => { setLens('all'); setQ(r.sym); }} pickWord="tap to show just this pool below" />
     <HighYield pools={pools} />
-    <CatCombo pools={pools} />
+    <CatCombo pools={pools} /></>}
     <header className="phb-head">
       <StakeSeg />
       <span className="phb-kinds">{Object.entries(pools.kinds || {}).filter(([, n]) => n).map(([k, n]) => <i key={k} style={{ '--kc': KIND_COLOR[k] }} data-tip={`${n} ${POOL_KIND[k] || k} pools on Solana`}><b>{n}</b>{k.toUpperCase()}</i>)}</span></header>
     <div className="phb-ctl">
+      <div className="m-seg phb-tier" role="tablist" aria-label="Risk">{TIERS.map(([k, w]) => <button key={k} type="button" role="tab" aria-selected={tier === k} className={tier === k ? 'active' : ''} onClick={() => setTier(k)}
+        data-tip={k === 'safe' ? 'Stables, lending, staking, $5M+ pools with no impermanent loss' : k === 'risky' ? 'Perps, pools under $1M, or 100%+ APY — that yield pays you for risk' : k === 'mid' ? 'Everything between' : 'Every pool'} data-testid={`phb-tier-${k}`}>{w}</button>)}</div>
       <div className="m-seg phb-lens" role="tablist" aria-label="Pool kind">{LENS.map(([k, w]) => <button key={k} type="button" role="tab" aria-selected={lens === k} className={lens === k ? 'active' : ''} onClick={() => setLens(k)} data-testid={`phb-lens-${k}`}>{w}</button>)}</div>
       <div className="m-seg" role="tablist" aria-label="Sort">{SORT.map(([k, w]) => <button key={k} type="button" role="tab" aria-selected={sort === k} className={sort === k ? 'active' : ''} onClick={() => setSort(k)} data-testid={`phb-sort-${k}`}>{w}</button>)}</div>
       <input className="m-input phb-q" value={q} onChange={e => setQ(e.target.value)} placeholder="SOL, JitoSOL, USDC…" aria-label="Search pools" data-testid="phb-q" /></div>

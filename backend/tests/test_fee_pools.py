@@ -52,3 +52,12 @@ def test_real_24h_earnings_and_thinned_charts():
     pts = fp.chart_points(data, days=90, max_points=10)
     assert len(pts) == 10 and pts[-1]['tvl'] == 30000 and pts[0]['t'] < pts[-1]['t']
     assert fp.chart_points(data, days=5)[0]['tvl'] == 25000
+
+
+def test_every_pool_gets_one_safe_mid_risky_tier():
+    import fee_pools as fp
+    assert fp.tier({'kind': 'lend', 'tvl': 2e6, 'apy': 8}) == 'safe'
+    assert fp.tier({'kind': 'v3', 'tvl': 8e6, 'apy': 20, 'il': False}) == 'safe'
+    assert fp.tier({'kind': 'v3', 'tvl': 3e6, 'apy': 20, 'il': True}) == 'mid'
+    assert fp.tier({'kind': 'v2', 'tvl': 4e5, 'apy': 20}) == 'risky' and fp.tier({'kind': 'perps', 'tvl': 9e7, 'apy': 5}) == 'risky'
+    assert fp.tier({'kind': 'v3', 'tvl': 9e7, 'apy': 150}) == 'risky'
