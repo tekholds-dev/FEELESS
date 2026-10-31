@@ -82,7 +82,7 @@ def _load() -> dict:
 
 # 🔒 The engine loads every cat, works for minutes, then saves its whole copy: anything an owner did meanwhile was wiped (owner 2026-10-30: a new agent wallet vanished
 # seconds after it was made). What an owner's action sets is kept here and laid over every save, so an old copy can never lose a wallet, a funding or a limit.
-OWNER_KEYS = ('agentWallet', 'agentFunded', 'creditPaid', 'recovery', 'recoverySet', 'recoveryConfirmedAt', 'limits', 'taskCap', 'ownerId', 'mode', 'realWallet', 'budgetSol', 'paperByOwner', 'files')
+OWNER_KEYS = ('agentWallet', 'agentFunded', 'creditPaid', 'recovery', 'recoverySet', 'recoveryConfirmedAt', 'limits', 'taskCap', 'ownerId', 'mode', 'realWallet', 'budgetSol', 'paperByOwner', 'files', 'ownerWallet')
 _KEPT: dict = {}
 
 
@@ -126,7 +126,7 @@ def _no_keys(obj):
     if isinstance(obj, list):
         return [_no_keys(x) for x in obj]
     if isinstance(obj, dict):
-        out = {k: _no_keys(v) for k, v in obj.items() if k not in ('apiKeys', 'logins', 'ownerId', 'recovery')}   # 🔒 ownerId is the owner's control key — it never leaves the server
+        out = {k: _no_keys(v) for k, v in obj.items() if k not in ('apiKeys', 'logins', 'ownerId', 'ownerWallet', 'recovery')}   # 🔒 ownerId is the owner's control key — it never leaves the server
         if 'brains' in obj:   # ☁ each mind's own cloud is its owner's private notes — only the owner's /work view carries it
             out.pop('minds', None)
         if 'apiKeys' in obj or ('brainsCfg' in obj and 'ownerId' in obj):
@@ -1796,6 +1796,7 @@ def clean_look(x):
 
 class CreatePayload(BaseModel):
     ownerId: str
+    session: Optional[str] = None
     name: str
     handle: str
     avatar: Any = 0
@@ -1855,6 +1856,37 @@ def _session_wallet(session):
         return ''
 
 
+def owner_wallet(cat):
+    """🔒 The wallet that owns an agent: set on create / first signed visit (its agent wallet's signer for older ones), or ''."""
+    return str(cat.get('ownerWallet') or (cat.get('agentWallet') or {}).get('owner') or '')
+
+
+def owner_check(cat, signed, owner_id=''):
+    """🔒 Owner = the SIGNED-IN WALLET, never a browser id (owner 2026-10-30: signed out, refreshed, still chatted with and drove the agent).
+    'ok' · 'claim' (an older agent with no owner wallet: its creating browser + a signed wallet takes it once) · 'signin' · 'no'. Pure (tests)."""
+    import hmac as _hm
+    if not signed:
+        return 'signin'
+    ow = owner_wallet(cat)
+    if ow:
+        return 'ok' if _hm.compare_digest(ow, str(signed)) else 'no'
+    return 'claim' if owner_id and _hm.compare_digest(str(owner_id), str(cat.get('ownerId') or '')) else 'no'
+
+
+def _owner_gate(store, cat, session, owner_id='', what='work with it'):
+    """Every owner door: 401 signed out, 403 not yours; a legacy agent is claimed by the signed wallet on the spot."""
+    signed = _session_wallet(session or '')
+    verdict = owner_check(cat, signed, owner_id)
+    if verdict == 'signin':
+        raise HTTPException(401, 'Sign in with your wallet first (one signature, no transaction).')
+    if verdict == 'no':
+        raise HTTPException(403, f"Only this agent's owner can {what}.")
+    if verdict == 'claim':
+        cat['ownerWallet'] = signed
+        keep_owned(cat); _save(store)
+    return signed
+
+
 async def _session_staff(session=''):
     """🧪 The paper rule trader is a STAFF test door (owner 2026-10-30, D1): users only ever launch real Trading / General agents.
     Staff = reputation's `_is_staff` on the signed chat session (any linked wallet); no session or reputation down ⇒ not staff."""
@@ -1874,7 +1906,10 @@ AGENT_MAX = 2   # 🤖 a user runs at most 2 agents (owner, 2026-10-22: "users p
 @app.post('/api/cats')
 async def create_cat(payload: CreatePayload):
     store = _load()
-    if sum(1 for c in store['cats'].values() if c.get('ownerId') == payload.ownerId and not c.get('revoked')) >= AGENT_MAX:
+    signed_ = _session_wallet(payload.session or '')
+    if not signed_:   # 🔒 an agent belongs to a wallet from its first second
+        raise HTTPException(401, 'Sign in with your wallet first (one signature, no transaction).')
+    if sum(1 for c in store['cats'].values() if (owner_wallet(c) == signed_ or c.get('ownerId') == payload.ownerId) and not c.get('revoked')) >= AGENT_MAX:
         raise HTTPException(400, f'You run {AGENT_MAX} agents — retire one to start another.')
     if _session_wallet(payload.session or '') in agent_wallets(store):   # 🚫 an agent's own wallet never makes another agent on FEELESS
         raise HTTPException(403, 'An AI agent never creates another agent on FEELESS.')
@@ -1883,7 +1918,7 @@ async def create_cat(payload: CreatePayload):
     cat_id = uuid.uuid4().hex
     now = time.time()
     cat = {
-        'id': cat_id, 'ownerId': payload.ownerId, 'name': payload.name, 'handle': payload.handle,
+        'id': cat_id, 'ownerId': payload.ownerId, 'ownerWallet': signed_, 'name': payload.name, 'handle': payload.handle,
         'avatar': payload.avatar, 'brain': RULE_ENGINE['id'], 'brainLabel': RULE_ENGINE['label'],
         'brainProfile': {'provider': RULE_ENGINE['provider'], 'status': 'live', 'available': False, 'estimatedTokenCostUsd': 0},
         'strategy': payload.strategy, 'strategyLabel': STRATEGY_LABELS.get(payload.strategy, 'Momentum'),
@@ -1924,9 +1959,11 @@ async def create_cat(payload: CreatePayload):
 
 
 @app.get('/api/cats')
-async def list_cats(ownerId: str):
+async def list_cats(ownerId: str = '', session: str = ''):
+    """My agents = the signed-in wallet's (plus this browser's older unclaimed ones, so they can be claimed). Signed out ⇒ none."""
     store = _load()
-    cats = [c for c in store['cats'].values() if ownerId and c['ownerId'] == ownerId]
+    signed = _session_wallet(session)
+    cats = [c for c in store['cats'].values() if signed and owner_check(c, signed, ownerId) in ('ok', 'claim')]
     cats.sort(key=lambda c: -c['createdAt'])
     return {'cats': [{**x, 'mine': True} for x in _no_keys(cats)]}
 
@@ -2092,6 +2129,7 @@ def _internal(request):
 class WorkPayload(BaseModel):
     op: str
     ownerId: Optional[str] = None
+    session: Optional[str] = None
     text: Optional[str] = None
     i: Optional[int] = None
     cap: Any = None
@@ -2111,8 +2149,7 @@ async def cat_work(cat_id: str, p: WorkPayload):
     cat = store['cats'].get(cat_id)
     if not cat:
         raise HTTPException(404, 'Cat not found.')
-    if not p.ownerId or p.ownerId != cat.get('ownerId'):
-        raise HTTPException(403, "Only this cat's owner can work with it.")
+    _owner_gate(store, cat, p.session, p.ownerId)
     b = cat.get('brainsCfg') or {}
     w = _WORK.get(cat_id)
     if p.op == 'tools':
@@ -2224,11 +2261,13 @@ async def cat_work(cat_id: str, p: WorkPayload):
 
 
 @app.get('/api/cats/{cat_id}/work/shot/{i}')
-async def cat_work_shot(cat_id: str, i: int, ownerId: str = ''):
+async def cat_work_shot(cat_id: str, i: int, ownerId: str = '', session: str = ''):
     """📸 A window's snapshot (JPEG) when its provider gives no live view — the cat's owner only."""
-    cat = _load()['cats'].get(cat_id)
-    if not cat or not ownerId or ownerId != cat.get('ownerId'):
-        raise HTTPException(403, "Only this cat's owner sees its windows.")
+    store = _load()
+    cat = store['cats'].get(cat_id)
+    if not cat:
+        raise HTTPException(404, 'Cat not found.')
+    _owner_gate(store, cat, session, ownerId, 'see its windows')
     pages = (_WORK.get(cat_id) or {}).get('pages') or []
     pg = pages[i] if 0 <= i < len(pages) else None
     jpg = await pg.shot() if pg else None
@@ -2239,24 +2278,24 @@ async def cat_work_shot(cat_id: str, i: int, ownerId: str = ''):
 
 class FilePayload(BaseModel):
     ownerId: Optional[str] = None
+    session: Optional[str] = None
     dataUrl: Optional[str] = None
     name: Optional[str] = None
 
 
-def _owned(store, cat_id, owner_id):
+def _owned(store, cat_id, owner_id, session=''):
     cat = (store.get('cats') or {}).get(cat_id)
     if not cat:
         raise HTTPException(404, 'Agent not found.')
-    if not owner_id or owner_id != cat.get('ownerId'):
-        raise HTTPException(403, "Only this agent's owner can use its storage.")
+    _owner_gate(store, cat, session, owner_id, 'use its storage')
     return cat
 
 
 @app.get('/api/cats/{cat_id}/files')
-async def cat_files(cat_id: str, ownerId: str = ''):
+async def cat_files(cat_id: str, ownerId: str = '', session: str = ''):
     """☁ Its storage: files, links, used / quota (owner only). Files unused for 7 days are cleaned first."""
     store = _load()
-    cat = _owned(store, cat_id, ownerId)
+    cat = _owned(store, cat_id, ownerId, session)
     if _af.clean(DATA_DIR, {'cats': {cat_id: cat}}):
         keep_owned(cat); _save(store)
     return _af.public(cat)
@@ -2266,7 +2305,7 @@ async def cat_files(cat_id: str, ownerId: str = ''):
 async def cat_file_add(cat_id: str, p: FilePayload):
     """☁ The owner drops an image in its chat (+): stored in the agent's own storage (images / GIFs, 1 GB, 7-day clean)."""
     store = _load()
-    cat = _owned(store, cat_id, p.ownerId)
+    cat = _owned(store, cat_id, p.ownerId, p.session)
     _af.clean(DATA_DIR, {'cats': {cat_id: cat}})
     try:
         row = _af.save(DATA_DIR, cat, p.dataUrl, p.name)
@@ -2279,7 +2318,7 @@ async def cat_file_add(cat_id: str, p: FilePayload):
 @app.post('/api/cats/{cat_id}/files/{file_id}/delete')
 async def cat_file_delete(cat_id: str, file_id: str, p: FilePayload):
     store = _load()
-    cat = _owned(store, cat_id, p.ownerId)
+    cat = _owned(store, cat_id, p.ownerId, p.session)
     if not _af.delete(DATA_DIR, cat, file_id):
         raise HTTPException(404, 'No such file.')
     keep_owned(cat); _save(store)
@@ -2350,9 +2389,8 @@ async def cat_profile(cat_id: str):
 
 
 @app.get('/api/cats/{cat_id}')
-async def get_cat(cat_id: str, ownerId: str = ''):
-    """One cat, public view. `ownerId` (this browser's own id) only answers `mine` yes / no — the owner id itself is never returned."""
-    import hmac as _hm
+async def get_cat(cat_id: str, ownerId: str = '', session: str = ''):
+    """One cat, public view. `mine` = this signed-in wallet owns it (signed out ⇒ never mine); the owner id / wallet are never returned."""
     store = _load()
     cat = store['cats'].get(cat_id)
     if not cat:
@@ -2360,7 +2398,7 @@ async def get_cat(cat_id: str, ownerId: str = ''):
     if _real.is_real(cat) and _real.expire(cat, time.time()):
         _save(store)
     out = _pub({'cat': {k: v for k, v in cat.items() if k not in ('artifacts', 'refusals')}})
-    out['cat']['mine'] = bool(ownerId) and _hm.compare_digest(str(ownerId), str(cat.get('ownerId') or ''))
+    out['cat']['mine'] = owner_check(cat, _session_wallet(session), ownerId) in ('ok', 'claim')
     return out
 
 
@@ -2541,6 +2579,7 @@ class RecoverPayload(BaseModel):
     handle: str
     pin: str
     ownerId: str
+    session: Optional[str] = None
 
 
 @app.post('/api/cats/{cat_id}/recovery-pin')
@@ -2550,8 +2589,7 @@ async def cat_recovery_pin(cat_id: str, payload: ActionPayload):
     cat = store['cats'].get(cat_id)
     if not cat or cat.get('isLeader'):
         raise HTTPException(404, 'Cat not found.')
-    if not payload.ownerId or payload.ownerId != cat.get('ownerId'):
-        raise HTTPException(403, 'Only its owner can make its recovery PIN.')
+    _owner_gate(store, cat, payload.session, payload.ownerId, 'make its recovery PIN')
     if cat.get('recovery') and payload.text != 'replace':
         raise HTTPException(409, 'Its recovery PIN was already shown once.')
     pin = _recovery.new_pin()
@@ -2565,6 +2603,9 @@ async def cat_recover(payload: RecoverPayload):
     """🔑 A new browser takes its agent back with the PIN. The PIN is single-use and never moves money; the owner makes a fresh one after."""
     if not payload.ownerId.strip() or len(payload.ownerId) > 100:
         raise HTTPException(400, 'No browser id.')
+    signed = _session_wallet(payload.session or '')
+    if not signed:   # 🔑 the PIN moves the agent to a WALLET (a lost wallet's way back), never to a bare browser
+        raise HTTPException(401, 'Sign in with your wallet first (one signature, no transaction).')
     store = _load()
     handle = payload.handle.strip().lstrip('@').lower()
     cat = next((c for c in store['cats'].values() if not c.get('isLeader') and handle and str(c.get('handle') or '').lower() == handle and c.get('recovery')), None)
@@ -2574,7 +2615,7 @@ async def cat_recover(payload: RecoverPayload):
     if result != 'ok':
         _save(store)
         raise HTTPException(429 if result == 'locked' else 403, 'Too many tries: this PIN is locked for an hour.' if result == 'locked' else 'That handle and PIN do not match.')
-    cat['ownerId'] = payload.ownerId
+    cat['ownerId'], cat['ownerWallet'] = payload.ownerId, signed
     cat.pop('recovery'); cat['recoverySet'] = False
     _log_event(store, cat, 'STARTED', f"{cat['name']} was recovered on a new browser with its PIN.")
     keep_owned(cat); _save(store)
@@ -2593,7 +2634,9 @@ async def cat_action(cat_id: str, payload: ActionPayload, request: Request):
             raise HTTPException(401, 'Sign in with your wallet first (one signature, no transaction) — your sign-in expired.')
         if not fee_owner_real(cat, payload.action, signed) and not await _is_creator(signed):
             raise HTTPException(403, "Only the creator's wallets can switch Fee real — this wallet isn't linked to the creator.")
-    elif not fee_owner_real(cat, payload.action, signed) and (not payload.ownerId or payload.ownerId != cat.get('ownerId')):   # 🔒 the owner only
+    elif not fee_owner_real(cat, payload.action, signed) and not request.headers.get('x-feeless-internal'):   # 🔒 the signed-in owner wallet only …
+        _owner_gate(store, cat, payload.session, payload.ownerId)
+    elif not fee_owner_real(cat, payload.action, signed):
         _internal(request)                                             # … or HQ (reputation's admin run, internal key)
     if payload.action in ('real', 'proposal', 'agent_wallet', 'agent_mode', 'agent_approve', 'agent_assign') and (not signed or signed != payload.address):
         raise HTTPException(401, 'Sign in with your wallet first (one signature, no transaction).')

@@ -64,9 +64,9 @@ def test_the_service_guards_every_action_and_real_needs_a_signed_wallet(monkeypa
     sent = []
     monkeypatch.setattr(fs, '_notify_real', lambda cat, p: sent.append(p))
     c = TestClient(fs.app)
-    assert c.post('/api/cats/u1/action', json={'action': 'stop'}).status_code == 403                                  # no owner id
-    assert c.post('/api/cats/u1/action', json={'action': 'stop', 'ownerId': 'browser-2'}).status_code == 403          # someone else's
-    assert c.post('/api/cats/u1/action', json={'action': 'stop', 'ownerId': 'browser-1'}).status_code == 200
+    assert c.post('/api/cats/u1/action', json={'action': 'stop'}).status_code == 401                                  # signed out
+    assert c.post('/api/cats/u1/action', json={'action': 'stop', 'ownerId': 'browser-2'}).status_code == 401          # someone else's
+    assert c.post('/api/cats/u1/action', json={'action': 'stop', 'ownerId': 'browser-1', 'session': tok}).status_code == 200
     (fs.DATA_DIR / 'internal.key').parent.mkdir(parents=True, exist_ok=True); (fs.DATA_DIR / 'internal.key').write_text('k')
     assert c.post('/api/cats/u1/action', headers={'x-feeless-internal': 'k'}, json={'action': 'stop'}).status_code == 200   # HQ's run
     assert c.post('/api/cats/u1/action', json={'action': 'real', 'ownerId': 'browser-1', 'address': 'WALLET', 'budgetSol': 0.05}).status_code == 401   # unsigned

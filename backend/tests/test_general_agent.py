@@ -5,6 +5,12 @@ import cat_agent as ca
 import cat_policy as cp
 import cat_tools as ct
 
+@pytest.fixture(autouse=True)
+def _signed_owner(monkeypatch):
+    """A test session token IS its wallet here; the wallet owner lock itself is proven in test_agent_owner_lock.py."""
+    import feecat_service as svc
+    monkeypatch.setattr(svc, '_session_wallet', lambda s: str(s or ''))
+
 PAIR = {'pairAddress': 'P1', 'baseToken': {'symbol': 'JUP', 'address': 'M1'}, 'priceUsd': '0.42', 'marketCap': 1.2e9, 'liquidity': {'usd': 3.4e6},
         'volume': {'h24': 8.1e6}, 'priceChange': {'h24': -2.5}, 'dexId': 'raydium'}
 
@@ -100,7 +106,7 @@ def test_models_switch_after_24h_and_delete_is_guarded(monkeypatch):
     req = SimpleNamespace(headers={})
 
     def act(**k):
-        return asyncio.run(svc.cat_action('g1', svc.ActionPayload(ownerId='o', **k), req))
+        return asyncio.run(svc.cat_action('g1', svc.ActionPayload(ownerId='o', session='o', **k), req))
     with pytest.raises(HTTPException) as e:
         act(action='models', brains=['b/y'])
     assert '24 h' in e.value.detail
@@ -185,12 +191,12 @@ def test_an_agents_desk_look_is_saved_on_the_agent_by_its_owner(monkeypatch):
     monkeypatch.setattr(svc, '_load', lambda: store)
     monkeypatch.setattr(svc, '_save', lambda s: None)
     act = lambda **k: asyncio.run(svc.cat_action('k1', svc.ActionPayload(**k), SimpleNamespace(headers={})))
-    act(action='skin', ownerId='o', look={'bg': 'creek', 'acc': '#7FD3FF'})
+    act(action='skin', ownerId='o', session='o', look={'bg': 'creek', 'acc': '#7FD3FF'})
     assert cat['skin'] == {'bg': 'creek', 'acc': '#7fd3ff'}
     with pytest.raises(HTTPException):
-        act(action='skin', ownerId='o', look={'bg': 'lava', 'acc': '#000000'})
+        act(action='skin', ownerId='o', session='o', look={'bg': 'lava', 'acc': '#000000'})
     with pytest.raises(HTTPException):
-        act(action='skin', ownerId='someone-else', look={'bg': 'globe', 'acc': '#b388ff'})
+        act(action='skin', ownerId='someone-else', session='someone-else', look={'bg': 'globe', 'acc': '#b388ff'})
 
 
 def test_general_brief_hourly_edits_and_proposals_need_approval_trader_stays_sealed(monkeypatch):
@@ -208,7 +214,7 @@ def test_general_brief_hourly_edits_and_proposals_need_approval_trader_stays_sea
     async def fake_or(model, messages, **k):
         return json.dumps({'brief': 'Research FEELESS first, cite sources, and ask before spending anything.', 'why': 'clearer for both'}), 0.001
     monkeypatch.setattr(svc, '_or_call', fake_or)
-    act = lambda cid, **k: asyncio.run(svc.cat_action(cid, svc.ActionPayload(ownerId='o', **k), SimpleNamespace(headers={})))
+    act = lambda cid, **k: asyncio.run(svc.cat_action(cid, svc.ActionPayload(ownerId='o', session='o', **k), SimpleNamespace(headers={})))
     with pytest.raises(HTTPException):
         act('t1', action='brief', text='a brand new trading brief for it')
     act('g1', action='brief', text='Find the three best sports bets with sources every evening.')
@@ -257,9 +263,9 @@ def test_the_owner_id_never_leaves_the_server_and_only_mine_is_answered(monkeypa
     monkeypatch.setattr(svc, '_load', lambda: store)
     pub = asyncio.run(svc.get_cat('z1'))
     assert 'browser-secret-123' not in json.dumps(pub) and pub['cat']['mine'] is False
-    assert asyncio.run(svc.get_cat('z1', ownerId='browser-secret-123'))['cat']['mine'] is True
-    assert asyncio.run(svc.get_cat('z1', ownerId='guess'))['cat']['mine'] is False
-    assert 'browser-secret-123' not in json.dumps(asyncio.run(svc.list_cats(ownerId='browser-secret-123')))
+    assert asyncio.run(svc.get_cat('z1', ownerId='browser-secret-123', session='browser-secret-123'))['cat']['mine'] is True
+    assert asyncio.run(svc.get_cat('z1', ownerId='guess', session='guess'))['cat']['mine'] is False
+    assert 'browser-secret-123' not in json.dumps(asyncio.run(svc.list_cats(ownerId='browser-secret-123', session='browser-secret-123')))
 
 
 def test_fee_takes_an_openrouter_model_and_a_new_model_can_start_fresh(monkeypatch):
@@ -347,16 +353,16 @@ def test_a_general_agent_end_to_end_from_the_wizard_to_its_answer_and_clouds(tmp
     monkeypatch.setattr(fs._cb, 'close_session', close_session)
     with TestClient(fs.app) as c:
         brief = 'Answer my question like an analyst, cite sources.\n\nHOW YOU TWO WORK — each of you owns a separate job.\n\nRULES — never invent facts.'
-        r = c.post('/api/cats', json={'ownerId': 'w', 'name': 'Scout', 'handle': 'scout', 'brains': ['m/a', 'm/b'], 'brainKind': 'general', 'brainMode': 'turns',
+        r = c.post('/api/cats', json={'ownerId': 'w', "session": 'w', 'name': 'Scout', 'handle': 'scout', 'brains': ['m/a', 'm/b'], 'brainKind': 'general', 'brainMode': 'turns',
                                       'billing': 'payg', 'prompt': brief, 'job': 'researcher', 'workMode': 'jobs', 'taskCap': 0.25})
         assert r.status_code == 200, r.text
         cid = r.json()['cat']['id']
         cat = fs._load()['cats'][cid]
         assert cat['taskCap'] == 0.25 and cat['workMode'] == 'jobs' and cat['brainsCfg']['kind'] == 'general' and cat['job'] == 'researcher'
-        assert c.post(f'/api/cats/{cid}/work', json={'op': 'ask', 'ownerId': 'intruder', 'text': 'hi'}).status_code == 403   # only its owner
+        assert c.post(f'/api/cats/{cid}/work', json={'op': 'ask', 'ownerId': 'intruder', "session": 'intruder', 'text': 'hi'}).status_code == 403   # only its owner
         assert cat['brainsCfg']['credit'] == 0.0                                             # 🧭 a general agent starts at $0 — only real money buys credit
         st_ = fs._load(); st_['cats'][cid]['brainsCfg']['credit'] = 10.0; st_['cats'][cid]['creditPaid'] = [{'sig': 'REALSIG', 'usd': 10.0}]; fs._save(st_)   # (as if its owner paid $10 of credit)
-        r = c.post(f'/api/cats/{cid}/work', json={'op': 'ask', 'ownerId': 'w', 'text': 'A: research Solana B: write a thread on it'})
+        r = c.post(f'/api/cats/{cid}/work', json={'op': 'ask', 'ownerId': 'w', "session": 'w', 'text': 'A: research Solana B: write a thread on it'})
         assert r.status_code == 200, r.text
         for _ in range(100):
             if fs._WORK[cid].get('done'):

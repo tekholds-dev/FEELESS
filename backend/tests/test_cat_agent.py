@@ -8,6 +8,12 @@ import pytest
 import cat_agent as ca
 import cat_browser as cb
 
+@pytest.fixture(autouse=True)
+def _signed_owner(monkeypatch):
+    """A test session token IS its wallet here; the wallet owner lock itself is proven in test_agent_owner_lock.py."""
+    import feecat_service as svc
+    monkeypatch.setattr(svc, '_session_wallet', lambda s: str(s or ''))
+
 
 class R:
     def __init__(self, code, body):
@@ -147,14 +153,14 @@ def test_the_workbench_is_the_owners_only_refuses_while_model_calls_are_off_and_
                       't1': {'id': 't1', 'name': 'Trd', 'ownerId': 'b1', 'positions': [], 'risk': {}, 'status': 'stopped', 'revoked': False, 'balanceSol': 0, 'brainsCfg': {'kind': 'trading', 'brains': ['m/a']}}}, 'events': []}
     monkeypatch.setattr(fs, '_load', lambda: store); monkeypatch.setattr(fs, '_save', lambda s: None)
     c = TestClient(fs.app)
-    assert c.post('/api/cats/g1/work', json={'op': 'state', 'ownerId': 'b2'}).status_code == 403
-    assert c.post('/api/cats/g1/work', json={'op': 'state', 'ownerId': 'b1'}).json()['task'] is None
+    assert c.post('/api/cats/g1/work', json={'op': 'state', 'ownerId': 'b2', "session": 'b2'}).status_code == 403
+    assert c.post('/api/cats/g1/work', json={'op': 'state', 'ownerId': 'b1', "session": 'b1'}).json()['task'] is None
     monkeypatch.setattr(fs, '_work_live', lambda: False)
-    r = c.post('/api/cats/g1/work', json={'op': 'ask', 'ownerId': 'b1', 'text': 'research Kalshi'})
+    r = c.post('/api/cats/g1/work', json={'op': 'ask', 'ownerId': 'b1', "session": 'b1', 'text': 'research Kalshi'})
     assert r.status_code == 400 and 'Model calls are off' in r.json()['detail']                     # nothing sent, nothing charged
-    assert c.post('/api/cats/t1/work', json={'op': 'ask', 'ownerId': 'b1', 'text': 'x'}).status_code == 400   # a trading cat does not browse
-    assert c.post('/api/cats/g1/work', json={'op': 'cap', 'ownerId': 'b1', 'cap': 9}).json()['cap'] == fs.TASK_CAP_MAX
-    assert c.post('/api/cats/g1/work', json={'op': 'cap', 'ownerId': 'b1', 'cap': 0.0001}).json()['cap'] == 0.005
+    assert c.post('/api/cats/t1/work', json={'op': 'ask', 'ownerId': 'b1', "session": 'b1', 'text': 'x'}).status_code == 400   # a trading cat does not browse
+    assert c.post('/api/cats/g1/work', json={'op': 'cap', 'ownerId': 'b1', "session": 'b1', 'cap': 9}).json()['cap'] == fs.TASK_CAP_MAX
+    assert c.post('/api/cats/g1/work', json={'op': 'cap', 'ownerId': 'b1', "session": 'b1', 'cap': 0.0001}).json()['cap'] == 0.005
     t = ca.new_task('x', 'q', ['m/a', 'm/b'], 0.05); t.update(status='done', answer='A', cost=0.012)
     fs._WORK['g1'] = {'task': t, 'done': True, 'at': 1.0}
     fs._work_settle(store)
@@ -176,14 +182,14 @@ def test_let_it_go_queues_asks_runs_the_next_on_its_own_and_gives_a_long_step_bu
     monkeypatch.setattr(fs, '_work_start', lambda cid, cat, text, to=None, files=None: started.append(text))
     c = TestClient(fs.app)
     fs._WORK['g1'] = {'task': ca.new_task('t', 'first', ['m/a'], 0.05), 'done': False, 'at': 1.0}
-    assert c.post('/api/cats/g1/work', json={'op': 'ask', 'ownerId': 'b1', 'text': 'next'}).status_code == 409     # off: busy refuses
-    assert c.post('/api/cats/g1/work', json={'op': 'go', 'ownerId': 'b1', 'on': True}).json()['go'] is True
-    r = c.post('/api/cats/g1/work', json={'op': 'ask', 'ownerId': 'b1', 'text': 'next'}).json()
+    assert c.post('/api/cats/g1/work', json={'op': 'ask', 'ownerId': 'b1', "session": 'b1', 'text': 'next'}).status_code == 409     # off: busy refuses
+    assert c.post('/api/cats/g1/work', json={'op': 'go', 'ownerId': 'b1', "session": 'b1', 'on': True}).json()['go'] is True
+    r = c.post('/api/cats/g1/work', json={'op': 'ask', 'ownerId': 'b1', "session": 'b1', 'text': 'next'}).json()
     assert [q['text'] for q in r['queue']] == ['next'] and started == []
     fs._WORK['g1']['task'].update(status='done', answer='A', cost=0.01); fs._WORK['g1']['done'] = True
     fs._work_settle(store)
     assert started == ['next'] and store['cats']['g1']['workQueue'] == []
-    c.post('/api/cats/g1/work', json={'op': 'go', 'ownerId': 'b1', 'on': False}); assert store['cats']['g1']['workQueue'] == []
+    c.post('/api/cats/g1/work', json={'op': 'go', 'ownerId': 'b1', "session": 'b1', 'on': False}); assert store['cats']['g1']['workQueue'] == []
     fs._WORK.pop('g1', None)
 
 

@@ -9,8 +9,8 @@ import { TokenAvatar } from '../terminal/MarketPrimitives';
 import { AnimatedNumber } from '../terminal/AnimatedNumber';
 import { fetchLivePrices, formatLivePrice } from '../../lib/livePrice';
 import { formatPct, formatUSD, tokenKey } from '../../lib/dexscreener';
+import { agentAuth, agentAuthQuery } from '../../lib/chatSession';
 
-const OWNER_KEY = 'feeless-paper-owner';
 const REASON = { liquidity: 'thin liquidity', volume: 'low volume', 'market cap band': 'outside MC band', 'too new': 'too new', '5m momentum': 'no 5m momentum', '1h move': '1h move out of range', '6h trend': '6h weak or overextended', overextended: 'overextended', 'buy pressure': 'sellers in control', 'not SOL-quoted': 'not a SOL pair', 'no live market': 'no live market' };
 
 async function askNotify() {
@@ -87,13 +87,12 @@ export function AdvancedWatchlist() {
       .then(r => r.json()).then(d => setReads(d.reads || {})).catch(() => {});
   }, [watchlist]);
   useEffect(() => {
-    let owner = null; try { owner = localStorage.getItem(OWNER_KEY); } catch {}
-    if (owner) fetch(`/api/cats?ownerId=${encodeURIComponent(owner)}`).then(r => r.json()).then(d => setCats(d.cats || [])).catch(() => {});
+    fetch(`/api/cats?${agentAuthQuery()}`).then(r => r.json()).then(d => setCats(d.cats || [])).catch(() => {});
   }, []);
   const assignCat = async catId => {
     const symbols = watchlist.filter(p => p.chainId === 'solana').map(p => p.baseToken?.symbol).filter(Boolean).join(', ');
     if (!symbols) { toast.error('Cats trade Solana pairs — star a Solana coin first.'); return; }
-    const res = await fetch(`/api/cats/${catId}/action`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'controls', allowlist: symbols, ownerId: (() => { try { return localStorage.getItem('feeless-paper-owner') || ''; } catch { return ''; } })() }) });
+    const res = await fetch(`/api/cats/${catId}/action`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'controls', allowlist: symbols, ...agentAuth() }) });
     toast[res.ok ? 'success' : 'error'](res.ok ? 'Your Cat now trades only your watchlist (paper).' : 'Could not update that Cat.');
   };
   const toggleNotify = async pair => {

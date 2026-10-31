@@ -5,6 +5,13 @@ from fastapi.testclient import TestClient
 
 import cat_orders as co
 import launch_cat as lc
+import pytest
+
+@pytest.fixture(autouse=True)
+def _signed_owner(monkeypatch):
+    """A test session token IS its wallet here; the wallet owner lock itself is proven in test_agent_owner_lock.py."""
+    import feecat_service as svc
+    monkeypatch.setattr(svc, '_session_wallet', lambda s: str(s or ''))
 
 ROW = {'id': 'openai/gpt-oss-20b', 'name': 'gpt-oss-20b', 'context_length': 131072, 'pricing': {'prompt': '0.00000002', 'completion': '0.00000009'}}
 MINT = 'DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263'
@@ -67,7 +74,7 @@ def _svc(tmp_path, monkeypatch, pair):
 
 
 def _cat(c, kind):
-    r = c.post('/api/cats', json={'ownerId': 'w', 'name': 'Doer', 'handle': f'doer-{kind}', 'brains': ['openai/gpt-oss-20b'], 'brainKind': kind, 'maxPositionSol': 0.2})
+    r = c.post('/api/cats', json={'ownerId': 'w', "session": 'w', 'name': 'Doer', 'handle': f'doer-{kind}', 'brains': ['openai/gpt-oss-20b'], 'brainKind': kind, 'maxPositionSol': 0.2})
     assert r.status_code == 200, r.text
     return r.json()['cat']
 
@@ -77,7 +84,7 @@ def test_a_general_cat_fills_your_order_on_paper_and_refuses_what_the_guards_sto
     fs, c = _svc(tmp_path, monkeypatch, pair)
     cat = _cat(c, 'general')
     assert cat['brainsCfg']['kind'] == 'general'
-    go = lambda t: c.post(f"/api/cats/{cat['id']}/action", json={'ownerId': 'w', 'action': 'order', 'text': t})
+    go = lambda t: c.post(f"/api/cats/{cat['id']}/action", json={'ownerId': 'w', "session": 'w', 'action': 'order', 'text': t})
     out = go('buy 0.05 SOL of $BONK').json()['cat']
     assert out['orders'][-1]['state'] == 'filled' and out['positions'][0]['symbol'] == 'BONK' and out['positions'][0]['order'] is True
     assert go('buy 0.05 SOL of $NOPE').json()['cat']['orders'][-1]['why'].startswith('🔎')
@@ -90,14 +97,14 @@ def test_a_general_cat_fills_your_order_on_paper_and_refuses_what_the_guards_sto
     assert go('sell all $WIF').json()['cat']['orders'][-1]['why'] == '🫥 it holds no $WIF'
     assert go('').status_code == 400
     trader = _cat(c, 'trading')
-    assert c.post(f"/api/cats/{trader['id']}/action", json={'ownerId': 'w', 'action': 'order', 'text': 'buy 0.05 SOL of $BONK'}).status_code == 400
+    assert c.post(f"/api/cats/{trader['id']}/action", json={'ownerId': 'w', "session": 'w', 'action': 'order', 'text': 'buy 0.05 SOL of $BONK'}).status_code == 400
 
 
 def test_a_real_general_cat_turns_your_order_into_a_proposal_your_wallet_signs(tmp_path, monkeypatch):
     fs, c = _svc(tmp_path, monkeypatch, _p())
     cat = _cat(c, 'general')
     store = fs._load(); fs._real.go_real(store['cats'][cat['id']], 'WALLET1', 0.1, time.time()); fs._save(store)
-    out = c.post(f"/api/cats/{cat['id']}/action", json={'ownerId': 'w', 'action': 'order', 'text': 'buy 2 SOL of $BONK'}).json()['cat']
+    out = c.post(f"/api/cats/{cat['id']}/action", json={'ownerId': 'w', "session": 'w', 'action': 'order', 'text': 'buy 2 SOL of $BONK'}).json()['cat']
     row, prop = out['orders'][-1], out['proposals'][0]
     assert row['state'] == 'proposed' and 'capped from 2 SOL' in row['why'] and prop['side'] == 'buy' and prop['sol'] == 0.1 and prop['status'] == 'pending'
     assert not out['positions']                                                               # nothing bought until YOUR wallet signs

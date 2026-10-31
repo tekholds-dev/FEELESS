@@ -9,6 +9,12 @@ import pytest
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 import cat_model as cm  # noqa: E402
 
+@pytest.fixture(autouse=True)
+def _signed_owner(monkeypatch):
+    """A test session token IS its wallet here; the wallet owner lock itself is proven in test_agent_owner_lock.py."""
+    import feecat_service as svc
+    monkeypatch.setattr(svc, '_session_wallet', lambda s: str(s or ''))
+
 NOW = 1_000_000.0
 
 
@@ -100,7 +106,7 @@ def test_only_the_owner_switch_hands_feecat_to_nexa(monkeypatch, tmp_path):
     fs.DATA_DIR.mkdir(parents=True, exist_ok=True); (fs.DATA_DIR / 'internal.key').write_text('secret')
     c = TestClient(fs.app)
     assert c.post('/api/cats/internal/brain', json={'model': 'nexa'}).status_code == 403                # no internal key → refused
-    assert c.post('/api/cats/u1/action', json={'action': 'brain', 'text': 'nexa', 'ownerId': 'b1'}).status_code == 400   # a user's cat can't take NEXA
+    assert c.post('/api/cats/u1/action', json={'action': 'brain', 'text': 'nexa', 'ownerId': 'b1', "session": 'b1'}).status_code == 400   # a user's cat can't take NEXA
     monkeypatch.setattr(fs, '_internal', lambda request: None)
     assert c.post('/api/cats/internal/brain', json={'model': 'nexa'}).json() == {'model': 'nexa'}
     assert store['cats']['leader']['modelBrain'] == 'nexa' and 'modelBrain' not in store['cats']['u1']
@@ -121,15 +127,15 @@ def test_feecat_reads_nexas_desk_words_only_while_the_owner_switch_is_on():
 def test_a_user_runs_at_most_two_agents_and_a_retired_one_frees_its_slot(monkeypatch):
     fs = pytest.importorskip('feecat_service')
     from fastapi.testclient import TestClient
-    store = {'cats': {'a': {'id': 'a', 'ownerId': 'u', 'revoked': False}, 'b': {'id': 'b', 'ownerId': 'u', 'revoked': False}}, 'events': []}
+    store = {'cats': {'a': {'id': 'a', 'ownerId': 'u', 'revoked': False}, 'b': {'id': 'b', 'ownerId': 'u', "session": 'u', 'revoked': False}}, 'events': []}
     monkeypatch.setattr(fs, '_load', lambda: store); monkeypatch.setattr(fs, '_save', lambda s: None)
     async def staff(session=''): return True   # the brainless paper test is staff-only (D1)
     monkeypatch.setattr(fs, '_session_staff', staff)
     c = TestClient(fs.app)
-    r = c.post('/api/cats', json={'ownerId': 'u', 'name': 'Third', 'handle': 'third'})
+    r = c.post('/api/cats', json={'ownerId': 'u', "session": 'u', 'name': 'Third', 'handle': 'third'})
     assert r.status_code == 400 and 'retire one' in r.json()['detail']
     store['cats']['b']['revoked'] = True
-    assert c.post('/api/cats', json={'ownerId': 'u', 'name': 'Third', 'handle': 'third'}).status_code == 200
+    assert c.post('/api/cats', json={'ownerId': 'u', "session": 'u', 'name': 'Third', 'handle': 'third'}).status_code == 200
 
 
 def test_the_paper_test_agent_is_staff_only(monkeypatch):
@@ -141,11 +147,11 @@ def test_the_paper_test_agent_is_staff_only(monkeypatch):
     async def staff(session=''): seen.append(session); return session == 'staff-session'
     monkeypatch.setattr(fs, '_session_staff', staff)
     c = TestClient(fs.app)
-    r = c.post('/api/cats', json={'ownerId': 'u', 'name': 'Paper', 'handle': 'paper'})
+    r = c.post('/api/cats', json={'ownerId': 'u', "session": 'u', 'name': 'Paper', 'handle': 'paper'})
     assert r.status_code == 403 and 'staff only' in r.json()['detail'] and not store['cats']
     assert c.post('/api/cats', json={'ownerId': 'u', 'name': 'Paper', 'handle': 'paper', 'session': 'user-session'}).status_code == 403
     assert c.post('/api/cats', json={'ownerId': 'u', 'name': 'Paper', 'handle': 'paper', 'session': 'staff-session'}).status_code == 200
-    assert seen == ['', 'user-session', 'staff-session'] and len(store['cats']) == 1
+    assert seen == ['u', 'user-session', 'staff-session'] and len(store['cats']) == 1
 
 
 def test_session_staff_fails_closed(monkeypatch):

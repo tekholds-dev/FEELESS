@@ -2,14 +2,13 @@ import React, { Suspense, lazy, useCallback, useEffect, useRef, useState } from 
 import { apiUrl } from '../../lib/api';
 import { MindVitals, AgentLog } from './CatCockpit';
 import '../../styles/catWorkbench.css';
+import { agentAuth, agentAuthQuery } from '../../lib/chatSession';
 
 // 🧠🧠 THE GENERAL CAT'S WORKBENCH (owner 2026-10-29, P2 — backend cat_agent.py + cat_browser.py). Two browser windows, one per model, running in
 // the cloud (Steel → Browserbase → the reader: never on this device). Each window: its model, its provider, the page it is on, a bubble top-right
 // with what it is doing right now, and — when a sign-in / sign-up / CAPTCHA needs a person — a centred ✋ card (you act in the live window, then
 // CONTINUE). Under them ONE chat: Enter → a fast answer from memory, or both models research their halves and merge. The $ bars: the cat's credit
 // left and THIS task's spend against its cap (you set it; the task stops at it). Live views run only while on screen; polling pauses when hidden.
-const OWNER_KEY = 'feeless-paper-owner';
-const owner = () => { try { return localStorage.getItem(OWNER_KEY) || ''; } catch { return ''; } };
 const CAPS = [0.02, 0.05, 0.25, 1];
 const PROV = { steel: ['STEEL', 'is-steel'], browserless: ['BROWSERLESS', 'is-bl'], browserbase: ['BROWSERBASE', 'is-bb'], reader: ['READER', 'is-reader'] };
 const usd = v => (v == null ? '—' : `$${Number(v) < 1 ? Number(v).toFixed(4) : Number(v).toFixed(2)}`);
@@ -19,7 +18,7 @@ const PriceChart = lazy(() => import('../terminal/PriceChart').then(m => ({ defa
 const WAYS = [['plan', '🧠🤝 ONE ANSWER', 'They plan it in a sentence each, split it, research in their own windows, merge into one answer'], ['jobs', '🎯🎯 TWO JOBS', 'Give each mind its own job — both run at once, two results']];
 
 async function work(id, body) {
-  const r = await fetch(apiUrl(`/api/cats/${id}/work`), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ownerId: owner(), ...body }) });
+  const r = await fetch(apiUrl(`/api/cats/${id}/work`), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...agentAuth(), ...body }) });
   const j = await r.json().catch(() => ({}));
   if (!r.ok) throw new Error(j.detail || `HTTP ${r.status}`);
   return j;
@@ -46,7 +45,7 @@ function Window({ w, catId, tick, onGo, onLogin, busy }) {
         <PriceChart key={w.coin.pair} pair={{ chainId: 'solana', pairAddress: w.coin.pair, baseToken: { address: w.coin.mint, symbol: w.coin.symbol } }} interval="1m" metric="price" showVolume={false} /></Suspense>
         <em className="cwb-chart-tag">FEELESS · ${w.coin.symbol}</em></div>
         : w?.live && seen ? <iframe className="cwb-live" src={w.live} title={`${w.model} browser`} sandbox="allow-scripts allow-same-origin allow-forms allow-popups" allow="clipboard-read; clipboard-write" data-testid="cwb-live" />
-        : w?.shot && seen ? <img className="cwb-shot" src={apiUrl(`/api/cats/${catId}/work/shot/${w.i}?ownerId=${encodeURIComponent(owner())}&t=${tick}`)} alt={`${w.model} window`} data-testid="cwb-shot" />
+        : w?.shot && seen ? <img className="cwb-shot" src={apiUrl(`/api/cats/${catId}/work/shot/${w.i}?${agentAuthQuery()}&t=${tick}`)} alt={`${w.model} window`} data-testid="cwb-shot" />
           : <ol className="cwb-steps" data-testid="cwb-steps">{(w?.steps || []).length ? w.steps.map((s, i) => <li key={i} style={{ '--i': i }}><b>{s.action}</b><span>{s.thought}</span>{s.detail ? <small>{s.detail}</small> : null}</li>)
             : <li className="cwb-idle"><span>{w?.status === 'done' ? (w?.answer ? 'done — its answer is in the chat' : 'done') : 'ready — ask below'}</span></li>}</ol>}
       {w?.bubble && w?.status !== 'idle' ? <p className="cwb-bubble" key={w.bubble} data-testid="cwb-bubble"><i aria-hidden="true" />{w.bubble}</p> : null}
@@ -131,7 +130,7 @@ const readAsDataUrl = f => new Promise((ok, no) => { const r = new FileReader();
 export async function addFile(catId, file) {
   if (!/^image\/(png|jpeg|webp|gif)$/.test(file?.type || '')) throw new Error('Images only: PNG, JPEG, WebP or GIF.');
   if (file.size > (file.type === 'image/gif' ? 40 : 15) * 1024 * 1024) throw new Error(file.type === 'image/gif' ? 'GIFs up to 40 MB.' : 'Images up to 15 MB.');
-  const r = await fetch(apiUrl(`/api/cats/${catId}/files`), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ownerId: owner(), dataUrl: await readAsDataUrl(file), name: file.name }) });
+  const r = await fetch(apiUrl(`/api/cats/${catId}/files`), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...agentAuth(), dataUrl: await readAsDataUrl(file), name: file.name }) });
   const j = await r.json().catch(() => ({}));
   if (!r.ok) throw new Error(j.detail || `HTTP ${r.status}`);
   return j;

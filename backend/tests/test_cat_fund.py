@@ -72,7 +72,7 @@ def test_the_cat_service_records_a_funding_once_and_caps_wallets_at_four_per_own
     r = c.post('/api/cats/n5/action', json={'action': 'agent_wallet', 'ownerId': 'b1', 'address': 'WALLET', 'session': tok})
     assert r.status_code == 400 and 'Up to 4' in r.json()['detail']
     (fs.DATA_DIR / 'internal.key').parent.mkdir(parents=True, exist_ok=True); (fs.DATA_DIR / 'internal.key').write_text('k')
-    assert c.post('/api/cats/c0/action', json={'action': 'agent_funded', 'sig': 'S1', 'amount': {'usd': 10}}).status_code == 403      # not internal
+    assert c.post('/api/cats/c0/action', json={'action': 'agent_funded', 'sig': 'S1', 'amount': {'usd': 10}}).status_code == 401      # not internal, not signed in
     ok = c.post('/api/cats/c0/action', headers={'x-feeless-internal': 'k'}, json={'action': 'agent_funded', 'sig': 'S1', 'result': 'confirmed', 'amount': {'usd': 10, 'feeUsd': 2, 'catLamports': 4e7}})
     assert ok.status_code == 200 and store['cats']['c0']['agentFunded'][0]['feeUsd'] == 2
     assert c.post('/api/cats/c0/action', headers={'x-feeless-internal': 'k'}, json={'action': 'agent_funded', 'sig': 'S1', 'amount': {}}).status_code == 400   # once

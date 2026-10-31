@@ -4,6 +4,13 @@ import asyncio
 from fastapi.testclient import TestClient
 
 import launch_cat as lc
+import pytest
+
+@pytest.fixture(autouse=True)
+def _signed_owner(monkeypatch):
+    """A test session token IS its wallet here; the wallet owner lock itself is proven in test_agent_owner_lock.py."""
+    import feecat_service as svc
+    monkeypatch.setattr(svc, '_session_wallet', lambda s: str(s or ''))
 
 ROW = {'id': 'openai/gpt-oss-20b', 'name': 'gpt-oss-20b', 'context_length': 131072, 'pricing': {'prompt': '0.00000002', 'completion': '0.00000009'}}
 
@@ -19,17 +26,17 @@ def _svc(tmp_path, monkeypatch):
 def test_launch_with_two_brains_then_chime_pull_and_topup(tmp_path, monkeypatch):
     fs, c = _svc(tmp_path, monkeypatch)
     assert c.get('/api/cats/models').json()['rec'][0]['tag'] == 'FEELESS PICK'
-    r = c.post('/api/cats', json={'ownerId': 'w', 'name': 'Duo', 'handle': 'duo', 'brains': ['openai/gpt-oss-20b', 'qwen/qwen3-4b-2507'],
+    r = c.post('/api/cats', json={'ownerId': 'w', "session": 'w', 'name': 'Duo', 'handle': 'duo', 'brains': ['openai/gpt-oss-20b', 'qwen/qwen3-4b-2507'],
                                   'brainMode': 'battle', 'billing': 'payg', 'prompt': 'only buy germ floors'})
     cat = r.json()['cat']
     assert cat['brainsCfg']['promptLocked'] and cat['brainsCfg']['credit'] == lc.START_CREDIT and cat['brainLabel'] == 'gpt-oss-20b + qwen3-4b-2507'
-    assert c.post('/api/cats', json={'ownerId': 'w', 'name': 'X', 'handle': 'x', 'brains': ['nope/model']}).status_code == 400
+    assert c.post('/api/cats', json={'ownerId': 'w', "session": 'w', 'name': 'X', 'handle': 'x', 'brains': ['nope/model']}).status_code == 400
     cid = cat['id']
-    assert c.post(f'/api/cats/{cid}/action', json={'ownerId': 'w', 'action': 'chime', 'text': 'watch the dev wallet'}).json()['cat']['brainsCfg']['chime'][0]['text'] == 'watch the dev wallet'
-    assert c.post(f'/api/cats/{cid}/action', json={'ownerId': 'w', 'action': 'pull'}).json()['cat']['balanceSol'] == 0
-    assert c.post(f'/api/cats/{cid}/action', json={'ownerId': 'w', 'action': 'start'}).status_code == 400
-    assert c.post(f'/api/cats/{cid}/action', json={'ownerId': 'w', 'action': 'topup'}).json()['cat']['needsTopup'] is False
-    assert c.post(f'/api/cats/{cid}/action', json={'ownerId': 'w', 'action': 'start'}).json()['cat']['status'] == 'running'
+    assert c.post(f'/api/cats/{cid}/action', json={'ownerId': 'w', "session": 'w', 'action': 'chime', 'text': 'watch the dev wallet'}).json()['cat']['brainsCfg']['chime'][0]['text'] == 'watch the dev wallet'
+    assert c.post(f'/api/cats/{cid}/action', json={'ownerId': 'w', "session": 'w', 'action': 'pull'}).json()['cat']['balanceSol'] == 0
+    assert c.post(f'/api/cats/{cid}/action', json={'ownerId': 'w', "session": 'w', 'action': 'start'}).status_code == 400
+    assert c.post(f'/api/cats/{cid}/action', json={'ownerId': 'w', "session": 'w', 'action': 'topup'}).json()['cat']['needsTopup'] is False
+    assert c.post(f'/api/cats/{cid}/action', json={'ownerId': 'w', "session": 'w', 'action': 'start'}).json()['cat']['status'] == 'running'
 
 
 def test_calls_off_means_rule_engine_and_no_charge_on_means_charged_and_paused_at_zero(tmp_path, monkeypatch):

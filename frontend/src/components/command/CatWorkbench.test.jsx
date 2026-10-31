@@ -14,7 +14,7 @@ test('🧠🧠 two windows with their provider + bubble; a sign-in pauses one wi
   localStorage.setItem('feeless-paper-owner', 'browser-1');
   const el = document.createElement('div'); document.body.appendChild(el); const root = createRoot(el);
   await act(async () => { root.render(<CatWorkbench cat={{ id: 'g1', brainsCfg: { kind: 'general', brains: ['qwen/qwen3-32b', 'x/opus'], credit: 9.2 } }} />); });
-  expect(calls[0]).toEqual({ ownerId: 'browser-1', op: 'state' });
+  expect(calls[0]).toEqual({ ownerId: 'browser-1', session: '', op: 'state' });
   expect(el.querySelector('[data-testid="cwb-win-0"]').textContent).toContain('STEEL'); expect(el.querySelector('[data-testid="cwb-bubble"]').textContent).toContain('reading the YES ladder');
   expect(el.querySelector('[data-testid="cwb-human"]').textContent).toContain('a sign-in');
   expect(el.textContent).toContain('$0.0130 / $0.0500');

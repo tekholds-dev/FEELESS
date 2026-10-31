@@ -11,7 +11,8 @@ import { FundReceipt } from './FundReceipt';
 import { LaunchCat, BrainPanel } from './LaunchCat';
 import { LookAvatar, LookPicker, DEFAULT_LOOK } from './CatLook';
 import { readMyCat } from '../../lib/myCat';
-import { readChatSession } from '../../lib/chatSession';
+import { readChatSession, agentAuth, agentAuthQuery, agentBrowserId, getChatSession } from '../../lib/chatSession';
+import { useWallet } from '../../hooks/useWallet';
 import { EngineLine } from './CatBrainSwitch';
 import { CatDesk } from './CatDesk';
 import { CatReal } from './CatReal';
@@ -22,23 +23,16 @@ const ProfileFeeBanner = lazy(() => import('./ProfileFeeCat').then(m => ({ defau
 import { AgentPicker, AGENT_MAX } from './AgentPicker';
 import { AgentLeaderboard, LiveActivity } from './AgentBoards';
 import { FeeOwnerBar } from './FeeOwnerBar';
-const OWNER_KEY = 'feeless-paper-owner';
 const api = async (path, options = {}) => {
-  // 🔒 every cat action carries this browser's owner id (the service refuses anyone else's cat)
-  if (/\/action$/.test(path) && options.body) options = { ...options, body: JSON.stringify({ ...JSON.parse(options.body), ownerId: ownerId() }) };
-  if (!options.method && /^\/api\/cats\/[\w-]+$/.test(path)) path = `${path}?ownerId=${encodeURIComponent(ownerId())}`;   // one cat → the server answers `mine` (never sends the owner id)
+  // 🔒 every cat action carries the signed-in wallet's session (the service refuses anyone else's cat, and anyone signed out)
+  if (/\/action$/.test(path) && options.body) options = { ...options, body: JSON.stringify({ ...agentAuth(), ...JSON.parse(options.body) }) };
+  if (!options.method && /^\/api\/cats\/[\w-]+$/.test(path)) path = `${path}?${agentAuthQuery()}`;   // one cat → the server answers `mine` (never sends the owner id)
   const response = await fetch(path, { headers: { 'Content-Type': 'application/json', ...(options.headers || {}) }, ...options });
   const body = await response.json().catch(() => ({}));
   if (!response.ok) throw new Error(body.detail || body.error || 'Agent request failed.');
   return body;
 };
-const ownerId = () => {
-  try {
-    let value = localStorage.getItem(OWNER_KEY);
-    if (!value) { value = `browser-${crypto.randomUUID()}`; localStorage.setItem(OWNER_KEY, value); }
-    return value;
-  } catch { return 'preview-browser-owner'; }
-};
+const ownerId = agentBrowserId;
 const money = value => `${Number(value || 0) >= 0 ? '+' : ''}${Number(value || 0).toFixed(4)} SOL`;
 const usd = value => Number(value) > 0 ? `$${Number(value).toLocaleString(undefined, { maximumFractionDigits: 0 })}` : 'MC unavailable';
 const eventSymbol = event => event.symbol || event.detail?.match(/\bof\s+([A-Z0-9_]{2,})\b/i)?.[1] || 'TRADE';
@@ -155,11 +149,24 @@ function CatDetail({ cat: initialCat, onBack, onChanged, onDeleted }) {
     Brains={cat.brainsCfg && mine ? <BrainPanel noTalk cat={cat} api={api} onChanged={brainChanged} /> : null} Activity={null} Tools={Tools} />;
 }
 
+// 🔒 signed out ⇒ your agents stay locked: one signature (no transaction) opens their controls again
+function SignInGate({ onIn }) {
+  const { wallet, connect, signMessage } = useWallet() || {};
+  const [err, setErr] = useState(''); const [busy, setBusy] = useState(false);
+  if (readChatSession()) return null;
+  const go = async () => { setErr(''); setBusy(true);
+    try { if (!wallet?.address) await connect?.(); else { await getChatSession(wallet.address, signMessage); onIn?.(); } } catch (x) { setErr(x.message); } setBusy(false); };
+  return <div className="m-note warn" data-testid="fc-signin" role="status"><b>🔒 Signed out</b>
+    <span>Your agents only answer their owner's signed-in wallet. Sign in to see and control them.</span>
+    <button type="button" className="m-btn m-go" onClick={go} disabled={busy} data-tip="One signature, no transaction — proves this wallet owns its agents" data-testid="fc-signin-go">{busy ? 'Waiting for the wallet…' : wallet?.address ? 'Sign in' : 'Connect wallet'}</button>
+    {err ? <span className="kd-err" role="alert">⚠ {err}</span> : null}</div>;
+}
+
 // 🔑 a new browser takes its agent back with the recovery PIN (it never moves money)
 function RecoverAgent({ onBack }) {
   const [handle, setHandle] = useState(''); const [pin, setPin] = useState(''); const [err, setErr] = useState(''); const [busy, setBusy] = useState(false);
   const go = async e => { e.preventDefault(); setErr(''); setBusy(true);
-    try { const r = await api('/api/cats/recover', { method: 'POST', body: JSON.stringify({ handle: handle.trim(), pin: pin.trim(), ownerId: ownerId() }) }); setHandle(''); setPin(''); onBack(r.cat); }
+    try { const r = await api('/api/cats/recover', { method: 'POST', body: JSON.stringify({ handle: handle.trim(), pin: pin.trim(), ...agentAuth() }) }); setHandle(''); setPin(''); onBack(r.cat); }
     catch (x) { setErr(x.message); } setBusy(false); };
   return <details className="fc-recover" data-testid="fc-recover"><summary data-tip="Lost this browser? Bring your agent here with its recovery PIN">🔑 Recover an agent</summary>
     <form onSubmit={go}><input className="m-input" value={handle} onChange={e => setHandle(e.target.value)} placeholder="its @handle" aria-label="Its handle" data-testid="fc-recover-handle" />
@@ -189,8 +196,9 @@ export default function FeeCatsPlatform() {
   const [cats, setCats] = useState([]);
   const [selected, setSelected] = useState(null);
   const [error, setError] = useState('');
-  const loadCats = useCallback(async () => { try { const result = await api(`/api/cats?ownerId=${encodeURIComponent(ownerId())}`); setCats(result.cats || []); setError(''); } catch (requestError) { setError(requestError.message); } }, []);
-  useEffect(() => { loadCats(); }, [loadCats]);
+  const loadCats = useCallback(async () => { try { const result = await api(`/api/cats?${agentAuthQuery()}`); setCats(result.cats || []); setError(''); } catch (requestError) { setError(requestError.message); } }, []);
+  const { wallet } = useWallet() || {};
+  useEffect(() => { loadCats(); }, [loadCats, wallet?.address]);   // 🔒 sign in / out / switch wallet ⇒ the list follows the signed wallet
   const openCat = cat => { setSelected(cat); setView('cat'); };
   const openById = async r => { try { const x = await api(`/api/cats/${r.id}`); if (x.cat) openCat(x.cat); } catch (e) { setError(e.message); } };   // a board row / activity card → that agent's full desk
   const openReal = cat => { openCat(cat); setTimeout(() => document.querySelector('[data-testid="cat-real"]')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 250); };   // 💵 straight to its wallet switch
@@ -223,6 +231,7 @@ export default function FeeCatsPlatform() {
     {view === 'launch' && <LaunchCat key={kind} kind={kind} api={api} ownerId={ownerId} onCreated={created} onCancel={() => setView('cats')} Fields={CatFields} newForm={() => catForm(presetAvatar)} formOk={catOk} avatarOf={i => (CAT_VARIATIONS[i] || CAT_VARIATIONS[0])[0]} Preview={CatPreview} />}
     {view === 'leaderboard' && <AgentLeaderboard api={api} onOpen={openById} />}
     {view === 'cats' && isAdmin ? <Suspense fallback={null}><ProfileFeeBanner mine onOpen={() => openById({ id: 'leader' })} /></Suspense> : null}
+    {view === 'cats' ? <SignInGate onIn={loadCats} /> : null}
     {view === 'cats' ? <RecoverAgent onBack={cat => { loadCats(); openCat(cat); }} /> : null}
     {view === 'cats' && <section className="paper-my-cats">{!cats.length ? <><div className="paper-panel-head"><div><span className="eyebrow">YOUR AGENTS · 0/{AGENT_MAX}</span><h2>No cats on the job yet — pick a brain.</h2></div></div><AgentPicker count={0} onPick={pickKind} staff={isStaff} /></>
       : <><div className="paper-panel-head"><div><span className="eyebrow">YOUR AGENTS · {live.length}/{AGENT_MAX}</span><h2>Tap a cat to see its desk</h2></div><button type="button" className="btn-outline" onClick={() => setView('new')} disabled={live.length >= AGENT_MAX}><Plus size={14} /> New agent</button></div>

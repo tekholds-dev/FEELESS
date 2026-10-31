@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useEffect, useRef, useState } from 'react';
+import { clearAllChatSessions } from '../lib/chatSession';
 const WalletContext = createContext(null);
 const solanaProvider = () => window.phantom?.solana || window.trustwallet?.solana || window.solflare || window.backpack?.solana || window.solana;
 const evmProvider = () => window.trustwallet?.ethereum || window.ethereum || window.phantom?.ethereum;
@@ -98,6 +99,7 @@ export async function signWith(prov, chain, address, message) {
 export const WalletProvider = ({ children }) => {
   const [wallet, setWallet] = useState(null);
   const [provider, setProvider] = useState(null);
+  useEffect(() => { try { if (wallet?.address) localStorage.setItem('feeless:wallet-now', wallet.address); else localStorage.removeItem('feeless:wallet-now'); } catch { /* ignore */ } }, [wallet?.address]);   // 🔒 agent calls send THIS wallet's session
   const walletRef = useRef(wallet);
   useEffect(() => { walletRef.current = wallet; }, [wallet]);
   const connect = async (type, brand, opts = {}) => {
@@ -237,6 +239,7 @@ export const WalletProvider = ({ children }) => {
       await provider?.disconnect?.();
     }
     try { localStorage.removeItem('feeless:last-wallet'); } catch { /* ignore */ }
+    clearAllChatSessions();   // 🔒 signed out means signed out: no session left for an agent (or chat) to act on
     walletRef.current = null;
     setWallet(null); setProvider(null);
   };

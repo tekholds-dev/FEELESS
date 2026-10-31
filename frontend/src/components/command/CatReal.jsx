@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useWallet } from '../../hooks/useWallet';
-import { getChatSession } from '../../lib/chatSession';
+import { getChatSession, agentAuth } from '../../lib/chatSession';
 import { familiaSwap, FamiliaTradeDock } from '../FamiliaTrade';
 import { apiUrl } from '../../lib/api';
 import '../../styles/catReal.css';
@@ -133,7 +133,7 @@ export function WithdrawCat({ cat, addr, session, bal }) {
 export function RecoveryPin({ cat }) {
   const [pin, setPin] = useState(''); const [saved, setSaved] = useState(false); const [err, setErr] = useState(''); const [gone, setGone] = useState(false); const [copied, setCopied] = useState(false);
   const make = async replace => { setErr('');
-    try { const r = await fetch(apiUrl(`/api/cats/${cat.id}/recovery-pin`), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'recovery', ownerId: localStorage.getItem('feeless-paper-owner') || '', text: replace ? 'replace' : '' }) });
+    try { const r = await fetch(apiUrl(`/api/cats/${cat.id}/recovery-pin`), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'recovery', ...agentAuth(), text: replace ? 'replace' : '' }) });
       if (r.status === 404) { setGone(true); return; } const j = await r.json().catch(() => ({})); if (!r.ok) throw new Error(j.detail || `HTTP ${r.status}`); setPin(j.pin); setSaved(false); }
     catch (e) { setErr(e.message); } };
   const copy = async () => { try { await navigator.clipboard.writeText(pin); setCopied(true); setTimeout(() => setCopied(false), 1500); } catch { /* blocked */ } };

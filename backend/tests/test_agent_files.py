@@ -8,6 +8,12 @@ import pytest
 
 import agent_files as af
 
+@pytest.fixture(autouse=True)
+def _signed_owner(monkeypatch):
+    """A test session token IS its wallet here; the wallet owner lock itself is proven in test_agent_owner_lock.py."""
+    import feecat_service as svc
+    monkeypatch.setattr(svc, '_session_wallet', lambda s: str(s or ''))
+
 PNG = b'\x89PNG\r\n\x1a\n' + b'\x00' * 64
 URL = 'data:image/png;base64,' + base64.b64encode(PNG).decode()
 
@@ -51,16 +57,16 @@ def test_endpoints_are_owner_only_and_the_upload_reaches_its_browser(monkeypatch
     store = {'cats': {'g': {'id': 'g', 'ownerId': 'me', 'revoked': False, 'brainsCfg': {'kind': 'general', 'brains': ['m/a']}}}, 'events': []}
     monkeypatch.setattr(fs, '_load', lambda: store); monkeypatch.setattr(fs, '_save', lambda s: None)
     c = TestClient(fs.app)
-    assert c.post('/api/cats/g/files', json={'ownerId': 'intruder', 'dataUrl': URL}).status_code == 403
-    assert c.get('/api/cats/g/files?ownerId=intruder').status_code == 403
-    r = c.post('/api/cats/g/files', json={'ownerId': 'me', 'dataUrl': URL, 'name': 'logo.png'})
+    assert c.post('/api/cats/g/files', json={'ownerId': 'intruder', "session": 'intruder', 'dataUrl': URL}).status_code == 403
+    assert c.get('/api/cats/g/files?ownerId=intruder&session=intruder').status_code == 403
+    r = c.post('/api/cats/g/files', json={'ownerId': 'me', "session": 'me', 'dataUrl': URL, 'name': 'logo.png'})
     assert r.status_code == 200, r.text
     f = r.json()['file']
     assert r.json()['quota'] == af.QUOTA and f['url'] == f"/api/cats/g/files/{f['id']}.png"
     got = c.get(f['url'])
     assert got.status_code == 200 and got.content == PNG and got.headers['content-type'] == 'image/png' and got.headers['x-content-type-options'] == 'nosniff'
     assert c.get('/api/cats/g/files/0123456789abcdef0123456789abcdef.png').status_code == 404
-    assert c.post('/api/cats/g/files', json={'ownerId': 'me', 'dataUrl': 'data:text/html;base64,PGh0bWw+'}).status_code == 400
+    assert c.post('/api/cats/g/files', json={'ownerId': 'me', "session": 'me', 'dataUrl': 'data:text/html;base64,PGh0bWw+'}).status_code == 400
     # ask with it attached → the task text names it and the task carries its path for `upload`
     monkeypatch.setattr(fs, '_work_live', lambda: True)
     monkeypatch.setattr(fs._lc, 'can_ask', lambda b: True)
@@ -68,10 +74,10 @@ def test_endpoints_are_owner_only_and_the_upload_reaches_its_browser(monkeypatch
     def start(cid, cat, text, to=None, files=None):
         seen.update(text=text, files=files)
     monkeypatch.setattr(fs, '_work_start', start)
-    r = c.post('/api/cats/g/work', json={'ownerId': 'me', 'op': 'ask', 'text': 'launch a coin on pump.fun with my logo', 'files': [f['id'], 'bogus']})
+    r = c.post('/api/cats/g/work', json={'ownerId': 'me', "session": 'me', 'op': 'ask', 'text': 'launch a coin on pump.fun with my logo', 'files': [f['id'], 'bogus']})
     assert r.status_code == 200, r.text
     assert seen['files'] == [f['id']] and 'logo.png (image/png' in seen['text']
-    assert c.post(f"/api/cats/g/files/{f['id']}/delete", json={'ownerId': 'me'}).json()['files'] == []
+    assert c.post(f"/api/cats/g/files/{f['id']}/delete", json={'ownerId': 'me', "session": 'me'}).json()['files'] == []
     assert c.get(f['url']).status_code == 404
 
 

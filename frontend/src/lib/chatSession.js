@@ -18,6 +18,17 @@ export function readChatSession(address, ownOnly = false) {   // ownOnly: this w
   return null;
 }
 export function clearChatSession(address) { try { localStorage.removeItem(key(address)); } catch { /* ignore */ } }
+// 🔒 Sign out = signed out here: every chat session in this browser goes, so agents fall back to their public view (owner 2026-10-30).
+export function clearAllChatSessions() {
+  try { Object.keys(localStorage).filter(k => k.startsWith('feeless:chat-session:')).forEach(k => localStorage.removeItem(k)); } catch { /* ignore */ }
+}
+// 🔒 What every agent owner call carries: the signed-in wallet's session (the server's only owner proof) + this browser's id (claims an older agent once).
+export function agentBrowserId() {
+  try { let v = localStorage.getItem('feeless-paper-owner'); if (!v) { v = `browser-${crypto.randomUUID()}`; localStorage.setItem('feeless-paper-owner', v); } return v; } catch { return ''; }
+}
+const nowWallet = () => { try { return localStorage.getItem('feeless:wallet-now') || ''; } catch { return ''; } };   // set by useWallet while a wallet is connected
+export const agentAuth = () => ({ ownerId: agentBrowserId(), session: (nowWallet() && readChatSession(nowWallet(), true)) || readChatSession() || '' });
+export const agentAuthQuery = () => { const a = agentAuth(); return `ownerId=${encodeURIComponent(a.ownerId)}&session=${encodeURIComponent(a.session)}`; };
 const checked = sweepable('chatSession', new Map(), { max: 20 });
 // One signature, reused everywhere (chat, DMs, follows, rewards, shop) for 7 days and across linked networks.
 export async function getChatSession(address, signMessage, { own = false } = {}) {
