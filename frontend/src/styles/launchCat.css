@@ -103,6 +103,11 @@ body.theme-day .lct-glass-n div { background: #7c4dff0d; } body.theme-day .lct-g
   -webkit-mask: radial-gradient(circle, transparent 50%, #000 62%, transparent 72%); mask: radial-gradient(circle, transparent 50%, #000 62%, transparent 72%);
   animation: lctHalo 4s linear infinite; }
 .lct-orb.o2::before { animation-direction: reverse; animation-duration: 5s; }
+/* 🌀 working right now: the lobes race, the film spins fast, the orb breathes (owner 2026-10-31: "bubble swirls harder when working") */
+.lct-orb.is-hot .lct-siri u:nth-child(1) { animation-duration: .9s; } .lct-orb.is-hot .lct-siri u:nth-child(2) { animation-duration: 1.2s; } .lct-orb.is-hot .lct-siri u:nth-child(3) { animation-duration: 1.5s; }
+.lct-orb.is-hot .lct-film { animation-duration: 2.4s; } .lct-orb.is-hot { animation: lctHot 1.1s ease-in-out infinite; }
+@keyframes lctHot { 50% { transform: scale(1.07); } }
+@media (prefers-reduced-motion: reduce) { .lct-orb.is-hot, .lct-orb.is-hot .lct-siri u, .lct-orb.is-hot .lct-film { animation: none; } }
 .lct-mind.is-empty .lct-siri, .lct-mind.is-empty .lct-orb::before, .lct-orb.is-idle .lct-siri, .lct-orb.is-idle::before { display: none; }
 .lct-node.has-bub { border: 0; background: none; box-shadow: none; animation: none; overflow: visible; }
 .lct-node.has-bub .lct-orb b { font-size: 12px; } .lct-node.has-bub .lct-orb::before { inset: -10px; } .lct-node.has-bub .lct-th { font-size: 6.5px; }
@@ -221,7 +226,7 @@ body.theme-day .lct-flow small, body.theme-day .lct-desc p { color: #5a4a7a; } b
 .lct-order-log li small { font-size: 11px; color: #b8acd6; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
 .lct-order-log li.is-fill { border-left-color: #45e486; } .lct-order-log li.is-prop { border-left-color: #ffd36b; } .lct-order-log li.is-stop { border-left-color: #ff8fa3; } .lct-order-log li.is-unclear { border-left-color: #9d90bd; }
 body.fx-lite .lct *, body.reduced-motion-setting .lct * { animation: none !important; }
-body.fx-lite .lct-siri u { transform: translateX(14%); } body.fx-lite .lct-th { opacity: .6; transform: translate(-50%, calc(var(--j) * 70% - 120%)); } body.fx-lite .lct-film { mix-blend-mode: normal; }
+body.fx-lite .lct-orb.is-hot { animation: none; } body.fx-lite .lct-siri u { transform: translateX(14%); } body.fx-lite .lct-th { opacity: .6; transform: translate(-50%, calc(var(--j) * 70% - 120%)); } body.fx-lite .lct-film { mix-blend-mode: normal; }
 body.fx-lite .lct-order-log li, body.fx-lite .lct-next u::before { animation: none; }
 @media (prefers-reduced-motion: reduce) { .lct *, .lct-brains * { animation: none !important; transition: none !important; } }
 body.theme-day .lct-orders { background: #eefaff; } body.theme-day .lct-orders-h b { color: #0a6e96; } body.theme-day .lct-orders-h small, body.theme-day .lct-order-log li small { color: #3f5868; }

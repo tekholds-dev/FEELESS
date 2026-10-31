@@ -2,8 +2,8 @@ import React, { Suspense, lazy, useCallback, useEffect, useLayoutEffect, useMemo
 import { createPortal } from 'react-dom';
 import { apiUrl } from '../../lib/api';
 import { AgentLog, MindVitals, SafeGate, safeOk } from './CatCockpit';
-import { HeadCloud } from './AgentLive';
-import { ApiDrawer } from './LaunchCat';
+import { HeadCloud, asModel } from './AgentLive';
+import { ApiDrawer, Bubble } from './LaunchCat';
 import '../../styles/agentDemo.css';
 import '../../styles/catWorkbench.css';
 import { agentAuth, agentAuthQuery, revealMessage, getChatSession } from '../../lib/chatSession';
@@ -304,10 +304,10 @@ function useFit(ref, below = 76) {
 // 👀 A VISITOR's view of someone's agent (no scroll): its two windows as they work — the site's host, the kind of step and how far — never the page
 // 👀 one mind's side rail for a visitor (owner 2026-10-31: "more vitals on the sides, like Live Activity"): status, where, steps as a ring
 export function MindRail({ w, side, d }) {
-  const go = w?.status === 'working'; const pct = Math.min(1, (w?.steps || 0) / 30);
+  const go = w?.status === 'working';
   return <aside className={`cwb-rail at-${side}${go ? ' is-go' : ''}`} data-testid={`cwb-rail-${side}`}>
     <b className="cwb-rail-h">MIND {'AB'[w?.i ?? (side === 'left' ? 0 : 1)]}</b><small title={w?.model}>{w?.model || '—'}</small>
-    <span className="cwb-ring" style={{ '--p': pct }} data-tip="Steps this task (stops at 30)"><svg viewBox="0 0 40 40" aria-hidden="true"><circle cx="20" cy="20" r="16" /><circle cx="20" cy="20" r="16" className="on" style={{ strokeDashoffset: 100.5 * (1 - pct) }} /></svg><b className="m-num" key={w?.steps}>{w?.steps || 0}</b></span>
+    <span className="cwb-rail-orb" data-tip="Its mind — the swirl races while it works · steps this task (stops at 30)"><Bubble m={asModel(w?.model)} i={w?.i ?? (side === 'left' ? 0 : 1)} kind="general" size={64} live={!!w?.model} hot={go} /><b className="m-num" key={w?.steps}>{w?.steps || 0}<small> steps</small></b></span>
     <dl className="cwb-rail-kv"><div><dt>STATUS</dt><dd className={go ? 'is-up' : ''}>{go ? 'LIVE' : String(w?.status || 'idle').toUpperCase()}</dd></div><div><dt>ON</dt><dd>{w?.host || '—'}</dd></div>
       <div><dt>DOING</dt><dd>{w?.action ? w.action.toUpperCase() : '—'}</dd></div>
       {side === 'left' ? <div><dt>LEVEL</dt><dd className="m-num">{d?.level ?? '—'}</dd></div> : <div><dt>W / L</dt><dd className="m-num">{d ? `${d.wins || 0} / ${d.losses || 0}` : '—'}</dd></div>}
@@ -618,8 +618,8 @@ function WorkbenchLive({ cat }) {
     <NowLine cat={cat} wins={wins} live={live} />
     <div className="cwb-stage agd-wins">{wins.map(w => <Window key={w.i} w={w} catId={cat.id} tick={tick} busy={busy} cursor={aiCur} onGo={(op, i) => act(op, { i })} onLogin={site => setSignIn({ site, at: Date.now() })} />)}</div>
     <DeskFlip flip={flip} setFlip={setFlip} name={cat.name} live={live} count={log.length} cloud={<HeadCloud items={(d?.cloud || []).slice(-5).reverse()} />}
-      left={<MindVitals cat={cat} model={wins[0]?.model} i={0} kind="general" live={wins[0]?.status === 'working'} extra={<WinVitals w={wins[0]} />} />}
-      right={<MindVitals cat={cat} model={wins[1]?.model} i={1} kind="general" live={wins[1]?.status === 'working'} extra={<WinVitals w={wins[1]} />} />}
+      left={<MindVitals cat={cat} model={wins[0]?.model} i={0} kind="general" live={!!wins[0]?.model} hot={wins[0]?.status === 'working'} extra={<WinVitals w={wins[0]} />} />}
+      right={<MindVitals cat={cat} model={wins[1]?.model} i={1} kind="general" live={!!wins[1]?.model} hot={wins[1]?.status === 'working'} extra={<WinVitals w={wins[1]} />} />}
       back={<><LastMoney m={d?.lastMoney} />
     <AgentLog title="FILES" items={log} open={signIn ? { key: 'creds', at: signIn.at } : null} cabinet={[
       ...keyDrawers(cat, d, setD, signIn),

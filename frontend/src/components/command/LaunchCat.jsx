@@ -202,9 +202,9 @@ export const THOUGHTS = { trading: [['germ floor?', 'buyers 71%', 'hold?', '+18%
 // 🫧 the two minds (owner 2026-10-29: "better design for the 2 bubbles"): a lit orb with the maker's monogram, its role, its full name and its price —
 // never a name cut to four letters
 // 🫧 one mind as a live soap bubble (the wizard's socket, its minds step, the agent's live desk) — `thoughts` overrides the kind's idle words
-export function Bubble({ m, i = 0, kind = 'trading', thoughts, size, live = true }) {
+export function Bubble({ m, i = 0, kind = 'trading', thoughts, size, live = true, hot = false }) {   // hot = working right now: the swirl spins hard
   const th = (thoughts?.length ? thoughts : THOUGHTS[kind === 'general' ? 'general' : 'trading'][i % 2]).slice(0, 4);
-  return <span className={`lct-orb ${i % 2 ? 'o2' : 'o1'}${m && live ? '' : ' is-idle'}`} style={size ? { width: size, height: size } : undefined}>
+  return <span className={`lct-orb ${i % 2 ? 'o2' : 'o1'}${m && live ? '' : ' is-idle'}${m && hot ? ' is-hot' : ''}`} style={size ? { width: size, height: size } : undefined}>
     <span className="lct-think" aria-hidden="true">{th.map((w, j) => <span key={`${w}${j}`} className="lct-th" style={{ '--j': j }}>{w}</span>)}</span>
     <i className="lct-siri" aria-hidden="true"><u /><u /><u /></i><i className="lct-film" aria-hidden="true" /><i className="lct-shine" aria-hidden="true" /><b>{m ? mono(m) : '+'}</b></span>;
 }

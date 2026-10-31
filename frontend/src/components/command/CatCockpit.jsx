@@ -71,10 +71,11 @@ export function mindStats(cat, model) {
     last: mine[mine.length - 1] || null, spark: mine.slice(-12).map(x => WORD_TONE[x.word] || 'mute') };
 }
 
-export function MindVitals({ cat, model, i = 0, kind = 'trading', live, extra }) {
+export function MindVitals({ cat, model, i = 0, kind = 'trading', live, extra, hot }) {
   const s = useMemo(() => mindStats(cat, model), [cat, model]); const m = asModel(model);
+  const busy = hot ?? (!!live && !!s.last && Date.now() / 1000 - (s.last.at || 0) < 90);   // a trader thought in the last 90 s → its bubble spins hard
   return <aside className={`ck-vitals m${i}${model ? '' : ' is-empty'}`} data-testid={`ck-vitals-${i}`}>
-    <span className="ck-v-head"><Bubble m={m} i={i} kind={kind} thoughts={s.last ? [`${s.last.word} $${s.last.sym}`] : undefined} size={52} live={!!live && !!model} />
+    <span className="ck-v-head"><Bubble m={m} i={i} kind={kind} thoughts={s.last ? [`${s.last.word} $${s.last.sym}`] : undefined} size={52} live={!!live && !!model} hot={busy} />
       <span><em>{kind === 'general' ? 'MIND' : 'BRAIN'} {'AB'[i]}</em><b>{m?.name || (i ? 'no second model' : 'its model')}</b></span></span>
     {extra || <>
       <span className="ck-v-row"><em>CALLS</em><b className="m-num" key={s.calls}>{s.calls}</b></span>
