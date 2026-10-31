@@ -71,22 +71,6 @@ test('🗄 a visitor watches it file things: the drawer pops for a NEW stored it
   expect(r.textContent).toContain('MIND B'); expect(r.textContent).toContain('2 / 1'); expect(r.textContent).toContain('+0.500 SOL'); expect(r.querySelector('.cwb-rail.is-go')).not.toBeNull();
 });
 
-test('🏆 the board ranks by the chosen view and the activity card knows its coin + light', () => {
-  const { metric, metricWord, eventCard } = require('./AgentBoards');
-  const r = { realizedPnlSol: -0.02, volumeSol: 3, winRate: 55 };
-  expect(metric(r, 'pnl')).toBe(-0.02); expect(metricWord(r, 'win_rate')).toBe('55%'); expect(metricWord(r, 'pnl')).toBe('−0.0200 SOL');
-  expect(eventCard({ type: 'BUY', detail: 'Bought 0.05 SOL of GERM at live price', marketCapUsd: 50000 })).toMatchObject({ sym: 'GERM', light: 'go', entry: 50000 });
-  expect(eventCard({ type: 'SELL', detail: 'Sold GERM at -12%', pnlSol: -0.01 })).toMatchObject({ sym: 'GERM', light: 'stop' });
-});
-
-test('📸 one activity card per agent (5 more in its dropdown) and a real P/L snapshot path', () => {
-  const { groupByAgent, curvePath } = require('./AgentBoards');
-  const ev = [1, 2, 3, 4, 5, 6, 7].map(i => ({ id: `a${i}`, catId: 'A' })).concat([{ id: 'b1', catId: 'B' }]);
-  const g = groupByAgent(ev);
-  expect(g.map(x => x.e.id)).toEqual(['a1', 'b1']); expect(g[0].more.map(x => x.id)).toEqual(['a2', 'a3', 'a4', 'a5', 'a6']);
-  expect(curvePath([1])).toBeNull(); const c = curvePath([0, 1, 2]); expect(c.up).toBe(true); expect(c.line.startsWith('M0.0')).toBe(true);
-});
-
 test('🔐 the cabinet never shows a password, key or seed phrase; 🧾 each window carries its owner vitals', () => {
   const { safeLine } = require('./CatCockpit'); const { coinVitals } = require('./AgentLive');
   expect(safeLine('signed up on x.com password: hunter2!! done')).not.toContain('hunter2');

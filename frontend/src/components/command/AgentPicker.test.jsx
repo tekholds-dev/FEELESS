@@ -37,7 +37,7 @@ test('🤖 the agents page: no agents → the brain picker right there; staff: t
   expect(q(el, 'fc-tab-cats').textContent).toContain(`0/${AGENT_MAX}`);
   expect(q(el, 'agent-picker')).not.toBeNull();                                         // empty "My agents" = pick a brain, no dead end
   expect(q(el, 'fc-tab-live')).toBeNull(); expect(q(el, 'fc-tab-build')).toBeNull(); expect(q(el, 'leader-panel')).toBeNull();   // cut: Fee lives in the shell's other tabs
-  await act(async () => { q(el, 'fc-tab-activity').click(); });
+  await act(async () => { q(el, 'fc-tab-colony').click(); });
   expect(q(el, 'agent-picker')).toBeNull();
   await act(async () => { q(el, 'fc-tab-new').click(); });
   await act(async () => { q(el, 'agent-create').click(); });

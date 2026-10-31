@@ -41,6 +41,7 @@ import cat_real as _real   # 💵 real-money cats = option A: the user's wallet 
 import cat_orders as _co   # 🧭 a General AI cat's plain-words orders → one guarded proposal
 import cat_tools as _ct   # 🧰 FEELESS-first read-only tools for general agents
 import hive as _hv   # 🐝 the Hive: proof of insight (cells graded an hour on)
+import colony as _colony   # 🐝 the Colony: graded trades, the pot guards
 import agent_files as _af   # ☁ each agent's own storage (owner uploads, 1 GB, 7-day clean)
 import clarify as _cq   # ❓ first asks: 2–3 questions for a coin / money ask
 import agent_treasury as _tr   # 🏦 its coin's creator fees, read on-chain + split
@@ -586,6 +587,7 @@ def _close(store, cat, pos, price_native, why, fraction=1.0, market_cap=None):
                                             'why': why, 'pnlSol': pnl, 'changeAtExit': round((price_native / pos['entryPriceNative'] - 1) * 100, 2), 'peakAfter': 0.0, 'lowAfter': 0.0,
                                             'peak': round(pos.get('peakChange', 0), 2), 'heldMin': round((time.time() - pos.get('openedAt', time.time())) / 60, 1)})   # 🎭 Prompt Studio reads hold + peak
         cat['exits'] = cat['exits'][-60:]
+        ep_ = _num(pos.get('entryPriceNative')); _colony_trade(cat, 'sell', pos, price_native * _num(pos.get('entryPriceUsd')) / ep_ if ep_ > 0 else 0)
         # File the whole trade (partial profits included) under its setup so the next entry learns from it.
         total_pnl = round(pnl + pos.get('realizedPartialSol', 0), 6)
         ret = total_pnl / max(pos.get('costBasisSol') or pos['costSol'], 1e-9) * 100
@@ -1095,6 +1097,18 @@ def _hive_on(cat):
     return bool((cat.get('hive') or {}).get('on')) and bool(cat.get('brainsCfg')) and not cat.get('revoked') and not cat.get('needsTopup')
 
 
+def _colony_trade(cat, side, pos, px_usd):
+    """🐝 a colonized agent's entry / exit becomes a cell the Colony grades an hour on (colony.trade_cell); never blocks a trade."""
+    try:
+        if not _hive_on(cat):
+            return
+        c_ = _colony.trade_cell(cat, side, pos, px_usd, time.time())
+        if c_:
+            cells = _hive_cells(); cells.append({**c_, 'epoch': _hv.epoch_of(c_['at'])}); _hive_save(cells)
+    except Exception as e:   # noqa: BLE001 — grading is a bonus, the trade already happened
+        print(f'[colony] trade cell skipped: {e}')
+
+
 async def _hive_round(now=None):
     """One pass: due agents file a cell each, then every hour-old cell is graded. → (cells filed, cells graded)."""
     now = now or time.time(); store = _load(); cells = _hive_cells(); filed = graded = 0
@@ -1133,7 +1147,7 @@ async def _hive_round(now=None):
         if todo_:
             prices_ = await _pair_prices(http, sorted({c['pair'] for c in todo_}))
             for c in todo_:
-                graded += 1 if _hv.grade(c, prices_.get(c['pair']), now) is not None else 0
+                graded += 1 if _hv.grade(c, _num((prices_.get(c['pair']) or {}).get('priceUsd')), now) is not None else 0   # the pair's $ price (a pair dict here graded nothing)
     if filed or graded:
         _hive_save(cells)
     if due_:
@@ -1197,7 +1211,8 @@ async def run_engine(store, cats):
                              'mint': (p.get('baseToken') or {}).get('address'), 'setups': p.get('_setups') or [], 'read': p.get('_read'), 'duo': p.get('_duo')} for _, r, p in ranked[:5]]}
     ranked.sort(key=lambda x: -x[0])
     near_.sort(key=lambda rp: -_num((rp[1].get('volume') or {}).get('h24')))
-    ai_lane = [(1.0, f"🧠 AI lane — near miss ({r}); her brains judge it, quarter-size paper", {**p, '_learn': True, '_brainLane': True}) for r, p in near_[:3]]
+    ai_lane = [(1.0, f"🧠 AI lane — near miss ({r}); her brains judge it, quarter-size paper", {**p, '_learn': True, '_brainLane': True}) for r, p in near_[:40]]
+    store['scan']['near'] = len(near_)
     for cat in cats:
         for e in cat.get('exits', []):
             live = prices.get(e['pairAddress'])
@@ -1305,7 +1320,9 @@ async def run_engine(store, cats):
         safety_checks = 0
         lane_ = ranked
         if not ranked and cat.get('brainsCfg') and now - float(cat.get('_laneAt') or 0) >= AI_LANE_EVERY_S:   # 🧠 nothing cleared her nine gates: her AI brains judge the best near miss (owner 2026-10-31: "fix so Fee's AIs can trade paper")
-            lane_ = ai_lane; cat['_laneAt'] = now
+            cool_ = cat.get('cooldowns') or {}   # the best 3 near misses she isn't cooling on or holding (the busiest ones were always on cooldown, so the lane never asked)
+            lane_ = [x for x in ai_lane if now - cool_.get(x[2].get('pairAddress'), 0) >= R['cooldownHours'] * 3600 and not any(q['pairAddress'] == x[2].get('pairAddress') for q in cat['positions'])][:3]
+            cat['_laneAt'] = now
         for score, reason, p in lane_:
             if len(cat['positions']) >= R['maxPositions']:
                 break
@@ -1379,6 +1396,8 @@ async def run_engine(store, cats):
             px = _num(p.get('priceNative'))
             planned = round(min(float(cat['risk']['maxPositionSol']), cat['balanceSol'] * 0.1 * conviction) * (R['freshSize'] if p.get('_fresh') else LEARN_SIZE if p.get('_learn') else (1 if p.get('_status') == 'READY' else 0.5) if p.get('_agentsLane') else 1), 4)
             size = round(planned * R['starterFraction'], 4)
+            if p.get('_brainLane') and size < 0.01 <= cat['balanceSol']:
+                size = 0.01   # the lane's quarter-size starter fell under the paper floor: the floor, never more
             invested = sum(x['costSol'] for x in cat['positions'])
             if invested + planned > R['maxExposure'] * (cat['balanceSol'] + invested):
                 break  # capital first: never more than maxExposure of equity at work
@@ -1415,6 +1434,7 @@ async def run_engine(store, cats):
                 'firstEntryPriceNative': px, 'adds': 0, 'profitTaken': 0, 'peakPx': px, 'brainBy': brain_by_, 'setup': setup, 'setups': p.get('_setups') or [], 'read': p.get('_read'), 'duoAtEntry': p.get('_duo'), 'midAtEntry': mid, 'solUsdAtEntry': sol_usd,
             })
             _log_event(store, cat, 'BUY', f"Bought {size} SOL of {sym} at live price — {reason} (paper).", None, pa, px, _num(p.get('marketCap') or p.get('fdv')))
+            _colony_trade(cat, 'buy', cat['positions'][-1], _num(p.get('priceUsd')))
             if _real.is_real(cat) and not cat.get('isLeader'):   # 💵 the same buy, proposed to the owner's wallet (≤ budget); real Fee proposes none of her own picks (NEXA's lane is gone)
                 p_ = _real.propose(cat, 'buy', (p.get('baseToken') or {}).get('address'), pa, sym, reason, now, sol=size, px=px)
                 if p_:
@@ -1753,7 +1773,13 @@ async def _work_run(cat_id, models, names, text, cap, brief='', efforts=None, ow
                 return await _ct.run_tool(http, tool, q)
             await _ca.run(w['task'], ask, pages, wait_human, names, feeless)
         finally:
-            for pg in pages:
+            for k_, pg in enumerate(pages):   # 🖼 the last page stays on its window after the task (owner 2026-10-31: "always show the last page they were on")
+                try:
+                    jpg_ = await asyncio.wait_for(pg.shot(), 6) if getattr(pg, 'live', False) else None
+                    if jpg_:
+                        _SHOTS[(cat_id, k_)] = (time.time(), jpg_)
+                except Exception:   # noqa: BLE001 — a missing last frame never blocks closing the browser
+                    pass
                 await pg.close()
             for s_ in sessions:
                 await _cb.close_session(http, env, s_)
@@ -2138,6 +2164,18 @@ def _owner_gate(store, cat, session, owner_id='', what='work with it'):
     return signed
 
 
+async def _feecat_usd(address):
+    """$ of FEECAT a wallet holds (reputation reads it live). None when it can't be read — never a guess."""
+    if not address:
+        return 0.0
+    try:
+        async with httpx.AsyncClient(timeout=10) as h:
+            r = await h.get('http://127.0.0.1:5077/api/reputation/internal/feecat-usd', params={'address': address}, headers=_internal_headers())
+        return float(r.json().get('usd')) if r.status_code == 200 else None
+    except (httpx.HTTPError, ValueError, TypeError):
+        return None
+
+
 async def _session_staff(session=''):
     """🧪 The paper rule trader is a STAFF test door (owner 2026-10-30, D1): users only ever launch real Trading / General agents.
     Staff = reputation's `_is_staff` on the signed chat session (any linked wallet); no session or reputation down ⇒ not staff."""
@@ -2413,10 +2451,53 @@ async def cat_hive():
             'graded': sum(1 for c in cells if c.get('honey') is not None and _hv.epoch_of(c.get('at') or 0) == ep), 'filed': sum(1 for c in cells if _hv.epoch_of(c.get('at') or 0) == ep)}
 
 
+COLONY_PAGE = 9   # agents per page on the Colony (owner 2026-10-31: "about 8-10 agents showing on a page, more on scroll")
+
+
+@app.get('/api/cats/colony')
+async def cat_colony(page: int = 0):
+    """🐝 Public: the Colony page — every working agent with its two windows (visitor-safe), its honey this epoch and its newest graded call.
+    Colonized agents first, then by honey. Nothing an owner typed, no wallet, no link."""
+    store = _load(); cells = _hive_cells(); now = time.time(); ep = _hv.epoch_of(now)
+    rows = {r['cat']: r for r in _hv.board(cells, ep)}
+    newest = {}
+    for c in cells:
+        if c.get('cat') and (c['cat'] not in newest or float(c.get('at') or 0) > float(newest[c['cat']].get('at') or 0)):
+            newest[c['cat']] = c
+    cats = [c for c in store['cats'].values() if c.get('brainsCfg') and not c.get('revoked')]
+    cats.sort(key=lambda c: (not _hive_on(c), -int((rows.get(c['id']) or {}).get('honey') or 0), -float((_WORK.get(c['id']) or {}).get('at') or 0)))
+    page = max(0, int(page)); part = cats[page * COLONY_PAGE:(page + 1) * COLONY_PAGE]
+    out = []
+    for c in part:
+        b_ = c.get('brainsCfg') or {}; r_ = rows.get(c['id']) or {}; lv = public_live(_WORK.get(c['id']), c); last = newest.get(c['id'])
+        out.append({'id': c['id'], 'name': c.get('name'), 'avatar': c.get('avatar'), 'look': c.get('look'), 'skin': c.get('skin'), 'kind': b_.get('kind') or 'trading',
+                    'brains': [str(m).split('/')[-1].replace(':free', '')[:30] for m in (b_.get('brains') or [])[:2]], 'colonized': _hive_on(c), 'incognito': bool(c.get('incognito')),
+                    'honey': int(r_.get('honey') or 0), 'cells': int(r_.get('cells') or 0), 'right': int(r_.get('right') or 0), 'graded': int(r_.get('graded') or 0),
+                    'status': lv['status'], 'windows': lv['windows'][:2], 'level': c.get('level'), 'wins': c.get('wins') or 0, 'losses': c.get('losses') or 0,
+                    'pnlSol': round(float(c.get('totalPnlSol') or 0), 4), 'open': len(c.get('positions') or []),
+                    'last': _hv.public(last) if last else None})
+    return _pub({'agents': out, 'page': page, 'more': (page + 1) * COLONY_PAGE < len(cats), 'total': len(cats), 'colonized': sum(1 for c in cats if _hive_on(c)),
+                 'epoch': ep, 'left': _hv.epoch_left(now)})
+
+
 @app.get('/api/cats/supply')
 async def cat_supply():
     """🎟 Public: slots open · taken · left (the launch page shows it; nothing about who)."""
     return supply_state(_load())
+
+
+@app.get('/api/cats/internal/colony')
+async def cat_colony_internal(request: Request):
+    """🐝 For the owner's colony pot (reputation, internal key): the epoch board, who owns each colonized agent (the payout allowlist),
+    how many are colonized, and which browsers this server can use — names only, never a key."""
+    if not _internal_ok(request):
+        raise HTTPException(403, 'Internal only.')
+    store = _load(); cells = _hive_cells(); now = time.time(); ep = _hv.epoch_of(now)
+    names = {k: c.get('name') for k, c in store['cats'].items()}
+    on_ = [c for c in store['cats'].values() if _hive_on(c)]
+    return {'epoch': ep, 'left': _hv.epoch_left(now), 'board': _hv.board(cells, ep, names), 'colonized': len(on_),
+            'owners': {c['id']: owner_wallet(c) for c in on_ if owner_wallet(c) and not c.get('ownerStaff') and not c.get('isLeader')},
+            'trades': sum(1 for c in cells if c.get('kind') and _hv.epoch_of(c.get('at') or 0) == ep), 'browsers': _cb.chain(os.environ)}
 
 
 @app.post('/api/cats/internal/supply')
@@ -2636,7 +2717,11 @@ async def cat_work(cat_id: str, p: WorkPayload):
         cat['incognito'] = bool(p.on)
         keep_owned(cat); _save(store)
         return {'incognito': cat['incognito'], 'paid': cat.get('incognitoPaid'), 'credit': b.get('credit')}
-    if p.op == 'hive':   # 🐝 the Hive on / off and its pace (least usage: one coin every N minutes)
+    if p.op == 'hive':   # 🐝 COLONIZE on / off and its pace (least usage: one coin every N minutes)
+        if p.on and not (cat.get('hive') or {}).get('on') and not (cat.get('ownerStaff') or cat.get('isLeader') or await _session_staff(p.session or '')):
+            usd_ = await _feecat_usd(owner_wallet(cat))   # 🐝 the stake gate: its owner holds ≥ $25 of FEECAT (read live)
+            if not _colony.stake_ok(usd_):
+                raise HTTPException(402, f"Colonizing needs ${_colony.STAKE_MIN_USD:g} of FEECAT in your wallet — it holds ${usd_:,.2f}." if usd_ is not None else "Couldn't read your FEECAT balance — try again in a minute.")
         cat['hive'] = {'on': bool(p.on), 'every': _hv.every_s(p.cap if p.cap is not None else (cat.get('hive') or {}).get('every', 300))}
         keep_owned(cat); _save(store)
         return {'hive': cat['hive'], 'hiveRun': cat.get('hiveRun') or {}}
@@ -2944,8 +3029,11 @@ def public_live(w, cat=None):
         host = str(x.get('url') or '').split('://')[-1].split('/')[0].split('?')[0][:60]
         frozen = x.get('status') == 'human'
         live_ = x.get('status') == 'working' and str(x.get('url') or '').startswith('http')
+        last_ = not live_ and (str((cat or {}).get('id') or ''), x.get('i')) in _SHOTS   # 🖼 a finished window keeps its last page
         out.append({'i': x.get('i'), 'model': str(x.get('model') or '').split('/')[-1][:40], 'status': x.get('status') or 'idle', 'host': '' if hide else host,
-                    'frozen': frozen, 'screen': bool(live_ and not hide and not frozen)})
+                    'frozen': frozen, 'screen': bool((live_ or last_) and not hide and not frozen), 'last': bool(last_ and not hide and not frozen)})
+    if not out and cat and not hide:   # no task in memory: still its last frames, if any
+        out = [{'i': k[1], 'model': '', 'status': 'idle', 'host': '', 'frozen': False, 'screen': True, 'last': True} for k in sorted(_SHOTS) if k[0] == cat.get('id')][:2]
     return {'status': t.get('status') or 'idle', 'windows': out, 'incognito': hide}
 
 
@@ -2957,9 +3045,13 @@ async def cat_screen(cat_id: str, i: int):
     w = _WORK.get(cat_id) or {}
     wins = (w.get('task') or {}).get('windows') or []
     x = wins[i] if 0 <= i < len(wins) else None
-    if not cat or not x or cat.get('incognito') or x.get('status') != 'working':
-        raise HTTPException(404, 'No screen right now.')
     key = (cat_id, i); now = time.time(); got = _SHOTS.get(key)
+    if not cat or cat.get('incognito') or (x or {}).get('status') == 'human':
+        raise HTTPException(404, 'No screen right now.')
+    if not x or x.get('status') != 'working':   # 🖼 idle / done: the last page it was on, until it works again
+        if not got:
+            raise HTTPException(404, 'No screen right now.')
+        return Response(content=got[1], media_type='image/jpeg', headers={'Cache-Control': 'no-store', 'X-Last-Page': '1'})
     if not got or now - got[0] > SHOT_TTL_S:
         pages = w.get('pages') or []
         pg = pages[i] if i < len(pages) else None
@@ -2977,7 +3069,16 @@ async def cat_live(cat_id: str):
         raise HTTPException(404, 'Agent not found.')
     cloud = (cat.get('brainsCfg') or {}).get('cloud') or []   # 🗄 what it stored last (already public on its card) → the visitor's drawer pops
     return {**public_live(_WORK.get(cat_id), cat), 'stored': len(cloud), 'lastStored': (lambda c: {'text': str(c.get('text') or f"{c.get('word', '')} ${c.get('sym', '')}")[:140], 'at': c.get('at')} if c else None)(cloud[-1] if cloud else None),
-            'level': cat.get('level'), 'wins': cat.get('wins'), 'losses': cat.get('losses'), 'pnlSol': cat.get('totalPnlSol')}
+            'level': cat.get('level'), 'wins': cat.get('wins'), 'losses': cat.get('losses'), 'pnlSol': cat.get('totalPnlSol'), **_colony_vitals(cat)}
+
+
+def _colony_vitals(cat):
+    """🐝 the visitor's colony vitals beside its windows: colonized, honey + right calls this epoch, its newest call (public fields only)."""
+    cells = [c for c in _hive_cells() if c.get('cat') == cat.get('id')]
+    ep = _hv.epoch_of(time.time()); row = next(iter(_hv.board(cells, ep)), {})
+    last = max(cells, key=lambda c: float(c.get('at') or 0)) if cells else None
+    return {'colonized': _hive_on(cat), 'honey': int(row.get('honey') or 0), 'right': int(row.get('right') or 0), 'graded': int(row.get('graded') or 0),
+            'lastCall': {k: last.get(k) for k in ('call', 'sym', 'honey', 'kind')} if last else None}
 
 
 @app.get('/api/cats/{cat_id}/treasury')

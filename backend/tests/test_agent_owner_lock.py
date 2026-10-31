@@ -117,9 +117,9 @@ def test_the_public_live_view_shows_hosts_and_a_screen_flag_never_steps_or_the_p
          'shot': True, 'live': 'https://steel/x', 'pw': {'pw': 'hunter2'}, 'steps': [{'action': 'type', 'thought': 'typing the password', 'detail': 'hunter2'}]},
          {'i': 1, 'model': 'a/b', 'status': 'human', 'url': 'https://x.com/login', 'steps': []}]}}
     out = fs.public_live(w)
-    assert out == {'status': 'working', 'incognito': False, 'windows': [{'i': 0, 'model': 'gpt-x', 'status': 'working', 'host': 'mail.google.com', 'frozen': False, 'screen': True},
-                                                                         {'i': 1, 'model': 'b', 'status': 'human', 'host': 'x.com', 'frozen': True, 'screen': False}]}   # handed to its owner = frozen, no screen
-    assert fs.public_live(w, {'incognito': True})['windows'][0] == {'i': 0, 'model': 'gpt-x', 'status': 'working', 'host': '', 'frozen': False, 'screen': False}   # 🕶 nothing shown
+    assert out == {'status': 'working', 'incognito': False, 'windows': [{'i': 0, 'model': 'gpt-x', 'status': 'working', 'host': 'mail.google.com', 'frozen': False, 'screen': True, 'last': False},
+                                                                         {'i': 1, 'model': 'b', 'status': 'human', 'host': 'x.com', 'frozen': True, 'screen': False, 'last': False}]}   # handed to its owner = frozen, no screen
+    assert fs.public_live(w, {'incognito': True})['windows'][0] == {'i': 0, 'model': 'gpt-x', 'status': 'working', 'host': '', 'frozen': False, 'screen': False, 'last': False}   # 🕶 nothing shown
     assert fs.public_live(None) == {'status': 'idle', 'windows': [], 'incognito': False}
 
 
@@ -173,5 +173,9 @@ def test_a_visitor_screen_is_a_cached_jpeg_never_a_link_and_incognito_costs_5_on
     monkeypatch.setitem(fs._WORK, 'g', {'pages': [Pg()], 'task': {'status': 'working', 'windows': [{'i': 0, 'status': 'working', 'url': 'https://x.com'}]}})
     assert c.get('/api/cats/g/screen/0').content == b'JPG' and c.get('/api/cats/g/screen/0').content == b'JPG' and len(shots) == 1   # cached: 1 capture
     assert c.get('/api/cats/g/screen/5').status_code == 404
+    fs._WORK['g']['task'] = {'status': 'done', 'windows': [{'i': 0, 'status': 'done', 'url': 'https://x.com'}]}   # 🖼 the task ended: its last page stays
+    r_ = c.get('/api/cats/g/screen/0'); assert r_.content == b'JPG' and r_.headers.get('X-Last-Page') == '1' and len(shots) == 1
+    assert fs.public_live(fs._WORK['g'], {'id': 'g'})['windows'][0]['last'] is True and fs.public_live(fs._WORK['g'], {'id': 'g', 'incognito': True})['windows'][0]['screen'] is False
+    fs._WORK['g']['task']['windows'][0]['status'] = 'human'; assert c.get('/api/cats/g/screen/0').status_code == 404   # handed to its owner: frozen, even the last frame
     store['cats']['g']['incognito'] = True
     assert c.get('/api/cats/g/screen/0').status_code == 404 and c.get('/api/cats/g/live').json()['incognito'] is True

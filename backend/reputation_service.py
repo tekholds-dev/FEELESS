@@ -19557,6 +19557,80 @@ async def admin_agent_slots_set(request: Request):
     return r_.json()
 
 
+COLONY_PATH = DATA_DIR / 'colony.json'
+
+
+async def _colony_value(addr):
+    """🐝 The pot's live value: SOL + USDC + FEECAT on its wallet (balance × live price). None when the chain can't be read."""
+    try:
+        sol_, usdc_, fc_, px_ = await asyncio.gather(token_balance(addr, WSOL), token_balance(addr, USDC_MINT),
+                                                     _holding_usd(addr, ecosystem_mints()['feecat']), _sol_usd())
+    except Exception:
+        return None
+    parts = {'sol': round(float(sol_.get('amount') or 0), 6), 'usdc': round(float(usdc_.get('amount') or 0), 2), 'feecatUsd': round(float(fc_ or 0), 2)}
+    return {**parts, 'usd': round(parts['sol'] * float(px_ or 0) + parts['usdc'] + parts['feecatUsd'], 2)}
+
+
+async def _colony_view():
+    import colony as _col
+    d = _json_load(COLONY_PATH, {})
+    try:
+        r_ = await _ai_http().get('http://127.0.0.1:5088/api/cats/internal/colony', headers={'x-feeless-internal': _internal_key()}, timeout=8)
+        live = r_.json() if r_.status_code == 200 else {}
+    except Exception:
+        live = {}
+    w = d.get('wallet') or {}
+    val = await _colony_value(w['address']) if w.get('address') else None
+    policy = _col.clean_policy(d.get('policy')); principal = float(d.get('principalUsd') or 0)
+    pay = _col.payable((val or {}).get('usd'), principal, policy) if val else 0.0
+    return {'wallet': {k: w.get(k) for k in ('address', 'at')} if w else None, 'value': val, 'principalUsd': round(principal, 2),
+            'growthUsd': _col.growth((val or {}).get('usd'), principal) if val else 0.0, 'payableUsd': pay, 'policy': policy,
+            'bounds': _col.POLICY_BOUNDS, 'guards': list(_col.FIXED_GUARDS), 'stakeMinUsd': _col.STAKE_MIN_USD,
+            'split': _col.split(live.get('board'), live.get('owners'), pay), 'board': (live.get('board') or [])[:10],
+            'colonized': live.get('colonized', 0), 'trades': live.get('trades', 0), 'epoch': live.get('epoch'), 'left': live.get('left'),
+            'browsers': live.get('browsers') or [], 'log': (d.get('log') or [])[-8:]}
+
+
+@app.get('/api/reputation/admin/colony')
+async def admin_colony(request: Request):
+    """🐝 Owner: the colony pot — its Circle wallet, live value, the locked principal, what may pay out this epoch and the honey split."""
+    _require_owner(request)
+    return await _colony_view()
+
+
+@app.post('/api/reputation/admin/colony')
+async def admin_colony_set(request: Request):
+    """🐝 Owner: create the pot's Circle wallet (one, ever) · lock today's value in as principal (only ever up) · set the guards.
+    Nothing here sends money: payouts are a proposal the owner approves after the timelock."""
+    import colony as _col
+    me_ = _require_owner(request)
+    body = await request.json() or {}
+    act = str(body.get('action') or '')
+    d = _json_load(COLONY_PATH, {}); now = int(time.time())
+    if act == 'create':
+        if not (d.get('wallet') or {}).get('address'):
+            import uuid as _uuid
+            r_ = await _circle('POST', '/wallets', {'blockchain': 'SOL', 'name': 'FEELESS colony pot', 'key': str(_uuid.uuid5(_uuid.NAMESPACE_URL, 'feeless-colony-pot'))}, agent=True)
+            w_ = (r_ or {}).get('wallet') or {}
+            if not w_.get('address'):
+                raise HTTPException(502, 'Circle did not make the wallet.')
+            d['wallet'] = {'address': w_['address'], 'id': w_.get('id'), 'at': now, 'by': str(me_)[:44]}
+    elif act == 'lock':
+        if not (d.get('wallet') or {}).get('address'):
+            raise HTTPException(400, 'Create the pot wallet first.')
+        val = await _colony_value(d['wallet']['address'])
+        if not val:
+            raise HTTPException(503, "Couldn't read the pot's balance — nothing changed.")
+        d['principalUsd'] = _col.raise_floor(d.get('principalUsd'), val['usd'])
+    elif act == 'policy':
+        d['policy'] = _col.clean_policy(body.get('policy'))
+    else:
+        raise HTTPException(400, 'Unknown colony action.')
+    d['log'] = (d.get('log') or [])[-40:] + [{'at': now, 'what': act, 'by': str(me_)[:8], 'principalUsd': d.get('principalUsd'), 'policy': d.get('policy')}]
+    _json_save(COLONY_PATH, d)
+    return await _colony_view()
+
+
 @app.get('/api/reputation/admin/ai/prompts')
 async def admin_ai_prompts(request: Request):
     """🎭 Owner: every model's live context (the layers it reads + its window), record, diagnosis and four prompt sets."""
@@ -33997,6 +34071,16 @@ async def internal_agent_x402_pay(request: Request, body: dict):
     if not signed_.get('signedTransaction'):
         raise HTTPException(502, 'Circle did not sign it.')
     return {'signedTransaction': signed_['signedTransaction']}
+
+
+@app.get('/api/reputation/internal/feecat-usd')
+async def internal_feecat_usd(request: Request, address: str = ''):
+    """🐝 The Colony's stake gate: $ of FEECAT this wallet holds (live balance × Jupiter price)."""
+    if not _internal_ok(request):
+        raise HTTPException(403, 'Internal only.')
+    if not _re.match(r'^[1-9A-HJ-NP-Za-km-z]{32,44}$', address or ''):
+        raise HTTPException(400, 'Not a wallet.')
+    return {'usd': round(float(await _holding_usd(address, ecosystem_mints()['feecat'])), 2)}
 
 
 @app.post('/api/reputation/internal/agent-circle-wallet')

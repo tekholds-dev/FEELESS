@@ -7,6 +7,7 @@ import { FeeModels } from './FeeModels';
 import NumInput from '../NumInput';
 import { FeeBrain } from './FeeBrain';
 import { PromptStudio } from './PromptStudio';
+import { ColonyPot } from './HiveBoard';
 import '../../styles/feecatDesk.css';
 
 // 🐱 FEE IN HQ (owner, 2026-10-16: "FeeCat's engine and HQ panel aren't remade, and the cat isn't trading"): one live board from ONE request
@@ -90,8 +91,8 @@ export function feeFunnel(scan) {
 }
 
 // 🐱 the creator's Fee desk as TABS (owner 2026-10-30: "clean this up to the new look, less clutter / scrolling — I need more behind the scenes, but tidy"):
-// her header always, then ONE pane at a time — what she's doing · her agents lane · her brain + rules · her wallet + style
-export const FCH_TABS = [['overview', '🛰 OVERVIEW', 'Why she trades or not, the duo read, open trades, her charts and tape'],
+// her header always, then ONE pane at a time — what she's doing · 👑 your platform tools · her agents lane · her brain + rules · her wallet + style
+export const FCH_TABS = [['overview', '🛰 OVERVIEW', 'Why she trades or not, the duo read, open trades, her charts and tape'], ['owner', '👑 OWNER', 'Platform tools only you have: the colony pot, agent slots, the browsers'],
   ['lane', '🎚 LANE', 'The agents lane she follows + what the duo learned'], ['brain', '🧠 BRAIN', 'Her style, rules and what she learned — edit and save'], ['prompts', '🎭 PROMPTS', 'Her record, the habits it shows and four mindsets written from it — you approve each'], ['wallet', '👛 WALLET + STYLE', "Her wallet (Circle / Crossmint) and her look"]];
 const FCH_KEY = 'feeless.fch.tab';
 const FEE_ONLY = ['fee'];
@@ -148,8 +149,8 @@ export function FeeCatDesk({ call }) {
     {tab === 'prompts' ? <PromptStudio call={call} only={FEE_ONLY} /> : null}
     {tab === 'lane' ? <div className="fch-grid"><AgentLane d={d} busy={busy} onSave={lane => save({ agentLane: lane })} /><DuoLearn learn={d.duoLearn} /></div> : null}
 
+    {tab === 'owner' ? <div className="fch-grid" data-testid="fch-owner"><ColonyPot call={call} /><AgentSlots call={call} /></div> : null}
     {tab === 'overview' ? <div className="fch-grid">
-      <AgentSlots call={call} />
       <article className="fch-card" data-testid="fch-funnel"><h4>🔎 WHY SHE {f.passed ? 'TRADES' : "ISN'T TRADING"}<small>{d.scan?.at ? `scan ${agoS(d.scan.at)}s ago` : 'no scan yet'}</small></h4>
         <p className="fch-flow"><span><b>{f.scanned}</b><small>coins read</small></span><i aria-hidden>→</i><span className={f.passed ? 'is-good' : 'is-bad'}><b>{f.passed}</b><small>passed her rules</small></span><i aria-hidden>→</i><span><b>{pos.length}</b><small>holding</small></span></p>
         {f.reasons.length ? <ul className="fch-bars">{f.reasons.map((r, i) => <li key={r.k} style={{ '--i': i }}><span>{r.k}</span><i><u style={{ transform: `scaleX(${Math.max(0.04, r.w)})` }} /></i><b>{r.c}</b></li>)}</ul> : <p className="fch-nil">nothing stopped — every coin read passed</p>}

@@ -1,3 +1,4 @@
+import os
 """🧭 GENERAL AI CAT orders (owner, 2026-10-23): plain words → one guarded proposal your wallet signs (paper = a paper fill). Network faked."""
 import time
 
@@ -118,3 +119,11 @@ def test_a_general_cat_never_hunts_on_its_own():
     assert "get('kind') == 'general'" in src and src.index("get('kind') == 'general'") < src.index('for score, reason, p in lane_')   # a general cat leaves before the buy loop (and its AI lane)
     assert lc.clean({'brains': ['a/b'], 'brainKind': 'general'})['kind'] == 'general' and lc.clean({'brains': ['a/b']})['kind'] == 'trading'
     assert lc.clean({'brains': ['a/b'], 'brainKind': 'trading'}, prev={'kind': 'general'})['kind'] == 'general'   # set once
+
+
+def test_the_ai_lane_skips_coins_she_is_cooling_on_and_keeps_the_paper_floor():
+    # 2026-10-31: the lane fired but always picked the 3 busiest near misses — all on her cooldown — and a quarter-size starter fell under 0.01 SOL, so it never asked
+    src = open(os.path.join(os.path.dirname(__file__), '..', 'feecat_service.py')).read()
+    i = src.index("lane_ = ranked"); j = src.index('for score, reason, p in lane_')
+    assert "cool_.get(x[2].get('pairAddress'), 0) >= R['cooldownHours'] * 3600" in src[i:j] and '[:3]' in src[i:j]
+    assert "if p.get('_brainLane') and size < 0.01 <= cat['balanceSol']" in src

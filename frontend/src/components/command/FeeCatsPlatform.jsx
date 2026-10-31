@@ -1,12 +1,11 @@
 import React, { Suspense, lazy, useCallback, useEffect, useState } from 'react';
 import NumInput from '../NumInput';
 import { createPortal } from 'react-dom';
-import { Activity, AlertTriangle, ArrowLeft, Cat, ChevronRight, Play, Plus, Trophy, X } from 'lucide-react';
+import { AlertTriangle, ArrowLeft, Cat, ChevronRight, Play, Plus, X } from 'lucide-react';
 import { CAT_VARIATIONS, CatAvatar, catByName } from './catCoats';
 import '../../styles/feecatPage.css';
 import '../../styles/catForge.css';
 
-import { tiny } from '../../lib/num';
 import { FundReceipt } from './FundReceipt';
 import { LaunchCat, BrainPanel } from './LaunchCat';
 import { LookAvatar, LookPicker, DEFAULT_LOOK } from './CatLook';
@@ -21,8 +20,7 @@ const FeeCatProfile = lazy(() => import('./FeeCatProfile').then(m => ({ default:
 const ProfileFeeBanner = lazy(() => import('./ProfileFeeCat').then(m => ({ default: m.ProfileFeeBanner })));
 import { AgentPicker, AGENT_MAX } from './AgentPicker';
 import { AgentScreen } from './CatWorkbench';
-import { HiveBoard } from './HiveBoard';
-import { AgentLeaderboard, LiveActivity } from './AgentBoards';
+import { ColonyGrid } from './HiveBoard';
 import { FeeOwnerBar } from './FeeOwnerBar';
 const api = async (path, options = {}) => {
   // 🔒 every cat action carries the signed-in wallet's session (the service refuses anyone else's cat, and anyone signed out)
@@ -35,16 +33,6 @@ const api = async (path, options = {}) => {
 };
 const ownerId = agentBrowserId;
 const money = value => `${Number(value || 0) >= 0 ? '+' : ''}${Number(value || 0).toFixed(4)} SOL`;
-const usd = value => Number(value) > 0 ? `$${Number(value).toLocaleString(undefined, { maximumFractionDigits: 0 })}` : 'MC unavailable';
-const eventSymbol = event => event.symbol || event.detail?.match(/\bof\s+([A-Z0-9_]{2,})\b/i)?.[1] || 'TRADE';
-const tradeCard = event => ({
-  kicker: `FEELESS · ${event.catName?.toUpperCase() || 'FEE'} TRADE RECEIPT`,
-  title: `$${eventSymbol(event)}`,
-  tone: event.type === 'SELL' && Number(event.pnlSol) < 0 ? 'down' : 'up',
-  big: event.type === 'BUY' ? 'ENTRY' : `${Number(event.pnlSol || 0) >= 0 ? '+' : '−'}${Math.abs(Number(event.pnlSol || 0)).toFixed(4)} SOL`,
-  lines: [event.type === 'BUY' ? `BUY · entry MC ${usd(event.marketCapUsd)}` : `SELL · entry MC ${usd(event.entryMarketCapUsd)} · exit MC ${usd(event.marketCapUsd)}`, event.priceNative ? `Execution price ${tiny(Number(event.priceNative), 6)} SOL` : 'Execution price unavailable', `Receipt ${event.id?.slice(0, 10) || '—'}`],
-  footer: 'FEELESS · trade receipt',
-});
 
 function PaperBadge() {   // 💵 the AI cats are real-first (its own wallet: you sign one funding; linked to yours: you sign each); paper is the test toggle
   return <span className="paper-badge" data-tip="Each agent gets its own wallet. You fund it once from yours; after that it trades from its own wallet inside the limits you set — nothing to sign per trade. FEELESS never sees your wallet's keys."><i /> ITS OWN WALLET · YOUR LIMITS</span>;
@@ -220,9 +208,7 @@ export default function FeeCatsPlatform() {
   const live = cats.filter(c => !c.revoked);   // 🤖 agents that count toward the 2-agent limit
   const TABS = [['cats', <><Cat size={14} /> My agents <span>{live.length}/{agentMax}</span></>, 'Your agents — trading and general — with their live P&L and jobs'],
     ['new', <><Plus size={14} /> New agent</>, 'A Trading AI cat or a General AI cat — models → your wallet → REAL · up to 2 agents'],
-    ['activity', <><Activity size={14} /> Live activity</>, 'Every cat\'s buys and sells as they happen'],
-    ['leaderboard', <><Trophy size={14} /> Leaderboard</>, 'Every agent ranked by its recorded trades on FEELESS, fees kept apart'],
-    ['hive', <>🐝 Hive</>, 'Proof of insight: agents read the trenches on their own and file calls — graded an hour on, right calls earn honey']];
+    ['colony', <>🐝 Colony</>, 'Every agent working, two windows each — colonized agents file graded calls and their trades are graded; honey splits the colony pot']];
   const on = k => (k === 'new' ? ['new', 'create', 'launch'].includes(view) : k === 'cats' ? ['cats', 'cat'].includes(view) : view === k);
   return <div className="fee-cats-platform fc-v2"><header className="paper-platform-head"><div><span className="eyebrow"><Cat size={14} /> AGENTS · CATS THAT TRADE FOR YOU</span><h1>Give your cat a <em>job.</em></h1><p>Your own AI agents — pick 1–2 models, a name, a look and limits. Each gets its own wallet: fund it once, and it works from there. A trader trades on FEELESS inside your limits; a general agent researches, builds and acts for you, and checks with you before spending until you switch it to auto.</p></div>
     <div className="paper-platform-actions"><PaperBadge /><span className="fc-slots" data-tip={`${live.length} of ${agentMax} agent slots used`} aria-label={`${live.length} of ${agentMax} agents`}>{Array.from({ length: agentMax }, (_, k) => <i key={k} className={k < live.length ? 'is-on' : ''} />)}</span></div></header>
@@ -231,10 +217,8 @@ export default function FeeCatsPlatform() {
     {view === 'new' && <AgentPicker count={live.length} onPick={pickKind} staff={isStaff} max={agentMax} />}
     {view === 'create' && isStaff && <CreateCat onCreated={created} onCancel={() => setView('cats')} presetAvatar={presetAvatar} />}
     {view === 'cat' && selected && <CatDetail onDeleted={id => { setCats(c => c.filter(x => x.id !== id)); setSelected(null); setView('cats'); }} cat={selected} onBack={() => setView('cats')} onChanged={cat => { setSelected(cat); setCats(current => current.map(item => item.id === cat.id ? cat : item)); }} />}
-    {view === 'activity' && <LiveActivity api={api} onOpen={openById} tradeCard={tradeCard} />}
     {view === 'launch' && <LaunchCat key={kind} kind={kind} api={api} ownerId={ownerId} onCreated={created} onCancel={() => setView('cats')} Fields={CatFields} newForm={() => catForm(presetAvatar)} formOk={catOk} avatarOf={i => (CAT_VARIATIONS[i] || CAT_VARIATIONS[0])[0]} Preview={CatPreview} />}
-    {view === 'leaderboard' && <AgentLeaderboard api={api} onOpen={openById} />}
-    {view === 'hive' && <HiveBoard api={api} />}
+    {view === 'colony' && <ColonyGrid api={api} onOpen={openById} face={a => <LookAvatar cat={catByName(a.avatar)} look={a.look} size={48} />} />}
     {view === 'cats' && isAdmin ? <Suspense fallback={null}><ProfileFeeBanner mine onOpen={() => openById({ id: 'leader' })} /></Suspense> : null}
     {view === 'cats' ? <SignInGate onIn={loadCats} /> : null}
     {view === 'cats' ? <RecoverAgent onBack={cat => { loadCats(); openCat(cat); }} /> : null}

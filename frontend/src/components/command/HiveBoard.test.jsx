@@ -17,13 +17,22 @@ test('🐝 the Hive board: epoch ring, filed / graded, a honeycomb cell per call
   expect(el.textContent).toContain('5h 00m');
 });
 
-test('🐝 the switch turns the Hive on at a pace through the owner op, and changes pace', async () => {
-  const sent = []; global.fetch = async (u, o) => { const b = JSON.parse(o.body); sent.push(b); return { ok: true, status: 200, json: async () => ({ hive: { on: b.on, every: b.cap } }) }; };
+test('🐝 Colonize opens the popout (what it is + the FEECAT stake), confirms at the picked pace, shows a refused stake, and leaves in one click', async () => {
+  const sent = []; let refuse = true;
+  global.fetch = async (u, o) => { const b = JSON.parse(o.body); sent.push(b); if (refuse && b.on) { refuse = false; return { ok: false, status: 402, json: async () => ({ detail: 'Colonizing needs $25 of FEECAT in your wallet — it holds $3.10.' }) }; } return { ok: true, status: 200, json: async () => ({ hive: { on: b.on, every: b.cap } }) }; };
   const el = document.createElement('div'); document.body.appendChild(el);
-  await act(async () => { createRoot(el).render(<HiveSwitch cat={{ id: 'h1', hive: { on: false, every: 300 } }} />); });
+  await act(async () => { createRoot(el).render(<HiveSwitch cat={{ id: 'h1', name: 'Kit', hive: { on: false, every: 300 } }} />); });
   await act(async () => { el.querySelector('[data-testid="hive-toggle"]').click(); });
-  expect(sent.at(-1)).toMatchObject({ op: 'hive', on: true, cap: 300 }); expect(el.querySelector('[data-testid="hive-toggle"]').textContent).toContain('ON');
+  expect(sent).toHaveLength(0); const pop = document.body.querySelector('[data-testid="colonize-pop"]');
+  expect(pop.textContent).toContain('$25 of FEECAT'); expect(pop.textContent).toContain('never pooled'); expect(pop.textContent).toContain('Colonize Kit');
+  await act(async () => { document.body.querySelector('[data-testid="colonize-pace-900"]').click(); });
+  await act(async () => { document.body.querySelector('[data-testid="colonize-go"]').click(); });
+  expect(sent.at(-1)).toMatchObject({ op: 'hive', on: true, cap: 900 }); expect(document.body.querySelector('[data-testid="colonize-err"]').textContent).toContain('holds $3.10');
+  await act(async () => { document.body.querySelector('[data-testid="colonize-go"]').click(); });
+  expect(document.body.querySelector('[data-testid="colonize-pop"]')).toBeNull(); expect(el.querySelector('[data-testid="hive-toggle"]').textContent).toContain('COLONIZED');
   const sel = el.querySelector('[data-testid="hive-pace"]');
-  await act(async () => { sel.value = '900'; sel.dispatchEvent(new Event('change', { bubbles: true })); });
-  expect(sent.at(-1)).toMatchObject({ op: 'hive', on: true, cap: 900 });
+  await act(async () => { sel.value = '3600'; sel.dispatchEvent(new Event('change', { bubbles: true })); });
+  expect(sent.at(-1)).toMatchObject({ op: 'hive', on: true, cap: 3600 });
+  await act(async () => { el.querySelector('[data-testid="hive-toggle"]').click(); });
+  expect(sent.at(-1)).toMatchObject({ op: 'hive', on: false });
 });

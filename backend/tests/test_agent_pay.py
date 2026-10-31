@@ -177,7 +177,7 @@ def test_the_hive_files_a_cell_per_agent_at_its_pace_grades_it_an_hour_on_and_fe
     asked = []
     async def think(cat, model, msgs, own=None, effort=None, max_tokens=None): asked.append(cat['id']); return '{"call": "BUY", "why": "volume 3x, chart up"}', 0.002, 'singit'
     monkeypatch.setattr(fs, '_think', think)
-    async def prices(http, pairs): return {'P1': 0.0125}
+    async def prices(http, pairs): return {'P1': {'pairAddress': 'P1', 'priceUsd': '0.0125'}}   # the real shape: DexScreener pair dicts (a bare number hid the grading bug)
     monkeypatch.setattr(fs, '_pair_prices', prices)
     t0 = 1_800_000_000.0
     assert asyncio.run(fs._hive_round(t0)) == (1, 0) and asked == ['h1']   # only the agent with the Hive on, one model call

@@ -60,6 +60,10 @@ if (DECK) {
   try { localStorage.setItem('feeless:cc-session', JSON.stringify({ address: FAKE, ts: Math.floor(Date.now() / 1000), sig: 'dev' })); localStorage.setItem('feeless.hq.tab', JSON.stringify(DECK)); } catch { /* private */ }
   const real = window.fetch.bind(window);
   const answer = body => Promise.resolve(new Response(JSON.stringify(body), { status: 200, headers: { 'Content-Type': 'application/json' } }));
+  const COLONY = { wallet: { address: '7xKXtg2CW87d97TXJSDpbD5jBkheTqA83TZRuJosgAsU', at: 1793480000 }, value: { sol: 6.2, usdc: 410, feecatUsd: 380, usd: 1985.4 }, principalUsd: 1500, growthUsd: 485.4, payableUsd: 97.08,
+    policy: { epochCapPct: 20, timelockH: 24 }, bounds: { epochCapPct: [5, 50], timelockH: [6, 72] }, guards: ['principalLock', 'allowlist', 'ownerSigns'], stakeMinUsd: 25, colonized: 7, trades: 31, epoch: 20757, left: 3400,
+    split: [{ cat: 'a', name: 'Scout Kit', owner: '9WzDXwBbmkg8ZTbNMqUxvQRAyrZzDsGYdLVL9zYtAWWM', honey: 14, pct: 58.3, usd: 56.6 }, { cat: 'b', name: 'Night Paw', owner: 'HN7cABqLq46Es1jh92dQQisAq662SmxELLLsHHe4YWrH', honey: 10, pct: 41.7, usd: 40.48 }],
+    board: [], browsers: ['kernel', 'steel', 'browserless', 'reader'], log: [] };
   window.fetch = (u, o = {}) => {
     const url = String(u?.url || u); const m = url.match(/\/api\/reputation(\/admin\/[^?]*|\/admin)/);
     if (!m) return real(u, o);
@@ -70,6 +74,7 @@ if (DECK) {
     if (path === '/admin/agents') return answer(live());
     if (path === '/admin/rpc') return answer(RPC);
     if (path === '/admin/agent-slots') return answer({ open: 250, taken: 173, left: 77, max: 1000 });   // 🎟 the slots card on a fixture
+    if (path === '/admin/colony') return answer(COLONY);   // 🏺 the colony pot on a fixture (the live one needs the owner's session)
     if (SNAP && (path === '/admin/feecat' || path === '/admin/ai/prompts')) return real(`/dev-${path === '/admin/feecat' ? 'feecat' : 'prompts'}.json`);   // 📸 ?snap: Fee's live desk + studio (gitignored copies)
     return answer({});
   };
