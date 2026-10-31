@@ -2605,7 +2605,9 @@ def public_live(w):
         host = str(x.get('url') or '').split('://')[-1].split('/')[0].split('?')[0][:60]
         steps = x.get('steps') or []
         out.append({'i': x.get('i'), 'model': str(x.get('model') or '').split('/')[-1][:40], 'status': x.get('status') or 'idle', 'host': host,
-                    'action': str((steps[-1] or {}).get('action') or '')[:20] if steps else '', 'steps': len(steps), 'provider': x.get('provider')})
+                    'action': str((steps[-1] or {}).get('action') or '')[:20] if steps else '', 'steps': len(steps), 'provider': x.get('provider'),
+                    'trail': [{'action': str(st.get('action') or '')[:20], 'host': str(st.get('detail') or '').split('://')[-1].split('/')[0].split('?')[0][:40] if st.get('action') == 'open' else '',
+                               'at': st.get('at')} for st in steps[-5:]][::-1]})   # 👀 its last 5 moves: the kind + the site, never what it typed or read
     return {'status': t.get('status') or 'idle', 'windows': out}
 
 
@@ -2817,6 +2819,8 @@ def public_cat(cat):
     out = {k: cat[k] for k in PUBLIC_CAT_KEYS if k in cat}
     if b:
         out['brainsCfg'] = {'kind': b.get('kind'), 'brains': list(b.get('brains') or [])[:2], 'cloud': list(b.get('cloud') or [])[-8:]}
+    if cat.get('agentWallet'):
+        out['hasWallet'] = True   # 👛 a real wallet exists — its address stays its owner's (S2 lock)
     return out
 
 

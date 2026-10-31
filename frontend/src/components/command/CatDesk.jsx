@@ -134,8 +134,8 @@ function useTheater(ref, on) {
   useLayoutEffect(() => { if (!on) return undefined; const root = document.documentElement; const was = root.style.overflow;
     const place = () => { const el = ref.current; const main = el?.closest('.terminal-main') || document.querySelector('.terminal-main'); if (!el) return;
       const r = main ? main.getBoundingClientRect() : { left: 0, top: 0 }; el.style.setProperty('--th-l', `${Math.max(0, Math.round(r.left))}px`); el.style.setProperty('--th-t', `${Math.max(0, Math.round(r.top + window.scrollY))}px`); };
-    window.scrollTo(0, 0); root.style.overflow = 'hidden'; place(); window.addEventListener('resize', place);
-    return () => { root.style.overflow = was; window.removeEventListener('resize', place); }; }, [ref, on]);
+    window.scrollTo(0, 0); root.style.overflow = 'hidden'; document.body.classList.add('kd-theater-on'); place(); window.addEventListener('resize', place);
+    return () => { root.style.overflow = was; document.body.classList.remove('kd-theater-on'); window.removeEventListener('resize', place); }; }, [ref, on]);
 }
 export function CatDesk({ cat, busy = false, error = '', onBack, onAct, Activity = null, Brains = null, Engine = null, Real = null, Tools = null, canEdit = true }) {   // canEdit: its owner (visitors from the leaderboard see the view, never the controls)
   const isReal = cat.mode === 'real' && !!cat.realWallet;
@@ -150,7 +150,7 @@ export function CatDesk({ cat, busy = false, error = '', onBack, onAct, Activity
   const aw = cat.agentWallet; const gen = cat.brainsCfg?.kind === 'general'; const bal = useAgentWallet(cat.id, !!aw)?.balance || {};   // 💵 a real agent's desk shows its real wallet, never paper numbers
   const today = new Date().toISOString().slice(0, 10); const credit = Number(cat.brainsCfg?.credit ?? 0); const spentAll = Number(cat.brainsCfg?.spent || 0); const spentDay = Number(cat.brainsCfg?.daySpend?.[today] || 0); const dayCap = Number(cat.limits?.dayUsd || 0);
   const realCoins = Object.entries(cat.realHeld || {}); const realTrades = (cat.agentTx || []).filter(t => t.status === 'success').length;
-  const copy = async () => { try { await navigator.clipboard.writeText(aw?.address || cat.wallet); setCopied(true); setTimeout(() => setCopied(false), 1500); } catch { /* blocked */ } };
+  const copy = async () => { try { if (!aw && (cat.hasWallet || gen)) return; await navigator.clipboard.writeText(aw?.address || cat.wallet); setCopied(true); setTimeout(() => setCopied(false), 1500); } catch { /* blocked */ } };
   const { wallet, signMessage } = useWallet() || {};
   const saveSkin = async sk => { if (!canEdit) return; const look = { bg: sk.bg, acc: sk.acc };   // Fee's look is the creator's signed change; any other agent's, its owner's
     try { if (cat.isLeader) { const address = wallet?.address; if (!address) return; onAct('skin', { look, address, session: await getChatSession(address, signMessage, { own: true }) }); } else onAct('skin', { look }); } catch { /* declined */ } };
@@ -169,7 +169,7 @@ export function CatDesk({ cat, busy = false, error = '', onBack, onAct, Activity
         <h1>{cat.name}<small>@{cat.handle}</small></h1>
         <p className="kd-line">{cat.brainsCfg ? `🧠 ${cat.brainsCfg.brains.map(x => x.split('/').pop()).join(' + ')} · ${cat.brainsCfg.brainMode}` : `⚙ ${cat.strategyLabel || 'Rule trader'} · the Leader's engine`}</p>
         <div className="kd-xp" data-tip={`Level ${cat.level || 1} · ${cat.xp || 0} / ${xpNext} XP — closed trades earn XP`}><b>LVL {cat.level || 1}</b><u><s style={{ transform: `scaleX(${Math.max(0.02, xpFill)})` }} /></u><small>{cat.xp || 0} XP</small></div>
-        <button type="button" className="kd-wallet" onClick={copy} data-tip={aw ? 'Its real wallet address' : 'Its paper wallet id — no keys, no real SOL'} data-testid="kd-wallet"><span>{aw ? 'ITS WALLET' : 'PAPER WALLET'}</span><b>{short(aw?.address || cat.wallet)}</b><Copy size={12} />{copied ? <em>copied</em> : null}</button>
+        <button type="button" className="kd-wallet" onClick={copy} data-tip={aw ? 'Its real wallet address — tap to copy' : cat.hasWallet ? 'Its real wallet — only its owner sees the address (sign in)' : gen ? 'No wallet yet — its owner gives it one' : 'Its paper wallet id — no keys, no real SOL'} data-testid="kd-wallet"><span>{aw || cat.hasWallet ? 'ITS WALLET' : gen ? 'WALLET' : 'PAPER WALLET'}</span><b>{aw ? short(aw.address) : cat.hasWallet ? 'private' : gen ? 'none yet' : short(cat.wallet)}</b><Copy size={12} />{copied ? <em>copied</em> : null}</button>
         {Engine}
       </div>
       <div className="kd-acts m-seg" role="group" aria-label="Run the agent">

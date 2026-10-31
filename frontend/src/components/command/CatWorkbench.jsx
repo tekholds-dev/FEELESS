@@ -257,6 +257,9 @@ function PublicMinds({ cat }) {
             <u className="cwb-pub-bar" aria-hidden="true"><s style={{ transform: `scaleX(${Math.min(1, (w.steps || 0) / 30)})` }} /></u>
             <small className="cwb-pub-note">🔒 the page itself is private to its owner</small>
             {go ? <p className={`agd-done is-on cwb-say at-${i % 2 ? 'right' : 'left'}`}>MIND {'AB'[i]} · {w.action || 'working'} on {w.host || '…'}</p> : null}</div></div>
+        <ol className="cwb-trail" aria-label={`Mind ${'AB'[i]} live activity`} data-testid={`cwb-trail-${i}`}><li className="cwb-trail-h">LIVE ACTIVITY</li>
+          {(w.trail || []).length ? w.trail.map((x, j) => <li key={`${x.at}-${j}`} style={{ '--i': j }}><b>{String(x.action || '').toUpperCase()}</b><span>{x.host || ''}</span><small>{x.at ? `${ago(x.at)} ago` : ''}</small></li>)
+            : <li className="cwb-trail-none">no moves yet — waiting for its owner's ask</li>}</ol>
       </article>; })}</div>
     <MindRail w={wins[1] || { i: 1, status: 'idle' }} side="right" d={d} /></div>
     {agreed ? <p className="cwb-agreed" data-tip="What both minds agreed on last — kept in its cloud">☁ {agreed.text || `${agreed.word} $${agreed.sym}`}</p> : null}

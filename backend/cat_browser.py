@@ -180,6 +180,8 @@ def needs_human(url, text):
     u, t = str(url or '').lower(), str(text or '').lower()[:4000]
     if re.search(r'captcha|verify you are human|are you a robot', t):
         return 'a CAPTCHA — only you can pass it'
+    if re.search(r'just a moment\.\.\.|checking your browser|security checkpoint|performing security verification|unusual traffic|attention required', t) or '/sorry/' in u or 'cdn-cgi/challenge' in u:
+        return 'a bot check (Cloudflare / a checkpoint) — pass it in the window, or save a sign-in for this site in Credentials'
     if re.search(r'/(login|signin|sign-in|signup|sign-up|register|auth)\b', u) or re.search(r'\b(sign in|log in|create (an )?account)\b.{0,80}\bpassword\b', t):
         return 'a sign-in / sign-up — you type your own details in the window (FEELESS never sees them)'
     return None

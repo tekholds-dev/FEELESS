@@ -115,7 +115,8 @@ def test_the_public_live_view_shows_hosts_and_step_kinds_never_the_page():
     w = {'task': {'status': 'working', 'text': 'my secret ask', 'windows': [{'i': 0, 'model': 'openai/gpt-x', 'status': 'working', 'url': 'https://mail.google.com/inbox/secret?u=me',
          'shot': True, 'live': 'https://steel/x', 'pw': {'pw': 'hunter2'}, 'steps': [{'action': 'type', 'thought': 'typing the password', 'detail': 'hunter2'}]}]}}
     out = fs.public_live(w)
-    assert out == {'status': 'working', 'windows': [{'i': 0, 'model': 'gpt-x', 'status': 'working', 'host': 'mail.google.com', 'action': 'type', 'steps': 1, 'provider': None}]}
+    assert out == {'status': 'working', 'windows': [{'i': 0, 'model': 'gpt-x', 'status': 'working', 'host': 'mail.google.com', 'action': 'type', 'steps': 1, 'provider': None,
+                                                     'trail': [{'action': 'type', 'host': '', 'at': None}]}]}
     assert fs.public_live(None) == {'status': 'idle', 'windows': []}
 
 
@@ -146,3 +147,16 @@ def test_feeless_services_read_the_full_record_with_the_internal_key(monkeypatch
     (fs.DATA_DIR / 'internal.key').parent.mkdir(parents=True, exist_ok=True); (fs.DATA_DIR / 'internal.key').write_text('k')
     assert 'AGENTW' in c.get('/api/cats/g', headers={'x-feeless-internal': 'k'}).text
     assert 'AGENTW' not in c.get('/api/cats/g', headers={'x-feeless-internal': 'guess'}).text and 'AGENTW' not in c.get('/api/cats/g').text
+
+
+def test_a_visitor_sees_that_it_has_a_wallet_and_its_last_moves_never_what_it_read_or_typed():
+    import feecat_service as fs
+    cat = {'id': 'a', 'name': 'A', 'agentWallet': {'address': 'AgEnTwa11et', 'mode': 'auto', 'secret': 'nope'}, 'wallet': 'paper-x'}
+    pub = fs.public_cat(cat)
+    assert pub['hasWallet'] is True and 'AgEnTwa11et' not in str(pub) and 'nope' not in str(pub)   # S2: the address stays its owner's
+    w = {'task': {'status': 'working', 'windows': [{'i': 0, 'model': 'm/a', 'status': 'working', 'url': 'https://x.com/home',
+          'steps': [{'action': 'search', 'detail': 'my secret query', 'at': 1}, {'action': 'open', 'detail': 'https://www.coindesk.com/policy?x=1', 'at': 2},
+                    {'action': 'type', 'detail': 'hunter2', 'at': 3}]}]}}
+    trail = fs.public_live(w)['windows'][0]['trail']
+    assert [t['action'] for t in trail] == ['type', 'open', 'search'] and trail[1]['host'] == 'www.coindesk.com'
+    assert 'secret query' not in str(trail) and 'hunter2' not in str(trail)

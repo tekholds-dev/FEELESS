@@ -47,7 +47,7 @@
 /* N09 (owner screenshot 2026-10-29): the art had no box of its own, so its svg (width 100%) fell back to the browser's 300×150 default and the
    cat + its "fCat" tag spilled over the chip. The art fills the 36px box; the tag stays off here (the chip already says the name). */
 .fcx-mine .clk > .feeless-cat-art { width: 100%; height: 100%; } .fcx-mine .clk .feeless-cat-art > svg { width: 100% !important; height: 100% !important; }
-.fcx-mine .clk-tag { display: none; } .fcx-mine .clk-aura { inset: -2px; }
+.fcx-mine .clk-tag { display: none; } .fcx-mine .clk-aura { width: 104%; }   /* (owner 2026-10-31) `inset` here overrode the aura's centring — its ring sat up-left, outside the chip */
 .fcx-body { display: grid; grid-template-columns: minmax(0, 1fr); gap: 14px; min-width: 0; }
 .fcx { grid-template-columns: minmax(0, 1fr); } .fcx-body > * { min-width: 0; }
 

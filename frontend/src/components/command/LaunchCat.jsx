@@ -9,6 +9,7 @@ import { useMyCat } from '../../lib/myCat';
 import { FundReceipt } from './FundReceipt';
 import { AgentDemo } from './AgentDemo';
 import { AgentCritter } from './Critters';
+import { FeeCatMark } from '../FeeCatMark';
 import '../../styles/launchCat.css';
 
 // 🚀 LAUNCH A CAT (owner, 2026-10-20): pick up to two AI brains from OpenRouter's whole public list, choose how they work together, write
@@ -179,6 +180,7 @@ function MindGlass({ m, k, gen, onPick }) {
 // its body in the general setup: the agent you built (cat / queen ant / fly / ants)
 function BodyPreview() {
   const mine = useMyCat(); const coat = CAT_VARIATIONS[mine?.coat ?? 0] || CAT_VARIATIONS[0];
+  if (!mine) return <FeeCatMark size={86} />;   // 🐱 (owner 2026-10-31) FeeCat stands in until you've built your own
   return mine?.agent?.species && mine.agent.species !== 'cat' ? <AgentCritter agent={mine.agent} size={86} /> : <LookAvatar cat={[coat[0], coat[1], coat[2], mine?.pattern || coat[3]]} look={mine?.look} size={86} />;
 }
 export function BrainSocket({ picked, mood, kind = 'trading' }) {
@@ -187,7 +189,7 @@ export function BrainSocket({ picked, mood, kind = 'trading' }) {
   return <div className={`lct-socket n-${picked.length}`} aria-hidden="true">
     <svg className="lct-wires" viewBox="0 0 220 120" preserveAspectRatio="none">{slots.map((m, i) => <path key={i} className={`w w${i}${m ? ' on' : ''}`} d={i ? 'M188 30 C 160 30, 150 58, 118 60' : 'M32 30 C 60 30, 70 58, 102 60'} />)}</svg>
     {slots.map((m, i) => <span key={i} style={i > 1 ? { top: 95 + (i - 2) * 20, left: 10, fontSize: 10, width: 28, height: 28 } : undefined} className={`lct-node n${i}${m ? ' on has-bub' : ''}`}>{m ? <Bubble m={m} i={i} kind={kind} size={i > 1 ? 28 : 56} /> : '+'}<u>{String.fromCharCode(65 + i)}</u></span>)}
-    <span className="lct-cat">{mine?.agent?.species && mine.agent.species !== 'cat' ? <AgentCritter agent={mine.agent} size={78} gesture={mood === 'pounce' || mood === 'celebrate' ? 'march' : null} /> : <LookAvatar cat={[coat[0], coat[1], coat[2], mine?.pattern || coat[3]]} look={mine?.look} size={92} gesture={mood} />}</span>
+    <span className="lct-cat">{!mine ? <FeeCatMark size={86} /> : mine?.agent?.species && mine.agent.species !== 'cat' ? <AgentCritter agent={mine.agent} size={78} gesture={mood === 'pounce' || mood === 'celebrate' ? 'march' : null} /> : <LookAvatar cat={[coat[0], coat[1], coat[2], mine?.pattern || coat[3]]} look={mine?.look} size={92} gesture={mood} />}</span>
   </div>;
 }
 

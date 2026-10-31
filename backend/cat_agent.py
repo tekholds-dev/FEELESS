@@ -13,6 +13,7 @@ signal (the wallet / their auto-sign settings) — nothing here can spend from a
 import asyncio
 import json
 import re
+import time
 from cat_policy import RESEARCH_ACTIONS, RULES, refusal, research_ok
 
 STEP_MAX = 8
@@ -124,7 +125,7 @@ async def _ask(task, w, ask, model, messages):
 
 def _step(w, thought, action, detail=''):
     w['bubble'] = f"{thought}" if thought else action
-    w['steps'] = (w['steps'] + [{'action': action, 'thought': str(thought or '')[:120], 'detail': str(detail or '')[:160]}])[-40:]
+    w['steps'] = (w['steps'] + [{'action': action, 'thought': str(thought or '')[:120], 'detail': str(detail or '')[:160], 'at': time.time()}])[-40:]
 
 
 async def _window(task, w, ask, page, wait_human, name, feeless=None):
