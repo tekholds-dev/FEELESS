@@ -43,7 +43,8 @@ ACT_SYS = ('You are {name}, an AI model working in your OWN web browser for a FE
            'Put artifact / note / handoff content in say. '
            'STUCK: never repeat a failed action more than twice: try another route, or report it. Needing the human never ends your work: ask with "human", saying exactly what you need, and carry on with whatever does not depend on it. '
            'Near the $ cap, stop and deliver what is done. '
-           'Finish with "answer" (with the sources you used) within {steps} steps.')
+           'Finish with "answer" within {steps} steps: say = at most 4 short lines — the pick, the 2-3 numbers you READ on the page, the source. No essays. '
+           'Never answer before you opened the site the task names.')
 MERGE_SYS = ('Combine the two halves (and their scratch notes) into ONE clear answer for the user, keep the sources, say what is still uncertain. '
              'Then pick the few facts worth keeping for next time — only what BOTH halves support or what is clearly vital. Answer ONLY JSON: '
              '{"answer": "<plain text, short>", "keep": ["<fact + source>", "..."]}')
@@ -111,6 +112,31 @@ class Stopped(Exception):
     pass
 
 
+SITE_RE = re.compile(r'(?i)(?<![@\w.])((?:https?://)?(?:[a-z0-9-]+\.)+[a-z]{2,10}(?:/[^\s"\')]*)?)')
+
+
+def full_url(u):
+    """🔗 "pump.fun" → "https://pump.fun" (owner 2026-10-31: a model's bare address was refused 8× and the window never left about:blank)."""
+    u = str(u or '').strip().rstrip('.,;')
+    return u if not u or '://' in u else 'https://' + u.lstrip('/')
+
+
+DONE_WORDS = frozenset({'report', 'final', 'final_answer', 'done', 'finish', 'respond', 'reply', 'result'})
+
+
+def same_page(at, url):
+    """pump.fun/ == https://pump.fun == pump.fun/?__cf_chl_rt_tk=… (same host + path, query ignored)."""
+    from urllib.parse import urlsplit
+    a, b = urlsplit(str(at or '')), urlsplit(full_url(url))
+    return bool(a.hostname) and (a.hostname or '').removeprefix('www.') == (b.hostname or '').removeprefix('www.') and a.path.rstrip('/') == b.path.rstrip('/')
+
+
+def named_site(goal):
+    """The site the ask names ("Browse pump.fun …") → its address, or None."""
+    m = SITE_RE.search(str(goal or ''))
+    return full_url(m.group(1)) if m and not m.group(1).lower().startswith(('e.g', 'i.e')) else None
+
+
 async def _ask(task, w, ask, model, messages):
     # One in-flight model call per task: concurrent windows cannot both spend the same remaining budget.
     lock = task.setdefault('_ask_lock', asyncio.Lock())
@@ -143,17 +169,32 @@ async def _window(task, w, ask, page, wait_human, name, feeless=None):
     w['status'] = 'working'
     seen = ''
     n_max = int(task.get('stepsMax') or STEP_MAX)
+    site = named_site(w['goal'])
+    if site and (research_ok(site) if task.get('research') else True):   # 🧭 the ask names a site → its window opens there first (a model once answered "I haven't visited pump.fun")
+        try:
+            seen = w['_page'] = await page.goto(site)
+            w['url'], w['title'] = page.url, page.title
+            _step(w, f'opening {site.split("://")[-1]}', 'open', site)
+        except Exception as e:
+            seen = f'(could not open {site}: {str(e)[:120]})'
     for _n in range(n_max):
         mine = (task.get('clouds') or {}).get(w['i']) or []   # ☁ its own cloud from earlier tasks
         got = [h['text'] for h in task.get('handoffs') or [] if h['from'] != w['i']][-4:]   # 📦 what its partner handed over
         extra = (f"\nYOUR CLOUD (your notes from earlier tasks): {' | '.join(mine)[:600]}" if mine else '') + (f"\nFROM YOUR PARTNER: {' | '.join(got)[:900]}" if got else '')
         if task.get('research'):   # 📰 a trader: FEELESS's chart first, then the chart's own research doors (X search by the contract — signed in when the owner saved X)
             extra += RESEARCH_HOW
-        msgs = [{'role': 'system', 'content': RULES + '\nEnabled tools: ' + str(task.get('tools', {})) + '\n' + ACT_SYS.format(name=name, goal=w['goal'], steps=n_max) + extra},
-                {'role': 'user', 'content': f"URL: {page.url or '(blank)'}\nTITLE: {page.title or ''}\nPAGE:\n{seen[:READ_MAX]}"}]
+        # the job + JSON format lead: a short-context model (the free backup keeps the first 4,000 chars) once lost both and answered in prose
+        msgs = [{'role': 'system', 'content': ACT_SYS.format(name=name, goal=w['goal'], steps=n_max) + extra + '\n' + RULES + '\nEnabled tools: ' + str(task.get('tools', {}))},
+                {'role': 'user', 'content': f"URL: {page.url or '(blank)'}\nTITLE: {page.title or ''}\n"
+                 + ('This page is OPEN in your window — read it first; answer from it when it holds what the task needs (another load can hit a bot check).\n' if str(page.url or '').startswith('http') else '')
+                 + f"PAGE:\n{seen[:READ_MAX]}"}]
         raw = await _ask(task, w, ask, w['model'], msgs)
         a = parse_json(raw)
         act = str(a.get('action') or '').lower()
+        if act in DONE_WORDS:   # "report" / "final" / "done" = its answer (a real run was refused twice for saying "report")
+            act, a['say'] = 'answer', a.get('say') or '; '.join(f'{k}: {v}' for k, v in a.items() if k not in ('action', 'thought', 'url', 'text', 'label', 'value', 'tool', 'q') and v)
+        if act in ('open', 'ask_login') and a.get('url'):
+            a['url'] = full_url(a['url'])
         thought = str(a.get('thought') or '').strip()
         if task.get('research') and act not in RESEARCH_ACTIONS:   # 📰 a trader's window only reads coins + narrative
             _step(w, f'research only: no "{act}"', 'refused')
@@ -182,6 +223,8 @@ async def _window(task, w, ask, page, wait_human, name, feeless=None):
                 continue
             w['asked'].append(key_)
             seen, coin = await feeless(a.get('tool'), a.get('q') or '') if feeless else ('FEELESS tools are not connected right now.', None)
+            if w.get('_page'):   # 📄 the page it read stays in view — it never has to reload it (pump.fun's bot check fires on a reload)
+                seen = f"{str(seen)[:READ_MAX // 2]}\n\nTHE PAGE STILL OPEN IN YOUR WINDOW ({page.url}):\n{w['_page'][:READ_MAX // 2]}"
             if coin:
                 w['coin'] = coin
             w['url'], w['title'] = f"feeless:{str(a.get('tool') or '')[:12]}", 'FEELESS'
@@ -226,7 +269,9 @@ async def _window(task, w, ask, page, wait_human, name, feeless=None):
             w['human'] = {'why': str(a.get('why') or thought or 'a person is needed here')[:160], 'url': page.url}
         else:
             try:
-                if act == 'open':
+                if act == 'open' and same_page(page.url, a.get('url')):   # already there: what it read, never a reload (a reload of pump.fun tripped Cloudflare)
+                    seen = w.get('_page') or await page.read()
+                elif act == 'open':
                     seen = await page.goto(str(a.get('url') or ''))
                 elif act == 'search':
                     seen = await page.search(str(a.get('q') or w['goal']))
@@ -247,6 +292,8 @@ async def _window(task, w, ask, page, wait_human, name, feeless=None):
                 if isinstance(e, ValueError):
                     task.setdefault('refusals', []).append(str(e)[:160])
             w['url'], w['title'] = page.url, page.title
+            if act in ('open', 'search', 'click') and seen and not str(seen).startswith('('):
+                w['_page'] = str(seen)
             from cat_browser import needs_human
             why = needs_human(page.url, seen)
             if why:
@@ -339,5 +386,5 @@ def _clean(task):
     A window's live password leaves the window here (task['logins'] carries it to the sealed vault at settle, then is cleared)."""
     for w in task['windows']:
         w['scratchN'] = len(w.get('scratch') or []); w['best'] = (w.get('scratch') or [])[-MIND_KEEP:]; w['scratch'] = []   # ☁ its best notes → its own cloud
-        w.pop('pw', None)
+        w.pop('pw', None); w.pop('_page', None)
     return task

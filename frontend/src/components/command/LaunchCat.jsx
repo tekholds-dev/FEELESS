@@ -411,7 +411,7 @@ export function BriefCard({ cat, act, api }) {
 
 // 🧠 a launched cat's brains: credit tank, decisions, the brief, battle records, chime in, pull / top up — re-read every 10s
 export function BrainPanel({ cat, api, onChanged, noTalk = false }) {   // noTalk: the desk's cockpit carries its calls + your chime-ins
-  const b = cat.brainsCfg; const [text, setText] = useState(''); const [err, setErr] = useState(''); const [keys, setKeys] = useState({}); const [busy, setBusy] = useState(false);
+  const b = cat.brainsCfg; const [text, setText] = useState(''); const [err, setErr] = useState('');
   useEffect(() => { const t = setInterval(() => { if (!document.hidden) api(`/api/cats/${cat.id}`).then(r => r?.cat && onChanged?.(r.cat)).catch(() => {}); }, 10000); return () => clearInterval(t); }, [api, cat.id, onChanged]);
   if (!b) return null;
   const act = async (action, extra = {}) => { setErr(''); try { const r = await api(`/api/cats/${cat.id}/action`, { method: 'POST', body: JSON.stringify({ action, ...extra }) }); onChanged?.(r.cat); return true; } catch (e) { setErr(e.message); return false; } };
@@ -428,10 +428,7 @@ export function BrainPanel({ cat, api, onChanged, noTalk = false }) {   // noTal
     {b.prompt ? <details className="lct-fold"><summary>📜 Its one-time brief (locked)</summary><p>{b.prompt}</p></details> : null}
     {noTalk ? null : <ul className="lct-dec">{(b.decisions || []).slice(-8).reverse().map((x, i) => <li key={`${x.at}-${i}`} style={{ '--i': i }} className={WORD[x.word] || ''}><b>{x.word}</b><span>${x.sym} · {x.by}</span><small>{x.why}</small></li>)}
       {!(b.decisions || []).length ? <li className="lct-load">No decision yet — the first comes before its first buy.</li> : null}</ul>}
-    {b.kind === 'general' ? <><BriefCard cat={cat} act={act} api={api} /><OrderBox cat={cat} act={act} /></> : <><VenuePick value={cat.venues || ['trench']} onChange={v => act('venues', { venues: v })} />
-      <ApiDrawer rows={cat.apiDrawer} draft={keys} onDraft={(k, v) => setKeys(x => ({ ...x, [k]: v.trim() }))} busy={busy}
-        onSave={async (k, v) => { setBusy(true); if (await act('api_key', { provider: k, secret: v })) setKeys(x => ({ ...x, [k]: '' })); setBusy(false); }}
-        onDrop={async k => { setBusy(true); await act('api_key', { provider: k }); setBusy(false); }} /></>}
+    {b.kind === 'general' ? <><BriefCard cat={cat} act={act} api={api} /><OrderBox cat={cat} act={act} /></> : <VenuePick value={cat.venues || ['trench']} onChange={v => act('venues', { venues: v })} />}{/* 🔑 its API keys live in its file cabinet (🔑 API keys), never a second copy here — owner 2026-10-31 */}
     {noTalk ? null : <form className="lct-chime" onSubmit={async e => { e.preventDefault(); if (text.trim() && await act('chime', { text })) setText(''); }}>
       <input className="m-input" maxLength={280} value={text} onChange={e => setText(e.target.value)} placeholder="Chime in — advice it reads, never an order" data-testid="brain-chime" /><button type="submit" className="m-btn">💬 Send</button></form>}
     {(b.chime || []).length ? <p className="lct-note">Last said: “{b.chime[b.chime.length - 1].text}”</p> : null}

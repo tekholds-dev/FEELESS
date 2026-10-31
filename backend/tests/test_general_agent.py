@@ -645,4 +645,7 @@ def test_a_task_cut_off_by_a_restart_is_filed_to_resume_never_lost():
     assert fs.file_interrupted(cat, now=5) and 'workNow' not in cat
     assert cat['workParked'][0]['text'].startswith('B: browse pump.fun') and 'restarted' in cat['workParked'][0]['why'] and 'restarted' in cat['chat'][-1]['text']
     assert not fs.file_interrupted(cat)
+    done = {'id': 'd', 'workNow': {'text': 'A: browse pump.fun', 'at': 1}, 'chat': [{'by': 'cats', 'text': 'answered', 'at': 2}]}
+    assert not fs.file_interrupted(done) and 'workNow' not in done and 'workParked' not in done   # it already answered: nothing to resume
+    assert 'workNow' not in fs.OWNER_KEYS   # engine state: an owner's remembered copy must never bring a finished ask back
     assert 'workNow' not in fs._no_keys({'workNow': {'text': 'secret ask'}, 'name': 'x'})

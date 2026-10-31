@@ -37,13 +37,17 @@ def provider_model(model):
 
 
 def free_messages(messages):
-    """Fit a call into the free tier's 4,000 chars: the system prompt keeps its head, the last message its tail."""
+    """Fit a call into the free tier's 4,000 chars: the system prompt keeps its head (≤ half), every other message its head AND tail
+    (an agent's page leads with the list it must read, a question ends with what is asked)."""
     ms = [dict(m) for m in messages or []]
+    for m in ms:
+        if m.get('role') == 'system' and len(str(m.get('content') or '')) > FREE_MAX_CHARS // 2:
+            m['content'] = str(m['content'])[:FREE_MAX_CHARS // 2]
     while sum(len(str(m.get('content') or '')) for m in ms) > FREE_MAX_CHARS and ms:
         big = max(ms, key=lambda m: len(str(m.get('content') or '')))
         c = str(big.get('content') or '')
-        over = sum(len(str(m.get('content') or '')) for m in ms) - FREE_MAX_CHARS
-        big['content'] = c[:max(0, len(c) - over - 1)] if big.get('role') == 'system' else c[over + 1:]
+        keep = max(0, len(c) - (sum(len(str(m.get('content') or '')) for m in ms) - FREE_MAX_CHARS) - 3)
+        big['content'] = c[:keep] if big.get('role') == 'system' else (c[:keep * 3 // 5] + ' … ' + c[len(c) - keep * 2 // 5:] if keep else '')
         if not big['content']:
             ms.remove(big)
     return ms

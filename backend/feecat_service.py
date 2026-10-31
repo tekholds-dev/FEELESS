@@ -87,7 +87,7 @@ def _load() -> dict:
 
 # 🔒 The engine loads every cat, works for minutes, then saves its whole copy: anything an owner did meanwhile was wiped (owner 2026-10-30: a new agent wallet vanished
 # seconds after it was made). What an owner's action sets is kept here and laid over every save, so an old copy can never lose a wallet, a funding or a limit.
-OWNER_KEYS = ('secrets', 'workNow', 'agentWallet', 'agentFunded', 'creditPaid', 'recovery', 'recoverySet', 'recoveryConfirmedAt', 'limits', 'taskCap', 'ownerId', 'mode', 'realWallet', 'budgetSol', 'paperByOwner', 'files', 'ownerWallet', 'logins', 'cloudLink', 'vaultLog', 'earn', 'clarify', 'ownerStaff', 'pass', 'treasury', 'siteSessions')
+OWNER_KEYS = ('secrets', 'agentWallet', 'agentFunded', 'creditPaid', 'recovery', 'recoverySet', 'recoveryConfirmedAt', 'limits', 'taskCap', 'ownerId', 'mode', 'realWallet', 'budgetSol', 'paperByOwner', 'files', 'ownerWallet', 'logins', 'cloudLink', 'vaultLog', 'earn', 'clarify', 'ownerStaff', 'pass', 'treasury', 'siteSessions')
 _KEPT: dict = {}
 
 
@@ -2406,6 +2406,8 @@ def file_interrupted(cat, now=None):
     n_ = cat.pop('workNow', None)
     if not n_ or not n_.get('text'):
         return False
+    if any(m.get('by') == 'cats' and float(m.get('at') or 0) > float(n_.get('at') or 0) for m in cat.get('chat') or []):   # it already answered — nothing was cut off
+        return False
     cat['workParked'] = (list(cat.get('workParked') or []) + [{'at': now or time.time(), 'text': n_['text'], 'why': 'the agent service restarted while it worked — press ▶ to run it again'}])[-WORK_QUEUE_MAX:]
     cat['chat'] = (list(cat.get('chat') or []) + [{'by': 'cats', 'text': '⏸ The agent service restarted while I worked on this — it is filed under ⏸; press ▶ to run it again.', 'at': now or time.time()}])[-40:]
     return True
@@ -2484,7 +2486,7 @@ async def cat_work(cat_id: str, p: WorkPayload):
         _save(store)
     if p.op == 'cap':
         v = max(0.005, min(TASK_CAP_MAX, float(p.cap or TASK_CAP_DEFAULT)))
-        cat['taskCap'] = round(v, 4); _save(store)
+        cat['taskCap'] = round(v, 4); keep_owned(cat); _save(store)   # kept: the next save laid the old remembered cap back over it (owner 2026-10-31: "$0.25 doesn't change")
         return {'cap': cat['taskCap']}
     if p.op == 'login':   # 🔑 the owner's own login for the site its window asked about: sealed in its vault, handed to the live window, the window continues
         t_ = (w or {}).get('task') or {}; wins_ = t_.get('windows') or []

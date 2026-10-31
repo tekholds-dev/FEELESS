@@ -162,6 +162,9 @@ def test_the_workbench_is_the_owners_only_refuses_while_model_calls_are_off_and_
     assert c.post('/api/cats/t1/work', json={'op': 'ask', 'ownerId': 'b1', "session": 'b1', 'text': 'x'}).status_code == 400   # a trading cat does not browse
     assert c.post('/api/cats/g1/work', json={'op': 'cap', 'ownerId': 'b1', "session": 'b1', 'cap': 9}).json()['cap'] == fs.TASK_CAP_MAX
     assert c.post('/api/cats/g1/work', json={'op': 'cap', 'ownerId': 'b1', "session": 'b1', 'cap': 0.0001}).json()['cap'] == 0.005
+    fs.keep_owned({**fs._load()['cats']['g1'], 'taskCap': 0.15})   # an earlier owner action remembered $0.15 (laid over every save)
+    assert c.post('/api/cats/g1/work', json={'op': 'cap', 'ownerId': 'b1', "session": 'b1', 'cap': 0.25}).json()['cap'] == 0.25
+    assert fs._KEPT['g1']['taskCap'] == 0.25   # the new cap is what every later save keeps (owner 2026-10-31: "$0.25 doesn't change")
     t = ca.new_task('x', 'q', ['m/a', 'm/b'], 0.05); t.update(status='done', answer='A', cost=0.012)
     fs._WORK['g1'] = {'task': t, 'done': True, 'at': 1.0}
     fs._work_settle(store)
@@ -235,3 +238,20 @@ def test_a_traders_browser_reads_coins_and_narrative_only_never_types_or_leaves_
     assert pa.done == [('goto', 'https://www.coindesk.com/policy')]   # the sign-up, the off-list site and the typing never reached the page
     acts = [s['action'] for s in t['windows'][0]['steps']]
     assert acts[:3] == ['refused', 'blocked', 'refused'] and 'new_login' not in acts and t['windows'][0]['answer'] == 'policy tailwind'
+
+
+def test_a_named_site_opens_first_and_a_bare_address_is_never_refused():
+    """Owner 2026-10-31: "Browse pump.fun …" left both windows on about:blank — one mind answered unvisited, the other's "pump.fun" (no https) was refused 8×."""
+    assert ca.full_url('pump.fun') == 'https://pump.fun' and ca.named_site('Browse pump.fun and find the best coin') == 'https://pump.fun'
+    assert ca.named_site('write 5 posts e.g. a thread') is None and ca.named_site('mail a@b.com') is None
+    pa = Page()
+    t = ca.new_task('t10', 'A: Browse pump.fun and find your best coin on trending list', ['m/a', 'm/b'], 1.0); t.update(research=True, tools={'browse': True, 'forms': True})
+    ask = scripted({'m/a': [{'thought': 'board', 'action': 'open', 'url': 'pump.fun/board'}, {'thought': 'done', 'action': 'answer', 'say': '$CAT leads'}]})
+    asyncio.run(ca.run(t, ask, [pa, Page()], None))
+    assert pa.done == [('goto', 'https://pump.fun'), ('goto', 'https://pump.fun/board')]   # opened before its first thought, then its bare address went through
+    assert [s['action'] for s in t['windows'][0]['steps']] == ['open', 'open', 'answer'] and t['windows'][0]['answer'] == '$CAT leads'
+    pb = Page(); pb.url = 'https://pump.fun/?__cf_chl_rt_tk=x'
+    t = ca.new_task('t11', 'A: pick the best coin', ['m/a', 'm/b'], 1.0); t.update(research=True, tools={'browse': True, 'forms': True})
+    ask = scripted({'m/a': [{'thought': 'again', 'action': 'open', 'url': 'pump.fun/'}, {'thought': 'got it', 'action': 'report', 'best_coin': 'HUSS', 'reason': '+3947% 1h'}]})
+    asyncio.run(ca.run(t, ask, [pb, Page()], None))
+    assert pb.done == [] and t['windows'][0]['answer'] == 'best_coin: HUSS; reason: +3947% 1h'   # the page it was on is re-read, never reloaded · "report" is its answer

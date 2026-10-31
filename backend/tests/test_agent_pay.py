@@ -52,6 +52,9 @@ def test_model_names_map_to_the_provider():
     long = [{'role': 'system', 'content': 'S' * 3000}, {'role': 'user', 'content': 'U' * 3000 + 'END'}]
     fit = ap.free_messages(long)
     assert sum(len(m['content']) for m in fit) <= ap.FREE_MAX_CHARS and fit[1]['content'].endswith('END') and fit[0]['content'].startswith('S')
+    page = ap.free_messages([{'role': 'system', 'content': 'JOB ' + 'S' * 3000}, {'role': 'user', 'content': 'URL: pump.fun TRENDING HUSS ' + 'U' * 5000 + ' ASK'}])
+    assert page[0]['content'].startswith('JOB') and len(page[0]['content']) <= ap.FREE_MAX_CHARS // 2   # the job leads and keeps room for the page
+    assert 'TRENDING HUSS' in page[1]['content'] and page[1]['content'].endswith('ASK') and sum(len(m['content']) for m in page) <= ap.FREE_MAX_CHARS
 
 
 def test_a_call_pays_once_and_a_failed_answer_falls_through(monkeypatch):
