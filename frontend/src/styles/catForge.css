@@ -49,6 +49,14 @@
 @keyframes cfNebula { from { transform: translate3d(-3%, -2%, 0); } to { transform: translate3d(3%, 2%, 0); } }
 @keyframes cfBob { 50% { transform: translateY(-5px); } }
 @keyframes cfFill { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+/* 🪟 My agents: each tile carries its agent's own window — minds as bubbles, the site / coin, its step (AgentScreen) */
+.paper-my-cat-card > .cw-screen { grid-column: 1 / -1; display: grid; gap: 0; margin-top: 4px; border-radius: 12px; border: 1px solid #ffffff14; background: #08051099; overflow: hidden; text-align: left; }
+.cw-screen .agd-url { margin: 6px; } .cw-screen.is-go { border-color: #45e48666; box-shadow: 0 0 0 1px #45e48622, 0 0 18px -8px #45e486; }
+.paper-my-cat-card .cw-screen .cw-view { display: grid; grid-template-columns: repeat(2, auto) minmax(0, 1fr); align-items: center; gap: 10px; padding: 6px 12px 12px; min-height: 72px; }
+.paper-my-cat-card .cw-line { min-width: 0; color: #c8bde6; font: 600 11px var(--f-mono, monospace); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cw-rule { font: 800 10px var(--f-mono, monospace); letter-spacing: .12em; color: #c9a8ff; }
+body.theme-day .paper-my-cat-card > .cw-screen { background: #faf7ff; border-color: #7c4dff22; } body.theme-day .cw-line { color: #3b2470; }
+@media (max-width: 640px) { .paper-my-cat-card .cw-screen .cw-view { grid-template-columns: repeat(2, auto); justify-content: start; } .paper-my-cat-card .cw-line { grid-column: 1 / -1; white-space: normal; } }
 body.fx-lite .cfv.paper-modal-backdrop::before, body.fx-lite .cfv.paper-modal-backdrop::after, body.fx-lite .cfv .paper-wizard-card, body.fx-lite .cfv .paper-wizard-cat-strip span, body.fx-lite .cf-step.is-on u s { animation: none; }
 @media (prefers-reduced-motion: reduce) { .cfv.paper-modal-backdrop::before, .cfv.paper-modal-backdrop::after, .cfv .paper-wizard-card, .cfv .paper-wizard-cat-strip span, .cf-step.is-on u s { animation: none; }
   .fc-v2 .paper-my-cat-card, .cfv .icon-btn, .cfv .btn-outline, .cfv .btn-primary, .cf-step u s { transition: none; } }

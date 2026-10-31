@@ -321,6 +321,25 @@ export function StoredPop({ item }) {
   return shown ? <div className="cwb-stored" role="status" data-testid="cwb-stored"><span className="cwb-stored-box" aria-hidden="true"><u /></span>
     <span className="cwb-stored-file"><em>🗄 FILED IN ITS CLOUD</em><b>{shown.text}</b></span></div> : null;
 }
+// 🪟 MY AGENTS shows each agent's own window, not a flat card (owner 2026-10-31): its minds as bubbles (racing while they work), the site it is
+// on and its step — a general agent's public /live (polled only while on screen), a trader's coin and last call
+export function AgentScreen({ cat }) {
+  const ref = useRef(null); const seen = useOnScreen(ref); const [d, setD] = useState(null);
+  const gen = cat.brainsCfg?.kind === 'general';
+  useEffect(() => { if (!seen || !gen) return undefined; let on = true; const go = () => { if (document.hidden) return; fetch(apiUrl(`/api/cats/${cat.id}/live`)).then(r => (r.ok ? r.json() : null)).then(x => on && x && setD(x)).catch(() => {}); };
+    go(); const t = setInterval(go, 6000); return () => { on = false; clearInterval(t); }; }, [cat.id, gen, seen]);
+  const brains = (cat.brainsCfg?.brains || []).slice(0, 2);
+  const wins = d?.windows?.length ? d.windows : brains.map((m, i) => ({ i, model: m, status: 'idle' }));
+  const dec = (cat.brainsCfg?.decisions || []).at(-1); const pos = (cat.positions || [])[0];
+  const busy = gen ? wins.find(w => w.status === 'working') : (dec && Date.now() / 1000 - (dec.at || 0) < 90 ? dec : null);
+  const where = gen ? (busy?.host || wins.find(w => w.host)?.host || 'idle') : pos ? `$${pos.symbol}` : 'hunting';
+  const line = gen ? (busy ? `${String(busy.action || 'working').toUpperCase()} · step ${busy.steps || 0}` : 'waiting for your ask')
+    : dec ? `${dec.word} $${dec.sym} — ${String(dec.why || '').slice(0, 60)}` : pos ? `holding ${Number(pos.currentChange) >= 0 ? '+' : ''}${Number(pos.currentChange || 0).toFixed(1)}%` : 'reading the trenches';
+  return <span ref={ref} className={`cw-screen agd-browser${busy ? ' is-go' : ''}`} data-testid={`cw-screen-${cat.id}`}>
+    <span className="agd-url"><i aria-hidden="true">🔒</i><b>{where}</b>{busy ? <em className="agd-rec">● LIVE</em> : null}</span>
+    <span className="cw-view">{brains.length ? brains.map((m, i) => <Bubble key={m} m={asModel(m)} i={i} kind={gen ? 'general' : 'trading'} size={46} live hot={!!busy && (!gen || wins[i]?.status === 'working')} />) : <b className="cw-rule">rules</b>}
+      <small className="cw-line">{line}</small></span></span>;
+}
 function PublicMinds({ cat }) {
   const ref = useRef(null); useFit(ref, 24); const seen = useOnScreen(ref);
   const [d, setD] = useState(null);
