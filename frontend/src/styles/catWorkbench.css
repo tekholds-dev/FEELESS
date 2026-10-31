@@ -17,7 +17,7 @@
 .cwb-prov { font: 800 7.5px 'JetBrains Mono', monospace; font-style: normal; letter-spacing: .12em; padding: 1px 6px; border-radius: 4px; background: #ffffff10; color: #cfc6ff; }
 .cwb-prov.is-steel { background: rgba(95, 242, 200, .14); color: #5ff2c8; } .cwb-prov.is-bb { background: rgba(255, 196, 81, .14); color: #f5c451; } .cwb-prov.is-bl { background: rgba(255, 143, 163, .14); color: #ff9fb2; } .cwb-prov.is-reader { background: rgba(143, 211, 255, .12); color: #8fd3ff; }
 
-.cwb-view { position: relative; aspect-ratio: 4 / 3; background: radial-gradient(120% 90% at 50% 0%, rgba(156, 107, 255, .12), transparent 60%), #07040d; overflow: hidden; }
+.cwb-view { position: relative; container-type: size; aspect-ratio: 4 / 3; background: radial-gradient(120% 90% at 50% 0%, rgba(156, 107, 255, .12), transparent 60%), #07040d; overflow: hidden; }
 .cwb-live, .cwb-shot { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; object-fit: cover; object-position: center top; background: #07040d; }   /* the page fills the whole window — HD, no white bands */
 .cwb-steps { list-style: none; margin: 0; padding: 48px 12px 10px; display: grid; align-content: start; gap: 5px; height: 100%; box-sizing: border-box; overflow-y: auto; scrollbar-width: thin; scrollbar-color: #b49cff transparent; }
 .cwb-steps li { display: grid; grid-template-columns: 54px minmax(0, 1fr); gap: 2px 8px; padding: 5px 8px; border-radius: 7px; background: #ffffff06; animation: cwbIn .25s ease-out both; animation-delay: calc(min(var(--i, 0), 8) * 40ms); }
@@ -41,8 +41,24 @@
 @keyframes cwbIn { from { opacity: 0; transform: translateY(5px); } }
 @keyframes cwbPop { from { opacity: 0; transform: translateY(-4px) scale(.96); } }
 @keyframes cwbPulse { 50% { opacity: .35; } }
+/* 🌐 / 📈 what the window shows · the mind not asked · 🖱 the AI's own cursor (glides to each click, a ripple where it acts) */
+.cwb-tabs { margin: 0 0 6px; } .cwb-tabs button { min-height: 32px; font-size: 10px; }
+.cwb-off { position: absolute; inset: 0; display: grid; place-content: center; gap: 6px; text-align: center; padding: 16px; }
+.cwb-off b { font: 800 11px var(--f-mono, monospace); letter-spacing: .14em; color: #c9a8ff; } .cwb-off small { color: #8f86b0; max-width: 260px; }
+.cwb-cursor { position: absolute; left: 0; top: 0; width: 0; height: 0; z-index: 3; pointer-events: none; transition: transform .7s cubic-bezier(.2, .8, .2, 1); }
+.cwb-cursor i { position: absolute; left: 0; top: 0; display: block; filter: drop-shadow(0 2px 4px #000a); }
+.cwb-cursor.c-arrow i::before { content: ''; position: absolute; inset: 0; background: #fff; clip-path: polygon(0 0, 0 78%, 26% 60%, 44% 100%, 58% 94%, 41% 56%, 76% 56%); }
+.cwb-cursor.c-arrow i { width: 16px; height: 22px; filter: drop-shadow(1px 0 0 #120a20) drop-shadow(-1px 0 0 #120a20) drop-shadow(0 1px 0 #120a20) drop-shadow(0 -1px 0 #120a20) drop-shadow(0 2px 4px #000a); }
+.cwb-cursor.c-paw i { filter: drop-shadow(0 0 1px #120a20) drop-shadow(0 0 1px #120a20); width: 14px; height: 12px; margin: -6px 0 0 -7px; border-radius: 50% 50% 45% 45%; background: #c9a8ff; box-shadow: -6px -7px 0 -3px #c9a8ff, 0 -9px 0 -3px #c9a8ff, 6px -7px 0 -3px #c9a8ff; }
+.cwb-cursor.c-dot i { width: 12px; height: 12px; margin: -6px 0 0 -6px; border-radius: 50%; background: #45e486; box-shadow: 0 0 0 3px #45e48644, 0 0 12px #45e486; }
+.cwb-cursor.c-cross i { width: 18px; height: 18px; margin: -9px 0 0 -9px; background: linear-gradient(#ff8fa3, #ff8fa3) center / 2px 100% no-repeat, linear-gradient(#ff8fa3, #ff8fa3) center / 100% 2px no-repeat; }
+.cwb-cursor u { position: absolute; left: -14px; top: -14px; width: 28px; height: 28px; border-radius: 50%; border: 2px solid #45e486; opacity: 0; animation: cwbTap .7s .55s ease-out both; }
+.cwb-cursor u.at-type { border-color: #c9a8ff; }
+@keyframes cwbTap { 0% { opacity: .9; transform: scale(.3); } 100% { opacity: 0; transform: scale(1.4); } }
+body.fx-lite .cwb-cursor u { animation: none; } body.fx-lite .cwb-cursor { transition: none; }
+body.theme-day .cwb-off b { color: #5b2dbf; }
 body.fx-lite .cwb-win, body.fx-lite .cwb-steps li, body.fx-lite .cwb-human { animation: none; } body.fx-lite .cwb-meters s { transition: none; }
-@media (prefers-reduced-motion: reduce) { .cwb-win, .cwb-steps li, .cwb-human { animation: none; } .cwb-meters s { transition: none; } }
+@media (prefers-reduced-motion: reduce) { .cwb-win, .cwb-steps li, .cwb-human, .cwb-cursor u { animation: none; } .cwb-cursor { transition: none; } .cwb-meters s { transition: none; } }
 body.theme-day .cwb-win { background: #fbf9ff; border-color: rgba(106, 61, 240, .25); }
 body.theme-day .cwb-view { background: #f7f3ff; } body.theme-day .cwb-steps li { background: #fff; } body.theme-day .cwb-steps span, body.theme-day .cwb-answer { color: #2a1f45; }
 body.theme-day .cwb-head b, body.theme-day .cwb-meters b { color: #1c1230; } body.theme-day .cwb-meters > span { background: #fff; border-color: rgba(60, 40, 160, .12); }
@@ -88,7 +104,7 @@ body.theme-day body.theme-day .cwb-artifact summary { color: #67309a; }
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap; animation: cwbIn .35s both; animation-delay: calc(var(--i) * 60ms); }
 .cwb-jobs { grid-column: 1 / -1; display: grid; grid-template-columns: 1fr 1fr; gap: 8px; } .cwb-jobs label { display: grid; gap: 4px; }
 .cwb-jobs em { font: 800 9px var(--f-mono, monospace); letter-spacing: .12em; font-style: normal; color: #c9a8ff; } .cwb-jobs label:last-child em { color: #ffc2e4; }
-.cwb-chart { position: relative; min-height: 220px; height: 100%; } .cwb-chart > :first-child { height: 100%; }
+.cwb-chart { position: absolute; inset: 0; overflow: hidden; } .cwb-chart > :first-child { height: 100%; max-height: 100%; }   /* the FEELESS chart fits its window, never spills */
 .cwb-chart-load { display: grid; place-items: center; min-height: 220px; color: #9d8fbf; font: 700 10px var(--f-mono, monospace); letter-spacing: .12em; }
 .cwb-chart-tag { position: absolute; left: 8px; top: 8px; padding: 2px 8px; border-radius: 999px; background: #04110de6; border: 1px solid #45e48655; color: #45e486; font: 800 9px var(--f-mono, monospace); letter-spacing: .1em; font-style: normal; }
 .cwb-chat { max-width: 760px; margin-inline: auto; width: 100%; gap: 6px; }

@@ -12,6 +12,7 @@ import asyncio
 import html
 import json
 import re
+import time
 import uuid
 from cat_policy import public_url, check_url
 
@@ -420,13 +421,27 @@ class LivePage:
     async def search(self, q):
         return await self.goto(SEARCH + __import__('urllib.parse').parse.quote(str(q)[:200]))
 
+    async def point(self, loc, act):
+        """🖱 Where the AI is about to act, as a share of the WHOLE browser window (the live view shows its chrome too) — the owner sees its cursor go there."""
+        try:
+            box = await loc.bounding_box(timeout=3000)
+            win = await self._p.evaluate('() => [innerWidth, innerHeight, outerWidth, outerHeight]')
+            if box and win[2] and win[3]:
+                top = max(0, win[3] - win[1])
+                self.cursor = {'x': round(min(1, (box['x'] + box['width'] / 2) / win[2]), 4), 'y': round(min(1, (top + box['y'] + box['height'] / 2) / win[3]), 4), 'act': act, 'at': time.time()}
+        except Exception:
+            pass
+
     async def click(self, text):
-        await self._p.get_by_text(str(text), exact=False).first.click(timeout=8000)
+        loc = self._p.get_by_text(str(text), exact=False).first
+        await self.point(loc, 'click')
+        await loc.click(timeout=8000)
         await self._p.wait_for_load_state('domcontentloaded', timeout=15000)
         return await self._sync()
 
     async def type(self, label, value):
         f = self._p.get_by_label(str(label)).or_(self._p.get_by_placeholder(str(label))).first
+        await self.point(f, 'type')
         await f.fill(str(value), timeout=8000)
         return await self._sync()
 

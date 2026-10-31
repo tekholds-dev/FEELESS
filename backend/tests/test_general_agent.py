@@ -635,7 +635,8 @@ def test_a_window_handed_to_you_is_let_go_then_taken_back(tmp_path, monkeypatch)
             if fs._WORK[cid].get('done'):
                 break
             _t.sleep(0.05)
-        assert fs._WORK[cid]['task']['status'] == 'parked' and seen == ['start', 'start', 'release', 'start']   # both windows open · B let go for you · taken back
+        assert fs._WORK[cid]['task']['status'] == 'parked' and seen == ['start', 'release', 'start']   # only B's window opens (A was not asked) · B let go for you · taken back
+        assert fs._WORK[cid]['sessions'][0]['note'] == 'not asked this time'
 
 
 def test_a_task_cut_off_by_a_restart_is_filed_to_resume_never_lost():

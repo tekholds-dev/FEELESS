@@ -1503,7 +1503,7 @@ def _work_view(cat_id, owner=False):
     wins = []
     for x in t['windows']:
         s_ = (w.get('sessions') or [None, None])[x['i']] or {}
-        wins.append({**{k: x.get(k) for k in ('i', 'model', 'goal', 'status', 'bubble', 'url', 'title', 'human', 'answer', 'cost', 'coin', 'scratchN')}, 'scratch': len(x.get('scratch') or []), 'steps': x['steps'][-10:],
+        wins.append({**{k: x.get(k) for k in ('i', 'model', 'goal', 'status', 'bubble', 'url', 'title', 'human', 'answer', 'cost', 'coin', 'scratchN', 'cursor')}, 'scratch': len(x.get('scratch') or []), 'steps': x['steps'][-10:],
                      'provider': s_.get('provider'), 'note': s_.get('note'), **({'live': s_.get('hand') if x.get('status') == 'human' and s_.get('hand') else s_.get('live'), 'hand': x.get('status') == 'human' and bool(s_.get('hand')), 'shot': bool((w.get('pages') or [None, None])[x['i']] and not s_.get('live'))} if owner else {})})
     return {'task': {k: t.get(k) for k in ('id', 'text', 'mode', 'status', 'cap', 'cost', 'answer', 'fast', 'why', 'stepsMax', 'keep', 'backup', 'walletPaid')}, 'windows': wins}
 
@@ -1573,7 +1573,10 @@ async def _work_run(cat_id, models, names, text, cap, brief='', efforts=None, ow
     async with httpx.AsyncClient(timeout=30) as http:
         sessions, pages = [], []
         try:
+            asked_ = [bool(j) for j in _ca.split_jobs(text, len(models))] if len(models) > 1 else [True]
             for i, _m in enumerate(models):
+                if len(models) > 1 and sum(asked_) == 1 and not asked_[i]:   # "A: …" only: the mind not asked opens no cloud browser (it sat on a blank tab, billing minutes)
+                    sessions.append({'provider': 'reader', 'live': None, 'note': 'not asked this time'}); pages.append(_cb.ReaderPage(http)); continue
                 s_, _tried = await _cb.open_session(http, env, _site_ctx(_load()['cats'].get(cat_id) or {}))   # 🔓 starts signed in where the owner signed in
                 sessions.append(s_)
                 try:

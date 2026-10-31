@@ -255,3 +255,14 @@ def test_a_named_site_opens_first_and_a_bare_address_is_never_refused():
     ask = scripted({'m/a': [{'thought': 'again', 'action': 'open', 'url': 'pump.fun/'}, {'thought': 'got it', 'action': 'report', 'best_coin': 'HUSS', 'reason': '+3947% 1h'}]})
     asyncio.run(ca.run(t, ask, [pb, Page()], None))
     assert pb.done == [] and t['windows'][0]['answer'] == 'best_coin: HUSS; reason: +3947% 1h'   # the page it was on is re-read, never reloaded · "report" is its answer
+
+
+def test_the_ai_cursor_follows_its_click_into_the_window_view():
+    """🖱 owner 2026-10-31: "the cursor actually shows and is controlled by the AI" — where the page says it acted rides to the window."""
+    class Pointed(Page):
+        async def click(self, t):
+            self.cursor = {'x': 0.2, 'y': 0.4, 'act': 'click', 'at': 1}; return await super().click(t)
+    pa = Pointed()
+    t = ca.new_task('t12', 'A: open the first result', ['m/a', 'm/b'], 1.0)
+    asyncio.run(ca.run(t, scripted({'m/a': [{'thought': 'first', 'action': 'click', 'text': 'Result'}, {'thought': 'done', 'action': 'answer', 'say': 'ok'}]}), [pa, Page()], None))
+    assert t['windows'][0]['cursor'] == {'x': 0.2, 'y': 0.4, 'act': 'click', 'at': 1} and t['windows'][1].get('cursor') is None

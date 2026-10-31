@@ -287,3 +287,17 @@ test('🛟 the agent service not answering (a restart → 504) says so in words,
   expect(document.body.textContent).toContain('not answering right now'); expect(document.body.textContent).not.toContain('HTTP 504'); expect(q('cwb-typing')).toBeNull();
   act(() => root.unmount());
 });
+
+test('🖱 the browser stays in view (the FEELESS chart is a tab), the mind not asked says so, and the AI cursor sits where it clicked in the style you pick', async () => {
+  const S = { ...STATE, windows: [{ i: 0, model: 'm/a', goal: 'Browse pump.fun', status: 'working', provider: 'steel', live: 'https://view/w0', url: 'https://pump.fun/', coin: { pair: 'P1', mint: 'M', symbol: 'HUSS' }, cursor: { x: 0.25, y: 0.5, act: 'click', at: 7 }, steps: [] },
+    { i: 1, model: 'm/b', goal: null, status: 'done', provider: 'reader', note: 'not asked this time', bubble: 'not asked — idle', steps: [] }] };
+  global.fetch = async () => ({ ok: true, json: async () => S });
+  const el = document.createElement('div'); document.body.appendChild(el);
+  await act(async () => { createRoot(el).render(<CatWorkbench cat={{ id: 'g1', brainsCfg: { kind: 'general', brains: ['m/a', 'm/b'], credit: 1 } }} />); });
+  expect(el.querySelector('[data-testid="cwb-live"]')).not.toBeNull(); expect(el.querySelector('[data-testid="cwb-chart"]')).toBeNull();   // it checked a coin — its browser still shows
+  expect(el.querySelector('[data-testid="cwb-tab-chart"]').textContent).toContain('$HUSS');
+  const cur = el.querySelector('[data-testid="cwb-cursor"]'); expect(cur.style.transform).toBe('translate(25cqw, 50cqh)'); expect(cur.className).toContain('c-arrow');
+  expect(el.querySelector('[data-testid="cwb-notasked"]').textContent).toContain('not asked');
+  await act(async () => { el.querySelector('[data-testid="cwb-cur-paw"]').click(); });
+  expect(el.querySelector('[data-testid="cwb-cursor"]').className).toContain('c-paw'); expect(localStorage.getItem('feeless:ai-cursor')).toBe('paw');
+});

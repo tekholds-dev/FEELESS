@@ -292,6 +292,8 @@ async def _window(task, w, ask, page, wait_human, name, feeless=None):
                 if isinstance(e, ValueError):
                     task.setdefault('refusals', []).append(str(e)[:160])
             w['url'], w['title'] = page.url, page.title
+            if getattr(page, 'cursor', None):
+                w['cursor'] = page.cursor   # 🖱 its cursor in the live view
             if act in ('open', 'search', 'click') and seen and not str(seen).startswith('('):
                 w['_page'] = str(seen)
             from cat_browser import needs_human
