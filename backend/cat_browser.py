@@ -1,7 +1,10 @@
 """🌐 THE GENERAL CAT'S BROWSERS (owner 2026-10-29, P2: "2 browser windows … the AI models use their browser for users to see them work"; "free hosted
 browser that doesn't cause lag or device burn, and fallbacks for the AIs if a service flops"). One window per model, run in the CLOUD — never on the
 user's device. A provider CHAIN, first that answers wins:
-  1. Steel        (STEEL_API_KEY)                            — the free credit tier, primary; a live view the owner can watch
+  0. Kernel       (KERNEL_API_KEY)                           — a real headful Chrome per window, an embeddable live view (read-only until a
+                                                               person is handed it); $5 free a month. Stealth / CAPTCHA solving stays OFF.
+  1. Steel        (STEEL_API_KEY)                            — the free credit tier; a live view the owner can watch
+  1b. Anchor      (ANCHOR_API_KEY)                           — another real headful browser with a live view; $5 free a month
   2. Browserless  (BROWSERLESS_API_KEY)                      — backup; CDP only (no shareable live view → the window shows snapshots)
   3. Browserbase  (BROWSERBASE_API_KEY + BROWSERBASE_PROJECT_ID) — backup; its live view lets the user click / type (human-needed sign-ins)
   4. reader       (always)                                   — no live browser: pages fetched as text by the server, so the models never stop
@@ -18,18 +21,20 @@ from cat_policy import public_url, check_url
 
 STEEL = 'https://api.steel.dev/v1'
 BB = 'https://api.browserbase.com/v1'
+KERNEL = 'https://api.onkernel.com'
+ANCHOR = 'https://api.anchorbrowser.io/v1'
 TIMEOUT_MS = 15 * 60 * 1000      # Steel's free tier caps a session at 15 min — a window is reopened on the next task
 TEXT_MAX = 6000                  # page text handed to a model per read
 
 
 def keys(env):
-    return {k: str((env or {}).get(k) or '').strip() for k in ('STEEL_API_KEY', 'BROWSERLESS_API_KEY', 'BROWSERBASE_API_KEY', 'BROWSERBASE_PROJECT_ID')}
+    return {k: str((env or {}).get(k) or '').strip() for k in ('KERNEL_API_KEY', 'STEEL_API_KEY', 'ANCHOR_API_KEY', 'BROWSERLESS_API_KEY', 'BROWSERBASE_API_KEY', 'BROWSERBASE_PROJECT_ID')}
 
 
 def chain(env):
     """The providers this server can use, in order (reader always last)."""
     k = keys(env)
-    return [p for p, ok in (('steel', k['STEEL_API_KEY']), ('browserless', k['BROWSERLESS_API_KEY']), ('browserbase', k['BROWSERBASE_API_KEY'] and k['BROWSERBASE_PROJECT_ID'])) if ok] + ['reader']
+    return [p for p, ok in (('kernel', k['KERNEL_API_KEY']), ('steel', k['STEEL_API_KEY']), ('anchor', k['ANCHOR_API_KEY']), ('browserless', k['BROWSERLESS_API_KEY']), ('browserbase', k['BROWSERBASE_API_KEY'] and k['BROWSERBASE_PROJECT_ID'])) if ok] + ['reader']
 
 
 VIEWPORT = {'width': 1440, 'height': 900}   # 🖥 HD: the page fills the window on the desk (owner 2026-10-30: "cover the whole plot, HD")
@@ -70,6 +75,43 @@ async def _steel(http, env, ctx=None):
             'connect': j.get('websocketUrl') or f'wss://connect.steel.dev?apiKey={k}&sessionId={sid}'}
 
 
+def _view(url, hand, ro_param):
+    """A provider's live view: read-only for watchers; the clickable one only for the person handed a sign-in / bot check."""
+    if not url:
+        return None
+    return url if hand else url + ('&' if '?' in url else '?') + ro_param
+
+
+async def _kernel(http, env, ctx=None):
+    """🌐 Kernel: a real headful Chrome (its own VM) + an embeddable live view. Never stealth / CAPTCHA solving — a check goes to a person."""
+    k = keys(env)['KERNEL_API_KEY']
+    r = await http.post(f'{KERNEL}/browsers', headers={'Authorization': f'Bearer {k}', 'Content-Type': 'application/json'},
+                        json={'headless': False, 'stealth': False, 'timeout_seconds': TIMEOUT_MS // 1000, 'kiosk_mode': True}, timeout=20)
+    if r.status_code not in (200, 201):
+        raise ValueError(f'Kernel {r.status_code}')
+    j = r.json() or {}
+    if not j.get('session_id') or not j.get('cdp_ws_url'):
+        raise ValueError('Kernel gave no session')
+    view = safe_live(j.get('browser_live_view_url'), env)
+    return {'provider': 'kernel', 'id': j['session_id'], 'live': _view(view, False, 'readOnly=true'), 'hand': _view(view, True, ''), 'connect': j['cdp_ws_url'],
+            **({'cookies': list(ctx.get('cookies') or [])} if isinstance(ctx, dict) else {})}
+
+
+async def _anchor(http, env, ctx=None):
+    """🌐 Anchor: a real headful browser + live view (read-only for watchers)."""
+    k = keys(env)['ANCHOR_API_KEY']
+    r = await http.post(f'{ANCHOR}/sessions', headers={'anchor-api-key': k, 'Content-Type': 'application/json'},
+                        json={'session': {'timeout': {'max_duration': TIMEOUT_MS // 60000, 'idle_timeout': 5}}, 'browser': {'headless': {'active': False}}}, timeout=20)
+    if r.status_code not in (200, 201):
+        raise ValueError(f'Anchor {r.status_code}')
+    d = (r.json() or {}).get('data') or {}
+    if not d.get('id') or not d.get('cdp_url'):
+        raise ValueError('Anchor gave no session')
+    view = safe_live(d.get('live_view_url'), env)
+    return {'provider': 'anchor', 'id': d['id'], 'live': _view(view, False, 'readOnly=true'), 'hand': _view(view, True, ''), 'connect': d['cdp_url'],
+            **({'cookies': list(ctx.get('cookies') or [])} if isinstance(ctx, dict) else {})}
+
+
 BROWSERLESS = 'wss://production-sfo.browserless.io'
 
 
@@ -105,7 +147,7 @@ async def open_session(http, env, ctx=None):
         if p == 'reader':
             return _reader('; '.join(f'{a} {b}' for a, b in tried) or None), tried
         try:
-            return await {'steel': _steel, 'browserless': _browserless, 'browserbase': _bb}[p](http, env, ctx), tried
+            return await {'kernel': _kernel, 'steel': _steel, 'anchor': _anchor, 'browserless': _browserless, 'browserbase': _bb}[p](http, env, ctx), tried
         except Exception as e:
             tried.append((p, str(e)[:80] or 'no answer'))
     return _reader(), tried
@@ -216,7 +258,11 @@ async def close_session(http, env, s):
     """Release a hosted session (best effort — a provider's own timeout ends it anyway)."""
     k = keys(env)
     try:
-        if s.get('provider') == 'steel':
+        if s.get('provider') == 'kernel':
+            await http.delete(f"{KERNEL}/browsers/{s['id']}", headers={'Authorization': f"Bearer {k['KERNEL_API_KEY']}"}, timeout=10)
+        elif s.get('provider') == 'anchor':
+            await http.delete(f"{ANCHOR}/sessions/{s['id']}", headers={'anchor-api-key': k['ANCHOR_API_KEY']}, timeout=10)
+        elif s.get('provider') == 'steel':
             await http.post(f"{STEEL}/sessions/{s['id']}/release", headers={'steel-api-key': k['STEEL_API_KEY']}, timeout=10)
         elif s.get('provider') == 'browserbase':
             await http.post(f"{BB}/sessions/{s['id']}", headers={'X-BB-API-Key': k['BROWSERBASE_API_KEY'], 'Content-Type': 'application/json'},
@@ -403,8 +449,9 @@ class LivePage:
     """A hosted browser (Steel / Browserbase) driven over CDP with Playwright — the window the user watches."""
     live = True
 
-    def __init__(self, connect):
+    def __init__(self, connect, cookies=None):
         self.connect, self.url, self.title, self._pw, self._b, self._p = connect, None, None, None, None, None
+        self.cookies = [c for c in (cookies or []) if isinstance(c, dict) and c.get('name') and c.get('domain')]   # 🔓 a saved sign-in, on a browser that takes no context
 
     async def start(self):
         from playwright.async_api import async_playwright
@@ -421,6 +468,12 @@ class LivePage:
             else:
                 await route.continue_()
         await ctx.route('**/*', guard)
+        if self.cookies:
+            try:
+                await ctx.add_cookies([{k: v for k, v in c.items() if k in ('name', 'value', 'domain', 'path', 'expires', 'httpOnly', 'secure', 'sameSite')} for c in self.cookies])
+            except Exception:
+                pass
+            self.cookies = []
         # Wallet extensions and persistent worker contexts are not shared with cats.
         await ctx.clear_permissions()
         if hasattr(ctx, 'route_web_socket'):

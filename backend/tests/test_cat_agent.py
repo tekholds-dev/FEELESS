@@ -299,3 +299,28 @@ def test_scroll_is_a_research_move_and_a_checkpoint_on_the_first_page_goes_strai
     t = ca.new_task('t15', 'A: browse coindesk.com', ['m/a', 'm/b'], 1.0); t.update(research=True, tools={'browse': True, 'forms': True})
     asyncio.run(ca.run(t, scripted({'m/a': []}), [Walled(), Page()], human))
     assert asked == [0] and [s_['action'] for s_ in t['windows'][0]['steps']] == ['open'] and t['cost'] == 0   # no model call spent on a wall
+
+
+def test_kernel_leads_the_chain_then_steel_then_anchor_each_a_real_browser_with_a_read_only_view_for_watchers():
+    """🌐 owner 2026-10-31: "a true browser — Steel, Kernel and another"; stealth / CAPTCHA solving stays off (a check goes to a person)."""
+    env = {'KERNEL_API_KEY': 'kk', 'STEEL_API_KEY': 'ss', 'ANCHOR_API_KEY': 'aa'}
+    assert cb.chain(env) == ['kernel', 'steel', 'anchor', 'reader']
+    sent = []
+    class R:
+        def __init__(self, code, j): self.status_code, self._j = code, j
+        def json(self): return self._j
+    class H:
+        async def post(self, u, headers=None, json=None, timeout=None):
+            sent.append((u, json))
+            if 'onkernel' in u: return R(500, {})   # Kernel down → the next real browser
+            if 'steel' in u: return R(500, {})
+            return R(200, {'data': {'id': 'an1', 'cdp_url': 'wss://anchor/x', 'live_view_url': 'https://live.anchor/v/1'}})
+    s, tried = asyncio.run(cb.open_session(H(), env, {'cookies': [{'name': 'auth', 'value': 'v', 'domain': '.x.com'}]}))
+    assert [t[0] for t in tried] == ['kernel', 'steel'] and s['provider'] == 'anchor'
+    assert s['live'] == 'https://live.anchor/v/1?readOnly=true' and s['hand'] == 'https://live.anchor/v/1' and s['cookies'][0]['name'] == 'auth'
+    assert sent[0][1]['stealth'] is False and sent[0][1]['headless'] is False   # Kernel: headful, never stealth
+    class K(H):
+        async def post(self, u, headers=None, json=None, timeout=None):
+            return R(200, {'session_id': 'k1', 'cdp_ws_url': 'wss://k/1', 'browser_live_view_url': 'https://api.onkernel.com/browser/live/T'})
+    s, _ = asyncio.run(cb.open_session(K(), env))
+    assert s['provider'] == 'kernel' and s['live'].endswith('?readOnly=true') and s['hand'] == 'https://api.onkernel.com/browser/live/T'

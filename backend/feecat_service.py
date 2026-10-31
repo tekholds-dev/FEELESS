@@ -1658,7 +1658,7 @@ async def _work_run(cat_id, models, names, text, cap, brief='', efforts=None, ow
                 s_, _tried = await _cb.open_session(http, env, _site_ctx(_load()['cats'].get(cat_id) or {}))   # 🔓 starts signed in where the owner signed in
                 sessions.append(s_)
                 try:
-                    pages.append(await _cb.LivePage(s_['connect']).start() if s_.get('connect') else _cb.ReaderPage(http))
+                    pages.append(await _cb.LivePage(s_['connect'], s_.pop('cookies', None)).start() if s_.get('connect') else _cb.ReaderPage(http))
                 except Exception as e:   # the live browser did not connect → the reader keeps the model working
                     sessions[-1] = {**s_, 'provider': 'reader', 'live': None, 'note': f"{s_['provider']} did not connect ({str(e)[:60]})"}
                     pages.append(_cb.ReaderPage(http))
