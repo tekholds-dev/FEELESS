@@ -2,7 +2,6 @@ import { FeeCatStage } from './FeeCatStage';
 import { FeeCatLore } from './FeeCatLore';
 import { FeeCatShell, goTo } from './FeeCatShell';
 import { useAdmin } from '../../lib/adminCall';
-import { FeeCatBrainPage } from './FeeCatBrainPage';
 import { CatBuilder } from './CatBuilder';
 import { FeeLanding } from './FeeLiveTab';
 import NumInput from '../NumInput';
@@ -61,10 +60,9 @@ export const FeeCatCenter = ({ asset, community, onSelect, children }) => {
     window.addEventListener('feeless:feecat-view', go); window.addEventListener('popstate', pop);
     return () => { window.removeEventListener('feeless:feecat-view', go); window.removeEventListener('popstate', pop); };
   }, []);
-  return <FeeCatShell tab={view}>
-    {view === 'brain' || (view === 'desk' && !isAdmin) ? <FeeCatStage /> : null}
+  return <FeeCatShell tab={view === 'brain' ? 'lore' : view}>
+    {view === 'desk' && !isAdmin ? <FeeCatStage /> : null}
     {view === 'desk' ? (isAdmin ? <Suspense fallback={null}><FeeDesk onBack={() => goTo('/terminal/feecat/agents')} /></Suspense> : <FeeLanding book={children} />) : null}
-    {view === 'brain' ? <FeeCatBrainPage /> : null}
-    {view === 'lore' ? <FeeCatLore asset={asset} community={community} onSelect={onSelect}>{t => (t === 'calc' ? <FeeBackCalculator feeCat={asset} /> : <FeeBackFlow />)}</FeeCatLore> : null}
+    {view === 'lore' || view === 'brain' ? <FeeCatLore key={view} start={view === 'brain' ? 'brain' : 'legend'} asset={asset} community={community} onSelect={onSelect}>{t => (t === 'calc' ? <FeeBackCalculator feeCat={asset} /> : <FeeBackFlow />)}</FeeCatLore> : null}
   </FeeCatShell>;
 };

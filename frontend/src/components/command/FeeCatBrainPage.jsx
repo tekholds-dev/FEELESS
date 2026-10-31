@@ -46,6 +46,35 @@ function useBrain() {
   return b;
 }
 
+// 🧭 HOW FEE THINKS (owner 2026-10-31: "put her brain inside Lore and redo it into a cooler understanding of it all"): her whole loop as ONE drawn
+// pipeline, each station with its live number — a coin travels left → right; the station that stops most coins glows
+export function thinkStations(sc, p, hive) {
+  const scan = sc?.scan || {}; const b = sc?.cat?.brainsCfg || {}; const h = feeHeadline(p); const L = p?.learning || {};
+  const dec = b.decisions || []; const today = (hive?.cells || []).length;
+  return [
+    ['scan', '🔎', 'SCAN', `${scan.scanned ?? 0}`, 'coins read on the trench board', 'Every round she reads the live trench board — FEELESS data, no outside guesses.'],
+    ['gate', '🧭', 'GATES', `${scan.passed ?? 0}`, 'passed all nine', 'Pool, volume, cap band, 1 h move, buyers vs sellers, no chase, top-10, snipers, bundles — one fail and the coin is out.'],
+    ['brains', '🧠', 'TWO BRAINS', `${(b.brains || []).length || '—'}`, dec.length ? `${dec.length} calls · last ${dec.at(-1)?.word || '—'} $${dec.at(-1)?.sym || ''}` : 'no call yet', 'Two AI models read the case one after the other; she buys only when they agree (the head cloud).'],
+    ['hive', '🐝', 'THE HIVE', `${today}`, 'graded calls she can read', 'Other agents file calls on the same coins; an hour later each is graded on the real move. Her brains read those grades first.'],
+    ['buy', '🎯', 'BUY + LADDER', `${h.open}`, 'open now', 'A small first bite, then the exit ladder: hard stop, protect, take profits in pieces, a trail behind a runner.'],
+    ['lives', '❤', 'NINE LIVES', `${h.lives}/${h.maxLives}`, h.nap ? 'napping — no new trades' : (h.why || 'normal size'), 'A loss blows a life out, a win in 24 h lights one. At zero she naps: discipline only ever makes her trade less.'],
+    ['learn', '📚', 'LEARN', `${L.memory ?? 0}`, `trades remembered · ${L.missed ?? 0} runners sold early`, 'Every exit is checked an hour on: runners she sold early loosen her trail, bad setups get vetoed next time.'],
+  ];
+}
+export function ThinkFlow() {
+  const p = useLeaderProfile(); const sc = useLeaderScan(); const [hive, setHive] = useState(null); const [open, setOpen] = useState('gate');
+  useEffect(() => { let on = true; fetch(apiUrl('/api/cats/hive')).then(r => (r.ok ? r.json() : null)).then(x => on && x && setHive(x)).catch(() => {}); return () => { on = false; }; }, []);
+  const st = thinkStations(sc, p, hive); const cur = st.find(x => x[0] === open) || st[0];
+  return <section className="fbr-flow" data-testid="fee-think">
+    <header><b>🧭 HOW FEE THINKS</b><small>one coin's trip through her brain · live numbers · tap a station</small></header>
+    <ol className="fbr-pipe" role="tablist" aria-label="Her decision loop">{st.map(([k, ic, name, big, small], i) => <li key={k} style={{ '--i': i }}>
+      <button type="button" role="tab" aria-selected={open === k} className={open === k ? 'is-on' : ''} onClick={() => setOpen(k)} data-testid={`think-${k}`} data-tip={small}>
+        <i aria-hidden="true">{ic}</i><em>{name}</em><b className="m-num" key={big}>{big}</b><small>{small}</small></button></li>)}
+      <span className="fbr-coin" aria-hidden="true" /></ol>
+    <p className="fbr-why" role="tabpanel" key={cur[0]}><b>{cur[1]} {cur[2]}</b> {cur[5]}</p>
+  </section>;
+}
+
 export function FeeCatBrainPage() {
   const p = useLeaderProfile(); const sc = useLeaderScan(); const b = useBrain(); const h = feeHeadline(p);
   const rules = { ...(p?.rules || {}), ...(sc?.rules || {}) }; const L = p?.learning || {}; const pb = L.playbook || {};

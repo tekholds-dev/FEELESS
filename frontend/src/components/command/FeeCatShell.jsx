@@ -14,8 +14,7 @@ import '../../styles/feecatShell.css';
 // numbers shown three times, a "Fee live" tab inside the agents page and a "Build your cat" tab that jumped away.
 export const FC_NAV = [
   ['desk', '/terminal/feecat', '🐱', 'LIVE DESK', "Fee's scan · chart · calls"],
-  ['brain', '/terminal/feecat?view=brain', '🧠', 'HER BRAIN', 'rules · lessons · nine lives'],
-  ['lore', '/terminal/feecat?view=lore', '📜', 'LORE', 'the legend · Fee-Back'],
+  ['lore', '/terminal/feecat?view=lore', '📜', 'LORE', 'her legend · her brain · Fee-Back'],
   ['agents', '/terminal/feecat/agents', '🤖', 'AGENTS', 'create a cat that trades'],
   ['build', '/terminal/feecat/cats', '🎨', 'BUILD AN AGENT', 'cat · queen ant · fly · ants'],
 ];

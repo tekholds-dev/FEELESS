@@ -22,8 +22,17 @@ test('the legend: nine lanterns lit from her lives, chapters, the Fee-Back tabs'
   expect(el.querySelectorAll('.fcl-lanterns i').length).toBe(9); expect(el.querySelectorAll('.fcl-lanterns i.is-lit').length).toBe(7);
   expect(el.querySelector('[data-testid="feecat-ch-record"]').textContent).toContain('3W · 1L');
   expect(el.querySelector('[data-testid="feecat-stat-2"]').textContent).toContain('12 real messages');
+  await act(async () => { el.querySelector('[data-testid="lore-feeback"]').click(); });   // Fee-Back is Lore's third section
   expect(el.querySelector('[data-testid="pane"]').textContent).toBe('path');
   await act(async () => { el.querySelector('[data-testid="feecat-tab-calc"]').click(); });
   expect(el.querySelector('[data-testid="pane"]').textContent).toBe('calc');
   await act(async () => { root.unmount(); });
+});
+
+test('🧭 Lore › Her brain: one drawn pipeline of her loop with live numbers — scan → gates → two brains → Hive → buy → lives → learn', () => {
+  const { thinkStations } = require('./FeeCatBrainPage');
+  const st = thinkStations({ scan: { scanned: 45, passed: 2 }, cat: { brainsCfg: { brains: ['a', 'b'], decisions: [{ word: 'BUY', sym: 'HUSS' }] } } },
+    { cat: { positions: [{}] }, discipline: { lives: 7, maxLives: 9 }, learning: { memory: 12, missed: 3 } }, { cells: [{}, {}] });
+  expect(st.map(s => s[0])).toEqual(['scan', 'gate', 'brains', 'hive', 'buy', 'lives', 'learn']);
+  expect(st.map(s => s[3])).toEqual(['45', '2', '2', '2', '1', '7/9', '12']); expect(st[2][4]).toContain('last BUY $HUSS');
 });

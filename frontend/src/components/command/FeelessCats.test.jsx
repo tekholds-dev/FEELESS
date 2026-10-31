@@ -47,10 +47,10 @@ test('🎲 Surprise me builds a valid random cat', () => {
 
 test('🐱 the FeeCat shell: one nav for all five FeeCat pages (Create an agent ≠ Build a cat), Fee live in the bar, your built cat in the corner', async () => {
   localStorage.setItem('feeless.myCat', JSON.stringify({ coat: 0, pattern: 'patch', look: { gear: 'crown' }, name: 'Specter' }));
-  const { el, root, q } = mount(<FeeCatShell tab="brain"><p>body</p></FeeCatShell>);
+  const { el, root, q } = mount(<FeeCatShell tab="lore"><p>body</p></FeeCatShell>);
   await act(async () => { await new Promise(r => setTimeout(r, 0)); });
-  expect(FC_NAV.map(n => n[0])).toEqual(['desk', 'brain', 'lore', 'agents', 'build']);
-  expect(q('fcx-brain').getAttribute('aria-current')).toBe('page'); expect(q('fcx-agents').textContent).toContain('create a cat that trades'); expect(q('fcx-build').textContent).toContain('BUILD AN AGENT');
+  expect(FC_NAV.map(n => n[0])).toEqual(['desk', 'lore', 'agents', 'build']);   // her brain lives inside Lore now (owner 2026-10-31)
+  expect(q('fcx-lore').getAttribute('aria-current')).toBe('page'); expect(q('fcx-agents').textContent).toContain('create a cat that trades'); expect(q('fcx-build').textContent).toContain('BUILD AN AGENT');
   expect(q('fcx-mine').textContent).toContain('SPECTER'); expect(q('fcx-mine').querySelector('.g-crown')).not.toBeNull();
   expect(el.querySelectorAll('.fcx-lives i.on')).toHaveLength(7); expect(el.textContent).toContain('+4.0%');
   act(() => q('fcx-lore').click()); expect(window.location.pathname + window.location.search).toBe('/terminal/feecat?view=lore');

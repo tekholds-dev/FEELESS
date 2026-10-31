@@ -52,3 +52,6 @@ body.theme-day .fcl-ch b, body.theme-day .fcl-stats b { color: #24164a; text-sha
 @media (max-width: 900px) { .fcl-chapters { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); } }
 @media (max-width: 640px) { .fcl-hero { grid-template-columns: 1fr; } .fcl-roof { min-height: 210px; } .fcl-copy { padding: 0 16px 16px; } .fcl-copy h1 { font-size: 24px; }
   .fcl-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); } .fcl-chapters { grid-template-columns: 1fr; } }
+
+/* 📜 Lore's three sections: Legend · Her brain · Fee-Back */
+.fcl-secs { margin: 4px 0 12px; } .fcl-secs button { min-height: 36px; }

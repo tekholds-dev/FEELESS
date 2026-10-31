@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useGlide } from '../../lib/useGlide';
 import '../../styles/feeCatLore.css';
+import { FeeCatBrainPage, ThinkFlow } from './FeeCatBrainPage';
 
 // 📜 THE LEGEND OF FEE (owner P2: "FeeCat lore + other tabs — only the top was redone"; FeeCat = violet night). A drawn rooftop at night: Fee's
 // silhouette with eyes that blink, the moon, and NINE LANTERNS = her nine lives, lit from her live discipline (feecat_brain: a loss −1, a win +1,
@@ -38,8 +39,10 @@ function Rooftop({ lives = 9, max = 9, nap }) {
   </div>;
 }
 
-export function FeeCatLore({ asset, community, onSelect, children }) {
-  const [p, setP] = useState(null); const [tab, setTab] = useState('path');
+// 📜 LORE = her legend + 🧠 HER BRAIN (owner 2026-10-31: "put her brain inside the Lore tab") + ↻ Fee-Back, as three sections of one page
+export const LORE_TABS = [['legend', '📜 Legend', 'Who Fee is — five chapters, each with a live number'], ['brain', '🧠 Her brain', 'How she thinks: the whole loop, then her gates, ladder, lessons and lives'], ['feeback', '↻ Fee-Back', 'The return path and the calculator']];
+export function FeeCatLore({ asset, community, onSelect, children, start = 'legend' }) {
+  const [p, setP] = useState(null); const [tab, setTab] = useState('path'); const [sec, setSec] = useState(start);
   useEffect(() => { let on = true; const go = () => fetch('/api/cats/leader/profile').then(r => (r.ok ? r.json() : null)).then(x => { if (on && x) setP(x); }).catch(() => {});
     go(); const t = setInterval(() => { if (!document.hidden) go(); }, 60000); return () => { on = false; clearInterval(t); }; }, []);
   const d = p?.discipline || {}; const lives = useGlide(d.lives ?? 9);
@@ -51,12 +54,16 @@ export function FeeCatLore({ asset, community, onSelect, children }) {
         <div className="fcl-ctas"><Link className="m-btn m-go" to="/terminal/feecat/cats" data-testid="feecat-collection-link">🐱 Meet the cats</Link>
           {asset?.pair ? <button type="button" className="m-btn" onClick={() => onSelect?.(asset.pair)} data-testid="feecat-open-market">Open FEECAT market ↗</button> : null}</div></div>
     </header>
-    <ol className="fcl-chapters">{CHAPTERS.map(([k, title, line], i) => { const [big, small] = chapterStat(k, p, asset);
+    <nav className="m-seg fcl-secs" role="tablist" aria-label="Lore">{LORE_TABS.map(([k, l, tip]) => <button key={k} type="button" role="tab" aria-selected={sec === k} className={sec === k ? 'active' : ''} onClick={() => setSec(k)} data-tip={tip} data-testid={`lore-${k}`}>{l}</button>)}</nav>
+    {sec === 'brain' ? <><ThinkFlow /><FeeCatBrainPage /></> : null}
+    {sec === 'legend' ? <><ol className="fcl-chapters">{CHAPTERS.map(([k, title, line], i) => { const [big, small] = chapterStat(k, p, asset);
       return <li key={k} className={`fcl-ch k-${k}`} style={{ '--i': i }} data-testid={`feecat-ch-${k}`}><em>{title}</em><b className="m-num">{big}</b><small>{small}</small><p>{line}</p>
         {k === 'cats' ? <Link to="/terminal/feecat/cats" className="fcl-go">open ›</Link> : k === 'feeback' ? <Link to="/terminal/feeback" className="fcl-go">Fee-Back ›</Link> : k === 'record' ? <Link to="/terminal/feecat" className="fcl-go" onClick={e => { e.preventDefault(); window.dispatchEvent(new CustomEvent('feeless:feecat-view', { detail: 'desk' })); }}>her wall ›</Link> : null}</li>; })}</ol>
     <div className="fcl-stats">{[['FEECAT RECEIVED', 'No verified distributions'], ['TREASURY', 'Not published / unverified'], ['TRENCHES · 7D', community?.messages != null ? `${community.messages} real messages` : 'connecting'],
       ['FEECAT MARKET', asset?.status === 'market_observed' && asset?.pair?.priceUsd ? `$${Number(asset.pair.priceUsd).toPrecision(3)}` : 'awaiting a market']].map(([k, v], i) => <span key={k} style={{ '--i': i }}><em>{k}</em><b data-testid={`feecat-stat-${i}`}>{v}</b></span>)}</div>
+    </> : null}
+    {sec === 'feeback' ? <>
     <div className="m-seg fcl-tabs" role="tablist" aria-label="Fee-Back">{[['path', '↻ The return path'], ['calc', '🧮 Fee-Back calculator']].map(([k, l]) => <button key={k} type="button" role="tab" aria-selected={tab === k} className={tab === k ? 'active' : ''} onClick={() => setTab(k)} data-testid={`feecat-tab-${k}`}>{l}</button>)}</div>
-    <div className="fcl-pane">{children ? children(tab) : null}</div>
+    <div className="fcl-pane">{children ? children(tab) : null}</div></> : null}
   </section>;
 }
