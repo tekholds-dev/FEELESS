@@ -43,6 +43,8 @@ import cat_model as _cm
 import cat_tools as _ct   # 🧰 FEELESS-first read-only tools for general agents
 import agent_files as _af   # ☁ each agent's own storage (owner uploads, 1 GB, 7-day clean)
 import clarify as _cq   # ❓ first asks: 2–3 questions for a coin / money ask
+import agent_treasury as _tr   # 🏦 its coin's creator fees, read on-chain + split
+import chain_rpc as _crpc
 import earn_mode as _em   # ⚡ Earn Mode's planner (never signs)
 import agent_cloud as _acl   # ☁ its owner's own Drive / Dropbox (FEELESS funds no storage)
 import cat_vault as _cv   # 🔐 a general agent's saved logins + 🖼 media drawer
@@ -86,7 +88,7 @@ def _load() -> dict:
 
 # 🔒 The engine loads every cat, works for minutes, then saves its whole copy: anything an owner did meanwhile was wiped (owner 2026-10-30: a new agent wallet vanished
 # seconds after it was made). What an owner's action sets is kept here and laid over every save, so an old copy can never lose a wallet, a funding or a limit.
-OWNER_KEYS = ('agentWallet', 'agentFunded', 'creditPaid', 'recovery', 'recoverySet', 'recoveryConfirmedAt', 'limits', 'taskCap', 'ownerId', 'mode', 'realWallet', 'budgetSol', 'paperByOwner', 'files', 'ownerWallet', 'logins', 'cloudLink', 'vaultLog', 'earn', 'clarify', 'ownerStaff')
+OWNER_KEYS = ('agentWallet', 'agentFunded', 'creditPaid', 'recovery', 'recoverySet', 'recoveryConfirmedAt', 'limits', 'taskCap', 'ownerId', 'mode', 'realWallet', 'budgetSol', 'paperByOwner', 'files', 'ownerWallet', 'logins', 'cloudLink', 'vaultLog', 'earn', 'clarify', 'ownerStaff', 'pass', 'treasury')
 _KEPT: dict = {}
 
 
@@ -1795,7 +1797,7 @@ async def _armor(request, call_next):
     """🔒 Every response: no sniffing, no framing, no referrer, never cached when it is an owner's. Owner doors are rate-limited per IP."""
     path = request.url.path
     parts = path.split('/')
-    owner_door = len(parts) > 4 and parts[1:3] == ['api', 'cats'] and parts[4] in ('work', 'action', 'files', 'cloud', 'recovery-pin', 'earn', 'agent-wallet') and not request.headers.get('x-feeless-internal')
+    owner_door = len(parts) > 4 and parts[1:3] == ['api', 'cats'] and parts[4] in ('work', 'action', 'files', 'cloud', 'recovery-pin', 'earn', 'agent-wallet', 'treasury') and not request.headers.get('x-feeless-internal')
     if owner_door and not rate_ok((request.client.host if request.client else '-', parts[3])):
         return Response('{"detail":"Too many requests — slow down."}', status_code=429, media_type='application/json')
     resp = await call_next(request)
@@ -2248,6 +2250,14 @@ def _internal_headers():
         return {}
 
 
+def _internal_ok(request):
+    """True when the request carries FEELESS's internal key (service to service, never a browser)."""
+    try:
+        _internal(request); return True
+    except HTTPException:
+        return False
+
+
 def _internal(request):
     import hmac
     try:
@@ -2536,6 +2546,21 @@ async def cat_live(cat_id: str):
     return public_live(_WORK.get(cat_id))
 
 
+@app.get('/api/cats/{cat_id}/treasury')
+async def cat_treasury(cat_id: str, ownerId: str = '', session: str = ''):
+    """🏦 Its treasury: its coin, the creator fees waiting for its wallet (read on-chain now), the split and what each part would get."""
+    store = _load(); cat = store['cats'].get(cat_id)
+    if not cat:
+        raise HTTPException(404, 'Agent not found.')
+    _owner_gate(store, cat, session, ownerId, 'see its treasury')
+    t = cat.get('treasury') or {}; split = _tr.clean_split(t.get('split') or _tr.DEFAULT_SPLIT); creator = (cat.get('agentWallet') or {}).get('address') or ''
+    fees = {'pump': 0, 'pumpSwap': 0, 'total': 0}
+    if creator:
+        async with httpx.AsyncClient(timeout=10) as http:
+            fees = await _tr.read(http, _crpc._rpc, creator)
+    return {'mint': t.get('mint') or '', 'split': split, 'creator': creator, 'fees': fees, 'plan': _tr.plan(fees['total'], split), 'buybackMax': _tr.BUYBACK_MAX}
+
+
 @app.get('/api/cats/{cat_id}/earn')
 async def cat_earn(cat_id: str, ownerId: str = '', session: str = ''):
     """⚡ Earn Mode's plan right now: the live gap / vault / pool feeds ranked for its risk and $ (owner only; it never signs)."""
@@ -2691,7 +2716,7 @@ async def cat_profile(cat_id: str):
 
 
 @app.get('/api/cats/{cat_id}')
-async def get_cat(cat_id: str, ownerId: str = '', session: str = ''):
+async def get_cat(cat_id: str, request: Request = None, ownerId: str = '', session: str = ''):
     """One cat, public view. `mine` = this signed-in wallet owns it (signed out ⇒ never mine); the owner id / wallet are never returned."""
     store = _load()
     cat = store['cats'].get(cat_id)
@@ -2700,7 +2725,8 @@ async def get_cat(cat_id: str, ownerId: str = '', session: str = ''):
     if _real.is_real(cat) and _real.expire(cat, time.time()):
         _save(store)
     mine = owner_check(cat, _fresh_session_wallet(session), ownerId) in ('ok', 'claim')
-    out = _pub({'cat': {k: v for k, v in cat.items() if k not in ('artifacts', 'refusals')} if mine or cat.get('isLeader') else public_cat(cat)})
+    inside = request is not None and bool(request.headers.get('x-feeless-internal')) and _internal_ok(request)   # 🔒 FEELESS's own services (funding, withdraw) read the full record
+    out = _pub({'cat': {k: v for k, v in cat.items() if k not in ('artifacts', 'refusals')} if mine or inside or cat.get('isLeader') else public_cat(cat)})
     out['cat']['mine'] = mine
     return out
 
@@ -2709,7 +2735,7 @@ async def get_cat(cat_id: str, ownerId: str = '', session: str = ''):
 # record and what both minds agreed on. Never its chat, keys, logins, wallets, payments, limits, recovery or the owner's wallet.
 PUBLIC_CAT_KEYS = ('id', 'name', 'handle', 'title', 'avatar', 'look', 'skin', 'status', 'level', 'xp', 'mode', 'brain', 'brainLabel', 'brainProfile',
                    'strategy', 'strategyLabel', 'job', 'engine', 'createdAt', 'lastTick', 'revoked', 'wallet', 'balanceSol', 'startingBalanceSol',
-                   'realizedPnlSol', 'totalPnlSol', 'volumeSol', 'wins', 'losses', 'winRate', 'pnlHistory', 'positions', 'exits', 'discipline')
+                   'realizedPnlSol', 'totalPnlSol', 'volumeSol', 'wins', 'losses', 'winRate', 'pnlHistory', 'positions', 'exits', 'discipline', 'pass')
 
 
 def public_cat(cat):
@@ -2818,6 +2844,8 @@ class ActionPayload(BaseModel):
     look: Optional[dict] = None        # 🎨 Fee's look (the creator's wallet only)
     limits: Optional[dict] = None      # 🎚 controls: a general agent's spend limits (clean_limits)
     earn: Optional[dict] = None        # ⚡ Earn Mode: {on, risk, budgetUsd}
+    passInfo: Optional[dict] = None    # 🎫 action 'pass_minted' (reputation, internal key, after its on-chain check)
+    treasury: Optional[dict] = None    # 🏦 action 'treasury': {mint, split: {holder, credit, buyback}}
     mode: Optional[str] = None         # 👛 agent_mode: approve | auto (a GENERAL cat's switch)
     provider: Optional[str] = None     # 🔐 api_key: which drawer slot …
     secret: Optional[str] = None       # … and the key (empty = remove it); sealed at once, never echoed
@@ -3045,6 +3073,18 @@ async def cat_action(cat_id: str, payload: ActionPayload, request: Request):
         _log_event(store, cat, 'STARTED', f"{cat['name']}'s wallet is {addr_[:6]}… — " + ('she trades from it (Crossmint holds its key).' if prov_ == 'crossmint'
                    else 'she trades from it (your Circle wallet — Circle signs, inside her caps).' if prov_ == 'circle'
                    else "WATCH-ONLY: neither Crossmint nor your Circle project holds its key, so she shows it but never trades from it."))
+    elif payload.action == 'pass_minted':   # 🎫 internal only (reputation checked the mint on-chain): its Agent Pass, shown on its card
+        if not request.headers.get('x-feeless-internal'):
+            raise HTTPException(403, 'Only FEELESS records a Pass, after checking it on-chain.')
+        pi = payload.passInfo or {}
+        cat['pass'] = {'number': int(pi.get('number') or 0), 'asset': str(pi.get('asset') or '')[:44], 'sig': str(pi.get('sig') or '')[:100], 'owner': str(pi.get('owner') or '')[:44], 'at': round(time.time())}
+        _log_event(store, cat, 'STARTED', f"{cat['name']} got Agent Pass #{cat['pass']['number']:04d}.")
+    elif payload.action == 'treasury':   # 🏦 its coin + how its creator fees split (owner only — the gate above)
+        t_ = payload.treasury or {}
+        mint_ = str(t_.get('mint') or '').strip()
+        if mint_ and not re.match(r'^[1-9A-HJ-NP-Za-km-z]{32,44}$', mint_):
+            raise HTTPException(400, 'That is not a Solana coin address.')
+        cat['treasury'] = {'mint': mint_, 'split': _tr.clean_split(t_.get('split')), 'at': round(time.time())}
     elif payload.action == 'earn':   # ⚡ Earn Mode on / off + its risk and the $ it plans for (it never signs — Launch › Pools does)
         cat['earn'] = _em.clean(payload.earn)
         _log_event(store, cat, 'STARTED' if cat['earn']['on'] else 'STOPPED', f"{cat['name']}: Earn Mode {'on' if cat['earn']['on'] else 'off'} · {cat['earn']['risk']}.")

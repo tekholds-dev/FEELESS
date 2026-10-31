@@ -270,12 +270,16 @@ export function rangeable(pools, n = 4) {
 }
 
 // 🤖 one row of the busiest rangeable pools (chips with their real fee rate a day) → the AutoRange desk on the one picked
+const RANGE_TIERS = [['all', 'ALL'], ['safe', '🛡 SAFE'], ['mid', '⚖ MID'], ['risky', '🔥 RISKY']];   // the server's one rule (fee_pools.tier)
 export function AutoRangePicker({ pools, amt = null, title = '🤖 AUTORANGE · THE BUSIEST BANDS RIGHT NOW' }) {
-  const list = useMemo(() => rangeable(pools), [pools]); const [id, setId] = useState(null);
+  const [tier, setTier] = useState('all');   // (owner 2026-10-31: "way more options") — every rangeable pool, safe to risky, not just the top 4
+  const list = useMemo(() => rangeable((pools || []).filter(p => tier === 'all' || p.tier === tier), 24), [pools, tier]); const [id, setId] = useState(null);
   const pick = list.find(p => p.id === id) || list[0] || null;
+  if (!pick && tier !== 'all') return <p className="arx-empty">No {tier} concentrated pool with live volume right now. <button type="button" className="m-btn" onClick={() => setTier('all')}>Show all</button></p>;
   if (!pick) return <p className="arx-empty">{pools ? 'No concentrated pool with live volume right now.' : 'Reading the pools…'}</p>;
   return <div className="arx-pick" data-testid="autorange-picker">
-    <header><b>{title}</b><small>fees a day per $ in a ±20% band · tap one</small></header>
+    <header><b>{title}</b><small>{list.length} pools · fees a day per $ in a ±20% band · tap one</small>
+      <span className="m-seg arx-tiers" role="radiogroup" aria-label="Risk">{RANGE_TIERS.map(([k, l]) => <button key={k} type="button" role="radio" aria-checked={tier === k} className={tier === k ? 'active' : ''} onClick={() => { setTier(k); setId(null); }} data-testid={`arx-tier-${k}`}>{l}</button>)}</span></header>
     <div className="arx-pools" role="radiogroup" aria-label="Pool">{list.map(p => <button key={p.id} type="button" role="radio" aria-checked={p === pick} className={p === pick ? 'is-on' : ''} onClick={() => setId(p.id)}
       data-tip={`${p.proto} · ${p.meta || p.kind} · TVL ${big(p.tvl)}`}><b>{p.sym}</b><small className="m-num">{(poolDayRate(p).rate * 100).toFixed(3)}%/day · {big(p.vol)} vol</small></button>)}</div>
     <AutoRangeDesk key={pick.id} pool={pick} amt={amt} />

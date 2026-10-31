@@ -102,7 +102,9 @@ body.theme-day .arx :is(.arx-strats button, .arx-amts button) { background: #fff
 /* the picker above the desk (Night Vault · Launch › Pools) */
 .arx-pick { display: grid; gap: 8px; } .arx-pick > header { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 4px 10px; align-items: baseline; }
 .arx-pick > header b { font: 900 12px 'JetBrains Mono', monospace; letter-spacing: .1em; color: #2ee6a6; } .arx-pick > header small { font: 600 10px 'JetBrains Mono', monospace; color: #7f93a0; }
-.arx-pools { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 6px; }
+.arx-pools { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 4px; scroll-snap-type: x proximity; scrollbar-width: thin; scrollbar-color: #15d16a transparent; }   /* one row, swipe for more (not scroll-heavy) */
+.arx-pools > button { flex: 0 0 158px; scroll-snap-align: start; } .arx-pools::-webkit-scrollbar { height: 6px; } .arx-pools::-webkit-scrollbar-thumb { background: #15d16a88; border-radius: 6px; }
+.arx-tiers { margin-left: auto; } .arx-tiers button { min-height: 30px; padding-inline: 10px; }
 .arx-pools button { display: grid; gap: 2px; justify-items: start; min-height: 46px; padding: 6px 10px; border-radius: 10px; border: 1px solid rgba(46, 230, 166, .2); background: rgba(5, 11, 17, .7); color: #e6f3f0; cursor: pointer; transition: border-color .15s, transform .12s, background .15s; }
 .arx-pools button b { font: 800 12px 'JetBrains Mono', monospace; } .arx-pools button small { font: 700 9.5px 'JetBrains Mono', monospace; color: #7f93a0; }
 .arx-pools button:hover { border-color: #2ee6a6; } .arx-pools button:active { transform: scale(.97); } .arx-pools button:focus-visible { outline: 2px solid #2ee6a6; outline-offset: 1px; }

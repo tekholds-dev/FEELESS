@@ -11044,7 +11044,7 @@ async def _cat_for_fund(cat_id, me):
     """The cat (from the cat service) + its own wallet, owned by `me`. Raises HTTPException."""
     if not _re.match(r'^[A-Za-z0-9_-]{1,64}$', cat_id or ''):
         raise HTTPException(400, 'Not a cat id.')
-    r = await _ai_http().get(f'http://127.0.0.1:5088/api/cats/{cat_id}', timeout=8)
+    r = await _ai_http().get(f'http://127.0.0.1:5088/api/cats/{cat_id}', headers={'x-feeless-internal': _internal_key()}, timeout=8)   # the full record (its wallet) — the public view hides it
     if r.status_code != 200:
         raise HTTPException(404, 'Cat not found.')
     cat = (r.json() or {}).get('cat') or {}
@@ -11282,7 +11282,7 @@ PGAP_SEC = 60.0
 @app.get('/api/reputation/familia-pools/gaps')
 async def familia_pools_gaps():
     """📐 PRICE GAPS (price_gap.py, READ-ONLY): the tokens the Pool Hub's pools hold, priced across every real pool they trade in — the
-    cheap pool, the rich one, the gap after a swap's cost each side, how long it has stayed open. one DexScreener /token-pairs read per token a minute (≤ 12, in parallel)."""
+    cheap pool, the rich one, the gap after a swap's cost each side, how long it has stayed open. one DexScreener /token-pairs read per token a minute (≤ price_gap.TOKENS, in parallel)."""
     now = time.time(); c = _pgap_c
     if c['v'] is not None and now - c['at'] < PGAP_SEC:
         return c['v']
@@ -11638,9 +11638,9 @@ async def familia_pools_ranges(mint: str = Query('', max_length=64), quote: str 
     met_ = lambda d_: _rp.meteora((d_ or {}).get('data') or [])
     if top:
         a_, b_ = await asyncio.gather(
-            _rng_get('ray:top', 'https://api-v3.raydium.io/pools/info/list', {'poolType': 'concentrated', 'poolSortField': 'volume24h', 'sortType': 'desc', 'pageSize': 50, 'page': 1}, ray_),
-            _rng_get('met:top', 'https://dlmm.datapi.meteora.ag/pools', {'page_size': 50, 'sort_by': 'volume_24h:desc'}, met_))
-        return {'pools': _rp.busiest(a_ + b_, 10), 'at': round(time.time())}
+            _rng_get('ray:top', 'https://api-v3.raydium.io/pools/info/list', {'poolType': 'concentrated', 'poolSortField': 'volume24h', 'sortType': 'desc', 'pageSize': 100, 'page': 1}, ray_),
+            _rng_get('met:top', 'https://dlmm.datapi.meteora.ag/pools', {'page_size': 100, 'sort_by': 'volume_24h:desc'}, met_))
+        return {'pools': _rp.busiest(a_ + b_, 30), 'at': round(time.time())}   # (owner 2026-10-31: way more AutoRange options)
     if not 32 <= len(mint) <= 44:
         raise HTTPException(400, 'A token mint, or top=1.')
     a_, b_ = await asyncio.gather(
@@ -27260,7 +27260,7 @@ async def chat_delete(payload: ChatDelete):
 FEE_DEFAULTS = {'platformFeeBps': 0, 'referralAccount': '', 'tierDiscountPct': {'0': 0, '1': 10, '2': 25, '3': 50},
                 'zeroFeeMints': [], 'promo': {'label': '', 'discountPct': 0, 'until': 0},
                 # LI.FI (EVM swaps + bridges): fees go to the integrator's fee wallet registered at portal.li.fi.
-                'lifiIntegrator': '', 'lifiFeeBps': 0,
+                'lifiIntegrator': '', 'lifiFeeBps': 0, 'agentPassFeeLamports': 0,
                 # Trading engine. 'swap' = Jupiter Swap API: FEELESS sets the fee (paid into its own SOL / USDC
                 # token accounts), caps the priority fee and broadcasts. 'ultra' = Jupiter Ultra (referral fee,
                 # 0.5–2.55%). ultraFallback: Ultra is only used when the Swap API fails AND this is switched on.
@@ -27502,6 +27502,7 @@ class FeeCfg(BaseModel):
     lifiFeeBps: int = Field(0, ge=0, le=LIFI_MAX_BPS)
     vaultFeeWallet: str = ''
     catFeeUsd: float = Field(2.0, ge=0, le=100)     # 💵 FeeCat: FEELESS's one-time cut out of a cat's first funding (cat_fund.py)
+    agentPassFeeLamports: int = Field(0, ge=0, le=5_000_000_000)   # 🎫 the Agent Pass mint fee; 0 = auto, 2× what Solana charges
     catMaxModels: int = Field(3, ge=1, le=8)
     agentTradeFeeUsd: float = Field(0.05, ge=0, le=10)   # 🤖 flat fee per swap / trench trade from an agent's wallet (replaces the % fee on it)
     agentOtherFeeUsd: float = Field(0.10, ge=0, le=10)   # 🤖 flat fee per finished task, anything that is not a trade
@@ -31676,6 +31677,106 @@ class TokenMetaIn(BaseModel):
     twitter: str = ''
     telegram: str = ''
     banner: str = ''
+
+
+# 🎫 THE AGENT PASS (agent_pass.py): rules · prepare (number + metadata) · confirm (checked on-chain) — the owner's wallet mints and pays
+import agent_pass as _apass  # noqa: E402
+APASS_FILE = DATA_DIR / 'agent_passes.json'
+
+
+class AgentPassIn(BaseModel):
+    address: str
+    session: str
+    image: str = ''
+    signature: str = ''
+    asset: str = ''
+
+
+def _pass_site():
+    site = os.environ.get('PUBLIC_SITE_URL', '').strip().rstrip('/')
+    host = _re.sub(r'^https?://', '', site).split('/')[0].split(':')[0]
+    ok = site.startswith('https://') and host not in ('localhost', '127.0.0.1', '0.0.0.0') and not host.endswith('.local') and not _re.match(r'^(10|192\.168|172\.(1[6-9]|2\d|3[01]))\.', host)
+    return site if ok else ''
+
+
+async def _agent_pass_rules():
+    cfg = _fee_cfg(); fee_w = cfg.get('vaultFeeWallet') or ''
+    try:
+        async with httpx.AsyncClient(timeout=8) as http:
+            rent = int(await _rpc(http, 'getMinimumBalanceForRentExemption', [_apass.ASSET_BYTES]) or 0)
+    except Exception:
+        rent = 0
+    prov = _apass.provider_lamports(rent) if rent else 0
+    fee = _apass.fee_lamports(prov, cfg.get('agentPassFeeLamports') or 0) if prov else int(cfg.get('agentPassFeeLamports') or 0)
+    why = '' if _pass_site() else 'Minting opens when FEELESS has its public domain (PUBLIC_SITE_URL, https) — a Pass\'s picture link is permanent.'
+    why = why or ('' if fee_w else 'The FEELESS fee wallet is not set — HQ › Fees › vault fee wallet.') or ('' if prov else 'Solana did not answer — try again in a minute.')
+    return {'ready': not why, 'why': why, 'feeWallet': fee_w, 'providerLamports': prov, 'feeLamports': fee, 'royaltyBps': _apass.ROYALTY_BPS, 'auto': not (cfg.get('agentPassFeeLamports') or 0)}
+
+
+@app.get('/api/reputation/agent-pass/rules')
+async def agent_pass_rules():
+    return await _agent_pass_rules()
+
+
+async def _owned_cat(cat_id, me):
+    if not _re.match(r'^[A-Za-z0-9_-]{1,64}$', cat_id or ''):
+        raise HTTPException(400, 'Not an agent id.')
+    r = await _ai_http().get(f'http://127.0.0.1:5088/api/cats/{cat_id}', headers={'x-feeless-internal': _internal_key()}, timeout=8)
+    if r.status_code != 200:
+        raise HTTPException(404, 'Agent not found.')
+    cat = (r.json() or {}).get('cat') or {}
+    if me not in (cat.get('ownerWallet'), (cat.get('agentWallet') or {}).get('owner')):
+        raise HTTPException(403, "Only this agent's owner wallet can mint its Pass.")
+    return cat
+
+
+@app.post('/api/reputation/agent-pass/{cat_id}/prepare')
+async def agent_pass_prepare(cat_id: str, p: AgentPassIn):
+    """🎫 Its number + its metadata (hosted with coin launches' token-meta). Only its owner, only after its recovery PIN is confirmed, once."""
+    _session_or_401(p.address, p.session)
+    cat = await _owned_cat(cat_id, p.address)
+    if not cat.get('recoveryConfirmedAt'):
+        raise HTTPException(400, 'Confirm its recovery PIN first — the Pass comes after its safe-keeping.')
+    if (cat.get('pass') or {}).get('asset'):
+        raise HTTPException(409, f"It already has Pass #{cat['pass'].get('number')}.")
+    rules = await _agent_pass_rules()
+    if not rules['ready']:
+        raise HTTPException(503, rules['why'])
+    if not _re.match(r'^/api/reputation/uploads/[A-Za-z0-9._-]{1,80}$', p.image or ''):
+        raise HTTPException(400, 'Its picture did not upload — try again.')
+    book = _json_load(APASS_FILE, {}) or {}
+    num = (book.get('byCat') or {}).get(cat_id, {}).get('number') or int(book.get('next') or 1)
+    site = _pass_site()
+    meta = _apass.metadata(site, cat, num, site + p.image)
+    TOKEN_META_DIR.mkdir(parents=True, exist_ok=True)
+    mid = uuid.uuid4().hex
+    (TOKEN_META_DIR / f'{mid}.json').write_text(json.dumps(meta))
+    if cat_id not in (book.get('byCat') or {}):
+        book.setdefault('byCat', {})[cat_id] = {'number': num, 'at': round(time.time())}; book['next'] = num + 1
+        _json_save(APASS_FILE, book)
+    return {'number': num, 'name': meta['name'], 'uri': f'{site}/api/reputation/token-meta/{mid}.json', 'feeWallet': rules['feeWallet'],
+            'feeLamports': rules['feeLamports'], 'royaltyBps': rules['royaltyBps']}
+
+
+@app.post('/api/reputation/agent-pass/{cat_id}/confirm')
+async def agent_pass_confirm(cat_id: str, p: AgentPassIn):
+    """🎫 Records a Pass only after checking its transaction on-chain (owner signed · fee reached FEELESS · a Core asset · no error)."""
+    _session_or_401(p.address, p.session)
+    cat = await _owned_cat(cat_id, p.address)
+    if not _re.match(r'^[1-9A-HJ-NP-Za-km-z]{60,100}$', p.signature or '') or not _re.match(r'^[1-9A-HJ-NP-Za-km-z]{32,44}$', p.asset or ''):
+        raise HTTPException(400, 'Not a transaction / asset.')
+    rules = await _agent_pass_rules()
+    async with httpx.AsyncClient(timeout=15) as http:
+        tx = await _rpc(http, 'getTransaction', [p.signature, {'encoding': 'jsonParsed', 'maxSupportedTransactionVersion': 0, 'commitment': 'confirmed'}])
+    why = _apass.check_mint(tx, p.address, rules['feeWallet'], rules['feeLamports'], p.asset)
+    if why:
+        raise HTTPException(400, why)
+    num = ((_json_load(APASS_FILE, {}) or {}).get('byCat') or {}).get(cat_id, {}).get('number')
+    r = await _ai_http().post(f'http://127.0.0.1:5088/api/cats/{cat_id}/action', headers={'x-feeless-internal': _internal_key()}, timeout=8,
+                              json={'action': 'pass_minted', 'passInfo': {'number': num, 'asset': p.asset, 'sig': p.signature, 'owner': p.address}})
+    if r.status_code != 200:
+        raise HTTPException(502, 'The Pass is minted, but its agent did not record it — confirm again in a minute.')
+    return {'ok': True, 'number': num, 'asset': p.asset}
 
 
 @app.post('/api/reputation/token-meta')

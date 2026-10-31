@@ -247,3 +247,25 @@ body.fx-lite .cwb-earn-list li, body.fx-lite .cwb-earn-sw.is-on i { animation: n
 .cwb-agreed { margin: 0; padding: 7px 12px; border-radius: 10px; border: 1px solid #ffffff12; background: #05030a; color: #d8ccf5; font: 600 12px var(--f-ui); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 body.theme-day .cwb-pubscreen { background: #f7f3ff; } body.theme-day .cwb-pub-host { color: #1c1230; } body.theme-day .cwb-agreed { background: #fff; color: #3a3058; }
 body.fx-lite .cwb-pub-host { animation: none; } @media (prefers-reduced-motion: reduce) { .cwb-pub-host { animation: none; } .cwb-pub-bar s { transition: none; } }
+/* 🎫 the Agent Pass drawer: a ticket-gold header, its fee / cost / royalty as three cells, one mint button */
+.cwb-pass { display: grid; gap: 8px; padding: 12px; border-radius: 14px; border: 1px dashed #f5c54266; background: linear-gradient(160deg, #1a1405, #07040d); }
+.cwb-pass.is-minted { border-style: solid; border-color: #f5c542aa; box-shadow: 0 0 22px -8px #f5c542; }
+.cwb-pass-num { color: #ffe08a; font: 800 12px var(--f-mono); letter-spacing: .12em; } .cwb-pass > small { color: #c9bce6; font: 500 11.5px/1.4 var(--f-ui); }
+.cwb-pass-kv { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; } .cwb-pass-kv span { display: grid; gap: 2px; padding: 6px 8px; border-radius: 10px; background: #ffffff08; }
+.cwb-pass-kv em { font: 800 9px var(--f-mono); letter-spacing: .1em; color: #8f83ad; font-style: normal; } .cwb-pass-kv b { color: #fff; font-size: 12px; }
+.cwb-pass .m-btn { justify-self: start; min-height: 34px; text-decoration: none; display: inline-flex; align-items: center; }
+body.theme-day .cwb-pass { background: linear-gradient(160deg, #fff8e0, #fff); } body.theme-day .cwb-pass-kv b { color: #1c1230; } body.theme-day .cwb-pass > small { color: #3a3058; }
+@media (max-width: 640px) { .cwb-pass-kv { grid-template-columns: 1fr; } }
+/* 🏦 the treasury drawer: its coin, the fees waiting (big, green), split presets, three bars (holder · credit · buyback) with what each gets */
+.cwb-tre { display: grid; gap: 8px; padding: 12px; border-radius: 14px; border: 1px solid #45e48644; background: linear-gradient(160deg, #06140c, #07040d); }
+.cwb-tre > small { color: #c9bce6; font: 500 11.5px/1.4 var(--f-ui); }
+.cwb-tre-mint { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 6px; align-items: center; } .cwb-tre-mint em, .cwb-tre-fees em, .cwb-tre-split em { font: 800 9px var(--f-mono); letter-spacing: .1em; color: #8f83ad; font-style: normal; }
+.cwb-tre-mint .m-input { min-height: 34px; } .cwb-tre-mint .m-btn { min-height: 34px; }
+.cwb-tre-fees { display: grid; gap: 2px; padding: 8px 10px; border-radius: 12px; background: #ffffff06; } .cwb-tre-fees b { color: #45e486; font-size: 20px; text-shadow: 0 0 14px #15d16a55; } .cwb-tre-fees small { color: #a99bc8; font: 600 10px var(--f-mono); }
+.cwb-tre-presets { flex-wrap: wrap; } .cwb-tre-presets button { min-height: 32px; }
+.cwb-tre-split { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; } .cwb-tre-split span { display: grid; gap: 3px; padding: 6px 8px; border-radius: 10px; background: #ffffff06; }
+.cwb-tre-split b { color: #fff; font-size: 14px; } .cwb-tre-split small { color: #a99bc8; font: 600 9.5px var(--f-mono); }
+.cwb-tre-split u { height: 4px; border-radius: 4px; background: #ffffff14; overflow: hidden; } .cwb-tre-split s { display: block; height: 100%; transform-origin: left; transition: transform .35s ease; background: #ffe08a; }
+.cwb-tre-split .k-credit s { background: #b388ff; } .cwb-tre-split .k-buyback s { background: #45e486; }
+body.theme-day .cwb-tre { background: linear-gradient(160deg, #effff5, #fff); } body.theme-day .cwb-tre-split b { color: #1c1230; } body.theme-day .cwb-tre > small { color: #3a3058; }
+@media (prefers-reduced-motion: reduce) { .cwb-tre-split s { transition: none; } } @media (max-width: 640px) { .cwb-tre-split { grid-template-columns: 1fr; } }

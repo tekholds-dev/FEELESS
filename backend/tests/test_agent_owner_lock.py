@@ -138,3 +138,11 @@ def test_the_creator_and_hq_admins_run_five_agents_everyone_else_two(monkeypatch
     assert c.get('/api/cats?session=tok-me').json()['max'] == 5
     form = {'ownerId': 'browser-1', 'name': 'Third', 'handle': 'third', 'brains': ['m/a'], 'session': 'tok-me'}
     assert c.post('/api/cats', json=form).status_code != 400 or 'agents' not in c.post('/api/cats', json=form).text
+
+
+def test_feeless_services_read_the_full_record_with_the_internal_key(monkeypatch):
+    """Funding / withdraw (reputation) need its wallet — the public view hides it, the internal key shows it; a fake key does not."""
+    fs, store, c = _client(monkeypatch, {'g': {**_general('WALLET_ME'), 'agentWallet': {'address': 'AGENTW', 'owner': 'WALLET_ME'}}})
+    (fs.DATA_DIR / 'internal.key').parent.mkdir(parents=True, exist_ok=True); (fs.DATA_DIR / 'internal.key').write_text('k')
+    assert 'AGENTW' in c.get('/api/cats/g', headers={'x-feeless-internal': 'k'}).text
+    assert 'AGENTW' not in c.get('/api/cats/g', headers={'x-feeless-internal': 'guess'}).text and 'AGENTW' not in c.get('/api/cats/g').text

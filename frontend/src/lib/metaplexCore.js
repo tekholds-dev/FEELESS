@@ -35,6 +35,22 @@ export async function coreCreateCollection({ provider, owner, name, uri, royalty
   return { address: kp.publicKey.toBase58(), signature };
 }
 
+// 🎫 THE AGENT PASS: one Core asset to the owner, its update authority = the FEELESS fee wallet (so no holder can strip the royalty), a 10%
+// Royalties plugin to FEELESS, and the one-time mint fee — all in ONE transaction the owner's wallet signs. → { asset, signature }
+export async function coreMintPass({ provider, owner, name, uri, feeWallet, feeLamports, royaltyBps = 1000, onStatus }) {
+  const k = await kit();
+  const umi = umiFor(k, owner);
+  const kp = k.web3.Keypair.generate();
+  const fee = k.umiCore.publicKey(feeWallet);
+  const ixs = k.core.create(umi, { asset: k.umiCore.createNoopSigner(k.umiCore.publicKey(kp.publicKey.toBase58())), name, uri, owner: k.umiCore.publicKey(owner),
+    updateAuthority: fee, plugins: [{ type: 'Royalties', basisPoints: royaltyBps, creators: [{ address: fee, percentage: 100 }], ruleSet: k.core.ruleSet('None') }] }).getInstructions();
+  const tx = toTx(k, ixs, owner);
+  tx.add(k.web3.SystemProgram.transfer({ fromPubkey: new k.web3.PublicKey(owner), toPubkey: new k.web3.PublicKey(feeWallet), lamports: Number(feeLamports) }));
+  onStatus?.('Simulating its Pass…');
+  const signature = await signSend(k.web3, k.connection, provider, tx, new k.web3.PublicKey(owner), [kp], onStatus);
+  return { asset: kp.publicKey.toBase58(), signature };
+}
+
 // One NFT per wallet, 3 per transaction (one wallet approval each), numbered from `start`.
 export async function coreDrop({ provider, owner, collection, name, uriFor, recipients, start = 1, onStatus }) {
   const k = await kit();

@@ -8,14 +8,14 @@ gap = richest ÷ cheapest − 1; net = gap − a swap's cost on each side (COST_
 read (`persist`): one stale DexScreener row is not a gap. What a holder does with it: compound / enter through the cheap pool (Jupiter routes
 there for you), and a gap that stays open is arbitrage volume — fees for that pool's LPs."""
 
-MIN_LIQ = 50_000.0
-MIN_VOL = 10_000.0
+MIN_LIQ = 30_000.0   # (owner 2026-10-31: "way more price gap options") — still a real pool, never dust
+MIN_VOL = 5_000.0
 MIN_TX1H = 5
 COST_PCT = 0.3          # % per swap leg: pool fee + slippage at a small size
-SHOW = 12               # tokens returned, widest gap first
+SHOW = 30               # tokens returned, widest gap first
 POOLS = 6               # pools drawn per token
 FORGET_SEC = 900.0      # a gap not seen for 15 min is forgotten
-TOKENS = 12             # tokens read a minute (one DexScreener /token-pairs read each, in parallel)
+TOKENS = 30             # tokens read a minute (one DexScreener /token-pairs read each, in parallel — 30/min, far under its 300/min)
 QUOTES = {'So11111111111111111111111111111111111111112': 'SOL', 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v': 'USDC',
           'Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB': 'USDT'}   # a pool counts only against a quote whose USD price is solid (an exotic stable invents gaps)
 

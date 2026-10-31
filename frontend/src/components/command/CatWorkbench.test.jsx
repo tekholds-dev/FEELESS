@@ -127,3 +127,29 @@ test('⚡ Earn Mode: the switch, risk and $ save through the owner action; plays
   expect(posts[1].earn).toMatchObject({ on: true, risk: 'risky' });
   await act(async () => root.unmount()); el.remove();
 });
+
+test('🎫 the Pass drawer: blocked until its recovery PIN; shows the mint fee, Solana\'s cost and the 10% royalty; a minted Pass shows its number', async () => {
+  const { PassDrawer } = await import('./CatWorkbench');
+  global.fetch = async () => ({ ok: true, json: async () => ({ ready: true, why: '', feeWallet: 'F', providerLamports: 3_810_000, feeLamports: 7_620_000, royaltyBps: 1000 }) });
+  const el = document.createElement('div'); document.body.appendChild(el); const root = createRoot(el);
+  await act(async () => { root.render(<PassDrawer cat={{ id: 'g1' }} />); });
+  expect(el.querySelector('[data-testid="cwb-pass-blocked"]').textContent).toContain('recovery PIN');
+  await act(async () => { root.render(<PassDrawer cat={{ id: 'g1', recoveryConfirmedAt: 1 }} key="2" />); });
+  expect(el.textContent).toContain('0.0076 SOL'); expect(el.textContent).toContain('10% → FEELESS'); expect(el.querySelector('[data-testid="cwb-pass-mint"]').disabled).toBe(false);
+  await act(async () => { root.render(<PassDrawer cat={{ id: 'g1', pass: { number: 7, asset: 'A1' } }} key="3" />); });
+  expect(el.textContent).toContain('AGENT PASS #0007');
+  await act(async () => root.unmount()); el.remove();
+});
+
+test('🏦 the treasury drawer: fees waiting from its vaults, the split as three bars, a preset saves through the owner action', async () => {
+  const { TreasuryDrawer } = await import('./CatWorkbench');
+  const posts = [];
+  global.fetch = async (u, o) => { if (o?.method === 'POST') { posts.push(JSON.parse(o.body)); return { ok: true, json: async () => ({}) }; }
+    return { ok: true, json: async () => ({ mint: '', creator: 'AGENTwallet111', split: { holder: 50, credit: 30, buyback: 20 }, fees: { pump: 1_780_000_000, pumpSwap: 0, total: 1_780_000_000 }, plan: { holder: 890_000_000, credit: 534_000_000, buyback: 356_000_000 }, buybackMax: 50 }) }; };
+  const el = document.createElement('div'); document.body.appendChild(el); const root = createRoot(el);
+  await act(async () => { root.render(<TreasuryDrawer cat={{ id: 'g1' }} />); });
+  expect(el.querySelector('[data-testid="cwb-tre-total"]').textContent).toContain('1.7800 SOL'); expect(el.textContent).toContain('0.8900 SOL');
+  await act(async () => { el.querySelector('[data-testid="cwb-tre-Holder first"]').click(); });
+  expect(posts[0]).toMatchObject({ action: 'treasury', treasury: { split: { holder: 70, credit: 20, buyback: 10 } } });
+  await act(async () => root.unmount()); el.remove();
+});

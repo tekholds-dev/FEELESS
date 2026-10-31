@@ -21,7 +21,8 @@ export function fileName(name, ext = 'png') {
   return `${String(name || 'agent').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'agent'}-feeless.${ext}`;
 }
 
-export async function downloadSvgPng(svg, name, size = 1024) {
+// the agent's picture as a PNG blob (its download and its Agent Pass image both draw it here)
+export async function svgPngBlob(svg, size = 1024) {
   if (!svg) throw new Error('No picture to save.');
   const markup = inlineSvg(svg, size);
   const url = URL.createObjectURL(new Blob([markup], { type: 'image/svg+xml' }));
@@ -29,9 +30,15 @@ export async function downloadSvgPng(svg, name, size = 1024) {
     const img = await new Promise((ok, no) => { const i = new Image(); i.onload = () => ok(i); i.onerror = () => no(new Error('The picture could not be drawn.')); i.src = url; });
     const c = document.createElement('canvas'); c.width = size; c.height = Math.round(size * (img.height / img.width || 1));
     c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
-    const blob = await new Promise(ok => c.toBlob(ok, 'image/png'));
+    return { blob: await new Promise(ok => c.toBlob(ok, 'image/png')), markup };
+  } finally { URL.revokeObjectURL(url); }
+}
+
+export async function downloadSvgPng(svg, name, size = 1024) {
+  const { blob, markup } = await svgPngBlob(svg, size);
+  {
     const a = document.createElement('a'); a.href = URL.createObjectURL(blob || new Blob([markup], { type: 'image/svg+xml' })); a.download = fileName(name, blob ? 'png' : 'svg');
     document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 4000);
     return a.download;
-  } finally { URL.revokeObjectURL(url); }
+  }
 }
