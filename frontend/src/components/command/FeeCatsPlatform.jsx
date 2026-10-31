@@ -196,7 +196,8 @@ export default function FeeCatsPlatform() {
   const [cats, setCats] = useState([]);
   const [selected, setSelected] = useState(null);
   const [error, setError] = useState('');
-  const loadCats = useCallback(async () => { try { const result = await api(`/api/cats?${agentAuthQuery()}`); setCats(result.cats || []); setError(''); } catch (requestError) { setError(requestError.message); } }, []);
+  const [agentMax, setAgentMax] = useState(AGENT_MAX);   // 👑 5 for the creator + HQ admins, 2 for everyone else (server: agent_max)
+  const loadCats = useCallback(async () => { try { const result = await api(`/api/cats?${agentAuthQuery()}`); setCats(result.cats || []); setAgentMax(result.max || AGENT_MAX); setError(''); } catch (requestError) { setError(requestError.message); } }, []);
   const { wallet } = useWallet() || {};
   useEffect(() => { loadCats(); }, [loadCats, wallet?.address]);   // 🔒 sign in / out / switch wallet ⇒ the list follows the signed wallet
   const openCat = cat => { setSelected(cat); setView('cat'); };
@@ -215,16 +216,16 @@ export default function FeeCatsPlatform() {
   };
   const created = cat => { setCats(current => [cat, ...current]); openReal(cat); };   // 💵 a new cat lands on its wallet switch (link → budget → REAL)
   const live = cats.filter(c => !c.revoked);   // 🤖 agents that count toward the 2-agent limit
-  const TABS = [['cats', <><Cat size={14} /> My agents <span>{live.length}/{AGENT_MAX}</span></>, 'Your agents — trading and general — with their live P&L and jobs'],
+  const TABS = [['cats', <><Cat size={14} /> My agents <span>{live.length}/{agentMax}</span></>, 'Your agents — trading and general — with their live P&L and jobs'],
     ['new', <><Plus size={14} /> New agent</>, 'A Trading AI cat or a General AI cat — models → your wallet → REAL · up to 2 agents'],
     ['activity', <><Activity size={14} /> Live activity</>, 'Every cat\'s buys and sells as they happen'],
     ['leaderboard', <><Trophy size={14} /> Leaderboard</>, 'Every agent ranked by its recorded trades on FEELESS, fees kept apart']];
   const on = k => (k === 'new' ? ['new', 'create', 'launch'].includes(view) : k === 'cats' ? ['cats', 'cat'].includes(view) : view === k);
   return <div className="fee-cats-platform fc-v2"><header className="paper-platform-head"><div><span className="eyebrow"><Cat size={14} /> AGENTS · CATS THAT TRADE FOR YOU</span><h1>Give your cat a <em>job.</em></h1><p>Your own AI agents — pick 1–2 models, a name, a look and limits. Each gets its own wallet: fund it once, and it works from there. A trader trades on FEELESS inside your limits; a general agent researches, builds and acts for you, and checks with you before spending until you switch it to auto.</p></div>
-    <div className="paper-platform-actions"><PaperBadge /><span className="fc-slots" data-tip={`${live.length} of ${AGENT_MAX} agent slots used`} aria-label={`${live.length} of ${AGENT_MAX} agents`}>{Array.from({ length: AGENT_MAX }, (_, k) => <i key={k} className={k < live.length ? 'is-on' : ''} />)}</span></div></header>
+    <div className="paper-platform-actions"><PaperBadge /><span className="fc-slots" data-tip={`${live.length} of ${agentMax} agent slots used`} aria-label={`${live.length} of ${agentMax} agents`}>{Array.from({ length: agentMax }, (_, k) => <i key={k} className={k < live.length ? 'is-on' : ''} />)}</span></div></header>
     <nav className="paper-platform-tabs" aria-label="Agents">{TABS.map(([k, label, tip]) => <button key={k} type="button" className={on(k) ? 'active' : ''} onClick={() => { setSelected(null); setView(k); }} data-testid={`fc-tab-${k}`} data-tip={tip}>{label}</button>)}</nav>
     {error && <div className="paper-inline-message" role="alert"><AlertTriangle size={14} />{error}</div>}
-    {view === 'new' && <AgentPicker count={live.length} onPick={pickKind} staff={isStaff} />}
+    {view === 'new' && <AgentPicker count={live.length} onPick={pickKind} staff={isStaff} max={agentMax} />}
     {view === 'create' && isStaff && <CreateCat onCreated={created} onCancel={() => setView('cats')} presetAvatar={presetAvatar} />}
     {view === 'cat' && selected && <CatDetail onDeleted={id => { setCats(c => c.filter(x => x.id !== id)); setSelected(null); setView('cats'); }} cat={selected} onBack={() => setView('cats')} onChanged={cat => { setSelected(cat); setCats(current => current.map(item => item.id === cat.id ? cat : item)); }} />}
     {view === 'activity' && <LiveActivity api={api} onOpen={openById} tradeCard={tradeCard} />}
@@ -233,8 +234,8 @@ export default function FeeCatsPlatform() {
     {view === 'cats' && isAdmin ? <Suspense fallback={null}><ProfileFeeBanner mine onOpen={() => openById({ id: 'leader' })} /></Suspense> : null}
     {view === 'cats' ? <SignInGate onIn={loadCats} /> : null}
     {view === 'cats' ? <RecoverAgent onBack={cat => { loadCats(); openCat(cat); }} /> : null}
-    {view === 'cats' && <section className="paper-my-cats">{!cats.length ? <><div className="paper-panel-head"><div><span className="eyebrow">YOUR AGENTS · 0/{AGENT_MAX}</span><h2>No cats on the job yet — pick a brain.</h2></div></div><AgentPicker count={0} onPick={pickKind} staff={isStaff} /></>
-      : <><div className="paper-panel-head"><div><span className="eyebrow">YOUR AGENTS · {live.length}/{AGENT_MAX}</span><h2>Tap a cat to see its desk</h2></div><button type="button" className="btn-outline" onClick={() => setView('new')} disabled={live.length >= AGENT_MAX}><Plus size={14} /> New agent</button></div>
+    {view === 'cats' && <section className="paper-my-cats">{!cats.length ? <><div className="paper-panel-head"><div><span className="eyebrow">YOUR AGENTS · 0/{agentMax}</span><h2>No cats on the job yet — pick a brain.</h2></div></div><AgentPicker count={0} onPick={pickKind} staff={isStaff} max={agentMax} /></>
+      : <><div className="paper-panel-head"><div><span className="eyebrow">YOUR AGENTS · {live.length}/{agentMax}</span><h2>Tap a cat to see its desk</h2></div><button type="button" className="btn-outline" onClick={() => setView('new')} disabled={live.length >= agentMax}><Plus size={14} /> New agent</button></div>
         <div className="paper-my-cat-grid">{cats.map(cat => { const real = cat.mode === 'real' && !!cat.realWallet; const pend = (cat.proposals || []).filter(p => p.status === 'pending').length;
           return <div key={cat.id} className={`cw-card ${real ? 'is-real' : ''}`} data-testid={`cw-${cat.id}`}><button type="button" className="paper-my-cat-card" onClick={() => openCat(cat)}><span className="paper-my-cat-art"><LookAvatar cat={catByName(cat.avatar)} look={cat.look} /></span><span><b>{cat.name}</b><small>{cat.status.toUpperCase()} · LVL {cat.level}</small></span><strong className={cat.realizedPnlSol >= 0 ? 'positive' : 'negative'}>{money(cat.realizedPnlSol)}</strong><ChevronRight size={15} /></button>
             <button type="button" className={`cw-go ${real ? 'is-real' : ''}`} onClick={() => openReal(cat)} data-testid={`cw-go-${cat.id}`}

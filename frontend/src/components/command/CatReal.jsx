@@ -156,16 +156,17 @@ export function FundCat({ cat, addr, session, sign, onDone, onConfirm }) {
   const setSaved = v => { setSavedState(v); try { localStorage.setItem(SAVED_KEY(cat?.id), v ? '1' : '0'); } catch { /* private window */ } if (v) onConfirm?.(); };
   const [rules, setRules] = useState(null);
   useEffect(() => { let on = true; fetch(apiUrl(`/api/reputation/cats/fund-rules?address=${encodeURIComponent(addr || '')}`)).then(r => (r.ok ? r.json() : null)).then(j => { if (on && j) setRules(j); }).catch(() => {}); return () => { on = false; }; }, [addr]);
-  const [usd, setUsd] = useState(() => { try { const v = Number(localStorage.getItem(`feeless.fundIntent.${cat?.id}`)); if (v > 0) return v; } catch { /* private window */ } return fresh ? 10 : 5; });   // the $ you typed at launch
-  const [creditUsd, setCreditUsd] = useState('0');   // 🧠 ONE amount, split (owner 2026-10-30): this much to its model credit, the rest into its wallet, one signature
+  const [usd, setUsd] = useState(() => { try { const v = Number(localStorage.getItem(`feeless.fundIntent.${cat?.id}`)); if (v > 0) return v; } catch { /* private window */ } return fresh ? (cat?.brainsCfg?.kind === 'general' ? 7 : 10) : 5; });   // the $ you typed at launch
+  const [creditUsd, setCreditUsd] = useState(() => (fresh && cat?.brainsCfg?.kind === 'general' && !(cat?.creditPaid || []).length ? '5' : '0'));   // 🧠 ONE amount, split (owner 2026-10-30): this much to its model credit, the rest into its wallet, one signature
   const freeCredit = !!rules?.staff && cat?.brainsCfg?.kind !== 'general';   // 🧭 a general agent's credit is always real money, staff included (owner 2026-10-31)
   const total = Number(usd) || 0; const creditShut = rules?.creditOpen === false; const cr = creditShut && !freeCredit ? 0 : Math.min(total, Math.max(0, Number(creditUsd) || 0)); const toWallet = Math.round((total - cr) * 100) / 100; const first = fresh && toWallet > 0;
   const [doneNote, setDoneNote] = useState(''); const [rcpt, setRcpt] = useState(null); const [stage, setStage] = useState('pick'); const [err, setErr] = useState(''); const [sig, setSig] = useState(null);
   const [left, setLeft] = useState(0); const [paidFirst, setPaidFirst] = useState(false);   // 🔐 the one-time safe-keeping box shows right after the first funding
   useEffect(() => { if (!rcpt) return undefined; const t = setInterval(() => setLeft(l => Math.max(0, l - 1)), 1000); return () => clearInterval(t); }, [rcpt]);
-  const min = first ? Number(rules?.minUsd) || 10 : Number(rules?.topupMinUsd) || 1; const fee = first ? Number(rules?.feeUsd ?? 2) : 0;
-  const warn = toWallet > 0 ? fundWarn(toWallet, rules || { feeUsd: 2, minUsd: 10, topupMinUsd: 1 }, first) : null;
-  const canPay = total > 0 && (toWallet > 0 ? toWallet >= min : cr >= min);
+  const start = fresh && !(cat?.creditPaid || []).length && cat?.brainsCfg?.kind === 'general' && !rules?.staff; const startCr = Number(rules?.startCreditUsd || 5);   // 🧠 $7 = $5 credit + $2 fee
+  const min = first ? Number(rules?.minUsd) || 10 : Number(rules?.topupMinUsd) || 1; const fee = first || start ? Number(rules?.feeUsd ?? 2) : 0;
+  const warn = start ? (cr < startCr ? `A new agent starts with at least $${startCr} of model credit (OpenRouter) + the $${fee} start fee — $${startCr + fee} in all.` : toWallet < fee ? `Add $${(fee - toWallet).toFixed(2)}: the $${fee} start fee comes on top of its model credit.` : null) : toWallet > 0 ? fundWarn(toWallet, rules || { feeUsd: 2, minUsd: 10, topupMinUsd: 1 }, first) : null;
+  const canPay = start ? cr >= startCr && toWallet >= fee : total > 0 && (toWallet > 0 ? toWallet >= min : cr >= min);
   const post = async (path, body) => { const r = await fetch(apiUrl(`/api/reputation/cats/${cat.id}/${path}`), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
     const j = await r.json().catch(() => ({})); if (!r.ok) throw new Error(j.detail || `HTTP ${r.status}`); return j; };
   const quote = async () => { setErr(''); setStage('quoting');

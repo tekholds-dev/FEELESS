@@ -128,7 +128,7 @@ def test_feecat_reads_nexas_desk_words_only_while_the_owner_switch_is_on():
 def test_a_user_runs_at_most_two_agents_and_a_retired_one_frees_its_slot(monkeypatch):
     fs = pytest.importorskip('feecat_service')
     from fastapi.testclient import TestClient
-    store = {'cats': {'a': {'id': 'a', 'ownerId': 'u', 'revoked': False}, 'b': {'id': 'b', 'ownerId': 'u', "session": 'u', 'revoked': False}}, 'events': []}
+    store = {'cats': {k: {'id': k, 'ownerId': 'u', 'revoked': False} for k in 'acdeb'}, 'events': []}   # staff (below) run 5 — a user 2 (test_agent_owner_lock)
     monkeypatch.setattr(fs, '_load', lambda: store); monkeypatch.setattr(fs, '_save', lambda s: None)
     async def staff(session=''): return True   # the brainless paper test is staff-only (D1)
     monkeypatch.setattr(fs, '_session_staff', staff)
@@ -152,7 +152,7 @@ def test_the_paper_test_agent_is_staff_only(monkeypatch):
     assert r.status_code == 403 and 'staff only' in r.json()['detail'] and not store['cats']
     assert c.post('/api/cats', json={'ownerId': 'u', 'name': 'Paper', 'handle': 'paper', 'session': 'user-session'}).status_code == 403
     assert c.post('/api/cats', json={'ownerId': 'u', 'name': 'Paper', 'handle': 'paper', 'session': 'staff-session'}).status_code == 200
-    assert seen == ['u', 'user-session', 'staff-session'] and len(store['cats']) == 1
+    assert {'user-session', 'staff-session'} <= set(seen) and len(store['cats']) == 1   # (the agent limit asks too: staff run 5)
 
 
 def test_session_staff_fails_closed(monkeypatch):

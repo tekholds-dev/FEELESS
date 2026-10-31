@@ -76,3 +76,16 @@ def test_the_cat_service_records_a_funding_once_and_caps_wallets_at_four_per_own
     ok = c.post('/api/cats/c0/action', headers={'x-feeless-internal': 'k'}, json={'action': 'agent_funded', 'sig': 'S1', 'result': 'confirmed', 'amount': {'usd': 10, 'feeUsd': 2, 'catLamports': 4e7}})
     assert ok.status_code == 200 and store['cats']['c0']['agentFunded'][0]['feeUsd'] == 2
     assert c.post('/api/cats/c0/action', headers={'x-feeless-internal': 'k'}, json={'action': 'agent_funded', 'sig': 'S1', 'amount': {}}).status_code == 400   # once
+
+
+def test_a_users_new_general_agent_starts_at_seven_dollars_five_credit_two_fee():
+    cf = pytest.importorskip('cat_fund')
+    p = cf.plan(7, 100.0, True, fee_usd=2, min_usd=10, token='USDC', credit_usd=5, start_credit=5)
+    assert p['payUsd'] == 7 and p['creditUsd'] == 5 and p['feeUsd'] == 2 and p['catUsd'] == 0
+    assert p['feeLamports'] == 7_000_000 and p['catLamports'] == 0                     # $5 credit + $2 fee to FEELESS, all in one signed transfer
+    p = cf.plan(20, 100.0, True, fee_usd=2, min_usd=10, token='USDC', credit_usd=5, start_credit=5)
+    assert p['feeLamports'] == 7_000_000 and p['catLamports'] == 13_000_000           # the rest goes to its wallet
+    with pytest.raises(ValueError, match='at least \\$5 of model credit'):
+        cf.plan(10, 100.0, True, fee_usd=2, token='USDC', credit_usd=3, start_credit=5)
+    with pytest.raises(ValueError, match='start fee'):
+        cf.plan(6, 100.0, True, fee_usd=2, token='USDC', credit_usd=5, start_credit=5)

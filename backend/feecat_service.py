@@ -86,7 +86,7 @@ def _load() -> dict:
 
 # 🔒 The engine loads every cat, works for minutes, then saves its whole copy: anything an owner did meanwhile was wiped (owner 2026-10-30: a new agent wallet vanished
 # seconds after it was made). What an owner's action sets is kept here and laid over every save, so an old copy can never lose a wallet, a funding or a limit.
-OWNER_KEYS = ('agentWallet', 'agentFunded', 'creditPaid', 'recovery', 'recoverySet', 'recoveryConfirmedAt', 'limits', 'taskCap', 'ownerId', 'mode', 'realWallet', 'budgetSol', 'paperByOwner', 'files', 'ownerWallet', 'logins', 'cloudLink', 'vaultLog', 'earn', 'clarify')
+OWNER_KEYS = ('agentWallet', 'agentFunded', 'creditPaid', 'recovery', 'recoverySet', 'recoveryConfirmedAt', 'limits', 'taskCap', 'ownerId', 'mode', 'realWallet', 'budgetSol', 'paperByOwner', 'files', 'ownerWallet', 'logins', 'cloudLink', 'vaultLog', 'earn', 'clarify', 'ownerStaff')
 _KEPT: dict = {}
 
 
@@ -1593,6 +1593,15 @@ async def _work_run(cat_id, models, names, text, cap, brief='', efforts=None, ow
 
             async def ask(model, messages):   # 📜 the sealed brief rides every call (plan · each browsing step · merge)
                 _OR_LAST.pop('err', None); _OR_LAST.pop('backup', None)
+                if not cat_now.get('ownerStaff') and not own_key:   # 🧠 a user's agent: OpenRouter first, on the credit they paid (owner 2026-10-31)
+                    try:
+                        text_, usd_ = await _or_call(model, orders + messages, max_tokens=reply_room(model, messages), backup=False, **({'effort': efforts[model]} if (efforts or {}).get(model) else {}))
+                        if str(text_ or '').strip():
+                            return text_, usd_
+                    except _ca.Stopped:
+                        raise
+                    except Exception:
+                        pass   # → its wallet's pay-per-call provider, then the free backup (the creator's order)
                 room_ = paid_['usdc'] - _ap.RESERVE_USD
                 if paid_['on'] and room_ > 0:
                     t_ = w['task']; text_, usd_ = await _wallet_call(cat_now, model, orders + messages, reply_room(model, messages), min(room_, t_['cap'] - t_['cost']))
@@ -1813,6 +1822,7 @@ async def _start_engine():
             _save(store_)
     except Exception as e:
         print(f'[feecat] general credit heal skipped: {e}')
+    asyncio.create_task(_staff_heal())
     asyncio.create_task(_engine_loop())
     asyncio.create_task(_tune_loop())
 
@@ -1999,6 +2009,11 @@ async def _session_staff(session=''):
 
 
 AGENT_MAX = 2   # 🤖 a user runs at most 2 agents (owner, 2026-10-22: "users pick if they want 1-2 cat AI agents"); a revoked one frees its slot
+STAFF_AGENT_MAX = 5   # 👑 the creator wallet + the admins granted in HQ (`_is_staff`, any linked wallet) run up to 5 (owner 2026-10-31)
+
+
+def agent_max(staff):
+    return STAFF_AGENT_MAX if staff else AGENT_MAX
 
 
 @app.post('/api/cats')
@@ -2007,8 +2022,9 @@ async def create_cat(payload: CreatePayload):
     signed_ = _session_wallet(payload.session or '')
     if not signed_:   # 🔒 an agent belongs to a wallet from its first second
         raise HTTPException(401, 'Sign in with your wallet first (one signature, no transaction).')
-    if sum(1 for c in store['cats'].values() if (owner_wallet(c) == signed_ or c.get('ownerId') == payload.ownerId) and not c.get('revoked')) >= AGENT_MAX:
-        raise HTTPException(400, f'You run {AGENT_MAX} agents — retire one to start another.')
+    staff_ = await _session_staff(payload.session or ''); max_ = agent_max(staff_)
+    if sum(1 for c in store['cats'].values() if (owner_wallet(c) == signed_ or c.get('ownerId') == payload.ownerId) and not c.get('revoked')) >= max_:
+        raise HTTPException(400, f'You run {max_} agents — retire one to start another.')
     if _session_wallet(payload.session or '') in agent_wallets(store):   # 🚫 an agent's own wallet never makes another agent on FEELESS
         raise HTTPException(403, 'An AI agent never creates another agent on FEELESS.')
     if not payload.brains and not await _session_staff(payload.session or ''):
@@ -2016,7 +2032,7 @@ async def create_cat(payload: CreatePayload):
     cat_id = uuid.uuid4().hex
     now = time.time()
     cat = {
-        'id': cat_id, 'ownerId': payload.ownerId, 'ownerWallet': signed_, 'name': payload.name, 'handle': payload.handle,
+        'id': cat_id, 'ownerId': payload.ownerId, 'ownerWallet': signed_, 'ownerStaff': bool(staff_), 'name': payload.name, 'handle': payload.handle,
         'avatar': payload.avatar, 'brain': RULE_ENGINE['id'], 'brainLabel': RULE_ENGINE['label'],
         'brainProfile': {'provider': RULE_ENGINE['provider'], 'status': 'live', 'available': False, 'estimatedTokenCostUsd': 0},
         'strategy': payload.strategy, 'strategyLabel': STRATEGY_LABELS.get(payload.strategy, 'Momentum'),
@@ -2062,8 +2078,9 @@ async def list_cats(ownerId: str = '', session: str = ''):
     store = _load()
     signed = _fresh_session_wallet(session)
     cats = [c for c in store['cats'].values() if signed and owner_check(c, signed, ownerId) in ('ok', 'claim')]
+    max_ = agent_max(await _session_staff(session)) if signed else AGENT_MAX
     cats.sort(key=lambda c: -c['createdAt'])
-    return {'cats': [{**x, 'mine': True} for x in _no_keys(cats)]}
+    return {'cats': [{**x, 'mine': True} for x in _no_keys(cats)], 'max': max_}
 
 
 @app.get('/api/cats/brain')
@@ -2812,6 +2829,18 @@ class ActionPayload(BaseModel):
 
 def owner_wallets():
     return [w.strip() for w in os.environ.get('FEELESS_ADMIN_WALLETS', '').split(',') if w.strip()]
+
+
+async def _staff_heal(wait=20):
+    """👑 Once after a start (reputation up first): an older agent learns whether its owner wallet is the creator / an HQ admin — they run on the
+    cheapest models first, a user's agent on OpenRouter first."""
+    await asyncio.sleep(wait)
+    store = _load(); n = 0
+    for c in store['cats'].values():
+        if 'ownerStaff' not in c and owner_wallet(c):
+            c['ownerStaff'] = await _is_creator(owner_wallet(c)); keep_owned(c); n += 1
+    if n:
+        _save(store)
 
 
 async def _is_creator(addr):

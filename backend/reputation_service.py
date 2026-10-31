@@ -11122,6 +11122,7 @@ async def cat_fund_rules(address: str = Query('', max_length=64)):
     """💵 The funding rules a cat's desk shows BEFORE you type an amount (fee, minimum, top-up minimum; a creator wallet: no fee)."""
     rules_ = _cat_fund_rules(address if _re.match(r'^[1-9A-HJ-NP-Za-km-z]{32,44}$', address or '') else None)
     left_ = await _openrouter_left()
+    rules_['startCreditUsd'] = _cfund.START_CREDIT_USD   # 🧠 a user's new general agent: $5 credit + the $2 fee
     rules_['creditOpen'] = _cfund.credit_open(left_) or bool(os.environ.get('GROQ_API_KEY', '').strip())   # the free backup keeps every agent working
     if rules_['staff']:
         rules_['modelsLeftUsd'] = left_   # the balance itself is for the creator only
@@ -11140,9 +11141,10 @@ async def cat_fund_build(cat_id: str, p: CatFundIn):
     cat, w = await _cat_for_fund(cat_id, me)
     if p.creditUsd and not cat.get('brainsCfg'):
         raise HTTPException(400, 'This agent runs no paid models.')
-    first = not cat.get('agentFunded') and p.usd > p.creditUsd
     rules_ = _cat_fund_rules(me)
     free_credit = bool(rules_.get('staff')) and (cat.get('brainsCfg') or {}).get('kind') != 'general'   # 🧭 a general agent's credit is always real money (owner 2026-10-31)
+    start_ = (cat.get('brainsCfg') or {}).get('kind') == 'general' and not rules_.get('staff') and not cat.get('agentFunded') and not cat.get('creditPaid')   # 🧠 a user's first: $5 credit + $2 fee
+    first = not cat.get('agentFunded') and (p.usd > p.creditUsd or start_)
     if p.creditUsd > 0 and not free_credit and not _cfund.credit_open(await _openrouter_left(), p.creditUsd) and not os.environ.get('GROQ_API_KEY', '').strip():
         raise HTTPException(503, 'Model credit is paused right now. Nothing was charged. Put the full amount in its wallet, or try later.')
     need_fee = (p.creditUsd > 0 and not free_credit) or (first and rules_['feeUsd'] > 0)
@@ -11151,7 +11153,7 @@ async def cat_fund_build(cat_id: str, p: CatFundIn):
         if need_fee and not fee_w:
             raise HTTPException(503, 'The FEELESS fee wallet is not set — HQ › Fees › vault fee wallet.')
         try:
-            pl = _cfund.plan(p.usd, await _sol_usd(), first, fee_usd=rules_['feeUsd'], min_usd=rules_['minUsd'], token=p.token, credit_usd=p.creditUsd, free_credit=free_credit)
+            pl = _cfund.plan(p.usd, await _sol_usd(), first, fee_usd=rules_['feeUsd'], min_usd=rules_['minUsd'], token=p.token, credit_usd=p.creditUsd, free_credit=free_credit, start_credit=_cfund.START_CREDIT_USD if start_ else 0.0)
             if not pl['totalLamports']:   # a creator's credit alone: nothing to pay or sign
                 await _ai_http().post(f'http://127.0.0.1:5088/api/cats/{cat_id}/action', headers={'x-feeless-internal': _internal_key()}, timeout=8,
                                       json={'action': 'agent_funded', 'sig': f'creator-{uuid.uuid4().hex[:16]}', 'result': 'confirmed', 'amount': {'token': pl['token'], 'usd': pl['usd'], 'creditUsd': pl['creditUsd'], 'feeUsd': 0, 'catLamports': 0, 'feeLamports': 0, 'solUsd': pl['solUsd']}})

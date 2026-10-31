@@ -29,14 +29,14 @@ function Glyph({ kind }) {
     {l.map(([a, b], i) => <line key={i} x1={n[a][0]} y1={n[a][1]} x2={n[b][0]} y2={n[b][1]} />)}{n.map(([x, y], i) => <circle key={i} className="nd" cx={x} cy={y} r={i === 2 ? 7 : 4.5} style={{ '--i': i }} />)}</svg>;
 }
 
-export function AgentPicker({ count = 0, onPick, staff = false }) {
+export function AgentPicker({ count = 0, onPick, staff = false, max = AGENT_MAX }) {   // max: 5 for the creator + HQ admins (the server says)
   const [live, setLive] = useState(null);
   useEffect(() => { let on = true; fetch('/api/cats/models').then(r => (r.ok ? r.json() : null)).then(d => { if (on && d) setLive(!!d.live); }).catch(() => {}); return () => { on = false; }; }, []);
-  const full = count >= AGENT_MAX;
+  const full = count >= max;
   return <section className="agp" data-testid="agent-picker">
-    <header className="agp-head"><div><span className="eyebrow">NEW AGENT · {count}/{AGENT_MAX} RUNNING</span><h2>Pick the brain your cat trades with.</h2></div>
-      <span className="agp-slots" aria-label={`${count} of ${AGENT_MAX} agent slots used`}>{Array.from({ length: AGENT_MAX }, (_, i) => <i key={i} className={i < count ? 'is-used' : ''} />)}</span></header>
-    {full ? <p className="agp-full" data-testid="agent-full">You run {AGENT_MAX} agents — retire one in 🤖 My agents to start another.</p> : null}
+    <header className="agp-head"><div><span className="eyebrow">NEW AGENT · {count}/{max} RUNNING</span><h2>Pick the brain your cat trades with.</h2></div>
+      <span className="agp-slots" aria-label={`${count} of ${max} agent slots used`}>{Array.from({ length: max }, (_, i) => <i key={i} className={i < count ? 'is-used' : ''} />)}</span></header>
+    {full ? <p className="agp-full" data-testid="agent-full">You run {max} agents — retire one in 🤖 My agents to start another.</p> : null}
     <div className="agp-grid">{AGENT_KINDS.map((k, i) => <button key={k.key} type="button" className={`agp-card k-${k.glyph}`} style={{ '--i': i }} disabled={full} onClick={() => onPick(k.key)} data-testid={`agent-${k.key}`}
       data-tip={live === false ? 'Model calls are switched off right now — it runs on the rule engine until they are on' : k.pitch}>
       <Glyph kind={k.glyph} />

@@ -20,6 +20,7 @@ from solders.transaction import VersionedTransaction
 MIN_USD = 10.0          # the least a first funding may be
 FEE_USD = 2.0           # FEELESS's one-time cut, out of the first funding
 TOPUP_MIN_USD = 1.0     # a later top-up
+START_CREDIT_USD = 5.0  # 🧠 a user's general agent starts with at least $5 of model credit (OpenRouter's minimum top-up) + the $2 fee = $7 (owner 2026-10-31)
 MAX_USD = 5000.0
 MODEL_FLOOR_USD = 5.0   # below this OpenRouter balance, model credit is not sold
 MAX_CATS = 4            # cats with their own wallet, per owner wallet
@@ -37,20 +38,27 @@ WALLET_EXTRAS = (COMPUTE_PROGRAM, LIGHTHOUSE_PROGRAM)   # what wallets like Phan
 FEE_RESERVE = 10_000       # lamports left behind for the network fee on an all-out SOL withdrawal
 
 
-def plan(usd, sol_usd, first, fee_usd=FEE_USD, min_usd=MIN_USD, token='SOL', credit=False, credit_usd=0.0, free_credit=False):
+def plan(usd, sol_usd, first, fee_usd=FEE_USD, min_usd=MIN_USD, token='SOL', credit=False, credit_usd=0.0, free_credit=False, start_credit=0.0):
     """$ amount + live SOL price + is this the cat's first funding (+ HQ's fee / minimum; a creator wallet: fee 0, min $1) →
     {usd, payUsd, feeUsd, creditUsd, solUsd, totalLamports, feeLamports, catLamports, catUsd, token, gasLamports}. The three amounts are the token's smallest unit (USDC: 1e-6).
     ONE amount, split (owner 2026-10-30): `credit_usd` of it is model credit, paid to FEELESS in the same transaction; the rest goes to its wallet. `credit` = all of it.
-    `free_credit`: a creator wallet's credit costs nothing, so only its wallet share is paid."""
+    `free_credit`: a creator wallet's credit costs nothing, so only its wallet share is paid.
+    `start_credit`: a user's general agent's FIRST funding — at least this much model credit, and the one-time fee comes out of the rest
+    (so $7 = $5 credit + $2 fee works even when nothing is left for its wallet)."""
     usd, px = float(usd or 0), 1.0 if token == 'USDC' else float(sol_usd or 0)
     credit_usd = usd if credit else min(usd, max(0.0, float(credit_usd or 0)))
     wallet_usd = round(usd - credit_usd, 2)
-    first = first and wallet_usd > 0
+    start_credit = float(start_credit or 0) if first else 0.0
+    if start_credit and credit_usd + 1e-9 < start_credit:
+        raise ValueError(f'A new agent starts with at least ${start_credit:g} of model credit + the ${float(fee_usd or 0):g} start fee (${start_credit + float(fee_usd or 0):g} in all).')
+    first = first and (wallet_usd > 0 or bool(start_credit))
     if px <= 0:
         raise ValueError('No live SOL price right now — try again in a minute.')
     fee_usd = max(0.0, float(fee_usd or 0)) if first else 0.0
-    lo = max(float(min_usd or 0), fee_usd + 1) if first else TOPUP_MIN_USD
-    if wallet_usd > 0 and wallet_usd < lo and first and wallet_usd <= fee_usd + 1e-9:
+    lo = (fee_usd if start_credit else max(float(min_usd or 0), fee_usd + 1)) if first else TOPUP_MIN_USD
+    if start_credit and wallet_usd + 1e-9 < fee_usd:
+        raise ValueError(f'Add ${fee_usd - wallet_usd:.2f} more: the ${fee_usd:g} start fee comes on top of its ${credit_usd:g} model credit.')
+    if not start_credit and wallet_usd > 0 and wallet_usd < lo and first and wallet_usd <= fee_usd + 1e-9:
         raise ValueError(f'${wallet_usd:g} only covers the ${fee_usd:g} one-time fee — a first funding starts at ${lo:g} so its wallet gets money to trade.')
     if not lo <= (wallet_usd if wallet_usd > 0 else usd) <= MAX_USD:
         raise ValueError(f'A {"first funding" if first else "top-up"} is ${lo:g} to ${MAX_USD:,.0f}.')

@@ -125,3 +125,16 @@ def test_live_now_lists_working_agents_with_visitor_safe_windows(monkeypatch):
     j = c.get('/api/cats/live-now').json()
     assert j['agents'][0]['id'] == 'g' and j['agents'][0]['windows'][0]['host'] == 'x.com'
     assert 'secret' not in c.get('/api/cats/live-now').text and 'WALLET_ME' not in c.get('/api/cats/live-now').text
+
+
+def test_the_creator_and_hq_admins_run_five_agents_everyone_else_two(monkeypatch):
+    fs = pytest.importorskip('feecat_service')
+    assert fs.agent_max(True) == 5 and fs.agent_max(False) == 2
+    cats = {f'c{i}': {**_general('WALLET_ME'), 'id': f'c{i}', 'handle': f'h{i}'} for i in range(2)}
+    fs, store, c = _client(monkeypatch, cats)
+    async def staff(session=''):
+        return session == 'tok-me'
+    monkeypatch.setattr(fs, '_session_staff', staff)
+    assert c.get('/api/cats?session=tok-me').json()['max'] == 5
+    form = {'ownerId': 'browser-1', 'name': 'Third', 'handle': 'third', 'brains': ['m/a'], 'session': 'tok-me'}
+    assert c.post('/api/cats', json=form).status_code != 400 or 'agents' not in c.post('/api/cats', json=form).text
