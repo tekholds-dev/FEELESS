@@ -24,6 +24,9 @@ The owner rejected work that shipped as "dull", "non degen", "emojis sliding aro
 7. Day theme, 360 px phone, fx-lite, reduced motion — every new surface.
 
 ## How to work (save usage)
+- 🏆 The owner's asks are BASIC on purpose (owner 2026-10-30): build the corporate-level version. Before any UI, look at how the best real products do it
+  (chat boxes, settings popovers, drawers, dashboards) and match that pattern with our existing m-* presets and sheets — never invent from no reference.
+  Think one step ahead (e.g. settings go behind a ⚙ popover in the chat bar, not a loose panel). No new code or CSS lines unless truly needed.
 - Be brief with the owner. Report what changed, what was tested, what wasn't. No essays.
 - Stay on the task asked. No side quests; note unrelated issues in one line.
 - Read only what you need (grep first, then targeted reads). Batch independent commands.

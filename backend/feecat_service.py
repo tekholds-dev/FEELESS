@@ -82,7 +82,7 @@ def _load() -> dict:
 
 # 🔒 The engine loads every cat, works for minutes, then saves its whole copy: anything an owner did meanwhile was wiped (owner 2026-10-30: a new agent wallet vanished
 # seconds after it was made). What an owner's action sets is kept here and laid over every save, so an old copy can never lose a wallet, a funding or a limit.
-OWNER_KEYS = ('agentWallet', 'agentFunded', 'creditPaid', 'recovery', 'recoverySet', 'recoveryConfirmedAt', 'limits', 'taskCap', 'ownerId', 'mode', 'realWallet', 'budgetSol', 'paperByOwner', 'files', 'ownerWallet', 'logins')
+OWNER_KEYS = ('agentWallet', 'agentFunded', 'creditPaid', 'recovery', 'recoverySet', 'recoveryConfirmedAt', 'limits', 'taskCap', 'ownerId', 'mode', 'realWallet', 'budgetSol', 'paperByOwner', 'files', 'ownerWallet', 'logins', 'cloud')
 _KEPT: dict = {}
 
 
@@ -1548,7 +1548,7 @@ def _work_start(cat_id, cat, text, to=None, files=None):
     steps = int(lim_.get('steps') or 0) or (_ca.GO_STEPS if cat.get('workGo') else _ca.STEP_MAX)
     _WORK[cat_id] = {'task': _ca.new_task(uuid.uuid4().hex[:10], text, models, cap, steps, cat.get('workMode') or 'plan', lim_.get('mindUsd') if len(models) > 1 else None), 'events': {}, 'go': {}, 'sessions': [None] * len(models), 'pages': [None] * len(models), 'at': time.time()}
     _WORK[cat_id]['task']['tools'] = _cp.toolkit(cat.get('job', 'agent'), cat.get('tools'))
-    _WORK[cat_id]['task']['files'] = [{'name': f['name'], 'mime': f['mime'], 'path': str(_af.path_of(DATA_DIR, cat, f['id']))} for f in _af.touch(cat, files)]   # ☁ its `upload` action reads these
+    _WORK[cat_id]['task']['files'] = [{'name': f['name'], 'mime': f['mime'], 'path': str(_af.local_copy(DATA_DIR, cat, f['id']))} for f in _af.touch(cat, files)]   # ☁ its `upload` action reads these
     _WORK[cat_id]['task']['clouds'] = {i: [x.get('text', '') for x in (b.get('minds') or {}).get(m, [])][-8:] for i, m in enumerate(models)}   # ☁ each mind reads its own cloud
     _WORK[cat_id]['runner'] = asyncio.create_task(_work_run(cat_id, models, names, text, cap, str(b.get('prompt') or '')[:1200], b.get('efforts') or {},
                                                             _ck.key_for(cat, 'openrouter', data_dir=DATA_DIR)))
@@ -1615,7 +1615,7 @@ async def _work_run(cat_id, models, names, text, cap, brief='', efforts=None, ow
                 win_ = (w['task'].get('windows') or [{}] * (i + 1))[i]; h_ = win_.get('human') or {}
                 if h_.get('kind') == 'login':   # 🔐 a site already in its vault: filled on the server, no pause — the model only ever types the placeholders
                     try:
-                        got_ = _cv.saved_for(_load()['cats'].get(cat_id) or cat, h_.get('site'), data_dir=DATA_DIR)
+                        got_ = _cv.saved_for(_load()['cats'].get(cat_id) or {}, h_.get('site'), data_dir=DATA_DIR)
                     except Exception:
                         got_ = None
                     if got_:
@@ -1763,6 +1763,7 @@ async def _start_engine():
     try:
         store_ = _load()
         healed_ = heal_general_credit(store_)   # 🧭 no free credit on a general agent, ever: the old $10 start grant comes off once
+        healed_ += [c_['id'] for c_ in list(store_['cats'].values()) if (c_.get('agentFunded') or c_.get('creditPaid')) and _af.start_cloud(c_, list(store_['cats'].values()))]   # ☁ already funded ⇒ its cloud
         if healed_ or _af.clean(DATA_DIR, store_):   # ☁ and every agent's files unused for 7 days go
             _save(store_)
     except Exception as e:
@@ -2274,7 +2275,7 @@ async def cat_work(cat_id: str, p: WorkPayload):
     return {**out, 'cap': float(cat.get('taskCap') or TASK_CAP_DEFAULT), 'credit': b.get('credit'), 'spent': b.get('spent'), 'chat': (cat.get('chat') or [])[-20:],
             'live': _work_live(), 'providers': _cb.chain(os.environ), 'go': bool(cat.get('workGo')), 'workMode': cat.get('workMode') or 'plan',
             'cloud': (b.get('cloud') or [])[-8:], 'minds': {m: v[-8:] for m, v in (b.get('minds') or {}).items()}, 'handoffs': len((w.get('task') or {}).get('handoffs') or []) if w else 0, 'createdAt': cat.get('createdAt'),
-            'logins': _cv.public_logins(cat), 'media': _cv.clean_media(cat),
+            'logins': _cv.public_logins(cat), 'media': _cv.clean_media(cat), 'storage': _af.public(cat),   # ☁ its cloud: pool, quota, files
             'job': cat.get('job', 'agent'), 'tools': _cp.toolkit(cat.get('job', 'agent'), cat.get('tools')), 'toolkits': _cp.TOOLS,
             'refusals': (cat.get('refusals') or [])[-20:] + [{'why': x} for x in ((w or {}).get('task') or {}).get('refusals', [])],
             'artifacts': (cat.get('artifacts') or [])[-10:] + ([] if (w or {}).get('settled') else ((w or {}).get('task') or {}).get('artifacts', [])),
@@ -2351,10 +2352,10 @@ async def cat_file_get(cat_id: str, name: str):
     """One stored file by its unguessable id (how the chat chip and the page show it)."""
     cat = (_load().get('cats') or {}).get(cat_id) or {}
     fid = str(name).split('.')[0]
-    path_ = _af.path_of(DATA_DIR, cat, fid) if cat else None
-    if not path_ or not path_.exists():
+    raw_ = _af.read(DATA_DIR, cat, fid) if cat else None
+    if not raw_:
         raise HTTPException(404, 'No such file.')
-    return Response(content=path_.read_bytes(), media_type=_af.find(cat, fid)['mime'], headers={'Cache-Control': 'private, max-age=3600', 'X-Content-Type-Options': 'nosniff'})
+    return Response(content=raw_, media_type=_af.find(cat, fid)['mime'], headers={'Cache-Control': 'private, max-age=3600', 'X-Content-Type-Options': 'nosniff'})
 
 
 @app.get('/api/cats/{cat_id}/agent-wallet')
@@ -2717,6 +2718,8 @@ async def cat_action(cat_id: str, payload: ActionPayload, request: Request):
         a_ = payload.amount if isinstance(payload.amount, dict) else {}
         if not payload.sig or any(str(x.get('sig')) == payload.sig for x in (cat.get('agentFunded') or []) + (cat.get('creditPaid') or [])):
             raise HTTPException(400, 'No signature, or that funding is on the record already.')
+        if _af.start_cloud(cat, list(store['cats'].values())):   # ☁ its first real deposit starts its cloud (1 GB, the first free pool with room)
+            _log_event(store, cat, 'STARTED', f"{cat['name']}: its cloud started — 1 GB on {cat['cloud']['label']}.")
         cr_ = max(0.0, _num(a_.get('creditUsd')) or 0.0)
         if cr_:   # 🧠 the model-credit share of this payment
             cat['creditPaid'] = (list(cat.get('creditPaid') or []) + [{'sig': str(payload.sig)[:100], 'usd': cr_, 'token': a_.get('token'), 'at': round(time.time())}])[-50:]

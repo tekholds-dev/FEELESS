@@ -28,8 +28,8 @@ def new_password(n=20):
 
 
 def site_of(url_or_site):
-    s = re.sub(r'^https?://', '', str(url_or_site or '').strip().lower()).split('/')[0]
-    return s[:80]
+    s = re.sub(r'^https?://', '', str(url_or_site or '').strip().lower()).split('/')[0].split(':')[0]
+    return re.sub(r'^(www|m|login|accounts?|auth)\.(?=[^.]+\.[^.]+)', '', s)[:80]   # www.dropbox.com, login.x.com, x.com → one site
 
 
 def put_login(cat, site, username, password, env=None, data_dir=None, now=None):
@@ -47,6 +47,12 @@ def reveal(cat, site, username, env=None, data_dir=None):
     if not row:
         raise ValueError('No saved login for that site.')
     return cat_keys._fernet(env, data_dir).decrypt(row['sealed'].encode()).decode()
+
+
+def saved_for(cat, site, env=None, data_dir=None):
+    """🔐 The newest saved login for a site → (username, password), or None. Server-side only: it goes straight into the window's fill."""
+    row = next((r for r in reversed(cat.get('logins') or []) if r['site'] == site_of(site)), None)
+    return (row['user'], cat_keys._fernet(env, data_dir).decrypt(row['sealed'].encode()).decode()) if row else None
 
 
 def drop_login(cat, site, username):

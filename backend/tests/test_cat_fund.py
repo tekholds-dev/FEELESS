@@ -76,3 +76,4 @@ def test_the_cat_service_records_a_funding_once_and_caps_wallets_at_four_per_own
     ok = c.post('/api/cats/c0/action', headers={'x-feeless-internal': 'k'}, json={'action': 'agent_funded', 'sig': 'S1', 'result': 'confirmed', 'amount': {'usd': 10, 'feeUsd': 2, 'catLamports': 4e7}})
     assert ok.status_code == 200 and store['cats']['c0']['agentFunded'][0]['feeUsd'] == 2
     assert c.post('/api/cats/c0/action', headers={'x-feeless-internal': 'k'}, json={'action': 'agent_funded', 'sig': 'S1', 'amount': {}}).status_code == 400   # once
+    assert store['cats']['c0']['cloud']['label'] == 'FEELESS server'   # ☁ its first real deposit started its cloud (no pool keys in tests)

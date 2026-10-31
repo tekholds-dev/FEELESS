@@ -49,13 +49,10 @@ function Window({ w, catId, tick, onGo, onLogin, busy }) {
           : <ol className="cwb-steps" data-testid="cwb-steps">{(w?.steps || []).length ? w.steps.map((s, i) => <li key={i} style={{ '--i': i }}><b>{s.action}</b><span>{s.thought}</span>{s.detail ? <small>{s.detail}</small> : null}</li>)
             : <li className="cwb-idle"><span>{w?.status === 'done' ? (w?.answer ? 'done — its answer is in the chat' : 'done') : 'ready — ask below'}</span></li>}</ol>}
       {w?.bubble && w?.status !== 'idle' ? <p className="cwb-bubble" key={w.bubble} data-testid="cwb-bubble"><i aria-hidden="true" />{w.bubble}</p> : null}
-      {human && w.human.kind === 'login' ? <form className="cwb-human cwb-login" role="dialog" aria-label={`Log in to ${w.human.site}`} data-testid="cwb-login" autoComplete="off"
-        onSubmit={e => { e.preventDefault(); const f = new FormData(e.currentTarget); onLogin?.(w.i, String(f.get('u') || ''), String(f.get('p') || '')); e.currentTarget.reset(); }}>
-        <b>🔑 log in to {w.human.site}</b><small>Type it here — it's sealed for you and typed into its window. The AI models never see it.</small>
-        <input className="m-input" name="u" autoComplete="off" placeholder="username or email" aria-label="Username" data-testid="cwb-login-user" />
-        <input className="m-input" name="p" type="password" autoComplete="new-password" placeholder="password" aria-label="Password" data-testid="cwb-login-pass" />
-        <span><button type="submit" className="m-btn m-go" disabled={busy} data-testid="cwb-login-go">Log it in</button>
-          <button type="button" className="m-btn" disabled={busy} onClick={() => onGo('stop_window', w.i)}>Stop</button></span></form>
+      {human && w.human.kind === 'login' ? <div className="cwb-human cwb-signin" role="alertdialog" aria-label={`Sign in to ${w.human.site}`} data-testid="cwb-login">
+        <b>🔑 {w.human.site} needs a sign-in</b><small>It goes in the credentials drawer, sealed — the AI models never see it.</small>
+        <span><button type="button" className="m-btn m-go" disabled={busy} onClick={() => onLogin?.(w.human.site)} data-tip="Opens the credentials drawer with this site filled in" data-testid="cwb-login-go">Click to sign in</button>
+          <button type="button" className="m-btn" disabled={busy} onClick={() => onGo('stop_window', w.i)}>Stop</button></span></div>
       : human ? <div className="cwb-human" role="alertdialog" aria-label="A person is needed" data-testid="cwb-human"><b>✋ needs you</b><small>{w.human.why}</small>
         <span><button type="button" className="m-btn m-go" disabled={busy} onClick={() => onGo('continue', w.i)} data-testid="cwb-continue">I did it — continue</button>
           <button type="button" className="m-btn" disabled={busy} onClick={() => onGo('stop_window', w.i)} data-testid="cwb-stopwin">Stop</button></span></div> : null}
@@ -98,23 +95,61 @@ function PublicMinds({ cat }) {
   </section>;
 }
 
-// 🔐 saved logins (sites it signed up on): passwords stay sealed — a reveal is fetched on demand, shown blurred, clear only on hover / focus, gone in 15 s
-// 🙈 stream-safe (owner 2026-10-30: "if a user livestreams their dash and opens the security drawer"): every username + password stays blurred —
-// hover does nothing; a click shows ONE, and it blurs itself again in 15 s
-function Blurred({ text, label, pw = false }) {
-  const [open, setOpen] = useState(false);
-  useEffect(() => { if (!open) return undefined; const t = setTimeout(() => setOpen(false), 15000); return () => clearTimeout(t); }, [open]);
-  return <button type="button" className={`cwb-pw${pw ? ' is-pw' : ''}${open ? ' is-open' : ''}`} onClick={() => setOpen(o => !o)} aria-label={open ? `Hide the ${label}` : `Show the ${label} (blurred for screen sharing)`} data-tip={open ? 'Tap to hide — hides itself in 15 s' : `Blurred so a stream or screenshot can't read it — tap to show the ${label}`}>{text}</button>;
+// 🔐 THE CREDENTIALS DRAWER (owner 2026-10-30): site names only — stream-safe; a click unhides ONE login for 15 s. You add a site's login here
+// (a window's 🔑 card opens it with the site filled in), sealed on the server; its windows get it there and type it blind ({{username}} / {{password}}).
+// No account yet? Sign up opens the site in a new tab — come back and save it here.
+function CredRow({ cat, r, onDrop }) {
+  const [pw, setPw] = useState(null);
+  useEffect(() => { if (pw == null) return undefined; const t = setTimeout(() => setPw(null), 15000); return () => clearTimeout(t); }, [pw]);
+  const show = async () => { if (pw != null) { setPw(null); return; } try { setPw((await work(cat.id, { op: 'reveal', text: r.site, job: r.user })).password); } catch { /* not yours / gone */ } };
+  return <li data-testid={`cwb-cred-${r.site}`}><b>{r.site}</b>
+    {pw != null ? <span className="cwb-cred-open"><span className="cwb-pw is-open">{r.user}</span><span className="cwb-pw is-pw is-open">{pw}</span></span> : null}
+    <span className="cwb-cred-acts"><button type="button" className="m-btn" onClick={show} aria-pressed={pw != null} data-tip={pw != null ? 'Hide it now (it hides itself in 15 s)' : 'Unhide this login for 15 s — hidden by default so a stream never shows it'} data-testid={`cwb-reveal-${r.site}`}>{pw != null ? '🙈 Hide' : '👁 Show'}</button>
+      <button type="button" className="m-btn cwb-cred-x" onClick={() => onDrop(r)} aria-label={`Forget the ${r.site} login`} data-tip="Forget this login">✕</button></span></li>;
 }
-function SavedLogins({ cat, rows }) {
-  const [shown, setShown] = useState({});
-  const reveal = async r => { const k = `${r.site}|${r.user}`; try { const j = await work(cat.id, { op: 'reveal', text: r.site, job: r.user }); setShown(x => ({ ...x, [k]: j.password }));
-    setTimeout(() => setShown(x => { const n = { ...x }; delete n[k]; return n; }), 15000); } catch { /* not yours / gone */ } };
-  if (!rows?.length) return null;
-  return <details className="cwb-vault" data-testid="cwb-vault"><summary data-tip="Logins it made for you — passwords are sealed on the server; reveal one at a time">🔐 SAVED LOGINS <b className="m-num">{rows.length}</b></summary>
-    <ul>{rows.map(r => { const k = `${r.site}|${r.user}`; return <li key={k}><b>{r.site}</b><Blurred text={r.user} label="username" />
-      {shown[k] ? <Blurred text={shown[k]} label="password" pw /> : <button type="button" className="m-btn" onClick={() => reveal(r)} data-testid={`cwb-reveal-${r.site}`}>Reveal</button>}</li>; })}</ul></details>;
+function Credentials({ cat, rows, ask, onSaved }) {
+  const box = useRef(null); const [site, setSite] = useState(''); const [err, setErr] = useState(''); const [busy, setBusy] = useState(false);
+  useEffect(() => { if (!ask?.site) return; setSite(ask.site); if (box.current) { box.current.open = true; box.current.scrollIntoView({ behavior: 'smooth', block: 'center' }); setTimeout(() => box.current?.querySelector('input[name="u"]')?.focus({ preventScroll: true }), 400); } }, [ask]);
+  const host = site.trim().toLowerCase().replace(/^https?:\/\//, '').split('/')[0];
+  const save = async e => { e.preventDefault(); const f = new FormData(e.currentTarget); const form = e.currentTarget; setErr(''); setBusy(true);
+    try { const j = await work(cat.id, { op: 'save_login', text: host, user: String(f.get('u') || ''), secret: String(f.get('p') || '') }); form.reset(); setSite(''); onSaved?.(j.logins); } catch (er) { setErr(er.message); } finally { setBusy(false); } };
+  const drop = async r => { try { onSaved?.((await work(cat.id, { op: 'unlogin', text: r.site, job: r.user })).logins); } catch (er) { setErr(er.message); } };
+  return <details ref={box} className="cwb-vault" data-testid="cwb-vault"><summary data-tip="Logins its windows may use — sealed on the server, the AI models never see them">🔐 CREDENTIALS <b className="m-num">{rows?.length || 0}</b></summary>
+    {rows?.length ? <ul>{rows.map(r => <CredRow key={`${r.site}|${r.user}`} cat={cat} r={r} onDrop={drop} />)}</ul> : null}
+    <form className="cwb-login cwb-cred-add" onSubmit={save} autoComplete="off" data-testid="cwb-cred-add">
+      <input className="m-input" name="s" value={site} onChange={e => setSite(e.target.value)} placeholder="site (e.g. dropbox.com)" aria-label="Site" required data-testid="cwb-cred-site" />
+      <input className="m-input" name="u" autoComplete="off" placeholder="email or username" aria-label="Email or username" required data-testid="cwb-login-user" />
+      <input className="m-input" name="p" type="password" autoComplete="new-password" placeholder="password" aria-label="Password" required data-testid="cwb-login-pass" />
+      <span><button type="submit" className="m-btn m-go" disabled={busy || !host} data-testid="cwb-cred-save">{busy ? 'Sealing…' : 'Save sealed'}</button>
+        {host ? <a className="m-btn cwb-signup" href={`https://${host}`} target="_blank" rel="noopener noreferrer" data-tip={`No account on ${host}? Sign up in a new tab, then come back and save it here`} data-testid="cwb-signup">No account? Sign up ↗</a> : null}</span>
+      {err ? <small className="kd-err" role="alert">⚠ {err}</small> : null}</form></details>;
 }
+// ☁ ITS CLOUD (owner 2026-10-30): it starts with the first real deposit — 1 GB in the first free pool FEELESS holds keys for (R2 → B2 →
+// Filebase), else the FEELESS server — and says which. A live bar of what's left, its 5 newest files as previews, every file below; and for
+// more room, three free services you sign up to yourself (a new tab) whose login then goes in the credentials drawer.
+const BIGGER = [['drive.google.com', 'Google Drive', '15 GB free'], ['mega.io', 'MEGA', '20 GB free'], ['dropbox.com', 'Dropbox', '2 GB free']];
+export function CloudDrawer({ cat, storage, onChange, onSignUp }) {
+  const [err, setErr] = useState('');
+  const c = storage?.cloud; const files = [...(storage?.files || [])].sort((a, b) => (b.at || 0) - (a.at || 0));
+  const used = Number(storage?.used || 0); const quota = Number(storage?.quota || c?.quota || 1024 ** 3);
+  const fresh = c && Date.now() / 1000 - (c.startedAt || 0) < 86400;
+  const drop = async f => { setErr(''); try { const r = await fetch(apiUrl(`/api/cats/${cat.id}/files/${f.id}/delete`), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(agentAuth()) });
+    const j = await r.json().catch(() => ({})); if (!r.ok) throw new Error(j.detail || `HTTP ${r.status}`); onChange?.(j); } catch (er) { setErr(er.message); } };
+  const thumb = f => (f.mime?.startsWith('video/') ? <video src={f.url} muted loop playsInline preload="metadata" /> : <img src={f.url} alt={f.name} loading="lazy" />);
+  return <details className="cwb-vault cwb-cloudd" open={!!fresh} data-testid="cwb-cloud-drawer"><summary data-tip="Its own storage: what you attach and what it saves">☁ CLOUD {c ? <b className="m-num">{files.length}</b> : null}{fresh ? <em className="m-chip ok cwb-new">NEW</em> : null}</summary>
+    {!c ? <p className="m-note" data-testid="cwb-cloud-off"><b>Not started</b>Its cloud starts with its first real deposit: 1 GB, cleaned of files unused for 7 days.</p> : <>
+      {fresh ? <p className="m-note cwb-cloud-new" data-testid="cwb-cloud-new"><b>☁ New cloud started</b>1 GB on {c.label} — attach with + in the chat, or ask it to save something.</p> : null}
+      <div className="cwb-meters cwb-cloud-bar" data-tip={`${fileMb(used)} used of ${fileMb(quota)} on ${c.label} — files unused for ${storage?.ttlDays || 7} days are cleaned`}><span><em>{c.label.toUpperCase()}</em>
+        <b className="m-num" data-testid="cwb-cloud-left">{fileMb(Math.max(0, quota - used))} left</b><u aria-hidden="true"><s className={used > quota * 0.8 ? 'is-hot' : ''} style={{ transform: `scaleX(${Math.min(1, used / quota)})` }} /></u></span></div>
+      {files.length ? <div className="cwb-media-strip" data-testid="cwb-cloud-latest">{files.slice(0, 5).map(f => <a key={f.id} href={f.url} target="_blank" rel="noopener noreferrer" data-tip={`${f.name} · ${fileMb(f.size)}`}>{thumb(f)}<small>{f.name}</small></a>)}</div>
+        : <p className="cwb-cloud-empty">Empty — attach an image or clip with + in the chat.</p>}
+      {files.length ? <ul className="cwb-cloud-files" data-testid="cwb-cloud-files">{files.map((f, i) => <li key={f.id} style={{ '--i': i }}><span className="cwb-cloud-ico" aria-hidden="true">{f.mime?.startsWith('video/') ? '🎞' : '🖼'}</span>
+        <b>{f.name}</b><span className="m-num">{fileMb(f.size)}</span><button type="button" className="m-btn cwb-cred-x" onClick={() => drop(f)} aria-label={`Delete ${f.name}`} data-tip="Delete it from its cloud">✕</button></li>)}</ul> : null}</>}
+    <div className="cwb-bigger" data-testid="cwb-bigger"><em>NEED MORE ROOM?</em>{BIGGER.map(([site, name, free]) => <a key={site} className="m-btn" href={`https://${site}`} target="_blank" rel="noopener noreferrer" onClick={() => onSignUp?.(site)}
+      data-tip={`Sign up to ${name} (${free}) in a new tab — its login then goes in the credentials drawer, and its windows sign in there when you ask them to store something`} data-testid={`cwb-bigger-${site}`}>{name} <small>{free}</small> ↗</a>)}</div>
+    {err ? <small className="kd-err" role="alert">⚠ {err}</small> : null}</details>;
+}
+
 // 🖼 its media drawer: what it saved for a campaign, a slide strip, cleaned after 7 days on its own
 function MediaDrawer({ items }) {
   if (!items?.length) return null;
@@ -150,6 +185,7 @@ function WorkbenchLive({ cat }) {
   const [files, setFiles] = useState([]); const [store, setStore] = useState(null); const [upping, setUpping] = useState(false); const pick = useRef(null);   // ☁ attached to the next ask
   const attach = async e => { const list = Array.from(e.target.files || []).slice(0, 4); e.target.value = ''; if (!list.length) return; setUpping(true); setErr('');
     try { for (const f of list) { const j = await addFile(cat.id, f); setFiles(x => [...x, j.file].slice(-4)); setStore({ used: j.used, quota: j.quota, ttlDays: j.ttlDays }); } } catch (er) { setErr(er.message); } finally { setUpping(false); } };
+  const [signIn, setSignIn] = useState(null);   // 🔑 a window's sign-in card → the credentials drawer, this site filled in
   const [to, setTo] = useState('both'); const [jobs, setJobs] = useState(['', '']);   // 🧠 talk to both minds, or ONE of them (it works the whole task in its own window)
   const load = useCallback(() => work(cat.id, { op: 'state' }).then(x => { setD(x); setErr(''); }).catch(e => setErr(e.message)), [cat.id]);
   const status = d?.task?.status;
@@ -178,11 +214,12 @@ function WorkbenchLive({ cat }) {
       className={way === k ? 'active' : ''} disabled={live || busy} onClick={() => setWay(k)} data-tip={tip} data-testid={`cwb-way-${k}`}>{l}</button>)}</div>
     {(d?.cloud || []).length ? <div className="cwb-cloud" data-testid="cwb-cloud" data-tip="Its main cloud: the best of both minds' scratch pads, kept for next time"><b>☁ MAIN CLOUD</b>
       {d.cloud.slice(-3).reverse().map((c, i) => <span key={i} style={{ '--i': i }}>{c.text || `${c.word} $${c.sym}`}</span>)}</div> : null}
-    <SavedLogins cat={cat} rows={d?.logins} /><MediaDrawer items={d?.media} />
+    <Credentials cat={cat} rows={d?.logins} ask={signIn} onSaved={logins => setD(x => ({ ...x, logins }))} />
+    <CloudDrawer cat={cat} storage={d?.storage} onChange={st => setD(x => ({ ...x, storage: { ...x?.storage, ...st } }))} onSignUp={site => setSignIn({ site, at: Date.now() })} /><MediaDrawer items={d?.media} />
     <details className="cwb-tools"><summary>Job + tool switches</summary><label>Job<select className="m-input" aria-label="Cat job" value={d?.job || 'agent'} disabled={live || busy} onChange={e => act('tools', { job: e.target.value })}>{Object.keys(d?.toolkits || { agent: [] }).map(j => <option key={j}>{j}</option>)}</select></label><div className="m-seg">{Object.entries(d?.tools || {}).map(([k, on]) => <button key={k} type="button" aria-pressed={on} disabled={live || busy} className={on ? 'active' : ''} data-tip={`Allow this cat to use ${k}`} onClick={() => act('tools', { tools: { ...d.tools, [k]: !on } })}>{k} · {on ? 'ON' : 'OFF'}</button>)}</div></details>
     {(d?.artifacts || []).map((a, i) => <details className="cwb-artifact" key={i}><summary>{a.title} · {a.kind}</summary>{a.kind === 'build' ? <iframe title={a.title} sandbox="allow-scripts" referrerPolicy="no-referrer" srcDoc={'<meta http-equiv="Content-Security-Policy" content="default-src \'none\'; script-src \'unsafe-inline\'; style-src \'unsafe-inline\'; img-src data:; connect-src \'none\'; form-action \'none\'; base-uri \'none\'">' + a.content} /> : <pre>{a.content}</pre>}</details>)}
     {(d?.refusals || []).length ? <details className="cwb-refusals"><summary>Refusals · {d.refusals.length}</summary>{d.refusals.map((r, i) => <p key={i}>{r.why}</p>)}</details> : null}
-    <div className="cwb-wins">{wins.map(w => <Window key={w.i} w={w} catId={cat.id} tick={tick} busy={busy} onGo={(op, i) => act(op, { i })} onLogin={(i, user, secret) => act('login', { i, user, secret })} />)}</div>
+    <div className="cwb-wins">{wins.map(w => <Window key={w.i} w={w} catId={cat.id} tick={tick} busy={busy} onGo={(op, i) => act(op, { i })} onLogin={site => setSignIn({ site, at: Date.now() })} />)}</div>
     <div className="ck-cockpit" data-testid="cwb-cockpit">
       <GenVitals cat={cat} w={wins[0]} i={0} live={live} cloud={d?.minds?.[wins[0]?.model] || []} />
       <div className="ck-center cwb-center">
@@ -197,7 +234,7 @@ function WorkbenchLive({ cat }) {
     <form className="cwb-ask" onSubmit={send}>
       <button type="button" className={`cwb-plus${upping ? ' is-busy' : ''}`} onClick={() => pick.current?.click()} disabled={upping || files.length >= 4} aria-label="Attach images for it"
         data-tip="Attach images or GIFs (up to 4) — they go in its own storage and ride with your next ask; it can upload them to a site, e.g. a coin image" data-testid="cwb-plus"><i aria-hidden="true" /></button>
-      <input ref={pick} type="file" accept="image/png,image/jpeg,image/webp,image/gif" multiple hidden onChange={attach} data-testid="cwb-file-input" />
+      <input ref={pick} type="file" accept="image/png,image/jpeg,image/webp,image/gif,video/mp4,video/webm" multiple hidden onChange={attach} data-testid="cwb-file-input" />
       {way === 'jobs' && wins.length > 1 && !live ? <span className="cwb-jobs">{[0, 1].map(i => <label key={i}><em>MIND {'AB'[i]} · {String(wins[i]?.model || '').split('/').pop()}</em>
         <input className="m-input" value={jobs[i]} onChange={e => setJobs(j => (i ? [j[0], e.target.value] : [e.target.value, j[1]]))} placeholder={i ? 'e.g. make 5 posts for X from it' : 'e.g. write a 30 s video script on SOL'} data-testid={`cwb-job-${i}`} aria-label={`Mind ${'AB'[i]} job`} /></label>)}</span> : null}
       <input hidden={way === 'jobs' && wins.length > 1 && !live} className="m-input" value={text} onChange={e => setText(e.target.value)} placeholder={live ? (go ? 'working… type the next ask — it queues' : 'working… stop it to ask again') : 'Ask both — e.g. "find the best YES on Kalshi for US capital this week"'} disabled={live && !go} aria-label="Ask the cat" data-testid="cwb-input" />

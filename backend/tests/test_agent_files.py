@@ -19,7 +19,7 @@ URL = 'data:image/png;base64,' + base64.b64encode(PNG).decode()
 
 
 def test_only_real_images_under_the_cap_are_kept(tmp_path):
-    cat = {'id': 'c1'}
+    cat = {'id': 'c1', 'cloud': {'pool': 'feeless'}}
     row = af.save(tmp_path, cat, URL, 'coin <logo>.png')
     assert row['name'] == 'coin logo.png' and row['size'] == len(PNG) and (tmp_path / 'agent_files' / 'c1' / f"{row['id']}.png").read_bytes() == PNG
     for bad in ('data:text/html;base64,PGh0bWw+', 'data:image/png;base64,' + base64.b64encode(b'<svg onload=x>').decode(), 'data:image/svg+xml;base64,AAAA', 'nope'):
@@ -29,15 +29,15 @@ def test_only_real_images_under_the_cap_are_kept(tmp_path):
     with pytest.raises(ValueError, match='Too big'):
         af.save(tmp_path, cat, big)
     with pytest.raises(ValueError):
-        af.save(tmp_path, {'id': '../etc'}, URL)                                     # no path escapes
+        af.save(tmp_path, {'id': '../etc', 'cloud': {'pool': 'feeless'}}, URL)                                     # no path escapes
     assert af.find(cat, '../../x') is None and af.find(cat, row['id']) is row
 
 
 def test_quota_files_cap_and_the_seven_day_clean(tmp_path, monkeypatch):
-    cat = {'id': 'c1'}
+    cat = {'id': 'c1', 'cloud': {'pool': 'feeless'}}
     monkeypatch.setattr(af, 'QUOTA', len(PNG) * 2)
     a = af.save(tmp_path, cat, URL, now=1000); af.save(tmp_path, cat, URL, now=1000)
-    with pytest.raises(ValueError, match='storage is full'):
+    with pytest.raises(ValueError, match='cloud is full'):
         af.save(tmp_path, cat, URL)
     af.touch(cat, [a['id']], now=1000 + af.TTL)                                     # used again: 7 more days
     assert af.clean(tmp_path, {'cats': {'c1': cat}}, now=1000 + af.TTL + 5) == 1      # the other one was never used again
@@ -54,7 +54,7 @@ def test_the_task_names_attached_files():
 def test_endpoints_are_owner_only_and_the_upload_reaches_its_browser(monkeypatch):
     fs = pytest.importorskip('feecat_service')
     from fastapi.testclient import TestClient
-    store = {'cats': {'g': {'id': 'g', 'ownerId': 'me', 'revoked': False, 'brainsCfg': {'kind': 'general', 'brains': ['m/a']}}}, 'events': []}
+    store = {'cats': {'g': {'id': 'g', 'ownerId': 'me', 'revoked': False, 'cloud': {'pool': 'feeless'}, 'brainsCfg': {'kind': 'general', 'brains': ['m/a']}}}, 'events': []}
     monkeypatch.setattr(fs, '_load', lambda: store); monkeypatch.setattr(fs, '_save', lambda s: None)
     c = TestClient(fs.app)
     assert c.post('/api/cats/g/files', json={'ownerId': 'intruder', "session": 'intruder', 'dataUrl': URL}).status_code == 403

@@ -58,3 +58,48 @@ test('☁ the + puts an image in its storage, shows a chip + the storage meter, 
   expect(el.querySelector('[data-testid="cwb-files"]')).toBeNull();                       // sent: the chips clear
   act(() => root.unmount()); el.remove();
 });
+
+test('🔑 a window sign-in is a small card → the credentials drawer opens with the site filled in; saved sealed; rows show the site only until 👁', async () => {
+  const calls = [];
+  const LOGIN = { ...STATE, logins: [{ site: 'x.com', user: 'me@mail.com', at: 1 }],
+    windows: [{ i: 0, model: 'm/a', status: 'human', provider: 'steel', url: 'https://www.dropbox.com/login', human: { kind: 'login', site: 'dropbox.com', why: 'log in to dropbox.com' }, steps: [] }] };
+  global.fetch = async (u, o) => { const b = JSON.parse(o.body); calls.push(b);
+    return { ok: true, json: async () => (b.op === 'reveal' ? { password: 'Sup3r!pw' } : b.op === 'save_login' ? { ok: true, logins: [...LOGIN.logins, { site: 'dropbox.com', user: b.user }] } : LOGIN) }; };
+  Element.prototype.scrollIntoView = () => {};
+  const el = document.createElement('div'); document.body.appendChild(el); const root = createRoot(el);
+  await act(async () => { root.render(<CatWorkbench cat={{ id: 'g1', brainsCfg: { kind: 'general', brains: ['m/a'], credit: 1 } }} />); });
+  const card = el.querySelector('[data-testid="cwb-login"]');
+  expect(card.textContent).toContain('dropbox.com needs a sign-in'); expect(card.querySelector('input')).toBeNull();   // no form inside the window
+  const vault = el.querySelector('[data-testid="cwb-vault"]');
+  expect(vault.textContent).toContain('x.com'); expect(vault.textContent).not.toContain('me@mail.com');                 // site name only
+  expect(el.querySelector('[data-testid="cwb-signup"]')).toBeNull();
+  await act(async () => { card.querySelector('[data-testid="cwb-login-go"]').click(); });
+  expect(vault.open).toBe(true); expect(el.querySelector('[data-testid="cwb-cred-site"]').value).toBe('dropbox.com');
+  expect(el.querySelector('[data-testid="cwb-signup"]').getAttribute('href')).toBe('https://dropbox.com');
+  el.querySelector('[data-testid="cwb-login-user"]').value = 'me@drop.com'; el.querySelector('[data-testid="cwb-login-pass"]').value = 'Dr0p!pw';
+  await act(async () => { el.querySelector('[data-testid="cwb-cred-add"]').dispatchEvent(new Event('submit', { bubbles: true, cancelable: true })); });
+  expect(calls.find(c => c.op === 'save_login')).toMatchObject({ text: 'dropbox.com', user: 'me@drop.com', secret: 'Dr0p!pw' });
+  expect(el.querySelector('[data-testid="cwb-login-pass"]').value).toBe('');                                            // the form forgets it
+  await act(async () => { el.querySelector('[data-testid="cwb-reveal-x.com"]').click(); });
+  expect(el.querySelector('[data-testid="cwb-cred-x.com"]').textContent).toContain('Sup3r!pw');
+  await act(async () => { el.querySelector('[data-testid="cwb-reveal-x.com"]').click(); });
+  expect(el.querySelector('[data-testid="cwb-cred-x.com"]').textContent).not.toContain('Sup3r!pw');
+  await act(async () => root.unmount()); el.remove();
+});
+
+test('☁ the cloud drawer: off until a deposit; then NEW, the space left, the 5 newest, every file, and 3 bigger sign-ups that fill the credentials drawer', async () => {
+  const { CloudDrawer } = await import('./CatWorkbench');
+  const el = document.createElement('div'); document.body.appendChild(el); const root = createRoot(el);
+  await act(async () => { root.render(<CloudDrawer cat={{ id: 'g1' }} storage={{ files: [], used: 0, quota: 1024 ** 3, cloud: null }} />); });
+  expect(el.querySelector('[data-testid="cwb-cloud-off"]').textContent).toContain('first real deposit');
+  const files = Array.from({ length: 6 }, (_, i) => ({ id: `f${i}`, name: `pic${i}.png`, mime: i === 5 ? 'video/mp4' : 'image/png', size: 2 * 1024 ** 2, at: i, url: `/x/f${i}.png` }));
+  const asked = [];
+  await act(async () => { root.render(<CloudDrawer cat={{ id: 'g1' }} storage={{ files, used: 12 * 1024 ** 2, quota: 1024 ** 3, cloud: { pool: 'feeless', label: 'FEELESS server', quota: 1024 ** 3, startedAt: Date.now() / 1000 - 60 } }} onSignUp={s => asked.push(s)} />); });
+  expect(el.querySelector('[data-testid="cwb-cloud-new"]').textContent).toContain('FEELESS server');
+  expect(el.querySelector('[data-testid="cwb-cloud-left"]').textContent).toBe('1012.0 MB left');
+  expect(el.querySelectorAll('[data-testid="cwb-cloud-latest"] a').length).toBe(5); expect(el.querySelector('[data-testid="cwb-cloud-latest"] video')).not.toBeNull();   // newest first: the clip
+  expect(el.querySelectorAll('[data-testid="cwb-cloud-files"] li').length).toBe(6);
+  await act(async () => { el.querySelector('[data-testid="cwb-bigger-mega.io"]').click(); });
+  expect(asked).toEqual(['mega.io']);
+  await act(async () => root.unmount()); el.remove();
+});

@@ -122,7 +122,7 @@ body.theme-day .cwb-cloud span { background: #fff; color: #2a1650; }
 /* 🔐 saved logins (blurred until you look) + 🖼 media slide drawer */
 .cwb-vault { border-radius: 14px; border: 1px solid #f5c54244; background: #0b0716cc; } .cwb-vault summary { padding: 8px 12px; cursor: pointer; color: #ffe08a; font: 800 10.5px var(--f-mono); letter-spacing: .12em; list-style: none; }
 .cwb-vault summary::-webkit-details-marker { display: none; } .cwb-vault ul { list-style: none; margin: 0; padding: 0 10px 10px; display: grid; gap: 6px; }
-.cwb-vault li { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto; gap: 8px; align-items: center; padding: 6px 10px; border-radius: 10px; background: #ffffff06; }
+.cwb-vault li { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; align-items: center; padding: 6px 10px; border-radius: 10px; background: #ffffff06; }
 .cwb-vault li b { color: #fff; font: 700 12px var(--f-ui); } .cwb-vault li span { color: #c9bce6; font: 600 11px var(--f-mono); overflow: hidden; text-overflow: ellipsis; }
 .cwb-pw { min-height: 32px; padding: 4px 8px; border: 1px solid #ffffff14; border-radius: 8px; background: #000a; color: #c9bce6; font: 700 12px var(--f-mono); text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; filter: blur(6px); transition: filter .15s; cursor: pointer; user-select: none; }
 .cwb-pw.is-pw { color: #ffe08a; } .cwb-pw.is-open { filter: none; user-select: all; outline: 1px solid #ffe08a66; } .cwb-pw:focus-visible { outline: 2px solid #ffe08a; }   /* hover never un-blurs (stream-safe) */
@@ -131,9 +131,30 @@ body.theme-day .cwb-cloud span { background: #fff; color: #2a1650; }
 .cwb-media-strip a { flex: none; width: 150px; display: grid; gap: 4px; scroll-snap-align: start; text-decoration: none; transition: transform .15s; } .cwb-media-strip a:hover { transform: translateY(-2px); }
 .cwb-media-strip img, .cwb-media-strip video { width: 150px; height: 96px; object-fit: cover; border-radius: 10px; border: 1px solid #ffffff1a; } .cwb-media-strip small { color: #d8ccf5; font-size: 10.5px; }
 @media (prefers-reduced-motion: reduce) { .cwb-pw { transition: none; } }
-@media (max-width: 640px) { .cwb-vault li { grid-template-columns: 1fr auto; } .cwb-vault li span { grid-column: 1; } }
-/* 🔑 the private login form a window shows when the agent needs YOUR account — typed here, sealed, autofilled; the models never see it */
+/* 🔑 the credentials drawer's add form (site · email · password · Save sealed · Sign up ↗) and each row's 👁 Show — the models never see a login */
 .cwb-login { display: grid; gap: 6px; } .cwb-login .m-input { min-height: 36px; } .cwb-login span { display: flex; gap: 6px; justify-content: center; }
+.cwb-cred-add { grid-template-columns: repeat(3, minmax(0, 1fr)); padding: 4px 10px 12px; } .cwb-cred-add > span, .cwb-cred-add > small { grid-column: 1 / -1; justify-content: flex-start; flex-wrap: wrap; }
+.cwb-cred-open { grid-column: 1 / -1; grid-row: 2; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 6px; animation: cwbIn .18s ease both; }
+.cwb-cred-acts { display: flex; gap: 6px; } .cwb-cred-acts .m-btn { min-height: 32px; min-width: 32px; } .cwb-cred-x:hover { color: #ff8fa3; border-color: #ff8fa366; }
+.cwb-signup { display: inline-flex; align-items: center; min-height: 34px; text-decoration: none; color: #1a1300; font-weight: 800; border-color: #f5c542; background: linear-gradient(135deg, #ffe08a, #f5c542); box-shadow: 0 0 14px #f5c54255; transition: transform .15s, box-shadow .15s; }
+.cwb-signup:hover { transform: translateY(-1px); box-shadow: 0 0 22px #f5c54288; } .cwb-signup:active { transform: translateY(0) scale(.98); } .cwb-signup:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
+.cwb-signin { width: min(80%, 260px); padding: 10px 12px; }   /* the window's 🔑 card stays small: one line, one button — the login itself goes in the drawer */
+body.theme-day .cwb-vault { background: #fffaf0; border-color: #e0b84a66; } body.theme-day .cwb-vault summary { color: #8a6200; } body.theme-day .cwb-vault li { background: #fff; } body.theme-day .cwb-vault li b { color: #2a1f45; }
+@media (prefers-reduced-motion: reduce) { .cwb-cred-open { animation: none; } .cwb-signup { transition: none; } } body.fx-lite .cwb-cred-open { animation: none; }
+@media (max-width: 640px) { .cwb-cred-add { grid-template-columns: 1fr; } .cwb-cred-add > span { justify-content: stretch; } .cwb-cred-add > span > * { flex: 1; } }
+
+/* ☁ its cloud drawer: NEW chip, the space-left bar (cwb-meters), the 5 newest as a media strip, every file as a row, 3 bigger-storage sign-ups */
+.cwb-cloudd { border-color: #7fd3ff44; } .cwb-cloudd summary { color: #a8e4ff; display: flex; align-items: center; gap: 8px; } .cwb-cloudd > *:not(summary) { margin: 0 10px 10px; }
+.cwb-new { animation: cwbPulse 1.6s ease-in-out infinite; } .cwb-cloud-new { border-color: #7fd3ff66; }
+.cwb-cloud-bar > span { display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 4px 8px; } .cwb-cloud-bar u { grid-column: 1 / -1; }
+.cwb-cloud-empty { color: #a99bc8; font: 600 11px var(--f-ui); }
+.cwb-cloud-files { list-style: none; padding: 0; display: grid; gap: 4px; max-height: 220px; overflow-y: auto; scrollbar-width: thin; scrollbar-color: #7fd3ff transparent; }
+.cwb-cloud-files li { display: grid; grid-template-columns: auto minmax(0, 1fr) auto auto; gap: 8px; align-items: center; padding: 4px 8px; border-radius: 10px; background: #ffffff06; animation: cwbIn .2s ease both; animation-delay: calc(var(--i, 0) * 45ms); }
+.cwb-cloud-files b { color: #fff; font: 700 12px var(--f-ui); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; } .cwb-cloud-files .m-num { color: #a8e4ff; font-size: 11px; }
+.cwb-bigger { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; } .cwb-bigger em { color: #a99bc8; font: 800 9.5px var(--f-mono); letter-spacing: .12em; font-style: normal; flex-basis: 100%; }
+.cwb-bigger a { min-height: 32px; display: inline-flex; align-items: center; gap: 5px; text-decoration: none; } .cwb-bigger small { color: #a8e4ff; font: 600 10px var(--f-mono); }
+body.theme-day .cwb-cloudd summary { color: #1f6f99; } body.theme-day .cwb-cloud-files li { background: #fff; } body.theme-day .cwb-cloud-files b { color: #2a1f45; }
+body.fx-lite .cwb-new, body.fx-lite .cwb-cloud-files li { animation: none; } @media (prefers-reduced-motion: reduce) { .cwb-new, .cwb-cloud-files li { animation: none; } }
 
 /* ☁ + attach (owner 2026-10-31): a drawn plus in a violet ring, its chips (thumb · name · size · ✕) and the storage meter */
 .cwb-plus { position: relative; width: 40px; height: 40px; border-radius: 12px; border: 1px solid rgba(179, 136, 255, .45); background: radial-gradient(circle at 30% 25%, rgba(179, 136, 255, .28), rgba(20, 10, 40, .9) 70%); box-shadow: inset 0 1px 0 rgba(255, 255, 255, .12); cursor: pointer; transition: transform .16s ease, box-shadow .16s ease; }
