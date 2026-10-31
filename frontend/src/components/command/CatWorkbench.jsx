@@ -323,18 +323,50 @@ export function TraderCabinet({ cat, items }) {
 }
 // 🔐 + 🔑 the key drawers every agent's cabinet shares (general + trader): sealed logins, signed-in sites, API keys
 function keyDrawers(cat, d, setD, ask = null) {
-  return [['creds', '🔐', 'Credentials', (d?.logins || []).length + (d?.signedIn || []).length, <><Credentials cat={cat} rows={d?.logins} log={d?.vaultLog || []} ask={ask} onSaved={logins => setD(x => ({ ...x, logins }))} />
-      <SignedSites cat={cat} rows={d?.signedIn} onSaved={signedIn => setD(x => ({ ...x, signedIn }))} /></>],
+  return [['creds', '🔐', 'Credentials', (d?.logins || []).length + (d?.signedIn || []).length + (d?.secrets || []).length, <><Credentials cat={cat} rows={d?.logins} log={d?.vaultLog || []} ask={ask} onSaved={logins => setD(x => ({ ...x, logins }))} />
+      <SealedVault cat={cat} rows={d?.secrets} onSaved={secrets => setD(x => ({ ...x, secrets }))} />
+      <SignedSites cat={cat} rows={d?.signedIn} onSaved={(signedIn, secrets) => setD(x => ({ ...x, signedIn, ...(secrets ? { secrets } : {}) }))} /></>, { guard: true }],
     ['api', '🔑', 'API keys', (cat?.apiDrawer || []).filter(r => r.saved).length, <ApiSlot cat={cat} />]];
+}
+
+// 🔏 SEALED (owner 2026-10-31: "a recovery phrase I download — where does it go? keep it in the agent's drawer, or I paste it and nobody ever sees
+// it"): a file you download in a window you used lands here by itself (sealed, then deleted from the cloud browser); paste a phrase to seal it.
+// The list shows labels only; Open = a fresh wallet signature — a note shows 15 s, a file downloads straight to YOUR device.
+const kb = n => (n >= 1048576 ? `${(n / 1048576).toFixed(1)} MB` : n >= 1024 ? `${Math.round(n / 1024)} KB` : `${n} chars`);
+function SealedVault({ cat, rows = [], onSaved }) {
+  const { signMessage } = useWallet() || {}; const [shown, setShown] = useState(null); const [err, setErr] = useState(''); const [busy, setBusy] = useState('');
+  useEffect(() => { if (!shown) return undefined; const t = setTimeout(() => setShown(null), 15000); return () => clearTimeout(t); }, [shown]);
+  const open = async r => { if (shown?.id === r.id) { setShown(null); return; } setErr(''); setBusy(r.id);
+    try { const ts = Math.floor(Date.now() / 1000); const sig = await signMessage(revealMessage(cat.id, r.id, ts)); const j = await work(cat.id, { op: 'unseal', text: r.id, ts, sig });
+      if (j.kind === 'file') { const bin = Uint8Array.from(atob(j.b64), c => c.charCodeAt(0)); const url = URL.createObjectURL(new Blob([bin]));
+        const a = document.createElement('a'); a.href = url; a.download = j.name || 'sealed-file'; a.click(); setTimeout(() => URL.revokeObjectURL(url), 2000); }
+      else setShown({ id: r.id, text: j.text }); } catch (e) { setErr(e.message || 'Not opened'); } finally { setBusy(''); } };
+  const drop = async r => { try { onSaved?.((await work(cat.id, { op: 'drop_secret', text: r.id })).secrets); } catch (e) { setErr(e.message); } };
+  const seal = async e => { e.preventDefault(); const form = e.currentTarget; const f = new FormData(form); setErr(''); setBusy('seal');
+    try { onSaved?.((await work(cat.id, { op: 'seal', job: String(f.get('l') || ''), text: String(f.get('s') || ''), secret: String(f.get('n') || '') })).secrets); form.reset(); } catch (er) { setErr(er.message); } finally { setBusy(''); } };
+  return <section className="cwb-signed cwb-sealed" data-testid="cwb-sealed"><b className="cwb-signed-h">🔏 SEALED <em className="m-num">{rows.length}</em></b>
+    <small>Recovery phrases + files. A file you download in a window you used lands here by itself — sealed, and deleted from the cloud browser.</small>
+    {rows.length ? <ul>{rows.map(r => <li key={r.id} data-testid={`cwb-secret-${r.id}`}><span><b>{r.kind === 'file' ? '📄' : '📝'} {r.label}</b><small>{kb(r.size || 0)} · {ago(r.at)} ago · sealed</small>
+      {shown?.id === r.id ? <code className="cwb-sealed-open" data-testid="cwb-secret-text">{shown.text}</code> : null}</span>
+      <span className="cwb-cred-acts"><button type="button" className="m-btn" disabled={busy === r.id} onClick={() => open(r)} data-tip={r.kind === 'file' ? 'Sign once with your wallet — it downloads to THIS device' : shown?.id === r.id ? 'Hide it now (it hides itself in 15 s)' : 'Sign once with your wallet to show it for 15 s'} data-testid={`cwb-secret-open-${r.id}`}>{busy === r.id ? '…' : r.kind === 'file' ? '⬇ Download' : shown?.id === r.id ? 'Hide' : '👁 Open'}</button>
+        <button type="button" className="m-btn cwb-cred-x" onClick={() => drop(r)} aria-label={`Delete ${r.label}`} data-tip="Delete it for good">✕</button></span></li>)}</ul> : null}
+    <form className="cwb-signed-add cwb-sealed-add" onSubmit={seal} autoComplete="off" data-testid="cwb-seal-add">
+      <span className="cwb-sealed-row"><input className="m-input" name="l" placeholder="label, e.g. Proton recovery phrase" aria-label="Label" required maxLength={80} />
+        <input className="m-input" name="s" placeholder="site (optional)" aria-label="Site" maxLength={80} /></span>
+      <textarea className="m-input cwb-sealed-note" name="n" rows={2} placeholder="paste it here — hidden as you type, sealed on Save" aria-label="Secret to seal" required maxLength={8000} spellCheck={false} autoComplete="off" data-testid="cwb-seal-text" />
+      <button type="submit" className="m-btn m-go" disabled={busy === 'seal'} data-testid="cwb-seal-save">{busy === 'seal' ? 'Sealing…' : '🔏 Seal it'}</button></form>
+    {err ? <small className="kd-err" role="alert">⚠ {err}</small> : null}
+  </section>;
 }
 
 // 🔓 SIGNED-IN SITES (owner 2026-10-31): a site that blocks bots, or your agent's own email — open it here, sign in yourself in the live window,
 // Save: its windows start signed in from then on (cookies sealed on the server, never sent to a page). A site that re-checks asks you again.
-const SIGNIN_PICKS = [['x.com', '𝕏 X'], ['proton.me', '📧 Proton Mail'], ['dexscreener.com', '📈 DexScreener'], ['solscan.io', '🔎 Solscan'], ['coingecko.com', '🦎 CoinGecko']];
+const SIGNIN_PICKS = [['x.com', '𝕏 X'], ['proton.me', '📧 Proton Mail'], ['accounts.google.com', '📧 Google'], ['discord.com', '💬 Discord'], ['web.telegram.org', '✈ Telegram'],
+  ['github.com', '🐙 GitHub'], ['dexscreener.com', '📈 DexScreener'], ['coingecko.com', '🦎 CoinGecko'], ['solscan.io', '🔎 Solscan'], ['pump.fun', '💊 Pump'], ['tradingview.com', '📊 TradingView'], ['reddit.com', '👽 Reddit']];
 export function SignedSites({ cat, rows = [], onSaved }) {
   const [site, setSite] = useState(''); const [live, setLive] = useState(null); const [busy, setBusy] = useState(''); const [err, setErr] = useState(''); const [big, setBig] = useState(true);
   const run = async (op, text) => { setBusy(op); setErr('');
-    try { const j = await work(cat.id, { op, text }); if (op === 'signin_open') { setLive(j); setBig(true); } else { setLive(null); onSaved?.(j.signedIn || []); } } catch (e) { setErr(e.message); } finally { setBusy(''); } };
+    try { const j = await work(cat.id, { op, text }); if (op === 'signin_open') { setLive(j); setBig(true); } else { setLive(null); onSaved?.(j.signedIn || [], j.secrets); } } catch (e) { setErr(e.message); } finally { setBusy(''); } };
   return <section className="cwb-signed" data-testid="cwb-signed"><b className="cwb-signed-h">🔓 SIGNED-IN SITES <em className="m-num">{rows.length}</em></b>
     <small>Blocked by a bot check, or your agent's own email? Sign in once here — its windows open signed in.</small>
     {rows.length ? <ul>{rows.map(r => <li key={r.site}><span><b>{r.site}</b><small>{ago(r.at)} ago · {r.n} cookies · sealed</small></span>

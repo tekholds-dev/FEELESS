@@ -62,6 +62,7 @@ test('☁ the + puts an image in its storage, shows a chip + the storage meter, 
 });
 
 test('🔑 a window sign-in is a small card → the credentials drawer opens with the site filled in; saved sealed; rows show the site only until 👁', async () => {
+  sessionStorage.setItem('feeless:safe-place', '1');   // the safe-place check answered (its own test below)
   const calls = [];
   const LOGIN = { ...STATE, logins: [{ site: 'x.com', user: 'me@mail.com', at: 1 }],
     windows: [{ i: 0, model: 'm/a', status: 'human', provider: 'steel', url: 'https://www.dropbox.com/login', human: { kind: 'login', site: 'dropbox.com', why: 'log in to dropbox.com' }, steps: [] }] };
@@ -192,6 +193,7 @@ test('⤢ signing in opens the live window BIG (save from inside it; ✕ / Esc s
 });
 
 test('🗄 a trader agent gets the same key drawers (Credentials with signed-in sites, API keys) over its log', async () => {
+  sessionStorage.setItem('feeless:safe-place', '1');
   const { TraderCabinet } = require('./CatWorkbench');
   const calls = [];
   global.fetch = async (u, o) => { calls.push(JSON.parse(o.body)); return { ok: true, json: async () => ({ logins: [{ site: 'coingecko.com' }], signedIn: [{ site: 'x.com', at: 1, n: 12 }] }) }; };
@@ -202,4 +204,28 @@ test('🗄 a trader agent gets the same key drawers (Credentials with signed-in 
   expect(creds.textContent).toContain('2'); expect([...el.querySelectorAll('button')].some(b => b.textContent.includes('API keys'))).toBe(true);
   await act(async () => { creds.click(); }); expect(el.querySelector('[data-testid="cwb-signed"]').textContent).toContain('x.com');
   act(() => root.unmount());
+});
+
+test('🔏 the sealed drawer asks "somewhere safe?" first, lists labels only, opens a note with a fresh signature for 15 s, seals a pasted phrase', async () => {
+  const { TraderCabinet } = require('./CatWorkbench');
+  sessionStorage.clear(); document.body.innerHTML = '';
+  const calls = [];
+  global.fetch = async (u, o) => { const b = JSON.parse(o.body); calls.push(b);
+    return { ok: true, json: async () => (b.op === 'unseal' ? { kind: 'note', label: 'Proton recovery', text: 'apple banana cherry' } : b.op === 'seal' ? { secrets: [{ id: 's1', label: 'Proton recovery', kind: 'note', size: 19, at: 1 }, { id: 's2', label: 'GitHub codes', kind: 'note', size: 40, at: 2 }] }
+      : { logins: [], signedIn: [], secrets: [{ id: 's1', label: 'Proton recovery', kind: 'note', size: 19, at: 1 }] }) }; };
+  const el = document.createElement('div'); document.body.appendChild(el); const root = createRoot(el);
+  await act(async () => { root.render(<TraderCabinet cat={{ id: 't1' }} items={[]} />); });
+  const q = id => document.querySelector(`[data-testid="${id}"]`);
+  const creds = [...el.querySelectorAll('button')].find(b => b.textContent.includes('Credentials'));
+  await act(async () => { creds.click(); }); expect(q('safe-gate').textContent).toContain('streaming'); expect(q('cwb-sealed')).toBeNull();
+  await act(async () => { q('safe-no').click(); }); expect(q('safe-gate')).toBeNull(); expect(q('cwb-sealed')).toBeNull();
+  await act(async () => { creds.click(); }); await act(async () => { q('safe-yes').click(); });
+  expect(q('cwb-sealed').textContent).toContain('Proton recovery'); expect(q('cwb-sealed').textContent).not.toContain('apple');
+  await act(async () => { q('cwb-secret-open-s1').click(); });
+  expect(calls.at(-1)).toMatchObject({ op: 'unseal', text: 's1', sig: 'SIG' }); expect(signed.at(-1)).toContain('site:s1'); expect(q('cwb-secret-text').textContent).toBe('apple banana cherry');
+  const f = q('cwb-seal-add'); f.querySelector('[name="l"]').value = 'GitHub codes'; f.querySelector('[name="n"]').value = 'codes 1 2 3';
+  await act(async () => { f.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true })); });
+  expect(calls.at(-1)).toMatchObject({ op: 'seal', job: 'GitHub codes', secret: 'codes 1 2 3' }); expect(q('cwb-sealed').textContent).toContain('GitHub codes');
+  act(() => root.unmount());
+  await act(async () => { createRoot(document.createElement('div')).render(<TraderCabinet cat={{ id: 't1' }} items={[]} />); });   // asked once per tab
 });

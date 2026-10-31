@@ -87,7 +87,7 @@ def _load() -> dict:
 
 # 🔒 The engine loads every cat, works for minutes, then saves its whole copy: anything an owner did meanwhile was wiped (owner 2026-10-30: a new agent wallet vanished
 # seconds after it was made). What an owner's action sets is kept here and laid over every save, so an old copy can never lose a wallet, a funding or a limit.
-OWNER_KEYS = ('agentWallet', 'agentFunded', 'creditPaid', 'recovery', 'recoverySet', 'recoveryConfirmedAt', 'limits', 'taskCap', 'ownerId', 'mode', 'realWallet', 'budgetSol', 'paperByOwner', 'files', 'ownerWallet', 'logins', 'cloudLink', 'vaultLog', 'earn', 'clarify', 'ownerStaff', 'pass', 'treasury', 'siteSessions')
+OWNER_KEYS = ('secrets', 'agentWallet', 'agentFunded', 'creditPaid', 'recovery', 'recoverySet', 'recoveryConfirmedAt', 'limits', 'taskCap', 'ownerId', 'mode', 'realWallet', 'budgetSol', 'paperByOwner', 'files', 'ownerWallet', 'logins', 'cloudLink', 'vaultLog', 'earn', 'clarify', 'ownerStaff', 'pass', 'treasury', 'siteSessions')
 _KEPT: dict = {}
 
 
@@ -131,7 +131,7 @@ def _no_keys(obj):
     if isinstance(obj, list):
         return [_no_keys(x) for x in obj]
     if isinstance(obj, dict):
-        out = {k: _no_keys(v) for k, v in obj.items() if k not in ('apiKeys', 'logins', 'ownerId', 'ownerWallet', 'recovery', 'siteSessions')}
+        out = {k: _no_keys(v) for k, v in obj.items() if k not in ('apiKeys', 'logins', 'secrets', 'ownerId', 'ownerWallet', 'recovery', 'siteSessions')}
         if obj.get('siteSessions'):   # 🔓 sealed sign-ins never leave the server — site · when · how many cookies only
             out['signedIn'] = [{'site': k, 'at': v.get('at'), 'n': v.get('n', 0)} for k, v in obj['siteSessions'].items()]   # 🔒 ownerId is the owner's control key — it never leaves the server
         if 'brains' in obj:   # ☁ each mind's own cloud is its owner's private notes — only the owner's /work view carries it
@@ -1651,6 +1651,10 @@ async def _work_run(cat_id, models, names, text, cap, brief='', efforts=None, ow
                 finally:
                     if pg_:
                         try:
+                            await _seal_downloads(cat_id, (sessions[i] or {}).get('id') if i < len(sessions) else None, pg_, h_.get('site') or '')   # 🔏 what you downloaded there
+                        except Exception as e:
+                            print(f'[vault] {cat_id}: {str(e)[:80]}')
+                        try:
                             await pg_.start()   # the agent takes the window back where you left it
                         except Exception as e:
                             print(f'[agent window] {cat_id}: could not take the window back ({str(e)[:80]})')
@@ -2392,6 +2396,26 @@ def _site_ctx(cat):
     return _cb.merge_contexts(out)
 
 
+async def _seal_downloads(cat_id, session_id, page, site=''):
+    """🔏 Files the owner downloaded in a window they used (a recovery PDF…) → sealed in its drawer, then deleted from the cloud browser. → how many."""
+    names = getattr(getattr(page, 'downloads', None), 'names', None) or {}
+    async with httpx.AsyncClient(timeout=30) as http:
+        got = await _cb.collect_downloads(http, os.environ, session_id, names)
+    if not got:
+        return 0
+    store = _load(); cat = store['cats'].get(cat_id)
+    if not cat:
+        return 0
+    for name, data in got:
+        try:
+            _cv.put_secret(cat, f"{name} · from {site}" if site else name, data=data, name=name, site=site, data_dir=DATA_DIR)
+            vault_log(cat, 'sealed', site or name)
+        except ValueError as e:
+            print(f'[vault] {cat_id}: {str(e)[:80]}')
+    keep_owned(cat); _save(store)
+    return len(got)
+
+
 async def _signin_close(cat_id):
     si_ = _SIGNIN.pop(cat_id, None)
     if not si_:
@@ -2491,8 +2515,10 @@ async def cat_work(cat_id: str, p: WorkPayload):
         if not _cb.merge_contexts([ctx_]):
             raise HTTPException(400, 'Nothing to keep yet — finish signing in, then save.')
         cat.setdefault('siteSessions', {})[si_['site']] = {'ctx': _ck.seal(json.dumps(ctx_), cat_id), 'at': time.time(), 'n': len(ctx_['cookies'])}
-        vault_log(cat, 'signed in', si_['site']); keep_owned(cat); _save(store); await _signin_close(cat_id)
-        return {'signedIn': _no_keys(cat).get('signedIn', [])}
+        vault_log(cat, 'signed in', si_['site']); keep_owned(cat); _save(store)
+        sealed_ = await _seal_downloads(cat_id, si_['sid'], si_.get('page'), si_['site'])   # 🔏 a recovery file you downloaded there → its sealed drawer
+        await _signin_close(cat_id); cat = _load()['cats'].get(cat_id) or cat
+        return {'signedIn': _no_keys(cat).get('signedIn', []), 'secrets': _cv.public_secrets(cat), 'sealedNow': sealed_}
     if p.op == 'signin_drop':
         (cat.get('siteSessions') or {}).pop(_cv.site_of(p.text or ''), None); vault_log(cat, 'signed out', p.text); keep_owned(cat); _save(store); await _signin_close(cat_id)
         return {'signedIn': _no_keys(cat).get('signedIn', [])}
@@ -2505,6 +2531,25 @@ async def cat_work(cat_id: str, p: WorkPayload):
             return {'password': pw_}
         except Exception as e:
             raise HTTPException(400, str(e)[:120])
+    if p.op == 'seal':   # 🔏 the owner pastes a secret (a recovery phrase…): sealed with this agent's key, never shown on the page again until opened
+        try:
+            out_ = _cv.put_secret(cat, p.job or 'sealed note', text=p.secret or '', site=p.text or '', data_dir=DATA_DIR)
+        except ValueError as e:
+            raise HTTPException(400, str(e))
+        vault_log(cat, 'sealed', p.text or p.job); keep_owned(cat); _save(store)
+        return {'secrets': out_}
+    if p.op == 'unseal':   # 🔏 open ONE sealed item: a fresh wallet signature each time (a stolen session alone opens nothing)
+        if not reveal_ok(cat_id, p.text or '', p.ts, p.sig, owner_wallet(cat) or _session_wallet(p.session or '')):
+            raise HTTPException(401, 'Sign the open with your wallet (one signature, no transaction).')
+        try:
+            got_ = _cv.open_secret(cat, p.text or '', data_dir=DATA_DIR)
+        except (ValueError, OSError) as e:
+            raise HTTPException(400, str(e)[:120])
+        vault_log(cat, 'opened', got_.get('label')); keep_owned(cat); _save(store)
+        return got_
+    if p.op == 'drop_secret':
+        out_ = _cv.drop_secret(cat, p.text or '', data_dir=DATA_DIR); vault_log(cat, 'deleted', p.text); keep_owned(cat); _save(store)
+        return {'secrets': out_}
     if p.op == 'unlogin':
         _cv.drop_login(cat, p.text or '', p.job or ''); vault_log(cat, 'forgot', p.text); keep_owned(cat); _save(store)
         return {'logins': _cv.public_logins(cat)}
@@ -2588,7 +2633,7 @@ async def cat_work(cat_id: str, p: WorkPayload):
     return {**out, 'cap': float(cat.get('taskCap') or TASK_CAP_DEFAULT), 'credit': b.get('credit'), 'spent': b.get('spent'), 'chat': (cat.get('chat') or [])[-20:],
             'live': _work_live(), 'providers': _cb.chain(os.environ), 'go': bool(cat.get('workGo')), 'workMode': cat.get('workMode') or 'plan',
             'cloud': (b.get('cloud') or [])[-8:], 'minds': {m: v[-8:] for m, v in (b.get('minds') or {}).items()}, 'handoffs': len((w.get('task') or {}).get('handoffs') or []) if w else 0, 'createdAt': cat.get('createdAt'),
-            'logins': _cv.public_logins(cat), 'signedIn': [{'site': k, 'at': v.get('at'), 'n': v.get('n', 0)} for k, v in (cat.get('siteSessions') or {}).items()], 'vaultLog': (cat.get('vaultLog') or [])[-12:], 'lastMoney': last_money(store.get('events') or [], cat_id), 'media': _cv.clean_media(cat), 'storage': _af.public(cat),   # ☁ its cloud: pool, quota, files
+            'logins': _cv.public_logins(cat), 'secrets': _cv.public_secrets(cat), 'signedIn': [{'site': k, 'at': v.get('at'), 'n': v.get('n', 0)} for k, v in (cat.get('siteSessions') or {}).items()], 'vaultLog': (cat.get('vaultLog') or [])[-12:], 'lastMoney': last_money(store.get('events') or [], cat_id), 'media': _cv.clean_media(cat), 'storage': _af.public(cat),   # ☁ its cloud: pool, quota, files
             'job': cat.get('job', 'agent'), 'tools': _cp.toolkit(cat.get('job', 'agent'), cat.get('tools')), 'toolkits': _cp.TOOLS,
             'refusals': (cat.get('refusals') or [])[-20:] + [{'why': x} for x in ((w or {}).get('task') or {}).get('refusals', [])],
             'artifacts': (cat.get('artifacts') or [])[-10:] + ([] if (w or {}).get('settled') else ((w or {}).get('task') or {}).get('artifacts', [])),

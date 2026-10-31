@@ -342,3 +342,11 @@ body.fx-lite .cwb-big { animation: none; }
 @media (prefers-reduced-motion: reduce) { .cwb-big { animation: none; } }
 body.theme-day .cwb-livepop-box { background: #f4fff8; border-color: #15d16a66; } body.theme-day .cwb-livepop-box header em { color: #0b7a3e; }
 @media (max-width: 640px) { .cwb-livepop { padding: 6px; } .cwb-livepop-box { height: calc(100dvh - 12px); padding: 6px; } }
+/* 🔏 SEALED — recovery phrases + files (the signed-in panel's frame, a gold-violet edge) */
+.cwb-sealed { border-color: #c9a8ff55; background: linear-gradient(160deg, #120a20cc, #06100bcc); }
+.cwb-sealed .cwb-signed-h { color: #e2d2ff; } .cwb-sealed .cwb-signed-h em { color: #c9a8ff; }
+.cwb-sealed-row { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); gap: 6px; }
+.cwb-sealed-note { min-height: 56px; resize: vertical; -webkit-text-security: disc; font-family: var(--f-mono); }
+.cwb-sealed-open { display: block; margin-top: 4px; padding: 6px 8px; border-radius: 8px; background: #000a; color: #fff; font: 600 11.5px/1.5 var(--f-mono); white-space: pre-wrap; word-break: break-word; animation: cwbIn .2s ease both; }
+body.theme-day .cwb-sealed { background: #f8f4ff; border-color: #7c4dff44; } body.theme-day .cwb-sealed .cwb-signed-h { color: #3b2470; } body.theme-day .cwb-sealed-open { background: #2a1650; }
+@media (max-width: 640px) { .cwb-sealed-row { grid-template-columns: 1fr; } }

@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { Bubble } from './LaunchCat';
 import { asModel } from './AgentLive';
 import '../../styles/catCockpit.css';
@@ -129,13 +130,30 @@ const HIDE_KEY = 'feeless:log-hidden';
 const readHidden = () => { try { const v = JSON.parse(localStorage.getItem(HIDE_KEY) || '[]'); return Array.isArray(v) ? v.filter(k => typeof k === 'string') : []; } catch { return []; } };
 // 🗄 THE FILE CABINET (owner 2026-10-30: "this drawer holds credentials and all other stuff — a true organized file cabinet"): the log's
 // drawers + any `cabinet` drawers [key, icon, label, count, panel] (credentials, storage, earn…). The order is fixed; only the owner hides.
+// 🛡 SAFE-PLACE CHECK (owner 2026-10-31: "a streamer opens the drawer live — warn him first"): a sealed drawer (logins, recovery files) asks once
+// per browser tab before it opens. Nothing secret shows until then — and opening any one item still needs its own wallet signature.
+const SAFE_KEY = 'feeless:safe-place';
+const safeOk = () => { try { return sessionStorage.getItem(SAFE_KEY) === '1'; } catch { return false; } };
+function SafeGate({ label, onYes, onNo }) {
+  useEffect(() => { const k = e => { if (e.key === 'Escape') onNo(); }; window.addEventListener('keydown', k); return () => window.removeEventListener('keydown', k); }, [onNo]);
+  return createPortal(<div className="ck-safe" role="presentation" onClick={e => { if (e.target === e.currentTarget) onNo(); }}>
+    <div className="ck-safe-box m-pop" role="alertdialog" aria-modal="true" aria-labelledby="ck-safe-h" data-testid="safe-gate">
+      <i className="ck-safe-ic" aria-hidden="true">🛡</i><b id="ck-safe-h">Are you somewhere safe?</b>
+      <p>{label} holds sealed logins and recovery files. If you're <u>streaming, screen-sharing or recording</u>, or someone can see your screen, stop now — anything opened here could be used to take over these accounts.</p>
+      <span><button type="button" className="m-btn" onClick={onNo} data-testid="safe-no" autoFocus>Not now</button>
+        <button type="button" className="m-btn m-go" onClick={() => { try { sessionStorage.setItem(SAFE_KEY, '1'); } catch { /* private window: asks again */ } onYes(); }} data-testid="safe-yes">I'm in a safe place — open</button></span></div>
+  </div>, document.body);
+}
+
 export function AgentLog({ items = [], title = 'ITS LOG', cabinet = [], open = null }) {
-  const [f, setF] = useState('all'); const [hidden, setHidden] = useState(readHidden);
-  useEffect(() => { if (open?.key) setF(open.key); }, [open]);
+  const [f, setF0] = useState('all'); const [hidden, setHidden] = useState(readHidden); const [ask, setAsk] = useState(null);
+  const guarded = useMemo(() => new Set(cabinet.filter(c => c[5]?.guard).map(c => c[0])), [cabinet]);
+  const setF = k => (guarded.has(k) && !safeOk() ? setAsk(k) : setF0(k));
+  useEffect(() => { if (open?.key) setF(open.key); }, [open]);   // eslint-disable-line react-hooks/exhaustive-deps
   const extra = Object.fromEntries(cabinet.map(([k, ic, l, n, node]) => [k, { ic, l, n, node }]));
   const names = { ...Object.fromEntries(Object.entries(FOLDERS).map(([k, v]) => [k, v[1]])), ...Object.fromEntries(cabinet.map(c => [c[0], c[2]])) };
   const keep = next => { setHidden(next); try { localStorage.setItem(HIDE_KEY, JSON.stringify(next)); } catch { /* private window: this visit only */ } };
-  const hide = k => { keep([...new Set([...hidden, k])]); if (f === k) setF('all'); };
+  const hide = k => { keep([...new Set([...hidden, k])]); if (f === k) setF0('all'); };
   const counts = useMemo(() => items.reduce((m, x) => ({ ...m, [x.f]: (m[x.f] || 0) + 1 }), {}), [items]);
   const rows = (f === 'all' ? items : items.filter(x => x.f === f)).slice(0, 40); const panel = extra[f]?.node;
   const drawers = [['all', ['🗂', 'All files']], ...cabinet.map(([k, ic, l]) => [k, [ic, l]]), ...Object.entries(FOLDERS)].filter(([k]) => k === 'all' || !hidden.includes(k));
@@ -149,6 +167,7 @@ export function AgentLog({ items = [], title = 'ITS LOG', cabinet = [], open = n
       {panel ? <div key={f} className="ck-panel ck-pull" role="tabpanel" data-testid={`cab-${f}`}>{panel}</div> : <ol key={f} className="ck-rows ck-pull" role="tabpanel">{rows.length ? rows.map((x, i) => <li key={`${x.f}-${String(x.text).slice(0, 80)}`} className={`is-${x.tone || 'mute'}`} style={{ '--i': Math.min(i, 10) }}>
         <i aria-hidden="true">{FOLDERS[x.f]?.[0]}</i><span>{safeLine(x.text)}{x.n > 1 ? <em className="ck-x"> ×{x.n}</em> : null}</span><small>{x.at ? ago(x.at) : ''}</small></li>) : <li className="ck-empty">Nothing here yet.</li>}</ol>}
     </div>
+    {ask ? <SafeGate label={names[ask] || 'This drawer'} onYes={() => { setF0(ask); setAsk(null); }} onNo={() => setAsk(null)} /> : null}
   </section>;
 }
 

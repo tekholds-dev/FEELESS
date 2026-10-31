@@ -8,6 +8,7 @@ user's device. A provider CHAIN, first that answers wins:
 A session = {provider, id, live, connect, at}. `live` is the watch / take-over URL for the cat's OWNER only — and only when it carries none of our
 keys (`safe_live`); otherwise the window shows snapshots. `connect` (the CDP address, may hold a key) never leaves the server.
 FEELESS stores no passwords: a user signs in inside the live window themselves; the provider's saved context keeps the session, not us."""
+import asyncio
 import html
 import json
 import re
@@ -249,6 +250,56 @@ class ReaderPage:
         return None
 
 
+class DownloadKeeper:
+    """⬇ While a PERSON has a live window: ONE bare browser-level socket — nothing attached to the page, so a bot check still sees a person —
+    that sends every download (a site's recovery PDF, an in-page blob) to Steel's session files, where FEELESS seals it. Names come from the
+    browser's own download events (Steel stores each file under a guid). Proven 2026-10-31: a blob download landed only while this socket was open."""
+    def __init__(self, connect):
+        self.connect, self.names, self._ws, self._task = connect, {}, None, None
+
+    async def start(self):
+        import websockets
+        self._ws = await websockets.connect(self.connect, max_size=None)
+        await self._ws.send(json.dumps({'id': 1, 'method': 'Browser.setDownloadBehavior', 'params': {'behavior': 'allowAndName', 'downloadPath': '/files', 'eventsEnabled': True}}))
+        self._task = asyncio.create_task(self._read())
+        return self
+
+    async def _read(self):
+        try:
+            async for m in self._ws:
+                d = json.loads(m)
+                if d.get('method') == 'Browser.downloadWillBegin':
+                    self.names[d['params'].get('guid')] = str(d['params'].get('suggestedFilename') or 'download')[:100]
+        except Exception:
+            pass
+
+    async def stop(self):
+        if self._task:
+            self._task.cancel()
+        try:
+            await self._ws.close()
+        except Exception:
+            pass
+
+
+async def collect_downloads(http, env, session_id, names=None):
+    """⬇ Every file downloaded in a Steel window → [(name, bytes)], each DELETED from Steel once read (it lives on only sealed in the drawer)."""
+    k, out = (env or {}).get('STEEL_API_KEY'), []
+    if not k or not session_id:
+        return out
+    h = {'steel-api-key': k}
+    r = await http.get(f'{STEEL}/sessions/{session_id}/files', headers=h, timeout=20)
+    for f in ((r.json() or {}).get('data') or []) if r.status_code == 200 else []:
+        guid = str(f.get('path') or '').rsplit('/', 1)[-1]
+        if not guid or int(f.get('size') or 0) > 5 * 1024 * 1024:
+            continue
+        g = await http.get(f'{STEEL}/sessions/{session_id}/files/{guid}', headers=h, timeout=30)
+        if g.status_code == 200:
+            out.append(((names or {}).get(guid) or 'download', g.content))
+            await http.delete(f'{STEEL}/sessions/{session_id}/files/{guid}', headers=h, timeout=15)
+    return out
+
+
 class LivePage:
     """A hosted browser (Steel / Browserbase) driven over CDP with Playwright — the window the user watches."""
     live = True
@@ -258,6 +309,8 @@ class LivePage:
 
     async def start(self):
         from playwright.async_api import async_playwright
+        if getattr(self, 'downloads', None):
+            await self.downloads.stop()
         self._pw = await async_playwright().start()
         self._b = await self._pw.chromium.connect_over_cdp(self.connect, timeout=30000)
         ctx = self._b.contexts[0] if self._b.contexts else await self._b.new_context(service_workers='block')
@@ -347,3 +400,7 @@ class LivePage:
         start() takes the window back after, on the page they left it."""
         await self.close()
         self._b = self._pw = self._p = None
+        try:   # ⬇ a recovery file you download while you have the window lands where FEELESS seals it (collect_downloads), never on a disk we can't reach
+            self.downloads = await DownloadKeeper(self.connect).start()
+        except Exception:
+            self.downloads = None

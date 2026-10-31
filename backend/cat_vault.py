@@ -6,10 +6,12 @@ server-only secret as the API drawer) into the cat's vault, and the agent may ty
 site · username · when; the password itself only on the owner's own reveal (`login_reveal`). CAPTCHAs / phone checks still stop for a human.
 Media: links to images / videos the agent produced or picked for a campaign, kept 7 days, then cleaned on their own (max 24).
 """
+import base64
 import re
 import secrets
 import string
 import time
+from pathlib import Path
 
 import cat_keys
 
@@ -79,3 +81,59 @@ def clean_media(cat, now=None):
     now = now or time.time()
     cat['media'] = [m for m in cat.get('media') or [] if now - float(m.get('at') or 0) < MEDIA_TTL]
     return cat['media']
+
+
+# 🔏 SEALED SECRETS (owner 2026-10-31: "where does a recovery phrase I download go? it should be saved securely in the agent's drawer — or I paste
+# it in, and nobody ever sees it"): a note you paste or a file downloaded in a window you used, sealed with this agent's own key (Fernet). The page
+# sees label · kind · size · when; the content only on the owner's own open (a fresh wallet signature, like a password reveal).
+SECRET_MAX, NOTE_MAX, FILE_MAX = 20, 8000, 5 * 1024 * 1024
+
+
+def _vault_dir(data_dir, cat_id):
+    return Path(data_dir) / 'vault' / re.sub(r'[^A-Za-z0-9_-]', '', str(cat_id or ''))[:64]
+
+
+def put_secret(cat, label, text=None, data=None, name='', site='', data_dir='.', env=None, now=None):
+    """One sealed note (text) or file (data bytes) → the public list. Notes live sealed in the cat; files sealed on disk, one per secret."""
+    rows = list(cat.get('secrets') or [])
+    if len(rows) >= SECRET_MAX:
+        raise ValueError(f'Its sealed drawer holds {SECRET_MAX} items — delete one first.')
+    sid = secrets.token_hex(8)
+    row = {'id': sid, 'label': str(label or name or 'sealed note').strip()[:80], 'site': site_of(site) if site else '', 'at': now or time.time()}
+    if data is None:
+        t = str(text or '')
+        if not t.strip() or len(t) > NOTE_MAX:
+            raise ValueError(f'A sealed note is 1–{NOTE_MAX:,} characters.')
+        row.update(kind='note', size=len(t), sealed=cat_keys.seal(t, cat.get('id'), env))
+    else:
+        if not data or len(data) > FILE_MAX:
+            raise ValueError('A sealed file is up to 5 MB.')
+        d = _vault_dir(data_dir, cat.get('id'))
+        d.mkdir(parents=True, exist_ok=True)
+        (d / f'{sid}.seal').write_text(cat_keys.seal(base64.b64encode(data).decode(), cat.get('id'), env))
+        row.update(kind='file', size=len(data), name=re.sub(r'[^\w. ()-]', '_', str(name or 'download'))[:100])
+    cat['secrets'] = rows + [row]
+    return public_secrets(cat)
+
+
+def open_secret(cat, sid, data_dir='.', env=None):
+    """The owner's own open: {kind, label, name, text} for a note, {…, b64} for a file."""
+    row = next((r for r in cat.get('secrets') or [] if r.get('id') == sid), None)
+    if not row:
+        raise ValueError('Nothing sealed under that id.')
+    out = {'kind': row['kind'], 'label': row['label'], 'name': row.get('name')}
+    if row['kind'] == 'note':
+        return {**out, 'text': cat_keys.unseal(row['sealed'], cat.get('id'), env, data_dir)}
+    return {**out, 'b64': cat_keys.unseal((_vault_dir(data_dir, cat.get('id')) / f"{sid}.seal").read_text(), cat.get('id'), env, data_dir)}
+
+
+def drop_secret(cat, sid, data_dir='.'):
+    cat['secrets'] = [r for r in cat.get('secrets') or [] if r.get('id') != sid]
+    f = _vault_dir(data_dir, cat.get('id')) / f'{re.sub(r"[^0-9a-f]", "", str(sid))}.seal'
+    if f.exists():
+        f.unlink()
+    return public_secrets(cat)
+
+
+def public_secrets(cat):
+    return [{k: r.get(k) for k in ('id', 'label', 'kind', 'size', 'name', 'site', 'at')} for r in cat.get('secrets') or []]
