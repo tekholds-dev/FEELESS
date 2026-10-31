@@ -314,9 +314,23 @@ export function LivePop({ src, title, onClose, children }) {
   </div>, document.body);   // on the page itself: a moving / clipped window above never traps it
 }
 
+// 🗄 A TRADER'S FILE CABINET (owner 2026-10-31: "trader agents need sign-in etc in their drawer" — they research X / CoinGecko too): the same
+// Credentials + signed-in sites + API keys drawers a general agent has, over its log. Owner only (CatDesk passes canEdit).
+export function TraderCabinet({ cat, items }) {
+  const [d, setD] = useState(null);
+  useEffect(() => { let on = true; work(cat.id, { op: 'state' }).then(j => { if (on) setD(j); }).catch(() => {}); return () => { on = false; }; }, [cat.id]);
+  return <AgentLog title="ITS FILE CABINET" items={items} cabinet={keyDrawers(cat, d, setD)} />;
+}
+// 🔐 + 🔑 the key drawers every agent's cabinet shares (general + trader): sealed logins, signed-in sites, API keys
+function keyDrawers(cat, d, setD, ask = null) {
+  return [['creds', '🔐', 'Credentials', (d?.logins || []).length + (d?.signedIn || []).length, <><Credentials cat={cat} rows={d?.logins} log={d?.vaultLog || []} ask={ask} onSaved={logins => setD(x => ({ ...x, logins }))} />
+      <SignedSites cat={cat} rows={d?.signedIn} onSaved={signedIn => setD(x => ({ ...x, signedIn }))} /></>],
+    ['api', '🔑', 'API keys', (cat?.apiDrawer || []).filter(r => r.saved).length, <ApiSlot cat={cat} />]];
+}
+
 // 🔓 SIGNED-IN SITES (owner 2026-10-31): a site that blocks bots, or your agent's own email — open it here, sign in yourself in the live window,
 // Save: its windows start signed in from then on (cookies sealed on the server, never sent to a page). A site that re-checks asks you again.
-const SIGNIN_PICKS = [['x.com', '𝕏 X'], ['proton.me', '📧 Proton Mail'], ['dexscreener.com', '📈 DexScreener'], ['solscan.io', '🔎 Solscan']];
+const SIGNIN_PICKS = [['x.com', '𝕏 X'], ['proton.me', '📧 Proton Mail'], ['dexscreener.com', '📈 DexScreener'], ['solscan.io', '🔎 Solscan'], ['coingecko.com', '🦎 CoinGecko']];
 export function SignedSites({ cat, rows = [], onSaved }) {
   const [site, setSite] = useState(''); const [live, setLive] = useState(null); const [busy, setBusy] = useState(''); const [err, setErr] = useState(''); const [big, setBig] = useState(true);
   const run = async (op, text) => { setBusy(op); setErr('');
@@ -473,8 +487,7 @@ function WorkbenchLive({ cat }) {
     <aside className="cwb-tools-rail" aria-label="Quick tools">
     <LastMoney m={d?.lastMoney} />
     <AgentLog title="ITS FILE CABINET" items={log} open={signIn ? { key: 'creds', at: signIn.at } : null} cabinet={[
-      ['creds', '🔐', 'Credentials', (d?.logins || []).length + (d?.signedIn || []).length, <><Credentials cat={cat} rows={d?.logins} log={d?.vaultLog || []} ask={signIn} onSaved={logins => setD(x => ({ ...x, logins }))} /><SignedSites cat={cat} rows={d?.signedIn} onSaved={signedIn => setD(x => ({ ...x, signedIn }))} /></>],
-      ['api', '🔑', 'API keys', (cat?.apiDrawer || []).filter(r => r.saved).length, <ApiSlot cat={cat} />],
+      ...keyDrawers(cat, d, setD, signIn),
       ['storage', '☁', 'Storage', (d?.storage?.files || []).length, <CloudDrawer cat={cat} attachments={d?.storage} />],
       ['earn', '⚡', 'Earn', (d?.lastMoney ? 1 : 0), <EarnCard cat={cat} />],
       ['treasury', '🏦', 'Treasury', 0, <TreasuryDrawer cat={cat} />],

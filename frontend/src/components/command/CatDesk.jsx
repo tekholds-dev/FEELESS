@@ -1,4 +1,4 @@
-import { CatWorkbench, EarnCard } from './CatWorkbench';
+import { CatWorkbench, EarnCard, TraderCabinet } from './CatWorkbench';
 import { useAgentWallet } from './CatReal';
 import { FeeLiveTab } from './FeeLiveTab';
 import { AgentLive, HeadCloud, asModel, catMinds, catCoins } from './AgentLive';
@@ -105,11 +105,11 @@ function ModelSwitch({ cat, busy, onAct }) {
 // a general cat: the same bubbles over its two cloud browsers (CatWorkbench)
 // 🐱 a rule-engine cat (Fee herself, a paper rule trader) has no model minds — it still gets its two live windows: what it holds, then what it just sold,
 // its own BUY / SELL calls riding over them, and its log (owner 2026-10-30: "clicking FeeCat from the leaderboard still doesn't show the 2 screens")
-function RuleWindows({ cat }) {
+function RuleWindows({ cat, canEdit = false }) {
   const coins = useMemo(() => catCoins(cat), [cat]); const ev = useCatEvents(cat.id);
   const feed = ev.filter(e => ['BUY', 'SELL'].includes(e.type)).slice(0, 3).reverse().map(e => `🐱 ${e.detail}`.slice(0, 120));
   return <>{cat.isLeader ? <FeeLiveTab /> : <AgentLive title={`LIVE · ${cat.name}'s view`} coins={coins} feed={feed.length ? feed : [cat.status === 'running' ? '🔎 hunting — it buys only what passes every rule' : '⏸ stopped']} />}
-    <AgentLog items={catLogItems(cat, ev)} /></>;
+    {canEdit ? <TraderCabinet cat={cat} items={catLogItems(cat, ev)} /> : <AgentLog items={catLogItems(cat, ev)} />}</>;
 }
 // (owner 2026-10-30) two live windows on top, then the cockpit: [brain A vitals | skinny bubble chat (+ the head cloud) | brain B vitals], then 📁 its log.
 // A general cat's cockpit lives inside CatWorkbench (its windows are its cloud browsers).
@@ -125,7 +125,7 @@ function LiveMinds({ cat, onAct, busy, canEdit = true }) {
       <div className="ck-center"><HeadCloud items={x.cloud} /><TradeChat cat={cat} busy={busy} onSend={canEdit ? async t => { await onAct('chime', { text: t }); return true; } : null} /></div>
       <MindVitals cat={cat} model={x.brains[1]} i={1} live={on} />
     </div>
-    <AgentLog items={log} />
+    {canEdit ? <TraderCabinet cat={cat} items={log} /> : <AgentLog items={log} />}
   </>;
 }
 
@@ -198,7 +198,7 @@ export function CatDesk({ cat, busy = false, error = '', onBack, onAct, Activity
       <Tile k={4} label="TODAY'S LOSS" value={`${v.lossToday.toFixed(3)} / ${v.cap || '—'} SOL`} fill={v.capUsed} tone={v.capUsed >= 1 ? 'dn' : v.capUsed > 0.6 ? 'warn' : ''}
         sub={v.capUsed >= 1 ? 'cap hit — no new buys today' : 'its daily loss cap'} tip="Losses closed today against the cap you set — at the cap it stops buying until tomorrow" />
     </div>}
-    {!on('desk') ? null : cat.brainsCfg ? <LiveMinds cat={cat} onAct={onAct} busy={busy} canEdit={canEdit} /> : <RuleWindows cat={cat} />}
+    {!on('desk') ? null : cat.brainsCfg ? <LiveMinds cat={cat} onAct={onAct} busy={busy} canEdit={canEdit} /> : <RuleWindows cat={cat} canEdit={canEdit} />}
     {visitor || (tabbed && tab === 'desk') ? null : <div className={`kd-grid${runs && !tabbed ? '' : ' is-solo'}`}>
       {on('wallet') ? <div className="kd-main">
         {Real}

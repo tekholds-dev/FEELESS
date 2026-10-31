@@ -33956,7 +33956,10 @@ async def internal_agent_x402_pay(request: Request, body: dict):
     if not _internal_ok(request):
         raise HTTPException(403, 'Internal only.')
     wid_, addr_, entry_ = str(body.get('walletId') or ''), str(body.get('address') or ''), body.get('entry') or {}
-    w_ = (await _circle('POST', '/wallet', {'id': wid_}, agent=True)).get('wallet')
+    creator_ = bool(body.get('creator')) and body.get('catId') == 'leader'   # 🐱 only FEE's wallet may sit in the creator's Circle project (owner 2026-10-31)
+    if body.get('creator') and not creator_:
+        raise HTTPException(403, "Only Fee's wallet pays from the creator's Circle project.")
+    w_ = (await _circle('POST', '/wallet', {'id': wid_}, agent=not creator_)).get('wallet')
     if not w_ or w_.get('address') != addr_:
         raise HTTPException(403, "That is not this agent's wallet.")
     async with httpx.AsyncClient(timeout=15) as http:
@@ -33965,7 +33968,7 @@ async def internal_agent_x402_pay(request: Request, body: dict):
         tx = _apay.build_payment(addr_, entry_, bh)
     except (ValueError, KeyError) as e:
         raise HTTPException(400, str(e)[:160])
-    signed_ = await _circle('POST', '/sign', {'walletId': wid_, 'rawTransaction': tx, 'memo': f"FEELESS model call {str(body.get('catId') or '')[:20]}"}, agent=True)
+    signed_ = await _circle('POST', '/sign', {'walletId': wid_, 'rawTransaction': tx, 'memo': f"FEELESS model call {str(body.get('catId') or '')[:20]}"}, agent=not creator_)
     if not signed_.get('signedTransaction'):
         raise HTTPException(502, 'Circle did not sign it.')
     return {'signedTransaction': signed_['signedTransaction']}

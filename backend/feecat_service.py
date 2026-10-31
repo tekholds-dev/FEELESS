@@ -897,6 +897,28 @@ async def _thinking_money(cat):
     return usdc
 
 
+def _pays_itself(cat):
+    """💳 A wallet Circle signs for this cat: its own agent wallet, or Fee's wallet the creator made in FEELESS's Circle project."""
+    w_ = cat.get('agentWallet') or {}
+    return w_.get('circleAcct') == 'agent' or bool(cat.get('isLeader') and w_.get('provider') == 'circle' and w_.get('circleId'))
+
+
+async def _heal_fee_wallet(store):
+    """👛 owner 2026-10-31: "I added a Circle wallet I made for Fee and it says read only" — it was linked before Circle listed it, so it stayed
+    WATCH-ONLY for good. Re-check: if FEELESS's Circle project holds it now, Circle signs for her (trades inside her caps + her model calls)."""
+    cat = store['cats'].get(LEADER_ID) or {}
+    w_ = cat.get('agentWallet') or {}
+    if w_.get('provider') != 'watch' or not w_.get('address'):
+        return False
+    async with httpx.AsyncClient(timeout=15) as http:
+        r = await http.get('http://127.0.0.1:5077/api/reputation/internal/circle-wallet', params={'address': w_['address']}, headers=_internal_headers())
+    if r.status_code != 200 or not (r.json() or {}).get('id'):
+        return False
+    w_.update(provider='circle', circleId=r.json()['id'])
+    _log_event(store, cat, 'STARTED', f"{cat['name']}'s wallet {w_['address'][:6]}… is a Circle wallet of FEELESS — she can pay for her own thinking from it now.")
+    return True
+
+
 async def _wallet_call(cat, model, messages, max_tokens, ceiling):
     """💳 One model call paid from this agent's own USDC (agent_pay.py). → (text, $ paid); ('', 0.0) = nothing paid, the next route takes it.
     A model the provider does not list (400) or cannot answer right now (503 "no billable answer", never charged) → its default model once
@@ -917,7 +939,7 @@ async def _wallet_once(cat, model_id, messages, max_tokens, ceiling):
             if r.status_code != 402:
                 return '', 0.0
             doc, entry = _ap.pick_quote(r.headers.get('payment-required'), ceiling)
-            s_ = await h.post('http://127.0.0.1:5077/api/reputation/internal/agent-x402-pay', headers=_internal_headers(), json={'catId': cat['id'], 'walletId': w_.get('circleId'), 'address': w_.get('address'), 'entry': entry})
+            s_ = await h.post('http://127.0.0.1:5077/api/reputation/internal/agent-x402-pay', headers=_internal_headers(), json={'catId': cat['id'], 'walletId': w_.get('circleId'), 'address': w_.get('address'), 'entry': entry, 'creator': w_.get('circleAcct') != 'agent'})
             if s_.status_code != 200:
                 return '', 0.0
             head = _ap.payment_header(doc, entry, s_.json()['signedTransaction'])
@@ -947,7 +969,7 @@ async def _think(cat, model, messages, own_key=None, effort=None, max_tokens=Non
     SingIt free → Groq free. A user's cat: its own key / OpenRouter → its wallet on SingIt → the free routes. Never charges FEELESS's
     OpenRouter while the owner switch is off."""
     mine = bool(cat.get('isLeader') or cat.get('ownerStaff'))
-    wallet = (cat.get('agentWallet') or {}).get('circleAcct') == 'agent' and not own_key
+    wallet = _pays_itself(cat) and not own_key
     async def paid():
         return await _wallet_call(cat, model, messages, max_tokens or _lc.OUT_TOK, _ap.MAX_CALL_USD) if wallet else ('', 0.0)
     async def router():
@@ -1829,6 +1851,10 @@ async def _start_engine():
         store_ = _load()
         healed_ = heal_general_credit(store_)   # 🧭 no free credit on a general agent, ever: the old $10 start grant comes off once
         healed_ += [c_['id'] for c_ in list(store_['cats'].values()) if _ck.reseal_cat(c_, data_dir=DATA_DIR) or c_.pop('cloud', None)]   # (+ the FEELESS-funded cloud is gone: owner 2026-10-30)   # 🔐 every older seal → its agent's own key
+        try:
+            healed_ += ['fee wallet'] if await _heal_fee_wallet(store_) else []
+        except (httpx.HTTPError, ValueError) as e:
+            print(f'[feecat] fee wallet check skipped: {str(e)[:80]}')
         if healed_ or _af.clean(DATA_DIR, store_):   # ☁ and every agent's files unused for 7 days go
             _save(store_)
     except Exception as e:

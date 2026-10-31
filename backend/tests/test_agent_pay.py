@@ -127,3 +127,28 @@ def test_a_model_the_provider_cannot_answer_tries_its_default_once_and_routes_di
     order.clear(); monkeypatch.setattr(fs, '_brains_live', lambda: False)
     asyncio.run(fs._think({'isLeader': True}, 'm', [])); assert order == ['free']   # switch off + no wallet: never FEELESS's OpenRouter
     order.clear(); assert asyncio.run(fs._think({}, 'm', [], own_key='k'))[2] == '' and order == ['openrouter']   # an owner's own key: their bill, no FEELESS free route
+
+
+def test_fees_circle_wallet_stops_being_watch_only_and_only_fee_pays_from_the_creator_project(monkeypatch):
+    """owner 2026-10-31: "I added a Circle wallet I made for Fee and it says read only" — linked before Circle listed it, it stayed watch-only."""
+    import reputation_service as rs
+    from starlette.requests import Request
+    class R:
+        def __init__(self, code, body): self.status_code, self._b = code, body
+        def json(self): return self._b
+    class H:
+        def __init__(self, **_k): pass
+        async def __aenter__(self): return self
+        async def __aexit__(self, *_a): return False
+        async def get(self, url, params=None, headers=None, **_k): return R(200, {'id': 'cw1', 'address': params['address']})
+    monkeypatch.setattr(fs.httpx, 'AsyncClient', H)
+    store = {'events': [], 'cats': {fs.LEADER_ID: {'id': fs.LEADER_ID, 'name': 'Fee', 'isLeader': True, 'agentWallet': {'address': ME, 'provider': 'watch'}}}}
+    assert not fs._pays_itself(store['cats'][fs.LEADER_ID])
+    assert asyncio.run(fs._heal_fee_wallet(store)) and store['cats'][fs.LEADER_ID]['agentWallet']['provider'] == 'circle'
+    assert fs._pays_itself(store['cats'][fs.LEADER_ID]) and not fs._pays_itself({'agentWallet': {'provider': 'circle', 'circleId': 'x'}})   # a user's cat: only its own agent wallet
+    assert not asyncio.run(fs._heal_fee_wallet(store))   # once is enough
+    monkeypatch.setattr(rs, '_internal_ok', lambda _r: True)
+    req = Request({'type': 'http', 'headers': []})
+    with pytest.raises(rs.HTTPException) as e:
+        asyncio.run(rs.internal_agent_x402_pay(req, {'catId': 'someone', 'creator': True, 'walletId': 'cw1', 'address': ME, 'entry': {}}))
+    assert e.value.status_code == 403

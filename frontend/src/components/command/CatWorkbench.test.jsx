@@ -190,3 +190,16 @@ test('⤢ signing in opens the live window BIG (save from inside it; ✕ / Esc s
   await act(async () => { q('cwb-big').click(); }); expect(q('cwb-pop-frame').getAttribute('src')).toBe('https://view/w0'); expect(q('cwb-pop').textContent).toContain('a bot check');
   act(() => root2.unmount());
 });
+
+test('🗄 a trader agent gets the same key drawers (Credentials with signed-in sites, API keys) over its log', async () => {
+  const { TraderCabinet } = require('./CatWorkbench');
+  const calls = [];
+  global.fetch = async (u, o) => { calls.push(JSON.parse(o.body)); return { ok: true, json: async () => ({ logins: [{ site: 'coingecko.com' }], signedIn: [{ site: 'x.com', at: 1, n: 12 }] }) }; };
+  const el = document.createElement('div'); document.body.appendChild(el); const root = createRoot(el);
+  await act(async () => { root.render(<TraderCabinet cat={{ id: 't1', brainsCfg: { kind: 'trading' } }} items={[{ f: 'trades', text: 'BUY $BONK', at: 1 }]} />); });
+  expect(calls[0]).toMatchObject({ op: 'state' });
+  const creds = [...el.querySelectorAll('button')].find(b => b.textContent.includes('Credentials'));
+  expect(creds.textContent).toContain('2'); expect([...el.querySelectorAll('button')].some(b => b.textContent.includes('API keys'))).toBe(true);
+  await act(async () => { creds.click(); }); expect(el.querySelector('[data-testid="cwb-signed"]').textContent).toContain('x.com');
+  act(() => root.unmount());
+});
