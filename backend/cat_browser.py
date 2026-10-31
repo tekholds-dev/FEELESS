@@ -33,11 +33,12 @@ def chain(env):
 VIEWPORT = {'width': 1440, 'height': 900}   # 🖥 HD: the page fills the window on the desk (owner 2026-10-30: "cover the whole plot, HD")
 
 
-def steel_view(url):
-    """Steel's live view, page only: no control bar, dark, clickable (a sign-in). None stays None."""
+def steel_view(url, hand=False):
+    """Steel's live view, page only: no control bar, dark. LOCKED by default — only the models drive an agent window (owner 2026-10-31);
+    `hand=True` is the clickable view a person gets for a sign-in / bot check. None stays None."""
     if not url:
         return url
-    return url + ('&' if '?' in url else '?') + 'showControls=false&theme=dark&interactive=true'
+    return url + ('&' if '?' in url else '?') + f"showControls=false&theme=dark&interactive={'true' if hand else 'false'}"
 
 
 def safe_live(url, env):
@@ -62,7 +63,8 @@ async def _steel(http, env, ctx=None):
     sid = j.get('id')
     if not sid:
         raise ValueError('Steel gave no session id')
-    return {'provider': 'steel', 'id': sid, 'live': steel_view(safe_live(j.get('debugUrl') or j.get('sessionViewerUrl'), env)),
+    view = safe_live(j.get('debugUrl') or j.get('sessionViewerUrl'), env)
+    return {'provider': 'steel', 'id': sid, 'live': steel_view(view), 'hand': steel_view(view, hand=True),
             'connect': j.get('websocketUrl') or f'wss://connect.steel.dev?apiKey={k}&sessionId={sid}'}
 
 
@@ -91,7 +93,7 @@ async def _bb(http, env, ctx=None):
         live = safe_live((d.json() or {}).get('debuggerFullscreenUrl'), env) if d.status_code == 200 else None
     except Exception:
         live = None
-    return {'provider': 'browserbase', 'id': sid, 'live': live, 'connect': j.get('connectUrl')}
+    return {'provider': 'browserbase', 'id': sid, 'live': live, 'hand': live, 'connect': j.get('connectUrl')}
 
 
 async def open_session(http, env, ctx=None):
@@ -182,7 +184,7 @@ def needs_human(url, text):
         return 'a CAPTCHA — only you can pass it'
     if re.search(r'just a moment\.\.\.|checking your browser|security checkpoint|performing security verification|unusual traffic|attention required', t) or '/sorry/' in u or 'cdn-cgi/challenge' in u:
         return 'a bot check (Cloudflare / a checkpoint) — pass it in the window, or save a sign-in for this site in Credentials'
-    if re.search(r'/(login|signin|sign-in|signup|sign-up|register|auth)\b', u) or re.search(r'\b(sign in|log in|create (an )?account)\b.{0,80}\bpassword\b', t):
+    if re.search(r'/(login|signin|sign-in|signup|sign-up|register|auth)\b|/i/flow/login|/onboarding\b|[?&]mode=login\b', u) or re.search(r'\b(sign in|log in|create (an )?account)\b.{0,80}\bpassword\b', t):
         return 'a sign-in / sign-up — you type your own details in the window (FEELESS never sees them)'
     return None
 

@@ -99,6 +99,11 @@ def new_task(tid, text, models, cap, steps=STEP_MAX, mode='plan', mind_caps=None
                          'steps': [], 'human': None, 'answer': None, 'cost': 0.0, 'scratch': [], 'coin': None} for i, m in enumerate(models[:8])]}
 
 
+RESEARCH_HOW = ('\nRESEARCH ORDER: 1) feeless coin <symbol or contract> — it returns the live FEELESS chart snapshot (5m candles as numbers) and the coin\'s '
+                'research links; 2) open those links: the X live search for the contract first (who is calling it, bots vs people), then RugCheck / Solscan / '
+                'DexScreener; 3) answer with what the chart AND the research say, each fact with where you read it. Never guess a number you did not read.')
+
+
 class Stopped(Exception):
     pass
 
@@ -139,6 +144,8 @@ async def _window(task, w, ask, page, wait_human, name, feeless=None):
         mine = (task.get('clouds') or {}).get(w['i']) or []   # ☁ its own cloud from earlier tasks
         got = [h['text'] for h in task.get('handoffs') or [] if h['from'] != w['i']][-4:]   # 📦 what its partner handed over
         extra = (f"\nYOUR CLOUD (your notes from earlier tasks): {' | '.join(mine)[:600]}" if mine else '') + (f"\nFROM YOUR PARTNER: {' | '.join(got)[:900]}" if got else '')
+        if task.get('research'):   # 📰 a trader: FEELESS's chart first, then the chart's own research doors (X search by the contract — signed in when the owner saved X)
+            extra += RESEARCH_HOW
         msgs = [{'role': 'system', 'content': RULES + '\nEnabled tools: ' + str(task.get('tools', {})) + '\n' + ACT_SYS.format(name=name, goal=w['goal'], steps=n_max) + extra},
                 {'role': 'user', 'content': f"URL: {page.url or '(blank)'}\nTITLE: {page.title or ''}\nPAGE:\n{seen[:READ_MAX]}"}]
         raw = await _ask(task, w, ask, w['model'], msgs)
@@ -165,6 +172,12 @@ async def _window(task, w, ask, page, wait_human, name, feeless=None):
             seen = why
             continue
         if act == 'feeless':   # 🧰 our own tools first — read-only, always on
+            key_ = f"{str(a.get('tool') or '').lower()} {str(a.get('q') or '').lower().lstrip('$')}".strip()
+            if key_ in w.setdefault('asked', []):   # 🔁 the same read again = a stuck loop (a real run asked "coin BONK" 4×): point it forward
+                _step(w, 'already read this', 'feeless', key_)
+                seen = f'(you already read "{key_}" — its result is above in your notes. Move on: open the research links it gave you, or answer.)\n' + seen[:READ_MAX // 2]
+                continue
+            w['asked'].append(key_)
             seen, coin = await feeless(a.get('tool'), a.get('q') or '') if feeless else ('FEELESS tools are not connected right now.', None)
             if coin:
                 w['coin'] = coin

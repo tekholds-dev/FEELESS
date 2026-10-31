@@ -468,3 +468,60 @@ def test_a_window_that_errors_never_stays_working():
     task = ca.new_task('t2', 'B: anything', ['m-a', 'm-b'], 0.05, 4, 'jobs', None)
     out = asyncio.run(ca.run(task, ask, [P(), P()], lambda i: True))
     assert out['windows'][1]['status'] == 'error' and 'model_not_found' in out['windows'][1]['answer']
+
+
+def test_the_coin_tool_hands_the_mind_the_chart_snapshot_and_the_research_doors():
+    """owner 2026-10-31: proof the models read the FEELESS chart + research from the chart's icons (X search by CA) — network faked."""
+    import asyncio
+    pair = {**PAIR, 'info': {'socials': [{'type': 'twitter', 'url': 'https://x.com/jup'}]}}
+    bars = [[1700000000 + i * 300, 1.0 + i * .01, 1.02 + i * .01, .99 + i * .01, 1.01 + i * .01, 100 if i < 18 else 400] for i in range(24)]
+    class R:
+        def __init__(self, j): self._j = j
+        def json(self): return self._j
+    class H:
+        async def get(self, url, params=None, timeout=None):
+            return R({'candles': bars}) if '/api/candles/' in url else R({'pairs': [pair]})
+    text, coin = asyncio.run(ct.run_tool(H(), 'coin', 'JUP'))
+    assert coin['pair'] == PAIR['pairAddress']
+    assert 'FEELESS chart $' in text and 'last 120 min' in text and 'up its range' in text and 'volume last 30 min' in text
+    mint = PAIR['baseToken']['address']
+    assert f'https://x.com/search?q={mint}&f=live' in text and 'https://x.com/jup' in text and f'https://rugcheck.xyz/tokens/{mint}' in text
+    import cat_policy as cp
+    assert cp.research_ok(f'https://x.com/search?q={mint}&f=live') and cp.research_ok(f'https://rugcheck.xyz/tokens/{mint}')
+
+
+def test_a_cloud_window_can_never_reach_this_machine():
+    """owner 2026-10-31: FEELESS on localhost stays private — the agents' cloud browser refuses every private / loopback address."""
+    import asyncio, pytest
+    import cat_browser as cb
+    for u in ('http://localhost:51367/', 'http://127.0.0.1:5001/api/market/feed', 'http://192.168.1.10/', 'http://[::1]:5088/'):
+        with pytest.raises((ValueError, OSError)):
+            asyncio.run(cb.public_url(u))
+
+
+def test_agent_windows_are_view_only_until_they_ask_a_person():
+    """owner 2026-10-31: "agent windows locked so only the models control them" — the clickable view exists only for a hand-off."""
+    import cat_browser as cb
+    assert cb.steel_view('https://x.steel.dev/v?s=1').endswith('interactive=false')
+    assert cb.steel_view('https://x.steel.dev/v?s=1', hand=True).endswith('interactive=true')
+
+
+def test_a_trader_mind_is_told_to_read_the_chart_then_the_x_search():
+    import asyncio
+    seen = []
+    async def ask(model, messages):
+        seen.append(messages[0]['content']); return '{"action": "answer", "say": "ok"}', 0.0
+    class P:
+        url = title = None
+        async def read(self): return 'page'
+    task = ca.new_task('t3', 'A: research $BONK', ['m-a', 'm-b'], 0.05, 4, 'jobs', None); task['research'] = True
+    asyncio.run(ca.run(task, ask, [P(), P()], lambda i: True))
+    assert 'RESEARCH ORDER' in seen[0] and 'X live search for the contract' in seen[0]
+
+
+def test_x_login_wall_asks_a_person():
+    """a real run (2026-10-31) landed on X's onboarding login and kept going — it is a sign-in: the owner saves X once in Credentials."""
+    import cat_browser as cb
+    assert cb.needs_human('https://x.com/i/jf/onboarding/web?redirect_after_login=%2Fsearch&mode=login', 'See what is happening')
+    assert cb.needs_human('https://x.com/i/flow/login', '')
+    assert cb.needs_human('https://x.com/search?q=abc&f=live', 'Latest posts') is None

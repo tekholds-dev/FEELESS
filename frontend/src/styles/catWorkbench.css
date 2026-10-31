@@ -321,3 +321,6 @@ body.theme-day .cwb-signed { background: #f2fff7; border-color: #0a6b3c33; } bod
 .cwb-trail .cwb-trail-none { display: block; color: #8f83ad; font: 600 10.5px var(--f-ui); }
 body.fx-lite .cwb-trail li { animation: none; } @media (prefers-reduced-motion: reduce) { .cwb-trail li { animation: none; } }
 body.theme-day .cwb-trail li { background: #6a3df00a; } body.theme-day .cwb-trail span { color: #2a1650; }
+
+/* 🔒 an agent window is the models' alone (owner 2026-10-31): view-only until it asks a person (sign-in / bot check) — then `is-hand` lets you click */
+.cwb-live:not(.is-hand) { pointer-events: none; }

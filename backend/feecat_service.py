@@ -1434,7 +1434,7 @@ def _work_view(cat_id, owner=False):
     for x in t['windows']:
         s_ = (w.get('sessions') or [None, None])[x['i']] or {}
         wins.append({**{k: x.get(k) for k in ('i', 'model', 'goal', 'status', 'bubble', 'url', 'title', 'human', 'answer', 'cost', 'coin', 'scratchN')}, 'scratch': len(x.get('scratch') or []), 'steps': x['steps'][-10:],
-                     'provider': s_.get('provider'), 'note': s_.get('note'), **({'live': s_.get('live'), 'shot': bool((w.get('pages') or [None, None])[x['i']] and not s_.get('live'))} if owner else {})})
+                     'provider': s_.get('provider'), 'note': s_.get('note'), **({'live': s_.get('hand') if x.get('status') == 'human' and s_.get('hand') else s_.get('live'), 'hand': x.get('status') == 'human' and bool(s_.get('hand')), 'shot': bool((w.get('pages') or [None, None])[x['i']] and not s_.get('live'))} if owner else {})})
     return {'task': {k: t.get(k) for k in ('id', 'text', 'mode', 'status', 'cap', 'cost', 'answer', 'fast', 'why', 'stepsMax', 'keep', 'backup', 'walletPaid')}, 'windows': wins}
 
 
@@ -2315,7 +2315,7 @@ async def cat_work(cat_id: str, p: WorkPayload):
         except Exception:
             pass   # the window still opens; the owner types the address
         _SIGNIN[cat_id] = {'sid': s_['id'], 'site': site_, 'page': page_, 'at': time.time()}
-        return {'live': s_.get('live'), 'site': site_}
+        return {'live': s_.get('hand') or s_.get('live'), 'site': site_}   # 🔓 the owner signs in by hand: the clickable view
     if p.op == 'signin_save':   # 🔓 keep what the owner's sign-in left (cookies + local storage), sealed for this agent; its windows start with it
         si_ = _SIGNIN.get(cat_id)
         if not si_:

@@ -26,6 +26,7 @@ NEVER = re.compile(r'(?i)\b(?:create|launch|deploy|mint|make|start|spawn)\s+(?:a
 PERPS = [('SOL', 250), ('ETH', 250), ('BTC', 250)]
 MAIN = 'http://127.0.0.1:5001'
 REP = 'http://127.0.0.1:5077'
+CANDLES = 'http://127.0.0.1:5099'
 
 
 def _n(v):
@@ -55,6 +56,33 @@ def coin_text(pairs, q):
     top = rows[0]
     return 'FEELESS · coin search "' + q + '" (deepest pool first):\n' + '\n'.join(pair_line(p) for p in rows), {
         'pair': top['pairAddress'], 'mint': (top.get('baseToken') or {}).get('address'), 'symbol': (top.get('baseToken') or {}).get('symbol')}
+
+
+def chart_text(candles, sym='?'):
+    """📈 THE CHART SNAPSHOT a mind reads (owner 2026-10-31: "proof her models read chart snapshots"): the same 5m candles our TrenchChart draws, as
+    numbers — the last 2 h move, where price sits in its range, the last 30 min, volume now vs before. Not a picture: every number is real."""
+    c = [x for x in (candles or []) if isinstance(x, (list, tuple)) and len(x) >= 6 and _n(x[4]) > 0][-24:]
+    if len(c) < 4:
+        return f'FEELESS chart ${sym}: too few 5m candles to read yet.'
+    o, cl = _n(c[0][1]) or _n(c[0][4]), _n(c[-1][4]); hi, lo = max(_n(x[2]) for x in c), min(_n(x[3]) for x in c)
+    pct = lambda a, b: (b / a - 1) * 100 if a else 0.0
+    last6 = pct(_n(c[-7][4]) if len(c) > 7 else o, cl)
+    vol_now, vol_then = sum(_n(x[5]) for x in c[-6:]), sum(_n(x[5]) for x in c[:-6]) / max(1, (len(c) - 6) / 6)
+    where = (cl - lo) / (hi - lo) * 100 if hi > lo else 50.0
+    return (f"FEELESS chart ${sym} (5m, last {len(c) * 5} min): {pct(o, cl):+.1f}% · high {pct(cl, hi):+.1f}% above now · low {pct(cl, lo):+.1f}% below"
+            f" · price sits {where:.0f}% up its range · last 30 min {last6:+.1f}%"
+            + (f" · volume last 30 min {vol_now / vol_then:.1f}x the earlier pace" if vol_then > 0 and vol_now > 0 else ''))
+
+
+def links_text(top):
+    """🔗 the chart's research doors for this coin (the icons on a FEELESS chart) — a trader's window may open these; X search needs the owner's X sign-in."""
+    mint = (top.get('baseToken') or {}).get('address'); pair = top.get('pairAddress')
+    rows = [f'X live search for the contract: https://x.com/search?q={mint}&f=live' if mint else None,
+            f'DexScreener: https://dexscreener.com/solana/{pair}' if pair else None,
+            f'Solscan token: https://solscan.io/token/{mint}' if mint else None,
+            f'RugCheck: https://rugcheck.xyz/tokens/{mint}' if mint else None]
+    rows += [f"Its X: {s_.get('url')}" for s_ in ((top.get('info') or {}).get('socials') or []) if 'x.com' in str(s_.get('url')) or 'twitter.com' in str(s_.get('url'))][:1]
+    return 'Research links (the chart icons):\n' + '\n'.join(r for r in rows if r)
 
 
 def trench_text(pairs):
@@ -88,11 +116,21 @@ async def run_tool(http, tool, q=''):
     tool = str(tool or '').lower()
     if tool not in TOOLS:
         return f"Unknown FEELESS tool '{tool}'. Tools: " + ', '.join(TOOLS), None
-    q = str(q or '').strip()[:60]
+    q = str(q or '').strip().lstrip('$')[:60]   # "$BONK" searched as BONK (a real run found $BONKAI first, then nothing)
     try:
         if tool == 'coin':
             r = await http.get(f'{MAIN}/api/market/search', params={'q': q or 'SOL'}, timeout=20)
-            return coin_text((r.json() or {}).get('pairs'), q)
+            pairs = (r.json() or {}).get('pairs') or []
+            text, coin = coin_text(pairs, q)
+            if coin:   # 📈 + the chart snapshot and its research doors; a failed candle read never hides the coin
+                top = next(p for p in pairs if p.get('pairAddress') == coin['pair'])
+                try:
+                    k = await http.get(f"{CANDLES}/api/candles/solana/{coin['pair']}", params={'interval': '5m', **({'mint': coin['mint']} if coin.get('mint') else {})}, timeout=15)
+                    text += '\n' + chart_text((k.json() or {}).get('candles'), coin.get('symbol') or '?')
+                except Exception as e:
+                    text += f"\nFEELESS chart could not be read just now ({str(e)[:60]}) — do not guess its shape."
+                text += '\n' + links_text(top)
+            return text, coin
         if tool == 'trench':
             r = await http.get(f'{MAIN}/api/market/feed', params={'chain': 'solana'}, timeout=20)
             return trench_text((r.json() or {}).get('pairs')), None
