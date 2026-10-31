@@ -33,9 +33,7 @@ test('🧠 vitals for every model, then the picked one: info · load · inferenc
   await act(async () => { q('mdk-temp-def').click(); }); expect(posts[1]).toEqual({ lan: { infer: { temp: null } } });
   await act(async () => { q('mdk-tab-server').click(); }); expect(q('mdk-panel-lan').textContent).toContain('ANSWERING'); expect(q('mdk-panel-lan').textContent).toContain('http://10.0.0.249:1236');
   await act(async () => { q('mdk-tab-mcp').click(); }); expect(q('mdk-panel-lan').textContent).toContain('FEELESS MCP ONLINE'); expect(el.querySelectorAll('.mdk-tools span').length).toBe(6);
-  await act(async () => { q('mdk-vc-win').click(); }); await act(async () => { q('mdk-tab-info').click(); });
-  expect(q('mdk-panel-win').textContent).toContain('Q4_K_M'); expect(q('mdk-panel-win').textContent).toContain('0 busy of 1');
-  await act(async () => { q('mdk-tab-infer').click(); }); expect(q('mdk-knob-topK').textContent).toContain('40 · runtime');
+  await act(async () => { q('mdk-tab-infer').click(); }); expect(q('mdk-knob-topK').textContent).toContain('model default');   // no runtime defaults without llamafile (NEXA retired)
   act(() => root.unmount());
 });
 

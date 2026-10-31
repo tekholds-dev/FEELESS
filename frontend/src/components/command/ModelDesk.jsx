@@ -5,7 +5,7 @@ import { ModelRig } from './ModelRig';
 // 🧠 THE MODEL DESK (owner, 2026-10-23: "the Models tab should really show all this — server settings, MCP, load, inference … more vitals for all
 // models, and fix how the models look in the Brain"): LM Studio's own model panel, inside FEELESS. On top, VITALS for every model (tokens / s from
 // real usage, ok %, median + p90 time, queue, context fill, last answer, the mindset it carries); below, the picked model's INFO · LOAD ·
-// INFERENCE · SERVER · MCP — read from what LM Studio, NEXA's llamafile and FEELESS's MCP server really report. One model at a time: nothing cut off.
+// INFERENCE · SERVER · MCP — read from what LM Studio and FEELESS's MCP server really report. One model at a time: nothing cut off.
 const AV = { lan: '/assets/ai-pfp/g4.gif', local: '/assets/ai-pfp/ossy.gif', win: null };
 const TABS = [['info', 'ℹ INFO'], ['load', '⚙ LOAD'], ['infer', '🌡 INFERENCE'], ['server', '🖥 SERVER'], ['mcp', '🔌 MCP']];
 const k1 = v => (v == null ? '—' : v >= 1024 ? `${v % 1024 ? (v / 1024).toFixed(1) : v / 1024}K` : String(v));
@@ -14,7 +14,7 @@ const ago = at => { if (!at) return '—'; const s = Math.max(0, Math.round(Date
 // the Inference panel's knobs (LM Studio's own names) — 'desk' = FEELESS's default (nothing sent)
 export const KNOBS = [
   ['temp', 'TEMPERATURE', [null, 0.2, 0.4, 0.6, 0.8, 1.0], 'How loose the answers get. FEELESS desk calls use 0.1 for clean JSON — higher = more creative, more broken answers', 'temperature'],
-  ['maxTok', 'LIMIT RESPONSE LENGTH', [null, 250, 500, 1000, 2000], 'Max tokens per answer (NEXA stays capped for speed)', null],
+  ['maxTok', 'LIMIT RESPONSE LENGTH', [null, 250, 500, 1000, 2000], 'Max tokens per answer', null],
   ['topP', 'TOP-P', [null, 0.8, 0.9, 0.95, 1.0], 'Sampling: keep the smallest set of tokens whose probability adds up to this', 'top_p'],
   ['topK', 'TOP-K', [null, 20, 40, 80], 'Sampling: only the K most likely tokens are considered', 'top_k'],
   ['minP', 'MIN-P', [null, 0.02, 0.05, 0.1], 'Sampling: drop tokens under this share of the top token\'s probability', 'min_p'],
@@ -63,9 +63,7 @@ function KV({ rows }) {
 
 function Info({ m }) {
   const i = m.info;
-  if (!i) return <p className="m-note">{m.name}'s server did not answer — {m.server?.err || 'no model info'}. Start its server (LM Studio › Developer › Start, or NEXA's llamafile).</p>;
-  if (m.key === 'win') return <><KV rows={[['MODEL FILE', i.model], ['FORMAT', i.format], ['QUANT', i.quant], ['CONTEXT / SLOT', k1(i.ctxPerSlot)], ['SLOTS', i.slots != null ? `${i.busy || 0} busy of ${i.slots}` : null], ['SPECULATIVE', i.speculative ? 'on' : 'off']]} />
-    <p className="mdk-note">Read live from llamafile's own /props + /slots.</p></>;
+  if (!i) return <p className="m-note">{m.name}'s server did not answer — {m.server?.err || 'no model info'}. Start its server (LM Studio › Developer › Start).</p>;
   const fill = i.loadedCtx && i.maxCtx ? Math.log2(i.loadedCtx / 2048) / Math.log2(Math.max(4096, i.maxCtx) / 2048) : 0;
   return <>
     <div className="mdk-ctx" data-tip="Loaded context against the model's max (log scale)"><span><em>LOADED CONTEXT</em><b>{k1(i.loadedCtx)}</b><small>of {k1(i.maxCtx)} max</small></span>
@@ -115,7 +113,7 @@ function Server({ m }) {
 function Mcp({ mcp, m }) {
   if (!mcp) return null;
   return <><div className={`mdk-srv ${mcp.ok ? 'is-ok' : 'is-bad'}`}><i aria-hidden="true" /><b>{mcp.ok ? 'FEELESS MCP ONLINE' : 'FEELESS MCP NOT ANSWERING'}</b><small>{mcp.ok ? `${mcp.n} tools · ${mcp.ms} ms · ${mcp.endpoint}` : mcp.err || ''}</small></div>
-    <p className="mdk-note">{m.key === 'win' ? 'NEXA answers one word on her desk — tools are for the LM Studio models.' : m.info?.toolUse ? `${m.name} is trained for tool use — LM Studio hands it these tools (mcp.json on its machine).` : `${m.name} is not marked for tool use.`}</p>
+    <p className="mdk-note">{m.info?.toolUse ? `${m.name} is trained for tool use — LM Studio hands it these tools (mcp.json on its machine).` : `${m.name} is not marked for tool use.`}</p>
     <div className="mdk-tools">{(mcp.tools || []).map((t, i) => <span key={t.name} style={{ '--i': i }} data-tip={t.desc}><b>{t.name}</b><small>{t.desc}</small></span>)}</div></>;
 }
 

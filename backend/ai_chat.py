@@ -12,7 +12,7 @@ Only `decide(.., approve=True)` hands a proposal to the service's `apply` step, 
   tune    ONE Reaper setting, ONE notch → a SHADOW test only (office.model_candidate) — never live by approval alone
   idea    a suggestion with no setting behind it (which vitals to collect, which provider for which task): approved = filed, applies nothing
   rig     a MODEL setting (ai_rig.check_change): what LM Studio loads G4 / OSSY with (reload on ✅ only), what FEELESS sends each model,
-          NEXA's runtime, the Brain's temperature / answer length — never anything about trading
+          the Brain's temperature / answer length — never anything about trading
 Everything about execution is out of reach: any key matching `PROTECTED` (slippage, price gap, sell-back, pool floor, wallet, limits, keeper,
 signing, funding, sizes, stops, seats …) is refused at parse time AND again at approval. The chat history is short and in memory; the
 stored proposal record is compact (no raw prompt, no raw response) and capped."""

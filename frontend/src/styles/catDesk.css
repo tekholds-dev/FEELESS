@@ -3,7 +3,7 @@
 .kd { display: grid; gap: 12px; }
 /* 📐 one column for the whole desk (owner 2026-10-30: "why no alignment"): hero, tiles, live windows, cockpit, log, cards + side panel share the
    same left + right edges — 1110 px, centred — on every agent's desk and Fee's NEXA dash */
-.kd > :not(.ckb, .kd-back), .ck-nexa > :not(.ckb) { width: 100%; max-width: 1110px; justify-self: center; }
+.kd > :not(.ckb, .kd-back), .ck-fee > :not(.ckb) { width: 100%; max-width: 1110px; justify-self: center; }
 .kd > .kd-back { margin-inline-start: max(0px, (100% - 1110px) / 2); }
 .kd-back { justify-self: start; display: inline-flex; align-items: center; gap: 6px; min-height: 34px; padding: 0 12px; border-radius: 999px; border: 1px solid #b388ff33; background: #ffffff06;
   color: #e9dcff; font: 800 10.5px 'JetBrains Mono', monospace; letter-spacing: .12em; cursor: pointer; transition: background .15s, transform .15s; }

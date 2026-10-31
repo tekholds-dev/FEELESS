@@ -39,7 +39,6 @@ import cat_recovery as _recovery
 import agent_pay as _ap
 import cat_real as _real   # 💵 real-money cats = option A: the user's wallet signs every trade (docs/DECISIONS.md #2)
 import cat_orders as _co   # 🧭 a General AI cat's plain-words orders → one guarded proposal
-import cat_model as _cm
 import cat_tools as _ct   # 🧰 FEELESS-first read-only tools for general agents
 import agent_files as _af   # ☁ each agent's own storage (owner uploads, 1 GB, 7-day clean)
 import clarify as _cq   # ❓ first asks: 2–3 questions for a coin / money ask
@@ -56,7 +55,7 @@ STORE_PATH = DATA_DIR / 'feecats.json'
 
 TICK_SECONDS = 20
 # ✂ 2026-10-23 (P2 #1): the old catalog showed Claude / GPT / Grok labels that only ever ran the rule engine — one honest row now. Real AI
-# brains are picked in Launch a Cat (`brains` / OpenRouter); FEELESS's own models come from cat_model.
+# brains are picked in Launch a Cat (`brains` / OpenRouter).
 RULE_ENGINE = {'id': 'rules', 'provider': 'FEELESS', 'label': 'FEELESS rule engine'}
 STRATEGY_LABELS = {'balanced': 'Momentum', 'momentum': 'Breakouts', 'conservative': 'Scalping', 'signals': 'On-chain signals', 'trend': 'Trend following', 'conviction': 'Conviction'}
 
@@ -332,24 +331,6 @@ async def _sol_pairs(http, mints):
             if m not in out or _num((p.get('liquidity') or {}).get('usd')) > _num((out[m].get('liquidity') or {}).get('usd')):
                 out[m] = p
     return out
-
-
-NEXA_MIN_LIQ = 5000.0   # 🪟 trench law: a pool under $5K can't be exited — her YES never overrides that
-
-
-def nexa_lane(p):
-    """🪟 NEXA's YES is the lane: (score, reason) when the pool can be exited, else (None, why). Pure (tests)."""
-    liq = _num((p.get('liquidity') or {}).get('usd'))
-    if liq < NEXA_MIN_LIQ:
-        return None, f'🪟 NEXA said yes but the pool is under ${NEXA_MIN_LIQ / 1000:.0f}K — no exit'
-    return 1.0, '🪟 NEXA said YES'
-
-
-def nexa_drives(cat, p):
-    """🪟🐱 NEXA TRADES AS FEECAT (owner, 2026-10-23: "I wanted nexa trading in feecat's tab AS FEECAT"): on her own cat, her fresh YES is the
-    call — FeeCat's soft second opinions (chart setup, the desk's skip, Fuse / proof / setup-memory vetoes) step aside. The rug guards never
-    do: the $5K pool floor, the holder check, discipline, daily loss, cooldown, exposure. Paper only. Pure (tests)."""
-    return bool(p.get('_nexa') and _cm.model_of(cat))
 
 
 async def _pair_prices(http, pair_addresses):
@@ -766,7 +747,7 @@ async def _duo_read(http):
     try:
         r = await http.get('http://127.0.0.1:5077/api/reputation/cats-ai', timeout=3)
         d = r.json() if r.status_code == 200 else {}
-        return d if time.time() - float(d.get('read') or 0) <= 900 else {'nexa': d.get('nexa')}   # 🪟 her cats judge her read's age themselves
+        return d if time.time() - float(d.get('read') or 0) <= 900 else {}
     except Exception:
         return {}
 
@@ -1029,39 +1010,16 @@ async def run_engine(store, cats):
         prices = await _pair_prices(http, held) if held else {}
         candidates, fuse_view, crowd_feed, duo = await asyncio.gather(_market_candidates(http), _fuse_discover(http), _crowd_feed(http), _duo_read(http))
     duo_avoid, duo_exit = set(duo.get('avoid') or []), set(duo.get('exit') or [])   # 🐱🤝 only what BOTH AI models agreed on
-    if isinstance((duo.get('nexa') or {}).get('talk'), list):   # 💬 her desk words → bubbles on FeeCat's public charts (scrubbed by _pub on the way out)
-        store['aiTalk'] = duo['nexa']['talk'][-24:]
-    nexa_read = _cm.read_of(duo.get('nexa'), now)   # 🪟 a cat assigned to NEXA buys her favored coins + sells her exits (fresh reads only)
-    # 🪟 NEXA'S LANE (owner, 2026-10-23: "nexa not trading"): her desk said YES to 6 coins while FeeCat's own lanes passed 0 of 42 — FeeCat only
-    # walks her own list, so NEXA never traded. Her fresh YES now IS the lane (it replaces the age / cap-band filters); every guard still runs:
-    # the chart's setup gate, a $5K pool floor, the rug / safety check, cooldowns, discipline. Her picks the feed didn't carry are fetched.
-    nx_fav = set(nexa_read['favor']) if nexa_read and any(_cm.model_of(c_) for c_ in cats) else set()
-    if nx_fav:
-        have_ = {p_.get('pairAddress') for p_ in candidates}
-        miss_ = sorted(nx_fav - have_)[:12]
-        if miss_:
-            try:
-                async with httpx.AsyncClient(timeout=10) as http_n:
-                    r_n = await http_n.get(f'https://api.dexscreener.com/latest/dex/pairs/solana/{",".join(miss_)}')
-                    candidates = list(candidates) + [p_ for p_ in (r_n.json().get('pairs') or []) if p_.get('pairAddress') in nx_fav]
-            except Exception:
-                pass
     ranked, rejections = [], {}
     for p in candidates:
         score, reason = (None, None)
-        if p.get('pairAddress') in nx_fav:
-            score, reason = nexa_lane(p)
-            if score is None:
-                rejections[reason] = rejections.get(reason, 0) + 1
-                continue
-            p['_nexa'] = True
         if score is None and p.get('_src') == 'agents':   # 🐱🤖 the agents' coins: the agents' band (+ her overrides), not her old lanes
             score, reason = _agents_qualifies(p, now, agent_lane(_POOL_META.get('limits'), (store['cats'].get(LEADER_ID) or {}).get('agentLane')))
             if score is not None:
                 p['_agentsLane'] = True
-        if score is None and p.get('_src') != 'agents' and not p.get('_nexa'):
+        if score is None and p.get('_src') != 'agents':
             score, reason = _qualifies(p, now)
-        if score is None and p.get('_src') != 'agents' and not p.get('_nexa'):
+        if score is None and p.get('_src') != 'agents':
             fscore, freason = _fresh_qualifies(p, now)
             if fscore is not None:
                 p['_fresh'] = True
@@ -1073,8 +1031,6 @@ async def run_engine(store, cats):
                     score, reason = lscore, lreason
         if score is not None:
             ok_, why_, mult_, tags_ = setup_gate(p)
-            if not ok_ and p.get('_nexa'):   # 🪟 her YES outranks the chart's second opinion (rug guards still run below)
-                ok_, why_, mult_ = True, f'🪟 over the chart ({why_})', 1.0
             if not ok_:
                 rejections[why_] = rejections.get(why_, 0) + 1
                 continue
@@ -1121,21 +1077,6 @@ async def run_engine(store, cats):
                     continue
                 if d_ and d_[0] == 'TRIM':
                     _close(store, cat, pos, px, f"🧠 {d_[1].split('/')[-1]} trimmed half: {d_[2] or 'its call'}", 0.5)
-            nx_out = _cm.sell_now(nexa_read, pos.get('pairAddress')) if _cm.model_of(cat) else None
-            if nx_out:   # 🪟 her fresh read named this coin EXIT: sold at the live price (paper)
-                cat['positions'].remove(pos)
-                _close(store, cat, pos, px, nx_out)
-                continue
-            nx_chg = (px / pos['entryPriceNative'] - 1) * 100 if pos.get('entryPriceNative') else 0.0
-            nx_line = _cm.line_exit(nexa_read, pos, nx_chg) if _cm.model_of(cat) else None
-            if nx_line:   # 🎯 her 2-min check moved a stop / take on this coin and it was hit
-                cat['positions'].remove(pos)
-                _close(store, cat, pos, px, nx_line)
-                continue
-            nx_skim = _cm.skim_now(nexa_read, pos) if _cm.model_of(cat) else None
-            if nx_skim:   # ✂ her SKIM: bank half once per call, the rest rides her lines + FeeCat's stops
-                pos['nxSkimAt'] = nexa_read['skim'][pos['pairAddress']]
-                _close(store, cat, pos, px, nx_skim, 0.5)
             change = (px / pos['entryPriceNative'] - 1) * 100            # vs average entry
             from_first = (px / pos['firstEntryPriceNative'] - 1) * 100   # vs first buy (drives the dip ladder)
             pos['currentChange'] = round(change, 2)
@@ -1219,20 +1160,10 @@ async def run_engine(store, cats):
                 continue
             if any(x['pairAddress'] == pa for x in cat['positions']):
                 continue
-            nx_drive = nexa_drives(cat, p)
-            if pa in duo_avoid and not nx_drive:   # 🐱🤝 both AI models said skip it: she only ever trades LESS on their word
+            if pa in duo_avoid:   # 🐱🤝 both AI models said skip it: she only ever trades LESS on their word
                 store.setdefault('scan', {}).setdefault('brainRejects', []).append({'symbol': sym, 'why': '🤝 the FEELESS desk: skip it now', 'at': now})
                 store['scan']['brainRejects'] = store['scan']['brainRejects'][-10:]
                 continue
-            nx_cover = False
-            if _cm.model_of(cat) and nexa_read is None:   # 🐱 NEXA silent: FeeCat's own engine covers, half size
-                nx_cover = True
-                reason = f'{_cm.COVER_WHY}; {reason}'
-            elif _cm.model_of(cat):   # 🪟 NEXA's cat: only her favored coins (every guard below still has to pass them)
-                nx_ok, nx_why = _cm.buy_ok(nexa_read, pa)
-                if not nx_ok:
-                    continue
-                reason = f'{nx_why}; {reason}'
             if now - cat.get('cooldowns', {}).get(pa, 0) < R['cooldownHours'] * 3600:
                 last = next((e for e in reversed(cat.get('exits', [])) if e['pairAddress'] == pa), None)
                 tx1 = (p.get('txns') or {}).get('h1') or {}
@@ -1256,12 +1187,12 @@ async def run_engine(store, cats):
                 reason = f'{reason}; retesting a 5m fair value gap (${gap[0]:.6g}–${gap[1]:.6g})'
             # Fuse edge: a coin the runner gates already failed is skipped; one several Fuse sources like gets a small boost.
             fe = feecat_brain.fuse_edge((p.get('baseToken') or {}).get('address'), fuse_view)
-            if fe['veto'] and not nx_drive:
+            if fe['veto']:
                 store.setdefault('scan', {}).setdefault('brainRejects', []).append({'symbol': sym, 'why': fe['why'], 'at': now})
                 store['scan']['brainRejects'] = store['scan']['brainRejects'][-10:]
                 continue
             pg = feecat_brain.proof_gate(cat.get('exits') or [], now)
-            if pg['sit_out'] and not nx_drive:
+            if pg['sit_out']:
                 store.setdefault('scan', {}).setdefault('brainRejects', []).append({'symbol': sym, 'why': pg['why'], 'at': now})
                 store['scan']['brainRejects'] = store['scan']['brainRejects'][-10:]
                 continue
@@ -1269,15 +1200,10 @@ async def run_engine(store, cats):
             ce = feecat_brain.crowd_edge((p.get('baseToken') or {}).get('address'), crowd_feed)
             setup = feecat_brain.setup_features(p, now, fresh=bool(p.get('_fresh')), gap=bool(gap), fuse=fe['tag'], crowd=ce['tag'])
             brain = feecat_brain.setup_edge(setup, feecat_brain.edge_table(cat.get('setupMemory') or []))
-            if brain['veto'] and not nx_drive:
+            if brain['veto']:
                 store.setdefault('scan', {}).setdefault('brainRejects', []).append({'symbol': sym, 'why': brain['why'], 'at': now})
                 store['scan']['brainRejects'] = store['scan']['brainRejects'][-10:]
                 continue
-            if nx_drive:   # 🪟 she overrode a veto: half size, the risk named on the receipt
-                for v_ in (brain, fe):
-                    if v_.get('veto'):
-                        reason = f"{reason}; 🪟 NEXA over: {v_['why']} (half size)"
-                        v_['mult'] = 0.5
             disc_cut = disc['sizeMult'] < 1.0   # discipline only ever makes her trade LESS: no Fuse boost while it's cutting size
             if disc['sizeMult'] != 1.0:
                 conviction = round(conviction * disc['sizeMult'], 2)
@@ -1294,8 +1220,6 @@ async def run_engine(store, cats):
             if ce['mult'] != 1.0 and not disc_cut:
                 conviction = round(conviction * ce['mult'], 2)
                 reason = f"{reason}; learned from users: {ce['why']} ×{ce['mult']}"
-            if nx_cover:
-                conviction = round(conviction * _cm.COVER_MULT, 2)
             reason = f'{reason}; holders: {safe_why}; conviction {conviction}×'
             px = _num(p.get('priceNative'))
             planned = round(min(float(cat['risk']['maxPositionSol']), cat['balanceSol'] * 0.1 * conviction) * (R['freshSize'] if p.get('_fresh') else LEARN_SIZE if p.get('_learn') else (1 if p.get('_status') == 'READY' else 0.5) if p.get('_agentsLane') else 1), 4)
@@ -1329,14 +1253,14 @@ async def run_engine(store, cats):
                 'mint': (p.get('baseToken') or {}).get('address'), 'pairAddress': pa, 'symbol': sym, 'provider': 'DexScreener',
                 'url': p.get('url'), 'costSol': size, 'notionalSol': round(size * (1 - fee_side()), 6),
                 'entryPriceNative': px, 'entryPriceUsd': p.get('priceUsd'), 'entryChange': 0, 'currentChange': 0,
-                'peakChange': 0, 'openedAt': now, 'reason': public_words(reason), 'nexa': bool(p.get('_nexa')),
+                'peakChange': 0, 'openedAt': now, 'reason': public_words(reason),
                 'entryLiq': _num((p.get('liquidity') or {}).get('usd')), 'conviction': conviction,
                 'entryMarketCapUsd': _num(p.get('marketCap') or p.get('fdv')),
                 'entryVolH1': _num((p.get('volume') or {}).get('h1')), 'plannedSol': planned,
                 'firstEntryPriceNative': px, 'adds': 0, 'profitTaken': 0, 'peakPx': px, 'brainBy': brain_by_, 'setup': setup, 'setups': p.get('_setups') or [], 'read': p.get('_read'), 'duoAtEntry': p.get('_duo'), 'midAtEntry': mid, 'solUsdAtEntry': sol_usd,
             })
             _log_event(store, cat, 'BUY', f"Bought {size} SOL of {sym} at live price — {reason} (paper).", None, pa, px, _num(p.get('marketCap') or p.get('fdv')))
-            if _real.is_real(cat) and not (cat.get('isLeader') and not p.get('_nexa')):   # 💵 the same buy, proposed to the owner's wallet (≤ budget); real Fee proposes NEXA's calls only
+            if _real.is_real(cat) and not cat.get('isLeader'):   # 💵 the same buy, proposed to the owner's wallet (≤ budget); real Fee proposes none of her own picks (NEXA's lane is gone)
                 p_ = _real.propose(cat, 'buy', (p.get('baseToken') or {}).get('address'), pa, sym, reason, now, sol=size, px=px)
                 if p_:
                     _notify_real(cat, p_)
@@ -1829,6 +1753,12 @@ async def _start_engine():
             _save(store_)
     except Exception as e:
         print(f'[feecat] general credit heal skipped: {e}')
+    try:
+        store_ = _load()
+        if _drop_nexa(store_):
+            _save(store_)
+    except Exception as e:
+        print(f'[feecat] nexa retire skipped: {e}')
     asyncio.create_task(_staff_heal())
     asyncio.create_task(_engine_loop())
     asyncio.create_task(_tune_loop())
@@ -1836,23 +1766,19 @@ async def _start_engine():
 
 @app.get('/api/cats/brains')
 async def brains():
-    """The brain list: FEELESS's own model(s) first (🪟 NEXA = live when her desk read is fresh), the catalog rows run on the rule engine."""
-    async with httpx.AsyncClient(timeout=4) as http:
-        nx = (await _duo_read(http)).get('nexa')
-    own = [{**m, **_cm.status(nx), 'available': False, 'ownerOnly': True, 'trades': 'FeeCat', 'estimatedTokenCostUsd': 0, 'model': True} for m in _cm.MODELS.values()]   # 🪟 she trades FeeCat herself (owner's HQ switch), never a user's cat
-    return _pub({'brains': own + [{**RULE_ENGINE, 'status': 'live', 'available': True, 'estimatedTokenCostUsd': 0}]})
+    """The brain list: the rule engine (a cat's AI models are picked in Launch a Cat — OpenRouter)."""
+    return _pub({'brains': [{**RULE_ENGINE, 'status': 'live', 'available': True, 'estimatedTokenCostUsd': 0}]})
 
 
-def _set_model_brain(cat, model_id):
-    """🪟 Assign a FEELESS model to a cat (or back to the rule engine). Owner-only, FeeCat herself (`/api/cats/internal/brain`). Paper only."""
-    m = _cm.MODELS.get(str(model_id or '').lower())
-    if m:
-        cat['modelBrain'] = m['id']; cat['brain'] = m['id']; cat['brainLabel'] = m['name']
-        cat['brainProfile'] = {'provider': m['provider'], 'status': 'live', 'available': True, 'estimatedTokenCostUsd': 0}
-    else:
-        cat.pop('modelBrain', None)
-        cat['brainProfile'] = {**(cat.get('brainProfile') or {}), 'status': 'rule_fallback', 'available': False}
-    return m
+def _drop_nexa(store):
+    """🪟→🧠 (owner 2026-10-31: NEXA retired — free cloud models beat her): a cat still pointed at her goes back to its own engine + its brains."""
+    n = 0
+    for c in (store.get('cats') or {}).values():
+        if str(c.get('modelBrain') or '').lower() == 'nexa' or str(c.get('brain') or '').lower() == 'nexa':
+            c.pop('modelBrain', None); c['brain'] = 'rules'; c['brainLabel'] = 'FeeCat AI' if c.get('isLeader') else 'Rule engine'
+            c['brainProfile'] = {**(c.get('brainProfile') or {}), 'status': 'live', 'available': True}
+            n += 1
+    return n
 
 
 LOOK_OPTIONS = {'gear': ('none', 'crown', 'shades', 'chain', 'headset', 'halo', 'cap', 'bow', 'rose'), 'aura': ('none', 'royal', 'gold', 'ice', 'blaze', 'nebula', 'toxic'),
@@ -2205,21 +2131,6 @@ async def internal_rules_get(request: Request):
     return {'rules': {k: RULES[k] for k in TUNABLE}, 'bounds': TUNABLE, 'overrides': store.get('rulesOverride') or {}, 'strategyPreset': store.get('strategyPreset', 'feecat'),
             'leader': {k: store['cats'][LEADER_ID].get(k) for k in ('status', 'risk')},
             'agentLane': store['cats'][LEADER_ID].get('agentLane') or {}, 'agentLimits': _POOL_META.get('limits') or {}}
-
-
-@app.post('/api/cats/internal/brain')
-async def internal_brain(request: Request):
-    """🪟🐱 Owner only (via HQ › Fee › NEXA's desk): NEXA trades AS FeeCat (model='nexa') or FeeCat is back on her own rules ('rules'). Paper."""
-    _internal(request)
-    body = await request.json()
-    store = _load()
-    cat = store['cats'].get(LEADER_ID)
-    if not cat:
-        raise HTTPException(404, 'FeeCat is not set up yet.')
-    m = _set_model_brain(cat, body.get('model'))
-    _log_event(store, cat, 'LEARN', f"🪟 NEXA now trades FeeCat (paper): she buys only coins NEXA says YES to — every guard still applies — and sells what NEXA says SELL." if m else 'FeeCat is back on her own rule engine.')
-    _save(store)
-    return {'model': cat.get('modelBrain') or 'rules'}
 
 
 @app.post('/api/cats/internal/rules')

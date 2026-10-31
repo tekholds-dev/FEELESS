@@ -34,14 +34,12 @@ def test_four_sets_per_model_written_from_its_record_and_inside_the_budget():
     assert '10 trades, 40 % won' in g4[0]['text'] and 'G4' in g4[0]['text'] and 'germ floor' in g4[1]['text']
     assert 'quick in, patient in profit' in g4[2]['text'] and 'break-even' in g4[3]['text'] and '3 habits' in g4[3]['tag']
     assert g4[3]['dials']['discipline'] > 70                                                            # the fixes move the dials
-    nexa = ps.sets('win', ps.stats(grades={'favor': {'n': 20, 'rightPct': 35}}), [])
-    assert all(len(x['text']) <= ps.MAX_CHARS['win'] for x in nexa) and 'YES' in nexa[0]['text']       # her one-word job keeps a tiny overlay
 
 
 def test_clean_active_keeps_known_models_and_sets_only():
     act = ps.clean_active({'lan': {'set': 'elite', 'text': ' be  calm ', 'at': 5}, 'zz': {'set': 'elite', 'text': 'x'}, 'local': {'set': 'nope', 'text': 'x'},
                            'win': {'set': 'degen', 'text': 'y' * 900}})
-    assert set(act) == {'lan', 'win'} and act['lan']['text'] == 'be calm' and len(act['win']['text']) <= ps.MAX_CHARS['win']
+    assert set(act) == {'lan'} and act['lan']['text'] == 'be calm'   # 'win' (NEXA, retired) and unknown keys are dropped
 
 
 def test_the_router_appends_the_applied_set_to_that_model_only():
@@ -72,7 +70,7 @@ def test_the_studio_view_and_apply(monkeypatch):
     v = asyncio.run(rs._studio_view())
     g4 = next(m for m in v['models'] if m['key'] == 'lan')
     assert g4['ctx'] == 8704 and g4['record']['n'] == 1 and len(g4['sets']) == 4 and g4['layers'][0]['k'] == 'job' and g4['layers'][0]['tok'] > 50
-    assert g4['active'] is None and [m['key'] for m in v['models']] == ['lan', 'local', 'win']
+    assert g4['active'] is None and [m['key'] for m in v['models']] == ['lan', 'local']
     rs._json_save(rs.PROMPT_STUDIO_PATH, {'lan': {'set': 'progressive', 'text': 'rush in, ride green', 'at': 50}})
     v2 = asyncio.run(rs._studio_view())
     g4b = next(m for m in v2['models'] if m['key'] == 'lan')
@@ -153,8 +151,8 @@ def test_every_call_that_carries_the_mindset_is_stamped(monkeypatch):
 def test_auto_tune_is_on_for_the_seat_models_until_the_owner_turns_it_off():
     """🤖 owner, 2026-10-23: "G4 was losing so I asked for auto-updated prompts" — the switch was silently off for everyone."""
     import prompt_studio as ps
-    assert ps.auto_on({}, 'lan') and ps.auto_on({}, 'local') and not ps.auto_on({}, 'win')
-    assert not ps.auto_on({'auto': {'lan': False}}, 'lan') and ps.auto_on({'auto': {'win': True}}, 'win')
+    assert ps.auto_on({}, 'lan') and ps.auto_on({}, 'local')
+    assert not ps.auto_on({'auto': {'lan': False}}, 'lan')
 
 
 def test_auto_tuned_keeps_the_best_proven_mindset_and_how_winners_held():

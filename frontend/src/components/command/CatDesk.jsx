@@ -139,7 +139,7 @@ function useTheater(ref, on) {
 }
 export function CatDesk({ cat, busy = false, error = '', onBack, onAct, Activity = null, Brains = null, Engine = null, Real = null, Tools = null, canEdit = true }) {   // canEdit: its owner (visitors from the leaderboard see the view, never the controls)
   const isReal = cat.mode === 'real' && !!cat.realWallet;
-  const runs = canEdit && !cat.isLeader;   // 🔒 Fee's engine, limits and retire stay server-only (feecat_service fee_owner_real) — her creator runs her from the NEXA desk under this one, so no button here that can only 403
+  const runs = canEdit && !cat.isLeader;   // 🔒 Fee's engine, limits and retire stay server-only (feecat_service fee_owner_real) — her creator runs her from her Fee desk in HQ under this one, so no button here that can only 403
   const v = useMemo(() => deskVitals(cat), [cat]); const cv = useMemo(() => curveOf(cat?.pnlHistory), [cat?.pnlHistory]);
   const r = cat.risk || {};
   const [lim, setLim] = useState(() => ({ maxPositionSol: r.maxPositionSol, maxDailyLossSol: r.maxDailyLossSol, allowlist: (r.allowlist || []).join(', '), blocklist: (r.blocklist || []).join(', ') }));
@@ -175,7 +175,7 @@ export function CatDesk({ cat, busy = false, error = '', onBack, onAct, Activity
       <div className="kd-acts m-seg" role="group" aria-label="Run the agent">
         {runs ? <>{cat.status === 'running' ? <button type="button" className="kd-stop" disabled={busy} onClick={() => onAct('stop')} data-testid="kd-stop" data-tip="Stops new trades now (open paper trades stay)">⏹ Stop</button>
           : <button type="button" className="kd-go" disabled={busy || cat.revoked} onClick={() => onAct('start')} data-testid="kd-start" data-tip="Starts it scanning the live board again">▶ Start</button>}
-</> : canEdit ? <span className="kd-visitor" data-tip="Your cat — her engine runs from the NEXA desk below">👑 YOUR CAT</span> : <span className="kd-visitor" data-tip="You're viewing someone's agent — only its owner runs it">👀 VIEWING</span>}
+</> : canEdit ? <span className="kd-visitor" data-tip="Your cat — her engine runs from her Fee desk below">👑 YOUR CAT</span> : <span className="kd-visitor" data-tip="You're viewing someone's agent — only its owner runs it">👀 VIEWING</span>}
         {canEdit ? <SkinPicker skin={skin} set={setSkin} /> : null}
         {runs ? <button type="button" disabled={busy || cat.revoked} onClick={() => onAct('run')} data-testid="kd-run" data-tip="Run one scan-and-decide cycle right now">⟳ One cycle</button> : null}
       </div>

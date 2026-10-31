@@ -142,8 +142,8 @@ function CatDetail({ cat: initialCat, onBack, onChanged, onDeleted }) {
   const act = async (action, extra = {}) => { setError(''); setBusy(true); try { const result = await api(`/api/cats/${cat.id}/action`, { method: 'POST', body: JSON.stringify({ action, ...extra }) }); if (result.deleted) { onDeleted?.(result.deleted); return; } setCat(result.cat); onChanged?.(result.cat); } catch (requestError) { setError(requestError.message); } setBusy(false); };
   const mine = cat.isLeader ? isAdmin : !!cat.mine;   // 👀 opened from the leaderboard: the owner gets the controls, everyone else the view (the server answers `mine`; the owner id never leaves it)
   // 🐱 ONE FEE (owner 2026-10-30: "my cat looks different than from the leaderboard — I should look into my cat and have all tools"): every door opens
-  // this desk — the creator's bar, her book, and for the creator the NEXA desk + the visitors' view under it
-  const Tools = !cat.isLeader ? null : <Suspense fallback={null}><div className="ck-nexa" data-testid="fee-tools">{mine ? <ProfileFeeCat mine /> : null}<FeeCatProfile /></div></Suspense>;
+  // this desk — the creator's bar, her book, and for the creator her Fee desk + the visitors' view under it
+  const Tools = !cat.isLeader ? null : <Suspense fallback={null}><div className="ck-fee" data-testid="fee-tools">{mine ? <ProfileFeeCat mine /> : null}<FeeCatProfile /></div></Suspense>;
   if (!mine && !cat.isLeader && !agentSignedIn()) return <><SignInGate onIn={() => api(`/api/cats/${cat.id}`).then(r => r.cat && setCat(r.cat)).catch(() => {})} /><CatDesk canEdit={false} cat={cat} busy={busy} error={error} onBack={onBack} onAct={act} Engine={null} Real={null} Brains={null} Activity={null} Tools={null} /></>;
   return <CatDesk canEdit={mine} cat={cat} busy={busy} error={error} onBack={onBack} onAct={act} Engine={cat.isLeader ? <FeeOwnerBar cat={cat} /> : null} Real={!mine ? null : <CatReal cat={cat} busy={busy} onAct={act} />}
     Brains={cat.brainsCfg && mine ? <BrainPanel noTalk cat={cat} api={api} onChanged={brainChanged} /> : null} Activity={null} Tools={Tools} />;
@@ -191,7 +191,7 @@ export default function FeeCatsPlatform() {
   const presetAvatar = Number.isInteger(pa) && pa >= 0 && launchParams.get('avatar') !== null ? pa : (mine ? mine.coat : 0);
   const [view, setView] = useState(launchParams.get('create') === '1' ? 'new' : 'cats');   // 🎨 Build a cat › "Give it a job" lands on the brain pick (it used to skip to the paper wizard)
   const [kind, setKind] = useState('trading');
-  const { isAdmin, isStaff } = useAdmin();   // 🧪 the paper test door is staff-only (owner 2026-10-30, D1) · 🪟 N14/N16: the creator's own Fee (NEXA) sits first in My agents — not one of the 2 agent slots
+  const { isAdmin, isStaff } = useAdmin();   // 🧪 the paper test door is staff-only (owner 2026-10-30, D1) · 🪟 N14/N16: the creator's own Fee sits first in My agents — not one of the 2 agent slots
   const pickKind = k => { if (k === 'trading' || k === 'general') { setKind(k); setView('launch'); } else if (k !== 'create' || isStaff) setView(k); };   // 📈 / 🧭 → models → your wallet → REAL
   const [cats, setCats] = useState([]);
   const [selected, setSelected] = useState(null);

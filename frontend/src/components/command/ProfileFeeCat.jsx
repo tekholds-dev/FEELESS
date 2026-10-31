@@ -25,7 +25,7 @@ export function ProfileFeeBanner({ onOpen, mine }) {
   const win = st.winRate != null ? st.winRate : c.winRate;
   return <button type="button" className="pfc-banner" onClick={onOpen} data-testid="profile-fee-banner" data-tip={mine ? 'Your cat — her full desk, every tool (visitors see FeeCat)' : "FeeCat — Fee's live trades and decisions"}>
     <span className="pfc-cat" aria-hidden="true"><Panther size={44} crop="head" label="Fee" /></span>
-    <span className="pfc-who"><em>{mine ? '🪟 NEXA · YOUR CAT' : '🐱 FEECAT · LIVE'}</em><b>{c.name || 'Fee'}</b><small>{nap ? 'napping' : 'hunting live'} · {open} open</small></span>
+    <span className="pfc-who"><em>{mine ? '🐱 FEE · YOUR CAT' : '🐱 FEECAT · LIVE'}</em><b>{c.name || 'Fee'}</b><small>{nap ? 'napping' : 'hunting live'} · {open} open</small></span>
     <span className={`pfc-num ${real > 0 ? 'is-up' : real < 0 ? 'is-dn' : ''}`}><em>REALIZED</em><b className="m-num">{d ? sol(real) : '…'}</b></span>
     <span className="pfc-num"><em>WIN RATE</em><b className="m-num">{win != null ? `${Math.round(win)}%` : '—'}</b></span>
     <span className="pfc-go" aria-hidden="true">{mine ? 'OPEN →' : 'WATCH →'}</span>
@@ -44,8 +44,8 @@ export function ProfileFeeCat({ mine }) {
   if (!(mine && isAdmin)) return <section className="pfc" data-testid="profile-feecat"><PublicFee cta={!mine} /></section>;
   return <section className="pfc is-owner" data-testid="profile-feecat">
     <div className="m-seg pfc-seg" role="radiogroup" aria-label="Which view">
-      {[['desk', '🪟 NEXA DESK', 'Your cat — the dashboard a buyer gets'], ['public', '👁 WHAT VISITORS SEE', 'Exactly what anyone opening your profile sees: FeeCat, read-only']].map(([k, l, tip]) =>
+      {[['desk', '🐱 FEE DESK', 'Your cat — the dashboard a buyer gets'], ['public', '👁 WHAT VISITORS SEE', 'Exactly what anyone opening your profile sees: FeeCat, read-only']].map(([k, l, tip]) =>
         <button key={k} type="button" role="radio" aria-checked={view === k} className={view === k ? 'active' : ''} onClick={() => setView(k)} data-tip={tip} data-testid={`profile-fee-${k}`}>{l}</button>)}</div>
-    {view === 'desk' ? <Suspense fallback={<p className="paper-muted">🪟 opening NEXA…</p>}><FeeCatDesk call={call} /></Suspense> : <PublicFee cta={false} />}
+    {view === 'desk' ? <Suspense fallback={<p className="paper-muted">🐱 opening Fee…</p>}><FeeCatDesk call={call} /></Suspense> : <PublicFee cta={false} />}
   </section>;
 }

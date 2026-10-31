@@ -4,7 +4,7 @@ import '../../styles/promptStudio.css';
 import { avatarOf } from '../../lib/aiAvatars';
 
 // 🎭 PROMPT STUDIO (owner, 2026-10-22: "context prompts and suggested prompts for all models — 3 auto-generated ELITE SUPREME PERSONAS and DEGEN
-// TRENCH prompts for each model … auto-tuned to fix the mindset, quick but patient when in profit"). Brain › 🎭 Prompts: pick G4 · OSSY · NEXA →
+// TRENCH prompts for each model … auto-tuned to fix the mindset, quick but patient when in profit"). Brain › 🎭 Prompts: pick G4 · OSSY →
 // what it reads (the context window, layer by layer), how it is doing (its real record + what the record says is wrong), and four sets written
 // from that record. Apply = every call that model gets carries the set (LM Studio / llamafile); the desk's rules and money checks never change.
 const SET_ART = {
@@ -18,7 +18,7 @@ const SET_ART = {
   tuned: <svg viewBox="0 0 48 48" aria-hidden="true"><path d="M8 32 A17 17 0 0 1 40 32" fill="none" stroke="#3b2a66" strokeWidth="6" strokeLinecap="round" /><path d="M8 32 A17 17 0 0 1 30 16.5" fill="none" stroke="#b79bff" strokeWidth="6" strokeLinecap="round" />
     <line className="pst-needle" x1="24" y1="32" x2="33" y2="19" stroke="#fff" strokeWidth="2.4" strokeLinecap="round" /><circle cx="24" cy="32" r="3.5" fill="#b79bff" /><path d="M14 40 h20" stroke="#6a4fc9" strokeWidth="2" strokeLinecap="round" /></svg>,
 };
-const LAYER_TIP = { job: 'The prompt its main job sends — the seat rules (G4 / OSSY) or her one-word desk calls (NEXA)', identity: 'Who it is, sent on chat calls',
+const LAYER_TIP = { job: 'The prompt its main job sends — the seat rules', identity: 'Who it is, sent on chat calls',
   brain: 'The owner brain prompt its background coin reads carry', studio: 'The mindset you applied here — appended to every call it gets' };
 const sgn = v => (v == null ? '—' : `${v >= 0 ? '+' : ''}${Number(v).toFixed(1)}%`);
 const ago = at => { const s = Math.max(0, Math.round(Date.now() / 1000 - (Number(at) || 0))); return s < 3600 ? `${Math.max(1, Math.round(s / 60))}m` : s < 86400 ? `${Math.round(s / 3600)}h` : `${Math.round(s / 86400)}d`; };
@@ -133,8 +133,8 @@ export function PromptStudio({ call }) {
     try { const r = await call('/admin/ai/prompts', { method: 'POST', body: JSON.stringify(body) }); setD(r); toast.success(word); } catch (e) { toast.error(String(e?.message || e)); } finally { setBusy(false); }
   };
   if (!d) return <div className="pst m-card is-load" data-testid="pst">{err ? <p className="m-note">🎭 {err}</p> : <p className="pst-wait"><i /><i /><i /> reading every model's prompt + record…</p>}</div>;
-  const w = windowOf(m); const r = m.record || {}; const nexa = m.key === 'win';
-  const won = nexa ? r.yesRight : r.wonPct;
+  const w = windowOf(m); const r = m.record || {};
+  const won = r.wonPct;
   return <div className="pst m-card m-live" data-testid="pst">
     <header className="pst-head"><span><b className="m-label">🎭 PROMPT STUDIO</b><small>what each model reads · how it trades · the mindset you give it</small></span>
       <div className="m-seg pst-models" role="tablist" aria-label="Model">{d.models.map(x => <button key={x.key} type="button" role="tab" aria-selected={x.key === m.key} className={x.key === m.key ? 'active' : ''}
@@ -154,14 +154,14 @@ export function PromptStudio({ call }) {
           {peek === l.k && l.text ? <pre className="pst-pre">{l.text}</pre> : null}</li>)}</ol>
       </section>
       <section className="pst-rec" data-testid="pst-rec">
-        <p className="pst-h"><b>THE RECORD</b><small>{nexa ? 'her graded YES calls' : 'real closed seat trades · ledger'}</small></p>
+        <p className="pst-h"><b>THE RECORD</b><small>real closed seat trades · ledger</small></p>
         <div className="pst-vit">
-          <span className="pst-ring is-won" style={{ '--p': won ?? 0 }} data-tip={nexa ? 'Share of her YES calls the market proved right' : 'Share of its real trades that closed green'}><b key={won}>{won == null ? '—' : `${won}%`}</b><small>{nexa ? 'right' : 'won'}</small></span>
-          <span className="pst-kv"><em>{nexa ? 'YES CALLS' : 'TRADES'}</em><b key={nexa ? r.yesN : r.n}>{nexa ? r.yesN || 0 : r.n || 0}</b></span>
-          <span className={`pst-kv ${(nexa ? r.yesTypical : r.avgPct) >= 0 ? 'is-up' : 'is-dn'}`}><em>{nexa ? 'TYPICAL' : 'AVG / TRADE'}</em><b key={r.avgPct}>{sgn(nexa ? r.yesTypical : r.avgPct)}</b></span>
-          <span className="pst-kv"><em>{nexa ? 'CALLS' : 'MED HOLD'}</em><b>{nexa ? r.yesN || 0 : r.medHeld == null ? '—' : `${Math.round(r.medHeld)}m`}</b></span>
-          {!nexa ? <span className="pst-kv"><em>ANSWERS</em><b>{r.answerPct == null ? '—' : `${r.answerPct}%`}</b></span> : null}
-          {!nexa ? <span className="pst-kv"><em>THINK</em><b>{r.medMs == null ? '—' : `${(r.medMs / 1000).toFixed(0)}s`}</b></span> : null}</div>
+          <span className="pst-ring is-won" style={{ '--p': won ?? 0 }} data-tip="Share of its real trades that closed green"><b key={won}>{won == null ? '—' : `${won}%`}</b><small>won</small></span>
+          <span className="pst-kv"><em>TRADES</em><b key={r.n}>{r.n || 0}</b></span>
+          <span className={`pst-kv ${r.avgPct >= 0 ? 'is-up' : 'is-dn'}`}><em>AVG / TRADE</em><b key={r.avgPct}>{sgn(r.avgPct)}</b></span>
+          <span className="pst-kv"><em>MED HOLD</em><b>{r.medHeld == null ? '—' : `${Math.round(r.medHeld)}m`}</b></span>
+          <span className="pst-kv"><em>ANSWERS</em><b>{r.answerPct == null ? '—' : `${r.answerPct}%`}</b></span>
+          <span className="pst-kv"><em>THINK</em><b>{r.medMs == null ? '—' : `${(r.medMs / 1000).toFixed(0)}s`}</b></span></div>
         <p className="pst-h"><b>WHAT THE RECORD SAYS</b><small>{m.fixes?.length ? `${m.fixes.length} habit${m.fixes.length === 1 ? '' : 's'} to fix` : 'nothing to fix'}</small></p>
         {m.fixes?.length ? <ul className="pst-fixes">{m.fixes.map((f, i) => <li key={f.key} style={{ '--i': i }} data-tip={f.rule}><b>{f.title}</b><small>{f.evidence}</small></li>)}</ul>
           : <p className="pst-ok">✓ {r.n || r.yesN ? 'no losing habit shows in the record' : 'no closed record yet — the sets still use the trench theory'}</p>}

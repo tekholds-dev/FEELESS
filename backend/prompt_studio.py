@@ -1,18 +1,18 @@
 """🎭 PROMPT STUDIO (owner, 2026-10-22: "context prompts and suggested prompts for all models — 3 auto-generated ELITE SUPREME PERSONAS and
-DEGEN TRENCH prompts for each model, so if G4, OSSY or NEXA's trading style isn't working we can have prompts auto-tuned to fix the mindset:
+DEGEN TRENCH prompts for each model, so if G4 or OSSY's trading style isn't working we can have prompts auto-tuned to fix the mindset:
 quick, but patient when in profit — rush is good and progressive"). Pure + tested; the service reads the records, the router applies.
 
 Every model gets three prompt SETS written from its OWN record (its numbers are in the text) plus an AUTO-TUNED set built from what that record
 says is wrong (`diagnose`). A set is an OVERLAY: the owner applies it and the router appends it to the system prompt of EVERY call that model
-gets — G4 / OSSY on LM Studio, NEXA on her llamafile. Only the MINDSET changes: the trading rules, the answer schema and every money check stay.
+gets — G4 / OSSY on LM Studio. Only the MINDSET changes: the trading rules, the answer schema and every money check stay.
 One active overlay per model; revert = none. `since` grades the overlay on the trades that closed after it was applied.
 """
 
-KEYS = ('lan', 'local', 'win')
-NAMES = {'lan': 'G4', 'local': 'OSSY', 'win': 'NEXA'}
+KEYS = ('lan', 'local')
+NAMES = {'lan': 'G4', 'local': 'OSSY'}
 SETS = ('elite', 'degen', 'progressive', 'tuned')
 LABEL = {'elite': 'ELITE', 'degen': 'DEGEN TRENCH', 'progressive': 'PROGRESSIVE', 'tuned': 'AUTO-TUNED'}
-MAX_CHARS = {'lan': 900, 'local': 900, 'win': 320}   # NEXA answers ONE word on a 4K window: her overlay stays tiny
+MAX_CHARS = {'lan': 900, 'local': 900}
 DIAL_KEYS = ('speed', 'patience', 'risk', 'discipline')
 GIVE_PEAK, GIVE_KEEP = 10.0, 2.0    # peaked ≥ +10 % and closed ≤ +2 % = a winner ridden back
 QUICK_MIN = 15.0                     # the card's law: holds under 15 min lose
@@ -34,7 +34,7 @@ def _med(xs):
 
 def stats(trades=None, calls=None, bench=None, grades=None):
     """A model's record → the numbers every set is written from. trades = closed real trades [{pct, peak, heldMin}]; calls = its call log
-    [{action, ms}]; bench = ai_seat.bench(); grades = NEXA's record {'favor': {n, rightPct, typical}}. Unknown stays None, never 0."""
+    [{action, ms}]; bench = ai_seat.bench(); Unknown stays None, never 0."""
     tr = [t for t in trades or [] if _f((t or {}).get('pct')) is not None]
     pct = [_f(t['pct']) for t in tr]
     wins, losses = [p for p in pct if p > 0], [p for p in pct if p <= 0]
@@ -123,30 +123,24 @@ def sets(key, st, fixes=None, best=None):
     `best` = the ladder's proven-best mindset: AUTO-TUNED keeps its core (owner, 2026-10-23: "G4 was losing — better auto-updated prompts")."""
     nm, s, fx = NAMES.get(key, key), st or {}, list(fixes or [])
     rec = _line(s)
-    if key == 'win':   # NEXA: one word (YES / NO · HOLD / SELL) + ≤ 8 words — her overlay is a criteria line, not an essay
-        body = {'elite': 'Be the sniper: YES only when graduated, cap under $30K, buyers over 55 %, pool over $10K. Else NO. HOLD a clean trend, SELL a dying one.',
-                'degen': 'Trench law: under 15 min old or still on the curve = NO. Graduated + buyers leading + a higher low = YES. Sellers leading = SELL.',
-                'progressive': 'Quick YES on a confirmed move (buyers leading, rising volume). Once green, HOLD while the trend holds. Red and fading = SELL now.',
-                'tuned': ' '.join(f['rule'] for f in fx) or 'Keep your style: YES needs three facts agreeing; SELL when buyers leave.'}
-    else:
-        body = {'elite': (f"ELITE MINDSET — {nm}, the family's sniper. Few trades, all clean: if fewer than three facts agree (trend, buyers, pool), WAIT. "
-                          "Set TP / SL before the buy and size only what the pool can take back. Once set, only the chart breaks your lines. "
-                          f"Pick the setups that paid and nothing else — {rec}. Calm, exact, numbers in every line."),
-                'degen': (f"DEGEN TRENCH MINDSET — {nm}, born in the trenches, ruled by the laws: a coin under 15 min old loses, the bonding curve is the worst bucket, "
-                          "graduated under $30K is the one setup that pays, exits are set before entry (+50 / −30). The germ floor is the base before the pump: "
-                          "above it with buyers over 55 % and a higher low, you send it. A fresh pump with sellers leading is exit liquidity — never yours. "
-                          f"Jeets dump the first green; you hold the germ, not the candle. {rec[0].upper() + rec[1:]}."),
-                'progressive': (f"PROGRESSIVE MINDSET — {nm}: quick in, patient in profit. RUSH the entry once the move is confirmed (buyers leading, a higher low, "
-                                "volume rising): hesitation costs the best fill. Once green, SLOW DOWN: trail the peak, let +10 % become +30 %, trim a third at +25 % "
-                                "and ride the rest. Red early = cut at your line, no hope holds. Speed on the way in, patience on the way up, zero patience on the way down. "
-                                f"{rec[0].upper() + rec[1:]}."),
-                'tuned': (f"AUTO-TUNED for {nm} from {rec}. Fix these habits first: " + ' '.join(f"({i + 1}) {f['rule']}" for i, f in enumerate(fx))
-                          + (f" Your winners held a median {s['winHeld']:.0f} min, your losers {s['lossHeld']:.0f} min — hold like your winners."
-                             if s.get('winHeld') is not None and s.get('lossHeld') is not None and abs(s['winHeld'] - s['lossHeld']) >= 5 else '')
-                          + (f" Your best proven mindset is {LABEL[best['set']]} ({best['avgPct']:+.1f} % avg over {best['n']} trades): keep its core."
-                             if best else '')
-                          + " Everything else: your own style.") if fx else (f"AUTO-TUNED for {nm}: the record shows no losing habit yet ({rec}). Keep your style; "
-                                                                             f"one upgrade — once a trade is +{GIVE_PEAK:g} %, the stop goes to break-even.")}
+    body = {'elite': (f"ELITE MINDSET — {nm}, the family's sniper. Few trades, all clean: if fewer than three facts agree (trend, buyers, pool), WAIT. "
+                      "Set TP / SL before the buy and size only what the pool can take back. Once set, only the chart breaks your lines. "
+                      f"Pick the setups that paid and nothing else — {rec}. Calm, exact, numbers in every line."),
+            'degen': (f"DEGEN TRENCH MINDSET — {nm}, born in the trenches, ruled by the laws: a coin under 15 min old loses, the bonding curve is the worst bucket, "
+                      "graduated under $30K is the one setup that pays, exits are set before entry (+50 / −30). The germ floor is the base before the pump: "
+                      "above it with buyers over 55 % and a higher low, you send it. A fresh pump with sellers leading is exit liquidity — never yours. "
+                      f"Jeets dump the first green; you hold the germ, not the candle. {rec[0].upper() + rec[1:]}."),
+            'progressive': (f"PROGRESSIVE MINDSET — {nm}: quick in, patient in profit. RUSH the entry once the move is confirmed (buyers leading, a higher low, "
+                            "volume rising): hesitation costs the best fill. Once green, SLOW DOWN: trail the peak, let +10 % become +30 %, trim a third at +25 % "
+                            "and ride the rest. Red early = cut at your line, no hope holds. Speed on the way in, patience on the way up, zero patience on the way down. "
+                            f"{rec[0].upper() + rec[1:]}."),
+            'tuned': (f"AUTO-TUNED for {nm} from {rec}. Fix these habits first: " + ' '.join(f"({i + 1}) {f['rule']}" for i, f in enumerate(fx))
+                      + (f" Your winners held a median {s['winHeld']:.0f} min, your losers {s['lossHeld']:.0f} min — hold like your winners."
+                         if s.get('winHeld') is not None and s.get('lossHeld') is not None and abs(s['winHeld'] - s['lossHeld']) >= 5 else '')
+                      + (f" Your best proven mindset is {LABEL[best['set']]} ({best['avgPct']:+.1f} % avg over {best['n']} trades): keep its core."
+                         if best else '')
+                      + " Everything else: your own style.") if fx else (f"AUTO-TUNED for {nm}: the record shows no losing habit yet ({rec}). Keep your style; "
+                                                                         f"one upgrade — once a trade is +{GIVE_PEAK:g} %, the stop goes to break-even.")}
     base = {'elite': {'speed': 35, 'patience': 80, 'risk': 25, 'discipline': 95}, 'degen': {'speed': 75, 'patience': 55, 'risk': 70, 'discipline': 60},
             'progressive': {'speed': 85, 'patience': 85, 'risk': 55, 'discipline': 80}, 'tuned': {'speed': 60, 'patience': 60, 'risk': 50, 'discipline': 70}}
     tag = {'elite': 'few trades · all clean', 'degen': 'germ floor · trench laws', 'progressive': 'rush in · ride green · cut red',
@@ -182,15 +176,15 @@ def since(trades, at):
 
 # ── 🤖 AUTO-TUNE + 🏆 the MINDSET LADDER (owner, 2026-10-22: "apply the AUTO-TUNED set automatically when a model's record turns red, plus a
 # ladder of which mindset paid most per model") ──────────────────────────────────────────────────────────────────────────────────────────
-RECENT_N = 10                 # "turned red" is read on the last 10 closed trades (NEXA: her last graded YES calls)
-RED_WON = 40                  # red = losing on average AND under 40 % won (NEXA: her YES calls, judged the same way)
+RECENT_N = 10                 # "turned red" is read on the last 10 closed trades
+RED_WON = 40                  # red = losing on average AND under 40 % won
 AUTO_COOLDOWN = 6 * 3600.0    # any applied set (yours or the auto one) gets 6 h to prove itself before the switch moves it
 HIST_KEEP = 200
 AUTO_DEFAULT = ('lan', 'local')   # 🤖 owner, 2026-10-23: "G4 was losing so I asked for auto-updated prompts" — the seat models' switch is ON until the owner turns it off
 
 
 def auto_on(raw, key):
-    """Is the auto-tune switch on for this model? The owner's own choice wins; never set = ON for the seat models (G4, OSSY), off for NEXA."""
+    """Is the auto-tune switch on for this model? The owner's own choice wins; never set = ON for the seat models (G4, OSSY)."""
     a = (raw or {}).get('auto') if isinstance(raw, dict) else None
     return bool(a[key]) if isinstance(a, dict) and key in a else key in AUTO_DEFAULT
 PLAIN = 'plain'
@@ -200,11 +194,6 @@ def recent(trades, n=RECENT_N):
     """The record of the last `n` closed trades (oldest → newest by open time)."""
     tr = sorted([t for t in trades or [] if _f((t or {}).get('pct')) is not None], key=lambda t: _f(t.get('at')) or 0.0)
     return stats(tr[-n:])
-
-
-def nexa_trades(grades):
-    """NEXA's graded YES calls in the trade shape the ladder reads ({pct = the move after the call, at})."""
-    return [{'pct': g.get('res'), 'at': g.get('at')} for g in grades or [] if isinstance(g, dict) and g.get('call') == 'favor' and g.get('res') is not None]
 
 
 def is_red(st):

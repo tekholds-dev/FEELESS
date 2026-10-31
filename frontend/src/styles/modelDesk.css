@@ -8,7 +8,7 @@
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, .07); animation: mdkIn .35s ease-out both; animation-delay: calc(var(--i, 0) * 60ms); transition: transform .16s, border-color .16s, box-shadow .16s; }
 .mdk-vc::after { content: ''; position: absolute; inset: -50% -80%; z-index: -1; pointer-events: none; background: linear-gradient(110deg, transparent 44%, color-mix(in srgb, var(--c) 14%, transparent) 50%, transparent 56%);
   transform: translateX(-60%); animation: mdkSweep 8s ease-in-out infinite; animation-delay: calc(var(--i, 0) * 1.6s); }
-.mdk-vc.k-local { --c: var(--os); } .mdk-vc.k-win { --c: var(--nx); }
+.mdk-vc.k-local { --c: var(--os); }
 .mdk-vc:hover { transform: translateY(-2px); border-color: color-mix(in srgb, var(--c) 55%, transparent); } .mdk-vc:active { transform: scale(.99); }
 .mdk-vc:focus-visible, .mdk-tabs button:focus-visible, .mdk-seg button:focus-visible { outline: 2px solid var(--m-accent); outline-offset: 2px; }
 .mdk-vc.is-on { border-color: var(--c); box-shadow: 0 0 0 1px var(--c), 0 0 24px -8px var(--c), inset 0 1px 0 rgba(255, 255, 255, .1); }
@@ -35,7 +35,7 @@
 /* the picked model */
 .mdk-panel { --c: var(--g4); display: grid; gap: 9px; padding: 12px; border-radius: 14px; border: 1px solid color-mix(in srgb, var(--c) 30%, transparent);
   background: linear-gradient(170deg, color-mix(in srgb, var(--c) 9%, #090d13), #06090d 40%); box-shadow: inset 0 1px 0 rgba(255, 255, 255, .07); }
-.mdk-panel.k-local { --c: var(--os); } .mdk-panel.k-win { --c: var(--nx); }
+.mdk-panel.k-local { --c: var(--os); }
 .mdk-ph { display: flex; flex-wrap: wrap; gap: 4px 10px; align-items: baseline; } .mdk-ph b { font: 900 16px var(--m-mono); letter-spacing: .1em; color: var(--c); text-shadow: 0 0 14px color-mix(in srgb, var(--c) 45%, transparent); }
 .mdk-ph span { font: 700 12px var(--m-mono); color: var(--m-text); } .mdk-ph small { font: 600 9.5px var(--m-mono); color: var(--m-mute); }
 .mdk-tabs { width: 100%; } .mdk-tabs button { flex: 1; min-height: 32px; font-size: 10px; }

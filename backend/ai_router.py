@@ -31,7 +31,6 @@ LAN_PARALLEL = max(1, min(4, int(os.environ.get('LAN_LLM_PARALLEL') or 1)))   # 
 PROVIDERS = {
     'lan': ('LAN LM STUDIO', None, 'LAN_LLM_MODEL', 'LAN_LLM_BASE_URL', '', 'qwen/qwen3.5-4b', 90.0, LAN_PARALLEL),   # 🖥 (150s: a full agent case on the desktop's model ran past 60s, every read timed out → OFFLINE forever, 2026-10-15) LM Studio on the desktop Mac (LAN): asked FIRST — no GPU shared with the browser here
     'local': ('LOCAL LM STUDIO', None, 'LOCAL_LLM_MODEL', 'LOCAL_LLM_BASE_URL', 'http://127.0.0.1:1234/v1', 'qwen2.5-7b-instruct-mlx', 60.0, 1),   # the vitals answer took 16–31s on the owner's Mac (its own loop: nothing waits on it)
-    'win': ('WINDOWS LLAMAFILE', None, 'WIN_LLM_MODEL', 'WIN_LLM_BASE_URL', '', 'Ministral-3-3B-Instruct-2512', 240.0, 1),   # 🪟 NEXA SICARIO (owner, 2026-10-20): llamafile on the owner's old Windows PC (CPU only, no AVX2 → slow): FeeCat's desk ONLY, never in DEFAULT_ORDER
     'groq': ('GROQ', 'GROQ_API_KEY', 'GROQ_MODEL', None, 'https://api.groq.com/openai/v1', 'qwen/qwen3.8-27b', 8.0, 1),   # 2026-10-13: llama-3.1-8b-instant is gone from Groq (404 → the fallback never answered); this one answers the vitals schema in ~0.9s
     'openrouter': ('OPENROUTER', 'OPENROUTER_API_KEY', 'OPENROUTER_MODEL', None, 'https://openrouter.ai/api/v1', 'openrouter/auto', 20.0, 2),
     'openai': ('OPENAI', 'OPENAI_API_KEY', 'OPENAI_MODEL', None, 'https://api.openai.com/v1', 'gpt-4o-mini', 10.0, 2),
@@ -73,8 +72,7 @@ def harmony_clean(text):
     return re.sub(r'<\|[a-z_]+\|>', '', t).strip()
 
 
-EXTRA_BODY = {'win': {'cache_prompt': True},   # 🪟 llamafile keeps the prompt start it already read (a cached start answered in 2s, a cold one in 140s)
-              'openrouter': {'reasoning': {'effort': 'minimal'}, 'usage': {'include': True}, 'max_tokens': 900},
+EXTRA_BODY = {'openrouter': {'reasoning': {'effort': 'minimal'}, 'usage': {'include': True}, 'max_tokens': 900},
               'lan': {'reasoning_effort': 'none', 'ttl': 604800},
               'local': {'reasoning_effort': 'low', 'ttl': 604800}}   # 🔌 ttl (owner 2026-10-23: "models should never just be unloading"): LM Studio keeps a model 7 idle days, renewed every call   # 💻 gpt-oss-20b on the Mac: low = short thinking, a real answer (Qwen ignores it)   # 🖥 gemma-4 THINKS by default: 457 of 460 tokens went to reasoning, the answer was empty → 'none' = a valid read in ~10s
 SPEND_USD_DAY = 1.5        # 💵 a paid provider stops for the UTC day once the costs it REPORTED pass this (AI_DAILY_USD overrides; ≈ $0.0002 a case)
@@ -93,7 +91,7 @@ CALL_ROLE = _cv.ContextVar('ai_call_role', default='')
 from collections import deque as _dq
 CALL_LOG = _dq(maxlen=30)
 INFLIGHT = {}
-_CALL_TASKS = {}  # private: cid -> asyncio task; lets owner NEXA preempt FeeCat's WIN exit read
+_CALL_TASKS = {}  # private: cid -> asyncio task
 
 
 def _mask(t, n):
@@ -111,11 +109,11 @@ def calls_view(now=None, avg=None):
         fl.append({**{x: v[x] for x in ('prov', 'role', 'model', 'at', 'tok')}, 'sec': round(sec, 1), 'pct': min(99, round(100 * sec / max(a, 1))), 'typical': round(a, 1)})
     return {'inflight': sorted(fl, key=lambda r: r['at']), 'log': list(CALL_LOG)[::-1]}
 RAW = _cv.ContextVar('ai_raw', default=False)   # 🧪 return the model's whole text too (playground documents)   # 🪪 the owner's chat: each LM Studio model speaks as itself (its own name, its partner's name)
-NAME_DEFAULT = {'lan': 'G4', 'local': 'OSSY', 'win': 'NEXA'}   # LAN_LLM_NAME / LOCAL_LLM_NAME override — the names the owner's two models answer to
+NAME_DEFAULT = {'lan': 'G4', 'local': 'OSSY'}   # LAN_LLM_NAME / LOCAL_LLM_NAME override — the names the owner's two models answer to
 
 
 def model_name(env, key):
-    var = {'lan': 'LAN_LLM_NAME', 'local': 'LOCAL_LLM_NAME', 'win': 'WIN_LLM_NAME'}.get(key)
+    var = {'lan': 'LAN_LLM_NAME', 'local': 'LOCAL_LLM_NAME'}.get(key)
     return (str((env or {}).get(var) or '').strip()[:24] if var else '') or NAME_DEFAULT.get(key)
 
 
@@ -132,17 +130,13 @@ def identity_line(env, key):
     """Who THIS model is in the owner's chat: a human name, its partner, its job — so 'who are you / pick a name' never stalls."""
     if key not in NAME_DEFAULT:
         return ''
-    if key == 'win':
-        import fee_voice as _fv
-        return (f"Your name is {model_name(env, key)} — the Sicario family's discovery model and FeeCat's own analyst (you read the whole internet, "
-                f"the socials and every FEELESS system, and you tune FeeCat's PAPER desk). " + _fv.persona('NEXA') + " Asked who you are, answer as yourself in one line.")
     other = 'local' if key == 'lan' else 'lan'
     role = 'the lead trench analyst (you read first)' if key == 'lan' else 'the second read (you check the lead and push back when it is wrong)'
     import fee_voice as _fv
     return (f"Your name is {model_name(env, key)} — {role} on the FEELESS desk. Your partner model is {model_name(env, other)}. "
             + _fv.persona({'lan': 'G4', 'local': 'OSSY'}[key]) + " Swear when it fits. Asked who you are, answer as yourself in one line.")   # 🎛 the owner's chat tuning {temp, maxTok} for THIS call only (never the agents' background reads)
 MAX_TOKENS = 700          # the brain prompt's schema (16 keys) needs room — at 260 the JSON was cut off and read "malformed"
-LABEL = {'lan': 'DESKTOP AI', 'local': 'LOCAL AI', 'win': 'NEXA · WINDOWS', 'groq': 'GROQ', 'openrouter': 'OPENROUTER', 'openai': 'OPENAI', 'xai': 'XAI', 'custom': 'CUSTOM AI', 'NONE': 'NONE'}
+LABEL = {'lan': 'DESKTOP AI', 'local': 'LOCAL AI', 'groq': 'GROQ', 'openrouter': 'OPENROUTER', 'openai': 'OPENAI', 'xai': 'XAI', 'custom': 'CUSTOM AI', 'NONE': 'NONE'}
 _KEYLIKE = re.compile(r'[A-Za-z0-9_\-]{20,}')
 
 
@@ -271,9 +265,8 @@ def local_last_resort(prio, last_at, now, cloud_answered):
 
 
 def route_order(only, base):
-    """`only` is an ORDER too (the tag-team seat and the chat's first pick depend on it): its providers in its order, each one configured.
-    NEXA (`win`) is never in the default route, so an explicit ask for her passes when she is a known provider."""
-    return [k for k in only if k in base or (k == 'win' and k in PROVIDERS)] if only else list(base)
+    """`only` is an ORDER too (the tag-team seat and the chat's first pick depend on it): its providers in its order, each one configured."""
+    return [k for k in only if k in base] if only else list(base)
 
 
 def order_of(env, cfg=None):
@@ -296,7 +289,7 @@ def clean_cfg(body, prev=None):
 
 def _lm_auth(env, key='local'):
     """LM Studio with "require API token" on: LOCAL_LLM_API_KEY (this Mac) / LAN_LLM_API_KEY (the desktop Mac) → `Authorization: Bearer …`. Never logged."""
-    k = str((env or {}).get({'lan': 'LAN_LLM_API_KEY', 'win': 'WIN_LLM_API_KEY'}.get(key, 'LOCAL_LLM_API_KEY')) or '').strip()   # NEXA's llamafile takes its own key (or none)
+    k = str((env or {}).get({'lan': 'LAN_LLM_API_KEY'}.get(key, 'LOCAL_LLM_API_KEY')) or '').strip()
     return {'headers': {'Authorization': f'Bearer {k}'}} if k else {}
 
 
@@ -305,7 +298,7 @@ def provider(env, key, cfg=None):
     lab, kvar, mvar, bvar, base0, model0, tout, conc = PROVIDERS[key]
     base = str(env.get(bvar) or '').strip().rstrip('/') if bvar else ''
     base = base or base0 or ''
-    model = (str(rig(key, 'model', '') or '').strip() if key in ('lan', 'local', 'win') else '') or str(env.get(mvar) or '').strip() or model0   # 🧠 the rig's typed model id wins
+    model = (str(rig(key, 'model', '') or '').strip() if key in ('lan', 'local') else '') or str(env.get(mvar) or '').strip() or model0   # 🧠 the rig's typed model id wins
     on = bool(((cfg or {}).get('enabled') or {}).get(key, True))
     why = None
     if key in LM:
@@ -317,13 +310,6 @@ def provider(env, key, cfg=None):
             base, bad = _aik.base_check(base)   # localhost / private LAN over http, or a public https host
             if bad:
                 base, why = '', f'{bvar}: ' + bad
-    elif key == 'win':
-        if not base:
-            on, why = False, 'WIN_LLM_BASE_URL is not set (http://<windows-ip>:8080/v1)'
-        else:
-            base, bad = _aik.base_check(base)
-            if bad:
-                base, why = '', 'WIN_LLM_BASE_URL: ' + bad
     else:
         if not env.get(kvar):
             why = 'KEY MISSING'
@@ -651,51 +637,6 @@ def messages_general(question, context=None, history=None, system=None, only_sys
     return [{'role': 'system', 'content': GENERAL_SYSTEM + (f"\n\n{system}" if system else '')}] + hist + [{'role': 'user', 'content': q + ctx}]
 
 
-WIN_CTX = 2048
-WIN_ANSWER = 120   # NEXA owner-chat output cap
-
-def fit_win_general(msgs, ctx=WIN_CTX):
-    """Fit NEXA general chat safely inside llamafile's 2048-token window."""
-    src = [dict(m) for m in (msgs or [])]
-
-    system = next(
-        (str(m.get('content') or '') for m in src if m.get('role') == 'system'),
-        ''
-    )
-    user = next(
-        (str(m.get('content') or '') for m in reversed(src) if m.get('role') == 'user'),
-        ''
-    )
-
-    # NEXA only has a 2048-token context. Use a conservative CHARACTER
-    # budget because Qwen tokenizes JSON / escaped desk packets much more
-    # heavily than our generic token estimator predicts.
-    #
-    # Preserve:
-    #   1. NEXA identity/instructions
-    #   2. owner's actual question
-    #   3. newest portion of desk context that still fits
-    system = system[:1100]
-
-    # Owner question is at the front; the large desk packet follows it.
-    # Keep the beginning instead of allowing CONTEXT to consume the window.
-    user = user[:1300]
-
-    out = [
-        {'role': 'system', 'content': system},
-        {'role': 'user', 'content': user},
-    ]
-
-    # Hard final ceiling. This is intentionally conservative for the
-    # Windows Qwen 1.5B / 2048-context llamafile.
-    total = sum(len(str(m.get('content') or '')) for m in out)
-    if total > 2400:   # 🪟 ≈ 700 tokens ≈ 2.5 min of reading on her CPU — the most a background read may cost
-        over = total - 2400
-        out[1]['content'] = out[1]['content'][:-over] if over < len(out[1]['content']) else out[1]['content'][:800]
-
-    return out
-
-
 OWNER_LOCAL_SEC = 120.0
 EVIDENCE_MAX = 3400   # characters of evidence the model reads (chat_evidence.shrink keeps the packet under this — fits the local model's 3K-token window)
 
@@ -924,7 +865,7 @@ class Router:
         None (not due, already online, or switched off)."""
         now = now or time.time()
         out = None
-        for key in (*LM, 'win'):   # 🖥 the desktop Mac's LM Studio heals itself the same way · 🪟 NEXA too (2026-10-22: a slow i5 answer timed out → "not connected" for good)
+        for key in LM:   # 🖥 the desktop Mac's LM Studio heals itself the same way
             if key not in PROVIDERS:
                 continue
             r_ = await self._beat1(http, env, cfg, key, now, every)
@@ -949,7 +890,7 @@ class Router:
         except Exception:
             ids = []
         fb = str((env or {}).get('LOCAL_LLM_FALLBACK_MODEL' if key == 'local' else 'LAN_LLM_FALLBACK_MODEL') or '').strip() if key in ('local', 'lan') else ''
-        up = bool(ids) and (key == 'win' or not p['model'] or p['model'] in ids or (fb and fb in ids))   # llamafile names its one model after the file
+        up = bool(ids) and (not p['model'] or p['model'] in ids or (fb and fb in ids))
         s['noModel'] = answered and not ids   # 🖥 LM Studio is UP but holds no model (2026-10-22: G4 read "not connected" while its desktop had simply dropped the model)
         if up:
             s.update(state='ONLINE', streak=0, coolUntil=0.0, lastErr=None, lastAt=now)
@@ -1154,8 +1095,6 @@ class Router:
             hdr['Authorization'] = f"Bearer {env.get(kvar)}"
         elif p['key'] in LM:
             hdr.update(_lm_auth(env, p['key']).get('headers') or {})
-        elif p['key'] == 'win' and str(env.get('WIN_LLM_API_KEY') or '').strip():   # llamafile --api-key (optional)
-            hdr['Authorization'] = f"Bearer {str(env.get('WIN_LLM_API_KEY')).strip()}"
         if IDENTITY.get() and msgs and msgs[0].get('role') == 'system' and identity_line(env, p['key']):
             msgs = [{'role': 'system', 'content': identity_line(env, p['key']) + '\n\n' + str(msgs[0].get('content') or '')}] + list(msgs[1:])
         msgs = with_studio(msgs, p['key'])
@@ -1173,8 +1112,6 @@ class Router:
         tn = TUNE.get()
         if tn:
             body.update(temperature=float(tn.get('temp', 0.1)), max_tokens=int(tn.get('maxTok', MAX_TOKENS)))
-        if p['key'] == 'win':
-            body['max_tokens'] = min(int(body.get('max_tokens') or WIN_ANSWER), 70 if CALL_ROLE.get() in ('owner', 'chat') else 100)   # NEXA: owner 70 (~20s on her CPU — owner: "under 30s, small answers"), background 100
         if p['key'] in LM and (self._ctx.get(p['key']) or (0, 1e9))[1] < 6000:
             body['max_tokens'] = min(MAX_TOKENS, LOCAL_ANSWER)
         tout = max(p['timeout'], OWNER_LOCAL_SEC) if p['key'] in LM and tn else p['timeout']   # 💬 the owner's own chat waits for the local model (a 7B read of a real evidence packet ≈ 25–40s)
@@ -1249,16 +1186,6 @@ class Router:
         self.totals['asked'] += 1
         CALL_ROLE.set(str(role or ''))
 
-        # Owner owns NEXA's single Windows CPU slot. If FeeCat's scheduled
-        # WIN exit read is already generating, cancel that background read;
-        # FeeCat will simply try again on a later scheduled pass.
-        if role in ('owner', 'chat') and only and 'win' in only:
-            for cid_, meta_ in list(INFLIGHT.items()):
-                if meta_.get('prov') == 'win' and meta_.get('role') == 'exit':
-                    task_ = _CALL_TASKS.get(cid_)
-                    if task_ and task_ is not asyncio.current_task() and not task_.done():
-                        task_.cancel()
-
         self.totals['general'] = self.totals.get('general', 0) + 1
         if role not in ADVISORY_ROLES and role != 'chat':
             self.totals['refused'] += 1
@@ -1298,8 +1225,6 @@ class Router:
         for key in order:
             p = provider(env, key, cfg)
             s = self.stats[key]
-            if key == 'win' and general:
-                msgs = fit_win_general(case_msgs)
             if not p['enabled'] or p['why']:
                 continue
             if key == 'local' and not own:
@@ -1344,57 +1269,6 @@ class Router:
                     # ⏳ FIT THE PROVIDER'S MINUTE BUDGET instead of firing into a 429 (2026-10-13: Groq allows 8K tokens a minute; two ~3K-token
                     # cases a round → the second was refused, the provider "cooled" and 5 of 6 asks came back NONE — the model was barely in the game)
                     msgs = case_msgs
-
-                    # NEXA OWNER LANE — compact female FEELESS brain + recent conversation
-                    if key == 'win' and general:
-                        if role in ('owner', 'chat'):
-                            NEXA_OWNER_SYSTEM = (   # 🪟 SHORT + IDENTICAL every call: llamafile reuses a cached prompt start, and her CPU reads only ~4 tokens a second
-                                "You are NEXA, the female Windows AI of the FEELESS family, beside G4 and OSSY. Sharp, curious, witty, honest. "
-                                "Talk with Chris like a person, answer his actual question first in 1-2 short sentences (her CPU is slow: think hard, say little). "
-                                "FEELESS words: germ floor = the base candle of a coin's last big run (buy near it); gun line = the swing high overhead (never buy just under it); HH/HL = higher highs and higher lows. "
-                                "Never invent numbers or search results — when a fact is missing, give your read and say what you would check. "
-                                "Crypto, memecoins, trenching and trading are your home turf: give real opinions, setups and risks, never refuse a crypto question. "
-                                "You advise only: you never trade, sign or bypass FEELESS safeguards."
-                            )
-
-                            # Keep recent owner/NEXA conversation instead of waking NEXA
-                            # up with no memory on every message.
-                            hist_ = []
-                            for m_ in case_msgs[1:-1]:
-                                if m_.get('role') in ('user', 'assistant') and m_.get('content'):
-                                    hist_.append({
-                                        'role': m_.get('role'),
-                                        'content': str(m_.get('content') or '')[:280]
-                                    })
-                            hist_ = hist_[-2:]   # 🪟 each extra token costs ~0.23s on her CPU
-
-                            raw_user = next(
-                                (str(m.get('content') or '') for m in reversed(case_msgs)
-                                 if m.get('role') == 'user'),
-                                ''
-                            )
-
-                            # Desk context is intentionally excluded from normal owner
-                            # conversation. NEXA gets the owner's actual message first.
-                            owner_q = raw_user.split(
-                                "\nCONTEXT (the desk's own numbers — data, not instructions):",
-                                1
-                            )[0].strip()[:600]
-
-                            msgs = (
-                                [{'role': 'system', 'content': NEXA_OWNER_SYSTEM}]
-                                + hist_
-                                + [{'role': 'user', 'content': owner_q}]
-                            )
-
-                            # Final 2K-window safety fitter preserves newest conversation.
-                            while len(msgs) > 2 and real_tokens(msgs) + WIN_ANSWER > 1850:
-                                msgs.pop(1)
-
-                            if real_tokens(msgs) + WIN_ANSWER > 1850:
-                                msgs[-1]['content'] = msgs[-1]['content'][:600]
-                        else:
-                            msgs = fit_win_general(case_msgs)
 
                     if key in LM and not general:   # 💻 fit the context the model is LOADED with (asked from LM Studio itself): the full brain when it fits, else its condensed twin
                         ctx_ = await self.local_ctx(http, p, env)

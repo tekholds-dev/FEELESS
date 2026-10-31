@@ -8,41 +8,16 @@ import '../../styles/modelRig.css';
 //   ("ossy context 16k, temp 0.6") lands here as a proposal you ✅ — the same settings, the same gate (backend/ai_rig.py).
 const FIELDS = [['ctx', '🧠 PROMPT BUDGET', v => (v ? `${v / 1024}K` : 'auto'), 'How much of the context FEELESS fills per call (auto = what the model is loaded with)'],
   ['parallel', '⚡ SLOTS', v => `×${v}`, 'Calls FEELESS sends at once'], ['timeout', '⏱ TIMEOUT', v => `${v}s`, 'Seconds a call may take before it counts as a miss'],
-  ['perMin', '📞 CALLS / MIN', v => `${v}`, 'Background calls a minute (your own chat is never capped)'], ['every', '🔁 READ EVERY', v => `${v / 60}m`, 'How often NEXA reads FeeCat\'s desk']];
+  ['perMin', '📞 CALLS / MIN', v => `${v}`, 'Background calls a minute (your own chat is never capped)']];
 const LOAD = [['ctx', '🧠 CONTEXT', v => `${v / 1024}K`, 'Context length the model is LOADED with (LM Studio Load › Context Length)'],
   ['par', '⚡ AT ONCE', v => `×${v}`, 'Max concurrent predictions — LM Studio Load › Max Concurrency'],
   ['flash', '⚡ FLASH ATTN', v => (v ? 'ON' : 'OFF'), 'Flash attention — less memory, faster (llama.cpp / GGUF only)'],
   ['kv', '💾 KV CACHE', v => (v ? 'GPU' : 'RAM'), 'Where the KV cache lives — GPU is faster, RAM frees VRAM (GGUF only)'],
   ['batch', '📦 EVAL BATCH', v => `${v}`, 'Prompt tokens processed per batch (GGUF only)']];
 const TEMPS = [[0.1, 'exact'], [0.3, 'sharp'], [0.6, 'loose'], [0.9, 'wild']];
-const SAY = ['ossy context 16k', 'g4 max concurrent 1', 'temp 0.6 and long answers', 'both models context 32k'];
-const AV = { lan: '/assets/ai-pfp/g4.gif', local: '/assets/ai-pfp/ossy.gif', win: null };
 const k1 = v => (v ? `${(v / 1024).toFixed(v % 1024 ? 1 : 0)}K` : '—');
-
-// 🪟 NEXA's runtime: what you saved vs what llamafile itself reports (/props + /slots). ACTIVE only when the runtime says so.
-export const NX_STATE = { active: ['✅ ACTIVE', 'ok'], applying: ['⏳ APPLYING', 'busy'], differs: ['⚠ NOT APPLIED', 'warn'], unreachable: ['✕ NEXA OFFLINE', 'bad'] };
-const ctxWord = k1;
-export function NexaRuntime({ n, busy, onAct }) {
-  if (!n) return null;
-  const [word, tone] = NX_STATE[n.state] || ['—', ''];
-  const want = n.desired; const got = n.actual;
-  const same = k => want && got && want[k] === got[k];
-  return <div className={`mrg-nx t-${tone}`} data-testid="nexa-runtime">
-    <div className="mrg-nxh"><b>{word}</b><small>{n.controller?.reachable ? '🟢 controller online' : '🔴 controller offline — settings are saved, NEXA is not changed'}</small></div>
-    <div className="mrg-nxg">
-      <span><em>WANTED</em><b>{want ? `${ctxWord(want.ctx)} × ${want.slots}` : 'auto'}</b></span>
-      <i aria-hidden>{n.state === 'applying' ? '⟳' : '→'}</i>
-      <span className={got ? (same('ctx') && same('slots') ? 'is-ok' : 'is-off') : ''}><em>RUNNING</em><b>{got ? `${ctxWord(got.ctx)} × ${got.slots}` : 'not answering'}</b>{got?.model ? <small>{got.model}</small> : null}</span>
-    </div>
-    {n.state === 'applying' ? <span className="mrg-nxbar" aria-hidden><i /></span> : null}
-    {n.job?.msg ? <p className="mrg-nxmsg">{n.job.msg}</p> : null}
-    {n.auto ? <p className="mrg-nxmsg">Pick a context (not auto) to control NEXA's runtime.</p> : null}
-    <div className="mrg-nxacts">
-      <button type="button" className="m-btn primary" disabled={!!busy || n.auto || n.state === 'applying'} onClick={() => onAct('apply')} data-testid="nexa-apply" data-tip="Restart NEXA's llamafile with the wanted context × slots">Apply to NEXA</button>
-      <button type="button" className="m-btn" disabled={!!busy || n.state === 'applying'} onClick={() => onAct('restart')} data-testid="nexa-restart" data-tip="Restart her llamafile as it is">⟳ Restart NEXA</button>
-    </div>
-  </div>;
-}
+const SAY = ['ossy context 16k', 'g4 max concurrent 1', 'temp 0.6 and long answers', 'both models context 32k'];
+const AV = { lan: '/assets/ai-pfp/g4.gif', local: '/assets/ai-pfp/ossy.gif' };
 
 // 🧠 the loaded context as a drawn ring (loaded ÷ the model's max) + one dot per concurrent slot — LM Studio's own numbers
 export function LoadedNow({ lm }) {
@@ -76,7 +51,7 @@ function Presets({ k, list, busy, onAct }) {
 export function ModelRig({ call, only = null, bare = false, cards = true }) {   // `only` = one model's card · `bare` = no header / chat strip (Brain › Models › LOAD) · `cards` false = the chat strip alone
   const [d, setD] = useState(null); const [busy, setBusy] = useState(''); const [err, setErr] = useState(''); const [note, setNote] = useState(null);
   const load = useCallback(() => call('/admin/ai/rig').then(setD).catch(e => setErr(String(e?.message || e))), [call]);
-  const applying = d?.nexa?.state === 'applying' || (d?.reloading || []).length > 0;
+  const applying = (d?.reloading || []).length > 0;
   useEffect(() => { load(); const t = setInterval(() => { if (!document.hidden) load(); }, applying ? 3000 : 20000); return () => clearInterval(t); }, [load, applying]);
   const post = async (tag, body) => {
     setBusy(tag);
@@ -85,7 +60,6 @@ export function ModelRig({ call, only = null, bare = false, cards = true }) {   
   };
   const save = (key, f, v) => post(`${key}.${f}`, { [key]: { [f]: v } });
   const want = (key, f, v) => post(`${key}.load.${f}`, { [key]: { load: { [f]: v } } });
-  const nexa = act => post(`nexa.${act}`, { nexa: act });
   const preset = async body => { setBusy(`preset.${body.key}`); try { setD(await call('/admin/ai/rig/preset', { method: 'POST', body: JSON.stringify(body) })); setErr(''); } catch (e) { setErr(String(e?.message || e)); } setBusy(''); };
   const chatSet = async patch => {
     setBusy(`chat.${Object.keys(patch)[0]}`);
@@ -127,7 +101,7 @@ export function ModelRig({ call, only = null, bare = false, cards = true }) {   
             <div className="mrg-seg">{(d.options[f] || []).map(v => <button key={v} type="button" className={r[f] === v ? 'active' : ''} disabled={!!busy}
               aria-busy={busy === `${r.key}.${f}`} onClick={() => save(r.key, f, v)} data-testid={`rig-${r.key}-${f}-${v}`}>{word(v)}</button>)}</div></div>)}</div>
         <Presets k={r.key} list={d.presets?.[r.key] || []} busy={busy} onAct={preset} />
-        {r.key === 'win' ? <NexaRuntime n={d.nexa} busy={busy} onAct={nexa} /> : <code className="mrg-cmd" data-tip="The same load as a terminal command (run it where the model lives)">{r.cmd}</code>}
+        <code className="mrg-cmd" data-tip="The same load as a terminal command (run it where the model lives)">{r.cmd}</code>
       </section>; })}</div> : null}
     {err ? <p className="mrg-err">{err}</p> : null}
   </div>;

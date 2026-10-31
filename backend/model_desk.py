@@ -1,6 +1,6 @@
 """🧠 THE MODEL DESK (owner, 2026-10-23: "the Models tab should really show all this — server settings, MCP, load, inference … more vitals for all
 models"): Brain › Models as LM Studio's own panel, per model — INFO · LOAD · INFERENCE · SERVER · MCP — plus live VITALS for every model. Pure +
-tested; the service feeds it what LM Studio (`GET /api/v1/models`), NEXA's llamafile (`/props`, `/slots`), the router's call log and the FEELESS
+tested; the service feeds it what LM Studio (`GET /api/v1/models`), the router's call log and the FEELESS
 MCP server really report. Nothing here is guessed: a field the source does not give is None and the screen says so.
 """
 import re
@@ -79,20 +79,6 @@ def lms_pick(data, model):
     """The configured model's row, else the loaded one (same rule as ai_rig.lms_row)."""
     rows = [m for m in (data or {}).get('models') or [] if isinstance(m, dict) and m.get('type') in ('llm', 'vlm', None)]
     return next((x for x in rows if x.get('key') == model), None) or next((x for x in rows if x.get('loaded_instances')), None), len(rows)
-
-
-def llama_info(props, slots):
-    """NEXA's llamafile: `/props` (model, context, slots, default sampling) + `/slots` (each slot's context, busy, speculative)."""
-    p = props if isinstance(props, dict) else {}
-    sl = [s for s in slots or [] if isinstance(s, dict)] if isinstance(slots, list) else []
-    path = str(p.get('model_path') or '') or next((str(s.get('model') or '') for s in sl if s.get('model')), '')
-    name = re.split(r'[\\/]', path)[-1] if path else None
-    gen = ((p.get('default_generation_settings') or {}).get('params') or (p.get('default_generation_settings') or {})) if p else {}
-    quant = (re.search(r'(Q\d[_A-Z0-9]*|F16|BF16)', name or '', re.I) or [None])[0] if name else None
-    return {'model': name, 'name': name, 'format': 'GGUF' if (name or '').lower().endswith('.gguf') else None, 'quant': quant,
-            'ctxPerSlot': (sl[0].get('n_ctx') if sl else None) or _f(p.get('n_ctx')), 'slots': len(sl) or p.get('total_slots'),
-            'busy': sum(1 for s in sl if s.get('is_processing')), 'speculative': any(s.get('speculative') for s in sl),
-            'defaults': {k: (round(_f(gen.get(k)), 3) if _f(gen.get(k)) is not None else None) for k in SAMPLING if k in gen}}
 
 
 def host_of(base):

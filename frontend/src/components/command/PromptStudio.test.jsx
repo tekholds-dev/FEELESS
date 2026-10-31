@@ -36,8 +36,6 @@ test('🎭 pick a model → its context, record, habits and four mindsets; apply
   await act(async () => { q('pst-model-local').click(); });
   expect(q('pst-set-progressive').className).toContain('is-on'); expect(q('pst-since').textContent).toContain('4 trades · 50% won · +2.6% avg');
   expect(q('pst-proof').className).toContain('is-live'); expect(q('pst-proof').textContent).toContain('✓ IN USE');   // 🎭 proof the mindset rode a real call
-  await act(async () => { q('pst-model-win').click(); });
-  expect(q('pst-rec').textContent).toContain('45%'); expect(q('pst-rec').textContent).toContain('YES CALLS');
   act(() => root.unmount());
 });
 

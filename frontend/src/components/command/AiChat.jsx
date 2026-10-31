@@ -34,7 +34,7 @@ export const QUICK = {
 const KIND = { cfg: '⚙ switch', lesson: '🎓 lesson', weight: '⚖ rank weight', tune: '🎚 exit notch → shadow', idea: '💡 idea', rig: '🎛 model setting' };
 const show = v => (v === true ? 'ON' : v === false ? 'OFF' : v == null ? '—' : String(v));
 // 🎛 a rig proposal in words: 'ctx=16384 par=1' → '16K context · ×1 at once'; 'local.timeout' → 'OSSY timeout'. Reloads are flagged.
-const RIG_WHO = { lan: 'G4', local: 'OSSY', win: 'NEXA', chat: 'BRAIN CHAT' };
+const RIG_WHO = { lan: 'G4', local: 'OSSY', chat: 'BRAIN CHAT' };
 const RIG_W = { ctx: v => `${Math.round(v / 1024)}K context`, par: v => `×${v} at once`, flash: v => `flash ${+v ? 'ON' : 'OFF'}`, kv: v => `KV on ${+v ? 'GPU' : 'RAM'}`, batch: v => `batch ${v}` };
 export function rigShow(v) {
   if (typeof v !== 'string' || !v.includes('=')) return show(v);
@@ -110,7 +110,7 @@ function AnswerCard({ text }) {
 
 // ⏳ A REAL PROGRESS BAR while a model answers (owner, 2026-10-21: "no random loading over the screen — a true loading bar"): the owner's
 // call in flight from /admin/ai/calls (elapsed ÷ THAT model's own average answer time), its phase, and a plain word when it runs long.
-export const WHO = { lan: 'G4', local: 'OSSY', win: 'NEXA', groq: 'Groq', openrouter: 'OpenRouter', openai: 'OpenAI', xai: 'xAI' };
+export const WHO = { lan: 'G4', local: 'OSSY', groq: 'Groq', openrouter: 'OpenRouter', openai: 'OpenAI', xai: 'xAI' };
 export function thinkRead(row, t0, now = Date.now()) {
   const sec = row?.sec ?? Math.max(0, (now - t0) / 1000); const typical = row?.typical || 20;
   const pct = row?.pct ?? Math.min(95, Math.round((100 * sec) / typical));
@@ -164,7 +164,7 @@ export const AiChat = memo(function AiChat({ call, isOwner = true, focus, focusS
   const [mode, setMode] = useState('chat'); const comp = useRef(null); const [busy, setBusyS] = useState(false); const [pop, setPop] = useState(false);
   const [threads, setThreads] = useState({}); const [build, setBuild] = useState(null); const [showDone, setShowDone] = useState(false);
   const [provs, setProvs] = useState([]); const [provS, setProvS] = useState(() => { try { return localStorage.getItem('feeless.brainProv') || 'auto'; } catch { return 'auto'; } });
-  const prov = lockProvider || provS;   // 🪟 a locked chat (Nexa in FeeCat) always asks the same model and never changes the Brain's own pick
+  const prov = lockProvider || provS;   // a locked chat always asks the same model and never changes the Brain's own pick
   const setProv = v => { if (lockProvider) return; setProvS(v); try { localStorage.setItem('feeless.brainProv', v); } catch { /* private window */ } };
   const [saved, setSaved] = useState([]); const [sets, setSets] = useState(null); const [showSet, setShowSet] = useState(false); const [showSaved, setShowSaved] = useState(false); const [pane, setPane] = useState('talk'); const lastLearn = useRef(null);
   const [img, setImg] = useState(null); const [upl, setUpl] = useState(false); const [props, setProps] = useState({ pending: [], decided: [] }); const [last, setLast] = useState(null);
@@ -226,7 +226,7 @@ export const AiChat = memo(function AiChat({ call, isOwner = true, focus, focusS
       <span className="cch-title"><b>BRAIN{local?.boost ? <i className="cch-boostchip" data-testid="cch-boostchip" data-tip={`Local boost: ${local.why || ''} · every ${local.every ?? '—'}s · ${local.leftH}h left`}>💻 BOOST</i> : null}</b><small data-testid="cch-mood" data-mood={mood.key}><em>{mood.word}</em>{mood.line}</small></span>
       <button type="button" className={`cch-themebtn ${themeOpen ? 'active' : ''}`} aria-pressed={themeOpen} onClick={() => setThemeOpen(v => !v)} data-tip="This chat's animated background" data-testid="cch-themebtn">🎨</button>
       {lockProvider ? <span className="cch-model is-locked" data-testid="cch-locked">{title || lockProvider.toUpperCase()}</span> : <select className="cch-model" value={prov} onChange={e => setProv(e.target.value)} aria-label="Which model answers" data-testid="cch-model" data-tip="Which model answers: Auto = the normal order · Duet = Gemma answers, Qwen reads it and agrees or pushes back (both shown)">
-        <option value="auto">🤖 Auto</option><option value="duet">🤝 Duet · G4 + OSSY</option>{provs.some(p => p.key === 'win') ? null : <option value="win" disabled>🪟 NEXA · set WIN_LLM_BASE_URL</option>}{provs.map(p => <option key={p.key} value={p.key}>{p.state === 'ONLINE' ? '🟢' : p.state === 'UNTESTED' ? '⚪' : '🔴'} {p.label}{p.model ? ` · ${String(p.model).split('/').pop()}` : ''}</option>)}</select>}
+        <option value="auto">🤖 Auto</option><option value="duet">🤝 Duet · G4 + OSSY</option>{provs.map(p => <option key={p.key} value={p.key}>{p.state === 'ONLINE' ? '🟢' : p.state === 'UNTESTED' ? '⚪' : '🔴'} {p.label}{p.model ? ` · ${String(p.model).split('/').pop()}` : ''}</option>)}</select>}
       {saved.length ? <span className="cch-svwrap"><button type="button" className={`cch-model cch-saved ${showSaved ? 'is-on' : ''}`} onClick={() => setShowSaved(v => !v)} aria-expanded={showSaved} data-testid="cch-saved" data-tip="Saved chats: open · rename · delete">🗂 {saved.length} saved</button>
         {showSaved ? <div className="cch-svpop" data-testid="cch-saved-list">{saved.map(c => <div key={c.id} className="cch-svrow">
           <button type="button" className="cch-svopen" onClick={() => { setShowSaved(false); openConvo(c.id); }} data-testid={`cch-sv-open-${c.id}`}><i>{(CHAT_MODES.find(m => m[0] === c.mode)?.[1] || '').split(' ')[0]}</i>{c.title}<small>{c.n} msgs</small></button>

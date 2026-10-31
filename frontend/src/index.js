@@ -60,8 +60,6 @@ if (process.env.NODE_ENV === 'development' && window.location.pathname === '/dev
   import('./dev/PoolsHarness').then(m => root.render(<m.default />));
 } else if (process.env.NODE_ENV === 'development' && window.location.pathname === '/dev/brain') {   // 🧪 the Brain + LM Studio rig on fixtures (src/dev/BrainHarness.jsx)
   import('./dev/BrainHarness').then(m => root.render(<m.default />));
-} else if (process.env.NODE_ENV === 'development' && window.location.pathname === '/dev/nexa') {   // 🧪 HQ › Fee › NEXA's desk on fixtures (src/dev/NexaHarness.jsx)
-  import('./dev/NexaHarness').then(m => root.render(<m.default />));
 } else if (process.env.NODE_ENV === 'development' && window.location.pathname === '/dev/cats') {   // 🧪 one agent's desk + REAL MODE proposals on a fixture cat (src/dev/CatHarness.jsx)
   import('./dev/CatHarness').then(m => root.render(<m.default />));
 } else if (process.env.NODE_ENV === 'development' && window.location.pathname === '/dev/perps') {   // 🧪 the Perps money read + paper desk on fixtures (src/dev/PerpsHarness.jsx)

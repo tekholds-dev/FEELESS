@@ -4,21 +4,20 @@ import { STUDIO } from '../components/command/__fixtures__/promptStudio';
 import { desk } from '../components/command/__fixtures__/modelDesk';
 
 // 🧪 DEV ONLY (`/dev/brain`, never in a production build — index.js imports it behind NODE_ENV): the Brain on fixtures — Talk with a settings
-// line that becomes 🎛 rig proposals, and Brain › Models = the LM Studio rig (OSSY MLX loaded, G4 GGUF, NEXA llamafile). No backend touched.
+// line that becomes 🎛 rig proposals, and Brain › Models = the LM Studio rig (OSSY MLX loaded, G4 GGUF). No backend touched.
 const lms = { local: { model: 'openai/gpt-oss-20b', name: 'openai/gpt-oss-20b', fmt: 'mlx', maxCtx: 131072, sizeGb: 12.1, params: '20B', loaded: [{ id: 'openai/gpt-oss-20b', ctx: 7659, par: 2 }] },
   lan: { model: 'qwen/qwen3-4b-2507', name: 'qwen/qwen3-4b-2507', fmt: 'gguf', maxCtx: 262144, sizeGb: 2.5, params: '4B', loaded: [{ id: 'qwen/qwen3-4b-2507', ctx: 8704, par: 2, flash: 1, kv: 1, batch: 512 }] } };
 const rig0 = { lan: { ctx: 0, parallel: 2, timeout: 90, perMin: 4, load: {} }, local: { ctx: 0, parallel: 1, timeout: 60, perMin: 4, load: { ctx: 16384 } }, win: { ctx: 4096, parallel: 1, timeout: 240, perMin: 2, every: 900 } };
-const NAMES = { lan: 'G4', local: 'OSSY', win: 'NEXA' };
+const NAMES = { lan: 'G4', local: 'OSSY' };
 export default function BrainHarness() {
   const st = useRef({ rig: JSON.parse(JSON.stringify(rig0)), chat: { temp: 0.3, len: 'normal' }, props: [], th: { chat: [{ role: 'user', text: 'yo how are the agents doing' }, { role: 'assistant', text: 'Desk is flat: 3 seats, +4.1% today [agents]. Weak link = Trigger, 2 late entries. Lever: tighten the germ gate.' }] } });
   const view = () => { const s = st.current;
-    const rows = ['lan', 'local', 'win'].map(k => { const r = s.rig[k]; const lm = lms[k]; const cur = lm?.loaded?.[0] || {};
+    const rows = ['lan', 'local'].map(k => { const r = s.rig[k]; const lm = lms[k]; const cur = lm?.loaded?.[0] || {};
       const diff = r.load ? Object.fromEntries(Object.entries(r.load).filter(([f, v]) => cur[f] !== v).map(([f, v]) => [f, [cur[f], v]])) : undefined;
-      return { key: k, name: NAMES[k], ...r, cmd: k === 'win' ? 'llamafile.exe --server -c 4096 -np 1' : `lms load ${lm.model} --context-length ${r.load?.ctx || 8192} --parallel ${r.load?.par || 1} -y`, ...(r.load ? { lms: lm, diff } : {}) }; });
+      return { key: k, name: NAMES[k], ...r, cmd: `lms load ${lm.model} --context-length ${r.load?.ctx || 8192} --parallel ${r.load?.par || 1} -y`, ...(r.load ? { lms: lm, diff } : {}) }; });
     return { rows, options: { ctx: [0, 2048, 4096, 8192, 12288, 16384, 32768], parallel: [1, 2, 3, 4], timeout: [30, 45, 60, 90, 120, 180, 240, 300], perMin: [2, 4, 6, 8, 12], every: [180, 300, 600, 900] },
       loadOptions: { ctx: [4096, 8192, 12288, 16384, 24576, 32768, 65536], par: [1, 2, 3, 4], flash: [0, 1], kv: [0, 1], batch: [256, 512, 1024, 2048] },
       live: { lan: { state: 'ONLINE', lastMs: 2100 }, local: { state: 'ONLINE', lastMs: 6400 }, win: { state: 'ONLINE', lastMs: 9000 } },
-      nexa: { desired: { ctx: 4096, slots: 1 }, actual: { ctx: 4096, slots: 1, model: 'Ministral-3-3B' }, state: 'active', controller: { reachable: true }, auto: false },
       chat: { ...s.chat, temps: [0.1, 0.3, 0.6, 0.9], lens: { short: 250, normal: 600, long: 1200 } }, reloading: [] }; };
   const props = () => ({ pending: st.current.props.filter(p => p.status === 'pending'), decided: st.current.props.filter(p => p.status !== 'pending') });
   const call = useCallback(async (u, o) => { const s = st.current; const b = o?.body ? JSON.parse(o.body) : null;

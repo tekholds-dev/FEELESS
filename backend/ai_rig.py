@@ -1,19 +1,17 @@
-"""🎛 MODEL RIG (owner, 2026-10-20: "tweak Nexa, OSSY and G4's LM and llama context, concurrency, all that"). Pure.
-One owner-set row per local model — G4 (`lan`, desktop LM Studio) · OSSY (`local`, this Mac's LM Studio) · NEXA (`win`, the Windows llamafile):
+"""🎛 MODEL RIG (owner, 2026-10-20: "tweak OSSY and G4's LM context, concurrency, all that"). Pure.
+One owner-set row per local model — G4 (`lan`, desktop LM Studio) · OSSY (`local`, this Mac's LM Studio):
   ctx      = the prompt budget FEELESS fits each call into (0 = read what the model is loaded with)
   parallel = calls sent at once (each fits ctx ÷ parallel when the model shares one context across slots)
   timeout  = seconds a call may take before it is a miss
   perMin   = background calls a minute (a model's own trade call / your chat are never capped)
-  every    = Nexa only: seconds between her FeeCat reads
-FEELESS only changes what IT sends. The context and slots a model is LOADED with are set where it loads (LM Studio / llamafile) — `load_cmd`
+FEELESS only changes what IT sends. The context and slots a model is LOADED with are set where it loads (LM Studio) — `load_cmd`
 prints the matching command; nothing here reloads a model (the owner's rule: never reload the desktop model)."""
 
-KEYS = ('lan', 'local', 'win')
-NAMES = {'lan': 'G4', 'local': 'OSSY', 'win': 'NEXA'}
+KEYS = ('lan', 'local')
+NAMES = {'lan': 'G4', 'local': 'OSSY'}
 OPTIONS = {'ctx': (0, 2048, 4096, 8192, 12288, 16384, 32768), 'parallel': (1, 2, 3, 4), 'timeout': (30, 45, 60, 90, 120, 180, 240, 300),
-           'perMin': (2, 4, 6, 8, 12), 'every': (180, 300, 600, 900)}
-DEFAULTS = {'lan': {'ctx': 0, 'parallel': 2, 'timeout': 90, 'perMin': 4}, 'local': {'ctx': 0, 'parallel': 1, 'timeout': 60, 'perMin': 4},
-            'win': {'ctx': 4096, 'parallel': 1, 'timeout': 240, 'perMin': 2, 'every': 900}}
+           'perMin': (2, 4, 6, 8, 12)}
+DEFAULTS = {'lan': {'ctx': 0, 'parallel': 2, 'timeout': 90, 'perMin': 4}, 'local': {'ctx': 0, 'parallel': 1, 'timeout': 60, 'perMin': 4}}
 
 
 # 🧠 LM STUDIO LOAD (owner, 2026-10-21: "the Brain chat must TRULY change the LM Studio Load / Inference settings"). What a model is LOADED with
@@ -114,7 +112,7 @@ def load_diff(want, loaded):
 
 # 🌡 INFERENCE OVERRIDES (owner, 2026-10-23: LM Studio's Inference panel in FEELESS): what FEELESS sends with EVERY call to one model — the same
 # knobs LM Studio's panel has (temperature, limit response length, sampling, stop strings, seed). Unset = FEELESS's own default (the desk's 0.1,
-# its answer budget). The Brain chat's own temp / length still win in chat; NEXA's answer cap still clamps her (speed).
+# its answer budget). The Brain chat's own temp / length still win in chat.
 INFER_BOUNDS = {'temp': (0.0, 1.5, float), 'maxTok': (32, 4096, int), 'topP': (0.05, 1.0, float), 'topK': (1, 200, int), 'minP': (0.0, 0.5, float),
                 'repeatPenalty': (0.8, 1.5, float), 'seed': (0, 2 ** 31 - 1, int)}
 INFER_SEND = {'temp': 'temperature', 'maxTok': 'max_tokens', 'topP': 'top_p', 'topK': 'top_k', 'minP': 'min_p', 'repeatPenalty': 'repeat_penalty', 'seed': 'seed', 'stop': 'stop'}
@@ -160,7 +158,6 @@ def clean(body, prev=None):
                 out[k].pop('infer')
     for k in LM_KEYS:
         out[k]['load'] = clean_load(out[k].get('load'))
-    out['win'].pop('load', None)
     for k, row in (body or {}).items():
         if k not in KEYS or not isinstance(row, dict):
             continue
@@ -194,8 +191,6 @@ def load_cmd(key, row, model=None):
         return f"lms load {model or '<model>'} --context-length {ld.get('ctx') or 8192} --parallel {ld.get('par') or 1} -y"
     ctx = row.get('ctx') or 8192
     par = row.get('parallel') or 1
-    if key == 'win':
-        return f"llamafile.exe --server --host 0.0.0.0 --port 8080 -m {model or 'Ministral-3-3B-Instruct-2512-Q4_K_M.gguf'} -c {ctx * par} -np {par}"
     return f"lms load {model or '<model>'} --context-length {ctx * par if par > 1 else ctx} --parallel {par} -y"
 
 
@@ -216,11 +211,11 @@ def view(rig, models=None, lms=None):
 
 # 💬 A CHAT LINE → RIG CHANGES (owner, 2026-10-21: "a chat line truly changes model settings — proposal → applied"). Pure + deterministic: the
 # owner's own words are read here (no model guesses at numbers). Each change becomes a PENDING proposal (ai_chat kind `rig`); nothing applies
-# until ✅, and a LOAD change reloads the model only on that ✅. Keys: `<lan|local|win>.<ctx|parallel|timeout|perMin|every>` (what FEELESS
+# until ✅, and a LOAD change reloads the model only on that ✅. Keys: `<lan|local>.<ctx|parallel|timeout|perMin>` (what FEELESS
 # sends), `<lan|local>.load` (what LM Studio loads), `chat.temp` / `chat.len` (the Brain's inference).
 import re as _re
 
-WHO = (('lan', r'g4|gemma|desktop'), ('local', r'ossy|gpt.?oss|this mac'), ('win', r'nexa|llamafile|windows'))
+WHO = (('lan', r'g4|gemma|desktop'), ('local', r'ossy|gpt.?oss|this mac'))
 CHAT_TEMPS = (0.1, 0.3, 0.6, 0.9)
 CHAT_LENS = {'short': 250, 'normal': 600, 'long': 1200}
 _NUM = r'(\d+(?:\.\d+)?)'
@@ -276,15 +271,12 @@ def parse_line(text):
             if key in LM_KEYS and not budget:
                 v = _snap(n, LOAD_OPTIONS['ctx']); loads.setdefault(key, {})['ctx'] = v
             else:
-                v = _snap(n, [o for o in OPTIONS['ctx'] if o]); out.append({'key': f'{key}.ctx', 'value': v, 'words': f"{NAMES[key]} prompt budget {v // 1024}K" if key != 'win'
-                                                                         else f'NEXA context {v // 1024}K (restarts her llamafile)', 'reload': key == 'win'})
+                v = _snap(n, [o for o in OPTIONS['ctx'] if o]); out.append({'key': f'{key}.ctx', 'value': v, 'words': f"{NAMES[key]} prompt budget {v // 1024}K", 'reload': False})
         m = _re.search(r'\b(?:parallel|max\s*concurren\w*|concurren\w*|slots?)\b\D{0,16}?(\d)', seg)
         if m:
             n = int(m.group(1))
             if key in LM_KEYS:
                 loads.setdefault(key, {})['par'] = _snap(n, LOAD_OPTIONS['par'])
-            else:
-                v = _snap(n, OPTIONS['parallel']); out.append({'key': 'win.parallel', 'value': v, 'words': f'NEXA ×{v} slots (restarts her llamafile)', 'reload': True})
         if key in LM_KEYS:
             m = _re.search(r'flash(?:\s*(?:attention|attn))?\s*(?:to\s*)?(on|off|true|false|enabled?|disabled?)|(enable|disable|turn on|turn off|no)\s+flash', seg)
             if m:
@@ -302,9 +294,6 @@ def parse_line(text):
         m = _re.search(r'(\d{1,2})\s*(?:background\s*)?(?:calls?|reads?)\s*(?:/|per|a)\s*min', seg)
         if m:
             v = _snap(int(m.group(1)), OPTIONS['perMin']); out.append({'key': f'{key}.perMin', 'value': v, 'words': f'{NAMES[key]} {v} background calls a minute', 'reload': False})
-        m = _re.search(r'read(?:s)?\s*every\D{0,6}?(\d{1,2})\s*m', seg)
-        if m and key == 'win':
-            v = _snap(int(m.group(1)) * 60, OPTIONS['every']); out.append({'key': 'win.every', 'value': v, 'words': f'NEXA reads every {v // 60} min', 'reload': False})
     for k, d in loads.items():
         out.append({'key': f'{k}.load', 'value': load_value(d), 'words': f"{NAMES[k]} loads with {load_words(d)} (reloads {NAMES[k]})", 'reload': True})
     seen, uniq = set(), []
@@ -337,41 +326,6 @@ def check_change(key, value):
     except (TypeError, ValueError):
         return None
     return v if v in OPTIONS[f] else None
-
-
-# 🪟 NEXA RUNTIME (owner, 2026-10-21: "the rig's NEXA settings must actually control the Windows llamafile"). The Windows PC runs
-# backend/nexa_controller.py (fixed purpose: restart THE configured llamafile with validated ctx / slots). FEELESS saves what the owner wants
-# (desired), asks the controller to apply it, then reads llamafile's own /props + /slots (actual). A setting is called ACTIVE only when the
-# runtime itself reports it.
-CTL_CTX = (2048, 4096, 8192, 12288, 16384, 32768)
-CTL_PAR = (1, 2, 3, 4)
-
-
-def win_target(row):
-    """The (ctx, slots) the controller should run for NEXA's rig row, or None when the rig asks for 'auto' context (nothing to apply)."""
-    ctx, par = int((row or {}).get('ctx') or 0), int((row or {}).get('parallel') or 1)
-    if ctx not in CTL_CTX or par not in CTL_PAR or ctx * par > 32768:
-        return None
-    return ctx, par
-
-
-def runtime_view(row, actual, job=None, ctl=None):
-    """GET rig → NEXA desired vs actual. state: active (runtime matches) · applying · differs (runtime reachable, not what was asked) ·
-    unreachable (NEXA's llamafile did not answer) — plus what the last apply said and whether the controller answers."""
-    t = win_target(row)
-    want = {'ctx': t[0], 'slots': t[1]} if t else None
-    job = job or {}
-    if job.get('state') == 'applying':
-        state = 'applying'
-    elif not actual:
-        state = 'unreachable'
-    elif want and actual.get('ctx') == want['ctx'] and actual.get('slots') == want['slots']:
-        state = 'active'
-    else:
-        state = 'differs'
-    return {'desired': want, 'actual': actual, 'state': state, 'active': state == 'active', 'controller': ctl or {'reachable': False},
-            'job': {k: job.get(k) for k in ('state', 'msg', 'at', 'verified') if k in job} or None,
-            'auto': t is None}
 
 
 # 🔖 PRESETS per model (owner, 2026-10-22: "prompt presets per model — save / pick / apply"): a named snapshot of one model's rig (Load + what

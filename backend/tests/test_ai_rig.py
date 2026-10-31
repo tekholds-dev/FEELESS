@@ -3,13 +3,12 @@ import ai_router
 
 
 def test_rig_keeps_listed_values_only_and_prints_the_load_command():
-    r = ai_rig.clean({'lan': {'ctx': 16384, 'parallel': 3, 'timeout': 999}, 'win': {'every': 600}, 'bogus': {'ctx': 1}})
+    r = ai_rig.clean({'lan': {'ctx': 16384, 'parallel': 3, 'timeout': 999}, 'bogus': {'ctx': 1}})
     assert r['lan']['ctx'] == 16384 and r['lan']['parallel'] == 3 and r['lan']['timeout'] == 90   # 999 is not an option
-    assert r['win']['every'] == 600 and 'bogus' not in r
+    assert 'win' not in r and 'bogus' not in r   # NEXA retired (owner 2026-10-31)
     v = ai_rig.view(r, {'lan': 'qwen/qwen3-4b-2507'})
     lan = next(x for x in v['rows'] if x['key'] == 'lan')
     assert '--parallel 3' in lan['cmd'] and '--context-length 49152' in lan['cmd'] and lan['name'] == 'G4'
-    assert '-np 1' in next(x for x in v['rows'] if x['key'] == 'win')['cmd']
 
 
 def test_router_reads_the_rig_live():
@@ -28,7 +27,6 @@ def test_a_chat_line_becomes_listed_rig_changes():
     assert got['lan.timeout']['value'] == 120 and got['chat.temp']['value'] == 0.6
     assert ai_rig.parse_line('ossy flash attention off, kv cache to ram')[0]['value'] == 'flash=0 kv=0'
     assert {x['key'] for x in ai_rig.parse_line('both models context 32k')} == {'lan.load', 'local.load'}
-    assert ai_rig.parse_line('nexa context 8k slots 2')[0] == {'key': 'win.ctx', 'value': 8192, 'words': 'NEXA context 8K (restarts her llamafile)', 'reload': True}
     assert ai_rig.parse_line('g4 prompt budget 12k')[0]['key'] == 'lan.ctx'
     assert ai_rig.parse_line('gm, how are the agents doing?') == [] and ai_rig.parse_line('ossy is slow') == []
     assert ai_rig.parse_line('ossy context 20000')[0]['value'] == 'ctx=16384'   # between options → the nearest listed one
@@ -97,7 +95,6 @@ def test_an_approved_reload_unloads_then_loads_with_the_wanted_settings():
     h2 = _LMS(take_parallel=False)   # an LM Studio that refuses `parallel` over REST still loads the context, and says so
     res2 = asyncio.run(ai_router.Router().reload_model(h2, _env(), {}, 'local', {'ctx': 8192, 'par': 1}))
     assert res2['ok'] and res2['loaded']['ctx'] == 8192 and 'Load panel' in res2['note']
-    assert asyncio.run(ai_router.Router().reload_model(h, _env(), {}, 'win', {'ctx': 8192}))['ok'] is False
 
 
 def test_a_question_that_mentions_context_or_temp_stays_a_question():

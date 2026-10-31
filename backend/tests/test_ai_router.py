@@ -648,23 +648,3 @@ def test_lm_studio_up_with_no_model_loads_it_itself_once():
     out = asyncio.run(ro.load_model(http, env, {}, 'lan'))   # the owner's tap still loads on demand
     assert out['ok'] is True and out['model'] == 'qwen/qwen3-4b-2507'
     assert asyncio.run(ro.load_model(http, env, {}, 'groq'))['ok'] is False   # only an LM Studio model loads from here
-
-
-def test_nexa_heals_herself_like_g4_and_ossy():
-    """2026-10-22: NEXA's server answered in 31 ms but she read "not connected" — the heartbeat only probed G4 + OSSY."""
-    import asyncio
-    import ai_router as r
-
-    class Resp:
-        status_code = 200
-        def json(self): return {'data': [{'id': 'ministral-3b.llamafile'}]}
-
-    class Http:
-        def __init__(self): self.urls = []
-        async def get(self, url, **kw): self.urls.append(url); return Resp()
-
-    env = {'WIN_LLM_BASE_URL': 'http://192.168.1.20:8080/v1', 'WIN_LLM_MODEL': 'Ministral-3-3B-Instruct-2512'}
-    ro = r.Router(); ro._bad('win', 1000.0, 'timed out', 'timeout')
-    assert ro.stats['win']['state'] == 'OFFLINE'
-    http = Http(); asyncio.run(ro.heartbeat(http, env, {}, now=2000.0))
-    assert any(u.startswith('http://192.168.1.20:8080') for u in http.urls) and ro.stats['win']['state'] == 'ONLINE'   # any model llamafile names = up

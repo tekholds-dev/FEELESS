@@ -4,7 +4,7 @@ who holds them, the average live % — no coin names, so nobody front-runs its e
 the model holding it, live %, state and the desk's last word on it.
 """
 
-MODELS = ('G4', 'OSSY', 'NEXA')
+MODELS = ('G4', 'OSSY')
 
 
 def _avg(xs):
@@ -27,7 +27,7 @@ def summary(card, staff=False):
     return out
 
 
-NAMES = {'lan': 'G4', 'local': 'OSSY', 'win': 'NEXA'}
+NAMES = {'lan': 'G4', 'local': 'OSSY'}
 
 
 def who_of(p):

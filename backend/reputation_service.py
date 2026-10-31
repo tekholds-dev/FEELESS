@@ -12505,7 +12505,7 @@ async def _keeper_stop():
     _keeper_state['stopping'] = True   # loops still running during shutdown must not trade
     _single.release(KEEPER_LOCK)
     for flush in (_store_flush, lambda: _block_flush() if _block_dirty['on'] else None, _hygiene_flush,   # debounced stores: nothing learned is lost on a stop
-                  _agents_mem.flush, _lingo_mem.flush, _shadow_flush, _social_flush, _after_mem.flush, _aim_mem.flush, _g4_mem.flush, _paths_mem.flush, _nexa_kb_mem.flush):
+                  _agents_mem.flush, _lingo_mem.flush, _shadow_flush, _social_flush, _after_mem.flush, _aim_mem.flush, _g4_mem.flush, _paths_mem.flush):
         try:
             flush()
         except Exception:
@@ -18161,343 +18161,6 @@ async def _feecat_duo_safe(now, env, cfg):
         print('feecat duo:', str(e)[:80])
 
 
-import nexa as _nexa   # noqa: E402  🪟 Nexa Sicario — FeeCat's own model (Windows llamafile)
-import nexa_desk as _nxd   # noqa: E402  🪟🐱 NEXA trades AS FeeCat (owner switch): ≤ 3 yes / no calls per 5 min
-NEXA_PATH = DATA_DIR / 'nexa.json'
-_nexa_mem = _ms0.MemStore(lambda: NEXA_PATH, 60.0, lambda p_, d_: _json_load(p_, d_), lambda p_, o_: _json_save(p_, o_))
-NEXA_KB_PATH = DATA_DIR / 'nexa_kb.json'   # 🧠 her discovery base (nexa_kb.py: capped short facts, a few hundred KB at most)
-NEXA_SITE_MAX, NEXA_SITE_FRESH = 2, 7 * 86400   # 🌐 her site reads: ≤ 2 new coin sites per full read, each re-read at most once a week
-
-
-def _nexa_site_of(mint):
-    """The coin's own website from the launch feed's DexScreener info (first listed), or None."""
-    for p_ in _open_pairs:
-        if (p_.get('baseToken') or {}).get('address') == mint:
-            for w_ in ((p_.get('info') or {}).get('websites') or []):
-                u_ = w_.get('url') if isinstance(w_, dict) else w_
-                if u_:
-                    return str(u_)
-    return None
-
-
-async def _nexa_site_fetch(url, hops=3):
-    """🌐 GET a coin's page for her site read — a coin's URL is untrusted: https only, EVERY hop's host must resolve to public addresses only
-    (site_probe.public_ip — no loopback / LAN / metadata), redirects followed by hand (≤ 3, each re-checked), 6 s, ≤ 300 KB, HTML only."""
-    import socket as _so
-    from urllib.parse import urljoin as _uj
-    import site_probe as _sp
-    url = 'https://' + url.split('://', 1)[1] if str(url).lower().startswith('http://') else str(url)
-    for _hop in range(hops):
-        host_ = _sp.host_of(url)
-        if not host_ or not url.lower().startswith('https://'):
-            return None
-        infos_ = await asyncio.get_running_loop().getaddrinfo(host_, 443, type=_so.SOCK_STREAM)
-        if not infos_ or not all(_sp.public_ip(i_[4][0]) for i_ in infos_):
-            return None
-        async with _ai_http().stream('GET', url, timeout=6, follow_redirects=False, headers={'User-Agent': 'Mozilla/5.0 (FEELESS site check)'}) as r_:
-            if r_.status_code in (301, 302, 303, 307, 308) and r_.headers.get('location'):
-                url = _uj(url, r_.headers['location'])
-                continue
-            if r_.status_code != 200 or 'html' not in str(r_.headers.get('content-type') or '').lower():
-                return None
-            buf_ = b''
-            async for ch_ in r_.aiter_bytes():
-                buf_ += ch_
-                if len(buf_) > 300_000:
-                    break
-            return buf_.decode('utf-8', 'replace')
-    return None
-
-
-async def _nexa_rdap(domain):
-    """RDAP for a registered domain (rdap.org bootstraps to the registry) → its JSON or None."""
-    try:
-        r_ = await _ai_http().get(f'https://rdap.org/domain/{domain}', timeout=6, follow_redirects=True)
-        return r_.json() if r_.status_code == 200 else None
-    except Exception:
-        return None
-
-
-async def _nexa_sites(kb_, coins_, now):
-    """🌐 Her SITE READ (owner P0 #2): for up to NEXA_SITE_MAX coins whose site she hasn't read this week — domain age (RDAP) + a page snapshot
-    → 🧪 REAL TECH / 🎭 TEMPLATE / 🪶 THIN, filed under the coin's mint as a 'site' fact (recalled with the coin from then on)."""
-    import nexa_kb as _nkb
-    import site_probe as _sp
-    box_ = kb_.get('site') or {}
-    todo_ = []
-    for c_ in coins_:
-        m_ = c_.get('mint')
-        if not m_ or any(t_[0] == m_ for t_ in todo_) or (box_.get(m_.lower()) and now - (box_[m_.lower()].get('at') or 0) < NEXA_SITE_FRESH):
-            continue
-        u_ = _nexa_site_of(m_)
-        h_ = _sp.host_of(u_)
-        if h_ and not _sp.skip(h_):
-            todo_.append((m_, u_, h_))
-        if len(todo_) >= NEXA_SITE_MAX:
-            break
-
-    async def one(m_, u_, h_):
-        html_, rd_ = await asyncio.gather(_nexa_site_fetch(u_), _nexa_rdap(_sp.registrable(h_)), return_exceptions=True)
-        snap_ = _sp.snapshot(html_) if isinstance(html_, str) and html_ else None
-        v_ = _sp.verdict(_sp.age_days(rd_ if isinstance(rd_, dict) else None, now), snap_)
-        _nkb.put(kb_, 'site', m_, _sp.fact(h_, v_, snap_), now, 'probe')
-    await asyncio.gather(*(one(*t_) for t_ in todo_), return_exceptions=True)
-    return len(todo_)
-_nexa_kb_mem = _ms0.MemStore(lambda: NEXA_KB_PATH, 120.0, lambda p_, d_: _json_load(p_, d_), lambda p_, o_: _json_save(p_, o_))
-_nexa_rt: dict = {'busy': False, 'at': 0.0, 'chatAt': 0.0}
-NEXA_CHAT_QUIET = 1200   # 🪟 no background read for 20 min after the owner talks to NEXA: her ONE CPU slot stays free + her chat prompt stays cached (<30s answers)
-
-
-async def _feecat_rules():
-    try:
-        r_ = await _ai_http().get('http://127.0.0.1:5088/api/cats/internal/rules', headers={'x-feeless-internal': _internal_key()}, timeout=4)
-        return r_.json() if r_.status_code == 200 else {}
-    except Exception:
-        return {}
-
-
-async def _nexa_tick(now, env, cfg):
-    """🪟 NEXA's read (one per nexa.NEXA_EVERY, its own task: a 3B model on an old CPU never holds the round). She reads FeeCat's book + next coins,
-    FeeCat's rules with bounds, her record, her memory, fresh web headlines and the FEELESS brief → avoid / exit (FeeCat acts on them, paper),
-    favor (graded only), tune (FeeCat's rules, bounded, ≤ 1 change an hour, only while the owner's switch is on), a lesson + a discovery note."""
-    st_ = _nexa_mem.get() or {}
-    # Owner NEXA chat owns the Windows CPU. FeeCat waits rather than
-    # starting another multi-minute inference in front of the owner.
-    win_pw = _air.ROUTER.prioWait.get('win') or {}
-    win_owner_waiting = win_pw.get(0, 0) > 0
-    win_owner_active = any(
-        x.get('prov') == 'win' and x.get('role') in ('owner', 'chat')
-        for x in _air.INFLIGHT.values()
-    )
-    if (_nexa_rt['busy'] or win_owner_waiting or win_owner_active or now - _nexa_rt['chatAt'] < NEXA_CHAT_QUIET
-            or now - _fuse._f(st_.get('at')) < _air.rig('win', 'every', _nexa.NEXA_EVERY)
-            or _air.provider(env, 'win', cfg).get('why')):
-        return
-    _nexa_rt['busy'] = True
-    try:
-        fc_ = _feecat_packet()
-        rl_ = await _feecat_rules()
-        rules_, bounds_ = rl_.get('rules') or {}, {k_: tuple(v_) for k_, v_ in (rl_.get('bounds') or {}).items()}
-        pk_ = {'OPEN': fc_['openTrades'], 'NEXT': fc_['nextCoins'], 'RULES': {k_: [rules_.get(k_), list(bounds_[k_])] for k_ in bounds_},
-               'RECORD': _nexa.record(st_.get('grades') or []), 'MEMORY': _nexa.recall(st_.get('mem') or [])}
-        import nexa_kb as _nkb
-        kb_ = _nexa_kb_mem.get() or {}
-        coins_ = [x_ for k_ in ('OPEN', 'NEXT') if isinstance(pk_[k_], list) for x_ in pk_[k_] if isinstance(x_, dict)]
-        _nkb.auto(kb_, coins_, now)   # 🧠 what FEELESS already knows about these coins → her base
-        if _nexa.full_due(st_, now):   # 🌐 her site reads ride the hourly full read only (≤ 2 new sites, ≤ 15 s)
-            try:
-                await asyncio.wait_for(_nexa_sites(kb_, coins_, now), timeout=15)
-            except Exception:
-                pass
-        keys_ = [x_.get('mint') for x_ in coins_] + [f"${x_.get('symbol')}" for x_ in coins_ if x_.get('symbol')]
-        pk_['KNOWN'] = _nkb.recall(kb_, keys_, [x_.get('symbol') for x_ in coins_ if x_.get('symbol')], 24, now)
-        full_ = _nexa.full_due(st_, now)   # ⚡ most reads are the FAST numbers-only read; the full one (tune / lesson / web) once an hour
-        web_need_ = set(_nkb.need_web(kb_, [x_.get('mint') for x_ in coins_], now)) if full_ else set()
-        web_ = []
-        try:
-            if full_:   # the fast read sends no web block → no search (≤ 12 s saved)
-                import feeless_mcp as _mcp
-                qpk_ = {**pk_, 'NEXT': [x_ for x_ in pk_['NEXT'] if isinstance(x_, dict) and x_.get('mint') in web_need_]} if isinstance(pk_.get('NEXT'), list) else pk_   # 🧠 known coins skip the search
-                res_ = await asyncio.wait_for(asyncio.gather(*[asyncio.to_thread(_mcp._search_rows, q_, 4) for q_ in _nexa.queries(qpk_)], return_exceptions=True), timeout=12)
-                web_ = [{'title': (w_.get('title') or '')[:90], 'url': w_.get('url'), 'snippet': (w_.get('snippet') or '')[:140]} for r_ in res_ if isinstance(r_, list) for w_ in r_][:8]
-                pk_['SYSTEM'] = str(_mcp.living_now() or '')[:900]
-        except Exception:
-            pass
-        pk_['WEB'] = web_
-        pairs_ = [x_.get('pairAddress') for k_ in ('OPEN', 'NEXT') if isinstance(pk_[k_], list) for x_ in pk_[k_]]
-
-        # NEXA runs on the small Windows CPU model: give her the decision signal,
-        # not the entire FeeCat desk. Keep full pk_ above for FEELESS itself.
-        def _nexa_coin(x_):
-            if not isinstance(x_, dict):
-                return {}
-            return {k_: x_.get(k_) for k_ in (
-                'symbol', 'pairAddress', 'status', 'cap', 'ageMin',
-                'move5m', 'buyers', 'pool', 'top10', 'germ', 'read'
-            ) if x_.get(k_) is not None}
-
-        nexa_pk_ = {
-            'OPEN': [_nexa_coin(x_) for x_ in (pk_.get('OPEN') or [])][:2],
-            'NEXT': [_nexa_coin(x_) for x_ in (pk_.get('NEXT') or [])][:4],
-            'RULES': pk_.get('RULES') or {},
-            'RECORD': pk_.get('RECORD'),
-            'MEMORY': pk_.get('MEMORY'),
-        }
-
-        if full_:   # 🪶 the lean full read: tagged lines + rules / record / notes as text, no persona, enough tokens to finish (nexa.ASK_FULL)
-            lines_, ids_ = _nexa.fast_lines(pk_.get('OPEN'), pk_.get('NEXT'))
-            r_ = await _air.ROUTER.ask(_ai_http(), env, cfg, _nexa.full_text(lines_, rules_, bounds_, nexa_pk_['RECORD'], nexa_pk_['MEMORY']), role='exit', urgency='force',
-                                       only=('win',), system=_nexa.ASK_FULL, only_system=True, tune={'temp': 0.2, 'maxTok': _nexa.FULL_TOK})
-            d_ = _nexa.parse_full(r_.get('text'), ids_, rules_, bounds_)
-        else:
-            lines_, ids_ = _nexa.fast_lines(pk_.get('OPEN'), pk_.get('NEXT'))
-            r_ = await _air.ROUTER.ask(_ai_http(), env, cfg, lines_, role='exit', urgency='force', only=('win',), system=_nexa.ASK_FAST, only_system=True, tune={'temp': 0.1, 'maxTok': _nexa.FAST_TOK})
-            d_ = _nexa.parse_fast(r_.get('text'), ids_)
-        try:
-            _nkb.remember(kb_, ((_nexa.first_json(r_.get('text')) or {}).get('remember') or []), now)
-            if d_ and d_.get('discovery'):
-                _nkb.put(kb_, 'fact', d_['discovery'][:40], d_['discovery'], now)
-            if d_ and d_.get('lesson'):
-                _nkb.put(kb_, 'lesson', d_['lesson'][:40], d_['lesson'], now)
-            _nexa_kb_mem.put(kb_, now)
-        except Exception as e_:
-            print('nexa kb:', str(e_)[:80])
-        st_ = _nexa_mem.get() or {}
-        st_ = {**st_, 'at': now, 'ms': r_.get('ms'), 'ok': bool(d_), 'err': None if d_ else (r_.get('why') or 'no JSON in her answer'), 'mode': 'full' if full_ else 'fast',
-               **({'fullAt': now} if full_ and d_ else {}), 'reads': ((st_.get('reads') or []) + [{'at': round(now), 'ms': r_.get('ms'), 'mode': 'full' if full_ else 'fast', 'ok': bool(d_)}])[-24:]}
-        if d_:
-            mem_ = _nexa.remember(st_.get('mem') or [], 'lesson', d_['lesson'], now)
-            mem_ = _nexa.remember(mem_, 'discovery', d_['discovery'], now)
-            pxs_ = {}
-            try:
-                mints_ = {x_.get('pairAddress'): x_.get('mint') for x_ in _agent_inherit_rows(limit=12)}
-                lp_ = await _live_px([m_ for m_ in mints_.values() if m_])
-                pxs_ = {p_: lp_.get(m_) for p_, m_ in mints_.items() if m_}
-            except Exception:
-                pass
-            grades_ = _nexa.note_calls(st_.get('grades') or [], d_, pxs_, now)
-            applied_ = None
-            cfg_n_ = st_.get('cfg') or {}
-            if d_['tune'] and _nexa.tune_due(st_, now, cfg_n_.get('tune')):
-                try:
-                    rr_ = await _ai_http().post('http://127.0.0.1:5088/api/cats/internal/rules', headers={'x-feeless-internal': _internal_key()}, json={'rules': d_['tune']}, timeout=5)
-                    if rr_.status_code == 200:
-                        applied_ = {'at': round(now), 'set': d_['tune'], 'was': {k_: rules_.get(k_) for k_ in d_['tune']}, 'why': d_['why']}
-                        st_['tunedAt'] = now
-                        st_['tunes'] = ((st_.get('tunes') or []) + [applied_])[-40:]
-                except Exception:
-                    applied_ = None
-            st_.update(mem=mem_, grades=grades_, last={**{k_: d_[k_] for k_ in ('avoid', 'exit', 'favor', 'why', 'lesson', 'discovery')}, 'tune': d_['tune'], 'applied': bool(applied_), 'at': round(now)})
-        _nexa_mem.put(st_, now)
-    except Exception as e_:
-        print('nexa:', str(e_)[:120])
-    finally:
-        _nexa_rt['busy'] = False
-
-
-async def _nexa_settle(now):
-    """Her favor / avoid calls are judged an hour later (no model call)."""
-    st_ = _nexa_mem.get() or {}
-    due_ = [g_ for g_ in st_.get('grades') or [] if g_.get('res') is None and now - _fuse._f(g_.get('at')) >= _nexa.GRADE_SEC]
-    if not due_:
-        return
-    try:
-        mints_ = {x_.get('pairAddress'): x_.get('mint') for x_ in (_open_board() or []) if x_.get('pairAddress')}
-        mints_.update({c_['pair']: c_['mint'] for c_ in st_.get('desk') or [] if c_.get('pair') and c_.get('mint')})   # 🐱 her desk YES calls are graded too
-        lp_ = await _live_px([m_ for p_, m_ in mints_.items() if p_ in {g_['pair'] for g_ in due_} and m_])
-        pxs_ = {p_: lp_.get(m_) for p_, m_ in mints_.items() if m_ in lp_}
-    except Exception:
-        return
-    g_, done_ = _nexa.settle(st_.get('grades') or [], pxs_, now)
-    mem_ = st_.get('mem') or []
-    for x_ in done_:
-        mem_ = _nexa.remember(mem_, 'grade', f"{x_['call']} {x_['pair'][:6]}… → {x_['res']:+.1f}% an hour later", now)
-        try:
-            import nexa_kb as _nkb
-            kb_ = _nexa_kb_mem.get() or {}
-            _nkb.rug(kb_, x_['pair'], x_.get('symbol'), x_['res'], now)
-            _nexa_kb_mem.put(kb_, now)
-        except Exception:
-            pass
-    if done_:
-        _nexa_mem.put({**st_, 'grades': g_, 'mem': mem_}, now)
-
-
-def _fv_persona_sys(name, base):
-    import fee_voice as _fv
-    return base + '\n' + _fv.persona(name)
-
-
-async def _nexa_warm(env, cfg):
-    """🪟 After a background read, put her CHAT prompt back in llamafile's one cached slot (a read's own prompt evicted it: the next owner
-    question then took 138s cold vs 5.6s warm, measured 2026-10-21). One-token answer, background only."""
-    try:
-        await asyncio.wait_for(_air.ROUTER.ask(_ai_http(), env, cfg, 'hi', role='owner', only=('win',), tune={'maxTok': 1}), timeout=280)
-    except Exception as e:
-        print('nexa warm:', str(e)[:60])
-
-
-NEXA_DESK_QUIET = 120   # 🐱 her desk waits 2 min after the owner talks to her (the chat owns her one CPU slot first)
-
-
-def _nexa_desk_coins(mint):
-    """One coin's live numbers from the agents' kernel (no fetch): MC, age, 5m / 1h move, buyers' share, pool, top 10."""
-    x_ = (_tk.KERNEL.candidate(mint) or {}) if mint else {}
-    n_, v_ = x_.get('nums') or {}, x_.get('vitals') or {}
-    return {'mcap': v_.get('mcap'), 'ageMin': _fuse._f(v_['ageH']) * 60 if v_.get('ageH') is not None else None, 'd5': n_.get('d5'), 'c1': n_.get('c1'),
-            'buy': n_.get('buy'), 'liq': n_.get('liq') or v_.get('liq'), 'top10': v_.get('top10'), 'stage': (x_.get('chart') or {}).get('stage') or v_.get('stage')}
-
-
-async def _nexa_desk_tick(now, env, cfg):
-    """🪟🐱 NEXA TRADES AS FEECAT (owner switch, HQ › Fee): ≤ 3 one-line yes / no questions per 5 min — her held coins first (HOLD / SELL), then
-    the coins FeeCat would buy (YES / NO). FeeCat acts on the fresh words through cat_model (every guard of hers still applies). Paper."""
-    st_ = _nexa_mem.get() or {}
-    if not (st_.get('cfg') or {}).get('trade') or _nexa_rt['busy'] or now - _nexa_rt['chatAt'] < NEXA_DESK_QUIET:
-        return
-    lead_ = ((_json_load(DATA_DIR / 'feecats.json', {}) or {}).get('cats') or {}).get('leader') or {}
-    kind_ = _nxd.round_kind(st_, now, any(p_.get('pairAddress') for p_ in lead_.get('positions') or []))   # ⏱ a live trade is re-checked every 2 min (held coins only)
-    if not kind_:
-        return
-    if (_air.ROUTER.prioWait.get('win') or {}).get(0, 0) > 0 or any(x_.get('prov') == 'win' and x_.get('role') in ('owner', 'chat') for x_ in _air.INFLIGHT.values()):
-        return
-    if _air.provider(env, 'win', cfg).get('why'):
-        return
-    _nexa_rt['busy'] = True
-    try:
-        fc_ = _json_load(DATA_DIR / 'feecats.json', {}) or {}
-        held_ = [{**_nexa_desk_coins(p_.get('mint')), 'pair': p_.get('pairAddress'), 'mint': p_.get('mint'), 'symbol': p_.get('symbol'), 'pct': p_.get('currentChange'),
-                  'peak': p_.get('peakChange'), 'mins': (now - _fuse._f(p_.get('openedAt') or now)) / 60} for p_ in lead_.get('positions') or [] if p_.get('pairAddress')]
-        seen_, cands_ = set(), []
-        for r_ in list(((fc_.get('scan') or {}).get('top') or [])) + list(_agent_inherit_rows(limit=6)):
-            pa_ = r_.get('pairAddress')
-            if pa_ and pa_ not in seen_:
-                seen_.add(pa_)
-                cands_.append({**_nexa_desk_coins(r_.get('mint')), 'pair': pa_, 'mint': r_.get('mint'), 'symbol': r_.get('symbol')})
-        calls_ = list(st_.get('desk') or [])
-        jobs_ = _nxd.pick(held_, cands_, calls_, now, held_only=kind_ == 'held')
-        stamp_ = {'deskAt': now} if kind_ == 'full' else {'heldAt': now}
-        st_.update(stamp_)
-        _nexa_mem.put(st_, now)
-        for j_ in jobs_:
-            r_ = await _air.ROUTER.ask(_ai_http(), env, cfg, j_['line'], role='exit', urgency='force', only=('win',), system=_nxd.ASK_HOLD if j_['kind'] == 'hold' else _nxd.ASK_BUY,
-                                       only_system=True, tune={'temp': 0.1, 'maxTok': _nxd.MAX_TOK})
-            w_, why_ = _nxd.parse(r_.get('text'), j_['kind'])
-            calls_ = _nxd.note(calls_, j_, w_, why_ or ('' if w_ else (r_.get('why') or 'no clear word')), r_.get('ms'), time.time(), lines=_nxd.lines_of(r_.get('text')) if w_ else None)
-        yes_ = [c_['pair'] for c_ in calls_[-len(jobs_):] if c_.get('word') == 'YES'] if jobs_ else []
-        st_ = _nexa_mem.get() or {}
-        if yes_:   # 📏 her YES calls are graded an hour later like her favors
-            try:
-                lp_ = await _live_px([c_.get('mint') for c_ in calls_[-len(jobs_):] if c_.get('word') == 'YES'])
-                st_['grades'] = _nexa.note_calls(st_.get('grades') or [], {'favor': yes_}, {c_['pair']: lp_.get(c_.get('mint')) for c_ in calls_ if c_.get('mint') in lp_}, now)
-            except Exception:
-                pass
-        _nexa_mem.put({**st_, 'desk': calls_, **stamp_}, now)
-    except Exception as e:
-        print('nexa desk:', str(e)[:100])
-    finally:
-        _nexa_rt['busy'] = False
-
-
-async def _nexa_desk_safe(now, env, cfg):
-    try:
-        await asyncio.wait_for(_nexa_desk_tick(now, env, cfg), timeout=200)
-    except Exception as e:
-        _nexa_rt['busy'] = False
-        print('nexa desk:', str(e)[:80])
-
-
-async def _nexa_safe(now, env, cfg):
-    try:
-        await _nexa_settle(now)
-        at0_ = (_nexa_mem.get() or {}).get('at')
-        await asyncio.wait_for(_nexa_tick(now, env, cfg), timeout=300)
-        if (_nexa_mem.get() or {}).get('at') != at0_:   # she really read → re-warm the chat prompt
-            asyncio.create_task(_nexa_warm(env, cfg))
-    except Exception as e:
-        _nexa_rt['busy'] = False
-        print('nexa:', str(e)[:80])
-
-
 async def _g4_tick(now, env, cfg):
     """🧠 G4's minute: one snapshot packet → one action for ITS seat (paper book here; real = `_g4['want']`, applied by the tier tick)."""
     if (_g4['busy'] and now - _fuse._f(_g4.get('at')) < G4_STUCK_SEC) or not _seat.due(_g4['at'], now):   # a tick stuck > 4 min is let go
@@ -19044,24 +18707,8 @@ async def admin_ai_seat(request: Request):
 
 @app.get('/api/reputation/cats-ai')
 async def cats_ai():
-    """🐱🤝 FeeCat's last AI read: what BOTH duo models agreed she should skip (`avoid`) or bank (`exit`) + 🪟 NEXA's own (she runs FeeCat's desk),
-    by pairAddress. Read-only, memory. A Nexa read older than 15 min is not acted on."""
+    """🐱🤝 FeeCat's last AI read: what BOTH duo models agreed she should skip (`avoid`) or bank (`exit`), by pairAddress. Read-only, memory."""
     out_ = {k_: _feecat_ai.get(k_) for k_ in ('read', 'avoid', 'exit', 'split', 'why', 'models')}
-    nst_ = _nexa_mem.get() or {}
-    nx_ = nst_.get('last') or {}
-    dk_ = _nxd.merge(nst_.get('desk'), time.time()) if (nst_.get('cfg') or {}).get('trade') else None
-    if dk_ and dk_['at']:   # 🐱 NEXA trades AS FeeCat: her fresh desk YES / SELL words join her last read (newest word wins on freshness)
-        fresh_ = nx_ and time.time() - _fuse._f(nx_.get('at')) <= 1800
-        nx_ = {**(nx_ if fresh_ else {}), 'favor': sorted(set(dk_['favor']) | set((nx_ or {}).get('favor') or [] if fresh_ else [])),
-               'exit': sorted(set(dk_['exit']) | set((nx_ or {}).get('exit') or [] if fresh_ else [])), 'at': max(dk_['at'], _fuse._f((nx_ or {}).get('at')) if fresh_ else 0),
-               'why': (nx_ or {}).get('why') if fresh_ else 'her desk calls'}
-    if nx_ and time.time() - _fuse._f(nx_.get('at')) <= 900:
-        out_['avoid'] = sorted(set(out_.get('avoid') or []) | set(nx_.get('avoid') or []))
-        out_['exit'] = sorted(set(out_.get('exit') or []) | set(nx_.get('exit') or []))
-        out_['read'] = max(_fuse._f(out_.get('read')), _fuse._f(nx_.get('at')))
-        out_['models'] = list(out_.get('models') or []) + ['NEXA']
-    out_['nexa'] = {**{k_: nx_.get(k_) for k_ in ('avoid', 'exit', 'favor', 'why', 'at')}, 'record': _nexa.record(nst_.get('grades')), 'trades': bool(dk_ is not None),
-                    **({'skim': dk_['skim'], 'lines': dk_['lines'], 'talk': _nxd.talk(nst_.get('desk'), time.time())} if dk_ else {})} if nx_ else None   # ✂ her SKIM (bank half, once per call) + 🎯 her stop / take on held coins
     return out_
 
 
@@ -19070,10 +18717,10 @@ STALL_ALERT_EVERY = 1800
 
 
 def _ai_stall_watch(now):
-    """🩺 G4 / OSSY / NEXA stall watchdog (owner night list: 'stalls — read Brain › Models live numbers first, then a stall watchdog'): a model
+    """🩺 G4 / OSSY stall watchdog (owner night list: 'stalls — read Brain › Models live numbers first, then a stall watchdog'): a model
     that keeps failing while FEELESS keeps asking alerts the owner once per 30 min with the evidence. It never reloads by itself."""
     out_ = []
-    for k_ in ('lan', 'local', 'win'):
+    for k_ in ('lan', 'local'):
         st_ = _mdk.stall_of(_air.ROUTER.stats.get(k_), now)
         if not st_ or now - _stall_seen.get(k_, 0) < STALL_ALERT_EVERY:
             continue
@@ -19098,8 +18745,6 @@ async def _ai_round(now):
     asyncio.ensure_future(_local_lane_run(now))   # 💻 the local model's own lane (its own task: a 15–30s inference never holds this round)
     await _ai_learn_settle(now)   # 🧠 the model's earlier stances are judged against what the coin did (no model call)
     await _lab_tick(now, env, cfg)   # 🧪 the rule lab: the record re-judges every rule; at most once an hour the model proposes new ones
-    asyncio.ensure_future(_nexa_safe(now, env, cfg))   # 🪟 Nexa: FeeCat's own model, its own task (CPU llamafile, minutes per answer)
-    asyncio.ensure_future(_nexa_desk_safe(now, env, cfg))   # 🐱 …and, when the owner switched it on, she trades AS FeeCat (≤ 3 yes / no calls per 5 min)
     asyncio.ensure_future(_studio_auto_safe(now))   # 🤖 Prompt Studio auto-tune: a model whose switch is on and whose last trades turned red gets its AUTO-TUNED set
     asyncio.ensure_future(_feecat_duo_safe(now, env, cfg))   # 🐱🤝 its own task: a stuck desktop model never holds the round (OSSY's minute waited behind it)   # FeeCat's one duo read per 10 min (both models must agree before she acts on it)
     await _coach_ai(now, env, cfg)   # 👑 at most every 15 min: the model reads the last real trades and may instruct the agents (bounded, coach.py)
@@ -19572,10 +19217,6 @@ async def _ai_proposal_apply(p, now):
                     + (f" · {res_['note']}" if res_.get('note') else ''))
         new_ = _rg.clean({mk_: {f_: v_}}, prev_)
         _json_save(AI_RIG_PATH, new_); _rig_apply()
-        t_ = _rg.win_target(new_['win'])
-        if mk_ == 'win' and f_ in ('ctx', 'parallel') and t_ and _rg.win_target(prev_['win']) != t_:
-            _nexa_kick(t_[0], t_[1])
-            return f"NEXA {f_} → {v_}: saved, her llamafile is restarting with {t_[0]} × {t_[1]} (checked on /props + /slots)"
         return f"{_rg.NAMES[mk_]} {f_}: {prev_[mk_].get(f_)} → {v_} (live now — what FEELESS sends)"
     if kind == 'idea':   # 📋 approving an idea = permission to BUILD it: it joins the build queue the next engineering session works through
         try:
@@ -19600,117 +19241,6 @@ def _rig_apply():
     _air.RIG.clear()
     _air.RIG.update(_rg.clean({}, _json_load(AI_RIG_PATH, {})))
     return _air.RIG
-
-
-# 🪟 NEXA RUNTIME CONTROL (owner, 2026-10-21): the Windows PC runs backend/nexa_controller.py (fixed purpose, shared secret). FEELESS keeps the
-# controller's URL + token in data/nexa_ctl.json (made once; the token goes to Windows through the MCP's authenticated /nexa-install.ps1),
-# asks it to apply NEXA's rig row, and then reads llamafile's OWN /props + /slots — a setting is ACTIVE only when the runtime reports it.
-NEXA_CTL_PATH = DATA_DIR / 'nexa_ctl.json'
-NEXA_CTL_PORT = 8081
-_nexa_job = {}
-_nexa_act = {'at': 0.0, 'v': None}
-_nexa_ctl_seen = {'at': 0.0, 'v': {'reachable': False}}
-
-
-def _nexa_root():
-    b_ = str(os.environ.get('WIN_LLM_BASE_URL') or '').strip().rstrip('/')
-    return b_[:-3] if b_.endswith('/v1') else b_
-
-
-def _nexa_ctl_conf():
-    """{url, token} for the Windows controller — the token is generated here once (never printed, never in .env)."""
-    import secrets as _sec
-    from urllib.parse import urlparse as _up
-    d_ = _json_load(NEXA_CTL_PATH, {}) or {}
-    ch_ = False
-    if not d_.get('token'):
-        d_['token'] = _sec.token_urlsafe(32); ch_ = True
-    if not d_.get('url'):
-        host_ = _up(_nexa_root() or 'http://127.0.0.1').hostname or '127.0.0.1'
-        d_['url'] = f'http://{host_}:{NEXA_CTL_PORT}'; ch_ = True
-    if ch_:
-        _json_save(NEXA_CTL_PATH, d_)
-        try:
-            os.chmod(NEXA_CTL_PATH, 0o600)
-        except OSError:
-            pass
-    return d_
-
-
-async def _nexa_actual(fresh=False):
-    """What NEXA's llamafile reports right now: {ctx (per slot), slots, model} — None when it does not answer. 8s cache."""
-    import nexa_controller as _nc
-    now_ = time.time()
-    if not fresh and now_ - _nexa_act['at'] < 8:
-        return _nexa_act['v']
-    root_ = _nexa_root(); v_ = None
-    if root_:
-        try:
-            async with httpx.AsyncClient(timeout=4) as h_:
-                p_, s_ = await asyncio.gather(h_.get(f'{root_}/props'), h_.get(f'{root_}/slots'))
-            if p_.status_code == 200:
-                v_ = _nc.parse_actual(p_.json(), s_.json() if s_.status_code == 200 else None)
-                v_ = v_ if v_.get('slots') else None
-        except Exception:
-            v_ = None
-    _nexa_act.update(at=now_, v=v_)
-    return v_
-
-
-async def _nexa_ctl(method, path, body=None, timeout=6.0):
-    """One call to the Windows controller → (status, json) or (None, reason)."""
-    c_ = _nexa_ctl_conf()
-    try:
-        async with httpx.AsyncClient(timeout=timeout) as h_:
-            r_ = await h_.request(method, c_['url'] + path, json=body, headers={'Authorization': f"Bearer {c_['token']}"})
-        try:
-            return r_.status_code, r_.json()
-        except Exception:
-            return r_.status_code, {'error': r_.text[:200]}
-    except Exception as e:
-        return None, {'error': type(e).__name__}
-
-
-async def _nexa_ctl_reachable():
-    now_ = time.time()
-    if now_ - _nexa_ctl_seen['at'] > 15:
-        st_, _b = await _nexa_ctl('GET', '/health', timeout=3)
-        _nexa_ctl_seen.update(at=now_, v={'reachable': st_ == 200, 'url': _nexa_ctl_conf()['url']})
-    return _nexa_ctl_seen['v']
-
-
-async def _nexa_apply_job(ctx, par, restart=False):
-    """Ask the controller to (re)start NEXA with ctx × par, then verify on llamafile's own endpoints. The job state is what the UI shows."""
-    import ai_rig as _rg
-    _nexa_job.clear(); _nexa_job.update(state='applying', at=time.time(), want={'ctx': ctx, 'slots': par},
-                                        msg=f'restarting NEXA with {ctx} context × {par} slot{"s" if par > 1 else ""}…')
-    st_, res_ = await _nexa_ctl('POST', '/restart' if restart else '/apply', None if restart else {'ctx': ctx, 'parallel': par}, timeout=300)
-    if st_ is None:
-        _nexa_job.update(state='not-applied', verified=False, at=time.time(),
-                         msg='the Windows controller did not answer — your settings are saved, NEXA was NOT changed')
-        _nexa_ctl_seen['at'] = 0
-        return dict(_nexa_job)
-    if st_ == 401:
-        _nexa_job.update(state='not-applied', verified=False, at=time.time(), msg='the controller refused the token — run the Windows setup again')
-        return dict(_nexa_job)
-    if st_ >= 400 and st_ != 502:
-        _nexa_job.update(state='not-applied', verified=False, at=time.time(), msg=f"controller: {(res_ or {}).get('error') or (res_ or {}).get('msg') or st_}")
-        return dict(_nexa_job)
-    act_ = await _nexa_actual(fresh=True)                 # our own reading — never the controller's word alone
-    ok_ = _rg.runtime_view({'ctx': ctx, 'parallel': par}, act_)['active']
-    _nexa_job.update(state='verified' if ok_ else 'mismatch', verified=ok_, at=time.time(), actual=act_,
-                     msg=('NEXA is running it — verified on /props + /slots' if ok_ else
-                          ('NEXA did not come back up after the restart' if not act_ else
-                           f"NEXA reports {act_.get('ctx')} context × {act_.get('slots')} slots — not what was asked")))
-    return dict(_nexa_job)
-
-
-def _nexa_kick(ctx, par, restart=False):
-    if _nexa_job.get('state') == 'applying':
-        return False
-    _nexa_job.update(state='applying', at=time.time())
-    asyncio.get_running_loop().create_task(_nexa_apply_job(ctx, par, restart))
-    return True
 
 
 _lms_reloading: set = set()   # ⚡ models reloading right now (one reload per model at a time)
@@ -19776,19 +19306,6 @@ async def _mdk_lms(key):
     return await _mdk_cached(f'lms:{key}', 15, go)
 
 
-async def _mdk_llama():
-    """NEXA's llamafile: /props + /slots + /health → {props, slots, ms}."""
-    async def go():
-        root_ = _nexa_root()
-        if not root_:
-            return {'err': 'NEXA is not configured'}
-        t0_ = time.perf_counter()
-        p_, s_ = await asyncio.wait_for(asyncio.gather(_ai_http().get(f'{root_}/props'), _ai_http().get(f'{root_}/slots')), timeout=5)
-        return {'props': p_.json() if p_.status_code == 200 else None, 'slots': s_.json() if s_.status_code == 200 else None,
-                'ms': round((time.perf_counter() - t0_) * 1000), 'base': root_, 'err': None if p_.status_code == 200 else f'HTTP {p_.status_code}'}
-    return await _mdk_cached('llama', 10, go)
-
-
 async def _mdk_mcp():
     """FEELESS's MCP server (feeless_mcp.py) as a model sees it: tools/list over its authenticated JSON-RPC."""
     async def go():
@@ -19807,45 +19324,37 @@ async def _mdk_mcp():
 
 async def _model_desk_view():
     rig_ = _rig_apply()
-    lan_, local_, llama_, mcp_ = await asyncio.gather(_mdk_lms('lan'), _mdk_lms('local'), _mdk_llama(), _mdk_mcp())
+    lan_, local_, mcp_ = await asyncio.gather(_mdk_lms('lan'), _mdk_lms('local'), _mdk_mcp())
     v_ = _air.ROUTER.view(os.environ, _ai_cfg())
     live_ = {r_['key']: r_ for r_ in v_.get('providers') or []}
-    live_['win'] = {'state': _air.ROUTER.stats['win'].get('state'), 'lastMs': _air.ROUTER.stats['win'].get('lastMs')}
     log_ = list(_air.CALL_LOG)
     act_ = _studio_apply()
     out_ = []
-    for k_, raw_ in (('lan', lan_), ('local', local_), ('win', llama_)):
+    for k_, raw_ in (('lan', lan_), ('local', local_)):
         lv_ = live_.get(k_) or {}
         p_ = _air.provider(os.environ, k_, _ai_cfg())
-        if k_ == 'win':
-            info_ = _mdk.llama_info((raw_ or {}).get('props'), (raw_ or {}).get('slots')) if not (raw_ or {}).get('err') else None
-            ctx_ = (info_ or {}).get('ctxPerSlot')
-            server_ = {'endpoint': _mdk.host_of((raw_ or {}).get('base')), 'api': 'llamafile (llama.cpp) · OpenAI /v1 + /props /slots /health', 'ok': bool(info_),
-                       'ms': (raw_ or {}).get('ms'), 'err': (raw_ or {}).get('err'), 'slots': (info_ or {}).get('slots'), 'busy': (info_ or {}).get('busy'),
-                       'keySet': bool(str(os.environ.get('WIN_LLM_API_KEY') or '').strip())}
-        else:
-            row_, listed_ = _mdk.lms_pick((raw_ or {}).get('data'), (raw_ or {}).get('model'))
-            info_ = _mdk.lms_info(row_)
-            ctx_ = (info_ or {}).get('loadedCtx')
-            server_ = {'endpoint': _mdk.host_of((raw_ or {}).get('base')), 'api': 'LM Studio · OpenAI /v1 + REST /api/v1', 'ok': bool((raw_ or {}).get('data')),
-                       'ms': (raw_ or {}).get('ms'), 'err': (raw_ or {}).get('err'), 'listed': listed_, 'instances': (info_ or {}).get('instances'),
-                       'keySet': bool(_air._lm_auth(os.environ, k_).get('headers'))}
+        row_, listed_ = _mdk.lms_pick((raw_ or {}).get('data'), (raw_ or {}).get('model'))
+        info_ = _mdk.lms_info(row_)
+        ctx_ = (info_ or {}).get('loadedCtx')
+        server_ = {'endpoint': _mdk.host_of((raw_ or {}).get('base')), 'api': 'LM Studio · OpenAI /v1 + REST /api/v1', 'ok': bool((raw_ or {}).get('data')),
+                   'ms': (raw_ or {}).get('ms'), 'err': (raw_ or {}).get('err'), 'listed': listed_, 'instances': (info_ or {}).get('instances'),
+                   'keySet': bool(_air._lm_auth(os.environ, k_).get('headers'))}
         rg_ = rig_.get(k_) or {}
         server_.update(timeout=rg_.get('timeout'), parallel=rg_.get('parallel'), perMin=rg_.get('perMin'), state=lv_.get('state'), lastOkAt=lv_.get('lastOkAt'))
         a_ = act_.get(k_)
         out_.append({'key': k_, 'name': _air.model_name(os.environ, k_), 'state': lv_.get('state'), 'model': (info_ or {}).get('name') or p_.get('model'),
                      'info': info_, 'server': server_, 'vitals': _mdk.vitals(log_, _air.INFLIGHT, k_, ctx_), 'stall': _mdk.stall_of(_air.ROUTER.stats.get(k_), time.time()),
                      'inference': {'infer': rg_.get('infer') or {}, 'desk': {'temp': 0.1, 'maxTok': _air.MAX_TOKENS},
-                                   'runtime': (info_ or {}).get('defaults') if k_ == 'win' else None,
-                                   'reasoning': (info_ or {}).get('reasoning') if k_ != 'win' else None,
+                                   'runtime': None,
+                                   'reasoning': (info_ or {}).get('reasoning'),
                                    'mindset': {'set': a_['set'], 'seen': _air.MINDSET_SEEN.get(k_)} if a_ else None,
-                                   'speculative': (info_ or {}).get('speculative') if k_ == 'win' else None}})
+                                   'speculative': None}})
     return {'models': out_, 'mcp': mcp_, 'bounds': {k_: [lo_, hi_] for k_, (lo_, hi_, _t) in __import__('ai_rig').INFER_BOUNDS.items()}, 'at': time.time()}
 
 
 @app.get('/api/reputation/admin/ai/models')
 async def admin_ai_models(request: Request):
-    """🧠 Owner: Brain › Models — every model's INFO · SERVER · INFERENCE · VITALS (what LM Studio / llamafile really report) + FEELESS's MCP."""
+    """🧠 Owner: Brain › Models — every model's INFO · SERVER · INFERENCE · VITALS (what LM Studio really reports) + FEELESS's MCP."""
     _require_owner(request)
     return await _model_desk_view()
 
@@ -19901,16 +19410,12 @@ def _studio_trades(key):
     return sorted(out, key=lambda t_: _fuse._f(t_.get('at')))
 
 
-def _studio_core(k_, st_, done_, nx_):
+def _studio_core(k_, st_, done_):
     """One model's record → {trades, stats, fixes, sets} (the view and the auto-tune switch read the same numbers)."""
     nm_ = _air.model_name(os.environ, k_)
-    if k_ == 'win':
-        trades_ = _pstu.nexa_trades(nx_.get('grades') or [])
-        s_ = _pstu.stats(trades_, None, None, _nexa.record(nx_.get('grades') or []))
-    else:
-        trades_ = _studio_trades(k_)
-        calls_ = [r_ for r_ in st_['log'] if r_.get('model') == nm_ and r_.get('action') != 'LINES' and not r_.get('talk')]
-        s_ = _pstu.stats(trades_, calls_, _seat.bench(done_, k_))
+    trades_ = _studio_trades(k_)
+    calls_ = [r_ for r_ in st_['log'] if r_.get('model') == nm_ and r_.get('action') != 'LINES' and not r_.get('talk')]
+    s_ = _pstu.stats(trades_, calls_, _seat.bench(done_, k_))
     fx_ = _pstu.diagnose(s_)
     raw_ = _json_load(PROMPT_STUDIO_PATH, {}) or {}
     best_ = _pstu.best_rung(_pstu.ladder(trades_, raw_.get('history'), k_, time.time(), _pstu.clean_active(raw_).get(k_)))
@@ -19931,10 +19436,10 @@ async def _studio_auto(now):
     if not on_:
         return 0
     act_ = _pstu.clean_active(raw_)
-    st_, done_, nx_ = _g4_state(), (_ai.get('book') or {}).get('done') or [], _nexa_mem.get() or {}
+    st_, done_ = _g4_state(), (_ai.get('book') or {}).get('done') or []
     n_ = 0
     for k_ in sorted(on_):
-        core_ = _studio_core(k_, st_, done_, nx_)
+        core_ = _studio_core(k_, st_, done_)
         tuned_ = next((x_ for x_ in core_['sets'] if x_['set'] == 'tuned'), None)
         pick_ = _pstu.auto_pick(True, act_.get(k_), _pstu.recent(core_['trades']), tuned_, now)
         if not pick_:
@@ -19967,25 +19472,23 @@ async def _studio_view():
     lms_ = await _lms_states()
     v_ = _air.ROUTER.view(os.environ, _ai_cfg())
     live_ = {r_['key']: r_.get('state') for r_ in v_.get('providers') or []}
-    live_['win'] = _air.ROUTER.stats['win'].get('state')
     st_ = _g4_state()
     done_ = (_ai.get('book') or {}).get('done') or []
-    nx_ = _nexa_mem.get() or {}
     brain_ = _air.brain_text(os.environ) or ''
     raw_ = _json_load(PROMPT_STUDIO_PATH, {}) or {}
     now_ = time.time()
     models_ = []
     for k_ in _pstu.KEYS:
         nm_ = _air.model_name(os.environ, k_)
-        core_ = _studio_core(k_, st_, done_, nx_)
+        core_ = _studio_core(k_, st_, done_)
         trades_, s_, fx_ = core_['trades'], core_['stats'], core_['fixes']
         lm_ = (lms_ or {}).get(k_) or {}
         ctx_ = int(_fuse._f(((lm_.get('loaded') or [{}])[0] or {}).get('ctx')) or _fuse._f((rig_.get(k_) or {}).get('ctx')) or 0) or None
         a_ = act_.get(k_)
-        job_ = _seat.sys_for(_seat.SYSTEM, k_) if k_ != 'win' else _nxd.ASK_BUY + '\n' + _nxd.ASK_HOLD
-        layers_ = [_studio_layer('job', 'Seat prompt' if k_ != 'win' else 'Desk calls (YES / NO · HOLD / SELL)', job_),
+        job_ = _seat.sys_for(_seat.SYSTEM, k_)
+        layers_ = [_studio_layer('job', 'Seat prompt', job_),
                    _studio_layer('identity', 'Identity', _air.identity_line(os.environ, k_), 'chat only'),
-                   *([_studio_layer('brain', 'Coin reads (brain)', brain_, 'background reads')] if k_ != 'win' and brain_ else []),
+                   *([_studio_layer('brain', 'Coin reads (brain)', brain_, 'background reads')] if brain_ else []),
                    _studio_layer('studio', 'Applied mindset', _pstu.overlay_block(a_['text']).strip() if a_ else '', None if a_ else 'none applied')]
         rec_ = _pstu.recent(trades_)
         last_ = next((x_ for x_ in reversed(raw_.get('autoLog') or []) if x_.get('key') == k_), None)
@@ -20053,19 +19556,17 @@ async def admin_ai_prompts_set(request: Request):
 
 @app.get('/api/reputation/admin/ai/rig')
 async def admin_ai_rig(request: Request):
-    """🎛 Owner: the model rig (ai_rig.py) — what FEELESS sends G4 / OSSY / NEXA, the load command that matches it, and for NEXA the runtime
-    itself: desired (saved) vs actual (llamafile's own /props + /slots), whether the Windows controller answers, and the last apply."""
+    """🎛 Owner: the model rig (ai_rig.py) — what FEELESS sends G4 / OSSY and the load command that matches it."""
     _require_owner(request)
     import ai_rig as _rg
     rig_ = _rig_apply()
     models_ = {k_: _air.provider(os.environ, k_, _ai_cfg()).get('model') for k_ in _rg.KEYS}
     v_ = _air.ROUTER.view(os.environ, _ai_cfg())
     live_ = {r_['key']: {'state': r_.get('state'), 'lastMs': r_.get('lastMs')} for r_ in v_.get('providers') or []}
-    live_['win'] = {'state': _air.ROUTER.stats['win'].get('state'), 'lastMs': _air.ROUTER.stats['win'].get('lastMs')}
-    act_, ctl_, lms_ = await asyncio.gather(_nexa_actual(), _nexa_ctl_reachable(), _lms_states())
+    lms_ = await _lms_states()
     _brain_load()
     set_ = _chat.get('settings') or {}
-    return {**_rg.view(rig_, models_, lms_), 'live': live_, 'nexa': _rg.runtime_view(rig_['win'], act_, _nexa_job, ctl_),
+    return {**_rg.view(rig_, models_, lms_), 'live': live_,
             'chat': {'temp': set_.get('temp'), 'len': set_.get('len'), 'temps': list(_rg.CHAT_TEMPS), 'lens': _rg.CHAT_LENS}, 'reloading': sorted(_lms_reloading),
             'presets': _rg.presets_view(_json_load(AI_PRESETS_PATH, {}))}
 
@@ -20100,8 +19601,7 @@ async def admin_ai_rig_preset(request: Request):
 
 @app.post('/api/reputation/admin/ai/rig')
 async def admin_ai_rig_set(request: Request):
-    """🎛 Owner: save the rig (listed values only) — live at once for what FEELESS sends. G4 / OSSY are never reloaded. A change to NEXA's
-    context or slots is also sent to the Windows controller (restart + verify, in the background); `{"nexa": "apply" | "restart"}` re-sends it."""
+    """🎛 Owner: save the rig (listed values only) — live at once for what FEELESS sends. G4 / OSSY are never reloaded."""
     admin = _require_owner(request)
     import ai_rig as _rg
     body = await request.json()
@@ -20124,11 +19624,6 @@ async def admin_ai_rig_set(request: Request):
         ad_ = _admin_load(); _audit(ad_, admin, 'lms-reload', f"{rl_} {_rg.load_value(new_[rl_]['load'])} → {'ok' if res_.get('ok') else res_.get('err')}"[:200]); _admin_save(ad_)
         out_ = await admin_ai_rig(request)
         return {**out_, 'reload': res_}
-    t_ = _rg.win_target(new_['win'])
-    ask_ = body.get('nexa')
-    if t_ and (ask_ in ('apply', 'restart') or _rg.win_target(prev_['win']) != t_):
-        if _nexa_kick(t_[0], t_[1], restart=ask_ == 'restart'):
-            ad_ = _admin_load(); _audit(ad_, admin, 'nexa-runtime', f'{ask_ or "apply"} ctx {t_[0]} × {t_[1]}'); _admin_save(ad_)
     return await admin_ai_rig(request)
 
 
@@ -20141,7 +19636,7 @@ async def admin_ai_calls(request: Request):
         by_.setdefault(k_, []).append(ms_)
     avg_ = {k_: sum(v_) / len(v_) for k_, v_ in by_.items() if v_}
     names_ = {k_: _air.NAME_DEFAULT.get(k_) for k_ in ('lan', 'local')} if isinstance(getattr(_air, 'NAME_DEFAULT', None), dict) else {}
-    lim_ = {k_: _air.rig(k_, 'timeout', (_air.PROVIDERS.get(k_) or (0,) * 7)[6] or 90) for k_ in ('lan', 'local', 'win')}   # ⏱ the real deadline per model
+    lim_ = {k_: _air.rig(k_, 'timeout', (_air.PROVIDERS.get(k_) or (0,) * 7)[6] or 90) for k_ in ('lan', 'local')}   # ⏱ the real deadline per model
     return {**_air.calls_view(time.time(), avg_), 'names': names_, 'avgMs': {k_: round(v_) for k_, v_ in avg_.items()}, 'limits': lim_}
 
 
@@ -20364,15 +19859,6 @@ async def admin_ai_chat(request: Request):
         only_ = (prov_,) if prov_ in _air.PROVIDERS else (_duet.LEAD,) if prov_ == 'duet' else None
         if prov_ == 'auto':   # 💬 your chat asks the STRONGER local model first (OSSY = gpt-oss-20b; G4 is a 2B model on the desktop today) — CHAT_FIRST overrides
             only_ = tuple(dict.fromkeys([str(env.get('CHAT_FIRST') or 'local')] + list(_air.order_of(env, cfg))))
-        if prov_ == 'win':
-            _nexa_rt['chatAt'] = time.time()
-        if prov_ == 'win':   # 🪟 NEXA in chat carries her own desk: FeeCat calls, record, tunes and notebook (what she knows, not the boys')
-            try:
-                st_ = _nexa_mem.get() or {}
-                ctx = {**(ctx or {}), 'nexa': {'record': _nexa.record(st_.get('grades')), 'lastRead': {k_: (st_.get('last') or {}).get(k_) for k_ in ('why', 'avoid', 'exit', 'favor', 'at')},
-                                               'tunes': (st_.get('tunes') or [])[-3:], 'notebook': _nexa.recall(st_.get('mem'), 10)}}
-            except Exception as e_:
-                print('nexa chat ctx:', str(e_)[:80])
         img_ = _chat_image((body or {}).get('image'))
         hist_ = _aic.as_messages(_chat['th'].get(mode))
         vl_ = _aic.VOICE_LINE.get(set_.get('voice', 'degen')) or ''
@@ -20691,17 +20177,7 @@ async def admin_ai_chat_get(request: Request):
     _brain_load()
     return {'history': _chat['th'].get('chat') or [], **_chat_extra(), 'build': _aic.build_view(_build_state()), 'proposals': _aic.view(_chat_props()), 'modes': list(_aic.MODES), 'learned': _chat_learned(),
             'brain': {'provider': (live_ or {}).get('label'), 'model': (live_ or {}).get('model'), 'ms': (live_ or {}).get('lastMs')},
-            'providers': [{'key': r_['key'], 'label': r_['label'], 'state': r_['state'], 'model': r_.get('model')} for r_ in v_.get('providers') or [] if r_.get('enabled') and not r_.get('why')] + _nexa_chat_row()}
-
-
-def _nexa_chat_row():
-    """🪟 NEXA in the Brain's model switch: listed whenever her Windows box is configured (WIN_LLM_BASE_URL). She stays OUT of the background order —
-    a 3B model on an old CPU is for the owner's chat + FeeCat's desk only."""
-    p_ = _air.provider(os.environ, 'win', _ai_cfg())
-    if not p_.get('enabled') or p_.get('why'):
-        return []
-    s_ = _air.ROUTER.stats['win']
-    return [{'key': 'win', 'label': p_['label'], 'state': s_.get('state') or 'UNTESTED', 'model': p_.get('model'), 'nexa': True}]
+            'providers': [{'key': r_['key'], 'label': r_['label'], 'state': r_['state'], 'model': r_.get('model')} for r_ in v_.get('providers') or [] if r_.get('enabled') and not r_.get('why')]}
 
 
 @app.post('/api/reputation/admin/ai/proposals/decide')
@@ -28944,58 +28420,9 @@ def _feecat_pins(positions, top, now=None):
     return out
 
 
-@app.get('/api/reputation/admin/nexa')
-async def admin_nexa(request: Request):
-    """🪟 Nexa's desk (owner): is her Windows model reachable, her last read, what she tuned (with the old values), her record, her memory."""
-    _require_owner(request)
-    st_ = _nexa_mem.get() or {}
-    pv_ = _air.provider(os.environ, 'win', _ai_cfg())
-    return {'name': _air.model_name(os.environ, 'win'), 'provider': {'on': not pv_.get('why'), 'why': pv_.get('why'), 'model': pv_.get('model'), 'base': bool(pv_.get('base')),
-            'label': _air.LABEL.get('win')}, 'busy': _nexa_rt['busy'],
-            'every': _air.rig('win', 'every', _nexa.NEXA_EVERY), 'at': st_.get('at'), 'ok': st_.get('ok'), 'err': st_.get('err'), 'ms': st_.get('ms'), 'last': st_.get('last'),
-            'mode': st_.get('mode'), 'reads': (st_.get('reads') or [])[-24:], 'fullEvery': _nexa.FULL_EVERY,
-            'record': _nexa.record(st_.get('grades') or []), 'tunes': (st_.get('tunes') or [])[-10:], 'cfg': st_.get('cfg') or {},
-            'memory': (st_.get('mem') or [])[-40:], 'memN': len(st_.get('mem') or []),
-            'kb': {**__import__('nexa_kb').stats(_nexa_kb_mem.get() or {}), 'latest': __import__('nexa_kb').latest(_nexa_kb_mem.get() or {}, 30)},
-            'trade': bool((st_.get('cfg') or {}).get('trade')), 'desk': (st_.get('desk') or [])[-12:], 'deskAt': st_.get('deskAt'), 'deskEvery': _nxd.EVERY, 'heldAt': st_.get('heldAt'), 'heldEvery': _nxd.HELD_EVERY, 'deskCalls': _nxd.CALLS, 'real': {'on': False, 'why': 'FeeCat trades paper. A real-money FeeCat needs her own keeper path (sign from a FeeCat wallet, the Fuse wallet checks) — not built yet; switching it on stays your call.'}}
 
 
-@app.post('/api/reputation/admin/nexa')
-async def admin_nexa_set(request: Request):
-    """🪟 Owner: switch Nexa's tuning on / off, revert her last tune, ask her for a read now, or wipe her memory. Audited."""
-    admin = _require_owner(request)
-    body = await request.json()
-    st_ = _nexa_mem.get() or {}
-    now = time.time()
-    if isinstance(body.get('tune'), bool):
-        st_['cfg'] = {**(st_.get('cfg') or {}), 'tune': body['tune']}
-    if isinstance(body.get('trade'), bool):   # 🐱 NEXA trades AS FeeCat (paper): FeeCat's engine follows her desk words, or back to its own rules
-        rb_ = await _ai_http().post('http://127.0.0.1:5088/api/cats/internal/brain', headers={'x-feeless-internal': _internal_key()}, json={'model': 'nexa' if body['trade'] else 'rules'}, timeout=5)
-        if rb_.status_code != 200:
-            raise HTTPException(502, 'FeeCat did not take the switch.')
-        st_['cfg'] = {**(st_.get('cfg') or {}), 'trade': body['trade']}
-        if body['trade']:
-            st_['deskAt'] = 0
-    if body.get('revert'):
-        t_ = (st_.get('tunes') or [])[-1:]
-        if not t_:
-            raise HTTPException(400, 'Nexa has not tuned anything yet.')
-        rr_ = await _ai_http().post('http://127.0.0.1:5088/api/cats/internal/rules', headers={'x-feeless-internal': _internal_key()}, json={'rules': {k_: v_ for k_, v_ in (t_[0].get('was') or {}).items() if v_ is not None}}, timeout=5)
-        if rr_.status_code != 200:
-            raise HTTPException(502, 'FeeCat did not take the revert.')
-        st_['tunes'] = (st_.get('tunes') or [])[:-1]
-    if body.get('forget'):
-        st_['mem'] = []
-    if body.get('now'):
-        st_['at'] = 0
-    _nexa_mem.put(st_, now)
-    async with _admin_lock:
-        d = _admin_load()
-        _audit(d, admin, 'nexa', ' · '.join(f'{k_} {body.get(k_)}' for k_ in ('tune', 'trade', 'revert', 'forget', 'now') if k_ in body))
-        _admin_save(d)
-    if body.get('now'):
-        asyncio.ensure_future(_nexa_safe(now, os.environ, _ai_cfg()))
-    return await admin_nexa(request)
+
 
 
 @app.get('/api/reputation/admin/feecat')
@@ -34482,7 +33909,7 @@ async def wallet_dust_evm(address: str, add: str = Query('')):
                         'swapUsd': round(sum(r['usd'] or 0 for r in rows if r['best'] == 'swap'), 2), 'dust': sum(1 for r in rows if r['best'] == 'dust')}}
 
 
-# 🟦 FEE (NEXA) TRADES FROM HER CIRCLE WALLET (owner 2026-10-30: "feecat (nexa) should be able to use the wallet, not just read only").
+# 🟦 FEE TRADES FROM HER CIRCLE WALLET (owner 2026-10-30: "feecat (nexa) should be able to use the wallet, not just read only").
 # feecat_service's agent pass (agent_trade.py) runs every guard first (one in flight, per-buy + daily caps, the quote must echo the exact coins);
 # here Circle signs ONLY a wallet of the creator's own Circle project that is assigned to that cat, our RPC sends it, and key → signature is
 # written BEFORE the broadcast so a lost reply asked again with the same key never sends a second trade. Internal key only.

@@ -6,7 +6,6 @@ import { FeeTape, DuoLearn, readWords } from './FeeCatLive';
 import { FeeModels } from './FeeModels';
 import NumInput from '../NumInput';
 import { FeeBrain } from './FeeBrain';
-import { NexaDesk } from './NexaDesk';
 import '../../styles/feecatDesk.css';
 
 // 🐱 FEE IN HQ (owner, 2026-10-16: "FeeCat's engine and HQ panel aren't remade, and the cat isn't trading"): one live board from ONE request
@@ -89,9 +88,9 @@ export function feeFunnel(scan) {
     brain: (s.brainRejects || []).slice(-4).reverse(), safety: (s.safetyRejects || []).slice(-4).reverse() };
 }
 
-// 🪟 the creator's NEXA desk as TABS (owner 2026-10-30: "clean this up to the new look, less clutter / scrolling — I need more behind the scenes, but tidy"):
-// her header always, then ONE pane at a time — what she's doing · NEXA's own desk + rig · her agents lane · her brain + rules · her wallet + style
-export const FCH_TABS = [['overview', '🛰 OVERVIEW', 'Why she trades or not, the duo read, open trades, her charts and tape'], ['nexa', '🪟 NEXA', "NEXA's desk: her calls, talk to her, her rig"],
+// 🐱 the creator's Fee desk as TABS (owner 2026-10-30: "clean this up to the new look, less clutter / scrolling — I need more behind the scenes, but tidy"):
+// her header always, then ONE pane at a time — what she's doing · her agents lane · her brain + rules · her wallet + style
+export const FCH_TABS = [['overview', '🛰 OVERVIEW', 'Why she trades or not, the duo read, open trades, her charts and tape'],
   ['lane', '🎚 LANE', 'The agents lane she follows + what the duo learned'], ['brain', '🧠 BRAIN', 'Her style, rules and what she learned — edit and save'], ['wallet', '👛 WALLET + STYLE', "Her wallet (Circle / Crossmint) and her look"]];
 const FCH_KEY = 'feeless.fch.tab';
 export function FeeCatDesk({ call }) {
@@ -126,7 +125,6 @@ export function FeeCatDesk({ call }) {
     <nav className="m-seg fch-tabs" role="tablist" aria-label="Fee's desk">{FCH_TABS.map(([k, l, tip]) => <button key={k} type="button" role="tab" aria-selected={tab === k}
       className={tab === k ? 'active' : ''} onClick={() => pickTab(k)} data-tip={tip} data-testid={`fch-tab-${k}`}>{l}</button>)}</nav>
     {tab === 'wallet' ? <FeeOwnerBar cat={c} /> : null}
-    {tab === 'nexa' ? <NexaDesk call={call} /> : null}
     {tab === 'lane' ? <div className="fch-grid"><AgentLane d={d} busy={busy} onSave={lane => save({ agentLane: lane })} /><DuoLearn learn={d.duoLearn} /></div> : null}
 
     {tab === 'overview' ? <div className="fch-grid">

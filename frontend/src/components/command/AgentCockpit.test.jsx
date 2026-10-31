@@ -38,7 +38,7 @@ test('the cockpit, laid out like the reference: ribbon → 4 seats → MC chart 
   const order = [...q('agent-cockpit').children].map(c => c.getAttribute('data-testid') || c.className);
   expect(order).toEqual(['ack-money', 'ack-topseats', 'ack-main', 'ack-deckwrap']);   // 🪑 the seats across the top   // 💵 one sticky strip, the chart, then ONE pane behind the nav expect(q('ack-ops')).not.toBeNull();   // one deck under the chart (one pane at a time)
   expect([...q('ack-money').querySelectorAll('.ack-nav > [role=tab]')].map(b => b.getAttribute('data-testid'))).toEqual(['ack-nav-chart', 'ack-deck-seats', 'ack-deck-live', 'ack-deck-tape', 'ack-deck-review']);   // 🧹 the four used most up front
-  expect([...q('ack-morepop').querySelectorAll('[role=tab]')].map(b => b.getAttribute('data-testid'))).toEqual(['ack-deck-you', 'ack-deck-controls', 'ack-deck-stats', 'ack-deck-nexa']);   // the rest behind ⋯ MORE (🪟 NEXA = the creator's cat, owner only)
+  expect([...q('ack-morepop').querySelectorAll('[role=tab]')].map(b => b.getAttribute('data-testid'))).toEqual(['ack-deck-you', 'ack-deck-controls', 'ack-deck-stats', 'ack-deck-fee']);   // the rest behind ⋯ MORE (🪟 NEXA = the creator's cat, owner only)
   expect(q('ack-morepop').hidden).toBe(true); await act(async () => { q('ack-nav-more').click(); }); expect(q('ack-morepop').hidden).toBe(false);
   await act(async () => { q('ack-deck-stats').click(); }); expect(q('ack-morepop').hidden).toBe(true); expect(q('ack-nav-more').textContent).toContain('Stats');   // MORE wears the open pane's name
   await act(async () => { q('ack-deck-live').click(); });   // back to the live desk (a hidden pane is frozen)
@@ -300,7 +300,7 @@ test('📱📱 HQ › Agents on a Duo = the Trenches floor shell, portaled to <b
   expect(q('ack-duo-pane-desk')).not.toBeNull(); expect(q('ack-tapezone')).not.toBeNull();               // the nav's pane lands in DESK
   await act(async () => { q('ack-duo-tab-seats').click(); }); expect(q('ack-duo-pane-seats')).not.toBeNull();
   await act(async () => { q('ack-duo-swap').click(); }); expect(q('agent-duo-floor').className).toContain('is-swap');
-  expect(q('ack-duo-tab-nexa')).not.toBeNull();                                                          // 🪟 the creator's cat has its own dock tab
+  expect(q('ack-duo-tab-fee')).not.toBeNull();                                                           // 🐱 the creator's cat has its own dock tab
   act(() => root.unmount()); expect(document.body.classList.contains('duo-floor-on')).toBe(false);
   mockDuo = { on: false, wide: false }; sessionStorage.clear();
 });

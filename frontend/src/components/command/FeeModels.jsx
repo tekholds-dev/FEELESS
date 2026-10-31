@@ -35,14 +35,13 @@ export function FeeModels() {
     return <div className={`fmd-slot${pick[i] ? ' is-on' : ''}`} key={i}>
       <em>{i ? 'MODEL B · SECOND OPINION (optional)' : 'MODEL A · HER LEAD — makes every call'}</em>
       {pick[i] ? <span className="fmd-slot-m"><b>{m?.name || short(pick[i])}</b><small>{m ? `♟ ${m.intel ?? '—'} · ${m.perDecision ? `$${m.perDecision.toFixed(4)} a decision` : 'free'}` : pick[i]}</small></span>
-        : <span className="fmd-slot-m"><b>{i ? 'no second model' : 'no lead yet'}</b><small>{i ? 'NEXA already helps — add one only for a second opinion' : 'pick a smart, cheap model'}</small></span>}
+        : <span className="fmd-slot-m"><b>{i ? 'no second model' : 'no lead yet'}</b><small>{i ? 'add one for a second opinion' : 'pick a smart, cheap model'}</small></span>}
       <span className="fmd-slot-acts"><button type="button" className="m-btn" onClick={() => setOpen(i)} disabled={!d} data-testid={`fmd-open-${i}`} data-tip="Open the full model list">{pick[i] ? 'Change' : 'Pick from the list'}</button>
         {i && pick[i] ? <button type="button" className="m-btn" onClick={() => setPick(p => [p[0], ''])} data-testid="fmd-drop-1">Drop</button> : null}</span>
     </div>; };
   return <section className="fmd" data-testid="fee-models">
-    <header><b>🧠 HER MODELS</b><small>{had ? `${b.brains.map(short).join(' + ')} · ${(b.decisions || []).length} decisions` : 'rules + NEXA today — give her an OpenRouter lead'}</small></header>
+    <header><b>🧠 HER MODELS</b><small>{had ? `${b.brains.map(short).join(' + ')} · ${(b.decisions || []).length} decisions` : 'rules today — give her an OpenRouter lead'}</small></header>
     <div className="fmd-pick">{slot(0)}{slot(1)}</div>
-    <p className="fmd-nexa" data-tip="NEXA (FeeCat AI) reads every coin first — her read rides inside the case the lead decides on">🤝 <b>NEXA helps</b> — her read of every coin rides in the case your lead model decides on.</p>
     <label className="fmd-prompt"><em>HER PROMPT</em><textarea className="m-input" rows={3} maxLength={1200} value={text} onChange={e => setText(e.target.value)} placeholder="How she trades — e.g. trade the trenches like a desk, buy germ floors with buyers leading, bank in pieces, never chase." data-testid="fmd-prompt" /></label>
     {had ? <div className="m-seg fmd-mem" role="radiogroup" aria-label="Her memory when the models change">{MEMORY.map(([k, l]) => <button key={k} type="button" role="radio" aria-checked={memory === k} className={memory === k ? 'is-on' : ''} onClick={() => setMemory(k)} data-testid={`fmd-mem-${k}`}>{l}</button>)}</div> : null}
     <span className="fmd-acts"><button type="button" className="m-btn m-go" disabled={busy || !pick[0]} onClick={() => send({ action: 'models', brains, text, memory })} data-testid="fmd-save">{had ? 'Save models + prompt' : 'Make it her lead'}</button>

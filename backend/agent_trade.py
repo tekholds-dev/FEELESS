@@ -27,7 +27,7 @@ SLIP_BPS = 300
 LIVE = ('sending', 'pending', 'awaiting-approval')
 KEEP = 40
 REP = 'http://127.0.0.1:5077/api/reputation'
-SIGNERS = ('crossmint', 'circle')   # 🟦 owner 2026-10-30: Fee (NEXA) trades from her CIRCLE wallet too — Circle signs, our RPC sends, the same guards run
+SIGNERS = ('crossmint', 'circle')   # 🟦 owner 2026-10-30: Fee trades from her CIRCLE wallet too — Circle signs, our RPC sends, the same guards run
 RETRY_SEC = 60.0
 
 
