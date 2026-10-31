@@ -82,7 +82,7 @@ def _load() -> dict:
 
 # 🔒 The engine loads every cat, works for minutes, then saves its whole copy: anything an owner did meanwhile was wiped (owner 2026-10-30: a new agent wallet vanished
 # seconds after it was made). What an owner's action sets is kept here and laid over every save, so an old copy can never lose a wallet, a funding or a limit.
-OWNER_KEYS = ('agentWallet', 'agentFunded', 'creditPaid', 'recovery', 'recoverySet', 'recoveryConfirmedAt', 'limits', 'taskCap', 'ownerId', 'mode', 'realWallet', 'budgetSol', 'paperByOwner', 'files', 'ownerWallet')
+OWNER_KEYS = ('agentWallet', 'agentFunded', 'creditPaid', 'recovery', 'recoverySet', 'recoveryConfirmedAt', 'limits', 'taskCap', 'ownerId', 'mode', 'realWallet', 'budgetSol', 'paperByOwner', 'files', 'ownerWallet', 'logins')
 _KEPT: dict = {}
 
 
@@ -1612,6 +1612,15 @@ async def _work_run(cat_id, models, names, text, cap, brief='', efforts=None, ow
             ask.cost_bound = cost_bound
 
             async def wait_human(i):
+                win_ = (w['task'].get('windows') or [{}] * (i + 1))[i]; h_ = win_.get('human') or {}
+                if h_.get('kind') == 'login':   # 🔐 a site already in its vault: filled on the server, no pause — the model only ever types the placeholders
+                    try:
+                        got_ = _cv.saved_for(_load()['cats'].get(cat_id) or cat, h_.get('site'), data_dir=DATA_DIR)
+                    except Exception:
+                        got_ = None
+                    if got_:
+                        win_['pw'] = {'site': h_.get('site'), 'user': got_[0][:120], 'pw': got_[1]}
+                        return True
                 ev = w['events'][i] = asyncio.Event()
                 await ev.wait()
                 return bool(w['go'].pop(i, False))
@@ -1644,6 +1653,7 @@ def _work_settle(store):
             for lg_ in t.get('logins') or []:   # 🔐 every sign-up's password → sealed in its vault, then gone from memory
                 try:
                     _cv.put_login(cat, lg_.get('site'), lg_.get('user'), lg_.get('pw'), data_dir=DATA_DIR)
+                    keep_owned(cat)   # 🔐 a login it made survives the next save like one you typed
                 except (ValueError, RuntimeError):
                     pass
             t['logins'] = []
@@ -2174,7 +2184,7 @@ async def cat_work(cat_id: str, p: WorkPayload):
         if not (p.user or '').strip() or not (p.secret or ''):
             raise HTTPException(400, 'Type the username and the password.')
         try:
-            _cv.put_login(cat, site_, p.user.strip(), p.secret, data_dir=DATA_DIR); _save(store)
+            _cv.put_login(cat, site_, p.user.strip(), p.secret, data_dir=DATA_DIR); keep_owned(cat); _save(store)
         except (ValueError, RuntimeError) as e:
             raise HTTPException(400, str(e)[:120])
         wins_[i_]['pw'] = {'site': site_, 'user': p.user.strip()[:120], 'pw': p.secret}
@@ -2182,13 +2192,24 @@ async def cat_work(cat_id: str, p: WorkPayload):
         if ev_:
             w['go'][i_] = True; ev_.set()
         return {'ok': True, 'site': site_}
+    if p.op == 'save_login':   # 🔐 the credentials drawer: site + username + password, sealed; a window waiting on that site gets it and goes on
+        try:
+            _cv.put_login(cat, p.text or '', (p.user or '').strip(), p.secret or '', data_dir=DATA_DIR); keep_owned(cat); _save(store)
+        except (ValueError, RuntimeError) as e:
+            raise HTTPException(400, str(e)[:120])
+        site_ = _cv.site_of(p.text or '')
+        for win_ in ((w or {}).get('task') or {}).get('windows') or []:
+            if (win_.get('human') or {}).get('kind') == 'login' and win_['human'].get('site') == site_ and (w or {}).get('events', {}).get(win_['i']):
+                win_['pw'] = {'site': site_, 'user': (p.user or '').strip()[:120], 'pw': p.secret}
+                w['go'][win_['i']] = True; w['events'][win_['i']].set()
+        return {'ok': True, 'site': site_, 'logins': _cv.public_logins(cat)}
     if p.op == 'reveal':   # 🔐 the owner's own reveal of one saved password (never in a list, never logged)
         try:
             return {'password': _cv.reveal(cat, p.text or '', p.job or '', data_dir=DATA_DIR)}
         except Exception as e:
             raise HTTPException(400, str(e)[:120])
     if p.op == 'unlogin':
-        _cv.drop_login(cat, p.text or '', p.job or ''); _save(store)
+        _cv.drop_login(cat, p.text or '', p.job or ''); keep_owned(cat); _save(store)
         return {'logins': _cv.public_logins(cat)}
     if p.op == 'unmedia':
         cat['media'] = [m for m in cat.get('media') or [] if m.get('url') != p.text]; _save(store)
@@ -2397,8 +2418,25 @@ async def get_cat(cat_id: str, ownerId: str = '', session: str = ''):
         raise HTTPException(404, 'Cat not found.')
     if _real.is_real(cat) and _real.expire(cat, time.time()):
         _save(store)
-    out = _pub({'cat': {k: v for k, v in cat.items() if k not in ('artifacts', 'refusals')}})
-    out['cat']['mine'] = owner_check(cat, _session_wallet(session), ownerId) in ('ok', 'claim')
+    mine = owner_check(cat, _session_wallet(session), ownerId) in ('ok', 'claim')
+    out = _pub({'cat': {k: v for k, v in cat.items() if k not in ('artifacts', 'refusals')} if mine or cat.get('isLeader') else public_cat(cat)})
+    out['cat']['mine'] = mine
+    return out
+
+
+# 👀 What a visitor may see of someone's agent (owner 2026-10-30: "users only get a view … never another user's vital info"): its card, its
+# record and what both minds agreed on. Never its chat, keys, logins, wallets, payments, limits, recovery or the owner's wallet.
+PUBLIC_CAT_KEYS = ('id', 'name', 'handle', 'title', 'avatar', 'look', 'skin', 'status', 'level', 'xp', 'mode', 'brain', 'brainLabel', 'brainProfile',
+                   'strategy', 'strategyLabel', 'job', 'engine', 'createdAt', 'lastTick', 'revoked', 'wallet', 'balanceSol', 'startingBalanceSol',
+                   'realizedPnlSol', 'totalPnlSol', 'volumeSol', 'wins', 'losses', 'winRate', 'pnlHistory', 'positions', 'exits', 'discipline')
+
+
+def public_cat(cat):
+    """The visitor's copy of an agent. Pure (tests)."""
+    b = cat.get('brainsCfg') or {}
+    out = {k: cat[k] for k in PUBLIC_CAT_KEYS if k in cat}
+    if b:
+        out['brainsCfg'] = {'kind': b.get('kind'), 'brains': list(b.get('brains') or [])[:2], 'cloud': list(b.get('cloud') or [])[-8:]}
     return out
 
 

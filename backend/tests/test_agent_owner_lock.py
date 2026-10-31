@@ -67,3 +67,18 @@ def test_owner_check_is_pure():
     assert fs.owner_check({'ownerWallet': 'A'}, 'B', 'b1') == 'no'
     assert fs.owner_check({'ownerId': 'b1'}, 'B', 'b1') == 'claim'
     assert fs.owner_check({'ownerId': 'b1', 'agentWallet': {'owner': 'A'}}, 'B', 'b1') == 'no'   # its agent wallet's signer owns it
+
+
+def test_a_visitor_sees_the_card_never_the_vitals(monkeypatch):
+    cat = {**_general('WALLET_ME'), 'chat': [{'by': 'you', 'text': 'my secret plan'}], 'realWallet': 'WALLET_ME', 'agentWallet': {'address': 'AGENTW', 'owner': 'WALLET_ME'},
+           'creditPaid': [{'sig': 'SIG1', 'usd': 2.5}], 'limits': {'dayUsd': 1}, 'apiKeys': {'birdeye': {'last4': 'k9z1', 'at': 1}}, 'logins': [{'site': 'x.com', 'user': 'me'}],
+           'wins': 3, 'losses': 1, 'look': {'tag': 'HAPPY'}}
+    cat['brainsCfg'].update(credit=2.5, cloud=[{'text': 'agreed: BONK looks thin'}], minds={'m/a': [{'text': 'private note'}]})
+    fs, store, c = _client(monkeypatch, {'g': cat})
+    for sess in ('', 'tok-them'):
+        body = c.get(f'/api/cats/g?session={sess}').text
+        for secret in ('my secret plan', 'WALLET_ME', 'AGENTW', 'SIG1', 'dayUsd', 'k9z1', 'apiDrawer', 'x.com', 'private note', '"credit"'):
+            assert secret not in body, (sess, secret)
+        d = c.get(f'/api/cats/g?session={sess}').json()['cat']
+        assert d['wins'] == 3 and d['look'] == {'tag': 'HAPPY'} and d['brainsCfg']['cloud'][0]['text'].startswith('agreed') and d['mine'] is False
+    assert 'my secret plan' in c.get('/api/cats/g?session=tok-me').text   # the owner sees all of it
