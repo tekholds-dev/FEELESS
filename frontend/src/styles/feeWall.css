@@ -34,10 +34,9 @@ body.theme-day .fcx-body .fcp { background: linear-gradient(170deg, #f6f0ff, #ff
 
 /* 🃏 her 10 newest posts as clean cards on every screen: a post carrying a coin card takes the full row (no squeezed card), the card itself
    sits flush in the bubble, and phones drop the avatar column so nothing is pinched at 360 px */
-.fcp-wall .chat-message > div:has(.chat-token-wrap, .fuse-chat-card) { flex: 1 1 auto; max-width: 100%; }
-.fcp-wall .chat-message .chat-token-wrap { margin-top: 8px; border-radius: 12px; overflow: hidden; }
+.fcp-wall .chat-message > div:has(.chat-coins, .fuse-chat-card) { flex: 1 1 auto; max-width: 100%; }
 .fcp-wall .chat-message .call-perf { margin-top: 6px; border-radius: 10px; }
-@media (max-width: 640px) { .fcp-wall .chat-message:has(.chat-token-wrap) > .chat-avatar { display: none; } .fcp-wall .chat-message > div { padding: 8px 10px 6px; } }
+@media (max-width: 640px) { .fcp-wall .chat-message > div { padding: 8px 10px 6px; } }
 
 /* ↔ skinny wall (owner 2026-10-30: "no wide-ass chats"): her panel keeps its violet width, the conversation is one centred column */
 .fcx-body .fcp > * { width: 100%; max-width: 720px; margin-inline: auto; }
@@ -57,8 +56,8 @@ body.theme-day .fcx-body .fcp { background: linear-gradient(170deg, #f6f0ff, #ff
 .fw-state { display: inline-flex; align-items: center; gap: 6px; justify-self: start; padding: 4px 10px; border-radius: 999px; background: #ffffff0a; color: #a99bc8; font: 800 9.5px var(--f-mono); letter-spacing: .12em; }
 .fw-state i { width: 8px; height: 8px; border-radius: 50%; background: #6d5a96; } .fw-state.is-on { color: #45e486; } .fw-state.is-on i { background: #45e486; box-shadow: 0 0 10px #45e486; animation: fwBeat 1.4s ease-in-out infinite; }
 .fw-ring { --p: 0; position: relative; display: grid; place-items: center; width: 92px; height: 92px; justify-self: center; }
-.fw-ring svg { position: absolute; inset: 0; transform: rotate(-90deg); } .fw-ring circle { fill: none; stroke: #ffffff12; stroke-width: 4; }
-.fw-ring circle.a { stroke: #b388ff; stroke-linecap: round; stroke-dasharray: 113.1; stroke-dashoffset: calc(113.1 * (1 - var(--p))); filter: drop-shadow(0 0 6px #b388ff); transition: stroke-dashoffset .8s; }
+.fw-ring svg { position: absolute; inset: 0; transform: rotate(-90deg); filter: drop-shadow(0 0 5px #b388ffaa); } .fw-ring circle { fill: none; stroke: #ffffff12; stroke-width: 4; }
+.fw-ring circle.a { stroke: #b388ff; stroke-linecap: round; stroke-dasharray: 113.1; stroke-dashoffset: calc(113.1 * (1 - var(--p))); transition: stroke-dashoffset .8s; }
 .fw-ring b { color: #fff; font: 800 18px var(--f-mono); } .fw-ring small { position: absolute; bottom: 18px; color: #a99bc8; font: 800 8px var(--f-mono); letter-spacing: .14em; }
 .fw-meter { display: grid; grid-template-columns: auto 1fr; gap: 3px 8px; align-items: baseline; } .fw-meter em { color: #a99bc8; font: 800 9px var(--f-mono); letter-spacing: .12em; font-style: normal; }
 .fw-meter b { justify-self: end; color: #fff; font: 800 14px var(--f-mono); animation: fwPop .35s both; } .fw-meter i { grid-column: 1 / -1; height: 5px; border-radius: 3px; background: #ffffff10; overflow: hidden; }
@@ -74,3 +73,57 @@ body.fx-lite .fw-side * { animation: none !important; }
 body.theme-day .fw-side { background: #fff; } body.theme-day .fw-ring b, body.theme-day .fw-meter b { color: #2a1650; }
 @media (max-width: 1100px) { .fw-row { grid-template-columns: minmax(0, 1fr); } .fw-side { position: static; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); align-items: center; } .fw-ring { width: 72px; height: 72px; } }
 @media (max-width: 640px) { .fw-side[data-testid='fw-calls'] { display: none; } }
+
+/* 📈 HER BOOK (Every trade · After the sell, owner 2026-10-31 redo): summary strip + one-line rows with bars / gauges, never paragraph walls */
+.fcp-book { display: grid; gap: 8px; }
+.fcp-sum { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; padding: 10px 12px; border-radius: 14px; border: 1px solid #b388ff33;
+  background: linear-gradient(160deg, #1d1030, #0d0718); box-shadow: inset 0 1px 0 #ffffff12; }
+.fcp-sum > span { display: grid; gap: 2px; min-width: 0; }
+.fcp-sum em { font: 800 9px var(--f-mono, monospace); letter-spacing: .12em; color: #9d8fbf; font-style: normal; }
+.fcp-book .is-up { color: #45e486; } .fcp-book .is-dn { color: #ff8fa3; } .fcp-book .is-warn { color: var(--gold, #f5c542); }
+.fcp-wl i, .fcp-pnl i { display: block; height: 5px; border-radius: 3px; background: #ff8fa344; overflow: hidden; }
+.fcp-wl i { width: 110px; } .fcp-wl u, .fcp-pnl u { display: block; height: 100%; border-radius: inherit; background: #15d16a; transform-origin: left; animation: fcbFill .6s cubic-bezier(.2, .8, .2, 1) both; }
+.fcp-curve { flex: 1 1 160px; height: 38px; min-width: 120px; }
+.fcp-curve line { stroke: #ffffff22; stroke-dasharray: 2 3; vector-effect: non-scaling-stroke; }
+.fcp-curve polyline { fill: none; stroke: #45e486; stroke-width: 2; vector-effect: non-scaling-stroke; filter: drop-shadow(0 0 4px #15d16a88); }
+.fcp-curve.is-dn polyline { stroke: #ff8fa3; filter: drop-shadow(0 0 4px #ff8fa388); }
+.fcp-legend { display: flex !important; align-items: center; gap: 6px; font: 600 10px var(--f-mono, monospace); color: #9d8fbf; }
+.fcp-legend i { width: 10px; height: 6px; border-radius: 2px; } .fcp-legend i.dn { background: #ff8fa3; } .fcp-legend i.up { background: #15d16a; } .fcp-legend i.at { width: 2px; height: 12px; background: #fff; }
+.fcp-book .fcp-list { display: grid; grid-template-columns: 1fr; grid-auto-rows: max-content; align-content: start; gap: 5px; margin: 0; padding: 0 4px 0 0; list-style: none; max-height: min(420px, 52vh); overflow-y: auto; }
+.fcp-book .fcp-trade, .fcp-book .fcp-exit { position: relative; display: grid; align-items: center; gap: 10px; min-height: 40px; padding: 6px 44px 6px 10px; border-radius: 11px;
+  border: 1px solid #ffffff10; background: linear-gradient(90deg, #170d26, #0f0819); font-size: 12px; animation: fcbIn .3s ease-out both; animation-delay: calc(var(--i) * 45ms);
+  transition: border-color .15s, transform .15s; }
+.fcp-book .fcp-trade { grid-template-columns: 46px 74px minmax(0, 1fr) 128px 34px; }
+.fcp-book .fcp-exit { grid-template-columns: 74px 64px minmax(0, 1fr) auto 34px; }
+.fcp-book .fcp-trade:hover, .fcp-book .fcp-exit:hover { border-color: #b388ff66; transform: translateX(2px); }
+.fcp-book .fcp-trade > em { font: 800 9.5px var(--f-mono, monospace); letter-spacing: .08em; text-align: center; padding: 3px 0; border-radius: 6px; font-style: normal; }
+.fcp-book .t-buy > em { color: #0a0c0b; background: #15d16a; } .fcp-book .t-sell > em { color: #1a0306; background: #ff8fa3; }
+.fcp-sym { font: 700 12px var(--f-tech, sans-serif); color: #fff; text-decoration: none; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+a.fcp-sym { min-height: 32px; display: flex; align-items: center; } a.fcp-sym:hover { color: #c9a8ff; } a.fcp-sym:focus-visible { outline: 2px solid #b388ff; border-radius: 6px; }
+.fcp-why { min-width: 0; color: #c8bde6; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.fcp-pnl { display: grid; gap: 3px; } .fcp-pnl b { font-size: 11.5px; text-align: right; } .fcp-pnl small { color: #9d8fbf; font: 600 10.5px var(--f-mono, monospace); text-align: right; }
+.fcp-pnl.is-dn u { background: #ff8fa3; } .fcp-pnl i { background: #ffffff10; }
+.fcp-age { color: #9d8fbf; font: 600 10px var(--f-mono, monospace); text-align: right; }
+.fcp-book .fcp-exit > .m-chip { font-style: normal; justify-self: end; }
+.fcp-sold { display: grid; gap: 1px; } .fcp-sold em { font: 800 8.5px var(--f-mono, monospace); letter-spacing: .1em; color: #9d8fbf; font-style: normal; } .fcp-sold b { font-size: 12px; }
+.fcp-range { position: relative; height: 26px; min-width: 90px; }
+.fcp-range > i { position: absolute; top: 8px; height: 6px; transform-origin: left; animation: fcbFill .6s cubic-bezier(.2, .8, .2, 1) both; }
+.fcp-range > i.dn { background: linear-gradient(90deg, #ff8fa3, #ff8fa333); border-radius: 3px 0 0 3px; transform-origin: right; }
+.fcp-range > i.up { background: linear-gradient(90deg, #15d16a33, #15d16a); border-radius: 0 3px 3px 0; }
+.fcp-exit.missed .fcp-range > i.up { background: linear-gradient(90deg, #f5c54233, var(--gold, #f5c542)); box-shadow: 0 0 8px #f5c54266; }
+.fcp-range > s { position: absolute; top: 3px; width: 2px; height: 16px; margin-left: -1px; background: #fff; box-shadow: 0 0 6px #fff; }
+.fcp-range > small { position: absolute; bottom: -2px; font: 600 9px var(--f-mono, monospace); color: #9d8fbf; }
+.fcp-book .fcp-exit.missed { border-color: #f5c54255; }
+.fcp-book .fcp-share { top: 50%; right: 6px; transform: translateY(-50%); } .fcp-book .fcp-share:active { transform: translateY(-50%) scale(.94); }
+@keyframes fcbIn { from { opacity: 0; transform: translateY(6px); } } @keyframes fcbFill { from { transform: scaleX(0); } }
+body.fx-lite .fcp-book .fcp-trade, body.fx-lite .fcp-book .fcp-exit, body.fx-lite .fcp-wl u, body.fx-lite .fcp-pnl u, body.fx-lite .fcp-range > i { animation: none; }
+@media (prefers-reduced-motion: reduce) { .fcp-book .fcp-trade, .fcp-book .fcp-exit, .fcp-wl u, .fcp-pnl u, .fcp-range > i { animation: none; } .fcp-book .fcp-trade, .fcp-book .fcp-exit { transition: none; } }
+body.theme-day .fcp-sum { background: linear-gradient(160deg, #f6f0ff, #fff); border-color: #7c4dff2e; }
+body.theme-day .fcp-book .fcp-trade, body.theme-day .fcp-book .fcp-exit { background: #fff; border-color: #7c4dff22; }
+body.theme-day .fcp-sym { color: #2a1650; } body.theme-day .fcp-why { color: #4b3a72; } body.theme-day .fcp-range > s { background: #2a1650; box-shadow: none; }
+@media (max-width: 640px) {
+  .fcp-book .fcp-trade { grid-template-columns: 40px minmax(0, 1fr) 96px; padding-right: 10px; } .fcp-book .fcp-trade .fcp-why { grid-column: 1 / -1; grid-row: 2; }
+  .fcp-book .fcp-trade .fcp-age, .fcp-book .fcp-exit .fcp-age { display: none; }
+  .fcp-book .fcp-exit { grid-template-columns: minmax(0, 1fr) auto; padding-right: 10px; } .fcp-book .fcp-exit .fcp-range { grid-column: 1 / -1; }
+  .fcp-book .fcp-share { display: none; } .fcp-curve { flex-basis: 100%; }
+}

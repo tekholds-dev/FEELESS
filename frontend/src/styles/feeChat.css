@@ -21,3 +21,11 @@ body.theme-day .chat-message.is-feecat { background: linear-gradient(135deg, #ff
 body.theme-day .chat-message.is-feecat p { color: #3a1240; }
 body.theme-day .chat-message.is-feecat::before { color: #a3207e; text-shadow: none; }
 @media (max-width: 640px) { .chat-message.is-feecat::before { font-size: 8px; right: 8px; } }
+
+/* 🪙 coins inside a compact chat post (Fee's wall, Fuse rooms, families, profile walls…): a slim chip each (was 3 full live coin cards per post — 3,590 nodes for 10 posts) */
+.chat-coins { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 7px; }
+.chat-coins .m-chip { min-height: 32px; padding: 0 11px; cursor: pointer; background: #0b0614cc; transition: border-color .15s, transform .12s; font-size: 10.5px; }
+.chat-coins .m-chip b { color: #fff; font-family: var(--f-tech, sans-serif); } .chat-coins .m-chip:hover { border-color: #b388ff; } .chat-coins .m-chip:active { transform: scale(.96); }
+.chat-coins .m-chip:focus-visible { outline: 2px solid #b388ff; outline-offset: 2px; }
+body.theme-day .chat-coins .m-chip { background: #fff; } body.theme-day .chat-coins .m-chip b { color: #2a1650; }
+@media (prefers-reduced-motion: reduce) { .chat-coins .m-chip { transition: none; } }
