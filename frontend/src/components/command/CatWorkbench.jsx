@@ -1,7 +1,7 @@
 import React, { Suspense, lazy, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { apiUrl } from '../../lib/api';
-import { AgentLog } from './CatCockpit';
+import { AgentLog, SafeGate, safeOk } from './CatCockpit';
 import { ApiDrawer } from './LaunchCat';
 import '../../styles/agentDemo.css';
 import '../../styles/catWorkbench.css';
@@ -60,7 +60,7 @@ function Window({ w, catId, tick, onGo, onLogin, busy }) {
           : <ol className="cwb-steps" data-testid="cwb-steps">{w?.provider === 'reader' && w?.note ? <li className="cwb-idle" data-testid="cwb-noview"><span>no live browser · {w.note}</span></li> : null}{(w?.steps || []).length ? w.steps.map((s, i) => <li key={i} style={{ '--i': i }}><b>{s.action}</b><span>{s.thought}</span>{s.detail ? <small>{s.detail}</small> : null}</li>)
             : <li className="cwb-idle"><span>{w?.status === 'done' ? (w?.answer ? 'done — its answer is in the chat' : 'done') : 'ready — ask below'}</span></li>}</ol>}
       {w?.hand && w?.live ? <button type="button" className="m-btn cwb-big" onClick={() => setBig(true)} data-tip="It needs you: open its window big to click / sign in yourself" data-testid="cwb-big">⤢ Big</button> : null}
-      {big && w?.hand && w?.live ? <LivePop src={w.live} title={`MIND ${'AB'[i] || i + 1} needs you${w?.human?.why ? ` — ${w.human.why}` : ''}`} onClose={() => setBig(false)} /> : null}
+      {big && w?.hand && w?.live ? <AgentDesktop cat={{ id: catId }} live={{ live: w.live, site: w?.human?.site, title: `MIND ${'AB'[i] || i + 1} needs you${w?.human?.why ? ` — ${w.human.why}` : ''}` }} onClose={() => setBig(false)} /> : null}
       {w?.bubble && w?.status !== 'idle' ? <p className={`agd-done is-on cwb-say at-${i % 2 ? 'right' : 'left'}`} key={w.bubble} data-testid="cwb-bubble">MIND {'AB'[i] || i + 1} · {w.bubble}</p> : null}
       {human && w.human.kind === 'login' ? <div className="cwb-human cwb-signin" role="alertdialog" aria-label={`Sign in to ${w.human.site}`} data-testid="cwb-login">
         <b>🔑 {w.human.site} needs a sign-in</b><small>It goes in the credentials drawer, sealed — the AI models never see it.</small>
@@ -187,6 +187,20 @@ function LastMoney({ m }) {
 export const squash = (out, x) => { const last = out[out.length - 1]; const key = r => `${r.f || r.by}|${String(r.text).replace(/\$[\d.]+/g, '$')}`;
   if (last && key(last) === key(x)) { last.n = (last.n || 1) + 1; return out; } out.push({ ...x }); return out; };
 const BUDGET_STOP = /budget reached/i;
+// 💬 one chat message, the way a work chat shows it (owner 2026-10-31: "not corporate looking"): avatar · who · tags · time · cost, then the text.
+// The server's prefixes ("🛟 Backup model…:", "💳 Paid $…:") become small tags instead of walls of words in front of the answer.
+const MSG_TAGS = [[/^🛟 Backup model, free \(OpenRouter has no credit\):\s*/, 'free backup'], [/^💳 Paid \$([\d.]+) from its wallet:\s*/, 'paid from its wallet'], [/^⚡ from memory · /, 'from memory']];
+export function chatParts(text) {
+  let t = String(text || ''); const tags = [];
+  for (let n = 0; n < 3; n += 1) { const hit = MSG_TAGS.find(([re]) => re.test(t)); if (!hit) break; tags.push(hit[1]); t = t.replace(hit[0], ''); }
+  return { text: t, tags };
+}
+function ChatMsg({ m, name }) {
+  const you = m.by === 'you'; const { text, tags } = useMemo(() => chatParts(m.text), [m.text]);
+  return <li className={`cwb-msg ${you ? 'is-you' : 'is-cats'}`}><i className="cwb-av" aria-hidden="true">{you ? 'YOU' : '🧠'}</i>
+    <div><header><b>{you ? 'You' : (name || 'Its minds')}</b>{tags.map(t => <em key={t} className="cwb-tag">{t}</em>)}{m.at ? <time>{ago(m.at)} ago</time> : null}{m.cost != null && !you ? <small className="m-num">{usd(m.cost)}</small> : null}</header>
+      <p>{text}{m.n > 1 ? <em className="cwb-x"> ×{m.n}</em> : null}</p></div></li>;
+}
 const DESK_TIPS = [['[data-testid="cwb-now"]', 'What it is doing', 'Live: the site each window is on and the step it is taking.'],
   ['[data-testid="cwb-plus"]', 'Attach', 'Drop images or clips — they ride with your next ask (kept 24 h; ☁ Keep saves one to your own cloud).'],
   ['[data-testid="cwb-gear"]', 'Chat settings', 'How its minds work, who you talk to, the $ a task may spend, its job + tools.'],
@@ -302,16 +316,67 @@ function Credentials({ cat, rows, ask, onSaved, log = [] }) {
       {err ? <small className="kd-err" role="alert">⚠ {err}</small> : null}</form>
     {log.length ? <ol className="cwb-vlog" data-testid="cwb-vault-log" aria-label="Who used the vault">{log.slice().reverse().slice(0, 6).map((x, i) => <li key={`${x.at}-${i}`} style={{ '--i': i }}><span>{VAULT_WORD[x.what] || x.what}</span><b>{x.site || ''}</b><time className="m-num">{ago(x.at)}</time></li>)}</ol> : null}</details>;
 }
-// ⤢ A LIVE WINDOW YOU USE, BIG (owner 2026-10-31: "the browser window is too small to sign in — make it pop out"): one overlay for the
-// sign-in window and any agent window handed to you. Esc / ✕ closes it; ↗ opens the same live view in its own tab.
-export function LivePop({ src, title, onClose, children }) {
-  useEffect(() => { const k = e => { if (e.key === 'Escape') onClose(); }; window.addEventListener('keydown', k); return () => window.removeEventListener('keydown', k); }, [onClose]);
-  return createPortal(<div className="cwb-livepop" role="dialog" aria-modal="true" aria-label={title} data-testid="cwb-pop" onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
-    <div className="cwb-livepop-box m-pop"><header><em>● LIVE · {title}</em><span>{children}
-      <a className="m-btn" href={src} target="_blank" rel="noopener noreferrer" data-tip="Open this live window in its own browser tab">↗ Tab</a>
-      <button type="button" className="m-btn" onClick={onClose} aria-label="Close the big window" data-testid="cwb-pop-close">✕</button></span></header>
-      <iframe title={title} src={src} referrerPolicy="no-referrer" sandbox="allow-scripts allow-same-origin allow-forms allow-popups" allow="clipboard-read; clipboard-write" data-testid="cwb-pop-frame" /></div>
-  </div>, document.body);   // on the page itself: a moving / clipped window above never traps it
+// 🖥 YOUR PRIVATE DESKTOP (owner 2026-10-31: "make it one window designed like the others — a real desktop: minimize the app, a Windows folder with
+// the whole drawer to work in"): a desktop over the page — the live window (a sign-in, or a window handed to you) is an app window you move ·
+// minimize · maximize; 🔐 Vault opens like a PC folder (Credentials · Sealed · Signed-in sites · API keys); a taskbar with the clock. Your
+// screen only. The Vault asks "somewhere safe?" first, and every item still needs its own signature to open.
+const STEEL_MS = 15 * 60 * 1000;   // a cloud window lives 15 min (Steel's free tier) — the title bar counts it down
+const VAULT_TABS = [['creds', '🔐', 'Credentials', d => (d?.logins || []).length], ['sealed', '🔏', 'Sealed', d => (d?.secrets || []).length],
+  ['sites', '🔓', 'Signed-in sites', d => (d?.signedIn || []).length], ['api', '🔑', 'API keys', () => null]];
+const mmss = ms => `${Math.floor(ms / 60000)}:${String(Math.floor(ms / 1000) % 60).padStart(2, '0')}`;
+function DeskWin({ k, title, s, top, set, onTop, onClose, tools, children }) {
+  const drag = useRef(null);
+  const down = e => { onTop(); if (s.max || e.button !== 0 || e.target.closest('button, a')) return; drag.current = { x: e.clientX - s.x, y: e.clientY - s.y }; e.currentTarget.setPointerCapture?.(e.pointerId); };
+  const move = e => { if (drag.current) set(k, { x: e.clientX - drag.current.x, y: Math.max(0, e.clientY - drag.current.y) }); };
+  return <section className={`dsk-win${s.max ? ' is-max' : ''}${top ? ' is-top' : ''}`} style={s.max ? undefined : { transform: `translate(${s.x}px, ${s.y}px)` }} onPointerDown={onTop} aria-label={title} data-testid={`dsk-win-${k}`}>
+    <header className="dsk-title" onPointerDown={down} onPointerMove={move} onPointerUp={() => { drag.current = null; }} onDoubleClick={() => set(k, { max: !s.max })}>
+      <span className="dsk-dots"><button type="button" className="is-x" onClick={onClose} aria-label={`Close ${title}`} data-tip="Close" />
+        <button type="button" className="is-min" onClick={() => set(k, { min: true })} aria-label={`Minimize ${title}`} data-tip="Minimize — it waits in the taskbar" data-testid={`dsk-min-${k}`} />
+        <button type="button" className="is-max" onClick={() => set(k, { max: !s.max })} aria-label={s.max ? 'Restore' : 'Maximize'} data-tip={s.max ? 'Restore' : 'Maximize'} /></span>
+      <b>{title}</b><span className="dsk-tools">{tools}</span></header>
+    <div className="dsk-body">{children}</div></section>;
+}
+export function AgentDesktop({ cat, live = null, onClose, onReopen, actions = null }) {
+  const [w, setW] = useState(() => ({ live: { open: !!live, min: false, max: false, x: 24, y: 12 }, vault: { open: false, min: false, max: false, x: 120, y: 60 } }));
+  const [top, setTop] = useState('live'); const [tab, setTab] = useState('creds'); const [d, setD] = useState(null); const [ask, setAsk] = useState(false); const [now, setNow] = useState(Date.now());
+  const set = useCallback((k, p) => setW(x => ({ ...x, [k]: { ...x[k], ...p } })), []);
+  const openVault = useCallback(() => { if (!safeOk()) { setAsk(true); return; } set('vault', { open: true, min: false }); setTop('vault'); }, [set]);
+  useEffect(() => { let on = true; work(cat.id, { op: 'state' }).then(j => { if (on) setD(j); }).catch(() => {}); return () => { on = false; }; }, [cat.id]);
+  useEffect(() => { if (!live) openVault(); }, []);   // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { const t = setInterval(() => setNow(Date.now()), 1000); return () => clearInterval(t); }, []);
+  useEffect(() => { const k = e => { if (e.key === 'Escape' && !ask) onClose(); }; window.addEventListener('keydown', k); return () => window.removeEventListener('keydown', k); }, [onClose, ask]);
+  const left = live?.at ? Math.max(0, STEEL_MS - (now - live.at)) : null;
+  const pane = { creds: <Credentials cat={cat} rows={d?.logins} log={d?.vaultLog || []} onSaved={logins => setD(x => ({ ...x, logins }))} />,
+    sealed: <SealedVault cat={cat} rows={d?.secrets} onSaved={secrets => setD(x => ({ ...x, secrets }))} />,
+    sites: <SignedSites cat={cat} rows={d?.signedIn} nested onSaved={(signedIn, secrets) => setD(x => ({ ...x, signedIn, ...(secrets ? { secrets } : {}) }))} />,
+    api: <ApiSlot cat={cat} /> }[tab];
+  const tasks = [...(live ? [['live', '🌐', live.site || 'Live window']] : []), ['vault', '📁', 'Vault']].filter(([k]) => w[k].open);
+  return createPortal(<div className="dsk" role="dialog" aria-modal="true" aria-label="Your private desktop" data-testid="cwb-pop">
+    <div className="dsk-wall" aria-hidden="true"><i /><b>FEELESS</b><small>private desktop · only you see this</small></div>
+    <nav className="dsk-icons" aria-label="Desktop">
+      <button type="button" className="dsk-ico" onClick={openVault} data-tip="Your agent's drawer — logins, sealed recovery files, signed-in sites, API keys" data-testid="dsk-vault">
+        <svg viewBox="0 0 48 40" aria-hidden="true"><path d="M3 8a3 3 0 0 1 3-3h12l4 4h20a3 3 0 0 1 3 3v3H3z" fill="#e2b13c" /><rect x="3" y="13" width="42" height="24" rx="3" fill="#f5c542" /><rect x="18" y="20" width="12" height="10" rx="2" fill="#7a5a12" /><circle cx="24" cy="25" r="2" fill="#f5c542" /></svg><span>Vault</span></button>
+      {live ? <button type="button" className="dsk-ico" onClick={() => { set('live', { open: true, min: false }); setTop('live'); }} data-tip="The live window" data-testid="dsk-live-ico">
+        <svg viewBox="0 0 48 40" aria-hidden="true"><rect x="3" y="4" width="42" height="32" rx="4" fill="#0d1a13" stroke="#45e486" strokeWidth="2" /><rect x="3" y="4" width="42" height="7" rx="3" fill="#15d16a" /><circle cx="24" cy="24" r="7" fill="none" stroke="#45e486" strokeWidth="2" /><path d="M17 24h14M24 17c3 3 3 11 0 14M24 17c-3 3-3 11 0 14" stroke="#45e486" strokeWidth="1.4" fill="none" /></svg><span>{live.site || 'Live window'}</span></button> : null}
+    </nav>
+    {live && w.live.open && !w.live.min ? <DeskWin k="live" title={`🌐 ${live.title || `sign in to ${live.site || 'the site'} yourself`}`} s={w.live} top={top === 'live'} set={set} onTop={() => setTop('live')} onClose={onClose}
+      tools={<>{left != null ? <em className={`dsk-left${left < 120000 ? ' is-hot' : ''}`} data-tip="A cloud window lives 15 minutes — save before it closes">{left ? `closes in ${mmss(left)}` : 'closed'}</em> : null}{actions}
+        <a className="m-btn" href={live.live} target="_blank" rel="noopener noreferrer" data-tip="Open this live window in its own browser tab">↗ Tab</a></>}>
+      {left === 0 ? <div className="dsk-gone" data-testid="dsk-gone"><b>This cloud window closed</b><span>It lives 15 minutes. Whatever you saved is kept; open it again to carry on.</span>
+        {onReopen ? <button type="button" className="m-btn m-go" onClick={onReopen} data-testid="dsk-reopen">Open it again</button> : null}</div>
+        : <iframe title={live.title || 'Live window'} src={live.live} referrerPolicy="no-referrer" sandbox="allow-scripts allow-same-origin allow-forms allow-popups" allow="clipboard-read; clipboard-write" data-testid="cwb-pop-frame" />}
+    </DeskWin> : null}
+    {w.vault.open && !w.vault.min ? <DeskWin k="vault" title={`📁 Vault — ${cat.name || 'your agent'}`} s={w.vault} top={top === 'vault'} set={set} onTop={() => setTop('vault')} onClose={() => set('vault', { open: false })}>
+      <div className="dsk-explorer"><aside className="dsk-side" aria-label="Vault folders">{VAULT_TABS.map(([k, ic, l, n]) => <button key={k} type="button" className={tab === k ? 'active' : ''} aria-pressed={tab === k} onClick={() => setTab(k)} data-testid={`dsk-tab-${k}`}>
+        <i aria-hidden="true">{ic}</i><span>{l}</span>{n(d) != null ? <b className="m-num">{n(d)}</b> : null}</button>)}</aside>
+        <div className="dsk-pane"><p className="dsk-path">Vault <i>›</i> {VAULT_TABS.find(t => t[0] === tab)[2]}</p><div key={tab} className="dsk-pull">{pane}</div></div></div>
+    </DeskWin> : null}
+    <footer className="dsk-bar"><span className="dsk-start"><i aria-hidden="true" />FEELESS</span>
+      {tasks.map(([k, ic, l]) => <button key={k} type="button" className={`dsk-task${!w[k].min && top === k ? ' is-on' : ''}`} onClick={() => { if (w[k].min || top !== k) { set(k, { min: false }); setTop(k); } else set(k, { min: true }); }} data-testid={`dsk-task-${k}`}>{ic} {l}</button>)}
+      <time className="m-num">{new Date(now).toTimeString().slice(0, 5)}</time>
+      <button type="button" className="m-btn dsk-exit" onClick={onClose} data-tip="Back to the agent desk (Esc)" data-testid="cwb-pop-close">Exit desktop</button></footer>
+    {ask ? <SafeGate label="The Vault" onYes={() => { setAsk(false); set('vault', { open: true, min: false }); setTop('vault'); }} onNo={() => setAsk(false)} /> : null}
+  </div>, document.body);
 }
 
 // 🗄 A TRADER'S FILE CABINET (owner 2026-10-31: "trader agents need sign-in etc in their drawer" — they research X / CoinGecko too): the same
@@ -319,7 +384,9 @@ export function LivePop({ src, title, onClose, children }) {
 export function TraderCabinet({ cat, items }) {
   const [d, setD] = useState(null);
   useEffect(() => { let on = true; work(cat.id, { op: 'state' }).then(j => { if (on) setD(j); }).catch(() => {}); return () => { on = false; }; }, [cat.id]);
-  return <AgentLog title="ITS FILE CABINET" items={items} cabinet={keyDrawers(cat, d, setD)} />;
+  const [desk, setDesk] = useState(false);
+  return <><button type="button" className="m-btn cwb-hbtn" onClick={() => setDesk(true)} data-tip="Your private desktop: work in its Vault, sign in to sites, keep recovery files — only you see it" data-testid="cwb-desk-open">🖥 Private desktop</button>
+    <AgentLog title="ITS FILE CABINET" items={items} cabinet={keyDrawers(cat, d, setD)} />{desk ? <AgentDesktop cat={cat} onClose={() => setDesk(false)} /> : null}</>;
 }
 // 🔐 + 🔑 the key drawers every agent's cabinet shares (general + trader): sealed logins, signed-in sites, API keys
 function keyDrawers(cat, d, setD, ask = null) {
@@ -363,18 +430,18 @@ function SealedVault({ cat, rows = [], onSaved }) {
 // Save: its windows start signed in from then on (cookies sealed on the server, never sent to a page). A site that re-checks asks you again.
 const SIGNIN_PICKS = [['x.com', '𝕏 X'], ['proton.me', '📧 Proton Mail'], ['accounts.google.com', '📧 Google'], ['discord.com', '💬 Discord'], ['web.telegram.org', '✈ Telegram'],
   ['github.com', '🐙 GitHub'], ['dexscreener.com', '📈 DexScreener'], ['coingecko.com', '🦎 CoinGecko'], ['solscan.io', '🔎 Solscan'], ['pump.fun', '💊 Pump'], ['tradingview.com', '📊 TradingView'], ['reddit.com', '👽 Reddit']];
-export function SignedSites({ cat, rows = [], onSaved }) {
+export function SignedSites({ cat, rows = [], onSaved, nested = false }) {
   const [site, setSite] = useState(''); const [live, setLive] = useState(null); const [busy, setBusy] = useState(''); const [err, setErr] = useState(''); const [big, setBig] = useState(true);
   const run = async (op, text) => { setBusy(op); setErr('');
-    try { const j = await work(cat.id, { op, text }); if (op === 'signin_open') { setLive(j); setBig(true); } else { setLive(null); onSaved?.(j.signedIn || [], j.secrets); } } catch (e) { setErr(e.message); } finally { setBusy(''); } };
+    try { const j = await work(cat.id, { op, text }); if (op === 'signin_open') { setLive({ ...j, at: Date.now() }); setBig(!nested); } else { setLive(null); onSaved?.(j.signedIn || [], j.secrets); } } catch (e) { setErr(e.message); } finally { setBusy(''); } };
   return <section className="cwb-signed" data-testid="cwb-signed"><b className="cwb-signed-h">🔓 SIGNED-IN SITES <em className="m-num">{rows.length}</em></b>
     <small>Blocked by a bot check, or your agent's own email? Sign in once here — its windows open signed in.</small>
     {rows.length ? <ul>{rows.map(r => <li key={r.site}><span><b>{r.site}</b><small>{ago(r.at)} ago · {r.n} cookies · sealed</small></span>
       <button type="button" className="m-btn" disabled={!!busy} onClick={() => run('signin_drop', r.site)} data-tip={`Sign its windows out of ${r.site}`} data-testid={`cwb-signed-drop-${r.site}`}>Sign out</button></li>)}</ul> : null}
     {live ? <div className="cwb-signed-live"><span><em>LIVE · sign in to {live.site} yourself</em><button type="button" className="m-btn" onClick={() => setBig(true)} data-tip="Open the sign-in window big" data-testid="cwb-signed-big">⤢ Big</button>
       <button type="button" className="m-btn m-go" disabled={!!busy} onClick={() => run('signin_save')} data-testid="cwb-signed-save">{busy === 'signin_save' ? 'Saving…' : '✓ Signed in — save'}</button></span>
-      {big ? <LivePop src={live.live} title={`sign in to ${live.site || "the site"} yourself`} onClose={() => setBig(false)}>
-        <button type="button" className="m-btn m-go" disabled={!!busy} onClick={() => run('signin_save')} data-tip="Keep this sign-in for its windows" data-testid="cwb-pop-save">{busy === 'signin_save' ? 'Saving…' : '✓ Signed in — save'}</button></LivePop>
+      {big ? <AgentDesktop cat={cat} live={live} onClose={() => setBig(false)} onReopen={() => run('signin_open', live.site)}
+        actions={<button type="button" className="m-btn m-go" disabled={!!busy} onClick={() => run('signin_save')} data-tip="Keep this sign-in for its windows (and seal anything you downloaded)" data-testid="cwb-pop-save">{busy === 'signin_save' ? 'Saving…' : '✓ Signed in — save'}</button>} />
         : <iframe title={`Sign in to ${live.site}`} src={live.live} referrerPolicy="no-referrer" sandbox="allow-scripts allow-same-origin allow-forms allow-popups" data-testid="cwb-signed-frame" />}</div>
       : <form className="cwb-signed-add" onSubmit={e => { e.preventDefault(); if (site.trim()) run('signin_open', site.trim()); }}>
         <span className="m-seg">{SIGNIN_PICKS.map(([h, l]) => <button key={h} type="button" className={site === h ? 'active' : ''} onClick={() => setSite(h)} data-tip={`Sign its windows in to ${h}`}>{l}</button>)}</span>
@@ -462,14 +529,17 @@ function WorkbenchLive({ cat }) {
   const setWay = async k => { setBusy(true); try { await work(cat.id, { op: 'mode', job: k }); await load(); } catch (er) { setErr(er.message); } finally { setBusy(false); } };
   const wins = d?.windows?.length ? d.windows : (cat.brainsCfg?.brains || ['', '']).slice(0, 8).map((m, i) => ({ i, model: m, status: 'idle' }));
   const credit = Number(d?.credit ?? cat.brainsCfg?.credit ?? 0); const cap = Number(d?.cap ?? 0.05); const spent = Number(d?.task?.cost || 0);
-  const [gear, setGear] = useState(false); const log = useMemo(() => genLog(d), [d]);
-  useEffect(() => { if (!gear) return undefined; const k = e => { if (e.key === 'Escape') setGear(false); }; window.addEventListener('keydown', k); return () => window.removeEventListener('keydown', k); }, [gear]);
+  const [gear, setGear] = useState(false); const log = useMemo(() => genLog(d), [d]); const [sheet, setSheet] = useState(false); const [desk, setDesk] = useState(false);
+  useEffect(() => { if (!gear && !sheet) return undefined; const k = e => { if (e.key === 'Escape') { setGear(false); setSheet(false); } }; window.addEventListener('keydown', k); return () => window.removeEventListener('keydown', k); }, [gear, sheet]);
+  useEffect(() => { if (signIn) setSheet(true); }, [signIn]);   // a window asked for a login → the cabinet slides in on Credentials
   const dash = useRef(null);
   return <section ref={dash} className="cwb kd-card cwb-dash" data-testid="cat-workbench">
     <header className="cwb-head"><span><b>🧠🧠 ITS MINDS</b><small>{(d?.providers || []).filter(x => x !== 'reader').length ? `browsers in the cloud · ${d.providers.join(' → ')}` : 'reading pages as text (no hosted browser key yet)'}</small></span>
       <button type="button" className={`cwb-go${go ? ' is-on' : ''}`} aria-pressed={go} disabled={busy} onClick={() => act('go', { on: !go })} data-testid="cwb-go"
         data-tip={go ? 'ON: up to 30 steps a window, asks queue and run back to back — it stops only when done, at the $ cap, or for a sign-in / CAPTCHA / card payment' : 'Let it go: it works long tasks on its own and takes queued asks one after another until a person is needed'}>
         <i aria-hidden="true" />🏇 LET IT GO <b>{go ? 'ON' : 'OFF'}</b></button>
+      <button type="button" className="m-btn cwb-hbtn" onClick={() => setSheet(true)} aria-expanded={sheet} aria-controls="cwb-sheet" data-tip="Its file cabinet — every file, logins, sealed recovery files, storage, earnings" data-testid="cwb-sheet-open">🗄 Cabinet</button>
+      <button type="button" className="m-btn cwb-hbtn" onClick={() => setDesk(true)} data-tip="Your private desktop: work in its Vault, sign in to sites, keep recovery files — only you see it" data-testid="cwb-desk-open">🖥 Desktop</button>
       <span className="cwb-meters">
         <span data-tip="Model credit left: every answer and browsing step is paid from it. Add more in its wallet panel"><em>CREDIT</em><b className="m-num">{usd(credit)}</b><u aria-hidden="true"><s style={{ transform: `scaleX(${Math.min(1, credit / 10)})` }} /></u></span>
         <span data-tip="This task's spend against its cap — it stops at the cap with what it has"><em>THIS TASK</em><b className="m-num">{usd(spent)} / {usd(cap)}</b><u aria-hidden="true"><s className={spent >= cap * 0.8 ? 'is-hot' : ''} style={{ transform: `scaleX(${Math.min(1, spent / (cap || 1))})` }} /></u></span>
@@ -479,7 +549,7 @@ function WorkbenchLive({ cat }) {
     <div className="cwb-under">
         <div className="cwb-talk" data-testid="cwb-cockpit">
     {d?.task?.answer || status === 'stopped' || status === 'error' || status === 'parked' ? <p className={`cwb-answer s-${status}`} data-testid="cwb-answer">{d.task.fast ? '⚡ from memory · ' : ''}{d.task.answer || d.task.why}</p> : null}
-    <ol className="cwb-chat" aria-label="Chat with its models">{(d?.chat || []).slice(-12).filter(m => !(m.by !== 'you' && BUDGET_STOP.test(m.text))).reduce(squash, []).slice(-8).map((m, i) => <li key={i} className={m.by === 'you' ? 'is-you' : 'is-cats'}><b>{m.by === 'you' ? 'You' : '🧠🧠'}</b><span>{m.text}{m.n > 1 ? <em className="cwb-x"> ×{m.n}</em> : null}</span>{m.cost != null ? <small className="m-num">{usd(m.cost)}</small> : null}</li>)}</ol>
+    <ol className="cwb-chat" aria-label="Chat with its models">{(d?.chat || []).slice(-12).filter(m => !(m.by !== 'you' && BUDGET_STOP.test(m.text))).reduce(squash, []).slice(-8).map((m, i) => <ChatMsg key={i} m={m} name={cat.name} />)}</ol>
     {BUDGET_STOP.test((d?.chat || []).filter(m => m.by !== 'you').at(-1)?.text || '') ? <p className="m-note warn cwb-topup" role="status" data-testid="cwb-topup"><b>💸 Out of budget for that ask</b>
       <span>Its next step could pass the $ cap you set. Raise the cap, or add model credit in Wallet.</span><button type="button" className="m-btn m-go" onClick={() => setGear(true)} data-testid="cwb-topup-cap">Raise the cap</button></p> : null}
     {queue.length ? <ol className="cwb-queue" aria-label="Queued asks" data-testid="cwb-queue">{queue.map((q, i) => <li key={i} style={{ '--i': i }}><b className="m-num">{i + 1}</b><span>{q.text}</span>
@@ -516,9 +586,11 @@ function WorkbenchLive({ cat }) {
         : <button type="submit" className="m-btn m-go" disabled={busy || (way === 'jobs' && wins.length > 1 ? !(jobs[0].trim() || jobs[1].trim()) : !text.trim())} data-testid="cwb-send">Send ↵</button>}
     </form>
     </div>
-    <aside className="cwb-tools-rail" aria-label="Quick tools">
+    {createPortal(<><div className={`cwb-veil${sheet ? ' is-open' : ''}`} onClick={() => setSheet(false)} aria-hidden="true" />
+    <aside id="cwb-sheet" className={`cwb-sheet cwb-tools-rail${sheet ? ' is-open' : ''}`} aria-label="Its file cabinet" inert={!sheet} data-testid="cwb-sheet">
+    <header className="cwb-sheet-h"><b>🗄 ITS FILE CABINET</b><button type="button" className="m-btn" onClick={() => setSheet(false)} aria-label="Close the cabinet" data-tip="Close (Esc)" data-testid="cwb-sheet-close">✕</button></header>
     <LastMoney m={d?.lastMoney} />
-    <AgentLog title="ITS FILE CABINET" items={log} open={signIn ? { key: 'creds', at: signIn.at } : null} cabinet={[
+    <AgentLog title="FILES" items={log} open={signIn ? { key: 'creds', at: signIn.at } : null} cabinet={[
       ...keyDrawers(cat, d, setD, signIn),
       ['storage', '☁', 'Storage', (d?.storage?.files || []).length, <CloudDrawer cat={cat} attachments={d?.storage} />],
       ['earn', '⚡', 'Earn', (d?.lastMoney ? 1 : 0), <EarnCard cat={cat} />],
@@ -529,7 +601,8 @@ function WorkbenchLive({ cat }) {
       ...((d?.artifacts || []).length ? [['builds', '🛠', 'Builds', d.artifacts.length, <div className="cwb-builds">
       {(d?.artifacts || []).map((a, i) => <details className="cwb-artifact" key={i}><summary>{a.title} · {a.kind}</summary>{a.kind === 'build' ? <iframe title={a.title} sandbox="allow-scripts" referrerPolicy="no-referrer" srcDoc={'<meta http-equiv="Content-Security-Policy" content="default-src \'none\'; script-src \'unsafe-inline\'; style-src \'unsafe-inline\'; img-src data:; connect-src \'none\'; form-action \'none\'; base-uri \'none\'">' + a.content} /> : <pre>{a.content}</pre>}</details>)}
       </div>]] : [])]} />
-    </aside></div>
+    </aside></>, document.body)}</div>
+    {desk ? <AgentDesktop cat={cat} onClose={() => setDesk(false)} /> : null}
     <FirstTips id="agent-desk" tips={DESK_TIPS} />
     {d && !d.live ? <p className="cwb-note" data-testid="cwb-off">Model calls are switched off on this server — asking sends and charges nothing until the owner turns them on.</p> : null}
     {err ? <p className="kd-err" role="alert">⚠ {err}</p> : null}

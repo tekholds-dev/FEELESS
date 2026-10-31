@@ -133,8 +133,8 @@ const readHidden = () => { try { const v = JSON.parse(localStorage.getItem(HIDE_
 // 🛡 SAFE-PLACE CHECK (owner 2026-10-31: "a streamer opens the drawer live — warn him first"): a sealed drawer (logins, recovery files) asks once
 // per browser tab before it opens. Nothing secret shows until then — and opening any one item still needs its own wallet signature.
 const SAFE_KEY = 'feeless:safe-place';
-const safeOk = () => { try { return sessionStorage.getItem(SAFE_KEY) === '1'; } catch { return false; } };
-function SafeGate({ label, onYes, onNo }) {
+export const safeOk = () => { try { return sessionStorage.getItem(SAFE_KEY) === '1'; } catch { return false; } };
+export function SafeGate({ label, onYes, onNo }) {
   useEffect(() => { const k = e => { if (e.key === 'Escape') onNo(); }; window.addEventListener('keydown', k); return () => window.removeEventListener('keydown', k); }, [onNo]);
   return createPortal(<div className="ck-safe" role="presentation" onClick={e => { if (e.target === e.currentTarget) onNo(); }}>
     <div className="ck-safe-box m-pop" role="alertdialog" aria-modal="true" aria-labelledby="ck-safe-h" data-testid="safe-gate">

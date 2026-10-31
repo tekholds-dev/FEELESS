@@ -71,23 +71,23 @@ test('🔑 a window sign-in is a small card → the credentials drawer opens wit
   Element.prototype.scrollIntoView = () => {};
   const el = document.createElement('div'); document.body.appendChild(el); const root = createRoot(el);
   await act(async () => { root.render(<CatWorkbench cat={{ id: 'g1', brainsCfg: { kind: 'general', brains: ['m/a'], credit: 1 } }} />); });
-  const card = el.querySelector('[data-testid="cwb-login"]');
+  const card = document.querySelector('[data-testid="cwb-login"]');
   expect(card.textContent).toContain('dropbox.com needs a sign-in'); expect(card.querySelector('input')).toBeNull();   // no form inside the window
-  expect(el.querySelector('[data-testid="cwb-vault"]')).toBeNull();                                                      // in its cabinet drawer, closed
+  expect(document.querySelector('[data-testid="cwb-vault"]')).toBeNull();                                                      // in its cabinet drawer, closed
   await act(async () => { card.querySelector('[data-testid="cwb-login-go"]').click(); });
-  const vault = el.querySelector('[data-testid="cwb-vault"]');                                                            // the card opened the 🔐 drawer
+  const vault = document.querySelector('[data-testid="cwb-vault"]');                                                            // the card opened the 🔐 drawer
   expect(vault.textContent).toContain('x.com'); expect(vault.textContent).not.toContain('me@mail.com');                 // site name only
-  expect(vault.open).toBe(true); expect(el.querySelector('[data-testid="cwb-cred-site"]').value).toBe('dropbox.com');
-  expect(el.querySelector('[data-testid="cwb-signup"]').getAttribute('href')).toBe('https://dropbox.com');
-  el.querySelector('[data-testid="cwb-login-user"]').value = 'me@drop.com'; el.querySelector('[data-testid="cwb-login-pass"]').value = 'Dr0p!pw';
-  await act(async () => { el.querySelector('[data-testid="cwb-cred-add"]').dispatchEvent(new Event('submit', { bubbles: true, cancelable: true })); });
+  expect(vault.open).toBe(true); expect(document.querySelector('[data-testid="cwb-cred-site"]').value).toBe('dropbox.com');
+  expect(document.querySelector('[data-testid="cwb-signup"]').getAttribute('href')).toBe('https://dropbox.com');
+  document.querySelector('[data-testid="cwb-login-user"]').value = 'me@drop.com'; document.querySelector('[data-testid="cwb-login-pass"]').value = 'Dr0p!pw';
+  await act(async () => { document.querySelector('[data-testid="cwb-cred-add"]').dispatchEvent(new Event('submit', { bubbles: true, cancelable: true })); });
   expect(calls.find(c => c.op === 'save_login')).toMatchObject({ text: 'dropbox.com', user: 'me@drop.com', secret: 'Dr0p!pw' });
-  expect(el.querySelector('[data-testid="cwb-login-pass"]').value).toBe('');                                            // the form forgets it
-  await act(async () => { el.querySelector('[data-testid="cwb-reveal-x.com"]').click(); });
-  expect(el.querySelector('[data-testid="cwb-cred-x.com"]').textContent).toContain('Sup3r!pw');
+  expect(document.querySelector('[data-testid="cwb-login-pass"]').value).toBe('');                                            // the form forgets it
+  await act(async () => { document.querySelector('[data-testid="cwb-reveal-x.com"]').click(); });
+  expect(document.querySelector('[data-testid="cwb-cred-x.com"]').textContent).toContain('Sup3r!pw');
   expect(signed.at(-1)).toMatch(/^FEELESS reveal\nagent:g1\nsite:x\.com\nts:\d+$/); expect(calls.find(c => c.op === 'reveal')).toMatchObject({ sig: 'SIG', text: 'x.com' });   // 🔐 its own wallet signature
-  await act(async () => { el.querySelector('[data-testid="cwb-reveal-x.com"]').click(); });
-  expect(el.querySelector('[data-testid="cwb-cred-x.com"]').textContent).not.toContain('Sup3r!pw');
+  await act(async () => { document.querySelector('[data-testid="cwb-reveal-x.com"]').click(); });
+  expect(document.querySelector('[data-testid="cwb-cred-x.com"]').textContent).not.toContain('Sup3r!pw');
   await act(async () => root.unmount()); el.remove();
 });
 
@@ -228,4 +228,28 @@ test('🔏 the sealed drawer asks "somewhere safe?" first, lists labels only, op
   expect(calls.at(-1)).toMatchObject({ op: 'seal', job: 'GitHub codes', secret: 'codes 1 2 3' }); expect(q('cwb-sealed').textContent).toContain('GitHub codes');
   act(() => root.unmount());
   await act(async () => { createRoot(document.createElement('div')).render(<TraderCabinet cat={{ id: 't1' }} items={[]} />); });   // asked once per tab
+});
+
+test('🖥 the private desktop: the live window minimizes to the taskbar, the Vault opens like a folder after "somewhere safe?", a 15-min window says when it closed', async () => {
+  const { AgentDesktop, chatParts } = require('./CatWorkbench');
+  sessionStorage.clear(); document.body.innerHTML = '';
+  expect(chatParts('🛟 Backup model, free (OpenRouter has no credit): gpt-6.1-terra · 4')).toEqual({ text: 'gpt-6.1-terra · 4', tags: ['free backup'] });
+  expect(chatParts('💳 Paid $0.0020 from its wallet: Raydium').tags).toEqual(['paid from its wallet']);
+  global.fetch = async () => ({ ok: true, json: async () => ({ logins: [{ site: 'proton.me', user: 'a' }], secrets: [{ id: 's1', label: 'Proton recovery', kind: 'note', size: 10, at: 1 }], signedIn: [] }) });
+  const closed = []; const el = document.createElement('div'); document.body.appendChild(el); const root = createRoot(el);
+  await act(async () => { root.render(<AgentDesktop cat={{ id: 'g1', name: 'Happy' }} live={{ live: 'https://view/x', site: 'proton.me', at: Date.now() }} onClose={() => closed.push(1)} onReopen={() => {}} />); });
+  const q = id => document.querySelector(`[data-testid="${id}"]`);
+  expect(q('dsk-win-live').textContent).toMatch(/closes in 1[45]:/); expect(q('cwb-pop-frame').getAttribute('src')).toBe('https://view/x');
+  await act(async () => { q('dsk-min-live').click(); }); expect(q('dsk-win-live')).toBeNull(); expect(q('dsk-task-live')).not.toBeNull();
+  await act(async () => { q('dsk-task-live').click(); }); expect(q('dsk-win-live')).not.toBeNull();
+  await act(async () => { q('dsk-vault').click(); }); expect(q('safe-gate')).not.toBeNull(); expect(q('dsk-win-vault')).toBeNull();
+  await act(async () => { q('safe-yes').click(); }); expect(q('dsk-win-vault').textContent).toContain('proton.me');
+  await act(async () => { q('dsk-tab-sealed').click(); }); expect(q('cwb-sealed').textContent).toContain('Proton recovery'); expect(q('dsk-tab-sealed').textContent).toContain('1');
+  await act(async () => { q('cwb-pop-close').click(); }); expect(closed).toEqual([1]);
+  act(() => root.unmount());
+  const el2 = document.createElement('div'); document.body.appendChild(el2); const root2 = createRoot(el2);
+  await act(async () => { root2.render(<AgentDesktop cat={{ id: 'g1' }} live={{ live: 'https://view/x', site: 'proton.me', at: Date.now() - 16 * 60000 }} onClose={() => {}} onReopen={() => closed.push('again')} />); });
+  expect(q('dsk-gone').textContent).toContain('closed'); expect(q('cwb-pop-frame')).toBeNull();
+  await act(async () => { q('dsk-reopen').click(); }); expect(closed).toContain('again');
+  act(() => root2.unmount());
 });
