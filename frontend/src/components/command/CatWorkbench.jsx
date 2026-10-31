@@ -56,7 +56,7 @@ function Window({ w, catId, tick, onGo, onLogin, busy }) {
         <em className="cwb-chart-tag">FEELESS · ${w.coin.symbol}</em></div>
         : w?.live && seen ? <iframe className="cwb-live" src={w.live} title={`${w.model} browser`} sandbox="allow-scripts allow-same-origin allow-forms allow-popups" allow="clipboard-read; clipboard-write" data-testid="cwb-live" />
         : w?.shot && seen ? <img className="cwb-shot" src={apiUrl(`/api/cats/${catId}/work/shot/${w.i}?${agentAuthQuery()}&t=${tick}`)} alt={`${w.model} window`} data-testid="cwb-shot" />
-          : <ol className="cwb-steps" data-testid="cwb-steps">{(w?.steps || []).length ? w.steps.map((s, i) => <li key={i} style={{ '--i': i }}><b>{s.action}</b><span>{s.thought}</span>{s.detail ? <small>{s.detail}</small> : null}</li>)
+          : <ol className="cwb-steps" data-testid="cwb-steps">{w?.provider === 'reader' && w?.note ? <li className="cwb-idle" data-testid="cwb-noview"><span>no live browser · {w.note}</span></li> : null}{(w?.steps || []).length ? w.steps.map((s, i) => <li key={i} style={{ '--i': i }}><b>{s.action}</b><span>{s.thought}</span>{s.detail ? <small>{s.detail}</small> : null}</li>)
             : <li className="cwb-idle"><span>{w?.status === 'done' ? (w?.answer ? 'done — its answer is in the chat' : 'done') : 'ready — ask below'}</span></li>}</ol>}
       {w?.bubble && w?.status !== 'idle' ? <p className={`agd-done is-on cwb-say at-${i % 2 ? 'right' : 'left'}`} key={w.bubble} data-testid="cwb-bubble">MIND {'AB'[i] || i + 1} · {w.bubble}</p> : null}
       {human && w.human.kind === 'login' ? <div className="cwb-human cwb-signin" role="alertdialog" aria-label={`Sign in to ${w.human.site}`} data-testid="cwb-login">
@@ -422,6 +422,7 @@ function WorkbenchLive({ cat }) {
       <button type="button" onClick={() => act('unqueue', { i })} aria-label="Drop this ask" data-tip="Drop it from the queue" data-testid={`cwb-unq-${i}`}>✕</button></li>)}</ol> : null}
     <AttachChips files={files} store={store} onDrop={id => setFiles(x => x.filter(f => f.id !== id))} />
     <div className={`cwb-pop${gear ? ' is-open' : ''}`} id="cwb-settings" role="dialog" aria-label="Chat settings" data-testid="cwb-settings" aria-hidden={!gear}>
+      {live ? <small className="m-note" data-testid="cwb-locked">🔒 Locked while it works — press ■ Stop to change these</small> : null}
       <em>HOW ITS MINDS WORK</em>
     <div className="m-seg cwb-way" role="radiogroup" aria-label="How its minds work">{WAYS.map(([k, l, tip]) => <button key={k} type="button" role="radio" aria-checked={way === k}
       className={way === k ? 'active' : ''} disabled={live || busy} onClick={() => setWay(k)} data-tip={tip} data-testid={`cwb-way-${k}`}>{l}</button>)}</div>

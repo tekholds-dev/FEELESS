@@ -41,10 +41,8 @@ def test_each_mind_gets_its_own_job():
     assert ca.split_jobs('A: write the video script  B: make 5 social posts') == ['write the video script', 'make 5 social posts']
     one = ca.split_jobs('best sports bet tonight?')   # no labels: one mind owns it, the other supports, the job never runs twice
     assert one[0] == 'best sports bet tonight?' and one[1].startswith('SUPPORT ROLE') and 'Do NOT do it too' in one[1]
-    a = ca.split_jobs('A: write the thread')
-    assert a[0] == 'write the thread' and a[1].startswith('SUPPORT ROLE')
-    b = ca.split_jobs('B: find sources')
-    assert b[1] == 'find sources' and b[0].startswith('SUPPORT ROLE')
+    assert ca.split_jobs('A: write the thread') == ['write the thread', '']   # addressed to one mind: the other stays idle
+    assert ca.split_jobs('B: find sources') == ['', 'find sources']
     assert ca.split_jobs('solo job', 1) == ['solo job']
 
 
@@ -424,3 +422,49 @@ def test_an_agents_own_wallet_can_never_make_an_agent_or_launch_a_coin_on_feeles
     monkeypatch.setattr(rs, '_any_agent_wallets', lambda: {'AGENTWALLET1111'})
     r = TestClient(rs.app).post('/api/reputation/feeless-launch', json={'wallet': 'AGENTWALLET1111', 'mint': 'MINT', 'signature': None})
     assert r.status_code == 403 and 'never launches a coin on FEELESS' in r.json()['detail']
+
+
+def test_addressed_ask_runs_only_that_mind():
+    """owner 2026-10-31: "i asked model b and model a worked" — 'B: …' runs B alone, in plan mode too, and A spends nothing."""
+    import asyncio
+    calls = []
+    async def ask(model, messages):
+        calls.append(model); return '{"action": "answer", "say": "done"}', 0.0
+    class P:
+        url = title = None
+        async def read(self): return 'page'
+    task = ca.new_task('t1', 'B: find the trending coin', ['m-a', 'm-b'], 0.05, 4, 'plan', None)
+    out = asyncio.run(ca.run(task, ask, [P(), P()], lambda i: True))
+    assert out['status'] == 'done' and calls == ['m-b'] and out['windows'][1]['answer'] == 'done'
+    assert out['windows'][0]['goal'] == '' and out['windows'][0]['bubble'] == 'not asked — idle'
+
+
+def test_stop_cancels_a_hung_task():
+    """owner 2026-10-31: "the stop btn not stopping them" — a model call that never returns is cancelled after the grace."""
+    import asyncio
+    import feecat_service as fs
+    async def main():
+        async def hung():
+            try:
+                await asyncio.sleep(60)
+            finally:
+                w['done'] = True
+        w = {'task': {'status': 'working', 'windows': [{'status': 'working'}, {'status': 'done'}]}}
+        w['runner'] = asyncio.create_task(hung())
+        await fs._hard_stop(w, grace=0.01)
+        await asyncio.sleep(0)
+        return w
+    w = asyncio.run(main())
+    assert w['done'] and w['task']['status'] == 'stopped' and [x['status'] for x in w['task']['windows']] == ['stopped', 'done']
+
+
+def test_a_window_that_errors_never_stays_working():
+    import asyncio
+    async def ask(model, messages):
+        raise RuntimeError('model_not_found')
+    class P:
+        url = title = None
+        async def read(self): return 'page'
+    task = ca.new_task('t2', 'B: anything', ['m-a', 'm-b'], 0.05, 4, 'jobs', None)
+    out = asyncio.run(ca.run(task, ask, [P(), P()], lambda i: True))
+    assert out['windows'][1]['status'] == 'error' and 'model_not_found' in out['windows'][1]['answer']

@@ -1581,6 +1581,20 @@ async def _work_run(cat_id, models, names, text, cap, brief='', efforts=None, ow
             w['done'] = True
 
 
+async def _hard_stop(w, grace=2.0):
+    """■ Stop means stop (owner 2026-10-31: "the stop btn not stopping them"): the flag is only read between steps, so a model call or page load
+    still in flight is cancelled after `grace` s — pages + cloud sessions still close in _work_run's finally, the $ spent so far is still charged."""
+    await asyncio.sleep(grace)
+    r = w.get('runner'); t = w.get('task') or {}
+    if w.get('done') or not r or r.done():
+        return
+    t.update(status='stopped', why=t.get('why') or 'stopped by you')
+    for win in t.get('windows') or []:
+        if win.get('status') != 'done':
+            win['status'] = 'stopped'
+    r.cancel()
+
+
 def _work_settle(store):
     """The engine's pass: a finished task's $ is charged to the cat's credit and its question + answer join the cat's chat (one writer)."""
     for cid, w in list(_WORK.items()):
@@ -2356,6 +2370,7 @@ async def cat_work(cat_id: str, p: WorkPayload):
         w['task']['stop'] = True
         for i, ev in list((w.get('events') or {}).items()):
             w['go'][i] = False; ev.set()
+        asyncio.create_task(_hard_stop(w))
     elif p.op == 'ask':
         research_ = b.get('kind') == 'trading' and bool(b.get('brains')) and (cat.get('tools') or {}).get('research', True)   # 📰 a trader researches coins + narrative only
         if (b.get('kind') != 'general' and not research_) or not b.get('brains'):

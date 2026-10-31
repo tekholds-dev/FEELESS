@@ -206,7 +206,8 @@ body.fx-lite .ck-panel { animation: none; } @media (prefers-reduced-motion: redu
 .cwb-gear:hover { background: #b388ff22; border-color: #b388ff66; } .cwb-gear:hover i { transform: rotate(45deg); } .cwb-gear:active { transform: scale(.95); }
 .cwb-gear:focus-visible { outline: 2px solid #b388ff; outline-offset: 2px; } .cwb-gear.is-on { background: #b388ff; border-color: #b388ff; } .cwb-gear.is-on i { border-color: #12081f; transform: rotate(90deg); } .cwb-gear.is-on i::before { background: #12081f; }
 .cwb-pop { position: absolute; left: 0; bottom: calc(100% - 52px); z-index: 6; display: grid; gap: 6px; width: min(420px, 100%); padding: 12px; border-radius: 16px; border: 1px solid #b388ff55;
-  background: #120a20f5; box-shadow: 0 18px 44px #000a, inset 0 1px 0 #ffffff14; opacity: 0; visibility: hidden; transform: translateY(8px) scale(.98); transform-origin: bottom left; transition: opacity .16s, transform .16s, visibility 0s .16s; }
+  background: #120a20; box-shadow: 0 18px 44px #000a, inset 0 1px 0 #ffffff14; opacity: 0; visibility: hidden; transform: translateY(8px) scale(.98); transform-origin: bottom left; transition: opacity .16s, transform .16s, visibility 0s .16s; }
+.cwb-pop button:disabled, .cwb-pop select:disabled { opacity: .72; cursor: not-allowed; } /* locked while it works — still readable (owner 2026-10-31: "settings faint") */
 .cwb-pop.is-open { opacity: 1; visibility: visible; transform: none; transition: opacity .16s, transform .16s; }
 .cwb-pop > em { font: 800 9.5px var(--f-mono); letter-spacing: .12em; color: #8f83ad; font-style: normal; margin-top: 4px; } .cwb-pop .m-seg { flex-wrap: wrap; }
 .cwb-pop .cwb-tools { padding: 0; border: 0; background: none; display: grid; gap: 6px; } .cwb-pop .cwb-tools .m-seg { margin-top: 0; }

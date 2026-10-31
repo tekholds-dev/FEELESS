@@ -65,9 +65,11 @@ def split_jobs(text, n=2):
     a, b = jobs.get('A'), jobs.get('B')
     if a and b:
         return [a, b]
-    lead = a or b or whole
+    if a or b:   # 🎯 addressed to ONE mind ("B: …") → only that mind works, the other stays idle and spends nothing (owner 2026-10-31: "i asked model b and model a worked")
+        return [a or '', b or '']
+    lead = whole
     helper = f'SUPPORT ROLE, your partner owns this job: "{lead[:300]}". Do NOT do it too. Check their facts, look up what they will need and pass it with handoff, then answer with what you checked.'
-    return [lead, helper] if not b else [helper, lead]
+    return [lead, helper]
 
 
 def parse_json(text):
@@ -248,6 +250,13 @@ async def _window(task, w, ask, page, wait_human, name, feeless=None):
     return w['answer']
 
 
+def _failed(ws, got):
+    """A window whose model call or page blew up says so — never left 'working' forever under a 'done' task (owner 2026-10-31: a stuck window)."""
+    for w, g in zip(ws, got):
+        if isinstance(g, Exception) and not isinstance(g, Stopped):
+            w.update(status='error', bubble=f'error: {str(g)[:80]}', answer=w['answer'] or f'(error) {str(g)[:160]}')
+
+
 async def run(task, ask, pages, wait_human, names=('Model A', 'Model B'), feeless=None):
     """The whole task. `ask(model, messages)` → (text, $) · `pages[i]` = window i's page driver · `wait_human(i)` → True continue / False stop."""
     ws = task['windows']
@@ -257,15 +266,21 @@ async def run(task, ask, pages, wait_human, names=('Model A', 'Model B'), feeles
             task.setdefault('refusals', []).append(why)
             raise Stopped(why)
         lead = ws[0]['model']
+        if len(ws) > 1 and sum(map(bool, split_jobs(task['text'], len(ws)))) == 1:   # 🎯 "A: …" / "B: …" in either mode = that mind alone
+            task['mode'] = 'jobs'
         if task.get('mode') == 'jobs':   # 🎯 each mind its own job: no plan call, no merge — both results, each under its job
             for w, job in zip(ws, split_jobs(task['text'], len(ws))):
                 w['goal'] = job
+                if not job:
+                    w.update(status='done', bubble='not asked — idle')
+            on = [w for w in ws if w['goal']]
             task['status'] = 'working'
-            got = await asyncio.gather(*(_window(task, w, ask, pages[w['i']], wait_human, names[w['i']], feeless) for w in ws), return_exceptions=True)
+            got = await asyncio.gather(*(_window(task, w, ask, pages[w['i']], wait_human, names[w['i']], feeless) for w in on), return_exceptions=True)
+            _failed(on, got)
             if any(isinstance(g, Stopped) for g in got) and not any(isinstance(g, str) for g in got):
                 raise next(g for g in got if isinstance(g, Stopped))
-            task['answer'] = '\n\n'.join(f"{names[w['i']]} · {w['goal'][:80]}\n{w['answer'] or '(nothing)'}" for w in ws)[:8000]
-            task['keep'] = [f"{names[w['i']]}: {str(w['answer'] or '')[:200]}" for w in ws if w.get('answer')][:KEEP_MAX]
+            task['answer'] = '\n\n'.join(f"{names[w['i']]} · {w['goal'][:80]}\n{w['answer'] or '(nothing)'}" for w in on)[:8000]
+            task['keep'] = [f"{names[w['i']]}: {str(w['answer'] or '')[:200]}" for w in on if w.get('answer')][:KEEP_MAX]
             task['status'] = 'done'
             return _clean(task)
         p = parse_json(await _ask(task, ws[0], ask, lead, [{'role': 'system', 'content': RULES + '\n' + PLAN_SYS}, {'role': 'user', 'content': task['text']}]))
@@ -279,6 +294,7 @@ async def run(task, ask, pages, wait_human, names=('Model A', 'Model B'), feeles
             w['goal'] = halves[i] if i < len(halves) else f'Independently verify the evidence and fill gaps: {task["text"]}'
         task['status'] = 'working'
         got = await asyncio.gather(*(_window(task, w, ask, pages[w['i']], wait_human, names[w['i']], feeless) for w in ws), return_exceptions=True)
+        _failed(ws, got)
         if any(isinstance(g, Stopped) for g in got) and not any(isinstance(g, str) for g in got):
             raise next(g for g in got if isinstance(g, Stopped))
         parts = [f"{names[w['i']]} ({w['goal']}):\n{w['answer'] or '(nothing)'}" + (f"\nscratch: {' | '.join(w['scratch'])}" if w.get('scratch') else '') for w in ws]

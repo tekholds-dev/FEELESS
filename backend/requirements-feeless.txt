@@ -6,3 +6,4 @@ pywebpush>=2.0
 pynacl>=1.5
 base58>=2.1
 eth-account
+playwright>=1.64  # cat_browser LivePage (Steel/Browserless CDP) — without it every agent window falls back to the text reader
