@@ -1416,6 +1416,7 @@ _WORK: dict = {}
 TASK_CAP_DEFAULT, TASK_CAP_MAX = 0.05, 2.0
 BACKUP_MODEL = 'openai/gpt-oss-120b'   # Groq's free tier: tested with the agent's JSON step format
 WORK_QUEUE_MAX = 10   # 🏇 let it go: asks waiting their turn
+HUMAN_WAIT_S = 300   # ⏸ a window waits this long for you (sign-in / bot check), then the task is filed and the agent moves on
 CHAT_KEEP = 60
 
 
@@ -1567,7 +1568,14 @@ async def _work_run(cat_id, models, names, text, cap, brief='', efforts=None, ow
                         w['task'].setdefault('vaultUsed', []).append(h_.get('site'))
                         return True
                 ev = w['events'][i] = asyncio.Event()
-                await ev.wait()
+                try:
+                    await asyncio.wait_for(ev.wait(), HUMAN_WAIT_S)
+                except asyncio.TimeoutError:   # ⏸ nobody answered: file it to come back to, let this window (and the queue) move on
+                    w['events'].pop(i, None)
+                    why_ = h_.get('why') or 'it needs you'
+                    win_['parked'] = f"{_ca.PARKED}: no answer in {HUMAN_WAIT_S // 60} min — filed to come back to ({why_})"
+                    w['task'].setdefault('parked', []).append({'why': why_, 'url': h_.get('url') or win_.get('url'), 'mind': i})
+                    return False
                 return bool(w['go'].pop(i, False))
             async def feeless(tool, q=''):   # 🧰 FEELESS first: our own read-only tools, server-side (the browser is walled off from us)
                 return await _ct.run_tool(http, tool, q)
@@ -1634,8 +1642,10 @@ def _work_settle(store):
                 cat['brainsCfg']['cloud'] = ((cat['brainsCfg'].get('cloud') or []) + [{'at': time.time(), 'word': 'KEEP', 'sym': '', 'text': str(k_)[:240], 'by': ['both']}])[-_lc.CLOUD_MAX:]
             cat['chat'] = (list(cat.get('chat') or []) + [{'by': 'you', 'text': t.get('text'), 'at': w.get('at')},
                            {'by': 'cats', 'text': (f"💳 Paid ${t.get('walletPaid'):.4f} from its wallet: " if t.get('walletPaid') else '') + ("🛟 Backup model, free (OpenRouter has no credit): " if t.get('backup') else '') + (t.get('answer') or f"({t.get('status')}: {t.get('why') or 'no answer'})"), 'at': time.time(), 'cost': t.get('cost'), 'fast': t.get('fast')}])[-CHAT_KEEP:]
+        if cat and t.get('parked'):   # ⏸ filed to come back to when you are back (desk: Resume / Drop)
+            cat['workParked'] = (list(cat.get('workParked') or []) + [{'at': time.time(), 'text': t.get('text'), 'why': p_.get('why'), 'url': p_.get('url')} for p_ in t['parked']])[-WORK_QUEUE_MAX:]
         w['settled'] = True
-        # 🏇 let it go: the next queued ask starts on its own (a stopped task pauses the queue — you stopped it for a reason)
+        # 🏇 let it go: the next queued ask starts on its own (a stopped task pauses the queue — you stopped it for a reason; a parked one does not)
         if cat and cat.get('workGo') and cat.get('workQueue') and t.get('status') != 'stopped' and _work_live() and _lc.can_ask(cat.get('brainsCfg') or {}):
             if day_left(cat) is None or day_left(cat) > 0:   # at its daily $ limit the queue waits
                 nxt = cat['workQueue'].pop(0)
@@ -2358,6 +2368,10 @@ async def cat_work(cat_id: str, p: WorkPayload):
         if not cat['workGo']:
             cat['workQueue'] = []
         _save(store)
+    elif p.op == 'unpark':   # ⏸ drop a filed task (Resume = the desk drops it, then asks it again)
+        k_ = list(cat.get('workParked') or [])
+        if p.i is not None and 0 <= int(p.i) < len(k_):
+            k_.pop(int(p.i)); cat['workParked'] = k_; _save(store)
     elif p.op == 'unqueue':
         q_ = list(cat.get('workQueue') or [])
         if p.i is not None and 0 <= int(p.i) < len(q_):
@@ -2425,7 +2439,8 @@ async def cat_work(cat_id: str, p: WorkPayload):
             'job': cat.get('job', 'agent'), 'tools': _cp.toolkit(cat.get('job', 'agent'), cat.get('tools')), 'toolkits': _cp.TOOLS,
             'refusals': (cat.get('refusals') or [])[-20:] + [{'why': x} for x in ((w or {}).get('task') or {}).get('refusals', [])],
             'artifacts': (cat.get('artifacts') or [])[-10:] + ([] if (w or {}).get('settled') else ((w or {}).get('task') or {}).get('artifacts', [])),
-            'queue': [{'text': q.get('text'), 'to': q.get('to')} for q in (cat.get('workQueue') or [])]}
+            'queue': [{'text': q.get('text'), 'to': q.get('to')} for q in (cat.get('workQueue') or [])],
+            'parked': [{'text': q.get('text'), 'why': q.get('why'), 'at': q.get('at')} for q in (cat.get('workParked') or [])]}
 
 
 @app.get('/api/cats/{cat_id}/work/shot/{i}')

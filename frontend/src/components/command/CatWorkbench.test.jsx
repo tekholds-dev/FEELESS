@@ -153,3 +153,19 @@ test('🏦 the treasury drawer: fees waiting from its vaults, the split as three
   expect(posts[0]).toMatchObject({ action: 'treasury', treasury: { split: { holder: 70, credit: 20, buyback: 10 } } });
   await act(async () => root.unmount()); el.remove();
 });
+
+test('⏸ a task nobody answered for 5 min is filed: ▶ resume drops it and asks it again, ✕ drops it', async () => {
+  const calls = [];
+  const DONE = { ...STATE, task: { ...STATE.task, status: 'parked', why: '⏸ parked: no answer in 5 min — filed', answer: null }, windows: STATE.windows.map(w => ({ ...w, status: 'done', human: null })),
+    parked: [{ text: 'B: read my X feed', why: 'a sign-in', at: 1 }] };
+  global.fetch = async (u, o) => { const b = JSON.parse(o.body); calls.push(b); return { ok: true, json: async () => DONE }; };
+  const el = document.createElement('div'); document.body.appendChild(el); const root = createRoot(el);
+  await act(async () => { root.render(<CatWorkbench cat={{ id: 'g1', brainsCfg: { kind: 'general', brains: ['qwen/qwen3-32b', 'x/opus'], credit: 9.2 } }} />); });
+  expect(el.querySelector('[data-testid="cwb-parked"]').textContent).toContain('B: read my X feed');
+  expect(el.querySelector('[data-testid="cwb-answer"]').textContent).toContain('filed');
+  await act(async () => { el.querySelector('[data-testid="cwb-resume-0"]').click(); });
+  expect(calls.slice(-2).map(c => c.op)).toEqual(['unpark', 'ask']); expect(calls.at(-1)).toMatchObject({ text: 'B: read my X feed' });
+  await act(async () => { el.querySelector('[data-testid="cwb-unpark-0"]').click(); });
+  expect(calls.at(-1)).toMatchObject({ op: 'unpark', i: 0 });
+  await act(async () => { root.unmount(); });
+});

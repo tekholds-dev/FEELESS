@@ -324,3 +324,7 @@ body.theme-day .cwb-trail li { background: #6a3df00a; } body.theme-day .cwb-trai
 
 /* 🔒 an agent window is the models' alone (owner 2026-10-31): view-only until it asks a person (sign-in / bot check) — then `is-hand` lets you click */
 .cwb-live:not(.is-hand) { pointer-events: none; }
+/* ⏸ filed to come back to (no answer in 5 min): gold, one more button (▶ resume · ✕ drop) */
+.cwb-queue.is-parked li { grid-template-columns: 22px minmax(0, 1fr) 32px 32px; border-color: color-mix(in srgb, var(--gold, #f5c542) 45%, transparent); }
+.cwb-queue.is-parked b { color: var(--gold, #f5c542); } .cwb-queue.is-parked button:first-of-type:hover { background: rgba(69, 228, 134, .15); color: #45e486; }
+.cwb-queue button:disabled { opacity: .45; cursor: not-allowed; }

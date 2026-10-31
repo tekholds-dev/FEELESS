@@ -104,6 +104,9 @@ RESEARCH_HOW = ('\nRESEARCH ORDER: 1) feeless coin <symbol or contract> — it r
                 'DexScreener; 3) answer with what the chart AND the research say, each fact with where you read it. Never guess a number you did not read.')
 
 
+PARKED = '⏸ parked'   # ⏸ owner 2026-10-31: "no human interaction within 5 min → the agent moves on and files it to come back to"
+
+
 class Stopped(Exception):
     pass
 
@@ -254,7 +257,7 @@ async def _window(task, w, ask, page, wait_human, name, feeless=None):
             go = await wait_human(w['i'])
             w['human'] = None
             if not go:
-                raise Stopped('stopped by you')
+                raise Stopped(w.pop('parked', None) or 'stopped by you')
             w['status'] = 'working'
             seen = await page.read()
     else:
@@ -321,7 +324,7 @@ async def run(task, ask, pages, wait_human, names=('Model A', 'Model B'), feeles
             task['answer'] = ws[0]['answer']
         task['status'] = 'done'
     except Stopped as e:
-        task.update(status='stopped', why=str(e) or 'stopped by you')
+        task.update(status='parked' if str(e).startswith(PARKED) else 'stopped', why=str(e) or 'stopped by you')
         task['answer'] = task['answer'] or '\n\n'.join(f"{names[w['i']]}: {w['answer']}" for w in ws if w.get('answer')) or None
     except Exception as e:
         task.update(status='error', why=str(e)[:160])

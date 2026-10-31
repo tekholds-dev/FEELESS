@@ -525,3 +525,68 @@ def test_x_login_wall_asks_a_person():
     assert cb.needs_human('https://x.com/i/jf/onboarding/web?redirect_after_login=%2Fsearch&mode=login', 'See what is happening')
     assert cb.needs_human('https://x.com/i/flow/login', '')
     assert cb.needs_human('https://x.com/search?q=abc&f=live', 'Latest posts') is None
+
+
+def test_no_answer_in_5_min_files_the_task_and_moves_on(monkeypatch):
+    """owner 2026-10-31: "if no human interaction within 5 mins the agent moves on … and files it to come back to when the user is active"."""
+    import asyncio
+    calls = []
+    async def ask(model, messages):
+        calls.append(1)
+        return ('{"action": "open", "url": "https://x.com/i/flow/login"}' if len(calls) == 1 else '{"action": "answer", "say": "x"}'), 0.0
+    class P:
+        url = title = None
+        async def goto(self, u): self.url = u; return 'Sign in to X'
+        async def read(self): return 'Sign in to X'
+    task = ca.new_task('t4', 'B: read my X feed', ['m-a', 'm-b'], 0.05, 4, 'jobs', None)
+    async def wait_human(i):   # the service's wait_human after HUMAN_WAIT_S with nobody there
+        task['windows'][i]['parked'] = f'{ca.PARKED}: no answer in 5 min — filed to come back to (a sign-in)'
+        task.setdefault('parked', []).append({'why': 'a sign-in', 'mind': i})
+        return False
+    out = asyncio.run(ca.run(task, ask, [P(), P()], wait_human))
+    assert out['status'] == 'parked' and out['why'].startswith(ca.PARKED) and out['parked'][0]['why'] == 'a sign-in'
+
+
+def test_the_service_files_an_unanswered_window_and_the_desk_can_drop_it(tmp_path, monkeypatch):
+    """⏸ end to end in the service: a sign-in nobody answers → after HUMAN_WAIT_S the task is parked + filed (workParked), the desk lists it, Drop removes it."""
+    import time as _t
+    from fastapi.testclient import TestClient
+    import launch_cat as lc
+    import feecat_service as fs
+    rows = [{'id': f'm/{x}', 'name': x, 'context_length': 131072, 'pricing': {'prompt': '0.0000001', 'completion': '0.0000002'}} for x in ('a', 'b')]
+    monkeypatch.setattr(fs, 'STORE_PATH', tmp_path / 'feecats.json')
+    monkeypatch.setattr(fs, '_MODELS', {'at': 9e18, 'rows': lc.catalog(rows)})
+    monkeypatch.setattr(fs, 'HUMAN_WAIT_S', 0.05)
+    monkeypatch.setenv('OPENROUTER_API_KEY', 'test'); monkeypatch.setenv('GENERAL_CAT_LIVE', '1')
+
+    async def or_call(model, messages, **k):
+        return json.dumps({'action': 'open', 'url': 'https://x.com/i/flow/login'}), 0.001
+    monkeypatch.setattr(fs, '_or_call', or_call)
+
+    async def open_session(http, env, ctx=None):
+        return {'provider': 'reader'}, []
+    monkeypatch.setattr(fs._cb, 'open_session', open_session)
+    class Login(Page):
+        async def goto(self, u):
+            self.url = u; return 'Sign in to X'
+    monkeypatch.setattr(fs._cb, 'ReaderPage', lambda http: Login())
+
+    async def close_session(*a):
+        return None
+    monkeypatch.setattr(fs._cb, 'close_session', close_session)
+    with TestClient(fs.app) as c:
+        r = c.post('/api/cats', json={'ownerId': 'w', 'session': 'w', 'name': 'Scout', 'handle': 'scout', 'brains': ['m/a', 'm/b'], 'brainKind': 'general', 'brainMode': 'turns',
+                                      'billing': 'payg', 'prompt': 'help', 'job': 'researcher', 'workMode': 'jobs', 'taskCap': 0.25})
+        cid = r.json()['cat']['id']
+        st_ = fs._load(); st_['cats'][cid]['brainsCfg']['credit'] = 10.0; st_['cats'][cid]['creditPaid'] = [{'sig': 'REALSIG', 'usd': 10.0}]; fs._save(st_)
+        assert c.post(f'/api/cats/{cid}/work', json={'op': 'ask', 'ownerId': 'w', 'session': 'w', 'text': 'B: read my X feed'}).status_code == 200
+        for _ in range(100):
+            if fs._WORK[cid].get('done'):
+                break
+            _t.sleep(0.05)
+        assert fs._WORK[cid]['task']['status'] == 'parked'
+        store = fs._load(); fs._work_settle(store); fs._save(store)
+        st = c.post(f'/api/cats/{cid}/work', json={'op': 'state', 'ownerId': 'w', 'session': 'w'}).json()
+        assert st['parked'] and st['parked'][0]['text'] == 'B: read my X feed' and 'sign-in' in st['parked'][0]['why']
+        c.post(f'/api/cats/{cid}/work', json={'op': 'unpark', 'i': 0, 'ownerId': 'w', 'session': 'w'})
+        assert fs._load()['cats'][cid].get('workParked') == []
