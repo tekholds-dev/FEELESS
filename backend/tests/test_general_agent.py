@@ -344,7 +344,7 @@ def test_a_general_agent_end_to_end_from_the_wizard_to_its_answer_and_clouds(tmp
         return json.dumps(script[model].pop(0)), 0.001
     monkeypatch.setattr(fs, '_or_call', or_call)
 
-    async def open_session(http, env):
+    async def open_session(http, env, ctx=None):
         return {'provider': 'reader'}, []
     monkeypatch.setattr(fs._cb, 'open_session', open_session)
     monkeypatch.setattr(fs._cb, 'ReaderPage', lambda http: Page())

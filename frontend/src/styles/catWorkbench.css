@@ -296,3 +296,17 @@ body.fx-lite .cwb-rail, body.fx-lite .cwb-ring b, body.fx-lite .cwb-stored-file 
 body.theme-day .cwb-rail { background: #fff; border-color: #6a3df022; } body.theme-day .cwb-rail > small, body.theme-day .cwb-rail-kv dd, body.theme-day .cwb-ring b { color: #2a1650; } body.theme-day .cwb-rail-kv div { background: #6a3df00a; }
 body.theme-day .cwb-stored { background: #fff; } body.theme-day .cwb-stored-file b { color: #1c3528; }
 @media (max-width: 900px) { .cwb-theater { grid-template-columns: 1fr 1fr; } .cwb-theater .cwb-stage { grid-column: 1 / -1; grid-row: 1; } .cwb-rail { grid-row: 2; } }
+
+/* 🔓 signed-in sites (inside Credentials): saved rows, a picker + any site, the live sign-in window */
+.cwb-signed { display: grid; gap: 8px; padding: 10px 12px; border-radius: 14px; border: 1px solid #45e48644; background: #06100bcc; box-shadow: inset 0 1px 0 #ffffff10; }
+.cwb-signed-h { color: #b8f5d0; font: 800 10.5px var(--f-mono); letter-spacing: .12em; } .cwb-signed-h em { font-style: normal; color: #45e486; margin-left: 4px; }
+.cwb-signed > small { color: #9fc3ad; font: 500 11.5px var(--f-ui); }
+.cwb-signed ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.cwb-signed li { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; align-items: center; padding: 6px 10px; border-radius: 10px; background: #ffffff06; animation: cwbIn .25s ease both; }
+.cwb-signed li span { display: grid; min-width: 0; } .cwb-signed li b { color: #eafff2; font: 700 12px var(--f-mono); } .cwb-signed li small { color: #8fb39d; font: 600 10px var(--f-mono); }
+.cwb-signed-add { display: grid; gap: 6px; } .cwb-signed-add .m-seg { flex-wrap: wrap; } .cwb-signed-add .m-btn { min-height: 34px; }
+.cwb-signed-live { display: grid; gap: 6px; } .cwb-signed-live > span { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.cwb-signed-live em { color: #45e486; font: 800 10px var(--f-mono); letter-spacing: .1em; font-style: normal; }
+.cwb-signed-live iframe { width: 100%; aspect-ratio: 16 / 10; border: 1px solid #45e48655; border-radius: 10px; background: #000; }
+body.fx-lite .cwb-signed li { animation: none; } @media (prefers-reduced-motion: reduce) { .cwb-signed li { animation: none; } }
+body.theme-day .cwb-signed { background: #f2fff7; border-color: #0a6b3c33; } body.theme-day .cwb-signed li b { color: #0a3a20; } body.theme-day .cwb-signed > small, body.theme-day .cwb-signed li small { color: #2f5a42; }

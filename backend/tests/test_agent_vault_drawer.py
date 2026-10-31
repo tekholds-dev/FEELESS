@@ -61,3 +61,53 @@ def test_older_seals_are_resealed_per_agent_at_startup(monkeypatch, tmp_path):
     cat = {'id': 'z9', 'logins': [{'site': 'x.com', 'user': 'me', 'sealed': old}]}
     assert ck.reseal_cat(cat, data_dir=tmp_path) == 1 and cat['logins'][0]['sealed'].startswith('v2:')
     assert ck.unseal(cat['logins'][0]['sealed'], 'z9') == 'pw-old' and ck.reseal_cat(cat, data_dir=tmp_path) == 0
+
+
+def test_signed_in_sites_the_owner_signs_in_by_hand_the_cookies_are_sealed_and_every_window_starts_with_them(monkeypatch):
+    monkeypatch.setenv('BROKER_SECRET_KEY', 'test-only-secret'); monkeypatch.setenv('STEEL_API_KEY', 'fake')
+    fs = pytest.importorskip('feecat_service')
+    from fastapi.testclient import TestClient
+    cat = {'id': 'g', 'ownerId': 'b1', 'ownerWallet': 'W', 'name': 'Happy', 'positions': [], 'risk': {}, 'status': 'running', 'revoked': False, 'createdAt': 1,
+           'brainsCfg': {'kind': 'general', 'brains': ['m/a'], 'credit': 1}}
+    store = {'cats': {'g': cat}, 'events': []}
+    monkeypatch.setattr(fs, '_load', lambda: store); monkeypatch.setattr(fs, '_save', lambda s: None)
+    monkeypatch.setattr(fs._real, 'load_sessions', lambda p: {'s': {hashlib.sha256(b'tok').hexdigest(): {'address': 'W', 'exp': 9e18}}})
+    opened, closed = [], []
+
+    async def steel(http, env, ctx=None):
+        opened.append(ctx); return {'id': 'sid1', 'live': 'https://steel/live?interactive=true', 'connect': 'wss://x'}
+
+    async def read_ctx(http, env, sid):
+        return {'cookies': [{'name': 'auth_token', 'value': 'SECRET-COOKIE', 'domain': '.x.com', 'path': '/'}], 'localStorage': {}}
+
+    class Page:
+        def __init__(self, c): pass
+        async def start(self): return self
+        async def goto(self, u): return ''
+        async def close(self): pass
+
+    async def close(http, env, s):
+        closed.append(s['id'])
+    monkeypatch.setattr(fs._cb, '_steel', steel); monkeypatch.setattr(fs._cb, 'read_context', read_ctx)
+    monkeypatch.setattr(fs._cb, 'LivePage', Page); monkeypatch.setattr(fs._cb, 'close_session', close)
+    c = TestClient(fs.app)
+    assert c.post('/api/cats/g/work', json={'op': 'signin_open', 'session': '', 'text': 'x.com'}).status_code == 401   # the owner's only
+    assert c.post('/api/cats/g/work', json={'op': 'signin_save', 'session': 'tok'}).status_code == 400                # nothing open yet
+    r = c.post('/api/cats/g/work', json={'op': 'signin_open', 'session': 'tok', 'text': 'x.com'})
+    assert r.status_code == 200 and r.json() == {'live': 'https://steel/live?interactive=true', 'site': 'x.com'} and opened == [None]
+    r = c.post('/api/cats/g/work', json={'op': 'signin_save', 'session': 'tok'})
+    assert r.status_code == 200 and r.json()['signedIn'][0]['site'] == 'x.com' and 'SECRET-COOKIE' not in r.text and closed == ['sid1']
+    assert 'SECRET-COOKIE' not in str(cat['siteSessions'])                                       # sealed at rest
+    assert 'SECRET-COOKIE' not in c.get('/api/cats/g?session=tok').text                          # never on a page, even the owner's
+    assert fs._site_ctx(cat)['cookies'][0]['value'] == 'SECRET-COOKIE'                          # …but its next window starts signed in
+    r = c.post('/api/cats/g/work', json={'op': 'signin_drop', 'session': 'tok', 'text': 'https://x.com/home'})
+    assert r.json()['signedIn'] == [] and fs._site_ctx(cat) is None
+
+
+def test_saved_sign_ins_merge_later_wins_and_an_oversized_jar_is_dropped():
+    cb = pytest.importorskip('cat_browser')
+    a = {'cookies': [{'name': 't', 'domain': '.x.com', 'path': '/', 'value': 'old'}], 'localStorage': {'https://x.com': {'k': '1'}}}
+    b = {'cookies': [{'name': 't', 'domain': '.x.com', 'path': '/', 'value': 'new'}], 'localStorage': {'https://x.com': {'j': '2'}}}
+    m = cb.merge_contexts([a, b])
+    assert [k['value'] for k in m['cookies']] == ['new'] and m['localStorage']['https://x.com'] == {'k': '1', 'j': '2'}
+    assert cb.merge_contexts([]) is None and cb.merge_contexts([{'cookies': [{'name': 'big', 'value': 'x' * 500_000}]}]) is None

@@ -88,7 +88,7 @@ def _load() -> dict:
 
 # 🔒 The engine loads every cat, works for minutes, then saves its whole copy: anything an owner did meanwhile was wiped (owner 2026-10-30: a new agent wallet vanished
 # seconds after it was made). What an owner's action sets is kept here and laid over every save, so an old copy can never lose a wallet, a funding or a limit.
-OWNER_KEYS = ('agentWallet', 'agentFunded', 'creditPaid', 'recovery', 'recoverySet', 'recoveryConfirmedAt', 'limits', 'taskCap', 'ownerId', 'mode', 'realWallet', 'budgetSol', 'paperByOwner', 'files', 'ownerWallet', 'logins', 'cloudLink', 'vaultLog', 'earn', 'clarify', 'ownerStaff', 'pass', 'treasury')
+OWNER_KEYS = ('agentWallet', 'agentFunded', 'creditPaid', 'recovery', 'recoverySet', 'recoveryConfirmedAt', 'limits', 'taskCap', 'ownerId', 'mode', 'realWallet', 'budgetSol', 'paperByOwner', 'files', 'ownerWallet', 'logins', 'cloudLink', 'vaultLog', 'earn', 'clarify', 'ownerStaff', 'pass', 'treasury', 'siteSessions')
 _KEPT: dict = {}
 
 
@@ -132,7 +132,9 @@ def _no_keys(obj):
     if isinstance(obj, list):
         return [_no_keys(x) for x in obj]
     if isinstance(obj, dict):
-        out = {k: _no_keys(v) for k, v in obj.items() if k not in ('apiKeys', 'logins', 'ownerId', 'ownerWallet', 'recovery')}   # 🔒 ownerId is the owner's control key — it never leaves the server
+        out = {k: _no_keys(v) for k, v in obj.items() if k not in ('apiKeys', 'logins', 'ownerId', 'ownerWallet', 'recovery', 'siteSessions')}
+        if obj.get('siteSessions'):   # 🔓 sealed sign-ins never leave the server — site · when · how many cookies only
+            out['signedIn'] = [{'site': k, 'at': v.get('at'), 'n': v.get('n', 0)} for k, v in obj['siteSessions'].items()]   # 🔒 ownerId is the owner's control key — it never leaves the server
         if 'brains' in obj:   # ☁ each mind's own cloud is its owner's private notes — only the owner's /work view carries it
             out.pop('minds', None)
         if 'apiKeys' in obj or ('brainsCfg' in obj and 'ownerId' in obj):
@@ -1577,7 +1579,7 @@ async def _work_run(cat_id, models, names, text, cap, brief='', efforts=None, ow
         sessions, pages = [], []
         try:
             for i, _m in enumerate(models):
-                s_, _tried = await _cb.open_session(http, env)
+                s_, _tried = await _cb.open_session(http, env, _site_ctx(_load()['cats'].get(cat_id) or {}))   # 🔓 starts signed in where the owner signed in
                 sessions.append(s_)
                 try:
                     pages.append(await _cb.LivePage(s_['connect']).start() if s_.get('connect') else _cb.ReaderPage(http))
@@ -2289,6 +2291,33 @@ class WorkPayload(BaseModel):
     files: Optional[list] = None       # ☁ op 'ask': ids of files from its storage the owner attached (+)
 
 
+_SIGNIN = {}   # cat_id → the owner's open sign-in window {sid, site, page}
+
+
+def _site_ctx(cat):
+    """Every sign-in the owner saved for this agent → one Steel session context (None when there are none)."""
+    out = []
+    for v in (cat.get('siteSessions') or {}).values():
+        try:
+            out.append(json.loads(_ck.unseal(v['ctx'], cat.get('id'), data_dir=DATA_DIR)))
+        except Exception:
+            continue
+    return _cb.merge_contexts(out)
+
+
+async def _signin_close(cat_id):
+    si_ = _SIGNIN.pop(cat_id, None)
+    if not si_:
+        return
+    try:
+        if si_.get('page'):
+            await si_['page'].close()
+    except Exception:
+        pass
+    async with httpx.AsyncClient(timeout=15) as http:
+        await _cb.close_session(http, os.environ, {'provider': 'steel', 'id': si_['sid']})
+
+
 @app.post('/api/cats/{cat_id}/work')
 async def cat_work(cat_id: str, p: WorkPayload):
     """🧠🧠 A general cat's workbench (the cat's OWNER only): ask · state · continue / stop (a human-needed window) · stop · cap ($ per task)."""
@@ -2341,6 +2370,44 @@ async def cat_work(cat_id: str, p: WorkPayload):
                 win_['pw'] = {'site': site_, 'user': (p.user or '').strip()[:120], 'pw': p.secret}
                 w['go'][win_['i']] = True; w['events'][win_['i']].set()
         return {'ok': True, 'site': site_, 'logins': _cv.public_logins(cat)}
+    if p.op == 'signin_open':   # 🔓 a live window for the OWNER to sign in to a site by hand (its cookies are kept on save)
+        try:
+            url_ = p.text if str(p.text or '').startswith('http') else f'https://{str(p.text or "").strip()}'
+            _cp.check_url(url_); site_ = _cv.site_of(url_)
+        except ValueError as e:
+            raise HTTPException(400, str(e)[:120])
+        if not os.environ.get('STEEL_API_KEY'):
+            raise HTTPException(400, 'Signed-in sites need the Steel browser (STEEL_API_KEY) — it is the one that keeps a sign-in.')
+        await _signin_close(cat_id)
+        async with httpx.AsyncClient(timeout=30) as http:
+            try:
+                s_ = await _cb._steel(http, os.environ, _site_ctx(cat))
+            except Exception as e:
+                raise HTTPException(502, f'The browser did not open ({str(e)[:60]}).')
+        page_ = None
+        try:
+            page_ = await _cb.LivePage(s_['connect']).start(); await page_.goto(url_)
+        except Exception:
+            pass   # the window still opens; the owner types the address
+        _SIGNIN[cat_id] = {'sid': s_['id'], 'site': site_, 'page': page_, 'at': time.time()}
+        return {'live': s_.get('live'), 'site': site_}
+    if p.op == 'signin_save':   # 🔓 keep what the owner's sign-in left (cookies + local storage), sealed for this agent; its windows start with it
+        si_ = _SIGNIN.get(cat_id)
+        if not si_:
+            raise HTTPException(400, 'Open the site and sign in first.')
+        async with httpx.AsyncClient(timeout=30) as http:
+            try:
+                ctx_ = await _cb.read_context(http, os.environ, si_['sid'])
+            except Exception as e:
+                raise HTTPException(502, f'Could not read the sign-in ({str(e)[:60]}).')
+        if not _cb.merge_contexts([ctx_]):
+            raise HTTPException(400, 'Nothing to keep yet — finish signing in, then save.')
+        cat.setdefault('siteSessions', {})[si_['site']] = {'ctx': _ck.seal(json.dumps(ctx_), cat_id), 'at': time.time(), 'n': len(ctx_['cookies'])}
+        vault_log(cat, 'signed in', si_['site']); keep_owned(cat); _save(store); await _signin_close(cat_id)
+        return {'signedIn': _no_keys(cat).get('signedIn', [])}
+    if p.op == 'signin_drop':
+        (cat.get('siteSessions') or {}).pop(_cv.site_of(p.text or ''), None); vault_log(cat, 'signed out', p.text); keep_owned(cat); _save(store); await _signin_close(cat_id)
+        return {'signedIn': _no_keys(cat).get('signedIn', [])}
     if p.op == 'reveal':   # 🔐 the owner's own reveal of one saved password: a FRESH wallet signature each time (a stolen session alone shows nothing)
         if not reveal_ok(cat_id, p.text or '', p.ts, p.sig, owner_wallet(cat) or _session_wallet(p.session or '')):
             raise HTTPException(401, 'Sign the reveal with your wallet (one signature, no transaction).')
@@ -2428,7 +2495,7 @@ async def cat_work(cat_id: str, p: WorkPayload):
     return {**out, 'cap': float(cat.get('taskCap') or TASK_CAP_DEFAULT), 'credit': b.get('credit'), 'spent': b.get('spent'), 'chat': (cat.get('chat') or [])[-20:],
             'live': _work_live(), 'providers': _cb.chain(os.environ), 'go': bool(cat.get('workGo')), 'workMode': cat.get('workMode') or 'plan',
             'cloud': (b.get('cloud') or [])[-8:], 'minds': {m: v[-8:] for m, v in (b.get('minds') or {}).items()}, 'handoffs': len((w.get('task') or {}).get('handoffs') or []) if w else 0, 'createdAt': cat.get('createdAt'),
-            'logins': _cv.public_logins(cat), 'vaultLog': (cat.get('vaultLog') or [])[-12:], 'lastMoney': last_money(store.get('events') or [], cat_id), 'media': _cv.clean_media(cat), 'storage': _af.public(cat),   # ☁ its cloud: pool, quota, files
+            'logins': _cv.public_logins(cat), 'signedIn': [{'site': k, 'at': v.get('at'), 'n': v.get('n', 0)} for k, v in (cat.get('siteSessions') or {}).items()], 'vaultLog': (cat.get('vaultLog') or [])[-12:], 'lastMoney': last_money(store.get('events') or [], cat_id), 'media': _cv.clean_media(cat), 'storage': _af.public(cat),   # ☁ its cloud: pool, quota, files
             'job': cat.get('job', 'agent'), 'tools': _cp.toolkit(cat.get('job', 'agent'), cat.get('tools')), 'toolkits': _cp.TOOLS,
             'refusals': (cat.get('refusals') or [])[-20:] + [{'why': x} for x in ((w or {}).get('task') or {}).get('refusals', [])],
             'artifacts': (cat.get('artifacts') or [])[-10:] + ([] if (w or {}).get('settled') else ((w or {}).get('task') or {}).get('artifacts', [])),

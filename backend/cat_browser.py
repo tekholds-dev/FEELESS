@@ -9,6 +9,7 @@ A session = {provider, id, live, connect, at}. `live` is the watch / take-over U
 keys (`safe_live`); otherwise the window shows snapshots. `connect` (the CDP address, may hold a key) never leaves the server.
 FEELESS stores no passwords: a user signs in inside the live window themselves; the provider's saved context keeps the session, not us."""
 import html
+import json
 import re
 import uuid
 from cat_policy import public_url, check_url
@@ -53,7 +54,7 @@ def _reader(note=None):
 
 async def _steel(http, env, ctx=None):
     k = keys(env)['STEEL_API_KEY']
-    body = {'timeout': TIMEOUT_MS, 'solveCaptcha': False, 'blockAds': True, 'dimensions': VIEWPORT, **({'sessionContext': ctx} if ctx else {})}
+    body = {'timeout': TIMEOUT_MS, 'solveCaptcha': False, 'blockAds': True, 'dimensions': VIEWPORT, **({'sessionContext': ctx} if isinstance(ctx, dict) else {})}
     r = await http.post(f'{STEEL}/sessions', headers={'steel-api-key': k, 'Content-Type': 'application/json'}, json=body, timeout=20)
     if r.status_code not in (200, 201):
         raise ValueError(f'Steel {r.status_code}')
@@ -76,7 +77,7 @@ async def _browserless(http, env, ctx=None):
 async def _bb(http, env, ctx=None):
     k = keys(env)
     h = {'X-BB-API-Key': k['BROWSERBASE_API_KEY'], 'Content-Type': 'application/json'}
-    body = {'projectId': k['BROWSERBASE_PROJECT_ID'], 'keepAlive': False, **({'browserSettings': {'context': {'id': ctx, 'persist': True}}} if ctx else {})}
+    body = {'projectId': k['BROWSERBASE_PROJECT_ID'], 'keepAlive': False, **({'browserSettings': {'context': {'id': ctx, 'persist': True}}} if isinstance(ctx, str) else {})}
     r = await http.post(f'{BB}/sessions', headers=h, json=body, timeout=20)
     if r.status_code not in (200, 201):
         raise ValueError(f'Browserbase {r.status_code}')
@@ -104,6 +105,33 @@ async def open_session(http, env, ctx=None):
         except Exception as e:
             tried.append((p, str(e)[:80] or 'no answer'))
     return _reader(), tried
+
+
+# 🔓 SIGNED-IN SITES (owner 2026-10-31: "click a bot-blocked site in the drawer, sign in, and agents open the browser signed in already"): the OWNER
+# signs in (and clears any check) by hand in a live Steel window; we keep that window's cookies + local storage, sealed per agent, and every
+# later window starts with them. Nothing is bypassed — a person did the sign-in; a site that re-checks still asks a person.
+CTX_MAX = 400_000
+
+
+async def read_context(http, env, sid):
+    """A live Steel session's cookies + local storage (indexedDB / session storage are left out — too big, rarely the sign-in)."""
+    r = await http.get(f'{STEEL}/sessions/{sid}/context', headers={'steel-api-key': keys(env)['STEEL_API_KEY']}, timeout=20)
+    if r.status_code != 200:
+        raise ValueError(f'Steel context {r.status_code}')
+    j = r.json() or {}
+    return {'cookies': list(j.get('cookies') or []), 'localStorage': dict(j.get('localStorage') or {})}
+
+
+def merge_contexts(ctxs):
+    """Several saved sign-ins → one session context (later ones win on the same cookie / origin); None when empty or too big."""
+    jar, store = {}, {}
+    for c in ctxs or []:
+        for k in (c or {}).get('cookies') or []:
+            jar[(k.get('name'), k.get('domain'), k.get('path'))] = k
+        for origin, kv in ((c or {}).get('localStorage') or {}).items():
+            store.setdefault(origin, {}).update(kv or {})
+    out = {'cookies': list(jar.values()), 'localStorage': store}
+    return out if (jar or store) and len(json.dumps(out)) <= CTX_MAX else None
 
 
 async def close_session(http, env, s):
