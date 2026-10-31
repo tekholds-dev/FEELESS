@@ -4,7 +4,7 @@ import { FeeCatShell, goTo } from './FeeCatShell';
 import { useAdmin } from '../../lib/adminCall';
 import { FeeCatBrainPage } from './FeeCatBrainPage';
 import { CatBuilder } from './CatBuilder';
-import { FeeLiveTab } from './FeeLiveTab';
+import { FeeLanding } from './FeeLiveTab';
 import NumInput from '../NumInput';
 import React, { Suspense, lazy, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
@@ -63,7 +63,7 @@ export const FeeCatCenter = ({ asset, community, onSelect, children }) => {
   }, []);
   return <FeeCatShell tab={view}>
     {view === 'brain' || (view === 'desk' && !isAdmin) ? <FeeCatStage /> : null}
-    {view === 'desk' ? (isAdmin ? <Suspense fallback={null}><FeeDesk onBack={() => goTo('/terminal/feecat/agents')} /></Suspense> : <><FeeLiveTab />{children}</>) : null}
+    {view === 'desk' ? (isAdmin ? <Suspense fallback={null}><FeeDesk onBack={() => goTo('/terminal/feecat/agents')} /></Suspense> : <FeeLanding book={children} />) : null}
     {view === 'brain' ? <FeeCatBrainPage /> : null}
     {view === 'lore' ? <FeeCatLore asset={asset} community={community} onSelect={onSelect}>{t => (t === 'calc' ? <FeeBackCalculator feeCat={asset} /> : <FeeBackFlow />)}</FeeCatLore> : null}
   </FeeCatShell>;

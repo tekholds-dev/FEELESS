@@ -24,3 +24,28 @@ body.fx-lite .fcv-card, body.fx-lite .fcv-bars li, body.fx-lite .fcv-flow b { an
 body.theme-day .fcv-card { background: rgba(255, 255, 255, .75); } body.theme-day .fcv-card h3 { color: #8a6100; } body.theme-day .fcv-flow span, body.theme-day
 body.theme-day .fcv-src .is-ai { color: #8a2fb0; } body.theme-day .fcv-src .is-fee { color: #8a6100; }
 @media (max-width: 900px) { .fcv { grid-template-columns: minmax(0, 1fr); } }
+/* 🐱 THE FEECAT LANDING (owner 2026-10-31: one screen, no heavy scroll): her stage, a segmented switch, then ONE pane sized to what is left of the screen */
+.fcl { --fcl-h: clamp(240px, calc(100dvh - 580px), 560px); display: grid; gap: 10px; }
+/* the landing's stage is ONE compact row (cat · name + lives · 4 tiles) so the pane gets the screen; her full stage stays on 🧠 Her brain */
+.fcx-body.is-desk .fcs { padding: 10px 14px; margin-bottom: 8px; gap: 8px; }
+.fcx-body.is-desk .fcs-hero { grid-template-columns: 92px minmax(0, 1fr) minmax(0, 1.5fr); gap: 14px; }
+.fcx-body.is-desk .fcs-cat { height: 92px; } .fcx-body.is-desk .fcs-cat > :not(.fcs-spot):not(.fcs-ring) { transform: scale(.5); }
+.fcx-body.is-desk .fcs-ring { width: 76px; height: 18px; bottom: 4px; } .fcx-body.is-desk .fcs-spot { display: none; }
+.fcx-body.is-desk .fcs-copy h1 { font-size: 24px; } .fcx-body.is-desk .fcs-copy p { display: none; }
+.fcx-body.is-desk .fcs-tiles { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
+.fcl-pane .agd-feed { display: none; }   /* her calls live in her book's wall + last calls; the landing keeps the charts big */
+.fcl-seg { justify-self: center; display: inline-flex; gap: 2px; padding: 3px; border-radius: 12px; background: #0b0614; border: 1px solid #b388ff33; }
+.fcl-seg button { min-height: 36px; padding: 0 16px; border: 0; border-radius: 9px; background: none; color: #a99bc8; font: 800 10.5px var(--f-tech, sans-serif); letter-spacing: .1em; cursor: pointer;
+  transition: background .15s, color .15s, transform .1s; }
+.fcl-seg button:hover { background: #b388ff1a; color: #fff; } .fcl-seg button:active { transform: scale(.97); } .fcl-seg button:focus-visible { outline: 2px solid #b388ff; outline-offset: 1px; }
+.fcl-seg button.active { background: linear-gradient(135deg, #c08cff, #8a5cff); color: #12081f; box-shadow: 0 0 14px #b388ff66; }
+.fcl-pane { min-width: 0; animation: fclIn .22s ease-out both; }
+.fcl-pane .agl-plot { aspect-ratio: auto; height: var(--fcl-h); }
+.fcl-pane .fcp-wall .chat-messages { max-height: calc(var(--fcl-h) - 40px); }
+.fcl-pane .fcp-book .fcp-list { max-height: calc(var(--fcl-h) - 70px); }
+@keyframes fclIn { from { opacity: 0; transform: translateY(6px); } }
+body.fx-lite .fcl-pane { animation: none; }
+@media (prefers-reduced-motion: reduce) { .fcl-pane { animation: none; } .fcl-seg button { transition: none; } }
+body.theme-day .fcl-seg { background: #f4efff; border-color: #7c4dff2e; } body.theme-day .fcl-seg button { color: #4b3a72; } body.theme-day .fcl-seg button.active { color: #fff; }
+@media (max-width: 980px) { .fcx-body.is-desk .fcs-hero { grid-template-columns: 80px minmax(0, 1fr); } .fcx-body.is-desk .fcs-tiles { grid-column: 1 / -1; } }
+@media (max-width: 640px) { .fcl { --fcl-h: clamp(220px, calc(100dvh - 420px), 420px); } .fcx-body.is-desk .fcs-hero { grid-template-columns: 1fr; } .fcx-body.is-desk .fcs-cat { display: none; } .fcx-body.is-desk .fcs-tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); } .fcl-pane .agd-wins > :nth-child(n + 2) { display: none; } .fcl-seg { justify-self: stretch; } .fcl-seg button { flex: 1; padding: 0 6px; font-size: 9.5px; letter-spacing: .04em; } }

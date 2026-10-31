@@ -4,6 +4,7 @@ import { AgentLive } from './AgentLive';
 import { callThread } from '../../lib/feeCallChat';
 import { useLeaderProfile } from '../../lib/feeLeader';
 import { reasonChip, talkPins } from '../../lib/feeTape';
+import { FirstTips } from '../FirstTips';
 
 // 🐱 FEE LIVE (owner, 2026-10-19: "finish her terminal tabs"): what Fee is doing right now, for everyone — her last scan (coins read → passed → held,
 // the rules that stopped the rest), her open paper trades, the coin she holds on a live chart WITH her call bubbles, and her calls in her own words
@@ -19,7 +20,7 @@ export function scanFunnel(scan, held) {
   const rej = Object.values(by).sort((a, b) => b.c - a.c); const max = Math.max(1, ...rej.map(r => r.c));
   return { read: n(s.scanned) || 0, passed: n(s.passed) || 0, held: held || 0, reasons: rej.slice(0, 5).map(r => ({ k: r.k, c: r.c, w: r.c / max, icon: r.icon, label: r.label, full: r.all.join(' · ') })), next: (s.top || []).slice(0, 4) };
 }
-export function FeeLiveTab() {
+export function FeeLiveTab({ part }) {   // part: 'view' (her two charts) · 'scan' (her funnel) · both when unset
   const [d, setD] = useState(null); const [ev, setEv] = useState([]); 
   const prof = useLeaderProfile();   // the shared 15s poll her hero reads: napping (out of lives / a tilt pause) is the same word everywhere
   useEffect(() => { let on = true; let t = null;
@@ -42,11 +43,31 @@ export function FeeLiveTab() {
   const hunting = d.cat?.status === 'running' && !(prof?.discipline || {}).pause;
   const feed = callThread(ev, pos).slice(0, 3).reverse().map(m => `🐱 ${m.side}${m.coin && m.coin !== 'null' ? ` $${m.coin}` : ''}${m.why ? ` — ${String(m.why).slice(0, 64)}` : ''}`);
   return <section className="fcv" data-testid="fee-live">
-    <AgentLive testId="fee-live-minds" title={`FEECAT'S VIEW · ${hunting ? 'hunting' : 'napping'}${c?.open ? ` · holding $${c.symbol}` : ''}`} coins={coins} feed={feed} callouts={pair => [...talkPins(d.talk, pair)]} />
-    <article className="fcv-card fcv-funnel"><h3>🔎 HER LAST SCAN<small>{d.scan?.at ? `${ago(d.scan.at)} ago` : 'no scan yet'}</small></h3>
+    {part === 'scan' ? null : <AgentLive testId="fee-live-minds" title={`FEECAT'S VIEW · ${hunting ? 'hunting' : 'napping'}${c?.open ? ` · holding $${c.symbol}` : ''}`} coins={coins} feed={feed} callouts={pair => [...talkPins(d.talk, pair)]} />}
+    {part === 'view' ? null : <article className="fcv-card fcv-funnel"><h3>🔎 HER LAST SCAN<small>{d.scan?.at ? `${ago(d.scan.at)} ago` : 'no scan yet'}</small></h3>
       <p className="fcv-flow"><span><b key={f.read}>{f.read}</b><small>coins read</small></span><i>→</i><span className={f.passed ? 'is-good' : ''}><b key={f.passed}>{f.passed}</b><small>passed</small></span><i>→</i><span><b key={f.held}>{f.held}</b><small>holding</small></span></p>
       {f.reasons.length ? <ul className="fcv-bars">{f.reasons.map((r, i) => <li key={r.k} style={{ '--i': i }} data-tip={r.full}><span className="fcv-rc"><i aria-hidden="true">{r.icon}</i>{r.label}</span><i><u style={{ transform: `scaleX(${Math.max(0.05, r.w)})` }} /></i><b>{r.c}</b></li>)}</ul> : <p className="paper-muted">nothing stopped a coin this scan</p>}
       <p className="fcv-src" data-tip="Where her coins come from: the ten agents' desk finds them, FeeCat AI reads them every few minutes, Fee skips what it calls a skip">
-        <span>🤖 10 agents</span><i aria-hidden="true">→</i><span className="is-ai">🔮 FeeCat AI</span><i aria-hidden="true">→</i><span className="is-fee">🐱 Fee</span></p></article>
+        <span>🤖 10 agents</span><i aria-hidden="true">→</i><span className="is-ai">🔮 FeeCat AI</span><i aria-hidden="true">→</i><span className="is-fee">🐱 Fee</span></p></article>}
   </section>;
+}
+
+// 🐱 THE FEECAT LANDING — one screen, no scroll (owner 2026-10-31: "no tab ever scroll heavy"): Fee's stage on top, then ONE of her view ·
+// her last scan · her book behind a segmented switch (remembered on this device), with first-visit tip spots on what matters
+const PARTS = [['view', '👁 HER VIEW', 'Her two live charts with her calls riding on them'], ['scan', '🔎 LAST SCAN', 'Coins she read → passed → held, and what stopped the rest'],
+  ['book', '📖 HER BOOK', 'Her wall, every trade and what happened after each sell']];
+const LAND_TIPS = [['[data-testid="fcl-seg"]', 'One screen', 'Her live view, her last scan and her book — tap to switch, nothing to scroll.'],
+  ['[data-testid="fcx-state"]', 'Live state', 'Hunting = she is reading the board right now · napping = out of lives or cooling off.'],
+  ['[data-testid="follow-fee"]', 'Follow Fee', 'A push on your phone every time she buys or sells.'],
+  ['[data-testid="fcx-mine"]', 'Build yours', 'Make your own cat or agent — it trades or works next to her.']];
+const PART_KEY = 'feeless:fee-landing';
+export function FeeLanding({ book }) {
+  const [p, setP] = useState(() => { try { const v = localStorage.getItem(PART_KEY); return PARTS.some(x => x[0] === v) ? v : 'view'; } catch { return 'view'; } });
+  const pick = k => { setP(k); try { localStorage.setItem(PART_KEY, k); } catch { /* private window: this visit only */ } };
+  return <div className="fcl" data-testid="fee-landing">
+    <nav className="m-seg fcl-seg" role="tablist" aria-label="Fee live" data-testid="fcl-seg">{PARTS.map(([k, l, tip]) => <button key={k} type="button" role="tab" aria-selected={p === k}
+      className={p === k ? 'active' : ''} onClick={() => pick(k)} data-tip={tip} data-testid={`fcl-${k}`}>{l}</button>)}</nav>
+    <div className="fcl-pane" key={p} role="tabpanel">{p === 'book' ? book : <FeeLiveTab part={p} />}</div>
+    <FirstTips id="fee-landing" tips={LAND_TIPS} />
+  </div>;
 }
