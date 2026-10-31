@@ -101,7 +101,20 @@ function AiCursor({ c, kind }) {
     <i /><u key={c.at} className={`at-${c.act || 'click'}`} /></span>;
 }
 
+// 📥 when a mind keeps something (a note, a FEELESS read, media, a draft, a handoff) the named data drops from where it was on screen — its cursor —
+// down into its files (owner 2026-10-31: "named data dropped down from wherever the info came from on screen, like Crawl but better")
+const KEEPS = { note: '🗒', feeless: '📈', media: '🖼', draft: '✍', build: '🛠', handoff: '📦' };
+export function useDrop(w) {
+  const [drop, setDrop] = useState(null); const last = useRef(null);
+  useEffect(() => { const s = (w?.steps || []).at(-1); if (!s || !KEEPS[s.action]) return undefined; const k = `${s.at}-${s.action}`;
+    if (last.current === null) { last.current = k; return undefined; } if (last.current === k) return undefined; last.current = k;
+    setDrop({ k, icon: KEEPS[s.action], label: String(s.detail || s.thought || s.action).slice(0, 48), x: w?.cursor?.x ?? 0.5, y: w?.cursor?.y ?? 0.35 });
+    const t = setTimeout(() => setDrop(null), 1900); return () => clearTimeout(t); }, [w?.steps, w?.cursor]);
+  return drop;
+}
+
 function Window({ w, catId, tick, onGo, onLogin, busy, cursor = 'arrow' }) {
+  const drop = useDrop(w);
   const ref = useRef(null); const seen = useOnScreen(ref); const [tab, setTab] = useState('web');
   const notAsked = !w?.goal && /not asked/.test(w?.bubble || w?.note || '');
   const chart = tab === 'chart' && w?.coin?.pair;
@@ -128,6 +141,7 @@ function Window({ w, catId, tick, onGo, onLogin, busy, cursor = 'arrow' }) {
         : w?.shot && seen ? <img className="cwb-shot" src={apiUrl(`/api/cats/${catId}/work/shot/${w.i}?${agentAuthQuery()}&t=${tick}`)} alt={`${w.model} window`} data-testid="cwb-shot" />
           : <ol className="cwb-steps" data-testid="cwb-steps">{w?.provider === 'reader' && w?.note ? <li className="cwb-idle" data-testid="cwb-noview"><span>no live browser · {w.note}</span></li> : null}{(w?.steps || []).length ? w.steps.map((s, i) => <li key={i} style={{ '--i': i }}><b>{s.action}</b><span>{s.thought}</span>{s.detail ? <small>{s.detail}</small> : null}</li>)
             : <li className="cwb-idle"><span>{w?.status === 'done' ? (w?.answer ? 'done — its answer is in the chat' : 'done') : 'ready — ask below'}</span></li>}</ol>}
+      {drop ? <span className="cwb-drop" key={drop.k} style={{ '--x': `${drop.x * 100}cqw`, '--y': `${drop.y * 100}cqh` }} data-testid="cwb-drop" aria-hidden="true"><i>{drop.icon}</i>{drop.label}</span> : null}
       {w?.hand && w?.live ? <button type="button" className="m-btn cwb-big" onClick={() => setBig(true)} data-tip="It needs you: open its window big to click / sign in yourself" data-testid="cwb-big">⤢ Big</button> : null}
       {big && w?.hand && w?.live ? <AgentDesktop cat={{ id: catId }} live={{ live: w.live, site: w?.human?.site, title: `MIND ${'AB'[i] || i + 1} needs you${w?.human?.why ? ` — ${w.human.why}` : ''}` }} onClose={() => setBig(false)} /> : null}
       {w?.bubble && w?.status !== 'idle' && !human ? <p className={`agd-done is-on cwb-say at-${i % 2 ? 'right' : 'left'}`} key={w.bubble} data-testid="cwb-bubble">MIND {'AB'[i] || i + 1} · {w.bubble}</p> : null}

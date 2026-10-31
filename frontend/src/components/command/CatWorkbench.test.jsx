@@ -312,3 +312,15 @@ test('🪟 My agents: a tile is the agent\'s own window — its minds as bubbles
   expect(s.textContent).toContain('kalshi.com'); expect(s.textContent).toContain('CLICK · step 7');
   const orbs = s.querySelectorAll('.lct-orb'); expect(orbs).toHaveLength(2); expect(orbs[0].className).toContain('is-hot'); expect(orbs[1].className).not.toContain('is-hot');
 });
+
+test('📥 a kept note drops from where its cursor was — only a NEW keep, never the ones already there', async () => {
+  const { useDrop } = require('./CatWorkbench'); let seen = [];
+  const P = ({ w }) => { const d = useDrop(w); seen.push(d); return null; };
+  const el = document.createElement('div'); document.body.appendChild(el); const root = createRoot(el);
+  const w0 = { cursor: { x: 0.3, y: 0.4 }, steps: [{ action: 'note', thought: 'old', at: 1 }] };
+  await act(async () => { root.render(<P w={w0} />); }); expect(seen.at(-1)).toBeNull();   // what was kept before you looked never drops
+  await act(async () => { root.render(<P w={{ ...w0, steps: [...w0.steps, { action: 'open', at: 2 }] }} />); }); expect(seen.at(-1)).toBeNull();   // opening a page keeps nothing
+  await act(async () => { root.render(<P w={{ ...w0, steps: [...w0.steps, { action: 'feeless', detail: 'coin HUSS', at: 3 }] }} />); });
+  expect(seen.at(-1)).toMatchObject({ icon: '📈', label: 'coin HUSS', x: 0.3, y: 0.4 });
+  act(() => root.unmount());
+});

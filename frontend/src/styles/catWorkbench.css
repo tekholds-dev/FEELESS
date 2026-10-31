@@ -45,6 +45,16 @@
 @keyframes cwbIn { from { opacity: 0; transform: translateY(5px); } }
 @keyframes cwbPop { from { opacity: 0; transform: translateY(-4px) scale(.96); } }
 @keyframes cwbPulse { 50% { opacity: .35; } }
+/* 📥 kept data drops from where it was on screen down into its files: lifts off at the cursor, falls with a spin of light, lands at the bottom edge */
+.cwb-drop { position: absolute; left: 0; top: 0; z-index: 4; display: inline-flex; align-items: center; gap: 6px; max-width: 70%; padding: 5px 10px; border-radius: 999px; pointer-events: none;
+  background: linear-gradient(135deg, #2a1650f2, #120a22f2); border: 1px solid #c9a8ff99; color: #fff; font: 700 11px var(--f-ui); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  box-shadow: 0 0 0 1px #c9a8ff33, 0 10px 26px -10px #b388ff; animation: cwbDrop 1.9s cubic-bezier(.45, 0, .2, 1) both; }
+.cwb-drop i { font-style: normal; }
+@keyframes cwbDrop { 0% { opacity: 0; transform: translate(var(--x), var(--y)) scale(.4); } 14% { opacity: 1; transform: translate(var(--x), calc(var(--y) - 14px)) scale(1.08); }
+  80% { opacity: 1; transform: translate(calc(var(--x) * .5), calc(100cqh - 46px)) scale(.92); } 100% { opacity: 0; transform: translate(calc(var(--x) * .5), calc(100cqh - 30px)) scale(.6); } }
+body.fx-lite .cwb-drop { animation-duration: .01s; }
+@media (prefers-reduced-motion: reduce) { .cwb-drop { animation: none; opacity: 0; } }
+body.theme-day .cwb-drop { background: #fff; color: #2a1650; border-color: #7c4dff66; }
 /* 🌐 / 📈 what the window shows · the mind not asked · 🖱 the AI's own cursor (glides to each click, a ripple where it acts) */
 .cwb-tabs { margin: 0 0 6px; } .cwb-tabs button { min-height: 32px; font-size: 10px; }
 .cwb-off { position: absolute; inset: 0; display: grid; place-content: center; gap: 6px; text-align: center; padding: 16px; }
