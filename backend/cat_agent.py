@@ -25,8 +25,9 @@ PLAN_SYS = ('You lead two AI models working for a FEELESS user. If you can answe
             'Otherwise split it into two halves the two models research in their own browsers at the same time. Answer ONLY JSON: '
             '{"fast": "<answer or empty>", "a": "<your half>", "b": "<the other model\'s half>"}')
 ACT_SYS = ('You are {name}, an AI model working in your OWN web browser for a FEELESS user, who watches you. Your half of the task: {goal}\n'
-           'Each turn pick ONE action. Answer ONLY JSON: {{"thought": "<= 12 words: what you are doing and why", "action": "feeless|open|search|click|type|upload|new_login|ask_login|media|human|draft|build|note|answer", '
+           'Each turn pick ONE action. Answer ONLY JSON: {{"thought": "<= 12 words: what you are doing and why", "action": "feeless|open|search|scroll|click|type|upload|new_login|ask_login|media|human|draft|build|note|answer", '
            '"tool": "<feeless tool>", "url": "", "q": "", "text": "<visible text of the link / button to click>", "label": "<field label or placeholder>", "value": "", "say": "<your answer, when action is answer>"}}\n'
+           'YOU SEE THE SCREEN: the page below is what is ON SCREEN right now, top to bottom. To see more, "scroll" (q: "down" or "up"); to look closer, "click" an item by its visible text. Browse like a person — scroll, open what interests you, compare.\n'
            'FEELESS FIRST: for anything about coins, trading, perps, pools or prices use action "feeless" (tool: coin|trench|perps|pools|gaps, q: the coin / ticker) '
            'BEFORE any outside website — FEELESS is where this user trades. Never launch a coin or pool or create an agent ON FEELESS (on any other site, do as the user asks); never create a FeeCat.\n'
            'ACCOUNTS — DO IT YOURSELF FIRST: when a task needs an account, make it: first its own email at a free provider (Proton Mail, Tuta, GMX) '
@@ -121,6 +122,7 @@ def full_url(u):
     return u if not u or '://' in u else 'https://' + u.lstrip('/')
 
 
+STEP_PACE = 2.5   # s: the least time between two moves in a live window
 DONE_WORDS = frozenset({'report', 'final', 'final_answer', 'done', 'finish', 'respond', 'reply', 'result'})
 
 
@@ -188,12 +190,27 @@ async def _window(task, w, ask, page, wait_human, name, feeless=None):
             seen = w['_page'] = await page.goto(site)
             w['url'], w['title'] = page.url, page.title
             _step(w, f'opening {site.split("://")[-1]}', 'open', site)
+            from cat_browser import needs_human
+            why_ = needs_human(page.url, seen)
+            if why_:   # a checkpoint on the very first page → straight to the person, no steps burned on it
+                w['human'] = {'why': why_, 'url': page.url}
+                w['status'], w['bubble'] = 'human', f"✋ needs you: {why_}"
+                go_ = await wait_human(w['i'])
+                w['human'] = None
+                if not go_:
+                    raise Stopped(w.pop('parked', None) or 'stopped by you')
+                w['status'] = 'working'
+                seen = w['_page'] = await page.read()
         except Exception as e:
             seen = f'(could not open {site}: {str(e)[:120]})'
     min_s = browse_secs(w['goal']); t_start = time.time()
     if min_s:   # enough steps to fill the time it was asked to browse (~6 s a step), never past the long budget
         n_max = max(n_max, min(GO_STEPS, min_s // 6 + 3))
+    last_ = 0.0
     for _n in range(n_max):
+        if getattr(page, 'live', False) and time.time() - last_ < STEP_PACE:   # 🐢 a live window moves at a pace you can follow (owner: "not so quick")
+            await asyncio.sleep(STEP_PACE - (time.time() - last_))
+        last_ = time.time()
         mine = (task.get('clouds') or {}).get(w['i']) or []   # ☁ its own cloud from earlier tasks
         got = [h['text'] for h in task.get('handoffs') or [] if h['from'] != w['i']][-4:]   # 📦 what its partner handed over
         extra = (f"\nYOUR CLOUD (your notes from earlier tasks): {' | '.join(mine)[:600]}" if mine else '') + (f"\nFROM YOUR PARTNER: {' | '.join(got)[:900]}" if got else '')
@@ -231,7 +248,7 @@ async def _window(task, w, ask, page, wait_human, name, feeless=None):
             w['answer'] = str(a.get('say') or thought or str(raw or '').strip() or 'no answer')[:4000]   # a model that just answers in plain words still answers
             _step(w, thought or 'done', 'answer')
             break
-        need = {'open': 'browse', 'search': 'browse', 'click': 'forms', 'type': 'forms', 'draft': 'storage', 'build': 'build'}.get(act)   # note = its own scratch pad, always on
+        need = {'open': 'browse', 'search': 'browse', 'scroll': 'browse', 'click': 'forms', 'type': 'forms', 'draft': 'storage', 'build': 'build'}.get(act)   # note = its own scratch pad, always on
         if need and not task.get('tools', {}).get(need, False):
             why = f'Refused: {need} tool is disabled for this job.'
             task.setdefault('refusals', []).append(why)
@@ -296,6 +313,8 @@ async def _window(task, w, ask, page, wait_human, name, feeless=None):
                     seen = w.get('_page') or await page.read()
                 elif act == 'open':
                     seen = await page.goto(str(a.get('url') or ''))
+                elif act == 'scroll':
+                    seen = await page.scroll(str(a.get('q') or 'down'))
                 elif act == 'search':
                     seen = await page.search(str(a.get('q') or w['goal']))
                 elif act == 'click':
@@ -321,7 +340,7 @@ async def _window(task, w, ask, page, wait_human, name, feeless=None):
             w['url'], w['title'] = page.url, page.title
             if getattr(page, 'cursor', None):
                 w['cursor'] = page.cursor   # 🖱 its cursor in the live view
-            if act in ('open', 'search', 'click') and seen and not str(seen).startswith('('):
+            if act in ('open', 'search', 'click', 'scroll') and seen and not str(seen).startswith('('):
                 w['_page'] = str(seen)
             from cat_browser import needs_human
             why = needs_human(page.url, seen)

@@ -936,7 +936,8 @@ async def _wallet_once(cat, model_id, messages, max_tokens, ceiling):
         async with httpx.AsyncClient(timeout=70) as h:
             body = {'model': model_id, 'messages': messages, 'max_tokens': int(max_tokens or 1000)}
             r = await h.post(_ap.PROVIDER, json=body)
-            if r.status_code != 402:
+            if r.status_code != 402:   # nothing paid — say why (an image it cannot take, a model it does not list…), never silent
+                print(f"[agent pay] {cat['id']}: {model_id} answered {r.status_code} before payment: {r.text[:120]}")
                 return '', 0.0
             doc, entry = _ap.pick_quote(r.headers.get('payment-required'), ceiling)
             s_ = await h.post('http://127.0.0.1:5077/api/reputation/internal/agent-x402-pay', headers=_internal_headers(), json={'catId': cat['id'], 'walletId': w_.get('circleId'), 'address': w_.get('address'), 'entry': entry, 'creator': w_.get('circleAcct') != 'agent'})

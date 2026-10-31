@@ -270,6 +270,27 @@ UA = {'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit
 SEARCH = 'https://html.duckduckgo.com/html/?q='
 
 
+# 👀 the visible part of the page as lines, top → bottom: links / buttons tagged, each text once, off-screen and hidden skipped
+VIEW_JS = r'''() => {
+  const H = innerHeight, W = innerWidth, seen = new Set(), rows = [];
+  const walk = document.createTreeWalker(document.body, NodeFilter.SHOW_ELEMENT);
+  for (let el = walk.currentNode; el; el = walk.nextNode()) {
+    const tag = el.tagName; if (/^(SCRIPT|STYLE|NOSCRIPT|SVG|PATH|HEAD)$/.test(tag)) continue;
+    const act = tag === 'A' || tag === 'BUTTON' || el.getAttribute('role') === 'button' || el.getAttribute('role') === 'link';
+    if (!act && el.closest('a,button,[role=button],[role=link]')) continue;   // text inside a link / button is already in its line
+    const own = act ? el.innerText : [...el.childNodes].filter(n => n.nodeType === 3).map(n => n.textContent).join(' ');
+    const t = String(own || '').replace(/\s+/g, ' ').trim(); if (!t || t.length < 2 || seen.has(t)) continue;
+    const r = el.getBoundingClientRect(); if (r.width < 2 || r.height < 2 || r.bottom < 0 || r.top > H || r.right < 0 || r.left > W) continue;
+    const cs = getComputedStyle(el); if (cs.visibility === 'hidden' || cs.display === 'none' || +cs.opacity === 0) continue;
+    seen.add(t); rows.push([Math.round(r.top / 12), Math.round(r.left), (act ? (tag === 'A' || el.getAttribute('role') === 'link' ? '[link] ' : '[button] ') : '') + t.slice(0, 140)]);
+    if (rows.length > 160) break;
+  }
+  rows.sort((a, b) => a[0] - b[0] || a[1] - b[1]);
+  const S = document.scrollingElement || document.documentElement; const max = Math.max(1, S.scrollHeight - H);
+  return { lines: rows.map(r => r[2]), at: Math.round(100 * S.scrollTop / max), more: S.scrollTop + H < S.scrollHeight - 40 };
+}'''
+
+
 class ReaderPage:
     """No live browser: the server fetches pages as text. It cannot type (a form needs a live window → the model is told so)."""
     live = False
@@ -317,6 +338,9 @@ class ReaderPage:
 
     async def read(self):
         return page_text(self._html)[1] if self._html else ''
+
+    async def scroll(self, way='down'):
+        return '(this window reads pages as text — the whole page is already above)'
 
     async def shot(self):
         return None
@@ -438,7 +462,18 @@ class LivePage:
         if name and name != t and not await loc.count():
             loc = self._p.get_by_text(name, exact=True).first if await self._p.get_by_text(name, exact=True).count() else self._p.get_by_text(name, exact=False).first
         await self.point(loc, 'click')
-        await loc.click(timeout=8000)
+        box = None
+        try:
+            await loc.scroll_into_view_if_needed(timeout=4000)
+            box = await loc.bounding_box(timeout=3000)
+        except Exception:
+            pass
+        if box:   # the mouse glides onto it, rests, clicks — never a teleport
+            await self.glide(box['x'] + box['width'] / 2, box['y'] + box['height'] / 2, 'click')
+            await self._p.wait_for_timeout(250)
+            await self._p.mouse.click(box['x'] + box['width'] / 2, box['y'] + box['height'] / 2)
+        else:
+            await loc.click(timeout=8000)
         await self._p.wait_for_load_state('domcontentloaded', timeout=15000)
         return await self._sync()
 
@@ -467,10 +502,36 @@ class LivePage:
         return f"(uploaded {f['name']}) " + await self._sync()
 
     async def read(self):
+        """👀 What is ON SCREEN now, top → bottom, the way a person sees it (owner 2026-10-31: "it's reading the code, not seeing the screen") —
+        each visible link / button / line once, then where the view sits on the page. To see more it scrolls."""
         try:
-            return re.sub(r'\s+', ' ', await self._p.inner_text('body', timeout=8000))[:TEXT_MAX]
+            got = await self._p.evaluate(VIEW_JS)
         except Exception:
-            return ''
+            got = None
+        if not got:
+            try:
+                return re.sub(r'\s+', ' ', await self._p.inner_text('body', timeout=8000))[:TEXT_MAX]
+            except Exception:
+                return ''
+        return (f"ON SCREEN (view {got['at']}% down the page{', more below — scroll down to see it' if got['more'] else ' — a panel inside may still scroll'}):\n" + '\n'.join(got['lines']))[:TEXT_MAX]
+
+    async def glide(self, x, y, act='move'):
+        """🖱 the real mouse glides there (the live view shows it move), and FEELESS's cursor follows."""
+        win = await self._p.evaluate('() => [innerWidth, innerHeight, outerWidth, outerHeight]')
+        await self._p.mouse.move(x, y, steps=24)
+        if win[2] and win[3]:
+            self.cursor = {'x': round(min(1, x / win[2]), 4), 'y': round(min(1, (max(0, win[3] - win[1]) + y) / win[3]), 4), 'act': act, 'at': time.time()}
+
+    async def scroll(self, way='down'):
+        """🖱 a person's scroll: the mouse moves onto the page, then the wheel turns in small notches."""
+        w_, h_ = await self._p.evaluate('() => [innerWidth, innerHeight]')
+        await self.glide(w_ * 0.5, h_ * 0.55, 'scroll')
+        step = (-1 if str(way).lower().startswith('up') else 1) * h_ * 0.8 / 6
+        for _ in range(6):
+            await self._p.mouse.wheel(0, step)
+            await self._p.wait_for_timeout(90)
+        await self._p.wait_for_timeout(400)
+        return await self._sync()
 
     async def shot(self):
         """A small JPEG of the window (the snapshot view when no live URL can be shown)."""

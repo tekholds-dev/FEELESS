@@ -283,3 +283,19 @@ def test_browse_for_n_minutes_keeps_it_browsing_and_a_failed_click_on_a_bot_chec
     assert t['status'] == 'stopped'   # you did not pass it (the stub says no) → it stops there, never retries blind
     acts = [s_['action'] for s_ in t['windows'][0]['steps']]
     assert acts[:3] == ['open', 'browse', 'click'] and 'bot check' in asked[0]   # too early to answer → it browsed on; the walled click went to the person
+
+
+def test_scroll_is_a_research_move_and_a_checkpoint_on_the_first_page_goes_straight_to_the_person():
+    """👀 owner 2026-10-31: "it's not visually browsing" — it reads what is on screen and scrolls; a first-page checkpoint burns no steps."""
+    class Scrolly(Page):
+        async def scroll(self, way): self.done.append(('scroll', way)); return 'ON SCREEN (view 40% down the page): [link] HUSS'
+    pa = Scrolly(); t = ca.new_task('t14', 'A: look around reddit.com', ['m/a', 'm/b'], 1.0); t.update(research=True, tools={'browse': True, 'forms': True})
+    asyncio.run(ca.run(t, scripted({'m/a': [{'thought': 'more', 'action': 'scroll', 'q': 'down'}, {'thought': 'done', 'action': 'answer', 'say': 'HUSS'}]}), [pa, Page()], None))
+    assert ('scroll', 'down') in pa.done and t['windows'][0]['answer'] == 'HUSS'
+    class Walled(Page):
+        async def goto(self, u): self.url = u; return 'Vercel Security Checkpoint — security checkpoint'
+    asked = []
+    async def human(i): asked.append(i); return False
+    t = ca.new_task('t15', 'A: browse coindesk.com', ['m/a', 'm/b'], 1.0); t.update(research=True, tools={'browse': True, 'forms': True})
+    asyncio.run(ca.run(t, scripted({'m/a': []}), [Walled(), Page()], human))
+    assert asked == [0] and [s_['action'] for s_ in t['windows'][0]['steps']] == ['open'] and t['cost'] == 0   # no model call spent on a wall
