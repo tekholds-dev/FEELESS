@@ -875,7 +875,7 @@ async def _agent_usdc(http, addr):
 
 _cf_usdc = 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v'
 _THINK_AT: dict = {}
-THINK_MIN_USDC, THINK_SWAP_SOL, THINK_KEEP_SOL = 0.30, 0.012, 0.006   # under $0.30 of USDC it swaps about $1 of its own SOL, always keeping gas
+THINK_MIN_USDC, THINK_SWAP_SOL, THINK_KEEP_SOL = 0.30, 0.004, 0.006   # under $0.30 of USDC it swaps ~$0.35 of its own SOL — never the SOL it trades with
 
 
 async def _thinking_money(cat):
@@ -883,7 +883,8 @@ async def _thinking_money(cat):
     w_ = cat.get('agentWallet') or {}; addr = w_.get('address'); now = time.time()
     async with httpx.AsyncClient(timeout=25) as http:
         usdc, sol = await _agent_usdc(http, addr)
-        amount = min(THINK_SWAP_SOL, sol - THINK_KEEP_SOL)
+        keep_ = think_keep_sol(cat)   # 💵 its trading SOL is never turned into thinking money (owner 2026-11-01: "all the money go?")
+        amount = min(THINK_SWAP_SOL, sol - keep_)
         if usdc >= THINK_MIN_USDC or amount < 0.002 or now - _THINK_AT.get(cat['id'], 0) < 180:
             return usdc
         _THINK_AT[cat['id']] = now
@@ -902,6 +903,12 @@ async def _thinking_money(cat):
             if now_usdc > usdc:
                 return now_usdc
     return usdc
+
+
+def think_keep_sol(cat):
+    """The SOL its thinking top-up must leave alone: one full trade + the trade gas reserve + this swap's own fee room."""
+    trade_ = max(_num(cat.get('budgetSol')), _num((cat.get('risk') or {}).get('maxPositionSol')))
+    return round(max(THINK_KEEP_SOL, trade_ + _at.GAS_SOL + 0.002), 6)
 
 
 def _pays_itself(cat):

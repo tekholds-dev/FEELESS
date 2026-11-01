@@ -410,3 +410,10 @@ def test_a_wallet_that_cannot_afford_the_buy_closes_the_folder_at_once_and_says_
     cat['powRun'] = {'folder': f}
     asyncio.run(fs._pow2_tick(None, {'cats': {'w1': cat}}, cat, 130))
     assert cat['proposals'][0]['status'] == 'expired' and 'wallet is short' in cat['powFolders'][-1]['why'] and 'Add SOL' in cat['chat'][-1]['text']
+
+
+def test_the_thinking_top_up_never_spends_the_sol_it_trades_with():
+    """Live 2026-11-01: USDC ran low and the wallet swapped 0.0135 SOL into USDC for its model calls — its next PoW buy had no SOL."""
+    import feecat_service as fs
+    assert fs.think_keep_sol({'budgetSol': 0.01}) == 0.022                     # one trade (0.01) + gas (0.01) + room
+    assert fs.think_keep_sol({}) == 0.012 and fs.THINK_SWAP_SOL <= 0.004                 # no budget set: still the trade gas + room
