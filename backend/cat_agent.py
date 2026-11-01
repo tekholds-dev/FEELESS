@@ -347,6 +347,8 @@ async def _window(task, w, ask, page, wait_human, name, feeless=None):
             continue
         if act == 'pull':   # ⛏ one vital fact read on this page — the PoW rules decide if it is kept
             ok_, why_p = _pow.pull(pw, w.get('url') or page.url, a.get('label'), a.get('value')) if pw else (False, 'pull is for a Proof-of-Work run — use note')
+            if ok_:
+                await _pow_snap(pw, page)   # 📸 the page the vital came from
             if ok_:   # 📥 filed to the owner's cabinet the moment it is read
                 task.setdefault('filed', []).append({'site': _pow.host_of(w.get('url') or page.url), 'text': f"{_pow.vital(a.get('label'))} {a.get('value')}"[:120]})
             _step(w, thought or why_p, 'pull' if ok_ else 'refused', why_p)
@@ -483,6 +485,8 @@ async def _window(task, w, ask, page, wait_human, name, feeless=None):
                 if isinstance(e, ValueError):
                     task.setdefault('refusals', []).append(str(e)[:160])
             w['url'], w['title'] = page.url, page.title
+            if pw and act in ('open', 'click'):
+                await _pow_snap(pw, page)
             if getattr(page, 'cursor', None):
                 w['cursor'] = page.cursor   # 🖱 its cursor in the live view
             if act in ('open', 'search', 'click', 'scroll') and seen and not str(seen).startswith('('):
@@ -531,6 +535,24 @@ async def _divert(task, w, page):
     return f'DIVERTED — you repeated yourself, so the engine opened a NEW page ({_pow.host_of(u)}). Read it and act on it.\n' + str(got)[:READ_MAX]
 
 
+SNAPS_PER_SITE = 2
+
+
+async def _pow_snap(pw, page):
+    """📸 Two snapshots per researched site (owner 2026-11-01): on arrival, then when it saves a vital there. Kept in memory until the round ends."""
+    if not pw or not getattr(page, 'live', False):
+        return
+    h = _pow.host_of(page.url)
+    if not h or h.endswith('duckduckgo.com') or sum(1 for x in pw.get('_shots') or [] if x['site'] == h) >= SNAPS_PER_SITE:
+        return
+    try:
+        jpg = await asyncio.wait_for(page.shot(), 6)
+    except Exception:   # noqa: BLE001 — a missed snapshot never stops the research
+        jpg = None
+    if jpg:
+        pw.setdefault('_shots', []).append({'site': h, 'n': 1 + sum(1 for x in pw.get('_shots') or [] if x['site'] == h), 'jpg': jpg, 'at': round(time.time())})
+
+
 async def _pow_advance(w, pw, page):
     """⛏ Open the coin's next research page (a walled one is skipped — a PoW never waits for a person). → what the window now reads."""
     from cat_browser import needs_human
@@ -551,6 +573,7 @@ async def _pow_advance(w, pw, page):
             continue
         w['_page'] = str(got)
         _step(w, f'next site: {_pow.host_of(nxt)}', 'open', nxt)
+        await _pow_snap(pw, page)
         return f'NOW ON {_pow.host_of(nxt)} — pull up to {_pow.SITE_PULLS} vitals here, then it moves on.\n' + str(got)
 
 

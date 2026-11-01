@@ -316,3 +316,20 @@ def test_a_new_research_round_never_reopens_the_sites_an_earlier_round_read():
     p2 = {**p, 'used': first}
     assert not set(first) & {pw.host_of(u) for u in pw.links(p2)} and 'jup.ag' in {pw.host_of(u) for u in pw.links(p2)}   # round 2 = new sources
     assert len(pw.links({**p, 'used': [pw.host_of(u) for u in pw.links(p)]})) == 7            # all used → it cycles, never empty
+
+
+def test_each_researched_site_files_two_snapshots_for_the_coins_folder():
+    coin = pw.new({'mint': 'Mint1', 'pair': 'Pair1', 'sym': 'CAT'}, 1000)
+
+    class LivePage(Page):
+        live = True
+        async def shot(self):
+            return b'JPG:' + str(self.url).encode()
+    moves = [{'thought': 'open', 'action': 'open', 'url': 'https://rugcheck.xyz/tokens/Mint1'}, {'thought': 'p', 'action': 'pull', 'label': 'mint authority', 'value': 'revoked'},
+             {'thought': 'p', 'action': 'pull', 'label': 'top holders', 'value': '18%'}, {'thought': 'p', 'action': 'pull', 'label': 'liquidity', 'value': '$9K'},
+             {'thought': 'done', 'action': 'answer', 'say': 'WATCH — thin'}]
+    t = ca.new_task('ts', pw.goal(coin), ['m/a'], 1.0, pw.STEPS_MAX, 'jobs'); t.update(pow=coin, research=True, tools={'browse': True, 'forms': True})
+    asyncio.run(ca.run(t, scripted({'m/a': moves}), [LivePage()], None))
+    shots = coin['_shots']
+    assert [(s['site'], s['n']) for s in shots][:2] == [('rugcheck.xyz', 1), ('rugcheck.xyz', 2)] and shots[0]['jpg'].startswith(b'JPG:')
+    assert all(sum(1 for x in shots if x['site'] == h) <= 2 for h in {x['site'] for x in shots})   # 2 a site, never more

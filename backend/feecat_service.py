@@ -1308,6 +1308,9 @@ async def _pow2_dex(http):
              'mc': _num(p.get('marketCap') or p.get('fdv')), 'ch': (p.get('priceChange') or {}).get('h1')} for m, p in best.items()]
 
 
+POWSHOTS_DIR = DATA_DIR / 'powshots'
+
+
 def _pow2_approve(cat, pid):
     """⛏ A PoW folder's own order is pre-approved: the agent's wallet sends it in the engine's agent pass (agent_trade.wants: approved), through every server guard."""
     p_ = next((x for x in cat.get('proposals') or [] if x.get('id') == pid), None)
@@ -1477,6 +1480,13 @@ async def _pow2_tick(http, store, cat, now):
         if mine_ and not running and f.get('rf') != f.get('rounds'):   # its vitals reach the folder (and the watcher) as soon as the round ends
             f['rf'] = f.get('rounds'); pub_ = _pow.public(t_['pow']); f['research'] = ((f.get('research') or []) + pub_['pulls'])[-12:]
             f['used'] = sorted(set(f.get('used') or []) | set((t_['pow'].get('sites') or {}).keys()) | set(t_['pow'].get('walled') or []))   # next round: new sites
+            for sh_ in t_['pow'].pop('_shots', None) or []:   # 📸 its snapshots → the folder's coin folder, on disk
+                name_ = f"r{f.get('rounds') or 0}_{re.sub(r'[^a-z0-9.]', '', sh_['site'])}_{sh_['n']}.jpg"
+                try:
+                    d_ = POWSHOTS_DIR / re.sub(r'[^a-z0-9]', '', f['id']); d_.mkdir(parents=True, exist_ok=True); (d_ / name_).write_bytes(sh_['jpg'])
+                    f['shots'] = ((f.get('shots') or []) + [{'mint': f['mint'], 'site': sh_['site'], 'n': sh_['n'], 'at': sh_['at'], 'file': name_, 'round': f.get('rounds') or 0}])[-40:]
+                except OSError as e:
+                    print(f'[pow2] snapshot not kept: {e}')
             _pow2_say(f, names[researcher] if researcher < len(names) else 'mind', f"research: {' · '.join(x['label'] + ' ' + x['value'] for x in pub_['pulls'][:4]) or 'no vitals this round'}")
         f['phase'] = 'research' if running else 'watch'
         if not running and now - f['phaseAt'] >= _pow.WATCH_S:
@@ -2868,6 +2878,16 @@ async def cat_hive():
 
 
 COLONY_PAGE = 10   # agents per page on the Colony (owner 2026-10-31: "about 8-10 agents showing on a page, more on scroll")
+
+
+@app.get('/api/cats/{cat_id}/powshot/{folder}/{name}')
+async def pow_snapshot(cat_id: str, folder: str, name: str):
+    """📸 One research snapshot of a PoW folder (public research pages; nothing while the agent is incognito)."""
+    cat = _load()['cats'].get(cat_id)
+    f_ = POWSHOTS_DIR / re.sub(r'[^a-z0-9]', '', folder) / re.sub(r'[^a-z0-9._]', '', name)
+    if not cat or cat.get('incognito') or not name.endswith('.jpg') or not f_.exists():
+        raise HTTPException(404, 'No snapshot.')
+    return Response(content=f_.read_bytes(), media_type='image/jpeg', headers={'Cache-Control': 'max-age=3600'})
 
 
 @app.get('/api/cats/pow')

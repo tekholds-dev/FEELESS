@@ -535,12 +535,29 @@ function DeskWin({ k, title, s, top, set, onTop, onClose, tools, children }) {
 // ⛏ one PoW FOLDER (backend pow.py v2): 4 coins (2 intake · 1 Pump · 1 DexScreener) → both minds agree on 1 → bought on FEELESS → watch / research / decide
 const PHASES = [['choose', 'AGREE'], ['buy', 'BUY'], ['watch', 'CHART'], ['research', 'RESEARCH'], ['decide', 'DECIDE'], ['done', 'FILED']];
 const SRC = { intake: 'FEELESS', pump: 'PUMP', dex: 'DEX' };
-function FolderView({ f, live }) {
+function CoinFolder({ f, c, catId, onShot }) {   // 📁 one coin's folder inside a PoW folder: its vitals + the snapshots of every site researched
+  const shots = (f.shots || []).filter(x => x.mint === c.mint); const vit = f.pick?.mint === c.mint ? (f.research || []) : [];
+  return <div className="dsk-coin" data-testid={`dsk-coin-${c.mint}`}>
+    <span className="dsk-coin-h"><b>📁 ${c.sym}</b><em>{SRC[c.src] || c.src}</em>{f.pick?.mint === c.mint ? <i>the pick</i> : null}</span>
+    {vit.length ? <ul className="dsk-coin-vit">{vit.map((x, k) => <li key={`${x.site}${x.label}${k}`}><em>{x.label}</em><b className="m-num">{x.value}</b><small>{x.site}</small></li>)}</ul>
+      : <p className="dsk-coin-read">{String(c.read || 'its FEELESS read').slice(0, 260)}</p>}
+    {shots.length ? <div className="dsk-coin-shots">{shots.map(x => <button key={x.file} type="button" onClick={() => onShot(x)} data-tip={`${x.site} · snapshot ${x.n} · round ${(x.round || 0) + 1}`}>
+      <img src={apiUrl(`/api/cats/${catId}/powshot/${String(f.id).replace(/[^a-z0-9]/gi, '').toLowerCase()}/${x.file}`)} alt={`${x.site} snapshot ${x.n}`} loading="lazy" /><small>{x.site} · {x.n}</small></button>)}</div>
+      : <small className="dsk-coin-none">{f.pick?.mint === c.mint ? 'snapshots land here as each site is researched' : 'not researched — its FEELESS read is kept'}</small>}
+  </div>;
+}
+function FolderView({ f, live, catId }) {
+  const [open, setOpen] = useState(null); const [big, setBig] = useState(null);
   const at = Math.max(0, PHASES.findIndex(([k]) => k === (f.phase === 'sell' ? 'decide' : f.phase)));
   return <div className={`dsk-fold${live ? ' is-live' : ''}`} data-testid={live ? 'dsk-fold-live' : 'dsk-fold'}>
     <span className="dsk-fold-h"><b>📁 {f.name}</b>{f.pnlPct != null ? <em className={`m-num ${f.pnlPct >= 0 ? 'is-up' : 'is-dn'}`}>{f.pnlPct >= 0 ? '+' : ''}{f.pnlPct}%</em> : <em>{live ? 'live' : f.status}</em>}{f.shared ? <small>🤝 {f.shared}% to the colony</small> : null}</span>
     <ol className="dsk-fold-steps" aria-label="Where this folder is">{PHASES.map(([k, l], i) => <li key={k} className={i < at || f.status === 'closed' ? 'is-done' : i === at ? 'is-on' : ''}><i aria-hidden="true" />{l}</li>)}</ol>
-    <ul className="dsk-fold-coins">{(f.coins || []).map(c => <li key={c.mint} className={f.pick?.mint === c.mint ? 'is-pick' : ''}><em>{SRC[c.src] || c.src}</em><b>${c.sym}</b><small className="m-num">${Math.round((c.liq || 0) / 1000)}K pool</small></li>)}</ul>
+    <ul className="dsk-fold-coins">{(f.coins || []).map(c => <li key={c.mint} className={`${f.pick?.mint === c.mint ? 'is-pick' : ''}${open === c.mint ? ' is-open' : ''}`}>
+      <button type="button" onClick={() => setOpen(o => (o === c.mint ? null : c.mint))} aria-expanded={open === c.mint} data-tip="Open this coin's folder — its vitals and snapshots">
+        <em>{SRC[c.src] || c.src}</em><b>${c.sym}</b><small className="m-num">${Math.round((c.liq || 0) / 1000)}K pool · {(f.shots || []).filter(x => x.mint === c.mint).length} 📸</small></button></li>)}</ul>
+    {open ? <CoinFolder f={f} c={(f.coins || []).find(c => c.mint === open)} catId={catId} onShot={setBig} /> : null}
+    {big ? <button type="button" className="dsk-shot-big" onClick={() => setBig(null)} aria-label="Close the snapshot" data-testid="dsk-shot-big">
+      <img src={apiUrl(`/api/cats/${catId}/powshot/${String(f.id).replace(/[^a-z0-9]/gi, '').toLowerCase()}/${big.file}`)} alt={`${big.site} snapshot`} /><small>{big.site} · snapshot {big.n} — tap to close</small></button> : null}
     {(f.talk || []).length ? <ul className="dsk-fold-talk">{f.talk.slice(-5).map((t, i) => <li key={`${t.at}${i}`}><b>{t.by}</b> {t.text}</li>)}</ul> : null}
     {f.why ? <small className="dsk-fold-why">{f.why}</small> : null}
   </div>;
@@ -569,8 +586,8 @@ function PowFolder({ cat, d }) {
   const g = rows.filter(r => r.graded); const right = g.filter(r => r.honey > 0).length; const by = k => rows.filter(r => r.call === k).length;
   const avg = rows.length ? Math.round(rows.reduce((a, r) => a + (Number(r.strength) || 0), 0) / rows.length) : 0;
   return <div className="dsk-pow" data-testid="dsk-pow">
-    {d?.powFolder ? <FolderView f={d.powFolder} live /> : null}
-    {(d?.powFolders || []).map(f => <FolderView key={f.id} f={f} />)}
+    {d?.powFolder ? <FolderView f={d.powFolder} live catId={cat.id} /> : null}
+    {(d?.powFolders || []).map(f => <FolderView key={f.id} f={f} catId={cat.id} />)}
     <div className="hv-pow-stats">{[['PROOFS', rows.length], ['BUY · WATCH · AVOID', `${by('BUY')} · ${by('WATCH')} · ${by('AVOID')}`], ['RIGHT', g.length ? `${Math.round(100 * right / g.length)}%` : '—'], ['STRENGTH', avg]].map(([k, v]) =>
       <span key={k}><em>{k}</em><b className="m-num">{v}</b></span>)}</div>
     {rows.length ? <div className="hv-pow-grid">{rows.map(p => <PowCard key={p.id} p={p} />)}</div> : <PowCard p={null} />}
