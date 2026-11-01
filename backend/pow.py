@@ -475,8 +475,11 @@ COIN_TALK_SYS = ('You are {name}. Your partner just researched ${sym} on 3 sites
 
 
 def parse_decide(text):
+    """A mind's HOLD / SELL: its JSON "action" when it gave one, else its FIRST word — never a 'sell' inside a sentence
+    (live 2026-11-02: "No signal to sell; holding for TP" was read as SELL and the coin was sold)."""
     t = str(text or '').upper()
-    act = 'SELL' if re.search(r'"ACTION"\s*:\s*"SELL"|\bSELL\b', t) else 'HOLD'
+    m0 = re.search(r'"ACTION"\s*:\s*"(HOLD|SELL)"', t)
+    act = m0.group(1) if m0 else ('SELL' if re.match(r'\W*SELL\b', t) else 'HOLD')
     m = re.search(r'"say"\s*:\s*"([^"]{0,200})', str(text or ''))
     return act, (m.group(1) if m else str(text or '').strip()[:160])
 

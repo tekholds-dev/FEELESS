@@ -561,3 +561,10 @@ def test_duplicate_facts_are_dropped_and_every_filing_is_kept_forever_and_search
             return R(asyncio.run(fs.pow_archive(q=params['q'])) if False else {'rows': hit, 'brief': pw.archive_brief(hit)})
     text, _ = asyncio.run(ct.run_tool(H(), 'pow', '$X'))
     assert 'PRIOR PoW' in text and 'risk score GOOD (rugcheck.xyz)' in text and 'bought 0.006 SOL' in text   # the agents' own tool reads it
+
+
+def test_a_sell_is_only_the_minds_action_never_the_word_inside_a_sentence():
+    """Live 2026-11-02 PoW $GATO check 3: both minds said hold, the parser read 'no signal to sell' as SELL."""
+    assert pw.parse_decide('{"action": "HOLD", "say": "No signal to sell; holding for TP."}')[0] == 'HOLD'
+    assert pw.parse_decide('Chart flat — no signal to sell; holding for TP.')[0] == 'HOLD'
+    assert pw.parse_decide('{"action": "SELL", "say": "lower highs"}')[0] == 'SELL' and pw.parse_decide('SELL — it topped')[0] == 'SELL'
