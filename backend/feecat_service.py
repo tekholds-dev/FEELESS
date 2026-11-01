@@ -1406,17 +1406,32 @@ async def _pow2_tick(http, store, cat, now):
             _pow2_close(cat, f, f"💡 proposes ${c['sym']} — {f.get('why0') or 'both minds agreed'}", now)
         return
     if f['phase'] == 'buy':
+        if f.get('pid'):   # 💵 a REAL buy: the folder waits for its wallet to fill it — it never tracks a buy that did not happen (live 2026-11-01)
+            p_ = next((x for x in cat.get('proposals') or [] if x.get('id') == f['pid']), None) or {}
+            if p_.get('status') == 'done' or f['mint'] in (cat.get('realHeld') or {}):
+                live = (await _pair_prices(http, [f['pair']])).get(f['pair']) or {}
+                f.update(entry=_num(live.get('priceNative')), entryUsd=_num(live.get('priceUsd')), boughtAt=round(now), phase='watch', phaseAt=round(now))
+                _pow2_say(f, 'engine', f"its wallet bought {f['sol']:g} SOL of ${f['sym']} on FEELESS")
+            elif p_.get('status') in ('failed', 'expired', 'skip') or now - f['phaseAt'] > _pow.SIGN_WAIT_S:
+                if p_.get('status') == 'pending':
+                    p_.update(status='expired', why2='its PoW folder closed before it was signed')   # nothing left hanging
+                _pow2_close(cat, f, f"the buy did not fill ({p_.get('why2') or p_.get('status') or 'not signed'})", now)
+            return
         sol = round(min(_num((cat.get('risk') or {}).get('maxPositionSol')) or 0.05, _num(cat.get('budgetSol')) or 1.0), 4)
         row = await _run_order(store, cat, f"buy {sol} SOL of {f['mint']}", http)
         if row.get('state') not in ('filled', 'proposed'):
             _pow2_close(cat, f, f"buy refused — {row.get('why')}", now); return
+        if row.get('state') == 'proposed':
+            f.update(sol=sol, real=True, pid=row.get('pid'), phaseAt=round(now))
+            _pow2_say(f, 'engine', f"buy {sol:g} SOL of ${f['sym']} sent to its wallet — " + ('it signs on its own' if (cat.get('agentWallet') or {}).get('mode') == 'auto' else 'approve it on the desk (10 min)'))
+            return
         live = (await _pair_prices(http, [f['pair']])).get(f['pair']) or {}
-        f.update(sol=sol, real=row.get('state') == 'proposed', entry=_num(live.get('priceNative')), entryUsd=_num(live.get('priceUsd')), boughtAt=round(now), phase='watch', phaseAt=round(now))
-        _pow2_say(f, 'engine', f"bought {sol:g} SOL of ${f['sym']} on FEELESS ({'its wallet' if f['real'] else 'paper'})")
+        f.update(sol=sol, real=False, entry=_num(live.get('priceNative')), entryUsd=_num(live.get('priceUsd')), boughtAt=round(now), phase='watch', phaseAt=round(now))
+        _pow2_say(f, 'engine', f"bought {sol:g} SOL of ${f['sym']} on FEELESS (paper)")
         return
     live = (await _pair_prices(http, [f['pair']])).get(f['pair']) or {}
     px = _num(live.get('priceNative'))
-    held = f.get('real') or any(p.get('pairAddress') == f['pair'] for p in cat.get('positions') or [])
+    held = f['mint'] in (cat.get('realHeld') or {}) if f.get('real') else any(p.get('pairAddress') == f['pair'] for p in cat.get('positions') or [])
     if not held:   # its stops (or you) already sold it
         _pow2_close(cat, f, 'sold by its stops', now, px); return
     if px:

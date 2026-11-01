@@ -273,3 +273,27 @@ def test_propose_a_pow_agrees_on_one_coin_and_files_the_card_without_buying(monk
     asyncio.run(fs._pow2_tick(None, {'cats': {'p1': cat}}, cat, 200))
     done = cat['powFolders'][-1]
     assert 'proposes $DDD' in done['why'] and done['propose'] and 'folder' not in cat['powRun']
+
+
+def test_a_real_buy_waits_for_its_wallet_and_a_folder_never_tracks_a_buy_that_did_not_fill(monkeypatch, tmp_path):
+    """Live 2026-11-01: Happy's buy was a proposal waiting for approval; the folder tracked it as bought, 'sold' a coin it never held and left
+    the proposal pending. Now: it waits for the fill; unsigned in 10 min → the proposal is withdrawn and the folder closes."""
+    import feecat_service as fs
+    monkeypatch.setattr(fs, 'HIVE_PATH', tmp_path / 'hive.json')
+    cat = {'id': 'r1', 'name': 'Happy', 'risk': {'maxPositionSol': 0.01}, 'positions': [], 'proposals': [], 'agentWallet': {'mode': 'approve'},
+           'brainsCfg': {'kind': 'general', 'brains': ['x/a'], 'credit': 1.0}}
+    f = pw.folder_new(1, pw.gather(_intake(), [{'mint': 'D4', 'pair': 'pd', 'sym': 'DDD', 'liq': 90000}]), 100, 1)
+    c0 = f['coins'][3]; f.update(asked=True, phase='buy', phaseAt=100, pick=c0, mint='D4', pair='pd', sym='DDD'); cat['powRun'] = {'folder': f}
+
+    async def order(store, c, text, http):
+        c['proposals'].append({'id': 'pp1', 'side': 'buy', 'mint': 'D4', 'status': 'pending'}); return {'state': 'proposed', 'pid': 'pp1', 'why': 'waiting'}
+    monkeypatch.setattr(fs, '_run_order', order)
+    monkeypatch.setattr(fs, '_pair_prices', lambda http, pairs: _aw({p: {'priceNative': '2', 'priceUsd': '400'} for p in pairs}))
+    tick = lambda t: asyncio.run(fs._pow2_tick(None, {'cats': {'r1': cat}}, cat, t))   # noqa: E731
+    tick(110); assert f['phase'] == 'buy' and f['pid'] == 'pp1' and 'approve it on the desk' in f['talk'][-1]['text']
+    tick(200); assert f['phase'] == 'buy'                                                   # still unsigned: it waits, tracks nothing
+    cat['proposals'][0]['status'] = 'done'; cat['realHeld'] = {'D4': {}}
+    tick(260); assert f['phase'] == 'watch' and f['entry'] == 2.0                          # filled → now it watches
+    cat2 = dict(cat, powRun={'folder': {**f, 'phase': 'buy', 'pid': 'pp2', 'phaseAt': 100}}, proposals=[{'id': 'pp2', 'status': 'pending'}], realHeld={})
+    asyncio.run(fs._pow2_tick(None, {'cats': {'r1': cat2}}, cat2, 100 + pw.SIGN_WAIT_S + 1))
+    assert cat2['proposals'][0]['status'] == 'expired' and 'did not fill' in cat2['powFolders'][-1]['why']   # withdrawn, folder closed

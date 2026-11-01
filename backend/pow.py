@@ -211,6 +211,7 @@ ROUNDS_MAX = 6
 HOLD_MAX_S = 3600
 STOP_PCT, TAKE_PCT = -25.0, 60.0
 REST_S = 300                      # between two folders
+SIGN_WAIT_S = 600                 # a real buy waits this long for its wallet, then the folder closes and the order is withdrawn
 MIN_LIQ = 5000
 FOLDERS_KEEP = 30
 SRC_LABEL = {'intake': 'FEELESS intake', 'pump': 'Pump', 'dex': 'DexScreener'}
