@@ -2,7 +2,8 @@ import React, { Suspense, lazy, useCallback, useEffect, useLayoutEffect, useMemo
 import { createPortal } from 'react-dom';
 import { apiUrl } from '../../lib/api';
 import { AgentLog, MindVitals, PowCard, SafeGate, safeOk } from './CatCockpit';
-import { HeadCloud, asModel } from './AgentLive';
+import { HeadCloud, McapChart, asModel } from './AgentLive';
+import { useStickToBottom } from '../../lib/useStickToBottom';
 import { ApiDrawer, Bubble } from './LaunchCat';
 import '../../styles/agentDemo.css';
 import '../../styles/catWorkbench.css';
@@ -23,7 +24,6 @@ const CAPS = [0.02, 0.05, 0.25, 1];
 const PROV = { kernel: ['KERNEL', 'is-steel'], anchor: ['ANCHOR', 'is-steel'], steel: ['STEEL', 'is-steel'], browserless: ['BROWSERLESS', 'is-bl'], browserbase: ['BROWSERBASE', 'is-bb'], reader: ['READER', 'is-reader'] };
 const usd = v => (v == null ? '—' : `$${Number(v) < 1 ? Number(v).toFixed(4) : Number(v).toFixed(2)}`);
 const LIVE_STATES = ['planning', 'working', 'merging'];
-const PriceChart = lazy(() => import('../terminal/PriceChart').then(m => ({ default: m.PriceChart })));
 // 🧭 its two ways (cat_agent.MODES): plan together → one answer · each mind its own job
 const WAYS = [['plan', '🧠🤝 ONE ANSWER', 'They plan it in a sentence each, split it, research in their own windows, merge into one answer'], ['jobs', '🎯🎯 TWO JOBS', 'Give each mind its own job — both run at once, two results']];
 
@@ -197,7 +197,7 @@ function PowScreen({ f, slot }) {
     {f.plan?.length ? (() => { const at = f.phase === 'choose' && !f.scouted ? 0 : f.phase === 'scout' ? 1 : 2;   // one thin line — the candles stay clear
       return <ol className="cwb-powscr-plan" aria-label="Its 3-step plan" data-tip={f.plan.map((x, k) => `${k + 1}) ${x}`).join('  ·  ')}>{f.plan.map((x, k) => <li key={k} className={k === at ? 'is-on' : k < at ? 'is-done' : ''}><b>{k + 1}</b>{k === at ? <span>{x}</span> : null}</li>)}</ol>; })() : null}
     <div className="cwb-chart">{c.pair ? <Suspense fallback={<span className="cwb-chart-load">loading ${c.sym} on FEELESS…</span>}>
-      <PriceChart key={c.pair} pair={{ chainId: 'solana', pairAddress: c.pair, baseToken: { address: c.mint, symbol: c.sym } }} interval="1m" metric="price" showVolume={false}
+      <McapChart coin={{ pair: c.pair, mint: c.mint, symbol: c.sym }}
         fuse={held && f.entryUsd > 0 ? { entry: f.entryUsd, stop: f.entryUsd * (1 - (Number(f.sl) || 25) / 100), slPct: Number(f.sl) || 25, lines: [{ px: f.entryUsd * (1 + (Number(f.tp) || 60) / 100), title: `🎯 take profit +${Number(f.tp) || 60}%`, color: 'up' }] } : null} /></Suspense> : null}</div>   {/* entry · SL · TP like trench trading */}
     {held && f.entry ? <PowPnl f={f} /> : null}
     <ul className="cwb-powscr-talk">{(f.talk || []).slice(-1).map((t, k) => <li key={`${t.at}${k}`}><b>{t.by}</b> {t.text}</li>)}</ul>
@@ -236,7 +236,7 @@ function Window({ w, catId, tick, onGo, onLogin, busy, cursor = 'arrow', folder 
     <div className="agd-screen cwb-view">
       {notAsked ? <div className="cwb-off" data-testid="cwb-notasked"><b>MIND {'AB'[sl] || sl + 1} · not asked</b><small>This ask was for the other mind — no browser opened, nothing spent.</small></div>
       : chart && seen ? <div className="cwb-chart" data-testid="cwb-chart"><Suspense fallback={<span className="cwb-chart-load">loading ${coinSym} on FEELESS…</span>}>
-        <PriceChart key={w.coin.pair} pair={{ chainId: 'solana', pairAddress: w.coin.pair, baseToken: { address: w.coin.mint, symbol: coinSym } }} interval="1m" metric="price" showVolume={false} /></Suspense>
+        <McapChart coin={{ pair: w.coin.pair, mint: w.coin.mint, symbol: coinSym }} /></Suspense>
         <em className="cwb-chart-tag">FEELESS · ${coinSym}</em></div>
         : w?.live && seen && (working || w.hand) ? <><iframe className={`cwb-live${w.hand ? ' is-hand' : ''}`} src={w.live} tabIndex={w.hand ? 0 : -1} title={`${w.model} browser`} sandbox="allow-scripts allow-same-origin allow-forms allow-popups" allow="clipboard-read; clipboard-write" data-testid="cwb-live" />
 </>
@@ -631,14 +631,20 @@ export function CommandList({ rows, onPick }) {
     <button type="button" onClick={() => { onPick?.(c); setHit(c); }} data-tip="Put it in the chat box — then press Send" data-testid={`cmd-${i}`}><code>{c}</code><span>{why}</span>{hit === c ? <em>in the chat ✓</em> : null}</button></li>)}</ul>;
 }
 // ⌨ the command popup above the chat box (owner 2026-11-01: "at least 10 commands that pop up when / is typed") — "/" shows them all, typing filters
-export function CmdPop({ text, rows, onPick }) {
+export function CmdPop({ text, rows, onPick, anchor = null }) {   // drawn OVER the page, anchored to the chat box (the chat card clips anything outside it — owner: "I don't see a popup")
   const q = String(text || '').replace(/^\//, '').trim().toLowerCase();
   const all = rows?.length ? rows : CMDS_FALLBACK;
   const show = String(text || '').startsWith('/') || (q.length >= 2 && all.some(([c]) => c.toLowerCase().startsWith(q) && c.toLowerCase() !== q));
   const hits = show ? all.filter(([c, why]) => !q || c.toLowerCase().includes(q) || why.toLowerCase().includes(q)).slice(0, 12) : [];
+  const [box, setBox] = useState(null);
+  useLayoutEffect(() => { const el = anchor?.current; if (!el || !hits.length) { setBox(null); return undefined; }
+    const place = () => { const r = el.getBoundingClientRect(); setBox({ left: Math.max(8, r.left), width: Math.min(r.width, window.innerWidth - 16), bottom: Math.max(8, window.innerHeight - r.top + 8) }); };
+    place(); window.addEventListener('scroll', place, true); window.addEventListener('resize', place);   // it follows the box as the page moves
+    return () => { window.removeEventListener('scroll', place, true); window.removeEventListener('resize', place); }; }, [anchor, hits.length, text]);
   if (!hits.length) return null;
-  return <ul className="cwb-cmdpop" role="listbox" aria-label="Commands" data-testid="cwb-cmdpop">{hits.map(([c, why], i) => <li key={c} style={{ '--i': i }}>
+  const list = <ul className={`cwb-cmdpop${box ? ' is-floating' : ''}`} style={box || undefined} role="listbox" aria-label="Commands" data-testid="cwb-cmdpop">{hits.map(([c, why], i) => <li key={c} style={{ '--i': i }}>
     <button type="button" role="option" aria-selected={i === 0} onMouseDown={e => { e.preventDefault(); onPick(c); }} data-testid={`cmdpop-${i}`}><code>{c}</code><span>{why}</span></button></li>)}</ul>;
+  return box ? createPortal(list, document.body) : list;
 }
 // 🗂 every request as its exact log tree (owner 2026-11-01): your words → each mind's job, plan, steps, answer → the answer, with your 👍 / 👎
 function JobsFolder({ d }) {   // 🗂 the same explorer as PoW (owner 2026-11-02: "jobs etc are supposed to be styled in foldered work trees"): Jobs › a request › MIND A · MIND B · ANSWER
@@ -1095,7 +1101,7 @@ function WorkbenchLive({ cat }) {
   const lastYou = msgs.map(m => m.by).lastIndexOf('you'); const cut = lastYou > 0 ? lastYou : Math.max(0, msgs.length - 4);   // 🗂 this run up front; earlier runs fold away
   const doing = wins.find(w => w.status === 'working')?.bubble || (live ? 'working on it' : '');
   const dash = useRef(null); const chatRef = useRef(null); const inRef = useRef(null);
-  useEffect(() => { const el = chatRef.current; if (el) el.scrollTop = el.scrollHeight; }, [msgs.length, live, old]);   // 💬 the newest message in view; everything above still scrolls
+  const [unseen, toBottom] = useStickToBottom(chatRef, msgs.length + (live ? 1 : 0) + (old ? 100 : 0));   // 💬 follows the newest message; scrolled up → it waits and the ↓ arrow counts what arrived
   useEffect(() => { const el = inRef.current; if (!el) return; el.style.height = 'auto'; el.style.height = `${Math.min(el.scrollHeight, 168)}px`; }, [text]);   // ✍ the box grows as you type
   return <section ref={dash} className="cwb kd-card cwb-dash" data-testid="cat-workbench">
     <header className="cwb-head"><span><b>🧠🧠 ITS MINDS</b><small>{(d?.providers || []).filter(x => x !== 'reader').length ? `browsers in the cloud · ${d.providers.join(' → ')}` : 'reading pages as text (no hosted browser key yet)'}</small></span>
@@ -1135,6 +1141,7 @@ function WorkbenchLive({ cat }) {
       {!msgs.length && !live ? <li className="cwb-empty" data-testid="cwb-empty"><b>What should it do?</b><span>Ask in plain words. It works in its own cloud browsers and reports back here.</span>
         <span className="cwb-sugg">{SUGGEST.map(t => <button key={t} type="button" onClick={() => setText(t)}>{t}</button>)}</span></li> : null}
     </ol>
+    {unseen ? <button type="button" className="cwb-newmsg" onClick={toBottom} data-tip="Jump to the newest message" data-testid="cwb-newmsg">↓ {unseen} new</button> : null}
     {BUDGET_STOP.test((d?.chat || []).filter(m => m.by !== 'you').at(-1)?.text || '') ? <p className="m-note warn cwb-topup" role="status" data-testid="cwb-topup"><b>💸 Out of budget for that ask</b>
       <span>Its next step could pass the $ cap you set. Raise the cap, or add model credit in Wallet.</span><button type="button" className="m-btn m-go" onClick={() => setGear(true)} data-testid="cwb-topup-cap">Raise the cap</button></p> : null}
     {queue.length ? <ol className="cwb-queue" aria-label="Queued asks" data-testid="cwb-queue">{queue.map((q, i) => <li key={i} style={{ '--i': i }}><b className="m-num">{i + 1}</b><span>{q.text}</span>
@@ -1158,7 +1165,7 @@ function WorkbenchLive({ cat }) {
     </div>
     <form className="cwb-ask cwb-compose" onSubmit={send}>
       <div className="cwb-fields">
-      <CmdPop text={text} rows={d?.commands} onPick={c => { setText(c); requestAnimationFrame(() => { const el = inRef.current; if (el) { el.focus(); el.setSelectionRange(c.length, c.length); } }); }} />
+      <CmdPop text={text} rows={d?.commands} anchor={inRef} onPick={c => { setText(c); requestAnimationFrame(() => { const el = inRef.current; if (el) { el.focus(); el.setSelectionRange(c.length, c.length); } }); }} />
       <textarea ref={inRef} rows={1} className="m-input cwb-in" value={text} onChange={e => setText(e.target.value)} onKeyDown={e => { if (e.key === 'Tab' && text.startsWith('/')) { const q_ = text.slice(1).toLowerCase(); const hit_ = (d?.commands?.length ? d.commands : CMDS_FALLBACK).find(([c]) => c.toLowerCase().includes(q_)); if (hit_) { e.preventDefault(); setText(hit_[0]); } return; } if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) { e.preventDefault(); send(); } }} placeholder={live ? (go ? 'Working… type the next ask — it queues' : 'Working… press Stop to ask again') : `Message ${cat.name || 'your agent'}…`} disabled={live && !go} aria-label="Ask the cat" data-testid="cwb-input" />
       </div>
       <div className="cwb-bar">

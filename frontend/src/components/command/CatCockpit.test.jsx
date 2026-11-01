@@ -125,3 +125,18 @@ test('🗂 its decisions are toasts: a new line rides over the windows for a few
   await act(async () => { jest.advanceTimersByTime(1200); }); expect(el.querySelectorAll('.agd-toasts li').length).toBe(0);              // …and are gone
   act(() => root.unmount()); jest.useRealTimers();
 });
+
+test('💬 the trade chat follows its newest call; scrolled up, it waits and the ↓ arrow counts what arrived', async () => {
+  const { TradeChat } = require('./CatCockpit');
+  const el = document.createElement('div'); document.body.appendChild(el); const root = createRoot(el);
+  const cat = n => ({ id: 'c1', brainsCfg: { brains: ['a'], decisions: Array.from({ length: n }, (_, i) => ({ by: 'a', word: 'SKIP', sym: `C${i}`, why: 'cold', at: 1000 + i })) } });
+  await act(async () => { root.render(<TradeChat cat={cat(3)} />); });
+  const box = el.querySelector('.ck-msgs');
+  Object.defineProperty(box, 'scrollHeight', { configurable: true, get: () => 1000 }); Object.defineProperty(box, 'clientHeight', { configurable: true, get: () => 200 });
+  box.scrollTop = 100; await act(async () => { box.dispatchEvent(new Event('scroll')); });   // the owner scrolled up to read
+  await act(async () => { root.render(<TradeChat cat={cat(5)} />); });
+  expect(el.querySelector('[data-testid="ck-newmsg"]').textContent).toContain('new'); expect(box.scrollTop).toBe(100);   // it did not yank the view
+  await act(async () => { el.querySelector('[data-testid="ck-newmsg"]').click(); });
+  expect(box.scrollTop).toBe(1000); expect(el.querySelector('[data-testid="ck-newmsg"]')).toBeNull();
+  act(() => root.unmount());
+});

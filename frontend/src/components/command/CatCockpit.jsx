@@ -1,4 +1,5 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { useStickToBottom } from '../../lib/useStickToBottom';
 import { createPortal } from 'react-dom';
 import { Bubble } from './LaunchCat';
 import { asModel } from './AgentLive';
@@ -112,11 +113,13 @@ export function tradeChat(cat) {
 }
 
 export function TradeChat({ cat, onSend, busy }) {
-  const rows = useMemo(() => tradeChat(cat), [cat]); const [t, setT] = useState('');
+  const rows = useMemo(() => tradeChat(cat), [cat]); const [t, setT] = useState(''); const box = useRef(null);
+  const [unseen, toBottom] = useStickToBottom(box, rows.length);   // 💬 the newest call in view; scrolled up → the ↓ arrow counts what arrived
   return <div className="ck-chat" data-testid="ck-chat">
-    <ol className="ck-msgs" aria-live="polite">{rows.length ? rows.map((r, i) => <li key={`${r.at}-${i}`} className={`ck-msg is-${r.side}`} style={{ '--i': Math.min(i, 8) }}>
+    <ol ref={box} className="ck-msgs" aria-live="polite">{rows.length ? rows.map((r, i) => <li key={`${r.at}-${i}`} className={`ck-msg is-${r.side}`} style={{ '--i': Math.min(i, 8) }}>
       <span className="ck-msg-h"><b>{r.who}</b>{r.word ? <em className={`is-${WORD_TONE[r.word] || 'mute'}`}>{r.word}{r.sym ? ` $${r.sym}` : ''}</em> : null}<small>{r.at ? `${ago(r.at)}` : ''}</small></span>
       {r.text ? <p>{r.text}</p> : null}</li>) : <li className="ck-empty">Its first call lands here — both brains talk in bubbles, you chime in below.</li>}</ol>
+    {unseen ? <button type="button" className="cwb-newmsg" onClick={toBottom} data-tip="Jump to the newest call" data-testid="ck-newmsg">↓ {unseen} new</button> : null}
     {onSend ? <form className="ck-say" onSubmit={async e => { e.preventDefault(); if (t.trim() && await onSend?.(t.trim())) setT(''); }}>
       <input className="m-input" maxLength={280} value={t} onChange={e => setT(e.target.value)} placeholder="Chime in — advice both brains read, never an order" data-testid="ck-chime" />
       <button type="submit" className="m-btn m-go" disabled={busy || !t.trim()}>Send</button></form> : null}

@@ -1,5 +1,6 @@
-import React, { Suspense, lazy, useEffect, useRef, useState } from 'react';
+import React, { Suspense, lazy, useEffect, useMemo, useRef, useState } from 'react';
 import { useLivePrice } from '../../lib/livePriceHub';
+import { useLiveTokenMarkets } from '../../lib/liveTokens';
 import { Bubble } from './LaunchCat';
 import '../../styles/agentDemo.css';
 
@@ -8,6 +9,20 @@ import '../../styles/agentDemo.css';
 // coin charts (what it holds, then what it reads next), and its real activity riding over both windows. A window with no coin yet shows the
 // drawn ghost, labelled as a preview. Pure helpers are exported for tests.
 const PriceChart = lazy(() => import('../terminal/PriceChart').then(m => ({ default: m.PriceChart })));
+// 📊 every agent window charts MARKET CAP (owner 2026-11-02: "market cap, not market price") — the coin's live cap from the shared batched read;
+// price only while no cap is known. Entry / stop / take-profit lines scale with it (PriceChart's own ratio).
+export function McapChart({ coin, ...rest }) {
+  const [byPool, setByPool] = useState(null);   // a record with only its pool (Fee's older exits have no mint): the pool resolves the coin + its cap
+  useEffect(() => { if (coin?.mint || !coin?.pair) return undefined; let on = true;
+    const go = () => fetch(`/api/market/pairs/solana/${coin.pair}`).then(r => (r.ok ? r.json() : null)).then(j => { const p = (Array.isArray(j) ? j : j?.pairs || [])[0]; if (on && p) setByPool(p); }).catch(() => {});
+    go(); const t = setInterval(() => { if (!document.hidden) go(); }, 20000); return () => { on = false; clearInterval(t); }; }, [coin?.mint, coin?.pair]);
+  const mints = useMemo(() => [coin?.mint].filter(Boolean), [coin?.mint]); const live = useLiveTokenMarkets('solana', mints).get(coin?.mint) || byPool;
+  const mint = coin?.mint || live?.baseToken?.address;
+  const cap = Number(live?.marketCap || live?.fdv) || null; const px = Number(live?.priceUsd) || null;
+  return <Suspense fallback={<span className="agl-load">loading ${coin.symbol}'s live chart…</span>}>
+    <PriceChart key={coin.pair} pair={{ chainId: 'solana', pairAddress: coin.pair, baseToken: { address: mint, symbol: coin.symbol }, ...(px ? { priceUsd: px } : {}), ...(cap ? { marketCap: cap } : {}) }}
+      interval="1m" metric={cap && px ? 'marketCap' : 'price'} showVolume={false} {...rest} /></Suspense>;
+}
 export const asModel = id => (id ? { id, name: String(id).split('/').pop(), provider: String(id).split('/')[0] } : null);
 const ago = s => { const m = Math.max(1, Math.round((Date.now() / 1000 - s) / 60)); return m < 60 ? `${m}m` : m < 1440 ? `${(m / 60).toFixed(1)}h` : `${Math.round(m / 1440)}d`; };
 const fin = v => v != null && Number.isFinite(Number(v));
@@ -81,9 +96,7 @@ export function AgentLive({ title = 'LIVE', minds = [], coins = [], feed = [], c
       return <div key={i} className={`agd-win w${i}`} style={{ '--i': i }}>
         <span className={`agd-bar ${c ? 'is-go' : 'is-stop'}`}><i /><i /><i /><b>{c ? `$${c.symbol}` : `WINDOW ${'AB'[i]}`}</b><small>{c ? (c.open ? `holding ${pctWord(c.pct)}` : c.note || 'reading next') : 'waiting for a coin'}</small>
           <em className="agd-live">{c ? '● LIVE' : '◌ IDLE'}</em></span>
-        {c ? <div className="agl-plot"><Suspense fallback={<span className="agl-load">loading ${c.symbol}'s live chart…</span>}>
-          <PriceChart key={c.pair} pair={{ chainId: 'solana', pairAddress: c.pair, baseToken: { address: c.mint, symbol: c.symbol } }} interval="1m" metric="price" showVolume={false} userEntry={c.entry || null} callouts={callouts ? callouts(c.pair) : undefined} />
-        </Suspense></div> : <div className="agl-ghost"><span>◌ watching the trenches — its next coin opens here, live</span></div>}
+        {c ? <div className="agl-plot"><McapChart coin={c} userEntry={c.entry || null} callouts={callouts ? callouts(c.pair) : undefined} /></div> : <div className="agl-ghost"><span>◌ watching the trenches — its next coin opens here, live</span></div>}
         <WinVitals c={c} />
       </div>; })}</div>
     <FeedToasts feed={feed} />

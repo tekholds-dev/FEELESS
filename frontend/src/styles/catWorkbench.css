@@ -679,3 +679,11 @@ body.theme-day .dsk-potsend { background: #fffaf0; } body.theme-day .dsk-potsend
 
 .dsk-fold-acts { display: flex; flex-wrap: wrap; gap: 6px; justify-content: flex-end; } .dsk-fold-acts .m-btn { min-height: 32px; }
 .dsk-fold-acts .m-btn.is-on { border-color: #f5c54288; color: #ffd76a; } .dsk-fold-acts .m-btn.is-danger { border-color: #ff8fa3; color: #ff8fa3; background: #ff8fa314; }
+
+/* 💬 the chat's ↓ new arrow + the / popup drawn over the page */
+.cwb-chat, .ck-msgs { scroll-behavior: auto; } .cwb-talk, .ck-chat { position: relative; }
+.cwb-newmsg { position: absolute; left: 50%; bottom: 92px; z-index: 6; transform: translateX(-50%); min-height: 32px; padding: 0 14px; border-radius: 999px; border: 1px solid #45e48688; background: #0a1a12f2; color: #45e486;
+  font: 800 11px var(--f-mono); letter-spacing: .06em; cursor: pointer; box-shadow: 0 8px 22px -10px #000, 0 0 16px -6px #45e486; animation: cwbPop .2s ease-out both; }
+.ck-chat .cwb-newmsg { bottom: 64px; } .cwb-newmsg:hover { background: #45e486; color: #04120a; } .cwb-newmsg:active { transform: translateX(-50%) scale(.96); } .cwb-newmsg:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
+.cwb-cmdpop.is-floating { position: fixed; right: auto; top: auto; z-index: 2000; }
+body.theme-day .cwb-newmsg { background: #fff; color: #0f7a40; }
