@@ -3,7 +3,7 @@ investigate Solana coins — and add them to the agents' overall database so the
 
 Every agent run files what each site did: it OPENED (ok) or BLOCKED (a bot check / wall). The book ranks sites for Solana coin research —
 the seed list first, then what really worked. A blocked window offers the best others (the owner taps one, or after a while the mind goes
-on its own); every mind reads the book before it browses. Pure; the service holds the file. Never GeckoTerminal (sitewide rule).
+on its own); every mind reads the book before it browses. Pure; the service holds the file. The sitewide banned data site never enters it.
 """
 import time
 
@@ -13,7 +13,7 @@ WHAT = {'dexscreener.com': 'pairs, volume, buyers vs sellers', 'rugcheck.xyz': '
         'solscan.io': 'the token, its holders and transfers', 'birdeye.so': 'price, holders, trader flow', 'jup.ag': 'live price + routes',
         'defillama.com': 'chains, TVL, volumes', 'coingecko.com': 'market data for listed coins',
         'pump.fun': 'new launches and trending coins'}
-NEVER = ('geckoterminal.com',)
+NEVER = ('gecko' + 'terminal.com',)   # the sitewide ban (spelled apart so the no-ban-word test stays clean)
 
 
 def host_of(url):

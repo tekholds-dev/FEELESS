@@ -22,15 +22,15 @@ test('🧠🧠 two windows with their provider + bubble; a sign-in pauses one wi
   expect(el.textContent).toContain('$0.0130 / $0.0500');
   await act(async () => { el.querySelector('[data-testid="cwb-continue"]').click(); });
   expect(calls.at(-1)).toMatchObject({ op: 'continue', i: 1 });
-  expect(el.querySelector('[data-testid="cwb-answer"]').textContent).toContain('YES at $0.31');
+  expect(el.querySelector('[data-testid="cwb-answer"]')).toBeNull();   // a finished answer lives in the chat — no duplicate card over it (it hid the chat)
   await act(async () => { el.querySelector('[data-testid="cwb-cap-0.25"]').click(); });
   expect(calls.at(-1)).toMatchObject({ op: 'cap', cap: 0.25 });
   const inp = el.querySelector('[data-testid="cwb-input"]');
-  await act(async () => { const set = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set; set.call(inp, 'find best bids'); inp.dispatchEvent(new Event('input', { bubbles: true })); });
+  await act(async () => { const set = Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype, 'value').set; set.call(inp, 'find best bids'); inp.dispatchEvent(new Event('input', { bubbles: true })); });
   await act(async () => { el.querySelector('[data-testid="cwb-send"]').click(); });
   expect(calls.at(-1)).toMatchObject({ op: 'ask', text: 'find best bids', to: 'both' });
   await act(async () => { el.querySelector('[data-testid="cwb-to-1"]').click(); });
-  await act(async () => { const set = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set; set.call(inp, 'only you'); inp.dispatchEvent(new Event('input', { bubbles: true })); });
+  await act(async () => { const set = Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype, 'value').set; set.call(inp, 'only you'); inp.dispatchEvent(new Event('input', { bubbles: true })); });
   await act(async () => { el.querySelector('[data-testid="cwb-send"]').click(); });
   expect(calls.at(-1)).toMatchObject({ op: 'ask', text: 'only you', to: '1' });                       // one mind takes the whole task
   await act(async () => { root.unmount(); });
@@ -54,7 +54,7 @@ test('☁ the + puts an image in its storage, shows a chip + the storage meter, 
   expect(up[1]).toMatchObject({ ownerId: 'browser-1', name: 'logo.png' }); expect(up[1].dataUrl).toMatch(/^data:image\/png;base64,/);
   expect(el.querySelector('[data-testid="cwb-files"]').textContent).toContain('logo.png'); expect(el.querySelector('[data-testid="cwb-store"]').textContent).toContain('2 KB / 1.0 GB');
   const inp = el.querySelector('[data-testid="cwb-input"]');
-  await act(async () => { const set = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set; set.call(inp, 'launch my coin on pump.fun with this logo'); inp.dispatchEvent(new Event('input', { bubbles: true })); });
+  await act(async () => { const set = Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype, 'value').set; set.call(inp, 'launch my coin on pump.fun with this logo'); inp.dispatchEvent(new Event('input', { bubbles: true })); });
   await act(async () => { el.querySelector('[data-testid="cwb-send"]').click(); });
   expect(calls.at(-1)[1]).toMatchObject({ op: 'ask', text: 'launch my coin on pump.fun with this logo', files: [FILE.id] });
   expect(el.querySelector('[data-testid="cwb-files"]')).toBeNull();                       // sent: the chips clear

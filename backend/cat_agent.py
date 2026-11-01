@@ -134,6 +134,7 @@ def full_url(u):
     return u if not u or '://' in u else 'https://' + u.lstrip('/')
 
 
+REPEAT_MAX = 3   # 🔁 the third repeat of a read it already has ends its turn (a real run paid for 'already read this' 15×)
 STEP_PACE = 2.5   # s: the least time between two moves in a live window
 DONE_WORDS = frozenset({'report', 'final', 'final_answer', 'done', 'finish', 'respond', 'reply', 'result'})
 
@@ -271,7 +272,12 @@ async def _window(task, w, ask, page, wait_human, name, feeless=None):
             continue
         if act == 'feeless':   # 🧰 our own tools first — read-only, always on
             key_ = f"{str(a.get('tool') or '').lower()} {str(a.get('q') or '').lower().lstrip('$')}".strip()
-            if key_ in w.setdefault('asked', []):   # 🔁 the same read again = a stuck loop (a real run asked "coin BONK" 4×): point it forward
+            if key_ in w.setdefault('asked', []):   # 🔁 the same read again = a stuck loop (a real run asked "coin BONK" 4×, another 15×): point it forward
+                w['repeats'] = int(w.get('repeats') or 0) + 1
+                if w['repeats'] >= REPEAT_MAX:   # 💸 never pay for the same read again and again: it answers with what it has
+                    w['answer'] = w['answer'] or f"(stopped re-reading the same thing) {thought or 'here is what it found'}"
+                    _step(w, 'stopped: it kept re-reading the same thing', 'answer')
+                    break
                 _step(w, 'already read this', 'feeless', key_)
                 seen = f'(you already read "{key_}" — its result is above in your notes. Move on: open the research links it gave you, or answer.)\n' + seen[:READ_MAX // 2]
                 continue

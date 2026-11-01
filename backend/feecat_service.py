@@ -1633,7 +1633,7 @@ TASK_CAP_DEFAULT, TASK_CAP_MAX = 0.05, 2.0
 BACKUP_MODEL = 'openai/gpt-oss-120b'   # Groq's free tier: tested with the agent's JSON step format
 WORK_QUEUE_MAX = 10   # 🏇 let it go: asks waiting their turn
 SOURCES_PATH = DATA_DIR / 'agent_sources.json'
-BLOCK_PIVOT_S = 90   # 🧭 a bot check nobody answers: after this the mind goes to the best other source on its own
+BLOCK_PIVOT_S = 30   # 🧭 a bot check nobody answers: after 30 s the mind goes to the best other source on its own (owner 2026-10-31)
 
 
 def _src_book():
@@ -1643,9 +1643,16 @@ def _src_book():
         return {}
 
 
+BLOCKED_TXT = DATA_DIR / 'blocked_sites.txt'   # 🚫 every site that walled an agent, one line each (low storage: unique hosts, newest kept)
+
+
 def _src_note(host, ok):
     try:
         b = _src.record(_src_book(), host, ok); SOURCES_PATH.write_text(json.dumps(b))
+        h_ = _src.host_of(host)
+        if not ok and h_:
+            old_ = [x for x in (BLOCKED_TXT.read_text().split('\n') if BLOCKED_TXT.exists() else []) if x and not x.startswith(h_ + ' ')]
+            BLOCKED_TXT.write_text('\n'.join((old_ + [f"{h_} {time.strftime('%Y-%m-%d %H:%M', time.gmtime())}"])[-500:]) + '\n')
     except Exception as e:   # noqa: BLE001 — the book never blocks a task
         print(f'[sources] {e}')
 
@@ -2525,7 +2532,7 @@ async def cat_hive():
             'graded': sum(1 for c in cells if c.get('honey') is not None and _hv.epoch_of(c.get('at') or 0) == ep), 'filed': sum(1 for c in cells if _hv.epoch_of(c.get('at') or 0) == ep)}
 
 
-COLONY_PAGE = 9   # agents per page on the Colony (owner 2026-10-31: "about 8-10 agents showing on a page, more on scroll")
+COLONY_PAGE = 10   # agents per page on the Colony (owner 2026-10-31: "about 8-10 agents showing on a page, more on scroll")
 
 
 @app.get('/api/cats/colony')
@@ -3807,6 +3814,12 @@ async def cat_action(cat_id: str, payload: ActionPayload, request: Request):
         _log_event(store, cat, 'STARTED', f'{cat["name"]} started paper trading.')
     elif payload.action == 'stop':
         cat['status'] = 'stopped'
+        w_ = _WORK.get(cat_id)
+        if w_ and w_.get('task') and not w_.get('done'):   # ⏹ the desk's big Stop also stops its minds (it only stopped new trades — a browse kept running and paying)
+            w_['task']['stop'] = True
+            for i_, ev_ in list((w_.get('events') or {}).items()):
+                w_['go'][i_] = False; ev_.set()
+            asyncio.create_task(_hard_stop(w_))
         _log_event(store, cat, 'STOPPED', f'{cat["name"]} stopped by owner.')
     elif payload.action == 'run':
         if cat['status'] == 'running':

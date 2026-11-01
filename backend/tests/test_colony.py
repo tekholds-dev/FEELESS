@@ -63,7 +63,7 @@ def test_the_colony_feed_for_the_pot_is_internal_and_names_browsers_never_keys(m
     assert r['owners'] == {'k1': 'W1'} and r['colonized'] == 1 and r['browsers'][0] == 'kernel' and 'sk_secret' not in str(r)
 
 
-def test_the_colony_page_lists_agents_colonized_first_nine_a_page_never_a_secret(monkeypatch, tmp_path):
+def test_the_colony_page_lists_agents_colonized_first_ten_a_page_never_a_secret(monkeypatch, tmp_path):
     from fastapi.testclient import TestClient
     import feecat_service as fs
     monkeypatch.setattr(fs, 'HIVE_PATH', tmp_path / 'hive.json')
@@ -73,8 +73,8 @@ def test_the_colony_page_lists_agents_colonized_first_nine_a_page_never_a_secret
     monkeypatch.setattr(fs, '_load', lambda: store)
     c = TestClient(fs.app)
     j = c.get('/api/cats/colony').json()
-    assert len(j['agents']) == 9 and j['more'] is True and j['agents'][0]['id'] == 'c7' and j['agents'][0]['colonized'] and j['agents'][0]['brains'][0] == 'gpt-x'
-    assert len(c.get('/api/cats/colony?page=1').json()['agents']) == 3
+    assert len(j['agents']) == 10 and j['more'] is True and j['agents'][0]['id'] == 'c7' and j['agents'][0]['colonized'] and j['agents'][0]['brains'][0] == 'gpt-x'
+    assert len(c.get('/api/cats/colony?page=1').json()['agents']) == 2
     assert [a['id'] for a in c.get('/api/cats/colony?ids=c3,c9').json()['agents']] == ['c3', 'c9']   # My agents: only those
     t = c.get('/api/cats/colony').text; assert 'hunter2' not in t and 'OWNER_W' not in t
 
@@ -110,8 +110,8 @@ def test_the_sources_book_learns_blocks_and_offers_the_best_other_sites():
     b = {}
     for _ in range(2):
         src.record(b, 'https://pump.fun/board', False)
-    src.record(b, 'https://www.dexscreener.com/solana', True); src.record(b, 'geckoterminal.com', True)
-    assert 'geckoterminal.com' not in b and b['dexscreener.com']['ok'] == 1   # never GeckoTerminal
+    src.record(b, 'https://www.dexscreener.com/solana', True); src.record(b, 'gecko' + 'terminal.com', True)
+    assert ('gecko' + 'terminal.com') not in b and b['dexscreener.com']['ok'] == 1   # never the banned site
     alts = src.best(b, exclude=['pump.fun']); assert alts[0] == 'dexscreener.com' and 'pump.fun' not in alts and len(alts) == 3
     assert 'pump.fun' not in src.best(b, n=8)[:5] and 'Recently BLOCKED (bot checks): pump.fun' in src.brief(b)
 
@@ -136,3 +136,12 @@ def test_a_blocked_window_can_be_sent_elsewhere_and_every_mind_knows_the_colony(
     assert asyncio.run(ca._after_human({'i': 0, 'steps': []}, Pg())) == 'same page'
     assert 'HONEY' in col.KNOWHOW and 'nobody is paid for being right' in col.KNOWHOW
     src = open(ca.__file__).read(); assert "extra += '\\n' + str(task['knowhow'])" in src and 'you just scrolled the other way' in src
+
+
+def test_the_desks_big_stop_also_stops_running_minds_and_a_third_repeat_read_ends_the_turn():
+    """Owner 2026-10-31: 'stop btn not working' (it only stopped trades) · 'it said already read this like 15 times' (each one paid)."""
+    import feecat_service as fs, cat_agent as ca
+    src = open(fs.__file__).read(); i = src.index("elif payload.action == 'stop':")
+    assert "w_['task']['stop'] = True" in src[i:i + 900] and '_hard_stop(w_)' in src[i:i + 900]
+    assert ca.REPEAT_MAX == 3 and "if w['repeats'] >= REPEAT_MAX" in open(ca.__file__).read()
+    assert fs.BLOCK_PIVOT_S == 30

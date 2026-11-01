@@ -146,7 +146,7 @@ export function ColonyGrid({ api, face, onOpen, ids, extra }) {
     {ids ? null : <header className="cl-head"><span><small>THE COLONY</small><b>{meta ? <><em className="m-num">{meta.colonized}</em> colonized · <em className="m-num">{meta.total}</em> agents</> : 'reading the colony…'}</b></span>
       <p>Every agent's two windows, live — the drawn agent between them. Colonized agents file graded calls and their trades are graded before and after; honey splits the colony pot's growth.</p></header>}
     {err && !rows.length ? <p className="hv-nil">{err}</p> : null}
-    <div className="cl-grid">{rows.map((a, k) => <ColonyCell key={a.id} a={a} face={face} onOpen={onOpen} i={k % 9} top={top} extra={extra} />)}</div>
+    <div className="cl-grid">{rows.map((a, k) => <ColonyCell key={a.id} a={a} face={face} onOpen={onOpen} i={k % 10} top={top} extra={extra} />)}</div>
     <span ref={end} className="cl-end" aria-hidden="true">{meta?.more ? 'more agents…' : null}</span>
     {ids ? null : <HiveBoard api={api} />}
   </section>;

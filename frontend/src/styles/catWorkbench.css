@@ -21,7 +21,7 @@
 .cwb-live, .cwb-shot { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; object-fit: cover; object-position: center top; background: #07040d; }   /* the page fills the whole window — HD, no white bands */
 
 /* ✋ docked under the page as a strip (owner 2026-10-31: "I can't click — the popup is in the way" of Cloudflare's box) */
-.cwb-human { position: absolute; left: 8px; right: 8px; bottom: 8px; z-index: 3; display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 4px 10px; padding: 8px 10px; border-radius: 12px; text-align: left;
+.cwb-human { position: relative; margin: 6px 8px 8px; z-index: 3; display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 4px 10px; padding: 8px 10px; border-radius: 12px; text-align: left;
   background: rgba(20, 12, 36, .96); border: 1px solid #f5c451; box-shadow: 0 10px 30px -12px #000; animation: cwbIn .25s ease-out both; }
 .cwb-human > b, .cwb-human > small { grid-column: 1; } .cwb-human > span { grid-column: 2; grid-row: 1 / span 2; }
 .cwb-human b { font: 800 13px var(--f-ui, sans-serif); color: #f5d27a; } .cwb-human small { font: 600 10.5px/1.4 var(--f-ui, sans-serif); color: #e9e2ff; } .cwb-human > span { display: flex; gap: 6px; flex-wrap: nowrap; justify-content: flex-end; }
@@ -141,7 +141,7 @@ body.theme-day .cwb-cloud span { background: #fff; color: #2a1650; }
 .cwb-cred-acts { display: flex; gap: 6px; } .cwb-cred-acts .m-btn { min-height: 32px; min-width: 32px; } .cwb-cred-x:hover { color: #ff8fa3; border-color: #ff8fa366; }
 .cwb-signup { display: inline-flex; align-items: center; min-height: 34px; text-decoration: none; color: #1a1300; font-weight: 800; border-color: #f5c542; background: linear-gradient(135deg, #ffe08a, #f5c542); box-shadow: 0 0 14px #f5c54255; transition: transform .15s, box-shadow .15s; }
 .cwb-signup:hover { transform: translateY(-1px); box-shadow: 0 0 22px #f5c54288; } .cwb-signup:active { transform: translateY(0) scale(.98); } .cwb-signup:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
-.cwb-signin { width: min(80%, 260px); padding: 10px 12px; }   /* the window's 🔑 card stays small: one line, one button — the login itself goes in the drawer */
+.cwb-signin { padding: 10px 12px; }   /* the 🔑 bar under the window: one line, one button — the login itself goes in the drawer */
 body.theme-day .cwb-vault { background: #fffaf0; border-color: #e0b84a66; } body.theme-day .cwb-vault summary { color: #8a6200; } body.theme-day .cwb-vault li { background: #fff; } body.theme-day .cwb-vault li b { color: #2a1f45; }
 @media (prefers-reduced-motion: reduce) { .cwb-cred-open { animation: none; } .cwb-signup { transition: none; } } body.fx-lite .cwb-cred-open { animation: none; }
 @media (max-width: 640px) { .cwb-cred-add { grid-template-columns: 1fr; } .cwb-cred-add > span { justify-content: stretch; } .cwb-cred-add > span > * { flex: 1; } }
@@ -461,3 +461,10 @@ body.fx-lite .cwb-cursor.is-think::after { animation: none; opacity: .6; } @medi
 .cwb-dash .cwb-stage.agd-wins.is-solo { grid-template-columns: minmax(0, 1fr); }   /* one mind asked: its window takes the stage (the other is not asked, not missing) */
 .cwb-alts { display: flex; flex-wrap: wrap; align-items: center; gap: 5px; } .cwb-alts em { font: 800 8.5px var(--f-mono); letter-spacing: .12em; color: #c9b27a; font-style: normal; }
 .cwb-alts .m-chip { min-height: 30px; cursor: pointer; }   /* 🧭 a blocked window's best other sources (the sources book) */
+.cwb-human > span { flex-wrap: wrap; }   /* the needs-you bar sits UNDER the screen — nothing covers the check you have to click */
+/* 💬 a chat you can read: top-down + auto-scrolled to the newest (bottom-anchored overflow hid the top of long answers); the box grows as you type */
+.cwb-deck .cwb-talk > .cwb-chat, .cwb-talk .cwb-chat { align-content: start; overflow-y: auto; overscroll-behavior: contain; }
+.cwb-compose .cwb-in { display: block; width: 100%; resize: none; min-height: 40px; max-height: 168px; overflow-y: auto; line-height: 1.45; padding-top: 10px; padding-bottom: 10px; font: inherit; white-space: pre-wrap; scrollbar-width: thin; }
+.cwb-back .agl-cloud { margin: 0 auto 10px; }   /* the head cloud lives on the files side now — the chat gets its room */
+/* 📱 phones: the two windows stack, each the full width (side by side they were too small to read) */
+@media (max-width: 760px) { .cwb-dash .cwb-stage.agd-wins, .cwb-public .cwb-stage { grid-template-columns: minmax(0, 1fr); } }

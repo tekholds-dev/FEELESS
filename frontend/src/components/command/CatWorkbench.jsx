@@ -105,7 +105,7 @@ export function DeskFlip({ flip, setFlip, name, live, count, left, right, cloud,
   return <div className={`cwb-under cwb-flip${flip ? ' is-back' : ''}`} data-testid="desk-flip"><div className="cwb-flip-in">
     <div className="cwb-face ck-cockpit cwb-deck" inert={flip}>
       {left}
-      <div className="ck-center cwb-mid">{cloud}
+      <div className="ck-center cwb-mid">
         <div className="cwb-talk" data-testid="cwb-cockpit">
           <header className="cwb-talk-h"><span className={`cwb-status${live ? ' is-live' : ''}`}><i aria-hidden="true" />{live ? 'Working' : 'Ready'}</span>
             <b>Chat with {name || 'its minds'}</b>
@@ -119,7 +119,7 @@ export function DeskFlip({ flip, setFlip, name, live, count, left, right, cloud,
       <header className="cwb-talk-h"><b>Its file cabinet</b>
         <button type="button" className="cwb-flip-btn" onClick={() => setFlip(false)} aria-label="Flip back to the chat" data-tip="Back to the chat (Esc)" data-testid="cwb-flip-back">
           <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M4 5h12v8H9l-4 3v-3H4z" /></svg><span>Chat</span></button></header>
-      {back}</aside>
+      {cloud}{back}</aside>
   </div></div>;
 }
 // a general mind's vitals: what its window is doing right now
@@ -196,6 +196,7 @@ function Window({ w, catId, tick, onGo, onLogin, busy, cursor = 'arrow' }) {
       {w?.hand && w?.live ? <button type="button" className="m-btn cwb-big" onClick={() => setBig(true)} data-tip="It needs you: open its window big to click / sign in yourself" data-testid="cwb-big">⤢ Big</button> : null}
       {big && w?.hand && w?.live ? <AgentDesktop cat={{ id: catId }} live={{ live: w.live, site: w?.human?.site, title: `MIND ${'AB'[i] || i + 1} needs you${w?.human?.why ? ` — ${w.human.why}` : ''}` }} onClose={() => setBig(false)} /> : null}
       {w?.bubble && w?.status !== 'idle' && !human ? <p className={`agd-done is-on cwb-say at-${i % 2 ? 'right' : 'left'}`} key={w.bubble} data-testid="cwb-bubble">MIND {'AB'[i] || i + 1} · {w.bubble}</p> : null}
+    </div></div>
       {human && w.human.kind === 'login' ? <div className="cwb-human cwb-signin" role="alertdialog" aria-label={`Sign in to ${w.human.site}`} data-testid="cwb-login">
         <b>🔑 {w.human.site} needs a sign-in</b><small>It goes in the credentials drawer, sealed — the AI models never see it.</small>
         <span><button type="button" className="m-btn m-go" disabled={busy} onClick={() => onLogin?.(w.human.site)} data-tip="Opens the credentials drawer with this site filled in" data-testid="cwb-login-go">Click to sign in</button>
@@ -204,8 +205,8 @@ function Window({ w, catId, tick, onGo, onLogin, busy, cursor = 'arrow' }) {
         {w.human.alts?.length ? <span className="cwb-alts" data-testid="cwb-alts"><em>OR SEND IT TO</em>{w.human.alts.map(h => <button key={h} type="button" className="m-chip" disabled={busy} onClick={() => onGo('redirect', w.i, h)}
           data-tip={`Skip the check: it reads ${h} instead (it goes there on its own in 90 s)`} data-testid={`cwb-alt-${h}`}>{h}</button>)}</span> : null}
         <span><button type="button" className="m-btn m-go" disabled={busy} onClick={() => onGo('continue', w.i)} data-testid="cwb-continue">I did it — continue</button>
+          {w.live ? <button type="button" className="m-btn" onClick={() => setBig(true)} data-testid="cwb-human-big" data-tip="Open its window big on your desktop to pass the check yourself">⤢ Open big</button> : null}
           <button type="button" className="m-btn" disabled={busy} onClick={() => onGo('stop_window', w.i)} data-testid="cwb-stopwin">Stop</button></span></div> : null}
-    </div></div>
   </article>;
 }
 
@@ -685,7 +686,9 @@ function WorkbenchLive({ cat }) {
   const msgs = useMemo(() => (d?.chat || []).slice(-24).filter(m => !(m.by !== 'you' && BUDGET_STOP.test(m.text))).reduce(squash, []), [d?.chat]);
   const lastYou = msgs.map(m => m.by).lastIndexOf('you'); const cut = lastYou > 0 ? lastYou : Math.max(0, msgs.length - 4);   // 🗂 this run up front; earlier runs fold away
   const doing = wins.find(w => w.status === 'working')?.bubble || (live ? 'working on it' : '');
-  const dash = useRef(null);
+  const dash = useRef(null); const chatRef = useRef(null); const inRef = useRef(null);
+  useEffect(() => { const el = chatRef.current; if (el) el.scrollTop = el.scrollHeight; }, [msgs.length, live, old]);   // 💬 the newest message in view; everything above still scrolls
+  useEffect(() => { const el = inRef.current; if (!el) return; el.style.height = 'auto'; el.style.height = `${Math.min(el.scrollHeight, 168)}px`; }, [text]);   // ✍ the box grows as you type
   return <section ref={dash} className="cwb kd-card cwb-dash" data-testid="cat-workbench">
     <header className="cwb-head"><span><b>🧠🧠 ITS MINDS</b><small>{(d?.providers || []).filter(x => x !== 'reader').length ? `browsers in the cloud · ${d.providers.join(' → ')}` : 'reading pages as text (no hosted browser key yet)'}</small></span>
       <button type="button" className={`cwb-go${go ? ' is-on' : ''}`} aria-pressed={go} disabled={busy} onClick={() => act('go', { on: !go })} data-testid="cwb-go"
@@ -714,8 +717,8 @@ function WorkbenchLive({ cat }) {
       ...((d?.artifacts || []).length ? [['builds', '🛠', 'Builds', d.artifacts.length, <div className="cwb-builds">
       {(d?.artifacts || []).map((a, i) => <details className="cwb-artifact" key={i}><summary>{a.title} · {a.kind}</summary>{a.kind === 'build' ? <iframe title={a.title} sandbox="allow-scripts" referrerPolicy="no-referrer" srcDoc={'<meta http-equiv="Content-Security-Policy" content="default-src \'none\'; script-src \'unsafe-inline\'; style-src \'unsafe-inline\'; img-src data:; connect-src \'none\'; form-action \'none\'; base-uri \'none\'">' + a.content} /> : <pre>{a.content}</pre>}</details>)}
       </div>]] : [])]} /></>}>
-    {d?.task?.answer || status === 'stopped' || status === 'error' || status === 'parked' ? <p className={`cwb-answer s-${status}`} data-testid="cwb-answer">{d.task.fast ? '⚡ from memory · ' : ''}{d.task.answer || d.task.why}</p> : null}
-    <ol className="cwb-chat" aria-label="Chat with its models" aria-live="polite">
+    {status === 'stopped' || status === 'error' || status === 'parked' ? <p className={`cwb-answer s-${status}`} data-testid="cwb-answer">{d.task.fast ? '⚡ from memory · ' : ''}{d.task.answer || d.task.why}</p> : null}
+    <ol ref={chatRef} className="cwb-chat" aria-label="Chat with its models" aria-live="polite" data-testid="cwb-chat">
       {cut > 0 ? <li className="cwb-earlier"><button type="button" onClick={() => setOld(o => !o)} aria-expanded={old} data-testid="cwb-earlier">{old ? 'Hide earlier' : `Earlier · ${cut} message${cut === 1 ? '' : 's'}`}</button></li> : null}
       {(old ? msgs : msgs.slice(cut)).map((m, i, a) => <ChatMsg key={`${m.at || i}-${String(m.text).slice(0, 24)}`} m={m} name={cat.name} fresh={i === a.length - 1 && m.by !== 'you'} />)}
       {live ? <li className="cwb-msg is-cats is-typing" data-testid="cwb-typing"><i className="cwb-av" aria-hidden="true">🧠</i><div><header><b>{cat.name || 'Its minds'}</b><em className="cwb-tag">working</em></header>
@@ -746,7 +749,7 @@ function WorkbenchLive({ cat }) {
     </div>
     <form className="cwb-ask cwb-compose" onSubmit={send}>
       <div className="cwb-fields">
-      <input className="m-input" value={text} onChange={e => setText(e.target.value)} placeholder={live ? (go ? 'Working… type the next ask — it queues' : 'Working… press Stop to ask again') : `Message ${cat.name || 'your agent'}…`} disabled={live && !go} aria-label="Ask the cat" data-testid="cwb-input" />
+      <textarea ref={inRef} rows={1} className="m-input cwb-in" value={text} onChange={e => setText(e.target.value)} onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) { e.preventDefault(); send(); } }} placeholder={live ? (go ? 'Working… type the next ask — it queues' : 'Working… press Stop to ask again') : `Message ${cat.name || 'your agent'}…`} disabled={live && !go} aria-label="Ask the cat" data-testid="cwb-input" />
       </div>
       <div className="cwb-bar">
       <button type="button" className={`cwb-plus${upping ? ' is-busy' : ''}`} onClick={() => pick.current?.click()} disabled={upping || files.length >= 4} aria-label="Attach images for it"
