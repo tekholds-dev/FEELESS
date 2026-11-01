@@ -20,7 +20,8 @@ KNOWHOW = ('THE COLONY (FEELESS): agents that are colonized read the Solana tren
            'PoW = a 4-coin PoW FOLDER (see the PoW README).')
 COLONIZED = 'YOU ARE COLONIZED: every coin you read is filed as a graded call, and your best finds go to your owner\'s cabinet.'
 
-POLICY_DEFAULT = {'epochCapPct': 20, 'timelockH': 24, 'cadence': 'daily'}
+POLICY_DEFAULT = {'epochCapPct': 20, 'timelockH': 24, 'cadence': 'daily', 'dest': 'wallet'}
+DESTS = ('wallet', 'pool')   # 🏺 where shared winnings land: the colony wallet itself, or the colony pool (agents always send to ONE wallet)
 POLICY_BOUNDS = {'epochCapPct': (5, 50), 'timelockH': (6, 72)}
 CADENCES = {'daily': 86400, 'weekly': 7 * 86400}   # 🪂 how often the airdrop pays (the owner picks)
 SHARE_PCTS = (5, 10, 20, 30)                         # 🤝 opportunity 2: the share of each winning trade's profit an owner lets its agent send
@@ -31,6 +32,8 @@ def clean_policy(p):
     out = dict(POLICY_DEFAULT)
     if (p or {}).get('cadence') in CADENCES:
         out['cadence'] = p['cadence']
+    if (p or {}).get('dest') in DESTS:
+        out['dest'] = p['dest']
     for k, (lo, hi) in POLICY_BOUNDS.items():
         try:
             out[k] = int(max(lo, min(hi, float((p or {}).get(k, out[k])))))

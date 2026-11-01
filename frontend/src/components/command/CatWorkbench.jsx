@@ -147,14 +147,19 @@ export function AiCursor({ c, kind, think }) {   // think = its mind is working 
 
 // 📥 when a mind keeps something (a note, a FEELESS read, media, a draft, a handoff) the named data drops from where it was on screen — its cursor —
 // down into its files (owner 2026-10-31: "named data dropped down from wherever the info came from on screen, like Crawl but better")
-const KEEPS = { note: '🗒', feeless: '📈', media: '🖼', draft: '✍', build: '🛠', handoff: '📦' };
+const KEEPS = { note: '🗒', feeless: '📈', media: '🖼', draft: '✍', build: '🛠', handoff: '📦', pull: '⛏' };
+const TRAY_MS = 8000;
+// 📥 what it grabbed flies from its cursor to the BOTTOM of its monitor and sits in a tray (last 3) before it fades (owner 2026-11-01)
 export function useDrop(w) {
-  const [drop, setDrop] = useState(null); const last = useRef(null);
+  const [drop, setDrop] = useState(null); const [tray, setTray] = useState([]); const last = useRef(null);
   useEffect(() => { const s = (w?.steps || []).at(-1); if (!s || !KEEPS[s.action]) return undefined; const k = `${s.at}-${s.action}`;
     if (last.current === null) { last.current = k; return undefined; } if (last.current === k) return undefined; last.current = k;
-    setDrop({ k, icon: KEEPS[s.action], label: String(s.detail || s.thought || s.action).slice(0, 48), x: w?.cursor?.x ?? 0.5, y: w?.cursor?.y ?? 0.35 });
-    const t = setTimeout(() => setDrop(null), 1900); return () => clearTimeout(t); }, [w?.steps, w?.cursor]);
-  return drop;
+    const it = { k, icon: KEEPS[s.action], label: String(s.detail || s.thought || s.action).slice(0, 56), x: w?.cursor?.x ?? 0.5, y: w?.cursor?.y ?? 0.35 };
+    setDrop(it);
+    const t1 = setTimeout(() => { setDrop(null); setTray(x => [...x, it].slice(-3)); }, 1100);
+    const t2 = setTimeout(() => setTray(x => x.filter(y => y.k !== k)), 1100 + TRAY_MS);
+    return () => { clearTimeout(t1); clearTimeout(t2); }; }, [w?.steps, w?.cursor]);
+  return { drop, tray };
 }
 
 // ⛏ a monitor while its PoW folder runs (owner 2026-11-01: "I want to see it here, not only on the Desktop — they must be actively creating a PoW"):
@@ -191,7 +196,7 @@ function PowScreen({ f, slot }) {
 }
 
 function Window({ w, catId, tick, onGo, onLogin, busy, cursor = 'arrow', folder = null }) {
-  const drop = useDrop(w);
+  const { drop, tray } = useDrop(w);
   const ref = useRef(null); const seen = useOnScreen(ref); const [tab, setTab] = useState('web');
   // 🖥 the window FOLLOWS the agent (owner 2026-10-31: "they should switch browser ⇄ FEELESS, not us clicking"): its last move decides the view
   const lastAct = (w?.steps || []).at(-1)?.action; const lastN = (w?.steps || []).length;
@@ -233,6 +238,7 @@ function Window({ w, catId, tick, onGo, onLogin, busy, cursor = 'arrow', folder 
             <small>{w?.provider === 'reader' ? (w?.note ? `no live browser · ${w.note}` : 'no live browser right now — add a Kernel / Steel / Anchor key for real windows') : working ? 'opening its browser…' : ''}</small></div>}
       {notAsked || w?.hand ? null : <AiCursor c={w?.cursor} kind={cursor} think={working && !(w?.cursor?.at && Date.now() / 1000 - w.cursor.at < 2.5)} />}
       {drop ? <span className="cwb-drop" key={drop.k} style={{ '--x': `${drop.x * 100}cqw`, '--y': `${drop.y * 100}cqh` }} data-testid="cwb-drop" aria-hidden="true"><i>{drop.icon}</i>{drop.label}</span> : null}
+      {tray.length ? <ul className="cwb-tray" aria-label="What it just grabbed" data-testid="cwb-tray">{tray.map(t => <li key={t.k}><i aria-hidden="true">{t.icon}</i>{t.label}</li>)}</ul> : null}
       {w?.hand && w?.live ? <button type="button" className="m-btn cwb-big" onClick={() => setBig(true)} data-tip="It needs you: open its window big to click / sign in yourself" data-testid="cwb-big">⤢ Big</button> : null}
       {big && w?.hand && w?.live ? <AgentDesktop cat={{ id: catId }} live={{ live: w.live, site: w?.human?.site, title: `MIND ${'AB'[sl] || sl + 1} needs you${w?.human?.why ? ` — ${w.human.why}` : ''}` }} onClose={() => setBig(false)} /> : null}
       {w?.bubble && w?.status !== 'idle' && !human ? <p className={`agd-done is-on cwb-say at-${sl % 2 ? 'right' : 'left'}`} key={w.bubble} data-testid="cwb-bubble">MIND {'AB'[sl] || sl + 1} · {w.bubble}</p> : null}

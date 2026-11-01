@@ -10,7 +10,8 @@ def test_the_pot_only_pays_growth_under_the_epoch_cap_and_the_floor_only_rises()
     assert col.payable(1200, 1000, {'epochCapPct': 20}) == 40                     # 20 % of the growth leaves this epoch
     assert col.payable(1200, 1000, {'epochCapPct': 99}) == 100                     # the cap is clamped to 50 %
     assert col.raise_floor(1000, 1200) == 1200 and col.raise_floor(1200, 900) == 1200   # lock gains in; it never goes down
-    assert col.clean_policy({'timelockH': 1}) == {'epochCapPct': 20, 'timelockH': 6, 'cadence': 'daily'}
+    assert col.clean_policy({'timelockH': 1}) == {'epochCapPct': 20, 'timelockH': 6, 'cadence': 'daily', 'dest': 'wallet'}
+    assert col.clean_policy({'dest': 'pool'})['dest'] == 'pool' and col.clean_policy({'dest': 'elsewhere'})['dest'] == 'wallet'   # shares land in the wallet or the pool, nowhere else
     assert set(col.FIXED_GUARDS) == {'principalLock', 'allowlist', 'ownerSigns'}
 
 

@@ -45,6 +45,11 @@
   background: linear-gradient(135deg, #2a1650f2, #120a22f2); border: 1px solid #c9a8ff99; color: #fff; font: 700 11px var(--f-ui); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   box-shadow: 0 0 0 1px #c9a8ff33, 0 10px 26px -10px #b388ff; animation: cwbDrop 1.9s cubic-bezier(.45, 0, .2, 1) both; }
 .cwb-drop i { font-style: normal; }
+.cwb-tray { position: absolute; left: 8px; bottom: 8px; z-index: 4; list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; max-width: 70%; pointer-events: none; }
+.cwb-tray li { display: flex; align-items: center; gap: 6px; min-width: 0; padding: 4px 10px; border-radius: 999px; background: linear-gradient(135deg, #2a1650f2, #120a22f2); border: 1px solid #c9a8ff66; color: #fff; font: 700 10.5px var(--f-ui);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; animation: cwbTray 8s ease-out both; } .cwb-tray i { font-style: normal; }
+@keyframes cwbTray { 0% { opacity: 0; transform: translateY(-10px); } 6%, 85% { opacity: 1; transform: none; } 100% { opacity: 0; } }
+body.fx-lite .cwb-tray li { animation: none; } @media (prefers-reduced-motion: reduce) { .cwb-tray li { animation: none; } }
 @keyframes cwbDrop { 0% { opacity: 0; transform: translate(var(--x), var(--y)) scale(.4); } 14% { opacity: 1; transform: translate(var(--x), calc(var(--y) - 14px)) scale(1.08); }
   80% { opacity: 1; transform: translate(calc(var(--x) * .5), calc(100cqh - 46px)) scale(.92); } 100% { opacity: 0; transform: translate(calc(var(--x) * .5), calc(100cqh - 30px)) scale(.6); } }
 body.fx-lite .cwb-drop { animation-duration: .01s; }

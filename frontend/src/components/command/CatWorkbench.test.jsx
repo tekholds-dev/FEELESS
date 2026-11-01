@@ -307,13 +307,15 @@ test('🖱 the browser stays in view (the FEELESS chart is a tab), the mind not 
 
 test('📥 a kept note drops from where its cursor was — only a NEW keep, never the ones already there', async () => {
   const { useDrop } = require('./CatWorkbench'); let seen = [];
-  const P = ({ w }) => { const d = useDrop(w); seen.push(d); return null; };
+  const P = ({ w }) => { const d = useDrop(w); seen.push(d.drop); trays.push(d.tray); return null; }; const trays = [];
   const el = document.createElement('div'); document.body.appendChild(el); const root = createRoot(el);
   const w0 = { cursor: { x: 0.3, y: 0.4 }, steps: [{ action: 'note', thought: 'old', at: 1 }] };
   await act(async () => { root.render(<P w={w0} />); }); expect(seen.at(-1)).toBeNull();   // what was kept before you looked never drops
   await act(async () => { root.render(<P w={{ ...w0, steps: [...w0.steps, { action: 'open', at: 2 }] }} />); }); expect(seen.at(-1)).toBeNull();   // opening a page keeps nothing
   await act(async () => { root.render(<P w={{ ...w0, steps: [...w0.steps, { action: 'feeless', detail: 'coin HUSS', at: 3 }] }} />); });
   expect(seen.at(-1)).toMatchObject({ icon: '📈', label: 'coin HUSS', x: 0.3, y: 0.4 });
+  await act(async () => { await new Promise(r => setTimeout(r, 1200)); });
+  expect(seen.at(-1)).toBeNull(); expect(trays.at(-1).map(t => t.label)).toEqual(['coin HUSS']);   // then it sits in the tray at the bottom of its monitor
   act(() => root.unmount());
 });
 
