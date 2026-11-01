@@ -443,3 +443,18 @@ def test_no_coin_twice_random_sites_skip_the_last_folders_and_every_folder_repor
     r, md = pw.report(f)
     assert r['grade'] == '👎 bad trade' and r['researched'] == 1 and r['held'] == 10 and r['costUsd'] == 0.05
     assert 'FINAL REPORT' in md and '⭐ $X' in md and 'UNSAFE: mint on' in md and '**A**: buy X' in md
+
+
+def test_a_research_round_has_its_own_small_dollar_ceiling(monkeypatch):
+    """Live 2026-11-01: folder #5 spent $0.062 researching (its whole credit was each round's cap) and never bought."""
+    import feecat_service as fs
+
+    async def run_(*a, **k):
+        return None
+    monkeypatch.setattr(fs, '_work_run', run_)
+    cat = {'id': 'r1', 'brainsCfg': {'brains': ['m/a', 'm/b'], 'credit': 4.0}}
+
+    async def go():
+        fs._work_start('r1', cat, 'PROOF OF WORK on $X', '0', None, {**pw.new({'mint': 'M', 'pair': 'P', 'sym': 'X'}, 0)})
+        return fs._WORK.pop('r1')['task']['cap']
+    assert asyncio.run(go()) == pw.ROUND_USD <= 0.006

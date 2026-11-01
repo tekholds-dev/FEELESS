@@ -250,6 +250,7 @@ ROUNDS_MAX = 6
 HOLD_MAX_S = 3600
 STOP_PCT, TAKE_PCT = -25.0, 60.0
 REST_S = 300                      # between two folders
+ROUND_USD = 0.006                 # 💲 one research round's model ceiling — it ends with the vitals it pulled (live 2026-11-01: a folder spent $0.062 on research and never bought)
 CHECKS = (15, 30, 60)             # ⏱ live-trade checks after the buy: +15 s, then +30 s, then every 60 s (owner 2026-11-01)
 HOT_TICK_S = 5                    # the engine's light pass while a folder holds a coin
 SIGN_WAIT_S = 600                 # a real buy waits this long for its wallet, then the folder closes and the order is withdrawn

@@ -2187,7 +2187,7 @@ def _work_start(cat_id, cat, text, to=None, files=None, pow_=None):
     cap = min(float(cat.get('taskCap') or TASK_CAP_DEFAULT), max(0.005, float(b.get('credit') or 0) - _lc.CREDIT_RESERVE))   # its own credit only, always leaving the reserve
     left_ = day_left(cat)
     if pow_:   # ⛏ a PoW folder runs to its close: no task cap / day limit / step config in its way (owner 2026-11-01) — only its credit, never past the reserve
-        cap = max(0.005, float(b.get('credit') or 0) - _lc.CREDIT_RESERVE)
+        cap = min(_pow.ROUND_USD, max(0.005, float(b.get('credit') or 0) - _lc.CREDIT_RESERVE))   # 💲 each research round has its own small ceiling
     elif left_ is not None:
         if left_ <= 0:
             raise HTTPException(409, "It reached today's $ limit. Raise it in its limits, or it carries on tomorrow.")
