@@ -1,7 +1,7 @@
 import React, { Suspense, lazy, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { apiUrl } from '../../lib/api';
-import { AgentLog, MindVitals, SafeGate, safeOk } from './CatCockpit';
+import { AgentLog, MindVitals, PowCard, SafeGate, safeOk } from './CatCockpit';
 import { HeadCloud, asModel } from './AgentLive';
 import { ApiDrawer, Bubble } from './LaunchCat';
 import '../../styles/agentDemo.css';
@@ -397,6 +397,7 @@ export function MindRail({ w, side, d }) {
         : <div data-tip="Graded calls it got right this epoch"><dt>RIGHT</dt><dd className="m-num">{d ? `${d.right || 0} / ${d.graded || 0}` : '—'}</dd></div>}
       {side === 'left' ? <div><dt>COLONY</dt><dd className={d?.colonized ? 'is-up' : ''}>{d?.colonized ? '🐝 IN' : 'OUT'}</dd></div>
         : <div data-tip="Its newest call, and the honey it earned once graded"><dt>LAST CALL</dt><dd>{d?.lastCall ? `${d.lastCall.call} $${d.lastCall.sym}${d.lastCall.honey != null ? ` ${d.lastCall.honey > 0 ? '+' : ''}${d.lastCall.honey}` : ' ⏳'}` : '—'}</dd></div>}</dl>
+    {d?.pow?.[String(w?.i ?? (side === 'left' ? 0 : 1))] ? <PowCard p={d.pow[String(w?.i ?? (side === 'left' ? 0 : 1))]} compact /> : null}
   </aside>;
 }
 // 🗄 when it stores something a drawer slides out of its cabinet, the new file glows, then the drawer shuts (visitors watch it file things away)
@@ -702,9 +703,9 @@ function WorkbenchLive({ cat }) {
     <NowLine cat={cat} wins={wins} live={live} />
     <div className={`cwb-stage agd-wins${wins.length === 1 ? ' is-solo' : ''}`}>{wins.map(w => <Window key={w.i} w={w} catId={cat.id} tick={tick} busy={busy} cursor={aiCur} onGo={(op, i, text) => act(op, { i, ...(text ? { text } : {}) })} onLogin={site => setSignIn({ site, at: Date.now() })} />)}</div>
     <DeskFlip cat={cat} flip={flip} setFlip={setFlip} name={cat.name} live={live} count={log.length} cloud={<HeadCloud items={(d?.cloud || []).slice(-5).reverse()} />}
-      left={<MindVitals cat={cat} model={wins[0]?.model} i={0} kind="general" live={!!wins[0]?.model} hot={wins[0]?.status === 'working'} extra={<WinVitals w={wins[0]} />} />}
+      left={<MindVitals cat={cat} model={wins[0]?.model} i={0} kind="general" live={!!wins[0]?.model} hot={wins[0]?.status === 'working'} extra={<><WinVitals w={wins[0]} /><PowCard p={d?.pow?.['0']} /></>} />}
       right={<MindVitals cat={cat} model={wins[1]?.model || cat.brainsCfg?.brains?.[1]} i={1} kind="general" live={!!(wins[1]?.model || cat.brainsCfg?.brains?.[1])} hot={wins[1]?.status === 'working'}
-        extra={<WinVitals w={wins[1] || (cat.brainsCfg?.brains?.[1] ? { i: 1, status: 'not asked' } : undefined)} />} />}   // its second model is still there when only A was asked
+        extra={<><WinVitals w={wins[1] || (cat.brainsCfg?.brains?.[1] ? { i: 1, status: 'not asked' } : undefined)} />{cat.brainsCfg?.brains?.[1] || wins[1] ? <PowCard p={d?.pow?.['1']} /> : null}</>} />}   // its second model is still there when only A was asked
       back={<><LastMoney m={d?.lastMoney} />
     <AgentLog title="FILES" items={log} onDesktop={() => setDesk(true)} open={signIn ? { key: 'creds', at: signIn.at } : null} cabinet={[
       ...keyDrawers(cat, d, setD, signIn),

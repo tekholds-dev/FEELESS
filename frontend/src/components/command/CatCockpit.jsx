@@ -88,6 +88,21 @@ export function MindVitals({ cat, model, i = 0, kind = 'trading', live, extra, h
   </aside>;
 }
 
+// ⛏ one mind's latest PROOF OF WORK (backend/pow.py): the intake coin, the vitals it pulled per site, its call, and its honey once graded
+const POW_TONE = { BUY: 'up', AVOID: 'dn', WATCH: 'warn' };
+export function PowCard({ p, compact = false }) {
+  if (!p) return <div className="ck-pow is-empty" data-testid="ck-pow" data-tip="Colonized agents research one intake coin at a time: ≤4 sites, ≤5 moves and ≤3 vitals per site, graded an hour on">
+    <span className="ck-pow-h"><b>⛏ PoW</b><em>none yet</em></span><small>Colonize it — its next free moment researches an intake coin.</small></div>;
+  const tone = POW_TONE[p.call] || 'mute'; const st = Math.max(0, Math.min(100, Number(p.strength) || 0));
+  return <div className={`ck-pow is-${tone}`} data-testid="ck-pow" style={{ '--st': st / 100 }}>
+    <span className="ck-pow-h"><b>⛏ PoW</b><i className={`is-${tone}`}>{p.call || '…'}</i><strong>${p.sym}</strong><em>{p.at ? `${ago(p.at)} ago` : ''}</em></span>
+    <span className="ck-pow-st" data-tip="Strength: sites with vitals, distinct vitals, safety vitals read, a vital confirmed on two sites"><u><s /></u><b className="m-num">{st}</b></span>
+    <ul className="ck-pow-v">{(p.pulls || []).slice(0, compact ? 3 : 6).map((x, j) => <li key={`${x.site}${x.label}`} style={{ '--i': j }}><em>{x.label}</em><b className="m-num">{x.value}</b><small>{x.site}</small></li>)}</ul>
+    <span className="ck-pow-f"><em>{p.sites || 0} sites · {p.steps || 0} moves</em><b className={`m-num ${p.honey > 0 ? 'is-up' : p.honey < 0 ? 'is-dn' : ''}`} data-tip="Honey: graded an hour after the call on what the coin really did">{p.honey != null ? `🍯 ${p.honey > 0 ? '+' : ''}${p.honey}` : '⏳ grading'}</b></span>
+    {!compact && p.why ? <small className="ck-pow-why">{p.why}</small> : null}
+  </div>;
+}
+
 // pure: a trading cat's conversation — each brain's calls as its own bubble (A left · B right), your chime-ins on the right
 export function tradeChat(cat) {
   const b = cat?.brainsCfg || {}; const brains = (b.brains || []).map(x => String(x).split('/').pop().split(':')[0]);

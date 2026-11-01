@@ -7,7 +7,7 @@ import { FeeModels } from './FeeModels';
 import NumInput from '../NumInput';
 import { FeeBrain } from './FeeBrain';
 import { PromptStudio } from './PromptStudio';
-import { ColonyPot } from './HiveBoard';
+import { ColonyPot, PowEngine } from './HiveBoard';
 import '../../styles/feecatDesk.css';
 
 // 🐱 FEE IN HQ (owner, 2026-10-16: "FeeCat's engine and HQ panel aren't remade, and the cat isn't trading"): one live board from ONE request
@@ -149,7 +149,7 @@ export function FeeCatDesk({ call }) {
     {tab === 'prompts' ? <PromptStudio call={call} only={FEE_ONLY} /> : null}
     {tab === 'lane' ? <div className="fch-grid"><AgentLane d={d} busy={busy} onSave={lane => save({ agentLane: lane })} /><DuoLearn learn={d.duoLearn} /></div> : null}
 
-    {tab === 'owner' ? <div className="fch-grid" data-testid="fch-owner"><ColonyPot call={call} /><AgentSlots call={call} /></div> : null}
+    {tab === 'owner' ? <div className="fch-grid" data-testid="fch-owner"><PowEngine /><ColonyPot call={call} /><AgentSlots call={call} /></div> : null}
     {tab === 'overview' ? <div className="fch-grid">
       <article className="fch-card" data-testid="fch-funnel"><h4>🔎 WHY SHE {f.passed ? 'TRADES' : "ISN'T TRADING"}<small>{d.scan?.at ? `scan ${agoS(d.scan.at)}s ago` : 'no scan yet'}</small></h4>
         <p className="fch-flow"><span><b>{f.scanned}</b><small>coins read</small></span><i aria-hidden>→</i><span className={f.passed ? 'is-good' : 'is-bad'}><b>{f.passed}</b><small>passed her rules</small></span><i aria-hidden>→</i><span><b>{pos.length}</b><small>holding</small></span></p>

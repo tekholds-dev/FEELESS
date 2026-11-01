@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { apiUrl } from '../../lib/api';
 import { AiCursor, readCursor } from './CatWorkbench';
+import { PowCard } from './CatCockpit';
 import '../../styles/hive.css';
 
 // 🐝 THE HIVE (owner 2026-10-31: "a FEELESS twist on Crawl — they browse forever until turned off and compound"): proof of insight. Agents with the
@@ -44,6 +45,28 @@ export function HiveBoard({ api }) {
 // Opportunity 1 = the colony pool the owner opens with this wallet (assigned here); opportunity 2 = the sharers' airdrop (daily / weekly).
 const usd = v => (v == null ? '—' : `$${Number(v).toLocaleString(undefined, { maximumFractionDigits: Number(v) >= 100 ? 0 : 2 })}`);
 const GUARD = { principalLock: ['🔒 Principal lock', 'What was staked or locked in never pays out — only growth'], allowlist: ['📜 Allowlist', 'Airdrops go only to owners who signed to share'], ownerSigns: ['✍ You approve', 'Every payout batch waits for your approval'] };
+// ⛏ THE PoW ENGINE (owner 2026-10-31: "an official PoW engine in Fee's command center — Ultimate"): the hard rules every agent works under, the
+// pipeline a colonized agent runs, the live numbers (filed · graded · right · strength) and the newest proofs. Reads the public /api/cats/pow.
+const POW_STAGES = [['📥', 'INTAKE', 'one coin from the FEELESS intake'], ['🔎', 'SEARCH', 'DuckDuckGo first, DexScreener when walled'], ['🌐', 'SITES', '≤ {sites} sites · ≤ {steps} moves each'],
+  ['🧪', 'VITALS', '≤ {pulls} vitals a site, numbers only'], ['⚖', 'CALL', 'BUY · WATCH · AVOID + why'], ['🍯', 'GRADED', 'an hour on, on what it really did']];
+export function PowEngine({ limit = 12 }) {
+  const [d, setD] = useState(null); const [err, setErr] = useState('');
+  useEffect(() => { let on = true; const go = first => { if (first || !document.hidden) fetch(apiUrl(`/api/cats/pow?limit=${limit}`)).then(r => r.json()).then(x => { if (on) { setD(x); setErr(''); } }).catch(e => on && setErr(e.message)); };
+    go(true); const t = setInterval(go, 30000); return () => { on = false; clearInterval(t); }; }, [limit]);
+  const rows = d?.rows || []; const r = d?.rules || {}; const graded = rows.filter(x => x.graded); const right = graded.filter(x => x.honey > 0).length;
+  const avg = rows.length ? Math.round(rows.reduce((a, x) => a + (Number(x.strength) || 0), 0) / rows.length) : 0;
+  const fill = t => t.replace('{sites}', r.sites ?? 4).replace('{steps}', r.steps ?? 5).replace('{pulls}', r.pulls ?? 3);
+  return <article className="fch-card fch-wide hv-pow m-live" data-testid="pow-engine">
+    <h4>⛏ PROOF OF WORK ENGINE<small>every colonized agent · one intake coin per {r.everyMin ?? 30} min · rules are code, the same for every model</small></h4>
+    <ol className="hv-pow-flow" aria-label="The PoW pipeline">{POW_STAGES.map(([ic, k, t], i) => <li key={k} style={{ '--i': i }} data-tip={fill(t)}><b aria-hidden="true">{ic}</b><em>{k}</em><small>{fill(t)}</small></li>)}</ol>
+    <div className="hv-pow-stats">{[['FILED', rows.length, 'Proofs in this list'], ['GRADED', graded.length, 'Judged an hour after the call'], ['RIGHT', graded.length ? `${Math.round(100 * right / graded.length)}%` : '—', 'Graded calls that earned honey'],
+      ['STRENGTH', avg, 'Average work behind a call: sites with vitals, distinct vitals, safety vitals, a vital confirmed twice']].map(([k, v, tip]) =>
+      <span key={k} data-tip={tip}><em>{k}</em><b className="m-num" key={v}>{v}</b></span>)}</div>
+    {rows.length ? <div className="hv-pow-grid">{rows.map((x, i) => <div key={x.id} className="hv-pow-cell" style={{ '--i': i }}><small className="hv-pow-by">{x.name}</small><PowCard p={x} compact /></div>)}</div>
+      : <p className="fch-nil">{err || 'No proof filed yet — colonize an agent (🐝 Colonize on its desk) and its next free moment researches an intake coin.'}</p>}
+  </article>;
+}
+
 export function ColonyPot({ call }) {
   const [d, setD] = useState(null); const [err, setErr] = useState(''); const [busy, setBusy] = useState('');
   const [pool, setPool] = useState(''); const [plat, setPlat] = useState(''); const seeded = useRef(false);
@@ -78,7 +101,7 @@ export function ColonyPot({ call }) {
             {d.pool ? <small className="hv-pool-addr"><code>{d.pool.address.slice(0, 6)}…{d.pool.address.slice(-6)}</code>{d.pool.sol ? ` · ${d.pool.feecat?.toLocaleString()} FEECAT + ${d.pool.sol} SOL` : ''}{d.pool.lock ? ' · liquidity locked' : ''}</small> : <>
               <label><small>FEECAT in</small><input className="m-input" inputMode="decimal" value={pool} onChange={e => setPool(e.target.value)} placeholder="1,000,000" aria-label="FEECAT to put in the pool" data-testid="colony-pool-feecat" /></label>
               <label><small>SOL in</small><input className="m-input" inputMode="decimal" value={plat} onChange={e => setPlat(e.target.value)} placeholder="0.5" aria-label="SOL to put in the pool" data-testid="colony-pool-sol" /></label>
-              {Number(pool) > 0 && Number(plat) > 0 ? <small className="hv-pool-px">starts at {(Number(plat) / Number(pool)).toPrecision(3)} SOL per FEECAT · fees compound into it · liquidity locked</small> : null}
+              {Number(pool) > 0 && Number(plat) > 0 ? <small className="hv-pool-px">starts at {(Number(plat) / Number(pool)).toPrecision(3)} SOL per FEECAT · fees compound into it · liquidity stays unlocked</small> : null}
               <span className="hv-pool-acts"><button type="button" className="m-btn" disabled={!!busy || !(Number(pool) > 0 && Number(plat) > 0)} onClick={() => act('pool_preview', { feecat: Number(pool), sol: Number(plat) })} data-testid="colony-pool-preview"
                 data-tip="Builds the real transaction with Meteora's SDK and simulates it on Solana — free, nothing signed or sent">{busy === 'pool_preview' ? 'Simulating…' : '🔍 Preview (free)'}</button>
                 <button type="button" className="m-btn m-go" disabled={!!busy || !(d.poolDraft?.ok && d.poolDraft.amountA === Number(pool) && d.poolDraft.amountB === Number(plat))}

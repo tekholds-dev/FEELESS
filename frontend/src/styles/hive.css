@@ -45,6 +45,17 @@ body.theme-day .hv { background: linear-gradient(170deg, #fffaf0, #fff); border-
 body.theme-day .hv-comb li path { fill: #fff6dc; } body.theme-day .hv-comb b, body.theme-day .hv-ring b { color: #2a1a00; } body.theme-day .hv-board { background: #fffdf6; }
 @media (max-width: 640px) { .hv-body { grid-template-columns: 1fr; } .hv-comb li { width: 54px; height: 61px; } .hv-comb li:nth-child(even) { margin-top: 0; } .hv-kpi i { width: 64px; } }
 /* 🏺 the colony pot (command center › 👑 OWNER): a vault bar — the locked floor, the growth above it, the part that may leave */
+.hv-pow { --hv: #f5c542; display: grid; gap: 12px; }
+.hv-pow-flow { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 8px; position: relative; }
+.hv-pow-flow::before { content: ''; position: absolute; left: 6%; right: 6%; top: 22px; height: 2px; background: linear-gradient(90deg, #f5c54200, #f5c542aa, #45e486aa, #f5c54200); }
+.hv-pow-flow li { position: relative; display: grid; justify-items: center; gap: 3px; text-align: center; padding: 0 4px; animation: hvIn .4s both; animation-delay: calc(var(--i) * 60ms); }
+.hv-pow-flow b { display: grid; place-items: center; width: 44px; height: 44px; border-radius: 14px; font-size: 18px; background: radial-gradient(circle at 30% 25%, #2a1d08, #0b0614); border: 1px solid #f5c54255; box-shadow: 0 0 14px #f5c54226, inset 0 1px 0 #ffffff14; }
+.hv-pow-flow em { color: #ffd76a; font: 800 9.5px var(--f-mono); letter-spacing: .14em; font-style: normal; } .hv-pow-flow small { color: #a99bc8; font: 600 10px/1.3 var(--f-ui); }
+.hv-pow-stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
+.hv-pow-stats span { display: grid; gap: 2px; padding: 9px 11px; border-radius: 12px; background: #ffffff07; border: 1px solid #f5c54222; box-shadow: inset 0 1px 0 #ffffff0d; }
+.hv-pow-stats em { color: #c9b27a; font: 800 9px var(--f-mono); letter-spacing: .14em; font-style: normal; } .hv-pow-stats b { color: #fff; font: 800 18px var(--f-mono); animation: hvIn .35s both; }
+.hv-pow-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 10px; }
+.hv-pow-cell { display: grid; gap: 4px; animation: hvIn .35s both; animation-delay: calc(var(--i) * 50ms); } .hv-pow-by { color: #c9b27a; font: 700 10px var(--f-mono); letter-spacing: .08em; }
 .hv-pot { --hv: #f5c542; --hv-hot: #ffd76a; display: grid; gap: 10px; } .hv-pot code { font: 700 9px var(--f-mono); color: #f3e2b0; }
 .hv-pot-new { margin: 0; display: flex; flex-wrap: wrap; align-items: center; gap: 10px; font: 500 12px/1.45 var(--f-ui); color: #c8bde6; } .hv-pot-new span { flex: 1 1 240px; }
 .hv-pot-vault { position: relative; display: grid; padding: 12px 12px 18px; border-radius: 14px; border: 1px solid #f5c54233; background: #0b0614; overflow: hidden; }
@@ -64,7 +75,10 @@ body.theme-day .hv-comb li path { fill: #fff6dc; } body.theme-day .hv-comb b, bo
 .hv-pot-net span { padding: 3px 8px; border-radius: 999px; border: 1px solid #45e48644; color: #45e486; font: 700 9.5px var(--f-tech); } .hv-pot-net span.is-off { border-color: #ffffff22; color: #9d8fbf; }
 @media (prefers-reduced-motion: reduce) { .hv-pot-vault > i { transition: none; } }
 body.theme-day .hv-pot-vault { background: #fffaf0; } body.theme-day .hv-guards li { color: #12301f; background: #eafaf0; } body.theme-day .hv-pot-new { color: #3a2a10; }
-@media (max-width: 640px) { .hv-pot-row { grid-template-columns: 1fr; } }
+@media (max-width: 640px) { .hv-pot-row { grid-template-columns: 1fr; } .hv-pow-flow { grid-template-columns: repeat(3, minmax(0, 1fr)); row-gap: 12px; } .hv-pow-flow::before { display: none; } .hv-pow-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+body.fx-lite .hv-pow-flow li, body.fx-lite .hv-pow-cell, body.fx-lite .hv-pow-stats b { animation: none; }
+@media (prefers-reduced-motion: reduce) { .hv-pow-flow li, .hv-pow-cell, .hv-pow-stats b { animation: none !important; } }
+body.theme-day .hv-pow-flow b { background: #fff6dc; } body.theme-day .hv-pow-flow small { color: #5a4a2a; } body.theme-day .hv-pow-stats span { background: #fffaf0; } body.theme-day .hv-pow-stats b { color: #2a1a00; }
 /* 🐝 the Colonize popout: what it is (5 drawn steps), the FEECAT stake, the pace, confirm */
 .hv-shade { position: fixed; inset: 0; z-index: 1200; display: grid; place-items: center; padding: 16px; background: #05030acc; }
 .hv-pop { --hv: #f5c542; width: min(520px, 100%); max-height: calc(100dvh - 32px); overflow: auto; scrollbar-width: thin; display: grid; gap: 12px; padding: 16px; border-radius: 20px; border: 1px solid #f5c54244;

@@ -19610,7 +19610,7 @@ async def _colony_pool_build(d, body):
     if not (fc > 0 and 0.01 <= sol <= 1000):
         raise HTTPException(400, 'FEECAT > 0 and 0.01–1,000 SOL.')
     args = {'payer': w['address'], 'mintA': ecosystem_mints()['feecat'], 'amountA': fc, 'amountB': sol, 'feeBps': int(body.get('feeBps') or 100),
-            'compoundingBps': int(body.get('compoundingBps') or 5000), 'lock': body.get('lock') is not False}
+            'compoundingBps': int(body.get('compoundingBps') or 5000), 'lock': body.get('lock') is True}   # owner 2026-10-31: unlocked by default (the pool is partly disbursed)
     for _ in range(3):   # an RPC out of quota → the next one
         rpc = _next_rpc_endpoint()
         proc = await asyncio.create_subprocess_exec(shutil.which('node') or '/opt/homebrew/bin/node', str(COLONY_POOL_JS), cwd=str(COLONY_POOL_JS.parent), stdin=asyncio.subprocess.PIPE, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.DEVNULL)

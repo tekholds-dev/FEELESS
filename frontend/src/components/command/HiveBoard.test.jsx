@@ -1,6 +1,6 @@
 import React, { act } from 'react';
 import { createRoot } from 'react-dom/client';
-import { HiveBoard, ColonyGrid } from './HiveBoard';
+import { HiveBoard, ColonyGrid, PowEngine } from './HiveBoard';
 import { HiveSwitch } from './CatWorkbench';
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
 const mockSign = jest.fn(async () => 'SIG');
@@ -56,4 +56,18 @@ test('🐝 the Colony / My agents cells: two windows (a real screen, its last pa
   expect(el.querySelector('[data-testid="cl-scr-t1-A"] [data-testid="cwb-cursor"]').className).toContain('is-rest');   // 🖱 always on, resting before its first move
   expect(el.querySelector('[data-testid="cl-g1"]').textContent).toContain('carrying “validator” to its drawer');
   expect(el.querySelector('[data-testid="face-g1"]')).not.toBeNull(); expect(el.querySelector('[data-testid="x-t1"]')).not.toBeNull(); expect(el.querySelector('[data-testid="cl-g1"]').textContent).toContain('+3');
+});
+
+test('⛏ the PoW engine: the hard rules as a pipeline, live numbers, and each proof with its vitals per site, call and honey', async () => {
+  const POW = { rules: { sites: 4, steps: 5, pulls: 3, everyMin: 30 }, rows: [
+    { id: 'p1', name: 'Happy', sym: 'CAT', call: 'AVOID', strength: 52, sites: 2, steps: 7, honey: 2, graded: true, at: Date.now() / 1000 - 120, pulls: [{ site: 'rugcheck.xyz', label: 'mint authority', value: 'revoked' }, { site: 'solscan.io', label: 'top 10 holders', value: '61%' }] },
+    { id: 'p2', name: 'Kit', sym: 'DOG', call: 'BUY', strength: 20, sites: 1, steps: 3, honey: null, graded: false, at: Date.now() / 1000 - 30, pulls: [] }] };
+  global.fetch = async u => { expect(String(u)).toContain('/api/cats/pow'); return { ok: true, json: async () => POW }; };
+  const el = document.createElement('div'); document.body.appendChild(el);
+  await act(async () => { createRoot(el).render(<PowEngine />); });
+  expect(el.querySelectorAll('.hv-pow-flow li')).toHaveLength(6); expect(el.textContent).toContain('≤ 4 sites · ≤ 5 moves each');
+  const cards = el.querySelectorAll('[data-testid="ck-pow"]'); expect(cards).toHaveLength(2);
+  expect(cards[0].className).toContain('is-dn'); expect(cards[0].textContent).toContain('revoked'); expect(cards[0].textContent).toContain('🍯 +2');
+  expect(cards[1].textContent).toContain('⏳ grading');
+  expect(el.querySelector('.hv-pow-stats').textContent).toContain('100%');   // 1 graded, 1 right
 });

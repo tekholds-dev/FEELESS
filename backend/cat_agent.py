@@ -14,9 +14,12 @@ import asyncio
 import json
 import re
 import time
+from urllib.parse import quote_plus
 from cat_policy import RESEARCH_ACTIONS, RULES, refusal, research_ok
+import pow as _pow
 
 STEP_MAX = 8
+SEARCH_URL = 'https://html.duckduckgo.com/html/?q='
 GO_STEPS = 30     # 🏇 "let it go" (owner Q1): a task may run this many steps a window — it stops only when done, at its $ cap, or for a human
 READ_MAX = 3500
 BLOCKED = re.compile(r'(?i)pass(word|code)|seed|mnemonic|recovery phrase|private key|cvv|card number')
@@ -25,7 +28,7 @@ PLAN_SYS = ('You lead two AI models working for a FEELESS user. If you can answe
             'Otherwise split it into two halves the two models research in their own browsers at the same time. Answer ONLY JSON: '
             '{"fast": "<answer or empty>", "a": "<your half>", "b": "<the other model\'s half>"}')
 ACT_SYS = ('You are {name}, an AI model working in your OWN web browser for a FEELESS user, who watches you. Your half of the task: {goal}\n'
-           'Each turn pick ONE action. Answer ONLY JSON: {{"thought": "<= 12 words: what you are doing and why", "action": "feeless|open|search|scroll|click|type|upload|new_login|ask_login|media|human|draft|build|note|answer", '
+           'Each turn pick ONE action. Answer ONLY JSON: {{"thought": "<= 12 words: what you are doing and why", "action": "feeless|open|search|scroll|click|type|pull|upload|new_login|ask_login|media|human|draft|build|note|answer", '
            '"tool": "<feeless tool>", "url": "", "q": "", "text": "<visible text of the link / button to click>", "label": "<field label or placeholder>", "value": "", "say": "<your answer, when action is answer>"}}\n'
            'YOU SEE THE SCREEN: the page below is what is ON SCREEN right now, top to bottom. To see more, "scroll" (q: "down" or "up"); to look closer, "click" an item by its visible text. Browse like a person — scroll, open what interests you, compare.\n'
            'FEELESS FIRST: for anything about coins, trading, perps, pools or prices use action "feeless" (tool: coin|trench|perps|pools|gaps|colony, q: the coin / ticker) '
@@ -219,7 +222,8 @@ async def _window(task, w, ask, page, wait_human, name, feeless=None):
     w['status'] = 'working'
     seen = ''
     n_max = int(task.get('stepsMax') or STEP_MAX)
-    site = named_site(w['goal'])
+    pw = task.get('pow') if w['i'] == 0 else None   # ⛏ a Proof-of-Work run (pow.py): its rules are code, whatever the model
+    site = _pow.start_url(pw) if pw else named_site(w['goal']) or (None if str(page.url or '').startswith('http') else SEARCH_URL + quote_plus(str(w['goal'] or '')[:90]))   # 🔎 a blank window starts on a search
     if site and (research_ok(site) if task.get('research') else True):   # 🧭 the ask names a site → its window opens there first (a model once answered "I haven't visited pump.fun")
         try:
             seen = w['_page'] = await page.goto(site)
@@ -227,6 +231,11 @@ async def _window(task, w, ask, page, wait_human, name, feeless=None):
             _step(w, f'opening {site.split("://")[-1]}', 'open', site)
             from cat_browser import needs_human
             why_ = needs_human(page.url, seen)
+            if why_ and 'duckduckgo.com' in site:   # the search engine walled us: the coin's DexScreener page / a plain dex search instead — no person needed
+                site = _pow.start_url(pw, blocked=True) if pw else 'https://dexscreener.com/search?q=' + quote_plus(str(w['goal'] or '')[:40])
+                seen = w['_page'] = await page.goto(site)
+                w['url'], w['title'] = page.url, page.title
+                why_ = needs_human(page.url, seen)
             if why_:   # a checkpoint on the very first page → straight to the person, no steps burned on it
                 w['human'] = {'why': why_, 'url': page.url}
                 w['status'], w['bubble'] = 'human', f"✋ needs you: {why_}"
@@ -238,6 +247,18 @@ async def _window(task, w, ask, page, wait_human, name, feeless=None):
                 seen = w['_page'] = await _after_human(w, page)
         except Exception as e:
             seen = f'(could not open {site}: {str(e)[:120]})'
+    if pw and feeless:   # ⛏ FEELESS first, done by the engine (free, server-side): it is the PoW's first site — the model only pulls from it
+        try:
+            fr_, coin_ = await feeless('coin', pw.get('mint') or pw['sym'])
+            w.setdefault('asked', []).append(f"coin {str(pw.get('mint') or '').lower()}")
+            if coin_:
+                w['coin'] = coin_
+            w['url'], w['title'] = 'feeless:coin', 'FEELESS'
+            _pow._site(pw, 'feeless:coin')
+            seen = w['_page'] = f"FEELESS LIVE READ (your first site — pull up to {_pow.SITE_PULLS} vitals from it):\n{str(fr_)[:READ_MAX // 2]}\n\nTHE SEARCH PAGE:\n{str(seen)[:READ_MAX // 2]}"
+            _step(w, 'reads the coin on FEELESS first', 'feeless', f"coin ${pw['sym']}")
+        except Exception as e:   # noqa: BLE001 — no FEELESS read: the route still runs
+            seen = f'(FEELESS read failed: {str(e)[:80]})\n' + str(seen)
     min_s = browse_secs(w['goal']); t_start = time.time()
     if min_s:   # enough steps to fill the time it was asked to browse (~6 s a step), never past the long budget
         n_max = max(n_max, min(GO_STEPS, min_s // 6 + 3))
@@ -246,11 +267,15 @@ async def _window(task, w, ask, page, wait_human, name, feeless=None):
         if getattr(page, 'live', False) and time.time() - last_ < STEP_PACE:   # 🐢 a live window moves at a pace you can follow (owner: "not so quick")
             await asyncio.sleep(STEP_PACE - (time.time() - last_))
         last_ = time.time()
+        if pw and (w.pop('powNext', False) or _pow.site_done(pw, w.get('url') or page.url)):   # ⛏ this site is done: the engine opens the coin's next page
+            seen = await _pow_advance(w, pw, page)
         mine = (task.get('clouds') or {}).get(w['i']) or []   # ☁ its own cloud from earlier tasks
         got = [h['text'] for h in task.get('handoffs') or [] if h['from'] != w['i']][-4:]   # 📦 what its partner handed over
         extra = (f"\nYOUR CLOUD (your notes from earlier tasks): {' | '.join(mine)[:600]}" if mine else '') + (f"\nFROM YOUR PARTNER: {' | '.join(got)[:900]}" if got else '')
         if task.get('knowhow'):   # 🐝 the Colony + 🧭 the sources book: every mind knows both, whatever its prompt
             extra += '\n' + str(task['knowhow'])[:900]
+        if pw:
+            extra += '\n' + _pow.RULES + "\nTHE COIN'S PAGES: " + ' · '.join(_pow.links(pw)) + f"\nPOW SO FAR: {_pow.public(pw)['pulls'] or 'no vitals pulled yet'}"
         if task.get('research'):   # 📰 a trader: FEELESS's chart first, then the chart's own research doors (X search by the contract — signed in when the owner saved X)
             extra += RESEARCH_HOW
         # the job + JSON format lead: a short-context model (the free backup keeps the first 4,000 chars) once lost both and answered in prose
@@ -268,9 +293,10 @@ async def _window(task, w, ask, page, wait_human, name, feeless=None):
         if act in ('open', 'ask_login') and a.get('url'):
             a['url'] = full_url(a['url'])
         thought = str(a.get('thought') or '').strip()
-        if task.get('research') and act not in RESEARCH_ACTIONS:   # 📰 a trader's window only reads coins + narrative
-            _step(w, f'research only: no "{act}"', 'refused')
-            seen = f'(research only: "{act}" is not allowed — read coin data, crypto news or X, then answer)'
+        if task.get('research') and act not in RESEARCH_ACTIONS and (act or a):   # 📰 a trader's window only reads coins + narrative (plain prose = its answer, below)
+            _step(w, f'research only: no "{act}"' if act else 'no action in its reply', 'refused')
+            seen = (f'(research only: "{act}" is not allowed — read coin data, crypto news or X, then answer)' if act else
+                    '(your reply had no "action" — answer ONLY the JSON object, one action)') + '\n' + str(w.get('_page') or '')[:READ_MAX // 2]
             continue
         if task.get('research') and act in ('open', 'ask_login') and not research_ok(a.get('url') or '', act == 'ask_login'):
             _step(w, thought or 'stays on research sites', 'blocked', str(a.get('url') or '')[:120])
@@ -280,6 +306,16 @@ async def _window(task, w, ask, page, wait_human, name, feeless=None):
             left_ = int(min_s - (time.time() - t_start))
             _step(w, f'keeps browsing — {left_} s left of the time you asked', 'browse')
             seen = f'(not yet — the user asked you to browse for {min_s} s, {left_} s left. Click into one of the coins you are weighing by its name, read it, compare.)\n' + str(w.get('_page') or seen)[:READ_MAX]
+            continue
+        if act == 'pull':   # ⛏ one vital fact read on this page — the PoW rules decide if it is kept
+            ok_, why_p = _pow.pull(pw, w.get('url') or page.url, a.get('label'), a.get('value')) if pw else (False, 'pull is for a Proof-of-Work run — use note')
+            _step(w, thought or why_p, 'pull' if ok_ else 'refused', why_p)
+            seen = f'({why_p})\n' + str(w.get('_page') or seen)[:READ_MAX // 2]
+            continue
+        if pw and (act == 'answer' or not act) and len(_pow.pulls(pw)) < _pow.SITE_PULLS and not w.get('powDone') and _n < n_max - 2:
+            w['powNext'] = not act   # ⛏ no answer before the work: pull vitals first (an unreadable reply = a stall: the engine moves on)
+            _step(w, 'not yet — pull the vitals first' if act else 'unreadable reply — on to the next site', 'refused')
+            seen = '(NOT YET — a PoW answers only after it has pulled vitals: use action "pull" with label + value from THIS page.)\n' + str(w.get('_page') or seen)[:READ_MAX]
             continue
         if act == 'answer' or not act:
             w['answer'] = str(a.get('say') or thought or str(raw or '').strip() or 'no answer')[:4000]   # a model that just answers in plain words still answers
@@ -294,6 +330,10 @@ async def _window(task, w, ask, page, wait_human, name, feeless=None):
             continue
         if act == 'feeless':   # 🧰 our own tools first — read-only, always on
             key_ = f"{str(a.get('tool') or '').lower()} {str(a.get('q') or '').lower().lstrip('$')}".strip()
+            if pw and key_ in w.setdefault('asked', []):   # ⛏ in a PoW a re-read is a stall: the engine moves it to the next site
+                w['powNext'] = True
+                _step(w, 'already read — on to the next site', 'refused', key_)
+                continue
             if key_ in w.setdefault('asked', []):   # 🔁 the same read again = a stuck loop (a real run asked "coin BONK" 4×, another 15×): point it forward
                 w['repeats'] = int(w.get('repeats') or 0) + 1
                 if w['repeats'] >= REPEAT_MAX:   # 💸 never pay for the same read again and again: it answers with what it has
@@ -361,6 +401,12 @@ async def _window(task, w, ask, page, wait_human, name, feeless=None):
                 _step(w, f'refused a repeat: {why_rep}', 'refused', act)
                 seen = f'(REFUSED — {why_rep}. Do something NEW: click a link you have not opened, open another source, or answer now.)\n' + str(seen)[:READ_MAX // 2]
                 continue
+            why_pw = _pow.step(pw, a.get('url') if act == 'open' else page.url) if pw and act in ('open', 'click', 'scroll') else None
+            if why_pw:   # ⛏ the PoW's per-site / site budget — refused before it is paid for; the engine moves it on
+                _step(w, f'refused: {why_pw}', 'refused', act)
+                seen = f'(REFUSED — {why_pw}.)\n' + str(seen)[:READ_MAX // 2]
+                w['powNext'] = True
+                continue
             w.setdefault('sigs', []).append(sig_)
             try:
                 page.on_cursor = lambda c, w=w: w.__setitem__('cursor', c)   # 🖱 the desk's cursor starts gliding the moment the real mouse does
@@ -417,8 +463,33 @@ async def _window(task, w, ask, page, wait_human, name, feeless=None):
             seen = await _after_human(w, page)
     else:
         w['answer'] = w['answer'] or f'(ran out of steps) {thought}'
+    if pw:
+        _pow.finish(pw, w['answer'])
     w['status'] = 'done'
     return w['answer']
+
+
+async def _pow_advance(w, pw, page):
+    """⛏ Open the coin's next research page (a walled one is skipped — a PoW never waits for a person). → what the window now reads."""
+    from cat_browser import needs_human
+    while True:
+        nxt = _pow.next_link(pw)
+        if not nxt:
+            w['powDone'] = True
+            return '(ALL SITES DONE — answer now with action "answer", say = "BUY|WATCH|AVOID — why", from the vitals you pulled.)\n' + str(_pow.public(pw)['pulls'])
+        _pow.step(pw, nxt)
+        try:
+            got = await page.goto(nxt)
+        except Exception as e:   # noqa: BLE001 — a page that won't load is skipped like a wall
+            got = f'(could not open: {str(e)[:80]})'
+        w['url'], w['title'] = page.url or nxt, page.title
+        if needs_human(page.url, got) or str(got).startswith('(could not open'):
+            _pow.wall(pw, nxt)   # never counted, never opened again
+            _step(w, f'{_pow.host_of(nxt)} is walled — skipped', 'refused', nxt)
+            continue
+        w['_page'] = str(got)
+        _step(w, f'next site: {_pow.host_of(nxt)}', 'open', nxt)
+        return f'NOW ON {_pow.host_of(nxt)} — pull up to {_pow.SITE_PULLS} vitals here, then it moves on.\n' + str(got)
 
 
 def _failed(ws, got):

@@ -43,6 +43,7 @@ import cat_tools as _ct   # 🧰 FEELESS-first read-only tools for general agent
 import hive as _hv   # 🐝 the Hive: proof of insight (cells graded an hour on)
 import agent_sources as _src   # 🧭 the sources book: which sites work for agents, which block them
 import colony as _colony   # 🐝 the Colony: graded trades, the pot guards
+import pow as _pow   # ⛏ Proof of Work: one intake coin, ≤4 sites × ≤5 moves × ≤3 vitals, graded an hour on
 import agent_files as _af   # ☁ each agent's own storage (owner uploads, 1 GB, 7-day clean)
 import clarify as _cq   # ❓ first asks: 2–3 questions for a coin / money ask
 import agent_treasury as _tr   # 🏦 its coin's creator fees, read on-chain + split
@@ -1163,6 +1164,8 @@ async def _hive_round(now=None):
                 left_ = day_left(cat)
                 if left_ is not None and left_ <= 0:
                     run_['why'] = "today's $ limit reached — it carries on tomorrow"; continue
+                if await _pow_start(http, cat, cells, now):   # ⛏ its windows are free: a real Proof of Work on an intake coin
+                    run_.update(why=None, pow=now); continue
                 c_ = _hv.pick(pairs, cells, cat['id'], now)
                 if not c_:
                     run_['why'] = 'nothing new on the board'; continue
@@ -1194,6 +1197,66 @@ async def _hive_round(now=None):
     if due_:
         _save(store)
     return filed, graded
+
+
+async def _pow_start(http, cat, cells, now):
+    """⛏ Start a PoW run when the agent is idle, has its own browser budget and its last PoW is ≥ 30 min old: the next intake coin
+    it has not researched in 6 h, worked by its next mind (A, B, A …). → True when it started."""
+    w_ = _WORK.get(cat['id'])
+    if (w_ and not w_.get('done')) or now - float((cat.get('hiveRun') or {}).get('pow') or 0) < _pow.EVERY_MIN_S:
+        return False
+    b_ = cat.get('brainsCfg') or {}
+    if not b_.get('brains') or float(b_.get('credit') or 0) - _lc.CREDIT_RESERVE <= 0.005 and not _ck.key_for(cat, 'openrouter', data_dir=DATA_DIR):
+        return False
+    try:
+        coins_ = ((await http.get(f'{_ct.REP}/api/reputation/familia/intake', timeout=15)).json() or {}).get('coins') or []
+    except (httpx.HTTPError, ValueError):
+        return False
+    done_ = {c.get('mint') for c in cells if c.get('cat') == cat['id'] and now - float(c.get('at') or 0) < _hv.FRESH_S}
+    coin_ = _pow.pick(coins_, done_)
+    if not coin_:
+        return False
+    k_ = int((cat.get('hiveRun') or {}).get('powN') or 0); mind_ = k_ % len(b_['brains'][:2])
+    p_ = {**_pow.new(coin_, now), 'mind': mind_, 'by': str(b_['brains'][mind_]).split('/')[-1][:30]}
+    try:
+        _work_start(cat['id'], cat, _pow.goal(p_), str(mind_), None, p_)
+    except HTTPException:
+        return False
+    cat.setdefault('hiveRun', {})['powN'] = k_ + 1
+    return True
+
+
+async def _pow_price(http, task):
+    """⛏ the coin's $ price as its PoW ends — the cell is graded an hour on against it (filed by the engine's settle pass, the one writer)."""
+    p_ = task['pow']
+    p_['price'] = _num((((await _pair_prices(http, [p_['pair']])) or {}).get(p_['pair']) or {}).get('priceUsd')) if p_.get('pair') else 0
+
+
+def _pow_settle(cat, task, now):
+    """⛏ A finished PoW → a Hive cell (graded an hour on), the mind's latest PoW, and the owner's cabinet. → the cell, or None (nothing pulled)."""
+    p_ = task['pow']; pub_ = _pow.public(p_)
+    if task.get('status') == 'stopped' or (not pub_['pulls'] and not p_.get('call')):   # stopped for your ask / nothing pulled: nothing to grade
+        return None
+    px_ = float(p_.get('price') or 0)
+    cell_ = {'id': uuid.uuid4().hex[:12], 'cat': cat['id'], 'name': str(cat.get('name') or 'agent')[:40], 'pair': p_.get('pair'), 'mint': p_.get('mint'),
+             'sym': p_['sym'], 'price': px_, 'call': p_.get('call') or 'WATCH', 'why': (p_.get('why') or 'its proof of work')[:200], 'at': now,
+             'usd': round(float(task.get('cost') or 0), 6), 'epoch': _hv.epoch_of(now), 'pow': pub_}
+    if px_ > 0:   # no price = nothing to grade it on: it still reaches the cabinet
+        cells = _hive_cells(); cells.append(cell_); _hive_save(cells)
+    b_ = cat.setdefault('brainsCfg', {})
+    b_['powLast'] = {**(b_.get('powLast') or {}), str(p_.get('mind') or 0): {**pub_, 'cost': cell_['usd'], 'cell': cell_['id'] if px_ > 0 else None}}
+    vit_ = ' · '.join(f"{x['label']} {x['value']}" for x in pub_['pulls'][:4])
+    b_['cloud'] = ((b_.get('cloud') or []) + [{'at': now, 'word': cell_['call'], 'sym': p_['sym'], 'by': ['pow'],
+                    'text': f"⛏ PoW {cell_['call']} ${p_['sym']} — {vit_ or cell_['why']} ({pub_['sites']} sites, strength {pub_['strength']})"[:240]}])[-_lc.CLOUD_MAX:]
+    return cell_
+
+
+def _pow_view(cat):
+    """⛏ each mind's latest PoW (public research: the coin, the vitals, the call) + its honey once graded."""
+    last = (cat.get('brainsCfg') or {}).get('powLast') or {}
+    ids = {v.get('cell') for v in last.values() if v.get('cell')}
+    honey = {c['id']: c.get('honey') for c in _hive_cells() if c.get('id') in ids} if ids else {}
+    return {k: {**v, 'honey': honey.get(v.get('cell'))} for k, v in last.items()}
 
 
 async def _hive_loop():
@@ -1704,11 +1767,12 @@ def day_left(cat):
     return max(0.0, day - float(((cat.get('brainsCfg') or {}).get('daySpend') or {}).get(time.strftime('%Y-%m-%d', time.gmtime()), 0)))
 
 
-def _work_start(cat_id, cat, text, to=None, files=None):
+def _work_start(cat_id, cat, text, to=None, files=None, pow_=None):
     """Start one task in the cat's windows. 🏇 Let it go (cat.workGo): a long step budget (cat_agent.GO_STEPS) — it stops only when done, at
     its $ cap, or when a person is needed (a sign-in / CAPTCHA / payment: it never types a password or a card)."""
     b = cat.get('brainsCfg') or {}
-    cat['workNow'] = {'text': str(text)[:2600], 'to': to, 'at': time.time()}   # 🛟 a restart mid-task files this to resume — an ask is never lost
+    if not pow_:
+        cat['workNow'] = {'text': str(text)[:2600], 'to': to, 'at': time.time()}   # 🛟 a restart mid-task files this to resume — an ask is never lost
     cap = min(float(cat.get('taskCap') or TASK_CAP_DEFAULT), max(0.005, float(b.get('credit') or 0) - _lc.CREDIT_RESERVE))   # its own credit only, always leaving the reserve
     left_ = day_left(cat)
     if left_ is not None:
@@ -1721,9 +1785,13 @@ def _work_start(cat_id, cat, text, to=None, files=None):
         models = [models[int(to)]]
     names = [str(m).split('/')[-1][:24] for m in models]
     steps = int(lim_.get('steps') or 0) or (_ca.GO_STEPS if cat.get('workGo') else _ca.STEP_MAX)
-    _WORK[cat_id] = {'task': _ca.new_task(uuid.uuid4().hex[:10], text, models, cap, steps, cat.get('workMode') or 'plan', lim_.get('mindUsd') if len(models) > 1 else None), 'events': {}, 'go': {}, 'sessions': [None] * len(models), 'pages': [None] * len(models), 'at': time.time()}
+    if pow_:   # ⛏ one mind, its own job, the PoW's step budget (pow.py) — the rest is the same guarded work path
+        steps = _pow.STEPS_MAX
+    _WORK[cat_id] = {'task': _ca.new_task(uuid.uuid4().hex[:10], text, models, cap, steps, 'jobs' if pow_ else cat.get('workMode') or 'plan', lim_.get('mindUsd') if len(models) > 1 else None), 'events': {}, 'go': {}, 'sessions': [None] * len(models), 'pages': [None] * len(models), 'at': time.time()}
     _WORK[cat_id]['task']['knowhow'] = _colony.KNOWHOW + (' ' + _colony.COLONIZED if _hive_on(cat) else '') + '\n' + _src.brief(_src_book())   # 🐝🧭 every mind knows the Colony + where to browse
-    if (b.get('kind') or 'trading') == 'trading':   # 📰 a trader's windows: read + click on the research list only (cat_policy.RESEARCH_*)
+    if pow_:
+        _WORK[cat_id]['task']['pow'] = pow_
+    if pow_ or (b.get('kind') or 'trading') == 'trading':   # 📰 a trader's windows (and every PoW): read + click on the research list only (cat_policy.RESEARCH_*)
         _WORK[cat_id]['task'].update(research=True, tools={'browse': True, 'forms': True})
     else:
         _WORK[cat_id]['task']['tools'] = _cp.toolkit(cat.get('job', 'agent'), cat.get('tools'))
@@ -1865,6 +1933,11 @@ async def _work_run(cat_id, models, names, text, cap, brief='', efforts=None, ow
                 if str(x_.get('url') or '').startswith('http') and x_.get('status') == 'done':
                     _src_note(x_['url'], True)
             w['pages'] = [None] * len(models)
+            if (w.get('task') or {}).get('pow'):
+                try:
+                    await _pow_price(http, w['task'])
+                except Exception as e:   # noqa: BLE001 — no price = filed ungraded, never a broken desk
+                    print(f'[pow] {cat_id}: {str(e)[:120]}')
             w['done'] = True
 
 
@@ -1896,7 +1969,9 @@ def _work_settle(store):
             cat['refusals'] = (list(cat.get('refusals') or []) + [{'at': time.time(), 'why': x} for x in t.get('refusals', [])])[-100:]
             if not _ck.key_for(cat, 'openrouter', data_dir=DATA_DIR):   # its owner's own key pays OpenRouter directly — no FEELESS credit
                 _lc.charge(cat['brainsCfg'], max(0.0, (t.get('cost') or 0) - (t.get('walletPaid') or 0)))   # what its wallet paid never comes off its FEELESS credit
-            if t.get('status') == 'done':   # 🤖 the flat fee for anything that is not a trade
+            if t.get('pow'):   # ⛏ a Colony PoW: filed (cell + cabinet), no flat fee, never a chat line you did not type
+                _pow_settle(cat, t, time.time())
+            elif t.get('status') == 'done':   # 🤖 the flat fee for anything that is not a trade
                 cat['feesDue'] = (list(cat.get('feesDue') or []) + [{'key': f"task-{t.get('id')}"}])[-20:]
             for lg_ in t.get('logins') or []:   # 🔐 every sign-up's password → sealed in its vault, then gone from memory
                 try:
@@ -1921,7 +1996,7 @@ def _work_settle(store):
                     w_['best'] = []
             for k_ in t.get('keep') or []:   # ☁ the best of both scratch pads → its main cloud (the rest was thrown away)
                 cat['brainsCfg']['cloud'] = ((cat['brainsCfg'].get('cloud') or []) + [{'at': time.time(), 'word': 'KEEP', 'sym': '', 'text': str(k_)[:240], 'by': ['both']}])[-_lc.CLOUD_MAX:]
-            cat['chat'] = (list(cat.get('chat') or []) + [{'by': 'you', 'text': t.get('text'), 'at': w.get('at')},
+            cat['chat'] = list(cat.get('chat') or []) if t.get('pow') else (list(cat.get('chat') or []) + [{'by': 'you', 'text': t.get('text'), 'at': w.get('at')},
                            {'by': 'cats', 'text': (f"💳 Paid ${t.get('walletPaid'):.4f} from its wallet: " if t.get('walletPaid') else '') + ("🛟 Backup model, free (OpenRouter has no credit): " if t.get('backup') else '') + (t.get('answer') or f"({t.get('status')}: {t.get('why') or 'no answer'})"), 'at': time.time(), 'cost': t.get('cost'), 'fast': t.get('fast')}])[-CHAT_KEEP:]
         if cat and t.get('parked'):   # ⏸ filed to come back to when you are back (desk: Resume / Drop)
             cat['workParked'] = (list(cat.get('workParked') or []) + [{'at': time.time(), 'text': t.get('text'), 'why': p_.get('why'), 'url': p_.get('url')} for p_ in t['parked']])[-WORK_QUEUE_MAX:]
@@ -2538,6 +2613,15 @@ async def cat_hive():
 COLONY_PAGE = 10   # agents per page on the Colony (owner 2026-10-31: "about 8-10 agents showing on a page, more on scroll")
 
 
+@app.get('/api/cats/pow')
+async def pow_feed(limit: int = 12, cat: str = ''):
+    """⛏ The newest Proofs of Work (public research: coin, vitals + sites, the call, its honey once graded) and the rules every agent works under."""
+    rows = [c for c in reversed(_hive_cells()) if c.get('pow') and (not cat or c.get('cat') == cat)][:max(1, min(40, int(limit)))]
+    return _pub({'rows': [{**c['pow'], 'id': c['id'], 'cat': c.get('cat'), 'name': c.get('name'), 'call': c.get('call'), 'honey': c.get('honey'),
+                           'graded': c.get('honey') is not None, 'at': c.get('at')} for c in rows],
+                  'rules': {'sites': _pow.SITES_MAX, 'steps': _pow.SITE_STEPS, 'pulls': _pow.SITE_PULLS, 'everyMin': _pow.EVERY_MIN_S // 60, 'vitals': list(_pow.VITALS)}})
+
+
 @app.get('/api/cats/colony')
 async def cat_colony(page: int = 0, ids: str = ''):
     """🐝 Public: the Colony page — every working agent with its two windows (visitor-safe), its honey this epoch and its newest graded call.
@@ -2992,6 +3076,11 @@ async def cat_work(cat_id: str, p: WorkPayload):
         if (b.get('kind') != 'general' and not research_) or not b.get('brains'):
             raise HTTPException(400, 'Only a General AI cat — or a trader researching coins + narrative — works in browsers.')
         busy = bool(w and not w.get('done'))
+        if busy and (w.get('task') or {}).get('pow'):   # ⛏ your ask outranks a Colony PoW: it stops (nothing filed, its browser closes) and yours starts
+            w['task'].update(status='stopped', why='your ask came first')
+            if w.get('runner'):
+                w['runner'].cancel()
+            busy = False
         if busy and not cat.get('workGo'):
             raise HTTPException(409, 'It is still working on your last ask — stop it, wait, or LET IT GO to queue asks.')
         why = _cp.refusal(p.text)
@@ -3042,6 +3131,7 @@ async def cat_work(cat_id: str, p: WorkPayload):
             'refusals': (cat.get('refusals') or [])[-20:] + [{'why': x} for x in ((w or {}).get('task') or {}).get('refusals', [])],
             'artifacts': (cat.get('artifacts') or [])[-10:] + ([] if (w or {}).get('settled') else ((w or {}).get('task') or {}).get('artifacts', [])),
             'queue': [{'text': q.get('text'), 'to': q.get('to')} for q in (cat.get('workQueue') or [])],
+            'pow': _pow_view(cat),   # ⛏ each mind's latest Proof of Work
             'parked': [{'text': q.get('text'), 'why': q.get('why'), 'at': q.get('at')} for q in (cat.get('workParked') or [])]}
 
 
@@ -3212,7 +3302,7 @@ def _colony_vitals(cat):
     ep = _hv.epoch_of(time.time()); row = next(iter(_hv.board(cells, ep)), {})
     last = max(cells, key=lambda c: float(c.get('at') or 0)) if cells else None
     return {'colonized': _hive_on(cat), 'honey': int(row.get('honey') or 0), 'right': int(row.get('right') or 0), 'graded': int(row.get('graded') or 0),
-            'lastCall': {k: last.get(k) for k in ('call', 'sym', 'honey', 'kind')} if last else None}
+            'lastCall': {k: last.get(k) for k in ('call', 'sym', 'honey', 'kind')} if last else None, 'pow': _pow_view(cat)}
 
 
 @app.get('/api/cats/{cat_id}/treasury')

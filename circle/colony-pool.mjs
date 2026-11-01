@@ -1,6 +1,6 @@
 // 🌊 THE COLONY POOL (owner 2026-10-31: "I chose Meteora — how do I create a pool with the colony wallet?"). Builds Meteora DAMM v2's
 // createCustomPool for FEECAT / SOL with the colony wallet as payer + creator, via Meteora's own SDK (@meteora-ag/cp-amm-sdk). Fees COMPOUND
-// into the pool (collectFeeMode 2) so it only grows; the liquidity can be locked. This script NEVER sends: it returns the transaction
+// into the pool (collectFeeMode 2) so it only grows; the liquidity stays UNLOCKED (owner: it is partly disbursed). This script NEVER sends: it returns the transaction
 // (signed only by the new position NFT's throwaway key) and a free on-chain SIMULATION. The Circle sidecar signs it for real only after the
 // owner approves amounts in HQ. stdin: { rpc, payer, mintA, amountA, amountB, feeBps, compoundingBps, lock } → stdout JSON.
 import { Connection, Keypair, PublicKey, VersionedTransaction, TransactionMessage } from '@solana/web3.js';
@@ -30,7 +30,7 @@ try {
     sqrtMinPrice: MIN_SQRT_PRICE, sqrtMaxPrice: MAX_SQRT_PRICE, initSqrtPrice, liquidityDelta,
     poolFees: { baseFee, compoundingFeeBps: Math.max(0, Math.min(10000, Number(p.compoundingBps) || 5000)), padding: 0, dynamicFee: getDynamicFeeParams(fee) },
     hasAlphaVault: false, activationType: 1, collectFeeMode: CollectFeeMode.Compounding, activationPoint: null,
-    tokenAProgram: progA, tokenBProgram: getTokenProgram(0), isLockLiquidity: p.lock !== false,
+    tokenAProgram: progA, tokenBProgram: getTokenProgram(0), isLockLiquidity: p.lock === true,   // owner 2026-10-31: NOT locked — the colony pool's liquidity is partly paid back out over time
   });
   const { blockhash } = await conn.getLatestBlockhash('confirmed');
   const msg = new TransactionMessage({ payerKey: payer, recentBlockhash: blockhash, instructions: tx.instructions }).compileToV0Message();
