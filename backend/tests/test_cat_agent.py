@@ -362,3 +362,18 @@ def test_no_step_is_ever_repeated_and_scrolling_a_page_is_capped():
     assert ca.repeat_why(w, 'click', ca.step_sig('click', {'text': 'pools'}, 'https://x.io/', ''), 'https://x.io/') == 'you already did exactly this step'
     assert ca.repeat_why(w, 'click', ca.step_sig('click', {'text': 'Volume'}, 'https://x.io', ''), 'https://x.io') is None   # same site, different info
     assert ca.repeat_why(w, 'answer', 'a', '') is None
+
+
+def test_a_mind_that_keeps_repeating_is_never_stopped_the_engine_moves_it_to_a_new_page_and_what_it_notes_is_filed():
+    """Owner 2026-11-01: "it should never be stopped unless the user requests — if it keeps doing the same thing, stop it from doing that thing"."""
+    same = {'thought': 'again', 'action': 'feeless', 'tool': 'coin', 'q': 'BONK'}
+    ask = scripted({'m/a': [same, same, same, same, {'thought': 'note', 'action': 'note', 'say': 'BONK pool $2M'}, {'thought': 'done', 'action': 'answer', 'say': 'BONK holds'}]})
+
+    async def feeless(tool, q=''):
+        return 'BONK · pool $2M', None
+    pa = Page()
+    t = ca.new_task('tr', 'check BONK', ['m/a'], 1.0, 8, 'jobs'); t.update(alts=['https://rugcheck.xyz'])
+    asyncio.run(ca.run(t, ask, [pa], None, ('A',), feeless))
+    w = t['windows'][0]
+    assert ('goto', 'https://rugcheck.xyz') in pa.done and any('diverted to rugcheck.xyz' in s['thought'] for s in w['steps'])   # moved, not stopped
+    assert w['answer'] == 'BONK holds' and t['filed'][-1]['text'] == 'BONK pool $2M'                                             # it finished + its note is filed

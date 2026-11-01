@@ -1996,6 +1996,7 @@ def _work_start(cat_id, cat, text, to=None, files=None, pow_=None):
     if pow_:   # ⛏ one mind, its own job, the PoW's step budget (pow.py) — the rest is the same guarded work path
         steps = _pow.STEPS_MAX
     _WORK[cat_id] = {'task': _ca.new_task(uuid.uuid4().hex[:10], text, models, cap, steps, 'jobs' if pow_ else cat.get('workMode') or 'plan', lim_.get('mindUsd') if len(models) > 1 else None), 'events': {}, 'go': {}, 'sessions': [None] * len(models), 'pages': [None] * len(models), 'at': time.time()}
+    _WORK[cat_id]['task']['alts'] = ['https://' + h for h in _src.best(_src_book(), n=6)]   # 🔀 where a repeating mind is moved
     _WORK[cat_id]['task']['knowhow'] = _pow.README + '\n' + _colony.KNOWHOW + (' ' + _colony.COLONIZED if _hive_on(cat) else '') + '\n' + _src.brief(_src_book())   # 🐝🧭 every mind knows the Colony + where to browse
     if pow_:
         _WORK[cat_id]['task']['pow'] = pow_
@@ -2202,6 +2203,8 @@ def _work_settle(store):
                     mc_ = cat['brainsCfg'].setdefault('minds', {})
                     mc_[w_['model']] = ((mc_.get(w_['model']) or []) + [{'at': time.time(), 'text': str(x)[:240]} for x in w_['best']])[-_ca.MIND_CLOUD_MAX:]
                     w_['best'] = []
+            for x_ in (t.get('filed') or [])[-12:]:   # 📥 what its windows read + noted while browsing → the cabinet, with where it came from
+                cat['brainsCfg']['cloud'] = ((cat['brainsCfg'].get('cloud') or []) + [{'at': time.time(), 'word': 'FILED', 'sym': '', 'text': f"📥 {x_.get('site')}: {x_.get('text')}"[:240], 'by': ['browser']}])[-_lc.CLOUD_MAX:]
             for k_ in t.get('keep') or []:   # ☁ the best of both scratch pads → its main cloud (the rest was thrown away)
                 cat['brainsCfg']['cloud'] = ((cat['brainsCfg'].get('cloud') or []) + [{'at': time.time(), 'word': 'KEEP', 'sym': '', 'text': str(k_)[:240], 'by': ['both']}])[-_lc.CLOUD_MAX:]
             cat['chat'] = list(cat.get('chat') or []) if t.get('pow') else (list(cat.get('chat') or []) + [{'by': 'you', 'text': t.get('text'), 'at': w.get('at')},

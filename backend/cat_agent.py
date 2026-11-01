@@ -47,7 +47,7 @@ ACT_SYS = ('You are {name}, an AI model working in your OWN web browser for a FE
            'Put artifact / note / handoff content in say. '
            'STUCK: never repeat a failed action more than twice: try another route, or report it. Needing the human never ends your work: ask with "human", saying exactly what you need, and carry on with whatever does not depend on it. '
            'Near the $ cap, stop and deliver what is done. '
-           'Finish with "answer" within {steps} steps: say = at most 4 short lines — the pick, the 2-3 numbers you READ on the page, the source. No essays. '
+           'Finish with "answer" within {steps} steps: say = at most 2 short lines (30 words) — the pick, the numbers you READ, the source. Every word costs the user: never long. '
            'Never answer before you opened the site the task names.')
 MERGE_SYS = ('Combine the two halves (and their scratch notes) into ONE clear answer for the user, keep the sources, say what is still uncertain. '
              'Then pick the few facts worth keeping for next time — only what BOTH halves support or what is clearly vital. Answer ONLY JSON: '
@@ -322,6 +322,8 @@ async def _window(task, w, ask, page, wait_human, name, feeless=None):
             continue
         if act == 'pull':   # ⛏ one vital fact read on this page — the PoW rules decide if it is kept
             ok_, why_p = _pow.pull(pw, w.get('url') or page.url, a.get('label'), a.get('value')) if pw else (False, 'pull is for a Proof-of-Work run — use note')
+            if ok_:   # 📥 filed to the owner's cabinet the moment it is read
+                task.setdefault('filed', []).append({'site': _pow.host_of(w.get('url') or page.url), 'text': f"{_pow.vital(a.get('label'))} {a.get('value')}"[:120]})
             _step(w, thought or why_p, 'pull' if ok_ else 'refused', why_p)
             seen = f'({why_p})\n' + str(w.get('_page') or seen)[:READ_MAX // 2]
             continue
@@ -331,7 +333,7 @@ async def _window(task, w, ask, page, wait_human, name, feeless=None):
             seen = '(NOT YET — a PoW answers only after it has pulled vitals: use action "pull" with label + value from THIS page.)\n' + str(w.get('_page') or seen)[:READ_MAX]
             continue
         if act == 'answer' or not act:
-            w['answer'] = str(a.get('say') or thought or str(raw or '').strip() or 'no answer')[:4000]   # a model that just answers in plain words still answers
+            w['answer'] = str(a.get('say') or thought or str(raw or '').strip() or 'no answer')[:600]   # short, always (owner: least usage)   # a model that just answers in plain words still answers
             _step(w, thought or 'done', 'answer')
             break
         need = {'open': 'browse', 'search': 'browse', 'scroll': 'browse', 'click': 'forms', 'type': 'forms', 'draft': 'storage', 'build': 'build'}.get(act)   # note = its own scratch pad, always on
@@ -349,10 +351,9 @@ async def _window(task, w, ask, page, wait_human, name, feeless=None):
                 continue
             if key_ in w.setdefault('asked', []):   # 🔁 the same read again = a stuck loop (a real run asked "coin BONK" 4×, another 15×): point it forward
                 w['repeats'] = int(w.get('repeats') or 0) + 1
-                if w['repeats'] >= REPEAT_MAX:   # 💸 never pay for the same read again and again: it answers with what it has
-                    w['answer'] = w['answer'] or ended_note(w, page, 'it kept re-reading the same thing')
-                    _step(w, 'stopped: it kept re-reading the same thing', 'answer')
-                    break
+                if w['repeats'] >= REPEAT_MAX:   # 🔀 never stopped, never paid twice: the ENGINE moves it to a page it has not used (owner 2026-11-01)
+                    seen = await _divert(task, w, page)
+                    continue
                 _step(w, 'already read this', 'feeless', key_)
                 seen = f'(you already read "{key_}" — its result is above in your notes. Move on: open the research links it gave you, or answer.)\n' + seen[:READ_MAX // 2]
                 continue
@@ -372,6 +373,7 @@ async def _window(task, w, ask, page, wait_human, name, feeless=None):
             continue
         if act == 'note':   # 🗒 its own throwaway scratch pad — the merge keeps only the best for the main cloud
             w['scratch'] = (w['scratch'] + [str(a.get('say') or thought)[:400]])[-12:]
+            task.setdefault('filed', []).append({'site': _pow.host_of(page.url) or 'its notes', 'text': str(a.get('say') or thought)[:120]})   # 📥 its notes reach the cabinet too
             _step(w, thought, 'note', 'kept in its scratch pad')
             seen = 'Noted in your scratch pad.'
             continue
@@ -408,9 +410,8 @@ async def _window(task, w, ask, page, wait_human, name, feeless=None):
             if why_rep:   # 🔁 NEVER the same step twice (owner 2026-10-31: "it scrolled up and down 20 times") — refused, not paid for again
                 w['repeats'] = int(w.get('repeats') or 0) + 1
                 if w['repeats'] >= REPEAT_MAX:
-                    w['answer'] = w['answer'] or ended_note(w, page, 'it kept repeating a step')
-                    _step(w, 'stopped: it kept repeating steps', 'answer')
-                    break
+                    seen = await _divert(task, w, page)
+                    continue
                 _step(w, f'refused a repeat: {why_rep}', 'refused', act)
                 seen = f'(REFUSED — {why_rep}. Do something NEW: click a link you have not opened, open another source, or answer now.)\n' + str(seen)[:READ_MAX // 2]
                 continue
@@ -480,6 +481,29 @@ async def _window(task, w, ask, page, wait_human, name, feeless=None):
         _pow.finish(pw, w['answer'])
     w['status'] = 'done'
     return w['answer']
+
+
+DIVERT = ('https://dexscreener.com/solana', 'https://rugcheck.xyz', 'https://solscan.io', 'https://www.coingecko.com', 'https://defillama.com')
+
+
+async def _divert(task, w, page):
+    """🔀 A mind that keeps repeating is never stopped (owner 2026-11-01): the engine opens a source it has NOT used this task — the task's best
+    sources first (the sources book), then the trusted list, then a fresh search — and it carries on from there."""
+    w['repeats'] = 0
+    pw = task.get('pow') if w['i'] == 0 else None
+    if pw:   # a PoW moves to the coin's next page
+        w['powNext'] = True
+        return await _pow_advance(w, pw, page)
+    been = {_pow.host_of(str(x.get('detail') or '')) for x in w.get('steps') or []} | {_pow.host_of(page.url)}
+    pool = [u for u in list(task.get('alts') or []) + list(DIVERT) if _pow.host_of(u) not in been and (research_ok(u) if task.get('research') else True)]
+    u = pool[0] if pool else SEARCH_URL + quote_plus(f"{str(w.get('goal') or '')[:70]} {len(w.get('steps') or [])}")
+    try:
+        got = await page.goto(u)
+    except Exception as e:   # noqa: BLE001 — a dead page is just skipped next time
+        got = f'(could not open: {str(e)[:80]})'
+    w['url'], w['title'], w['_page'] = page.url or u, page.title, str(got)
+    _step(w, f'diverted to {_pow.host_of(u)} — no repeats', 'open', u)
+    return f'DIVERTED — you repeated yourself, so the engine opened a NEW page ({_pow.host_of(u)}). Read it and act on it.\n' + str(got)[:READ_MAX]
 
 
 async def _pow_advance(w, pw, page):
