@@ -115,6 +115,8 @@ def clean(data_dir, store, now=None):
 def public(cat, base=''):
     """The owner's view: rows + links + usage."""
     files = [{**f, 'url': f"{base}/api/cats/{cat['id']}/files/{f['id']}.{f['ext']}", 'expires': f.get('used', f.get('at', 0)) + TTL} for f in cat.get('files') or []]
+    ipfs = {x.get('file'): x for x in cat.get('ipfs') or []}   # ⛓ the files it keeps on IPFS (agent_ipfs.py)
+    files = [{**f, 'ipfs': ipfs[f['id']]} if f['id'] in ipfs else f for f in files]
     return {'files': files, 'used': used(cat), 'quota': QUOTA, 'ttlHours': TTL // 3600, 'cloud': {k: v for k, v in (cat.get('cloudLink') or {}).items() if k in ('provider', 'label', 'at')} or None}
 
 

@@ -827,7 +827,7 @@ export function AgentDesktop({ cat, live = null, onClose, onReopen, actions = nu
         <i aria-hidden="true">{ic}</i><span>{l}</span>{n(d) != null ? <b className="m-num">{n(d)}</b> : null}</button>)}</aside>
         <div className="dsk-pane"><p className="dsk-path">Vault <i>›</i> {VAULT_TABS.find(t => t[0] === tab)[2]}</p><div key={tab} className="dsk-pull">{pane}</div></div></div>
     </DeskWin> : null}
-    {[['pow', `⛏ PoW — ${cat.name || 'your agent'}`, <PowExplorer cat={cat} d={d} />], ['honey', '🍯 Honey pot', <HoneyPot cat={cat} />], ['wallet', '👛 Wallet', <WalletApp cat={cat} />], ['files', '☁ Files', <CloudDrawer cat={cat} attachments={d?.storage} />], ['cmds', '⌘ Commands', <CommandList rows={d?.commands} onPick={onCommand} />], ['jobs', '🗂 Jobs', <JobsFolder d={d} />], ['sources', '🌐 Sources', <SourcesFolder cat={cat} d={d} setD={setD} />]].map(([k, t, body]) =>
+    {[['pow', `⛏ PoW — ${cat.name || 'your agent'}`, <PowExplorer cat={cat} d={d} />], ['honey', '🍯 Honey pot', <HoneyPot cat={cat} />], ['wallet', '👛 Wallet', <WalletApp cat={cat} />], ['files', '☁ Files', <CloudDrawer cat={cat} attachments={d?.storage} ipfs={d?.ipfs || []} />], ['cmds', '⌘ Commands', <CommandList rows={d?.commands} onPick={onCommand} />], ['jobs', '🗂 Jobs', <JobsFolder d={d} />], ['sources', '🌐 Sources', <SourcesFolder cat={cat} d={d} setD={setD} />]].map(([k, t, body]) =>
       w[k].open && !w[k].min ? <DeskWin key={k} k={k} title={t} s={w[k]} top={top === k} set={set} onTop={() => setTop(k)} onClose={() => set(k, { open: false })}>{body}</DeskWin> : null)}
     <footer className="dsk-bar"><span className="dsk-start"><i aria-hidden="true" />FEELESS</span>
       {tasks.map(([k, ic, l]) => <button key={k} type="button" className={`dsk-task${!w[k].min && top === k ? ' is-on' : ''}`} onClick={() => { if (w[k].min || top !== k) { set(k, { min: false }); setTop(k); } else set(k, { min: true }); }} data-testid={`dsk-task-${k}`}>{ic} {l}</button>)}
@@ -913,7 +913,23 @@ const ago = t => { const s = Math.max(0, Date.now() / 1000 - (t || 0)); return s
 // ☁ ITS CLOUD = ITS OWNER'S (owner 2026-10-30: "FEELESS will not fund any storage"): connect your own Google Drive or Dropbox with their own
 // sign-in — FEELESS keeps a sealed pass, never the password. The bar is YOUR space left there; its 5 newest files in your FEELESS folder;
 // chat attachments (+) wait 24 h on FEELESS for its browser, ☁ keeps one in your cloud.
-export function CloudDrawer({ cat, attachments }) {
+// ⛓ KEEP ON IPFS (owner 2026-11-02): one file, 30 days, paid in SOL by ITS OWN wallet — the real cost first (a simulation, nothing signed),
+// then Pay = that exact quote, signed by Circle; the link stays on the file (and in the list below after the 24 h attachment is gone)
+function IpfsKeep({ cat, f, onStored }) {
+  const px = useSolPrice(); const [q, setQ] = useState(null); const [busy, setBusy] = useState(false); const [err, setErr] = useState('');
+  const call = async pay => { setBusy(true); setErr('');
+    try { const r = await fetch(apiUrl(`/api/cats/${cat.id}/files/${f.id}/ipfs`), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...agentAuth(), pay }) });
+      const j = await r.json().catch(() => ({})); if (!r.ok) throw new Error(j.detail || `HTTP ${r.status}`);
+      if (pay) { setQ(null); onStored?.(j.stored); } else setQ(j.quote); } catch (e) { setErr(e.message); } finally { setBusy(false); } };
+  if (f.ipfs) return <a className="m-chip ok cwb-ipfs-on" href={f.ipfs.url} target="_blank" rel="noopener noreferrer" data-tip={`On IPFS for ${f.ipfs.days} days · paid ${f.ipfs.sol} SOL from its wallet`}>⛓ on IPFS</a>;
+  return <span className="cwb-ipfs" data-testid={`cwb-ipfs-${f.id}`}>
+    {q ? <><em className="m-num" data-tip={`${q.days} days on IPFS — most of it is the rent of the on-chain record each upload makes`}>{q.sol.toFixed(6)} SOL{px ? ` · $${(q.sol * px).toFixed(2)}` : ''}</em>
+      <button type="button" className="m-btn m-go" disabled={busy || !!q.why} onClick={() => call(true)} data-tip={q.why || 'Its own wallet pays exactly this — Circle signs it'} data-testid={`cwb-ipfs-pay-${f.id}`}>{busy ? 'Paying…' : 'Pay'}</button>
+      <button type="button" className="m-btn cwb-cred-x" disabled={busy} onClick={() => setQ(null)} aria-label="Cancel">✕</button></>
+      : <button type="button" className="m-btn" disabled={busy} onClick={() => call(false)} data-tip="Keep it on IPFS for 30 days, paid in SOL from its own wallet — shows the exact price first, nothing is paid yet" data-testid={`cwb-ipfs-quote-${f.id}`}>{busy ? '…' : '⛓ IPFS'}</button>}
+    {q?.why ? <small className="kd-err">{q.why}</small> : null}{err ? <small className="kd-err" role="alert">⚠ {err}</small> : null}</span>;
+}
+export function CloudDrawer({ cat, attachments, ipfs = [] }) {
   const [c, setC] = useState(null); const [err, setErr] = useState(''); const [busy, setBusy] = useState('');
   const load = useCallback(() => fetch(apiUrl(`/api/cats/${cat.id}/cloud?${agentAuthQuery()}`)).then(r => r.json().then(j => (r.ok ? setC(j) : setErr(j.detail || `HTTP ${r.status}`)))).catch(e => setErr(e.message)), [cat.id]);
   useEffect(() => { load(); }, [load]);
@@ -921,7 +937,8 @@ export function CloudDrawer({ cat, attachments }) {
     const j = await r.json().catch(() => ({})); if (!r.ok) throw new Error(j.detail || `HTTP ${r.status}`); return j; };
   const run = async (k, fn) => { setBusy(k); setErr(''); try { await fn(); } catch (e) { setErr(e.message); } finally { setBusy(''); } };
   const connect = p => run(p, async () => { window.location.assign((await post('cloud/connect', { provider: p })).url); });
-  const link = c?.link; const used = Number(c?.used || 0); const total = Number(c?.total || 0); const files = attachments?.files || [];
+  const link = c?.link; const used = Number(c?.used || 0); const total = Number(c?.total || 0); const [added, setAdded] = useState([]); const kept = [...added, ...ipfs.filter(x => !added.some(a => a.cid === x.cid))];   // the desk's list + what was stored just now
+  const files = (attachments?.files || []).map(f => ({ ...f, ipfs: f.ipfs || kept.find(x => x.file === f.id) }));
   return <details className="cwb-vault cwb-cloudd" open data-testid="cwb-cloud-drawer"><summary data-tip="Its storage lives in YOUR cloud — FEELESS keeps none">☁ CLOUD {link ? <em className="m-chip ok">{link.label}</em> : <em className="m-chip warn">not connected</em>}</summary>
     {!link ? <div className="cwb-cloud-pick" data-testid="cwb-cloud-pick"><p className="m-note"><b>Connect your own cloud</b>Its files go to a FEELESS folder in your account. You sign in on Google / Dropbox — FEELESS never sees that password.</p>
       {(c?.providers || []).map(p => <button key={p.key} type="button" className={`m-btn${p.ready ? ' m-go' : ''}`} disabled={!p.ready || !!busy} onClick={() => connect(p.key)}
@@ -933,7 +950,9 @@ export function CloudDrawer({ cat, attachments }) {
         : <p className="cwb-cloud-empty">Nothing kept yet — ☁ a chat attachment below, or ask it to save something.</p>}
       <button type="button" className="m-btn cwb-cred-x" disabled={!!busy} onClick={() => run('off', async () => { await post('cloud/disconnect'); await load(); })} data-tip="Disconnect — FEELESS forgets the sealed pass">Disconnect</button></>}
     {files.length ? <ul className="cwb-cloud-files" data-testid="cwb-cloud-files" aria-label="Chat attachments (24 h)">{files.map((f, i) => <li key={f.id} style={{ '--i': i }}><span className="cwb-cloud-ico" aria-hidden="true">{f.mime?.startsWith('video/') ? '🎞' : '🖼'}</span>
-      <b>{f.name}</b><span className="m-num">{fileMb(f.size)}</span>{link ? <button type="button" className="m-btn" disabled={!!busy} onClick={() => run(f.id, async () => { await post(`files/${f.id}/keep`); await load(); })} data-tip={`Keep it in your ${link.label} (attachments leave FEELESS after 24 h)`} data-testid={`cwb-keep-${f.id}`}>{busy === f.id ? '…' : '☁ Keep'}</button> : <span className="m-chip">24 h</span>}</li>)}</ul> : null}
+      <b>{f.name}</b><span className="m-num">{fileMb(f.size)}</span>{link ? <button type="button" className="m-btn" disabled={!!busy} onClick={() => run(f.id, async () => { await post(`files/${f.id}/keep`); await load(); })} data-tip={`Keep it in your ${link.label} (attachments leave FEELESS after 24 h)`} data-testid={`cwb-keep-${f.id}`}>{busy === f.id ? '…' : '☁ Keep'}</button> : <span className="m-chip">24 h</span>}<IpfsKeep cat={cat} f={f} onStored={row => setAdded(x => [row, ...x])} /></li>)}</ul> : null}
+    {kept.length ? <ul className="cwb-ipfs-list" data-testid="cwb-ipfs-list" aria-label="Kept on IPFS">{kept.map((x, i) => <li key={x.cid} style={{ '--i': i }}><span aria-hidden="true">⛓</span>
+      <a href={x.url} target="_blank" rel="noopener noreferrer" data-tip={`IPFS ${x.cid}`}>{x.name}</a><em className="m-num">{x.sol} SOL</em><small>{x.expires ? `until ${x.expires}` : `${x.days} days`}</small></li>)}</ul> : null}
     {err ? <small className="kd-err" role="alert">⚠ {err}</small> : null}</details>;
 }
 
@@ -1024,7 +1043,7 @@ function WorkbenchLive({ cat }) {
       back={<><LastMoney m={d?.lastMoney} />
     <AgentLog title="FILES" items={log} onDesktop={() => setDesk(true)} open={signIn ? { key: 'creds', at: signIn.at } : null} cabinet={[
       ...keyDrawers(cat, d, setD, signIn),
-      ['storage', '☁', 'Storage', (d?.storage?.files || []).length, <CloudDrawer cat={cat} attachments={d?.storage} />],
+      ['storage', '☁', 'Storage', (d?.storage?.files || []).length, <CloudDrawer cat={cat} attachments={d?.storage} ipfs={d?.ipfs || []} />],
       ['earn', '⚡', 'Earn', (d?.lastMoney ? 1 : 0), <EarnCard cat={cat} />],
       ['cmds', '⌘', 'Commands', (d?.commands || []).length, <CommandList rows={d?.commands} onPick={setText} />],
       ['treasury', '🏦', 'Treasury', 0, <TreasuryDrawer cat={cat} />],

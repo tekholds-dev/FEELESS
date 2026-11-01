@@ -45,6 +45,7 @@ import agent_sources as _src   # 🧭 the sources book: which sites work for age
 import colony as _colony   # 🐝 the Colony: graded trades, the pot guards
 import pow as _pow   # ⛏ Proof of Work: one intake coin, ≤4 sites × ≤5 moves × ≤3 vitals, graded an hour on
 import agent_files as _af   # ☁ each agent's own storage (owner uploads, 1 GB, 7-day clean)
+import agent_ipfs as _ipfs   # ⛓ a file kept on IPFS, paid in SOL by the agent's own wallet (toju.network)
 import clarify as _cq   # ❓ first asks: 2–3 questions for a coin / money ask
 import agent_treasury as _tr   # 🏦 its coin's creator fees, read on-chain + split
 import chain_rpc as _crpc
@@ -3660,7 +3661,7 @@ async def cat_work(cat_id: str, p: WorkPayload):
     return {**out, 'cap': float(cat.get('taskCap') or TASK_CAP_DEFAULT), 'credit': b.get('credit'), 'spent': b.get('spent'), 'chat': (cat.get('chat') or [])[-20:],
             'live': _work_live(), 'providers': _cb.chain(os.environ), 'go': bool(cat.get('workGo')), 'workMode': cat.get('workMode') or 'plan',
             'cloud': (b.get('cloud') or [])[-8:], 'minds': {m: v[-8:] for m, v in (b.get('minds') or {}).items()}, 'handoffs': len((w.get('task') or {}).get('handoffs') or []) if w else 0, 'createdAt': cat.get('createdAt'),
-            'logins': _cv.public_logins(cat), 'secrets': _cv.public_secrets(cat), 'signedIn': [{'site': k, 'at': v.get('at'), 'n': v.get('n', 0), 'dropped': v.get('dropped', 0)} for k, v in (cat.get('siteSessions') or {}).items()], 'vaultLog': (cat.get('vaultLog') or [])[-12:], 'lastMoney': last_money(store.get('events') or [], cat_id), 'media': _cv.clean_media(cat), 'storage': _af.public(cat),   # ☁ its cloud: pool, quota, files
+            'logins': _cv.public_logins(cat), 'secrets': _cv.public_secrets(cat), 'signedIn': [{'site': k, 'at': v.get('at'), 'n': v.get('n', 0), 'dropped': v.get('dropped', 0)} for k, v in (cat.get('siteSessions') or {}).items()], 'vaultLog': (cat.get('vaultLog') or [])[-12:], 'lastMoney': last_money(store.get('events') or [], cat_id), 'media': _cv.clean_media(cat), 'storage': _af.public(cat), 'ipfs': list(reversed(cat.get('ipfs') or []))[:20],   # ☁ its cloud: pool, quota, files · ⛓ what it keeps on IPFS
             'job': cat.get('job', 'agent'), 'tools': _cp.toolkit(cat.get('job', 'agent'), cat.get('tools')), 'toolkits': _cp.TOOLS,
             'refusals': (cat.get('refusals') or [])[-20:] + [{'why': x} for x in ((w or {}).get('task') or {}).get('refusals', [])],
             'artifacts': (cat.get('artifacts') or [])[-10:] + ([] if (w or {}).get('settled') else ((w or {}).get('task') or {}).get('artifacts', [])),
@@ -3695,6 +3696,7 @@ class FilePayload(BaseModel):
     session: Optional[str] = None
     dataUrl: Optional[str] = None
     name: Optional[str] = None
+    pay: Optional[bool] = None         # ⛓ op ipfs: False = the free quote (simulated), True = pay the quote it showed
 
 
 def _owned(store, cat_id, owner_id, session=''):
@@ -3949,6 +3951,61 @@ async def cat_file_keep(cat_id: str, file_id: str, p: FilePayload):
             return {'kept': await _acl.upload(http, prov, tok, cat, f['name'], raw, f['mime'])}
         except Exception:
             raise HTTPException(502, 'Its cloud did not take the file — try again.')
+
+
+_IPFS_Q: dict = {}   # (cat, file) → the quote shown: {ins, cid, lamports, at}
+
+
+@app.post('/api/cats/{cat_id}/files/{file_id}/ipfs')
+async def cat_file_ipfs(cat_id: str, file_id: str, p: FilePayload):
+    """⛓ Keep an attachment on IPFS for 30 days, paid in SOL by ITS OWN wallet (agent_ipfs.py). pay=false → the real cost from a
+    simulation (nothing signed); pay=true → that same quote, simulated again, signed by Circle, confirmed, the link kept on the file."""
+    store = _load()
+    cat = _owned(store, cat_id, p.ownerId, p.session)
+    f = _af.find(cat, file_id); raw = _af.read(DATA_DIR, cat, file_id)
+    if not f or not raw:
+        raise HTTPException(404, 'No such file.')
+    w_ = cat.get('agentWallet') or {}; addr_ = w_.get('address')
+    if not addr_ or not _pays_itself(cat):
+        raise HTTPException(400, 'Only its own Circle wallet can pay for IPFS — make its wallet first.')
+    k_ = f'{cat_id}:{file_id}'; now = time.time()
+    async with httpx.AsyncClient(timeout=60) as http:
+        rpc_ = lambda m, ps: _crpc._rpc(http, m, ps)   # noqa: E731
+        try:
+            if not p.pay:
+                d_ = await _ipfs.deposit(http, raw, f['name'], f.get('mime'), addr_)
+                i0_ = _ipfs.check(d_, addr_)
+                lam_, _tx, bal_ = await _ipfs.cost(rpc_, addr_, i0_)
+                _IPFS_Q[k_] = {'ins': i0_, 'cid': d_['cid'], 'lamports': lam_, 'at': now}
+                return {'quote': {'cid': d_['cid'], 'sol': lam_ / 1e9, 'days': _ipfs.DAYS, 'why': _ipfs.afford(lam_, bal_, _at.GAS_SOL)}}
+            q_ = _IPFS_Q.get(k_)
+            if not q_ or now - q_['at'] > _ipfs.QUOTE_TTL:
+                raise HTTPException(409, 'Get the price again first (a quote lasts 10 minutes).')
+            lam_, tx_, bal_ = await _ipfs.cost(rpc_, addr_, q_['ins'])
+            if lam_ > q_['lamports'] * 1.1 + 1000:
+                raise HTTPException(409, f'The price moved to {lam_ / 1e9:.6f} SOL — get the price again.')
+            why_ = _ipfs.afford(lam_, bal_, _at.GAS_SOL)
+            if why_:
+                raise HTTPException(400, why_)
+            _IPFS_Q.pop(k_, None)
+            rec_ = {'key': f"feeless-{cat_id}-ipfs-{q_['cid'][-16:]}", 'tx': tx_}
+            await _at._circle_post(http, cat, rec_)
+            sig_ = rec_.get('sig')
+            for _ in range(20):
+                await asyncio.sleep(3)
+                st_ = ((await rpc_('getSignatureStatuses', [[sig_]])) or {}).get('value', [None])[0]
+                if st_ and st_.get('err'):
+                    raise HTTPException(400, f'The chain refused it — nothing kept ({str(st_["err"])[:60]}).')
+                if st_ and st_.get('confirmationStatus') in ('confirmed', 'finalized'):
+                    break
+            url_, exp_ = await _ipfs.confirm(http, q_['cid'], sig_, addr_)
+        except ValueError as e:
+            raise HTTPException(400, str(e))
+    row_ = {'file': file_id, 'name': f['name'], 'cid': q_['cid'], 'url': url_, 'sig': sig_, 'sol': round(lam_ / 1e9, 6), 'days': _ipfs.DAYS, 'at': round(now), 'expires': exp_}
+    st = _load(); c_ = st['cats'].get(cat_id)
+    if c_:
+        c_['ipfs'] = ((c_.get('ipfs') or []) + [row_])[-50:]; keep_owned(c_); _save(st)
+    return {'stored': row_}
 
 
 @app.get('/api/cats/{cat_id}/files')
