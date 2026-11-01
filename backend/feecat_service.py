@@ -1373,11 +1373,18 @@ async def _pow2_tick(http, store, cat, now):
             if want and int(want.get('tries') or 0) < 3:   # you asked: it retries a few ticks, never drops your ask silently
                 _POW_WANT[cat['id']] = {**want, 'tries': int(want.get('tries') or 0) + 1}
             return
-        for c in coins:   # 📥 each coin's FEELESS live read (free, server-side) goes into the folder
+        for c in coins:   # 📥 each coin's FEELESS live read + the SAME safety check a buy runs (free, server-side) — they only choose what can be bought
             try:
                 c['read'] = str((await _ct.run_tool(http, 'coin', c['mint']))[0])[:600]
             except Exception:   # noqa: BLE001
                 c['read'] = ''
+            try:
+                pp_ = await _order_pair(http, c['mint']); ok_, why_ = _co.buy_guards(pp_, now * 1000) if pp_ else (False, 'no pool')
+                if ok_:
+                    ok_, why_, _cv_ = await _safety(http, pp_)
+                c.update(safe=bool(ok_), risk=None if ok_ else str(why_)[:80])
+            except Exception as e:   # noqa: BLE001 — unknown = not safe
+                c.update(safe=False, risk=f'no safety read ({str(e)[:40]})')
         run_['n'] = int(run_.get('n') or 0) + 1
         run_['folder'] = f = _pow.folder_new(run_['n'], coins, now, minds)
         f.update(base=min(base, max(0, len(ms) - 1)), asked=bool(want), propose=bool((want or {}).get('propose')))
@@ -1387,33 +1394,36 @@ async def _pow2_tick(http, store, cat, now):
     b0 = int(f.get('base') or 0)
     names = [str(m).split('/')[-1][:24] for m in ms[b0:2]]
     ask_ = lambda i, *a: _pow2_ask(cat, b0 + i, *a)   # noqa: E731 — mind B alone = index 1
-    if f['phase'] == 'choose':
-        listing = '\n'.join(f"{k + 1}) ${c['sym']} [{_pow.SRC_LABEL[c['src']]}] pool ${c['liq']:,.0f} cap ${c['mc']:,.0f} — {c.get('read', '')[:300]}" for k, c in enumerate(f['coins']))
-        for i in range(f['minds']):
-            if str(i) in f['picks']:
-                continue
-            other = f['picks'].get(str(1 - i)) if f['disc'] else None
-            partner = (f" YOUR PARTNER PICKED {other + 1} ({f['coins'][other]['sym']}): \"{f.get('whys', {}).get(str(1 - i), '')}\" — agree, or keep yours with a reason." if other is not None else '')
-            cap_ = round(min(_at.MAX_BUY_SOL, _num(cat.get('budgetSol')) or _num((cat.get('risk') or {}).get('maxPositionSol')) or 0.05), 4)
-            raw_ = await ask_(i, _pow.CHOOSE_SYS.format(name=names[i] if i < len(names) else 'mind', partner=partner, cap=cap_), listing, 600)
-            k, why = _pow.parse_pick(raw_)
-            f.setdefault('trades', {})[str(i)] = _pow.trade_of(raw_, cap_)   # 🎚 its size / TP / SL
-            if k is None:
-                f['silent'] = int(f.get('silent') or 0) + 1
-                print(f"[pow2] {cat['id']} mind {i} gave no pick ({f['silent']}): {str(raw_)[:120]!r}")
-                if f['silent'] < 3:
-                    return   # asked again next tick
-                k, why = _pow.engine_pick(f['coins']), 'the mind stayed silent — the engine took the strongest by pool'   # never stuck
-            f['silent'] = 0
-            f['picks'][str(i)] = k; f.setdefault('whys', {})[str(i)] = why
-            _pow2_say(f, names[i] if i < len(names) else 'mind', f"picks ${f['coins'][k]['sym']} — {why}")
-        k = _pow.agree(f['picks'], f['minds'])
-        if k is None:
-            if f['disc']:
-                _pow2_close(cat, f, 'the minds did not agree — no buy', now); return
-            f['disc'] = 1; f['picks'] = {}; _pow2_say(f, 'engine', 'the minds picked different coins — one round of discussion'); return
-        c = f['coins'][k]; f.update(pick=c, mint=c['mint'], pair=c['pair'], sym=c['sym'], why0=f.get('whys', {}).get('0', ''), phase='buy', phaseAt=round(now))
-        tr_ = _pow.agree_trade(list((f.get('trades') or {}).values())) or {'sol': 0.01, 'tp': _pow.TAKE_PCT, 'sl': abs(_pow.STOP_PCT)}
+    if f['phase'] == 'choose':   # 🗣 3 turns, in your chat (owner 2026-11-01): A proposes → B agrees or suggests → A's FINAL plan
+        safe_ = [k for k, c in enumerate(f['coins']) if c.get('safe', True)]
+        if not safe_:
+            _pow2_close(cat, f, 'none of the 4 passed the safety check — no buy', now); return
+        listing = '\n'.join(f"{k + 1}) ${c['sym']} [{_pow.SRC_LABEL[c['src']]}] pool ${c['liq']:,.0f} cap ${c['mc']:,.0f}"
+                             + ('' if c.get('safe', True) else f" — UNSAFE ({c.get('risk')}), never pick it") + f" — {c.get('read', '')[:260]}" for k, c in enumerate(f['coins']))
+        turn = int(f.get('turn') or 0); last_ = turn >= (2 if f['minds'] > 1 else 0); i = 1 if (turn == 1 and f['minds'] > 1) else 0
+        cap_ = round(min(_at.MAX_BUY_SOL, _num(cat.get('budgetSol')) or _num((cat.get('risk') or {}).get('maxPositionSol')) or 0.05), 4)
+        prev = f.get('said') or {}
+        partner = ('' if turn == 0 else f" YOUR PARTNER {'PROPOSES' if turn == 1 else 'ANSWERED'} {prev.get('k', 0) + 1} (${f['coins'][prev.get('k', 0)]['sym']}, "
+                   f"{prev.get('t', {}).get('sol')} SOL, TP +{prev.get('t', {}).get('tp')}%, SL −{prev.get('t', {}).get('sl')}%): \"{prev.get('why', '')}\". "
+                   + ('Agree, or suggest a better coin / trade and why.' if turn == 1 else 'Give the FINAL plan.'))
+        raw_ = await ask_(i, _pow.CHOOSE_SYS.format(name=names[i] if i < len(names) else 'mind', partner=partner, cap=cap_), listing, 600)
+        k, why = _pow.parse_pick(raw_)
+        if k is None or k not in safe_:
+            f['silent'] = int(f.get('silent') or 0) + (1 if k is None else 0)
+            if k is None and f['silent'] < 3:
+                return   # asked again next tick
+            k, why = max(safe_, key=lambda x: f['coins'][x]['liq']), (why or 'the engine took the safest by pool')   # never an unsafe coin, never stuck
+        f['silent'] = 0
+        tr_ = _pow.trade_of(raw_, cap_)
+        f['said'] = {'k': k, 't': tr_, 'why': why}; f.setdefault('trades', {})[str(i)] = tr_; f['picks'][str(i)] = k; f.setdefault('whys', {})[str(i)] = why
+        verb = 'final plan' if last_ else ('proposes' if turn == 0 else 'answers')
+        said_ = f"{verb}: ${f['coins'][k]['sym']} · {tr_['sol']:g} SOL · TP +{tr_['tp']:g}% · SL −{tr_['sl']:g}% — {why}"
+        _pow2_say(f, names[i] if i < len(names) else 'mind', said_)
+        cat['chat'] = (list(cat.get('chat') or []) + [{'by': 'cats', 'text': f"🗣 MIND {'AB'[b0 + i]} {said_}"[:400], 'at': time.time(), 'open': 'pow'}])[-40:]   # the discussion, in your chat
+        if not last_:
+            f['turn'] = turn + 1; return
+        c = f['coins'][k]; f.update(pick=c, mint=c['mint'], pair=c['pair'], sym=c['sym'], why0=why, phase='buy', phaseAt=round(now))
+        tr_ = _pow.agree_trade(list((f.get('trades') or {}).values())) or tr_   # the final coin; the safer of their trades
         f.update(sol=tr_['sol'], tp=tr_['tp'], sl=tr_['sl'])
         _pow2_say(f, 'engine', f"they set the trade: {tr_['sol']:g} SOL · take profit +{tr_['tp']:g}% · stop −{tr_['sl']:g}%")
         if f.get('propose'):   # 💡 a proposal: the agreed coin is filed as the card — nothing bought
@@ -1435,7 +1445,13 @@ async def _pow2_tick(http, store, cat, now):
         sol = round(float(f.get('sol') or min(_num((cat.get('risk') or {}).get('maxPositionSol')) or 0.05, _num(cat.get('budgetSol')) or 1.0)), 4)   # the size the minds agreed
         row = await _run_order(store, cat, f"buy {sol} SOL of {f['mint']}", http)
         if row.get('state') not in ('filled', 'proposed'):
-            _pow2_close(cat, f, f"buy refused — {row.get('why')}", now); return
+            f['tried'] = (f.get('tried') or []) + [f['mint']]
+            nxt_ = [c for c in f['coins'] if c.get('safe', True) and c['mint'] not in f['tried']]
+            if not nxt_:
+                _pow2_close(cat, f, f"buy refused — {row.get('why')} (no other safe coin)", now); return
+            c = max(nxt_, key=lambda x: x['liq'])   # 🔁 the next safe coin of the folder, never a dead end
+            _pow2_say(f, 'engine', f"${f['sym']} refused ({row.get('why')}) — next safe coin: ${c['sym']}")
+            f.update(pick=c, mint=c['mint'], pair=c['pair'], sym=c['sym']); return
         if row.get('state') == 'proposed':   # 💵 its OWN wallet buys — no signature from you (owner 2026-11-01); the server guards still run (budget · day cap · gas · one at a time)
             _pow2_approve(cat, row.get('pid'))
             f.update(sol=sol, real=True, pid=row.get('pid'), phaseAt=round(now))

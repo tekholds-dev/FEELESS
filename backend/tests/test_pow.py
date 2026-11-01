@@ -163,9 +163,13 @@ def test_the_service_runs_a_whole_folder_two_minds_discuss_buy_watch_research_de
             return R({'coins': _intake()}) if 'intake' in url else R([])
     monkeypatch.setattr(fs, '_pow2_dex', lambda http: _aw([{'mint': 'D4', 'pair': 'pd', 'sym': 'DDD', 'liq': 90000}]))
     monkeypatch.setattr(fs._ct, 'run_tool', lambda http, tool, q: _aw((f'read {q}', None)))
+    monkeypatch.setattr(fs, '_order_pair', lambda http, m: _aw({'baseToken': {'address': m}}))   # the safety reads every coin gets
+    monkeypatch.setattr(fs._co, 'buy_guards', lambda p, now_ms: (True, ''))
+    monkeypatch.setattr(fs, '_safety', lambda http, p: _aw((p['baseToken']['address'] != 'A1', 'top 10 hold 61%', 1.0)))
+
     px = {'v': 1.0}
     monkeypatch.setattr(fs, '_pair_prices', lambda http, pairs: _aw({p: {'priceNative': str(px['v']), 'priceUsd': str(px['v'] * 200)} for p in pairs}))
-    answers = {'0': ['{"pick": 1, "why": "deep pool"}', '{"pick": 2, "why": "ok, vol is better"}'], '1': ['{"pick": 2, "why": "vol 4x"}', '{"pick": 2, "why": "keep: vol"}']}
+    answers = {'0': ['{"pick": 2, "why": "deep pool", "size_sol": 0.04, "tp_pct": 50, "sl_pct": 20}', '{"pick": 2, "why": "final: BBB"}'], '1': ['{"pick": 2, "why": "agree, vol 4x", "size_sol": 0.02, "sl_pct": 15}']}
     decide = ['{"action": "HOLD", "say": "higher lows"}', '{"action": "SELL", "say": "it topped"}']
 
     async def ask(c, i, sys_, user_, max_tokens=180):
@@ -189,9 +193,12 @@ def test_the_service_runs_a_whole_folder_two_minds_discuss_buy_watch_research_de
         t += dt; asyncio.run(fs._pow2_tick(H(), store, cat, t))
     tick(); f = cat['powRun']['folder']
     assert [c['src'] for c in f['coins']] == ['intake', 'intake', 'pump', 'dex'] and f['name'].startswith('PoW #1 · ') and f['coins'][0]['read'] == 'read A1'
-    tick(); assert f['disc'] == 1 and f['phase'] == 'choose'                                # A said AAA, B said BBB: one round of discussion
-    tick(); assert f['phase'] == 'buy' and f['sym'] == 'BBB'                                # both agree on BBB
-    tick(); assert orders == ['buy 0.05 SOL of B2'] and f['phase'] == 'watch' and not f['real']
+    assert not f['coins'][0]['safe'] and 'UNSAFE' not in str(f['coins'][1])                # the safety check ran on all 4 before they talk
+    tick(); assert f['turn'] == 1 and 'proposes: $BBB' in cat['chat'][-1]['text']           # 🗣 A proposes (in your chat)
+    tick(); assert f['turn'] == 2 and 'answers: $BBB' in cat['chat'][-1]['text']            # B agrees / suggests
+    tick(); assert f['phase'] == 'buy' and f['sym'] == 'BBB' and 'final plan' in cat['chat'][-1]['text']   # A's final plan
+    assert (f['sol'], f['sl']) == (0.02, 15.0)                                              # the safer of their trades
+    tick(); assert orders == ['buy 0.02 SOL of B2'] and f['phase'] == 'watch' and not f['real']
     px['v'] = 1.1; tick(); assert f['phase'] == 'watch'                                     # it watches ≥ 3 min
     assert f['rr'] == 0                                                                      # its research round started WITH the watch (no window free here: skipped, never stuck)
     tick(pw.WATCH_S); assert f['phase'] == 'decide'                                         # ≥ 3 min watched + the round done → decide
@@ -236,6 +243,10 @@ def test_file_a_pow_in_chat_starts_a_folder_on_any_agent_one_mind_or_both_and_st
         async def get(self, url, **k): return R()
     monkeypatch.setattr(fs, '_pow2_dex', lambda http: _aw([{'mint': 'D4', 'pair': 'pd', 'sym': 'DDD', 'liq': 90000}]))
     monkeypatch.setattr(fs._ct, 'run_tool', lambda http, tool, q: _aw(('read', None)))
+    monkeypatch.setattr(fs, '_order_pair', lambda http, m: _aw({'baseToken': {'address': m}}))   # the safety reads every coin gets
+    monkeypatch.setattr(fs._co, 'buy_guards', lambda p, now_ms: (True, ''))
+    monkeypatch.setattr(fs, '_safety', lambda http, p: _aw((p['baseToken']['address'] != 'A1', 'top 10 hold 61%', 1.0)))
+
     monkeypatch.setattr(fs, '_pair_prices', lambda http, pairs: _aw({p: {'priceNative': '1', 'priceUsd': '200'} for p in pairs}))
     asked = []
 
@@ -253,7 +264,7 @@ def test_file_a_pow_in_chat_starts_a_folder_on_any_agent_one_mind_or_both_and_st
         asyncio.run(fs._pow2_tick(H(), store, cat, t))
     assert 'folder' in cat['powRun'], (cat['powRun'], cat.get('powFolders'))
     f = cat['powRun']['folder']
-    assert f['minds'] == 1 and f['base'] == 1 and asked == [1] and orders == ['buy 0.05 SOL of D4'] and f['asked']   # mind B alone picked + bought
+    assert f['minds'] == 1 and f['base'] == 1 and asked == [1] and orders[0].endswith('SOL of D4') and f['asked']   # mind B alone picked + bought
     assert fs._pow2_on(cat)                                                                  # its asked folder runs to the end
     fs._POW_WANT['g1'] = pw.command('stop PoW')
     asyncio.run(fs._pow2_tick(H(), store, cat, 160)); asyncio.run(fs._pow2_tick(H(), store, cat, 180))
@@ -271,7 +282,8 @@ def test_propose_a_pow_agrees_on_one_coin_and_files_the_card_without_buying(monk
         return '{"pick": 4, "why": "deepest"}'
     monkeypatch.setattr(fs, '_pow2_ask', ask)
     monkeypatch.setattr(fs, '_run_order', lambda *a: (_ for _ in ()).throw(AssertionError('a proposal never buys')))
-    asyncio.run(fs._pow2_tick(None, {'cats': {'p1': cat}}, cat, 200))
+    for t_ in (200, 220, 240):   # A proposes → B answers → A's final plan
+        asyncio.run(fs._pow2_tick(None, {'cats': {'p1': cat}}, cat, t_))
     done = cat['powFolders'][-1]
     assert 'proposes $DDD' in done['why'] and done['propose'] and 'folder' not in cat['powRun']
 
@@ -333,3 +345,21 @@ def test_each_researched_site_files_two_snapshots_for_the_coins_folder():
     shots = coin['_shots']
     assert [(s['site'], s['n']) for s in shots][:2] == [('rugcheck.xyz', 1), ('rugcheck.xyz', 2)] and shots[0]['jpg'].startswith(b'JPG:')
     assert all(sum(1 for x in shots if x['site'] == h) <= 2 for h in {x['site'] for x in shots})   # 2 a site, never more
+
+
+def test_a_refused_buy_moves_to_the_folders_next_safe_coin_never_a_dead_end(monkeypatch, tmp_path):
+    import feecat_service as fs
+    monkeypatch.setattr(fs, 'HIVE_PATH', tmp_path / 'hive.json')
+    cat = {'id': 'q1', 'name': 'Happy', 'risk': {}, 'positions': [], 'brainsCfg': {'kind': 'general', 'brains': ['x/a'], 'credit': 1.0}}
+    f = pw.folder_new(1, pw.gather(_intake(), [{'mint': 'D4', 'pair': 'pd', 'sym': 'DDD', 'liq': 90000}]), 100, 1)
+    c0 = f['coins'][3]; f.update(asked=True, phase='buy', phaseAt=100, pick=c0, mint='D4', pair='pd', sym='DDD', sol=0.01); cat['powRun'] = {'folder': f}
+    seen = []
+
+    async def order(store, c, text, http):
+        seen.append(text); return {'state': 'refused', 'why': '🛡 top 10 hold 28%'} if 'D4' in text else {'state': 'filled', 'why': 'ok'}
+    monkeypatch.setattr(fs, '_run_order', order)
+    monkeypatch.setattr(fs, '_pair_prices', lambda http, pairs: _aw({p: {'priceNative': '1', 'priceUsd': '200'} for p in pairs}))
+    asyncio.run(fs._pow2_tick(None, {'cats': {'q1': cat}}, cat, 120))
+    assert f['phase'] == 'buy' and f['sym'] == 'AAA' and 'next safe coin' in f['talk'][-1]['text']   # the deepest safe one not tried
+    asyncio.run(fs._pow2_tick(None, {'cats': {'q1': cat}}, cat, 140))
+    assert seen[-1] == 'buy 0.01 SOL of A1' and f['phase'] == 'watch'
