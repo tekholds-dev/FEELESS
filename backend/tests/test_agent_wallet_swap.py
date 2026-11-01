@@ -50,3 +50,33 @@ def test_a_quote_for_other_coins_is_never_signed(monkeypatch):
     with pytest.raises(fs.HTTPException) as e:
         _run(monkeypatch, lambda j: {'input_mint': j['input_mint'], 'output_mint': 'BONK', 'quote': {'transaction': 'TX'}})
     assert e.value.status_code == 502
+
+
+def test_send_to_the_pot_goes_only_to_the_colony_wallet_keeps_gas_and_lands_on_the_ledger(monkeypatch, tmp_path):
+    import base64
+    import json as _j
+    from solders.transaction import Transaction
+    store = {'cats': {'w1': {**CAT, 'agentWallet': {'address': '2CkRAi2Hb3k4EAUNxTWhwSnY54qasQB7JKRLM1hcczQ7', 'circleAcct': 'agent', 'circleId': 'cid'}}}}
+    signed = []
+    monkeypatch.setattr(fs, '_load', lambda: store); monkeypatch.setattr(fs, '_save', lambda s: None); monkeypatch.setattr(fs, '_owner_gate', lambda *a, **k: 'OWNER')
+    monkeypatch.setattr(fs, 'DATA_DIR', tmp_path); monkeypatch.setattr(fs, 'SHARES_PATH', tmp_path / 'shares.json')
+    (tmp_path / 'colony.json').write_text(_j.dumps({'wallet': {'address': '7poJPeupTfM1vd8fKWU694WaQ6sie52mbPTByJCRGpaQ'}}))
+
+    async def usdc(http, addr):
+        return 0.3, 0.0272
+
+    async def rpc(http, m, ps):
+        return {'value': {'blockhash': '11111111111111111111111111111111'}}
+
+    async def circle(http, c, rec):
+        signed.append(rec['tx']); rec['sig'] = 'POTSIG'
+    monkeypatch.setattr(fs, '_agent_usdc', usdc); monkeypatch.setattr(fs._crpc, '_rpc', rpc); monkeypatch.setattr(fs._at, '_circle_post', circle)
+    send = lambda sol: asyncio.run(fs.cat_work('w1', fs.WorkPayload(op='pot_send', cap=sol, session='s')))   # noqa: E731
+    with pytest.raises(fs.HTTPException) as e:
+        send(0.02)                                                                            # 0.0272 − 0.01 gas = 0.0172 max
+    assert e.value.status_code == 400 and 'keeps 0.01 SOL for gas' in e.value.detail and signed == []
+    out = send(0.005)['sent']
+    assert out == {'sol': 0.005, 'to': '7poJPeupTfM1vd8fKWU694WaQ6sie52mbPTByJCRGpaQ', 'sig': 'POTSIG'} and len(signed) == 1
+    tx = Transaction.from_bytes(base64.b64decode(signed[0])); keys = [str(k) for k in tx.message.account_keys]
+    assert keys[0] == '2CkRAi2Hb3k4EAUNxTWhwSnY54qasQB7JKRLM1hcczQ7' and '7poJPeupTfM1vd8fKWU694WaQ6sie52mbPTByJCRGpaQ' in keys and len(tx.message.instructions) == 1   # the ONE transfer, to the pot
+    last = fs._shares()[-1]; assert last['gift'] and last['sent'] and last['sol'] == 0.005 and last['sig'] == 'POTSIG'

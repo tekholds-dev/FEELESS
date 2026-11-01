@@ -925,6 +925,21 @@ def swap_plan(side, amount, sol, usdc, gas=None):
     return (_at.SOL, _cf_usdc, round(amt, 6)) if tok == 'SOL' else (_cf_usdc, _at.SOL, round(amt, 6))
 
 
+POT_SEND_MIN = 0.001
+
+
+def pot_transfer_tx(src, dst, lamports, blockhash):
+    """The one transfer the pot send may sign: the agent's wallet → the colony pot, this many lamports (base64, unsigned)."""
+    import base64 as _b64
+    from solders.hash import Hash
+    from solders.message import Message
+    from solders.pubkey import Pubkey
+    from solders.system_program import TransferParams, transfer
+    from solders.transaction import Transaction
+    ix = transfer(TransferParams(from_pubkey=Pubkey.from_string(src), to_pubkey=Pubkey.from_string(dst), lamports=int(lamports)))
+    return _b64.b64encode(bytes(Transaction.new_unsigned(Message.new_with_blockhash([ix], Pubkey.from_string(src), Hash.from_string(blockhash))))).decode()
+
+
 def think_keep_sol(cat):
     """The SOL its thinking top-up must leave alone: one full trade + the trade gas reserve + this swap's own fee room."""
     trade_ = max(_num(cat.get('budgetSol')), _num((cat.get('risk') or {}).get('maxPositionSol')))
@@ -3273,13 +3288,14 @@ async def colony_flow(limit: int = 40):
             if f_:
                 r.update(sol=round(_num(f_.get('sol')) + _num(f_.get('pnlSol')), 6), memo=r['memo'] + ' · ≈ pool price')
     rows += [{'at': int(x.get('at') or 0), 'kind': 'share', 'agent': names.get(x.get('cat'), 'agent'), 'sym': x.get('sym'), 'sol': _num(x.get('sol')), 'sig': x.get('sig'),
-              'memo': f"{x.get('pct')}% of a win to the pot" + ('' if x.get('sent') else ' · owed')} for x in shares if x.get('cat') in names]
+              'memo': 'sent to the pot' if x.get('gift') else f"{x.get('pct')}% of a win to the pot" + ('' if x.get('sent') else ' · owed')} for x in shares if x.get('cat') in names]
     rows.sort(key=lambda r: -r['at'])
     ep = _hv.epoch_of(now); board = _hv.board(_hive_cells(), ep)
     return _pub({'pow': {'folders': len(folders), 'trades': len(real), 'inSol': in_sol, 'won': sum(1 for f in real if _num(f.get('pnlSol')) > 0)},
                  'pnlSol': pnl, 'shares': {'owedSol': owed, 'count': len(shares), 'sharing': sum(1 for c in cats if (c.get('colonyShare') or {}).get('on'))},
                  'pot': {'address': pot_addr, 'sol': _FLOW_POT['sol']}, 'epoch': {'n': ep, 'left': _hv.epoch_left(now), 'honey': sum(int(r.get('honey') or 0) for r in board), 'agents': len(board)},
-                 'airdrop': {'next': cfg.get('nextAirdrop'), 'cadence': cfg.get('cadence'), 'paidSol': round(sum(_num(x.get('sol')) for x in shares if x.get('sent')), 6)},
+                 'airdrop': {'next': cfg.get('nextAirdrop'), 'cadence': cfg.get('cadence'), 'paidSol': round(sum(_num(x.get('sol')) for x in shares if x.get('sent') and not x.get('gift')), 6)},
+                 'sentSol': round(sum(_num(x.get('sol')) for x in shares if x.get('gift')), 6),
                  'agents': len(cats), 'colonized': sum(1 for c in cats if _hive_on(c)), 'ledger': rows[:max(1, min(100, int(limit)))]})
 
 
@@ -3690,6 +3706,36 @@ async def cat_work(cat_id: str, p: WorkPayload):
         if c_:
             c_['walletSwaps'] = ((c_.get('walletSwaps') or []) + [row_])[-20:]; _save(st_)
         return {'address': addr_, 'sol': after_[1], 'usdc': after_[0], 'gas': _at.GAS_SOL, 'canSwap': True, 'swap': row_, 'swaps': ((c_ or {}).get('walletSwaps') or [])[-8:]}
+    if p.op == 'pot_send':   # 🏺 owner 2026-11-02: send SOL from ITS OWN wallet to the colony pot — the pot address is the server's (no destination input), gas stays
+        addr_ = (cat.get('agentWallet') or {}).get('address')
+        if not addr_ or not _pays_itself(cat):
+            raise HTTPException(400, 'Only its own Circle wallet can send to the pot.')
+        try:
+            pot_ = ((json.loads((DATA_DIR / 'colony.json').read_text()) or {}).get('wallet') or {}).get('address')
+        except (OSError, ValueError):
+            pot_ = None
+        if not pot_:
+            raise HTTPException(400, 'The colony pot is not opened yet.')
+        if cat_id in _SWAP_BUSY:
+            raise HTTPException(409, 'A send is already on its way.')
+        sol_ = round(float(p.cap or 0), 6)
+        async with httpx.AsyncClient(timeout=30) as http:
+            _usdc, bal_ = await _agent_usdc(http, addr_)
+            if sol_ < POT_SEND_MIN or sol_ > bal_ - _at.GAS_SOL + 1e-9:
+                raise HTTPException(400, f'Send between {POT_SEND_MIN} and {max(0.0, bal_ - _at.GAS_SOL):.6f} SOL (it keeps {_at.GAS_SOL} SOL for gas).')
+            _SWAP_BUSY.add(cat_id)
+            try:
+                bh_ = ((await _crpc._rpc(http, 'getLatestBlockhash', [{'commitment': 'confirmed'}])) or {}).get('value', {}).get('blockhash')
+                rec_ = {'key': f"feeless-{cat_id}-pot-{round(time.time())}", 'tx': pot_transfer_tx(addr_, pot_, int(sol_ * 1e9), bh_)}
+                try:
+                    await _at._circle_post(http, cat, rec_)
+                except ValueError as e:
+                    raise HTTPException(400, f'{e} — nothing moved.')
+            finally:
+                _SWAP_BUSY.discard(cat_id)
+        rows_ = _shares()[-5000:] + [{'cat': cat_id, 'owner': owner_wallet(cat), 'sol': sol_, 'pct': None, 'sym': None, 'at': time.time(), 'sent': True, 'gift': True, 'sig': rec_.get('sig')}]
+        SHARES_PATH.write_text(json.dumps({'shares': rows_}))
+        return {'sent': {'sol': sol_, 'to': pot_, 'sig': rec_.get('sig')}}
     if p.op == 'seal':   # 🔏 the owner pastes a secret (a recovery phrase…): sealed with this agent's key, never shown on the page again until opened
         try:
             out_ = _cv.put_secret(cat, p.job or 'sealed note', text=p.secret or '', site=p.text or '', data_dir=DATA_DIR)

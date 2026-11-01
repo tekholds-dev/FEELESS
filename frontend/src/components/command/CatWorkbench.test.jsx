@@ -440,3 +440,20 @@ test('🤝 the PoW folder shares wins with the pot WITHOUT colonizing: pick 20% 
   expect(posts.at(-1)).toMatchObject({ op: 'share', on: false }); expect(signed.length).toBe(n); expect(n).toBe(before + 1);
   act(() => root.unmount());
 });
+
+test('🗂 Jobs is a folder tree: Jobs › a request (👍/👎 tinted) › MIND A · MIND B · ANSWER', async () => {
+  const { AgentDesktop } = require('./CatWorkbench');
+  sessionStorage.clear(); document.body.innerHTML = '';
+  const job = { id: 'j1', request: 'find the best SOL pool', at: Date.now() / 1000 - 60, cost: 0.004, status: 'done', answer: 'Meteora SOL/USDC, 38% APY',
+    minds: [{ model: 'x/haiku', job: 'pools', plan: ['open pools'], steps: [{ a: 'open', t: 'Pool Hub', d: 'pools' }], answer: '38%' }, { model: 'x/glm', job: 'gaps', steps: [] }] };
+  global.fetch = async () => ({ ok: true, json: async () => ({ jobs: [job], jobRates: { j1: 'up' } }) });
+  const el = document.createElement('div'); document.body.appendChild(el); const root = createRoot(el);
+  await act(async () => { root.render(<AgentDesktop cat={{ id: 'g1', name: 'Happy' }} onClose={() => {}} start="jobs" />); });
+  const q = id => document.querySelector(`[data-testid="${id}"]`);
+  expect(q('dsk-job-j1').className).toContain('is-good'); await act(async () => { q('dsk-job-j1').click(); });
+  expect(q('dsk-job-mind-0').textContent).toContain('MIND A'); expect(q('dsk-job-mind-1')).not.toBeNull();
+  await act(async () => { q('dsk-job-mind-0').click(); }); expect(q('dsk-jobs').textContent).toContain('Pool Hub');
+  await act(async () => { document.querySelector('.dsk-xpath .m-btn').click(); }); await act(async () => { q('dsk-job-answer').click(); });
+  expect(q('dsk-jobs').textContent).toContain('Meteora SOL/USDC'); expect(q('dsk-jobs').textContent).toContain('👍 you liked it');
+  act(() => root.unmount());
+});

@@ -638,17 +638,29 @@ export function CmdPop({ text, rows, onPick }) {
     <button type="button" role="option" aria-selected={i === 0} onMouseDown={e => { e.preventDefault(); onPick(c); }} data-testid={`cmdpop-${i}`}><code>{c}</code><span>{why}</span></button></li>)}</ul>;
 }
 // 🗂 every request as its exact log tree (owner 2026-11-01): your words → each mind's job, plan, steps, answer → the answer, with your 👍 / 👎
-function JobsFolder({ d }) {
-  const [open, setOpen] = useState(null); const jobs = d?.jobs || [];
-  if (!jobs.length) return <p className="dsk-note">No finished requests yet — each one lands here as a tree.</p>;
-  return <ul className="dsk-jobs" data-testid="dsk-jobs">{jobs.map(j => { const r = d?.jobRates?.[j.id]; const on = open === j.id;
-    return <li key={j.id} className={`${on ? 'is-open' : ''}${r ? ` is-${r}` : ''}`}>
-      <button type="button" onClick={() => setOpen(on ? null : j.id)} aria-expanded={on}><b>{r === 'up' ? '👍' : r === 'down' ? '👎' : '🗂'} {j.request}</b><small>{ago(j.at)} ago · ${Number(j.cost || 0).toFixed(4)} · {j.status}</small></button>
-      {on ? <div className="dsk-tree">{(j.minds || []).map((x, k) => <div key={k} className="dsk-tree-mind"><b>MIND {'AB'[k]} · {x.model}</b><em>{x.job}</em>
-        {x.plan?.length ? <ol className="dsk-tree-plan">{x.plan.map((p, n) => <li key={n}>{p}</li>)}</ol> : null}
-        <ul className="dsk-tree-steps">{(x.steps || []).map((st, n) => <li key={n}><i>{st.a}</i>{st.t}{st.d ? <small>{st.d}</small> : null}</li>)}</ul>
-        {x.answer ? <p className="dsk-tree-ans">↳ {x.answer}</p> : null}</div>)}
-        <p className="dsk-tree-final">✔ {j.answer}</p></div> : null}</li>; })}</ul>;
+function JobsFolder({ d }) {   // 🗂 the same explorer as PoW (owner 2026-11-02: "jobs etc are supposed to be styled in foldered work trees"): Jobs › a request › MIND A · MIND B · ANSWER
+  const [path, setPath] = useState([]); const jobs = d?.jobs || [];
+  if (!jobs.length) return <p className="dsk-note">No finished requests yet — each one lands here as a folder.</p>;
+  const j = jobs.find(x => x.id === path[0]); const r = j ? d?.jobRates?.[j.id] : null; const k = path[1];
+  const crumbs = [['Jobs', []], ...(j ? [[String(j.request).slice(0, 40), [j.id]]] : []), ...(k === 'answer' ? [['ANSWER', path]] : k != null ? [[`MIND ${'AB'[k]}`, path]] : [])];
+  let body;
+  if (!j) body = <><div className="hv-pow-stats">{[['REQUESTS', jobs.length], ['👍', Object.values(d?.jobRates || {}).filter(x => x === 'up').length], ['👎', Object.values(d?.jobRates || {}).filter(x => x === 'down').length], ['COST', `$${jobs.reduce((a, x) => a + (Number(x.cost) || 0), 0).toFixed(3)}`]].map(([kk, v]) =>
+    <span key={kk}><em>{kk}</em><b className="m-num">{v}</b></span>)}</div>
+    <div className="dsk-xgrid">{jobs.map((x, i) => { const rr = d?.jobRates?.[x.id]; return <Tile key={x.id} i={i} tone={rr === 'up' ? 'good' : rr === 'down' ? 'bad' : 'none'} ic={rr === 'up' ? '👍' : rr === 'down' ? '👎' : '🗂'}
+      label={String(x.request).slice(0, 22)} sub={`${ago(x.at)} ago · $${Number(x.cost || 0).toFixed(3)}`} onOpen={() => setPath([x.id])} tip={x.request} testid={`dsk-job-${x.id}`} />; })}</div></>;
+  else if (k === 'answer') body = <div className={`dsk-rep is-${r === 'up' ? 'good' : r === 'down' ? 'bad' : 'none'}`}><span className="dsk-rep-h"><b>📋 ANSWER</b><em>{r === 'up' ? '👍 you liked it' : r === 'down' ? '👎 you did not' : j.status}</em></span><p className="dsk-rep-l">{j.answer}</p>
+    <div className="hv-pow-stats">{[['MINDS', (j.minds || []).length], ['STEPS', (j.minds || []).reduce((a, m) => a + (m.steps || []).length, 0)], ['COST', `$${Number(j.cost || 0).toFixed(4)}`], ['WHEN', `${ago(j.at)} ago`]].map(([kk, v]) => <span key={kk}><em>{kk}</em><b className="m-num">{v}</b></span>)}</div></div>;
+  else if (k != null) { const x = (j.minds || [])[k] || {};
+    body = <div className="dsk-tree"><div className="dsk-tree-mind"><b>MIND {'AB'[k]} · {x.model}</b><em>{x.job}</em>
+      {x.plan?.length ? <ol className="dsk-tree-plan">{x.plan.map((p, n) => <li key={n}>{p}</li>)}</ol> : null}
+      <ul className="dsk-tree-steps">{(x.steps || []).map((st, n) => <li key={n} style={{ '--i': n % 20 }}><i>{st.a}</i>{st.t}{st.d ? <small>{st.d}</small> : null}</li>)}</ul>
+      {x.answer ? <p className="dsk-tree-ans">↳ {x.answer}</p> : null}</div></div>; }
+  else body = <div className="dsk-xgrid">{(j.minds || []).map((x, i) => <Tile key={i} i={i} tone="coin" ic="🧠" label={`MIND ${'AB'[i]}`} sub={`${String(x.model || '').split('/').pop()} · ${(x.steps || []).length} steps`} onOpen={() => setPath([j.id, i])} tip={x.job} testid={`dsk-job-mind-${i}`} />)}
+    <Tile kind="file" i={(j.minds || []).length} tone={r === 'up' ? 'good' : r === 'down' ? 'bad' : 'none'} ic="📋" label="ANSWER" sub={r === 'up' ? '👍' : r === 'down' ? '👎' : j.status} onOpen={() => setPath([j.id, 'answer'])} tip="What it answered" testid="dsk-job-answer" /></div>;
+  return <div className="dsk-pow" data-testid="dsk-jobs">
+    <p className="dsk-path dsk-xpath">{path.length ? <button type="button" className="m-btn" onClick={() => setPath(p => (p.length > 1 ? p.slice(0, 1) : []))} aria-label="Up one folder" data-tip="Up one folder">↑</button> : null}
+      {crumbs.map(([l, p], i) => <span key={i}>{i ? <i>›</i> : null}<button type="button" onClick={() => setPath(p)} disabled={i === crumbs.length - 1}>{l}</button></span>)}</p>
+    <div key={path.join('/')} className="dsk-pull">{body}</div></div>;
 }
 // 🌐 the sources book on the Desktop (owner 2026-11-01: "the full source list for users to click — a sign-in tab opens"): every trusted site, what it is
 // good for, how it treated the agents (opened / bot-checked), and Sign in → the site opens live in its window for you
@@ -748,6 +760,21 @@ function PowExplorer({ cat, d }) {
       <img src={shotUrl(cat.id, f, big.file)} alt={`${big.site} snapshot`} /><small>{big.site} · snapshot {big.n}{big.trade ? ` · ${big.trade === 'good' ? '👍 good' : '👎 bad'} trade` : ''} — tap to close</small></button> : null}
   </div>;
 }
+// 🏺 SEND TO THE COLONY POT (owner 2026-11-02): SOL from ITS OWN wallet to the colony pot — the server holds the pot address (no destination
+// field), the gas reserve always stays, Circle signs one transfer; it lands on the colony ledger with its tx
+const ColonyFlowLazy = lazy(() => import('./HiveBoard').then(m => ({ default: m.ColonyFlow })));
+const flowApi = u => fetch(apiUrl(u)).then(r => r.json());
+function PotSend({ cat }) {
+  const [amt, setAmt] = useState(''); const [busy, setBusy] = useState(false); const [msg, setMsg] = useState(''); const [ok, setOk] = useState(null);
+  const send = async () => { setBusy(true); setMsg(''); setOk(null);
+    try { const j = await work(cat.id, { op: 'pot_send', cap: Number(amt) }); setOk(j.sent); setAmt(''); } catch (e) { setMsg(e.message || 'Not sent — nothing moved.'); } finally { setBusy(false); } };
+  return <form className="dsk-potsend" onSubmit={e => { e.preventDefault(); send(); }} data-testid="dsk-potsend">
+    <span><b>🏺 SEND TO THE COLONY POT</b><small>From its own wallet, straight to the colony wallet — it always keeps its gas. Lands on the ledger with its tx.</small></span>
+    <span className="dsk-wal-amt"><input className="m-input" inputMode="decimal" placeholder="SOL to send" value={amt} onChange={e => setAmt(e.target.value.replace(/[^0-9.]/g, ''))} aria-label="SOL to send to the colony pot" />
+      <button type="submit" className="m-btn m-go" disabled={busy || !(Number(amt) > 0)} data-tip="Its wallet signs one transfer to the colony pot" data-testid="dsk-potsend-go">{busy ? 'Sending…' : 'Send'}</button></span>
+    {ok ? <small className="dsk-wal-msg" role="status">✓ {ok.sol} SOL sent to the pot · <a href={`https://solscan.io/tx/${ok.sig}`} target="_blank" rel="noopener noreferrer">tx ↗</a></small> : null}
+    {msg ? <small className="kd-err" role="alert">⚠ {msg}</small> : null}</form>;
+}
 // 🍯 the owner's Honey pot: its colony vitals (honey, right calls, the next airdrop, the pool) + the real ways to put into the colony (the 🐝 Colonize popout)
 function HoneyPot({ cat }) {
   const [v, setV] = useState(null); const [m, setM] = useState(null);
@@ -758,6 +785,7 @@ function HoneyPot({ cat }) {
   const share = cat.colonyShare || {}; const left = m?.nextAirdrop ? Math.max(0, m.nextAirdrop * 1000 - Date.now()) : null;
   const rate = v?.graded ? Math.round(100 * (v.right || 0) / v.graded) : null;
   return <div className="dsk-honey" data-testid="dsk-honey">
+    <Suspense fallback={<p className="dsk-note">reading the colony…</p>}><ColonyFlowLazy api={flowApi} meta={{ colonized: m?.colonized, total: m?.total }} /></Suspense>
     <div className="dsk-honey-vitals">
       <span className="dsk-honey-big" data-tip="Honey this epoch: its graded calls, proofs and trades, judged an hour on"><em>🍯 HONEY</em><b className={`m-num ${v?.honey > 0 ? 'is-up' : v?.honey < 0 ? 'is-dn' : ''}`}>{v ? `${v.honey > 0 ? '+' : ''}${v.honey || 0}` : '…'}</b><small>{v?.colonized ? '🐝 colonized' : 'not colonized'}</small></span>
       <span data-tip="Graded calls it got right this epoch"><em>RIGHT</em><b className="m-num">{rate == null ? '—' : `${rate}%`}</b><u><s style={{ transform: `scaleX(${(rate || 0) / 100})` }} /></u><small>{v ? `${v.right || 0} of ${v.graded || 0}` : ''}</small></span>
@@ -767,6 +795,7 @@ function HoneyPot({ cat }) {
     </div>
     <div className="dsk-honey-ways"><b>WAYS INTO THE COLONY</b><small>Opportunity 1 · stake into the colony pool — opens when the pool is live. Opportunity 2 · sign once to share a part of each winning trade; the colony airdrops back by what you shared.</small>
       <HiveSwitch cat={cat} /></div>
+    <PotSend cat={cat} />
   </div>;
 }
 // 👛 the agent's WALLET app (owner 2026-11-01: "desktop agent wallet swapping"): its live SOL + USDC, and YOUR swap inside its own wallet —
