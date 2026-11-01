@@ -47,7 +47,7 @@ const GUARD = { principalLock: ['🔒 Principal lock', 'What was staked or locke
 export function ColonyPot({ call }) {
   const [d, setD] = useState(null); const [err, setErr] = useState(''); const [busy, setBusy] = useState('');
   const [pool, setPool] = useState(''); const [plat, setPlat] = useState(''); const seeded = useRef(false);
-  const take = x => { if (x && 'policy' in x) { setD(x); setErr(''); if (!seeded.current) { seeded.current = true; setPool(x.pool?.address || ''); setPlat(x.pool?.platform || ''); } } else setErr('The colony did not answer.'); };
+  const take = x => { if (x && 'policy' in x) { setD(x); setErr(''); if (!seeded.current) { seeded.current = true; setPool(x.poolDraft?.amountA ? String(x.poolDraft.amountA) : ''); setPlat(x.poolDraft?.amountB ? String(x.poolDraft.amountB) : ''); } } else setErr('The colony did not answer.'); };
   useEffect(() => { let on = true; const go = first => { if (first || !document.hidden) call('/admin/colony').then(x => on && take(x)).catch(e => on && setErr(e.message)); };
     go(true); const t = setInterval(go, 30000); return () => { on = false; clearInterval(t); }; }, [call]);   // eslint-disable-line react-hooks/exhaustive-deps
   const act = async (action, extra) => { setBusy(action); setErr(''); try { take(await call('/admin/colony', { method: 'POST', body: JSON.stringify({ action, ...extra }) })); } catch (e) { setErr(e.message); } finally { setBusy(''); } };
@@ -73,11 +73,18 @@ export function ColonyPot({ call }) {
             <button type="button" className="m-btn" disabled={!!busy || !d.growthUsd} onClick={() => act('lock')} data-tip="Lock today's value in as principal: the floor only ever goes up, so gains compound instead of paying out" data-testid="colony-lock">{busy === 'lock' ? 'Locking…' : '🔒 Lock gains in'}</button></div>
         </div>
         <div className="hv-pot-row">
-          <form className="hv-pot-pool" onSubmit={e => { e.preventDefault(); act('pool', { address: pool.trim(), platform: plat.trim() }); }} data-tip="Opportunity 1: the pool you opened with the colony wallet — users see it in the Colonize popout">
-            <span>🌊 COLONY POOL {d.pool ? <em className="is-on">OPEN · {d.pool.platform}</em> : <em>not open</em>}</span>
-            <input className="m-input" value={plat} onChange={e => setPlat(e.target.value)} placeholder="platform (e.g. Meteora)" aria-label="Pool platform" data-testid="colony-pool-platform" />
-            <input className="m-input" value={pool} onChange={e => setPool(e.target.value)} placeholder="pool address" aria-label="Pool address" data-testid="colony-pool-addr" />
-            <button type="submit" className="m-btn" disabled={!!busy} data-testid="colony-pool-save">{pool.trim() ? 'Save the pool' : 'Clear'}</button></form>
+          <form className="hv-pot-pool" onSubmit={e => e.preventDefault()} data-tip="Opportunity 1: the colony's own FEECAT / SOL pool on Meteora — fees compound into it, the colony wallet pays, nothing is sent until you create">
+            <span>🌊 COLONY POOL {d.pool ? <em className="is-on">OPEN · {d.pool.platform}</em> : <em>Meteora · not open</em>}</span>
+            {d.pool ? <small className="hv-pool-addr"><code>{d.pool.address.slice(0, 6)}…{d.pool.address.slice(-6)}</code>{d.pool.sol ? ` · ${d.pool.feecat?.toLocaleString()} FEECAT + ${d.pool.sol} SOL` : ''}{d.pool.lock ? ' · liquidity locked' : ''}</small> : <>
+              <label><small>FEECAT in</small><input className="m-input" inputMode="decimal" value={pool} onChange={e => setPool(e.target.value)} placeholder="1,000,000" aria-label="FEECAT to put in the pool" data-testid="colony-pool-feecat" /></label>
+              <label><small>SOL in</small><input className="m-input" inputMode="decimal" value={plat} onChange={e => setPlat(e.target.value)} placeholder="0.5" aria-label="SOL to put in the pool" data-testid="colony-pool-sol" /></label>
+              {Number(pool) > 0 && Number(plat) > 0 ? <small className="hv-pool-px">starts at {(Number(plat) / Number(pool)).toPrecision(3)} SOL per FEECAT · fees compound into it · liquidity locked</small> : null}
+              <span className="hv-pool-acts"><button type="button" className="m-btn" disabled={!!busy || !(Number(pool) > 0 && Number(plat) > 0)} onClick={() => act('pool_preview', { feecat: Number(pool), sol: Number(plat) })} data-testid="colony-pool-preview"
+                data-tip="Builds the real transaction with Meteora's SDK and simulates it on Solana — free, nothing signed or sent">{busy === 'pool_preview' ? 'Simulating…' : '🔍 Preview (free)'}</button>
+                <button type="button" className="m-btn m-go" disabled={!!busy || !(d.poolDraft?.ok && d.poolDraft.amountA === Number(pool) && d.poolDraft.amountB === Number(plat))}
+                  onClick={() => window.confirm(`Create the colony pool on Meteora with ${Number(pool).toLocaleString()} FEECAT + ${plat} SOL from the colony wallet? The liquidity is LOCKED (it stays in the pool for good, earning compounding fees).`) && act('pool_create', { feecat: Number(pool), sol: Number(plat) })}
+                  data-testid="colony-pool-create" data-tip="Circle signs it as the colony wallet and it is sent — only after a clean preview of these exact amounts">{busy === 'pool_create' ? 'Creating…' : '🌊 Create the pool'}</button></span>
+              {d.poolDraft ? <small className={`hv-pool-sim ${d.poolDraft.ok ? 'is-ok' : 'is-bad'}`} data-testid="colony-pool-sim">{d.poolDraft.ok ? `✓ simulation passed · pool ${String(d.poolDraft.pool).slice(0, 6)}…` : `✗ simulation: ${String(d.poolDraft.err).includes('AccountNotFound') ? 'the colony wallet has no SOL yet — fund it first' : String(d.poolDraft.err).slice(0, 90)}`}</small> : null}</>}</form>
           <div className="hv-pot-set"><label><span>🪂 AIRDROP<b className="m-num">{d.sharers}</b><small>signed sharers · {d.sharedSol} SOL shared, unsent</small></span>
             <span className="m-seg" role="group" aria-label="How often the airdrop pays">{[['daily', 'Every 24 h'], ['weekly', 'Weekly']].map(([k, l]) => <button key={k} type="button" className={d.policy.cadence === k ? 'active' : ''} aria-pressed={d.policy.cadence === k} disabled={!!busy} onClick={() => act('policy', { policy: { cadence: k } })} data-testid={`colony-cadence-${k}`}>{l}</button>)}</span></label></div>
         </div>

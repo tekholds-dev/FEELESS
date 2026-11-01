@@ -140,3 +140,6 @@ body.theme-day .hv-opp { background: #faf7ff; border-color: #7c4dff33; } body.th
 @keyframes clDrop { 0% { opacity: 0; transform: translateY(-14px) scale(.9); } 15% { opacity: 1; transform: none; } 70% { opacity: 1; transform: translateY(46px) scale(.85); } 100% { opacity: 0; transform: translateY(58px) scale(.4); } }
 body.fx-lite .cl-drop { animation: none; display: none; } @media (prefers-reduced-motion: reduce) { .cl-drop { animation: none; display: none; } }
 body.theme-day .cl-carry { color: #5b4a2a; }
+.hv-pot-pool label { display: grid; gap: 2px; } .hv-pot-pool label small, .hv-pool-px { font: 700 9px var(--f-mono); color: #9d8fbf; letter-spacing: .06em; }
+.hv-pool-acts { display: flex; flex-wrap: wrap; gap: 6px; } .hv-pool-addr { font: 600 10px var(--f-mono); color: #c8bde6; } .hv-pool-addr code { color: #45e486; }
+.hv-pool-sim { font: 700 10px var(--f-mono); } .hv-pool-sim.is-ok { color: #45e486; } .hv-pool-sim.is-bad { color: #ff8fa3; }

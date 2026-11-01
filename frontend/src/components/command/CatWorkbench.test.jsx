@@ -314,3 +314,14 @@ test('📥 a kept note drops from where its cursor was — only a NEW keep, neve
   expect(seen.at(-1)).toMatchObject({ icon: '📈', label: 'coin HUSS', x: 0.3, y: 0.4 });
   act(() => root.unmount());
 });
+
+test('🗄 the cabinet shows 12, adds 12 at a time to 40, then sends you to its Desktop', async () => {
+  const { AgentLog } = require('./CatCockpit');
+  const items = Array.from({ length: 50 }, (_, i) => ({ f: 'cloud', text: `note ${i}`, at: 1 }));
+  const el = document.createElement('div'); document.body.appendChild(el); const desk = jest.fn();
+  await act(async () => { createRoot(el).render(<AgentLog items={items} onDesktop={desk} />); });
+  expect(el.querySelectorAll('.ck-rows > li:not(.ck-more)')).toHaveLength(12);
+  for (let k = 0; k < 3; k++) await act(async () => { el.querySelector('[data-testid="log-more"]').click(); });
+  expect(el.querySelectorAll('.ck-rows > li:not(.ck-more)')).toHaveLength(40); expect(el.querySelector('[data-testid="log-more"]')).toBeNull();
+  await act(async () => { el.querySelector('[data-testid="log-desktop"]').click(); }); expect(desk).toHaveBeenCalled();
+});

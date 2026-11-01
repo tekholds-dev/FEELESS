@@ -132,3 +132,10 @@ body.fx-lite .ck-safe-ic { animation: none; }
 @media (prefers-reduced-motion: reduce) { .ck-safe-ic { animation: none; } }
 body.theme-day .ck-safe-box { background: #fff5f7; } body.theme-day .ck-safe-box b { color: #8a1c33; } body.theme-day .ck-safe-box p { color: #5a2a36; }
 @media (max-width: 640px) { .ck-safe-box { padding: 16px 12px; } }
+/* 🗄 the cabinet scrolls inside itself: its drawers and its list each stop at a height; 12 at a time to 40, the rest on its Desktop */
+.cwb-back .ck-log .ck-folders, .cwb-tools-rail .ck-log .ck-folders { max-height: 460px; overflow-y: auto; scrollbar-width: thin; }
+.ck-more { display: grid; justify-items: center; padding: 6px 0 2px; list-style: none; }
+.ck-more button { min-height: 32px; padding: 0 14px; border-radius: 999px; border: 1px solid #b388ff55; background: #b388ff14; color: #e6dcff; font: 700 11px var(--f-ui, sans-serif); cursor: pointer; transition: background .15s, transform .12s; }
+.ck-more button:hover { background: #b388ff26; } .ck-more button:active { transform: scale(.97); } .ck-more button:focus-visible { outline: 2px solid #b388ff; outline-offset: 2px; }
+body.theme-day .ck-more button { background: #f3eefc; color: #2a1650; }
+@media (prefers-reduced-motion: reduce) { .ck-more button { transition: none; } }

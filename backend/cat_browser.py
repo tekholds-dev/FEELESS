@@ -524,6 +524,14 @@ class LivePage:
         closed = await self.clear_popup()
         return (f'(a popup was in the way — you pressed "{closed}" to close it)\n' if closed else '') + await self.read()
 
+    async def site_context(self, url=None):
+        """🍪 the live browser's cookies for the site it is on (a bot check you just passed leaves a clearance cookie) — to be cleaned + sealed."""
+        try:
+            ck = await self._p.context.cookies([url or self._p.url])
+        except Exception:
+            return {'cookies': [], 'localStorage': {}}
+        return {'cookies': list(ck or []), 'localStorage': {}}
+
     async def clear_popup(self, tries=2):
         """🪟 A popup covering the page is closed the way a person would: the mouse glides to its best close button and clicks. → what it pressed."""
         pressed = None

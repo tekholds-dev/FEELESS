@@ -1843,7 +1843,10 @@ async def _work_run(cat_id, models, names, text, cap, brief='', efforts=None, ow
                             await pg_.start()   # the agent takes the window back where you left it
                         except Exception as e:
                             print(f'[agent window] {cat_id}: could not take the window back ({str(e)[:80]})')
-                return bool(w['go'].pop(i, False))
+                went_ = bool(w['go'].pop(i, False))
+                if went_ and check_ and pg_ and not win_.get('redirect'):   # 🍪 you passed the check: keep its pass (sealed) so its next windows skip it
+                    await _keep_pass(cat_id, pg_, h_.get('url') or win_.get('url'))
+                return went_
             async def feeless(tool, q=''):   # 🧰 FEELESS first: our own read-only tools, server-side (the browser is walled off from us)
                 return await _ct.run_tool(http, tool, q)
             await _ca.run(w['task'], ask, pages, wait_human, names, feeless)
@@ -2697,6 +2700,26 @@ class WorkPayload(BaseModel):
 
 
 _SIGNIN = {}   # cat_id → the owner's open sign-in window {sid, site, page}
+
+
+async def _keep_pass(cat_id, page, url):
+    """🍪 A bot check a person passed → that site's clearance cookies, cleaned (first-party, newest, no trackers) and sealed into its sign-ins.
+    Its next windows start with them (LivePage cookies). A clearance can still be refused from another IP — then the 30 s move-on applies."""
+    try:
+        site_ = _cv.site_of(url or page.url)
+        ctx_, st_ = _cb.clean_context(await page.site_context(url), site_)
+        if not ctx_.get('cookies'):
+            return False
+        store = _load(); cat = store['cats'].get(cat_id)
+        if not cat:
+            return False
+        cat.setdefault('siteSessions', {})[site_] = {'ctx': _ck.seal(json.dumps(ctx_), cat_id), 'at': time.time(), 'n': st_['kept'], 'dropped': st_['dropped'], 'kind': 'pass'}
+        vault_log(cat, 'kept a bot-check pass', site_); keep_owned(cat); _save(store)
+        _src_note(site_, True)
+        return True
+    except Exception as e:   # noqa: BLE001 — keeping a pass never breaks the task
+        print(f'[pass] {cat_id}: {str(e)[:100]}')
+        return False
 
 
 def _site_ctx(cat):

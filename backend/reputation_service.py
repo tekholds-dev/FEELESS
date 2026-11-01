@@ -31,6 +31,7 @@ import contextvars
 import trade_fills
 import collections
 import json
+import shutil
 import os
 import time
 import uuid
@@ -19588,9 +19589,40 @@ async def _colony_view():
             'bounds': _col.POLICY_BOUNDS, 'guards': list(_col.FIXED_GUARDS),
             'airdrop': _col.airdrop(live.get('shares'), set(live.get('sharers') or []), pay, _col.period_of(time.time(), policy['cadence'])[1] - _col.CADENCES[policy['cadence']]),
             'nextAirdrop': _col.period_of(time.time(), policy['cadence'])[1], 'sharers': len(live.get('sharers') or []),
-            'sharedSol': round(sum(float(x.get('sol') or 0) for x in live.get('shares') or []), 6), 'pool': d.get('pool'), 'board': (live.get('board') or [])[:10],
+            'sharedSol': round(sum(float(x.get('sol') or 0) for x in live.get('shares') or []), 6), 'pool': d.get('pool'), 'poolDraft': d.get('poolDraft'), 'board': (live.get('board') or [])[:10],
             'colonized': live.get('colonized', 0), 'trades': live.get('trades', 0), 'epoch': live.get('epoch'), 'left': live.get('left'),
             'browsers': live.get('browsers') or [], 'log': (d.get('log') or [])[-8:]}
+
+
+COLONY_POOL_JS = Path(__file__).resolve().parent.parent / 'circle' / 'colony-pool.mjs'
+
+
+async def _colony_pool_build(d, body):
+    """🌊 Meteora DAMM v2 FEECAT/SOL with the colony wallet as payer (circle/colony-pool.mjs, Meteora's own SDK): the transaction + a FREE
+    on-chain simulation. Nothing is signed by the colony wallet here, nothing is sent."""
+    w = d.get('wallet') or {}
+    if not w.get('address'):
+        raise HTTPException(400, 'Create the pot wallet first.')
+    try:
+        fc, sol = float(body.get('feecat')), float(body.get('sol'))
+    except (TypeError, ValueError):
+        raise HTTPException(400, 'Give the FEECAT and SOL amounts.')
+    if not (fc > 0 and 0.01 <= sol <= 1000):
+        raise HTTPException(400, 'FEECAT > 0 and 0.01–1,000 SOL.')
+    args = {'payer': w['address'], 'mintA': ecosystem_mints()['feecat'], 'amountA': fc, 'amountB': sol, 'feeBps': int(body.get('feeBps') or 100),
+            'compoundingBps': int(body.get('compoundingBps') or 5000), 'lock': body.get('lock') is not False}
+    for _ in range(3):   # an RPC out of quota → the next one
+        rpc = _next_rpc_endpoint()
+        proc = await asyncio.create_subprocess_exec(shutil.which('node') or '/opt/homebrew/bin/node', str(COLONY_POOL_JS), cwd=str(COLONY_POOL_JS.parent), stdin=asyncio.subprocess.PIPE, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.DEVNULL)
+        out, _ = await asyncio.wait_for(proc.communicate(json.dumps({**args, 'rpc': rpc}).encode()), 90)
+        try:
+            r = json.loads(out.decode().strip().splitlines()[-1])
+        except Exception:
+            r = {'ok': False, 'error': 'the pool builder did not answer'}
+        if r.get('ok') or '429' not in str(r.get('error')):
+            break
+        _rpc_cooldown_until[rpc] = time.time() + 60
+    return args, r
 
 
 @app.get('/api/reputation/admin/colony')
@@ -19626,11 +19658,28 @@ async def admin_colony_set(request: Request):
         d['principalUsd'] = _col.raise_floor(d.get('principalUsd'), val['usd'])
     elif act == 'policy':
         d['policy'] = _col.clean_policy({**(d.get('policy') or {}), **(body.get('policy') or {})})
-    elif act == 'pool':   # 🌊 opportunity 1: the pool the owner opened with the colony wallet (its address on the platform) — or none
-        pa_ = str(body.get('address') or '').strip(); pf_ = str(body.get('platform') or '').strip()[:24]
-        if pa_ and not _re.match(r'^[1-9A-HJ-NP-Za-km-z]{32,44}$', pa_):
-            raise HTTPException(400, 'Not a pool address.')
-        d['pool'] = {'address': pa_, 'platform': pf_ or 'pool', 'at': now} if pa_ else None
+    elif act == 'pool_preview':   # 🌊 build + simulate the Meteora pool (free) — remembered so 'pool_create' may follow with the SAME amounts
+        args_, r_ = await _colony_pool_build(d, body)
+        d['poolDraft'] = {k: args_[k] for k in ('amountA', 'amountB', 'feeBps', 'compoundingBps', 'lock')} | {'at': now, 'ok': bool(r_.get('ok')) and r_.get('sim', {}).get('err') is None,
+                          'pool': r_.get('pool'), 'price': r_.get('price'), 'err': r_.get('error') or (r_.get('sim') or {}).get('err'), 'logs': (r_.get('sim') or {}).get('logs')}
+    elif act == 'pool_create':   # 🌊 the real thing: only after a clean preview of the same amounts in the last 10 min — Circle signs as the colony wallet, we broadcast
+        dr_ = d.get('poolDraft') or {}
+        same_ = dr_.get('amountA') == float(body.get('feecat') or 0) and dr_.get('amountB') == float(body.get('sol') or 0)
+        if not (dr_.get('ok') and same_ and now - int(dr_.get('at') or 0) < 600):
+            raise HTTPException(400, 'Preview these exact amounts first (the simulation must pass) — then create within 10 minutes.')
+        if (d.get('pool') or {}).get('address'):
+            raise HTTPException(400, 'The colony pool already exists.')
+        args_, r_ = await _colony_pool_build(d, body)
+        if not r_.get('ok') or (r_.get('sim') or {}).get('err') is not None:
+            raise HTTPException(400, f"The fresh simulation failed — nothing was sent ({str(r_.get('error') or r_.get('sim', {}).get('err'))[:120]}).")
+        sg_ = await _circle('POST', '/sign', {'walletId': d['wallet']['id'], 'rawTransaction': r_['tx'], 'memo': 'FEELESS colony pool (Meteora)'}, agent=True)
+        if not (sg_ or {}).get('signedTransaction'):
+            raise HTTPException(502, 'Circle did not sign the pool — nothing was sent.')
+        async with httpx.AsyncClient(timeout=20) as http_:
+            took_ = await _rpc_broadcast(http_, sg_['signedTransaction'])
+        d['pool'] = {'address': r_['pool'], 'platform': 'Meteora DAMM v2', 'at': now, 'sig': sg_.get('signature') or sg_.get('txHash'), 'nodes': took_,
+                     'feecat': args_['amountA'], 'sol': args_['amountB'], 'lock': args_['lock']}
+        d.pop('poolDraft', None)
     else:
         raise HTTPException(400, 'Unknown colony action.')
     d['log'] = (d.get('log') or [])[-40:] + [{'at': now, 'what': act, 'by': str(me_)[:8], 'principalUsd': d.get('principalUsd'), 'policy': d.get('policy')}]

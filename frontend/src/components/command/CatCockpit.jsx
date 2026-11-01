@@ -146,8 +146,9 @@ export function SafeGate({ label, onYes, onNo }) {
   </div>, document.body);
 }
 
-export function AgentLog({ items = [], title = 'ITS LOG', cabinet = [], open = null }) {
-  const [f, setF0] = useState('all'); const [hidden, setHidden] = useState(readHidden); const [ask, setAsk] = useState(null);
+const LOG_STEP = 12, LOG_MAX = 40;   // 🗄 the cabinet shows 12, scrolls inside, adds 12 at a time to 40 — the rest is on its Desktop
+export function AgentLog({ items = [], title = 'ITS LOG', cabinet = [], open = null, onDesktop }) {
+  const [f, setF0] = useState('all'); const [shown, setShown] = useState(LOG_STEP); useEffect(() => setShown(LOG_STEP), [f]); const [hidden, setHidden] = useState(readHidden); const [ask, setAsk] = useState(null);
   const guarded = useMemo(() => new Set(cabinet.filter(c => c[5]?.guard).map(c => c[0])), [cabinet]);
   const setF = k => (guarded.has(k) && !safeOk() ? setAsk(k) : setF0(k));
   useEffect(() => { if (open?.key) setF(open.key); }, [open]);   // eslint-disable-line react-hooks/exhaustive-deps
@@ -156,7 +157,7 @@ export function AgentLog({ items = [], title = 'ITS LOG', cabinet = [], open = n
   const keep = next => { setHidden(next); try { localStorage.setItem(HIDE_KEY, JSON.stringify(next)); } catch { /* private window: this visit only */ } };
   const hide = k => { keep([...new Set([...hidden, k])]); if (f === k) setF0('all'); };
   const counts = useMemo(() => items.reduce((m, x) => ({ ...m, [x.f]: (m[x.f] || 0) + 1 }), {}), [items]);
-  const rows = (f === 'all' ? items : items.filter(x => x.f === f)).slice(0, 40); const panel = extra[f]?.node;
+  const all = f === 'all' ? items : items.filter(x => x.f === f); const rows = all.slice(0, shown); const panel = extra[f]?.node;
   const drawers = [['all', ['🗂', 'All files']], ...cabinet.map(([k, ic, l]) => [k, [ic, l]]), ...Object.entries(FOLDERS)].filter(([k]) => k === 'all' || !hidden.includes(k));
   return <section className="ck-log" data-testid="agent-log">
     <header><b>🗄 {title}</b><small>a drawer per kind · newest first · no passwords or keys, ever</small></header>
@@ -166,7 +167,9 @@ export function AgentLog({ items = [], title = 'ITS LOG', cabinet = [], open = n
           <i aria-hidden="true">{ic}</i><span>{l}</span><b className="m-num">{n}</b><u className="ck-handle" aria-hidden="true" /></button></span>; })}
         {hidden.length ? <button type="button" className="ck-unhide" onClick={() => keep([])} data-tip={`Show ${hidden.map(k => names[k] || k).join(', ')} again`} data-testid="log-unhide">👁 {hidden.length} hidden · show</button> : null}</nav>
       {panel ? <div key={f} className="ck-panel ck-pull" role="tabpanel" data-testid={`cab-${f}`}>{panel}</div> : <ol key={f} className="ck-rows ck-pull" role="tabpanel">{rows.length ? rows.map((x, i) => <li key={`${x.f}-${String(x.text).slice(0, 80)}`} className={`is-${x.tone || 'mute'}`} style={{ '--i': Math.min(i, 10) }}>
-        <i aria-hidden="true">{FOLDERS[x.f]?.[0]}</i><span>{safeLine(x.text)}{x.n > 1 ? <em className="ck-x"> ×{x.n}</em> : null}</span><small>{x.at ? ago(x.at) : ''}</small></li>) : <li className="ck-empty">Nothing here yet.</li>}</ol>}
+        <i aria-hidden="true">{FOLDERS[x.f]?.[0]}</i><span>{safeLine(x.text)}{x.n > 1 ? <em className="ck-x"> ×{x.n}</em> : null}</span><small>{x.at ? ago(x.at) : ''}</small></li>) : <li className="ck-empty">Nothing here yet.</li>}
+        {all.length > rows.length && shown < LOG_MAX ? <li className="ck-more"><button type="button" onClick={() => setShown(n => Math.min(LOG_MAX, n + LOG_STEP))} data-testid="log-more">View more · {all.length - rows.length} left</button></li>
+          : all.length > rows.length && onDesktop ? <li className="ck-more"><button type="button" onClick={onDesktop} data-testid="log-desktop">🖥 Open all {all.length} on its Desktop</button></li> : null}</ol>}
     </div>
     {ask ? <SafeGate label={names[ask] || 'This drawer'} onYes={() => { setF0(ask); setAsk(null); }} onNo={() => setAsk(null)} /> : null}
   </section>;

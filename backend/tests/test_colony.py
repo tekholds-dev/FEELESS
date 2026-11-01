@@ -145,3 +145,48 @@ def test_the_desks_big_stop_also_stops_running_minds_and_a_third_repeat_read_end
     assert "w_['task']['stop'] = True" in src[i:i + 900] and '_hard_stop(w_)' in src[i:i + 900]
     assert ca.REPEAT_MAX == 3 and "if w['repeats'] >= REPEAT_MAX" in open(ca.__file__).read()
     assert fs.BLOCK_PIVOT_S == 30
+
+
+def test_a_bot_check_you_pass_is_kept_sealed_so_its_next_windows_skip_it(monkeypatch, tmp_path):
+    import asyncio, json, time as _t
+    import feecat_service as fs
+    store = {'cats': {'k1': {'id': 'k1', 'name': 'Kit'}}, 'events': []}
+    monkeypatch.setattr(fs, '_load', lambda: store); monkeypatch.setattr(fs, '_save', lambda s_: None)
+    monkeypatch.setattr(fs, 'SOURCES_PATH', tmp_path / 'src.json')
+    class Pg:
+        url = 'https://pump.fun/board'
+        async def site_context(self, url=None):
+            return {'cookies': [{'name': 'cf_clearance', 'value': 'abc', 'domain': '.pump.fun', 'path': '/', 'expires': _t.time() + 3600},
+                                {'name': '_ga', 'value': 'track', 'domain': '.pump.fun', 'path': '/'},
+                                {'name': 'other', 'value': 'x', 'domain': '.evil.com', 'path': '/'}], 'localStorage': {}}
+    assert asyncio.run(fs._keep_pass('k1', Pg(), 'https://pump.fun/board')) is True
+    sess = store['cats']['k1']['siteSessions']['pump.fun']; assert sess['kind'] == 'pass' and sess['n'] == 1   # the tracker + the other site's cookie dropped
+    ctx = json.loads(fs._ck.unseal(sess['ctx'], 'k1', data_dir=fs.DATA_DIR)); assert [c['name'] for c in ctx['cookies']] == ['cf_clearance']
+    assert fs._site_ctx(store['cats']['k1'])['cookies'][0]['name'] == 'cf_clearance'   # its next windows start with it
+    assert 'cf_clearance' not in json.dumps(fs._no_keys(store['cats']['k1']))   # never leaves the server
+
+
+def test_the_colony_pool_needs_a_clean_preview_of_the_same_amounts_before_circle_signs(monkeypatch, tmp_path):
+    """🌊 Meteora pool from the colony wallet: preview (free simulation) → create only with the same amounts within 10 min → Circle signs → broadcast."""
+    from fastapi.testclient import TestClient
+    import reputation_service as rs
+    monkeypatch.setattr(rs, 'COLONY_PATH', tmp_path / 'colony.json')
+    rs._json_save(rs.COLONY_PATH, {'wallet': {'address': 'PotWa11et1111111111111111111111111111111111', 'id': 'cw1'}})
+    monkeypatch.setattr(rs, '_require_owner', lambda r: 'OWNER')
+    async def view(): return {'ok': True}
+    monkeypatch.setattr(rs, '_colony_view', view)
+    sims = iter([{'ok': True, 'pool': 'POOL1', 'price': 5e-7, 'tx': 'TX', 'sim': {'err': None}}] * 3)
+    async def build(d, body): return ({'amountA': float(body['feecat']), 'amountB': float(body['sol']), 'feeBps': 100, 'compoundingBps': 5000, 'lock': True}, next(sims))
+    monkeypatch.setattr(rs, '_colony_pool_build', build)
+    signed = []
+    async def circle(m, path, body=None, agent=False): signed.append((path, body['walletId'], agent)); return {'signedTransaction': 'SIGNED', 'signature': 'SIG'}
+    monkeypatch.setattr(rs, '_circle', circle)
+    async def bcast(http, tx): return 3
+    monkeypatch.setattr(rs, '_rpc_broadcast', bcast)
+    c = TestClient(rs.app)
+    assert c.post('/api/reputation/admin/colony', json={'action': 'pool_create', 'feecat': 1e6, 'sol': 0.5}).status_code == 400 and not signed   # no preview yet
+    assert c.post('/api/reputation/admin/colony', json={'action': 'pool_preview', 'feecat': 1e6, 'sol': 0.5}).status_code == 200
+    assert c.post('/api/reputation/admin/colony', json={'action': 'pool_create', 'feecat': 2e6, 'sol': 0.5}).status_code == 400 and not signed   # different amounts
+    assert c.post('/api/reputation/admin/colony', json={'action': 'pool_create', 'feecat': 1e6, 'sol': 0.5}).status_code == 200
+    d = rs._json_load(rs.COLONY_PATH, {}); assert signed == [('/sign', 'cw1', True)] and d['pool']['address'] == 'POOL1' and d['pool']['platform'] == 'Meteora DAMM v2'
+    assert c.post('/api/reputation/admin/colony', json={'action': 'pool_create', 'feecat': 1e6, 'sol': 0.5}).status_code == 400   # once, ever
