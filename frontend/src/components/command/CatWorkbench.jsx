@@ -407,15 +407,22 @@ export function StoredPop({ item }) {
   return shown ? <div className="cwb-stored" role="status" data-testid="cwb-stored"><span className="cwb-stored-box" aria-hidden="true"><u /></span>
     <span className="cwb-stored-file"><em>🗄 FILED IN ITS CLOUD</em><b>{shown.text}</b></span></div> : null;
 }
+// ⛏ a visitor's three newest Proofs of Work under the monitors (owner 2026-10-31: "the 2 monitors and boxes for the latest 3 PoW")
+function PowStrip({ catId, seen }) {
+  const [rows, setRows] = useState(null);
+  useEffect(() => { if (!seen) return undefined; let on = true; const go = first => { if (first === true || !document.hidden) Promise.resolve().then(() => fetch(apiUrl(`/api/cats/pow?cat=${catId}&limit=3`))).then(r => (r?.ok ? r.json() : null)).then(x => on && x && setRows(x.rows || [])).catch(() => {}); };
+    go(true); const t = setInterval(go, 30000); return () => { on = false; clearInterval(t); }; }, [catId, seen]);
+  const list = [...(rows || []), null, null, null].slice(0, 3);
+  return <div className="cwb-powrow" data-testid="cwb-powrow" aria-label="Its latest proofs of work">{list.map((p, i) => <PowCard key={p?.id || `e${i}`} p={p} compact />)}</div>;
+}
 function PublicMinds({ cat }) {
   const ref = useRef(null); useFit(ref, 24); const seen = useOnScreen(ref);
   const [d, setD] = useState(null); const [tick, setTick] = useState(0);
-  useEffect(() => { if (!seen) return undefined; let on = true; const go = () => { if (document.hidden) return; setTick(t => t + 1); Promise.resolve().then(() => fetch(apiUrl(`/api/cats/${cat.id}/live`))).then(r => (r?.ok ? r.json() : null)).then(x => on && x && setD(x)).catch(() => {}); };
-    go(); const t = setInterval(go, 4000); return () => { on = false; clearInterval(t); }; }, [cat.id, seen]);
+  useEffect(() => { if (!seen) return undefined; let on = true; const go = first => { if (document.hidden && first !== true) return; setTick(t => t + 1); Promise.resolve().then(() => fetch(apiUrl(`/api/cats/${cat.id}/live`))).then(r => (r?.ok ? r.json() : null)).then(x => on && x && setD(x)).catch(() => {}); };
+    go(true); const t = setInterval(go, 4000); return () => { on = false; clearInterval(t); }; }, [cat.id, seen]);
   const brains = cat.brainsCfg?.brains || [];
   const wins = d?.windows?.length ? d.windows : brains.slice(0, 2).map((m, i) => ({ i, model: String(m).split('/').pop(), status: 'idle', host: '', steps: 0 }));
   const live = d?.status === 'working' || wins.some(w => w.status === 'working');
-  const agreed = d?.lastStored || (cat.brainsCfg?.cloud || []).at(-1);
   return <section ref={ref} className="cwb kd-card cwb-dash cwb-public" data-testid="cwb-public">
     <NowLine cat={cat} wins={wins.map(w => ({ ...w, status: w.frozen ? 'paused' : w.status, url: w.host ? `https://${w.host}` : '', bubble: w.frozen ? 'paused — its owner is signing in' : '' }))} live={live} />
     <div className="cwb-theater"><MindRail w={wins[0]} side="left" d={d} />
@@ -430,7 +437,7 @@ function PublicMinds({ cat }) {
             {go && !w.frozen ? <p className={`agd-done is-on cwb-say at-${i % 2 ? 'right' : 'left'}`}>MIND {'AB'[i]} · on {w.host || '…'}</p> : null}</div></div>
       </article>; })}</div>
     <MindRail w={wins[1] || { i: 1, status: 'idle' }} side="right" d={d} /></div>
-    {agreed ? <p className="cwb-agreed" data-tip="What both minds agreed on last — kept in its cloud">☁ {agreed.text || `${agreed.word} $${agreed.sym}`}</p> : null}
+    <PowStrip catId={cat.id} seen={seen} />
     <StoredPop item={d?.lastStored} />
   </section>;
 }

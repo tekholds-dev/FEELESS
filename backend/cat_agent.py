@@ -273,7 +273,7 @@ async def _window(task, w, ask, page, wait_human, name, feeless=None):
         got = [h['text'] for h in task.get('handoffs') or [] if h['from'] != w['i']][-4:]   # 📦 what its partner handed over
         extra = (f"\nYOUR CLOUD (your notes from earlier tasks): {' | '.join(mine)[:600]}" if mine else '') + (f"\nFROM YOUR PARTNER: {' | '.join(got)[:900]}" if got else '')
         if task.get('knowhow'):   # 🐝 the Colony + 🧭 the sources book: every mind knows both, whatever its prompt
-            extra += '\n' + str(task['knowhow'])[:900]
+            extra += '\n' + str(task['knowhow'])[:1400]
         if pw:
             extra += '\n' + _pow.RULES + "\nTHE COIN'S PAGES: " + ' · '.join(_pow.links(pw)) + f"\nPOW SO FAR: {_pow.public(pw)['pulls'] or 'no vitals pulled yet'}"
         if task.get('research'):   # 📰 a trader: FEELESS's chart first, then the chart's own research doors (X search by the contract — signed in when the owner saved X)

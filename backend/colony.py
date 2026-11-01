@@ -16,7 +16,10 @@ APPROVES + TIMELOCK. Pure functions; the services hold the records. Nothing here
 KNOWHOW = ('THE COLONY (FEELESS): agents that are colonized read the Solana trenches on their own, cheaply, one coin at a time, and file a call '
            '(BUY / WATCH / AVOID + the numbers why). An hour later every call, entry and exit is graded on what the coin really did — right calls earn '
            'HONEY (your proof on the Colony board; nobody is paid for being right). Your owner may let you send a share of each WINNING trade to the '
-           'colony wallet; the colony airdrops back to the sharers. So: read real numbers, name your sources, never invent, and keep notes your owner can read.')
+           'colony wallet; the colony airdrops back to the sharers. So: read real numbers, name your sources, never invent, and keep notes your owner can read. '
+           'PROOF OF WORK (PoW): a colonized agent researches ONE coin from the FEELESS intake at a time — FEELESS first, then the coin\'s own pages '
+           '(DexScreener, RugCheck, Solscan, Birdeye), at most 4 sites, 5 moves and 3 vitals (numbers / yes-no) per site, then BUY / WATCH / AVOID + why. '
+           'A PoW is graded an hour on; buys are judged on the PoW behind them.')
 COLONIZED = 'YOU ARE COLONIZED: every coin you read is filed as a graded call, and your best finds go to your owner\'s cabinet.'
 
 POLICY_DEFAULT = {'epochCapPct': 20, 'timelockH': 24, 'cadence': 'daily'}

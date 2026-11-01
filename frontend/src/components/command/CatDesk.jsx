@@ -135,7 +135,8 @@ function LiveMinds({ cat, onAct, busy, canEdit = true }) {
 
 // 👀 a visitor's desk is a theater (owner 2026-10-31: "no scroll bar at all"): fixed over the page's main area, the page can't scroll under it
 function useTheater(ref, on) {
-  useLayoutEffect(() => { if (!on) return undefined; const root = document.documentElement; const was = root.style.overflow;
+  useLayoutEffect(() => { if (!on || window.matchMedia?.('(max-width: 640px)').matches) return undefined;   // a phone stacks the monitors: it scrolls
+    const root = document.documentElement; const was = root.style.overflow;
     const place = () => { const el = ref.current; const main = el?.closest('.terminal-main') || document.querySelector('.terminal-main'); if (!el) return;
       const r = main ? main.getBoundingClientRect() : { left: 0, top: 0 }; el.style.setProperty('--th-l', `${Math.max(0, Math.round(r.left))}px`); el.style.setProperty('--th-t', `${Math.max(0, Math.round(r.top + window.scrollY))}px`); };
     window.scrollTo(0, 0); root.style.overflow = 'hidden'; document.body.classList.add('kd-theater-on'); place(); window.addEventListener('resize', place);
@@ -165,26 +166,28 @@ export function CatDesk({ cat, busy = false, error = '', onBack, onAct, Activity
   const theater = useRef(null); useTheater(theater, visitor);
   return <section ref={theater} className={`kd has-skin${tabbed || visitor ? ' is-tabbed' : ''}${visitor ? ' is-theater' : ''}${skin.bg !== 'night' ? ' is-glass' : ''}`} style={{ '--kd-acc': skin.acc }} data-testid="cat-desk"><DeskBackdrop bg={skin.bg} />
     <button type="button" className="kd-back" onClick={onBack} data-testid="kd-back" data-tip="Back to your agents"><ArrowLeft size={14} /> My agents</button>
-    <header className="kd-hero">
-      <button type="button" className="kd-dl" onClick={e => downloadSvgPng(e.currentTarget.parentElement.querySelector('.kd-stage svg'), cat.name).catch(() => {})}
-        aria-label={`Download ${cat.name}'s picture`} data-tip={`Download ${cat.name}'s picture (PNG, 1024 px) — e.g. for its coin or socials`} data-testid="kd-dl"><i aria-hidden="true" /></button>
-      <div className="kd-stage" aria-hidden="true"><i className="kd-spot" /><i className="kd-floor" />{cat.isLeader ? <FeeCatMark full size={170} gesture={v.mood} /> : <LookAvatar cat={catByName(cat.avatar)} look={cat.look} full size={170} large gesture={v.mood} />}</div>
-      <div className="kd-id">
-        <span className={`kd-state is-${state[1]}`} data-testid="kd-state"><i />{state[0]}</span>
-        <h1>{cat.name}<small>@{cat.handle}</small></h1>
-        <p className="kd-line">{cat.brainsCfg ? `🧠 ${cat.brainsCfg.brains.map(x => x.split('/').pop()).join(' + ')} · ${cat.brainsCfg.brainMode}` : `⚙ ${cat.strategyLabel || 'Rule trader'} · the Leader's engine`}</p>
-        <div className="kd-xp" data-tip={`Level ${cat.level || 1} · ${cat.xp || 0} / ${xpNext} XP — closed trades earn XP`}><b>LVL {cat.level || 1}</b><u><s style={{ transform: `scaleX(${Math.max(0.02, xpFill)})` }} /></u><small>{cat.xp || 0} XP</small></div>
-        <button type="button" className="kd-wallet" onClick={copy} data-tip={aw ? 'Its real wallet address — tap to copy' : cat.hasWallet ? 'Its real wallet — only its owner sees the address (sign in)' : gen ? 'No wallet yet — its owner gives it one' : 'Its paper wallet id — no keys, no real SOL'} data-testid="kd-wallet"><span>{aw || cat.hasWallet ? 'ITS WALLET' : gen ? 'WALLET' : 'PAPER WALLET'}</span><b>{aw ? short(aw.address) : cat.hasWallet ? 'private' : gen ? 'none yet' : short(cat.wallet)}</b><Copy size={12} />{copied ? <em>copied</em> : null}</button>
-        {Engine}
-      </div>
-      <div className="kd-acts m-seg" role="group" aria-label="Run the agent">
-        {runs ? <>{cat.status === 'running' ? <button type="button" className="kd-stop" disabled={busy} onClick={() => onAct('stop')} data-testid="kd-stop" data-tip="Stops new trades now (open paper trades stay)">⏹ Stop</button>
-          : <button type="button" className="kd-go" disabled={busy || cat.revoked} onClick={() => onAct('start')} data-testid="kd-start" data-tip="Starts it scanning the live board again">▶ Start</button>}
-</> : canEdit ? <span className="kd-visitor" data-tip="Your cat — her engine runs from her Fee desk below">👑 YOUR CAT</span> : <span className="kd-visitor" data-tip="You're viewing someone's agent — only its owner runs it">👀 VIEWING</span>}
-        {canEdit ? <SkinPicker skin={skin} set={setSkin} /> : null}
-        {runs ? <button type="button" disabled={busy || cat.revoked} onClick={() => onAct('run')} data-testid="kd-run" data-tip="Run one scan-and-decide cycle right now">⟳ One cycle</button> : null}
-      </div>
-    </header>
+    {visitor ? null : <>   {/* 👀 a visitor sees only the monitors + its proofs (owner 2026-10-31: "nothing on screen but the monitors") */}
+      <header className="kd-hero">
+        <button type="button" className="kd-dl" onClick={e => downloadSvgPng(e.currentTarget.parentElement.querySelector('.kd-stage svg'), cat.name).catch(() => {})}
+          aria-label={`Download ${cat.name}'s picture`} data-tip={`Download ${cat.name}'s picture (PNG, 1024 px) — e.g. for its coin or socials`} data-testid="kd-dl"><i aria-hidden="true" /></button>
+        <div className="kd-stage" aria-hidden="true"><i className="kd-spot" /><i className="kd-floor" />{cat.isLeader ? <FeeCatMark full size={170} gesture={v.mood} /> : <LookAvatar cat={catByName(cat.avatar)} look={cat.look} full size={170} large gesture={v.mood} />}</div>
+        <div className="kd-id">
+          <span className={`kd-state is-${state[1]}`} data-testid="kd-state"><i />{state[0]}</span>
+          <h1>{cat.name}<small>@{cat.handle}</small></h1>
+          <p className="kd-line">{cat.brainsCfg ? `🧠 ${cat.brainsCfg.brains.map(x => x.split('/').pop()).join(' + ')} · ${cat.brainsCfg.brainMode}` : `⚙ ${cat.strategyLabel || 'Rule trader'} · the Leader's engine`}</p>
+          <div className="kd-xp" data-tip={`Level ${cat.level || 1} · ${cat.xp || 0} / ${xpNext} XP — closed trades earn XP`}><b>LVL {cat.level || 1}</b><u><s style={{ transform: `scaleX(${Math.max(0.02, xpFill)})` }} /></u><small>{cat.xp || 0} XP</small></div>
+          <button type="button" className="kd-wallet" onClick={copy} data-tip={aw ? 'Its real wallet address — tap to copy' : cat.hasWallet ? 'Its real wallet — only its owner sees the address (sign in)' : gen ? 'No wallet yet — its owner gives it one' : 'Its paper wallet id — no keys, no real SOL'} data-testid="kd-wallet"><span>{aw || cat.hasWallet ? 'ITS WALLET' : gen ? 'WALLET' : 'PAPER WALLET'}</span><b>{aw ? short(aw.address) : cat.hasWallet ? 'private' : gen ? 'none yet' : short(cat.wallet)}</b><Copy size={12} />{copied ? <em>copied</em> : null}</button>
+          {Engine}
+        </div>
+        <div className="kd-acts m-seg" role="group" aria-label="Run the agent">
+          {runs ? <>{cat.status === 'running' ? <button type="button" className="kd-stop" disabled={busy} onClick={() => onAct('stop')} data-testid="kd-stop" data-tip="Stops new trades now (open paper trades stay)">⏹ Stop</button>
+            : <button type="button" className="kd-go" disabled={busy || cat.revoked} onClick={() => onAct('start')} data-testid="kd-start" data-tip="Starts it scanning the live board again">▶ Start</button>}
+  </> : canEdit ? <span className="kd-visitor" data-tip="Your cat — her engine runs from her Fee desk below">👑 YOUR CAT</span> : <span className="kd-visitor" data-tip="You're viewing someone's agent — only its owner runs it">👀 VIEWING</span>}
+          {canEdit ? <SkinPicker skin={skin} set={setSkin} /> : null}
+          {runs ? <button type="button" disabled={busy || cat.revoked} onClick={() => onAct('run')} data-testid="kd-run" data-tip="Run one scan-and-decide cycle right now">⟳ One cycle</button> : null}
+        </div>
+      </header>
+    </>}
     {tabbed ? <nav className="m-seg kd-tabs" role="tablist" aria-label="Its desk">{[['desk', '🖥 DESK', 'Its two windows, what it is doing now, the chat'], ['wallet', '👛 WALLET', 'Its wallet, funding, what it holds'], ['limits', '🎚 LIMITS', 'What it may spend and trade, retire it']].filter(([k]) => k !== 'limits' || runs || gen).map(([k, l, tip]) =>
       <button key={k} type="button" role="tab" aria-selected={tab === k} className={tab === k ? 'active' : ''} onClick={() => setTab(k)} data-tip={tip} data-testid={`kd-tab-${k}`}>{l}</button>)}</nav> : null}
     {error ? <p className="kd-err" role="alert">⚠ {error}</p> : null}

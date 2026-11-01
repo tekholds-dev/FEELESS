@@ -256,8 +256,9 @@ body.fx-lite .cwb-earn-list li, body.fx-lite .cwb-earn-sw.is-on i { animation: n
 .cwb-pub-host { font: 800 clamp(18px, 2.4vw, 30px) var(--f-mono); color: #fff; letter-spacing: .02em; text-shadow: 0 0 22px #b388ff66; animation: cwbIn .3s ease both; overflow-wrap: anywhere; }
 .agd-win.w1 .cwb-pub-host { text-shadow: 0 0 22px #ff5dbb66; }
 .cwb-pub-note { color: #8f83ad; font: 600 10.5px var(--f-ui); }
-.cwb-agreed { margin: 0; padding: 7px 12px; border-radius: 10px; border: 1px solid #ffffff12; background: #05030a; color: #d8ccf5; font: 600 12px var(--f-ui); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-body.theme-day .cwb-pubscreen { background: #f7f3ff; } body.theme-day .cwb-pub-host { color: #1c1230; } body.theme-day .cwb-agreed { background: #fff; color: #3a3058; }
+.cwb-powrow { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; } .cwb-powrow .ck-pow { align-content: start; }
+@media (max-width: 640px) { .cwb-powrow { grid-template-columns: minmax(0, 1fr); } }
+body.theme-day .cwb-pubscreen { background: #f7f3ff; } body.theme-day .cwb-pub-host { color: #1c1230; }
 body.fx-lite .cwb-pub-host { animation: none; } @media (prefers-reduced-motion: reduce) { .cwb-pub-host { animation: none; } }
 /* 🎫 the Agent Pass drawer: a ticket-gold header, its fee / cost / royalty as three cells, one mint button */
 .cwb-pass { display: grid; gap: 8px; padding: 12px; border-radius: 14px; border: 1px dashed #f5c54266; background: linear-gradient(160deg, #1a1405, #07040d); }
@@ -468,3 +469,4 @@ body.fx-lite .cwb-cursor.is-think::after { animation: none; opacity: .6; } @medi
 .cwb-back .agl-cloud { margin: 0 auto 10px; }   /* the head cloud lives on the files side now — the chat gets its room */
 /* 📱 phones: the two windows stack, each the full width (side by side they were too small to read) */
 @media (max-width: 760px) { .cwb-dash .cwb-stage.agd-wins, .cwb-public .cwb-stage { grid-template-columns: minmax(0, 1fr); } }
+@media (max-width: 640px) { .cwb-theater .cwb-rail { grid-template-columns: minmax(0, 1fr); justify-items: center; } .cwb-theater .cwb-rail > .cwb-rail-orb { grid-row: auto; } .cwb-theater .cwb-rail-kv { grid-template-columns: minmax(0, 1fr); } }

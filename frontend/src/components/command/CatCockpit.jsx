@@ -92,7 +92,7 @@ export function MindVitals({ cat, model, i = 0, kind = 'trading', live, extra, h
 const POW_TONE = { BUY: 'up', AVOID: 'dn', WATCH: 'warn' };
 export function PowCard({ p, compact = false }) {
   if (!p) return <div className="ck-pow is-empty" data-testid="ck-pow" data-tip="Colonized agents research one intake coin at a time: ≤4 sites, ≤5 moves and ≤3 vitals per site, graded an hour on">
-    <span className="ck-pow-h"><b>⛏ PoW</b><em>none yet</em></span><small>Colonize it — its next free moment researches an intake coin.</small></div>;
+    <span className="ck-pow-h"><b>⛏ PoW</b><em>none yet</em></span><small>No proof yet — a colonized agent researches one intake coin at a time.</small></div>;
   const tone = POW_TONE[p.call] || 'mute'; const st = Math.max(0, Math.min(100, Number(p.strength) || 0));
   return <div className={`ck-pow is-${tone}`} data-testid="ck-pow" style={{ '--st': st / 100 }}>
     <span className="ck-pow-h"><b>⛏ PoW</b><i className={`is-${tone}`}>{p.call || '…'}</i><strong>${p.sym}</strong><em>{p.at ? `${ago(p.at)} ago` : ''}</em></span>
