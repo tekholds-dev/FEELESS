@@ -379,12 +379,14 @@ function useTypeIn(text, on) {
     raf = requestAnimationFrame(step); return () => cancelAnimationFrame(raf); }, [text, on]);
   return text.slice(0, n);
 }
-function ChatMsg({ m, name, fresh = false, onOpen }) {
+function ChatMsg({ m, name, fresh = false, onOpen, rate, onRate }) {
   const you = m.by === 'you'; const parts = useMemo(() => chatParts(m.text), [m.text]); const tags = parts.tags;
   const text = useTypeIn(parts.text, fresh && !!m.at && Date.now() / 1000 - m.at < 20);
   return <li className={`cwb-msg ${you ? 'is-you' : 'is-cats'}`}><i className="cwb-av" aria-hidden="true">{you ? 'YOU' : '🧠'}</i>
     <div><header><b>{you ? 'You' : (name || 'Its minds')}</b>{tags.map(t => <em key={t} className="cwb-tag">{t}</em>)}{m.at ? <time>{ago(m.at)} ago</time> : null}{m.cost != null && !you ? <small className="m-num">{usd(m.cost)}</small> : null}</header>
       <p>{text}{m.n > 1 ? <em className="cwb-x"> ×{m.n}</em> : null}</p>
+      {m.tid && onRate ? <span className="cwb-rate" role="group" aria-label="Rate this answer — it goes into both minds' memory">{[['up', '👍', 'Good — it remembers to do it like this'], ['down', '👎', 'Not this — it remembers to do it differently']].map(([k, ic, tip]) =>
+        <button key={k} type="button" className={rate === k ? 'is-on' : ''} aria-pressed={rate === k} onClick={() => onRate(m.tid, k)} data-tip={tip} data-testid={`cwb-rate-${k}`}>{ic}</button>)}{rate ? <em>in memory · 🗂 Jobs</em> : null}</span> : null}
       {m.open === 'pow' && onOpen ? <button type="button" className="m-btn cwb-open-pow" onClick={() => onOpen('pow')} data-tip="Its PoW folder on the Desktop — the 4 coins, the picks, the talk, the P/L" data-testid="cwb-open-pow">⛏ Open the PoW folder</button> : null}</div></li>;
 }
 const DESK_TIPS = [['[data-testid="cwb-now"]', 'What it is doing', 'Live: the site each window is on and the step it is taking.'],
@@ -579,6 +581,19 @@ export function CmdPop({ text, rows, onPick }) {
   return <ul className="cwb-cmdpop" role="listbox" aria-label="Commands" data-testid="cwb-cmdpop">{hits.map(([c, why], i) => <li key={c} style={{ '--i': i }}>
     <button type="button" role="option" aria-selected={i === 0} onMouseDown={e => { e.preventDefault(); onPick(c); }} data-testid={`cmdpop-${i}`}><code>{c}</code><span>{why}</span></button></li>)}</ul>;
 }
+// 🗂 every request as its exact log tree (owner 2026-11-01): your words → each mind's job, plan, steps, answer → the answer, with your 👍 / 👎
+function JobsFolder({ d }) {
+  const [open, setOpen] = useState(null); const jobs = d?.jobs || [];
+  if (!jobs.length) return <p className="dsk-note">No finished requests yet — each one lands here as a tree.</p>;
+  return <ul className="dsk-jobs" data-testid="dsk-jobs">{jobs.map(j => { const r = d?.jobRates?.[j.id]; const on = open === j.id;
+    return <li key={j.id} className={`${on ? 'is-open' : ''}${r ? ` is-${r}` : ''}`}>
+      <button type="button" onClick={() => setOpen(on ? null : j.id)} aria-expanded={on}><b>{r === 'up' ? '👍' : r === 'down' ? '👎' : '🗂'} {j.request}</b><small>{ago(j.at)} ago · ${Number(j.cost || 0).toFixed(4)} · {j.status}</small></button>
+      {on ? <div className="dsk-tree">{(j.minds || []).map((x, k) => <div key={k} className="dsk-tree-mind"><b>MIND {'AB'[k]} · {x.model}</b><em>{x.job}</em>
+        {x.plan?.length ? <ol className="dsk-tree-plan">{x.plan.map((p, n) => <li key={n}>{p}</li>)}</ol> : null}
+        <ul className="dsk-tree-steps">{(x.steps || []).map((st, n) => <li key={n}><i>{st.a}</i>{st.t}{st.d ? <small>{st.d}</small> : null}</li>)}</ul>
+        {x.answer ? <p className="dsk-tree-ans">↳ {x.answer}</p> : null}</div>)}
+        <p className="dsk-tree-final">✔ {j.answer}</p></div> : null}</li>; })}</ul>;
+}
 function PowFolder({ cat, d }) {
   const [rows, setRows] = useState(null);
   useEffect(() => { let on = true; Promise.resolve().then(() => fetch(apiUrl(`/api/cats/pow?cat=${cat.id}&limit=40`))).then(r => (r?.ok ? r.json() : null)).then(x => on && setRows(x?.rows || [])).catch(() => on && setRows([])); return () => { on = false; }; }, [cat.id]);
@@ -614,7 +629,7 @@ function HoneyPot({ cat }) {
       <HiveSwitch cat={cat} /></div>
   </div>;
 }
-const ICONS = [['vault', '📁', 'Vault'], ['pow', '⛏', 'PoW'], ['honey', '🍯', 'Honey pot'], ['files', '☁', 'Files'], ['cmds', '⌘', 'Commands']];
+const ICONS = [['vault', '📁', 'Vault'], ['pow', '⛏', 'PoW'], ['jobs', '🗂', 'Jobs'], ['honey', '🍯', 'Honey pot'], ['files', '☁', 'Files'], ['cmds', '⌘', 'Commands']];
 const iconsKey = id => `feeless.dsk.icons.${id}`;
 // 🖱 desktop icons you can drag anywhere (positions kept on this device); a tap without a drag opens it
 function DeskIcon({ k, ic, label, at, onMove, onOpen, tip }) {
@@ -626,11 +641,11 @@ function DeskIcon({ k, ic, label, at, onMove, onOpen, tip }) {
     <i className="dsk-ico-art" aria-hidden="true"><em>{ic}</em></i><span>{label}</span></button>;
 }
 const ICON_TIP = { vault: "Your agent's drawer — logins, sealed recovery files, signed-in sites, API keys", pow: 'Every Proof of Work its minds filed — the call, the vitals per site, how it graded',
-  honey: 'Its colony vitals — honey, right calls, the next airdrop, the pool — and the ways into the colony', files: 'Its storage — upload files and images for its tasks', cmds: 'What it understands in the chat — tap one to put it in the chat box' };
+  honey: 'Its colony vitals — honey, right calls, the next airdrop, the pool — and the ways into the colony', files: 'Its storage — upload files and images for its tasks', cmds: 'What it understands in the chat — tap one to put it in the chat box', jobs: 'Every request as its exact log tree — your words, each mind\'s plan and steps, the answer, your 👍 / 👎' };
 
 export function AgentDesktop({ cat, live = null, onClose, onReopen, actions = null, onCommand = null, start = null }) {
   const [w, setW] = useState(() => ({ live: { open: !!live, min: false, max: false, x: 24, y: 12 }, vault: { open: false, min: false, max: false, x: 120, y: 60 },
-    pow: { open: false, min: false, max: false, x: 150, y: 40 }, honey: { open: false, min: false, max: false, x: 180, y: 70 }, files: { open: false, min: false, max: false, x: 210, y: 100 }, cmds: { open: false, min: false, max: false, x: 240, y: 60 } }));
+    pow: { open: false, min: false, max: false, x: 150, y: 40 }, honey: { open: false, min: false, max: false, x: 180, y: 70 }, files: { open: false, min: false, max: false, x: 210, y: 100 }, cmds: { open: false, min: false, max: false, x: 240, y: 60 }, jobs: { open: false, min: false, max: false, x: 170, y: 50 } }));
   const [pos, setPos] = useState(() => { const dflt = Object.fromEntries(ICONS.map(([k], i) => [k, { x: 0, y: i * 96 }])); try { return { ...dflt, ...JSON.parse(localStorage.getItem(iconsKey(cat.id)) || '{}') }; } catch { return dflt; } });
   const moveIcon = (k, p) => setPos(x => { const n = { ...x, [k]: p }; try { localStorage.setItem(iconsKey(cat.id), JSON.stringify(n)); } catch { /* private window */ } return n; });
   const openWin = k => { if (k === 'vault') { openVault(); return; } set(k, { open: true, min: false }); setTop(k); };
@@ -666,7 +681,7 @@ export function AgentDesktop({ cat, live = null, onClose, onReopen, actions = nu
         <i aria-hidden="true">{ic}</i><span>{l}</span>{n(d) != null ? <b className="m-num">{n(d)}</b> : null}</button>)}</aside>
         <div className="dsk-pane"><p className="dsk-path">Vault <i>›</i> {VAULT_TABS.find(t => t[0] === tab)[2]}</p><div key={tab} className="dsk-pull">{pane}</div></div></div>
     </DeskWin> : null}
-    {[['pow', `⛏ PoW — ${cat.name || 'your agent'}`, <PowFolder cat={cat} d={d} />], ['honey', '🍯 Honey pot', <HoneyPot cat={cat} />], ['files', '☁ Files', <CloudDrawer cat={cat} attachments={d?.storage} />], ['cmds', '⌘ Commands', <CommandList rows={d?.commands} onPick={onCommand} />]].map(([k, t, body]) =>
+    {[['pow', `⛏ PoW — ${cat.name || 'your agent'}`, <PowFolder cat={cat} d={d} />], ['honey', '🍯 Honey pot', <HoneyPot cat={cat} />], ['files', '☁ Files', <CloudDrawer cat={cat} attachments={d?.storage} />], ['cmds', '⌘ Commands', <CommandList rows={d?.commands} onPick={onCommand} />], ['jobs', '🗂 Jobs', <JobsFolder d={d} />]].map(([k, t, body]) =>
       w[k].open && !w[k].min ? <DeskWin key={k} k={k} title={t} s={w[k]} top={top === k} set={set} onTop={() => setTop(k)} onClose={() => set(k, { open: false })}>{body}</DeskWin> : null)}
     <footer className="dsk-bar"><span className="dsk-start"><i aria-hidden="true" />FEELESS</span>
       {tasks.map(([k, ic, l]) => <button key={k} type="button" className={`dsk-task${!w[k].min && top === k ? ' is-on' : ''}`} onClick={() => { if (w[k].min || top !== k) { set(k, { min: false }); setTop(k); } else set(k, { min: true }); }} data-testid={`dsk-task-${k}`}>{ic} {l}</button>)}
@@ -875,7 +890,7 @@ function WorkbenchLive({ cat }) {
     {status === 'stopped' || status === 'error' || status === 'parked' ? <p className={`cwb-answer s-${status}`} data-testid="cwb-answer">{d.task.fast ? '⚡ from memory · ' : ''}{d.task.answer || d.task.why}</p> : null}
     <ol ref={chatRef} className="cwb-chat" aria-label="Chat with its models" aria-live="polite" data-testid="cwb-chat">
       {cut > 0 ? <li className="cwb-earlier"><button type="button" onClick={() => setOld(o => !o)} aria-expanded={old} data-testid="cwb-earlier">{old ? 'Hide earlier' : `Earlier · ${cut} message${cut === 1 ? '' : 's'}`}</button></li> : null}
-      {(old ? msgs : msgs.slice(cut)).map((m, i, a) => <ChatMsg key={`${m.at || i}-${String(m.text).slice(0, 24)}`} m={m} name={cat.name} fresh={i === a.length - 1 && m.by !== 'you'} onOpen={k => setDesk(k)} />)}
+      {(old ? msgs : msgs.slice(cut)).map((m, i, a) => <ChatMsg key={`${m.at || i}-${String(m.text).slice(0, 24)}`} m={m} name={cat.name} fresh={i === a.length - 1 && m.by !== 'you'} onOpen={k => setDesk(k)} rate={d?.jobRates?.[m.tid]} onRate={(tid, k) => act('rate', { text: tid, job: k })} />)}
       {live ? <li className="cwb-msg is-cats is-typing" data-testid="cwb-typing"><i className="cwb-av" aria-hidden="true">🧠</i><div><header><b>{cat.name || 'Its minds'}</b><em className="cwb-tag">working</em></header>
         <p><span className="cwb-dots" aria-hidden="true"><i /><i /><i /></span>{doing}</p></div></li> : null}
       {!msgs.length && !live ? <li className="cwb-empty" data-testid="cwb-empty"><b>What should it do?</b><span>Ask in plain words. It works in its own cloud browsers and reports back here.</span>

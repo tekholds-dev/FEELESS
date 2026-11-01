@@ -210,3 +210,16 @@ def test_every_monitor_idles_on_its_own_models_last_page_kept_on_disk(monkeypatc
         asyncio.run(fs.cat_last_page('c1', 1)); assert False
     except fs.HTTPException as e:
         assert e.status_code == 404                                                            # private agents show nothing
+
+
+def test_a_finished_request_is_filed_as_its_log_tree_and_a_thumbs_up_or_down_becomes_both_minds_memory():
+    import feecat_service as fs
+    t = {'id': 't9', 'text': 'find a coin under $1M cap', 'status': 'done', 'cost': 0.01, 'answer': '$CAT — pool $90K',
+         'windows': [{'model': 'x/a', 'goal': 'find a coin', 'plan': ['search', 'read', 'answer'], 'steps': [{'action': 'search', 'thought': 'look', 'detail': 'coin'}], 'answer': '$CAT'},
+                     {'model': 'x/b', 'goal': 'SUPPORT ROLE, your partner owns this job: "x"', 'steps': [], 'answer': 'checked'}]}
+    j = fs._job_tree(t)
+    assert j['request'].startswith('find a coin') and j['minds'][0]['plan'] == ['search', 'read', 'answer'] and j['minds'][1]['job'] == "checked its partner's facts"
+    cat = {'brainsCfg': {'brains': ['x/a', 'x/b']}, 'jobs': [j], 'jobRates': {'t9': 'up'}}
+    fs._job_memory(cat)
+    assert cat['jobs'][0]['rate'] == 'up' and all('APPROVED' in cat['brainsCfg']['minds'][m][-1]['text'] for m in ('x/a', 'x/b'))
+    n = len(cat['brainsCfg']['cloud']); fs._job_memory(cat); assert len(cat['brainsCfg']['cloud']) == n   # filed once

@@ -91,7 +91,7 @@ def _load() -> dict:
 
 # 🔒 The engine loads every cat, works for minutes, then saves its whole copy: anything an owner did meanwhile was wiped (owner 2026-10-30: a new agent wallet vanished
 # seconds after it was made). What an owner's action sets is kept here and laid over every save, so an old copy can never lose a wallet, a funding or a limit.
-OWNER_KEYS = ('secrets', 'hive', 'colonyShare', 'incognito', 'incognitoPaid', 'agentWallet', 'agentFunded', 'creditPaid', 'recovery', 'recoverySet', 'recoveryConfirmedAt', 'limits', 'taskCap', 'ownerId', 'mode', 'realWallet', 'budgetSol', 'paperByOwner', 'files', 'ownerWallet', 'logins', 'cloudLink', 'vaultLog', 'earn', 'clarify', 'ownerStaff', 'pass', 'treasury', 'siteSessions')
+OWNER_KEYS = ('jobRates', 'secrets', 'hive', 'colonyShare', 'incognito', 'incognitoPaid', 'agentWallet', 'agentFunded', 'creditPaid', 'recovery', 'recoverySet', 'recoveryConfirmedAt', 'limits', 'taskCap', 'ownerId', 'mode', 'realWallet', 'budgetSol', 'paperByOwner', 'files', 'ownerWallet', 'logins', 'cloudLink', 'vaultLog', 'earn', 'clarify', 'ownerStaff', 'pass', 'treasury', 'siteSessions')
 _KEPT: dict = {}
 
 
@@ -2219,6 +2219,32 @@ async def _hard_stop(w, grace=2.0):
     r.cancel()
 
 
+JOBS_KEEP = 30
+
+
+def _job_tree(t):
+    """🗂 One request as a tree: the request → each mind (its job, 3-step plan, its steps, its answer) → the final answer."""
+    return {'id': t.get('id'), 'at': round(time.time()), 'request': str(t.get('text') or '')[:400], 'status': t.get('status'), 'cost': round(float(t.get('cost') or 0), 4),
+            'answer': str(t.get('answer') or '')[:1200], 'minds': [{'model': str(w.get('model') or '').split('/')[-1][:30], 'job': _ca.job_label(w.get('goal')), 'plan': list(w.get('plan') or [])[:3],
+            'steps': [{'a': x.get('action'), 't': str(x.get('thought') or '')[:90], 'd': str(x.get('detail') or '')[:90]} for x in (w.get('steps') or [])[-24:]],
+            'answer': str(w.get('answer') or '')[:400]} for w in t.get('windows') or [] if w.get('goal')]}
+
+
+def _job_memory(cat):
+    """🧠 A 👍 / 👎 on a request becomes memory for BOTH minds (they read it on their next task) — written by the engine, the store's one writer."""
+    rates = cat.get('jobRates') or {}; b = cat['brainsCfg']
+    for j in cat.get('jobs') or []:
+        r = rates.get(j.get('id'))
+        if r not in ('up', 'down') or j.get('rate') == r:
+            continue
+        j['rate'] = r
+        line = (f"👍 the owner APPROVED: \"{j['request'][:90]}\" → {j['answer'][:110]} — do it like this again" if r == 'up' else
+                f"👎 the owner REJECTED: \"{j['request'][:90]}\" → {j['answer'][:90]} — do it differently next time")
+        for m in b.get('brains') or []:
+            mc_ = b.setdefault('minds', {}); mc_[m] = ((mc_.get(m) or []) + [{'at': time.time(), 'text': line[:240]}])[-_ca.MIND_CLOUD_MAX:]
+        b['cloud'] = ((b.get('cloud') or []) + [{'at': time.time(), 'word': 'APPROVED' if r == 'up' else 'REJECTED', 'sym': '', 'text': line[:240], 'by': ['you']}])[-_lc.CLOUD_MAX:]
+
+
 def _work_settle(store):
     """The engine's pass: a finished task's $ is charged to the cat's credit and its question + answer join the cat's chat (one writer)."""
     for cid, w in list(_WORK.items()):
@@ -2263,7 +2289,11 @@ def _work_settle(store):
             for k_ in t.get('keep') or []:   # ☁ the best of both scratch pads → its main cloud (the rest was thrown away)
                 cat['brainsCfg']['cloud'] = ((cat['brainsCfg'].get('cloud') or []) + [{'at': time.time(), 'word': 'KEEP', 'sym': '', 'text': str(k_)[:240], 'by': ['both']}])[-_lc.CLOUD_MAX:]
             cat['chat'] = list(cat.get('chat') or []) if t.get('pow') else (list(cat.get('chat') or []) + [{'by': 'you', 'text': t.get('text'), 'at': w.get('at')},
-                           {'by': 'cats', 'text': (f"💳 Paid ${t.get('walletPaid'):.4f} from its wallet: " if t.get('walletPaid') else '') + ("🛟 Backup model, free (OpenRouter has no credit): " if t.get('backup') else '') + (t.get('answer') or f"({t.get('status')}: {t.get('why') or 'no answer'})"), 'at': time.time(), 'cost': t.get('cost'), 'fast': t.get('fast')}])[-CHAT_KEEP:]
+                           {'by': 'cats', 'text': (f"💳 Paid ${t.get('walletPaid'):.4f} from its wallet: " if t.get('walletPaid') else '') + ("🛟 Backup model, free (OpenRouter has no credit): " if t.get('backup') else '') + (t.get('answer') or f"({t.get('status')}: {t.get('why') or 'no answer'})"), 'at': time.time(), 'cost': t.get('cost'), 'fast': t.get('fast'), 'tid': t.get('id')}])[-CHAT_KEEP:]
+            if not t.get('pow'):   # 🗂 the exact log tree of this request (owner 2026-11-01): your words → each mind's job, plan, steps, answer — rated 👍 / 👎 in the chat
+                cat['jobs'] = (list(cat.get('jobs') or []) + [_job_tree(t)])[-JOBS_KEEP:]
+        if cat and cat.get('brainsCfg'):
+            _job_memory(cat)
         if cat and t.get('parked'):   # ⏸ filed to come back to when you are back (desk: Resume / Drop)
             cat['workParked'] = (list(cat.get('workParked') or []) + [{'at': time.time(), 'text': t.get('text'), 'why': p_.get('why'), 'url': p_.get('url')} for p_ in t['parked']])[-WORK_QUEUE_MAX:]
         w['settled'] = True
@@ -3204,6 +3234,13 @@ async def cat_work(cat_id: str, p: WorkPayload):
         cat['hive'] = {'on': bool(p.on), 'every': _hv.every_s(p.cap if p.cap is not None else (cat.get('hive') or {}).get('every', 300))}
         keep_owned(cat); _save(store)
         return {'hive': cat['hive'], 'hiveRun': cat.get('hiveRun') or {}}
+    if p.op == 'rate':   # 👍 / 👎 a finished request — the engine files it into both minds' memory on its next pass
+        tid_, r_ = str(p.text or '')[:20], str(p.job or '')
+        if r_ not in ('up', 'down') or not any(j.get('id') == tid_ for j in cat.get('jobs') or []):
+            raise HTTPException(400, 'Rate a finished request: up or down.')
+        cat['jobRates'] = {**{k: v for k, v in (cat.get('jobRates') or {}).items() if any(j.get('id') == k for j in cat.get('jobs') or [])}, tid_: r_}
+        keep_owned(cat); _save(store)
+        return {'jobRates': cat['jobRates']}
     if p.op == 'cap':
         v = max(0.005, min(TASK_CAP_MAX, float(p.cap or TASK_CAP_DEFAULT)))
         cat['taskCap'] = round(v, 4); keep_owned(cat); _save(store)   # kept: the next save laid the old remembered cap back over it (owner 2026-10-31: "$0.25 doesn't change")
@@ -3427,6 +3464,7 @@ async def cat_work(cat_id: str, p: WorkPayload):
             'queue': [{'text': q.get('text'), 'to': q.get('to')} for q in (cat.get('workQueue') or [])],
             'pow': _pow_view(cat),   # ⛏ each mind's latest Proof of Work
             'commands': _pow.COMMANDS,   # 💬 what it understands in the chat (cabinet + desktop list)
+            'jobs': list(reversed(cat.get('jobs') or []))[:20], 'jobRates': cat.get('jobRates') or {},   # 🗂 each request's log tree + your 👍 / 👎
             'powFolder': _pow.folder_public((cat.get('powRun') or {}).get('folder') or {}) or None, 'powFolders': list(reversed(cat.get('powFolders') or []))[:12],   # ⛏ the live folder + filed ones
             'parked': [{'text': q.get('text'), 'why': q.get('why'), 'at': q.get('at')} for q in (cat.get('workParked') or [])]}
 
