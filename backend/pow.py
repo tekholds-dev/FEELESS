@@ -269,7 +269,7 @@ ROUNDS_MAX = 6
 HOLD_MAX_S = 3600
 STOP_PCT, TAKE_PCT = -25.0, 60.0
 REST_S = 300                      # between two folders
-ROUND_USD = 0.006                 # 💲 one research round's model ceiling — it ends with the vitals it pulled (live 2026-11-01: a folder spent $0.062 on research and never bought)
+ROUND_USD = 0.03                  # 💲 one coin's research ceiling (owner 2026-11-02: $0.03 a coin ≈ 15 calls at ~$0.002 = FEELESS + 3 sites × 3–8 moves; $0.006 cut rounds after ~2 sites)
 CHECKS = (15, 30, 60)             # ⏱ live-trade checks after the buy: +15 s, then +30 s, then every 60 s (owner 2026-11-01)
 HOT_TICK_S = 5                    # the engine's light pass while a folder holds a coin
 SIGN_WAIT_S = 600                 # a real buy waits this long for its wallet, then the folder closes and the order is withdrawn
@@ -340,7 +340,7 @@ def plan_of(minds):
     """The folder's steps, said in the chat (owner 2026-11-02: a 5-step agreement)."""
     two = int(minds or 1) > 1
     return [f"the engine vets up to {POOL} coins (every buy guard + safety) — only buyable coins reach the minds",
-            ("A proposes 3, B proposes 3 (each sees the coin's prior PoW)" if two else "it proposes 3, then 3 more"),
+            ("A proposes 3, B proposes 3 OTHER coins — 6 on the table (each sees the coin's prior PoW)" if two else "it proposes 3, then 3 more"),
             ("each mind takes 2 of the shortlist + writes how it will investigate them" if two else "it takes 4 of the shortlist + its plan"),
             f"each researches its own coins: FEELESS + 3 sites, {STEPS_RANGE[0]}–{STEPS_RANGE[1]} moves a site, ≤ {SITE_PULLS} vitals a site, duplicates dropped",
             "every coin is checked again → 3 turns decide the ONE (size, TP, SL) → bought on FEELESS → checks until it sells → filed forever"]
@@ -569,7 +569,7 @@ def command(text):
 # 📖 THE PoW README — every loaded model gets it as default memory, whatever its prompt (owner 2026-11-01: "they need to know the meaning")
 README = ('FEELESS PoW (PROOF OF WORK) README — not crypto mining. A PoW is a FOLDER your colony files, in 5 steps: '
           '1) POOL: FEELESS vets up to 8 coins (FEELESS intake, Pump, DexScreener boosts) with every buy guard + the safety check — only coins that can be bought reach you. '
-          '2) PROPOSE: mind A proposes 3, mind B proposes 3 (each sees any PRIOR PoW on a coin) → the shortlist. '
+          '2) PROPOSE: mind A proposes 3, mind B proposes 3 OTHER coins (each sees any PRIOR PoW on a coin) → a shortlist of 6. '
           '3) SPLIT: each mind takes 2 coins of the shortlist and writes HOW it will investigate them. '
           '4) RESEARCH: each mind researches its own coins — the FEELESS read + 3 sites, 3–8 moves a site (drawn at random), at most 3 vital numbers a site; '
           'a fact another site already gave is dropped. 5) DECIDE: every coin is checked again, then 3 turns pick the ONE coin, its size (within the wallet '

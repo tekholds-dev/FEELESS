@@ -1550,17 +1550,20 @@ async def _pow2_tick(http, store, cat, now):
         turn = int(f.get('turn') or 0); i = turn % f['minds']; nm_ = names[i] if i < len(names) else 'mind'; n_ = len(f['coins'])
         rows_ = _pow_archive_rows()
         if f['phase'] == 'propose':
-            listing = '\n'.join(f"{k + 1}) ${c['sym']} [{_pow.SRC_LABEL[c['src']]}] pool ${c['liq']:,.0f} cap ${c['mc']:,.0f} — {c.get('read', '')[:200]}"
-                                 + (f" · {_pow.archive_brief(_pow.archive_find(rows_, c['mint']))}" if _pow.archive_find(rows_, c['mint']) else '') for k, c in enumerate(f['coins']))
             prev_ = (f.get('proposed') or {}).get('0') or {}
-            partner = '' if turn == 0 else f" YOUR PARTNER PROPOSED {', '.join('$' + f['coins'][k]['sym'] for k in prev_.get('picks') or [])}: \"{prev_.get('why', '')}\". Propose YOUR 3 (overlap is fine)."
+            gone_ = set(prev_.get('picks') or []) if turn else set()   # 🚫 owner 2026-11-02: B proposes 3 OTHER coins — 6 proposals, never the same twice
+            listing = '\n'.join(f"{k + 1}) ${c['sym']} [{_pow.SRC_LABEL[c['src']]}] pool ${c['liq']:,.0f} cap ${c['mc']:,.0f} — {c.get('read', '')[:200]}"
+                                 + (f" · {_pow.archive_brief(_pow.archive_find(rows_, c['mint']))}" if _pow.archive_find(rows_, c['mint']) else '') for k, c in enumerate(f['coins']) if k not in gone_)
+            partner = '' if turn == 0 else f" YOUR PARTNER ALREADY PROPOSED {', '.join('$' + f['coins'][k]['sym'] for k in prev_.get('picks') or [])} (\"{prev_.get('why', '')}\") — those are taken: propose 3 OTHER coins from the list."
             raw_ = await ask_(i, _pow.PROPOSE_SYS.format(name=nm_, n=n_, partner=partner), listing, 400)
-            picks, why = _pow.parse_picks(raw_, n_, _pow.PROPOSE_N)
-            if len(picks) < _pow.PROPOSE_N:
+            picks, why = _pow.parse_picks(raw_, n_, _pow.PROPOSE_N + len(gone_))
+            picks = [k for k in picks if k not in gone_][:_pow.PROPOSE_N]
+            need_ = min(_pow.PROPOSE_N, n_ - len(gone_))
+            if len(picks) < need_:
                 f['silent'] = int(f.get('silent') or 0) + 1
                 if f['silent'] < 3:
                     return
-                picks = (picks + [k for k in sorted(range(n_), key=lambda x: -f['coins'][x]['liq']) if k not in picks])[:_pow.PROPOSE_N]; why = why or 'the engine filled the deepest pools'
+                picks = (picks + [k for k in sorted(range(n_), key=lambda x: -f['coins'][x]['liq']) if k not in picks and k not in gone_])[:need_]; why = why or 'the engine filled the deepest pools'
             f['silent'] = 0; f.setdefault('proposed', {})[str(turn)] = {'picks': picks, 'why': why, 'by': nm_}
             said_ = f"proposes {', '.join('$' + f['coins'][k]['sym'] for k in picks)} — {why}"
             _pow2_say(f, nm_, said_)

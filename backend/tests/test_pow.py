@@ -208,6 +208,7 @@ def test_the_service_runs_a_whole_folder_two_minds_discuss_buy_watch_research_de
     assert f['phase'] == 'propose' and f['name'].startswith('PoW #1 · ') and f['coins'][0]['read'] == 'read B2'
     tick(); assert f['turn'] == 1 and 'proposes $BBB, $CCC, $DDD' in cat['chat'][-1]['text']   # 1 · A proposes 3
     tick(); assert f['phase'] == 'split' and f['shortlist'] == [0, 1, 2, 3]                   # 2 · B proposes 3 → the shortlist
+    assert f['proposed']['1']['picks'] == [3]                                                # B never re-proposes A's coins (only E5 was left)
     tick(); assert f['owner'] == {'B2': 0, 'Cpump': 0} and 'plan: A: rugcheck' in cat['chat'][-1]['text']   # 3 · A takes 2 + its plan
     tick(); assert f['owner'] == {'B2': 0, 'Cpump': 0, 'D4': 1, 'E5': 1} and f['plans']['D4'] == 'B: buyers vs sellers'
     assert f['phase'] == 'scout' and f['scout'] == ['B2', 'D4', 'Cpump', 'E5']                # 4 · each researches its own, taking turns
@@ -470,7 +471,7 @@ def test_a_research_round_has_its_own_small_dollar_ceiling(monkeypatch):
     async def go():
         fs._work_start('r1', cat, 'PROOF OF WORK on $X', '0', None, {**pw.new({'mint': 'M', 'pair': 'P', 'sym': 'X'}, 0)})
         return fs._WORK.pop('r1')['task']['cap']
-    assert asyncio.run(go()) == pw.ROUND_USD <= 0.006
+    assert asyncio.run(go()) == pw.ROUND_USD == 0.03                                     # owner 2026-11-02: $0.03 a coin
 
 
 def test_an_unsafe_coin_is_replaced_so_four_safe_coins_get_researched(monkeypatch, tmp_path):
