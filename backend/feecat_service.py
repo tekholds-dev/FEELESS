@@ -41,6 +41,7 @@ import cat_real as _real   # 💵 real-money cats = option A: the user's wallet 
 import cat_orders as _co   # 🧭 a General AI cat's plain-words orders → one guarded proposal
 import cat_tools as _ct   # 🧰 FEELESS-first read-only tools for general agents
 import hive as _hv   # 🐝 the Hive: proof of insight (cells graded an hour on)
+import agent_sources as _src   # 🧭 the sources book: which sites work for agents, which block them
 import colony as _colony   # 🐝 the Colony: graded trades, the pot guards
 import agent_files as _af   # ☁ each agent's own storage (owner uploads, 1 GB, 7-day clean)
 import clarify as _cq   # ❓ first asks: 2–3 questions for a coin / money ask
@@ -1181,6 +1182,8 @@ async def _hive_round(now=None):
                 cells.append({'id': uuid.uuid4().hex[:12], 'cat': cat['id'], 'name': str(cat.get('name') or 'agent')[:40], **c_, **_hv.parse_cell(reply_),
                               'at': now, 'usd': round(float(usd_ or 0), 6), 'via': via_, 'epoch': _hv.epoch_of(now)})
                 run_.update(n=int(run_.get('n') or 0) + 1, why=None); filed += 1
+                c_new = cells[-1]   # 🗄 its find goes into its cabinet, where the owner (and visitors' drawer) read it
+                b_['cloud'] = ((b_.get('cloud') or []) + [{'at': now, 'word': c_new['call'], 'sym': c_new['sym'], 'text': f"🐝 {c_new['call']} ${c_new['sym']} — {c_new['why']}"[:240], 'by': ['colony']}])[-_lc.CLOUD_MAX:]
         todo_ = _hv.due(cells, now)
         if todo_:
             prices_ = await _pair_prices(http, sorted({c['pair'] for c in todo_}))
@@ -1629,6 +1632,24 @@ _WORK: dict = {}
 TASK_CAP_DEFAULT, TASK_CAP_MAX = 0.05, 2.0
 BACKUP_MODEL = 'openai/gpt-oss-120b'   # Groq's free tier: tested with the agent's JSON step format
 WORK_QUEUE_MAX = 10   # 🏇 let it go: asks waiting their turn
+SOURCES_PATH = DATA_DIR / 'agent_sources.json'
+BLOCK_PIVOT_S = 90   # 🧭 a bot check nobody answers: after this the mind goes to the best other source on its own
+
+
+def _src_book():
+    try:
+        return json.loads(SOURCES_PATH.read_text()) or {}
+    except (OSError, ValueError):
+        return {}
+
+
+def _src_note(host, ok):
+    try:
+        b = _src.record(_src_book(), host, ok); SOURCES_PATH.write_text(json.dumps(b))
+    except Exception as e:   # noqa: BLE001 — the book never blocks a task
+        print(f'[sources] {e}')
+
+
 HUMAN_WAIT_S = 300   # ⏸ a window waits this long for you (sign-in / bot check), then the task is filed and the agent moves on
 CHAT_KEEP = 60
 
@@ -1694,6 +1715,7 @@ def _work_start(cat_id, cat, text, to=None, files=None):
     names = [str(m).split('/')[-1][:24] for m in models]
     steps = int(lim_.get('steps') or 0) or (_ca.GO_STEPS if cat.get('workGo') else _ca.STEP_MAX)
     _WORK[cat_id] = {'task': _ca.new_task(uuid.uuid4().hex[:10], text, models, cap, steps, cat.get('workMode') or 'plan', lim_.get('mindUsd') if len(models) > 1 else None), 'events': {}, 'go': {}, 'sessions': [None] * len(models), 'pages': [None] * len(models), 'at': time.time()}
+    _WORK[cat_id]['task']['knowhow'] = _colony.KNOWHOW + (' ' + _colony.COLONIZED if _hive_on(cat) else '') + '\n' + _src.brief(_src_book())   # 🐝🧭 every mind knows the Colony + where to browse
     if (b.get('kind') or 'trading') == 'trading':   # 📰 a trader's windows: read + click on the research list only (cat_policy.RESEARCH_*)
         _WORK[cat_id]['task'].update(research=True, tools={'browse': True, 'forms': True})
     else:
@@ -1785,12 +1807,20 @@ async def _work_run(cat_id, models, names, text, cap, brief='', efforts=None, ow
                         w['task'].setdefault('vaultUsed', []).append(h_.get('site'))
                         return True
                 ev = w['events'][i] = asyncio.Event()
+                check_ = h_.get('kind') != 'login' and bool(re.search(r'captcha|bot check|cloudflare|checkpoint|blocked', str(h_.get('why') or ''), re.I))   # a WALL, not a sign-in (yours to do)
+                if check_:   # 🧭 a bot check / wall: the book learns it, and the window offers the best other sources
+                    host_ = _src.host_of(h_.get('url') or win_.get('url'))
+                    _src_note(host_, False)
+                    h_['alts'] = _src.best(_src_book(), exclude=[host_]); win_['human'] = h_
                 pg_ = pages[i] if i < len(pages) and getattr(pages[i], 'live', False) else None
                 try:
                     if pg_:
                         await pg_.release()   # 🙋 hands off: you are alone in the window (a routed browser loops Cloudflare's box)
-                    await asyncio.wait_for(ev.wait(), HUMAN_WAIT_S)
-                except asyncio.TimeoutError:   # ⏸ nobody answered: file it to come back to, let this window (and the queue) move on
+                    await asyncio.wait_for(ev.wait(), BLOCK_PIVOT_S if check_ and h_.get('alts') else HUMAN_WAIT_S)
+                except asyncio.TimeoutError:   # ⏸ nobody answered: a bot check → the best other source; anything else is filed to come back to
+                    if check_ and h_.get('alts'):
+                        w['events'].pop(i, None); win_['redirect'] = 'https://' + h_['alts'][0]
+                        return True
                     w['events'].pop(i, None)
                     why_ = h_.get('why') or 'it needs you'
                     win_['parked'] = f"{_ca.PARKED}: no answer in {HUMAN_WAIT_S // 60} min — filed to come back to ({why_})"
@@ -1821,6 +1851,9 @@ async def _work_run(cat_id, models, names, text, cap, brief='', efforts=None, ow
                 await pg.close()
             for s_ in sessions:
                 await _cb.close_session(http, env, s_)
+            for x_ in (w.get('task') or {}).get('windows') or []:   # 🧭 the book learns which sites a window really read (blocked ones were filed as they happened)
+                if str(x_.get('url') or '').startswith('http') and x_.get('status') == 'done':
+                    _src_note(x_['url'], True)
             w['pages'] = [None] * len(models)
             w['done'] = True
 
@@ -2215,18 +2248,6 @@ def _owner_gate(store, cat, session, owner_id='', what='work with it'):
         cat['ownerWallet'] = signed
         keep_owned(cat); _save(store)
     return signed
-
-
-async def _feecat_usd(address):
-    """$ of FEECAT a wallet holds (reputation reads it live). None when it can't be read — never a guess."""
-    if not address:
-        return 0.0
-    try:
-        async with httpx.AsyncClient(timeout=10) as h:
-            r = await h.get('http://127.0.0.1:5077/api/reputation/internal/feecat-usd', params={'address': address}, headers=_internal_headers())
-        return float(r.json().get('usd')) if r.status_code == 200 else None
-    except (httpx.HTTPError, ValueError, TypeError):
-        return None
 
 
 async def _session_staff(session=''):
@@ -2789,10 +2810,6 @@ async def cat_work(cat_id: str, p: WorkPayload):
         keep_owned(cat); _save(store)
         return {'colonyShare': cat['colonyShare']}
     if p.op == 'hive':   # 🐝 COLONIZE on / off and its pace (least usage: one coin every N minutes)
-        if p.on and not (cat.get('hive') or {}).get('on') and not (cat.get('ownerStaff') or cat.get('isLeader') or await _session_staff(p.session or '')):
-            usd_ = await _feecat_usd(owner_wallet(cat))   # 🐝 the stake gate: its owner holds ≥ $25 of FEECAT (read live)
-            if not _colony.stake_ok(usd_):
-                raise HTTPException(402, f"Colonizing needs ${_colony.STAKE_MIN_USD:g} of FEECAT in your wallet — it holds ${usd_:,.2f}." if usd_ is not None else "Couldn't read your FEECAT balance — try again in a minute.")
         cat['hive'] = {'on': bool(p.on), 'every': _hv.every_s(p.cap if p.cap is not None else (cat.get('hive') or {}).get('every', 300))}
         keep_owned(cat); _save(store)
         return {'hive': cat['hive'], 'hiveRun': cat.get('hiveRun') or {}}
@@ -2923,6 +2940,14 @@ async def cat_work(cat_id: str, p: WorkPayload):
         q_ = list(cat.get('workQueue') or [])
         if p.i is not None and 0 <= int(p.i) < len(q_):
             q_.pop(int(p.i)); cat['workQueue'] = q_; _save(store)
+    elif p.op == 'redirect' and w:   # 🧭 the owner sends a blocked window to another source (one of the book's picks, or any research site)
+        i_ = int(p.i or 0); wins_ = (w.get('task') or {}).get('windows') or []
+        host_ = _src.host_of(p.text)
+        if not (0 <= i_ < len(wins_)) or not host_ or host_ in _src.NEVER or not _cp.research_ok('https://' + host_):
+            raise HTTPException(400, 'Not a site it may research.')
+        ev = (w.get('events') or {}).get(i_)
+        if ev:
+            wins_[i_]['redirect'] = 'https://' + host_; w['go'][i_] = True; ev.set()
     elif p.op in ('continue', 'stop_window') and w:
         ev = (w.get('events') or {}).get(int(p.i or 0))
         if ev:

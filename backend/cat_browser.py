@@ -37,6 +37,7 @@ def chain(env):
     return [p for p, ok in (('kernel', k['KERNEL_API_KEY']), ('steel', k['STEEL_API_KEY']), ('anchor', k['ANCHOR_API_KEY']), ('browserless', k['BROWSERLESS_API_KEY']), ('browserbase', k['BROWSERBASE_API_KEY'] and k['BROWSERBASE_PROJECT_ID'])) if ok] + ['reader']
 
 
+SNAP_MAX = 3500   # 📸 the whole-page snapshot a mind reads when a page opens
 GLIDE_STEPS, GLIDE_MS = 14, 520   # 🖱 the mouse's glide to a target (the desk's cursor animates over the same ~0.5 s)
 VIEWPORT = {'width': 1440, 'height': 900}   # 🖥 HD: the page fills the window on the desk (owner 2026-10-30: "cover the whole plot, HD")
 
@@ -329,6 +330,8 @@ VIEW_JS = r'''() => {
     const t = String(own || '').replace(/\s+/g, ' ').trim(); if (!t || t.length < 2 || seen.has(t)) continue;
     const r = el.getBoundingClientRect(); if (r.width < 2 || r.height < 2 || r.bottom < 0 || r.top > H || r.right < 0 || r.left > W) continue;
     const cs = getComputedStyle(el); if (cs.visibility === 'hidden' || cs.display === 'none' || +cs.opacity === 0) continue;
+    const cx = Math.min(W - 1, Math.max(0, r.left + Math.min(r.width, 40) / 2)), cy = Math.min(H - 1, Math.max(0, r.top + Math.min(r.height, 20) / 2));
+    const top = document.elementFromPoint(cx, cy); if (top && top !== el && !el.contains(top) && !top.contains(el)) continue;   // under a popup: a person can't see it
     seen.add(t); rows.push([Math.round(r.top / 12), Math.round(r.left), (act ? (tag === 'A' || el.getAttribute('role') === 'link' ? '[link] ' : '[button] ') : '') + t.slice(0, 140)]);
     if (rows.length > 160) break;
   }
@@ -336,6 +339,35 @@ VIEW_JS = r'''() => {
   const S = document.scrollingElement || document.documentElement; const max = Math.max(1, S.scrollHeight - H);
   return { lines: rows.map(r => r[2]), at: Math.round(100 * S.scrollTop / max), more: S.scrollTop + H < S.scrollHeight - 40 };
 }'''
+
+
+# 🪟 a POPUP over the page (owner 2026-10-31: "there's a pump popup, they don't even click — they just read what's behind it"): the biggest fixed
+# layer on top (a dialog, a cookie wall, a site's "I'm ready" sheet) → its buttons, so the mind's mouse can close it like a person would
+POPUP_JS = r"""() => {
+  const W = innerWidth, H = innerHeight, cand = [];
+  for (const el of document.querySelectorAll('[role=dialog],[aria-modal=true],dialog[open],div,section,aside')) {
+    const cs = getComputedStyle(el); if (cs.display === 'none' || cs.visibility === 'hidden' || +cs.opacity === 0) continue;
+    if (!(el.matches('[role=dialog],[aria-modal=true],dialog[open]') || ((cs.position === 'fixed' || cs.position === 'sticky') && +cs.zIndex >= 10))) continue;
+    const r = el.getBoundingClientRect(); if (r.width < 160 || r.height < 60 || r.bottom < 0 || r.top > H) continue;
+    const cover = (Math.min(r.right, W) - Math.max(r.left, 0)) * (Math.min(r.bottom, H) - Math.max(r.top, 0)) / (W * H);
+    if (cover < 0.04) continue;
+    const btns = [...el.querySelectorAll('button,[role=button],a')].map(b => { const q = b.getBoundingClientRect(); return { t: (b.innerText || b.getAttribute('aria-label') || '').replace(/\s+/g, ' ').trim().slice(0, 60), x: q.left + q.width / 2, y: q.top + q.height / 2, ok: q.width > 4 && q.height > 4 && q.top >= 0 && q.bottom <= H }; }).filter(b => b.ok && b.t);
+    if (btns.length) cand.push({ cover, text: (el.innerText || '').replace(/\s+/g, ' ').trim().slice(0, 240), btns });
+  }
+  cand.sort((a, b) => b.cover - a.cover); return cand[0] || null;
+}"""
+# what to press, best first: refuse cookies / close / skip before anything that agrees to more
+CLOSE_WORDS = [r'\b(reject|decline|deny)\b', r'necessary only|only necessary|essential only', r'^(×|✕|x|close)$|\bclose\b', r'no,? thanks|not now|maybe later|skip|dismiss|got it',
+               r"i'?m ready|let'?s go|continue|enter|^ok$|okay|understand", r'\baccept\b|\bagree\b|allow']
+
+
+def pick_close(btns):
+    """The button a careful person presses to get a popup out of the way. → the button or None."""
+    for w in CLOSE_WORDS:
+        for b in btns or []:
+            if re.search(w, str(b.get('t') or ''), re.I):
+                return b
+    return None
 
 
 class ReaderPage:
@@ -489,12 +521,43 @@ class LivePage:
             self.title = (await self._p.title())[:140]
         except Exception:
             self.title = None
-        return await self.read()
+        closed = await self.clear_popup()
+        return (f'(a popup was in the way — you pressed "{closed}" to close it)\n' if closed else '') + await self.read()
+
+    async def clear_popup(self, tries=2):
+        """🪟 A popup covering the page is closed the way a person would: the mouse glides to its best close button and clicks. → what it pressed."""
+        pressed = None
+        for _ in range(tries):
+            try:
+                await self._p.wait_for_timeout(700)   # sites open their sheet a beat after load
+                pop = await self._p.evaluate(POPUP_JS)
+            except Exception:
+                return pressed
+            b = pick_close((pop or {}).get('btns'))
+            if not b:
+                return pressed
+            try:
+                await self.glide(b['x'], b['y'], 'click'); await self._p.wait_for_timeout(180)
+                await self._p.mouse.click(b['x'], b['y']); pressed = b['t']
+                await self._p.wait_for_timeout(600)
+            except Exception:
+                return pressed
+        return pressed
 
     async def goto(self, url):
         await public_url(url)
         await self._p.goto(str(url), wait_until='domcontentloaded', timeout=30000)
-        return await self._sync()
+        seen = await self._sync()
+        snap = await self.snapshot()
+        return seen + (f'\n\nPAGE SNAPSHOT (the whole page once, so you need not scroll to read it — scroll only to look):\n{snap}' if snap else '')
+
+    async def snapshot(self):
+        """📸 one throwaway read of the WHOLE page (owner 2026-10-31: "agents read a snapshot of the page first, then the screen") — trimmed."""
+        try:
+            t = re.sub(r'\s+', ' ', await self._p.inner_text('body', timeout=6000))
+        except Exception:
+            return ''
+        return t[:SNAP_MAX]
 
     async def search(self, q):
         return await self.goto(SEARCH + __import__('urllib.parse').parse.quote(str(q)[:200]))
@@ -585,9 +648,11 @@ class LivePage:
         self._mxy = (x, y)
 
     async def scroll(self, way='down'):
-        """🖱 a person's scroll: the mouse moves onto the page, then the wheel turns in small notches."""
+        """🖱 a person's scroll: the mouse moves onto what it is reading (each mind its own spot — both cursors once did the same dance), then the wheel turns in notches."""
         w_, h_ = await self._p.evaluate('() => [innerWidth, innerHeight]')
-        await self.glide(w_ * 0.5, h_ * 0.55, 'scroll')
+        import random
+        side = 0.34 if getattr(self, 'mind', 0) % 2 == 0 else 0.62
+        await self.glide(w_ * (side + random.uniform(-0.08, 0.08)), h_ * random.uniform(0.38, 0.7), 'scroll')
         step = (-1 if str(way).lower().startswith('up') else 1) * h_ * 0.8 / 6
         for _ in range(6):
             await self._p.mouse.wheel(0, step)

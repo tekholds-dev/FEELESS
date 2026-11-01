@@ -20,7 +20,6 @@ def test_airdrops_follow_what_each_owner_shared_never_who_was_right():
     assert [(r['owner'], r['usd'], r['pct']) for r in out] == [('B', 30.0, 75.0), ('A', 10.0, 25.0)]
     assert col.share_cut(0.5, 10) == 0.05 and col.share_cut(-2, 10) == 0 and col.share_cut(1, 7) == 0   # only the offered %s, nothing on a loss
     assert col.period_of(86400 * 3 + 5, 'daily') == (3, 86400 * 4) and col.clean_policy({'cadence': 'weekly'})['cadence'] == 'weekly'
-    assert col.stake_ok(24.99) is False and col.stake_ok(25) and col.stake_ok(0, staff=True)
 
 
 def test_a_signed_sharing_agent_owes_the_colony_on_wins_only_from_its_own_wallet(monkeypatch, tmp_path):
@@ -42,15 +41,13 @@ def test_an_entry_is_a_buy_cell_and_an_exit_an_avoid_cell_graded_like_any_other(
     assert col.trade_cell(cat, 'buy', pos, 0, 1) is None and col.trade_cell(cat, 'buy', {}, 1, 1) is None
 
 
-def test_a_colonized_agents_buy_files_a_cell_and_the_switch_needs_the_feecat_stake(monkeypatch, tmp_path):
+def test_a_colonized_agents_buy_files_a_cell(monkeypatch, tmp_path):
     import feecat_service as fs
     monkeypatch.setattr(fs, 'HIVE_PATH', tmp_path / 'hive.json')
     cat = {'id': 'k1', 'name': 'Kit', 'hive': {'on': True}, 'brainsCfg': {'brains': ['m/a']}}
     fs._colony_trade(cat, 'buy', {'pairAddress': 'P1', 'symbol': 'HUSS'}, 0.01)
     fs._colony_trade({**cat, 'hive': {'on': False}}, 'buy', {'pairAddress': 'P2', 'symbol': 'X'}, 0.01)   # not colonized: nothing filed
     cells = fs._hive_cells(); assert len(cells) == 1 and cells[0]['kind'] == 'entry' and cells[0]['epoch'] == hv.epoch_of(cells[0]['at'])
-    src = open(fs.__file__).read()
-    i = src.index("if p.op == 'hive':"); assert '_colony.stake_ok(usd_)' in src[i:i + 900] and '402' in src[i:i + 900]
 
 
 def test_the_colony_feed_for_the_pot_is_internal_and_names_browsers_never_keys(monkeypatch, tmp_path):
@@ -106,3 +103,36 @@ def test_agents_can_read_the_colony_as_a_feeless_tool():
     class H:
         async def get(self, u, **k): assert u.endswith('/api/cats/hive'); return R()
     text, coin = asyncio.run(ct.run_tool(H(), 'colony', 'KIM')); assert 'WATCH $KIM by Happy: grading' in text and coin is None
+
+
+def test_the_sources_book_learns_blocks_and_offers_the_best_other_sites():
+    import agent_sources as src
+    b = {}
+    for _ in range(2):
+        src.record(b, 'https://pump.fun/board', False)
+    src.record(b, 'https://www.dexscreener.com/solana', True); src.record(b, 'geckoterminal.com', True)
+    assert 'geckoterminal.com' not in b and b['dexscreener.com']['ok'] == 1   # never GeckoTerminal
+    alts = src.best(b, exclude=['pump.fun']); assert alts[0] == 'dexscreener.com' and 'pump.fun' not in alts and len(alts) == 3
+    assert 'pump.fun' not in src.best(b, n=8)[:5] and 'Recently BLOCKED (bot checks): pump.fun' in src.brief(b)
+
+
+def test_a_popup_is_closed_with_the_careful_button_first():
+    import cat_browser as cb
+    btns = [{'t': 'Accept all'}, {'t': 'Reject non-essential'}, {'t': 'Settings'}]
+    assert cb.pick_close(btns)['t'] == 'Reject non-essential'
+    assert cb.pick_close([{'t': "I'm ready to pump"}, {'t': 'Learn more'}])['t'] == "I'm ready to pump" and cb.pick_close([{'t': 'Buy now'}]) is None
+
+
+def test_a_blocked_window_can_be_sent_elsewhere_and_every_mind_knows_the_colony(monkeypatch):
+    import asyncio
+    import cat_agent as ca, colony as col
+    class Pg:
+        url, title = 'https://pump.fun', 't'
+        async def goto(self, u): self.url = u; return 'ON SCREEN: pairs'
+        async def read(self): return 'same page'
+    w = {'i': 0, 'steps': [], 'redirect': 'https://dexscreener.com'}
+    out = asyncio.run(ca._after_human(w, Pg()))
+    assert 'now on dexscreener.com' in out and w['url'] == 'https://dexscreener.com' and 'redirect' not in w
+    assert asyncio.run(ca._after_human({'i': 0, 'steps': []}, Pg())) == 'same page'
+    assert 'HONEY' in col.KNOWHOW and 'nobody is paid for being right' in col.KNOWHOW
+    src = open(ca.__file__).read(); assert "extra += '\\n' + str(task['knowhow'])" in src and 'you just scrolled the other way' in src

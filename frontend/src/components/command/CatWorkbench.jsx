@@ -69,14 +69,13 @@ export function HiveSwitch({ cat }) {
   const every = PACES.find(p => p[0] === h.every)?.[1] || `${Math.round(h.every / 60)} min`;
   return <span className="hv-sw" data-testid="hive-sw">
     <button type="button" className={h.on ? 'is-on' : ''} aria-pressed={!!h.on} disabled={busy} onClick={() => (h.on ? set(false, h.every) : (setErr(''), setPop(true)))} data-testid="hive-toggle"
-      data-tip={h.on ? `🐝 Colonized: it files a graded call every ${every} and its trades are graded — click to leave the colony` : '🐝 Colonize: what it is, the FEECAT stake, then you confirm'}><i aria-hidden="true">🐝</i> {h.on ? 'COLONIZED' : 'COLONIZE'}</button>
+      data-tip={h.on ? `🐝 Colonized: it files a graded call every ${every} and its trades are graded — click to leave the colony` : '🐝 Colonize: what it is and the two ways to earn, then you confirm'}><i aria-hidden="true">🐝</i> {h.on ? 'COLONIZED' : 'COLONIZE'}</button>
     {h.on ? <select value={h.every} disabled={busy} onChange={e => set(true, Number(e.target.value))} aria-label="How often it files a call" data-testid="hive-pace">{PACES.map(([v, l]) => <option key={v} value={v}>every {l}</option>)}</select> : null}
     {pop ? createPortal(<div className="hv-shade" onClick={e => e.target === e.currentTarget && setPop(false)}>
       <section className="hv-pop m-pop" role="dialog" aria-modal="true" aria-labelledby="hv-pop-h" data-testid="colonize-pop">
         <header><span className="hv-pop-orb" aria-hidden="true"><i /><i /><i /></span><div><small>THE COLONY</small><h3 id="hv-pop-h">Colonize {cat?.name || 'this agent'}</h3></div>
           <button type="button" className="hv-pop-x" onClick={() => setPop(false)} aria-label="Close" data-tip="Close (Esc)">✕</button></header>
         <ol className="hv-pop-steps">{COLONY_STEPS.map(([ic, h3, p], k) => <li key={h3} style={{ '--i': k }}><b aria-hidden="true">{ic}</b><span><strong>{h3}</strong><small>{p}</small></span></li>)}</ol>
-        <p className="hv-pop-stake" data-tip="Read live from your wallet when you confirm — the agent's own wallet is never touched"><b>🐱 TO JOIN</b><span>Hold at least <em>$25 of FEECAT</em> in the wallet that owns this agent — checked when you confirm.</span></p>
         <div className="hv-opps"><small>TWO WAYS TO EARN FROM THE COLONY</small>
           <article className="hv-opp" data-testid="colony-opp-stake"><b className="hv-opp-n">1</b><span><strong>🌊 Stake FEECAT or SOL in the colony pool</strong>
             <small>The pool lives on its own platform and pays on its own epochs.</small>
@@ -88,7 +87,7 @@ export function HiveSwitch({ cat }) {
                 <button type="button" className="m-btn m-go" disabled={busy || !signMessage} onClick={() => sign(true)} data-testid="colony-share-sign" data-tip={signMessage ? 'One wallet signature, no transaction' : 'Connect your wallet first'}>✍ Sign to share</button></span>}</span></article></div>
         <label className="hv-pop-pace"><span>FILES A CALL</span><span className="m-seg" role="group" aria-label="How often it files a call">{PACES.map(([v, l]) => <button key={v} type="button" className={pace === v ? 'active' : ''} aria-pressed={pace === v} onClick={() => setPace(v)} data-testid={`colonize-pace-${v}`}>{l}</button>)}</span></label>
         {err ? <p className="lct-err" role="alert" data-testid="colonize-err">⚠ {err}</p> : null}
-        <footer><button type="button" className="m-btn" onClick={() => setPop(false)}>Not now</button><button type="button" className="m-btn m-go" disabled={busy} onClick={() => set(true, pace)} data-testid="colonize-go">{busy ? 'Checking your FEECAT…' : '🐝 Colonize'}</button></footer>
+        <footer><button type="button" className="m-btn" onClick={() => setPop(false)}>Not now</button><button type="button" className="m-btn m-go" disabled={busy} onClick={() => set(true, pace)} data-testid="colonize-go">{busy ? 'Joining…' : '🐝 Colonize'}</button></footer>
       </section></div>, document.body) : null}</span>;
 }
 
@@ -161,12 +160,16 @@ export function useDrop(w) {
 function Window({ w, catId, tick, onGo, onLogin, busy, cursor = 'arrow' }) {
   const drop = useDrop(w);
   const ref = useRef(null); const seen = useOnScreen(ref); const [tab, setTab] = useState('web');
+  // 🖥 the window FOLLOWS the agent (owner 2026-10-31: "they should switch browser ⇄ FEELESS, not us clicking"): its last move decides the view
+  const lastAct = (w?.steps || []).at(-1)?.action; const lastN = (w?.steps || []).length;
+  useEffect(() => { if (lastAct === 'feeless' && w?.coin?.pair) setTab('chart'); else if (['open', 'click', 'scroll', 'search', 'type'].includes(lastAct)) setTab('web'); }, [lastAct, lastN, w?.coin?.pair]);
   const notAsked = !w?.goal && /not asked/.test(w?.bubble || w?.note || '');
   const chart = tab === 'chart' && w?.coin?.pair;
   const [p, pcls] = PROV[w?.provider] || ['…', ''];
   const human = w?.status === 'human' && w?.human; const [big, setBig] = useState(false);
   const i = w?.i ?? 0; const working = w?.status === 'working';
   // 🪟 the live window wears the demo's chrome (owner 2026-10-30: "the window design is perfected — users should see exactly that, bigger")
+  const [lastBad, setLastBad] = useState(false); useEffect(() => setLastBad(false), [w?.status]);
   const coinSym = String(w?.coin?.symbol || '').slice(0, 12);   // a spam token's 'symbol' can be 60 joined tickers — it once blew the whole desk apart
   return <article ref={ref} className={`agd-win cwb-win w${i % 2} s-${w?.status || 'idle'}`} data-testid={`cwb-win-${i}`}>
     <span className={`agd-bar${working ? ' is-go' : ''}`} data-tip="red = idle · yellow = needs you · green = working"><i /><i /><i /><b>MIND {'AB'[i] || i + 1}</b>
@@ -182,8 +185,9 @@ function Window({ w, catId, tick, onGo, onLogin, busy, cursor = 'arrow' }) {
       : chart && seen ? <div className="cwb-chart" data-testid="cwb-chart"><Suspense fallback={<span className="cwb-chart-load">loading ${coinSym} on FEELESS…</span>}>
         <PriceChart key={w.coin.pair} pair={{ chainId: 'solana', pairAddress: w.coin.pair, baseToken: { address: w.coin.mint, symbol: coinSym } }} interval="1m" metric="price" showVolume={false} /></Suspense>
         <em className="cwb-chart-tag">FEELESS · ${coinSym}</em></div>
-        : w?.live && seen ? <><iframe className={`cwb-live${w.hand ? ' is-hand' : ''}`} src={w.live} tabIndex={w.hand ? 0 : -1} title={`${w.model} browser`} sandbox="allow-scripts allow-same-origin allow-forms allow-popups" allow="clipboard-read; clipboard-write" data-testid="cwb-live" />
+        : w?.live && seen && (working || w.hand) ? <><iframe className={`cwb-live${w.hand ? ' is-hand' : ''}`} src={w.live} tabIndex={w.hand ? 0 : -1} title={`${w.model} browser`} sandbox="allow-scripts allow-same-origin allow-forms allow-popups" allow="clipboard-read; clipboard-write" data-testid="cwb-live" />
 </>
+        : !working && !w?.hand && w?.status === 'done' && seen && !lastBad ? <img className="cwb-shot" src={apiUrl(`/api/cats/${catId}/screen/${w.i}`)} alt={`${w.model} — the last page it was on`} onError={() => setLastBad(true)} data-testid="cwb-lastpage" />   // 🖼 a finished window keeps its last page (its cloud browser is closed: the live view said 'Session not found')
         : w?.shot && seen ? <img className="cwb-shot" src={apiUrl(`/api/cats/${catId}/work/shot/${w.i}?${agentAuthQuery()}&t=${tick}`)} alt={`${w.model} window`} data-testid="cwb-shot" />
           : <div className="cwb-off" data-testid="cwb-now"><b>{notAsked ? 'not asked' : working ? `MIND ${'AB'[i] || i + 1} · ${w?.url ? String(w.url).replace(/^https?:\/\//, '').split('/')[0] : 'reading'}` : w?.status === 'done' ? (w?.answer ? 'done — its answer is in the chat' : 'done') : 'ready — ask below'}</b>
             <small>{w?.provider === 'reader' ? (w?.note ? `no live browser · ${w.note}` : 'no live browser right now — add a Kernel / Steel / Anchor key for real windows') : working ? 'opening its browser…' : ''}</small></div>}
@@ -197,6 +201,8 @@ function Window({ w, catId, tick, onGo, onLogin, busy, cursor = 'arrow' }) {
         <span><button type="button" className="m-btn m-go" disabled={busy} onClick={() => onLogin?.(w.human.site)} data-tip="Opens the credentials drawer with this site filled in" data-testid="cwb-login-go">Click to sign in</button>
           <button type="button" className="m-btn" disabled={busy} onClick={() => onGo('stop_window', w.i)}>Stop</button></span></div>
       : human ? <div className="cwb-human" role="alertdialog" aria-label="A person is needed" data-testid="cwb-human"><b>✋ needs you</b><small>{w.human.why}</small>
+        {w.human.alts?.length ? <span className="cwb-alts" data-testid="cwb-alts"><em>OR SEND IT TO</em>{w.human.alts.map(h => <button key={h} type="button" className="m-chip" disabled={busy} onClick={() => onGo('redirect', w.i, h)}
+          data-tip={`Skip the check: it reads ${h} instead (it goes there on its own in 90 s)`} data-testid={`cwb-alt-${h}`}>{h}</button>)}</span> : null}
         <span><button type="button" className="m-btn m-go" disabled={busy} onClick={() => onGo('continue', w.i)} data-testid="cwb-continue">I did it — continue</button>
           <button type="button" className="m-btn" disabled={busy} onClick={() => onGo('stop_window', w.i)} data-testid="cwb-stopwin">Stop</button></span></div> : null}
     </div></div>
@@ -691,10 +697,11 @@ function WorkbenchLive({ cat }) {
         <span data-tip="This task's spend against its cap — it stops at the cap with what it has"><em>THIS TASK</em><b className="m-num">{usd(spent)} / {usd(cap)}</b><u aria-hidden="true"><s className={spent >= cap * 0.8 ? 'is-hot' : ''} style={{ transform: `scaleX(${Math.min(1, spent / (cap || 1))})` }} /></u></span>
       </span></header>
     <NowLine cat={cat} wins={wins} live={live} />
-    <div className="cwb-stage agd-wins">{wins.map(w => <Window key={w.i} w={w} catId={cat.id} tick={tick} busy={busy} cursor={aiCur} onGo={(op, i) => act(op, { i })} onLogin={site => setSignIn({ site, at: Date.now() })} />)}</div>
+    <div className={`cwb-stage agd-wins${wins.length === 1 ? ' is-solo' : ''}`}>{wins.map(w => <Window key={w.i} w={w} catId={cat.id} tick={tick} busy={busy} cursor={aiCur} onGo={(op, i, text) => act(op, { i, ...(text ? { text } : {}) })} onLogin={site => setSignIn({ site, at: Date.now() })} />)}</div>
     <DeskFlip cat={cat} flip={flip} setFlip={setFlip} name={cat.name} live={live} count={log.length} cloud={<HeadCloud items={(d?.cloud || []).slice(-5).reverse()} />}
       left={<MindVitals cat={cat} model={wins[0]?.model} i={0} kind="general" live={!!wins[0]?.model} hot={wins[0]?.status === 'working'} extra={<WinVitals w={wins[0]} />} />}
-      right={<MindVitals cat={cat} model={wins[1]?.model} i={1} kind="general" live={!!wins[1]?.model} hot={wins[1]?.status === 'working'} extra={<WinVitals w={wins[1]} />} />}
+      right={<MindVitals cat={cat} model={wins[1]?.model || cat.brainsCfg?.brains?.[1]} i={1} kind="general" live={!!(wins[1]?.model || cat.brainsCfg?.brains?.[1])} hot={wins[1]?.status === 'working'}
+        extra={<WinVitals w={wins[1] || (cat.brainsCfg?.brains?.[1] ? { i: 1, status: 'not asked' } : undefined)} />} />}   // its second model is still there when only A was asked
       back={<><LastMoney m={d?.lastMoney} />
     <AgentLog title="FILES" items={log} open={signIn ? { key: 'creds', at: signIn.at } : null} cabinet={[
       ...keyDrawers(cat, d, setD, signIn),

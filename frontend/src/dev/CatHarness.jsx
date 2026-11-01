@@ -35,9 +35,9 @@ const WORK = { lastMoney: { sol: 0.0421, at: now - 900, what: 'sell' }, vaultLog
     human: { kind: 'login', site: 'news.site', why: 'log in to news.site' }, steps: [{ action: 'open', thought: 'open the paywalled story', detail: 'news.site' }] }] };
 if (window.location.search.includes('coinwin')) {   // ?coinwin — owner bug 2026-10-31: after a bot check, mind A read FEELESS 'coin' (url feeless:coin + a coin), mind B not asked
   WORK.task = { ...WORK.task, status: 'done', text: 'A: Browse pump.fun for 2 minutes' };
-  WORK.windows = [{ i: 0, model: 'openai/gpt-6.1-terra', goal: 'Browse pump.fun for 2 minutes and report back what 2 coins stand out', status: 'done', provider: 'kernel', url: 'feeless:coin', cost: 0.006,
+  WORK.windows = [{ i: 0, model: 'openai/gpt-6.1-terra', goal: 'Browse pump.fun for 2 minutes and report back what 2 coins stand out', status: 'done', provider: 'kernel', url: 'feeless:coin', cost: 0.006, live: 'https://example.invalid/closed-session',
     coin: { pair: '9dfkqXyRkTtg5sEuUxu7yP4CsBDcBu6aB4RMJBTn8ksb', mint: 'pumpCmXqMfrsAkQ5r49WcJnRayYRqmXz6ae8H7H9Dfn', symbol: 'PUMPBDXJUPGHOFILXDCTBLLXFLRVVVLITARBUSDOUSXINJAPTUSDAITUSDNEXONIGHTCAKEETHF龙虾TOKAMAKBIRBPIXELOXTLQTYZENTPARTIETNWETGOLDGNVOONOBS' }, steps: [{ action: 'feeless', thought: 'check on FEELESS', detail: 'coin pump' }] },
-    { i: 1, model: 'anthropic/claude-haiku-5.5', status: 'idle', steps: [] }];
+];   // only A was asked: the task has ONE window
 }
 const CLOUD = { providers: [{ key: 'gdrive', label: 'Google Drive', free: '15 GB free', ready: true }, { key: 'dropbox', label: 'Dropbox', free: '2 GB free', ready: false }], link: { provider: 'gdrive', label: 'Google Drive' }, used: 6.2 * 1024 ** 3, total: 15 * 1024 ** 3,
   recent: ['coin-logo.png', 'banner.gif', 'launch.png'].map((n, i) => ({ id: `r${i}`, name: n, size: 2e6, link: '#', thumb: PX })) };

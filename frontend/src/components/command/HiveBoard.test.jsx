@@ -20,19 +20,19 @@ test('🐝 the Hive board: epoch ring, filed / graded, a honeycomb cell per call
 
 test('🐝 Colonize opens the popout (what it is + the FEECAT stake), confirms at the picked pace, shows a refused stake, and leaves in one click', async () => {
   const sent = []; let refuse = true; mockSign.mockImplementation(async () => 'SIG');
-  global.fetch = async (u, o) => { if (!o) return { ok: true, json: async () => ({ agents: [], cadence: 'daily', nextAirdrop: Date.now() / 1000 + 7200, pool: null }) }; const b = JSON.parse(o.body); sent.push(b); if (refuse && b.on && b.op === 'hive') { refuse = false; return { ok: false, status: 402, json: async () => ({ detail: 'Colonizing needs $25 of FEECAT in your wallet — it holds $3.10.' }) }; } return { ok: true, status: 200, json: async () => (b.op === 'share' ? { colonyShare: { on: b.on, pct: b.cap } } : { hive: { on: b.on, every: b.cap } }) }; };
+  global.fetch = async (u, o) => { if (!o) return { ok: true, json: async () => ({ agents: [], cadence: 'daily', nextAirdrop: Date.now() / 1000 + 7200, pool: null }) }; const b = JSON.parse(o.body); sent.push(b); if (refuse && b.on && b.op === 'hive') { refuse = false; return { ok: false, status: 402, json: async () => ({ detail: 'The agent service did not answer.' }) }; } return { ok: true, status: 200, json: async () => (b.op === 'share' ? { colonyShare: { on: b.on, pct: b.cap } } : { hive: { on: b.on, every: b.cap } }) }; };
   const el = document.createElement('div'); document.body.appendChild(el);
   await act(async () => { createRoot(el).render(<HiveSwitch cat={{ id: 'h1', name: 'Kit', hive: { on: false, every: 300 } }} />); });
   await act(async () => { el.querySelector('[data-testid="hive-toggle"]').click(); });
   expect(sent).toHaveLength(0); const pop = document.body.querySelector('[data-testid="colonize-pop"]');
-  expect(pop.textContent).toContain('$25 of FEECAT'); expect(pop.textContent).toContain('never pooled'); expect(pop.textContent).toContain('Colonize Kit');
+  expect(pop.textContent).not.toContain('FEECAT in'); expect(pop.textContent).toContain('never pooled'); expect(pop.textContent).toContain('Colonize Kit');
 expect(document.body.querySelector('[data-testid="colony-opp-stake"]').textContent).toContain('NOT OPEN YET'); expect(document.body.querySelector('[data-testid="colony-share-sign"]')).not.toBeNull();
   await act(async () => { document.body.querySelector('[data-testid="colony-share-20"]').click(); });
   await act(async () => { document.body.querySelector('[data-testid="colony-share-sign"]').click(); });   // 🤝 opportunity 2: one wallet signature, no transaction
   expect(mockSign.mock.calls.at(-1)[0]).toMatch(/^FEELESS colony share\nagent:h1\npct:20\nts:\d+$/); expect(sent.at(-1)).toMatchObject({ op: 'share', on: true, cap: 20, sig: 'SIG' }); sent.length = 0; refuse = true;
   await act(async () => { document.body.querySelector('[data-testid="colonize-pace-900"]').click(); });
   await act(async () => { document.body.querySelector('[data-testid="colonize-go"]').click(); });
-  expect(sent.at(-1)).toMatchObject({ op: 'hive', on: true, cap: 900 }); expect(document.body.querySelector('[data-testid="colonize-err"]').textContent).toContain('holds $3.10');
+  expect(sent.at(-1)).toMatchObject({ op: 'hive', on: true, cap: 900 }); expect(document.body.querySelector('[data-testid="colonize-err"]').textContent).toContain('did not answer');
   await act(async () => { document.body.querySelector('[data-testid="colonize-go"]').click(); });
   expect(document.body.querySelector('[data-testid="colonize-pop"]')).toBeNull(); expect(el.querySelector('[data-testid="hive-toggle"]').textContent).toContain('COLONIZED');
   const sel = el.querySelector('[data-testid="hive-pace"]');

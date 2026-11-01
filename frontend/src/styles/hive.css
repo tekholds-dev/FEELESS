@@ -78,14 +78,12 @@ body.theme-day .hv-pot-vault { background: #fffaf0; } body.theme-day .hv-guards 
 .hv-pop-steps li { display: grid; grid-template-columns: 32px minmax(0, 1fr); gap: 10px; align-items: start; padding: 8px 10px; border-radius: 12px; background: #ffffff06; border: 1px solid #f5c5421a; animation: hvIn .3s ease-out both; animation-delay: calc(var(--i) * 55ms); }
 .hv-pop-steps b { display: grid; place-items: center; width: 32px; height: 32px; border-radius: 10px; background: #f5c5421c; font-size: 15px; }
 .hv-pop-steps strong { display: block; font: 700 12.5px var(--f-ui); color: #fff; } .hv-pop-steps small { font: 500 11px/1.4 var(--f-ui); color: #b9add6; }
-.hv-pop-stake { margin: 0; display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 10px; align-items: center; padding: 10px 12px; border-radius: 12px; border: 1px solid #45e48644; background: #45e4860d; font: 500 11.5px/1.4 var(--f-ui); color: #d8f5e3; }
-.hv-pop-stake b { font: 800 10px var(--f-mono); letter-spacing: .12em; color: #45e486; } .hv-pop-stake em { font-style: normal; font-weight: 800; color: #45e486; }
 .hv-pop-pace { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; } .hv-pop-pace > span:first-child { font: 800 9px var(--f-mono); letter-spacing: .14em; color: #c9b27a; }
 .hv-pop footer { display: flex; justify-content: flex-end; gap: 8px; }
 body.fx-lite .hv-pop-orb i, body.fx-lite .hv-pop-steps li { animation: none; }
 @media (prefers-reduced-motion: reduce) { .hv-pop-orb i, .hv-pop-steps li { animation: none !important; } }
 body.theme-day .hv-pop { background: linear-gradient(170deg, #fffaf0, #fff); color: #2a1a00; } body.theme-day .hv-pop h3, body.theme-day .hv-pop-steps strong { color: #2a1a00; } body.theme-day .hv-pop-steps small { color: #5b4a2a; }
-body.theme-day .hv-pop-stake { color: #12301f; } body.theme-day .hv-pop-x { color: #2a1a00; border-color: #0002; }
+body.theme-day .hv-pop-x { color: #2a1a00; border-color: #0002; }
 /* 🐝 THE COLONY page: a grid of cells — two screens with the drawn agent between them, its honey and newest graded call */
 .cl { --hv: #f5c542; --hv-hot: #ffd76a; display: grid; gap: 14px; }
 .cl-head { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 18px; padding: 12px 14px; border-radius: 16px; border: 1px solid #f5c54233; background: linear-gradient(170deg, #160f24, #0b0714); box-shadow: inset 0 1px 0 #ffffff10; }

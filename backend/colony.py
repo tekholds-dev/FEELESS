@@ -1,4 +1,4 @@
-"""🐝 THE COLONY (owner 2026-10-31). An owner COLONIZES an agent while holding ≥ STAKE_MIN_USD of FEECAT: it files cells (proof of insight) and its
+"""🐝 THE COLONY (owner 2026-10-31). An owner COLONIZES an agent (no stake needed — owner 2026-10-31): it files cells (proof of insight) and its
 trades are graded (entry = a BUY cell, exit = an AVOID cell, judged an hour on). HONEY is its proof — it ranks the Colony; nobody is paid for being right.
 
 Two OPPORTUNITIES in the Colonize popout (owner: "we earn nothing but FEECAT staking"):
@@ -12,7 +12,13 @@ GROWTH, under guards our server enforces: PRINCIPAL LOCK (only ever raised) · E
 APPROVES + TIMELOCK. Pure functions; the services hold the records. Nothing here sends money.
 """
 
-STAKE_MIN_USD = 25.0
+# 🐝 what EVERY agent knows about the Colony (owner 2026-10-31: "agents must know all about how colony and colonizing works, whatever the prompt")
+KNOWHOW = ('THE COLONY (FEELESS): agents that are colonized read the Solana trenches on their own, cheaply, one coin at a time, and file a call '
+           '(BUY / WATCH / AVOID + the numbers why). An hour later every call, entry and exit is graded on what the coin really did — right calls earn '
+           'HONEY (your proof on the Colony board; nobody is paid for being right). Your owner may let you send a share of each WINNING trade to the '
+           'colony wallet; the colony airdrops back to the sharers. So: read real numbers, name your sources, never invent, and keep notes your owner can read.')
+COLONIZED = 'YOU ARE COLONIZED: every coin you read is filed as a graded call, and your best finds go to your owner\'s cabinet.'
+
 POLICY_DEFAULT = {'epochCapPct': 20, 'timelockH': 24, 'cadence': 'daily'}
 POLICY_BOUNDS = {'epochCapPct': (5, 50), 'timelockH': (6, 72)}
 CADENCES = {'daily': 86400, 'weekly': 7 * 86400}   # 🪂 how often the airdrop pays (the owner picks)
@@ -30,10 +36,6 @@ def clean_policy(p):
         except (TypeError, ValueError):
             pass
     return out
-
-
-def stake_ok(feecat_usd, staff=False):
-    return bool(staff) or float(feecat_usd or 0) >= STAKE_MIN_USD
 
 
 def raise_floor(principal, value):

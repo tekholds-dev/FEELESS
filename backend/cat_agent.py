@@ -95,6 +95,18 @@ def blocked_value(label, value):
     return bool(BLOCKED.search(str(label or '')) or re.search(r'\b(?:\d[ -]?){13,19}\b', str(value or '')))
 
 
+async def _after_human(w, page):
+    """Back from a handoff: the page as it is now — or, when the owner (or the timer) sent it to another source, that source instead."""
+    to = w.pop('redirect', None)
+    if to:
+        seen = await page.goto(to)
+        w['url'], w['title'] = page.url, page.title
+        _step(w, f'blocked there — going to {to.split("://")[-1]} instead', 'open', to)
+        w['_page'] = seen
+        return f'(the last site was blocked — you are now on {to.split("://")[-1]})\n' + str(seen)
+    return await page.read()
+
+
 def new_task(tid, text, models, cap, steps=STEP_MAX, mode='plan', mind_caps=None):
     return {'mindCaps': list(mind_caps or []), 'id': tid, 'text': str(text)[:2000], 'mode': mode if mode in MODES else 'plan', 'status': 'planning', 'cap': float(cap), 'cost': 0.0, 'answer': None, 'fast': False, 'stepsMax': int(steps), 'tools': {'browse': True, 'forms': True},
             'windows': [{'i': i, 'model': m, 'goal': None, 'status': 'idle', 'bubble': 'waiting for the plan', 'url': None, 'title': None,
@@ -200,7 +212,7 @@ async def _window(task, w, ask, page, wait_human, name, feeless=None):
                 if not go_:
                     raise Stopped(w.pop('parked', None) or 'stopped by you')
                 w['status'] = 'working'
-                seen = w['_page'] = await page.read()
+                seen = w['_page'] = await _after_human(w, page)
         except Exception as e:
             seen = f'(could not open {site}: {str(e)[:120]})'
     min_s = browse_secs(w['goal']); t_start = time.time()
@@ -214,6 +226,8 @@ async def _window(task, w, ask, page, wait_human, name, feeless=None):
         mine = (task.get('clouds') or {}).get(w['i']) or []   # ☁ its own cloud from earlier tasks
         got = [h['text'] for h in task.get('handoffs') or [] if h['from'] != w['i']][-4:]   # 📦 what its partner handed over
         extra = (f"\nYOUR CLOUD (your notes from earlier tasks): {' | '.join(mine)[:600]}" if mine else '') + (f"\nFROM YOUR PARTNER: {' | '.join(got)[:900]}" if got else '')
+        if task.get('knowhow'):   # 🐝 the Colony + 🧭 the sources book: every mind knows both, whatever its prompt
+            extra += '\n' + str(task['knowhow'])[:900]
         if task.get('research'):   # 📰 a trader: FEELESS's chart first, then the chart's own research doors (X search by the contract — signed in when the owner saved X)
             extra += RESEARCH_HOW
         # the job + JSON format lead: a short-context model (the free backup keeps the first 4,000 chars) once lost both and answered in prose
@@ -315,7 +329,12 @@ async def _window(task, w, ask, page, wait_human, name, feeless=None):
                 elif act == 'open':
                     seen = await page.goto(str(a.get('url') or ''))
                 elif act == 'scroll':
-                    seen = await page.scroll(str(a.get('q') or 'down'))
+                    way_ = 'up' if str(a.get('q') or 'down').lower().startswith('up') else 'down'
+                    prev_ = [x for x in w['steps'] if x.get('action') == 'scroll'][-1:]
+                    if prev_ and (prev_[0].get('detail') or 'down').lower().startswith('up') != (way_ == 'up') and w['steps'][-1].get('action') == 'scroll':
+                        raise ValueError('you just scrolled the other way — that part was already read (see the PAGE SNAPSHOT). Act on it, click something, or open another page')
+                    page.mind = w['i']
+                    seen = await page.scroll(way_)
                 elif act == 'search':
                     seen = await page.search(str(a.get('q') or w['goal']))
                 elif act == 'click':
@@ -355,7 +374,7 @@ async def _window(task, w, ask, page, wait_human, name, feeless=None):
             if not go:
                 raise Stopped(w.pop('parked', None) or 'stopped by you')
             w['status'] = 'working'
-            seen = await page.read()
+            seen = await _after_human(w, page)
     else:
         w['answer'] = w['answer'] or f'(ran out of steps) {thought}'
     w['status'] = 'done'

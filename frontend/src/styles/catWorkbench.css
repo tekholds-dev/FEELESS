@@ -458,3 +458,6 @@ body.theme-day .cwb-fields .m-input { color: #2a1650; } body.theme-day .cwb-sugg
 .cwb-cursor.is-think::after { content: ''; position: absolute; left: -11px; top: -11px; width: 22px; height: 22px; border-radius: 50%; border: 2px solid #c9a8ff; opacity: 0; animation: cwbThink 1.4s ease-out infinite; }
 @keyframes cwbThink { 0% { transform: scale(.4); opacity: .9; } 100% { transform: scale(1.6); opacity: 0; } }
 body.fx-lite .cwb-cursor.is-think::after { animation: none; opacity: .6; } @media (prefers-reduced-motion: reduce) { .cwb-cursor.is-think::after { animation: none; opacity: .6; } .cwb-cursor { transition: none; } }
+.cwb-dash .cwb-stage.agd-wins.is-solo { grid-template-columns: minmax(0, 1fr); }   /* one mind asked: its window takes the stage (the other is not asked, not missing) */
+.cwb-alts { display: flex; flex-wrap: wrap; align-items: center; gap: 5px; } .cwb-alts em { font: 800 8.5px var(--f-mono); letter-spacing: .12em; color: #c9b27a; font-style: normal; }
+.cwb-alts .m-chip { min-height: 30px; cursor: pointer; }   /* 🧭 a blocked window's best other sources (the sources book) */

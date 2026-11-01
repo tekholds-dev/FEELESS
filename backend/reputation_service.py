@@ -19585,7 +19585,7 @@ async def _colony_view():
     pay = _col.payable((val or {}).get('usd'), principal, policy) if val else 0.0
     return {'wallet': {k: w.get(k) for k in ('address', 'at')} if w else None, 'value': val, 'principalUsd': round(principal, 2),
             'growthUsd': _col.growth((val or {}).get('usd'), principal) if val else 0.0, 'payableUsd': pay, 'policy': policy,
-            'bounds': _col.POLICY_BOUNDS, 'guards': list(_col.FIXED_GUARDS), 'stakeMinUsd': _col.STAKE_MIN_USD,
+            'bounds': _col.POLICY_BOUNDS, 'guards': list(_col.FIXED_GUARDS),
             'airdrop': _col.airdrop(live.get('shares'), set(live.get('sharers') or []), pay, _col.period_of(time.time(), policy['cadence'])[1] - _col.CADENCES[policy['cadence']]),
             'nextAirdrop': _col.period_of(time.time(), policy['cadence'])[1], 'sharers': len(live.get('sharers') or []),
             'sharedSol': round(sum(float(x.get('sol') or 0) for x in live.get('shares') or []), 6), 'pool': d.get('pool'), 'board': (live.get('board') or [])[:10],
@@ -34080,16 +34080,6 @@ async def internal_agent_x402_pay(request: Request, body: dict):
     if not signed_.get('signedTransaction'):
         raise HTTPException(502, 'Circle did not sign it.')
     return {'signedTransaction': signed_['signedTransaction']}
-
-
-@app.get('/api/reputation/internal/feecat-usd')
-async def internal_feecat_usd(request: Request, address: str = ''):
-    """🐝 The Colony's stake gate: $ of FEECAT this wallet holds (live balance × Jupiter price)."""
-    if not _internal_ok(request):
-        raise HTTPException(403, 'Internal only.')
-    if not _re.match(r'^[1-9A-HJ-NP-Za-km-z]{32,44}$', address or ''):
-        raise HTTPException(400, 'Not a wallet.')
-    return {'usd': round(float(await _holding_usd(address, ecosystem_mints()['feecat'])), 2)}
 
 
 @app.post('/api/reputation/internal/agent-circle-wallet')
