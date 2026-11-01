@@ -115,3 +115,4 @@ ai_pfp_picks/
 frontend/public/dev-agents.json
 frontend/public/dev-feecat.json
 frontend/public/dev-prompts.json
+frontend/public/dev-pow.json

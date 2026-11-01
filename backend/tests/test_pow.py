@@ -199,10 +199,12 @@ def test_the_service_runs_a_whole_folder_two_minds_discuss_buy_watch_research_de
     tick(); assert f['turn'] == 1 and 'proposes: $BBB' in cat['chat'][-1]['text']           # 🗣 PLAN: A proposes (in your chat)
     tick(); assert f['turn'] == 2 and 'answers: $BBB' in cat['chat'][-1]['text']            # B agrees / suggests
     tick(); assert f['phase'] == 'scout' and f['scout'][0] == 'B2' and 'A1' not in f['scout']   # A's final plan: research the safe coins, its favorite first
-    for _ in range(6):
+    tick(); assert f['phase'] == 'scout' and not f.get('scoutDone') and f.get('busyAt')       # a busy window: the coin WAITS, never skipped unread
+    for _ in range(12):
         if f['phase'] == 'scout':
-            tick()
-    assert f['scouted'] and f['phase'] == 'choose' and set(f['scoutDone']) == set(f['scout'])   # every safe coin had its round (no window here: skipped, never stuck)
+            tick(310)
+    assert f['scouted'] and f['phase'] == 'choose' and set(f['scoutDone']) == set(f['scout'])   # 5 min busy → it keeps its FEELESS read, never stuck
+    assert 'not researched' in str(f['talk'])
     tick(); tick(); tick(); assert f['phase'] == 'buy' and f['sym'] == 'BBB' and 'final plan' in cat['chat'][-1]['text']   # DECIDE: 3 turns again → the ONE
     assert (f['sol'], f['sl']) == (0.02, 15.0)                                              # the safer of their trades
     tick(); assert orders == ['buy 0.02 SOL of B2'] and f['phase'] == 'watch' and not f['real']
@@ -267,7 +269,7 @@ def test_file_a_pow_in_chat_starts_a_folder_on_any_agent_one_mind_or_both_and_st
     monkeypatch.setattr(fs, '_run_order', order)
     store = {'cats': {'g1': cat}}
     monkeypatch.setattr(fs, '_work_start', lambda *a, **k: (_ for _ in ()).throw(fs.HTTPException(409, 'busy')))
-    for t in range(100, 400, 20):   # folder → plan → scout → decide → buy
+    for t in range(100, 4000, 160):   # folder → plan → scout (a busy window waits 5 min a coin) → decide → buy
         if not orders:
             asyncio.run(fs._pow2_tick(H(), store, cat, t))
     assert 'folder' in cat['powRun'], (cat['powRun'], cat.get('powFolders'))
@@ -292,7 +294,7 @@ def test_propose_a_pow_agrees_on_one_coin_and_files_the_card_without_buying(monk
     monkeypatch.setattr(fs, '_run_order', lambda *a: (_ for _ in ()).throw(AssertionError('a proposal never buys')))
     monkeypatch.setattr(fs, '_work_start', lambda *a, **k: (_ for _ in ()).throw(fs.HTTPException(409, 'busy')))
     monkeypatch.setattr(fs, '_pair_prices', lambda http, pairs: _aw({}))
-    for t_ in range(200, 600, 20):   # plan (3 turns) → scout every safe coin → decide (3 turns) → filed as a card
+    for t_ in range(200, 4000, 160):   # plan (3 turns) → scout every safe coin → decide (3 turns) → filed as a card
         if 'folder' in cat['powRun']:
             asyncio.run(fs._pow2_tick(None, {'cats': {'p1': cat}}, cat, t_))
     done = cat['powFolders'][-1]
@@ -417,3 +419,27 @@ def test_the_thinking_top_up_never_spends_the_sol_it_trades_with():
     import feecat_service as fs
     assert fs.think_keep_sol({'budgetSol': 0.01}) == 0.022                     # one trade (0.01) + gas (0.01) + room
     assert fs.think_keep_sol({}) == 0.012 and fs.THINK_SWAP_SOL <= 0.004                 # no budget set: still the trade gas + room
+
+
+def test_no_coin_twice_random_sites_skip_the_last_folders_and_every_folder_reports():
+    import random
+    old = [{'coins': [{'mint': 'A1'}, {'mint': 'B2'}]}, {'coins': [{'mint': 'C3'}]}]
+    assert pw.recent_mints(old) == {'A1', 'B2', 'C3'}
+    got = pw.gather(_intake(), [{'mint': 'D4', 'pair': 'pd', 'sym': 'DDD', 'liq': 90000}], pw.recent_mints(old))
+    assert not {c['mint'] for c in got} & {'A1', 'B2', 'C3'}                                 # 🚫 a coin of a recent folder never comes back
+    folders = [{'shots': [{'site': 'dexscreener.com'}], 'vitals': {'m': [{'site': 'rugcheck.xyz'}]}, 'pnlPct': 5},
+               {'shots': [{'site': 'solscan.io'}], 'pnlPct': -3}, {'shots': [{'site': 'birdeye.so'}], 'pnlPct': -1}]
+    recent, wins = pw.site_memory(folders)
+    assert recent == {'solscan.io', 'birdeye.so'} and wins == {'dexscreener.com', 'rugcheck.xyz'}
+    o = pw.site_order(recent, wins, random.Random(1))
+    assert o[:2] == ['dexscreener.com', 'rugcheck.xyz'] and not set(o) & recent              # winners first, the last folders' sites skipped
+    orders = {tuple(pw.site_order(set(), set(), random.Random(k))) for k in range(6)}
+    assert len(orders) > 1                                                                   # 🎲 random, not one fixed route
+    p = {**pw.new({'mint': 'M', 'pair': 'P', 'sym': 'X'}, 0), 'order': o}
+    assert [pw.host_of(u) for u in pw.links(p)] == o
+    f = {'name': 'PoW #9', 'coins': [{'mint': 'M', 'sym': 'X', 'src': 'pump'}, {'mint': 'N', 'sym': 'Y', 'src': 'dex', 'safe': False, 'risk': 'mint on'}],
+         'pick': {'mint': 'M'}, 'sym': 'X', 'pnlPct': -4.2, 'pnlSol': -0.0003, 'why': 'stop: -4%', 'vitals': {'M': [{'site': 'rugcheck.xyz', 'label': 'risk score', 'value': 'GOOD'}]},
+         'shots': [{'mint': 'M', 'site': 'rugcheck.xyz'}], 'cost': 0.05, 'talk': [{'by': 'A', 'text': 'buy X'}], 'boughtAt': 0, 'soldAt': 600}
+    r, md = pw.report(f)
+    assert r['grade'] == '👎 bad trade' and r['researched'] == 1 and r['held'] == 10 and r['costUsd'] == 0.05
+    assert 'FINAL REPORT' in md and '⭐ $X' in md and 'UNSAFE: mint on' in md and '**A**: buy X' in md

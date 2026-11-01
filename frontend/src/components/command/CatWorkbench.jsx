@@ -555,7 +555,7 @@ function CoinFolder({ f, c, catId, onShot }) {   // 📁 one coin's folder insid
     {vit.length ? <ul className="dsk-coin-vit">{vit.map((x, k) => <li key={`${x.site}${x.label}${k}`}><em>{x.label}</em><b className="m-num">{x.value}</b><small>{x.site}</small></li>)}</ul>
       : <p className="dsk-coin-read">{String(c.read || 'its FEELESS read').slice(0, 260)}</p>}
     {shots.length ? <div className="dsk-coin-shots">{shots.map(x => <button key={x.file} type="button" onClick={() => onShot(x)} data-tip={`${x.site} · snapshot ${x.n} · round ${(x.round || 0) + 1}`}>
-      <img src={apiUrl(`/api/cats/${catId}/powshot/${String(f.id).replace(/[^a-z0-9]/gi, '').toLowerCase()}/${x.file}`)} alt={`${x.site} snapshot ${x.n}`} loading="lazy" /><small>{x.site} · {x.n}</small></button>)}</div>
+      <img src={apiUrl(`/api/cats/${catId}/powshot/${String(f.id).replace(/[^a-z0-9]/gi, '').toLowerCase()}/${x.file}`)} alt={`${x.site} snapshot ${x.n}`} loading="lazy" /><small>{x.trade ? (x.trade === 'good' ? '👍 ' : '👎 ') : ''}{x.site} · {x.n}</small></button>)}</div>
       : <small className="dsk-coin-none">{(f.scout || []).includes(c.mint) ? 'snapshots land here as each site is researched' : 'not researched (failed the safety check) — its FEELESS read is kept'}</small>}
   </div>;
 }
@@ -620,18 +620,75 @@ function SourcesFolder({ cat, d, setD }) {
       {signed.has(r.host) ? <i className="dsk-src-in">signed in</i> : <button type="button" className="m-btn" onClick={() => setPick(r.host)} data-tip={`Opens ${r.host} live in its window — sign in once (its own email), it stays signed in`} data-testid={`src-signin-${r.host}`}>Sign in</button>}</li>)}</ul>
   </div>;
 }
-function PowFolder({ cat, d }) {
-  const [rows, setRows] = useState(null);
-  useEffect(() => { let on = true; Promise.resolve().then(() => fetch(apiUrl(`/api/cats/pow?cat=${cat.id}&limit=40`))).then(r => (r?.ok ? r.json() : null)).then(x => on && setRows(x?.rows || [])).catch(() => on && setRows([])); return () => { on = false; }; }, [cat.id]);
-  if (!rows) return <p className="dsk-note">reading its proofs…</p>;
-  const g = rows.filter(r => r.graded); const right = g.filter(r => r.honey > 0).length; const by = k => rows.filter(r => r.call === k).length;
-  const avg = rows.length ? Math.round(rows.reduce((a, r) => a + (Number(r.strength) || 0), 0) / rows.length) : 0;
-  return <div className="dsk-pow" data-testid="dsk-pow">
-    {d?.powFolder ? <FolderView f={d.powFolder} live catId={cat.id} /> : null}
-    {(d?.powFolders || []).map(f => <FolderView key={f.id} f={f} catId={cat.id} />)}
-    <div className="hv-pow-stats">{[['PROOFS', rows.length], ['BUY · WATCH · AVOID', `${by('BUY')} · ${by('WATCH')} · ${by('AVOID')}`], ['RIGHT', g.length ? `${Math.round(100 * right / g.length)}%` : '—'], ['STRENGTH', avg]].map(([k, v]) =>
+// ⛏ THE PoW EXPLORER (owner 2026-11-01: "truly folders and coin folders … the overall PoW folder should always give a final report"):
+// PoW › each dated folder › its coin folders (vitals + JPEG snapshots, the pick's 👍 good / 👎 bad trade) + 📋 FINAL REPORT + 💬 the discussion
+const shotUrl = (catId, f, file) => apiUrl(`/api/cats/${catId}/powshot/${String(f.id).replace(/[^a-z0-9]/gi, '').toLowerCase()}/${file}`);
+const gradeOf = f => (f.pnlPct == null ? null : f.pnlPct > 0 ? 'good' : 'bad');
+function Tile({ kind = 'dir', tone = '', ic, label, sub, onOpen, tip, i = 0, testid }) {
+  return <button type="button" className={`dsk-ico dsk-xt${tone ? ` is-${tone}` : ''}`} style={{ '--i': i }} onClick={onOpen} data-tip={tip} data-testid={testid}>
+    {kind === 'dir' ? <i className="dsk-ico-art" aria-hidden="true"><em>{ic}</em></i> : <i className="dsk-file" aria-hidden="true"><em>{ic}</em></i>}
+    <span>{label}</span>{sub ? <small className="m-num">{sub}</small> : null}</button>;
+}
+function TradeLine({ f }) {   // 📈 the trade drawn from its own price samples: entry, take profit, stop, where it sold
+  const ys = (f.line || []).map(Number).filter(v => v > 0); const e = Number(f.entry) || 0;
+  if (ys.length < 2 || !e) return null;
+  const tp = e * (1 + (Number(f.tp) || 0) / 100), sl = e * (1 - (Number(f.sl) || 0) / 100);
+  const lo = Math.min(...ys, sl), hi = Math.max(...ys, tp); const y = v => 6 + 88 * (1 - (v - lo) / ((hi - lo) || 1)); const x = k => (k / (ys.length - 1)) * 300;
+  const g = gradeOf(f) || (ys[ys.length - 1] >= e ? 'good' : 'bad');
+  return <svg className={`dsk-tl is-${g}`} viewBox="0 0 300 100" preserveAspectRatio="none" role="img" aria-label={`$${f.sym} trade: entry, take profit, stop and the price`}>
+    <line x1="0" x2="300" y1={y(tp)} y2={y(tp)} className="dsk-tl-tp" /><line x1="0" x2="300" y1={y(sl)} y2={y(sl)} className="dsk-tl-sl" /><line x1="0" x2="300" y1={y(e)} y2={y(e)} className="dsk-tl-e" />
+    <polyline points={ys.map((v, k) => `${x(k)},${y(v)}`).join(' ')} className="dsk-tl-px" /><circle cx="300" cy={y(ys[ys.length - 1])} r="3.5" className="dsk-tl-dot" /></svg>;
+}
+function ReportFile({ f, catId }) {
+  const r = f.report;
+  if (!r) return <div className="dsk-rep" data-testid="dsk-report"><b className="dsk-rep-h">📋 FINAL REPORT</b><p className="dsk-note">This folder is still {f.phase} — its report is written the moment it closes.</p></div>;
+  return <div className={`dsk-rep is-${gradeOf(f) || 'none'}`} data-testid="dsk-report">
+    <span className="dsk-rep-h"><b>📋 FINAL REPORT</b><em>{r.grade}</em>{r.pnlPct != null ? <strong className={`m-num ${r.pnlPct >= 0 ? 'is-up' : 'is-dn'}`}>{r.pnlPct >= 0 ? '+' : ''}{r.pnlPct}%</strong> : null}
+      <a className="m-btn" href={shotUrl(catId, f, 'report.md')} target="_blank" rel="noopener noreferrer" data-tip="The same report as a Markdown file">⬇ report.md</a></span>
+    <div className="hv-pow-stats">{[['COINS', `${r.researched}/${(r.coins || []).length} researched`], ['TRADE', r.pick ? `$${r.pick} · ${r.sol} SOL` : 'none'], ['HELD', r.held != null ? `${r.held} min · ${r.checks} checks` : '—'], ['COST', `$${Number(r.costUsd || 0).toFixed(4)}`]].map(([k, v]) =>
       <span key={k}><em>{k}</em><b className="m-num">{v}</b></span>)}</div>
-    {rows.length ? <div className="hv-pow-grid">{rows.map(p => <PowCard key={p.id} p={p} />)}</div> : <PowCard p={null} />}
+    <p className="dsk-rep-l"><b>Lesson</b> {r.lesson}</p>
+    <ul className="dsk-rep-c">{(r.coins || []).map(c => <li key={c.mint} className={c.pick ? 'is-pick' : c.safe ? '' : 'is-bad'}><b>{c.pick ? '⭐ ' : ''}${c.sym}</b><em>{c.src}</em>
+      <u><s style={{ transform: `scaleX(${Math.min(1, (c.vitals || 0) / 9)})` }} /></u><small className="m-num">{c.safe ? `${c.vitals} vitals · ${c.shots} 📸` : `unsafe — ${c.risk || ''}`}</small></li>)}</ul>
+  </div>;
+}
+function PowExplorer({ cat, d }) {
+  const [path, setPath] = useState([]); const [rows, setRows] = useState(null); const [big, setBig] = useState(null);
+  useEffect(() => { let on = true; Promise.resolve().then(() => fetch(apiUrl(`/api/cats/pow?cat=${cat.id}&limit=40`))).then(r => (r?.ok ? r.json() : null)).then(x => on && setRows(x?.rows || [])).catch(() => on && setRows([])); return () => { on = false; }; }, [cat.id]);
+  const all = [...(d?.powFolder ? [{ ...d.powFolder, live: true }] : []), ...(d?.powFolders || [])]   // the server sends the newest first;
+  const f = path[0] && path[0] !== 'old' ? all.find(x => x.id === path[0]) : null; const c = f && path[1] ? (f.coins || []).find(x => x.mint === path[1]) : null;
+  const done = all.filter(x => x.pnlPct != null); const won = done.filter(x => x.pnlPct > 0).length;
+  const crumbs = [['PoW', []], ...(path[0] === 'old' ? [['Older proofs', ['old']]] : []), ...(f ? [[f.name, [f.id]]] : []), ...(c ? [[`$${c.sym}`, path]] : []), ...(path[1] === 'report' ? [['FINAL REPORT', path]] : []), ...(path[1] === 'talk' ? [['Discussion', path]] : [])];
+  let body;
+  if (path[0] === 'old') body = rows?.length ? <div className="hv-pow-grid">{rows.map(p => <PowCard key={p.id} p={p} />)}</div> : <PowCard p={null} />;
+  else if (!f) body = <>
+    <div className="hv-pow-stats">{[['FOLDERS', all.length], ['TRADES', done.length], ['WON', done.length ? `${Math.round(100 * won / done.length)}%` : '—'], ['P/L', `${done.reduce((a, x) => a + (Number(x.pnlSol) || 0), 0).toFixed(4)} SOL`], ['COST', `$${all.reduce((a, x) => a + (Number(x.cost) || 0), 0).toFixed(3)}`]].map(([k, v]) =>
+      <span key={k}><em>{k}</em><b className="m-num">{v}</b></span>)}</div>
+    <div className="dsk-xgrid">{all.map((x, i) => <Tile key={x.id} i={i} tone={x.live ? 'live' : gradeOf(x) || 'none'} ic={x.live ? '⛏' : gradeOf(x) === 'good' ? '👍' : gradeOf(x) === 'bad' ? '👎' : '📁'}
+      label={String(x.name).split(' · ')[0]} sub={x.live ? `● ${x.phase}` : x.pnlPct != null ? `${x.pnlPct >= 0 ? '+' : ''}${x.pnlPct}%` : (x.name.split(' · ').slice(1).join(' ') || x.status)}
+      onOpen={() => setPath([x.id])} tip={`${x.name} — ${x.why || x.phase}`} testid={`dsk-x-${x.id}`} />)}
+      {rows?.length ? <Tile i={all.length} tone="none" ic="🗃" label="Older proofs" sub={`${rows.length}`} onOpen={() => setPath(['old'])} tip="The single-coin proofs filed before PoW folders" testid="dsk-x-old" /> : null}</div>
+    {!all.length ? <p className="dsk-note">No PoW folders yet — type “file a PoW” in its chat.</p> : null}</>;
+  else if (path[1] === 'report') body = <ReportFile f={f} catId={cat.id} />;
+  else if (path[1] === 'talk') body = <ul className="dsk-fold-talk">{(f.talk || []).map((t, i) => <li key={`${t.at}${i}`}><b>{t.by}</b> {t.text}</li>)}</ul>;
+  else if (c) { const g = f.pick?.mint === c.mint ? gradeOf(f) : null;
+    body = <>{f.pick?.mint === c.mint ? <div className={`dsk-trade is-${g || 'open'}`}><b>{g === 'good' ? '👍 GOOD TRADE' : g === 'bad' ? '👎 BAD TRADE' : '● THE PICK — trading'}</b>
+      <small className="m-num">{f.sol} SOL · TP +{f.tp}% · SL −{f.sl}%{f.pnlPct != null ? ` · ${f.pnlPct >= 0 ? '+' : ''}${f.pnlPct}%` : ''}</small><TradeLine f={f} /></div> : null}
+      <CoinFolder f={f} c={c} catId={cat.id} onShot={setBig} /></>; }
+  else { const at = Math.max(0, PHASES.findIndex(([k]) => k === (f.phase === 'sell' ? 'decide' : f.phase)));
+    body = <><ol className="dsk-fold-steps" aria-label="Where this folder is">{PHASES.map(([k, l], i) => <li key={k} className={i < at || f.status === 'closed' ? 'is-done' : i === at ? 'is-on' : ''}><i aria-hidden="true" />{l}</li>)}</ol>
+      <div className="dsk-xgrid"><Tile kind="file" tone={gradeOf(f) || 'none'} ic="📋" label="REPORT" sub={f.report ? f.report.grade : "when it closes"} onOpen={() => setPath([f.id, 'report'])} tip="What this folder found, the trade, its grade and cost" testid="dsk-x-report" />
+        {(f.coins || []).map((x, i) => { const pk = f.pick?.mint === x.mint; const g = pk ? gradeOf(f) : null;
+          return <Tile key={x.mint} i={i + 1} tone={g || (pk ? 'live' : x.safe === false ? 'bad-coin' : 'coin')} ic={g === 'good' ? '👍' : g === 'bad' ? '👎' : pk ? '⭐' : x.safe === false ? '⛔' : '🪙'} label={`$${x.sym}`}
+            sub={`${SRC[x.src] || x.src} · ${(f.shots || []).filter(s => s.mint === x.mint).length} 📸`} onOpen={() => setPath([f.id, x.mint])} tip={`$${x.sym}'s folder — its vitals and snapshots`} testid={`dsk-x-coin-${x.mint}`} />; })}
+        <Tile kind="file" i={6} tone="none" ic="💬" label="Discussion" sub={`${(f.talk || []).length} lines`} onOpen={() => setPath([f.id, 'talk'])} tip="Every line the minds and the engine said" testid="dsk-x-talk" /></div>
+      {f.why ? <small className="dsk-fold-why">{f.why}</small> : null}</>; }
+  return <div className="dsk-pow" data-testid="dsk-pow">
+    <p className="dsk-path dsk-xpath">{path.length ? <button type="button" className="m-btn" onClick={() => setPath(p => (p.length > 1 ? p.slice(0, 1) : []))} aria-label="Up one folder" data-tip="Up one folder">↑</button> : null}
+      {crumbs.map(([l, p], i) => <span key={l}>{i ? <i>›</i> : null}<button type="button" onClick={() => setPath(p)} disabled={i === crumbs.length - 1}>{l}</button></span>)}</p>
+    <div key={path.join('/')} className="dsk-pull">{body}</div>
+    {big ? <button type="button" className="dsk-shot-big" onClick={() => setBig(null)} aria-label="Close the snapshot" data-testid="dsk-shot-big">
+      <img src={shotUrl(cat.id, f, big.file)} alt={`${big.site} snapshot`} /><small>{big.site} · snapshot {big.n}{big.trade ? ` · ${big.trade === 'good' ? '👍 good' : '👎 bad'} trade` : ''} — tap to close</small></button> : null}
   </div>;
 }
 // 🍯 the owner's Honey pot: its colony vitals (honey, right calls, the next airdrop, the pool) + the real ways to put into the colony (the 🐝 Colonize popout)
@@ -707,7 +764,7 @@ export function AgentDesktop({ cat, live = null, onClose, onReopen, actions = nu
         <i aria-hidden="true">{ic}</i><span>{l}</span>{n(d) != null ? <b className="m-num">{n(d)}</b> : null}</button>)}</aside>
         <div className="dsk-pane"><p className="dsk-path">Vault <i>›</i> {VAULT_TABS.find(t => t[0] === tab)[2]}</p><div key={tab} className="dsk-pull">{pane}</div></div></div>
     </DeskWin> : null}
-    {[['pow', `⛏ PoW — ${cat.name || 'your agent'}`, <PowFolder cat={cat} d={d} />], ['honey', '🍯 Honey pot', <HoneyPot cat={cat} />], ['files', '☁ Files', <CloudDrawer cat={cat} attachments={d?.storage} />], ['cmds', '⌘ Commands', <CommandList rows={d?.commands} onPick={onCommand} />], ['jobs', '🗂 Jobs', <JobsFolder d={d} />], ['sources', '🌐 Sources', <SourcesFolder cat={cat} d={d} setD={setD} />]].map(([k, t, body]) =>
+    {[['pow', `⛏ PoW — ${cat.name || 'your agent'}`, <PowExplorer cat={cat} d={d} />], ['honey', '🍯 Honey pot', <HoneyPot cat={cat} />], ['files', '☁ Files', <CloudDrawer cat={cat} attachments={d?.storage} />], ['cmds', '⌘ Commands', <CommandList rows={d?.commands} onPick={onCommand} />], ['jobs', '🗂 Jobs', <JobsFolder d={d} />], ['sources', '🌐 Sources', <SourcesFolder cat={cat} d={d} setD={setD} />]].map(([k, t, body]) =>
       w[k].open && !w[k].min ? <DeskWin key={k} k={k} title={t} s={w[k]} top={top === k} set={set} onTop={() => setTop(k)} onClose={() => set(k, { open: false })}>{body}</DeskWin> : null)}
     <footer className="dsk-bar"><span className="dsk-start"><i aria-hidden="true" />FEELESS</span>
       {tasks.map(([k, ic, l]) => <button key={k} type="button" className={`dsk-task${!w[k].min && top === k ? ' is-on' : ''}`} onClick={() => { if (w[k].min || top !== k) { set(k, { min: false }); setTop(k); } else set(k, { min: true }); }} data-testid={`dsk-task-${k}`}>{ic} {l}</button>)}

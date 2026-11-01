@@ -1334,6 +1334,8 @@ def _pow2_research(cat, f, coin, mind_i, now):
         return False
     rp = {**_pow.new({'mint': coin['mint'], 'pair': coin['pair'], 'sym': coin['sym']}, now), 'mind': mind_i, 'folder': f['id'],
           'used': list(((f.get('usedBy') or {}).get(coin['mint'])) or [])}
+    recent_, wins_ = _pow.site_memory(cat.get('powFolders'))   # 🎲 random sites, never the last folders' — unless a winning folder used them
+    rp['order'] = _pow.site_order(recent_ | {h for v in (f.get('usedBy') or {}).values() for h in v or []}, wins_)
     try:
         _work_start(cat['id'], cat, _pow.goal(rp), str(int(f.get('base') or 0) + mind_i), None, rp)
     except HTTPException:
@@ -1362,7 +1364,8 @@ def _pow2_collect(f, t_, who, now):
             f['shots'] = ((f.get('shots') or []) + [{'mint': m_, 'site': sh_['site'], 'n': sh_['n'], 'at': sh_['at'], 'file': name_, 'round': f.get('rounds') or 0}])[-60:]
         except OSError as e:
             print(f'[pow2] snapshot not kept: {e}')
-    _pow2_say(f, who, f"${pw_.get('sym')} researched: {' · '.join(x['label'] + ' ' + x['value'] for x in pub_['pulls'][:4]) or 'no vitals'}")
+    _pow2_say(f, who, f"${pw_.get('sym')} researched on {', '.join(sorted((pw_.get('sites') or {}).keys())) or 'no site'}: "
+                      f"{' · '.join(x['label'] + ' ' + x['value'] for x in pub_['pulls'][:4]) or 'no vitals (' + (', '.join(pw_.get('walled') or []) + ' walled' if pw_.get('walled') else 'nothing it could read') + ')'}")
     f.pop('rMint', None)
 
 
@@ -1401,6 +1404,15 @@ def _pow2_close(cat, f, why, now, exit_px=0.0):
     if f.get('real') and (f.get('pnlSol') or 0) > 0 and (cat.get('colonyShare') or {}).get('on'):
         _colony_share(cat, {'symbol': f.get('sym')}, f['pnlSol']); f['shared'] = (cat.get('colonyShare') or {}).get('pct')
     b_ = cat.setdefault('brainsCfg', {})
+    f['grade'] = None if f.get('pnlPct') is None else ('good' if f['pnlPct'] > 0 else 'bad')
+    for sh_ in f.get('shots') or []:   # 📸 the pick's snapshots become the trade's evidence: 👍 good / 👎 bad
+        if f['grade'] and sh_.get('mint') == f.get('mint'):
+            sh_['trade'] = f['grade']
+    f['report'], md_ = _pow.report(f)   # 📋 every folder ends with its final report (in the folder + report.md on disk)
+    try:
+        d_ = POWSHOTS_DIR / re.sub(r'[^a-z0-9]', '', f['id']); d_.mkdir(parents=True, exist_ok=True); (d_ / 'report.md').write_text(md_)
+    except OSError as e:
+        print(f'[pow2] report not kept: {e}')
     cat['powFolders'] = ((cat.get('powFolders') or []) + [_pow.folder_public(f)])[-_pow.FOLDERS_KEEP:]
     won = (f.get('pnlPct') or 0) > 0
     b_['cloud'] = ((b_.get('cloud') or []) + [{'at': now, 'word': 'WIN' if won else 'PoW', 'sym': f.get('sym') or '', 'by': ['pow'],
@@ -1435,8 +1447,7 @@ async def _pow2_tick(http, store, cat, now):
             intake = ((await http.get(f'{_ct.REP}/api/reputation/familia/intake', timeout=15)).json() or {}).get('coins') or []
         except (httpx.HTTPError, ValueError):
             intake = []
-        done_ = {x.get('pick', {}).get('mint') if isinstance(x.get('pick'), dict) else None for x in cat.get('powFolders') or []}
-        coins = _pow.gather(intake, await _pow2_dex(http), {m for m in done_ if m})
+        coins = _pow.gather(intake, await _pow2_dex(http), _pow.recent_mints(cat.get('powFolders')))   # 🚫 no coin of its last 10 folders again
         if len(coins) < 4:
             run_['why'] = f'only {len(coins)} of 4 coins found — tries again'; run_['rested'] = now
             if want and int(want.get('tries') or 0) < 3:   # you asked: it retries a few ticks, never drops your ask silently
@@ -1569,8 +1580,13 @@ async def _pow2_tick(http, store, cat, now):
             f.update(phase='choose', scouted=True, turn=0, picks={}, said={}, phaseAt=round(now)); _pow2_say(f, 'engine', 'every coin researched — they decide which ONE to buy')
             return
         c_ = next(c for c in f['coins'] if c['mint'] == left_[0]); mi_ = len(f.get('scoutDone') or []) % f['minds']
-        if not _pow2_research(cat, f, c_, mi_, now):
-            f['scoutDone'] = (f.get('scoutDone') or []) + [c_['mint']]   # no window free: that coin keeps its FEELESS read, never stuck
+        if not _pow2_research(cat, f, c_, mi_, now):   # its window is busy (your ask): wait for it — a coin is never skipped unread (live 2026-11-01: $JOB was)
+            f.setdefault('busyAt', round(now))
+            if now - f['busyAt'] >= 300:
+                f['scoutDone'] = (f.get('scoutDone') or []) + [c_['mint']]; f.pop('busyAt', None)
+                _pow2_say(f, 'engine', f"${c_['sym']} not researched — its window stayed busy 5 min; it keeps its FEELESS read")
+        else:
+            f.pop('busyAt', None)
         return
     live = (await _pair_prices(http, [f['pair']])).get(f['pair']) or {}
     px = _num(live.get('priceNative'))
@@ -3037,9 +3053,9 @@ async def pow_snapshot(cat_id: str, folder: str, name: str):
     """📸 One research snapshot of a PoW folder (public research pages; nothing while the agent is incognito)."""
     cat = _load()['cats'].get(cat_id)
     f_ = POWSHOTS_DIR / re.sub(r'[^a-z0-9]', '', folder) / re.sub(r'[^a-z0-9._]', '', name)
-    if not cat or cat.get('incognito') or not name.endswith('.jpg') or not f_.exists():
+    if not cat or cat.get('incognito') or not (name.endswith('.jpg') or name == 'report.md') or not f_.exists():
         raise HTTPException(404, 'No snapshot.')
-    return Response(content=f_.read_bytes(), media_type='image/jpeg', headers={'Cache-Control': 'max-age=3600'})
+    return Response(content=f_.read_bytes(), media_type='image/jpeg' if name.endswith('.jpg') else 'text/markdown; charset=utf-8', headers={'Cache-Control': 'max-age=3600'})
 
 
 @app.get('/api/cats/pow')
@@ -3594,7 +3610,7 @@ async def cat_work(cat_id: str, p: WorkPayload):
             'sources': [{'host': h, 'what': _src.WHAT.get(h, 'worked before'), **{k: (_src_book().get(h) or {}).get(k) for k in ('ok', 'blocked', 'last')}}
                         for h in dict.fromkeys(list(_src.SEED) + list(_src_book().keys()))][:80],   # 🌐 the sources book: tap one → sign its windows in
             'jobs': list(reversed(cat.get('jobs') or []))[:20], 'jobRates': cat.get('jobRates') or {},   # 🗂 each request's log tree + your 👍 / 👎
-            'powFolder': _pow.folder_public((cat.get('powRun') or {}).get('folder') or {}) or None, 'powFolders': list(reversed(cat.get('powFolders') or []))[:12],   # ⛏ the live folder + filed ones
+            'powFolder': _pow.folder_public((cat.get('powRun') or {}).get('folder') or {}) or None, 'powFolders': [x if x.get('report') or x.get('status') != 'closed' else {**x, 'report': _pow.report(x)[0]} for x in list(reversed(cat.get('powFolders') or []))[:12]],   # ⛏ the live folder + filed ones
             'parked': [{'text': q.get('text'), 'why': q.get('why'), 'at': q.get('at')} for q in (cat.get('workParked') or [])]}
 
 

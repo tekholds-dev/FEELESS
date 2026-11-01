@@ -61,9 +61,44 @@ def links(p):
     m, pa = p.get('mint') or '', p.get('pair') or ''
     every = [f'https://dexscreener.com/solana/{pa or m}', f'https://rugcheck.xyz/tokens/{m}', f'https://solscan.io/token/{m}', f'https://birdeye.so/token/{m}?chain=solana',
              f'https://jup.ag/tokens/{m}', f'https://pump.fun/coin/{m}', f'https://www.coingecko.com/en/search?query={m}']
+    if p.get('order'):   # 🎲 the engine's order for this round (site_order): winners first, the rest shuffled, last folders' sites skipped
+        rank = {h: i for i, h in enumerate(p['order'])}
+        every = sorted([u for u in every if host_of(u) in rank], key=lambda u: rank[host_of(u)]) or every
     used = set(p.get('used') or ())   # 🔁 a new round never re-opens a site an earlier round of this folder already read (owner 2026-11-01)
     fresh = [u for u in every if host_of(u) not in used]
     return fresh if len(fresh) >= 2 else every
+
+
+HOSTS = ('dexscreener.com', 'rugcheck.xyz', 'solscan.io', 'birdeye.so', 'jup.ag', 'pump.fun', 'coingecko.com')
+RECENT_FOLDERS = 2      # its last 2 folders' sites are skipped next time (owner 2026-11-01: "they can't check the same sites from the last researches")
+
+
+def site_order(recent, wins, rnd=None):
+    """🎲 Where a research round goes: the sites a WINNING folder used come first (they earned it), every other site in a random order,
+    and the sites its last RECENT_FOLDERS folders read are left out — unless that leaves fewer than 3. → list of hosts."""
+    import random as _r
+    rnd = rnd or _r.Random()
+    win = [h for h in HOSTS if h in set(wins or ())]
+    rest = [h for h in HOSTS if h not in win]; rnd.shuffle(rest)
+    fresh = [h for h in rest if h not in set(recent or ())]
+    if len(win) + len(fresh) < 3:
+        fresh += [h for h in rest if h not in fresh][:3 - len(win) - len(fresh)]
+    return win + fresh
+
+
+def recent_mints(folders, n=10):
+    """Every coin its last n folders held — a new folder never gathers one of them again (owner 2026-11-01: no coin tracked twice)."""
+    return {c.get('mint') for f in (folders or [])[-n:] for c in (f.get('coins') or []) if c.get('mint')}
+
+
+def site_memory(folders):
+    """(sites its last RECENT_FOLDERS researched folders read, sites every WINNING folder read) from the folders' snapshots + vitals."""
+    def hosts(f):
+        return {x.get('site') for x in f.get('shots') or []} | {x.get('site') for v in (f.get('vitals') or {}).values() for x in v or []}
+    done = [f for f in folders or [] if hosts(f)]
+    recent = set().union(*[hosts(f) for f in done[-RECENT_FOLDERS:]]) if done else set()
+    wins = set().union(*[hosts(f) for f in done if (f.get('pnlPct') or 0) > 0]) if done else set()
+    return {h for h in recent if h in HOSTS}, {h for h in wins if h in HOSTS}
 
 
 def new(coin, now):
@@ -370,11 +405,39 @@ def chart_line(samples):
 
 def folder_public(f):
     keep = ('id', 'n', 'name', 'at', 'coins', 'minds', 'phase', 'pick', 'talk', 'rounds', 'status', 'why', 'entry', 'exit', 'pnlPct', 'pnlSol', 'sym',
-            'boughtAt', 'soldAt', 'real', 'shared', 'research', 'picks', 'whys', 'base', 'pair', 'mint', 'propose', 'sol', 'plan', 'entryUsd', 'tp', 'sl', 'shots', 'vitals', 'scout', 'scoutDone', 'rMint', 'rMind', 'scouted', 'fav', 'checks', 'nextAt', 'cost', 'spend')
+            'boughtAt', 'soldAt', 'real', 'shared', 'research', 'picks', 'whys', 'base', 'pair', 'mint', 'propose', 'sol', 'plan', 'entryUsd', 'tp', 'sl', 'shots', 'vitals', 'scout', 'scoutDone', 'rMint', 'rMind', 'scouted', 'fav', 'checks', 'nextAt', 'cost', 'spend', 'report', 'grade')
     out = {k: f.get(k) for k in keep if k in f}
     if f.get('chart'):   # the live price the watcher reads (its P/L on the monitor)
-        out['now'] = f['chart'][-1].get('px'); out['line'] = [x.get('px') for x in f['chart'][-24:]]
+        out['now'] = f['chart'][-1].get('px'); out['line'] = [x.get('px') for x in f['chart'][-40:]]
     return out
+
+
+def report(f):
+    """📋 The folder's FINAL REPORT (owner 2026-11-01: "the overall PoW folder should always give a final report") — every coin, what was
+    learned, the trade and its grade, the cost. → (dict, markdown)."""
+    shots = f.get('shots') or []; pk = (f.get('pick') or {}).get('mint')
+    vit = {**({pk: f['research']} if pk and f.get('research') else {}), **{k: v for k, v in (f.get('vitals') or {}).items() if v}}   # older folders kept the pick's vitals in research
+    coins = [{'sym': c.get('sym'), 'mint': c.get('mint'), 'src': SRC_LABEL.get(c.get('src'), c.get('src')), 'safe': c.get('safe', True), 'risk': c.get('risk'),
+              'vitals': len(vit.get(c.get('mint')) or []), 'shots': sum(1 for x in shots if x.get('mint') == c.get('mint')),
+              'sites': sorted({x.get('site') for x in vit.get(c.get('mint')) or []} | {x.get('site') for x in shots if x.get('mint') == c.get('mint')}),
+              'pick': c.get('mint') == pk} for c in f.get('coins') or []]
+    p = f.get('pnlPct'); grade = 'no trade' if p is None else ('👍 good trade' if p > 0 else '👎 bad trade')
+    cost = round(sum(_f(v) for v in (f.get('cost') or {}).values()), 4) if isinstance(f.get('cost'), dict) else _f(f.get('cost'))
+    lesson = ('no coin passed the safety check' if not any(c['safe'] for c in coins) else 'proposal only — nothing bought' if f.get('propose')
+              else 'the buy did not fill' if p is None and pk else f"{'it worked' if (p or 0) > 0 else 'it lost'}: {f.get('why') or ''}"[:160])
+    r = {'name': f.get('name'), 'coins': coins, 'researched': sum(1 for c in coins if c['vitals'] or c['shots']), 'pick': f.get('sym'),
+         'sol': f.get('sol'), 'tp': f.get('tp'), 'sl': f.get('sl'), 'pnlPct': p, 'pnlSol': f.get('pnlSol'), 'grade': grade, 'why': f.get('why'),
+         'held': round((_f(f.get('soldAt')) - _f(f.get('boughtAt'))) / 60, 1) if f.get('boughtAt') is not None and f.get('soldAt') else None, 'checks': f.get('checks') or 0,
+         'costUsd': cost, 'real': bool(f.get('real')), 'lesson': lesson}
+    md = [f"# {r['name']} — FINAL REPORT", '', f"**{grade}**" + (f" · {p:+.2f}% ({_f(f.get('pnlSol')):+.6f} SOL)" if p is not None else '')
+          + (' · real money' if r['real'] else ' · paper'), f"Why it ended: {r['why'] or '—'}", f"Lesson: {lesson}", '', '## Coins']
+    for c in coins:
+        md.append(f"- {'⭐ ' if c['pick'] else ''}${c['sym']} ({c['src']}) — {'safe' if c['safe'] else 'UNSAFE: ' + str(c['risk'])} · "
+                  f"{c['vitals']} vitals · {c['shots']} snapshots · sites: {', '.join(c['sites']) or 'none'}")
+    if pk:
+        md += ['', '## Trade', f"- size {r['sol']} SOL · TP +{r['tp']}% · SL −{r['sl']}% · held {r['held'] or 0} min · {r['checks']} live checks"]
+    md += ['', f"Model cost: ${cost:.4f}", '', '## The discussion'] + [f"- **{t.get('by')}**: {t.get('text')}" for t in (f.get('talk') or [])]
+    return r, '\n'.join(md) + '\n'
 
 
 # 💬 the chat commands that start / stop a folder (owner 2026-11-01: "I type 'PoW' or 'file a PoW' and they make the 4-coin file and buy one")

@@ -337,3 +337,22 @@ test('💬 the command list: what it understands in the chat — a tap puts the 
   await act(async () => { el.querySelector('[data-testid="cmd-0"]').click(); });
   expect(picked).toEqual(['file a PoW']); expect(el.textContent).toContain('in the chat ✓');
 });
+
+test('⛏ the PoW explorer: PoW › dated folders › coin folders (the pick = 👎 bad trade, its chart) › 📋 FINAL REPORT', async () => {
+  const { AgentDesktop } = require('./CatWorkbench');
+  sessionStorage.clear(); document.body.innerHTML = '';
+  const fold = { id: 'pow9', name: 'PoW #9 · Nov 01 · 10:00 UTC', status: 'closed', phase: 'done', coins: [{ mint: 'M1', sym: 'AAA', src: 'pump' }, { mint: 'M2', sym: 'BBB', src: 'dex', safe: false }],
+    pick: { mint: 'M1' }, sym: 'AAA', pnlPct: -4.2, entry: 1, tp: 20, sl: 10, sol: 0.006, line: [1, 1.02, 0.97, 0.958], shots: [{ mint: 'M1', site: 'rugcheck.xyz', n: 1, file: 'a.jpg', trade: 'bad' }],
+    talk: [{ by: 'A', text: 'buy AAA', at: 1 }], report: { grade: '👎 bad trade', pnlPct: -4.2, researched: 1, coins: [{ mint: 'M1', sym: 'AAA', src: 'Pump', safe: true, vitals: 3, shots: 1, pick: true }], pick: 'AAA', sol: 0.006, held: 10, checks: 4, costUsd: 0.05, lesson: 'it lost: stop' } };
+  global.fetch = async () => ({ ok: true, json: async () => ({ powFolders: [fold], rows: [] }) });
+  const el = document.createElement('div'); document.body.appendChild(el); const root = createRoot(el);
+  await act(async () => { root.render(<AgentDesktop cat={{ id: 'g1', name: 'Happy' }} onClose={() => {}} start="pow" />); });
+  const q = id => document.querySelector(`[data-testid="${id}"]`);
+  expect(q('dsk-pow').textContent).toContain('FOLDERS'); expect(q('dsk-x-pow9').textContent).toContain('PoW #9');
+  await act(async () => { q('dsk-x-pow9').click(); }); expect(q('dsk-x-report')).not.toBeNull(); expect(q('dsk-x-coin-M1').textContent).toContain('👎');
+  await act(async () => { q('dsk-x-coin-M1').click(); }); expect(q('dsk-pow').textContent).toContain('BAD TRADE'); expect(document.querySelector('.dsk-tl')).not.toBeNull();
+  expect(q('dsk-coin-M1').textContent).toContain('👎 rugcheck.xyz');
+  await act(async () => { document.querySelector('.dsk-xpath .m-btn').click(); }); await act(async () => { q('dsk-x-report').click(); });
+  expect(q('dsk-report').textContent).toContain('it lost: stop'); expect(q('dsk-report').querySelector('a').getAttribute('href')).toContain('/powshot/pow9/report.md');
+  act(() => root.unmount());
+});
