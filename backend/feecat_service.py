@@ -1308,6 +1308,13 @@ async def _pow2_dex(http):
              'mc': _num(p.get('marketCap') or p.get('fdv')), 'ch': (p.get('priceChange') or {}).get('h1')} for m, p in best.items()]
 
 
+def _pow2_approve(cat, pid):
+    """⛏ A PoW folder's own order is pre-approved: the agent's wallet sends it in the engine's agent pass (agent_trade.wants: approved), through every server guard."""
+    p_ = next((x for x in cat.get('proposals') or [] if x.get('id') == pid), None)
+    if p_:
+        p_.update(approved=True, by='pow')
+
+
 def _pow2_say(f, who, text):
     f['talk'] = (f.get('talk') or []) + [{'by': who, 'text': str(text)[:200], 'at': round(time.time())}]
     f['talk'] = f['talk'][-24:]
@@ -1421,9 +1428,10 @@ async def _pow2_tick(http, store, cat, now):
         row = await _run_order(store, cat, f"buy {sol} SOL of {f['mint']}", http)
         if row.get('state') not in ('filled', 'proposed'):
             _pow2_close(cat, f, f"buy refused — {row.get('why')}", now); return
-        if row.get('state') == 'proposed':
+        if row.get('state') == 'proposed':   # 💵 its OWN wallet buys — no signature from you (owner 2026-11-01); the server guards still run (budget · day cap · gas · one at a time)
+            _pow2_approve(cat, row.get('pid'))
             f.update(sol=sol, real=True, pid=row.get('pid'), phaseAt=round(now))
-            _pow2_say(f, 'engine', f"buy {sol:g} SOL of ${f['sym']} sent to its wallet — " + ('it signs on its own' if (cat.get('agentWallet') or {}).get('mode') == 'auto' else 'approve it on the desk (10 min)'))
+            _pow2_say(f, 'engine', f"its wallet is buying {sol:g} SOL of ${f['sym']} on FEELESS")
             return
         live = (await _pair_prices(http, [f['pair']])).get(f['pair']) or {}
         f.update(sol=sol, real=False, entry=_num(live.get('priceNative')), entryUsd=_num(live.get('priceUsd')), boughtAt=round(now), phase='watch', phaseAt=round(now))
@@ -1439,6 +1447,8 @@ async def _pow2_tick(http, store, cat, now):
     why_x = _pow.hard_exit(f.get('entry') or 0, px, f.get('boughtAt') or now, now, f.get('rounds') or 0)
     if why_x or f['phase'] == 'sell':
         row = await _run_order(store, cat, f"sell all {f['mint']}", http)
+        if row.get('state') == 'proposed':
+            _pow2_approve(cat, row.get('pid'))   # its wallet sells on its own too
         _pow2_say(f, 'engine', f"sell: {why_x or f.get('sellWhy') or 'the watcher said sell'} — {row.get('why')}")
         _pow2_close(cat, f, why_x or f.get('sellWhy') or 'the watcher sold', now, px); return
     watcher, researcher = 0, (1 if f['minds'] > 1 else 0)

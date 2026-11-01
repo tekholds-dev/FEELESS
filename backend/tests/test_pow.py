@@ -290,7 +290,7 @@ def test_a_real_buy_waits_for_its_wallet_and_a_folder_never_tracks_a_buy_that_di
     monkeypatch.setattr(fs, '_run_order', order)
     monkeypatch.setattr(fs, '_pair_prices', lambda http, pairs: _aw({p: {'priceNative': '2', 'priceUsd': '400'} for p in pairs}))
     tick = lambda t: asyncio.run(fs._pow2_tick(None, {'cats': {'r1': cat}}, cat, t))   # noqa: E731
-    tick(110); assert f['phase'] == 'buy' and f['pid'] == 'pp1' and 'approve it on the desk' in f['talk'][-1]['text']
+    tick(110); assert f['phase'] == 'buy' and f['pid'] == 'pp1' and cat['proposals'][0]['approved'] and 'its wallet is buying' in f['talk'][-1]['text']   # its own wallet, no signature from you
     tick(200); assert f['phase'] == 'buy'                                                   # still unsigned: it waits, tracks nothing
     cat['proposals'][0]['status'] = 'done'; cat['realHeld'] = {'D4': {}}
     tick(260); assert f['phase'] == 'watch' and f['entry'] == 2.0                          # filled → now it watches

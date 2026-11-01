@@ -180,7 +180,8 @@ function PowScreen({ f, slot }) {
     {f.plan?.length ? <ol className="cwb-powscr-plan" aria-label="Its 3-step plan">{f.plan.map((x, k) => { const at = f.phase === 'choose' ? 0 : f.phase === 'decide' || f.phase === 'sell' ? 2 : 1;
       return <li key={k} className={k === at ? 'is-on' : k < at ? 'is-done' : ''}><b>{k + 1}</b>{x}</li>; })}</ol> : null}
     <div className="cwb-chart">{c.pair ? <Suspense fallback={<span className="cwb-chart-load">loading ${c.sym} on FEELESS…</span>}>
-      <PriceChart key={c.pair} pair={{ chainId: 'solana', pairAddress: c.pair, baseToken: { address: c.mint, symbol: c.sym } }} interval="1m" metric="price" showVolume={false} /></Suspense> : null}</div>
+      <PriceChart key={c.pair} pair={{ chainId: 'solana', pairAddress: c.pair, baseToken: { address: c.mint, symbol: c.sym } }} interval="1m" metric="price" showVolume={false}
+        fuse={held && f.entryUsd > 0 ? { entry: f.entryUsd, stop: f.entryUsd * 0.75, slPct: 25, lines: [{ px: f.entryUsd * 1.6, title: '🎯 take profit +60%', color: 'up' }] } : null} /></Suspense> : null}</div>   {/* entry · SL · TP like trench trading */}
     {held && f.entry ? <PowPnl f={f} /> : null}
     <ul className="cwb-powscr-talk">{(f.talk || []).slice(-2).map((t, k) => <li key={`${t.at}${k}`}><b>{t.by}</b> {t.text}</li>)}</ul>
   </div>;
