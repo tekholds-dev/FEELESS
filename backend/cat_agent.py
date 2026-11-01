@@ -77,6 +77,20 @@ def split_jobs(text, n=2):
     return [lead, helper]
 
 
+FILLER = re.compile(r"(?i)\b(?:please|pls|can|could|you|u|i|me|my|we|our|want|wanna|wona|need|to|the|a|an|and|then|for|of|on|in|with|that|thats|this|these|those|"
+                    r"it|is|are|be|do|go|get|find|give|show|tell|make|report|research|look|up|into|about|some|any|all|just|like|etc|lol|ok|okay|"
+                    r"within|steps?|minutes?|mins?|now|today|feeless|support|role|partner|owns|job|check|their|facts?)\b")
+
+
+def search_terms(goal):
+    """🔎 What a window types into the search box: the request's KEYWORDS (coins, names, topics) — never the owner's whole sentence (owner 2026-11-01)."""
+    g = str(goal or '')
+    if g.startswith('SUPPORT ROLE'):
+        g = g.split('"')[1] if '"' in g else g
+    words = [w for w in re.sub(r'[^\w$.\-\s]', ' ', FILLER.sub(' ', g)).split() if len(w) > 1][:7]
+    return ' '.join(words) or g[:60]
+
+
 def job_label(goal):
     """What the owner reads above a mind's answer: its job — never the internal support instructions (owner 2026-11-01: no prompt footprints)."""
     g = str(goal or '')
@@ -236,7 +250,7 @@ async def _window(task, w, ask, page, wait_human, name, feeless=None):
     seen = ''
     n_max = int(task.get('stepsMax') or STEP_MAX)
     pw = task.get('pow') if w['i'] == 0 else None   # ⛏ a Proof-of-Work run (pow.py): its rules are code, whatever the model
-    site = _pow.start_url(pw) if pw else named_site(w['goal']) or (None if str(page.url or '').startswith('http') else SEARCH_URL + quote_plus(str(w['goal'] or '')[:90]))   # 🔎 a blank window starts on a search
+    site = _pow.start_url(pw) if pw else named_site(w['goal']) or (None if str(page.url or '').startswith('http') else SEARCH_URL + quote_plus(search_terms(w['goal'])))   # 🔎 a blank window starts on a search
     if site and (research_ok(site) if task.get('research') else True):   # 🧭 the ask names a site → its window opens there first (a model once answered "I haven't visited pump.fun")
         try:
             seen = w['_page'] = await page.goto(site)

@@ -163,13 +163,14 @@ const PH = { choose: 'AGREEING ON 1 OF 4', buy: 'BUYING ON FEELESS', watch: 'WAT
 // 📈 the folder's P/L over the watcher's chart: what went in, the entry vs now, P/L (pool price, fees apart), the round, how far from the hard stops
 function PowPnl({ f }) {
   const pnl = f.now && f.entry ? (f.now / f.entry - 1) * 100 : 0; const tone = pnl >= 0 ? 'is-up' : 'is-dn';
-  const toStop = Math.max(0, Math.min(1, (pnl + 25) / 85));   // −25 % … +60 % mapped 0 … 1
+  const sl = Number(f.sl) || 25; const tp = Number(f.tp) || 60;   // the minds' own stop / target
+  const toStop = Math.max(0, Math.min(1, (pnl + sl) / (sl + tp)));
   return <div className={`cwb-powpnl ${tone}`} data-testid="cwb-powpnl">
     <span><em>IN</em><b className="m-num">{f.sol ?? '—'} SOL</b><small>{f.real ? 'its wallet' : 'paper'}</small></span>
     <span><em>ENTRY → NOW</em><b className="m-num">{Number(f.entry).toPrecision(3)} → {f.now ? Number(f.now).toPrecision(3) : '…'}</b><small>SOL per coin</small></span>
     <span className="cwb-powpnl-big"><em>P/L</em><b className="m-num" key={Math.round(pnl * 10)}>{pnl >= 0 ? '+' : ''}{pnl.toFixed(1)}%</b><small>fees apart</small></span>
     <span><em>ROUND</em><b className="m-num">{(f.rounds || 0) + 1} / 6</b><small>60 min max</small></span>
-    <span className="cwb-powpnl-band" data-tip="Hard stops: −25 % sells, +60 % takes profit — the dot is where it is now"><em>−25%</em><u><s style={{ transform: `translateX(${(toStop * 100).toFixed(1)}cqw)` }} /></u><em>+60%</em></span>
+    <span className="cwb-powpnl-band" data-tip="The stop loss and take profit its minds set — the dot is where it is now"><em>SL −{sl}%</em><u><s style={{ transform: `translateX(${(toStop * 100).toFixed(1)}cqw)` }} /></u><em>TP +{tp}%</em></span>
   </div>;
 }
 function PowScreen({ f, slot }) {
@@ -181,7 +182,7 @@ function PowScreen({ f, slot }) {
       return <li key={k} className={k === at ? 'is-on' : k < at ? 'is-done' : ''}><b>{k + 1}</b>{x}</li>; })}</ol> : null}
     <div className="cwb-chart">{c.pair ? <Suspense fallback={<span className="cwb-chart-load">loading ${c.sym} on FEELESS…</span>}>
       <PriceChart key={c.pair} pair={{ chainId: 'solana', pairAddress: c.pair, baseToken: { address: c.mint, symbol: c.sym } }} interval="1m" metric="price" showVolume={false}
-        fuse={held && f.entryUsd > 0 ? { entry: f.entryUsd, stop: f.entryUsd * 0.75, slPct: 25, lines: [{ px: f.entryUsd * 1.6, title: '🎯 take profit +60%', color: 'up' }] } : null} /></Suspense> : null}</div>   {/* entry · SL · TP like trench trading */}
+        fuse={held && f.entryUsd > 0 ? { entry: f.entryUsd, stop: f.entryUsd * (1 - (Number(f.sl) || 25) / 100), slPct: Number(f.sl) || 25, lines: [{ px: f.entryUsd * (1 + (Number(f.tp) || 60) / 100), title: `🎯 take profit +${Number(f.tp) || 60}%`, color: 'up' }] } : null} /></Suspense> : null}</div>   {/* entry · SL · TP like trench trading */}
     {held && f.entry ? <PowPnl f={f} /> : null}
     <ul className="cwb-powscr-talk">{(f.talk || []).slice(-2).map((t, k) => <li key={`${t.at}${k}`}><b>{t.by}</b> {t.text}</li>)}</ul>
   </div>;

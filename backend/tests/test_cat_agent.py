@@ -112,7 +112,7 @@ def test_two_windows_split_the_task_each_browses_then_model_a_merges():
     t = ca.new_task('t2', 'best Kalshi bid on US capital', ['m/a', 'm/b'], 1.0)
     asyncio.run(ca.run(t, ask2, [pa, pb], None))
     assert t['status'] == 'done' and t['answer'].startswith('Both agree')
-    assert pa.done == [('goto', 'https://html.duckduckgo.com/html/?q=Kalshi+YES+prices'), ('goto', 'https://kalshi.com/markets')] and pb.done == [('goto', 'https://html.duckduckgo.com/html/?q=news+on+US+capital'), ('search', 'US capital')]   # 🔎 a blank window starts on a search
+    assert pa.done == [('goto', 'https://html.duckduckgo.com/html/?q=Kalshi+YES+prices'), ('goto', 'https://kalshi.com/markets')] and pb.done == [('goto', 'https://html.duckduckgo.com/html/?q=news+US+capital'), ('search', 'US capital')]   # 🔎 a blank window starts on a search
     assert t['windows'][0]['answer'] == 'YES at $0.30' and t['windows'][1]['goal'] == 'news on US capital'
     assert [s['action'] for s in t['windows'][1]['steps']] == ['open', 'plan', 'search', 'answer'] and t['cost'] == pytest.approx(0.006)
 

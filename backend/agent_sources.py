@@ -8,11 +8,20 @@ on its own); every mind reads the book before it browses. Pure; the service hold
 import time
 
 # 🧭 approved for researching Solana coins (read-only pages; the agent's research allowlist still decides what may open)
-SEED = ('dexscreener.com', 'rugcheck.xyz', 'solscan.io', 'birdeye.so', 'jup.ag', 'defillama.com', 'coingecko.com', 'pump.fun')
+SEED = ('dexscreener.com', 'rugcheck.xyz', 'solscan.io', 'birdeye.so', 'jup.ag', 'defillama.com', 'coingecko.com', 'pump.fun',
+        # 🌐 beyond coins (owner 2026-11-01: "a huge list of trusted sites for about anything") — read-only pages agents can open
+        'coinmarketcap.com', 'dune.com', 'cointelegraph.com', 'decrypt.co', 'theblock.co', 'blockworks.co', 'messari.io', 'tokenterminal.com',
+        'solana.com', 'docs.solana.com', 'github.com', 'wikipedia.org', 'reuters.com', 'apnews.com', 'bbc.com', 'npr.org', 'investopedia.com',
+        'reddit.com', 'news.ycombinator.com', 'producthunt.com', 'arxiv.org', 'sec.gov', 'tradingview.com', 'yahoo.com')
 WHAT = {'dexscreener.com': 'pairs, volume, buyers vs sellers', 'rugcheck.xyz': 'mint / freeze authority, top holders, LP lock',
         'solscan.io': 'the token, its holders and transfers', 'birdeye.so': 'price, holders, trader flow', 'jup.ag': 'live price + routes',
         'defillama.com': 'chains, TVL, volumes', 'coingecko.com': 'market data for listed coins',
-        'pump.fun': 'new launches and trending coins'}
+        'pump.fun': 'new launches and trending coins', 'coinmarketcap.com': 'market data, rankings', 'dune.com': 'on-chain dashboards',
+        'cointelegraph.com': 'crypto news', 'decrypt.co': 'crypto news', 'theblock.co': 'crypto news + data', 'blockworks.co': 'crypto news',
+        'messari.io': 'crypto research', 'tokenterminal.com': 'protocol revenue', 'solana.com': 'Solana news', 'docs.solana.com': 'Solana docs',
+        'github.com': 'code + READMEs', 'wikipedia.org': 'background on anything', 'reuters.com': 'world news', 'apnews.com': 'world news',
+        'bbc.com': 'world news', 'npr.org': 'news', 'investopedia.com': 'finance terms', 'reddit.com': 'what people say', 'news.ycombinator.com': 'tech news',
+        'producthunt.com': 'new products', 'arxiv.org': 'research papers', 'sec.gov': 'filings', 'tradingview.com': 'charts + ideas', 'yahoo.com': 'finance + news'}
 NEVER = ('gecko' + 'terminal.com',)   # the sitewide ban (spelled apart so the no-ban-word test stays clean)
 
 

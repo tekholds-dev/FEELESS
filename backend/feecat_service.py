@@ -1391,8 +1391,10 @@ async def _pow2_tick(http, store, cat, now):
                 continue
             other = f['picks'].get(str(1 - i)) if f['disc'] else None
             partner = (f" YOUR PARTNER PICKED {other + 1} ({f['coins'][other]['sym']}): \"{f.get('whys', {}).get(str(1 - i), '')}\" — agree, or keep yours with a reason." if other is not None else '')
-            raw_ = await ask_(i, _pow.CHOOSE_SYS.format(name=names[i] if i < len(names) else 'mind', partner=partner), listing, 600)
+            cap_ = round(min(_at.MAX_BUY_SOL, _num(cat.get('budgetSol')) or _num((cat.get('risk') or {}).get('maxPositionSol')) or 0.05), 4)
+            raw_ = await ask_(i, _pow.CHOOSE_SYS.format(name=names[i] if i < len(names) else 'mind', partner=partner, cap=cap_), listing, 600)
             k, why = _pow.parse_pick(raw_)
+            f.setdefault('trades', {})[str(i)] = _pow.trade_of(raw_, cap_)   # 🎚 its size / TP / SL
             if k is None:
                 f['silent'] = int(f.get('silent') or 0) + 1
                 print(f"[pow2] {cat['id']} mind {i} gave no pick ({f['silent']}): {str(raw_)[:120]!r}")
@@ -1408,6 +1410,9 @@ async def _pow2_tick(http, store, cat, now):
                 _pow2_close(cat, f, 'the minds did not agree — no buy', now); return
             f['disc'] = 1; f['picks'] = {}; _pow2_say(f, 'engine', 'the minds picked different coins — one round of discussion'); return
         c = f['coins'][k]; f.update(pick=c, mint=c['mint'], pair=c['pair'], sym=c['sym'], why0=f.get('whys', {}).get('0', ''), phase='buy', phaseAt=round(now))
+        tr_ = _pow.agree_trade(list((f.get('trades') or {}).values())) or {'sol': 0.01, 'tp': _pow.TAKE_PCT, 'sl': abs(_pow.STOP_PCT)}
+        f.update(sol=tr_['sol'], tp=tr_['tp'], sl=tr_['sl'])
+        _pow2_say(f, 'engine', f"they set the trade: {tr_['sol']:g} SOL · take profit +{tr_['tp']:g}% · stop −{tr_['sl']:g}%")
         if f.get('propose'):   # 💡 a proposal: the agreed coin is filed as the card — nothing bought
             _pow2_say(f, 'engine', f"proposal: ${c['sym']} ({_pow.SRC_LABEL[c['src']]}) — nothing bought")
             _pow2_close(cat, f, f"💡 proposes ${c['sym']} — {f.get('why0') or 'both minds agreed'}", now)
@@ -1424,7 +1429,7 @@ async def _pow2_tick(http, store, cat, now):
                     p_.update(status='expired', why2='its PoW folder closed before it was signed')   # nothing left hanging
                 _pow2_close(cat, f, f"the buy did not fill ({p_.get('why2') or p_.get('status') or 'not signed'})", now)
             return
-        sol = round(min(_num((cat.get('risk') or {}).get('maxPositionSol')) or 0.05, _num(cat.get('budgetSol')) or 1.0), 4)
+        sol = round(float(f.get('sol') or min(_num((cat.get('risk') or {}).get('maxPositionSol')) or 0.05, _num(cat.get('budgetSol')) or 1.0)), 4)   # the size the minds agreed
         row = await _run_order(store, cat, f"buy {sol} SOL of {f['mint']}", http)
         if row.get('state') not in ('filled', 'proposed'):
             _pow2_close(cat, f, f"buy refused — {row.get('why')}", now); return
@@ -1444,7 +1449,7 @@ async def _pow2_tick(http, store, cat, now):
         _pow2_close(cat, f, 'sold by its stops', now, px); return
     if px:
         f['chart'] = (f.get('chart') or [])[-40:] + [{'at': round(now), 'px': px}]
-    why_x = _pow.hard_exit(f.get('entry') or 0, px, f.get('boughtAt') or now, now, f.get('rounds') or 0)
+    why_x = _pow.hard_exit(f.get('entry') or 0, px, f.get('boughtAt') or now, now, f.get('rounds') or 0, float(f.get('tp') or _pow.TAKE_PCT), float(f.get('sl') or abs(_pow.STOP_PCT)))
     if why_x or f['phase'] == 'sell':
         row = await _run_order(store, cat, f"sell all {f['mint']}", http)
         if row.get('state') == 'proposed':

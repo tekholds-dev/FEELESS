@@ -218,7 +218,9 @@ SRC_LABEL = {'intake': 'FEELESS intake', 'pump': 'Pump', 'dex': 'DexScreener'}
 
 CHOOSE_SYS = ('You are {name}, one of a FEELESS trader agent\'s two minds, working a PROOF OF WORK folder. Below are 4 Solana coins your colony '
               'gathered (FEELESS live reads). Pick the ONE most likely to rise in the next hour without rugging; your partner picks too and you must '
-              'agree before anything is bought. Answer ONLY JSON: {{"pick": 1-4, "why": "<= 20 words, the numbers"}}.{partner}')
+              'agree before anything is bought. YOU set the trade (it runs while the owner sleeps): size in SOL (max {cap} — its budget), take profit % and '
+              'stop loss %. Profit funds your own model credit and grows your capital — protect it. Answer ONLY JSON: '
+              '{{"pick": 1-4, "size_sol": 0.0, "tp_pct": 0, "sl_pct": 0, "why": "<= 20 words, the numbers"}}.{partner}')
 DECIDE_SYS = ('You are {name}, the CHART WATCHER of a FEELESS trader agent holding ${sym}. Read the chart samples, your partner\'s research and '
               'the P/L, then decide. Answer ONLY JSON: {{"action": "HOLD|SELL", "say": "<= 20 words to your partner — what the chart shows"}}.')
 
@@ -286,6 +288,27 @@ def parse_pick(text, n=4):
     return (k - 1 if k and 1 <= k <= n else None), str(d.get('why') or t.strip())[:160]
 
 
+def trade_of(text, cap):
+    """The size / TP / SL a mind set — clamped to sane, guarded bounds. → {'sol', 'tp', 'sl'}"""
+    import json as _j
+    m = re.search(r'\{.*\}', str(text or ''), re.S)
+    try:
+        d = _j.loads(m.group(0)) if m else {}
+    except ValueError:
+        d = {}
+    cap = max(0.005, _f(cap) or 0.05)
+    return {'sol': round(min(cap, max(0.005, _f(d.get('size_sol')) or cap)), 4), 'tp': round(min(150.0, max(10.0, _f(d.get('tp_pct')) or TAKE_PCT)), 1),
+            'sl': round(min(40.0, max(5.0, abs(_f(d.get('sl_pct'))) or abs(STOP_PCT))), 1)}
+
+
+def agree_trade(trades):
+    """Both minds' trades → one: the SMALLER size, the TIGHTER stop, the average target."""
+    ts = [t for t in trades if t]
+    if not ts:
+        return None
+    return {'sol': min(t['sol'] for t in ts), 'sl': min(t['sl'] for t in ts), 'tp': round(sum(t['tp'] for t in ts) / len(ts), 1)}
+
+
 def engine_pick(coins):
     """When a mind stays silent the folder never waits forever: the strongest coin by the numbers (pool, then the intake's rank)."""
     return max(range(len(coins)), key=lambda k: (_f(coins[k].get('liq')), _f(coins[k].get('mc')))) if coins else None
@@ -303,12 +326,12 @@ def pnl_pct(entry, px):
     return (px / entry - 1) * 100 if entry > 0 and px > 0 else 0.0
 
 
-def hard_exit(entry, px, bought_at, now, rounds):
-    """The loop's hard stops — they sell without asking. → why, or None."""
+def hard_exit(entry, px, bought_at, now, rounds, tp=TAKE_PCT, sl=-STOP_PCT):
+    """The loop's hard stops (the minds' own TP / SL) — they sell without asking. → why, or None."""
     p = pnl_pct(entry, px)
-    if entry > 0 and px > 0 and p <= STOP_PCT:
+    if entry > 0 and px > 0 and p <= -abs(sl):
         return f'stop: {p:.0f}%'
-    if entry > 0 and px > 0 and p >= TAKE_PCT:
+    if entry > 0 and px > 0 and p >= tp:
         return f'take profit: +{p:.0f}%'
     if now - bought_at >= HOLD_MAX_S:
         return f'held {HOLD_MAX_S // 60} min — the folder closes'
@@ -337,7 +360,7 @@ def chart_line(samples):
 
 def folder_public(f):
     keep = ('id', 'n', 'name', 'at', 'coins', 'minds', 'phase', 'pick', 'talk', 'rounds', 'status', 'why', 'entry', 'exit', 'pnlPct', 'pnlSol', 'sym',
-            'boughtAt', 'soldAt', 'real', 'shared', 'research', 'picks', 'whys', 'base', 'pair', 'mint', 'propose', 'sol', 'plan', 'entryUsd')
+            'boughtAt', 'soldAt', 'real', 'shared', 'research', 'picks', 'whys', 'base', 'pair', 'mint', 'propose', 'sol', 'plan', 'entryUsd', 'tp', 'sl')
     out = {k: f.get(k) for k in keep if k in f}
     if f.get('chart'):   # the live price the watcher reads (its P/L on the monitor)
         out['now'] = f['chart'][-1].get('px'); out['line'] = [x.get('px') for x in f['chart'][-24:]]
@@ -388,6 +411,8 @@ README = ('FEELESS PoW (PROOF OF WORK) README — not crypto mining. A PoW is a 
           '3) That one coin is bought ON FEELESS through the guarded order path (paper, or the agent\'s own wallet when real). '
           '4) The loop: the chart watcher reads the FEELESS chart for at least 3 min; the researcher researches the coin\'s contract on 3 trusted sites '
           '(DexScreener, RugCheck, Solscan), at most 5 moves and 3 vital numbers per site, for at most 2.5 min; then the watcher decides HOLD or SELL. '
-          'Hard stops sell without asking: -25 %, +60 %, 60 min, 6 rounds. 5) The folder is filed (coins, picks, talk, research, P/L) in the owner\'s '
+          'The minds set the size (within the wallet budget), take profit and stop loss themselves; those, 60 min and 6 rounds sell without asking. 5) The folder is filed (coins, picks, talk, research, P/L) in the owner\'s '
           'Desktop PoW folder + cabinet; a winning folder goes to the Colony with the owner\'s share of the profit. '
-          'The owner starts one by typing "file a PoW" (or "A: file a PoW" / "B: file a PoW"); "stop PoW" ends it. Never invent another meaning.')
+          'The owner starts one by typing "file a PoW" (or "A: file a PoW" / "B: file a PoW"); "stop PoW" ends it. Never invent another meaning. '
+          'WHY: every PoW and every colonized run is you CAPITALIZING — profit pays for your own model calls (processing) and grows the capital you trade; '
+          'a loss eats both. Small, careful, real numbers, short words.')

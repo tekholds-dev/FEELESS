@@ -297,3 +297,13 @@ def test_a_real_buy_waits_for_its_wallet_and_a_folder_never_tracks_a_buy_that_di
     cat2 = dict(cat, powRun={'folder': {**f, 'phase': 'buy', 'pid': 'pp2', 'phaseAt': 100}}, proposals=[{'id': 'pp2', 'status': 'pending'}], realHeld={})
     asyncio.run(fs._pow2_tick(None, {'cats': {'r1': cat2}}, cat2, 100 + pw.SIGN_WAIT_S + 1))
     assert cat2['proposals'][0]['status'] == 'expired' and 'did not fill' in cat2['powFolders'][-1]['why']   # withdrawn, folder closed
+
+
+def test_the_minds_set_size_tp_sl_clamped_to_the_wallet_budget_and_agree_on_the_safer_one():
+    a = pw.trade_of('{"pick": 2, "size_sol": 0.5, "tp_pct": 80, "sl_pct": -30}', 0.02)
+    assert a == {'sol': 0.02, 'tp': 80.0, 'sl': 30.0}                                       # never past its budget
+    b = pw.trade_of('{"pick": 2, "size_sol": 0.01, "tp_pct": 500, "sl_pct": 2}', 0.02)
+    assert b == {'sol': 0.01, 'tp': 150.0, 'sl': 5.0}                                       # sane bounds
+    assert pw.agree_trade([a, b]) == {'sol': 0.01, 'sl': 5.0, 'tp': 115.0}                 # smaller size, tighter stop, average target
+    assert 'stop' in pw.hard_exit(1.0, 0.94, 0, 60, 0, tp=115, sl=5) and pw.hard_exit(1.0, 1.5, 0, 60, 0, tp=115, sl=5) is None
+    assert 'CAPITALIZING' in pw.README                                                       # they know why: profit funds their own processing + capital
