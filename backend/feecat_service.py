@@ -1457,28 +1457,26 @@ async def _pow2_tick(http, store, cat, now):
         _pow2_say(f, 'engine', f"sell: {why_x or f.get('sellWhy') or 'the watcher said sell'} — {row.get('why')}")
         _pow2_close(cat, f, why_x or f.get('sellWhy') or 'the watcher sold', now, px); return
     watcher, researcher = 0, (1 if f['minds'] > 1 else 0)
-    if f['phase'] == 'watch' and now - f['phaseAt'] >= _pow.WATCH_S:
-        w_ = _WORK.get(cat['id'])
-        if not w_ or w_.get('done'):   # 🔎 the researcher's PoW round on the CA (its window, the PoW rules, ≤ 2.5 min)
-            rp = {**_pow.new({'mint': f['mint'], 'pair': f['pair'], 'sym': f['sym']}, now), 'mind': researcher, 'folder': f['id']}
-            try:
-                _work_start(cat['id'], cat, _pow.goal(rp), str(b0 + researcher), None, rp)
-                f['researchTask'] = True
-            except HTTPException:
-                f['researchTask'] = False
-        f.update(phase='research', phaseAt=round(now))
-        return
-    if f['phase'] == 'research':
+    if f['phase'] in ('watch', 'research'):   # 🔁 BOTH loop at once (owner 2026-11-01: "both PoW looping, not one watching while the other idles")
         w_ = _WORK.get(cat['id']); t_ = (w_ or {}).get('task') or {}
-        done_ = not f.get('researchTask') or not t_.get('pow') or (w_ or {}).get('done')
-        if not done_ and now - f['phaseAt'] < _pow.RESEARCH_S:
-            return
-        if not done_:
-            asyncio.create_task(_hard_stop(w_, 0))   # ⏱ 2.5 min is the research round
-        if t_.get('pow', {}).get('folder') == f['id']:
-            pub_ = _pow.public(t_['pow']); f['research'] = ((f.get('research') or []) + pub_['pulls'])[-12:]
+        if f.get('rr') != f.get('rounds'):   # this round's CA research starts NOW, beside the watch
+            f['rr'] = f.get('rounds'); f['researchAt'] = round(now); f['researchTask'] = False
+            if not w_ or w_.get('done'):
+                rp = {**_pow.new({'mint': f['mint'], 'pair': f['pair'], 'sym': f['sym']}, now), 'mind': researcher, 'folder': f['id']}
+                try:
+                    _work_start(cat['id'], cat, _pow.goal(rp), str(b0 + researcher), None, rp); f['researchTask'] = True
+                except HTTPException:
+                    pass
+        mine_ = bool(f.get('researchTask')) and (t_.get('pow') or {}).get('folder') == f['id']
+        running = mine_ and not (w_ or {}).get('done')
+        if running and now - float(f.get('researchAt') or now) >= _pow.RESEARCH_S:
+            asyncio.create_task(_hard_stop(w_, 0)); running = False   # ⏱ a research round is 2.5 min
+        if mine_ and not running and f.get('rf') != f.get('rounds'):   # its vitals reach the folder (and the watcher) as soon as the round ends
+            f['rf'] = f.get('rounds'); pub_ = _pow.public(t_['pow']); f['research'] = ((f.get('research') or []) + pub_['pulls'])[-12:]
             _pow2_say(f, names[researcher] if researcher < len(names) else 'mind', f"research: {' · '.join(x['label'] + ' ' + x['value'] for x in pub_['pulls'][:4]) or 'no vitals this round'}")
-        f.update(phase='decide', phaseAt=round(now))
+        f['phase'] = 'research' if running else 'watch'
+        if not running and now - f['phaseAt'] >= _pow.WATCH_S:
+            f['phase'] = 'decide'
         return
     if f['phase'] == 'decide':
         res_ = ' · '.join(f"{x['label']} {x['value']} ({x['site']})" for x in (f.get('research') or [])[-6:]) or 'none yet'

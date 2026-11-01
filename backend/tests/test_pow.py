@@ -193,10 +193,11 @@ def test_the_service_runs_a_whole_folder_two_minds_discuss_buy_watch_research_de
     tick(); assert f['phase'] == 'buy' and f['sym'] == 'BBB'                                # both agree on BBB
     tick(); assert orders == ['buy 0.05 SOL of B2'] and f['phase'] == 'watch' and not f['real']
     px['v'] = 1.1; tick(); assert f['phase'] == 'watch'                                     # it watches ≥ 3 min
-    tick(pw.WATCH_S); assert f['phase'] == 'research'
-    tick(); assert f['phase'] == 'decide'                                                    # no free window: research skipped, never stuck
+    assert f['rr'] == 0                                                                      # its research round started WITH the watch (no window free here: skipped, never stuck)
+    tick(pw.WATCH_S); assert f['phase'] == 'decide'                                         # ≥ 3 min watched + the round done → decide
     tick(); assert f['phase'] == 'watch' and f['rounds'] == 1                               # HOLD
-    tick(pw.WATCH_S); tick(); tick(); assert f['phase'] == 'sell'                           # SELL said
+    tick(); assert f['rr'] == 1                                                              # the next research round starts at once
+    tick(pw.WATCH_S); tick(); assert f['phase'] == 'sell'                                   # SELL said
     px['v'] = 1.2; tick()
     assert orders[-1] == 'sell all B2' and 'folder' not in cat['powRun']
     done = cat['powFolders'][-1]
