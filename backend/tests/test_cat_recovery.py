@@ -184,7 +184,11 @@ def test_a_general_agent_with_a_wallet_trades_from_it_and_owner_paper_stands():
     gen = {'id': 'g', 'brainsCfg': {'kind': 'general'}, 'risk': {'maxPositionSol': 0.5}, 'agentWallet': {'address': 'A', 'owner': 'ME'}}
     assert fs.ensure_real(gen) is True and gen['mode'] == 'real' and gen['realWallet'] == 'ME' and gen['budgetSol'] == 0.5
     assert fs.ensure_real({**gen, 'mode': None, 'realWallet': None, 'paperByOwner': True}) is False                          # your ⏸ Paper stands
-    assert fs.ensure_real({'id': 't', 'brainsCfg': {'kind': 'trading'}, 'agentWallet': {'address': 'A', 'owner': 'ME'}}) is False
+    tr = {'id': 't', 'brainsCfg': {'kind': 'trading'}, 'agentWallet': {'address': 'A', 'owner': 'ME'}}
+    assert fs.ensure_real(tr) is True and tr['mode'] == 'real' and tr['budgetSol'] == 0.05                              # owner 2026-11-02: funded = ready, traders too
+    fee = {'id': 'leader', 'isLeader': True, 'brainsCfg': {'kind': 'trading'}, 'risk': {'maxPositionSol': 0.1}, 'agentWallet': {'address': 'F', 'owner': 'ME', 'provider': 'circle'}}
+    assert fs.ensure_real(fee) is True and fee['mode'] == 'real' and fee['budgetSol'] == 0.1                             # … and Fee: her picks go real from her own wallet
+    assert fs._real.propose(fee, 'buy', 'MINT', 'PAIR', 'X', 'her pick', 1000, sol=0.25, px=1.0)['sol'] == 0.1         # capped at her MAX A TRADE
     assert fs.ensure_real({'id': 'n', 'brainsCfg': {'kind': 'general'}}) is False                                            # no wallet, stays paper
 
 

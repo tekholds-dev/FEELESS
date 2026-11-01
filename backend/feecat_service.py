@@ -2077,7 +2077,7 @@ async def run_engine(store, cats):
             })
             _log_event(store, cat, 'BUY', f"Bought {size} SOL of {sym} at live price — {reason} (paper).", None, pa, px, _num(p.get('marketCap') or p.get('fdv')))
             _colony_trade(cat, 'buy', cat['positions'][-1], _num(p.get('priceUsd')))
-            if _real.is_real(cat) and not cat.get('isLeader'):   # 💵 the same buy, proposed to the owner's wallet (≤ budget); real Fee proposes none of her own picks (NEXA's lane is gone)
+            if _real.is_real(cat):   # 💵 the same buy, from its own wallet (≤ budget, every wallet guard) — real Fee too, once funded (owner 2026-11-02)
                 p_ = _real.propose(cat, 'buy', (p.get('baseToken') or {}).get('address'), pa, sym, reason, now, sol=size, px=px)
                 if p_:
                     _notify_real(cat, p_)
@@ -2289,9 +2289,11 @@ def clean_limits(raw):
 
 
 def ensure_real(cat):
-    """👛 A general agent with its own wallet trades from that wallet: its orders are real, sized by its MAX A TRADE. It buys only what you order (a general cat never hunts). Owner's ⏸ Paper stands."""
+    """👛 FUNDED = READY (owner 2026-11-02: "when I add money and split it I expect her to be ready"): any agent with its own wallet — general,
+    trader, or Fee — trades from that wallet once funded, each buy sized by its MAX A TRADE (≤ 0.5 SOL) and every wallet guard (budget · day
+    cap · gas · one order at a time). A general cat still buys only what you order; a trader / Fee mirror their own picks. Owner's ⏸ Paper stands."""
     w = cat.get('agentWallet') or {}
-    if not w.get('address') or not w.get('owner') or cat.get('isLeader') or cat.get('paperByOwner') or _real.is_real(cat) or (cat.get('brainsCfg') or {}).get('kind') != 'general':
+    if not w.get('address') or not w.get('owner') or cat.get('paperByOwner') or _real.is_real(cat):
         return False
     _real.go_real(cat, w['owner'], max(_real.MIN_BUDGET, min(0.5, _num((cat.get('risk') or {}).get('maxPositionSol')) or 0.05)), time.time())
     return True
