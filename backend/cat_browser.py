@@ -602,6 +602,32 @@ class LivePage:
         await self._p.wait_for_load_state('domcontentloaded', timeout=15000)
         return await self._sync()
 
+    async def site_search(self, q):
+        """🔎 The SITE's own search box (owner 2026-11-01: "it didn't click search on CoinMarketCap and paste the CA"): glide to it, type, Enter.
+        → the page after, or None when the page has no search box."""
+        sel = 'input[type=search], [role=searchbox], input[placeholder*="earch" i], input[aria-label*="earch" i], input[name="q"], input[name*="search" i]'
+        box = self._p.locator(sel)
+        try:
+            if not await box.count():   # a search ICON first (CoinMarketCap / CoinGecko hide the box behind it)
+                icon = self._p.locator('[aria-label*="earch" i], button:has-text("Search"), [data-role*="search" i]').first
+                if not await icon.count():
+                    return None
+                await self.point(icon, 'click'); await icon.click(timeout=4000); await self._p.wait_for_timeout(400)
+            f = box.first
+            await self.point(f, 'type')
+            bb = await f.bounding_box(timeout=3000)
+            if bb:
+                await self.glide(bb['x'] + bb['width'] / 2, bb['y'] + bb['height'] / 2, 'click')
+            await f.click(timeout=4000)
+            await self._p.keyboard.type(str(q)[:120], delay=35)   # typed like a person, not pasted in one frame
+            await self._p.wait_for_timeout(700)
+            await self._p.keyboard.press('Enter')
+            await self._p.wait_for_load_state('domcontentloaded', timeout=15000)
+            await self._p.wait_for_timeout(900)
+        except Exception:   # noqa: BLE001 — no usable search box: the engine moves on
+            return None
+        return await self._sync()
+
     async def type(self, label, value):
         f = self._p.get_by_label(str(label)).or_(self._p.get_by_placeholder(str(label))).first
         await self.point(f, 'type')

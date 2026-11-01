@@ -143,7 +143,7 @@ def test_a_folder_gathers_2_intake_1_pump_1_dex_and_the_hard_stops_hold():
     assert pw.agree({'0': 2, '1': 2}, 2) == 2 and pw.agree({'0': 2, '1': 1}, 2) is None and pw.agree({'0': 1}, 1) == 1
     assert pw.parse_pick('{"pick": 3, "why": "vol 4x"}') == (2, 'vol 4x') and pw.parse_pick('{"pick": 9}')[0] is None
     assert 'stop' in pw.hard_exit(1.0, 0.7, 0, 60, 0) and 'take profit' in pw.hard_exit(1.0, 1.7, 0, 60, 0)
-    assert 'min' in pw.hard_exit(1.0, 1.0, 0, pw.HOLD_MAX_S, 0) and 'rounds' in pw.hard_exit(1.0, 1.0, 0, 60, pw.ROUNDS_MAX) and pw.hard_exit(1.0, 1.1, 0, 60, 1) is None
+    assert 'min' in pw.hard_exit(1.0, 1.0, 0, pw.HOLD_MAX_S, 0) and pw.hard_exit(1.0, 1.1, 0, 60, 1) is None
     assert pw.parse_decide('{"action": "SELL", "say": "lower highs"}') == ('SELL', 'lower highs') and pw.parse_decide('{"action":"HOLD"}')[0] == 'HOLD'
 
 
@@ -169,11 +169,13 @@ def test_the_service_runs_a_whole_folder_two_minds_discuss_buy_watch_research_de
 
     px = {'v': 1.0}
     monkeypatch.setattr(fs, '_pair_prices', lambda http, pairs: _aw({p: {'priceNative': str(px['v']), 'priceUsd': str(px['v'] * 200)} for p in pairs}))
-    answers = {'0': ['{"pick": 2, "why": "deep pool", "size_sol": 0.04, "tp_pct": 50, "sl_pct": 20}', '{"pick": 2, "why": "final: BBB"}'], '1': ['{"pick": 2, "why": "agree, vol 4x", "size_sol": 0.02, "sl_pct": 15}']}
+    answers = {'0': ['{"pick": 2, "why": "research BBB first"}', '{"pick": 2, "why": "plan: BBB first"}', '{"pick": 2, "why": "deep pool", "size_sol": 0.04, "tp_pct": 50, "sl_pct": 20}', '{"pick": 2, "why": "final: BBB"}'],
+               '1': ['{"pick": 2, "why": "agree"}', '{"pick": 2, "why": "agree, vol 4x", "size_sol": 0.02, "sl_pct": 15}']}
     decide = ['{"action": "HOLD", "say": "higher lows"}', '{"action": "SELL", "say": "it topped"}']
+    agree = ['{"action": "HOLD", "say": "agree"}', '{"action": "SELL", "say": "agree, lower highs"}']
 
     async def ask(c, i, sys_, user_, max_tokens=180):
-        return decide.pop(0) if 'CHART WATCHER' in sys_ else answers[str(i)].pop(0)
+        return decide.pop(0) if 'CHART WATCHER' in sys_ else agree.pop(0) if 'partner mind' in sys_ else answers[str(i)].pop(0)
     monkeypatch.setattr(fs, '_pow2_ask', ask)
     orders = []
 
@@ -194,17 +196,21 @@ def test_the_service_runs_a_whole_folder_two_minds_discuss_buy_watch_research_de
     tick(); f = cat['powRun']['folder']
     assert [c['src'] for c in f['coins']] == ['intake', 'intake', 'pump', 'dex'] and f['name'].startswith('PoW #1 · ') and f['coins'][0]['read'] == 'read A1'
     assert not f['coins'][0]['safe'] and 'UNSAFE' not in str(f['coins'][1])                # the safety check ran on all 4 before they talk
-    tick(); assert f['turn'] == 1 and 'proposes: $BBB' in cat['chat'][-1]['text']           # 🗣 A proposes (in your chat)
+    tick(); assert f['turn'] == 1 and 'proposes: $BBB' in cat['chat'][-1]['text']           # 🗣 PLAN: A proposes (in your chat)
     tick(); assert f['turn'] == 2 and 'answers: $BBB' in cat['chat'][-1]['text']            # B agrees / suggests
-    tick(); assert f['phase'] == 'buy' and f['sym'] == 'BBB' and 'final plan' in cat['chat'][-1]['text']   # A's final plan
+    tick(); assert f['phase'] == 'scout' and f['scout'][0] == 'B2' and 'A1' not in f['scout']   # A's final plan: research the safe coins, its favorite first
+    for _ in range(6):
+        if f['phase'] == 'scout':
+            tick()
+    assert f['scouted'] and f['phase'] == 'choose' and set(f['scoutDone']) == set(f['scout'])   # every safe coin had its round (no window here: skipped, never stuck)
+    tick(); tick(); tick(); assert f['phase'] == 'buy' and f['sym'] == 'BBB' and 'final plan' in cat['chat'][-1]['text']   # DECIDE: 3 turns again → the ONE
     assert (f['sol'], f['sl']) == (0.02, 15.0)                                              # the safer of their trades
     tick(); assert orders == ['buy 0.02 SOL of B2'] and f['phase'] == 'watch' and not f['real']
-    px['v'] = 1.1; tick(); assert f['phase'] == 'watch'                                     # it watches ≥ 3 min
-    assert f['rr'] == 0                                                                      # its research round started WITH the watch (no window free here: skipped, never stuck)
-    tick(pw.WATCH_S); assert f['phase'] == 'decide'                                         # ≥ 3 min watched + the round done → decide
-    tick(); assert f['phase'] == 'watch' and f['rounds'] == 1                               # HOLD
-    tick(); assert f['rr'] == 1                                                              # the next research round starts at once
-    tick(pw.WATCH_S); tick(); assert f['phase'] == 'sell'                                   # SELL said
+    px['v'] = 1.1; tick(5); assert f['phase'] == 'watch' and f.get('checks') is None       # before +15 s: no check yet
+    tick(15); assert f['checks'] == 1 and any('check 1: HOLD' in x['text'] for x in f['talk']) and any(x['text'].startswith('agrees: HOLD') for x in f['talk'])   # ⏱ +15 s: 2-step check
+    tick(10); assert f['checks'] == 1                                                       # the next one is +30 s later
+    tick(25); assert f['checks'] == 2 and f['phase'] == 'sell'                              # both said SELL
+    assert f['nextAt'] - t == 60
     px['v'] = 1.2; tick()
     assert orders[-1] == 'sell all B2' and 'folder' not in cat['powRun']
     done = cat['powFolders'][-1]
@@ -260,11 +266,13 @@ def test_file_a_pow_in_chat_starts_a_folder_on_any_agent_one_mind_or_both_and_st
         return {'state': 'filled', 'why': 'ok'}
     monkeypatch.setattr(fs, '_run_order', order)
     store = {'cats': {'g1': cat}}
-    for t in (100, 120, 140):
-        asyncio.run(fs._pow2_tick(H(), store, cat, t))
+    monkeypatch.setattr(fs, '_work_start', lambda *a, **k: (_ for _ in ()).throw(fs.HTTPException(409, 'busy')))
+    for t in range(100, 400, 20):   # folder → plan → scout → decide → buy
+        if not orders:
+            asyncio.run(fs._pow2_tick(H(), store, cat, t))
     assert 'folder' in cat['powRun'], (cat['powRun'], cat.get('powFolders'))
     f = cat['powRun']['folder']
-    assert f['minds'] == 1 and f['base'] == 1 and asked == [1] and orders[0].endswith('SOL of D4') and f['asked']   # mind B alone picked + bought
+    assert f['minds'] == 1 and f['base'] == 1 and set(asked) == {1} and orders[0].endswith('SOL of D4') and f['asked']   # mind B alone planned, decided + bought
     assert fs._pow2_on(cat)                                                                  # its asked folder runs to the end
     fs._POW_WANT['g1'] = pw.command('stop PoW')
     asyncio.run(fs._pow2_tick(H(), store, cat, 160)); asyncio.run(fs._pow2_tick(H(), store, cat, 180))
@@ -282,8 +290,11 @@ def test_propose_a_pow_agrees_on_one_coin_and_files_the_card_without_buying(monk
         return '{"pick": 4, "why": "deepest"}'
     monkeypatch.setattr(fs, '_pow2_ask', ask)
     monkeypatch.setattr(fs, '_run_order', lambda *a: (_ for _ in ()).throw(AssertionError('a proposal never buys')))
-    for t_ in (200, 220, 240):   # A proposes → B answers → A's final plan
-        asyncio.run(fs._pow2_tick(None, {'cats': {'p1': cat}}, cat, t_))
+    monkeypatch.setattr(fs, '_work_start', lambda *a, **k: (_ for _ in ()).throw(fs.HTTPException(409, 'busy')))
+    monkeypatch.setattr(fs, '_pair_prices', lambda http, pairs: _aw({}))
+    for t_ in range(200, 600, 20):   # plan (3 turns) → scout every safe coin → decide (3 turns) → filed as a card
+        if 'folder' in cat['powRun']:
+            asyncio.run(fs._pow2_tick(None, {'cats': {'p1': cat}}, cat, t_))
     done = cat['powFolders'][-1]
     assert 'proposes $DDD' in done['why'] and done['propose'] and 'folder' not in cat['powRun']
 
@@ -363,3 +374,28 @@ def test_a_refused_buy_moves_to_the_folders_next_safe_coin_never_a_dead_end(monk
     assert f['phase'] == 'buy' and f['sym'] == 'AAA' and 'next safe coin' in f['talk'][-1]['text']   # the deepest safe one not tried
     asyncio.run(fs._pow2_tick(None, {'cats': {'q1': cat}}, cat, 140))
     assert seen[-1] == 'buy 0.01 SOL of A1' and f['phase'] == 'watch'
+
+
+def test_a_folder_tracks_what_it_costs_per_mind_and_its_research_rounds():
+    import feecat_service as fs
+    f = {'id': 'pow1', 'base': 0, 'vitals': {}}
+    fs._pow2_cost(f, 0, 0.002); fs._pow2_cost(f, 1, 0.001); fs._pow2_cost(f, 0, 0)
+    assert f['cost'] == 0.003 and f['spend'] == {'0': 0.002, '1': 0.001}
+    t_ = {'cost': 0.0161, 'pow': {**pw.new({'mint': 'M', 'pair': 'P', 'sym': 'CAT'}, 0), 'mind': 1, 'folder': 'pow1'}}
+    fs._pow2_collect(f, t_, 'B', 10); fs._pow2_collect(f, t_, 'B', 11)
+    assert f['spend']['1'] == 0.0171 and abs(f['cost'] - 0.0191) < 1e-9                    # the research round counted once
+
+
+def test_on_a_site_not_about_the_coin_the_engine_types_the_ca_into_the_sites_search():
+    coin = pw.new({'mint': 'Mint1', 'pair': 'Pair1', 'sym': 'CAT'}, 1000)
+    typed = []
+
+    class SearchPage(Page):
+        async def site_search(self, q):
+            typed.append((self.url, q)); self.url = f'https://coinmarketcap.com/search?q={q}'; return f'CAT page for {q}'
+    moves = [{'thought': 'cmc', 'action': 'open', 'url': 'https://coinmarketcap.com/'}, {'thought': 'done', 'action': 'answer', 'say': 'WATCH'}]
+    t = ca.new_task('tc', pw.goal(coin), ['m/a'], 1.0, pw.STEPS_MAX, 'jobs'); t.update(pow=coin, research=True, tools={'browse': True, 'forms': True})
+    pg = SearchPage()
+    asyncio.run(ca.run(t, scripted({'m/a': moves}), [pg], None))
+    assert typed and typed[0] == ('https://coinmarketcap.com/', 'Mint1')                     # typed the CA into CoinMarketCap's own search
+    assert any(s['thought'] == 'searched coinmarketcap.com for the CA' for s in t['windows'][0]['steps'])

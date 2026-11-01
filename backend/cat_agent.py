@@ -485,6 +485,8 @@ async def _window(task, w, ask, page, wait_human, name, feeless=None):
                 if isinstance(e, ValueError):
                     task.setdefault('refusals', []).append(str(e)[:160])
             w['url'], w['title'] = page.url, page.title
+            if pw and act == 'open':
+                seen = await _pow_find(w, pw, page) or seen   # a site the model opened itself (CoinMarketCap…): its search gets the CA
             if pw and act in ('open', 'click'):
                 await _pow_snap(pw, page)
             if getattr(page, 'cursor', None):
@@ -553,6 +555,18 @@ async def _pow_snap(pw, page):
         pw.setdefault('_shots', []).append({'site': h, 'n': 1 + sum(1 for x in pw.get('_shots') or [] if x['site'] == h), 'jpg': jpg, 'at': round(time.time())})
 
 
+async def _pow_find(w, pw, page):
+    """🔎 On a site whose page is not about the coin yet, the engine uses the SITE's search: types the CA, Enter. → the page, or None."""
+    m = str(pw.get('mint') or '')
+    if not m or m.lower() in str(page.url or '').lower() or not hasattr(page, 'site_search'):
+        return None
+    got = await page.site_search(m)
+    if got:
+        w['url'], w['title'] = page.url, page.title
+        _step(w, f"searched {_pow.host_of(page.url)} for the CA", 'search', m[:12] + '…')
+    return got
+
+
 async def _pow_advance(w, pw, page):
     """⛏ Open the coin's next research page (a walled one is skipped — a PoW never waits for a person). → what the window now reads."""
     from cat_browser import needs_human
@@ -571,6 +585,7 @@ async def _pow_advance(w, pw, page):
             _pow.wall(pw, nxt)   # never counted, never opened again
             _step(w, f'{_pow.host_of(nxt)} is walled — skipped', 'refused', nxt)
             continue
+        got = await _pow_find(w, pw, page) or got
         w['_page'] = str(got)
         _step(w, f'next site: {_pow.host_of(nxt)}', 'open', nxt)
         await _pow_snap(pw, page)

@@ -1289,7 +1289,16 @@ async def _pow2_ask(cat, i, sys_, user_, max_tokens=180):
         _lc.charge(b_, usd_)
     elif usd_:
         day_ = time.strftime('%Y-%m-%d', time.gmtime()); b_['daySpend'] = {day_: round((b_.get('daySpend') or {}).get(day_, 0) + float(usd_), 6)}
+    _pow2_cost((cat.get('powRun') or {}).get('folder'), i, usd_)
     return str(reply_ or '')
+
+
+def _pow2_cost(f, mind_i, usd):
+    """💲 Every $ a folder costs (each mind's calls + its research rounds) — shown on the monitors and kept in the folder."""
+    if not f or not usd:
+        return
+    f['cost'] = round(float(f.get('cost') or 0) + float(usd), 6)
+    sp_ = f.setdefault('spend', {}); sp_[str(mind_i)] = round(float(sp_.get(str(mind_i)) or 0) + float(usd), 6)
 
 
 async def _pow2_dex(http):
@@ -1309,6 +1318,59 @@ async def _pow2_dex(http):
 
 
 POWSHOTS_DIR = DATA_DIR / 'powshots'
+
+
+def _pow2_research(cat, f, coin, mind_i, now):
+    """🔎 One research round on ONE coin in mind_i's window (its own browser), with the watcher's chart read handed over. → True when it started."""
+    w_ = _WORK.get(cat['id'])
+    if w_ and not w_.get('done'):
+        return False
+    rp = {**_pow.new({'mint': coin['mint'], 'pair': coin['pair'], 'sym': coin['sym']}, now), 'mind': mind_i, 'folder': f['id'],
+          'used': list(((f.get('usedBy') or {}).get(coin['mint'])) or [])}
+    try:
+        _work_start(cat['id'], cat, _pow.goal(rp), str(int(f.get('base') or 0) + mind_i), None, rp)
+    except HTTPException:
+        return False
+    t_new = _WORK[cat['id']]['task']
+    ch_ = (f.get('charts') or {}).get(coin['mint']) or []
+    t_new['handoffs'] = [{'from': 'watcher', 'text': f"chart watcher on ${coin['sym']}: {_pow.chart_line(ch_)}"}]
+    t_new['powPlan'] = list(f.get('plan') or [])
+    f.update(rMint=coin['mint'], rMind=mind_i, researchAt=round(now))
+    return True
+
+
+def _pow2_collect(f, t_, who, now):
+    """📁 A finished research round → that coin's folder: its vitals, its 2-per-site snapshots, the sites it used (the next round goes elsewhere)."""
+    pw_ = t_['pow']; m_ = pw_.get('mint'); pub_ = _pow.public(pw_)
+    if not pw_.get('costed'):   # 💲 the research round's own browsing cost
+        pw_['costed'] = True; _pow2_cost(f, int(f.get('base') or 0) + int(pw_.get('mind') or 0), float(t_.get('cost') or 0))
+    f.setdefault('vitals', {})[m_] = ((f['vitals'].get(m_) or []) + pub_['pulls'])[-12:]
+    if m_ == f.get('mint') and f.get('entry'):
+        f['research'] = ((f.get('research') or []) + pub_['pulls'])[-12:]
+    ub_ = f.setdefault('usedBy', {}); ub_[m_] = sorted(set(ub_.get(m_) or []) | set((pw_.get('sites') or {}).keys()) | set(pw_.get('walled') or []))
+    for sh_ in pw_.pop('_shots', None) or []:   # 📸 its snapshots → the coin's folder, on disk
+        name_ = f"{m_[:6].lower()}_r{f.get('rounds') or 0}_{re.sub(r'[^a-z0-9.]', '', sh_['site'])}_{sh_['n']}.jpg"
+        try:
+            d_ = POWSHOTS_DIR / re.sub(r'[^a-z0-9]', '', f['id']); d_.mkdir(parents=True, exist_ok=True); (d_ / name_).write_bytes(sh_['jpg'])
+            f['shots'] = ((f.get('shots') or []) + [{'mint': m_, 'site': sh_['site'], 'n': sh_['n'], 'at': sh_['at'], 'file': name_, 'round': f.get('rounds') or 0}])[-60:]
+        except OSError as e:
+            print(f'[pow2] snapshot not kept: {e}')
+    _pow2_say(f, who, f"${pw_.get('sym')} researched: {' · '.join(x['label'] + ' ' + x['value'] for x in pub_['pulls'][:4]) or 'no vitals'}")
+    f.pop('rMint', None)
+
+
+def _pow2_running(cat, f):
+    """(task, its research is running now, it is this folder's) for the agent's current window."""
+    w_ = _WORK.get(cat['id']); t_ = (w_ or {}).get('task') or {}
+    mine = (t_.get('pow') or {}).get('folder') == f['id'] and (t_.get('pow') or {}).get('mint') == f.get('rMint')
+    return w_, t_, mine and not (w_ or {}).get('done'), mine
+
+
+def _any_hot():
+    try:
+        return any(((c.get('powRun') or {}).get('folder') or {}).get('phase') in ('buy', 'watch', 'research', 'decide', 'sell') for c in _load()['cats'].values())
+    except Exception:   # noqa: BLE001
+        return False
 
 
 def _pow2_approve(cat, pid):
@@ -1399,7 +1461,10 @@ async def _pow2_tick(http, store, cat, now):
         if not safe_:
             _pow2_close(cat, f, 'none of the 4 passed the safety check — no buy', now); return
         listing = '\n'.join(f"{k + 1}) ${c['sym']} [{_pow.SRC_LABEL[c['src']]}] pool ${c['liq']:,.0f} cap ${c['mc']:,.0f}"
-                             + ('' if c.get('safe', True) else f" — UNSAFE ({c.get('risk')}), never pick it") + f" — {c.get('read', '')[:260]}" for k, c in enumerate(f['coins']))
+                             + ('' if c.get('safe', True) else f" — UNSAFE ({c.get('risk')}), never pick it") + f" — {c.get('read', '')[:220]}"
+                             + (f" · RESEARCHED: {' · '.join(x['label'] + ' ' + x['value'] + ' (' + x['site'] + ')' for x in (f.get('vitals') or {}).get(c['mint'], [])[:6])}" if (f.get('vitals') or {}).get(c['mint']) else '')
+                             + (f" · CHART {_pow.chart_line((f.get('charts') or {}).get(c['mint']))}" if (f.get('charts') or {}).get(c['mint']) else '') for k, c in enumerate(f['coins']))
+        listing = ('STEP: ' + ('PLAN which coins to research — your pick = your early favorite' if not f.get('scouted') else 'DECIDE the ONE to buy with the research below') + '\n' + listing)
         turn = int(f.get('turn') or 0); last_ = turn >= (2 if f['minds'] > 1 else 0); i = 1 if (turn == 1 and f['minds'] > 1) else 0
         cap_ = round(min(_at.MAX_BUY_SOL, _num(cat.get('budgetSol')) or _num((cat.get('risk') or {}).get('maxPositionSol')) or 0.05), 4)
         prev = f.get('said') or {}
@@ -1422,6 +1487,11 @@ async def _pow2_tick(http, store, cat, now):
         cat['chat'] = (list(cat.get('chat') or []) + [{'by': 'cats', 'text': f"🗣 MIND {'AB'[b0 + i]} {said_}"[:400], 'at': time.time(), 'open': 'pow'}])[-40:]   # the discussion, in your chat
         if not last_:
             f['turn'] = turn + 1; return
+        if not f.get('scouted'):   # 🗺 that was the PLAN: research the safe coins first (their favorite first), then decide with the research in hand
+            order_ = [k] + sorted([x for x in safe_ if x != k], key=lambda x: -f['coins'][x]['liq'])
+            f.update(scout=[f['coins'][x]['mint'] for x in order_], scoutDone=[], phase='scout', phaseAt=round(now), turn=0, picks={}, said={}, fav=f['coins'][k]['mint'])
+            _pow2_say(f, 'engine', f"plan agreed — they research {', '.join('$' + f['coins'][x]['sym'] for x in order_)} in turns, then decide")
+            return
         c = f['coins'][k]; f.update(pick=c, mint=c['mint'], pair=c['pair'], sym=c['sym'], why0=why, phase='buy', phaseAt=round(now))
         tr_ = _pow.agree_trade(list((f.get('trades') or {}).values())) or tr_   # the final coin; the safer of their trades
         f.update(sol=tr_['sol'], tp=tr_['tp'], sl=tr_['sl'])
@@ -1461,6 +1531,36 @@ async def _pow2_tick(http, store, cat, now):
         f.update(sol=sol, real=False, entry=_num(live.get('priceNative')), entryUsd=_num(live.get('priceUsd')), boughtAt=round(now), phase='watch', phaseAt=round(now))
         _pow2_say(f, 'engine', f"bought {sol:g} SOL of ${f['sym']} on FEELESS (paper)")
         return
+    if f['phase'] == 'scout':   # 🔎 SCOUT: each safe coin gets a research round (its own coin folder), the minds taking turns; the other watches its chart
+        prs_ = await _pair_prices(http, [c['pair'] for c in f['coins'] if c['mint'] in f['scout']])
+        for c in f['coins']:
+            px_ = _num((prs_.get(c['pair']) or {}).get('priceNative'))
+            if px_:
+                f.setdefault('charts', {})[c['mint']] = (((f.get('charts') or {}).get(c['mint'])) or [])[-30:] + [{'at': round(now), 'px': px_}]
+        w_, t_, running, mine_ = _pow2_running(cat, f)
+        if f.get('rMint'):
+            if running and now - float(f.get('researchAt') or now) < _pow.RESEARCH_S:
+                return
+            if running:
+                asyncio.create_task(_hard_stop(w_, 0)); return
+            if mine_:
+                m_ = f.get('rMint'); _pow2_collect(f, t_, names[f.get('rMind') or 0] if (f.get('rMind') or 0) < len(names) else 'mind', now); f['rMint'] = m_
+                if f['minds'] > 1:   # 🗣 ONE line from the partner after that coin's 3-site research
+                    o_ = 1 - int(f.get('rMind') or 0); c_ = next((c for c in f['coins'] if c['mint'] == m_), {})
+                    vt_ = ' · '.join(f"{x['label']} {x['value']}" for x in (f.get('vitals') or {}).get(m_, [])[:6]) or 'no vitals'
+                    raw_ = await ask_(o_, _pow.COIN_TALK_SYS.format(name=names[o_] if o_ < len(names) else 'mind', sym=c_.get('sym'), vitals=vt_), vt_, 160)
+                    line_ = (re.search(r'"say"\s*:\s*"([^"]{0,200})', str(raw_)) or [None, str(raw_).strip()[:160]])[1]
+                    if line_:
+                        _pow2_say(f, names[o_] if o_ < len(names) else 'mind', f"on ${c_.get('sym')}: {line_}")
+            f['scoutDone'] = (f.get('scoutDone') or []) + [f.pop('rMint', None) or '']
+        left_ = [m for m in f['scout'] if m not in (f.get('scoutDone') or [])]
+        if not left_:   # every coin has its folder: the final 3-turn decision, with the research in hand
+            f.update(phase='choose', scouted=True, turn=0, picks={}, said={}, phaseAt=round(now)); _pow2_say(f, 'engine', 'every coin researched — they decide which ONE to buy')
+            return
+        c_ = next(c for c in f['coins'] if c['mint'] == left_[0]); mi_ = len(f.get('scoutDone') or []) % f['minds']
+        if not _pow2_research(cat, f, c_, mi_, now):
+            f['scoutDone'] = (f.get('scoutDone') or []) + [c_['mint']]   # no window free: that coin keeps its FEELESS read, never stuck
+        return
     live = (await _pair_prices(http, [f['pair']])).get(f['pair']) or {}
     px = _num(live.get('priceNative'))
     held = f['mint'] in (cat.get('realHeld') or {}) if f.get('real') else any(p.get('pairAddress') == f['pair'] for p in cat.get('positions') or [])
@@ -1475,50 +1575,39 @@ async def _pow2_tick(http, store, cat, now):
             _pow2_approve(cat, row.get('pid'))   # its wallet sells on its own too
         _pow2_say(f, 'engine', f"sell: {why_x or f.get('sellWhy') or 'the watcher said sell'} — {row.get('why')}")
         _pow2_close(cat, f, why_x or f.get('sellWhy') or 'the watcher sold', now, px); return
-    watcher, researcher = 0, (1 if f['minds'] > 1 else 0)
-    if f['phase'] in ('watch', 'research'):   # 🔁 BOTH loop at once (owner 2026-11-01: "both PoW looping, not one watching while the other idles")
-        w_ = _WORK.get(cat['id']); t_ = (w_ or {}).get('task') or {}
-        if f.get('rr') != f.get('rounds'):   # this round's CA research starts NOW, beside the watch
-            f['rr'] = f.get('rounds'); f['researchAt'] = round(now); f['researchTask'] = False
-            if not w_ or w_.get('done'):
-                rp = {**_pow.new({'mint': f['mint'], 'pair': f['pair'], 'sym': f['sym']}, now), 'mind': researcher, 'folder': f['id'], 'used': list(f.get('used') or [])}
-                try:
-                    _work_start(cat['id'], cat, _pow.goal(rp), str(b0 + researcher), None, rp); f['researchTask'] = True
-                    t_new = _WORK[cat['id']]['task']   # 📦 the watcher's chart read rides into the researcher's round; the folder's 3-step plan is its plan
-                    t_new['handoffs'] = [{'from': 'watcher', 'text': f"chart watcher on ${f['sym']}: {_pow.chart_line(f.get('chart'))} · P/L {_pow.pnl_pct(f.get('entry') or 0, (f.get('chart') or [{}])[-1].get('px') or 0):+.1f}%"}]
-                    t_new['powPlan'] = list(f.get('plan') or [])
-                except HTTPException:
-                    pass
-        mine_ = bool(f.get('researchTask')) and (t_.get('pow') or {}).get('folder') == f['id']
-        running = mine_ and not (w_ or {}).get('done')
+    rr_ = int(f.get('rr') or 0)
+    researcher = rr_ % f['minds']   # 🔁 research rounds ALTERNATE minds in the background while the chart is checked live
+    w_, t_, running, mine_ = _pow2_running(cat, f)
+    if f.get('rMint'):
         if running and now - float(f.get('researchAt') or now) >= _pow.RESEARCH_S:
             asyncio.create_task(_hard_stop(w_, 0)); running = False   # ⏱ a research round is 2.5 min
-        if mine_ and not running and f.get('rf') != f.get('rounds'):   # its vitals reach the folder (and the watcher) as soon as the round ends
-            f['rf'] = f.get('rounds'); pub_ = _pow.public(t_['pow']); f['research'] = ((f.get('research') or []) + pub_['pulls'])[-12:]
-            f['used'] = sorted(set(f.get('used') or []) | set((t_['pow'].get('sites') or {}).keys()) | set(t_['pow'].get('walled') or []))   # next round: new sites
-            for sh_ in t_['pow'].pop('_shots', None) or []:   # 📸 its snapshots → the folder's coin folder, on disk
-                name_ = f"r{f.get('rounds') or 0}_{re.sub(r'[^a-z0-9.]', '', sh_['site'])}_{sh_['n']}.jpg"
-                try:
-                    d_ = POWSHOTS_DIR / re.sub(r'[^a-z0-9]', '', f['id']); d_.mkdir(parents=True, exist_ok=True); (d_ / name_).write_bytes(sh_['jpg'])
-                    f['shots'] = ((f.get('shots') or []) + [{'mint': f['mint'], 'site': sh_['site'], 'n': sh_['n'], 'at': sh_['at'], 'file': name_, 'round': f.get('rounds') or 0}])[-40:]
-                except OSError as e:
-                    print(f'[pow2] snapshot not kept: {e}')
-            _pow2_say(f, names[researcher] if researcher < len(names) else 'mind', f"research: {' · '.join(x['label'] + ' ' + x['value'] for x in pub_['pulls'][:4]) or 'no vitals this round'}")
-        f['phase'] = 'research' if running else 'watch'
-        if not running and now - f['phaseAt'] >= _pow.WATCH_S:
-            f['phase'] = 'decide'
+        if mine_ and not running:
+            _pow2_collect(f, t_, names[f.get('rMind') or 0] if (f.get('rMind') or 0) < len(names) else 'mind', now); f['rr'] = rr_ + 1
+        elif not mine_:
+            f.pop('rMint', None); f['rr'] = rr_ + 1   # its window was taken (your ask): that round is skipped, never stuck
+    elif now - float(f.get('researchAt') or 0) >= 20:   # the next round starts (a short breath between rounds)
+        _pow2_research(cat, f, {'mint': f['mint'], 'pair': f['pair'], 'sym': f['sym']}, researcher, now)
+    f['phase'] = 'research' if f.get('rMint') else 'watch'
+    n_ = int(f.get('checks') or 0)
+    if now < float(f.get('nextAt') or (float(f.get('boughtAt') or now) + _pow.CHECKS[0])):   # +15 s → +30 s → every 60 s, each from the last check (no catch-up storms)
         return
-    if f['phase'] == 'decide':
-        res_ = ' · '.join(f"{x['label']} {x['value']} ({x['site']})" for x in (f.get('research') or [])[-6:]) or 'none yet'
-        talk_ = ' | '.join(f"{x['by']}: {x['text']}" for x in (f.get('talk') or [])[-5:])
-        act, say = _pow.parse_decide(await ask_(watcher, _pow.DECIDE_SYS.format(name=names[0] if names else 'mind', sym=f['sym']),
-                                                     f"P/L {_pow.pnl_pct(f.get('entry') or 0, px):+.1f}% · CHART {_pow.chart_line(f.get('chart'))}\nRESEARCH {res_}\nTALK {talk_}", 600))
-        _pow2_say(f, names[0] if names else 'mind', f"{act}: {say}")
-        f['rounds'] = int(f.get('rounds') or 0) + 1
-        if act == 'SELL':
-            f.update(phase='sell', sellWhy=f'the watcher: {say[:80]}')
-        else:
-            f.update(phase='watch', phaseAt=round(now))
+    # ⏱ LIVE-TRADE CHECK n (2 steps): the watcher reads the chart → the partner agrees or overrides
+    watcher_ = (researcher + 1) % f['minds']; other_ = researcher if f['minds'] > 1 else watcher_
+    res_ = ' · '.join(f"{x['label']} {x['value']} ({x['site']})" for x in (f.get('research') or [])[-6:]) or 'none yet'
+    a1, s1 = _pow.parse_decide(await ask_(watcher_, _pow.DECIDE_SYS.format(name=names[watcher_] if watcher_ < len(names) else 'mind', sym=f['sym']),
+                                         f"P/L {_pow.pnl_pct(f.get('entry') or 0, px):+.1f}% · TP +{f.get('tp')}% · SL −{f.get('sl')}% · CHART {_pow.chart_line(f.get('chart'))}\nRESEARCH {res_}", 220))
+    act, say = a1, s1
+    if f['minds'] > 1:
+        a2, s2 = _pow.parse_decide(await ask_(other_, _pow.AGREE_SYS.format(name=names[other_] if other_ < len(names) else 'mind', sym=f['sym'], said=f'{a1}: {s1}'),
+                                             f"P/L {_pow.pnl_pct(f.get('entry') or 0, px):+.1f}% · CHART {_pow.chart_line(f.get('chart'))}", 200))
+        act, say = a2, f"{s1} → {s2}"
+        _pow2_say(f, names[watcher_] if watcher_ < len(names) else 'mind', f"check {n_ + 1}: {a1} — {s1}")
+        _pow2_say(f, names[other_] if other_ < len(names) else 'mind', f"{'agrees' if a2 == a1 else 'overrides'}: {a2} — {s2}")
+    else:
+        _pow2_say(f, names[0] if names else 'mind', f"check {n_ + 1}: {a1} — {s1}")
+    f['checks'] = n_ + 1; f['rounds'] = n_ + 1; f['nextAt'] = round(now + _pow.CHECKS[min(n_ + 1, len(_pow.CHECKS) - 1)])
+    if act == 'SELL':
+        f.update(phase='sell', sellWhy=f'they agreed: {say[:90]}')
 
 
 async def _pow2_pass(store):
@@ -2359,9 +2448,15 @@ async def _agent_fees(http, cat, now):
 
 
 async def _engine_loop():
+    full_at = 0.0
     while True:
         try:
             store = _load()
+            hot_ = any(((c.get('powRun') or {}).get('folder') or {}).get('phase') in ('buy', 'watch', 'research', 'decide', 'sell') for c in store['cats'].values())
+            if time.time() - full_at < TICK_SECONDS and hot_:   # ⛏ a folder holds a coin: a LIGHT pass every 5 s (its live checks + its wallet's sends), the market scan stays at 20 s
+                await _agent_pass(store); await _pow2_pass(store); _work_settle(store); _save(store)
+                await asyncio.sleep(_pow.HOT_TICK_S); continue
+            full_at = time.time()
             _migrate(store)
             _apply_overrides(store)
             running = [c for c in store['cats'].values() if c['status'] == 'running' and not c['revoked']]
@@ -2376,7 +2471,7 @@ async def _engine_loop():
             _save(store)
         except Exception as exc:  # keep the loop alive; surface in logs
             print('engine error', exc)
-        await asyncio.sleep(TICK_SECONDS)
+        await asyncio.sleep(_pow.HOT_TICK_S if _any_hot() else TICK_SECONDS)
 
 
 def _score(cat):

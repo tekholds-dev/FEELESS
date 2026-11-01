@@ -215,6 +215,8 @@ ROUNDS_MAX = 6
 HOLD_MAX_S = 3600
 STOP_PCT, TAKE_PCT = -25.0, 60.0
 REST_S = 300                      # between two folders
+CHECKS = (15, 30, 60)             # ⏱ live-trade checks after the buy: +15 s, then +30 s, then every 60 s (owner 2026-11-01)
+HOT_TICK_S = 5                    # the engine's light pass while a folder holds a coin
 SIGN_WAIT_S = 600                 # a real buy waits this long for its wallet, then the folder closes and the order is withdrawn
 MIN_LIQ = 5000
 FOLDERS_KEEP = 30
@@ -270,9 +272,9 @@ def folder_new(n, coins, now, minds):
 def plan_of(minds):
     """🗺 The folder's ONE joint 3-step plan, set before anything is browsed (owner 2026-11-01: "both agents combined, 3-step total plan before browsing")."""
     if int(minds or 1) > 1:
-        return ['both minds pick 1 of the 4 coins and agree', "A watches the coin's FEELESS chart · B researches its CA (DexScreener · RugCheck · Solscan)",
-                "A decides HOLD / SELL with B's vitals — loop until it sells"]
-    return ['it picks 1 of the 4 coins', "it watches the FEELESS chart, then researches the CA (DexScreener · RugCheck · Solscan)", 'it decides HOLD / SELL — loop until it sells']
+        return ['A proposes the research plan, B agrees or suggests, A finalizes', 'they research every safe coin in turns — each gets its own folder (vitals + snapshots)',
+                'they decide the ONE to buy — then take turns: one researches, one watches the chart, until it sells']
+    return ['it plans which coins to research', 'it researches every safe coin — each its own folder', 'it buys the ONE — then research / chart / decide until it sells']
 
 
 def parse_pick(text, n=4):
@@ -339,9 +341,13 @@ def hard_exit(entry, px, bought_at, now, rounds, tp=TAKE_PCT, sl=-STOP_PCT):
         return f'take profit: +{p:.0f}%'
     if now - bought_at >= HOLD_MAX_S:
         return f'held {HOLD_MAX_S // 60} min — the folder closes'
-    if rounds >= ROUNDS_MAX:
-        return f'{ROUNDS_MAX} rounds — the folder closes'
     return None
+
+
+AGREE_SYS = ('You are {name}, the partner mind of a FEELESS trader agent holding ${sym}. Your partner just read the live chart and says: {said}. '
+             'Agree, or override with what YOU read. Answer ONLY JSON: {{"action": "HOLD|SELL", "say": "<= 14 words"}}.')
+COIN_TALK_SYS = ('You are {name}. Your partner just researched ${sym} on 3 sites: {vitals}. In ONE line (<= 16 words): is it worth buying, and why? '
+                 'Answer ONLY JSON: {{"say": "..."}}.')
 
 
 def parse_decide(text):
@@ -364,7 +370,7 @@ def chart_line(samples):
 
 def folder_public(f):
     keep = ('id', 'n', 'name', 'at', 'coins', 'minds', 'phase', 'pick', 'talk', 'rounds', 'status', 'why', 'entry', 'exit', 'pnlPct', 'pnlSol', 'sym',
-            'boughtAt', 'soldAt', 'real', 'shared', 'research', 'picks', 'whys', 'base', 'pair', 'mint', 'propose', 'sol', 'plan', 'entryUsd', 'tp', 'sl', 'shots')
+            'boughtAt', 'soldAt', 'real', 'shared', 'research', 'picks', 'whys', 'base', 'pair', 'mint', 'propose', 'sol', 'plan', 'entryUsd', 'tp', 'sl', 'shots', 'vitals', 'scout', 'scoutDone', 'rMint', 'rMind', 'scouted', 'fav', 'checks', 'nextAt', 'cost', 'spend')
     out = {k: f.get(k) for k in keep if k in f}
     if f.get('chart'):   # the live price the watcher reads (its P/L on the monitor)
         out['now'] = f['chart'][-1].get('px'); out['line'] = [x.get('px') for x in f['chart'][-24:]]

@@ -159,7 +159,7 @@ export function useDrop(w) {
 
 // ⛏ a monitor while its PoW folder runs (owner 2026-11-01: "I want to see it here, not only on the Desktop — they must be actively creating a PoW"):
 // agreeing = the 4 coins + this mind's pick · holding = the watcher's FEELESS chart of the coin, the researcher's coins + vitals · the talk under both
-const PH = { choose: 'AGREEING ON 1 OF 4', buy: 'BUYING ON FEELESS', watch: 'WATCHING THE CHART', research: 'RESEARCHING THE CA', decide: 'DECIDING', sell: 'SELLING' };
+const PH = { scout: 'RESEARCHING EVERY COIN', choose: 'AGREEING ON 1 OF 4', buy: 'BUYING ON FEELESS', watch: 'WATCHING THE CHART', research: 'RESEARCHING THE CA', decide: 'DECIDING', sell: 'SELLING' };
 // 📈 the folder's P/L over the watcher's chart: what went in, the entry vs now, P/L (pool price, fees apart), the round, how far from the hard stops
 function PowPnl({ f }) {
   const pnl = f.now && f.entry ? (f.now / f.entry - 1) * 100 : 0; const tone = pnl >= 0 ? 'is-up' : 'is-dn';
@@ -169,22 +169,24 @@ function PowPnl({ f }) {
     <span><em>IN</em><b className="m-num">{f.sol ?? '—'} SOL</b><small>{f.real ? 'its wallet' : 'paper'}</small></span>
     <span><em>ENTRY → NOW</em><b className="m-num">{Number(f.entry).toPrecision(3)} → {f.now ? Number(f.now).toPrecision(3) : '…'}</b><small>SOL per coin</small></span>
     <span className="cwb-powpnl-big"><em>P/L</em><b className="m-num" key={Math.round(pnl * 10)}>{pnl >= 0 ? '+' : ''}{pnl.toFixed(1)}%</b><small>fees apart</small></span>
-    <span><em>ROUND</em><b className="m-num">{(f.rounds || 0) + 1} / 6</b><small>60 min max</small></span>
+    <span data-tip="Live-trade checks: +15 s, +30 s, then every 60 s — the watcher reads the chart, the partner agrees or overrides"><em>CHECK</em><b className="m-num">{f.checks || 0}</b><small>{f.nextAt ? `next in ${Math.max(0, Math.round(f.nextAt - Date.now() / 1000))} s` : 'first at +15 s'}</small></span>
+    <span data-tip="What this folder cost so far — both minds' calls + their research rounds"><em>COST</em><b className="m-num">${Number(f.cost || 0).toFixed(4)}</b><small>A ${Number(f.spend?.['0'] || 0).toFixed(3)} · B ${Number(f.spend?.['1'] || 0).toFixed(3)}</small></span>
     <span className="cwb-powpnl-band" data-tip="The stop loss and take profit its minds set — the dot is where it is now"><em>SL −{sl}%</em><u><s style={{ transform: `translateX(${(toStop * 100).toFixed(1)}cqw)` }} /></u><em>TP +{tp}%</em></span>
   </div>;
 }
 function PowScreen({ f, slot }) {
   const me = String(slot - (f.base || 0)); const mine = f.picks?.[me]; const held = ['watch', 'research', 'decide', 'sell'].includes(f.phase);
-  const coins = f.coins || []; const c = held ? { mint: f.mint, pair: f.pair, sym: f.sym } : coins[mine ?? (slot % Math.max(1, coins.length))] || {};
+  const coins = f.coins || []; const scoutC = f.phase === 'scout' && f.rMint ? coins.find(x => x.mint === f.rMint) : null;   // 🔎 the coin being researched — its chart, tight
+  const c = held ? { mint: f.mint, pair: f.pair, sym: f.sym } : scoutC || coins[mine ?? (slot % Math.max(1, coins.length))] || {};
   return <div className="cwb-powscr" data-testid={`cwb-powscr-${slot}`}>   {/* 📈 the agent watches the FEELESS chart — never a page of cards (owner 2026-11-01) */}
     <span className="cwb-powscr-h"><b>⛏ {f.name}</b><em>{PH[f.phase] || f.phase}</em>{c.sym ? <strong>${c.sym}</strong> : null}{!held && mine != null ? <small>its pick</small> : !held ? <small>weighing</small> : null}</span>
-    {f.plan?.length ? <ol className="cwb-powscr-plan" aria-label="Its 3-step plan">{f.plan.map((x, k) => { const at = f.phase === 'choose' ? 0 : f.phase === 'decide' || f.phase === 'sell' ? 2 : 1;
-      return <li key={k} className={k === at ? 'is-on' : k < at ? 'is-done' : ''}><b>{k + 1}</b>{x}</li>; })}</ol> : null}
+    {f.plan?.length ? (() => { const at = f.phase === 'choose' && !f.scouted ? 0 : f.phase === 'scout' ? 1 : 2;   // one thin line — the candles stay clear
+      return <ol className="cwb-powscr-plan" aria-label="Its 3-step plan" data-tip={f.plan.map((x, k) => `${k + 1}) ${x}`).join('  ·  ')}>{f.plan.map((x, k) => <li key={k} className={k === at ? 'is-on' : k < at ? 'is-done' : ''}><b>{k + 1}</b>{k === at ? <span>{x}</span> : null}</li>)}</ol>; })() : null}
     <div className="cwb-chart">{c.pair ? <Suspense fallback={<span className="cwb-chart-load">loading ${c.sym} on FEELESS…</span>}>
       <PriceChart key={c.pair} pair={{ chainId: 'solana', pairAddress: c.pair, baseToken: { address: c.mint, symbol: c.sym } }} interval="1m" metric="price" showVolume={false}
         fuse={held && f.entryUsd > 0 ? { entry: f.entryUsd, stop: f.entryUsd * (1 - (Number(f.sl) || 25) / 100), slPct: Number(f.sl) || 25, lines: [{ px: f.entryUsd * (1 + (Number(f.tp) || 60) / 100), title: `🎯 take profit +${Number(f.tp) || 60}%`, color: 'up' }] } : null} /></Suspense> : null}</div>   {/* entry · SL · TP like trench trading */}
     {held && f.entry ? <PowPnl f={f} /> : null}
-    <ul className="cwb-powscr-talk">{(f.talk || []).slice(-2).map((t, k) => <li key={`${t.at}${k}`}><b>{t.by}</b> {t.text}</li>)}</ul>
+    <ul className="cwb-powscr-talk">{(f.talk || []).slice(-1).map((t, k) => <li key={`${t.at}${k}`}><b>{t.by}</b> {t.text}</li>)}</ul>
   </div>;
 }
 
@@ -200,7 +202,10 @@ function Window({ w, catId, tick, onGo, onLogin, busy, cursor = 'arrow', folder 
   const human = w?.status === 'human' && w?.human; const [big, setBig] = useState(false);
   const i = w?.i ?? 0; const sl = w?.slot ?? i;
   const powHeld = folder && ['watch', 'research', 'decide', 'sell'].includes(folder.phase);   // ⛏ a PoW folder runs: this monitor is working, never 'idle'
-  const powDoing = !folder?.coins?.length ? '' : !powHeld ? 'AGREEING' : sl === (folder.base || 0) ? `WATCHING $${folder.sym}` : 'RESEARCHING';
+  const rIdx = folder?.phase === 'scout' ? (folder.rMind ?? 0) : ((folder?.rounds || 0) % Math.max(1, folder?.minds || 1));   // 🔁 who researches this round
+  const scoutSym = folder?.phase === 'scout' ? (folder.coins || []).find(x => x.mint === folder.rMint)?.sym : null;
+  const powDoing = !folder?.coins?.length ? '' : folder.phase === 'scout' ? (sl - (folder.base || 0) === rIdx ? `RESEARCHING $${scoutSym || '…'}` : `WATCHING $${scoutSym || '…'}`)
+    : !powHeld ? 'AGREEING' : sl - (folder.base || 0) === rIdx && (folder.minds || 1) > 1 ? 'RESEARCHING' : `WATCHING $${folder.sym}`;
   const working = w?.status === 'working';
   // 🪟 the live window wears the demo's chrome (owner 2026-10-30: "the window design is perfected — users should see exactly that, bigger")
   const [lastBad, setLastBad] = useState(false); useEffect(() => setLastBad(false), [w?.status]);
@@ -538,14 +543,14 @@ function DeskWin({ k, title, s, top, set, onTop, onClose, tools, children }) {
 const PHASES = [['choose', 'AGREE'], ['buy', 'BUY'], ['watch', 'CHART'], ['research', 'RESEARCH'], ['decide', 'DECIDE'], ['done', 'FILED']];
 const SRC = { intake: 'FEELESS', pump: 'PUMP', dex: 'DEX' };
 function CoinFolder({ f, c, catId, onShot }) {   // 📁 one coin's folder inside a PoW folder: its vitals + the snapshots of every site researched
-  const shots = (f.shots || []).filter(x => x.mint === c.mint); const vit = f.pick?.mint === c.mint ? (f.research || []) : [];
+  const shots = (f.shots || []).filter(x => x.mint === c.mint); const vit = (f.vitals || {})[c.mint] || (f.pick?.mint === c.mint ? (f.research || []) : []);
   return <div className="dsk-coin" data-testid={`dsk-coin-${c.mint}`}>
     <span className="dsk-coin-h"><b>📁 ${c.sym}</b><em>{SRC[c.src] || c.src}</em>{f.pick?.mint === c.mint ? <i>the pick</i> : null}</span>
     {vit.length ? <ul className="dsk-coin-vit">{vit.map((x, k) => <li key={`${x.site}${x.label}${k}`}><em>{x.label}</em><b className="m-num">{x.value}</b><small>{x.site}</small></li>)}</ul>
       : <p className="dsk-coin-read">{String(c.read || 'its FEELESS read').slice(0, 260)}</p>}
     {shots.length ? <div className="dsk-coin-shots">{shots.map(x => <button key={x.file} type="button" onClick={() => onShot(x)} data-tip={`${x.site} · snapshot ${x.n} · round ${(x.round || 0) + 1}`}>
       <img src={apiUrl(`/api/cats/${catId}/powshot/${String(f.id).replace(/[^a-z0-9]/gi, '').toLowerCase()}/${x.file}`)} alt={`${x.site} snapshot ${x.n}`} loading="lazy" /><small>{x.site} · {x.n}</small></button>)}</div>
-      : <small className="dsk-coin-none">{f.pick?.mint === c.mint ? 'snapshots land here as each site is researched' : 'not researched — its FEELESS read is kept'}</small>}
+      : <small className="dsk-coin-none">{(f.scout || []).includes(c.mint) ? 'snapshots land here as each site is researched' : 'not researched (failed the safety check) — its FEELESS read is kept'}</small>}
   </div>;
 }
 export function FolderView({ f, live, catId }) {
