@@ -1507,6 +1507,10 @@ async def _pow2_tick(http, store, cat, now):
                 live = (await _pair_prices(http, [f['pair']])).get(f['pair']) or {}
                 f.update(entry=_num(live.get('priceNative')), entryUsd=_num(live.get('priceUsd')), boughtAt=round(now), phase='watch', phaseAt=round(now))
                 _pow2_say(f, 'engine', f"its wallet bought {f['sol']:g} SOL of ${f['sym']} on FEELESS")
+            elif 'wallet holds' in str(p_.get('agentWhy') or '') or 'no SOL left' in str(p_.get('agentWhy') or ''):   # 💸 it can't afford it: say so NOW, never wait 10 min
+                p_.update(status='expired', why2=p_['agentWhy'])
+                cat['chat'] = (list(cat.get('chat') or []) + [{'by': 'cats', 'text': f"💸 {f['name']}: its wallet can't buy ${f['sym']} — {p_['agentWhy']}. Add SOL to its wallet, then file a PoW again.", 'at': time.time(), 'open': 'pow'}])[-40:]
+                _pow2_close(cat, f, f"its wallet is short — {p_['agentWhy']}", now)
             elif p_.get('status') in ('failed', 'expired', 'skip') or now - f['phaseAt'] > _pow.SIGN_WAIT_S:
                 if p_.get('status') == 'pending':
                     p_.update(status='expired', why2='its PoW folder closed before it was signed')   # nothing left hanging

@@ -399,3 +399,14 @@ def test_on_a_site_not_about_the_coin_the_engine_types_the_ca_into_the_sites_sea
     asyncio.run(ca.run(t, scripted({'m/a': moves}), [pg], None))
     assert typed and typed[0] == ('https://coinmarketcap.com/', 'Mint1')                     # typed the CA into CoinMarketCap's own search
     assert any(s['thought'] == 'searched coinmarketcap.com for the CA' for s in t['windows'][0]['steps'])
+
+
+def test_a_wallet_that_cannot_afford_the_buy_closes_the_folder_at_once_and_says_how_much(monkeypatch, tmp_path):
+    import feecat_service as fs
+    monkeypatch.setattr(fs, 'HIVE_PATH', tmp_path / 'hive.json')
+    cat = {'id': 'w1', 'name': 'Happy', 'chat': [], 'proposals': [{'id': 'p9', 'status': 'pending', 'agentWhy': 'the wallet holds 0.0075 SOL — 0.006 + 0.01 for gas is needed'}],
+           'brainsCfg': {'kind': 'general', 'brains': ['x/a'], 'credit': 1.0}}
+    f = {**pw.folder_new(5, [], 100, 1), 'phase': 'buy', 'pid': 'p9', 'phaseAt': 100, 'sym': 'DAC', 'mint': 'D', 'pair': 'P', 'asked': True}
+    cat['powRun'] = {'folder': f}
+    asyncio.run(fs._pow2_tick(None, {'cats': {'w1': cat}}, cat, 130))
+    assert cat['proposals'][0]['status'] == 'expired' and 'wallet is short' in cat['powFolders'][-1]['why'] and 'Add SOL' in cat['chat'][-1]['text']
