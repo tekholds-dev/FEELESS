@@ -3580,6 +3580,8 @@ async def cat_work(cat_id: str, p: WorkPayload):
             'queue': [{'text': q.get('text'), 'to': q.get('to')} for q in (cat.get('workQueue') or [])],
             'pow': _pow_view(cat),   # ⛏ each mind's latest Proof of Work
             'commands': _pow.COMMANDS,   # 💬 what it understands in the chat (cabinet + desktop list)
+            'sources': [{'host': h, 'what': _src.WHAT.get(h, 'worked before'), **{k: (_src_book().get(h) or {}).get(k) for k in ('ok', 'blocked', 'last')}}
+                        for h in dict.fromkeys(list(_src.SEED) + list(_src_book().keys()))][:80],   # 🌐 the sources book: tap one → sign its windows in
             'jobs': list(reversed(cat.get('jobs') or []))[:20], 'jobRates': cat.get('jobRates') or {},   # 🗂 each request's log tree + your 👍 / 👎
             'powFolder': _pow.folder_public((cat.get('powRun') or {}).get('folder') or {}) or None, 'powFolders': list(reversed(cat.get('powFolders') or []))[:12],   # ⛏ the live folder + filed ones
             'parked': [{'text': q.get('text'), 'why': q.get('why'), 'at': q.get('at')} for q in (cat.get('workParked') or [])]}
