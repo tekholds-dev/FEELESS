@@ -15,11 +15,12 @@ const hm = s => `${Math.floor(s / 3600)}h ${String(Math.floor((s % 3600) / 60)).
 // eight honeycomb stations in one loop — agents → PoW → buy on FEELESS → graded → honey → share → pot → airdrop → back to agents. Bees (dots)
 // run every lane; more run, faster, while agents are live. Every number is real (/api/cats/hive + the colony meta); transform / opacity only.
 // 📖 THE MANUAL (owner 2026-11-01: "a manual in the Colony tab") — how a PoW runs, step by step, with the commands that start it. The same rules every model reads.
-const MANUAL = [['🗣', 'PLAN', '3 turns: A proposes which coins to research, B agrees or suggests, A finalizes'],
-  ['🔎', 'RESEARCH', 'Every safe coin of the 4 (2 intake · 1 Pump · 1 DexScreener): FEELESS + 3 sites, ≤5 moves + ≤3 vitals each, 2 snapshots a site → its own coin folder'],
-  ['⚖', 'CHOOSE', '3 turns with the research: the ONE coin, its size, take profit and stop loss — bought from the agent\'s own wallet on FEELESS'],
-  ['⏱', 'HOLD', 'Live checks at +15 s, +30 s, then every 60 s: the watcher reads the chart, the partner agrees or overrides; research rounds alternate'],
-  ['🍯', 'FILE', 'The folder (coins, snapshots, talk, P/L, cost) lands on its Desktop; a win with colonize on sends its share to the colony']];
+const MANUAL = [['🧺', 'POOL', 'FEELESS vets up to 8 coins (intake · Pump · DexScreener) with every buy guard + the safety check — an unsafe one is replaced, never offered'],
+  ['🗣', 'PROPOSE', 'Mind A proposes 3, mind B proposes 3 — each sees the coin\'s prior PoW from the archive'],
+  ['✂', 'SPLIT', 'Each mind takes 2 of the shortlist and writes how it will investigate them'],
+  ['🔎', 'RESEARCH', 'Each researches its own: FEELESS + 3 sites, 3–8 moves a site (random), ≤3 vitals a site, duplicate facts dropped, 2 snapshots a site'],
+  ['⚖', 'DECIDE', 'Every coin checked again → 3 turns pick the ONE, its size, TP + SL → bought from its own wallet → checks at +15 s, +30 s, every 60 s until it sells'],
+  ['🗄', 'FILE', 'The folder + its final report land on its Desktop; every research + outcome stays in the PoW archive FOREVER (agents search it with the pow tool)']];
 export function ColonyManual() {
   const [open, setOpen] = useState(false);
   return <section className={`cfm${open ? ' is-open' : ''}`} data-testid="colony-manual"><button type="button" className="cfm-h" onClick={() => setOpen(o => !o)} aria-expanded={open}>

@@ -422,7 +422,7 @@ body.fx-lite .cwb-cmdpop { animation: none; } @media (prefers-reduced-motion: re
 .dsk-fold { display: grid; gap: 8px; padding: 12px; border-radius: 14px; border: 1px solid #8f7cff33; background: linear-gradient(160deg, #8f7cff12, #0b0716); }
 .dsk-fold.is-live { border-color: #45e48666; box-shadow: 0 0 22px -12px #45e486; } .dsk-fold-h { display: flex; flex-wrap: wrap; align-items: baseline; gap: 10px; }
 .dsk-fold-h b { color: #fff; font: 700 12.5px var(--f-ui); } .dsk-fold-h em { color: #a99bc8; font: 800 11px var(--f-mono); font-style: normal; } .dsk-fold-h em.is-up { color: #45e486; } .dsk-fold-h em.is-dn { color: #ff8fa3; } .dsk-fold-h small { color: #ffd76a; font: 700 10px var(--f-mono); }
-.dsk-fold-steps { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 4px; }
+.dsk-fold-steps { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 4px; }
 .dsk-fold-steps li { display: grid; gap: 4px; color: #6f6590; font: 800 8.5px var(--f-mono); letter-spacing: .1em; } .dsk-fold-steps i { height: 4px; border-radius: 4px; background: #ffffff12; }
 .dsk-fold-steps li.is-done { color: #a99bc8; } .dsk-fold-steps li.is-done i { background: #8f7cff; } .dsk-fold-steps li.is-on { color: #45e486; } .dsk-fold-steps li.is-on i { background: #45e486; box-shadow: 0 0 8px #45e486; animation: dskStep 1.2s ease-in-out infinite; }
 .dsk-fold-coins { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; }

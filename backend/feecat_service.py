@@ -1352,7 +1352,7 @@ def _pow2_research(cat, f, coin, mind_i, now):
     w_ = _WORK.get(cat['id'])
     if w_ and not w_.get('done'):
         return False
-    rp = {**_pow.new({'mint': coin['mint'], 'pair': coin['pair'], 'sym': coin['sym']}, now), 'mind': mind_i, 'folder': f['id'],
+    rp = {**_pow.new({'mint': coin['mint'], 'pair': coin['pair'], 'sym': coin['sym']}, now), 'cat': cat['id'], 'mind': mind_i, 'folder': f['id'], 'plan': (f.get('plans') or {}).get(coin['mint']),
           'used': list(((f.get('usedBy') or {}).get(coin['mint'])) or [])}
     recent_, wins_ = _pow.site_memory(cat.get('powFolders'))   # 🎲 random sites, never the last folders' — unless a winning folder used them
     rp['order'] = _pow.site_order(recent_ | {h for v in (f.get('usedBy') or {}).values() for h in v or []}, wins_)
@@ -1366,6 +1366,24 @@ def _pow2_research(cat, f, coin, mind_i, now):
     t_new['powPlan'] = list(f.get('plan') or [])
     f.update(rMint=coin['mint'], rMind=mind_i, researchAt=round(now))
     return True
+
+
+POW_ARCHIVE = DATA_DIR / 'pow_archive.jsonl'   # 🗄 every PoW filing, FOREVER (append-only, never trimmed — owner 2026-11-02)
+
+
+def _pow_archive_add(row):
+    try:
+        with POW_ARCHIVE.open('a') as fh:
+            fh.write(json.dumps(row, separators=(',', ':')) + '\n')
+    except OSError as e:
+        print(f'[pow archive] not kept: {e}')
+
+
+def _pow_archive_rows():
+    try:
+        return [json.loads(x) for x in POW_ARCHIVE.read_text().splitlines() if x.strip()]
+    except (OSError, ValueError):
+        return []
 
 
 def _pow2_collect(f, t_, who, now):
@@ -1384,6 +1402,8 @@ def _pow2_collect(f, t_, who, now):
             f['shots'] = ((f.get('shots') or []) + [{'mint': m_, 'site': sh_['site'], 'n': sh_['n'], 'at': sh_['at'], 'file': name_, 'round': f.get('rounds') or 0}])[-60:]
         except OSError as e:
             print(f'[pow2] snapshot not kept: {e}')
+    _pow_archive_add(_pow.archive_row('research', (pw_.get('cat') or ''), f, {'mint': m_, 'sym': pw_.get('sym')}, now, by=who, mind=pw_.get('mind'), plan=pw_.get('plan'),
+                                      vitals=pub_['pulls'], sites=sorted((pw_.get('sites') or {}).keys()), walled=list(pw_.get('walled') or []), call=pw_.get('call'), why=pw_.get('why'), strength=pub_.get('strength')))
     _pow2_say(f, who, f"${pw_.get('sym')} researched on {', '.join(sorted((pw_.get('sites') or {}).keys())) or 'no site'}: "
                       f"{' · '.join(x['label'] + ' ' + x['value'] for x in pub_['pulls'][:4]) or 'no vitals (' + (', '.join(pw_.get('walled') or []) + ' walled' if pw_.get('walled') else 'nothing it could read') + ')'}")
     f.pop('rMint', None)
@@ -1428,6 +1448,9 @@ def _pow2_close(cat, f, why, now, exit_px=0.0):
     for sh_ in f.get('shots') or []:   # 📸 the pick's snapshots become the trade's evidence: 👍 good / 👎 bad
         if f['grade'] and sh_.get('mint') == f.get('mint'):
             sh_['trade'] = f['grade']
+    if f.get('pick'):   # 🗄 the outcome, filed forever beside the coin's research
+        _pow_archive_add(_pow.archive_row('outcome', cat['id'], f, f['pick'], now, real=bool(f.get('real')), sol=f.get('sol'), tp=f.get('tp'), sl=f.get('sl'),
+                                          pnlPct=f.get('pnlPct'), pnlSol=f.get('pnlSol'), why=why, bought=bool(f.get('entry'))))
     f['report'], md_ = _pow.report(f)   # 📋 every folder ends with its final report (in the folder + report.md on disk)
     try:
         d_ = POWSHOTS_DIR / re.sub(r'[^a-z0-9]', '', f['id']); d_.mkdir(parents=True, exist_ok=True); (d_ / 'report.md').write_text(md_)
@@ -1492,25 +1515,29 @@ async def _pow2_tick(http, store, cat, now):
         vet = lambda c: _pow2_vet(http, c, now)   # noqa: E731
         for c in coins:
             await vet(c)
-        dropped, seen_, dex_ = [], _pow.recent_mints(cat.get('powFolders')) | {c['mint'] for c in coins}, None
-        for _ in range(_pow.REFILL_ROUNDS):   # 🔁 owner 2026-11-02: "they must find 4 coins" — an unsafe coin is REPLACED (same source first) until 4 safe ones get researched
-            bad_ = [k for k, c in enumerate(coins) if not c.get('safe')]
-            if not bad_:
+        pool_ = [c for c in coins if c.get('safe')]; dropped = [{k_: c.get(k_) for k_ in ('mint', 'sym', 'src', 'risk')} for c in coins if not c.get('safe')]
+        seen_, dex_ = _pow.recent_mints(cat.get('powFolders')) | {c['mint'] for c in coins}, None
+        for _ in range(_pow.REFILL_ROUNDS):   # 🧺 owner 2026-11-02: up to POOL vetted coins — an unsafe one is replaced, never researched or offered
+            if len(pool_) >= _pow.POOL:
                 break
             dex_ = dex_ if dex_ is not None else await _pow2_dex(http)
-            fresh_ = _pow.gather(intake, dex_, seen_, need_safe=len(bad_))
+            fresh_ = _pow.gather(intake, dex_, seen_, need_safe=max(1, (_pow.POOL - len(pool_)) // 2))[:_pow.POOL - len(pool_) + 2]
             if not fresh_:
                 break
             for c in fresh_:
                 seen_.add(c['mint']); await vet(c)
-            for c in sorted([x for x in fresh_ if x.get('safe')], key=lambda x: 0 if any(coins[k]['src'] == x['src'] for k in bad_) else 1):
-                if not bad_:
-                    break
-                k = next((k for k in bad_ if coins[k]['src'] == c['src']), bad_[0])
-                dropped.append({k_: coins[k].get(k_) for k_ in ('mint', 'sym', 'src', 'risk')}); coins[k] = c; bad_.remove(k)
+                (pool_ if c.get('safe') else dropped).append(c if c.get('safe') else {k_: c.get(k_) for k_ in ('mint', 'sym', 'src', 'risk')})
+        coins = pool_[:_pow.POOL]
+        if len(coins) < 4:
+            run_['why'] = f'only {len(coins)} buyable coins found — tries again'; run_['rested'] = now
+            if want and int(want.get('tries') or 0) < 3:
+                _POW_WANT[cat['id']] = {**want, 'tries': int(want.get('tries') or 0) + 1}
+            elif want:
+                cat['chat'] = (list(cat.get('chat') or []) + [{'by': 'cats', 'text': f"⛏ No PoW yet: only {len(coins)} coins passed every buy guard right now — file a PoW again in a few minutes.", 'at': time.time(), 'open': 'pow'}])[-40:]
+            return
         run_['n'] = int(run_.get('n') or 0) + 1
         run_['folder'] = f = _pow.folder_new(run_['n'], coins, now, minds)
-        f.update(base=min(base, max(0, len(ms) - 1)), asked=bool(want), propose=bool((want or {}).get('propose')), dropped=dropped)
+        f.update(base=min(base, max(0, len(ms) - 1)), asked=bool(want), propose=bool((want or {}).get('propose')), dropped=dropped, phase='propose', turn=0, proposed={})
         if dropped:
             _pow2_say(f, 'engine', f"replaced {len(dropped)} unsafe: " + ', '.join('$' + str(x['sym']) + ' (' + str(x['risk'])[:40] + ')' for x in dropped))
         _pow2_say(f, 'engine', f"new folder: {', '.join('$' + c['sym'] + ' (' + _pow.SRC_LABEL[c['src']] + ')' for c in coins)}")
@@ -1519,6 +1546,50 @@ async def _pow2_tick(http, store, cat, now):
     b0 = int(f.get('base') or 0)
     names = [str(m).split('/')[-1][:24] for m in ms[b0:2]]
     ask_ = lambda i, *a: _pow2_ask(cat, b0 + i, *a)   # noqa: E731 — mind B alone = index 1
+    if f['phase'] in ('propose', 'split'):   # 🗣 owner 2026-11-02: A proposes 3 → B proposes 3 → A takes 2 + its plan → B takes 2 + its plan
+        turn = int(f.get('turn') or 0); i = turn % f['minds']; nm_ = names[i] if i < len(names) else 'mind'; n_ = len(f['coins'])
+        rows_ = _pow_archive_rows()
+        if f['phase'] == 'propose':
+            listing = '\n'.join(f"{k + 1}) ${c['sym']} [{_pow.SRC_LABEL[c['src']]}] pool ${c['liq']:,.0f} cap ${c['mc']:,.0f} — {c.get('read', '')[:200]}"
+                                 + (f" · {_pow.archive_brief(_pow.archive_find(rows_, c['mint']))}" if _pow.archive_find(rows_, c['mint']) else '') for k, c in enumerate(f['coins']))
+            prev_ = (f.get('proposed') or {}).get('0') or {}
+            partner = '' if turn == 0 else f" YOUR PARTNER PROPOSED {', '.join('$' + f['coins'][k]['sym'] for k in prev_.get('picks') or [])}: \"{prev_.get('why', '')}\". Propose YOUR 3 (overlap is fine)."
+            raw_ = await ask_(i, _pow.PROPOSE_SYS.format(name=nm_, n=n_, partner=partner), listing, 400)
+            picks, why = _pow.parse_picks(raw_, n_, _pow.PROPOSE_N)
+            if len(picks) < _pow.PROPOSE_N:
+                f['silent'] = int(f.get('silent') or 0) + 1
+                if f['silent'] < 3:
+                    return
+                picks = (picks + [k for k in sorted(range(n_), key=lambda x: -f['coins'][x]['liq']) if k not in picks])[:_pow.PROPOSE_N]; why = why or 'the engine filled the deepest pools'
+            f['silent'] = 0; f.setdefault('proposed', {})[str(turn)] = {'picks': picks, 'why': why, 'by': nm_}
+            said_ = f"proposes {', '.join('$' + f['coins'][k]['sym'] for k in picks)} — {why}"
+            _pow2_say(f, nm_, said_)
+            cat['chat'] = (list(cat.get('chat') or []) + [{'by': 'cats', 'text': f"🗣 MIND {'AB'[b0 + i]} {said_}"[:400], 'at': time.time(), 'open': 'pow'}])[-40:]
+            if turn == 0:
+                f['turn'] = 1; return
+            short_ = list(dict.fromkeys(k for t_ in ('0', '1') for k in (f['proposed'].get(t_) or {}).get('picks') or []))
+            short_ += [k for k in sorted(range(n_), key=lambda x: -f['coins'][x]['liq']) if k not in short_][:max(0, 2 * _pow.SPLIT_N - len(short_))]
+            f.update(shortlist=short_, phase='split', turn=0, owner={}, plans={})
+            _pow2_say(f, 'engine', f"shortlist: {', '.join('$' + f['coins'][k]['sym'] for k in short_)} — each mind takes {_pow.SPLIT_N} and plans its research")
+            return
+        short_ = list(f.get('shortlist') or []); taken_ = [k for k in short_ if f['coins'][k]['mint'] in (f.get('owner') or {})]
+        listing = '\n'.join(f"{k + 1}) ${f['coins'][k]['sym']} [{_pow.SRC_LABEL[f['coins'][k]['src']]}] pool ${f['coins'][k]['liq']:,.0f} — {f['coins'][k].get('read', '')[:160]}" for k in short_ if k not in taken_)
+        taken_txt = '' if not taken_ else f" — NOT your partner's {', '.join('$' + f['coins'][k]['sym'] for k in taken_)}"
+        raw_ = await ask_(i, _pow.SPLIT_SYS.format(name=nm_, k=_pow.SPLIT_N, taken=taken_txt), listing, 400)
+        picks, plan_ = _pow.parse_picks(raw_, n_, _pow.SPLIT_N)
+        mine_ = _pow.split_of([k for k in short_ if k not in taken_], picks, taken_)
+        for k in mine_:
+            f['owner'][f['coins'][k]['mint']] = i; f['plans'][f['coins'][k]['mint']] = plan_ or 'confirm the safety vitals, then the buyers vs sellers'
+        said_ = f"takes {', '.join('$' + f['coins'][k]['sym'] for k in mine_)} — plan: {plan_ or 'safety vitals first, then flow'}"
+        _pow2_say(f, nm_, said_)
+        cat['chat'] = (list(cat.get('chat') or []) + [{'by': 'cats', 'text': f"🗣 MIND {'AB'[b0 + i]} {said_}"[:400], 'at': time.time(), 'open': 'pow'}])[-40:]
+        if turn == 0 and len(short_) > len(mine_):
+            f['turn'] = 1; return
+        by_ = [[m for m, o in f['owner'].items() if o == x] for x in (0, 1)]
+        order_ = [m for pair_ in zip(by_[0] + [None] * 4, by_[1] + [None] * 4) for m in pair_ if m][:2 * _pow.SPLIT_N]
+        f.update(scout=order_, scoutDone=[], phase='scout', phaseAt=round(now), turn=0, picks={}, said={}, fav=order_[0] if order_ else None)
+        _pow2_say(f, 'engine', f"they research {', '.join('$' + next(c['sym'] for c in f['coins'] if c['mint'] == m) for m in order_)} — each its own, with its plan")
+        return
     if f['phase'] == 'choose':   # 🗣 3 turns, in your chat (owner 2026-11-01): A proposes → B agrees or suggests → A's FINAL plan
         if f.get('scouted') and not f.get('revetted'):   # 🔁 live 2026-11-02: $pairless ran +443 % DURING its research — every coin is checked again before they decide
             f['revetted'] = True
@@ -1526,13 +1597,13 @@ async def _pow2_tick(http, store, cat, now):
                 await _pow2_vet(http, c, now, read=False)
                 if not c.get('safe'):
                     _pow2_say(f, 'engine', f"${c['sym']} is out now — {c.get('risk')}")
-        safe_ = [k for k, c in enumerate(f['coins']) if c.get('safe', True)]
+        safe_ = [k for k, c in enumerate(f['coins']) if c.get('safe', True) and (not f.get('scouted') or not f.get('scout') or c['mint'] in f['scout'])]   # 🔎 they decide among the coins they researched
         if not safe_:
             _pow2_close(cat, f, 'none of the 4 passed the safety check — no buy', now); return
         listing = '\n'.join(f"{k + 1}) ${c['sym']} [{_pow.SRC_LABEL[c['src']]}] pool ${c['liq']:,.0f} cap ${c['mc']:,.0f}"
                              + ('' if c.get('safe', True) else f" — UNSAFE ({c.get('risk')}), never pick it") + f" — {c.get('read', '')[:220]}"
                              + (f" · RESEARCHED: {' · '.join(x['label'] + ' ' + x['value'] + ' (' + x['site'] + ')' for x in (f.get('vitals') or {}).get(c['mint'], [])[:6])}" if (f.get('vitals') or {}).get(c['mint']) else '')
-                             + (f" · CHART {_pow.chart_line((f.get('charts') or {}).get(c['mint']))}" if (f.get('charts') or {}).get(c['mint']) else '') for k, c in enumerate(f['coins']))
+                             + (f" · CHART {_pow.chart_line((f.get('charts') or {}).get(c['mint']))}" if (f.get('charts') or {}).get(c['mint']) else '') for k, c in enumerate(f['coins']) if k in safe_ or not f.get('scouted'))
         listing = ('STEP: ' + ('PLAN which coins to research — your pick = your early favorite' if not f.get('scouted') else 'DECIDE the ONE to buy with the research below') + '\n' + listing)
         turn = int(f.get('turn') or 0); last_ = turn >= (2 if f['minds'] > 1 else 0); i = 1 if (turn == 1 and f['minds'] > 1) else 0
         cap_ = round(min(_at.MAX_BUY_SOL, _num(cat.get('budgetSol')) or _num((cat.get('risk') or {}).get('maxPositionSol')) or 0.05), 4)
@@ -1630,7 +1701,7 @@ async def _pow2_tick(http, store, cat, now):
         if not left_:   # every coin has its folder: the final 3-turn decision, with the research in hand
             f.update(phase='choose', scouted=True, turn=0, picks={}, said={}, phaseAt=round(now)); _pow2_say(f, 'engine', 'every coin researched — they decide which ONE to buy')
             return
-        c_ = next(c for c in f['coins'] if c['mint'] == left_[0]); mi_ = len(f.get('scoutDone') or []) % f['minds']
+        c_ = next(c for c in f['coins'] if c['mint'] == left_[0]); mi_ = int((f.get('owner') or {}).get(c_['mint'], len(f.get('scoutDone') or []) % f['minds']))   # each mind researches the coins IT took
         if not _pow2_research(cat, f, c_, mi_, now):   # its window is busy (your ask): wait for it — a coin is never skipped unread (live 2026-11-01: $JOB was)
             f.setdefault('busyAt', round(now))
             if now - f['busyAt'] >= 300:
@@ -2230,8 +2301,8 @@ def _work_start(cat_id, cat, text, to=None, files=None, pow_=None):
         models = [models[int(to)]]
     names = [str(m).split('/')[-1][:24] for m in models]
     steps = int(lim_.get('steps') or 0) or (_ca.GO_STEPS if cat.get('workGo') else _ca.STEP_MAX)
-    if pow_:   # ⛏ one mind, its own job, the PoW's step budget (pow.py) — the rest is the same guarded work path
-        steps = _pow.STEPS_MAX
+    if pow_:   # ⛏ one mind, its own job, the PoW's step budget (its random 3–8 moves a site, pow.py) — the rest is the same guarded work path
+        steps = _pow.budget(pow_)
     _WORK[cat_id] = {'task': _ca.new_task(uuid.uuid4().hex[:10], text, models, cap, steps, 'jobs' if pow_ else cat.get('workMode') or 'plan', lim_.get('mindUsd') if len(models) > 1 else None), 'events': {}, 'go': {}, 'sessions': [None] * len(models), 'pages': [None] * len(models), 'at': time.time()}
     _WORK[cat_id]['task']['alts'] = ['https://' + h for h in _src.best(_src_book(), n=6)]   # 🔀 where a repeating mind is moved
     _WORK[cat_id]['task']['knowhow'] = _pow.README + '\n' + _colony.KNOWHOW + (' ' + _colony.COLONIZED if _hive_on(cat) else '') + '\n' + _src.brief(_src_book())   # 🐝🧭 every mind knows the Colony + where to browse
@@ -3107,6 +3178,13 @@ async def pow_snapshot(cat_id: str, folder: str, name: str):
     if not cat or cat.get('incognito') or not (name.endswith('.jpg') or name == 'report.md') or not f_.exists():
         raise HTTPException(404, 'No snapshot.')
     return Response(content=f_.read_bytes(), media_type='image/jpeg' if name.endswith('.jpg') else 'text/markdown; charset=utf-8', headers={'Cache-Control': 'max-age=3600'})
+
+
+@app.get('/api/cats/pow/archive')
+async def pow_archive(q: str = '', limit: int = 20):
+    """🗄 Search every PoW ever filed (by mint or $symbol): what each mind read on which site, its call, and how the trade went. Public research only."""
+    rows = _pow.archive_find(_pow_archive_rows(), q, max(1, min(100, int(limit))))
+    return _pub({'rows': rows, 'brief': _pow.archive_brief(rows) if q else '', 'total': len(_pow_archive_rows())})
 
 
 @app.get('/api/cats/pow')

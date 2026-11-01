@@ -9,6 +9,7 @@ A colonized agent's PoW run, the same for every model (the rules are code, not a
   5 CALL    BUY / WATCH / AVOID + why; the Hive grades it an hour on against what the coin really did (honey)
 The PoW is filed as a cell (its pulls ride along) and in the owner's cabinet. Pure; the agent loop + the service enforce it. Nothing trades.
 """
+import random
 import re
 from urllib.parse import quote_plus
 
@@ -101,10 +102,23 @@ def site_memory(folders):
     return {h for h in recent if h in HOSTS}, {h for h in wins if h in HOSTS}
 
 
-def new(coin, now):
-    """A fresh PoW record for one intake coin."""
+STEPS_RANGE = (3, 8)   # 🎲 owner 2026-11-02: each research round draws its moves per site at random between 3 and 8
+
+
+def new(coin, now, rnd=None):
+    """A fresh PoW record for one intake coin (its moves per site drawn at random, 3–8)."""
     c = coin or {}
-    return {'mint': c.get('mint'), 'pair': c.get('pair'), 'sym': str(c.get('sym') or '?')[:16], 'at': round(now), 'sites': {}, 'call': None, 'why': ''}
+    return {'mint': c.get('mint'), 'pair': c.get('pair'), 'sym': str(c.get('sym') or '?')[:16], 'at': round(now), 'sites': {}, 'call': None, 'why': '',
+            'siteSteps': (rnd or random).randint(*STEPS_RANGE)}
+
+
+def steps_of(p):
+    return int((p or {}).get('siteSteps') or SITE_STEPS)
+
+
+def budget(p):
+    """The round's whole step budget: every site's moves + the start + the call."""
+    return steps_of(p) * SITES_MAX + 2
 
 
 def start_url(p, blocked=False):
@@ -116,14 +130,15 @@ def start_url(p, blocked=False):
 
 
 def goal(p):
-    return (f"PROOF OF WORK on ${p['sym']} (Solana mint {p.get('mint')}, pair {p.get('pair')}). Research it on up to {SITES_MAX} sites, "
-            f"pull up to {SITE_PULLS} vitals per site, then answer BUY / WATCH / AVOID with why.")
+    return (f"PROOF OF WORK on ${p['sym']} (Solana mint {p.get('mint')}, pair {p.get('pair')}). Research it on up to {SITES_MAX} sites (FEELESS + 3), "
+            f"{steps_of(p)} moves a site, pull up to {SITE_PULLS} vitals per site (a fact another site already gave is dropped), then answer BUY / WATCH / AVOID with why."
+            + (f" YOUR PLAN for this coin: {p['plan']}" if p.get('plan') else ''))
 
 
 def site_done(p, url):
     """This site's work is used up: its vitals are saved or its moves are spent."""
     s = (p.get('sites') or {}).get(host_of(url))
-    return bool(s) and (len(s['pulls']) >= SITE_PULLS or s['steps'] >= SITE_STEPS)
+    return bool(s) and (len(s['pulls']) >= SITE_PULLS or s['steps'] >= steps_of(p))
 
 
 def next_link(p):
@@ -158,8 +173,8 @@ def step(p, url):
     if s is None and len(p['sites']) >= SITES_MAX:
         return f'{SITES_MAX} sites already researched — answer with the vitals you pulled'
     s = _site(p, url)
-    if s['steps'] >= SITE_STEPS:
-        return f'{SITE_STEPS} moves on {h} are used — open another site, or answer'
+    if s['steps'] >= steps_of(p):
+        return f'{steps_of(p)} moves on {h} are used — open another site, or answer'
     s['steps'] += 1
     return None
 
@@ -187,6 +202,10 @@ def pull(p, url, label, value):
         return False, f'{SITE_PULLS} vitals from {h} already saved — open another site, or answer'
     if any(x['label'] == v for x in s['pulls']):
         return False, f'{v} from {h} is already saved'
+    norm = re.sub(r'[^a-z0-9.%]', '', val.lower())
+    dup = next((h2 for h2, s2 in (p.get('sites') or {}).items() for x in s2['pulls'] if x['label'] == v and re.sub(r'[^a-z0-9.%]', '', x['value'].lower()) == norm), None)
+    if dup:   # 🧹 owner 2026-11-02: duplicate info is deleted — the same vital with the same value from another site adds nothing
+        return False, f'{v} = {val} is already saved from {dup} — read something new'
     s['pulls'].append({'label': v, 'value': val})
     return True, f'saved {v} = {val} from {h}'
 
@@ -259,6 +278,13 @@ REFILL_ROUNDS = 3                 # an unsafe coin is replaced by a fresh one (s
 FOLDERS_KEEP = 30
 SRC_LABEL = {'intake': 'FEELESS intake', 'pump': 'Pump', 'dex': 'DexScreener'}
 
+POOL = 8            # 🧺 the engine vets up to 8 coins (every buy guard + the safety check) — the minds only ever see coins that can be bought
+PROPOSE_N, SPLIT_N = 3, 2
+PROPOSE_SYS = ('You are {name}, one of a FEELESS trader agent\'s two minds, opening a PROOF OF WORK folder. Below are {n} Solana coins the engine already '
+               'vetted (all can be bought on FEELESS), with their FEELESS live reads and any PRIOR PoW your colony filed on them. PROPOSE the 3 you most want '
+               'researched for a buy in the next hour, and why.{partner} Answer ONLY JSON: {{"picks": [1, 2, 3], "why": "<= 25 words"}}.')
+SPLIT_SYS = ('You are {name}. Your colony shortlisted these coins (both minds proposed them). Take the {k} YOU will research{taken} and write how you will '
+             'investigate each (which sites, which vitals prove or kill it). Answer ONLY JSON: {{"picks": [1, 2], "plan": "<= 30 words"}}.')
 CHOOSE_SYS = ('You are {name}, one of a FEELESS trader agent\'s two minds, working a PROOF OF WORK folder. Below are 4 Solana coins your colony '
               'gathered (FEELESS live reads). Pick the ONE most likely to rise in the next hour without rugging; your partner picks too and you must '
               'agree before anything is bought. YOU set the trade (it runs while the owner sleeps): size in SOL (max {cap} — its budget), take profit % and '
@@ -311,11 +337,68 @@ def folder_new(n, coins, now, minds):
 
 
 def plan_of(minds):
-    """🗺 The folder's ONE joint 3-step plan, set before anything is browsed (owner 2026-11-01: "both agents combined, 3-step total plan before browsing")."""
-    if int(minds or 1) > 1:
-        return ['A proposes the research plan, B agrees or suggests, A finalizes', 'they research every safe coin in turns — each gets its own folder (vitals + snapshots)',
-                'they decide the ONE to buy — then take turns: one researches, one watches the chart, until it sells']
-    return ['it plans which coins to research', 'it researches every safe coin — each its own folder', 'it buys the ONE — then research / chart / decide until it sells']
+    """The folder's steps, said in the chat (owner 2026-11-02: a 5-step agreement)."""
+    two = int(minds or 1) > 1
+    return [f"the engine vets up to {POOL} coins (every buy guard + safety) — only buyable coins reach the minds",
+            ("A proposes 3, B proposes 3 (each sees the coin's prior PoW)" if two else "it proposes 3, then 3 more"),
+            ("each mind takes 2 of the shortlist + writes how it will investigate them" if two else "it takes 4 of the shortlist + its plan"),
+            f"each researches its own coins: FEELESS + 3 sites, {STEPS_RANGE[0]}–{STEPS_RANGE[1]} moves a site, ≤ {SITE_PULLS} vitals a site, duplicates dropped",
+            "every coin is checked again → 3 turns decide the ONE (size, TP, SL) → bought on FEELESS → checks until it sells → filed forever"]
+
+
+def parse_picks(text, n, k):
+    """{"picks": [..]} → up to k distinct 0-based indices (< n); words like "1, 3 and 4" also count."""
+    import json as _j
+    t = str(text or ''); m = re.search(r'\{.*\}', t, re.S)
+    try:
+        d = _j.loads(m.group(0)) if m else {}
+    except ValueError:
+        d = {}
+    raw = d.get('picks') if isinstance(d.get('picks'), list) else re.findall(r'\b(\d{1,2})\b', str(d.get('picks') or t))
+    out = []
+    for x in raw:
+        try:
+            i = int(x) - 1
+        except (TypeError, ValueError):
+            continue
+        if 0 <= i < n and i not in out:
+            out.append(i)
+    return out[:k], str(d.get('plan') or d.get('why') or '')[:220]
+
+
+def split_of(shortlist, mine, theirs, k=SPLIT_N):
+    """Each mind's k coins of the shortlist, never the same coin twice; a mind that picked too few gets the strongest left."""
+    got = [i for i in mine if i in shortlist and i not in theirs][:k]
+    got += [i for i in shortlist if i not in got and i not in theirs][:k - len(got)]
+    return got
+
+
+# 🗄 THE PoW ARCHIVE (owner 2026-11-02: "all PoW filings stay in the FEELESS database FOREVER, so agents can always search and review a coin from
+# a prior PoW"): one append-only row per researched coin + one per traded outcome — never trimmed, searchable by mint or $symbol
+def archive_row(kind, cat_id, f, coin, now, **extra):
+    return {'kind': kind, 'at': round(now), 'cat': cat_id, 'folder': f.get('id'), 'name': f.get('name'), 'mint': coin.get('mint'), 'sym': coin.get('sym'), **extra}
+
+
+def archive_find(rows, q, limit=20):
+    q = str(q or '').strip().lstrip('$').lower()
+    if not q:
+        return list(reversed(rows))[:limit]
+    return [r for r in reversed(rows) if q == str(r.get('mint') or '').lower() or q == str(r.get('sym') or '').lower()][:limit]
+
+
+def archive_brief(rows):
+    """A coin's prior PoW in one line for the minds: how often, what was read, how its trades went."""
+    if not rows:
+        return ''
+    res = [r for r in rows if r.get('kind') == 'research']; out = [r for r in rows if r.get('kind') == 'outcome']
+    vit = {}
+    for r in res:
+        for x in r.get('vitals') or []:
+            vit.setdefault(x.get('label'), x.get('value'))
+    s = f"PRIOR PoW: researched {len(res)}× " + (' · '.join(f'{k} {v}' for k, v in list(vit.items())[:4]) if vit else '')
+    if out:
+        s += ' · traded ' + ', '.join(f"{o.get('pnlPct'):+.1f}%" if o.get('pnlPct') is not None else 'no fill' for o in out[:3])
+    return s
 
 
 def parse_pick(text, n=4):
@@ -411,7 +494,7 @@ def chart_line(samples):
 
 def folder_public(f):
     keep = ('id', 'n', 'name', 'at', 'coins', 'minds', 'phase', 'pick', 'talk', 'rounds', 'status', 'why', 'entry', 'exit', 'pnlPct', 'pnlSol', 'sym',
-            'boughtAt', 'soldAt', 'real', 'shared', 'research', 'picks', 'whys', 'base', 'pair', 'mint', 'propose', 'sol', 'plan', 'entryUsd', 'tp', 'sl', 'shots', 'vitals', 'scout', 'scoutDone', 'rMint', 'rMind', 'scouted', 'fav', 'checks', 'nextAt', 'cost', 'spend', 'report', 'grade', 'dropped')
+            'boughtAt', 'soldAt', 'real', 'shared', 'research', 'picks', 'whys', 'base', 'pair', 'mint', 'propose', 'sol', 'plan', 'entryUsd', 'tp', 'sl', 'shots', 'vitals', 'scout', 'scoutDone', 'rMint', 'rMind', 'scouted', 'fav', 'checks', 'nextAt', 'cost', 'spend', 'report', 'grade', 'dropped', 'proposed', 'shortlist', 'owner', 'plans')
     out = {k: f.get(k) for k in keep if k in f}
     if f.get('chart'):   # the live price the watcher reads (its P/L on the monitor)
         out['now'] = f['chart'][-1].get('px'); out['line'] = [x.get('px') for x in f['chart'][-40:]]
@@ -484,14 +567,14 @@ def command(text):
 
 
 # 📖 THE PoW README — every loaded model gets it as default memory, whatever its prompt (owner 2026-11-01: "they need to know the meaning")
-README = ('FEELESS PoW (PROOF OF WORK) README — not crypto mining. A PoW is a FOLDER your colony files: '
-          '1) it starts empty; FEELESS gathers 4 coins: 2 from the FEELESS intake, 1 from Pump, 1 from DexScreener\'s most-boosted Solana coins. '
-          '2) Each mind picks the ONE coin most likely to rise without rugging; both minds must AGREE (one round of discussion). '
-          '3) That one coin is bought ON FEELESS through the guarded order path (paper, or the agent\'s own wallet when real). '
-          '4) The loop: the chart watcher reads the FEELESS chart for at least 3 min; the researcher researches the coin\'s contract on 3 trusted sites '
-          '(DexScreener, RugCheck, Solscan), at most 5 moves and 3 vital numbers per site, for at most 2.5 min; then the watcher decides HOLD or SELL. '
-          'The minds set the size (within the wallet budget), take profit and stop loss themselves; those, 60 min and 6 rounds sell without asking. 5) The folder is filed (coins, picks, talk, research, P/L) in the owner\'s '
-          'Desktop PoW folder + cabinet; a winning folder goes to the Colony with the owner\'s share of the profit. '
+README = ('FEELESS PoW (PROOF OF WORK) README — not crypto mining. A PoW is a FOLDER your colony files, in 5 steps: '
+          '1) POOL: FEELESS vets up to 8 coins (FEELESS intake, Pump, DexScreener boosts) with every buy guard + the safety check — only coins that can be bought reach you. '
+          '2) PROPOSE: mind A proposes 3, mind B proposes 3 (each sees any PRIOR PoW on a coin) → the shortlist. '
+          '3) SPLIT: each mind takes 2 coins of the shortlist and writes HOW it will investigate them. '
+          '4) RESEARCH: each mind researches its own coins — the FEELESS read + 3 sites, 3–8 moves a site (drawn at random), at most 3 vital numbers a site; '
+          'a fact another site already gave is dropped. 5) DECIDE: every coin is checked again, then 3 turns pick the ONE coin, its size (within the wallet '
+          'budget), take profit and stop loss → bought ON FEELESS (paper, or the agent\'s own wallet when real) → live checks at +15 s, +30 s, then every 60 s '
+          'until it sells. Every research and outcome is kept FOREVER in the PoW archive — use the "pow" tool ($SYMBOL or mint) to review a coin before you research it again. '
           'The owner starts one by typing "file a PoW" (or "A: file a PoW" / "B: file a PoW"); "stop PoW" ends it. Never invent another meaning. '
           'WHY: every PoW and every colonized run is you CAPITALIZING — profit pays for your own model calls (processing) and grows the capital you trade; '
           'a loss eats both. Small, careful, real numbers, short words.')

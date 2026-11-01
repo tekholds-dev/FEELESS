@@ -83,10 +83,10 @@ test('⛏ the PoW engine: the hard rules as a pipeline, live numbers, and each p
   expect(el2.querySelector('[data-testid="dsk-fold-live"]').textContent).toContain('$SIS');
 });
 
-test('📖 the PoW manual: 5 steps (plan · research · choose · hold · file) and the commands — details open on a tap', async () => {
+test('📖 the PoW manual: pool · propose 3 each · split 2 each · research · decide · file forever, and the commands — details open on a tap', async () => {
   const el = document.createElement('div'); document.body.appendChild(el);
   await act(async () => { createRoot(el).render(<ColonyManual />); });
-  expect(el.querySelectorAll('.cfm-steps li')).toHaveLength(5); expect(el.textContent).toContain('file a PoW'); expect(el.textContent).not.toContain('+15 s');
+  expect(el.querySelectorAll('.cfm-steps li')).toHaveLength(6); expect(el.textContent).toContain('PROPOSE'); expect(el.textContent).toContain('SPLIT'); expect(el.textContent).toContain('file a PoW'); expect(el.textContent).not.toContain('+15 s');
   await act(async () => { el.querySelector('.cfm-h').click(); });
-  expect(el.textContent).toContain('+15 s'); expect(el.textContent).toContain('2 snapshots a site');
+  expect(el.textContent).toContain('+15 s'); expect(el.textContent).toContain('3–8 moves a site'); expect(el.textContent).toContain('FOREVER');
 });

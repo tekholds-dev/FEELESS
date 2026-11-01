@@ -20,8 +20,12 @@ def test_only_vitals_with_a_read_value_are_saved_three_per_site():
     assert [x['label'] for x in pw.pulls(p)] == ['mint authority', 'liquidity', 'top 10 holders']
 
 
-def test_five_moves_per_site_and_four_sites_then_refused():
-    p = pw.new({'mint': 'M', 'pair': 'P', 'sym': 'CAT'}, 1000)
+def test_a_random_3_to_8_moves_per_site_and_four_sites_then_refused():
+    import random
+    assert {pw.new({'mint': 'M'}, 0, random.Random(k))['siteSteps'] for k in range(40)} <= set(range(3, 9))
+    assert len({pw.new({'mint': 'M'}, 0, random.Random(k))['siteSteps'] for k in range(40)}) > 3    # 🎲 really drawn, not one fixed number
+    p = {**pw.new({'mint': 'M', 'pair': 'P', 'sym': 'CAT'}, 1000), 'siteSteps': 5}
+    assert pw.budget(p) == 5 * pw.SITES_MAX + 2
     assert all(pw.step(p, 'https://dexscreener.com/solana/P') is None for _ in range(5))
     assert '5 moves' in pw.step(p, 'https://dexscreener.com/solana/x')
     assert pw.step(p, 'https://html.duckduckgo.com/html/?q=a') is None        # the search page is free
@@ -37,7 +41,7 @@ def test_pick_skips_thin_pools_and_coins_it_researched():
 
 
 def test_a_pow_run_starts_on_a_search_obeys_the_rules_and_files_its_call():
-    coin = pw.new({'mint': 'Mint1', 'pair': 'Pair1', 'sym': 'CAT'}, 1000)
+    coin = {**pw.new({'mint': 'Mint1', 'pair': 'Pair1', 'sym': 'CAT'}, 1000), 'siteSteps': 5}   # this scenario walks 5 moves a site
     moves = [{'thought': 'rugcheck', 'action': 'open', 'url': 'https://rugcheck.xyz/tokens/Mint1'},
              {'thought': 'save', 'action': 'pull', 'label': 'mint authority', 'value': 'revoked'},
              {'thought': 'junk', 'action': 'pull', 'label': 'mood', 'value': 'bullish'},
@@ -108,7 +112,7 @@ def test_the_service_starts_a_pow_on_an_intake_coin_and_files_it_graded_and_in_t
 def test_the_engine_drives_the_route_a_stalling_model_still_covers_the_sites_and_walls_are_skipped():
     """A small free model re-read FEELESS until it was stopped (live run 2026-10-31): FEELESS is read up front, a re-read moves it on,
     the coin's pages open in order, a walled one is skipped, and when the sites run out it must answer."""
-    coin = pw.new({'mint': 'Mint1', 'pair': 'Pair1', 'sym': 'CAT'}, 1000)
+    coin = {**pw.new({'mint': 'Mint1', 'pair': 'Pair1', 'sym': 'CAT'}, 1000), 'siteSteps': 5}   # this scenario walks 5 moves a site
     stall = {'thought': 'feeless again', 'action': 'feeless', 'tool': 'coin', 'q': 'Mint1'}
     moves = [{'thought': 'save', 'action': 'pull', 'label': 'liquidity', 'value': '$40K'}, stall,
              {'thought': 'save', 'action': 'pull', 'label': 'volume', 'value': '$1.2M'}, stall,
@@ -160,7 +164,7 @@ def test_the_service_runs_a_whole_folder_two_minds_discuss_buy_watch_research_de
 
     class H:
         async def get(self, url, **k):
-            return R({'coins': _intake()}) if 'intake' in url else R([])
+            return R({'coins': _intake() + [{'mint': 'E5', 'pair': 'pe', 'sym': 'EEE', 'liq': 20000, 'rank': 1, 'sources': ['open']}]}) if 'intake' in url else R([])
     monkeypatch.setattr(fs, '_pow2_dex', lambda http: _aw([{'mint': 'D4', 'pair': 'pd', 'sym': 'DDD', 'liq': 90000}]))
     monkeypatch.setattr(fs._ct, 'run_tool', lambda http, tool, q: _aw((f'read {q}', None)))
     monkeypatch.setattr(fs, '_order_pair', lambda http, m: _aw({'baseToken': {'address': m}}))   # the safety reads every coin gets
@@ -169,12 +173,18 @@ def test_the_service_runs_a_whole_folder_two_minds_discuss_buy_watch_research_de
 
     px = {'v': 1.0}
     monkeypatch.setattr(fs, '_pair_prices', lambda http, pairs: _aw({p: {'priceNative': str(px['v']), 'priceUsd': str(px['v'] * 200)} for p in pairs}))
-    answers = {'0': ['{"pick": 2, "why": "research BBB first"}', '{"pick": 2, "why": "plan: BBB first"}', '{"pick": 2, "why": "deep pool", "size_sol": 0.04, "tp_pct": 50, "sl_pct": 20}', '{"pick": 2, "why": "final: BBB"}'],
-               '1': ['{"pick": 2, "why": "agree"}', '{"pick": 2, "why": "agree, vol 4x", "size_sol": 0.02, "sl_pct": 15}']}
+    answers = {'0': ['{"pick": 1, "why": "deep pool", "size_sol": 0.04, "tp_pct": 50, "sl_pct": 20}', '{"pick": 1, "why": "final: BBB"}'],
+               '1': ['{"pick": 1, "why": "agree, vol 4x", "size_sol": 0.02, "sl_pct": 15}']}
+    props = {0: '{"picks": [1, 2, 3], "why": "A: deep pools"}', 1: '{"picks": [1, 3, 4], "why": "B: volume"}'}
+    splits = {0: '{"picks": [1, 2], "plan": "A: rugcheck + holders"}', 1: '{"picks": [3, 4], "plan": "B: buyers vs sellers"}'}
     decide = ['{"action": "HOLD", "say": "higher lows"}', '{"action": "SELL", "say": "it topped"}']
     agree = ['{"action": "HOLD", "say": "agree"}', '{"action": "SELL", "say": "agree, lower highs"}']
 
     async def ask(c, i, sys_, user_, max_tokens=180):
+        if 'PROPOSE the 3' in sys_:
+            return props[i]
+        if 'YOU will research' in sys_:
+            return splits[i]
         return decide.pop(0) if 'CHART WATCHER' in sys_ else agree.pop(0) if 'partner mind' in sys_ else answers[str(i)].pop(0)
     monkeypatch.setattr(fs, '_pow2_ask', ask)
     orders = []
@@ -194,13 +204,15 @@ def test_the_service_runs_a_whole_folder_two_minds_discuss_buy_watch_research_de
         nonlocal t
         t += dt; asyncio.run(fs._pow2_tick(H(), store, cat, t))
     tick(); f = cat['powRun']['folder']
-    assert [c['src'] for c in f['coins']] == ['intake', 'intake', 'pump', 'dex'] and f['name'].startswith('PoW #1 · ') and f['coins'][0]['read'] == 'read A1'
-    assert not f['coins'][0]['safe'] and 'UNSAFE' not in str(f['coins'][1])                # the safety check ran on all 4 before they talk
-    tick(); assert f['turn'] == 1 and 'proposes: $BBB' in cat['chat'][-1]['text']           # 🗣 PLAN: A proposes (in your chat)
-    tick(); assert f['turn'] == 2 and 'answers: $BBB' in cat['chat'][-1]['text']            # B agrees / suggests
-    tick(); assert f['phase'] == 'scout' and f['scout'][0] == 'B2' and 'A1' not in f['scout']   # A's final plan: research the safe coins, its favorite first
+    assert [c['mint'] for c in f['coins']] == ['B2', 'Cpump', 'D4', 'E5'] and f['dropped'][0]['mint'] == 'A1'   # 🧺 only buyable coins reach the minds (A1 failed the safety check)
+    assert f['phase'] == 'propose' and f['name'].startswith('PoW #1 · ') and f['coins'][0]['read'] == 'read B2'
+    tick(); assert f['turn'] == 1 and 'proposes $BBB, $CCC, $DDD' in cat['chat'][-1]['text']   # 1 · A proposes 3
+    tick(); assert f['phase'] == 'split' and f['shortlist'] == [0, 1, 2, 3]                   # 2 · B proposes 3 → the shortlist
+    tick(); assert f['owner'] == {'B2': 0, 'Cpump': 0} and 'plan: A: rugcheck' in cat['chat'][-1]['text']   # 3 · A takes 2 + its plan
+    tick(); assert f['owner'] == {'B2': 0, 'Cpump': 0, 'D4': 1, 'E5': 1} and f['plans']['D4'] == 'B: buyers vs sellers'
+    assert f['phase'] == 'scout' and f['scout'] == ['B2', 'D4', 'Cpump', 'E5']                # 4 · each researches its own, taking turns
     tick(); assert f['phase'] == 'scout' and not f.get('scoutDone') and f.get('busyAt')       # a busy window: the coin WAITS, never skipped unread
-    for _ in range(12):
+    for _ in range(20):
         if f['phase'] == 'scout':
             tick(310)
     assert f['scouted'] and f['phase'] == 'choose' and set(f['scoutDone']) == set(f['scout'])   # 5 min busy → it keeps its FEELESS read, never stuck
@@ -245,7 +257,7 @@ def test_file_a_pow_in_chat_starts_a_folder_on_any_agent_one_mind_or_both_and_st
     fs._POW_WANT['g1'] = pw.command('B: file a PoW'); assert fs._pow2_on(cat)               # … until you ask
 
     class R:
-        def json(self): return {'coins': _intake()}
+        def json(self): return {'coins': _intake() + [{'mint': 'E5', 'pair': 'pe', 'sym': 'EEE', 'liq': 20000, 'rank': 1, 'sources': ['open']}]}
 
     class H:
         async def get(self, url, **k): return R()
@@ -259,7 +271,7 @@ def test_file_a_pow_in_chat_starts_a_folder_on_any_agent_one_mind_or_both_and_st
     asked = []
 
     async def ask(c, i, sys_, user_, max_tokens=180):
-        asked.append(i); return '{"pick": 4, "why": "boosted + deep"}'
+        asked.append(i); return '{"pick": 3, "picks": [3, 1, 2], "plan": "rugcheck first", "why": "boosted + deep"}'   # D4 = 3rd of the vetted pool
     monkeypatch.setattr(fs, '_pow2_ask', ask)
     orders = []
 
@@ -269,7 +281,7 @@ def test_file_a_pow_in_chat_starts_a_folder_on_any_agent_one_mind_or_both_and_st
     monkeypatch.setattr(fs, '_run_order', order)
     store = {'cats': {'g1': cat}}
     monkeypatch.setattr(fs, '_work_start', lambda *a, **k: (_ for _ in ()).throw(fs.HTTPException(409, 'busy')))
-    for t in range(100, 4000, 160):   # folder → plan → scout (a busy window waits 5 min a coin) → decide → buy
+    for t in range(100, 7000, 160):   # folder → propose → split → scout (a busy window waits 5 min a coin) → decide → buy
         if not orders:
             asyncio.run(fs._pow2_tick(H(), store, cat, t))
     assert 'folder' in cat['powRun'], (cat['powRun'], cat.get('powFolders'))
@@ -345,7 +357,7 @@ def test_a_new_research_round_never_reopens_the_sites_an_earlier_round_read():
 
 
 def test_each_researched_site_files_two_snapshots_for_the_coins_folder():
-    coin = pw.new({'mint': 'Mint1', 'pair': 'Pair1', 'sym': 'CAT'}, 1000)
+    coin = {**pw.new({'mint': 'Mint1', 'pair': 'Pair1', 'sym': 'CAT'}, 1000), 'siteSteps': 5}   # this scenario walks 5 moves a site
 
     class LivePage(Page):
         live = True
@@ -390,7 +402,7 @@ def test_a_folder_tracks_what_it_costs_per_mind_and_its_research_rounds():
 
 
 def test_on_a_site_not_about_the_coin_the_engine_types_the_ca_into_the_sites_search():
-    coin = pw.new({'mint': 'Mint1', 'pair': 'Pair1', 'sym': 'CAT'}, 1000)
+    coin = {**pw.new({'mint': 'Mint1', 'pair': 'Pair1', 'sym': 'CAT'}, 1000), 'siteSteps': 5}   # this scenario walks 5 moves a site
     typed = []
 
     class SearchPage(Page):
@@ -484,8 +496,8 @@ def test_an_unsafe_coin_is_replaced_so_four_safe_coins_get_researched(monkeypatc
     fs._POW_WANT['r1'] = {'do': 'start'}
     asyncio.run(fs._pow2_tick(H(), {'cats': {'r1': cat}}, cat, 10_000.0))
     f = cat['powRun']['folder']
-    assert [c['mint'] for c in f['coins']] == ['F6', 'B2', 'Cpump', 'D4'] and all(c['safe'] for c in f['coins'])   # A1 → F6 (E5 was unsafe too), same source
-    assert f['dropped'][0]['mint'] == 'A1' and 'replaced 1 unsafe: $AAA' in str(f['talk'])
+    assert [c['mint'] for c in f['coins']] == ['B2', 'Cpump', 'D4', 'F6'] and all(c['safe'] for c in f['coins'])   # A1 + E5 failed → F6 joins the pool
+    assert [x['mint'] for x in f['dropped']] == ['A1', 'E5'] and 'replaced 2 unsafe: $AAA' in str(f['talk'])
 
 
 def test_a_coin_that_runs_during_research_is_struck_before_they_decide(monkeypatch):
@@ -505,7 +517,7 @@ def test_a_coin_that_runs_during_research_is_struck_before_they_decide(monkeypat
         seen.append(user_); return '{"pick": 2, "why": "the only one left"}'
     monkeypatch.setattr(fs, '_pow2_ask', ask)
     asyncio.run(fs._pow2_tick(None, {'cats': {'x1': cat}}, cat, 1000.0))
-    assert 'PAIR is out now' in str(f['talk']) and 'UNSAFE' in seen[0] and f.get('pick', {}).get('mint') == 'M2'
+    assert 'PAIR is out now' in str(f['talk']) and '$PAIR' not in seen[0] and f.get('pick', {}).get('mint') == 'M2'   # struck: not even offered
 
 
 def test_colony_flow_shows_real_trades_and_leaves_incognito_agents_out(monkeypatch, tmp_path):
@@ -519,3 +531,32 @@ def test_colony_flow_shows_real_trades_and_leaves_incognito_agents_out(monkeypat
     out = asyncio.run(fs.colony_flow())
     assert out['pow'] == {'folders': 1, 'trades': 1, 'inSol': 0.006, 'won': 0} and out['pnlSol'] == -0.001
     assert [r['sig'] for r in out['ledger']] == ['S1', 'S2'] and out['ledger'][0]['memo'] == 'PoW buy' and 'Hidden' not in str(out)
+
+
+def test_duplicate_facts_are_dropped_and_every_filing_is_kept_forever_and_searchable(monkeypatch, tmp_path):
+    import cat_tools as ct
+    import feecat_service as fs
+    p = {**pw.new({'mint': 'M', 'pair': 'P', 'sym': 'X'}, 0), 'siteSteps': 5}
+    assert pw.pull(p, 'https://rugcheck.xyz/tokens/M', 'liquidity', '$35.2K')[0]
+    ok, why = pw.pull(p, 'https://solscan.io/token/M', 'liquidity', '$35.2k')
+    assert not ok and 'already saved from rugcheck.xyz' in why                              # 🧹 the same fact twice adds nothing
+    assert pw.pull(p, 'https://solscan.io/token/M', 'liquidity', '$41K')[0]                  # a different value IS new evidence
+    monkeypatch.setattr(fs, 'POW_ARCHIVE', tmp_path / 'pow_archive.jsonl')
+    f = {'id': 'pow1', 'name': 'PoW #1'}
+    fs._pow_archive_add(pw.archive_row('research', 'h1', f, {'mint': 'M', 'sym': 'X'}, 10, vitals=[{'label': 'risk score', 'value': 'GOOD', 'site': 'rugcheck.xyz'}]))
+    fs._pow_archive_add(pw.archive_row('outcome', 'h1', f, {'mint': 'M', 'sym': 'X'}, 20, pnlPct=-4.2, bought=True, sol=0.006, why='stop'))
+    fs._pow_archive_add(pw.archive_row('research', 'h1', f, {'mint': 'Q', 'sym': 'Y'}, 30))
+    rows = fs._pow_archive_rows(); assert len(rows) == 3                                      # 🗄 append-only: every filing stays
+    hit = pw.archive_find(rows, '$x'); assert [r['kind'] for r in hit] == ['outcome', 'research']
+    assert pw.archive_brief(hit) == 'PRIOR PoW: researched 1× risk score GOOD · traded -4.2%'
+    out = asyncio.run(fs.pow_archive(q='M')); assert out['total'] == 3 and len(out['rows']) == 2 and 'researched 1×' in out['brief']
+
+    class R:
+        def __init__(self, j): self.j = j
+        def json(self): return self.j
+
+    class H:
+        async def get(self, url, params=None, **k):
+            return R(asyncio.run(fs.pow_archive(q=params['q'])) if False else {'rows': hit, 'brief': pw.archive_brief(hit)})
+    text, _ = asyncio.run(ct.run_tool(H(), 'pow', '$X'))
+    assert 'PRIOR PoW' in text and 'risk score GOOD (rugcheck.xyz)' in text and 'bought 0.006 SOL' in text   # the agents' own tool reads it

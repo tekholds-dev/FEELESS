@@ -5,6 +5,7 @@ The agent's cloud browser is walled off from FEELESS (cat_policy.check_url: it c
 read-only lookups on our own services and hand the mind a short text it can reason on. `coin` also returns the pair, so the user's window
 switches to OUR live chart of it. Nothing here trades, signs, creates or posts: moves still go through the agent's guarded order path.
 """
+import time
 import re
 
 TOOLS = {
@@ -14,6 +15,7 @@ TOOLS = {
     'pools': 'the Pool Hub: the best Solana pools by yield + depth',
     'gaps': 'price gaps between pools for the same token, net of swap costs',
     'colony': "the Colony's graded calls: what other agents called on a coin ($SYMBOL) and how it graded an hour on",
+    'pow': 'every PoW ever filed on a coin ($SYMBOL or mint): what each mind read on which site, its call, how the trade went — review it before you research again',
 }
 # 🚫 never: another agent / FeeCat anywhere, or a coin / pool ON FEELESS (owner 2026-10-30: "on pump or any other platform they can do as they please —
 # rep still scores that agent's wallet; just don't allow it on FEELESS"). Scams / rugs / phishing stay refused everywhere (cat_policy.BAD_JOB).
@@ -164,6 +166,15 @@ async def run_tool(http, tool, q=''):
             r = await http.get(f'{REP}/api/reputation/familia-pools/gaps', timeout=20)
             j = r.json()
             return gaps_text(j.get('gaps') if isinstance(j, dict) else j), None
+        if tool == 'pow':   # 🗄 the PoW archive (kept forever): a coin's prior research + outcomes
+            j = (await http.get('http://127.0.0.1:5088/api/cats/pow/archive', params={'q': q, 'limit': 12}, timeout=10)).json() or {}
+            rows = j.get('rows') or []
+            if not rows:
+                return f'No PoW was ever filed on {q or "anything"} — this is the first look.', None
+            lines = [j.get('brief') or ''] + [f"{time.strftime('%b %d', time.gmtime(r.get('at') or 0))} {r.get('kind')} ${r.get('sym')}: "
+                     + (' · '.join(f"{x.get('label')} {x.get('value')} ({x.get('site')})" for x in (r.get('vitals') or [])[:6]) if r.get('kind') == 'research'
+                        else f"{'bought ' + str(r.get('sol')) + ' SOL, ' if r.get('bought') else 'no fill, '}{r.get('pnlPct') if r.get('pnlPct') is not None else '—'}% — {r.get('why')}") for r in rows]
+            return '\n'.join(x for x in lines if x)[:2400], None
         if tool == 'colony':
             r = await http.get('http://127.0.0.1:5088/api/cats/hive', timeout=10)
             return colony_text((r.json() or {}).get('cells'), q), None

@@ -164,7 +164,7 @@ export function useDrop(w) {
 
 // ⛏ a monitor while its PoW folder runs (owner 2026-11-01: "I want to see it here, not only on the Desktop — they must be actively creating a PoW"):
 // agreeing = the 4 coins + this mind's pick · holding = the watcher's FEELESS chart of the coin, the researcher's coins + vitals · the talk under both
-const PH = { scout: 'RESEARCHING EVERY COIN', choose: 'AGREEING ON 1 OF 4', buy: 'BUYING ON FEELESS', watch: 'WATCHING THE CHART', research: 'RESEARCHING THE CA', decide: 'DECIDING', sell: 'SELLING' };
+const PH = { propose: 'PROPOSING 3 EACH', split: 'SPLITTING THE SHORTLIST', scout: 'RESEARCHING ITS COINS', choose: 'DECIDING THE ONE', buy: 'BUYING ON FEELESS', watch: 'WATCHING THE CHART', research: 'RESEARCHING THE CA', decide: 'DECIDING', sell: 'SELLING' };
 // 📈 the folder's P/L over the watcher's chart: what went in, the entry vs now, P/L (pool price, fees apart), the round, how far from the hard stops
 function PowPnl({ f }) {
   const pnl = f.now && f.entry ? (f.now / f.entry - 1) * 100 : 0; const tone = pnl >= 0 ? 'is-up' : 'is-dn';
@@ -582,7 +582,7 @@ function DeskWin({ k, title, s, top, set, onTop, onClose, tools, children }) {
 }
 // ⛏ the owner's PoW folder: every Proof of Work its minds filed — the calls, how they graded, and each proof with its vitals per site
 // ⛏ one PoW FOLDER (backend pow.py v2): 4 coins (2 intake · 1 Pump · 1 DexScreener) → both minds agree on 1 → bought on FEELESS → watch / research / decide
-const PHASES = [['choose', 'AGREE'], ['buy', 'BUY'], ['watch', 'CHART'], ['research', 'RESEARCH'], ['decide', 'DECIDE'], ['done', 'FILED']];
+const PHASES = [['propose', 'PROPOSE'], ['split', 'SPLIT'], ['scout', 'RESEARCH'], ['choose', 'DECIDE'], ['buy', 'BUY'], ['watch', 'HOLD'], ['done', 'FILED']];
 const SRC = { intake: 'FEELESS', pump: 'PUMP', dex: 'DEX' };
 function CoinFolder({ f, c, catId, onShot }) {   // 📁 one coin's folder inside a PoW folder: its vitals + the snapshots of every site researched
   const shots = (f.shots || []).filter(x => x.mint === c.mint); const vit = (f.vitals || {})[c.mint] || (f.pick?.mint === c.mint ? (f.research || []) : []);
@@ -597,7 +597,7 @@ function CoinFolder({ f, c, catId, onShot }) {   // 📁 one coin's folder insid
 }
 export function FolderView({ f, live, catId }) {
   const [open, setOpen] = useState(null); const [big, setBig] = useState(null);
-  const at = Math.max(0, PHASES.findIndex(([k]) => k === (f.phase === 'sell' ? 'decide' : f.phase)));
+  const at = Math.max(0, PHASES.findIndex(([k]) => k === ({ sell: 'watch', research: 'watch', decide: 'watch' }[f.phase] || f.phase)));
   return <div className={`dsk-fold${live ? ' is-live' : ''}`} data-testid={live ? 'dsk-fold-live' : 'dsk-fold'}>
     <span className="dsk-fold-h"><b>📁 {f.name}</b>{f.pnlPct != null ? <em className={`m-num ${f.pnlPct >= 0 ? 'is-up' : 'is-dn'}`}>{f.pnlPct >= 0 ? '+' : ''}{f.pnlPct}%</em> : <em>{live ? 'live' : f.status}</em>}{f.shared ? <small>🤝 {f.shared}% to the colony</small> : null}</span>
     <ol className="dsk-fold-steps" aria-label="Where this folder is">{PHASES.map(([k, l], i) => <li key={k} className={i < at || f.status === 'closed' ? 'is-done' : i === at ? 'is-on' : ''}><i aria-hidden="true" />{l}</li>)}</ol>
@@ -711,7 +711,7 @@ function PowExplorer({ cat, d }) {
     body = <>{f.pick?.mint === c.mint ? <div className={`dsk-trade is-${g || 'open'}`}><b>{g === 'good' ? '👍 GOOD TRADE' : g === 'bad' ? '👎 BAD TRADE' : '● THE PICK — trading'}</b>
       <small className="m-num">{f.sol} SOL · TP +{f.tp}% · SL −{f.sl}%{f.pnlPct != null ? ` · ${f.pnlPct >= 0 ? '+' : ''}${f.pnlPct}%` : ''}</small><TradeLine f={f} /></div> : null}
       <CoinFolder f={f} c={c} catId={cat.id} onShot={setBig} /></>; }
-  else { const at = Math.max(0, PHASES.findIndex(([k]) => k === (f.phase === 'sell' ? 'decide' : f.phase)));
+  else { const at = Math.max(0, PHASES.findIndex(([k]) => k === ({ sell: 'watch', research: 'watch', decide: 'watch' }[f.phase] || f.phase)));
     body = <><ol className="dsk-fold-steps" aria-label="Where this folder is">{PHASES.map(([k, l], i) => <li key={k} className={i < at || f.status === 'closed' ? 'is-done' : i === at ? 'is-on' : ''}><i aria-hidden="true" />{l}</li>)}</ol>
       <div className="dsk-xgrid"><Tile kind="file" tone={gradeOf(f) || 'none'} ic="📋" label="REPORT" sub={f.report ? f.report.grade : "when it closes"} onOpen={() => setPath([f.id, 'report'])} tip="What this folder found, the trade, its grade and cost" testid="dsk-x-report" />
         {(f.coins || []).map((x, i) => { const pk = f.pick?.mint === x.mint; const g = pk ? gradeOf(f) : null;
