@@ -494,8 +494,60 @@ function DeskWin({ k, title, s, top, set, onTop, onClose, tools, children }) {
       <b>{title}</b><span className="dsk-tools">{tools}</span></header>
     <div className="dsk-body">{children}</div></section>;
 }
+// ⛏ the owner's PoW folder: every Proof of Work its minds filed — the calls, how they graded, and each proof with its vitals per site
+function PowFolder({ cat }) {
+  const [rows, setRows] = useState(null);
+  useEffect(() => { let on = true; Promise.resolve().then(() => fetch(apiUrl(`/api/cats/pow?cat=${cat.id}&limit=40`))).then(r => (r?.ok ? r.json() : null)).then(x => on && setRows(x?.rows || [])).catch(() => on && setRows([])); return () => { on = false; }; }, [cat.id]);
+  if (!rows) return <p className="dsk-note">reading its proofs…</p>;
+  const g = rows.filter(r => r.graded); const right = g.filter(r => r.honey > 0).length; const by = k => rows.filter(r => r.call === k).length;
+  const avg = rows.length ? Math.round(rows.reduce((a, r) => a + (Number(r.strength) || 0), 0) / rows.length) : 0;
+  return <div className="dsk-pow" data-testid="dsk-pow">
+    <div className="hv-pow-stats">{[['PROOFS', rows.length], ['BUY · WATCH · AVOID', `${by('BUY')} · ${by('WATCH')} · ${by('AVOID')}`], ['RIGHT', g.length ? `${Math.round(100 * right / g.length)}%` : '—'], ['STRENGTH', avg]].map(([k, v]) =>
+      <span key={k}><em>{k}</em><b className="m-num">{v}</b></span>)}</div>
+    {rows.length ? <div className="hv-pow-grid">{rows.map(p => <PowCard key={p.id} p={p} />)}</div> : <PowCard p={null} />}
+  </div>;
+}
+// 🍯 the owner's Honey pot: its colony vitals (honey, right calls, the next airdrop, the pool) + the real ways to put into the colony (the 🐝 Colonize popout)
+function HoneyPot({ cat }) {
+  const [v, setV] = useState(null); const [m, setM] = useState(null);
+  useEffect(() => { let on = true;
+    Promise.resolve().then(() => fetch(apiUrl(`/api/cats/${cat.id}/live`))).then(r => (r?.ok ? r.json() : null)).then(x => on && setV(x || {})).catch(() => on && setV({}));
+    Promise.resolve().then(() => fetch(apiUrl(`/api/cats/colony?ids=${cat.id}`))).then(r => (r?.ok ? r.json() : null)).then(x => on && setM(x || {})).catch(() => on && setM({}));
+    return () => { on = false; }; }, [cat.id]);
+  const share = cat.colonyShare || {}; const left = m?.nextAirdrop ? Math.max(0, m.nextAirdrop * 1000 - Date.now()) : null;
+  const rate = v?.graded ? Math.round(100 * (v.right || 0) / v.graded) : null;
+  return <div className="dsk-honey" data-testid="dsk-honey">
+    <div className="dsk-honey-vitals">
+      <span className="dsk-honey-big" data-tip="Honey this epoch: its graded calls, proofs and trades, judged an hour on"><em>🍯 HONEY</em><b className={`m-num ${v?.honey > 0 ? 'is-up' : v?.honey < 0 ? 'is-dn' : ''}`}>{v ? `${v.honey > 0 ? '+' : ''}${v.honey || 0}` : '…'}</b><small>{v?.colonized ? '🐝 colonized' : 'not colonized'}</small></span>
+      <span data-tip="Graded calls it got right this epoch"><em>RIGHT</em><b className="m-num">{rate == null ? '—' : `${rate}%`}</b><u><s style={{ transform: `scaleX(${(rate || 0) / 100})` }} /></u><small>{v ? `${v.right || 0} of ${v.graded || 0}` : ''}</small></span>
+      <span data-tip="Its share of each winning trade sent to the colony wallet (signed by you)"><em>SHARES</em><b className="m-num">{share.on ? `${share.pct}%` : 'off'}</b><small>of each win</small></span>
+      <span data-tip="When the colony next pays the owners who shared"><em>NEXT AIRDROP</em><b className="m-num">{left == null ? '—' : `${Math.floor(left / 3600000)}h ${String(Math.floor(left / 60000) % 60).padStart(2, '0')}m`}</b><small>{m?.cadence === 'weekly' ? 'weekly' : 'every 24 h'}</small></span>
+      <span data-tip="The colony pool (Meteora) the colony wallet opens — stake into it once it is open"><em>COLONY POOL</em><b className="m-num">{m?.pool?.address ? 'OPEN' : 'not open'}</b><small>{m?.pool?.address ? `${m.pool.address.slice(0, 4)}…${m.pool.address.slice(-4)}` : 'the owner opens it'}</small></span>
+    </div>
+    <div className="dsk-honey-ways"><b>WAYS INTO THE COLONY</b><small>Opportunity 1 · stake into the colony pool — opens when the pool is live. Opportunity 2 · sign once to share a part of each winning trade; the colony airdrops back by what you shared.</small>
+      <HiveSwitch cat={cat} /></div>
+  </div>;
+}
+const ICONS = [['vault', '📁', 'Vault'], ['pow', '⛏', 'PoW'], ['honey', '🍯', 'Honey pot'], ['files', '☁', 'Files']];
+const iconsKey = id => `feeless.dsk.icons.${id}`;
+// 🖱 desktop icons you can drag anywhere (positions kept on this device); a tap without a drag opens it
+function DeskIcon({ k, ic, label, at, onMove, onOpen, tip }) {
+  const g = useRef(null); const dragged = useRef(false);
+  const down = e => { if (e.button !== 0) return; dragged.current = false; g.current = { x: e.clientX, y: e.clientY, ox: at.x, oy: at.y }; e.currentTarget.setPointerCapture?.(e.pointerId); };
+  const move = e => { const d = g.current; if (!d) return; const dx = e.clientX - d.x, dy = e.clientY - d.y; if (Math.abs(dx) + Math.abs(dy) > 4) dragged.current = true; if (dragged.current) onMove(k, { x: Math.max(0, d.ox + dx), y: Math.max(0, d.oy + dy) }); };
+  return <button type="button" className={`dsk-ico is-${k}`} style={{ transform: `translate(${at.x}px, ${at.y}px)` }} onPointerDown={down} onPointerMove={move} onPointerUp={() => { g.current = null; }}
+    onClick={() => { if (!dragged.current) onOpen(k); dragged.current = false; }} data-tip={tip} data-testid={`dsk-${k === 'vault' ? 'vault' : `ico-${k}`}`}>
+    <i className="dsk-ico-art" aria-hidden="true"><em>{ic}</em></i><span>{label}</span></button>;
+}
+const ICON_TIP = { vault: "Your agent's drawer — logins, sealed recovery files, signed-in sites, API keys", pow: 'Every Proof of Work its minds filed — the call, the vitals per site, how it graded',
+  honey: 'Its colony vitals — honey, right calls, the next airdrop, the pool — and the ways into the colony', files: 'Its storage — upload files and images for its tasks' };
+
 export function AgentDesktop({ cat, live = null, onClose, onReopen, actions = null }) {
-  const [w, setW] = useState(() => ({ live: { open: !!live, min: false, max: false, x: 24, y: 12 }, vault: { open: false, min: false, max: false, x: 120, y: 60 } }));
+  const [w, setW] = useState(() => ({ live: { open: !!live, min: false, max: false, x: 24, y: 12 }, vault: { open: false, min: false, max: false, x: 120, y: 60 },
+    pow: { open: false, min: false, max: false, x: 150, y: 40 }, honey: { open: false, min: false, max: false, x: 180, y: 70 }, files: { open: false, min: false, max: false, x: 210, y: 100 } }));
+  const [pos, setPos] = useState(() => { const dflt = Object.fromEntries(ICONS.map(([k], i) => [k, { x: 0, y: i * 96 }])); try { return { ...dflt, ...JSON.parse(localStorage.getItem(iconsKey(cat.id)) || '{}') }; } catch { return dflt; } });
+  const moveIcon = (k, p) => setPos(x => { const n = { ...x, [k]: p }; try { localStorage.setItem(iconsKey(cat.id), JSON.stringify(n)); } catch { /* private window */ } return n; });
+  const openWin = k => { if (k === 'vault') { openVault(); return; } set(k, { open: true, min: false }); setTop(k); };
   const [top, setTop] = useState('live'); const [tab, setTab] = useState('creds'); const [d, setD] = useState(null); const [ask, setAsk] = useState(false); const [now, setNow] = useState(Date.now());
   const set = useCallback((k, p) => setW(x => ({ ...x, [k]: { ...x[k], ...p } })), []);
   const openVault = useCallback(() => { if (!safeOk()) { setAsk(true); return; } set('vault', { open: true, min: false }); setTop('vault'); }, [set]);
@@ -508,13 +560,12 @@ export function AgentDesktop({ cat, live = null, onClose, onReopen, actions = nu
     sealed: <SealedVault cat={cat} rows={d?.secrets} onSaved={secrets => setD(x => ({ ...x, secrets }))} />,
     sites: <SignedSites cat={cat} rows={d?.signedIn} nested onSaved={(signedIn, secrets) => setD(x => ({ ...x, signedIn, ...(secrets ? { secrets } : {}) }))} />,
     api: <ApiSlot cat={cat} /> }[tab];
-  const tasks = [...(live ? [['live', '🌐', live.site || 'Live window']] : []), ['vault', '📁', 'Vault']].filter(([k]) => w[k].open);
+  const tasks = [...(live ? [['live', '🌐', live.site || 'Live window']] : []), ...ICONS].filter(([k]) => w[k].open);
   return createPortal(<div className="dsk" role="dialog" aria-modal="true" aria-label="Your private desktop" data-testid="cwb-pop">
     <div className="dsk-wall" aria-hidden="true"><i /><b>FEELESS</b><small>private desktop · only you see this</small></div>
     <nav className="dsk-icons" aria-label="Desktop">
-      <button type="button" className="dsk-ico" onClick={openVault} data-tip="Your agent's drawer — logins, sealed recovery files, signed-in sites, API keys" data-testid="dsk-vault">
-        <svg viewBox="0 0 48 40" aria-hidden="true"><path d="M3 8a3 3 0 0 1 3-3h12l4 4h20a3 3 0 0 1 3 3v3H3z" fill="#e2b13c" /><rect x="3" y="13" width="42" height="24" rx="3" fill="#f5c542" /><rect x="18" y="20" width="12" height="10" rx="2" fill="#7a5a12" /><circle cx="24" cy="25" r="2" fill="#f5c542" /></svg><span>Vault</span></button>
-      {live ? <button type="button" className="dsk-ico" onClick={() => { set('live', { open: true, min: false }); setTop('live'); }} data-tip="The live window" data-testid="dsk-live-ico">
+      {ICONS.map(([k, ic, l]) => <DeskIcon key={k} k={k} ic={ic} label={l} at={pos[k]} onMove={moveIcon} onOpen={openWin} tip={ICON_TIP[k]} />)}
+      {live ? <button type="button" className="dsk-ico" style={{ transform: `translate(96px, 0px)` }} onClick={() => { set('live', { open: true, min: false }); setTop('live'); }} data-tip="The live window" data-testid="dsk-live-ico">
         <svg viewBox="0 0 48 40" aria-hidden="true"><rect x="3" y="4" width="42" height="32" rx="4" fill="#0d1a13" stroke="#45e486" strokeWidth="2" /><rect x="3" y="4" width="42" height="7" rx="3" fill="#15d16a" /><circle cx="24" cy="24" r="7" fill="none" stroke="#45e486" strokeWidth="2" /><path d="M17 24h14M24 17c3 3 3 11 0 14M24 17c-3 3-3 11 0 14" stroke="#45e486" strokeWidth="1.4" fill="none" /></svg><span>{live.site || 'Live window'}</span></button> : null}
     </nav>
     {live && w.live.open && !w.live.min ? <DeskWin k="live" title={`🌐 ${live.title || `sign in to ${live.site || 'the site'} yourself`}`} s={w.live} top={top === 'live'} set={set} onTop={() => setTop('live')} onClose={onClose}
@@ -529,6 +580,8 @@ export function AgentDesktop({ cat, live = null, onClose, onReopen, actions = nu
         <i aria-hidden="true">{ic}</i><span>{l}</span>{n(d) != null ? <b className="m-num">{n(d)}</b> : null}</button>)}</aside>
         <div className="dsk-pane"><p className="dsk-path">Vault <i>›</i> {VAULT_TABS.find(t => t[0] === tab)[2]}</p><div key={tab} className="dsk-pull">{pane}</div></div></div>
     </DeskWin> : null}
+    {[['pow', `⛏ PoW — ${cat.name || 'your agent'}`, <PowFolder cat={cat} />], ['honey', '🍯 Honey pot', <HoneyPot cat={cat} />], ['files', '☁ Files', <CloudDrawer cat={cat} attachments={d?.storage} />]].map(([k, t, body]) =>
+      w[k].open && !w[k].min ? <DeskWin key={k} k={k} title={t} s={w[k]} top={top === k} set={set} onTop={() => setTop(k)} onClose={() => set(k, { open: false })}>{body}</DeskWin> : null)}
     <footer className="dsk-bar"><span className="dsk-start"><i aria-hidden="true" />FEELESS</span>
       {tasks.map(([k, ic, l]) => <button key={k} type="button" className={`dsk-task${!w[k].min && top === k ? ' is-on' : ''}`} onClick={() => { if (w[k].min || top !== k) { set(k, { min: false }); setTop(k); } else set(k, { min: true }); }} data-testid={`dsk-task-${k}`}>{ic} {l}</button>)}
       <time className="m-num">{new Date(now).toTimeString().slice(0, 5)}</time>
