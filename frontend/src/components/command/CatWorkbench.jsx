@@ -157,7 +157,36 @@ export function useDrop(w) {
   return drop;
 }
 
-function Window({ w, catId, tick, onGo, onLogin, busy, cursor = 'arrow' }) {
+// ⛏ a monitor while its PoW folder runs (owner 2026-11-01: "I want to see it here, not only on the Desktop — they must be actively creating a PoW"):
+// agreeing = the 4 coins + this mind's pick · holding = the watcher's FEELESS chart of the coin, the researcher's coins + vitals · the talk under both
+const PH = { choose: 'AGREEING ON 1 OF 4', buy: 'BUYING ON FEELESS', watch: 'WATCHING THE CHART', research: 'RESEARCHING THE CA', decide: 'DECIDING', sell: 'SELLING' };
+// 📈 the folder's P/L over the watcher's chart: what went in, the entry vs now, P/L (pool price, fees apart), the round, how far from the hard stops
+function PowPnl({ f }) {
+  const pnl = f.now && f.entry ? (f.now / f.entry - 1) * 100 : 0; const tone = pnl >= 0 ? 'is-up' : 'is-dn';
+  const toStop = Math.max(0, Math.min(1, (pnl + 25) / 85));   // −25 % … +60 % mapped 0 … 1
+  return <div className={`cwb-powpnl ${tone}`} data-testid="cwb-powpnl">
+    <span><em>IN</em><b className="m-num">{f.sol ?? '—'} SOL</b><small>{f.real ? 'its wallet' : 'paper'}</small></span>
+    <span><em>ENTRY → NOW</em><b className="m-num">{Number(f.entry).toPrecision(3)} → {f.now ? Number(f.now).toPrecision(3) : '…'}</b><small>SOL per coin</small></span>
+    <span className="cwb-powpnl-big"><em>P/L</em><b className="m-num" key={Math.round(pnl * 10)}>{pnl >= 0 ? '+' : ''}{pnl.toFixed(1)}%</b><small>fees apart</small></span>
+    <span><em>ROUND</em><b className="m-num">{(f.rounds || 0) + 1} / 6</b><small>60 min max</small></span>
+    <span className="cwb-powpnl-band" data-tip="Hard stops: −25 % sells, +60 % takes profit — the dot is where it is now"><em>−25%</em><u><s style={{ transform: `translateX(${(toStop * 100).toFixed(1)}cqw)` }} /></u><em>+60%</em></span>
+  </div>;
+}
+function PowScreen({ f, slot }) {
+  const me = String(slot - (f.base || 0)); const mine = f.picks?.[me]; const held = ['watch', 'research', 'decide', 'sell'].includes(f.phase);
+  const coins = f.coins || []; const c = held ? { mint: f.mint, pair: f.pair, sym: f.sym } : coins[mine ?? (slot % Math.max(1, coins.length))] || {};
+  return <div className="cwb-powscr" data-testid={`cwb-powscr-${slot}`}>   {/* 📈 the agent watches the FEELESS chart — never a page of cards (owner 2026-11-01) */}
+    <span className="cwb-powscr-h"><b>⛏ {f.name}</b><em>{PH[f.phase] || f.phase}</em>{c.sym ? <strong>${c.sym}</strong> : null}{!held && mine != null ? <small>its pick</small> : !held ? <small>weighing</small> : null}</span>
+    {f.plan?.length ? <ol className="cwb-powscr-plan" aria-label="Its 3-step plan">{f.plan.map((x, k) => { const at = f.phase === 'choose' ? 0 : f.phase === 'decide' || f.phase === 'sell' ? 2 : 1;
+      return <li key={k} className={k === at ? 'is-on' : k < at ? 'is-done' : ''}><b>{k + 1}</b>{x}</li>; })}</ol> : null}
+    <div className="cwb-chart">{c.pair ? <Suspense fallback={<span className="cwb-chart-load">loading ${c.sym} on FEELESS…</span>}>
+      <PriceChart key={c.pair} pair={{ chainId: 'solana', pairAddress: c.pair, baseToken: { address: c.mint, symbol: c.sym } }} interval="1m" metric="price" showVolume={false} /></Suspense> : null}</div>
+    {held && f.entry ? <PowPnl f={f} /> : null}
+    <ul className="cwb-powscr-talk">{(f.talk || []).slice(-2).map((t, k) => <li key={`${t.at}${k}`}><b>{t.by}</b> {t.text}</li>)}</ul>
+  </div>;
+}
+
+function Window({ w, catId, tick, onGo, onLogin, busy, cursor = 'arrow', folder = null }) {
   const drop = useDrop(w);
   const ref = useRef(null); const seen = useOnScreen(ref); const [tab, setTab] = useState('web');
   // 🖥 the window FOLLOWS the agent (owner 2026-10-31: "they should switch browser ⇄ FEELESS, not us clicking"): its last move decides the view
@@ -187,6 +216,7 @@ function Window({ w, catId, tick, onGo, onLogin, busy, cursor = 'arrow' }) {
         <em className="cwb-chart-tag">FEELESS · ${coinSym}</em></div>
         : w?.live && seen && (working || w.hand) ? <><iframe className={`cwb-live${w.hand ? ' is-hand' : ''}`} src={w.live} tabIndex={w.hand ? 0 : -1} title={`${w.model} browser`} sandbox="allow-scripts allow-same-origin allow-forms allow-popups" allow="clipboard-read; clipboard-write" data-testid="cwb-live" />
 </>
+        : !working && !w?.hand && w?.status !== 'human' && folder?.coins?.length ? <PowScreen f={folder} slot={sl} />
         : !working && !w?.hand && w?.status !== 'human' && seen && !lastBad ? <img className="cwb-shot" src={apiUrl(`/api/cats/${catId}/last/${sl}?v=${w?.status}`)} alt={`${w.model} — the last page it was on`} onError={() => setLastBad(true)} data-testid="cwb-lastpage" />   // 🖼 a finished window keeps its last page (its cloud browser is closed: the live view said 'Session not found')
         : w?.shot && seen ? <img className="cwb-shot" src={apiUrl(`/api/cats/${catId}/work/shot/${w.i}?${agentAuthQuery()}&t=${tick}`)} alt={`${w.model} window`} data-testid="cwb-shot" />
           : <div className="cwb-off" data-testid="cwb-now"><b>{notAsked ? 'not asked' : working ? `MIND ${'AB'[sl] || sl + 1} · ${w?.url ? String(w.url).replace(/^https?:\/\//, '').split('/')[0] : 'reading'}` : w?.status === 'done' ? (w?.answer ? 'done — its answer is in the chat' : 'done') : 'ready — ask below'}</b>
@@ -516,6 +546,16 @@ export function CommandList({ rows, onPick }) {
   return <ul className="dsk-cmds" data-testid="dsk-cmds">{(rows?.length ? rows : CMDS_FALLBACK).map(([c, why], i) => <li key={c} style={{ '--i': i }}>
     <button type="button" onClick={() => { onPick?.(c); setHit(c); }} data-tip="Put it in the chat box — then press Send" data-testid={`cmd-${i}`}><code>{c}</code><span>{why}</span>{hit === c ? <em>in the chat ✓</em> : null}</button></li>)}</ul>;
 }
+// ⌨ the command popup above the chat box (owner 2026-11-01: "at least 10 commands that pop up when / is typed") — "/" shows them all, typing filters
+export function CmdPop({ text, rows, onPick }) {
+  const q = String(text || '').replace(/^\//, '').trim().toLowerCase();
+  const all = rows?.length ? rows : CMDS_FALLBACK;
+  const show = String(text || '').startsWith('/') || (q.length >= 2 && all.some(([c]) => c.toLowerCase().startsWith(q) && c.toLowerCase() !== q));
+  const hits = show ? all.filter(([c, why]) => !q || c.toLowerCase().includes(q) || why.toLowerCase().includes(q)).slice(0, 12) : [];
+  if (!hits.length) return null;
+  return <ul className="cwb-cmdpop" role="listbox" aria-label="Commands" data-testid="cwb-cmdpop">{hits.map(([c, why], i) => <li key={c} style={{ '--i': i }}>
+    <button type="button" role="option" aria-selected={i === 0} onMouseDown={e => { e.preventDefault(); onPick(c); }} data-testid={`cmdpop-${i}`}><code>{c}</code><span>{why}</span></button></li>)}</ul>;
+}
 function PowFolder({ cat, d }) {
   const [rows, setRows] = useState(null);
   useEffect(() => { let on = true; Promise.resolve().then(() => fetch(apiUrl(`/api/cats/pow?cat=${cat.id}&limit=40`))).then(r => (r?.ok ? r.json() : null)).then(x => on && setRows(x?.rows || [])).catch(() => on && setRows([])); return () => { on = false; }; }, [cat.id]);
@@ -791,7 +831,7 @@ function WorkbenchLive({ cat }) {
         <span data-tip="This task's spend against its cap — it stops at the cap with what it has"><em>THIS TASK</em><b className="m-num">{usd(spent)} / {usd(cap)}</b><u aria-hidden="true"><s className={spent >= cap * 0.8 ? 'is-hot' : ''} style={{ transform: `scaleX(${Math.min(1, spent / (cap || 1))})` }} /></u></span>
       </span></header>
     <NowLine cat={cat} wins={wins} live={live} />
-    <div className="cwb-stage agd-wins">{wins.map(w => <Window key={`${w.i}-${w.slot ?? w.i}`} w={w} catId={cat.id} tick={tick} busy={busy} cursor={aiCur} onGo={(op, i, text) => act(op, { i, ...(text ? { text } : {}) })} onLogin={site => setSignIn({ site, at: Date.now() })} />)}</div>
+    <div className="cwb-stage agd-wins">{wins.map(w => <Window key={`${w.i}-${w.slot ?? w.i}`} folder={d?.powFolder} w={w} catId={cat.id} tick={tick} busy={busy} cursor={aiCur} onGo={(op, i, text) => act(op, { i, ...(text ? { text } : {}) })} onLogin={site => setSignIn({ site, at: Date.now() })} />)}</div>
     <DeskFlip cat={cat} flip={flip} setFlip={setFlip} name={cat.name} live={live} count={log.length} cloud={<HeadCloud items={(d?.cloud || []).slice(-5).reverse()} />}
       left={<MindVitals cat={cat} model={wins[0]?.model} i={0} kind="general" live={!!wins[0]?.model} hot={wins[0]?.status === 'working'} extra={<><WinVitals w={wins[0]} /><PowCard p={d?.pow?.['0']} /></>} />}
       right={<MindVitals cat={cat} model={wins[1]?.model || cat.brainsCfg?.brains?.[1]} i={1} kind="general" live={!!(wins[1]?.model || cat.brainsCfg?.brains?.[1])} hot={wins[1]?.status === 'working'}
@@ -841,7 +881,8 @@ function WorkbenchLive({ cat }) {
     </div>
     <form className="cwb-ask cwb-compose" onSubmit={send}>
       <div className="cwb-fields">
-      <textarea ref={inRef} rows={1} className="m-input cwb-in" value={text} onChange={e => setText(e.target.value)} onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) { e.preventDefault(); send(); } }} placeholder={live ? (go ? 'Working… type the next ask — it queues' : 'Working… press Stop to ask again') : `Message ${cat.name || 'your agent'}…`} disabled={live && !go} aria-label="Ask the cat" data-testid="cwb-input" />
+      <CmdPop text={text} rows={d?.commands} onPick={c => { setText(c); requestAnimationFrame(() => { const el = inRef.current; if (el) { el.focus(); el.setSelectionRange(c.length, c.length); } }); }} />
+      <textarea ref={inRef} rows={1} className="m-input cwb-in" value={text} onChange={e => setText(e.target.value)} onKeyDown={e => { if (e.key === 'Tab' && text.startsWith('/')) { const q_ = text.slice(1).toLowerCase(); const hit_ = (d?.commands?.length ? d.commands : CMDS_FALLBACK).find(([c]) => c.toLowerCase().includes(q_)); if (hit_) { e.preventDefault(); setText(hit_[0]); } return; } if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) { e.preventDefault(); send(); } }} placeholder={live ? (go ? 'Working… type the next ask — it queues' : 'Working… press Stop to ask again') : `Message ${cat.name || 'your agent'}…`} disabled={live && !go} aria-label="Ask the cat" data-testid="cwb-input" />
       </div>
       <div className="cwb-bar">
       <button type="button" className={`cwb-plus${upping ? ' is-busy' : ''}`} onClick={() => pick.current?.click()} disabled={upping || files.length >= 4} aria-label="Attach images for it"

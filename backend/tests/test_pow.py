@@ -216,10 +216,11 @@ def _aw(v):
 
 def test_file_a_pow_in_chat_starts_a_folder_on_any_agent_one_mind_or_both_and_stop_pow_sells(monkeypatch, tmp_path):
     import feecat_service as fs
-    assert pw.command('file a PoW') == {'do': 'start', 'mind': None} and pw.command('B: file a PoW') == {'do': 'start', 'mind': 1}
+    assert pw.command('file a PoW') == {'do': 'start', 'mind': None, 'propose': False} and pw.command('B: file a PoW') == {'do': 'start', 'mind': 1, 'propose': False}
     assert pw.command('/pow') and pw.command('stop PoW') == {'do': 'stop'} and pw.command('research pow on bonk') is None
     assert pw.command('Propose PoW for 3 coins thats not on feeless.')['do'] == 'start' and pw.command('Provide PoW for 3 coins on feeless intake list.')['do'] == 'start'   # the owner's own words
-    assert pw.command('what is a PoW?') is None and pw.command('B: provide a pow') == {'do': 'start', 'mind': 1}
+    assert pw.command('what is a PoW?') is None and pw.command('B: provide a pow') == {'do': 'start', 'mind': 1, 'propose': False}
+    assert pw.command('propose a PoW')['propose'] and pw.command('A: propose a PoW') == {'do': 'start', 'mind': 0, 'propose': True}   # 💡 propose = no buy
     import colony
     assert 'FOLDER' in pw.README and 'not crypto mining' in pw.README and 'PoW README' in colony.KNOWHOW          # every model's default memory
     monkeypatch.setattr(fs, 'HIVE_PATH', tmp_path / 'hive.json')
@@ -256,3 +257,19 @@ def test_file_a_pow_in_chat_starts_a_folder_on_any_agent_one_mind_or_both_and_st
     fs._POW_WANT['g1'] = pw.command('stop PoW')
     asyncio.run(fs._pow2_tick(H(), store, cat, 160)); asyncio.run(fs._pow2_tick(H(), store, cat, 180))
     assert orders[-1] == 'sell all D4' and cat['powFolders'][-1]['why'] == 'you stopped it' and not fs._pow2_on(cat)
+
+
+def test_propose_a_pow_agrees_on_one_coin_and_files_the_card_without_buying(monkeypatch, tmp_path):
+    import feecat_service as fs
+    monkeypatch.setattr(fs, 'HIVE_PATH', tmp_path / 'hive.json')
+    cat = {'id': 'p1', 'name': 'Happy', 'risk': {}, 'positions': [], 'brainsCfg': {'kind': 'general', 'brains': ['x/a', 'x/b'], 'credit': 1.0}}
+    f = pw.folder_new(1, pw.gather(_intake(), [{'mint': 'D4', 'pair': 'pd', 'sym': 'DDD', 'liq': 90000}]), 100, 2); f.update(asked=True, propose=True)
+    cat['powRun'] = {'folder': f}
+
+    async def ask(c, i, sys_, user_, max_tokens=180):
+        return '{"pick": 4, "why": "deepest"}'
+    monkeypatch.setattr(fs, '_pow2_ask', ask)
+    monkeypatch.setattr(fs, '_run_order', lambda *a: (_ for _ in ()).throw(AssertionError('a proposal never buys')))
+    asyncio.run(fs._pow2_tick(None, {'cats': {'p1': cat}}, cat, 200))
+    done = cat['powFolders'][-1]
+    assert 'proposes $DDD' in done['why'] and done['propose'] and 'folder' not in cat['powRun']

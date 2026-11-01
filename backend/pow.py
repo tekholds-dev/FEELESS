@@ -257,7 +257,15 @@ def folder_new(n, coins, now, minds):
     import time as _t
     return {'id': f"pow{int(now)}", 'n': n, 'name': f"PoW #{n} · {_t.strftime('%b %d · %H:%M UTC', _t.gmtime(now))}", 'at': round(now),
             'coins': coins, 'minds': max(1, min(2, int(minds or 1))), 'phase': 'choose', 'phaseAt': round(now), 'picks': {}, 'talk': [],
-            'disc': 0, 'rounds': 0, 'chart': [], 'research': [], 'pick': None, 'status': 'open'}
+            'disc': 0, 'rounds': 0, 'chart': [], 'research': [], 'pick': None, 'status': 'open', 'plan': plan_of(minds)}
+
+
+def plan_of(minds):
+    """🗺 The folder's ONE joint 3-step plan, set before anything is browsed (owner 2026-11-01: "both agents combined, 3-step total plan before browsing")."""
+    if int(minds or 1) > 1:
+        return ['both minds pick 1 of the 4 coins and agree', "A watches the coin's FEELESS chart · B researches its CA (DexScreener · RugCheck · Solscan)",
+                "A decides HOLD / SELL with B's vitals — loop until it sells"]
+    return ['it picks 1 of the 4 coins', "it watches the FEELESS chart, then researches the CA (DexScreener · RugCheck · Solscan)", 'it decides HOLD / SELL — loop until it sells']
 
 
 def parse_pick(text, n=4):
@@ -271,7 +279,15 @@ def parse_pick(text, n=4):
         k = int(d.get('pick'))
     except (TypeError, ValueError):
         k = None
-    return (k - 1 if k and 1 <= k <= n else None), str(d.get('why') or '')[:160]
+    if not k:   # a model that answers in words: "I pick 2" / "pick: #3"
+        m2 = re.search(r'(?i)pick\D{0,12}([1-4])\b', t)
+        k = int(m2.group(1)) if m2 else None
+    return (k - 1 if k and 1 <= k <= n else None), str(d.get('why') or t.strip())[:160]
+
+
+def engine_pick(coins):
+    """When a mind stays silent the folder never waits forever: the strongest coin by the numbers (pool, then the intake's rank)."""
+    return max(range(len(coins)), key=lambda k: (_f(coins[k].get('liq')), _f(coins[k].get('mc')))) if coins else None
 
 
 def agree(picks, minds):
@@ -320,20 +336,28 @@ def chart_line(samples):
 
 def folder_public(f):
     keep = ('id', 'n', 'name', 'at', 'coins', 'minds', 'phase', 'pick', 'talk', 'rounds', 'status', 'why', 'entry', 'exit', 'pnlPct', 'pnlSol', 'sym',
-            'boughtAt', 'soldAt', 'real', 'shared', 'research')
-    return {k: f.get(k) for k in keep if k in f}
+            'boughtAt', 'soldAt', 'real', 'shared', 'research', 'picks', 'whys', 'base', 'pair', 'mint', 'propose', 'sol', 'plan')
+    out = {k: f.get(k) for k in keep if k in f}
+    if f.get('chart'):   # the live price the watcher reads (its P/L on the monitor)
+        out['now'] = f['chart'][-1].get('px'); out['line'] = [x.get('px') for x in f['chart'][-24:]]
+    return out
 
 
 # 💬 the chat commands that start / stop a folder (owner 2026-11-01: "I type 'PoW' or 'file a PoW' and they make the 4-coin file and buy one")
 CMD_START = re.compile(r'^\s*(?:(?:mind\s*)?([AB])\s*[:\-—]\s*)?(?:/pow(?:\s+([ab]|both))?\s*$|file\s+(?:a\s+)?pow\b.*$|start\s+(?:a\s+)?pow\b.*$|pow\s*$)', re.I)
 CMD_STOP = re.compile(r'^\s*(?:/pow\s+stop|stop\s+(?:the\s+)?pow(?:\s+(?:loop|folder))?)\s*$', re.I)
-COMMANDS = [('file a PoW', 'Both minds: a new 4-coin PoW folder, they agree on 1, buy it on FEELESS and loop until it sells'),
+COMMANDS = [('file a PoW', 'Both minds: a 4-coin PoW folder → they agree on 1 → buy it on FEELESS → chart / research / decide until it sells'),
+            ('propose a PoW', 'The same 4-coin folder and agreement — files the pick as a proposal card, buys nothing'),
             ('A: file a PoW', 'Only mind A works the folder (it picks, watches the chart and researches)'),
             ('B: file a PoW', 'Only mind B works the folder'),
-            ('/pow', 'Same as "file a PoW"'),
+            ('A: propose a PoW', 'Mind A alone proposes a coin — nothing bought'),
             ('stop PoW', 'Ends the folder now — sells the coin if it bought one'),
-            ('buy 0.05 SOL of $BONK', 'A direct order (guards first; its wallet when real)'),
-            ('sell all $BONK', 'Sells a coin it holds')]
+            ('buy 0.05 SOL of $', 'A direct order on FEELESS (guards first; its wallet when real) — type the coin'),
+            ('sell all $', 'Sells a coin it holds — type the coin'),
+            ('sell half of $', 'Takes half off a coin it holds'),
+            ('trim $', 'Same as sell half'),
+            ('A: ', 'Only mind A works this ask; B rests on its last page'),
+            ('B: ', 'Only mind B works this ask')]
 
 
 CMD_ANY = re.compile(r'(?i)\b(?:file|propose|provide|make|do|start|run|create|open|give|build|new)\b[^.?!\n]{0,40}\bpow\b')
@@ -345,14 +369,15 @@ def command(text):
     t = str(text or '')
     if CMD_STOP.match(t):
         return {'do': 'stop'}
+    prop = bool(re.search(r'(?i)\bpropos', t))   # 💡 "propose a PoW" = the same folder, nothing bought
     m = CMD_START.match(t)
     if not m and CMD_ANY.search(t) and not CMD_ASK.search(t):   # 💬 "Propose PoW for 3 coins…" / "Provide PoW on the intake list" = a folder (owner 2026-11-01)
         k_ = re.match(r'^\s*(?:mind\s*)?([AB])\s*[:\-—]', t, re.I)
-        return {'do': 'start', 'mind': {'A': 0, 'B': 1}.get((k_.group(1) if k_ else '').upper())}
+        return {'do': 'start', 'mind': {'A': 0, 'B': 1}.get((k_.group(1) if k_ else '').upper()), 'propose': prop}
     if not m:
         return None
     k = (m.group(1) or m.group(2) or '').upper()
-    return {'do': 'start', 'mind': {'A': 0, 'B': 1}.get(k)}
+    return {'do': 'start', 'mind': {'A': 0, 'B': 1}.get(k), 'propose': prop}
 
 
 # 📖 THE PoW README — every loaded model gets it as default memory, whatever its prompt (owner 2026-11-01: "they need to know the meaning")

@@ -1370,8 +1370,9 @@ async def _pow2_tick(http, store, cat, now):
                 c['read'] = ''
         run_['n'] = int(run_.get('n') or 0) + 1
         run_['folder'] = f = _pow.folder_new(run_['n'], coins, now, minds)
-        f.update(base=min(base, max(0, len(ms) - 1)), asked=bool(want))
+        f.update(base=min(base, max(0, len(ms) - 1)), asked=bool(want), propose=bool((want or {}).get('propose')))
         _pow2_say(f, 'engine', f"new folder: {', '.join('$' + c['sym'] + ' (' + _pow.SRC_LABEL[c['src']] + ')' for c in coins)}")
+        _pow2_say(f, 'plan', ' → '.join(f'{k + 1}) {x}' for k, x in enumerate(f['plan'])))
         return
     b0 = int(f.get('base') or 0)
     names = [str(m).split('/')[-1][:24] for m in ms[b0:2]]
@@ -1383,9 +1384,15 @@ async def _pow2_tick(http, store, cat, now):
                 continue
             other = f['picks'].get(str(1 - i)) if f['disc'] else None
             partner = (f" YOUR PARTNER PICKED {other + 1} ({f['coins'][other]['sym']}): \"{f.get('whys', {}).get(str(1 - i), '')}\" — agree, or keep yours with a reason." if other is not None else '')
-            k, why = _pow.parse_pick(await ask_(i, _pow.CHOOSE_SYS.format(name=names[i] if i < len(names) else 'mind', partner=partner), listing))
+            raw_ = await ask_(i, _pow.CHOOSE_SYS.format(name=names[i] if i < len(names) else 'mind', partner=partner), listing, 600)
+            k, why = _pow.parse_pick(raw_)
             if k is None:
-                return   # no clean answer: asked again next tick
+                f['silent'] = int(f.get('silent') or 0) + 1
+                print(f"[pow2] {cat['id']} mind {i} gave no pick ({f['silent']}): {str(raw_)[:120]!r}")
+                if f['silent'] < 3:
+                    return   # asked again next tick
+                k, why = _pow.engine_pick(f['coins']), 'the mind stayed silent — the engine took the strongest by pool'   # never stuck
+            f['silent'] = 0
             f['picks'][str(i)] = k; f.setdefault('whys', {})[str(i)] = why
             _pow2_say(f, names[i] if i < len(names) else 'mind', f"picks ${f['coins'][k]['sym']} — {why}")
         k = _pow.agree(f['picks'], f['minds'])
@@ -1394,6 +1401,9 @@ async def _pow2_tick(http, store, cat, now):
                 _pow2_close(cat, f, 'the minds did not agree — no buy', now); return
             f['disc'] = 1; f['picks'] = {}; _pow2_say(f, 'engine', 'the minds picked different coins — one round of discussion'); return
         c = f['coins'][k]; f.update(pick=c, mint=c['mint'], pair=c['pair'], sym=c['sym'], why0=f.get('whys', {}).get('0', ''), phase='buy', phaseAt=round(now))
+        if f.get('propose'):   # 💡 a proposal: the agreed coin is filed as the card — nothing bought
+            _pow2_say(f, 'engine', f"proposal: ${c['sym']} ({_pow.SRC_LABEL[c['src']]}) — nothing bought")
+            _pow2_close(cat, f, f"💡 proposes ${c['sym']} — {f.get('why0') or 'both minds agreed'}", now)
         return
     if f['phase'] == 'buy':
         sol = round(min(_num((cat.get('risk') or {}).get('maxPositionSol')) or 0.05, _num(cat.get('budgetSol')) or 1.0), 4)
@@ -1444,7 +1454,7 @@ async def _pow2_tick(http, store, cat, now):
         res_ = ' · '.join(f"{x['label']} {x['value']} ({x['site']})" for x in (f.get('research') or [])[-6:]) or 'none yet'
         talk_ = ' | '.join(f"{x['by']}: {x['text']}" for x in (f.get('talk') or [])[-5:])
         act, say = _pow.parse_decide(await ask_(watcher, _pow.DECIDE_SYS.format(name=names[0] if names else 'mind', sym=f['sym']),
-                                                     f"P/L {_pow.pnl_pct(f.get('entry') or 0, px):+.1f}% · CHART {_pow.chart_line(f.get('chart'))}\nRESEARCH {res_}\nTALK {talk_}"))
+                                                     f"P/L {_pow.pnl_pct(f.get('entry') or 0, px):+.1f}% · CHART {_pow.chart_line(f.get('chart'))}\nRESEARCH {res_}\nTALK {talk_}", 600))
         _pow2_say(f, names[0] if names else 'mind', f"{act}: {say}")
         f['rounds'] = int(f.get('rounds') or 0) + 1
         if act == 'SELL':
@@ -3300,8 +3310,8 @@ async def cat_work(cat_id: str, p: WorkPayload):
             else:
                 _POW_WANT[cat_id] = cmd_
                 who_ = {0: 'mind A', 1: 'mind B'}.get(cmd_.get('mind'), 'both minds')
-                why_ = (f'⛏ Filing a PoW with {who_}: 4 coins (2 FEELESS intake · 1 Pump · 1 DexScreener) → they agree on 1 → buy it on FEELESS → chart / research / decide until it sells. '
-                        'Watch it in ⛏ PoW on the Desktop.') if cmd_['do'] == 'start' else '⏹ Ending the PoW folder — it sells the coin if it bought one.'
+                why_ = (f"{'💡 Proposing' if cmd_.get('propose') else '⛏ Filing'} a PoW with {who_}: 4 coins (2 FEELESS intake · 1 Pump · 1 DexScreener) → they agree on 1 → "
+                        + ('filed as a proposal card, nothing bought.' if cmd_.get('propose') else 'buy it on FEELESS → chart / research / decide until it sells.')) if cmd_['do'] == 'start' else '⏹ Ending the PoW folder — it sells the coin if it bought one.'
             cat['chat'] = (list(cat.get('chat') or []) + [{'by': 'you', 'text': str(p.text)[:400], 'at': time.time()}, {'by': 'cats', 'text': why_, 'at': time.time(), 'open': 'pow'}])[-40:]
             keep_owned(cat); _save(store)
             return {**_work_view(cat_id, owner=True), 'chat': cat['chat'][-20:]}
