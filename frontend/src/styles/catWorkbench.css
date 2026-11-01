@@ -51,10 +51,10 @@ body.fx-lite .cwb-drop { animation-duration: .01s; }
 @media (prefers-reduced-motion: reduce) { .cwb-drop { animation: none; opacity: 0; } }
 body.theme-day .cwb-drop { background: #fff; color: #2a1650; border-color: #7c4dff66; }
 /* 🌐 / 📈 what the window shows · the mind not asked · 🖱 the AI's own cursor (glides to each click, a ripple where it acts) */
-.cwb-tabs { margin: 0 0 6px; } .cwb-tabs button { min-height: 32px; font-size: 10px; }
+.cwb-tabs { margin: 0 0 6px; min-width: 0; max-width: 100%; } .cwb-tabs button { min-height: 32px; font-size: 10px; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .cwb-off { position: absolute; inset: 0; display: grid; place-content: center; gap: 6px; text-align: center; padding: 16px; }
 .cwb-off b { font: 800 11px var(--f-mono, monospace); letter-spacing: .14em; color: #c9a8ff; } .cwb-off small { color: #8f86b0; max-width: 260px; }
-.cwb-cursor { position: absolute; left: 0; top: 0; width: 0; height: 0; z-index: 3; pointer-events: none; transition: transform .7s cubic-bezier(.2, .8, .2, 1); }
+.cwb-cursor { position: absolute; left: 0; top: 0; width: 0; height: 0; z-index: 3; pointer-events: none; transition: transform .55s cubic-bezier(.33, 1, .68, 1); }   /* = the real mouse's ~0.5 s eased glide */
 .cwb-cursor i { position: absolute; left: 0; top: 0; display: block; filter: drop-shadow(0 2px 4px #000a); }
 .cwb-cursor.c-arrow i::before { content: ''; position: absolute; inset: 0; background: #fff; clip-path: polygon(0 0, 0 78%, 26% 60%, 44% 100%, 58% 94%, 41% 56%, 76% 56%); }
 .cwb-cursor.c-arrow i { width: 16px; height: 22px; filter: drop-shadow(1px 0 0 #120a20) drop-shadow(-1px 0 0 #120a20) drop-shadow(0 1px 0 #120a20) drop-shadow(0 -1px 0 #120a20) drop-shadow(0 2px 4px #000a); }
@@ -454,3 +454,7 @@ body.theme-day .cwb-fields .m-input { color: #2a1650; } body.theme-day .cwb-sugg
 @media (max-width: 640px) { .cwb-flip-in { height: auto; } .cwb-deck .cwb-talk { height: clamp(420px, 70dvh, 600px); } .cwb-status { font-size: 0; gap: 0; padding: 6px; } .cwb-flip-btn span, .cwb-hint { display: none; } .cwb-talk-h { gap: 6px; } .cwb-back .ck-cabinet { grid-template-columns: 1fr; } .cwb-talk-h > b { font-size: 12.5px; } }
 
 .cwb-cursor.is-rest { opacity: .55; }   /* 🖱 resting before its first move — always on screen */
+/* 🖱 thinking between moves: a 'reading' ring pulses at the cursor (it reads what is on screen, then moves) */
+.cwb-cursor.is-think::after { content: ''; position: absolute; left: -11px; top: -11px; width: 22px; height: 22px; border-radius: 50%; border: 2px solid #c9a8ff; opacity: 0; animation: cwbThink 1.4s ease-out infinite; }
+@keyframes cwbThink { 0% { transform: scale(.4); opacity: .9; } 100% { transform: scale(1.6); opacity: 0; } }
+body.fx-lite .cwb-cursor.is-think::after { animation: none; opacity: .6; } @media (prefers-reduced-motion: reduce) { .cwb-cursor.is-think::after { animation: none; opacity: .6; } .cwb-cursor { transition: none; } }

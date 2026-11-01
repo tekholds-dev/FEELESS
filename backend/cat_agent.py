@@ -309,6 +309,7 @@ async def _window(task, w, ask, page, wait_human, name, feeless=None):
             w['human'] = {'why': str(a.get('why') or thought or 'a person is needed here')[:160], 'url': page.url}
         else:
             try:
+                page.on_cursor = lambda c, w=w: w.__setitem__('cursor', c)   # 🖱 the desk's cursor starts gliding the moment the real mouse does
                 if act == 'open' and same_page(page.url, a.get('url')):   # already there: what it read, never a reload (a reload of pump.fun tripped Cloudflare)
                     seen = w.get('_page') or await page.read()
                 elif act == 'open':

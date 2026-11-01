@@ -50,8 +50,17 @@ def pair_line(p):
             f" · {p.get('dexId') or '?'} · pair {p.get('pairAddress') or '?'}")
 
 
+SYM_OK = re.compile(r'^[A-Za-z0-9$._-]{1,14}$')
+
+
+def real_coin(p):
+    """Not spam: a ticker-shaped symbol (pump.fun has tokens named like 'BTCETHUSDTBNB…' — one blew up an agent's desk, owner 2026-10-31) and a pool with money."""
+    sym = str((p.get('baseToken') or {}).get('symbol') or '')
+    return bool(SYM_OK.match(sym)) and float((p.get('liquidity') or {}).get('usd') or 0) > 0
+
+
 def coin_text(pairs, q):
-    rows = [p for p in pairs or [] if p.get('pairAddress')][:5]
+    rows = [p for p in pairs or [] if p.get('pairAddress') and real_coin(p)][:5]
     if not rows:
         return f'FEELESS found no coin for "{q}".', None
     top = rows[0]

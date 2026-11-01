@@ -140,9 +140,9 @@ const CURSOR_KEY = 'feeless:ai-cursor';
 export const readCursor = () => { try { return localStorage.getItem(CURSOR_KEY) || 'arrow'; } catch { return 'arrow'; } };
 // 🖱 ALWAYS on (owner 2026-10-31): before its first move the cursor rests mid-screen, dimmed; then it glides to every real move
 const REST = { x: 0.5, y: 0.55, act: 'move' };
-export function AiCursor({ c, kind }) {
+export function AiCursor({ c, kind, think }) {   // think = its mind is working between moves → a 'reading' ring pulses at the cursor
   const rest = !c || c.x == null; if (rest) c = REST;
-  return <span className={`cwb-cursor c-${kind}${rest ? ' is-rest' : ''}`} style={{ transform: `translate(${c.x * 100}cqw, ${c.y * 100}cqh)` }} data-testid="cwb-cursor" aria-hidden="true">
+  return <span className={`cwb-cursor c-${kind}${rest ? ' is-rest' : ''}${think ? ' is-think' : ''}`} style={{ transform: `translate(${c.x * 100}cqw, ${c.y * 100}cqh)` }} data-testid="cwb-cursor" aria-hidden="true">
     <i /><u key={c.at} className={`at-${c.act || 'click'}`} /></span>;
 }
 
@@ -167,6 +167,7 @@ function Window({ w, catId, tick, onGo, onLogin, busy, cursor = 'arrow' }) {
   const human = w?.status === 'human' && w?.human; const [big, setBig] = useState(false);
   const i = w?.i ?? 0; const working = w?.status === 'working';
   // 🪟 the live window wears the demo's chrome (owner 2026-10-30: "the window design is perfected — users should see exactly that, bigger")
+  const coinSym = String(w?.coin?.symbol || '').slice(0, 12);   // a spam token's 'symbol' can be 60 joined tickers — it once blew the whole desk apart
   return <article ref={ref} className={`agd-win cwb-win w${i % 2} s-${w?.status || 'idle'}`} data-testid={`cwb-win-${i}`}>
     <span className={`agd-bar${working ? ' is-go' : ''}`} data-tip="red = idle · yellow = needs you · green = working"><i /><i /><i /><b>MIND {'AB'[i] || i + 1}</b>
       <small data-tip={w?.goal ? `Its half: ${w.goal}` : 'Waiting for the plan'}>{w?.model ? String(w.model).split('/').pop() : 'model'}{w?.goal ? ` · ${w.goal}` : ''}</small>
@@ -174,19 +175,19 @@ function Window({ w, catId, tick, onGo, onLogin, busy, cursor = 'arrow' }) {
       <em className={`agd-live${working ? '' : ' is-off'}`}>● {working ? 'LIVE' : String(w?.status || 'idle').toUpperCase()}</em></span>
     <div className="agd-browser is-rec cwb-browser">
     <span className="agd-url" title={w?.url || ''}><i aria-hidden="true">🔒</i><b>{w?.url ? String(w.url).replace(/^https?:\/\//, '') : notAsked ? 'not asked' : 'about:blank'}</b>{working ? <u className="agd-caret" aria-hidden="true" /> : null}{working ? <em className="agd-rec">● REC</em> : <small className="m-num">{usd(w?.cost || 0)}</small>}</span>
-    {w?.coin?.pair ? <div className="m-seg cwb-tabs" role="tablist" aria-label="What this window shows">{[['web', '🌐 Browser'], ['chart', `📈 $${w.coin.symbol} on FEELESS`]].map(([k, l]) =>
+    {w?.coin?.pair ? <div className="m-seg cwb-tabs" role="tablist" aria-label="What this window shows">{[['web', '🌐 Browser'], ['chart', `📈 $${coinSym} on FEELESS`]].map(([k, l]) =>
       <button key={k} type="button" role="tab" aria-selected={tab === k} className={tab === k ? 'active' : ''} onClick={() => setTab(k)} data-tip={k === 'web' ? 'Its live browser' : 'The coin it checked, on the FEELESS chart'} data-testid={`cwb-tab-${k}`}>{l}</button>)}</div> : null}
     <div className="agd-screen cwb-view">
       {notAsked ? <div className="cwb-off" data-testid="cwb-notasked"><b>MIND {'AB'[i] || i + 1} · not asked</b><small>This ask was for the other mind — no browser opened, nothing spent.</small></div>
-      : chart && seen ? <div className="cwb-chart" data-testid="cwb-chart"><Suspense fallback={<span className="cwb-chart-load">loading ${w.coin.symbol} on FEELESS…</span>}>
-        <PriceChart key={w.coin.pair} pair={{ chainId: 'solana', pairAddress: w.coin.pair, baseToken: { address: w.coin.mint, symbol: w.coin.symbol } }} interval="1m" metric="price" showVolume={false} /></Suspense>
-        <em className="cwb-chart-tag">FEELESS · ${w.coin.symbol}</em></div>
+      : chart && seen ? <div className="cwb-chart" data-testid="cwb-chart"><Suspense fallback={<span className="cwb-chart-load">loading ${coinSym} on FEELESS…</span>}>
+        <PriceChart key={w.coin.pair} pair={{ chainId: 'solana', pairAddress: w.coin.pair, baseToken: { address: w.coin.mint, symbol: coinSym } }} interval="1m" metric="price" showVolume={false} /></Suspense>
+        <em className="cwb-chart-tag">FEELESS · ${coinSym}</em></div>
         : w?.live && seen ? <><iframe className={`cwb-live${w.hand ? ' is-hand' : ''}`} src={w.live} tabIndex={w.hand ? 0 : -1} title={`${w.model} browser`} sandbox="allow-scripts allow-same-origin allow-forms allow-popups" allow="clipboard-read; clipboard-write" data-testid="cwb-live" />
 </>
         : w?.shot && seen ? <img className="cwb-shot" src={apiUrl(`/api/cats/${catId}/work/shot/${w.i}?${agentAuthQuery()}&t=${tick}`)} alt={`${w.model} window`} data-testid="cwb-shot" />
           : <div className="cwb-off" data-testid="cwb-now"><b>{notAsked ? 'not asked' : working ? `MIND ${'AB'[i] || i + 1} · ${w?.url ? String(w.url).replace(/^https?:\/\//, '').split('/')[0] : 'reading'}` : w?.status === 'done' ? (w?.answer ? 'done — its answer is in the chat' : 'done') : 'ready — ask below'}</b>
             <small>{w?.provider === 'reader' ? (w?.note ? `no live browser · ${w.note}` : 'no live browser right now — add a Kernel / Steel / Anchor key for real windows') : working ? 'opening its browser…' : ''}</small></div>}
-      {notAsked || w?.hand ? null : <AiCursor c={w?.cursor} kind={cursor} />}
+      {notAsked || w?.hand ? null : <AiCursor c={w?.cursor} kind={cursor} think={working && !(w?.cursor?.at && Date.now() / 1000 - w.cursor.at < 2.5)} />}
       {drop ? <span className="cwb-drop" key={drop.k} style={{ '--x': `${drop.x * 100}cqw`, '--y': `${drop.y * 100}cqh` }} data-testid="cwb-drop" aria-hidden="true"><i>{drop.icon}</i>{drop.label}</span> : null}
       {w?.hand && w?.live ? <button type="button" className="m-btn cwb-big" onClick={() => setBig(true)} data-tip="It needs you: open its window big to click / sign in yourself" data-testid="cwb-big">⤢ Big</button> : null}
       {big && w?.hand && w?.live ? <AgentDesktop cat={{ id: catId }} live={{ live: w.live, site: w?.human?.site, title: `MIND ${'AB'[i] || i + 1} needs you${w?.human?.why ? ` — ${w.human.why}` : ''}` }} onClose={() => setBig(false)} /> : null}

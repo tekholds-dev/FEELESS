@@ -37,6 +37,7 @@ def chain(env):
     return [p for p, ok in (('kernel', k['KERNEL_API_KEY']), ('steel', k['STEEL_API_KEY']), ('anchor', k['ANCHOR_API_KEY']), ('browserless', k['BROWSERLESS_API_KEY']), ('browserbase', k['BROWSERBASE_API_KEY'] and k['BROWSERBASE_PROJECT_ID'])) if ok] + ['reader']
 
 
+GLIDE_STEPS, GLIDE_MS = 14, 520   # 🖱 the mouse's glide to a target (the desk's cursor animates over the same ~0.5 s)
 VIEWPORT = {'width': 1440, 'height': 900}   # 🖥 HD: the page fills the window on the desk (owner 2026-10-30: "cover the whole plot, HD")
 
 
@@ -571,9 +572,17 @@ class LivePage:
     async def glide(self, x, y, act='move'):
         """🖱 the real mouse glides there (the live view shows it move), and FEELESS's cursor follows."""
         win = await self._p.evaluate('() => [innerWidth, innerHeight, outerWidth, outerHeight]')
-        await self._p.mouse.move(x, y, steps=24)
-        if win[2] and win[3]:
+        if win[2] and win[3]:   # the target goes out FIRST, so the desk's cursor glides while the real mouse does (it used to land after the click)
             self.cursor = {'x': round(min(1, x / win[2]), 4), 'y': round(min(1, (max(0, win[3] - win[1]) + y) / win[3]), 4), 'act': act, 'at': time.time()}
+            cb = getattr(self, 'on_cursor', None)
+            if cb:
+                cb(self.cursor)
+        x0, y0 = getattr(self, '_mxy', (x, y))
+        for k in range(1, GLIDE_STEPS + 1):   # a person's glide: ~0.5 s, eased, never a teleport
+            t = k / GLIDE_STEPS; e = 1 - (1 - t) ** 3
+            await self._p.mouse.move(x0 + (x - x0) * e, y0 + (y - y0) * e)
+            await self._p.wait_for_timeout(GLIDE_MS // GLIDE_STEPS)
+        self._mxy = (x, y)
 
     async def scroll(self, way='down'):
         """🖱 a person's scroll: the mouse moves onto the page, then the wheel turns in small notches."""

@@ -324,3 +324,24 @@ def test_kernel_leads_the_chain_then_steel_then_anchor_each_a_real_browser_with_
             return R(200, {'session_id': 'k1', 'cdp_ws_url': 'wss://k/1', 'browser_live_view_url': 'https://api.onkernel.com/browser/live/T'})
     s, _ = asyncio.run(cb.open_session(K(), env))
     assert s['provider'] == 'kernel' and s['live'].endswith('?readOnly=true') and s['hand'] == 'https://api.onkernel.com/browser/live/T'
+
+
+def test_a_spam_ticker_never_becomes_the_coin_and_the_mouse_reports_its_target_before_it_glides():
+    """Owner 2026-10-31: after a bot check a mind's FEELESS search picked a token named 'PUMPBDXJUP…NVOONOBS' — its tab label blew the desk apart;
+    and the cursor only moved after the click had happened."""
+    import asyncio
+    import cat_tools as ct, cat_browser as cb
+    junk = {'pairAddress': 'J', 'baseToken': {'symbol': 'PUMPBDXJUPGHOFILXDCTBLLXFLRVVV', 'address': 'm1'}, 'liquidity': {'usd': 900}}
+    zero = {'pairAddress': 'Z', 'baseToken': {'symbol': 'edith.fun', 'address': 'm2'}, 'liquidity': {'usd': 0}}
+    real = {'pairAddress': 'R', 'baseToken': {'symbol': 'PUMP', 'address': 'm3'}, 'liquidity': {'usd': 2e6}}
+    assert ct.coin_text([junk, zero, real], 'pump')[1]['symbol'] == 'PUMP' and ct.coin_text([junk], 'x')[1] is None
+    seen, moves = [], []
+    class M:
+        async def move(self, x, y): moves.append((x, y, len(seen)))
+    class P:
+        mouse = M()
+        async def evaluate(self, js): return [1000, 800, 1000, 900]
+        async def wait_for_timeout(self, ms): return None
+    pg = cb.LivePage.__new__(cb.LivePage); pg._p = P(); pg.on_cursor = seen.append
+    asyncio.run(pg.glide(500, 400, 'click'))
+    assert seen and seen[0]['x'] == 0.5 and moves[0][2] == 1 and len(moves) == cb.GLIDE_STEPS and moves[-1][:2] == (500, 400)   # target out first, then an eased glide
