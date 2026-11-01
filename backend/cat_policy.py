@@ -31,7 +31,7 @@ def refusal(text):
 # it reads coin data, crypto news and X, nothing else — no forms, no sign-ups, no uploads; its only sign-in is the user's own X login, typed by them.
 RESEARCH_HOSTS = ('x.com', 'twitter.com', 'coindesk.com', 'decrypt.co', 'theblock.co', 'cointelegraph.com', 'blockworks.co', 'dlnews.com',
                   'coinmarketcap.com', 'coingecko.com', 'dexscreener.com', 'birdeye.so', 'solscan.io', 'explorer.solana.com', 'rugcheck.xyz',
-                  'pump.fun', 'jup.ag', 'defillama.com', 'polymarket.com', 'kalshi.com', 'reddit.com', 'duckduckgo.com', 'feeless.app')
+                  'pump.fun', 'jup.ag', 'gmgn.ai', 'bubblemaps.io', 'defined.fi', 'solsniffer.com', 'defillama.com', 'polymarket.com', 'kalshi.com', 'reddit.com', 'duckduckgo.com', 'feeless.app')
 RESEARCH_ACTIONS = frozenset({'pull', 'answer', 'feeless', 'handoff', 'note', 'open', 'search', 'click', 'scroll', 'human', 'ask_login'})
 LOGIN_HOSTS = ('x.com', 'twitter.com')
 

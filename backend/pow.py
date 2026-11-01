@@ -60,8 +60,7 @@ def host_of(url):
 def links(p):
     """The coin's own research pages — opened straight from the PoW, never hunted for on a search page."""
     m, pa = p.get('mint') or '', p.get('pair') or ''
-    every = [f'https://dexscreener.com/solana/{pa or m}', f'https://rugcheck.xyz/tokens/{m}', f'https://solscan.io/token/{m}', f'https://birdeye.so/token/{m}?chain=solana',
-             f'https://jup.ag/tokens/{m}', f'https://pump.fun/coin/{m}', f'https://www.coingecko.com/en/search?query={m}']
+    every = _all_links(p)
     if p.get('order'):   # 🎲 the engine's order for this round (site_order): winners first, the rest shuffled, last folders' sites skipped
         rank = {h: i for i, h in enumerate(p['order'])}
         every = sorted([u for u in every if host_of(u) in rank], key=lambda u: rank[host_of(u)]) or every
@@ -75,10 +74,11 @@ def links(p):
 def _all_links(p):
     m, pa = p.get('mint') or '', p.get('pair') or ''
     return [f'https://dexscreener.com/solana/{pa or m}', f'https://rugcheck.xyz/tokens/{m}', f'https://solscan.io/token/{m}', f'https://birdeye.so/token/{m}?chain=solana',
-            f'https://jup.ag/tokens/{m}', f'https://pump.fun/coin/{m}', f'https://www.coingecko.com/en/search?query={m}']
+            f'https://jup.ag/tokens/{m}', f'https://pump.fun/coin/{m}', f'https://www.coingecko.com/en/search?query={m}', f'https://gmgn.ai/sol/token/{m}',
+            f'https://app.bubblemaps.io/sol/token/{m}', f'https://www.defined.fi/sol/{m}', f'https://solsniffer.com/scanner/{m}']   # 🌐 11 sources (never GeckoTerminal)
 
 
-HOSTS = ('dexscreener.com', 'rugcheck.xyz', 'solscan.io', 'birdeye.so', 'jup.ag', 'pump.fun', 'coingecko.com')
+HOSTS = ('dexscreener.com', 'rugcheck.xyz', 'solscan.io', 'birdeye.so', 'jup.ag', 'pump.fun', 'coingecko.com', 'gmgn.ai', 'app.bubblemaps.io', 'defined.fi', 'solsniffer.com')
 RECENT_FOLDERS = 2      # its last 2 folders' sites are skipped next time (owner 2026-11-01: "they can't check the same sites from the last researches")
 
 
@@ -86,13 +86,13 @@ def site_order(recent, wins, rnd=None):
     """🎲 Where a research round goes: the sites a WINNING folder used come first (they earned it), every other site in a random order,
     and the sites its last RECENT_FOLDERS folders read are left out — unless that leaves fewer than 3. → list of hosts."""
     import random as _r
-    rnd = rnd or _r.Random()
-    win = [h for h in HOSTS if h in set(wins or ())]
-    rest = [h for h in HOSTS if h not in win]; rnd.shuffle(rest)
-    fresh = [h for h in rest if h not in set(recent or ())]
-    if len(win) + len(fresh) < 3:
-        fresh += [h for h in rest if h not in fresh][:3 - len(win) - len(fresh)]
-    return win + fresh
+    rnd = rnd or _r.Random(); recent = set(recent or ())
+    win = [h for h in HOSTS if h in set(wins or ()) and h not in recent]; rnd.shuffle(win)
+    lead, later = win[:1], win[1:]   # 🎲 owner 2026-11-02 ("they keep checking rugcheck"): ONE unused winning source may lead; the other winners wait their turn
+    fresh = [h for h in HOSTS if h not in recent and h not in win and h not in set(wins or ())]; rnd.shuffle(fresh)
+    stale = [h for h in HOSTS if h in recent]; rnd.shuffle(stale)
+    out = lead + fresh + later
+    return (out + stale)[:max(3, len(out))]   # used sources only when fewer than 3 fresh are left
 
 
 def recent_mints(folders, n=10):

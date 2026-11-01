@@ -360,7 +360,7 @@ def test_a_new_research_round_never_reopens_the_sites_an_earlier_round_read():
     first = [pw.host_of(u) for u in pw.links(p)][:3]
     p2 = {**p, 'used': first}
     assert not set(first) & {pw.host_of(u) for u in pw.links(p2)} and 'jup.ag' in {pw.host_of(u) for u in pw.links(p2)}   # round 2 = new sources
-    assert len(pw.links({**p, 'used': [pw.host_of(u) for u in pw.links(p)]})) == 7            # all used → it cycles, never empty
+    assert len(pw.links({**p, 'used': [pw.host_of(u) for u in pw.links(p)]})) == len(pw.HOSTS)   # all used → it cycles, never empty
 
 
 def test_each_researched_site_files_two_snapshots_for_the_coins_folder():
@@ -452,11 +452,14 @@ def test_no_coin_twice_random_sites_skip_the_last_folders_and_every_folder_repor
     recent, wins = pw.site_memory(folders)
     assert recent == {'solscan.io', 'birdeye.so'} and wins == {'dexscreener.com', 'rugcheck.xyz'}
     o = pw.site_order(recent, wins, random.Random(1))
-    assert o[:2] == ['dexscreener.com', 'rugcheck.xyz'] and not set(o) & recent              # winners first, the last folders' sites skipped
+    assert o[0] in wins and o[1] not in wins and not set(o[:5]) & recent                    # ONE winning source leads, then fresh ones — the last folders' sites go last
+    many = [pw.site_order(set(), {'rugcheck.xyz', 'birdeye.so'}, random.Random(k)) for k in range(12)]
+    assert sum(1 for x in many if x[:3].count('rugcheck.xyz') + x[:3].count('birdeye.so') == 2) == 0   # never BOTH winners up front (owner: "they keep checking rugcheck")
+    assert len(pw.HOSTS) == 11 and all(__import__('cat_policy').research_ok(u) for u in pw._all_links({'mint': 'M', 'pair': 'P'}))   # 11 sources, all allowed for research
     orders = {tuple(pw.site_order(set(), set(), random.Random(k))) for k in range(6)}
     assert len(orders) > 1                                                                   # 🎲 random, not one fixed route
     p = {**pw.new({'mint': 'M', 'pair': 'P', 'sym': 'X'}, 0), 'order': o}
-    assert [pw.host_of(u) for u in pw.links(p)] == o
+    assert [pw.host_of(u) for u in pw.links(p)][:len(o)] == o
     f = {'name': 'PoW #9', 'coins': [{'mint': 'M', 'sym': 'X', 'src': 'pump'}, {'mint': 'N', 'sym': 'Y', 'src': 'dex', 'safe': False, 'risk': 'mint on'}],
          'pick': {'mint': 'M'}, 'sym': 'X', 'pnlPct': -4.2, 'pnlSol': -0.0003, 'why': 'stop: -4%', 'vitals': {'M': [{'site': 'rugcheck.xyz', 'label': 'risk score', 'value': 'GOOD'}]},
          'shots': [{'mint': 'M', 'site': 'rugcheck.xyz'}], 'cost': 0.05, 'talk': [{'by': 'A', 'text': 'buy X'}], 'boughtAt': 0, 'soldAt': 600}
@@ -581,7 +584,7 @@ def test_no_used_site_is_reopened_and_a_known_fact_is_never_filed_twice():
     p = {**pw.new({'mint': 'M', 'pair': 'P', 'sym': 'X'}, 0), 'used': ['rugcheck.xyz', 'feeless.app', 'jup.ag', 'dexscreener.com', 'solscan.io'],
          'order': ['rugcheck.xyz', 'solscan.io', 'jup.ag'], 'known': ['price', 'lp locked']}
     hosts = [pw.host_of(u) for u in pw.links(p)]
-    assert hosts and not set(hosts) & set(p['used']) and set(hosts) <= {'birdeye.so', 'pump.fun', 'coingecko.com'}   # only sites never read for this coin
+    assert hosts and not set(hosts) & set(p['used']) and set(hosts) <= set(pw.HOSTS) - set(p['used'])   # only sites never read for this coin
     ok, why = pw.pull(p, 'https://birdeye.so/token/M', 'price', '$0.0074')
     assert not ok and 'already in this coin' in why and 'holders' in why                     # it is told what is still unknown
     assert pw.pull(p, 'https://birdeye.so/token/M', 'holders', '2,140')[0]
