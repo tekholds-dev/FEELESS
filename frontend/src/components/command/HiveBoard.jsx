@@ -138,32 +138,34 @@ function ColonyScreen({ a, w, side, tick }) {
   if (a.incognito) body = <span className="cl-off is-incog"><b aria-hidden="true">🕶</b>incognito</span>;
   else if (w?.frozen) body = <span className="cl-off is-frozen"><b aria-hidden="true">❄</b>paused — its owner is signing in</span>;
   else if (w?.screen && !bad) body = <img src={apiUrl(`/api/cats/${a.id}/screen/${w.i}${w.last ? '' : `?t=${tick}`}`)} alt={`${a.name}'s window ${side}`} loading="lazy" onError={() => setBad(true)} />;
-  else body = <span className="cl-off"><i className="cl-scan" aria-hidden="true" /><b aria-hidden="true">{a.kind === 'trading' ? '📈' : '🧭'}</b>{a.status === 'working' ? 'loading the screen…' : a.kind === 'trading' ? 'reading the trenches' : 'waiting for its next job'}</span>;
+  else if (a.status === 'working' || w?.status === 'working') body = <span className="cl-off"><i className="cl-scan" aria-hidden="true" />loading the screen…</span>;
+  else body = <span className="cl-desk" aria-label="idle — its desktop"><i className="cl-desk-glow" aria-hidden="true" /><b className="cl-desk-mark" aria-hidden="true">FEELESS</b>   {/* 🖥 idle = its desktop (owner 2026-11-01) */}
+    <span className="cl-desk-icons" aria-hidden="true"><i className="is-v" /><i className="is-p" /><i className="is-h" /><i className="is-f" /></span>
+    <span className="cl-desk-bar" aria-hidden="true"><u /><em>{a.kind === 'trading' ? 'trader · idle' : 'idle'}</em></span></span>;
   return <span className={`cl-scr${w?.status === 'working' ? ' is-go' : ''}`} data-testid={`cl-scr-${a.id}-${side}`}>
     <span className="cl-bar"><i /><i /><i /><b>{host}</b>{w?.last && !a.incognito ? <em className="cl-last">LAST PAGE</em> : w?.status === 'working' ? <em className="cl-rec">● LIVE</em> : null}</span>
     <span className="cl-view">{body}{a.incognito || w?.frozen ? null : <AiCursor c={w?.cursor} kind={readCursor()} />}<small className="cl-model">{side} · {w?.model || a.brains?.[side === 'A' ? 0 : 1] || '—'}</small></span></span>;
 }
-function ColonyCell({ a, face, onOpen, i, top, extra }) {
+function ColonyCell({ a, onOpen, i, top, extra }) {
   const ref = useRef(null); const seen = useSeen(ref); const [tick, setTick] = useState(0); const live = a.windows?.some(w => w.status === 'working');
   useEffect(() => { if (!seen || !live) return undefined; const t = setInterval(() => { if (!document.hidden) setTick(x => x + 1); }, 5000); return () => clearInterval(t); }, [seen, live]);
   const wins = [0, 1].map(k => a.windows?.find(w => w.i === k) || a.windows?.[k] || null);
   const c = a.last; const seenAt = useRef(a.carrying?.at); const [drop, setDrop] = useState(null);
   useEffect(() => { const t = a.carrying?.at; if (!t || t === seenAt.current) return undefined; seenAt.current = t; setDrop(a.carrying.text); const k = setTimeout(() => setDrop(null), 2600); return () => clearTimeout(k); }, [a.carrying?.at, a.carrying?.text]);   // 🗄 a NEW keep drops into the agent
   return <article ref={ref} className={`cl-cell${a.colonized ? ' is-col' : ''}${live ? ' is-go' : ''}`} style={{ '--i': i }} data-testid={`cl-${a.id}`}>
-    <div className="cl-stage"><ColonyScreen a={a} w={wins[0]} side="A" tick={tick} />
-      <button type="button" className="cl-face" onClick={() => onOpen?.(a)} data-tip={`Open ${a.name}'s desk`} aria-label={`Open ${a.name}`}><span className="cl-halo" aria-hidden="true" />{face ? face(a) : null}
-        {drop ? <span className="cl-drop" key={a.carrying.at} aria-hidden="true" data-testid={`cl-drop-${a.id}`}>🗄 {drop}</span> : null}</button>
-      <ColonyScreen a={a} w={wins[1]} side="B" tick={tick} /></div>
-    <footer className="cl-foot">
-      <span className="cl-who"><b>{a.name}</b><small>{a.kind === 'general' ? '🧭 GENERAL' : '📈 TRADER'} · LVL {a.level || 1}{a.colonized ? ' · 🐝 COLONIZED' : ''}</small></span>
+    <header className="cl-foot">
+      <button type="button" className="cl-who" onClick={() => onOpen?.(a)} data-tip={`Open ${a.name}'s desk`}><i className={`cl-dot${live ? ' is-go' : ''}`} aria-hidden="true" /><b>{a.name}</b><small>{a.kind === 'general' ? 'GENERAL' : 'TRADER'} · LVL {a.level || 1}{a.colonized ? ' · 🐝 COLONIZED' : ''}</small></button>
+      <small className={`cl-carry${drop ? ' is-new' : ''}`} data-tip="What it stored last — it goes into its drawer">› {a.carrying ? <>carrying “{a.carrying.text}” to its drawer</> : a.status === 'working' ? 'reading — nothing kept yet' : 'nothing carried yet'}</small>
+      {drop ? <span className="cl-drop" key={a.carrying.at} aria-hidden="true" data-testid={`cl-drop-${a.id}`}>🗄 {drop}</span> : null}
+      {c ? <span className={`cl-call ${CALL[c.call] || ''}${c.honey > 0 ? ' is-right' : c.honey < 0 ? ' is-wrong' : ''}`} data-tip={`${c.call} $${c.sym} — ${c.why}`}>{c.call} ${c.sym}<em>{c.honey == null ? '⏳' : `${c.honey > 0 ? '+' : ''}${c.honey}`}</em></span> : <span className="cl-call is-none">no call yet</span>}
       <span className="cl-honey" data-tip={`${a.honey} honey this epoch · ${a.right}/${a.graded} graded calls right`}><em>🍯</em><b className={`m-num ${a.honey < 0 ? 'is-dn' : ''}`} key={a.honey}>{a.honey > 0 ? '+' : ''}{a.honey}</b>
         <i aria-hidden="true"><u className={a.honey < 0 ? 'is-dn' : ''} style={{ transform: `scaleX(${Math.max(0.04, Math.min(1, Math.abs(a.honey) / Math.max(1, top)))})` }} /></i><small>{a.right}/{a.graded} right</small></span>
-      <small className={`cl-carry${drop ? ' is-new' : ''}`} data-tip="What it stored last — it goes into its drawer">› {a.carrying ? <>carrying “{a.carrying.text}” to its drawer</> : a.status === 'working' ? 'reading — nothing kept yet' : 'nothing carried yet'}</small>
       {extra ? extra(a) : null}
-      {c ? <span className={`cl-call ${CALL[c.call] || ''}${c.honey > 0 ? ' is-right' : c.honey < 0 ? ' is-wrong' : ''}`} data-tip={`${c.call} $${c.sym} — ${c.why}`}>{c.call} ${c.sym}<em>{c.honey == null ? '⏳' : `${c.honey > 0 ? '+' : ''}${c.honey}`}</em></span> : <span className="cl-call is-none">no call yet</span>}
-    </footer></article>;
+    </header>
+    <div className="cl-stage"><ColonyScreen a={a} w={wins[0]} side="A" tick={tick} /><ColonyScreen a={a} w={wins[1]} side="B" tick={tick} /></div>
+  </article>;
 }
-export function ColonyGrid({ api, face, onOpen, ids, extra }) {
+export function ColonyGrid({ api, onOpen, ids, extra }) {
   const [rows, setRows] = useState([]); const [meta, setMeta] = useState(null); const [err, setErr] = useState(''); const pageRef = useRef(0); const busy = useRef(false); const end = useRef(null); const seeEnd = useSeen(end);
   const load = useCallback(async (page, replace) => { if (busy.current) return; busy.current = true;
     try { const x = await api(`/api/cats/colony?page=${page}${ids ? `&ids=${encodeURIComponent(ids)}` : ''}`); if (!x || !Array.isArray(x.agents)) throw new Error('The colony did not answer.');
@@ -174,9 +176,9 @@ export function ColonyGrid({ api, face, onOpen, ids, extra }) {
   const top = Math.max(1, ...rows.map(r => Math.abs(r.honey || 0)));
   return <section className={`cl${ids ? ' is-mine' : ''}`} data-testid={ids ? 'colony-mine' : 'colony'}>
     {ids ? null : <header className="cl-head"><span><small>THE COLONY</small><b>{meta ? <><em className="m-num">{meta.colonized}</em> colonized · <em className="m-num">{meta.total}</em> agents</> : 'reading the colony…'}</b></span>
-      <p>Every agent's two windows, live — the drawn agent between them. Colonized agents file graded calls and their trades are graded before and after; honey splits the colony pot's growth.</p></header>}
+      <p>Every agent's two windows, live — an idle one shows its desktop. Colonized agents file graded calls and their trades are graded before and after; honey splits the colony pot's growth.</p></header>}
     {err && !rows.length ? <p className="hv-nil">{err}</p> : null}
-    <div className="cl-grid">{rows.map((a, k) => <ColonyCell key={a.id} a={a} face={face} onOpen={onOpen} i={k % 10} top={top} extra={extra} />)}</div>
+    <div className="cl-grid">{rows.map((a, k) => <ColonyCell key={a.id} a={a} onOpen={onOpen} i={k % 10} top={top} extra={extra} />)}</div>
     <span ref={end} className="cl-end" aria-hidden="true">{meta?.more ? 'more agents…' : null}</span>
     {ids ? null : <HiveBoard api={api} />}
   </section>;

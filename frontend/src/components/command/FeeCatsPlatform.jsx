@@ -216,13 +216,13 @@ export default function FeeCatsPlatform() {
     {view === 'create' && isStaff && <CreateCat onCreated={created} onCancel={() => setView('cats')} presetAvatar={presetAvatar} />}
     {view === 'cat' && selected && <CatDetail onDeleted={id => { setCats(c => c.filter(x => x.id !== id)); setSelected(null); setView('cats'); }} cat={selected} onBack={() => setView('cats')} onChanged={cat => { setSelected(cat); setCats(current => current.map(item => item.id === cat.id ? cat : item)); }} />}
     {view === 'launch' && <LaunchCat key={kind} kind={kind} api={api} ownerId={ownerId} onCreated={created} onCancel={() => setView('cats')} Fields={CatFields} newForm={() => catForm(presetAvatar)} formOk={catOk} avatarOf={i => (CAT_VARIATIONS[i] || CAT_VARIATIONS[0])[0]} Preview={CatPreview} />}
-    {view === 'colony' && <ColonyGrid api={api} onOpen={openById} face={a => <LookAvatar cat={catByName(a.avatar)} look={a.look} size={48} />} />}
+    {view === 'colony' && <ColonyGrid api={api} onOpen={openById} />}
     {view === 'cats' && isAdmin ? <Suspense fallback={null}><ProfileFeeBanner mine onOpen={() => openById({ id: 'leader' })} /></Suspense> : null}
     {view === 'cats' ? <SignInGate onIn={loadCats} /> : null}
     {view === 'cats' ? <RecoverAgent onBack={cat => { loadCats(); openCat(cat); }} /> : null}
     {view === 'cats' && <section className="paper-my-cats">{!cats.length ? <><div className="paper-panel-head"><div><span className="eyebrow">YOUR AGENTS · 0/{agentMax}</span><h2>No cats on the job yet — pick a brain.</h2></div></div><AgentPicker count={0} onPick={pickKind} staff={isStaff} max={agentMax} /></>
       : <><div className="paper-panel-head"><div><span className="eyebrow">YOUR AGENTS · {live.length}/{agentMax}</span><h2>Tap a cat to see its desk</h2></div><button type="button" className="btn-outline" onClick={() => setView('new')} disabled={live.length >= agentMax}><Plus size={14} /> New agent</button></div>
-        <ColonyGrid api={api} ids={cats.map(c => c.id).join(',')} onOpen={a => { const cat = cats.find(x => x.id === a.id); if (cat) openCat(cat); }} face={a => <LookAvatar cat={catByName(a.avatar)} look={a.look} size={48} />}
+        <ColonyGrid api={api} ids={cats.map(c => c.id).join(',')} onOpen={a => { const cat = cats.find(x => x.id === a.id); if (cat) openCat(cat); }}
           extra={a => { const cat = cats.find(x => x.id === a.id); if (!cat) return null; const real = cat.mode === 'real' && !!cat.realWallet; const pend = (cat.proposals || []).filter(p => p.status === 'pending').length;   // 🐱 your agents = the same Colony cells (Crawl-size windows) + your own buttons
             return <span className="cl-acts" data-testid={`cw-${cat.id}`}><button type="button" className={`cw-go ${real ? 'is-real' : ''}`} onClick={() => openReal(cat)} data-testid={`cw-go-${cat.id}`}
               data-tip={real ? `REAL on ${cat.realWallet.slice(0, 4)}…${cat.realWallet.slice(-4)} — open its live proposals` : 'Switch this cat to REAL: pick a per-buy budget, it proposes, your wallet signs every trade'}>

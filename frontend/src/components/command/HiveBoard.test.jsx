@@ -48,14 +48,14 @@ test('🐝 the Colony / My agents cells: two windows (a real screen, its last pa
     { id: 't1', name: 'Fee', kind: 'trading', brains: ['n/a'], status: 'idle', honey: 0, right: 0, graded: 0, windows: [{ i: 0, status: 'done', screen: true, last: true }], last: null }];
   const api = async u => { asked.push(u); return { agents, page: 0, more: false, total: 2, colonized: 1 }; };
   const el = document.createElement('div'); document.body.appendChild(el);
-  await act(async () => { createRoot(el).render(<ColonyGrid api={api} ids="g1,t1" face={a => <i data-testid={`face-${a.id}`} />} extra={a => <button data-testid={`x-${a.id}`}>go</button>} />); });
+  await act(async () => { createRoot(el).render(<ColonyGrid api={api} ids="g1,t1" extra={a => <button data-testid={`x-${a.id}`}>go</button>} />); });
   expect(asked[0]).toContain('ids=g1%2Ct1'); expect(el.querySelector('[data-testid="colony-mine"]')).not.toBeNull(); expect(el.querySelector('[data-testid="hive"]')).toBeNull();   // mine: no board
   expect(el.querySelector('[data-testid="cl-scr-g1-A"] img').getAttribute('src')).toContain('/api/cats/g1/screen/0?t=');
   expect(el.querySelector('[data-testid="cl-scr-g1-B"]').textContent).toContain('signing in');
   expect(el.querySelector('[data-testid="cl-scr-t1-A"] img').getAttribute('src')).toMatch(/screen\/0$/); expect(el.querySelector('[data-testid="cl-scr-t1-A"]').textContent).toContain('LAST PAGE');
   expect(el.querySelector('[data-testid="cl-scr-t1-A"] [data-testid="cwb-cursor"]').className).toContain('is-rest');   // 🖱 always on, resting before its first move
   expect(el.querySelector('[data-testid="cl-g1"]').textContent).toContain('carrying “validator” to its drawer');
-  expect(el.querySelector('[data-testid="face-g1"]')).not.toBeNull(); expect(el.querySelector('[data-testid="x-t1"]')).not.toBeNull(); expect(el.querySelector('[data-testid="cl-g1"]').textContent).toContain('+3');
+  expect(el.querySelector('[data-testid="x-t1"]')).not.toBeNull(); expect(el.querySelector('[data-testid="cl-g1"]').textContent).toContain('+3');
 });
 
 test('⛏ the PoW engine: the hard rules as a pipeline, live numbers, and each proof with its vitals per site, call and honey', async () => {
