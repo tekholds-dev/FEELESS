@@ -59,7 +59,11 @@ def host_of(url):
 def links(p):
     """The coin's own research pages — opened straight from the PoW, never hunted for on a search page."""
     m, pa = p.get('mint') or '', p.get('pair') or ''
-    return [f'https://dexscreener.com/solana/{pa or m}', f'https://rugcheck.xyz/tokens/{m}', f'https://solscan.io/token/{m}', f'https://birdeye.so/token/{m}?chain=solana']
+    every = [f'https://dexscreener.com/solana/{pa or m}', f'https://rugcheck.xyz/tokens/{m}', f'https://solscan.io/token/{m}', f'https://birdeye.so/token/{m}?chain=solana',
+             f'https://jup.ag/tokens/{m}', f'https://pump.fun/coin/{m}', f'https://www.coingecko.com/en/search?query={m}']
+    used = set(p.get('used') or ())   # 🔁 a new round never re-opens a site an earlier round of this folder already read (owner 2026-11-01)
+    fresh = [u for u in every if host_of(u) not in used]
+    return fresh if len(fresh) >= 2 else every
 
 
 def new(coin, now):

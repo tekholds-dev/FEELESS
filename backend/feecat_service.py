@@ -1462,9 +1462,12 @@ async def _pow2_tick(http, store, cat, now):
         if f.get('rr') != f.get('rounds'):   # this round's CA research starts NOW, beside the watch
             f['rr'] = f.get('rounds'); f['researchAt'] = round(now); f['researchTask'] = False
             if not w_ or w_.get('done'):
-                rp = {**_pow.new({'mint': f['mint'], 'pair': f['pair'], 'sym': f['sym']}, now), 'mind': researcher, 'folder': f['id']}
+                rp = {**_pow.new({'mint': f['mint'], 'pair': f['pair'], 'sym': f['sym']}, now), 'mind': researcher, 'folder': f['id'], 'used': list(f.get('used') or [])}
                 try:
                     _work_start(cat['id'], cat, _pow.goal(rp), str(b0 + researcher), None, rp); f['researchTask'] = True
+                    t_new = _WORK[cat['id']]['task']   # 📦 the watcher's chart read rides into the researcher's round; the folder's 3-step plan is its plan
+                    t_new['handoffs'] = [{'from': 'watcher', 'text': f"chart watcher on ${f['sym']}: {_pow.chart_line(f.get('chart'))} · P/L {_pow.pnl_pct(f.get('entry') or 0, (f.get('chart') or [{}])[-1].get('px') or 0):+.1f}%"}]
+                    t_new['powPlan'] = list(f.get('plan') or [])
                 except HTTPException:
                     pass
         mine_ = bool(f.get('researchTask')) and (t_.get('pow') or {}).get('folder') == f['id']
@@ -1473,6 +1476,7 @@ async def _pow2_tick(http, store, cat, now):
             asyncio.create_task(_hard_stop(w_, 0)); running = False   # ⏱ a research round is 2.5 min
         if mine_ and not running and f.get('rf') != f.get('rounds'):   # its vitals reach the folder (and the watcher) as soon as the round ends
             f['rf'] = f.get('rounds'); pub_ = _pow.public(t_['pow']); f['research'] = ((f.get('research') or []) + pub_['pulls'])[-12:]
+            f['used'] = sorted(set(f.get('used') or []) | set((t_['pow'].get('sites') or {}).keys()) | set(t_['pow'].get('walled') or []))   # next round: new sites
             _pow2_say(f, names[researcher] if researcher < len(names) else 'mind', f"research: {' · '.join(x['label'] + ' ' + x['value'] for x in pub_['pulls'][:4]) or 'no vitals this round'}")
         f['phase'] = 'research' if running else 'watch'
         if not running and now - f['phaseAt'] >= _pow.WATCH_S:

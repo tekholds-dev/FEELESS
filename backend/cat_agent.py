@@ -250,6 +250,8 @@ async def _window(task, w, ask, page, wait_human, name, feeless=None):
     seen = ''
     n_max = int(task.get('stepsMax') or STEP_MAX)
     pw = task.get('pow') if w['i'] == 0 else None   # ⛏ a Proof-of-Work run (pow.py): its rules are code, whatever the model
+    if pw and task.get('powPlan'):   # 🗺 a folder's research round follows the folder's ONE joint plan — no second plan of its own
+        w['plan'] = list(task['powPlan'])[:3]
     site = _pow.start_url(pw) if pw else named_site(w['goal']) or (None if str(page.url or '').startswith('http') else SEARCH_URL + quote_plus(search_terms(w['goal'])))   # 🔎 a blank window starts on a search
     if site and (research_ok(site) if task.get('research') else True):   # 🧭 the ask names a site → its window opens there first (a model once answered "I haven't visited pump.fun")
         try:

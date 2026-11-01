@@ -308,3 +308,11 @@ def test_the_minds_set_size_tp_sl_clamped_to_the_wallet_budget_and_agree_on_the_
     assert pw.agree_trade([a, b]) == {'sol': 0.01, 'sl': 5.0, 'tp': 115.0}                 # smaller size, tighter stop, average target
     assert 'stop' in pw.hard_exit(1.0, 0.94, 0, 60, 0, tp=115, sl=5) and pw.hard_exit(1.0, 1.5, 0, 60, 0, tp=115, sl=5) is None
     assert 'CAPITALIZING' in pw.README                                                       # they know why: profit funds their own processing + capital
+
+
+def test_a_new_research_round_never_reopens_the_sites_an_earlier_round_read():
+    p = pw.new({'mint': 'M', 'pair': 'P', 'sym': 'CAT'}, 0)
+    first = [pw.host_of(u) for u in pw.links(p)][:3]
+    p2 = {**p, 'used': first}
+    assert not set(first) & {pw.host_of(u) for u in pw.links(p2)} and 'jup.ag' in {pw.host_of(u) for u in pw.links(p2)}   # round 2 = new sources
+    assert len(pw.links({**p, 'used': [pw.host_of(u) for u in pw.links(p)]})) == 7            # all used → it cycles, never empty
