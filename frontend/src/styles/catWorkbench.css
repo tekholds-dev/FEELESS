@@ -673,3 +673,9 @@ body.theme-day .dsk-share { background: #fffaf0; } body.theme-day .dsk-share b {
 .dsk-potsend > span:first-child { display: grid; gap: 2px; } .dsk-potsend b { color: #ffd76a; font: 800 10px var(--f-mono); letter-spacing: .14em; } .dsk-potsend small { color: #c8bde6; font: 600 10.5px var(--f-ui); }
 .dsk-potsend a { color: #45e486; } .dsk-potsend a:focus-visible { outline: 2px solid #45e486; }
 body.theme-day .dsk-potsend { background: #fffaf0; } body.theme-day .dsk-potsend b { color: #8a5a00; } body.theme-day .dsk-potsend small { color: #2d2150; }
+
+.cwb-live-dot { display: inline-block; width: 6px; height: 6px; margin-right: 5px; border-radius: 50%; background: #45e486; box-shadow: 0 0 8px #45e486; animation: cwbLiveDot 1.4s ease-in-out infinite; vertical-align: middle; }
+@keyframes cwbLiveDot { 50% { opacity: .3; } } body.fx-lite .cwb-live-dot { animation: none; } @media (prefers-reduced-motion: reduce) { .cwb-live-dot { animation: none; } }
+
+.dsk-fold-acts { display: flex; flex-wrap: wrap; gap: 6px; justify-content: flex-end; } .dsk-fold-acts .m-btn { min-height: 32px; }
+.dsk-fold-acts .m-btn.is-on { border-color: #f5c54288; color: #ffd76a; } .dsk-fold-acts .m-btn.is-danger { border-color: #ff8fa3; color: #ff8fa3; background: #ff8fa314; }

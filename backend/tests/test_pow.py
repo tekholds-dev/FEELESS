@@ -601,3 +601,21 @@ def test_a_research_round_reviews_the_coins_archive_first_new_sites_new_facts(mo
     rp = seen['pw']; t = fs._WORK.pop('h1')['task']
     assert 'lp locked' in rp['known'] and {'rugcheck.xyz', 'feeless.app'} <= set(rp['used'])   # the last research's facts + sites are not repeated
     assert 'PRIOR PoW: researched 1×' in rp['prior'] and 'do NOT repeat it' in t['handoffs'][-1]['text']
+
+
+def test_keep_and_delete_pow_folders_on_the_desktop_never_the_archive(monkeypatch, tmp_path):
+    import feecat_service as fs
+    rows = [{'id': f'p{i}'} for i in range(35)]; rows[0]['kept'] = True
+    left = pw.trim_folders(rows); assert len(left) == 31 and left[0]['id'] == 'p0' and left[1]['id'] == 'p5'   # 📌 a kept folder survives the trim
+    monkeypatch.setattr(fs, 'POWSHOTS_DIR', tmp_path); monkeypatch.setattr(fs, 'POW_ARCHIVE', tmp_path / 'a.jsonl')
+    (tmp_path / 'pow1').mkdir(); (tmp_path / 'pow1' / 'mx_r0_rugcheck.xyz_1.jpg').write_bytes(b'j'); (tmp_path / 'pow1' / 'q_r0_a.com_1.jpg').write_bytes(b'j')
+    fs._pow_archive_add({'kind': 'research', 'mint': 'MX'})
+    cat = {'id': 'h1', 'powFolders': [{'id': 'pow1', 'shots': [{'mint': 'MX', 'file': 'mx_r0_rugcheck.xyz_1.jpg'}, {'mint': 'Q', 'file': 'q_r0_a.com_1.jpg'}]}, {'id': 'pow2'}]}
+    store = {'cats': {'h1': cat}}
+    monkeypatch.setattr(fs, '_load', lambda: store); monkeypatch.setattr(fs, '_save', lambda s: None); monkeypatch.setattr(fs, '_owner_gate', lambda *a, **k: 'OWNER')
+    go = lambda **k: asyncio.run(fs.cat_work('h1', fs.WorkPayload(op='pow_folder', session='s', **k)))   # noqa: E731
+    go(text='pow2', job='keep', on=True); assert cat['powFolders'][1]['kept']
+    go(text='pow1', job='delete_coin', secret='MX'); f = cat['powFolders'][0]
+    assert f['hidden'] == ['MX'] and [x['mint'] for x in f['shots']] == ['Q'] and not (tmp_path / 'pow1' / 'mx_r0_rugcheck.xyz_1.jpg').exists()
+    go(text='pow1', job='delete'); assert [x['id'] for x in cat['powFolders']] == ['pow2'] and not (tmp_path / 'pow1').exists()
+    assert len(fs._pow_archive_rows()) == 1                                                  # 🗄 the archive keeps everything: the next PoW still avoids repeats

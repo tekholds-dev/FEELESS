@@ -1,4 +1,5 @@
-import React, { Suspense, lazy } from 'react';
+import React, { Suspense, lazy, useEffect, useRef, useState } from 'react';
+import { useLivePrice } from '../../lib/livePriceHub';
 import { Bubble } from './LaunchCat';
 import '../../styles/agentDemo.css';
 
@@ -52,6 +53,25 @@ export function MindsRow({ minds = [], cloud }) {
   return <div className={`agl-minds${cloud ? ' has-cloud' : ''}`} data-testid="minds-row">{mind(0)}{cloud ? <HeadCloud items={cloud} /> : null}{mind(1)}</div>;
 }
 
+// 📈 an open coin's P&L ticks on the shared 2 s price poll (owner 2026-11-02: "a live pnl"); a sold coin keeps its exit numbers
+function WinVitals({ c }) {
+  const lp = useLivePrice(c?.open && c.mint ? { chainId: 'solana', baseToken: { address: c.mint } } : null);
+  const live = c?.open && lp.usd && c.entry > 0 ? { ...c, pct: (lp.usd / c.entry - 1) * 100 } : c;
+  const rows = coinVitals(live);
+  return rows.length ? <dl className={`agl-vit${c?.open ? ' is-live' : ''}`} data-tip={c.why || undefined}>{rows.map(([k, v, t]) => <div key={k}><dt>{k === 'P&L' && c?.open ? <><i className="agl-live-dot" aria-hidden="true" />P&L LIVE</> : k}</dt><dd className={`m-num ${t ? `is-${t}` : ''}`} key={v}>{v}</dd></div>)}</dl> : null;
+}
+// 🗂 its decisions as TOASTS (owner 2026-11-02: "stuff overflowing at the bottom — it should stack for seconds then disappear off into the folder"):
+// each new line rides over the bottom of the windows for TOAST_MS, then drops into the folder (no growing list under the charts)
+export const TOAST_MS = 6000;
+export function FeedToasts({ feed = [] }) {
+  const [items, setItems] = useState([]); const seen = useRef(null);
+  useEffect(() => { const prev = seen.current; seen.current = new Set(feed);
+    if (!prev) { setItems(feed.slice(-1).map(t => ({ t, at: Date.now() }))); return; }
+    const fresh = feed.filter(t => !prev.has(t)); if (fresh.length) setItems(x => [...x, ...fresh.map(t => ({ t, at: Date.now() }))].slice(-3)); }, [feed]);
+  useEffect(() => { if (!items.length) return undefined; const t = setInterval(() => setItems(x => x.map(i => (Date.now() - i.at > TOAST_MS && !i.out ? { ...i, out: true } : i)).filter(i => !(i.out && Date.now() - i.at > TOAST_MS + 700))), 350);
+    return () => clearInterval(t); }, [items.length]);
+  return <ol className="agd-feed agd-toasts" aria-live="polite" data-testid="agd-toasts">{items.map(i => <li key={`${i.at}-${i.t}`} className={i.out ? 'is-out' : ''}>{i.t}</li>)}</ol>;
+}
 export function AgentLive({ title = 'LIVE', minds = [], coins = [], feed = [], callouts, testId = 'agent-live', cloud, locked = false }) {   // locked: a visitor watches, never drives (no zoom / pan on its charts)
   return <section className={`agd agl is-trading${locked ? ' is-locked' : ''}`} data-testid={testId}>
     <i className="agd-hex" aria-hidden="true" /><i className="agd-scan" aria-hidden="true" />
@@ -64,8 +84,8 @@ export function AgentLive({ title = 'LIVE', minds = [], coins = [], feed = [], c
         {c ? <div className="agl-plot"><Suspense fallback={<span className="agl-load">loading ${c.symbol}'s live chart…</span>}>
           <PriceChart key={c.pair} pair={{ chainId: 'solana', pairAddress: c.pair, baseToken: { address: c.mint, symbol: c.symbol } }} interval="1m" metric="price" showVolume={false} userEntry={c.entry || null} callouts={callouts ? callouts(c.pair) : undefined} />
         </Suspense></div> : <div className="agl-ghost"><span>◌ watching the trenches — its next coin opens here, live</span></div>}
-        {coinVitals(c).length ? <dl className="agl-vit" data-tip={c.why || undefined}>{coinVitals(c).map(([k, v, t]) => <div key={k}><dt>{k}</dt><dd className={`m-num ${t ? `is-${t}` : ''}`} key={v}>{v}</dd></div>)}</dl> : null}
+        <WinVitals c={c} />
       </div>; })}</div>
-    {feed.length ? <ol className="agd-feed" aria-live="polite">{feed.slice(-3).map((l, i) => <li key={`${i}-${l}`}>{l}</li>)}</ol> : null}
+    <FeedToasts feed={feed} />
   </section>;
 }

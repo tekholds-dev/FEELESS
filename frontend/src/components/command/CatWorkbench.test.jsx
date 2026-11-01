@@ -457,3 +457,23 @@ test('🗂 Jobs is a folder tree: Jobs › a request (👍/👎 tinted) › MIND
   expect(q('dsk-jobs').textContent).toContain('Meteora SOL/USDC'); expect(q('dsk-jobs').textContent).toContain('👍 you liked it');
   act(() => root.unmount());
 });
+
+test('📌 keep / 🗑 delete a PoW folder or one coin folder from the desktop (delete asks twice)', async () => {
+  const { AgentDesktop } = require('./CatWorkbench');
+  sessionStorage.clear(); document.body.innerHTML = ''; const posts = [];
+  const fold = { id: 'pow9', name: 'PoW #9 · Nov 01', status: 'closed', phase: 'done', coins: [{ mint: 'M1', sym: 'AAA', src: 'pump' }, { mint: 'M2', sym: 'BBB', src: 'dex' }], shots: [] };
+  global.fetch = async (u, o) => { const b = o?.body ? JSON.parse(o.body) : {}; if (b.op === 'pow_folder') posts.push(b);
+    const kept = { ...fold, kept: true }; const out = b.op === 'pow_folder' ? { powFolders: b.job === 'delete' ? [] : [b.job === 'delete_coin' ? { ...kept, hidden: ['M2'] } : kept] } : { powFolders: [fold], rows: [] };
+    return { ok: true, json: async () => out }; };
+  const el = document.createElement('div'); document.body.appendChild(el); const root = createRoot(el);
+  await act(async () => { root.render(<AgentDesktop cat={{ id: 'h1', name: 'Happy' }} onClose={() => {}} start="pow" />); });
+  const q = id => document.querySelector(`[data-testid="${id}"]`);
+  await act(async () => { q('dsk-x-pow9').click(); }); await act(async () => { q('dsk-fold-keep').click(); });
+  expect(posts.at(-1)).toMatchObject({ op: 'pow_folder', job: 'keep', text: 'pow9', on: true }); expect(q('dsk-fold-keep').textContent).toContain('Kept');
+  await act(async () => { q('dsk-x-coin-M2').click(); }); await act(async () => { q('dsk-coin-del').click(); });
+  expect(posts).toHaveLength(1); await act(async () => { q('dsk-coin-del').click(); });                      // asks twice
+  expect(posts.at(-1)).toMatchObject({ job: 'delete_coin', secret: 'M2' }); expect(q('dsk-x-coin-M2')).toBeNull();
+  await act(async () => { q('dsk-fold-del').click(); }); await act(async () => { q('dsk-fold-del').click(); });
+  expect(posts.at(-1)).toMatchObject({ job: 'delete', text: 'pow9' }); expect(q('dsk-x-pow9')).toBeNull();
+  act(() => root.unmount());
+});

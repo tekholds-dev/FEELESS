@@ -112,3 +112,16 @@ test('🔓 signed-in sites sit inside Credentials: saved rows show site + cookie
   expect(JSON.parse(global.fetch.mock.calls[0][1].body)).toMatchObject({ op: 'signin_open', text: 'x.com' });
   expect(document.querySelector('[data-testid="cwb-pop-frame"]').getAttribute('src')).toBe('https://steel/live'); global.fetch = f;
 });
+
+test('🗂 its decisions are toasts: a new line rides over the windows for a few seconds, then drops into the folder — never a growing list', async () => {
+  jest.useFakeTimers();
+  const { FeedToasts, TOAST_MS } = require('./AgentLive');
+  const el = document.createElement('div'); const root = createRoot(el);
+  await act(async () => { root.render(<FeedToasts feed={['🧠 A · SKIP $SIS']} />); });
+  expect(el.querySelectorAll('.agd-toasts li').length).toBe(1);
+  await act(async () => { root.render(<FeedToasts feed={['🧠 A · SKIP $SIS', '🧠 A · SKIP $KIM', '🧠 A · BUY $GATO']} />); });
+  expect(el.querySelectorAll('.agd-toasts li').length).toBe(3);
+  await act(async () => { jest.advanceTimersByTime(TOAST_MS + 400); }); expect(el.querySelectorAll('.agd-toasts li.is-out').length).toBe(3);   // they drop into the folder…
+  await act(async () => { jest.advanceTimersByTime(1200); }); expect(el.querySelectorAll('.agd-toasts li').length).toBe(0);              // …and are gone
+  act(() => root.unmount()); jest.useRealTimers();
+});

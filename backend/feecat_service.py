@@ -1477,7 +1477,7 @@ def _pow2_close(cat, f, why, now, exit_px=0.0):
         d_ = POWSHOTS_DIR / re.sub(r'[^a-z0-9]', '', f['id']); d_.mkdir(parents=True, exist_ok=True); (d_ / 'report.md').write_text(md_)
     except OSError as e:
         print(f'[pow2] report not kept: {e}')
-    cat['powFolders'] = ((cat.get('powFolders') or []) + [_pow.folder_public(f)])[-_pow.FOLDERS_KEEP:]
+    cat['powFolders'] = _pow.trim_folders((cat.get('powFolders') or []) + [_pow.folder_public(f)])   # 📌 kept folders are never trimmed
     won = (f.get('pnlPct') or 0) > 0
     b_['cloud'] = ((b_.get('cloud') or []) + [{'at': now, 'word': 'WIN' if won else 'PoW', 'sym': f.get('sym') or '', 'by': ['pow'],
                     'text': f"⛏ {f['name']}: {('$' + f['sym']) if f.get('sym') else 'no buy'} — {why}" + (f" · {f['pnlPct']:+.1f}%" if f.get('pnlPct') is not None else '')}])[-_lc.CLOUD_MAX:]
@@ -3706,6 +3706,28 @@ async def cat_work(cat_id: str, p: WorkPayload):
         if c_:
             c_['walletSwaps'] = ((c_.get('walletSwaps') or []) + [row_])[-20:]; _save(st_)
         return {'address': addr_, 'sol': after_[1], 'usdc': after_[0], 'gas': _at.GAS_SOL, 'canSwap': True, 'swap': row_, 'swaps': ((c_ or {}).get('walletSwaps') or [])[-8:]}
+    if p.op == 'pow_folder':   # 📌 keep / 🗑 delete a PoW folder or one coin folder from the DESKTOP (owner 2026-11-02) — the forever archive is never touched
+        fs_ = cat.get('powFolders') or []; f_ = next((x for x in fs_ if x.get('id') == p.text), None)
+        if not f_:
+            raise HTTPException(404, 'No such PoW folder.')
+        if p.job == 'keep':
+            f_['kept'] = bool(p.on)
+        elif p.job == 'delete_coin':
+            f_['hidden'] = sorted(set(f_.get('hidden') or []) | {str(p.secret or '')})
+            for sh_ in [x for x in f_.get('shots') or [] if x.get('mint') == p.secret]:
+                try:
+                    (POWSHOTS_DIR / re.sub(r'[^a-z0-9]', '', f_['id']) / re.sub(r'[^a-z0-9._]', '', sh_['file'])).unlink(missing_ok=True)
+                except OSError:
+                    pass
+            f_['shots'] = [x for x in f_.get('shots') or [] if x.get('mint') != p.secret]
+        elif p.job == 'delete':
+            import shutil as _sh
+            _sh.rmtree(POWSHOTS_DIR / re.sub(r'[^a-z0-9]', '', f_['id']), ignore_errors=True)
+            cat['powFolders'] = [x for x in fs_ if x.get('id') != p.text]
+        else:
+            raise HTTPException(400, 'keep, delete or delete_coin.')
+        keep_owned(cat); _save(store)
+        return {'powFolders': list(reversed(cat.get('powFolders') or []))[:12]}
     if p.op == 'pot_send':   # 🏺 owner 2026-11-02: send SOL from ITS OWN wallet to the colony pot — the pot address is the server's (no destination input), gas stays
         addr_ = (cat.get('agentWallet') or {}).get('address')
         if not addr_ or not _pays_itself(cat):
@@ -3878,7 +3900,7 @@ async def cat_work(cat_id: str, p: WorkPayload):
             'sources': [{'host': h, 'what': _src.WHAT.get(h, 'worked before'), **{k: (_src_book().get(h) or {}).get(k) for k in ('ok', 'blocked', 'last')}}
                         for h in dict.fromkeys(list(_src.SEED) + list(_src_book().keys()))][:80],   # 🌐 the sources book: tap one → sign its windows in
             'jobs': list(reversed(cat.get('jobs') or []))[:20], 'jobRates': cat.get('jobRates') or {},   # 🗂 each request's log tree + your 👍 / 👎
-            'powFolder': _pow.folder_public((cat.get('powRun') or {}).get('folder') or {}) or None, 'powFolders': [x if x.get('report') or x.get('status') != 'closed' else {**x, 'report': _pow.report(x)[0]} for x in list(reversed(cat.get('powFolders') or []))[:12]],   # ⛏ the live folder + filed ones
+            'powFolder': _pow.folder_public((cat.get('powRun') or {}).get('folder') or {}) or None, 'powFolders': [x if x.get('report') or x.get('status') != 'closed' else {**x, 'report': _pow.report(x)[0]} for x in list(reversed(cat.get('powFolders') or []))[:40]],   # ⛏ the live folder + filed ones
             'parked': [{'text': q.get('text'), 'why': q.get('why'), 'at': q.get('at')} for q in (cat.get('workParked') or [])]}
 
 

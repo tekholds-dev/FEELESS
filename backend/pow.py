@@ -292,6 +292,14 @@ SIGN_WAIT_S = 600                 # a real buy waits this long for its wallet, t
 MIN_LIQ = 5000
 REFILL_ROUNDS = 3                 # an unsafe coin is replaced by a fresh one (same source first) up to 3 rounds, so 4 SAFE coins get researched
 FOLDERS_KEEP = 30
+
+
+def trim_folders(folders, keep=None):
+    """The desktop keeps the newest FOLDERS_KEEP folders — plus every one the owner pinned 📌 (the archive keeps everything regardless)."""
+    keep = keep or FOLDERS_KEEP
+    rows = list(folders or []); loose = [f for f in rows if not f.get('kept')]
+    drop = {f.get('id') for f in loose[:-keep]} if len(loose) > keep else set()
+    return [f for f in rows if f.get('id') not in drop]
 SRC_LABEL = {'intake': 'FEELESS intake', 'pump': 'Pump', 'dex': 'DexScreener'}
 
 POOL = 8            # 🧺 the engine vets up to 8 coins (every buy guard + the safety check) — the minds only ever see coins that can be bought
@@ -523,7 +531,7 @@ def chart_line(samples):
 
 def folder_public(f):
     keep = ('id', 'n', 'name', 'at', 'coins', 'minds', 'phase', 'pick', 'talk', 'rounds', 'status', 'why', 'entry', 'exit', 'pnlPct', 'pnlSol', 'sym',
-            'boughtAt', 'soldAt', 'real', 'shared', 'research', 'picks', 'whys', 'base', 'pair', 'mint', 'propose', 'sol', 'plan', 'entryUsd', 'tp', 'sl', 'shots', 'vitals', 'scout', 'scoutDone', 'rMint', 'rMind', 'scouted', 'fav', 'checks', 'nextAt', 'cost', 'spend', 'report', 'grade', 'dropped', 'proposed', 'shortlist', 'owner', 'plans', 'moves')
+            'boughtAt', 'soldAt', 'real', 'shared', 'research', 'picks', 'whys', 'base', 'pair', 'mint', 'propose', 'sol', 'plan', 'entryUsd', 'tp', 'sl', 'shots', 'vitals', 'scout', 'scoutDone', 'rMint', 'rMind', 'scouted', 'fav', 'checks', 'nextAt', 'cost', 'spend', 'report', 'grade', 'dropped', 'proposed', 'shortlist', 'owner', 'plans', 'moves', 'kept', 'hidden')
     out = {k: f.get(k) for k in keep if k in f}
     if f.get('chart'):   # the live price the watcher reads (its P/L on the monitor)
         out['now'] = f['chart'][-1].get('px'); out['line'] = [x.get('px') for x in f['chart'][-40:]]
