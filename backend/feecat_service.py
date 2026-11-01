@@ -1278,7 +1278,7 @@ def _pow2_on(cat):
 async def _pow2_ask(cat, i, sys_, user_, max_tokens=180):
     """One small call to mind i (inside its $ limits). → text ('' when nothing answered)."""
     b_ = cat['brainsCfg']; ms = b_.get('brains') or []
-    if not ms or (day_left(cat) is not None and day_left(cat) <= 0):
+    if not ms:   # ⛏ a folder's calls skip the daily $ limit until the trade closes (owner 2026-11-01)
         return ''
     own_ = _ck.key_for(cat, 'openrouter', data_dir=DATA_DIR)
     try:
@@ -1993,7 +1993,9 @@ def _work_start(cat_id, cat, text, to=None, files=None, pow_=None):
         cat['workNow'] = {'text': str(text)[:2600], 'to': to, 'at': time.time()}   # 🛟 a restart mid-task files this to resume — an ask is never lost
     cap = min(float(cat.get('taskCap') or TASK_CAP_DEFAULT), max(0.005, float(b.get('credit') or 0) - _lc.CREDIT_RESERVE))   # its own credit only, always leaving the reserve
     left_ = day_left(cat)
-    if left_ is not None:
+    if pow_:   # ⛏ a PoW folder runs to its close: no task cap / day limit / step config in its way (owner 2026-11-01) — only its credit, never past the reserve
+        cap = max(0.005, float(b.get('credit') or 0) - _lc.CREDIT_RESERVE)
+    elif left_ is not None:
         if left_ <= 0:
             raise HTTPException(409, "It reached today's $ limit. Raise it in its limits, or it carries on tomorrow.")
         cap = min(cap, left_)
