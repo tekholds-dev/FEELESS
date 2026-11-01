@@ -378,7 +378,7 @@ def test_a_refused_buy_moves_to_the_folders_next_safe_coin_never_a_dead_end(monk
 
 def test_a_folder_tracks_what_it_costs_per_mind_and_its_research_rounds():
     import feecat_service as fs
-    f = {'id': 'pow1', 'base': 0, 'vitals': {}}
+    f = {'id': 'pow1', 'base': 0}   # a fresh folder has no vitals yet (live 2026-11-01: KeyError 'vitals' stalled a scout)
     fs._pow2_cost(f, 0, 0.002); fs._pow2_cost(f, 1, 0.001); fs._pow2_cost(f, 0, 0)
     assert f['cost'] == 0.003 and f['spend'] == {'0': 0.002, '1': 0.001}
     t_ = {'cost': 0.0161, 'pow': {**pw.new({'mint': 'M', 'pair': 'P', 'sym': 'CAT'}, 0), 'mind': 1, 'folder': 'pow1'}}

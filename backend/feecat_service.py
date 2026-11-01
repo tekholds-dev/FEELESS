@@ -1344,7 +1344,7 @@ def _pow2_collect(f, t_, who, now):
     pw_ = t_['pow']; m_ = pw_.get('mint'); pub_ = _pow.public(pw_)
     if not pw_.get('costed'):   # 💲 the research round's own browsing cost
         pw_['costed'] = True; _pow2_cost(f, int(f.get('base') or 0) + int(pw_.get('mind') or 0), float(t_.get('cost') or 0))
-    f.setdefault('vitals', {})[m_] = ((f['vitals'].get(m_) or []) + pub_['pulls'])[-12:]
+    vit_ = f.setdefault('vitals', {}); vit_[m_] = ((vit_.get(m_) or []) + pub_['pulls'])[-12:]
     if m_ == f.get('mint') and f.get('entry'):
         f['research'] = ((f.get('research') or []) + pub_['pulls'])[-12:]
     ub_ = f.setdefault('usedBy', {}); ub_[m_] = sorted(set(ub_.get(m_) or []) | set((pw_.get('sites') or {}).keys()) | set(pw_.get('walled') or []))
