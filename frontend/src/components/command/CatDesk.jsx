@@ -1,4 +1,4 @@
-import { CatWorkbench, DeskFlip, EarnCard, TraderCabinet } from './CatWorkbench';
+import { CatWorkbench, ColonyTab, DeskFlip, EarnCard, TraderCabinet } from './CatWorkbench';
 import { useAgentWallet } from './CatReal';
 import { FeeLiveTab } from './FeeLiveTab';
 import { AgentLive, HeadCloud, asModel, catMinds, catCoins } from './AgentLive';
@@ -188,7 +188,7 @@ export function CatDesk({ cat, busy = false, error = '', onBack, onAct, Activity
         </div>
       </header>
     </>}
-    {tabbed ? <nav className="m-seg kd-tabs" role="tablist" aria-label="Its desk">{[['desk', '🖥 DESK', 'Its two windows, what it is doing now, the chat'], ['wallet', '👛 WALLET', 'Its wallet, funding, what it holds'], ['limits', '🎚 LIMITS', 'What it may spend and trade, retire it']].filter(([k]) => k !== 'limits' || runs || gen).map(([k, l, tip]) =>
+    {tabbed ? <nav className="m-seg kd-tabs" role="tablist" aria-label="Its desk">{[['desk', '🖥 DESK', 'Its two windows, what it is doing now, the chat'], ['wallet', '👛 WALLET', 'Its wallet, funding, what it holds'], ['colony', '🐝 COLONY', 'Its PoW record as connected dots, where its money flows, Earn Mode'], ['limits', '🎚 LIMITS', 'What it may spend and trade, retire it']].filter(([k]) => (k !== 'limits' || runs || gen) && (k !== 'colony' || (!gen && !cat.isLeader))).map(([k, l, tip]) =>
       <button key={k} type="button" role="tab" aria-selected={tab === k} className={tab === k ? 'active' : ''} onClick={() => setTab(k)} data-tip={tip} data-testid={`kd-tab-${k}`}>{l}</button>)}</nav> : null}
     {error ? <p className="kd-err" role="alert">⚠ {error}</p> : null}
     {gen && !visitor && on('wallet') ? <div className="kd-tiles" data-testid="kd-real-tiles">
@@ -207,7 +207,8 @@ export function CatDesk({ cat, busy = false, error = '', onBack, onAct, Activity
         sub={v.capUsed >= 1 ? 'cap hit — no new buys today' : 'its daily loss cap'} tip="Losses closed today against the cap you set — at the cap it stops buying until tomorrow" />
     </div>}
     {!on('desk') ? null : cat.brainsCfg ? <LiveMinds cat={cat} onAct={onAct} busy={busy} canEdit={canEdit} /> : <RuleWindows cat={cat} canEdit={canEdit} />}
-    {visitor || (tabbed && tab === 'desk') ? null : <div className={`kd-grid${runs && !tabbed ? '' : ' is-solo'}`}>
+    {tabbed && tab === 'colony' ? <ColonyTab cat={cat} /> : null}
+    {visitor || (tabbed && (tab === 'desk' || tab === 'colony')) ? null : <div className={`kd-grid${runs && !tabbed ? '' : ' is-solo'}`}>
       {on('wallet') ? <div className="kd-main">
         {Real}
         {gen ? null :         <section className="kd-card kd-curve" data-testid="kd-curve"><header><b>📈 P/L CURVE</b><small>{(cat.pnlHistory || []).length} cycles · realized + open</small></header>
@@ -222,7 +223,7 @@ export function CatDesk({ cat, busy = false, error = '', onBack, onAct, Activity
               data-testid={`kd-pos-${i}`} data-tip={p.reason || 'Open its war room'}><b>${p.symbol}</b><small>{held ? `${held}m held · ` : ''}{Number(p.costSol || p.notionalSol || 0).toFixed(3)} SOL in</small>
               <span className={`kd-move ${ch >= 0 ? 'up' : 'dn'}`}><i><u style={{ transform: `scaleX(${Math.min(1, Math.abs(ch) / 50)})` }} /></i><em className="m-num">{ch >= 0 ? '+' : ''}{ch.toFixed(1)}%</em></span></button></li>; })}</ul>
             : <p className="kd-empty">{cat.status === 'running' ? 'Hunting — it buys only what passes every rule.' : 'Stopped — start it to hunt again.'}</p>}</section>}
-        {canEdit && !gen && !cat.isLeader ? <EarnCard cat={cat} /> : null}
+        {canEdit && !gen && !cat.isLeader && !tabbed ? <EarnCard cat={cat} /> : null}
         {Brains}
         {Object.keys(learn).length || lessons.length ? <section className="kd-card"><header><b>📚 WHAT IT LEARNED</b><small>from its own exits</small></header>
           <div className="kd-learn">{Object.entries(learn).map(([k, x]) => <span key={k}><em>{k === 'runnerTrail' ? 'RUNNER TRAIL' : k === 'takeProfit1' ? 'FIRST TAKE' : k.toUpperCase()}</em><b className="m-num">{x}%</b></span>)}</div>

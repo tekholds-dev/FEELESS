@@ -374,3 +374,20 @@ test('👛 the wallet app: live SOL + USDC, pick a direction, Swap sends op wall
   expect(calls.at(-1)).toMatchObject({ op: 'wallet_swap', text: 'USDC>SOL', cap: 1 }); expect(q('dsk-wallet').textContent).toContain('✓ swapped');
   act(() => root.unmount());
 });
+
+test('🐝 its Colony tab: every PoW folder a connected dot (👍 up / 👎 down / ● live), the money pipe lit where money flows, Earn below', async () => {
+  const { ColonyTab } = require('./CatWorkbench');
+  document.body.innerHTML = '';
+  global.fetch = async (u, o) => { const b = o?.body ? JSON.parse(o.body) : {};
+    const j = b.op === 'wallet' ? { sol: 0.0179, usdc: 0.35 } : b.op === 'state' ? { powFolder: { id: 'f3', name: 'PoW #3', phase: 'watch' }, powFolders: [{ id: 'f2', name: 'PoW #2', pnlPct: -16, pnlSol: -0.001 }, { id: 'f1', name: 'PoW #1', pnlPct: 12, pnlSol: 0.0012, cost: 0.02 }] } : { earn: { on: false, risk: 'safe', budgetUsd: 25 }, plays: [] };
+    return { ok: true, json: async () => j }; };
+  const el = document.createElement('div'); document.body.appendChild(el); const root = createRoot(el);
+  await act(async () => { root.render(<ColonyTab cat={{ id: 'h1', colonyShare: { on: true, pct: 10 } }} />); });
+  const q = s => document.querySelector(s);
+  expect(document.querySelectorAll('.col-dot').length).toBe(3); expect(q('.col-dot.is-good')).not.toBeNull(); expect(q('.col-dot.is-bad')).not.toBeNull(); expect(q('.col-dot.is-live')).not.toBeNull();
+  expect(q('[data-testid="col-tab"]').textContent).toContain('+0.0002 SOL'); expect(q('[data-testid="col-flow"]').className).toContain('is-hot');
+  expect(q('[data-testid="col-flow"]').textContent).toContain('10% of wins'); expect(q('[data-testid="col-flow"]').textContent).toContain('0.0179 SOL');
+  await act(async () => { q('.col-dot.is-bad').dispatchEvent(new MouseEvent('click', { bubbles: true })); }); expect(q('[data-testid="col-pick"]').textContent).toContain('PoW #2');
+  expect(q('[data-testid="cwb-earn"]')).not.toBeNull();
+  act(() => root.unmount());
+});

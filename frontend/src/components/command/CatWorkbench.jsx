@@ -289,6 +289,42 @@ export function EarnCard({ cat }) {
       : <p className="cwb-cloud-empty">{d ? `Nothing worth it at ${e.risk.toUpperCase()} right now${d.gapsOpen ? '' : ' — no price gap beats its costs'}.` : 'Reading gaps, vaults and pools…'}</p>}
     {err ? <small className="kd-err" role="alert">⚠ {err}</small> : null}</section>;
 }
+// 🐝 ITS COLONY TAB (owner 2026-10-31 [c]: "the agent's Earn tab → its COLONY tab: PoW vitals as connected dots + a connected TREASURY with an
+// unbroken real-money flow animated by activity"): every folder a dot (height = its P/L, 👍 green / 👎 red / ● live), joined in order; under it
+// one drawn pipe WALLET → PoW → P/L → COLONY → TREASURY whose particles run faster the busier it is; Earn Mode below. All numbers are live.
+const FLOW = [['wallet', '👛', 'WALLET'], ['pow', '⛏', 'PoW'], ['pnl', '📈', 'P/L'], ['colony', '🐝', 'COLONY'], ['treasury', '🏦', 'TREASURY']];
+export function PowDots({ folders, onPick, pick }) {
+  const fs = folders.filter(f => f.pnlPct != null || f.live).slice(-24); const span = Math.max(5, ...fs.map(f => Math.abs(Number(f.pnlPct) || 0)));
+  if (!fs.length) return <p className="col-empty">No PoW trades yet — type “file a PoW” in its chat; each folder lands here as a dot.</p>;
+  const x = i => (fs.length === 1 ? 50 : 6 + (88 * i) / (fs.length - 1)); const y = f => 50 - 40 * ((Number(f.pnlPct) || 0) / span);
+  return <div className="col-dots"><svg viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
+    <line x1="0" x2="100" y1="50" y2="50" className="col-zero" /><polyline points={fs.map((f, i) => `${x(i)},${y(f)}`).join(' ')} className="col-link" /></svg>
+    {fs.map((f, i) => <button key={f.id} type="button" className={`col-dot is-${f.live ? 'live' : f.pnlPct > 0 ? 'good' : 'bad'}${pick === f.id ? ' is-pick' : ''}`} style={{ '--i': i, left: `${x(i)}%`, top: `${y(f)}%` }}
+      onClick={() => onPick(f.id)} aria-label={`${f.name}: ${f.live ? 'live' : `${f.pnlPct}%`}`} data-tip={`${f.name} — ${f.live ? `live: ${f.phase}` : `${f.pnlPct >= 0 ? '+' : ''}${f.pnlPct}%`}`}><i /></button>)}</div>;
+}
+export function ColonyTab({ cat }) {
+  const [d, setD] = useState(null); const [w, setW] = useState(null); const [pick, setPick] = useState(null);
+  useEffect(() => { let on = true; const load = () => { if (document.hidden) return;
+    work(cat.id, { op: 'state' }).then(j => on && setD(j)).catch(() => on && setD(x => x || {}));
+    work(cat.id, { op: 'wallet' }).then(j => on && setW(j)).catch(() => on && setW(x => x || {})); };
+    load(); const t = setInterval(load, 20000); return () => { on = false; clearInterval(t); }; }, [cat.id]);
+  const folders = [...[...(d?.powFolders || [])].reverse(), ...(d?.powFolder ? [{ ...d.powFolder, live: true }] : [])];
+  const done = folders.filter(f => f.pnlPct != null); const pnl = done.reduce((a, f) => a + (Number(f.pnlSol) || 0), 0); const won = done.filter(f => f.pnlPct > 0).length;
+  const share = cat.colonyShare || {}; const live = !!d?.powFolder; const f = folders.find(x => x.id === pick);
+  const val = { wallet: w?.sol != null ? `${Number(w.sol).toFixed(4)} SOL` : '…', pow: live ? `● ${d.powFolder.phase}` : `${folders.length} filed`, pnl: `${pnl >= 0 ? '+' : ''}${pnl.toFixed(4)} SOL`,
+    colony: share.on ? `${share.pct}% of wins` : 'not sharing', treasury: cat.treasury?.mint ? 'its coin set' : 'no coin yet' };
+  const hot = { wallet: true, pow: folders.length > 0, pnl: done.length > 0, colony: !!share.on, treasury: !!cat.treasury?.mint };
+  return <section className="col-tab" data-testid="col-tab">
+    <div className="col-head"><b>🐝 ITS COLONY</b>{[['FOLDERS', folders.length], ['WON', done.length ? `${Math.round((100 * won) / done.length)}%` : '—'], ['P/L', val.pnl], ['COST', `$${folders.reduce((a, x) => a + (Number(x.cost) || 0), 0).toFixed(3)}`]].map(([k, v]) =>
+      <span key={k}><em>{k}</em><b className={`m-num${k === 'P/L' ? (pnl >= 0 ? ' is-up' : ' is-dn') : ''}`}>{v}</b></span>)}</div>
+    <div className="col-dots-wrap" data-tip="Each dot is one PoW folder — up = it made money, down = it lost; tap one"><PowDots folders={folders} onPick={setPick} pick={pick} /></div>
+    {f ? <p className="col-pick" data-testid="col-pick"><b>{f.name}</b>{f.sym ? ` · $${f.sym}` : ''} · {f.live ? `live — ${f.phase}` : `${f.pnlPct >= 0 ? '+' : ''}${f.pnlPct}%`} — {f.why || ''}</p> : null}
+    <div className={`col-flow${live ? ' is-hot' : ''}`} role="img" aria-label="Where its money goes: wallet, PoW, profit and loss, colony, treasury" data-testid="col-flow">
+      {FLOW.map(([k, ic, l], i) => <React.Fragment key={k}>{i ? <span className={`col-pipe${hot[k] && hot[FLOW[i - 1][0]] ? ' is-on' : ''}`} aria-hidden="true"><i /><i /><i /></span> : null}
+        <span className={`col-node${hot[k] ? ' is-on' : ''}`} style={{ '--i': i }}><i aria-hidden="true">{ic}</i><em>{l}</em><b className="m-num">{val[k]}</b></span></React.Fragment>)}</div>
+    <EarnCard cat={cat} />
+  </section>;
+}
 // 🏦 ITS TREASURY (owner 2026-10-31): its own coin's creator fees, read on-chain now (pump.fun's vault, PumpSwap's after it graduates), and how
 // they split — the Pass holder · its model credit · a capped buyback of its own coin (fees only, shown here). Claiming + paying out from its
 // wallet is the next step, tested live by the owner first.

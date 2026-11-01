@@ -612,3 +612,35 @@ body.theme-day .dsk-rep-l, body.theme-day .dsk-rep-c small, body.theme-day .dsk-
 body.fx-lite .dsk-wal-bal span::after, body.fx-lite .dsk-wal-log li { animation: none; } @media (prefers-reduced-motion: reduce) { .dsk-wal-bal span::after, .dsk-wal-log li { animation: none; } }
 body.theme-day .dsk-wal-bal span { background: #f2fbf6; } body.theme-day .dsk-wal-bal b, body.theme-day .dsk-wal-log b { color: #0f2a1b; text-shadow: none; } body.theme-day .dsk-wal-addr { color: #23493a; background: #0000000a; }
 @media (max-width: 640px) { .dsk-wal-bal b { font-size: 18px; } }
+/* 🐝 ITS COLONY tab: PoW folders as connected dots + the drawn money-flow pipe (particles = transform only, faster when a folder is live) */
+.col-tab { display: grid; gap: 12px; padding: 14px; border-radius: 16px; border: 1px solid #f5c54233; background: radial-gradient(120% 80% at 0% 0%, #f5c54214, transparent 60%), linear-gradient(170deg, #0d0a18, #07050d); box-shadow: inset 0 1px #ffffff12; }
+.col-head { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; } .col-head > b { color: #f5c542; font: 800 12px var(--f-mono); letter-spacing: .14em; margin-right: auto; text-shadow: 0 0 12px #f5c54266; }
+.col-head span { display: grid; gap: 1px; padding: 6px 10px; border-radius: 10px; background: #ffffff08; border: 1px solid #ffffff10; } .col-head em { color: #a99bc8; font: 800 8.5px var(--f-mono); letter-spacing: .12em; font-style: normal; }
+.col-head span b { color: #fff; font: 800 13px var(--f-mono); } .col-head b.is-up { color: #45e486; text-shadow: 0 0 10px #45e48677; } .col-head b.is-dn { color: #ff8fa3; }
+.col-dots-wrap { height: 150px; padding: 6px; border-radius: 12px; background: linear-gradient(180deg, #45e4860a, transparent 50%, #ff8fa30a); border: 1px solid #ffffff0d; }
+.col-dots { position: relative; width: 100%; height: 100%; } .col-dots svg { position: absolute; inset: 0; width: 100%; height: 100%; } .col-zero { stroke: #ffffff22; stroke-dasharray: 2 2; vector-effect: non-scaling-stroke; }
+.col-link { fill: none; stroke: #8f7cff99; stroke-width: 1.5; vector-effect: non-scaling-stroke; stroke-linejoin: round; }
+.col-dot { position: absolute; display: grid; place-items: center; width: 32px; height: 32px; margin: -16px 0 0 -16px; padding: 0; border: 0; border-radius: 50%; background: none; cursor: pointer; }
+.col-dot i { width: 10px; height: 10px; border-radius: 50%; background: #ff8fa3; box-shadow: 0 0 10px #ff8fa3aa, 0 0 0 2px #0b0716; transition: transform .15s; animation: colPop .4s both; animation-delay: calc(var(--i, 0) * 50ms); }
+.col-dot.is-good i { background: #45e486; box-shadow: 0 0 10px #45e486aa, 0 0 0 2px #0b0716; } .col-dot.is-live i { background: #f5c542; box-shadow: 0 0 12px #f5c542, 0 0 0 2px #0b0716; animation: colLive 1.4s ease-in-out infinite; }
+.col-dot:hover i, .col-dot.is-pick i { transform: scale(1.6); } .col-dot:active i { transform: scale(1.3); } .col-dot:focus-visible { outline: 2px solid #45e486; outline-offset: -4px; }
+.col-pick { margin: 0; color: #d9d1f2; font: 500 11.5px/1.45 var(--f-ui); } .col-pick b { color: #fff; }
+.col-flow { display: flex; align-items: center; gap: 0; padding: 12px 8px; border-radius: 14px; border: 1px solid #45e48626; background: #04090699; overflow: hidden; }
+.col-node { position: relative; z-index: 1; flex: 0 0 auto; display: grid; justify-items: center; gap: 2px; min-width: 76px; padding: 8px 6px; border-radius: 12px; border: 1px solid #ffffff14; background: #0b0f0d; opacity: .55; animation: colIn .35s both; animation-delay: calc(var(--i, 0) * 60ms); }
+.col-node.is-on { opacity: 1; border-color: #45e48666; box-shadow: 0 0 18px -8px #45e486, inset 0 1px #ffffff14; } .col-node i { font-style: normal; font-size: 18px; }
+.col-node em { color: #9fc9b1; font: 800 8px var(--f-mono); letter-spacing: .14em; font-style: normal; } .col-node b { color: #fff; font: 700 10px var(--f-mono); white-space: nowrap; }
+.col-pipe { position: relative; flex: 1 1 0; min-width: 14px; height: 4px; border-radius: 2px; background: #ffffff10; overflow: hidden; } .col-pipe.is-on { background: #45e48626; }
+.col-pipe i { position: absolute; top: 0; left: 0; width: 8px; height: 4px; border-radius: 2px; background: #45e486; box-shadow: 0 0 6px #45e486; opacity: 0; }
+.col-pipe.is-on i { animation: colRun 2.6s linear infinite; } .col-pipe.is-on i:nth-child(2) { animation-delay: .87s; } .col-pipe.is-on i:nth-child(3) { animation-delay: 1.73s; }
+.col-flow.is-hot .col-pipe.is-on i { animation-duration: 1s; } .col-flow.is-hot .col-pipe.is-on i:nth-child(2) { animation-delay: .33s; } .col-flow.is-hot .col-pipe.is-on i:nth-child(3) { animation-delay: .66s; }
+.col-flow.fx-off .col-pipe i, .col-flow.fx-off .col-node { animation-play-state: paused; }
+.col-empty { margin: 0; color: #a99bc8; font: 600 11px var(--f-ui); }
+@keyframes colRun { 0% { transform: translateX(-10px); opacity: 0; } 15% { opacity: 1; } 85% { opacity: 1; } 100% { transform: translateX(160px); opacity: 0; } }
+@keyframes colPop { from { transform: scale(0); } } @keyframes colLive { 50% { transform: scale(1.6); } } @keyframes colIn { from { opacity: 0; transform: translateY(6px); } }
+body.fx-lite .col-pipe i, body.fx-lite .col-dot i, body.fx-lite .col-node { animation: none; } body.fx-lite .col-pipe.is-on i:first-child { opacity: 1; transform: translateX(40%); }
+@media (prefers-reduced-motion: reduce) { .col-pipe i, .col-dot i, .col-node { animation: none; } .col-pipe.is-on i:first-child { opacity: 1; } }
+body.theme-day .col-tab { background: #fffdf5; border-color: #b9861a33; } body.theme-day .col-head span { background: #0000000a; } body.theme-day .col-head span b, body.theme-day .col-pick b { color: #1b1233; }
+body.theme-day .col-flow { background: #f2fbf6; } body.theme-day .col-node { background: #fff; } body.theme-day .col-node b { color: #10261a; } body.theme-day .col-pick { color: #3d3060; }
+@media (max-width: 640px) { .col-flow { flex-direction: column; align-items: stretch; gap: 0; } .col-pipe { flex: 0 0 14px; width: 4px; height: 14px; align-self: center; }
+  .col-pipe i { width: 4px; height: 6px; } .col-pipe.is-on i { animation-name: colRunY; } .col-node { grid-template-columns: auto auto 1fr; justify-items: start; align-items: center; } .col-node b { justify-self: end; } }
+@keyframes colRunY { 0% { transform: translateY(-8px); opacity: 0; } 30% { opacity: 1; } 100% { transform: translateY(16px); opacity: 0; } }
