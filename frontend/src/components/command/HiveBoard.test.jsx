@@ -13,9 +13,10 @@ test('🐝 how colonizing works: eight honeycomb stations in one loop with real 
   const el = document.createElement('div'); document.body.appendChild(el);
   await act(async () => { createRoot(el).render(<ColonyFlow api={async () => HIVE} meta={{ colonized: 2, total: 5, potOpen: true, cadence: 'daily', nextAirdrop: Date.now() / 1000 + 3600 }} />); });
   const st = el.querySelectorAll('.cfl-st'); expect(st).toHaveLength(8);
-  expect(st[0].textContent).toContain('2/5'); expect(st[1].textContent).toContain('3'); expect(st[3].textContent).toContain('2'); expect(st[7].textContent).toContain('+3');
-  expect(st[0].className).toContain('is-on'); expect(st[6].className).not.toContain('is-on');
-  expect(el.querySelectorAll('.cfl-lane')).toHaveLength(8); expect(el.querySelector('.cfl-lane').className).toContain('is-fast'); expect(el.querySelector('.cfl-lane').querySelectorAll('i')).toHaveLength(3);
+  expect(st[0].textContent).toContain('2/5'); expect(st[1].textContent).toContain('3'); expect(st[3].textContent).toContain('2'); expect(st[4].textContent).toContain('+3');
+  expect(st[0].className).toContain('is-on'); expect(st[5].className).not.toContain('is-on');
+  expect(el.querySelector('.cfl-ring').className).toContain('is-fast'); expect(el.querySelectorAll('.cfl-orbit i')).toHaveLength(6);   // one orbit: more bees + faster while agents are colonized
+  expect(st[4].textContent).toContain('HONEY'); expect(st[7].textContent).toContain('AIRDROP'); expect(el.querySelector('.cfl-core').textContent).toContain('+3');   // clockwise: … graded → honey → share → pot → airdrop
 });
 
 

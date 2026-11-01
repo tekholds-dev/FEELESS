@@ -14,11 +14,8 @@ const hm = s => `${Math.floor(s / 3600)}h ${String(Math.floor((s % 3600) / 60)).
 // eight honeycomb stations in one loop — agents → PoW → buy on FEELESS → graded → honey → share → pot → airdrop → back to agents. Bees (dots)
 // run every lane; more run, faster, while agents are live. Every number is real (/api/cats/hive + the colony meta); transform / opacity only.
 const hms = s => `${Math.floor(s / 3600)}h ${String(Math.floor(s / 60) % 60).padStart(2, '0')}m`;
-function Lane({ way, n, fast }) {
-  return <span className={`cfl-lane is-${way}${fast ? ' is-fast' : ''}`} aria-hidden="true"><u />{Array.from({ length: n }, (_, k) => <i key={k} style={{ '--k': k, '--n': n }} />)}</span>;
-}
-function Station({ ic, k, v, sub, on, tip, i }) {
-  return <li className={`cfl-st${on ? ' is-on' : ''}`} style={{ '--i': i }} data-tip={tip}><span className="cfl-hex"><b aria-hidden="true">{ic}</b><strong className="m-num" key={String(v)}>{v}</strong></span><em>{k}</em><small>{sub}</small></li>;
+function Station({ ic, k, v, sub, on, tip, i, at = null }) {
+  return <li className={`cfl-st${on ? ' is-on' : ''}`} style={{ '--i': i, ...(at || {}) }} data-tip={tip}><span className="cfl-hex"><b aria-hidden="true">{ic}</b><strong className="m-num" key={String(v)}>{v}</strong></span><em>{k}</em><small>{sub}</small></li>;
 }
 // 📖 THE MANUAL (owner 2026-11-01: "a manual in the Colony tab") — how a PoW runs, step by step, with the commands that start it. The same rules every model reads.
 const MANUAL = [['🗣', 'PLAN', '3 turns: A proposes which coins to research, B agrees or suggests, A finalizes'],
@@ -49,11 +46,16 @@ export function ColonyFlow({ api, meta }) {
     ['🏺', 'POT', meta?.potOpen ? 'OPEN' : '—', meta?.pool ? 'pool live' : 'Circle wallet', !!meta?.potOpen, 'The colony wallet: principal locked, only growth may pay out'],
     ['🤝', 'SHARE', '%', 'of each win, signed', false, 'Owners sign once to send a part of each winning trade to the pot'],
     ['🍯', 'HONEY', `${honey > 0 ? '+' : ''}${honey}`, 'this epoch', honey !== 0, 'Right calls earn honey; wrong ones lose it — it ranks the Colony']];
+  const all = [...top, ...low.slice().reverse()];   // one loop, clockwise: agents → PoW → buy → graded → honey → share → pot → airdrop → agents
+  const at = k => { const a = (-90 + (360 * k) / all.length) * Math.PI / 180; return { left: `${50 + 41 * Math.cos(a)}%`, top: `${50 + 41 * Math.sin(a)}%` }; };
   return <section className="cfl" data-testid="colony-flow" aria-label="How colonizing works">
-    <header className="cfl-h"><b>HOW COLONIZING WORKS</b><small>live · the loop every colonized agent runs</small></header>
-    <ol className="cfl-row">{top.map((x, k) => <React.Fragment key={x[1]}>{k ? <Lane way="r" n={n} fast={fast} /> : null}<Station i={k} ic={x[0]} k={x[1]} v={x[2]} sub={x[3]} on={x[4]} tip={x[5]} /></React.Fragment>)}</ol>
-    <div className="cfl-turn"><Lane way="u" n={n} fast={fast} /><Lane way="d" n={n} fast={fast} /></div>
-    <ol className="cfl-row">{low.map((x, k) => <React.Fragment key={x[1]}>{k ? <Lane way="l" n={n} fast={fast} /> : null}<Station i={k + 4} ic={x[0]} k={x[1]} v={x[2]} sub={x[3]} on={x[4]} tip={x[5]} /></React.Fragment>)}</ol>
+    <header className="cfl-h"><b>HOW COLONIZING WORKS</b><small>live · the loop every colonized agent runs, clockwise</small></header>
+    <div className={`cfl-ring${fast ? ' is-fast' : ''}`}>
+      <svg className="cfl-track" viewBox="0 0 100 100" aria-hidden="true"><circle cx="50" cy="50" r="41" /><circle cx="50" cy="50" r="41" className="cfl-track-glow" /></svg>
+      <span className="cfl-orbit" aria-hidden="true">{Array.from({ length: n * 2 }, (_, j) => <i key={j} style={{ '--k': j, '--n': n * 2 }} />)}</span>
+      <div className="cfl-core"><em>EPOCH</em><strong className="m-num">{d ? hms(d.left) : '…'}</strong><small>left · honey</small><b className={`m-num${honey > 0 ? ' is-up' : honey < 0 ? ' is-dn' : ''}`}>{honey > 0 ? '+' : ''}{honey}</b></div>
+      <ol className="cfl-stations">{all.map((x, k) => <Station key={x[1]} i={k} ic={x[0]} k={x[1]} v={x[2]} sub={x[3]} on={x[4]} tip={x[5]} at={at(k)} />)}</ol>
+    </div>
   </section>;
 }
 
