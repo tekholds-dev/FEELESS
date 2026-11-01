@@ -43,6 +43,8 @@ body.theme-day .cfl { background: linear-gradient(170deg, #fffaf0, #fff); border
 .hv-pow-stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
 .hv-pow-stats span { display: grid; gap: 2px; padding: 9px 11px; border-radius: 12px; background: #ffffff07; border: 1px solid #f5c54222; box-shadow: inset 0 1px 0 #ffffff0d; }
 .hv-pow-stats em { color: #c9b27a; font: 800 9px var(--f-mono); letter-spacing: .14em; font-style: normal; } .hv-pow-stats b { color: #fff; font: 800 18px var(--f-mono); animation: hvIn .35s both; }
+.hv-pow-db { display: grid; gap: 10px; } .hv-pow-db-h { color: #ffd76a; font: 800 10px var(--f-mono); letter-spacing: .14em; } .hv-pow-db-row { display: grid; gap: 4px; animation: hvIn .3s both; }
+body.fx-lite .hv-pow-db-row { animation: none; } @media (prefers-reduced-motion: reduce) { .hv-pow-db-row { animation: none; } }
 .hv-pow-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 10px; }
 .hv-pow-cell { display: grid; gap: 4px; animation: hvIn .35s both; animation-delay: calc(var(--i) * 50ms); } .hv-pow-by { color: #c9b27a; font: 700 10px var(--f-mono); letter-spacing: .08em; }
 .hv-pot { --hv: #f5c542; --hv-hot: #ffd76a; display: grid; gap: 10px; } .hv-pot code { font: 700 9px var(--f-mono); color: #f3e2b0; }

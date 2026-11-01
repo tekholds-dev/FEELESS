@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { apiUrl } from '../../lib/api';
-import { AiCursor, readCursor } from './CatWorkbench';
+import { AiCursor, FolderView, readCursor } from './CatWorkbench';
 import { PowCard } from './CatCockpit';
 import '../../styles/hive.css';
 
@@ -67,8 +67,10 @@ export function PowEngine({ limit = 12 }) {
     <div className="hv-pow-stats">{[['FILED', rows.length, 'Proofs in this list'], ['GRADED', graded.length, 'Judged an hour after the call'], ['RIGHT', graded.length ? `${Math.round(100 * right / graded.length)}%` : '—', 'Graded calls that earned honey'],
       ['STRENGTH', avg, 'Average work behind a call: sites with vitals, distinct vitals, safety vitals, a vital confirmed twice']].map(([k, v, tip]) =>
       <span key={k} data-tip={tip}><em>{k}</em><b className="m-num" key={v}>{v}</b></span>)}</div>
+    {(d?.folders || []).length ? <div className="hv-pow-db" data-testid="pow-db"><b className="hv-pow-db-h">🗄 EVERY AGENT'S PoW FOLDERS · live + filed</b>
+      {d.folders.map(x => <div key={`${x.cat}-${x.folder?.id}`} className="hv-pow-db-row"><small className="hv-pow-by">{x.name}{x.live ? ' · ● LIVE' : ''}</small><FolderView f={x.folder} live={x.live} catId={x.cat} /></div>)}</div> : null}
     {rows.length ? <div className="hv-pow-grid">{rows.map((x, i) => <div key={x.id} className="hv-pow-cell" style={{ '--i': i }}><small className="hv-pow-by">{x.name}</small><PowCard p={x} compact /></div>)}</div>
-      : <p className="fch-nil">{err || 'No proof filed yet — colonize an agent (🐝 Colonize on its desk) and its next free moment researches an intake coin.'}</p>}
+      : (d?.folders || []).length ? null : <p className="fch-nil">{err || 'No proof filed yet — colonize an agent (🐝 Colonize on its desk) and its next free moment researches an intake coin.'}</p>}
   </article>;
 }
 

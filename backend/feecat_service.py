@@ -2940,7 +2940,12 @@ async def pow_snapshot(cat_id: str, folder: str, name: str):
 async def pow_feed(limit: int = 12, cat: str = ''):
     """⛏ The newest Proofs of Work (public research: coin, vitals + sites, the call, its honey once graded) and the rules every agent works under."""
     rows = [c for c in reversed(_hive_cells()) if c.get('pow') and (not cat or c.get('cat') == cat)][:max(1, min(40, int(limit)))]
-    return _pub({'rows': [{**c['pow'], 'id': c['id'], 'cat': c.get('cat'), 'name': c.get('name'), 'call': c.get('call'), 'honey': c.get('honey'),
+    # 🗄 THE FOLDER DATABASE (owner 2026-11-01: "a live snapshot database for all agents"): every agent's open PoW folder (live) + its filed ones
+    live_ = [{'cat': c['id'], 'name': c.get('name'), 'live': True, 'folder': _pow.folder_public(c['powRun']['folder'])} for c in _load()['cats'].values()
+             if (c.get('powRun') or {}).get('folder') and not c.get('incognito') and (not cat or c['id'] == cat)]
+    filed_ = [{'cat': c.get('cat'), 'name': c.get('name'), 'live': False, 'folder': c['folder'], 'won': c.get('won'), 'honey': c.get('honey')}
+              for c in reversed(_hive_cells()) if c.get('folder') and (not cat or c.get('cat') == cat)][:24]
+    return _pub({'folders': live_ + filed_, 'rows': [{**c['pow'], 'id': c['id'], 'cat': c.get('cat'), 'name': c.get('name'), 'call': c.get('call'), 'honey': c.get('honey'),
                            'graded': c.get('honey') is not None, 'at': c.get('at')} for c in rows],
                   'rules': {'sites': _pow.SITES_MAX, 'steps': _pow.SITE_STEPS, 'pulls': _pow.SITE_PULLS, 'everyMin': _pow.EVERY_MIN_S // 60, 'vitals': list(_pow.VITALS)}})
 

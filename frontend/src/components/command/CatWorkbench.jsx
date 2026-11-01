@@ -548,7 +548,7 @@ function CoinFolder({ f, c, catId, onShot }) {   // 📁 one coin's folder insid
       : <small className="dsk-coin-none">{f.pick?.mint === c.mint ? 'snapshots land here as each site is researched' : 'not researched — its FEELESS read is kept'}</small>}
   </div>;
 }
-function FolderView({ f, live, catId }) {
+export function FolderView({ f, live, catId }) {
   const [open, setOpen] = useState(null); const [big, setBig] = useState(null);
   const at = Math.max(0, PHASES.findIndex(([k]) => k === (f.phase === 'sell' ? 'decide' : f.phase)));
   return <div className={`dsk-fold${live ? ' is-live' : ''}`} data-testid={live ? 'dsk-fold-live' : 'dsk-fold'}>
