@@ -712,7 +712,34 @@ function HoneyPot({ cat }) {
       <HiveSwitch cat={cat} /></div>
   </div>;
 }
-const ICONS = [['vault', '📁', 'Vault'], ['pow', '⛏', 'PoW'], ['jobs', '🗂', 'Jobs'], ['sources', '🌐', 'Sources'], ['honey', '🍯', 'Honey pot'], ['files', '☁', 'Files'], ['cmds', '⌘', 'Commands']];
+// 👛 the agent's WALLET app (owner 2026-11-01: "desktop agent wallet swapping"): its live SOL + USDC, and YOUR swap inside its own wallet —
+// SOL ⇄ USDC only, nothing leaves it, the gas reserve always stays; the server signs only a quote that echoes exactly this swap
+function WalletApp({ cat }) {
+  const [w, setW] = useState(null); const [side, setSide] = useState('USDC>SOL'); const [amt, setAmt] = useState(''); const [busy, setBusy] = useState(false); const [msg, setMsg] = useState('');
+  useEffect(() => { let on = true; work(cat.id, { op: 'wallet' }).then(j => on && setW(j)).catch(e => on && setW({ err: e.message })); return () => { on = false; }; }, [cat.id]);
+  if (!w) return <p className="dsk-note">reading its wallet…</p>;
+  if (w.err) return <p className="dsk-note">{w.err}</p>;
+  const tok = side.split('>')[0]; const max = tok === 'SOL' ? Math.max(0, (w.sol || 0) - (w.gas || 0)) : (w.usdc || 0);
+  const go = async () => { setBusy(true); setMsg('');
+    try { const j = await work(cat.id, { op: 'wallet_swap', text: side, cap: Number(amt) || 0 }); setW(j); setAmt('');
+      setMsg(j.swap?.landed ? `✓ swapped — it now holds ${Number(j.sol).toFixed(4)} SOL · ${Number(j.usdc).toFixed(2)} USDC` : 'sent — the balance has not moved yet, check again in a minute'); }
+    catch (e) { setMsg(e.message || 'Not swapped — nothing moved.'); } finally { setBusy(false); } };
+  return <div className="dsk-wal" data-testid="dsk-wallet">
+    <div className="dsk-wal-bal">{[['SOL', w.sol, 4, `${w.gas} kept for gas`], ['USDC', w.usdc, 2, 'pays its thinking']].map(([k, v, d, sub]) =>
+      <span key={k} className={`is-${k.toLowerCase()}`}><em>{k}</em><b className="m-num">{Number(v || 0).toFixed(d)}</b><small>{sub}</small></span>)}</div>
+    <code className="dsk-wal-addr" data-tip="Its own wallet address">{w.address}</code>
+    {w.canSwap ? <form className="dsk-wal-swap" onSubmit={e => { e.preventDefault(); go(); }}>
+      <span className="m-seg" role="group" aria-label="Swap direction">{[['USDC>SOL', 'USDC → SOL'], ['SOL>USDC', 'SOL → USDC']].map(([k, l]) =>
+        <button key={k} type="button" className={side === k ? 'active' : ''} aria-pressed={side === k} onClick={() => setSide(k)} data-tip={`Swap its ${k.split('>')[0]} into ${k.split('>')[1]}`}>{l}</button>)}</span>
+      <span className="dsk-wal-amt"><input className="m-input" inputMode="decimal" placeholder={`amount ${tok} (empty = all ${max.toFixed(tok === 'SOL' ? 4 : 2)})`} value={amt} onChange={e => setAmt(e.target.value.replace(/[^0-9.]/g, ''))} aria-label={`Amount of ${tok}`} />
+        <button type="button" className="m-btn" onClick={() => setAmt(String(Number(max.toFixed(6))))} data-tip="Everything it can swap (the gas reserve stays)">All</button></span>
+      <button type="submit" className="m-btn m-go" disabled={busy || !max} data-testid="dsk-wallet-swap" data-tip="Its wallet signs this one swap through FEELESS; the money stays in its wallet">{busy ? 'Swapping…' : `Swap ${tok}`}</button>
+    </form> : <p className="dsk-note">Only a wallet Circle signs for this agent can swap.</p>}
+    {msg ? <small className="dsk-wal-msg" role="status">{msg}</small> : null}
+    {(w.swaps || []).length ? <ul className="dsk-wal-log">{[...w.swaps].reverse().map((x, i) => <li key={`${x.at}${i}`} style={{ '--i': i }}><b>{x.side.replace('>', ' → ')}</b><em className="m-num">{x.amount}</em><small>{ago(x.at)} ago · {x.landed ? 'landed' : 'sent'}</small></li>)}</ul> : null}
+  </div>;
+}
+const ICONS = [['vault', '📁', 'Vault'], ['pow', '⛏', 'PoW'], ['jobs', '🗂', 'Jobs'], ['sources', '🌐', 'Sources'], ['honey', '🍯', 'Honey pot'], ['wallet', '👛', 'Wallet'], ['files', '☁', 'Files'], ['cmds', '⌘', 'Commands']];
 const iconsKey = id => `feeless.dsk.icons.${id}`;
 // 🖱 desktop icons you can drag anywhere (positions kept on this device); a tap without a drag opens it
 function DeskIcon({ k, ic, label, at, onMove, onOpen, tip }) {
@@ -724,11 +751,11 @@ function DeskIcon({ k, ic, label, at, onMove, onOpen, tip }) {
     <i className="dsk-ico-art" aria-hidden="true"><em>{ic}</em></i><span>{label}</span></button>;
 }
 const ICON_TIP = { vault: "Your agent's drawer — logins, sealed recovery files, signed-in sites, API keys", pow: 'Every Proof of Work its minds filed — the call, the vitals per site, how it graded',
-  honey: 'Its colony vitals — honey, right calls, the next airdrop, the pool — and the ways into the colony', files: 'Its storage — upload files and images for its tasks', cmds: 'What it understands in the chat — tap one to put it in the chat box', sources: 'Every site its agents trust — what it is for, how it treated them, and Sign in to open it live in its window', jobs: 'Every request as its exact log tree — your words, each mind\'s plan and steps, the answer, your 👍 / 👎' };
+  honey: 'Its colony vitals — honey, right calls, the next airdrop, the pool — and the ways into the colony', files: 'Its storage — upload files and images for its tasks', wallet: 'Its own wallet — live SOL + USDC, and swap between them (nothing leaves it)', cmds: 'What it understands in the chat — tap one to put it in the chat box', sources: 'Every site its agents trust — what it is for, how it treated them, and Sign in to open it live in its window', jobs: 'Every request as its exact log tree — your words, each mind\'s plan and steps, the answer, your 👍 / 👎' };
 
 export function AgentDesktop({ cat, live = null, onClose, onReopen, actions = null, onCommand = null, start = null }) {
   const [w, setW] = useState(() => ({ live: { open: !!live, min: false, max: false, x: 24, y: 12 }, vault: { open: false, min: false, max: false, x: 120, y: 60 },
-    pow: { open: false, min: false, max: false, x: 150, y: 40 }, honey: { open: false, min: false, max: false, x: 180, y: 70 }, files: { open: false, min: false, max: false, x: 210, y: 100 }, cmds: { open: false, min: false, max: false, x: 240, y: 60 }, jobs: { open: false, min: false, max: false, x: 170, y: 50 }, sources: { open: false, min: false, max: false, x: 200, y: 40 } }));
+    pow: { open: false, min: false, max: false, x: 150, y: 40 }, honey: { open: false, min: false, max: false, x: 180, y: 70 }, files: { open: false, min: false, max: false, x: 210, y: 100 }, cmds: { open: false, min: false, max: false, x: 240, y: 60 }, wallet: { open: false, min: false, max: false, x: 190, y: 80 }, jobs: { open: false, min: false, max: false, x: 170, y: 50 }, sources: { open: false, min: false, max: false, x: 200, y: 40 } }));
   const [pos, setPos] = useState(() => { const dflt = Object.fromEntries(ICONS.map(([k], i) => [k, { x: 0, y: i * 96 }])); try { return { ...dflt, ...JSON.parse(localStorage.getItem(iconsKey(cat.id)) || '{}') }; } catch { return dflt; } });
   const moveIcon = (k, p) => setPos(x => { const n = { ...x, [k]: p }; try { localStorage.setItem(iconsKey(cat.id), JSON.stringify(n)); } catch { /* private window */ } return n; });
   const openWin = k => { if (k === 'vault') { openVault(); return; } set(k, { open: true, min: false }); setTop(k); };
@@ -764,7 +791,7 @@ export function AgentDesktop({ cat, live = null, onClose, onReopen, actions = nu
         <i aria-hidden="true">{ic}</i><span>{l}</span>{n(d) != null ? <b className="m-num">{n(d)}</b> : null}</button>)}</aside>
         <div className="dsk-pane"><p className="dsk-path">Vault <i>›</i> {VAULT_TABS.find(t => t[0] === tab)[2]}</p><div key={tab} className="dsk-pull">{pane}</div></div></div>
     </DeskWin> : null}
-    {[['pow', `⛏ PoW — ${cat.name || 'your agent'}`, <PowExplorer cat={cat} d={d} />], ['honey', '🍯 Honey pot', <HoneyPot cat={cat} />], ['files', '☁ Files', <CloudDrawer cat={cat} attachments={d?.storage} />], ['cmds', '⌘ Commands', <CommandList rows={d?.commands} onPick={onCommand} />], ['jobs', '🗂 Jobs', <JobsFolder d={d} />], ['sources', '🌐 Sources', <SourcesFolder cat={cat} d={d} setD={setD} />]].map(([k, t, body]) =>
+    {[['pow', `⛏ PoW — ${cat.name || 'your agent'}`, <PowExplorer cat={cat} d={d} />], ['honey', '🍯 Honey pot', <HoneyPot cat={cat} />], ['wallet', '👛 Wallet', <WalletApp cat={cat} />], ['files', '☁ Files', <CloudDrawer cat={cat} attachments={d?.storage} />], ['cmds', '⌘ Commands', <CommandList rows={d?.commands} onPick={onCommand} />], ['jobs', '🗂 Jobs', <JobsFolder d={d} />], ['sources', '🌐 Sources', <SourcesFolder cat={cat} d={d} setD={setD} />]].map(([k, t, body]) =>
       w[k].open && !w[k].min ? <DeskWin key={k} k={k} title={t} s={w[k]} top={top === k} set={set} onTop={() => setTop(k)} onClose={() => set(k, { open: false })}>{body}</DeskWin> : null)}
     <footer className="dsk-bar"><span className="dsk-start"><i aria-hidden="true" />FEELESS</span>
       {tasks.map(([k, ic, l]) => <button key={k} type="button" className={`dsk-task${!w[k].min && top === k ? ' is-on' : ''}`} onClick={() => { if (w[k].min || top !== k) { set(k, { min: false }); setTop(k); } else set(k, { min: true }); }} data-testid={`dsk-task-${k}`}>{ic} {l}</button>)}

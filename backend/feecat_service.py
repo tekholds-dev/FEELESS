@@ -905,6 +905,25 @@ async def _thinking_money(cat):
     return usdc
 
 
+WALLET_SWAP_MIN = {'SOL': 0.002, 'USDC': 0.2}
+_SWAP_BUSY: set = set()
+
+
+def swap_plan(side, amount, sol, usdc, gas=None):
+    """👛 The owner's swap inside the agent's OWN wallet (SOL ⇄ USDC, nothing leaves it). → (input mint, output mint, amount) or raises ValueError.
+    SOL → USDC always leaves the gas reserve; 0 = everything it can."""
+    gas = _at.GAS_SOL if gas is None else gas
+    if side not in ('SOL>USDC', 'USDC>SOL'):
+        raise ValueError('Swap SOL → USDC or USDC → SOL.')
+    tok = side.split('>')[0]; have = max(0.0, sol - gas) if tok == 'SOL' else usdc
+    amt = have if not amount else float(amount)
+    if amt <= 0 or amt > have + 1e-9:
+        raise ValueError(f"It has {have:.6g} {tok} it can swap" + (f' (it keeps {gas:g} SOL for gas)' if tok == 'SOL' else '') + '.')
+    if amt < WALLET_SWAP_MIN[tok]:
+        raise ValueError(f'The smallest swap is {WALLET_SWAP_MIN[tok]:g} {tok}.')
+    return (_at.SOL, _cf_usdc, round(amt, 6)) if tok == 'SOL' else (_cf_usdc, _at.SOL, round(amt, 6))
+
+
 def think_keep_sol(cat):
     """The SOL its thinking top-up must leave alone: one full trade + the trade gas reserve + this swap's own fee room."""
     trade_ = max(_num(cat.get('budgetSol')), _num((cat.get('risk') or {}).get('maxPositionSol')))
@@ -3468,6 +3487,47 @@ async def cat_work(cat_id: str, p: WorkPayload):
             return {'password': pw_}
         except Exception as e:
             raise HTTPException(400, str(e)[:120])
+    if p.op in ('wallet', 'wallet_swap'):   # 👛 the desktop wallet app: its live balance + the owner's own swap inside its wallet (nothing leaves it)
+        addr_ = (cat.get('agentWallet') or {}).get('address')
+        if not addr_:
+            raise HTTPException(400, 'It has no wallet yet — make its wallet first.')
+        async with httpx.AsyncClient(timeout=25) as http:
+            usdc_, sol_ = await _agent_usdc(http, addr_)
+            if p.op == 'wallet':
+                return {'address': addr_, 'sol': sol_, 'usdc': usdc_, 'gas': _at.GAS_SOL, 'canSwap': _pays_itself(cat), 'swaps': (cat.get('walletSwaps') or [])[-8:]}
+            if not _pays_itself(cat):
+                raise HTTPException(400, 'Only a wallet Circle signs for this agent can swap.')
+            if cat_id in _SWAP_BUSY:
+                raise HTTPException(409, 'A swap is already on its way.')
+            try:
+                in_, out_, amt_ = swap_plan(str(p.text or ''), float(p.cap or 0), sol_, usdc_)
+            except (ValueError, TypeError) as e:
+                raise HTTPException(400, str(e))
+            _SWAP_BUSY.add(cat_id)
+            try:
+                q_ = await http.post(f'{_at.TRADE}/quote', json={'input_mint': in_, 'output_mint': out_, 'amount': f'{amt_:.6f}', 'wallet': addr_, 'slippage_bps': _at.SLIP_BPS}, timeout=20)
+                qj = q_.json() if q_.status_code == 200 else {}
+                if qj.get('input_mint') != in_ or qj.get('output_mint') != out_ or not (qj.get('quote') or {}).get('transaction'):   # 🔒 signs only the exact swap asked
+                    raise HTTPException(502, 'No matching quote — nothing was signed.')
+                rec_ = {'key': f"feeless-{cat_id}-wswap-{round(time.time())}", 'tx': qj['quote']['transaction']}
+                try:
+                    await _at._circle_post(http, cat, rec_)
+                except ValueError as e:
+                    raise HTTPException(400, f'{e} — nothing moved.')
+                after_ = (usdc_, sol_)
+                for _ in range(8):   # read it back: done only when the balance moved
+                    await asyncio.sleep(3)
+                    after_ = await _agent_usdc(http, addr_)
+                    if (after_[0] > usdc_) if out_ == _cf_usdc else (after_[1] > sol_):
+                        break
+            finally:
+                _SWAP_BUSY.discard(cat_id)
+        row_ = {'at': round(time.time()), 'side': p.text, 'amount': amt_, 'sig': rec_.get('sig'), 'sol': after_[1], 'usdc': after_[0],
+                'landed': (after_[0] > usdc_) if out_ == _cf_usdc else (after_[1] > sol_)}
+        st_ = _load(); c_ = st_['cats'].get(cat_id)
+        if c_:
+            c_['walletSwaps'] = ((c_.get('walletSwaps') or []) + [row_])[-20:]; _save(st_)
+        return {'address': addr_, 'sol': after_[1], 'usdc': after_[0], 'gas': _at.GAS_SOL, 'canSwap': True, 'swap': row_, 'swaps': ((c_ or {}).get('walletSwaps') or [])[-8:]}
     if p.op == 'seal':   # 🔏 the owner pastes a secret (a recovery phrase…): sealed with this agent's key, never shown on the page again until opened
         try:
             out_ = _cv.put_secret(cat, p.job or 'sealed note', text=p.secret or '', site=p.text or '', data_dir=DATA_DIR)

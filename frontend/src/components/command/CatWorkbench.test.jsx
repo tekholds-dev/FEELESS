@@ -356,3 +356,21 @@ test('⛏ the PoW explorer: PoW › dated folders › coin folders (the pick = �
   expect(q('dsk-report').textContent).toContain('it lost: stop'); expect(q('dsk-report').querySelector('a').getAttribute('href')).toContain('/powshot/pow9/report.md');
   act(() => root.unmount());
 });
+
+test('👛 the wallet app: live SOL + USDC, pick a direction, Swap sends op wallet_swap with that side and amount', async () => {
+  const { AgentDesktop } = require('./CatWorkbench');
+  sessionStorage.clear(); document.body.innerHTML = ''; const calls = [];
+  global.fetch = async (u, o) => { const b = o?.body ? JSON.parse(o.body) : {}; calls.push(b);
+    const w = b.op === 'wallet_swap' ? { address: 'AGT', sol: 0.0179, usdc: 0.35, gas: 0.01, canSwap: true, swap: { landed: true }, swaps: [{ at: Date.now() / 1000, side: 'USDC>SOL', amount: 1, landed: true }] }
+      : { address: 'AGT', sol: 0.0075, usdc: 1.35, gas: 0.01, canSwap: true, swaps: [] };
+    return { ok: true, json: async () => w }; };
+  const el = document.createElement('div'); document.body.appendChild(el); const root = createRoot(el);
+  await act(async () => { root.render(<AgentDesktop cat={{ id: 'g1', name: 'Happy' }} onClose={() => {}} start="wallet" />); });
+  const q = id => document.querySelector(`[data-testid="${id}"]`);
+  expect(q('dsk-wallet').textContent).toContain('1.35'); expect(q('dsk-wallet').textContent).toContain('0.0075');
+  const inp = q('dsk-wallet').querySelector('input'); const set = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set;
+  await act(async () => { set.call(inp, '1'); inp.dispatchEvent(new Event('input', { bubbles: true })); });
+  await act(async () => { q('dsk-wallet-swap').click(); });
+  expect(calls.at(-1)).toMatchObject({ op: 'wallet_swap', text: 'USDC>SOL', cap: 1 }); expect(q('dsk-wallet').textContent).toContain('✓ swapped');
+  act(() => root.unmount());
+});

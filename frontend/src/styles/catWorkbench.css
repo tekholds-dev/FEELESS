@@ -593,3 +593,22 @@ body.fx-lite .dsk-xt, body.fx-lite .dsk-xt .dsk-ico-art, body.fx-lite .dsk-tl-do
 body.theme-day .dsk-xpath span > button { color: #2a1d4a; } body.theme-day .dsk-rep, body.theme-day .dsk-trade { background: #fff; } body.theme-day .dsk-rep-h b, body.theme-day .dsk-rep-c b { color: #1b1233; }
 body.theme-day .dsk-rep-l, body.theme-day .dsk-rep-c small, body.theme-day .dsk-trade small, body.theme-day .dsk-rep-h em { color: #3d3060; } body.theme-day .dsk-xt span { color: #10261a; }
 @media (max-width: 640px) { .dsk-xgrid { grid-template-columns: repeat(3, minmax(0, 1fr)); } .dsk-rep-c li { grid-template-columns: 70px minmax(0, 1fr) auto; } .dsk-rep-c em { display: none; } }
+/* 👛 the desktop wallet app: live balances (the hot number glows), the owner's in-wallet swap, its swap log */
+.dsk-ico.is-wallet .dsk-ico-art { --f: #45e486; --f2: #0e7a40; }
+.dsk-wal { display: grid; align-content: start; gap: 12px; padding: 14px; overflow: auto; }
+.dsk-wal-bal { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.dsk-wal-bal span { position: relative; display: grid; gap: 2px; padding: 12px; border-radius: 12px; border: 1px solid #45e48640; background: linear-gradient(160deg, #45e4861c, #07110c 70%); box-shadow: inset 0 1px #ffffff14; overflow: hidden; }
+.dsk-wal-bal span::after { content: ''; position: absolute; inset: 0; background: linear-gradient(100deg, transparent 30%, #ffffff12 50%, transparent 70%); transform: translateX(-100%); animation: dskWal 4.5s ease-in-out infinite; pointer-events: none; }
+.dsk-wal-bal span.is-usdc { border-color: #5ec8ff40; background: linear-gradient(160deg, #5ec8ff1c, #060d14 70%); }
+.dsk-wal-bal em { color: #9fc9b1; font: 800 9px var(--f-mono); letter-spacing: .14em; font-style: normal; } .dsk-wal-bal b { color: #fff; font: 800 22px var(--f-mono); text-shadow: 0 0 14px #45e48666; }
+.dsk-wal-bal span.is-usdc b { text-shadow: 0 0 14px #5ec8ff66; } .dsk-wal-bal small { color: #8fb3a0; font: 600 10px var(--f-ui); }
+.dsk-wal-addr { padding: 6px 10px; border-radius: 8px; background: #ffffff08; color: #b9d8c6; font: 600 10.5px var(--f-mono); overflow-wrap: anywhere; }
+.dsk-wal-swap { display: grid; gap: 8px; padding: 12px; border-radius: 12px; border: 1px solid #ffffff14; background: #ffffff06; } .dsk-wal-swap .m-seg { justify-self: start; }
+.dsk-wal-amt { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 6px; } .dsk-wal-amt .m-btn, .dsk-wal-swap .m-go { min-height: 36px; }
+.dsk-wal-msg { color: #c8e9d6; font: 600 11px var(--f-ui); }
+.dsk-wal-log { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; } .dsk-wal-log li { display: grid; grid-template-columns: auto auto minmax(0, 1fr); gap: 10px; align-items: center; padding: 6px 9px; border-radius: 8px; background: #ffffff07; animation: dskXIn .3s both; animation-delay: calc(var(--i, 0) * 50ms); }
+.dsk-wal-log b { color: #fff; font: 700 11px var(--f-tech); } .dsk-wal-log em { color: #45e486; font: 800 11px var(--f-mono); font-style: normal; } .dsk-wal-log small { color: #8fb3a0; font: 600 10px var(--f-ui); text-align: right; }
+@keyframes dskWal { 60%, 100% { transform: translateX(100%); } }
+body.fx-lite .dsk-wal-bal span::after, body.fx-lite .dsk-wal-log li { animation: none; } @media (prefers-reduced-motion: reduce) { .dsk-wal-bal span::after, .dsk-wal-log li { animation: none; } }
+body.theme-day .dsk-wal-bal span { background: #f2fbf6; } body.theme-day .dsk-wal-bal b, body.theme-day .dsk-wal-log b { color: #0f2a1b; text-shadow: none; } body.theme-day .dsk-wal-addr { color: #23493a; background: #0000000a; }
+@media (max-width: 640px) { .dsk-wal-bal b { font-size: 18px; } }
