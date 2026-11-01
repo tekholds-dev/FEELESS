@@ -22,6 +22,9 @@ test('the legend: nine lanterns lit from her lives, chapters, the Fee-Back tabs'
   expect(el.querySelectorAll('.fcl-lanterns i').length).toBe(9); expect(el.querySelectorAll('.fcl-lanterns i.is-lit').length).toBe(7);
   expect(el.querySelector('[data-testid="feecat-ch-record"]').textContent).toContain('3W · 1L');
   expect(el.querySelector('[data-testid="feecat-stat-2"]').textContent).toContain('12 real messages');
+  const man = el.querySelector('[data-testid="lore-manual"]').textContent;   // 📖 a manual: name, the 5-step tutorial, how it works, the commands
+  expect(man).toContain('SYNOPSIS'); expect(man).toContain('file a PoW'); expect(man).toContain('COMMANDS'); expect(man).toContain('a losing exit blows out one lantern');
+  expect(el.querySelectorAll('.fcl-mp-meter i.is-on').length).toBe(7); expect(el.querySelector('.fcl-man-h').textContent).toContain('man fee');
   await act(async () => { el.querySelector('[data-testid="lore-feeback"]').click(); });   // Fee-Back is Lore's third section
   expect(el.querySelector('[data-testid="pane"]').textContent).toBe('path');
   await act(async () => { el.querySelector('[data-testid="feecat-tab-calc"]').click(); });
