@@ -53,7 +53,7 @@ test('🐝 the Colony / My agents cells: two windows (a real screen, its last pa
   expect(asked[0]).toContain('ids=g1%2Ct1'); expect(el.querySelector('[data-testid="colony-mine"]')).not.toBeNull(); expect(el.querySelector('[data-testid="hive"]')).toBeNull();   // mine: no board
   expect(el.querySelector('[data-testid="cl-scr-g1-A"] img').getAttribute('src')).toContain('/api/cats/g1/screen/0?t=');
   expect(el.querySelector('[data-testid="cl-scr-g1-B"]').textContent).toContain('signing in');
-  expect(el.querySelector('[data-testid="cl-scr-t1-A"] img').getAttribute('src')).toMatch(/screen\/0$/); expect(el.querySelector('[data-testid="cl-scr-t1-A"]').textContent).toContain('LAST PAGE');
+  expect(el.querySelector('[data-testid="cl-scr-t1-A"] img').getAttribute("src")).toMatch(/last\/0$/); expect(el.querySelector('[data-testid="cl-scr-t1-A"]').textContent).toContain('LAST PAGE');
   expect(el.querySelector('[data-testid="cl-scr-t1-A"] [data-testid="cwb-cursor"]').className).toContain('is-rest');   // 🖱 always on, resting before its first move
   expect(el.querySelector('[data-testid="cl-g1"]').textContent).toContain('carrying “validator” to its drawer');
   expect(el.querySelector('[data-testid="x-t1"]')).not.toBeNull(); expect(el.querySelector('[data-testid="cl-g1"]').textContent).toContain('+3');

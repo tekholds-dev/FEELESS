@@ -2133,6 +2133,7 @@ async def _work_run(cat_id, models, names, text, cap, brief='', efforts=None, ow
                     jpg_ = await asyncio.wait_for(pg.shot(), 6) if getattr(pg, 'live', False) else None
                     if jpg_:
                         _SHOTS[(cat_id, k_)] = (time.time(), jpg_)
+                        _last_put(cat_id, _slot_of(cat_now, models[k_] if k_ < len(models) else ''), jpg_)   # 🖼 its model's monitor idles on this page (kept on disk)
                 except Exception:   # noqa: BLE001 — a missing last frame never blocks closing the browser
                     pass
                 await pg.close()
@@ -3463,6 +3464,40 @@ async def cat_cloud_disconnect(cat_id: str, p: CloudPayload):
 INCOGNITO_USD = 5.0   # 🕶 owner 2026-10-31: an agent's screens hidden from visitors, $5 once per agent (from its model credit; staff free)
 SHOT_TTL_S = 4.0      # one real screenshot per window per 4 s, however many visitors watch
 _SHOTS: dict = {}
+_LAST: dict = {}
+SHOTS_DIR = DATA_DIR / 'shots'
+
+
+def _slot_of(cat, model, default=0):
+    """Which of its monitors a model owns (its place in brains) — mind B working alone never paints over mind A's last page."""
+    ms = [str(m) for m in ((cat or {}).get('brainsCfg') or {}).get('brains') or []]
+    return ms.index(str(model)) if str(model) in ms else default
+
+
+def _last_put(cat_id, slot, jpg):
+    _LAST[(cat_id, slot)] = jpg
+    try:
+        SHOTS_DIR.mkdir(parents=True, exist_ok=True); (SHOTS_DIR / f'{re.sub(r"[^a-z0-9]", "", cat_id.lower())[:40]}_{int(slot)}.jpg').write_bytes(jpg)
+    except OSError:
+        pass
+
+
+def _last_get(cat_id, slot):
+    got = _LAST.get((cat_id, slot))
+    if got is None:
+        f_ = SHOTS_DIR / f'{re.sub(r"[^a-z0-9]", "", str(cat_id).lower())[:40]}_{int(slot)}.jpg'
+        got = _LAST[(cat_id, slot)] = f_.read_bytes() if f_.exists() else b''
+    return got or None
+
+
+@app.get('/api/cats/{cat_id}/last/{slot}')
+async def cat_last_page(cat_id: str, slot: int):
+    """🖼 The last page this model's monitor showed — every idle / finished monitor rests on it (owner 2026-11-01), never a live browser."""
+    cat = _load()['cats'].get(cat_id)
+    jpg = _last_get(cat_id, slot) if cat and not cat.get('incognito') and 0 <= slot < 8 else None
+    if not jpg:
+        raise HTTPException(404, 'No last page yet.')
+    return Response(content=jpg, media_type='image/jpeg', headers={'Cache-Control': 'no-store', 'X-Last-Page': '1'})
 
 
 def _pub_cursor(c):
@@ -3483,12 +3518,13 @@ def public_live(w, cat=None):
         host = str(x.get('url') or '').split('://')[-1].split('/')[0].split('?')[0][:60]
         frozen = x.get('status') == 'human'
         live_ = x.get('status') == 'working' and str(x.get('url') or '').startswith('http')
-        last_ = not live_ and (str((cat or {}).get('id') or ''), x.get('i')) in _SHOTS   # 🖼 a finished window keeps its last page
-        out.append({'i': x.get('i'), 'model': str(x.get('model') or '').split('/')[-1][:40], 'status': x.get('status') or 'idle', 'host': '' if hide else host,
+        slot_ = _slot_of(cat, x.get('model'), int(x.get('i') or 0))
+        last_ = not live_ and bool(_last_get(str((cat or {}).get('id') or ''), slot_))   # 🖼 a finished window keeps its last page
+        out.append({'i': x.get('i'), 'slot': slot_, 'model': str(x.get('model') or '').split('/')[-1][:40], 'status': x.get('status') or 'idle', 'host': '' if hide else host,
                     'frozen': frozen, 'screen': bool((live_ or last_) and not hide and not frozen), 'last': bool(last_ and not hide and not frozen),
                     'cursor': None if hide or frozen else _pub_cursor(x.get('cursor'))})   # 🖱 where its mouse is (a position only — never what it typed)
     if not out and cat and not hide:   # no task in memory: still its last frames, if any
-        out = [{'i': k[1], 'model': '', 'status': 'idle', 'host': '', 'frozen': False, 'screen': True, 'last': True} for k in sorted(_SHOTS) if k[0] == cat.get('id')][:2]
+        out = [{'i': k, 'slot': k, 'model': '', 'status': 'idle', 'host': '', 'frozen': False, 'screen': True, 'last': True} for k in range(2) if _last_get(cat.get('id'), k)]
     return {'status': t.get('status') or 'idle', 'windows': out, 'incognito': hide}
 
 
@@ -3514,6 +3550,7 @@ async def cat_screen(cat_id: str, i: int):
         if not jpg:
             raise HTTPException(404, 'No screen right now.')
         got = _SHOTS[key] = (now, jpg)
+        _last_put(cat_id, _slot_of(cat, x.get('model'), i), jpg)   # 🖼 the newest frame is also where its monitor will rest
     return Response(content=got[1], media_type='image/jpeg', headers={'Cache-Control': 'no-store'})
 
 

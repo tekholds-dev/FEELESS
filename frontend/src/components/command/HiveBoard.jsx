@@ -142,7 +142,7 @@ function ColonyScreen({ a, w, side, tick }) {
   let body;
   if (a.incognito) body = <span className="cl-off is-incog"><b aria-hidden="true">🕶</b>incognito</span>;
   else if (w?.frozen) body = <span className="cl-off is-frozen"><b aria-hidden="true">❄</b>paused — its owner is signing in</span>;
-  else if (w?.screen && !bad) body = <img src={apiUrl(`/api/cats/${a.id}/screen/${w.i}${w.last ? '' : `?t=${tick}`}`)} alt={`${a.name}'s window ${side}`} loading="lazy" onError={() => setBad(true)} />;
+  else if (w?.screen && !bad) body = <img src={apiUrl(w.last ? `/api/cats/${a.id}/last/${w.slot ?? w.i}` : `/api/cats/${a.id}/screen/${w.i}?t=${tick}`)} alt={`${a.name}'s window ${side}`} loading="lazy" onError={() => setBad(true)} />;
   else if (a.status === 'working' || w?.status === 'working') body = <span className="cl-off"><i className="cl-scan" aria-hidden="true" />loading the screen…</span>;
   else body = <span className="cl-desk" aria-label="idle — its desktop"><i className="cl-desk-glow" aria-hidden="true" /><b className="cl-desk-mark" aria-hidden="true">FEELESS</b>   {/* 🖥 idle = its desktop (owner 2026-11-01) */}
     <span className="cl-desk-icons" aria-hidden="true"><i className="is-v" /><i className="is-p" /><i className="is-h" /><i className="is-f" /></span>

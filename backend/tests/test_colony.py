@@ -190,3 +190,23 @@ def test_the_colony_pool_needs_a_clean_preview_of_the_same_amounts_before_circle
     assert c.post('/api/reputation/admin/colony', json={'action': 'pool_create', 'feecat': 1e6, 'sol': 0.5}).status_code == 200
     d = rs._json_load(rs.COLONY_PATH, {}); assert signed == [('/sign', 'cw1', True)] and d['pool']['address'] == 'POOL1' and d['pool']['platform'] == 'Meteora DAMM v2'
     assert c.post('/api/reputation/admin/colony', json={'action': 'pool_create', 'feecat': 1e6, 'sol': 0.5}).status_code == 400   # once, ever
+
+
+def test_every_monitor_idles_on_its_own_models_last_page_kept_on_disk(monkeypatch, tmp_path):
+    """Owner 2026-11-01: "all monitors idle on the last thing they were on as a snapshot" — per model, so B alone never paints over A, and a restart keeps it."""
+    import asyncio
+    import feecat_service as fs
+    monkeypatch.setattr(fs, 'SHOTS_DIR', tmp_path / 'shots'); fs._LAST.clear()
+    cat = {'id': 'c1', 'brainsCfg': {'brains': ['x/a', 'x/b']}}
+    monkeypatch.setattr(fs, '_load', lambda: {'cats': {'c1': cat}})
+    assert fs._slot_of(cat, 'x/b') == 1 and fs._slot_of(cat, 'x/zz') == 0
+    fs._last_put('c1', 1, b'JPG-B'); fs._LAST.clear()                                      # a restart: memory gone, the file stays
+    assert fs._last_get('c1', 1) == b'JPG-B' and fs._last_get('c1', 0) is None
+    r = asyncio.run(fs.cat_last_page('c1', 1)); assert r.body == b'JPG-B' and r.headers['X-Last-Page'] == '1'
+    live = fs.public_live({'task': {'status': 'done', 'windows': [{'i': 0, 'model': 'x/b', 'status': 'done', 'url': 'https://a.com'}]}}, cat)
+    assert live['windows'][0]['slot'] == 1 and live['windows'][0]['last']                    # mind B worked alone: its own monitor, its own page
+    cat['incognito'] = True
+    try:
+        asyncio.run(fs.cat_last_page('c1', 1)); assert False
+    except fs.HTTPException as e:
+        assert e.status_code == 404                                                            # private agents show nothing

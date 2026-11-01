@@ -28,7 +28,7 @@ PLAN_SYS = ('You lead two AI models working for a FEELESS user. If you can answe
             'Otherwise split it into two halves the two models research in their own browsers at the same time. Answer ONLY JSON: '
             '{"fast": "<answer or empty>", "a": "<your half>", "b": "<the other model\'s half>"}')
 ACT_SYS = ('You are {name}, an AI model working in your OWN web browser for a FEELESS user, who watches you. Your half of the task: {goal}\n'
-           'Each turn pick ONE action. Answer ONLY JSON: {{"thought": "<= 12 words: what you are doing and why", "action": "feeless|open|search|scroll|click|type|pull|upload|new_login|ask_login|media|human|draft|build|note|answer", '
+           'Each turn pick ONE action. On your FIRST turn also add "plan": ["step 1", "step 2", "step 3"] — your 3-step plan (<= 8 words each), then follow it. Answer ONLY JSON: {{"thought": "<= 12 words: what you are doing and why", "action": "feeless|open|search|scroll|click|type|pull|upload|new_login|ask_login|media|human|draft|build|note|answer", '
            '"tool": "<feeless tool>", "url": "", "q": "", "text": "<visible text of the link / button to click>", "label": "<field label or placeholder>", "value": "", "say": "<your answer, when action is answer>"}}\n'
            'YOU SEE THE SCREEN: the page below is what is ON SCREEN right now, top to bottom. To see more, "scroll" (q: "down" or "up"); to look closer, "click" an item by its visible text. Browse like a person — scroll, open what interests you, compare.\n'
            'FEELESS FIRST: for anything about coins, trading, perps, pools or prices use action "feeless" (tool: coin|trench|perps|pools|gaps|colony, q: the coin / ticker) '
@@ -285,6 +285,11 @@ async def _window(task, w, ask, page, wait_human, name, feeless=None):
         mine = (task.get('clouds') or {}).get(w['i']) or []   # ☁ its own cloud from earlier tasks
         got = [h['text'] for h in task.get('handoffs') or [] if h['from'] != w['i']][-4:]   # 📦 what its partner handed over
         extra = (f"\nYOUR CLOUD (your notes from earlier tasks): {' | '.join(mine)[:600]}" if mine else '') + (f"\nFROM YOUR PARTNER: {' | '.join(got)[:900]}" if got else '')
+        if w.get('plan'):   # 🗺 its own 3-step plan rides every step (owner 2026-11-01: "plan in 3 steps, then execute")
+            extra += '\nYOUR 3-STEP PLAN: ' + ' → '.join(f'{k + 1}) {x}' for k, x in enumerate(w['plan']))
+        partner_ = next((x.get('plan') for x in task.get('windows') or [] if x is not w and x.get('plan')), None)
+        if partner_:   # 🤝 how its partner attacks its half
+            extra += "\nYOUR PARTNER'S PLAN: " + ' → '.join(partner_)
         if task.get('knowhow'):   # 🐝 the Colony + 🧭 the sources book: every mind knows both, whatever its prompt
             extra += '\n' + str(task['knowhow'])[:2600]
         if pw:
@@ -301,6 +306,10 @@ async def _window(task, w, ask, page, wait_human, name, feeless=None):
         raw = await _ask(task, w, ask, w['model'], msgs)
         a = parse_json(raw)
         act = str(a.get('action') or '').lower()
+        if not w.get('plan'):   # 🗺 its 3-step plan, from its first reply (no extra call) — the engine's when it gave none
+            pl_ = [str(x)[:60] for x in (a.get('plan') if isinstance(a.get('plan'), list) else [])[:3] if str(x).strip()]
+            w['plan'] = pl_ if len(pl_) == 3 else (['FEELESS read', "the coin's pages, 3 vitals each", 'the call'] if pw else ['open the best source', 'read the numbers it needs', 'answer short'])
+            _step(w, 'plan: ' + ' → '.join(w['plan']), 'plan')
         if act in DONE_WORDS:   # "report" / "final" / "done" = its answer (a real run was refused twice for saying "report")
             act, a['say'] = 'answer', a.get('say') or '; '.join(f'{k}: {v}' for k, v in a.items() if k not in ('action', 'thought', 'url', 'text', 'label', 'value', 'tool', 'q') and v)
         if act in ('open', 'ask_login') and a.get('url'):

@@ -114,7 +114,7 @@ def test_two_windows_split_the_task_each_browses_then_model_a_merges():
     assert t['status'] == 'done' and t['answer'].startswith('Both agree')
     assert pa.done == [('goto', 'https://html.duckduckgo.com/html/?q=Kalshi+YES+prices'), ('goto', 'https://kalshi.com/markets')] and pb.done == [('goto', 'https://html.duckduckgo.com/html/?q=news+on+US+capital'), ('search', 'US capital')]   # 🔎 a blank window starts on a search
     assert t['windows'][0]['answer'] == 'YES at $0.30' and t['windows'][1]['goal'] == 'news on US capital'
-    assert [s['action'] for s in t['windows'][1]['steps']] == ['open', 'search', 'answer'] and t['cost'] == pytest.approx(0.006)
+    assert [s['action'] for s in t['windows'][1]['steps']] == ['open', 'plan', 'search', 'answer'] and t['cost'] == pytest.approx(0.006)
 
 
 def test_a_sign_in_wall_pauses_the_window_for_the_human_and_a_secret_is_never_typed():
@@ -237,7 +237,7 @@ def test_a_traders_browser_reads_coins_and_narrative_only_never_types_or_leaves_
     asyncio.run(ca.run(t, ask, [pa], None))
     assert pa.done == [('goto', 'https://html.duckduckgo.com/html/?q=BTC+narrative'), ('goto', 'https://www.coindesk.com/policy')]   # the sign-up, the off-list site and the typing never reached the page
     acts = [s['action'] for s in t['windows'][0]['steps']]
-    assert acts[:4] == ['open', 'refused', 'blocked', 'refused'] and 'new_login' not in acts and t['windows'][0]['answer'] == 'policy tailwind'
+    assert acts[:5] == ['open', 'plan', 'refused', 'blocked', 'refused'] and 'new_login' not in acts and t['windows'][0]['answer'] == 'policy tailwind'
 
 
 def test_a_named_site_opens_first_and_a_bare_address_is_never_refused():
@@ -249,7 +249,7 @@ def test_a_named_site_opens_first_and_a_bare_address_is_never_refused():
     ask = scripted({'m/a': [{'thought': 'board', 'action': 'open', 'url': 'pump.fun/board'}, {'thought': 'done', 'action': 'answer', 'say': '$CAT leads'}]})
     asyncio.run(ca.run(t, ask, [pa, Page()], None))
     assert pa.done == [('goto', 'https://pump.fun'), ('goto', 'https://pump.fun/board')]   # opened before its first thought, then its bare address went through
-    assert [s['action'] for s in t['windows'][0]['steps']] == ['open', 'open', 'answer'] and t['windows'][0]['answer'] == '$CAT leads'
+    assert [s['action'] for s in t['windows'][0]['steps']] == ['open', 'plan', 'open', 'answer'] and t['windows'][0]['answer'] == '$CAT leads'
     pb = Page(); pb.url = 'https://pump.fun/?__cf_chl_rt_tk=x'
     t = ca.new_task('t11', 'A: pick the best coin', ['m/a', 'm/b'], 1.0); t.update(research=True, tools={'browse': True, 'forms': True})
     ask = scripted({'m/a': [{'thought': 'again', 'action': 'open', 'url': 'pump.fun/'}, {'thought': 'got it', 'action': 'report', 'best_coin': 'HUSS', 'reason': '+3947% 1h'}]})
@@ -282,7 +282,7 @@ def test_browse_for_n_minutes_keeps_it_browsing_and_a_failed_click_on_a_bot_chec
     asyncio.run(ca.run(t, ask, [pa, Page()], human))
     assert t['status'] == 'stopped'   # you did not pass it (the stub says no) → it stops there, never retries blind
     acts = [s_['action'] for s_ in t['windows'][0]['steps']]
-    assert acts[:3] == ['open', 'browse', 'click'] and 'bot check' in asked[0]   # too early to answer → it browsed on; the walled click went to the person
+    assert acts[:4] == ['open', 'plan', 'browse', 'click'] and 'bot check' in asked[0]   # too early to answer → it browsed on; the walled click went to the person
 
 
 def test_scroll_is_a_research_move_and_a_checkpoint_on_the_first_page_goes_straight_to_the_person():
@@ -377,3 +377,15 @@ def test_a_mind_that_keeps_repeating_is_never_stopped_the_engine_moves_it_to_a_n
     w = t['windows'][0]
     assert ('goto', 'https://rugcheck.xyz') in pa.done and any('diverted to rugcheck.xyz' in s['thought'] for s in w['steps'])   # moved, not stopped
     assert w['answer'] == 'BONK holds' and t['filed'][-1]['text'] == 'BONK pool $2M'                                             # it finished + its note is filed
+
+
+def test_each_mind_plans_3_steps_on_its_first_reply_and_the_plan_rides_every_step():
+    """Owner 2026-11-01: "they must plan in 3 steps, then execute in their browser window" — no extra call: the plan comes with its first move."""
+    ask = scripted({'m/a': [{'thought': 'go', 'action': 'search', 'q': 'BONK', 'plan': ['search BONK', 'open dexscreener', 'answer']}, {'thought': 'done', 'action': 'answer', 'say': 'ok'}]})
+    t = ca.new_task('tp3', 'check BONK', ['m/a'], 1.0, 8, 'jobs')
+    asyncio.run(ca.run(t, ask, [Page()], None, ('A',)))
+    w = t['windows'][0]
+    assert w['plan'] == ['search BONK', 'open dexscreener', 'answer'] and w['steps'][1]['thought'].startswith('plan: search BONK')
+    t2 = ca.new_task('tp4', 'check BONK', ['m/a'], 1.0, 8, 'jobs')
+    asyncio.run(ca.run(t2, scripted({'m/a': [{'thought': 'done', 'action': 'answer', 'say': 'ok'}]}), [Page()], None, ('A',)))
+    assert len(t2['windows'][0]['plan']) == 3                                                # no plan given → the engine's default 3 steps

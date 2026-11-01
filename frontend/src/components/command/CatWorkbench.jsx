@@ -167,35 +167,35 @@ function Window({ w, catId, tick, onGo, onLogin, busy, cursor = 'arrow' }) {
   const chart = tab === 'chart' && w?.coin?.pair;
   const [p, pcls] = PROV[w?.provider] || ['…', ''];
   const human = w?.status === 'human' && w?.human; const [big, setBig] = useState(false);
-  const i = w?.i ?? 0; const working = w?.status === 'working';
+  const i = w?.i ?? 0; const sl = w?.slot ?? i; const working = w?.status === 'working';
   // 🪟 the live window wears the demo's chrome (owner 2026-10-30: "the window design is perfected — users should see exactly that, bigger")
   const [lastBad, setLastBad] = useState(false); useEffect(() => setLastBad(false), [w?.status]);
   const coinSym = String(w?.coin?.symbol || '').slice(0, 12);   // a spam token's 'symbol' can be 60 joined tickers — it once blew the whole desk apart
-  return <article ref={ref} className={`agd-win cwb-win w${i % 2} s-${w?.status || 'idle'}`} data-testid={`cwb-win-${i}`}>
-    <span className={`agd-bar${working ? ' is-go' : ''}`} data-tip="red = idle · yellow = needs you · green = working"><i /><i /><i /><b>MIND {'AB'[i] || i + 1}</b>
+  return <article ref={ref} className={`agd-win cwb-win w${sl % 2} s-${w?.status || 'idle'}`} data-testid={`cwb-win-${i}`}>
+    <span className={`agd-bar${working ? ' is-go' : ''}`} data-tip="red = idle · yellow = needs you · green = working"><i /><i /><i /><b>MIND {'AB'[sl] || sl + 1}</b>
       <small data-tip={w?.goal ? `Its half: ${w.goal}` : 'Waiting for the plan'}>{w?.model ? String(w.model).split('/').pop() : 'model'}{w?.goal ? ` · ${w.goal}` : ''}</small>
       <em className={`cwb-prov ${pcls}`} data-tip={w?.note || (w?.provider === 'reader' ? 'No live browser right now — it reads pages as text so it keeps working' : 'A browser in the cloud — nothing runs on your device')}>{p}</em>
       <em className={`agd-live${working ? '' : ' is-off'}`}>● {working ? 'LIVE' : String(w?.status || 'idle').toUpperCase()}</em></span>
     <div className="agd-browser is-rec cwb-browser">
     <span className="agd-url" title={w?.url || ''}><i aria-hidden="true">🔒</i><b>{w?.url ? String(w.url).replace(/^https?:\/\//, '') : notAsked ? 'not asked' : 'about:blank'}</b>{working ? <u className="agd-caret" aria-hidden="true" /> : null}{working ? <em className="agd-rec">● REC</em> : <small className="m-num">{usd(w?.cost || 0)}</small>}</span>
-    {w?.coin?.pair ? <div className="m-seg cwb-tabs" role="tablist" aria-label="What this window shows">{[['web', '🌐 Browser'], ['chart', `📈 $${coinSym} on FEELESS`]].map(([k, l]) =>
-      <button key={k} type="button" role="tab" aria-selected={tab === k} className={tab === k ? 'active' : ''} onClick={() => setTab(k)} data-tip={k === 'web' ? 'Its live browser' : 'The coin it checked, on the FEELESS chart'} data-testid={`cwb-tab-${k}`}>{l}</button>)}</div> : null}
+    {w?.coin?.pair ? <div className="cwb-tabs" aria-label="What its window shows — the agent switches it, you watch" data-tip="The agent switches its own view: its browser, or the coin on the FEELESS chart">{[['web', '🌐 Browser'], ['chart', `📈 $${coinSym} on FEELESS`]].map(([k, l]) =>
+      <span key={k} className={tab === k ? 'is-on' : ''} data-testid={`cwb-tab-${k}`}>{l}</span>)}</div> : null}   {/* 🔒 its monitor is the agent's: you watch, it switches (owner 2026-11-01) */}
     <div className="agd-screen cwb-view">
-      {notAsked ? <div className="cwb-off" data-testid="cwb-notasked"><b>MIND {'AB'[i] || i + 1} · not asked</b><small>This ask was for the other mind — no browser opened, nothing spent.</small></div>
+      {notAsked ? <div className="cwb-off" data-testid="cwb-notasked"><b>MIND {'AB'[sl] || sl + 1} · not asked</b><small>This ask was for the other mind — no browser opened, nothing spent.</small></div>
       : chart && seen ? <div className="cwb-chart" data-testid="cwb-chart"><Suspense fallback={<span className="cwb-chart-load">loading ${coinSym} on FEELESS…</span>}>
         <PriceChart key={w.coin.pair} pair={{ chainId: 'solana', pairAddress: w.coin.pair, baseToken: { address: w.coin.mint, symbol: coinSym } }} interval="1m" metric="price" showVolume={false} /></Suspense>
         <em className="cwb-chart-tag">FEELESS · ${coinSym}</em></div>
         : w?.live && seen && (working || w.hand) ? <><iframe className={`cwb-live${w.hand ? ' is-hand' : ''}`} src={w.live} tabIndex={w.hand ? 0 : -1} title={`${w.model} browser`} sandbox="allow-scripts allow-same-origin allow-forms allow-popups" allow="clipboard-read; clipboard-write" data-testid="cwb-live" />
 </>
-        : !working && !w?.hand && w?.status === 'done' && seen && !lastBad ? <img className="cwb-shot" src={apiUrl(`/api/cats/${catId}/screen/${w.i}`)} alt={`${w.model} — the last page it was on`} onError={() => setLastBad(true)} data-testid="cwb-lastpage" />   // 🖼 a finished window keeps its last page (its cloud browser is closed: the live view said 'Session not found')
+        : !working && !w?.hand && w?.status !== 'human' && seen && !lastBad ? <img className="cwb-shot" src={apiUrl(`/api/cats/${catId}/last/${sl}?v=${w?.status}`)} alt={`${w.model} — the last page it was on`} onError={() => setLastBad(true)} data-testid="cwb-lastpage" />   // 🖼 a finished window keeps its last page (its cloud browser is closed: the live view said 'Session not found')
         : w?.shot && seen ? <img className="cwb-shot" src={apiUrl(`/api/cats/${catId}/work/shot/${w.i}?${agentAuthQuery()}&t=${tick}`)} alt={`${w.model} window`} data-testid="cwb-shot" />
-          : <div className="cwb-off" data-testid="cwb-now"><b>{notAsked ? 'not asked' : working ? `MIND ${'AB'[i] || i + 1} · ${w?.url ? String(w.url).replace(/^https?:\/\//, '').split('/')[0] : 'reading'}` : w?.status === 'done' ? (w?.answer ? 'done — its answer is in the chat' : 'done') : 'ready — ask below'}</b>
+          : <div className="cwb-off" data-testid="cwb-now"><b>{notAsked ? 'not asked' : working ? `MIND ${'AB'[sl] || sl + 1} · ${w?.url ? String(w.url).replace(/^https?:\/\//, '').split('/')[0] : 'reading'}` : w?.status === 'done' ? (w?.answer ? 'done — its answer is in the chat' : 'done') : 'ready — ask below'}</b>
             <small>{w?.provider === 'reader' ? (w?.note ? `no live browser · ${w.note}` : 'no live browser right now — add a Kernel / Steel / Anchor key for real windows') : working ? 'opening its browser…' : ''}</small></div>}
       {notAsked || w?.hand ? null : <AiCursor c={w?.cursor} kind={cursor} think={working && !(w?.cursor?.at && Date.now() / 1000 - w.cursor.at < 2.5)} />}
       {drop ? <span className="cwb-drop" key={drop.k} style={{ '--x': `${drop.x * 100}cqw`, '--y': `${drop.y * 100}cqh` }} data-testid="cwb-drop" aria-hidden="true"><i>{drop.icon}</i>{drop.label}</span> : null}
       {w?.hand && w?.live ? <button type="button" className="m-btn cwb-big" onClick={() => setBig(true)} data-tip="It needs you: open its window big to click / sign in yourself" data-testid="cwb-big">⤢ Big</button> : null}
-      {big && w?.hand && w?.live ? <AgentDesktop cat={{ id: catId }} live={{ live: w.live, site: w?.human?.site, title: `MIND ${'AB'[i] || i + 1} needs you${w?.human?.why ? ` — ${w.human.why}` : ''}` }} onClose={() => setBig(false)} /> : null}
-      {w?.bubble && w?.status !== 'idle' && !human ? <p className={`agd-done is-on cwb-say at-${i % 2 ? 'right' : 'left'}`} key={w.bubble} data-testid="cwb-bubble">MIND {'AB'[i] || i + 1} · {w.bubble}</p> : null}
+      {big && w?.hand && w?.live ? <AgentDesktop cat={{ id: catId }} live={{ live: w.live, site: w?.human?.site, title: `MIND ${'AB'[sl] || sl + 1} needs you${w?.human?.why ? ` — ${w.human.why}` : ''}` }} onClose={() => setBig(false)} /> : null}
+      {w?.bubble && w?.status !== 'idle' && !human ? <p className={`agd-done is-on cwb-say at-${sl % 2 ? 'right' : 'left'}`} key={w.bubble} data-testid="cwb-bubble">MIND {'AB'[sl] || sl + 1} · {w.bubble}</p> : null}
     </div></div>
       {human && w.human.kind === 'login' ? <div className="cwb-human cwb-signin" role="alertdialog" aria-label={`Sign in to ${w.human.site}`} data-testid="cwb-login">
         <b>🔑 {w.human.site} needs a sign-in</b><small>It goes in the credentials drawer, sealed — the AI models never see it.</small>
@@ -431,7 +431,7 @@ function PublicMinds({ cat }) {
       return <article key={i} className={`agd-win cwb-win w${i % 2} s-${w.status}`} data-testid={`cwb-pub-${i}`}>
         <span className={`agd-bar${go ? ' is-go' : ''}`}><i /><i /><i /><b>MIND {'AB'[i] || i + 1}</b><small>{w.model || 'model'}</small><em className={`agd-live${go ? '' : ' is-off'}`}>● {go ? 'LIVE' : String(w.status).toUpperCase()}</em></span>
         <div className="agd-browser is-rec cwb-browser"><span className="agd-url"><i aria-hidden="true">🔒</i><b>{w.host || 'about:blank'}</b>{go ? <em className="agd-rec">● LIVE</em> : null}</span>
-          <div className="agd-screen cwb-view cwb-pubscreen">{w.screen && !w.frozen ? <img className="cwb-shot" src={apiUrl(`/api/cats/${cat.id}/screen/${i}${w.last ? '' : `?t=${tick}`}`)} alt={`${w.model || 'its'} window, ${w.last ? 'its last page' : 'live'}`} data-testid={`cwb-pubshot-${i}`} />
+          <div className="agd-screen cwb-view cwb-pubscreen">{w.screen && !w.frozen ? <img className="cwb-shot" src={apiUrl(w.last ? `/api/cats/${cat.id}/last/${w.slot ?? i}` : `/api/cats/${cat.id}/screen/${i}?t=${tick}`)} alt={`${w.model || 'its'} window, ${w.last ? 'its last page' : 'live'}`} data-testid={`cwb-pubshot-${i}`} />
             : <><span className="cwb-pub-host" key={w.host}>{w.frozen ? '🔒 paused' : d?.incognito ? '🕶 incognito' : w.host || (go ? 'thinking…' : 'idle')}</span>
               <small className="cwb-pub-note">{w.frozen ? 'its owner is signing in — this window is hidden until they finish' : d?.incognito ? 'its owner keeps these screens private' : go ? 'reading…' : "waiting for its owner's ask"}</small></>}
             {w.frozen || d?.incognito ? null : <AiCursor c={w.cursor} kind={readCursor()} />}
@@ -762,7 +762,14 @@ function WorkbenchLive({ cat }) {
   const send = e => { e?.preventDefault?.(); if (busy) return;
     const t = text.trim(); if (!t) return; setText(''); const ids = files.map(f => f.id); setFiles([]); act('ask', { text: t, to, ...(ids.length ? { files: ids } : {}) }); };
   const setWay = async k => { setBusy(true); try { await work(cat.id, { op: 'mode', job: k }); await load(); } catch (er) { setErr(er.message); } finally { setBusy(false); } };
-  const wins = d?.windows?.length ? d.windows : (cat.brainsCfg?.brains || ['', '']).slice(0, 8).map((m, i) => ({ i, model: m, status: 'idle' }));
+  const brains_ = cat.brainsCfg?.brains || ['', ''];
+  const wins = useMemo(() => {   // 🖥 both monitors always (owner 2026-11-01): each of its models in its own slot — one asked alone, the other shows its desktop
+    const ws = d?.windows || []; if (!ws.length) return brains_.slice(0, 8).map((m, i) => ({ i, model: m, status: 'idle' }));
+    if (ws.length !== 1 || brains_.length < 2) return ws;
+    const at = Math.max(0, brains_.indexOf(ws[0].model)); const other = brains_.find((m, k) => k !== at && k < 2);
+    const shown = [{ ...ws[0], slot: at }, { i: -1, slot: at ? 0 : 1, model: other, status: 'idle', bubble: '', steps: [] }];
+    return at ? shown.reverse() : shown;
+  }, [d?.windows, brains_.join('|')]);   // eslint-disable-line react-hooks/exhaustive-deps
   const credit = Number(d?.credit ?? cat.brainsCfg?.credit ?? 0); const cap = Number(d?.cap ?? 0.05); const spent = Number(d?.task?.cost || 0);
   const [gear, setGear] = useState(false); const log = useMemo(() => genLog(d), [d]); const [flip, setFlip] = useState(false); const [desk, setDesk] = useState(false); const [old, setOld] = useState(false);
   useEffect(() => { if (!gear && !flip) return undefined; const k = e => { if (e.key === 'Escape') { setGear(false); setFlip(false); } }; window.addEventListener('keydown', k); return () => window.removeEventListener('keydown', k); }, [gear, flip]);
@@ -784,7 +791,7 @@ function WorkbenchLive({ cat }) {
         <span data-tip="This task's spend against its cap — it stops at the cap with what it has"><em>THIS TASK</em><b className="m-num">{usd(spent)} / {usd(cap)}</b><u aria-hidden="true"><s className={spent >= cap * 0.8 ? 'is-hot' : ''} style={{ transform: `scaleX(${Math.min(1, spent / (cap || 1))})` }} /></u></span>
       </span></header>
     <NowLine cat={cat} wins={wins} live={live} />
-    <div className={`cwb-stage agd-wins${wins.length === 1 ? ' is-solo' : ''}`}>{wins.map(w => <Window key={w.i} w={w} catId={cat.id} tick={tick} busy={busy} cursor={aiCur} onGo={(op, i, text) => act(op, { i, ...(text ? { text } : {}) })} onLogin={site => setSignIn({ site, at: Date.now() })} />)}</div>
+    <div className="cwb-stage agd-wins">{wins.map(w => <Window key={`${w.i}-${w.slot ?? w.i}`} w={w} catId={cat.id} tick={tick} busy={busy} cursor={aiCur} onGo={(op, i, text) => act(op, { i, ...(text ? { text } : {}) })} onLogin={site => setSignIn({ site, at: Date.now() })} />)}</div>
     <DeskFlip cat={cat} flip={flip} setFlip={setFlip} name={cat.name} live={live} count={log.length} cloud={<HeadCloud items={(d?.cloud || []).slice(-5).reverse()} />}
       left={<MindVitals cat={cat} model={wins[0]?.model} i={0} kind="general" live={!!wins[0]?.model} hot={wins[0]?.status === 'working'} extra={<><WinVitals w={wins[0]} /><PowCard p={d?.pow?.['0']} /></>} />}
       right={<MindVitals cat={cat} model={wins[1]?.model || cat.brainsCfg?.brains?.[1]} i={1} kind="general" live={!!(wins[1]?.model || cat.brainsCfg?.brains?.[1])} hot={wins[1]?.status === 'working'}
