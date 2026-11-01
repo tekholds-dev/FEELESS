@@ -423,3 +423,20 @@ test('⛓ the IPFS picker is there with NO files: pick an image → it is added 
   expect(el.querySelector(`[data-testid="cwb-ipfs-${id}"]`).textContent).toContain('0.001326 SOL');
   act(() => root.unmount());
 });
+
+test('🤝 the PoW folder shares wins with the pot WITHOUT colonizing: pick 20% → one wallet signature → op share; OFF needs no signature', async () => {
+  const { AgentDesktop } = require('./CatWorkbench');
+  sessionStorage.clear(); document.body.innerHTML = ''; const posts = []; const before = signed.length;
+  global.fetch = async (u, o) => { const b = o?.body ? JSON.parse(o.body) : {}; if (b.op) posts.push(b);
+    return { ok: true, json: async () => (b.op === 'share' ? { colonyShare: { on: !!b.on, pct: b.cap || 20 } } : { powFolders: [], rows: [] }) }; };
+  const el = document.createElement('div'); document.body.appendChild(el); const root = createRoot(el);
+  await act(async () => { root.render(<AgentDesktop cat={{ id: 'h1', name: 'Happy', colonyShare: { on: false, pct: 10 } }} onClose={() => {}} start="pow" />); });
+  const q = id => document.querySelector(`[data-testid="${id}"]`);
+  expect(q('dsk-share').textContent).toContain('stay in its wallet');
+  await act(async () => { q('dsk-share-20').click(); });
+  expect(signed.at(-1)).toMatch(/^FEELESS colony share\nagent:h1\npct:20\nts:\d+$/); expect(posts.at(-1)).toMatchObject({ op: 'share', on: true, cap: 20, sig: 'SIG' });
+  expect(q('dsk-share').textContent).toContain('20% of each winning PoW');
+  const n = signed.length; await act(async () => { q('dsk-share-0').click(); });
+  expect(posts.at(-1)).toMatchObject({ op: 'share', on: false }); expect(signed.length).toBe(n); expect(n).toBe(before + 1);
+  act(() => root.unmount());
+});

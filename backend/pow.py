@@ -65,9 +65,17 @@ def links(p):
     if p.get('order'):   # 🎲 the engine's order for this round (site_order): winners first, the rest shuffled, last folders' sites skipped
         rank = {h: i for i, h in enumerate(p['order'])}
         every = sorted([u for u in every if host_of(u) in rank], key=lambda u: rank[host_of(u)]) or every
-    used = set(p.get('used') or ())   # 🔁 a new round never re-opens a site an earlier round of this folder already read (owner 2026-11-01)
+    used = set(p.get('used') or ())   # 🔁 a new round never re-opens a site an earlier round of this coin already read (owner 2026-11-01)
     fresh = [u for u in every if host_of(u) not in used]
-    return fresh if len(fresh) >= 2 else every
+    if len(fresh) < 3:   # 🎲 owner 2026-11-02 ("not just rug checker"): top up from the OTHER unused sites, never a used one while any is left
+        rest = [u for u in _all_links(p) if host_of(u) not in used and u not in fresh]; random.shuffle(rest); fresh += rest
+    return fresh or every
+
+
+def _all_links(p):
+    m, pa = p.get('mint') or '', p.get('pair') or ''
+    return [f'https://dexscreener.com/solana/{pa or m}', f'https://rugcheck.xyz/tokens/{m}', f'https://solscan.io/token/{m}', f'https://birdeye.so/token/{m}?chain=solana',
+            f'https://jup.ag/tokens/{m}', f'https://pump.fun/coin/{m}', f'https://www.coingecko.com/en/search?query={m}']
 
 
 HOSTS = ('dexscreener.com', 'rugcheck.xyz', 'solscan.io', 'birdeye.so', 'jup.ag', 'pump.fun', 'coingecko.com')
@@ -112,13 +120,15 @@ def new(coin, now, rnd=None):
             'siteSteps': (rnd or random).randint(*STEPS_RANGE)}
 
 
-def steps_of(p):
-    return int((p or {}).get('siteSteps') or SITE_STEPS)
+def steps_of(p, h=None):
+    """A site's own move limit — drawn at random (3–8) the first time the round opens that site (owner 2026-11-02: "random for different sites too")."""
+    s = ((p or {}).get('sites') or {}).get(h) if h else None
+    return int((s or {}).get('max') or (p or {}).get('siteSteps') or SITE_STEPS)
 
 
 def budget(p):
-    """The round's whole step budget: every site's moves + the start + the call."""
-    return steps_of(p) * SITES_MAX + 2
+    """The round's whole step budget: the most every site could draw + the start + the call."""
+    return STEPS_RANGE[1] * SITES_MAX + 2
 
 
 def start_url(p, blocked=False):
@@ -131,14 +141,15 @@ def start_url(p, blocked=False):
 
 def goal(p):
     return (f"PROOF OF WORK on ${p['sym']} (Solana mint {p.get('mint')}, pair {p.get('pair')}). Research it on up to {SITES_MAX} sites (FEELESS + 3), "
-            f"{steps_of(p)} moves a site, pull up to {SITE_PULLS} vitals per site (a fact another site already gave is dropped), then answer BUY / WATCH / AVOID with why."
+            f"each site has its own random 3–8 moves, pull up to {SITE_PULLS} vitals per site — only facts NOT already known"
+            + (f" (known: {', '.join(p['known'])})" if p.get('known') else '') + ", then answer BUY / WATCH / AVOID with why."
             + (f" YOUR PLAN for this coin: {p['plan']}" if p.get('plan') else ''))
 
 
 def site_done(p, url):
     """This site's work is used up: its vitals are saved or its moves are spent."""
     s = (p.get('sites') or {}).get(host_of(url))
-    return bool(s) and (len(s['pulls']) >= SITE_PULLS or s['steps'] >= steps_of(p))
+    return bool(s) and (len(s['pulls']) >= SITE_PULLS or s['steps'] >= int(s.get('max') or steps_of(p)))
 
 
 def next_link(p):
@@ -159,7 +170,9 @@ def _site(p, url):
     h = host_of(url)
     if not h or '.' not in h:
         return None
-    return p['sites'].setdefault(h, {'steps': 0, 'pulls': []}) if h in p['sites'] or len(p['sites']) < SITES_MAX else None
+    if h not in p['sites'] and len(p['sites']) >= SITES_MAX:
+        return None
+    return p['sites'].setdefault(h, {'steps': 0, 'pulls': [], 'max': random.randint(*STEPS_RANGE)})   # 🎲 this site's own moves, drawn once and kept
 
 
 def step(p, url):
@@ -173,8 +186,8 @@ def step(p, url):
     if s is None and len(p['sites']) >= SITES_MAX:
         return f'{SITES_MAX} sites already researched — answer with the vitals you pulled'
     s = _site(p, url)
-    if s['steps'] >= steps_of(p):
-        return f'{steps_of(p)} moves on {h} are used — open another site, or answer'
+    if s['steps'] >= int(s.get('max') or steps_of(p)):
+        return f"{int(s.get('max') or steps_of(p))} moves on {h} are used — open another site, or answer"
     s['steps'] += 1
     return None
 
@@ -202,6 +215,8 @@ def pull(p, url, label, value):
         return False, f'{SITE_PULLS} vitals from {h} already saved — open another site, or answer'
     if any(x['label'] == v for x in s['pulls']):
         return False, f'{v} from {h} is already saved'
+    if v in set(p.get('known') or ()):   # 🧹 owner 2026-11-02: no duplicates — an earlier round already filed this fact for the coin
+        return False, f'{v} is already in this coin\'s folder — read something NEW: ' + ', '.join(k for k in VITALS if k not in set(p.get('known') or ()))[:200]
     norm = re.sub(r'[^a-z0-9.%]', '', val.lower())
     dup = next((h2 for h2, s2 in (p.get('sites') or {}).items() for x in s2['pulls'] if x['label'] == v and re.sub(r'[^a-z0-9.%]', '', x['value'].lower()) == norm), None)
     if dup:   # 🧹 owner 2026-11-02: duplicate info is deleted — the same vital with the same value from another site adds nothing
@@ -240,6 +255,7 @@ def strength(p):
 
 def public(p):
     return {'sym': p.get('sym'), 'mint': p.get('mint'), 'pair': p.get('pair'), 'at': p.get('at'), 'call': p.get('call'), 'why': p.get('why'),
+            'moves': {h: {'max': s.get('max'), 'used': s.get('steps')} for h, s in (p.get('sites') or {}).items()},
             'pulls': pulls(p), 'sites': len(p.get('sites') or {}), 'steps': sum(int(s.get('steps') or 0) for s in (p.get('sites') or {}).values()),
             'strength': strength(p), 'walled': list(p.get('walled') or []), 'by': p.get('by'), 'mind': p.get('mind'), 'honey': p.get('honey')}
 
@@ -344,6 +360,16 @@ def plan_of(minds):
             ("each mind takes 2 of the shortlist + writes how it will investigate them" if two else "it takes 4 of the shortlist + its plan"),
             f"each researches its own coins: FEELESS + 3 sites, {STEPS_RANGE[0]}–{STEPS_RANGE[1]} moves a site, ≤ {SITE_PULLS} vitals a site, duplicates dropped",
             "every coin is checked again → 3 turns decide the ONE (size, TP, SL) → bought on FEELESS → checks until it sells → filed forever"]
+
+
+def merge_vitals(old, new):
+    """A coin's folder keeps ONE row per fact: a new read replaces the old value and adds its site to the ones that confirmed it."""
+    out = {x['label']: dict(x) for x in old or []}
+    for x in new or []:
+        o = out.get(x['label'])
+        sites = list(dict.fromkeys(((o or {}).get('sites') or ([o['site']] if o else [])) + [x['site']]))
+        out[x['label']] = {**x, 'sites': sites}
+    return list(out.values())
 
 
 def parse_picks(text, n, k):
@@ -497,7 +523,7 @@ def chart_line(samples):
 
 def folder_public(f):
     keep = ('id', 'n', 'name', 'at', 'coins', 'minds', 'phase', 'pick', 'talk', 'rounds', 'status', 'why', 'entry', 'exit', 'pnlPct', 'pnlSol', 'sym',
-            'boughtAt', 'soldAt', 'real', 'shared', 'research', 'picks', 'whys', 'base', 'pair', 'mint', 'propose', 'sol', 'plan', 'entryUsd', 'tp', 'sl', 'shots', 'vitals', 'scout', 'scoutDone', 'rMint', 'rMind', 'scouted', 'fav', 'checks', 'nextAt', 'cost', 'spend', 'report', 'grade', 'dropped', 'proposed', 'shortlist', 'owner', 'plans')
+            'boughtAt', 'soldAt', 'real', 'shared', 'research', 'picks', 'whys', 'base', 'pair', 'mint', 'propose', 'sol', 'plan', 'entryUsd', 'tp', 'sl', 'shots', 'vitals', 'scout', 'scoutDone', 'rMint', 'rMind', 'scouted', 'fav', 'checks', 'nextAt', 'cost', 'spend', 'report', 'grade', 'dropped', 'proposed', 'shortlist', 'owner', 'plans', 'moves')
     out = {k: f.get(k) for k in keep if k in f}
     if f.get('chart'):   # the live price the watcher reads (its P/L on the monitor)
         out['now'] = f['chart'][-1].get('px'); out['line'] = [x.get('px') for x in f['chart'][-40:]]

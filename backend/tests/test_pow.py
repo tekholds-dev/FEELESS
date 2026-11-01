@@ -20,12 +20,17 @@ def test_only_vitals_with_a_read_value_are_saved_three_per_site():
     assert [x['label'] for x in pw.pulls(p)] == ['mint authority', 'liquidity', 'top 10 holders']
 
 
-def test_a_random_3_to_8_moves_per_site_and_four_sites_then_refused():
+def test_a_random_3_to_8_moves_per_site_and_four_sites_then_refused(monkeypatch):
     import random
-    assert {pw.new({'mint': 'M'}, 0, random.Random(k))['siteSteps'] for k in range(40)} <= set(range(3, 9))
-    assert len({pw.new({'mint': 'M'}, 0, random.Random(k))['siteSteps'] for k in range(40)}) > 3    # 🎲 really drawn, not one fixed number
-    p = {**pw.new({'mint': 'M', 'pair': 'P', 'sym': 'CAT'}, 1000), 'siteSteps': 5}
-    assert pw.budget(p) == 5 * pw.SITES_MAX + 2
+    p = pw.new({'mint': 'M', 'pair': 'P', 'sym': 'CAT'}, 0)
+    rnd = random.Random(7); monkeypatch.setattr(pw.random, 'randint', rnd.randint)
+    for h in ('a.com', 'b.com', 'c.com', 'd.com'):
+        pw.step(p, f'https://{h}/')
+    draws = [p['sites'][h]['max'] for h in ('a.com', 'b.com', 'c.com', 'd.com')]
+    assert all(3 <= x <= 8 for x in draws) and len(set(draws)) > 1                           # 🎲 each SITE draws its own moves, kept on the site
+    assert pw.public(p)['moves']['a.com'] == {'max': draws[0], 'used': 1} and pw.budget(p) == 8 * pw.SITES_MAX + 2
+    monkeypatch.setattr(pw.random, 'randint', lambda a, b: 5)
+    p = pw.new({'mint': 'M', 'pair': 'P', 'sym': 'CAT'}, 1000)
     assert all(pw.step(p, 'https://dexscreener.com/solana/P') is None for _ in range(5))
     assert '5 moves' in pw.step(p, 'https://dexscreener.com/solana/x')
     assert pw.step(p, 'https://html.duckduckgo.com/html/?q=a') is None        # the search page is free
@@ -40,8 +45,9 @@ def test_pick_skips_thin_pools_and_coins_it_researched():
     assert pw.pick(coins, set())['mint'] == 'C' and pw.pick(coins, {'C'})['mint'] == 'B' and pw.pick(coins, {'B', 'C'}) is None
 
 
-def test_a_pow_run_starts_on_a_search_obeys_the_rules_and_files_its_call():
-    coin = {**pw.new({'mint': 'Mint1', 'pair': 'Pair1', 'sym': 'CAT'}, 1000), 'siteSteps': 5}   # this scenario walks 5 moves a site
+def test_a_pow_run_starts_on_a_search_obeys_the_rules_and_files_its_call(monkeypatch):
+    monkeypatch.setattr(pw.random, 'randint', lambda a, b: 5)                                # this scenario walks 5 moves a site
+    coin = pw.new({'mint': 'Mint1', 'pair': 'Pair1', 'sym': 'CAT'}, 1000)
     moves = [{'thought': 'rugcheck', 'action': 'open', 'url': 'https://rugcheck.xyz/tokens/Mint1'},
              {'thought': 'save', 'action': 'pull', 'label': 'mint authority', 'value': 'revoked'},
              {'thought': 'junk', 'action': 'pull', 'label': 'mood', 'value': 'bullish'},
@@ -568,3 +574,30 @@ def test_a_sell_is_only_the_minds_action_never_the_word_inside_a_sentence():
     assert pw.parse_decide('{"action": "HOLD", "say": "No signal to sell; holding for TP."}')[0] == 'HOLD'
     assert pw.parse_decide('Chart flat — no signal to sell; holding for TP.')[0] == 'HOLD'
     assert pw.parse_decide('{"action": "SELL", "say": "lower highs"}')[0] == 'SELL' and pw.parse_decide('SELL — it topped')[0] == 'SELL'
+
+
+def test_no_used_site_is_reopened_and_a_known_fact_is_never_filed_twice():
+    """Live PoW #9: rugcheck was opened again in the next round and PRICE was filed 3 times in $GATO's folder."""
+    p = {**pw.new({'mint': 'M', 'pair': 'P', 'sym': 'X'}, 0), 'used': ['rugcheck.xyz', 'feeless.app', 'jup.ag', 'dexscreener.com', 'solscan.io'],
+         'order': ['rugcheck.xyz', 'solscan.io', 'jup.ag'], 'known': ['price', 'lp locked']}
+    hosts = [pw.host_of(u) for u in pw.links(p)]
+    assert hosts and not set(hosts) & set(p['used']) and set(hosts) <= {'birdeye.so', 'pump.fun', 'coingecko.com'}   # only sites never read for this coin
+    ok, why = pw.pull(p, 'https://birdeye.so/token/M', 'price', '$0.0074')
+    assert not ok and 'already in this coin' in why and 'holders' in why                     # it is told what is still unknown
+    assert pw.pull(p, 'https://birdeye.so/token/M', 'holders', '2,140')[0]
+    m = pw.merge_vitals([{'label': 'price', 'value': '$0.007428', 'site': 'feeless.app'}], [{'label': 'price', 'value': '0.007420', 'site': 'birdeye.so'}, {'label': 'holders', 'value': '2,140', 'site': 'birdeye.so'}])
+    assert [x['label'] for x in m] == ['price', 'holders'] and m[0]['value'] == '0.007420' and m[0]['sites'] == ['feeless.app', 'birdeye.so']   # one row a fact
+
+
+def test_a_research_round_reviews_the_coins_archive_first_new_sites_new_facts(monkeypatch, tmp_path):
+    import feecat_service as fs
+    monkeypatch.setattr(fs, 'POW_ARCHIVE', tmp_path / 'a.jsonl')
+    fs._pow_archive_add(pw.archive_row('research', 'h1', {'id': 'old'}, {'mint': 'M', 'sym': 'X'}, 900, sites=['rugcheck.xyz', 'feeless.app'],
+                                       vitals=[{'label': 'lp locked', 'value': '97%', 'site': 'rugcheck.xyz'}]))
+    seen = {}
+    monkeypatch.setattr(fs, '_work_start', lambda cid, c, text, to=None, files=None, pow_=None: (seen.update(pw=pow_), fs._WORK.update({cid: {'task': {}}}))[0])
+    fs._WORK.pop('h1', None)
+    assert fs._pow2_research({'id': 'h1', 'powFolders': []}, {'id': 'f1', 'charts': {}}, {'mint': 'M', 'pair': 'P', 'sym': 'X'}, 0, 1000)
+    rp = seen['pw']; t = fs._WORK.pop('h1')['task']
+    assert 'lp locked' in rp['known'] and {'rugcheck.xyz', 'feeless.app'} <= set(rp['used'])   # the last research's facts + sites are not repeated
+    assert 'PRIOR PoW: researched 1×' in rp['prior'] and 'do NOT repeat it' in t['handoffs'][-1]['text']

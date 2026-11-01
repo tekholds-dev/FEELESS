@@ -659,3 +659,14 @@ body.theme-day .cwb-ipfs-list { background: #f2fbf6; } body.theme-day .cwb-ipfs-
 .cwb-ipfs-add > span { display: grid; gap: 2px; margin-right: auto; } .cwb-ipfs-add b { color: #ffd76a; font: 800 10px var(--f-mono); letter-spacing: .14em; } .cwb-ipfs-add small { color: #c8bde6; font: 600 10.5px var(--f-ui); }
 .cwb-ipfs-add label { min-height: 34px; display: inline-flex; align-items: center; cursor: pointer; } .cwb-ipfs-add label:focus-within { outline: 2px solid #45e486; outline-offset: 2px; } .cwb-ipfs-add label.is-busy { opacity: .7; pointer-events: none; }
 body.theme-day .cwb-ipfs-add { background: #fffaf0; } body.theme-day .cwb-ipfs-add b { color: #8a5a00; } body.theme-day .cwb-ipfs-add small { color: #3d3060; }
+
+/* 🤝 share PoW wins with the pot + 🎲 each site's random moves */
+.dsk-share { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 12px; border: 1px solid #f5c54240; background: linear-gradient(160deg, #f5c54214, transparent 70%); }
+.dsk-share > span:first-child { display: grid; gap: 2px; margin-right: auto; } .dsk-share b { color: #ffd76a; font: 800 10px var(--f-mono); letter-spacing: .14em; } .dsk-share small { color: #c8bde6; font: 600 10.5px var(--f-ui); }
+.dsk-share .m-seg button { min-height: 32px; }
+.dsk-coin-moves { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 6px; }
+.dsk-coin-moves li { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 3px 8px; align-items: center; padding: 6px 8px; border-radius: 8px; background: #ffffff07; }
+.dsk-coin-moves b { color: #d9d1f2; font: 700 10.5px var(--f-mono); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; } .dsk-coin-moves small { color: #45e486; font: 800 10px var(--f-mono); }
+.dsk-coin-moves u { grid-column: 1 / -1; display: block; height: 4px; border-radius: 2px; background: #ffffff12; overflow: hidden; } .dsk-coin-moves s { display: block; height: 100%; background: linear-gradient(90deg, #8f7cff, #45e486); transform-origin: left; transition: transform .5s; }
+@media (prefers-reduced-motion: reduce) { .dsk-coin-moves s { transition: none; } }
+body.theme-day .dsk-share { background: #fffaf0; } body.theme-day .dsk-share b { color: #8a5a00; } body.theme-day .dsk-share small, body.theme-day .dsk-coin-moves b { color: #2d2150; }

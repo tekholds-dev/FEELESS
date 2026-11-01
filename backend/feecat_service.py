@@ -1353,7 +1353,12 @@ def _pow2_research(cat, f, coin, mind_i, now):
     if w_ and not w_.get('done'):
         return False
     rp = {**_pow.new({'mint': coin['mint'], 'pair': coin['pair'], 'sym': coin['sym']}, now), 'cat': cat['id'], 'mind': mind_i, 'folder': f['id'], 'plan': (f.get('plans') or {}).get(coin['mint']),
-          'used': list(((f.get('usedBy') or {}).get(coin['mint'])) or [])}
+          'used': list(((f.get('usedBy') or {}).get(coin['mint'])) or []),
+          'known': [x['label'] for x in (f.get('vitals') or {}).get(coin['mint']) or []]}   # 🧹 what this coin's folder already knows — the round reads something new
+    prior_ = [r for r in _pow.archive_find(_pow_archive_rows(), coin['mint'], 40) if r.get('kind') == 'research']   # 🗄 owner 2026-11-02: review the coin's PoW first — a NEW fingerprint
+    rp['known'] = sorted(set(rp['known']) | {x.get('label') for r in prior_ if now - float(r.get('at') or 0) < 86400 for x in r.get('vitals') or [] if x.get('label')})
+    rp['used'] = sorted(set(rp['used']) | {h for r in prior_[:2] for h in r.get('sites') or []})
+    rp['prior'] = _pow.archive_brief(_pow.archive_find(_pow_archive_rows(), coin['mint']))
     recent_, wins_ = _pow.site_memory(cat.get('powFolders'))   # 🎲 random sites, never the last folders' — unless a winning folder used them
     rp['order'] = _pow.site_order(recent_ | {h for v in (f.get('usedBy') or {}).values() for h in v or []}, wins_)
     try:
@@ -1362,7 +1367,7 @@ def _pow2_research(cat, f, coin, mind_i, now):
         return False
     t_new = _WORK[cat['id']]['task']
     ch_ = (f.get('charts') or {}).get(coin['mint']) or []
-    t_new['handoffs'] = [{'from': 'watcher', 'text': f"chart watcher on ${coin['sym']}: {_pow.chart_line(ch_)}"}]
+    t_new['handoffs'] = [{'from': 'watcher', 'text': f"chart watcher on ${coin['sym']}: {_pow.chart_line(ch_)}"}] + ([{'from': 'archive', 'text': f"{rp['prior']} — do NOT repeat it: new sites, new facts"}] if rp.get('prior') else [])
     t_new['powPlan'] = list(f.get('plan') or [])
     f.update(rMint=coin['mint'], rMind=mind_i, researchAt=round(now))
     return True
@@ -1391,9 +1396,10 @@ def _pow2_collect(f, t_, who, now):
     pw_ = t_['pow']; m_ = pw_.get('mint'); pub_ = _pow.public(pw_)
     if not pw_.get('costed'):   # 💲 the research round's own browsing cost
         pw_['costed'] = True; _pow2_cost(f, int(f.get('base') or 0) + int(pw_.get('mind') or 0), float(t_.get('cost') or 0))
-    vit_ = f.setdefault('vitals', {}); vit_[m_] = ((vit_.get(m_) or []) + pub_['pulls'])[-12:]
+    vit_ = f.setdefault('vitals', {}); vit_[m_] = _pow.merge_vitals(vit_.get(m_), pub_['pulls'])   # 🧹 one row per fact, never the same fact twice
     if m_ == f.get('mint') and f.get('entry'):
-        f['research'] = ((f.get('research') or []) + pub_['pulls'])[-12:]
+        f['research'] = _pow.merge_vitals(f.get('research'), pub_['pulls'])
+    f.setdefault('moves', {}).setdefault(m_, {}).update(pub_.get('moves') or {})   # 🎲 each site's random moves, kept
     ub_ = f.setdefault('usedBy', {}); ub_[m_] = sorted(set(ub_.get(m_) or []) | set((pw_.get('sites') or {}).keys()) | set(pw_.get('walled') or []))
     for sh_ in pw_.pop('_shots', None) or []:   # 📸 its snapshots → the coin's folder, on disk
         name_ = f"{m_[:6].lower()}_r{f.get('rounds') or 0}_{re.sub(r'[^a-z0-9.]', '', sh_['site'])}_{sh_['n']}.jpg"

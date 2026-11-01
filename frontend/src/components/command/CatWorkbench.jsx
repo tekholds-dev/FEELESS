@@ -56,15 +56,21 @@ const COLONY_STEPS = [['🔎', 'It reads the trenches on its own', 'One coin at 
   ['👛', 'Your money is never pooled', 'It keeps trading from its own wallet. Only what YOU choose below ever goes to the colony.']];
 const SHARE_PCTS = [5, 10, 20, 30];
 const when = s => { const m = Math.max(0, Math.round((s * 1000 - Date.now()) / 60000)); return m >= 1440 ? `${Math.round(m / 1440)}d` : m >= 60 ? `${Math.round(m / 60)}h` : `${m}m`; };
+// 🤝 the owner's signed share of each WIN to the colony pot — one hook for the Colonize popout and the PoW folder (sharing never needs colonizing)
+function useColonyShare(cat) {
+  const { signMessage } = useWallet() || {}; const [share, setShare] = useState(cat?.colonyShare || { on: false, pct: 10 });
+  const sign = async (on, pct = share.pct) => { let x;
+    if (on) { const ts = Math.floor(Date.now() / 1000); const sig = await signMessage(shareMessage(cat.id, pct, ts)); x = await work(cat.id, { op: 'share', on: true, cap: pct, ts, sig }); }
+    else x = await work(cat.id, { op: 'share', on: false });
+    setShare(x.colonyShare); return x.colonyShare; };
+  return [share, setShare, sign, !!signMessage];
+}
 export function HiveSwitch({ cat }) {
-  const { signMessage } = useWallet() || {}; const [share, setShare] = useState(cat?.colonyShare || { on: false, pct: 10 }); const [meta, setMeta] = useState(null);
+  const [share, setShare, signShare, canSign] = useColonyShare(cat); const [meta, setMeta] = useState(null);
   const [h, setH] = useState(cat?.hive || { on: false, every: 300 }); const [busy, setBusy] = useState(false); const [err, setErr] = useState(''); const [pop, setPop] = useState(false); const [pace, setPace] = useState(cat?.hive?.every || 300);
   const set = async (on, every) => { setBusy(true); setErr(''); try { const r = await work(cat.id, { op: 'hive', on, cap: every }); setH(r.hive); setPop(false); } catch (e) { setErr(e.message); } finally { setBusy(false); } };
   useEffect(() => { if (pop) fetch(apiUrl(`/api/cats/colony?ids=${cat.id}`)).then(r => (r.ok ? r.json() : null)).then(x => x && setMeta(x)).catch(() => {}); }, [pop, cat?.id]);   // the pool + the airdrop clock
-  const sign = async on => { setBusy(true); setErr(''); try { let x;
-      if (on) { const ts = Math.floor(Date.now() / 1000); const sig = await signMessage(shareMessage(cat.id, share.pct, ts)); x = await work(cat.id, { op: 'share', on: true, cap: share.pct, ts, sig }); }
-      else x = await work(cat.id, { op: 'share', on: false });
-      setShare(x.colonyShare); } catch (e) { setErr(e.message || 'Not signed'); } finally { setBusy(false); } };
+  const sign = async on => { setBusy(true); setErr(''); try { await signShare(on); } catch (e) { setErr(e.message || 'Not signed'); } finally { setBusy(false); } };
   useEffect(() => { if (!pop) return undefined; const k = e => e.key === 'Escape' && setPop(false); window.addEventListener('keydown', k); return () => window.removeEventListener('keydown', k); }, [pop]);
   const every = PACES.find(p => p[0] === h.every)?.[1] || `${Math.round(h.every / 60)} min`;
   return <span className="hv-sw" data-testid="hive-sw">
@@ -84,7 +90,7 @@ export function HiveSwitch({ cat }) {
             <small>Sign once: each WINNING trade sends the % you pick of its profit to the colony wallet. The colony airdrops back every {meta?.cadence === 'weekly' ? 'week' : 'day'}{meta?.nextAirdrop ? ` (next in ${when(meta.nextAirdrop)})` : ''}, by how much you shared. Losses send nothing. Shares are recorded now; airdrops start when payouts go live.</small>
             {share.on ? <span className="hv-opp-row"><em className="is-on">SHARING {share.pct}% · signed</em><button type="button" className="m-btn" disabled={busy} onClick={() => sign(false)} data-testid="colony-share-off">Stop sharing</button></span>
               : <span className="hv-opp-row"><span className="m-seg" role="group" aria-label="Share of each winning trade">{SHARE_PCTS.map(v => <button key={v} type="button" className={share.pct === v ? 'active' : ''} aria-pressed={share.pct === v} onClick={() => setShare(x => ({ ...x, pct: v }))} data-testid={`colony-share-${v}`}>{v}%</button>)}</span>
-                <button type="button" className="m-btn m-go" disabled={busy || !signMessage} onClick={() => sign(true)} data-testid="colony-share-sign" data-tip={signMessage ? 'One wallet signature, no transaction' : 'Connect your wallet first'}>✍ Sign to share</button></span>}</span></article></div>
+                <button type="button" className="m-btn m-go" disabled={busy || !canSign} onClick={() => sign(true)} data-testid="colony-share-sign" data-tip={canSign ? 'One wallet signature, no transaction' : 'Connect your wallet first'}>✍ Sign to share</button></span>}</span></article></div>
         <label className="hv-pop-pace"><span>FILES A CALL</span><span className="m-seg" role="group" aria-label="How often it files a call">{PACES.map(([v, l]) => <button key={v} type="button" className={pace === v ? 'active' : ''} aria-pressed={pace === v} onClick={() => setPace(v)} data-testid={`colonize-pace-${v}`}>{l}</button>)}</span></label>
         {err ? <p className="lct-err" role="alert" data-testid="colonize-err">⚠ {err}</p> : null}
         <footer><button type="button" className="m-btn" onClick={() => setPop(false)}>Not now</button><button type="button" className="m-btn m-go" disabled={busy} onClick={() => set(true, pace)} data-testid="colonize-go">{busy ? 'Joining…' : '🐝 Colonize'}</button></footer>
@@ -585,10 +591,13 @@ function DeskWin({ k, title, s, top, set, onTop, onClose, tools, children }) {
 const PHASES = [['propose', 'PROPOSE'], ['split', 'SPLIT'], ['scout', 'RESEARCH'], ['choose', 'DECIDE'], ['buy', 'BUY'], ['watch', 'HOLD'], ['done', 'FILED']];
 const SRC = { intake: 'FEELESS', pump: 'PUMP', dex: 'DEX' };
 function CoinFolder({ f, c, catId, onShot }) {   // 📁 one coin's folder inside a PoW folder: its vitals + the snapshots of every site researched
-  const shots = (f.shots || []).filter(x => x.mint === c.mint); const vit = (f.vitals || {})[c.mint] || (f.pick?.mint === c.mint ? (f.research || []) : []);
+  const shots = (f.shots || []).filter(x => x.mint === c.mint); const mv = (f.moves || {})[c.mint] || {};
+  const raw = (f.vitals || {})[c.mint] || (f.pick?.mint === c.mint ? (f.research || []) : []);
+  const vit = Object.values(raw.reduce((a, x) => ({ ...a, [x.label]: { ...x, sites: [...new Set([...(a[x.label]?.sites || []), ...(x.sites || [x.site])])] } }), {}));   // one row a fact (older folders too)
   return <div className="dsk-coin" data-testid={`dsk-coin-${c.mint}`}>
     <span className="dsk-coin-h"><b>📁 ${c.sym}</b><em>{SRC[c.src] || c.src}</em>{f.pick?.mint === c.mint ? <i>the pick</i> : null}</span>
-    {vit.length ? <ul className="dsk-coin-vit">{vit.map((x, k) => <li key={`${x.site}${x.label}${k}`}><em>{x.label}</em><b className="m-num">{x.value}</b><small>{x.site}</small></li>)}</ul>
+    {Object.keys(mv).length ? <ul className="dsk-coin-moves" aria-label="Sites and their random moves">{Object.entries(mv).map(([h, m]) => <li key={h} data-tip={`${h}: ${m.max} moves drawn at random (3–8), ${m.used} used`}><b>{h}</b><u><s style={{ transform: `scaleX(${Math.min(1, (m.used || 0) / (m.max || 1))})` }} /></u><small className="m-num">{m.used}/{m.max}</small></li>)}</ul> : null}
+    {vit.length ? <ul className="dsk-coin-vit">{vit.map((x, k) => <li key={`${x.label}${k}`}><em>{x.label}</em><b className="m-num">{x.value}</b><small>{(x.sites || [x.site]).join(' · ')}</small></li>)}</ul>
       : <p className="dsk-coin-read">{String(c.read || 'its FEELESS read').slice(0, 260)}</p>}
     {shots.length ? <div className="dsk-coin-shots">{shots.map(x => <button key={x.file} type="button" onClick={() => onShot(x)} data-tip={`${x.site} · snapshot ${x.n} · round ${(x.round || 0) + 1}`}>
       <img src={apiUrl(`/api/cats/${catId}/powshot/${String(f.id).replace(/[^a-z0-9]/gi, '').toLowerCase()}/${x.file}`)} alt={`${x.site} snapshot ${x.n}`} loading="lazy" /><small>{x.trade ? (x.trade === 'good' ? '👍 ' : '👎 ') : ''}{x.site} · {x.n}</small></button>)}</div>
@@ -688,6 +697,17 @@ function ReportFile({ f, catId }) {
       <u><s style={{ transform: `scaleX(${Math.min(1, (c.vitals || 0) / 9)})` }} /></u><small className="m-num">{c.safe ? `${c.vitals} vitals · ${c.shots} 📸` : `unsafe — ${c.risk || ''}`}</small></li>)}</ul>
   </div>;
 }
+// 🤝 SHARE PoW WINS WITH THE POT (owner 2026-11-02: "an option in the PoW folder to still send x% of winnings to the pot wallet without colonize"):
+// OFF · 5 · 10 · 20 · 30 % — one wallet signature; each WINNING real PoW folder then owes that % of its profit to the colony pot (shown on the ledger)
+function PowShare({ cat }) {
+  const [share, , sign, canSign] = useColonyShare(cat); const [busy, setBusy] = useState(''); const [err, setErr] = useState('');
+  const pick = async pct => { setBusy(String(pct)); setErr(''); try { await sign(pct > 0, pct); } catch (e) { setErr(e.message || 'Not signed'); } finally { setBusy(''); } };
+  const cur = share?.on ? share.pct : 0;
+  return <div className="dsk-share" data-testid="dsk-share"><span><b>🤝 SHARE WINS WITH THE POT</b><small>{cur ? `${cur}% of each winning PoW's profit goes to the colony pot — no colonizing needed` : 'Off — its PoW wins stay in its wallet. Pick a % to share (one wallet signature).'}</small></span>
+    <span className="m-seg" role="radiogroup" aria-label="Share of each PoW win">{[0, ...SHARE_PCTS].map(p => <button key={p} type="button" role="radio" aria-checked={cur === p} className={cur === p ? 'active' : ''} disabled={!!busy || (p > 0 && !canSign)}
+      onClick={() => cur !== p && pick(p)} data-tip={p ? `Sign once: ${p}% of each winning PoW's profit to the colony pot` : 'Stop sharing (no signature)'} data-testid={`dsk-share-${p}`}>{busy === String(p) ? '…' : p ? `${p}%` : 'OFF'}</button>)}</span>
+    {err ? <small className="kd-err" role="alert">⚠ {err}</small> : null}</div>;
+}
 function PowExplorer({ cat, d }) {
   const [path, setPath] = useState([]); const [rows, setRows] = useState(null); const [big, setBig] = useState(null);
   useEffect(() => { let on = true; Promise.resolve().then(() => fetch(apiUrl(`/api/cats/pow?cat=${cat.id}&limit=40`))).then(r => (r?.ok ? r.json() : null)).then(x => on && setRows(x?.rows || [])).catch(() => on && setRows([])); return () => { on = false; }; }, [cat.id]);
@@ -698,6 +718,7 @@ function PowExplorer({ cat, d }) {
   let body;
   if (path[0] === 'old') body = rows?.length ? <div className="hv-pow-grid">{rows.map(p => <PowCard key={p.id} p={p} />)}</div> : <PowCard p={null} />;
   else if (!f) body = <>
+    <PowShare cat={cat} />
     <div className="hv-pow-stats">{[['FOLDERS', all.length], ['TRADES', done.length], ['WON', done.length ? `${Math.round(100 * won / done.length)}%` : '—'], ['P/L', `${done.reduce((a, x) => a + (Number(x.pnlSol) || 0), 0).toFixed(4)} SOL`], ['COST', `$${all.reduce((a, x) => a + (Number(x.cost) || 0), 0).toFixed(3)}`]].map(([k, v]) =>
       <span key={k}><em>{k}</em><b className="m-num">{v}</b></span>)}</div>
     <div className="dsk-xgrid">{all.map((x, i) => <Tile key={x.id} i={i} tone={x.live ? 'live' : gradeOf(x) || 'none'} ic={x.live ? '⛏' : gradeOf(x) === 'good' ? '👍' : gradeOf(x) === 'bad' ? '👎' : '📁'}
