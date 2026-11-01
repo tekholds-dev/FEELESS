@@ -46,7 +46,7 @@ export function chartShape(candles, trail, { pair, interval, ratio }) {
 }
 const volumeRows = (candles, dayMode) => candles.map(([time, open, , , close, value]) => ({ time, value, color: close >= open ? (dayMode ? '#08764e55' : '#00e7a042') : (dayMode ? '#b4234655' : '#f5688050') }));
 
-export const PriceChart = ({ pair, interval, showVolume, metric = 'price', markers = [], feeLive: feeLiveProp, userEntry = null, userTrades = null, fuse: fuse0 = null, pnl, plain = false, callouts = null, wallets = true, fee = true }) => {
+export const PriceChart = ({ roomPx = 0, pair, interval, showVolume, metric = 'price', markers = [], feeLive: feeLiveProp, userEntry = null, userTrades = null, fuse: fuse0 = null, pnl, plain = false, callouts = null, wallets = true, fee = true }) => {
   // ✋ a level dragged on this chart and CONFIRMED by the card sits where it was dropped until the card's next read
   const [grabbed, setGrabbed] = useState(null);
   useEffect(() => { setGrabbed(null); }, [fuse0?.pairAddress, fuse0?.slPct, fuse0?.lockPct, fuse0?.trailPct, fuse0?.tpPct]);
@@ -248,13 +248,15 @@ export const PriceChart = ({ pair, interval, showVolume, metric = 'price', marke
     chartRef.current = chart;
     const ts = chart.timeScale();
     const n = sparse ? lineData.length : displayCandles.length || trail.length;
+    // 🕯 roomPx: a clear gap after the newest candle as wide as the level labels on the right (agent windows) — the latest candle is never under them
+    const w0 = container.current?.clientWidth || 600; const room = bars => (roomPx ? Math.ceil(roomPx / Math.max(1, (w0 - 90) / bars)) : 4);
     if (rangeRef.current) ts.setVisibleLogicalRange(rangeRef.current);
-    else if (n > 160) ts.setVisibleLogicalRange({ from: n - 150, to: n + 4 });
+    else if (n > 160) ts.setVisibleLogicalRange({ from: n - 150, to: n + room(154) });
     else {
       // Young coins: few bars should fill the chart, not huddle in a corner.
-      const w = container.current?.clientWidth || 600;
+      const w = w0;
       ts.applyOptions({ maxBarSpacing: 48, barSpacing: Math.max(6, Math.min(48, (w - 90) / Math.max(n + 4, 8))) });
-      ts.fitContent();
+      if (roomPx) ts.setVisibleLogicalRange({ from: -1, to: n + room(Math.max(n + 4, 8)) }); else ts.fitContent();
     }
     // Zoom/scroll out past the first bar → page in older real history.
     const onRange = range => {

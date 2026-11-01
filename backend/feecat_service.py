@@ -1309,6 +1309,12 @@ def _pow_view(cat):
 _POW_WANT: dict = {}   # 💬 'file a PoW' / 'stop PoW' from the chat, read by the engine pass (the store's one writer — a chat save can't race it)
 
 
+def _pow_ver(cat):
+    """A cheap version of the filed PoW folders: changes when one is filed, kept, deleted or a coin folder is hidden."""
+    fs_ = cat.get('powFolders') or []
+    return f"{len(fs_)}:{(fs_[-1] if fs_ else {}).get('id', '')}:{sum(1 for x in fs_ if x.get('kept'))}:{sum(len(x.get('hidden') or []) for x in fs_)}"
+
+
 def _pow2_on(cat):
     b = cat.get('brainsCfg') or {}
     if cat.get('id') in _POW_WANT or (cat.get('powRun') or {}).get('folder', {}).get('asked'):   # you asked: any agent kind, once
@@ -1375,6 +1381,9 @@ def _pow2_research(cat, f, coin, mind_i, now):
     rp['used'] = sorted(set(rp['used']) | {h for r in prior_[:2] for h in r.get('sites') or []})
     rp['prior'] = _pow.archive_brief(_pow.archive_find(_pow_archive_rows(), coin['mint']))
     recent_, wins_ = _pow.site_memory(cat.get('powFolders'))   # 🎲 random sites, never the last folders' — unless a winning folder used them
+    fp_ = _pow.fingerprint(_pow_archive_rows(), cat['id'])
+    if fp_.get('best'):   # 🧬 its OWN proven sources lead (one at a time — the rest still rotate)
+        wins_ = set(fp_['best'])
     rp['order'] = _pow.site_order(recent_ | {h for v in (f.get('usedBy') or {}).values() for h in v or []}, wins_)
     try:
         _work_start(cat['id'], cat, _pow.goal(rp), str(int(f.get('base') or 0) + mind_i), None, rp)
@@ -1576,7 +1585,8 @@ async def _pow2_tick(http, store, cat, now):
             listing = '\n'.join(f"{k + 1}) ${c['sym']} [{_pow.SRC_LABEL[c['src']]}] pool ${c['liq']:,.0f} cap ${c['mc']:,.0f} — {c.get('read', '')[:200]}"
                                  + (f" · {_pow.archive_brief(_pow.archive_find(rows_, c['mint']))}" if _pow.archive_find(rows_, c['mint']) else '') for k, c in enumerate(f['coins']) if k not in gone_)
             partner = '' if turn == 0 else f" YOUR PARTNER ALREADY PROPOSED {', '.join('$' + f['coins'][k]['sym'] for k in prev_.get('picks') or [])} (\"{prev_.get('why', '')}\") — those are taken: propose 3 OTHER coins from the list."
-            raw_ = await ask_(i, _pow.PROPOSE_SYS.format(name=nm_, n=n_, partner=partner), listing, 400)
+            fpl_ = _pow.fingerprint_line(_pow.fingerprint(rows_, cat['id']))   # 🧬 what its own wins were built on
+            raw_ = await ask_(i, _pow.PROPOSE_SYS.format(name=nm_, n=n_, partner=partner), (fpl_ + '\n' if fpl_ else '') + listing, 400)
             picks, why = _pow.parse_picks(raw_, n_, _pow.PROPOSE_N + len(gone_))
             picks = [k for k in picks if k not in gone_][:_pow.PROPOSE_N]
             need_ = min(_pow.PROPOSE_N, n_ - len(gone_))
@@ -3416,6 +3426,7 @@ def _internal(request):
 
 class WorkPayload(BaseModel):
     op: str
+    ver: Optional[str] = None           # ⛏ op 'state': the filed-folders version the page already has (unchanged → not re-sent)
     ownerId: Optional[str] = None
     session: Optional[str] = None
     text: Optional[str] = None
@@ -3898,11 +3909,13 @@ async def cat_work(cat_id: str, p: WorkPayload):
             'artifacts': (cat.get('artifacts') or [])[-10:] + ([] if (w or {}).get('settled') else ((w or {}).get('task') or {}).get('artifacts', [])),
             'queue': [{'text': q.get('text'), 'to': q.get('to')} for q in (cat.get('workQueue') or [])],
             'pow': _pow_view(cat),   # ⛏ each mind's latest Proof of Work
+            'fingerprint': _pow.fingerprint(_pow_archive_rows(), cat['id']) if not (p.ver and p.ver == _pow_ver(cat)) else None,   # 🧬 its own winning sources + facts (with the folders)
             'commands': _pow.COMMANDS,   # 💬 what it understands in the chat (cabinet + desktop list)
             'sources': [{'host': h, 'what': _src.WHAT.get(h, 'worked before'), **{k: (_src_book().get(h) or {}).get(k) for k in ('ok', 'blocked', 'last')}}
                         for h in dict.fromkeys(list(_src.SEED) + list(_src_book().keys()))][:80],   # 🌐 the sources book: tap one → sign its windows in
             'jobs': list(reversed(cat.get('jobs') or []))[:20], 'jobRates': cat.get('jobRates') or {},   # 🗂 each request's log tree + your 👍 / 👎
-            'powFolder': _pow.folder_public((cat.get('powRun') or {}).get('folder') or {}) or None, 'powFolders': [x if x.get('report') or x.get('status') != 'closed' else {**x, 'report': _pow.report(x)[0]} for x in list(reversed(cat.get('powFolders') or []))[:40]],   # ⛏ the live folder + filed ones
+            'powFolder': _pow.folder_public((cat.get('powRun') or {}).get('folder') or {}) or None,
+            **({} if p.ver and p.ver == _pow_ver(cat) else {'powVer': _pow_ver(cat), 'powFolders': [x if x.get('report') or x.get('status') != 'closed' else {**x, 'report': _pow.report(x)[0]} for x in list(reversed(cat.get('powFolders') or []))[:40]]}),   # ⛏ the filed folders (~90 KB) only when they changed — the desk polls every 1.5 s
             'parked': [{'text': q.get('text'), 'why': q.get('why'), 'at': q.get('at')} for q in (cat.get('workParked') or [])]}
 
 

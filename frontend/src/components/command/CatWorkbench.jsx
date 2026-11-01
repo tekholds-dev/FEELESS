@@ -131,7 +131,17 @@ export function DeskFlip({ flip, setFlip, name, live, count, left, right, cloud,
 }
 // a general mind's vitals: what its window is doing right now
 const host = u => String(u || '').replace(/^https?:\/\//, '').split(/[/?#]/)[0];
-function WinVitals({ w }) {
+function WinVitals({ w, f = null, i = 0, model = '' }) {   // ⛏ while a PoW folder runs, its role in it (owner: "it says IDLE while they work")
+  if (f && !(w?.status === 'working' || w?.status === 'human')) {
+    const me = String(i + (f.base || 0)); const name = String(model || '').split('/').pop().replace(':free', '');
+    const said = [...(f.talk || [])].reverse().find(t => name && String(t.by).includes(name.slice(0, 12)));
+    const doing = f.rMint && Number(f.rMind) === i ? `RESEARCHING $${(f.coins || []).find(c => c.mint === f.rMint)?.sym || ''}` : (PH[f.phase] || f.phase || 'PoW').split(' ').slice(0, 3).join(' ');
+    return <><span className="ck-v-row"><em>STATUS</em><b className="m-num is-pow">{doing}</b></span>
+      <span className="ck-v-row"><em>FOLDER</em><b className="m-num">{String(f.name || '').split(' · ')[0]}</b></span>
+      <span className="ck-v-row"><em>SPENT</em><b className="m-num">{usd(f.spend?.[me] || 0)}</b></span>
+      <span className="ck-v-row"><em>ON</em><b className="m-num">{f.sym ? `$${f.sym}` : `${(f.coins || []).length} coins`}</b></span>
+      <p className="ck-v-last">{said ? said.text : 'its turn comes next'}</p></>;
+  }
   return <><span className="ck-v-row"><em>STATUS</em><b className="m-num">{String(w?.status || 'idle').toUpperCase()}</b></span>
     <span className="ck-v-row"><em>STEPS</em><b className="m-num" key={(w?.steps || []).length}>{(w?.steps || []).length}</b></span>
     <span className="ck-v-row"><em>SPENT</em><b className="m-num">{usd(w?.cost || 0)}</b></span>
@@ -729,6 +739,17 @@ function PowShare({ cat }) {
       onClick={() => cur !== p && pick(p)} data-tip={p ? `Sign once: ${p}% of each winning PoW's profit to the colony pot` : 'Stop sharing (no signature)'} data-testid={`dsk-share-${p}`}>{busy === String(p) ? '…' : p ? `${p}%` : 'OFF'}</button>)}</span>
     {err ? <small className="kd-err" role="alert">⚠ {err}</small> : null}</div>;
 }
+// 🧬 ITS FINGERPRINT (owner 2026-11-02): the sources it read and the facts it filed before each trade, scored by how that trade went — its own,
+// built over time from the forever archive; its best proven source leads the next research (one at a time, the rest keep rotating)
+function FingerPanel({ fp }) {
+  if (!fp?.trades) return <p className="dsk-note">🧬 Its fingerprint builds itself from its own trades — the first finished PoW trade starts it.</p>;
+  const rows = Object.entries(fp.sites || {}).sort((a, b) => b[1].w / b[1].n - a[1].w / a[1].n || b[1].w - a[1].w).slice(0, 8);
+  const vit = Object.entries(fp.vitals || {}).sort((a, b) => b[1].w - a[1].w).slice(0, 6);
+  return <div className="dsk-fp" data-testid="dsk-fp"><span className="dsk-fp-h"><b>🧬 ITS FINGERPRINT</b><small>{fp.won}/{fp.trades} trades won · built from its own research, over time</small></span>
+    <ul className="dsk-fp-sites">{rows.map(([h, x], i) => <li key={h} style={{ '--i': i }} className={(fp.best || []).includes(h) ? 'is-best' : ''} data-tip={`${h}: read before ${x.n} of its trades, ${x.w} won${x.last ? ` · last win ${ago(x.last)} ago` : ''}`}>
+      <b>{(fp.best || []).includes(h) ? '★ ' : ''}{h}</b><u><s style={{ transform: `scaleX(${x.w / x.n})` }} /></u><em className="m-num">{x.w}/{x.n}</em></li>)}</ul>
+    {vit.length ? <p className="dsk-fp-vit">{vit.map(([k, x]) => <span key={k} className="m-chip">{k} <b className="m-num">{x.w}/{x.n}</b></span>)}</p> : null}</div>;
+}
 function PowExplorer({ cat, d, setD }) {
   const [path, setPath] = useState([]); const [rows, setRows] = useState(null); const [big, setBig] = useState(null); const [sure, setSure] = useState(''); const [err, setErr] = useState('');
   // 📌 keep / 🗑 delete (owner 2026-11-02): from the DESKTOP only — the forever archive keeps every fact, so the next PoW still never repeats it
@@ -744,6 +765,7 @@ function PowExplorer({ cat, d, setD }) {
   if (path[0] === 'old') body = rows?.length ? <div className="hv-pow-grid">{rows.map(p => <PowCard key={p.id} p={p} />)}</div> : <PowCard p={null} />;
   else if (!f) body = <>
     <PowShare cat={cat} />
+    <FingerPanel fp={d?.fingerprint} />
     <div className="hv-pow-stats">{[['FOLDERS', all.length], ['TRADES', done.length], ['WON', done.length ? `${Math.round(100 * won / done.length)}%` : '—'], ['P/L', `${done.reduce((a, x) => a + (Number(x.pnlSol) || 0), 0).toFixed(4)} SOL`], ['COST', `$${all.reduce((a, x) => a + (Number(x.cost) || 0), 0).toFixed(3)}`]].map(([k, v]) =>
       <span key={k}><em>{k}</em><b className="m-num">{v}</b></span>)}</div>
     <div className="dsk-xgrid">{all.map((x, i) => <Tile key={x.id} i={i} tone={x.live ? 'live' : gradeOf(x) || 'none'} ic={x.live ? '⛏' : gradeOf(x) === 'good' ? '👍' : gradeOf(x) === 'bad' ? '👎' : '📁'}
@@ -1073,9 +1095,11 @@ function WorkbenchLive({ cat }) {
   const [signIn, setSignIn] = useState(null);   // 🔑 a window's sign-in card → the credentials drawer, this site filled in
   const [to, setTo] = useState('both');   // 🧠 talk to both minds, or ONE of them (it works the whole task in its own window)
   const [down, setDown] = useState(false);
-  const load = useCallback(() => work(cat.id, { op: 'state' }).then(x => { setD(x); setErr(''); setDown(false); }).catch(e => { setErr(e.message); setDown(!!e.down); }), [cat.id]);
+  const verRef = useRef(null);   // ⚡ the filed PoW folders (~90 KB) come only when they changed (measured: 126 KB every 1.5 s was the lag)
+  const load = useCallback(() => work(cat.id, { op: 'state', ver: verRef.current }).then(x => { if (x.powVer) verRef.current = x.powVer;
+    setD(o => ({ ...x, powFolders: x.powFolders ?? o?.powFolders, powVer: x.powVer ?? o?.powVer, fingerprint: x.fingerprint ?? o?.fingerprint })); setErr(''); setDown(false); }).catch(e => { setErr(e.message); setDown(!!e.down); }), [cat.id]);
   const status = d?.task?.status;
-  const live = !down && (LIVE_STATES.includes(status) || status === 'human' || (d?.windows || []).some(w => w.status === 'human' || w.status === 'working'));   // the service down = never a stale "Working"
+  const live = !down && (LIVE_STATES.includes(status) || status === 'human' || !!d?.powFolder || (d?.windows || []).some(w => w.status === 'human' || w.status === 'working'));   // a running PoW folder is live too — its chat lines arrive every 1.5 s   // the service down = never a stale "Working"
   useEffect(() => { load(); }, [load]);
   useEffect(() => { const t = setInterval(() => { if (!document.hidden) { load(); setTick(x => x + 1); } }, live ? 1500 : 8000); return () => clearInterval(t); }, [load, live]);
   const act = async (op, extra = {}) => { setBusy(true); setErr(''); try { const r = await work(cat.id, { op, ...extra }); setD(x => ({ ...x, ...r })); } catch (e) { setErr(e.message); } finally { setBusy(false); } };
@@ -1116,9 +1140,9 @@ function WorkbenchLive({ cat }) {
     <NowLine cat={cat} wins={wins} live={live} folder={d?.powFolder} />
     <div className="cwb-stage agd-wins">{wins.map(w => <Window key={`${w.i}-${w.slot ?? w.i}`} folder={d?.powFolder} w={w} catId={cat.id} tick={tick} busy={busy} cursor={aiCur} onGo={(op, i, text) => act(op, { i, ...(text ? { text } : {}) })} onLogin={site => setSignIn({ site, at: Date.now() })} />)}</div>
     <DeskFlip cat={cat} flip={flip} setFlip={setFlip} name={cat.name} live={live} count={log.length} cloud={<HeadCloud items={(d?.cloud || []).slice(-5).reverse()} />}
-      left={<MindVitals cat={cat} model={wins[0]?.model} i={0} kind="general" live={!!wins[0]?.model} hot={wins[0]?.status === 'working'} extra={<><WinVitals w={wins[0]} /><PowCard p={d?.pow?.['0']} /></>} />}
+      left={<MindVitals cat={cat} model={wins[0]?.model} i={0} kind="general" live={!!wins[0]?.model} hot={wins[0]?.status === 'working'} extra={<><WinVitals w={wins[0]} f={d?.powFolder} i={0} model={cat.brainsCfg?.brains?.[0]} /><PowCard p={d?.pow?.['0']} /></>} />}
       right={<MindVitals cat={cat} model={wins[1]?.model || cat.brainsCfg?.brains?.[1]} i={1} kind="general" live={!!(wins[1]?.model || cat.brainsCfg?.brains?.[1])} hot={wins[1]?.status === 'working'}
-        extra={<><WinVitals w={wins[1] || (cat.brainsCfg?.brains?.[1] ? { i: 1, status: 'not asked' } : undefined)} />{cat.brainsCfg?.brains?.[1] || wins[1] ? <PowCard p={d?.pow?.['1']} /> : null}</>} />}   // its second model is still there when only A was asked
+        extra={<><WinVitals w={wins[1] || (cat.brainsCfg?.brains?.[1] ? { i: 1, status: 'not asked' } : undefined)} f={d?.powFolder} i={1} model={cat.brainsCfg?.brains?.[1]} />{cat.brainsCfg?.brains?.[1] || wins[1] ? <PowCard p={d?.pow?.['1']} /> : null}</>} />}   // its second model is still there when only A was asked
       back={<><LastMoney m={d?.lastMoney} />
     <AgentLog title="FILES" items={log} onDesktop={() => setDesk(true)} open={signIn ? { key: 'creds', at: signIn.at } : null} cabinet={[
       ...keyDrawers(cat, d, setD, signIn),

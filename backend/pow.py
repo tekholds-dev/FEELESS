@@ -435,6 +435,35 @@ def archive_brief(rows):
     return s
 
 
+def fingerprint(rows, cat_id):
+    """🧬 THIS agent's own fingerprint (owner 2026-11-02: "the winning research gets tracked over time, each agent builds its own true
+    fingerprint"): for every coin it actually traded, the sources it read and the facts it filed before the buy, scored by how the trade went.
+    → {'sites': {host: {'w','n','last'}}, 'vitals': {label: {'w','n'}}, 'trades', 'won', 'best': [hosts that called its winners]}"""
+    mine = [r for r in rows or [] if r.get('cat') == cat_id]
+    out_ = {(r.get('folder'), r.get('mint')): r for r in mine if r.get('kind') == 'outcome' and r.get('bought') and r.get('pnlPct') is not None}
+    sites, vit = {}, {}
+    for r in mine:
+        o = out_.get((r.get('folder'), r.get('mint'))) if r.get('kind') == 'research' else None
+        if not o:
+            continue
+        won = float(o.get('pnlPct') or 0) > 0
+        for h in set(r.get('sites') or []) - {'feeless.app'}:
+            x = sites.setdefault(h, {'w': 0, 'n': 0, 'last': 0}); x['n'] += 1; x['w'] += won; x['last'] = max(x['last'], int(o.get('at') or 0) if won else x['last'])
+        for v in {x.get('label') for x in r.get('vitals') or [] if x.get('label')}:
+            y = vit.setdefault(v, {'w': 0, 'n': 0}); y['n'] += 1; y['w'] += won
+    rank = sorted(sites, key=lambda h: (-(sites[h]['w'] / sites[h]['n']), -sites[h]['w'], -sites[h]['last']))
+    return {'sites': sites, 'vitals': vit, 'trades': len(out_), 'won': sum(1 for o in out_.values() if float(o.get('pnlPct') or 0) > 0),
+            'best': [h for h in rank if sites[h]['w'] and sites[h]['w'] / sites[h]['n'] >= 0.5][:3]}
+
+
+def fingerprint_line(fp):
+    if not fp or not fp.get('trades'):
+        return ''
+    s = ' · '.join(f"{h} {fp['sites'][h]['w']}/{fp['sites'][h]['n']}" for h in sorted(fp['sites'], key=lambda h: -fp['sites'][h]['w'])[:4])
+    v = ' · '.join(f"{k} {x['w']}/{x['n']}" for k, x in sorted(fp['vitals'].items(), key=lambda kv: -kv[1]['w'])[:4])
+    return f"YOUR FINGERPRINT ({fp['won']}/{fp['trades']} trades won): sources {s or '—'}; facts {v or '—'}"
+
+
 def parse_pick(text, n=4):
     import json as _j
     t = str(text or ''); m = re.search(r'\{.*\}', t, re.S)

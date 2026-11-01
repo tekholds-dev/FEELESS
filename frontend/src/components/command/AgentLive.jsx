@@ -21,7 +21,7 @@ export function McapChart({ coin, ...rest }) {
   const cap = Number(live?.marketCap || live?.fdv) || null; const px = Number(live?.priceUsd) || null;
   return <Suspense fallback={<span className="agl-load">loading ${coin.symbol}'s live chart…</span>}>
     <PriceChart key={coin.pair} pair={{ chainId: 'solana', pairAddress: coin.pair, baseToken: { address: mint, symbol: coin.symbol }, ...(px ? { priceUsd: px } : {}), ...(cap ? { marketCap: cap } : {}) }}
-      interval="1m" metric={cap && px ? 'marketCap' : 'price'} showVolume={false} {...rest} /></Suspense>;
+      interval="1m" metric={cap && px ? 'marketCap' : 'price'} showVolume={false} roomPx={200} {...rest} /></Suspense>;   // 🕯 the newest candle stays clear of the level labels
 }
 export const asModel = id => (id ? { id, name: String(id).split('/').pop(), provider: String(id).split('/')[0] } : null);
 const ago = s => { const m = Math.max(1, Math.round((Date.now() / 1000 - s) / 60)); return m < 60 ? `${m}m` : m < 1440 ? `${(m / 60).toFixed(1)}h` : `${Math.round(m / 1440)}d`; };
