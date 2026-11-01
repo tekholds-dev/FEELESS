@@ -20,6 +20,19 @@ function Lane({ way, n, fast }) {
 function Station({ ic, k, v, sub, on, tip, i }) {
   return <li className={`cfl-st${on ? ' is-on' : ''}`} style={{ '--i': i }} data-tip={tip}><span className="cfl-hex"><b aria-hidden="true">{ic}</b><strong className="m-num" key={String(v)}>{v}</strong></span><em>{k}</em><small>{sub}</small></li>;
 }
+// 📖 THE MANUAL (owner 2026-11-01: "a manual in the Colony tab") — how a PoW runs, step by step, with the commands that start it. The same rules every model reads.
+const MANUAL = [['🗣', 'PLAN', '3 turns: A proposes which coins to research, B agrees or suggests, A finalizes'],
+  ['🔎', 'RESEARCH', 'Every safe coin of the 4 (2 intake · 1 Pump · 1 DexScreener): FEELESS + 3 sites, ≤5 moves + ≤3 vitals each, 2 snapshots a site → its own coin folder'],
+  ['⚖', 'CHOOSE', '3 turns with the research: the ONE coin, its size, take profit and stop loss — bought from the agent\'s own wallet on FEELESS'],
+  ['⏱', 'HOLD', 'Live checks at +15 s, +30 s, then every 60 s: the watcher reads the chart, the partner agrees or overrides; research rounds alternate'],
+  ['🍯', 'FILE', 'The folder (coins, snapshots, talk, P/L, cost) lands on its Desktop; a win with colonize on sends its share to the colony']];
+export function ColonyManual() {
+  const [open, setOpen] = useState(false);
+  return <section className={`cfm${open ? ' is-open' : ''}`} data-testid="colony-manual"><button type="button" className="cfm-h" onClick={() => setOpen(o => !o)} aria-expanded={open}>
+    <b>📖 THE PoW MANUAL</b><small>what every agent does when you type <code>file a PoW</code> · <code>propose a PoW</code> · <code>stop PoW</code></small><i aria-hidden="true">{open ? '−' : '+'}</i></button>
+    <ol className="cfm-steps">{MANUAL.map(([ic, k, t], i) => <li key={k} style={{ '--i': i }}><span className="cfm-n" aria-hidden="true">{ic}</span><em>{i + 1} · {k}</em>{open ? <small>{t}</small> : null}</li>)}</ol>
+  </section>;
+}
 export function ColonyFlow({ api, meta }) {
   const [d, setD] = useState(null);
   useEffect(() => { let on = true; const go = first => { if (document.hidden && first !== true) return; api('/api/cats/hive').then(x => on && x && setD(x)).catch(() => {}); };
@@ -187,8 +200,9 @@ export function ColonyGrid({ api, onOpen, ids, extra }) {
     {ids ? null : <header className="cl-head"><span><small>THE COLONY</small><b>{meta ? <><em className="m-num">{meta.colonized}</em> colonized · <em className="m-num">{meta.total}</em> agents</> : 'reading the colony…'}</b></span>
       <p>Every agent's two windows, live — an idle one shows its desktop. Colonized agents file graded calls and their trades are graded before and after; honey splits the colony pot's growth.</p></header>}
     {err && !rows.length ? <p className="hv-nil">{err}</p> : null}
+    {ids ? null : <ColonyFlow api={api} meta={meta} />}   {/* 🐝 the live loop at the TOP (owner 2026-11-01) */}
+    {ids ? null : <ColonyManual />}
     <div className="cl-grid">{rows.map((a, k) => <ColonyCell key={a.id} a={a} onOpen={onOpen} i={k % 10} top={top} extra={extra} />)}</div>
     <span ref={end} className="cl-end" aria-hidden="true">{meta?.more ? 'more agents…' : null}</span>
-    {ids ? null : <ColonyFlow api={api} meta={meta} />}
   </section>;
 }

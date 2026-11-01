@@ -1,6 +1,6 @@
 import React, { act } from 'react';
 import { createRoot } from 'react-dom/client';
-import { ColonyFlow, ColonyGrid, PowEngine } from './HiveBoard';
+import { ColonyFlow, ColonyGrid, ColonyManual, PowEngine } from './HiveBoard';
 import { HiveSwitch } from './CatWorkbench';
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
 const mockSign = jest.fn(async () => 'SIG');
@@ -76,4 +76,12 @@ test('⛏ the PoW engine: the hard rules as a pipeline, live numbers, and each p
   await act(async () => { createRoot(el2).render(<PowEngine />); });
   expect(el2.querySelector('[data-testid="pow-db"]').textContent).toContain('● LIVE');   // 🗄 every agent's folders, live + filed
   expect(el2.querySelector('[data-testid="dsk-fold-live"]').textContent).toContain('$SIS');
+});
+
+test('📖 the PoW manual: 5 steps (plan · research · choose · hold · file) and the commands — details open on a tap', async () => {
+  const el = document.createElement('div'); document.body.appendChild(el);
+  await act(async () => { createRoot(el).render(<ColonyManual />); });
+  expect(el.querySelectorAll('.cfm-steps li')).toHaveLength(5); expect(el.textContent).toContain('file a PoW'); expect(el.textContent).not.toContain('+15 s');
+  await act(async () => { el.querySelector('.cfm-h').click(); });
+  expect(el.textContent).toContain('+15 s'); expect(el.textContent).toContain('2 snapshots a site');
 });
