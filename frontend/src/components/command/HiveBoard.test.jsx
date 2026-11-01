@@ -1,6 +1,6 @@
 import React, { act } from 'react';
 import { createRoot } from 'react-dom/client';
-import { HiveBoard, ColonyGrid, PowEngine } from './HiveBoard';
+import { ColonyFlow, ColonyGrid, PowEngine } from './HiveBoard';
 import { HiveSwitch } from './CatWorkbench';
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
 const mockSign = jest.fn(async () => 'SIG');
@@ -9,14 +9,15 @@ jest.mock('../../hooks/useWallet', () => ({ useWallet: () => ({ signMessage: moc
 const HIVE = { epoch: 20755, left: 3600 * 5, filed: 3, graded: 2, board: [{ cat: 'h1', name: 'Happy', honey: 3, cells: 2, graded: 2, right: 2 }],
   cells: [{ id: 'c1', name: 'Happy', sym: 'HUSS', call: 'BUY', why: 'volume 3x', honey: 2, move: 25 }, { id: 'c2', name: 'Happy', sym: 'RUG', call: 'AVOID', why: 'pool thin', honey: 1, move: -8 }, { id: 'c3', name: 'Happy', sym: 'NEW', call: 'WATCH', why: 'no edge', honey: null }] };
 
-test('🐝 the Hive board: epoch ring, filed / graded, a honeycomb cell per call (right ones glow), the honey board', async () => {
+test('🐝 how colonizing works: eight honeycomb stations in one loop with real numbers, bees on every lane (more + faster while agents are colonized)', async () => {
   const el = document.createElement('div'); document.body.appendChild(el);
-  await act(async () => { createRoot(el).render(<HiveBoard api={async () => HIVE} />); });
-  const comb = el.querySelector('[data-testid="hive-comb"]'); const cells = comb.querySelectorAll('li');
-  expect(cells).toHaveLength(3); expect(cells[0].className).toContain('is-buy'); expect(cells[0].className).toContain('is-right'); expect(cells[2].textContent).toContain('⏳');
-  expect(el.querySelector('[data-testid="hive-board"]').textContent).toContain('Happy'); expect(el.querySelector('[data-testid="hive-board"]').textContent).toContain('2/2 right');
-  expect(el.textContent).toContain('5h 00m');
+  await act(async () => { createRoot(el).render(<ColonyFlow api={async () => HIVE} meta={{ colonized: 2, total: 5, potOpen: true, cadence: 'daily', nextAirdrop: Date.now() / 1000 + 3600 }} />); });
+  const st = el.querySelectorAll('.cfl-st'); expect(st).toHaveLength(8);
+  expect(st[0].textContent).toContain('2/5'); expect(st[1].textContent).toContain('3'); expect(st[3].textContent).toContain('2'); expect(st[7].textContent).toContain('+3');
+  expect(st[0].className).toContain('is-on'); expect(st[6].className).not.toContain('is-on');
+  expect(el.querySelectorAll('.cfl-lane')).toHaveLength(8); expect(el.querySelector('.cfl-lane').className).toContain('is-fast'); expect(el.querySelector('.cfl-lane').querySelectorAll('i')).toHaveLength(3);
 });
+
 
 test('🐝 Colonize opens the popout (what it is + the FEECAT stake), confirms at the picked pace, shows a refused stake, and leaves in one click', async () => {
   const sent = []; let refuse = true; mockSign.mockImplementation(async () => 'SIG');

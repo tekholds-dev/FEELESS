@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { MemoryRouter } from 'react-router-dom';
 import { CatDesk } from '../components/command/CatDesk';
-import { HiveBoard } from '../components/command/HiveBoard';
+import { ColonyFlow } from '../components/command/HiveBoard';
 import '../styles/catForge.css';
 import { AgentDemo } from '../components/command/AgentDemo';
 import { CatReal } from '../components/command/CatReal';
@@ -63,7 +63,7 @@ export default function CatHarness() {
       { at: now - 60, text: 'buy 0.05 SOL of $JUP', order: { side: 'buy', coin: 'JUP', sol: 0.05 }, state: 'proposed', why: '✍ buy 0.05 SOL — guards passed, waiting for your wallet\'s signature' }] } : cat;
   if (window.location.search.includes('hive')) {   // ?hive — the Hive board on a fixture (graded + pending cells, a board)
     const cells = ['HUSS', 'RUG', 'PIKMIN', 'PAWS', 'ANSEM', 'SAPLING', 'DOPE', 'NEW', 'GTA'].map((sym, i) => ({ id: `c${i}`, name: i % 2 ? 'Fee' : 'Happy', sym, call: ['BUY', 'AVOID', 'WATCH'][i % 3], why: 'volume 3x, chart up', honey: i > 6 ? null : [2, 1, 1, -1, 0, 2, -2][i], move: [25, -8, 4, -12, 6, 30, 40][i] }));
-    return <div style={{ minHeight: '100vh', padding: 16, background: '#07040d' }}><HiveBoard api={async () => ({ epoch: 20755, left: 5 * 3600 + 1240, filed: 9, graded: 7, cells,
+    return <div style={{ minHeight: '100vh', padding: 16, background: '#07040d' }}><ColonyFlow meta={{ colonized: 1, total: 3, potOpen: true, cadence: 'daily', nextAirdrop: Date.now() / 1000 + 7200 }} api={async () => ({ epoch: 20755, left: 5 * 3600 + 1240, filed: 9, graded: 7, cells,
       board: [{ cat: 'h1', name: 'Happy', honey: 6, cells: 5, graded: 4, right: 4 }, { cat: 'f1', name: 'Fee', honey: -2, cells: 4, graded: 3, right: 1 }] })} /></div>;
   }
   return <MemoryRouter><WalletProvider><div style={{ minHeight: '100vh', padding: 16, background: '#07040d', boxSizing: 'border-box' }}><div style={{ maxWidth: 1180, margin: '0 auto' }}>
