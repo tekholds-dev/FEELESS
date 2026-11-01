@@ -77,6 +77,19 @@ def split_jobs(text, n=2):
     return [lead, helper]
 
 
+def job_label(goal):
+    """What the owner reads above a mind's answer: its job — never the internal support instructions (owner 2026-11-01: no prompt footprints)."""
+    g = str(goal or '')
+    return "checked its partner's facts" if g.startswith('SUPPORT ROLE') else g[:80]
+
+
+def ended_note(w, page, why):
+    """A mind that stopped without an answer: what stopped it + what it had kept — never its raw inner thought."""
+    kept = ' · '.join(str(x)[:120] for x in (w.get('scratch') or [])[-2:])
+    where = str(getattr(page, 'title', '') or getattr(page, 'url', '') or '')[:80]
+    return f"⏹ {why}" + (f" (last on {where})" if where else '') + (f". Kept: {kept}" if kept else '.')
+
+
 def parse_json(text):
     """The first JSON object in a model's text → dict ({} when none)."""
     t = str(text or '')
@@ -273,7 +286,7 @@ async def _window(task, w, ask, page, wait_human, name, feeless=None):
         got = [h['text'] for h in task.get('handoffs') or [] if h['from'] != w['i']][-4:]   # 📦 what its partner handed over
         extra = (f"\nYOUR CLOUD (your notes from earlier tasks): {' | '.join(mine)[:600]}" if mine else '') + (f"\nFROM YOUR PARTNER: {' | '.join(got)[:900]}" if got else '')
         if task.get('knowhow'):   # 🐝 the Colony + 🧭 the sources book: every mind knows both, whatever its prompt
-            extra += '\n' + str(task['knowhow'])[:1400]
+            extra += '\n' + str(task['knowhow'])[:2600]
         if pw:
             extra += '\n' + _pow.RULES + "\nTHE COIN'S PAGES: " + ' · '.join(_pow.links(pw)) + f"\nPOW SO FAR: {_pow.public(pw)['pulls'] or 'no vitals pulled yet'}"
         if task.get('research'):   # 📰 a trader: FEELESS's chart first, then the chart's own research doors (X search by the contract — signed in when the owner saved X)
@@ -337,7 +350,7 @@ async def _window(task, w, ask, page, wait_human, name, feeless=None):
             if key_ in w.setdefault('asked', []):   # 🔁 the same read again = a stuck loop (a real run asked "coin BONK" 4×, another 15×): point it forward
                 w['repeats'] = int(w.get('repeats') or 0) + 1
                 if w['repeats'] >= REPEAT_MAX:   # 💸 never pay for the same read again and again: it answers with what it has
-                    w['answer'] = w['answer'] or f"(stopped re-reading the same thing) {thought or 'here is what it found'}"
+                    w['answer'] = w['answer'] or ended_note(w, page, 'it kept re-reading the same thing')
                     _step(w, 'stopped: it kept re-reading the same thing', 'answer')
                     break
                 _step(w, 'already read this', 'feeless', key_)
@@ -395,7 +408,7 @@ async def _window(task, w, ask, page, wait_human, name, feeless=None):
             if why_rep:   # 🔁 NEVER the same step twice (owner 2026-10-31: "it scrolled up and down 20 times") — refused, not paid for again
                 w['repeats'] = int(w.get('repeats') or 0) + 1
                 if w['repeats'] >= REPEAT_MAX:
-                    w['answer'] = w['answer'] or f"(stopped repeating itself) {thought or 'here is what it found'}"
+                    w['answer'] = w['answer'] or ended_note(w, page, 'it kept repeating a step')
                     _step(w, 'stopped: it kept repeating steps', 'answer')
                     break
                 _step(w, f'refused a repeat: {why_rep}', 'refused', act)
@@ -462,7 +475,7 @@ async def _window(task, w, ask, page, wait_human, name, feeless=None):
             w['status'] = 'working'
             seen = await _after_human(w, page)
     else:
-        w['answer'] = w['answer'] or f'(ran out of steps) {thought}'
+        w['answer'] = w['answer'] or ended_note(w, page, 'it ran out of steps before answering')
     if pw:
         _pow.finish(pw, w['answer'])
     w['status'] = 'done'
@@ -521,7 +534,7 @@ async def run(task, ask, pages, wait_human, names=('Model A', 'Model B'), feeles
             _failed(on, got)
             if any(isinstance(g, Stopped) for g in got) and not any(isinstance(g, str) for g in got):
                 raise next(g for g in got if isinstance(g, Stopped))
-            task['answer'] = '\n\n'.join(f"{names[w['i']]} · {w['goal'][:80]}\n{w['answer'] or '(nothing)'}" for w in on)[:8000]
+            task['answer'] = '\n\n'.join(f"{names[w['i']]} · {job_label(w['goal'])}\n{w['answer'] or '(nothing)'}" for w in on)[:8000]
             task['keep'] = [f"{names[w['i']]}: {str(w['answer'] or '')[:200]}" for w in on if w.get('answer')][:KEEP_MAX]
             task['status'] = 'done'
             return _clean(task)

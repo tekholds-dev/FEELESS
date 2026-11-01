@@ -126,3 +126,133 @@ def test_the_engine_drives_the_route_a_stalling_model_still_covers_the_sites_and
     assert opened[1:] == ['https://dexscreener.com/solana/Pair1', 'https://rugcheck.xyz/tokens/Mint1', 'https://solscan.io/token/Mint1', 'https://birdeye.so/token/Mint1?chain=solana']
     assert 'rugcheck.xyz' not in coin['sites'] and coin['walled'] == ['rugcheck.xyz']     # the wall was skipped and never counted
     assert [x['site'] for x in pw.pulls(coin)] == ['feeless.app', 'dexscreener.com', 'solscan.io'] and coin['call'] == 'WATCH'
+
+
+# ═══ PoW v2: the Colony PoW loop (4-coin folder → agree → buy 1 on FEELESS → watch / research / decide → sell → filed)
+def _intake():
+    return [{'mint': 'A1', 'pair': 'pa', 'sym': 'AAA', 'liq': 40000, 'rank': 9, 'sources': ['open']},
+            {'mint': 'B2', 'pair': 'pb', 'sym': 'BBB', 'liq': 30000, 'rank': 8, 'sources': ['runner']},
+            {'mint': 'thin', 'pair': 'px', 'sym': 'THN', 'liq': 900, 'rank': 99, 'sources': ['open']},
+            {'mint': 'Cpump', 'pair': 'pc', 'sym': 'CCC', 'liq': 12000, 'rank': 3, 'sources': ['pulse']}]
+
+
+def test_a_folder_gathers_2_intake_1_pump_1_dex_and_the_hard_stops_hold():
+    got = pw.gather(_intake(), [{'mint': 'D4', 'pair': 'pd', 'sym': 'DDD', 'liq': 90000}])
+    assert [(c['sym'], c['src']) for c in got] == [('AAA', 'intake'), ('BBB', 'intake'), ('CCC', 'pump'), ('DDD', 'dex')]   # the thin pool never makes it
+    assert len(pw.gather(_intake(), [], {'A1'})) == 2                                       # a dry source = a short folder (the service waits)
+    assert pw.agree({'0': 2, '1': 2}, 2) == 2 and pw.agree({'0': 2, '1': 1}, 2) is None and pw.agree({'0': 1}, 1) == 1
+    assert pw.parse_pick('{"pick": 3, "why": "vol 4x"}') == (2, 'vol 4x') and pw.parse_pick('{"pick": 9}')[0] is None
+    assert 'stop' in pw.hard_exit(1.0, 0.7, 0, 60, 0) and 'take profit' in pw.hard_exit(1.0, 1.7, 0, 60, 0)
+    assert 'min' in pw.hard_exit(1.0, 1.0, 0, pw.HOLD_MAX_S, 0) and 'rounds' in pw.hard_exit(1.0, 1.0, 0, 60, pw.ROUNDS_MAX) and pw.hard_exit(1.0, 1.1, 0, 60, 1) is None
+    assert pw.parse_decide('{"action": "SELL", "say": "lower highs"}') == ('SELL', 'lower highs') and pw.parse_decide('{"action":"HOLD"}')[0] == 'HOLD'
+
+
+def test_the_service_runs_a_whole_folder_two_minds_discuss_buy_watch_research_decide_sell_and_file(monkeypatch, tmp_path):
+    import feecat_service as fs
+    monkeypatch.setattr(fs, 'HIVE_PATH', tmp_path / 'hive.json')
+    cat = {'id': 't1', 'name': 'Trader', 'status': 'running', 'risk': {'maxPositionSol': 0.05}, 'positions': [],
+           'brainsCfg': {'kind': 'trading', 'brains': ['x/m-a', 'x/m-b'], 'credit': 1.0}}
+    assert fs._pow2_on(cat) and not fs._pow2_on({**cat, 'isLeader': True})              # every trader agent but Fee
+
+    class R:
+        def __init__(self, j): self.j = j
+        def json(self): return self.j
+
+    class H:
+        async def get(self, url, **k):
+            return R({'coins': _intake()}) if 'intake' in url else R([])
+    monkeypatch.setattr(fs, '_pow2_dex', lambda http: _aw([{'mint': 'D4', 'pair': 'pd', 'sym': 'DDD', 'liq': 90000}]))
+    monkeypatch.setattr(fs._ct, 'run_tool', lambda http, tool, q: _aw((f'read {q}', None)))
+    px = {'v': 1.0}
+    monkeypatch.setattr(fs, '_pair_prices', lambda http, pairs: _aw({p: {'priceNative': str(px['v']), 'priceUsd': str(px['v'] * 200)} for p in pairs}))
+    answers = {'0': ['{"pick": 1, "why": "deep pool"}', '{"pick": 2, "why": "ok, vol is better"}'], '1': ['{"pick": 2, "why": "vol 4x"}', '{"pick": 2, "why": "keep: vol"}']}
+    decide = ['{"action": "HOLD", "say": "higher lows"}', '{"action": "SELL", "say": "it topped"}']
+
+    async def ask(c, i, sys_, user_, max_tokens=180):
+        return decide.pop(0) if 'CHART WATCHER' in sys_ else answers[str(i)].pop(0)
+    monkeypatch.setattr(fs, '_pow2_ask', ask)
+    orders = []
+
+    async def order(store, c, text, http):
+        orders.append(text)
+        if text.startswith('buy'):
+            c['positions'].append({'pairAddress': 'pb', 'symbol': 'BBB'})
+        else:
+            c['positions'] = []
+        return {'state': 'filled', 'why': 'paper fill'}
+    monkeypatch.setattr(fs, '_run_order', order)
+    monkeypatch.setattr(fs, '_work_start', lambda *a, **k: (_ for _ in ()).throw(fs.HTTPException(409, 'busy')))   # no window free: the round is skipped
+    store = {'cats': {'t1': cat}}; t = 10_000.0
+
+    def tick(dt=20):
+        nonlocal t
+        t += dt; asyncio.run(fs._pow2_tick(H(), store, cat, t))
+    tick(); f = cat['powRun']['folder']
+    assert [c['src'] for c in f['coins']] == ['intake', 'intake', 'pump', 'dex'] and f['name'].startswith('PoW #1 · ') and f['coins'][0]['read'] == 'read A1'
+    tick(); assert f['disc'] == 1 and f['phase'] == 'choose'                                # A said AAA, B said BBB: one round of discussion
+    tick(); assert f['phase'] == 'buy' and f['sym'] == 'BBB'                                # both agree on BBB
+    tick(); assert orders == ['buy 0.05 SOL of B2'] and f['phase'] == 'watch' and not f['real']
+    px['v'] = 1.1; tick(); assert f['phase'] == 'watch'                                     # it watches ≥ 3 min
+    tick(pw.WATCH_S); assert f['phase'] == 'research'
+    tick(); assert f['phase'] == 'decide'                                                    # no free window: research skipped, never stuck
+    tick(); assert f['phase'] == 'watch' and f['rounds'] == 1                               # HOLD
+    tick(pw.WATCH_S); tick(); tick(); assert f['phase'] == 'sell'                           # SELL said
+    px['v'] = 1.2; tick()
+    assert orders[-1] == 'sell all B2' and 'folder' not in cat['powRun']
+    done = cat['powFolders'][-1]
+    assert done['status'] == 'closed' and done['pnlPct'] == 20.0 and 'it topped' in done['why'] and any('higher lows' in x['text'] for x in done['talk'])
+    assert fs._hive_cells()[-1]['folder']['name'] == done['name'] and fs._hive_cells()[-1]['won']   # graded + in the colony's feed
+    assert cat['brainsCfg']['cloud'][-1]['text'].startswith('⛏ PoW #1')                     # the owner's cabinet
+    tick(); assert 'folder' not in cat['powRun']                                            # it rests 5 min before the next folder
+
+
+async def _aw_(v):
+    return v
+
+
+def _aw(v):
+    return _aw_(v)
+
+
+def test_file_a_pow_in_chat_starts_a_folder_on_any_agent_one_mind_or_both_and_stop_pow_sells(monkeypatch, tmp_path):
+    import feecat_service as fs
+    assert pw.command('file a PoW') == {'do': 'start', 'mind': None} and pw.command('B: file a PoW') == {'do': 'start', 'mind': 1}
+    assert pw.command('/pow') and pw.command('stop PoW') == {'do': 'stop'} and pw.command('research pow on bonk') is None
+    assert pw.command('Propose PoW for 3 coins thats not on feeless.')['do'] == 'start' and pw.command('Provide PoW for 3 coins on feeless intake list.')['do'] == 'start'   # the owner's own words
+    assert pw.command('what is a PoW?') is None and pw.command('B: provide a pow') == {'do': 'start', 'mind': 1}
+    import colony
+    assert 'FOLDER' in pw.README and 'not crypto mining' in pw.README and 'PoW README' in colony.KNOWHOW          # every model's default memory
+    monkeypatch.setattr(fs, 'HIVE_PATH', tmp_path / 'hive.json')
+    cat = {'id': 'g1', 'name': 'Happy', 'status': 'stopped', 'risk': {}, 'positions': [], 'brainsCfg': {'kind': 'general', 'brains': ['x/m-a', 'x/m-b'], 'credit': 1.0}}
+    assert not fs._pow2_on(cat)                                                              # a general agent never loops on its own …
+    fs._POW_WANT['g1'] = pw.command('B: file a PoW'); assert fs._pow2_on(cat)               # … until you ask
+
+    class R:
+        def json(self): return {'coins': _intake()}
+
+    class H:
+        async def get(self, url, **k): return R()
+    monkeypatch.setattr(fs, '_pow2_dex', lambda http: _aw([{'mint': 'D4', 'pair': 'pd', 'sym': 'DDD', 'liq': 90000}]))
+    monkeypatch.setattr(fs._ct, 'run_tool', lambda http, tool, q: _aw(('read', None)))
+    monkeypatch.setattr(fs, '_pair_prices', lambda http, pairs: _aw({p: {'priceNative': '1', 'priceUsd': '200'} for p in pairs}))
+    asked = []
+
+    async def ask(c, i, sys_, user_, max_tokens=180):
+        asked.append(i); return '{"pick": 4, "why": "boosted + deep"}'
+    monkeypatch.setattr(fs, '_pow2_ask', ask)
+    orders = []
+
+    async def order(store, c, text, http):
+        orders.append(text); c['positions'] = [{'pairAddress': 'pd'}] if text.startswith('buy') else []
+        return {'state': 'filled', 'why': 'ok'}
+    monkeypatch.setattr(fs, '_run_order', order)
+    store = {'cats': {'g1': cat}}
+    for t in (100, 120, 140):
+        asyncio.run(fs._pow2_tick(H(), store, cat, t))
+    assert 'folder' in cat['powRun'], (cat['powRun'], cat.get('powFolders'))
+    f = cat['powRun']['folder']
+    assert f['minds'] == 1 and f['base'] == 1 and asked == [1] and orders == ['buy 0.05 SOL of D4'] and f['asked']   # mind B alone picked + bought
+    assert fs._pow2_on(cat)                                                                  # its asked folder runs to the end
+    fs._POW_WANT['g1'] = pw.command('stop PoW')
+    asyncio.run(fs._pow2_tick(H(), store, cat, 160)); asyncio.run(fs._pow2_tick(H(), store, cat, 180))
+    assert orders[-1] == 'sell all D4' and cat['powFolders'][-1]['why'] == 'you stopped it' and not fs._pow2_on(cat)

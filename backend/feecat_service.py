@@ -1235,6 +1235,8 @@ async def _pow_price(http, task):
 def _pow_settle(cat, task, now):
     """⛏ A finished PoW → a Hive cell (graded an hour on), the mind's latest PoW, and the owner's cabinet. → the cell, or None (nothing pulled)."""
     p_ = task['pow']; pub_ = _pow.public(p_)
+    if p_.get('folder'):   # ⛏ a PoW folder's research round: the folder keeps it (_pow2_tick), no cell of its own
+        return None
     if task.get('status') == 'stopped' or (not pub_['pulls'] and not p_.get('call')):   # stopped for your ask / nothing pulled: nothing to grade
         return None
     px_ = float(p_.get('price') or 0)
@@ -1257,6 +1259,210 @@ def _pow_view(cat):
     ids = {v.get('cell') for v in last.values() if v.get('cell')}
     honey = {c['id']: c.get('honey') for c in _hive_cells() if c.get('id') in ids} if ids else {}
     return {k: {**v, 'honey': honey.get(v.get('cell'))} for k, v in last.items()}
+
+
+# ⛏ THE COLONY PoW LOOP (pow.py v2): every running trader agent (not Fee) works folder after folder — gather 4 → both minds agree on 1 → buy it
+# on FEELESS (the guarded order path: paper fill, or its own wallet when real) → watch the chart ≥ 3 min → research the CA ≤ 2.5 min → decide.
+# One step per engine tick; hard stops sell without asking; a won folder files to the colony with the owner's share.
+_POW_WANT: dict = {}   # 💬 'file a PoW' / 'stop PoW' from the chat, read by the engine pass (the store's one writer — a chat save can't race it)
+
+
+def _pow2_on(cat):
+    b = cat.get('brainsCfg') or {}
+    if cat.get('id') in _POW_WANT or (cat.get('powRun') or {}).get('folder', {}).get('asked'):   # you asked: any agent kind, once
+        return bool(b.get('brains')) and not cat.get('isLeader') and not cat.get('revoked')
+    return (b.get('kind') or 'trading') == 'trading' and bool(b.get('brains')) and not cat.get('isLeader') and not cat.get('revoked') and not cat.get('needsTopup') \
+        and cat.get('status') == 'running' and (cat.get('powLoop') or {}).get('on', True)
+
+
+async def _pow2_ask(cat, i, sys_, user_, max_tokens=180):
+    """One small call to mind i (inside its $ limits). → text ('' when nothing answered)."""
+    b_ = cat['brainsCfg']; ms = b_.get('brains') or []
+    if not ms or (day_left(cat) is not None and day_left(cat) <= 0):
+        return ''
+    own_ = _ck.key_for(cat, 'openrouter', data_dir=DATA_DIR)
+    try:
+        reply_, usd_, via_ = await _think(cat, ms[min(i, len(ms) - 1)], [{'role': 'system', 'content': sys_}, {'role': 'user', 'content': user_[:3500]}], own_, None, max_tokens)
+    except Exception:   # noqa: BLE001 — no model now: it tries again next tick
+        return ''
+    if not own_ and via_ == 'openrouter':
+        _lc.charge(b_, usd_)
+    elif usd_:
+        day_ = time.strftime('%Y-%m-%d', time.gmtime()); b_['daySpend'] = {day_: round((b_.get('daySpend') or {}).get(day_, 0) + float(usd_), 6)}
+    return str(reply_ or '')
+
+
+async def _pow2_dex(http):
+    """DexScreener's most-boosted Solana coins with their deepest pool (the folder's 'popular dex' coin)."""
+    try:
+        boosts = [x['tokenAddress'] for x in (await http.get('https://api.dexscreener.com/token-boosts/top/v1', timeout=12)).json() if x.get('chainId') == 'solana'][:12]
+        pairs = (await http.get(f"https://api.dexscreener.com/tokens/v1/solana/{','.join(boosts)}", timeout=12)).json() if boosts else []
+    except (httpx.HTTPError, ValueError, KeyError, TypeError):
+        return []
+    best = {}
+    for p in pairs or []:
+        m = (p.get('baseToken') or {}).get('address'); liq = _num((p.get('liquidity') or {}).get('usd'))
+        if m and _ct.real_coin(p) and liq > _num(((best.get(m) or {}).get('liquidity') or {}).get('usd')):
+            best[m] = p
+    return [{'mint': m, 'pair': p.get('pairAddress'), 'sym': (p.get('baseToken') or {}).get('symbol'), 'liq': _num((p.get('liquidity') or {}).get('usd')),
+             'mc': _num(p.get('marketCap') or p.get('fdv')), 'ch': (p.get('priceChange') or {}).get('h1')} for m, p in best.items()]
+
+
+def _pow2_say(f, who, text):
+    f['talk'] = (f.get('talk') or []) + [{'by': who, 'text': str(text)[:200], 'at': round(time.time())}]
+    f['talk'] = f['talk'][-24:]
+
+
+def _pow2_close(cat, f, why, now, exit_px=0.0):
+    """⛏ The folder ends: its P/L (pool price, fees apart), the owner's files, a graded cell, the cabinet — and on a WIN with colonize on, the
+    colony gets the folder + its share (paper never pays; a real win accrues pct % of the profit, sent by the owner's approval flow)."""
+    f.update(status='closed', why=why, soldAt=round(now), phase='done')
+    if f.get('entry') and exit_px:
+        f['exit'] = exit_px; f['pnlPct'] = round(_pow.pnl_pct(f['entry'], exit_px), 2); f['pnlSol'] = round(float(f.get('sol') or 0) * f['pnlPct'] / 100, 6)
+    if f.get('real') and (f.get('pnlSol') or 0) > 0 and (cat.get('colonyShare') or {}).get('on'):
+        _colony_share(cat, {'symbol': f.get('sym')}, f['pnlSol']); f['shared'] = (cat.get('colonyShare') or {}).get('pct')
+    b_ = cat.setdefault('brainsCfg', {})
+    cat['powFolders'] = ((cat.get('powFolders') or []) + [_pow.folder_public(f)])[-_pow.FOLDERS_KEEP:]
+    won = (f.get('pnlPct') or 0) > 0
+    b_['cloud'] = ((b_.get('cloud') or []) + [{'at': now, 'word': 'WIN' if won else 'PoW', 'sym': f.get('sym') or '', 'by': ['pow'],
+                    'text': f"⛏ {f['name']}: {('$' + f['sym']) if f.get('sym') else 'no buy'} — {why}" + (f" · {f['pnlPct']:+.1f}%" if f.get('pnlPct') is not None else '')}])[-_lc.CLOUD_MAX:]
+    if f.get('pair') and f.get('entry'):   # graded like every call; the folder rides along (the colony's PoW feed shows it)
+        cells = _hive_cells(); cells.append({'id': uuid.uuid4().hex[:12], 'cat': cat['id'], 'name': str(cat.get('name') or 'agent')[:40], 'pair': f['pair'], 'mint': f.get('mint'),
+                                             'sym': f.get('sym'), 'price': _num(f.get('entryUsd')), 'call': 'BUY', 'why': (f.get('why0') or why)[:200], 'at': f.get('boughtAt') or now,
+                                             'usd': 0, 'epoch': _hv.epoch_of(now), 'folder': _pow.folder_public(f), 'won': won, 'colony': bool(won and _hive_on(cat))})
+        if _num(f.get('entryUsd')) > 0:
+            _hive_save(cells)
+    run_ = cat.setdefault('powRun', {}); run_.pop('folder', None); run_['rested'] = now
+
+
+async def _pow2_tick(http, store, cat, now):
+    """One step of this agent's PoW folder."""
+    run_ = cat.setdefault('powRun', {}); f = run_.get('folder'); b_ = cat['brainsCfg']; ms = b_.get('brains') or []
+    minds = max(1, min(2, int(((cat.get('hive') or {}).get('minds')) or len(ms[:2]))))
+    want = _POW_WANT.pop(cat['id'], None)
+    if want and want.get('do') == 'stop' and f:   # ⏹ you ended it: sells if it bought, else just closes
+        if f.get('phase') in ('watch', 'research', 'decide', 'sell'):
+            f.update(phase='sell', sellWhy='you stopped it')
+        else:
+            _pow2_close(cat, f, 'you stopped it', now); return
+    base = 0
+    if want and want.get('do') == 'start' and not f:
+        base = want.get('mind') or 0
+        minds = 1 if want.get('mind') is not None or len(ms) < 2 else 2
+    if not f:
+        if not want and (now - float(run_.get('rested') or 0) < _pow.REST_S or (cat.get('brainsCfg') or {}).get('kind') == 'general'):   # an ask skips the rest
+            return
+        try:
+            intake = ((await http.get(f'{_ct.REP}/api/reputation/familia/intake', timeout=15)).json() or {}).get('coins') or []
+        except (httpx.HTTPError, ValueError):
+            intake = []
+        done_ = {x.get('pick', {}).get('mint') if isinstance(x.get('pick'), dict) else None for x in cat.get('powFolders') or []}
+        coins = _pow.gather(intake, await _pow2_dex(http), {m for m in done_ if m})
+        if len(coins) < 4:
+            run_['why'] = f'only {len(coins)} of 4 coins found — tries again'; run_['rested'] = now
+            if want and int(want.get('tries') or 0) < 3:   # you asked: it retries a few ticks, never drops your ask silently
+                _POW_WANT[cat['id']] = {**want, 'tries': int(want.get('tries') or 0) + 1}
+            return
+        for c in coins:   # 📥 each coin's FEELESS live read (free, server-side) goes into the folder
+            try:
+                c['read'] = str((await _ct.run_tool(http, 'coin', c['mint']))[0])[:600]
+            except Exception:   # noqa: BLE001
+                c['read'] = ''
+        run_['n'] = int(run_.get('n') or 0) + 1
+        run_['folder'] = f = _pow.folder_new(run_['n'], coins, now, minds)
+        f.update(base=min(base, max(0, len(ms) - 1)), asked=bool(want))
+        _pow2_say(f, 'engine', f"new folder: {', '.join('$' + c['sym'] + ' (' + _pow.SRC_LABEL[c['src']] + ')' for c in coins)}")
+        return
+    b0 = int(f.get('base') or 0)
+    names = [str(m).split('/')[-1][:24] for m in ms[b0:2]]
+    ask_ = lambda i, *a: _pow2_ask(cat, b0 + i, *a)   # noqa: E731 — mind B alone = index 1
+    if f['phase'] == 'choose':
+        listing = '\n'.join(f"{k + 1}) ${c['sym']} [{_pow.SRC_LABEL[c['src']]}] pool ${c['liq']:,.0f} cap ${c['mc']:,.0f} — {c.get('read', '')[:300]}" for k, c in enumerate(f['coins']))
+        for i in range(f['minds']):
+            if str(i) in f['picks']:
+                continue
+            other = f['picks'].get(str(1 - i)) if f['disc'] else None
+            partner = (f" YOUR PARTNER PICKED {other + 1} ({f['coins'][other]['sym']}): \"{f.get('whys', {}).get(str(1 - i), '')}\" — agree, or keep yours with a reason." if other is not None else '')
+            k, why = _pow.parse_pick(await ask_(i, _pow.CHOOSE_SYS.format(name=names[i] if i < len(names) else 'mind', partner=partner), listing))
+            if k is None:
+                return   # no clean answer: asked again next tick
+            f['picks'][str(i)] = k; f.setdefault('whys', {})[str(i)] = why
+            _pow2_say(f, names[i] if i < len(names) else 'mind', f"picks ${f['coins'][k]['sym']} — {why}")
+        k = _pow.agree(f['picks'], f['minds'])
+        if k is None:
+            if f['disc']:
+                _pow2_close(cat, f, 'the minds did not agree — no buy', now); return
+            f['disc'] = 1; f['picks'] = {}; _pow2_say(f, 'engine', 'the minds picked different coins — one round of discussion'); return
+        c = f['coins'][k]; f.update(pick=c, mint=c['mint'], pair=c['pair'], sym=c['sym'], why0=f.get('whys', {}).get('0', ''), phase='buy', phaseAt=round(now))
+        return
+    if f['phase'] == 'buy':
+        sol = round(min(_num((cat.get('risk') or {}).get('maxPositionSol')) or 0.05, _num(cat.get('budgetSol')) or 1.0), 4)
+        row = await _run_order(store, cat, f"buy {sol} SOL of {f['mint']}", http)
+        if row.get('state') not in ('filled', 'proposed'):
+            _pow2_close(cat, f, f"buy refused — {row.get('why')}", now); return
+        live = (await _pair_prices(http, [f['pair']])).get(f['pair']) or {}
+        f.update(sol=sol, real=row.get('state') == 'proposed', entry=_num(live.get('priceNative')), entryUsd=_num(live.get('priceUsd')), boughtAt=round(now), phase='watch', phaseAt=round(now))
+        _pow2_say(f, 'engine', f"bought {sol:g} SOL of ${f['sym']} on FEELESS ({'its wallet' if f['real'] else 'paper'})")
+        return
+    live = (await _pair_prices(http, [f['pair']])).get(f['pair']) or {}
+    px = _num(live.get('priceNative'))
+    held = f.get('real') or any(p.get('pairAddress') == f['pair'] for p in cat.get('positions') or [])
+    if not held:   # its stops (or you) already sold it
+        _pow2_close(cat, f, 'sold by its stops', now, px); return
+    if px:
+        f['chart'] = (f.get('chart') or [])[-40:] + [{'at': round(now), 'px': px}]
+    why_x = _pow.hard_exit(f.get('entry') or 0, px, f.get('boughtAt') or now, now, f.get('rounds') or 0)
+    if why_x or f['phase'] == 'sell':
+        row = await _run_order(store, cat, f"sell all {f['mint']}", http)
+        _pow2_say(f, 'engine', f"sell: {why_x or f.get('sellWhy') or 'the watcher said sell'} — {row.get('why')}")
+        _pow2_close(cat, f, why_x or f.get('sellWhy') or 'the watcher sold', now, px); return
+    watcher, researcher = 0, (1 if f['minds'] > 1 else 0)
+    if f['phase'] == 'watch' and now - f['phaseAt'] >= _pow.WATCH_S:
+        w_ = _WORK.get(cat['id'])
+        if not w_ or w_.get('done'):   # 🔎 the researcher's PoW round on the CA (its window, the PoW rules, ≤ 2.5 min)
+            rp = {**_pow.new({'mint': f['mint'], 'pair': f['pair'], 'sym': f['sym']}, now), 'mind': researcher, 'folder': f['id']}
+            try:
+                _work_start(cat['id'], cat, _pow.goal(rp), str(b0 + researcher), None, rp)
+                f['researchTask'] = True
+            except HTTPException:
+                f['researchTask'] = False
+        f.update(phase='research', phaseAt=round(now))
+        return
+    if f['phase'] == 'research':
+        w_ = _WORK.get(cat['id']); t_ = (w_ or {}).get('task') or {}
+        done_ = not f.get('researchTask') or not t_.get('pow') or (w_ or {}).get('done')
+        if not done_ and now - f['phaseAt'] < _pow.RESEARCH_S:
+            return
+        if not done_:
+            asyncio.create_task(_hard_stop(w_, 0))   # ⏱ 2.5 min is the research round
+        if t_.get('pow', {}).get('folder') == f['id']:
+            pub_ = _pow.public(t_['pow']); f['research'] = ((f.get('research') or []) + pub_['pulls'])[-12:]
+            _pow2_say(f, names[researcher] if researcher < len(names) else 'mind', f"research: {' · '.join(x['label'] + ' ' + x['value'] for x in pub_['pulls'][:4]) or 'no vitals this round'}")
+        f.update(phase='decide', phaseAt=round(now))
+        return
+    if f['phase'] == 'decide':
+        res_ = ' · '.join(f"{x['label']} {x['value']} ({x['site']})" for x in (f.get('research') or [])[-6:]) or 'none yet'
+        talk_ = ' | '.join(f"{x['by']}: {x['text']}" for x in (f.get('talk') or [])[-5:])
+        act, say = _pow.parse_decide(await ask_(watcher, _pow.DECIDE_SYS.format(name=names[0] if names else 'mind', sym=f['sym']),
+                                                     f"P/L {_pow.pnl_pct(f.get('entry') or 0, px):+.1f}% · CHART {_pow.chart_line(f.get('chart'))}\nRESEARCH {res_}\nTALK {talk_}"))
+        _pow2_say(f, names[0] if names else 'mind', f"{act}: {say}")
+        f['rounds'] = int(f.get('rounds') or 0) + 1
+        if act == 'SELL':
+            f.update(phase='sell', sellWhy=f'the watcher: {say[:80]}')
+        else:
+            f.update(phase='watch', phaseAt=round(now))
+
+
+async def _pow2_pass(store):
+    cats = [c for c in store['cats'].values() if _pow2_on(c)]
+    if not cats:
+        return
+    async with httpx.AsyncClient(timeout=20) as http:
+        for cat in cats:
+            try:
+                await _pow2_tick(http, store, cat, time.time())
+            except Exception as e:   # noqa: BLE001 — one agent's slip never stops the others
+                print(f'[pow2] {cat.get("id")}: {str(e)[:160]}')
 
 
 async def _hive_loop():
@@ -1418,6 +1624,8 @@ async def run_engine(store, cats):
         if disc['pause']:
             continue
         if (cat.get('brainsCfg') or {}).get('kind') == 'general':   # 🧭 a General cat buys only what YOU order (its stops still run above)
+            continue
+        if _pow2_on(cat):   # ⛏ a trader agent buys ONLY off its PoW folder (owner 2026-11-01); its stops still run above
             continue
         block = {x.upper() for x in cat['risk'].get('blocklist') or []}
         allow = {x.upper() for x in cat['risk'].get('allowlist') or []}
@@ -1788,7 +1996,7 @@ def _work_start(cat_id, cat, text, to=None, files=None, pow_=None):
     if pow_:   # ⛏ one mind, its own job, the PoW's step budget (pow.py) — the rest is the same guarded work path
         steps = _pow.STEPS_MAX
     _WORK[cat_id] = {'task': _ca.new_task(uuid.uuid4().hex[:10], text, models, cap, steps, 'jobs' if pow_ else cat.get('workMode') or 'plan', lim_.get('mindUsd') if len(models) > 1 else None), 'events': {}, 'go': {}, 'sessions': [None] * len(models), 'pages': [None] * len(models), 'at': time.time()}
-    _WORK[cat_id]['task']['knowhow'] = _colony.KNOWHOW + (' ' + _colony.COLONIZED if _hive_on(cat) else '') + '\n' + _src.brief(_src_book())   # 🐝🧭 every mind knows the Colony + where to browse
+    _WORK[cat_id]['task']['knowhow'] = _pow.README + '\n' + _colony.KNOWHOW + (' ' + _colony.COLONIZED if _hive_on(cat) else '') + '\n' + _src.brief(_src_book())   # 🐝🧭 every mind knows the Colony + where to browse
     if pow_:
         _WORK[cat_id]['task']['pow'] = pow_
     if pow_ or (b.get('kind') or 'trading') == 'trading':   # 📰 a trader's windows (and every PoW): read + click on the research list only (cat_policy.RESEARCH_*)
@@ -2056,6 +2264,7 @@ async def _engine_loop():
             if running:
                 await run_engine(store, running)
             await _agent_pass(store)
+            await _pow2_pass(store)   # ⛏ the Colony PoW loop of every trader agent (the engine is the store's one writer)
             _work_settle(store)
             if time.time() - store.get('lastWallPost', 0) >= WALL_EVERY:
                 store['lastWallPost'] = time.time()   # claim the slot first; a failed post retries next window
@@ -3075,6 +3284,23 @@ async def cat_work(cat_id: str, p: WorkPayload):
         research_ = b.get('kind') == 'trading' and bool(b.get('brains')) and (cat.get('tools') or {}).get('research', True)   # 📰 a trader researches coins + narrative only
         if (b.get('kind') != 'general' and not research_) or not b.get('brains'):
             raise HTTPException(400, 'Only a General AI cat — or a trader researching coins + narrative — works in browsers.')
+        cmd_ = _pow.command(p.text)
+        if cmd_:   # ⛏ "file a PoW" / "PoW" / "/pow" / "A: file a PoW" / "stop PoW" — the engine starts (or ends) a folder on its next tick
+            f_ = (cat.get('powRun') or {}).get('folder')
+            if cmd_['do'] == 'start' and f_:
+                why_ = f"⛏ {f_.get('name')} is still open ({f_.get('phase')}) — say \"stop PoW\" to end it first."
+            elif cmd_['do'] == 'stop' and not f_:
+                why_ = '⛏ No PoW folder is open.'
+            elif cmd_['do'] == 'start' and not (cat.get('brainsCfg') or {}).get('brains'):
+                why_ = '⛏ It needs a model first.'
+            else:
+                _POW_WANT[cat_id] = cmd_
+                who_ = {0: 'mind A', 1: 'mind B'}.get(cmd_.get('mind'), 'both minds')
+                why_ = (f'⛏ Filing a PoW with {who_}: 4 coins (2 FEELESS intake · 1 Pump · 1 DexScreener) → they agree on 1 → buy it on FEELESS → chart / research / decide until it sells. '
+                        'Watch it in ⛏ PoW on the Desktop.') if cmd_['do'] == 'start' else '⏹ Ending the PoW folder — it sells the coin if it bought one.'
+            cat['chat'] = (list(cat.get('chat') or []) + [{'by': 'you', 'text': str(p.text)[:400], 'at': time.time()}, {'by': 'cats', 'text': why_, 'at': time.time(), 'open': 'pow'}])[-40:]
+            keep_owned(cat); _save(store)
+            return {**_work_view(cat_id, owner=True), 'chat': cat['chat'][-20:]}
         busy = bool(w and not w.get('done'))
         if busy and (w.get('task') or {}).get('pow'):   # ⛏ your ask outranks a Colony PoW: it stops (nothing filed, its browser closes) and yours starts
             w['task'].update(status='stopped', why='your ask came first')
@@ -3132,6 +3358,8 @@ async def cat_work(cat_id: str, p: WorkPayload):
             'artifacts': (cat.get('artifacts') or [])[-10:] + ([] if (w or {}).get('settled') else ((w or {}).get('task') or {}).get('artifacts', [])),
             'queue': [{'text': q.get('text'), 'to': q.get('to')} for q in (cat.get('workQueue') or [])],
             'pow': _pow_view(cat),   # ⛏ each mind's latest Proof of Work
+            'commands': _pow.COMMANDS,   # 💬 what it understands in the chat (cabinet + desktop list)
+            'powFolder': _pow.folder_public((cat.get('powRun') or {}).get('folder') or {}) or None, 'powFolders': list(reversed(cat.get('powFolders') or []))[:12],   # ⛏ the live folder + filed ones
             'parked': [{'text': q.get('text'), 'why': q.get('why'), 'at': q.get('at')} for q in (cat.get('workParked') or [])]}
 
 

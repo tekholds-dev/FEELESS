@@ -196,3 +196,172 @@ def pick(coins, done_mints, min_liq=5000):
         if c.get('mint') and c.get('pair') and liq >= min_liq and c['mint'] not in (done_mints or set()):
             return {'mint': c['mint'], 'pair': c['pair'], 'sym': str(c.get('sym') or '?')[:16]}
     return None
+
+
+# ═══ PoW v2 — THE COLONY PoW LOOP (owner 2026-11-01, hard-coded for every trader agent; FeeCat later):
+# a NEW PoW FOLDER starts empty → the server gathers 4 coins (2 from the FEELESS intake, 1 from Pump, 1 from DexScreener's most-boosted Solana
+# coins) → the minds each pick 1 of the 4 (both minds must AGREE; one round of discussion if they don't; still apart = no buy) → it buys that
+# ONE coin on FEELESS through the guarded order path → the LOOP: the watcher reads the chart ≥ 3 min, the researcher runs a PoW on the CA
+# (3 trusted sites, ≤ 5 moves, ≤ 3 vitals each) for ≤ 2.5 min, then the watcher decides HOLD / SELL with both reads → until it sells.
+# Hard stops so it never loops forever: −25 % / +60 % / 60 min / 6 rounds sell without asking. A won folder goes to the colony with its share.
+GATHER = (('intake', 2), ('pump', 1), ('dex', 1))
+WATCH_S = 180
+RESEARCH_S = 150
+ROUNDS_MAX = 6
+HOLD_MAX_S = 3600
+STOP_PCT, TAKE_PCT = -25.0, 60.0
+REST_S = 300                      # between two folders
+MIN_LIQ = 5000
+FOLDERS_KEEP = 30
+SRC_LABEL = {'intake': 'FEELESS intake', 'pump': 'Pump', 'dex': 'DexScreener'}
+
+CHOOSE_SYS = ('You are {name}, one of a FEELESS trader agent\'s two minds, working a PROOF OF WORK folder. Below are 4 Solana coins your colony '
+              'gathered (FEELESS live reads). Pick the ONE most likely to rise in the next hour without rugging; your partner picks too and you must '
+              'agree before anything is bought. Answer ONLY JSON: {{"pick": 1-4, "why": "<= 20 words, the numbers"}}.{partner}')
+DECIDE_SYS = ('You are {name}, the CHART WATCHER of a FEELESS trader agent holding ${sym}. Read the chart samples, your partner\'s research and '
+              'the P/L, then decide. Answer ONLY JSON: {{"action": "HOLD|SELL", "say": "<= 20 words to your partner — what the chart shows"}}.')
+
+
+def _f(v):
+    try:
+        return float(v)
+    except (TypeError, ValueError):
+        return 0.0
+
+
+def is_pump(c):
+    return bool({'pulse', 'migr'} & set(c.get('sources') or [])) or str(c.get('mint') or '').endswith('pump')
+
+
+def gather(intake, dex, done=()):
+    """The folder's 4 coins: 2 FEELESS intake (best rank, real pools), 1 Pump, 1 DexScreener boost. → list (may be short when a source is dry)."""
+    done = set(done or ()); got = []; seen = set(done)
+    ok = lambda c: c.get('mint') and c.get('pair') and c['mint'] not in seen and _f(c.get('liq')) >= MIN_LIQ   # noqa: E731
+    rows = sorted([c for c in intake or [] if ok(c)], key=lambda c: -_f(c.get('rank')))
+
+    def take(c, src):
+        seen.add(c['mint']); got.append({'mint': c['mint'], 'pair': c['pair'], 'sym': str(c.get('sym') or '?')[:16], 'src': src,
+                                          'liq': _f(c.get('liq')), 'mc': _f(c.get('mc')), 'ch': c.get('ch')})
+    for c in [c for c in rows if not is_pump(c)][:2] or rows[:2]:
+        take(c, 'intake')
+    p = next((c for c in rows if is_pump(c) and c['mint'] not in seen), None)
+    if p:
+        take(p, 'pump')
+    d = next((c for c in dex or [] if ok(c)), None)
+    if d:
+        take(d, 'dex')
+    return got[:4]
+
+
+def folder_new(n, coins, now, minds):
+    import time as _t
+    return {'id': f"pow{int(now)}", 'n': n, 'name': f"PoW #{n} · {_t.strftime('%b %d · %H:%M UTC', _t.gmtime(now))}", 'at': round(now),
+            'coins': coins, 'minds': max(1, min(2, int(minds or 1))), 'phase': 'choose', 'phaseAt': round(now), 'picks': {}, 'talk': [],
+            'disc': 0, 'rounds': 0, 'chart': [], 'research': [], 'pick': None, 'status': 'open'}
+
+
+def parse_pick(text, n=4):
+    import json as _j
+    t = str(text or ''); m = re.search(r'\{.*\}', t, re.S)
+    try:
+        d = _j.loads(m.group(0)) if m else {}
+    except ValueError:
+        d = {}
+    try:
+        k = int(d.get('pick'))
+    except (TypeError, ValueError):
+        k = None
+    return (k - 1 if k and 1 <= k <= n else None), str(d.get('why') or '')[:160]
+
+
+def agree(picks, minds):
+    """Both minds on the same coin (or the one mind's pick). → index or None."""
+    vals = [picks.get(str(i)) for i in range(minds)]
+    if any(v is None for v in vals):
+        return None
+    return vals[0] if len(set(vals)) == 1 else None
+
+
+def pnl_pct(entry, px):
+    return (px / entry - 1) * 100 if entry > 0 and px > 0 else 0.0
+
+
+def hard_exit(entry, px, bought_at, now, rounds):
+    """The loop's hard stops — they sell without asking. → why, or None."""
+    p = pnl_pct(entry, px)
+    if entry > 0 and px > 0 and p <= STOP_PCT:
+        return f'stop: {p:.0f}%'
+    if entry > 0 and px > 0 and p >= TAKE_PCT:
+        return f'take profit: +{p:.0f}%'
+    if now - bought_at >= HOLD_MAX_S:
+        return f'held {HOLD_MAX_S // 60} min — the folder closes'
+    if rounds >= ROUNDS_MAX:
+        return f'{ROUNDS_MAX} rounds — the folder closes'
+    return None
+
+
+def parse_decide(text):
+    t = str(text or '').upper()
+    act = 'SELL' if re.search(r'"ACTION"\s*:\s*"SELL"|\bSELL\b', t) else 'HOLD'
+    m = re.search(r'"say"\s*:\s*"([^"]{0,200})', str(text or ''))
+    return act, (m.group(1) if m else str(text or '').strip()[:160])
+
+
+def chart_line(samples):
+    """The watcher's chart read: first → last, high / low, last 6 moves (% vs the entry)."""
+    if not samples:
+        return 'no samples yet'
+    px = [s['px'] for s in samples if s.get('px')]
+    if not px:
+        return 'no price yet'
+    return f"{len(px)} samples · first {px[0]:.6g} → last {px[-1]:.6g} · high {max(px):.6g} · low {min(px):.6g} · last moves " + \
+        ' '.join(f"{pnl_pct(px[i - 1], px[i]):+.1f}%" for i in range(max(1, len(px) - 6), len(px)))
+
+
+def folder_public(f):
+    keep = ('id', 'n', 'name', 'at', 'coins', 'minds', 'phase', 'pick', 'talk', 'rounds', 'status', 'why', 'entry', 'exit', 'pnlPct', 'pnlSol', 'sym',
+            'boughtAt', 'soldAt', 'real', 'shared', 'research')
+    return {k: f.get(k) for k in keep if k in f}
+
+
+# 💬 the chat commands that start / stop a folder (owner 2026-11-01: "I type 'PoW' or 'file a PoW' and they make the 4-coin file and buy one")
+CMD_START = re.compile(r'^\s*(?:(?:mind\s*)?([AB])\s*[:\-—]\s*)?(?:/pow(?:\s+([ab]|both))?\s*$|file\s+(?:a\s+)?pow\b.*$|start\s+(?:a\s+)?pow\b.*$|pow\s*$)', re.I)
+CMD_STOP = re.compile(r'^\s*(?:/pow\s+stop|stop\s+(?:the\s+)?pow(?:\s+(?:loop|folder))?)\s*$', re.I)
+COMMANDS = [('file a PoW', 'Both minds: a new 4-coin PoW folder, they agree on 1, buy it on FEELESS and loop until it sells'),
+            ('A: file a PoW', 'Only mind A works the folder (it picks, watches the chart and researches)'),
+            ('B: file a PoW', 'Only mind B works the folder'),
+            ('/pow', 'Same as "file a PoW"'),
+            ('stop PoW', 'Ends the folder now — sells the coin if it bought one'),
+            ('buy 0.05 SOL of $BONK', 'A direct order (guards first; its wallet when real)'),
+            ('sell all $BONK', 'Sells a coin it holds')]
+
+
+CMD_ANY = re.compile(r'(?i)\b(?:file|propose|provide|make|do|start|run|create|open|give|build|new)\b[^.?!\n]{0,40}\bpow\b')
+CMD_ASK = re.compile(r'(?i)^\s*(?:what|how|why|explain|is|does|can)\b|\?\s*$')
+
+
+def command(text):
+    """'file a PoW' / 'PoW' / '/pow' / 'A: file a PoW' / 'propose PoW for 3 coins' → {'do': 'start', 'mind': 0|1|None}; 'stop PoW' → stop; a question → None."""
+    t = str(text or '')
+    if CMD_STOP.match(t):
+        return {'do': 'stop'}
+    m = CMD_START.match(t)
+    if not m and CMD_ANY.search(t) and not CMD_ASK.search(t):   # 💬 "Propose PoW for 3 coins…" / "Provide PoW on the intake list" = a folder (owner 2026-11-01)
+        k_ = re.match(r'^\s*(?:mind\s*)?([AB])\s*[:\-—]', t, re.I)
+        return {'do': 'start', 'mind': {'A': 0, 'B': 1}.get((k_.group(1) if k_ else '').upper())}
+    if not m:
+        return None
+    k = (m.group(1) or m.group(2) or '').upper()
+    return {'do': 'start', 'mind': {'A': 0, 'B': 1}.get(k)}
+
+
+# 📖 THE PoW README — every loaded model gets it as default memory, whatever its prompt (owner 2026-11-01: "they need to know the meaning")
+README = ('FEELESS PoW (PROOF OF WORK) README — not crypto mining. A PoW is a FOLDER your colony files: '
+          '1) it starts empty; FEELESS gathers 4 coins: 2 from the FEELESS intake, 1 from Pump, 1 from DexScreener\'s most-boosted Solana coins. '
+          '2) Each mind picks the ONE coin most likely to rise without rugging; both minds must AGREE (one round of discussion). '
+          '3) That one coin is bought ON FEELESS through the guarded order path (paper, or the agent\'s own wallet when real). '
+          '4) The loop: the chart watcher reads the FEELESS chart for at least 3 min; the researcher researches the coin\'s contract on 3 trusted sites '
+          '(DexScreener, RugCheck, Solscan), at most 5 moves and 3 vital numbers per site, for at most 2.5 min; then the watcher decides HOLD or SELL. '
+          'Hard stops sell without asking: -25 %, +60 %, 60 min, 6 rounds. 5) The folder is filed (coins, picks, talk, research, P/L) in the owner\'s '
+          'Desktop PoW folder + cabinet; a winning folder goes to the Colony with the owner\'s share of the profit. '
+          'The owner starts one by typing "file a PoW" (or "A: file a PoW" / "B: file a PoW"); "stop PoW" ends it. Never invent another meaning.')

@@ -1,6 +1,6 @@
 import React, { act } from 'react';
 import { createRoot } from 'react-dom/client';
-import { CatWorkbench } from './CatWorkbench';
+import { CatWorkbench, CommandList } from './CatWorkbench';
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
 const signed = [];
 jest.mock('../../hooks/useWallet', () => ({ useWallet: () => ({ signMessage: async m => { signed.push(m); return 'SIG'; } }) }));
@@ -326,4 +326,12 @@ test('🗄 the cabinet shows 12, adds 12 at a time to 40, then sends you to its 
   for (let k = 0; k < 3; k++) await act(async () => { el.querySelector('[data-testid="log-more"]').click(); });
   expect(el.querySelectorAll('.ck-rows > li:not(.ck-more)')).toHaveLength(40); expect(el.querySelector('[data-testid="log-more"]')).toBeNull();
   await act(async () => { el.querySelector('[data-testid="log-desktop"]').click(); }); expect(desk).toHaveBeenCalled();
+});
+
+test('💬 the command list: what it understands in the chat — a tap puts the command in the chat box', async () => {
+  const picked = []; const el = document.createElement('div'); document.body.appendChild(el);
+  await act(async () => { createRoot(el).render(<CommandList rows={[['file a PoW', 'a new 4-coin folder'], ['stop PoW', 'ends it']]} onPick={t => picked.push(t)} />); });
+  expect(el.querySelectorAll('[data-testid="dsk-cmds"] li')).toHaveLength(2); expect(el.textContent).toContain('a new 4-coin folder');
+  await act(async () => { el.querySelector('[data-testid="cmd-0"]').click(); });
+  expect(picked).toEqual(['file a PoW']); expect(el.textContent).toContain('in the chat ✓');
 });
