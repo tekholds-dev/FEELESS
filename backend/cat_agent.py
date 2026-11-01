@@ -134,6 +134,28 @@ def full_url(u):
     return u if not u or '://' in u else 'https://' + u.lstrip('/')
 
 
+SCROLLS_PER_PAGE = 4   # 🖱 a page is read from its snapshot; at most this many scrolls on one page
+
+def step_sig(act, a, url, seen=''):
+    """The fingerprint of one step: what it did, where, at what. A scroll includes where the view sat, so a scroll back over the same spot repeats."""
+    at = re.search(r'view (\d+)% down', str(seen or ''))
+    tgt = str(a.get('url') or a.get('q') or a.get('text') or a.get('label') or '').strip().lower()[:120]
+    if act == 'scroll':
+        tgt = f"{'up' if tgt.startswith('up') else 'down'}@{at.group(1) if at else '?'}"
+    return f"{act}|{str(url or '').split('#')[0].rstrip('/')}|{tgt}"
+
+
+def repeat_why(w, act, sig, url):
+    """Why this step would repeat itself (None = new). Reading the same site again for something else is fine; the very same step is not."""
+    if act in ('answer', 'note', 'human', 'ask_login', 'feeless'):
+        return None
+    if sig in (w.get('sigs') or []):
+        return 'you already did exactly this step'
+    if act == 'scroll' and sum(1 for x in w.get('sigs') or [] if x.startswith(f"scroll|{str(url or '').split('#')[0].rstrip('/')}|")) >= SCROLLS_PER_PAGE:
+        return f'{SCROLLS_PER_PAGE} scrolls on this page already — its PAGE SNAPSHOT has the rest'
+    return None
+
+
 REPEAT_MAX = 3   # 🔁 the third repeat of a read it already has ends its turn (a real run paid for 'already read this' 15×)
 STEP_PACE = 2.5   # s: the least time between two moves in a live window
 DONE_WORDS = frozenset({'report', 'final', 'final_answer', 'done', 'finish', 'respond', 'reply', 'result'})
@@ -328,6 +350,18 @@ async def _window(task, w, ask, page, wait_human, name, feeless=None):
         elif act == 'human':
             w['human'] = {'why': str(a.get('why') or thought or 'a person is needed here')[:160], 'url': page.url}
         else:
+            sig_ = step_sig(act, a, page.url, w.get('_page') or seen)
+            why_rep = repeat_why(w, act, sig_, page.url)
+            if why_rep:   # 🔁 NEVER the same step twice (owner 2026-10-31: "it scrolled up and down 20 times") — refused, not paid for again
+                w['repeats'] = int(w.get('repeats') or 0) + 1
+                if w['repeats'] >= REPEAT_MAX:
+                    w['answer'] = w['answer'] or f"(stopped repeating itself) {thought or 'here is what it found'}"
+                    _step(w, 'stopped: it kept repeating steps', 'answer')
+                    break
+                _step(w, f'refused a repeat: {why_rep}', 'refused', act)
+                seen = f'(REFUSED — {why_rep}. Do something NEW: click a link you have not opened, open another source, or answer now.)\n' + str(seen)[:READ_MAX // 2]
+                continue
+            w.setdefault('sigs', []).append(sig_)
             try:
                 page.on_cursor = lambda c, w=w: w.__setitem__('cursor', c)   # 🖱 the desk's cursor starts gliding the moment the real mouse does
                 if act == 'open' and same_page(page.url, a.get('url')):   # already there: what it read, never a reload (a reload of pump.fun tripped Cloudflare)

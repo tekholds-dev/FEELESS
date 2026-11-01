@@ -345,3 +345,20 @@ def test_a_spam_ticker_never_becomes_the_coin_and_the_mouse_reports_its_target_b
     pg = cb.LivePage.__new__(cb.LivePage); pg._p = P(); pg.on_cursor = seen.append
     asyncio.run(pg.glide(500, 400, 'click'))
     assert seen and seen[0]['x'] == 0.5 and moves[0][2] == 1 and len(moves) == cb.GLIDE_STEPS and moves[-1][:2] == (500, 400)   # target out first, then an eased glide
+
+
+def test_no_step_is_ever_repeated_and_scrolling_a_page_is_capped():
+    """Owner 2026-10-31: 'it scrolled up and down 20 times — agents can't repeat the same steps EVER' (same site, different info, is fine)."""
+    import cat_agent as ca
+    w = {'sigs': []}
+    s1 = ca.step_sig('scroll', {'q': 'down'}, 'https://x.io/pools', 'ON SCREEN (view 0% down the page')
+    assert ca.repeat_why(w, 'scroll', s1, 'https://x.io/pools') is None; w['sigs'].append(s1)
+    assert ca.repeat_why(w, 'scroll', s1, 'https://x.io/pools') == 'you already did exactly this step'
+    s2 = ca.step_sig('scroll', {'q': 'up'}, 'https://x.io/pools', 'view 40% down')
+    assert ca.repeat_why(w, 'scroll', s2, 'https://x.io/pools') is None   # a new spot is new
+    w['sigs'] += [ca.step_sig('scroll', {'q': 'down'}, 'https://x.io/pools', f'view {p}% down') for p in (10, 20, 30)]
+    assert 'scrolls on this page already' in ca.repeat_why(w, 'scroll', ca.step_sig('scroll', {'q': 'down'}, 'https://x.io/pools', 'view 90% down'), 'https://x.io/pools')
+    w['sigs'].append(ca.step_sig('click', {'text': 'Pools'}, 'https://x.io', ''))
+    assert ca.repeat_why(w, 'click', ca.step_sig('click', {'text': 'pools'}, 'https://x.io/', ''), 'https://x.io/') == 'you already did exactly this step'
+    assert ca.repeat_why(w, 'click', ca.step_sig('click', {'text': 'Volume'}, 'https://x.io', ''), 'https://x.io') is None   # same site, different info
+    assert ca.repeat_why(w, 'answer', 'a', '') is None
