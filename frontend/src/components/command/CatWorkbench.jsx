@@ -921,7 +921,8 @@ function IpfsKeep({ cat, f, onStored, auto = false }) {
     try { const r = await fetch(apiUrl(`/api/cats/${cat.id}/files/${f.id}/ipfs`), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...agentAuth(), pay }) });
       const j = await r.json().catch(() => ({})); if (!r.ok) throw new Error(j.detail || `HTTP ${r.status}`);
       if (pay) { setQ(null); onStored?.(j.stored); } else setQ(j.quote); } catch (e) { setErr(e.message); } finally { setBusy(false); } };
-  useEffect(() => { if (auto) call(false); }, []);   // eslint-disable-line react-hooks/exhaustive-deps — a file just picked for IPFS shows its price at once
+  // a file just picked for IPFS shows its price at once
+  useEffect(() => { if (auto) call(false); }, []);   // eslint-disable-line react-hooks/exhaustive-deps
   if (f.ipfs) return <a className="m-chip ok cwb-ipfs-on" href={f.ipfs.url} target="_blank" rel="noopener noreferrer" data-tip={`On IPFS for ${f.ipfs.days} days · paid ${f.ipfs.sol} SOL from its wallet`}>⛓ on IPFS</a>;
   return <span className="cwb-ipfs" data-testid={`cwb-ipfs-${f.id}`}>
     {q ? <><em className="m-num" data-tip={`${q.days} days on IPFS — most of it is the rent of the on-chain record each upload makes`}>{q.sol.toFixed(6)} SOL{px ? ` · $${(q.sol * px).toFixed(2)}` : ''}</em>
