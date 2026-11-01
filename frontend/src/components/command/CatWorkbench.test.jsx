@@ -406,3 +406,20 @@ test('⛓ keep on IPFS: ⛓ IPFS asks the price (nothing paid), Pay pays that qu
   expect(el.querySelector('.cwb-ipfs-on').getAttribute('href')).toBe('https://gw/ipfs/bafyX/logo.png'); expect(q('cwb-ipfs-list').textContent).toContain('until 2026-12-02');
   act(() => root.unmount());
 });
+
+test('⛓ the IPFS picker is there with NO files: pick an image → it is added to its files and its IPFS price shows by itself', async () => {
+  const { CloudDrawer } = require('./CatWorkbench');
+  document.body.innerHTML = ''; const posts = []; const id = 'd'.repeat(32);
+  global.FileReader = class { readAsDataURL() { this.result = 'data:image/png;base64,AA=='; setTimeout(() => this.onload(), 0); } };
+  global.fetch = async (u, o) => { if (o?.method === 'POST') { posts.push([String(u), JSON.parse(o.body)]);
+      return { ok: true, json: async () => (String(u).endsWith('/files') ? { file: { id, name: 'logo.png', mime: 'image/png', size: 2048 } } : { quote: { cid: 'bafyY', sol: 0.001326, days: 30, why: null } }) }; }
+    return { ok: true, json: async () => ({ providers: [], link: null }) }; };
+  const el = document.createElement('div'); document.body.appendChild(el); const root = createRoot(el);
+  await act(async () => { root.render(<CloudDrawer cat={{ id: 'g1' }} attachments={{ files: [] }} />); });
+  const inp = el.querySelector('[data-testid="cwb-ipfs-pick"]'); expect(el.querySelector('[data-testid="cwb-ipfs-add"]').textContent).toContain('KEEP ON IPFS');
+  Object.defineProperty(inp, 'files', { value: [new File(['x'], 'logo.png', { type: 'image/png' })] });
+  await act(async () => { inp.dispatchEvent(new Event('change', { bubbles: true })); await new Promise(r => setTimeout(r, 20)); });
+  expect(posts[0][0]).toContain('/files'); expect(posts[1][0]).toContain(`/files/${id}/ipfs`); expect(posts[1][1]).toMatchObject({ pay: false });
+  expect(el.querySelector(`[data-testid="cwb-ipfs-${id}"]`).textContent).toContain('0.001326 SOL');
+  act(() => root.unmount());
+});

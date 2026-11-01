@@ -255,6 +255,7 @@ CHECKS = (15, 30, 60)             # ⏱ live-trade checks after the buy: +15 s, 
 HOT_TICK_S = 5                    # the engine's light pass while a folder holds a coin
 SIGN_WAIT_S = 600                 # a real buy waits this long for its wallet, then the folder closes and the order is withdrawn
 MIN_LIQ = 5000
+REFILL_ROUNDS = 3                 # an unsafe coin is replaced by a fresh one (same source first) up to 3 rounds, so 4 SAFE coins get researched
 FOLDERS_KEEP = 30
 SRC_LABEL = {'intake': 'FEELESS intake', 'pump': 'Pump', 'dex': 'DexScreener'}
 
@@ -278,11 +279,15 @@ def is_pump(c):
     return bool({'pulse', 'migr'} & set(c.get('sources') or [])) or str(c.get('mint') or '').endswith('pump')
 
 
-def gather(intake, dex, done=()):
-    """The folder's 4 coins: 2 FEELESS intake (best rank, real pools), 1 Pump, 1 DexScreener boost. → list (may be short when a source is dry)."""
+def gather(intake, dex, done=(), need_safe=0):
+    """The folder's 4 coins: 2 FEELESS intake (best rank, real pools), 1 Pump, 1 DexScreener boost. → list (may be short when a source is dry).
+    need_safe=n: REPLACEMENT candidates for n unsafe coins — the next ones of every source; the caller vets them and swaps safe ones in."""
     done = set(done or ()); got = []; seen = set(done)
     ok = lambda c: c.get('mint') and c.get('pair') and c['mint'] not in seen and _f(c.get('liq')) >= MIN_LIQ   # noqa: E731
     rows = sorted([c for c in intake or [] if ok(c)], key=lambda c: -_f(c.get('rank')))
+    if need_safe:
+        pick_ = [(c, 'pump' if is_pump(c) else 'intake') for c in rows][:need_safe * 4] + [(c, 'dex') for c in (dex or []) if ok(c)][:need_safe * 2]
+        return [{'mint': c['mint'], 'pair': c['pair'], 'sym': str(c.get('sym') or '?')[:16], 'src': s_, 'liq': _f(c.get('liq')), 'mc': _f(c.get('mc')), 'ch': c.get('ch')} for c, s_ in pick_]
 
     def take(c, src):
         seen.add(c['mint']); got.append({'mint': c['mint'], 'pair': c['pair'], 'sym': str(c.get('sym') or '?')[:16], 'src': src,
@@ -406,7 +411,7 @@ def chart_line(samples):
 
 def folder_public(f):
     keep = ('id', 'n', 'name', 'at', 'coins', 'minds', 'phase', 'pick', 'talk', 'rounds', 'status', 'why', 'entry', 'exit', 'pnlPct', 'pnlSol', 'sym',
-            'boughtAt', 'soldAt', 'real', 'shared', 'research', 'picks', 'whys', 'base', 'pair', 'mint', 'propose', 'sol', 'plan', 'entryUsd', 'tp', 'sl', 'shots', 'vitals', 'scout', 'scoutDone', 'rMint', 'rMind', 'scouted', 'fav', 'checks', 'nextAt', 'cost', 'spend', 'report', 'grade')
+            'boughtAt', 'soldAt', 'real', 'shared', 'research', 'picks', 'whys', 'base', 'pair', 'mint', 'propose', 'sol', 'plan', 'entryUsd', 'tp', 'sl', 'shots', 'vitals', 'scout', 'scoutDone', 'rMint', 'rMind', 'scouted', 'fav', 'checks', 'nextAt', 'cost', 'spend', 'report', 'grade', 'dropped')
     out = {k: f.get(k) for k in keep if k in f}
     if f.get('chart'):   # the live price the watcher reads (its P/L on the monitor)
         out['now'] = f['chart'][-1].get('px'); out['line'] = [x.get('px') for x in f['chart'][-40:]]

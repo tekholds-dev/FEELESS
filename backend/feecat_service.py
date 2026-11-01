@@ -1446,6 +1446,22 @@ def _pow2_close(cat, f, why, now, exit_px=0.0):
     run_ = cat.setdefault('powRun', {}); run_.pop('folder', None); run_['rested'] = now
 
 
+async def _pow2_vet(http, c, now, read=True):
+    """📥 A coin's FEELESS live read + the SAME guards + safety check a buy runs (free, server-side) — the minds only choose what can be bought."""
+    if read:
+        try:
+            c['read'] = str((await _ct.run_tool(http, 'coin', c['mint']))[0])[:600]
+        except Exception:   # noqa: BLE001
+            c['read'] = ''
+    try:
+        pp_ = await _order_pair(http, c['mint']); ok_, why_ = _co.buy_guards(pp_, now * 1000) if pp_ else (False, 'no pool')
+        if ok_:
+            ok_, why_, _cv_ = await _safety(http, pp_)
+        c.update(safe=bool(ok_), risk=None if ok_ else str(why_)[:80])
+    except Exception as e:   # noqa: BLE001 — unknown = not safe
+        c.update(safe=False, risk=f'no safety read ({str(e)[:40]})')
+
+
 async def _pow2_tick(http, store, cat, now):
     """One step of this agent's PoW folder."""
     run_ = cat.setdefault('powRun', {}); f = run_.get('folder'); b_ = cat['brainsCfg']; ms = b_.get('brains') or []
@@ -1473,21 +1489,30 @@ async def _pow2_tick(http, store, cat, now):
             if want and int(want.get('tries') or 0) < 3:   # you asked: it retries a few ticks, never drops your ask silently
                 _POW_WANT[cat['id']] = {**want, 'tries': int(want.get('tries') or 0) + 1}
             return
-        for c in coins:   # 📥 each coin's FEELESS live read + the SAME safety check a buy runs (free, server-side) — they only choose what can be bought
-            try:
-                c['read'] = str((await _ct.run_tool(http, 'coin', c['mint']))[0])[:600]
-            except Exception:   # noqa: BLE001
-                c['read'] = ''
-            try:
-                pp_ = await _order_pair(http, c['mint']); ok_, why_ = _co.buy_guards(pp_, now * 1000) if pp_ else (False, 'no pool')
-                if ok_:
-                    ok_, why_, _cv_ = await _safety(http, pp_)
-                c.update(safe=bool(ok_), risk=None if ok_ else str(why_)[:80])
-            except Exception as e:   # noqa: BLE001 — unknown = not safe
-                c.update(safe=False, risk=f'no safety read ({str(e)[:40]})')
+        vet = lambda c: _pow2_vet(http, c, now)   # noqa: E731
+        for c in coins:
+            await vet(c)
+        dropped, seen_, dex_ = [], _pow.recent_mints(cat.get('powFolders')) | {c['mint'] for c in coins}, None
+        for _ in range(_pow.REFILL_ROUNDS):   # 🔁 owner 2026-11-02: "they must find 4 coins" — an unsafe coin is REPLACED (same source first) until 4 safe ones get researched
+            bad_ = [k for k, c in enumerate(coins) if not c.get('safe')]
+            if not bad_:
+                break
+            dex_ = dex_ if dex_ is not None else await _pow2_dex(http)
+            fresh_ = _pow.gather(intake, dex_, seen_, need_safe=len(bad_))
+            if not fresh_:
+                break
+            for c in fresh_:
+                seen_.add(c['mint']); await vet(c)
+            for c in sorted([x for x in fresh_ if x.get('safe')], key=lambda x: 0 if any(coins[k]['src'] == x['src'] for k in bad_) else 1):
+                if not bad_:
+                    break
+                k = next((k for k in bad_ if coins[k]['src'] == c['src']), bad_[0])
+                dropped.append({k_: coins[k].get(k_) for k_ in ('mint', 'sym', 'src', 'risk')}); coins[k] = c; bad_.remove(k)
         run_['n'] = int(run_.get('n') or 0) + 1
         run_['folder'] = f = _pow.folder_new(run_['n'], coins, now, minds)
-        f.update(base=min(base, max(0, len(ms) - 1)), asked=bool(want), propose=bool((want or {}).get('propose')))
+        f.update(base=min(base, max(0, len(ms) - 1)), asked=bool(want), propose=bool((want or {}).get('propose')), dropped=dropped)
+        if dropped:
+            _pow2_say(f, 'engine', f"replaced {len(dropped)} unsafe: " + ', '.join('$' + str(x['sym']) + ' (' + str(x['risk'])[:40] + ')' for x in dropped))
         _pow2_say(f, 'engine', f"new folder: {', '.join('$' + c['sym'] + ' (' + _pow.SRC_LABEL[c['src']] + ')' for c in coins)}")
         _pow2_say(f, 'plan', ' → '.join(f'{k + 1}) {x}' for k, x in enumerate(f['plan'])))
         return
@@ -1495,6 +1520,12 @@ async def _pow2_tick(http, store, cat, now):
     names = [str(m).split('/')[-1][:24] for m in ms[b0:2]]
     ask_ = lambda i, *a: _pow2_ask(cat, b0 + i, *a)   # noqa: E731 — mind B alone = index 1
     if f['phase'] == 'choose':   # 🗣 3 turns, in your chat (owner 2026-11-01): A proposes → B agrees or suggests → A's FINAL plan
+        if f.get('scouted') and not f.get('revetted'):   # 🔁 live 2026-11-02: $pairless ran +443 % DURING its research — every coin is checked again before they decide
+            f['revetted'] = True
+            for c in [c for c in f['coins'] if c.get('safe', True)]:
+                await _pow2_vet(http, c, now, read=False)
+                if not c.get('safe'):
+                    _pow2_say(f, 'engine', f"${c['sym']} is out now — {c.get('risk')}")
         safe_ = [k for k, c in enumerate(f['coins']) if c.get('safe', True)]
         if not safe_:
             _pow2_close(cat, f, 'none of the 4 passed the safety check — no buy', now); return
@@ -3120,6 +3151,49 @@ async def cat_colony(page: int = 0, ids: str = ''):
                     'carrying': (lambda x: {'text': str(x.get('text') or f"{x.get('word', '')} ${x.get('sym', '')}")[:90], 'at': x.get('at')} if x else None)((b_.get('cloud') or [None])[-1])})   # 🗄 what it stored last (already public on its card)
     return _pub({'agents': out, 'page': page, 'more': (page + 1) * COLONY_PAGE < len(cats), 'total': len(cats), 'colonized': sum(1 for c in cats if _hive_on(c)),
                  'epoch': ep, 'left': _hv.epoch_left(now), **_colony_cfg()})
+
+
+_FLOW_POT: dict = {'at': 0.0, 'sol': None}
+
+
+@app.get('/api/cats/colony/flow')
+async def colony_flow(limit: int = 40):
+    """💸 THE COLONY'S MONEY, LIVE (owner 2026-11-02: crawlnet's treasury --flow, FEELESS's own): PoW trades in → profit / loss → the shares
+    winning agents owe the colony → the colony pot (its live on-chain balance) → the airdrop; and the LEDGER — every real trade an agent's own
+    wallet made (side · coin · SOL · tx) + every share accrued. Incognito agents are left out; nothing an owner typed."""
+    store = _load(); now = time.time(); cfg = _colony_cfg(); cats = [c for c in store['cats'].values() if not c.get('incognito') and not c.get('revoked')]
+    folders = [f for c in cats for f in c.get('powFolders') or []]
+    real = [f for f in folders if f.get('real') and f.get('entry')]
+    in_sol = round(sum(_num(f.get('sol')) for f in real), 6); pnl = round(sum(_num(f.get('pnlSol')) for f in real), 6)
+    shares = _shares(); owed = round(sum(_num(x.get('sol')) for x in shares if not x.get('sent')), 6)
+    try:
+        pot_addr = ((json.loads((DATA_DIR / 'colony.json').read_text()) or {}).get('wallet') or {}).get('address')
+    except (OSError, ValueError):
+        pot_addr = None
+    if pot_addr and now - _FLOW_POT['at'] > 60:   # 🏺 the pot's balance read on-chain, at most once a minute
+        try:
+            async with httpx.AsyncClient(timeout=10) as http:
+                _FLOW_POT.update(at=now, sol=int(((await _crpc._rpc(http, 'getBalance', [pot_addr, {'commitment': 'confirmed'}])) or {}).get('value') or 0) / 1e9)
+        except Exception:   # noqa: BLE001
+            _FLOW_POT['at'] = now
+    names = {c['id']: str(c.get('name') or 'agent')[:24] for c in cats}
+    rows = [{'at': int(t.get('at') or 0), 'kind': t.get('side'), 'agent': names[c['id']], 'sym': t.get('symbol'), 'sol': _num(t.get('sol')), 'sig': t.get('sig'),
+             'memo': 'PoW ' + str(t.get('side')) if any(f.get('mint') == t.get('mint') for f in c.get('powFolders') or []) else str(t.get('side'))}
+            for c in cats for t in c.get('agentTx') or [] if t.get('sig') and t.get('status') == 'success']
+    for r in rows:   # a sell's record has no SOL back: its folder's size + P/L at the pool price (said so on the row)
+        if r['kind'] == 'sell' and not r['sol']:
+            f_ = next((f for c in cats if names[c['id']] == r['agent'] for f in c.get('powFolders') or [] if f.get('real') and f.get('sym') == r['sym'] and f.get('pnlSol') is not None), None)
+            if f_:
+                r.update(sol=round(_num(f_.get('sol')) + _num(f_.get('pnlSol')), 6), memo=r['memo'] + ' · ≈ pool price')
+    rows += [{'at': int(x.get('at') or 0), 'kind': 'share', 'agent': names.get(x.get('cat'), 'agent'), 'sym': x.get('sym'), 'sol': _num(x.get('sol')), 'sig': x.get('sig'),
+              'memo': f"{x.get('pct')}% of a win to the pot" + ('' if x.get('sent') else ' · owed')} for x in shares if x.get('cat') in names]
+    rows.sort(key=lambda r: -r['at'])
+    ep = _hv.epoch_of(now); board = _hv.board(_hive_cells(), ep)
+    return _pub({'pow': {'folders': len(folders), 'trades': len(real), 'inSol': in_sol, 'won': sum(1 for f in real if _num(f.get('pnlSol')) > 0)},
+                 'pnlSol': pnl, 'shares': {'owedSol': owed, 'count': len(shares), 'sharing': sum(1 for c in cats if (c.get('colonyShare') or {}).get('on'))},
+                 'pot': {'address': pot_addr, 'sol': _FLOW_POT['sol']}, 'epoch': {'n': ep, 'left': _hv.epoch_left(now), 'honey': sum(int(r.get('honey') or 0) for r in board), 'agents': len(board)},
+                 'airdrop': {'next': cfg.get('nextAirdrop'), 'cadence': cfg.get('cadence'), 'paidSol': round(sum(_num(x.get('sol')) for x in shares if x.get('sent')), 6)},
+                 'agents': len(cats), 'colonized': sum(1 for c in cats if _hive_on(c)), 'ledger': rows[:max(1, min(100, int(limit)))]})
 
 
 @app.get('/api/cats/supply')

@@ -292,6 +292,7 @@ def test_propose_a_pow_agrees_on_one_coin_and_files_the_card_without_buying(monk
         return '{"pick": 4, "why": "deepest"}'
     monkeypatch.setattr(fs, '_pow2_ask', ask)
     monkeypatch.setattr(fs, '_run_order', lambda *a: (_ for _ in ()).throw(AssertionError('a proposal never buys')))
+    monkeypatch.setattr(fs, '_pow2_vet', lambda *a, **k: _aw(None))   # the safety re-check is tested in the whole-folder test
     monkeypatch.setattr(fs, '_work_start', lambda *a, **k: (_ for _ in ()).throw(fs.HTTPException(409, 'busy')))
     monkeypatch.setattr(fs, '_pair_prices', lambda http, pairs: _aw({}))
     for t_ in range(200, 4000, 160):   # plan (3 turns) → scout every safe coin → decide (3 turns) → filed as a card
@@ -458,3 +459,63 @@ def test_a_research_round_has_its_own_small_dollar_ceiling(monkeypatch):
         fs._work_start('r1', cat, 'PROOF OF WORK on $X', '0', None, {**pw.new({'mint': 'M', 'pair': 'P', 'sym': 'X'}, 0)})
         return fs._WORK.pop('r1')['task']['cap']
     assert asyncio.run(go()) == pw.ROUND_USD <= 0.006
+
+
+def test_an_unsafe_coin_is_replaced_so_four_safe_coins_get_researched(monkeypatch, tmp_path):
+    """Owner 2026-11-02 ("they must find 4 coins"): live folder #8 had 3 unsafe coins of 4 and researched only one."""
+    import feecat_service as fs
+    monkeypatch.setattr(fs, 'HIVE_PATH', tmp_path / 'hive.json')
+    cat = {'id': 'r1', 'name': 'Trader', 'status': 'running', 'positions': [], 'brainsCfg': {'kind': 'trading', 'brains': ['x/a', 'x/b'], 'credit': 1.0}}
+    intake = _intake() + [{'mint': 'E5', 'pair': 'pe', 'sym': 'EEE', 'liq': 25000, 'rank': 2, 'sources': ['open']},
+                          {'mint': 'F6', 'pair': 'pf', 'sym': 'FFF', 'liq': 25000, 'rank': 1, 'sources': ['open']}]
+
+    class R:
+        def __init__(self, j): self.j = j
+        def json(self): return self.j
+
+    class H:
+        async def get(self, url, **k):
+            return R({'coins': intake})
+    monkeypatch.setattr(fs, '_pow2_dex', lambda http: _aw([{'mint': 'D4', 'pair': 'pd', 'sym': 'DDD', 'liq': 90000}]))
+    monkeypatch.setattr(fs._ct, 'run_tool', lambda http, tool, q: _aw((f'read {q}', None)))
+    monkeypatch.setattr(fs, '_order_pair', lambda http, m: _aw({'baseToken': {'address': m}}))
+    monkeypatch.setattr(fs._co, 'buy_guards', lambda p, now_ms: (True, ''))
+    monkeypatch.setattr(fs, '_safety', lambda http, p: _aw((p['baseToken']['address'] not in ('A1', 'E5'), 'top 10 hold 61%', 1.0)))   # A1 + its first stand-in unsafe
+    fs._POW_WANT['r1'] = {'do': 'start'}
+    asyncio.run(fs._pow2_tick(H(), {'cats': {'r1': cat}}, cat, 10_000.0))
+    f = cat['powRun']['folder']
+    assert [c['mint'] for c in f['coins']] == ['F6', 'B2', 'Cpump', 'D4'] and all(c['safe'] for c in f['coins'])   # A1 → F6 (E5 was unsafe too), same source
+    assert f['dropped'][0]['mint'] == 'A1' and 'replaced 1 unsafe: $AAA' in str(f['talk'])
+
+
+def test_a_coin_that_runs_during_research_is_struck_before_they_decide(monkeypatch):
+    """Live 2026-11-02 PoW #8: $pairless was safe at gather, ran +443 % in the 5 min of research, and the buy was refused."""
+    import feecat_service as fs
+    f = {'id': 'p8', 'name': 'PoW #8', 'phase': 'choose', 'scouted': True, 'turn': 0, 'minds': 1, 'base': 0, 'picks': {}, 'talk': [],
+         'coins': [{'mint': 'M1', 'sym': 'PAIR', 'src': 'pump', 'liq': 28000, 'mc': 1, 'pair': 'p1'}, {'mint': 'M2', 'sym': 'OK', 'src': 'intake', 'liq': 9000, 'mc': 1, 'pair': 'p2'}]}
+    cat = {'id': 'x1', 'brainsCfg': {'brains': ['x/a']}, 'powRun': {'folder': f}, 'chat': []}
+
+    async def vet(http, c, now, read=True):
+        if c['mint'] == 'M1':
+            c.update(safe=False, risk='🚀 +443% in 1h — already ran')
+    monkeypatch.setattr(fs, '_pow2_vet', vet)
+    seen = []
+
+    async def ask(c, i, sys_, user_, max_tokens=180):
+        seen.append(user_); return '{"pick": 2, "why": "the only one left"}'
+    monkeypatch.setattr(fs, '_pow2_ask', ask)
+    asyncio.run(fs._pow2_tick(None, {'cats': {'x1': cat}}, cat, 1000.0))
+    assert 'PAIR is out now' in str(f['talk']) and 'UNSAFE' in seen[0] and f.get('pick', {}).get('mint') == 'M2'
+
+
+def test_colony_flow_shows_real_trades_and_leaves_incognito_agents_out(monkeypatch, tmp_path):
+    import feecat_service as fs
+    monkeypatch.setattr(fs, 'HIVE_PATH', tmp_path / 'hive.json'); monkeypatch.setattr(fs, 'SHARES_PATH', tmp_path / 'shares.json')
+    tx = lambda side, sol, sig: {'side': side, 'symbol': 'SIS', 'mint': 'M', 'sol': sol, 'sig': sig, 'status': 'success', 'at': 100}   # noqa: E731
+    store = {'cats': {'a': {'id': 'a', 'name': 'Happy', 'agentTx': [tx('buy', 0.006, 'S1'), tx('sell', 0.005, 'S2')],
+                            'powFolders': [{'mint': 'M', 'real': True, 'entry': 1, 'sol': 0.006, 'pnlSol': -0.001}]},
+                      'b': {'id': 'b', 'name': 'Hidden', 'incognito': True, 'agentTx': [tx('buy', 1, 'S9')], 'powFolders': [{'real': True, 'entry': 1, 'sol': 1, 'pnlSol': 5}]}}}
+    monkeypatch.setattr(fs, '_load', lambda: store)
+    out = asyncio.run(fs.colony_flow())
+    assert out['pow'] == {'folders': 1, 'trades': 1, 'inSol': 0.006, 'won': 0} and out['pnlSol'] == -0.001
+    assert [r['sig'] for r in out['ledger']] == ['S1', 'S2'] and out['ledger'][0]['memo'] == 'PoW buy' and 'Hidden' not in str(out)

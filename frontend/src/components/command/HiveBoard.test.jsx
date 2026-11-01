@@ -9,14 +9,18 @@ jest.mock('../../hooks/useWallet', () => ({ useWallet: () => ({ signMessage: moc
 const HIVE = { epoch: 20755, left: 3600 * 5, filed: 3, graded: 2, board: [{ cat: 'h1', name: 'Happy', honey: 3, cells: 2, graded: 2, right: 2 }],
   cells: [{ id: 'c1', name: 'Happy', sym: 'HUSS', call: 'BUY', why: 'volume 3x', honey: 2, move: 25 }, { id: 'c2', name: 'Happy', sym: 'RUG', call: 'AVOID', why: 'pool thin', honey: 1, move: -8 }, { id: 'c3', name: 'Happy', sym: 'NEW', call: 'WATCH', why: 'no edge', honey: null }] };
 
-test('🐝 how colonizing works: eight honeycomb stations in one loop with real numbers, bees on every lane (more + faster while agents are colonized)', async () => {
+test('💸 colony --flow: real money boxes (PoW in → P/L → shares → pot → airdrop), packets only where money moved, and the live ledger with every tx', async () => {
   const el = document.createElement('div'); document.body.appendChild(el);
-  await act(async () => { createRoot(el).render(<ColonyFlow api={async () => HIVE} meta={{ colonized: 2, total: 5, potOpen: true, cadence: 'daily', nextAirdrop: Date.now() / 1000 + 3600 }} />); });
-  const st = el.querySelectorAll('.cfl-st'); expect(st).toHaveLength(8);
-  expect(st[0].textContent).toContain('2/5'); expect(st[1].textContent).toContain('3'); expect(st[3].textContent).toContain('2'); expect(st[4].textContent).toContain('+3');
-  expect(st[0].className).toContain('is-on'); expect(st[5].className).not.toContain('is-on');
-  expect(el.querySelector('.cfl-ring').className).toContain('is-fast'); expect(el.querySelectorAll('.cfl-orbit i')).toHaveLength(6);   // one orbit: more bees + faster while agents are colonized
-  expect(st[4].textContent).toContain('HONEY'); expect(st[7].textContent).toContain('AIRDROP'); expect(el.querySelector('.cfl-core').textContent).toContain('+3');   // clockwise: … graded → honey → share → pot → airdrop
+  const FLOW = { pow: { folders: 8, trades: 3, inSol: 0.018, won: 1 }, pnlSol: -0.0021, shares: { owedSol: 0, count: 0, sharing: 0 }, pot: { address: '7poJPeupTfM1vd8fKWU694WaQ6sie52mbPTByJCRGpaQ', sol: 0.05 },
+    epoch: { n: 1, left: 3600, honey: 3, agents: 2 }, airdrop: { next: Date.now() / 1000 + 7200, cadence: 'daily', paidSol: 0 }, agents: 5, colonized: 2,
+    ledger: [{ at: 1793521620, kind: 'sell', agent: 'Happy', sym: 'SIS', sol: 0.0051, sig: '5DMYabcd', memo: 'PoW sell' }, { at: 1793521000, kind: 'buy', agent: 'Happy', sym: 'SIS', sol: 0.006, sig: '3xYzefgh', memo: 'PoW buy' }] };
+  await act(async () => { createRoot(el).render(<ColonyFlow api={async u => (u.includes('/flow') ? FLOW : HIVE)} meta={{ colonized: 2, total: 5 }} />); });
+  const t = el.querySelector('[data-testid="colony-flow"]').textContent;
+  expect(t).toContain('colony --flow'); expect(t).toContain('0.0180 SOL'); expect(t).toContain('−0.0021 SOL'); expect(t).toContain('0.0500 SOL'); expect(t).toContain('+3 honey');
+  expect(el.querySelector('.cmf-box.is-pnl b').className).toContain('is-dn'); expect(el.querySelectorAll('.cmf-pipe.is-on').length).toBeGreaterThan(0);
+  expect(el.querySelector('.cmf-box.is-share').className).not.toContain('is-hot');   // nothing shared → no packets into the pot
+  const rows = el.querySelectorAll('.cmf-tr:not(.is-head)'); expect(rows).toHaveLength(2); expect(rows[0].textContent).toContain('PoW sell'); expect(rows[1].textContent).toContain('−0.0060');
+  expect(rows[0].querySelector('a').getAttribute('href')).toBe('https://solscan.io/tx/5DMYabcd'); expect(el.querySelector('.cmf-box.is-pot a').getAttribute('href')).toContain('solscan.io/account/7poJ');
 });
 
 

@@ -915,12 +915,13 @@ const ago = t => { const s = Math.max(0, Date.now() / 1000 - (t || 0)); return s
 // chat attachments (+) wait 24 h on FEELESS for its browser, ☁ keeps one in your cloud.
 // ⛓ KEEP ON IPFS (owner 2026-11-02): one file, 30 days, paid in SOL by ITS OWN wallet — the real cost first (a simulation, nothing signed),
 // then Pay = that exact quote, signed by Circle; the link stays on the file (and in the list below after the 24 h attachment is gone)
-function IpfsKeep({ cat, f, onStored }) {
+function IpfsKeep({ cat, f, onStored, auto = false }) {
   const px = useSolPrice(); const [q, setQ] = useState(null); const [busy, setBusy] = useState(false); const [err, setErr] = useState('');
   const call = async pay => { setBusy(true); setErr('');
     try { const r = await fetch(apiUrl(`/api/cats/${cat.id}/files/${f.id}/ipfs`), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...agentAuth(), pay }) });
       const j = await r.json().catch(() => ({})); if (!r.ok) throw new Error(j.detail || `HTTP ${r.status}`);
       if (pay) { setQ(null); onStored?.(j.stored); } else setQ(j.quote); } catch (e) { setErr(e.message); } finally { setBusy(false); } };
+  useEffect(() => { if (auto) call(false); }, []);   // eslint-disable-line react-hooks/exhaustive-deps — a file just picked for IPFS shows its price at once
   if (f.ipfs) return <a className="m-chip ok cwb-ipfs-on" href={f.ipfs.url} target="_blank" rel="noopener noreferrer" data-tip={`On IPFS for ${f.ipfs.days} days · paid ${f.ipfs.sol} SOL from its wallet`}>⛓ on IPFS</a>;
   return <span className="cwb-ipfs" data-testid={`cwb-ipfs-${f.id}`}>
     {q ? <><em className="m-num" data-tip={`${q.days} days on IPFS — most of it is the rent of the on-chain record each upload makes`}>{q.sol.toFixed(6)} SOL{px ? ` · $${(q.sol * px).toFixed(2)}` : ''}</em>
@@ -938,7 +939,10 @@ export function CloudDrawer({ cat, attachments, ipfs = [] }) {
   const run = async (k, fn) => { setBusy(k); setErr(''); try { await fn(); } catch (e) { setErr(e.message); } finally { setBusy(''); } };
   const connect = p => run(p, async () => { window.location.assign((await post('cloud/connect', { provider: p })).url); });
   const link = c?.link; const used = Number(c?.used || 0); const total = Number(c?.total || 0); const [added, setAdded] = useState([]); const kept = [...added, ...ipfs.filter(x => !added.some(a => a.cid === x.cid))];   // the desk's list + what was stored just now
-  const files = (attachments?.files || []).map(f => ({ ...f, ipfs: f.ipfs || kept.find(x => x.file === f.id) }));
+  const [picked, setPicked] = useState([]); const [pickErr, setPickErr] = useState('');
+  const files = [...picked, ...(attachments?.files || []).filter(f => !picked.some(x => x.id === f.id))].map(f => ({ ...f, ipfs: f.ipfs || kept.find(x => x.file === f.id) }));
+  const pick = async e => { const file = e.target.files?.[0]; e.target.value = ''; if (!file) return; setPickErr(''); setBusy('pick');
+    try { const j = await addFile(cat.id, file); setPicked(x => [{ ...j.file, autoIpfs: true }, ...x]); } catch (er) { setPickErr(er.message); } finally { setBusy(''); } };
   return <details className="cwb-vault cwb-cloudd" open data-testid="cwb-cloud-drawer"><summary data-tip="Its storage lives in YOUR cloud — FEELESS keeps none">☁ CLOUD {link ? <em className="m-chip ok">{link.label}</em> : <em className="m-chip warn">not connected</em>}</summary>
     {!link ? <div className="cwb-cloud-pick" data-testid="cwb-cloud-pick"><p className="m-note"><b>Connect your own cloud</b>Its files go to a FEELESS folder in your account. You sign in on Google / Dropbox — FEELESS never sees that password.</p>
       {(c?.providers || []).map(p => <button key={p.key} type="button" className={`m-btn${p.ready ? ' m-go' : ''}`} disabled={!p.ready || !!busy} onClick={() => connect(p.key)}
@@ -949,8 +953,12 @@ export function CloudDrawer({ cat, attachments, ipfs = [] }) {
         {f.thumb ? <img src={f.thumb} alt={f.name} loading="lazy" referrerPolicy="no-referrer" /> : <span className="cwb-cloud-ico" aria-hidden="true">📄</span>}<small>{f.name}</small></a>)}</div>
         : <p className="cwb-cloud-empty">Nothing kept yet — ☁ a chat attachment below, or ask it to save something.</p>}
       <button type="button" className="m-btn cwb-cred-x" disabled={!!busy} onClick={() => run('off', async () => { await post('cloud/disconnect'); await load(); })} data-tip="Disconnect — FEELESS forgets the sealed pass">Disconnect</button></>}
+    <div className="cwb-ipfs-add" data-testid="cwb-ipfs-add"><span><b>⛓ KEEP ON IPFS</b><small>30 days, paid in SOL from its own wallet — you see the exact price before it pays</small></span>
+      <label className={`m-btn m-go${busy === 'pick' ? ' is-busy' : ''}`} data-tip="Pick an image or GIF — it is added to its files and priced for IPFS">{busy === 'pick' ? 'Adding…' : '＋ Pick a file'}
+        <input type="file" accept="image/png,image/jpeg,image/webp,image/gif" onChange={pick} hidden data-testid="cwb-ipfs-pick" /></label>
+      {pickErr ? <small className="kd-err" role="alert">⚠ {pickErr}</small> : null}</div>
     {files.length ? <ul className="cwb-cloud-files" data-testid="cwb-cloud-files" aria-label="Chat attachments (24 h)">{files.map((f, i) => <li key={f.id} style={{ '--i': i }}><span className="cwb-cloud-ico" aria-hidden="true">{f.mime?.startsWith('video/') ? '🎞' : '🖼'}</span>
-      <b>{f.name}</b><span className="m-num">{fileMb(f.size)}</span>{link ? <button type="button" className="m-btn" disabled={!!busy} onClick={() => run(f.id, async () => { await post(`files/${f.id}/keep`); await load(); })} data-tip={`Keep it in your ${link.label} (attachments leave FEELESS after 24 h)`} data-testid={`cwb-keep-${f.id}`}>{busy === f.id ? '…' : '☁ Keep'}</button> : <span className="m-chip">24 h</span>}<IpfsKeep cat={cat} f={f} onStored={row => setAdded(x => [row, ...x])} /></li>)}</ul> : null}
+      <b>{f.name}</b><span className="m-num">{fileMb(f.size)}</span>{link ? <button type="button" className="m-btn" disabled={!!busy} onClick={() => run(f.id, async () => { await post(`files/${f.id}/keep`); await load(); })} data-tip={`Keep it in your ${link.label} (attachments leave FEELESS after 24 h)`} data-testid={`cwb-keep-${f.id}`}>{busy === f.id ? '…' : '☁ Keep'}</button> : <span className="m-chip">24 h</span>}<IpfsKeep cat={cat} f={f} auto={!!f.autoIpfs} onStored={row => setAdded(x => [row, ...x])} /></li>)}</ul> : null}
     {kept.length ? <ul className="cwb-ipfs-list" data-testid="cwb-ipfs-list" aria-label="Kept on IPFS">{kept.map((x, i) => <li key={x.cid} style={{ '--i': i }}><span aria-hidden="true">⛓</span>
       <a href={x.url} target="_blank" rel="noopener noreferrer" data-tip={`IPFS ${x.cid}`}>{x.name}</a><em className="m-num">{x.sol} SOL</em><small>{x.expires ? `until ${x.expires}` : `${x.days} days`}</small></li>)}</ul> : null}
     {err ? <small className="kd-err" role="alert">⚠ {err}</small> : null}</details>;

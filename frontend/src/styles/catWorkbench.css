@@ -655,3 +655,7 @@ body.fx-lite .cwb-ipfs-list li { animation: none; } @media (prefers-reduced-moti
 body.theme-day .cwb-ipfs-list { background: #f2fbf6; } body.theme-day .cwb-ipfs-list a { color: #12301f; } body.theme-day .cwb-ipfs em { color: #8a5a00; text-shadow: none; }
 @media (max-width: 640px) { .cwb-ipfs-list li { grid-template-columns: auto minmax(0, 1fr) auto; } .cwb-ipfs-list small { display: none; } }
 @media (max-width: 640px) { .cwb-cloud-files li { grid-template-columns: auto minmax(0, 1fr) auto; } .cwb-cloud-files li .cwb-ipfs { grid-column: 1 / -1; justify-self: end; } }
+.cwb-ipfs-add { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 12px; border: 1px solid #f5c54240; background: linear-gradient(160deg, #f5c54214, transparent 70%); }
+.cwb-ipfs-add > span { display: grid; gap: 2px; margin-right: auto; } .cwb-ipfs-add b { color: #ffd76a; font: 800 10px var(--f-mono); letter-spacing: .14em; } .cwb-ipfs-add small { color: #c8bde6; font: 600 10.5px var(--f-ui); }
+.cwb-ipfs-add label { min-height: 34px; display: inline-flex; align-items: center; cursor: pointer; } .cwb-ipfs-add label:focus-within { outline: 2px solid #45e486; outline-offset: 2px; } .cwb-ipfs-add label.is-busy { opacity: .7; pointer-events: none; }
+body.theme-day .cwb-ipfs-add { background: #fffaf0; } body.theme-day .cwb-ipfs-add b { color: #8a5a00; } body.theme-day .cwb-ipfs-add small { color: #3d3060; }
