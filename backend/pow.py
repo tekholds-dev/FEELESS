@@ -291,7 +291,7 @@ QUIET_CHECK_S = 180               # Minds can rest in the middle of the stop/tar
 HOT_TICK_S = 5                    # the engine's light pass while a folder holds a coin
 SIGN_WAIT_S = 600                 # a real buy waits this long for its wallet, then the folder closes and the order is withdrawn
 MIN_LIQ = 5000
-REFILL_ROUNDS = 3                 # an unsafe coin is replaced by a fresh one (same source first) up to 3 rounds, so 4 SAFE coins get researched
+REFILL_ROUNDS = 6                 # an unsafe coin is replaced by a fresh one (same source first) up to 3 rounds, so 4 SAFE coins get researched
 FOLDERS_KEEP = 30
 
 
@@ -337,8 +337,20 @@ def gather(intake, dex, done=(), need_safe=0):
     ok = lambda c: c.get('mint') and c.get('pair') and c['mint'] not in seen and _f(c.get('liq')) >= MIN_LIQ   # noqa: E731
     rows = sorted([c for c in intake or [] if ok(c)], key=lambda c: -_f(c.get('rank')))
     if need_safe:
-        pick_ = [(c, 'pump' if is_pump(c) else 'intake') for c in rows][:need_safe * 4] + [(c, 'dex') for c in (dex or []) if ok(c)][:need_safe * 2]
-        return [{'mint': c['mint'], 'pair': c['pair'], 'sym': str(c.get('sym') or '?')[:16], 'src': s_, 'liq': _f(c.get('liq')), 'mc': _f(c.get('mc')), 'ch': c.get('ch')} for c, s_ in pick_]
+        # Keep walking the ranked intake after a rejected page. The old caller sliced
+        # the first few replacements each round, so a bad cluster exhausted every try.
+        picks = [(c, 'pump' if is_pump(c) else 'intake') for c in rows]
+        picks += [(c, 'dex') for c in dex or [] if ok(c)]
+        out = []
+        for c, source in picks:
+            if c['mint'] in seen:
+                continue
+            seen.add(c['mint'])
+            out.append({'mint': c['mint'], 'pair': c['pair'], 'sym': str(c.get('sym') or '?')[:16],
+                        'src': source, 'liq': _f(c.get('liq')), 'mc': _f(c.get('mc')), 'ch': c.get('ch')})
+            if len(out) >= need_safe:
+                break
+        return out
 
     def take(c, src):
         seen.add(c['mint']); got.append({'mint': c['mint'], 'pair': c['pair'], 'sym': str(c.get('sym') or '?')[:16], 'src': src,
@@ -351,6 +363,17 @@ def gather(intake, dex, done=(), need_safe=0):
     d = next((c for c in dex or [] if ok(c)), None)
     if d:
         take(d, 'dex')
+    # Source APIs can be dry or blocked; fill missing slots from the vetted intake.
+    for c in rows:
+        if len(got) >= 4:
+            break
+        if c['mint'] not in seen:
+            take(c, 'pump' if is_pump(c) else 'intake')
+    for c in dex or []:
+        if len(got) >= 4:
+            break
+        if ok(c):
+            take(c, 'dex')
     return got[:4]
 
 

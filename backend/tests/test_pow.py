@@ -630,3 +630,28 @@ def test_keep_and_delete_pow_folders_on_the_desktop_never_the_archive(monkeypatc
     assert f['hidden'] == ['MX'] and [x['mint'] for x in f['shots']] == ['Q'] and not (tmp_path / 'pow1' / 'mx_r0_rugcheck.xyz_1.jpg').exists()
     go(text='pow1', job='delete'); assert [x['id'] for x in cat['powFolders']] == ['pow2'] and not (tmp_path / 'pow1').exists()
     assert len(fs._pow_archive_rows()) == 1                                                  # 🗄 the archive keeps everything: the next PoW still avoids repeats
+
+
+def test_pow_searches_past_unsafe_first_page_and_a_dry_dex(monkeypatch):
+    """A live intake can have many unsafe leaders while Dex boosts is unavailable."""
+    import feecat_service as fs
+    intake = [{'mint': f'M{i}', 'pair': f'P{i}', 'sym': f'C{i}', 'liq': 20000, 'rank': 100 - i,
+               'sources': ['pulse'] if i % 4 == 0 else ['runner']} for i in range(36)]
+    cat = {'id': 'late-safe', 'name': 'Happy', 'brainsCfg': {'kind': 'general', 'brains': ['a', 'b']}, 'powRun': {}}
+    class H:
+        async def get(self, url, **kwargs):
+            return type('Response', (), {'json': lambda self: {'coins': intake}})()
+    monkeypatch.setattr(fs, '_pow2_dex', lambda http: _aw([]))
+    checked = []
+    async def vet(http, coin, now, read=True):
+        checked.append(coin['mint'])
+        coin.update(safe=int(coin['mint'][1:]) >= 25, risk=None if int(coin['mint'][1:]) >= 25 else 'unsafe')
+    monkeypatch.setattr(fs, '_pow2_vet', vet)
+    fs._POW_WANT[cat['id']] = {'do': 'start', 'propose': True}
+    try:
+        asyncio.run(fs._pow2_tick(H(), {'cats': {cat['id']: cat}}, cat, 1000.0))
+    finally:
+        fs._POW_WANT.pop(cat['id'], None)
+    folder = cat['powRun']['folder']
+    assert len(folder['coins']) == 4 and all(c['safe'] for c in folder['coins'])
+    assert len(checked) > 24 and len(set(checked)) == len(checked)

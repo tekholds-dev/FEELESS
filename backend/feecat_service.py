@@ -1552,26 +1552,23 @@ async def _pow2_tick(http, store, cat, now):
         except (httpx.HTTPError, ValueError):
             intake = []
         coins = _pow.gather(intake, await _pow2_dex(http), _pow.recent_mints(cat.get('powFolders')))   # 🚫 no coin of its last 10 folders again
-        if len(coins) < 4:
-            run_['why'] = f'only {len(coins)} of 4 coins found — tries again'; run_['rested'] = now
-            if want and int(want.get('tries') or 0) < 3:   # you asked: it retries a few ticks, never drops your ask silently
-                _POW_WANT[cat['id']] = {**want, 'tries': int(want.get('tries') or 0) + 1}
-            return
         vet = lambda c: _pow2_vet(http, c, now)   # noqa: E731
         for c in coins:
             await vet(c)
         pool_ = [c for c in coins if c.get('safe')]; dropped = [{k_: c.get(k_) for k_ in ('mint', 'sym', 'src', 'risk')} for c in coins if not c.get('safe')]
         seen_, dex_ = _pow.recent_mints(cat.get('powFolders')) | {c['mint'] for c in coins}, None
-        for _ in range(_pow.REFILL_ROUNDS):   # 🧺 owner 2026-11-02: up to POOL vetted coins — an unsafe one is replaced, never researched or offered
-            if len(pool_) >= _pow.POOL:
+        for _ in range(_pow.REFILL_ROUNDS):   # bounded pages, stop as soon as four safe coins exist
+            if len(pool_) >= 4:
                 break
             dex_ = dex_ if dex_ is not None else await _pow2_dex(http)
-            fresh_ = _pow.gather(intake, dex_, seen_, need_safe=max(1, (_pow.POOL - len(pool_)) // 2))[:_pow.POOL - len(pool_) + 2]
+            fresh_ = _pow.gather(intake, dex_, seen_, need_safe=8)
             if not fresh_:
                 break
             for c in fresh_:
                 seen_.add(c['mint']); await vet(c)
                 (pool_ if c.get('safe') else dropped).append(c if c.get('safe') else {k_: c.get(k_) for k_ in ('mint', 'sym', 'src', 'risk')})
+                if len(pool_) >= 4:
+                    break
         coins = pool_[:_pow.POOL]
         if len(coins) < 4:
             run_['why'] = f'only {len(coins)} buyable coins found — tries again'; run_['rested'] = now
