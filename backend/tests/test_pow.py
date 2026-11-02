@@ -645,7 +645,7 @@ def test_pow_searches_past_unsafe_first_page_and_a_dry_dex(monkeypatch):
     checked = []
     async def vet(http, coin, now, read=True):
         checked.append(coin['mint'])
-        coin.update(safe=int(coin['mint'][1:]) >= 25, risk=None if int(coin['mint'][1:]) >= 25 else 'unsafe')
+        coin.update(safe=int(coin['mint'][1:]) in (16, 17), risk=None if int(coin['mint'][1:]) in (16, 17) else 'unsafe')
     monkeypatch.setattr(fs, '_pow2_vet', vet)
     fs._POW_WANT[cat['id']] = {'do': 'start', 'propose': True}
     try:
@@ -653,5 +653,25 @@ def test_pow_searches_past_unsafe_first_page_and_a_dry_dex(monkeypatch):
     finally:
         fs._POW_WANT.pop(cat['id'], None)
     folder = cat['powRun']['folder']
-    assert len(folder['coins']) == 4 and all(c['safe'] for c in folder['coins'])
-    assert len(checked) > 24 and len(set(checked)) == len(checked)
+    assert len(folder['coins']) == 2 and {c['src'] for c in folder['coins']} == {'pump', 'intake'}
+    assert folder['fallback'] and folder['phase'] == 'choose'
+    assert 16 < len(checked) <= 20 and len(set(checked)) == len(checked)
+
+
+def test_two_source_fallback_both_minds_get_two_choices_and_agree(monkeypatch):
+    import feecat_service as fs
+    coins = [{'mint': 'F1', 'pair': 'PF', 'sym': 'FEE', 'src': 'intake', 'liq': 12000, 'mc': 100000, 'safe': True},
+             {'mint': 'P1', 'pair': 'PP', 'sym': 'PUMP', 'src': 'pump', 'liq': 11000, 'mc': 90000, 'safe': True}]
+    f = pw.folder_new(1, coins, 100, 2)
+    f.update(phase='choose', asked=True, fallback=True)
+    cat = {'id': 'fallback-two', 'name': 'Happy', 'chat': [], 'brainsCfg': {'kind': 'general', 'brains': ['a', 'b']}, 'powRun': {'folder': f}}
+    seen = []
+    async def ask(cat_, i, system, user, max_tokens=180):
+        seen.append((i, system, user))
+        return '{"pick": 1, "size_sol": 0.01, "tp_pct": 20, "sl_pct": 10, "why": "deeper pool"}'
+    monkeypatch.setattr(fs, '_pow2_ask', ask)
+    for t in (101, 102, 103):
+        asyncio.run(fs._pow2_tick(None, {'cats': {cat['id']: cat}}, cat, t))
+    assert [i for i, _, _ in seen] == [0, 1, 0]
+    assert all('Below are 2 Solana coins' in system and '$FEE' in user and '$PUMP' in user for _, system, user in seen)
+    assert f['phase'] == 'scout' and set(f['scout']) == {'F1', 'P1'}

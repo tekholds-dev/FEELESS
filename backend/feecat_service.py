@@ -1321,6 +1321,7 @@ def _pow_view(cat):
 # ⛏ THE COLONY PoW LOOP (pow.py v2): every running trader agent (not Fee) works folder after folder — gather 4 → both minds agree on 1 → buy it
 # on FEELESS (the guarded order path: paper fill, or its own wallet when real) → watch the chart ≥ 3 min → research the CA ≤ 2.5 min → decide.
 # One step per engine tick; hard stops sell without asking; a won folder files to the colony with the owner's share.
+_POW_WAKE = asyncio.Event()   # owner requests wake the next engine pass immediately
 _POW_WANT: dict = {}   # 💬 'file a PoW' / 'stop PoW' from the chat, read by the engine pass (the store's one writer — a chat save can't race it)
 
 
@@ -1551,35 +1552,49 @@ async def _pow2_tick(http, store, cat, now):
             intake = ((await http.get(f'{_ct.REP}/api/reputation/familia/intake', timeout=15)).json() or {}).get('coins') or []
         except (httpx.HTTPError, ValueError):
             intake = []
-        coins = _pow.gather(intake, await _pow2_dex(http), _pow.recent_mints(cat.get('powFolders')))   # 🚫 no coin of its last 10 folders again
-        vet = lambda c: _pow2_vet(http, c, now)   # noqa: E731
-        for c in coins:
-            await vet(c)
-        pool_ = [c for c in coins if c.get('safe')]; dropped = [{k_: c.get(k_) for k_ in ('mint', 'sym', 'src', 'risk')} for c in coins if not c.get('safe')]
-        seen_, dex_ = _pow.recent_mints(cat.get('powFolders')) | {c['mint'] for c in coins}, None
-        for _ in range(_pow.REFILL_ROUNDS):   # bounded pages, stop as soon as four safe coins exist
+        dex_ = await _pow2_dex(http)
+        recent_ = _pow.recent_mints(cat.get('powFolders'))
+        coins = _pow.gather(intake, dex_, recent_)
+        seen_ = recent_ | {c['mint'] for c in coins}
+        # Vet in small parallel batches. Browsing/holder checks used to block the
+        # engine for minutes, then retry the entire search when only 2-3 passed.
+        candidates = list(coins)
+        candidates += _pow.gather(intake, dex_, seen_, need_safe=16)
+        pool_, dropped = [], []
+        for offset in range(0, len(candidates), 4):
+            batch = candidates[offset:offset + 4]
+            await asyncio.gather(*(_pow2_vet(http, c, now, read=False) for c in batch))
+            for c in batch:
+                if c.get('safe'):
+                    pool_.append(c)
+                else:
+                    dropped.append({k_: c.get(k_) for k_ in ('mint', 'sym', 'src', 'risk')})
             if len(pool_) >= 4:
                 break
-            dex_ = dex_ if dex_ is not None else await _pow2_dex(http)
-            fresh_ = _pow.gather(intake, dex_, seen_, need_safe=8)
-            if not fresh_:
-                break
-            for c in fresh_:
-                seen_.add(c['mint']); await vet(c)
-                (pool_ if c.get('safe') else dropped).append(c if c.get('safe') else {k_: c.get(k_) for k_ in ('mint', 'sym', 'src', 'risk')})
-                if len(pool_) >= 4:
-                    break
-        coins = pool_[:_pow.POOL]
-        if len(coins) < 4:
+        fallback_ = False
+        if len(pool_) < 4 and want:
+            pair_ = _pow.fallback_pair(pool_)
+            if pair_:
+                pool_, fallback_ = pair_, True
+        coins = pool_[:4]
+        if len(coins) < 4 and not fallback_:
             run_['why'] = f'only {len(coins)} buyable coins found — tries again'; run_['rested'] = now
-            if want and int(want.get('tries') or 0) < 3:
+            if want and int(want.get('tries') or 0) < 1:
                 _POW_WANT[cat['id']] = {**want, 'tries': int(want.get('tries') or 0) + 1}
             elif want:
-                cat['chat'] = (list(cat.get('chat') or []) + [{'by': 'cats', 'text': f"⛏ No PoW yet: only {len(coins)} coins passed every buy guard right now — file a PoW again in a few minutes.", 'at': time.time(), 'open': 'pow'}])[-40:]
+                cat['chat'] = (list(cat.get('chat') or []) + [{'by': 'cats', 'text': f"⛏ No PoW yet: only {len(coins)} coins passed every buy guard; the FEELESS + Pump pair was unavailable. Try again when fresh coins arrive.", 'at': time.time(), 'open': 'pow'}])[-40:]
             return
+        for c in coins:
+            try:
+                c['read'] = str((await _ct.run_tool(http, 'coin', c['mint']))[0])[:600]
+            except Exception:
+                c['read'] = ''
         run_['n'] = int(run_.get('n') or 0) + 1
         run_['folder'] = f = _pow.folder_new(run_['n'], coins, now, minds)
-        f.update(base=min(base, max(0, len(ms) - 1)), asked=bool(want), propose=bool((want or {}).get('propose')), dropped=dropped, phase='propose', turn=0, proposed={})
+        f.update(base=min(base, max(0, len(ms) - 1)), asked=bool(want), propose=bool((want or {}).get('propose')), dropped=dropped, phase='choose' if fallback_ else 'propose', fallback=fallback_, turn=0, proposed={})
+        if fallback_:
+            f['plan'] = ['one safe FEELESS intake coin and one safe Pump coin are the shared options', 'both minds compare them and agree on a research favorite', 'each coin is researched, then both minds decide the one to file or buy']
+            _pow2_say(f, 'engine', 'two-source fallback: both minds compare the same safe FEELESS and Pump coins, research each, then agree')
         if dropped:
             _pow2_say(f, 'engine', f"replaced {len(dropped)} unsafe: " + ', '.join('$' + str(x['sym']) + ' (' + str(x['risk'])[:40] + ')' for x in dropped))
         _pow2_say(f, 'engine', f"new folder: {', '.join('$' + c['sym'] + ' (' + _pow.SRC_LABEL[c['src']] + ')' for c in coins)}")
@@ -1645,7 +1660,7 @@ async def _pow2_tick(http, store, cat, now):
                     _pow2_say(f, 'engine', f"${c['sym']} is out now — {c.get('risk')}")
         safe_ = [k for k, c in enumerate(f['coins']) if c.get('safe', True) and (not f.get('scouted') or not f.get('scout') or c['mint'] in f['scout'])]   # 🔎 they decide among the coins they researched
         if not safe_:
-            _pow2_close(cat, f, 'none of the 4 passed the safety check — no buy', now); return
+            _pow2_close(cat, f, 'none of the folder coins passed the safety check — no buy', now); return
         listing = '\n'.join(f"{k + 1}) ${c['sym']} [{_pow.SRC_LABEL[c['src']]}] pool ${c['liq']:,.0f} cap ${c['mc']:,.0f}"
                              + ('' if c.get('safe', True) else f" — UNSAFE ({c.get('risk')}), never pick it") + f" — {c.get('read', '')[:220]}"
                              + (f" · RESEARCHED: {' · '.join(x['label'] + ' ' + x['value'] + ' (' + x['site'] + ')' for x in (f.get('vitals') or {}).get(c['mint'], [])[:6])}" if (f.get('vitals') or {}).get(c['mint']) else '')
@@ -1657,7 +1672,7 @@ async def _pow2_tick(http, store, cat, now):
         partner = ('' if turn == 0 else f" YOUR PARTNER {'PROPOSES' if turn == 1 else 'ANSWERED'} {prev.get('k', 0) + 1} (${f['coins'][prev.get('k', 0)]['sym']}, "
                    f"{prev.get('t', {}).get('sol')} SOL, TP +{prev.get('t', {}).get('tp')}%, SL −{prev.get('t', {}).get('sl')}%): \"{prev.get('why', '')}\". "
                    + ('Agree, or suggest a better coin / trade and why.' if turn == 1 else 'Give the FINAL plan.'))
-        raw_ = await ask_(i, _pow.CHOOSE_SYS.format(name=names[i] if i < len(names) else 'mind', partner=partner, cap=cap_), listing, 600)
+        raw_ = await ask_(i, _pow.CHOOSE_SYS.format(name=names[i] if i < len(names) else 'mind', partner=partner, cap=cap_, n=len(f['coins'])), listing, 600)
         k, why = _pow.parse_pick(raw_)
         if k is None or k not in safe_:
             f['silent'] = int(f.get('silent') or 0) + (1 if k is None else 0)
@@ -1809,7 +1824,7 @@ async def _pow2_tick(http, store, cat, now):
 
 
 async def _pow2_pass(store):
-    cats = [c for c in store['cats'].values() if _pow2_on(c)]
+    cats = sorted((c for c in store['cats'].values() if _pow2_on(c)), key=lambda c: (c.get('id') not in _POW_WANT, not bool((c.get('powRun') or {}).get('folder', {}).get('asked'))))
     if not cats:
         return
     async with httpx.AsyncClient(timeout=20) as http:
@@ -2671,7 +2686,12 @@ async def _engine_loop():
             _save(store)
         except Exception as exc:  # keep the loop alive; surface in logs
             print('engine error', exc)
-        await asyncio.sleep(_pow.HOT_TICK_S if _any_hot() else TICK_SECONDS)
+        try:
+            await asyncio.wait_for(_POW_WAKE.wait(), timeout=_pow.HOT_TICK_S if _any_hot() else TICK_SECONDS)
+        except asyncio.TimeoutError:
+            pass
+        finally:
+            _POW_WAKE.clear()
 
 
 def _score(cat):
@@ -3866,6 +3886,7 @@ async def cat_work(cat_id: str, p: WorkPayload):
                 why_ = '⛏ It needs a model first.'
             else:
                 _POW_WANT[cat_id] = cmd_
+                _POW_WAKE.set()
                 who_ = {0: 'mind A', 1: 'mind B'}.get(cmd_.get('mind'), 'both minds')
                 why_ = (f"{'💡 Proposing' if cmd_.get('propose') else '⛏ Filing'} a PoW with {who_}: 4 coins (2 FEELESS intake · 1 Pump · 1 DexScreener) → they agree on 1 → "
                         + ('filed as a proposal card, nothing bought.' if cmd_.get('propose') else 'buy it on FEELESS → chart / research / decide until it sells.')) if cmd_['do'] == 'start' else '⏹ Ending the PoW folder — it sells the coin if it bought one.'

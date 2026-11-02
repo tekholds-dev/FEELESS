@@ -291,7 +291,7 @@ QUIET_CHECK_S = 180               # Minds can rest in the middle of the stop/tar
 HOT_TICK_S = 5                    # the engine's light pass while a folder holds a coin
 SIGN_WAIT_S = 600                 # a real buy waits this long for its wallet, then the folder closes and the order is withdrawn
 MIN_LIQ = 5000
-REFILL_ROUNDS = 6                 # an unsafe coin is replaced by a fresh one (same source first) up to 3 rounds, so 4 SAFE coins get researched
+REFILL_ROUNDS = 2                 # keep requested-folder discovery quick; two safe sources can start the fallback
 FOLDERS_KEEP = 30
 
 
@@ -310,11 +310,11 @@ PROPOSE_SYS = ('You are {name}, one of a FEELESS trader agent\'s two minds, open
                'researched for a buy in the next hour, and why.{partner} Answer ONLY JSON: {{"picks": [1, 2, 3], "why": "<= 25 words"}}.')
 SPLIT_SYS = ('You are {name}. Your colony shortlisted these coins (both minds proposed them). Take the {k} YOU will research{taken} and write how you will '
              'investigate each (which sites, which vitals prove or kill it). Answer ONLY JSON: {{"picks": [1, 2], "plan": "<= 30 words"}}.')
-CHOOSE_SYS = ('You are {name}, one of a FEELESS trader agent\'s two minds, working a PROOF OF WORK folder. Below are 4 Solana coins your colony '
+CHOOSE_SYS = ('You are {name}, one of a FEELESS trader agent\'s two minds, working a PROOF OF WORK folder. Below are {n} Solana coins your colony '
               'gathered (FEELESS live reads). Pick the ONE most likely to rise in the next hour without rugging; your partner picks too and you must '
               'agree before anything is bought. YOU set the trade (it runs while the owner sleeps): size in SOL (max {cap} — its budget), take profit % and '
               'stop loss %. Profit funds your own model credit and grows your capital — protect it. Answer ONLY JSON: '
-              '{{"pick": 1-4, "size_sol": 0.0, "tp_pct": 0, "sl_pct": 0, "why": "<= 20 words, the numbers"}}.{partner}')
+              '{{"pick": 1-{n}, "size_sol": 0.0, "tp_pct": 0, "sl_pct": 0, "why": "<= 20 words, the numbers"}}.{partner}')
 DECIDE_SYS = ('You are {name}, the CHART WATCHER of a FEELESS trader agent holding ${sym}. Read the chart samples, your partner\'s research and '
               'the P/L, then decide. Answer ONLY JSON: {{"action": "HOLD|SELL", "say": "<= 20 words to your partner — what the chart shows"}}.')
 
@@ -340,7 +340,7 @@ def gather(intake, dex, done=(), need_safe=0):
         # Keep walking the ranked intake after a rejected page. The old caller sliced
         # the first few replacements each round, so a bad cluster exhausted every try.
         picks = [(c, 'pump' if is_pump(c) else 'intake') for c in rows]
-        picks += [(c, 'dex') for c in dex or [] if ok(c)]
+        picks += [(c, 'pump' if is_pump(c) else 'dex') for c in dex or [] if ok(c)]
         out = []
         for c, source in picks:
             if c['mint'] in seen:
@@ -362,7 +362,7 @@ def gather(intake, dex, done=(), need_safe=0):
         take(p, 'pump')
     d = next((c for c in dex or [] if ok(c)), None)
     if d:
-        take(d, 'dex')
+        take(d, 'pump' if is_pump(d) else 'dex')
     # Source APIs can be dry or blocked; fill missing slots from the vetted intake.
     for c in rows:
         if len(got) >= 4:
@@ -373,8 +373,15 @@ def gather(intake, dex, done=(), need_safe=0):
         if len(got) >= 4:
             break
         if ok(c):
-            take(c, 'dex')
+            take(c, 'pump' if is_pump(c) else 'dex')
     return got[:4]
+
+
+def fallback_pair(coins):
+    """One safe FEELESS intake coin and one safe Pump coin, both shown to each mind."""
+    intake = next((c for c in coins if c.get('safe') and c.get('src') == 'intake'), None)
+    pump = next((c for c in coins if c.get('safe') and c.get('src') == 'pump'), None)
+    return [intake, pump] if intake and pump and intake['mint'] != pump['mint'] else []
 
 
 def folder_new(n, coins, now, minds):
