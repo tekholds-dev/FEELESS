@@ -6,6 +6,8 @@ Status: **OPEN** = work requested; **VERIFY** = implemented claims need evidence
 
 ## Current delivery
 
+- 2026-11-01 FeeCat five-task pass: PoW v3 fake-network route verified from proposal through split research, choice, filing and archive; no live model call or trade. Quiet holds now ask minds every 180 s after the early checks, returning to 60 s near an exit; the 5 s price pass and hard stops remain. My Agents' name and action rows no longer share space with the P/L area; Wallet curve, holds and learning read as one rail. Idle chart overlay geometry refreshes every 5 s while the candle clock stays at 1 s. Signed-in-site saving now survives a failed Steel download-list read. Owner localhost visual and live PoW verification remain.
+
 - Agents Duo viewport/layout refinement: full-height landscape chart, portrait chart/dock, safe-area padding, Safari visual viewport tracking, preserved navigation through HQ controls, independently scrolling desk. All five dock tabs remain.
 - Desktop and ordinary folded portrait retain their normal cockpit. Shared Trench Trade and trading logic are unchanged.
 - OWNER: verify on the physical Duo in Safari, with browser chrome shown/hidden, fullscreen/home-screen mode, rotation and keyboard. Desktop viewport checks cannot certify physical Safari behavior.

@@ -46,6 +46,19 @@ def test_each_mind_gets_its_own_job():
     assert ca.split_jobs('solo job', 1) == ['solo job']
 
 
+def test_an_old_engine_snapshot_cannot_erase_a_new_agent_or_restore_a_deleted_one(tmp_path, monkeypatch):
+    import feecat_service as fs
+    monkeypatch.setattr(fs, 'STORE_PATH', tmp_path / 'feecats.json')
+    new = {'id': 'fresh', 'name': 'Fresh', 'ownerId': 'w', 'ownerWallet': 'w', 'positions': []}
+    fs._NEW_CATS[(str(fs.STORE_PATH), 'fresh')] = new
+    fs._save({'cats': {}, 'events': []})
+    assert fs._load()['cats']['fresh']['name'] == 'Fresh'
+    fs._DELETED_CATS.add((str(fs.STORE_PATH), 'fresh'))
+    fs._NEW_CATS.pop((str(fs.STORE_PATH), 'fresh'))
+    fs._save({'cats': {'fresh': new}, 'events': []})
+    assert 'fresh' not in fs._load()['cats']
+
+
 class Page:
     url = ''
     title = ''

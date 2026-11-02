@@ -287,6 +287,7 @@ STOP_PCT, TAKE_PCT = -25.0, 60.0
 REST_S = 300                      # between two folders
 ROUND_USD = 0.03                  # 💲 one coin's research ceiling (owner 2026-11-02: $0.03 a coin ≈ 15 calls at ~$0.002 = FEELESS + 3 sites × 3–8 moves; $0.006 cut rounds after ~2 sites)
 CHECKS = (15, 30, 60)             # ⏱ live-trade checks after the buy: +15 s, then +30 s, then every 60 s (owner 2026-11-01)
+QUIET_CHECK_S = 180               # Minds can rest in the middle of the stop/target band; hard exits still run on every price pass.
 HOT_TICK_S = 5                    # the engine's light pass while a folder holds a coin
 SIGN_WAIT_S = 600                 # a real buy waits this long for its wallet, then the folder closes and the order is withdrawn
 MIN_LIQ = 5000
@@ -517,6 +518,14 @@ def agree(picks, minds):
 
 def pnl_pct(entry, px):
     return (px / entry - 1) * 100 if entry > 0 and px > 0 else 0.0
+
+
+def next_check_s(entry, px, tp, sl, checks):
+    """Keep the early checks; ask minds less often only when price is safely between both exits."""
+    if checks < 2 or entry <= 0 or px <= 0 or tp <= 0 or sl <= 0:
+        return CHECKS[min(checks, len(CHECKS) - 1)]
+    p = pnl_pct(entry, px)
+    return QUIET_CHECK_S if -abs(sl) * .5 < p < tp * .5 else CHECKS[-1]
 
 
 def hard_exit(entry, px, bought_at, now, rounds, tp=TAKE_PCT, sl=-STOP_PCT):

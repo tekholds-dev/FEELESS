@@ -4,8 +4,8 @@
 // runs each overlay's job only for the chart that changed — plus a once-a-second refresh (axis width, a missed bump). No frame work in a
 // hidden tab. Pure DOM, no React render.
 const ver = new WeakMap();    // chart container element → change counter
-const jobs = new Set();       // { box: ref, fn, seen, at }
-export const SAFETY_MS = 1000;
+const jobs = new Set();       // { box: ref, fn, seen, at, safetyMs }
+export const SAFETY_MS = 5000;
 let raf = 0;
 let beat = 0;
 
@@ -18,7 +18,7 @@ function run(t) {
     const el = j.box && j.box.current;
     if (!el) return;
     const v = ver.get(el) || 0;
-    if (v === j.seen && t - j.at < SAFETY_MS) return;
+    if (v === j.seen && t - j.at < j.safetyMs) return;
     j.seen = v; j.at = t;
     try { j.fn(t); } catch { /* a chart torn down mid-frame */ }
   });
@@ -30,7 +30,7 @@ function wake() {
 }
 
 function heartbeat(on) {
-  if (on && !beat && typeof setInterval === 'function') beat = setInterval(wake, SAFETY_MS);
+  if (on && !beat && typeof setInterval === 'function') beat = setInterval(wake, 1000);
   if (!on && beat) { clearInterval(beat); beat = 0; }
 }
 
@@ -42,8 +42,8 @@ export function bumpChart(el) {
 }
 
 /** Run `fn(t)` on the shared frame whenever the chart in `box` (a ref) changed, else once a second. → stop(). */
-export function addChartJob(box, fn) {
-  const j = { box, fn, seen: -1, at: 0 };
+export function addChartJob(box, fn, safetyMs = SAFETY_MS) {
+  const j = { box, fn, seen: -1, at: 0, safetyMs };
   jobs.add(j);
   heartbeat(true);
   wake();

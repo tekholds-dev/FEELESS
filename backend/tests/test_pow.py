@@ -157,6 +157,14 @@ def test_a_folder_gathers_2_intake_1_pump_1_dex_and_the_hard_stops_hold():
     assert pw.parse_decide('{"action": "SELL", "say": "lower highs"}') == ('SELL', 'lower highs') and pw.parse_decide('{"action":"HOLD"}')[0] == 'HOLD'
 
 
+def test_hold_model_checks_rest_inside_band_but_speed_up_near_exits():
+    assert pw.next_check_s(1, 1.0, 30, 20, 1) == 30
+    assert pw.next_check_s(1, 1.0, 30, 20, 2) == 180
+    assert pw.next_check_s(1, 1.16, 30, 20, 2) == 60
+    assert pw.next_check_s(1, .89, 30, 20, 2) == 60
+    assert pw.next_check_s(1, 0, 30, 20, 2) == 60
+
+
 def test_the_service_runs_a_whole_folder_two_minds_discuss_buy_watch_research_decide_sell_and_file(monkeypatch, tmp_path):
     import feecat_service as fs
     monkeypatch.setattr(fs, 'HIVE_PATH', tmp_path / 'hive.json')
@@ -231,7 +239,7 @@ def test_the_service_runs_a_whole_folder_two_minds_discuss_buy_watch_research_de
     tick(15); assert f['checks'] == 1 and any('check 1: HOLD' in x['text'] for x in f['talk']) and any(x['text'].startswith('agrees: HOLD') for x in f['talk'])   # ⏱ +15 s: 2-step check
     tick(10); assert f['checks'] == 1                                                       # the next one is +30 s later
     tick(25); assert f['checks'] == 2 and f['phase'] == 'sell'                              # both said SELL
-    assert f['nextAt'] - t == 60
+    assert f['nextAt'] - t == 180
     px['v'] = 1.2; tick()
     assert orders[-1] == 'sell all B2' and 'folder' not in cat['powRun']
     done = cat['powFolders'][-1]

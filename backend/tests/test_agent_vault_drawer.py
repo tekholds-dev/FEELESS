@@ -104,6 +104,18 @@ def test_signed_in_sites_the_owner_signs_in_by_hand_the_cookies_are_sealed_and_e
     assert r.json()['signedIn'] == [] and fs._site_ctx(cat) is None
 
 
+def test_download_listing_failure_does_not_erase_a_saved_sign_in(monkeypatch):
+    import asyncio
+    import httpx
+    import feecat_service as fs
+
+    async def offline(*args, **kwargs):
+        raise httpx.ConnectError('Steel file list unavailable')
+
+    monkeypatch.setattr(fs._cb, 'collect_downloads', offline)
+    assert asyncio.run(fs._seal_downloads('cat', 'sid', None, 'x.com')) == 0
+
+
 def test_saved_sign_ins_merge_later_wins_and_an_oversized_jar_is_dropped():
     cb = pytest.importorskip('cat_browser')
     a = {'cookies': [{'name': 't', 'domain': '.x.com', 'path': '/', 'value': 'old'}], 'localStorage': {'https://x.com': {'k': '1'}}}

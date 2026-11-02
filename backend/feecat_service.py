@@ -94,6 +94,8 @@ def _load() -> dict:
 # seconds after it was made). What an owner's action sets is kept here and laid over every save, so an old copy can never lose a wallet, a funding or a limit.
 OWNER_KEYS = ('jobRates', 'secrets', 'hive', 'colonyShare', 'incognito', 'incognitoPaid', 'agentWallet', 'agentFunded', 'creditPaid', 'recovery', 'recoverySet', 'recoveryConfirmedAt', 'limits', 'taskCap', 'ownerId', 'mode', 'realWallet', 'budgetSol', 'paperByOwner', 'files', 'ownerWallet', 'logins', 'cloudLink', 'vaultLog', 'earn', 'clarify', 'ownerStaff', 'pass', 'treasury', 'siteSessions')
 _KEPT: dict = {}
+_NEW_CATS: dict = {}  # (store path, cat id) → cat; a live pass may save an older snapshot after creation.
+_DELETED_CATS: set = set()
 
 
 def keep_owned(cat):
@@ -102,6 +104,13 @@ def keep_owned(cat):
 
 
 def _save(store: dict):
+    path_key = str(STORE_PATH)
+    for (path, cid), cat in _NEW_CATS.items():
+        if path == path_key:
+            store.setdefault('cats', {}).setdefault(cid, json.loads(json.dumps(cat)))
+    for path, cid in _DELETED_CATS:
+        if path == path_key:
+            store.setdefault('cats', {}).pop(cid, None)
     for cid, kept in _KEPT.items():
         c = (store.get('cats') or {}).get(cid)
         if not c:
@@ -115,7 +124,13 @@ def _save(store: dict):
                 c[k] = json.loads(json.dumps(kept[k]))
             else:
                 c.pop(k, None)
-    STORE_PATH.write_text(json.dumps(store, indent=2))
+    # Readers include the live agent loops. Never let one read a half-written JSON file and mistake it for an empty store.
+    tmp = STORE_PATH.with_name(f'{STORE_PATH.name}.{uuid.uuid4().hex}.tmp')
+    try:
+        tmp.write_text(json.dumps(store, indent=2))
+        tmp.replace(STORE_PATH)
+    finally:
+        tmp.unlink(missing_ok=True)
 
 
 _ECHO_OLD = re.compile(r':?\s*under \d{1,2} words(?:, numbers)?')
@@ -1772,6 +1787,8 @@ async def _pow2_tick(http, store, cat, now):
         _pow2_research(cat, f, {'mint': f['mint'], 'pair': f['pair'], 'sym': f['sym']}, researcher, now)
     f['phase'] = 'research' if f.get('rMint') else 'watch'
     n_ = int(f.get('checks') or 0)
+    if n_ >= 2 and _pow.next_check_s(f.get('entry') or 0, px, f.get('tp') or _pow.TAKE_PCT, f.get('sl') or abs(_pow.STOP_PCT), n_) == _pow.CHECKS[-1]:
+        f['nextAt'] = min(float(f.get('nextAt') or now), round(now + _pow.CHECKS[-1]))  # a move toward either exit wakes minds sooner
     if now < float(f.get('nextAt') or (float(f.get('boughtAt') or now) + _pow.CHECKS[0])):   # +15 s → +30 s → every 60 s, each from the last check (no catch-up storms)
         return
     # ⏱ LIVE-TRADE CHECK n (2 steps): the watcher reads the chart → the partner agrees or overrides
@@ -1788,7 +1805,8 @@ async def _pow2_tick(http, store, cat, now):
         _pow2_say(f, names[other_] if other_ < len(names) else 'mind', f"{'agrees' if a2 == a1 else 'overrides'}: {a2} — {s2}")
     else:
         _pow2_say(f, names[0] if names else 'mind', f"check {n_ + 1}: {a1} — {s1}")
-    f['checks'] = n_ + 1; f['rounds'] = n_ + 1; f['nextAt'] = round(now + _pow.CHECKS[min(n_ + 1, len(_pow.CHECKS) - 1)])
+    f['checks'] = n_ + 1; f['rounds'] = n_ + 1
+    f['nextAt'] = round(now + _pow.next_check_s(f.get('entry') or 0, px, f.get('tp') or _pow.TAKE_PCT, f.get('sl') or abs(_pow.STOP_PCT), n_ + 1))
     if act == 'SELL':
         f.update(phase='sell', sellWhy=f'they agreed: {say[:90]}')
 
@@ -3018,6 +3036,7 @@ async def create_cat(payload: CreatePayload):
         cat['brainLabel'] = ' + '.join(x.split('/')[-1] for x in cat['brainsCfg']['brains'])
         cat['brainProfile'] = {'provider': 'OpenRouter', 'status': 'live' if _brains_live() else 'calls off', 'available': _brains_live(), 'estimatedTokenCostUsd': 0}
     store['cats'][cat_id] = cat
+    _NEW_CATS[(str(STORE_PATH), cat_id)] = json.loads(json.dumps(cat))
     _save(store)
     return {'cat': {**_no_keys(cat), 'mine': True}}   # (a random "recovery key" used to ride here — it unlocked nothing; the wallet's safe-keeping is SafeKeeping on the desk)
 
@@ -3511,8 +3530,12 @@ def heal_site_sessions(cat):
 async def _seal_downloads(cat_id, session_id, page, site=''):
     """🔏 Files the owner downloaded in a window they used (a recovery PDF…) → sealed in its drawer, then deleted from the cloud browser. → how many."""
     names = getattr(getattr(page, 'downloads', None), 'names', None) or {}
-    async with httpx.AsyncClient(timeout=30) as http:
-        got = await _cb.collect_downloads(http, os.environ, session_id, names)
+    try:
+        async with httpx.AsyncClient(timeout=30) as http:
+            got = await _cb.collect_downloads(http, os.environ, session_id, names)
+    except (httpx.HTTPError, ValueError) as exc:
+        print(f'[vault] {cat_id}: download listing unavailable ({type(exc).__name__})')
+        return 0  # A transient Steel file-list failure must not discard the owner's saved sign-in.
     if not got:
         return 0
     store = _load(); cat = store['cats'].get(cat_id)
@@ -4913,6 +4936,7 @@ async def cat_action(cat_id: str, payload: ActionPayload, request: Request):
             if float(bal_.get('sol') or 0) > 0.001 or float(bal_.get('usdc') or 0) > 0.01:
                 raise HTTPException(409, f"Its wallet still holds {bal_.get('sol')} SOL / {bal_.get('usdc')} USDC — withdraw it first.")
         store['cats'].pop(cat_id, None)
+        _DELETED_CATS.add((str(STORE_PATH), cat_id)); _NEW_CATS.pop((str(STORE_PATH), cat_id), None); _KEPT.pop(cat_id, None)
         _WORK.pop(cat_id, None)
         _save(store)
         return {'cat': None, 'deleted': cat_id}

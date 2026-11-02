@@ -31,6 +31,6 @@ export function CandleClock({ seriesRef, chartRef, lastBarRef, shownRef, contain
     el.style.width = `${axis}px`;
     el.style.transform = `translate3d(${x.toFixed(1)}px, ${((box.offsetTop || 0) + y + 11).toFixed(1)}px, 0)`;
     el.style.opacity = '1';
-  }), [seriesRef, chartRef, lastBarRef, shownRef, container, bucketSec]);
+  }, 1000), [seriesRef, chartRef, lastBarRef, shownRef, container, bucketSec]);
   return <span ref={tag} className="cck" data-testid="candle-clock" aria-label="time to candle close" />;
 }
