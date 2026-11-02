@@ -571,7 +571,7 @@ def note(log, row, keep=LOG_KEEP):
     return (list(log or []) + [row])[-keep:]
 
 
-HUNT_PASS_N = 5   # answered hunting minutes before a turn may pass
+HUNT_PASS_N = 2   # two actual no-entry reads suffice; never consume five costly empty minutes
 
 
 def hunt_answers(log, who, since):
@@ -795,7 +795,7 @@ def merge_log(ours, theirs, keep=LOG_KEEP):
     return out[-keep:]
 
 
-HUNT_TURN_SEC = 600.0   # ⏱ a hunting turn with no clean entry passes to the other model after 10 min (one waits forever = no turns)
+HUNT_TURN_SEC = 180.0   # a hunter with no clean entry hands the next turn over after three minutes
 
 
 def line_hold(dec, held, ch, sellers=False):

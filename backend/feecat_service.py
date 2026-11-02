@@ -1012,7 +1012,20 @@ async def _wallet_once(cat, model_id, messages, max_tokens, ceiling):
             if r2.status_code != 200:
                 print(f"[agent pay] {cat['id']}: provider {r2.status_code} {r2.text[:120]}")
                 return '', 0.0
-            return ((r2.json().get('choices') or [{}])[0].get('message') or {}).get('content') or '', int(entry['amount']) / _ap.USDC_SCALE
+            answer = r2.json()
+            # A receipt records the accepted x402 charge without retaining the
+            # signed transaction, bearer header, prompt, or model response.
+            receipt = {'id': hashlib.sha256(head.encode()).hexdigest()[:20], 'cat': cat['id'], 'at': time.time(),
+                       'provider': 'SingIt', 'model': model_id, 'usd': int(entry['amount']) / _ap.USDC_SCALE,
+                       'tokens': (answer.get('usage') or {}).get('total_tokens'), 'status': 'provider accepted'}
+            try:
+                with (DATA_DIR / 'model_receipts.jsonl').open('a') as ledger:
+                    ledger.write(json.dumps(receipt, separators=(',', ':')) + '\n')
+            except OSError as e:
+                # A receipt disk error must never turn an already accepted
+                # payment into a reported free call or trigger another route.
+                print(f"[agent pay] receipt write failed: {type(e).__name__}")
+            return ((answer.get('choices') or [{}])[0].get('message') or {}).get('content') or '', receipt['usd']
     except (ValueError, KeyError, httpx.HTTPError) as e:
         print(f"[agent pay] {cat['id']}: {str(e)[:120]}")
         return '', 0.0
@@ -1044,6 +1057,15 @@ async def _think(cat, model, messages, own_key=None, effort=None, max_tokens=Non
     for name, step in ((('openrouter', router),) if own_key else (('singit', paid), ('openrouter', router))):
         text, usd = await step()
         if str(text or '').strip():
+            if name == 'openrouter' and usd > 0:
+                receipt = {'id': uuid.uuid4().hex[:20], 'cat': cat['id'], 'at': time.time(), 'provider': 'OpenRouter',
+                           'model': model, 'usd': usd, 'tokens': None, 'status': 'provider reported',
+                           'funding': 'owner key' if own_key else 'model credit'}
+                try:
+                    with (DATA_DIR / 'model_receipts.jsonl').open('a') as ledger:
+                        ledger.write(json.dumps(receipt, separators=(',', ':')) + '\n')
+                except OSError as e:
+                    print(f"[agent pay] receipt write failed: {type(e).__name__}")
             return text, usd, name
     if own_key:
         return '', 0.0, ''
@@ -3735,7 +3757,16 @@ async def cat_work(cat_id: str, p: WorkPayload):
         async with httpx.AsyncClient(timeout=25) as http:
             usdc_, sol_ = await _agent_usdc(http, addr_)
             if p.op == 'wallet':
-                return {'address': addr_, 'sol': sol_, 'usdc': usdc_, 'gas': _at.GAS_SOL, 'canSwap': _pays_itself(cat), 'swaps': (cat.get('walletSwaps') or [])[-8:]}
+                receipts_ = []
+                try:
+                    with (DATA_DIR / 'model_receipts.jsonl').open() as ledger:
+                        for line_ in ledger:
+                            row_ = json.loads(line_)
+                            if row_.get('cat') == cat_id:
+                                receipts_.append({k: row_.get(k) for k in ('id', 'at', 'provider', 'model', 'usd', 'tokens', 'status', 'funding')})
+                except (FileNotFoundError, ValueError):
+                    pass
+                return {'address': addr_, 'sol': sol_, 'usdc': usdc_, 'gas': _at.GAS_SOL, 'canSwap': _pays_itself(cat), 'swaps': (cat.get('walletSwaps') or [])[-8:], 'modelReceipts': receipts_[-40:][::-1]}
             if not _pays_itself(cat):
                 raise HTTPException(400, 'Only a wallet Circle signs for this agent can swap.')
             if cat_id in _SWAP_BUSY:

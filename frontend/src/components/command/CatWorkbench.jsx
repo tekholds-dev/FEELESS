@@ -742,14 +742,29 @@ function PowShare({ cat }) {
 // 🧬 ITS FINGERPRINT (owner 2026-11-02): the sources it read and the facts it filed before each trade, scored by how that trade went — its own,
 // built over time from the forever archive; its best proven source leads the next research (one at a time, the rest keep rotating)
 function FingerPanel({ fp }) {
-  if (!fp?.trades && !fp?.tracks) return <p className="dsk-note">🧬 Its fingerprint starts with its first PoW research track.</p>;
+  if (!fp) return <p className="dsk-note">Reading its source coverage…</p>;
   const rows = Object.entries(fp.sites || {}).sort((a, b) => b[1].w / b[1].n - a[1].w / a[1].n || b[1].w - a[1].w).slice(0, 8);
   const vit = Object.entries(fp.vitals || {}).sort((a, b) => b[1].w - a[1].w).slice(0, 6);
   return <div className="dsk-fp" data-testid="dsk-fp"><span className="dsk-fp-h"><b>🧬 ITS FINGERPRINT</b><small>{fp.tracks || 0} research tracks · {fp.won}/{fp.trades} trades won · last two routes avoided</small></span>
+    <div className="dsk-coverage" data-testid="dsk-source-coverage"><b>Source coverage · {(Object.values(fp.coverage || {}).filter(x => x.reads).length)}/{Object.keys(fp.coverage || {}).length} sites read</b>
+      <div className="dsk-coverage-grid">{Object.entries(fp.coverage || {}).map(([host, x]) => <span key={host} className={x.reads ? 'is-read' : ''} title={`${host}: ${x.reads} research tracks${x.last ? ` · last read ${ago(x.last)} ago` : ''}`}><i aria-hidden="true" />{host}<small>{x.reads} reads · {x.wins} wins</small></span>)}</div></div>
     {(fp.recentTracks || []).length ? <p className="dsk-fp-vit" data-testid="dsk-fp-tracks">{(fp.recentTracks || []).map((t, i) => <span key={`${t.at}-${i}`} className="m-chip" data-tip={`${t.steps} unique browser actions recorded as hashes`}>#{i + 1} ${t.sym || '?'} · {(t.sites || []).join(' → ') || 'FEELESS'} · {t.steps} steps</span>)}</p> : null}
     <ul className="dsk-fp-sites">{rows.map(([h, x], i) => <li key={h} style={{ '--i': i }} className={(fp.best || []).includes(h) ? 'is-best' : ''} data-tip={`${h}: read before ${x.n} of its trades, ${x.w} won${x.last ? ` · last win ${ago(x.last)} ago` : ''}`}>
       <b>{(fp.best || []).includes(h) ? '★ ' : ''}{h}</b><u><s style={{ transform: `scaleX(${x.w / x.n})` }} /></u><em className="m-num">{x.w}/{x.n}</em></li>)}</ul>
     {vit.length ? <p className="dsk-fp-vit">{vit.map(([k, x]) => <span key={k} className="m-chip">{k} <b className="m-num">{x.w}/{x.n}</b></span>)}</p> : null}</div>;
+}
+function PowReplay({ f, catId, onShot }) {
+  const [step, setStep] = useState(0);
+  const events = [...(f.talk || []).map(t => ({ at: t.at, kind: t.by || 'Discussion', text: t.text })),
+    ...(f.shots || []).map(s => ({ at: s.at, kind: 'Snapshot', text: `${s.site || 'Source'} · ${s.sym || ''}`, shot: s })),
+    ...(f.boughtAt ? [{ at: f.boughtAt, kind: 'Buy', text: `${f.sym || 'Coin'} · ${f.sol || '—'} SOL` }] : []),
+    ...(f.soldAt ? [{ at: f.soldAt, kind: 'Sell', text: `${f.pnlPct == null ? 'closed' : `${f.pnlPct >= 0 ? '+' : ''}${f.pnlPct}%`}` }] : [])]
+    .filter(x => Number(x.at) > 0).sort((a, b) => a.at - b.at);
+  if (!events.length) return <p className="dsk-note">Evidence appears here as this PoW runs.</p>;
+  const current = events[Math.min(step, events.length - 1)];
+  return <div className="dsk-replay" data-testid="dsk-pow-replay"><b>▶ PoW evidence replay</b><small>{step + 1} / {events.length} · {new Date(Number(current.at) * 1000).toLocaleString()}</small>
+    <div className="dsk-replay-controls"><button type="button" className="m-btn" disabled={!step} onClick={() => setStep(step - 1)}>← Earlier</button><input type="range" min="0" max={events.length - 1} value={Math.min(step, events.length - 1)} onChange={e => setStep(Number(e.target.value))} aria-label="PoW evidence step" /><button type="button" className="m-btn" disabled={step >= events.length - 1} onClick={() => setStep(step + 1)}>Later →</button></div>
+    <p><strong>{current.kind}</strong> · {current.text}</p>{current.shot?.file ? <button type="button" className="m-btn" onClick={() => onShot(current.shot)}>Open snapshot</button> : null}</div>;
 }
 function PowExplorer({ cat, d, setD }) {
   const [path, setPath] = useState([]); const [rows, setRows] = useState(null); const [big, setBig] = useState(null); const [sure, setSure] = useState(''); const [err, setErr] = useState('');
@@ -788,6 +803,7 @@ function PowExplorer({ cat, d, setD }) {
       <button type="button" className={`m-btn${sure === f.id ? ' is-danger' : ''}`} onClick={() => (sure === f.id ? act('delete', { text: f.id }) : setSure(f.id))}
         data-tip="Remove it from the desktop (its snapshots too). Its facts stay in the PoW archive so the next PoW never repeats them." data-testid="dsk-fold-del">{sure === f.id ? 'Tap again to delete' : '🗑 Delete'}</button></span>}
       <ol className="dsk-fold-steps" aria-label="Where this folder is">{PHASES.map(([k, l], i) => <li key={k} className={i < at || f.status === 'closed' ? 'is-done' : i === at ? 'is-on' : ''}><i aria-hidden="true" />{l}</li>)}</ol>
+      <PowReplay key={f.id} f={f} catId={cat.id} onShot={setBig} />
       <div className="dsk-xgrid"><Tile kind="file" tone={gradeOf(f) || 'none'} ic="📋" label="REPORT" sub={f.report ? f.report.grade : "when it closes"} onOpen={() => setPath([f.id, 'report'])} tip="What this folder found, the trade, its grade and cost" testid="dsk-x-report" />
         {(f.coins || []).filter(x => !(f.hidden || []).includes(x.mint)).map((x, i) => { const pk = f.pick?.mint === x.mint; const g = pk ? gradeOf(f) : null;
           return <Tile key={x.mint} i={i + 1} tone={g || (pk ? 'live' : x.safe === false ? 'bad-coin' : 'coin')} ic={g === 'good' ? '👍' : g === 'bad' ? '👎' : pk ? '⭐' : x.safe === false ? '⛔' : '🪙'} label={`$${x.sym}`}
@@ -857,6 +873,8 @@ function WalletApp({ cat }) {
     <div className="dsk-wal-bal">{[['SOL', w.sol, 4, `${w.gas} kept for gas`], ['USDC', w.usdc, 2, 'pays its thinking']].map(([k, v, d, sub]) =>
       <span key={k} className={`is-${k.toLowerCase()}`}><em>{k}</em><b className="m-num">{Number(v || 0).toFixed(d)}</b><small>{sub}</small></span>)}</div>
     <p className="dsk-note" data-testid="dsk-wallet-model-budget">Model budget: ${Number(cat.brainsCfg?.credit || 0).toFixed(2)} remaining. Wallet balances above are live; SingIt charges the USDC here per call.</p>
+    <div className="dsk-receipts" data-testid="dsk-model-receipts"><b>Model charge receipts</b>
+      {(w.modelReceipts || []).length ? <ul>{w.modelReceipts.map(r => <li key={r.id}><strong>${Number(r.usd).toFixed(4)}</strong> · {r.provider} / {r.model} <small>{r.funding || 'agent USDC wallet'} · {r.tokens == null ? 'tokens unreported' : `${r.tokens} tokens`} · {ago(r.at)} ago · {r.status} · #{r.id}</small></li>)}</ul> : <small>No model charges recorded yet.</small>}</div>
     <code className="dsk-wal-addr" data-tip="Its own wallet address">{w.address}</code>
     {w.canSwap ? <form className="dsk-wal-swap" onSubmit={e => { e.preventDefault(); go(); }}>
       <span className="m-seg" role="group" aria-label="Swap direction">{[['USDC>SOL', 'USDC → SOL'], ['SOL>USDC', 'SOL → USDC']].map(([k, l]) =>

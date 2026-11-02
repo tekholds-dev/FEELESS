@@ -18189,6 +18189,24 @@ async def _g4_tick(now, env, cfg):
         if _g4_picks_only():   # 🧪 N04 (owner 2026-10-29 "picks only"): the models are offered ONLY the desk's proven-rule picks (136 real trades: no edge of their own)
             cands_ = [c_ for c_ in cands_ if c_.get('pick')]
         cands_ = sorted(cands_, key=lambda c_: _seat.germ_rank(_opp.germ_d(c_.get('chart') or {})[0], _uni.germ_max()))[:_seat.CAND_N]   # 🦠 germ-floor coins first (stable: kernel rank inside each tier)
+        if not cands_ and not held_m:
+            # Nothing actionable: do not wake a local model to say WAIT again.
+            # Rotate the idle hunt clock too, so a later pick is offered to
+            # both models in turn even if no model could answer while empty.
+            if mode_ == 'real':
+                hm_ = _g4_mem.get() or {}
+                hunter_ = hm_.get('huntBy') if hm_.get('huntBy') in (_duet.LEAD, _duet.SECOND) else _seat.turn(st_['log'], _duet.LEAD, _duet.SECOND, opener=st_.get('opener'))[0]
+                since_ = _fuse._f(hm_.get('huntSince')) or now
+                if now - since_ >= _seat.HUNT_TURN_SEC:
+                    partner_ = _duet.SECOND if hunter_ == _duet.LEAD else _duet.LEAD
+                    _g4_mem.put({**hm_, 'opener': hunter_, 'huntBy': partner_, 'huntSince': now,
+                                 'log': _seat.note(st_['log'], {'at': round(now), 'mode': mode_, 'model': 'SEAT', 'action': 'PASS',
+                                                               'why': f'No eligible coin on the card — {_air.model_name(env, partner_)} gets the next pick'})}, now)
+                elif not hm_.get('huntBy'):
+                    _g4_mem.put({**hm_, 'huntBy': hunter_, 'huntSince': now}, now)
+            # The next clock tick still checks the kernel for fresh picks.
+            _g4['phase'] = 'NO ELIGIBLE COINS'
+            return
         pxm_ = await _live_px([c_['mint'] for c_ in cands_] + ([held_m] if held_m else []))
         px_of = lambda m_: _fuse._f(pxm_.get(m_)) or _fuse._f((_jup_px_cache.get(m_) or (0, 0))[1])
         pos_ = ((_office_state().get('pos') or {}).get(held_m) or {}) if held_m else {}

@@ -219,7 +219,7 @@ def test_a_hunting_turn_passes_only_when_the_hunter_really_answered():
     log = [{'by': 'agents', 'action': 'WAIT', 'at': 10 + i} for i in range(9)]
     assert seat.hunt_answers(log, 'lan', 0) == 0   # G4 could not answer: its turn stays
     log += [{'by': 'lan', 'action': 'WAIT', 'at': 20 + i} for i in range(5)] + [{'by': 'lan', 'action': 'TALK', 'talk': True, 'at': 30}]
-    assert seat.hunt_answers(log, 'lan', 0) == seat.HUNT_PASS_N
+    assert seat.hunt_answers(log, 'lan', 0) == 5 and seat.hunt_answers(log[:11], 'lan', 0) == seat.HUNT_PASS_N
 
 
 def test_g4_says_it_in_four_sentences_and_a_cut_json_answer_never_shows_raw():

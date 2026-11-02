@@ -57,6 +57,18 @@ def run(c):
     return asyncio.run(c)
 
 
+def test_ossy_seat_read_has_a_hard_output_cap():
+    air.ROUTER.__init__()
+    h = Http({'127.0.0.1': [chat('{"action":"WAIT","why":"no clean entry"}')]})
+    p = air.provider(env(), 'local', {})
+    role = air.CALL_ROLE.set('exit')
+    try:
+        run(air.ROUTER._call1(h, p, env(), [{'role': 'user', 'content': 'Your minute snapshot. Decide.'}], 0))
+    finally:
+        air.CALL_ROLE.reset(role)
+    assert h.calls[0][1]['max_tokens'] == 320
+
+
 def test_advice_is_validated_and_clamped_or_dropped():
     a = air.parse_advice('```json\n' + GOOD + '\n```')
     assert a == {'summary': 'Buyer velocity strong; wait for reclaim.', 'confidence_delta': -0.08, 'wake': ['sherlock', 'trigger'], 'stance': 'CAUTION',

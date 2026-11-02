@@ -1112,8 +1112,12 @@ class Router:
         tn = TUNE.get()
         if tn:
             body.update(temperature=float(tn.get('temp', 0.1)), max_tokens=int(tn.get('maxTok', MAX_TOKENS)))
+        # The seat is a short decision, not a general chat. Keep this cap after
+        # inference presets so a saved LM Studio preset cannot restore 700 tokens.
+        if p['key'] in LM and not tn and CALL_ROLE.get() == 'exit' and 'Your minute snapshot. Decide.' in str(msgs[-1].get('content') if msgs else ''):
+            body['max_tokens'] = min(int(body['max_tokens']), 320)
         if p['key'] in LM and (self._ctx.get(p['key']) or (0, 1e9))[1] < 6000:
-            body['max_tokens'] = min(MAX_TOKENS, LOCAL_ANSWER)
+            body['max_tokens'] = min(int(body['max_tokens']), LOCAL_ANSWER)
         tout = max(p['timeout'], OWNER_LOCAL_SEC) if p['key'] in LM and tn else p['timeout']   # 💬 the owner's own chat waits for the local model (a 7B read of a real evidence packet ≈ 25–40s)
         try:
             r = await asyncio.wait_for(http.post(f"{p['base']}/chat/completions", json=body, headers=hdr, **({'timeout': tout + 2} if type(http).__module__.startswith('httpx') else {})), timeout=tout)   # the PROVIDER's own time: the shared client's 20s cut the local model off ("no provider answered · 20.0s")

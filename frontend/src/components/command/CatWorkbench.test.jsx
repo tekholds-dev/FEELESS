@@ -350,6 +350,7 @@ test('⛏ the PoW explorer: PoW › dated folders › coin folders (the pick = �
   const q = id => document.querySelector(`[data-testid="${id}"]`);
   expect(q('dsk-pow').textContent).toContain('FOLDERS'); expect(q('dsk-x-pow9').textContent).toContain('PoW #9');
   await act(async () => { q('dsk-x-pow9').click(); }); expect(q('dsk-x-report')).not.toBeNull(); expect(q('dsk-x-coin-M1').textContent).toContain('👎');
+  expect(q('dsk-pow-replay').textContent).toContain('buy AAA');
   await act(async () => { q('dsk-x-coin-M1').click(); }); expect(q('dsk-pow').textContent).toContain('BAD TRADE'); expect(document.querySelector('.dsk-tl')).not.toBeNull();
   expect(q('dsk-coin-M1').textContent).toContain('👎 rugcheck.xyz');
   await act(async () => { document.querySelector('.dsk-xpath .m-btn').click(); }); await act(async () => { q('dsk-x-report').click(); });
@@ -362,12 +363,13 @@ test('👛 the wallet app: live SOL + USDC, pick a direction, Swap sends op wall
   sessionStorage.clear(); document.body.innerHTML = ''; const calls = [];
   global.fetch = async (u, o) => { const b = o?.body ? JSON.parse(o.body) : {}; calls.push(b);
     const w = b.op === 'wallet_swap' ? { address: 'AGT', sol: 0.0179, usdc: 0.35, gas: 0.01, canSwap: true, swap: { landed: true }, swaps: [{ at: Date.now() / 1000, side: 'USDC>SOL', amount: 1, landed: true }] }
-      : { address: 'AGT', sol: 0.0075, usdc: 1.35, gas: 0.01, canSwap: true, swaps: [] };
+      : { address: 'AGT', sol: 0.0075, usdc: 1.35, gas: 0.01, canSwap: true, swaps: [], modelReceipts: [{ id: 'paid1', at: Date.now() / 1000, provider: 'SingIt', model: 'test/model', usd: 0.003, tokens: 120, status: 'provider accepted' }] };
     return { ok: true, json: async () => w }; };
   const el = document.createElement('div'); document.body.appendChild(el); const root = createRoot(el);
   await act(async () => { root.render(<AgentDesktop cat={{ id: 'g1', name: 'Happy' }} onClose={() => {}} start="wallet" />); });
   const q = id => document.querySelector(`[data-testid="${id}"]`);
   expect(q('dsk-wallet').textContent).toContain('1.35'); expect(q('dsk-wallet').textContent).toContain('0.0075');
+  expect(q('dsk-model-receipts').textContent).toContain('$0.0030'); expect(q('dsk-model-receipts').textContent).toContain('120 tokens');
   const inp = q('dsk-wallet').querySelector('input'); const set = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set;
   await act(async () => { set.call(inp, '1'); inp.dispatchEvent(new Event('input', { bubbles: true })); });
   await act(async () => { q('dsk-wallet-swap').click(); });
@@ -434,10 +436,10 @@ test('🤝 the PoW folder shares wins with the pot WITHOUT colonizing: pick 20% 
   const q = id => document.querySelector(`[data-testid="${id}"]`);
   expect(q('dsk-share').textContent).toContain('stay in its wallet');
   await act(async () => { q('dsk-share-20').click(); });
-  expect(signed.at(-1)).toMatch(/^FEELESS colony share\nagent:h1\npct:20\nts:\d+$/); expect(posts.at(-1)).toMatchObject({ op: 'share', on: true, cap: 20, sig: 'SIG' });
+  expect(signed.at(-1)).toMatch(/^FEELESS colony share\nagent:h1\npct:20\nts:\d+$/); expect(posts.filter(p => p.op === 'share').at(-1)).toMatchObject({ op: 'share', on: true, cap: 20, sig: 'SIG' });
   expect(q('dsk-share').textContent).toContain('20% of each winning PoW');
   const n = signed.length; await act(async () => { q('dsk-share-0').click(); });
-  expect(posts.at(-1)).toMatchObject({ op: 'share', on: false }); expect(signed.length).toBe(n); expect(n).toBe(before + 1);
+  expect(posts.filter(p => p.op === 'share').at(-1)).toMatchObject({ op: 'share', on: false }); expect(signed.length).toBe(n); expect(n).toBe(before + 1);
   act(() => root.unmount());
 });
 
