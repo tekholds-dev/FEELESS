@@ -368,7 +368,7 @@ def test_a_new_research_round_never_reopens_the_sites_an_earlier_round_read():
     first = [pw.host_of(u) for u in pw.links(p)][:3]
     p2 = {**p, 'used': first}
     assert not set(first) & {pw.host_of(u) for u in pw.links(p2)} and 'jup.ag' in {pw.host_of(u) for u in pw.links(p2)}   # round 2 = new sources
-    assert len(pw.links({**p, 'used': [pw.host_of(u) for u in pw.links(p)]})) == len(pw.HOSTS)   # all used → it cycles, never empty
+    assert pw.links({**p, 'used': [pw.host_of(u) for u in pw.links(p)]}) == []   # all used → stop; no cycle
 
 
 def test_each_researched_site_files_two_snapshots_for_the_coins_folder():
@@ -675,3 +675,31 @@ def test_two_source_fallback_both_minds_get_two_choices_and_agree(monkeypatch):
     assert [i for i, _, _ in seen] == [0, 1, 0]
     assert all('Below are 2 Solana coins' in system and '$FEE' in user and '$PUMP' in user for _, system, user in seen)
     assert f['phase'] == 'scout' and set(f['scout']) == {'F1', 'P1'}
+
+
+def test_archived_tracks_block_last_two_sites_and_exact_previous_steps():
+    import cat_agent as ca
+    sig = ca.step_sig('open', {'url': 'https://rugcheck.xyz/tokens/M'}, 'https://dexscreener.com/solana/P')
+    rows = [pw.archive_row('research', 'agent', {'id': f'f{i}'}, {'mint': 'M' if i == 0 else f'N{i}', 'sym': 'X'}, i,
+                           sites=[h], steps=[pw.step_hash(sig)] if i == 0 else [])
+            for i, h in enumerate(('rugcheck.xyz', 'solscan.io', 'birdeye.so'))]
+    used, steps = pw.track_memory(rows, 'agent', 'M')
+    assert used == {'rugcheck.xyz', 'solscan.io', 'birdeye.so'} and pw.step_hash(sig) in steps
+    assert ca.repeat_why({'sigs': []}, 'open', sig, 'https://dexscreener.com/solana/P', steps)
+    p = {**pw.new({'mint': 'M', 'pair': 'P', 'sym': 'X'}, 1), 'used': used, 'order': pw.site_order(used, set())}
+    assert not used & {pw.host_of(u) for u in pw.links(p)}
+    assert pw.links({**p, 'used': list(pw.HOSTS)}) == []
+    fp = pw.fingerprint(rows, 'agent')
+    assert fp['tracks'] == 3 and len(fp['recentTracks']) == 2 and fp['recentTracks'][-1]['sites'] == ['birdeye.so']
+
+
+def test_singit_pow_calls_reduce_the_bought_model_budget(monkeypatch):
+    import feecat_service as fs
+    cat = {'id': 'wallet-model', 'brainsCfg': {'brains': ['one'], 'credit': 1.0}, 'powRun': {'folder': {'cost': 0}}}
+    async def think(*args, **kwargs):
+        return 'answer', 0.02, 'singit'
+    monkeypatch.setattr(fs, '_think', think)
+    monkeypatch.setattr(fs._ck, 'key_for', lambda *a, **kw: None)
+    assert asyncio.run(fs._pow2_ask(cat, 0, 'rule', 'question')) == 'answer'
+    assert cat['brainsCfg']['credit'] == 0.98 and cat['brainsCfg']['spent'] == 0.02
+    assert cat['powRun']['folder']['cost'] == 0.02

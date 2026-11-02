@@ -268,7 +268,7 @@ def test_model_credit_is_sold_only_while_openrouter_can_cover_it():
     assert cf.credit_open(None) is False                                   # unknown balance: no sale
 
 
-def test_a_user_cannot_buy_credit_while_openrouter_is_empty_but_can_still_fund_the_wallet(monkeypatch):
+def test_a_user_can_fund_singit_wallet_when_openrouter_is_empty(monkeypatch):
     import asyncio
     import reputation_service as rs
     from fastapi import HTTPException
@@ -284,10 +284,10 @@ def test_a_user_cannot_buy_credit_while_openrouter_is_empty_but_can_still_fund_t
     monkeypatch.setenv('GROQ_API_KEY', '')
     monkeypatch.setattr(rs, 'session_address', lambda _s: me); monkeypatch.setattr(rs, '_cat_for_fund', cat_for); monkeypatch.setattr(rs, '_openrouter_left', low)
     monkeypatch.setattr(rs, '_sol_usd', px); monkeypatch.setattr(rs, '_rpc', rpc); monkeypatch.setattr(rs, '_cat_fund_rules', lambda _m: {'feeUsd': 0.0, 'minUsd': 1.0, 'staff': False})
-    with pytest.raises(HTTPException) as e:
-        asyncio.run(rs.cat_fund_build('c1', rs.CatFundIn(address=me, session='session-x', usd=10, creditUsd=5)))
-    assert e.value.status_code == 503
-    assert asyncio.run(rs.cat_fund_build('c1', rs.CatFundIn(address=me, session='session-x', usd=10)))['plan']['creditUsd'] == 0   # wallet funding still works
+    funded = asyncio.run(rs.cat_fund_build('c1', rs.CatFundIn(address=me, session='session-x', usd=10, creditUsd=5)))
+    assert funded['plan']['creditUsd'] == 5 and funded['plan']['feeLamports'] == 0
+    assert funded['plan']['catUsd'] == 10   # models and trades are funded in its own wallet
+    assert asyncio.run(rs.cat_fund_build('c1', rs.CatFundIn(address=me, session='session-x', usd=10)))['plan']['creditUsd'] == 0
 
 
 def test_each_agent_stops_ten_cents_before_its_own_credit_and_never_touches_another():

@@ -742,10 +742,11 @@ function PowShare({ cat }) {
 // 🧬 ITS FINGERPRINT (owner 2026-11-02): the sources it read and the facts it filed before each trade, scored by how that trade went — its own,
 // built over time from the forever archive; its best proven source leads the next research (one at a time, the rest keep rotating)
 function FingerPanel({ fp }) {
-  if (!fp?.trades) return <p className="dsk-note">🧬 Its fingerprint builds itself from its own trades — the first finished PoW trade starts it.</p>;
+  if (!fp?.trades && !fp?.tracks) return <p className="dsk-note">🧬 Its fingerprint starts with its first PoW research track.</p>;
   const rows = Object.entries(fp.sites || {}).sort((a, b) => b[1].w / b[1].n - a[1].w / a[1].n || b[1].w - a[1].w).slice(0, 8);
   const vit = Object.entries(fp.vitals || {}).sort((a, b) => b[1].w - a[1].w).slice(0, 6);
-  return <div className="dsk-fp" data-testid="dsk-fp"><span className="dsk-fp-h"><b>🧬 ITS FINGERPRINT</b><small>{fp.won}/{fp.trades} trades won · built from its own research, over time</small></span>
+  return <div className="dsk-fp" data-testid="dsk-fp"><span className="dsk-fp-h"><b>🧬 ITS FINGERPRINT</b><small>{fp.tracks || 0} research tracks · {fp.won}/{fp.trades} trades won · last two routes avoided</small></span>
+    {(fp.recentTracks || []).length ? <p className="dsk-fp-vit" data-testid="dsk-fp-tracks">{(fp.recentTracks || []).map((t, i) => <span key={`${t.at}-${i}`} className="m-chip" data-tip={`${t.steps} unique browser actions recorded as hashes`}>#{i + 1} ${t.sym || '?'} · {(t.sites || []).join(' → ') || 'FEELESS'} · {t.steps} steps</span>)}</p> : null}
     <ul className="dsk-fp-sites">{rows.map(([h, x], i) => <li key={h} style={{ '--i': i }} className={(fp.best || []).includes(h) ? 'is-best' : ''} data-tip={`${h}: read before ${x.n} of its trades, ${x.w} won${x.last ? ` · last win ${ago(x.last)} ago` : ''}`}>
       <b>{(fp.best || []).includes(h) ? '★ ' : ''}{h}</b><u><s style={{ transform: `scaleX(${x.w / x.n})` }} /></u><em className="m-num">{x.w}/{x.n}</em></li>)}</ul>
     {vit.length ? <p className="dsk-fp-vit">{vit.map(([k, x]) => <span key={k} className="m-chip">{k} <b className="m-num">{x.w}/{x.n}</b></span>)}</p> : null}</div>;
@@ -855,6 +856,7 @@ function WalletApp({ cat }) {
   return <div className="dsk-wal" data-testid="dsk-wallet">
     <div className="dsk-wal-bal">{[['SOL', w.sol, 4, `${w.gas} kept for gas`], ['USDC', w.usdc, 2, 'pays its thinking']].map(([k, v, d, sub]) =>
       <span key={k} className={`is-${k.toLowerCase()}`}><em>{k}</em><b className="m-num">{Number(v || 0).toFixed(d)}</b><small>{sub}</small></span>)}</div>
+    <p className="dsk-note" data-testid="dsk-wallet-model-budget">Model budget: ${Number(cat.brainsCfg?.credit || 0).toFixed(2)} remaining. Wallet balances above are live; SingIt charges the USDC here per call.</p>
     <code className="dsk-wal-addr" data-tip="Its own wallet address">{w.address}</code>
     {w.canSwap ? <form className="dsk-wal-swap" onSubmit={e => { e.preventDefault(); go(); }}>
       <span className="m-seg" role="group" aria-label="Swap direction">{[['USDC>SOL', 'USDC → SOL'], ['SOL>USDC', 'SOL → USDC']].map(([k, l]) =>

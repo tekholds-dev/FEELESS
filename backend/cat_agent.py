@@ -175,12 +175,14 @@ def step_sig(act, a, url, seen=''):
     return f"{act}|{str(url or '').split('#')[0].rstrip('/')}|{tgt}"
 
 
-def repeat_why(w, act, sig, url):
+def repeat_why(w, act, sig, url, prior=()):
     """Why this step would repeat itself (None = new). Reading the same site again for something else is fine; the very same step is not."""
     if act in ('answer', 'note', 'human', 'ask_login', 'feeless'):
         return None
     if sig in (w.get('sigs') or []):
         return 'you already did exactly this step'
+    if _pow.step_hash(sig) in set(prior or ()):
+        return 'this browsing step was already filed in an earlier PoW'
     if act == 'scroll' and sum(1 for x in w.get('sigs') or [] if x.startswith(f"scroll|{str(url or '').split('#')[0].rstrip('/')}|")) >= SCROLLS_PER_PAGE:
         return f'{SCROLLS_PER_PAGE} scrolls on this page already — its PAGE SNAPSHOT has the rest'
     return None
@@ -433,7 +435,7 @@ async def _window(task, w, ask, page, wait_human, name, feeless=None):
             w['human'] = {'why': str(a.get('why') or thought or 'a person is needed here')[:160], 'url': page.url}
         else:
             sig_ = step_sig(act, a, page.url, w.get('_page') or seen)
-            why_rep = repeat_why(w, act, sig_, page.url)
+            why_rep = repeat_why(w, act, sig_, page.url, (pw or {}).get('priorSteps'))
             if why_rep:   # 🔁 NEVER the same step twice (owner 2026-10-31: "it scrolled up and down 20 times") — refused, not paid for again
                 w['repeats'] = int(w.get('repeats') or 0) + 1
                 if w['repeats'] >= REPEAT_MAX:

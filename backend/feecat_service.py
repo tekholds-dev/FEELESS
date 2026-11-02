@@ -1349,8 +1349,8 @@ async def _pow2_ask(cat, i, sys_, user_, max_tokens=180):
         reply_, usd_, via_ = await _think(cat, ms[min(i, len(ms) - 1)], [{'role': 'system', 'content': sys_}, {'role': 'user', 'content': user_[:3500]}], own_, None, max_tokens)
     except Exception:   # noqa: BLE001 — no model now: it tries again next tick
         return ''
-    if not own_ and via_ == 'openrouter':
-        _lc.charge(b_, usd_)
+    if not own_ and usd_:
+        _lc.charge(b_, usd_)   # SingIt and OpenRouter both consume the agent's bought model budget
     elif usd_:
         day_ = time.strftime('%Y-%m-%d', time.gmtime()); b_['daySpend'] = {day_: round((b_.get('daySpend') or {}).get(day_, 0) + float(usd_), 6)}
     _pow2_cost((cat.get('powRun') or {}).get('folder'), i, usd_)
@@ -1392,15 +1392,18 @@ def _pow2_research(cat, f, coin, mind_i, now):
     rp = {**_pow.new({'mint': coin['mint'], 'pair': coin['pair'], 'sym': coin['sym']}, now), 'cat': cat['id'], 'mind': mind_i, 'folder': f['id'], 'plan': (f.get('plans') or {}).get(coin['mint']),
           'used': list(((f.get('usedBy') or {}).get(coin['mint'])) or []),
           'known': [x['label'] for x in (f.get('vitals') or {}).get(coin['mint']) or []]}   # 🧹 what this coin's folder already knows — the round reads something new
-    prior_ = [r for r in _pow.archive_find(_pow_archive_rows(), coin['mint'], 40) if r.get('kind') == 'research']   # 🗄 owner 2026-11-02: review the coin's PoW first — a NEW fingerprint
+    archive_ = _pow_archive_rows()
+    prior_ = [r for r in _pow.archive_find(archive_, coin['mint'], 40) if r.get('kind') == 'research']
+    blocked_sites_, blocked_steps_ = _pow.track_memory(archive_, cat['id'], coin['mint'])
     rp['known'] = sorted(set(rp['known']) | {x.get('label') for r in prior_ if now - float(r.get('at') or 0) < 86400 for x in r.get('vitals') or [] if x.get('label')})
-    rp['used'] = sorted(set(rp['used']) | {h for r in prior_[:2] for h in r.get('sites') or []})
-    rp['prior'] = _pow.archive_brief(_pow.archive_find(_pow_archive_rows(), coin['mint']))
-    recent_, wins_ = _pow.site_memory(cat.get('powFolders'))   # 🎲 random sites, never the last folders' — unless a winning folder used them
-    fp_ = _pow.fingerprint(_pow_archive_rows(), cat['id'])
-    if fp_.get('best'):   # 🧬 its OWN proven sources lead (one at a time — the rest still rotate)
+    rp['used'] = sorted(set(rp['used']) | blocked_sites_)
+    rp['priorSteps'] = sorted(blocked_steps_)
+    rp['prior'] = _pow.archive_brief(_pow.archive_find(archive_, coin['mint']))
+    recent_, wins_ = _pow.site_memory(cat.get('powFolders'))
+    fp_ = _pow.fingerprint(archive_, cat['id'])
+    if fp_.get('best'):
         wins_ = set(fp_['best'])
-    rp['order'] = _pow.site_order(recent_ | {h for v in (f.get('usedBy') or {}).values() for h in v or []}, wins_)
+    rp['order'] = _pow.site_order(recent_ | blocked_sites_ | {h for v in (f.get('usedBy') or {}).values() for h in v or []}, wins_)
     try:
         _work_start(cat['id'], cat, _pow.goal(rp), str(int(f.get('base') or 0) + mind_i), None, rp)
     except HTTPException:
@@ -1414,19 +1417,26 @@ def _pow2_research(cat, f, coin, mind_i, now):
 
 
 POW_ARCHIVE = DATA_DIR / 'pow_archive.jsonl'   # 🗄 every PoW filing, FOREVER (append-only, never trimmed — owner 2026-11-02)
+_POW_ARCHIVE_CACHE = {'key': None, 'rows': []}
 
 
 def _pow_archive_add(row):
     try:
         with POW_ARCHIVE.open('a') as fh:
             fh.write(json.dumps(row, separators=(',', ':')) + '\n')
+        _POW_ARCHIVE_CACHE['key'] = None
     except OSError as e:
         print(f'[pow archive] not kept: {e}')
 
 
 def _pow_archive_rows():
     try:
-        return [json.loads(x) for x in POW_ARCHIVE.read_text().splitlines() if x.strip()]
+        stat = POW_ARCHIVE.stat()
+        key = (str(POW_ARCHIVE), stat.st_mtime_ns, stat.st_size)
+        if _POW_ARCHIVE_CACHE['key'] != key:
+            rows = [json.loads(x) for x in POW_ARCHIVE.read_text().splitlines() if x.strip()]
+            _POW_ARCHIVE_CACHE.update(key=key, rows=rows)
+        return _POW_ARCHIVE_CACHE['rows']
     except (OSError, ValueError):
         return []
 
@@ -1449,7 +1459,7 @@ def _pow2_collect(f, t_, who, now):
         except OSError as e:
             print(f'[pow2] snapshot not kept: {e}')
     _pow_archive_add(_pow.archive_row('research', (pw_.get('cat') or ''), f, {'mint': m_, 'sym': pw_.get('sym')}, now, by=who, mind=pw_.get('mind'), plan=pw_.get('plan'),
-                                      vitals=pub_['pulls'], sites=sorted((pw_.get('sites') or {}).keys()), walled=list(pw_.get('walled') or []), call=pw_.get('call'), why=pw_.get('why'), strength=pub_.get('strength')))
+                                      vitals=pub_['pulls'], sites=sorted((pw_.get('sites') or {}).keys()), steps=sorted({_pow.step_hash(sig) for w in t_.get('windows') or [] for sig in w.get('sigs') or []}), walled=list(pw_.get('walled') or []), call=pw_.get('call'), why=pw_.get('why'), strength=pub_.get('strength')))
     _pow2_say(f, who, f"${pw_.get('sym')} researched on {', '.join(sorted((pw_.get('sites') or {}).keys())) or 'no site'}: "
                       f"{' · '.join(x['label'] + ' ' + x['value'] for x in pub_['pulls'][:4]) or 'no vitals (' + (', '.join(pw_.get('walled') or []) + ' walled' if pw_.get('walled') else 'nothing it could read') + ')'}")
     f.pop('rMint', None)
@@ -2578,7 +2588,7 @@ def _work_settle(store):
             cat['artifacts'] = (list(cat.get('artifacts') or []) + t.get('artifacts', []))[-30:]
             cat['refusals'] = (list(cat.get('refusals') or []) + [{'at': time.time(), 'why': x} for x in t.get('refusals', [])])[-100:]
             if not _ck.key_for(cat, 'openrouter', data_dir=DATA_DIR):   # its owner's own key pays OpenRouter directly — no FEELESS credit
-                _lc.charge(cat['brainsCfg'], max(0.0, (t.get('cost') or 0) - (t.get('walletPaid') or 0)))   # what its wallet paid never comes off its FEELESS credit
+                _lc.charge(cat['brainsCfg'], max(0.0, t.get('cost') or 0))   # every paid call consumes its bought model budget, including SingIt paid from its wallet
             if t.get('pow'):   # ⛏ a Colony PoW: filed (cell + cabinet), no flat fee, never a chat line you did not type
                 _pow_settle(cat, t, time.time())
             elif t.get('status') == 'done':   # 🤖 the flat fee for anything that is not a trade

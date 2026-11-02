@@ -10,6 +10,7 @@ A colonized agent's PoW run, the same for every model (the rules are code, not a
 The PoW is filed as a cell (its pulls ride along) and in the owner's cabinet. Pure; the agent loop + the service enforce it. Nothing trades.
 """
 import random
+import hashlib
 import re
 from urllib.parse import quote_plus
 
@@ -59,7 +60,6 @@ def host_of(url):
 
 def links(p):
     """The coin's own research pages — opened straight from the PoW, never hunted for on a search page."""
-    m, pa = p.get('mint') or '', p.get('pair') or ''
     every = _all_links(p)
     if p.get('order'):   # 🎲 the engine's order for this round (site_order): winners first, the rest shuffled, last folders' sites skipped
         rank = {h: i for i, h in enumerate(p['order'])}
@@ -68,7 +68,7 @@ def links(p):
     fresh = [u for u in every if host_of(u) not in used]
     if len(fresh) < 3:   # 🎲 owner 2026-11-02 ("not just rug checker"): top up from the OTHER unused sites, never a used one while any is left
         rest = [u for u in _all_links(p) if host_of(u) not in used and u not in fresh]; random.shuffle(rest); fresh += rest
-    return fresh or every
+    return fresh   # all 11 used: stop this route; never silently cycle back
 
 
 def _all_links(p):
@@ -90,9 +90,8 @@ def site_order(recent, wins, rnd=None):
     win = [h for h in HOSTS if h in set(wins or ()) and h not in recent]; rnd.shuffle(win)
     lead, later = win[:1], win[1:]   # 🎲 owner 2026-11-02 ("they keep checking rugcheck"): ONE unused winning source may lead; the other winners wait their turn
     fresh = [h for h in HOSTS if h not in recent and h not in win and h not in set(wins or ())]; rnd.shuffle(fresh)
-    stale = [h for h in HOSTS if h in recent]; rnd.shuffle(stale)
     out = lead + fresh + later
-    return (out + stale)[:max(3, len(out))]   # used sources only when fewer than 3 fresh are left
+    return out   # the last two tracks stay excluded, even if fewer than 3 sources remain
 
 
 def recent_mints(folders, n=10):
@@ -278,7 +277,6 @@ def pick(coins, done_mints, min_liq=5000):
 # ONE coin on FEELESS through the guarded order path → the LOOP: the watcher reads the chart ≥ 3 min, the researcher runs a PoW on the CA
 # (3 trusted sites, ≤ 5 moves, ≤ 3 vitals each) for ≤ 2.5 min, then the watcher decides HOLD / SELL with both reads → until it sells.
 # Hard stops so it never loops forever: −25 % / +60 % / 60 min / 6 rounds sell without asking. A won folder goes to the colony with its share.
-GATHER = (('intake', 2), ('pump', 1), ('dex', 1))
 WATCH_S = 180
 RESEARCH_S = 150
 ROUNDS_MAX = 6
@@ -291,7 +289,6 @@ QUIET_CHECK_S = 180               # Minds can rest in the middle of the stop/tar
 HOT_TICK_S = 5                    # the engine's light pass while a folder holds a coin
 SIGN_WAIT_S = 600                 # a real buy waits this long for its wallet, then the folder closes and the order is withdrawn
 MIN_LIQ = 5000
-REFILL_ROUNDS = 2                 # keep requested-folder discovery quick; two safe sources can start the fallback
 FOLDERS_KEEP = 30
 
 
@@ -303,7 +300,7 @@ def trim_folders(folders, keep=None):
     return [f for f in rows if f.get('id') not in drop]
 SRC_LABEL = {'intake': 'FEELESS intake', 'pump': 'Pump', 'dex': 'DexScreener'}
 
-POOL = 8            # 🧺 the engine vets up to 8 coins (every buy guard + the safety check) — the minds only ever see coins that can be bought
+POOL = 20           # 🧺 at most 20 candidates vetted per requested search; four safe coins, or a FEELESS + Pump pair
 PROPOSE_N, SPLIT_N = 3, 2
 PROPOSE_SYS = ('You are {name}, one of a FEELESS trader agent\'s two minds, opening a PROOF OF WORK folder. Below are {n} Solana coins the engine already '
                'vetted (all can be bought on FEELESS), with their FEELESS live reads and any PRIOR PoW your colony filed on them. PROPOSE the 3 you most want '
@@ -394,7 +391,7 @@ def folder_new(n, coins, now, minds):
 def plan_of(minds):
     """The folder's steps, said in the chat (owner 2026-11-02: a 5-step agreement)."""
     two = int(minds or 1) > 1
-    return [f"the engine vets up to {POOL} coins (every buy guard + safety) — only buyable coins reach the minds",
+    return [f"the engine vets up to {POOL} candidates (every buy guard + safety) — four safe coins or the two-source fallback reach the minds",
             ("A proposes 3, B proposes 3 OTHER coins — 6 on the table (each sees the coin's prior PoW)" if two else "it proposes 3, then 3 more"),
             ("each mind takes 2 of the shortlist + writes how it will investigate them" if two else "it takes 4 of the shortlist + its plan"),
             f"each researches its own coins: FEELESS + 3 sites, {STEPS_RANGE[0]}–{STEPS_RANGE[1]} moves a site, ≤ {SITE_PULLS} vitals a site, duplicates dropped",
@@ -466,6 +463,21 @@ def archive_brief(rows):
     return s
 
 
+def step_hash(signature):
+    """Store a browsing action fingerprint without archiving URLs, queries or credentials."""
+    return hashlib.sha256(str(signature).encode('utf-8')).hexdigest()
+
+
+def track_memory(rows, cat_id, mint):
+    """The last two research tracks and every earlier step on this coin are off limits."""
+    mine = [r for r in rows or [] if r.get('kind') == 'research' and r.get('cat') == cat_id]
+    recent = mine[-2:]
+    same_coin = [r for r in rows or [] if r.get('kind') == 'research' and r.get('mint') == mint]
+    blocked_sites = {h for r in recent + same_coin for h in r.get('sites') or [] if h in HOSTS or h == 'feeless.app'}
+    blocked_steps = {h for r in recent + same_coin for h in r.get('steps') or [] if isinstance(h, str) and len(h) == 64}
+    return blocked_sites, blocked_steps
+
+
 def fingerprint(rows, cat_id):
     """🧬 THIS agent's own fingerprint (owner 2026-11-02: "the winning research gets tracked over time, each agent builds its own true
     fingerprint"): for every coin it actually traded, the sources it read and the facts it filed before the buy, scored by how the trade went.
@@ -482,9 +494,11 @@ def fingerprint(rows, cat_id):
             x = sites.setdefault(h, {'w': 0, 'n': 0, 'last': 0}); x['n'] += 1; x['w'] += won; x['last'] = max(x['last'], int(o.get('at') or 0) if won else x['last'])
         for v in {x.get('label') for x in r.get('vitals') or [] if x.get('label')}:
             y = vit.setdefault(v, {'w': 0, 'n': 0}); y['n'] += 1; y['w'] += won
+    tracks = [r for r in mine if r.get('kind') == 'research']
     rank = sorted(sites, key=lambda h: (-(sites[h]['w'] / sites[h]['n']), -sites[h]['w'], -sites[h]['last']))
     return {'sites': sites, 'vitals': vit, 'trades': len(out_), 'won': sum(1 for o in out_.values() if float(o.get('pnlPct') or 0) > 0),
-            'best': [h for h in rank if sites[h]['w'] and sites[h]['w'] / sites[h]['n'] >= 0.5][:3]}
+            'best': [h for h in rank if sites[h]['w'] and sites[h]['w'] / sites[h]['n'] >= 0.5][:3],
+            'tracks': len(tracks), 'recentTracks': [{'at': r.get('at'), 'sym': r.get('sym'), 'sites': [h for h in r.get('sites') or [] if h in HOSTS], 'steps': len(r.get('steps') or [])} for r in tracks[-2:]]}
 
 
 def fingerprint_line(fp):
@@ -673,7 +687,7 @@ def command(text):
 
 # 📖 THE PoW README — every loaded model gets it as default memory, whatever its prompt (owner 2026-11-01: "they need to know the meaning")
 README = ('FEELESS PoW (PROOF OF WORK) README — not crypto mining. A PoW is a FOLDER your colony files, in 5 steps: '
-          '1) POOL: FEELESS vets up to 8 coins (FEELESS intake, Pump, DexScreener boosts) with every buy guard + the safety check — only coins that can be bought reach you. '
+          '1) POOL: FEELESS vets up to 20 candidates (FEELESS intake, Pump, DexScreener boosts) with every buy guard + the safety check — only coins that can be bought reach you. '
           '2) PROPOSE: mind A proposes 3, mind B proposes 3 OTHER coins (each sees any PRIOR PoW on a coin) → a shortlist of 6. '
           '3) SPLIT: each mind takes 2 coins of the shortlist and writes HOW it will investigate them. '
           '4) RESEARCH: each mind researches its own coins — the FEELESS read + 3 sites, 3–8 moves a site (drawn at random), at most 3 vital numbers a site; '
