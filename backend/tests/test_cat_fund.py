@@ -89,3 +89,14 @@ def test_a_users_new_general_agent_starts_at_seven_dollars_five_credit_two_fee()
         cf.plan(10, 100.0, True, fee_usd=2, token='USDC', credit_usd=3, start_credit=5)
     with pytest.raises(ValueError, match='start fee'):
         cf.plan(6, 100.0, True, fee_usd=2, token='USDC', credit_usd=5, start_credit=5)
+
+
+def test_model_credit_to_agent_wallet_for_low_minimum_provider():
+    p = cf.plan(1, 200, False, credit_usd=1, credit_to_wallet=True)
+    assert p['feeLamports'] == 0
+    assert p['catLamports'] == 5_000_000
+    assert p['catUsd'] == 1
+    first = cf.plan(7, 100, True, fee_usd=2, min_usd=10, token='USDC', credit_usd=5, start_credit=5, credit_to_wallet=True)
+    assert first['feeLamports'] == 2_000_000
+    assert first['catLamports'] == 5_000_000
+    assert first['gasLamports'] == cf.GAS_LAMPORTS

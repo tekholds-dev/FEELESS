@@ -1041,7 +1041,7 @@ async def _think(cat, model, messages, own_key=None, effort=None, max_tokens=Non
         if not own_key and not _brains_live():
             return '', 0.0
         return await _or_call(model, messages, max_tokens=max_tokens, effort=effort, key=own_key)
-    for name, step in ((('singit', paid), ('openrouter', router)) if mine else (('openrouter', router), ('singit', paid))):
+    for name, step in ((('openrouter', router),) if own_key else (('singit', paid), ('openrouter', router))):
         text, usd = await step()
         if str(text or '').strip():
             return text, usd, name
@@ -2410,7 +2410,7 @@ async def _work_run(cat_id, models, names, text, cap, brief='', efforts=None, ow
 
             async def ask(model, messages):   # 📜 the sealed brief rides every call (plan · each browsing step · merge)
                 _OR_LAST.pop('err', None); _OR_LAST.pop('backup', None)
-                if not cat_now.get('ownerStaff') and not own_key:   # 🧠 a user's agent: OpenRouter first, on the credit they paid (owner 2026-10-31)
+                if own_key:   # an explicitly supplied owner key takes priority
                     try:
                         text_, usd_ = await _or_call(model, orders + messages, max_tokens=reply_room(model, messages), backup=False, **({'effort': efforts[model]} if (efforts or {}).get(model) else {}))
                         if str(text_ or '').strip():
@@ -4699,6 +4699,8 @@ async def cat_action(cat_id: str, payload: ActionPayload, request: Request):
         a_ = payload.amount if isinstance(payload.amount, dict) else {}
         if not payload.sig or any(str(x.get('sig')) == payload.sig for x in (cat.get('agentFunded') or []) + (cat.get('creditPaid') or [])):
             raise HTTPException(400, 'No signature, or that funding is on the record already.')
+        if payload.result != 'confirmed':
+            raise HTTPException(400, 'Funding must be confirmed on-chain before credit is recorded.')
         cr_ = max(0.0, _num(a_.get('creditUsd')) or 0.0)
         if cr_:   # 🧠 the model-credit share of this payment
             cat['creditPaid'] = (list(cat.get('creditPaid') or []) + [{'sig': str(payload.sig)[:100], 'usd': cr_, 'token': a_.get('token'), 'at': round(time.time())}])[-50:]

@@ -38,7 +38,7 @@ WALLET_EXTRAS = (COMPUTE_PROGRAM, LIGHTHOUSE_PROGRAM)   # what wallets like Phan
 FEE_RESERVE = 10_000       # lamports left behind for the network fee on an all-out SOL withdrawal
 
 
-def plan(usd, sol_usd, first, fee_usd=FEE_USD, min_usd=MIN_USD, token='SOL', credit=False, credit_usd=0.0, free_credit=False, start_credit=0.0):
+def plan(usd, sol_usd, first, fee_usd=FEE_USD, min_usd=MIN_USD, token='SOL', credit=False, credit_usd=0.0, free_credit=False, start_credit=0.0, credit_to_wallet=False):
     """$ amount + live SOL price + is this the cat's first funding (+ HQ's fee / minimum; a creator wallet: fee 0, min $1) →
     {usd, payUsd, feeUsd, creditUsd, solUsd, totalLamports, feeLamports, catLamports, catUsd, token, gasLamports}. The three amounts are the token's smallest unit (USDC: 1e-6).
     ONE amount, split (owner 2026-10-30): `credit_usd` of it is model credit, paid to FEELESS in the same transaction; the rest goes to its wallet. `credit` = all of it.
@@ -66,9 +66,9 @@ def plan(usd, sol_usd, first, fee_usd=FEE_USD, min_usd=MIN_USD, token='SOL', cre
     pay_usd = wallet_usd + paid_credit
     scale = USDC_UNITS if token == 'USDC' else LAMPORTS
     total = int(pay_usd / px * scale)
-    fee = min(total, int((fee_usd + paid_credit) / px * scale + 0.999999))   # FEELESS's cut rounds up to the lamport, the cat's share is the rest
+    fee = min(total, int((fee_usd + (0 if credit_to_wallet else paid_credit)) / px * scale + 0.999999))   # FEELESS's cut rounds up to the lamport, the cat's share is the rest
     return {'usd': round(usd, 2), 'payUsd': round(pay_usd, 2), 'feeUsd': fee_usd, 'creditUsd': round(credit_usd, 2), 'solUsd': round(px, 4), 'totalLamports': total, 'feeLamports': fee, 'catLamports': total - fee,
-            'catUsd': round(wallet_usd - fee_usd, 2), 'token': token, 'gasLamports': GAS_LAMPORTS if token == 'USDC' and wallet_usd > 0 else 0}
+            'catUsd': round(wallet_usd - fee_usd + (paid_credit if credit_to_wallet else 0), 2), 'token': token, 'gasLamports': GAS_LAMPORTS if token == 'USDC' and total > fee else 0}
 
 
 def credit_open(left_usd, credit_usd=0.0, floor=MODEL_FLOOR_USD):

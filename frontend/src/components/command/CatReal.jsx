@@ -157,7 +157,7 @@ export function FundCat({ cat, addr, session, sign, onDone, onConfirm }) {
   const [rules, setRules] = useState(null);
   useEffect(() => { let on = true; fetch(apiUrl(`/api/reputation/cats/fund-rules?address=${encodeURIComponent(addr || '')}`)).then(r => (r.ok ? r.json() : null)).then(j => { if (on && j) setRules(j); }).catch(() => {}); return () => { on = false; }; }, [addr]);
   const [usd, setUsd] = useState(() => { try { const v = Number(localStorage.getItem(`feeless.fundIntent.${cat?.id}`)); if (v > 0) return v; } catch { /* private window */ } return fresh ? (cat?.brainsCfg?.kind === 'general' ? 7 : 10) : 5; });   // the $ you typed at launch
-  const [creditUsd, setCreditUsd] = useState(() => (fresh && cat?.brainsCfg?.kind === 'general' && !(cat?.creditPaid || []).length ? '5' : '0'));   // 🧠 ONE amount, split (owner 2026-10-30): this much to its model credit, the rest into its wallet, one signature
+  const [creditUsd, setCreditUsd] = useState(() => (fresh && cat?.brainsCfg?.kind === 'general' && !(cat?.creditPaid || []).length ? '5' : '0'));   // 🧠 ONE amount, split (owner 2026-10-30): this much earmarked for model calls in its wallet, one signature
   const freeCredit = !!rules?.staff && cat?.brainsCfg?.kind !== 'general';   // 🧭 a general agent's credit is always real money, staff included (owner 2026-10-31)
   const total = Number(usd) || 0; const creditShut = rules?.creditOpen === false; const cr = creditShut && !freeCredit ? 0 : Math.min(total, Math.max(0, Number(creditUsd) || 0)); const toWallet = Math.round((total - cr) * 100) / 100; const first = fresh && toWallet > 0;
   const [doneNote, setDoneNote] = useState(''); const [rcpt, setRcpt] = useState(null); const [stage, setStage] = useState('pick'); const [err, setErr] = useState(''); const [sig, setSig] = useState(null);
@@ -165,7 +165,7 @@ export function FundCat({ cat, addr, session, sign, onDone, onConfirm }) {
   useEffect(() => { if (!rcpt) return undefined; const t = setInterval(() => setLeft(l => Math.max(0, l - 1)), 1000); return () => clearInterval(t); }, [rcpt]);
   const start = fresh && !(cat?.creditPaid || []).length && cat?.brainsCfg?.kind === 'general' && !rules?.staff; const startCr = Number(rules?.startCreditUsd || 5);   // 🧠 $7 = $5 credit + $2 fee
   const min = first ? Number(rules?.minUsd) || 10 : Number(rules?.topupMinUsd) || 1; const fee = first || start ? Number(rules?.feeUsd ?? 2) : 0;
-  const warn = start ? (cr < startCr ? `A new agent starts with at least $${startCr} of model credit (OpenRouter) + the $${fee} start fee — $${startCr + fee} in all.` : toWallet < fee ? `Add $${(fee - toWallet).toFixed(2)}: the $${fee} start fee comes on top of its model credit.` : null) : toWallet > 0 ? fundWarn(toWallet, rules || { feeUsd: 2, minUsd: 10, topupMinUsd: 1 }, first) : null;
+  const warn = start ? (cr < startCr ? `A new agent starts with at least $${startCr} of model credit (SingIt) + the $${fee} start fee — $${startCr + fee} in all.` : toWallet < fee ? `Add $${(fee - toWallet).toFixed(2)}: the $${fee} start fee comes on top of its model credit.` : null) : toWallet > 0 ? fundWarn(toWallet, rules || { feeUsd: 2, minUsd: 10, topupMinUsd: 1 }, first) : null;
   const canPay = start ? cr >= startCr && toWallet >= fee : total > 0 && (toWallet > 0 ? toWallet >= min : cr >= min);
   const post = async (path, body) => { const r = await fetch(apiUrl(`/api/reputation/cats/${cat.id}/${path}`), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
     const j = await r.json().catch(() => ({})); if (!r.ok) throw new Error(j.detail || `HTTP ${r.status}`); return j; };
@@ -176,7 +176,7 @@ export function FundCat({ cat, addr, session, sign, onDone, onConfirm }) {
       setRcpt({ ...j, session: s0 }); setLeft(Math.round(j.expiresIn || 90)); setStage('ready'); }
     catch (e) { setErr(e.message); setStage('pick'); } };
   const go = async () => { if (!rcpt || left <= 0) return; setErr(''); setStage('signing');
-    try { const signed = await sign(rcpt.transaction); setStage('sending'); const j = await post('fund/send', { address: addr, session: rcpt.session, signed }); setSig(j.signature); if (first) setPaidFirst(true); setStage(j.state === 'confirmed' ? 'done' : 'landing'); setRcpt(null); onDone?.(); }
+    try { const signed = await sign(rcpt.transaction); setStage('sending'); const j = await post('fund/send', { address: addr, session: rcpt.session, signed }); setSig(j.signature); if (j.state === 'confirmed') { if (first) setPaidFirst(true); setStage('done'); onDone?.(); } else { setStage('landing'); } setRcpt(null); }
     catch (e) { setErr(e.message || 'Your wallet did not sign.'); setRcpt(null); setStage('pick'); } };   // a receipt is one-use: back to a fresh one, never a dead button
   const p = rcpt?.plan; const usdc = p?.token === 'USDC'; const amt = l => (usdc ? `${(Number(l) / 1e6).toFixed(2)} USDC` : `${sol4(l)} SOL`);
   const reset = () => { setRcpt(null); setStage('pick'); setDoneNote(''); };
@@ -191,17 +191,17 @@ export function FundCat({ cat, addr, session, sign, onDone, onConfirm }) {
     {hasMinds && creditShut ? <p className="cr-fund-warn" role="status" data-testid="cr-credit-shut">{freeCredit ? <>🧠 OpenRouter has ${Number(rules.modelsLeftUsd ?? 0).toFixed(2)} left, so agents can't think and users can't buy credit. <a href="https://openrouter.ai/settings/credits" target="_blank" rel="noreferrer">Add credit ↗</a></> : '🧠 Model credit is paused right now. Everything you add goes into its wallet.'}</p> : null}
     {hasMinds && (!creditShut || freeCredit) ? <div className="cr-split" data-testid="cr-split">
       <span className="cr-split-h"><em>SPLIT IT</em><small>drag, or type the model credit</small></span>
-      <input type="range" min="0" max={total || 1} step="0.5" value={cr} onChange={e => { setCreditUsd(e.target.value); reset(); }} aria-label="How much goes to model credit" data-testid="cr-split-range" data-tip="Left: more in its wallet. Right: more model credit" />
+      <input type="range" min="0" max={total || 1} step="0.5" value={cr} onChange={e => { setCreditUsd(e.target.value); reset(); }} aria-label="How much goes to model credit" data-testid="cr-split-range" data-tip="Both shares enter its wallet; model credit pays for SingIt calls" />
       <div className="cr-split-rows">
-        <span className="is-wallet"><i aria-hidden="true">👛</i><small>ITS WALLET</small><b className="m-num" key={toWallet}>${toWallet.toFixed(2)}</b><em>trades and spends</em></span>
-        <label className="is-credit"><i aria-hidden="true">🧠</i><small>MODEL CREDIT</small><span className="cr-fund-in">$<input className="m-input" type="number" min="0" max={total} step="any" value={creditUsd} onChange={e => { setCreditUsd(e.target.value); reset(); }} aria-label="Dollars to model credit" data-testid="cr-split-credit" /></span><em>pays for its thinking · has ${Number(cat.brainsCfg.credit ?? 0).toFixed(2)}{rules?.staff ? ' · free for your creator wallet' : ''}</em></label>
+        <span className="is-wallet"><i aria-hidden="true">👛</i><small>ITS WALLET</small><b className="m-num" key={toWallet}>${toWallet.toFixed(2)}</b><em>available for trades</em></span>
+        <label className="is-credit"><i aria-hidden="true">🧠</i><small>MODEL CREDIT</small><span className="cr-fund-in">$<input className="m-input" type="number" min="0" max={total} step="any" value={creditUsd} onChange={e => { setCreditUsd(e.target.value); reset(); }} aria-label="Dollars to model credit" data-testid="cr-split-credit" /></span><em>held in its wallet for SingIt calls · has ${Number(cat.brainsCfg.credit ?? 0).toFixed(2)}{rules?.staff ? ' · free for your creator wallet' : ''}</em></label>
       </div>
       <u className="cr-split-bar" aria-hidden="true"><s style={{ transform: `scaleX(${total ? cr / total : 0})` }} /></u></div> : null}
     {warn ? <p className="cr-fund-warn" role="status" data-testid="cr-fund-warn">⚠ {warn}</p> : null}
     {p ? <ol className="cr-rcpt" data-testid="cr-receipt">
       <li style={{ '--i': 0 }}><small>YOU PAY</small><b className="m-num">${(p.payUsd ?? p.usd).toFixed(2)}</b><i>{amt(p.totalLamports)}</i></li>
-      <li style={{ '--i': 1 }} className={p.feeUsd ? 'is-fee' : 'is-free'} data-tip={p.feeUsd ? 'One time, out of its first funding — never on a top-up' : 'Top-ups carry no FEELESS fee'}><small>{p.creditUsd ? 'MODEL CREDIT + FEE' : 'FEELESS · ONE-TIME'}</small><b className="m-num">${((p.creditUsd || 0) + (p.feeUsd || 0)).toFixed(2)}</b><i>{p.creditUsd ? `$${p.creditUsd.toFixed(2)} credit${p.feeUsd ? ` + $${p.feeUsd.toFixed(2)} fee` : ''}` : amt(p.feeLamports)}</i></li>
-      <li style={{ '--i': 2 }} className="is-cat"><small>INTO ITS WALLET</small><b className="m-num">${p.catUsd.toFixed(2)}</b><i>{amt(p.catLamports)}</i></li>
+      <li style={{ '--i': 1 }} className={p.feeUsd ? 'is-fee' : 'is-free'} data-tip={p.feeUsd ? 'One time, out of its first funding — never on a top-up' : 'Top-ups carry no FEELESS fee'}><small>FEELESS · ONE-TIME</small><b className="m-num">${(p.feeUsd || 0).toFixed(2)}</b><i>{p.feeUsd ? amt(p.feeLamports) : 'no fee'}</i></li>
+      <li style={{ '--i': 2 }} className="is-cat"><small>INTO ITS WALLET {p.creditUsd ? `· $${p.creditUsd.toFixed(2)} for models` : ''}</small><b className="m-num">${p.catUsd.toFixed(2)}</b><i>{amt(p.catLamports)}</i></li>
       <li style={{ '--i': 3 }}><small>{usdc ? 'NETWORK' : 'PRICE · NETWORK'}</small><b className="m-num">{usdc ? 'SOL' : `$${p.solUsd}`}</b><i>{usdc ? `tiny fee, token account, ${p.gasLamports ? `${(p.gasLamports / 1e9).toFixed(3)} SOL gas for its wallet` : 'no gas leg'}` : '/SOL · ~0.000005 SOL fee'}</i></li>
     </ol> : null}
     <div className="cr-fund-go">
