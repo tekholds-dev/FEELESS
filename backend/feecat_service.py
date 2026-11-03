@@ -1413,19 +1413,24 @@ def _pow2_research(cat, f, coin, mind_i, now):
         return False
     rp = {**_pow.new({'mint': coin['mint'], 'pair': coin['pair'], 'sym': coin['sym']}, now), 'cat': cat['id'], 'mind': mind_i, 'folder': f['id'], 'plan': (f.get('plans') or {}).get(coin['mint']),
           'used': list(((f.get('usedBy') or {}).get(coin['mint'])) or []),
-          'known': [x['label'] for x in (f.get('vitals') or {}).get(coin['mint']) or []]}   # 🧹 what this coin's folder already knows — the round reads something new
+          'known': [x['label'] for x in (f.get('vitals') or {}).get(coin['mint']) or [] if x.get('verified')]}   # only verified facts are inherited
     archive_ = _pow_archive_rows()
     prior_ = [r for r in _pow.archive_find(archive_, coin['mint'], 40) if r.get('kind') == 'research']
     blocked_sites_, blocked_steps_ = _pow.track_memory(archive_, cat['id'], coin['mint'])
-    rp['known'] = sorted(set(rp['known']) | {x.get('label') for r in prior_ if now - float(r.get('at') or 0) < 86400 for x in r.get('vitals') or [] if x.get('label')})
-    rp['used'] = sorted(set(rp['used']) | blocked_sites_)
+    reused_ = _pow.reusable_facts(prior_, coin['mint'], now)
+    if reused_:
+        f.setdefault('vitals', {})[coin['mint']] = _pow.merge_vitals((f.get('vitals') or {}).get(coin['mint']), reused_)
+    rp['known'] = sorted(set(rp['known']) | {x['label'] for x in reused_})
+    rp['reusedSites'] = sorted({x['site'] for x in reused_})
+    rp['required'] = ['solscan.io'] + (['pump.fun'] if coin.get('src') == 'pump' else [])
+    rp['used'] = sorted(set(rp['used']) | blocked_sites_ | set(rp['reusedSites']))
     rp['priorSteps'] = sorted(blocked_steps_)
     rp['prior'] = _pow.archive_brief(_pow.archive_find(archive_, coin['mint']))
-    recent_, wins_ = _pow.site_memory(cat.get('powFolders'))
+    recent_, _ = _pow.site_memory(cat.get('powFolders'))
     fp_ = _pow.fingerprint(archive_, cat['id'])
-    if fp_.get('best'):
-        wins_ = set(fp_['best'])
-    rp['order'] = _pow.site_order(recent_ | blocked_sites_ | {h for v in (f.get('usedBy') or {}).values() for h in v or []}, wins_)
+    excluded_ = recent_ | blocked_sites_ | set(rp['reusedSites']) | {h for v in (f.get('usedBy') or {}).values() for h in v or []}
+    ranked_ = _pow.ranked_sources(excluded_, _src_book(), fp_.get('coverage'), now)
+    rp['order'] = [h for h in rp['required'] if h in ranked_] + [h for h in ranked_ if h not in rp['required']]
     try:
         _work_start(cat['id'], cat, _pow.goal(rp), str(int(f.get('base') or 0) + mind_i), None, rp)
     except HTTPException:
@@ -1444,8 +1449,9 @@ _POW_ARCHIVE_CACHE = {'key': None, 'rows': []}
 
 def _pow_archive_add(row):
     try:
+        stored = {'v': 2, 'cat': row['cat'], 'sealed': _ck.seal(json.dumps(row, separators=(',', ':')), row['cat'])} if row.get('cat') else row
         with POW_ARCHIVE.open('a') as fh:
-            fh.write(json.dumps(row, separators=(',', ':')) + '\n')
+            fh.write(json.dumps(stored, separators=(',', ':')) + '\n')
         _POW_ARCHIVE_CACHE['key'] = None
     except OSError as e:
         print(f'[pow archive] not kept: {e}')
@@ -1456,7 +1462,17 @@ def _pow_archive_rows():
         stat = POW_ARCHIVE.stat()
         key = (str(POW_ARCHIVE), stat.st_mtime_ns, stat.st_size)
         if _POW_ARCHIVE_CACHE['key'] != key:
-            rows = [json.loads(x) for x in POW_ARCHIVE.read_text().splitlines() if x.strip()]
+            rows = []
+            for line in POW_ARCHIVE.read_text().splitlines():
+                if not line.strip():
+                    continue
+                raw = json.loads(line)
+                if raw.get('sealed'):
+                    try:
+                        raw = json.loads(_ck.unseal(raw['sealed'], raw['cat'], data_dir=DATA_DIR))
+                    except Exception:
+                        continue  # tampered/unreadable evidence is never trusted
+                rows.append(raw)
             _POW_ARCHIVE_CACHE.update(key=key, rows=rows)
         return _POW_ARCHIVE_CACHE['rows']
     except (OSError, ValueError):
@@ -1469,6 +1485,7 @@ def _pow2_collect(f, t_, who, now):
     if not pw_.get('costed'):   # 💲 the research round's own browsing cost
         pw_['costed'] = True; _pow2_cost(f, int(f.get('base') or 0) + int(pw_.get('mind') or 0), float(t_.get('cost') or 0))
     vit_ = f.setdefault('vitals', {}); vit_[m_] = _pow.merge_vitals(vit_.get(m_), pub_['pulls'])   # 🧹 one row per fact, never the same fact twice
+    f.setdefault('evidenceMetrics', {})[m_] = _pow.research_metrics(pw_, t_.get('cost'), now)
     if m_ == f.get('mint') and f.get('entry'):
         f['research'] = _pow.merge_vitals(f.get('research'), pub_['pulls'])
     f.setdefault('moves', {}).setdefault(m_, {}).update(pub_.get('moves') or {})   # 🎲 each site's random moves, kept
@@ -1481,7 +1498,7 @@ def _pow2_collect(f, t_, who, now):
         except OSError as e:
             print(f'[pow2] snapshot not kept: {e}')
     _pow_archive_add(_pow.archive_row('research', (pw_.get('cat') or ''), f, {'mint': m_, 'sym': pw_.get('sym')}, now, by=who, mind=pw_.get('mind'), plan=pw_.get('plan'),
-                                      vitals=pub_['pulls'], sites=sorted((pw_.get('sites') or {}).keys()), steps=sorted({_pow.step_hash(sig) for w in t_.get('windows') or [] for sig in w.get('sigs') or []}), walled=list(pw_.get('walled') or []), call=pw_.get('call'), why=pw_.get('why'), strength=pub_.get('strength')))
+                                      vitals=pub_['pulls'], metrics=f['evidenceMetrics'][m_], sites=sorted((pw_.get('sites') or {}).keys()), steps=sorted({_pow.step_hash(sig) for w in t_.get('windows') or [] for sig in w.get('sigs') or []}), walled=list(pw_.get('walled') or []), call=pw_.get('call'), why=pw_.get('why'), strength=pub_.get('strength')))
     _pow2_say(f, who, f"${pw_.get('sym')} researched on {', '.join(sorted((pw_.get('sites') or {}).keys())) or 'no site'}: "
                       f"{' · '.join(x['label'] + ' ' + x['value'] for x in pub_['pulls'][:4]) or 'no vitals (' + (', '.join(pw_.get('walled') or []) + ' walled' if pw_.get('walled') else 'nothing it could read') + ')'}")
     f.pop('rMint', None)
@@ -2306,7 +2323,7 @@ TASK_CAP_DEFAULT, TASK_CAP_MAX = 0.05, 2.0
 BACKUP_MODEL = 'openai/gpt-oss-120b'   # Groq's free tier: tested with the agent's JSON step format
 WORK_QUEUE_MAX = 10   # 🏇 let it go: asks waiting their turn
 SOURCES_PATH = DATA_DIR / 'agent_sources.json'
-BLOCK_PIVOT_S = 30   # 🧭 a bot check nobody answers: after 30 s the mind goes to the best other source on its own (owner 2026-10-31)
+BLOCK_PIVOT_S = 45   # a visible manual challenge window; then the mind records the gap and moves on
 
 
 def _src_book():
@@ -3286,9 +3303,12 @@ async def pow_snapshot(cat_id: str, folder: str, name: str):
 
 @app.get('/api/cats/pow/archive')
 async def pow_archive(q: str = '', limit: int = 20):
-    """🗄 Search every PoW ever filed (by mint or $symbol): what each mind read on which site, its call, and how the trade went. Public research only."""
-    rows = _pow.archive_find(_pow_archive_rows(), q, max(1, min(100, int(limit))))
-    return _pub({'rows': rows, 'brief': _pow.archive_brief(rows) if q else '', 'total': len(_pow_archive_rows())})
+    """Public coin facts only; private agent plans, step fingerprints and page excerpts stay sealed."""
+    private = {c['id'] for c in _load()['cats'].values() if c.get('incognito')}
+    available = [r for r in _pow_archive_rows() if r.get('cat') not in private]
+    rows = _pow.archive_find(available, q, max(1, min(100, int(limit))))
+    public = [_pow.archive_public(r) for r in rows]
+    return _pub({'rows': public, 'brief': _pow.archive_brief(public) if q else '', 'total': len(available)})
 
 
 @app.get('/api/cats/pow')

@@ -342,7 +342,8 @@ test('⛏ the PoW explorer: PoW › dated folders › coin folders (the pick = �
   const { AgentDesktop } = require('./CatWorkbench');
   sessionStorage.clear(); document.body.innerHTML = '';
   const fold = { id: 'pow9', name: 'PoW #9 · Nov 01 · 10:00 UTC', status: 'closed', phase: 'done', coins: [{ mint: 'M1', sym: 'AAA', src: 'pump' }, { mint: 'M2', sym: 'BBB', src: 'dex', safe: false }],
-    pick: { mint: 'M1' }, sym: 'AAA', pnlPct: -4.2, entry: 1, tp: 20, sl: 10, sol: 0.006, line: [1, 1.02, 0.97, 0.958], shots: [{ mint: 'M1', site: 'rugcheck.xyz', n: 1, file: 'a.jpg', trade: 'bad' }],
+    pick: { mint: 'M1' }, sym: 'AAA', pnlPct: -4.2, entry: 1, tp: 20, sl: 10, sol: 0.006, line: [1, 1.02, 0.97, 0.958], shots: [{ mint: 'M1', site: 'rugcheck.xyz', n: 1, file: 'a.jpg', trade: 'bad' }], evidenceMetrics: { M1: { verified: 5, visits: 2, durationSec: 60, costUsd: 0.006, factsPerVisit: 2.5, factsPerUsd: 833.33, gaps: ['solscan.io'] } },
+    vitals: { M1: [{ label: 'liquidity', value: '$35K', site: 'rugcheck.xyz', verified: true, contradiction: true, claims: [{ value: '$35K', site: 'rugcheck.xyz', support: 'Liquidity $35K', at: 100 }, { value: '$18K', site: 'solscan.io', support: 'Liquidity $18K', at: 120 }] }] },
     talk: [{ by: 'A', text: 'buy AAA', at: 1 }], report: { grade: '👎 bad trade', pnlPct: -4.2, researched: 1, coins: [{ mint: 'M1', sym: 'AAA', src: 'Pump', safe: true, vitals: 3, shots: 1, pick: true }], pick: 'AAA', sol: 0.006, held: 10, checks: 4, costUsd: 0.05, lesson: 'it lost: stop' } };
   global.fetch = async () => ({ ok: true, json: async () => ({ powFolders: [fold], rows: [] }) });
   const el = document.createElement('div'); document.body.appendChild(el); const root = createRoot(el);
@@ -350,8 +351,10 @@ test('⛏ the PoW explorer: PoW › dated folders › coin folders (the pick = �
   const q = id => document.querySelector(`[data-testid="${id}"]`);
   expect(q('dsk-pow').textContent).toContain('FOLDERS'); expect(q('dsk-x-pow9').textContent).toContain('PoW #9');
   await act(async () => { q('dsk-x-pow9').click(); }); expect(q('dsk-x-report')).not.toBeNull(); expect(q('dsk-x-coin-M1').textContent).toContain('👎');
+  expect(q('dsk-evidence-summary').textContent).toContain('5 verified facts');
   expect(q('dsk-pow-replay').textContent).toContain('buy AAA');
   await act(async () => { q('dsk-x-coin-M1').click(); }); expect(q('dsk-pow').textContent).toContain('BAD TRADE'); expect(document.querySelector('.dsk-tl')).not.toBeNull();
+  expect(q('dsk-evidence-meter').textContent).toContain('solscan.io'); expect(q('dsk-coin-M1').textContent).toContain('CONFLICT');
   expect(q('dsk-coin-M1').textContent).toContain('👎 rugcheck.xyz');
   await act(async () => { document.querySelector('.dsk-xpath .m-btn').click(); }); await act(async () => { q('dsk-x-report').click(); });
   expect(q('dsk-report').textContent).toContain('it lost: stop'); expect(q('dsk-report').querySelector('a').getAttribute('href')).toContain('/powshot/pow9/report.md');
@@ -421,7 +424,8 @@ test('⛓ the IPFS picker is there with NO files: pick an image → it is added 
   const inp = el.querySelector('[data-testid="cwb-ipfs-pick"]'); expect(el.querySelector('[data-testid="cwb-ipfs-add"]').textContent).toContain('KEEP ON IPFS');
   Object.defineProperty(inp, 'files', { value: [new File(['x'], 'logo.png', { type: 'image/png' })] });
   await act(async () => { inp.dispatchEvent(new Event('change', { bubbles: true })); await new Promise(r => setTimeout(r, 20)); });
-  expect(posts[0][0]).toContain('/files'); expect(posts[1][0]).toContain(`/files/${id}/ipfs`); expect(posts[1][1]).toMatchObject({ pay: false });
+  expect(posts.some(([url]) => url.endsWith('/files'))).toBe(true);
+  expect(posts.find(([url]) => url.endsWith(`/files/${id}/ipfs`))?.[1]).toMatchObject({ pay: false });
   expect(el.querySelector(`[data-testid="cwb-ipfs-${id}"]`).textContent).toContain('0.001326 SOL');
   act(() => root.unmount());
 });

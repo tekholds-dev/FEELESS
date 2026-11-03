@@ -5,14 +5,15 @@ A colonized agent's PoW run, the same for every model (the rules are code, not a
   1 COIN    the server hands it ONE coin from the FEELESS intake (never its own pick, never one it researched in the last 6 h)
   2 START   its window opens a DuckDuckGo search of the coin (DexScreener's search when DuckDuckGo walls it) — never a blank page
   3 SITES   at most SITES_MAX sites; on each, at most SITE_STEPS moves (open · click · scroll · search) — the 6th is refused before it is paid
-  4 PULLS   on each site at most SITE_PULLS saved facts, each a VITAL (a fixed list) WITH a number or a yes/no — anything else is refused
+  4 EVIDENCE one supported multi-fact snapshot per page, or SITE_PULLS legacy single facts; every claim keeps its source
   5 CALL    BUY / WATCH / AVOID + why; the Hive grades it an hour on against what the coin really did (honey)
 The PoW is filed as a cell (its pulls ride along) and in the owner's cabinet. Pure; the agent loop + the service enforce it. Nothing trades.
 """
 import random
 import hashlib
 import re
-from urllib.parse import quote_plus
+import time
+from urllib.parse import quote_plus, urlsplit
 
 SITE_STEPS = 5
 SITE_PULLS = 3
@@ -44,17 +45,19 @@ FACTISH = re.compile(r'(?i)\d|\b(yes|no|none|renounced|revoked|enabled|disabled|
 CALLS = ('BUY', 'WATCH', 'AVOID')
 
 RULES = ('PROOF OF WORK — the rules every FEELESS agent follows, whatever its prompt: research ONE coin (given to you), '
-         f'on at most {SITES_MAX} sites, at most {SITE_STEPS} moves on each (open, click, scroll, search). On every site save at most {SITE_PULLS} VITAL facts '
+         f'on at most {SITES_MAX} sites, each with a 3–8 move ceiling. On a page save one verified multi-fact snapshot or at most {SITE_PULLS} single VITAL pulls '
          'with action "pull" (label = one of: ' + ', '.join(VITALS) + '; value = the number or yes/no you READ on the page, short). '
          'Never save anything else, never a fact you did not read, never the same vital twice on a site. A FEELESS tool read counts as one site. '
-         'You start on a search page; open the coin\'s own pages (THE COIN\'S PAGES below) — one site at a time, pull, move on. When you have the vitals, "answer" with say = "BUY|WATCH|AVOID — why in one line". '
+         'Prefer ONE action "snapshot" with facts=[{"label": vital, "value": visible value, "support": exact short page excerpt containing that value}, ...] to file every relevant visible fact in one call. Unsupported facts are refused. The older single "pull" action still saves up to three. '
+         'You start on a search page; open the coin\'s own pages (THE COIN\'S PAGES below) — one site at a time, snapshot, move on. When you have the vitals, "answer" with say = "BUY|WATCH|AVOID — why in one line". '
          'It is graded an hour later on what the coin really did.')
 
 
 def host_of(url):
     if str(url or '').startswith('feeless:'):   # a FEELESS tool read (our live chart + numbers) is a source like any site
         return 'feeless.app'
-    h = str(url or '').split('://')[-1].split('/')[0].split('?')[0].lower()
+    u = urlsplit(str(url or '') if '://' in str(url or '') else 'https://' + str(url or ''))
+    h = (u.hostname or '').lower()
     return h[4:] if h.startswith('www.') else h
 
 
@@ -92,6 +95,22 @@ def site_order(recent, wins, rnd=None):
     fresh = [h for h in HOSTS if h not in recent and h not in win and h not in set(wins or ())]; rnd.shuffle(fresh)
     out = lead + fresh + later
     return out   # the last two tracks stay excluded, even if fewer than 3 sources remain
+
+
+def ranked_sources(recent, book, coverage, now=None):
+    """Observed access and useful facts lead; unread sources get a novelty lift. Recent routes remain excluded."""
+    now = time.time() if now is None else now
+    recent = set(recent or ())
+    def key(h):
+        b = (book or {}).get(h) or {}; c = (coverage or {}).get(h) or {}
+        ok, blocked = int(b.get('ok') or 0), int(b.get('blocked') or 0)
+        availability = (ok + 1) / (ok + blocked + 2)
+        useful = min(1, float(c.get('verified') or 0) / max(1, int(c.get('reads') or 0) * 3))
+        novelty = 1 / (1 + int(c.get('reads') or 0))
+        age = now - float(c.get('last') or 0)
+        freshness = min(1, max(0, age) / 86400) if c.get('last') else 1
+        return -(availability * 4 + useful * 3 + novelty + freshness), h
+    return sorted((h for h in HOSTS if h not in recent), key=key)
 
 
 def recent_mints(folders, n=10):
@@ -140,7 +159,7 @@ def start_url(p, blocked=False):
 
 def goal(p):
     return (f"PROOF OF WORK on ${p['sym']} (Solana mint {p.get('mint')}, pair {p.get('pair')}). Research it on up to {SITES_MAX} sites (FEELESS + 3), "
-            f"each site has its own random 3–8 moves, pull up to {SITE_PULLS} vitals per site — only facts NOT already known"
+            f"each site has a 3–8 move ceiling; save one verified multi-fact snapshot per page, or up to {SITE_PULLS} single pulls — corroborate known facts and investigate gaps"
             + (f" (known: {', '.join(p['known'])})" if p.get('known') else '') + ", then answer BUY / WATCH / AVOID with why."
             + (f" YOUR PLAN for this coin: {p['plan']}" if p.get('plan') else ''))
 
@@ -148,13 +167,13 @@ def goal(p):
 def site_done(p, url):
     """This site's work is used up: its vitals are saved or its moves are spent."""
     s = (p.get('sites') or {}).get(host_of(url))
-    return bool(s) and (len(s['pulls']) >= SITE_PULLS or s['steps'] >= int(s.get('max') or steps_of(p)))
+    return bool(s) and (host_of(url) in (p.get('siteComplete') or []) or len(s['pulls']) >= SITE_PULLS or s['steps'] >= int(s.get('max') or steps_of(p)))
 
 
 def next_link(p):
     """The engine drives the route (a small model once re-read the same FEELESS page until it was stopped): the coin's next page not yet
     researched, while sites are left. → url or None (then it must answer)."""
-    if len(p.get('sites') or {}) >= SITES_MAX:
+    if len(p.get('sites') or {}) >= SITES_MAX or evidence_ready(p):
         return None
     return next((u for u in links(p) if host_of(u) not in (p.get('sites') or {}) and host_of(u) not in (p.get('walled') or [])), None)
 
@@ -196,7 +215,13 @@ def vital(label):
     return k if k in VITALS else _ALIAS.get(k)
 
 
-def pull(p, url, label, value):
+def source_url(url):
+    """Public page identity only: never persist challenge tokens or signed URL queries."""
+    u = urlsplit(str(url or ''))
+    return f'{u.scheme}://{u.hostname or ""}{u.path}'[:240] if u.scheme in ('http', 'https') else str(url or '').split('?')[0][:80]
+
+
+def pull(p, url, label, value, *, support=None, seen=None, now=None, confirm=False, bulk=False):
     """Save one vital read on the page at `url`. → (ok, why)."""
     v = vital(label)
     if not v:
@@ -210,18 +235,43 @@ def pull(p, url, label, value):
     s = _site(p, url)
     if s is None:
         return False, f'{SITES_MAX} sites already researched'
-    if len(s['pulls']) >= SITE_PULLS:
-        return False, f'{SITE_PULLS} vitals from {h} already saved — open another site, or answer'
+    cap = len(VITALS) if bulk else SITE_PULLS
+    if len(s['pulls']) >= cap:
+        return False, f'{cap} vitals from {h} already saved — open another site, or answer'
     if any(x['label'] == v for x in s['pulls']):
         return False, f'{v} from {h} is already saved'
-    if v in set(p.get('known') or ()):   # 🧹 owner 2026-11-02: no duplicates — an earlier round already filed this fact for the coin
+    if v in set(p.get('known') or ()) and not confirm:   # an independently verified page may corroborate an archived fact
         return False, f'{v} is already in this coin\'s folder — read something NEW: ' + ', '.join(k for k in VITALS if k not in set(p.get('known') or ()))[:200]
     norm = re.sub(r'[^a-z0-9.%]', '', val.lower())
     dup = next((h2 for h2, s2 in (p.get('sites') or {}).items() for x in s2['pulls'] if x['label'] == v and re.sub(r'[^a-z0-9.%]', '', x['value'].lower()) == norm), None)
-    if dup:   # 🧹 owner 2026-11-02: duplicate info is deleted — the same vital with the same value from another site adds nothing
+    if dup and not confirm:   # the one-at-a-time legacy route skips a duplicate; a snapshot may file independent corroboration
         return False, f'{v} = {val} is already saved from {dup} — read something new'
-    s['pulls'].append({'label': v, 'value': val})
+    proof = re.sub(r'\s+', ' ', str(support or '')).strip()[:160]
+    visible = re.sub(r'\s+', ' ', str(seen or '')).casefold()
+    verified = bool(proof and visible and proof.casefold() in visible and val.casefold() in proof.casefold())
+    if seen is not None and not verified:
+        return False, f'{v} needs an exact visible excerpt containing {val}'
+    s['pulls'].append({'label': v, 'value': val, 'site': h, 'url': source_url(url), 'at': round(now or time.time()),
+                       'support': proof if verified else '', 'verified': verified})
     return True, f'saved {v} = {val} from {h}'
+
+
+def snapshot(p, url, seen, facts, now=None):
+    """One page read can file every supported canonical vital. The model cannot certify unseen facts."""
+    if not isinstance(facts, list):
+        return {'saved': 0, 'rejected': 0, 'why': 'facts must be a list'}
+    mint = str(p.get('mint') or '')
+    if len(mint) >= 32 and mint.casefold() not in (str(url) + str(seen)).casefold():
+        return {'saved': 0, 'rejected': len(facts), 'why': 'this page does not identify the coin mint'}
+    saved = rejected = 0
+    for fact in facts[:len(VITALS)]:
+        if not isinstance(fact, dict):
+            rejected += 1; continue
+        ok, _ = pull(p, url, fact.get('label'), fact.get('value'), support=fact.get('support'), seen=seen, now=now, confirm=True, bulk=True)
+        saved += bool(ok); rejected += not ok
+    if saved >= 3:
+        p.setdefault('siteComplete', []).append(host_of(url))
+    return {'saved': saved, 'rejected': rejected, 'why': f'{saved} verified facts saved; {rejected} unsupported or repeated'}
 
 
 def call_of(text):
@@ -250,6 +300,28 @@ def strength(p):
     sites = len({x['site'] for x in ps}); kinds = {x['label'] for x in ps}
     safe = len(kinds & set(SAFETY)); twice = sum(1 for k in kinds if sum(1 for x in ps if x['label'] == k) > 1)
     return min(100, sites * 15 + len(kinds) * 6 + safe * 6 + twice * 5)
+
+
+def evidence_ready(p):
+    """Stop early only with broad, supported evidence and no unresolved conflict."""
+    ps = pulls(p)
+    verified = [x for x in ps if x.get('verified')]
+    kinds = {x['label'] for x in verified}
+    values = {k: {str(x['value']).casefold() for x in verified if x['label'] == k} for k in kinds}
+    return (len({x['site'] for x in verified}) >= 3 and len(kinds) >= 8 and len(kinds & set(SAFETY)) >= 3
+            and not any(len(v) > 1 for v in values.values()))
+
+
+def research_metrics(p, cost, ended):
+    ps = pulls(p); verified = [x for x in ps if x.get('verified')]
+    sites = len(p.get('sites') or {}); browser_visits = sum(1 for h in p.get('sites') or {} if h != 'feeless.app')
+    external = sum(1 for x in verified if x['site'] != 'feeless.app'); usd = max(0, float(cost or 0))
+    visited = set(p.get('sites') or {}) | set(p.get('reusedSites') or [])
+    gaps = list(dict.fromkeys(list(p.get('walled') or []) + [h for h in p.get('required') or [] if h not in visited]))
+    return {'durationSec': max(0, round(float(ended) - float(p.get('at') or ended))), 'visits': browser_visits, 'sources': sites,
+            'verified': len(verified), 'factsPerVisit': round(external / browser_visits, 2) if browser_visits else None,
+            'factsPerUsd': round(len(verified) / usd, 2) if usd else None, 'costUsd': round(usd, 4),
+            'gaps': gaps}
 
 
 def public(p):
@@ -394,17 +466,23 @@ def plan_of(minds):
     return [f"the engine vets up to {POOL} candidates (every buy guard + safety) — four safe coins or the two-source fallback reach the minds",
             ("A proposes 3, B proposes 3 OTHER coins — 6 on the table (each sees the coin's prior PoW)" if two else "it proposes 3, then 3 more"),
             ("each mind takes 2 of the shortlist + writes how it will investigate them" if two else "it takes 4 of the shortlist + its plan"),
-            f"each researches its own coins: FEELESS + 3 sites, {STEPS_RANGE[0]}–{STEPS_RANGE[1]} moves a site, ≤ {SITE_PULLS} vitals a site, duplicates dropped",
+            f"each researches its own coins: FEELESS + 3 sites, {STEPS_RANGE[0]}–{STEPS_RANGE[1]} moves a site, one verified fact bundle per page, duplicates tracked",
             "every coin is checked again → 3 turns decide the ONE (size, TP, SL) → bought on FEELESS → checks until it sells → filed forever"]
 
 
 def merge_vitals(old, new):
-    """A coin's folder keeps ONE row per fact: a new read replaces the old value and adds its site to the ones that confirmed it."""
+    """One display row per vital, with every distinct claim retained for provenance and contradiction review."""
     out = {x['label']: dict(x) for x in old or []}
     for x in new or []:
         o = out.get(x['label'])
         sites = list(dict.fromkeys(((o or {}).get('sites') or ([o['site']] if o else [])) + [x['site']]))
-        out[x['label']] = {**x, 'sites': sites}
+        claims = list((o or {}).get('claims') or ([{k: o.get(k) for k in ('value', 'site', 'url', 'at', 'support', 'verified')}] if o else []))
+        claim = {k: x.get(k) for k in ('value', 'site', 'url', 'at', 'support', 'verified')}
+        if not any(c.get('site') == claim['site'] and c.get('value') == claim['value'] for c in claims):
+            claims.append(claim)
+        values = {str(c.get('value') or '').casefold() for c in claims}
+        primary = next((c for c in reversed(claims) if c.get('verified')), claims[-1])
+        out[x['label']] = {**x, **primary, 'sites': sites, 'claims': claims[-12:], 'contradiction': len(values) > 1}
     return list(out.values())
 
 
@@ -441,6 +519,19 @@ def archive_row(kind, cat_id, f, coin, now, **extra):
     return {'kind': kind, 'at': round(now), 'cat': cat_id, 'folder': f.get('id'), 'name': f.get('name'), 'mint': coin.get('mint'), 'sym': coin.get('sym'), **extra}
 
 
+def archive_public(row):
+    """A searchable coin proof, never private research DNA, browser paths, plans or exact page excerpts."""
+    keep = ('kind', 'at', 'mint', 'sym', 'call', 'pnlPct', 'bought', 'strength')
+    out = {k: row.get(k) for k in keep if k in row}
+    if row.get('kind') == 'research':
+        out['vitals'] = [{'label': x['label'], 'value': str(x.get('value') or '')[:VALUE_MAX], 'site': x.get('site'),
+                          'verified': bool(x.get('verified'))} for x in (row.get('vitals') or []) if isinstance(x, dict)
+                         and x.get('label') in VITALS and x.get('label') not in ('socials', 'news')
+                         and not re.search(r'(?i)https?://|password|secret|api.?key|token=', str(x.get('value') or ''))]
+        out['sites'] = [h for h in row.get('sites') or [] if h in HOSTS or h == 'feeless.app']
+    return out
+
+
 def archive_find(rows, q, limit=20):
     q = str(q or '').strip().lstrip('$').lower()
     if not q:
@@ -456,11 +547,24 @@ def archive_brief(rows):
     vit = {}
     for r in res:
         for x in r.get('vitals') or []:
-            vit.setdefault(x.get('label'), x.get('value'))
-    s = f"PRIOR PoW: researched {len(res)}× " + (' · '.join(f'{k} {v}' for k, v in list(vit.items())[:4]) if vit else '')
+            if x.get('verified'):
+                vit.setdefault(x.get('label'), x.get('value'))
+    s = f"PRIOR PoW: researched {len(res)}×" + (' ' + ' · '.join(f'{k} {v}' for k, v in list(vit.items())[:4]) if vit else '')
     if out:
         s += ' · traded ' + ', '.join(f"{o.get('pnlPct'):+.1f}%" if o.get('pnlPct') is not None else 'no fill' for o in out[:3])
     return s
+
+
+def reusable_facts(rows, mint, now, ttl=3600):
+    """Carry only fresh, page-verified facts, never a mind's BUY/WATCH conclusion."""
+    out = {}
+    for r in rows or []:
+        if r.get('kind') != 'research' or r.get('mint') != mint or now - float(r.get('at') or 0) > ttl:
+            continue
+        for x in r.get('vitals') or []:
+            if x.get('verified') and x.get('label') in VITALS and x.get('site') and x.get('support'):
+                out.setdefault(x['label'], {k: x.get(k) for k in ('label', 'value', 'site', 'url', 'at', 'support', 'verified')})
+    return list(out.values())
 
 
 def step_hash(signature):
@@ -501,6 +605,7 @@ def fingerprint(rows, cat_id):
         for h in set(r.get('sites') or []) & set(HOSTS):
             coverage[h]['reads'] += 1
             coverage[h]['last'] = max(coverage[h]['last'], int(r.get('at') or 0))
+            coverage[h]['verified'] = coverage[h].get('verified', 0) + sum(1 for x in r.get('vitals') or [] if x.get('site') == h and x.get('verified'))
     return {'sites': sites, 'coverage': coverage, 'vitals': vit, 'trades': len(out_), 'won': sum(1 for o in out_.values() if float(o.get('pnlPct') or 0) > 0),
             'best': [h for h in rank if sites[h]['w'] and sites[h]['w'] / sites[h]['n'] >= 0.5][:3],
             'tracks': len(tracks), 'recentTracks': [{'at': r.get('at'), 'sym': r.get('sym'), 'sites': [h for h in r.get('sites') or [] if h in HOSTS], 'steps': len(r.get('steps') or [])} for r in tracks[-2:]]}
@@ -618,7 +723,7 @@ def chart_line(samples):
 
 def folder_public(f):
     keep = ('id', 'n', 'name', 'at', 'coins', 'minds', 'phase', 'pick', 'talk', 'rounds', 'status', 'why', 'entry', 'exit', 'pnlPct', 'pnlSol', 'sym',
-            'boughtAt', 'soldAt', 'real', 'shared', 'research', 'picks', 'whys', 'base', 'pair', 'mint', 'propose', 'sol', 'plan', 'entryUsd', 'tp', 'sl', 'shots', 'vitals', 'scout', 'scoutDone', 'rMint', 'rMind', 'scouted', 'fav', 'checks', 'nextAt', 'cost', 'spend', 'report', 'grade', 'dropped', 'proposed', 'shortlist', 'owner', 'plans', 'moves', 'kept', 'hidden')
+            'boughtAt', 'soldAt', 'real', 'shared', 'research', 'picks', 'whys', 'base', 'pair', 'mint', 'propose', 'sol', 'plan', 'entryUsd', 'tp', 'sl', 'shots', 'vitals', 'evidenceMetrics', 'scout', 'scoutDone', 'rMint', 'rMind', 'scouted', 'fav', 'checks', 'nextAt', 'cost', 'spend', 'report', 'grade', 'dropped', 'proposed', 'shortlist', 'owner', 'plans', 'moves', 'kept', 'hidden')
     out = {k: f.get(k) for k in keep if k in f}
     if f.get('chart'):   # the live price the watcher reads (its P/L on the monitor)
         out['now'] = f['chart'][-1].get('px'); out['line'] = [x.get('px') for x in f['chart'][-40:]]

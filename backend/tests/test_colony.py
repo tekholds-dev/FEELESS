@@ -145,7 +145,7 @@ def test_the_desks_big_stop_also_stops_running_minds_and_a_third_repeat_read_end
     src = open(fs.__file__).read(); i = src.index("elif payload.action == 'stop':")
     assert "w_['task']['stop'] = True" in src[i:i + 900] and '_hard_stop(w_)' in src[i:i + 900]
     assert ca.REPEAT_MAX == 3 and "if w['repeats'] >= REPEAT_MAX" in open(ca.__file__).read()
-    assert fs.BLOCK_PIVOT_S == 30
+    assert fs.BLOCK_PIVOT_S == 45
 
 
 def test_a_bot_check_you_pass_is_kept_sealed_so_its_next_windows_skip_it(monkeypatch, tmp_path):

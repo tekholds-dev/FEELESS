@@ -1,8 +1,33 @@
 # FEELESS — one work queue
 
-Updated 2026-10-29. This is the canonical task list. Read HANDOFF for the latest result, this file for priorities, and MOBILE_LAYOUT for device rules. Conserve usage; finish the selected scope by priority; never dead-style. Do not work through this entire backlog unless asked.
+Updated 2026-11-03. This is the canonical task list. Read HANDOFF for the latest result, this file for priorities, and MOBILE_LAYOUT for device rules. Conserve usage; finish the selected scope by priority; never dead-style. Do not work through this entire backlog unless asked.
 
 Status: **OPEN** = work requested; **VERIFY** = implemented claims need evidence or older docs conflict; **OWNER** = key, account, signature, decision or real-device check; **LATER** = unapproved idea / audit-dependent work. No item here authorizes a trade or a payment.
+
+## Supreme Intelligence upgrade — owner request 2026-11-03
+
+Objective: improve the existing autonomous, model-replaceable research system through verified evidence and measured outcomes. Preserve independent two-mind/four-coin PoW, guarded trading and a model-free Colony. Work on a development branch and show a local preview before a production merge. No request here authorizes a trade, treasury transfer, CAPTCHA bypass or live rollout.
+
+The owner's complete request is preserved in [SUPREME_INTELLIGENCE_REQUEST.md](SUPREME_INTELLIGENCE_REQUEST.md); this queue tracks its implementation.
+
+**First ten, in implementation order (this pass):**
+
+| ID | Status | Deliverable |
+|---|---|---|
+| SI01 | VERIFY | A page can contribute multiple validated, structured facts in one evidence snapshot; retain the old single-fact action. |
+| SI02 | VERIFY | Every new fact records source, safe URL, observation time and the exact visible support. |
+| SI03 | VERIFY | Preserve conflicting values and independent corroboration rather than silently replacing an old claim. |
+| SI04 | VERIFY | Reuse fresh, verified facts from the PoW archive while keeping each mind's conclusion independent. |
+| SI05 | VERIFY | Rank sources by observed availability, useful evidence, novelty and freshness; never rank a mere winning trade as proof of source quality. |
+| SI06 | VERIFY | End a site after a complete evidence snapshot; spend extra sites when evidence is thin or contradictory. |
+| SI07 | VERIFY | Track real duration, verified facts per visit and useful facts per reported dollar for each coin. |
+| SI08 | VERIFY | Give a challenged PoW browser 45 seconds of visible, manual intervention, then record the gap and use another source. |
+| SI09 | VERIFY | Show fact provenance, contradictions, coverage and measured research efficiency in the coin folder. |
+| SI10 | VERIFY | Show a concise live research quality and source-gap summary in the PoW folder and its replay. |
+
+**Further requested work, awaiting the next batch:** full PoI with private encrypted/signed/versioned Research DNA, distinct mind fingerprints, cross-brain inheritance, controlled mutation and retirement, shadow and counterfactual trades, historical/out-of-sample promotion and rollback, permanent generations; a deterministic evolution kernel for validation, budgets, scheduling, versions, risk and recovery; model-independent memory and model-swap comparison; Colony net-profit, on-chain contribution/reward reconciliation and strict treasury boundaries; authoritative versioned data contracts and service ownership; a coherent FEE CAT command-center redesign; browser session reuse and secure cookie replacement; measured 30 FPS streaming and reduced transfer/polling; event-driven page readiness and a roughly 10-second inspectable live page; Solscan/Pump verification gap tracking; regression, concurrency and real-integration measurement. Audit working code before each item; no fabricated telemetry, duplicate API, unsafe cookie exposure, unverified promotion or silent AI override.
+
+**Security audit finding:** new per-agent PoW archive entries and saved site session contexts use the existing per-agent Fernet seal. Legacy archive entries and the main agent state file remain plaintext on disk; a careful, versioned migration with backups is still required before claiming full at-rest encryption. Public archive replies now omit private plans, browser steps and exact page excerpts. No claim of complete encryption is made for this pass.
 
 ## Current delivery
 

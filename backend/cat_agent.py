@@ -28,8 +28,8 @@ PLAN_SYS = ('You lead two AI models working for a FEELESS user. If you can answe
             'Otherwise split it into two halves the two models research in their own browsers at the same time. Answer ONLY JSON: '
             '{"fast": "<answer or empty>", "a": "<your half>", "b": "<the other model\'s half>"}')
 ACT_SYS = ('You are {name}, an AI model working in your OWN web browser for a FEELESS user, who watches you. Your half of the task: {goal}\n'
-           'Each turn pick ONE action. On your FIRST turn also add "plan": ["step 1", "step 2", "step 3"] — your 3-step plan (<= 8 words each), then follow it. Answer ONLY JSON: {{"thought": "<= 12 words: what you are doing and why", "action": "feeless|open|search|scroll|click|type|pull|upload|new_login|ask_login|media|human|draft|build|note|answer", '
-           '"tool": "<feeless tool>", "url": "", "q": "", "text": "<visible text of the link / button to click>", "label": "<field label or placeholder>", "value": "", "say": "<your answer, when action is answer>"}}\n'
+           'Each turn pick ONE action. On your FIRST turn also add "plan": ["step 1", "step 2", "step 3"] — your 3-step plan (<= 8 words each), then follow it. Answer ONLY JSON: {{"thought": "<= 12 words: what you are doing and why", "action": "feeless|open|search|scroll|click|type|snapshot|pull|upload|new_login|ask_login|media|human|draft|build|note|answer", '
+           '"tool": "<feeless tool>", "url": "", "q": "", "text": "<visible text of the link / button to click>", "label": "<field label or placeholder>", "value": "", "facts": [{{"label":"liquidity","value":"$35K","support":"exact short page excerpt containing $35K"}}], "say": "<your answer, when action is answer>"}}\n'
            'YOU SEE THE SCREEN: the page below is what is ON SCREEN right now, top to bottom. To see more, "scroll" (q: "down" or "up"); to look closer, "click" an item by its visible text. Browse like a person — scroll, open what interests you, compare.\n'
            'FEELESS FIRST: for anything about coins, trading, perps, pools or prices use action "feeless" (tool: coin|trench|perps|pools|gaps|colony, q: the coin / ticker) '
            'BEFORE any outside website — FEELESS is where this user trades. Never launch a coin or pool or create an agent ON FEELESS (on any other site, do as the user asks); never create a FeeCat.\n'
@@ -286,7 +286,7 @@ async def _window(task, w, ask, page, wait_human, name, feeless=None):
                 w['coin'] = coin_
             w['url'], w['title'] = 'feeless:coin', 'FEELESS'
             _pow._site(pw, 'feeless:coin')
-            seen = w['_page'] = f"FEELESS LIVE READ (your first site — pull up to {_pow.SITE_PULLS} vitals from it):\n{str(fr_)[:READ_MAX // 2]}\n\nTHE SEARCH PAGE:\n{str(seen)[:READ_MAX // 2]}"
+            seen = w['_page'] = f"FEELESS LIVE READ (your first site — save a verified fact snapshot):\n{str(fr_)[:READ_MAX // 2]}\n\nTHE SEARCH PAGE:\n{str(seen)[:READ_MAX // 2]}"
             _step(w, 'reads the coin on FEELESS first', 'feeless', f"coin ${pw['sym']}")
         except Exception as e:   # noqa: BLE001 — no FEELESS read: the route still runs
             seen = f'(FEELESS read failed: {str(e)[:80]})\n' + str(seen)
@@ -299,7 +299,7 @@ async def _window(task, w, ask, page, wait_human, name, feeless=None):
             await asyncio.sleep(STEP_PACE - (time.time() - last_))
         last_ = time.time()
         if pw and (w.pop('powNext', False) or _pow.site_done(pw, w.get('url') or page.url)):   # ⛏ this site is done: the engine opens the coin's next page
-            seen = await _pow_advance(w, pw, page)
+            seen = await _pow_advance(w, pw, page, wait_human)
         mine = (task.get('clouds') or {}).get(w['i']) or []   # ☁ its own cloud from earlier tasks
         got = [h['text'] for h in task.get('handoffs') or [] if h['from'] != w['i']][-4:]   # 📦 what its partner handed over
         extra = (f"\nYOUR CLOUD (your notes from earlier tasks): {' | '.join(mine)[:600]}" if mine else '') + (f"\nFROM YOUR PARTNER: {' | '.join(got)[:900]}" if got else '')
@@ -326,7 +326,7 @@ async def _window(task, w, ask, page, wait_human, name, feeless=None):
         act = str(a.get('action') or '').lower()
         if not w.get('plan'):   # 🗺 its 3-step plan, from its first reply (no extra call) — the engine's when it gave none
             pl_ = [str(x)[:60] for x in (a.get('plan') if isinstance(a.get('plan'), list) else [])[:3] if str(x).strip()]
-            w['plan'] = pl_ if len(pl_) == 3 else (['FEELESS read', "the coin's pages, 3 vitals each", 'the call'] if pw else ['open the best source', 'read the numbers it needs', 'answer short'])
+            w['plan'] = pl_ if len(pl_) == 3 else (['FEELESS read', "one evidence snapshot per coin page", 'the call'] if pw else ['open the best source', 'read the numbers it needs', 'answer short'])
             _step(w, 'plan: ' + ' → '.join(w['plan']), 'plan')
         if act in DONE_WORDS:   # "report" / "final" / "done" = its answer (a real run was refused twice for saying "report")
             act, a['say'] = 'answer', a.get('say') or '; '.join(f'{k}: {v}' for k, v in a.items() if k not in ('action', 'thought', 'url', 'text', 'label', 'value', 'tool', 'q') and v)
@@ -346,6 +346,15 @@ async def _window(task, w, ask, page, wait_human, name, feeless=None):
             left_ = int(min_s - (time.time() - t_start))
             _step(w, f'keeps browsing — {left_} s left of the time you asked', 'browse')
             seen = f'(not yet — the user asked you to browse for {min_s} s, {left_} s left. Click into one of the coins you are weighing by its name, read it, compare.)\n' + str(w.get('_page') or seen)[:READ_MAX]
+            continue
+        if act == 'snapshot':
+            got_ = _pow.snapshot(pw, w.get('url') or page.url, w.get('_page') or seen, a.get('facts')) if pw else {'saved': 0, 'why': 'snapshot is for PoW research'}
+            if got_['saved']:
+                await _pow_snap(pw, page)
+                task.setdefault('filed', []).extend({'site': x['site'], 'text': f"{x['label']} {x['value']}"[:120]}
+                    for x in _pow.pulls(pw)[-got_['saved']:])
+            _step(w, thought or got_['why'], 'snapshot' if got_['saved'] else 'refused', got_['why'])
+            seen = f"({got_['why']})\n" + str(w.get('_page') or seen)[:READ_MAX // 2]
             continue
         if act == 'pull':   # ⛏ one vital fact read on this page — the PoW rules decide if it is kept
             ok_, why_p = _pow.pull(pw, w.get('url') or page.url, a.get('label'), a.get('value')) if pw else (False, 'pull is for a Proof-of-Work run — use note')
@@ -381,7 +390,7 @@ async def _window(task, w, ask, page, wait_human, name, feeless=None):
             if key_ in w.setdefault('asked', []):   # 🔁 the same read again = a stuck loop (a real run asked "coin BONK" 4×, another 15×): point it forward
                 w['repeats'] = int(w.get('repeats') or 0) + 1
                 if w['repeats'] >= REPEAT_MAX:   # 🔀 never stopped, never paid twice: the ENGINE moves it to a page it has not used (owner 2026-11-01)
-                    seen = await _divert(task, w, page)
+                    seen = await _divert(task, w, page, wait_human)
                     continue
                 _step(w, 'already read this', 'feeless', key_)
                 seen = f'(you already read "{key_}" — its result is above in your notes. Move on: open the research links it gave you, or answer.)\n' + seen[:READ_MAX // 2]
@@ -439,7 +448,7 @@ async def _window(task, w, ask, page, wait_human, name, feeless=None):
             if why_rep:   # 🔁 NEVER the same step twice (owner 2026-10-31: "it scrolled up and down 20 times") — refused, not paid for again
                 w['repeats'] = int(w.get('repeats') or 0) + 1
                 if w['repeats'] >= REPEAT_MAX:
-                    seen = await _divert(task, w, page)
+                    seen = await _divert(task, w, page, wait_human)
                     continue
                 _step(w, f'refused a repeat: {why_rep}', 'refused', act)
                 seen = f'(REFUSED — {why_rep}. Do something NEW: click a link you have not opened, open another source, or answer now.)\n' + str(seen)[:READ_MAX // 2]
@@ -519,14 +528,14 @@ async def _window(task, w, ask, page, wait_human, name, feeless=None):
 DIVERT = ('https://dexscreener.com/solana', 'https://rugcheck.xyz', 'https://solscan.io', 'https://www.coingecko.com', 'https://defillama.com')
 
 
-async def _divert(task, w, page):
+async def _divert(task, w, page, wait_human=None):
     """🔀 A mind that keeps repeating is never stopped (owner 2026-11-01): the engine opens a source it has NOT used this task — the task's best
     sources first (the sources book), then the trusted list, then a fresh search — and it carries on from there."""
     w['repeats'] = 0
     pw = task.get('pow') if w['i'] == 0 else None
     if pw:   # a PoW moves to the coin's next page
         w['powNext'] = True
-        return await _pow_advance(w, pw, page)
+        return await _pow_advance(w, pw, page, wait_human)
     been = {_pow.host_of(str(x.get('detail') or '')) for x in w.get('steps') or []} | {_pow.host_of(page.url)}
     pool = [u for u in list(task.get('alts') or []) + list(DIVERT) if _pow.host_of(u) not in been and (research_ok(u) if task.get('research') else True)]
     u = pool[0] if pool else SEARCH_URL + quote_plus(f"{str(w.get('goal') or '')[:70]} {len(w.get('steps') or [])}")
@@ -569,7 +578,7 @@ async def _pow_find(w, pw, page):
     return got
 
 
-async def _pow_advance(w, pw, page):
+async def _pow_advance(w, pw, page, wait_human=None):
     """⛏ Open the coin's next research page (a walled one is skipped — a PoW never waits for a person). → what the window now reads."""
     from cat_browser import needs_human
     while True:
@@ -583,7 +592,17 @@ async def _pow_advance(w, pw, page):
         except Exception as e:   # noqa: BLE001 — a page that won't load is skipped like a wall
             got = f'(could not open: {str(e)[:80]})'
         w['url'], w['title'] = page.url or nxt, page.title
-        if needs_human(page.url, got) or str(got).startswith('(could not open'):
+        challenge = needs_human(page.url, got)
+        if challenge and wait_human:
+            w['human'] = {'why': challenge, 'url': _pow.source_url(page.url or nxt), 'kind': 'challenge', 'seconds': 45}
+            w['status'], w['bubble'] = 'human', f'✋ {challenge} · 45 s to continue'
+            resumed = await wait_human(w['i'])
+            w['human'], w['status'] = None, 'working'
+            if resumed and not w.get('redirect'):
+                got = await _after_human(w, page)
+                challenge = needs_human(page.url, got)
+        if challenge or str(got).startswith('(could not open'):
+            w.pop('redirect', None)  # A timed-out manual challenge cannot redirect a later site.
             _pow.wall(pw, nxt)   # never counted, never opened again
             _step(w, f'{_pow.host_of(nxt)} is walled — skipped', 'refused', nxt)
             continue
@@ -591,7 +610,7 @@ async def _pow_advance(w, pw, page):
         w['_page'] = str(got)
         _step(w, f'next site: {_pow.host_of(nxt)}', 'open', nxt)
         await _pow_snap(pw, page)
-        return f'NOW ON {_pow.host_of(nxt)} — pull up to {_pow.SITE_PULLS} vitals here, then it moves on.\n' + str(got)
+        return f'NOW ON {_pow.host_of(nxt)} — save every visible vital in one verified snapshot, then it moves on.\n' + str(got)
 
 
 def _failed(ws, got):

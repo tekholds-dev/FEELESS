@@ -691,6 +691,10 @@ body.theme-day .cwb-newmsg { background: #fff; color: #0f7a40; }
 /* 🧬 its fingerprint: sources scored by the trades they came before */
 .dsk-fp { display: grid; gap: 8px; padding: 12px; border-radius: 12px; border: 1px solid #8f7cff40; background: linear-gradient(160deg, #8f7cff14, transparent 70%); }
 .dsk-coverage, .dsk-replay, .dsk-receipts { display: grid; gap: 8px; padding: 10px; border: 1px solid #8f7cff40; border-radius: 10px; background: #ffffff08; color: #d9d1f2; font: 600 11px/1.4 var(--f-ui); }
+.dsk-evidence-meter, .dsk-evidence-summary { display: grid; gap: 5px; padding: 10px; border: 1px solid #8f7cff55; border-radius: 10px; background: linear-gradient(135deg, #8f7cff18, #45e4860c); color: #ded6fa; font: 700 10px var(--f-mono); }
+.dsk-evidence-meter b, .dsk-evidence-summary b { color: #c9b8ff; letter-spacing: .12em; }.dsk-evidence-meter small { color: #b6a9d2; }
+.dsk-coin-vit li.is-disputed { border: 1px solid #ff8fa388; }.dsk-coin-vit details { margin-top: 5px; color: #c9b8ff; font: 600 9px var(--f-ui); }.dsk-coin-vit summary { cursor: pointer; min-height: 32px; }.dsk-coin-vit details p { margin: 4px 0; overflow-wrap: anywhere; }
+body.theme-day .dsk-evidence-meter, body.theme-day .dsk-evidence-summary { background: #f5f0ff; color: #342656; }@media (max-width: 640px) { .dsk-evidence-summary { font-size: 9px; } }
 .dsk-coverage-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(145px, 1fr)); gap: 5px; }
 .dsk-coverage-grid span { display: grid; grid-template-columns: 8px 1fr; column-gap: 6px; padding: 6px; border-radius: 6px; background: #ffffff06; color: #a99bc8; overflow-wrap: anywhere; }
 .dsk-coverage-grid span.is-read { color: #d9d1f2; background: #8f7cff18; }

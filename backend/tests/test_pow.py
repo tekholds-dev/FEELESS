@@ -20,6 +20,65 @@ def test_only_vitals_with_a_read_value_are_saved_three_per_site():
     assert [x['label'] for x in pw.pulls(p)] == ['mint authority', 'liquidity', 'top 10 holders']
 
 
+def test_one_page_snapshot_keeps_every_supported_fact_and_safe_lineage():
+    p = pw.new({'mint': 'M', 'pair': 'P', 'sym': 'CAT'}, 100)
+    page = 'Liquidity $35K. Holders 1,204. Mint authority revoked. Freeze authority revoked. Top 10 holders 22%.'
+    facts = [{'label': label, 'value': value, 'support': excerpt} for label, value, excerpt in (
+        ('liquidity', '$35K', 'Liquidity $35K'), ('holders', '1,204', 'Holders 1,204'),
+        ('mint authority', 'revoked', 'Mint authority revoked'), ('freeze authority', 'revoked', 'Freeze authority revoked'),
+        ('top 10 holders', '22%', 'Top 10 holders 22%'))]
+    facts.append({'label': 'risk score', 'value': '99', 'support': 'Risk score 99'})
+    got = pw.snapshot(p, 'https://user:password@rugcheck.xyz/tokens/M?session=SECRET', page, facts, 123)
+    assert got['saved'] == 5 and got['rejected'] == 1 and pw.site_done(p, 'https://rugcheck.xyz/tokens/M')
+    assert all(x['verified'] and x['at'] == 123 and x['url'] == 'https://rugcheck.xyz/tokens/M' for x in pw.pulls(p))
+    assert 'SECRET' not in json.dumps(pw.public(p)) and 'password' not in json.dumps(pw.public(p))
+
+
+def test_claims_preserve_conflict_corroboration_and_only_fresh_verified_reuse():
+    a = {'label': 'liquidity', 'value': '$35K', 'site': 'a.com', 'at': 100, 'support': 'Liquidity $35K', 'verified': True}
+    b = {**a, 'site': 'b.com'}; c = {**a, 'site': 'c.com', 'value': '$18K', 'support': 'Liquidity $18K'}
+    row = pw.merge_vitals([a], [b, c])[0]
+    assert row['contradiction'] and len(row['claims']) == 3 and row['sites'] == ['a.com', 'b.com', 'c.com']
+    archive = [{'kind': 'research', 'mint': 'M', 'at': 100, 'vitals': [a], 'call': 'BUY'},
+               {'kind': 'research', 'mint': 'M', 'at': 50, 'vitals': [{**c, 'verified': False}]}]
+    assert pw.reusable_facts(archive, 'M', 120) == [a | {'url': None}]
+    assert pw.reusable_facts(archive, 'M', 4000) == []
+
+
+def test_source_rank_and_adaptive_completion_use_evidence_not_trade_wins():
+    order = pw.ranked_sources(set(), {'rugcheck.xyz': {'ok': 10, 'blocked': 0}, 'pump.fun': {'ok': 0, 'blocked': 8}},
+                              {'rugcheck.xyz': {'reads': 2, 'verified': 8, 'last': 100}}, 100)
+    assert order.index('rugcheck.xyz') < order.index('pump.fun')
+    assert 'rugcheck.xyz' not in pw.ranked_sources({'rugcheck.xyz'}, {}, {}, 100)
+    p = pw.new({'mint': 'M', 'pair': 'P', 'sym': 'CAT'}, 100)
+    labels = ['liquidity', 'holders', 'mint authority', 'freeze authority', 'top 10 holders', 'volume 24h', 'age', 'buys vs sells']
+    for i, site in enumerate(('a.com', 'b.com', 'c.com')):
+        page = ' '.join(f'{label} {i + 1}' for label in labels)
+        pw.snapshot(p, f'https://{site}/M', page, [{'label': label, 'value': str(i + 1), 'support': f'{label} {i + 1}'} for label in labels], 120 + i)
+    assert not pw.evidence_ready(p)  # three disagreeing sources require more investigation
+    m = pw.research_metrics(p, 0.02, 140)
+    assert m['visits'] == 3 and m['verified'] == 24 and m['factsPerVisit'] == 8 and m['factsPerUsd'] == 1200
+
+
+def test_challenged_pow_site_hands_the_real_window_to_a_person_then_records_gap(monkeypatch):
+    p = pw.new({'mint': 'M', 'pair': 'P', 'sym': 'CAT'}, 100)
+    urls = iter(['https://rugcheck.xyz/tokens/M', 'https://solscan.io/token/M'])
+    monkeypatch.setattr(pw, 'next_link', lambda _: next(urls))
+    class Browser:
+        url = ''; title = 'Coin'; live = False
+        async def goto(self, url):
+            self.url = url
+            return 'CAPTCHA: verify you are human' if 'rugcheck' in url else 'Solscan token M holders 1,204'
+    w = {'i': 0, 'steps': [], 'url': None, 'title': None}
+    seen = []
+    async def human(i):
+        seen.append((i, w['status'], w['human']['seconds']))
+        return False
+    out = asyncio.run(ca._pow_advance(w, p, Browser(), human))
+    assert seen == [(0, 'human', 45)] and p['walled'] == ['rugcheck.xyz']
+    assert 'solscan.io' in out and w['status'] == 'working'
+
+
 def test_a_random_3_to_8_moves_per_site_and_four_sites_then_refused(monkeypatch):
     import random
     p = pw.new({'mint': 'M', 'pair': 'P', 'sym': 'CAT'}, 0)
@@ -564,9 +623,13 @@ def test_duplicate_facts_are_dropped_and_every_filing_is_kept_forever_and_search
     fs._pow_archive_add(pw.archive_row('research', 'h1', f, {'mint': 'M', 'sym': 'X'}, 10, vitals=[{'label': 'risk score', 'value': 'GOOD', 'site': 'rugcheck.xyz'}]))
     fs._pow_archive_add(pw.archive_row('outcome', 'h1', f, {'mint': 'M', 'sym': 'X'}, 20, pnlPct=-4.2, bought=True, sol=0.006, why='stop'))
     fs._pow_archive_add(pw.archive_row('research', 'h1', f, {'mint': 'Q', 'sym': 'Y'}, 30))
+    raw = (tmp_path / 'pow_archive.jsonl').read_text()
+    assert 'risk score' not in raw and 'sealed' in raw
     rows = fs._pow_archive_rows(); assert len(rows) == 3                                      # 🗄 append-only: every filing stays
     hit = pw.archive_find(rows, '$x'); assert [r['kind'] for r in hit] == ['outcome', 'research']
-    assert pw.archive_brief(hit) == 'PRIOR PoW: researched 1× risk score GOOD · traded -4.2%'
+    assert pw.archive_brief(hit) == 'PRIOR PoW: researched 1× · traded -4.2%'  # old unverified claims never become canonical memory
+    public = pw.archive_public({**hit[-1], 'steps': ['privatehash'], 'plan': 'private plan', 'vitals': [{ 'label': 'risk score', 'value': 'GOOD', 'site': 'rugcheck.xyz', 'support': 'private excerpt', 'url': 'https://rugcheck.xyz/?secret=1' }]})
+    assert 'private' not in json.dumps(public) and public['vitals'][0] == {'label': 'risk score', 'value': 'GOOD', 'site': 'rugcheck.xyz', 'verified': False}
     out = asyncio.run(fs.pow_archive(q='M')); assert out['total'] == 3 and len(out['rows']) == 2 and 'researched 1×' in out['brief']
 
     class R:
@@ -610,7 +673,7 @@ def test_a_research_round_reviews_the_coins_archive_first_new_sites_new_facts(mo
     fs._WORK.pop('h1', None)
     assert fs._pow2_research({'id': 'h1', 'powFolders': []}, {'id': 'f1', 'charts': {}}, {'mint': 'M', 'pair': 'P', 'sym': 'X'}, 0, 1000)
     rp = seen['pw']; t = fs._WORK.pop('h1')['task']
-    assert 'lp locked' in rp['known'] and {'rugcheck.xyz', 'feeless.app'} <= set(rp['used'])   # the last research's facts + sites are not repeated
+    assert 'lp locked' not in rp['known'] and {'rugcheck.xyz', 'feeless.app'} <= set(rp['used'])   # old unverified claims are not inherited
     assert 'PRIOR PoW: researched 1×' in rp['prior'] and 'do NOT repeat it' in t['handoffs'][-1]['text']
 
 

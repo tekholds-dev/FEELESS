@@ -266,9 +266,9 @@ function Window({ w, catId, tick, onGo, onLogin, busy, cursor = 'arrow', folder 
         <b>🔑 {w.human.site} needs a sign-in</b><small>It goes in the credentials drawer, sealed — the AI models never see it.</small>
         <span><button type="button" className="m-btn m-go" disabled={busy} onClick={() => onLogin?.(w.human.site)} data-tip="Opens the credentials drawer with this site filled in" data-testid="cwb-login-go">Click to sign in</button>
           <button type="button" className="m-btn" disabled={busy} onClick={() => onGo('stop_window', w.i)}>Stop</button></span></div>
-      : human ? <div className="cwb-human" role="alertdialog" aria-label="A person is needed" data-testid="cwb-human"><b>✋ needs you</b><small>{w.human.why}</small>
+      : human ? <div className="cwb-human" role="alertdialog" aria-label="A person is needed" data-testid="cwb-human"><b>✋ needs you{w.human.kind === 'challenge' ? ' · 45s window' : ''}</b><small>{w.human.why}{w.human.kind === 'challenge' ? ' · Open the live browser to complete this yourself. The agent will try another source if this stays blocked.' : ''}</small>
         {w.human.alts?.length ? <span className="cwb-alts" data-testid="cwb-alts"><em>OR SEND IT TO</em>{w.human.alts.map(h => <button key={h} type="button" className="m-chip" disabled={busy} onClick={() => onGo('redirect', w.i, h)}
-          data-tip={`Skip the check: it reads ${h} instead (it goes there on its own in 90 s)`} data-testid={`cwb-alt-${h}`}>{h}</button>)}</span> : null}
+          data-tip={`Read ${h} instead; the agent moves on after 45 seconds if this remains blocked`} data-testid={`cwb-alt-${h}`}>{h}</button>)}</span> : null}
         <span><button type="button" className="m-btn m-go" disabled={busy} onClick={() => onGo('continue', w.i)} data-testid="cwb-continue">I did it — continue</button>
           {w.live ? <button type="button" className="m-btn" onClick={() => setBig(true)} data-testid="cwb-human-big" data-tip="Open its window big on your desktop to pass the check yourself">⤢ Open big</button> : null}
           <button type="button" className="m-btn" disabled={busy} onClick={() => onGo('stop_window', w.i)} data-testid="cwb-stopwin">Stop</button></span></div> : null}
@@ -605,12 +605,15 @@ const PHASES = [['propose', 'PROPOSE'], ['split', 'SPLIT'], ['scout', 'RESEARCH'
 const SRC = { intake: 'FEELESS', pump: 'PUMP', dex: 'DEX' };
 function CoinFolder({ f, c, catId, onShot }) {   // 📁 one coin's folder inside a PoW folder: its vitals + the snapshots of every site researched
   const shots = (f.shots || []).filter(x => x.mint === c.mint); const mv = (f.moves || {})[c.mint] || {};
+  const met = (f.evidenceMetrics || {})[c.mint];
   const raw = (f.vitals || {})[c.mint] || (f.pick?.mint === c.mint ? (f.research || []) : []);
   const vit = Object.values(raw.reduce((a, x) => ({ ...a, [x.label]: { ...x, sites: [...new Set([...(a[x.label]?.sites || []), ...(x.sites || [x.site])])] } }), {}));   // one row a fact (older folders too)
   return <div className="dsk-coin" data-testid={`dsk-coin-${c.mint}`}>
     <span className="dsk-coin-h"><b>📁 ${c.sym}</b><em>{SRC[c.src] || c.src}</em>{f.pick?.mint === c.mint ? <i>the pick</i> : null}</span>
+    {met ? <div className="dsk-evidence-meter" data-testid="dsk-evidence-meter"><b>RESEARCH MEASURES</b><span>{met.verified} verified facts · {met.visits} browser visits · {met.durationSec}s · ${Number(met.costUsd || 0).toFixed(4)}</span><small>{met.factsPerVisit == null ? 'no browser visits' : `${met.factsPerVisit} facts/visit`} · {met.factsPerUsd == null ? 'no model charge' : `${met.factsPerUsd} facts/$`} {met.gaps?.length ? `· gaps: ${met.gaps.join(', ')}` : ''}</small></div> : null}
     {Object.keys(mv).length ? <ul className="dsk-coin-moves" aria-label="Sites and their random moves">{Object.entries(mv).map(([h, m]) => <li key={h} data-tip={`${h}: ${m.max} moves drawn at random (3–8), ${m.used} used`}><b>{h}</b><u><s style={{ transform: `scaleX(${Math.min(1, (m.used || 0) / (m.max || 1))})` }} /></u><small className="m-num">{m.used}/{m.max}</small></li>)}</ul> : null}
-    {vit.length ? <ul className="dsk-coin-vit">{vit.map((x, k) => <li key={`${x.label}${k}`}><em>{x.label}</em><b className="m-num">{x.value}</b><small>{(x.sites || [x.site]).join(' · ')}</small></li>)}</ul>
+    {vit.length ? <ul className="dsk-coin-vit">{vit.map((x, k) => <li key={`${x.label}${k}`} className={x.contradiction ? 'is-disputed' : ''}><em>{x.label}{x.contradiction ? ' · CONFLICT' : ''}</em><b className="m-num">{x.value}</b><small>{(x.sites || [x.site]).join(' · ')} · {x.verified ? 'page verified' : 'reported'}</small>
+      {(x.claims || (x.support ? [x] : [])).length ? <details><summary>Evidence lineage</summary>{(x.claims || [x]).map((cl, j) => <p key={j}><b>{cl.value}</b> · {cl.site} {cl.at ? `· ${new Date(Number(cl.at) * 1000).toLocaleString()}` : ''}<small>{cl.support || 'No page excerpt saved'}</small></p>)}</details> : null}</li>)}</ul>
       : <p className="dsk-coin-read">{String(c.read || 'its FEELESS read').slice(0, 260)}</p>}
     {shots.length ? <div className="dsk-coin-shots">{shots.map(x => <button key={x.file} type="button" onClick={() => onShot(x)} data-tip={`${x.site} · snapshot ${x.n} · round ${(x.round || 0) + 1}`}>
       <img src={apiUrl(`/api/cats/${catId}/powshot/${String(f.id).replace(/[^a-z0-9]/gi, '').toLowerCase()}/${x.file}`)} alt={`${x.site} snapshot ${x.n}`} loading="lazy" /><small>{x.trade ? (x.trade === 'good' ? '👍 ' : '👎 ') : ''}{x.site} · {x.n}</small></button>)}</div>
@@ -747,7 +750,7 @@ function FingerPanel({ fp }) {
   const vit = Object.entries(fp.vitals || {}).sort((a, b) => b[1].w - a[1].w).slice(0, 6);
   return <div className="dsk-fp" data-testid="dsk-fp"><span className="dsk-fp-h"><b>🧬 ITS FINGERPRINT</b><small>{fp.tracks || 0} research tracks · {fp.won}/{fp.trades} trades won · last two routes avoided</small></span>
     <div className="dsk-coverage" data-testid="dsk-source-coverage"><b>Source coverage · {(Object.values(fp.coverage || {}).filter(x => x.reads).length)}/{Object.keys(fp.coverage || {}).length} sites read</b>
-      <div className="dsk-coverage-grid">{Object.entries(fp.coverage || {}).map(([host, x]) => <span key={host} className={x.reads ? 'is-read' : ''} title={`${host}: ${x.reads} research tracks${x.last ? ` · last read ${ago(x.last)} ago` : ''}`}><i aria-hidden="true" />{host}<small>{x.reads} reads · {x.wins} wins</small></span>)}</div></div>
+      <div className="dsk-coverage-grid">{Object.entries(fp.coverage || {}).map(([host, x]) => <span key={host} className={x.reads ? 'is-read' : ''} title={`${host}: ${x.reads} research tracks${x.last ? ` · last read ${ago(x.last)} ago` : ''}`}><i aria-hidden="true" />{host}<small>{x.reads} reads · {x.verified || 0} verified</small></span>)}</div></div>
     {(fp.recentTracks || []).length ? <p className="dsk-fp-vit" data-testid="dsk-fp-tracks">{(fp.recentTracks || []).map((t, i) => <span key={`${t.at}-${i}`} className="m-chip" data-tip={`${t.steps} unique browser actions recorded as hashes`}>#{i + 1} ${t.sym || '?'} · {(t.sites || []).join(' → ') || 'FEELESS'} · {t.steps} steps</span>)}</p> : null}
     <ul className="dsk-fp-sites">{rows.map(([h, x], i) => <li key={h} style={{ '--i': i }} className={(fp.best || []).includes(h) ? 'is-best' : ''} data-tip={`${h}: read before ${x.n} of its trades, ${x.w} won${x.last ? ` · last win ${ago(x.last)} ago` : ''}`}>
       <b>{(fp.best || []).includes(h) ? '★ ' : ''}{h}</b><u><s style={{ transform: `scaleX(${x.w / x.n})` }} /></u><em className="m-num">{x.w}/{x.n}</em></li>)}</ul>
@@ -756,6 +759,7 @@ function FingerPanel({ fp }) {
 function PowReplay({ f, catId, onShot }) {
   const [step, setStep] = useState(0);
   const events = [...(f.talk || []).map(t => ({ at: t.at, kind: t.by || 'Discussion', text: t.text })),
+    ...Object.entries(f.evidenceMetrics || {}).map(([mint, m]) => ({ at: (f.shots || []).filter(s => s.mint === mint).at(-1)?.at || f.at, kind: 'Evidence', text: `${m.verified} verified facts · ${m.visits} browser visits · ${m.durationSec}s · ${m.gaps?.length || 0} source gaps` })),
     ...(f.shots || []).map(s => ({ at: s.at, kind: 'Snapshot', text: `${s.site || 'Source'} · ${s.sym || ''}`, shot: s })),
     ...(f.boughtAt ? [{ at: f.boughtAt, kind: 'Buy', text: `${f.sym || 'Coin'} · ${f.sol || '—'} SOL` }] : []),
     ...(f.soldAt ? [{ at: f.soldAt, kind: 'Sell', text: `${f.pnlPct == null ? 'closed' : `${f.pnlPct >= 0 ? '+' : ''}${f.pnlPct}%`}` }] : [])]
@@ -803,6 +807,7 @@ function PowExplorer({ cat, d, setD }) {
       <button type="button" className={`m-btn${sure === f.id ? ' is-danger' : ''}`} onClick={() => (sure === f.id ? act('delete', { text: f.id }) : setSure(f.id))}
         data-tip="Remove it from the desktop (its snapshots too). Its facts stay in the PoW archive so the next PoW never repeats them." data-testid="dsk-fold-del">{sure === f.id ? 'Tap again to delete' : '🗑 Delete'}</button></span>}
       <ol className="dsk-fold-steps" aria-label="Where this folder is">{PHASES.map(([k, l], i) => <li key={k} className={i < at || f.status === 'closed' ? 'is-done' : i === at ? 'is-on' : ''}><i aria-hidden="true" />{l}</li>)}</ol>
+      {f.evidenceMetrics ? <div className="dsk-evidence-summary" data-testid="dsk-evidence-summary"><b>RESEARCH SIGNAL</b><span>{Object.values(f.evidenceMetrics).reduce((n, m) => n + (m.verified || 0), 0)} verified facts · {Object.values(f.evidenceMetrics).reduce((n, m) => n + (m.visits || 0), 0)} page visits · {Object.values(f.evidenceMetrics).flatMap(m => m.gaps || []).length} source gaps</span></div> : null}
       <PowReplay key={f.id} f={f} catId={cat.id} onShot={setBig} />
       <div className="dsk-xgrid"><Tile kind="file" tone={gradeOf(f) || 'none'} ic="📋" label="REPORT" sub={f.report ? f.report.grade : "when it closes"} onOpen={() => setPath([f.id, 'report'])} tip="What this folder found, the trade, its grade and cost" testid="dsk-x-report" />
         {(f.coins || []).filter(x => !(f.hidden || []).includes(x.mint)).map((x, i) => { const pk = f.pick?.mint === x.mint; const g = pk ? gradeOf(f) : null;
