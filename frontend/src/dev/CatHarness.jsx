@@ -53,9 +53,9 @@ const REALPOW = new URLSearchParams(window.location.search).get('realpow');   //
 if (REALPOW) { try { const x = new XMLHttpRequest(); x.open('GET', '/dev-pow.json', false); x.send(); WORK.powFolders = JSON.parse(x.responseText); WORK.powFolder = null; } catch { /* no file: the fixture */ } }
 export default function CatHarness() {
   const demo = new URLSearchParams(window.location.search).get('demo');   // ?demo=plan|jobs|discuss|battle — the launch wizard's demo alone
-  if (demo) return <div style={{ minHeight: '100vh', padding: 16, background: '#07040d' }}><AgentDemo kind={['plan', 'jobs'].includes(demo) ? 'general' : 'trading'} mode={demo} models={[{ name: 'GPT-6 Astra' }, { name: 'Claude Opus 5.5' }]} /></div>;
   const [mode, setMode] = useState(window.location.search.includes('paper') ? 'paper' : 'real');
   const [aw, setAw] = useState(window.location.search.includes('wallet') ? { address: AGT, mode: 'approve', provider: 'crossmint' } : null);
+  if (demo) return <div style={{ minHeight: '100vh', padding: 16, background: '#07040d' }}><AgentDemo kind={['plan', 'jobs'].includes(demo) ? 'general' : 'trading'} mode={demo} models={[{ name: 'GPT-6 Astra' }, { name: 'Claude Opus 5.5' }]} /></div>;
   const cat0 = mode === 'real' ? { ...BASE, mode: 'real', realWallet: DEV, budgetSol: 0.05, proposals: PROPS, realHeld: { M1: { symbol: 'GERM' } } } : BASE;
   const cat = { ...cat0, ...(aw ? { agentWallet: aw } : {}), ...(REALPOW ? { id: REALPOW } : {}) };
   const act = async (a, x = {}) => { if (a === 'real') setMode('real'); if (a === 'paper') setMode('paper'); if (a === 'agent_wallet') setAw({ address: AGT, mode: 'approve', provider: 'crossmint' }); if (a === 'agent_mode') setAw(w => ({ ...w, mode: x.mode })); };
