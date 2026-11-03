@@ -97,7 +97,7 @@ def site_order(recent, wins, rnd=None):
     return out   # the last two tracks stay excluded, even if fewer than 3 sources remain
 
 
-def ranked_sources(recent, book, coverage, now=None):
+def ranked_sources(recent, book, coverage, now=None, inherited=()):
     """Observed access and useful facts lead; unread sources get a novelty lift. Recent routes remain excluded."""
     now = time.time() if now is None else now
     recent = set(recent or ())
@@ -109,7 +109,8 @@ def ranked_sources(recent, book, coverage, now=None):
         novelty = 1 / (1 + int(c.get('reads') or 0))
         age = now - float(c.get('last') or 0)
         freshness = min(1, max(0, age) / 86400) if c.get('last') else 1
-        return -(availability * 4 + useful * 3 + novelty + freshness), h
+        inherited_bonus = 1 if h in inherited else 0  # another mind validated useful evidence; this mind still verifies independently
+        return -(availability * 4 + useful * 3 + novelty + freshness + inherited_bonus), h
     return sorted((h for h in HOSTS if h not in recent), key=key)
 
 
@@ -739,9 +740,10 @@ def report(f):
               'vitals': len(vit.get(c.get('mint')) or []), 'shots': sum(1 for x in shots if x.get('mint') == c.get('mint')),
               'sites': sorted({x.get('site') for x in vit.get(c.get('mint')) or []} | {x.get('site') for x in shots if x.get('mint') == c.get('mint')}),
               'pick': c.get('mint') == pk} for c in f.get('coins') or []]
-    p = f.get('pnlPct'); grade = 'no trade' if p is None else ('👍 good trade' if p > 0 else '👎 bad trade')
+    p = f.get('pnlPct'); grade = ('settlement unverified' if f.get('real') and f.get('entry') else 'no trade') if p is None else ('👍 good trade' if p > 0 else '👎 bad trade')
     cost = round(sum(_f(v) for v in (f.get('cost') or {}).values()), 4) if isinstance(f.get('cost'), dict) else _f(f.get('cost'))
     lesson = ('no coin passed the safety check' if not any(c['safe'] for c in coins) else 'proposal only — nothing bought' if f.get('propose')
+              else 'wallet fill totals could not be verified; no Colony share accrued' if f.get('real') and f.get('entry') and p is None
               else 'the buy did not fill' if p is None and pk else f"{'it worked' if (p or 0) > 0 else 'it lost'}: {f.get('why') or ''}"[:160])
     r = {'name': f.get('name'), 'coins': coins, 'researched': sum(1 for c in coins if c['vitals'] or c['shots']), 'pick': f.get('sym'),
          'sol': f.get('sol'), 'tp': f.get('tp'), 'sl': f.get('sl'), 'pnlPct': p, 'pnlSol': f.get('pnlSol'), 'grade': grade, 'why': f.get('why'),

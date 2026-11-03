@@ -1,5 +1,7 @@
 """🐝 The Colony (owner 2026-10-31): graded trades, the FEECAT stake gate, and the pot's guards — growth only, honey split, never a send."""
 import asyncio
+import json
+import pytest
 
 import colony as col
 import hive as hv
@@ -16,7 +18,9 @@ def test_the_pot_only_pays_growth_under_the_epoch_cap_and_the_floor_only_rises()
 
 
 def test_airdrops_follow_what_each_owner_shared_never_who_was_right():
-    sh = [{'owner': 'A', 'sol': 0.1, 'at': 100}, {'owner': 'B', 'sol': 0.3, 'at': 150}, {'owner': 'C', 'sol': 1.0, 'at': 150}, {'owner': 'A', 'sol': 9, 'at': 10}]
+    sh = [{'owner': 'A', 'sol': 0.1, 'at': 100, 'sent': True, 'sig': 'a'}, {'owner': 'B', 'sol': 0.3, 'at': 150, 'sent': True, 'sig': 'b'},
+          {'owner': 'C', 'sol': 1.0, 'at': 150, 'sent': True, 'sig': 'c'}, {'owner': 'A', 'sol': 9, 'at': 10, 'sent': True, 'sig': 'old'},
+          {'owner': 'A', 'sol': 100, 'at': 150, 'sent': False}]
     out = col.airdrop(sh, {'A', 'B'}, 40, since=50)   # C never signed; A's old share is from the last period
     assert [(r['owner'], r['usd'], r['pct']) for r in out] == [('B', 30.0, 75.0), ('A', 10.0, 25.0)]
     assert col.share_cut(0.5, 10) == 0.05 and col.share_cut(-2, 10) == 0 and col.share_cut(1, 7) == 0   # only the offered %s, nothing on a loss
@@ -27,9 +31,47 @@ def test_a_signed_sharing_agent_owes_the_colony_on_wins_only_from_its_own_wallet
     import feecat_service as fs
     monkeypatch.setattr(fs, 'SHARES_PATH', tmp_path / 's.json')
     cat = {'id': 'k1', 'ownerWallet': 'W1', 'colonyShare': {'on': True, 'pct': 20}, 'agentWallet': {'address': 'AW'}}
-    fs._colony_share(cat, {'symbol': 'HUSS'}, 0.5); fs._colony_share(cat, {'symbol': 'RUG'}, -0.2)
+    fs._colony_share(cat, {'symbol': 'HUSS'}, 0.5, 'sell-sig'); fs._colony_share(cat, {'symbol': 'HUSS'}, 0.5, 'sell-sig')
+    fs._colony_share(cat, {'symbol': 'RUG'}, -0.2, 'loss-sig')
     fs._colony_share({**cat, 'agentWallet': None}, {'symbol': 'X'}, 1.0)   # paper winnings are not money
     assert [(x['owner'], x['sol'], x['sent']) for x in fs._shares()] == [('W1', 0.1, False)]
+
+
+def test_share_ledger_is_versioned_idempotent_and_refuses_corrupt_state(monkeypatch, tmp_path):
+    import feecat_service as fs
+    monkeypatch.setattr(fs, 'SHARES_PATH', tmp_path / 'shares.json')
+    row = {'cat': 'cat', 'ref': 'sell-sig', 'sol': .01, 'state': 'owed'}
+    assert fs._share_append(row, ('sell-sig', 'cat'))
+    assert not fs._share_append(row, ('sell-sig', 'cat'))
+    assert json.loads(fs.SHARES_PATH.read_text()) == {'v': 1, 'shares': [row]}
+    fs.SHARES_PATH.write_text('{bad')
+    with pytest.raises(ValueError):
+        fs._share_append({'cat': 'cat', 'ref': 'other'}, ('other', 'cat'))
+    assert fs.SHARES_PATH.read_text() == '{bad'
+
+
+def test_pow_colony_reconciles_confirmed_wallet_fills_before_accruing(monkeypatch, tmp_path):
+    import asyncio
+    import feecat_service as fs
+    monkeypatch.setattr(fs, 'SHARES_PATH', tmp_path / 'shares.json')
+    cat = {'id': 'k1', 'ownerWallet': 'W1', 'colonyShare': {'on': True, 'pct': 20}, 'agentWallet': {'address': 'AW'},
+           'proposals': [{'id': 'buy', 'status': 'done', 'sig': 'buy-sig'}, {'id': 'sell', 'status': 'done', 'sig': 'sell-sig'}]}
+    f = {'id': 'pow1', 'name': 'folder', 'real': True, 'pid': 'buy', 'sellPid': 'sell', 'mint': 'M', 'sym': 'X', 'entry': 1,
+         'sol': .1, 'pick': {'mint': 'M'}, 'coins': [{'mint': 'M', 'sym': 'X', 'safe': True}], 'talk': []}
+    async def rpc(_, method, args, scan=False):
+        assert method == 'getTransaction' and not scan
+        return {'sig': args[0]}
+    monkeypatch.setattr(fs._crpc, '_rpc', rpc)
+    monkeypatch.setattr(fs._fills, 'raw_fill', lambda tx, wallet, mint: {'side': 'buy' if tx['sig'] == 'buy-sig' else 'sell',
+                                                                       'cashSol': .101 if tx['sig'] == 'buy-sig' else .11})
+    assert asyncio.run(fs._pow2_reconcile(None, cat, f))
+    assert f['settlementVerified'] and f['netPnlSol'] == .009
+    monkeypatch.setattr(fs, '_pow_archive_add', lambda row: None)
+    monkeypatch.setattr(fs._pow, 'report', lambda folder: ({}, 'report'))
+    monkeypatch.setattr(fs, 'POWSHOTS_DIR', tmp_path / 'shots')
+    fs._pow2_close(cat, f, 'sold', 100, 1.1)
+    assert f['pnlSol'] == .009 and f['pnlPct'] == round(.009 / .101 * 100, 2)
+    assert fs._shares()[0]['sol'] == .0018 and fs._shares()[0]['ref'] == 'sell-sig'
     assert fs.share_ok('k1', 20, 1, 'sig', 'W1', now=500) is False   # a stale signature never counts
     src = open(fs.__file__).read(); i = src.index("if p.op == 'share':"); assert 'share_ok(cat_id, pct_, p.ts, p.sig' in src[i:i + 900]
 

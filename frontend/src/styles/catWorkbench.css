@@ -701,6 +701,11 @@ body.theme-day .dsk-evidence-meter, body.theme-day .dsk-evidence-summary { backg
 .dsk-coverage-grid i { width: 7px; height: 7px; border-radius: 50%; background: #6a637a; align-self: center; }
 .dsk-coverage-grid .is-read i { background: #45e486; }
 .dsk-coverage-grid small { grid-column: 2; color: #a99bc8; }
+.dsk-poi { display: grid; gap: 7px; padding: 11px; border: 1px solid #8f7cff55; border-radius: 10px; background: #120e20; color: #e5ddf6; font: 700 11px var(--f-mono); }
+.dsk-poi > b { color: #c9b8ff; letter-spacing: .12em; }.dsk-poi > small { color: #a99bc8; }
+.dsk-poi-minds { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 7px; }.dsk-poi-minds article { display: grid; gap: 4px; padding: 8px; border-radius: 7px; background: #ffffff08; }
+.dsk-poi-minds strong { color: #45e486; }.dsk-poi-minds small { color: #bbaed1; }.dsk-poi-minds em { color: #ffd76a; font-style: normal; }
+body.theme-day .dsk-poi { background: #f5f0ff; color: #342656; }
 .dsk-replay-controls { display: flex; align-items: center; gap: 8px; } .dsk-replay-controls input { min-width: 40px; flex: 1; } .dsk-replay p { margin: 0; }
 .dsk-receipts ul { list-style: none; padding: 0; margin: 0; display: grid; gap: 4px; max-height: 250px; overflow: auto; }
 .dsk-receipts li { padding: 6px; border-radius: 6px; background: #ffffff08; overflow-wrap: anywhere; } .dsk-receipts li small { display: block; color: #a99bc8; }

@@ -6,7 +6,7 @@ Status: **OPEN** = work requested; **VERIFY** = implemented claims need evidence
 
 ## Supreme Intelligence upgrade — owner request 2026-11-03
 
-Objective: improve the existing autonomous, model-replaceable research system through verified evidence and measured outcomes. Preserve independent two-mind/four-coin PoW, guarded trading and a model-free Colony. Work on a development branch and show a local preview before a production merge. No request here authorizes a trade, treasury transfer, CAPTCHA bypass or live rollout.
+Objective: improve the existing autonomous, model-replaceable research system through verified evidence and measured outcomes. Preserve independent two-mind/four-coin PoW, guarded trading and a model-free Colony. The owner subsequently authorized tested production pushes to main and the 51367 checkout, without stopping their running command. No request here authorizes a trade, treasury transfer or CAPTCHA bypass.
 
 The owner's complete request is preserved in [SUPREME_INTELLIGENCE_REQUEST.md](SUPREME_INTELLIGENCE_REQUEST.md); this queue tracks its implementation.
 
@@ -25,7 +25,22 @@ The owner's complete request is preserved in [SUPREME_INTELLIGENCE_REQUEST.md](S
 | SI09 | VERIFY | Show fact provenance, contradictions, coverage and measured research efficiency in the coin folder. |
 | SI10 | VERIFY | Show a concise live research quality and source-gap summary in the PoW folder and its replay. |
 
-**Further requested work, awaiting the next batch:** full PoI with private encrypted/signed/versioned Research DNA, distinct mind fingerprints, cross-brain inheritance, controlled mutation and retirement, shadow and counterfactual trades, historical/out-of-sample promotion and rollback, permanent generations; a deterministic evolution kernel for validation, budgets, scheduling, versions, risk and recovery; model-independent memory and model-swap comparison; Colony net-profit, on-chain contribution/reward reconciliation and strict treasury boundaries; authoritative versioned data contracts and service ownership; a coherent FEE CAT command-center redesign; browser session reuse and secure cookie replacement; measured 30 FPS streaming and reduced transfer/polling; event-driven page readiness and a roughly 10-second inspectable live page; Solscan/Pump verification gap tracking; regression, concurrency and real-integration measurement. Audit working code before each item; no fabricated telemetry, duplicate API, unsafe cookie exposure, unverified promotion or silent AI override.
+**Second batch requested, in this order (2026-11-03):**
+
+| ID | Status | Deliverable and current evidence |
+|---|---|---|
+| SI11 | VERIFY | Encrypted authenticated versioned per-mind Research DNA, append-only chain, verified evidence references and strict file permissions (`poi.py`). |
+| SI12 | VERIFY | Separate mind fingerprints with route diversity and observed facts per site; source ranking uses the mind's own history. |
+| SI13 | VERIFY | Cross-mind inheritance of promoted sites; four-observation promotion and subsequent regression retirement. Method combination and explicit rollback remain OPEN. |
+| SI14 | VERIFY | Sealed canonical model-memory snapshot before a model swap; owner sees version count. Migration comparison and restore controls remain OPEN. |
+| SI15 | VERIFY | Deterministic evidence-only promotion rule; risk/order guards remain in the existing engine. A unified versioned kernel for all resources remains OPEN. |
+| SI16 | VERIFY | Browser page readiness and search now wait for events rather than fixed sleeps. Real-session latency and frame-rate measurements remain OPEN. |
+| SI17 | VERIFY | 45-second manual challenge path with owner-visible outcome counts. Cross-worker authorized session reuse and lifecycle tests remain OPEN. |
+| SI18 | VERIFY | Real PoW Colony obligations require two confirmed on-chain wallet fills and fee-adjusted positive SOL; ledger append is locked, idempotent and versioned. Automatic transfers and treasury reconciliation remain OPEN. |
+| SI19 | VERIFY | Research DNA and share ledger have versioned records and stable keys. Whole-system service contracts and migration remain OPEN. |
+| SI20 | VERIFY | Owner PoW Explorer displays DNA source states and recovery counts. Full command-center redesign and device/performance verification remain OPEN. |
+
+**Still open from the full request:** shadow and counterfactual trades; out-of-sample method comparison/combination and rollback; canonical memory migration/restore; unified kernel resource limits; real browser duration, evidence completeness, FPS and challenge-recovery baselines; authorized cross-worker sessions; transferred/distributed Colony reconciliation; versioned contracts and safe legacy encryption migration; responsive command-center redesign. Do not mark these complete from synthetic tests or visual labels alone.
 
 **Security audit finding:** new per-agent PoW archive entries and saved site session contexts use the existing per-agent Fernet seal. Legacy archive entries and the main agent state file remain plaintext on disk; a careful, versioned migration with backups is still required before claiming full at-rest encryption. Public archive replies now omit private plans, browser steps and exact page excerpts. No claim of complete encryption is made for this pass.
 

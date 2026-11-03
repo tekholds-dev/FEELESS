@@ -622,7 +622,7 @@ function CoinFolder({ f, c, catId, onShot }) {   // 📁 one coin's folder insid
 }
 export function FolderView({ f, live, catId }) {
   const [open, setOpen] = useState(null); const [big, setBig] = useState(null);
-  const at = Math.max(0, PHASES.findIndex(([k]) => k === ({ sell: 'watch', research: 'watch', decide: 'watch' }[f.phase] || f.phase)));
+  const at = Math.max(0, PHASES.findIndex(([k]) => k === ({ sell: 'watch', sell_wait: 'watch', research: 'watch', decide: 'watch' }[f.phase] || f.phase)));
   return <div className={`dsk-fold${live ? ' is-live' : ''}`} data-testid={live ? 'dsk-fold-live' : 'dsk-fold'}>
     <span className="dsk-fold-h"><b>📁 {f.name}</b>{f.pnlPct != null ? <em className={`m-num ${f.pnlPct >= 0 ? 'is-up' : 'is-dn'}`}>{f.pnlPct >= 0 ? '+' : ''}{f.pnlPct}%</em> : <em>{live ? 'live' : f.status}</em>}{f.shared ? <small>🤝 {f.shared}% to the colony</small> : null}</span>
     <ol className="dsk-fold-steps" aria-label="Where this folder is">{PHASES.map(([k, l], i) => <li key={k} className={i < at || f.status === 'closed' ? 'is-done' : i === at ? 'is-on' : ''}><i aria-hidden="true" />{l}</li>)}</ol>
@@ -695,7 +695,7 @@ function SourcesFolder({ cat, d, setD }) {
     {pick ? <SignedSites cat={cat} rows={d?.signedIn} nested start={pick} onSaved={(signedIn, secrets) => { setD(x => ({ ...x, signedIn, ...(secrets ? { secrets } : {}) })); setPick(null); }} /> : null}
     <ul>{rows.map((r, i) => <li key={r.host} style={{ '--i': i % 20 }} className={r.last === 'blocked' ? 'is-blocked' : r.ok ? 'is-ok' : ''}>
       <span><b>{r.host}</b><small>{r.what}</small></span>
-      <em className="m-num" data-tip="How this site treated its windows: opened / bot-checked">{r.ok || 0} ✓ · {r.blocked || 0} 🛡</em>
+      <em className="m-num" data-tip="Source access · your agent's manual challenge results">{r.ok || 0} ✓ · {r.blocked || 0} 🛡{d?.challengeStats?.[r.host] ? ` · ${d.challengeStats[r.host].manualPass || 0} recovered / ${d.challengeStats[r.host].timedOut || 0} timed out` : ''}</em>
       {signed.has(r.host) ? <i className="dsk-src-in">signed in</i> : <button type="button" className="m-btn" onClick={() => setPick(r.host)} data-tip={`Opens ${r.host} live in its window — sign in once (its own email), it stays signed in`} data-testid={`src-signin-${r.host}`}>Sign in</button>}</li>)}</ul>
   </div>;
 }
@@ -756,6 +756,18 @@ function FingerPanel({ fp }) {
       <b>{(fp.best || []).includes(h) ? '★ ' : ''}{h}</b><u><s style={{ transform: `scaleX(${x.w / x.n})` }} /></u><em className="m-num">{x.w}/{x.n}</em></li>)}</ul>
     {vit.length ? <p className="dsk-fp-vit">{vit.map(([k, x]) => <span key={k} className="m-chip">{k} <b className="m-num">{x.w}/{x.n}</b></span>)}</p> : null}</div>;
 }
+function PoiPanel({ poi }) {
+  if (!poi) return null;
+  if (poi.error) return <div className="dsk-poi" role="alert"><b>🧬 Research DNA needs repair</b><small>{poi.error}</small></div>;
+  return <section className="dsk-poi" aria-label="Private Proof of Intelligence" data-testid="dsk-poi">
+    <b>🧬 PROOF OF INTELLIGENCE</b><small>Private verified research · version {poi.v} · {poi.memoryVersions || 0} sealed model memory versions</small>
+    <div className="dsk-poi-minds">{(poi.minds || []).map(m => <article key={m.mind}><strong>Mind {m.mind ? 'B' : 'A'}</strong>
+      <span>{m.generations} generations · {m.verified} verified facts · {m.uniqueRoutes} routes</span>
+      <small>{Object.entries(m.states || {}).filter(([, state]) => state === 'promoted').map(([host]) => host).join(' · ') || 'No source promoted yet'}</small>
+      {(m.events || []).length ? <em>{m.events.at(-1).site} {m.events.at(-1).state} at generation {m.events.at(-1).generation}</em> : null}
+    </article>)}</div>
+  </section>;
+}
 function PowReplay({ f, catId, onShot }) {
   const [step, setStep] = useState(0);
   const events = [...(f.talk || []).map(t => ({ at: t.at, kind: t.by || 'Discussion', text: t.text })),
@@ -786,6 +798,7 @@ function PowExplorer({ cat, d, setD }) {
   else if (!f) body = <>
     <PowShare cat={cat} />
     <FingerPanel fp={d?.fingerprint} />
+    <PoiPanel poi={d?.poi} />
     <div className="hv-pow-stats">{[['FOLDERS', all.length], ['TRADES', done.length], ['WON', done.length ? `${Math.round(100 * won / done.length)}%` : '—'], ['P/L', `${done.reduce((a, x) => a + (Number(x.pnlSol) || 0), 0).toFixed(4)} SOL`], ['COST', `$${all.reduce((a, x) => a + (Number(x.cost) || 0), 0).toFixed(3)}`]].map(([k, v]) =>
       <span key={k}><em>{k}</em><b className="m-num">{v}</b></span>)}</div>
     <div className="dsk-xgrid">{all.map((x, i) => <Tile key={x.id} i={i} tone={x.live ? 'live' : gradeOf(x) || 'none'} ic={x.live ? '⛏' : gradeOf(x) === 'good' ? '👍' : gradeOf(x) === 'bad' ? '👎' : '📁'}
@@ -1122,7 +1135,7 @@ function WorkbenchLive({ cat }) {
   const [down, setDown] = useState(false);
   const verRef = useRef(null);   // ⚡ the filed PoW folders (~90 KB) come only when they changed (measured: 126 KB every 1.5 s was the lag)
   const load = useCallback(() => work(cat.id, { op: 'state', ver: verRef.current }).then(x => { if (x.powVer) verRef.current = x.powVer;
-    setD(o => ({ ...x, powFolders: x.powFolders ?? o?.powFolders, powVer: x.powVer ?? o?.powVer, fingerprint: x.fingerprint ?? o?.fingerprint })); setErr(''); setDown(false); }).catch(e => { setErr(e.message); setDown(!!e.down); }), [cat.id]);
+    setD(o => ({ ...x, powFolders: x.powFolders ?? o?.powFolders, powVer: x.powVer ?? o?.powVer, fingerprint: x.fingerprint ?? o?.fingerprint, poi: x.poi ?? o?.poi })); setErr(''); setDown(false); }).catch(e => { setErr(e.message); setDown(!!e.down); }), [cat.id]);
   const status = d?.task?.status;
   const live = !down && (LIVE_STATES.includes(status) || status === 'human' || !!d?.powFolder || (d?.windows || []).some(w => w.status === 'human' || w.status === 'working'));   // a running PoW folder is live too — its chat lines arrive every 1.5 s   // the service down = never a stale "Working"
   useEffect(() => { load(); }, [load]);

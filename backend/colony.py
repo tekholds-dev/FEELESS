@@ -81,7 +81,7 @@ def airdrop(shares, owners_ok, amount, since):
     proportional to what they put in, never to who was 'right'. Only wallets that signed (owners_ok) are paid. → [{owner, sol, pct, usd}]"""
     tot = {}
     for x in shares or []:
-        if float(x.get('at') or 0) >= since and x.get('owner') in (owners_ok or set()):
+        if float(x.get('at') or 0) >= since and x.get('owner') in (owners_ok or set()) and x.get('sent') and x.get('sig'):
             tot[x['owner']] = tot.get(x['owner'], 0.0) + float(x.get('sol') or 0)
     s = sum(tot.values())
     return sorted(({'owner': o, 'sol': round(v, 6), 'pct': round(100 * v / s, 1) if s else 0, 'usd': round(float(amount or 0) * v / s, 2) if s else 0}

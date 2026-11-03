@@ -537,7 +537,6 @@ class LivePage:
         pressed = None
         for _ in range(tries):
             try:
-                await self._p.wait_for_timeout(700)   # sites open their sheet a beat after load
                 pop = await self._p.evaluate(POPUP_JS)
             except Exception:
                 return pressed
@@ -545,9 +544,8 @@ class LivePage:
             if not b:
                 return pressed
             try:
-                await self.glide(b['x'], b['y'], 'click'); await self._p.wait_for_timeout(180)
+                await self.glide(b['x'], b['y'], 'click')
                 await self._p.mouse.click(b['x'], b['y']); pressed = b['t']
-                await self._p.wait_for_timeout(600)
             except Exception:
                 return pressed
         return pressed
@@ -555,6 +553,10 @@ class LivePage:
     async def goto(self, url):
         await public_url(url)
         await self._p.goto(str(url), wait_until='domcontentloaded', timeout=30000)
+        try:
+            await self._p.wait_for_function('() => document.body && document.body.innerText.trim().length > 80', timeout=3000)
+        except Exception:
+            pass  # a short or blocked page is still inspected and recorded as such
         seen = await self._sync()
         snap = await self.snapshot()
         return seen + (f'\n\nPAGE SNAPSHOT (the whole page once, so you need not scroll to read it — scroll only to look):\n{snap}' if snap else '')
@@ -612,7 +614,7 @@ class LivePage:
                 icon = self._p.locator('[aria-label*="earch" i], button:has-text("Search"), [data-role*="search" i]').first
                 if not await icon.count():
                     return None
-                await self.point(icon, 'click'); await icon.click(timeout=4000); await self._p.wait_for_timeout(400)
+                await self.point(icon, 'click'); await icon.click(timeout=4000)
             f = box.first
             await self.point(f, 'type')
             bb = await f.bounding_box(timeout=3000)
@@ -620,10 +622,14 @@ class LivePage:
                 await self.glide(bb['x'] + bb['width'] / 2, bb['y'] + bb['height'] / 2, 'click')
             await f.click(timeout=4000)
             await self._p.keyboard.type(str(q)[:120], delay=35)   # typed like a person, not pasted in one frame
-            await self._p.wait_for_timeout(700)
+            before_url = self._p.url
+            before_text = await self._p.locator('body').inner_text(timeout=3000)
             await self._p.keyboard.press('Enter')
-            await self._p.wait_for_load_state('domcontentloaded', timeout=15000)
-            await self._p.wait_for_timeout(900)
+            try:
+                await self._p.wait_for_function('([url, text]) => location.href !== url || document.body.innerText.slice(0, 1000) !== text',
+                                                arg=[before_url, before_text[:1000]], timeout=5000)
+            except Exception:
+                pass  # a site with no result change still yields its actual page for the mind
         except Exception:   # noqa: BLE001 — no usable search box: the engine moves on
             return None
         return await self._sync()

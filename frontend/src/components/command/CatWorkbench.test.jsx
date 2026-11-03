@@ -345,11 +345,14 @@ test('⛏ the PoW explorer: PoW › dated folders › coin folders (the pick = �
     pick: { mint: 'M1' }, sym: 'AAA', pnlPct: -4.2, entry: 1, tp: 20, sl: 10, sol: 0.006, line: [1, 1.02, 0.97, 0.958], shots: [{ mint: 'M1', site: 'rugcheck.xyz', n: 1, file: 'a.jpg', trade: 'bad' }], evidenceMetrics: { M1: { verified: 5, visits: 2, durationSec: 60, costUsd: 0.006, factsPerVisit: 2.5, factsPerUsd: 833.33, gaps: ['solscan.io'] } },
     vitals: { M1: [{ label: 'liquidity', value: '$35K', site: 'rugcheck.xyz', verified: true, contradiction: true, claims: [{ value: '$35K', site: 'rugcheck.xyz', support: 'Liquidity $35K', at: 100 }, { value: '$18K', site: 'solscan.io', support: 'Liquidity $18K', at: 120 }] }] },
     talk: [{ by: 'A', text: 'buy AAA', at: 1 }], report: { grade: '👎 bad trade', pnlPct: -4.2, researched: 1, coins: [{ mint: 'M1', sym: 'AAA', src: 'Pump', safe: true, vitals: 3, shots: 1, pick: true }], pick: 'AAA', sol: 0.006, held: 10, checks: 4, costUsd: 0.05, lesson: 'it lost: stop' } };
-  global.fetch = async () => ({ ok: true, json: async () => ({ powFolders: [fold], rows: [] }) });
+  global.fetch = async () => ({ ok: true, json: async () => ({ powFolders: [fold], rows: [], poi: { v: 1, memoryVersions: 1,
+    minds: [{ mind: 0, generations: 4, verified: 9, uniqueRoutes: 3, states: { 'solscan.io': 'promoted' }, events: [{ generation: 4, site: 'solscan.io', state: 'promoted' }] },
+      { mind: 1, generations: 0, verified: 0, uniqueRoutes: 0, states: {}, events: [] }] } }) });
   const el = document.createElement('div'); document.body.appendChild(el); const root = createRoot(el);
   await act(async () => { root.render(<AgentDesktop cat={{ id: 'g1', name: 'Happy' }} onClose={() => {}} start="pow" />); });
   const q = id => document.querySelector(`[data-testid="${id}"]`);
   expect(q('dsk-pow').textContent).toContain('FOLDERS'); expect(q('dsk-x-pow9').textContent).toContain('PoW #9');
+  expect(q('dsk-poi').textContent).toContain('solscan.io promoted');
   await act(async () => { q('dsk-x-pow9').click(); }); expect(q('dsk-x-report')).not.toBeNull(); expect(q('dsk-x-coin-M1').textContent).toContain('👎');
   expect(q('dsk-evidence-summary').textContent).toContain('5 verified facts');
   expect(q('dsk-pow-replay').textContent).toContain('buy AAA');

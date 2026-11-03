@@ -22,6 +22,7 @@ import os
 import math
 import time
 import uuid
+import fcntl
 from pathlib import Path
 from typing import Any, Optional
 
@@ -44,6 +45,7 @@ import hive as _hv   # 🐝 the Hive: proof of insight (cells graded an hour on)
 import agent_sources as _src   # 🧭 the sources book: which sites work for agents, which block them
 import colony as _colony   # 🐝 the Colony: graded trades, the pot guards
 import pow as _pow   # ⛏ Proof of Work: one intake coin, ≤4 sites × ≤5 moves × ≤3 vitals, graded an hour on
+import poi as _poi   # 🧬 private, model-independent Research DNA filed from verified PoW evidence
 import agent_files as _af   # ☁ each agent's own storage (owner uploads, 1 GB, 7-day clean)
 import agent_ipfs as _ipfs   # ⛓ a file kept on IPFS, paid in SOL by the agent's own wallet (toju.network)
 import clarify as _cq   # ❓ first asks: 2–3 questions for a coin / money ask
@@ -53,6 +55,7 @@ import earn_mode as _em   # ⚡ Earn Mode's planner (never signs)
 import agent_cloud as _acl   # ☁ its owner's own Drive / Dropbox (FEELESS funds no storage)
 import cat_vault as _cv   # 🔐 a general agent's saved logins + 🖼 media drawer
 import cat_keys as _ck   # 🔐 a cat's API drawer (sealed keys, never sent to a page)
+import trade_fills as _fills   # ⛓ exact on-chain wallet deltas; Colony never accrues a quote-only profit
 
 DATA_DIR = Path(__file__).parent / 'data'
 DATA_DIR.mkdir(exist_ok=True)
@@ -606,7 +609,8 @@ def _close(store, cat, pos, price_native, why, fraction=1.0, market_cap=None):
                                             'peak': round(pos.get('peakChange', 0), 2), 'heldMin': round((time.time() - pos.get('openedAt', time.time())) / 60, 1)})   # 🎭 Prompt Studio reads hold + peak
         cat['exits'] = cat['exits'][-60:]
         ep_ = _num(pos.get('entryPriceNative')); _colony_trade(cat, 'sell', pos, price_native * _num(pos.get('entryPriceUsd')) / ep_ if ep_ > 0 else 0)
-        _colony_share(cat, pos, pnl + pos.get('realizedPartialSol', 0))
+        # This is a paper price simulation, even when a real-wallet proposal exists.
+        # Colony accrual belongs to the confirmed wallet-fill path only.
         # File the whole trade (partial profits included) under its setup so the next entry learns from it.
         total_pnl = round(pnl + pos.get('realizedPartialSol', 0), 6)
         ret = total_pnl / max(pos.get('costBasisSol') or pos['costSol'], 1e-9) * 100
@@ -1201,18 +1205,44 @@ def _shares():
         return []
 
 
-def _colony_share(cat, pos, pnl_sol):
+def _share_append(row, key):
+    """One durable ledger append across concurrent service workers and retried receipts."""
+    SHARES_PATH.parent.mkdir(parents=True, exist_ok=True)
+    lock_path = SHARES_PATH.with_suffix('.lock')
+    with lock_path.open('a+') as lock:
+        fcntl.flock(lock, fcntl.LOCK_EX)
+        try:
+            if SHARES_PATH.exists():
+                json.loads(SHARES_PATH.read_text())  # fail closed instead of replacing an unreadable ledger
+            rows = _shares()
+            if any((x.get('ref') or x.get('sig'), x.get('cat')) == key for x in rows):
+                return False
+            rows.append(row)
+            tmp = SHARES_PATH.with_name(f'{SHARES_PATH.name}.{uuid.uuid4().hex}.tmp')
+            try:
+                with tmp.open('w') as fh:
+                    json.dump({'v': 1, 'shares': rows}, fh, separators=(',', ':'))
+                    fh.flush(); os.fsync(fh.fileno())
+                os.replace(tmp, SHARES_PATH)
+            finally:
+                tmp.unlink(missing_ok=True)
+            return True
+        finally:
+            fcntl.flock(lock, fcntl.LOCK_UN)
+
+
+def _colony_share(cat, pos, pnl_sol, ref=None):
     """🤝 a sharing agent's WINNING exit owes pct % of its profit to the colony. Only an agent trading from its OWN wallet (paper winnings are
     not money); never blocks the sale."""
     try:
         sh_ = cat.get('colonyShare') or {}
-        if not sh_.get('on') or not (cat.get('agentWallet') or {}).get('address'):
+        if not ref or not sh_.get('on') or not (cat.get('agentWallet') or {}).get('address'):
             return
         owed = _colony.share_cut(pnl_sol, sh_.get('pct'))
         if owed <= 0:
             return
-        rows = _shares()[-5000:] + [{'cat': cat['id'], 'owner': owner_wallet(cat), 'sol': owed, 'pct': sh_.get('pct'), 'sym': pos.get('symbol'), 'at': time.time(), 'sent': False}]
-        SHARES_PATH.write_text(json.dumps({'shares': rows}))
+        _share_append({'cat': cat['id'], 'owner': owner_wallet(cat), 'sol': owed, 'pct': sh_.get('pct'), 'sym': pos.get('symbol'),
+                       'at': time.time(), 'sent': False, 'state': 'owed', 'ref': ref, 'netPnlSol': round(float(pnl_sol), 9)}, (ref, cat['id']))
     except Exception as e:   # noqa: BLE001
         print(f'[colony] share skipped: {e}')
 
@@ -1427,9 +1457,25 @@ def _pow2_research(cat, f, coin, mind_i, now):
     rp['priorSteps'] = sorted(blocked_steps_)
     rp['prior'] = _pow.archive_brief(_pow.archive_find(archive_, coin['mint']))
     recent_, _ = _pow.site_memory(cat.get('powFolders'))
-    fp_ = _pow.fingerprint(archive_, cat['id'])
+    try:
+        own_dna_ = _poi.load(DATA_DIR, cat['id'], mind_i)
+        fp_ = _poi.fingerprint(own_dna_, mind_i)
+        other_dna_ = _poi.load(DATA_DIR, cat['id'], 1 - mind_i)
+        inherited_ = {h for h, state in _poi.evolution(other_dna_)['states'].items() if state == 'promoted'}
+    except (OSError, ValueError) as e:
+        print(f'[poi] Research DNA unavailable: {e}'); fp_, inherited_ = {'coverage': {}}, set()
     excluded_ = recent_ | blocked_sites_ | set(rp['reusedSites']) | {h for v in (f.get('usedBy') or {}).values() for h in v or []}
-    ranked_ = _pow.ranked_sources(excluded_, _src_book(), fp_.get('coverage'), now)
+    ranked_ = _pow.ranked_sources(excluded_, _src_book(), fp_.get('coverage'), now, inherited_)
+    # A source visited for another coin is still a required verification target
+    # for this mint. If rotation exhausts the catalog, reuse the least spent
+    # available sites rather than filing a coin with no browser investigation.
+    for host in rp['required']:
+        if host not in blocked_sites_ and host not in rp['reusedSites'] and host in _pow.HOSTS and host not in ranked_:
+            ranked_.insert(0, host)
+    if len(ranked_) < 3:
+        fallback_ = _pow.ranked_sources(blocked_sites_ | set(rp['reusedSites']), _src_book(), fp_.get('coverage'), now, inherited_)
+        ranked_ += [host for host in fallback_ if host not in ranked_][:3 - len(ranked_)]
+    rp['inherited'] = sorted(inherited_ & set(ranked_))
     rp['order'] = [h for h in rp['required'] if h in ranked_] + [h for h in ranked_ if h not in rp['required']]
     try:
         _work_start(cat['id'], cat, _pow.goal(rp), str(int(f.get('base') or 0) + mind_i), None, rp)
@@ -1497,8 +1543,15 @@ def _pow2_collect(f, t_, who, now):
             f['shots'] = ((f.get('shots') or []) + [{'mint': m_, 'site': sh_['site'], 'n': sh_['n'], 'at': sh_['at'], 'file': name_, 'round': f.get('rounds') or 0}])[-60:]
         except OSError as e:
             print(f'[pow2] snapshot not kept: {e}')
+    steps_ = sorted({_pow.step_hash(sig) for w in t_.get('windows') or [] for sig in w.get('sigs') or []})
     _pow_archive_add(_pow.archive_row('research', (pw_.get('cat') or ''), f, {'mint': m_, 'sym': pw_.get('sym')}, now, by=who, mind=pw_.get('mind'), plan=pw_.get('plan'),
-                                      vitals=pub_['pulls'], metrics=f['evidenceMetrics'][m_], sites=sorted((pw_.get('sites') or {}).keys()), steps=sorted({_pow.step_hash(sig) for w in t_.get('windows') or [] for sig in w.get('sigs') or []}), walled=list(pw_.get('walled') or []), call=pw_.get('call'), why=pw_.get('why'), strength=pub_.get('strength')))
+                                      vitals=pub_['pulls'], metrics=f['evidenceMetrics'][m_], sites=sorted((pw_.get('sites') or {}).keys()), steps=steps_, walled=list(pw_.get('walled') or []), call=pw_.get('call'), why=pw_.get('why'), strength=pub_.get('strength')))
+    if pw_.get('cat'):
+        try:
+            _poi.append(DATA_DIR, pw_['cat'], int(pw_['mind']), f"{f['id']}:r{f.get('rounds') or 0}", m_, now,
+                        pub_['pulls'], f['evidenceMetrics'][m_], steps_, (pw_.get('sites') or {}).keys())
+        except (OSError, ValueError) as e:
+            print(f'[poi] Research DNA not filed: {e}')
     _pow2_say(f, who, f"${pw_.get('sym')} researched on {', '.join(sorted((pw_.get('sites') or {}).keys())) or 'no site'}: "
                       f"{' · '.join(x['label'] + ' ' + x['value'] for x in pub_['pulls'][:4]) or 'no vitals (' + (', '.join(pw_.get('walled') or []) + ' walled' if pw_.get('walled') else 'nothing it could read') + ')'}")
     f.pop('rMint', None)
@@ -1513,7 +1566,7 @@ def _pow2_running(cat, f):
 
 def _any_hot():
     try:
-        return any(((c.get('powRun') or {}).get('folder') or {}).get('phase') in ('buy', 'watch', 'research', 'decide', 'sell') for c in _load()['cats'].values())
+        return any(((c.get('powRun') or {}).get('folder') or {}).get('phase') in ('buy', 'watch', 'research', 'decide', 'sell', 'sell_wait') for c in _load()['cats'].values())
     except Exception:   # noqa: BLE001
         return False
 
@@ -1530,14 +1583,42 @@ def _pow2_say(f, who, text):
     f['talk'] = f['talk'][-24:]
 
 
+async def _pow2_reconcile(http, cat, f):
+    """Use the two confirmed wallet fills, including fees, before reporting net profit or a Colony obligation."""
+    proposals = {p.get('id'): p for p in cat.get('proposals') or []}
+    buy, sell = proposals.get(f.get('pid')) or {}, proposals.get(f.get('sellPid')) or {}
+    wallet = (cat.get('agentWallet') or {}).get('address')
+    if not wallet or any(p.get('status') != 'done' or not p.get('sig') for p in (buy, sell)):
+        return False
+    try:
+        txs = await asyncio.gather(*(_crpc._rpc(http, 'getTransaction', [p['sig'], {'encoding': 'jsonParsed', 'maxSupportedTransactionVersion': 1}], scan=False)
+                                   for p in (buy, sell)))
+        fills = [_fills.raw_fill(tx, wallet, f['mint']) for tx in txs]
+    except (RuntimeError, ValueError, httpx.HTTPError) as e:
+        print(f'[pow2] fill reconciliation deferred: {str(e)[:100]}')
+        return False
+    if not fills[0] or not fills[1] or fills[0]['side'] != 'buy' or fills[1]['side'] != 'sell' or not fills[0]['cashSol'] or not fills[1]['cashSol']:
+        return False
+    f.update(buySig=buy['sig'], sellSig=sell['sig'], netPnlSol=round(fills[1]['cashSol'] - fills[0]['cashSol'], 9),
+             settlementVerified=True, cashSpentSol=fills[0]['cashSol'], cashReturnedSol=fills[1]['cashSol'])
+    return True
+
+
 def _pow2_close(cat, f, why, now, exit_px=0.0):
     """⛏ The folder ends: its P/L (pool price, fees apart), the owner's files, a graded cell, the cabinet — and on a WIN with colonize on, the
     colony gets the folder + its share (paper never pays; a real win accrues pct % of the profit, sent by the owner's approval flow)."""
     f.update(status='closed', why=why, soldAt=round(now), phase='done')
     if f.get('entry') and exit_px:
-        f['exit'] = exit_px; f['pnlPct'] = round(_pow.pnl_pct(f['entry'], exit_px), 2); f['pnlSol'] = round(float(f.get('sol') or 0) * f['pnlPct'] / 100, 6)
-    if f.get('real') and (f.get('pnlSol') or 0) > 0 and (cat.get('colonyShare') or {}).get('on'):
-        _colony_share(cat, {'symbol': f.get('sym')}, f['pnlSol']); f['shared'] = (cat.get('colonyShare') or {}).get('pct')
+        f['exit'] = exit_px; f['pnlEstimatePct'] = round(_pow.pnl_pct(f['entry'], exit_px), 2)
+        f['pnlEstimateSol'] = round(float(f.get('sol') or 0) * f['pnlEstimatePct'] / 100, 6)
+    if f.get('real'):
+        f['pnlSol'] = f.get('netPnlSol') if f.get('settlementVerified') else None
+        f['pnlPct'] = round(100 * f['pnlSol'] / f['cashSpentSol'], 2) if f.get('settlementVerified') and f.get('cashSpentSol') else None
+    elif f.get('pnlEstimateSol') is not None:
+        f['pnlSol'], f['pnlPct'] = f['pnlEstimateSol'], f['pnlEstimatePct']
+    if f.get('real') and f.get('settlementVerified') and (f.get('netPnlSol') or 0) > 0 and (cat.get('colonyShare') or {}).get('on'):
+        _colony_share(cat, {'symbol': f.get('sym')}, f['netPnlSol'], f.get('sellSig'))
+        f['shared'] = (cat.get('colonyShare') or {}).get('pct')
     b_ = cat.setdefault('brainsCfg', {})
     f['grade'] = None if f.get('pnlPct') is None else ('good' if f['pnlPct'] > 0 else 'bad')
     for sh_ in f.get('shots') or []:   # 📸 the pick's snapshots become the trade's evidence: 👍 good / 👎 bad
@@ -1586,7 +1667,9 @@ async def _pow2_tick(http, store, cat, now):
     minds = max(1, min(2, int(((cat.get('hive') or {}).get('minds')) or len(ms[:2]))))
     want = _POW_WANT.pop(cat['id'], None)
     if want and want.get('do') == 'stop' and f:   # ⏹ you ended it: sells if it bought, else just closes
-        if f.get('phase') in ('watch', 'research', 'decide', 'sell'):
+        if f.get('phase') == 'sell_wait':
+            f['sellWhy'] = 'you stopped it'  # an existing pending wallet sell must never be duplicated
+        elif f.get('phase') in ('watch', 'research', 'decide', 'sell'):
             f.update(phase='sell', sellWhy='you stopped it')
         else:
             _pow2_close(cat, f, 'you stopped it', now); return
@@ -1823,7 +1906,25 @@ async def _pow2_tick(http, store, cat, now):
     live = (await _pair_prices(http, [f['pair']])).get(f['pair']) or {}
     px = _num(live.get('priceNative'))
     held = f['mint'] in (cat.get('realHeld') or {}) if f.get('real') else any(p.get('pairAddress') == f['pair'] for p in cat.get('positions') or [])
+    if f.get('sellPid'):
+        sale = next((p for p in cat.get('proposals') or [] if p.get('id') == f['sellPid']), None) or {}
+        if sale.get('status') == 'done' and not held:
+            if not f.get('settlementVerified') and now >= float(f.get('reconcileAfter') or 0):
+                if not await _pow2_reconcile(http, cat, f):
+                    f['settlementPending'] = True
+                    f['reconcileAfter'] = round(now + 15)
+            if not f.get('settlementVerified'):
+                return  # the folder stays recoverable until both on-chain fills can be verified
+            f.pop('settlementPending', None)
+            _pow2_close(cat, f, f.get('sellWhy') or 'its wallet sold', now, px)
+        elif sale.get('status') in ('failed', 'expired'):
+            f.pop('sellPid', None)
+            f['sellAttempts'] = int(f.get('sellAttempts') or 0) + 1
+            _pow2_say(f, 'engine', f"sell was not confirmed: {sale.get('why2') or sale.get('status')}")
+        return
     if not held:   # its stops (or you) already sold it
+        if f.get('real'):
+            f['settlementPending'] = True
         _pow2_close(cat, f, 'sold by its stops', now, px); return
     if px:
         f['chart'] = (f.get('chart') or [])[-40:] + [{'at': round(now), 'px': px}]
@@ -1832,6 +1933,13 @@ async def _pow2_tick(http, store, cat, now):
         row = await _run_order(store, cat, f"sell all {f['mint']}", http)
         if row.get('state') == 'proposed':
             _pow2_approve(cat, row.get('pid'))   # its wallet sells on its own too
+            f.update(sellPid=row.get('pid'), sellWhy=why_x or f.get('sellWhy') or 'the watcher said sell', phase='sell_wait')
+            _pow2_say(f, 'engine', f"sell submitted; waiting for its wallet's confirmed fill — {row.get('why')}")
+            return
+        if f.get('real'):
+            _pow2_say(f, 'engine', f"sell not confirmed — {row.get('why')}; the folder keeps watching")
+            f['phase'] = 'sell'
+            return
         _pow2_say(f, 'engine', f"sell: {why_x or f.get('sellWhy') or 'the watcher said sell'} — {row.get('why')}")
         _pow2_close(cat, f, why_x or f.get('sellWhy') or 'the watcher sold', now, px); return
     rr_ = int(f.get('rr') or 0)
@@ -2523,10 +2631,13 @@ async def _work_run(cat_id, models, names, text, cap, brief='', efforts=None, ow
                 try:
                     if pg_:
                         await pg_.release()   # 🙋 hands off: you are alone in the window (a routed browser loops Cloudflare's box)
-                    await asyncio.wait_for(ev.wait(), BLOCK_PIVOT_S if check_ and h_.get('alts') else HUMAN_WAIT_S)
+                    await asyncio.wait_for(ev.wait(), BLOCK_PIVOT_S if check_ else HUMAN_WAIT_S)
                 except asyncio.TimeoutError:   # ⏸ nobody answered: a bot check → the best other source; anything else is filed to come back to
-                    if check_ and h_.get('alts'):
-                        w['events'].pop(i, None); win_['redirect'] = 'https://' + h_['alts'][0]
+                    if check_:
+                        _challenge_note(cat_id, _src.host_of(h_.get('url') or win_.get('url')), 'timedOut')
+                        w['events'].pop(i, None)
+                        if h_.get('alts'):
+                            win_['redirect'] = 'https://' + h_['alts'][0]
                         return True
                     w['events'].pop(i, None)
                     why_ = h_.get('why') or 'it needs you'
@@ -2546,6 +2657,7 @@ async def _work_run(cat_id, models, names, text, cap, brief='', efforts=None, ow
                 went_ = bool(w['go'].pop(i, False))
                 if went_ and check_ and pg_ and not win_.get('redirect'):   # 🍪 you passed the check: keep its pass (sealed) so its next windows skip it
                     await _keep_pass(cat_id, pg_, h_.get('url') or win_.get('url'))
+                    _challenge_note(cat_id, _src.host_of(h_.get('url') or win_.get('url')), 'manualPass')
                 return went_
             async def feeless(tool, q=''):   # 🧰 FEELESS first: our own read-only tools, server-side (the browser is walled off from us)
                 return await _ct.run_tool(http, tool, q)
@@ -2716,7 +2828,7 @@ async def _engine_loop():
     while True:
         try:
             store = _load()
-            hot_ = any(((c.get('powRun') or {}).get('folder') or {}).get('phase') in ('buy', 'watch', 'research', 'decide', 'sell') for c in store['cats'].values())
+            hot_ = any(((c.get('powRun') or {}).get('folder') or {}).get('phase') in ('buy', 'watch', 'research', 'decide', 'sell', 'sell_wait') for c in store['cats'].values())
             if time.time() - full_at < TICK_SECONDS and hot_:   # ⛏ a folder holds a coin: a LIGHT pass every 5 s (its live checks + its wallet's sends), the market scan stays at 20 s
                 await _agent_pass(store); await _pow2_pass(store); _work_settle(store); _save(store)
                 await asyncio.sleep(_pow.HOT_TICK_S); continue
@@ -3083,6 +3195,7 @@ async def create_cat(payload: CreatePayload):
     }
     if payload.brains:
         cat_ = await _or_models()
+        previous_memory_ = cat.get('brainsCfg') or {}
         ids_ = {m['id'] for m in cat_.get('models') or []}
         try:
             cat['brainsCfg'] = _lc.clean(payload.model_dump(), None, ids_ or None, max_models=await _model_limit(payload.session or ''))
@@ -3095,6 +3208,11 @@ async def create_cat(payload: CreatePayload):
                 if payload.taskCap: cat['taskCap'] = max(0.005, min(TASK_CAP_MAX, float(payload.taskCap)))
         except ValueError as e:
             raise HTTPException(400, str(e))
+        try:
+            _poi.preserve_model_memory(DATA_DIR, cat_id, previous_memory_, cat['brainsCfg']['brains'], time.time())
+        except (OSError, ValueError) as e:
+            cat['brainsCfg'] = previous_memory_
+            raise HTTPException(503, f'Model switch paused: prior memory could not be sealed ({e}).')
         for model, effort in cat['brainsCfg'].get('efforts', {}).items():
             row = next((m for m in cat_.get('models', []) if m['id'] == model), {})
             if effort not in row.get('efforts', []):
@@ -3534,6 +3652,26 @@ class WorkPayload(BaseModel):
 _SIGNIN = {}   # cat_id → the owner's open sign-in window {sid, site, page}
 
 
+def _challenge_note(cat_id, site, result):
+    """Count outcomes without storing challenge tokens, URLs, cookies or private browser frames."""
+    if not site or result not in ('timedOut', 'manualPass'):
+        return
+    store = _load(); cat = store['cats'].get(cat_id)
+    if not cat:
+        return
+    stats = cat.setdefault('challengeStats', {}).setdefault(site, {'timedOut': 0, 'manualPass': 0})
+    stats[result] = int(stats.get(result) or 0) + 1
+    stats['lastAt'] = round(time.time())
+    keep_owned(cat); _save(store)
+
+
+def _poi_owner_view(cat_id):
+    try:
+        return _poi.owner_view(DATA_DIR, cat_id)
+    except (OSError, ValueError) as e:
+        return {'v': _poi.VERSION, 'error': f'Research DNA integrity check failed: {str(e)[:80]}'}
+
+
 async def _keep_pass(cat_id, page, url):
     """🍪 A bot check a person passed → that site's clearance cookies, cleaned (first-party, newest, no trackers) and sealed into its sign-ins.
     Its next windows start with them (LivePage cookies). A clearance can still be refused from another IP — then the 30 s move-on applies."""
@@ -3869,8 +4007,10 @@ async def cat_work(cat_id: str, p: WorkPayload):
                     raise HTTPException(400, f'{e} — nothing moved.')
             finally:
                 _SWAP_BUSY.discard(cat_id)
-        rows_ = _shares()[-5000:] + [{'cat': cat_id, 'owner': owner_wallet(cat), 'sol': sol_, 'pct': None, 'sym': None, 'at': time.time(), 'sent': True, 'gift': True, 'sig': rec_.get('sig')}]
-        SHARES_PATH.write_text(json.dumps({'shares': rows_}))
+        if not rec_.get('sig'):
+            raise HTTPException(503, 'Transfer submitted, but its on-chain signature is not confirmed yet.')
+        _share_append({'cat': cat_id, 'owner': owner_wallet(cat), 'sol': sol_, 'pct': None, 'sym': None,
+                       'at': time.time(), 'sent': True, 'state': 'transferred', 'gift': True, 'sig': rec_.get('sig')}, (rec_.get('sig'), cat_id))
         return {'sent': {'sol': sol_, 'to': pot_, 'sig': rec_.get('sig')}}
     if p.op == 'seal':   # 🔏 the owner pastes a secret (a recovery phrase…): sealed with this agent's key, never shown on the page again until opened
         try:
@@ -4005,13 +4145,14 @@ async def cat_work(cat_id: str, p: WorkPayload):
     return {**out, 'cap': float(cat.get('taskCap') or TASK_CAP_DEFAULT), 'credit': b.get('credit'), 'spent': b.get('spent'), 'chat': (cat.get('chat') or [])[-20:],
             'live': _work_live(), 'providers': _cb.chain(os.environ), 'go': bool(cat.get('workGo')), 'workMode': cat.get('workMode') or 'plan',
             'cloud': (b.get('cloud') or [])[-8:], 'minds': {m: v[-8:] for m, v in (b.get('minds') or {}).items()}, 'handoffs': len((w.get('task') or {}).get('handoffs') or []) if w else 0, 'createdAt': cat.get('createdAt'),
-            'logins': _cv.public_logins(cat), 'secrets': _cv.public_secrets(cat), 'signedIn': [{'site': k, 'at': v.get('at'), 'n': v.get('n', 0), 'dropped': v.get('dropped', 0)} for k, v in (cat.get('siteSessions') or {}).items()], 'vaultLog': (cat.get('vaultLog') or [])[-12:], 'lastMoney': last_money(store.get('events') or [], cat_id), 'media': _cv.clean_media(cat), 'storage': _af.public(cat), 'ipfs': list(reversed(cat.get('ipfs') or []))[:20],   # ☁ its cloud: pool, quota, files · ⛓ what it keeps on IPFS
+            'logins': _cv.public_logins(cat), 'secrets': _cv.public_secrets(cat), 'signedIn': [{'site': k, 'at': v.get('at'), 'n': v.get('n', 0), 'dropped': v.get('dropped', 0)} for k, v in (cat.get('siteSessions') or {}).items()], 'challengeStats': cat.get('challengeStats') or {}, 'vaultLog': (cat.get('vaultLog') or [])[-12:], 'lastMoney': last_money(store.get('events') or [], cat_id), 'media': _cv.clean_media(cat), 'storage': _af.public(cat), 'ipfs': list(reversed(cat.get('ipfs') or []))[:20],   # ☁ its cloud: pool, quota, files · ⛓ what it keeps on IPFS
             'job': cat.get('job', 'agent'), 'tools': _cp.toolkit(cat.get('job', 'agent'), cat.get('tools')), 'toolkits': _cp.TOOLS,
             'refusals': (cat.get('refusals') or [])[-20:] + [{'why': x} for x in ((w or {}).get('task') or {}).get('refusals', [])],
             'artifacts': (cat.get('artifacts') or [])[-10:] + ([] if (w or {}).get('settled') else ((w or {}).get('task') or {}).get('artifacts', [])),
             'queue': [{'text': q.get('text'), 'to': q.get('to')} for q in (cat.get('workQueue') or [])],
             'pow': _pow_view(cat),   # ⛏ each mind's latest Proof of Work
-            'fingerprint': _pow.fingerprint(_pow_archive_rows(), cat['id']) if not (p.ver and p.ver == _pow_ver(cat)) else None,   # 🧬 its own winning sources + facts (with the folders)
+            'fingerprint': _pow.fingerprint(_pow_archive_rows(), cat['id']) if not (p.ver and p.ver == _pow_ver(cat)) else None,
+            'poi': _poi_owner_view(cat['id']) if not (p.ver and p.ver == _pow_ver(cat)) else None,
             'commands': _pow.COMMANDS,   # 💬 what it understands in the chat (cabinet + desktop list)
             'sources': [{'host': h, 'what': _src.WHAT.get(h, 'worked before'), **{k: (_src_book().get(h) or {}).get(k) for k in ('ok', 'blocked', 'last')}}
                         for h in dict.fromkeys(list(_src.SEED) + list(_src_book().keys()))][:80],   # 🌐 the sources book: tap one → sign its windows in

@@ -677,6 +677,22 @@ def test_a_research_round_reviews_the_coins_archive_first_new_sites_new_facts(mo
     assert 'PRIOR PoW: researched 1×' in rp['prior'] and 'do NOT repeat it' in t['handoffs'][-1]['text']
 
 
+def test_required_coin_verification_survives_exhausted_global_rotation(monkeypatch, tmp_path):
+    import feecat_service as fs
+    monkeypatch.setattr(fs, 'POW_ARCHIVE', tmp_path / 'empty.jsonl')
+    monkeypatch.setattr(fs, 'DATA_DIR', tmp_path)
+    monkeypatch.setattr(fs._pow, 'site_memory', lambda _: (set(pw.HOSTS), set()))
+    seen = {}
+    monkeypatch.setattr(fs, '_work_start', lambda cid, c, text, to=None, files=None, pow_=None:
+                        (seen.update(pow=pow_), fs._WORK.update({cid: {'task': {}}}))[0])
+    fs._WORK.pop('new-cat', None)
+    cat = {'id': 'new-cat', 'powFolders': []}
+    assert fs._pow2_research(cat, {'id': 'f1', 'charts': {}}, {'mint': 'fresh', 'pair': 'pair', 'sym': 'NEW', 'src': 'pump'}, 0, 1000)
+    assert {'solscan.io', 'pump.fun'} <= set(seen['pow']['order'])
+    assert len(seen['pow']['order']) >= 3
+    fs._WORK.pop('new-cat', None)
+
+
 def test_keep_and_delete_pow_folders_on_the_desktop_never_the_archive(monkeypatch, tmp_path):
     import feecat_service as fs
     rows = [{'id': f'p{i}'} for i in range(35)]; rows[0]['kept'] = True
