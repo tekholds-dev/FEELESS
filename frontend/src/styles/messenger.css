@@ -26,7 +26,7 @@
 .msx-msgs { flex: 1 1 auto; min-height: 0; overflow-y: auto; overflow-x: hidden; padding: 14px 14px 6px; display: flex; flex-direction: column; gap: 8px; overscroll-behavior: contain; scrollbar-width: thin; scrollbar-color: #15d16a transparent; }
 .msx-day { margin: 6px 0; text-align: center; } .msx-day span { font-size: 11px; color: #89928e; padding: 2px 10px; border-radius: 999px; background: rgba(255, 255, 255, .04); }
 .msx-grp { display: flex; gap: 8px; max-width: 100%; animation: msxPop .18s ease-out; } .msx-grp.me { justify-content: flex-end; }
-.msx-bubs { display: flex; flex-direction: column; gap: 2px; max-width: min(78%, 480px); min-width: 0; } .msx-grp.me .msx-bubs { align-items: flex-end; }
+.msx-bubs { display: flex; flex-direction: column; gap: 2px; max-width: min(78%, 480px); min-width: 0; }
 .msx-bub { margin: 0; padding: 8px 12px; border-radius: 18px; font-size: 14px; line-height: 1.35; color: #eafff3; background: #212523; overflow-wrap: anywhere; white-space: pre-wrap; }
 .msx-grp.them .msx-bub:not(:first-child) { border-top-left-radius: 6px; } .msx-grp.them .msx-bub:not(:last-child) { border-bottom-left-radius: 6px; }
 .msx-grp.me .msx-bub { background: linear-gradient(135deg, #15d16a, #0f9a50); color: #0b0d0c; }

@@ -61,7 +61,7 @@
   background: linear-gradient(110deg, color-mix(in srgb, var(--fc) 14%, rgba(12, 10, 14, .94)), rgba(10, 8, 12, .94) 55%);
   border: 1px solid color-mix(in srgb, var(--fc) 32%, transparent); border-left: 3px solid var(--fc); box-shadow: inset 0 1px 0 rgba(255, 255, 255, .05); }
 .st-line.is-fresh { animation: stIn .35s cubic-bezier(.2, .8, .2, 1) both; }
-.st-line.is-mine { align-self: flex-end; border-left-width: 1px; border-right: 3px solid var(--st-a2); background: linear-gradient(250deg, color-mix(in srgb, var(--st-a) 18%, rgba(12, 10, 14, .94)), rgba(10, 8, 12, .94) 60%); }
+.st-line.is-mine { border-left-width: 1px; border-right: 3px solid var(--st-a2); background: linear-gradient(250deg, color-mix(in srgb, var(--st-a) 18%, rgba(12, 10, 14, .94)), rgba(10, 8, 12, .94) 60%); }
 .st-line.is-atme { border-color: #ffd36b; box-shadow: 0 0 0 1px #ffd36b, 0 0 18px rgba(255, 211, 107, .25); }
 .st-line.is-don .st-tag { box-shadow: 0 0 10px var(--fc); }
 .st-line.is-official { border-color: #15d16a; }

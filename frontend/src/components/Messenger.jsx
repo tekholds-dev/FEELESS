@@ -1,3 +1,4 @@
+import { ChatBubble } from './ChatBubble';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { MessageCircle, Send, Settings2 } from 'lucide-react';
@@ -100,7 +101,7 @@ export function Messenger({ mine, wallet, session, start, threads, withPeer, set
         {withPeer ? <div className="msx-chat has-cfx"><ChatFx theme={chatTheme(cprefs, 'inbox', feeUsd, perkBgs)} room="inbox" />
           <div className="msx-msgs">{groups.map(g => g.day ? <p key={g.key} className="msx-day"><span>{g.day}</span></p>
             : <div key={g.key} className={`msx-grp ${g.me ? 'me' : 'them'}`}>{!g.me ? <span className="msx-ava is-sm" style={{ '--h': hue(g.from) }}>{ini(peer?.handle)}</span> : null}
-              <div className="msx-bubs">{g.items.map((m, i) => <p key={m.id || i} className="msx-bub" onDoubleClick={() => copy(m.text)} title="Double-click to copy"><Text t={m.text} /></p>)}
+              <div className="msx-bubs">{g.items.map((m, i) => <ChatBubble as="p" key={m.id || i} mine={g.me} className="msx-bub" onDoubleClick={() => copy(m.text)} title="Double-click to copy"><Text t={m.text} /></ChatBubble>)}
                 <small>{hm(g.last)}</small></div></div>)}
             {!msgs?.length ? <p className="msx-empty">Say gm 👋</p> : null}<i ref={endRef} /></div>
           {pending ? <div className="msx-request"><span>@{peer?.handle} wants to message you.</span><button type="button" className="m-btn m-go"

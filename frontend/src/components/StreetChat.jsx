@@ -2,6 +2,7 @@ import React, { memo, useCallback, useEffect, useMemo, useRef, useState } from '
 import { toast } from 'sonner';
 import { apiUrl } from '../lib/api';
 import { reactionVoter } from '../lib/chatSession';
+import { ChatBubble } from './ChatBubble';
 import { useGlide } from '../lib/useGlide';
 import { FamilyCrest } from './FamilyCrest';
 import { familiaTrade } from './FamiliaTrade';
@@ -103,7 +104,7 @@ function HeatMeter({ heat = 0 }) {
 const Line = memo(function Line({ l, fresh, reacts, canPull, canPin, staff, onReact, onReply, onMod, onAt, replies = null, parentName = null }) {
   const fam = l.fam; const [burst, setBurst] = useState(null); const [open, setOpen] = useState(false);
   useEffect(() => { if (!burst) return undefined; const t = setTimeout(() => setBurst(null), 900); return () => clearTimeout(t); }, [burst]);
-  return <li className={`st-line ${l.mine ? 'is-mine' : ''} ${l.atMe ? 'is-atme' : ''} ${fam?.don ? 'is-don' : ''} ${fresh ? 'is-fresh' : ''} ${l.official ? 'is-official' : ''}`}
+  return <ChatBubble as="li" mine={!!l.mine} className={`st-line ${l.atMe ? 'is-atme' : ''} ${fam?.don ? 'is-don' : ''} ${fresh ? 'is-fresh' : ''} ${l.official ? 'is-official' : ''}`}
     style={{ '--fc': fam?.color || '#8f8470' }} data-testid={`st-line-${l.id}`}>
     <span className="st-plate" data-tip={fam ? `[${fam.tag}] ${fam.name || ''}${fam.don ? ' · the Don' : ''}` : 'No family yet'}>
       {fam?.badge ? <FamilyCrest b={fam.badge} px={28} banner={false} sheen={false} title={`${fam.tag} crest`} /> : <i className="st-free">FREE</i>}
@@ -123,7 +124,7 @@ const Line = memo(function Line({ l, fresh, reacts, canPull, canPin, staff, onRe
       {open && replies?.length ? <ol className="st-thread" data-testid={`st-thread-list-${l.id}`}>{replies.map((r, i) => <li key={r.id} style={{ '--i': i, '--fc': r.fam?.color || '#8f8470' }}>
         <b>{r.fam ? `[${r.fam.tag}] ` : ''}{r.name}</b><span>{String(r.text || '').slice(0, 200)}</span><time>{ago(r.ts)}</time></li>)}</ol> : null}
     </div>
-  </li>;
+  </ChatBubble>;
 });
 
 // 🏆 THE BEST CALL STRIP (owner, 2026-10-23: "the family chat robust + fun, with a small best callout from the site or Pump"): two live chips over
