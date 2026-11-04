@@ -135,7 +135,8 @@ function WinVitals({ w, f = null, i = 0, model = '' }) {   // ⛏ while a PoW fo
   if (f && !(w?.status === 'working' || w?.status === 'human')) {
     const me = String(i + (f.base || 0)); const name = String(model || '').split('/').pop().replace(':free', '');
     const said = [...(f.talk || [])].reverse().find(t => name && String(t.by).includes(name.slice(0, 12)));
-    const doing = f.rMint && Number(f.rMind) === i ? `RESEARCHING $${(f.coins || []).find(c => c.mint === f.rMint)?.sym || ''}` : (PH[f.phase] || f.phase || 'PoW').split(' ').slice(0, 3).join(' ');
+    const rM = f.rPair ? f.rPair[i] : f.rMint && Number(f.rMind) === i ? f.rMint : null;
+    const doing = rM ? `RESEARCHING $${(f.coins || []).find(c => c.mint === rM)?.sym || ''}` : (PH[f.phase] || f.phase || 'PoW').split(' ').slice(0, 3).join(' ');
     return <><span className="ck-v-row"><em>STATUS</em><b className="m-num is-pow">{doing}</b></span>
       <span className="ck-v-row"><em>FOLDER</em><b className="m-num">{String(f.name || '').split(' · ')[0]}</b></span>
       <span className="ck-v-row"><em>SPENT</em><b className="m-num">{usd(f.spend?.[me] || 0)}</b></span>
@@ -200,7 +201,7 @@ function PowPnl({ f }) {   // 📈 LIVE (owner 2026-11-02: "a live pnl like the 
 }
 function PowScreen({ f, slot }) {
   const me = String(slot - (f.base || 0)); const mine = f.picks?.[me]; const held = ['watch', 'research', 'decide', 'sell'].includes(f.phase);
-  const coins = f.coins || []; const scoutC = f.phase === 'scout' && f.rMint ? coins.find(x => x.mint === f.rMint) : null;   // 🔎 the coin being researched — its chart, tight
+  const coins = f.coins || []; const rM = f.rPair ? f.rPair[me] : f.rMint; const scoutC = f.phase === 'scout' && rM ? coins.find(x => x.mint === rM) : null;   // 🔎 the coin being researched — its chart, tight
   const c = held ? { mint: f.mint, pair: f.pair, sym: f.sym } : scoutC || coins[mine ?? (slot % Math.max(1, coins.length))] || {};
   return <div className="cwb-powscr" data-testid={`cwb-powscr-${slot}`}>   {/* 📈 the agent watches the FEELESS chart — never a page of cards (owner 2026-11-01) */}
     <span className="cwb-powscr-h"><b>⛏ {f.name}</b><em>{PH[f.phase] || f.phase}</em>{c.sym ? <strong>${c.sym}</strong> : null}{!held && mine != null ? <small>its pick</small> : !held ? <small>weighing</small> : null}</span>
@@ -227,8 +228,9 @@ function Window({ w, catId, tick, onGo, onLogin, busy, cursor = 'arrow', folder 
   const i = w?.i ?? 0; const sl = w?.slot ?? i;
   const powHeld = folder && ['watch', 'research', 'decide', 'sell'].includes(folder.phase);   // ⛏ a PoW folder runs: this monitor is working, never 'idle'
   const rIdx = folder?.phase === 'scout' ? (folder.rMind ?? 0) : ((folder?.rounds || 0) % Math.max(1, folder?.minds || 1));   // 🔁 who researches this round
-  const scoutSym = folder?.phase === 'scout' ? (folder.coins || []).find(x => x.mint === folder.rMint)?.sym : null;
-  const powDoing = !folder?.coins?.length ? '' : folder.phase === 'scout' ? (sl - (folder.base || 0) === rIdx ? `RESEARCHING $${scoutSym || '…'}` : `WATCHING $${scoutSym || '…'}`)
+  const rPairM = folder?.rPair?.[sl - (folder?.base || 0)];   // 🏇 a pair round: this mind's own coin
+  const scoutSym = folder?.phase === 'scout' ? (folder.coins || []).find(x => x.mint === (rPairM || folder.rMint))?.sym : null;
+  const powDoing = !folder?.coins?.length ? '' : folder.phase === 'scout' ? (rPairM || sl - (folder.base || 0) === rIdx ? `RESEARCHING $${scoutSym || '…'}` : `WATCHING $${scoutSym || '…'}`)
     : !powHeld ? 'AGREEING' : sl - (folder.base || 0) === rIdx && (folder.minds || 1) > 1 ? 'RESEARCHING' : `WATCHING $${folder.sym}`;
   const working = w?.status === 'working';
   // 🪟 the live window wears the demo's chrome (owner 2026-10-30: "the window design is perfected — users should see exactly that, bigger")

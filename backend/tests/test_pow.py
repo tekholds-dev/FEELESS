@@ -518,13 +518,9 @@ def test_no_coin_twice_random_sites_skip_the_last_folders_and_every_folder_repor
                {'shots': [{'site': 'solscan.io'}], 'pnlPct': -3}, {'shots': [{'site': 'birdeye.so'}], 'pnlPct': -1}]
     recent, wins = pw.site_memory(folders)
     assert recent == {'solscan.io', 'birdeye.so'} and wins == {'dexscreener.com', 'rugcheck.xyz'}
-    o = pw.site_order(recent, wins, random.Random(1))
-    assert o[0] in wins and o[1] not in wins and not set(o[:5]) & recent                    # ONE winning source leads, then fresh ones — the last folders' sites go last
-    many = [pw.site_order(set(), {'rugcheck.xyz', 'birdeye.so'}, random.Random(k)) for k in range(12)]
-    assert sum(1 for x in many if x[:3].count('rugcheck.xyz') + x[:3].count('birdeye.so') == 2) == 0   # never BOTH winners up front (owner: "they keep checking rugcheck")
+    o = pw.ranked_sources(recent, {}, {})
+    assert not set(o) & recent
     assert len(pw.HOSTS) == 11 and all(__import__('cat_policy').research_ok(u) for u in pw._all_links({'mint': 'M', 'pair': 'P'}))   # 11 sources, all allowed for research
-    orders = {tuple(pw.site_order(set(), set(), random.Random(k))) for k in range(6)}
-    assert len(orders) > 1                                                                   # 🎲 random, not one fixed route
     p = {**pw.new({'mint': 'M', 'pair': 'P', 'sym': 'X'}, 0), 'order': o}
     assert [pw.host_of(u) for u in pw.links(p)][:len(o)] == o
     f = {'name': 'PoW #9', 'coins': [{'mint': 'M', 'sym': 'X', 'src': 'pump'}, {'mint': 'N', 'sym': 'Y', 'src': 'dex', 'safe': False, 'risk': 'mint on'}],
@@ -790,10 +786,10 @@ def test_archived_tracks_block_last_two_sites_and_exact_previous_steps():
     used, steps = pw.track_memory(rows, 'agent', 'M')
     assert used == {'rugcheck.xyz', 'solscan.io', 'birdeye.so'} and pw.step_hash(sig) in steps
     assert ca.repeat_why({'sigs': []}, 'open', sig, 'https://dexscreener.com/solana/P', steps)
-    p = {**pw.new({'mint': 'M', 'pair': 'P', 'sym': 'X'}, 1), 'used': used, 'order': pw.site_order(used, set())}
+    p = {**pw.new({'mint': 'M', 'pair': 'P', 'sym': 'X'}, 1), 'used': used, 'order': pw.ranked_sources(used, {}, {})}
     assert not used & {pw.host_of(u) for u in pw.links(p)}
     assert pw.links({**p, 'used': list(pw.HOSTS)}) == []
-    fp = pw.fingerprint(rows, 'agent')
+    fp = pw.trade_record(rows, 'agent')
     assert fp['tracks'] == 3 and len(fp['recentTracks']) == 2 and fp['recentTracks'][-1]['sites'] == ['birdeye.so']
     assert fp['coverage']['birdeye.so']['reads'] == 1
     assert fp['coverage']['pump.fun']['reads'] == 0
@@ -838,3 +834,58 @@ def test_singit_pow_calls_reduce_the_bought_model_budget(monkeypatch):
     assert asyncio.run(fs._pow2_ask(cat, 0, 'rule', 'question')) == 'answer'
     assert cat['brainsCfg']['credit'] == 0.98 and cat['brainsCfg']['spent'] == 0.02
     assert cat['powRun']['folder']['cost'] == 0.02
+
+
+def test_two_minds_research_their_own_coins_at_once_each_with_its_own_rules_and_ceiling(monkeypatch):
+    """🏇 PoW #13 read coins one at a time (675 of 888 s). A pair round: one task, window i = mind i, its own coin, its own dollar ceiling, its own chart line."""
+    import cat_agent as ca
+    import feecat_service as fs
+    started = {}
+    monkeypatch.setattr(fs, '_work_run', lambda *a, **k: None)
+    monkeypatch.setattr(fs.asyncio, 'create_task', lambda c: started.setdefault('runner', c))
+    monkeypatch.setattr(fs, '_pow_archive_rows', lambda: [])
+    cat = {'id': 'pairt', 'name': 'T', 'status': 'running', 'workMode': 'plan', 'brainsCfg': {'kind': 'trading', 'brains': ['x/a', 'x/b'], 'credit': 1.0}}
+    coins = [{'mint': 'M0', 'pair': 'P0', 'sym': 'AAA'}, {'mint': 'M1', 'pair': 'P1', 'sym': 'BBB'}]
+    f = {'id': 'pow1', 'coins': coins, 'minds': 2, 'scout': ['M0', 'M1'], 'plan': ['x'], 'charts': {}, 'rounds': 0}
+    fs._WORK.pop('pairt', None)
+    assert fs._pow2_research_pair(cat, f, coins, 100.0)
+    t = fs._WORK['pairt']['task']
+    assert [w['model'] for w in t['windows']] == ['x/a', 'x/b'] and t['mode'] == 'jobs'
+    assert ca._pow_of(t, t['windows'][0])['mint'] == 'M0' and ca._pow_of(t, t['windows'][1])['mint'] == 'M1'
+    assert 'AAA' in t['jobs'][0] and 'BBB' in t['jobs'][1] and t['mindCaps'] == [pw.ROUND_USD] * 2
+    assert not set(t['pows'][0]['order'][:pw.SITES_MAX]) & (set(t['pows'][1]['order'][:pw.SITES_MAX]) - set(t['pows'][1].get('required') or []))
+    assert f['rPair'] == {'0': 'M0', '1': 'M1'} and {h['only'] for h in t['handoffs']} == {0, 1}
+    assert fs._pow2_running(cat, f)[3] is True
+    assert not fs._pow2_research_pair(cat, f, coins, 101.0)   # a running window is never overwritten
+    fs._WORK.pop('pairt', None)
+    started['runner'] = None
+    assert ca._pow_of({'pow': {'mint': 'S'}}, {'i': 0})['mint'] == 'S' and ca._pow_of({'pow': {'mint': 'S'}}, {'i': 1}) is None   # a single round is unchanged
+
+
+def test_a_scout_tick_starts_both_minds_then_files_each_coin_to_its_own_folder_with_its_own_cost(monkeypatch, tmp_path):
+    import feecat_service as fs
+    monkeypatch.setattr(fs, 'POWSHOTS_DIR', tmp_path)
+    monkeypatch.setattr(fs, '_work_run', lambda *a, **k: None)
+    monkeypatch.setattr(fs.asyncio, 'create_task', lambda c: None)
+    monkeypatch.setattr(fs, '_pow_archive_rows', lambda: [])
+    monkeypatch.setattr(fs, '_pow_archive_add', lambda row: None)
+    monkeypatch.setattr(fs._poi, 'append', lambda *a, **k: None)
+    monkeypatch.setattr(fs, '_pair_prices', lambda http, pairs: _aw({}))
+    monkeypatch.setattr(fs, '_pow2_ask', lambda c, i, s, u, m=180: _aw('{"say": "noted"}'))
+    coins = [{'mint': m, 'pair': 'p' + m, 'sym': m * 3, 'src': 'pump'} for m in 'ABCD']
+    f = {'id': 'pow9', 'name': 'PoW #9', 'phase': 'scout', 'coins': coins, 'minds': 2, 'scout': list('ABCD'), 'scoutDone': [], 'owner': {'A': 0, 'B': 0, 'C': 1, 'D': 1}, 'talk': [], 'at': 1, 'status': 'open'}
+    cat = {'id': 'scoutt', 'name': 'T', 'status': 'running', 'workMode': 'plan', 'positions': [], 'powRun': {'folder': f}, 'brainsCfg': {'kind': 'trading', 'brains': ['x/a', 'x/b'], 'credit': 1.0}}
+    store = {'cats': {'scoutt': cat}}
+    fs._WORK.pop('scoutt', None)
+    asyncio.run(fs._pow2_tick(None, store, cat, 1000.0))
+    assert f['rPair'] == {'0': 'A', '1': 'C'}                                                 # each mind's first coin, at once
+    t = fs._WORK['scoutt']['task']
+    t['windows'][0]['cost'] = 0.01; t['windows'][1]['cost'] = 0.02; t['cost'] = 0.03
+    asyncio.run(fs._pow2_tick(None, store, cat, 1010.0))
+    assert f['rPair'] == {'0': 'A', '1': 'C'} and not f.get('scoutDone')                      # both still running: nothing is filed
+    fs._WORK['scoutt']['done'] = True
+    asyncio.run(fs._pow2_tick(None, store, cat, 1020.0))
+    assert f['scoutDone'] == ['A', 'C'] and set(f['evidenceMetrics']) == {'A', 'C'}           # both filed, each under its own coin
+    assert f['spend'] == {'0': 0.01, '1': 0.02}                                               # each mind paid for its own research
+    assert f['rPair'] == {'0': 'B', '1': 'D'}                                                 # the next pair starts straight away
+    fs._WORK.pop('scoutt', None)

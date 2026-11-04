@@ -1444,12 +1444,9 @@ async def _pow2_dex(http):
 POWSHOTS_DIR = DATA_DIR / 'powshots'
 
 
-def _pow2_research(cat, f, coin, mind_i, now):
-    """🔎 One research round on ONE coin in mind_i's window (its own browser), with the watcher's chart read handed over. → True when it started."""
-    w_ = _WORK.get(cat['id'])
-    if w_ and not w_.get('done'):
-        return False
-    rp = {**_pow.new({'mint': coin['mint'], 'pair': coin['pair'], 'sym': coin['sym']}, now), 'cat': cat['id'], 'mind': mind_i, 'folder': f['id'], 'plan': (f.get('plans') or {}).get(coin['mint']),
+def _pow2_plan_round(cat, f, coin, mind_i, now, avoid=()):
+    """One mind's plan for one coin: its known facts, its site order. `avoid` = sites its partner opens at the same moment."""
+    rp = {**_pow.new({'mint': coin['mint'], 'pair': coin['pair'], 'sym': coin['sym']}, now), 'cat': cat['id'], 'mind': mind_i, 'folder': f['id'], 'base': int(f.get('base') or 0), 'plan': (f.get('plans') or {}).get(coin['mint']),
           'used': list(((f.get('usedBy') or {}).get(coin['mint'])) or []),
           'known': [x['label'] for x in (f.get('vitals') or {}).get(coin['mint']) or [] if x.get('verified')]}   # only verified facts are inherited
     archive_ = _pow_archive_rows()
@@ -1474,7 +1471,7 @@ def _pow2_research(cat, f, coin, mind_i, now):
         inherited_ = {h for h, state in _poi.evolution(other_dna_)['states'].items() if state == 'promoted'}
     except (OSError, ValueError) as e:
         print(f'[poi] Research DNA unavailable: {e}'); fp_, inherited_ = {'coverage': {}}, set()
-    excluded_ = recent_ | blocked_sites_ | set(rp['reusedSites']) | {h for v in (f.get('usedBy') or {}).values() for h in v or []}
+    excluded_ = recent_ | blocked_sites_ | set(rp['reusedSites']) | set(avoid) | {h for v in (f.get('usedBy') or {}).values() for h in v or []}
     ranked_ = _pow.ranked_sources(excluded_, _src_book(), fp_.get('coverage'), now, inherited_)
     # A source visited for another coin is still a required verification target
     # for this mint. If rotation exhausts the catalog, reuse the least spent
@@ -1487,6 +1484,15 @@ def _pow2_research(cat, f, coin, mind_i, now):
         ranked_ += [host for host in fallback_ if host not in ranked_][:3 - len(ranked_)]
     rp['inherited'] = sorted(inherited_ & set(ranked_))
     rp['order'] = [h for h in rp['required'] if h in ranked_] + [h for h in ranked_ if h not in rp['required']]
+    return rp
+
+
+def _pow2_research(cat, f, coin, mind_i, now):
+    """🔎 One research round on ONE coin in mind_i's window (its own browser), with the watcher's chart read handed over. → True when it started."""
+    w_ = _WORK.get(cat['id'])
+    if w_ and not w_.get('done'):
+        return False
+    rp = _pow2_plan_round(cat, f, coin, mind_i, now)
     try:
         _work_start(cat['id'], cat, _pow.goal(rp), str(int(f.get('base') or 0) + mind_i), None, rp)
     except HTTPException:
@@ -1567,10 +1573,29 @@ def _pow2_collect(f, t_, who, now):
     f.pop('rMint', None)
 
 
+def _pow2_research_pair(cat, f, coins, now):
+    """🏇 Both minds research their OWN coin at once, each in its own browser (PoW #13: one at a time = 675 of its 888 s). → True when started."""
+    w_ = _WORK.get(cat['id'])
+    if w_ and not w_.get('done'):
+        return False
+    a_ = _pow2_plan_round(cat, f, coins[0], 0, now)
+    b_ = _pow2_plan_round(cat, f, coins[1], 1, now, avoid=(a_.get('order') or [])[:_pow.SITES_MAX])
+    try:
+        _work_start(cat['id'], cat, f"A: ${a_['sym']}\nB: ${b_['sym']}", None, None, a_, pows={0: a_, 1: b_})
+    except HTTPException:
+        return False
+    t_new = _WORK[cat['id']]['task']; t_new['powPlan'] = list(f.get('plan') or []); t_new['handoffs'] = []
+    for i, (c, rp) in enumerate(zip(coins, (a_, b_))):
+        ch_ = (f.get('charts') or {}).get(c['mint']) or []
+        t_new['handoffs'] += [{'from': 'watcher', 'only': i, 'text': f"chart watcher on ${c['sym']}: {_pow.chart_line(ch_)}"}] + ([{'from': 'archive', 'only': i, 'text': f"{rp['prior']} — do NOT repeat it: new sites, new facts"}] if rp.get('prior') else [])
+    f.update(rPair={'0': coins[0]['mint'], '1': coins[1]['mint']}, rMint=coins[0]['mint'], rMind=0, researchAt=round(now))
+    return True
+
+
 def _pow2_running(cat, f):
     """(task, its research is running now, it is this folder's) for the agent's current window."""
     w_ = _WORK.get(cat['id']); t_ = (w_ or {}).get('task') or {}
-    mine = (t_.get('pow') or {}).get('folder') == f['id'] and (t_.get('pow') or {}).get('mint') == f.get('rMint')
+    mine = (t_.get('pow') or {}).get('folder') == f['id'] and ((t_.get('pow') or {}).get('mint') == f.get('rMint') or bool(t_.get('pows') and f.get('rPair')))
     return w_, t_, mine and not (w_ or {}).get('done'), mine
 
 
@@ -1771,7 +1796,7 @@ async def _pow2_tick(http, store, cat, now):
             listing = '\n'.join(f"{k + 1}) ${c['sym']} [{_pow.SRC_LABEL[c['src']]}] pool ${c['liq']:,.0f} cap ${c['mc']:,.0f} — {c.get('read', '')[:200]}"
                                  + (f" · {_pow.archive_brief(_pow.archive_find(rows_, c['mint']))}" if _pow.archive_find(rows_, c['mint']) else '') for k, c in enumerate(f['coins']) if k not in gone_)
             partner = '' if turn == 0 else f" YOUR PARTNER ALREADY PROPOSED {', '.join('$' + f['coins'][k]['sym'] for k in prev_.get('picks') or [])} (\"{prev_.get('why', '')}\") — those are taken: propose 3 OTHER coins from the list."
-            fpl_ = _pow.fingerprint_line(_pow.fingerprint(rows_, cat['id']))   # 🧬 what its own wins were built on
+            fpl_ = _pow.trade_record_line(_pow.trade_record(rows_, cat['id']))   # 🧬 what its own wins were built on
             raw_ = await ask_(i, _pow.PROPOSE_SYS.format(name=nm_, n=n_, partner=partner), (fpl_ + '\n' if fpl_ else '') + listing, 400)
             picks, why = _pow.parse_picks(raw_, n_, _pow.PROPOSE_N + len(gone_))
             picks = [k for k in picks if k not in gone_][:_pow.PROPOSE_N]
@@ -1904,7 +1929,25 @@ async def _pow2_tick(http, store, cat, now):
             if px_:
                 f.setdefault('charts', {})[c['mint']] = (((f.get('charts') or {}).get(c['mint'])) or [])[-30:] + [{'at': round(now), 'px': px_}]
         w_, t_, running, mine_ = _pow2_running(cat, f)
-        if f.get('rMint'):
+        if f.get('rPair'):
+            if running and now - float(f.get('researchAt') or now) < _pow.RESEARCH_S:
+                return
+            if running:
+                asyncio.create_task(_hard_stop(w_, 0)); return
+            if mine_:
+                async def partner_(i, m):   # 🗣 ONE line from the partner on the coin this mind just read
+                    c_ = next((c for c in f['coins'] if c['mint'] == m), {}); o_ = 1 - i
+                    vt_ = ' · '.join(f"{x['label']} {x['value']}" for x in (f.get('vitals') or {}).get(m, [])[:6]) or 'no vitals'
+                    raw_ = await ask_(o_, _pow.COIN_TALK_SYS.format(name=names[o_] if o_ < len(names) else 'mind', sym=c_.get('sym'), vitals=vt_), vt_, 160)
+                    line_ = (re.search(r'"say"\s*:\s*"([^"]{0,200})', str(raw_)) or [None, str(raw_).strip()[:160]])[1]
+                    if line_:
+                        _pow2_say(f, names[o_] if o_ < len(names) else 'mind', f"on ${c_.get('sym')}: {line_}")
+                for i_, pw_ in t_['pows'].items():
+                    win_ = t_['windows'][i_]
+                    _pow2_collect(f, {**t_, 'pow': pw_, 'cost': win_.get('cost') or 0, 'windows': [win_]}, names[i_] if i_ < len(names) else 'mind', now)
+                await asyncio.gather(*(partner_(int(i), m) for i, m in f['rPair'].items()))
+            f['scoutDone'] = (f.get('scoutDone') or []) + list(f.pop('rPair').values()); f.pop('rMint', None)
+        elif f.get('rMint'):
             if running and now - float(f.get('researchAt') or now) < _pow.RESEARCH_S:
                 return
             if running:
@@ -1924,7 +1967,11 @@ async def _pow2_tick(http, store, cat, now):
             f.update(phase='choose', scouted=True, turn=0, picks={}, said={}, phaseAt=round(now)); _pow2_say(f, 'engine', 'every coin researched — they decide which ONE to buy')
             return
         c_ = next(c for c in f['coins'] if c['mint'] == left_[0]); mi_ = int((f.get('owner') or {}).get(c_['mint'], len(f.get('scoutDone') or []) % f['minds']))   # each mind researches the coins IT took
-        if not _pow2_research(cat, f, c_, mi_, now):   # its window is busy (your ask): wait for it — a coin is never skipped unread (live 2026-11-01: $JOB was)
+        turn_ = {}   # 🏇 the next unread coin of each mind: two owners = both research at once
+        for k_, m_ in enumerate(left_):
+            turn_.setdefault(int((f.get('owner') or {}).get(m_, (len(f.get('scoutDone') or []) + k_) % f['minds'])), m_)
+        pair_ = [next(c for c in f['coins'] if c['mint'] == turn_[i]) for i in (0, 1)] if f['minds'] > 1 and {0, 1} <= set(turn_) else None
+        if not (_pow2_research_pair(cat, f, pair_, now) if pair_ else _pow2_research(cat, f, c_, mi_, now)):   # its window is busy (your ask): wait for it — a coin is never skipped unread (live 2026-11-01: $JOB was)
             f.setdefault('busyAt', round(now))
             if now - f['busyAt'] >= 300:
                 f['scoutDone'] = (f.get('scoutDone') or []) + [c_['mint']]; f.pop('busyAt', None)
@@ -2536,7 +2583,7 @@ def day_left(cat):
     return max(0.0, day - float(((cat.get('brainsCfg') or {}).get('daySpend') or {}).get(time.strftime('%Y-%m-%d', time.gmtime()), 0)))
 
 
-def _work_start(cat_id, cat, text, to=None, files=None, pow_=None):
+def _work_start(cat_id, cat, text, to=None, files=None, pow_=None, pows=None):
     """Start one task in the cat's windows. 🏇 Let it go (cat.workGo): a long step budget (cat_agent.GO_STEPS) — it stops only when done, at
     its $ cap, or when a person is needed (a sign-in / CAPTCHA / payment: it never types a password or a card)."""
     b = cat.get('brainsCfg') or {}
@@ -2545,7 +2592,7 @@ def _work_start(cat_id, cat, text, to=None, files=None, pow_=None):
     cap = min(float(cat.get('taskCap') or TASK_CAP_DEFAULT), max(0.005, float(b.get('credit') or 0) - _lc.CREDIT_RESERVE))   # its own credit only, always leaving the reserve
     left_ = day_left(cat)
     if pow_:   # ⛏ a PoW folder runs to its close: no task cap / day limit / step config in its way (owner 2026-11-01) — only its credit, never past the reserve
-        cap = min(_pow.ROUND_USD, max(0.005, float(b.get('credit') or 0) - _lc.CREDIT_RESERVE))   # 💲 each research round has its own small ceiling
+        cap = min(_pow.ROUND_USD * len(pows or [0]), max(0.005, float(b.get('credit') or 0) - _lc.CREDIT_RESERVE))   # 💲 each research round has its own small ceiling
     elif left_ is not None:
         if left_ <= 0:
             raise HTTPException(409, "It reached today's $ limit. Raise it in its limits, or it carries on tomorrow.")
@@ -2554,6 +2601,9 @@ def _work_start(cat_id, cat, text, to=None, files=None, pow_=None):
     models = list(b['brains'])[:8]
     if to not in (None, 'both') and str(to).isdigit() and int(to) < len(models):   # talk to ONE of its minds: that model takes the whole task
         models = [models[int(to)]]
+    if pows:   # ⛏ a pair round: each mind's own model, in mind order (window i = mind i)
+        base_ = int(pow_.get('base') or 0)
+        models = [models[base_ + i] for i in sorted(pows)]
     names = [str(m).split('/')[-1][:24] for m in models]
     steps = int(lim_.get('steps') or 0) or (_ca.GO_STEPS if cat.get('workGo') else _ca.STEP_MAX)
     if pow_:   # ⛏ one mind, its own job, the PoW's step budget (its random 3–8 moves a site, pow.py) — the rest is the same guarded work path
@@ -2563,6 +2613,8 @@ def _work_start(cat_id, cat, text, to=None, files=None, pow_=None):
     _WORK[cat_id]['task']['knowhow'] = _pow.README + '\n' + _colony.KNOWHOW + (' ' + _colony.COLONIZED if _hive_on(cat) else '') + '\n' + _src.brief(_src_book())   # 🐝🧭 every mind knows the Colony + where to browse
     if pow_:
         _WORK[cat_id]['task']['pow'] = pow_
+    if pows:   # each mind researches its own coin at once, on its own ceiling
+        _WORK[cat_id]['task'].update(pows=dict(pows), jobs=[_pow.goal(pows[i]) for i in sorted(pows)], mindCaps=[_pow.ROUND_USD] * len(pows))
     if pow_ or (b.get('kind') or 'trading') == 'trading':   # 📰 a trader's windows (and every PoW): read + click on the research list only (cat_policy.RESEARCH_*)
         _WORK[cat_id]['task'].update(research=True, tools={'browse': True, 'forms': True})
     else:
@@ -4197,7 +4249,7 @@ async def cat_work(cat_id: str, p: WorkPayload):
             'artifacts': (cat.get('artifacts') or [])[-10:] + ([] if (w or {}).get('settled') else ((w or {}).get('task') or {}).get('artifacts', [])),
             'queue': [{'text': q.get('text'), 'to': q.get('to')} for q in (cat.get('workQueue') or [])],
             'pow': _pow_view(cat),   # ⛏ each mind's latest Proof of Work
-            'fingerprint': _pow.fingerprint(_pow_archive_rows(), cat['id']) if not (p.ver and p.ver == _pow_ver(cat)) else None,
+            'fingerprint': _pow.trade_record(_pow_archive_rows(), cat['id']) if not (p.ver and p.ver == _pow_ver(cat)) else None,
             'poi': _poi_owner_view(cat['id']) if not (p.ver and p.ver == _pow_ver(cat)) else None,
             'commands': _pow.COMMANDS,   # 💬 what it understands in the chat (cabinet + desktop list)
             'sources': [{'host': h, 'what': _src.WHAT.get(h, 'worked before'), **{k: (_src_book().get(h) or {}).get(k) for k in ('ok', 'blocked', 'last')}}

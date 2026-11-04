@@ -41,6 +41,21 @@ The owner's complete request is preserved in [SUPREME_INTELLIGENCE_REQUEST.md](S
 | SI20 | VERIFY | Owner PoW Explorer displays DNA source states and recovery counts. Full command-center redesign and device/performance verification remain OPEN. |
 | SI21 | OPEN | Every live and archived PoW folder has exactly one PoI child folder. Build exceptional responsive visuals from that folder's real PoI decisions, evidence lineage, per-mind source coverage, DNA changes and efficiency; show how the mechanics influenced this PoW, with truthful gaps and owner-only private data. Owner added this after SI20; specification is in `SUPREME_INTELLIGENCE_REQUEST.md`. |
 
+**Next ten, in order (2026-11-03; corrections are at the end of the request doc):**
+
+| ID | Status | Deliverable |
+|---|---|---|
+| SI22 | DONE | Correct the request doc and this queue. |
+| SI23 | DONE | Baseline, PoW #13 (paper, before today's code): 888 s total, 675 s of it research, 4 coins one at a time at 152–180 s each (the `RESEARCH_S` 150 s cap). 71 s to the first snapshot on the first coin, 23–37 s on later coins; 25–52 s from last snapshot to filing. 19 snapshots, 21 facts (1.1 a snapshot), 8 sites, $0.108. Archive of 35 coin rounds: Solscan read 2 times, pump.fun 0. Bot-check counts and FPS were not recorded. |
+| SI24 | VERIFY | Dead `pow.site_order` deleted; `pow.fingerprint` renamed `pow.trade_record` (P/L record, prompt and display only). `poi.fingerprint` is the only fingerprint that ranks sources. Tested with fakes. |
+| SI25 | VERIFY | Cause was serial coins, not `STEP_PACE` (it only sleeps what is left of 2.5 s after a step, so it stays). Both minds now research their own coin at once (`_pow2_research_pair`, `task.pows`). Expected about half of the 675 s; tested with fakes only, the real number comes from SI31. |
+| SI26 | OPEN | Merge what can share a poll among the 7 timers in `CatWorkbench.jsx`; measure FPS with the pane in view. |
+| SI27 | OPEN | `m-glass` preset from the `fuseGlass.css` recipe (no `backdrop-filter`), applied across agent pages with per-page colours. |
+| SI28 | OPEN | Cap the over-wide agent wallet card (`CatReal.jsx`, `.cr-wallet`) and check the other agent pages. |
+| SI29 | OPEN | Honey Pot glass battery vitals from real earned, owed, transferred and distributed numbers. |
+| SI30 | OPEN | SI21: the PoI child folder in every PoW. |
+| SI31 | OPEN, OWNER OK | One paid PoW for the after numbers and a live check of SI01–SI20. Today's commits have never run on a real PoW. |
+
 **Still open from the full request:** persistent shadow proposals beyond completed trade intervals; out-of-sample method comparison/combination and rollback; model-assisted memory migration and strategy comparison; unified kernel resource limits; real browser duration, evidence completeness, FPS and challenge-recovery baselines; authorized cross-worker sessions; transferred/distributed Colony reconciliation; versioned contracts and safe legacy encryption migration; responsive command-center redesign. The plaintext legacy agent store is restricted to owner-only file permissions; full encryption requires updating its many cross-service readers safely. Do not mark these complete from synthetic tests or visual labels alone.
 
 **Security audit finding:** new per-agent PoW archive entries and saved site session contexts use the existing per-agent Fernet seal. Legacy archive entries and the main agent state file remain plaintext on disk; a careful, versioned migration with backups is still required before claiming full at-rest encryption. Public archive replies now omit private plans, browser steps and exact page excerpts. No claim of complete encryption is made for this pass.

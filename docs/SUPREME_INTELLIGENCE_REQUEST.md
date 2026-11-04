@@ -162,3 +162,12 @@ FINAL OBJECTIVE
 FEELESS must become faster at gathering intelligence, better at retaining it, and progressively smarter at using it.
 PoW investigates through real browsers. PoI learns and evolves. The hardcoded kernel enforces integrity. Models remain replaceable. Trading provides actual outcomes. Colony coordinates verified contributions. FEE CAT makes the entire ecosystem visually understandable.
 Deliver working, measurable improvements—not cosmetic changes, unnecessary features or additional prompts.
+
+---
+CORRECTIONS (2026-11-03, after code review; the request above stays as written, these decide where it conflicts)
+* Branch: tested pushes to main replace the dev-branch line (owner's later approval, see WORK_QUEUE); 51367 runs from main. Paid runs, trades and treasury moves still need the owner's OK each time.
+* 30 FPS: the live window embeds the browser provider's viewer (`cat_browser.py` `debugUrl`/`sessionViewerUrl`). Measure real frame rate first; set the target from that number.
+* Build order: data and mechanics first; the FEE CAT Command Center last, so it shows real telemetry.
+* PoI folders on PoWs filed before PoI existed show "not recorded"; nothing is backfilled or inferred.
+* Encryption: the legacy agent store and old archive rows stay plaintext until a separate backed-up migration. Do not claim full at-rest encryption before it.
+* Bot checks stay manual (the 45-second handoff). "Stealth" work means fewer visits and cleaner sessions, never hiding automation to get past a site's checks.

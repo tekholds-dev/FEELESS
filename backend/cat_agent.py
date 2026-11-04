@@ -246,12 +246,17 @@ def _step(w, thought, action, detail=''):
     w['steps'] = (w['steps'] + [{'action': action, 'thought': str(thought or '')[:120], 'detail': str(detail or '')[:160], 'at': time.time()}])[-40:]
 
 
+def _pow_of(task, w):
+    """⛏ The PoW this window works: a pair round gives each mind its own coin, a single round lives in window 0."""
+    return (task.get('pows') or {}).get(w['i']) if task.get('pows') else task.get('pow') if w['i'] == 0 else None
+
+
 async def _window(task, w, ask, page, wait_human, name, feeless=None):
     """One model working its half in its own browser. → its answer (or what it has when stopped)."""
     w['status'] = 'working'
     seen = ''
     n_max = int(task.get('stepsMax') or STEP_MAX)
-    pw = task.get('pow') if w['i'] == 0 else None   # ⛏ a Proof-of-Work run (pow.py): its rules are code, whatever the model
+    pw = _pow_of(task, w)   # ⛏ a Proof-of-Work run (pow.py): its rules are code, whatever the model
     if pw and task.get('powPlan'):   # 🗺 a folder's research round follows the folder's ONE joint plan — no second plan of its own
         w['plan'] = list(task['powPlan'])[:3]
     site = _pow.start_url(pw) if pw else named_site(w['goal']) or (None if str(page.url or '').startswith('http') else SEARCH_URL + quote_plus(search_terms(w['goal'])))   # 🔎 a blank window starts on a search
@@ -301,7 +306,7 @@ async def _window(task, w, ask, page, wait_human, name, feeless=None):
         if pw and (w.pop('powNext', False) or _pow.site_done(pw, w.get('url') or page.url)):   # ⛏ this site is done: the engine opens the coin's next page
             seen = await _pow_advance(w, pw, page, wait_human)
         mine = (task.get('clouds') or {}).get(w['i']) or []   # ☁ its own cloud from earlier tasks
-        got = [h['text'] for h in task.get('handoffs') or [] if h['from'] != w['i']][-4:]   # 📦 what its partner handed over
+        got = [h['text'] for h in task.get('handoffs') or [] if h['from'] != w['i'] and h.get('only', w['i']) == w['i']][-4:]   # 📦 what its partner handed over
         extra = (f"\nYOUR CLOUD (your notes from earlier tasks): {' | '.join(mine)[:600]}" if mine else '') + (f"\nFROM YOUR PARTNER: {' | '.join(got)[:900]}" if got else '')
         if w.get('plan'):   # 🗺 its own 3-step plan rides every step (owner 2026-11-01: "plan in 3 steps, then execute")
             extra += '\nYOUR 3-STEP PLAN: ' + ' → '.join(f'{k + 1}) {x}' for k, x in enumerate(w['plan']))
@@ -532,7 +537,7 @@ async def _divert(task, w, page, wait_human=None):
     """🔀 A mind that keeps repeating is never stopped (owner 2026-11-01): the engine opens a source it has NOT used this task — the task's best
     sources first (the sources book), then the trusted list, then a fresh search — and it carries on from there."""
     w['repeats'] = 0
-    pw = task.get('pow') if w['i'] == 0 else None
+    pw = _pow_of(task, w)
     if pw:   # a PoW moves to the coin's next page
         w['powNext'] = True
         return await _pow_advance(w, pw, page, wait_human)
@@ -632,7 +637,7 @@ async def run(task, ask, pages, wait_human, names=('Model A', 'Model B'), feeles
         if len(ws) > 1 and sum(map(bool, split_jobs(task['text'], len(ws)))) == 1:   # 🎯 "A: …" / "B: …" in either mode = that mind alone
             task['mode'] = 'jobs'
         if task.get('mode') == 'jobs':   # 🎯 each mind its own job: no plan call, no merge — both results, each under its job
-            for w, job in zip(ws, split_jobs(task['text'], len(ws))):
+            for w, job in zip(ws, task.get('jobs') or split_jobs(task['text'], len(ws))):
                 w['goal'] = job
                 if not job:
                     w.update(status='done', bubble='not asked — idle')

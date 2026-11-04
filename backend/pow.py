@@ -64,7 +64,7 @@ def host_of(url):
 def links(p):
     """The coin's own research pages — opened straight from the PoW, never hunted for on a search page."""
     every = _all_links(p)
-    if p.get('order'):   # 🎲 the engine's order for this round (site_order): winners first, the rest shuffled, last folders' sites skipped
+    if p.get('order'):   # 🎲 the engine's order for this round (ranked_sources): winners first, the rest shuffled, last folders' sites skipped
         rank = {h: i for i, h in enumerate(p['order'])}
         every = sorted([u for u in every if host_of(u) in rank], key=lambda u: rank[host_of(u)]) or every
     used = set(p.get('used') or ())   # 🔁 a new round never re-opens a site an earlier round of this coin already read (owner 2026-11-01)
@@ -83,18 +83,6 @@ def _all_links(p):
 
 HOSTS = ('dexscreener.com', 'rugcheck.xyz', 'solscan.io', 'birdeye.so', 'jup.ag', 'pump.fun', 'coingecko.com', 'gmgn.ai', 'app.bubblemaps.io', 'defined.fi', 'solsniffer.com')
 RECENT_FOLDERS = 2      # its last 2 folders' sites are skipped next time (owner 2026-11-01: "they can't check the same sites from the last researches")
-
-
-def site_order(recent, wins, rnd=None):
-    """🎲 Where a research round goes: the sites a WINNING folder used come first (they earned it), every other site in a random order,
-    and the sites its last RECENT_FOLDERS folders read are left out — unless that leaves fewer than 3. → list of hosts."""
-    import random as _r
-    rnd = rnd or _r.Random(); recent = set(recent or ())
-    win = [h for h in HOSTS if h in set(wins or ()) and h not in recent]; rnd.shuffle(win)
-    lead, later = win[:1], win[1:]   # 🎲 owner 2026-11-02 ("they keep checking rugcheck"): ONE unused winning source may lead; the other winners wait their turn
-    fresh = [h for h in HOSTS if h not in recent and h not in win and h not in set(wins or ())]; rnd.shuffle(fresh)
-    out = lead + fresh + later
-    return out   # the last two tracks stay excluded, even if fewer than 3 sources remain
 
 
 def ranked_sources(recent, book, coverage, now=None, inherited=()):
@@ -583,7 +571,7 @@ def track_memory(rows, cat_id, mint):
     return blocked_sites, blocked_steps
 
 
-def fingerprint(rows, cat_id):
+def trade_record(rows, cat_id):
     """🧬 THIS agent's own fingerprint (owner 2026-11-02: "the winning research gets tracked over time, each agent builds its own true
     fingerprint"): for every coin it actually traded, the sources it read and the facts it filed before the buy, scored by how the trade went.
     → {'sites': {host: {'w','n','last'}}, 'vitals': {label: {'w','n'}}, 'trades', 'won', 'best': [hosts that called its winners]}"""
@@ -612,7 +600,7 @@ def fingerprint(rows, cat_id):
             'tracks': len(tracks), 'recentTracks': [{'at': r.get('at'), 'sym': r.get('sym'), 'sites': [h for h in r.get('sites') or [] if h in HOSTS], 'steps': len(r.get('steps') or [])} for r in tracks[-2:]]}
 
 
-def fingerprint_line(fp):
+def trade_record_line(fp):
     if not fp or not fp.get('trades'):
         return ''
     s = ' · '.join(f"{h} {fp['sites'][h]['w']}/{fp['sites'][h]['n']}" for h in sorted(fp['sites'], key=lambda h: -fp['sites'][h]['w'])[:4])
